@@ -46,24 +46,27 @@ export function useChildExperiencePacket(
     }
 
     let cancelled = false;
+    let requestSequence = 0;
     setState({ scope, packet: null, loading: true, error: null });
 
-    const loadPacket = () =>
-      fetchPacket(scope)
+    const loadPacket = () => {
+      const requestId = ++requestSequence;
+      return fetchPacket(scope)
       .then((packet) => {
-        if (!cancelled) {
+        if (!cancelled && requestId === requestSequence) {
           setState((prev) => ({ ...prev, packet, loading: false, error: null }));
         }
         return packet;
       })
       .catch((err: unknown) => {
         console.warn(" 🎮 [child-experience] [refresh] [unavailable]", err);
-        if (!cancelled) {
+        if (!cancelled && requestId === requestSequence) {
           const message = err instanceof Error ? err.message : String(err);
           setState((prev) => ({ ...prev, loading: false, error: message }));
         }
         return null;
       });
+    };
     reloadRef.current = loadPacket;
 
     void loadPacket();

@@ -56,9 +56,11 @@ export interface CompanionLayerProps {
   analyserNodeRef?: RefObject<AnalyserNode | null>;
   /** Short line above companion (non-interactive). */
   speechBubbleText?: string | null;
-  /** Current real mic mute state (from useSession). Controls 🔇 overlay in portrait mode. */
+  /** Current muted state for the selected control kind. Controls 🔇 overlay in portrait mode. */
   micMuted?: boolean;
-  /** Called when portrait is tapped. Should call useSession's toggleMicMute. */
+  /** Controls whether this button represents the microphone or companion speech. */
+  muteControlKind?: "microphone" | "companion";
+  /** Called when the explicit mute/quiet button is pressed. */
   onToggleMute?: () => void;
   /** Activity-only presentation state; visual design remains the existing portrait. */
   summoned?: boolean;
@@ -180,6 +182,7 @@ export function CompanionLayer({
   analyserNodeRef: analyserNodeRefProp,
   speechBubbleText,
   micMuted = false,
+  muteControlKind = "microphone",
   onToggleMute,
   summoned = true,
   onSummon,
@@ -821,7 +824,13 @@ export function CompanionLayer({
                 cursor: "pointer",
               }}
             >
-              {micMuted ? "Unmute" : "Mute"}
+              {muteControlKind === "companion"
+                ? micMuted
+                  ? "Let companion speak"
+                  : "Quiet companion"
+                : micMuted
+                  ? "Unmute microphone"
+                  : "Mute microphone"}
             </button>
           ) : null}
           {summoned ? (

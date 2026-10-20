@@ -1,10 +1,14 @@
+import { dictionary as cmuDictionary } from "cmu-pronouncing-dictionary";
 import { childIdFromName } from "../engine/learningEngine";
+import type { LearningCycleRecordV2 } from "../engine/learningCycleRepository";
 import type { ChildName } from "../companions/loader";
 
 export type CurrentBoardSnapshot = {
   childId: string;
   sessionId: string;
   nodeId?: string;
+  itemId?: string;
+  launchToken?: string;
   activityId?: string;
   activityTitle?: string;
   learningFocus?: string;
@@ -18,6 +22,9 @@ export type CurrentBoardSnapshot = {
   game?: string;
   phase?: string;
   currentTarget?: string;
+  /** Internal spelling truth; this is not permission to display the answer. */
+  spellingTarget?: string;
+  spellingSupportMode?: "stimulus_only" | "pronunciation_model";
   targetIsSpeakable: boolean;
   speechCaptureArmed?: boolean;
   answerVisibility: "hidden" | "visible" | "revealed" | "unknown";
@@ -29,6 +36,7 @@ export type CurrentBoardSnapshot = {
   coinsEarned?: number;
   accuracy?: number;
   completed?: boolean;
+  recordedActivityStatus?: string;
   masteryEligible?: boolean;
   evidenceTier?: string;
   lastOutcome?: string;
@@ -40,6 +48,7 @@ export type CurrentBoardSnapshot = {
   correctWords?: string[];
   boardState?: string;
   progress?: string;
+  loading?: { screenText: string[]; elapsedLabel?: string; ready?: number; total?: number; remainingTimeKnown?: boolean };
   wheelValue?: string;
   updatedAt: string;
 };
@@ -52,7 +61,38 @@ type BuildSnapshotInput = {
   state: Record<string, unknown>;
   allowedActivities?: string[];
   now?: Date;
+  /** The bound hidden-check item: its word stays internal even when the game omits it. */
+  assessment?: { itemId: string; word: string };
+  /** Server-verified Planner practice role, independent of whether letters are displayed. */
+  canonicalPractice?: boolean;
 };
+
+/** The Planner's frozen item role grants teaching; a browser visibility flag does not. */
+/** Partial native updates retain identity only within the bound spelling item. */
+export function retainSpellingItemState(state: Record<string, unknown>, previous: CurrentBoardSnapshot | null,
+  bound: {itemId:string;launchId?:string} | undefined, launch: {launchId:string} | undefined): Record<string, unknown> {
+  return !state.itemId && previous?.itemId && bound?.itemId === previous.itemId
+    && launch && bound.launchId === launch.launchId && state.nodeId === previous.nodeId
+    && state.launchToken === previous.launchToken && state.itemIndex !== undefined
+    && state.itemIndex === previous.itemIndex && (!state.game || state.game === previous.game)
+    && (!state.phase || state.phase === previous.phase)
+    ? {itemId:previous.itemId,phase:previous.phase,...state} : state;
+}
+
+export function canonicalSpellingPractice(
+  cycle: LearningCycleRecordV2 | null | undefined,
+  launch: { nodeId: string; launchId: string; launchToken?: string } | undefined,
+  assessment: { nodeId: string; itemId: string; launchId?: string } | undefined,
+  state: Record<string, unknown>,
+): boolean | undefined {
+  const node = cycle?.domain === "spelling" ? cycle.nodes.find(node => node.nodeId === state.nodeId) : undefined;
+  const role = node?.evidenceContract.spellingItems?.[String(state.itemId ?? "")]?.lineage?.measurementRole;
+  if (node && (["evaluation", "quest", "boss"].includes(node.role) || role && !["practice", "instruction"].includes(role))) return false;
+  if (!node || !role || !launch || !assessment || assessment.launchId !== launch.launchId
+    || assessment.nodeId !== launch.nodeId || state.nodeId !== launch.nodeId
+    || state.itemId !== assessment.itemId || state.launchToken !== launch.launchToken) return undefined;
+  return ["baseline", "mystery"].includes(node.role) && (role === "practice" || role === "instruction");
+}
 
 function asString(value: unknown): string | undefined {
   const text = typeof value === "string" ? value.trim() : "";
@@ -107,7 +147,7 @@ export function buildCurrentBoardSnapshot(
   const currentChallenge =
     asString(state.currentChallenge) ?? asString(objectChallenge?.prompt);
   const answerVisibility = normalizeAnswerVisibility(state);
-  const rawTarget =
+  const rawTarget = (input.canonicalPractice === true ? input.assessment?.word : undefined) ??
     asString(state.currentTarget) ??
     asString(state.currentWord) ??
     asString(state.target) ??
@@ -130,6 +170,8 @@ export function buildCurrentBoardSnapshot(
 
   const stringFields: Array<[keyof CurrentBoardSnapshot, unknown]> = [
     ["nodeId", state.nodeId],
+    ["launchToken", state.launchToken],
+    ["itemId", state.itemId ?? objectChallenge?.id],
     ["activityId", state.activityId],
     ["activityTitle", state.activityTitle],
     ["learningFocus", state.learningFocus],
@@ -157,8 +199,31 @@ export function buildCurrentBoardSnapshot(
     }
   }
 
+  if (state.game === "adventure-preparation") {
+    snapshot.loading = { screenText: asStringArray(state.screenText),
+      elapsedLabel: asString(state.elapsedLabel), ready: typeof state.ready === "number" ? asNumber(state.ready) : undefined,
+      total: typeof state.total === "number" ? asNumber(state.total) : undefined,
+      remainingTimeKnown: asBoolean(state.remainingTimeKnown) };
+  }
+
   if (targetIsSpeakable && rawTarget) {
     snapshot.currentTarget = rawTarget;
+  }
+
+  // Only spelling instruments have a spoken stimulus distinct from the hidden
+  // written response. Never project a hidden Wheel/math answer through this path.
+  const spellingGames = new Set(["word-radar", "spell-check", "monster-stampede",
+    "letter-rush", "word-builder", "speed-catcher", "pronunciation", "visual-explainer"]);
+  const game = String(state.game ?? state.activityId ?? "").toLowerCase();
+  if (rawTarget && spellingGames.has(game)) {
+    snapshot.spellingTarget = rawTarget;
+    // Display normalization is not permission to teach: absent/unknown facts
+    // and independent measurement must retain the whole-stimulus boundary.
+    const explicitVisibility = asString(state.answerVisibility)?.toLowerCase();
+    snapshot.spellingSupportMode = state.assessmentMode !== true
+      && state.evidenceTier !== "mastery_candidate"
+      && (input.canonicalPractice === true || input.canonicalPractice !== false && (explicitVisibility === "visible" || explicitVisibility === "revealed"))
+      ? "pronunciation_model" : "stimulus_only";
   }
 
   for (const key of ["itemIndex", "totalItems", "score", "coins", "coinsEarned", "accuracy"] as const) {
@@ -178,7 +243,33 @@ export function buildCurrentBoardSnapshot(
   const availableActions = asStringArray(state.availableActions);
   if (availableActions.length) snapshot.availableActions = availableActions;
 
+  const bound = input.assessment;
+  if (bound && snapshot.itemId === bound.itemId && (state.assessmentMode === true || state.practiceCapture === true)) {
+    snapshot.spellingTarget ??= bound.word;
+    snapshot.spellingSupportMode ??= input.canonicalPractice === true && state.assessmentMode !== true
+      && state.evidenceTier !== "mastery_candidate" ? "pronunciation_model" : "stimulus_only";
+  }
   return snapshot;
+}
+
+/** Keep private runtime truth out of model-facing text and tool state. */
+export function redactProtectedSpellingText(text: string, snapshot: CurrentBoardSnapshot | null): string {
+  if (snapshot?.spellingSupportMode !== "stimulus_only" || !snapshot.spellingTarget) return text;
+  const escaped = snapshot.spellingTarget.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return text.replace(new RegExp(escaped, "gi"), "[private stimulus]");
+}
+
+export function companionBoardSnapshot(snapshot: CurrentBoardSnapshot): CurrentBoardSnapshot {
+  if (snapshot.spellingSupportMode !== "stimulus_only") return snapshot;
+  const projected = { ...snapshot, currentTarget: undefined, spellingTarget: undefined, targetIsSpeakable: false };
+  return redactProtectedSpellingValue(projected, snapshot);
+}
+
+/** For JSON tool results only; binary/image content must not pass through here. */
+export function redactProtectedSpellingValue<T>(value: T, snapshot: CurrentBoardSnapshot | null): T {
+  if (snapshot?.spellingSupportMode !== "stimulus_only") return value;
+  return JSON.parse(JSON.stringify(value, (_key, item) => typeof item === "string"
+    ? redactProtectedSpellingText(item, snapshot) : item));
 }
 
 export function buildCurrentBoardSnapshotContext(
@@ -204,9 +295,53 @@ export function buildCurrentBoardSnapshotContext(
   if (snapshot.intentPurpose) lines.push(`Activity intent: ${snapshot.intentPurpose}`);
   if (snapshot.diagnosticQuestion) lines.push(`Diagnostic question: ${snapshot.diagnosticQuestion}`);
   if (snapshot.nodeId) lines.push(`Current node: ${snapshot.nodeId}`);
+  if (snapshot.itemId) lines.push(`Current item: ${snapshot.itemId}`);
   if (snapshot.phase) lines.push(`Phase: ${snapshot.phase}`);
+  if (snapshot.recordedActivityStatus) {
+    lines.push(`Recorded activity status: ${snapshot.recordedActivityStatus}`,
+      "ready means prepared, not completed; active means in progress; completed means completion was saved.",
+      "Activity phase describes the screen; recorded activity status describes saved progress.");
+  }
+  if (snapshot.phase === "opening" || snapshot.phase === "document_loaded") {
+    lines.push("Do not say the activity is ready until a live activity state arrives. You may say it is opening.");
+  }
+  if (snapshot.phase === "closed" && snapshot.boardState === "map") {
+    lines.push("The child is back on the map. Do not describe the previous activity as open.");
+  }
   lines.push(`Answer visibility: ${snapshot.answerVisibility}`);
-  if (snapshot.currentTarget) lines.push(`Current target: ${snapshot.currentTarget}`);
+  if (snapshot.currentTarget && snapshot.spellingSupportMode !== "stimulus_only") lines.push(`Current target: ${snapshot.currentTarget}`);
+  if (snapshot.spellingTarget) {
+    lines.push("[Spelling pronunciation support]",
+      "The activity controls written answer visibility. Teaching is assistance, not an independent spelling result.");
+    if (snapshot.spellingSupportMode === "stimulus_only") {
+      lines.push("Purpose: establish what the child can spell independently. Whole-word replay and task clarification support that measurement; syllables, letters and spelling demonstrations would supply part of the answer.",
+        "Use replayWord for the activity’s own whole-word audio. The private stimulus is held by the activity, not supplied in this context.");
+    } else {
+      lines.push(`Authoritative spelling target (internal): ${snapshot.spellingTarget}`,
+        "Purpose: help the child learn this word together. A request for help gives you room to demonstrate and adapt, using the child's feedback to judge what helps.",
+        "Supported practice: sounds, syllables, blending, letter names and spelling demonstrations are available. The canonical target comes from this activity, not room conversation.");
+      const phones = cmuDictionary[snapshot.spellingTarget.normalize("NFC").toLowerCase()];
+      if (typeof phones === "string" && phones) {
+        const vowelNuclei = phones.split(/\s+/).filter(phone => /[012]$/.test(phone));
+        lines.push("Pronunciation reference: CMU dictionary (US English; alternate pronunciations may exist).",
+          `ARPABET: ${phones}`, `Syllable count: ${vowelNuclei.length}`,
+          `Vowel stress (0=unstressed, 1=primary, 2=secondary): ${vowelNuclei.map(phone => phone.slice(-1)).join(" ")}`,
+          "Available teaching reference: whole-word sounds, vowel nuclei and stress; Elli chooses the demonstration, pacing and explanation.",
+          "Phonemes describe spoken sounds; written spelling chunks may differ from spoken syllables, and silent letters have no separate sound.");
+      } else {
+        lines.push("Pronunciation reference unavailable. Use your language knowledge and available audio or authored sound cues; acknowledge uncertainty about unfamiliar pronunciations.");
+      }
+      lines.push("Do not grade the child's pronunciation from transcript text. Specific pronunciation judgments require audio assessment evidence.");
+    }
+  }
+  if (snapshot.loading) {
+    lines.push(...snapshot.loading.screenText.map(text => `Displayed loading text: ${text}`));
+    if (snapshot.loading.elapsedLabel) lines.push(`Elapsed: ${snapshot.loading.elapsedLabel}`);
+    if (snapshot.loading.ready !== undefined && snapshot.loading.total !== undefined) {
+      lines.push(`Activities ready: ${snapshot.loading.ready} of ${snapshot.loading.total}`);
+    }
+    if (snapshot.loading.remainingTimeKnown === false) lines.push("Remaining time is not known. Do not invent a completion estimate.");
+  }
   if (snapshot.boardState) lines.push(`Board: ${snapshot.boardState}`);
   if (snapshot.evidenceTier) lines.push(`Evidence tier: ${snapshot.evidenceTier}`);
   if (typeof snapshot.masteryEligible === "boolean") {
@@ -253,7 +388,7 @@ export function buildCurrentBoardSnapshotContext(
   if (snapshot.lastOutcomeWord) lines.push(`Last outcome word: ${snapshot.lastOutcomeWord}`);
   if (snapshot.wheelValue) lines.push(`Wheel landed on: ${snapshot.wheelValue}`);
   if (snapshot.progress) lines.push(`Progress: ${snapshot.progress}`);
-  return lines.join("\n");
+  return redactProtectedSpellingText(lines.join("\n"), snapshot);
 }
 
 export function findCompanionTruthContradictions(
@@ -263,6 +398,22 @@ export function findCompanionTruthContradictions(
   if (!snapshot) return [];
   const text = response.toLowerCase();
   const contradictions: string[] = [];
+  if (snapshot.spellingTarget && snapshot.spellingSupportMode === "stimulus_only") {
+    const target = snapshot.spellingTarget.toLowerCase().replace(/[^a-z]/g, "");
+    // Whole spoken stimuli are allowed. Flag separated letter runs, including
+    // partial disclosure such as n-i-g-h-t within tonight (the recorded failure).
+    const letterRuns = text.match(/\b[a-z](?:[\s,–—-]+[a-z]\b)+/g) ?? [];
+    const minimum = Math.min(3, target.length);
+    const disclosed = minimum > 0 && letterRuns.some((run) => {
+      const letters = run.replace(/[^a-z]/g, "");
+      for (let offset = 0; offset <= target.length - minimum; offset += 1) {
+        if (letters.includes(target.slice(offset, offset + minimum))) return true;
+      }
+      return false;
+    });
+    // Text observation only: no censorship or claim that the child heard these letters.
+    if (disclosed) contradictions.push("hidden_spelling_letters_disclosed");
+  }
   const usesMasteryLanguage =
     /\b(100\s*%|100 percent|perfect|zero mistakes|crushed|mastered|mastery)\b/.test(text);
   const resultContradictsMastery =

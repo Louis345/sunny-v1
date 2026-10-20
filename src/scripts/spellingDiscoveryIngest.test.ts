@@ -1,3 +1,4 @@
+import {linearJourneyFixture} from "./fixtures/authoredJourney";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -42,17 +43,16 @@ describe("production spelling intake phases", () => {
       capture.words[0].word = "invented";
       return true;
     });
-    await runSpellingDiscoveryIntake(input, { callPlannerModel, confirmCapture, reviewer: "lab-legacy-review" });
-    await runSpellingDiscoveryIntake(input, { callPlannerModel, confirmCapture });
+    await expect(runSpellingDiscoveryIntake(input, { callPlannerModel, confirmCapture, reviewer: "lab-legacy-review" })).rejects.toThrow('spelling_intake_journey_revision_required');
     expect(callPlannerModel).not.toHaveBeenCalled();
     expect(confirmCapture).toHaveBeenCalledOnce();
     expect(fs.readFileSync(responseFile, "utf8")).toBe(original);
-    expect(getLearningCycle(input.childId, homeworkId, input)!.assignment.targets).toEqual(["night"]);
+    expect(getLearningCycle(input.childId, homeworkId, input)).toBeNull();
   });
   it("publishes clear words with source notes and preserves the captured notes on resume", async () => {
     const input = fixture();
     const sourceNotes = ["Handwritten header is unclear; all assigned words are legible.", "Practice page repeats the assigned words."];
-    const callPlannerModel = vi.fn(async (packet: Parameters<typeof recordedSpellingDiagnostic>[0]) => ({ draft: { diagnostic: recordedSpellingDiagnostic(packet), title: "School words", words: [{ word: "night", pageNumber: 1 }], uncertainty: [], sourceNotes } }));
+    const callPlannerModel = vi.fn(async (packet: Parameters<typeof recordedSpellingDiagnostic>[0]) => ({ draft: { boardDefinition:linearJourneyFixture(["diagnostic"]), diagnostic: recordedSpellingDiagnostic(packet), title: "School words", words: [{ word: "night", pageNumber: 1 }], uncertainty: [], sourceNotes } }));
     const first = await runSpellingDiscoveryIntake(input, { callPlannerModel });
     await runSpellingDiscoveryIntake(input, { callPlannerModel });
     const saved = JSON.parse(fs.readFileSync(path.join(input.rootDir, "src/context/lab-child/homework/direct-drafts", first.homeworkId, "spelling-intake-response.json"), "utf8"));
@@ -62,7 +62,7 @@ describe("production spelling intake phases", () => {
   });
   it("offers confirmation for saved uncertainty, preserving the provider receipt and paying only once", async () => {
     const input = fixture();
-    const callPlannerModel = vi.fn(async (packet: Parameters<typeof recordedSpellingDiagnostic>[0]) => ({ draft: { diagnostic: recordedSpellingDiagnostic(packet), title: "School words", words: [{ word: "night", pageNumber: 1 }], uncertainty: [{ kind: "ambiguous_word", pageNumber: 1, detail: "Verify night against the source." }] } }));
+    const callPlannerModel = vi.fn(async (packet: Parameters<typeof recordedSpellingDiagnostic>[0]) => ({ draft: { boardDefinition:linearJourneyFixture(["diagnostic"]), diagnostic: recordedSpellingDiagnostic(packet), title: "School words", words: [{ word: "night", pageNumber: 1 }], uncertainty: [{ kind: "ambiguous_word", pageNumber: 1, detail: "Verify night against the source." }] } }));
     await expect(runSpellingDiscoveryIntake(input, { callPlannerModel })).rejects.toThrow("confirmation_required");
     const drafts = path.join(input.rootDir, "src/context/lab-child/homework/direct-drafts");
     const homeworkId = fs.readdirSync(drafts).find(name => name.startsWith("hw-spelling-"))!;
@@ -85,14 +85,14 @@ describe("production spelling intake phases", () => {
   it("publishes only Discovery when the existing parent confirmation applies a spelling capture", async () => {
     const input = fixture();
     const assignmentSource = await extractAssignmentSource(input.sourceFile);
-    await applyPlannedHomeworkIngest({ ...input, assignmentSource, assignmentPlanningPacket: {} as never, assignmentPlannerOutput: { capturedContent: { title: "School words", words: ["night", "light"] }, homeworkWords: [{ text: "night", purpose: "spell_from_memory" }, { text: "light", purpose: "spell_from_memory" }], activeSessionPlan: { domain: "spelling" } } as never, homeworkDomain: "spelling", reviewer: "lab-adult", approvedAt: "2026-09-08T12:00:00Z" } as never);
+    await applyPlannedHomeworkIngest({ ...input, assignmentSource, assignmentPlanningPacket: {} as never, assignmentPlannerOutput: { capturedContent: { title: "School words", words: ["night", "light"] }, homeworkWords: [{ text: "night", purpose: "spell_from_memory" }, { text: "light", purpose: "spell_from_memory" }], activeSessionPlan: { domain: "spelling", boardDefinition:linearJourneyFixture(["diagnostic"]) } } as never, homeworkDomain: "spelling", reviewer: "lab-adult", approvedAt: "2026-09-08T12:00:00Z" } as never);
     const profile = JSON.parse(fs.readFileSync(path.join(input.rootDir, "src/context/lab-child/learning_profile.json"), "utf8"));
     expect(profile.activeSessionPlan.planId).toMatch(/^discovery:/);
     expect(profile.activeSessionPlan.nodePlan).toHaveLength(1);
   });
   it("freezes prior exposure from the child chart across assignments and restart", async () => {
     const input = fixture();
-    const callPlannerModel = vi.fn(async (packet: Parameters<typeof recordedSpellingDiagnostic>[0]) => ({ draft: { diagnostic: recordedSpellingDiagnostic(packet), title: "School words", words: [{ word: "night", pageNumber: 1 }], uncertainty: [] } }));
+    const callPlannerModel = vi.fn(async (packet: Parameters<typeof recordedSpellingDiagnostic>[0]) => ({ draft: { boardDefinition:linearJourneyFixture(["diagnostic"]), diagnostic: recordedSpellingDiagnostic(packet), title: "School words", words: [{ word: "night", pageNumber: 1 }], uncertainty: [] } }));
     const first = await runSpellingDiscoveryIntake(input, { callPlannerModel });
     const oldItem = Object.values(getLearningCycle(input.childId, first.homeworkId, input)!.nodes[0].evidenceContract.spellingItems!)[0];
     recordSpellingDiscoveryAttempt({ ...input, homeworkId: first.homeworkId, attempt: { attemptId: "old", itemId: oldItem.id, attemptedValue: "nite", observedAt: "2026-09-08T10:00:00Z" }, support: { status: "unassisted", scaffolds: [] } }, input);
@@ -108,7 +108,7 @@ describe("production spelling intake phases", () => {
   });
   it("captures once, publishes only Word Radar, and reuses completed provider work on restart", async () => {
     const input = fixture();
-    const callPlannerModel = vi.fn(async (packet: Parameters<typeof recordedSpellingDiagnostic>[0]) => ({ draft: { diagnostic: recordedSpellingDiagnostic(packet), title: "School words", words: ["night", "light", "can't"].map(word => ({ word, pageNumber: 1 })), uncertainty: [] } }));
+    const callPlannerModel = vi.fn(async (packet: Parameters<typeof recordedSpellingDiagnostic>[0]) => ({ draft: { boardDefinition:linearJourneyFixture(["diagnostic"]), diagnostic: recordedSpellingDiagnostic(packet), title: "School words", words: ["night", "light", "can't"].map(word => ({ word, pageNumber: 1 })), uncertainty: [] } }));
     const first = await runSpellingDiscoveryIntake(input, { callPlannerModel });
     const second = await runSpellingDiscoveryIntake(input, { callPlannerModel });
     expect(first.homeworkId).toBe(second.homeworkId);
@@ -123,16 +123,16 @@ describe("production spelling intake phases", () => {
   });
   it("keeps uncertain extraction pending without publishing or repeating the call", async () => {
     const input = fixture();
-    const callPlannerModel = vi.fn(async (packet: Parameters<typeof recordedSpellingDiagnostic>[0]) => ({ draft: { diagnostic: recordedSpellingDiagnostic(packet), title: "School words", words: [{ word: "night", pageNumber: 1 }], uncertainty: [{ kind: "unreadable_word", pageNumber: 1, detail: "Second word is unreadable." }] } }));
+    const callPlannerModel = vi.fn(async (packet: Parameters<typeof recordedSpellingDiagnostic>[0]) => ({ draft: { boardDefinition:linearJourneyFixture(["diagnostic"]), diagnostic: recordedSpellingDiagnostic(packet), title: "School words", words: [{ word: "night", pageNumber: 1 }], uncertainty: [{ kind: "unreadable_word", pageNumber: 1, detail: "Second word is unreadable." }] } }));
     for (let run = 0; run < 2; run++) await expect(runSpellingDiscoveryIntake(input, { callPlannerModel })).rejects.toThrow("spelling_intake_confirmation_required");
     expect(callPlannerModel).toHaveBeenCalledOnce();
     expect(fs.existsSync(path.join(input.rootDir, "src/context/lab-child/plans/active_session_plan.json"))).toBe(false);
   });
   it("resumes a human-confirmed uncertain capture without another provider call or a speculative board", async () => {
     const input = fixture();
-    const callPlannerModel = vi.fn(async (packet: Parameters<typeof recordedSpellingDiagnostic>[0]) => ({ draft: { diagnostic: recordedSpellingDiagnostic(packet), title: "School words", words: [{ word: "night", pageNumber: 1 }], uncertainty: [{ kind: "unreadable_word", pageNumber: 1, detail: "Second word unclear" }] } }));
+    const callPlannerModel = vi.fn(async (packet: Parameters<typeof recordedSpellingDiagnostic>[0]) => ({ draft: { boardDefinition:linearJourneyFixture(["diagnostic"]), diagnostic: recordedSpellingDiagnostic(packet), title: "School words", words: [{ word: "night", pageNumber: 1 }], uncertainty: [{ kind: "unreadable_word", pageNumber: 1, detail: "Second word unclear" }] } }));
     await expect(runSpellingDiscoveryIntake(input, { callPlannerModel })).rejects.toThrow("confirmation_required");
-    const confirmedCapture = { capture: { diagnostic: recordedSpellingDiagnostic(callPlannerModel.mock.calls[0][0]), title: "School words", words: ["night", "light"].map(word => ({ word, pageNumber: 1 })), uncertainty: [] }, reviewer: "lab-adult", approvedAt: "2026-09-08T12:00:00Z" };
+    const confirmedCapture = { capture: { boardDefinition:linearJourneyFixture(["diagnostic"]), diagnostic: recordedSpellingDiagnostic(callPlannerModel.mock.calls[0][0]), title: "School words", words: ["night", "light"].map(word => ({ word, pageNumber: 1 })), uncertainty: [] }, reviewer: "lab-adult", approvedAt: "2026-09-08T12:00:00Z" };
     const result = await runSpellingDiscoveryIntake({ ...input, confirmedCapture } as never, { callPlannerModel });
     await runSpellingDiscoveryIntake(input, { callPlannerModel });
     expect(callPlannerModel).toHaveBeenCalledOnce();
@@ -141,7 +141,7 @@ describe("production spelling intake phases", () => {
   });
   it("rejects a modified completed intake checkpoint rather than using invented words", async () => {
     const input = fixture();
-    const callPlannerModel = vi.fn(async (packet: Parameters<typeof recordedSpellingDiagnostic>[0]) => ({ draft: { diagnostic: recordedSpellingDiagnostic(packet), title: "School words", words: [{ word: "night", pageNumber: 1 }], uncertainty: [] } }));
+    const callPlannerModel = vi.fn(async (packet: Parameters<typeof recordedSpellingDiagnostic>[0]) => ({ draft: { boardDefinition:linearJourneyFixture(["diagnostic"]), diagnostic: recordedSpellingDiagnostic(packet), title: "School words", words: [{ word: "night", pageNumber: 1 }], uncertainty: [] } }));
     const result = await runSpellingDiscoveryIntake(input, { callPlannerModel });
     const file = path.join(input.rootDir, "src/context/lab-child/homework/direct-drafts", result.homeworkId, "spelling-intake-response.json");
     const saved = JSON.parse(fs.readFileSync(file, "utf8")); saved.output.words[0].word = "invented"; fs.writeFileSync(file, JSON.stringify(saved));
@@ -150,3 +150,39 @@ describe("production spelling intake phases", () => {
   });
 });
 import { recordedSpellingDiagnostic } from "./fixtures/spellingEvidenceFirst";
+
+it('blocks original Discovery publication until chart priors commit and reuses them on restart', async () => {
+  const input=fixture();
+  const {openChart}=await import('../chart/db');
+  const {exportEvents}=await import('../chart/exportEvents');
+  const db=openChart(input.childId,{chartDir:path.join(input.rootDir,'charts')});
+  const callPlannerModel=vi.fn(async(packet: Parameters<typeof recordedSpellingDiagnostic>[0])=>({draft:{boardDefinition:linearJourneyFixture(["diagnostic"]),diagnostic:recordedSpellingDiagnostic(packet),title:'School words',words:[{word:'night',pageNumber:1}],uncertainty:[]}}));
+  const provider=vi.fn(async(_stage:unknown, packet:any)=>{
+    const profile=JSON.parse(fs.readFileSync(path.join(input.rootDir,'src/context/lab-child/learning_profile.json'),'utf8'));
+    expect(profile.activeSessionPlan).toBeUndefined();
+    const assignmentId=packet.assignment.assignmentId;
+    return {tags:{assignmentId,taxonomyVersion:1,tags:[{word:'night',patterns:['spelling.irregular']}]},priors:[{assignmentId,word:'night',pCorrect:0.6,confidence:0.4,expectedError:'unknown'}]};
+  });
+  try{
+    const options={callPlannerModel,chart:{db,provider}};
+    const {homeworkId}=await runSpellingDiscoveryIntake(input,options);
+    expect(provider).toHaveBeenCalledTimes(1);
+    expect(exportEvents(db).map(e=>e.type)).toEqual(['assignment.ingested','words.tagged','prediction.prior']);
+    expect(exportEvents(db)[0].payload.assignmentId).toBe(homeworkId);
+    await runSpellingDiscoveryIntake(input,options);
+    expect(provider).toHaveBeenCalledTimes(1);
+  }finally{db.close();}
+});
+
+it('keeps original Discovery unpublished when the chart Planner fails', async () => {
+  const input=fixture();const {openChart}=await import('../chart/db');const {exportEvents}=await import('../chart/exportEvents');
+  const db=openChart(input.childId,{chartDir:path.join(input.rootDir,'charts')});
+  const callPlannerModel=vi.fn(async(packet: Parameters<typeof recordedSpellingDiagnostic>[0])=>({draft:{boardDefinition:linearJourneyFixture(["diagnostic"]),diagnostic:recordedSpellingDiagnostic(packet),title:'School words',words:[{word:'night',pageNumber:1}],uncertainty:[]}}));
+  try{
+    await expect(runSpellingDiscoveryIntake(input,{callPlannerModel,chart:{db,provider:async()=>{throw Error('recorded_prior_failure');}}})).rejects.toThrow('recorded_prior_failure');
+    const facts=exportEvents(db);expect(facts.map(e=>e.type)).toEqual(['assignment.ingested']);
+    expect(getLearningCycle(input.childId,String(facts[0].payload.assignmentId),input)).toBeNull();
+    const profile=JSON.parse(fs.readFileSync(path.join(input.rootDir,'src/context/lab-child/learning_profile.json'),'utf8'));
+    expect(profile.activeSessionPlan).toBeUndefined();
+  }finally{db.close();}
+});

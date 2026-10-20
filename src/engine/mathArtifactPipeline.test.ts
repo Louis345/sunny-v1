@@ -1,3 +1,4 @@
+import {choiceJourneyFixture} from "../scripts/fixtures/authoredJourney";
 import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
@@ -88,6 +89,7 @@ describe("math artifact production boundary", () => {
   it("preserves the Planner's contextual agency experiment without fabricating hypotheses", () => {
     const raw = {
       planId: "plan-agency",
+      boardDefinition:choiceJourneyFixture([{id:"route-a",label:"Build",nodeIds:["node-1"]},{id:"route-b",label:"Reason",nodeIds:["node-2"]}]),
       contentScopeRationale: "Two comparable routes test different engagement hypotheses.",
       concept: {
         conceptId: "math.multiplication.equal_groups",
@@ -150,15 +152,18 @@ describe("math artifact production boundary", () => {
       ],
     };
 
+    raw.boardDefinition.choices[0].options.forEach((option,i)=>{option.hypothesis=raw.agencyExperiment.routes[i].engagementHypothesis;});
     const parsed = parseMathLearningProgram(raw);
 
-    expect(parsed.agencyExperiment).toEqual(raw.agencyExperiment);
+    expect(parsed.boardDefinition).toEqual(raw.boardDefinition);
+    expect(parsed.boardDefinition!.choices[0].options.map(option=>option.hypothesis)).toEqual(raw.agencyExperiment.routes.map(route=>route.engagementHypothesis));
     expect(parsed.fork.routes.map((route) => route.nodeIds)).toEqual([["node-1"], ["node-2"]]);
   });
 
   it("uses Planner-authored route membership when a redundant activity route id differs", () => {
     const raw = {
       planId: "plan-route-normalization",
+      boardDefinition:choiceJourneyFixture([{id:"route-a",label:"Build",nodeIds:["node-1"]},{id:"route-b",label:"Reason",nodeIds:["node-2"]}]),
       contentScopeRationale: "Two comparable routes.",
       concept: {
         conceptId: "math.multiplication.equal_groups",
@@ -196,13 +201,15 @@ describe("math artifact production boundary", () => {
 
     const parsed = parseMathLearningProgram(raw);
 
-    expect(parsed.activities[0]?.routeId).toBe("route-a");
+    expect(parsed.activities[0]?.routeId).toBe("planner-alias-a");
+    expect(parsed.boardDefinition).toEqual(raw.boardDefinition);
     expect(parsed.fork.routes[0]?.nodeIds).toEqual(["node-1"]);
   });
 
   it("preserves Planner-authored shared teaching nodes before the agency fork", () => {
     const raw = {
       planId: "plan-shared-entry",
+      boardDefinition:choiceJourneyFixture([{id:"route-a",label:"Build",nodeIds:["node-1"]},{id:"route-b",label:"Reason",nodeIds:["node-2"]}],["shared-teach"]),
       contentScopeRationale: "Teach once, then offer two comparable routes.",
       concept: {
         conceptId: "math.multiplication.equal_groups",
@@ -243,7 +250,7 @@ describe("math artifact production boundary", () => {
     const parsed = parseMathLearningProgram(raw);
 
     expect(parsed.activities[0]?.routeId).toBe("route-shared-entry");
-    expect(parsed.fork.routes.map((route) => route.nodeIds)).toEqual([["node-1"], ["node-2"]]);
+    expect(parsed.fork.routes.map((route) => route.nodeIds)).toEqual([["shared-teach","node-1"], ["shared-teach","node-2"]]);
   });
 
   it("keeps valid sibling designs and reports only missing Planner node ids", () => {
@@ -487,7 +494,6 @@ describe("math artifact production boundary", () => {
       builderModel: "claude-opus-5",
       generatedHtmlHash: "html-node-1",
     });
-    expect(cycle.nodes.find((node) => node.role === "quest")?.state).toBe("locked");
-    expect(cycle.nodes.find((node) => node.role === "boss")?.state).toBe("locked");
+    expect(cycle.nodes.some((node) => node.role === "quest" || node.role === "boss")).toBe(false);
   });
 });

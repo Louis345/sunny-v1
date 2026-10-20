@@ -100,6 +100,7 @@ export function LearningReportPage({ childId, initialHomeworkId }: { childId: st
   return <main style={pageStyle}><section style={{ maxWidth: 960, margin: "0 auto" }}>
     <p style={{ color: "#6d597a", fontWeight: 800, marginBottom: 6 }}>SUNNY PARENT</p>
     <h1 style={{ fontSize: "clamp(2rem,5vw,3.4rem)", margin: "0 0 8px" }}>Learning report</h1>
+    <p><a href={`/parent/spelling?child=${encodeURIComponent(childId)}`}>Spelling chart and school results</a></p>
     {status && <p style={{ fontSize: 18 }}>{status}</p>}
     {!selectedId && assignments.map((assignment) => <button key={assignment.homeworkId} type="button" onClick={() => setSelectedId(assignment.homeworkId)} style={{ ...cardStyle, width: "100%", textAlign: "left", color: "inherit" }}>
       <strong style={{ display: "block", fontSize: 20 }}>{assignment.title}</strong><span>{assignment.domain}</span>

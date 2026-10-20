@@ -3,8 +3,12 @@ import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import type { ChildExperiencePacket } from "../../../src/profiles/childExperiencePacket";
 import {
+  buildPlannerBoardIframeStartMessage,
   isDirectDiscoveryPacket,
+  isProbeBoardPacket,
   hasPendingLearningGeneration,
+  resolveProbeBoardCompletion,
+  runProbeBoardCompletionHandoff,
   resolveDiscoveryCompletionHandoff,
   resolvePlannerBoardSessionScope,
   resolvePersistedDiscoveryHandoff,
@@ -12,7 +16,10 @@ import {
   runDiscoveryExitSequence,
   resolveDirectDiscoverySurface,
   resolveDirectDiscoveryLaunchNode,
+  resolveHomeworkVoiceSessionStart,
+  resolveHomeworkVoiceAutostart,
   resolvePlannerBoardLaunchNode,
+  shouldHoldTargetedBoardForPreparation,
 } from "../utils/adventureBoardLaunch";
 
 function packet(planId: string, nodes: Array<Record<string, unknown>>): ChildExperiencePacket {
@@ -43,6 +50,119 @@ function packet(planId: string, nodes: Array<Record<string, unknown>>): ChildExp
 }
 
 describe("direct Discovery entry", () => {
+  it("starts a mystery reward iframe instead of leaving it waiting", () => {
+    // Human catch: the reward iframe rendered its waiting screen forever.
+    // The prior lab verified the frame URL but never exercised its load handshake.
+    expect(buildPlannerBoardIframeStartMessage({
+      nodeType: "mystery",
+      childName: "Learner",
+      companionName: "Elli",
+    })).toEqual({
+      type: "start",
+      childName: "Learner",
+      companionName: "Elli",
+      config: {},
+    });
+    expect(buildPlannerBoardIframeStartMessage({
+      nodeType: "generated-baseline",
+      childName: "Learner",
+      companionName: "Elli",
+    })).toBeNull();
+
+    const source = readFileSync(resolve(process.cwd(), "src/App.tsx"), "utf8");
+    expect(source).toContain("buildPlannerBoardIframeStartMessage");
+    expect(source).toContain("onLoad={handlePlannerBoardIframeLoad}");
+  });
+
+  it("does not start homework voice until one exact assignment packet is validated", () => {
+    const ready = packet("discovery:hw-1", [
+      { id: "evaluation", type: "word-radar", title: "Show What You Know" },
+    ]);
+    ready.activeSessionPlan!.domain = "spelling";
+    ready.childChart = {
+      childId: "ila",
+      learningCycle: { homeworkId: "hw-1" },
+    } as never;
+
+    expect(resolveHomeworkVoiceSessionStart(null, true)).toBeNull();
+    expect(resolveHomeworkVoiceSessionStart(null, false)).toBeNull();
+
+    const mismatched = structuredClone(ready);
+    mismatched.childChart.learningCycle!.homeworkId = "hw-stale";
+    expect(resolveHomeworkVoiceSessionStart(mismatched, false)).toBeNull();
+
+    expect(resolveHomeworkVoiceSessionStart(ready, false)).toEqual({
+      childId: "ila",
+      homeworkId: "hw-1",
+      domain: "spelling",
+    });
+  });
+
+  it("does not open empty voice sessions while a successor board is preparing", () => {
+    // Human catch: each waiting-screen reconnect opened and ended an empty
+    // session. The packet identity test did not account for lifecycle state.
+    const preparing = packet("discovery:hw-1", [
+      { id: "evaluation", type: "word-radar", title: "Show What You Know" },
+    ]);
+    preparing.activeSessionPlan!.domain = "spelling";
+    preparing.childChart = {
+      childId: "reina",
+      learningCycle: { homeworkId: "hw-1", lifecycle: "targeted_planning" },
+    } as never;
+
+    expect(resolveHomeworkVoiceSessionStart(preparing, false)).toBeNull();
+  });
+
+  it("does not auto-restart the same assignment after a fatal voice failure", () => {
+    const first = resolveHomeworkVoiceAutostart({
+      previousScope: null,
+      childId: "ila",
+      homeworkId: "hw-1",
+      phase: "picker",
+    });
+    expect(first).toEqual({ scope: "ila:hw-1", shouldStart: true });
+
+    expect(resolveHomeworkVoiceAutostart({
+      previousScope: first.scope,
+      childId: "ila",
+      homeworkId: "hw-1",
+      phase: "picker",
+    })).toEqual({ scope: "ila:hw-1", shouldStart: false });
+
+    expect(resolveHomeworkVoiceAutostart({
+      previousScope: first.scope,
+      childId: "ila",
+      homeworkId: "hw-2",
+      phase: "picker",
+    })).toEqual({ scope: "ila:hw-2", shouldStart: true });
+  });
+
+  it("keeps a legacy reading board launchable without inventing a canonical cycle", () => {
+    const legacy = packet("legacy:reading", []);
+    legacy.activeSessionPlan!.domain = "reading";
+    legacy.activeSessionPlan!.activeHomeworkId = "hw-reading-1";
+    legacy.childChart = { childId: "ila", learningCycle: null } as never;
+
+    expect(resolveHomeworkVoiceSessionStart(legacy, false)).toEqual({
+      childId: "ila",
+      homeworkId: "hw-reading-1",
+      domain: "reading",
+    });
+  });
+
+  it("never starts a homework voice session directly from the child picker", () => {
+    const source = readFileSync(resolve(process.cwd(), "src/App.tsx"), "utf8");
+    const picker = source.slice(
+      source.indexOf("<ChildPicker"),
+      source.indexOf("</ChildPicker>") > -1
+        ? source.indexOf("</ChildPicker>")
+        : source.indexOf("</div>", source.indexOf("<ChildPicker")),
+    );
+
+    expect(picker).not.toContain("startSession(name, opts)");
+    expect(source).toContain("resolveHomeworkVoiceSessionStart");
+  });
+
   it("passes frozen spelling identities to existing iframe games", () => {
     const current = packet("targeted:hw-1", [{ id: "wheel", type: "wheel-of-fortune", targets: ["night"] }]);
     current.activeSessionPlan!.domain = "spelling";
@@ -62,6 +182,33 @@ describe("direct Discovery entry", () => {
     const old = packet("legacy", []); old.activeSessionPlan!.domain = "reading";
     expect(hasPendingLearningGeneration(old, false)).toBe(false);
   });
+  it("shows truthful preparation while one complete successor board is built between sessions", () => {
+    for (const lifecycle of ["baseline_generating", "quest_generating", "boss_generating"]) {
+      const current = packet("hw-1:board:2", []);
+      current.activeSessionPlan!.domain = "math";
+      current.childChart = { learningCycle: { lifecycle } } as never;
+      expect(hasPendingLearningGeneration(current, false)).toBe(true);
+    }
+  });
+  it("keeps watching a Probe Board while verified siblings are still locked", () => {
+    const probe = packet("probe-board:hw-1", [
+      { id: "probe-ready", type: "generated-baseline", title: "Ready" },
+      { id: "probe-building", type: "generated-baseline", title: "Locked" },
+    ]);
+    probe.childChart = { learningCycle: { lifecycle: "evaluation_ready" } } as never;
+    const nodes = probe.activeSessionPlan!.adventureBoard!.nodes;
+    nodes[0]!.state = "current";
+    nodes[1]!.state = "locked";
+    nodes[1]!.action = { type: "show-locked-reason", payloadId: "probe-building" };
+    nodes[1]!.lock = { reason: "artifact-not-ready", label: "Locked" };
+
+    expect(hasPendingLearningGeneration(probe, false)).toBe(true);
+
+    nodes[1]!.state = "available";
+    nodes[1]!.action = { type: "launch-activity", payloadId: "probe-building" };
+    delete nodes[1]!.lock;
+    expect(hasPendingLearningGeneration(probe, false)).toBe(false);
+  });
   it("launches only unanswered frozen spelling items after resuming Discovery", () => {
     const discovery = packet("discovery:hw-1", [{ id: "start", type: "start" }, { id: "evaluation", type: "word-radar", targets: ["night", "light"] }]);
     discovery.activeSessionPlan!.domain = "spelling";
@@ -69,6 +216,39 @@ describe("direct Discovery entry", () => {
     expect(resolveDirectDiscoveryLaunchNode(discovery)?.wordRadarItems).toEqual([{ itemId: "second", display: "light", acceptedResponses: ["light"], label: "Spelling", subject: "spelling" }]);
     discovery.spellingDiscovery = undefined;
     expect(resolveDirectDiscoveryLaunchNode(discovery)).toBeNull();
+  });
+  it("keeps the native spelling evaluation on the Discovery completion path after the canonical packet refreshes", () => {
+    // Human catch: the twelfth answer refreshed the packet from a legacy
+    // `discovery:` plan id to a canonical `learning-cycle:` id. The screen and
+    // attempt logs remained healthy, so the lab never exercised the final
+    // native Word Radar callback against that refreshed packet. Sunny then
+    // called the ordinary lesson endpoint, which correctly rejected an
+    // evaluation node and left the child stuck after completing every word.
+    const discovery = packet("learning-cycle:hw-1:r16", [
+      { id: "start", type: "start", title: "Start" },
+      { id: "hw-1:discovery", type: "word-radar", title: "Show What You Know" },
+    ]);
+    discovery.activeSessionPlan!.domain = "spelling";
+    discovery.childChart = {
+      childId: "learner",
+      learningCycle: {
+        homeworkId: "hw-1",
+        lifecycle: "evaluation_active",
+        revision: 16,
+        boardKind: "probe",
+      },
+    } as never;
+    discovery.spellingDiscovery = {
+      nodeId: "hw-1:discovery",
+      items: [],
+    };
+
+    const portal=discovery.activeSessionPlan!.adventureBoard!.nodes[1]!;
+    portal.activityNodeId=portal.id;
+    portal.id="authored-evaluation-portal";
+    expect(isDirectDiscoveryPacket(discovery)).toBe(true);
+    expect(isProbeBoardPacket(discovery)).toBe(false);
+    expect(resolveDirectDiscoveryLaunchNode(discovery)?.id).toBe("hw-1:discovery");
   });
   it("never lets a homework runtime fall through to the generic companion canvas", () => {
     const source = readFileSync(resolve(process.cwd(), "src/App.tsx"), "utf8");
@@ -79,8 +259,12 @@ describe("direct Discovery entry", () => {
     const source = readFileSync(resolve(process.cwd(), "src/App.tsx"), "utf8");
     expect(source).toContain("onAssessmentAttempt={handleSpellingDiscoveryAttempt}");
     expect(source.includes("assessmentMode={directDiscoveryMode || plannerBoardLaunch.node.spellingAssessment === true}")).toBe(true);
-    expect(source.includes("enableLocalNarrationFallback={!directDiscoveryMode && !plannerBoardLaunch.node.spellingAssessment}")).toBe(true);
+    expect(source.includes("enableLocalNarrationFallback={!directDiscoveryMode && !plannerBoardLaunch.node.spellingAssessment}")).toBe(false);
     expect(source).toContain(".flushForExit()");
+  });
+  it("flushes Probe Board attempts before an early return to the map", () => {
+    const source = readFileSync(resolve(process.cwd(), "src/App.tsx"), "utf8");
+    expect(source).toContain("if (directDiscoveryMode || probeBoardMode || plannerBoardLaunch?.node.spellingAssessment)");
   });
   it("opens the generated Discovery directly instead of showing its compatibility map", () => {
     const discovery = packet("discovery:hw-1", [
@@ -102,6 +286,83 @@ describe("direct Discovery entry", () => {
     );
   });
 
+  it("never exposes an evaluation map when its instrument payload is unavailable",()=>{
+    const evaluation=packet("planner-authored:hw-1:r15",[{id:"start",type:"start"},{id:"evaluation",type:"word-radar"}]);
+    evaluation.activeSessionPlan!.domain="spelling";
+    evaluation.childChart={learningCycle:{homeworkId:"hw-1",lifecycle:"evaluation_ready",boardKind:"probe"}} as never;
+    expect(isDirectDiscoveryPacket(evaluation)).toBe(true);
+    expect(resolveDirectDiscoveryLaunchNode(evaluation)).toBeNull();
+  });
+  it.each(["evaluation_ready","evaluation_active"])("opens canonical spelling %s directly with no evaluation map", lifecycle => {
+    const evaluation=packet("planner-authored:hw-1:r15",[
+      {id:"start",type:"start"},
+      {id:"canonical-evaluation",type:"word-radar",title:"Show What You Know"},
+    ]);
+    evaluation.activeSessionPlan!.domain="spelling";
+    evaluation.childChart={learningCycle:{homeworkId:"hw-1",lifecycle,boardKind:"probe"}} as never;
+    evaluation.spellingDiscovery={nodeId:"canonical-evaluation",items:[{itemId:"item-1",display:"cheese",acceptedResponses:["cheese"],label:"Spelling",subject:"spelling"}]};
+    expect(isDirectDiscoveryPacket(evaluation)).toBe(true);
+    expect(isProbeBoardPacket(evaluation)).toBe(false);
+    expect(resolveDirectDiscoveryLaunchNode(evaluation)).toMatchObject({id:"canonical-evaluation",wordRadarItems:evaluation.spellingDiscovery.items});
+  });
+
+  it("shows a Planner-authored Probe Board instead of auto-launching one evaluation", () => {
+    // Human-caught invariant: the old lab proved one generated iframe, but not
+    // the board-level wait caused by building only one evaluation node.
+    const probe = packet("probe-board:hw-1", [
+      { id: "probe-a", type: "generated-baseline", title: "Notice the Pattern" },
+      { id: "probe-b", type: "generated-baseline", title: "Try Another Way" },
+    ]);
+
+    expect(isProbeBoardPacket(probe)).toBe(true);
+    expect(isDirectDiscoveryPacket(probe)).toBe(false);
+    expect(resolveDirectDiscoveryLaunchNode(probe)).toBeNull();
+  });
+
+  it("uses canonical chapter kind after plan identity changes", () => {
+    const probe = packet("learning-cycle:hw-1:cycle-r2", []);
+    probe.childChart = {learningCycle:{homeworkId:"hw-1", lifecycle:"evaluation_ready", revision:2, boardKind:"probe"}} as unknown as ChildExperiencePacket["childChart"];
+    expect(isProbeBoardPacket(probe)).toBe(true);
+    probe.childChart.learningCycle = {...probe.childChart.learningCycle!, boardKind:"teaching"} as typeof probe.childChart.learningCycle;
+    expect(isProbeBoardPacket(probe)).toBe(false);
+  });
+
+  it("returns to the Probe Board between nodes and ends the session after the chapter", () => {
+    expect(resolveProbeBoardCompletion({ probeChapterComplete: false })).toBe("continue-probe");
+    expect(resolveProbeBoardCompletion({ probeChapterComplete: true, returnNextSession: true })).toBe("finish-session");
+    const source = readFileSync(resolve(process.cwd(), "src/App.tsx"), "utf8");
+    const probeCompletion = source.slice(
+      source.indexOf("if (probeBoardMode)"),
+      source.indexOf("const handoff = resolveDiscoveryCompletionHandoff", source.indexOf("if (probeBoardMode)")),
+    );
+    expect(probeCompletion).toContain("runProbeBoardCompletionHandoff");
+    expect(probeCompletion).toContain("finishSession: finishHomeworkSession");
+    expect(probeCompletion).not.toContain("setDiscoveryCompletionHandoff");
+  });
+
+  it("never traps the child when the packet refresh fails after Probe completion", async () => {
+    const refresh = async () => { throw new Error("packet unavailable"); };
+    let continued = 0;
+    let finished = 0;
+
+    await expect(runProbeBoardCompletionHandoff({
+      completion: { probeChapterComplete: false },
+      refresh,
+      continueProbe: () => { continued += 1; },
+      finishSession: () => { finished += 1; },
+    })).resolves.toBe("continue-probe");
+    expect(continued).toBe(1);
+    expect(finished).toBe(0);
+
+    await expect(runProbeBoardCompletionHandoff({
+      completion: { probeChapterComplete: true },
+      refresh,
+      continueProbe: () => { continued += 1; },
+      finishSession: () => { finished += 1; },
+    })).resolves.toBe("finish-session");
+    expect(finished).toBe(1);
+  });
+
   it("does not bypass the map for a targeted teaching board", () => {
     const targeted = packet("targeted:hw-1", [
       { id: "start", type: "start", title: "Start" },
@@ -110,6 +371,128 @@ describe("direct Discovery entry", () => {
 
     expect(isDirectDiscoveryPacket(targeted)).toBe(false);
     expect(resolveDirectDiscoveryLaunchNode(targeted)).toBeNull();
+  });
+
+  it("does not reopen Discovery when a saved presentation plan keeps its old name", () => {
+    // Human catch: the browser returned to Discovery after a complete board was published.
+    // The canonical log said board_ready, but the lab asserted only the original plan prefix.
+    const nextChapter = packet("discovery:hw-1:cycle-r20", [
+      { id: "start", type: "start", title: "Start" },
+      { id: "chunks", type: "visual-explainer", title: "Spelling Chunks" },
+    ]);
+    nextChapter.activeSessionPlan!.domain = "spelling";
+    nextChapter.childChart = { learningCycle: { homeworkId: "hw-1", lifecycle: "board_ready" } } as never;
+    expect(isDirectDiscoveryPacket(nextChapter)).toBe(false);
+    expect(resolveDirectDiscoveryLaunchNode(nextChapter)).toBeNull();
+  });
+
+  it("holds a targeted board when no activity is playable", () => {
+    const targeted = packet("targeted:hw-1", [
+      { id: "start", type: "start", title: "Start" },
+      { id: "gear-secret", type: "generated", title: "The Gear Secret" },
+    ]);
+    const node = targeted.activeSessionPlan!.adventureBoard!.nodes[1]!;
+    node.state = "locked";
+    node.lock = { reason: "generation-needs-attention", label: "Parent help needed" };
+    node.action = { type: "show-locked-reason", payloadId: node.id };
+
+    expect(shouldHoldTargetedBoardForPreparation(targeted)).toBe(true);
+
+    node.state = "current";
+    node.lock = undefined;
+    node.action = { type: "launch-activity", payloadId: node.id };
+    expect(shouldHoldTargetedBoardForPreparation(targeted)).toBe(false);
+  });
+
+  it("keeps the waiting screen over a completed Discovery stub until the whole teaching board is published", () => {
+    // Human catch: Ila saw the one-node Discovery map after all probes were saved.
+    // The server logged a failed Planner job, but the UI lab checked only partial
+    // targeted nodes, so its completed Discovery action looked playable to the gate.
+    const discovery = packet("discovery:hw-1:cycle-r17", [
+      { id: "start", type: "start" },
+      { id: "hw-1:discovery", type: "word-radar", title: "Discovery" },
+    ]);
+    discovery.activeSessionPlan!.domain = "spelling";
+    discovery.childChart = { learningCycle: { homeworkId: "hw-1", lifecycle: "evidence_ready" } } as never;
+    discovery.activeSessionPlan!.adventureBoard!.nodes[1]!.state = "completed";
+    expect(shouldHoldTargetedBoardForPreparation(discovery)).toBe(true);
+
+    const teaching = packet("targeted:hw-1", [
+      { id: "start", type: "start" },
+      { id: "practice", type: "word-radar", title: "Practice" },
+    ]);
+    teaching.activeSessionPlan!.domain = "spelling";
+    teaching.childChart = { learningCycle: { homeworkId: "hw-1", lifecycle: "board_generating" } } as never;
+    teaching.activeSessionPlan!.adventureBoard!.nodes[1]!.state = "available";
+    expect(shouldHoldTargetedBoardForPreparation(teaching)).toBe(true);
+    teaching.childChart.learningCycle!.lifecycle = "board_ready";
+    expect(shouldHoldTargetedBoardForPreparation(teaching)).toBe(false);
+  });
+
+  it.each(["evidence_ready","targeted_planning","board_designing","board_generating","needs_attention"])("holds a completed probe map during %s instead of exposing it behind preparation", lifecycle => {
+    // Human saw completed Discovery behind a small status panel; logs tracked generation only.
+    // Prior lab covered legacy discovery IDs, not canonical boardKind=probe's bypass.
+    const completedProbe=packet("learning-cycle:hw-1:r15",[
+      {id:"start",type:"start"},
+      {id:"hw-1:discovery",type:"word-radar",title:"Discovery"},
+    ]);
+    completedProbe.activeSessionPlan!.domain="spelling";
+    completedProbe.childChart={learningCycle:{homeworkId:"hw-1",lifecycle,boardKind:"probe"}} as never;
+    completedProbe.activeSessionPlan!.adventureBoard!.nodes[1]!.state="completed";
+    expect(shouldHoldTargetedBoardForPreparation(completedProbe)).toBe(true);
+  });
+
+  it("opens a verified teaching board whose first action is a Planner route choice", () => {
+    // Human catch: every route was ready, but the map stayed behind preparation forever.
+    // The logs proved publication; the lab only looked for a direct activity launch.
+    const routed = packet("targeted:hw-1", [
+      { id: "start", type: "start" },
+      { id: "route-one", type: "word-radar", gameHtmlPath: "/games/route-one.html" },
+      { id: "route-two", type: "word-radar", gameHtmlPath: "/games/route-two.html" },
+    ]);
+    const board = routed.activeSessionPlan!.adventureBoard!;
+    board.nodes[1]!.state = "locked";
+    board.nodes[2]!.state = "locked";
+    board.nodes.push({ id: "choose-path", kind: "choice-gate", label: "Choose Path", state: "available",
+      action: { type: "open-choice-set", payloadId: "baseline-route-options" } });
+    board.choiceSets = [{ id: "baseline-route-options", kind: "baseline-route", title: "Choose your path", options: [
+      { id: "one", label: "One", state: "available", nodeId: "route-one", gameHtmlPath: "/games/route-one.html" },
+      { id: "two", label: "Two", state: "available", nodeId: "route-two", gameHtmlPath: "/games/route-two.html" },
+    ] }];
+    expect(shouldHoldTargetedBoardForPreparation(routed)).toBe(false);
+  });
+
+  it("keeps a teaching board hidden until every activity artifact is ready", () => {
+    // Human catch: Ila saw a map with one playable node and unfinished siblings.
+    // Logs reported per-node readiness, but the UI gate stopped checking after the first playable node.
+    const targeted = packet("targeted:hw-1", [
+      { id: "start", type: "start", title: "Start" },
+      { id: "chunks", type: "visual-explainer", title: "Spelling Chunks" },
+      { id: "recall", type: "word-radar", title: "Recall" },
+    ]);
+    const [chunks, recall] = targeted.activeSessionPlan!.adventureBoard!.nodes.slice(1);
+    chunks!.state = "current";
+    recall!.state = "locked";
+    recall!.lock = { reason: "artifact-not-ready", label: "Preparing" };
+    recall!.action = { type: "show-locked-reason", payloadId: recall!.id };
+
+    expect(shouldHoldTargetedBoardForPreparation(targeted)).toBe(true);
+
+    recall!.state = "available";
+    recall!.lock = undefined;
+    recall!.action = { type: "launch-activity", payloadId: recall!.id };
+    expect(shouldHoldTargetedBoardForPreparation(targeted)).toBe(false);
+  });
+
+  it("renders preparation instead of mounting a targeted board with no playable activity", () => {
+    const source = readFileSync(resolve(process.cwd(), "src/App.tsx"), "utf8");
+    const branch = source.slice(
+      source.indexOf("} else if (plannerBoardPacket) {"),
+      source.indexOf("} else if (plannerBoardPacketState.loading)"),
+    );
+    expect(branch).toContain(" targetedBoardHeldForPreparation ? (");
+    expect(branch.indexOf("targetedBoardHeldForPreparation ? ("))
+      .toBeLessThan(branch.indexOf("<AdventureBoardExperience"));
   });
 
   it("keeps the familiar curtain mounted until Discovery is ready to launch", () => {
@@ -128,6 +511,21 @@ describe("direct Discovery entry", () => {
     expect(resolveDiscoveryCompletionHandoff({ targetedGenerationQueued: true })).toBe(
       "targeted-planning",
     );
+  });
+
+  // 2026-09-30 a child met the operational status panel as her session's ending.
+  // 2026-10-05 the parent approved a designed alternative: spelling Discovery ends on
+  // the child-facing preparation chapter (her words, the stepper filling from real
+  // status, Elli speaking, "Stop for now" / "Bye for now"), never the operational panel.
+  it("ends Discovery on the designed preparation chapter, never the operational status panel", () => {
+    const source = readFileSync(resolve(process.cwd(), "src/App.tsx"), "utf8");
+    const discoveryBranchStart = source.indexOf("main = directDiscoveryMode ? (");
+    const discoveryBranchEnd = source.indexOf("targetedBoardHeldForPreparation ? (", discoveryBranchStart);
+    const discoveryBranch = source.slice(discoveryBranchStart, discoveryBranchEnd);
+
+    expect(discoveryBranch).toContain("effectiveDiscoveryCompletionHandoff ? preparation.screen ?? (");
+    expect(discoveryBranch).toContain("<DiscoveryCompletionChapter");
+    expect(discoveryBranch).not.toContain("<LearningPreparationStatus");
   });
 
   it("does not treat a learning-cycle revision as a new board session", () => {
@@ -178,7 +576,7 @@ describe("direct Discovery entry", () => {
     const branch = source.slice(branchStart, branchEnd);
 
     expect(attemptBranch).toContain("discovery_attempt_missing_provenance");
-    expect(branch).toContain("startDiscoveryAcademicCompletion()");
+    expect(branch).toContain("startDiscoveryAcademicCompletion(launch.node.id)");
     expect(branch).toContain("showPlannerBoardEngagementOverlay");
     expect(branch).toContain("discovery_completion_missing_provenance");
     expect(branch.indexOf("discovery_completion_missing_provenance"))
@@ -195,4 +593,11 @@ describe("direct Discovery entry", () => {
     })).resolves.toEqual({});
     expect(completionCalls).toBe(1);
   });
+});
+
+it('notifies the server when the host closes a board launch with its exact token',()=>{
+ const source=readFileSync(resolve(process.cwd(),'src/App.tsx'),'utf8');
+ const close=source.slice(source.indexOf('const closePlannerBoardLaunch ='),source.indexOf('const launchPlannerBoardNode ='));
+ expect(close).toContain('phase: "closed"');
+ expect(close).toContain('launchToken: plannerBoardLaunch.completionId');
 });

@@ -18,6 +18,7 @@ export type AdventureBoardExperienceProps = {
   parentPreview?: boolean;
   showParentPreviewBanner?: boolean;
   onNodeClick?: (node: AdventureBoardNode) => void;
+  onChoiceVisibilityChange?: (choiceSet: AdventureChoiceSet, opened: boolean) => void;
   onChoiceClick?: (option: AdventureChoiceOption, choiceSet: AdventureChoiceSet) => void;
   onUnlockCeremony?: (event: UnlockCeremonyEvent) => void;
 };
@@ -32,6 +33,7 @@ export function AdventureBoardExperience({
   showParentPreviewBanner = true,
   onNodeClick,
   onChoiceClick,
+  onChoiceVisibilityChange,
   onUnlockCeremony,
 }: AdventureBoardExperienceProps): React.ReactElement | null {
   const board = packet.activeSessionPlan?.adventureBoard;
@@ -54,6 +56,7 @@ export function AdventureBoardExperience({
         inspectBaselineNodes={parentPreview}
         onNodeClick={onNodeClick}
         onChoiceClick={onChoiceClick}
+        onChoiceVisibilityChange={onChoiceVisibilityChange}
         onUnlockCeremony={onUnlockCeremony}
       />
       {shouldRenderCompanion ? (

@@ -13,20 +13,192 @@ import type {
 type ActiveSessionPlan = NonNullable<ChildExperiencePacket["activeSessionPlan"]>;
 type PlannerNode = ActiveSessionPlan["nodePlan"][number];
 
+export type PlannerBoardIframeStartMessage = {
+  type: "start";
+  childName: string;
+  companionName: string;
+  config: Record<string, never>;
+};
+
+/** Only legacy reward games require a parent-frame start handshake. */
+export function buildPlannerBoardIframeStartMessage(input: {
+  nodeType: string;
+  childName: string;
+  companionName: string;
+}): PlannerBoardIframeStartMessage | null {
+  if (input.nodeType !== "mystery") return null;
+  return {
+    type: "start",
+    childName: input.childName,
+    companionName: input.companionName,
+    config: {},
+  };
+}
+
+export type HomeworkVoiceSessionStart = {
+  childId: string;
+  homeworkId: string;
+  domain: "spelling" | "science" | "reading" | "math";
+};
+
+export function resolveHomeworkVoiceAutostart(input: {
+  previousScope: string | null;
+  childId: string;
+  homeworkId: string;
+  phase: string;
+}): { scope: string; shouldStart: boolean } {
+  const scope = `${input.childId}:${input.homeworkId}`;
+  return {
+    scope,
+    shouldStart: input.phase === "picker" && input.previousScope !== scope,
+  };
+}
+
+/**
+ * Voice may join a homework session only after the browser has received one
+ * complete, canonical packet whose plan and evidence cycle name the same
+ * assignment. The child picker alone is never launch authority.
+ */
+export function resolveHomeworkVoiceSessionStart(
+  packet: ChildExperiencePacket | null,
+  loading: boolean,
+): HomeworkVoiceSessionStart | null {
+  if (loading || !packet) return null;
+  const childId = packet.childChart?.childId?.trim().toLowerCase();
+  const plan = packet.activeSessionPlan;
+  const homeworkId = plan?.activeHomeworkId?.trim();
+  const cycleHomeworkId = packet.childChart?.learningCycle?.homeworkId?.trim();
+  const lifecycle = packet.childChart?.learningCycle?.lifecycle;
+  const domain = plan?.domain;
+  const supportedDomain =
+    domain === "spelling" ||
+    domain === "science" ||
+    domain === "reading" ||
+    domain === "math";
+  const requiresCanonicalCycle = domain === "math" || domain === "spelling";
+  if (
+    !childId ||
+    !homeworkId ||
+    !plan?.adventureBoard ||
+    !supportedDomain ||
+    ["evidence_ready", "targeted_planning", "board_designing", "board_generating", "baseline_generating", "quest_generating", "boss_generating"].includes(lifecycle ?? "") ||
+    (requiresCanonicalCycle && homeworkId !== cycleHomeworkId) ||
+    (!requiresCanonicalCycle && cycleHomeworkId && homeworkId !== cycleHomeworkId)
+  ) {
+    return null;
+  }
+  return {
+    childId,
+    homeworkId,
+    domain,
+  };
+}
+
 /**
  * Discovery keeps an adventureBoard-shaped packet for server and rollback
  * compatibility, but it is a pre-board experience. The child must enter its
  * one generated evaluation directly; the targeted map does not exist yet.
  */
 export function isDirectDiscoveryPacket(packet: ChildExperiencePacket | null): boolean {
-  return Boolean(packet?.activeSessionPlan?.planId?.startsWith("discovery:"));
+  const plan = packet?.activeSessionPlan;
+  if (!plan) return false;
+  const cycle = packet.childChart?.learningCycle;
+  if (plan.domain === "spelling" && cycle?.boardKind === "probe" && cycle.homeworkId === plan.activeHomeworkId)
+    return ["evaluation_ready","evaluation_active"].includes(cycle.lifecycle);
+  if (plan.planId?.startsWith("discovery:")) {
+    return !cycle?.lifecycle || ["evaluation_ready", "evaluation_active"].includes(cycle.lifecycle);
+  }
+  if (plan.planId?.startsWith("probe-board:") && plan.domain !== "spelling") return false;
+
+  if (
+    plan.domain !== "spelling" ||
+    !(cycle?.boardKind === "probe" || plan.planId?.startsWith("learning-cycle:")) ||
+    !cycle ||
+    !["evaluation_ready", "evaluation_active"].includes(cycle.lifecycle) ||
+    cycle.homeworkId !== plan.activeHomeworkId ||
+    !packet.spellingDiscovery?.nodeId
+  ) {
+    return false;
+  }
+
+  return Boolean(plan.adventureBoard?.nodes.some((node) =>
+    (node.activityNodeId ?? node.id) === packet.spellingDiscovery?.nodeId &&
+    node.action?.type === "launch-activity"));
+}
+
+/**
+ * A Probe Board is a complete, playable opening chapter. Unlike the legacy
+ * direct Discovery packet it must remain a board so the child can move through
+ * each ready Planner-authored probe while unfinished siblings remain normally locked.
+ */
+export function isProbeBoardPacket(packet: ChildExperiencePacket | null): boolean {
+  if (isDirectDiscoveryPacket(packet)) return false;
+  const kind = packet?.childChart?.learningCycle?.boardKind;
+  return kind ? kind === "probe" : Boolean(packet?.activeSessionPlan?.planId?.startsWith("probe-board:"));
+}
+
+export function resolveProbeBoardCompletion(
+  result: Record<string, unknown>,
+): "continue-probe" | "finish-session" {
+  return result.probeChapterComplete === true
+    ? "finish-session"
+    : "continue-probe";
+}
+
+export async function runProbeBoardCompletionHandoff(input: {
+  completion: Record<string, unknown>;
+  refresh: () => Promise<unknown>;
+  continueProbe: () => void;
+  finishSession: () => void;
+}): Promise<"continue-probe" | "finish-session"> {
+  const action = resolveProbeBoardCompletion(input.completion);
+  try {
+    await input.refresh();
+  } catch (error) {
+    console.warn(" 🎮 [adaptive-math] [probe-board-refresh] [deferred]", error);
+  }
+  if (action === "finish-session") input.finishSession();
+  else input.continueProbe();
+  return action;
 }
 
 export function hasPendingLearningGeneration(packet: ChildExperiencePacket | null, completingDiscovery: boolean): boolean {
   if (!["math", "spelling"].includes(packet?.activeSessionPlan?.domain ?? "")) return false;
-  return Boolean(packet?.activeSessionPlan?.adventureBoard?.nodes.some(node => node.state === "preview")
-    || ["evidence_ready", "targeted_planning", "board_designing", "board_generating"].includes(packet?.childChart.learningCycle?.lifecycle ?? "")
+  const nodes = packet?.activeSessionPlan?.adventureBoard?.nodes ?? [];
+  return Boolean(nodes.some(node => node.state === "preview")
+    || (isProbeBoardPacket(packet) && nodes.some(node =>
+      node.state === "locked" && node.lock?.reason === "artifact-not-ready"))
+    || ["evidence_ready", "targeted_planning", "board_designing", "board_generating", "baseline_generating", "quest_generating", "boss_generating"].includes(packet?.childChart.learningCycle?.lifecycle ?? "")
     || (isDirectDiscoveryPacket(packet) && completingDiscovery));
+}
+
+/** A Teaching Board opens as one complete chapter; Probe siblings may unlock independently. */
+export function shouldHoldTargetedBoardForPreparation(packet: ChildExperiencePacket | null): boolean {
+  if (!packet || isDirectDiscoveryPacket(packet)) return false;
+  if (!["math", "spelling"].includes(packet.activeSessionPlan?.domain ?? "")) return false;
+  // A saved evaluation definition is history while its successor prepares, never a waiting-room map.
+  if (packet.activeSessionPlan?.domain === "spelling" && packet.childChart?.learningCycle?.boardKind === "probe"
+    && !["evaluation_ready","evaluation_active"].includes(packet.childChart.learningCycle.lifecycle)) return true;
+  if (isProbeBoardPacket(packet)) return false;
+  if (packet.activeSessionPlan?.planId?.startsWith("discovery:")) return true;
+  if (["evidence_ready", "targeted_planning", "board_designing", "board_generating"].includes(
+    packet.childChart?.learningCycle?.lifecycle ?? "",
+  )) return true;
+  const nodes = packet.activeSessionPlan?.adventureBoard?.nodes ?? [];
+  if (nodes.some((node) => node.state === "preview" || [
+    "generation-needs-attention", "artifact-generating", "artifact-not-ready",
+  ].includes(node.lock?.reason ?? ""))) return true;
+  const hasPlayableActivity = nodes.some((node) =>
+    node.action?.type === "launch-activity"
+    && ["current", "available", "completed"].includes(node.state));
+  const hasPlayableRouteChoice = nodes.some((node) =>
+    node.action?.type === "open-choice-set" && ["current", "available"].includes(node.state)
+    && (packet.activeSessionPlan?.adventureBoard?.choiceSets ?? []).some((set) =>
+      set.id === node.choiceSetId || set.id === node.action?.payloadId
+        ? set.kind === "baseline-route" && set.options.filter((option) =>
+          option.state === "available" && nodes.some((candidate) => candidate.id === option.nodeId)).length >= 2
+        : false));
+  return !(hasPlayableActivity || hasPlayableRouteChoice);
 }
 
 export function resolveDirectDiscoverySurface(
@@ -171,6 +343,7 @@ function findPlannerNode(
   boardNode: AdventureBoardNode,
 ): PlannerNode | undefined {
   const plan = packet.activeSessionPlan;
+  if (plan?.boardDefinition) return plan.nodePlan.find(node=>node.id===boardNode.activityNodeId);
   const payloadId = boardNode.action?.payloadId?.trim();
   const ids = [payloadId, boardNode.id].filter((id): id is string => Boolean(id));
   return plan?.nodePlan.find((node) => ids.includes(node.id)) ??
@@ -272,7 +445,7 @@ export function resolvePlannerBoardLaunchNode(
   };
 }
 
-/** Build the answer-key-free snapshot injected into Elli when a board node opens. */
+/** Build the answer-key-free snapshot while a board node is opening. */
 export function buildPlannerBoardCompanionContext(
   node: NodeConfig,
 ): Record<string, unknown> {
@@ -282,7 +455,8 @@ export function buildPlannerBoardCompanionContext(
     game: node.type,
     activityId: node.id,
     nodeId: node.id,
-    phase: "launched",
+    phase: "opening",
+    boardState: "activity_opening",
     activityTitle,
     ...(context.learningFocus ? { learningFocus: context.learningFocus } : {}),
     ...(context.mechanic ? { mechanic: context.mechanic } : {}),
@@ -293,7 +467,7 @@ export function buildPlannerBoardCompanionContext(
     ...(context.currentChallenge ? { itemIndex: 0 } : {}),
     ...(typeof context.totalItems === "number" ? { totalItems: context.totalItems } : {}),
     answerVisibility: "hidden",
-    progress: `${activityTitle} started.`,
+    progress: `Opening ${activityTitle}.`,
   };
 }
 
@@ -302,14 +476,21 @@ export function resolvePlannerBoardChoiceLaunchNode(
   option: AdventureChoiceOption,
 ): NodeConfig | null {
   if (option.state === "locked" || !option.nodeId) return null;
-  const boardNode = packet.activeSessionPlan?.adventureBoard?.nodes.find(
+  const ownerBoardNode = packet.activeSessionPlan?.adventureBoard?.nodes.find(
     (node) => node.id === option.nodeId,
   );
-  if (!boardNode) return null;
-  const launchNode = resolvePlannerBoardLaunchNode(packet, boardNode, { allowLocked: true });
+  if (!ownerBoardNode) return null;
+  if (option.journeyChoiceId) return resolvePlannerBoardLaunchNode(packet,ownerBoardNode,{allowLocked:true});
+  const launchBoardNode = option.launchNodeId
+    ? packet.activeSessionPlan?.adventureBoard?.nodes.find((node) => node.id === option.launchNodeId)
+    : ownerBoardNode;
+  if (!launchBoardNode) return null;
+  const launchNode = resolvePlannerBoardLaunchNode(packet, launchBoardNode, { allowLocked: true });
   if (!launchNode) return null;
   return {
     ...launchNode,
+    id: ownerBoardNode.id,
+    choiceSetId: ownerBoardNode.choiceSetId ?? launchNode.choiceSetId,
     ...(option.activityId ? { activityId: option.activityId } : {}),
     ...(option.gameHtmlPath ? { gameHtmlPath: option.gameHtmlPath } : {}),
     ...(option.contentId ? { contentId: option.contentId } : {}),

@@ -1165,7 +1165,7 @@ describe("map coordinator (TASK-010)", () => {
     readSpy.mockRestore();
   });
 
-  it("quest artifact readiness waits for ceremony before becoming playable", async () => {
+  it("an approved quest artifact is playable from the first render without an in-session reveal", async () => {
     const words = ["above", "about", "ahead", "away", "ago"];
     const homeworkId = "hw-spelling_test-quest-artifact";
     const pendingHomework = buildPendingHomeworkPayload({
@@ -1233,20 +1233,12 @@ describe("map coordinator (TASK-010)", () => {
     });
     const questNode = mapState.nodes.find((n) => n.type === "quest");
 
-    expect(questNode?.isLocked).toBe(true);
-    expect(questNode?.masteryUnlockState).toBe("pending_ceremony");
+    // Contract 21: an authorized, approved encounter is playable from the first render; nothing is revealed mid-session.
+    expect(questNode?.isLocked).toBe(false);
+    expect(questNode?.masteryUnlockState).toBe("unlocked");
     expect(questNode?.gameFile).toBe("quest-generated.html");
     expect(questNode?.contentId).toBe("content-quest-1");
     expect(questNode?.adaptiveArtifact?.baselineEvidenceIds).toEqual(["n-word-radar"]);
-
-    const blocked = handleMapClientMessage(sessionId, {
-      type: "node_click",
-      payload: { nodeId: questNode!.id },
-    });
-    expect(blocked[0]).toEqual({
-      type: "map_error",
-      payload: { reason: "locked_node" },
-    });
 
     const firstPractice = mapState.nodes.find((n) => n.type !== "quest" && n.type !== "boss");
     expect(firstPractice).toBeTruthy();
@@ -1257,13 +1249,13 @@ describe("map coordinator (TASK-010)", () => {
       timeSpent_ms: 1000,
       wordsAttempted: 5,
     });
-    const revealedQuest = afterPractice.mapState.nodes.find((n) => n.type === "quest");
-    expect(revealedQuest?.masteryUnlockState).toBe("unlocked");
-    expect(revealedQuest?.isLocked).toBe(false);
+    const sameQuest = afterPractice.mapState.nodes.find((n) => n.type === "quest");
+    expect(sameQuest?.masteryUnlockState).toBe("unlocked");
+    expect(sameQuest?.isLocked).toBe(false);
 
     const events = handleMapClientMessage(sessionId, {
       type: "node_click",
-      payload: { nodeId: revealedQuest!.id },
+      payload: { nodeId: sameQuest!.id },
     });
     expect(events[0]?.type).toBe("node_launched");
   });

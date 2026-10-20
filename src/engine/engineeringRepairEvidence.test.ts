@@ -62,6 +62,66 @@ it("preserves historical lessons only for a received provider response, not a st
   } });
   expect(hasReceivedMathProviderStage(root, "builder")).toBe(true);
 });
+it("requires explicit authorization to retry an uncertain provider outcome and preserves both attempts", async () => {
+  const { root } = fixture();
+  let calls = 0;
+  const input = {
+    draftDir: root,
+    stage: "targeted-design-1",
+    model: "recorded",
+    request: { prompt: "frozen" },
+    execute: async () => {
+      calls += 1;
+      if (calls === 1) throw new Error("read ETIMEDOUT");
+      return { design: "received" };
+    },
+  };
+
+  await expect(runMathProviderStage(input)).rejects.toThrow("provider_outcome_uncertain");
+  await expect(runMathProviderStage(input)).rejects.toThrow("provider_outcome_uncertain");
+  expect(calls).toBe(1);
+
+  await expect(runMathProviderStage({ ...input, retryUncertain: true })).resolves.toEqual({ design: "received" });
+  expect(calls).toBe(2);
+  const receiptDir = path.join(root, "provider-receipts");
+  const receiptFile = fs.readdirSync(receiptDir)
+    .map((name) => path.join(receiptDir, name))
+    .find((file) => !file.endsWith(".stage.json"))!;
+  const receipt = JSON.parse(fs.readFileSync(receiptFile, "utf8"));
+  expect(receipt).toMatchObject({ status: "received", response: { design: "received" } });
+  expect(receipt.attempts).toEqual([
+    expect.objectContaining({ attempt: 1, status: "outcome_uncertain", error: "read ETIMEDOUT" }),
+    expect.objectContaining({ attempt: 2, status: "received" }),
+  ]);
+});
+it("records an explicit provider credit rejection as safely retryable instead of uncertain", async () => {
+  const { root } = fixture();
+  let calls = 0;
+  const input = {
+    draftDir: root,
+    stage: "activity-repair",
+    model: "gpt-5.6",
+    request: { prompt: "frozen" },
+    execute: async () => {
+      calls += 1;
+      if (calls === 1) throw Object.assign(new Error("direct_activity_repair_provider_failed:activity-1:429"), { status: 429 });
+      return { patch: "received" };
+    },
+  };
+
+  await expect(runMathProviderStage(input)).rejects.toThrow("provider_request_rejected");
+  await expect(runMathProviderStage(input)).resolves.toEqual({ patch: "received" });
+
+  expect(calls).toBe(2);
+  const receiptFile = fs.readdirSync(path.join(root, "provider-receipts"))
+    .map((name) => path.join(root, "provider-receipts", name))
+    .find((file) => !file.endsWith(".stage.json"))!;
+  const receipt = JSON.parse(fs.readFileSync(receiptFile, "utf8"));
+  expect(receipt.attempts).toEqual([
+    expect.objectContaining({ attempt: 1, status: "rejected", code: 429 }),
+    expect.objectContaining({ attempt: 2, status: "received" }),
+  ]);
+});
 it("keeps a repair untrusted until complete independent verification and excludes incompatible or regressed lessons", () => {
   const { root, file, input, verify } = fixture();
   recordEngineeringRepairEvidence(input);

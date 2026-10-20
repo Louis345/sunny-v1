@@ -67,7 +67,6 @@ export interface CompanionConfig {
   goodbye: string;
   markdownPath: string;
   tracksActiveWord?: boolean;
-  transitionToWorkAfterRounds?: number;
   usesCanonicalMathProblem?: boolean;
 }
 
@@ -79,7 +78,7 @@ function loadCompanion(
   voiceFallback: string,
   behavior: Pick<
     CompanionConfig,
-    "tracksActiveWord" | "transitionToWorkAfterRounds" | "usesCanonicalMathProblem"
+    "tracksActiveWord" | "usesCanonicalMathProblem"
   > = {},
 ): CompanionConfig {
   const markdownPath = path.resolve(DIR, companionFile);
@@ -113,7 +112,6 @@ export const ELLI = loadCompanion(
   "MF3mGyEYCl7XYWbV9V6O",
   {
     tracksActiveWord: true,
-    transitionToWorkAfterRounds: 5,
     usesCanonicalMathProblem: false,
   },
 );
@@ -125,7 +123,6 @@ export const MATILDA = loadCompanion(
   "jBpfuIE2acCO8z3wKNLl",
   {
     tracksActiveWord: false,
-    transitionToWorkAfterRounds: undefined,
     usesCanonicalMathProblem: true,
   },
 );

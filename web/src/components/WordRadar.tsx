@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Volume2 } from "lucide-react";
 import {
   useWordRadar,
@@ -77,6 +77,8 @@ export interface WordRadarResult {
 }
 
 export interface WordRadarProps {
+  practiceCapture?:boolean;
+  launchToken?:string;
   assessmentMode?: boolean;
   onAssessmentAttempt?: (attempt: { itemIndex: number; attemptedValue: string; skipped: boolean; observedAt: string }) => void;
   items: RadarItem[];
@@ -121,7 +123,7 @@ const QWERTY_ROWS = [
   ["a", "s", "d", "f", "g", "h", "j", "k", "l"],
   ["z", "x", "c", "v", "b", "n", "m"],
 ];
-const WORD_AUDIO_CLICK_COOLDOWN_MS = 900;
+const WORD_AUDIO_CLICK_COOLDOWN_MS = 3_000;
 
 function timerColor(ratio: number): string {
   if (ratio > 0.5) return "#facc15";
@@ -137,7 +139,10 @@ function wordRadarModeCopy(
     return { label: "Type the word", helper: "Use the keyboard to answer." };
   }
   if (mode === "letter-by-letter") {
-    return { label: "Spell it out loud", helper: "Say one letter at a time." };
+    return {
+      label: "Spell it out loud or tap",
+      helper: "Say one letter at a time, or tap the letters below.",
+    };
   }
   if (recallMode === "visible_read") {
     return { label: "Read it on screen", helper: "Say the word while you can see it." };
@@ -330,6 +335,8 @@ export function WordRadar({
   planId,
   targetLane,
   wordRadarConfig,
+  practiceCapture = false,
+  launchToken,
   assessmentMode = false,
   onAssessmentAttempt,
 }: WordRadarProps): React.ReactElement {
@@ -343,6 +350,8 @@ export function WordRadar({
     [childId, sendMessage],
   );
   const wordAudioLockRef = useRef<{ key: string; until: number } | null>(null);
+  const wordAudioCooldownTimerRef = useRef<number | null>(null);
+  const [wordAudioPlaying, setWordAudioPlaying] = useState(false);
   const requestedInputMode = resolveWordRadarInputMode(inputMode);
   const resolvedInputMode = assessmentMode || voiceCaptureAvailable === false ? "keyboard" : requestedInputMode;
   const effectiveSpeakStyle = speakStyle ?? "option-a";
@@ -358,10 +367,24 @@ export function WordRadar({
       : effectiveSpeakStyle === "option-b"
         ? "hidden_word_recall"
         : "partial_visual_recall";
+  const spokenLetterConstruction = practiceCapture && effectiveRecallMode === "visible_read" && resolvedInputMode === "whole-word";
+  const keyboardFallbackEnabled =
+    showKeyboard ||
+    resolvedInputMode === "letter-by-letter" ||
+    spokenLetterConstruction ||
+    (
+      inputMode === "whole-word" &&
+      effectiveRecallMode === "partial_visual_recall" &&
+      requiresCapturedResponse
+    );
   const effectiveHideWordDuringResponse =
     assessmentMode || (hideWordDuringResponse ?? effectiveRecallMode !== "visible_read");
   const hiddenDuringSpeech = effectiveSpeakStyle === "option-b";
-  const modeCopy = assessmentMode ? { label: "Listen, then spell", helper: "Tap Hear the word, enter its letters, then Submit. Not sure is okay." } : wordRadarModeCopy(resolvedInputMode, effectiveRecallMode);
+  const modeCopy = assessmentMode
+    ? { label: "Listen, then spell", helper: "Tap Hear the word, enter its letters, then Submit. Not sure is okay." }
+    : spokenLetterConstruction
+      ? { label: "Build the word aloud", helper: "Say one letter at a time. Watch each letter appear." }
+      : wordRadarModeCopy(resolvedInputMode, effectiveRecallMode);
   const bonusItemCount = useMemo(() => items.filter(isBonusRadarItem).length, [items]);
   const resolvedWordRadarConfig: WordRadarNodeConfig = useMemo(
     () =>
@@ -387,26 +410,30 @@ export function WordRadar({
   const wordRadarTelemetry = useMemo(
     () => ({
       activityId: "word-radar",
+      ...(practiceCapture ? {practiceCapture:true} : {}),
+      ...(launchToken ? {launchToken} : {}),
       ...(assessmentMode ? { assessmentMode: true } : {}),
       ...(nodeId ? { nodeId } : {}),
       ...(planId ? { planId } : {}),
       ...(targetLane ? { targetLane } : {}),
       wordRadarConfig: resolvedWordRadarConfig,
     }),
-    [assessmentMode, nodeId, planId, resolvedWordRadarConfig, targetLane],
+    [assessmentMode, practiceCapture, launchToken, nodeId, planId, resolvedWordRadarConfig, targetLane],
   );
-  const responseAnswerVisibility =
-    effectiveHideWordDuringResponse && effectiveRecallMode !== "visible_read"
-      ? "hidden"
-      : "visible";
+  // The flash can show a word, but the response tiles never show its answer.
+  const responseAnswerVisibility = "hidden";
 
   const handleWordRadarEvent = useCallback(
     (event: WordRadarGameEvent) => {
-      if (assessmentMode) {
-        if ((event.type === "correct" || event.type === "incorrect" || event.type === "timeout") && event.item) {
-          onAssessmentAttempt?.({ itemIndex: event.itemIndex ?? 0, attemptedValue: event.typedResponse ?? "", skipped: event.skipped === true || event.reason === "skip", observedAt: new Date().toISOString() });
-        }
+      if(event.type==='engagement' && event.item){
+        flowEvents.reportState('Word Radar input measurement.',{...wordRadarTelemetry,itemId:event.item.itemId,phase:'response',answerVisibility:responseAnswerVisibility,engagement:{id:crypto.randomUUID(),metric:event.metric,value:event.value}});
         return;
+      }
+      if (assessmentMode || practiceCapture) {
+        if ((event.type === "correct" || event.type === "incorrect" || event.type === "timeout") && event.item && (assessmentMode || event.typedResponse !== undefined || event.heardTranscript !== undefined || event.skipped === true || event.reason === "skip")) {
+          onAssessmentAttempt?.({ itemIndex: event.itemIndex ?? 0, attemptedValue: event.typedResponse ?? event.heardTranscript ?? "", skipped: event.skipped === true || event.reason === "skip", observedAt: new Date().toISOString() });
+        }
+        if(assessmentMode)return;
       }
       if (event.type === "ready") {
         flowEvents.reportState("Word Radar intro ready.");
@@ -434,13 +461,15 @@ export function WordRadar({
         });
         return;
       }
-      if ((event.type === "correct" || event.type === "incorrect" || event.type === "timeout") && event.item) {
+      if ((event.type === "correct" || event.type === "incorrect" || event.type === "timeout") && event.item && (assessmentMode || event.typedResponse !== undefined || event.heardTranscript !== undefined || event.skipped === true || event.reason === "skip")) {
         const correct = event.type === "correct";
         const attemptedValue = event.typedResponse ?? event.heardTranscript ?? event.heardToken;
         flowEvents.reportAttempt({
           ...wordRadarTelemetry,
           game: "word-radar",
           activityId: "word-radar",
+      ...(practiceCapture ? {practiceCapture:true} : {}),
+      ...(launchToken ? {launchToken} : {}),
           domain: wordRadarAttemptDomain(event.item),
           target: event.item.itemId ?? event.item.display,
           itemIndex: event.itemIndex,
@@ -497,6 +526,8 @@ export function WordRadar({
             target: event.item.display,
             currentTarget: event.item.display,
             activityId: "word-radar",
+      ...(practiceCapture ? {practiceCapture:true} : {}),
+      ...(launchToken ? {launchToken} : {}),
             phase: "attempt_resolved",
             inputMode: resolvedInputMode,
             recallMode: effectiveRecallMode,
@@ -529,6 +560,7 @@ export function WordRadar({
     [
       assessmentMode,
       onAssessmentAttempt,
+      practiceCapture,
       effectiveHideWordDuringResponse,
       effectiveRecallMode,
       effectiveSpeakStyle,
@@ -621,7 +653,8 @@ export function WordRadar({
     interimTranscript,
     timerSeconds,
     startImmediately: false,
-    showKeyboard,
+    showKeyboard: keyboardFallbackEnabled,
+    spokenLetterConstruction,
     inputMode: resolvedInputMode,
     speakStyle,
     keyboardStyle,
@@ -673,13 +706,15 @@ export function WordRadar({
       phase: "config_audit",
       requestedInputMode: inputMode ?? null,
       resolvedInputMode,
-      showKeyboard,
+      spokenLetterConstruction: spokenLetterConstruction,
+      showKeyboard: keyboardFallbackEnabled,
       speakStyle: effectiveSpeakStyle,
       hiddenDuringSpeech,
       recallMode: effectiveRecallMode,
       hideWordDuringResponse: effectiveHideWordDuringResponse,
       requiresCapturedResponse,
-      keyboardVisible: showKeyboard || resolvedInputMode === "keyboard",
+      keyboardVisible:
+        keyboardFallbackEnabled || resolvedInputMode === "keyboard",
       targetRoleCounts: {
         homework: Math.max(0, items.length - bonusItemCount),
         bonus: bonusItemCount,
@@ -697,7 +732,8 @@ export function WordRadar({
     items.length,
     requiresCapturedResponse,
     resolvedInputMode,
-    showKeyboard,
+    keyboardFallbackEnabled,
+    spokenLetterConstruction,
     wordRadarTelemetry,
   ]);
 
@@ -720,17 +756,40 @@ export function WordRadar({
   }, []);
 
   const display = hook.currentItem?.display ?? "";
+  useEffect(() => {
+    wordAudioLockRef.current = null;
+    setWordAudioPlaying(false);
+    if (wordAudioCooldownTimerRef.current !== null) {
+      window.clearTimeout(wordAudioCooldownTimerRef.current);
+      wordAudioCooldownTimerRef.current = null;
+    }
+    return () => {
+      if (wordAudioCooldownTimerRef.current !== null) {
+        window.clearTimeout(wordAudioCooldownTimerRef.current);
+        wordAudioCooldownTimerRef.current = null;
+      }
+    };
+  }, [display, hook.itemIndex]);
+
   const requestWordAudio = useCallback((reason: string) => {
     const word = display.trim();
     if (!word) return;
     const now = Date.now();
-    const lockKey = `${reason}:${word.toLowerCase()}`;
+    const lockKey = word.toLowerCase();
     const existingLock = wordAudioLockRef.current;
     if (existingLock?.key === lockKey && existingLock.until > now) return;
     wordAudioLockRef.current = {
       key: lockKey,
       until: now + WORD_AUDIO_CLICK_COOLDOWN_MS,
     };
+    setWordAudioPlaying(true);
+    if (wordAudioCooldownTimerRef.current !== null) {
+      window.clearTimeout(wordAudioCooldownTimerRef.current);
+    }
+    wordAudioCooldownTimerRef.current = window.setTimeout(() => {
+      wordAudioCooldownTimerRef.current = null;
+      setWordAudioPlaying(false);
+    }, WORD_AUDIO_CLICK_COOLDOWN_MS);
     const text = /[.!?]$/.test(word) ? word : `${word}.`;
     sendMessage("game_event", {
       event: {
@@ -746,8 +805,8 @@ export function WordRadar({
           itemIndex: hook.itemIndex,
           itemId: hook.currentItem?.itemId,
           phase: hook.phase,
-          control: "hear_again",
-          clickType: "speaker",
+          control: reason === "word_radar_listen_phase" ? "word_prompt" : "hear_again",
+          clickType: reason === "word_radar_listen_phase" ? "automatic" : "speaker",
           visibleState: {
             wordVisible: !assessmentMode && (
               hook.phase === "flash"
@@ -828,7 +887,8 @@ export function WordRadar({
     (effectiveRecallMode === "hidden_word_recall" ||
       (effectiveSpeakStyle === "option-b" && resolvedInputMode !== "letter-by-letter"));
   const showTryAgainButton = hook.canTryAgain;
-  const keyboardVisible = showKeyboard || resolvedInputMode === "keyboard";
+  const keyboardVisible =
+    keyboardFallbackEnabled || resolvedInputMode === "keyboard";
   const showLengthHint =
     hook.phase === "response" && effectiveRecallMode === "partial_visual_recall";
   const currentVisibleState = useCallback(
@@ -875,6 +935,8 @@ export function WordRadar({
       itemIndex: hook.itemIndex,
       itemId: hook.currentItem.itemId,
       phase: hook.phase,
+      speechCaptureArmed:
+        hook.phase === "response" && resolvedInputMode !== "keyboard",
       answerVisibility: assessmentMode ? "hidden" : hook.phase === "response" ? responseAnswerVisibility : "visible",
       attemptCount: hook.attemptCount,
       visibleState: currentVisibleState(hook.phase),
@@ -957,7 +1019,7 @@ export function WordRadar({
         @keyframes wr-shoot {
           0% { transform: translate(0,0) rotate(-35deg); opacity: 0; }
           10% { opacity: 1; }
-          100% { transform: translate(-120vw, 60vh) rotate(-35deg); opacity: 0; }
+          100% { transform: translate(-120vw, 8vh) rotate(-35deg); opacity: 0; }
         }
         @keyframes wr-slamIn {
           0% { transform: scale(2.2); opacity: 0.85; }
@@ -985,7 +1047,7 @@ export function WordRadar({
         }
       `}</style>
 
-      <div data-testid="word-radar-starfield" style={{ position: "absolute", inset: 0 }}>
+      <div data-testid="word-radar-starfield" style={{ position: "absolute", inset: 0, pointerEvents: "none" }}>
         {stars.map((s) => (
           <span
             key={s.id}
@@ -1007,11 +1069,12 @@ export function WordRadar({
         {[0, 1, 2, 3].map((i) => (
           <span
             key={`shoot-${i}`}
+            data-testid="word-radar-shooting-star"
             aria-hidden
             style={{
               position: "absolute",
               right: `${-10 + i * 18}%`,
-              top: `${8 + i * 12}%`,
+              top: `${4 + i * 4}%`,
               width: 80,
               height: 2,
               background: "linear-gradient(90deg, transparent, rgba(255,255,255,0.85))",
@@ -1027,47 +1090,64 @@ export function WordRadar({
       <div
         style={{
           position: "absolute",
-          top: 20,
+          top: 14,
           left: 0,
           right: 0,
           display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
           justifyContent: "center",
-          gap: 8,
+          gap: 4,
           zIndex: 5,
         }}
       >
-        {items.map((item, i) => {
-          const tone = hook.dotOutcomes[i] ?? "pending";
-          const isBonus = isBonusRadarItem(item);
-          const bg =
-            isBonus && tone === "pending"
-              ? "linear-gradient(135deg,#facc15,#fb923c)"
-              : tone === "known"
-              ? "#22c55e"
-              : tone === "weak"
-                ? "#eab308"
-                : tone === "unknown"
-                  ? "#ef4444"
-                  : "rgba(255,255,255,0.25)";
-          return (
-            <span
-              key={i}
-              data-testid="word-radar-progress-dot"
-              data-word-role={isBonus ? "bonus" : "homework"}
-              aria-label={isBonus ? `Bonus word ${i + 1}` : `Homework word ${i + 1}`}
-              style={{
-                width: isBonus ? 13 : 10,
-                height: isBonus ? 13 : 10,
-                borderRadius: "50%",
-                background: bg,
-                border: isBonus
-                  ? "2px solid rgba(254,240,138,0.95)"
-                  : "1px solid rgba(255,255,255,0.2)",
-                boxShadow: isBonus ? "0 0 14px rgba(250,204,21,0.72)" : undefined,
-              }}
-            />
-          );
-        })}
+        <div data-testid="word-radar-progress-label" style={{ color: "rgba(248,250,252,0.9)", fontSize: 12, fontWeight: 800 }}>
+          Word {Math.min(hook.itemIndex + 1, items.length)} of {items.length}
+        </div>
+        <div style={{ display: "flex", justifyContent: "center", gap: 8 }}>
+          {items.map((item, i) => {
+            const tone = hook.dotOutcomes[i] ?? "pending";
+            const isBonus = isBonusRadarItem(item);
+            const isCurrent = i === hook.itemIndex;
+            const bg =
+              isBonus && tone === "pending"
+                ? "linear-gradient(135deg,#facc15,#fb923c)"
+                : tone === "known"
+                ? "#22c55e"
+                : tone === "weak"
+                  ? "#eab308"
+                  : tone === "unknown"
+                    ? "#ef4444"
+                    : "rgba(255,255,255,0.25)";
+            return (
+              <span
+                key={i}
+                data-testid="word-radar-progress-dot"
+                data-word-role={isBonus ? "bonus" : "homework"}
+                data-current={isCurrent ? "true" : "false"}
+                aria-current={isCurrent ? "step" : undefined}
+                aria-label={isBonus ? `Bonus word ${i + 1}` : `Homework word ${i + 1}`}
+                style={{
+                  width: isBonus ? 13 : 10,
+                  height: isBonus ? 13 : 10,
+                  borderRadius: "50%",
+                  background: bg,
+                  border: isCurrent
+                    ? "2px solid rgba(255,255,255,0.95)"
+                    : isBonus
+                      ? "2px solid rgba(254,240,138,0.95)"
+                      : "1px solid rgba(255,255,255,0.2)",
+                  boxShadow: isCurrent
+                    ? "0 0 12px rgba(255,255,255,0.72)"
+                    : isBonus
+                      ? "0 0 14px rgba(250,204,21,0.72)"
+                      : undefined,
+                  transform: isCurrent ? "scale(1.15)" : undefined,
+                }}
+              />
+            );
+          })}
+        </div>
       </div>
 
       {showPb && typeof pbMs === "number" ? (
@@ -1382,23 +1462,29 @@ export function WordRadar({
                   data-testid="word-radar-mic"
                   aria-label={assessmentMode ? "Hear the word" : `Hear ${display || "the word"} again`}
                   onClick={requestCurrentWordAudio}
+                  disabled={!display || wordAudioPlaying}
                   style={{
                     appearance: "none",
                     border: "1px solid rgba(167,139,250,0.4)",
-                    borderRadius: 999,
+                    borderRadius: 18,
                     background: "rgba(15,23,42,0.58)",
                     color: "#f8fafc",
-                    padding: 12,
-                    cursor: display ? "pointer" : "default",
+                    padding: "10px 14px",
+                    cursor: display && !wordAudioPlaying ? "pointer" : "default",
+                    opacity: wordAudioPlaying ? 0.72 : 1,
                     display: "inline-flex",
                     alignItems: "center",
                     justifyContent: "center",
+                    gap: 8,
                     lineHeight: 1,
+                    fontSize: 13,
+                    fontWeight: 900,
                     filter: "drop-shadow(0 0 12px rgba(167,139,250,0.55))",
                     animation: "wr-micPulse 1.2s ease-in-out infinite",
                   }}
                 >
-                  <Volume2 size={34} strokeWidth={2.4} aria-hidden />
+                  <Volume2 size={28} strokeWidth={2.4} aria-hidden />
+                  <span>{wordAudioPlaying ? "Playing…" : assessmentMode ? "Hear word" : "Hear again"}</span>
                 </button>
                 {confidencePresentation ? (
                   <div

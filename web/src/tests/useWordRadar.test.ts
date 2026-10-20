@@ -885,3 +885,15 @@ describe("useWordRadar", () => {
     expect(r.rawResults[0]?.attempts).toBe(2);
   });
 });
+
+it.each(['keys','text'])('measures %s first input, idle gaps and erase bursts without resolving the word',async(input)=>{
+ vi.useFakeTimers();try{
+ const onEvent=vi.fn(),onFinish=vi.fn();
+ const {result,unmount}=renderHook(()=>useWordRadar({items:[elephantItem],interimTranscript:'',personalBests:{},onFinish,onEvent,showKeyboard:true,timerSeconds:60}));
+ await enterResponse();await act(async()=>{vi.advanceTimersByTime(400);if(input==='text')result.current.setTypedBuffer('e');else result.current.appendTypedKey('e');});
+ await act(async()=>{vi.advanceTimersByTime(11000);result.current.appendTypedKey('x');result.current.appendTypedKey('x');});
+ await act(async()=>{result.current.appendTypedKey('Backspace');result.current.appendTypedKey('Backspace');result.current.appendTypedKey('Backspace');});
+ expect(onEvent.mock.calls.map(([e])=>e).filter(e=>e.type==='engagement').map(e=>[e.metric,e.value])).toEqual([['first_input_ms',400],['idle_gap_ms',11000],['erase_burst',3]]);
+ expect(onFinish).not.toHaveBeenCalled();expect(result.current.phase).toBe('response');unmount();
+ }finally{vi.useRealTimers();}
+});

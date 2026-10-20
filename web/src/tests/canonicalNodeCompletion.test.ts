@@ -16,8 +16,8 @@ describe("canonical node completion handoff", () => {
   it("sends native recall attempts with the same required factual envelope as generated activities", async () => {
     const fetch = vi.fn(async (_url: string, _request: RequestInit) => ({ ok: true, json: async () => ({ ok: true }) }));
     vi.stubGlobal("fetch", fetch);
-    await postDiscoveryAttempt({ childId: "lab", homeworkId: "hw", attempt: { itemId: "frozen", attemptId: "once", attemptedValue: "nite", observedAt: "2026-09-08T12:00:00Z" } });
-    expect(JSON.parse(String(fetch.mock.calls[0][1].body))).toMatchObject({ itemId: "frozen", supportEventIds: [], instrumentSignals: [] });
+    await postDiscoveryAttempt({ childId: "lab", homeworkId: "hw", sessionId: "voice-session-1", attempt: { itemId: "frozen", attemptId: "once", attemptedValue: "nite", observedAt: "2026-09-08T12:00:00Z" } });
+    expect(JSON.parse(String(fetch.mock.calls[0][1].body))).toMatchObject({ itemId: "frozen", sessionId: "voice-session-1", supportEventIds: [], instrumentSignals: [] });
   });
   it("flushes a pause without completing or sealing the evaluation", async () => {
     const coordinator = new DiscoveryAcademicCompletionCoordinator();
@@ -153,12 +153,46 @@ describe("canonical node completion handoff", () => {
     const handler = block.slice(block.indexOf("void write().then(") + "void write().then(".length, block.indexOf(").catch("));
     let local: string[] = [];
     await vm.runInNewContext(`(${handler})(completion)`, {
+      homeworkSessionFinishedRef: { current: false },
       completion: { nodeState, outcome: { completed: nodeState === "completed" } },
       launch: { node: { id: "native" } }, plannerBoardPacket: { childChart: { learningCycle: {} } }, hasCanonicalLearningCycle,
       refreshPlannerBoardPacket: async () => {}, setLocallyCompletedPlannerNodeIds: (update: (current: string[]) => string[]) => { local = update(local); },
       setProfileCompanionCurrency: vi.fn(), showPlannerBoardEngagementOverlay: vi.fn(), console,
     });
     expect(local).toEqual(nodeState === "completed" ? ["native"] : []);
+  });
+
+  it("replays a failed save from the visible Play again action", async () => {
+    const source = readFileSync(resolve(process.cwd(), "src/App.tsx"), "utf8");
+    const block = source.slice(source.indexOf("const replayPlannerBoardLaunch ="), source.indexOf("const completePlannerBoardActivity ="));
+    const handler = block.slice(block.indexOf("useCallback(") + "useCallback(".length, block.lastIndexOf(", [launchPlannerBoardNode"));
+    const current = { node: { id: "visual" }, replayNonce: 0 };
+    const packet = { childChart: { learningCycle: { homeworkId: "hw" } }, activeSessionPlan: { adventureBoard: { nodes: [{ id: "visual" }] } } };
+    const launch = vi.fn();
+    await vm.runInNewContext(`(${handler})()`, {
+      plannerBoardLaunch: current, plannerBoardPacket: packet,
+      plannerBoardIframeCompletionKeyRef: { current: null },
+      hasCanonicalLearningCycle, refreshPlannerBoardPacket: async () => packet,
+      resolvePlannerBoardLaunchNode: (_packet: unknown, node: unknown) => node,
+      launchPlannerBoardNode: launch,
+    });
+    expect(launch).toHaveBeenCalledWith(expect.objectContaining({ id: "visual" }), 1);
+  });
+
+  it("shows saved completion even when the subsequent map refresh fails", async () => {
+    const source = readFileSync(resolve(process.cwd(), "src/App.tsx"), "utf8");
+    const block = source.slice(source.indexOf("const completePlannerBoardActivity ="), source.indexOf("const handlePlannerBoardPostActivityAction ="));
+    const handler = block.slice(block.indexOf("void write().then(") + "void write().then(".length, block.indexOf(").catch("));
+    const showOverlay = vi.fn();
+    await vm.runInNewContext(`(${handler})(completion)`, {
+      homeworkSessionFinishedRef: { current: false },
+      completion: { nodeState: "completed", outcome: { completed: true } },
+      launch: { node: { id: "visual" } }, plannerBoardPacket: { childChart: { learningCycle: {} } }, hasCanonicalLearningCycle,
+      refreshPlannerBoardPacket: async () => { throw new Error("temporary_refresh_failure"); },
+      setLocallyCompletedPlannerNodeIds: vi.fn(), setProfileCompanionCurrency: vi.fn(),
+      showPlannerBoardEngagementOverlay: showOverlay, console,
+    });
+    expect(showOverlay).toHaveBeenCalledOnce();
   });
 
   it("uses one host launch identity for retries and a different one for genuine replay", async () => {
@@ -178,14 +212,15 @@ describe("canonical node completion handoff", () => {
   });
 
   it("posts Discovery facts and completion to the assignment endpoints", async () => {
-    const fetchMock = vi.fn(async (_url: string) => new Response(JSON.stringify({ ok: true }), { status: 200, headers: { "Content-Type": "application/json" } }));
+    const fetchMock = vi.fn(async (_url: string, _init?: RequestInit) => new Response(JSON.stringify({ ok: true }), { status: 200, headers: { "Content-Type": "application/json" } }));
     vi.stubGlobal("fetch", fetchMock);
     await postDiscoveryAttempt({ childId: "reina", homeworkId: "hw-1", attempt: { attemptId: "a1" } });
-    await postDiscoveryComplete({ childId: "reina", homeworkId: "hw-1" });
+    await postDiscoveryComplete({ childId: "reina", homeworkId: "hw-1", nodeId: "probe-groups" });
     expect(fetchMock.mock.calls.map(([url]) => url)).toEqual([
       "/api/learning/reina/assignments/hw-1/discovery/attempt",
       "/api/learning/reina/assignments/hw-1/discovery/complete",
     ]);
+    expect(JSON.parse((fetchMock.mock.calls[1]?.[1] as RequestInit).body as string)).toEqual({ nodeId: "probe-groups" });
   });
 
   it("posts the actual node identity and completion payload before showing post-activity UI", async () => {

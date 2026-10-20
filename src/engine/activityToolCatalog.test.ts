@@ -1,4 +1,5 @@
 import fs from "fs";
+import { discoverGames } from "../server/games/registryDiscover";
 import path from "path";
 import { describe, expect, it } from "vitest";
 import {
@@ -11,6 +12,11 @@ import {
 import { REWARD_GAMES, TEACHING_TOOLS } from "../shared/gameRegistry.generated";
 
 describe("activity tool catalog", () => {
+  it("withdraws the unfinished word-builder from planner and companion launch catalogs", () => {
+    expect(getActivityToolContract("word-builder").plannerVisibility).toBe("reference_only");
+    expect(discoverGames().tools).not.toHaveProperty("word-builder");
+    expect(TEACHING_TOOLS).not.toHaveProperty("word-builder");
+  });
   it("marks Word Radar as scaffolded practice instead of mastery evidence", () => {
     const wordRadar = getActivityToolContract("word-radar");
 
@@ -30,6 +36,18 @@ describe("activity tool catalog", () => {
     expect(wordRadar.evidence.writesPracticeEvidence).toBe(true);
     expect(wordRadar.evidence.writesMasteryEvidence).toBe(false);
     expect(wordRadar.evidence.requiresPerTargetResult).toBe(true);
+  });
+
+  it("offers Visual Explainer as assisted spelling instruction, never mastery", () => {
+    const explainer = getActivityToolContract("visual-explainer");
+
+    expect(explainer.domains).toContain("spelling");
+    expect(explainer.purposes).toContain("teach");
+    expect(explainer.evidence.writesPracticeEvidence).toBe(true);
+    expect(explainer.evidence.writesMasteryEvidence).toBe(false);
+    expect(explainer.weakFor).toContain("independent-recall");
+    expect(explainer.gameIds).toContain("spelling-visual-explainer");
+    expect(explainer.configSource).toBe("activity-config-file");
   });
 
   it("exposes Word Radar's honest recall-mode capability ladder to the planner", () => {

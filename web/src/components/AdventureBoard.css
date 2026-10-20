@@ -52,6 +52,8 @@
   z-index: 1;
 }
 
+.adventure-board__edges--narrow, .adventure-board__edges--medium { display: none; }
+
 .adventure-board__edge {
   stroke: var(--board-path);
   stroke-width: 0.82;
@@ -377,6 +379,19 @@
   box-shadow: 0 8px 32px rgba(255, 255, 255, 0.58);
 }
 
+.adventure-board__node--choice-guidance {
+  cursor: default;
+  pointer-events: none;
+}
+
+.adventure-board__node--choice-guidance .adventure-board__node-orb {
+  width: 66px;
+  height: 66px;
+  border-style: dashed;
+  background: color-mix(in srgb, var(--board-panel) 82%, transparent);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.2);
+}
+
 .adventure-board__node--completed .adventure-board__node-orb {
   background: #d1fae5;
   color: #065f46;
@@ -480,6 +495,16 @@
 .adventure-board__node-label {
   display: block;
   max-width: 150px;
+  /* The artist picks text and panel as a pair; the label is drawn on that panel.
+     The plate is painted with a shadow spread so the label's layout box does not grow. */
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--board-panel) 90%, transparent);
+  box-shadow:
+    0 0 0 6px color-mix(in srgb, var(--board-panel) 90%, transparent),
+    0 0 0 7px color-mix(in srgb, var(--board-text) 14%, transparent),
+    0 10px 22px rgba(15, 23, 42, 0.28);
+  letter-spacing: 0.01em;
+  color: var(--board-text);
   font-size: 15px;
   font-weight: 900;
   line-height: 1.1;
@@ -508,7 +533,8 @@
   max-width: 150px;
   padding: 4px 7px;
   border-radius: 8px;
-  background: rgba(15, 23, 42, 0.48);
+  background: color-mix(in srgb, var(--board-panel) 82%, transparent);
+  color: var(--board-text);
   font-size: 11px;
   font-weight: 800;
   line-height: 1.1;
@@ -682,9 +708,14 @@
   line-height: 1.2;
 }
 
-@media (max-width: 900px) {
+@media (max-width: 1600px) {
+  .adventure-board__edges--wide { display: none; }
+  .adventure-board__edges--medium { display: block; }
+
   .adventure-board__node {
     width: 104px;
+    left: var(--medium-x) !important;
+    top: var(--medium-y) !important;
   }
 
   .adventure-board__node-orb {
@@ -717,6 +748,15 @@
   }
 }
 
+@media (max-width: 900px) {
+  .adventure-board__edges--medium { display: none; }
+  .adventure-board__edges--narrow { display: block; }
+  .adventure-board__node {
+    left: var(--narrow-x) !important;
+    top: var(--narrow-y) !important;
+  }
+}
+
 @media (max-width: 560px) {
   .adventure-board__choice-overlay {
     padding: 54px 12px 28px;
@@ -734,6 +774,7 @@
 
   .adventure-board__node {
     width: 88px;
+    gap: 4px;
   }
 
   .adventure-board__node-orb {
@@ -757,7 +798,27 @@
     height: 40px;
   }
 
-  .adventure-board__node-label {
+  .adventure-board__node-label,
+  .adventure-board__node--mystery .adventure-board__node-label,
+  .adventure-board__node--quest .adventure-board__node-label,
+  .adventure-board__node--boss .adventure-board__node-label {
     font-size: 11px;
   }
+}
+
+/* Authored coordinates scale inside one canvas, with global controls above/below
+   and the companion in the side rail. Never reorder portals to resolve a collision. */
+.adventure-board--authored .adventure-board__composition {position:absolute;inset:180px 220px 140px 80px;}
+.adventure-board--authored .adventure-board__node {width:116px;left:var(--medium-x) !important;top:var(--medium-y) !important;}
+.adventure-board--authored .adventure-board__node-label {display:block;max-width:116px;overflow-wrap:anywhere;font-size:15px;line-height:1.2;}
+.adventure-board--authored .adventure-board__node--reward .adventure-board__node-label {display:block;}
+.adventure-board--authored .adventure-board__edge--solid {stroke-dasharray:none;animation:none;}
+.adventure-board--authored .adventure-board__edges--wide {display:block;}
+.adventure-board--authored .adventure-board__edges--medium,
+.adventure-board--authored .adventure-board__edges--narrow {display:none;}
+@media (orientation:portrait) {
+ .adventure-board--authored .adventure-board__composition {inset:150px 80px 160px;}
+ .adventure-board--authored .adventure-board__node {left:var(--narrow-x) !important;top:var(--narrow-y) !important;gap:4px;}
+ .adventure-board--authored .adventure-board__edges--wide {display:none;}
+ .adventure-board--authored .adventure-board__edges--narrow {display:block;}
 }

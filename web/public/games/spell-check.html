@@ -456,6 +456,7 @@ function beginWordOrFinish() {
   }
   var e = sessionWords[wordIndex];
   currentWord = e.w;
+  window.GameBridge.reportState('Spelling item opened', { spellingItemOpened: true, currentWord: currentWord, phase: 'presentation', answerVisibility: 'visible' });
   roundList = endRoundList(e);
   roundIdx = 0;
   r3Consec = 0;
@@ -678,6 +679,7 @@ function submitR3() {
     sWrong();
     return;
   }
+  window.fireAttemptEvent({domain: 'spelling', activityId: 'spell-check', target: currentWord, attemptedValue: r3Input});
   if (r3Input.toLowerCase() === currentWord) {
     if (r3FirstPass) {
       advanceRoundFirstPass();

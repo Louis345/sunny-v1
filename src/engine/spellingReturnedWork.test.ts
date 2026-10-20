@@ -1,3 +1,4 @@
+import {linearJourneyFixture} from "../scripts/fixtures/authoredJourney";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -12,7 +13,7 @@ it.each(["correct", "swapped", "invented"])("validates %s returned spelling link
   const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "spelling-return-")); roots.push(rootDir);
   const childId = "lab", homeworkId = "words";
   const items = buildSpellingRecallItems({ homeworkId, words: ["night", "light"], evidenceIds: ["source"], measurementRole: "fresh_checkpoint" });
-  createSpellingDiscoveryCycle({ childId, homeworkId, title: "Words", contentFingerprint: "f", items }, { rootDir });
+  createSpellingDiscoveryCycle({ childId, homeworkId, title: "Words", contentFingerprint: "f", items, boardDefinition:linearJourneyFixture([`${homeworkId}:discovery`]) }, { rootDir });
   const extract = vi.fn(async (input: { spellingItems?: unknown[] }) => {
     expect(input.spellingItems).toEqual(items.map(item => ({ itemId: item.id, word: item.word, wordId: item.wordId, constructId: item.constructId })));
     return { items: items.map((item, i) => ({ itemId: `returned-${i}`, prompt: item.word, correct: true, childResponse: item.word, extractionConfidence: 1, constructLinks: [{ role: "primary" as const, confidence: 1, constructId: variant === "correct" ? item.constructId : variant === "swapped" ? items[1 - i].constructId : "spelling.invented" }] })) };

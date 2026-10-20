@@ -13,6 +13,7 @@ import {
   choicePolicySpineBoard,
   grokFullExperienceBoard,
   reinaCurrentHomeworkBoard,
+  reinaMay24PlannerAdventureBoard,
   buildSlotLabBoard,
 } from "../storybook/adventureBoardFixtures";
 import adventureBoardStoriesMeta, {
@@ -43,6 +44,27 @@ import {
 
 const rawHorizontalBoard = rawHorizontalBoardJson as AdventureBoardJson;
 const reinaChartPacket = reinaChartPacketJson as unknown as ChildExperiencePacket;
+// Frozen legacy presentation: compatibility must render saved topology, never
+// reconstruct it from an activity inventory or independently authored routes.
+const explicitRouteBoard: AdventureBoardJson = {
+  ...reinaMay24PlannerAdventureBoard,
+  boardId: "explicit-route-test",
+  nodes: [
+    {id:"common-spelling",kind:"activity",activityId:"word-radar",label:"Warmup",state:"completed",position:{x:.15,y:.5}},
+    {id:"choose",kind:"choice-gate",label:"Choose Path",state:"current",position:{x:.4,y:.5},choiceSetId:"baseline-route-options"},
+    {id:"light-route",kind:"activity",activityId:"word-radar",label:"Light Route",state:"locked",position:{x:.7,y:.25}},
+    {id:"story-route",kind:"activity",activityId:"story",label:"Story Route",state:"locked",position:{x:.7,y:.75}},
+  ],
+  edges: [
+    {id:"opening",from:"common-spelling",to:"choose",state:"completed"},
+    {id:"light-path",from:"choose",to:"light-route",state:"locked"},
+    {id:"story-path",from:"choose",to:"story-route",state:"locked"},
+  ],
+  choiceSets:[{id:"baseline-route-options",kind:"baseline-route",title:"Choose Path",options:[
+    {id:"light",nodeId:"light-route",label:"Light Check",state:"available",choiceSignal:{algorithmFeed:"choicePolicy",traits:[],expectedEvidence:"Shown, chosen and skipped options; engagement only.",preferenceNotMastery:true}},
+    {id:"story",nodeId:"story-route",label:"Story",state:"available",choiceSignal:{algorithmFeed:"choicePolicy",traits:[],expectedEvidence:"Shown, chosen and skipped options; engagement only.",preferenceNotMastery:true}},
+  ]}],
+};
 
 vi.mock("../components/CompanionLayer", () => ({
   CompanionLayer: (props: {
@@ -61,10 +83,6 @@ vi.mock("../components/CompanionLayer", () => ({
     />
   ),
 }));
-
-function labelPattern(label: string): RegExp {
-  return new RegExp(label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
-}
 
 function packetForBoard(
   board: AdventureBoardJson,
@@ -282,6 +300,18 @@ describe("AdventureBoard", () => {
     );
   });
 
+  // Oct 19 demo: a missing Grok world left the child a blank board. The image
+  // now sits on the theme's panel colour, so a failed load is still a themed map.
+  it("paints the theme panel colour under the illustrated world", () => {
+    const { container } = render(<AdventureBoard board={grokFullExperienceBoard} />);
+    const board = container.querySelector(".adventure-board") as HTMLElement;
+    const probe = document.createElement("div");
+    probe.style.backgroundColor = grokFullExperienceBoard.theme.palette.panel;
+    expect(board.style.backgroundImage).toContain("silent-letter-world.jpeg");
+    expect(board.style.backgroundColor).toBe(probe.style.backgroundColor);
+    expect(board.style.backgroundColor).not.toBe("");
+  });
+
   it("renders JSON-provided background and node thumbnails", () => {
     const { container } = render(<AdventureBoard board={grokFullExperienceBoard} />);
 
@@ -298,6 +328,33 @@ describe("AdventureBoard", () => {
       container.querySelector(
         'img.adventure-board__node-thumbnail[src="/generated/adventure-board-demo/mystery.jpeg"]',
       ),
+    ).not.toBeNull();
+  });
+
+  it("replaces a broken node thumbnail with the node's stable fallback icon", () => {
+    const board: AdventureBoardJson = {
+      ...rawHorizontalBoard,
+      nodes: rawHorizontalBoard.nodes.map((node, index) =>
+        index === 0
+          ? { ...node, thumbnailUrl: "/generated/missing-node-art.jpeg" }
+          : node,
+      ),
+    };
+    const { container } = render(<AdventureBoard board={board} />);
+    const brokenImage = container.querySelector(
+      'img.adventure-board__node-thumbnail[src="/generated/missing-node-art.jpeg"]',
+    );
+
+    expect(brokenImage).not.toBeNull();
+    fireEvent.error(brokenImage!);
+
+    expect(
+      container.querySelector(
+        'img.adventure-board__node-thumbnail[src="/generated/missing-node-art.jpeg"]',
+      ),
+    ).toBeNull();
+    expect(
+      screen.getByRole("button", { name: board.nodes[0]!.label }).querySelector("svg"),
     ).not.toBeNull();
   });
 
@@ -328,7 +385,7 @@ describe("AdventureBoard", () => {
       "5c.2": { x: 0.62, y: 0.5 },
       "5c.3": { x: 0.7, y: 0.5 },
       "6": { x: 0.76, y: 0.5 },
-      "6.1": { x: 0.74, y: 0.58 },
+      "6.1": { x: 0.87, y: 0.72 },
       "6.2": { x: 0.78, y: 0.42 },
       "7": { x: 0.84, y: 0.31 },
       "8": { x: 0.91, y: 0.13 },
@@ -435,28 +492,34 @@ describe("AdventureBoard", () => {
     );
   });
 
-  it("keeps route destinations locked until canonical board refresh confirms the choice", () => {
+  it("uses Choose Path as guidance and lets the child select a ready route node directly", () => {
     const onChoiceClick = vi.fn();
+    const onNodeClick = vi.fn();
     const routeNodeIds = new Set(
-      reinaCurrentHomeworkBoard.choiceSets
+      explicitRouteBoard.choiceSets
         ?.find((set) => set.id === "baseline-route-options")
         ?.options.map((option) => option.nodeId)
         .filter((nodeId): nodeId is string => Boolean(nodeId)) ?? [],
     );
     const selectableBoard: AdventureBoardJson = {
-      ...reinaCurrentHomeworkBoard,
-      nodes: reinaCurrentHomeworkBoard.nodes.map((node) =>
+      ...explicitRouteBoard,
+      nodes: explicitRouteBoard.nodes.map((node) =>
         node.kind === "choice-gate"
           ? { ...node, state: "current" as const }
           : routeNodeIds.has(node.id)
             ? { ...node, state: "locked" as const, lock: { reason: "route_selection_required", label: "Locked" } }
             : node,
       ),
-      choiceSets: reinaCurrentHomeworkBoard.choiceSets?.map((set) =>
+      choiceSets: explicitRouteBoard.choiceSets?.map((set) =>
         set.id === "baseline-route-options"
           ? {
               ...set,
-              options: set.options.map((option) => ({ ...option, state: "available" as const, lock: undefined })),
+              options: set.options.map((option, index) => ({
+                ...option,
+                state: index === 0 ? "available" as const : "locked" as const,
+                gameHtmlPath: index === 0 ? "/generated/ready-route.html" : undefined,
+                lock: index === 0 ? undefined : { reason: "preparing", label: "Locked" },
+              })),
             }
           : set,
       ),
@@ -479,28 +542,29 @@ describe("AdventureBoard", () => {
       <AdventureBoard
         board={selectableBoard}
         onChoiceClick={onChoiceClick}
+        onNodeClick={onNodeClick}
       />,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Choose Path" }));
-    const dialog = screen.getByRole("dialog", { name: "Choose your path" });
-    fireEvent.click(within(dialog).getByRole("button", { name: labelPattern(selectedOption!.label) }));
+    expect(screen.queryByRole("button", { name: "Choose Path" })).not.toBeInTheDocument();
+    expect(screen.getByRole("note", { name: "Choose Path" })).toBeInTheDocument();
+    const readyRoute = screen.getByRole("button", { name: selectedNode!.label });
+    expect(readyRoute).toHaveClass("adventure-board__node--available");
+    fireEvent.click(readyRoute);
 
     expect(onChoiceClick).toHaveBeenCalledWith(
       expect.objectContaining({ label: selectedOption!.label }),
       expect.objectContaining({ id: "baseline-route-options" }),
     );
+    expect(onNodeClick).not.toHaveBeenCalled();
     expect(screen.getByRole("button", { name: `${skippedNode!.label}, Locked` })).toHaveClass(
-      "adventure-board__node--locked",
-    );
-    expect(screen.getByRole("button", { name: `${selectedNode!.label}, Locked` })).toHaveClass(
       "adventure-board__node--locked",
     );
   });
 
   it("builds preference-only choice evidence from planner board route options", () => {
-    const packet = packetForBoard(reinaCurrentHomeworkBoard);
-    const choiceSet = reinaCurrentHomeworkBoard.choiceSets?.find(
+    const packet = packetForBoard(explicitRouteBoard);
+    const choiceSet = explicitRouteBoard.choiceSets?.find(
       (set) => set.id === "baseline-route-options",
     );
     const option = choiceSet?.options[0];
@@ -677,13 +741,12 @@ describe("AdventureBoard", () => {
     expect(within(storyQuest).getByText("Locked: Needs more evidence")).toBeVisible();
   });
 
-  it("uses one shared modal/card pattern for Choose Path, Mystery, Quest, and Boss choices", () => {
+  it("uses one shared modal/card pattern for playable Mystery, Quest, and Boss choices", () => {
     const scenarios: Array<{
       board: AdventureBoardJson;
       nodeLabel: string;
       kind: string;
     }> = [
-      { board: reinaCurrentHomeworkBoard, nodeLabel: "Choose Path", kind: "baseline-route" },
       { board: grokFullExperienceBoard, nodeLabel: "Mystery", kind: "mystery" },
       { board: boardWithSpecialChoice("quest"), nodeLabel: "Quest", kind: "quest-wrapper" },
       { board: boardWithSpecialChoice("boss"), nodeLabel: "Boss", kind: "boss-wrapper" },
@@ -703,11 +766,12 @@ describe("AdventureBoard", () => {
     }
   });
 
-  it("renders real planner boards through the slot template without explicit positions", () => {
+  it("renders the saved legacy board without reconstructing its topology", () => {
     render(<AdventureBoard board={reinaCurrentHomeworkBoard} />);
 
     expect(reinaCurrentHomeworkBoard.layout?.companionSlot).toBe("right");
-    expect(reinaCurrentHomeworkBoard.nodes.some((node) => node.position == null)).toBe(true);
+    expect(reinaCurrentHomeworkBoard.nodes).toEqual(reinaMay24PlannerAdventureBoard.nodes);
+    expect(reinaCurrentHomeworkBoard.edges).toEqual(reinaMay24PlannerAdventureBoard.edges);
     const firstActivity = reinaCurrentHomeworkBoard.nodes.find((node) => node.kind === "activity");
     expect(firstActivity).toBeDefined();
     expect(screen.getAllByRole("button", { name: firstActivity!.label })[0]).toBeVisible();
@@ -721,6 +785,73 @@ describe("AdventureBoard", () => {
 });
 
 describe("AdventureBoardExperience", () => {
+  // Human miss (2026-09-20): the lab modeled Preparing as `preview`, while the
+  // real generation projection publishes a locked node whose lock label is
+  // Preparing. Saori's board therefore showed the label but silently ignored
+  // the click, and no click event reached the logs.
+  it("explains a production-shaped locked Preparing node without launching it", () => {
+    const onNodeClick = vi.fn();
+    const board: AdventureBoardJson = {
+      ...grokFullExperienceBoard,
+      nodes: grokFullExperienceBoard.nodes.map((node, index) =>
+        index === 1
+          ? {
+              ...node,
+              state: "locked" as const,
+              lock: { reason: "artifact-generating", label: "Preparing" },
+            }
+          : node,
+      ),
+    };
+    const preparing = board.nodes[1]!;
+
+    render(
+      <AdventureBoardExperience
+        packet={packetForBoard(board)}
+        onNodeClick={onNodeClick}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: new RegExp(`^${preparing.label}, Preparing`) }));
+
+    expect(screen.getByRole("status")).toHaveTextContent("still being prepared");
+    expect(onNodeClick).not.toHaveBeenCalled();
+  });
+
+  // Human miss (2026-09-20): an agency projection promoted a blocked node to
+  // current. The child should see the board's existing locked presentation;
+  // no second parent-help message system is needed.
+  it("uses the existing locked presentation for a Parent help needed node", () => {
+    const onNodeClick = vi.fn();
+    const board: AdventureBoardJson = {
+      ...grokFullExperienceBoard,
+      nodes: grokFullExperienceBoard.nodes.map((node, index) =>
+        index === 1
+          ? {
+              ...node,
+              state: "locked" as const,
+              lock: { reason: "generation-needs-attention", label: "Parent help needed" },
+            }
+          : node,
+      ),
+    };
+    const needsHelp = board.nodes[1]!;
+
+    render(
+      <AdventureBoardExperience
+        packet={packetForBoard(board)}
+        onNodeClick={onNodeClick}
+      />,
+    );
+
+    const button = screen.getByRole("button", { name: new RegExp(`^${needsHelp.label}, Parent help needed`) });
+    expect(button).toHaveClass("adventure-board__node--locked");
+    expect(button.querySelector("svg")).not.toBeNull();
+    fireEvent.click(button);
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+    expect(onNodeClick).toHaveBeenCalledWith(expect.objectContaining({ state: "locked" }));
+  });
+
   it("explains a preparing node without launching it or emitting a node callback", () => {
     const onNodeClick = vi.fn();
     const board: AdventureBoardJson = {
@@ -950,7 +1081,8 @@ describe("AdventureBoardExperience", () => {
       game: "word-radar",
       activityId: "wr-node",
       nodeId: "wr-node",
-      phase: "launched",
+      phase: "opening",
+      boardState: "activity_opening",
       activityTitle: "Silent Letter Signal Hunt",
       learningFocus: "silent_letters",
       mechanic: "tap the word matching the spoken clue",
@@ -959,7 +1091,7 @@ describe("AdventureBoardExperience", () => {
       itemIndex: 0,
       totalItems: 1,
       answerVisibility: "hidden",
-      progress: "Silent Letter Signal Hunt started.",
+      progress: "Opening Silent Letter Signal Hunt.",
     });
 
     const action = buildNodeLaunchAction(node!, {
@@ -1090,6 +1222,75 @@ describe("AdventureBoardExperience", () => {
     })).toMatchObject({
       kind: "iframe",
       url: expect.stringContaining("/api/homework/game/reina/hw-math-cycle/comet-check.html"),
+    });
+  });
+
+  it("runs a Mystery option with its selected activity while completing the owning Mystery node", () => {
+    const board: AdventureBoardJson = {
+      ...grokFullExperienceBoard,
+      nodes: [
+        {
+          id: "source-practice",
+          kind: "activity",
+          activityId: "word-radar",
+          label: "Source Practice",
+          state: "completed",
+          action: { type: "launch-activity", payloadId: "source-practice" },
+        },
+        {
+          id: "concept-check",
+          kind: "mystery",
+          activityId: "mystery",
+          label: "Concept Check",
+          state: "available",
+          action: { type: "open-choice-set", payloadId: "concept-check-options" },
+          choiceSetId: "concept-check-options",
+        },
+      ],
+      edges: [],
+      choiceSets: [{
+        id: "concept-check-options",
+        kind: "mystery",
+        title: "Choose a check",
+        options: [{
+          id: "concept-check-story",
+          label: "Story Check",
+          state: "available",
+          nodeId: "concept-check",
+          launchNodeId: "source-practice",
+          activityId: "word-radar",
+        } as never],
+      }],
+    };
+    const packet: ChildExperiencePacket = {
+      ...packetForBoard(board),
+      activeSessionPlan: {
+        ...packetForBoard(board).activeSessionPlan!,
+        nodePlan: [
+          {
+            id: "source-practice",
+            type: "word-radar",
+            activityId: "word-radar",
+            targets: ["sample"],
+            difficulty: 1,
+            source: "chart_planner",
+          },
+          {
+            id: "concept-check",
+            type: "mystery",
+            activityId: "mystery",
+            targets: ["sample"],
+            difficulty: 1,
+            source: "chart_planner",
+          },
+        ],
+      },
+    };
+
+    expect(resolvePlannerBoardChoiceLaunchNode(packet, board.choiceSets![0]!.options[0]!)).toMatchObject({
+      id: "concept-check",
+      type: "word-radar",
+      words: ["sample"],
     });
   });
 

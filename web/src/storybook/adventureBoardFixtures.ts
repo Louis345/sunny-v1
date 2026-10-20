@@ -797,6 +797,7 @@ export const reinaMay24PlannerAdventureBoard: AdventureBoardJson = {
       icon: "check",
       thumbnailUrl: fullExperienceArt.start,
       layout: { role: "start", order: 1 },
+      slot: "1",
       state: "completed",
     },
     {
@@ -807,6 +808,7 @@ export const reinaMay24PlannerAdventureBoard: AdventureBoardJson = {
       icon: "radar",
       thumbnailUrl: fullExperienceArt.wordRadar,
       layout: { role: "baseline", lane: "main", order: 1 },
+      slot: "2",
       state: "current",
       evidenceRole: "baseline",
       target: {
@@ -825,6 +827,7 @@ export const reinaMay24PlannerAdventureBoard: AdventureBoardJson = {
       icon: "book",
       thumbnailUrl: fullExperienceArt.spellCheck,
       layout: { role: "baseline", lane: "main", order: 2 },
+      slot: "3",
       state: "available",
       evidenceRole: "baseline",
       target: {
@@ -842,6 +845,7 @@ export const reinaMay24PlannerAdventureBoard: AdventureBoardJson = {
       icon: "radar",
       thumbnailUrl: fullExperienceArt.wordRadar,
       layout: { role: "evidence-route", lane: "upper", order: 1, routeGroupId: "after-verify-route" },
+      slot: "5a.1",
       state: "available",
       evidenceRole: "baseline",
       target: {
@@ -859,6 +863,7 @@ export const reinaMay24PlannerAdventureBoard: AdventureBoardJson = {
       icon: "book",
       thumbnailUrl: fullExperienceArt.storyChoice,
       layout: { role: "evidence-route", lane: "lower", order: 2, routeGroupId: "after-verify-route" },
+      slot: "5c.1",
       state: "available",
       evidenceRole: "preference",
       target: {
@@ -874,6 +879,7 @@ export const reinaMay24PlannerAdventureBoard: AdventureBoardJson = {
       icon: "route",
       thumbnailUrl: fullExperienceArt.choice,
       layout: { role: "choice-gate", order: 1 },
+      slot: "4",
       state: "locked",
       lock: {
         reason: "needs-current-check",
@@ -890,6 +896,7 @@ export const reinaMay24PlannerAdventureBoard: AdventureBoardJson = {
       icon: "mystery",
       thumbnailUrl: fullExperienceArt.mystery,
       layout: { role: "mystery", order: 1 },
+      slot: "6",
       state: "available",
       evidenceRole: "preference",
       target: {
@@ -908,6 +915,7 @@ export const reinaMay24PlannerAdventureBoard: AdventureBoardJson = {
       icon: "star",
       thumbnailUrl: fullExperienceArt.quest,
       layout: { role: "quest", order: 1 },
+      slot: "7",
       state: "locked",
       evidenceRole: "transfer",
       target: {
@@ -929,6 +937,7 @@ export const reinaMay24PlannerAdventureBoard: AdventureBoardJson = {
       icon: "crown",
       thumbnailUrl: fullExperienceArt.boss,
       layout: { role: "boss", order: 1 },
+      slot: "8",
       state: "locked",
       evidenceRole: "mastery",
       target: {

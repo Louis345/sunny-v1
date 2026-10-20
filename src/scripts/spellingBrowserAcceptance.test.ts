@@ -1,4 +1,14 @@
+import {planAssignmentFromSourceWithTelemetry} from "../engine/assignmentPlanner";
+import { journeyFrontier } from "../shared/adventureBoardDefinition";
+import {linearJourneyFixture} from "./fixtures/authoredJourney";
+import {prepareExistingOriginalSpelling} from '../chart/spelling/originalPreparation';
+import {runOriginalSpellingForecast} from '../chart/spelling/originalForecast';
 import fs from "node:fs";
+import { execFileSync } from "node:child_process";
+import {openChart} from "../chart/db";
+import {exportEvents} from "../chart/exportEvents";
+import {projectAssignment} from "../chart/spelling/projections";
+import type {SpellingProvider} from "../chart/spelling/journey";
 import { createHash } from "node:crypto";
 import os from "node:os";
 import path from "node:path";
@@ -10,18 +20,29 @@ import { expect, it, vi } from "vitest";
 import { setupRoutes } from "../server/routes";
 import { getChildChart } from "../profiles/childChart";
 import { buildChildExperiencePacket } from "../profiles/childExperiencePacket";
-import { SessionManager } from "../server/session-manager";
-import { registerActiveVoiceSessionManager, __resetVoiceSessionRegistryForTests } from "../server/voice-session-registry";
+import { __resetVoiceSessionRegistryForTests } from "../server/voice-session-registry";
 import { runSpellingDiscoveryIntake } from "./ingestHomework";
 import { runAdaptiveMathGeneration } from "./runAdaptiveMathGeneration";
 import { getLearningCycle } from "../engine/learningCycleRepository";
-import { seedSpellingLab, recordedAdaptiveSpellingPlan, recordedSpellingPlan } from "./fixtures/spellingEvidenceFirst";
+import { seedSpellingLab, writeSpellingPdfFixture, recordedAdaptiveSpellingPlan, recordedSpellingPlan } from "./fixtures/spellingEvidenceFirst";
 import { COMPANION_DEFAULTS } from "../shared/companionTypes";
+import { handleWsConnection } from "../server/ws-handler";
 import * as legacyLearning from "../engine/learningEngine";
-const lab = vi.hoisted(() => ({ root: "", plannerCalls: 0, adaptive: false }));
+const lab = vi.hoisted(() => ({ root: "", plannerCalls: 0, adaptive: false, refusePreparation: false, refusalCalls: 0 }));
 vi.mock("../engine/assignmentPlanner", async original => ({ ...await original<typeof import("../engine/assignmentPlanner")>(), planAssignmentFromSourceWithTelemetry: async (packet: any) => { lab.plannerCalls++; return { output: lab.adaptive ? recordedAdaptiveSpellingPlan(packet, lab.root) : recordedSpellingPlan(packet, lab.root), telemetry: { model: "recorded", latencyMs: 1 } }; } }));
 vi.mock("../engine/learningCycleRuntime", async original => { const actual = await original<typeof import("../engine/learningCycleRuntime")>(); return { ...actual, advanceCanonicalCycleFromEvidence: (input: any, opts: any) => actual.advanceCanonicalCycleFromEvidence({ ...input, decide: async cycle => ({ status: "inconclusive", reason: "Immediate recall is not retention", progressionAction: "await_calibration", preserve: [], change: [], testNext: [], nextEvidenceRequired: ["Delayed recall"], predictionEvaluationIds: cycle.predictionEvaluations.map(row => row.evaluationId) }) }, opts) }; });
-vi.mock("../shared/childRegistry", async original => ({ ...await original<typeof import("../shared/childRegistry")>(), listChildProfileIds: () => ["lab-child"] }));
+vi.mock("../deepgram-turn", () => ({
+  connectFlux: vi.fn(async (callbacks: { onOpen: () => void }) => {
+    callbacks.onOpen();
+    return { sendAudio() {}, close() {} };
+  }),
+}));
+vi.mock("../shared/childRegistry", async original => ({ ...await original<typeof import("../shared/childRegistry")>(), listChildProfileIds: () => ["ila"] }));
+
+vi.mock("../engine/directMathExperience",async original=>({...await original<typeof import("../engine/directMathExperience")>(),askLearningPlanner:vi.fn(async(input:any)=>{
+  if (lab.refusePreparation) { lab.refusalCalls++; throw new Error("learning_design_provider_refused"); }
+  return {domain:"spelling",planningResult:await planAssignmentFromSourceWithTelemetry(input.packet)};
+})}));
 
 function hashFilesUnder(paths: string[]): string {
   const hash = createHash("sha256");
@@ -46,12 +67,24 @@ function hashFile(filePath: string): string {
   return createHash("sha256").update(fs.readFileSync(filePath)).digest("hex");
 }
 
+it("keeps the spelling audio proof on Sunny's production WebSocket and TTS path", () => {
+  const source = fs.readFileSync(path.join(process.cwd(), "src/scripts/spellingBrowserAcceptance.test.ts"), "utf8");
+  expect(source).toContain("handleWsConnection(socket, request)");
+  expect(source).not.toContain(["Object.create", "(SessionManager.prototype)"].join(""));
+  expect(source).toContain('transport: "production_ws_handler_and_tts_bridge"');
+});
+
 it.each([
-  { width: 1365, height: 768, adaptive: false },
-  { width: 1280, height: 720, adaptive: false },
-  { width: 1365, height: 768, adaptive: true },
-  { width: 1280, height: 720, adaptive: true },
-])("plays spelling through the real host and canonical routes at $width×$height adaptive=$adaptive", async scenario => {
+  { width: 1365, height: 768, adaptive: false, chart: false },
+  { width: 1280, height: 720, adaptive: false, chart: false },
+  { width: 1365, height: 768, adaptive: true, chart: false },
+  { width: 1280, height: 720, adaptive: true, chart: false },
+  { width: 768, height: 1024, adaptive: false, chart: true },
+  { width: 768, height: 1024, adaptive: true, chart: true },
+  { width: 768, height: 1024, adaptive: false, chart: true, existing: true },
+  { width: 1280, height: 720, adaptive: false, chart: false, failure: true },
+])("plays spelling through the real host and canonical routes at $width×$height adaptive=$adaptive chart=$chart existing=$existing failure=$failure", async scenario => {
+  const childId = "ila";
   const viewport = { width: scenario.width, height: scenario.height };
   const canonicalFamilyPaths = [
     path.join(process.cwd(), "src/context/ila"),
@@ -59,59 +92,168 @@ it.each([
   ];
   const canonicalFamilyHashBefore = hashFilesUnder(canonicalFamilyPaths);
   const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-spelling-browser-")); lab.root = rootDir; lab.plannerCalls = 0; lab.adaptive = scenario.adaptive;
+  lab.refusePreparation = "failure" in scenario && scenario.failure === true;
+  lab.refusalCalls = 0;
   const outputDir = scenario.adaptive
     ? path.join(process.cwd(), "outputs/spelling-adaptation-proof")
     : path.join(process.cwd(), "outputs/evidence-first-spelling", `${viewport.width}x${viewport.height}`);
   fs.mkdirSync(outputDir, { recursive: true });
+  const runId = `${Date.now()}-${viewport.width}x${viewport.height}-chart-${scenario.chart}`;
+  const runDir = path.join(outputDir, "runs", runId);
+  fs.mkdirSync(runDir, { recursive: true });
+  // A dirty checkout is diagnostic evidence, never proof of a release commit.
+  const sourceIdentity = {
+    commit: execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim(),
+    status: execFileSync("git", ["status", "--porcelain"], { encoding: "utf8" }),
+  };
+  fs.writeFileSync(path.join(runDir, "source.json"), JSON.stringify({ ...sourceIdentity, releaseEligible: sourceIdentity.status.trim() === "", provider: "recorded", scenario }, null, 2));
   vi.stubEnv("SUNNY_CONTEXT_ROOT", path.join(rootDir, "src/context")); vi.stubEnv("SUNNY_MODE", "real");
+  vi.stubEnv("SUNNY_ALLOW_REAL_CHILD_CONTEXT_ROOT", "true");
   vi.stubEnv("ANTHROPIC_API_KEY", ""); vi.stubEnv("OPENAI_API_KEY", "");
-  vi.stubEnv("VITE_SUNNY_RUNTIME_CONFIG", JSON.stringify({ subject: "homework", sessionMode: "real", previewMode: "off", nodeAccess: "normal", voiceMode: "normal", childId: "lab-child", homeworkDomain: "spelling" }));
+  vi.stubEnv("VITE_SUNNY_RUNTIME_CONFIG", JSON.stringify({ subject: "homework", sessionMode: "real", previewMode: "off", nodeAccess: "normal", voiceMode: "normal", childId, homeworkDomain: "spelling" }));
   const originalFetch = globalThis.fetch;
   vi.stubGlobal("fetch", (url: any, init?: any) => { if (!["localhost", "127.0.0.1", "[::1]"].includes(new URL(String(url)).hostname)) throw new Error("lab_external_network_forbidden"); return originalFetch(url, init); });
   const words = scenario.adaptive
     ? ["night", "light", "right", "sight", "might", "fight", "write", "knife", "wrong", "climb"]
     : ["night", "light"];
-  const source = seedSpellingLab(rootDir, words, scenario.adaptive ? "/companions/sample.vrm" : "");
+  seedSpellingLab(rootDir, words, scenario.adaptive ? "/companions/sample.vrm" : "", childId);
+  if(scenario.chart&&!scenario.existing) vi.stubEnv("SUNNY_CHART_DIR",path.join(rootDir,"charts"));
+  let chartDb = scenario.chart&&!scenario.existing ? openChart(childId,{chartDir:path.join(rootDir,"charts")}) : undefined;
+  let chartForecastCalls=0;
+  const chartProvider: SpellingProvider = async (stage,packet) => {
+    if(stage === "forecast" && ++chartForecastCalls===1 && !scenario.adaptive)throw Error("recorded_forecast_failure");
+    if(stage === "forecast") return {assignmentId:packet.assignment.assignmentId,probabilities:packet.assignment.assignment!.words.map(word=>({word,pCorrect:0.7})),uncertainty:"Recorded immediate recall; retention unknown",missingEvidence:[],responseIds:packet.assignment.recallChecks.map(row=>row.eventId)};
+    if(stage !== "prior") throw Error("unexpected_fixture_chart_stage");
+    const a=packet.assignment!.assignment!;
+    return {tags:{assignmentId:a.assignmentId,taxonomyVersion:1,tags:a.words.map(word=>({word,patterns:["spelling.irregular"]}))},priors:a.words.map(word=>({assignmentId:a.assignmentId,word,pCorrect:0.6,confidence:0.4,expectedError:"unknown"}))};
+  };
+  const source = writeSpellingPdfFixture(rootDir, words);
   const legacyAttempt = vi.spyOn(legacyLearning, "recordAttempt");
-  const { homeworkId } = await runSpellingDiscoveryIntake({ childId: "lab-child", sourceFile: source, rootDir }, { callPlannerModel: async (packet: Parameters<typeof recordedSpellingDiagnostic>[0]) => ({ draft: { diagnostic: recordedSpellingDiagnostic(packet), title: "School spelling", words: words.map(word => ({ word, pageNumber: 1 })), uncertainty: [] } }) });
-  fs.writeFileSync(path.join(outputDir, "opening-packet.json"), JSON.stringify(buildChildExperiencePacket(getChildChart("lab-child", { rootDir })), null, 2));
+  const { homeworkId } = await runSpellingDiscoveryIntake({ childId, sourceFile: source, rootDir }, { ...(chartDb&&!scenario.existing ? {chart:{db:chartDb,provider:chartProvider}} : {}), callPlannerModel: async (packet: Parameters<typeof recordedSpellingDiagnostic>[0]) => ({ draft: { boardDefinition:linearJourneyFixture(["diagnostic"]), diagnostic: recordedSpellingDiagnostic(packet), title: "School spelling", words: words.map(word => ({ word, pageNumber: 1 })), uncertainty: [] } }) });
+  if(scenario.existing){
+    vi.stubEnv("SUNNY_CHART_DIR",path.join(rootDir,"charts"));
+    chartDb=openChart(childId,{chartDir:path.join(rootDir,"charts")});
+    expect(exportEvents(chartDb)).toEqual([]);
+    const frozen=JSON.stringify(getLearningCycle(childId,homeworkId,{rootDir}));
+    await prepareExistingOriginalSpelling(chartDb,homeworkId,chartProvider,{rootDir});
+    expect(JSON.stringify(getLearningCycle(childId,homeworkId,{rootDir}))).toBe(frozen);
+    expect(exportEvents(chartDb).filter(e=>e.type==='prediction.prior')).toHaveLength(words.length);
+    vi.stubEnv("SUNNY_CHART_DIR",path.join(rootDir,"charts"));
+  }
+  fs.writeFileSync(path.join(outputDir, "opening-packet.json"), JSON.stringify(buildChildExperiencePacket(getChildChart(childId, { rootDir })), null, 2));
   const app = express(); app.use(express.json());
   app.get("/api/profile/:child", (_req, res) => res.json({ companion: { ...COMPANION_DEFAULTS, vrmUrl: scenario.adaptive ? "/companions/sample.vrm" : "" } }));
-  app.get("/api/child-experience/:child", (_req, res) => res.json(buildChildExperiencePacket(getChildChart("lab-child", { rootDir }))));
-  setupRoutes(app);
+  app.get("/api/child-experience/:child", (_req, res) => res.json(buildChildExperiencePacket(getChildChart(childId, { rootDir }))));
+  let automaticGeneration: Promise<void> | undefined;
+  let preparationFailure: string | undefined;
+  let preparationFailedAt = 0;
+  let generationStartedAt: number | undefined;
+  let workerLaunchCount = 0;
+  setupRoutes(app, {
+    forecastSpelling: (child,id,recover) => runOriginalSpellingForecast(child,id,recover,chartProvider),
+    launchAdaptiveMathWorker: (launchedChildId, launchedHomeworkId) => {
+      workerLaunchCount += 1;
+      generationStartedAt = Date.now();
+      automaticGeneration = runAdaptiveMathGeneration(launchedChildId, launchedHomeworkId, rootDir);
+      if (lab.refusePreparation) automaticGeneration = automaticGeneration.catch(error => {
+        preparationFailure = error instanceof Error ? error.message : String(error);
+        preparationFailedAt = Date.now();
+      });
+    },
+  });
+  const recordedPcmFrame = Buffer.alloc(4_800).toString("base64");
+  let recordedProviderConnections = 0;
+  let recordedProviderAudioFrames = 0;
+  const ttsProvider = new WebSocketServer({ host: "127.0.0.1", port: 0 });
+  await new Promise<void>(resolve => ttsProvider.once("listening", resolve));
+  const ttsAddress = ttsProvider.address();
+  if (!ttsAddress || typeof ttsAddress === "string") throw new Error("recorded_tts_address_missing");
+  vi.stubEnv("ELEVENLABS_API_KEY", "recorded-local-only");
+  vi.stubEnv("ELEVENLABS_WS_BASE_URL", `ws://127.0.0.1:${ttsAddress.port}`);
+  ttsProvider.on("connection", socket => {
+    recordedProviderConnections += 1;
+    socket.on("message", raw => {
+      const message = JSON.parse(String(raw)) as { text?: string };
+      if (typeof message.text === "string" && message.text.trim()) {
+        recordedProviderAudioFrames += 1;
+        socket.send(JSON.stringify({ audio: recordedPcmFrame }));
+      }
+      if (message.text === "") socket.close();
+    });
+  });
   const server = app.listen(0, "127.0.0.1"); await new Promise<void>(resolve => server.once("listening", resolve));
   const address = server.address(); if (!address || typeof address === "string") throw new Error("lab_address_missing");
   const ws = new WebSocketServer({ server, path: "/ws" });
+  let serverWebSocketConnections = 0;
   const errors: string[] = [], events: string[] = [];
-  const voice = Object.assign(Object.create(SessionManager.prototype), { chartChildId: "lab-child", childName: "Lab", sessionTtsLabel: "Lab", sessionId: "recorded-voice", companionPresence: "collapsed", send: () => {}, debugRecorder: { recordEvent: () => {}, recordGameTrace: () => {} }, ttsBridge: { connect: async () => {}, sendText: () => {}, finish: async () => {} } }) as SessionManager;
-  registerActiveVoiceSessionManager("lab-child", { noteExternalEvent() {}, getDiscoveryAttemptContext: voice.getDiscoveryAttemptContext.bind(voice) });
-  const handleVoiceMessage = (data: string | Buffer, send: (data: string) => void): void => {
-    const message = JSON.parse(String(data));
-    events.push(`ws:${message.type}`);
-    if (message.type === "start_session") {
-      send(JSON.stringify({ type: "session_started", child: "Lab" })); send(JSON.stringify({ type: "session_boot_ready" }));
-      if (!["evaluation_ready", "evaluation_active"].includes(getLearningCycle("lab-child", homeworkId, { rootDir })!.lifecycle)) {
-        send(JSON.stringify({ type: "audio", data: "UklGRiYAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQIAAAAAAA==" })); send(JSON.stringify({ type: "audio_done" }));
+  const submittedAnswers: Array<{ attemptId: string; itemId: string; attemptedValue: string; transport: string }> = [];
+  let pendingAssessmentPlayback = 0;
+  let confirmedAssessmentPlayback = 0;
+  let assessmentAudioFrames = 0;
+  ws.on("connection", (socket, request) => {
+    serverWebSocketConnections += 1;
+    const observedSocket = socket as any;
+    const productionSend = observedSocket.send.bind(socket);
+    observedSocket.send = (data: unknown, ...args: unknown[]) => {
+      try {
+        const message = JSON.parse(String(data));
+        if (message.type === "audio") {
+          events.push("server:audio");
+          if (pendingAssessmentPlayback > 0) assessmentAudioFrames += 1;
+        }
+      } catch (error) {
+        events.push(`server-send:unparsed:${error instanceof Error ? error.message : String(error)}`);
       }
-    }
-    const event = message.event;
-    if (event?.type === "attempt_event") { events.push("canonical-game:attempt_event"); voice.handleGameEvent(event); }
-    if (event?.type === "game_state_update") voice.updateCurrentBoardSnapshot(event.payload);
-    if (event?.type === "narration_request") void voice.speakGameNarration(event.payload.text, event.payload).then(() => { send(JSON.stringify({ type: "audio_done" })); }).catch(error => errors.push(String(error)));
-  };
-  ws.on("connection", socket => socket.on("message", data => handleVoiceMessage(String(data), value => socket.send(value))));
+      return productionSend(data, ...args);
+    };
+    socket.on("close", (code, reason) => events.push(`server-ws:close:${code}:${String(reason)}`));
+    socket.on("error", error => errors.push(`server-ws:${error.message}`));
+    socket.on("message", data => {
+      const message = JSON.parse(String(data));
+      events.push(`ws:${message.type}`);
+      const event = message.event;
+      if(event?.type === "game_state_update"
+        && (event.payload?.phase === "opening" || event.payload?.phase === "launched")
+        && typeof event.payload?.launchToken === "string"
+        && event.payload.launchToken) events.push(`node-launch:${event.payload.launchToken}`);
+      if (event?.type === "attempt_event") events.push("canonical-game:attempt_event");
+      const attempt = { ...event, ...event?.payload }; // Native GameBridge envelopes carry fields in payload.
+      if (event?.type === "attempt_event" && attempt.activityId !== "word-radar" && attempt.game !== "word-radar"
+        && typeof attempt.attemptId === "string" && typeof attempt.attemptedValue === "string" && !attempt.evidenceLimitation) {
+        submittedAnswers.push({ attemptId: attempt.attemptId, itemId: String(attempt.target), attemptedValue: attempt.attemptedValue, transport: "websocket" });
+      }
+      if (event?.type === "narration_request") pendingAssessmentPlayback += 1;
+      if (message.type === "playback_done" && pendingAssessmentPlayback > 0) {
+        pendingAssessmentPlayback -= 1;
+        confirmedAssessmentPlayback += 1;
+        events.push("browser:assessment-playback-confirmed");
+      }
+    });
+    handleWsConnection(socket, request);
+  });
   let vite: any, browser: Awaited<ReturnType<typeof chromium.launch>> | undefined;
   try {
     const module = await import(pathToFileURL(path.join(process.cwd(), "web/node_modules/vite/dist/node/index.js")).href);
-    vite = await module.createServer({ configFile: false, root: path.join(process.cwd(), "web"), cacheDir: path.join(rootDir, "vite-cache"), esbuild: { jsx: "automatic" }, css: { postcss: { plugins: [require(path.join(process.cwd(), "web/node_modules/tailwindcss"))({ content: [path.join(process.cwd(), "web/src/**/*.{js,ts,jsx,tsx}")] })] } }, define: { "import.meta.env": JSON.stringify({ VITE_SUNNY_RUNTIME_CONFIG: JSON.stringify({ subject: "homework", sessionMode: "real", previewMode: "off", nodeAccess: "normal", voiceMode: "normal", childId: "lab-child", homeworkDomain: "spelling" }) }) }, server: { host: "127.0.0.1", port: 0, fs: { allow: [process.cwd()] }, proxy: { "/api": `http://127.0.0.1:${address.port}`, "/ws": { target: `ws://127.0.0.1:${address.port}`, ws: true } } } }); await vite.listen();
-    browser = await chromium.launch({ args: ["--use-fake-ui-for-media-stream", "--use-fake-device-for-media-stream"] });
-    const page = await browser.newPage({ viewport }); page.setDefaultTimeout(12000);
+    vite = await module.createServer({ configFile: false, root: path.join(process.cwd(), "web"), cacheDir: path.join(rootDir, "vite-cache"), esbuild: { jsx: "automatic" }, css: { postcss: { plugins: [require(path.join(process.cwd(), "web/node_modules/tailwindcss"))({ content: [path.join(process.cwd(), "web/src/**/*.{js,ts,jsx,tsx}")] })] } }, define: { "import.meta.env": JSON.stringify({ VITE_SUNNY_RUNTIME_CONFIG: JSON.stringify({ subject: "homework", sessionMode: "real", previewMode: "off", nodeAccess: "normal", voiceMode: "normal", childId, homeworkDomain: "spelling" }) }) }, server: { host: "127.0.0.1", port: 0, fs: { allow: [process.cwd()] }, proxy: { "/api": `http://127.0.0.1:${address.port}`, "/ws": { target: `ws://127.0.0.1:${address.port}`, ws: true } } } }); await vite.listen();
+    browser = await chromium.launch({ args: ["--use-fake-ui-for-media-stream", "--use-fake-device-for-media-stream", "--use-angle=swiftshader", "--enable-unsafe-swiftshader"] });
+    const page = await browser.newPage({ viewport, recordVideo: { dir: runDir, size: viewport } }); page.setDefaultTimeout(12000);
+    page.on("request", request => {
+      if (request.method() === "POST" && request.url().endsWith("/discovery/attempt")) {
+        const body = request.postDataJSON();
+        submittedAnswers.push({ attemptId: body.attemptId, itemId: body.itemId, attemptedValue: body.attemptedValue, transport: "http" });
+      }
+    });
     page.on("pageerror", error => errors.push(error.message)); page.on("response", response => { if (response.url().includes("/api/")) events.push(`${response.status()} ${response.url()}`); });
+    page.on("console", message => events.push(`console:${message.type()}:${message.text()}`));
     await page.route("**/*", route => ["127.0.0.1", "localhost", ""].includes(new URL(route.request().url()).hostname) ? route.continue() : route.abort());
-    await page.routeWebSocket("**/ws", socket => socket.onMessage(data => handleVoiceMessage(data, value => socket.send(value))));
     const entryStartedAt = Date.now();
     await page.goto(vite.resolvedUrls.local[0]);
-    await page.getByRole("button", { name: "Hear the word", exact: true }).waitFor();
+    // Cold Vite compilation plus software-rendered VRM startup can exceed the
+    // interaction timeout. Keep this bounded startup budget separate; later
+    // controls retain 12s and companion readiness/page-error checks stay strict.
+    await page.getByRole("button", { name: "Hear the word", exact: true }).waitFor({ timeout: 45000 });
+    expect(serverWebSocketConnections).toBe(1);
+    expect(await page.locator(".adventure-board__nodes").count()).toBe(0);
     const discoveryReadyMs = Date.now() - entryStartedAt;
     expect(await page.getByText("night", { exact: true }).count()).toBe(0);
     if (scenario.adaptive) {
@@ -125,44 +267,132 @@ it.each([
       // The existing mic pulses continuously. Verify its real hit target rather
       // than requiring an animated control to stop moving for two frames.
       const hit = await hear.evaluate((element: any) => { const r = element.getBoundingClientRect(); const doc = element.ownerDocument; const x = r.x + r.width / 2, y = r.y + r.height / 2; return { x, y, inside: r.left >= 0 && r.top >= 0 && r.right <= doc.defaultView.innerWidth && r.bottom <= doc.defaultView.innerHeight, clear: element.contains(doc.elementFromPoint(x, y)) }; });
-      expect(hit.inside && hit.clear).toBe(true); await page.mouse.click(hit.x, hit.y);
+      expect(hit.inside && hit.clear).toBe(true);
+      const expectedPlaybackCount = confirmedAssessmentPlayback + 1;
+      await page.mouse.click(hit.x, hit.y);
+      await expect.poll(() => confirmedAssessmentPlayback).toBe(expectedPlaybackCount);
       await page.getByTestId("word-radar-input").fill(value);
-      const written = page.waitForResponse(response => response.url().endsWith("/discovery/attempt"));
-      await page.getByRole("button", { name: "Submit", exact: true }).click();
-      expect((await written).status()).toBe(200);
+      const [written] = await Promise.all([
+        page.waitForResponse(response => response.url().endsWith("/discovery/attempt")),
+        page.getByRole("button", { name: "Submit", exact: true }).click(),
+      ]);
+      expect(written.status()).toBe(200);
     };
     for (const [index, word] of words.entries()) {
+      const resumedOffset = scenario.adaptive && index >= 2 ? 2 : 0;
+      events.push(`expected-item:${index + 1 - resumedOffset}/${words.length - resumedOffset}`);
+      await page.getByText(`Word ${index + 1 - resumedOffset} of ${words.length - resumedOffset}`, {exact:true}).waitFor();
       await answer(scenario.adaptive && index >= 6 ? "zzz" : index === 1 && !scenario.adaptive ? "lite" : word);
-      if (index < words.length - 1) await page.getByTestId("word-radar-input").waitFor();
+      if (index < words.length - 1) {
+        await page.getByTestId("word-radar-input").waitFor();
+      }
+      if (scenario.adaptive && index === 1) {
+        const committedBeforeRestart = getLearningCycle(childId, homeworkId, { rootDir })!.observations;
+        expect(committedBeforeRestart).toHaveLength(2);
+        // Human catch: timeout hid Elli but left this overlay interactive.
+        // Exercise session end through the real browser before resuming saved work.
+        for (const client of ws.clients) client.send(JSON.stringify({type:"session_ended"}));
+        await page.getByRole("button", {name:"Start Sunny",exact:true}).waitFor();
+        expect(await page.getByTestId("word-radar-input").count()).toBe(0);
+        expect(getLearningCycle(childId, homeworkId, {rootDir})!.observations).toEqual(committedBeforeRestart);
+        await page.getByRole("button", {name:"Start Sunny",exact:true}).click();
+        await page.getByTestId("word-radar-input").waitFor();
+        expect(getLearningCycle(childId, homeworkId, { rootDir })!.observations).toEqual(committedBeforeRestart);
+        expect(await page.getByText(words[2], { exact: true }).count()).toBe(0);
+      }
     }
     await page.getByText("Skip", { exact: true }).click();
-    await Promise.race([
-      page.getByRole("button", { name: "Check progress", exact: true }).waitFor(),
-      page.getByRole("button", { name: scenario.adaptive ? "Spelling Practice" : "Word workshop", exact: true }).waitFor(),
-    ]);
-    const before = getLearningCycle("lab-child", homeworkId, { rootDir })!;
+    if (lab.refusePreparation) {
+      await expect.poll(() => preparationFailure).toBe("learning_design_provider_refused");
+      await page.getByText("Building paused", { exact: true }).waitFor({ timeout: 5000 });
+      expect(Date.now() - preparationFailedAt).toBeLessThanOrEqual(5000);
+      expect(await page.locator(".adventure-board__nodes").count()).toBe(0);
+      const preserved = getLearningCycle(childId, homeworkId, { rootDir })!.observations;
+      expect(preserved).toHaveLength(words.length);
+      await page.getByRole("button", { name: "Try again", exact: true }).click();
+      await page.getByText("Building paused", { exact: true }).waitFor();
+      await page.reload();
+      await page.getByText("Building paused", { exact: true }).waitFor({ timeout: 5000 });
+      expect(lab.refusalCalls).toBe(1);
+      expect(workerLaunchCount).toBe(1);
+      expect(getLearningCycle(childId, homeworkId, { rootDir })!.observations).toEqual(preserved);
+      expect(hashFilesUnder(canonicalFamilyPaths)).toBe(canonicalFamilyHashBefore);
+      expect(errors).toEqual([]);
+      await page.screenshot({ path: path.join(runDir, "provider-failure.png") });
+      fs.writeFileSync(path.join(runDir, "provider-failure.json"), JSON.stringify({
+        passed: true, injectedFailure: preparationFailure, providerCalls: lab.refusalCalls,
+        workerLaunchCount, preservedAnswerCount: preserved.length, restartPreservedFailure: true,
+        limitation: "Injected generation failure; provider receipt persistence covered separately",
+      }, null, 2));
+      return;
+    }
+    // Contract 36: the published board offers optional same-session continuation.
+    // It remains hidden until the child explicitly chooses it.
+    await page.getByRole("button", {name:"Let's go!",exact:true}).waitFor({ timeout: 30000 });
+    expect(await page.locator(".adventure-board__nodes").count()).toBe(0);
+    await page.screenshot({path:path.join(outputDir,"preparation-no-map.png")});
+    const before = getLearningCycle(childId, homeworkId, { rootDir })!;
     expect(before.observations.map(row => row.result.correct)).toEqual(scenario.adaptive
       ? [true, true, true, true, true, true, false, false, false, false]
       : [true, false]);
+    expect(assessmentAudioFrames).toBe(words.length);
+    expect(events.filter(event => event === "browser:assessment-playback-confirmed")).toHaveLength(words.length);
+    if(chartDb){
+      const facts=exportEvents(chartDb);const view=projectAssignment(facts,homeworkId);
+      expect(view.responses).toHaveLength(words.length);
+      expect(view.responses.map(row=>row.result)).toEqual(scenario.adaptive ? words.map((_,index)=>index<6 ? "correct" : "incorrect") : ["correct","incorrect"]);
+      expect(Math.max(...view.priors.map(row=>row.sequence))).toBeLessThan(Math.min(...facts.filter(row=>row.type==='item.presented').map(row=>row.sequence)));
+    }
+    const discoveryAudioFrames = assessmentAudioFrames;
+    const discoveryPlaybackConfirmations = confirmedAssessmentPlayback;
     expect(before.observations.at(-1)?.result.observedErrorType).toBeUndefined();
     await page.screenshot({ path: path.join(outputDir, "preparing.png") });
-    const generationStartedAt = Date.now();
-    await runAdaptiveMathGeneration("lab-child", homeworkId, rootDir);
-    const firstReadyMs = Date.now() - generationStartedAt;
-    await runAdaptiveMathGeneration("lab-child", homeworkId, rootDir);
+    expect(workerLaunchCount).toBe(1);
+    expect(automaticGeneration).toBeDefined();
+    await automaticGeneration;
+    const firstReadyMs = Date.now() - generationStartedAt!;
+    // An explicit restart must reuse all completed work and never call the Planner again.
+    await runAdaptiveMathGeneration(childId, homeworkId, rootDir);
     expect(lab.plannerCalls).toBe(1);
-    const checkProgress = page.getByRole("button", { name: "Check progress", exact: true });
-    if (await checkProgress.count()) await checkProgress.click();
-    await page.getByRole("button", { name: scenario.adaptive ? "Spelling Practice" : "Word workshop", exact: true }).waitFor();
     expect(await page.getByTestId("word-radar-input").count()).toBe(0);
+    await page.getByRole("button", {name:"Let's go!",exact:true}).click();
+    await page.locator(".adventure-board").waitFor();
     await page.reload();
-    const board = getChildChart("lab-child", { rootDir }).activeSessionPlan!.adventureBoard!;
-    expect(board.theme.background.type).toBe("image");
-    const backgroundLoaded = await page.evaluate(async url => new Promise<boolean>(resolve => { const image = new (globalThis as any).Image(); image.onload = () => resolve(true); image.onerror = () => resolve(false); image.src = url; }), board.theme.background.value);
-    expect(backgroundLoaded).toBe(true);
-    await expect.poll(() => page.locator(".adventure-board__node-thumbnail").evaluateAll(elements => elements.length >= 3 && elements.every((element: any) => element.complete && element.naturalWidth > 0))).toBe(true);
+    // A complete published board may open directly; an in-progress successor
+    // uses the truthful preparation handoff and then reveals the same board.
+    const enterTeachingBoard = page.getByRole("button", { name: "Let's go!", exact: true });
+    const teachingBoard = page.locator(".adventure-board");
+    await enterTeachingBoard.or(teachingBoard).first().waitFor({ timeout: 45000 });
+    if (await enterTeachingBoard.isVisible()) await enterTeachingBoard.click();
+    await teachingBoard.waitFor({ timeout: 30000 });
+    const board = getChildChart(childId, { rootDir }).activeSessionPlan!.adventureBoard!;
+    const authored = getLearningCycle(childId, homeworkId, { rootDir })!.boards!.find(candidate => candidate.boardId === board.boardId)!.definition!;
+    expect(board.theme.background).toEqual(authored.theme.background);
+    if (authored.theme.background.type === "image") {
+      const backgroundLoaded = await page.evaluate(async url => new Promise<boolean>(resolve => { const image = new (globalThis as any).Image(); image.onload = () => resolve(true); image.onerror = () => resolve(false); image.src = url; }), authored.theme.background.value);
+      expect(backgroundLoaded).toBe(true);
+    }
+    const expectedThumbnailCount = board.nodes.filter((node) => Boolean(node.thumbnailUrl)).length;
+    await expect.poll(() => page.locator(".adventure-board__node-thumbnail").evaluateAll((elements, expectedCount) => elements.length === expectedCount && elements.every((element: any) => element.complete && element.naturalWidth > 0), expectedThumbnailCount)).toBe(true);
     if (scenario.adaptive) {
-      const targeted = getLearningCycle("lab-child", homeworkId, { rootDir })!;
+      // Human saw a tangled board; clickability and loaded artwork did not
+      // prove that labels were readable. Measure the actual rendered controls.
+      const collisions = await page.locator(".adventure-board__node").evaluateAll(elements => {
+        const boxes = elements.map(element => ({
+          label: element.textContent?.trim(), rect: element.getBoundingClientRect(),
+        }));
+        const levelControl = elements[0]?.ownerDocument.querySelector(".level-path-trigger")?.getBoundingClientRect();
+        const hostOverlaps = levelControl ? boxes.filter(({rect}) => Math.min(rect.right, levelControl.right) > Math.max(rect.left, levelControl.left) && Math.min(rect.bottom, levelControl.bottom) > Math.max(rect.top, levelControl.top)).map(box => `${box.label} overlaps the level control`) : [];
+        const outside = boxes.filter(({ rect }) => rect.left < -1 || rect.top < -1 || rect.right > (globalThis as any).innerWidth + 1 || rect.bottom > (globalThis as any).innerHeight + 1)
+          .map(box => `${box.label} is outside the viewport`);
+        return [...hostOverlaps, ...outside, ...boxes.flatMap((a, index) => boxes.slice(index + 1).flatMap(b => {
+          const width = Math.max(0, Math.min(a.rect.right, b.rect.right) - Math.max(a.rect.left, b.rect.left));
+          const height = Math.max(0, Math.min(a.rect.bottom, b.rect.bottom) - Math.max(a.rect.top, b.rect.top));
+          return width * height > 8 ? [`${a.label} overlaps ${b.label}`] : [];
+        }))];
+      });
+      expect(collisions).toEqual([]);
+      const targeted = getLearningCycle(childId, homeworkId, { rootDir })!;
       const missedWords = words.slice(6);
       const final = targeted.nodes.find(node => node.nodeId === "recall-checkpoint")!;
       const routeIds = ["spelling-practice", "sound-and-spell", "wheel-challenge", "recall-practice", "letter-rush"];
@@ -171,13 +401,19 @@ it.each([
         return node && missedWords.every((word) => node.academicTarget.targets.includes(word));
       })).toBe(true);
       expect(final.academicTarget.targets).toEqual(words);
-      expect(new Set(board.nodes.map((node) => node.slot)).size).toBe(board.nodes.length);
-      expect(board.nodes.map((node) => node.id)).toEqual(expect.arrayContaining([...routeIds, "recall-checkpoint", "quest", "boss"]));
-      expect(getChildChart("lab-child", { rootDir }).companion.config.vrmUrl).toBe("/companions/sample.vrm");
-      const companion = page.getByTestId("companion-layer-stack");
+      expect(board.definition).toEqual(authored);
+      expect(board.nodes.map(({id, label, activityNodeId}) => ({id, label, activityNodeId}))).toEqual(
+        authored.portals.map(({id, label, activityNodeId}) => ({id, label, activityNodeId})),
+      );
+      expect(board.nodes.map((node) => node.activityNodeId)).toEqual(expect.arrayContaining([...routeIds, "recall-checkpoint"]));
+      // Contract 21: no Quest/Boss placeholder appears on the Teaching Board or in its frozen nodes.
+      expect(board.nodes.some((node) => node.kind === "quest" || node.kind === "boss")).toBe(false);
+      expect(targeted.nodes.some((node) => node.role === "quest" || node.role === "boss")).toBe(false);
+      expect(getChildChart(childId, { rootDir }).companion.config.vrmUrl).toBe("/companions/sample.vrm");
+      const companion = page.getByTestId("companion-portrait-stack");
       expect(await companion.count()).toBe(1);
       await expect.poll(() => companion.getAttribute("data-companion-model-status")).toBe("ready");
-      const companionCanvas = companion.getByTestId("companion-full-stage").locator("canvas");
+      const companionCanvas = companion.getByTestId("companion-portrait").locator("canvas");
       expect(await companionCanvas.isVisible()).toBe(true);
       expect(await companionCanvas.evaluate((element: any) => element.width > 1 && element.height > 1)).toBe(true);
       const companionModelStatus = await companion.getAttribute("data-companion-model-status");
@@ -188,11 +424,22 @@ it.each([
       const completionScreenshotPath = path.join(outputDir, `completed-route-${viewport.width}x${viewport.height}.png`);
       await page.screenshot({ path: boardScreenshotPath });
 
-      await page.getByRole("button", { name: "Choose Path", exact: true }).click();
-      const routeDialog = page.getByRole("dialog", { name: "Choose your path", exact: true });
-      await routeDialog.waitFor();
-      await routeDialog.getByRole("button", { name: /route Speed It$/ }).click();
+      await page.getByRole("button", { name: "Choose your path", exact: true }).click();
+      await page.getByRole("dialog").getByRole("button", { name: /Speed It/ }).click();
+      await expect.poll(() =>
+        getLearningCycle(childId, homeworkId, { rootDir })?.routeSelection?.choices?.choice,
+      ).toBe("speed-route");
 
+      let releaseCompletion!: () => void;
+      let completionSaved!: () => void;
+      const savedCompletion = new Promise<void>(resolve => { completionSaved = resolve; });
+      const completionGate = new Promise<void>(resolve => { releaseCompletion = resolve; });
+      await page.route("**/api/learning-cycle/node-complete", async route => {
+        const response = await route.fetch(); // Evidence commits before the interruption.
+        completionSaved();
+        await completionGate;
+        await route.fulfill({ response });
+      });
       await page.getByRole("button", { name: "Ready!", exact: true }).click();
       for (const [index, word] of missedWords.entries()) {
         const input = page.getByTestId("word-radar-input");
@@ -201,11 +448,25 @@ it.each([
         await input.waitFor({ state: "hidden" });
         if (index < missedWords.length - 1) await page.getByTestId("word-radar-input").waitFor();
       }
-      await page.getByTestId("post-activity-engagement-overlay").getByRole("button", { name: "Back to map", exact: true }).click();
-      await expect.poll(() => getLearningCycle("lab-child", homeworkId, { rootDir })?.nodes.find((node) => node.nodeId === "letter-rush")?.state).toBe("ready");
+      await savedCompletion;
+      for (const client of ws.clients) client.send(JSON.stringify({type:"session_ended"}));
+      await page.getByRole("button", {name:"Start Sunny",exact:true}).waitFor();
+      const lateResponse = page.waitForResponse(response => response.url().endsWith("/api/learning-cycle/node-complete"));
+      releaseCompletion();
+      await lateResponse;
+      await page.waitForTimeout(500); // Allow the retired completion's refresh to settle.
+      expect(await page.getByTestId("post-activity-engagement-overlay").count()).toBe(0);
+      await page.unroute("**/api/learning-cycle/node-complete");
+      await page.getByRole("button", {name:"Start Sunny",exact:true}).click();
+      await page.locator(".adventure-board").waitFor();
+      expect(await page.getByTestId("post-activity-engagement-overlay").count()).toBe(0);
+      await expect.poll(() => getLearningCycle(childId, homeworkId, { rootDir })?.nodes.find((node) => node.nodeId === "letter-rush")?.state).toBe("ready");
       await page.getByRole("button", { name: "Letter Rush", exact: true }).click();
 
       const letterRush = page.frameLocator('iframe[title="letter-rush"]');
+      await letterRush.locator("body").evaluate((_body: any) => {
+        Math.random = () => 0.1;
+      });
       await letterRush.getByRole("button", { name: "Start", exact: true }).click();
       const letterRushWords: string[] = [];
       for (let wordIndex = 0; wordIndex < missedWords.length; wordIndex += 1) {
@@ -215,28 +476,39 @@ it.each([
         letterRushWords.push(target);
         expect(target).toBe(missedWords[wordIndex]);
         for (const letter of target) {
-          const falling = letterRush.locator(`button.falling[data-letter="${letter}"]`).first();
-          await falling.waitFor({ state: "attached", timeout: 12000 });
-          await falling.click({ force: true });
+          const falling = letterRush.locator(`button.falling[data-letter="${letter}"]`).last();
+          await falling.waitFor({ state: "visible", timeout: 12000 });
+          await falling.evaluate((element: any) => element.click());
         }
+        await letterRush.locator("#jackpotBanner.on").waitFor();
         const next = letterRush.getByRole("button", { name: "Next word →", exact: true });
         await next.waitFor();
         await next.click();
       }
       await page.getByTestId("post-activity-engagement-overlay").getByRole("button", { name: "Back to map", exact: true }).click();
-      await expect.poll(() => getLearningCycle("lab-child", homeworkId, { rootDir })?.nodes.find((node) => node.nodeId === "recall-checkpoint")?.state).toBe("ready");
+      await expect.poll(() => getLearningCycle(childId, homeworkId, { rootDir })?.nodes.find((node) => node.nodeId === "recall-checkpoint")?.state).toBe("ready");
       await page.getByRole("button", { name: "Recall Checkpoint", exact: true }).click();
       await page.getByRole("button", { name: "Ready!", exact: true }).click();
       await page.getByTestId("word-radar-input").waitFor();
       await page.screenshot({ path: finalCheckScreenshotPath });
       for (const [index, word] of words.entries()) {
+        await page.getByText(`Word ${index + 1} of ${words.length}`, {exact:true}).waitFor();
         await answer(word);
         if (index < words.length - 1) await page.getByTestId("word-radar-input").waitFor();
       }
       await page.getByTestId("post-activity-engagement-overlay").getByRole("button", { name: "Play again", exact: true }).waitFor();
       await page.screenshot({ path: completionScreenshotPath });
 
-      const completed = getLearningCycle("lab-child", homeworkId, { rootDir })!;
+      await expect.poll(() => getLearningCycle(childId, homeworkId, { rootDir })?.lifecycle).toBe("awaiting_calibration");
+      const completed = getLearningCycle(childId, homeworkId, { rootDir })!;
+      expect(new Set(completed.observations.map(row => row.observationId)).size).toBe(completed.observations.length);
+      expect(new Set(submittedAnswers.map(row => row.attemptId)).size).toBe(completed.observations.length);
+      for (const submitted of submittedAnswers) {
+        expect(completed.observations.find(row => row.observationId === submitted.attemptId)).toMatchObject({
+          itemId: submitted.itemId, childResponse: submitted.attemptedValue,
+        });
+      }
+      expect(completed.decisionHistory.filter(entry => entry.eventType === "theory_decided")).toHaveLength(1);
       const finalObservations = completed.observations.filter((observation) => observation.sourceId === "activity:recall-checkpoint:recall");
       const finalItemIds = Object.keys(final.evidenceContract.spellingItems ?? {});
       expect(finalObservations.map((observation) => observation.itemId)).toEqual(finalItemIds);
@@ -244,12 +516,45 @@ it.each([
       expect(completed.nodes.find((node) => node.nodeId === "recall-practice")?.state).toBe("completed");
       expect(completed.nodes.find((node) => node.nodeId === "letter-rush")?.state).toBe("completed");
       expect(completed.nodes.find((node) => node.nodeId === "recall-checkpoint")?.state).toBe("completed");
+      const completedActivityIds = completed.nodes.filter(node => node.state === "completed").map(node => node.nodeId);
+      expect(journeyFrontier(authored, completed.routeSelection?.choices ?? {}, completedActivityIds).complete).toBe(true);
+      // The selected chapter closes without inventing completions for its sibling.
+      for (const siblingId of ["spelling-practice", "sound-and-spell", "wheel-challenge"]) {
+        expect(completedActivityIds).not.toContain(siblingId);
+      }
+      if(chartDb){
+        const facts=exportEvents(chartDb);const responses=facts.filter(row=>row.type==='response.observed');
+      const inputSignals=facts.filter(row=>row.type==='engagement.observed'&&row.payload.metric==='first_input_ms');
+      expect(inputSignals.length).toBeGreaterThan(0);
+      expect(inputSignals.every(row=>row.cites.some(id=>facts.some(p=>p.event_id===id&&p.type==='item.presented')))).toBe(true);
+        expect(responses.map(row=>row.payload.sourceResponseId).sort()).toEqual(completed.observations.map(row=>row.observationId).sort());
+        const nativePresentations=facts.filter(row=>row.type==='item.presented' && (row.payload.provenance as {nodeId?:string})?.nodeId==='letter-rush');
+        expect(nativePresentations).toHaveLength(letterRushWords.length);
+        expect(nativePresentations.every(row=>row.payload.instrument==='practice')).toBe(true);
+        expect(nativePresentations.every(row=>responses.some(response=>response.cites.includes(row.event_id)))).toBe(true);
+        fs.writeFileSync(path.join(outputDir,'chart-proof-'+viewport.width+'x'+viewport.height+'.json'),JSON.stringify({provider:'recorded',responseCount:responses.length,nativePresentationCount:nativePresentations.length,priorCount:projectAssignment(facts,homeworkId).priors.length,viewport}));
+      }
       const canonicalFamilyHashAfter = hashFilesUnder(canonicalFamilyPaths);
       expect(canonicalFamilyHashAfter).toBe(canonicalFamilyHashBefore);
       expect(errors).toEqual([]);
 
       const proof = {
         provider: "recorded",
+        source: sourceIdentity,
+        releaseEligible: sourceIdentity.status.trim() === "",
+        submittedAnswers,
+        observations: completed.observations,
+        predictions: completed.academicPredictions,
+        predictionEvaluations: completed.predictionEvaluations,
+        decisions: completed.decisionHistory.filter(row => row.eventType === "theory_decided"),
+        wordResults: words.map(word => {
+          const itemIds = new Set(completed.nodes.flatMap(node => Object.values(node.evidenceContract.spellingItems ?? {}).filter(item => item.word === word).map(item => item.id)));
+          const rows = completed.observations.filter(row => itemIds.has(row.itemId));
+          return { word, before: rows.filter(row => row.sourceId.startsWith("evaluation:")),
+            after: rows.filter(row => row.sourceId === "activity:recall-checkpoint:recall"),
+            practice: rows.filter(row => !row.sourceId.startsWith("evaluation:") && row.sourceId !== "activity:recall-checkpoint:recall"),
+            retention: "unknown", learningImprovement: "unknown: simulated immediate responses do not establish child learning" };
+        }),
         assignment: { homeworkId, words },
         discovery: before.observations.map((observation) => ({ observationId: observation.observationId, itemId: observation.itemId, correct: observation.result.correct, assistance: observation.assistance.status })),
         targeted: {
@@ -258,7 +563,7 @@ it.each([
           selectedRoute: { routeId: "speed-route", nodeIds: ["recall-practice", "letter-rush"], letterRushWords },
           finalCheck: { nodeId: final.nodeId, words: final.academicTarget.targets, itemIds: finalItemIds, observationIds: finalObservations.map((observation) => observation.observationId), allCorrect: finalObservations.every((observation) => observation.result.correct === true) },
         },
-        board: { nodeIds: board.nodes.map((node) => node.id), slots: Object.fromEntries(board.nodes.map((node) => [node.id, node.slot])) },
+        board: { nodeIds: board.nodes.map((node) => node.id), authoredDefinition: authored, layoutCollisions: collisions },
         screenshots: {
           discovery: { path: discoveryScreenshotPath, sha256: hashFile(discoveryScreenshotPath) },
           board: { path: boardScreenshotPath, sha256: hashFile(boardScreenshotPath) },
@@ -266,12 +571,39 @@ it.each([
           completion: { path: completionScreenshotPath, sha256: hashFile(completionScreenshotPath) },
         },
         companion: { modelStatus: companionModelStatus, canvasVisible: companionCanvasVisible },
+        audio: {
+          provider: "recorded_pcm_via_local_elevenlabs_transport",
+          transport: "production_ws_handler_and_tts_bridge",
+          serverWebSocketConnections,
+          recordedProviderConnections,
+          recordedProviderAudioFrames,
+          discoveryRequested: words.length,
+          discoveryFramesDelivered: discoveryAudioFrames,
+          discoveryPlaybackConfirmed: discoveryPlaybackConfirmations,
+          assessmentFramesDelivered: assessmentAudioFrames,
+          totalFramesDelivered: events.filter((event) => event === "server:audio").length,
+          totalPlaybackConfirmed: confirmedAssessmentPlayback,
+        },
         familyIsolation: { paths: canonicalFamilyPaths, before: canonicalFamilyHashBefore, after: canonicalFamilyHashAfter, unchanged: canonicalFamilyHashBefore === canonicalFamilyHashAfter },
         plannerCalls: lab.plannerCalls,
         timing: { discoveryReadyMs, firstReadyMs, limitation: "Recorded Planner and native games only; not a live provider latency or learning-effect estimate." },
         errors,
       };
       fs.writeFileSync(path.join(outputDir, `recorded-journey-${viewport.width}x${viewport.height}.json`), JSON.stringify(proof, null, 2));
+      fs.writeFileSync(path.join(runDir, "journey.json"), JSON.stringify(proof, null, 2));
+      const escapeHtml = (value: unknown) => String(value ?? "unknown").replace(/[&<>"']/g, char => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char]!);
+      const describeResponses = (rows: typeof completed.observations) => rows.length
+        ? rows.map(row => `${escapeHtml(row.childResponse ?? "not captured")} — ${row.result.correct === true ? "correct" : row.result.correct === false ? "incorrect" : "unscored"}; ${escapeHtml(row.assistance.status)}`).join("<br>")
+        : "Not measured";
+      fs.writeFileSync(path.join(runDir, "report.html"), `<!doctype html><html lang="en"><meta charset="utf-8"><title>Sunny session benchmark</title>
+        <style>body{font:17px system-ui;max-width:1100px;margin:40px auto;padding:0 24px;color:#182235}table{border-collapse:collapse;width:100%}th,td{text-align:left;padding:14px;border-bottom:1px solid #ccd4df;vertical-align:top}th{background:#edf2f8}code{overflow-wrap:anywhere}.note{padding:16px;background:#fff2cc}a{color:#1749a4}</style>
+        <h1>Sunny session benchmark</h1><p class="note">Synthetic session with recorded providers. This verifies software behavior, not Ila’s learning or physical microphone and speaker operation.</p>
+        <p>Commit: <code>${escapeHtml(sourceIdentity.commit)}</code><br>Release eligible: ${proof.releaseEligible ? "yes" : "no — uncommitted diagnostic checkout"}</p>
+        <p>Pipeline: passed through the selected activities and final check. Submitted answers: ${submittedAnswers.length}; saved observations: ${completed.observations.length}; mismatches: 0.</p>
+        <table><thead><tr><th>Word</th><th>Before teaching</th><th>Final recall</th><th>Practice observations</th></tr></thead><tbody>${proof.wordResults.map(row => `<tr><td>${escapeHtml(row.word)}</td><td>${describeResponses(row.before)}</td><td>${describeResponses(row.after)}</td><td>${row.practice.length}</td></tr>`).join("")}</tbody></table>
+        <p>Learning improvement: unknown. Retention: unknown. Correct practice answers are not mastery.</p>
+        <p>Saved prediction evaluations: ${completed.predictionEvaluations.length}. Saved next-step decisions: ${proof.decisions.length}. Next step: ${escapeHtml(proof.decisions[0]?.nextAction)}.</p>
+        <p><a href="journey.json">Full evidence and answer ledger</a> · <a href="source.json">Tested source details</a></p></html>`);
       if (viewport.width === 1280 && viewport.height === 720) fs.writeFileSync(path.join(outputDir, "recorded-journey.json"), JSON.stringify(proof, null, 2));
       return;
     }
@@ -283,9 +615,9 @@ it.each([
     await page.getByRole("button", { name: "Ready!", exact: true }).click();
     await answer("night"); await page.getByTestId("word-radar-input").waitFor(); await answer("light");
     await page.getByRole("button", { name: "Play again", exact: true }).waitFor();
-    const after = getLearningCycle("lab-child", homeworkId, { rootDir })!;
+    const after = getLearningCycle(childId, homeworkId, { rootDir })!;
     expect(after.predictionEvaluations).toHaveLength(2);
-    expect(after.nodes.find(node => node.role === "quest")?.state).toBe("locked");
+    expect(after.nodes.some(node => node.role === "quest" || node.role === "boss")).toBe(false);
     const attemptsBeforeReplay = events.filter(event => event.includes("/discovery/attempt")).length;
     await page.getByRole("button", { name: "Play again", exact: true }).click();
     const ready = page.getByRole("button", { name: "Ready!", exact: true });
@@ -298,25 +630,86 @@ it.each([
     await page.getByTestId("word-radar-input").waitFor();
     await page.getByTestId("word-radar-input").fill("light");
     await page.getByRole("button", { name: "Play again", exact: true }).waitFor();
-    const replayed = getLearningCycle("lab-child", homeworkId, { rootDir })!;
+    const replayed = getLearningCycle(childId, homeworkId, { rootDir })!;
     expect(replayed.observations.slice(0, after.observations.length)).toEqual(after.observations);
     expect(replayed.predictionEvaluations).toEqual(after.predictionEvaluations);
     const replayFacts = replayed.observations.slice(after.observations.length);
     expect(replayFacts).toHaveLength(2);
+    if(chartDb){
+      const launches=events.filter(event=>event.startsWith("node-launch:"));
+      expect(launches).toHaveLength(4);expect(new Set(launches).size).toBe(4);
+      const facts=exportEvents(chartDb);const responses=facts.filter(row=>row.type==='response.observed');
+      const inputSignals=facts.filter(row=>row.type==='engagement.observed'&&row.payload.metric==='first_input_ms');
+      expect(inputSignals.length).toBeGreaterThan(0);
+      expect(inputSignals.every(row=>row.cites.some(id=>facts.some(p=>p.event_id===id&&p.type==='item.presented')))).toBe(true);
+      expect(responses).toHaveLength(replayed.observations.length);
+      expect(new Set(responses.map(row=>row.payload.sourceResponseId)).size).toBe(responses.length);
+      expect(responses.map(row=>row.payload.sourceResponseId).sort()).toEqual(replayed.observations.map(row=>row.observationId).sort());
+      fs.writeFileSync(path.join(outputDir,'chart-proof.json'),JSON.stringify({provider:'recorded',responses:responses.length,priorCount:projectAssignment(facts,homeworkId).priors.length,viewport}));
+    }
     expect(replayFacts.every(row => row.provenance === "practice" && row.exposure === "previously_practiced")).toBe(true);
     expect(replayFacts[0].result.correct).toBeUndefined();
     expect(replayFacts[0].childResponse).not.toBe("night");
     expect(replayFacts[1].childResponse).toBe("light");
-    expect(events.filter(event => event.includes("/discovery/attempt"))).toHaveLength(attemptsBeforeReplay);
+    // Each replay answer now uses the original per-answer endpoint; completion must add no duplicate.
+    expect(events.filter(event => event.includes("/discovery/attempt"))).toHaveLength(attemptsBeforeReplay + 2);
     await page.getByText("Skip", { exact: true }).click();
     expect(events).toContain("canonical-game:attempt_event");
     expect(legacyAttempt).not.toHaveBeenCalled();
     expect(errors).toEqual([]);
     fs.writeFileSync(path.join(outputDir, "report.json"), JSON.stringify({ provider: "recorded", viewport, before, after, replayed, events, errors, plannerCalls: lab.plannerCalls, timing: { discoveryReadyMs, firstReadyMs, limitation: "Recorded Planner and native games only; not a live provider latency estimate." } }, null, 2));
     await page.screenshot({ path: path.join(outputDir, "complete.png") });
+    if(chartDb){
+      await page.goto(new URL(`/parent/learning-report?child=${childId}`,vite!.resolvedUrls!.local[0]).href);
+      await page.getByRole('link',{name:'Spelling chart and school results'}).click();
+      const repairResponse=page.waitForResponse(response=>response.url().endsWith('/repair-answers')&&response.request().method()==='POST');
+      await page.getByRole('button',{name:'Repair saved answers'}).click();
+      expect((await repairResponse).status()).toBe(200);
+      expect(getLearningCycle(childId,homeworkId,{rootDir})!.observations).toEqual(replayed.observations);
+      expect(exportEvents(chartDb).filter(row=>row.type==='response.observed')).toHaveLength(replayed.observations.length);
+      await page.getByRole('button',{name:'Try forecast again'}).click();
+      await page.getByText('Forecast error: Awaiting matched school marks',{exact:true}).waitFor();
+      expect(chartForecastCalls).toBe(2);
+      await page.getByLabel('Usual test weekday').selectOption('5');
+      await page.getByRole('button',{name:'Save usual weekday'}).click();
+      await expect.poll(()=>exportEvents(chartDb!).filter(e=>e.type==='test_schedule.set').length).toBe(1);
+      await page.getByLabel('Date for this list').fill('2026-10-09');
+      await page.getByRole('button',{name:'Confirm date for this list'}).click();
+      await expect.poll(()=>exportEvents(chartDb!).filter(e=>e.type==='test_schedule.set').length).toBe(2);
+      await page.getByLabel('School test date').fill('2026-10-09');
+      for(const word of words)await page.getByLabel(`Mark for ${word}`).selectOption(word===words[0]?'correct':'incorrect');
+      await page.getByLabel('I checked these marks against the returned school work').check();
+      await page.getByRole('button',{name:'Save school results'}).click();
+      await page.getByText('School results saved',{exact:true}).waitFor();
+      const school=projectAssignment(exportEvents(chartDb),homeworkId).schoolResult;
+      expect(school?.sourceKind).toBe('parent_transcription');
+      expect(projectAssignment(exportEvents(chartDb),homeworkId).forecast).toMatchObject({scheduledTestDate:null,scheduleFactId:null});
+      expect(school?.results.map(r=>r.correct)).toEqual([true,false]);
+      await page.screenshot({path:path.join(outputDir,'parent-report.png')});
+    }
   } finally {
-    if (browser) { const page = browser.contexts()[0]?.pages()[0]; if (page) { await page.screenshot({ path: path.join(outputDir, "last-state.png") }); fs.writeFileSync(path.join(outputDir, "diagnostic.json"), JSON.stringify({ events, errors, body: await page.locator("body").innerText() })); } await browser.close(); }
-    await vite?.close(); ws.clients.forEach(socket => socket.terminate()); await new Promise<void>(resolve => ws.close(() => resolve())); await new Promise<void>(resolve => server.close(() => resolve())); __resetVoiceSessionRegistryForTests(); vi.restoreAllMocks(); vi.unstubAllEnvs(); vi.unstubAllGlobals(); fs.rmSync(rootDir, { recursive: true, force: true });
+    if (browser) { const page = browser.contexts()[0]?.pages()[0]; if (page) {
+      const diagnosticId=`${viewport.width}x${viewport.height}-chart-${scenario.chart}-${path.basename(rootDir)}`;
+      await page.screenshot({ path: path.join(outputDir, "last-state.png") });
+      fs.copyFileSync(path.join(outputDir,"last-state.png"),path.join(outputDir,`${diagnosticId}.png`));
+      const diagnostic=JSON.stringify({ events, errors, body: await page.locator("body").innerText(),cycle:getLearningCycle(childId,homeworkId,{rootDir}) });
+      fs.writeFileSync(path.join(outputDir,"diagnostic.json"),diagnostic);
+      fs.writeFileSync(path.join(outputDir,`${diagnosticId}.json`),diagnostic);
+      fs.writeFileSync(path.join(runDir,"diagnostic.json"),diagnostic);
+      await page.context().close(); // Flush the video before closing the browser.
+    } await browser.close(); }
+    await vite?.close();
+    ws.clients.forEach(socket => socket.terminate());
+    await new Promise<void>(resolve => ws.close(() => resolve()));
+    await new Promise<void>(resolve => server.close(() => resolve()));
+    ttsProvider.clients.forEach(socket => socket.terminate());
+    await new Promise<void>(resolve => ttsProvider.close(() => resolve()));
+    __resetVoiceSessionRegistryForTests();
+    vi.restoreAllMocks();
+    vi.unstubAllEnvs();
+    vi.unstubAllGlobals();
+    chartDb?.close();
+    fs.rmSync(rootDir, { recursive: true, force: true });
   }
 }, 180000);
 import { recordedSpellingDiagnostic } from "./fixtures/spellingEvidenceFirst";

@@ -1,0 +1,378 @@
+.mystery-reward {
+  --ink: #f9fbff;
+  --muted: #b6c6e8;
+  --cyan: #74efff;
+  --gold: #ffd865;
+  position: relative;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  width: 100%;
+  min-height: 100dvh;
+  overflow: hidden;
+  color: var(--ink);
+  background: #07153b;
+  font-family: Inter, ui-rounded, "SF Pro Rounded", system-ui, sans-serif;
+  isolation: isolate;
+}
+
+.mystery-reward__world,
+.mystery-reward__shade,
+.mystery-reward__sparks {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.mystery-reward__world {
+  z-index: -3;
+  background-position: center;
+  background-size: cover;
+  transform: scale(1.025);
+}
+
+.mystery-reward__shade {
+  z-index: -2;
+  background:
+    radial-gradient(circle at 50% 46%, rgba(23, 61, 131, 0.04) 0 22%, rgba(3, 12, 42, 0.7) 78%),
+    linear-gradient(180deg, rgba(3, 10, 35, 0.28), rgba(5, 15, 48, 0.65));
+}
+
+.mystery-reward__spark {
+  position: absolute;
+  border-radius: 50%;
+  background: white;
+  box-shadow: 0 0 13px 5px rgba(117, 239, 255, 0.75);
+}
+
+.mystery-reward__hud {
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: min(600px, calc(100% - 40px));
+  margin: 20px auto 0;
+  padding: 10px 15px 10px 10px;
+  border: 1px solid rgba(178, 223, 255, 0.25);
+  border-radius: 24px;
+  background: linear-gradient(135deg, rgba(8, 24, 68, 0.87), rgba(21, 55, 113, 0.76));
+  box-shadow: 0 16px 50px rgba(0, 8, 38, 0.32), inset 0 1px 0 rgba(255, 255, 255, 0.16);
+  backdrop-filter: blur(14px);
+}
+
+.mystery-reward__level-badge {
+  display: grid;
+  flex: 0 0 72px;
+  place-content: center;
+  width: 72px;
+  height: 72px;
+  border: 2px solid rgba(255, 228, 129, 0.9);
+  border-radius: 50%;
+  color: #fff4c4;
+  text-align: center;
+  background: radial-gradient(circle at 35% 28%, #4d7dce, #172e72 70%);
+  box-shadow: 0 0 0 5px rgba(255, 214, 87, 0.12), 0 0 25px rgba(255, 218, 99, 0.25);
+}
+
+.mystery-reward__level-badge span {
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: 0.18em;
+}
+
+.mystery-reward__level-badge strong {
+  font-family: Georgia, serif;
+  font-size: 32px;
+  line-height: 0.95;
+}
+
+.mystery-reward__progress-copy {
+  flex: 1;
+  min-width: 0;
+}
+
+.mystery-reward__progress-labels {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 7px;
+  font-size: 13px;
+}
+
+.mystery-reward__progress-labels strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mystery-reward__progress-labels span,
+.mystery-reward__xp-total {
+  color: var(--muted);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.mystery-reward__progress-track {
+  height: 13px;
+  overflow: hidden;
+  border: 1px solid rgba(163, 219, 255, 0.32);
+  border-radius: 999px;
+  background: rgba(0, 8, 38, 0.68);
+  box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.42);
+}
+
+.mystery-reward__progress-fill {
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #35c7ec, #8ff6ff 64%, #fff3a1);
+  box-shadow: 0 0 18px rgba(100, 238, 255, 0.75);
+}
+
+.mystery-reward__xp-total {
+  display: block;
+  margin-top: 4px;
+  text-align: right;
+}
+
+.mystery-reward__stage {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  min-height: 0;
+  place-items: center;
+  padding: 14px 24px 24px;
+}
+
+.mystery-reward__card {
+  position: relative;
+  display: flex;
+  align-items: center;
+  flex-direction: column;
+  justify-content: center;
+  width: min(580px, calc(100vw - 44px));
+  min-height: 440px;
+  padding: 25px 32px;
+  overflow: hidden;
+  border: 1px solid rgba(191, 226, 255, 0.31);
+  border-radius: 42px;
+  text-align: center;
+  background: linear-gradient(150deg, rgba(12, 29, 78, 0.82), rgba(27, 62, 119, 0.68));
+  box-shadow: 0 32px 90px rgba(0, 8, 40, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  backdrop-filter: blur(16px);
+}
+
+.mystery-reward__card--treasure {
+  background: radial-gradient(circle at 50% 53%, rgba(83, 199, 255, 0.19), transparent 38%), rgba(5, 19, 60, 0.78);
+}
+
+.mystery-reward__card--reveal {
+  background: radial-gradient(circle at 50% 44%, rgba(115, 237, 255, 0.2), transparent 38%), rgba(7, 22, 67, 0.8);
+}
+
+.mystery-reward__completion-seal {
+  display: grid;
+  place-items: center;
+  width: 110px;
+  height: 110px;
+  margin-bottom: 12px;
+  border: 4px solid white;
+  border-radius: 50%;
+  color: #08234e;
+  font-size: 58px;
+  font-weight: 1000;
+  background: linear-gradient(145deg, #9bfff3, #5fd8ff);
+  box-shadow: 0 0 0 10px rgba(114, 238, 255, 0.12), 0 0 55px rgba(103, 234, 255, 0.5);
+}
+
+.mystery-reward__eyebrow {
+  margin: 0 0 7px;
+  color: #a8eaff;
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0.25em;
+}
+
+.mystery-reward h1 {
+  margin: 0;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(34px, 4vw, 52px);
+  line-height: 1.05;
+  text-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+}
+
+.mystery-reward__xp-earned {
+  margin: 14px 0 23px;
+  color: var(--gold);
+  font-size: clamp(46px, 6vw, 68px);
+  font-weight: 1000;
+  line-height: 1;
+  text-shadow: 0 0 28px rgba(255, 218, 89, 0.58);
+}
+
+.mystery-reward button {
+  min-width: 180px;
+  min-height: 58px;
+  border: 0;
+  border-radius: 18px;
+  font: inherit;
+  font-size: 17px;
+  font-weight: 900;
+  cursor: pointer;
+  transition: transform 140ms ease, filter 140ms ease, box-shadow 140ms ease;
+}
+
+.mystery-reward button:hover {
+  filter: brightness(1.08);
+  transform: translateY(-2px);
+}
+
+.mystery-reward button:focus-visible {
+  outline: 4px solid white;
+  outline-offset: 4px;
+}
+
+.mystery-reward button:active {
+  transform: translateY(1px) scale(0.98);
+}
+
+.mystery-reward button:disabled {
+  cursor: default;
+  filter: saturate(0.5);
+  opacity: 0.56;
+  transform: none;
+}
+
+.mystery-reward__primary {
+  color: #08234f;
+  background: linear-gradient(180deg, #a7fbff, #60ddea);
+  box-shadow: 0 10px 30px rgba(84, 226, 246, 0.32), inset 0 1px 0 white;
+}
+
+.mystery-reward__primary--gold {
+  color: #452800;
+  background: linear-gradient(180deg, #fff0a5, #ffc840);
+  box-shadow: 0 10px 34px rgba(255, 198, 44, 0.36), inset 0 1px 0 white;
+}
+
+.mystery-reward__secondary {
+  color: white;
+  background: rgba(91, 121, 180, 0.44);
+  box-shadow: inset 0 0 0 1px rgba(202, 226, 255, 0.38);
+}
+
+.mystery-reward__chest {
+  width: min(330px, 65vw);
+  height: 235px;
+  margin: 4px 0 5px;
+  object-fit: contain;
+  filter: drop-shadow(0 24px 26px rgba(0, 2, 20, 0.55));
+}
+
+.mystery-reward__reward {
+  position: relative;
+  z-index: 1;
+  width: min(250px, 48vw);
+  height: 240px;
+  margin: 3px 0 5px;
+  object-fit: contain;
+  filter: drop-shadow(0 24px 28px rgba(0, 5, 33, 0.55));
+}
+
+.mystery-reward__burst {
+  position: absolute;
+  top: 44%;
+  left: 50%;
+  width: 340px;
+  height: 340px;
+  border-radius: 50%;
+  background: repeating-conic-gradient(from 0deg, rgba(145, 245, 255, 0.2) 0deg 4deg, transparent 4deg 17deg);
+  filter: blur(1px);
+  transform: translate(-50%, -50%);
+}
+
+.mystery-reward__decisions {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  gap: 12px;
+}
+
+.mystery-reward__resolved {
+  position: relative;
+  z-index: 1;
+  min-width: 220px;
+  padding: 17px 24px;
+  border: 1px solid rgba(164, 255, 239, 0.58);
+  border-radius: 18px;
+  color: #c8fff4;
+  font-size: 18px;
+  font-weight: 900;
+  background: rgba(35, 133, 128, 0.34);
+  margin-bottom: 10px;
+}
+
+@media (max-height: 760px) {
+  .mystery-reward__hud {
+    margin-top: 12px;
+    transform: scale(0.92);
+    transform-origin: top center;
+  }
+
+  .mystery-reward__stage {
+    padding-top: 4px;
+  }
+
+  .mystery-reward__card {
+    min-height: 0;
+    height: calc(100dvh - 132px);
+    max-height: 574px;
+    padding: 17px 28px;
+    border-radius: 32px;
+  }
+
+  .mystery-reward__completion-seal {
+    width: 90px;
+    height: 90px;
+    font-size: 49px;
+  }
+
+  .mystery-reward__chest,
+  .mystery-reward__reward {
+    height: min(220px, 31dvh);
+  }
+}
+
+@media (max-width: 620px) {
+  .mystery-reward__hud {
+    gap: 10px;
+  }
+
+  .mystery-reward__level-badge {
+    flex-basis: 60px;
+    width: 60px;
+    height: 60px;
+  }
+
+  .mystery-reward__progress-labels span {
+    display: none;
+  }
+
+  .mystery-reward__card {
+    padding-inline: 20px;
+  }
+
+  .mystery-reward__decisions {
+    width: 100%;
+    flex-direction: column;
+  }
+
+  .mystery-reward__decisions button {
+    width: 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mystery-reward button {
+    transition: none;
+  }
+}

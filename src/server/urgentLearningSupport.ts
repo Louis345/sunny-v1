@@ -1,3 +1,5 @@
+import { getChildChart } from "../profiles/childChart";
+import type { SpellingAssessmentState } from "./game-event-handler";
 import type {
   ChildSignalInput,
   ChildSignalType,
@@ -12,6 +14,7 @@ import {
 } from "./companionInteractionMemory";
 import {
   buildCurrentBoardSnapshotContext,
+  redactProtectedSpellingText,
   type CurrentBoardSnapshot,
 } from "./currentBoardSnapshot";
 import { shouldPersistSessionData } from "../utils/runtimeMode";
@@ -172,6 +175,8 @@ export function prepareInstructionReadRequest(input: {
   prompt: string;
   requestCount: number;
   answerVisibility: string;
+  measurementRole?: "instruction" | "practice" | "fresh_checkpoint";
+  trigger?: "guided_prompt" | "child_request";
   previousRequestKey: string | null;
 }): { requestKey: string; prompt: string; trace: Record<string, unknown> } | null {
   const prompt = input.prompt.trim();
@@ -180,27 +185,55 @@ export function prepareInstructionReadRequest(input: {
   if (requestKey === input.previousRequestKey) return null;
   return {
     requestKey,
-    prompt,
+    prompt: [
+      "Activity support turn:",
+      input.trigger === "guided_prompt"
+        ? "The targeted teaching activity has invited one automatic guided introduction."
+        : "The child asked Elli to read or explain the current prompt.",
+      `Frozen prompt: ${JSON.stringify(prompt)}`,
+      `Measurement role: ${input.measurementRole ?? "unknown"}.`,
+      "Use the live answer-hidden activity context. Speak naturally in one short, age-appropriate sentence.",
+      "Read or briefly simplify what the child needs to do; do not reveal, imply, or eliminate toward the answer and do not alter the choices or scoring contract.",
+      input.trigger === "guided_prompt"
+        ? "This was system-invited support, not evidence that the child asked for help; do not record a help-needed child signal."
+        : "This was child-requested support; record it only as support/interaction evidence, never mastery.",
+      "Return control to the activity unless a brief understanding question is genuinely needed.",
+    ].join("\n"),
     trace: {
-      type: "instructional_read_aloud",
+      type: "instructional_companion_support",
       source: "companion",
       activityId: input.activityId,
       nodeId: input.nodeId,
       itemId: input.itemId,
+      measurementRole: input.measurementRole ?? "unknown",
+      trigger: input.trigger ?? "child_request",
       evidenceRole: "support",
       masteryEligible: false,
     },
   };
 }
 
+function readCompanionCycle(childId: string) {
+  try { return getChildChart(childId).learningCycle; }
+  catch (error) {
+    console.warn(" 🎮 [companion] [recorded-status] [unavailable]", error instanceof Error ? error.message : String(error));
+    return undefined;
+  }
+}
+
 export function buildActivityCompanionContext(input: {
+  speechRate?: number;
+  spellingAssessment?: SpellingAssessmentState;
   snapshot: CurrentBoardSnapshot | null;
   childSpeech?: string;
   childId: string;
   companionId: string;
   presence: CompanionPresence;
 }): string {
-  const board = buildCurrentBoardSnapshotContext(input.snapshot, { childSpeech: input.childSpeech });
+  const cycle = input.snapshot?.nodeId ? readCompanionCycle(input.childId) : undefined;
+  const snapshot = input.snapshot ? { ...input.snapshot,
+    recordedActivityStatus: cycle?.nodes.find(node => node.nodeId === input.snapshot?.nodeId)?.state } : null;
+  const board = buildCurrentBoardSnapshotContext(snapshot, { childSpeech: input.childSpeech });
   const memory = buildShowroomTalkMemoryPrompt(
     readCompanionCareMemoryForPrompt(input.childId, input.companionId),
   );
@@ -212,7 +245,19 @@ export function buildActivityCompanionContext(input: {
         "Otherwise return control to the activity and allow the companion to return to standby.",
       ].join("\n")
     : "";
-  return [board, memory, helpObjective].filter(Boolean).join("\n\n");
+  let spelling = "";
+  const assessment = input.spellingAssessment;
+  if (assessment && input.snapshot?.itemId === assessment.itemId) {
+    const items = cycle?.nodes.find(node => node.nodeId === assessment.nodeId)?.evidenceContract.spellingItems;
+    const last = cycle?.observations?.filter(observation => items?.[observation.itemId]).at(-1);
+    spelling = ["[Canonical spelling activity facts]",
+      JSON.stringify({ itemId:assessment.itemId, ...(input.snapshot.spellingSupportMode === "pronunciation_model" ? {spokenStimulus:assessment.word} : {}),
+        instrument:assessment.instrument, lastAcknowledgedStimulusRates:assessment.lastStimulusRates ?? null, answerVisibility:input.snapshot.answerVisibility,
+        ...(cycle ? {lastSubmittedResponse:last ? {itemId:last.itemId,response:last.childResponse,result:last.result,assistance:last.assistance} : null} : {recordedHistoryAvailable:false}) }),
+      "The activity owns answer submission and grading. Spoken repetition is not a submitted spelling answer. These facts supersede prior conversational grades; a hidden answer must not be revealed as written letters.",
+    ].join("\n");
+  }
+  return redactProtectedSpellingText([board, input.speechRate === undefined ? "" : `Configured speech speed: ${input.speechRate} (1=normal; resets on item or launch change).`, memory, helpObjective, spelling].filter(Boolean).join("\n\n"), input.snapshot);
 }
 
 export function recordActivityCompanionHelp(input: {
@@ -243,11 +288,6 @@ export function recordActivityCompanionHelp(input: {
   });
 }
 
-export function isCompanionWakeOnlyTranscript(transcript: string, companionName: string): boolean {
-  const text = normalizeSpeechText(transcript).replace(/^(?:hey|hi|okay|ok)\s+/, "");
-  return new Set(["sunny", "elli", "ellie", normalizeSpeechText(companionName)]).has(text);
-}
-
 export function handleCompanionPresenceTranscript(input: {
   enabled: boolean;
   transcript: string;
@@ -275,16 +315,22 @@ export function handleCompanionPresenceTranscript(input: {
     return true;
   }
   if (route.action === "ignore_ambient") {
+    const ignoredReason = normalizeSpeechText(input.transcript)
+      ? "companion_collapsed_without_wake_phrase"
+      : "transcript_empty_after_normalization";
     console.log("  🎮 [companion-presence] [ambient-ignored]");
     input.recordEvent("transcript", "ambient_ignored", {
       transcriptLength: input.transcript.length,
       nodeId: input.nodeId,
+      reason: ignoredReason,
+      companionPresence: input.presence,
+      speechCaptureArmed: input.speechCaptureArmed,
     });
     return true;
   }
   if (route.action === "summon_and_respond") {
     input.setPresence("summoned", "voice");
-    return isCompanionWakeOnlyTranscript(input.transcript, input.companionName);
+    return false;
   }
   return false;
 }
@@ -295,16 +341,15 @@ export function routeCompanionPresenceTranscript(input: {
   companionName: string;
   speechCaptureArmed?: boolean;
 }): CompanionPresenceTranscriptRoute {
-  if (input.speechCaptureArmed) return { action: "route_to_game" };
   const text = normalizeSpeechText(input.transcript);
   if (!text) return { action: "ignore_ambient" };
-  const aliases = [...new Set(["sunny", "elli", "ellie", input.companionName]
+  const aliases = [...new Set(["sunny", "sonny", "sony", "elli", "ellie", input.companionName]
     .map(normalizeSpeechText)
     .filter(Boolean))];
   const aliasPattern = aliases.map(escapeRegExp).join("|");
   const aliasToken = `(?:${aliasPattern})`;
   const repeatedFarewell = `(?:bye|goodbye)(?:\\s+${aliasToken})?(?:\\s+(?:bye|goodbye)(?:\\s+${aliasToken})?)*`;
-  const shortRecognizedFarewell = /^(?:(?:alright|okay|ok)\s+)?(?:bye|goodbye)(?:\s+\S+)?$/i;
+  const shortRecognizedFarewell = /^(?:(?:alright|okay|ok|k)\s+)?(?:bye|goodbye)(?:\s+\S+)?$/i;
   const dismissal = new RegExp(
     `^(?:${repeatedFarewell}|(?:dismiss|go away|im good|i am good)(?:\\s+${aliasToken})?)$`,
     "i",
@@ -315,11 +360,9 @@ export function routeCompanionPresenceTranscript(input: {
   ) {
     return { action: "dismiss" };
   }
-  const wake = new RegExp(
-    `^(?:(?:hey|hi|okay|ok)\\s+)?(?:${aliasPattern})(?:\\b|$)`,
-    "i",
-  );
+  const wake = new RegExp(`(?:^|\\s)(?:${aliasPattern})(?:\\b|$)`, "i");
   if (wake.test(text)) return { action: "summon_and_respond" };
+  if (input.speechCaptureArmed) return { action: "route_to_game" };
   return input.presence === "summoned"
     ? { action: "respond" }
     : { action: "ignore_ambient" };

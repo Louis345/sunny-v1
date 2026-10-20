@@ -84,6 +84,7 @@ describe("Correct consumption point", () => {
   it("transcript queued during PROCESSING; not consumed by onAgentComplete; consumed after playbackDone; handleEndOfTurn replay", async () => {
     const ws = mockBrowserWs();
     const session = new SessionManager(ws, "Ila");
+    (session as unknown as {companionPresence:string}).companionPresence="summoned";
     const turnSM = (session as unknown as { turnSM: TurnStateMachine }).turnSM;
 
     turnSM.onStartCompanionFromIdle();
@@ -137,6 +138,7 @@ describe("TTS off path", () => {
   it("pending transcript consumed after playbackDone when TTS disabled (same as client synthetic playback_done)", async () => {
     const ws = mockBrowserWs();
     const session = new SessionManager(ws, "Ila");
+    (session as unknown as {companionPresence:string}).companionPresence="summoned";
     const turnSM = (session as unknown as { turnSM: TurnStateMachine }).turnSM;
 
     turnSM.onStartCompanionFromIdle();
@@ -155,6 +157,7 @@ describe("TTS off path", () => {
   it("pending is not left set after full turn cycle when TTS disabled", async () => {
     const ws = mockBrowserWs();
     const session = new SessionManager(ws, "Ila");
+    (session as unknown as {companionPresence:string}).companionPresence="summoned";
     const turnSM = (session as unknown as { turnSM: TurnStateMachine }).turnSM;
 
     turnSM.onStartCompanionFromIdle();

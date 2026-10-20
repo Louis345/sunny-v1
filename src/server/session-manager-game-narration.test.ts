@@ -2,7 +2,40 @@ import { describe, expect, it, vi } from "vitest";
 import { SessionManager } from "./session-manager";
 
 describe("SessionManager game narration", () => {
-  it("records playback proof after game narration enters the audio path", async () => {
+  it("does not write a superseded short reply into the next word's stream", async () => {
+    let connected!:()=>void;
+    let owner:any;
+    const connect=new Promise<void>(resolve=>{connected=resolve;});
+    const session:any={
+      childName:"Ila",sessionTtsLabel:"EYE-lah",currentBoardSnapshot:{nodeId:"opening",itemId:"either"},
+      turnSM:{onEndOfTurn:vi.fn(),onAgentComplete:vi.fn(),onSpeakingDone:vi.fn()},send:vi.fn(),
+      ttsBridge:{beginPlayback:(requestId:string)=>{owner={requestId};},currentPlaybackIdentity:()=>owner,
+        connect:()=>connect,sendText:vi.fn(),finish:vi.fn(async()=>{})},
+    };
+    const reply=(SessionManager.prototype as any).handleCompanionTurn.call(session,"Old reply.");
+    await new Promise(resolve=>setImmediate(resolve));
+    owner={requestId:"next-word"};
+    session.currentBoardSnapshot.itemId="cheese";
+    connected(); await reply;
+    expect(session.ttsBridge.sendText).not.toHaveBeenCalled();
+    expect(session.send).not.toHaveBeenCalledWith("audio_done",expect.anything());
+    expect(session.turnSM.onSpeakingDone).not.toHaveBeenCalled();
+  });
+
+  it("gives a Hear word tap sole ownership by canceling a pending Elli reply before synthesis", async () => {
+    const order:string[]=[];
+    const session = {
+      childName:"Ila",sessionTtsLabel:"EYE-lah",debugRecorder:{recordEvent:vi.fn()},send:vi.fn(),
+      currentAbort:new AbortController(),turnSM:{getState:()=>"PROCESSING"},
+      bargeIn:vi.fn(()=>order.push("cancel_reply")),
+      ttsBridge:{beginPlayback:vi.fn(),connect:async()=>{order.push("connect_word");},sendText:vi.fn(),finish:async()=>{}},
+    };
+    await SessionManager.prototype.speakGameNarration.call(session,"cheese.",{itemId:"cheese"});
+    expect(order).toEqual(["cancel_reply","connect_word"]);
+    expect(session.bargeIn).toHaveBeenCalledOnce();
+    clearTimeout((session as any).gameNarrationPlaybackTimer);
+  });
+  it("does not call provider completion browser playback proof", async () => {
     const recordEvent = vi.fn();
     const send = vi.fn();
     const fakeSession = {
@@ -11,16 +44,21 @@ describe("SessionManager game narration", () => {
       debugRecorder: { recordEvent },
       noteExternalEvent: vi.fn(),
       ttsBridge: {
+        beginPlayback: vi.fn(),
         connect: vi.fn().mockResolvedValue(undefined),
         sendText: vi.fn(),
         finish: vi.fn().mockResolvedValue(undefined),
       },
       send,
+      turnSM: { onPlaybackComplete: vi.fn(), consumePendingTranscript: vi.fn() },
+      flushPendingRoundComplete: vi.fn(),
+      handleEndOfTurn: vi.fn(),
     };
 
     await SessionManager.prototype.speakGameNarration.call(fakeSession, "know.", {
       activityId: "word-radar",
       nodeId: "n-word-radar",
+      itemId: "item-1",
       reason: "word_radar_response_prompt",
     });
 
@@ -29,12 +67,85 @@ describe("SessionManager game narration", () => {
       nodeId: "n-word-radar",
       reason: "word_radar_response_prompt",
     }));
+    expect(recordEvent).toHaveBeenCalledWith("game_narration", "tts_stream_done", expect.objectContaining({
+      activityId: "word-radar",
+      nodeId: "n-word-radar",
+      reason: "word_radar_response_prompt",
+    }));
+    expect(recordEvent).not.toHaveBeenCalledWith("game_narration", "playback_done", expect.anything());
+    expect(send).toHaveBeenCalledWith("audio_done", {
+      requestId: expect.any(String),
+      itemId: "item-1",
+    });
+
+    const requestId = (fakeSession as unknown as {
+      pendingGameNarrationPlayback: { requestId: string; itemId?: string };
+    }).pendingGameNarrationPlayback.requestId;
+    const pending = (fakeSession as unknown as {
+      pendingGameNarrationPlayback: { requestId: string; itemId?: string };
+    }).pendingGameNarrationPlayback;
+    expect(pending.itemId).toBe("item-1");
+    SessionManager.prototype.playbackDone.call(fakeSession, {
+      audible: true,
+      requestId,
+      itemId: "item-1",
+    });
+
     expect(recordEvent).toHaveBeenCalledWith("game_narration", "playback_done", expect.objectContaining({
       activityId: "word-radar",
       nodeId: "n-word-radar",
       reason: "word_radar_response_prompt",
     }));
-    expect(send).toHaveBeenCalledWith("audio_done");
+  });
+
+  it("keeps assessment audio unavailable when the browser reports no audible playback", () => {
+    // Human catch: the word was never heard, but the server treated stream completion as delivery.
+    // Log miss: playback_done had no audible outcome, so the evidence looked successful.
+    const recordEvent = vi.fn();
+    const assessment = {
+      homeworkId: "homework-1",
+      itemId: "item-1",
+      word: "sample",
+      artifactHash: "artifact-1",
+      audioDelivered: false,
+      supportIds: [],
+      lettersVisible: false,
+    };
+    const fakeSession = {
+      pendingGameNarrationPlayback: {
+        requestId: "request-1",
+        activityId: "word-radar",
+        assessmentItemId: "item-1",
+      },
+      spellingAssessment: assessment,
+      spellingAssessmentHistory: new Map([[assessment.itemId, assessment]]),
+      debugRecorder: { recordEvent },
+      turnSM: { onPlaybackComplete: vi.fn(), consumePendingTranscript: vi.fn() },
+      flushPendingRoundComplete: vi.fn(),
+      handleEndOfTurn: vi.fn(),
+    };
+
+    SessionManager.prototype.playbackDone.call(fakeSession, {
+      audible: false,
+      reason: "required_audio_not_fully_played",
+      requestId: "request-1",
+      itemId: "item-1",
+    });
+
+    expect(assessment.audioDelivered).toBe(false);
+    expect(recordEvent).toHaveBeenCalledWith(
+      "game_narration",
+      "playback_failed",
+      expect.objectContaining({
+        assessmentItemId: "item-1",
+        reason: "required_audio_not_fully_played",
+      }),
+    );
+    expect(recordEvent).not.toHaveBeenCalledWith(
+      "game_narration",
+      "playback_done",
+      expect.anything(),
+    );
   });
 
   it("does not append narration proof into companion conversation history", async () => {
@@ -45,6 +156,7 @@ describe("SessionManager game narration", () => {
       debugRecorder: { recordEvent },
       noteExternalEvent: vi.fn(),
       ttsBridge: {
+        beginPlayback: vi.fn(),
         connect: vi.fn().mockResolvedValue(undefined),
         sendText: vi.fn(),
         finish: vi.fn().mockResolvedValue(undefined),
@@ -59,5 +171,257 @@ describe("SessionManager game narration", () => {
     });
 
     expect(fakeSession.noteExternalEvent).not.toHaveBeenCalled();
+  });
+
+  it("does not start a second word while the first narration still owns playback", async () => {
+    // Human catch: one spelling word played two or three times. The old debounce
+    // expired after one second and there was no server-side audio owner.
+    const recordEvent = vi.fn();
+    const bridge = {
+      beginPlayback: vi.fn(),
+      connect: vi.fn().mockResolvedValue(undefined),
+      sendText: vi.fn(),
+      finish: vi.fn().mockResolvedValue(undefined),
+      hadAudioThisTurn: vi.fn(() => true),
+    };
+    const fakeSession = {
+      childName: "Ila",
+      sessionTtsLabel: "EYE-lah",
+      debugRecorder: { recordEvent },
+      ttsBridge: bridge,
+      send: vi.fn(),
+      activeGameNarrationRequestId: null,
+      pendingGameNarrationPlayback: null,
+    };
+
+    await SessionManager.prototype.speakGameNarration.call(fakeSession, "sample.", {
+      activityId: "word-radar",
+      nodeId: "opening",
+      itemId: "item-1",
+      reason: "word_radar_listen_phase",
+    });
+    await SessionManager.prototype.speakGameNarration.call(fakeSession, "sample.", {
+      activityId: "word-radar",
+      nodeId: "opening",
+      itemId: "item-1",
+      reason: "word_radar_listen_phase",
+    });
+
+    expect(bridge.connect).toHaveBeenCalledTimes(1);
+    expect(recordEvent).toHaveBeenCalledWith(
+      "game_narration",
+      "request_suppressed",
+      expect.objectContaining({ reason: "playback_in_progress", itemId: "item-1" }),
+    );
+  });
+
+  it("ignores a stale playback acknowledgement from a different narration request", () => {
+    // Human catch: Elli and the game drifted to different words. Browser acks had
+    // no request/item identity, so the server credited whichever word was current.
+    const recordEvent = vi.fn();
+    const assessment = {
+      homeworkId: "homework-1",
+      itemId: "item-2",
+      word: "sample",
+      artifactHash: "artifact-1",
+      audioDelivered: false,
+      supportIds: [],
+      lettersVisible: false,
+    };
+    const fakeSession = {
+      activeGameNarrationRequestId: "request-current",
+      pendingGameNarrationPlayback: {
+        requestId: "request-current",
+        activityId: "word-radar",
+        assessmentItemId: "item-2",
+      },
+      spellingAssessment: assessment,
+      spellingAssessmentHistory: new Map([[assessment.itemId, assessment]]),
+      debugRecorder: { recordEvent },
+      gameNarrationPlaybackTimer: setTimeout(() => {}, 15_000),
+      turnSM: { onPlaybackComplete: vi.fn(), consumePendingTranscript: vi.fn() },
+      flushPendingRoundComplete: vi.fn(),
+      handleEndOfTurn: vi.fn(),
+    };
+
+    SessionManager.prototype.playbackDone.call(fakeSession, {
+      audible: true,
+      requestId: "request-old",
+      itemId: "item-1",
+    });
+
+    expect(assessment.audioDelivered).toBe(false);
+    expect(fakeSession.pendingGameNarrationPlayback).not.toBeNull();
+    expect(fakeSession.gameNarrationPlaybackTimer).not.toBeNull();
+    expect(fakeSession.turnSM.onPlaybackComplete).not.toHaveBeenCalled();
+    expect(recordEvent).toHaveBeenCalledWith(
+      "game_narration",
+      "playback_ack_ignored",
+      expect.objectContaining({ reason: "request_identity_mismatch" }),
+    );
+    if (fakeSession.gameNarrationPlaybackTimer) {
+      clearTimeout(fakeSession.gameNarrationPlaybackTimer);
+    }
+  });
+
+  it("does not count interrupted spelling narration as completed playback", () => {
+    const recordEvent = vi.fn();
+    const fakeSession = {
+      pendingGameNarrationPlayback: {
+        activityId: "word-radar",
+        assessmentItemId: "item-1",
+      },
+      pendingRoundComplete: null,
+      gamePendingRevision: null,
+      gameTtsFallbackTimer: null,
+      deferredTtsFinish: false,
+      currentAbort: null,
+      currentCanvasState: null,
+      childName: "Lab",
+      roundNumber: 1,
+      debugRecorder: { recordEvent },
+      turnSM: {
+        getState: vi.fn(() => "SPEAKING"),
+        onInterrupt: vi.fn(),
+        clearGameTtsHold: vi.fn(),
+      },
+      ttsBridge: {
+        beginPlayback: vi.fn(), stop: vi.fn() },
+      send: vi.fn(),
+    };
+
+    SessionManager.prototype.bargeIn.call(fakeSession);
+
+    expect(fakeSession.pendingGameNarrationPlayback).toBeNull();
+    expect(recordEvent).toHaveBeenCalledWith(
+      "game_narration",
+      "playback_interrupted",
+      expect.objectContaining({ assessmentItemId: "item-1" }),
+    );
+  });
+
+  it("does not resurrect narration whose synthesis finishes after barge-in", async () => {
+    // Human catch: a canceled spelling word could return after Elli or the child
+    // interrupted because synthesis completed after ownership had been cleared.
+    let finishSynthesis!: () => void;
+    const synthesisPending = new Promise<void>((resolve) => {
+      finishSynthesis = resolve;
+    });
+    const send = vi.fn();
+    const fakeSession = {
+      childName: "Ila",
+      sessionTtsLabel: "EYE-lah",
+      debugRecorder: { recordEvent: vi.fn() },
+      ttsBridge: {
+        beginPlayback: vi.fn(),
+        connect: vi.fn().mockResolvedValue(undefined),
+        sendText: vi.fn(),
+        finish: vi.fn(() => synthesisPending),
+        stop: vi.fn(),
+        hadAudioThisTurn: vi.fn(() => true),
+      },
+      send,
+      activeGameNarrationRequestId: null,
+      pendingGameNarrationPlayback: null,
+      pendingRoundComplete: null,
+      gamePendingRevision: null,
+      gameTtsFallbackTimer: null,
+      deferredTtsFinish: false,
+      currentAbort: null,
+      currentCanvasState: null,
+      roundNumber: 1,
+      turnSM: {
+        getState: vi.fn(() => "SPEAKING"),
+        onInterrupt: vi.fn(),
+        clearGameTtsHold: vi.fn(),
+      },
+    };
+
+    (fakeSession as any).bargeIn = () => SessionManager.prototype.bargeIn.call(fakeSession);
+    const narration = SessionManager.prototype.speakGameNarration.call(
+      fakeSession,
+      "sample.",
+      { activityId: "word-radar", itemId: "item-1" },
+    );
+    await vi.waitFor(() => expect(fakeSession.ttsBridge.finish).toHaveBeenCalled());
+
+    SessionManager.prototype.bargeIn.call(fakeSession);
+    finishSynthesis();
+    await narration;
+
+    expect(fakeSession.activeGameNarrationRequestId).toBeNull();
+    expect(fakeSession.pendingGameNarrationPlayback).toBeNull();
+    expect(send).not.toHaveBeenCalledWith(
+      "audio_done",
+      expect.objectContaining({ requestId: expect.any(String) }),
+    );
+  });
+
+  it("releases narration ownership when the browser never acknowledges playback", async () => {
+    vi.useFakeTimers();
+    try {
+      const recordEvent = vi.fn();
+      const fakeSession = {
+        childName: "Ila",
+        sessionTtsLabel: "EYE-lah",
+        debugRecorder: { recordEvent },
+        ttsBridge: {
+        beginPlayback: vi.fn(),
+          connect: vi.fn().mockResolvedValue(undefined),
+          sendText: vi.fn(),
+          finish: vi.fn().mockResolvedValue(undefined),
+          hadAudioThisTurn: vi.fn(() => true),
+        },
+        send: vi.fn(),
+        activeGameNarrationRequestId: null,
+        pendingGameNarrationPlayback: null,
+        gameNarrationPlaybackTimer: null,
+        playbackDone: SessionManager.prototype.playbackDone,
+        turnSM: {
+          onPlaybackComplete: vi.fn(),
+          consumePendingTranscript: vi.fn(),
+        },
+        flushPendingRoundComplete: vi.fn(),
+        handleEndOfTurn: vi.fn(),
+      };
+
+      await SessionManager.prototype.speakGameNarration.call(
+        fakeSession,
+        "sample.",
+        { activityId: "word-radar", itemId: "item-1" },
+      );
+      expect(fakeSession.pendingGameNarrationPlayback).not.toBeNull();
+
+      await vi.advanceTimersByTimeAsync(15_000);
+
+      expect(fakeSession.pendingGameNarrationPlayback).toBeNull();
+      expect(fakeSession.activeGameNarrationRequestId).toBeNull();
+      expect(recordEvent).toHaveBeenCalledWith(
+        "game_narration",
+        "playback_failed",
+        expect.objectContaining({ reason: "playback_ack_timeout" }),
+      );
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  // Saori kiosk 2026-10-14: ElevenLabs failed on the first Word Radar word. The server had sent
+  // audio_start but never audio_done, so the browser kept the microphone closed for the rest of
+  // the session. Every start of speech must be followed by an end, even when the voice fails.
+  it.each([
+    ["the voice service refuses the connection", {connect:vi.fn().mockRejectedValue(new Error("tts_provider_error: connection closed")),finish:vi.fn().mockResolvedValue(undefined),hadAudioThisTurn:()=>false}],
+    ["the voice service returns no audio", {connect:vi.fn().mockResolvedValue(undefined),finish:vi.fn().mockResolvedValue(undefined),hadAudioThisTurn:()=>false}],
+  ])("always ends playback when %s",async(_case,voice)=>{
+    const send=vi.fn();
+    const session:any={childName:"Ila",sessionTtsLabel:"EYE-lah",debugRecorder:{recordEvent:vi.fn()},send,noteExternalEvent:vi.fn(),
+      spellingAssessment:{itemId:"sheep",launchId:"launch",launchToken:undefined,nodeId:"n"},
+      turnSM:{getState:()=>"IDLE",onPlaybackComplete:vi.fn(),consumePendingTranscript:vi.fn()},
+      ttsBridge:{beginPlayback:vi.fn(),sendText:vi.fn(),...voice}};
+    await SessionManager.prototype.speakGameNarration.call(session,"sheep.",{itemId:"sheep",assessmentMode:true}).catch(()=>undefined);
+    const ends=send.mock.calls.filter(call=>call[0]==="audio_done");
+    expect(ends).toHaveLength(1);
+    expect(ends[0][1]).toMatchObject({failed:true,itemId:"sheep"});
+    expect(session.activeGameNarrationRequestId).toBeNull();
   });
 });

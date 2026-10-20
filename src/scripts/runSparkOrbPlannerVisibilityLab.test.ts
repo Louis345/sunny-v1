@@ -56,27 +56,6 @@ function spineNodes(): ActiveSessionPlan["nodePlan"] {
       locked: false,
       targetLane: "silent_letters",
     },
-    {
-      id: "quest-transfer",
-      type: "quest",
-      activityId: "quest",
-      targets: ["sign", "know", "write"],
-      difficulty: 2,
-      source: "chart_planner",
-      locked: true,
-      masteryUnlockState: "preparing",
-      targetLane: "silent_letters",
-    },
-    {
-      id: "boss-mastery",
-      type: "boss",
-      activityId: "boss",
-      targets: [],
-      difficulty: 3,
-      source: "chart_planner",
-      locked: true,
-      masteryUnlockState: "preparing",
-    },
   ];
 }
 
@@ -188,24 +167,6 @@ function plannerOutput(wrapper = false): AssignmentPlannerOutput {
         supportCriteria: "child chooses and completes a valid option",
         reviseCriteria: "child hesitates, skips, or abandons the option",
         falsifyCriteria: "mystery is treated as mastery evidence",
-      },
-      {
-        id: "measure-quest-transfer",
-        activityId: "quest",
-        target: "silent_letters",
-        evidenceType: "transfer",
-        supportCriteria: "generated quest preserves target-level evidence",
-        reviseCriteria: "quest reveals fragile targets",
-        falsifyCriteria: "quest launches without valid generated content",
-      },
-      {
-        id: "measure-boss-mastery",
-        activityId: "boss",
-        target: "mastery_gate",
-        evidenceType: "mastery",
-        supportCriteria: "boss confirms transfer without scaffolds",
-        reviseCriteria: "boss exposes remaining fragile targets",
-        falsifyCriteria: "boss launches before quest evidence",
       },
     ],
     planTheory: {

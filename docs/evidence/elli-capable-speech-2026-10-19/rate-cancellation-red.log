@@ -1,0 +1,86 @@
+
+ RUN  v3.2.4 /Users/jtaylor/Development/sunny-elli-capable-speech
+
+stdout | src/server/ws-tts-playback-ownership.test.ts > TTS socket and playback packet ownership > tags only the current socket's PCM and preserves the next connection through old callbacks
+ 🎮 [session-audio] [owner] [started] request=old
+  🔊 TTS model: eleven_flash_v2_5
+
+stderr | src/server/ws-tts-playback-ownership.test.ts > TTS socket and playback packet ownership > tags only the current socket's PCM and preserves the next connection through old callbacks
+  🔇 ElevenLabs TTS connect cancelled during shutdown
+
+stdout | src/server/ws-tts-playback-ownership.test.ts > TTS socket and playback packet ownership > tags only the current socket's PCM and preserves the next connection through old callbacks
+ 🎮 [session-audio] [stream-terminal] [final] request=old elapsedMs=0 chunks=1
+ 🎮 [session-audio] [owner] [started] request=new
+  🔊 TTS model: eleven_flash_v2_5
+
+stdout | src/server/ws-tts-playback-ownership.test.ts > TTS socket and playback packet ownership > tags only the current socket's PCM and preserves the next connection through old callbacks
+ 🎮 [session-audio] [stream-terminal] [cancelled] request=new elapsedMs=1 chunks=1
+
+stdout | src/server/ws-tts-playback-ownership.test.ts > reopens a primed stream at the AI-selected rate, preserving playback identity
+ 🎮 [session-audio] [owner] [started] request=speech
+  🔊 TTS model: eleven_flash_v2_5
+
+stdout | src/server/ws-tts-playback-ownership.test.ts > reopens a primed stream at the AI-selected rate, preserving playback identity
+ 🎮 [session-audio] [stream-terminal] [cancelled] request=speech elapsedMs=0 chunks=0
+  🔊 TTS model: eleven_flash_v2_5
+
+stdout | src/server/ws-tts-playback-ownership.test.ts > reopens a primed stream at the AI-selected rate, preserving playback identity
+  🔊 TTS: "Dissatisfied."
+
+stdout | src/server/ws-tts-playback-ownership.test.ts > reopens a primed stream at the AI-selected rate, preserving playback identity
+ 🎮 [session-audio] [stream-terminal] [cancelled] request=speech elapsedMs=1 chunks=0
+  🔊 TTS model: eleven_flash_v2_5
+
+stdout | src/server/ws-tts-playback-ownership.test.ts > reopens a primed stream at the AI-selected rate, preserving playback identity
+ 🎮 [session-audio] [stream-terminal] [cancelled] request=unowned elapsedMs=0 chunks=0
+
+stdout | src/server/ws-tts-playback-ownership.test.ts > drains already submitted speech before applying a new rate without losing its owner
+ 🎮 [session-audio] [owner] [started] request=speech
+  🔊 TTS model: eleven_flash_v2_5
+
+stdout | src/server/ws-tts-playback-ownership.test.ts > drains already submitted speech before applying a new rate without losing its owner
+  🔊 TTS: "Existing speech."
+ 🎮 [session-audio] [stream-terminal] [final] request=speech elapsedMs=0 chunks=1
+
+stdout | src/server/ws-tts-playback-ownership.test.ts > drains already submitted speech before applying a new rate without losing its owner
+  🔊 TTS model: eleven_flash_v2_5
+
+stdout | src/server/ws-tts-playback-ownership.test.ts > drains already submitted speech before applying a new rate without losing its owner
+ 🎮 [session-audio] [stream-terminal] [cancelled] request=speech elapsedMs=2 chunks=0
+
+stdout | src/server/ws-tts-playback-ownership.test.ts > does not revive speech after barge-in while a rate change drains the old stream
+ 🎮 [session-audio] [owner] [started] request=old
+  🔊 TTS model: eleven_flash_v2_5
+
+stdout | src/server/ws-tts-playback-ownership.test.ts > does not revive speech after barge-in while a rate change drains the old stream
+  🔊 TTS: "Existing speech."
+ 🎮 [session-audio] [stream-terminal] [cancelled] request=old elapsedMs=0 chunks=0
+
+ ❯ src/server/ws-tts-playback-ownership.test.ts (4 tests | 1 failed) 5015ms
+   ✓ TTS socket and playback packet ownership > tags only the current socket's PCM and preserves the next connection through old callbacks 3ms
+   ✓ reopens a primed stream at the AI-selected rate, preserving playback identity 2ms
+   ✓ drains already submitted speech before applying a new rate without losing its owner 2ms
+   × does not revive speech after barge-in while a rate change drains the old stream 5007ms
+     → Test timed out in 5000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/server/ws-tts-playback-ownership.test.ts > does not revive speech after barge-in while a rate change drains the old stream
+Error: Test timed out in 5000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+ ❯ src/server/ws-tts-playback-ownership.test.ts:77:1
+     75| });
+     76|
+     77| it("does not revive speech after barge-in while a rate change drains t…
+       | ^
+     78|  vi.stubEnv("ELEVENLABS_API_KEY","fixture");vi.stubEnv("TTS_ENABLED","…
+     79|  const bridge=new WsTtsBridge({readyState:1,send:vi.fn()} as any,"voic…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 3 passed (4)
+   Start at  23:38:08
+   Duration  5.18s (transform 39ms, setup 0ms, collect 49ms, tests 5.02s, environment 0ms, prepare 25ms)

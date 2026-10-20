@@ -30,6 +30,23 @@ export interface SunnyRuntimeConfig {
   homeworkDomain: SunnyHomeworkDomain | null;
 }
 
+/**
+ * A direct `as-child` homework run is a stateless visual preview, not the
+ * isolated impersonator journey. Requiring an explicit preview flag prevents
+ * operators from mistaking skipped evidence and progression for a full test.
+ */
+export function assertIntentionalHomeworkPreview(config: SunnyRuntimeConfig): void {
+  if (
+    config.subject === "homework"
+    && config.sessionMode === "as-child"
+    && config.previewMode === "off"
+  ) {
+    throw new Error(
+      "as_child_homework_requires_explicit_preview: use --preview free for a read-only visual preview, or npm run sunny:certify for a full isolated journey",
+    );
+  }
+}
+
 export type SunnyRuntimeOverrides = Partial<
   Pick<
     SunnyRuntimeConfig,

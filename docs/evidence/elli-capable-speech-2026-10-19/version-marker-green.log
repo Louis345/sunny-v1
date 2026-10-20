@@ -1,0 +1,9 @@
+
+ RUN  v3.2.4 /Users/jtaylor/Development/sunny-elli-capable-speech
+
+ ✓ src/engine/adaptiveMathDiscovery.test.ts (73 tests | 72 skipped) 2ms
+
+ Test Files  1 passed (1)
+      Tests  1 passed | 72 skipped (73)
+   Start at  00:39:01
+   Duration  592ms (transform 218ms, setup 0ms, collect 480ms, tests 2ms, environment 0ms, prepare 22ms)

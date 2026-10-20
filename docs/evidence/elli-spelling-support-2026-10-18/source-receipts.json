@@ -1,0 +1,32 @@
+{
+  "purpose": "Local source integrity receipts; raw family transcripts are not published. SHA values identify the exact reviewed files, not evidence of a new live run.",
+  "sources": [
+    {
+      "sessionDirectory": "2026-10-18T21-25-41_ila_homework_f242e1",
+      "sha256": {
+        "transcript.md": "fae5cf7969643ff798871ed160f94f1fc3da8f18d575bb462ae21780b5310f32",
+        "events.ndjson": "29a7847ae6a9fbd8521b1acfb15a1a3a56420f8847229fd4962ec859ec552182",
+        "game-traces.ndjson": "165d8088049d11d4363ff0c00fd2fa701e94741359061369b6b378debb691f0e",
+        "post-session-truth.json": "a49ca980b6215fefb1591d0984ef467fd759d71662ca826190bfaff1281ff91a"
+      }
+    },
+    {
+      "sessionDirectory": "2026-10-18T21-40-54_ila_homework_2c3ab8",
+      "sha256": {
+        "transcript.md": "30dcafbdcb0cbfde03c36234c9f6a408509dfba27b95af318cce81cd3f30175b",
+        "events.ndjson": "4bfa2801b82792d3af0451a6dad9e7ebe1e92f4721082e8c838965b8da5481a2",
+        "game-traces.ndjson": "090cffe31e80e9058486006a68d29f27c11f18016c19eec4717537a8dc1152c2",
+        "post-session-truth.json": "7091dcdd84fa2d64999b6d48cdc85608018b19f3f7e9665a7fd2a9b8083c38fd"
+      }
+    },
+    {
+      "sessionDirectory": "2026-10-18T21-56-05_ila_homework_57e918",
+      "sha256": {
+        "transcript.md": "5c7a74515453489226447614180b9bc2de009e349cd119df4423630f1899d8ff",
+        "events.ndjson": "1a098d83f0064d511f3452e9a3aa74072c02fca5ce7d3f849e8d25a2af89fd6a",
+        "game-traces.ndjson": "4c433abf503fd30aa4d2acd05c39522896830ebd0ac12a66f87fb81cab1ea4b2",
+        "post-session-truth.json": "2d8b68af1742800fa9b121bee4cfdc4dc78e0710158d37224c97816484f694b2"
+      }
+    }
+  ]
+}

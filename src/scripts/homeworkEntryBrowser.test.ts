@@ -15,7 +15,60 @@ it.each(["spelling", "reading", "math"])("%s homework can select a child and rec
   const app = express();
   app.get("/api/companions", (_req, res) => res.json([{ childName: "Lab", companionName: "Elli", accentColor: "#222222", accentBg: "#ffffff" }]));
   app.get("/api/profile/:child", (_req, res) => res.json({}));
-  app.get("/api/child-experience/:child", (_req, res) => res.status(404).json({ error: "no_assignment" }));
+  app.get("/api/child-experience/:child", (req, res) => res.json({
+    childChart: {
+      childId: req.params.child,
+      identity: { displayName: "Lab", ttsName: "Lab" },
+      companion: {
+        id: "elli",
+        displayName: "Elli",
+        config: { companionId: "elli" },
+      },
+      adventureMapProfile: {
+        defaultLayoutPreset: "horizontal-adventure-spine",
+        companionSlot: "none",
+        agencyNotes: [],
+        visualStyleNotes: [],
+        staminaNotes: [],
+      },
+      learningCycle: { homeworkId: `hw-${domain}-entry` },
+    },
+    activeSessionPlan: {
+      planId: `entry:${domain}`,
+      domain,
+      activeHomeworkId: `hw-${domain}-entry`,
+      nodePlan: [],
+      adventureBoard: {
+        schemaVersion: 1,
+        boardId: `entry:${domain}`,
+        planId: `entry:${domain}`,
+        childId: req.params.child,
+        domain,
+        title: "Entry recovery",
+        theme: {
+          background: { type: "solid", value: "#020617" },
+          palette: {
+            path: "#ffffff",
+            completed: "#34d399",
+            available: "#38bdf8",
+            locked: "#64748b",
+            current: "#facc15",
+            preview: "#a78bfa",
+            text: "#ffffff",
+            panel: "#0f172a",
+          },
+        },
+        nodes: [{
+          id: "start",
+          kind: "start",
+          label: "Start",
+          state: "completed",
+          position: { x: 0.15, y: 0.75 },
+        }],
+        edges: [],
+      },
+    },
+  }));
   let writes = 0;
   app.post(/.*/, (_req, res) => { writes++; res.status(503).json({ error: "test_writes_forbidden" }); });
   const server = app.listen(0, "127.0.0.1");
@@ -56,6 +109,7 @@ it.each(["spelling", "reading", "math"])("%s homework can select a child and rec
     await child.waitFor({ state: "visible", timeout: 10000 });
     await child.click();
     await page.getByText("Recorded voice outage", { exact: true }).waitFor({ state: "visible", timeout: 10000 });
+    await page.getByRole("button", { name: /try again/i }).click();
     await child.waitFor({ state: "visible", timeout: 10000 });
     expect(starts).toBe(1);
     expect(writes).toBe(0);

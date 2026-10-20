@@ -400,6 +400,9 @@ function App(){
     setCompleteAnim(false);
 
     reportState(`Monster Stampede word ${idx+1}/${WORDS_RAW.length} ready.`,{
+      spellingItemOpened:true,
+      currentWord:word,
+      answerVisibility:'hidden',
       phase:'playing',
       itemIndex:idx,
       totalItems:WORDS_RAW.length,

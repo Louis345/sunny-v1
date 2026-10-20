@@ -2,6 +2,9 @@ function object(value: unknown): Record<string, unknown> | undefined {
   return value && typeof value === "object" ? value as Record<string, unknown> : undefined;
 }
 
+/** One output ceiling for OpenAI implementation repairs in Discovery and boards. */
+export const OPENAI_REPAIR_MAX_OUTPUT_TOKENS = 48_000;
+
 function responseText(payload: Record<string, unknown>): string {
   if (typeof payload.output_text === "string") return payload.output_text;
   const output = Array.isArray(payload.output) ? payload.output : [];
@@ -19,6 +22,8 @@ export async function readOpenAiResponseStream(response: Response): Promise<{
   raw: string;
   inputTokens: number;
   outputTokens: number;
+  reasoningTokens: number;
+  visibleTextCharacters: number;
   stopReason: string;
 }> {
   if (!response.body) throw new Error("openai_stream_missing_body");
@@ -28,6 +33,7 @@ export async function readOpenAiResponseStream(response: Response): Promise<{
   let raw = "";
   let inputTokens = 0;
   let outputTokens = 0;
+  let reasoningTokens = 0;
   let stopReason = "unknown";
 
   const consumeEvent = (record: string): void => {
@@ -49,9 +55,11 @@ export async function readOpenAiResponseStream(response: Response): Promise<{
     if (event.type === "response.completed" || event.type === "response.incomplete") {
       const completed = object(event.response);
       const usage = object(completed?.usage);
+      const outputDetails = object(usage?.output_tokens_details);
       const incompleteDetails = object(completed?.incomplete_details);
       inputTokens = Number(usage?.input_tokens ?? 0);
       outputTokens = Number(usage?.output_tokens ?? 0);
+      reasoningTokens = Number(outputDetails?.reasoning_tokens ?? 0);
       stopReason = String(incompleteDetails?.reason ?? completed?.status ?? "completed");
       if (!raw && completed) raw = responseText(completed);
     }
@@ -69,5 +77,5 @@ export async function readOpenAiResponseStream(response: Response): Promise<{
     if (done) break;
   }
   if (buffer.trim()) consumeEvent(buffer);
-  return { raw, inputTokens, outputTokens, stopReason };
+  return { raw, inputTokens, outputTokens, reasoningTokens, visibleTextCharacters: raw.length, stopReason };
 }

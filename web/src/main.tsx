@@ -1,3 +1,4 @@
+import { SpellingParentPage } from './components/SpellingParentPage';
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import "./index.css";
@@ -11,6 +12,7 @@ import { TransitionProvider } from "./context/TransitionContext";
 import { resolveSunnyRuntimeConfig } from "../../src/shared/runtimeConfig";
 import { ReturnedWorkPage } from "./components/ReturnedWorkPage";
 import { LearningReportPage } from "./components/LearningReportPage";
+import { announceKioskReady } from "./kioskReady";
 
 const runtimeConfig = resolveSunnyRuntimeConfig(import.meta.env);
 const diagReadingEnabled = import.meta.env.VITE_DIAG_READING === "true";
@@ -32,7 +34,7 @@ const visualExplainerMapDemoEnabled =
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <TransitionProvider>
-      {learningReportEnabled ? (
+      {window.location.pathname === "/parent/spelling" ? (<SpellingParentPage childId={returnedWorkChildId} />) : learningReportEnabled ? (
         <LearningReportPage childId={returnedWorkChildId} initialHomeworkId={learningReportHomeworkId} />
       ) : returnedWorkEnabled ? (
         <ReturnedWorkPage childId={returnedWorkChildId} />
@@ -52,3 +54,16 @@ createRoot(document.getElementById("root")!).render(
     </TransitionProvider>
   </StrictMode>
 );
+
+const announceVisibleKiosk = () => {
+  void announceKioskReady(window.location.href)
+    .then((ready) => {
+      if (ready) console.log(" 🎮 [kiosk] [visible-identity] [announced]");
+    })
+    .catch((error) => {
+      console.error(" 🎮 [kiosk] [visible-identity] [failed]", error);
+    });
+};
+
+if (document.readyState === "complete") announceVisibleKiosk();
+else window.addEventListener("load", announceVisibleKiosk, { once: true });

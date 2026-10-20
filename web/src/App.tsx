@@ -15,8 +15,11 @@ import { DiscoveryAcademicCompletionCoordinator, hasCanonicalLearningCycle, post
 import { SessionScreen } from "./components/SessionScreen";
 import { SessionEnd } from "./components/SessionEnd";
 import { SessionLoadingOverlay, sessionVoiceReady } from "./components/SessionLoadingOverlay";
+import { KioskRestingScreen, useKioskIdleRest } from "./components/KioskIdleRest";
+import { HomeworkSessionRecovery } from "./components/HomeworkSessionRecovery";
 import { CanvasTestOverlay } from "./components/CanvasTestPanel";
 import { AdventureBoardExperience } from "./components/AdventureBoardExperience";
+import { LevelPathExperience } from "./components/LevelPathExperience";
 import type {
   AdventureBoardNode,
   AdventureChoiceOption,
@@ -59,8 +62,10 @@ import { FlowGameOverlay } from "./components/FlowGameOverlay";
 import { DIAG_WORD_RADAR_ITEMS } from "./fixtures/wordRadarDiagItems";
 import { getCompanionCareFromProfile } from "./utils/companionCareProfile";
 import {
+  buildPlannerBoardIframeStartMessage,
   buildPlannerBoardCompanionContext,
   isDirectDiscoveryPacket,
+  isProbeBoardPacket,
   hasPendingLearningGeneration,
   resolveDiscoveryCompletionHandoff,
   resolveDiscoveryEngagementDelivery,
@@ -68,12 +73,19 @@ import {
   resolveDirectDiscoverySurface,
   resolveDirectDiscoveryLaunchNode,
   resolvePlannerBoardSessionScope,
+  resolveHomeworkVoiceAutostart,
+  resolveHomeworkVoiceSessionStart,
+  resolveProbeBoardCompletion,
+  runProbeBoardCompletionHandoff,
   resolvePersistedDiscoveryHandoff,
   resolvePlannerBoardChoiceLaunchNode,
   resolvePlannerBoardLaunchNode,
+  shouldHoldTargetedBoardForPreparation,
 } from "./utils/adventureBoardLaunch";
+import { createBrowserRequestId } from "./utils/browserRequestId";
 import {
   buildAdventureBoardChoiceEventInput,
+  buildAdventureBoardChoiceDisplayEventInput,
   buildAdventureBoardPostActivityChoiceEventInput,
   flushAdventureBoardChoiceEventOutbox,
   postAdventureBoardChoiceEvent,
@@ -86,7 +98,9 @@ import {
 } from "./utils/adventureBoardGeneratedChoices";
 import { useChildExperiencePacket } from "./hooks/useChildExperiencePacket";
 import { useAdaptiveMathGenerationRefresh } from "./hooks/useAdaptiveMathGenerationRefresh";
+import { DiscoveryCompletionChapter } from "./components/DiscoveryCompletionChapter";
 import { LearningPreparationStatus } from "./components/LearningPreparationStatus";
+import { resolvePreparationSurface, useAppAdventurePreparation } from "./components/AdventurePreparation/useAppAdventurePreparation";
 import {
   CompanionCareProvider,
   useCompanionCare,
@@ -135,6 +149,7 @@ const isCanvasTestMode =
     window.location.search.includes("testmode"));
 
 const adventureMapEnabled = true;
+const KIOSK_IDLE_TIMEOUT_MS = 30 * 60 * 1000;
 
 function resolveMapPreviewMode(): false | "free" | "go-live" {
   if (typeof window !== "undefined") {
@@ -341,7 +356,7 @@ function RewardDiagBridge() {
         }
         const rest = { ...raw };
         delete rest.type;
-        const diagId = crypto.randomUUID();
+        const diagId = createBrowserRequestId();
         const entry: RewardDiagQueued = {
           diagId,
           timestamp: Date.now(),
@@ -387,7 +402,7 @@ function RewardDiagBridge() {
       ) {
         return;
       }
-      const diagId = crypto.randomUUID();
+      const diagId = createBrowserRequestId();
       const entry: RewardDiagQueued = {
         diagId,
         timestamp: typeof d.timestamp === "number" ? d.timestamp : Date.now(),
@@ -530,6 +545,8 @@ function App() {
     sendMessage,
     micMuted,
     toggleMicMute,
+    companionSpeechMuted,
+    toggleCompanionSpeechMute,
     registerMapNodeType,
     companionEvents: voiceCompanionEvents,
     companionCommands: voiceCompanionCommands,
@@ -596,9 +613,20 @@ function App() {
   const [locallyCompletedPlannerNodeIds, setLocallyCompletedPlannerNodeIds] = useState<string[]>([]);
   const [generatedMathSoundMuted, setGeneratedMathSoundMuted] = useState(false);
   const plannerBoardIframeCompletionKeyRef = useRef<string | null>(null);
+  const pendingPlannerBoardLaunchRef = useRef<{node:NodeConfig;replayNonce:number}|null>(null);
   const [sessionReady, setSessionReady] = useState(false);
   const [homeworkFinishedForNow, setHomeworkFinishedForNow] = useState(false);
   const homeworkSessionFinished = homeworkFinishedForNow || state.phase === "ended";
+  const homeworkSessionFinishedRef = useRef(homeworkSessionFinished);
+  homeworkSessionFinishedRef.current = homeworkSessionFinished;
+  useEffect(() => {
+    if (!homeworkSessionFinished) return;
+    console.log(" 🎮 [homework-session] [activity-overlay] [retired] session_finished");
+    setPlannerBoardLaunch(null);
+    pendingPlannerBoardLaunchRef.current = null;
+    plannerBoardIframeCompletionKeyRef.current = null;
+    setPostActivityEngagement(null);
+  }, [homeworkSessionFinished]);
   const [discoveryCompletionHandoff, setDiscoveryCompletionHandoff] = useState<
     "preview-complete" | "targeted-planning" | null
   >(null);
@@ -653,28 +681,24 @@ function App() {
   // other subjects, but never let homework silently fall through to it.
   const homeworkBoardMode = runtimeConfig.subject === "homework";
 
-  useEffect(() => {
-    if (!adventureMapEnabled || !adventureChildId) {
-      autoStartedAdventureVoiceRef.current = null;
-      return;
+  const handleKioskIdle = useCallback(() => {
+    console.log(" 🎮 [kiosk-idle] [session-ended] inactivity=30m");
+    if (state.phase === "active" || state.phase === "connecting") {
+      endSession();
     }
-    if (state.phase !== "picker") return;
-    if (autoStartedAdventureVoiceRef.current === adventureChildId) return;
-    autoStartedAdventureVoiceRef.current = adventureChildId;
-    setSelectedChildName(childNameFromId(adventureChildId));
-    startSession(childNameFromId(adventureChildId));
-    return () => {
-      // A development remount cancels the session hook's pending connection.
-      // Its next setup must be allowed to start the same child's connection.
-      if (autoStartedAdventureVoiceRef.current === adventureChildId) autoStartedAdventureVoiceRef.current = null;
-    };
-  }, [
-    adventureChildId,
-    adventureMapEnabled,
-    plannerBoardRuntimeRequested,
-    startSession,
-    state.phase,
-  ]);
+  }, [endSession, state.phase]);
+
+  const { resting: kioskResting } = useKioskIdleRest({
+    enabled:
+      homeworkBoardMode &&
+      Boolean(adventureChildId) &&
+      runtimeConfig.previewMode === "off" &&
+      (runtimeConfig.sessionMode === "real" ||
+        runtimeConfig.sessionMode === "as-child"),
+    timeoutMs: KIOSK_IDLE_TIMEOUT_MS,
+    activitySignal: state.interimTranscript,
+    onIdle: handleKioskIdle,
+  });
 
   /** Tamagotchi quips are suppressed on the adventure map — companion speaks via voice only. */
   const companionBubbleText = useMemo(() => {
@@ -699,11 +723,45 @@ function App() {
     plannerBoardPacketState.packet?.activeSessionPlan?.adventureBoard
       ? plannerBoardPacketState.packet
       : null;
+  const homeworkVoiceStart = useMemo(
+    () => resolveHomeworkVoiceSessionStart(
+      plannerBoardPacket,
+      plannerBoardPacketState.loading,
+    ),
+    [plannerBoardPacket, plannerBoardPacketState.loading],
+  );
+
+  useEffect(() => {
+    if (!adventureMapEnabled || !adventureChildId) {
+      autoStartedAdventureVoiceRef.current = null;
+      return;
+    }
+    if (!homeworkVoiceStart) return;
+    if (homeworkVoiceStart.childId !== adventureChildId.trim().toLowerCase()) return;
+    const autostart = resolveHomeworkVoiceAutostart({
+      previousScope: autoStartedAdventureVoiceRef.current,
+      childId: homeworkVoiceStart.childId,
+      homeworkId: homeworkVoiceStart.homeworkId,
+      phase: state.phase,
+    });
+    if (!autostart.shouldStart) return;
+    autoStartedAdventureVoiceRef.current = autostart.scope;
+    const childName = childNameFromId(homeworkVoiceStart.childId);
+    setSelectedChildName(childName);
+    startSession(childName, { homeworkId: homeworkVoiceStart.homeworkId });
+  }, [
+    adventureChildId,
+    adventureMapEnabled,
+    homeworkVoiceStart,
+    startSession,
+    state.phase,
+  ]);
   const plannerBoardSessionScope = resolvePlannerBoardSessionScope(
     adventureChildId,
     plannerBoardPacket?.activeSessionPlan?.activeHomeworkId,
   );
   const directDiscoveryMode = isDirectDiscoveryPacket(plannerBoardPacket);
+  const probeBoardMode = isProbeBoardPacket(plannerBoardPacket);
   const effectiveDiscoveryCompletionHandoff = resolvePersistedDiscoveryHandoff(
     discoveryCompletionHandoff,
     plannerBoardPacket?.childChart.learningCycle?.lifecycle,
@@ -719,19 +777,30 @@ function App() {
   const plannerBoardRuntimeActive =
     plannerBoardRuntimeRequested &&
     (plannerBoardPacketState.loading || Boolean(plannerBoardPacket));
-  const targetedMathGenerationPending = hasPendingLearningGeneration(plannerBoardPacket, effectiveDiscoveryCompletionHandoff === "targeted-planning");
+  const targetedBoardHeldForPreparation = shouldHoldTargetedBoardForPreparation(plannerBoardPacket);
+  const targetedMathGenerationPending = hasPendingLearningGeneration(plannerBoardPacket, effectiveDiscoveryCompletionHandoff === "targeted-planning")
+    || targetedBoardHeldForPreparation;
+  const preparationSurface = resolvePreparationSurface({ packet: plannerBoardPacket, directDiscoveryMode, handoff: effectiveDiscoveryCompletionHandoff, held: targetedBoardHeldForPreparation, preview: parentPreviewActive });
   const generationProgress = useAdaptiveMathGenerationRefresh({
     childId: adventureChildId,
     homeworkId: plannerBoardPacket?.activeSessionPlan?.activeHomeworkId,
     enabled: targetedMathGenerationPending && !parentPreviewActive && !homeworkSessionFinished,
+    intervalMs: preparationSurface ? 10_000 : undefined,
     onStatusChanged: refreshPlannerBoardPacket,
   });
   const finishHomeworkSession = useCallback(() => {
     setHomeworkFinishedForNow(true);
     setPlannerBoardLaunch(null);
     endSession();
-    console.log(" 🎮 [homework-session] [finish-for-now] [closed]");
+    console.log(" 🎮 [homework-session] [finish-for-now] [resting]");
   }, [endSession]);
+  const preparation = useAppAdventurePreparation({
+    surface: preparationSurface, packet: plannerBoardPacket, childId: adventureChildId,
+    homeworkId: plannerBoardPacket?.activeSessionPlan?.activeHomeworkId, status: generationProgress.status,
+    finished: homeworkSessionFinished, checkNow: generationProgress.checkNow, onFinish: finishHomeworkSession, sendMessage,
+  });
+  // While it is up, only the preparation UI and Elli's portrait show.
+  const preparationScreenActive = preparation.screen != null;
 
   const [vrrCelebrateEvent, setVrrCelebrateEvent] =
     useState<CompanionEventPayload | null>(null);
@@ -745,7 +814,7 @@ function App() {
   const lastSessionCompleteTsRef = useRef<number | null>(null);
 
   const mapReady = homeworkBoardMode
-    ? Boolean(plannerBoardPacket)
+    ? Boolean(plannerBoardPacket) && (directDiscoveryMode || probeBoardMode || !targetedBoardHeldForPreparation)
     : !adventureChildId || !plannerBoardRuntimeRequested || plannerBoardRuntimeActive;
   const voiceReady =
     !adventureChildId ||
@@ -973,11 +1042,15 @@ function App() {
   }, []);
 
   const closePlannerBoardLaunch = useCallback(() => {
+    if (plannerBoardLaunch) sendMessage("game_event", {event:{type:"game_state_update",version:"1.0",payload:{
+      phase: "closed", boardState: "map", nodeId: plannerBoardLaunch.node.id, launchToken: plannerBoardLaunch.completionId,
+    }}});
+    pendingPlannerBoardLaunchRef.current = null;
     setPlannerBoardLaunch(null);
     setPostActivityEngagement(null);
     plannerBoardIframeCompletionKeyRef.current = null;
     setCompanionPresence("collapsed");
-  }, [setCompanionPresence]);
+  }, [plannerBoardLaunch, sendMessage, setCompanionPresence]);
 
   useEffect(() => {
     setPlannerBoardLaunch(null);
@@ -985,10 +1058,17 @@ function App() {
     setLocallyCompletedPlannerNodeIds([]);
     setDiscoveryCompletionHandoff(null);
     discoveryCompletionCoordinatorRef.current = new DiscoveryAcademicCompletionCoordinator();
+    pendingPlannerBoardLaunchRef.current = null;
   }, [plannerBoardSessionScope]);
 
   const launchPlannerBoardNode = useCallback(
     (node: NodeConfig, replayNonce = 0) => {
+      if (homeworkSessionFinishedRef.current) return false;
+      if (!mapPreviewMode && !parentPreviewActive && !state.voiceSessionId) {
+        pendingPlannerBoardLaunchRef.current = {node,replayNonce};
+        console.log(" 🎮 [AdventureBoard] [launch] [waiting-for-session]", {nodeId:node.id});
+        return true;
+      }
       const companionConfig =
         plannerBoardPacket?.childChart.companion.config ?? effectiveCompanion;
       const companionId =
@@ -1035,7 +1115,8 @@ function App() {
         });
         return false;
       }
-      const companionContext = buildPlannerBoardCompanionContext(node);
+      const completionId = createBrowserRequestId();
+      const companionContext = {...buildPlannerBoardCompanionContext(node),launchToken:completionId};
       sendMessage("game_event", {
         event: {
           type: "game_state_update",
@@ -1049,9 +1130,9 @@ function App() {
       setCompanionPresence("collapsed");
       setPlannerBoardLaunch({
         node,
-        iframeUrl: action.kind === "iframe" ? action.url : null,
+        iframeUrl: action.kind === "iframe" ? `${action.url}${action.url.includes("?") ? "&" : "?"}launchToken=${encodeURIComponent(completionId)}` : null,
         replayNonce,
-        completionId: crypto.randomUUID(),
+        completionId,
       });
       return true;
     },
@@ -1063,9 +1144,20 @@ function App() {
       profileCompanionCurrency,
       profileDyslexiaMode,
       sendMessage,
+      state.voiceSessionId,
+      mapPreviewMode,
+      parentPreviewActive,
       setCompanionPresence,
     ],
   );
+
+  useEffect(() => {
+    if (!state.voiceSessionId || !pendingPlannerBoardLaunchRef.current) return;
+    const pending = pendingPlannerBoardLaunchRef.current;
+    // One queued launch; consume before dispatch so rerenders cannot launch twice.
+    pendingPlannerBoardLaunchRef.current = null;
+    launchPlannerBoardNode(pending.node,pending.replayNonce);
+  }, [state.voiceSessionId,launchPlannerBoardNode]);
 
   const directDiscoveryAutoLaunchRef = useRef<string | null>(null);
   useEffect(() => {
@@ -1112,6 +1204,16 @@ function App() {
   const handlePlannerBoardNodeClick = useCallback(
     (boardNode: AdventureBoardNode) => {
       if (!plannerBoardPacket) return;
+      if (boardNode.kind === 'choice-gate' && boardNode.state !== 'locked') {
+        const choice = plannerBoardPacket.activeSessionPlan?.adventureBoard?.choiceSets?.find(set=>set.id===boardNode.choiceSetId);
+        if (!choice) return;
+        sendMessage('game_event',{event:{type:'game_state_update',version:'1.0',payload:{
+          phase:'choice_open',boardState:'choosing_path',choiceSetId:choice.id,purpose:choice.title,requestId:crypto.randomUUID(),
+          options:choice.options.map(option=>({id:option.id,label:option.label,description:option.description,state:option.state})),
+          addressedCompanion:true,
+        }}});
+        return;
+      }
       const inspectableBaselineNode =
         parentPreviewActive &&
         boardNode.kind !== "quest" &&
@@ -1140,9 +1242,17 @@ function App() {
       adventureChildId,
       generatedMathSoundMuted,
       launchPlannerBoardNode,
-      plannerBoardPacket,
+      plannerBoardPacket, sendMessage, setCompanionPresence,
     ],
   );
+
+  const handlePlannerBoardChoiceVisibilityChange = useCallback((choice:AdventureChoiceSet,opened:boolean)=>{
+    if(!plannerBoardPacket) return;
+    const event=buildAdventureBoardChoiceDisplayEventInput(plannerBoardPacket,choice,opened);
+    void postAdventureBoardChoiceEvent(event,{preview:mapPreviewMode}).then(result=>{
+      console.log(` 🎮 [choice-event] [${opened?'shown':'dismissed'}] [${result.ok?'recorded':'pending'}] choice=${choice.id}`);
+    }).catch(error=>console.warn(' 🎮 [choice-event] [display-record] [failed]',error));
+  },[plannerBoardPacket,mapPreviewMode]);
 
   const handlePlannerBoardChoiceClick = useCallback(
     (option: AdventureChoiceOption, choiceSet: AdventureChoiceSet) => {
@@ -1152,7 +1262,7 @@ function App() {
         choiceSet,
         option,
       );
-      void postAdventureBoardChoiceEvent(choiceEvent, { preview: mapPreviewMode })
+      const choiceRecorded = postAdventureBoardChoiceEvent(choiceEvent, { preview: mapPreviewMode })
         .then((out) => {
           console.log(" 🎮 [AdventureBoard] choice_event", {
             childId: adventureChildId,
@@ -1162,7 +1272,8 @@ function App() {
             applied: out.applied,
             skippedPersistence: out.skippedPersistence,
           });
-          if (out.applied && !out.skippedPersistence) void refreshPlannerBoardPacket();
+          if (out.ok && !out.skippedPersistence) void refreshPlannerBoardPacket();
+          return out;
         })
         .catch((err: unknown) => {
           console.warn(" 🎮 [AdventureBoard] choice_event_failed", {
@@ -1170,6 +1281,7 @@ function App() {
             choiceSetId: choiceEvent.choiceSetId,
             error: err instanceof Error ? err.message : String(err),
           });
+          return null;
         });
       const generatedChoiceRequest = buildAdventureBoardGeneratedChoiceRequest(
         plannerBoardPacket,
@@ -1216,7 +1328,7 @@ function App() {
         return;
       }
       const launchNode = resolvePlannerBoardChoiceLaunchNode(plannerBoardPacket, option);
-      if (!launchNode) {
+      if (!launchNode && !option.journeyChoiceId) {
         console.log(" 🎮 [AdventureBoard] choice_not_launchable", {
           childId: adventureChildId,
           optionId: option.id,
@@ -1224,7 +1336,19 @@ function App() {
         });
         return;
       }
-      launchPlannerBoardNode(launchNode);
+      if (choiceEvent.context === "baseline_route") {
+        // Route selection makes its node launchable; commit it before sending the launch.
+        void choiceRecorded.then(out => {
+          const selected = choiceEvent.shownOptions.find(candidate => candidate.optionId === choiceEvent.selectedOptionId);
+          const expectedRoute = option.journeyChoiceId ? `${option.journeyChoiceId}=${option.journeyOptionId}` : selected?.experimentId ?? choiceEvent.selectedOptionId;
+          if (out?.ok && (out.skippedPersistence || out.selectedRouteId === expectedRoute)) {
+            if (launchNode) launchPlannerBoardNode(launchNode);
+            else void refreshPlannerBoardPacket();
+          } else {
+            console.warn(" 🎮 [AdventureBoard] [route-launch] [not-confirmed]", { error: out?.error, expectedRoute });
+          }
+        }).catch(error => console.error(" 🎮 [AdventureBoard] [route-launch] [failed]", error));
+      } else if (launchNode) launchPlannerBoardNode(launchNode);
     },
     [adventureChildId, launchPlannerBoardNode, mapPreviewMode, plannerBoardPacket, refreshPlannerBoardPacket],
   );
@@ -1271,7 +1395,7 @@ function App() {
     [adventureChildId, mapPreviewMode, plannerBoardPacket],
   );
 
-  const startDiscoveryAcademicCompletion = useCallback((): Promise<Record<string, unknown>> => {
+  const startDiscoveryAcademicCompletion = useCallback((nodeId?: string): Promise<Record<string, unknown>> => {
     const homeworkId = plannerBoardPacket?.childChart.learningCycle?.homeworkId;
     if (!adventureChildId || !homeworkId) {
       console.error(" 🎮 [adaptive-math] [discovery-complete] [failed] missing provenance");
@@ -1281,6 +1405,7 @@ function App() {
       () => postDiscoveryComplete({
         childId: adventureChildId,
         homeworkId,
+        ...(nodeId ? { nodeId } : {}),
       }),
     );
     void completionPromise.catch((error: unknown) => {
@@ -1292,22 +1417,22 @@ function App() {
   const handleSpellingDiscoveryAttempt = useCallback((response: { itemIndex: number; attemptedValue: string; skipped: boolean; observedAt: string }) => {
     const itemId = plannerBoardLaunch?.node.wordRadarItems?.[response.itemIndex]?.itemId;
     const homeworkId = plannerBoardPacket?.childChart.learningCycle?.homeworkId;
-    if (!(directDiscoveryMode || plannerBoardLaunch?.node.spellingAssessment) || !itemId || !homeworkId || !adventureChildId) {
+    if (!(directDiscoveryMode || plannerBoardLaunch?.node.spellingAssessment || plannerBoardPacket?.activeSessionPlan?.domain === "spelling") || !itemId || !homeworkId || !adventureChildId) {
       console.error(" 🎮 [spelling-discovery] [attempt] [missing-provenance]");
       return;
     }
-    const attempt = discoveryCompletionCoordinatorRef.current.prepareAttempt({ ...response, itemId, attemptId: crypto.randomUUID() });
-    void discoveryCompletionCoordinatorRef.current.recordAttempt(() => postDiscoveryAttempt({ childId: adventureChildId, homeworkId, attempt })).catch(error => {
+    const attempt = discoveryCompletionCoordinatorRef.current.prepareAttempt({ ...response, itemId, launchToken:plannerBoardLaunch?.completionId, attemptId: createBrowserRequestId() });
+    void discoveryCompletionCoordinatorRef.current.recordAttempt(() => postDiscoveryAttempt({ childId: adventureChildId, homeworkId, sessionId: state.voiceSessionId, attempt })).catch(error => {
       console.error(" 🎮 [spelling-discovery] [attempt] [retry-needed]", error);
     });
-  }, [adventureChildId, directDiscoveryMode, plannerBoardLaunch, plannerBoardPacket?.childChart.learningCycle?.homeworkId]);
+  }, [adventureChildId, directDiscoveryMode, plannerBoardLaunch, plannerBoardPacket?.childChart.learningCycle?.homeworkId, state.voiceSessionId]);
 
 
   const handlePlannerBoardFunRating = useCallback(
     (rating: 1 | 2 | 3 | 4 | 5 | null) => {
       const current = postActivityEngagement;
       if (!current) return;
-      if (directDiscoveryMode) {
+      if (directDiscoveryMode || probeBoardMode) {
         const homeworkId = plannerBoardPacket?.childChart.learningCycle?.homeworkId;
         if (!adventureChildId || !homeworkId) {
           console.error(" 🎮 [adaptive-math] [discovery-exit] [failed] missing provenance");
@@ -1333,9 +1458,27 @@ function App() {
             });
             return engagement;
           }),
-          completeAcademic: startDiscoveryAcademicCompletion,
+          completeAcademic: () => startDiscoveryAcademicCompletion(current.node.id),
         })
           .then(async (completion) => {
+            if (probeBoardMode) {
+              const action = resolveProbeBoardCompletion(completion);
+              console.log(` 🎮 [adaptive-math] [probe-node-complete] [${action}]`, {
+                childId: adventureChildId,
+                homeworkId,
+                nodeId: current.node.id,
+              });
+              setLocallyCompletedPlannerNodeIds((completed) =>
+                completed.includes(current.node.id) ? completed : [...completed, current.node.id],
+              );
+              await runProbeBoardCompletionHandoff({
+                completion,
+                refresh: refreshPlannerBoardPacket,
+                continueProbe: closePlannerBoardLaunch,
+                finishSession: finishHomeworkSession,
+              });
+              return;
+            }
             const handoff = resolveDiscoveryCompletionHandoff(completion);
             setDiscoveryCompletionHandoff(handoff);
             console.log(` 🎮 [adaptive-math] [discovery-complete] [${handoff}]`, {
@@ -1362,8 +1505,10 @@ function App() {
       adventureChildId,
       closePlannerBoardLaunch,
       directDiscoveryMode,
+      finishHomeworkSession,
       plannerBoardPacket,
       postActivityEngagement,
+      probeBoardMode,
       recordPlannerBoardPostActivityAction,
       refreshPlannerBoardPacket,
       startDiscoveryAcademicCompletion,
@@ -1429,7 +1574,6 @@ function App() {
       return;
     }
     const completionKey = plannerBoardIframeCompletionKeyRef.current;
-    if (!completionKey) return;
     const packet = await refreshPlannerBoardPacket();
     if (plannerBoardIframeCompletionKeyRef.current !== completionKey) return;
     if (!packet || packet.childChart.learningCycle?.homeworkId !== plannerBoardPacket?.childChart.learningCycle?.homeworkId) throw new Error("replay_assignment_not_available");
@@ -1451,11 +1595,16 @@ function App() {
       if (!adventureChildId) throw new Error("canonical_completion_missing_child");
       await discoveryCompletionCoordinatorRef.current.flushForExit();
       return hasCanonicalLearningCycle(plannerBoardPacket) && homeworkId
-        ? postCanonicalNodeCompletion({ childId: adventureChildId, homeworkId, nodeId: launch.node.id, completionId: launch.completionId, result: payload })
+        ? postCanonicalNodeCompletion({ childId: adventureChildId, homeworkId, nodeId: launch.node.id, completionId: launch.completionId, result: {...payload,launchToken:launch.completionId,voiceSessionId:state.voiceSessionId} })
         : null;
     };
     void write().then(async completion => {
-      await refreshPlannerBoardPacket();
+      try {
+        await refreshPlannerBoardPacket();
+      } catch (error) {
+        console.warn(" 🎮 [AdventureBoard] [refresh-after-save] [deferred]", error);
+      }
+      if (homeworkSessionFinishedRef.current) return; // Saved evidence survives; ended UI stays retired.
       const completed = completion ? completion.nodeState === "completed"
         : !hasCanonicalLearningCycle(plannerBoardPacket) && payload.completed === true && payload.earlyExit !== true;
       if (completed) setLocallyCompletedPlannerNodeIds(current => current.includes(launch.node.id) ? current : [...current, launch.node.id]);
@@ -1465,9 +1614,10 @@ function App() {
     }).catch((error: unknown) => {
       plannerBoardIframeCompletionKeyRef.current = null;
       console.error(" 🎮 [AdventureBoard] canonical_completion_failed", error);
+      if (homeworkSessionFinishedRef.current) return;
       setPostActivityEngagement({ node: launch.node, outcome: { completed: false }, title: "Progress could not be saved", stats: [], canTryHarder: false });
     });
-  }, [adventureChildId, plannerBoardLaunch, plannerBoardPacket, refreshPlannerBoardPacket, showPlannerBoardEngagementOverlay]);
+  }, [adventureChildId, plannerBoardLaunch, plannerBoardPacket, refreshPlannerBoardPacket, showPlannerBoardEngagementOverlay, state.voiceSessionId]);
 
   const handlePlannerBoardPostActivityAction = useCallback(
     (action: PostActivityAction) => {
@@ -1492,7 +1642,7 @@ function App() {
   );
 
   const handlePlannerBoardOverlayBack = useCallback(() => {
-    if (directDiscoveryMode || plannerBoardLaunch?.node.spellingAssessment) {
+    if (directDiscoveryMode || probeBoardMode || plannerBoardLaunch?.node.spellingAssessment) {
       void discoveryCompletionCoordinatorRef.current.flushForExit().then(() => {
         console.log(" 🎮 [discovery] [exit] [attempts-saved]");
         closePlannerBoardLaunch();
@@ -1519,8 +1669,40 @@ function App() {
     endSession,
     plannerBoardLaunch,
     postActivityEngagement,
+    probeBoardMode,
     recordPlannerBoardPostActivityAction,
   ]);
+
+  const handlePlannerBoardIframeLoad = useCallback(() => {
+    const launch = plannerBoardLaunch;
+    if (!launch?.iframeUrl) return;
+    const message = buildPlannerBoardIframeStartMessage({
+      nodeType: launch.node.type,
+      childName:
+        plannerBoardPacket?.childChart.identity.displayName ??
+        childNameFromId(adventureChildId),
+      companionName:
+        plannerBoardPacket?.childChart.companion.displayName ?? "Sunny",
+    });
+    if (!message) return;
+    const iframeWindow = adventureGameIframeRef.current?.contentWindow;
+    if (!iframeWindow) {
+      console.error(" 🎮 [AdventureBoard] [iframe-start] [missing-window]", {
+        nodeId: launch.node.id,
+      });
+      return;
+    }
+    iframeWindow.postMessage(message, "*");
+    sendMessage("game_event", {event:{type:"game_state_update",version:"1.0",payload:{
+      phase:"document_loaded",boardState:"waiting_for_activity",nodeId:launch.node.id,
+      launchToken:launch.completionId,activityTitle:launch.node.title,
+      progress:`${launch.node.title ?? "Activity"} document loaded; waiting for activity state.`,
+    }}});
+    console.log(" 🎮 [AdventureBoard] [iframe-start] [sent]", {
+      nodeId: launch.node.id,
+      nodeType: launch.node.type,
+    });
+  }, [adventureChildId, plannerBoardLaunch, plannerBoardPacket, sendMessage]);
 
   useEffect(() => {
     if (!plannerBoardLaunch?.iframeUrl) return;
@@ -1573,7 +1755,7 @@ function App() {
         }
         const preparedAttempt = discoveryCompletionCoordinatorRef.current.prepareAttempt(attempt);
         const attemptWrite = discoveryCompletionCoordinatorRef.current.recordAttempt(
-          () => postDiscoveryAttempt({ childId: adventureChildId, homeworkId, attempt: preparedAttempt }),
+          () => postDiscoveryAttempt({ childId: adventureChildId, homeworkId, sessionId: state.voiceSessionId, attempt: preparedAttempt }),
         );
         void attemptWrite.catch((error: unknown) => {
           console.error(" 🎮 [AdventureBoard] discovery_attempt_failed", error);
@@ -1594,7 +1776,7 @@ function App() {
           childId: adventureChildId,
           homeworkId,
         });
-        void startDiscoveryAcademicCompletion().catch(error => {
+        void startDiscoveryAcademicCompletion(launch.node.id).catch(error => {
           console.error(" 🎮 [discovery] [academic-completion] [retry-needed]", error);
         });
         showPlannerBoardEngagementOverlay(launch.node, { completed: true });
@@ -1623,6 +1805,7 @@ function App() {
     plannerBoardPacket,
     refreshPlannerBoardPacket,
     showPlannerBoardEngagementOverlay,
+    state.voiceSessionId,
   ]);
 
   const mergedCompanionEvents = useMemo(() => {
@@ -1772,6 +1955,17 @@ function App() {
     return <CompanionShowroomPage />;
   }
 
+  if (kioskResting) {
+    return (
+      <KioskRestingScreen
+        onStart={() => {
+          console.log(" 🎮 [kiosk-idle] [restart] result=requested");
+          window.location.reload();
+        }}
+      />
+    );
+  }
+
   const adventureLoadingMain = (
     <div className="w-screen h-screen overflow-hidden relative bg-zinc-950">
       {theaterLoadingEnabled ? (
@@ -1821,16 +2015,22 @@ function App() {
   let main: ReactNode = null;
 
   if (homeworkSessionFinished) {
-    main = <div className="w-screen h-screen overflow-hidden"><SessionEnd
-      homeworkPaused={homeworkBoardMode}
-      autoReturnMs={homeworkBoardMode ? null : 5000}
-      onReturn={() => {
-        if (homeworkBoardMode) window.location.reload();
-        else { setSelectedChildName(null); resetToPicker(); }
-      }}
+    main = homeworkBoardMode ? <KioskRestingScreen onStart={() => {
+      console.log(" 🎮 [homework-session] [restart] [requested]");
+      window.location.reload();
+    }}/> : <div className="w-screen h-screen overflow-hidden"><SessionEnd
+      autoReturnMs={5000}
+      onReturn={() => { setSelectedChildName(null); resetToPicker(); }}
       childName={state.childName}
       companionName={state.companion?.companionName}
     /></div>;
+  } else if (homeworkBoardMode && state.errorFatal) {
+    main = (
+      <HomeworkSessionRecovery
+        error={state.error}
+        onRetry={() => window.location.reload()}
+      />
+    );
   } else if (state.phase === "picker" && (!homeworkBoardMode || !adventureChildId)) {
     main = (
       <div className="w-screen h-screen overflow-hidden">
@@ -1842,10 +2042,15 @@ function App() {
         <ChildPicker
           onSelect={(name, opts) => {
             setSelectedChildName(name);
+            if (opts?.diagKiosk) {
+              startSession("creator", { diagKiosk: true });
+              return;
+            }
             if (runtimeConfig.subject === "homework") {
               setAdventureChildId(name.trim().toLowerCase());
+              return;
             }
-            startSession(name, opts);
+            startSession(name);
           }}
         />
       </div>
@@ -1860,9 +2065,12 @@ function App() {
       );
     } else if (plannerBoardPacket) {
       main = directDiscoveryMode ? (
-        effectiveDiscoveryCompletionHandoff ? (
+        effectiveDiscoveryCompletionHandoff ? preparation.screen ?? (
           <div className="flex h-screen w-screen items-center justify-center bg-zinc-950 p-6">
-            <div className="w-full max-w-lg"><LearningPreparationStatus {...generationProgress} preview={effectiveDiscoveryCompletionHandoff === "preview-complete"} onCheck={generationProgress.checkNow} onFinish={finishHomeworkSession}/></div>
+            <DiscoveryCompletionChapter
+              preview={effectiveDiscoveryCompletionHandoff === "preview-complete"}
+              onFinish={finishHomeworkSession}
+            />
           </div>
         ) : resolveDirectDiscoverySurface(
             sessionReady,
@@ -1884,6 +2092,10 @@ function App() {
         ) : (
           <div className="w-screen h-screen overflow-hidden relative bg-zinc-950" />
         )
+      ) : preparation.screen ? preparation.screen : targetedBoardHeldForPreparation ? (
+        <div className="flex h-screen w-screen items-center justify-center bg-zinc-950 p-6">
+          <div className="w-full max-w-lg"><LearningPreparationStatus {...generationProgress} onCheck={generationProgress.checkNow} onFinish={finishHomeworkSession}/></div>
+        </div>
       ) : (
         <div className="w-screen h-screen overflow-hidden relative bg-zinc-950">
           <AdventureBoardExperience
@@ -1895,6 +2107,7 @@ function App() {
             idlePose="center"
             onNodeClick={handlePlannerBoardNodeClick}
             onChoiceClick={handlePlannerBoardChoiceClick}
+            onChoiceVisibilityChange={handlePlannerBoardChoiceVisibilityChange}
             onUnlockCeremony={(event) => {
               console.log(" 🎮 [AdventureBoard] unlock_ceremony", event);
               if (!generatedMathSoundMuted) {
@@ -1996,12 +2209,19 @@ function App() {
     );
   }
 
+  const boardMapCompanionCompact =
+    homeworkBoardMode &&
+    plannerBoardPacket != null &&
+    plannerBoardLaunch == null &&
+    !homeworkSessionFinished;
   const companionPortraitMode =
+    preparationScreenActive ||
+    boardMapCompanionCompact ||
     karaokeReadingActive ||
     diagFlowGameOpen != null ||
     plannerBoardLaunch != null ||
     (state.phase === "active" && state.canvas.mode === "pronunciation");
-  const voiceGameCompanionMicMuted =
+  const voiceGameCompanionSpeechMuted =
     karaokeReadingActive ||
     (diagFlowGameOpen != null &&
       DIAG_GAMES_SUPPRESS_MIC.has(diagFlowGameOpen)) ||
@@ -2061,8 +2281,21 @@ function App() {
         }}
       >
       {main}
+      <LevelPathExperience
+        childId={activeProfileChildId ?? adventureChildId}
+        progression={state.progression}
+        companionCommands={mergedCompanionCommands}
+        showTrigger={
+          homeworkBoardMode &&
+          !directDiscoveryMode &&
+          !targetedMathGenerationPending &&
+          plannerBoardLaunch == null &&
+          !homeworkSessionFinished &&
+          !preparationScreenActive
+        }
+      />
       <CompanionEconomyControls
-        visible={homeworkBoardMode && !homeworkSessionFinished && plannerBoardLaunch == null}
+        visible={homeworkBoardMode && !homeworkSessionFinished && plannerBoardLaunch == null && !preparationScreenActive}
         companionName={
           plannerBoardPacket?.childChart.companion.displayName ??
           (effectiveCompanion?.companionId
@@ -2115,19 +2348,22 @@ function App() {
         companionCommands={mergedCompanionCommands}
         activeNodeScreen={activeNodeScreen}
         analyserNodeRef={analyserNodeRef}
-        speechBubbleText={companionBubbleText}
-        micMuted={micMuted || voiceGameCompanionMicMuted}
-        onToggleMute={toggleMicMute}
+        speechBubbleText={preparationScreenActive ? null : companionBubbleText}
+        micMuted={companionSpeechMuted || voiceGameCompanionSpeechMuted}
+        muteControlKind="companion"
+        onToggleMute={toggleCompanionSpeechMute}
         summoned={
-          plannerBoardLaunch == null || state.companionPresence === "summoned"
+          boardMapCompanionCompact
+            ? state.companionPresence === "summoned"
+            : plannerBoardLaunch == null || state.companionPresence === "summoned"
         }
         onSummon={
-          plannerBoardLaunch
+          plannerBoardLaunch || boardMapCompanionCompact
             ? () => setCompanionPresence("summoned")
             : undefined
         }
         onDismiss={
-          plannerBoardLaunch
+          plannerBoardLaunch || boardMapCompanionCompact
             ? () => setCompanionPresence("collapsed")
             : undefined
         }
@@ -2185,7 +2421,7 @@ function App() {
             }
             showKeyboard={profileWordRadar?.showKeyboard ?? false}
             inputMode={profileWordRadar?.inputMode}
-            voiceCaptureAvailable={state.microphoneAvailable !== false}
+            voiceCaptureAvailable={state.microphoneAvailable === true}
             personalBests={profileWordRadar?.personalBests ?? {}}
             childId={activeProfileChildId ?? ""}
             onComplete={(result) => {
@@ -2195,11 +2431,12 @@ function App() {
           />
         </FlowGameOverlay>
       ) : null}
-      {plannerBoardLaunch?.node.type === "word-radar" ? (
-        <FlowGameOverlay onBack={handlePlannerBoardOverlayBack} backLabel={directDiscoveryMode ? "Leave Discovery" : "Back to map"}>
+      {!homeworkSessionFinished && plannerBoardLaunch?.node.type === "word-radar" ? (
+        <FlowGameOverlay onBack={handlePlannerBoardOverlayBack} backLabel={directDiscoveryMode ? "Leave Discovery" : "Back to map"} completionNavigation={postActivityEngagement ? {completed:postActivityEngagement.outcome.completed,ownsBack:!directDiscoveryMode} : undefined}>
           <WordRadar
             key={`${plannerBoardLaunch.node.id}:${plannerBoardLaunch.replayNonce}`}
             assessmentMode={directDiscoveryMode || plannerBoardLaunch.node.spellingAssessment === true}
+            practiceCapture={plannerBoardPacket?.activeSessionPlan?.domain === "spelling" && !directDiscoveryMode && plannerBoardLaunch.node.spellingAssessment !== true}
             onAssessmentAttempt={handleSpellingDiscoveryAttempt}
             autoStart={directDiscoveryMode || plannerBoardLaunch.node.spellingAssessment ? sessionReady : undefined}
             items={
@@ -2221,7 +2458,7 @@ function App() {
               plannerBoardLaunch.node.wordRadarConfig?.inputMode === "keyboard"
             }
             inputMode={plannerBoardLaunch.node.wordRadarConfig?.inputMode}
-            voiceCaptureAvailable={state.microphoneAvailable !== false}
+            voiceCaptureAvailable={state.microphoneAvailable === true}
             speakStyle={plannerBoardLaunch.node.wordRadarConfig?.speakStyle}
             recallMode={plannerBoardLaunch.node.wordRadarConfig?.recallMode}
             hideWordDuringResponse={
@@ -2230,13 +2467,13 @@ function App() {
             requiresCapturedResponse={
               plannerBoardLaunch.node.wordRadarConfig?.requiresCapturedResponse
             }
+            launchToken={plannerBoardLaunch.completionId}
             nodeId={plannerBoardLaunch.node.id}
             planId={plannerBoardLaunch.node.planId}
             targetLane={plannerBoardLaunch.node.targetLane}
             wordRadarConfig={plannerBoardLaunch.node.wordRadarConfig}
             personalBests={profileWordRadar?.personalBests ?? {}}
             childId={activeProfileChildId ?? adventureChildId ?? ""}
-            enableLocalNarrationFallback={!directDiscoveryMode && !plannerBoardLaunch.node.spellingAssessment}
             onComplete={(result) => {
               if (directDiscoveryMode) {
                 void startDiscoveryAcademicCompletion().catch(error => console.error(" 🎮 [spelling-discovery] [completion] [retry-needed]", error));
@@ -2274,7 +2511,7 @@ function App() {
           ) : null}
         </FlowGameOverlay>
       ) : null}
-      {plannerBoardLaunch?.node.type === "pronunciation" ? (
+      {!homeworkSessionFinished && plannerBoardLaunch?.node.type === "pronunciation" ? (
         <FlowGameOverlay onBack={handlePlannerBoardOverlayBack} backLabel="Back to map">
           <PronunciationGameCanvas
             key={`${plannerBoardLaunch.node.id}:${plannerBoardLaunch.replayNonce}`}
@@ -2312,9 +2549,10 @@ function App() {
           />
         </FlowGameOverlay>
       ) : null}
-      {plannerBoardLaunch?.iframeUrl ? (
+      {!homeworkSessionFinished && plannerBoardLaunch?.iframeUrl ? (
         <FlowGameOverlay
           onBack={handlePlannerBoardOverlayBack}
+          completionNavigation={postActivityEngagement ? {completed:postActivityEngagement.outcome.completed,ownsBack:!directDiscoveryMode && !probeBoardMode} : undefined}
           backLabel={directDiscoveryMode ? "Leave Discovery" : "Back to map"}
         >
           <div
@@ -2339,6 +2577,7 @@ function App() {
                 ref={adventureGameIframeRef}
                 title={plannerBoardLaunch.node.type}
                 src={plannerBoardLaunch.iframeUrl}
+                onLoad={handlePlannerBoardIframeLoad}
                 style={{ width: "100%", height: "100%", border: "none", background: "transparent" }}
               />
             </div>
@@ -2348,8 +2587,8 @@ function App() {
               title={postActivityEngagement.title}
               outcome={postActivityEngagement.outcome}
               stats={postActivityEngagement.stats}
-              canReplay={!directDiscoveryMode}
-              showBackAction={!directDiscoveryMode}
+              canReplay={!directDiscoveryMode && !probeBoardMode}
+              showBackAction={!directDiscoveryMode && !probeBoardMode}
               canTryHarder={postActivityEngagement.canTryHarder}
               onAction={handlePlannerBoardPostActivityAction}
               onFunRating={handlePlannerBoardFunRating}

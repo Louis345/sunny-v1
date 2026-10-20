@@ -7,7 +7,13 @@ vi.mock("../profiles/childChart", () => ({
     childId,
     activeSessionPlan: {
       planId: `assignment-plan-${childId}`,
+      activeHomeworkId: `homework-${childId}`,
+      domain: "spelling",
       adventureBoard: { boardId: `board-${childId}` },
+    },
+    learningCycle: {
+      homeworkId: `homework-${childId}`,
+      domain: "spelling",
     },
   })),
 }));
@@ -104,7 +110,13 @@ describe("GET /api/child-experience/:childId", () => {
       childId: "reina",
       activeSessionPlan: {
         planId: "assignment-plan-reina",
+        activeHomeworkId: "homework-reina",
+        domain: "spelling",
         adventureBoard: { boardId: "board-reina" },
+      },
+      learningCycle: {
+        homeworkId: "homework-reina",
+        domain: "spelling",
       },
     });
     expect(out.body).toMatchObject({
@@ -130,6 +142,48 @@ describe("GET /api/child-experience/:childId", () => {
       error: "active_adventure_board_required",
     });
     expect(buildChildExperiencePacket).not.toHaveBeenCalled();
+  });
+
+  it("rejects a board whose assignment identity disagrees with the canonical cycle", async () => {
+    vi.mocked(getChildChart).mockReturnValueOnce({
+      childId: "reina",
+      activeSessionPlan: {
+        planId: "assignment-plan-reina",
+        activeHomeworkId: "homework-stale",
+        domain: "spelling",
+        adventureBoard: { boardId: "board-reina" },
+      },
+      learningCycle: {
+        homeworkId: "homework-current",
+        domain: "spelling",
+      },
+    } as ReturnType<typeof getChildChart>);
+
+    const out = await getJson("/api/child-experience/reina");
+
+    expect(out.status).toBe(409);
+    expect(out.body).toMatchObject({
+      error: "homework_assignment_identity_mismatch",
+    });
+    expect(buildChildExperiencePacket).not.toHaveBeenCalled();
+  });
+
+  it("keeps a legacy reading board readable when no canonical cycle exists", async () => {
+    vi.mocked(getChildChart).mockReturnValueOnce({
+      childId: "reina",
+      activeSessionPlan: {
+        planId: "assignment-plan-reina",
+        activeHomeworkId: "homework-reading-reina",
+        domain: "reading",
+        adventureBoard: { boardId: "board-reina" },
+      },
+      learningCycle: null,
+    } as ReturnType<typeof getChildChart>);
+
+    const out = await getJson("/api/child-experience/reina");
+
+    expect(out.status).toBe(200);
+    expect(buildChildExperiencePacket).toHaveBeenCalledOnce();
   });
 
   it("blocks /api/map/start from becoming the live homework board fallback", async () => {

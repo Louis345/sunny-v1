@@ -1,0 +1,15 @@
+{
+  "applicationRevision": "db75fc0d480c447bcea5bf4808bc78e2db5ea924",
+  "isolatedConfigurationRevision": "a8c997009fac9b293fc32b7662923285b01bc220",
+  "cause": "test profile absent from children.config.json",
+  "registryValidation": "passed",
+  "registryTests": 3,
+  "appCodeChanged": false,
+  "boardChanged": false,
+  "humanAcceptance": "pending",
+  "mergeAuthorized": false,
+  "configurationPushed": false,
+  "applicationConfigDiff": "",
+  "remoteBranchesContainingSetupCommit": "",
+  "isolatedChart": "Dedicated task runtime charts/elli-help-demo.db; not Ila or Reina chart"
+}

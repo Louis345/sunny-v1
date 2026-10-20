@@ -1,0 +1,66 @@
+
+ RUN  v3.2.4 /Users/jtaylor/Development/sunny-elli-capable-speech
+
+stdout | src/tests/test-companion-base-rules.ts > assembles Elli's full normal prompt without reintroducing hard caps (homework=Assigned spelling words)
+  🧩 Session prompt template v25
+  📋 Session prompt: 15988 chars (no care plan section, before manifest)
+
+stdout | src/tests/test-companion-base-rules.ts > assembles Elli's full normal prompt without reintroducing hard caps (homework=)
+  📋 Session prompt: 15325 chars (no care plan section, before manifest)
+
+ ✓ src/tests/test-companion-base-rules.ts (7 tests) 266ms
+stdout | src/tests/test-adventure-map-voice-slim.ts > buildSessionPrompt — ADVENTURE_MAP voice slim > omits canvas capabilities manifest and documents slim tools
+  📋 Session prompt: 15268 chars (no care plan section, before manifest)
+
+stdout | src/tests/test-adventure-map-voice-slim.ts > buildSessionPrompt — ADVENTURE_MAP voice slim > does not seed adventure-map companion chatter
+  📋 Session prompt: 15268 chars (no care plan section, before manifest)
+
+stdout | src/tests/test-adventure-map-voice-slim.ts > buildSessionPrompt — ADVENTURE_MAP voice slim > does not seed adventure-map companion chatter
+  📋 Session prompt: 13904 chars (no care plan section, before manifest)
+
+stdout | src/tests/test-adventure-map-voice-slim.ts > buildSessionPrompt — ADVENTURE_MAP voice slim > does not leak raw homework targets into the child-facing adventure-map prompt
+  🧩 Session prompt template v25
+  📋 Session prompt: 14694 chars (no care plan section, before manifest)
+
+stdout | src/tests/test-adventure-map-voice-slim.ts > buildSessionPrompt — ADVENTURE_MAP voice slim > does not inject map-unlock hype into the child-facing adventure-map prompt
+  🧩 Session prompt template v25
+  📋 Session prompt: 14694 chars (no care plan section, before manifest)
+
+stdout | src/tests/test-adventure-map-voice-slim.ts > buildSessionPrompt — ADVENTURE_MAP voice slim > keeps canvas manifest when ADVENTURE_MAP is off
+  📋 Session prompt: 15968 chars (no care plan section, before manifest)
+
+stdout | src/tests/test-adventure-map-voice-slim.ts > buildSessionPrompt — ADVENTURE_MAP voice slim > keeps canvas manifest for reading when ADVENTURE_MAP
+  🧩 Session prompt template v25
+  📋 Session prompt: 16935 chars (no care plan section, before manifest)
+
+ ✓ src/tests/test-adventure-map-voice-slim.ts (14 tests) 48ms
+stdout | src/tests/test-session-plan-injection.ts > Suite 1 — Plan injection (buildSessionPrompt) > with todaysPlan, prompt contains care plan section
+  📋 Session prompt: 15968 chars before care plan + 323 chars care = 16293 chars (before manifest)
+
+stdout | src/tests/test-session-plan-injection.ts > Suite 1 — Plan injection (buildSessionPrompt) > with carePlan null, no care plan section and no throw
+  📋 Session prompt: 15968 chars (no care plan section, before manifest)
+
+stdout | src/tests/test-session-plan-injection.ts > Suite 5 — Child-agnostic > same care plan string embedded for Ila vs Reina when same plan
+  📋 Session prompt: 15968 chars before care plan + 323 chars care = 16293 chars (before manifest)
+
+stdout | src/tests/test-session-plan-injection.ts > Suite 5 — Child-agnostic > same care plan string embedded for Ila vs Reina when same plan
+  📋 Session prompt: 14604 chars before care plan + 323 chars care = 14929 chars (before manifest)
+
+stdout | src/tests/test-session-plan-injection.ts > readPersistedTodaysPlan / writePersistedTodaysPlan > round-trips valid JSON
+  🎮 [today-plan] wrote plan-1792472164621.json
+
+stdout | src/tests/test-session-plan-injection.ts > getTodaysPlanInjectionSuffix > returns formatted plan when file exists and not stateless
+  🎮 [today-plan] wrote plan-suffix-1792472164640.json
+
+stdout | src/tests/test-session-plan-injection.ts > character counts: care plan injection > reports longer prompt when care plan present vs null
+  📋 Session prompt: 15968 chars (no care plan section, before manifest)
+
+stdout | src/tests/test-session-plan-injection.ts > character counts: care plan injection > reports longer prompt when care plan present vs null
+  📋 Session prompt: 15968 chars before care plan + 323 chars care = 16293 chars (before manifest)
+
+ ✓ src/tests/test-session-plan-injection.ts (20 tests) 29ms
+
+ Test Files  3 passed (3)
+      Tests  41 passed (41)
+   Start at  00:56:02
+   Duration  2.51s (transform 772ms, setup 0ms, collect 1.90s, tests 343ms, environment 0ms, prepare 65ms)

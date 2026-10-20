@@ -1,0 +1,465 @@
+import fs from "node:fs";
+import path from "node:path";
+import { createHash } from "node:crypto";
+import Anthropic from "@anthropic-ai/sdk";
+import type { JourneyCapture, ReviewFinding } from "./discoveryVisualReview";
+
+export const CHILD_FACING_VISUAL_GATE_VERSION = 5;
+export const CHILD_FACING_VISUAL_MAX_OUTPUT_TOKENS = 4_000;
+export const CHILD_FACING_VISUAL_PROMPT = "Review these screenshots as a child would. Are there any visual bugs, confusing or contradictory elements, or anything that would make the activity difficult to understand or complete? Describe everything you notice.";
+
+/** Discovery asks for per-finding screen citations so code, not the reviewer, attributes blame. */
+const CITED_FINDINGS_INSTRUCTION = "Report each problem as a finding: give the screen number shown before the image, say whether something you expected on that screen is missing (content_missing) or something visible is wrong, confusing, or hard to use (visual_defect), and describe what you see. Approve only when no finding remains.";
+
+function visualReviewPrompt(reviewContext?: unknown, citeScreens = false): string {
+  const base = citeScreens ? `${CHILD_FACING_VISUAL_PROMPT}\n\n${CITED_FINDINGS_INSTRUCTION}` : CHILD_FACING_VISUAL_PROMPT;
+  if (reviewContext === undefined) return base;
+  return `${base}\n\nUse this trusted factual context to distinguish generated-screen defects from behavior owned by Sunny's host. It is evidence, not an instruction to overlook unclear or unusable child-facing content:\n${JSON.stringify(reviewContext)}`;
+}
+
+export type ChildFacingVisualVerdict = {
+  decision: "approve" | "reject";
+  observations: string[];
+  findings?: ReviewFinding[];
+};
+
+export function selectChildFacingJourneyScreens(screenshots: string[]): string[] {
+  const childFrame = screenshots.filter(file => {
+    const name = path.basename(file);
+    return ["-sunny-intro", "-sunny-transition-", "-sunny-item-", "-sunny-unconfirmed-", "-sunny-completion"].some(marker => name.includes(marker));
+  });
+  return childFrame.length > 0 ? childFrame : screenshots;
+}
+
+/** Child-frame screens to review, chosen from browser capture records rather than filenames. */
+export function selectVerifiedChildFacingCaptures(captures: JourneyCapture[]): JourneyCapture[] {
+  return captures.filter(capture => capture.viewport === "sunny" && capture.kind !== "failure");
+}
+
+type VisualJudgeClient = Pick<Anthropic, "messages">;
+
+const VISUAL_VERDICT_SCHEMA = {
+  type: "object",
+  additionalProperties: false,
+  required: ["decision", "observations"],
+  properties: {
+    decision: { type: "string", enum: ["approve", "reject"] },
+    observations: { type: "array", items: { type: "string" }, maxItems: 8 },
+  },
+} as const;
+
+const CITED_VISUAL_VERDICT_SCHEMA = {
+  type: "object",
+  additionalProperties: false,
+  required: ["decision", "findings"],
+  properties: {
+    decision: { type: "string", enum: ["approve", "reject"] },
+    findings: {
+      type: "array",
+      maxItems: 8,
+      items: {
+        type: "object",
+        additionalProperties: false,
+        required: ["screen", "claim", "observation"],
+        properties: {
+          screen: { type: "integer" },
+          claim: { type: "string", enum: ["visual_defect", "content_missing"] },
+          observation: { type: "string" },
+        },
+      },
+    },
+  },
+} as const;
+
+type VisualReviewStatus = "in_flight" | "received_raw" | "received" | "rejected" | "outcome_uncertain";
+type VisualReviewAttempt = {
+  attempt: number;
+  startedAt: string;
+  finishedAt?: string;
+  status: VisualReviewStatus;
+  error?: string;
+  code?: number;
+};
+type ProviderUsage = {
+  inputTokens: number;
+  outputTokens: number;
+  cacheCreationInputTokens?: number;
+  cacheReadInputTokens?: number;
+  cachedInputTokens?: number;
+  reasoningTokens?: number;
+};
+type SavedVisualVerdict = Partial<ChildFacingVisualVerdict> & {
+  version: number;
+  requestHash: string;
+  promptHash: string;
+  model: string;
+  screenshotHashes: string[];
+  status?: VisualReviewStatus;
+  rawResponse?: unknown;
+  supersededRawResponses?: Array<{
+    recordedAt: string;
+    reason: "invalid_verdict";
+    rawResponse: unknown;
+    providerUsage?: ProviderUsage;
+  }>;
+  attempts?: VisualReviewAttempt[];
+  providerUsage?: ProviderUsage;
+  error?: string;
+};
+
+function providerUsage(response: unknown): ProviderUsage | undefined {
+  if (!response || typeof response !== "object") return undefined;
+  const usage = (response as { usage?: unknown }).usage;
+  if (!usage || typeof usage !== "object") return undefined;
+  const record = usage as Record<string, unknown>;
+  const inputTokens = Number(record.input_tokens);
+  const outputTokens = Number(record.output_tokens);
+  if (!Number.isFinite(inputTokens) || !Number.isFinite(outputTokens)) return undefined;
+  const inputDetails = record.input_tokens_details && typeof record.input_tokens_details === "object"
+    ? record.input_tokens_details as Record<string, unknown>
+    : undefined;
+  const outputDetails = record.output_tokens_details && typeof record.output_tokens_details === "object"
+    ? record.output_tokens_details as Record<string, unknown>
+    : undefined;
+  const optional = (value: unknown): number | undefined => {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : undefined;
+  };
+  return {
+    inputTokens,
+    outputTokens,
+    ...(optional(record.cache_creation_input_tokens) !== undefined
+      ? { cacheCreationInputTokens: optional(record.cache_creation_input_tokens) }
+      : {}),
+    ...(optional(record.cache_read_input_tokens) !== undefined
+      ? { cacheReadInputTokens: optional(record.cache_read_input_tokens) }
+      : {}),
+    ...(optional(inputDetails?.cached_tokens) !== undefined
+      ? { cachedInputTokens: optional(inputDetails?.cached_tokens) }
+      : {}),
+    ...(optional(outputDetails?.reasoning_tokens) !== undefined
+      ? { reasoningTokens: optional(outputDetails?.reasoning_tokens) }
+      : {}),
+  };
+}
+
+function digest(value: string | Buffer): string {
+  return createHash("sha256").update(value).digest("hex");
+}
+
+export function childFacingVisualRequestHash(input: {
+  version: number;
+  model: string;
+  promptHash: string;
+  screenshotLabels: string[];
+  screenshotHashes: string[];
+}): string {
+  return digest(JSON.stringify(input));
+}
+
+function parseVerdict(value: unknown, citeScreens = false): ChildFacingVisualVerdict {
+  const record = value && typeof value === "object" && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : null;
+  const decision = record?.decision;
+  if (citeScreens) {
+    const findings = record?.findings;
+    if ((decision !== "approve" && decision !== "reject")
+      || !Array.isArray(findings)
+      || findings.length > 8
+      || (decision === "reject" && findings.length === 0)
+      || findings.some(finding => !finding || typeof finding !== "object"
+        || !Number.isInteger((finding as ReviewFinding).screen)
+        || !["visual_defect", "content_missing"].includes((finding as ReviewFinding).claim)
+        || typeof (finding as ReviewFinding).observation !== "string"
+        || !(finding as ReviewFinding).observation.trim())) {
+      throw new Error("child_visual_review_invalid_verdict");
+    }
+    const cited = (findings as ReviewFinding[]).map(({ screen, claim, observation }) => ({ screen, claim, observation }));
+    return { decision, observations: cited.map(finding => finding.observation), findings: cited };
+  }
+  const observations = record?.observations;
+  if ((decision !== "approve" && decision !== "reject")
+    || !Array.isArray(observations)
+    || observations.some(item => typeof item !== "string" || !item.trim())
+    || observations.length > 8
+    || (decision === "reject" && observations.length === 0)) {
+    throw new Error("child_visual_review_invalid_verdict");
+  }
+  return { decision, observations: observations.map(String) };
+}
+
+function openAiResponseText(payload: Record<string, unknown>): string | undefined {
+  if (typeof payload.output_text === "string") return payload.output_text;
+  const output = Array.isArray(payload.output) ? payload.output : [];
+  for (const item of output) {
+    if (!item || typeof item !== "object") continue;
+    const content = Array.isArray((item as Record<string, unknown>).content)
+      ? (item as Record<string, unknown>).content as unknown[]
+      : [];
+    for (const part of content) {
+      if (part && typeof part === "object" && typeof (part as Record<string, unknown>).text === "string") {
+        return (part as Record<string, unknown>).text as string;
+      }
+    }
+  }
+  return undefined;
+}
+
+function parseProviderVerdict(provider: "openai" | "anthropic", response: unknown, citeScreens = false): ChildFacingVisualVerdict {
+  if (provider === "openai") {
+    if (!response || typeof response !== "object") throw new Error("child_visual_review_missing_verdict");
+    const rawVerdict = openAiResponseText(response as Record<string, unknown>);
+    if (!rawVerdict) throw new Error("child_visual_review_missing_verdict");
+    return parseVerdict(JSON.parse(rawVerdict), citeScreens);
+  }
+  const content = response && typeof response === "object" && Array.isArray((response as { content?: unknown }).content)
+    ? (response as { content: Array<{ type?: string; input?: unknown }> }).content
+    : [];
+  const toolUse = content.find(block => block.type === "tool_use");
+  if (!toolUse) throw new Error("child_visual_review_missing_verdict");
+  return parseVerdict(toolUse.input, citeScreens);
+}
+
+function atomicJson(file: string, value: unknown): void {
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  const temporary = `${file}.${process.pid}.tmp`;
+  fs.writeFileSync(temporary, `${JSON.stringify(value, null, 2)}\n`, "utf8");
+  fs.renameSync(temporary, file);
+}
+
+export async function judgeChildFacingScreens(input: {
+  screenshotPaths: string[];
+  model?: string;
+  auditFile?: string;
+  client?: VisualJudgeClient;
+  retryUncertain?: boolean;
+  reviewContext?: unknown;
+  /** Require each finding to cite a reviewed screen number (Discovery repair attribution). */
+  citeScreens?: boolean;
+}): Promise<ChildFacingVisualVerdict> {
+  const citeScreens = input.citeScreens === true;
+  const schema = citeScreens ? CITED_VISUAL_VERDICT_SCHEMA : VISUAL_VERDICT_SCHEMA;
+  const screenshotPaths = [...new Set(input.screenshotPaths)].filter(file => fs.existsSync(file));
+  if (screenshotPaths.length === 0) throw new Error("child_visual_review_screenshots_missing");
+  const model = input.model ?? process.env.SUNNY_VISUAL_JUDGE_MODEL
+    ?? (input.client ? "claude-sonnet-5" : "claude-opus-5-5");
+  const provider = model.startsWith("gpt-") ? "openai" : "anthropic";
+  const screenshotHashes = screenshotPaths.map(file => digest(fs.readFileSync(file)));
+  const screenshotLabels = screenshotPaths.map(file => path.basename(file));
+  const reviewPrompt = visualReviewPrompt(input.reviewContext, citeScreens);
+  const promptHash = digest(reviewPrompt);
+  const requestHash = childFacingVisualRequestHash({
+    version: CHILD_FACING_VISUAL_GATE_VERSION,
+    model,
+    promptHash,
+    screenshotLabels,
+    screenshotHashes,
+  });
+
+  let saved: SavedVisualVerdict | undefined;
+  if (input.auditFile && fs.existsSync(input.auditFile)) {
+    saved = JSON.parse(fs.readFileSync(input.auditFile, "utf8")) as SavedVisualVerdict;
+    const savedStatus = saved.status ?? (saved.decision ? "received" : undefined);
+    if (saved.version === CHILD_FACING_VISUAL_GATE_VERSION
+      && saved.requestHash !== requestHash
+      && (savedStatus === "in_flight" || savedStatus === "outcome_uncertain" || savedStatus === "received_raw")
+      && !input.retryUncertain) {
+      throw new Error(`child_visual_review_${savedStatus}:${input.auditFile}${saved.error ? `:${saved.error}` : ""}`);
+    }
+    if (saved.version === CHILD_FACING_VISUAL_GATE_VERSION && saved.requestHash === requestHash) {
+      const status = savedStatus;
+      if (status === "received") {
+        const verdict = parseVerdict(saved, citeScreens);
+        console.log(` 🎮 [visual-judge] [verdict] [reused] decision=${verdict.decision}`);
+        return verdict;
+      }
+      if (status === "received_raw") {
+        try {
+          const verdict = parseProviderVerdict(provider, saved.rawResponse, citeScreens);
+          atomicJson(input.auditFile, { ...saved, status: "received", ...verdict });
+          console.log(` 🎮 [visual-judge] [verdict] [recovered] decision=${verdict.decision}`);
+          return verdict;
+        } catch (error) {
+          if (!input.retryUncertain) throw error;
+          saved = {
+            ...saved,
+            supersededRawResponses: [
+              ...(saved.supersededRawResponses ?? []),
+              {
+                recordedAt: new Date().toISOString(),
+                reason: "invalid_verdict",
+                rawResponse: saved.rawResponse,
+                ...(saved.providerUsage ? { providerUsage: saved.providerUsage } : {}),
+              },
+            ],
+          };
+        }
+      }
+      if (!input.retryUncertain && status) {
+        throw new Error(`child_visual_review_${status}:${input.auditFile}${saved.error ? `:${saved.error}` : ""}`);
+      }
+    } else {
+      saved = undefined;
+    }
+  }
+
+  if (!input.auditFile && !input.client) throw new Error("child_visual_review_audit_required");
+
+  if (provider === "openai" && !process.env.OPENAI_API_KEY?.trim()) {
+    throw new Error("child_visual_review_missing:OPENAI_API_KEY");
+  }
+  if (provider === "anthropic" && !input.client && !process.env.ANTHROPIC_API_KEY?.trim()) {
+    throw new Error("child_visual_review_missing:ANTHROPIC_API_KEY");
+  }
+
+  const startedAt = new Date().toISOString();
+  const priorAttempts = saved?.version === CHILD_FACING_VISUAL_GATE_VERSION
+    && saved.requestHash === requestHash && Array.isArray(saved.attempts)
+    ? saved.attempts
+    : [];
+  const attempts: VisualReviewAttempt[] = [
+    ...priorAttempts,
+    { attempt: priorAttempts.length + 1, startedAt, status: "in_flight" },
+  ];
+  if (input.auditFile) atomicJson(input.auditFile, {
+    version: CHILD_FACING_VISUAL_GATE_VERSION,
+    requestHash,
+    promptHash,
+    model,
+    screenshotHashes,
+    status: "in_flight",
+    attempts,
+    ...(saved?.supersededRawResponses
+      ? { supersededRawResponses: saved.supersededRawResponses }
+      : {}),
+  } satisfies SavedVisualVerdict);
+
+  let rawResponse: unknown;
+  try {
+  if (provider === "openai") {
+    const response = await fetch("https://api.openai.com/v1/responses", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${process.env.OPENAI_API_KEY!.trim()}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model,
+        input: [{
+          role: "user",
+          content: [
+            ...screenshotPaths.flatMap((file, index) => [
+              { type: "input_text", text: `Screen state ${index + 1}/${screenshotPaths.length}: ${path.basename(file)}` },
+              {
+                type: "input_image",
+                image_url: `data:image/png;base64,${fs.readFileSync(file).toString("base64")}`,
+                detail: "high",
+              },
+            ]),
+            { type: "input_text", text: reviewPrompt },
+          ],
+        }],
+        text: { format: { type: "json_schema", name: "child_visual_verdict", strict: true, schema } },
+        reasoning: { effort: "low" },
+        max_output_tokens: CHILD_FACING_VISUAL_MAX_OUTPUT_TOKENS,
+        store: false,
+      }),
+      signal: AbortSignal.timeout(Number(process.env.SUNNY_AI_TIMEOUT_MS ?? 600_000)),
+    });
+    if (!response.ok) {
+      const error = new Error(`child_visual_review_openai_failed:${response.status}:${await response.text()}`) as Error & { status: number };
+      error.status = response.status;
+      throw error;
+    }
+    const payload = await response.json() as Record<string, unknown>;
+    if (payload.status && payload.status !== "completed") throw new Error(`child_visual_review_openai_incomplete:${payload.status}`);
+    rawResponse = payload;
+  } else {
+    const client = input.client ?? new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+    rawResponse = await client.messages.create({
+      model,
+      max_tokens: CHILD_FACING_VISUAL_MAX_OUTPUT_TOKENS,
+      tools: [{
+        name: "record_visual_verdict",
+        description: "Record the result of the open-ended screenshot inspection.",
+        input_schema: schema,
+      }],
+      ...(model === "claude-opus-5-5"
+        ? {}
+        : { tool_choice: { type: "tool" as const, name: "record_visual_verdict" } }),
+      messages: [{
+        role: "user",
+        content: [
+          ...screenshotPaths.flatMap((file, index) => [
+            { type: "text" as const, text: `Screen state ${index + 1}/${screenshotPaths.length}: ${path.basename(file)}` },
+            {
+              type: "image" as const,
+              source: {
+                type: "base64" as const,
+                media_type: "image/png" as const,
+                data: fs.readFileSync(file).toString("base64"),
+              },
+            },
+          ]),
+          { type: "text" as const, text: reviewPrompt },
+        ],
+      }],
+    });
+  }
+  } catch (error) {
+    const code = Number((error as { status?: number }).status ?? 0);
+    const status: VisualReviewStatus = code >= 400 && code < 500 ? "rejected" : "outcome_uncertain";
+    const finishedAt = new Date().toISOString();
+    attempts[attempts.length - 1] = {
+      ...attempts[attempts.length - 1]!,
+      status,
+      finishedAt,
+      error: error instanceof Error ? error.message : String(error),
+      ...(code ? { code } : {}),
+    };
+    if (input.auditFile) atomicJson(input.auditFile, {
+      version: CHILD_FACING_VISUAL_GATE_VERSION,
+      requestHash,
+      promptHash,
+      model,
+      screenshotHashes,
+      status,
+      error: error instanceof Error ? error.message : String(error),
+      attempts,
+    } satisfies SavedVisualVerdict);
+    throw new Error(`child_visual_review_${status}:${input.auditFile ?? "injected"}:${error instanceof Error ? error.message : String(error)}`);
+  }
+
+  const receivedAt = new Date().toISOString();
+  const usage = providerUsage(rawResponse);
+  attempts[attempts.length - 1] = { ...attempts[attempts.length - 1]!, status: "received_raw", finishedAt: receivedAt };
+  if (input.auditFile) atomicJson(input.auditFile, {
+    version: CHILD_FACING_VISUAL_GATE_VERSION,
+    requestHash,
+    promptHash,
+    model,
+    screenshotHashes,
+    status: "received_raw",
+    rawResponse,
+    ...(usage ? { providerUsage: usage } : {}),
+    attempts,
+    ...(saved?.supersededRawResponses
+      ? { supersededRawResponses: saved.supersededRawResponses }
+      : {}),
+  } satisfies SavedVisualVerdict);
+  const verdict = parseProviderVerdict(provider, rawResponse, citeScreens);
+  if (input.auditFile) atomicJson(input.auditFile, {
+    version: CHILD_FACING_VISUAL_GATE_VERSION,
+    requestHash,
+    promptHash,
+    model,
+    screenshotHashes,
+    status: "received",
+    attempts: attempts.map((attempt, index) => index === attempts.length - 1 ? { ...attempt, status: "received" } : attempt),
+    ...(usage ? { providerUsage: usage } : {}),
+    ...(saved?.supersededRawResponses
+      ? { supersededRawResponses: saved.supersededRawResponses }
+      : {}),
+    ...verdict,
+  } satisfies SavedVisualVerdict);
+  console.log(` 🎮 [visual-judge] [verdict] [${verdict.decision}] observations=${verdict.observations.length}`);
+  return verdict;
+}

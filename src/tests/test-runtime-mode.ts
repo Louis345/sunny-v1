@@ -2,11 +2,44 @@ import { describe, it, expect } from "vitest";
 import fs from "fs";
 import path from "path";
 import {
+  assertIntentionalHomeworkPreview,
   resolveSunnyRuntimeConfig,
   type SunnyRuntimeConfig,
-} from "../utils/runtimeMode";
+} from "../shared/runtimeConfig";
 
 describe("resolveSunnyRuntimeConfig", () => {
+  it("rejects a stateless as-child homework launch that was not explicitly requested as preview", () => {
+    const config = resolveSunnyRuntimeConfig({}, {
+      subject: "homework",
+      childId: "ila",
+      sessionMode: "as-child",
+      homeworkDomain: "spelling",
+    });
+
+    expect(() => assertIntentionalHomeworkPreview(config)).toThrow(
+      "as_child_homework_requires_explicit_preview",
+    );
+  });
+
+  it("allows explicit stateless homework preview and isolated real certification launches", () => {
+    const preview = resolveSunnyRuntimeConfig({}, {
+      subject: "homework",
+      childId: "ila",
+      sessionMode: "as-child",
+      previewMode: "free",
+      homeworkDomain: "spelling",
+    });
+    const isolatedReal = resolveSunnyRuntimeConfig({}, {
+      subject: "homework",
+      childId: "ila",
+      sessionMode: "real",
+      homeworkDomain: "spelling",
+    });
+
+    expect(() => assertIntentionalHomeworkPreview(preview)).not.toThrow();
+    expect(() => assertIntentionalHomeworkPreview(isolatedReal)).not.toThrow();
+  });
+
   it("builds a canonical preview inspect-all config from env", () => {
     const cfg = resolveSunnyRuntimeConfig({
       SUNNY_SUBJECT: "homework",
@@ -155,6 +188,16 @@ describe("package.json runtime launcher scripts", () => {
     expect(pkg.scripts["sunny:mode:diag:homework:as-reina"]).toBeDefined();
     expect(pkg.scripts["sunny:mode:reading"]).toBeDefined();
     expect(pkg.scripts["sunny:mode:pronunciation"]).toBeDefined();
+  });
+
+  it("marks every direct as-child homework launcher as an explicit stateless preview", () => {
+    const directAsChildHomeworkScripts = Object.entries(pkg.scripts)
+      .filter(([, command]) => command.includes("--subject homework") && command.includes("--session-mode as-child"));
+
+    expect(directAsChildHomeworkScripts.length).toBeGreaterThan(0);
+    for (const [name, command] of directAsChildHomeworkScripts) {
+      expect(command, name).toContain("--preview free");
+    }
   });
 
   it("sunny:run delegates to the canonical runner", () => {

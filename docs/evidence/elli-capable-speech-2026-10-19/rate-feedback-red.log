@@ -1,0 +1,32 @@
+
+ RUN  v3.2.4 /Users/jtaylor/Development/sunny-elli-capable-speech
+
+ ❯ src/server/companionSpeechTools.test.ts (3 tests | 1 failed) 6ms
+   ✓ Elli's speech capability > applies the model's chosen rate and reports configuration, not heard audio 1ms
+   ✓ Elli's speech capability > does not advertise unavailable speech control 0ms
+   × tells Elli the current configured pace so she can reconsider an ineffective attempt 4ms
+     → expected 'Set the speed of upcoming spoken audi…' to contain 'Current configured speed: 0.75'
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/server/companionSpeechTools.test.ts > tells Elli the current configured pace so she can reconsider an ineffective attempt
+AssertionError: expected 'Set the speed of upcoming spoken audi…' to contain 'Current configured speed: 0.75'
+
+Expected: "Current configured speed: 0.75"
+Received: "Set the speed of upcoming spoken audio, including your explanations and activity word replays. Range 0.7 (slowest) to 1.2 (fastest); 1 is normal. Persists until changed. Already generated audio cannot be changed. This configures speech; it does not confirm the child heard or understood it."
+
+ ❯ src/server/companionSpeechTools.test.ts:23:43
+     21| it("tells Elli the current configured pace so she can reconsider an in…
+     22|  const tools=createSpeechTools({setSpeechRate:speed=>({speed}),getSpee…
+     23|  expect(tools.setSpeechRate!.description).toContain("Current configure…
+       |                                           ^
+     24| });
+     25|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 2 passed (3)
+   Start at  23:37:07
+   Duration  154ms (transform 15ms, setup 0ms, collect 46ms, tests 6ms, environment 0ms, prepare 22ms)

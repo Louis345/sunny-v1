@@ -1,3 +1,4 @@
+import { buildCompanionSessionBaseline, renderCompanionSessionBaseline } from "./companionSessionBaseline";
 import fs from "fs";
 import os from "os";
 import path from "path";
@@ -432,6 +433,9 @@ export class SessionDebugRecorder {
       this.buildSummary(input, endedAt, durationMs),
       "utf8",
     );
+    const baseline = buildCompanionSessionBaseline(this.events);
+    writeJson(path.join(this.sessionDir, "companion-baseline.json"), baseline);
+    fs.writeFileSync(path.join(this.sessionDir, "companion-baseline.md"), renderCompanionSessionBaseline(baseline), "utf8");
     this.finalized = true;
   }
 

@@ -107,6 +107,11 @@ export const TEACHING_TOOLS: Record<string, GameDefinition> = {
     "defaultConfig": {},
     "voiceEnabled": true
   },
+  "spelling-visual-explainer": {
+    "url": "/games/spelling-visual-explainer.html",
+    "defaultConfig": {},
+    "voiceEnabled": true
+  },
   "store-game": {
     "url": "/games/store-game.html",
     "defaultConfig": {
@@ -116,11 +121,6 @@ export const TEACHING_TOOLS: Record<string, GameDefinition> = {
   },
   "vault-cracker": {
     "url": "/games/vault-cracker.html",
-    "defaultConfig": {},
-    "voiceEnabled": true
-  },
-  "word-builder": {
-    "url": "/games/word-builder.html",
     "defaultConfig": {},
     "voiceEnabled": true
   },

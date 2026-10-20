@@ -1,14 +1,46 @@
+import {linearJourneyFixture,choiceJourneyFixture} from "./authoredJourney";
 import fs from "node:fs";
 import path from "node:path";
 import { getChildChart } from "../../profiles/childChart";
 import { hydrateAssignmentPlannerOutputFromDraft } from "../../engine/assignmentPlanner";
 import type { AssignmentPlanningPacket, AssignmentPlannerOutput, SpellingIntake } from "../../engine/assignmentPlanner";
 import { COMPANION_DEFAULTS } from "../../shared/companionTypes";
+import { initializeLearningProfile } from "../../utils/learningProfileIO";
 
-export function seedSpellingLab(rootDir: string, words = ["night", "light"], companionVrmUrl = ""): string {
-  const child = path.join(rootDir, "src/context/lab-child"); fs.mkdirSync(child, { recursive: true });
-  fs.writeFileSync(path.join(child, "learning_profile.json"), JSON.stringify({ childId: "lab-child", name: "Lab", age: 8, grade: 3, totalSessions: 0, sessionHistory: [], preferences: {}, strengths: [], challenges: [], notes: [], diagnoses: [], learningGoals: [] }));
-  fs.writeFileSync(path.join(rootDir, "children.config.json"), JSON.stringify({ childProfiles: { "lab-child": {} }, companions: { elli: { ...COMPANION_DEFAULTS, vrmUrl: companionVrmUrl, dopamineGames: [], faceCamera: { position: [0, 0, 1], target: [0, 0, 0] } } }, defaultCompanionId: "elli" }));
+export function writeSpellingPdfFixture(rootDir: string, words: string[]): string {
+  const content = `BT /F1 20 Tf 72 720 Td (Spelling words: ${words.join(", ")}) Tj ET`;
+  const objects = [
+    "<< /Type /Catalog /Pages 2 0 R >>",
+    "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+    "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>",
+    "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
+    `<< /Length ${Buffer.byteLength(content)} >>\nstream\n${content}\nendstream`,
+  ];
+  let pdf = "%PDF-1.4\n";
+  const offsets = [0];
+  objects.forEach((object, index) => {
+    offsets.push(Buffer.byteLength(pdf));
+    pdf += `${index + 1} 0 obj\n${object}\nendobj\n`;
+  });
+  const xref = Buffer.byteLength(pdf);
+  pdf += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n`;
+  pdf += offsets.slice(1).map((offset) => `${String(offset).padStart(10, "0")} 00000 n \n`).join("");
+  pdf += `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF\n`;
+  const filePath = path.join(rootDir, "school-words.pdf");
+  fs.writeFileSync(filePath, pdf);
+  return filePath;
+}
+
+export function seedSpellingLab(rootDir: string, words = ["night", "light"], companionVrmUrl = "", childId = "lab-child"): string {
+  const child = path.join(rootDir, "src/context", childId); fs.mkdirSync(child, { recursive: true });
+  fs.writeFileSync(path.join(child, "learning_profile.json"), JSON.stringify(initializeLearningProfile({
+    childId,
+    age: 8,
+    grade: 3,
+    diagnoses: [],
+    learningGoals: [],
+  })));
+  fs.writeFileSync(path.join(rootDir, "children.config.json"), JSON.stringify({ childProfiles: { [childId]: {} }, companions: { elli: { ...COMPANION_DEFAULTS, vrmUrl: companionVrmUrl, dopamineGames: [], faceCamera: { position: [0, 0, 1], target: [0, 0, 0] } } }, defaultCompanionId: "elli" }));
   const source = path.join(rootDir, "school-words.txt"); fs.writeFileSync(source, `School spelling: ${words.join(", ")}`); return source;
 }
 
@@ -24,12 +56,16 @@ export function recordedSpellingPlan(packet: AssignmentPlanningPacket, rootDir: 
   const chart = getChildChart(packet.childId, { rootDir });
   const evidenceIds = packet.discoveryEvidence.observations.map(row => row.observationId);
   const nodePlan = [
-    { id: "practice", type: "word-radar", activityId: "word-radar", title: "Word workshop", targets: ["light"], difficulty: 1, source: "chart_planner", wordRadarConfig: { recallMode: "visible_read", inputMode: "keyboard", showTimer: false } },
-    { id: "check", type: "word-radar", activityId: "word-radar", title: "Recall check", targets: ["night", "light"], difficulty: 1, source: "chart_planner", wordRadarConfig: { recallMode: "hidden_word_recall", inputMode: "keyboard", showTimer: false } },
-    { id: "quest", type: "quest", activityId: "quest", title: "Quest", targets: ["night", "light"], difficulty: 1, source: "chart_planner" },
+    { id: "practice", type: "word-radar", activityId: "word-radar", title: "Word workshop", targets: ["light"], difficulty: 1, source: "chart_planner", wordRadarConfig: { recallMode: "visible_read", inputMode: "whole-word", speakStyle: "option-a", showTimer: false, hideWordDuringResponse: false, requiresCapturedResponse: true } },
+    { id: "check", type: "word-radar", activityId: "word-radar", title: "Recall check", targets: ["night", "light"], difficulty: 1, source: "chart_planner", wordRadarConfig: { recallMode: "hidden_word_recall", inputMode: "whole-word", speakStyle: "option-b", showTimer: true, timerSeconds: 8, hideWordDuringResponse: true, requiresCapturedResponse: true } },
   ];
   const plannedMeasurements = nodePlan.slice(0, 2).map(node => ({ id: `measure-${node.id}`, activityId: node.activityId, target: node.targets.join(","), evidenceType: "recall", supportCriteria: "Unassisted capture improves", reviseCriteria: "Mixed evidence", falsifyCriteria: "No improvement", spelling: { role: node.id === "check" ? "fresh_checkpoint" : "practice", evidenceIds, interventionNodeIds: node.id === "check" ? ["practice"] : [], reason: "Current mixed recall evidence", uncertainty: "One occasion does not establish retention", expectedAccuracy: { min: 0.5, max: 1 }, confidence: 0.5, maxDelayDays: 7, finalCheck: node.id === "check" } }));
-  const plan = { planId: `targeted:${chart.learningCycle!.homeworkId}`, childId: packet.childId, domain: "spelling", activeHomeworkId: chart.learningCycle!.homeworkId, nodePlan, plannedMeasurements, planTheory: { hypothesis: "Practice may support the uncertain word", evidenceSummary: evidenceIds, intervention: "Visible practice followed by unassisted recall", supportCriteria: ["Recall improves"], reviseCriteria: ["Mixed"], falsifyCriteria: ["No change"] } };
+  const plan = { planId: `targeted:${chart.learningCycle!.homeworkId}`, childId: packet.childId, domain: "spelling", activeHomeworkId: chart.learningCycle!.homeworkId, nodePlan, boardDefinition:linearJourneyFixture(["practice","check"]), plannedMeasurements, planTheory: { hypothesis: "Practice may support the uncertain word", evidenceSummary: evidenceIds, intervention: "Visible practice followed by unassisted recall", supportCriteria: ["Recall improves"], reviseCriteria: ["Mixed"], falsifyCriteria: ["No change"] } };
+  // Recorded authoring chooses child-facing labels; runtime must preserve them.
+  for (const portal of plan.boardDefinition.portals) {
+    const activity = nodePlan.find(node => node.id === portal.activityNodeId);
+    if (activity) portal.label = activity.title;
+  }
   return hydrateAssignmentPlannerOutputFromDraft({ activeSessionPlan: plan, plannedMeasurements, planTheory: plan.planTheory, generationRequests: [], reviewQuestions: [] } as never, packet);
 }
 
@@ -59,8 +95,6 @@ export function recordedAdaptiveSpellingPlan(packet: AssignmentPlanningPacket, r
       evidencePolicy: { writesPracticeEvidence: true, writesMasteryEvidence: false, requiresPerTargetResult: true, allowedEvidence: ["practice"] },
     } },
     { id: "recall-checkpoint", type: "word-radar", activityId: "word-radar", title: "Recall Checkpoint", targets: words, difficulty: 1, source: "chart_planner", wordRadarConfig: { recallMode: "hidden_word_recall", inputMode: "keyboard", showTimer: false } },
-    { id: "quest", type: "quest", activityId: "quest", title: "Word Quest", targets: words, difficulty: 1, source: "chart_planner" },
-    { id: "boss", type: "boss", activityId: "boss", title: "Boss Gate", targets: words, difficulty: 1, source: "chart_planner" },
   ];
   const plannedMeasurements = nodePlan.slice(0, 6).map((node) => ({
     id: `measure-${node.id}`,
@@ -89,12 +123,16 @@ export function recordedAdaptiveSpellingPlan(packet: AssignmentPlanningPacket, r
     domain: "spelling",
     activeHomeworkId: chart.learningCycle!.homeworkId,
     nodePlan,
-    learningRoutes: [
-      { id: "build-route", label: "Build It", rationale: "Practice the same four gaps with careful construction and a wheel reward.", nodeIds: practiceIds.slice(0, 3) },
-      { id: "speed-route", label: "Speed It", rationale: "Practice the same four gaps through recall and faster letter play.", nodeIds: practiceIds.slice(3) },
-    ],
+    boardDefinition: choiceJourneyFixture([
+      { id: "build-route", label: "Build It", nodeIds: practiceIds.slice(0, 3) },
+      { id: "speed-route", label: "Speed It", nodeIds: practiceIds.slice(3) },
+    ],[],["recall-checkpoint"]),
     plannedMeasurements,
     planTheory,
   };
+  for (const portal of plan.boardDefinition.portals) {
+    const activity = nodePlan.find(node => node.id === portal.activityNodeId);
+    if (activity) portal.label = activity.title;
+  }
   return hydrateAssignmentPlannerOutputFromDraft({ activeSessionPlan: plan, plannedMeasurements, planTheory, generationRequests: [], reviewQuestions: [] } as never, packet);
 }

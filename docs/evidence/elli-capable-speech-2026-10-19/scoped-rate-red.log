@@ -1,0 +1,173 @@
+
+ RUN  v3.2.4 /Users/jtaylor/Development/sunny-elli-capable-speech
+
+stdout | src/server/ws-tts-playback-ownership.test.ts > TTS socket and playback packet ownership > tags only the current socket's PCM and preserves the next connection through old callbacks
+ 🎮 [session-audio] [owner] [started] request=old
+  🔊 TTS model: eleven_flash_v2_5
+
+stdout | src/server/ws-tts-playback-ownership.test.ts > TTS socket and playback packet ownership > tags only the current socket's PCM and preserves the next connection through old callbacks
+ 🎮 [session-audio] [stream-terminal] [final] request=old elapsedMs=0 chunks=1
+ 🎮 [session-audio] [owner] [started] request=new
+  🔊 TTS model: eleven_flash_v2_5
+
+stderr | src/server/ws-tts-playback-ownership.test.ts > TTS socket and playback packet ownership > tags only the current socket's PCM and preserves the next connection through old callbacks
+  🔇 ElevenLabs TTS connect cancelled during shutdown
+
+stdout | src/server/ws-tts-playback-ownership.test.ts > TTS socket and playback packet ownership > tags only the current socket's PCM and preserves the next connection through old callbacks
+ 🎮 [session-audio] [stream-terminal] [cancelled] request=new elapsedMs=0 chunks=1
+
+stdout | src/server/ws-tts-playback-ownership.test.ts > reopens a primed stream at the AI-selected rate, preserving playback identity
+ 🎮 [session-audio] [owner] [started] request=speech
+  🔊 TTS model: eleven_flash_v2_5
+
+stdout | src/server/ws-tts-playback-ownership.test.ts > reopens a primed stream at the AI-selected rate, preserving playback identity
+ 🎮 [session-audio] [stream-terminal] [cancelled] request=speech elapsedMs=0 chunks=0
+  🔊 TTS model: eleven_flash_v2_5
+
+stdout | src/server/ws-tts-playback-ownership.test.ts > reopens a primed stream at the AI-selected rate, preserving playback identity
+  🔊 TTS: "Dissatisfied."
+
+stdout | src/server/ws-tts-playback-ownership.test.ts > reopens a primed stream at the AI-selected rate, preserving playback identity
+ 🎮 [session-audio] [stream-terminal] [cancelled] request=speech elapsedMs=1 chunks=0
+  🔊 TTS model: eleven_flash_v2_5
+
+stdout | src/server/ws-tts-playback-ownership.test.ts > reopens a primed stream at the AI-selected rate, preserving playback identity
+ 🎮 [session-audio] [stream-terminal] [cancelled] request=unowned elapsedMs=0 chunks=0
+
+stdout | src/server/ws-tts-playback-ownership.test.ts > drains already submitted speech before applying a new rate without losing its owner
+ 🎮 [session-audio] [owner] [started] request=speech
+  🔊 TTS model: eleven_flash_v2_5
+
+stdout | src/server/ws-tts-playback-ownership.test.ts > drains already submitted speech before applying a new rate without losing its owner
+  🔊 TTS: "Existing speech."
+ 🎮 [session-audio] [stream-terminal] [final] request=speech elapsedMs=0 chunks=1
+
+stdout | src/server/ws-tts-playback-ownership.test.ts > drains already submitted speech before applying a new rate without losing its owner
+  🔊 TTS model: eleven_flash_v2_5
+
+stdout | src/server/ws-tts-playback-ownership.test.ts > drains already submitted speech before applying a new rate without losing its owner
+ 🎮 [session-audio] [stream-terminal] [cancelled] request=speech elapsedMs=2 chunks=1
+
+stdout | src/server/ws-tts-playback-ownership.test.ts > does not revive speech after barge-in; only the selected configuration remains
+ 🎮 [session-audio] [owner] [started] request=old
+  🔊 TTS model: eleven_flash_v2_5
+
+stdout | src/server/ws-tts-playback-ownership.test.ts > does not revive speech after barge-in; only the selected configuration remains
+  🔊 TTS: "Existing speech."
+ 🎮 [session-audio] [stream-terminal] [cancelled] request=old elapsedMs=0 chunks=0
+
+stdout | src/server/ws-tts-playback-ownership.test.ts > keeps delivered-audio proof across a rate reconnect
+ 🎮 [session-audio] [owner] [started] request=speech
+  🔊 TTS model: eleven_flash_v2_5
+
+stdout | src/server/ws-tts-playback-ownership.test.ts > keeps delivered-audio proof across a rate reconnect
+  🔊 TTS: "First sentence."
+ 🎮 [session-audio] [stream-terminal] [final] request=speech elapsedMs=0 chunks=1
+
+stdout | src/server/ws-tts-playback-ownership.test.ts > keeps delivered-audio proof across a rate reconnect
+  🔊 TTS model: eleven_flash_v2_5
+
+stdout | src/server/ws-tts-playback-ownership.test.ts > keeps delivered-audio proof across a rate reconnect
+ 🎮 [session-audio] [stream-terminal] [cancelled] request=speech elapsedMs=1 chunks=1
+
+stdout | src/server/ws-tts-playback-ownership.test.ts > applies a concurrently selected rate to the next replay even while old speech drains
+ 🎮 [session-audio] [owner] [started] request=speech
+  🔊 TTS model: eleven_flash_v2_5
+
+stdout | src/server/ws-tts-playback-ownership.test.ts > applies a concurrently selected rate to the next replay even while old speech drains
+  🔊 TTS: "Here it comes."
+ 🎮 [session-audio] [stream-terminal] [cancelled] request=speech elapsedMs=0 chunks=0
+ 🎮 [session-audio] [owner] [started] request=replay
+  🔊 TTS model: eleven_flash_v2_5
+
+stdout | src/server/ws-tts-playback-ownership.test.ts > applies a concurrently selected rate to the next replay even while old speech drains
+ 🎮 [session-audio] [stream-terminal] [cancelled] request=replay elapsedMs=0 chunks=0
+
+stdout | src/server/ws-tts-playback-ownership.test.ts > changes a connecting stream before initialization without losing buffered text
+  🔊 TTS model: eleven_flash_v2_5
+  🔊 TTS: "Buffered speech."
+
+stdout | src/server/ws-tts-playback-ownership.test.ts > changes a connecting stream before initialization without losing buffered text
+ 🎮 [session-audio] [stream-terminal] [cancelled] request=unowned elapsedMs=0 chunks=0
+
+stdout | src/server/ws-tts-playback-ownership.test.ts > uses the selected rate in the real narration adapter with concurrent tools: rate_first
+ 🎮 [session-audio] [owner] [started] request=companion
+  🔊 TTS model: eleven_flash_v2_5
+
+stdout | src/server/ws-tts-playback-ownership.test.ts > uses the selected rate in the real narration adapter with concurrent tools: rate_first
+  🔊 TTS: "Here it comes."
+ 🎮 [session-audio] [stream-terminal] [cancelled] request=companion elapsedMs=0 chunks=0
+ 🎮 [session-audio] [owner] [started] request=replay
+  🔊 TTS model: eleven_flash_v2_5
+
+stdout | src/server/ws-tts-playback-ownership.test.ts > uses the selected rate in the real narration adapter with concurrent tools: rate_first
+ 🎮 [companion-speech] [rate] [configured] speed=0.7
+
+stdout | src/server/ws-tts-playback-ownership.test.ts > uses the selected rate in the real narration adapter with concurrent tools: rate_first
+  🔊 TTS: "night."
+
+stdout | src/server/ws-tts-playback-ownership.test.ts > uses the selected rate in the real narration adapter with concurrent tools: rate_first
+ 🎮 [session-audio] [stream-terminal] [final] request=replay elapsedMs=0 chunks=1
+
+stdout | src/server/ws-tts-playback-ownership.test.ts > uses the selected rate in the real narration adapter with concurrent tools: replay_first
+ 🎮 [session-audio] [owner] [started] request=companion
+  🔊 TTS model: eleven_flash_v2_5
+
+stdout | src/server/ws-tts-playback-ownership.test.ts > uses the selected rate in the real narration adapter with concurrent tools: replay_first
+  🔊 TTS: "Here it comes."
+ 🎮 [session-audio] [stream-terminal] [cancelled] request=companion elapsedMs=1 chunks=0
+ 🎮 [session-audio] [owner] [started] request=replay
+  🔊 TTS model: eleven_flash_v2_5
+
+stdout | src/server/ws-tts-playback-ownership.test.ts > uses the selected rate in the real narration adapter with concurrent tools: replay_first
+ 🎮 [companion-speech] [rate] [configured] speed=0.7
+
+stdout | src/server/ws-tts-playback-ownership.test.ts > uses the selected rate in the real narration adapter with concurrent tools: replay_first
+  🔊 TTS: "night."
+
+stdout | src/server/ws-tts-playback-ownership.test.ts > uses the selected rate in the real narration adapter with concurrent tools: replay_first
+ 🎮 [session-audio] [stream-terminal] [final] request=replay elapsedMs=0 chunks=1
+
+stdout | src/server/ws-tts-playback-ownership.test.ts > scopes pace to an item and launch without a snapshot-driven audio teardown
+ 🎮 [session-audio] [owner] [started] request=practice
+  🔊 TTS model: eleven_flash_v2_5
+
+ ❯ src/server/ws-tts-playback-ownership.test.ts (10 tests | 1 failed) 918ms
+   ✓ TTS socket and playback packet ownership > tags only the current socket's PCM and preserves the next connection through old callbacks 3ms
+   ✓ reopens a primed stream at the AI-selected rate, preserving playback identity 2ms
+   ✓ drains already submitted speech before applying a new rate without losing its owner 2ms
+   ✓ does not revive speech after barge-in; only the selected configuration remains 0ms
+   ✓ keeps delivered-audio proof across a rate reconnect 2ms
+   ✓ applies a concurrently selected rate to the next replay even while old speech drains 0ms
+   ✓ changes a connecting stream before initialization without losing buffered text 0ms
+   ✓ uses the selected rate in the real narration adapter with concurrent tools: rate_first  904ms
+   ✓ uses the selected rate in the real narration adapter with concurrent tools: replay_first 1ms
+   × scopes pace to an item and launch without a snapshot-driven audio teardown 3ms
+     → expected 0.7 to be 1 // Object.is equality
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/server/ws-tts-playback-ownership.test.ts > scopes pace to an item and launch without a snapshot-driven audio teardown
+AssertionError: expected 0.7 to be 1 // Object.is equality
+
+- Expected
++ Received
+
+- 1
++ 0.7
+
+ ❯ src/server/ws-tts-playback-ownership.test.ts:140:82
+    138|  bridge.beginPlayback("practice","i1",false,false,"practice-launch");
+    139|  const rate=(bridge as any).setSpeechRate(0.7,{itemId:"i1",launchToken…
+    140|  expect((bridge as any).getSpeechRate({itemId:"i2",launchToken:"check-…
+       |                                                                                  ^
+    141|  bridge.beginPlayback("check","i2",true,true,"check-launch");const con…
+    142|  expect(JSON.parse(check.send.mock.calls[0][0]).voice_settings.speed).…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 9 passed (10)
+   Start at  00:06:16
+   Duration  1.08s (transform 493ms, setup 0ms, collect 53ms, tests 918ms, environment 0ms, prepare 25ms)

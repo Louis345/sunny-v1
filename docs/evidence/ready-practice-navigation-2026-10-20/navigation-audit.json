@@ -1,0 +1,48 @@
+{
+  "sourceCodeCommit": "810c35c",
+  "readOnly": true,
+  "rows": [
+    {
+      "nodeId": "act-explainer-pattern",
+      "state": "completed",
+      "serverLaunchable": true
+    },
+    {
+      "nodeId": "act-wordbuilder-missed",
+      "state": "locked",
+      "reason": "not-ready",
+      "serverLaunchable": false
+    },
+    {
+      "nodeId": "act-radar-partial",
+      "state": "available",
+      "serverLaunchable": true
+    },
+    {
+      "nodeId": "act-stampede-mastered",
+      "state": "available",
+      "serverLaunchable": true
+    },
+    {
+      "nodeId": "choice-wheel",
+      "state": "locked",
+      "reason": "not-ready",
+      "serverLaunchable": false
+    },
+    {
+      "nodeId": "choice-stampede-recovery",
+      "state": "available",
+      "serverLaunchable": true
+    },
+    {
+      "nodeId": "act-checkpoint",
+      "state": "available",
+      "serverLaunchable": true
+    },
+    {
+      "nodeId": "act-reward",
+      "state": "available",
+      "serverLaunchable": true
+    }
+  ]
+}

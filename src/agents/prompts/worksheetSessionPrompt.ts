@@ -71,11 +71,8 @@ export function buildWorksheetToolPrompt(opts: {
   );
   lines.push(``);
   lines.push(`RULES:`);
-  lines.push(`- Maximum 2 sentences before waiting for ${childName} to respond`);
   lines.push(`- Ask ONE question at a time. Never stack questions.`);
-  lines.push(
-    `- After ${childName} answers, react in 1 sentence, then either ask the next question or call sessionLog.`,
-  );
+  lines.push(`- After ${childName} answers, respond naturally, then either ask the next question or call sessionLog.`);
   lines.push(
     `- Do NOT count coins for ${childName}. Ask HER to count. Only verify after she gives her total.`,
   );
@@ -286,7 +283,6 @@ export function buildWorksheetToolPrompt(opts: {
   lines.push(
     `- Do NOT call canvasShow immediately after sessionLog — pause, celebrate or encourage, THEN ask if they're ready`,
   );
-  lines.push(`- Do NOT speak more than 2 sentences in a row without waiting for ${childName}`);
   lines.push(
     `- Do NOT count coins yourself — that's ${childName}'s job. Only verify totals.`,
   );

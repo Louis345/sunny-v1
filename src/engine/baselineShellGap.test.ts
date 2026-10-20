@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { useSyntheticProfileContext } from "../tests/fixtures/syntheticProfileContext";
 import { getChildChart } from "../profiles/childChart";
 import {
   detectBaselineShellGap,
@@ -8,6 +9,8 @@ import {
   type BaselineShellMatch,
 } from "./baselineShellGap";
 import type { ContentFeedbackLesson } from "./contentFeedbackMemory";
+
+useSyntheticProfileContext();
 
 describe("baselineShellGap", () => {
   it("reuses clock-game and coin-counter for time/money homework", () => {

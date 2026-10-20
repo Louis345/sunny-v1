@@ -3,6 +3,7 @@
  * Extracted from SessionManager for line-count / cohesion (D6d).
  */
 // @ts-nocheck
+import { redactProtectedSpellingValue } from "./currentBoardSnapshot";
 import { generateStoryImage } from "../utils/generateStoryImage";
 import { appendDeferredActivity } from "../utils/appendToContext";
 import { auditLog } from "./audit-log";
@@ -178,6 +179,12 @@ export async function hostSessionLog(
       return { logged: true, deferred: true };
     }
 
+    if (session.spellingLaunch) {
+      session.recordDebugEvent?.("spelling", "legacy_grade_ignored", {nodeId:session.spellingLaunch.nodeId});
+      console.log(" 🎮 [spelling] [legacy-grade] [ignored] authority=activity_response");
+      return {logged:false,authority:"activity_response",message:"The active activity records submitted answers. Spoken repetition is not a scored spelling response."};
+    }
+
     if (session.worksheetSession) {
       const wp = session.worksheetProblems[session.worksheetProblemIndex];
       if (!wp) {
@@ -339,14 +346,14 @@ export async function hostSessionStatus(session: any): Promise<Record<string, un
       string,
       unknown
     >;
-    return {
+    return redactProtectedSpellingValue({
       ...base,
       turnState: session.turnSM.getState(),
       activeWord: session.activeWord,
       wordBuilderRound: session.wbActive && session.wbRound > 0 ? session.wbRound : null,
       lastChildUtterance: session.lastTranscript || null,
       currentActivityState: session.currentActivityState ?? null,
-  };
+  }, session.currentBoardSnapshot);
 }
 
 export async function hostRecordChildSignal(

@@ -1,0 +1,54 @@
+{
+  "date": "2026-10-19",
+  "permission_red": {
+    "failed": 4,
+    "passed": 17
+  },
+  "permission_green": {
+    "passed": 21
+  },
+  "disclosure_red": {
+    "failed": 4,
+    "passed": 25
+  },
+  "disclosure_green": {
+    "passed": 29
+  },
+  "focused": {
+    "files": 6,
+    "passed": 95
+  },
+  "build": "passed",
+  "human_acceptance": "not_run",
+  "merge_authorized": false,
+  "disclosure_check": "post_stream_detection_only",
+  "remaining_concerns": [
+    "duplicate_instruction_rules",
+    "additional_prompt_behavior_human_signoff",
+    "native_spelling_help_provenance",
+    "pre_speech_disclosure_prevention"
+  ],
+  "previous_ci": {
+    "run_id": 39187373437,
+    "verify": "failed",
+    "reason": "two 5000ms timeouts in adaptiveMathDiscovery and spellingPlannerReceipt; rerun on final head required"
+  },
+  "full_local_verification": {
+    "build": "passed",
+    "backend_files": 396,
+    "backend_tests": 4420,
+    "web_files": 123,
+    "web_tests": 1031,
+    "backend_duration_seconds": 1544.37,
+    "web_duration_seconds": 20.4,
+    "source_frozen_during_run": true,
+    "permission_commit": "0848374",
+    "disclosure_commit": "55b05bf",
+    "reused_for_separate_commits": true
+  },
+  "voice_regression": {
+    "files": 8,
+    "passed": 60,
+    "live_audio": "not_yet_verified"
+  }
+}

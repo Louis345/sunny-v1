@@ -9,6 +9,33 @@ describe("truthful learning preparation",()=>{
     expect(screen.getByRole("status").textContent).toContain("Saved work is safe");
     expect(screen.getByRole("button",{name:"Finish for now"})).toBeEnabled();
   });
+  it("does not offer a progress check after preparation has stopped with no pending work",()=>{
+    const onCheck=vi.fn();
+    render(<LearningPreparationStatus
+      status={{phase:"needs_attention",updatedAt:"now",nodes:[]}}
+      error="Sunny could not finish preparing this assignment."
+      paused
+      onCheck={onCheck}
+      onFinish={vi.fn()}
+    />);
+    expect(screen.getByRole("status").textContent).toContain("Some activities need attention");
+    expect(screen.getByRole("status").textContent).toContain("Sunny could not finish preparing this assignment.");
+    expect(screen.getByRole("status").textContent).not.toContain("Check progress");
+    expect(screen.queryByRole("button",{name:"Check progress"})).toBeNull();
+    expect(onCheck).not.toHaveBeenCalled();
+  });
+  it("tells the child the next complete board is being prepared, without opening it or naming encounters",()=>{
+    render(<LearningPreparationStatus status={{phase:"successor_preparing",updatedAt:"t",nodes:[]}} onCheck={vi.fn()} onFinish={vi.fn()}/>);
+    expect(screen.getByRole("status").textContent).toContain("Sunny is preparing your next adventure");
+    expect(screen.getByRole("status").textContent).not.toMatch(/begin|Quest|Boss/);
+    expect(screen.getByRole("button",{name:"Finish for now"})).toBeEnabled();
+  });
+  it("says a published successor waits for a later visit instead of interrupting this one",()=>{
+    render(<LearningPreparationStatus status={{phase:"successor_published",updatedAt:"t",nodes:[]}} onCheck={vi.fn()} onFinish={vi.fn()}/>);
+    expect(screen.getByRole("status").textContent).toContain("Your next adventure is ready for your next visit");
+    expect(screen.getByRole("status").textContent).toContain("Your work is saved");
+    expect(screen.queryByRole("button",{name:"Check progress"})).toBeNull();
+  });
   it("shows planning without inventing a percentage or future nodes",()=>{
     render(<LearningPreparationStatus status={{phase:"targeted_planning",updatedAt:"now",nodes:[]}} onCheck={vi.fn()} onFinish={vi.fn()}/>);
     expect(screen.getByRole("status").textContent).toContain("Choosing what to work on");
@@ -17,10 +44,18 @@ describe("truthful learning preparation",()=>{
     expect(screen.queryByText(/100%|Quest|Boss/)).toBeNull();
   });
   it("counts verified artifacts without calling that a time estimate",()=>{
-    render(<LearningPreparationStatus status={{phase:"board_generating",updatedAt:"now",nodes:[{nodeId:"a",status:"ready"},{nodeId:"b",status:"preparing"}]}} onCheck={vi.fn()}/>);
+    render(<LearningPreparationStatus status={{phase:"board_generating",updatedAt:"now",nodes:[{nodeId:"a",status:"ready"},{nodeId:"b",status:"preparing"}]}} checkedAt={Date.now()} onCheck={vi.fn()}/>);
     expect(screen.getByRole("progressbar")).toHaveAttribute("aria-valuenow","1");
     expect(screen.getByRole("progressbar")).toHaveAttribute("aria-valuemax","2");
-    expect(screen.getByText(/1 of 2 activities ready/)).toBeVisible();
+    expect(screen.getByText(/1 of 2 activities prepared/)).toBeVisible();
+    expect(screen.getByRole("status").textContent).toContain("You can begin while 1 more finishes");
+    expect(screen.getByRole("status").textContent).toContain("Latest status received — 1 activity is ready");
+  });
+  it("never describes evidence-locked activities as ready",()=>{
+    render(<LearningPreparationStatus status={{phase:"board_ready",updatedAt:"now",nodes:[{nodeId:"locked",status:"evidence_locked"}]}} checkedAt={Date.now()} onCheck={vi.fn()}/>);
+    expect(screen.getByRole("status").textContent).toContain("Complete earlier learning to unlock the next activity");
+    expect(screen.getByRole("status").textContent).toContain("the next activities are still learning-locked");
+    expect(screen.getByRole("status").textContent).not.toContain("activity is ready");
   });
   it("offers read-only refresh and honest stopped status while ready siblings remain playable",()=>{
     const onCheck=vi.fn();
@@ -29,5 +64,34 @@ describe("truthful learning preparation",()=>{
     fireEvent.click(screen.getByRole("button",{name:"Check progress"}));
     expect(onCheck).toHaveBeenCalledTimes(1);
     expect(screen.queryByText(/All ready/)).toBeNull();
+  });
+
+  // Human miss (2026-09-20): both actions looked inert because the screen gave
+  // no immediate acknowledgement. Component tests checked enabled state, not
+  // the child's visible result after clicking.
+  it("makes progress checks and finishing visibly responsive",()=>{
+    const onCheck=vi.fn();
+    const onFinish=vi.fn();
+    const {rerender}=render(<LearningPreparationStatus
+      status={{phase:"targeted_planning",updatedAt:"now",nodes:[]}}
+      checking
+      checkedAt={null}
+      onCheck={onCheck}
+      onFinish={onFinish}
+    />);
+    expect(screen.getByRole("button",{name:"Checking progress…"})).toBeDisabled();
+
+    rerender(<LearningPreparationStatus
+      status={{phase:"targeted_planning",updatedAt:"now",nodes:[]}}
+      checking={false}
+      checkedAt={Date.now()}
+      onCheck={onCheck}
+      onFinish={onFinish}
+    />);
+    expect(screen.getByRole("status").textContent).toContain("Latest status received — Sunny is still planning");
+    expect(screen.getByRole("status").textContent).toContain("Sunny keeps preparing after you leave");
+    fireEvent.click(screen.getByRole("button",{name:"Finish for now"}));
+    expect(onFinish).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole("button",{name:"Finishing…"})).toBeDisabled();
   });
 });

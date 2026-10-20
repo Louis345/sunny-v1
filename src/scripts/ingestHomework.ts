@@ -1,3 +1,8 @@
+import {openChart, type ChartDatabase} from '../chart/db';
+import {prepareSpellingChartAssignment} from '../chart/spelling/intakeBridge';
+import {spellingPlanner} from '../chart/spelling/provider';
+import type {SpellingProvider} from '../chart/spelling/journey';
+import {shouldPersistSessionData} from '../utils/runtimeMode';
 import "dotenv/config";
 import { createHash } from "crypto";
 import fs from "fs";
@@ -83,7 +88,7 @@ import {
 import { validateFullExperienceReadiness } from "../engine/fullExperienceReadiness";
 import { enrichMathNodeArtwork, localizeMathNodeArtwork } from "../engine/mathNodeArtwork";
 import { persistIngestedLearningCycle, buildSpellingRecallItems, createSpellingDiscoveryCycle, buildSpellingDiscoveryPlan } from "../engine/learningCycleIngest";
-import { acquireMathGenerationLease, releaseMathGenerationLease, resolveAdaptiveMathDraftDir, publishDiscoveryExperience, hashDiscoveryContract, runMathProviderStage } from "../engine/adaptiveMathDiscovery";
+import { acquireMathGenerationLease, releaseMathGenerationLease, resolveAdaptiveMathDraftDir, publishDiscoveryExperience, hashDiscoveryContract, runMathProviderStage, recordGenerationFailure } from "../engine/adaptiveMathDiscovery";
 import { getLearningCycle, repairLatestHistoricalLearningCycleBeforePlanning } from "../engine/learningCycleRepository";
 import { createIngestProgress, type IngestProgress } from "../utils/ingestOutput";
 import { generateStoryImage } from "../utils/generateStoryImage";
@@ -1133,7 +1138,7 @@ export function buildIngestSummary(childId: string, today: string, opts: { rootD
       || binding.contractFingerprint !== contractHash || config?.version !== 1 || config.mode !== "assessment"
       || config.contractHash !== contractHash || hashDiscoveryContract(config.items) !== contractHash) failures.push("discovery_native_contract_missing_or_mismatched");
     if (evaluation?.implementationType !== "word-radar" || node?.type !== "word-radar" || node.activityId !== "word-radar"
-      || !NODE_REGISTRY["word-radar"]?.canvasMessage || node.locked || launch?.id !== evaluation?.nodeId
+      || !NODE_REGISTRY["word-radar"]?.canvasMessage || node.locked || (launch?.activityNodeId ?? launch?.id) !== evaluation?.nodeId
       || launch?.action?.payloadId !== evaluation?.nodeId || !["available", "current"].includes(launch?.state ?? "")
       || hashDiscoveryContract(node.targets) !== hashDiscoveryContract(items.map(item => item.word))
       || node.wordRadarConfig?.recallMode !== "hidden_word_recall" || node.wordRadarConfig.inputMode !== "keyboard"
@@ -1808,7 +1813,8 @@ function finalizeAssignmentActiveSessionPlan(args: {
           masteryUnlockState?: string;
           difficulty?: number;
         }>,
-        learningRoutes: nextPlan.learningRoutes,
+        boardDefinition: nextPlan.boardDefinition,
+        adventureBoard: nextPlan.adventureBoard,
       },
       boardId: args.plan.adventureBoard.boardId,
       title: args.plan.adventureBoard.title,
@@ -1873,7 +1879,7 @@ export async function applyPlannedHomeworkIngest(args: PlannedHomeworkIngestArgs
       const page = matches.length === 1 ? matches[0] : pages.length === 1 ? pages[0] : null;
       if (!page) throw new Error(`spelling_confirmation_source_page_required:${word}`);
       return { word, pageNumber: page.pageNumber };
-    }), uncertainty: [] };
+    }), uncertainty: [], ...(args.assignmentPlannerOutput.activeSessionPlan.boardDefinition ? {boardDefinition:args.assignmentPlannerOutput.activeSessionPlan.boardDefinition} : {}) };
     await runSpellingDiscoveryIntake({ childId: args.childId, sourceFile: args.sourceFile, rootDir: args.rootDir, confirmedCapture: { capture, reviewer: args.reviewer ?? "parent-approval", approvedAt: args.approvedAt ?? new Date().toISOString() } });
     return;
   }
@@ -2122,11 +2128,12 @@ export async function reviewSpellingIntake(args: {
 
 /** Existing intake entrypoint's spelling phase; the targeted Planner runs only after committed Discovery. */
 export async function runSpellingDiscoveryIntake(args: {
-  childId: string; sourceFile: string; rootDir?: string;
+  childId: string; sourceFile: string; rootDir?: string; testDate?: string | null;
   confirmedCapture?: { capture: SpellingIntake; reviewer: string; approvedAt: string };
 }, options: Parameters<typeof planSpellingIntakeFromSource>[1] & {
   confirmCapture?: (capture: SpellingIntake) => Promise<boolean>;
   reviewer?: string;
+  chart?: {db: ChartDatabase; provider: SpellingProvider};
 } = {}): Promise<{ homeworkId: string }> {
   const rootDir = args.rootDir ?? process.cwd();
   const chart = getChildChart(args.childId, { rootDir });
@@ -2136,6 +2143,7 @@ export async function runSpellingDiscoveryIntake(args: {
   const lease = acquireMathGenerationLease({ ...scope, homeworkId: "discovery-intake" });
   if (!lease.acquired || !lease.token) throw new Error("spelling_intake_worker_already_running");
   const draft = resolveAdaptiveMathDraftDir(args.childId, homeworkId, { rootDir });
+  const diagnosticStartedAt = Date.now();
   const save = (filename: string, value: unknown): void => {
     fs.mkdirSync(draft, { recursive: true });
     const file = path.join(draft, filename), temporary = `${file}.${process.pid}.tmp`;
@@ -2178,6 +2186,7 @@ export async function runSpellingDiscoveryIntake(args: {
     const diagnosticSelection = resolveSpellingDiagnosticSelection(capture, packet);
     console.log(` 🎮 [spelling-discovery] [diagnostic-selection] [${diagnosticSelection ? "planner-selected" : "legacy-fixed-instrument"}] activity=${diagnosticSelection?.instrument.activityId ?? "word-radar"} mode=${diagnosticSelection?.instrument.modeId ?? "legacy"}`);
     const existing = getLearningCycle(args.childId, homeworkId, { rootDir });
+    if (!capture.boardDefinition && !existing?.boards?.some(board=>board.definition)) throw new Error('spelling_intake_journey_revision_required:Captured words are preserved; the Planner must author a new explicit Discovery journey before publication.');
     const items = existing
       ? Object.values(existing.nodes.find(node => node.role === "evaluation")?.evidenceContract.spellingItems ?? {})
       : buildSpellingRecallItems({ homeworkId, words: capture.words.map(row => row.word), evidenceIds: [`assignment:${fingerprint}`], measurementRole: "fresh_checkpoint" }).map(item => {
@@ -2186,12 +2195,24 @@ export async function runSpellingDiscoveryIntake(args: {
         const previouslyPracticed = priorObservations.length > 0 || Boolean(legacy?.tracks.spelling?.history.length);
         return { ...item, lineage: { ...item.lineage, exposure: previouslyPracticed ? "practiced" as const : "unseen" as const } };
       });
-    const cycle = createSpellingDiscoveryCycle({ childId: args.childId, homeworkId, title: capture.title, contentFingerprint: fingerprint, items, diagnosticSelection }, { rootDir });
+    const chartEnabled = Boolean(process.env.SUNNY_CHART_DIR?.trim()) && shouldPersistSessionData() && !process.env.SUNNY_CERTIFICATION_RUN_ID;
+    const database = options.chart?.db ?? (chartEnabled ? openChart(args.childId) : undefined);
+    if (database) {
+      try {
+        if (database.childId !== args.childId) throw new Error('chart_child_mismatch');
+        if (existing?.observations.length && !database.sql.prepare("SELECT 1 FROM events WHERE type='prediction.prior' AND json_extract(payload,'$.assignmentId')=? LIMIT 1").get(homeworkId)) {
+          throw new Error('chart_prior_requires_unobserved_assignment');
+        }
+        await prepareSpellingChartAssignment(database, {assignmentId:homeworkId, words:items.map(item=>item.word.normalize('NFC').toLowerCase()), testDate:validIsoDate(args.testDate) ? args.testDate! : null, sourcePhotoHash:fingerprint}, options.chart?.provider ?? spellingPlanner);
+      } finally { if (!options.chart) database.close(); }
+    } else console.log(' 🎮 [spelling-chart] [intake] [disabled] chart_directory_not_configured_or_simulation');
+    const cycle = createSpellingDiscoveryCycle({ childId: args.childId, homeworkId, title: capture.title, contentFingerprint: fingerprint, items, diagnosticSelection, boardDefinition: capture.boardDefinition ? {...capture.boardDefinition, portals:capture.boardDefinition.portals.map(portal => portal.activityNodeId === "diagnostic" ? {...portal,activityNodeId:`${homeworkId}:discovery`} : portal)} : undefined }, { rootDir });
     const activeSessionPlan = buildSpellingDiscoveryPlan({ cycle, companion: { id: chart.companion.presetId, name: chart.companion.displayName } });
-    publishDiscoveryExperience({ ...scope, spellingItems: items, activeSessionPlan, assignment: cycle.assignment });
+    await publishDiscoveryExperience({ ...scope, spellingItems: items, activeSessionPlan, assignment: cycle.assignment });
     console.log(` 🎮 [spelling-discovery] [intake] [ready] homework=${homeworkId} words=${items.length} targeted-board=awaiting-evidence`);
     return { homeworkId };
   } catch (error) {
+    recordGenerationFailure({draftDir:draft,childId:args.childId,homeworkId,stage:'spelling_intake',startedAt:diagnosticStartedAt,error});
     console.error(` 🎮 [spelling-discovery] [intake] [needs-attention] checkpoint=${draft}`, error);
     throw error;
   } finally { releaseMathGenerationLease({ ...scope, homeworkId: "discovery-intake", token: lease.token }); }
@@ -2248,7 +2269,7 @@ async function runIngestHomeworkInternal(
 
   if (homeworkDomain === "spelling") {
     onStage?.(2, "Capturing assigned spelling words");
-    await runSpellingDiscoveryIntake({ childId, sourceFile: incomingFile }, {
+    await runSpellingDiscoveryIntake({ childId, sourceFile: incomingFile, testDate: cliTestDate }, {
       model: plannerModel,
       confirmCapture: capture => reviewSpellingIntake({ capture, sourceFile: incomingFile, interactive }),
     });
@@ -2570,7 +2591,7 @@ async function runIngestHomeworkInternal(
         }
       : reviewedPlan;
     onStage?.(4, "Building learning activities");
-    const canonicalCycle = persistIngestedLearningCycle({
+    const canonicalCycle = await persistIngestedLearningCycle({
       childId,
       homeworkId,
       domain: practiceDomain,

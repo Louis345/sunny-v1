@@ -1,4 +1,6 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
+import fs from "node:fs";
+import path from "node:path";
 import { sessionEventBus } from "../server/session-event-bus";
 import { RewardEngine } from "../server/reward-engine";
 import { handleDiagTriggerReward } from "../server/routes";
@@ -94,9 +96,21 @@ describe("handleDiagTriggerReward", () => {
       ok: true,
       event: {
         type: "progression",
-        payload: expect.objectContaining({ totalXP: 110 }),
+        payload: expect.objectContaining({ childId: "ila", totalXP: 110 }),
       },
     });
     expect(learningEngine.recordAttempt).toHaveBeenCalled();
+  });
+});
+
+describe("progression message contract", () => {
+  it("scopes both live progression messages to the canonical child", () => {
+    const root = path.resolve(__dirname, "..");
+    const bootstrap = fs.readFileSync(path.join(root, "server", "session-bootstrap.ts"), "utf8");
+    const manager = fs.readFileSync(path.join(root, "server", "session-manager.ts"), "utf8");
+
+    expect(bootstrap).toMatch(/session\.send\("progression",\s*\{\s*childId:\s*progressionChildId,/s);
+    expect(manager).toMatch(/this\.send\("progression_end",\s*\{\s*childId,/s);
+    expect(manager).not.toContain("catch {\n          // Silent\n        }");
   });
 });

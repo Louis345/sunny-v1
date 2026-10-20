@@ -1,11 +1,12 @@
 import { EventEmitter } from "events";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const startMock = vi.fn();
 const endMock = vi.fn();
 const receiveAudioMock = vi.fn();
 const handleGameEventMock = vi.fn();
 const setCompanionPresenceMock = vi.fn();
+const getChildChartMock = vi.fn();
 
 vi.mock("./audioGate", () => ({
   createAudioGate: vi.fn(() => ({
@@ -24,7 +25,12 @@ vi.mock("./session-manager", () => ({
   })),
 }));
 
+vi.mock("../profiles/childChart", () => ({
+  getChildChart: (...args: unknown[]) => getChildChartMock(...args),
+}));
+
 import { handleWsConnection } from "./ws-handler";
+import { SessionManager } from "./session-manager";
 
 class FakeWs extends EventEmitter {
   sent: unknown[] = [];
@@ -48,6 +54,127 @@ async function sendJson(ws: FakeWs, payload: Record<string, unknown>): Promise<v
 describe("ws handler", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    getChildChartMock.mockReturnValue({
+      childId: "ila",
+      activeSessionPlan: {
+        activeHomeworkId: "hw-spelling-1",
+        domain: "spelling",
+        adventureBoard: { boardId: "board-1" },
+      },
+      learningCycle: {
+        homeworkId: "hw-spelling-1",
+        domain: "spelling",
+      },
+    });
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it("refuses to infer a homework assignment from ambient child state", async () => {
+    vi.stubEnv("SUNNY_RUNTIME_CONFIG", JSON.stringify({
+      subject: "homework",
+      sessionMode: "real",
+      previewMode: "off",
+      voiceMode: "normal",
+      childId: null,
+      homeworkDomain: "spelling",
+    }));
+    const ws = new FakeWs();
+    handleWsConnection(ws as never, req() as never);
+
+    await sendJson(ws, { type: "start_session", child: "Ila" });
+
+    expect(startMock).not.toHaveBeenCalled();
+    expect(ws.sent).toContainEqual({
+      type: "error",
+      code: "homework_assignment_identity_required",
+      message: "Choose a ready assignment before starting Sunny.",
+    });
+  });
+
+  it("starts homework voice only for the exact chart-backed assignment", async () => {
+    vi.stubEnv("SUNNY_RUNTIME_CONFIG", JSON.stringify({
+      subject: "homework",
+      sessionMode: "real",
+      previewMode: "off",
+      voiceMode: "normal",
+      childId: null,
+      homeworkDomain: "spelling",
+    }));
+    const ws = new FakeWs();
+    handleWsConnection(ws as never, req() as never);
+
+    await sendJson(ws, {
+      type: "start_session",
+      child: "Ila",
+      homeworkId: "hw-spelling-1",
+    });
+
+    expect(getChildChartMock).toHaveBeenCalledWith("ila");
+    expect(startMock).toHaveBeenCalledTimes(1);
+    expect(SessionManager).toHaveBeenCalledWith(
+      expect.anything(),
+      "Ila",
+      false,
+      { homeworkId: "hw-spelling-1" },
+    );
+    expect(ws.sent).not.toContainEqual(expect.objectContaining({ type: "error" }));
+  });
+
+  it("reports a chart-read failure instead of leaving the socket unresolved", async () => {
+    vi.stubEnv("SUNNY_RUNTIME_CONFIG", JSON.stringify({
+      subject: "homework",
+      sessionMode: "real",
+      previewMode: "off",
+      voiceMode: "normal",
+      homeworkDomain: "spelling",
+    }));
+    getChildChartMock.mockImplementationOnce(() => {
+      throw new Error("chart unavailable");
+    });
+    const ws = new FakeWs();
+    handleWsConnection(ws as never, req() as never);
+
+    await sendJson(ws, {
+      type: "start_session",
+      child: "Ila",
+      homeworkId: "hw-spelling-1",
+    });
+
+    expect(startMock).not.toHaveBeenCalled();
+    expect(ws.sent).toContainEqual({
+      type: "error",
+      code: "homework_assignment_unavailable",
+      message: "Sunny could not load that assignment. Return to the child picker.",
+    });
+  });
+
+  it("rejects a stale homework identity before constructing a voice session", async () => {
+    vi.stubEnv("SUNNY_RUNTIME_CONFIG", JSON.stringify({
+      subject: "homework",
+      sessionMode: "real",
+      previewMode: "off",
+      voiceMode: "normal",
+      childId: null,
+      homeworkDomain: "spelling",
+    }));
+    const ws = new FakeWs();
+    handleWsConnection(ws as never, req() as never);
+
+    await sendJson(ws, {
+      type: "start_session",
+      child: "Ila",
+      homeworkId: "hw-stale",
+    });
+
+    expect(startMock).not.toHaveBeenCalled();
+    expect(ws.sent).toContainEqual({
+      type: "error",
+      code: "homework_assignment_identity_mismatch",
+      message: "That assignment is no longer ready. Return to the child picker.",
+    });
   });
 
   it("routes raw game_state_update messages into the active session instead of erroring", async () => {

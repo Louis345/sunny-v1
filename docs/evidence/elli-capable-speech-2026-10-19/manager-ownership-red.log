@@ -1,0 +1,310 @@
+
+ RUN  v3.2.4 /Users/jtaylor/Development/sunny-elli-capable-speech
+
+stdout | src/server/ws-tts-playback-ownership.test.ts > TTS socket and playback packet ownership > tags only the current socket's PCM and preserves the next connection through old callbacks
+ 🎮 [session-audio] [owner] [started] request=old
+  🔊 TTS model: eleven_flash_v2_5
+
+stderr | src/server/ws-tts-playback-ownership.test.ts > TTS socket and playback packet ownership > tags only the current socket's PCM and preserves the next connection through old callbacks
+  🔇 ElevenLabs TTS connect cancelled during shutdown
+
+stdout | src/server/ws-tts-playback-ownership.test.ts > TTS socket and playback packet ownership > tags only the current socket's PCM and preserves the next connection through old callbacks
+ 🎮 [session-audio] [stream-terminal] [final] request=old elapsedMs=1 chunks=1
+ 🎮 [session-audio] [owner] [started] request=new
+  🔊 TTS model: eleven_flash_v2_5
+
+stdout | src/server/ws-tts-playback-ownership.test.ts > TTS socket and playback packet ownership > tags only the current socket's PCM and preserves the next connection through old callbacks
+ 🎮 [session-audio] [stream-terminal] [cancelled] request=new elapsedMs=1 chunks=1
+
+stdout | src/server/ws-tts-playback-ownership.test.ts > reopens a primed stream at the AI-selected rate, preserving playback identity
+ 🎮 [session-audio] [owner] [started] request=speech
+  🔊 TTS model: eleven_flash_v2_5
+
+stdout | src/server/ws-tts-playback-ownership.test.ts > reopens a primed stream at the AI-selected rate, preserving playback identity
+ 🎮 [session-audio] [stream-terminal] [cancelled] request=speech elapsedMs=1 chunks=0
+  🔊 TTS model: eleven_flash_v2_5
+
+stdout | src/server/ws-tts-playback-ownership.test.ts > reopens a primed stream at the AI-selected rate, preserving playback identity
+  🔊 TTS: "Dissatisfied."
+
+stdout | src/server/ws-tts-playback-ownership.test.ts > reopens a primed stream at the AI-selected rate, preserving playback identity
+ 🎮 [session-audio] [stream-terminal] [cancelled] request=speech elapsedMs=1 chunks=0
+ 🎮 [session-audio] [owner] [started] request=next
+  🔊 TTS model: eleven_flash_v2_5
+
+stdout | src/server/ws-tts-playback-ownership.test.ts > reopens a primed stream at the AI-selected rate, preserving playback identity
+ 🎮 [session-audio] [stream-terminal] [cancelled] request=next elapsedMs=0 chunks=0
+
+stdout | src/server/ws-tts-playback-ownership.test.ts > drains already submitted speech before applying a new rate without losing its owner
+ 🎮 [session-audio] [owner] [started] request=speech
+  🔊 TTS model: eleven_flash_v2_5
+
+stdout | src/server/ws-tts-playback-ownership.test.ts > drains already submitted speech before applying a new rate without losing its owner
+  🔊 TTS: "Existing speech."
+ 🎮 [session-audio] [stream-terminal] [final] request=speech elapsedMs=1 chunks=1
+
+stdout | src/server/ws-tts-playback-ownership.test.ts > drains already submitted speech before applying a new rate without losing its owner
+  🔊 TTS model: eleven_flash_v2_5
+
+stdout | src/server/ws-tts-playback-ownership.test.ts > drains already submitted speech before applying a new rate without losing its owner
+ 🎮 [session-audio] [stream-terminal] [cancelled] request=speech elapsedMs=1 chunks=1
+
+stdout | src/server/ws-tts-playback-ownership.test.ts > does not revive speech after barge-in; only the selected configuration remains
+ 🎮 [session-audio] [owner] [started] request=old
+  🔊 TTS model: eleven_flash_v2_5
+
+stdout | src/server/ws-tts-playback-ownership.test.ts > does not revive speech after barge-in; only the selected configuration remains
+  🔊 TTS: "Existing speech."
+ 🎮 [session-audio] [stream-terminal] [cancelled] request=old elapsedMs=0 chunks=0
+
+stdout | src/server/ws-tts-playback-ownership.test.ts > keeps delivered-audio proof across a rate reconnect
+ 🎮 [session-audio] [owner] [started] request=speech
+  🔊 TTS model: eleven_flash_v2_5
+
+stdout | src/server/ws-tts-playback-ownership.test.ts > keeps delivered-audio proof across a rate reconnect
+  🔊 TTS: "First sentence."
+ 🎮 [session-audio] [stream-terminal] [final] request=speech elapsedMs=0 chunks=1
+
+stdout | src/server/ws-tts-playback-ownership.test.ts > keeps delivered-audio proof across a rate reconnect
+  🔊 TTS model: eleven_flash_v2_5
+
+stdout | src/server/ws-tts-playback-ownership.test.ts > keeps delivered-audio proof across a rate reconnect
+ 🎮 [session-audio] [stream-terminal] [cancelled] request=speech elapsedMs=2 chunks=1
+
+stdout | src/server/ws-tts-playback-ownership.test.ts > applies a concurrently selected rate to the next replay even while old speech drains
+ 🎮 [session-audio] [owner] [started] request=speech
+  🔊 TTS model: eleven_flash_v2_5
+
+stdout | src/server/ws-tts-playback-ownership.test.ts > applies a concurrently selected rate to the next replay even while old speech drains
+  🔊 TTS: "Here it comes."
+ 🎮 [session-audio] [stream-terminal] [cancelled] request=speech elapsedMs=0 chunks=0
+ 🎮 [session-audio] [owner] [started] request=replay
+  🔊 TTS model: eleven_flash_v2_5
+
+stdout | src/server/ws-tts-playback-ownership.test.ts > applies a concurrently selected rate to the next replay even while old speech drains
+ 🎮 [session-audio] [stream-terminal] [cancelled] request=replay elapsedMs=0 chunks=0
+
+stdout | src/server/ws-tts-playback-ownership.test.ts > changes a connecting stream before initialization without losing buffered text
+  🔊 TTS model: eleven_flash_v2_5
+  🔊 TTS: "Buffered speech."
+
+stdout | src/server/ws-tts-playback-ownership.test.ts > changes a connecting stream before initialization without losing buffered text
+ 🎮 [session-audio] [stream-terminal] [cancelled] request=unowned elapsedMs=0 chunks=0
+
+stdout | src/server/ws-tts-playback-ownership.test.ts > uses the selected rate in the real narration adapter with concurrent tools: rate_first
+ 🎮 [session-audio] [owner] [started] request=companion
+  🔊 TTS model: eleven_flash_v2_5
+
+stdout | src/server/ws-tts-playback-ownership.test.ts > uses the selected rate in the real narration adapter with concurrent tools: rate_first
+  🔊 TTS: "Here it comes."
+ 🎮 [session-audio] [stream-terminal] [cancelled] request=companion elapsedMs=0 chunks=0
+ 🎮 [session-audio] [owner] [started] request=replay
+  🔊 TTS model: eleven_flash_v2_5
+
+stdout | src/server/ws-tts-playback-ownership.test.ts > uses the selected rate in the real narration adapter with concurrent tools: rate_first
+ 🎮 [companion-speech] [rate] [configured] speed=0.7
+
+stdout | src/server/ws-tts-playback-ownership.test.ts > uses the selected rate in the real narration adapter with concurrent tools: rate_first
+  🔊 TTS: "night."
+
+stdout | src/server/ws-tts-playback-ownership.test.ts > uses the selected rate in the real narration adapter with concurrent tools: rate_first
+ 🎮 [session-audio] [stream-terminal] [final] request=replay elapsedMs=0 chunks=1
+
+stdout | src/server/ws-tts-playback-ownership.test.ts > uses the selected rate in the real narration adapter with concurrent tools: replay_first
+ 🎮 [session-audio] [owner] [started] request=companion
+  🔊 TTS model: eleven_flash_v2_5
+
+stdout | src/server/ws-tts-playback-ownership.test.ts > uses the selected rate in the real narration adapter with concurrent tools: replay_first
+  🔊 TTS: "Here it comes."
+ 🎮 [session-audio] [stream-terminal] [cancelled] request=companion elapsedMs=1 chunks=0
+ 🎮 [session-audio] [owner] [started] request=replay
+  🔊 TTS model: eleven_flash_v2_5
+
+stdout | src/server/ws-tts-playback-ownership.test.ts > uses the selected rate in the real narration adapter with concurrent tools: replay_first
+ 🎮 [companion-speech] [rate] [configured] speed=0.7
+
+stdout | src/server/ws-tts-playback-ownership.test.ts > uses the selected rate in the real narration adapter with concurrent tools: replay_first
+  🔊 TTS: "night."
+
+stdout | src/server/ws-tts-playback-ownership.test.ts > uses the selected rate in the real narration adapter with concurrent tools: replay_first
+ 🎮 [session-audio] [stream-terminal] [final] request=replay elapsedMs=0 chunks=1
+
+stdout | src/server/ws-tts-playback-ownership.test.ts > scopes pace to an item and launch without a snapshot-driven audio teardown
+ 🎮 [session-audio] [owner] [started] request=practice
+  🔊 TTS model: eleven_flash_v2_5
+
+stdout | src/server/ws-tts-playback-ownership.test.ts > scopes pace to an item and launch without a snapshot-driven audio teardown
+ 🎮 [session-audio] [stream-terminal] [cancelled] request=practice elapsedMs=0 chunks=0
+ 🎮 [session-audio] [owner] [started] request=check
+  🔊 TTS model: eleven_flash_v2_5
+
+stdout | src/server/ws-tts-playback-ownership.test.ts > scopes pace to an item and launch without a snapshot-driven audio teardown
+ 🎮 [session-audio] [stream-terminal] [cancelled] request=check elapsedMs=0 chunks=0
+
+stderr | src/server/ws-tts-playback-ownership.test.ts > delivers and records pace through the slim SessionManager toolkit and actual replay route: rate_first
+ 🎮 [chart] [opened] child=lab-child path=/private/var/folders/wh/9v_3r26d2gzb_bs4ydgkx65h0000gp/T/real-bridge-replay-zFZ9b3/lab-child.db events=0 readonly=false
+ 🎮 [chart] [append] [ok] child=lab-child type=assignment.ingested id="e56277a248e57398197a381bcc3051b079b721ae83844fa9d2cd232795d7f9c7"
+
+stdout | src/server/ws-tts-playback-ownership.test.ts > delivers and records pace through the slim SessionManager toolkit and actual replay route: rate_first
+ 🎮 [spelling] [node-launch] [recorded] node=n launch=fdfdec9c-7faf-4592-973e-622a45084d1d
+ 🎮 [spelling-discovery] [live-context] [bound] item=i1
+
+stderr | src/server/ws-tts-playback-ownership.test.ts > delivers and records pace through the slim SessionManager toolkit and actual replay route: rate_first
+ 🎮 [chart] [opened] child=lab-child path=/private/var/folders/wh/9v_3r26d2gzb_bs4ydgkx65h0000gp/T/real-bridge-replay-zFZ9b3/lab-child.db events=1 readonly=false
+ 🎮 [chart] [append] [ok] child=lab-child type=item.presented id="2e7675f14118f5d017281b619460a2b8a7817c0738703c24268c230c6cb6b913"
+
+stdout | src/server/ws-tts-playback-ownership.test.ts > delivers and records pace through the slim SessionManager toolkit and actual replay route: rate_first
+ 🎮 [session-audio] [owner] [started] request=companion
+  🔊 TTS model: eleven_flash_v2_5
+
+stdout | src/server/ws-tts-playback-ownership.test.ts > delivers and records pace through the slim SessionManager toolkit and actual replay route: rate_first
+  🔊 TTS: "Here it comes."
+🎮 [audit] component=turn action=barge_in stateBefore=IDLE turnState=IDLE tts=on childName=Lab
+ 🎮 [session-audio] [stream-terminal] [cancelled] request=companion elapsedMs=2 chunks=0
+ 🎮 [session-audio] [owner] [started] request=1501ed33-ad8b-4aa6-be33-72fc8f06b017
+  🔊 TTS model: eleven_flash_v2_5
+
+stdout | src/server/ws-tts-playback-ownership.test.ts > delivers and records pace through the slim SessionManager toolkit and actual replay route: rate_first
+ 🎮 [companion-speech] [rate] [configured] speed=0.7
+
+stdout | src/server/ws-tts-playback-ownership.test.ts > delivers and records pace through the slim SessionManager toolkit and actual replay route: rate_first
+  🔊 TTS: "night."
+
+stdout | src/server/ws-tts-playback-ownership.test.ts > delivers and records pace through the slim SessionManager toolkit and actual replay route: rate_first
+ 🎮 [session-audio] [stream-terminal] [final] request=1501ed33-ad8b-4aa6-be33-72fc8f06b017 elapsedMs=0 chunks=1
+
+stderr | src/server/ws-tts-playback-ownership.test.ts > delivers and records pace through the slim SessionManager toolkit and actual replay route: rate_first
+ 🎮 [chart] [opened] child=lab-child path=/private/var/folders/wh/9v_3r26d2gzb_bs4ydgkx65h0000gp/T/real-bridge-replay-zFZ9b3/lab-child.db events=2 readonly=false
+ 🎮 [chart] [append] [ok] child=lab-child type=stimulus.played id="b35643d6ffdf88840d8193c8842e03250ed698b3b362cd9e5eee27b7ec5855d1"
+
+stderr | src/server/ws-tts-playback-ownership.test.ts > delivers and records pace through the slim SessionManager toolkit and actual replay route: replay_first
+ 🎮 [chart] [opened] child=lab-child path=/private/var/folders/wh/9v_3r26d2gzb_bs4ydgkx65h0000gp/T/real-bridge-replay-IROYIU/lab-child.db events=0 readonly=false
+ 🎮 [chart] [append] [ok] child=lab-child type=assignment.ingested id="e56277a248e57398197a381bcc3051b079b721ae83844fa9d2cd232795d7f9c7"
+
+stdout | src/server/ws-tts-playback-ownership.test.ts > delivers and records pace through the slim SessionManager toolkit and actual replay route: replay_first
+ 🎮 [spelling] [node-launch] [recorded] node=n launch=17be46f4-8f62-4035-952a-305d88936411
+ 🎮 [spelling-discovery] [live-context] [bound] item=i1
+
+stderr | src/server/ws-tts-playback-ownership.test.ts > delivers and records pace through the slim SessionManager toolkit and actual replay route: replay_first
+ 🎮 [chart] [opened] child=lab-child path=/private/var/folders/wh/9v_3r26d2gzb_bs4ydgkx65h0000gp/T/real-bridge-replay-IROYIU/lab-child.db events=1 readonly=false
+ 🎮 [chart] [append] [ok] child=lab-child type=item.presented id="3141385020c7077daefacdb086a8873e2d991879a2bba2a82ca1b7b36637e9b1"
+
+stdout | src/server/ws-tts-playback-ownership.test.ts > delivers and records pace through the slim SessionManager toolkit and actual replay route: replay_first
+ 🎮 [session-audio] [owner] [started] request=companion
+  🔊 TTS model: eleven_flash_v2_5
+
+stdout | src/server/ws-tts-playback-ownership.test.ts > delivers and records pace through the slim SessionManager toolkit and actual replay route: replay_first
+  🔊 TTS: "Here it comes."
+🎮 [audit] component=turn action=barge_in stateBefore=IDLE turnState=IDLE tts=on childName=Lab
+ 🎮 [session-audio] [stream-terminal] [cancelled] request=companion elapsedMs=1 chunks=0
+ 🎮 [session-audio] [owner] [started] request=c505794d-67fe-4bbf-b1da-aca1f122a84b
+  🔊 TTS model: eleven_flash_v2_5
+
+stdout | src/server/ws-tts-playback-ownership.test.ts > delivers and records pace through the slim SessionManager toolkit and actual replay route: replay_first
+ 🎮 [companion-speech] [rate] [configured] speed=0.7
+
+stdout | src/server/ws-tts-playback-ownership.test.ts > delivers and records pace through the slim SessionManager toolkit and actual replay route: replay_first
+  🔊 TTS: "night."
+
+stdout | src/server/ws-tts-playback-ownership.test.ts > delivers and records pace through the slim SessionManager toolkit and actual replay route: replay_first
+ 🎮 [session-audio] [stream-terminal] [final] request=c505794d-67fe-4bbf-b1da-aca1f122a84b elapsedMs=0 chunks=1
+
+stderr | src/server/ws-tts-playback-ownership.test.ts > delivers and records pace through the slim SessionManager toolkit and actual replay route: replay_first
+ 🎮 [chart] [opened] child=lab-child path=/private/var/folders/wh/9v_3r26d2gzb_bs4ydgkx65h0000gp/T/real-bridge-replay-IROYIU/lab-child.db events=2 readonly=false
+ 🎮 [chart] [append] [ok] child=lab-child type=stimulus.played id="bbc03d8c18520bea4bea12e6e532925491a44813bec0aee1bdfb51c3f6b44fa3"
+
+stderr | src/server/ws-tts-playback-ownership.test.ts > does not stop an incoming item stimulus or a node-only snapshot after pace 1
+ 🎮 [chart] [opened] child=lab-child path=/private/var/folders/wh/9v_3r26d2gzb_bs4ydgkx65h0000gp/T/real-bridge-replay-h8qiVE/lab-child.db events=0 readonly=false
+ 🎮 [chart] [append] [ok] child=lab-child type=assignment.ingested id="e56277a248e57398197a381bcc3051b079b721ae83844fa9d2cd232795d7f9c7"
+
+stdout | src/server/ws-tts-playback-ownership.test.ts > does not stop an incoming item stimulus or a node-only snapshot after pace 1
+ 🎮 [spelling] [node-launch] [recorded] node=n launch=9a904007-6ef0-430c-9fe5-b6491f6865c4
+ 🎮 [spelling-discovery] [live-context] [bound] item=i1
+
+stderr | src/server/ws-tts-playback-ownership.test.ts > does not stop an incoming item stimulus or a node-only snapshot after pace 1
+ 🎮 [chart] [opened] child=lab-child path=/private/var/folders/wh/9v_3r26d2gzb_bs4ydgkx65h0000gp/T/real-bridge-replay-h8qiVE/lab-child.db events=1 readonly=false
+ 🎮 [chart] [append] [ok] child=lab-child type=item.presented id="e0d14c531ae867a81521dcc53040beebe5ca45d3377094882f2b6be56574695d"
+
+stdout | src/server/ws-tts-playback-ownership.test.ts > does not stop an incoming item stimulus or a node-only snapshot after pace 1
+ 🎮 [session-audio] [owner] [started] request=122d2726-8c94-4626-8f5c-ba80621a8bcf
+  🔊 TTS model: eleven_flash_v2_5
+🎮 [audit] component=turn action=barge_in stateBefore=IDLE turnState=IDLE tts=on childName=Lab
+ 🎮 [session-audio] [stream-terminal] [cancelled] request=122d2726-8c94-4626-8f5c-ba80621a8bcf elapsedMs=0 chunks=0
+ 🎮 [companion] [item-changed] [obsolete-speech-retired]
+ 🎮 [spelling-discovery] [live-context] [bound] item=i2
+
+stderr | src/server/ws-tts-playback-ownership.test.ts > does not stop an incoming item stimulus or a node-only snapshot after pace 1
+ 🎮 [chart] [opened] child=lab-child path=/private/var/folders/wh/9v_3r26d2gzb_bs4ydgkx65h0000gp/T/real-bridge-replay-h8qiVE/lab-child.db events=2 readonly=false
+ 🎮 [chart] [append] [ok] child=lab-child type=item.presented id="18b88150305f356b452dd5cfb1bcc339926010f1bd3bdf7b1bc70747008c63d3"
+
+stderr | src/server/ws-tts-playback-ownership.test.ts > does not stop an incoming item stimulus or a node-only snapshot after pace 0.7
+ 🎮 [chart] [opened] child=lab-child path=/private/var/folders/wh/9v_3r26d2gzb_bs4ydgkx65h0000gp/T/real-bridge-replay-c12YCJ/lab-child.db events=0 readonly=false
+ 🎮 [chart] [append] [ok] child=lab-child type=assignment.ingested id="e56277a248e57398197a381bcc3051b079b721ae83844fa9d2cd232795d7f9c7"
+
+stdout | src/server/ws-tts-playback-ownership.test.ts > does not stop an incoming item stimulus or a node-only snapshot after pace 0.7
+ 🎮 [spelling] [node-launch] [recorded] node=n launch=f2d9ad96-d4c7-41c6-bdc7-eb1fe4b44f3c
+ 🎮 [spelling-discovery] [live-context] [bound] item=i1
+
+stderr | src/server/ws-tts-playback-ownership.test.ts > does not stop an incoming item stimulus or a node-only snapshot after pace 0.7
+ 🎮 [chart] [opened] child=lab-child path=/private/var/folders/wh/9v_3r26d2gzb_bs4ydgkx65h0000gp/T/real-bridge-replay-c12YCJ/lab-child.db events=1 readonly=false
+ 🎮 [chart] [append] [ok] child=lab-child type=item.presented id="d212a53df0dd114bc0dfdc116c5bcdfaabe8624a4a2bd24904ae1dbf3f847304"
+
+stdout | src/server/ws-tts-playback-ownership.test.ts > does not stop an incoming item stimulus or a node-only snapshot after pace 0.7
+ 🎮 [session-audio] [owner] [started] request=56c3fa88-3a41-4e9a-8586-00ccdf243f85
+  🔊 TTS model: eleven_flash_v2_5
+🎮 [audit] component=turn action=barge_in stateBefore=IDLE turnState=IDLE tts=on childName=Lab
+ 🎮 [session-audio] [stream-terminal] [cancelled] request=56c3fa88-3a41-4e9a-8586-00ccdf243f85 elapsedMs=1 chunks=0
+ 🎮 [companion] [item-changed] [obsolete-speech-retired]
+ 🎮 [spelling-discovery] [live-context] [bound] item=i2
+
+stderr | src/server/ws-tts-playback-ownership.test.ts > does not stop an incoming item stimulus or a node-only snapshot after pace 0.7
+ 🎮 [chart] [opened] child=lab-child path=/private/var/folders/wh/9v_3r26d2gzb_bs4ydgkx65h0000gp/T/real-bridge-replay-c12YCJ/lab-child.db events=2 readonly=false
+ 🎮 [chart] [append] [ok] child=lab-child type=item.presented id="864271169780e596923bc6e92a15297cb4ae25b461fd959957a5221aa50966a4"
+
+ ❯ src/server/ws-tts-playback-ownership.test.ts (14 tests | 2 failed) 1688ms
+   ✓ TTS socket and playback packet ownership > tags only the current socket's PCM and preserves the next connection through old callbacks 3ms
+   ✓ reopens a primed stream at the AI-selected rate, preserving playback identity 2ms
+   ✓ drains already submitted speech before applying a new rate without losing its owner 2ms
+   ✓ does not revive speech after barge-in; only the selected configuration remains 0ms
+   ✓ keeps delivered-audio proof across a rate reconnect 2ms
+   ✓ applies a concurrently selected rate to the next replay even while old speech drains 0ms
+   ✓ changes a connecting stream before initialization without losing buffered text 0ms
+   ✓ uses the selected rate in the real narration adapter with concurrent tools: rate_first  830ms
+   ✓ uses the selected rate in the real narration adapter with concurrent tools: replay_first 1ms
+   ✓ scopes pace to an item and launch without a snapshot-driven audio teardown 0ms
+   ✓ delivers and records pace through the slim SessionManager toolkit and actual replay route: rate_first  770ms
+   ✓ delivers and records pace through the slim SessionManager toolkit and actual replay route: replay_first 58ms
+   × does not stop an incoming item stimulus or a node-only snapshot after pace 1 11ms
+     → expected undefined to match object { itemId: 'i2' }
+   × does not stop an incoming item stimulus or a node-only snapshot after pace 0.7 8ms
+     → expected undefined to match object { itemId: 'i2' }
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/server/ws-tts-playback-ownership.test.ts > does not stop an incoming item stimulus or a node-only snapshot after pace 1
+ FAIL  src/server/ws-tts-playback-ownership.test.ts > does not stop an incoming item stimulus or a node-only snapshot after pace 0.7
+AssertionError: expected undefined to match object { itemId: 'i2' }
+
+- Expected:
+{
+  "itemId": "i2",
+}
+
++ Received:
+undefined
+
+ ❯ src/server/ws-tts-playback-ownership.test.ts:185:44
+    183|   const current=fixtures.sockets.at(-1);current.readyState=1;current.e…
+    184|   s.updateCurrentBoardSnapshot({game:'word-radar',nodeId:'n',itemId:'i…
+    185|   expect(bridge.currentPlaybackIdentity()).toMatchObject({itemId:'i2'}…
+       |                                            ^
+    186|   s.updateCurrentBoardSnapshot({nodeId:'n',phase:'config_audit',launch…
+    187|   expect(bridge.currentPlaybackIdentity()).toMatchObject({itemId:'i2'}…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 12 passed (14)
+   Start at  00:11:22
+   Duration  1.85s (transform 708ms, setup 0ms, collect 51ms, tests 1.69s, environment 0ms, prepare 21ms)

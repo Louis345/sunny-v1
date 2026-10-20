@@ -1,13 +1,16 @@
 import fs from "fs";
 import os from "os";
 import path from "path";
-import { describe, expect, it } from "vitest";
+import { execFileSync } from "node:child_process";
+import { describe, expect, it, vi } from "vitest";
 import {
   collectSessionLogFiles,
   copySessionLogsToRepo,
+  resolveSessionLogSourceRoot,
   resolveExpiredUploadedLocalPaths,
   resolveUploadedLocalPaths,
   uploadedStatusIsVerified,
+  uploadSessionLogs,
 } from "./uploadSessionLogs";
 
 function makeTempDir(): string {
@@ -15,6 +18,52 @@ function makeTempDir(): string {
 }
 
 describe("uploadSessionLogs", () => {
+  it("keeps a commit-hook parent repository untouched when uploading to a separate local repository", () => {
+    const root = makeTempDir();
+    const cleanEnv = Object.fromEntries(Object.entries(process.env).filter(([key]) => !key.startsWith("GIT_")));
+    const git = (cwd: string, ...args: string[]) => execFileSync("git", args, { cwd, env: cleanEnv, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }).trim();
+    const parent = path.join(root, "parent"), logs = path.join(root, "logs"), remote = path.join(root, "remote.git"), source = path.join(root, "source");
+    try {
+      fs.mkdirSync(parent); fs.mkdirSync(logs); fs.mkdirSync(source);
+      git(root, "init", "--bare", remote);
+      for (const repo of [parent, logs]) {
+        git(repo, "init", "--initial-branch=fixture");
+        git(repo, "config", "user.name", "Sunny isolated test");
+        git(repo, "config", "user.email", "sunny-test@example.invalid");
+        git(repo, "remote", "add", "origin", remote);
+        fs.writeFileSync(path.join(repo, "seed.txt"), "fixture\n");
+        git(repo, "add", "."); git(repo, "commit", "-m", "fixture");
+      }
+      const before = git(parent, "rev-parse", "HEAD");
+      const index = fs.readFileSync(path.join(parent, ".git/index"));
+      fs.writeFileSync(path.join(source, "server.log"), "synthetic log\n");
+      // Reproduce Git's hook environment, but point only at disposable local repos.
+      vi.stubEnv("GIT_DIR", path.join(parent, ".git"));
+      vi.stubEnv("GIT_INDEX_FILE", path.join(parent, ".git/index"));
+      vi.stubEnv("GIT_WORK_TREE", undefined);
+      vi.stubEnv("GIT_COMMON_DIR", path.join(parent, ".git"));
+      const result = uploadSessionLogs({ sourceRoot: source, repoRoot: logs, repoUrl: remote });
+      expect(result.pushed).toBe(true);
+      expect(git(parent, "rev-parse", "HEAD")).toBe(before);
+      expect(git(parent, "branch", "--show-current")).toBe("fixture");
+      expect(fs.readFileSync(path.join(parent, ".git/index"))).toEqual(index);
+      expect(git(parent, "status", "--porcelain")).toBe("");
+      expect(git(logs, "show", "HEAD:misc/server.log")).toBe("synthetic log");
+    } finally { vi.unstubAllEnvs(); fs.rmSync(root, { recursive: true, force: true }); }
+  });
+
+  it("uses the isolated session-log root supplied by the running Sunny workflow", () => {
+    expect(
+      resolveSessionLogSourceRoot("/tmp/sunny", {
+        SUNNY_SESSION_LOG_ROOT: "./isolated/run-42/logs/sessions",
+      }),
+    ).toBe(path.resolve("/tmp/sunny", "isolated/run-42/logs/sessions"));
+
+    expect(resolveSessionLogSourceRoot("/tmp/sunny", {})).toBe(
+      path.resolve("/tmp/sunny", "logs/sessions"),
+    );
+  });
+
   it("copies packet logs and legacy daily server logs into separate repo folders", () => {
     const root = makeTempDir();
     const source = path.join(root, "source");

@@ -1,7 +1,9 @@
+const modelRequest = vi.hoisted(() => vi.fn());
+vi.mock("ai", () => ({ generateObject: modelRequest, streamObject: (options:unknown) => ({object:modelRequest(options)}) }));
 import fs from "fs";
 import os from "os";
 import path from "path";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type { LearningProfile } from "../context/schemas/learningProfile";
 import { getChildChart } from "../profiles/childChart";
 import { initializeLearningProfile } from "../utils/learningProfileIO";
@@ -10,6 +12,7 @@ import {
   buildExperiencePlannerInput,
   draftPsychologistExperiencePlan,
   recordPlannerReview,
+  runAiPsychologistExperiencePlanner,
 } from "./experiencePlanner";
 
 const WORDS = [
@@ -294,4 +297,15 @@ describe("AI psychologist experience planner", () => {
     expect(profile.plannerTrust?.rejectedCount).toBe(1);
     expect(profile.plannerTrust?.autoPlanEnabled).toBe(false);
   });
+});
+
+it('requests native JSON output for Opus instead of the old SDK forced-tool fallback',async()=>{
+ const root=makeRoot();
+ try {
+  writeJson(root,'src/context/lab-opus/learning_profile.json',profileWithHomework('lab-opus'));
+  const input=buildExperiencePlannerInput(getChildChart('lab-opus',{rootDir:root}),{rootDir:root});
+  modelRequest.mockRejectedValueOnce(new Error('fixture-stop'));
+  await expect(runAiPsychologistExperiencePlanner(input,{model:'claude-opus-5-5'})).rejects.toThrow('fixture-stop');
+  expect(modelRequest.mock.lastCall?.[0]).toMatchObject({providerOptions:{anthropic:{structuredOutputMode:'outputFormat',effort:'high'}},maxOutputTokens:32000,maxRetries:0});
+ }finally{fs.rmSync(root,{recursive:true,force:true});}
 });

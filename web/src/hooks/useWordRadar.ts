@@ -98,6 +98,7 @@ export type WordRadarPhase =
   | "idle";
 
 export type WordRadarGameEventType =
+  | "engagement"
   | "ready"
   | "heard"
   | "correct"
@@ -107,6 +108,8 @@ export type WordRadarGameEventType =
 
 export interface WordRadarGameEvent {
   type: WordRadarGameEventType;
+  metric?: "first_input_ms"|"idle_gap_ms"|"erase_burst";
+  value?: number;
   item?: RadarItem;
   itemIndex?: number;
   heardTranscript?: string;
@@ -199,6 +202,7 @@ export interface UseWordRadarArgs {
   timerSeconds?: number;
   startImmediately?: boolean;
   showKeyboard?: boolean;
+  spokenLetterConstruction?: boolean;
   inputMode?: "whole-word" | "letter-by-letter" | "keyboard";
   speakStyle?: "option-a" | "option-b";
   keyboardStyle?: "option-b" | "option-c";
@@ -298,6 +302,7 @@ export function useWordRadar(args: UseWordRadarArgs): UseWordRadarResult {
     timerSeconds,
     startImmediately = true,
     showKeyboard = false,
+    spokenLetterConstruction = false,
     inputMode: inputModeArg,
     keyboardStyle = "option-c",
     personalBests,
@@ -355,6 +360,7 @@ export function useWordRadar(args: UseWordRadarArgs): UseWordRadarResult {
 
   const onFinishRef = useRef(onFinish);
   onFinishRef.current = onFinish;
+  const keyboardMetricsRef = useRef<{start:number;last:number|null;erases:number}|undefined>(undefined);
   const onEventRef = useRef(onEvent);
   onEventRef.current = onEvent;
   const itemsRef = useRef(items);
@@ -675,7 +681,7 @@ export function useWordRadar(args: UseWordRadarArgs): UseWordRadarResult {
       attempts: attemptCountRef.current,
       responseTime_ms,
     });
-    if (inputModeRef.current === "letter-by-letter") {
+    if (inputModeRef.current === "letter-by-letter" || spokenLetterConstruction) {
       const letters = displayLetters(item);
       const previousTokenCount = previousTranscript.split(/\s+/).filter(Boolean).length;
       const tokensToCheck = tokens.slice(previousTokenCount);
@@ -745,7 +751,7 @@ export function useWordRadar(args: UseWordRadarArgs): UseWordRadarResult {
         },
       );
     }
-  }, [interimTranscript, phase, itemIndex, items]);
+  }, [interimTranscript, phase, itemIndex, items, spokenLetterConstruction]);
 
   /** Keyboard: full word length match → auto-advance or shake+clear. */
   useEffect(() => {
@@ -790,11 +796,25 @@ export function useWordRadar(args: UseWordRadarArgs): UseWordRadarResult {
     typedBufferRef.current = "";
   }, [typedBuffer, phase, itemIndex, items]);
 
+  const observeKeyboardInput = (key:string,item:RadarItem) => {
+    if (responseStartRef.current != null && (key === "Backspace" || (key.length === 1 && /[a-zA-Z0-9\s'-]/.test(key)))) {
+      const now=Date.now(),start=responseStartRef.current;
+      const metrics=keyboardMetricsRef.current?.start===start ? keyboardMetricsRef.current : {start,last:null,erases:0};
+      const emit=(metric:"first_input_ms"|"idle_gap_ms"|"erase_burst",value:number)=>onEventRef.current?.({type:"engagement",item,itemIndex:itemIndexRef.current,metric,value});
+      if(metrics.last===null)emit("first_input_ms",Math.max(0,now-start));
+      else if(now-metrics.last>=10000)emit("idle_gap_ms",now-metrics.last);
+      metrics.erases=key==='Backspace' ? (metrics.last!==null && now-metrics.last<=1000 ? metrics.erases+1 : 1) : 0;
+      if(metrics.erases===3){emit("erase_burst",3);metrics.erases=0;}
+      metrics.last=now;keyboardMetricsRef.current=metrics;
+    }
+  };
+
   const appendTypedKey = useCallback((key: string) => {
     if (phaseRef.current !== "response") return;
     if (resolvedForItemRef.current) return;
     const item = itemsRef.current[itemIndexRef.current];
     if (!item) return;
+    observeKeyboardInput(key,item);
     if (assessmentRef.current) {
       const next = key === "Backspace" ? typedBufferRef.current.slice(0, -1)
         : key.length === 1 && /[a-zA-Z0-9\s'-]/.test(key) ? (typedBufferRef.current + key).slice(0, 128) : typedBufferRef.current;
@@ -872,6 +892,7 @@ export function useWordRadar(args: UseWordRadarArgs): UseWordRadarResult {
     if (resolvedForItemRef.current) return;
     const item = itemsRef.current[itemIndexRef.current];
     if (!item) return;
+    if(next!==typedBufferRef.current)observeKeyboardInput(next.length<typedBufferRef.current.length?'Backspace':'a',item);
     if (assessmentRef.current) {
       const captured = next.slice(0, 128);
       typedBufferRef.current = captured;

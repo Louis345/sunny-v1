@@ -1,11 +1,74 @@
+import {readVerifiedSpellingResponseMode} from "../profiles/childChart";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import { recordChoiceEvent } from "./choiceEvents";
 import { buildChildExperiencePacket } from "../profiles/childExperiencePacket";
 
 describe("buildChildExperiencePacket", () => {
+  it("presents remaining checkpoint cards as practice after the spelling evidence batch closes", () => {
+    const packet=buildChildExperiencePacket({childId:"lab",companion:{},homework:{},learningCycle:{
+      domain:"spelling",homeworkId:"hw",revision:2,lifecycle:"baseline_evaluating",observations:[],decisionHistory:[],
+      boards:[{boardId:"b",kind:"teaching",nodeIds:["later"],publishedAt:"2026-10-20T12:00:00Z"}],
+      nodes:[{nodeId:"later",role:"baseline",state:"ready",evidenceContract:{spellingItems:{i:{id:"i",word:"night",lineage:{measurementRole:"fresh_checkpoint"},response:{acceptedForms:["night"]}}}}}],
+    }} as never);
+    expect(packet.spellingInstruments?.later).toMatchObject({assessment:false,items:[{itemId:"i",display:"night"}]});
+  });
+  it("projects saved evaluation correctness without grading missing answers or practice", () => {
+    const chart = { childId: "lab", companion: {}, homework: {}, learningCycle: {
+      domain: "spelling", homeworkId: "hw", lifecycle: "targeted_planning", revision: 2,
+      nodes: [{ nodeId: "eval", role: "evaluation", evidenceContract: { spellingItems: Object.fromEntries(
+        ["night", "light", "bright"].map(word => [word, { id: word, word, lineage: { measurementRole: "independent_probe" }, response: { acceptedForms: [word] } }])) } }],
+      observations: [
+        { itemId: "night", sourceId: "evaluation:eval", result: { correct: true } },
+        { itemId: "light", sourceId: "evaluation:eval", result: { correct: false } },
+        { itemId: "bright", sourceId: "evaluation:eval", result: { observedErrorType: "not_sure" } },
+        { itemId: "light", sourceId: "activity:practice:recall", result: { correct: true } },
+      ],
+    } };
+    expect(buildChildExperiencePacket(chart as never).spellingEvaluationResults).toEqual([
+      { display: "night", correct: true }, { display: "light", correct: false }, { display: "bright" },
+    ]);
+    expect(buildChildExperiencePacket({ ...chart, learningCycle: { ...chart.learningCycle, lifecycle: "evaluation_active" } } as never).spellingEvaluationResults).toBeUndefined();
+  });
+  it("projects the displayed canonical board kind independent of the plan ID", () => {
+    const packet=buildChildExperiencePacket({childId:"lab", companion:{}, homework:{},
+      learningCycle:{homeworkId:"hw", revision:2, lifecycle:"evaluation_ready", nodes:[], observations:[], boards:[{boardId:"hw:board:1",kind:"probe"}]},
+      activeSessionPlan:{planId:"learning-cycle:hw:cycle-r2",nodePlan:[],adventureBoard:{boardId:"hw:board:1",nodes:[]}},
+    } as never);
+    expect(packet.childChart.learningCycle).toHaveProperty("boardKind","probe");
+  });
+  it("launches a legacy spelling node with its verified Planner response mode", () => {
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-spelling-mode-"));
+    const artifact = { version: 1, node: { id: "teach-long-o", type: "word-radar", wordRadarConfig: {
+      recallMode: "visible_read", inputMode: "whole-word", speakStyle: "option-a",
+      showTimer: false, hideWordDuringResponse: false, requiresCapturedResponse: true,
+    } } };
+    const fingerprint = createHash("sha256").update(JSON.stringify(artifact)).digest("hex");
+    const artifactPath = path.join(rootDir, "src/context/lab/homework/direct-drafts/hw/native-instruments/teach-long-o.json");
+    fs.mkdirSync(path.dirname(artifactPath), { recursive: true });
+    fs.writeFileSync(artifactPath, JSON.stringify(artifact));
+    const chart = {
+      childId: "lab", rootDir, identity: {}, companion: { presetId: "elli", displayName: "Elli", config: {} },
+      companionCare: {}, economy: {}, adventureMapProfile: {}, homework: { selectedDomain: "spelling" },
+      learningCycle: { domain: "spelling", homeworkId: "hw", revision: 1, lifecycle: "board_ready", observations: [], nodes: [{
+        nodeId: "teach-long-o", role: "baseline", state: "ready", implementationType: "word-radar",
+        evidenceContract: { spellingItems: {} },
+        artifactBinding: { validationStatus: "passed", contractFingerprint: fingerprint,
+          localArtifactPath: "/homework/direct-drafts/hw/native-instruments/teach-long-o.json" },
+      }] },
+      activeSessionPlan: { planId: "hw", activeHomeworkId: "hw", nodePlan: [{
+        id: "teach-long-o", type: "word-radar", activityId: "word-radar", targets: ["broken"],
+      }] },
+    };
+
+    const hydrated = {...chart,activeSessionPlan:readVerifiedSpellingResponseMode(chart as never,chart.activeSessionPlan as never)};
+    expect(buildChildExperiencePacket(hydrated as never).activeSessionPlan?.nodePlan[0]?.wordRadarConfig).toEqual(artifact.node.wordRadarConfig);
+    fs.writeFileSync(artifactPath, JSON.stringify({ ...artifact, node: { ...artifact.node, wordRadarConfig: { ...artifact.node.wordRadarConfig, recallMode: "full_recall" } } }));
+    expect(() => readVerifiedSpellingResponseMode(chart as never,chart.activeSessionPlan as never)).toThrow("verified_spelling_artifact_mismatch:teach-long-o");
+  });
   it("replays a completed recall check as practice rather than resubmitting the assessment", () => {
     const packet = buildChildExperiencePacket({ childId: "lab", companion: {}, homework: {}, learningCycle: { domain: "spelling", homeworkId: "hw", revision: 1, lifecycle: "board_ready", observations: [{ itemId: "i1" }], nodes: [{ nodeId: "check", role: "baseline", state: "completed", evidenceContract: { spellingItems: { i1: { id: "i1", word: "night", lineage: { measurementRole: "fresh_checkpoint" }, response: { acceptedForms: ["night"] } } } } }] } } as never);
     expect(packet.spellingInstruments?.check).toMatchObject({ assessment: false, items: [{ itemId: "i1" }] });
@@ -247,5 +310,64 @@ describe("buildChildExperiencePacket", () => {
       "Build fair shares with your own hands",
       "Spot the bigger fair slice before the gull swoops",
     ]);
+  });
+
+  it("never promotes a blocked first agency node to current", () => {
+    const packet = buildChildExperiencePacket({
+      childId: "ila",
+      identity: { displayName: "Ila" },
+      companion: { presetId: "elli", displayName: "Elli", config: {} },
+      companionCare: {}, economy: {}, adventureMapProfile: {},
+      homework: { selectedDomain: "math" },
+      activeSessionPlan: {
+        planId: "clock-plan",
+        activeHomeworkId: "hw-clock",
+        nodePlan: [{ id: "gear-secret", locked: true }],
+        adventureBoard: {
+          schemaVersion: 1,
+          boardId: "clock-board",
+          planId: "clock-plan",
+          childId: "ila",
+          domain: "math",
+          title: "Clock",
+          theme: { background: { type: "color", value: "#000" }, palette: { path: "#fff", completed: "#0f0", available: "#00f", locked: "#777", current: "#f90", preview: "#aaa", text: "#fff", panel: "#000" } },
+          layout: { preset: "horizontal-adventure-spine" },
+          plannerRationale: { agencyDesign: "choice", evidenceDesign: "practice", layoutChoice: "route" },
+          nodes: [
+            { id: "start", kind: "start", label: "Start", state: "completed", action: { type: "none" } },
+            { id: "gear-secret", kind: "activity", label: "The Gear Secret", state: "locked", action: { type: "show-locked-reason", payloadId: "gear-secret" }, lock: { reason: "generation-needs-attention", label: "Parent help needed" } },
+          ],
+          edges: [],
+          companion: { id: "elli", name: "Elli" },
+          progress: { completedNodeIds: ["start"] },
+        },
+      },
+      learningCycle: {
+        homeworkId: "hw-clock",
+        lifecycle: "board_ready",
+        revision: 8,
+        agencyExperiment: {
+          experimentId: "clock-agency",
+          sharedNodeIds: ["gear-secret"],
+          routes: [
+            { routeId: "route-a", nodeIds: ["route-a-node"] },
+            { routeId: "route-b", nodeIds: ["route-b-node"] },
+          ],
+        },
+        nodes: [
+          { nodeId: "gear-secret", state: "blocked" },
+          { nodeId: "route-a-node", state: "generating" },
+          { nodeId: "route-b-node", state: "generating" },
+        ],
+      },
+    } as never);
+
+    const board = packet.activeSessionPlan!.adventureBoard!;
+    expect(board.nodes.find((node) => node.id === "gear-secret")).toMatchObject({
+      state: "locked",
+      lock: { reason: "generation-needs-attention" },
+    });
+    expect(packet.activeSessionPlan!.nodePlan.find((node) => node.id === "gear-secret")?.locked).toBe(true);
+    expect(board.progress?.currentNodeId).toBeUndefined();
   });
 });

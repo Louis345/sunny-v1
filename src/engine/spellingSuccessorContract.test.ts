@@ -1,0 +1,201 @@
+import {linearJourneyFixture} from '../scripts/fixtures/authoredJourney';
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import { afterEach, expect, it } from "vitest";
+import { seedSpellingLab } from "../scripts/fixtures/spellingEvidenceFirst";
+import { buildSpellingRecallItems } from "./learningCycleIngest";
+import { createLearningCycle, getLearningCycle, spellingAssignmentItems, type LearningCycleNodeContract } from "./learningCycleRepository";
+import { advanceCanonicalCycleFromEvidence, recordCanonicalNodeCompletion, parseCanonicalProgressionDecision, scoreSpellingRecall } from "./learningCycleRuntime";
+import { currentBoardInstance, preparingBoardInstance, publishBoardInstance } from "./learningBoardInstances";
+import { buildAdaptiveProgressionCreatorPrompt } from "./directMathExperience";
+import { runMathProviderStage } from "./adaptiveMathDiscovery";
+import { writeWaterfallContentCatalog } from "../profiles/chartWaterfall";
+import { getChildChart } from "../profiles/childChart";
+
+const roots: string[] = [];
+afterEach(() => { for (const root of roots.splice(0)) fs.rmSync(root, { recursive: true, force: true }); });
+
+function fixture(responseCount = 2) {
+  const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-spelling-successor-contract-")); roots.push(rootDir);
+  const childId = "contract-child", homeworkId = "school-words";
+  seedSpellingLab(rootDir, ["night", "light"], "", childId);
+  const items = buildSpellingRecallItems({ homeworkId, words: ["night", "light"], evidenceIds: ["school:one"], measurementRole: "practice", exposure: "unseen" });
+  const node: LearningCycleNodeContract = {
+    nodeId: "practice", role: "baseline", title: "Word workshop", state: "ready",
+    academicTarget: { domain: "spelling", skill: "school words", targets: items.map(item => item.word) },
+    algorithmOwner: "retrieval-practice", theoryId: "theory", experimentId: "practice", mechanic: "guided spelling", theme: "harbor",
+    openingScreen: { title: "Word workshop", purpose: "Practice school words" }, generationPrompt: null,
+    artifactBinding: { contentId: "practice", artifactId: "practice", localArtifactPath: "/games/practice.html", localArtworkPath: "/generated/practice.png", contractFingerprint: "recorded", validationStatus: "passed" },
+    artwork: { status: "ready", localPath: "/generated/practice.png", prompt: null }, sfxContract: [], companionContract: { events: ["completion"] },
+    evidenceContract: { academic: true, engagement: true, companionObservations: true, spellingItems: Object.fromEntries(items.map(item => [item.id, item])) }, evidenceIds: [],
+  };
+  const base = { childId, homeworkId, domain: "spelling", assignment: { title: "School spelling", contentFingerprint: "recorded", capturedEvidenceIds: ["school:one"], targets: ["night", "light"] }, academicTheory: { theoryId: "theory", revision: 1, hypothesis: "Test the spelling gap", supportCriteria: [], reviseCriteria: [], falsifyCriteria: [] }, engagementTheory: null, nodes: [node], initialLifecycle: "board_ready" as const };
+  const board = publishBoardInstance({ ...base, boards: [] } as never, { kind: "teaching", predecessorBoardId: null, plannerDecisionId: "original-plan", evidenceIds: ["school:one"], nodeIds: [node.nodeId], publishedAt: "2026-10-01T00:00:00Z" });
+  createLearningCycle({ ...base, boards: [board] }, { rootDir });
+  recordCanonicalNodeCompletion({ childId, homeworkId, sessionId: "recorded", nodeId: node.nodeId, result: { completed: true, accuracy: 0, timeSpent_ms: 1000, targetResults: items.slice(0, responseCount).map(item => ({ target: item.id, correct: false, attemptedValue: "unknown" })) } }, { rootDir });
+  const instrument = { nodeId: "support", title: "Lantern letters", academicTarget: "school words", mechanic: "build words", theme: "harbor", openingPurpose: "Practice the observed gap", creatorPrompt: "Build words from captured evidence", stakesDesign: "Mission", failureMode: "Try again", escalation: "Fade support", mechanicSpec: "Move letters", mathematicalHook: "Word patterns", spelling: { wordIds: [items[0].wordId], measurementRole: "practice", responseMode: "spelling_letters" } };
+  const decision = { boardDefinition:linearJourneyFixture(["support"]), status: "revised", reason: "Support the observed spelling gap", progressionAction: "generate_support", preserve: [], change: ["guided practice"], testNext: ["recall"], nextEvidenceRequired: ["later recall"], nextInstruments: [instrument] };
+  return { rootDir, childId, homeworkId, items, instrument, decision, board };
+}
+
+it("carries the Planner's saved word references through its tool, frozen successor, Creator and scorer", async () => {
+  // Human saw a completed session fail to produce a usable next board. Old lab
+  // fixtures supplied generic support prose, so green tests missed empty words.
+  const f = fixture(); let request: any;
+  const execute = async (payload: unknown) => { request = payload; return { content: [{ type: "tool_use", name: "decide_learning_cycle_progression", input: f.decision }] }; };
+  const cycle = await advanceCanonicalCycleFromEvidence({ childId: f.childId, homeworkId: f.homeworkId, client: { messages: { create: execute, stream: (payload: unknown) => ({ finalMessage: () => execute(payload) }) } } as never }, { rootDir: f.rootDir });
+  const schema = request.tools[0].input_schema.properties.nextInstruments.items;
+  expect(schema.required).toContain("spelling");
+  expect(schema.properties.spelling.properties.wordIds.items.enum).toEqual(expect.arrayContaining(f.items.map(item => item.wordId)));
+  expect(request.messages[0].content).toContain(f.items[0].wordId);
+  const board = preparingBoardInstance(cycle)!;
+  const node = cycle.nodes.find(node => board.nodeIds.includes(node.nodeId))!;
+  expect(node.academicTarget.targets).toEqual(["night"]);
+  const frozen = Object.values(node.evidenceContract.spellingItems ?? {});
+  expect(frozen).toHaveLength(1);
+  expect(frozen[0]).toMatchObject({ wordId: f.items[0].wordId, word: "night", response: f.items[0].response, lineage: { exposure: "practiced", measurementRole: "practice" } });
+  expect(frozen[0].id).not.toBe(f.items[0].id);
+  expect(node.evidenceContract.itemRoles).toEqual({ [frozen[0].id]: "practice" });
+  const prompt = buildAdaptiveProgressionCreatorPrompt({ cycle, node, childContext: "Recorded child context" } as never);
+  expect(prompt).toContain(frozen[0].id);
+  expect(prompt).toContain('"night"');
+  expect(scoreSpellingRecall(frozen[0], "nite").correct).toBe(false);
+  expect(scoreSpellingRecall(frozen[0], "night").correct).toBe(true);
+  expect(currentBoardInstance(cycle).boardId).toBe(f.board.boardId);
+});
+
+it.each(['corrected','still-invalid','changed-plan','malformed-array','malformed-id'])("bounds nonexistent prediction citation correction: %s", async outcome => {
+  const f = fixture();
+  const file = path.join(f.rootDir, `src/context/${f.childId}/homework/cycles/${f.homeworkId}.json`);
+  const snapshot = fs.readFileSync(file, 'utf8');
+  const received = {...f.decision, predictionEvaluationIds:['invented-evaluation']};
+  const requests: any[] = [];
+  const execute = async (request: any) => {
+    requests.push(request);
+    const input = requests.length === 1 ? received : {
+      predictionEvaluationIds:outcome === 'still-invalid' ? ['invented-evaluation'] : outcome === 'malformed-array' ? 'not an array' : outcome === 'malformed-id' ? [42] : [],
+      ...(outcome === 'changed-plan' ? {reason:'Changed educational decision'} : {}),
+    };
+    return {content:[{type:'tool_use',name:'decide_learning_cycle_progression',input}]};
+  };
+  const client = {messages:{stream:(request:any)=>({finalMessage:()=>execute(request)})}} as never;
+  const run = () => advanceCanonicalCycleFromEvidence({childId:f.childId,homeworkId:f.homeworkId,client},{rootDir:f.rootDir});
+  if(outcome === 'corrected') {
+    const cycle = await run();
+    expect(preparingBoardInstance(cycle)).toBeDefined();
+    expect(currentBoardInstance(cycle).boardId).toBe(f.board.boardId);
+    fs.writeFileSync(file,snapshot);
+    await run();
+    expect(requests).toHaveLength(2); // Restart reuses both received responses.
+  } else {
+    await expect(run()).rejects.toThrow(outcome === 'still-invalid' ? 'canonical_progression_unknown_prediction_evaluation' : outcome.startsWith('malformed') ? 'canonical_progression_invalid_citation_patch' : 'planner_correction_changed_protected_decision');
+    expect(getLearningCycle(f.childId,f.homeworkId,{rootDir:f.rootDir})?.lifecycle).toBe('blocked');
+    expect(preparingBoardInstance(getLearningCycle(f.childId,f.homeworkId,{rootDir:f.rootDir})!)).toBeUndefined();
+    expect(requests).toHaveLength(2);
+  }
+  expect(requests[0].tools[0].input_schema.properties.predictionEvaluationIds).toMatchObject({maxItems:0});
+  expect(requests[1].messages[0].content).toContain('Correct only predictionEvaluationIds');
+  expect(requests[1].messages[0].content).toContain('invented-evaluation');
+  expect(Object.keys(requests[1].tools[0].input_schema.properties)).toEqual(['predictionEvaluationIds']);
+});
+
+it("reuses a received pre-fix journey correction without buying another response", async () => {
+  const f = fixture();
+  const cycle = getLearningCycle(f.childId,f.homeworkId,{rootDir:f.rootDir})!;
+  const batch = cycle.decisionHistory.at(-1)!;
+  const revision = Number(batch.decisionId.match(/:r(\d+)$/)![1]);
+  const draftDir = path.join(f.rootDir,`src/context/${f.childId}/homework/cycles/.planner/${f.homeworkId}`,batch.decisionId.replace(/[^a-zA-Z0-9_-]+/g,'_'));
+  const received = structuredClone(f.decision);
+  received.boardDefinition.edges.pop();
+  let defect = '';
+  try { parseCanonicalProgressionDecision(received); } catch(error) { defect = (error as Error).message; }
+  expect(defect).toMatch(/^board_definition_/);
+  let calls = 0;
+  const execute = async (request:any) => {
+    calls++;
+    if(calls !== 1)throw new Error('pre-fix receipt must satisfy correction');
+    // Fixed historical schema: do not derive a pre-fix receipt from today's inventory.
+    const oldContentSchema = {type:'array',items:{type:'object',additionalProperties:false,properties:{contentId:{type:'string'},action:{type:'string',enum:['candidate','reuse','revise','retire']},reason:{type:'string'},evidenceIds:{type:'array',items:{type:'string'}}},required:['contentId','action','reason','evidenceIds']}};
+    const oldRequest = {...request,tools:request.tools.map((tool:any)=>({...tool,input_schema:{...tool.input_schema,properties:{...tool.input_schema.properties,predictionEvaluationIds:{type:'array',items:{type:'string'}},contentDecisions:oldContentSchema}}})),messages:[{role:'user',content:`Correct only boardDefinition in the received decision to fix this executable journey defect. Preserve every other field, instrument, academic claim, evidence reference and progression action unchanged. Return the complete decision using the same tool. There is one correction attempt.\nDEFECT: ${defect}\nRECEIVED DECISION: ${JSON.stringify(received)}`}]};
+    await runMathProviderStage({draftDir,stage:`progression-journey-correction-r${revision}`,model:request.model,request:oldRequest,execute:async()=>({plannerMessage:{content:[{type:'tool_use',name:'decide_learning_cycle_progression',input:f.decision}]}})});
+    return {content:[{type:'tool_use',name:'decide_learning_cycle_progression',input:received}]};
+  };
+  const result = await advanceCanonicalCycleFromEvidence({childId:f.childId,homeworkId:f.homeworkId,client:{messages:{stream:(request:any)=>({finalMessage:()=>execute(request)})}} as never},{rootDir:f.rootDir});
+  expect(preparingBoardInstance(result)).toBeDefined();
+  expect(calls).toBe(1);
+});
+
+it.each(['corrected','invalid','changed-plan','malformed-evidence'])("shares catalog/evidence handles and repairs all reference fields together: %s", async outcome => {
+  const f = fixture();
+  const before = getLearningCycle(f.childId,f.homeworkId,{rootDir:f.rootDir})!;
+  const cycleFile = path.join(f.rootDir,`src/context/${f.childId}/homework/cycles/${f.homeworkId}.json`);
+  const snapshot = fs.readFileSync(cycleFile,'utf8');
+  const evidenceId = before.observations[0].observationId;
+  const contentId = `${f.homeworkId}:practice`;
+  const item = {contentId,childId:f.childId,homeworkId:f.homeworkId,type:'activity',source:'generated',title:'Word workshop',algorithmTargets:['retrieval-practice'],targetSkills:['spelling'],targetWords:['night','light'],targetConcepts:[],engagementHooks:[],inputEvidence:{contentFingerprint:'recorded'},reuseStatus:'candidate',reuseReason:'Await evidence',theoryDecisionId:'original-plan'};
+  const profile = JSON.parse(fs.readFileSync(path.join(f.rootDir,`src/context/${f.childId}/learning_profile.json`),'utf8'));
+  writeWaterfallContentCatalog(f.childId,{...profile,aiContentCatalog:[item]},{rootDir:f.rootDir});
+  const received = {...f.decision,predictionEvaluationIds:['invented-evaluation'],contentDecisions:[{contentId:'practice',action:'revise',reason:'Support gap',evidenceIds:[evidenceId]}]};
+  const requests:any[]=[];
+  const execute = async (request:any) => {
+    requests.push(request);
+    const input = requests.length === 1 ? received : {predictionEvaluationIds:[],contentDecisions:[{...received.contentDecisions[0],contentId:outcome==='invalid'?'foreign':contentId,...(outcome==='malformed-evidence'?{evidenceIds:[evidenceId,42]}:{})}],...(outcome==='changed-plan'?{boardDefinition:received.boardDefinition}:{})};
+    return {content:[{type:'tool_use',name:'decide_learning_cycle_progression',input}]};
+  };
+  const run=()=>advanceCanonicalCycleFromEvidence({childId:f.childId,homeworkId:f.homeworkId,client:{messages:{stream:(request:any)=>({finalMessage:()=>execute(request)})}} as never},{rootDir:f.rootDir});
+  if(outcome==='corrected'){
+    const cycle=await run();
+    expect(preparingBoardInstance(cycle)).toBeDefined();
+    expect(currentBoardInstance(cycle).boardId).toBe(f.board.boardId);
+    expect(getChildChart(f.childId,{rootDir:f.rootDir}).contentCatalog.items[0].reuseStatus).toBe('revise');
+    // Crash after catalog persistence but before the cycle commit: no new paid reply.
+    fs.writeFileSync(cycleFile,snapshot);
+    await run();
+  }else{
+    await expect(run()).rejects.toThrow(outcome==='invalid'?'math_catalog_decision_unknown_content':outcome==='malformed-evidence'?'canonical_progression_invalid_content_patch':'planner_correction_changed_protected_decision');
+    expect(getChildChart(f.childId,{rootDir:f.rootDir}).contentCatalog.items[0].reuseStatus).toBe('candidate');
+  }
+  expect(requests).toHaveLength(2);
+  expect(requests[0].tools[0].input_schema.properties.contentDecisions.items.properties.contentId.enum).toEqual([contentId]);
+  expect(requests[0].tools[0].input_schema.properties.contentDecisions.items.properties.evidenceIds.items.enum).toContain(evidenceId);
+  expect(requests[0].messages[0].content).toContain(contentId);
+  expect(Object.keys(requests[1].tools[0].input_schema.properties)).toEqual(['predictionEvaluationIds','contentDecisions']);
+});
+
+it.each(['non-array','mixed-ids','null'])("does not silently normalize original content decisions: %s", async shape => {
+  const f=fixture();const requests:any[]=[];
+  const received={...f.decision,predictionEvaluationIds:[],contentDecisions:shape==='non-array'?'not an array':shape==='null'?null:[{contentId:'unknown',action:'revise',reason:'Support',evidenceIds:['saved',42]}]};
+  const execute=async(request:any)=>{requests.push(request);return {content:[{type:'tool_use',name:'decide_learning_cycle_progression',input:requests.length===1?received:{contentDecisions:[]}}]};};
+  const result=await advanceCanonicalCycleFromEvidence({childId:f.childId,homeworkId:f.homeworkId,client:{messages:{stream:(request:any)=>({finalMessage:()=>execute(request)})}} as never},{rootDir:f.rootDir});
+  expect(preparingBoardInstance(result)).toBeDefined();
+  expect(requests).toHaveLength(2);
+  expect(Object.keys(requests[1].tools[0].input_schema.properties)).toEqual(['contentDecisions']);
+});
+
+it.each(["missing", "unknown", "duplicate", "invalid-role"])("rejects a %s word prescription before saving a successor", async kind => {
+  const f = fixture();
+  const spelling = kind === "missing" ? undefined : { ...f.instrument.spelling,
+    wordIds: kind === "unknown" ? ["invented-word"] : kind === "duplicate" ? [f.items[0].wordId, f.items[0].wordId] : f.instrument.spelling.wordIds,
+    measurementRole: kind === "invalid-role" ? "mastery" : "practice" };
+  await expect(advanceCanonicalCycleFromEvidence({ childId: f.childId, homeworkId: f.homeworkId, decide: async () => parseCanonicalProgressionDecision({ ...f.decision, nextInstruments: [{ ...f.instrument, spelling }] }) }, { rootDir: f.rootDir })).rejects.toThrow(/spelling_successor/);
+  expect(preparingBoardInstance(getLearningCycle(f.childId, f.homeworkId, { rootDir: f.rootDir })!)).toBeUndefined();
+});
+
+it("derives prior exposure from observations without inventing exposure for unobserved words", async () => {
+  const f = fixture(1);
+  const cycle = await advanceCanonicalCycleFromEvidence({ childId: f.childId, homeworkId: f.homeworkId, decide: async () => parseCanonicalProgressionDecision({ ...f.decision, nextInstruments: [{ ...f.instrument, spelling: { ...f.instrument.spelling, wordIds: f.items.map(item => item.wordId), measurementRole: "fresh_checkpoint" } }] }) }, { rootDir: f.rootDir });
+  const board = preparingBoardInstance(cycle)!;
+  const items = Object.values(cycle.nodes.find(node => board.nodeIds.includes(node.nodeId))!.evidenceContract.spellingItems!);
+  expect(items.map(item => [item.word, item.lineage.exposure, item.lineage.measurementRole])).toEqual([
+    ["night", "practiced", "fresh_checkpoint"], ["light", "unseen", "fresh_checkpoint"],
+  ]);
+});
+
+it("uses the same assignment allowlist for tool references and binding, excluding foreign words", () => {
+  const f = fixture();
+  const cycle = getLearningCycle(f.childId, f.homeworkId, { rootDir: f.rootDir })!;
+  const foreign = { ...f.items[0], id: "other-item", wordId: "other-word", word: "unassigned" };
+  cycle.nodes.push({ ...cycle.nodes[0], nodeId: "other", evidenceContract: { ...cycle.nodes[0].evidenceContract, spellingItems: { [foreign.id]: foreign } } });
+  expect([...spellingAssignmentItems(cycle).keys()]).toEqual(f.items.map(item => item.wordId));
+});

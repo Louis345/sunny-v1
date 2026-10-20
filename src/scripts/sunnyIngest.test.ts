@@ -128,27 +128,6 @@ function plannerOutput(overrides: Partial<AssignmentPlannerOutput> = {}): Assign
       choiceMode: "choice_lab",
       locked: false,
     },
-    {
-      id: "quest-transfer",
-      type: "quest",
-      activityId: "quest",
-      targets: ["sign", "know", "write"],
-      difficulty: 2,
-      source: "chart_planner",
-      targetLane: "silent_letters",
-      locked: true,
-      masteryUnlockState: "preparing",
-    },
-    {
-      id: "boss-mastery",
-      type: "boss",
-      activityId: "boss",
-      targets: [],
-      difficulty: 3,
-      source: "chart_planner",
-      locked: true,
-      masteryUnlockState: "preparing",
-    },
   ];
   const output = {
     capturedContent: {
@@ -288,7 +267,7 @@ describe("sunny ingest front door", () => {
     expect(text).toContain("The planner thinks this is spelling homework.");
     expect(text).toContain("Silent Letters (spell_from_memory): sign, know, write");
     expect(text).toContain("High-Frequency Words (recognize): among, building, circle");
-    expect(text).toContain("spell-check -> pronunciation -> mystery -> quest (locked) -> boss (locked)");
+    expect(text).toContain("spell-check -> pronunciation -> mystery");
     expect(text).toContain("does not feel like grind");
   });
 

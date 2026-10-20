@@ -17,6 +17,7 @@ const DEFAULT_COMPACT_CHARACTER_THRESHOLD = 1_800;
 const MAX_LEDGER_TEXT_LENGTH = 1_500;
 const MAX_MEMORY_FIELD_LENGTH = 360;
 const MAX_MEMORY_LIST_ITEMS = 8;
+const COMPANION_MEMORY_SUMMARY_TOOL = "save_companion_memory_summary";
 
 export type CompanionInteractionEventType =
   | "companion_talk_completed"
@@ -378,12 +379,16 @@ function interactionCharacterCount(events: CompanionInteractionEventRecord[]): n
   );
 }
 
-function stripJsonFences(raw: string): string {
-  let text = raw.trim();
-  if (text.startsWith("```")) {
-    text = text.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "").trim();
+export function readCompanionMemorySummaryToolResult(
+  content: ReadonlyArray<{ type: string; name?: string; input?: unknown; text?: string }>,
+): CompanionMemorySummaryPatch {
+  const result = content.find(
+    (block) => block.type === "tool_use" && block.name === COMPANION_MEMORY_SUMMARY_TOOL,
+  );
+  if (!result?.input || typeof result.input !== "object" || Array.isArray(result.input)) {
+    throw new Error("companion_memory_compaction_missing_tool_result");
   }
-  return text;
+  return result.input as CompanionMemorySummaryPatch;
 }
 
 function compactEventsForPrompt(events: CompanionInteractionEventRecord[]): unknown[] {
@@ -416,12 +421,12 @@ async function summarizeCompanionInteractionsWithHaiku(input: {
   const client = new Anthropic();
   const message = await client.messages.create({
     model: COMPANION_MEMORY_HAIKU_MODEL,
-    max_tokens: 520,
+    max_tokens: 900,
     system:
       "You compact child-companion interaction logs into stable companion relationship memory. Do not invent facts. Do not include raw screenshots, base64, or private implementation details. " +
       "Events with an activityContext are game beats: the child did not speak those words, so never attribute them to the child. " +
       "gameRecord is the authoritative win/loss history, counted by the app: never state, imply, or recompute a tally that disagrees with it, and never guess a record when it is absent. " +
-      "Return JSON only.",
+      `Call ${COMPANION_MEMORY_SUMMARY_TOOL} exactly once.`,
     messages: [
       {
         role: "user",
@@ -447,16 +452,43 @@ async function summarizeCompanionInteractionsWithHaiku(input: {
         }),
       },
     ],
+    tools: [{
+      name: COMPANION_MEMORY_SUMMARY_TOOL,
+      description: "Save one evidence-grounded companion relationship memory summary.",
+      input_schema: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          lastSessionSummary: { type: "string" },
+          lastEmotionalMoment: { type: "string" },
+          reunionLineSeed: { type: "string" },
+          rivalryNote: { type: "string" },
+          companionSelfNotes: { type: "array", maxItems: 3, items: { type: "string" } },
+          relationshipFacts: { type: "array", maxItems: 8, items: { type: "string" } },
+          favoriteMoments: { type: "array", maxItems: 8, items: { type: "string" } },
+          emotionalTone: { type: "string" },
+        },
+        required: [
+          "lastSessionSummary",
+          "lastEmotionalMoment",
+          "reunionLineSeed",
+          "companionSelfNotes",
+          "relationshipFacts",
+          "favoriteMoments",
+          "emotionalTone",
+        ],
+      },
+    }],
+    tool_choice: { type: "tool", name: COMPANION_MEMORY_SUMMARY_TOOL },
   });
-  const raw = message.content
-    .filter((block): block is Anthropic.TextBlock => block.type === "text")
-    .map((block) => block.text)
-    .join("\n");
-  const parsed = safeJsonParse<CompanionMemorySummaryPatch>(stripJsonFences(raw));
-  if (!parsed) {
-    throw new Error("companion_memory_compaction_invalid_json");
+  try {
+    return readCompanionMemorySummaryToolResult(message.content);
+  } catch (error) {
+    console.error(
+      ` 🎮 [companion-memory] [compact-provider] [invalid] stop=${message.stop_reason ?? "unknown"} blocks=${message.content.map((block) => block.type).join(",")}`,
+    );
+    throw error;
   }
-  return parsed;
 }
 
 export async function maybeCompactCompanionInteractionMemory(

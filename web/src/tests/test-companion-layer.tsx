@@ -568,10 +568,13 @@ describe("CompanionLayer portrait mode", () => {
         toggledOff={false}
         mode="portrait"
         micMuted={false}
+        muteControlKind="companion"
         onToggleMute={onToggleMute}
       />,
     );
-    fireEvent.click(getByTestId("companion-mute-control"));
+    const control = getByTestId("companion-mute-control");
+    expect(control.textContent).toBe("Quiet companion");
+    fireEvent.click(control);
     expect(onToggleMute).toHaveBeenCalledOnce();
   });
 
@@ -583,10 +586,12 @@ describe("CompanionLayer portrait mode", () => {
         toggledOff={false}
         mode="portrait"
         micMuted={true}
+        muteControlKind="companion"
         onToggleMute={() => {}}
       />,
     );
     expect(getByTestId("companion-muted-overlay").textContent).toBe("🔇");
+    expect(getByTestId("companion-mute-control").textContent).toBe("Let companion speak");
   });
 
   it("CompanionLayer does not show mute indicator when micMuted is false", () => {

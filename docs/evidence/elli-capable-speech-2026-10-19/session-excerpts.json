@@ -1,0 +1,333 @@
+{
+  "sessionId": "a84f6972-beb4-47d4-8ce0-830ab53d873d",
+  "syntheticChild": "elli-help-demo",
+  "sourceCommit": "a5ecec527856704797693096d7e689a31b4ae280",
+  "localDate": "2026-10-19 America/New_York",
+  "timestamps": "UTC Oct 20",
+  "sources": {
+    "transcript.md": "bc3f839d1f9aea994f78660db10391f935e79679559a003096ebbfb50b9ba7b2",
+    "game-traces.ndjson": "a16857b83e6a638bd57c2ef640f2df527376a4b2c4ce330bdf8151b1d0729516",
+    "hw-spelling-49f60d21.json": "fb3183b1ca2636ffad3e2cbdae3171d84eeab388218b32f338f94c72ff003c57"
+  },
+  "transcriptExcerpts": [
+    {
+      "line": 18,
+      "text": "### 2026-10-20T02:59:19.710Z"
+    },
+    {
+      "line": 19,
+      "text": ""
+    },
+    {
+      "line": 20,
+      "text": "**user:** Can you say that again?"
+    },
+    {
+      "line": 21,
+      "text": ""
+    },
+    {
+      "line": 22,
+      "text": "### 2026-10-20T02:59:26.110Z"
+    },
+    {
+      "line": 23,
+      "text": ""
+    },
+    {
+      "line": 24,
+      "text": "**user:** Can I say slower?"
+    },
+    {
+      "line": 84,
+      "text": "**assistant:** Hey hey, I can hear you loud and clear!Ready to hunt some words together on Word Radar?"
+    },
+    {
+      "line": 85,
+      "text": ""
+    },
+    {
+      "line": 86,
+      "text": "### 2026-10-20T03:15:10.083Z"
+    },
+    {
+      "line": 87,
+      "text": ""
+    },
+    {
+      "line": 88,
+      "text": "**user:** Yeah. Can you help me with this word?"
+    },
+    {
+      "line": 89,
+      "text": ""
+    },
+    {
+      "line": 90,
+      "text": "### 2026-10-20T03:15:14.875Z"
+    },
+    {
+      "line": 91,
+      "text": ""
+    },
+    {
+      "line": 92,
+      "text": "**user:** How can I spell it?"
+    },
+    {
+      "line": 93,
+      "text": ""
+    },
+    {
+      "line": 94,
+      "text": "### 2026-10-20T03:15:21.012Z"
+    },
+    {
+      "line": 95,
+      "text": ""
+    },
+    {
+      "line": 96,
+      "text": "**user:** Any clues, tips?"
+    },
+    {
+      "line": 97,
+      "text": ""
+    },
+    {
+      "line": 98,
+      "text": "### 2026-10-20T03:15:22.193Z"
+    },
+    {
+      "line": 99,
+      "text": ""
+    },
+    {
+      "line": 100,
+      "text": "**assistant:** I can't peek at the letters, but you can hear the word again if you want \u2014 want me to replay it?"
+    },
+    {
+      "line": 101,
+      "text": ""
+    },
+    {
+      "line": 102,
+      "text": "### 2026-10-20T03:15:29.484Z"
+    },
+    {
+      "line": 103,
+      "text": ""
+    },
+    {
+      "line": 104,
+      "text": "**user:** Yeah. But can you sound it out for me?"
+    },
+    {
+      "line": 105,
+      "text": ""
+    }
+  ],
+  "gameTraceExcerpts": [
+    {
+      "line": 129,
+      "event": {
+        "ts": "2026-10-20T03:12:15.747Z",
+        "sessionId": "a84f6972-beb4-47d4-8ce0-830ab53d873d",
+        "child": "Elli-help-demo",
+        "subject": "homework",
+        "type": "game_state_update",
+        "version": "1.0",
+        "game": "word-radar",
+        "progress": "Word Radar config.",
+        "childId": "elli-help-demo",
+        "activityId": "word-radar",
+        "practiceCapture": true,
+        "launchToken": "d55c0bce-a966-46a9-959f-0d1eb9f08c42",
+        "nodeId": "act-radar-all-recall",
+        "planId": "learning-cycle:hw-spelling-49f60d21:r22",
+        "targetLane": "assigned",
+        "wordRadarConfig": {
+          "recallMode": "partial_visual_recall",
+          "inputMode": "letter-by-letter",
+          "speakStyle": "option-b",
+          "showTimer": false,
+          "hideWordDuringResponse": true,
+          "requiresCapturedResponse": true
+        },
+        "phase": "config_audit",
+        "requestedInputMode": "letter-by-letter",
+        "resolvedInputMode": "letter-by-letter",
+        "spokenLetterConstruction": false,
+        "showKeyboard": true,
+        "speakStyle": "option-b",
+        "hiddenDuringSpeech": true,
+        "recallMode": "partial_visual_recall",
+        "hideWordDuringResponse": true,
+        "requiresCapturedResponse": true,
+        "keyboardVisible": true,
+        "targetRoleCounts": {
+          "homework": 4,
+          "bonus": 0
+        },
+        "source": "game_event_handler"
+      }
+    },
+    {
+      "line": 132,
+      "event": {
+        "ts": "2026-10-20T03:12:20.323Z",
+        "sessionId": "a84f6972-beb4-47d4-8ce0-830ab53d873d",
+        "child": "Elli-help-demo",
+        "subject": "homework",
+        "type": "game_state_update",
+        "version": "1.0",
+        "game": "word-radar",
+        "progress": "Word Radar target state.",
+        "childId": "elli-help-demo",
+        "activityId": "word-radar",
+        "practiceCapture": true,
+        "launchToken": "d55c0bce-a966-46a9-959f-0d1eb9f08c42",
+        "nodeId": "act-radar-all-recall",
+        "planId": "learning-cycle:hw-spelling-49f60d21:r22",
+        "targetLane": "assigned",
+        "wordRadarConfig": {
+          "recallMode": "partial_visual_recall",
+          "inputMode": "letter-by-letter",
+          "speakStyle": "option-b",
+          "showTimer": false,
+          "hideWordDuringResponse": true,
+          "requiresCapturedResponse": true
+        },
+        "target": "myself",
+        "currentTarget": "myself",
+        "itemIndex": 0,
+        "itemId": "hw-spelling-49f60d21:act-radar-all-recall:e06e309b66b35433",
+        "phase": "response",
+        "speechCaptureArmed": true,
+        "answerVisibility": "hidden",
+        "attemptCount": 1,
+        "visibleState": {
+          "wordVisible": false,
+          "slotsVisible": true,
+          "scaffold": "partial_visual_recall",
+          "inputMode": "letter-by-letter",
+          "speakStyle": "option-b",
+          "showTimer": false,
+          "hideWordDuringResponse": true,
+          "requiresCapturedResponse": true
+        },
+        "source": "game_event_handler"
+      }
+    }
+  ],
+  "frozenPracticeExcerpt": {
+    "nodeId": "act-radar-all-recall",
+    "role": "baseline",
+    "nativeConfig": {
+      "activityId": "word-radar",
+      "wordRadarConfig": {
+        "recallMode": "partial_visual_recall",
+        "inputMode": "letter-by-letter",
+        "speakStyle": "option-b",
+        "showTimer": false,
+        "hideWordDuringResponse": true,
+        "requiresCapturedResponse": true
+      }
+    },
+    "items": [
+      {
+        "id": "hw-spelling-49f60d21:act-radar-all-recall:e06e309b66b35433",
+        "word": "myself",
+        "lineage": {
+          "sourceEvidenceIds": [
+            "39a6943c-237b-47aa-a6fc-979278da0245",
+            "2bf80048-84a5-4437-a32f-419964457a34",
+            "6bd729a5-28b7-4b50-bb8c-42ac7be7ddc7",
+            "0e5723d1-90f9-4b33-bc7b-7ddf67325edb"
+          ],
+          "measurementRole": "practice",
+          "exposure": "practiced"
+        }
+      },
+      {
+        "id": "hw-spelling-49f60d21:act-radar-all-recall:2769fc20451b5173",
+        "word": "tonight",
+        "lineage": {
+          "sourceEvidenceIds": [
+            "39a6943c-237b-47aa-a6fc-979278da0245",
+            "2bf80048-84a5-4437-a32f-419964457a34",
+            "6bd729a5-28b7-4b50-bb8c-42ac7be7ddc7",
+            "0e5723d1-90f9-4b33-bc7b-7ddf67325edb"
+          ],
+          "measurementRole": "practice",
+          "exposure": "practiced"
+        }
+      },
+      {
+        "id": "hw-spelling-49f60d21:act-radar-all-recall:00fc8a7f097e0e10",
+        "word": "dissatisfied",
+        "lineage": {
+          "sourceEvidenceIds": [
+            "39a6943c-237b-47aa-a6fc-979278da0245",
+            "2bf80048-84a5-4437-a32f-419964457a34",
+            "6bd729a5-28b7-4b50-bb8c-42ac7be7ddc7",
+            "0e5723d1-90f9-4b33-bc7b-7ddf67325edb"
+          ],
+          "measurementRole": "practice",
+          "exposure": "practiced"
+        }
+      },
+      {
+        "id": "hw-spelling-49f60d21:act-radar-all-recall:aaf2320646108059",
+        "word": "title",
+        "lineage": {
+          "sourceEvidenceIds": [
+            "39a6943c-237b-47aa-a6fc-979278da0245",
+            "2bf80048-84a5-4437-a32f-419964457a34",
+            "6bd729a5-28b7-4b50-bb8c-42ac7be7ddc7",
+            "0e5723d1-90f9-4b33-bc7b-7ddf67325edb"
+          ],
+          "measurementRole": "practice",
+          "exposure": "practiced"
+        }
+      }
+    ]
+  },
+  "slowRequestContext": {
+    "line": 14,
+    "event": {
+      "ts": "2026-10-20T02:58:57.446Z",
+      "sessionId": "a84f6972-beb4-47d4-8ce0-830ab53d873d",
+      "child": "Elli-help-demo",
+      "subject": "homework",
+      "type": "game_state_update",
+      "version": "1.0",
+      "game": "word-radar",
+      "progress": "Word Radar input measurement.",
+      "childId": "elli-help-demo",
+      "activityId": "word-radar",
+      "launchToken": "d528f67a-c2bb-4702-98d1-94b51bb6e09f",
+      "assessmentMode": true,
+      "nodeId": "hw-spelling-49f60d21:discovery",
+      "planId": "learning-cycle:hw-spelling-49f60d21:r2",
+      "targetLane": "independent_recall",
+      "wordRadarConfig": {
+        "recallMode": "hidden_word_recall",
+        "inputMode": "keyboard",
+        "speakStyle": "option-b",
+        "showTimer": false,
+        "hideWordDuringResponse": true,
+        "requiresCapturedResponse": true
+      },
+      "itemId": "hw-spelling-49f60d21:discovery:00fc8a7f097e0e10",
+      "phase": "response",
+      "answerVisibility": "hidden",
+      "engagement": {
+        "id": "65e1dd89-68f7-4190-afc0-f839b08c64ee",
+        "metric": "first_input_ms",
+        "value": 4457
+      },
+      "source": "game_event_handler"
+    }
+  }
+}

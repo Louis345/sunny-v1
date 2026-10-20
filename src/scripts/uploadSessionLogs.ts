@@ -171,9 +171,32 @@ export function uploadedStatusIsVerified(
   }
 }
 
+export function resolveSessionLogSourceRoot(
+  cwd: string = process.cwd(),
+  env: { SUNNY_SESSION_LOG_ROOT?: string } = process.env,
+): string {
+  const configuredRoot = env.SUNNY_SESSION_LOG_ROOT?.trim();
+  return path.resolve(cwd, configuredRoot || path.join("logs", "sessions"));
+}
+
+function logRepositoryGitEnv(): NodeJS.ProcessEnv {
+  const env = { ...process.env };
+  // Git hooks export repository-local settings. cwd alone cannot override them:
+  // an upload must never stage, commit, rename or push the caller's repository.
+  const localKeys = execFileSync("git", ["rev-parse", "--local-env-vars"], {
+    encoding: "utf8", stdio: ["ignore", "pipe", "pipe"],
+  }).trim().split(/\s+/);
+  for (const key of localKeys) delete env[key];
+  for (const key of Object.keys(env)) {
+    if (/^GIT_CONFIG_(KEY|VALUE)_\d+$/.test(key)) delete env[key];
+  }
+  return env;
+}
+
 function runGit(repoRoot: string, args: string[]): string {
   return execFileSync("git", args, {
     cwd: repoRoot,
+    env: logRepositoryGitEnv(),
     encoding: "utf8",
     stdio: ["ignore", "pipe", "pipe"],
   }).trim();
@@ -184,6 +207,7 @@ function ensureLogRepo(repoRoot: string, repoUrl: string): void {
   if (!fs.existsSync(repoRoot)) {
     fs.mkdirSync(path.dirname(repoRoot), { recursive: true });
     const cloned = spawnSync("git", ["clone", repoUrl, repoRoot], {
+      env: logRepositoryGitEnv(),
       encoding: "utf8",
       stdio: ["ignore", "pipe", "pipe"],
     });
@@ -221,7 +245,7 @@ export function uploadSessionLogs(options: {
   now?: Date;
   files?: string[];
 }): { copied: number; pushed: boolean; deleted: string[]; repoRoot: string } {
-  const sourceRoot = path.resolve(options.sourceRoot ?? path.join(process.cwd(), "logs", "sessions"));
+  const sourceRoot = path.resolve(options.sourceRoot ?? resolveSessionLogSourceRoot());
   const repoRoot = path.resolve(options.repoRoot ?? process.env.SUNNY_LOG_REPO_DIR ?? repoDefaultDir());
   const repoUrl = options.repoUrl ?? process.env.SUNNY_LOG_REPO_URL ?? DEFAULT_REPO_URL;
   const files = options.files ?? collectSessionLogFiles(sourceRoot);

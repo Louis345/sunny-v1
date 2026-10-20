@@ -1,0 +1,25 @@
+
+ RUN  v3.2.4 /Users/jtaylor/Development/sunny-elli-capable-speech
+
+
+⎯⎯⎯⎯⎯⎯ Failed Suites 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/server/companionSpeechTools.test.ts [ src/server/companionSpeechTools.test.ts ]
+Error: Cannot find module './companionSpeechTools' imported from '/Users/jtaylor/Development/sunny-elli-capable-speech/src/server/companionSpeechTools.test.ts'
+ ❯ src/server/companionSpeechTools.test.ts:2:1
+      1| import { describe, expect, it, vi } from "vitest";
+      2| import { createSpeechTools } from "./companionSpeechTools";
+       | ^
+      3|
+      4| describe("Elli's speech capability", () => {
+
+Caused by: Error: Failed to load url ./companionSpeechTools (resolved id: ./companionSpeechTools) in /Users/jtaylor/Development/sunny-elli-capable-speech/src/server/companionSpeechTools.test.ts. Does the file exist?
+ ❯ loadAndTransform ../sunny-board-canvas-test/node_modules/vite/dist/node/chunks/config.js:22663:33
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  no tests
+   Start at  23:32:30
+   Duration  120ms (transform 16ms, setup 0ms, collect 0ms, tests 0ms, environment 0ms, prepare 24ms)

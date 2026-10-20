@@ -555,8 +555,8 @@ const ACTIVITY_RUNTIME_CONFIG_BY_ID = {
     configSource: "activity-config-file",
   },
   "visual-explainer": {
-    gameIds: [],
-    configSource: "generated-artifact",
+    gameIds: ["spelling-visual-explainer"],
+    configSource: "activity-config-file",
   },
   "picture-question": {
     gameIds: [],
@@ -1811,15 +1811,17 @@ const ACTIVITY_TOOL_CONTRACTS: ActivityToolContractSource[] = [
     label: "Visual Explainer",
     nodeType: "visual-explainer",
     purposes: ["teach"],
-    domains: ["reading", "science", "math", "vocabulary"],
+    domains: ["reading", "science", "math", "spelling", "vocabulary"],
     strengths: [
       "Turns an abstract idea into a concrete visual model.",
       "Works well after a concept check shows the child has not learned the idea yet.",
+      "Can model a Planner-authored spelling chunk or strategy before a separate hidden recall check.",
     ],
     weakFor: ["independent-recall", "mastery-gating"],
     goodFitWhen: [
       "The child has little prior knowledge or needs a mental model before drills.",
       "The topic benefits from animation, diagrams, pictures, or cause/effect sequences.",
+      "Committed spelling evidence supports explicit modeling of a tricky chunk or pattern.",
     ],
     badFitWhen: [
       "Sunny needs clean independent evidence.",
@@ -1978,9 +1980,9 @@ const ACTIVITY_TOOL_CONTRACTS: ActivityToolContractSource[] = [
       },
       {
         id: "partial_visual_recall",
-        label: "Partial Visual Recall",
+        label: "Spell it out loud from memory (word hidden, letter boxes): recall after teaching, not teaching",
         difficulty: 2,
-        purpose: "guided-practice",
+        purpose: "practice",
         skillTargets: ["visual_recognition", "retrieval_practice"],
         inputModes: ["voice", "visual"],
         scaffolds: ["letter-tiles", "stt-match", "retry"],
@@ -1996,13 +1998,15 @@ const ACTIVITY_TOOL_CONTRACTS: ActivityToolContractSource[] = [
         },
         measurementRisks: [
           "Boxes or tiles cue word length and can inflate recall evidence.",
+          "The child must already know the spelling; a word she just missed needs teaching first.",
+          "Spoken single letters are often misheard by speech recognition (m/n, b/d/e).",
         ],
       },
       {
         id: "audio_cued_letter_recall",
-        label: "Audio-Cued Letter Recall",
+        label: "Hear it, then spell it out loud from memory (word hidden): recall after teaching, not teaching",
         difficulty: 2,
-        purpose: "guided-practice",
+        purpose: "practice",
         skillTargets: ["auditory_retrieval", "retrieval_practice", "spell_from_memory"],
         inputModes: ["voice", "visual"],
         scaffolds: ["letter-tiles", "stt-match", "retry"],
@@ -2018,6 +2022,8 @@ const ACTIVITY_TOOL_CONTRACTS: ActivityToolContractSource[] = [
         },
         measurementRisks: [
           "Audio cue plus length boxes is scaffolded spelling practice, not independent visual recall mastery.",
+          "The child must already know the spelling; a word she just missed needs teaching first.",
+          "Spoken single letters are often misheard by speech recognition (m/n, b/d/e).",
         ],
       },
       {
@@ -2369,6 +2375,7 @@ const ACTIVITY_TOOL_CONTRACTS: ActivityToolContractSource[] = [
   },
   {
     id: "word-builder",
+    plannerVisibility: "reference_only", // Unfinished placeholder: no child letter entry.
     label: "Word Builder",
     nodeType: "word-builder",
     purposes: ["practice", "guided-practice"],
@@ -3234,7 +3241,10 @@ const ACTIVITY_TOOL_CONTRACTS: ActivityToolContractSource[] = [
     nodeType: "generated-baseline",
     configSource: "generated-artifact",
     purposes: ["practice", "evaluate", "fluency"],
-    domains: ["math", "reading", "science", "spelling", "vocabulary"],
+    // Spelling has dedicated, evidence-calibrated native instruments plus the
+    // Visual Explainer bridge. Keep this generic generated shell for domains
+    // that still need it instead of expanding spelling's Planner packet.
+    domains: ["math", "reading", "science", "vocabulary"],
     strengths: [
       "Reusable generated shell that loads per-homework config JSON.",
       "Keeps domain-valid fun mechanics without hand-building a new HTML game each time.",

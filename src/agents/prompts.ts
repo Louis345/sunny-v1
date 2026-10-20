@@ -25,7 +25,7 @@ import {
   readCompanionSoulMarkdownFromAbsolute,
 } from "../companions/loader";
 
-const TEMPLATE_VERSION = "v24"; // bump this when prompt changes
+const TEMPLATE_VERSION = "v27"; // bump this when prompt changes
 
 const SRC_DIR = path.resolve(__dirname, "..");
 
@@ -510,7 +510,6 @@ function adaptiveMicroProbeInstructions(): string {
     "## Adaptive micro-probes",
     "You may use recordChildSignal only for narrow learning signals after a natural moment: a real choice, strong reaction, repeated error, hint request, stop/change request, parent comment, or visible frustration.",
     "If the child or parent/caregiver reports a Sunny bug, confusing activity flow, companion lag, content mismatch, or UI blocker, use recordProductIssue. That is product evidence, not preference evidence.",
-    "Ask at most one playful micro-probe around an activity, never a survey. Example: \"Monster Stampede again? Was it the speed or the chaos you wanted?\"",
     "If the child answers, record it as stated_preference with evidenceText. If you directly observe a behavior, record it as observed_behavior. A stated preference is useful evidence, not truth.",
   ].join("\n");
 }
@@ -527,7 +526,9 @@ function sessionPromptCapabilitiesTail(subject: SessionSubject): string {
       adaptiveMicroProbeInstructions() +
       "\n\n" +
       "## Your tools\n" +
-      generateAdventureMapVoiceToolDocs()
+      generateAdventureMapVoiceToolDocs() +
+      "\n\n" +
+      generateCompanionCapabilities(0.5, ["show_level_path"])
     );
   }
   return (
@@ -681,7 +682,7 @@ export async function buildSessionPrompt(
   if (!homeworkContent || !homeworkContent.trim()) {
     const namePrefix = buildNamePrefix(childName);
     const soulBlock = [companionBase, individualMd.trim()].filter(Boolean).join("\n\n");
-    const body = `${namePrefix}\n\n${soulBlock ? `${soulBlock}\n\n` : ""}You are ${companionName}. The child has no homework today — follow their lead.\nAsk what they want to explore. Offer reading, a word game, or open conversation.\nKeep responses short and warm — one sentence per turn, two at most. Match their energy. Never explain unprompted. Never use asterisks.`;
+    const body = `${namePrefix}\n\n${soulBlock ? `${soulBlock}\n\n` : ""}You are ${companionName}. The child has no homework today — follow their lead.\nAsk what they want to explore. Offer reading, a word game, or open conversation.\nMatch their energy. Never use asterisks.`;
     const careSuffix = getCarePlanBlock(subject, childName, options);
     const manifest = sessionPromptCapabilitiesTail(subject);
     const beforeCare = `${body}${manifest}`;

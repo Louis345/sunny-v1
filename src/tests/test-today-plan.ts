@@ -34,10 +34,30 @@ vi.mock("ai", async (importOriginal) => {
   };
 });
 
+const fixtureRoot = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-today-plan-"));
 const NATALIE_FIXTURE = path.join(
-  process.cwd(),
+  fixtureRoot,
   "src/context/ila/natalie/_vitest_slp_note.md",
 );
+beforeAll(() => {
+  // These legacy readers resolve curriculum and clinical notes from cwd.
+  // Point only this suite at invented files, never the repository's child data.
+  vi.spyOn(process, "cwd").mockReturnValue(fixtureRoot);
+  vi.stubEnv("SUNNY_CONTEXT_ROOT", path.join(fixtureRoot, "src/context"));
+  vi.stubEnv("SUNNY_ALLOW_REAL_CHILD_CONTEXT_ROOT", "true");
+  for (const childId of ["ila", "reina"]) {
+    const directory = path.join(fixtureRoot, "src/context", childId);
+    fs.mkdirSync(directory, { recursive: true });
+    fs.writeFileSync(path.join(directory, "curriculum.md"), "Synthetic curriculum: practise compound words.");
+    fs.writeFileSync(path.join(directory, "soul.md"), "Synthetic learner: use short, clear instructions.");
+    fs.writeFileSync(path.join(directory, `${childId}_context.md`), "Fictional learner context for plan tests.");
+  }
+});
+afterAll(() => {
+  vi.mocked(process.cwd).mockRestore();
+  vi.unstubAllEnvs();
+  fs.rmSync(fixtureRoot, { recursive: true, force: true });
+});
 
 describe("clinical plan — psychologist output shape", () => {
   it("parses todaysPlan activities with required and optional fields", () => {

@@ -1,0 +1,147 @@
+# Final fresh re-review: Elli capable speech (staged patch on PR14 `69f1d44`)
+
+## Verdict: **No P0/P1 implementation blockers found. Conditional; not an approval.**
+
+Every second-review blocker I traced is resolved. I found no new defect that corrupts independent evidence, leaks a hidden target into an independent check's live context, or kills owned audio.
+
+The verdict holds only if both of these pass on the frozen revision:
+- the full repository suite;
+- the unmodified hook.
+
+Neither has run yet. Several P2 issues below should be fixed, or explicitly deferred with a `BUGS.md` entry, before the human kiosk session. Human usefulness, contract-40 acceptance and merge remain separate gates. Nothing here authorizes merge.
+
+---
+
+## Resolution of the second review's findings
+
+| Item | Status | Evidence |
+|---|---|---|
+| **P1-A:** snapshot-driven teardown | **Resolved** | `resetSpeechRate` is gone. Pace is keyed to `{itemId, launchToken}` (`ws-tts-bridge.ts` `getSpeechRate`/`setSpeechRate`). Stream initialization reads the owner's scope (`connect()` sets `activeSpeechRate = getSpeechRate()`). The existing retirement path (`session-manager.ts:745–753`) now spares an owner matching the incoming item and launch. A real-bridge test covers both prior rates plus a node-only `config_audit` update. |
+| **P2-A:** receipt write failure blocks acknowledgement | **Resolved** | `spellingSpeechEvidence.ts` catches and logs `[spelling-audio] [record] [failed]`. `audioPlaybacks++` still runs. A throwing-writer test covers this. |
+| **P2-B:** universal recording claim | **Resolved** | Contract 40 and the README qualify recording. Unavailability is logged. `...pending` (including `speechRates`) still reaches the playback trace (`session-manager.ts:1355`). |
+| **P2-C:** frozen role ignored when unbound | **Resolved** | Denial now precedes the binding check (`currentBoardSnapshot.ts` `canonicalSpellingPractice`). Mismatch and token cases are tested. |
+| **P2-D/E:** production route and real rate provenance | **Resolved** | The slim toolkit → `replayWord` → `handleGameEvent` → `speakGameNarration` → real bridge → PCM → acknowledgement → `stimulus.played` path is tested in both tool orders. The rate comes from `deliverAudio`, not a stub. |
+| Governance bundling | **Resolved** | AGENTS and principles files are absent from the staged diff. |
+
+---
+
+## P0: none
+
+I traced these paths:
+- **Independent checks:** `canonicalSpellingPractice` returns `false` for evaluation, quest and boss nodes, and for any known non-practice/instruction item role. This happens before binding. Snapshot mode then falls to `stimulus_only` regardless of browser visibility.
+- **Forged browser word:** in practice, a forged browser word is replaced by the bound item word (`rawTarget` override).
+- **Redaction and replay:** redaction, the `replayWord` result, the speech receipt and `spokenStimulus` all key on `stimulus_only`. No path reintroduces the word.
+
+## P1: none
+
+---
+
+## P2: should fix or explicitly defer before human acceptance
+
+### P2-1. Letter disclosure is no longer monitored in the newly enabled hidden-practice case
+- **Where:** `findCompanionTruthContradictions` runs only when `spellingSupportMode === "stimulus_only"` (`currentBoardSnapshot.ts`).
+- **What changed:** before this patch, hidden practice had no target in context, so Elli could not spell it. Now hidden practice is `pronunciation_model` with the target supplied.
+- **Reproduction:** canonical hidden practice for "myself". Elli says "m-y-s-e-l-f". No trace is written. The record shows only `companionHelp: true`.
+- **Contract:** v40 says "hearing its letters … must be recorded separately."
+- **Academic impact:** none. The item is already practice and assisted.
+- **Remedy:** also run the existing letter-run detector when `answerVisibility === "hidden"` under `pronunciation_model`, and trace it as a distinct exposure kind. This is a measurement detector, not a dialogue router.
+
+### P2-2. A configured rate is silently not applied to non-spelling activity narration
+- **Where:** `session-manager.ts:1111` calls `beginPlayback(..., this.spellingLaunch?.launchToken)`. The tool scope uses `snapshot.launchToken` (`speechScopeFor`).
+- **Reproduction:**
+  1. In any activity without a `spellingLaunch` (for example math read-aloud) whose state carries a `launchToken`, Elli calls `setSpeechRate(0.7)`.
+  2. The receipt returns `configured: true`. The tool description promises it covers "activity word replays."
+  3. The activity's narration owner has `launchToken: undefined`, so `getSpeechRate` returns 1.
+- **Principle:** violates faithful execution and receipt honesty.
+- **Remedy:** use `metadata.launchToken ?? this.currentBoardSnapshot?.launchToken ?? this.spellingLaunch?.launchToken`. Add a test.
+
+### P2-3. Moving the `audioChunksThisTurn` reset from `connect()` to `beginPlayback()` changes `hadAudioThisTurn()` for every other caller
+- **Change:** `connect()` no longer resets the counter (removed line in the `connect` hunk).
+- **Risk:** any path that connects, sends text and checks `hadAudioThisTurn()` without a fresh `beginPlayback` requestId now sees stale chunks from earlier turns. That path would report audio delivered when none was.
+- **Current coverage:** `speakGameNarration`, the companion runner, recovery and direct turns all call `beginPlayback` first.
+- **What I could not verify:** the diff does not show the remaining consumers, such as worksheet, karaoke and story narration.
+- **Remedy:** grep every `hadAudioThisTurn` and `connect(` call site and confirm each begins ownership. Otherwise reset the counter in those paths. If any consumer lacks `beginPlayback`, this becomes P1.
+
+### P2-4. Syllabified practice speech carries into later independent checks
+- **Where:** `protectSpellingModelMessages` redacts only exact target-string matches.
+- **Reproduction:**
+  1. Practice "dissatisfied". Elli says "Dis… sat… is… fied."
+  2. The closing recall check for the same word begins within 10 messages.
+  3. The history still contains the syllables.
+- **Mitigation:** any companion turn during the check's response phase marks the item assisted (`markCurrentSpellingSupport`). Measurement integrity therefore holds.
+- **Open issue:** the claim that the check's context omits the private stimulus does not hold for history.
+- **Remedy:** when the current mode is `stimulus_only`, drop assistant turns recorded under a different item's `pronunciation_model`. This is a context projection, not a script.
+
+---
+
+## P3: minor or deferred
+
+- **No log for unbound narration acknowledgements.** If `pending.assessmentItemId` is absent, `recordSpellingAudio` is never called. The "typed-record unavailable is logged" sentence then does not hold for those acknowledgements, though the trace still carries the rates.
+- **Rate-change errors drop later speech silently.** If `setSpeechRate` → `finish()` throws (provider error or timeout), `elevenWs` becomes null and no reconnect follows. Later turn text is silently dropped while `audio_done` is still sent. Catch the error in the tool and reconnect.
+- **Stale abort controller (likely unreachable).** If the preserved-audio branch skips `bargeIn` while an obsolete companion run holds `currentAbort`, the stale turn's `finally` never clears it. `deferCompanionUntilNarrationFinishes` appears to prevent this ordering.
+- **Residual length and help instructions:**
+  - `elli.md`: "one short sentence" (guided intro), "one analogous example", "Respond in one plain sentence" (Screen Awareness).
+  - "help briefly" at a fresh checkpoint is ambiguous next to the `stimulus_only` restriction.
+- **Automatic guided introductions now hold the target.** Contract 40 frames teaching as *requested*, but the context grants the target to every turn. Human testing should check whether unrequested intros start teaching.
+- **Repeated chart reads.** `getChildChart` is called on every snapshot (`session-manager.ts:805`), a latency concern only.
+- **Fragile role lookup.** Lookup assumes `spellingItems` is keyed by item id, and an absent `state.nodeId` bypasses denial. Neither is realistic for independent items today.
+
+---
+
+## Missing tests
+
+1. Real-bridge companion speech for i1 is retired when the snapshot advances to i2. This is the opposite branch of the preservation condition.
+2. A rate set inside a non-spelling activity is applied to that activity's narration (P2-2).
+3. Every `hadAudioThisTurn` consumer starts fresh after a prior turn delivered PCM (P2-3).
+4. Hidden-practice letter runs are traced as a distinct exposure kind (P2-1).
+5. A practice-item history is not projected into a same-word `stimulus_only` check (P2-4).
+6. A throwing `finish()` during `setSpeechRate` leaves the bridge able to speak afterwards.
+7. `canonicalSpellingPractice` with a missing `nodeId` and a known checkpoint item id.
+
+---
+
+## Measurable claims
+
+- **Audio:** three probes all gave longer duration at 0.7 (+26% to +86%). The variance supports no linear claim. The README says this correctly.
+- **The conversation probe cannot measure adaptation as designed.**
+  - The negative-feedback turn asks for syllables, the same strategy Elli had just used. Repeating "my… self" is partly compliance.
+  - The second `setSpeechRate(0.75)` was redundant despite the current speed appearing in the tool description.
+  - A valid probe needs feedback that does not name a strategy (for example "I still don't get it"), with several words and several runs.
+- **Slowed independent replay.** In the independent check, Elli slowed the replay (0.75). Treating slowed whole-word replay as elicitation is a contract choice. It is recorded only in typed `stimulus.played`, not in the JSON observation. This is a human gate.
+
+---
+
+## Principle audit
+
+| Principle | Assessment |
+|---|---|
+| Capability before prescription | **Follows.** Real provider rate control, canonical target and pronunciation facts for frozen practice, and receipts. |
+| Grounded introspection | Context now shows the configured rate, previous speed and last acknowledged rates. **Adaptation is unproven.** The probe repeated its strategy, and its design confounds the question. |
+| Less scripting | **Follows.** The hint ladder and two-sentence cap are gone; no router or template was added. The P3 residual caps remain. |
+| Faithful execution | **Mostly.** Stale actions are rejected and pace is scoped. P2-2 is a silent non-application. |
+| Evidence meaning | **Preserved.** Assistance is recorded in both stores. Rate is a presentation condition. P2-1 loses exposure granularity. |
+| Process | The diagnosis is recorded and the governance files are split out. The full suite and hook are pending. No approval is claimed. |
+
+---
+
+## What human kiosk testing must still prove
+
+These are acceptance gates, not implementation blockers:
+
+- **Stimulus delivery.** Every item's stimulus is heard after item advance, with and without a prior pace change, including mid-explanation advance.
+- **Pace.**
+  - Pace is audibly slower for both Elli's speech and activity replay.
+  - Measure request-to-first-audible latency.
+  - Pace returns to normal on request and on the next item.
+- **Teaching quality.**
+  - Spoken syllables are correct for myself, tonight, dissatisfied and title.
+  - Silent letters are not voiced, and no letters are spelled in hidden practice.
+  - The strategy actually changes after strategy-neutral negative feedback.
+- **Independent checks.** Only whole-word replay is used. The human explicitly accepts or rejects slowed replay as elicitation under contract 40.
+- **Records.**
+  - Assisted practice versus independent results appear in both the JSON cycle and SQLite.
+  - `stimulus.played` shows the rates and delivery outcome.
+  - Exit and resume preserve these records.
+- **Usefulness.** An adult rates usefulness 1–5 and notes overlaps or dropped speech. Tool invocation alone passes nothing.
+
+Merge requires explicit human approval naming the tested revision, plus manager approval if required.

@@ -94,7 +94,7 @@ import {
   writeEngagementTheory,
 } from "../engine/engagementTheory";
 import { recordCanonicalNodeCompletion } from "../engine/learningCycleRuntime";
-import { generateCanonicalProgressionArtifact } from "../engine/canonicalProgressionGenerator";
+import { prepareSuccessorBoard } from "../engine/canonicalProgressionGenerator";
 
 /** Grok prompts for homework map nodes (filled when theme has no thumbnail for that type). */
 export const NODE_THUMBNAIL_PROMPTS: Record<string, string> = {
@@ -1515,26 +1515,6 @@ function hasPlayableAdaptiveArtifact(node: NodeConfig | undefined): boolean {
   return node ? hasPlayableMasteryArtifact(node) : false;
 }
 
-function revealPendingMasteryUnlock(
-  state: MapState,
-  completedNode: NodeConfig,
-): NodeConfig | null {
-  if (completedNode.type === "quest" || completedNode.type === "boss") return null;
-  const target = state.nodes.find(
-    (node) =>
-      (node.type === "quest" || node.type === "boss") &&
-      node.masteryUnlockState === "pending_ceremony" &&
-      hasPlayableAdaptiveArtifact(node),
-  );
-  if (!target) return null;
-  target.masteryUnlockState = "unlocked";
-  target.isLocked = false;
-  console.log(
-    `  🎮 [adaptive-unlock] [revealed] child=${state.childId} node=${target.type} after=${completedNode.id}`,
-  );
-  return target;
-}
-
 function withGoalFlags(nodes: NodeConfig[]): NodeConfig[] {
   return nodes.map((node, idx) => ({
     ...node,
@@ -2335,8 +2315,8 @@ export async function applyNodeResult(
         console.log(
           `  🎮 [learning-cycle] [transition] node=${result.nodeId} lifecycle=${updated?.lifecycle ?? "unchanged"} revision=${updated?.revision ?? cycle.revision}`,
         );
-        if (updated?.lifecycle === "quest_generating" || updated?.lifecycle === "boss_generating") {
-          void generateCanonicalProgressionArtifact({
+        if (updated && ["baseline_generating", "quest_generating", "boss_generating"].includes(updated.lifecycle)) {
+          void prepareSuccessorBoard({
             childId: updated.childId,
             homeworkId: updated.homeworkId,
           }).then((generated) => {
@@ -2374,10 +2354,6 @@ export async function applyNodeResult(
     } catch (err) {
       console.error("  🔴 [map-coordinator] persist homework map completion failed:", err);
 	    }
-	  }
-
-	  if (result.completed && !wasAlreadyCompleted) {
-	    revealPendingMasteryUnlock(st, nodeCfg);
 	  }
 
   const previousNodeIndex = st.nodes.findIndex((node) => node.id === result.nodeId);

@@ -393,6 +393,7 @@ function submitRow() {
     return s === "correct";
   });
   fireAttemptEvent({
+    domain: "spelling",
     activityId: "wordle",
     target: word,
     attemptedValue: gStr,
@@ -534,6 +535,7 @@ if (!word) {
   document.getElementById("msg").style.color = "#e74c3c";
   document.getElementById("msg").classList.add("show");
 } else {
+  window.GameBridge.reportState('Wordle item opened', { spellingItemOpened: true, currentWord: word, phase: 'presentation', answerVisibility: 'unknown' });
   buildEmptyGrid();
   drawActiveRow();
 }
