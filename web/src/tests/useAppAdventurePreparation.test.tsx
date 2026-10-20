@@ -108,6 +108,27 @@ describe("useAppAdventurePreparation", () => {
     expect(result.current.screen).toBeNull();
   });
 
+  // Oct 20: Saori's active spelling practice was replaced in Elli's context
+  // by a hidden preparation screen. The lab checked reveal, but never let
+  // status/time updates continue after reveal as they do in a live session.
+  it("stops publishing preparation context after the child reveals the board", async () => {
+    const { result, rerender, stateUpdates } = setup({ surface: "chapter", status: null });
+    await act(async () => { await vi.advanceTimersByTimeAsync(8000); });
+    const ready = status("board_ready", [["a", "ready"], ["b", "ready"]]);
+    rerender({ surface: null, status: ready });
+    expect(stateUpdates().at(-1)).toMatchObject({ game: "adventure-preparation", phase: "ready" });
+    const view = render(<>{result.current.screen}</>);
+    fireEvent.click(screen.getByRole("button", { name: "Let's go!" }));
+    view.unmount();
+    const publishedBeforePlay = stateUpdates().length;
+
+    await act(async () => { await vi.advanceTimersByTimeAsync(60_000); });
+    rerender({ surface: null, status: { ...ready, startedAt: new Date().toISOString() } });
+
+    expect(result.current.screen).toBeNull();
+    expect(stateUpdates()).toHaveLength(publishedBeforePlay);
+  });
+
   it("stops on request, then ends the session only on Bye for now", () => {
     const { result, onFinish } = setup({ surface: "chapter", status: null });
     const first = render(<>{result.current.screen}</>);

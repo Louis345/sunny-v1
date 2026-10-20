@@ -748,8 +748,26 @@ export async function runCompanionResponseForSession(
       session.recordDebugError?.("Agent error", err);
       await speakShortRecovery(session, "agent_response_failed", turn.isCurrent);
     } finally {
-      if (turn.isCurrent() && session.currentAbort === abortController) {
+      // Item/context changes can retire output without a replacement model turn.
+      // Suppressing that output must also release its processing state and audio.
+      // A newer model turn or audio owner must remain untouched.
+      if (session.companionResponseTurnId === turn.turnId && session.currentAbort === abortController) {
         session.currentAbort = null;
+        if (!turn.isCurrent()) {
+          session.companionResponseTurnId++;
+          abortController.abort();
+          if (session.ttsBridge?.currentPlaybackIdentity?.()?.requestId === playbackId) {
+            session.ttsBridge.stop();
+            session.send("audio_cancel", { requestId: playbackId });
+          }
+          const pending = session.turnSM.consumePendingTranscript();
+          session.turnSM.onInterrupt();
+          console.log(` 🎮 [companion] [stale-turn-retired] turn=${turn.turnId} queued=${Boolean(pending)}`);
+          if (pending && !session.isEnding) {
+            void session.handleEndOfTurn(pending, true).catch((error: unknown) =>
+              session.recordDebugError?.("stale_turn_pending_replay_failed", error));
+          }
+        }
       }
     }
 }

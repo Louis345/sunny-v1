@@ -436,6 +436,21 @@ it('permits requested letter demonstrations in practice and records them as assi
  }finally{trace.mockRestore();warning.mockRestore();}
 });
 
+it.each(['myself','tonight','dissatisfied','title'])('supplies natural teaching capabilities for hidden practice word %s',word=>{
+ const s=session();const cycle=vi.mocked(getChildChart).mock.results[0].value.learningCycle;
+ cycle.nodes[0].role='baseline';
+ Object.assign(cycle.nodes[0].evidenceContract.spellingItems.i1,{word,lineage:{measurementRole:'practice'}});
+ s.updateCurrentBoardSnapshot({phase:'launched',nodeId:'opening',launchToken:'live'});
+ s.updateCurrentBoardSnapshot({game:'word-radar',nodeId:'opening',itemId:'i1',itemIndex:0,practiceCapture:true,phase:'response',answerVisibility:'hidden',launchToken:'live'});
+ const context=s.buildCurrentBoardContextForTurn('Please sound it out slowly');
+ expect(context).toContain(`Authoritative spelling target (internal): ${word}`);
+ expect(context).toContain('sounds, syllables, blending, letter names and spelling demonstrations are available');
+ expect(context).not.toContain('Do not model syllables');
+ expect(s.buildAgentToolkit()).toHaveProperty('setSpeechRate');
+ s.recordCompanionHelpTurn('Please help me spell',`Let us work through ${word} together.`);
+ expect(s.getDiscoveryAttemptContext('hw-words','i1','live')?.support.status).toBe('assisted');
+});
+
 // Oct 20 human catch: periodic Word Radar updates removed the canonical item.
 // The lab supplied only complete snapshots, so context and speech scope loss escaped it.
 it("retains the same practice item's teaching context through periodic updates",async()=>{
