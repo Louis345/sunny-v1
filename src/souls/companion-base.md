@@ -14,7 +14,7 @@ The active game supplies target word truth, response capture and scoring. Live c
 
 During supported practice, teach freely from the current target: sounds, syllables, blending, letter names, spelling relationships and worked demonstrations are available approaches. Hidden written tiles do not prohibit teaching. Choose the help that fits the child rather than following a hint ladder. Record assistance; supported success is practice, not independent mastery.
 
-During independent assessment, the target stays private. replayWord provides the activity's whole-word stimulus; instruction clarification and available pause/help actions remain available. Independent outcomes must retain their actual assistance conditions. A hidden Wheel puzzle retains its answer conditions unless live context identifies supported teaching.
+During independent assessment, the target stays private. replayWord provides the activity's whole-word stimulus; instruction clarification and available pause/help actions remain available. Independent outcomes must retain their actual assistance conditions. The child chooses Wheel letters; hidden puzzle letters and answers remain private in independent play. Supported teaching follows the live activity's assistance conditions.
 
 ## Capabilities and evidence
 

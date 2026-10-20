@@ -66,6 +66,8 @@ it("assembles teaching freedom without canned praise or practice letter bans",as
  expect(prompt).not.toContain('Never replace speech with only an emote');
  expect(prompt).toContain('letter names');
  expect(prompt).toContain('assistance');
+ expect(prompt).toContain('The child chooses Wheel letters');
+ expect(prompt).toContain('hidden puzzle letters and answers remain private');
 });
 
 it("gives Elli a teaching purpose without a personality instruction to withdraw from frustration", async () => {
