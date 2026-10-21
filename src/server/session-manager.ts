@@ -1843,7 +1843,7 @@ export class SessionManager {
       return;
     }
 
-    if (state === "PROCESSING") {
+    if (state === "PROCESSING" || (state === "SPEAKING" && !opts?.fromReadingComplete && this.turnSM.isComposing())) {
       if (!this.shouldAcceptInterruptedTranscript(transcript)) {
         auditLog("transcript", {
           action: "dropped",

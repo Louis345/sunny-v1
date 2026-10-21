@@ -149,8 +149,12 @@ const turnMachine = setup({
     },
     SPEAKING: {
       on: {
-        // A canvas drawn after Elli started talking still gates the rest of her reply.
+        // A canvas or Word Builder opened after Elli started talking still gates the rest of her reply.
         SHOW_CANVAS: "CANVAS_PENDING",
+        WORD_BUILDER_START: {
+          target: "WORD_BUILDER",
+          actions: assign({ wordBuilderActive: true }),
+        },
         PLAYBACK_COMPLETE: [
           {
             guard: "wordBuilderReturn",
@@ -175,6 +179,8 @@ export class TurnStateMachine {
   private readonly CANVAS_TIMEOUT_KARAOKE_MS = 6000;
   private pendingTranscript: string | null = null;
   private canonicalProblemText: string | null = null;
+  /** True from START_TURN until onAgentComplete: Claude is still writing this reply. */
+  private composing = false;
   private actor = createActor(turnMachine);
 
   private onFlush: (text: string) => void;
@@ -274,8 +280,18 @@ export class TurnStateMachine {
 
   // ── Public events ─────────────────────────────────────────────────────────
 
+  /**
+   * Claude is still writing the reply (even if Elli already started speaking
+   * its first sentence). Child speech now is queued for after the turn, as it
+   * was while the whole reply was held in PROCESSING.
+   */
+  isComposing(): boolean {
+    return this.composing && this.state !== "IDLE";
+  }
+
   /** Child spoke — start processing */
   onEndOfTurn(): void {
+    this.composing = true;
     this.canonicalProblemText = null;
     this.send({ type: "START_TURN" });
     setImmediate(() => this.send({ type: "BEGIN_PROCESSING" }));
@@ -286,6 +302,7 @@ export class TurnStateMachine {
    * LOADING → PROCESSING from IDLE.
    */
   onStartCompanionFromIdle(): void {
+    this.composing = true;
     this.canonicalProblemText = null;
     this.send({ type: "START_TURN" });
     setImmediate(() => this.send({ type: "BEGIN_PROCESSING" }));
@@ -303,6 +320,7 @@ export class TurnStateMachine {
 
   /** runCompanionResponse while in WORD_BUILDER (between rounds) */
   onCompanionRunFromWordBuilder(): void {
+    this.composing = true;
     this.send({ type: "COMPANION_RUN" });
   }
 
@@ -384,6 +402,7 @@ export class TurnStateMachine {
 
   /** runAgent completed — if no canvas was pending, go straight to speaking */
   onAgentComplete(deferFlush = false): void {
+    this.composing = false;
     this.onLog(`  🔍 onAgentComplete — state: ${this.state}, buffer: "${this.ttsBuffer.slice(0, 60)}"`);
     const defer = deferFlush || this.gameTtsHold;
 
@@ -427,6 +446,7 @@ export class TurnStateMachine {
 
   /** Barge-in or session end — drop everything */
   onInterrupt(): void {
+    this.composing = false;
     this.clearCanvasTimeout();
     this.ttsBuffer = "";
     this.pendingTranscript = null;
