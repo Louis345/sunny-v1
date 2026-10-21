@@ -1,6 +1,5 @@
 import {isDeepStrictEqual} from "node:util";
-import {verifyAuthoredBoardCanvas} from "./adventureBoardCanvas";
-import {requireBoardDefinition, BOARD_DEFINITION_TOOL_SCHEMA, BOARD_AUTHORING_INSTRUCTION} from "../shared/adventureBoardDefinition";
+import {readSuccessorBoardDefinition, BOARD_DEFINITION_TOOL_SCHEMA, BOARD_AUTHORING_INSTRUCTION} from "../shared/adventureBoardDefinition";
 import { canonicalJourneyLaunchable, isSpellingPracticeContinuation } from './learningCycleRepository';
 import {requestPlannerMessage, readPlannerToolReceipt, plannerTransportPolicy} from "./plannerTransport";
 import fs from "node:fs";
@@ -486,7 +485,7 @@ export function parseCanonicalProgressionDecision(value: unknown): CanonicalProg
         return parsed;
       })
     : legacyInstrument ? [legacyInstrument] : [];
-  const boardDefinition = action === 'await_calibration' ? undefined : requireBoardDefinition(row.boardDefinition, instruments.map(instrument => instrument.nodeId));
+  const boardDefinition = action === 'await_calibration' ? undefined : readSuccessorBoardDefinition(row.boardDefinition,instruments);
   const contentDecisions = (Array.isArray(row.contentDecisions) ? row.contentDecisions : []).map((value) => {
     if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("canonical_progression_content_decision_invalid");
     const decision = value as Record<string, unknown>;
@@ -810,41 +809,32 @@ ${JSON.stringify({ lifecycle: cycle.lifecycle, assignment: cycle.assignment, the
     }
     const decision = parseCanonicalProgressionDecision(value);
     if(cycle.domain !== 'spelling')assertPredictionCitations(decision,cycle);
-    if (decision.successor) await verifyAuthoredBoardCanvas({definition:decision.successor.boardDefinition!,rootDir:opts.rootDir??process.cwd(),directory:path.join(draftDir,"canvas-verification")});
     return decision;
   };
   try { return await validate(received); }
   catch (error) {
     if (!(error instanceof Error)) throw error;
     const fields = referenceErrors.map(issue=>issue.field);
-    const references = fields.length > 0;
+    if (!fields.length) throw error;
+    // Citation/content repairs cannot change the plan. There is no canvas correction purchase.
     const citationOnly = fields.length === 1 && fields[0] === 'predictionEvaluationIds';
-    if (!references && !/^(board_definition_|board_canvas_invalid:)/.test(error.message)) throw error;
-    const editable = references ? fields : ['boardDefinition'];
-    console.log(` 🎮 [canonical-progression] [${references ? 'reference' : 'journey'}-correction] [required] reason=${error.message}`);
-    // Retain the historical journey request exactly to recover paid receipts.
-    const tools = references
-      ? [{...request.tools[0],input_schema:{type:'object' as const,additionalProperties:false,properties:Object.fromEntries(fields.map(field=>[field,request.tools[0].input_schema.properties[field]])),required:fields}}]
-      : request.tools.map(tool=>({...tool,input_schema:{...tool.input_schema,properties:{...tool.input_schema.properties,predictionEvaluationIds:{type:'array',items:{type:'string'}},contentDecisions:legacyContentSchema}}}));
+    console.log(` 🎮 [canonical-progression] [reference-correction] [required] reason=${error.message}`);
+    const tools = [{...request.tools[0],input_schema:{type:'object' as const,additionalProperties:false,properties:Object.fromEntries(fields.map(field=>[field,request.tools[0].input_schema.properties[field]])),required:fields}}];
     const content = citationOnly
       ? `Correct only predictionEvaluationIds in the received decision. Return only that field using the tool; this is a citation patch, not a new decision. Preregistered prediction IDs are not observed evaluation IDs. There is one correction attempt.\nDEFECT: ${error.message}\nAVAILABLE PREDICTION EVALUATION IDS: ${JSON.stringify(cycle.predictionEvaluations.map(evaluation=>evaluation.evaluationId))}\nRECEIVED CITATIONS: ${JSON.stringify((received as Record<string,unknown>).predictionEvaluationIds)}`
-      : references
-        ? `Correct only ${fields.join(' and ')}. Return only those fields using the tool, not a new decision. Bind contentDecisions to actual catalog contentId values and nonempty saved evidenceIds; activity node IDs are not catalog IDs. Revise or omit unsupported content decisions yourself. Preregistered prediction IDs are not observed evaluation IDs. Preserve the board, instruments and every other field exactly. There is one correction attempt.\nDEFECTS: ${JSON.stringify(referenceErrors.map(issue=>issue.error.message))}\nAVAILABLE PREDICTION EVALUATION IDS: ${JSON.stringify(cycle.predictionEvaluations.map(row=>row.evaluationId))}\nCATALOG: ${JSON.stringify(catalogCards)}\nAVAILABLE CONTENT EVIDENCE IDS: ${JSON.stringify([...decisionEvidenceIds])}\nRECEIVED FIELDS: ${JSON.stringify(Object.fromEntries(fields.map(field=>[field,(received as Record<string,unknown>)[field]])))}`
-        : `Correct only boardDefinition in the received decision to fix this executable journey defect. Preserve every other field, instrument, academic claim, evidence reference and progression action unchanged. Return the complete decision using the same tool. There is one correction attempt.\nDEFECT: ${error.message}\nRECEIVED DECISION: ${JSON.stringify(received)}`;
+      : `Correct only ${fields.join(' and ')}. Return only those fields using the tool, not a new decision. Bind contentDecisions to actual catalog contentId values and nonempty saved evidenceIds; activity node IDs are not catalog IDs. Revise or omit unsupported content decisions yourself. Preregistered prediction IDs are not observed evaluation IDs. Preserve the board, instruments and every other field exactly. There is one correction attempt.\nDEFECTS: ${JSON.stringify(referenceErrors.map(issue=>issue.error.message))}\nAVAILABLE PREDICTION EVALUATION IDS: ${JSON.stringify(cycle.predictionEvaluations.map(row=>row.evaluationId))}\nCATALOG: ${JSON.stringify(catalogCards)}\nAVAILABLE CONTENT EVIDENCE IDS: ${JSON.stringify([...decisionEvidenceIds])}\nRECEIVED FIELDS: ${JSON.stringify(Object.fromEntries(fields.map(field=>[field,(received as Record<string,unknown>)[field]])))}`;
     const correctionRequest = {...request,tools,messages:[{role:'user' as const,content}]};
-    const stage = citationOnly ? 'citation-patch' : references ? 'reference-patch' : 'journey-correction';
+    const stage = citationOnly ? 'citation-patch' : 'reference-patch';
     const correctionStage=`progression-${stage}-r${checkpointRevision}`;
     const savedCorrection=freezePlannerRequest({draftDir,stage:correctionStage,request:correctionRequest});
     const correction = await runMathProviderStage({draftDir,stage:correctionStage,model:savedCorrection.request.model,request:savedCorrection.receiptContext,beforeRequest:savedCorrection.beforeRequest,execute:async()=>({plannerMessage:await requestPlannerMessage(anthropic,savedCorrection.request,{timeout:savedCorrection.timeout})})});
     const reply = readPlannerToolReceipt(correction,toolName);
-    if(references && (!reply || typeof reply !== 'object' || Array.isArray(reply) || Object.keys(reply).some(key=>!editable.includes(key))))throw new Error('planner_correction_changed_protected_decision');
+    if(!reply || typeof reply !== 'object' || Array.isArray(reply) || Object.keys(reply).some(key=>!new Set<string>(fields).has(key)))throw new Error('planner_correction_changed_protected_decision');
     const patch = reply as Record<string,unknown>;
     for(const field of fields) {
       if(!Array.isArray(patch[field]) || (field==='predictionEvaluationIds' && !(patch[field] as unknown[]).every(id=>typeof id==='string')))throw new Error('canonical_progression_invalid_citation_patch');
     }
-    const corrected = references ? {...received as Record<string,unknown>,...patch} : reply;
-    const protectedFields = (value:unknown) => Object.fromEntries(Object.entries(value as Record<string,unknown>).filter(([key])=>!editable.includes(key)));
-    if (!isDeepStrictEqual(protectedFields(received),protectedFields(corrected))) throw new Error(references ? 'planner_correction_changed_protected_decision' : 'planner_journey_correction_changed_academic_decision');
+    const corrected = {...received as Record<string,unknown>,...patch};
     return validate(corrected);
   }
 }

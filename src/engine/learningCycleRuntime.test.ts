@@ -1,3 +1,4 @@
+import {listBoardInstances} from './learningBoardInstances';
 import {verifyPreparingBoardCanvas} from "./adventureBoardCanvas";
 import {linearJourneyFixture} from '../scripts/fixtures/authoredJourney';
 import fs from "fs";
@@ -1188,7 +1189,7 @@ describe('completed-board Planner delivery and explicit recovery', () => {
     } finally {fs.rmSync(f.rootDir,{recursive:true,force:true});}
   });
 
-  it('reuses a legacy primary plus its already received geometry correction at the old budget',async()=>{
+  it('reuses a legacy primary without buying or overwriting its historical geometry correction',async()=>{
     const f=fixture();
     const rename=fs.renameSync;
     let interrupted=false;
@@ -1205,8 +1206,7 @@ describe('completed-board Planner delivery and explicit recovery', () => {
       const batchId=before.decisionHistory.at(-1)!.decisionId;
       const draftDir=path.join(f.rootDir,'src/context/reina/homework/cycles/.planner/hw-runtime',batchId.replace(/[^a-zA-Z0-9_-]+/g,'_'));
       const correctionStage=`progression-journey-correction-r${before.revision}`;
-      const correctionRequest=JSON.parse(fs.readFileSync(path.join(draftDir,`${correctionStage}.request.json`),'utf8')).request;
-      correctionRequest.max_tokens=6000;
+      const correctionRequest={model:'claude-sonnet-5',max_tokens:6000,messages:[{role:'user',content:'Historical canvas correction'}]};
       // Rebuild only this synthetic test's receipts in their pre-change format.
       fs.rmSync(draftDir,{recursive:true,force:true});
       const legacy={childId:'reina',homeworkId:'hw-runtime',batchId,lifecycle:before.lifecycle,cycleRevision:before.revision,observationIds:before.observations.filter(row=>row.provenance!=='practice').map(row=>row.observationId),model:'claude-sonnet-5'};
@@ -1215,7 +1215,7 @@ describe('completed-board Planner delivery and explicit recovery', () => {
       const receipts=f.receiptBytes();
       const after=await advanceCanonicalCycleFromEvidence(f.request,{rootDir:f.rootDir});
       expect(after.lifecycle).toBe('baseline_generating');
-      expect(f.create).toHaveBeenCalledTimes(2); // Only the earlier synthetic fixture capture.
+      expect(f.create).toHaveBeenCalledTimes(1); // Only the earlier synthetic primary capture.
       expect(f.receiptBytes()).toEqual(receipts);
       expect(after.decisionHistory.filter(row=>row.eventType==='theory_decided')).toHaveLength(1);
     } finally {spy.mockRestore();fs.rmSync(f.rootDir,{recursive:true,force:true});}
@@ -1236,7 +1236,7 @@ describe('completed-board Planner delivery and explicit recovery', () => {
   });
 });
 
-it('corrects successor geometry once before freezing the new board and retains both provider receipts',async()=>{
+it('accepts successor geometry without buying a correction and preserves the primary receipt',async()=>{
  const rootDir=root();
  fs.mkdirSync(path.join(rootDir,"src/context/reina"),{recursive:true});
  fs.writeFileSync(path.join(rootDir,"src/context/reina/learning_profile.json"),JSON.stringify({childId:"reina",rewardPreferences:[],sessionStats:{},activityModel:{},activityTraitModel:{}}));
@@ -1246,15 +1246,15 @@ it('corrects successor geometry once before freezing the new board and retains b
  const invalid=structuredClone(valid);invalid.boardDefinition.portals[1].position=structuredClone(invalid.boardDefinition.portals[0].position);
  const create=vi.fn().mockResolvedValueOnce({id:'original',content:[{type:'tool_use',name:'decide_learning_cycle_progression',input:invalid}]}).mockResolvedValueOnce({id:'correction',content:[{type:'tool_use',name:'decide_learning_cycle_progression',input:valid}]});
  const after=await advanceCanonicalCycleFromEvidence({childId:'reina',homeworkId:'hw-runtime',client:{messages:{create,stream:(payload:unknown)=>({finalMessage:()=>create(payload)})}} as never},{rootDir});
- expect(create).toHaveBeenCalledTimes(2);
- expect(after.boards!.at(-1)!.definition!.portals[1].position).toEqual(valid.boardDefinition.portals[1].position);
+ expect(create).toHaveBeenCalledTimes(1);
+ expect(after.boards!.at(-1)!.definition!.portals[1].position).toEqual(invalid.boardDefinition.portals[1].position);
  const directory=path.join(rootDir,'src/context/reina/homework/cycles/.planner/hw-runtime/hw-runtime_decision_r2/provider-receipts');
  const receipts=fs.readdirSync(directory).filter(file=>!file.includes('.stage.')).map(file=>JSON.parse(fs.readFileSync(path.join(directory,file),'utf8')));
- expect(receipts.map(receipt=>receipt.response?.plannerMessage?.id).sort()).toEqual(['correction','original']);
+ expect(receipts.map(receipt=>receipt.response?.plannerMessage?.id).sort()).toEqual(['original']);
  fs.rmSync(rootDir,{recursive:true,force:true});
 },20000);
 
-it.each(['still-invalid','changed-academics'])('stops successor correction after one failed attempt: %s',async mode=>{
+it.each(['still-invalid','changed-academics'])('never consumes a replacement academic decision for a canvas issue: %s',async mode=>{
  const rootDir=root();
  fs.mkdirSync(path.join(rootDir,"src/context/reina"),{recursive:true});
  fs.writeFileSync(path.join(rootDir,"src/context/reina/learning_profile.json"),JSON.stringify({childId:"reina",rewardPreferences:[],sessionStats:{},activityModel:{},activityTraitModel:{}}));
@@ -1266,15 +1266,15 @@ it.each(['still-invalid','changed-academics'])('stops successor correction after
  const before=getLearningCycle('reina','hw-runtime',{rootDir})!;
  const create=vi.fn().mockResolvedValueOnce({id:'original',content:[{type:'tool_use',name:'decide_learning_cycle_progression',input:invalid}]}).mockResolvedValueOnce({id:'correction',content:[{type:'tool_use',name:'decide_learning_cycle_progression',input:correction}]});
  const request={childId:'reina',homeworkId:'hw-runtime',client:{messages:{create,stream:(payload:unknown)=>({finalMessage:()=>create(payload)})}} as never};
- await expect(advanceCanonicalCycleFromEvidence(request,{rootDir})).rejects.toThrow(mode==='still-invalid'?'board_canvas_invalid':'planner_journey_correction_changed_academic_decision');
- const after=getLearningCycle('reina','hw-runtime',{rootDir})!;
- expect(after.lifecycle).toBe('blocked');
- expect(after.boards).toEqual(before.boards);
+ const after=await advanceCanonicalCycleFromEvidence(request,{rootDir});
+ expect(after.lifecycle).toBe('baseline_generating');
+ expect(after.boards![0]).toEqual(listBoardInstances(before)[0]);
+ expect(after.decisionHistory.at(-1)!.reason).toBe(valid.reason);
  expect(after.observations).toEqual(before.observations);
  await advanceCanonicalCycleFromEvidence(request,{rootDir});
- expect(create).toHaveBeenCalledTimes(2);
+ expect(create).toHaveBeenCalledTimes(1);
  const directory=path.join(rootDir,'src/context/reina/homework/cycles/.planner/hw-runtime/hw-runtime_decision_r2/provider-receipts');
  const receipts=fs.readdirSync(directory).filter(file=>!file.includes('.stage.')).map(file=>JSON.parse(fs.readFileSync(path.join(directory,file),'utf8')));
- expect(receipts.map(receipt=>receipt.response?.plannerMessage?.id).sort()).toEqual(['correction','original']);
+ expect(receipts.map(receipt=>receipt.response?.plannerMessage?.id).sort()).toEqual(['original']);
  fs.rmSync(rootDir,{recursive:true,force:true});
 },20000);

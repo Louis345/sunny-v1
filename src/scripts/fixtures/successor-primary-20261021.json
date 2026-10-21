@@ -1,0 +1,229 @@
+{
+  "version": 2,
+  "title": "Long i Rescue Mission: Second Try",
+  "rationale": "Recorded board topology for an isolated runtime regression; no learner performance claim.",
+  "rootPathId": "root",
+  "portals": [
+    {
+      "id": "p-start",
+      "label": "Begin",
+      "kind": "start",
+      "position": {
+        "landscape": {
+          "x": 0.03,
+          "y": 0.5
+        },
+        "portrait": {
+          "x": 0.5,
+          "y": 0.04
+        }
+      }
+    },
+    {
+      "id": "p-reteach",
+      "label": "Silent Letter Detective Camp",
+      "kind": "activity",
+      "activityNodeId": "lab-assignment:explain-long-i",
+      "position": {
+        "landscape": {
+          "x": 0.22,
+          "y": 0.22
+        },
+        "portrait": {
+          "x": 0.2,
+          "y": 0.16
+        }
+      }
+    },
+    {
+      "id": "p-choice",
+      "label": "Pick Your Practice Path",
+      "kind": "choice",
+      "position": {
+        "landscape": {
+          "x": 0.4,
+          "y": 0.5
+        },
+        "portrait": {
+          "x": 0.5,
+          "y": 0.3
+        }
+      }
+    },
+    {
+      "id": "p-mix",
+      "label": "Warm Mix Practice",
+      "kind": "activity",
+      "activityNodeId": "lab-assignment:spell-guided",
+      "position": {
+        "landscape": {
+          "x": 0.68,
+          "y": 0.78
+        },
+        "portrait": {
+          "x": 0.5,
+          "y": 0.62
+        }
+      }
+    },
+    {
+      "id": "p-checkpoint",
+      "label": "Radar Rescue Check",
+      "kind": "endpoint",
+      "activityNodeId": "lab-assignment:radar-check",
+      "position": {
+        "landscape": {
+          "x": 0.93,
+          "y": 0.5
+        },
+        "portrait": {
+          "x": 0.5,
+          "y": 0.9
+        }
+      }
+    }
+  ],
+  "paths": [
+    {
+      "id": "root",
+      "portalIds": [
+        "p-start",
+        "p-reteach",
+        "p-choice",
+        "p-mix",
+        "p-checkpoint"
+      ]
+    },
+    {
+      "id": "path-wheel",
+      "portalIds": [
+        "lab-assignment:wheel-pattern"
+      ]
+    },
+    {
+      "id": "path-radar",
+      "portalIds": [
+        "lab-assignment:radar-read"
+      ]
+    }
+  ],
+  "choices": [
+    {
+      "id": "choice-practice-style",
+      "portalId": "p-choice",
+      "purpose": "Choose a practice activity.",
+      "options": [
+        {
+          "id": "opt-wheel",
+          "label": "Spin the Word Wheel",
+          "pathId": "path-wheel",
+          "hypothesis": "Synthetic test metadata; not child evidence."
+        },
+        {
+          "id": "opt-radar",
+          "label": "Radar Sweep Again",
+          "pathId": "path-radar",
+          "hypothesis": "Synthetic test metadata; not child evidence."
+        }
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "id": "e1",
+      "from": "p-start",
+      "to": "p-reteach",
+      "style": "dashed",
+      "controlPoints": {
+        "landscape": [
+          {
+            "x": 0.12,
+            "y": 0.35
+          }
+        ],
+        "portrait": [
+          {
+            "x": 0.35,
+            "y": 0.1
+          }
+        ]
+      }
+    },
+    {
+      "id": "e2",
+      "from": "p-reteach",
+      "to": "p-choice",
+      "style": "dashed",
+      "controlPoints": {
+        "landscape": [
+          {
+            "x": 0.31,
+            "y": 0.36
+          }
+        ],
+        "portrait": [
+          {
+            "x": 0.35,
+            "y": 0.23
+          }
+        ]
+      }
+    },
+    {
+      "id": "e3",
+      "from": "p-choice",
+      "to": "p-mix",
+      "style": "glow",
+      "controlPoints": {
+        "landscape": [
+          {
+            "x": 0.54,
+            "y": 0.64
+          }
+        ],
+        "portrait": [
+          {
+            "x": 0.5,
+            "y": 0.46
+          }
+        ]
+      }
+    },
+    {
+      "id": "e4",
+      "from": "p-mix",
+      "to": "p-checkpoint",
+      "style": "dashed",
+      "controlPoints": {
+        "landscape": [
+          {
+            "x": 0.81,
+            "y": 0.64
+          }
+        ],
+        "portrait": [
+          {
+            "x": 0.5,
+            "y": 0.76
+          }
+        ]
+      }
+    }
+  ],
+  "theme": {
+    "background": {
+      "type": "image",
+      "value": "/generated/adventure-board-demo/silent-letter-world.jpeg"
+    },
+    "palette": {
+      "path": "#f4d35e",
+      "completed": "#6fb98f",
+      "available": "#f4a259",
+      "locked": "#8a8d91",
+      "current": "#ef6461",
+      "preview": "#ffffffaa",
+      "text": "#1e1b2e",
+      "panel": "#ffffffcc"
+    }
+  }
+}

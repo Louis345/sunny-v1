@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import {layoutJourney,DEFAULT_THEME_PRESET,type PortalPlacement} from './boardLayout';
 
 const id = z.string().min(1).regex(/^\S(?:[\s\S]*\S)?$/, 'Leading/trailing whitespace is not an authored identity or label.');
 const point = z.object({ x: z.number().min(0).max(1), y: z.number().min(0).max(1) }).strict();
@@ -322,6 +323,70 @@ export function requireBoardDefinition(value: unknown, activityIds: readonly str
   const issues = validateBoardDefinition(definition, activityIds);
   if (issues.length) throw new Error(`board_definition_invalid:${JSON.stringify(issues)}`);
   return definition;
+}
+
+/** Successors execute the authored outline, not a second topology verdict.
+ * Paths already declare the order; edges and portal bindings are mechanical bookkeeping.
+ * In an option, the root's shared stops resume once, after that option's segment.
+ * This reader never changes an existing published board or chooses an activity/order.
+ */
+export function readSuccessorBoardDefinition(value:unknown,activities:ReadonlyArray<{nodeId:string;title:string}>):AdventureBoardDefinition {
+  if(!value)throw new Error('board_definition_missing');
+  // Read educational identity/order separately from the drawing. A missing drawing is not
+  // a missing plan; finite artist coordinates are retained even outside the nominal canvas.
+  const finitePoint=z.object({x:z.number(),y:z.number()});
+  const placements=new Map<string,Partial<PortalPlacement>>();
+  const raw=adventureBoardDefinitionSchema.extend({
+    portals:z.array(adventureBoardDefinitionSchema.shape.portals.element.extend({position:z.unknown().optional()})).min(1).max(128),
+    theme:z.unknown().optional(),edges:z.array(z.unknown()).max(256).default([]),
+  }).parse(value);
+  const added=new Set<string>();
+  const theme=adventureBoardDefinitionSchema.shape.theme.safeParse(raw.theme);
+  if(!theme.success)console.log(' 🎮 [board] [theme] [fallback] reason=unreadable-presentation');
+  const board:AdventureBoardDefinition={...raw,theme:theme.success?theme.data:{background:DEFAULT_THEME_PRESET.background,palette:DEFAULT_THEME_PRESET.palette},
+    portals:raw.portals.map(portal=>{
+      const views=portal.position as Partial<PortalPlacement>|null|undefined;
+      const landscape=finitePoint.safeParse(views?.landscape),portrait=finitePoint.safeParse(views?.portrait);
+      const position={...(landscape.success?{landscape:landscape.data}:{}),...(portrait.success?{portrait:portrait.data}:{})};
+      placements.set(portal.id,position);
+      if(!landscape.success || !portrait.success){added.add(portal.id);console.log(` 🎮 [board] [portal] [fallback-position] portal=${portal.id}`);}
+      return {...portal,position:{landscape:{x:.5,y:.5},portrait:{x:.5,y:.5},...position}};
+    }),edges:raw.edges.flatMap(edge=>{
+      const parsed=adventureBoardDefinitionSchema.shape.edges.element.extend({controlPoints:z.object({landscape:z.array(finitePoint),portrait:z.array(finitePoint)}).optional()}).safeParse(edge);
+      if(!parsed.success){console.log(' 🎮 [board] [connection] [drawing-unreadable] deriving-from-path');return [];}
+      return [parsed.data];
+    })};
+  const inventory=new Map(activities.map(node=>[node.nodeId,node]));
+  for(const rows of [board.portals,board.paths,board.choices])if(new Set(rows.map(row=>row.id)).size!==rows.length)throw new Error('successor_journey_unreadable:ambiguous_identity');
+  const portals=new Map(board.portals.map(portal=>[portal.id,portal]));
+  const root=board.paths.find(path=>path.id===board.rootPathId);
+  if(!root)throw new Error('successor_journey_unreadable:root_path_missing');
+  const shared=new Set(root.portalIds);
+  board.paths=board.paths.map(path=>({...path,portalIds:path.portalIds.filter(portalId=>{
+    if(path.id!==board.rootPathId&&shared.has(portalId)){
+      console.log(` 🎮 [board] [connection] [shared-stop-resumes-on-root] path=${path.id} portal=${portalId}`);return false;
+    }
+    const existing=portals.get(portalId);
+    if(existing){
+      if(existing.kind==='activity' || existing.activityNodeId){
+        const binding=existing.activityNodeId??(inventory.has(portalId)?portalId:undefined);
+        if(!binding || !inventory.has(binding))throw new Error(`successor_journey_unreadable:unresolved_activity:${portalId}`);
+        if(!existing.activityNodeId){existing.activityNodeId=binding;console.log(` 🎮 [board] [portal] [bound] portal=${portalId} activity=${binding}`);}
+      }
+      return true;
+    }
+    const activity=inventory.get(portalId);
+    if(!activity)throw new Error(`successor_journey_unreadable:unresolved_stop:${portalId}`);
+    portals.set(portalId,{id:portalId,label:activity.title,kind:'activity',activityNodeId:portalId,position:{landscape:{x:.5,y:.5},portrait:{x:.5,y:.5}}});
+    added.add(portalId);
+    console.log(` 🎮 [board] [portal] [bound] portal=${portalId} activity=${portalId}`);return true;
+  })}));
+  // Derive connections from that one order, retaining the artist's existing presentation.
+  const journey=adventureJourneySchema.parse({...journeyFromBoardDefinition({...board,portals:[...portals.values()]}),edges:undefined});
+  for(const execution of journeyExecutions(journey))if(new Set(execution.activityNodeIds).size!==execution.activityNodeIds.length)throw new Error('successor_journey_unreadable:repeated_measurement_identity');
+  const fallback=layoutJourney(journey).positions;
+  return {...board,portals:[...portals.values()].map(portal=>added.has(portal.id)?{...portal,position:{...fallback[portal.id],...placements.get(portal.id)}}:portal),
+    edges:journey.edges.map(edge=>board.edges.find(authored=>authored.from===edge.from&&authored.to===edge.to)??edge)};
 }
 export const BOARD_DEFINITION_TOOL_SCHEMA = z.toJSONSchema(authoredBoardDefinitionSchema, {io:'input'});
 export const BOARD_CANVAS_AUTHORING_CONSTRAINTS = `At 1280x720 its safe composition area is 980x400 pixels; at 768x1024 it is 608x714. Portal controls are 116 pixels wide. Their height depends on wrapped labels and status text; it can exceed 186 pixels. Coordinates scale within this safe area; reserve separation for the full labeled control.`;

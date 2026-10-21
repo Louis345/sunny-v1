@@ -660,7 +660,7 @@ describe("canonical progression generation", () => {
       validate: async () => ({ passed: true, failures: [] }),
     }, { rootDir });
 
-    expect(generated.lifecycle).toBe("baseline_generating");
+    expect(generated.lifecycle).toBe("baseline_ready");
     await verifyPreparingBoardCanvas({rootDir,childId:"reina",homeworkId:"hw-progression",directory:path.join(rootDir,"canvas")});
     expect(getLearningCycle("reina","hw-progression",{rootDir})!.lifecycle).toBe("baseline_ready");
     const binding = generated.nodes.find((node) => node.title === "Array Bridge")?.artifactBinding;
@@ -709,7 +709,7 @@ it("binds verified content after an unrelated canonical revision changes during 
   decideQuest(rootDir, created.revision);
   let calls=0;
   const result=await generateCanonicalProgressionArtifact({childId:"reina",homeworkId:"hw-progression",generateHtml:async()=>{calls++;const current=getLearningCycle("reina","hw-progression",{rootDir})!;transitionLearningCycle("reina","hw-progression",current.revision,{type:"prediction_evaluations_recorded",evaluations:[]},{rootDir});return "<html><h1>Quest</h1></html>";},validate:async()=>({passed:true,failures:[]})},{rootDir});
-  expect(result.lifecycle).toBe("quest_generating");expect(calls).toBe(1);
+  expect(result.lifecycle).toBe("quest_ready");expect(calls).toBe(1);
   await verifyPreparingBoardCanvas({rootDir,childId:"reina",homeworkId:"hw-progression",directory:path.join(rootDir,"canvas")});
   expect(getLearningCycle("reina","hw-progression",{rootDir})!.lifecycle).toBe("quest_ready");
 });

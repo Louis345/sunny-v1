@@ -648,7 +648,7 @@ describe("review fixes: no stuck or silent cycles", () => {
     expect(preparingBoardInstance(replayed)).toBeDefined();
   });
 
-  it("preserves prepared successor activities and stops restart retries after a canvas defect", async () => {
+  it("preserves prepared successor activities and continues despite a canvas diagnostic failure", async () => {
     const rootDir = root();
     await finishBaselineBoard(rootDir);
     const successor = structuredClone(supportSuccessor);
@@ -659,21 +659,21 @@ describe("review fixes: no stuck or silent cycles", () => {
     before = transitionLearningCycle(CHILD, HW, before.revision, {
       type: "artifact_bound", nodeId: pending.nodeIds[0]!, artifact: baseline("saved", "Saved").artifactBinding!,
     }, { rootDir });
-    const verify = vi.spyOn(canvasVerifier, "verifyPreparingBoardCanvas");
-    const generateHtml = vi.fn(async () => { throw new Error("must not buy content after a canvas failure"); });
+    const verify = vi.spyOn(canvasVerifier, "verifyPreparingBoardCanvas").mockRejectedValue(Error("canvas diagnostic unavailable"));
+    const generateHtml = vi.fn(async ({node}:any) => `<html><body><h1>${node.title}</h1></body></html>`);
     try {
-      const after = await prepareSuccessorBoard({ childId: CHILD, homeworkId: HW, generateHtml }, { rootDir });
-      expect(after.lifecycle).toBe("blocked");
-      expect(after.nodes).toEqual(before.nodes);
+      const after = await prepareSuccessorBoard({ childId: CHILD, homeworkId: HW, generateHtml, validate:async()=>({passed:true,failures:[]}) }, { rootDir });
+      expect(after.lifecycle).toBe("baseline_ready");
+      expect(after.nodes.find(node=>node.nodeId===pending.nodeIds[0])).toEqual(before.nodes.find(node=>node.nodeId===pending.nodeIds[0]));
       expect(after.observations).toEqual(before.observations);
-      expect(after.boards).toEqual(before.boards);
-      expect(after.decisionHistory.at(-1)?.reason).toContain("successor_canvas_failed:board_canvas_invalid");
-      expect(successorPreparationStatus(after)?.phase).toBe("needs_attention");
+      expect(after.boards!.at(-1)!.publishedAt).not.toBeNull();
+      expect(after.boards![0]).toEqual(before.boards![0]);
+      expect(after.decisionHistory.some(row=>row.eventType==="block")).toBe(false);
       expect(successorResumeAction(after)).toBeNull();
       const restarted = await prepareSuccessorBoard({ childId: CHILD, homeworkId: HW, generateHtml }, { rootDir });
       expect(restarted).toEqual(after);
       expect(verify).toHaveBeenCalledTimes(1);
-      expect(generateHtml).not.toHaveBeenCalled();
+      expect(generateHtml).toHaveBeenCalledTimes(pending.nodeIds.length-1);
     } finally { verify.mockRestore(); }
   }, 20000);
 

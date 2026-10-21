@@ -1281,7 +1281,7 @@ function publishPreparedBoardIfComplete(next: LearningCycleRecordV2, at: string)
   if (!board) return undefined;
   const nodes = next.nodes.filter((node) => board.nodeIds.includes(node.nodeId));
   if (nodes.some((node) => !node.notReadyReason && (node.state === "generating" || node.state === "blocked" || node.artifactBinding?.validationStatus !== "passed"))) return undefined;
-  if (board.definition && next.canvasVerifications?.[board.boardId]?.definitionHash !== createHash('sha256').update(JSON.stringify(board.definition)).digest('hex')) return undefined;
+  if (board.kind!=='successor' && board.definition && next.canvasVerifications?.[board.boardId]?.definitionHash !== createHash('sha256').update(JSON.stringify(board.definition)).digest('hex')) return undefined;
   next.boards = next.boards!.map((candidate) => candidate.boardId === board.boardId ? { ...candidate, publishedAt: at } : candidate);
   next.agencyExperiment = board.agencyExperiment ? structuredClone(board.agencyExperiment) : undefined;
   next.routeSelection = undefined;
