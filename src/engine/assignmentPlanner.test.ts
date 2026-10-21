@@ -674,6 +674,9 @@ describe("assignment planner", () => {
     expect(packet.plannerInstruction).toContain("Design two named learning routes");
     expect(packet.plannerInstruction).toContain("route hypothesis");
     expect(packet.plannerInstruction).toContain("Always include reviewQuestions");
+    expect(packet.plannerInstruction).toContain("Spark Orb Catcher");
+    expect(packet.plannerInstruction).toContain("surprise_drop");
+    expect(packet.plannerInstruction).toContain("preference evidence only");
     expect(packet.plannerInstruction).not.toContain("plannerReferences");
     expect(packet.plannerInstruction).not.toContain("Spark Orb may be selected only as rewardWrapper");
     expect(packet.plannerInstruction).not.toContain("rewardWrapper");
