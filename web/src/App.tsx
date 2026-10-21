@@ -54,10 +54,12 @@ import { isRewardDiagEnabled, type RewardDiagEvent } from "./types/rewardDiag";
 import { CompanionShowroomPage } from "./CompanionShowroomPage";
 import { WordRadar } from "./components/WordRadar";
 import { FlowGameOverlay } from "./components/FlowGameOverlay";
+import { SparkOrbLearningShell } from "./components/SparkOrbLearningShell";
 import { DIAG_WORD_RADAR_ITEMS } from "./fixtures/wordRadarDiagItems";
 import { getCompanionCareFromProfile } from "./utils/companionCareProfile";
 import {
   buildPlannerBoardCompanionContext,
+  isSparkOrbSurpriseLaunch,
   resolvePlannerBoardChoiceLaunchNode,
   resolvePlannerBoardLaunchNode,
 } from "./utils/adventureBoardLaunch";
@@ -366,6 +368,7 @@ function mergeCompanionCommands(
 }
 
 function plannerActivityTitle(node: NodeConfig): string {
+  if (node.title?.trim()) return node.title.trim();
   return node.type
     .split("-")
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
@@ -868,6 +871,25 @@ function App() {
         (companionId === "off"
           ? "Companion"
           : companionId.charAt(0).toUpperCase() + companionId.slice(1));
+      if (isSparkOrbSurpriseLaunch(node)) {
+        const companionContext = buildPlannerBoardCompanionContext(node);
+        console.log(" 🎮 [AdventureBoard] spark_orb_native_launch", {
+          childId: adventureChildId,
+          nodeId: node.id,
+          evidenceRole: "preference_reward",
+        });
+        sendMessage("game_event", {
+          event: {
+            type: "game_state_update",
+            version: "1.0",
+            payload: companionContext,
+          },
+        });
+        setPostActivityEngagement(null);
+        plannerBoardIframeCompletionKeyRef.current = null;
+        setPlannerBoardLaunch({ node, iframeUrl: null, replayNonce: 0 });
+        return;
+      }
       const action = buildNodeLaunchAction(node, {
         childId: adventureChildId ?? node.id,
         childName:
@@ -1559,6 +1581,8 @@ function App() {
     diagFlowGameOpen != null ||
     plannerBoardLaunch != null ||
     (state.phase === "active" && state.canvas.mode === "pronunciation");
+  const plannerBoardCompanion =
+    plannerBoardPacket?.childChart.companion.config ?? effectiveCompanion;
   const voiceGameCompanionMicMuted =
     karaokeReadingActive ||
     (diagFlowGameOpen != null &&
@@ -1826,6 +1850,72 @@ function App() {
             }}
             onExit={closePlannerBoardLaunch}
           />
+        </FlowGameOverlay>
+      ) : null}
+      {isSparkOrbSurpriseLaunch(plannerBoardLaunch?.node) && plannerBoardCompanion ? (
+        <FlowGameOverlay onBack={handlePlannerBoardOverlayBack} backLabel="Back to map">
+          <SparkOrbLearningShell
+            key={`${plannerBoardLaunch!.node.id}:${plannerBoardLaunch!.replayNonce}`}
+            childId={activeProfileChildId ?? adventureChildId ?? "sunny"}
+            childName={
+              plannerBoardPacket?.childChart.identity.displayName ??
+              childNameFromId(adventureChildId)
+            }
+            companion={plannerBoardCompanion}
+            companionName={plannerBoardPacket?.childChart.companion.displayName}
+            phase="ready"
+            domain="engagement_reward"
+            currentTarget="earned_optional_capture"
+            lastMoment="orb_ready"
+            allowedRole="emote_and_tiny_reaction"
+            onGameEvent={(event) => {
+              sendMessage("game_event", {
+                event: {
+                  type: "game_state_update",
+                  version: "1.0",
+                  payload: event,
+                },
+              });
+            }}
+            onCaptureCompleted={(event) => {
+              console.log(" 🎮 [AdventureBoard] spark_orb_capture_complete", {
+                childId: activeProfileChildId ?? adventureChildId,
+                nodeId: plannerBoardLaunch!.node.id,
+                creatureId: event.reward.creatureId,
+                hitQuality: event.hitQuality ?? null,
+                evidenceRole: "preference_reward",
+              });
+              showPlannerBoardEngagementOverlay(plannerBoardLaunch!.node, {
+                completed: true,
+                creature: event.reward.speciesName,
+                hitQuality: event.hitQuality,
+                starTier: event.reward.inventoryRecord.starTier,
+              });
+            }}
+          >
+            <div style={{ display: "grid", gap: 12, textAlign: "center" }}>
+              <span style={{ fontSize: 13, fontWeight: 900, letterSpacing: "0.12em", textTransform: "uppercase" }}>
+                Surprise capture
+              </span>
+              <strong style={{ fontSize: "clamp(24px, 3vw, 42px)", lineHeight: 1 }}>
+                Your orb is fully charged
+              </strong>
+              <span style={{ fontSize: 16, opacity: 0.82 }}>
+                Aim, hold to build power, then release when you are ready.
+              </span>
+            </div>
+          </SparkOrbLearningShell>
+          {postActivityEngagement ? (
+            <PostActivityEngagementOverlay
+              title={postActivityEngagement.title}
+              outcome={postActivityEngagement.outcome}
+              stats={postActivityEngagement.stats}
+              canReplay
+              canTryHarder={false}
+              onAction={handlePlannerBoardPostActivityAction}
+              onFunRating={handlePlannerBoardFunRating}
+            />
+          ) : null}
         </FlowGameOverlay>
       ) : null}
       {plannerBoardLaunch?.iframeUrl ? (
