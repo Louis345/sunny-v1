@@ -96,7 +96,8 @@ describe("Correct consumption point", () => {
       "handleEndOfTurn",
     );
 
-    session.injectTranscript("seven");
+    // Child speech now interrupts (newest wins); the queue remains for deferred replies (e.g. game narration).
+    turnSM.setPendingTranscript("seven");
     expect(peekPending(turnSM)).toBe("seven");
 
     turnSM.onAgentComplete();
@@ -143,7 +144,7 @@ describe("TTS off path", () => {
 
     turnSM.onStartCompanionFromIdle();
     await new Promise<void>((r) => setImmediate(r));
-    session.injectTranscript("eight");
+    turnSM.setPendingTranscript("eight");
     expect(peekPending(turnSM)).toBe("eight");
 
     turnSM.onAgentComplete();
@@ -162,7 +163,7 @@ describe("TTS off path", () => {
 
     turnSM.onStartCompanionFromIdle();
     await new Promise<void>((r) => setImmediate(r));
-    session.injectTranscript("nine");
+    turnSM.setPendingTranscript("nine");
     turnSM.onAgentComplete();
     session.playbackDone();
 

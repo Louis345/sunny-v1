@@ -125,14 +125,31 @@ export class VoiceTurnLatencyTracker {
     if (name === "tts_first_audio") this.finish("first_audio");
   }
 
+  /**
+   * Stop timing the reply in flight. A child utterance queued behind it survives
+   * a barge-in (it is the reason for the barge-in) and is dropped only when the
+   * session ends.
+   */
   cancelTurn(reason: string): void {
     if (this.active) this.finish("cancelled", reason);
+    if (reason === "session_end") this.dropQueued(reason);
+  }
+
+  /** Sunny ignored the latest child utterance: drop it, never the reply in flight. */
+  discardLatest(reason: string): void {
+    if (this.queued) this.dropQueued(reason);
+    else if (this.active?.marksMs.response_start === undefined) this.cancelTurn(reason);
+  }
+
+  private dropQueued(reason: string): void {
     const queued = this.queued;
     this.queued = null;
-    if (queued) {
-      this.open(queued.source, queued.at, queued.heldEagerLeadMs, true);
-      this.finish("cancelled", reason);
-    }
+    if (!queued) return;
+    const inFlight = this.active;
+    this.active = null;
+    this.open(queued.source, queued.at, queued.heldEagerLeadMs, true);
+    this.finish("cancelled", reason);
+    this.active = inFlight;
   }
 
   private open(source: VoiceTurnSource, startedAt: number, heldEagerLeadMs?: number, queued?: boolean): void {

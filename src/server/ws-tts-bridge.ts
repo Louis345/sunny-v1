@@ -72,6 +72,11 @@ export class WsTtsBridge {
     console.log(` 🎮 [session-audio] [owner] [started] request=${requestId}`);
   }
 
+  /** Elli's replies own "companion:" playback ids; game narration uses its own ids. */
+  private isCompanionPlayback(): boolean {
+    return !this.playbackOwner || this.playbackOwner.requestId.startsWith("companion:");
+  }
+
   /** Latency stopwatch hook (logging only): first text sent / first audio delivered. */
   onLatencyMark?: (mark: Extract<VoiceLatencyMark, "tts_first_text" | "tts_first_audio">) => void;
 
@@ -264,7 +269,7 @@ export class WsTtsBridge {
     }
     if (!this.elevenWs || this.elevenWs.readyState !== WebSocket.OPEN) return;
     console.log(`  🔊 TTS: "${trimmed}"`);
-    this.onLatencyMark?.("tts_first_text");
+    if (this.isCompanionPlayback()) this.onLatencyMark?.("tts_first_text");
     this.elevenWs.send(
       JSON.stringify({
         text: toSend,
@@ -357,7 +362,7 @@ export class WsTtsBridge {
 
   private deliverAudio(data: string): void {
     if (this.browserWs.readyState !== WebSocket.OPEN) return;
-    this.onLatencyMark?.("tts_first_audio");
+    if (this.isCompanionPlayback()) this.onLatencyMark?.("tts_first_audio");
     this.browserWs.send(JSON.stringify({ type: "audio", ...this.playbackOwner, timestamp: new Date().toISOString(), speechRate: this.activeSpeechRate ?? 1, data }));
     this.audioChunksThisTurn += 1;
     (this.audioRatesThisTurn ??= new Set()).add(this.activeSpeechRate ?? 1);
