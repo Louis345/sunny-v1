@@ -23,7 +23,7 @@ import {
 } from "./session-triggers";
 import { WsTtsBridge } from "./ws-tts-bridge";
 import { createLoggedVoiceTurnLatency } from "./voiceTurnLatency";
-import { interruptedExchange, isBackchannel, isEchoOfCompanion, shouldBargeIn } from "./companionTurnTaking";
+import { interruptedExchange, isBackchannel, isListeningNoise, isVerbatimEchoOfCompanion, shouldBargeIn } from "./companionTurnTaking";
 import { appendRewardLog } from "../agents/elli/tools/logReward";
 import { mathProblem } from "../agents/elli/tools/mathProblem";
 import {
@@ -1852,12 +1852,19 @@ export class SessionManager {
     if (state === "LOADING" || state === "PROCESSING" || (!opts?.fromReadingComplete && (state === "CANVAS_PENDING" || state === "SPEAKING"))) {
       const dropReason = !this.shouldAcceptInterruptedTranscript(transcript) ? "junk"
         : this.shouldSuppressTranscriptDuringKaraoke(transcript) ? "karaoke"
-        : isBackchannel(transcript) ? "backchannel"
-        : isEchoOfCompanion(transcript, this.turnSM.spokenText()) ? "echo" : null;
+        : isListeningNoise(transcript) ? "backchannel"
+        : isVerbatimEchoOfCompanion(transcript, this.turnSM.spokenText()) ? "echo" : null;
       if (dropReason) {
         auditLog("transcript", { action: "dropped", reason: dropReason, turnState: state, tts, childName: auditChild, round: auditRound });
         this.debugRecorder.recordEvent("transcript", "dropped", { reason: dropReason, turnState: state, round: auditRound, transcriptLength: transcript.length });
         this.voiceLatency?.discardLatest("ignored");
+        return;
+      }
+      if (this.turnSM.inWordBuilderRun() || (state === "SPEAKING" && isBackchannel(transcript))) {
+        // Word Builder keeps its turn; a short "right/okay" while Elli talks is answered right after her.
+        this.turnSM.setPendingTranscript(transcript);
+        console.log(` 🎮 [turn-taking] [held-for-after] [queued] state=${state}`);
+        this.debugRecorder.recordEvent("transcript", "queued", { turnState: state, round: auditRound, transcriptLength: transcript.length });
         return;
       }
       console.log(` 🎮 [turn-taking] [newest-wins] [interrupting] state=${state}`);

@@ -135,6 +135,60 @@ describe("newest wins", () => {
     expect(runAgent).toHaveBeenCalledTimes(1);
   });
 
+  it("holds a short answer like \"right\" said while Elli is talking and answers it after", async () => {
+    // Review catch: "right" (an answer to "left or right?") was dropped as a backchannel.
+    elliThinksThenAnswers("Should we go left or right on the map? ");
+    const { h, session } = conversation();
+    void h.handleEndOfTurn("Where do we go?");
+    await vi.waitFor(() => expect(h.turnSM.getState()).toBe("SPEAKING"));
+    const bargeIn = vi.spyOn(session, "bargeIn");
+
+    await h.handleEndOfTurn("Right.");
+
+    expect(bargeIn).not.toHaveBeenCalled();
+    expect((h.turnSM as unknown as { pendingTranscript: string | null }).pendingTranscript).toBe("Right.");
+  });
+
+  it("treats a child repeating Elli's choice back as a real answer, not echo", async () => {
+    // Review catch: "is it seven" after "Is it seven or eight?" scored as echo and vanished.
+    elliThinksThenAnswers("Is it seven or eight? ");
+    const { h, session } = conversation();
+    void h.handleEndOfTurn("What's the answer?");
+    await vi.waitFor(() => expect(h.turnSM.getState()).toBe("SPEAKING"));
+    const bargeIn = vi.spyOn(session, "bargeIn");
+
+    await h.handleEndOfTurn("is it seven");
+
+    expect(bargeIn).toHaveBeenCalledWith("child_speech");
+  });
+
+  it("drops a long verbatim repeat of what Elli just said (speaker echo)", async () => {
+    elliThinksThenAnswers("Great job on that word! Now let's look at science together. ");
+    const { h, session } = conversation();
+    void h.handleEndOfTurn("I spelled it right!");
+    await vi.waitFor(() => expect(h.turnSM.getState()).toBe("SPEAKING"));
+    const bargeIn = vi.spyOn(session, "bargeIn");
+
+    await h.handleEndOfTurn("now let's look at science together");
+
+    expect(bargeIn).not.toHaveBeenCalled();
+  });
+
+  it("queues speech during a Word Builder companion reply instead of resetting the game", async () => {
+    // Review catch: interrupting a reply between Word Builder rounds sent the turn
+    // machine to IDLE with wordBuilderActive=false.
+    elliThinksThenAnswers();
+    const { h, session } = conversation();
+    h.turnSM.onWordBuilderStart();
+    h.turnSM.onCompanionRunFromWordBuilder();
+    const bargeIn = vi.spyOn(session, "bargeIn");
+
+    await h.handleEndOfTurn("Can I have a hint?");
+
+    expect(bargeIn).not.toHaveBeenCalled();
+    expect((h.turnSM as unknown as { pendingTranscript: string | null }).pendingTranscript).toBe("Can I have a hint?");
+  });
+
   it("keeps talking through a backchannel instead of starting over", async () => {
     elliThinksThenAnswers("Great job on that word! ");
     const { h, session } = conversation();

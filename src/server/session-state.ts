@@ -283,6 +283,11 @@ export class TurnStateMachine {
 
   // ── Public events ─────────────────────────────────────────────────────────
 
+  /** Elli is replying between Word Builder rounds; the game still owns the turn. */
+  inWordBuilderRun(): boolean {
+    return this.actor.getSnapshot().context.wordBuilderActive && this.state !== "WORD_BUILDER" && this.state !== "IDLE";
+  }
+
   /** What Elli has said aloud so far in the current reply. */
   spokenText(): string {
     return this.spokenThisTurn;

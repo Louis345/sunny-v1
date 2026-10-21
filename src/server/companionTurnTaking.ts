@@ -40,11 +40,10 @@ export function interruptedExchange(
   ];
 }
 
-/** Listening noises that mean "go on", not "stop". */
-const BACKCHANNEL_WORDS = new Set([
-  "uh", "huh", "uh-huh", "uhhuh", "mm", "mmm", "hmm", "mhm", "mm-hmm", "mmhmm",
-  "okay", "ok", "yeah", "right", "oh", "ah",
-]);
+/** Pure listening noises: never an answer. */
+const LISTENING_NOISES = new Set(["uh", "huh", "uh-huh", "uhhuh", "mm", "mmm", "hmm", "mhm", "mm-hmm", "mmhmm", "oh", "ah"]);
+/** Short acknowledgements: "go on" while Elli talks, but can also be a real answer ("left or right?"). */
+const SHORT_ACKS = new Set(["okay", "ok", "yeah", "right"]);
 /** Elli's first words can leak back through the speakers before echo cancellation settles. */
 const MIN_SPEAKING_MS_BEFORE_BARGE_IN = 300;
 const ECHO_OVERLAP = 0.8;
@@ -57,9 +56,19 @@ function spokenWords(text: string): string[] {
     .filter(Boolean);
 }
 
-export function isBackchannel(text: string): boolean {
+function allWordsIn(text: string, ...sets: Set<string>[]): boolean {
   const words = spokenWords(text);
-  return words.length > 0 && words.length <= 3 && words.every((w) => BACKCHANNEL_WORDS.has(w));
+  return words.length > 0 && words.length <= 3 && words.every((w) => sets.some((set) => set.has(w)));
+}
+
+/** Should not stop Elli mid-sentence: listening noises and short acknowledgements. */
+export function isBackchannel(text: string): boolean {
+  return allWordsIn(text, LISTENING_NOISES, SHORT_ACKS);
+}
+
+/** Safe to drop entirely: nothing but listening noises. */
+export function isListeningNoise(text: string): boolean {
+  return allWordsIn(text, LISTENING_NOISES);
 }
 
 /** The child's "speech" is mostly Elli's own words coming back through the speakers. */
@@ -69,6 +78,17 @@ export function isEchoOfCompanion(text: string, companionSpoken: string): boolea
   const said = new Set(spokenWords(companionSpoken));
   const overlap = words.filter((w) => said.has(w)).length / words.length;
   return overlap >= ECHO_OVERLAP;
+}
+
+/**
+ * A final transcript that is a long verbatim repeat of Elli's latest words is her
+ * own voice through the speakers. Short repeats ("is it seven?") are real answers.
+ */
+export function isVerbatimEchoOfCompanion(text: string, companionSpoken: string): boolean {
+  const words = spokenWords(text);
+  if (words.length < 5) return false;
+  const recent = new Set(spokenWords(companionSpoken).slice(-40));
+  return words.filter((w) => recent.has(w)).length / words.length >= 0.9;
 }
 
 /**
