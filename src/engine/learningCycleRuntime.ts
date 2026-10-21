@@ -3,7 +3,7 @@ import {readSuccessorBoardDefinition, BOARD_DEFINITION_TOOL_SCHEMA, BOARD_AUTHOR
 import { canonicalJourneyLaunchable, isSpellingPracticeContinuation } from './learningCycleRepository';
 import {requestPlannerMessage, readPlannerToolReceipt, plannerTransportPolicy} from "./plannerTransport";
 import fs from "node:fs";
-import {randomUUID} from "node:crypto";
+import {randomUUID,createHash} from "node:crypto";
 import { MATH_ITEMS_SCHEMA, parseDirectItem, type DirectItem } from "./directMathExperience";
 import Anthropic from "@anthropic-ai/sdk";
 import path from "path";
@@ -25,6 +25,7 @@ import {
   spellingAssignmentItems,
   type LearningCycleEvidenceSummary,
   type LearningCycleRecordV2,
+  type LearningCycleDecision,
   type LearningCycleRepositoryOptions,
   type LearningObservation,
   type LearningCycleSpellingItem,
@@ -593,6 +594,38 @@ export function authorizeCanonicalPlannerRetry(input: {childId:string; homeworkI
   return authorized;
 }
 
+/** Explicit zero-purchase recovery of a complete primary response. No intermediate lifecycle
+ * is persisted: a crash cannot leave normal startup authorized to buy another decision. */
+export async function replayCanonicalPlannerResponse(input:{childId:string;homeworkId:string;blockedDecisionId:string;reason:string},opts:LearningCycleRepositoryOptions={}) {
+  const chart=getChildChart(input.childId,{rootDir:opts.rootDir});
+  if(chart.childId!==input.childId || !input.reason.trim())throw new Error('planner_replay_not_eligible');
+  const cycle=getLearningCycle(input.childId,input.homeworkId,opts);
+  if(!cycle)throw new Error(`learning_cycle_missing:${input.homeworkId}`);
+  if(cycle.decisionHistory.some(row=>row.replayedResponse?.blockedDecisionId===input.blockedDecisionId))return cycle;
+  const blocked=[...cycle.decisionHistory].reverse().find(row=>row.fromLifecycle!==row.toLifecycle);
+  if(cycle.lifecycle!=='blocked'||blocked?.eventType!=='block'||blocked.decisionId!==input.blockedDecisionId
+    ||!/^planner_decision_invalid:(board_definition_|board_canvas_invalid:)/.test(blocked.reason)
+    ||!['baseline_evaluating','quest_evaluating','boss_evaluating'].includes(blocked.fromLifecycle))throw new Error('planner_replay_not_eligible');
+  const checkpoint=plannerCheckpoint({...cycle,lifecycle:blocked.fromLifecycle,decisionHistory:cycle.decisionHistory.slice(0,cycle.decisionHistory.indexOf(blocked))},opts);
+  const directory=path.join(checkpoint.draftDir,'provider-receipts');
+  const pointer=JSON.parse(fs.readFileSync(path.join(directory,`${checkpoint.stage}.stage.json`),'utf8'));
+  if(!/^[a-f0-9]{64}$/.test(pointer.requestHash))throw new Error('planner_replay_receipt_invalid');
+  const bytes=fs.readFileSync(path.join(directory,`${pointer.requestHash}.json`));
+  const receipt=JSON.parse(bytes.toString('utf8'));
+  if(receipt.status!=='received'||receipt.response?.plannerMessage?.stop_reason!=='tool_use')throw new Error('planner_replay_receipt_not_complete');
+  const received=readPlannerToolReceipt(receipt.response,'decide_learning_cycle_progression');
+  const content=(received as Record<string,unknown>).contentDecisions??[];
+  assertContentDecisionShape(content);
+  validateEvidenceBasedContentDecisions(content,new Set(chart.contentCatalog.items.map(item=>item.contentId)),progressionEvidence(cycle).decisionEvidenceIds);
+  const decision=parseCanonicalProgressionDecision(received);
+  const replay={blockedDecisionId:input.blockedDecisionId,requestHash:pointer.requestHash,receiptHash:createHash('sha256').update(bytes).digest('hex'),reason:input.reason.trim(),
+    ...(decision.contentDecisions?.length?{deferredContentDecisions:decision.contentDecisions}:{})};
+  const result=await decideOnce({childId:input.childId,homeworkId:input.homeworkId,decide:async()=>decision},opts,{...replay,fromLifecycle:blocked.fromLifecycle});
+  console.log(` 🎮 [canonical-progression] [received-response] [replayed] homework=${cycle.homeworkId} blocked_decision=${blocked.decisionId} provider_calls=0`);
+  if(replay.deferredContentDecisions?.length)console.log(` 🎮 [canonical-progression] [catalog-proposals] [deferred] count=${replay.deferredContentDecisions.length} reason=separate-profile-writes-not-in-replay-transaction`);
+  return result;
+}
+
 async function askPlanner(
   cycle: LearningCycleRecordV2,
   client?: Anthropic,
@@ -884,11 +917,13 @@ export async function advanceCanonicalCycleFromEvidence(
 async function decideOnce(
   input: AdvanceInput,
   opts: LearningCycleRepositoryOptions,
+  replay?:NonNullable<LearningCycleDecision['replayedResponse']>&{fromLifecycle:LearningCycleRecordV2['lifecycle']},
 ): Promise<LearningCycleRecordV2> {
   let cycle = getLearningCycle(input.childId, input.homeworkId, opts);
   if (!cycle) throw new Error(`learning_cycle_missing:${input.homeworkId}`);
+  if(replay)cycle={...cycle,lifecycle:replay.fromLifecycle};
   if (!["baseline_evaluating", "quest_evaluating", "boss_evaluating"].includes(cycle.lifecycle)) return cycle;
-  const calculated = evaluateAcademicPredictions(cycle.academicPredictions, cycle.observations, (opts.now ?? new Date()).toISOString());
+  const calculated = replay ? [] : evaluateAcademicPredictions(cycle.academicPredictions, cycle.observations, (opts.now ?? new Date()).toISOString());
   const missing = calculated.filter((evaluation) => !cycle!.predictionEvaluations.some((saved) => saved.evaluationId === evaluation.evaluationId));
   if (missing.length > 0) {
     cycle = transitionLearningCycle(cycle.childId, cycle.homeworkId, cycle.revision, {
@@ -947,7 +982,7 @@ async function decideOnce(
     if (!replayOnly) throw new Error("canonical_progression_context_changed");
     console.log(` 🎮 [canonical-progression] [replay-preserved] fromRevision=${cycle.revision} toRevision=${latest.revision}`);
   }
-  if (decision.contentDecisions?.length) {
+  if (!replay && decision.contentDecisions?.length) {
     applyEvidenceBasedMathContentDecisions(cycle.childId, decision.contentDecisions, decisionEvidenceIds, opts);
   }
   return transitionLearningCycle(cycle.childId, cycle.homeworkId, latest.revision, {
@@ -957,6 +992,7 @@ async function decideOnce(
       nextAction: decision.progressionAction,
       evidenceIds,
       predictionEvaluationIds: citedEvaluationIds,
+      ...(replay?{replayedResponse:{blockedDecisionId:replay.blockedDecisionId,requestHash:replay.requestHash,receiptHash:replay.receiptHash,reason:replay.reason,...(replay.deferredContentDecisions?{deferredContentDecisions:replay.deferredContentDecisions}:{})}}:{}),
     },
   }, opts);
 }

@@ -10,6 +10,7 @@ import type {
   LearningTheoryDecisionStatus,
 } from "../context/schemas/learningProfile";
 import type { AdventureBoardJson } from "../shared/adventureBoardJson";
+import type {EvidenceBasedContentDecision} from './learningDecisionContext';
 import {
   buildAdventureBoardFromActiveSessionPlan,
   type ActiveSessionPlanBoardSnapshot,
@@ -350,6 +351,7 @@ export type LearningCycleDecision = {
   nextEvidenceRequired?: string[];
   predictionEvaluationIds?: string[];
   assumptionAssessments?: AssumptionAssessment[];
+  replayedResponse?: {blockedDecisionId:string;requestHash:string;receiptHash:string;reason:string;deferredContentDecisions?:EvidenceBasedContentDecision[]};
 };
 
 export type LearningCycleAgencyExperiment = {
@@ -614,6 +616,7 @@ export type LearningCycleEvent =
         revisedHypothesis?: string;
         progressionAction?: LearningProgressionAction;
         successor?: SuccessorProgram;
+        replayedResponse?: LearningCycleDecision['replayedResponse'];
       };
     }
   | { type: "planner_retry_authorized"; blockedDecisionId: string; reason: string }
@@ -1626,6 +1629,12 @@ export function transitionLearningCycle(
     reason = event.calibration.reason;
     nextAction = event.calibration.nextAction;
   } else if (event.type === "theory_decided") {
+    if(event.decision.replayedResponse){
+      const replay=event.decision.replayedResponse,blocked=[...current.decisionHistory].reverse().find(row=>row.fromLifecycle!==row.toLifecycle);
+      if(current.lifecycle!=='blocked'||blocked?.eventType!=='block'||blocked.decisionId!==replay.blockedDecisionId
+        ||!/^planner_decision_invalid:(board_definition_|board_canvas_invalid:)/.test(blocked.reason)
+        ||!replay.reason.trim()||![replay.requestHash,replay.receiptHash].every(hash=>/^[a-f0-9]{64}$/.test(hash)))throw new Error('planner_replay_not_eligible');
+    }
     if (fromLifecycle === "awaiting_calibration"
       && ["supported", "falsified"].includes(event.decision.status)
       && !hasSufficientCalibrationEvidence(current, event.decision)) {
@@ -1735,6 +1744,7 @@ export function transitionLearningCycle(
       nextEvidenceRequired: event.decision.nextEvidenceRequired,
       predictionEvaluationIds: event.decision.predictionEvaluationIds,
       assumptionAssessments: event.decision.assumptionAssessments,
+      ...(event.decision.replayedResponse?{replayedResponse:structuredClone(event.decision.replayedResponse)}:{}),
     } : {}),
   };
   next.decisionHistory.push(decision);

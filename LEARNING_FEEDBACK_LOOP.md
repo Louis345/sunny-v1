@@ -1,6 +1,6 @@
 # Sunny Learning Feedback Loop
 
-Contract version: 45
+Contract version: 46
 
 This document is the **sole normative** authority for how Sunny forms, tests, and revises learning claims. Product changes that alter this loop must update this contract version before implementation. Other documents may describe infrastructure or history, but they must link here instead of creating another learning doctrine.
 
@@ -100,6 +100,10 @@ Encounter variability belongs to the Planner, not to code. Code never draws rand
 A checkpointed Planner response with unreadable educational intent or invalid academic/evidence claims, or a provider call whose outcome is uncertain, blocks the cycle visibly for a person; it is never re-bought automatically. Successor canvas bookkeeping and quality are not such failures. A successor node that fails to build is marked as needing attention and the successor stays unpublished; no automatic rebuild follows a restart.
 
 A person may explicitly authorize one replacement attempt for a received primary next-plan response cut off by `max_tokens`. Authorization names the current blocking decision and records a reason. It preserves the closed evidence batch, prior receipt, predictions, observations and completed board; it creates a separate, durable attempt identity before any new purchase. Restart may continue that authorized attempt, but cannot authorize another. At most one decision and successor may be committed for the batch. This recovery does not apply to correction-stage truncation, refusals, uncertain provider outcomes or other validation failures; those remain blocked for separate diagnosis.
+
+After a successor reader repair, an operator may explicitly replay a complete received primary response previously blocked by board-definition or canvas validation. This is not replacement authorization: no provider is called, no evaluating/purchase state is opened, and no receipt is changed. The existing academic/action/reference checks run before one atomic decision/successor commit from the blocked state. That decision records the named failure, original request and receipt hashes, and operator reason. Interrupted validation leaves the original block intact; repeating a committed replay returns the current saved cycle. Truncated, refused, uncertain, missing, unreadable or academically invalid responses cannot use this operation. Existing closed observations, predictions and evaluations are not recomputed or rewritten by operational replay.
+
+Replay does not execute catalog/profile updates outside that atomic cycle commit. Any valid catalog recommendations in the received response are preserved verbatim as explicitly deferred proposals in its replay provenance, with a diagnostic log; they are not represented as applied catalog changes. Normal fresh Planner decisions retain their existing catalog path. Applying those saved proposals needs separate explicit handling; recovery of a board does not silently discard them or claim catalog atomicity.
 
 Cycles written before contract 21 lack board instances. They remain readable as one synthesized legacy instance with no Planner decision attribution; they are never rewritten to claim one. Work already in flight on a legacy cycle finishes through the legacy path, re-ingestion never deletes its existing Quest or Boss evidence, and restarts never start a Planner call for it. Its first new Planner decision records the legacy instance and continues with successor boards.
 

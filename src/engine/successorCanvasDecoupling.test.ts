@@ -110,7 +110,7 @@ describe('a canvas cannot veto a spelling successor',()=>{
   if(variant==='missing-single-path-explanation'){
    actual.boardDefinition={...primary,rootPathId:'root',paths:[{id:'root',portalIds:['p-start',...ids,'p-end']}],choices:[],portals:[{...primary.portals[0],id:'p-start',kind:'start'},...ids.map(id=>({id,label:id,kind:'activity',activityNodeId:id,position:{landscape:{x:.5,y:.5},portrait:{x:.5,y:.5}}})),{id:'p-end',label:'Done',kind:'endpoint',position:{landscape:{x:.9,y:.9},portrait:{x:.9,y:.9}}}],edges:[]} as any;
   }
-  if(variant==='off-path-unknown')actual.boardDefinition.portals.push({id:'ghost',label:'Unused',kind:'activity',activityNodeId:'nope',position:{landscape:{x:.5,y:.5},portrait:{x:.5,y:.5}}});
+  if(variant==='off-path-unknown')(actual.boardDefinition as typeof primary).portals.push({id:'ghost',label:'Unused',kind:'activity',activityNodeId:'nope',position:{landscape:{x:.5,y:.5},portrait:{x:.5,y:.5}}});
   actual.nextInstruments.forEach(row=>row.spelling.wordIds=items.map(item=>item.wordId));
   const create=vi.fn().mockResolvedValue({id:'recorded-primary',stop_reason:'tool_use',content:[{type:'tool_use',name:'decide_learning_cycle_progression',input:actual}]});
   const request={childId,homeworkId,client:{messages:{stream:(payload:unknown)=>({finalMessage:()=>create(payload)})}} as never};
