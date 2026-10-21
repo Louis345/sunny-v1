@@ -78,8 +78,13 @@ export async function runAgent(opts: RunAgentOptions): Promise<string> {
     let toolCallsInAttempt = 0;
     const result = streamText({
       model: anthropic(process.env.SUNNY_VOICE_MODEL ?? "claude-sonnet-5"),
-      system: profile.systemPrompt,
       messages: [
+        // Cache breakpoint: tools + Elli's long system prompt are reused across turns.
+        {
+          role: "system",
+          content: profile.systemPrompt,
+          providerOptions: { anthropic: { cacheControl: { type: "ephemeral" } } },
+        },
         ...history.filter(m => typeof m.content !== "string" || m.content.trim().length > 0),
         ...injected,
         { role: "user", content: userMessage }
@@ -123,6 +128,12 @@ export async function runAgent(opts: RunAgentOptions): Promise<string> {
       }
     }
     const finishReason = await result.finishReason;
+    const cache = (await result.usage)?.inputTokenDetails;
+    if (cache) {
+      console.log(
+        ` 🎮 [companion] [prompt-cache] read=${cache.cacheReadTokens ?? 0} created=${cache.cacheWriteTokens ?? 0}`,
+      );
+    }
     if (finishReason === "length" && fullText.trim()) console.warn(" 🎮 [companion] [output-budget] [exhausted] replyMayBeIncomplete=true");
     if (fullText.trim() || finishReason !== "length" || toolCallsInAttempt > 0) break;
     if (attempt === 0) console.warn(" 🎮 [companion] [empty-length-turn] [retrying] budget=3000");
