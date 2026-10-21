@@ -44,6 +44,7 @@ const DOPAMINE_LABELS: Record<string, { label: string; purposeLabel: string }> =
   "space-invaders": { label: "Space Invaders", purposeLabel: "SURPRISE GAME" },
   "space-frogger": { label: "Space Frogger", purposeLabel: "SURPRISE GAME" },
   "bubble-pop": { label: "Bubble Pop", purposeLabel: "BRAIN BREAK" },
+  "spark-orb-charge": { label: "Spark Orb Catcher", purposeLabel: "SURPRISE CAPTURE" },
   "wheel-of-fortune": { label: "Wheel of Fortune", purposeLabel: "SPIN REWARD" },
 };
 
@@ -195,7 +196,9 @@ function dopamineCandidate(activityId: string, idx: number): MysteryChoiceCandid
     purposeLabel: copy.purposeLabel,
     nodeType: activityId === "wheel-of-fortune" ? "wheel-of-fortune" : undefined,
     gameFile:
-      activityId === "wheel-of-fortune"
+      activityId === "spark-orb-charge"
+        ? undefined
+        : activityId === "wheel-of-fortune"
         ? "WheelOfFortune.html"
         : `${activityId}.html`,
     activityKind: "dopamine_game",
