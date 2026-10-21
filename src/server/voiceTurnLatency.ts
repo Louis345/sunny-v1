@@ -31,6 +31,8 @@ export type VoiceTurnLatencyRecord = {
   heldEagerLeadMs?: number;
   /** Model steps that called tools before Elli's first spoken token. */
   toolStepsBeforeFirstToken?: number;
+  /** The child spoke while Elli was mid-reply; timed from when they spoke. */
+  queued?: boolean;
   /** Offsets from end-of-turn, in ms. */
   marksMs: Partial<Record<VoiceLatencyMark, number>>;
   spansMs: VoiceTurnLatencySpans;
@@ -41,9 +43,12 @@ type ActiveTurn = {
   source: VoiceTurnSource;
   startedAt: number;
   heldEagerLeadMs?: number;
+  queued?: boolean;
   toolSteps: number;
   marksMs: Partial<Record<VoiceLatencyMark, number>>;
 };
+
+type QueuedTurn = { source: VoiceTurnSource; at: number; heldEagerLeadMs?: number };
 
 const EAGER_HOLD_WINDOW_MS = 3000;
 
@@ -56,6 +61,8 @@ export class VoiceTurnLatencyTracker {
   private readonly emit: (record: VoiceTurnLatencyRecord) => void;
   private active: ActiveTurn | null = null;
   private eagerHeldAt: number | null = null;
+  /** A child utterance heard while a reply was still in flight (Sunny queues it). */
+  private queued: QueuedTurn | null = null;
   private nextTurnId = 1;
 
   constructor(opts: {
@@ -71,30 +78,35 @@ export class VoiceTurnLatencyTracker {
   }
 
   startTurn(source: VoiceTurnSource): void {
-    if (this.active) this.finish("superseded");
-    const startedAt = this.now();
+    const at = this.now();
     const heldEagerLeadMs =
-      this.eagerHeldAt !== null && startedAt - this.eagerHeldAt <= EAGER_HOLD_WINDOW_MS
-        ? startedAt - this.eagerHeldAt
+      this.eagerHeldAt !== null && at - this.eagerHeldAt <= EAGER_HOLD_WINDOW_MS
+        ? at - this.eagerHeldAt
         : undefined;
     this.eagerHeldAt = null;
-    this.active = {
-      turnId: this.nextTurnId++,
-      source,
-      startedAt,
-      heldEagerLeadMs,
-      toolSteps: 0,
-      marksMs: {},
-    };
+    const inFlight =
+      this.active?.marksMs.response_start !== undefined &&
+      this.active.marksMs.tts_first_audio === undefined;
+    if (inFlight) {
+      // Sunny queues this utterance until the current reply finishes; keep the
+      // earliest moment the child spoke so the wait behind Elli is visible.
+      this.queued ??= { source, at, heldEagerLeadMs };
+      return;
+    }
+    this.open(source, at, heldEagerLeadMs);
   }
 
   /**
-   * Elli was asked to respond. The child's turn owns its first response; any
-   * other response (opening, activity start, a second reply) is a system turn.
+   * Elli was asked to respond. The child's turn owns its first response; a
+   * queued utterance owns the replay; anything else (opening, activity start,
+   * a second reply) is a system turn.
    */
   beginResponse(): void {
     if (!this.active || this.active.marksMs.response_start !== undefined) {
-      this.startTurn("system");
+      const queued = this.queued;
+      this.queued = null;
+      if (queued) this.open(queued.source, queued.at, queued.heldEagerLeadMs, true);
+      else this.open("system", this.now());
     }
     this.mark("response_start");
   }
@@ -115,6 +127,25 @@ export class VoiceTurnLatencyTracker {
 
   cancelTurn(reason: string): void {
     if (this.active) this.finish("cancelled", reason);
+    const queued = this.queued;
+    this.queued = null;
+    if (queued) {
+      this.open(queued.source, queued.at, queued.heldEagerLeadMs, true);
+      this.finish("cancelled", reason);
+    }
+  }
+
+  private open(source: VoiceTurnSource, startedAt: number, heldEagerLeadMs?: number, queued?: boolean): void {
+    if (this.active) this.finish("superseded");
+    this.active = {
+      turnId: this.nextTurnId++,
+      source,
+      startedAt,
+      heldEagerLeadMs,
+      queued,
+      toolSteps: 0,
+      marksMs: {},
+    };
   }
 
   private finish(outcome: VoiceTurnOutcome, reason?: string): void {
@@ -139,6 +170,7 @@ export class VoiceTurnLatencyTracker {
     };
     if (reason) record.reason = reason;
     if (turn.heldEagerLeadMs !== undefined) record.heldEagerLeadMs = turn.heldEagerLeadMs;
+    if (turn.queued) record.queued = true;
     try {
       this.emit(record);
     } catch (error) {
@@ -162,6 +194,7 @@ export function formatVoiceTurnLatencyLog(record: VoiceTurnLatencyRecord): strin
   if (record.heldEagerLeadMs !== undefined) {
     parts.push(`held_eager_lead=${record.heldEagerLeadMs}ms`);
   }
+  if (record.queued) parts.push("queued=true");
   if (record.reason) parts.push(`reason=${record.reason}`);
   return ` 🎮 [latency] [turn_${record.outcome}] ${parts.join(" ")}`;
 }

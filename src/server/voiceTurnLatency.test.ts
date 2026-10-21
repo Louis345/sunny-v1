@@ -182,6 +182,58 @@ describe("VoiceTurnLatencyTracker", () => {
     expect(records[1]).toMatchObject({ turnId: 2, source: "system" });
   });
 
+  it("does not let a child utterance queued mid-reply steal the in-flight reply's timing", () => {
+    // Human catch (Ila, 2026-10-20): "Can you hear me" was queued while Elli was
+    // still thinking about "Hey, Ellie"; the stopwatch restarted at the queued
+    // utterance and reported 5.7s for a reply that really took 10.7s.
+    const { tracker, records, advance } = harness();
+    tracker.startTurn("final");
+    tracker.beginResponse();
+    advance(5_000);
+    tracker.startTurn("final"); // queued: Elli is still working on the first reply
+    advance(5_700);
+    tracker.mark("tts_first_audio");
+    expect(records).toEqual([
+      expect.objectContaining({
+        turnId: 1,
+        outcome: "first_audio",
+        spansMs: expect.objectContaining({ endOfTurnToFirstAudio: 10_700 }),
+      }),
+    ]);
+  });
+
+  it("times a queued utterance from when the child said it, including the wait behind Elli's reply", () => {
+    const { tracker, records, advance } = harness();
+    tracker.startTurn("final");
+    tracker.beginResponse();
+    advance(1_000);
+    tracker.startTurn("final"); // queued at t=1000
+    advance(1_000);
+    tracker.mark("tts_first_audio"); // reply 1 audible
+    advance(18_000); // Elli talks; the queued utterance waits
+    tracker.beginResponse(); // replay of the queued utterance
+    advance(3_000);
+    tracker.mark("tts_first_audio");
+    expect(records[1]).toMatchObject({
+      turnId: 2,
+      source: "final",
+      queued: true,
+      marksMs: { response_start: 19_000, tts_first_audio: 22_000 },
+    });
+  });
+
+  it("drops a queued utterance as cancelled when the session ends before Elli answers it", () => {
+    const { tracker, records } = harness();
+    tracker.startTurn("final");
+    tracker.beginResponse();
+    tracker.startTurn("final");
+    tracker.cancelTurn("session_end");
+    expect(records.map((r) => [r.turnId, r.outcome, r.reason])).toEqual([
+      [1, "cancelled", "session_end"],
+      [2, "cancelled", "session_end"],
+    ]);
+  });
+
   it("counts tool steps only until the first spoken token", () => {
     const { tracker, records } = harness();
     tracker.startTurn("final");
