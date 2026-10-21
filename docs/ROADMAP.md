@@ -34,3 +34,4 @@ The owner sets the target for each number.
 - Run the Opus review when a PR is ready or on `/review`, not on every push.
 - The review gate posts the API's own error text when a review run fails.
 - Elli labels each reply as clarification or real help.
+- Merge Elli's two personality files (`src/companions/elli.md` says gentle, `src/prompts/companions/elli/personality.md` says a little chaotic). This changes what Elli says, so it needs its own session test.
