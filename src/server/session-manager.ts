@@ -2011,7 +2011,8 @@ export class SessionManager {
   }
 
   public buildAgentToolkit(): Record<string, unknown> {
-    const six = createSixTools({
+    // Expressions travel as inline [smile]-style tags (companionExpressionTags), not a tool round trip.
+    const { expressCompanion: _expressViaInlineTags, ...six } = createSixTools({
       canvasShow: (a) => this.hostCanvasShow(a),
       canvasClear: () => this.hostCanvasClear(),
       canvasStatus: () => this.hostCanvasStatus(),
@@ -2044,7 +2045,6 @@ export class SessionManager {
           sessionEnd: six.sessionEnd,
           recordChildSignal: six.recordChildSignal,
           recordProductIssue: six.recordProductIssue,
-          expressCompanion: six.expressCompanion,
           companionAct: companionActTool,
         }
       : { ...six, companionAct: companionActTool };
