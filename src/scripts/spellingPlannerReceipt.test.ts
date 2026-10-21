@@ -3,6 +3,9 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+// Each case replays real Planner receipts through the full parser (~1-4s locally); CI timed out
+// at 5s twice, and a timed-out case left its receipt half-written for the next (ENOENT).
+vi.setConfig({ testTimeout: 30_000 });
 import { ASSIGNMENT_PLANNER_TOOL_NAME, assignmentPlannerToolJsonSchema, attachSpellingDiscoveryEvidence, buildAssignmentPlanningPacket, planAssignmentFromSourceWithTelemetry, parseAssignmentPlannerToolUseResponse, resolveAssignmentPlannerModel } from "../engine/assignmentPlanner";
 import { completeDiscoveryEvaluation, getMathGenerationStatus, hashDiscoveryContract, hasReceivedMathProviderStage, resolveAdaptiveMathDraftDir, runMathProviderStage, setMathGenerationPhase } from "../engine/adaptiveMathDiscovery";
 import { readAssignmentSourceExtraction } from "../engine/assignmentSourceExtraction";
