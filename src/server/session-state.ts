@@ -475,6 +475,8 @@ export class TurnStateMachine {
   private _hasCompleteSentence(buffer: string): boolean {
     const trimmed = buffer.trim();
     if (trimmed.length < 10) return false;
+    // "2." may be the start of "2.5" — wait for the next token.
+    if (/\d\.$/.test(trimmed)) return false;
     return /[.!?]["']?\s*$/.test(trimmed);
   }
 

@@ -28,6 +28,17 @@ describe("early speech review fixes", () => {
     expect(sm.getState()).toBe("WORD_BUILDER");
   });
 
+  it("does not split a decimal answer across the early first sentence", async () => {
+    // Review catch: "The answer is 2." flushed before ".5" -> "two. five".
+    const flushed: string[] = [];
+    const sm = new TurnStateMachine((t) => flushed.push(t), () => {});
+    await processing(sm);
+    sm.onToken("The answer is 2.");
+    expect(flushed).toEqual([]);
+    sm.onToken("5 pounds. ");
+    expect(flushed).toEqual(["The answer is 2.5 pounds."]);
+  });
+
   it("reports that Elli is still composing after early speech until the reply completes", async () => {
     const sm = new TurnStateMachine(() => {}, () => {});
     await processing(sm);
