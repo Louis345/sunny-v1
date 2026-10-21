@@ -185,9 +185,15 @@ export function journeyExecutions(definition:AdventureJourneyDefinition):Journey
   return results;
 }
 
+/** Drawing and bookkeeping never veto the Planner: they are reported, and paths stay authoritative. */
+const BOOKKEEPING_ISSUES = new Set(['path_edge_missing','edge_not_traversable','edge_endpoint_missing','portal_unreachable','path_unreachable','single_path_reason_missing','activity_portal_missing','path_endpoints_invalid']);
+
+/** Returns only truth problems that would misbind, repeat or break a measurement. */
 export function validateBoardDefinition(definition:AdventureJourneyDefinition, activityNodeIds:readonly string[]):BoardDefinitionIssue[] {
   const issues:BoardDefinitionIssue[] = [];
-  const add = (code:string,id:string,message:string) => issues.push({code,id,message});
+  const add = (code:string,id:string,message:string) => BOOKKEEPING_ISSUES.has(code)
+    ? console.log(` 🎮 [board] [bookkeeping] [${code}] ${id}: ${message}`)
+    : issues.push({code,id,message});
   for (const [kind, values] of [['portal',definition.portals],['path',definition.paths],['choice',definition.choices],['edge',definition.edges]] as const) {
     const seen = new Set<string>();
     for (const value of values) { if (seen.has(value.id)) add('duplicate_id',value.id,`Duplicate ${kind} identity.`); seen.add(value.id); }
