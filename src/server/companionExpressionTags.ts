@@ -17,7 +17,7 @@ const MAX_TAG_LENGTH = 24;
 
 export const COMPANION_EXPRESSION_PROMPT = [
   "## Your expressions",
-  "Your face and body are visible to the child. To show an expression, write a tag right where you would make that face, for example: \"[smile] Hey Ila!\".",
+  "Your face and body are visible to the child. To show an expression, write a tag right where you would make that face, for example: \"[smile] Hi there!\".",
   `Available tags: ${[...Object.keys(EXPRESSION_ALIASES), ...COMPANION_EMOTES].map((t) => `[${t}]`).join(" ")}.`,
   "Tags are silent: they are never spoken or shown. Do not describe your feelings in words, and do not use a tool to change your expression.",
 ].join("\n");

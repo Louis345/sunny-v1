@@ -63,4 +63,10 @@ describe("companion expression tags", () => {
     }
     expect(COMPANION_EXPRESSION_PROMPT).toContain("[smile]");
   });
+
+  it("uses no child's name, since the same instructions serve every child and companion", () => {
+    for (const name of ["Ila", "Reina", "Elli", "Matilda"]) {
+      expect(COMPANION_EXPRESSION_PROMPT).not.toContain(name);
+    }
+  });
 });
