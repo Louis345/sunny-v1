@@ -114,6 +114,7 @@ export default defineConfig({
       "src/tests/test-launch-game-word-radar.ts",
       "src/tests/test-quest-node-routing.ts",
       "src/tests/test-speed-catcher-colors.ts",
+      ".github/pr-gate/*.test.ts",
     ],
   },
 });
