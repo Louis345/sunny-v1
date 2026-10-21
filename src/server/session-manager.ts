@@ -23,6 +23,7 @@ import {
 } from "./session-triggers";
 import { WsTtsBridge } from "./ws-tts-bridge";
 import { createLoggedVoiceTurnLatency } from "./voiceTurnLatency";
+import { shouldBargeIn } from "./companionTurnTaking";
 import { appendRewardLog } from "../agents/elli/tools/logReward";
 import { mathProblem } from "../agents/elli/tools/mathProblem";
 import {
@@ -1533,19 +1534,14 @@ export class SessionManager {
     }
     const handle = await connectFlux({
       onOpen: () => console.log("  ✅ Deepgram Flux connected"),
-      onStartOfTurn: () => {
-        const MIN_SPEAK_MS = 1500;
-        if (
-          this.turnSM.getState() === "SPEAKING" &&
-          this.speakingStartedAt > 0 &&
-          Date.now() - this.speakingStartedAt >= MIN_SPEAK_MS
-        ) {
-          this.bargeIn();
-        }
-      },
+      // A bare start-of-speech sound no longer stops Elli; real words in the live transcript do (onInterim).
+      onStartOfTurn: () => {},
       onEagerEndOfTurn: (transcript: string) => this.handleFluxEndOfTurn(transcript, "eager"),
       onTurnResumed: () => this.clearHeldCompanionEagerTranscript("turn_resumed"),
-      onInterim: (text) => this.send("interim", { text }),
+      onInterim: (text) => {
+        this.send("interim", { text });
+        if (this.turnSM.getState() === "SPEAKING" && shouldBargeIn({ interim: text, companionSpoken: this.turnSM.spokenText(), speakingForMs: Date.now() - this.speakingStartedAt })) this.bargeIn();
+      },
       onEndOfTurn: (transcript) => this.handleFluxEndOfTurn(transcript, "final"),
       onError: (err) => {
         this.debugRecorder.recordError("Deepgram error", err);

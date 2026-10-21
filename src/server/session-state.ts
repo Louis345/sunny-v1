@@ -181,6 +181,8 @@ export class TurnStateMachine {
   private canonicalProblemText: string | null = null;
   /** True from START_TURN until onAgentComplete: Claude is still writing this reply. */
   private composing = false;
+  /** Text sent to TTS for the current reply (what the child has heard or is about to). */
+  private spokenThisTurn = "";
   private actor = createActor(turnMachine);
 
   private onFlush: (text: string) => void;
@@ -192,7 +194,10 @@ export class TurnStateMachine {
     onLog: (msg: string) => void,
     onStateChange: (state: SessionTurnState) => void = () => {}
   ) {
-    this.onFlush = onFlush;
+    this.onFlush = (text) => {
+      this.spokenThisTurn = `${this.spokenThisTurn} ${text}`.trim();
+      onFlush(text);
+    };
     this.onLog = onLog;
     this.onStateChange = onStateChange;
     this.actor.subscribe((snapshot) => {
@@ -289,9 +294,15 @@ export class TurnStateMachine {
     return this.composing && this.state !== "IDLE";
   }
 
+  /** What Elli has said aloud so far in the current reply. */
+  spokenText(): string {
+    return this.spokenThisTurn;
+  }
+
   /** Child spoke — start processing */
   onEndOfTurn(): void {
     this.composing = true;
+    this.spokenThisTurn = "";
     this.canonicalProblemText = null;
     this.send({ type: "START_TURN" });
     setImmediate(() => this.send({ type: "BEGIN_PROCESSING" }));
@@ -303,6 +314,7 @@ export class TurnStateMachine {
    */
   onStartCompanionFromIdle(): void {
     this.composing = true;
+    this.spokenThisTurn = "";
     this.canonicalProblemText = null;
     this.send({ type: "START_TURN" });
     setImmediate(() => this.send({ type: "BEGIN_PROCESSING" }));
@@ -321,6 +333,7 @@ export class TurnStateMachine {
   /** runCompanionResponse while in WORD_BUILDER (between rounds) */
   onCompanionRunFromWordBuilder(): void {
     this.composing = true;
+    this.spokenThisTurn = "";
     this.send({ type: "COMPANION_RUN" });
   }
 
