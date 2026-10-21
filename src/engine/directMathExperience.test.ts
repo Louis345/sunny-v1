@@ -1034,9 +1034,11 @@ describe("direct math experience", () => {
     } finally { fs.rmSync(dir,{recursive:true,force:true}); }
   });
 
-  it("corrects overlapping authored portals before freezing a math program", async () => {
+  it("accepts overlapping authored portals without buying a correction", async () => {
     const invalid = learningProgram(2);
     invalid.boardDefinition.portals[1].position=structuredClone(invalid.boardDefinition.portals[0].position);
+    invalid.boardDefinition.portals[1].position.landscape.x=1.2;
+    invalid.boardDefinition.theme.background={type:"image",value:"/generated/missing-lab.png"} as any;
     const corrected = learningProgram(2);
     const create = vi.fn()
       .mockResolvedValueOnce({ id:"msg-original", _request_id:"request-original", stop_reason:"tool_use", content:[{type:"tool_use",name:"create_math_learning_program",input:invalid}] })
@@ -1045,10 +1047,10 @@ describe("direct math experience", () => {
     const rawResponseFile=path.join(dir,"response.json");
     try {
       const result=await askDirectMathPlanner({childId:"reina",chart:{identity:{},demographics:{},engagementTheory:null,factBankSummary:{},learningProfile:{rewardPreferences:[],sessionStats:{},activityModel:{},activityTraitModel:{}},decisionTrace:{latest:null}} as never,extraction:{fullText:"Multiplication"} as never,client:{messages:{create,stream:streamOf(create)}} as never,rawResponseFile});
-      expect(result.boardDefinition).toEqual(corrected.boardDefinition);
-      expect(create).toHaveBeenCalledTimes(2);
+      expect(result.boardDefinition).toEqual(invalid.boardDefinition);
+      expect(create).toHaveBeenCalledTimes(1);
       expect(JSON.parse(fs.readFileSync(rawResponseFile,"utf8"))).toMatchObject({id:"msg-original",_request_id:"request-original"});
-      expect(JSON.parse(fs.readFileSync(rawResponseFile.replace(/\.json$/,"-correction.json"),"utf8"))).toMatchObject({id:"msg-corrected",_request_id:"request-corrected"});
+      expect(fs.existsSync(rawResponseFile.replace(/\.json$/,"-correction.json"))).toBe(false);
     } finally { fs.rmSync(dir,{recursive:true,force:true}); }
   });
 
