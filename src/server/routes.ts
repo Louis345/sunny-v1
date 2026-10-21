@@ -70,6 +70,7 @@ import {
 } from "../engine/choiceEvents";
 import { interpretDirectExperienceOutcome } from "../engine/directExperienceFeedback";
 import {
+  chartCurrentHomeworkByDomain,
   completeDiscoveryEvaluation,
   getMathGenerationStatus,
   hasResumableMathGenerationWork,
@@ -169,6 +170,11 @@ export function resumeSuccessorBoards(options: { force?: boolean } = {}): void {
   }
 }
 
+/** Startup repairs only the chart's current homework; older homework, even finished, never resumes. */
+export function isStartupResumableHomework(homeworkId: string, current: ReadonlySet<string> | undefined): boolean {
+  return !current || current.has(homeworkId);
+}
+
 export function resumeAdaptiveMathWorkers(options: { force?: boolean } = {}): void {
   if (process.env.VITEST && !options.force) return;
   const certificationScope = certificationWorkerScope();
@@ -178,7 +184,13 @@ export function resumeAdaptiveMathWorkers(options: { force?: boolean } = {}): vo
     const homeworkIds = certificationScope
       ? [certificationScope.homeworkId]
       : fs.readdirSync(drafts);
+    const currentByDomain = certificationScope ? undefined : chartCurrentHomeworkByDomain(childId);
+    const current = currentByDomain ? new Set(Object.values(currentByDomain)) : undefined;
     for (const homeworkId of homeworkIds) {
+      if (!isStartupResumableHomework(homeworkId, current)) {
+        console.log(` 🎮 [adaptive-math] [worker-resume] [skipped] child=${childId} homework=${homeworkId} reason=not_current_homework`);
+        continue;
+      }
       try {
         const job = getMathGenerationStatus(childId, homeworkId);
         if (job && shouldResumeAdaptiveMathWorker(job)) launchAdaptiveMathWorker(childId, homeworkId);
