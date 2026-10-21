@@ -33,6 +33,22 @@ export interface RunAgentOptions {
   injectedContextMessages?: ModelMessage[];
 }
 
+const VOICE_EFFORTS = ["low", "medium", "high", "max"] as const;
+type VoiceEffort = (typeof VOICE_EFFORTS)[number];
+
+/**
+ * Claude reasoning effort for Elli's spoken turns. Live conversation does well
+ * at low effort, and higher effort adds reasoning before her first word.
+ * Override with SUNNY_VOICE_EFFORT if tutoring quality needs more.
+ */
+function voiceEffort(): VoiceEffort {
+  const raw = process.env.SUNNY_VOICE_EFFORT?.trim().toLowerCase();
+  if (!raw) return "low";
+  if ((VOICE_EFFORTS as readonly string[]).includes(raw)) return raw as VoiceEffort;
+  console.warn(` 🎮 [voice-effort] [invalid] value=${raw} using=low`);
+  return "low";
+}
+
 export function buildAgentTools(_opts: { allowTransitionToWork?: boolean } = {}) {
   return { ...ALL_TOOLS };
 }
@@ -56,7 +72,7 @@ export async function runAgent(opts: RunAgentOptions): Promise<string> {
   ) ?? [];
 
   let fullText = "";
-
+  const effort = voiceEffort();
 
   for (let attempt = 0; attempt < 2; attempt++) {
     let toolCallsInAttempt = 0;
@@ -69,6 +85,7 @@ export async function runAgent(opts: RunAgentOptions): Promise<string> {
         { role: "user", content: userMessage }
       ],
       maxOutputTokens: attempt === 0 ? 1500 : 3000,
+      providerOptions: { anthropic: { effort } },
       tools: opts.tools ?? buildAgentTools({ allowTransitionToWork }),
       stopWhen: stepCountIs(8),
       abortSignal: signal,
