@@ -23,7 +23,7 @@ import {
 } from "./session-triggers";
 import { WsTtsBridge } from "./ws-tts-bridge";
 import { createLoggedVoiceTurnLatency } from "./voiceTurnLatency";
-import { shouldBargeIn } from "./companionTurnTaking";
+import { interruptedExchange, isBackchannel, isEchoOfCompanion, shouldBargeIn } from "./companionTurnTaking";
 import { appendRewardLog } from "../agents/elli/tools/logReward";
 import { mathProblem } from "../agents/elli/tools/mathProblem";
 import {
@@ -215,6 +215,8 @@ export class SessionManager {
   private conversationHistory: ModelMessage[] = [];
   private readonly options?: SessionManagerOptions;
   private ttsBridge: WsTtsBridge | null = null;
+  /** Child message whose reply is still being written (set by the response runner). */
+  inFlightReply: string | null = null;
   readonly voiceLatency = createLoggedVoiceTurnLatency((record) => this.debugRecorder.recordEvent("latency", "turn", record));
   private currentAbort: AbortController | null = null;
   private companionResponseTurnId = 0;
@@ -1259,6 +1261,9 @@ export class SessionManager {
     this.activeGameNarrationRequestId = null;
 
     const stateBefore = this.turnSM.getState();
+    const interrupted = this.inFlightReply;
+    this.inFlightReply = null;
+    if (interrupted) this.conversationHistory.push(...interruptedExchange(interrupted, this.turnSM.spokenText()));
     this.turnSM.onInterrupt();
     auditLog("turn", {
       action: "barge_in",
@@ -1742,7 +1747,7 @@ export class SessionManager {
       setPresence: (state, reason) => this.setCompanionPresence(state, reason),
       recordEvent: (component, action, fields) =>
         this.debugRecorder.recordEvent(component, action, fields),
-    })) return void this.voiceLatency?.cancelTurn("ignored");
+    })) return void this.voiceLatency?.discardLatest("ignored");
 
     let state = this.turnSM.getState();
     if (urgentRoute && !checkUserGoodbye(transcript)) {
@@ -1839,80 +1844,21 @@ export class SessionManager {
       return;
     }
 
-    if (state === "PROCESSING" || (state === "SPEAKING" && !opts?.fromReadingComplete && this.turnSM.isComposing())) {
-      if (!this.shouldAcceptInterruptedTranscript(transcript)) {
-        auditLog("transcript", {
-          action: "dropped",
-          reason: "junk",
-          turnState: state,
-          tts,
-          childName: auditChild,
-          round: auditRound,
-        });
-        this.debugRecorder.recordEvent("transcript", "dropped", {
-          reason: "junk",
-          turnState: state,
-          round: auditRound,
-          transcriptLength: transcript.length,
-        });
+    // Newest wins: real words from the child while Elli is thinking or talking stop that
+    // reply and are answered now; junk, backchannels, and Elli's own echo are dropped.
+    if (state === "LOADING" || state === "PROCESSING" || (!opts?.fromReadingComplete && (state === "CANVAS_PENDING" || state === "SPEAKING"))) {
+      const dropReason = !this.shouldAcceptInterruptedTranscript(transcript) ? "junk"
+        : isBackchannel(transcript) ? "backchannel"
+        : isEchoOfCompanion(transcript, this.turnSM.spokenText()) ? "echo" : null;
+      if (dropReason) {
+        auditLog("transcript", { action: "dropped", reason: dropReason, turnState: state, tts, childName: auditChild, round: auditRound });
+        this.debugRecorder.recordEvent("transcript", "dropped", { reason: dropReason, turnState: state, round: auditRound, transcriptLength: transcript.length });
+        this.voiceLatency?.discardLatest("ignored");
         return;
       }
-      this.turnSM.setPendingTranscript(transcript);
-      console.log("  📬 Queued transcript for after turn");
-      auditLog("transcript", {
-        action: "queued",
-        turnState: state,
-        tts,
-        childName: auditChild,
-        round: auditRound,
-      });
-      this.debugRecorder.recordEvent("transcript", "queued", {
-        turnState: state,
-        round: auditRound,
-        transcriptLength: transcript.length,
-      });
-      return;
-    }
-
-    if (
-      !opts?.fromReadingComplete &&
-      (state === "CANVAS_PENDING" || state === "SPEAKING")
-    ) {
-      if (!this.shouldAcceptInterruptedTranscript(transcript)) {
-        auditLog("transcript", {
-          action: "dropped",
-          reason: "junk",
-          turnState: state,
-          tts,
-          childName: auditChild,
-          round: auditRound,
-        });
-        this.debugRecorder.recordEvent("transcript", "dropped", {
-          reason: "junk",
-          turnState: state,
-          round: auditRound,
-          transcriptLength: transcript.length,
-        });
-        return;
-      }
-      console.log(
-        `  🗑️  Ignoring transcript while assistant owns turn (${state}): "${transcript}"`,
-      );
-      auditLog("transcript", {
-        action: "dropped",
-        reason: "assistant_owns_turn",
-        turnState: state,
-        tts,
-        childName: auditChild,
-        round: auditRound,
-      });
-      this.debugRecorder.recordEvent("transcript", "dropped", {
-        reason: "assistant_owns_turn",
-        turnState: state,
-        round: auditRound,
-        transcriptLength: transcript.length,
-      });
-      return;
+      console.log(` 🎮 [turn-taking] [newest-wins] [interrupting] state=${state}`);
+      this.bargeIn();
+      state = this.turnSM.getState();
     }
 
     auditLog("transcript", {

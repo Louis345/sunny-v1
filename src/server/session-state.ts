@@ -179,8 +179,6 @@ export class TurnStateMachine {
   private readonly CANVAS_TIMEOUT_KARAOKE_MS = 6000;
   private pendingTranscript: string | null = null;
   private canonicalProblemText: string | null = null;
-  /** True from START_TURN until onAgentComplete: Claude is still writing this reply. */
-  private composing = false;
   /** Text sent to TTS for the current reply (what the child has heard or is about to). */
   private spokenThisTurn = "";
   private actor = createActor(turnMachine);
@@ -285,15 +283,6 @@ export class TurnStateMachine {
 
   // ── Public events ─────────────────────────────────────────────────────────
 
-  /**
-   * Claude is still writing the reply (even if Elli already started speaking
-   * its first sentence). Child speech now is queued for after the turn, as it
-   * was while the whole reply was held in PROCESSING.
-   */
-  isComposing(): boolean {
-    return this.composing && this.state !== "IDLE";
-  }
-
   /** What Elli has said aloud so far in the current reply. */
   spokenText(): string {
     return this.spokenThisTurn;
@@ -301,7 +290,6 @@ export class TurnStateMachine {
 
   /** Child spoke — start processing */
   onEndOfTurn(): void {
-    this.composing = true;
     this.spokenThisTurn = "";
     this.canonicalProblemText = null;
     this.send({ type: "START_TURN" });
@@ -313,7 +301,6 @@ export class TurnStateMachine {
    * LOADING → PROCESSING from IDLE.
    */
   onStartCompanionFromIdle(): void {
-    this.composing = true;
     this.spokenThisTurn = "";
     this.canonicalProblemText = null;
     this.send({ type: "START_TURN" });
@@ -332,7 +319,6 @@ export class TurnStateMachine {
 
   /** runCompanionResponse while in WORD_BUILDER (between rounds) */
   onCompanionRunFromWordBuilder(): void {
-    this.composing = true;
     this.spokenThisTurn = "";
     this.send({ type: "COMPANION_RUN" });
   }
@@ -415,7 +401,6 @@ export class TurnStateMachine {
 
   /** runAgent completed — if no canvas was pending, go straight to speaking */
   onAgentComplete(deferFlush = false): void {
-    this.composing = false;
     this.onLog(`  🔍 onAgentComplete — state: ${this.state}, buffer: "${this.ttsBuffer.slice(0, 60)}"`);
     const defer = deferFlush || this.gameTtsHold;
 
@@ -459,7 +444,6 @@ export class TurnStateMachine {
 
   /** Barge-in or session end — drop everything */
   onInterrupt(): void {
-    this.composing = false;
     this.clearCanvasTimeout();
     this.ttsBuffer = "";
     this.pendingTranscript = null;

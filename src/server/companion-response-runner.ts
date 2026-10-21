@@ -106,6 +106,7 @@ export async function runCompanionResponseForSession(
 ): Promise<void> {
     if (deferCompanionUntilNarrationFinishes(session, userMessage)) return;
     session.voiceLatency?.beginResponse();
+    session.inFlightReply = userMessage;
     const turn = claimCompanionResponseTurn(session);
     const playbackId = `companion:${session.sessionId}:${turn.turnId}`;
     let staleOutputLogged = false;
@@ -682,6 +683,7 @@ export async function runCompanionResponseForSession(
         session.recordCompanionTruthContradictions(fullResponse);
       }
 
+      session.inFlightReply = null;
       session.conversationHistory.push(
         { role: "user", content: userMessage },
         { role: "assistant", content: fullResponse },

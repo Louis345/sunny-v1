@@ -2,6 +2,7 @@
  * How Elli takes turns in a live voice conversation: one product rule for her
  * reply length, plus the code-side rules for when the child is talking over her.
  */
+import type { ModelMessage } from "ai";
 
 export const COMPANION_SPOKEN_TURN_PROMPT = [
   "## How you talk",
@@ -9,6 +10,25 @@ export const COMPANION_SPOKEN_TURN_PROMPT = [
   "If the child interrupts, answer what they just said.",
   "Every word you write is spoken aloud: never write private notes or describe the child in the third person.",
 ].join("\n");
+
+/**
+ * History for a reply the child cut off: their message, only what Elli had
+ * actually said, and a note that she was interrupted, so her next turn does not
+ * assume the child heard the rest.
+ */
+export function interruptedExchange(childMessage: string, companionSpoken: string): ModelMessage[] {
+  const spoken = companionSpoken.trim();
+  return [
+    { role: "user", content: childMessage },
+    ...(spoken ? [{ role: "assistant" as const, content: spoken }] : []),
+    {
+      role: "user",
+      content: spoken
+        ? "[You were interrupted: the child started talking, so they heard only what you said above.]"
+        : "[You were interrupted before you answered: the child spoke again.]",
+    },
+  ];
+}
 
 /** Listening noises that mean "go on", not "stop". */
 const BACKCHANNEL_WORDS = new Set([
