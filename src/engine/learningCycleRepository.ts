@@ -587,6 +587,7 @@ export type LearningCycleEvent =
     }
   | ({ type: "instrument_observed"; observations: LearningObservation[]; completed?: boolean } & OutcomeEvidence)
   | { type: "prediction_evaluations_recorded"; evaluations: PredictionEvaluation[] }
+  | { type: "board_preparation_checked" }
   | { type: "board_canvas_verified"; boardId: string; proof: BoardCanvasProof }
   | { type: "artifact_bound"; nodeId: string; artifact: LearningCycleArtifactBinding }
   | { type: "artifact_rejected"; nodeId: string; reason: string }
@@ -1284,7 +1285,6 @@ function publishPreparedBoardIfComplete(next: LearningCycleRecordV2, at: string)
   if (!board) return undefined;
   const nodes = next.nodes.filter((node) => board.nodeIds.includes(node.nodeId));
   if (nodes.some((node) => !node.notReadyReason && (node.state === "generating" || node.state === "blocked" || node.artifactBinding?.validationStatus !== "passed"))) return undefined;
-  if (board.kind!=='successor' && board.definition && next.canvasVerifications?.[board.boardId]?.definitionHash !== createHash('sha256').update(JSON.stringify(board.definition)).digest('hex')) return undefined;
   next.boards = next.boards!.map((candidate) => candidate.boardId === board.boardId ? { ...candidate, publishedAt: at } : candidate);
   next.agencyExperiment = board.agencyExperiment ? structuredClone(board.agencyExperiment) : undefined;
   next.routeSelection = undefined;
@@ -1564,6 +1564,9 @@ export function transitionLearningCycle(
     evidenceIds = fresh.flatMap((evaluation) => evaluation.observationIds);
     reason = `Recorded ${fresh.length} idempotent prediction evaluation${fresh.length === 1 ? "" : "s"}.`;
     nextAction = "Give the evaluations to the existing progression Planner.";
+  } else if (event.type === "board_preparation_checked") {
+    publishPreparedBoardIfComplete(next, at);
+    reason = "Checked verified activity readiness independently of canvas diagnostics.";
   } else if (event.type === "board_canvas_verified") {
     const board = next.boards?.find(candidate => candidate.boardId === event.boardId);
     if (!board?.definition || event.proof.definitionHash !== createHash('sha256').update(JSON.stringify(board.definition)).digest('hex')) throw new Error('board_canvas_proof_mismatch');

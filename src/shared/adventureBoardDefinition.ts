@@ -2,7 +2,7 @@ import { z } from 'zod';
 import {layoutJourney,DEFAULT_THEME_PRESET,type PortalPlacement} from './boardLayout';
 
 const id = z.string().min(1).regex(/^\S(?:[\s\S]*\S)?$/, 'Leading/trailing whitespace is not an authored identity or label.');
-const point = z.object({ x: z.number().min(0).max(1), y: z.number().min(0).max(1) }).strict();
+const point = z.object({ x: z.number(), y: z.number() }).strict();
 const geometry = z.object({ landscape: z.array(point).max(8), portrait: z.array(point).max(8) }).strict();
 const palette = z.object({ path:id, completed:id, available:id, locked:id, current:id, preview:id, text:id, panel:id }).strict();
 /** The same schema describes the authoring tool and validates its immutable output. */
@@ -360,7 +360,7 @@ export function readSuccessorBoardDefinition(value:unknown,activities:ReadonlyAr
   for(const rows of [board.portals,board.paths,board.choices])if(new Set(rows.map(row=>row.id)).size!==rows.length)throw new Error('successor_journey_unreadable:ambiguous_identity');
   const portals=new Map(board.portals.map(portal=>[portal.id,portal]));
   const root=board.paths.find(path=>path.id===board.rootPathId);
-  if(!root)throw new Error('successor_journey_unreadable:root_path_missing');
+  if(!root?.portalIds.length)throw new Error('successor_journey_unreadable:root_path_missing');
   const shared=new Set(root.portalIds);
   board.paths=board.paths.map(path=>({...path,portalIds:path.portalIds.filter(portalId=>{
     if(path.id!==board.rootPathId&&shared.has(portalId)){
@@ -400,6 +400,17 @@ export function readSuccessorBoardDefinition(value:unknown,activities:ReadonlyAr
   return {...board,portals:[...portals.values()].map(portal=>added.has(portal.id)?{...portal,position:{...fallback[portal.id],...placements.get(portal.id)}}:portal),
     edges:journey.edges.map(edge=>board.edges.find(authored=>authored.from===edge.from&&authored.to===edge.to)??edge)};
 }
+/** Read only the Creator's presentation; the frozen semantic journey remains authoritative. */
+export function assembleAuthoredBoardDefinition(journey:AdventureJourneyDefinition,value:unknown):AdventureBoardDefinition {
+ const drawing=value && typeof value==='object'?value as Record<string,unknown>:{};
+ const portals=Array.isArray(drawing.portals)?drawing.portals as Array<Record<string,unknown>>:[];
+ const edges=Array.isArray(drawing.edges)?drawing.edges as Array<Record<string,unknown>>:[];
+ return readSuccessorBoardDefinition({...journey,theme:drawing.theme,
+  portals:journey.portals.map(portal=>{const visual=portals.find(row=>row?.id===portal.id);return {...portal,position:visual?.position,...(typeof visual?.icon==='string'?{icon:visual.icon}:{}),...(typeof visual?.thumbnailUrl==='string'?{thumbnailUrl:visual.thumbnailUrl}:{})};}),
+  edges:journey.edges.map(edge=>{const visual=edges.find(row=>row?.id===edge.id);return {...edge,...(visual?.style?{style:visual.style}:{}),...(visual?.controlPoints?{controlPoints:visual.controlPoints}:{})};}),
+ },journey.portals.flatMap(portal=>portal.activityNodeId?[{nodeId:portal.activityNodeId,title:portal.label}]:[]));
+}
+
 export const BOARD_DEFINITION_TOOL_SCHEMA = z.toJSONSchema(authoredBoardDefinitionSchema, {io:'input'});
 export const BOARD_CANVAS_AUTHORING_CONSTRAINTS = `At 1280x720 its safe composition area is 980x400 pixels; at 768x1024 it is 608x714. Portal controls are 116 pixels wide. Their height depends on wrapped labels and status text; it can exceed 186 pixels. Coordinates scale within this safe area; reserve separation for the full labeled control.`;
 

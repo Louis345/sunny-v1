@@ -4,7 +4,7 @@ import {linearJourneyFixture} from "../scripts/fixtures/authoredJourney";
 import fs from "fs";
 import os from "os";
 import path from "path";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { ActiveSessionPlan } from "../context/schemas/learningProfile";
 import {
   buildLearningCycleInputFromPlan,
@@ -111,6 +111,21 @@ function input() {
 }
 
 describe("learning cycle ingestion bridge", () => {
+  it('publishes verified initial activities even when canvas diagnostics cannot run',async()=>{
+    const {chromium}=await import('playwright');
+    const rootDir=fs.mkdtempSync(path.join(os.tmpdir(),'sunny-initial-no-veto-'));
+    const fixture=input();fixture.plan.boardDefinition!.portals[1].position=structuredClone(fixture.plan.boardDefinition!.portals[0].position);
+    fixture.plan.boardDefinition!.theme.background={type:'image',value:'/generated/missing.png'};
+    const render=vi.spyOn(chromium,'launch').mockRejectedValue(Error('screenshot tooling unavailable'));
+    try {
+      const cycle=await persistIngestedLearningCycle(fixture,{rootDir});
+      expect(cycle.boards![0].publishedAt).not.toBeNull();
+      expect(cycle.canvasVerifications??{}).toEqual({});
+      expect(cycle.observations).toEqual([]);
+      const resumed=await persistIngestedLearningCycle(fixture,{rootDir});
+      expect(resumed.boards).toEqual(cycle.boards);
+    }finally{render.mockRestore();fs.rmSync(rootDir,{recursive:true,force:true});}
+  });
   it("resumes initial publication after interruption without changing the frozen candidate", async () => {
     const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-initial-resume-"));
     const frozen = createLearningCycle(withInitialBoard(buildLearningCycleInputFromPlan(input()), "teaching", new Date().toISOString()), {rootDir});
