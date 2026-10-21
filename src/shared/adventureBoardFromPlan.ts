@@ -619,6 +619,37 @@ function buildMysteryChoiceSets(args: {
       ? { reason: args.mysteryNode.masteryUnlockState ?? "planner_locked", label: "Preparing" }
       : undefined,
   };
+  if (args.mysteryNode.choiceMode === "surprise_drop") {
+    return [{
+      id: mysteryChoiceSetId(args.mysteryNode),
+      kind: "mystery",
+      title: "A surprise appeared",
+      options: [{
+        ...base,
+        id: `${args.mysteryNode.id}-spark-orb`,
+        label: "Spark Orb Catcher",
+        description: "A rare creature is nearby. Enter the capture clearing?",
+        icon: "sparkles",
+        thumbnailUrl: "/encounters/spark-orb/spark-orb.png",
+        activityId: "spark-orb-charge",
+        tags: ["surprise", "capture", "reward"],
+        choiceSignal: {
+          algorithmFeed: "choicePolicy",
+          traits: ["surprise", "capture", "visual-reward"],
+          expectedEvidence: `shown/chosen/skipped/completed outcome for ${args.mysteryNode.id} Spark Orb reward; preference only`,
+          preferenceNotMastery: true,
+        },
+        contentId: `${args.mysteryNode.contentId ?? args.mysteryNode.id}:spark-orb`,
+        experimentId: `${args.mysteryNode.experimentId ?? args.mysteryNode.id}:spark-orb`,
+        engagementDimensions: ["surprise", "challenge", "visual"],
+        engagementHypothesis: args.mysteryNode.engagementHypothesis ??
+          "An earned, optional capture surprise increases willing re-engagement without changing mastery evidence.",
+        mechanic: "spark-orb-capture",
+        theme: "spark-garden",
+        companionPolicy: "Companion observes, reacts, and answers help requests without tutoring or revealing answers.",
+      }],
+    }];
+  }
   const variants = args.variantNodes ?? [];
   const storyNode = variants.find((node) => node.targets?.some((target) => /word|pencil|star|row|box|group/i.test(target)));
   const speedNode = variants.find((node) => !node.targets?.some((target) => /word|pencil|star|row|box|group/i.test(target)));
