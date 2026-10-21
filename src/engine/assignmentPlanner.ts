@@ -1,7 +1,7 @@
 import {LEARNING_PLANNER_PERSONA,learningPlannerInstructions} from "./learningPlannerInstructions";
 import {spellingImplementationType,SPELLING_MYSTERY_INSTRUMENT_IDS} from "./activityEngineConfig";
-import {verifyAuthoredBoardCanvas} from './adventureBoardCanvas';
-import { JOURNEY_AUTHORING_INSTRUCTION, authoredBoardDefinitionSchema, adventureJourneySchema,ADVENTURE_JOURNEY_TOOL_SCHEMA, journeySequenceSchema, expandJourneySequence, journeyFromBoardDefinition, adventureBoardDefinitionSchema, BOARD_AUTHORING_INSTRUCTION, BOARD_CANVAS_AUTHORING_CONSTRAINTS, renderBoardDefinition, validateBoardDefinition, journeyExecutions, type BoardDefinitionIssue, type AdventureBoardDefinition } from '../shared/adventureBoardDefinition';
+import {reportAuthoredBoardCanvas} from './adventureBoardCanvas';
+import { readSuccessorBoardDefinition,JOURNEY_AUTHORING_INSTRUCTION, authoredBoardDefinitionSchema, adventureJourneySchema,ADVENTURE_JOURNEY_TOOL_SCHEMA, journeySequenceSchema, expandJourneySequence, journeyFromBoardDefinition, adventureBoardDefinitionSchema, BOARD_AUTHORING_INSTRUCTION, BOARD_CANVAS_AUTHORING_CONSTRAINTS, renderBoardDefinition, validateBoardDefinition, journeyExecutions, type BoardDefinitionIssue, type AdventureBoardDefinition } from '../shared/adventureBoardDefinition';
 import { spellingCheckpointLineageIssues, checkpointInterventionsArePrior, deriveCheckpointLineage } from "./spellingCheckpointLineage";
 import {requestPlannerMessage, assertPlannerResponseComplete} from "./plannerTransport";
 import Anthropic from "@anthropic-ai/sdk";
@@ -247,7 +247,6 @@ export type AssignmentPlannerOutput = {
 
 export type AssignmentPlanValidationIssue = {
   code:
-    | "board_canvas_invalid"
     | "missing_source_document"
     | "missing_word_groups"
     | "word_missing_source_group"
@@ -355,8 +354,13 @@ export function resolveSpellingDiagnosticSelection(capture: SpellingIntake, pack
   return { decision: structuredClone(decision), instrument: structuredClone(instrument), snapshotHash: hashDiscoveryContract({ decision, instrument }) };
 }
 
+function readIntakeDrawing(value:unknown):unknown {
+ const raw=jsonObject(value);
+ return raw?.boardDefinition?{...raw,boardDefinition:readSuccessorBoardDefinition(raw.boardDefinition,[{nodeId:'diagnostic',title:'Evaluation'}])}:value;
+}
+
 export function parseSpellingIntake(value: unknown, packet: AssignmentPlanningPacket): SpellingIntake {
-  const result = spellingIntakeSchema.parse(value);
+  const result = spellingIntakeSchema.parse(readIntakeDrawing(value));
   const pages = new Set(packet.sourceDocument.pages.map(page => page.pageNumber));
   if (result.words.some(row => !pages.has(row.pageNumber))) throw new Error("spelling_intake_source_page_invalid");
   if (result.uncertainty.some(issue => typeof issue !== "string" && !pages.has(issue.pageNumber))) throw new Error("spelling_intake_uncertainty_page_invalid");
@@ -383,10 +387,10 @@ export async function planSpellingIntakeFromSource(packet: AssignmentPlanningPac
   const model = resolveAssignmentPlannerModel({ model: opts.model });
   const started = Date.now();
   const parse = async (value: unknown): Promise<SpellingIntake> => {
-    const result = parseSpellingIntake(spellingIntakeAuthoringSchema(Boolean(packet.spellingDiagnostics)).parse(value), packet);
+    const result = parseSpellingIntake(spellingIntakeAuthoringSchema(Boolean(packet.spellingDiagnostics)).parse(readIntakeDrawing(value)), packet);
     // Legacy saved warnings stay readable, but new captures must state an actionable issue.
     if (result.uncertainty.some(issue => typeof issue === "string")) throw new Error("spelling_intake_structured_uncertainty_required");
-    if(result.diagnostic?.action==='select' && result.boardDefinition && opts.providerReceipt) await verifyAuthoredBoardCanvas({definition:result.boardDefinition,rootDir:process.cwd(),directory:path.join(opts.providerReceipt.draftDir,'intake-canvas-verification')});
+    if(result.diagnostic?.action==='select' && result.boardDefinition && opts.providerReceipt) await reportAuthoredBoardCanvas({definition:result.boardDefinition,rootDir:process.cwd(),directory:path.join(opts.providerReceipt.draftDir,'intake-canvas-verification')});
     return result;
   };
   const schema = spellingIntakeAuthoringSchema(Boolean(packet.spellingDiagnostics));
@@ -431,7 +435,7 @@ export async function planSpellingIntakeFromSource(packet: AssignmentPlanningPac
     const captured = spellingIntakeSchema.omit({ diagnostic: true, boardDefinition:true }).safeParse(captureFields);
     const baseResult = spellingIntakeSchema.extend({boardDefinition:intakeBoardSchema.optional()}).safeParse(original.draft);
     const issues = !baseResult.success ? baseResult.error.issues : error instanceof z.ZodError ? error.issues : [];
-    const journeyError=Boolean((original.draft as SpellingIntake)?.diagnostic?.action === 'select' && !(original.draft as SpellingIntake)?.boardDefinition) || error instanceof Error && (error.message.startsWith('board_definition_')||error.message.startsWith('board_canvas_invalid')) || issues.some(issue=>issue.path[0]==='boardDefinition');
+    const journeyError=Boolean((original.draft as SpellingIntake)?.diagnostic?.action === 'select' && !(original.draft as SpellingIntake)?.boardDefinition) || error instanceof Error && (error.message.startsWith('board_definition_')) || issues.some(issue=>issue.path[0]==='boardDefinition');
     if (!captured.success || (!journeyError && (issues.length === 0 || issues.some(issue => issue.path[0] !== "diagnostic")))) throw error;
     let acceptedDiagnostic: SpellingIntake["diagnostic"];
     const diagnostic = spellingDiagnosticDecisionSchema.safeParse(_invalidDiagnostic);
@@ -2660,8 +2664,6 @@ type AssignmentPlannerToolRequest = {
   images?: ReturnType<typeof assignmentPlannerSourceImages>;
   source?: AssignmentSourceExtraction;
   schema?: Record<string, unknown>;
-  geometryOnly?: boolean;
-  repairBackground?: boolean;
   measurementOnly?: boolean;
 };
 
@@ -2671,11 +2673,11 @@ async function requestAssignmentPlannerTool(args: AssignmentPlannerToolRequest):
   const request: Anthropic.Messages.MessageCreateParamsNonStreaming = {
     model: args.model,
     max_tokens: Math.max(8_000, Number(process.env.SUNNY_PLANNER_MAX_TOKENS ?? ASSIGNMENT_PLANNER_MAX_TOKENS)),
-    system: `${ASSIGNMENT_PLANNER_PERSONA}\nCall ${ASSIGNMENT_PLANNER_TOOL_NAME} exactly once to submit ${args.geometryOnly ? (args.repairBackground ? "only portal positions, edge control points and the diagnosed invalid CSS background" : "only portal positions and edge control points") : args.measurementOnly ? "only named measurement field corrections" : "the complete plan"} matching its schema.`,
+    system: `${ASSIGNMENT_PLANNER_PERSONA}\nCall ${ASSIGNMENT_PLANNER_TOOL_NAME} exactly once to submit ${args.measurementOnly ? "only named measurement field corrections" : "the complete plan"} matching its schema.`,
     tools: [{
       name: ASSIGNMENT_PLANNER_TOOL_NAME,
       ...(args.measurementOnly ? {strict:true} : {}),
-      description: args.measurementOnly ? "Correct only the declared measurement field paths. Return corrections [{path,value}], no plan or protected fields." : args.geometryOnly ? `Correct only the declared portals positions and edges control points.${args.repairBackground ? " Also repair the diagnosed invalid CSS background; palette is frozen." : " Theme is frozen."} Return no activity, configuration, evidence, path or choice fields.` : "Write Sunny's captured homework interpretation, active intervention node plan, measurements, and mastery theory. Populate every tool field directly as its declared object or array type. Never serialize the plan or any tool field into a JSON string.",
+      description: args.measurementOnly ? "Correct only the declared measurement field paths. Return corrections [{path,value}], no plan or protected fields." : "Write Sunny's captured homework interpretation, active intervention node plan, measurements, and mastery theory. Populate every tool field directly as its declared object or array type. Never serialize the plan or any tool field into a JSON string.",
       input_schema: (args.schema ?? assignmentPlannerToolJsonSchema()) as Anthropic.Messages.Tool.InputSchema,
     }],
     tool_choice: { type: "tool", name: ASSIGNMENT_PLANNER_TOOL_NAME },
@@ -2888,77 +2890,6 @@ function thumbnailForAssignmentBoardNode(node: {
   return node.thumbnailUrl ?? known;
 }
 
-/** A visual-only correction cannot rewrite the accepted learning journey. */
-function canvasPatchSchema(draft:unknown,repairBackground=false) {
-  const board=adventureBoardDefinitionSchema.parse((draft as AssignmentPlannerResponseObject).activeSessionPlan.boardDefinition);
-  const portals=adventureBoardDefinitionSchema.shape.portals.element.pick({id:true,position:true}).extend({id:z.enum(board.portals.map(p=>p.id) as [string,...string[]])});
-  const edges=board.edges.length ? adventureBoardDefinitionSchema.shape.edges.element.pick({id:true,controlPoints:true}).extend({id:z.enum(board.edges.map(e=>e.id) as [string,...string[]])}) : z.never();
-  return z.object({portals:z.array(portals).length(board.portals.length),edges:z.array(edges).length(board.edges.length),...(repairBackground?{background:adventureBoardDefinitionSchema.shape.theme.shape.background.extend({type:z.enum(['solid','gradient'])})}: {})}).strict();
-}
-export function assignmentPlannerCanvasCorrectionSchema(draft:unknown,repairBackground=false):Record<string,unknown> {
-  return z.toJSONSchema(canvasPatchSchema(draft,repairBackground),{io:"input"});
-}
-export function applyAssignmentPlannerCanvasCorrection<T>(original:T,raw:unknown,repairBackground=false):T {
-  const envelope=jsonObject(raw), decoded=envelope ? {...envelope} : raw;
-  if (envelope) for (const field of ["portals","edges"] as const) {
-    if (typeof envelope[field]!=="string") continue;
-    let value:unknown;
-    try {value=JSON.parse(envelope[field] as string);} catch {throw new Error("canvas_correction_invalid");}
-    const wrapper=jsonObject(value);
-    if (wrapper && Object.keys(wrapper).length===1 && field in wrapper) value=wrapper[field];
-    if (!Array.isArray(value)) throw new Error("canvas_correction_invalid");
-    (decoded as Record<string,unknown>)[field]=value;
-    console.log(` 🎮 [assignment-planner] [provider-envelope] [decoded] field=${field} source_preserved=true`);
-  }
-  const parsed=canvasPatchSchema(original,repairBackground).safeParse(decoded);
-  if(!parsed.success || new Set(parsed.data.portals.map(p=>p.id)).size!==parsed.data.portals.length || new Set(parsed.data.edges.map(e=>e.id)).size!==parsed.data.edges.length)throw new Error("canvas_correction_invalid");
-  const copy=structuredClone(original) as T & AssignmentPlannerResponseObject;
-  const board=copy.activeSessionPlan.boardDefinition!;
-  if(repairBackground && 'background' in parsed.data)board.theme.background=parsed.data.background as AdventureBoardDefinition['theme']['background'];
-  for(const portal of board.portals)portal.position=parsed.data.portals.find(p=>p.id===portal.id)!.position;
-  for(const edge of board.edges)edge.controlPoints=parsed.data.edges.find(e=>e.id===edge.id)!.controlPoints;
-  return copy;
-}
-function canvasNeedsBackgroundRepair(issues:AssignmentPlanValidationIssue[]):boolean {
-  return issues.some(issue=>issue.code==='board_canvas_invalid' && issue.message.includes('background_css_invalid'));
-}
-function canvasCorrectionPrompt(draft:AssignmentPlannerResponseObject,issues:AssignmentPlanValidationIssue[]):string {
-  return `Repair only the cited layout defects. Return {portals:[{id,position:{landscape:{x,y},portrait:{x,y}}}],edges:[{id,controlPoints?:{landscape:[],portrait:[]}}]} for every declared portal/edge identity exactly once. ${canvasNeedsBackgroundRepair(issues)?'Also return background:{type,value} to repair the diagnosed invalid CSS only. Use executable CSS, never a symbolic name. Palette remains immutable.':'No background or theme fields.'} No plan, activities, configurations, labels, paths, choices or evidence fields. Those are already accepted and immutable. Positions are normalized to the safe composition area, not the whole viewport. Arrange the portrait independently; if controls cannot fit vertically, use horizontal separation rather than overlapping them. Preserve readable journey direction and meaningful forks. ${BOARD_CANVAS_AUTHORING_CONSTRAINTS}\nLAYOUT ERRORS:\n${JSON.stringify(issues)}\nACCEPTED JOURNEY REFERENCE:\n${JSON.stringify(draft.activeSessionPlan.boardDefinition)}`;
-}
-function parseCanvasCorrection(original:AssignmentPlannerResponseObject,response:Anthropic.Messages.Message,repairBackground=false):AssignmentPlannerResponseObject {
-  assertPlannerResponseComplete(response);
-  const tool=response.content.find(block=>block.type==="tool_use" && block.name===ASSIGNMENT_PLANNER_TOOL_NAME);
-  if(!tool || !("input" in tool))throw new Error("canvas_correction_invalid");
-  // Read existing full-plan receipts only after proving every protected field stayed identical.
-  if(tool.input && typeof tool.input==="object" && "activeSessionPlan" in tool.input) {
-    const legacy=parseAssignmentPlannerToolUseResponse(response);assertAssignmentPlannerCanvasCorrection(original,legacy,repairBackground);return legacy;
-  }
-  return applyAssignmentPlannerCanvasCorrection(original,tool.input,repairBackground);
-}
-export function assertAssignmentPlannerCanvasCorrection(original:unknown,corrected:unknown,repairBackground=false):void {
-  if(repairBackground && !["solid","gradient"].includes((corrected as AssignmentPlannerResponseObject).activeSessionPlan.boardDefinition!.theme.background.type))throw new Error("canvas_correction_invalid");
-  const protectedFields=(value:unknown)=>{
-    const copy=structuredClone(value) as {activeSessionPlan:{boardDefinition:AdventureBoardDefinition}};
-    if(repairBackground)delete (copy.activeSessionPlan.boardDefinition.theme as Partial<AdventureBoardDefinition['theme']>).background;
-    for(const portal of copy.activeSessionPlan.boardDefinition.portals)delete (portal as Partial<typeof portal>).position;
-    for(const edge of copy.activeSessionPlan.boardDefinition.edges)delete edge.controlPoints;
-    return copy;
-  };
-  if(!isDeepStrictEqual(protectedFields(original),protectedFields(corrected)))throw new Error("canvas_correction_changed_journey");
-}
-
-async function plannerCanvasIssues(output:AssignmentPlannerOutput,opts:AssignmentPlanningOptions):Promise<AssignmentPlanValidationIssue[]> {
-  if(!opts.providerReceipt || !output.activeSessionPlan.boardDefinition)return [];
-  try {
-    await verifyAuthoredBoardCanvas({definition:output.activeSessionPlan.boardDefinition,directory:path.join(opts.providerReceipt.draftDir,'planner-canvas'),rootDir:process.cwd()});
-    return [];
-  } catch(error) {
-    if(!(error instanceof Error)||!error.message.startsWith('board_canvas_invalid:'))throw error;
-    console.warn(` 🎮 [assignment-planner] [canvas] [correction-required] ${error.message}`);
-    return [{code:'board_canvas_invalid',severity:'error',message:error.message}];
-  }
-}
-
 async function planAssignmentFromSourceInternal(
   packet: AssignmentPlanningPacket,
   opts: AssignmentPlanningOptions = {},
@@ -2978,25 +2909,23 @@ async function planAssignmentFromSourceInternal(
     requireNodeTitles: Boolean(packet.discoveryEvidence),
     requireCatalogBinding: Boolean(packet.discoveryEvidence),
   });
-  validationIssues.push(...await plannerCanvasIssues(output,opts));
+  if(opts.providerReceipt && output.activeSessionPlan.boardDefinition)await reportAuthoredBoardCanvas({definition:output.activeSessionPlan.boardDefinition,rootDir:process.cwd(),directory:path.join(opts.providerReceipt.draftDir,'planner-canvas')});
   const blockingIssues = validationIssues.filter((issue) => issue.severity === "error");
   if (blockingIssues.length > 0) {
     if (opts.providerReceipt && packet.discoveryEvidence
-      && blockingIssues.every((issue) => issue.code === "board_canvas_invalid" || issue.code === "word_radar_unrendered_teaching" || issue.code === "word_radar_capability_mismatch")) {
-      const canvasOnly=blockingIssues.every(issue=>issue.code==="board_canvas_invalid");
-      const repairBackground=canvasOnly&&canvasNeedsBackgroundRepair(blockingIssues);
+      && blockingIssues.every((issue) => issue.code === "word_radar_unrendered_teaching" || issue.code === "word_radar_capability_mismatch")) {
       const correctionRequest = {
-        version: repairBackground ? 3 : 1,
+        version: 1,
         purpose: "assignment_planner_semantic_correction",
         originalRequestHash: hashDiscoveryContract(packet),
         invalidToolInput: result.draft,
         validationIssues: blockingIssues,
       };
-      const correctionPrompt = `Your ${ASSIGNMENT_PLANNER_TOOL_NAME} input passed schema and evidence checks, but its child-facing activity contract failed. Reissue the complete plan once. Preserve the assignment, child evidence, valid learning choices, measurements, and routes. For each listed Word Radar node, its screen cannot display rounds or teachingFocus: choose a catalog instrument that renders the intended teaching, or express the activity through Word Radar's supported wordRadarConfig without hidden teaching. A Word Radar response contract must exactly match a launchable catalog capability mode; copy its config values rather than combining modes. Keep all academic content visible to the child. For board_canvas_invalid, correct only the cited positions or geometry, preserving all portal identities, labels, paths, options and educational content. ${BOARD_CANVAS_AUTHORING_CONSTRAINTS} Do not invent evidence, targets, or activities.\nVALIDATION ISSUES:\n${JSON.stringify(blockingIssues)}\nLAUNCHABLE ACTIVITY CAPABILITIES:\n${JSON.stringify(packet.activityCatalog.filter(card => card.launchable).map(card => ({ activityId: card.activityId, nodeType: card.nodeType, capabilityModes: card.capabilityModes })))}\nPREVIOUS TOOL INPUT:\n${JSON.stringify(result.draft)}`;
+      const correctionPrompt = `Your ${ASSIGNMENT_PLANNER_TOOL_NAME} input passed schema and evidence checks, but its child-facing activity contract failed. Reissue the complete plan once. Preserve the assignment, child evidence, valid learning choices, measurements, and routes. For each listed Word Radar node, its screen cannot display rounds or teachingFocus: choose a catalog instrument that renders the intended teaching, or express the activity through Word Radar's supported wordRadarConfig without hidden teaching. A Word Radar response contract must exactly match a launchable catalog capability mode; copy its config values rather than combining modes. Keep all academic content visible to the child. Do not invent evidence, targets, or activities.\nVALIDATION ISSUES:\n${JSON.stringify(blockingIssues)}\nLAUNCHABLE ACTIVITY CAPABILITIES:\n${JSON.stringify(packet.activityCatalog.filter(card => card.launchable).map(card => ({ activityId: card.activityId, nodeType: card.nodeType, capabilityModes: card.capabilityModes })))}\nPREVIOUS TOOL INPUT:\n${JSON.stringify(result.draft)}`;
       const correctionStarted = Date.now();
       const correction = await runMathProviderStage({
         draftDir: opts.providerReceipt.draftDir,
-        stage: `${opts.providerReceipt.stage}-semantic-correction-${repairBackground?"background-v3-1":"v1"}`,
+        stage: `${opts.providerReceipt.stage}-semantic-correction-v1`,
         model,
         request: correctionRequest,
         beforeRequest: () => {
@@ -3004,7 +2933,7 @@ async function planAssignmentFromSourceInternal(
           if (!process.env.ANTHROPIC_API_KEY) throw new Error("assignment_planner_ai_unavailable:ANTHROPIC_API_KEY");
         },
         execute: async () => ({
-          message: await requestAssignmentPlannerTool({ prompt: canvasOnly ? canvasCorrectionPrompt(result.draft,blockingIssues) : correctionPrompt, model, geometryOnly:canvasOnly, repairBackground, schema: canvasOnly ? assignmentPlannerCanvasCorrectionSchema(result.draft,repairBackground) : assignmentPlannerToolJsonSchema(Boolean(packet.discoveryEvidence), packet.activityCatalog) }),
+          message: await requestAssignmentPlannerTool({ prompt: correctionPrompt, model, schema: assignmentPlannerToolJsonSchema(Boolean(packet.discoveryEvidence), packet.activityCatalog) }),
           model,
           latencyMs: Date.now() - correctionStarted,
           createdAt: new Date().toISOString(),
@@ -3012,12 +2941,11 @@ async function planAssignmentFromSourceInternal(
       });
       console.log(` 🎮 [assignment-planner] [semantic-correction] [received] id=${correction.message.id}`);
       let correctedDraft = validateAssignmentPlannerRelationships(
-        canvasOnly ? parseCanvasCorrection(result.draft,correction.message,repairBackground) : parseAssignmentPlannerToolUseResponse(correction.message),
+        parseAssignmentPlannerToolUseResponse(correction.message),
         new Set(assignmentPlannerAllowedEvidenceIds(packet)),
         true,
         new Set(packet.capturedHomework.words.map(word => word.trim().toLocaleLowerCase("en-US"))),
       );
-      if(canvasOnly)assertAssignmentPlannerCanvasCorrection(result.draft,correctedDraft,repairBackground);
       let correctedAt = correction.createdAt;
       let correctionUsage: LanguageModelUsage | undefined = usageFromAnthropic(correction.message);
       let correctedOutput = hydrateAssignmentPlannerOutputFromDraft(correctedDraft, packet, correctedAt);
@@ -3027,23 +2955,19 @@ async function planAssignmentFromSourceInternal(
         requireNodeTitles: true,
         requireCatalogBinding: true,
       }).filter(issue => issue.severity === "error");
-      remainingIssues.push(...await plannerCanvasIssues(correctedOutput,opts));
-      if (remainingIssues.length && remainingIssues.every(issue => issue.code === "board_canvas_invalid" || issue.code === "word_radar_unrendered_teaching" || issue.code === "word_radar_capability_mismatch")) {
-        const secondCanvasOnly=remainingIssues.every(issue=>issue.code==="board_canvas_invalid");
-        const secondRepairBackground=secondCanvasOnly&&canvasNeedsBackgroundRepair(remainingIssues);
-        const priorCorrected=correctedDraft;
+      if (remainingIssues.length && remainingIssues.every(issue => issue.code === "word_radar_unrendered_teaching" || issue.code === "word_radar_capability_mismatch")) {
         const secondRequest = {
-          version: secondRepairBackground ? 3 : 2,
+          version: 2,
           purpose: "assignment_planner_semantic_correction",
           originalRequestHash: hashDiscoveryContract(packet),
           invalidToolInput: correctedDraft,
           validationIssues: remainingIssues,
         };
-        const secondPrompt = `The first semantic correction still failed the child-facing contract. Reissue the complete plan one final time. Word Radar cannot show rounds or teachingFocus, and its wordRadarConfig must exactly match one launchable catalog capability. If teaching rounds are essential, choose a catalog teaching instrument that displays them; never leave teaching hidden inside Word Radar. Preserve the assignment, child evidence, valid learning choices, measurements, and routes. For board_canvas_invalid, correct only the cited positions or geometry, preserving all portal identities, labels, paths, options and educational content. ${BOARD_CANVAS_AUTHORING_CONSTRAINTS} Do not invent evidence, targets, or activities.\nVALIDATION ISSUES:\n${JSON.stringify(remainingIssues)}\nLAUNCHABLE ACTIVITY CAPABILITIES:\n${JSON.stringify(packet.activityCatalog.filter(card => card.launchable).map(card => ({ activityId: card.activityId, nodeType: card.nodeType, capabilityModes: card.capabilityModes })))}\nPREVIOUS TOOL INPUT:\n${JSON.stringify(correctedDraft)}`;
+        const secondPrompt = `The first semantic correction still failed the child-facing contract. Reissue the complete plan one final time. Word Radar cannot show rounds or teachingFocus, and its wordRadarConfig must exactly match one launchable catalog capability. If teaching rounds are essential, choose a catalog teaching instrument that displays them; never leave teaching hidden inside Word Radar. Preserve the assignment, child evidence, valid learning choices, measurements, and routes. Do not invent evidence, targets, or activities.\nVALIDATION ISSUES:\n${JSON.stringify(remainingIssues)}\nLAUNCHABLE ACTIVITY CAPABILITIES:\n${JSON.stringify(packet.activityCatalog.filter(card => card.launchable).map(card => ({ activityId: card.activityId, nodeType: card.nodeType, capabilityModes: card.capabilityModes })))}\nPREVIOUS TOOL INPUT:\n${JSON.stringify(correctedDraft)}`;
         const secondStarted = Date.now();
         const second = await runMathProviderStage({
           draftDir: opts.providerReceipt.draftDir,
-          stage: `${opts.providerReceipt.stage}-semantic-correction-${secondRepairBackground?"background-v3-2":"v2"}`,
+          stage: `${opts.providerReceipt.stage}-semantic-correction-v2`,
           model,
           request: secondRequest,
           beforeRequest: () => {
@@ -3051,7 +2975,7 @@ async function planAssignmentFromSourceInternal(
           if (!process.env.ANTHROPIC_API_KEY) throw new Error("assignment_planner_ai_unavailable:ANTHROPIC_API_KEY");
           },
           execute: async () => ({
-            message: await requestAssignmentPlannerTool({ prompt: secondCanvasOnly ? canvasCorrectionPrompt(priorCorrected,remainingIssues) : secondPrompt, model, geometryOnly:secondCanvasOnly, repairBackground:secondRepairBackground, schema: secondCanvasOnly ? assignmentPlannerCanvasCorrectionSchema(priorCorrected,secondRepairBackground) : assignmentPlannerWordRadarCorrectionSchema(packet) }),
+            message: await requestAssignmentPlannerTool({ prompt: secondPrompt, model, schema: assignmentPlannerWordRadarCorrectionSchema(packet) }),
             model,
             latencyMs: Date.now() - secondStarted,
             createdAt: new Date().toISOString(),
@@ -3059,12 +2983,11 @@ async function planAssignmentFromSourceInternal(
         });
         console.log(` 🎮 [assignment-planner] [semantic-correction-v2] [received] id=${second.message.id}`);
         correctedDraft = validateAssignmentPlannerRelationships(
-          secondCanvasOnly ? parseCanvasCorrection(priorCorrected,second.message,secondRepairBackground) : parseAssignmentPlannerToolUseResponse(second.message),
+          parseAssignmentPlannerToolUseResponse(second.message),
           new Set(assignmentPlannerAllowedEvidenceIds(packet)),
           true,
           new Set(packet.capturedHomework.words.map(word => word.trim().toLocaleLowerCase("en-US"))),
         );
-        if(secondCanvasOnly)assertAssignmentPlannerCanvasCorrection(priorCorrected,correctedDraft,secondRepairBackground);
         correctedAt = second.createdAt;
         correctionUsage = combinePlannerUsage(correctionUsage, usageFromAnthropic(second.message));
         correctedOutput = hydrateAssignmentPlannerOutputFromDraft(correctedDraft, packet, correctedAt);
@@ -3075,7 +2998,6 @@ async function planAssignmentFromSourceInternal(
           requireCatalogBinding: true,
         }).filter(issue => issue.severity === "error");
       }
-      remainingIssues.push(...await plannerCanvasIssues(correctedOutput,opts));
       if (remainingIssues.length) throw new Error(`assignment_planner_validation_failed:${remainingIssues.map(issue => issue.code).join(",")}: ${remainingIssues.map(issue => issue.message).join("; ")}`);
       console.log(" 🎮 [assignment-planner] [semantic-correction] [validated]");
       return { output: correctedOutput, receivedAt: correctedAt,
