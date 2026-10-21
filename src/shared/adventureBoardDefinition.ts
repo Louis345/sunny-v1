@@ -1,7 +1,8 @@
 import { z } from 'zod';
+import {layoutJourney,DEFAULT_THEME_PRESET,type PortalPlacement} from './boardLayout';
 
 const id = z.string().min(1).regex(/^\S(?:[\s\S]*\S)?$/, 'Leading/trailing whitespace is not an authored identity or label.');
-const point = z.object({ x: z.number().min(0).max(1), y: z.number().min(0).max(1) }).strict();
+const point = z.object({ x: z.number(), y: z.number() }).strict();
 const geometry = z.object({ landscape: z.array(point).max(8), portrait: z.array(point).max(8) }).strict();
 const palette = z.object({ path:id, completed:id, available:id, locked:id, current:id, preview:id, text:id, panel:id }).strict();
 /** The same schema describes the authoring tool and validates its immutable output. */
@@ -12,7 +13,7 @@ export const adventureBoardDefinitionSchema = z.object({
     icon:id.optional(), thumbnailUrl:id.optional(),
     position:z.object({ landscape:point, portrait:point }).strict(),
   }).strict()).min(1).max(128),
-  paths:z.array(z.object({ id, portalIds:z.array(id).min(1).max(128).describe("Ordered portals. An option path contains only its branch segment after the choice: omit already-visited start/choice portals and shared closing portals resumed from the root.") }).strict()).min(1).max(32),
+  paths:z.array(z.object({ id, portalIds:z.array(id).max(128).describe("Ordered portals. An option path contains only its branch segment after the choice: omit already-visited start/choice portals and shared closing portals resumed from the root.") }).strict()).min(1).max(32),
   choices:z.array(z.object({ id, portalId:id, purpose:id, options:z.array(z.object({ id, label:id, pathId:id, hypothesis:id }).strict()).min(2).max(8) }).strict()).max(12),
   edges:z.array(z.object({ id, from:id, to:id, style:z.enum(['solid','dashed','glow']).optional(), controlPoints:geometry.optional() }).strict()).max(256),
   theme:z.object({ background:z.object({type:z.enum(['image','gradient','solid']),value:id}).strict(), palette }).strict(),
@@ -92,40 +93,6 @@ export const adventureCompositionSchema = z.object({
 }).strict();
 export type AdventureJourneyDefinition=z.infer<typeof adventureJourneySchema>;
 export type AdventureBoardComposition=z.infer<typeof adventureCompositionSchema>;
-/** Geometry repair applies to the received candidate, never a replacement world. */
-export function adventureCompositionCorrectionTool(composition:AdventureBoardComposition,journey:Pick<AdventureJourneyDefinition,'edges'>,error:Error) {
-  let defects:string[];try{defects=JSON.parse(error.message.slice('board_canvas_invalid:'.length));}catch{throw new Error('composition_correction_scope_unavailable');}
-  if(!error.message.startsWith('board_canvas_invalid:')||!Array.isArray(defects))throw new Error('composition_correction_scope_unavailable');
-  const fields:string[]=[];
-  for(const orientation of ['landscape','portrait'] as const){
-    const failures=defects.filter(defect=>typeof defect==='string'&&(orientation==='portrait'?defect.startsWith('768x1024:'):defect.startsWith('1280x720:')||defect.startsWith('1470x956:')));
-    const ids=new Set<string>(),known=[...composition.portals].sort((a,b)=>b.id.length-a.id.length);
-    for(const failure of failures){
-      const detail=failure.slice(failure.indexOf(':')+1),first=known.find(portal=>detail.startsWith(`${portal.id}:`));
-      if(!first)continue;const kind=detail.slice(first.id.length+1);
-      if(kind.startsWith('overlaps:')){const target=kind.slice('overlaps:'.length),other=known.find(portal=>target===portal.id||target.startsWith(`${portal.id}:`));ids.add(first.id);if(other)ids.add(other.id);}
-      else if(kind==='clipped_or_control_rail_overlap')ids.add(first.id);
-    }
-    composition.portals.forEach((portal,index)=>{if(ids.has(portal.id))fields.push(`/portals/${index}/position/${orientation}`);});
-    composition.edges.forEach((edge,index)=>{const semantic=journey.edges.find(row=>row.id===edge.id);if(edge.controlPoints&&semantic&&(ids.has(semantic.from)||ids.has(semantic.to)))fields.push(`/edges/${index}/controlPoints/${orientation}`);});
-  }
-  if(!fields.length)throw new Error('composition_correction_scope_unavailable');
-  return {name:'repair_board_geometry',description:'Patch only diagnosed geometry on the supplied candidate. Preserve all other fields.',input_schema:{type:'object',additionalProperties:false,properties:{patches:{type:'array',minItems:1,maxItems:fields.length,items:{type:'object',additionalProperties:false,properties:{path:{type:'string',enum:fields},value:{anyOf:[z.toJSONSchema(point),z.toJSONSchema(z.array(point).max(8))]}},required:['path','value']}}},required:['patches']}};
-}
-export function applyAdventureCompositionCorrection(composition:AdventureBoardComposition,journey:Pick<AdventureJourneyDefinition,'edges'>,reply:unknown,error:Error):AdventureBoardComposition {
-  const tool=adventureCompositionCorrectionTool(composition,journey,error),allowed=new Set(tool.input_schema.properties.patches.items.properties.path.enum);
-  const raw=reply as {patches?:Array<{path:string;value:unknown}>};
-  if(!raw||typeof raw!=='object'||Object.keys(raw).some(key=>key!=='patches')||!Array.isArray(raw.patches)||!raw.patches.length||raw.patches.length>allowed.size)throw new Error('composition_correction_changed_protected_fields');
-  const result=structuredClone(composition),seen=new Set<string>();
-  for(const patch of raw.patches){
-    if(!patch||typeof patch!=='object'||Object.keys(patch).some(key=>!['path','value'].includes(key))||!allowed.has(patch.path)||seen.has(patch.path))throw new Error('composition_correction_changed_protected_fields');
-    seen.add(patch.path);const parts=patch.path.slice(1).split('/');
-    const value=parts[0]==='portals'?point.parse(patch.value):z.array(point).max(8).parse(patch.value);
-    let parent:unknown=result;for(const part of parts.slice(0,-1))parent=(parent as Record<string,unknown>)[part];
-    (parent as Record<string,unknown>)[parts.at(-1)!]=value;
-  }
-  return adventureCompositionSchema.parse(result);
-}
 export function journeyFromBoardDefinition(board:AdventureBoardDefinition):AdventureJourneyDefinition {
   const {theme:_theme,portals,edges,pattern:_pattern,...journey}=board;
   return adventureJourneySchema.parse({...journey,portals:portals.map(({position:_position,icon:_icon,thumbnailUrl:_thumbnail,...portal})=>portal),edges:edges.map(({style:_style,controlPoints:_points,...edge})=>edge)});
@@ -184,9 +151,15 @@ export function journeyExecutions(definition:AdventureJourneyDefinition):Journey
   return results;
 }
 
+/** Drawing and bookkeeping never veto the Planner: they are reported, and paths stay authoritative. */
+const BOOKKEEPING_ISSUES = new Set(['path_edge_missing','edge_not_traversable','edge_endpoint_missing','portal_unreachable','path_unreachable','single_path_reason_missing','activity_portal_missing','path_endpoints_invalid']);
+
+/** Returns only truth problems that would misbind, repeat or break a measurement. */
 export function validateBoardDefinition(definition:AdventureJourneyDefinition, activityNodeIds:readonly string[]):BoardDefinitionIssue[] {
   const issues:BoardDefinitionIssue[] = [];
-  const add = (code:string,id:string,message:string) => issues.push({code,id,message});
+  const add = (code:string,id:string,message:string) => BOOKKEEPING_ISSUES.has(code)
+    ? console.log(` 🎮 [board] [bookkeeping] [${code}] ${id}: ${message}`)
+    : issues.push({code,id,message});
   for (const [kind, values] of [['portal',definition.portals],['path',definition.paths],['choice',definition.choices],['edge',definition.edges]] as const) {
     const seen = new Set<string>();
     for (const value of values) { if (seen.has(value.id)) add('duplicate_id',value.id,`Duplicate ${kind} identity.`); seen.add(value.id); }
@@ -323,8 +296,112 @@ export function requireBoardDefinition(value: unknown, activityIds: readonly str
   if (issues.length) throw new Error(`board_definition_invalid:${JSON.stringify(issues)}`);
   return definition;
 }
-export const BOARD_DEFINITION_TOOL_SCHEMA = z.toJSONSchema(authoredBoardDefinitionSchema, {io:'input'});
-export const BOARD_CANVAS_AUTHORING_CONSTRAINTS = `At 1280x720 its safe composition area is 980x400 pixels; at 768x1024 it is 608x714. Portal controls are 116 pixels wide. Their height depends on wrapped labels and status text; it can exceed 186 pixels. Coordinates scale within this safe area; reserve separation for the full labeled control.`;
+
+/** Successors execute the authored outline, not a second topology verdict.
+ * Paths already declare the order; edges and portal bindings are mechanical bookkeeping.
+ * In an option, the root's shared stops resume once, after that option's segment.
+ * This reader never changes an existing published board or chooses an activity/order.
+ */
+export function readSuccessorBoardDefinition(value:unknown,activities:ReadonlyArray<{nodeId:string;title:string}>):AdventureBoardDefinition {
+  if(!value)throw new Error('board_definition_missing');
+  // Read educational identity/order separately from the drawing. A missing drawing is not
+  // a missing plan; finite artist coordinates are retained even outside the nominal canvas.
+  const finitePoint=z.object({x:z.number(),y:z.number()});
+  const placements=new Map<string,Partial<PortalPlacement>>();
+  const raw=adventureBoardDefinitionSchema.extend({
+    portals:z.array(adventureBoardDefinitionSchema.shape.portals.element.extend({position:z.unknown().optional()})).min(1).max(128),
+    theme:z.unknown().optional(),edges:z.array(z.unknown()).max(256).default([]),
+  }).parse(value);
+  const added=new Set<string>();
+  const theme=adventureBoardDefinitionSchema.shape.theme.safeParse(raw.theme);
+  if(!theme.success)console.log(' 🎮 [board] [theme] [fallback] reason=unreadable-presentation');
+  const board:AdventureBoardDefinition={...raw,theme:theme.success?theme.data:{background:DEFAULT_THEME_PRESET.background,palette:DEFAULT_THEME_PRESET.palette},
+    portals:raw.portals.map(portal=>{
+      const views=portal.position as Partial<PortalPlacement>|null|undefined;
+      // Near-misses are kept and reported; an impossible value (e.g. pixels) gets a playable fallback.
+      const plausible=(view:unknown)=>{const read=finitePoint.safeParse(view);return read.success&&[read.data.x,read.data.y].every(value=>value>=-.5&&value<=1.5)?read:{success:false as const};};
+      const landscape=plausible(views?.landscape),portrait=plausible(views?.portrait);
+      for(const view of [landscape,portrait])if(view.success&&[view.data.x,view.data.y].some(value=>value<0||value>1))console.log(` 🎮 [board] [portal] [off-canvas] portal=${portal.id}`);
+      const position={...(landscape.success?{landscape:landscape.data}:{}),...(portrait.success?{portrait:portrait.data}:{})};
+      placements.set(portal.id,position);
+      if(!landscape.success || !portrait.success){added.add(portal.id);console.log(` 🎮 [board] [portal] [fallback-position] portal=${portal.id}`);}
+      return {...portal,position:{landscape:{x:.5,y:.5},portrait:{x:.5,y:.5},...position}};
+    }),edges:raw.edges.flatMap(edge=>{
+      const parsed=adventureBoardDefinitionSchema.shape.edges.element.extend({controlPoints:z.object({landscape:z.array(finitePoint),portrait:z.array(finitePoint)}).optional()}).safeParse(edge);
+      if(!parsed.success){console.log(' 🎮 [board] [connection] [drawing-unreadable] deriving-from-path');return [];}
+      return [parsed.data];
+    })};
+  const inventory=new Map(activities.map(node=>[node.nodeId,node]));
+  for(const rows of [board.portals,board.paths,board.choices])if(new Set(rows.map(row=>row.id)).size!==rows.length)throw new Error('successor_journey_unreadable:ambiguous_identity');
+  const portals=new Map(board.portals.map(portal=>[portal.id,portal]));
+  const root=board.paths.find(path=>path.id===board.rootPathId);
+  if(!root?.portalIds.length)throw new Error('successor_journey_unreadable:root_path_missing');
+  const shared=new Set(root.portalIds);
+  board.paths=board.paths.map(path=>({...path,portalIds:path.portalIds.filter(portalId=>{
+    if(path.id!==board.rootPathId&&shared.has(portalId)){
+      console.log(` 🎮 [board] [connection] [shared-stop-resumes-on-root] path=${path.id} portal=${portalId}`);return false;
+    }
+    const existing=portals.get(portalId);
+    if(existing){
+      if(existing.kind==='activity' || existing.activityNodeId){
+        const binding=existing.activityNodeId??(inventory.has(portalId)?portalId:undefined);
+        if(!binding || !inventory.has(binding))throw new Error(`successor_journey_unreadable:unresolved_activity:${portalId}`);
+        if(!existing.activityNodeId){existing.activityNodeId=binding;console.log(` 🎮 [board] [portal] [bound] portal=${portalId} activity=${binding}`);}
+      }
+      return true;
+    }
+    const activity=inventory.get(portalId);
+    if(!activity)throw new Error(`successor_journey_unreadable:unresolved_stop:${portalId}`);
+    portals.set(portalId,{id:portalId,label:activity.title,kind:'activity',activityNodeId:portalId,position:{landscape:{x:.5,y:.5},portrait:{x:.5,y:.5}}});
+    added.add(portalId);
+    console.log(` 🎮 [board] [portal] [bound] portal=${portalId} activity=${portalId}`);return true;
+  })}));
+  for(const path of board.paths)if(path.id!==board.rootPathId && !path.portalIds.length)console.log(` 🎮 [board] [path] [shared-continuation] path=${path.id}`);
+  const referenced=new Set(board.paths.flatMap(path=>path.portalIds));
+  for(const [id,portal] of portals)if(!referenced.has(id) && portal.activityNodeId && !inventory.has(portal.activityNodeId)){
+    portals.delete(id);
+    console.log(` 🎮 [board] [portal] [not-ready] portal=${id} reason=off-path-unknown-activity:${portal.activityNodeId}`);
+  }
+  // Derive connections from that one order, retaining the artist's existing presentation.
+  const journey=adventureJourneySchema.parse({...journeyFromBoardDefinition({...board,portals:[...portals.values()]}),edges:undefined});
+  const executions=journeyExecutions(journey);
+  for(const activity of activities)if(!executions.some(execution=>execution.activityNodeIds.includes(activity.nodeId)))console.log(` 🎮 [board] [portal] [unreachable] activity=${activity.nodeId}`);
+  for(const execution of executions){
+    if(new Set(execution.activityNodeIds).size!==execution.activityNodeIds.length)throw new Error('successor_journey_unreadable:repeated_measurement_identity');
+    if(portals.get(execution.portalIds[0])?.kind!=='start')console.log(` 🎮 [board] [path] [start-missing] route=${execution.id}`);
+    if(portals.get(execution.portalIds.at(-1)!)?.kind!=='endpoint')console.log(` 🎮 [board] [path] [endpoint-missing] route=${execution.id}`);
+  }
+  const fallback=layoutJourney(journey).positions;
+  return {...board,portals:[...portals.values()].map(portal=>added.has(portal.id)?{...portal,position:{...fallback[portal.id],...placements.get(portal.id)}}:portal),
+    edges:journey.edges.map(edge=>board.edges.find(authored=>authored.from===edge.from&&authored.to===edge.to)??edge)};
+}
+/** Read only the Creator's presentation; the frozen semantic journey remains authoritative. */
+export function assembleAuthoredBoardDefinition(journey:AdventureJourneyDefinition,value:unknown):AdventureBoardDefinition {
+ const drawing=value && typeof value==='object'?value as Record<string,unknown>:{};
+ const portals=Array.isArray(drawing.portals)?drawing.portals as Array<Record<string,unknown>>:[];
+ const edges=Array.isArray(drawing.edges)?drawing.edges as Array<Record<string,unknown>>:[];
+ return readSuccessorBoardDefinition({...journey,theme:drawing.theme,
+  portals:journey.portals.map(portal=>{const visual=portals.find(row=>row?.id===portal.id);return {...portal,position:visual?.position,...(typeof visual?.icon==='string'?{icon:visual.icon}:{}),...(typeof visual?.thumbnailUrl==='string'?{thumbnailUrl:visual.thumbnailUrl}:{})};}),
+  edges:journey.edges.map(edge=>{const visual=edges.find(row=>row?.id===edge.id);return {...edge,...(visual?.style?{style:visual.style}:{}),...(visual?.controlPoints?{controlPoints:visual.controlPoints}:{})};}),
+ },journey.portals.flatMap(portal=>portal.activityNodeId?[{nodeId:portal.activityNodeId,title:portal.label}]:[]));
+}
+
+/** Tool schemas tell the author positions are fractions of the safe area; stored boards stay tolerant. */
+function boundCoordinates<T>(schema:T):T {
+  const walk=(node:any):void=>{
+    if(!node||typeof node!=='object')return;
+    if(node.properties?.x?.type==='number'&&node.properties?.y?.type==='number'){
+      for(const axis of ['x','y'])Object.assign(node.properties[axis],{minimum:0,maximum:1});
+      node.description='Fraction of the safe composition area, from 0 to 1 (not pixels).';
+    }
+    for(const value of Object.values(node))walk(value);
+  };
+  walk(schema);
+  return schema;
+}
+export const BOARD_DEFINITION_TOOL_SCHEMA = boundCoordinates(z.toJSONSchema(authoredBoardDefinitionSchema, {io:'input'}));
+export const COMPOSITION_TOOL_SCHEMA = boundCoordinates(z.toJSONSchema(adventureCompositionSchema, {io:'input'}));
+export const BOARD_CANVAS_AUTHORING_CONSTRAINTS = `At 1280x720 its safe composition area is 980x400 pixels; at 768x1024 it is 608x714. Portal controls are 116 pixels wide. Their height depends on wrapped labels and status text; it can exceed 186 pixels. Positions are fractions from 0 to 1 of this safe area, not pixels; reserve separation for the full labeled control.`;
 
 export const BOARD_AUTHORING_INSTRUCTION = `Author boardDefinition as the immutable journey. Bind activity portals to canonical inventory IDs. An endpoint may bind the final activity; an unbound endpoint marks completion after the preceding activities. Start and choice portals cannot bind activities. Portal IDs are presentation identities: the same activity may appear on alternative paths with distinct portal IDs, and those alternatives may order shared activities differently. The root path is the shared sequence; each choice inserts the selected option path then resumes its parent's remaining sequence. Declare every connection, all labels, positions and optional edge control points for both landscape and portrait. Use the available canvas thoughtfully with readable spacing and coherent direction. Sunny's visual brief: an inviting illustrated adventure world, vivid portals, animated dashed or glow paths, a readable left-to-right journey and separately composed portrait. Available Grok artwork: /generated/adventure-board-demo/silent-letter-world.jpeg; use this image or other available illustrated artwork, not a plain gradient. Choose readable text. After independent evaluation, on Teaching boards only, use the available catalog for varied practice addressing her gaps; activity count remains your decision. For that Teaching journey, consider learn first versus play first through shared activities, converging on the check. Background values must be executable image URLs or CSS, not symbolic names. ${BOARD_CANVAS_AUTHORING_CONSTRAINTS} Give a meaningful choice when academically valid alternatives exist; otherwise state singlePathReason. Code must not invent a route or change your composition. Do not declare readiness, completion or mastery. The Experience Creator implements activities and artwork without changing this journey.`;
 

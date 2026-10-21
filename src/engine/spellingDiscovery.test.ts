@@ -135,8 +135,14 @@ describe("canonical spelling Discovery evidence", () => {
     const {rootDir,items,cycle}=await fixture();
     const plan=buildSpellingDiscoveryPlan({cycle,companion:{id:"elli",name:"Elli"}});
     fs.rmSync(path.join(rootDir,"src/context/lab-child/homework/cycles/hw-spelling.json"));
+    plan.boardDefinition!.theme.background={type:'image',value:'/generated/missing-lab.png'};
+    plan.boardDefinition!.portals[1].position=structuredClone(plan.boardDefinition!.portals[0].position);
+    const authored=structuredClone(plan.boardDefinition);
     await publishDiscoveryExperience({rootDir,childId:cycle.childId,homeworkId:cycle.homeworkId,spellingItems:items,assignment:cycle.assignment,activeSessionPlan:plan});
-    expect(getLearningCycle(cycle.childId,cycle.homeworkId,{rootDir})!.boards![0].definition).toEqual(cycle.boards![0].definition);
+    const published=getLearningCycle(cycle.childId,cycle.homeworkId,{rootDir})!;
+    expect(published.boards![0].definition).toEqual(authored);
+    expect(published.boards![0].publishedAt).not.toBeNull();
+    fs.rmSync(rootDir,{recursive:true,force:true});
   });
 
   it("publishes native Discovery through the same assignment projection and preserves other domains", async () => {
