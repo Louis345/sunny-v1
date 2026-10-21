@@ -1,6 +1,6 @@
 # Sunny Learning Feedback Loop
 
-Contract version: 43
+Contract version: 44
 
 This document is the **sole normative** authority for how Sunny forms, tests, and revises learning claims. Product changes that alter this loop must update this contract version before implementation. Other documents may describe infrastructure or history, but they must link here instead of creating another learning doctrine.
 
@@ -96,6 +96,8 @@ Completing a board's evidence batch leads to at most one Planner decision and at
 Encounter variability belongs to the Planner, not to code. Code never draws randomness to select an educational step. Reproducibility comes from the committed decision and from raw provider checkpoints saved before validation: a restart from the same frozen snapshot reuses that decision or checkpoint, makes no new provider call, and prepares the same successor. Rewards, engagement, play frequency, and randomness cannot authorize Quest or Boss. Presentation variety (theme, skin, narrative) remains the Experience Creator's.
 
 A checkpointed Planner response that fails validation, or a provider call whose outcome is uncertain, blocks the cycle visibly for a person; it is never replayed or re-bought automatically. A successor node that fails to build is marked as needing attention and the successor stays unpublished; no automatic rebuild follows a restart.
+
+A person may explicitly authorize one replacement attempt for a received primary next-plan response cut off by `max_tokens`. Authorization names the current blocking decision and records a reason. It preserves the closed evidence batch, prior receipt, predictions, observations and completed board; it creates a separate, durable attempt identity before any new purchase. Restart may continue that authorized attempt, but cannot authorize another. At most one decision and successor may be committed for the batch. This recovery does not apply to correction-stage truncation, refusals, uncertain provider outcomes or other validation failures; those remain blocked for separate diagnosis.
 
 Cycles written before contract 21 lack board instances. They remain readable as one synthesized legacy instance with no Planner decision attribution; they are never rewritten to claim one. Work already in flight on a legacy cycle finishes through the legacy path, re-ingestion never deletes its existing Quest or Boss evidence, and restarts never start a Planner call for it. Its first new Planner decision records the legacy instance and continues with successor boards.
 

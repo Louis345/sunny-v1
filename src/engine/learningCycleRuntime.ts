@@ -2,7 +2,9 @@ import {isDeepStrictEqual} from "node:util";
 import {verifyAuthoredBoardCanvas} from "./adventureBoardCanvas";
 import {requireBoardDefinition, BOARD_DEFINITION_TOOL_SCHEMA, BOARD_AUTHORING_INSTRUCTION} from "../shared/adventureBoardDefinition";
 import { canonicalJourneyLaunchable, isSpellingPracticeContinuation } from './learningCycleRepository';
-import {requestPlannerMessage, readPlannerToolReceipt} from "./plannerTransport";
+import {requestPlannerMessage, readPlannerToolReceipt, plannerTransportPolicy} from "./plannerTransport";
+import fs from "node:fs";
+import {randomUUID} from "node:crypto";
 import { MATH_ITEMS_SCHEMA, parseDirectItem, type DirectItem } from "./directMathExperience";
 import Anthropic from "@anthropic-ai/sdk";
 import path from "path";
@@ -32,6 +34,7 @@ import {
   type SuccessorProgram,
 } from "./learningCycleRepository";
 import { areDistinctWordsPronunciationEquivalent } from "../shared/karaokeMatchWord";
+import {currentBoardInstance} from "./learningBoardInstances";
 
 export type CanonicalCompletionResult = {
   /** Server-validated launch whose per-answer records already exist. */
@@ -537,6 +540,60 @@ function progressionEvidence(cycle:LearningCycleRecordV2) {
   return {evidenceIds, decisionEvidenceIds:new Set([...evidenceIds,...cycle.observations.map(row=>row.observationId),...cycle.predictionEvaluations.map(row=>row.evaluationId)])};
 }
 
+function plannerCheckpoint(cycle: LearningCycleRecordV2, opts: LearningCycleRepositoryOptions) {
+  const entry = [...cycle.decisionHistory].reverse().find(row => row.toLifecycle === cycle.lifecycle && row.fromLifecycle !== cycle.lifecycle);
+  const batchId = entry?.decisionId ?? `${cycle.homeworkId}:r${cycle.revision}`;
+  const recordedRevision = Number(entry?.decisionId.match(/:r(\d+)$/)?.[1]);
+  const revision = Number.isSafeInteger(recordedRevision) ? recordedRevision : cycle.revision;
+  return {batchId, revision, stage:`progression-decision-r${revision}`, draftDir:path.join(resolveChildContextDir(cycle.childId, {rootDir:opts.rootDir}), "homework", "cycles", ".planner", cycle.homeworkId, batchId.replace(/[^a-zA-Z0-9_-]+/g,"_"))};
+}
+
+/** Freeze the purchased request, without changing the identity of old receipts. */
+function freezePlannerRequest<T extends Parameters<typeof requestPlannerMessage>[1]>(input: {draftDir:string; stage:string; request:T; legacyContext?:unknown}) {
+  const file=path.join(input.draftDir,`${input.stage}.request.json`);
+  const legacy=!fs.existsSync(file) && fs.existsSync(path.join(input.draftDir,'provider-receipts',`${input.stage}.stage.json`));
+  const timeout=Number(process.env.SUNNY_AI_TIMEOUT_MS??300000);
+  if(legacy) {
+    // The old primary used a small snapshot; its corrections hashed the full 6k request.
+    const request={...input.request,max_tokens:6000};
+    return {request,timeout,receiptContext:input.legacyContext??request,beforeRequest:undefined};
+  }
+  fs.mkdirSync(input.draftDir,{recursive:true});
+  if(!fs.existsSync(file)) {
+    const temporary=`${file}.${randomUUID()}.tmp`;
+    try {
+      fs.writeFileSync(temporary,JSON.stringify({request:input.request,snapshot:input.legacyContext??null,policy:plannerTransportPolicy(input.request.model,input.request.max_tokens,timeout)}));
+      try {fs.linkSync(temporary,file);} catch(error) {if((error as NodeJS.ErrnoException).code!=='EEXIST') throw error;}
+    } finally {if(fs.existsSync(temporary)) fs.unlinkSync(temporary);}
+  }
+  const frozen=JSON.parse(fs.readFileSync(file,'utf8'));
+  if(!frozen.request?.model || !('snapshot' in frozen) || !frozen.policy) throw Error('planner_frozen_request_invalid');
+  const request=frozen.request as T;
+  return {request,timeout:frozen.policy.timeout as number,receiptContext:frozen as unknown,beforeRequest:()=>{
+    if(!isDeepStrictEqual(plannerTransportPolicy(request.model,request.max_tokens,frozen.policy.timeout),frozen.policy)) {
+      // No request was sent: leave the existing rejected/absent receipt resumable.
+      throw Object.assign(Error('planner_frozen_transport_changed'),{status:409});
+    }
+  }};
+}
+
+/** Explicit operator action only. No purchase, deletion or evidence rewrite. */
+export function authorizeCanonicalPlannerRetry(input: {childId:string; homeworkId:string; blockedDecisionId:string; reason:string}, opts: LearningCycleRepositoryOptions = {}) {
+  const cycle = getLearningCycle(input.childId,input.homeworkId,opts);
+  const blocked = cycle && [...cycle.decisionHistory].reverse().find(row=>row.fromLifecycle!==row.toLifecycle);
+  if (!cycle || cycle.lifecycle!=="blocked" || blocked?.eventType!=="block" || blocked.decisionId!==input.blockedDecisionId
+    || blocked.reason!=="planner_decision_invalid:planner_response_max_tokens" || !input.reason.trim()) throw Error("planner_retry_not_eligible");
+  const checkpoint = plannerCheckpoint({...cycle,lifecycle:blocked.fromLifecycle,decisionHistory:cycle.decisionHistory.slice(0,cycle.decisionHistory.indexOf(blocked))},opts);
+  const receipts = path.join(checkpoint.draftDir,"provider-receipts");
+  const stage = JSON.parse(fs.readFileSync(path.join(receipts,`${checkpoint.stage}.stage.json`),"utf8"));
+  if (typeof stage.requestHash!=="string" || !/^[a-f0-9]{64}$/.test(stage.requestHash)) throw Error("planner_retry_receipt_invalid");
+  const receipt = JSON.parse(fs.readFileSync(path.join(receipts,`${stage.requestHash}.json`),"utf8"));
+  if (receipt.status!=="received" || receipt.response?.plannerMessage?.stop_reason!=="max_tokens") throw Error("planner_retry_receipt_not_truncated");
+  const authorized = transitionLearningCycle(input.childId,input.homeworkId,cycle.revision,{type:"planner_retry_authorized",blockedDecisionId:input.blockedDecisionId,reason:input.reason},opts);
+  console.log(` 🎮 [canonical-progression] [retry] [authorized] homework=${cycle.homeworkId} blocked_decision=${input.blockedDecisionId} attempt=${authorized.decisionHistory.at(-1)!.decisionId}`);
+  return authorized;
+}
+
 async function askPlanner(
   cycle: LearningCycleRecordV2,
   client?: Anthropic,
@@ -549,14 +606,56 @@ async function askPlanner(
   const catalog = chart.contentCatalog.items;
   const {decisionEvidenceIds} = progressionEvidence(cycle);
   const catalogCards = catalog.map(({contentId,title,homeworkId})=>({contentId,title,homeworkId}));
+  const isSynthetic = (id: string): boolean => /(^|[:_-])(synthetic|playwright|browser-acceptance|readiness)([:_-]|$)/i.test(id);
+  // Exclude dependent citations too: an ordinary-looking evaluation id can cite
+  // an observation whose source identifies it as simulated.
+  const excluded=new Set<string>();
+  const histories=Object.values(chart.learningHistory.constructs);
+  for(const history of histories) {
+    for(const row of history.observations) if([row.observationId,row.sourceId].some(isSynthetic)) {excluded.add(row.observationId);excluded.add(row.sourceId);}
+  }
+  const excludedReference=(id:string)=>isSynthetic(id)||excluded.has(id);
+  const dependencies=histories.flatMap(history=>[
+    ...history.predictions.map(row=>({id:row.predictionId,references:row.evidenceIds})),
+    ...history.evaluations.map(row=>({id:row.evaluationId,references:[row.predictionId,row.sourceId,...row.observationIds]})),
+    ...history.decisions.map(row=>({id:row.decisionId,references:[...row.evidenceIds,...(row.predictionEvaluationIds??[])]})),
+  ]);
+  // Each changing pass excludes at least one of these finite record identities.
+  for(let pass=0;pass<dependencies.length;pass++) {
+    let changed=false;
+    for(const row of dependencies) if(!excluded.has(row.id) && [row.id,...row.references].some(excludedReference)) {excluded.add(row.id);changed=true;}
+    if(!changed) break;
+  }
+  const factualDecision = (row: LearningCycleRecordV2['decisionHistory'][number]) =>
+    ![row.decisionId,...row.evidenceIds,...(row.predictionEvaluationIds??[])].some(excludedReference);
+  const constructIds = new Set([
+    ...cycle.academicPredictions.map(row=>row.constructId),
+    ...cycle.observations.flatMap(row=>row.constructLinks.map(link=>link.constructId)),
+  ]);
+  const priorBoard = currentBoardInstance(cycle);
   const childContext = {
     identity: chart.identity,
     demographics: chart.demographics,
+    learningHistory: {
+      constructs:Object.fromEntries(Object.entries(chart.learningHistory.constructs).filter(([id])=>constructIds.has(id) && !isSynthetic(id)).map(([id,history])=>[id,{
+        constructId:id,
+        predictions:history.predictions.filter(row=>!excludedReference(row.predictionId)),
+        observations:history.observations.filter(row=>!excludedReference(row.observationId)),
+        evaluations:history.evaluations.filter(row=>!excludedReference(row.evaluationId)),
+        decisions:history.decisions.filter(factualDecision),
+      }])),
+      recentDecisions:chart.learningHistory.recentDecisions.filter(factualDecision),
+      pendingInterpretation:chart.learningHistory.pendingInterpretation.filter(row=>![row.sourceId,...row.evaluationIds].some(excludedReference)),
+    },
+    priorPlan: {
+      // Earlier author choices, not instructions or proof about the child.
+      boardId:priorBoard.boardId,
+      plannerDecisionId:priorBoard.plannerDecisionId,
+      instruments:cycle.nodes.filter(node=>priorBoard.nodeIds.includes(node.nodeId)).map(({nodeId,academicTarget,mechanic,evidenceContract})=>({nodeId,academicTarget,mechanic,evidenceContract})),
+    },
     engagementEvidence: engagementTheoryEvidenceContext(chart.engagementTheory),
     ...(cycle.domain === 'spelling' ? {contentCatalog:catalogCards,contentDecisionEvidenceIds:[...decisionEvidenceIds]} : {}),
   };
-  const isSynthetic = (id: string): boolean =>
-    /(^|[:_-])(synthetic|playwright|browser-acceptance|readiness)([:_-]|$)/i.test(id);
   const factualEvidence = {
     academic: cycle.evidence.academic.filter((item) => !isSynthetic(item.evidenceId)),
     engagement: cycle.evidence.engagement.filter((item) => !isSynthetic(item.evidenceId)),
@@ -610,21 +709,17 @@ async function askPlanner(
   // frozen snapshot replays it and makes no new provider call (contract 21).
   // One checkpoint per closed evidence batch: keyed by the transition that closed it, so practice
   // replays and recorded prediction evaluations cannot turn a restart into a new paid call.
-  const batchEntry = [...cycle.decisionHistory].reverse().find((entry) => entry.toLifecycle === cycle.lifecycle && entry.fromLifecycle !== cycle.lifecycle);
-  const batchId = batchEntry?.decisionId ?? `${cycle.homeworkId}:r${cycle.revision}`;
-  const recordedRevision = Number(batchEntry?.decisionId.match(/:r(\d+)$/)?.[1]);
-  const checkpointRevision = Number.isSafeInteger(recordedRevision) ? recordedRevision : cycle.revision;
-  const draftDir = path.join(resolveChildContextDir(cycle.childId, { rootDir: opts.rootDir }), "homework", "cycles", ".planner", cycle.homeworkId, batchId.replace(/[^a-zA-Z0-9_-]+/g, "_"));
+  const {batchId, revision:checkpointRevision, draftDir, stage:decisionStage} = plannerCheckpoint(cycle,opts);
   const snapshot = {
     childId: cycle.childId, homeworkId: cycle.homeworkId, batchId, lifecycle: cycle.lifecycle,
     cycleRevision: checkpointRevision,
     observationIds: cycle.observations.filter((observation) => observation.provenance !== "practice").map((observation) => observation.observationId),
     model: plannerModel,
   };
-  const request = {
+  let request = {
     model: plannerModel,
-    // The prescription now carries five additional design fields; 2600 truncated them.
-    max_tokens: 6000,
+    // A complete successor program and board exceeded the former 6,000-token allowance.
+    max_tokens: 32000,
     messages: [{ role: "user", content: `You are Sunny's AI Planner. Compare the preregistered academic theory and predictions with the factual scorecard. Quest requires a captured, correct, unseen independent checkpoint. Practice cannot satisfy that boundary. For math, author nextItems with stable unique ids, prompts, lineage, and frozen response contracts. Include fresh checkpoint evidence when further progression is intended. Explanation responses remain unscored and cannot independently unlock progression. Never reuse exposed item ids or prompts. Quest tests unseen transfer; Boss tests unseen synthesis; Boss must end awaiting calibration. Call ${toolName} exactly once with one concise decision. Unless progressionAction is await_calibration, author the one complete next board in nextInstruments: you decide how many activities it has. ${BOARD_AUTHORING_INSTRUCTION} The current board is never changed; your program becomes a new board for a later session. Mark exactly one instrument with encounter "quest" only when progressionAction is generate_quest, or "boss" only when it is generate_boss; never add an encounter otherwise.
 
 You are the artist here, not a compliance function. Sunny holds the academic truth and the evidence limits; everything else is yours. Stakes, failure, consequence, escalation, pacing, tone, and payoff are your decisions to make and to defend, and you may change them run to run. You have full freedom to choose a game, simulation, manipulative, story, conversation, demonstration, or another fitting form.
@@ -694,7 +789,11 @@ ${JSON.stringify({ lifecycle: cycle.lifecycle, assignment: cycle.assignment, the
     }],
     tool_choice: { type: "tool", name: toolName },
   } satisfies Parameters<typeof requestPlannerMessage>[1];
-  const rawDecision = await runMathProviderStage({draftDir,stage:`progression-decision-r${checkpointRevision}`,model:plannerModel,request:snapshot,execute:async()=>({plannerMessage:await requestPlannerMessage(anthropic,request,{timeout:Number(process.env.SUNNY_AI_TIMEOUT_MS??120000)})})});
+  // Freeze new requests before purchase. Legacy stage hashes remain readable;
+  // a received old answer is never silently replaced by a changed prompt/budget.
+  const frozen=freezePlannerRequest({draftDir,stage:decisionStage,request,legacyContext:snapshot});
+  request=frozen.request;
+  const rawDecision = await runMathProviderStage({draftDir,stage:decisionStage,model:request.model,request:frozen.receiptContext,beforeRequest:frozen.beforeRequest,execute:async()=>({plannerMessage:await requestPlannerMessage(anthropic,request,{timeout:frozen.timeout})})});
   console.log(` 🎮 [canonical-progression] [planner-response] [checkpointed] homework=${cycle.homeworkId} revision=${cycle.revision}`);
   const received = readPlannerToolReceipt(rawDecision, toolName);
   let referenceErrors:Array<{field:'predictionEvaluationIds'|'contentDecisions';error:Error}> = [];
@@ -734,7 +833,9 @@ ${JSON.stringify({ lifecycle: cycle.lifecycle, assignment: cycle.assignment, the
         : `Correct only boardDefinition in the received decision to fix this executable journey defect. Preserve every other field, instrument, academic claim, evidence reference and progression action unchanged. Return the complete decision using the same tool. There is one correction attempt.\nDEFECT: ${error.message}\nRECEIVED DECISION: ${JSON.stringify(received)}`;
     const correctionRequest = {...request,tools,messages:[{role:'user' as const,content}]};
     const stage = citationOnly ? 'citation-patch' : references ? 'reference-patch' : 'journey-correction';
-    const correction = await runMathProviderStage({draftDir,stage:`progression-${stage}-r${checkpointRevision}`,model:plannerModel,request:correctionRequest,execute:async()=>({plannerMessage:await requestPlannerMessage(anthropic,correctionRequest,{timeout:Number(process.env.SUNNY_AI_TIMEOUT_MS??120000)})})});
+    const correctionStage=`progression-${stage}-r${checkpointRevision}`;
+    const savedCorrection=freezePlannerRequest({draftDir,stage:correctionStage,request:correctionRequest});
+    const correction = await runMathProviderStage({draftDir,stage:correctionStage,model:savedCorrection.request.model,request:savedCorrection.receiptContext,beforeRequest:savedCorrection.beforeRequest,execute:async()=>({plannerMessage:await requestPlannerMessage(anthropic,savedCorrection.request,{timeout:savedCorrection.timeout})})});
     const reply = readPlannerToolReceipt(correction,toolName);
     if(references && (!reply || typeof reply !== 'object' || Array.isArray(reply) || Object.keys(reply).some(key=>!editable.includes(key))))throw new Error('planner_correction_changed_protected_decision');
     const patch = reply as Record<string,unknown>;

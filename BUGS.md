@@ -1,3 +1,7 @@
+## Concurrent successor resume collision (2026-10-20, open)
+
+Source review of the progression handoff found a pre-existing concurrency gap: two simultaneous `advanceCanonicalCycleFromEvidence` calls can share one in-flight receipt; the second reports an uncertain outcome and can block the first decision from committing. Ordinary duplicate completion is filtered by the HTTP route, and normal startup invokes recovery once. Sequential restart tests do not prove concurrent startup behavior. Preserve the receipt and diagnose this separately; this handoff PR does not add a scheduler or claim concurrent-startup recovery.
+
 ## Hear word and Elli speech lost synchronization (2026-10-10)
 
 The human heard incoherent speech after tapping Hear word. The canonical Saori Long e session recorded repeated 15-second playback acknowledgment timeouts, narration taps suppressed while an old word retained ownership, and an Elli `sessionLog` grade of “either” correct despite the activity saving “ether” incorrect. The human caught the audible/semantic mismatch; healthy provider stream completions were not proof of browser playback or consistent grading. The lab mocked TTS, exercised callbacks in order, and did not combine canonical Discovery with legacy conversation grading.

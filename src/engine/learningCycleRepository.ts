@@ -616,6 +616,7 @@ export type LearningCycleEvent =
         successor?: SuccessorProgram;
       };
     }
+  | { type: "planner_retry_authorized"; blockedDecisionId: string; reason: string }
   | { type: "block"; reason: string };
 
 export type LearningCycleRepositoryOptions = {
@@ -1701,6 +1702,15 @@ export function transitionLearningCycle(
     if (!(next.boards && boardOwningNode(next, node.nodeId)?.publishedAt === null)) next.lifecycle = "board_ready";
     else if (event.notReady) publishPreparedBoardIfComplete(next, at);
     reason = event.reason;
+  } else if (event.type === "planner_retry_authorized") {
+    const blocked = [...current.decisionHistory].reverse().find(row => row.fromLifecycle !== row.toLifecycle);
+    if (current.lifecycle !== "blocked" || blocked?.eventType !== "block"
+      || blocked.decisionId !== event.blockedDecisionId
+      || blocked.reason !== "planner_decision_invalid:planner_response_max_tokens"
+      || !["baseline_evaluating", "quest_evaluating", "boss_evaluating"].includes(blocked.fromLifecycle)
+      || !event.reason.trim()) throw new Error("planner_retry_not_eligible");
+    next.lifecycle = blocked.fromLifecycle;
+    reason = `Replacement authorized for ${event.blockedDecisionId}: ${event.reason.trim()}`;
   } else {
     next.lifecycle = "blocked";
     reason = event.reason;
