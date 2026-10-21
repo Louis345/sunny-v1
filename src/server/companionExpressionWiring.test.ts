@@ -80,6 +80,7 @@ describe("Elli's inline expressions", () => {
     const system = stream.mock.calls.at(-1)?.[0].messages[0].content as string;
     expect(system).toContain("Live persona");
     expect(system).toContain("[smile]");
+    expect(system).toMatch(/one or two short sentences/i);
   });
 });
 
