@@ -54,6 +54,12 @@ describe("planPrecommitTests", () => {
     });
   });
 
+  it("runs the full root suite for staged prompts or data under src/ that tests read from disk", () => {
+    // Review catch: .md prompts and .json fixtures were skipped entirely.
+    expect(planPrecommitTests(["src/agents/prompts/elli.md"]).root.mode).toBe("full");
+    expect(planPrecommitTests(["src/context/ila/homework/current.json"]).root.mode).toBe("full");
+  });
+
   it("does not run the full suite for a package.json script-only edit", () => {
     expect(planPrecommitTests(["package.json"]).root.mode).toBe("skip");
   });

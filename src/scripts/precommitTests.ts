@@ -48,6 +48,9 @@ export function planPrecommitTests(
       rootFull = true;
     } else if (file.startsWith("src/") && SOURCE.test(file)) {
       rootFiles.push(file);
+    } else if (file.startsWith("src/")) {
+      // Prompts (.md) and data (.json) are read from disk; the import graph can't see who uses them.
+      rootFull = true;
     }
   }
   const suite = (full: boolean, files: string[], always: string[] = []): SuitePlan =>
@@ -110,6 +113,7 @@ function main(): void {
   process.exit(rootStatus || webStatus);
 }
 
-if (process.argv[1] && path.resolve(process.argv[1]) === path.resolve(__filename)) {
+// Run when executed (tsx compiles this file as CommonJS); never silently skip on a path mismatch.
+if (require.main === module) {
   main();
 }
