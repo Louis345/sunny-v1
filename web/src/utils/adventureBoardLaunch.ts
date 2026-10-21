@@ -221,6 +221,7 @@ export function resolvePlannerBoardChoiceLaunchNode(
   if (!launchNode) return null;
   return {
     ...launchNode,
+    title: option.label,
     ...(option.activityId ? { activityId: option.activityId } : {}),
     ...(option.gameHtmlPath ? { gameHtmlPath: option.gameHtmlPath } : {}),
     ...(option.contentId ? { contentId: option.contentId } : {}),
@@ -229,5 +230,17 @@ export function resolvePlannerBoardChoiceLaunchNode(
     ...(option.engagementDimensions ? { engagementDimensions: option.engagementDimensions } : {}),
     ...(option.engagementHypothesis ? { engagementHypothesis: option.engagementHypothesis } : {}),
     ...(option.mechanic ? { mechanic: option.mechanic } : {}),
+    ...(option.companionPolicy ? { companionPolicy: option.companionPolicy } : {}),
+    companionContext: {
+      ...launchNode.companionContext,
+      activityTitle: option.label,
+      ...(option.description ? { currentChallenge: option.description } : {}),
+      availableActions: ["Try the capture", "Back to map"],
+    },
   };
+}
+
+/** Native reward gate: Spark Orb stays inside Mystery instead of becoming a required learning node. */
+export function isSparkOrbSurpriseLaunch(node: NodeConfig | null | undefined): boolean {
+  return node?.type === "mystery" && node.mechanic === "spark-orb-capture";
 }

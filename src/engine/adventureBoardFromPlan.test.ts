@@ -96,6 +96,40 @@ const reinaMay24Plan: ActiveSessionPlanBoardSnapshot = {
 };
 
 describe("buildAdventureBoardFromActiveSessionPlan", () => {
+  it("turns an evidence-gated surprise drop into one declinable Spark Orb invitation", () => {
+    const board = buildAdventureBoardFromActiveSessionPlan({
+      plan: {
+        ...reinaMay24Plan,
+        nodePlan: reinaMay24Plan.nodePlan.map((node) =>
+          node.id === "mystery_choice"
+            ? { ...node, choiceMode: "surprise_drop" }
+            : node),
+      },
+      boardId: "reina-surprise-drop",
+      theme,
+    });
+
+    const mysteryChoices = board.choiceSets?.find((set) => set.kind === "mystery");
+    expect(mysteryChoices).toMatchObject({
+      title: "A surprise appeared",
+      options: [{
+        id: "mystery_choice-spark-orb",
+        label: "Spark Orb Catcher",
+        description: "A rare creature is nearby. Enter the capture clearing?",
+        icon: "sparkles",
+        state: "available",
+        nodeId: "mystery_choice",
+        activityId: "spark-orb-charge",
+        tags: ["surprise", "capture", "reward"],
+        choiceSignal: {
+          algorithmFeed: "choicePolicy",
+          preferenceNotMastery: true,
+        },
+      }],
+    });
+    expect(mysteryChoices?.options).toHaveLength(1);
+  });
+
   it("ignores stale adventureBoard blobs and materializes from nodePlan", () => {
     const plannerBoard: AdventureBoardJson = {
       schemaVersion: 1,

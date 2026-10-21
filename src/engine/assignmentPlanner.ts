@@ -378,17 +378,17 @@ export const ASSIGNMENT_PLANNER_REFERENCE_DOCS: AssignmentPlannerReferenceDoc[] 
     path: "docs/spark-orb-learning-contract.md",
     configOwner: "src/engine/activityToolCatalog.ts",
     plannerUse:
-      "Use this when Spark Orb is available as an optional reward wrapper around real learning evidence.",
+      "Use this when Spark Orb is available as an optional Mystery surprise after real learning evidence.",
     appliesWhen: [
       "A child needs a short exciting reward bridge after valid domain work.",
-      "A domain activity can preserve target-level evidence while Spark Orb handles charge, launch, and reward feel.",
+      "Completed domain work has already produced the academic evidence before Spark Orb handles launch and reward feel.",
       "The planner is deciding whether to use or decline Spark Orb organically.",
     ],
     checklist: [
       "Spark Orb is not standalone mastery evidence.",
-      "The embedded spelling, reading, math, or history payload owns academic correctness.",
-      "Use rewardWrapper.activityId spark-orb-charge instead of a map node.",
-      "Use domain_payload_wrapper only on unlocked evidence-generating domain nodes.",
+      "The completed spelling, reading, math, or history activity owns academic correctness.",
+      "Use Mystery choiceMode surprise_drop; never place Spark Orb directly in nodePlan.",
+      "The child may decline the surprise and return to the map.",
       "Skip Spark Orb when the session needs a clean baseline, calm practice, or reduced arcade reward.",
     ],
   },
@@ -1229,6 +1229,7 @@ export function buildAssignmentPlanningPacket(args: {
       "Design two named learning routes when the catalog has enough launchable instruments; each route should feel like a real child choice and test a distinct route hypothesis, and each route must contain at least one nodePlan node exclusive to that route.",
       "Each learning route needs a child-specific rationale, target groups, nodeIds, and activities that measure the route hypothesis.",
       "Each activity must be chosen because its measured skills fit that declared purpose.",
+      "Spark Orb Catcher: Mystery surprise_drop after evidence; optional; preference evidence only, never mastery.",
       "Always include reviewQuestions with concise tutor-facing explanations for the activity choices and evidence checks.",
     ].join(" "),
     ...(args.priorPlannerOutput ? { priorPlannerOutput: args.priorPlannerOutput } : {}),
@@ -1422,7 +1423,7 @@ Output contract:
 - If one node mixes targets from multiple source groups, omit targetLane or split the node. Never claim targetLane "silent_letters" for a node containing high-frequency targets.
 - Every word-radar node must include wordRadarConfig from the activity catalog capability modes. recallMode allows only visible_read, partial_visual_recall, hidden_word_recall. Never emit audio_cued_letter_recall as recallMode; cite capability ids only in rationale. If you choose the catalog's audio_cued_letter_recall capability mode, emit recallMode partial_visual_recall with audio-cued config values. Use partial_visual_recall for new/weak spelling construction, hidden_word_recall only with prior recall evidence, and visible_read for recognition/fluency. Omit wordRadarConfig on non-word-radar nodes.
 - Include the adventure spine in activeSessionPlan.nodePlan: baseline measurement nodes first, then route nodes referenced by learningRoutes, then exactly one mystery node for child choice/bandit preference evidence after evidence-generating work, then a locked quest destination for generated transfer, then a locked boss destination for the mastery finale after quest evidence.
-- Use type/activityId "mystery", choiceMode "choice_lab", locked false, and targets from the relevant active homework targets.
+- Mystery uses type/activityId "mystery", locked false, and relevant targets. Use choiceMode "choice_lab", or "surprise_drop" for a declinable Spark Orb reward after evidence work. The reward is preference evidence, never mastery.
 - Quest and Boss are destinations, not playable baseline nodes. Use type/activityId "quest" and "boss", locked true, masteryUnlockState "preparing"; Quest should target one exact source group if the theory is about one group, otherwise omit targetLane. Boss may have empty targets until quest evidence exists. Never invent targetLane values such as "all_homework", "mixed", or "combined".
 - Include parent-review language that explains why every group was routed to its activity.
 - In planTheory or reviewQuestions, explain why the journey you chose fits this child today.

@@ -275,7 +275,10 @@ describe("SparkOrbLearningShell", () => {
     );
 
     const launchControl = screen.getByTestId("spark-orb-launch-control");
-    expect(launchControl).toHaveAttribute("aria-label", "Grab the orb to aim and launch");
+    expect(launchControl).toHaveAttribute(
+      "aria-label",
+      "Grab the orb to aim and launch. Keyboard: hold Space to charge, arrow keys to aim, release Space to launch.",
+    );
     expect(screen.queryByText("Flick up")).not.toBeInTheDocument();
     expect(screen.queryByText("Aim up, then release")).not.toBeInTheDocument();
     expect(screen.queryByText("Release in the spark zone")).not.toBeInTheDocument();
@@ -324,7 +327,7 @@ describe("SparkOrbLearningShell", () => {
       "data-launch-skill",
       "success",
     );
-    expect(screen.getByText("Clean launch")).toBeInTheDocument();
+    expect(screen.getByText("Perfect throw!")).toBeInTheDocument();
     expect(onEncounterEvent).toHaveBeenCalledWith(
       expect.objectContaining({
         type: "release_success",
@@ -447,7 +450,7 @@ describe("SparkOrbLearningShell", () => {
       "spent",
     );
     expect(screen.getByText("Answer more to recharge.")).toBeInTheDocument();
-    expect(screen.getByText("Charge 0 / 3")).toBeInTheDocument();
+    expect(screen.getByText("Charge 1 / 3")).toBeInTheDocument();
     expect(screen.getByLabelText("6 Sunny orbs left")).toBeInTheDocument();
     expect(onEncounterEvent).toHaveBeenCalledWith(
       expect.objectContaining({ type: "release_miss", result: "miss-early" }),
@@ -456,7 +459,7 @@ describe("SparkOrbLearningShell", () => {
       expect.objectContaining({ type: "orb_spent", orbCount: 6 }),
     );
     expect(onEncounterEvent).toHaveBeenCalledWith(
-      expect.objectContaining({ type: "recharge_needed", chargeCount: 0 }),
+      expect.objectContaining({ type: "recharge_needed", chargeCount: 1 }),
     );
   });
 
@@ -612,7 +615,7 @@ describe("SparkOrbLearningShell", () => {
     });
 
     expect(screen.getByRole("dialog", { name: "Lumipuff added to collection" })).toBeInTheDocument();
-    expect(screen.queryByText("Clean launch")).not.toBeInTheDocument();
+    expect(screen.queryByText("Perfect throw!")).not.toBeInTheDocument();
     expect(screen.queryByText("Charge 3 / 3")).not.toBeInTheDocument();
     expect(screen.queryByLabelText("Launch aim meter")).not.toBeInTheDocument();
     expect(screen.queryByText("It's glowing.")).not.toBeInTheDocument();
@@ -697,7 +700,7 @@ describe("SparkOrbLearningShell", () => {
       "free",
     );
     expect(screen.getByTestId("spark-orb")).toHaveAttribute("data-on-ground", "true");
-    expect(screen.queryByText("Clean launch")).not.toBeInTheDocument();
+    expect(screen.queryByText("Perfect throw!")).not.toBeInTheDocument();
     expect(screen.queryByText("Charge 3 / 3")).not.toBeInTheDocument();
     expect(onEncounterEvent).toHaveBeenCalledWith(
       expect.objectContaining({ type: "collection_reverse_complete", result: "success" }),

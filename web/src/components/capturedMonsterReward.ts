@@ -2,6 +2,7 @@ import type {
   CapturedMonsterConfig,
   CapturedMonsterLifeState,
 } from "./capturedMonsterCatalog";
+import type { SparkOrbCompletionSummary } from "./sparkOrbEvidence";
 
 export type CapturedCreatureRewardSource = "spark_orb_learning_shell";
 export type CapturedCreatureChartWriteMode = "storybook_only";
@@ -30,6 +31,12 @@ export interface CapturedCreatureInventoryRecord {
   capturedAt: string;
   chartWriteMode: CapturedCreatureChartWriteMode;
   origin: CapturedCreatureOrigin;
+  /** Bonus tier earned by throw quality (1-3 stars). Variable bonus, never variable loss. */
+  starTier?: number;
+  /** Rare sparkle variant (low-probability delight bonus). */
+  shiny?: boolean;
+  /** Captured after at least one breakout this encounter. */
+  comeback?: boolean;
 }
 
 export interface CapturedCreatureReward {
@@ -50,6 +57,9 @@ export interface BuildCapturedCreatureRewardInput {
   nickname?: string;
   mood?: CapturedMonsterLifeState;
   bond?: number;
+  starTier?: number;
+  shiny?: boolean;
+  comeback?: boolean;
   source: CapturedCreatureRewardSource;
 }
 
@@ -60,6 +70,8 @@ export interface OrbCaptureCompletedEvent {
   orbCount: number;
   hitDistance?: number;
   hitQuality?: CapturedCreatureHitQuality;
+  /** Law 14 completion summary aggregated by the learning shell. */
+  summary?: SparkOrbCompletionSummary;
   reward: CapturedCreatureReward;
 }
 
@@ -117,6 +129,9 @@ export function buildCapturedCreatureReward({
   nickname = creature.defaultNickname,
   mood = "curious",
   bond = 18,
+  starTier,
+  shiny,
+  comeback,
   source,
 }: BuildCapturedCreatureRewardInput): CapturedCreatureReward {
   const inventoryRecord: CapturedCreatureInventoryRecord = {
@@ -140,6 +155,9 @@ export function buildCapturedCreatureReward({
       domain,
       currentTarget,
     },
+    starTier,
+    shiny,
+    comeback,
   };
 
   return {
@@ -158,12 +176,14 @@ export function buildOrbCaptureCompletedEvent({
   orbCount,
   hitDistance,
   hitQuality,
+  summary,
 }: {
   reward: CapturedCreatureReward;
   chargeGoal: number;
   orbCount: number;
   hitDistance?: number;
   hitQuality?: CapturedCreatureHitQuality;
+  summary?: SparkOrbCompletionSummary;
 }): OrbCaptureCompletedEvent {
   return {
     type: "orb_capture_completed",
@@ -172,6 +192,7 @@ export function buildOrbCaptureCompletedEvent({
     orbCount,
     hitDistance,
     hitQuality,
+    summary,
     reward,
   };
 }

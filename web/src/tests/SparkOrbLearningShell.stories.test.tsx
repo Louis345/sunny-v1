@@ -53,7 +53,7 @@ describe("SparkOrbLearningShell stories", () => {
     expect(screen.getByText("Charge 3 / 3")).toBeInTheDocument();
     expect(screen.getByTestId("spark-orb-launch-control")).toHaveAttribute(
       "aria-label",
-      "Grab the orb to aim and launch",
+      "Grab the orb to aim and launch. Keyboard: hold Space to charge, arrow keys to aim, release Space to launch.",
     );
     expect(screen.queryByText("Flick up")).not.toBeInTheDocument();
     expect(screen.queryByText("Aim up, then release")).not.toBeInTheDocument();

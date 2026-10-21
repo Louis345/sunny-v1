@@ -25,6 +25,7 @@ import { buildNodeLaunchAction } from "../../../src/shared/homeworkNodeRouting";
 import type { NodeConfig } from "../../../src/shared/adventureTypes";
 import {
   buildPlannerBoardCompanionContext,
+  isSparkOrbSurpriseLaunch,
   resolvePlannerBoardChoiceLaunchNode,
   resolvePlannerBoardLaunchNode,
 } from "../utils/adventureBoardLaunch";
@@ -806,6 +807,62 @@ describe("AdventureBoardExperience", () => {
     });
   });
 
+  it("preserves the native Spark Orb surprise contract when resolving a mystery choice", () => {
+    const board: AdventureBoardJson = {
+      ...grokFullExperienceBoard,
+      nodes: [{
+        id: "mystery-node",
+        kind: "mystery",
+        activityId: "mystery",
+        label: "Mystery",
+        state: "available",
+        action: { type: "open-choice-set", payloadId: "mystery-surprise" },
+      }],
+      edges: [],
+      choiceSets: [{
+        id: "mystery-surprise",
+        kind: "mystery",
+        title: "A surprise appeared",
+        options: [{
+          id: "spark-orb",
+          label: "Spark Orb Catcher",
+          state: "available",
+          nodeId: "mystery-node",
+          activityId: "spark-orb-charge",
+          mechanic: "spark-orb-capture",
+          companionPolicy: "Companion observes and assists only when asked.",
+          engagementHypothesis: "Optional capture increases willing re-engagement.",
+        }],
+      }],
+    };
+    const packet: ChildExperiencePacket = {
+      ...packetForBoard(board),
+      activeSessionPlan: {
+        ...packetForBoard(board).activeSessionPlan!,
+        nodePlan: [{
+          id: "mystery-node",
+          type: "mystery",
+          activityId: "mystery",
+          targets: [],
+          difficulty: 2,
+          source: "chart_planner",
+        }],
+      },
+    };
+
+    const node = resolvePlannerBoardChoiceLaunchNode(packet, board.choiceSets![0]!.options[0]!);
+
+    expect(node).toMatchObject({
+      id: "mystery-node",
+      type: "mystery",
+      activityId: "spark-orb-charge",
+      mechanic: "spark-orb-capture",
+      companionPolicy: "Companion observes and assists only when asked.",
+      engagementHypothesis: "Optional capture increases willing re-engagement.",
+    });
+    expect(isSparkOrbSurpriseLaunch(node)).toBe(true);
+  });
+
   it("launches a generated route destination using only fields in the published packet", () => {
     const board: AdventureBoardJson = {
       ...grokFullExperienceBoard,
@@ -991,6 +1048,9 @@ describe("AdventureBoardExperience", () => {
     expect(source).toContain("resolvePlannerBoardLaunchNode");
     expect(source).toContain("resolvePlannerBoardChoiceLaunchNode");
     expect(source).toContain("setPlannerBoardLaunch");
+    expect(source).toContain("isSparkOrbSurpriseLaunch");
+    expect(source).toContain("<SparkOrbLearningShell");
+    expect(source).toContain("spark_orb_capture_complete");
     expect(source).not.toContain('console.log(" 🎮 [AdventureBoard] node_click"');
   });
 

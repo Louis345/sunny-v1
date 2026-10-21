@@ -1,10 +1,11 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import type { ReactElement, ReactNode } from "react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { CompanionConfig } from "../../../src/shared/companionTypes";
 import { COMPANION_MANIFEST } from "../companion/companions.generated";
 import {
   SparkOrbLearningShell,
+  useSparkOrbLearning,
   type OrbCompanionAnchorContext,
   type OrbLearningLastMoment,
   type SparkOrbLearningEncounterEvent,
@@ -290,6 +291,53 @@ const spellingQuestions: StoryQuestion[] = [
   },
 ];
 
+function StoryChoiceGrid({
+  question,
+  disabled,
+  onAnswer,
+}: {
+  question: StoryQuestion;
+  disabled: boolean;
+  onAnswer: (choice: string) => void;
+}): ReactElement {
+  const { reportAttempt } = useSparkOrbLearning();
+  const shownAtRef = useRef(performance.now());
+
+  useEffect(() => {
+    shownAtRef.current = performance.now();
+  }, [question.target]);
+
+  function handleChoice(choice: string): void {
+    if (disabled) return;
+    reportAttempt({
+      target: question.target,
+      correct: choice === question.answer,
+      attemptedValue: choice,
+      responseTimeMs: Math.round(performance.now() - shownAtRef.current),
+    });
+    onAnswer(choice);
+  }
+
+  return (
+    <div className="spark-orb-story-problem__choice-grid">
+      {question.choices.map((choice) => (
+        <button
+          key={choice}
+          type="button"
+          aria-label={choice}
+          className="spark-orb-story-problem__choice"
+          data-correct={choice === question.answer ? "true" : "false"}
+          disabled={disabled}
+          onClick={() => handleChoice(choice)}
+        >
+          <span>{choice}</span>
+          {choice === question.answer ? <strong>+1</strong> : null}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 function chargeCountForStoryPhase(phase: SparkOrbEncounterPhase): number {
   if (phase === "charge-1") return 1;
   if (phase === "charge-2") return 2;
@@ -302,6 +350,14 @@ function phaseForChargeCount(chargeCount: number): SparkOrbEncounterPhase {
   if (chargeCount === 2) return "charge-2";
   if (chargeCount === 1) return "charge-1";
   return "idle";
+}
+
+function conceptRewardForQuestion(question: StoryQuestion): { target: string; unit: string } {
+  const missingIndex = question.stem.indexOf("_");
+  if (missingIndex < 0 || missingIndex >= question.answer.length) {
+    throw new Error(`spark_orb_story_missing_concept_unit:${question.target}`);
+  }
+  return { target: question.target, unit: question.answer[missingIndex] ?? "" };
 }
 
 function lastMomentForChargeCount(chargeCount: number): OrbLearningLastMoment {
@@ -329,6 +385,7 @@ function SpellingProblem({ questionIndex = 3 }: { questionIndex?: number }): Rea
 function AimAndLaunchLearningStory(args: SparkOrbLearningShellStoryArgs): ReactElement {
   const [chargeCount, setChargeCount] = useState(() => chargeCountForStoryPhase(args.phase));
   const [feedback, setFeedback] = useState("Each correct answer lights one spark.");
+  const [conceptReward, setConceptReward] = useState<{ target: string; unit: string } | undefined>();
   const { companion, companionName } = companionForChild("ila");
   const activeQuestionIndex = Math.min(chargeCount, spellingQuestions.length - 1);
   const activeQuestion = spellingQuestions[activeQuestionIndex] ?? spellingQuestions[0];
@@ -339,6 +396,18 @@ function AimAndLaunchLearningStory(args: SparkOrbLearningShellStoryArgs): ReactE
   useEffect(() => {
     setChargeCount(chargeCountForStoryPhase(args.phase));
   }, [args.phase]);
+
+  function handleEncounterEvent(event: SparkOrbLearningEncounterEvent): void {
+    logEncounterEvent(event);
+    if (event.type === "recharge_needed") {
+      setChargeCount(Math.max(0, Math.min(event.chargeCount, 2)));
+      setFeedback(
+        event.result === "success"
+          ? "It wiggled free! Answer to recharge the orb."
+          : "So close! Answer to recharge the orb.",
+      );
+    }
+  }
 
   function handleAnswer(choice: string): void {
     if (ready || !activeQuestion) return;
@@ -359,6 +428,7 @@ function AimAndLaunchLearningStory(args: SparkOrbLearningShellStoryArgs): ReactE
 
     const nextCharge = Math.min(3, chargeCount + 1);
     const nextPhase = phaseForChargeCount(nextCharge);
+    setConceptReward(conceptRewardForQuestion(activeQuestion));
     setChargeCount(nextCharge);
     setFeedback(nextCharge >= 3 ? "Orb is ready." : "Spark earned.");
     playSparkOrbSfx(nextCharge >= 3 ? "ready" : "charge");
@@ -381,13 +451,14 @@ function AimAndLaunchLearningStory(args: SparkOrbLearningShellStoryArgs): ReactE
       phase={phase}
       domain={args.domain}
       currentTarget={activeQuestion?.target ?? args.currentTarget}
+      conceptReward={conceptReward}
       lastMoment={lastMoment}
       capturedCreature={{
         ...LUMIPUFF_MONSTER,
         capturePersonality: args.capturePersonality,
       }}
       onCompanionAnchor={logCompanionAnchor}
-      onEncounterEvent={logEncounterEvent}
+      onEncounterEvent={handleEncounterEvent}
       onCaptureCompleted={logCaptureCompleted}
     >
       <ProblemCard
@@ -400,22 +471,13 @@ function AimAndLaunchLearningStory(args: SparkOrbLearningShellStoryArgs): ReactE
           <strong>{chargeCount}/3</strong>
         </div>
         <div className="spark-orb-story-problem__write-box">{activeQuestion?.stem}</div>
-        <div className="spark-orb-story-problem__choice-grid">
-          {(activeQuestion?.choices ?? []).map((choice) => (
-            <button
-              key={choice}
-              type="button"
-              aria-label={choice}
-              className="spark-orb-story-problem__choice"
-              data-correct={choice === activeQuestion?.answer ? "true" : "false"}
-              disabled={ready}
-              onClick={() => handleAnswer(choice)}
-            >
-              <span>{choice}</span>
-              {choice === activeQuestion?.answer ? <strong>+1</strong> : null}
-            </button>
-          ))}
-        </div>
+        {activeQuestion ? (
+          <StoryChoiceGrid
+            question={activeQuestion}
+            disabled={ready}
+            onAnswer={handleAnswer}
+          />
+        ) : null}
       </ProblemCard>
     </SparkOrbLearningShell>
   );
@@ -498,6 +560,26 @@ export const AimAndLaunchSkill: Story = {
     domain: "spelling",
     currentTarget: "word:because",
     lastMoment: "watching",
+  },
+  render: (args) => <AimAndLaunchLearningStory {...args} />,
+};
+
+export const FlagshipDesignReview: Story = {
+  name: "Flagship Design Review",
+  args: {
+    phase: "charge-2",
+    domain: "spelling",
+    currentTarget: "word:because",
+    lastMoment: "spark_earned",
+    capturePersonality: "playful",
+  },
+  parameters: {
+    docs: {
+      description: {
+        story:
+          "Design-review surface for the learning-causes-magic hierarchy: mastery path, concept spark, creature encounter, bond progress, and orb pedestal. Capture motion is intentionally unchanged in this phase.",
+      },
+    },
   },
   render: (args) => <AimAndLaunchLearningStory {...args} />,
 };

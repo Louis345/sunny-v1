@@ -1,9 +1,13 @@
 import {
+  createContext,
+  useCallback,
+  useContext,
   useEffect,
   useMemo,
   useRef,
   useState,
   type CSSProperties,
+  type KeyboardEvent,
   type PointerEvent,
   type ReactNode,
 } from "react";
@@ -22,6 +26,23 @@ import {
   buildOrbCaptureCompletedEvent,
   type OrbCaptureCompletedEvent,
 } from "./capturedMonsterReward";
+import { SparkOrbCreatureLife } from "./SparkOrbCreatureLife";
+import {
+  resolveLifeProfile,
+  type CreatureLifeReaction,
+} from "./creatureLifeProfiles";
+import {
+  nextSparkOrbDifficultyLevel,
+  sparkOrbDifficultyParams,
+  sparkOrbDriftOffsetX,
+} from "./sparkOrbDifficulty";
+import {
+  createSparkOrbEvidenceSession,
+  type SparkOrbAttemptRecord,
+  type SparkOrbAttemptReport,
+  type SparkOrbEvidenceSession,
+  type SparkOrbGameStateUpdate,
+} from "./sparkOrbEvidence";
 
 export type OrbLearningLastMoment =
   | "watching"
@@ -59,9 +80,13 @@ export type SparkOrbLearningEncounterEventType =
   | "release_success"
   | "release_miss"
   | "orb_spent"
+  | "orb_granted"
   | "recharge_needed"
   | "capture_effect"
   | "capture_pull"
+  | "capture_struggle"
+  | "capture_breakout"
+  | "cheer"
   | "capture_shrink"
   | "capture_lock"
   | "collectible_revealed"
@@ -82,8 +107,90 @@ export interface SparkOrbLearningEncounterEvent {
   hitDistance?: number;
   hitQuality?: SparkOrbHitQuality;
   holdPower?: number;
+  strugglePulse?: number;
+  strugglePulseCount?: number;
+  cheerCount?: number;
+  consecutiveBreakouts?: number;
+  difficultyLevel?: number;
+  captureRadius?: number;
+  driftOffsetX?: number;
   capturePersonality: CapturedMonsterCapturePersonality;
   currentTarget: string;
+}
+
+export interface SparkOrbStrugglePlan {
+  pulseCount: number;
+  pulseAtMs: number[];
+  resolveAtMs: number;
+  shrinkAtMs: number;
+  lockAtMs: number;
+  revealAtMs: number;
+  settleAtMs: number;
+  baseBreakoutChance: number;
+}
+
+const SHINY_CAPTURE_CHANCE = 0.05;
+const CAPTURE_PULL_AT_MS = 650;
+const FIRST_STRUGGLE_PULSE_AT_MS = 1150;
+const STRUGGLE_PULSE_GAP_MS = 520;
+const STRUGGLE_RESOLVE_GAP_MS = 320;
+const LEGACY_SHRINK_AT_MS = 1250;
+const NEAR_HIT_BREAKOUT_CHANCE = 0.35;
+const CHEER_BREAKOUT_REDUCTION = 0.12;
+const BREAKOUT_PITY_THRESHOLD = 2;
+
+export function buildSparkOrbStrugglePlan(
+  hitQuality: SparkOrbHitQuality,
+  rarity: CapturedMonsterConfig["rarity"],
+): SparkOrbStrugglePlan {
+  const pulseCount = hitQuality === "direct" ? 1 : rarity === "rare" ? 3 : 2;
+  const pulseAtMs = Array.from(
+    { length: pulseCount },
+    (_, index) => FIRST_STRUGGLE_PULSE_AT_MS + index * STRUGGLE_PULSE_GAP_MS,
+  );
+  const lastPulseAt = pulseAtMs[pulseAtMs.length - 1] ?? FIRST_STRUGGLE_PULSE_AT_MS;
+  const resolveAtMs =
+    hitQuality === "direct"
+      ? LEGACY_SHRINK_AT_MS
+      : lastPulseAt + STRUGGLE_RESOLVE_GAP_MS;
+  const shrinkAtMs = Math.max(LEGACY_SHRINK_AT_MS, resolveAtMs);
+  const lockAtMs = shrinkAtMs + 550;
+  const revealAtMs = lockAtMs + 350;
+  const settleAtMs = revealAtMs + 1500;
+  return {
+    pulseCount,
+    pulseAtMs,
+    resolveAtMs,
+    shrinkAtMs,
+    lockAtMs,
+    revealAtMs,
+    settleAtMs,
+    baseBreakoutChance: hitQuality === "direct" ? 0 : NEAR_HIT_BREAKOUT_CHANCE,
+  };
+}
+
+export function sparkOrbBreakoutChance(
+  baseChance: number,
+  cheerCount: number,
+  consecutiveBreakouts: number,
+): number {
+  if (consecutiveBreakouts >= BREAKOUT_PITY_THRESHOLD) return 0;
+  return Math.max(0, baseChance - cheerCount * CHEER_BREAKOUT_REDUCTION);
+}
+
+export interface SparkOrbLearningApi {
+  /** Embedded problem panels report every assessable interaction here (Law 14). */
+  reportAttempt: (report: SparkOrbAttemptReport) => SparkOrbAttemptRecord;
+}
+
+const SparkOrbLearningContext = createContext<SparkOrbLearningApi | null>(null);
+
+export function useSparkOrbLearning(): SparkOrbLearningApi {
+  const api = useContext(SparkOrbLearningContext);
+  if (!api) {
+    throw new Error("spark_orb_learning_context_missing");
+  }
+  return api;
 }
 
 export interface SparkOrbLearningShellProps {
@@ -96,6 +203,8 @@ export interface SparkOrbLearningShellProps {
   chargeGoal?: number;
   domain: string;
   currentTarget: string;
+  /** Exact evaluated unit that earned the next spark; never inferred from the target id. */
+  conceptReward?: { target: string; unit: string };
   lastMoment?: OrbLearningLastMoment;
   allowedRole?: OrbCompanionAllowedRole;
   creatureName?: string;
@@ -105,6 +214,10 @@ export interface SparkOrbLearningShellProps {
   capturedCreature?: CapturedMonsterConfig;
   captureProgress?: number;
   sfx?: SparkOrbSfxOptions;
+  captureRandom?: () => number;
+  driftNow?: () => number;
+  onAttemptRecorded?: (record: SparkOrbAttemptRecord) => void;
+  onGameEvent?: (event: SparkOrbGameStateUpdate) => void;
   onCompanionAnchor?: (context: OrbCompanionAnchorContext) => void;
   onEncounterEvent?: (event: SparkOrbLearningEncounterEvent) => void;
   onCaptureCompleted?: (event: OrbCaptureCompletedEvent) => void;
@@ -134,6 +247,10 @@ export interface SparkOrbLaunchPhysicsInput {
   pullX: number;
   pullY: number;
   holdPower?: number;
+  /** Creature's lateral drift offset at release time; aim must lead the target. */
+  targetOffsetX?: number;
+  /** Adaptive capture radius from the difficulty controller. */
+  captureRadius?: number;
 }
 
 export interface SparkOrbLaunchPhysics {
@@ -248,6 +365,8 @@ export function computeSparkOrbLaunchPhysics({
   pullX,
   pullY,
   holdPower = 0,
+  targetOffsetX = 0,
+  captureRadius = creatureCaptureRadius,
 }: SparkOrbLaunchPhysicsInput): SparkOrbLaunchPhysics {
   const verticalPull = Math.max(0, Math.min(320, pullY));
   const horizontalPull = Math.max(-170, Math.min(170, pullX));
@@ -255,10 +374,11 @@ export function computeSparkOrbLaunchPhysics({
   const underpowered = verticalPull < 112;
   const verticalSweetSpot = 178;
   const verticalPenalty = Math.abs(verticalPull - verticalSweetSpot) * 0.24;
-  const hitDistance = Math.round(Math.hypot(horizontalPull * 0.82, verticalPenalty));
+  const horizontalError = horizontalPull * 0.82 - targetOffsetX;
+  const hitDistance = Math.round(Math.hypot(horizontalError, verticalPenalty));
   const hitQuality: SparkOrbHitQuality =
-    hitDistance <= 34 ? "direct" : hitDistance <= creatureCaptureRadius ? "near" : "wide";
-  const insideCaptureRadius = hitDistance <= creatureCaptureRadius;
+    hitDistance <= 34 ? "direct" : hitDistance <= captureRadius ? "near" : "wide";
+  const insideCaptureRadius = hitDistance <= captureRadius;
   const result: SparkOrbLaunchResult =
     insideCaptureRadius ? "success" : underpowered ? "miss-early" : "miss-late";
   const impactX = Math.round(horizontalPull * 0.72);
@@ -412,6 +532,7 @@ export function SparkOrbLearningShell({
   chargeGoal = 3,
   domain,
   currentTarget,
+  conceptReward,
   lastMoment = "watching",
   allowedRole = "emote_and_tiny_reaction",
   creatureName,
@@ -421,6 +542,10 @@ export function SparkOrbLearningShell({
   capturedCreature = LUMIPUFF_MONSTER,
   captureProgress,
   sfx,
+  captureRandom = Math.random,
+  driftNow = () => performance.now(),
+  onAttemptRecorded,
+  onGameEvent,
   onCompanionAnchor,
   onEncounterEvent,
   onCaptureCompleted,
@@ -444,6 +569,23 @@ export function SparkOrbLearningShell({
     pullX: 0,
     pullY: 0,
   });
+  const [struggling, setStruggling] = useState(false);
+  const [breakoutPop, setBreakoutPop] = useState(false);
+  const [breakoutTick, setBreakoutTick] = useState(0);
+  const [sparkFlightTick, setSparkFlightTick] = useState(0);
+  const [conceptRewardVisible, setConceptRewardVisible] = useState(false);
+  const [liveAnnouncement, setLiveAnnouncement] = useState("");
+  const [captureBonus, setCaptureBonus] = useState<{
+    starTier: number;
+    shiny: boolean;
+    comeback: boolean;
+  } | null>(null);
+  const captureBonusRef = useRef<{
+    starTier: number;
+    shiny: boolean;
+    comeback: boolean;
+  } | null>(null);
+  const prevChargeCountRef = useRef<number | null>(null);
   const launchPowerRef = useRef(0);
   const aimVectorRef = useRef<LaunchAimVector>({
     startX: 0,
@@ -452,7 +594,64 @@ export function SparkOrbLearningShell({
     pullY: 0,
   });
   const launchTimerRef = useRef<number | null>(null);
+  const conceptRewardTimerRef = useRef<number | null>(null);
   const payoffTimerRefs = useRef<number[]>([]);
+  const cheerCountRef = useRef(0);
+  const consecutiveBreakoutsRef = useRef(0);
+  const captureRandomRef = useRef(captureRandom);
+  captureRandomRef.current = captureRandom;
+  const [difficultyLevel, setDifficultyLevel] = useState(0);
+  const throwResultsRef = useRef<boolean[]>([]);
+  const driftStartRef = useRef<number | null>(null);
+  const driftNowRef = useRef(driftNow);
+  driftNowRef.current = driftNow;
+  const evidenceRef = useRef<SparkOrbEvidenceSession | null>(null);
+  if (evidenceRef.current === null) {
+    evidenceRef.current = createSparkOrbEvidenceSession({ childId, domain });
+  }
+  const evidence = evidenceRef.current;
+  const onAttemptRecordedRef = useRef(onAttemptRecorded);
+  onAttemptRecordedRef.current = onAttemptRecorded;
+  const onGameEventRef = useRef(onGameEvent);
+  onGameEventRef.current = onGameEvent;
+
+  const reportAttempt = useCallback(
+    (report: SparkOrbAttemptReport): SparkOrbAttemptRecord => {
+      const record = evidenceRef.current!.recordAttempt(report);
+      console.info(" 🎮 [spark-orb-learning-shell] [attempt_event] [recorded]", record);
+      onAttemptRecordedRef.current?.(record);
+      return record;
+    },
+    [],
+  );
+  const learningApi = useMemo<SparkOrbLearningApi>(
+    () => ({ reportAttempt }),
+    [reportAttempt],
+  );
+
+  function emitGameStateUpdate(
+    progress: string,
+    summary?: SparkOrbGameStateUpdate["payload"]["summary"],
+  ): void {
+    const event: SparkOrbGameStateUpdate = {
+      type: "game_state_update",
+      version: "1.0",
+      payload: {
+        game: "Spark Orb",
+        phase,
+        childId,
+        domain,
+        currentTarget,
+        chargeCount,
+        chargeGoal,
+        orbCount: remainingOrbCount,
+        progress,
+        summary,
+      },
+    };
+    console.info(" 🎮 [spark-orb-learning-shell] [game_state_update] [reported]", event);
+    onGameEventRef.current?.(event);
+  }
   const displayCreatureName = creatureName ?? capturedCreature.speciesName;
   const displayStatLabel = statLabel ?? capturedCreature.statLabel;
   const displayStatValue = statValue ?? capturedCreature.statValue;
@@ -532,6 +731,60 @@ export function SparkOrbLearningShell({
     capturedCreature.capturePersonality,
     visualCaptureStage,
   );
+  const creatureLifeProfile = useMemo(
+    () => resolveLifeProfile(capturedCreature),
+    [capturedCreature],
+  );
+  const creatureLifeSuppressed = creatureCaptureMotion !== "free" || collectionSettled;
+  const creatureLifeReaction: CreatureLifeReaction = creatureLifeSuppressed
+    ? "none"
+    : breakoutPop
+      ? "concerned"
+      : launchSkill === "holding"
+        ? "alert"
+        : phase === "ready" && launchSkill !== "spent"
+          ? "excited"
+          : lastMoment === "spark_earned" || lastMoment === "recovered"
+            ? "perk"
+            : lastMoment === "missed_try"
+              ? "concerned"
+              : "none";
+  const difficulty = sparkOrbDifficultyParams(difficultyLevel);
+  const reducedMotion =
+    typeof window !== "undefined" &&
+    typeof window.matchMedia === "function" &&
+    window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const driftAmpPx = reducedMotion
+    ? 0
+    : Math.round(creatureLifeProfile.drift.ampPx * difficulty.driftAmpScale);
+  const driftPeriodMs = creatureLifeProfile.drift.periodMs;
+  const driftActive =
+    phase === "ready" &&
+    creatureCaptureMotion === "free" &&
+    launchSkill !== "success" &&
+    !scrubbedCaptureActive &&
+    !collectionSettled &&
+    !reversePreviewing &&
+    driftAmpPx > 0;
+
+  useEffect(() => {
+    if (driftActive && driftStartRef.current === null) {
+      driftStartRef.current = driftNowRef.current();
+    }
+    if (!driftActive) {
+      driftStartRef.current = null;
+    }
+  }, [driftActive]);
+
+  function currentDriftOffsetX(): number {
+    if (!driftActive || driftStartRef.current === null) return 0;
+    return sparkOrbDriftOffsetX(
+      driftNowRef.current(),
+      driftStartRef.current,
+      driftAmpPx,
+      driftPeriodMs,
+    );
+  }
   const captureDirection = reverseReplayActive ? "reverse" : "capture";
   const creatureCaptureStyle =
     scrubbedCaptureScale === null ||
@@ -547,6 +800,19 @@ export function SparkOrbLearningShell({
         } as CSSProperties);
   const companionBehavior = companionBehaviorForMoment(phase, lastMoment);
   const speechBubbleText = rewardFocused ? null : companionLineForMoment(childName, phase, lastMoment);
+  const masterySteps = [
+    { label: "NOTICE", complete: chargeCount >= 1, current: chargeCount === 0 },
+    { label: "TRY", complete: chargeCount >= 2, current: chargeCount === 1 },
+    { label: "PROVE", complete: chargeCount >= 3, current: chargeCount === 2 },
+  ];
+  const masteryPathLabel =
+    chargeCount >= 3
+      ? "Learning path: Notice, Try, and Prove complete"
+      : chargeCount === 2
+        ? "Learning path: Notice and Try complete, Prove next"
+        : chargeCount === 1
+          ? "Learning path: Notice complete, Try next"
+          : "Learning path: Notice next";
   const canHoldToLaunch =
     ready && chargeCount >= chargeGoal && launchSkill !== "success" && launchSkill !== "spent";
   const aimGuideX = Math.max(-150, Math.min(150, aimVector.pullX));
@@ -573,6 +839,8 @@ export function SparkOrbLearningShell({
     "--orb-peak-scale": `${displayLaunchPhysics.peakScale}`,
     "--orb-flight-scale": `${displayLaunchPhysics.flightScale}`,
     "--orb-impact-scale": `${displayLaunchPhysics.impactScale}`,
+    "--drift-amp": `${driftAmpPx}px`,
+    "--drift-period": `${driftPeriodMs}ms`,
   } as CSSProperties;
   const anchorContext = useMemo(
     () =>
@@ -614,6 +882,63 @@ export function SparkOrbLearningShell({
   }, [orbCount]);
 
   useEffect(() => {
+    emitGameStateUpdate(`Encounter phase ${phase}.`);
+    if (phase === "ready") {
+      setLiveAnnouncement("The orb is glowing and ready to launch.");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase]);
+
+  useEffect(() => {
+    const previous = prevChargeCountRef.current;
+    prevChargeCountRef.current = chargeCount;
+    if (previous !== null && chargeCount > previous) {
+      setSparkFlightTick((tick) => tick + 1);
+      if (conceptReward?.target && conceptReward.unit.trim()) {
+        if (conceptRewardTimerRef.current !== null) {
+          window.clearTimeout(conceptRewardTimerRef.current);
+        }
+        setConceptRewardVisible(true);
+        console.info(" 🎮 [spark-orb-learning-shell] [concept-reward] [shown]", conceptReward);
+        conceptRewardTimerRef.current = window.setTimeout(() => {
+          conceptRewardTimerRef.current = null;
+          setConceptRewardVisible(false);
+          console.info(" 🎮 [spark-orb-learning-shell] [concept-reward] [settled]", conceptReward);
+        }, 900);
+      }
+      setLiveAnnouncement(`Spark earned! Charge ${chargeCount} of ${chargeGoal}.`);
+    }
+  }, [chargeCount, chargeGoal, conceptReward, currentTarget]);
+
+  useEffect(() => {
+    return () => {
+      if (conceptRewardTimerRef.current !== null) {
+        window.clearTimeout(conceptRewardTimerRef.current);
+        conceptRewardTimerRef.current = null;
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (phase !== "ready" || remainingOrbCount > 0) return;
+    evidence.recordOrbGranted();
+    setRemainingOrbCount(1);
+    setLiveAnnouncement("Sunny gave you a bonus orb!");
+    const grantEvent: SparkOrbLearningEncounterEvent = {
+      type: "orb_granted",
+      phase,
+      chargeCount: chargeOverride ?? chargeCountForPhase(phase),
+      chargeGoal,
+      orbCount: 1,
+      capturePersonality: capturedCreature.capturePersonality,
+      currentTarget,
+    };
+    console.info(" 🎮 [spark-orb-learning-shell] [orb-granted] [reported]", grantEvent);
+    onEncounterEvent?.(grantEvent);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase, remainingOrbCount]);
+
+  useEffect(() => {
     if (phase !== "ready") {
       clearPayoffTimers();
       setLaunchSkill("waiting");
@@ -628,6 +953,11 @@ export function SparkOrbLearningShell({
       setChargeOverride(null);
       setLaunchPower(0);
       setLaunchPhysics(null);
+      setStruggling(false);
+      setBreakoutPop(false);
+      setCaptureBonus(null);
+      captureBonusRef.current = null;
+      cheerCountRef.current = 0;
       launchPowerRef.current = 0;
       aimVectorRef.current = { startX: 0, startY: 0, pullX: 0, pullY: 0 };
       setAimVector(aimVectorRef.current);
@@ -672,19 +1002,27 @@ export function SparkOrbLearningShell({
   }
 
   function emitCaptureCompleted(launchScore: SparkOrbLaunchPhysics): void {
+    const bonus = captureBonusRef.current;
     const reward = buildCapturedCreatureReward({
       creature: capturedCreature,
       childId,
       domain,
       currentTarget,
+      bond: 18 + (bonus ? bonus.starTier * 4 + (bonus.comeback ? 6 : 0) : 0),
+      starTier: bonus?.starTier,
+      shiny: bonus?.shiny,
+      comeback: bonus?.comeback,
       source: "spark_orb_learning_shell",
     });
+    const summary = evidence.buildSummary();
+    emitGameStateUpdate("Capture completed.", summary);
     const payload = buildOrbCaptureCompletedEvent({
       reward,
       chargeGoal,
       orbCount: remainingOrbCount,
       hitDistance: launchScore.hitDistance,
       hitQuality: launchScore.hitQuality,
+      summary,
     });
     console.info(
       " 🎮 [spark-orb-learning-shell] [orb_capture_completed] [storybook_only]",
@@ -745,16 +1083,118 @@ export function SparkOrbLearningShell({
   function handleLaunchRelease(event: PointerEvent<HTMLButtonElement>): void {
     if (launchSkill !== "holding") return;
     handleLaunchAimMove(event);
+    releaseHold();
+  }
+
+  const KEYBOARD_AIM_STEP_X = 14;
+  const KEYBOARD_AIM_STEP_Y = 16;
+  const KEYBOARD_BASE_PULL_Y = 178;
+
+  function beginKeyboardHold(): void {
+    if (!canHoldToLaunch || launchTimerRef.current !== null) return;
+    const nextAimVector = {
+      startX: 0,
+      startY: 0,
+      pullX: 0,
+      pullY: KEYBOARD_BASE_PULL_Y,
+    };
+    aimVectorRef.current = nextAimVector;
+    setAimVector(nextAimVector);
+    launchPowerRef.current = 0;
+    setLaunchPower(launchPullPower(nextAimVector));
+    setLaunchPhysics(null);
+    setLaunchSkill("holding");
+    setLaunchAim("aiming");
+    emitLaunchEvent({
+      type: "hold_start",
+      chargeCount,
+      orbCount: remainingOrbCount,
+      holdPower: 0,
+    });
+    launchTimerRef.current = window.setInterval(() => {
+      const nextPower = Math.min(100, launchPowerRef.current + 2);
+      launchPowerRef.current = nextPower;
+      setLaunchPower(Math.max(nextPower, launchPullPower(aimVectorRef.current)));
+      if (nextPower >= 100) {
+        stopLaunchTimer();
+      }
+    }, 40);
+  }
+
+  function adjustKeyboardAim(deltaX: number, deltaY: number): void {
+    if (launchSkill !== "holding") return;
+    const currentAim = aimVectorRef.current;
+    const nextAimVector = {
+      ...currentAim,
+      pullX: Math.max(-170, Math.min(170, currentAim.pullX + deltaX)),
+      pullY: Math.max(0, Math.min(320, currentAim.pullY + deltaY)),
+    };
+    aimVectorRef.current = nextAimVector;
+    setAimVector(nextAimVector);
+    setLaunchPower(Math.max(launchPowerRef.current, launchPullPower(nextAimVector)));
+  }
+
+  function handleLaunchKeyDown(event: KeyboardEvent<HTMLButtonElement>): void {
+    if (event.key === " " || event.key === "Enter") {
+      event.preventDefault();
+      if (event.repeat || launchSkill === "holding") return;
+      beginKeyboardHold();
+      return;
+    }
+    if (launchSkill !== "holding") return;
+    if (event.key === "ArrowLeft") {
+      event.preventDefault();
+      adjustKeyboardAim(-KEYBOARD_AIM_STEP_X, 0);
+    } else if (event.key === "ArrowRight") {
+      event.preventDefault();
+      adjustKeyboardAim(KEYBOARD_AIM_STEP_X, 0);
+    } else if (event.key === "ArrowUp") {
+      event.preventDefault();
+      adjustKeyboardAim(0, KEYBOARD_AIM_STEP_Y);
+    } else if (event.key === "ArrowDown") {
+      event.preventDefault();
+      adjustKeyboardAim(0, -KEYBOARD_AIM_STEP_Y);
+    }
+  }
+
+  function handleLaunchKeyUp(event: KeyboardEvent<HTMLButtonElement>): void {
+    if (event.key !== " " && event.key !== "Enter") return;
+    event.preventDefault();
+    if (launchSkill !== "holding") return;
+    releaseHold();
+  }
+
+  function releaseHold(): void {
+    if (launchSkill !== "holding") return;
     stopLaunchTimer();
     const finalAimVector = aimVectorRef.current;
     const pullPower = launchPullPower(finalAimVector);
     const holdPower = Math.round(Math.max(launchPowerRef.current, pullPower));
+    const releaseDriftOffsetX = Math.round(currentDriftOffsetX());
     const launchScore = computeSparkOrbLaunchPhysics({
       pullX: finalAimVector.pullX,
       pullY: finalAimVector.pullY,
       holdPower,
+      targetOffsetX: releaseDriftOffsetX,
+      captureRadius: difficulty.captureRadius,
     });
     const result = launchScore.result;
+    throwResultsRef.current = [
+      ...throwResultsRef.current.slice(-9),
+      result === "success",
+    ];
+    const nextDifficultyLevel = nextSparkOrbDifficultyLevel(
+      difficultyLevel,
+      throwResultsRef.current,
+    );
+    if (nextDifficultyLevel !== difficultyLevel) {
+      console.info(" 🎮 [spark-orb-learning-shell] [difficulty] [adjusted]", {
+        from: difficultyLevel,
+        to: nextDifficultyLevel,
+        recentResults: [...throwResultsRef.current],
+      });
+      setDifficultyLevel(nextDifficultyLevel);
+    }
     const aimResult: LaunchAimState =
       result === "success" ? "clean" : result === "miss-early" ? "weak" : "wide";
     setLaunchPower(launchScore.power);
@@ -771,106 +1211,187 @@ export function SparkOrbLearningShell({
       setCollectionCardVisible(false);
       setReverseReplayActive(false);
       setReversePreviewOpen(false);
+      setBreakoutPop(false);
+      cheerCountRef.current = 0;
       playSparkOrbSfx("launch", sfx);
-      emitLaunchEvent({
-        type: "release_success",
+      const baseEvent = {
         chargeCount,
         orbCount: remainingOrbCount,
         result,
         hitDistance: launchScore.hitDistance,
         hitQuality: launchScore.hitQuality,
         holdPower: launchScore.power,
-      });
-      payoffTimerRefs.current = [
+        difficultyLevel: difficulty.level,
+        captureRadius: difficulty.captureRadius,
+        driftOffsetX: releaseDriftOffsetX,
+      };
+      emitLaunchEvent({ type: "release_success", ...baseEvent });
+      const strugglePlan = buildSparkOrbStrugglePlan(
+        launchScore.hitQuality,
+        capturedCreature.rarity,
+      );
+      const timers: number[] = [
         window.setTimeout(() => {
           setFlightState("impact");
           setCaptureEffect("active");
           setCaptureStage("pulling");
           playSparkOrbSfx("capturePull", sfx);
-          emitLaunchEvent({
-            type: "capture_effect",
-            chargeCount,
-            orbCount: remainingOrbCount,
-            result,
-            hitDistance: launchScore.hitDistance,
-            hitQuality: launchScore.hitQuality,
-            holdPower: launchScore.power,
-          });
-          emitLaunchEvent({
-            type: "capture_pull",
-            chargeCount,
-            orbCount: remainingOrbCount,
-            result,
-            hitDistance: launchScore.hitDistance,
-            hitQuality: launchScore.hitQuality,
-            holdPower: launchScore.power,
-          });
-        }, 650),
+          emitLaunchEvent({ type: "capture_effect", ...baseEvent });
+          emitLaunchEvent({ type: "capture_pull", ...baseEvent });
+        }, CAPTURE_PULL_AT_MS),
+        ...strugglePlan.pulseAtMs.map((pulseAt, index) =>
+          window.setTimeout(() => {
+            setStruggling(true);
+            evidence.recordStrugglePulse();
+            if (index === 0) {
+              setLiveAnnouncement(
+                `${displayCreatureName} is wiggling! Cheer to help the capture.`,
+              );
+            }
+            playSparkOrbSfx("capturePull", sfx);
+            emitLaunchEvent({
+              type: "capture_struggle",
+              ...baseEvent,
+              strugglePulse: index + 1,
+              strugglePulseCount: strugglePlan.pulseCount,
+              cheerCount: cheerCountRef.current,
+            });
+          }, pulseAt),
+        ),
         window.setTimeout(() => {
-          setCaptureStage("shrinking");
-          playSparkOrbSfx("captureShrink", sfx);
-          emitLaunchEvent({
-            type: "capture_shrink",
-            chargeCount,
-            orbCount: remainingOrbCount,
-            result,
-            hitDistance: launchScore.hitDistance,
+          setStruggling(false);
+          const breakoutRoll = captureRandomRef.current();
+          const chance = sparkOrbBreakoutChance(
+            strugglePlan.baseBreakoutChance,
+            cheerCountRef.current,
+            consecutiveBreakoutsRef.current,
+          );
+          if (breakoutRoll < chance) {
+            consecutiveBreakoutsRef.current += 1;
+            evidence.recordThrow({
+              result: "breakout",
+              hitQuality: launchScore.hitQuality,
+              hitDistance: launchScore.hitDistance,
+              difficultyLevel: difficulty.level,
+              captureRadius: difficulty.captureRadius,
+              driftOffsetX: releaseDriftOffsetX,
+              cheerCount: cheerCountRef.current,
+            });
+            evidence.recordOrbSpent();
+            const nextOrbCount = Math.max(0, remainingOrbCount - 1);
+            setRemainingOrbCount(nextOrbCount);
+            setLaunchSkill("spent");
+            setFlightState("fizzle");
+            setCaptureEffect("inactive");
+            setCaptureStage("free");
+            setChargeOverride(1);
+            setBreakoutPop(true);
+            setBreakoutTick((tick) => tick + 1);
+            setLiveAnnouncement(
+              `${displayCreatureName} wiggled free! Answer questions to recharge the orb.`,
+            );
+            playSparkOrbSfx("miss", sfx);
+            emitLaunchEvent({
+              type: "capture_breakout",
+              ...baseEvent,
+              chargeCount: 1,
+              orbCount: nextOrbCount,
+              cheerCount: cheerCountRef.current,
+              consecutiveBreakouts: consecutiveBreakoutsRef.current,
+            });
+            emitLaunchEvent({
+              type: "orb_spent",
+              ...baseEvent,
+              chargeCount: 1,
+              orbCount: nextOrbCount,
+            });
+            emitLaunchEvent({
+              type: "recharge_needed",
+              ...baseEvent,
+              chargeCount: 1,
+              orbCount: nextOrbCount,
+            });
+            payoffTimerRefs.current.push(
+              window.setTimeout(() => setBreakoutPop(false), 900),
+            );
+            return;
+          }
+          const comeback = consecutiveBreakoutsRef.current > 0;
+          consecutiveBreakoutsRef.current = 0;
+          const bonus = {
+            starTier: launchScore.hitQuality === "direct" ? 3 : 2,
+            shiny: captureRandomRef.current() < SHINY_CAPTURE_CHANCE,
+            comeback,
+          };
+          captureBonusRef.current = bonus;
+          setCaptureBonus(bonus);
+          console.info(" 🎮 [spark-orb-learning-shell] [capture-bonus] [rolled]", bonus);
+          evidence.recordThrow({
+            result: "success",
             hitQuality: launchScore.hitQuality,
-            holdPower: launchScore.power,
-          });
-        }, 1250),
-        window.setTimeout(() => {
-          setCaptureStage("locked");
-          playSparkOrbSfx("captureLock", sfx);
-          emitLaunchEvent({
-            type: "capture_lock",
-            chargeCount,
-            orbCount: remainingOrbCount,
-            result,
             hitDistance: launchScore.hitDistance,
-            hitQuality: launchScore.hitQuality,
-            holdPower: launchScore.power,
+            difficultyLevel: difficulty.level,
+            captureRadius: difficulty.captureRadius,
+            driftOffsetX: releaseDriftOffsetX,
+            cheerCount: cheerCountRef.current,
           });
-        }, 1800),
-        window.setTimeout(() => {
-          setFlightState("reward");
-          setCaptureStage("collection-added");
-          setCollectibleRevealed(true);
-          setCollectionCardVisible(true);
-          playSparkOrbSfx("collected", sfx);
-          emitLaunchEvent({
-            type: "collectible_revealed",
-            chargeCount,
-            orbCount: remainingOrbCount,
-            result,
-            hitDistance: launchScore.hitDistance,
-            hitQuality: launchScore.hitQuality,
-            holdPower: launchScore.power,
-          });
-        }, 2150),
-        window.setTimeout(() => {
-          setCollectionCardVisible(false);
-          setFlightState("settled");
-          setCaptureEffect("inactive");
-          setCaptureStage("free");
-          setLaunchAim("idle");
-          aimVectorRef.current = { startX: 0, startY: 0, pullX: 0, pullY: 0 };
-          setAimVector(aimVectorRef.current);
-          emitLaunchEvent({
-            type: "collection_settled",
-            chargeCount,
-            orbCount: remainingOrbCount,
-            result,
-            hitDistance: launchScore.hitDistance,
-            hitQuality: launchScore.hitQuality,
-            holdPower: launchScore.power,
-          });
-          emitCaptureCompleted(launchScore);
-        }, 3650),
+          const runShrink = () => {
+            setCaptureStage("shrinking");
+            playSparkOrbSfx("captureShrink", sfx);
+            emitLaunchEvent({ type: "capture_shrink", ...baseEvent });
+          };
+          const shrinkDelay = strugglePlan.shrinkAtMs - strugglePlan.resolveAtMs;
+          const captureTimers: number[] = [];
+          if (shrinkDelay <= 0) {
+            runShrink();
+          } else {
+            captureTimers.push(window.setTimeout(runShrink, shrinkDelay));
+          }
+          captureTimers.push(
+            window.setTimeout(() => {
+              setCaptureStage("locked");
+              playSparkOrbSfx("captureLock", sfx);
+              emitLaunchEvent({ type: "capture_lock", ...baseEvent });
+            }, strugglePlan.lockAtMs - strugglePlan.resolveAtMs),
+            window.setTimeout(() => {
+              setFlightState("reward");
+              setCaptureStage("collection-added");
+              setCollectibleRevealed(true);
+              setCollectionCardVisible(true);
+              setLiveAnnouncement(`${displayCreatureName} joined your collection!`);
+              playSparkOrbSfx("collected", sfx);
+              emitLaunchEvent({ type: "collectible_revealed", ...baseEvent });
+            }, strugglePlan.revealAtMs - strugglePlan.resolveAtMs),
+            window.setTimeout(() => {
+              setCollectionCardVisible(false);
+              setFlightState("settled");
+              setCaptureEffect("inactive");
+              setCaptureStage("free");
+              setLaunchAim("idle");
+              aimVectorRef.current = { startX: 0, startY: 0, pullX: 0, pullY: 0 };
+              setAimVector(aimVectorRef.current);
+              emitLaunchEvent({ type: "collection_settled", ...baseEvent });
+              emitCaptureCompleted(launchScore);
+            }, strugglePlan.settleAtMs - strugglePlan.resolveAtMs),
+          );
+          payoffTimerRefs.current.push(...captureTimers);
+        }, strugglePlan.resolveAtMs),
       ];
+      payoffTimerRefs.current = timers;
       return;
     }
 
+    evidence.recordThrow({
+      result,
+      hitQuality: launchScore.hitQuality,
+      hitDistance: launchScore.hitDistance,
+      difficultyLevel: difficulty.level,
+      captureRadius: difficulty.captureRadius,
+      driftOffsetX: releaseDriftOffsetX,
+      cheerCount: 0,
+    });
+    evidence.recordOrbSpent();
+    setLiveAnnouncement("Missed! Answer more questions to recharge the orb.");
     const nextOrbCount = Math.max(0, remainingOrbCount - 1);
     clearPayoffTimers();
     setLaunchSkill("spent");
@@ -881,7 +1402,7 @@ export function SparkOrbLearningShell({
     setCollectionCardVisible(false);
     setReverseReplayActive(false);
     setReversePreviewOpen(false);
-    setChargeOverride(0);
+    setChargeOverride(1);
     setRemainingOrbCount(nextOrbCount);
     playSparkOrbSfx("miss", sfx);
     emitLaunchEvent({
@@ -892,10 +1413,13 @@ export function SparkOrbLearningShell({
       hitDistance: launchScore.hitDistance,
       hitQuality: launchScore.hitQuality,
       holdPower: launchScore.power,
+      difficultyLevel: difficulty.level,
+      captureRadius: difficulty.captureRadius,
+      driftOffsetX: releaseDriftOffsetX,
     });
     emitLaunchEvent({
       type: "orb_spent",
-      chargeCount: 0,
+      chargeCount: 1,
       orbCount: nextOrbCount,
       result,
       hitDistance: launchScore.hitDistance,
@@ -904,12 +1428,25 @@ export function SparkOrbLearningShell({
     });
     emitLaunchEvent({
       type: "recharge_needed",
-      chargeCount: 0,
+      chargeCount: 1,
       orbCount: nextOrbCount,
       result,
       hitDistance: launchScore.hitDistance,
       hitQuality: launchScore.hitQuality,
       holdPower: launchScore.power,
+    });
+  }
+
+  function handleCheer(): void {
+    if (!struggling) return;
+    cheerCountRef.current += 1;
+    evidence.recordCheer();
+    playSparkOrbSfx("charge", sfx);
+    emitLaunchEvent({
+      type: "cheer",
+      chargeCount,
+      orbCount: remainingOrbCount,
+      cheerCount: cheerCountRef.current,
     });
   }
 
@@ -967,9 +1504,31 @@ export function SparkOrbLearningShell({
   }
 
   return (
+    <SparkOrbLearningContext.Provider value={learningApi}>
     <div className="spark-orb-learning-shell" data-phase={phase}>
       <section className="spark-orb-learning-shell__problem" aria-label="Learning problem panel">
-        {children}
+        <div className="spark-orb-learning-shell__problem-content">{children}</div>
+        {!rewardFocused ? (
+          <div
+            className="spark-orb-learning-shell__mastery-path"
+            data-testid="spark-orb-mastery-path"
+            aria-label={masteryPathLabel}
+          >
+            {masterySteps.map((step, index) => (
+              <div
+                key={step.label}
+                className="spark-orb-learning-shell__mastery-step"
+                data-complete={step.complete ? "true" : "false"}
+                data-current={step.current ? "true" : "false"}
+              >
+                <i aria-hidden="true">{step.complete ? "✓" : index + 1}</i>
+                <span data-complete={step.complete ? "true" : "false"} data-current={step.current ? "true" : "false"}>
+                  {step.label}
+                </span>
+              </div>
+            ))}
+          </div>
+        ) : null}
       </section>
 
       <section
@@ -988,6 +1547,8 @@ export function SparkOrbLearningShell({
         data-personality-reaction={personalityReaction}
         data-collection-state={collectionState}
         data-captured-creature-id={capturedCreature.id}
+        data-struggling={struggling ? "true" : "false"}
+        data-breakout={breakoutPop ? "true" : "false"}
         style={launchStyle}
       >
         <img
@@ -997,6 +1558,26 @@ export function SparkOrbLearningShell({
           aria-hidden="true"
         />
         <div className="spark-orb-learning-shell__wash" aria-hidden="true" />
+        {!rewardFocused ? (
+          <div className="spark-orb-learning-shell__encounter-details">
+            <div
+              className="spark-orb-learning-shell__encounter-modifier"
+              data-testid="spark-orb-encounter-modifier"
+            >
+              <i aria-hidden="true">?</i>
+              <span><strong>Mystery clue</strong>Learning sparks reveal its secret.</span>
+            </div>
+            <div
+              className="spark-orb-learning-shell__bond-progress"
+              data-testid="spark-orb-bond-progress"
+              aria-label={`${displayCreatureName} bond progress`}
+            >
+              <i aria-hidden="true">★</i>
+              <span><strong>{displayCreatureName}</strong>3/8 bonds</span>
+              <b aria-hidden="true"><em /></b>
+            </div>
+          </div>
+        ) : null}
         <div className="spark-orb-learning-shell__orb-hud">
           <div className="spark-orb-learning-shell__nameplate">
             <strong>{displayCreatureName}</strong>
@@ -1011,7 +1592,20 @@ export function SparkOrbLearningShell({
         </div>
 
         <div className="spark-orb-learning-shell__creature-shadow" aria-hidden="true" />
-        <img
+        {conceptRewardVisible && conceptReward ? (
+          <div
+            className="spark-orb-learning-shell__concept-path"
+            data-testid="spark-orb-concept-path"
+            data-target={conceptReward.target}
+            data-destination="creature-then-orb"
+            data-active="true"
+            aria-hidden="true"
+          >
+            <span />
+            <i /><i /><i /><i />
+          </div>
+        ) : null}
+        <div
           className="spark-orb-learning-shell__creature"
           data-testid="spark-orb-creature"
           data-capture-motion={creatureCaptureMotion}
@@ -1027,11 +1621,24 @@ export function SparkOrbLearningShell({
           }
           data-capture-personality={capturedCreature.capturePersonality}
           data-personality-reaction={personalityReaction}
+          data-drifting={driftActive ? "true" : "false"}
           style={creatureCaptureStyle}
-          src={capturedCreature.imageSrc}
-          alt=""
           aria-hidden="true"
-        />
+        >
+          <SparkOrbCreatureLife
+            profile={creatureLifeProfile}
+            reaction={creatureLifeReaction}
+            reactionPulseKey={chargeCount + breakoutTick * 100}
+            suppressed={creatureLifeSuppressed}
+          >
+            <img
+              className="spark-orb-learning-shell__creature-sprite"
+              src={capturedCreature.imageSrc}
+              alt=""
+              aria-hidden="true"
+            />
+          </SparkOrbCreatureLife>
+        </div>
         <div
           className="spark-orb-learning-shell__aura"
           data-active={charged && showCaptureEffects ? "true" : "false"}
@@ -1071,18 +1678,31 @@ export function SparkOrbLearningShell({
             onClick={handleReverseCollectionReplay}
           />
         ) : null}
+        {struggling ? (
+          <button
+            type="button"
+            aria-label="Cheer to help the capture"
+            className="spark-orb-learning-shell__cheer-button"
+            data-testid="spark-orb-cheer-control"
+            onClick={handleCheer}
+          >
+            <span>Tap to cheer!</span>
+          </button>
+        ) : null}
         {ready && !rewardFocused ? (
           <div className="spark-orb-learning-shell__launch-skill" data-state={launchSkill}>
             {canHoldToLaunch ? (
               <button
                 type="button"
-                aria-label="Grab the orb to aim and launch"
+                aria-label="Grab the orb to aim and launch. Keyboard: hold Space to charge, arrow keys to aim, release Space to launch."
                 data-testid="spark-orb-launch-control"
                 className="spark-orb-learning-shell__launch-button"
                 onPointerDown={handleLaunchHoldStart}
                 onPointerMove={handleLaunchAimMove}
                 onPointerUp={handleLaunchRelease}
                 onPointerCancel={handleLaunchRelease}
+                onKeyDown={handleLaunchKeyDown}
+                onKeyUp={handleLaunchKeyUp}
               />
             ) : null}
             <div className="spark-orb-learning-shell__aim-guide" aria-hidden="true">
@@ -1094,19 +1714,30 @@ export function SparkOrbLearningShell({
             </div>
             {launchSkill === "success" || launchSkill === "spent" ? (
               <strong>
-                {launchSkill === "success" ? "Clean launch" : "Answer more to recharge."}
+                {launchSkill === "success"
+                  ? launchPhysics?.hitQuality === "direct"
+                    ? "Perfect throw!"
+                    : "Great throw!"
+                  : "Answer more to recharge."}
               </strong>
             ) : null}
           </div>
         ) : null}
         {!rewardFocused ? (
-          <div className="spark-orb-learning-shell__charge">
-            <span>
+          <div
+            className="spark-orb-learning-shell__charge-pedestal"
+            data-testid="spark-orb-charge-pedestal"
+            aria-label={`Orb charge: ${chargeCount} of ${chargeGoal} sparks`}
+          >
+            <span aria-hidden="true">Spark power</span>
+            <span className="spark-orb-learning-shell__charge-text">
               Charge {chargeCount} / {chargeGoal}
             </span>
             <div aria-hidden="true">
               {Array.from({ length: chargeGoal }).map((_, index) => (
-                <i key={index} data-filled={index < chargeCount ? "true" : "false"} />
+                <i key={index} data-filled={index < chargeCount ? "true" : "false"}>
+                  <b>✦</b>
+                </i>
               ))}
             </div>
           </div>
@@ -1121,10 +1752,46 @@ export function SparkOrbLearningShell({
             speechBubbleText={speechBubbleText}
           />
         </div>
+        {sparkFlightTick > 0 ? (
+          <div
+            key={sparkFlightTick}
+            className="spark-orb-learning-shell__spark-flight"
+            data-testid="spark-orb-spark-flight"
+            aria-hidden="true"
+          />
+        ) : null}
+        <div
+          role="status"
+          aria-live="polite"
+          className="spark-orb-learning-shell__live-region"
+          data-testid="spark-orb-live-region"
+        >
+          {liveAnnouncement}
+        </div>
         {showCollectionCard ? (
-          <div className="spark-orb-learning-shell__collect-card" role="dialog" aria-label={`${displayCreatureName} added to collection`}>
-            <span>Added to collection</span>
+          <div
+            className="spark-orb-learning-shell__collect-card"
+            role="dialog"
+            aria-label={`${displayCreatureName} added to collection`}
+            data-shiny={captureBonus?.shiny ? "true" : "false"}
+          >
+            <span>{captureBonus?.shiny ? "Shiny friend found!" : "Added to collection"}</span>
             <strong>{capturedCreature.collectionTitle}</strong>
+            {captureBonus ? (
+              <em
+                className="spark-orb-learning-shell__star-tier"
+                aria-label={`${captureBonus.starTier} star throw`}
+              >
+                {"★".repeat(captureBonus.starTier)}
+                {"☆".repeat(Math.max(0, 3 - captureBonus.starTier))}
+              </em>
+            ) : null}
+            {captureBonus?.comeback ? (
+              <i className="spark-orb-learning-shell__comeback">Never gave up!</i>
+            ) : null}
+            <p className="spark-orb-learning-shell__word-hook">
+              {displayCreatureName} loves the word “{currentTarget.replace(/^word:/, "")}”!
+            </p>
           </div>
         ) : null}
       </section>
@@ -1158,7 +1825,69 @@ export function SparkOrbLearningShell({
 
         .spark-orb-learning-shell__problem {
           background: rgba(255, 255, 255, 0.9);
+          display: grid;
+          grid-template-rows: minmax(0, 1fr) auto;
+          gap: 18px;
           padding: 22px;
+        }
+
+        .spark-orb-learning-shell__problem-content {
+          min-height: 0;
+        }
+
+        .spark-orb-learning-shell__mastery-path {
+          display: grid;
+          gap: 8px;
+        }
+
+        .spark-orb-learning-shell__mastery-step {
+          align-items: center;
+          background: linear-gradient(135deg, rgba(244, 248, 255, 0.96), rgba(238, 242, 255, 0.9));
+          border: 1px solid rgba(80, 101, 171, 0.16);
+          border-radius: 16px;
+          color: #33436f;
+          display: grid;
+          font-size: 13px;
+          font-weight: 950;
+          gap: 10px;
+          grid-template-columns: 34px 1fr;
+          letter-spacing: 0.08em;
+          min-height: 46px;
+          padding: 6px 12px 6px 7px;
+          transition: border-color 180ms ease, box-shadow 180ms ease, transform 180ms ease;
+        }
+
+        .spark-orb-learning-shell__mastery-step i {
+          align-items: center;
+          background: rgba(89, 111, 176, 0.12);
+          border: 2px solid rgba(89, 111, 176, 0.2);
+          border-radius: 50%;
+          display: flex;
+          font-size: 14px;
+          font-style: normal;
+          height: 34px;
+          justify-content: center;
+          letter-spacing: 0;
+          width: 34px;
+        }
+
+        .spark-orb-learning-shell__mastery-step[data-complete="true"] {
+          background: linear-gradient(135deg, rgba(239, 255, 251, 0.98), rgba(229, 252, 255, 0.94));
+          border-color: rgba(46, 194, 204, 0.42);
+          color: #087d88;
+        }
+
+        .spark-orb-learning-shell__mastery-step[data-complete="true"] i {
+          background: #5fd4d5;
+          border-color: #b7fbf2;
+          box-shadow: 0 0 16px rgba(95, 212, 213, 0.46);
+          color: #ffffff;
+        }
+
+        .spark-orb-learning-shell__mastery-step[data-current="true"] {
+          border-color: rgba(117, 92, 218, 0.48);
+          box-shadow: 0 9px 24px rgba(85, 67, 164, 0.14);
+          transform: translateX(3px);
         }
 
         .spark-orb-learning-shell__orb-stage {
@@ -1185,6 +1914,142 @@ export function SparkOrbLearningShell({
             linear-gradient(180deg, transparent 58%, rgba(0, 0, 0, 0.62));
           pointer-events: none;
           z-index: 2;
+        }
+
+        .spark-orb-learning-shell__encounter-details {
+          display: grid;
+          gap: 10px;
+          position: absolute;
+          right: 22px;
+          top: 102px;
+          width: min(205px, 25%);
+          z-index: 9;
+        }
+
+        .spark-orb-learning-shell__encounter-modifier,
+        .spark-orb-learning-shell__bond-progress {
+          backdrop-filter: blur(12px);
+          background: rgba(10, 35, 67, 0.82);
+          border: 1px solid rgba(255, 255, 255, 0.26);
+          border-radius: 16px;
+          box-shadow: 0 12px 28px rgba(9, 31, 56, 0.2);
+          color: #ffffff;
+          display: grid;
+          gap: 3px 9px;
+          grid-template-columns: 34px 1fr;
+          line-height: 1.15;
+          padding: 9px 11px;
+        }
+
+        .spark-orb-learning-shell__encounter-modifier > i,
+        .spark-orb-learning-shell__bond-progress > i {
+          align-items: center;
+          align-self: center;
+          background: linear-gradient(145deg, #9669e7, #6b45bd);
+          border: 2px solid rgba(255, 255, 255, 0.55);
+          border-radius: 50%;
+          color: #ffe46b;
+          display: flex;
+          font-size: 18px;
+          font-style: normal;
+          height: 32px;
+          justify-content: center;
+          width: 32px;
+        }
+
+        .spark-orb-learning-shell__encounter-modifier strong,
+        .spark-orb-learning-shell__bond-progress strong {
+          display: block;
+          font-size: 12px;
+          font-weight: 950;
+          letter-spacing: 0.04em;
+          text-transform: uppercase;
+        }
+
+        .spark-orb-learning-shell__encounter-modifier span,
+        .spark-orb-learning-shell__bond-progress span {
+          font-size: 10px;
+          font-weight: 750;
+        }
+
+        .spark-orb-learning-shell__bond-progress b {
+          background: rgba(0, 0, 0, 0.28);
+          border-radius: 99px;
+          display: block;
+          grid-column: 2;
+          height: 5px;
+          overflow: hidden;
+        }
+
+        .spark-orb-learning-shell__bond-progress b em {
+          background: linear-gradient(90deg, #a974f2, #e078e7);
+          border-radius: inherit;
+          display: block;
+          height: 100%;
+          width: 37.5%;
+        }
+
+        .spark-orb-learning-shell__concept-path {
+          height: 130px;
+          left: 4%;
+          opacity: 0.34;
+          pointer-events: none;
+          position: absolute;
+          top: 43%;
+          transform: rotate(9deg);
+          width: 58%;
+          z-index: 7;
+        }
+
+        .spark-orb-learning-shell__concept-path::before {
+          background: linear-gradient(90deg, rgba(255, 228, 107, 0), rgba(255, 228, 107, 0.85), rgba(124, 255, 241, 0.36));
+          border-radius: 50%;
+          box-shadow: 0 0 20px rgba(255, 228, 107, 0.32);
+          content: "";
+          height: 4px;
+          left: 0;
+          position: absolute;
+          top: 52%;
+          transform: rotate(12deg);
+          width: 100%;
+        }
+
+        .spark-orb-learning-shell__concept-path > span {
+          align-items: center;
+          background: radial-gradient(circle, #fff9c8 0 26%, #ffd94c 54%, #e6a90d 100%);
+          border: 3px solid rgba(255, 255, 255, 0.88);
+          border-radius: 50%;
+          box-shadow: 0 0 22px rgba(255, 228, 107, 0.86);
+          color: #805c00;
+          display: flex;
+          font-size: 20px;
+          font-weight: 950;
+          height: 43px;
+          justify-content: center;
+          left: 3%;
+          position: absolute;
+          top: 36%;
+          width: 43px;
+        }
+
+        .spark-orb-learning-shell__concept-path > i {
+          background: #fff5a8;
+          border-radius: 50%;
+          box-shadow: 0 0 10px rgba(255, 228, 107, 0.8);
+          height: 7px;
+          position: absolute;
+          top: 58%;
+          width: 7px;
+        }
+
+        .spark-orb-learning-shell__concept-path > i:nth-of-type(1) { left: 26%; }
+        .spark-orb-learning-shell__concept-path > i:nth-of-type(2) { left: 43%; top: 68%; }
+        .spark-orb-learning-shell__concept-path > i:nth-of-type(3) { left: 62%; top: 74%; }
+        .spark-orb-learning-shell__concept-path > i:nth-of-type(4) { left: 81%; top: 67%; }
+
+        .spark-orb-learning-shell__concept-path[data-active="true"] {
+          animation: sparkLearningConceptPathGlow 0.85s ease-out both;
+          opacity: 1;
         }
 
         .spark-orb-learning-shell__orb-hud {
@@ -1261,9 +2126,19 @@ export function SparkOrbLearningShell({
           z-index: 4;
         }
 
-        .spark-orb-learning-shell[data-phase="ready"] .spark-orb-learning-shell__creature,
-        .spark-orb-learning-shell[data-phase="collected"] .spark-orb-learning-shell__creature {
-          animation: sparkLearningCreatureBounce 1.7s ease-in-out infinite;
+        .spark-orb-learning-shell__creature-sprite {
+          display: block;
+          width: 100%;
+        }
+
+        .spark-orb-learning-shell__creature[data-drifting="true"] {
+          animation: sparkLearningCreatureDrift var(--drift-period) ease-in-out infinite;
+        }
+
+        @keyframes sparkLearningCreatureDrift {
+          0%, 100% { transform: translate(-50%, -50%); }
+          25% { transform: translate(calc(-50% + var(--drift-amp)), -50%); }
+          75% { transform: translate(calc(-50% - var(--drift-amp)), -50%); }
         }
 
         .spark-orb-learning-shell__creature[data-capture-motion="pulling"] {
@@ -1665,6 +2540,66 @@ export function SparkOrbLearningShell({
           outline-offset: 4px;
         }
 
+        .spark-orb-learning-shell__cheer-button {
+          background: rgba(7, 18, 25, 0.72);
+          border: 2px solid rgba(255, 228, 107, 0.8);
+          border-radius: 999px;
+          color: #ffe46b;
+          cursor: pointer;
+          font: inherit;
+          font-size: 15px;
+          font-weight: 950;
+          left: 50%;
+          padding: 12px 22px;
+          position: absolute;
+          top: 62%;
+          transform: translateX(-50%);
+          z-index: 14;
+          animation: sparkLearningCheerPulse 0.52s ease-in-out infinite;
+        }
+
+        .spark-orb-learning-shell__cheer-button:focus-visible {
+          outline: 3px solid rgba(255, 228, 107, 0.9);
+          outline-offset: 4px;
+        }
+
+        .spark-orb-learning-shell__orb-stage[data-struggling="true"] .spark-orb-learning-shell__orb {
+          animation: sparkLearningOrbStruggle 0.52s ease-in-out infinite;
+        }
+
+        .spark-orb-learning-shell__orb-stage[data-breakout="true"] .spark-orb-learning-shell__creature {
+          animation: sparkLearningCreatureBreakout 0.7s cubic-bezier(0.3, 1.3, 0.4, 1) both;
+        }
+
+        @keyframes sparkLearningCheerPulse {
+          0%, 100% { transform: translateX(-50%) scale(1); }
+          50% { transform: translateX(-50%) scale(1.08); }
+        }
+
+        @keyframes sparkLearningOrbStruggle {
+          0%, 100% {
+            transform:
+              translateX(-50%)
+              translate(var(--orb-impact-x), var(--orb-impact-y))
+              rotate(calc(var(--orb-impact-rotation) - 10deg))
+              scale(var(--orb-impact-scale));
+          }
+          50% {
+            transform:
+              translateX(-50%)
+              translate(calc(var(--orb-impact-x) + 7px), calc(var(--orb-impact-y) + 4px))
+              rotate(calc(var(--orb-impact-rotation) + 10deg))
+              scale(var(--orb-impact-scale));
+          }
+        }
+
+        @keyframes sparkLearningCreatureBreakout {
+          0% { transform: translate(-50%, -50%) scale(0.72) rotate(-8deg); }
+          36% { transform: translate(-50%, -56%) scale(1.08) rotate(6deg); }
+          64% { transform: translate(-50%, -48%) scale(0.97) rotate(-4deg); }
+          100% { transform: translate(-50%, -50%) scale(1) rotate(0deg); }
+        }
+
         .spark-orb-learning-shell__orb[data-capture-lock="true"] {
           animation: sparkLearningOrbLockBoom 0.58s cubic-bezier(0.2, 0.8, 0.2, 1) both;
           filter:
@@ -1872,44 +2807,93 @@ export function SparkOrbLearningShell({
           color: #ffd0c7;
         }
 
-        .spark-orb-learning-shell__charge {
+        .spark-orb-learning-shell__charge-pedestal {
           align-items: center;
-          background: rgba(7, 18, 25, 0.72);
-          border: 1px solid rgba(255, 255, 255, 0.14);
-          border-radius: 999px;
-          bottom: 42px;
+          bottom: 24px;
           color: white;
-          display: inline-flex;
-          gap: 12px;
+          display: grid;
+          gap: 7px;
+          justify-items: center;
           left: 50%;
-          padding: 10px 16px;
           position: absolute;
           transform: translateX(-50%);
           z-index: 9;
         }
 
-        .spark-orb-learning-shell__charge span {
-          font-size: 15px;
-          font-weight: 900;
+        .spark-orb-learning-shell__charge-pedestal > span {
+          background: rgba(7, 18, 25, 0.76);
+          border: 1px solid rgba(255, 255, 255, 0.16);
+          border-radius: 999px;
+          font-size: 10px;
+          font-weight: 950;
+          letter-spacing: 0.12em;
+          padding: 5px 10px;
+          text-transform: uppercase;
           white-space: nowrap;
         }
 
-        .spark-orb-learning-shell__charge div {
-          display: inline-flex;
-          gap: 7px;
+        .spark-orb-learning-shell__charge-pedestal > .spark-orb-learning-shell__charge-text {
+          border: 0;
+          clip: rect(0 0 0 0);
+          clip-path: inset(50%);
+          height: 1px;
+          margin: -1px;
+          overflow: hidden;
+          padding: 0;
+          position: absolute;
+          white-space: nowrap;
+          width: 1px;
         }
 
-        .spark-orb-learning-shell__charge i {
-          background: rgba(255, 255, 255, 0.28);
+        .spark-orb-learning-shell__charge-pedestal > div {
+          align-items: center;
+          display: flex;
+          gap: 10px;
+          position: relative;
+        }
+
+        .spark-orb-learning-shell__charge-pedestal > div::before {
+          background: linear-gradient(90deg, transparent, rgba(255, 228, 107, 0.72), transparent);
+          content: "";
+          height: 4px;
+          left: 10%;
+          position: absolute;
+          right: 10%;
+          top: calc(50% - 2px);
+        }
+
+        .spark-orb-learning-shell__charge-pedestal i {
+          align-items: center;
+          background: radial-gradient(circle at 50% 32%, rgba(48, 69, 84, 0.96), rgba(9, 24, 39, 0.98));
+          border: 3px solid rgba(255, 255, 255, 0.24);
           border-radius: 50%;
-          display: block;
-          height: 11px;
-          width: 11px;
+          box-shadow: 0 8px 16px rgba(4, 20, 34, 0.32);
+          display: flex;
+          font-style: normal;
+          height: 38px;
+          justify-content: center;
+          position: relative;
+          width: 38px;
+          z-index: 1;
         }
 
-        .spark-orb-learning-shell__charge i[data-filled="true"] {
-          background: #ffe46b;
-          box-shadow: 0 0 14px rgba(255, 228, 107, 0.72);
+        .spark-orb-learning-shell__charge-pedestal i b {
+          color: rgba(255, 255, 255, 0.28);
+          font-size: 16px;
+        }
+
+        .spark-orb-learning-shell__charge-pedestal i[data-filled="true"] {
+          background: radial-gradient(circle at 42% 36%, #fffbd4, #ffe46b 42%, #e9a51d 78%);
+          border-color: rgba(255, 249, 198, 0.92);
+          box-shadow:
+            0 0 0 4px rgba(255, 228, 107, 0.18),
+            0 0 24px rgba(255, 228, 107, 0.72),
+            0 8px 16px rgba(4, 20, 34, 0.3);
+        }
+
+        .spark-orb-learning-shell__charge-pedestal i[data-filled="true"] b {
+          color: #9a6500;
+          text-shadow: 0 1px 0 rgba(255, 255, 255, 0.5);
         }
 
         .spark-orb-learning-shell__collect-card {
@@ -1941,6 +2925,139 @@ export function SparkOrbLearningShell({
           font-size: 24px;
           font-weight: 950;
           margin-top: 6px;
+        }
+
+        .spark-orb-learning-shell__collect-card[data-shiny="true"] {
+          animation:
+            sparkLearningCollectionCardPop 0.58s cubic-bezier(0.2, 0.8, 0.2, 1) both,
+            sparkLearningShinyShimmer 1.2s ease-in-out infinite;
+          border-color: rgba(255, 228, 107, 0.9);
+        }
+
+        .spark-orb-learning-shell__collect-card[data-shiny="true"] span {
+          color: #b8860b;
+        }
+
+        .spark-orb-learning-shell__star-tier {
+          color: #f2b90d;
+          display: block;
+          font-size: 26px;
+          font-style: normal;
+          letter-spacing: 4px;
+          margin-top: 6px;
+          text-shadow: 0 2px 8px rgba(242, 185, 13, 0.4);
+        }
+
+        .spark-orb-learning-shell__comeback {
+          background: #10202d;
+          border-radius: 999px;
+          color: #ffe46b;
+          display: inline-block;
+          font-size: 12px;
+          font-style: normal;
+          font-weight: 950;
+          margin-top: 8px;
+          padding: 5px 12px;
+        }
+
+        .spark-orb-learning-shell__word-hook {
+          color: rgba(16, 32, 45, 0.78);
+          font-size: 15px;
+          font-weight: 800;
+          line-height: 1.3;
+          margin: 10px 0 0;
+        }
+
+        .spark-orb-learning-shell__spark-flight {
+          animation: sparkLearningSparkFlight 0.85s cubic-bezier(0.2, 0.6, 0.3, 1) both;
+          background: radial-gradient(circle, #fff8d8 18%, #ffe46b 52%, rgba(255, 228, 107, 0) 72%);
+          border-radius: 50%;
+          box-shadow:
+            0 0 18px rgba(255, 228, 107, 0.9),
+            0 0 40px rgba(124, 255, 241, 0.5);
+          height: 34px;
+          pointer-events: none;
+          position: absolute;
+          width: 34px;
+          z-index: 13;
+        }
+
+        @keyframes sparkLearningSparkFlight {
+          0% {
+            left: 2%;
+            opacity: 0;
+            top: 42%;
+            transform: scale(0.5);
+          }
+          14% {
+            opacity: 1;
+            transform: scale(1);
+          }
+          58% {
+            left: 32%;
+            top: 52%;
+            transform: scale(1.05);
+          }
+          88% {
+            opacity: 1;
+          }
+          100% {
+            left: calc(50% - 17px);
+            opacity: 0;
+            top: calc(100% - 170px);
+            transform: scale(1.7);
+          }
+        }
+
+        @keyframes sparkLearningConceptPathGlow {
+          0% { filter: brightness(0.82); opacity: 0.18; transform: rotate(9deg) scale(0.98); }
+          45% { filter: brightness(1.35); opacity: 1; transform: rotate(9deg) scale(1.02); }
+          100% { filter: brightness(1); opacity: 0.46; transform: rotate(9deg) scale(1); }
+        }
+
+        @keyframes sparkLearningShinyShimmer {
+          0%, 100% { box-shadow: 0 22px 54px rgba(16, 24, 40, 0.24), 0 0 22px rgba(255, 228, 107, 0.45); }
+          50% { box-shadow: 0 22px 54px rgba(16, 24, 40, 0.24), 0 0 44px rgba(255, 228, 107, 0.85); }
+        }
+
+        .spark-orb-learning-shell__live-region {
+          border: 0;
+          clip: rect(0 0 0 0);
+          clip-path: inset(50%);
+          height: 1px;
+          margin: -1px;
+          overflow: hidden;
+          padding: 0;
+          position: absolute;
+          white-space: nowrap;
+          width: 1px;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+          .spark-orb-learning-shell__capture-vortex,
+          .spark-orb-learning-shell__energy-tether,
+          .spark-orb-learning-shell__stream,
+          .spark-orb-learning-shell__spark-burst,
+          .spark-orb-learning-shell__spark-burst i,
+          .spark-orb-learning-shell__spark-flight,
+          .spark-orb-learning-shell__concept-path,
+          .spark-orb-learning-shell__cheer-button,
+          .spark-orb-learning-shell__aura {
+            animation: none !important;
+          }
+
+          .spark-orb-learning-shell__orb-stage[data-struggling="true"] .spark-orb-learning-shell__orb {
+            animation: none;
+          }
+
+          .spark-orb-learning-shell__orb[data-ready="true"] {
+            animation: none;
+          }
+
+          .spark-orb-learning-shell__creature[data-capture-motion="pulling"],
+          .spark-orb-learning-shell__creature[data-capture-motion="shrinking"] {
+            animation-duration: 1.6s;
+          }
         }
 
         .spark-orb-learning-shell__companion-anchor {
@@ -1984,11 +3101,6 @@ export function SparkOrbLearningShell({
         @keyframes sparkLearningReadyPulse {
           0%, 100% { transform: translateX(-50%) scale(1); }
           50% { transform: translateX(-50%) scale(1.08); }
-        }
-
-        @keyframes sparkLearningCreatureBounce {
-          0%, 100% { transform: translate(-50%, -50%); }
-          50% { transform: translate(-50%, -53%); }
         }
 
         @keyframes sparkLearningCreaturePull {
@@ -2348,6 +3460,16 @@ export function SparkOrbLearningShell({
             min-height: 620px;
           }
 
+          .spark-orb-learning-shell__problem {
+            min-height: 560px;
+          }
+
+          .spark-orb-learning-shell__encounter-details {
+            right: 14px;
+            top: 92px;
+            width: 190px;
+          }
+
           .spark-orb-learning-shell__companion-anchor {
             bottom: 116px;
             right: 14px;
@@ -2357,5 +3479,6 @@ export function SparkOrbLearningShell({
         }
       `}</style>
     </div>
+    </SparkOrbLearningContext.Provider>
   );
 }

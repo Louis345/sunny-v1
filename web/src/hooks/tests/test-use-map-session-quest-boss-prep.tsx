@@ -146,6 +146,39 @@ describe("useMapSession Quest/Boss preparation", () => {
     }, { timeout: 2000 });
   });
 
+  it("rejects a malformed preparation payload without storing or polling it", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url === "/api/map/start") {
+        return Response.json({ sessionId: "session-1", mapState: baseMapState });
+      }
+      if (url === "/api/homework/quest-boss/prepare") {
+        return Response.json({
+          ok: true,
+          childId: "reina",
+          sessionId: "wrong-response-shape",
+        });
+      }
+      throw new Error(`unexpected fetch ${url}`);
+    });
+    globalThis.fetch = fetchMock as typeof fetch;
+    installWebSocketMock();
+
+    const { result } = renderHook(() => useMapSession("reina"));
+
+    await waitFor(() => {
+      expect(warn).toHaveBeenCalledWith(
+        " 🎮 [useMapSession] quest_boss_prep_invalid",
+        expect.objectContaining({ childId: "reina" }),
+      );
+    });
+    expect(result.current.questBossPreparation).toBeNull();
+    expect(fetchMock).not.toHaveBeenCalledWith(
+      "/api/homework/quest-boss/status?childId=reina",
+    );
+  });
+
   it("rechecks Quest/Boss preparation after an activity result writes evidence", async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const url = String(input);

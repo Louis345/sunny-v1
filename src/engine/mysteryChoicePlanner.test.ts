@@ -102,6 +102,66 @@ describe("mystery choice planner", () => {
     expect(out.choiceSource).toBe("system_recommendation");
   });
 
+  it("offers Spark Orb as a native surprise reward after strong learning evidence", () => {
+    const p = profile();
+    p.activityModel = {
+      "spark-orb-charge": {
+        activityId: "spark-orb-charge",
+        plays: 4,
+        completions: 4,
+        completionRate: 1,
+        averageAccuracy: 0,
+        engagementScore: 0.95,
+        frustrationScore: 0.05,
+        likedCount: 3,
+        dislikedCount: 0,
+        lastRating: "like",
+        lastPlayed: "2026-05-12T10:00:00.000Z",
+        domains: { spelling: 4 },
+        missedWords: [],
+      },
+    };
+    p.adaptiveLoadState = {
+      spelling: {
+        domain: "spelling",
+        currentCohortSize: 10,
+        maxRecentSuccessfulCohort: 10,
+        challengeRecommendation: "maintain",
+        lastLoadEvidence: {
+          activityId: "spell-check",
+          completed: true,
+          accuracy: 0.95,
+          targetCount: 10,
+          frustrationScore: 0.05,
+          strongEvidence: true,
+          occurredAt: "2026-05-12T10:00:00.000Z",
+        },
+      },
+    };
+
+    const out = buildMysteryChoiceNodeData({
+      childId: "reina",
+      nodeId: "n-mystery",
+      domain: "spelling",
+      words: ["above", "about"],
+      profile: p,
+      dopamineGames: ["spark-orb-charge", "asteroid"],
+      domainValidNodes: [node("pronunciation")],
+      allowSurpriseDrop: true,
+      now: new Date("2026-05-12T12:05:00.000Z"),
+    });
+
+    expect(out.mysteryMode).toBe("surprise_drop");
+    expect(out.surpriseOption).toMatchObject({
+      activityId: "spark-orb-charge",
+      label: "Spark Orb Catcher",
+      purposeLabel: "SURPRISE CAPTURE",
+      activityKind: "dopamine_game",
+    });
+    expect(out.surpriseOption?.gameFile).toBeUndefined();
+    expect(out.choiceSource).toBe("system_recommendation");
+  });
+
   it("does not convert homework mystery into a surprise drop from forced activity evidence alone", () => {
     const p = profile();
     p.activityModel = {

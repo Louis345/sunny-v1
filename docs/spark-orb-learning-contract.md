@@ -1,40 +1,47 @@
 # Spark Orb Learning Contract
 
-Spark Orb is a reward wrapper, not the academic instrument. The planner may choose it when an earned launch/capture loop helps the child stay with valid learning work, but it must also be free to ignore it.
+Spark Orb is an earned, optional Mystery reward—not an academic instrument. The planner may offer it after valid learning work when anticipation, movement, and collection are a good fit for the child. The child may decline it and return to the map.
 
 ## Planner Rule
 
 - Use `src/engine/activityToolCatalog.ts` as the machine-readable source of truth.
-- Treat `spark-orb-charge` as `plannerVisibility: "wrapper"`.
-- Do not place Spark Orb directly in `activeSessionPlan.nodePlan` as a map node.
-- If it fits organically, attach it to a domain-valid node as `rewardWrapper`.
-- Valid wrapper modes are `charge_bridge` and `domain_payload_wrapper`.
-- `domain_payload_wrapper` belongs on an unlocked evidence-generating activity node, not Mystery, Quest, Boss, or another locked destination.
+- Keep `spark-orb-charge` non-launchable as a normal academic map node.
+- Do not place Spark Orb directly in `activeSessionPlan.nodePlan`.
+- After evidence-generating work, a Mystery node may use `choiceMode: "surprise_drop"` to offer Spark Orb Catcher.
+- Use the ordinary `choice_lab` Mystery when the plan needs a controlled preference comparison instead.
+- Skip Spark Orb when the session needs a clean baseline, calm practice, or reduced arcade reward.
 
 ## Evidence Boundary
 
-- Orb charge, launch, miss, capture, collectible reveal, and retry are engagement, persistence, attention, and reward signals.
-- Spark Orb does not write standalone mastery evidence.
-- `domain_payload_wrapper` requires the embedded activity to own target-level academic evidence.
-- Spelling correctness, reading fluency, math reasoning, or science comprehension must come from the embedded payload and chart evidence path.
+- The preceding spelling, reading, math, history, or science activity owns academic correctness and target-level evidence.
+- Orb launch, miss, capture, retry, fun rating, and return behavior are engagement, persistence, attention, and reward signals.
+- Spark Orb never writes standalone mastery evidence.
+- The surprise being shown, chosen, skipped, completed, or replayed feeds preference policy only.
+
+## Companion Boundary
+
+- Elli receives live encounter context and remains a travel companion, not a tutor.
+- She may observe, react, answer a child's request for help, or recognize that a creature is special.
+- She must not reveal answers, score academic work, or make mastery claims from the capture.
+- Do not require canned companion dialogue to launch the reward.
 
 ## Good Fit
 
-- After evidence-generating work when the child needs an energetic bridge.
+- After evidence-generating work when the child has earned an energetic bridge.
 - While a Quest or Boss artifact is preparing or validating.
-- Around a spelling, reading, math, or science payload that already emits per-target results.
-- When the child profile suggests visual reward, movement, anticipation, or collectible motivation will help persistence.
+- When the child chart suggests visual reward, movement, anticipation, or collectibles may improve willing re-engagement.
 
 ## Bad Fit
 
-- First clean cold baseline when reward timing would contaminate the signal.
-- Any plan that would treat launch/capture as academic mastery.
-- Any plan where the wrapper replaces the domain payload instead of supporting it.
+- Before the first clean baseline.
+- Any plan that treats launch or capture as academic mastery.
+- Weak performance that needs targeted support before a reward.
 - Fatigue, overwhelm, or parent context says to keep the session calm and direct.
 
 ## Acceptance Checklist
 
 - The planner packet includes the Spark Orb catalog card.
 - The planner output remains valid when Spark Orb is not selected.
-- If selected, Spark Orb appears only as `rewardWrapper` on a domain-valid node.
-- Any review language explains what evidence the wrapped activity captures and what Spark Orb contributes emotionally.
+- If selected, it appears as one declinable `surprise_drop` option inside Mystery after evidence-generating work.
+- Capture completion produces preference/engagement evidence only.
+- Elli is driven by live context and remains a companion.
