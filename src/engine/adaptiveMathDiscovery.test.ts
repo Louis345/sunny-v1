@@ -1914,3 +1914,47 @@ it.each([false,true])('replays pre-change Planner and Creator receipts without r
  expect(stream).toHaveBeenCalledTimes(1);
  await generateMathDiscoveryExperience(args);expect(stream).toHaveBeenCalledTimes(1);
 },30000);
+
+// 2026-10-21 Saori catch: kiosk startup re-ran a finished Oct 14 job for an older assignment,
+// and its republish overwrote Ila's active plan, while homework/current.json still named her
+// current homework. Logs showed only "[targeted-board-projection] [published]"; labs disable
+// startup recovery under VITEST and never held an older finished job beside a current one.
+describe("the chart's current homework is the only one that may write the active plan", () => {
+  const seed = (rootDir: string, currentHomeworkId: string) => {
+    const context = path.join(rootDir, "src/context/lab-child");
+    fs.mkdirSync(path.join(context, "plans"), { recursive: true });
+    fs.mkdirSync(path.join(context, "homework"), { recursive: true });
+    fs.writeFileSync(path.join(context, "plans/active_session_plan.json"), JSON.stringify({ activeByDomain: { math: { planId: "current-plan", activeHomeworkId: currentHomeworkId } } }));
+    fs.writeFileSync(path.join(context, "homework/current.json"), JSON.stringify({ selectedDomain: "math", current: { homeworkId: currentHomeworkId }, activeByDomain: { math: { homeworkId: currentHomeworkId } } }));
+    fs.writeFileSync(path.join(context, "learning_profile.json"), JSON.stringify({ childId: "lab-child", activeSessionPlanByDomain: { math: { planId: "current-plan" } } }));
+    return context;
+  };
+  it("does not let an older homework's republish overwrite the current plan", () => {
+    const rootDir = root();
+    const context = seed(rootDir, "hw-current");
+    const before = { plan: fs.readFileSync(path.join(context, "plans/active_session_plan.json"), "utf8"), profile: fs.readFileSync(path.join(context, "learning_profile.json"), "utf8") };
+    const plan = buildDiscoveryActiveSessionPlan({ childId: "lab-child", homeworkId: "hw-old", evaluation: contract, companion: { id: "elli", name: "Elli" } });
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    try {
+      publishTargetedBoardProjection({ rootDir, childId: "lab-child", activeSessionPlan: plan, nodeStatuses: {} });
+      expect(fs.readFileSync(path.join(context, "plans/active_session_plan.json"), "utf8")).toBe(before.plan);
+      expect(fs.readFileSync(path.join(context, "learning_profile.json"), "utf8")).toBe(before.profile);
+      expect(log.mock.calls.flat().join("\n")).toContain("[targeted-board-projection] [skipped] reason=not_current_homework homework=hw-old current=hw-current");
+    } finally { log.mockRestore(); }
+  });
+  it("still publishes the current homework's own board", () => {
+    const rootDir = root();
+    const context = seed(rootDir, "hw-1");
+    const plan = buildDiscoveryActiveSessionPlan({ childId: "lab-child", homeworkId: "hw-1", evaluation: contract, companion: { id: "elli", name: "Elli" } });
+    publishTargetedBoardProjection({ rootDir, childId: "lab-child", activeSessionPlan: plan, nodeStatuses: {} });
+    expect(JSON.parse(fs.readFileSync(path.join(context, "plans/active_session_plan.json"), "utf8")).activeByDomain.math.activeHomeworkId).toBe("hw-1");
+  });
+  it("only resumes startup jobs for the chart's current homework", async () => {
+    const { isStartupResumableHomework } = await import("../server/routes") as any;
+    expect(isStartupResumableHomework).toBeTypeOf("function");
+    const current = new Set(["hw-current"]);
+    expect(isStartupResumableHomework("hw-current", current)).toBe(true);
+    expect(isStartupResumableHomework("hw-old-finished", current)).toBe(false);
+    expect(isStartupResumableHomework("hw-any", undefined)).toBe(true); // no chart record yet: unchanged behaviour
+  });
+});
