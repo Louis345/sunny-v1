@@ -93,40 +93,6 @@ export const adventureCompositionSchema = z.object({
 }).strict();
 export type AdventureJourneyDefinition=z.infer<typeof adventureJourneySchema>;
 export type AdventureBoardComposition=z.infer<typeof adventureCompositionSchema>;
-/** Geometry repair applies to the received candidate, never a replacement world. */
-export function adventureCompositionCorrectionTool(composition:AdventureBoardComposition,journey:Pick<AdventureJourneyDefinition,'edges'>,error:Error) {
-  let defects:string[];try{defects=JSON.parse(error.message.slice('board_canvas_invalid:'.length));}catch{throw new Error('composition_correction_scope_unavailable');}
-  if(!error.message.startsWith('board_canvas_invalid:')||!Array.isArray(defects))throw new Error('composition_correction_scope_unavailable');
-  const fields:string[]=[];
-  for(const orientation of ['landscape','portrait'] as const){
-    const failures=defects.filter(defect=>typeof defect==='string'&&(orientation==='portrait'?defect.startsWith('768x1024:'):defect.startsWith('1280x720:')||defect.startsWith('1470x956:')));
-    const ids=new Set<string>(),known=[...composition.portals].sort((a,b)=>b.id.length-a.id.length);
-    for(const failure of failures){
-      const detail=failure.slice(failure.indexOf(':')+1),first=known.find(portal=>detail.startsWith(`${portal.id}:`));
-      if(!first)continue;const kind=detail.slice(first.id.length+1);
-      if(kind.startsWith('overlaps:')){const target=kind.slice('overlaps:'.length),other=known.find(portal=>target===portal.id||target.startsWith(`${portal.id}:`));ids.add(first.id);if(other)ids.add(other.id);}
-      else if(kind==='clipped_or_control_rail_overlap')ids.add(first.id);
-    }
-    composition.portals.forEach((portal,index)=>{if(ids.has(portal.id))fields.push(`/portals/${index}/position/${orientation}`);});
-    composition.edges.forEach((edge,index)=>{const semantic=journey.edges.find(row=>row.id===edge.id);if(edge.controlPoints&&semantic&&(ids.has(semantic.from)||ids.has(semantic.to)))fields.push(`/edges/${index}/controlPoints/${orientation}`);});
-  }
-  if(!fields.length)throw new Error('composition_correction_scope_unavailable');
-  return {name:'repair_board_geometry',description:'Patch only diagnosed geometry on the supplied candidate. Preserve all other fields.',input_schema:{type:'object',additionalProperties:false,properties:{patches:{type:'array',minItems:1,maxItems:fields.length,items:{type:'object',additionalProperties:false,properties:{path:{type:'string',enum:fields},value:{anyOf:[z.toJSONSchema(point),z.toJSONSchema(z.array(point).max(8))]}},required:['path','value']}}},required:['patches']}};
-}
-export function applyAdventureCompositionCorrection(composition:AdventureBoardComposition,journey:Pick<AdventureJourneyDefinition,'edges'>,reply:unknown,error:Error):AdventureBoardComposition {
-  const tool=adventureCompositionCorrectionTool(composition,journey,error),allowed=new Set(tool.input_schema.properties.patches.items.properties.path.enum);
-  const raw=reply as {patches?:Array<{path:string;value:unknown}>};
-  if(!raw||typeof raw!=='object'||Object.keys(raw).some(key=>key!=='patches')||!Array.isArray(raw.patches)||!raw.patches.length||raw.patches.length>allowed.size)throw new Error('composition_correction_changed_protected_fields');
-  const result=structuredClone(composition),seen=new Set<string>();
-  for(const patch of raw.patches){
-    if(!patch||typeof patch!=='object'||Object.keys(patch).some(key=>!['path','value'].includes(key))||!allowed.has(patch.path)||seen.has(patch.path))throw new Error('composition_correction_changed_protected_fields');
-    seen.add(patch.path);const parts=patch.path.slice(1).split('/');
-    const value=parts[0]==='portals'?point.parse(patch.value):z.array(point).max(8).parse(patch.value);
-    let parent:unknown=result;for(const part of parts.slice(0,-1))parent=(parent as Record<string,unknown>)[part];
-    (parent as Record<string,unknown>)[parts.at(-1)!]=value;
-  }
-  return adventureCompositionSchema.parse(result);
-}
 export function journeyFromBoardDefinition(board:AdventureBoardDefinition):AdventureJourneyDefinition {
   const {theme:_theme,portals,edges,pattern:_pattern,...journey}=board;
   return adventureJourneySchema.parse({...journey,portals:portals.map(({position:_position,icon:_icon,thumbnailUrl:_thumbnail,...portal})=>portal),edges:edges.map(({style:_style,controlPoints:_points,...edge})=>edge)});
