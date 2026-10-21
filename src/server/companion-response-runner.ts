@@ -365,7 +365,7 @@ export async function runCompanionResponseForSession(
                   }),
                 );
                 const st = session.turnSM.getState();
-                if (st === "PROCESSING") {
+                if (st === "PROCESSING" || st === "SPEAKING") {
                   session.turnSM.onShowCanvas();
                 }
               } else if (ct === "place_value") {
@@ -396,7 +396,7 @@ export async function runCompanionResponseForSession(
                   }),
                 );
                 const st = session.turnSM.getState();
-                if (st === "PROCESSING") {
+                if (st === "PROCESSING" || st === "SPEAKING") {
                   session.turnSM.onShowCanvas();
                 }
               } else if (ct === "spelling") {
@@ -444,7 +444,7 @@ export async function runCompanionResponseForSession(
                     }),
                   );
                   const st = session.turnSM.getState();
-                  if (st === "PROCESSING" && word.length > 0) {
+                  if ((st === "PROCESSING" || st === "SPEAKING") && word.length > 0) {
                     session.turnSM.onShowCanvas();
                   }
                 }
@@ -462,7 +462,7 @@ export async function runCompanionResponseForSession(
                   }),
                 );
                 const st = session.turnSM.getState();
-                if (st === "PROCESSING") {
+                if (st === "PROCESSING" || st === "SPEAKING") {
                   session.turnSM.onShowCanvas();
                 }
               } else if (ct === "math_inline") {
@@ -479,7 +479,7 @@ export async function runCompanionResponseForSession(
                   }),
                 );
                 const st = session.turnSM.getState();
-                if (st === "PROCESSING") {
+                if (st === "PROCESSING" || st === "SPEAKING") {
                   session.turnSM.onShowCanvas();
                 }
               } else if (ct === "reward") {
@@ -497,7 +497,7 @@ export async function runCompanionResponseForSession(
                   session.withCanvasRevision({ args: drawPayload, result }),
                 );
                 const st = session.turnSM.getState();
-                if (st === "PROCESSING") {
+                if (st === "PROCESSING" || st === "SPEAKING") {
                   session.turnSM.onShowCanvas();
                 }
               } else if (ct === "championship") {
@@ -512,7 +512,7 @@ export async function runCompanionResponseForSession(
                   session.withCanvasRevision({ args: drawPayload, result }),
                 );
                 const st = session.turnSM.getState();
-                if (st === "PROCESSING") {
+                if (st === "PROCESSING" || st === "SPEAKING") {
                   session.turnSM.onShowCanvas();
                 }
               } else if (ct === "game") {
@@ -530,7 +530,7 @@ export async function runCompanionResponseForSession(
                     session.withCanvasRevision({ args: drawPayload, result }),
                   );
                   const st = session.turnSM.getState();
-                  if (st === "PROCESSING") {
+                  if (st === "PROCESSING" || st === "SPEAKING") {
                     session.turnSM.onShowCanvas();
                   }
                 } else {
@@ -584,7 +584,7 @@ export async function runCompanionResponseForSession(
                     }),
                   );
                   const st = session.turnSM.getState();
-                  if (st === "PROCESSING") {
+                  if (st === "PROCESSING" || st === "SPEAKING") {
                     session.turnSM.onShowCanvas(6000);
                   }
                 }
@@ -603,7 +603,7 @@ export async function runCompanionResponseForSession(
                   }),
                 );
                 const st = session.turnSM.getState();
-                if (st === "PROCESSING") {
+                if (st === "PROCESSING" || st === "SPEAKING") {
                   session.turnSM.onShowCanvas();
                 }
               } else if (ct === "clock") {
@@ -627,7 +627,7 @@ export async function runCompanionResponseForSession(
                   }),
                 );
                 const st = session.turnSM.getState();
-                if (st === "PROCESSING") {
+                if (st === "PROCESSING" || st === "SPEAKING") {
                   session.turnSM.onShowCanvas();
                 }
               } else if (ct === "score_meter") {
