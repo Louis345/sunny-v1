@@ -82,6 +82,22 @@ describe("newest wins", () => {
     expect(text).toMatch(/interrupted/i);
   });
 
+  it("does not interrupt Elli with story text the child reads aloud during karaoke", async () => {
+    // Review catch: karaoke suppression only ran when idle, so reading aloud over
+    // Elli stopped her and sent the story to Claude as the child's message.
+    elliThinksThenAnswers("Great job on that word! ");
+    const { h, session } = conversation();
+    void h.handleEndOfTurn("I spelled it right!");
+    await vi.waitFor(() => expect(h.turnSM.getState()).toBe("SPEAKING"));
+    vi.spyOn(session as unknown as { shouldSuppressTranscriptDuringKaraoke: () => boolean }, "shouldSuppressTranscriptDuringKaraoke").mockReturnValue(true);
+    const bargeIn = vi.spyOn(session, "bargeIn");
+
+    await h.handleEndOfTurn("the little fox ran into the forest");
+
+    expect(bargeIn).not.toHaveBeenCalled();
+    expect(runAgent).toHaveBeenCalledTimes(1);
+  });
+
   it("keeps talking through a backchannel instead of starting over", async () => {
     elliThinksThenAnswers("Great job on that word! ");
     const { h, session } = conversation();

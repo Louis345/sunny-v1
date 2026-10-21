@@ -1545,7 +1545,9 @@ export class SessionManager {
       onTurnResumed: () => this.clearHeldCompanionEagerTranscript("turn_resumed"),
       onInterim: (text) => {
         this.send("interim", { text });
-        if (this.turnSM.getState() === "SPEAKING" && shouldBargeIn({ interim: text, companionSpoken: this.turnSM.spokenText(), speakingForMs: Date.now() - this.speakingStartedAt })) this.bargeIn();
+        // Same gate as a final transcript: only speech the open companion conversation would answer may stop Elli.
+        const companionWouldAnswer = this.companionPresence === "summoned" && this.companionInteractionMode === "conversation" && !this.options?.sttOnly && !this.suppressTranscripts;
+        if (companionWouldAnswer && this.turnSM.getState() === "SPEAKING" && shouldBargeIn({ interim: text, companionSpoken: this.turnSM.spokenText(), speakingForMs: Date.now() - this.speakingStartedAt })) this.bargeIn();
       },
       onEndOfTurn: (transcript) => this.handleFluxEndOfTurn(transcript, "final"),
       onError: (err) => {
@@ -1848,6 +1850,7 @@ export class SessionManager {
     // reply and are answered now; junk, backchannels, and Elli's own echo are dropped.
     if (state === "LOADING" || state === "PROCESSING" || (!opts?.fromReadingComplete && (state === "CANVAS_PENDING" || state === "SPEAKING"))) {
       const dropReason = !this.shouldAcceptInterruptedTranscript(transcript) ? "junk"
+        : this.shouldSuppressTranscriptDuringKaraoke(transcript) ? "karaoke"
         : isBackchannel(transcript) ? "backchannel"
         : isEchoOfCompanion(transcript, this.turnSM.spokenText()) ? "echo" : null;
       if (dropReason) {
