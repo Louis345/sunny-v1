@@ -13,7 +13,7 @@ export const adventureBoardDefinitionSchema = z.object({
     icon:id.optional(), thumbnailUrl:id.optional(),
     position:z.object({ landscape:point, portrait:point }).strict(),
   }).strict()).min(1).max(128),
-  paths:z.array(z.object({ id, portalIds:z.array(id).min(1).max(128).describe("Ordered portals. An option path contains only its branch segment after the choice: omit already-visited start/choice portals and shared closing portals resumed from the root.") }).strict()).min(1).max(32),
+  paths:z.array(z.object({ id, portalIds:z.array(id).max(128).describe("Ordered portals. An option path contains only its branch segment after the choice: omit already-visited start/choice portals and shared closing portals resumed from the root.") }).strict()).min(1).max(32),
   choices:z.array(z.object({ id, portalId:id, purpose:id, options:z.array(z.object({ id, label:id, pathId:id, hypothesis:id }).strict()).min(2).max(8) }).strict()).max(12),
   edges:z.array(z.object({ id, from:id, to:id, style:z.enum(['solid','dashed','glow']).optional(), controlPoints:geometry.optional() }).strict()).max(256),
   theme:z.object({ background:z.object({type:z.enum(['image','gradient','solid']),value:id}).strict(), palette }).strict(),
@@ -381,6 +381,7 @@ export function readSuccessorBoardDefinition(value:unknown,activities:ReadonlyAr
     added.add(portalId);
     console.log(` 🎮 [board] [portal] [bound] portal=${portalId} activity=${portalId}`);return true;
   })}));
+  for(const path of board.paths)if(path.id!==board.rootPathId && !path.portalIds.length)console.log(` 🎮 [board] [path] [shared-continuation] path=${path.id}`);
   const referenced=new Set(board.paths.flatMap(path=>path.portalIds));
   for(const [id,portal] of portals)if(!referenced.has(id) && portal.activityNodeId && !inventory.has(portal.activityNodeId)){
     portals.delete(id);

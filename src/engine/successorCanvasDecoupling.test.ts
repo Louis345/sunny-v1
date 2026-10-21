@@ -73,6 +73,17 @@ describe('a canvas cannot veto a spelling successor',()=>{
   expect(journeyExecutions(definition)).toHaveLength(2);
   expect(log.mock.calls.flat().join(' ')).toContain(`[portal] [unreachable] activity=${ids[2]}`);
  });
+ it('retains a choice with no extra stops and resumes the shared continuation once',()=>{
+  const log=vi.spyOn(console,'log').mockImplementation(()=>{});
+  const source=structuredClone(primary);
+  source.paths.find(row=>row.id==='path-wheel')!.portalIds=['p-mix','p-checkpoint'];
+  const definition=parseCanonicalProgressionDecision(decision(source)).successor!.boardDefinition!;
+  expect(definition.choices).toEqual(source.choices);
+  expect(journeyExecutions(definition).map(row=>row.activityNodeIds)).toEqual(expect.arrayContaining([[ids[0],ids[3],ids[4]],[ids[0],ids[2],ids[3],ids[4]]]));
+  expect(definition.paths.find(row=>row.id==='path-wheel')!.portalIds).toEqual([]);
+  expect(log.mock.calls.flat().join(' ')).toContain('[path] [shared-continuation] path=path-wheel');
+ });
+
  it('binds an existing canonical activity portal so route completion cannot skip it',()=>{
   const source=structuredClone(primary) as any;
   source.portals.push({id:ids[1],label:'Wheel',kind:'activity',position:{landscape:{x:.5,y:.3},portrait:{x:.5,y:.3}}});
