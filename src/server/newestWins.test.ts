@@ -82,6 +82,43 @@ describe("newest wins", () => {
     expect(text).toMatch(/interrupted/i);
   });
 
+  it("does not write an interruption note when Sunny itself stops Elli (game event, item change)", async () => {
+    // Review catch: internal bargeIn callers wrote "the child started talking" into history.
+    elliThinksThenAnswers("Great job on that word! ");
+    const { h, session } = conversation();
+    void h.handleEndOfTurn("I spelled it right!");
+    await vi.waitFor(() => expect(h.turnSM.getState()).toBe("SPEAKING"));
+
+    session.bargeIn();
+
+    expect(historyText(h)).not.toMatch(/interrupted/i);
+  });
+
+  it("tells Elli the child may have missed the end when they cut in after the reply was written", async () => {
+    // Review catch: short replies finish writing before audio ends, so most
+    // interruptions landed after the in-flight marker was cleared.
+    vi.mocked(runAgent).mockImplementation(async (opts: any) => {
+      await new Promise((r) => setTimeout(r, 5));
+      opts.onToken("Great job on that word! Let's try science next. ");
+      return "Great job on that word! Let's try science next. ";
+    });
+    const { h } = conversation();
+    await h.handleEndOfTurn("I spelled it right!");
+    expect(h.turnSM.getState()).toBe("SPEAKING"); // audio still playing
+
+    await h.handleEndOfTurn("Wait, can we take a break?");
+
+    expect(historyText(h)).toMatch(/may not have heard the end/i);
+  });
+
+  it("does not leave a stale in-flight reply after a failed model turn", async () => {
+    // Review catch: early returns and error paths never cleared inFlightReply.
+    vi.mocked(runAgent).mockRejectedValueOnce(new Error("provider down"));
+    const { h, session } = conversation();
+    await h.handleEndOfTurn("Hey, Ellie.");
+    expect((session as unknown as { inFlightReply: string | null }).inFlightReply).toBeNull();
+  });
+
   it("does not interrupt Elli with story text the child reads aloud during karaoke", async () => {
     // Review catch: karaoke suppression only ran when idle, so reading aloud over
     // Elli stopped her and sent the story to Claude as the child's message.

@@ -1243,7 +1243,8 @@ export class SessionManager {
     this.handleEndOfTurn(value).catch(console.error);
   }
 
-  bargeIn(): void {
+  /** Stop Elli now. `child_speech` also records what the child actually heard before cutting in. */
+  bargeIn(cause: "child_speech" | "system" = "system"): void {
     this.voiceLatency?.cancelTurn("barge_in");
     this.companionResponseTurnId = Number(this.companionResponseTurnId ?? 0) + 1;
     this.pendingRoundComplete = null;
@@ -1263,7 +1264,7 @@ export class SessionManager {
     const stateBefore = this.turnSM.getState();
     const interrupted = this.inFlightReply;
     this.inFlightReply = null;
-    if (interrupted) this.conversationHistory.push(...interruptedExchange(interrupted, this.turnSM.spokenText()));
+    if (cause === "child_speech") this.conversationHistory.push(...interruptedExchange(interrupted, this.turnSM.spokenText(), stateBefore));
     this.turnSM.onInterrupt();
     auditLog("turn", {
       action: "barge_in",
@@ -1547,7 +1548,7 @@ export class SessionManager {
         this.send("interim", { text });
         // Same gate as a final transcript: only speech the open companion conversation would answer may stop Elli.
         const companionWouldAnswer = this.companionPresence === "summoned" && this.companionInteractionMode === "conversation" && !this.options?.sttOnly && !this.suppressTranscripts;
-        if (companionWouldAnswer && this.turnSM.getState() === "SPEAKING" && shouldBargeIn({ interim: text, companionSpoken: this.turnSM.spokenText(), speakingForMs: Date.now() - this.speakingStartedAt })) this.bargeIn();
+        if (companionWouldAnswer && this.turnSM.getState() === "SPEAKING" && shouldBargeIn({ interim: text, companionSpoken: this.turnSM.spokenText(), speakingForMs: Date.now() - this.speakingStartedAt })) this.bargeIn("child_speech");
       },
       onEndOfTurn: (transcript) => this.handleFluxEndOfTurn(transcript, "final"),
       onError: (err) => {
@@ -1860,7 +1861,7 @@ export class SessionManager {
         return;
       }
       console.log(` 🎮 [turn-taking] [newest-wins] [interrupting] state=${state}`);
-      this.bargeIn();
+      this.bargeIn("child_speech");
       state = this.turnSM.getState();
     }
 

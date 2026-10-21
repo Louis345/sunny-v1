@@ -770,6 +770,8 @@ export async function runCompanionResponseForSession(
       session.recordDebugError?.("Agent error", err);
       await speakShortRecovery(session, "agent_response_failed", turn.isCurrent);
     } finally {
+      // Every exit (error, early return, retirement) releases this run's in-flight marker.
+      if (session.inFlightReply === userMessage) session.inFlightReply = null;
       // Item/context changes can retire output without a replacement model turn.
       // Suppressing that output must also release its processing state and audio.
       // A newer model turn or audio owner must remain untouched.

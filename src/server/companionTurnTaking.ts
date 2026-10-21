@@ -16,7 +16,17 @@ export const COMPANION_SPOKEN_TURN_PROMPT = [
  * actually said, and a note that she was interrupted, so her next turn does not
  * assume the child heard the rest.
  */
-export function interruptedExchange(childMessage: string, companionSpoken: string): ModelMessage[] {
+export function interruptedExchange(
+  childMessage: string | null,
+  companionSpoken: string,
+  stateBefore: string,
+): ModelMessage[] {
+  if (!childMessage) {
+    // The reply was already written (and is in history) but still playing.
+    return stateBefore === "SPEAKING"
+      ? [{ role: "user", content: "[You were interrupted while still speaking: the child may not have heard the end of your last reply.]" }]
+      : [];
+  }
   const spoken = companionSpoken.trim();
   return [
     { role: "user", content: childMessage },
