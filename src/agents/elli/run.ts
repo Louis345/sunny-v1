@@ -49,6 +49,11 @@ function voiceEffort(): VoiceEffort {
   return "low";
 }
 
+/** Claude models that accept `effort` (Opus 4.5+, Sonnet 4.6, and the 5.x family). */
+function supportsEffort(model: string): boolean {
+  return /^claude-(?:(?:fable|mythos|opus|sonnet|haiku)-[5-9]|opus-4-[5-9]|sonnet-4-6)/.test(model);
+}
+
 export function buildAgentTools(_opts: { allowTransitionToWork?: boolean } = {}) {
   return { ...ALL_TOOLS };
 }
@@ -72,12 +77,14 @@ export async function runAgent(opts: RunAgentOptions): Promise<string> {
   ) ?? [];
 
   let fullText = "";
-  const effort = voiceEffort();
+  const modelId = process.env.SUNNY_VOICE_MODEL ?? "claude-sonnet-5";
+  const effort = supportsEffort(modelId) ? voiceEffort() : undefined;
+  if (!effort) console.log(` 🎮 [voice-effort] [skipped] model=${modelId} reason=unsupported`);
 
   for (let attempt = 0; attempt < 2; attempt++) {
     let toolCallsInAttempt = 0;
     const result = streamText({
-      model: anthropic(process.env.SUNNY_VOICE_MODEL ?? "claude-sonnet-5"),
+      model: anthropic(modelId),
       messages: [
         // Cache breakpoint: tools + Elli's long system prompt are reused across turns.
         {
@@ -90,7 +97,7 @@ export async function runAgent(opts: RunAgentOptions): Promise<string> {
         { role: "user", content: userMessage }
       ],
       maxOutputTokens: attempt === 0 ? 1500 : 3000,
-      providerOptions: { anthropic: { effort } },
+      ...(effort && { providerOptions: { anthropic: { effort } } }),
       tools: opts.tools ?? buildAgentTools({ allowTransitionToWork }),
       stopWhen: stepCountIs(8),
       abortSignal: signal,

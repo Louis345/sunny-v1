@@ -45,6 +45,27 @@ describe("Elli voice latency settings", () => {
     expect(options.providerOptions.anthropic.effort).toBe("medium");
   });
 
+  it("does not send effort to a voice model that does not support it", async () => {
+    // Review catch: an older SUNNY_VOICE_MODEL would 400 on every turn.
+    vi.stubEnv("SUNNY_VOICE_MODEL", "claude-haiku-4-5");
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    const options = await speak();
+    expect(options.providerOptions?.anthropic?.effort).toBeUndefined();
+    expect(log.mock.calls.map((c) => String(c[0]))).toContain(
+      " 🎮 [voice-effort] [skipped] model=claude-haiku-4-5 reason=unsupported",
+    );
+    log.mockRestore();
+  });
+
+  it.each(["claude-sonnet-5", "claude-sonnet-5-5", "claude-opus-5-5", "claude-haiku-5-5", "claude-opus-4-8", "claude-sonnet-4-6"])(
+    "sends effort for %s",
+    async (model) => {
+      vi.stubEnv("SUNNY_VOICE_MODEL", model);
+      const options = await speak();
+      expect(options.providerOptions.anthropic.effort).toBe("low");
+    },
+  );
+
   it("falls back to low effort and says so when SUNNY_VOICE_EFFORT is invalid", async () => {
     vi.stubEnv("SUNNY_VOICE_EFFORT", "turbo");
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
