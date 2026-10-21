@@ -22,6 +22,7 @@ The owner sets the target for each number.
 | # | Step | Done when | Status |
 |---|---|---|---|
 | 0 | **The board never rejects; the loop works** (PR #22) | A real session: the board appears, the next board follows completed work, help is recorded honestly; owner `/ship` | **In progress** |
+| 0b | **Ila can talk over Elli** (PR #23, approved directly by the owner; tested in the same Ila session as #22) | Interruptions work, replies stay short, the newest request wins; owner `/ship` | **In progress** |
 | 1 | **Check the instruments** | A $0, read-only lab-quality report per session (spelling and math) shows what % of answers are trustworthy and which activity produces bad data | Next |
 | 2 | **Ground it in reality** | Real school test results are fed back (returned graded work) and compared with Sunny's predictions every week | Planned |
 | 3 | **Best doctor** | The Planner moves to the strongest model; this needs a code change, because current Planner calls force a tool, which 5.5 models reject. Steps 1–2 measure the improvement | Planned |
@@ -33,4 +34,3 @@ The owner sets the target for each number.
 - Run the Opus review when a PR is ready or on `/review`, not on every push.
 - The review gate posts the API's own error text when a review run fails.
 - Elli labels each reply as clarification or real help.
-- Faster local commit checks; CI runs the full suite.
