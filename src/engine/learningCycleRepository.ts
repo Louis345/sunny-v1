@@ -158,6 +158,8 @@ export type LearningCycleNodeContract = {
   /** A truth check failed for this portal: it publishes as not ready, is never built and is passed over. */
   notReadyReason?: string;
   implementationType?: ActiveSessionPlan["nodePlan"][number]["type"];
+  /** The earlier built-in activity the Planner named; it is re-launched with this node's items instead of rebuilt. */
+  reusedFrom?: string;
   nodeId: string;
   routeId?: string;
   predictionId?: string;
@@ -1208,6 +1210,11 @@ function prepareSuccessorBoard(
   });
   const reference = [...next.nodes].reverse().find((node) => node.artwork.localPath);
   const savedSpellingItems = spellingAssignmentItems(next);
+  // Naming an earlier built-in spelling activity is the Planner's order to re-launch it, not to rebuild it.
+  // A checkpoint may only reuse a checkpoint activity, so a re-launched check never shows the answer.
+  const reusable = (id: string, role: string | undefined) => next.domain !== "spelling" ? undefined : [...next.nodes].reverse().find((node) => (node.nodeId === id || node.artifactBinding?.contentId === id)
+    && node.implementationType && node.implementationType !== "generated-baseline" && node.artifactBinding?.validationStatus === "passed"
+    && (role !== "fresh_checkpoint" || (Object.values(node.evidenceContract.itemRoles ?? {}).length > 0 && Object.values(node.evidenceContract.itemRoles ?? {}).every((itemRole) => itemRole === "fresh_checkpoint"))));
   const nodes = program.instruments.map((prescription): LearningCycleNodeContract => {
     const nodeId = idFor.get(prescription.nodeId)!;
     const role: LearningCycleNodeRole = prescription.encounter ?? "baseline";
@@ -1224,6 +1231,7 @@ function prepareSuccessorBoard(
       };
     });
     const design = prescriptionDesign(prescription);
+    const source = reusable(prescription.nodeId, spelling?.measurementRole);
     const prompt = generationPrompt(next, role, nodeId, input.evidenceIds, input.reason, input.at);
     prompt.text = `${prescription.creatorPrompt} ${prompt.text}`;
     return {
@@ -1236,6 +1244,7 @@ function prepareSuccessorBoard(
       theoryId: next.academicTheory.theoryId,
       experimentId: `${prefix}:${role}:${slugId(prescription.nodeId)}`,
       mechanic: prescription.mechanic,
+      ...(source ? { implementationType: source.implementationType, reusedFrom: source.nodeId } : {}),
       theme: prescription.theme,
       ...(design ? { design } : {}),
       openingScreen: { title: prescription.title, purpose: prescription.openingPurpose },
@@ -1258,6 +1267,7 @@ function prepareSuccessorBoard(
           spellingItems: Object.fromEntries(spellingItems.map(item => [item.id, item])),
           itemRoles: Object.fromEntries(spellingItems.map(item => [item.id, item.lineage.measurementRole])),
         } : {}),
+        ...(source?.evidenceContract.nativeConfig ? { nativeConfig: structuredClone(source.evidenceContract.nativeConfig) } : {}),
       },
       evidenceIds: [],
     };

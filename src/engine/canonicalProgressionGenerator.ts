@@ -9,6 +9,7 @@ import {
   acquireMathGenerationLease,
   hashDiscoveryContract,
   releaseMathGenerationLease,
+  resolveAdaptiveMathDraftDir,
   runMathProviderStage,
 } from "./adaptiveMathDiscovery";
 import {
@@ -423,6 +424,33 @@ Correct only the implementation while preserving the Planner's academic target, 
  * nodes already bound by an earlier run. The board publishes on its last verified
  * binding; it never opens a node or interrupts the child.
  */
+/** Re-launch the earlier built-in activity the Planner named, with this node's fresh items: no build, no provider. */
+function relaunchReusedActivity(childId: string, homeworkId: string, cycle: LearningCycleRecordV2, node: LearningCycleNodeContract, opts: LearningCycleRepositoryOptions): LearningCycleRecordV2 {
+  const rootDir = opts.rootDir ?? process.cwd();
+  const source = cycle.nodes.find((candidate) => candidate.nodeId === node.reusedFrom);
+  if (!source?.artifactBinding) throw new Error(`reused_activity_missing:${node.reusedFrom}`);
+  const contextDir = resolveChildContextDir(childId, { rootDir });
+  const nativeDir = path.join(resolveAdaptiveMathDraftDir(childId, homeworkId, { rootDir }), "native-instruments");
+  const fileFor = (nodeId: string) => path.join(nativeDir, `${nodeId.replace(/[^a-zA-Z0-9_-]/g, "_")}.json`);
+  const sourceContract = JSON.parse(fs.readFileSync(fileFor(source.nodeId), "utf8")) as { node: Record<string, unknown> };
+  const configuration = { version: 1, node: { ...sourceContract.node, id: node.nodeId, title: node.title, targets: [...node.academicTarget.targets] }, evidenceContract: node.evidenceContract };
+  const write = (file: string, value: unknown) => { fs.mkdirSync(path.dirname(file), { recursive: true }); fs.writeFileSync(`${file}.${process.pid}.tmp`, JSON.stringify(value, null, 2)); fs.renameSync(`${file}.${process.pid}.tmp`, file); };
+  write(fileFor(node.nodeId), configuration);
+  let activityConfigPath: string | undefined;
+  if (node.evidenceContract.nativeConfig) {
+    const filename = `${node.nodeId.replace(/[^a-zA-Z0-9_-]/g, "_")}-${hashDiscoveryContract(node.nodeId).slice(0, 8)}.json`;
+    write(path.join(contextDir, "homework/games", homeworkId, filename), node.evidenceContract.nativeConfig);
+    activityConfigPath = `/api/activity-config/${childId}/${homeworkId}/${filename}`;
+  }
+  console.log(` 🎮 [learning-board] [successor-preparation] [reused] node=${node.nodeId} from=${source.nodeId} type=${node.implementationType}`);
+  return transitionLearningCycle(childId, homeworkId, cycle.revision, { type: "artifact_bound", nodeId: node.nodeId, artifact: {
+    contentId: `${homeworkId}:${node.nodeId}`, artifactId: `${homeworkId}:${node.nodeId}:native`,
+    localArtifactPath: node.implementationType === "visual-explainer" ? "/games/spelling-visual-explainer.html" : `/${path.relative(contextDir, fileFor(node.nodeId)).split(path.sep).join("/")}`,
+    localArtworkPath: source.artifactBinding.localArtworkPath, contractFingerprint: hashDiscoveryContract(configuration), validationStatus: "passed",
+    ...(activityConfigPath ? { activityConfigPath } : {}),
+  } }, opts);
+}
+
 export async function prepareSuccessorBoard(
   input: Omit<CanonicalProgressionGeneratorInput, "nodeId">,
   opts: LearningCycleRepositoryOptions = {},
@@ -457,7 +485,9 @@ export async function prepareSuccessorBoard(
       let next: LearningCycleRecordV2;
       let failure = "";
       try {
-        next = await generateCanonicalProgressionArtifact({ ...input, nodeId: pending.nodeId }, opts);
+        next = pending.reusedFrom
+          ? relaunchReusedActivity(input.childId, input.homeworkId, cycle, pending, opts)
+          : await generateCanonicalProgressionArtifact({ ...input, nodeId: pending.nodeId }, opts);
         if (next.revision === cycle.revision) failure = "human_review_required";
       } catch (error) {
         failure = error instanceof Error ? error.message : String(error);
