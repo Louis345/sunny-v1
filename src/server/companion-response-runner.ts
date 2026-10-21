@@ -239,6 +239,7 @@ export async function runCompanionResponseForSession(
 
       // Elli's [smile]-style tags drive the avatar while she speaks; they are never spoken.
       const expressionTags = createExpressionTagFilter((emote) => {
+        console.log(` 🎮 [companion] [expression] [shown] emote=${emote}`);
         Promise.resolve(session.companionBridge?.expressCompanion({ emote })).catch((error: unknown) =>
           console.error(" 🎮 [companion] [expression] [failed]", error),
         );

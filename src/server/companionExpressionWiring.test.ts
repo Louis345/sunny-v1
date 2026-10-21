@@ -64,6 +64,16 @@ describe("Elli's inline expressions", () => {
     expect(session.conversationHistory.at(-1)?.content).toBe("Hey Ila! Good to see you.");
   });
 
+  it("logs every expression it shows so a session log proves the smile fired (Law 5)", async () => {
+    // Human catch (Oct 20 PR #21 session): no way to tell from the logs whether
+    // Elli ever smiled.
+    speaking(["[smile] Hi there!"]);
+    const log = vi.spyOn(console, "log");
+    await runCompanionResponseForSession(fakeSession(), "Hey, Ellie.");
+    expect(log.mock.calls.map((c) => String(c[0]))).toContain(" 🎮 [companion] [expression] [shown] emote=happy");
+    log.mockRestore();
+  });
+
   it("tells Elli how to use expression tags in her instructions", async () => {
     speaking(["Hi!"]);
     await runCompanionResponseForSession(fakeSession(), "Hey, Ellie.");

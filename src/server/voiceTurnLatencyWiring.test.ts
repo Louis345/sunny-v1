@@ -59,6 +59,23 @@ describe("SessionManager voice turn latency wiring", () => {
     expect(lines[0]).toMatch(/held_eager_lead=\d+ms/);
   });
 
+  it("closes the timing turn when Sunny ignores the speech, so later audio is not credited to it", async () => {
+    // Human catch (Oct 20 PR #21 session): ambient speech while Elli was
+    // collapsed left a turn open for 17s until an unrelated reply claimed it.
+    const session = new SessionManager(mockBrowserWs(), "Ila");
+    const harness = session as unknown as Harness;
+    harness.companionPresence = "collapsed";
+
+    harness.handleFluxEndOfTurn("I think we should go outside later", "final");
+
+    await vi.waitFor(() => {
+      const lines = latencyLines(logSpy);
+      expect(lines).toHaveLength(1);
+      expect(lines[0]).toContain("[turn_cancelled]");
+      expect(lines[0]).toContain("reason=ignored");
+    });
+  });
+
   it("starts the turn from an eager end-of-turn outside companion conversation", () => {
     const session = new SessionManager(mockBrowserWs(), "Ila");
     const harness = session as unknown as Harness;

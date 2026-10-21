@@ -1746,7 +1746,7 @@ export class SessionManager {
       setPresence: (state, reason) => this.setCompanionPresence(state, reason),
       recordEvent: (component, action, fields) =>
         this.debugRecorder.recordEvent(component, action, fields),
-    })) return;
+    })) return void this.voiceLatency?.cancelTurn("ignored");
 
     let state = this.turnSM.getState();
     if (urgentRoute && !checkUserGoodbye(transcript)) {
