@@ -1758,6 +1758,16 @@ export async function recoverDiscoveryPublication(input: {rootDir?: string; chil
   await publishDiscoveryExperience({...saved.input,...input});
 }
 
+/** The chart's current homework per domain (homework/current.json); undefined when none is recorded yet. */
+export function chartCurrentHomeworkByDomain(childId: string, opts: { rootDir?: string } = {}): Record<string, string> | undefined {
+  let file: { selectedDomain?: unknown; current?: { homeworkId?: unknown }; activeByDomain?: Record<string, { homeworkId?: unknown }> };
+  try { file = JSON.parse(fs.readFileSync(path.join(resolveChildContextDir(childId, { rootDir: opts.rootDir ?? process.cwd() }), "homework", "current.json"), "utf8")); } catch { return undefined; }
+  const byDomain: Record<string, string> = {};
+  for (const [domain, entry] of Object.entries(file.activeByDomain ?? {})) if (typeof entry?.homeworkId === "string") byDomain[domain] = entry.homeworkId;
+  if (typeof file.selectedDomain === "string" && typeof file.current?.homeworkId === "string") byDomain[file.selectedDomain] ??= file.current.homeworkId;
+  return Object.keys(byDomain).length ? byDomain : undefined;
+}
+
 export function publishTargetedBoardProjection(input: {
   rootDir?: string;
   childId: string;
@@ -1765,6 +1775,12 @@ export function publishTargetedBoardProjection(input: {
   nodeStatuses: Record<string, MathGenerationNodeStatus>;
 }): void {
   const rootDir = input.rootDir ?? process.cwd();
+  // Only the chart's current homework may write the active plan; an older job never overwrites it.
+  const current = chartCurrentHomeworkByDomain(input.childId, { rootDir })?.[input.activeSessionPlan.domain];
+  if (current && current !== input.activeSessionPlan.activeHomeworkId) {
+    console.log(` 🎮 [adaptive-math] [targeted-board-projection] [skipped] reason=not_current_homework homework=${input.activeSessionPlan.activeHomeworkId} current=${current}`);
+    return;
+  }
   const contextDir = resolveChildContextDir(input.childId, { rootDir });
   const planPath = path.join(contextDir, "plans", "active_session_plan.json");
   const profilePath = path.join(contextDir, "learning_profile.json");
