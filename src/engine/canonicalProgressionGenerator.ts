@@ -433,10 +433,6 @@ export async function prepareSuccessorBoard(
   if (!cycle.boards) return generateCanonicalProgressionArtifact(input, opts);
   const board = preparingBoardInstance(cycle);
   if (!board || cycle.lifecycle === "blocked") return cycle;
-  if (cycle.nodes.some((node) => board.nodeIds.includes(node.nodeId) && node.state === "blocked")) {
-    console.warn(` 🎮 [learning-board] [successor-preparation] [awaiting-attention] board=${board.boardId}`);
-    return cycle;
-  }
   const lease = acquireMathGenerationLease({ rootDir: opts.rootDir, childId: input.childId, homeworkId: input.homeworkId });
   if (!lease.acquired || !lease.token) {
     console.log(` 🎮 [learning-board] [successor-preparation] [already-running] board=${board.boardId}`);
@@ -449,6 +445,12 @@ export async function prepareSuccessorBoard(
       console.warn(` 🎮 [learning-board] [canvas-diagnostic] [unavailable] board=${board.boardId} reason=${error instanceof Error ? error.message : String(error)}`);
     }
     cycle=getLearningCycle(input.childId,input.homeworkId,opts)!;
+    // An activity held for attention before this rule becomes Not ready at $0, keeping its recorded reason.
+    const heldReason = [...cycle.decisionHistory].reverse().find(row => row.eventType === "artifact_generation_attention_required")?.reason ?? "activity_build_failed";
+    for (const held of cycle.nodes.filter((node) => board.nodeIds.includes(node.nodeId) && node.state === "blocked" && !node.notReadyReason)) {
+      console.warn(` 🎮 [learning-board] [successor-preparation] [not-ready] board=${board.boardId} node=${held.nodeId} reason=${heldReason}`);
+      cycle = transitionLearningCycle(input.childId, input.homeworkId, cycle.revision, { type: "artifact_generation_attention_required", nodeId: held.nodeId, reason: heldReason, notReady: true }, opts);
+    }
     for (let attempt = 0; attempt <= board.nodeIds.length; attempt += 1) {
       const pending = cycle.nodes.find((node) => board.nodeIds.includes(node.nodeId) && node.state === "generating" && node.generationPrompt);
       if (!pending) return cycle;
@@ -462,10 +464,11 @@ export async function prepareSuccessorBoard(
         next = getLearningCycle(input.childId, input.homeworkId, opts)!;
       }
       if (failure) {
-        // One bounded attempt per node: it waits for a person instead of re-buying builds on every restart.
-        console.warn(` 🎮 [learning-board] [successor-preparation] [needs-attention] board=${board.boardId} node=${pending.nodeId} reason=${failure}`);
-        return transitionLearningCycle(input.childId, input.homeworkId, next.revision, {
-          type: "artifact_generation_attention_required", nodeId: pending.nodeId, reason: `successor_node_failed:${failure}`,
+        // One bounded attempt per node, never re-bought on restart. The failed activity degrades to one
+        // Not ready portal with its reason; the rest of the board still builds and publishes.
+        console.warn(` 🎮 [learning-board] [successor-preparation] [not-ready] board=${board.boardId} node=${pending.nodeId} reason=${failure}`);
+        next = transitionLearningCycle(input.childId, input.homeworkId, next.revision, {
+          type: "artifact_generation_attention_required", nodeId: pending.nodeId, reason: `successor_node_failed:${failure}`, notReady: true,
         }, opts);
       }
       cycle = next;

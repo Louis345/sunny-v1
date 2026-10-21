@@ -245,13 +245,13 @@ export function successorPreparationStatus(cycle: LearningCycleRecordV2): { upda
   const latest = listBoardInstances(cycle).at(-1);
   if (!latest || latest.kind !== "successor") return undefined;
   const decidedAt = cycle.decisionHistory.find((entry) => entry.decisionId === latest.plannerDecisionId)?.createdAt ?? cycle.createdAt;
-  const attention = latest.publishedAt === null && (cycle.lifecycle === "blocked" || cycle.nodes.some((node) => latest.nodeIds.includes(node.nodeId) && node.state === "blocked"));
+  const attention = latest.publishedAt === null && cycle.lifecycle === "blocked";
   return { updatedAt: decidedAt, startedAt: decidedAt, phase: attention ? "needs_attention" : latest.publishedAt === null ? "successor_preparing" : "successor_published", nodes: [] };
 }
 
 /**
  * The single outstanding successor step after a restart: a committed evidence batch still awaiting its
- * one Planner decision, or a preparing successor with unbuilt nodes. Nodes needing human attention never resume.
+ * one Planner decision, or a preparing successor with unbuilt or held nodes. Failed nodes are never rebuilt.
  */
 export function successorResumeAction(cycle: LearningCycleRecordV2): "decide" | "prepare" | null {
   // Legacy cycles never auto-resume: that would start Planner calls they never made before contract 21.
@@ -260,7 +260,8 @@ export function successorResumeAction(cycle: LearningCycleRecordV2): "decide" | 
   const preparing = preparingBoardInstance(cycle);
   if (!preparing) return null;
   const nodes = cycle.nodes.filter((node) => preparing.nodeIds.includes(node.nodeId));
-  if (nodes.some((node) => node.state === "blocked" && !node.notReadyReason)) return null;
+  // An activity held before the Not ready rule resumes so preparation can degrade it and publish.
+  if (nodes.some((node) => node.state === "blocked" && !node.notReadyReason)) return "prepare";
   return nodes.some((node) => node.state === "generating") || (preparing.definition && !cycle.canvasVerifications?.[preparing.boardId]) ? "prepare" : null;
 }
 

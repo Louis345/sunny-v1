@@ -549,13 +549,25 @@ describe("restart resume (test 3)", () => {
     expect(successorResumeAction(published)).toBeNull();
   });
 
-  it("does not resume a successor whose node needs human attention", async () => {
+  // 2026-10-21 human catch: Ila's board 3 sat unpublished behind one activity that failed its
+  // check before this rule existed, so she kept seeing her finished board. Logs said needs-attention;
+  // the lab asserted that a held board was correct. At startup that activity becomes Not ready at $0.
+  it("resumes a successor held by an earlier failed activity, marks it Not ready without rebuilding it, and publishes", async () => {
     const rootDir = root();
     await finishBaselineBoard(rootDir);
-    const decided = await advanceCanonicalCycleFromEvidence({ childId: CHILD, homeworkId: HW, decide: async () => decision("generate_quest", { instruments: [questSuccessor.instruments[1]!] }) }, { rootDir });
-    const blocked = transitionLearningCycle(CHILD, HW, decided.revision, { type: "artifact_generation_attention_required", nodeId: preparingBoardInstance(decided)!.nodeIds[0]!, reason: "builder failed twice" }, { rootDir });
-    expect(successorResumeAction(blocked)).toBeNull();
-    expect(blocked.lifecycle).toBe("quest_generating");
+    const decided = await advanceCanonicalCycleFromEvidence({ childId: CHILD, homeworkId: HW, decide: async () => decision("generate_support", supportSuccessor) }, { rootDir });
+    const failed = preparingBoardInstance(decided)!.nodeIds[0]!;
+    const held = transitionLearningCycle(CHILD, HW, decided.revision, { type: "artifact_generation_attention_required", nodeId: failed, reason: "successor_node_failed:checker wanted a visible prompt" }, { rootDir });
+    expect(successorResumeAction(held)).toBe("prepare");
+    const canvas = vi.spyOn(canvasVerifier, "verifyPreparingBoardCanvas").mockResolvedValue(undefined);
+    const generateHtml = vi.fn(async ({ node }: any) => `<html><body><h1>${node.title}</h1></body></html>`);
+    try {
+      const after = await prepareSuccessorBoard({ childId: CHILD, homeworkId: HW, generateHtml, generateArtwork: async () => "/generated/a.png", validate: async () => ({ passed: true, failures: [] }) }, { rootDir });
+      expect(after.boards!.at(-1)!.publishedAt).not.toBeNull();
+      expect(after.nodes.find(node => node.nodeId === failed)?.notReadyReason).toContain("checker wanted a visible prompt");
+      expect(generateHtml.mock.calls.map(([call]: any) => call.node.nodeId)).not.toContain(failed);
+      expect(successorResumeAction(after)).toBeNull();
+    } finally { canvas.mockRestore(); }
   });
 });
 
@@ -677,18 +689,31 @@ describe("review fixes: no stuck or silent cycles", () => {
     } finally { verify.mockRestore(); }
   }, 20000);
 
-  it("marks a successor node that fails to build as needing attention, reports it, and never rebuilds it automatically", async () => {
+  // Jamal's rule: the board is a dumb canvas for the Planner's orders. Nothing downstream holds it back.
+  it.each([
+    ["the builder throws", { generateHtml: (fail: boolean, title: string) => fail ? Promise.reject(new Error("builder exploded")) : Promise.resolve(`<html><body><h1>${title}</h1></body></html>`), validate: () => Promise.resolve({ passed: true, failures: [] }) }],
+    ["the checker fails", { generateHtml: (_fail: boolean, title: string) => Promise.resolve(`<html><body><h1>${title}</h1></body></html>`), validate: (fail: boolean) => Promise.resolve(fail ? { passed: false, failures: ["math_journey_checker_contract_ambiguity;item=word-1"] } : { passed: true, failures: [] }) }],
+  ] as const)("publishes the successor with one Not ready activity when %s, keeps the reason, and never rebuilds it", async (_label, builder) => {
     const rootDir = root();
     await finishBaselineBoard(rootDir);
-    await advanceCanonicalCycleFromEvidence({ childId: CHILD, homeworkId: HW, decide: async () => decision("generate_support", supportSuccessor) }, { rootDir });
-    const failing = vi.fn(async () => { throw new Error("builder exploded"); });
-    const after = await prepareSuccessorBoard({ childId: CHILD, homeworkId: HW, generateHtml: failing, validate: async () => ({ passed: true, failures: [] }), generateArtwork: async () => "/generated/a.png" }, { rootDir });
-    const board = preparingBoardInstance(after)!;
-    expect(after.nodes.find((node) => node.nodeId === board.nodeIds[0])?.state).toBe("blocked");
-    expect(successorPreparationStatus(after)?.phase).toBe("needs_attention");
-    expect(successorResumeAction(after)).toBeNull();
-    await prepareSuccessorBoard({ childId: CHILD, homeworkId: HW, generateHtml: failing, validate: async () => ({ passed: true, failures: [] }) }, { rootDir });
-    expect(failing).toHaveBeenCalledTimes(1);
+    const decided = await advanceCanonicalCycleFromEvidence({ childId: CHILD, homeworkId: HW, decide: async () => decision("generate_support", supportSuccessor) }, { rootDir });
+    const board = preparingBoardInstance(decided)!;
+    const failed = board.nodeIds[0]!;
+    const canvas = vi.spyOn(canvasVerifier, "verifyPreparingBoardCanvas").mockResolvedValue(undefined);
+    const generateHtml = vi.fn(async ({ node }: any) => builder.generateHtml(node.nodeId === failed, node.title));
+    const validate = vi.fn(async ({ node }: any) => builder.validate(node.nodeId === failed));
+    const prepare = () => prepareSuccessorBoard({ childId: CHILD, homeworkId: HW, generateHtml, validate, generateArtwork: async () => "/generated/a.png" }, { rootDir });
+    try {
+      const after = await prepare();
+      expect(after.boards!.find(candidate => candidate.boardId === board.boardId)!.publishedAt).not.toBeNull();
+      expect(after.nodes.find(node => node.nodeId === failed)?.notReadyReason).toBeTruthy();
+      for (const nodeId of board.nodeIds.slice(1)) expect(after.nodes.find(node => node.nodeId === nodeId)?.artifactBinding?.validationStatus).toBe("passed");
+      expect(successorPreparationStatus(after)?.phase).toBe("successor_published");
+      expect(successorResumeAction(after)).toBeNull();
+      const calls = generateHtml.mock.calls.length;
+      expect(await prepare()).toEqual(after);
+      expect(generateHtml).toHaveBeenCalledTimes(calls);
+    } finally { canvas.mockRestore(); }
   });
 
   it("never lets a route choice reopen a closed evidence batch or overwrite an encounter lifecycle", async () => {
