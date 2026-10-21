@@ -873,7 +873,6 @@ export async function runAdaptiveMathGeneration(
       || !(resumableAttempt || (isCurrentGeneratedContentRejection(savedReport)
         && consumedAttempts < MAX_VISUAL_REPAIR_PASSES
         && mayRunVisualRepair(savedAttempt?.value, Boolean(options.retryUncertainProvider), currentArtifact.htmlHash)))) continue;
-    if (refusePublishedRepair(currentArtifact.nodeId)) continue;
     const activity = designed.plan.activities.find(candidate => candidate.id === currentArtifact.nodeId);
     if (!activity) throw new Error(`targeted_activity_missing:${currentArtifact.nodeId}`);
     if (!currentArtifact.htmlHash) throw new Error(`targeted_artifact_hash_missing:${currentArtifact.nodeId}`);
@@ -888,6 +887,18 @@ export async function runAdaptiveMathGeneration(
       : savedAttempt?.value.outputHtmlHash === savedReport.htmlHash
         ? { ...savedReport, passed: false, failures: savedAttempt.value.failures, htmlHash: savedAttempt.value.inputHtmlHash }
         : savedReport;
+    if (refusePublishedRepair(currentArtifact.nodeId)) {
+      // A crash can leave unverified repair bytes behind; a published board keeps its original bytes.
+      if (resumableAttempt && fs.existsSync(originalHtmlFile)) {
+        writeText(currentArtifact.htmlPath, fs.readFileSync(originalHtmlFile, "utf8"));
+        if (fs.existsSync(originalMetadataFile)) writeText(metadataFile, fs.readFileSync(originalMetadataFile, "utf8"));
+        reports[currentArtifact.nodeId] = reportBeforeRepair;
+        write(reportsFile, reports);
+        write(attemptFile, { ...savedAttempt!.value, status: "failed", error: "published_board_artifact_immutable", finishedAt: new Date().toISOString() });
+        console.log(` 🎮 [adaptive-math] [visual-repair] [rolled-back] node=${currentArtifact.nodeId} reason=published_board_artifact_immutable`);
+      }
+      continue;
+    }
     if (!fs.existsSync(originalHtmlFile)) writeText(originalHtmlFile, fs.readFileSync(currentArtifact.htmlPath, "utf8"));
     if (fs.existsSync(metadataFile) && !fs.existsSync(originalMetadataFile)) writeText(originalMetadataFile, fs.readFileSync(metadataFile, "utf8"));
     if (!fs.existsSync(originalReportFile)) write(originalReportFile, reportBeforeRepair);

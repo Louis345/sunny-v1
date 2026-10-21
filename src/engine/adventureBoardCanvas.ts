@@ -9,7 +9,7 @@ export type BoardCanvasProof={definitionHash:string;rendererHash:string;viewport
 export const boardDefinitionHash=(definition:AdventureBoardDefinition)=>createHash('sha256').update(JSON.stringify(definition)).digest('hex');
 const viewports=[{width:1280,height:720},{width:768,height:1024},{width:1470,height:956}];
 
-/** Required authored artwork is a publication dependency, never a replacement theme. */
+/** Offline artwork audit; production callers use the non-blocking report below. */
 export function verifyBoardArtworkReady(input:{definition:AdventureBoardDefinition;rootDir:string}):void {
  const background=input.definition.theme.background;
  if(background.type!=='image')return;
@@ -30,9 +30,8 @@ export function reportAuthoredBoardArtwork(input:{definition:AdventureBoardDefin
  }
 }
 
-/** Existing generation verifies the actual shared canvas before making a board visible.
- * No model, topology repair, or educational policy lives here. A failed composition
- * returns precise geometry to the existing recoverable generation job.
+/** Offline strict audit retained for diagnostic tools and historical tests.
+ * Production generation uses reportAuthoredBoardCanvas; this audit cannot grant publication.
  */
 export async function verifyAuthoredBoardCanvas(input:{definition:AdventureBoardDefinition;directory:string;rootDir:string}):Promise<BoardCanvasProof>{
  const sourceRoot=path.resolve(__dirname,'../..');
@@ -93,31 +92,26 @@ export async function verifyAuthoredBoardCanvas(input:{definition:AdventureBoard
  return proof;
 }
 
-/** Persist renderer proof independently of the immutable authored definition. */
+/** Screenshots and measurements inform the human; they never grant permission to publish. */
+export async function reportAuthoredBoardCanvas(input:{definition:AdventureBoardDefinition;directory:string;rootDir:string}):Promise<BoardCanvasProof|undefined>{
+ reportAuthoredBoardArtwork(input);
+ try {
+  const definitionHash=boardDefinitionHash(input.definition),preview=await renderBoardPreview(input);
+  fs.writeFileSync(path.join(input.directory,'canvas-measurements.json'),JSON.stringify({definitionHash,artworkLoaded:preview.artworkLoaded,overlaps:preview.overlaps,portals:preview.portals},null,2));
+  console.log(` 🎮 [board-canvas] [accepted-as-authored] [${definitionHash.slice(0,12)}] artwork=${preview.artworkLoaded?'loaded':'missing'} overlaps=${preview.overlaps.length}`);
+  return {definitionHash,rendererHash:'preview-as-authored',viewports:preview.screenshots.map(shot=>shot.viewport),screenshots:preview.screenshots.map(shot=>shot.file),verifiedAt:new Date().toISOString()};
+ }catch(error){console.error(` 🔴 [board-canvas] [diagnostics] [unavailable] publishing-as-authored reason=${error instanceof Error?error.message:String(error)}`);return undefined;}
+}
+
+/** Retain the existing entry point; preparation readiness is independent of diagnostics. */
 export async function verifyPreparingBoardCanvas(input:{rootDir:string;childId:string;homeworkId:string;directory:string;acceptAsAuthored?:boolean}):Promise<void>{
  const {getLearningCycle,transitionLearningCycle}=await import('./learningCycleRepository');
  const cycle=getLearningCycle(input.childId,input.homeworkId,{rootDir:input.rootDir});
  const board=cycle?.boards?.find(candidate=>candidate.publishedAt===null);
- if(!board?.definition)return;
- let proof:BoardCanvasProof;
- if(input.acceptAsAuthored){
-  // The map is published as the artist submitted it; these screenshots are the record the human judges.
-  const definitionHash=boardDefinitionHash(board.definition);
-  if(cycle!.canvasVerifications?.[board.boardId]?.definitionHash===definitionHash)return;
-  reportAuthoredBoardArtwork({...input,definition:board.definition});
-  const preview=await renderBoardPreview({...input,definition:board.definition});
-  proof={definitionHash,rendererHash:'preview-as-authored',viewports:preview.screenshots.map(shot=>shot.viewport),screenshots:preview.screenshots.map(shot=>shot.file),verifiedAt:new Date().toISOString()};
-  // Measured for the generation report and the human; never a reason to reject the map.
-  const overlaps=preview.overlaps;
-  fs.writeFileSync(path.join(input.directory,'canvas-measurements.json'),JSON.stringify({definitionHash,artworkLoaded:preview.artworkLoaded,overlaps,portals:preview.portals},null,2));
-  console.log(` 🎮 [board-canvas] [accepted-as-authored] [${definitionHash.slice(0,12)}] artwork=${preview.artworkLoaded?'loaded':'missing'} overlaps=${overlaps.length}`);
- }else{
-  verifyBoardArtworkReady({...input,definition:board.definition});
-  proof=await verifyAuthoredBoardCanvas({...input,definition:board.definition});
- }
+ if(!board)return;
+ const proof=board.definition?await reportAuthoredBoardCanvas({...input,definition:board.definition}):undefined;
  const latest=getLearningCycle(input.childId,input.homeworkId,{rootDir:input.rootDir})!;
- if(JSON.stringify(latest.canvasVerifications?.[board.boardId])===JSON.stringify(proof))return;
- transitionLearningCycle(input.childId,input.homeworkId,latest.revision,{type:'board_canvas_verified',boardId:board.boardId,proof},{rootDir:input.rootDir});
+ transitionLearningCycle(input.childId,input.homeworkId,latest.revision,proof?{type:'board_canvas_verified',boardId:board.boardId,proof}:{type:'board_preparation_checked'},{rootDir:input.rootDir});
 }
 
 export type BoardPortalBox={viewport:string;id:string;x:number;y:number;width:number;height:number};
@@ -157,6 +151,7 @@ export async function renderBoardPreview(input:{definition:AdventureBoardDefinit
     const decoded=await page.evaluate(async source=>{const image=new (globalThis as unknown as {Image:new()=>{src:string;decode():Promise<void>}}).Image();image.src=source;try{await image.decode();return true;}catch{return false;}},background.value);
     preview.artworkLoaded=preview.artworkLoaded&&decoded;
    }
+   if(background.type!=='image' && !await page.evaluate(value=>(globalThis as unknown as {CSS:{supports:(property:string,value:string)=>boolean}}).CSS.supports('background',value),background.value))console.error(` 🔴 [board-canvas] [background-css] [invalid] viewport=${size} publishing-as-authored`);
    const boxes=await page.locator('[data-portal-id]').evaluateAll(elements=>(elements as unknown as Array<{getAttribute(name:string):string|null;getBoundingClientRect():{left:number;top:number;width:number;height:number}}>).map(element=>{const box=element.getBoundingClientRect();return {id:element.getAttribute('data-portal-id')??'',x:Math.round(box.left),y:Math.round(box.top),width:Math.round(box.width),height:Math.round(box.height)};}));
    preview.portals.push(...boxes.map(box=>({viewport:size,...box})));
    const file=path.join(input.directory,`preview-${size}.png`);await page.screenshot({path:file});preview.screenshots.push({viewport:size,file});

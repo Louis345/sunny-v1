@@ -688,16 +688,17 @@ await f.worker();
 });
 import { recordedSpellingDiagnostic } from "./fixtures/spellingEvidenceFirst";
 
-it('returns canvas collisions to the same bounded Planner correction and preserves both responses',async()=>{
- const f=await fixture();const invalid=structuredClone(f.message);
- const definition=invalid.content[1].input!.activeSessionPlan.boardDefinition!;
+// 2026-10-21: overlapping portals are a drawing fact, not a Planner error. The plan is kept
+// as authored and no correction is bought; the receipt replays it without another call.
+it('keeps a Planner board with canvas collisions as authored without buying a correction',async()=>{
+ const f=await fixture();const overlapping=structuredClone(f.message);
+ const definition=overlapping.content[1].input!.activeSessionPlan.boardDefinition!;
  definition.portals[1].position=structuredClone(definition.portals[2].position);
- transport.create.mockResolvedValueOnce(invalid).mockResolvedValueOnce(structuredClone(f.message));
+ transport.create.mockResolvedValueOnce(overlapping);
  const first=await f.run();
- expect(transport.create).toHaveBeenCalledTimes(2);
- expect(JSON.stringify(transport.create.mock.calls[1][0])).toContain('board_canvas_invalid');
- expect(first.output.activeSessionPlan.boardDefinition).toEqual(f.output.activeSessionPlan.boardDefinition);
+ expect(transport.create).toHaveBeenCalledTimes(1);
+ expect(first.output.activeSessionPlan.boardDefinition!.portals[1].position).toEqual(definition.portals[2].position);
  vi.stubEnv('ANTHROPIC_API_KEY','');
  expect((await f.run()).output).toEqual(first.output);
- expect(transport.create).toHaveBeenCalledTimes(2);
+ expect(transport.create).toHaveBeenCalledTimes(1);
 },30000);

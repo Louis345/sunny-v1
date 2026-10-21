@@ -85,7 +85,7 @@ export function publishBoardInstance(cycle: LearningCycleRecordV2, input: Publis
     if (!known.has(nodeId)) throw new Error(`learning_board_node_missing:${nodeId}`);
     if (owned.has(nodeId)) throw new Error(`learning_board_node_already_owned:${nodeId}`);
   }
-  if (input.definition) {
+  if (input.definition && input.kind !== 'successor') {
     const definition = adventureBoardDefinitionSchema.parse(input.definition);
     const issues = validateBoardDefinition(definition, input.nodeIds);
     if (issues.length) throw new Error(`board_definition_invalid:${JSON.stringify(issues)}`);

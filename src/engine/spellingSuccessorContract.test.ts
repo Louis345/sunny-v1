@@ -100,7 +100,7 @@ it.each(['corrected','still-invalid','changed-plan','malformed-array','malformed
   expect(Object.keys(requests[1].tools[0].input_schema.properties)).toEqual(['predictionEvaluationIds']);
 });
 
-it("reuses a received pre-fix journey correction without buying another response", async () => {
+it("keeps a received historical journey correction while executing the original without another purchase", async () => {
   const f = fixture();
   const cycle = getLearningCycle(f.childId,f.homeworkId,{rootDir:f.rootDir})!;
   const batch = cycle.decisionHistory.at(-1)!;
@@ -108,9 +108,8 @@ it("reuses a received pre-fix journey correction without buying another response
   const draftDir = path.join(f.rootDir,`src/context/${f.childId}/homework/cycles/.planner/${f.homeworkId}`,batch.decisionId.replace(/[^a-zA-Z0-9_-]+/g,'_'));
   const received = structuredClone(f.decision);
   received.boardDefinition.edges.pop();
-  let defect = '';
-  try { parseCanonicalProgressionDecision(received); } catch(error) { defect = (error as Error).message; }
-  expect(defect).toMatch(/^board_definition_/);
+  const defect='board_definition_invalid:historical_missing_edge';
+  expect(parseCanonicalProgressionDecision(received).successor).toBeDefined();
   let calls = 0;
   const execute = async (request:any) => {
     calls++;

@@ -10,6 +10,7 @@ import type {
   LearningTheoryDecisionStatus,
 } from "../context/schemas/learningProfile";
 import type { AdventureBoardJson } from "../shared/adventureBoardJson";
+import type {EvidenceBasedContentDecision} from './learningDecisionContext';
 import {
   buildAdventureBoardFromActiveSessionPlan,
   type ActiveSessionPlanBoardSnapshot,
@@ -350,6 +351,7 @@ export type LearningCycleDecision = {
   nextEvidenceRequired?: string[];
   predictionEvaluationIds?: string[];
   assumptionAssessments?: AssumptionAssessment[];
+  replayedResponse?: {blockedDecisionId:string;requestHash:string;receiptHash:string;reason:string;deferredContentDecisions?:EvidenceBasedContentDecision[]};
 };
 
 export type LearningCycleAgencyExperiment = {
@@ -585,6 +587,7 @@ export type LearningCycleEvent =
     }
   | ({ type: "instrument_observed"; observations: LearningObservation[]; completed?: boolean } & OutcomeEvidence)
   | { type: "prediction_evaluations_recorded"; evaluations: PredictionEvaluation[] }
+  | { type: "board_preparation_checked" }
   | { type: "board_canvas_verified"; boardId: string; proof: BoardCanvasProof }
   | { type: "artifact_bound"; nodeId: string; artifact: LearningCycleArtifactBinding }
   | { type: "artifact_rejected"; nodeId: string; reason: string }
@@ -614,8 +617,10 @@ export type LearningCycleEvent =
         revisedHypothesis?: string;
         progressionAction?: LearningProgressionAction;
         successor?: SuccessorProgram;
+        replayedResponse?: LearningCycleDecision['replayedResponse'];
       };
     }
+  | { type: "planner_retry_authorized"; blockedDecisionId: string; reason: string }
   | { type: "block"; reason: string };
 
 export type LearningCycleRepositoryOptions = {
@@ -1280,7 +1285,6 @@ function publishPreparedBoardIfComplete(next: LearningCycleRecordV2, at: string)
   if (!board) return undefined;
   const nodes = next.nodes.filter((node) => board.nodeIds.includes(node.nodeId));
   if (nodes.some((node) => !node.notReadyReason && (node.state === "generating" || node.state === "blocked" || node.artifactBinding?.validationStatus !== "passed"))) return undefined;
-  if (board.definition && next.canvasVerifications?.[board.boardId]?.definitionHash !== createHash('sha256').update(JSON.stringify(board.definition)).digest('hex')) return undefined;
   next.boards = next.boards!.map((candidate) => candidate.boardId === board.boardId ? { ...candidate, publishedAt: at } : candidate);
   next.agencyExperiment = board.agencyExperiment ? structuredClone(board.agencyExperiment) : undefined;
   next.routeSelection = undefined;
@@ -1560,6 +1564,9 @@ export function transitionLearningCycle(
     evidenceIds = fresh.flatMap((evaluation) => evaluation.observationIds);
     reason = `Recorded ${fresh.length} idempotent prediction evaluation${fresh.length === 1 ? "" : "s"}.`;
     nextAction = "Give the evaluations to the existing progression Planner.";
+  } else if (event.type === "board_preparation_checked") {
+    publishPreparedBoardIfComplete(next, at);
+    reason = "Checked verified activity readiness independently of canvas diagnostics.";
   } else if (event.type === "board_canvas_verified") {
     const board = next.boards?.find(candidate => candidate.boardId === event.boardId);
     if (!board?.definition || event.proof.definitionHash !== createHash('sha256').update(JSON.stringify(board.definition)).digest('hex')) throw new Error('board_canvas_proof_mismatch');
@@ -1625,6 +1632,12 @@ export function transitionLearningCycle(
     reason = event.calibration.reason;
     nextAction = event.calibration.nextAction;
   } else if (event.type === "theory_decided") {
+    if(event.decision.replayedResponse){
+      const replay=event.decision.replayedResponse,blocked=[...current.decisionHistory].reverse().find(row=>row.fromLifecycle!==row.toLifecycle);
+      if(current.lifecycle!=='blocked'||blocked?.eventType!=='block'||blocked.decisionId!==replay.blockedDecisionId
+        ||!/^planner_decision_invalid:(board_definition_|board_canvas_invalid:)/.test(blocked.reason)
+        ||!replay.reason.trim()||![replay.requestHash,replay.receiptHash].every(hash=>/^[a-f0-9]{64}$/.test(hash)))throw new Error('planner_replay_not_eligible');
+    }
     if (fromLifecycle === "awaiting_calibration"
       && ["supported", "falsified"].includes(event.decision.status)
       && !hasSufficientCalibrationEvidence(current, event.decision)) {
@@ -1701,6 +1714,15 @@ export function transitionLearningCycle(
     if (!(next.boards && boardOwningNode(next, node.nodeId)?.publishedAt === null)) next.lifecycle = "board_ready";
     else if (event.notReady) publishPreparedBoardIfComplete(next, at);
     reason = event.reason;
+  } else if (event.type === "planner_retry_authorized") {
+    const blocked = [...current.decisionHistory].reverse().find(row => row.fromLifecycle !== row.toLifecycle);
+    if (current.lifecycle !== "blocked" || blocked?.eventType !== "block"
+      || blocked.decisionId !== event.blockedDecisionId
+      || blocked.reason !== "planner_decision_invalid:planner_response_max_tokens"
+      || !["baseline_evaluating", "quest_evaluating", "boss_evaluating"].includes(blocked.fromLifecycle)
+      || !event.reason.trim()) throw new Error("planner_retry_not_eligible");
+    next.lifecycle = blocked.fromLifecycle;
+    reason = `Replacement authorized for ${event.blockedDecisionId}: ${event.reason.trim()}`;
   } else {
     next.lifecycle = "blocked";
     reason = event.reason;
@@ -1725,6 +1747,7 @@ export function transitionLearningCycle(
       nextEvidenceRequired: event.decision.nextEvidenceRequired,
       predictionEvaluationIds: event.decision.predictionEvaluationIds,
       assumptionAssessments: event.decision.assumptionAssessments,
+      ...(event.decision.replayedResponse?{replayedResponse:structuredClone(event.decision.replayedResponse)}:{}),
     } : {}),
   };
   next.decisionHistory.push(decision);
