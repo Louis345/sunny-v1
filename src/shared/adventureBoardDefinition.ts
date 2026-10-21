@@ -381,6 +381,11 @@ export function readSuccessorBoardDefinition(value:unknown,activities:ReadonlyAr
     added.add(portalId);
     console.log(` 🎮 [board] [portal] [bound] portal=${portalId} activity=${portalId}`);return true;
   })}));
+  const referenced=new Set(board.paths.flatMap(path=>path.portalIds));
+  for(const [id,portal] of portals)if(!referenced.has(id) && portal.activityNodeId && !inventory.has(portal.activityNodeId)){
+    portals.delete(id);
+    console.log(` 🎮 [board] [portal] [not-ready] portal=${id} reason=off-path-unknown-activity:${portal.activityNodeId}`);
+  }
   // Derive connections from that one order, retaining the artist's existing presentation.
   const journey=adventureJourneySchema.parse({...journeyFromBoardDefinition({...board,portals:[...portals.values()]}),edges:undefined});
   for(const execution of journeyExecutions(journey))if(new Set(execution.activityNodeIds).size!==execution.activityNodeIds.length)throw new Error('successor_journey_unreadable:repeated_measurement_identity');

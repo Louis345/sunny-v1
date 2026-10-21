@@ -43,6 +43,15 @@ describe('a canvas cannot veto a spelling successor',()=>{
   }
  });
 
+ it('does not let an unused unknown portal veto the authored routes',()=>{
+  const log=vi.spyOn(console,'log').mockImplementation(()=>{});
+  const source=structuredClone(primary);
+  source.portals.push({id:'ghost',label:'Unused',kind:'activity',activityNodeId:'nope',position:{landscape:{x:.5,y:.5},portrait:{x:.5,y:.5}}});
+  const definition=parseCanonicalProgressionDecision(decision(source)).successor!.boardDefinition!;
+  expect(definition.portals.some(portal=>portal.id==='ghost')).toBe(false);
+  expect(journeyExecutions(definition).map(route=>route.activityNodeIds)).toEqual(expect.arrayContaining([[ids[0],ids[1],ids[3],ids[4]],[ids[0],ids[2],ids[3],ids[4]]]));
+  expect(log.mock.calls.flat().join(' ')).toContain('[portal] [not-ready] portal=ghost');
+ });
  it('binds an existing canonical activity portal so route completion cannot skip it',()=>{
   const source=structuredClone(primary) as any;
   source.portals.push({id:ids[1],label:'Wheel',kind:'activity',position:{landscape:{x:.5,y:.3},portrait:{x:.5,y:.3}}});
@@ -73,7 +82,7 @@ describe('a canvas cannot veto a spelling successor',()=>{
   expect(()=>parseCanonicalProgressionDecision(decision(source))).toThrow('successor_journey_unreadable:unresolved_stop');
  });
 
- it.each(['recorded','missing-single-path-explanation'])('commits once and publishes without a canvas approval or correction purchase: %s',async variant=>{
+ it.each(['recorded','missing-single-path-explanation','off-path-unknown'])('commits once and publishes without a canvas approval or correction purchase: %s',async variant=>{
   const root=fs.mkdtempSync(path.join(os.tmpdir(),'sunny-canvas-decoupling-'));roots.push(root);
   vi.stubEnv('SUNNY_CONTEXT_ROOT',path.join(root,'src/context'));
   const childId='lab-child',homeworkId='lab-assignment';
@@ -88,6 +97,7 @@ describe('a canvas cannot veto a spelling successor',()=>{
   if(variant==='missing-single-path-explanation'){
    actual.boardDefinition={...primary,rootPathId:'root',paths:[{id:'root',portalIds:['p-start',...ids,'p-end']}],choices:[],portals:[{...primary.portals[0],id:'p-start',kind:'start'},...ids.map(id=>({id,label:id,kind:'activity',activityNodeId:id,position:{landscape:{x:.5,y:.5},portrait:{x:.5,y:.5}}})),{id:'p-end',label:'Done',kind:'endpoint',position:{landscape:{x:.9,y:.9},portrait:{x:.9,y:.9}}}],edges:[]} as any;
   }
+  if(variant==='off-path-unknown')actual.boardDefinition.portals.push({id:'ghost',label:'Unused',kind:'activity',activityNodeId:'nope',position:{landscape:{x:.5,y:.5},portrait:{x:.5,y:.5}}});
   actual.nextInstruments.forEach(row=>row.spelling.wordIds=items.map(item=>item.wordId));
   const create=vi.fn().mockResolvedValue({id:'recorded-primary',stop_reason:'tool_use',content:[{type:'tool_use',name:'decide_learning_cycle_progression',input:actual}]});
   const request={childId,homeworkId,client:{messages:{stream:(payload:unknown)=>({finalMessage:()=>create(payload)})}} as never};
