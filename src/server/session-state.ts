@@ -78,6 +78,7 @@ type TurnMachineEvent =
   | { type: "SHOW_CANVAS" }
   | { type: "CANVAS_DONE" }
   | { type: "AGENT_COMPLETE" }
+  | { type: "FIRST_SENTENCE" }
   | { type: "PLAYBACK_COMPLETE" }
   | { type: "INTERRUPT" }
   | { type: "WORD_BUILDER_START" }
@@ -120,6 +121,7 @@ const turnMachine = setup({
       on: {
         SHOW_CANVAS: "CANVAS_PENDING",
         AGENT_COMPLETE: "SPEAKING",
+        FIRST_SENTENCE: "SPEAKING",
         INTERRUPT: { target: "IDLE", actions: assign({ wordBuilderActive: false }) },
         WORD_BUILDER_START: {
           target: "WORD_BUILDER",
@@ -147,6 +149,12 @@ const turnMachine = setup({
     },
     SPEAKING: {
       on: {
+        // A canvas or Word Builder opened after Elli started talking still gates the rest of her reply.
+        SHOW_CANVAS: "CANVAS_PENDING",
+        WORD_BUILDER_START: {
+          target: "WORD_BUILDER",
+          actions: assign({ wordBuilderActive: true }),
+        },
         PLAYBACK_COMPLETE: [
           {
             guard: "wordBuilderReturn",
@@ -171,6 +179,8 @@ export class TurnStateMachine {
   private readonly CANVAS_TIMEOUT_KARAOKE_MS = 6000;
   private pendingTranscript: string | null = null;
   private canonicalProblemText: string | null = null;
+  /** True from START_TURN until onAgentComplete: Claude is still writing this reply. */
+  private composing = false;
   private actor = createActor(turnMachine);
 
   private onFlush: (text: string) => void;
@@ -270,8 +280,18 @@ export class TurnStateMachine {
 
   // ── Public events ─────────────────────────────────────────────────────────
 
+  /**
+   * Claude is still writing the reply (even if Elli already started speaking
+   * its first sentence). Child speech now is queued for after the turn, as it
+   * was while the whole reply was held in PROCESSING.
+   */
+  isComposing(): boolean {
+    return this.composing && this.state !== "IDLE";
+  }
+
   /** Child spoke — start processing */
   onEndOfTurn(): void {
+    this.composing = true;
     this.canonicalProblemText = null;
     this.send({ type: "START_TURN" });
     setImmediate(() => this.send({ type: "BEGIN_PROCESSING" }));
@@ -282,6 +302,7 @@ export class TurnStateMachine {
    * LOADING → PROCESSING from IDLE.
    */
   onStartCompanionFromIdle(): void {
+    this.composing = true;
     this.canonicalProblemText = null;
     this.send({ type: "START_TURN" });
     setImmediate(() => this.send({ type: "BEGIN_PROCESSING" }));
@@ -299,22 +320,30 @@ export class TurnStateMachine {
 
   /** runCompanionResponse while in WORD_BUILDER (between rounds) */
   onCompanionRunFromWordBuilder(): void {
+    this.composing = true;
     this.send({ type: "COMPANION_RUN" });
   }
 
   /**
    * Token arrived from Claude.
    *
-   * During PROCESSING and CANVAS_PENDING: accumulate silently.
-   * Audio only flushes when the full response is ready (onAgentComplete or
-   * onCanvasDone). This guarantees clean, unbroken speech — no orphan
-   * fragments from tool-call interruptions mid-sentence.
+   * During PROCESSING: hold until the first complete sentence exists, then
+   * start speaking it (→ SPEAKING) while Claude writes the rest, like a person
+   * who starts talking before planning every word. Only whole sentences go
+   * out early, so a tool call cannot cut a sentence in half.
    *
-   * During SPEAKING: flush incrementally so audio streams smoothly once
-   * the canvas gate has lifted and playback has begun.
+   * During CANVAS_PENDING / WORD_BUILDER: accumulate silently until the gate lifts.
+   *
+   * During SPEAKING: flush incrementally so audio streams smoothly.
    */
   onToken(chunk: string): void {
     this.ttsBuffer += chunk;
+
+    if (this.state === "PROCESSING" && !this.gameTtsHold && this._hasCompleteSentence(this.ttsBuffer)) {
+      this.send({ type: "FIRST_SENTENCE" });
+      this._flushBuffer();
+      return;
+    }
 
     // PROCESSING / WORD_BUILDER / CANVAS_PENDING: accumulate only — full flush on
     // onAgentComplete / onCanvasDone (see comment on onToken above).
@@ -338,7 +367,7 @@ export class TurnStateMachine {
 
   /** showCanvas tool fired in this step — karaoke needs longer for first paint + layout */
   onShowCanvas(canvasTimeoutMs?: number): void {
-    if (this.state !== "PROCESSING") return;
+    if (this.state !== "PROCESSING" && this.state !== "SPEAKING") return;
     this.send({ type: "SHOW_CANVAS" });
 
     const ms = canvasTimeoutMs ?? this.CANVAS_TIMEOUT_DEFAULT_MS;
@@ -373,6 +402,7 @@ export class TurnStateMachine {
 
   /** runAgent completed — if no canvas was pending, go straight to speaking */
   onAgentComplete(deferFlush = false): void {
+    this.composing = false;
     this.onLog(`  🔍 onAgentComplete — state: ${this.state}, buffer: "${this.ttsBuffer.slice(0, 60)}"`);
     const defer = deferFlush || this.gameTtsHold;
 
@@ -416,6 +446,7 @@ export class TurnStateMachine {
 
   /** Barge-in or session end — drop everything */
   onInterrupt(): void {
+    this.composing = false;
     this.clearCanvasTimeout();
     this.ttsBuffer = "";
     this.pendingTranscript = null;
@@ -444,6 +475,8 @@ export class TurnStateMachine {
   private _hasCompleteSentence(buffer: string): boolean {
     const trimmed = buffer.trim();
     if (trimmed.length < 10) return false;
+    // "2." may be the start of "2.5" — wait for the next token.
+    if (/\d\.$/.test(trimmed)) return false;
     return /[.!?]["']?\s*$/.test(trimmed);
   }
 

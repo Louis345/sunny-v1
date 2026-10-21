@@ -9,7 +9,7 @@ it('passes the persona and live context to the model without injecting a turn-co
  stream.mockReturnValue({fullStream:(async function*(){yield {type:'text-delta',text:'Let us try it together.'};})(),finishReason:Promise.resolve('stop')});
  const tokens:string[]=[];
  await runAgent({history:[],userMessage:'Help me',profile:{systemPrompt:'Live persona'} as any,onToken:t=>tokens.push(t),...({transitionToWorkPhase:true} as any),quiet:true});
- expect(stream.mock.calls.at(-1)?.[0].system).toBe('Live persona');
+ expect(stream.mock.calls.at(-1)?.[0].messages[0]).toMatchObject({role:'system',content:'Live persona'});
  expect(tokens.join('')).toBe('Let us try it together.');
  expect(stream.mock.calls.at(-1)?.[0].maxOutputTokens).toBeGreaterThanOrEqual(1500);
 });

@@ -33,6 +33,27 @@ export interface RunAgentOptions {
   injectedContextMessages?: ModelMessage[];
 }
 
+const VOICE_EFFORTS = ["low", "medium", "high", "max"] as const;
+type VoiceEffort = (typeof VOICE_EFFORTS)[number];
+
+/**
+ * Claude reasoning effort for Elli's spoken turns. Live conversation does well
+ * at low effort, and higher effort adds reasoning before her first word.
+ * Override with SUNNY_VOICE_EFFORT if tutoring quality needs more.
+ */
+function voiceEffort(): VoiceEffort {
+  const raw = process.env.SUNNY_VOICE_EFFORT?.trim().toLowerCase();
+  if (!raw) return "low";
+  if ((VOICE_EFFORTS as readonly string[]).includes(raw)) return raw as VoiceEffort;
+  console.warn(` 🎮 [voice-effort] [invalid] value=${raw} using=low`);
+  return "low";
+}
+
+/** Claude models that accept `effort` (Opus 4.5+, Sonnet 4.6, and the 5.x family). */
+function supportsEffort(model: string): boolean {
+  return /^claude-(?:(?:fable|mythos|opus|sonnet|haiku)-[5-9]|opus-4-[5-9]|sonnet-4-6)/.test(model);
+}
+
 export function buildAgentTools(_opts: { allowTransitionToWork?: boolean } = {}) {
   return { ...ALL_TOOLS };
 }
@@ -56,19 +77,27 @@ export async function runAgent(opts: RunAgentOptions): Promise<string> {
   ) ?? [];
 
   let fullText = "";
-
+  const modelId = process.env.SUNNY_VOICE_MODEL ?? "claude-sonnet-5";
+  const effort = supportsEffort(modelId) ? voiceEffort() : undefined;
+  if (!effort) console.log(` 🎮 [voice-effort] [skipped] model=${modelId} reason=unsupported`);
 
   for (let attempt = 0; attempt < 2; attempt++) {
     let toolCallsInAttempt = 0;
     const result = streamText({
-      model: anthropic(process.env.SUNNY_VOICE_MODEL ?? "claude-sonnet-5"),
-      system: profile.systemPrompt,
+      model: anthropic(modelId),
       messages: [
+        // Cache breakpoint: tools + Elli's long system prompt are reused across turns.
+        {
+          role: "system",
+          content: profile.systemPrompt,
+          providerOptions: { anthropic: { cacheControl: { type: "ephemeral" } } },
+        },
         ...history.filter(m => typeof m.content !== "string" || m.content.trim().length > 0),
         ...injected,
         { role: "user", content: userMessage }
       ],
       maxOutputTokens: attempt === 0 ? 1500 : 3000,
+      ...(effort && { providerOptions: { anthropic: { effort } } }),
       tools: opts.tools ?? buildAgentTools({ allowTransitionToWork }),
       stopWhen: stepCountIs(8),
       abortSignal: signal,
@@ -106,6 +135,12 @@ export async function runAgent(opts: RunAgentOptions): Promise<string> {
       }
     }
     const finishReason = await result.finishReason;
+    const cache = (await result.usage)?.inputTokenDetails;
+    if (cache) {
+      console.log(
+        ` 🎮 [companion] [prompt-cache] read=${cache.cacheReadTokens ?? 0} created=${cache.cacheWriteTokens ?? 0}`,
+      );
+    }
     if (finishReason === "length" && fullText.trim()) console.warn(" 🎮 [companion] [output-budget] [exhausted] replyMayBeIncomplete=true");
     if (fullText.trim() || finishReason !== "length" || toolCallsInAttempt > 0) break;
     if (attempt === 0) console.warn(" 🎮 [companion] [empty-length-turn] [retrying] budget=3000");

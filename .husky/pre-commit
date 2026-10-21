@@ -1,4 +1,6 @@
 #!/bin/sh
 set -e
 npm run build
-npm test --reporter=silent
+# Only tests related to staged files (CI still runs the full suite on every PR).
+# Force everything locally with: SUNNY_PRECOMMIT_FULL=1 git commit ...
+npx tsx src/scripts/precommitTests.ts

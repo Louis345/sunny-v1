@@ -18,6 +18,7 @@ import {
   debugPrintClaudePreRun,
 } from "./debug-helpers";
 import { createThinkingEmoteOnFirstToolInStep } from "./companionThinkingEmote";
+import { COMPANION_EXPRESSION_PROMPT, createExpressionTagFilter } from "./companionExpressionTags";
 
 /** Project remembered text too: a previous teaching turn must not reveal this check's stimulus. */
 export function protectSpellingModelMessages(messages, snapshot) {
@@ -103,6 +104,7 @@ export async function runCompanionResponseForSession(
   userMessage: string,
 ): Promise<void> {
     if (deferCompanionUntilNarrationFinishes(session, userMessage)) return;
+    session.voiceLatency?.beginResponse();
     const turn = claimCompanionResponseTurn(session);
     const playbackId = `companion:${session.sessionId}:${turn.turnId}`;
     let staleOutputLogged = false;
@@ -235,31 +237,44 @@ export async function runCompanionResponseForSession(
           ? createThinkingEmoteOnFirstToolInStep(session.companionBridge)
           : null;
 
+      // Elli's [smile]-style tags drive the avatar while she speaks; they are never spoken.
+      const expressionTags = createExpressionTagFilter((emote) => {
+        Promise.resolve(session.companionBridge?.expressCompanion({ emote })).catch((error: unknown) =>
+          console.error(" 🎮 [companion] [expression] [failed]", error),
+        );
+      });
+      const speakChunk = (chunk: string) => {
+        fullResponse += chunk;
+        session.send("response_text", { chunk });
+        console.log(
+          `  📝 token(${chunk.length}): "${chunk.slice(0, 30).replace(/\n/g, "↵")}"`,
+        );
+        session.turnSM.onToken(chunk);
+      };
+      session.voiceLatency?.mark("model_request");
       await runAgent({
         history: protectSpellingModelMessages(historyWithPin, session.currentBoardSnapshot),
         injectedContextMessages: protectSpellingModelMessages(gameContextMessages, session.currentBoardSnapshot),
         userMessage: redactProtectedSpellingText(messageWithContext, session.currentBoardSnapshot),
-        profile: { ...session.companion, systemPrompt: redactProtectedSpellingText(session.companion.systemPrompt, session.currentBoardSnapshot) },
+        profile: { ...session.companion, systemPrompt: `${redactProtectedSpellingText(session.companion.systemPrompt, session.currentBoardSnapshot)}\n\n${COMPANION_EXPRESSION_PROMPT}` },
         tools: finalTools,
         experimentalOnStepStart: thinkingHooks?.onStepStart,
         experimentalOnToolCallStart: thinkingHooks?.onToolCallStart,
         onToken: (chunk) => {
           if (rejectStaleOutput("token")) return;
-          fullResponse += chunk;
           if (!responseLogged) {
             responseLogged = true;
+            session.voiceLatency?.mark("model_first_token");
             console.log("  🎮 [companion] model_response_received");
           }
-          session.send("response_text", { chunk });
-          console.log(
-            `  📝 token(${chunk.length}): "${chunk.slice(0, 30).replace(/\n/g, "↵")}"`,
-          );
-          session.turnSM.onToken(chunk);
+          const spoken = expressionTags.push(chunk);
+          if (spoken) speakChunk(spoken);
         },
         signal: abortController.signal,
         allowTransitionToWork: !session.transitionedToWork,
         onStepFinish: async (step) => {
           if (rejectStaleOutput("step_finish")) return;
+          session.voiceLatency?.noteToolStep(step.toolCalls?.length ?? 0);
           const toolCalls = (step.toolCalls ?? []) as Array<{
             toolName?: string;
             name?: string;
@@ -350,7 +365,7 @@ export async function runCompanionResponseForSession(
                   }),
                 );
                 const st = session.turnSM.getState();
-                if (st === "PROCESSING") {
+                if (st === "PROCESSING" || st === "SPEAKING") {
                   session.turnSM.onShowCanvas();
                 }
               } else if (ct === "place_value") {
@@ -381,7 +396,7 @@ export async function runCompanionResponseForSession(
                   }),
                 );
                 const st = session.turnSM.getState();
-                if (st === "PROCESSING") {
+                if (st === "PROCESSING" || st === "SPEAKING") {
                   session.turnSM.onShowCanvas();
                 }
               } else if (ct === "spelling") {
@@ -429,7 +444,7 @@ export async function runCompanionResponseForSession(
                     }),
                   );
                   const st = session.turnSM.getState();
-                  if (st === "PROCESSING" && word.length > 0) {
+                  if ((st === "PROCESSING" || st === "SPEAKING") && word.length > 0) {
                     session.turnSM.onShowCanvas();
                   }
                 }
@@ -447,7 +462,7 @@ export async function runCompanionResponseForSession(
                   }),
                 );
                 const st = session.turnSM.getState();
-                if (st === "PROCESSING") {
+                if (st === "PROCESSING" || st === "SPEAKING") {
                   session.turnSM.onShowCanvas();
                 }
               } else if (ct === "math_inline") {
@@ -464,7 +479,7 @@ export async function runCompanionResponseForSession(
                   }),
                 );
                 const st = session.turnSM.getState();
-                if (st === "PROCESSING") {
+                if (st === "PROCESSING" || st === "SPEAKING") {
                   session.turnSM.onShowCanvas();
                 }
               } else if (ct === "reward") {
@@ -482,7 +497,7 @@ export async function runCompanionResponseForSession(
                   session.withCanvasRevision({ args: drawPayload, result }),
                 );
                 const st = session.turnSM.getState();
-                if (st === "PROCESSING") {
+                if (st === "PROCESSING" || st === "SPEAKING") {
                   session.turnSM.onShowCanvas();
                 }
               } else if (ct === "championship") {
@@ -497,7 +512,7 @@ export async function runCompanionResponseForSession(
                   session.withCanvasRevision({ args: drawPayload, result }),
                 );
                 const st = session.turnSM.getState();
-                if (st === "PROCESSING") {
+                if (st === "PROCESSING" || st === "SPEAKING") {
                   session.turnSM.onShowCanvas();
                 }
               } else if (ct === "game") {
@@ -515,7 +530,7 @@ export async function runCompanionResponseForSession(
                     session.withCanvasRevision({ args: drawPayload, result }),
                   );
                   const st = session.turnSM.getState();
-                  if (st === "PROCESSING") {
+                  if (st === "PROCESSING" || st === "SPEAKING") {
                     session.turnSM.onShowCanvas();
                   }
                 } else {
@@ -569,7 +584,7 @@ export async function runCompanionResponseForSession(
                     }),
                   );
                   const st = session.turnSM.getState();
-                  if (st === "PROCESSING") {
+                  if (st === "PROCESSING" || st === "SPEAKING") {
                     session.turnSM.onShowCanvas(6000);
                   }
                 }
@@ -588,7 +603,7 @@ export async function runCompanionResponseForSession(
                   }),
                 );
                 const st = session.turnSM.getState();
-                if (st === "PROCESSING") {
+                if (st === "PROCESSING" || st === "SPEAKING") {
                   session.turnSM.onShowCanvas();
                 }
               } else if (ct === "clock") {
@@ -612,7 +627,7 @@ export async function runCompanionResponseForSession(
                   }),
                 );
                 const st = session.turnSM.getState();
-                if (st === "PROCESSING") {
+                if (st === "PROCESSING" || st === "SPEAKING") {
                   session.turnSM.onShowCanvas();
                 }
               } else if (ct === "score_meter") {
@@ -639,6 +654,8 @@ export async function runCompanionResponseForSession(
       });
 
       if (rejectStaleOutput("completion")) return;
+      const trailing = expressionTags.flush();
+      if (trailing) speakChunk(trailing);
 
       if (!fullResponse.trim() && session.toolCallsMadeThisTurn === 0) {
         console.warn(
