@@ -1601,7 +1601,7 @@ export function SparkOrbLearningShell({
             data-active="true"
             aria-hidden="true"
           >
-            <span>{conceptReward.unit.toUpperCase()}</span>
+            <span />
             <i /><i /><i /><i />
           </div>
         ) : null}

@@ -28,6 +28,7 @@ function shellAt(
   phase: SparkOrbEncounterPhase,
   options: {
     captureRandom?: () => number;
+    conceptReward?: { target: string; unit: string };
     onCaptureCompleted?: ReturnType<typeof vi.fn>;
   } = {},
 ) {
@@ -40,6 +41,7 @@ function shellAt(
       chargeGoal={3}
       domain="spelling"
       currentTarget="word:because"
+      conceptReward={options.conceptReward}
       lastMoment="watching"
       orbCount={7}
       captureRandom={options.captureRandom}
@@ -71,6 +73,16 @@ describe("spark orb learning-moment juice", () => {
 
     rerender(shellAt("charge-2"));
     expect(screen.getByTestId("spark-orb-spark-flight")).toBeInTheDocument();
+  });
+
+  it("never exposes a raw answer letter inside the decorative spark flight", () => {
+    const { rerender } = render(shellAt("charge-1"));
+    rerender(shellAt("charge-2", {
+      conceptReward: { target: "word:spark", unit: "K" },
+    }));
+
+    expect(screen.getByTestId("spark-orb-concept-path")).toBeInTheDocument();
+    expect(screen.queryByText("K")).not.toBeInTheDocument();
   });
 
   it("does not fire the spark flight when charge resets after a spend", () => {

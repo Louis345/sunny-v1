@@ -68,7 +68,7 @@ describe("Spark Orb flagship visual contract", () => {
     expect(screen.queryByText("K")).not.toBeInTheDocument();
   });
 
-  it("uses the evaluated learning unit instead of guessing from the target string", () => {
+  it("keeps evaluated learning units in metadata instead of rendering raw answer letters", () => {
     vi.useFakeTimers();
     const conceptReward = { target: "word:spark", unit: "r" };
     const props = {
@@ -96,7 +96,8 @@ describe("Spark Orb flagship visual contract", () => {
 
     const conceptPath = screen.getByTestId("spark-orb-concept-path");
     expect(conceptPath).toHaveAttribute("data-target", "word:spark");
-    expect(conceptPath).toHaveTextContent("R");
+    expect(conceptPath).toHaveTextContent("");
+    expect(conceptPath).not.toHaveTextContent("R");
     expect(conceptPath).not.toHaveTextContent("K");
 
     act(() => {
