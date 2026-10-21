@@ -1,0 +1,105 @@
+# Required status `human-gate`. Nothing merges without human acceptance:
+# every PR stays pending until the repo owner comments `/ship` (or
+# `/ship <sha>` to pin the exact commit). The description reports risk
+# (.github/pr-gate/riskPaths.cjs) so the owner knows where to look.
+# A `hold` label or draft status always keeps it pending.
+#
+# Runs from the default branch (pull_request_target / issue_comment), so a PR
+# cannot rewrite the classifier that gates it. Never checks out PR code.
+
+name: Human Gate
+
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened, ready_for_review, converted_to_draft, labeled, unlabeled, edited]
+  issue_comment:
+    types: [created]
+
+concurrency:
+  group: human-gate-${{ github.event.pull_request.number || github.event.issue.number }}
+  cancel-in-progress: false
+
+jobs:
+  gate:
+    if: >-
+      github.event_name == 'pull_request_target' ||
+      (github.event.issue.pull_request && contains(github.event.comment.body, '/ship'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: write
+      statuses: write
+
+    steps:
+      - name: Checkout gate logic (default branch only)
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          sparse-checkout: .github/pr-gate
+          persist-credentials: false
+
+      - name: Decide human-gate
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const gate = require(`${process.env.GITHUB_WORKSPACE}/.github/pr-gate/humanGate.cjs`);
+            const { owner, repo } = context.repo;
+            const pull_number = context.payload.pull_request?.number ?? context.payload.issue.number;
+            const target_url = `${context.serverUrl}/${owner}/${repo}/actions/runs/${context.runId}`;
+            const comment = context.eventName === "issue_comment" ? context.payload.comment : null;
+            const react = (content) => comment && github.rest.reactions
+              .createForIssueComment({ owner, repo, comment_id: comment.id, content })
+              .catch((err) => core.warning(` 🎮 [human-gate] [reaction] [failed: ${err.message}]`));
+
+            let ship = null;
+            if (comment) {
+              const cmd = gate.parseShipCommand(comment.body);
+              if (!cmd) return core.info(" 🎮 [human-gate] [comment] [not a /ship command]");
+              const isOwner = comment.user.type !== "Bot" && comment.user.login.toLowerCase() === owner.toLowerCase();
+              if (!isOwner) {
+                core.notice(` 🎮 [human-gate] [ship] [ignored /ship from @${comment.user.login}]`);
+                await react("confused");
+                return;
+              }
+              ship = { login: comment.user.login, sha: cmd.sha };
+            }
+
+            const { data: pr } = await github.rest.pulls.get({ owner, repo, pull_number });
+            if (pr.state !== "open") return core.info(` 🎮 [human-gate] [skip] [PR is ${pr.state}]`);
+
+            if (!ship) {
+              const statuses = await github.paginate(github.rest.repos.listCommitStatusesForRef, {
+                owner, repo, ref: pr.head.sha, per_page: 100,
+              });
+              ship = gate.shipFromStatuses(statuses);
+            }
+
+            const files = await github.paginate(github.rest.pulls.listFiles, { owner, repo, pull_number, per_page: 100 });
+            const paths = files.flatMap((f) => (f.previous_filename ? [f.filename, f.previous_filename] : [f.filename]));
+            // listFiles stops at 3000 files; anything short of changed_files is treated as unknown.
+            const filesComplete = files.length === pr.changed_files && files.length < 3000;
+
+            const decision = gate.decideHumanGate({
+              files: paths,
+              filesComplete,
+              labels: pr.labels.map((l) => l.name),
+              draft: pr.draft,
+              ownerLogin: owner,
+              headSha: pr.head.sha,
+              ship,
+            });
+            await github.rest.repos.createCommitStatus({
+              owner, repo, sha: pr.head.sha, state: decision.state, context: gate.STATUS_CONTEXT,
+              description: decision.description, target_url,
+            });
+            core.info(` 🎮 [human-gate] [status] [${decision.state}: ${decision.description}]`);
+            await core.summary
+              .addHeading(`human-gate: ${decision.state}`)
+              .addRaw(decision.description)
+              .addTable([
+                [{ data: "Rule", header: true }, { data: "File", header: true }],
+                ...decision.matches.map((m) => [m.rule, m.file]),
+              ])
+              .write();
+            if (comment) await react(decision.state === "success" ? "rocket" : "eyes");

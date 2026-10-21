@@ -1,126 +1,222 @@
-name: Claude PR Review
+# Required status `ai-review/opus` (AGENTS.md Law 8). Opus 5.5 reviews the
+# checked-out PR with Claude Code, executes focused tests and throwaway probes,
+# posts one GitHub review (summary + inline comments) followed by an `@codex`
+# fix list comment, and sets the status. Open Required items carry across pushes.
+# Fails closed: blocking verdict, API/run error, unparseable output, or a diff
+# too large to review completely all yield `failure`; a crash leaves `pending`.
+# Decision logic and its tests live in .github/pr-gate/ (docs/PR_REVIEW_GATE.md).
+
+name: AI Review
 
 on:
   pull_request:
-    types: [opened, synchronize]
+    types: [opened, synchronize, reopened, ready_for_review]
+
+concurrency:
+  group: ai-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
 
 jobs:
-  review:
-    if: ${{ github.head_ref != 'codex/spelling-chart-core' && github.head_ref != 'codex/spelling-plumbing' }}
+  opus:
+    # Drafts are held by human-gate; review once ready to save spend.
+    if: github.event.pull_request.draft == false
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     permissions:
-      pull-requests: write
       contents: read
+      pull-requests: write
+      issues: write
+      statuses: write
+    env:
+      HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+      BASE_SHA: ${{ github.event.pull_request.base.sha }}
+      SKIP_COMPANION_VRM_DOWNLOAD: "true"
 
     steps:
-      - name: Checkout PR branch
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Get diff against main
-        run: |
-          git fetch origin main
-          git diff origin/main...HEAD -- . ':(exclude)package-lock.json' | head -c 50000 > /tmp/pr_diff.txt
-
-      - name: Call Claude API
-        id: claude
-        env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-        run: |
-          python3 -c "
-          import json, os, urllib.error, urllib.request
-
-          diff = open('/tmp/pr_diff.txt').read()
-          system_prompt = """You are reviewing PRs for Sunny, a voice AI tutoring app for children with IEPs. You have deep context on this system.
-
-First, check the diff against **AGENTS.md Development Laws** (repo root). Flag violations explicitly:
-
-- **Law 1 (Tests first):** New behavior or bugfix without a test file change or test rationale — flag it.
-- **Law 3 (One change):** Multiple unrelated fixes in one PR — flag scope creep.
-- **Law 4 (No silent failures):** New async paths without error handling — flag it.
-- **Law 6 (Architecting):** Touches more than ~2 files without clear necessity — flag and ask for split or justification.
-- **Law 7:** CI must pass build + tests; if the diff could break `npm run build` or Vitest, say so.
-- **Law 8 (Agent-assisted review):** Does this PR need a slimmer diff or missing tests per solo-maintainer safeguards?
-- **Law 9 (Story mode personalization):** Story/karaoke homework must be child-centered when a child profile exists. For Reina, flag generic stories, missing profile motivators such as challenge/competition/wrestling/strategy/personal bests or another profile-backed hook, `storyImagePrompt` values that do not match the chosen adaptive hook, or malformed empty word-list text. Do not require every story to make Reina the protagonist.
-- **Law 10 (Dynamic content domain gate):** Dynamic AI content must follow captured evidence -> domain gate -> child engagement hooks -> gap plan -> generated content. Flag baseline activities attached to the wrong domain, such as Reading Mode or Countdown on unrelated math assignments; flag generated content that ignores captured source text/questions/concepts/source documents; flag content that uses dopamine hooks without measured gap targets.
-- **Variable reward quest gate:** Flag PRs that make quest/boss a simple fixed-position reward. Quest should unlock from domain-valid captured content plus performance evidence (accuracy, recovery, streak, completed baseline work). Weak performance should route support before generated quest. Boss should stay mastery-gated behind quest evidence.
-- **Law 11 (AI content catalog):** Flag generated/prototype/reused content that enters the active path without a catalog item, non-empty algorithmTargets, input evidence, and reuse/revise/retire status. Flag "fun content" that does not name the learning algorithm it serves or how it will be measured.
-
-**Maintainability (AGENTS.md):** Prefer broad product rules over many narrow code branches; new server guards should ideally have tests.
-
-Then check these failure modes:
-
-1. PROMPT VS CODE: Is this solving a problem in TypeScript that should be solved in a companion markdown prompt file? If the PR adds logic that encodes teaching behavior, curriculum order, or pedagogical rules in code instead of prompts, flag it and recommend the prompt fix instead.
-
-2. ADAPTIVE TEACHING: Does this PR make Elli more rigid or more flexible? Any change that locks Elli into a fixed script or execution order is a regression — she must be able to adapt to the child in real time.
-
-3. STATE MACHINE RISK: Does this touch session-manager.ts, useSession.ts, or Canvas.tsx? Flag any change that could affect PROCESSING → CANVAS_PENDING → SPEAKING transitions.
-
-4. LATENCY: Does this add synchronous operations, sequential tool calls, or new network hops in the hot path?
-
-5. CHILD SAFETY: Does this affect what Elli or Matilda says to children? Flag any prompt changes that could produce inappropriate responses.
-
-6. BROKEN MATH: If this PR contains arithmetic algorithms, verify them with concrete examples including edge cases like borrowing cascades (305-47), carrying in addition (78+45), and zero in subtrahend.
-
-Be direct. If the PR should be closed and replaced with a prompt edit, say so explicitly. Cite file names and line numbers where relevant. Use markdown formatting."""
-          payload = json.dumps({
-            'model': 'claude-sonnet-4-5',
-            'max_tokens': 2048,
-            'system': system_prompt,
-            'messages': [{'role': 'user', 'content': 'Review this pull request diff and provide feedback:\n\n```diff\n' + diff + '\n```'}]
-          })
-          req = urllib.request.Request(
-            'https://api.anthropic.com/v1/messages',
-            data=payload.encode(),
-            headers={
-              'x-api-key': os.environ['ANTHROPIC_API_KEY'],
-              'anthropic-version': '2023-06-01',
-              'content-type': 'application/json'
-            }
-          )
-          try:
-            resp = urllib.request.urlopen(req)
-            text = json.loads(resp.read())['content'][0]['text']
-          except urllib.error.HTTPError as e:
-            body = e.read().decode()
-            text = 'Claude review failed: ' + json.loads(body).get('error', {}).get('message', body)
-          except Exception as e:
-            text = 'Claude review failed: ' + str(e)
-          open('/tmp/review.txt', 'w').write(text)
-          "
-
-      - name: Post review comment
+      - name: Mark ai-review/opus pending
         uses: actions/github-script@v7
         with:
           script: |
-            const fs = require('fs');
-            const reviewText = fs.readFileSync('/tmp/review.txt', 'utf8');
-            const review = '## Claude Review\n\n' + reviewText;
-
-            // Find and delete any previous Claude review comment on this PR
-            const { data: comments } = await github.rest.issues.listComments({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: context.issue.number,
+            await github.rest.repos.createCommitStatus({
+              ...context.repo,
+              sha: process.env.HEAD_SHA,
+              state: "pending",
+              context: "ai-review/opus",
+              description: "Opus review running",
+              target_url: `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
             });
 
-            const previous = comments.find(c =>
-              c.user.login === 'github-actions[bot]' &&
-              c.body.startsWith('## Claude Review')
-            );
+      - name: Checkout PR head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          # The reviewer executes PR code; keep the token out of .git/config.
+          persist-credentials: false
 
-            if (previous) {
-              await github.rest.issues.deleteComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                comment_id: previous.id,
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install (root)
+        run: npm ci
+
+      - name: Install (web)
+        working-directory: web
+        run: npm ci
+
+      - name: Prepare review
+        id: prep
+        uses: actions/github-script@v7
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        with:
+          script: |
+            const fs = require("fs");
+            const gate = require(`${process.env.GITHUB_WORKSPACE}/.github/pr-gate/verdict.cjs`);
+            const fix = require(`${process.env.GITHUB_WORKSPACE}/.github/pr-gate/fixList.cjs`);
+            const { BASE_SHA, HEAD_SHA, RUNNER_TEMP } = process.env;
+            const issue_number = Number(process.env.PR_NUMBER);
+
+            // Open Required items from the previous review, plus the author's thread replies.
+            const issueComments = await github.paginate(github.rest.issues.listComments, { ...context.repo, issue_number, per_page: 100 });
+            const priorState = fix.latestState(issueComments);
+            const reviewComments = await github.paginate(github.rest.pulls.listReviewComments, {
+              ...context.repo, pull_number: issue_number, per_page: 100,
+            });
+            fs.writeFileSync(`${RUNNER_TEMP}/ai-review-prior.json`, JSON.stringify({ priorState }));
+            core.info(` 🎮 [ai-review] [prior-state] [${priorState ? `${priorState.open.length} open` : "unreadable"}]`);
+
+            const { stdout } = await exec.getExecOutput(
+              "git", ["diff", "--numstat", "--no-renames", "-z", `${BASE_SHA}...${HEAD_SHA}`], { silent: true });
+            const numstat = stdout.split("\0").filter(Boolean).map((rec) => {
+              const [additions, deletions, ...path] = rec.split("\t");
+              return { path: path.join("\t"), additions: Number(additions) || 0, deletions: Number(deletions) || 0 };
+            });
+            const budget = gate.checkDiffBudget(numstat, gate.DEFAULT_BUDGET);
+            fs.writeFileSync(`${RUNNER_TEMP}/ai-review-budget.json`, JSON.stringify(budget));
+            core.info(` 🎮 [ai-review] [budget] [${budget.ok ? "ok" : budget.reason}: ${budget.reviewFiles.length} files]`);
+
+            const fill = {
+              "{{PR_NUMBER}}": process.env.PR_NUMBER,
+              "{{PR_TITLE}}": process.env.PR_TITLE,
+              "{{BASE_SHA}}": BASE_SHA,
+              "{{HEAD_SHA}}": HEAD_SHA,
+              "{{CHANGED_FILES}}": budget.reviewFiles.map((f) => `- \`${f}\``).join("\n") || "- (none)",
+              "{{PRIOR_ITEMS}}": priorState
+                ? fix.renderPriorItemsForPrompt(priorState.open, reviewComments)
+                : "(prior review state unreadable; the gate will fail regardless)",
+              // Last, so placeholders inside the author-supplied body stay literal.
+              "{{PR_BODY}}": process.env.PR_BODY || "(empty)",
+            };
+            let prompt = fs.readFileSync(".github/pr-gate/review-prompt.md", "utf8");
+            for (const [key, value] of Object.entries(fill)) prompt = prompt.replaceAll(key, () => value);
+
+            const allowedTools = [
+              "Read", "Glob", "Grep", "Write", "Edit",
+              "Bash(git diff:*)", "Bash(git log:*)", "Bash(git show:*)",
+              "Bash(npx vitest:*)", "Bash(cd web && npx vitest:*)", "Bash(npx tsx:*)", "Bash(npx tsc:*)",
+              "Bash(node:*)", "Bash(mkdir:*)", "Bash(ls:*)",
+            ].join(",");
+            core.setOutput("budget_ok", String(budget.ok));
+            core.setOutput("prompt", prompt);
+            core.setOutput("claude_args", [
+              "--model claude-opus-5-5",
+              "--max-turns 80",
+              `--allowedTools "${allowedTools}"`,
+              `--disallowedTools "WebFetch,WebSearch"`,
+              `--json-schema '${JSON.stringify(gate.VERDICT_SCHEMA)}'`,
+            ].join(" "));
+
+      - name: Opus review (Claude Code)
+        id: claude
+        if: steps.prep.outputs.budget_ok == 'true'
+        # The publish step turns any failure here into a failing status.
+        continue-on-error: true
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          prompt: ${{ steps.prep.outputs.prompt }}
+          claude_args: ${{ steps.prep.outputs.claude_args }}
+
+      - name: Publish review and set ai-review/opus
+        # Superseded runs are cancelled; their sha keeps `pending`.
+        if: ${{ !cancelled() }}
+        uses: actions/github-script@v7
+        env:
+          CLAUDE_OUTCOME: ${{ steps.claude.outcome }}
+          CLAUDE_CONCLUSION: ${{ steps.claude.outputs.conclusion }}
+          STRUCTURED_OUTPUT: ${{ steps.claude.outputs.structured_output }}
+        with:
+          script: |
+            const fs = require("fs");
+            const { HEAD_SHA, RUNNER_TEMP, CLAUDE_OUTCOME, CLAUDE_CONCLUSION, STRUCTURED_OUTPUT } = process.env;
+            const readTemp = (name) => JSON.parse(fs.readFileSync(`${RUNNER_TEMP}/${name}`, "utf8"));
+            const target_url = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const setStatus = (state, description) => github.rest.repos.createCommitStatus({
+              ...context.repo, sha: HEAD_SHA, state, context: "ai-review/opus", description, target_url,
+            });
+            try {
+              const gate = require(`${process.env.GITHUB_WORKSPACE}/.github/pr-gate/verdict.cjs`);
+              const fix = require(`${process.env.GITHUB_WORKSPACE}/.github/pr-gate/fixList.cjs`);
+              let budget;
+              let priorState;
+              try {
+                budget = readTemp("ai-review-budget.json");
+                priorState = readTemp("ai-review-prior.json").priorState;
+              } catch (err) {
+                core.warning(` 🎮 [ai-review] [prepare] [missing: ${err.message}]`);
+                budget = { ok: false, reason: "Review preparation failed", reviewFiles: [] };
+                priorState = null;
+              }
+              const conclusion = CLAUDE_OUTCOME === "success" ? CLAUDE_CONCLUSION : CLAUDE_OUTCOME || "not run";
+              const evaluation = gate.evaluateReviewRun({
+                conclusion, structuredOutput: STRUCTURED_OUTPUT, changedFiles: budget.reviewFiles, budget,
+                priorOpen: priorState ? priorState.open : null,
               });
-            }
 
-            await github.rest.issues.createComment({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: context.issue.number,
-              body: review,
-            });
+              const pull_number = context.payload.pull_request.number;
+              const files = await github.paginate(github.rest.pulls.listFiles, { ...context.repo, pull_number, per_page: 100 });
+              const commentable = Object.fromEntries(files.map((f) => [f.filename, gate.commentableLines(f.patch)]));
+              const post = (review) => github.rest.pulls.createReview({
+                ...context.repo, pull_number, commit_id: HEAD_SHA, event: "COMMENT", body: review.body, comments: review.comments,
+              });
+              let posted = gate.buildReview(evaluation, commentable);
+              let review;
+              try {
+                review = (await post(posted)).data;
+              } catch (err) {
+                // GitHub rejects the whole review if one inline anchor is invalid; fall back to summary-only.
+                core.warning(` 🎮 [ai-review] [review] [inline rejected: ${err.message}]`);
+                posted = gate.buildReview(evaluation, {});
+                review = (await post(posted)).data;
+              }
+
+              // Fix list for @codex, linking each item to its thread; it also carries state to the next push.
+              const reviewComments = await github.paginate(github.rest.pulls.listCommentsForReview, {
+                ...context.repo, pull_number, review_id: review.id, per_page: 100,
+              });
+              const links = fix.linkThreads({
+                findingsCount: evaluation.verdict ? evaluation.verdict.findings.length : 0,
+                posted: posted.comments,
+                inlineFindingIndexes: posted.inlineFindingIndexes,
+                reviewComments,
+                reviewUrl: review.html_url,
+              });
+              const plan = fix.planFixList({ evaluation, priorState, links, reviewUrl: review.html_url });
+              await github.rest.issues.createComment({ ...context.repo, issue_number: pull_number, body: fix.renderFixList(plan) });
+              core.info(` 🎮 [ai-review] [fix-list] [${plan.required.length} required, ${plan.deferrable.length} deferrable, ${plan.resolved.length} resolved]`);
+
+              await setStatus(evaluation.state, evaluation.description);
+              core.info(` 🎮 [ai-review] [status] [${evaluation.state}: ${evaluation.description}]`);
+              if (evaluation.state !== "success") core.setFailed(evaluation.description);
+            } catch (err) {
+              core.error(` 🎮 [ai-review] [publish] [error: ${err.message}]`);
+              await setStatus("failure", `Gate error: ${err.message}`.slice(0, 140));
+              core.setFailed(err.message);
+            }
