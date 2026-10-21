@@ -39,19 +39,10 @@ describe("early speech review fixes", () => {
     expect(flushed).toEqual(["The answer is 2.5 pounds."]);
   });
 
-  it("reports that Elli is still composing after early speech until the reply completes", async () => {
-    const sm = new TurnStateMachine(() => {}, () => {});
-    await processing(sm);
-    expect(sm.isComposing()).toBe(true);
-    sm.onToken("Hey Ila, good to see you. ");
-    expect(sm.isComposing()).toBe(true);
-    sm.onAgentComplete();
-    expect(sm.isComposing()).toBe(false);
-  });
-
-  it("queues (does not drop) what the child says while Elli is speaking her first sentence and still writing", async () => {
+  it("never drops what the child says while Elli is speaking her first sentence: it interrupts her", async () => {
     // Review catch: early SPEAKING made the session drop child speech as
-    // "assistant_owns_turn" during the time it used to be queued (PROCESSING).
+    // "assistant_owns_turn". Since newest-wins (Oct 20 human decision), the
+    // child's words stop Elli and are answered instead of queued.
     const ws = { readyState: WebSocket.OPEN, OPEN: WebSocket.OPEN, send: vi.fn() } as unknown as WebSocket;
     const session = new SessionManager(ws, "Ila");
     const turnSM = (session as unknown as { turnSM: TurnStateMachine }).turnSM;
@@ -59,11 +50,10 @@ describe("early speech review fixes", () => {
     await processing(turnSM);
     turnSM.onToken("Hey Ila, good to see you. ");
     expect(turnSM.getState()).toBe("SPEAKING");
+    const bargeIn = vi.spyOn(session, "bargeIn");
 
     session.injectTranscript("seven");
 
-    await vi.waitFor(() => {
-      expect((turnSM as unknown as { pendingTranscript: string | null }).pendingTranscript).toBe("seven");
-    });
+    await vi.waitFor(() => expect(bargeIn).toHaveBeenCalledOnce());
   });
 });

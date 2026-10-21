@@ -222,6 +222,32 @@ describe("VoiceTurnLatencyTracker", () => {
     });
   });
 
+  it("discarding ignored speech mid-reply drops that utterance, not Elli's in-flight reply", () => {
+    const { tracker, records, advance } = harness();
+    tracker.startTurn("final");
+    tracker.beginResponse();
+    tracker.startTurn("final"); // "uh-huh" heard mid-reply
+    tracker.discardLatest("ignored");
+    expect(records.map((r) => [r.turnId, r.outcome, r.reason])).toEqual([[2, "cancelled", "ignored"]]);
+    advance(500);
+    tracker.mark("tts_first_audio");
+    expect(records[1]).toMatchObject({ turnId: 1, outcome: "first_audio" });
+  });
+
+  it("keeps a queued utterance across a barge-in so its reply is timed from when it was said", () => {
+    const { tracker, records, advance } = harness();
+    tracker.startTurn("final");
+    tracker.beginResponse();
+    advance(400);
+    tracker.startTurn("final"); // the child talks over Elli
+    tracker.cancelTurn("barge_in");
+    advance(100);
+    tracker.beginResponse();
+    advance(1_000);
+    tracker.mark("tts_first_audio");
+    expect(records.at(-1)).toMatchObject({ turnId: 2, queued: true, marksMs: { tts_first_audio: 1_100 } });
+  });
+
   it("drops a queued utterance as cancelled when the session ends before Elli answers it", () => {
     const { tracker, records } = harness();
     tracker.startTurn("final");

@@ -23,6 +23,7 @@ import {
 } from "./session-triggers";
 import { WsTtsBridge } from "./ws-tts-bridge";
 import { createLoggedVoiceTurnLatency } from "./voiceTurnLatency";
+import { interruptedExchange, isBackchannel, isListeningNoise, isVerbatimEchoOfCompanion, shouldBargeIn } from "./companionTurnTaking";
 import { appendRewardLog } from "../agents/elli/tools/logReward";
 import { mathProblem } from "../agents/elli/tools/mathProblem";
 import {
@@ -214,6 +215,8 @@ export class SessionManager {
   private conversationHistory: ModelMessage[] = [];
   private readonly options?: SessionManagerOptions;
   private ttsBridge: WsTtsBridge | null = null;
+  /** Child message whose reply is still being written (set by the response runner). */
+  inFlightReply: string | null = null;
   readonly voiceLatency = createLoggedVoiceTurnLatency((record) => this.debugRecorder.recordEvent("latency", "turn", record));
   private currentAbort: AbortController | null = null;
   private companionResponseTurnId = 0;
@@ -1240,7 +1243,8 @@ export class SessionManager {
     this.handleEndOfTurn(value).catch(console.error);
   }
 
-  bargeIn(): void {
+  /** Stop Elli now. `child_speech` also records what the child actually heard before cutting in. */
+  bargeIn(cause: "child_speech" | "system" = "system"): void {
     this.voiceLatency?.cancelTurn("barge_in");
     this.companionResponseTurnId = Number(this.companionResponseTurnId ?? 0) + 1;
     this.pendingRoundComplete = null;
@@ -1258,6 +1262,9 @@ export class SessionManager {
     this.activeGameNarrationRequestId = null;
 
     const stateBefore = this.turnSM.getState();
+    const interrupted = this.inFlightReply;
+    this.inFlightReply = null;
+    if (cause === "child_speech") this.conversationHistory.push(...interruptedExchange(interrupted, this.turnSM.spokenText(), stateBefore));
     this.turnSM.onInterrupt();
     auditLog("turn", {
       action: "barge_in",
@@ -1533,19 +1540,16 @@ export class SessionManager {
     }
     const handle = await connectFlux({
       onOpen: () => console.log("  ✅ Deepgram Flux connected"),
-      onStartOfTurn: () => {
-        const MIN_SPEAK_MS = 1500;
-        if (
-          this.turnSM.getState() === "SPEAKING" &&
-          this.speakingStartedAt > 0 &&
-          Date.now() - this.speakingStartedAt >= MIN_SPEAK_MS
-        ) {
-          this.bargeIn();
-        }
-      },
+      // A bare start-of-speech sound no longer stops Elli; real words in the live transcript do (onInterim).
+      onStartOfTurn: () => {},
       onEagerEndOfTurn: (transcript: string) => this.handleFluxEndOfTurn(transcript, "eager"),
       onTurnResumed: () => this.clearHeldCompanionEagerTranscript("turn_resumed"),
-      onInterim: (text) => this.send("interim", { text }),
+      onInterim: (text) => {
+        this.send("interim", { text });
+        // Same gate as a final transcript: only speech the open companion conversation would answer may stop Elli.
+        const companionWouldAnswer = this.companionPresence === "summoned" && this.companionInteractionMode === "conversation" && !this.options?.sttOnly && !this.suppressTranscripts;
+        if (companionWouldAnswer && this.turnSM.getState() === "SPEAKING" && shouldBargeIn({ interim: text, companionSpoken: this.turnSM.spokenText(), speakingForMs: Date.now() - this.speakingStartedAt })) this.bargeIn("child_speech");
+      },
       onEndOfTurn: (transcript) => this.handleFluxEndOfTurn(transcript, "final"),
       onError: (err) => {
         this.debugRecorder.recordError("Deepgram error", err);
@@ -1746,7 +1750,7 @@ export class SessionManager {
       setPresence: (state, reason) => this.setCompanionPresence(state, reason),
       recordEvent: (component, action, fields) =>
         this.debugRecorder.recordEvent(component, action, fields),
-    })) return;
+    })) return void this.voiceLatency?.discardLatest("ignored");
 
     let state = this.turnSM.getState();
     if (urgentRoute && !checkUserGoodbye(transcript)) {
@@ -1843,80 +1847,29 @@ export class SessionManager {
       return;
     }
 
-    if (state === "PROCESSING" || (state === "SPEAKING" && !opts?.fromReadingComplete && this.turnSM.isComposing())) {
-      if (!this.shouldAcceptInterruptedTranscript(transcript)) {
-        auditLog("transcript", {
-          action: "dropped",
-          reason: "junk",
-          turnState: state,
-          tts,
-          childName: auditChild,
-          round: auditRound,
-        });
-        this.debugRecorder.recordEvent("transcript", "dropped", {
-          reason: "junk",
-          turnState: state,
-          round: auditRound,
-          transcriptLength: transcript.length,
-        });
+    // Newest wins: real words from the child while Elli is thinking or talking stop that
+    // reply and are answered now; junk, backchannels, and Elli's own echo are dropped.
+    if (state === "LOADING" || state === "PROCESSING" || (!opts?.fromReadingComplete && (state === "CANVAS_PENDING" || state === "SPEAKING"))) {
+      const dropReason = !this.shouldAcceptInterruptedTranscript(transcript) ? "junk"
+        : this.shouldSuppressTranscriptDuringKaraoke(transcript) ? "karaoke"
+        : isListeningNoise(transcript) ? "backchannel"
+        : isVerbatimEchoOfCompanion(transcript, this.turnSM.spokenText()) ? "echo" : null;
+      if (dropReason) {
+        auditLog("transcript", { action: "dropped", reason: dropReason, turnState: state, tts, childName: auditChild, round: auditRound });
+        this.debugRecorder.recordEvent("transcript", "dropped", { reason: dropReason, turnState: state, round: auditRound, transcriptLength: transcript.length });
+        this.voiceLatency?.discardLatest("ignored");
         return;
       }
-      this.turnSM.setPendingTranscript(transcript);
-      console.log("  📬 Queued transcript for after turn");
-      auditLog("transcript", {
-        action: "queued",
-        turnState: state,
-        tts,
-        childName: auditChild,
-        round: auditRound,
-      });
-      this.debugRecorder.recordEvent("transcript", "queued", {
-        turnState: state,
-        round: auditRound,
-        transcriptLength: transcript.length,
-      });
-      return;
-    }
-
-    if (
-      !opts?.fromReadingComplete &&
-      (state === "CANVAS_PENDING" || state === "SPEAKING")
-    ) {
-      if (!this.shouldAcceptInterruptedTranscript(transcript)) {
-        auditLog("transcript", {
-          action: "dropped",
-          reason: "junk",
-          turnState: state,
-          tts,
-          childName: auditChild,
-          round: auditRound,
-        });
-        this.debugRecorder.recordEvent("transcript", "dropped", {
-          reason: "junk",
-          turnState: state,
-          round: auditRound,
-          transcriptLength: transcript.length,
-        });
+      if (this.turnSM.inWordBuilderRun() || (state === "SPEAKING" && isBackchannel(transcript))) {
+        // Word Builder keeps its turn; a short "right/okay" while Elli talks is answered right after her.
+        this.turnSM.setPendingTranscript(transcript);
+        console.log(` 🎮 [turn-taking] [held-for-after] [queued] state=${state}`);
+        this.debugRecorder.recordEvent("transcript", "queued", { turnState: state, round: auditRound, transcriptLength: transcript.length });
         return;
       }
-      console.log(
-        `  🗑️  Ignoring transcript while assistant owns turn (${state}): "${transcript}"`,
-      );
-      auditLog("transcript", {
-        action: "dropped",
-        reason: "assistant_owns_turn",
-        turnState: state,
-        tts,
-        childName: auditChild,
-        round: auditRound,
-      });
-      this.debugRecorder.recordEvent("transcript", "dropped", {
-        reason: "assistant_owns_turn",
-        turnState: state,
-        round: auditRound,
-        transcriptLength: transcript.length,
-      });
-      return;
+      console.log(` 🎮 [turn-taking] [newest-wins] [interrupting] state=${state}`);
+      this.bargeIn("child_speech");
+      state = this.turnSM.getState();
     }
 
     auditLog("transcript", {

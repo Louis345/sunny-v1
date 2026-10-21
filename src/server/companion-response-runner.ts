@@ -19,6 +19,7 @@ import {
 } from "./debug-helpers";
 import { createThinkingEmoteOnFirstToolInStep } from "./companionThinkingEmote";
 import { COMPANION_EXPRESSION_PROMPT, createExpressionTagFilter } from "./companionExpressionTags";
+import { COMPANION_SPOKEN_TURN_PROMPT } from "./companionTurnTaking";
 
 /** Project remembered text too: a previous teaching turn must not reveal this check's stimulus. */
 export function protectSpellingModelMessages(messages, snapshot) {
@@ -105,6 +106,7 @@ export async function runCompanionResponseForSession(
 ): Promise<void> {
     if (deferCompanionUntilNarrationFinishes(session, userMessage)) return;
     session.voiceLatency?.beginResponse();
+    session.inFlightReply = userMessage;
     const turn = claimCompanionResponseTurn(session);
     const playbackId = `companion:${session.sessionId}:${turn.turnId}`;
     let staleOutputLogged = false;
@@ -239,6 +241,7 @@ export async function runCompanionResponseForSession(
 
       // Elli's [smile]-style tags drive the avatar while she speaks; they are never spoken.
       const expressionTags = createExpressionTagFilter((emote) => {
+        console.log(` 🎮 [companion] [expression] [shown] emote=${emote}`);
         Promise.resolve(session.companionBridge?.expressCompanion({ emote })).catch((error: unknown) =>
           console.error(" 🎮 [companion] [expression] [failed]", error),
         );
@@ -256,7 +259,7 @@ export async function runCompanionResponseForSession(
         history: protectSpellingModelMessages(historyWithPin, session.currentBoardSnapshot),
         injectedContextMessages: protectSpellingModelMessages(gameContextMessages, session.currentBoardSnapshot),
         userMessage: redactProtectedSpellingText(messageWithContext, session.currentBoardSnapshot),
-        profile: { ...session.companion, systemPrompt: `${redactProtectedSpellingText(session.companion.systemPrompt, session.currentBoardSnapshot)}\n\n${COMPANION_EXPRESSION_PROMPT}` },
+        profile: { ...session.companion, systemPrompt: `${redactProtectedSpellingText(session.companion.systemPrompt, session.currentBoardSnapshot)}\n\n${COMPANION_SPOKEN_TURN_PROMPT}\n\n${COMPANION_EXPRESSION_PROMPT}` },
         tools: finalTools,
         experimentalOnStepStart: thinkingHooks?.onStepStart,
         experimentalOnToolCallStart: thinkingHooks?.onToolCallStart,
@@ -680,6 +683,7 @@ export async function runCompanionResponseForSession(
         session.recordCompanionTruthContradictions(fullResponse);
       }
 
+      session.inFlightReply = null;
       session.conversationHistory.push(
         { role: "user", content: userMessage },
         { role: "assistant", content: fullResponse },
@@ -766,6 +770,8 @@ export async function runCompanionResponseForSession(
       session.recordDebugError?.("Agent error", err);
       await speakShortRecovery(session, "agent_response_failed", turn.isCurrent);
     } finally {
+      // Every exit (error, early return, retirement) releases this run's in-flight marker.
+      if (session.inFlightReply === userMessage) session.inFlightReply = null;
       // Item/context changes can retire output without a replacement model turn.
       // Suppressing that output must also release its processing state and audio.
       // A newer model turn or audio owner must remain untouched.
