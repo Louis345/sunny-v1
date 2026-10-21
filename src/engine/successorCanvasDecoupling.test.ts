@@ -65,6 +65,14 @@ describe('a canvas cannot veto a spelling successor',()=>{
   expect(log.mock.calls.flat().join(' ')).toContain(`[path] [${kind}-missing]`);
  });
 
+ it('reports prescribed activities absent from every route without rejecting the plan',()=>{
+  const log=vi.spyOn(console,'log').mockImplementation(()=>{});
+  const source=structuredClone(primary);
+  source.paths.find(row=>row.id==='path-radar')!.portalIds=[ids[1]];
+  const definition=parseCanonicalProgressionDecision(decision(source)).successor!.boardDefinition!;
+  expect(journeyExecutions(definition)).toHaveLength(2);
+  expect(log.mock.calls.flat().join(' ')).toContain(`[portal] [unreachable] activity=${ids[2]}`);
+ });
  it('binds an existing canonical activity portal so route completion cannot skip it',()=>{
   const source=structuredClone(primary) as any;
   source.portals.push({id:ids[1],label:'Wheel',kind:'activity',position:{landscape:{x:.5,y:.3},portrait:{x:.5,y:.3}}});
