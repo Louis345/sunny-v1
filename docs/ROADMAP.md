@@ -35,3 +35,4 @@ The owner sets the target for each number.
 - The review gate posts the API's own error text when a review run fails.
 - Elli labels each reply as clarification or real help.
 - Merge Elli's two personality files (`src/companions/elli.md` says gentle, `src/prompts/companions/elli/personality.md` says a little chaotic). This changes what Elli says, so it needs its own session test.
+- Browser-dependent canvas tests should skip with a clear reason when Chromium is missing, instead of failing with misleading assertions (PR #22 review F10).
