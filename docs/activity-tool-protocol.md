@@ -77,11 +77,12 @@ Child chart
 
 The conductor may make strategic choices. Code still enforces evidence safety.
 
-## Current Product Rule
+## Common patterns (the Planner decides)
 
-For science or reading comprehension with unknown baseline, start with a concept evaluator, teach visually if needed, then practice vocabulary.
+These are examples, not a required order. The Planner chooses activities and their sequence from the child's evidence (AGENTS.md: Planner authority).
 
-For spelling with unknown baseline, start with independent hidden-word recall, then use scaffolded practice like Word Radar on misses, then re-check with a mastery-eligible evaluator.
+- Science or reading comprehension with unknown baseline: a concept evaluator, visual teaching if needed, then vocabulary practice.
+- Spelling with unknown baseline: independent hidden-word recall, scaffolded practice such as Word Radar on misses, then a re-check with a mastery-eligible evaluator.
 
 Practice wins can guide the next node, but practice wins must not overwrite baseline evidence.
 

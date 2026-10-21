@@ -12,9 +12,7 @@ extension does not yet connect learning-event writers or readers.
 
 **Acceptance complete — 2026-10-02.** Build passes; 3,956 server tests,
 906 web tests, and 7 archive checks pass. Independent review is complete.
-Start with [tomorrow’s test instructions](TEST_TOMORROW.md). Nothing is merged,
-deployed, or connected to live learning. Details and the earlier failed runs
-are preserved below.
+Details and the earlier failed runs are preserved below.
 
 This tooling is separate from the kiosk. The existing `LEARNING_FEEDBACK_LOOP.md`
 remains the learning authority until a separately approved switchover. No imports,
@@ -276,9 +274,6 @@ A fresh SSH check returned HTTP 200 from Saori. Its 509 source files still hash 
 `341580d19c9bf8af382ef431fbae8775687c1f84a2804d50b433058818fcfa7a`, and the archive
 still hashes to `d5c758d4000aa17a82f3591e1e4d708e5f8c9f54283f2f379ddaf5a7326a3747`.
 The earlier temporary connection failure has therefore cleared.
-
-[Tomorrow’s acceptance instructions](TEST_TOMORROW.md) include a synthetic
-review sample and a repeatable focused check.
 
 The first new full run reported **3,942 passed / 14 failed / zero skipped**.
 Eleven failures exposed the removed indirect method described above. The other

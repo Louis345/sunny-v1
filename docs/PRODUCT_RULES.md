@@ -33,9 +33,9 @@ Quest and boss rewards must not be plain fixed-position nodes. Treat the baselin
 
 - Story/image finales can reward completed reading.
 - Mystery nodes are variable dopamine rewards, not guaranteed every time.
-- Generated quests unlock from domain-valid captured content plus baseline evidence: accuracy, recovery after a miss, streak, or enough completed baseline work.
-- Weak performance routes to targeted support before quest generation.
-- Boss remains a mastery-gated finale after generated quest evidence, not an always-playable activity.
+- The Planner authorizes a Quest only on a successor board, from domain-valid captured content plus baseline evidence such as accuracy, recovery after a miss, or enough completed baseline work. Code never unlocks it by rule (LEARNING_FEEDBACK_LOOP.md).
+- Weak performance routes to targeted support before a Quest.
+- The Planner authorizes a Boss only after Quest evidence; it is a mastery-gated finale, never an always-playable activity.
 
 ### Law 11: AI Content Must Be Cataloged
 

@@ -1,6 +1,6 @@
 # Project Sunny — Architecture Laws
 
-Every contributor (human or AI) must read this before touching any file.
+Every contributor (human or AI) must read this before touching any file. Some sections describe the earlier voice and worksheet design; where this file conflicts with AGENTS.md or LEARNING_FEEDBACK_LOOP.md, those win.
 
 Learning adaptation, prediction, evidence, returned-work calibration, and theory decisions are governed solely by [`LEARNING_FEEDBACK_LOOP.md`](./LEARNING_FEEDBACK_LOOP.md).
 
@@ -136,7 +136,7 @@ Give Claude:
 
 The **server** provides structured facts (amounts, confidence, canonical answers from extraction) and gates tools. It must not assert **numeric or worksheet-specific correctness** in hardcoded strings the child hears from TTS when those numbers come from OCR that may be wrong.
 
-**OK:** Short non-numeric `handleCompanionTurn` lines (celebrations, transitions, opening line, reading `p.question`).
+**OK:** Passing facts such as `p.question` to the companion to read or use. Celebrations, transitions and opening lines come from the companion's own judgment, not server-written dialogue (AGENTS.md: no canned dialogue).
 
 **Not OK:** Server-built sentences that state dollar/cent amounts or “the bigger amount is …” from extracted cents without passing the worksheet-truth sanity layer — use `[System: …]` + `runCompanionResponse` so the model speaks, with facts injected from `worksheet-truth.ts`.
 

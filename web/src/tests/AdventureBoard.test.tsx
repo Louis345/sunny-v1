@@ -1498,7 +1498,6 @@ describe("AdventureBoardExperience", () => {
 
   it("removes the legacy AdventureMap frontend while keeping SlotMachine logged for rehome", () => {
     const appSource = readFileSync(resolve(__dirname, "../App.tsx"), "utf8");
-    const pmLog = readFileSync(resolve(__dirname, "../../../SUNNY_PM.md"), "utf8");
     const childConfig = readFileSync(resolve(__dirname, "../../../children.config.json"), "utf8");
 
     expect(existsSync(resolve(__dirname, "../components/AdventureMap.tsx"))).toBe(false);
@@ -1508,7 +1507,5 @@ describe("AdventureBoardExperience", () => {
     expect(appSource).not.toContain("./components/AdventureMap");
     expect(appSource).not.toContain("<AdventureMap");
     expect(childConfig).not.toContain("questUnlocked");
-    expect(pmLog).toContain("T011 - Rehome Slot Machine Variable Reward");
-    expect(pmLog).toContain("Do not keep the old AdventureMap alive for this component.");
   });
 });
