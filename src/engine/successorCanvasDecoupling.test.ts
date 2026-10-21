@@ -52,6 +52,19 @@ describe('a canvas cannot veto a spelling successor',()=>{
   expect(journeyExecutions(definition).map(route=>route.activityNodeIds)).toEqual(expect.arrayContaining([[ids[0],ids[1],ids[3],ids[4]],[ids[0],ids[2],ids[3],ids[4]]]));
   expect(log.mock.calls.flat().join(' ')).toContain('[portal] [not-ready] portal=ghost');
  });
+ it.each(['start','endpoint'])('reports a missing %s without rejecting or changing instruction',kind=>{
+  const log=vi.spyOn(console,'log').mockImplementation(()=>{});
+  const source=structuredClone(primary);
+  if(kind==='start'){
+   const start=source.portals.find(portal=>portal.kind==='start')!.id;
+   source.paths.forEach(row=>row.portalIds=row.portalIds.filter(id=>id!==start));
+   source.portals=source.portals.filter(portal=>portal.id!==start);
+  }else source.portals.find(portal=>portal.kind==='endpoint')!.kind='activity';
+  const definition=parseCanonicalProgressionDecision(decision(source)).successor!.boardDefinition!;
+  expect(journeyExecutions(definition).map(route=>route.activityNodeIds)).toEqual(expect.arrayContaining([[ids[0],ids[1],ids[3],ids[4]],[ids[0],ids[2],ids[3],ids[4]]]));
+  expect(log.mock.calls.flat().join(' ')).toContain(`[path] [${kind}-missing]`);
+ });
+
  it('binds an existing canonical activity portal so route completion cannot skip it',()=>{
   const source=structuredClone(primary) as any;
   source.portals.push({id:ids[1],label:'Wheel',kind:'activity',position:{landscape:{x:.5,y:.3},portrait:{x:.5,y:.3}}});

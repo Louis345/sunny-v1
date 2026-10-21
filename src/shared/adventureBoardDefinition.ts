@@ -388,7 +388,11 @@ export function readSuccessorBoardDefinition(value:unknown,activities:ReadonlyAr
   }
   // Derive connections from that one order, retaining the artist's existing presentation.
   const journey=adventureJourneySchema.parse({...journeyFromBoardDefinition({...board,portals:[...portals.values()]}),edges:undefined});
-  for(const execution of journeyExecutions(journey))if(new Set(execution.activityNodeIds).size!==execution.activityNodeIds.length)throw new Error('successor_journey_unreadable:repeated_measurement_identity');
+  for(const execution of journeyExecutions(journey)){
+    if(new Set(execution.activityNodeIds).size!==execution.activityNodeIds.length)throw new Error('successor_journey_unreadable:repeated_measurement_identity');
+    if(portals.get(execution.portalIds[0])?.kind!=='start')console.log(` 🎮 [board] [path] [start-missing] route=${execution.id}`);
+    if(portals.get(execution.portalIds.at(-1)!)?.kind!=='endpoint')console.log(` 🎮 [board] [path] [endpoint-missing] route=${execution.id}`);
+  }
   const fallback=layoutJourney(journey).positions;
   return {...board,portals:[...portals.values()].map(portal=>added.has(portal.id)?{...portal,position:{...fallback[portal.id],...placements.get(portal.id)}}:portal),
     edges:journey.edges.map(edge=>board.edges.find(authored=>authored.from===edge.from&&authored.to===edge.to)??edge)};
