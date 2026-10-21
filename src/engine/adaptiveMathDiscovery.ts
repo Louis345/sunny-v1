@@ -4,7 +4,7 @@ import {isDeepStrictEqual} from "node:util";
 import {AsyncLocalStorage} from "node:async_hooks";
 import {execFileSync} from "node:child_process";
 import {reportAuthoredBoardCanvas} from './adventureBoardCanvas';
-import { adventureJourneySchema,ADVENTURE_JOURNEY_TOOL_SCHEMA,adventureCompositionSchema,assembleAdventureBoardDefinition,assembleAuthoredBoardDefinition,validateBoardDefinition,JOURNEY_AUTHORING_INSTRUCTION,BOARD_CANVAS_AUTHORING_CONSTRAINTS,type AdventureJourneyDefinition, requireBoardDefinition, renderBoardDefinition, type AdventureBoardDefinition } from '../shared/adventureBoardDefinition';
+import { COMPOSITION_TOOL_SCHEMA,adventureJourneySchema,ADVENTURE_JOURNEY_TOOL_SCHEMA,adventureCompositionSchema,assembleAdventureBoardDefinition,assembleAuthoredBoardDefinition,validateBoardDefinition,JOURNEY_AUTHORING_INSTRUCTION,BOARD_CANVAS_AUTHORING_CONSTRAINTS,type AdventureJourneyDefinition, requireBoardDefinition, renderBoardDefinition, type AdventureBoardDefinition } from '../shared/adventureBoardDefinition';
 import fs from "node:fs";
 import path from "node:path";
 import { createHash, randomUUID } from "node:crypto";
@@ -1124,7 +1124,7 @@ export async function generateMathDiscoveryExperience(input: {
   } else {
     const architectResponse = await create(input.architectModel ?? process.env.SUNNY_ARCHITECT_MODEL ?? "claude-fable-5", `You are Sunny's Experience Creator. Design the frozen independent evaluation below for the child and device. Choose the presentation, interaction, pacing, stakes, recovery, visual language, motion, sound cues, and payoff. Make the first action immediately understandable and make mathematics visibly control the interaction. Do not teach or reveal an answer before the first committed response to an item. Never trap the child. Preserve the contract exactly.\n\nCONTRACT HASH: ${contractHash}\n${JSON.stringify(academic, null, 2)}\n\nCHILD PRESENTATION AND HOST CONTRACT:\n${JSON.stringify(presentationContract, null, 2)}\n\n${academic.journey?`Compose the immutable journey with illustrated artwork and authored landscape/portrait positions. ${BOARD_CANVAS_AUTHORING_CONSTRAINTS}`:""}\n${common}`, {
       name: "create_math_discovery_design",
-      schema: { type: "object", additionalProperties: false, required: ["contractHash", "design", "backgroundSvg",...(academic.journey?["composition"]:[])], properties: { ...(academic.journey?{composition:z.toJSONSchema(adventureCompositionSchema,{io:"input"})}:{}),contractHash: { type: "string" }, design: { type: "object", additionalProperties: true }, backgroundSvg: { type: "string" } } },
+      schema: { type: "object", additionalProperties: false, required: ["contractHash", "design", "backgroundSvg",...(academic.journey?["composition"]:[])], properties: { ...(academic.journey?{composition:COMPOSITION_TOOL_SCHEMA}:{}),contractHash: { type: "string" }, design: { type: "object", additionalProperties: true }, backgroundSvg: { type: "string" } } },
     });
     designed = toolInput(architectResponse, "create_math_discovery_design");
     atomicJson(designCheckpointFile, designed);

@@ -156,3 +156,46 @@ describe('the board never rejects the Planner for drawing or bookkeeping', () =>
     expect(() => requireBoardDefinition(definition, inventory)).not.toThrow();
   });
 });
+
+// 2026-10-21 Opus review (PR #22): b960ca6e removed the coordinate bounds from the shared point
+// schema, so every authoring tool described positions as bare numbers while the prompt spoke in
+// pixels. A pixel answer like {x:640} published with every portal off-screen and no veto to stop it.
+describe('board coordinates stay playable without vetoing the author', () => {
+  const coordinateBounds = (schema: unknown) => {
+    const found: Array<{ minimum?: number; maximum?: number }> = [];
+    const walk = (node: any): void => {
+      if (!node || typeof node !== 'object') return;
+      if (node.properties?.x?.type === 'number' && node.properties?.y?.type === 'number') found.push(node.properties.x, node.properties.y);
+      for (const value of Object.values(node)) walk(value);
+    };
+    walk(schema);
+    return found;
+  };
+  it('tells every authoring tool that positions are fractions from 0 to 1', async () => {
+    const module = await import('../shared/adventureBoardDefinition');
+    for (const schema of [module.BOARD_DEFINITION_TOOL_SCHEMA, (module as any).COMPOSITION_TOOL_SCHEMA]) {
+      const bounds = coordinateBounds(schema);
+      expect(bounds.length).toBeGreaterThan(0);
+      expect(bounds.every(bound => bound.minimum === 0 && bound.maximum === 1)).toBe(true);
+    }
+  });
+  it('keeps a slightly off-canvas position, but gives an impossible one a playable fallback', async () => {
+    const { vi } = await import('vitest');
+    const { readSuccessorBoardDefinition } = await import('../shared/adventureBoardDefinition');
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {});
+    try {
+      const board = authoredJourney();
+      const activities = inventory.map(nodeId => ({ nodeId, title: nodeId }));
+      board.portals[1].position.landscape = { x: 1.2, y: 0.5 };
+      board.portals[2].position.landscape = { x: 640, y: 360 };
+      const read = readSuccessorBoardDefinition(board, activities);
+      expect(read.portals[1].position.landscape.x).toBe(1.2);
+      const fallback = read.portals[2].position.landscape;
+      expect(fallback.x).toBeGreaterThanOrEqual(0); expect(fallback.x).toBeLessThanOrEqual(1);
+      expect(fallback.y).toBeGreaterThanOrEqual(0); expect(fallback.y).toBeLessThanOrEqual(1);
+      const text = log.mock.calls.flat().join('\n');
+      expect(text).toContain(`[board] [portal] [off-canvas] portal=${board.portals[1].id}`);
+      expect(text).toContain(`[board] [portal] [fallback-position] portal=${board.portals[2].id}`);
+    } finally { log.mockRestore(); }
+  });
+});

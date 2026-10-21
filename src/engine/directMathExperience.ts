@@ -5,7 +5,7 @@ import {isDeepStrictEqual} from "node:util";
 import {z} from "zod";
 import {learningPlannerInstructions} from "./learningPlannerInstructions";
 import {reportAuthoredBoardCanvas,verifyPreparingBoardCanvas,renderBoardPreview,measureBoardPortals} from './adventureBoardCanvas';
-import {assembleAuthoredBoardDefinition,JOURNEY_AUTHORING_INSTRUCTION,JOURNEY_SEQUENCE_INSTRUCTION,compositionFromBoardDefinition,adventureJourneySchema,ADVENTURE_JOURNEY_TOOL_SCHEMA,journeyFromBoardDefinition,validateBoardDefinition,adventureCompositionSchema,assembleAdventureBoardDefinition,BOARD_CANVAS_AUTHORING_CONSTRAINTS,type AdventureJourneyDefinition,type AdventureBoardComposition, requireBoardDefinition, BOARD_DEFINITION_TOOL_SCHEMA, BOARD_AUTHORING_INSTRUCTION, journeyExecutions, renderBoardDefinition, type AdventureBoardDefinition } from "../shared/adventureBoardDefinition";
+import {COMPOSITION_TOOL_SCHEMA,assembleAuthoredBoardDefinition,JOURNEY_AUTHORING_INSTRUCTION,JOURNEY_SEQUENCE_INSTRUCTION,compositionFromBoardDefinition,adventureJourneySchema,ADVENTURE_JOURNEY_TOOL_SCHEMA,journeyFromBoardDefinition,validateBoardDefinition,adventureCompositionSchema,assembleAdventureBoardDefinition,BOARD_CANVAS_AUTHORING_CONSTRAINTS,type AdventureJourneyDefinition,type AdventureBoardComposition, requireBoardDefinition, BOARD_DEFINITION_TOOL_SCHEMA, BOARD_AUTHORING_INSTRUCTION, journeyExecutions, renderBoardDefinition, type AdventureBoardDefinition } from "../shared/adventureBoardDefinition";
 import Anthropic from "@anthropic-ai/sdk";
 import crypto from "node:crypto";
 import fs from "node:fs";
@@ -1517,7 +1517,7 @@ ${JSON.stringify({ ...programWithoutBonusDuplicate, activities: contracts }, nul
           additionalProperties: true,
           required: [...(presentationOnly || !isContinuation ? ["boardCreativeSpine", "artifacts", "rationale"] : ["artifacts", "rationale"]),...(journey && !checkpoint.composition ? ["composition"] : [])],
           properties: {
-            ...(journey ? {composition:z.toJSONSchema(adventureCompositionSchema,{io:"input"})} : {}),
+            ...(journey ? {composition:COMPOSITION_TOOL_SCHEMA} : {}),
             boardCreativeSpine: boardCreativeSpineSchema,
             artifacts: {
               type: "array",

@@ -318,7 +318,10 @@ export function readSuccessorBoardDefinition(value:unknown,activities:ReadonlyAr
   const board:AdventureBoardDefinition={...raw,theme:theme.success?theme.data:{background:DEFAULT_THEME_PRESET.background,palette:DEFAULT_THEME_PRESET.palette},
     portals:raw.portals.map(portal=>{
       const views=portal.position as Partial<PortalPlacement>|null|undefined;
-      const landscape=finitePoint.safeParse(views?.landscape),portrait=finitePoint.safeParse(views?.portrait);
+      // Near-misses are kept and reported; an impossible value (e.g. pixels) gets a playable fallback.
+      const plausible=(view:unknown)=>{const read=finitePoint.safeParse(view);return read.success&&[read.data.x,read.data.y].every(value=>value>=-.5&&value<=1.5)?read:{success:false as const};};
+      const landscape=plausible(views?.landscape),portrait=plausible(views?.portrait);
+      for(const view of [landscape,portrait])if(view.success&&[view.data.x,view.data.y].some(value=>value<0||value>1))console.log(` 🎮 [board] [portal] [off-canvas] portal=${portal.id}`);
       const position={...(landscape.success?{landscape:landscape.data}:{}),...(portrait.success?{portrait:portrait.data}:{})};
       placements.set(portal.id,position);
       if(!landscape.success || !portrait.success){added.add(portal.id);console.log(` 🎮 [board] [portal] [fallback-position] portal=${portal.id}`);}
@@ -383,8 +386,22 @@ export function assembleAuthoredBoardDefinition(journey:AdventureJourneyDefiniti
  },journey.portals.flatMap(portal=>portal.activityNodeId?[{nodeId:portal.activityNodeId,title:portal.label}]:[]));
 }
 
-export const BOARD_DEFINITION_TOOL_SCHEMA = z.toJSONSchema(authoredBoardDefinitionSchema, {io:'input'});
-export const BOARD_CANVAS_AUTHORING_CONSTRAINTS = `At 1280x720 its safe composition area is 980x400 pixels; at 768x1024 it is 608x714. Portal controls are 116 pixels wide. Their height depends on wrapped labels and status text; it can exceed 186 pixels. Coordinates scale within this safe area; reserve separation for the full labeled control.`;
+/** Tool schemas tell the author positions are fractions of the safe area; stored boards stay tolerant. */
+function boundCoordinates<T>(schema:T):T {
+  const walk=(node:any):void=>{
+    if(!node||typeof node!=='object')return;
+    if(node.properties?.x?.type==='number'&&node.properties?.y?.type==='number'){
+      for(const axis of ['x','y'])Object.assign(node.properties[axis],{minimum:0,maximum:1});
+      node.description='Fraction of the safe composition area, from 0 to 1 (not pixels).';
+    }
+    for(const value of Object.values(node))walk(value);
+  };
+  walk(schema);
+  return schema;
+}
+export const BOARD_DEFINITION_TOOL_SCHEMA = boundCoordinates(z.toJSONSchema(authoredBoardDefinitionSchema, {io:'input'}));
+export const COMPOSITION_TOOL_SCHEMA = boundCoordinates(z.toJSONSchema(adventureCompositionSchema, {io:'input'}));
+export const BOARD_CANVAS_AUTHORING_CONSTRAINTS = `At 1280x720 its safe composition area is 980x400 pixels; at 768x1024 it is 608x714. Portal controls are 116 pixels wide. Their height depends on wrapped labels and status text; it can exceed 186 pixels. Positions are fractions from 0 to 1 of this safe area, not pixels; reserve separation for the full labeled control.`;
 
 export const BOARD_AUTHORING_INSTRUCTION = `Author boardDefinition as the immutable journey. Bind activity portals to canonical inventory IDs. An endpoint may bind the final activity; an unbound endpoint marks completion after the preceding activities. Start and choice portals cannot bind activities. Portal IDs are presentation identities: the same activity may appear on alternative paths with distinct portal IDs, and those alternatives may order shared activities differently. The root path is the shared sequence; each choice inserts the selected option path then resumes its parent's remaining sequence. Declare every connection, all labels, positions and optional edge control points for both landscape and portrait. Use the available canvas thoughtfully with readable spacing and coherent direction. Sunny's visual brief: an inviting illustrated adventure world, vivid portals, animated dashed or glow paths, a readable left-to-right journey and separately composed portrait. Available Grok artwork: /generated/adventure-board-demo/silent-letter-world.jpeg; use this image or other available illustrated artwork, not a plain gradient. Choose readable text. After independent evaluation, on Teaching boards only, use the available catalog for varied practice addressing her gaps; activity count remains your decision. For that Teaching journey, consider learn first versus play first through shared activities, converging on the check. Background values must be executable image URLs or CSS, not symbolic names. ${BOARD_CANVAS_AUTHORING_CONSTRAINTS} Give a meaningful choice when academically valid alternatives exist; otherwise state singlePathReason. Code must not invent a route or change your composition. Do not declare readiness, completion or mastery. The Experience Creator implements activities and artwork without changing this journey.`;
 
