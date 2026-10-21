@@ -4,6 +4,8 @@ Diagnose before you fix: for a human-caught bug, post the decision chain that pr
 
 Required learning authority: read [`LEARNING_FEEDBACK_LOOP.md`](./LEARNING_FEEDBACK_LOOP.md) before changing learning evidence, prediction, theory, or adaptation behavior. It is the sole normative learning-loop contract.
 
+Current plan: [`docs/ROADMAP.md`](./docs/ROADMAP.md) names the one step in progress and parks everything else. Work outside the current step needs the owner's approval; flag it rather than bundle it.
+
 # Sunny: rules for AI agents
 
 Sunny is a voice-first learning companion for two girls, Reina and Ila, running as a kiosk on the family Mac (Saori). Elli is their AI companion. Old law numbers are kept in brackets because other files refer to them.
