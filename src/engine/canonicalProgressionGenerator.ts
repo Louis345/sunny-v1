@@ -262,6 +262,15 @@ function persistQualityCandidate(input: {
   }, null, 2)}\n`, "utf8");
 }
 
+/** The newest saved build or check failure for a node, so its Not ready portal keeps the real reason. */
+function latestQualityFailure(rootDir: string, cycle: LearningCycleRecordV2, node: LearningCycleNodeContract): string | undefined {
+  const dir = qualityDiagnosticsDir(rootDir, cycle, node);
+  const latest = (fs.existsSync(dir) ? fs.readdirSync(dir) : []).map(name => /^iteration-(\d+)\.json$/.exec(name)).filter(Boolean).sort((a, b) => Number(b![1]) - Number(a![1]))[0];
+  if (!latest) return undefined;
+  const saved = JSON.parse(fs.readFileSync(path.join(dir, latest[0]), "utf8")) as { validation?: { failures?: string[] } | null; error?: string | null };
+  return saved.validation?.failures?.join(" | ") || saved.error || undefined;
+}
+
 export async function generateCanonicalProgressionArtifact(
   input: CanonicalProgressionGeneratorInput,
   opts: LearningCycleRepositoryOptions = {},
@@ -488,7 +497,7 @@ export async function prepareSuccessorBoard(
         next = pending.reusedFrom
           ? relaunchReusedActivity(input.childId, input.homeworkId, cycle, pending, opts)
           : await generateCanonicalProgressionArtifact({ ...input, nodeId: pending.nodeId }, opts);
-        if (next.revision === cycle.revision) failure = "human_review_required";
+        if (next.revision === cycle.revision) failure = latestQualityFailure(opts.rootDir ?? process.cwd(), cycle, pending) ?? "human_review_required";
       } catch (error) {
         failure = error instanceof Error ? error.message : String(error);
         next = getLearningCycle(input.childId, input.homeworkId, opts)!;

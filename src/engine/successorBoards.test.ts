@@ -706,7 +706,8 @@ describe("review fixes: no stuck or silent cycles", () => {
     try {
       const after = await prepare();
       expect(after.boards!.find(candidate => candidate.boardId === board.boardId)!.publishedAt).not.toBeNull();
-      expect(after.nodes.find(node => node.nodeId === failed)?.notReadyReason).toBeTruthy();
+      // The Not ready portal keeps the real failure for tracing, never a generic placeholder.
+      expect(after.nodes.find(node => node.nodeId === failed)?.notReadyReason).toMatch(_label === "the checker fails" ? /math_journey_checker_contract_ambiguity/ : /builder exploded/);
       for (const nodeId of board.nodeIds.slice(1)) expect(after.nodes.find(node => node.nodeId === nodeId)?.artifactBinding?.validationStatus).toBe("passed");
       expect(successorPreparationStatus(after)?.phase).toBe("successor_published");
       expect(successorResumeAction(after)).toBeNull();
