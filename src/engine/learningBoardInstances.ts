@@ -241,12 +241,21 @@ export function withInitialBoard<T extends Pick<LearningCycleRecordV2, "homework
  * from decision to publication so a polling session never refreshes into the new
  * board; the successor first appears on a later session.
  */
-export function successorPreparationStatus(cycle: LearningCycleRecordV2): { updatedAt: string; startedAt: string; phase: "successor_preparing" | "successor_published" | "needs_attention"; nodes: [] } | undefined {
+export function successorPreparationStatus(cycle: LearningCycleRecordV2): { updatedAt: string; startedAt: string; phase: "successor_preparing" | "successor_published" | "needs_attention"; nodes: Array<{nodeId:string;status:string;reason?:string}> } | undefined {
   const latest = listBoardInstances(cycle).at(-1);
   if (!latest || latest.kind !== "successor") return undefined;
   const decidedAt = cycle.decisionHistory.find((entry) => entry.decisionId === latest.plannerDecisionId)?.createdAt ?? cycle.createdAt;
-  const attention = latest.publishedAt === null && cycle.lifecycle === "blocked";
-  return { updatedAt: decidedAt, startedAt: decidedAt, phase: attention ? "needs_attention" : latest.publishedAt === null ? "successor_preparing" : "successor_published", nodes: [] };
+  // Publication freezes the design; it does not prove that any portal can launch.
+  // Keep the current chapter stable, but expose actual availability on later visits.
+  const nodes = latest.publishedAt === null ? [] : latest.nodeIds.map(nodeId => {
+    const node = cycle.nodes.find(candidate => candidate.nodeId === nodeId);
+    const available = node?.artifactBinding?.validationStatus === "passed" && ["ready","active","completed"].includes(node.state);
+    return { nodeId, status: available ? (node!.state === "completed" ? "completed" : "ready") : "needs_attention",
+      ...(!available ? {reason:node?.notReadyReason ?? "successor_activity_unavailable"} : {}) };
+  });
+  const attention = latest.publishedAt === null ? cycle.lifecycle === "blocked"
+    : !nodes.some(node => node.status === "ready" || node.status === "completed");
+  return { updatedAt: decidedAt, startedAt: decidedAt, phase: attention ? "needs_attention" : latest.publishedAt === null ? "successor_preparing" : "successor_published", nodes };
 }
 
 /**
