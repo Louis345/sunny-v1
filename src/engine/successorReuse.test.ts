@@ -13,6 +13,7 @@ import {resolveAdaptiveMathDraftDir} from './adaptiveMathDiscovery';
 import {resolveChildContextDir} from '../utils/contextRoot';
 import * as runtime from './learningCycleRuntime';
 import * as canvas from './adventureBoardCanvas';
+import {validateVisualLearnerArtifactConfig} from '../shared/visualLearnerArtifactConfig';
 
 // 2026-10-21 human catch: the Planner told board 3 to reuse four proven activities, two of them Word
 // Radar "exactly as before". Code sent all five to the AI builder, all failed, and Ila had nothing to
@@ -105,4 +106,78 @@ it('never reuses a practice activity as a checkpoint, so a check cannot show the
  const radar=next.nodes.find(node=>node.title==='radar-check'&&node.nodeId!=='radar-check')!;
  expect(radar.reusedFrom).toBeUndefined();
  expect(radar.implementationType).toBeUndefined();
+});
+
+// 2026-10-21 human catch (demo copy of Ila): the re-launched explainer still reported board 1's question
+// IDs on completion, so learning_cycle_instrument_unknown_item rejected it three times and the board
+// never finished. The lab above only exercised Word Radar, whose setup carries no question IDs.
+const explainerWords=['write','island','minus'];
+function explainerFixture(plannerWords:string[]){
+ const rootDir=fs.mkdtempSync(path.join(os.tmpdir(),'sunny-successor-reuse-explainer-'));roots.push(rootDir);
+ vi.stubEnv('SUNNY_CONTEXT_ROOT',path.join(rootDir,'src/context'));
+ vi.stubGlobal('fetch',()=>{throw Error('lab_forbids_network');});
+ seedSpellingLab(rootDir,explainerWords,'',childId);
+ const nodeId='explain-long-i';
+ const items=buildSpellingRecallItems({homeworkId,words:explainerWords,evidenceIds:['school:lab'],measurementRole:'practice',exposure:'practiced',occasionId:nodeId});
+ const byWord=new Map(items.map(item=>[item.word,item]));
+ // Built exactly as first-board ingestion builds a spelling explainer (learningCycleIngest.ts).
+ const nativeConfig=validateVisualLearnerArtifactConfig({
+  artifactId:`${homeworkId}:${nodeId}:visual-explainer`,type:'visual-explainer',concept:'Silent letters',learningGoal:'Keep the silent letter',misconception:'Spelling by sound alone',
+  sourceEvidence:{source:`assignment:${homeworkId}`,capturedAt:'2026-10-18T00:00:00Z',summary:'Silent letters were dropped'},algorithmTargets:['error-pattern-remediation','retrieval-practice'],
+  reuseDecision:{status:'candidate',reason:'Planner-selected assisted spelling instruction.'},parentApproval:{status:'pending'},mode:{default:'pause-for-question'},preview:{allowPlaythrough:true},
+  narration:{enabled:false,provider:'companion',voiceId:'runtime-companion',modelId:'runtime-companion',audioPath:'none',scriptPath:'none',timings:[{id:'strategy',startProgress:0,endProgress:100,text:'Spot the silent letter'}]},
+  questions:[{id:'check-write',prompt:'Which letter is silent in write?',options:[{id:'w',label:'w',correct:true},{id:'t',label:'t',correct:false}],correctOptionId:'w',targetConcept:byWord.get('write')!.id,misconceptionTag:'sound-only',pauseAtProgress:48,scaffoldLevel:2}],
+  companionContext:{role:'hint_only',maxSentences:3,canRevealAnswer:true},
+  evidence:{targetResults:items.map(item=>item.id),completion:`${nodeId}:assisted-visual-instruction-complete`},
+  chrome:{childShowsEvidence:false,parentShowsEvidence:true,childShowsCarePlan:false,parentShowsCarePlan:true},
+  spellingModel:{strategy:{title:'Spot the silent letter',steps:['Say it.','Find the quiet letter.']},words:[
+   {id:byWord.get('write')!.id,text:'write',chunks:['wr','ite'],focusChunk:'wr',tip:'The w is silent.'},
+   {id:byWord.get('island')!.id,text:'island',chunks:['is','land'],focusChunk:'is',tip:'The s is silent.'},
+   {id:byWord.get('minus')!.id,text:'minus',chunks:['mi','nus'],focusChunk:'mi',tip:'Long i at the start.'}]},
+ }) as unknown as Record<string,unknown>;
+ const evidenceContract={academic:true,engagement:true,companionObservations:true,spellingItems:Object.fromEntries(items.map(item=>[item.id,item])),itemRoles:Object.fromEntries(items.map(item=>[item.id,'practice'])),nativeConfig};
+ const configFile=path.join(resolveAdaptiveMathDraftDir(childId,homeworkId,{rootDir}),'native-instruments',`${nodeId}.json`);
+ const configuration={version:1,node:{id:nodeId,type:'visual-explainer',activityId:'visual-explainer',targets:explainerWords,difficulty:1,title:'Long i Secrets'},evidenceContract};
+ fs.mkdirSync(path.dirname(configFile),{recursive:true});fs.writeFileSync(configFile,JSON.stringify(configuration));
+ createLearningCycle({childId,homeworkId,domain:'spelling',assignment:{title:'Lab assignment',contentFingerprint:'lab',capturedEvidenceIds:['school:lab'],targets:explainerWords},academicTheory:{theoryId:'lab-theory',revision:1,hypothesis:'Silent letters need teaching',supportCriteria:[],reviseCriteria:[],falsifyCriteria:[]},engagementTheory:null,boardDefinition:linearJourneyFixture([nodeId]),initialLifecycle:'board_ready',nodes:[{
+  nodeId,role:'baseline',title:'Long i Secrets',state:'ready',implementationType:'visual-explainer',academicTarget:{domain:'spelling',skill:'spelling',targets:explainerWords},algorithmOwner:'ai_tutor',theoryId:'lab-theory',experimentId:nodeId,mechanic:'visual-explainer',theme:'world',openingScreen:{title:'Long i Secrets',purpose:'Teach'},generationPrompt:null,
+  artifactBinding:{contentId:`${homeworkId}:${nodeId}`,artifactId:`${homeworkId}:${nodeId}:native`,localArtifactPath:'/games/spelling-visual-explainer.html',localArtworkPath:'/generated/world.jpeg',contractFingerprint:sha(configuration),validationStatus:'passed'},
+  artwork:{status:'ready',localPath:'/generated/world.jpeg',prompt:null},sfxContract:[],companionContract:{events:[]},evidenceContract,evidenceIds:[],
+ } as any]},{rootDir});
+ // The explainer's real completion: the shared runtime reports exactly config.evidence.targetResults.
+ const explainerCompletion=(config:any)=>config.evidence.targetResults.map((target:string)=>({target,evidenceRole:'assisted_instruction',scaffoldLevel:2,masteryEligible:false}));
+ runtime.recordCanonicalNodeCompletion({childId,homeworkId,nodeId,sessionId:'first-session',result:{completed:true,accuracy:1,timeSpent_ms:100,targetResults:explainerCompletion(nativeConfig)}},{rootDir});
+ const nextInstruments=[{nodeId:`${homeworkId}:${nodeId}`,title:'Silent Letter Detective Camp',academicTarget:'Spelling',mechanic:'visual-explainer',theme:'Detective camp',openingPurpose:'Re-teach',creatorPrompt:'Build a visual-explainer reusing the proven framing.',spelling:{wordIds:plannerWords.map(word=>byWord.get(word)!.wordId),measurementRole:'practice',responseMode:'spelling_letters'}}];
+ const decision={status:'revised',reason:'Re-teach the missed silent-letter words.',progressionAction:'generate_support',preserve:[],change:[],testNext:[],nextEvidenceRequired:['Independent evidence'],predictionEvaluationIds:[],boardDefinition:linearJourneyFixture(nextInstruments.map(row=>row.nodeId)),nextInstruments};
+ const create=vi.fn(async(_payload:unknown)=>({id:'recorded',stop_reason:'tool_use',content:[{type:'tool_use',name:'decide_learning_cycle_progression',input:decision}]}));
+ return {rootDir,items,explainerCompletion,request:{childId,homeworkId,client:{messages:{stream:(payload:unknown)=>({finalMessage:()=>create(payload)})}} as never}};
+}
+
+it('re-launches a reused explainer whose real completion lands on the new board, with the Planner\'s narrowed words',async()=>{
+ const f=explainerFixture(['write','island']),opts={rootDir:f.rootDir};
+ await runtime.advanceCanonicalCycleFromEvidence(f.request,opts);
+ vi.spyOn(canvas,'verifyPreparingBoardCanvas').mockResolvedValue(undefined);
+ const generateHtml=vi.fn(async()=>'<html></html>');
+ const after=await prepareSuccessorBoard({childId,homeworkId,generateHtml,generateArtwork:async()=>'/generated/world.jpeg',validate:async()=>({passed:true,failures:[]})},opts);
+ const board=currentBoardInstance(after);
+ const reused=after.nodes.find(node=>board.nodeIds.includes(node.nodeId))!;
+ expect(generateHtml).not.toHaveBeenCalled();
+ expect(reused.reusedFrom).toBe('explain-long-i');
+ const config=reused.evidenceContract.nativeConfig as any;
+ // No identity from board 1 survives in the re-launched setup.
+ for (const old of f.items) expect(JSON.stringify(config)).not.toContain(old.id);
+ expect(config.spellingModel.words.map((word:any)=>word.text)).toEqual(['write','island']);
+ expect(validateVisualLearnerArtifactConfig(config)).toBeTruthy();
+ const played=runtime.recordCanonicalNodeCompletion({childId,homeworkId,nodeId:reused.nodeId,sessionId:'board-2-session',result:{completed:true,accuracy:1,timeSpent_ms:100,targetResults:f.explainerCompletion(config)}},opts)!;
+ expect(played.nodes.find(node=>node.nodeId===reused.nodeId)?.state).toBe('completed');
+ expect(successorResumeAction(played)).toBe('decide');
+});
+
+it('sends an explainer to the builder instead of re-launching it when its check question would be dropped',async()=>{
+ const f=explainerFixture(['island','minus']),opts={rootDir:f.rootDir};
+ await runtime.advanceCanonicalCycleFromEvidence(f.request,opts);
+ const next=getLearningCycle(childId,homeworkId,opts)!;
+ const node=next.nodes.find(row=>row.title==='Silent Letter Detective Camp')!;
+ expect(node.reusedFrom).toBeUndefined();
+ expect(node.evidenceContract.nativeConfig).toBeUndefined();
 });

@@ -16,6 +16,7 @@ import {
   type ActiveSessionPlanBoardSnapshot,
 } from "../shared/adventureBoardFromPlan";
 import { resolveChildContextDir } from "../utils/contextRoot";
+import { validateVisualLearnerArtifactConfig } from "../shared/visualLearnerArtifactConfig";
 import {
   assertPublishedBoardsImmutable,
   boardOwningNode,
@@ -1191,6 +1192,36 @@ function slugId(value: string): string {
   return value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "node";
 }
 
+/**
+ * Re-point an earlier activity's built-in setup at a new node's questions: board 1's question and node
+ * identities become the new ones, and words the Planner left out are dropped. Returns undefined when
+ * the setup cannot be re-pointed cleanly, so that activity is built instead of reporting stale IDs.
+ */
+function repointReusedSetup(source: LearningCycleNodeContract, nodeId: string, items: Array<{ id: string; wordId: string }>): Record<string, unknown> | undefined {
+  const config = source.evidenceContract.nativeConfig;
+  if (!config) return undefined;
+  const newIdByWord = new Map(items.map((item) => [item.wordId, item.id]));
+  const oldItems = Object.values(source.evidenceContract.spellingItems ?? {});
+  const idMap = new Map(oldItems.flatMap((item) => newIdByWord.has(item.wordId) ? [[item.id, newIdByWord.get(item.wordId)!] as const] : []));
+  const dropped = new Set(oldItems.filter((item) => !newIdByWord.has(item.wordId)).map((item) => item.id));
+  const DROP = Symbol("drop");
+  const repoint = (value: unknown): unknown => {
+    if (typeof value === "string") return idMap.get(value) ?? (dropped.has(value) ? DROP : value.split(source.nodeId).join(nodeId));
+    if (Array.isArray(value)) return value.map(repoint).filter((entry) => entry !== DROP);
+    if (!value || typeof value !== "object") return value;
+    const entries = Object.entries(value).map(([key, entry]) => [key, repoint(entry)] as const);
+    return entries.some(([, entry]) => entry === DROP) ? DROP : Object.fromEntries(entries);
+  };
+  const repointed = repoint(config);
+  if (repointed === DROP || oldItems.some((item) => JSON.stringify(repointed).includes(item.id))) return undefined;
+  try {
+    if (source.implementationType === "visual-explainer") validateVisualLearnerArtifactConfig(repointed);
+  } catch {
+    return undefined;
+  }
+  return repointed as Record<string, unknown>;
+}
+
 /** Freeze one Planner-authored successor program as a new, unpublished board instance. */
 function prepareSuccessorBoard(
   next: LearningCycleRecordV2,
@@ -1231,7 +1262,10 @@ function prepareSuccessorBoard(
       };
     });
     const design = prescriptionDesign(prescription);
-    const source = reusable(prescription.nodeId, spelling?.measurementRole);
+    const candidate = reusable(prescription.nodeId, spelling?.measurementRole);
+    const reusedSetup = candidate?.evidenceContract.nativeConfig ? repointReusedSetup(candidate, nodeId, spellingItems ?? []) : undefined;
+    const source = candidate && (!candidate.evidenceContract.nativeConfig || reusedSetup) ? candidate : undefined;
+    if (candidate && !source) console.warn(` 🎮 [learning-board] [successor-reuse] [not-reusable] node=${nodeId} from=${candidate.nodeId} reason=setup_cannot_be_repointed`);
     const prompt = generationPrompt(next, role, nodeId, input.evidenceIds, input.reason, input.at);
     prompt.text = `${prescription.creatorPrompt} ${prompt.text}`;
     return {
@@ -1267,7 +1301,7 @@ function prepareSuccessorBoard(
           spellingItems: Object.fromEntries(spellingItems.map(item => [item.id, item])),
           itemRoles: Object.fromEntries(spellingItems.map(item => [item.id, item.lineage.measurementRole])),
         } : {}),
-        ...(source?.evidenceContract.nativeConfig ? { nativeConfig: structuredClone(source.evidenceContract.nativeConfig) } : {}),
+        ...(source && reusedSetup ? { nativeConfig: reusedSetup } : {}),
       },
       evidenceIds: [],
     };
