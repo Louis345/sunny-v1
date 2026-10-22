@@ -1547,7 +1547,8 @@ export function useSession(options?: UseSessionOptions) {
 
       case "error":
         {
-          const fatal = msg.fatal !== false;
+          // Only an explicit dead end stops the session; any other error is a warning and the board stays.
+          const fatal = msg.fatal === true;
           const message = (msg.message as string) ?? "Unknown error";
           setStateRef.current((s) => ({
             ...s,

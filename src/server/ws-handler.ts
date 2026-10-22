@@ -68,7 +68,7 @@ export function handleWsConnection(
               : "";
         if (!childId) {
           ws.send(
-            JSON.stringify({ type: "error", message: "childId required" }),
+            JSON.stringify({ type: "error", fatal: true, message: "childId required" }),
           );
           return;
         }
@@ -107,7 +107,7 @@ export function handleWsConnection(
         const validChild = typeof child === "string" && isValidWsSessionChild(child, diagKiosk);
         if (!validChild) {
           ws.send(
-            JSON.stringify({ type: "error", message: "Invalid child name" })
+            JSON.stringify({ type: "error", fatal: true, message: "Invalid child name" })
           );
           return;
         }
@@ -115,6 +115,7 @@ export function handleWsConnection(
           ws.send(
             JSON.stringify({
               type: "error",
+              fatal: true,
               message: "Creator / Diag kiosk requires child=creator (Charlotte + diagnostic prompt)",
             })
           );
@@ -124,6 +125,7 @@ export function handleWsConnection(
           ws.send(
             JSON.stringify({
               type: "error",
+              fatal: true,
               message: "Session already active",
             })
           );
@@ -137,6 +139,7 @@ export function handleWsConnection(
             );
             ws.send(JSON.stringify({
               type: "error",
+              fatal: true,
               code: "homework_assignment_identity_required",
               message: "Choose a ready assignment before starting Sunny.",
             }));
@@ -152,6 +155,7 @@ export function handleWsConnection(
             );
             ws.send(JSON.stringify({
               type: "error",
+              fatal: true,
               code: "homework_assignment_unavailable",
               message: "Sunny could not load that assignment. Return to the child picker.",
             }));
@@ -174,6 +178,7 @@ export function handleWsConnection(
             );
             ws.send(JSON.stringify({
               type: "error",
+              fatal: true,
               code: "homework_assignment_identity_mismatch",
               message: "That assignment is no longer ready. Return to the child picker.",
             }));
@@ -203,6 +208,7 @@ export function handleWsConnection(
           ws.send(
             JSON.stringify({
               type: "error",
+              fatal: true,
               code: formatted.code,
               message: formatted.message,
             }),

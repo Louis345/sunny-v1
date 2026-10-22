@@ -1527,6 +1527,7 @@ export class SessionManager {
       });
       console.error("  🔴 Post-session chain error:", message);
       this.send("error", {
+        fatal: false,
         message: "Post-session processing failed",
         debugPacketPath: this.debugRecorder.sessionDir || undefined,
       });

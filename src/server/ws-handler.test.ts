@@ -89,6 +89,7 @@ describe("ws handler", () => {
     expect(startMock).not.toHaveBeenCalled();
     expect(ws.sent).toContainEqual({
       type: "error",
+      fatal: true,
       code: "homework_assignment_identity_required",
       message: "Choose a ready assignment before starting Sunny.",
     });
@@ -146,6 +147,7 @@ describe("ws handler", () => {
     expect(startMock).not.toHaveBeenCalled();
     expect(ws.sent).toContainEqual({
       type: "error",
+      fatal: true,
       code: "homework_assignment_unavailable",
       message: "Sunny could not load that assignment. Return to the child picker.",
     });
@@ -172,6 +174,7 @@ describe("ws handler", () => {
     expect(startMock).not.toHaveBeenCalled();
     expect(ws.sent).toContainEqual({
       type: "error",
+      fatal: true,
       code: "homework_assignment_identity_mismatch",
       message: "That assignment is no longer ready. Return to the child picker.",
     });
@@ -256,6 +259,7 @@ describe("ws handler", () => {
     expect(startMock).toHaveBeenCalledTimes(1);
     expect(ws.sent).toContainEqual({
       type: "error",
+      fatal: true,
       code: "voice_connection_unavailable",
       message: "Voice connection is having trouble. You can still type.",
     });

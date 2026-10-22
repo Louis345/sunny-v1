@@ -243,6 +243,28 @@ describe("WS envelope vs canvas payload type", () => {
     expect(wsInstances).toHaveLength(4);
   });
 
+  // 2026-10-21 human catch (demo copy of Ila): a failed post-session memory save arrived as a plain server
+  // error, the kiosk treated every unlabeled error as fatal, and Saori lost the whole board to "Sunny lost
+  // the connection" while the connection was fine. Logs showed "Post-session processing failed"; no lab
+  // asserted that an unlabeled server error leaves the session usable.
+  it("keeps the session and board when a server error is not explicitly fatal, and stops only on fatal: true", async () => {
+    vi.useFakeTimers();
+    const { result } = renderHook(() => useSession());
+    act(() => result.current.startSession("ila", { homeworkId: "hw-math-1" }));
+    await act(async () => { await vi.advanceTimersByTimeAsync(150); });
+    const ws = wsInstances[0]!;
+    act(() => ws.onmessage?.({ data: JSON.stringify({ type: "session_started", child: "Ila" }) } as MessageEvent));
+    const phase = result.current.state.phase;
+    act(() => ws.onmessage?.({ data: JSON.stringify({ type: "error", message: "Post-session processing failed" }) } as MessageEvent));
+    expect(result.current.state.errorFatal).toBe(false);
+    expect(result.current.state.error).toBeNull();
+    expect(result.current.state.warning).toBe("Post-session processing failed");
+    expect(result.current.state.phase).toBe(phase);
+    act(() => ws.onmessage?.({ data: JSON.stringify({ type: "error", fatal: true, message: "Session already active" }) } as MessageEvent));
+    expect(result.current.state.errorFatal).toBe(true);
+    expect(result.current.state.error).toBe("Session already active");
+  });
+
   it("fails visibly after three reconnected sockets open but never acknowledge session startup", async () => {
     vi.useFakeTimers();
     const { result } = renderHook(() => useSession());
