@@ -110,7 +110,7 @@ describe("SessionManager companion presence", () => {
 
     expect(session.runCompanionResponse).toHaveBeenCalledOnce();
     expect(session.runCompanionResponse).toHaveBeenCalledWith(
-      expect.stringMatching(/Which hand shows the minutes\?[\s\S]*do not reveal/i),
+      expect.stringMatching(/Which hand shows the minutes\?[\s\S]*do not reveal/i), "system",
     );
     expect(session.handleCompanionTurn).not.toHaveBeenCalled();
     expect(session.companionDispositionAfterSpeech).toBe("standby_after_speech");
@@ -119,6 +119,15 @@ describe("SessionManager companion presence", () => {
       itemId: "clock-2",
       masteryEligible: false,
     }));
+  });
+
+  it("honors requested read help while narration owns audio even with an idle turn state", async () => {
+    const session = presenceHarness();
+    (session as any).activeGameNarrationRequestId = "narration-in-flight";
+    await session.requestInstructionReadAloud({nodeId:"room",activityId:"room",itemId:"item",prompt:"Help with this instruction.",requestCount:1,answerVisibility:"hidden",trigger:"child_request"});
+    expect(session.bargeIn).toHaveBeenCalledOnce();
+    expect(session.runCompanionResponse).toHaveBeenCalledWith(expect.any(String), "system");
+    expect(session.bargeIn.mock.invocationCallOrder[0]).toBeLessThan(session.runCompanionResponse.mock.invocationCallOrder[0]);
   });
 
   it("returns a one-shot activity to play even when Elli's provider turn fails", async () => {

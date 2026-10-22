@@ -84,10 +84,15 @@ export async function finalizePendingSessionEnd(session: any): Promise<boolean> 
 export async function runCompanionResponseForSession(
   session: any,
   userMessage: string,
+  source: "user" | "system" = "user",
 ): Promise<void> {
+    if (source === "system" && (session.activeGameNarrationRequestId || session.pendingGameNarrationPlayback)) {
+      console.log(" 🎮 [companion] [system-event] [skipped] reason=game_narration_owns_audio");
+      return;
+    }
     if (deferCompanionUntilNarrationFinishes(session, userMessage)) return;
     session.voiceLatency?.beginResponse();
-    session.inFlightReply = userMessage;
+    session.inFlightReply = source === "user" ? userMessage : null;
     const turn = claimCompanionResponseTurn(session);
     const playbackId = `companion:${session.sessionId}:${turn.turnId}`;
     let staleOutputLogged = false;
@@ -190,7 +195,7 @@ export async function runCompanionResponseForSession(
             : "";
       const boardCtx =
         typeof session.buildCurrentBoardContextForTurn === "function"
-          ? session.buildCurrentBoardContextForTurn(userMessage)
+          ? session.buildCurrentBoardContextForTurn(source === "user" ? userMessage : undefined)
           : "";
       const messageWithContext = [userMessage, boardCtx, canvasCtx]
         .filter(Boolean)
@@ -239,6 +244,7 @@ export async function runCompanionResponseForSession(
       };
       session.voiceLatency?.mark("model_request");
       await runAgent({
+        source,
         history: protectSpellingModelMessages(historyWithPin, session.currentBoardSnapshot),
         injectedContextMessages: protectSpellingModelMessages(gameContextMessages, session.currentBoardSnapshot),
         userMessage: redactProtectedSpellingText(messageWithContext, session.currentBoardSnapshot),
@@ -658,11 +664,11 @@ export async function runCompanionResponseForSession(
       }
 
       session.inFlightReply = null;
-      session.conversationHistory.push({ role: "user", content: userMessage });
+      session.conversationHistory.push({ role: source, content: userMessage });
       if (fullResponse.trim()) {
         session.conversationHistory.push({ role: "assistant", content: fullResponse });
         session.recordDebugTranscript?.("assistant", fullResponse);
-        session.recordCompanionHelpTurn?.(userMessage, fullResponse);
+        if (source === "user") session.recordCompanionHelpTurn?.(userMessage, fullResponse);
       }
 
       if (await finalizePendingSessionEnd(session)) {

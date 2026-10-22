@@ -28,7 +28,6 @@ import { planSession } from "../engine/learningEngine";
 import { getChildChart } from "../profiles/childChart";
 import { computeProgression } from "../engine/progression";
 import {
-  CANONICAL_AGENT_TOOL_KEYS,
   getSessionTypeConfig,
   resolveSessionType,
   sessionTypeFromSubject,
@@ -149,7 +148,7 @@ export async function deliverInteractiveCompanionOpening(
 ): Promise<void> {
   if (session.companionWakeGateEnabled) {
     if (options.independentEvaluationOrientation) {
-      await session.runCompanionResponse(opening);
+      await session.runCompanionResponse(opening, "system");
       console.log(" 🎮 [companion] [opening] [independent-context-delivered]");
     } else {
       console.log(" 🎮 [companion] [opening] [child-invoked-only]");
@@ -157,7 +156,7 @@ export async function deliverInteractiveCompanionOpening(
     return;
   }
   session.setCompanionPresence("summoned", "voice");
-  await session.runCompanionResponse(opening);
+  await session.runCompanionResponse(opening, "system");
 }
 
 export async function deliverHomeworkArrival(session: any, context: any): Promise<void> {
@@ -826,6 +825,7 @@ export async function runSessionStart(
             homeworkForPrompt,
             wordList,
             subject,
+            { worksheetMode: session.worksheetMode },
           );
       const homeworkCompanionSystemPrompt = isDebugClaude()
         ? sessionPrompt
@@ -1259,6 +1259,7 @@ export async function runSessionStart(
             homeworkForPrompt,
             wordList,
             subject,
+            { worksheetMode: session.worksheetMode },
           );
         }
       }
@@ -1413,9 +1414,7 @@ export async function runSessionStart(
       session.ctx.canvas.owner = "claude" as CanvasOwner;
       session.ctx.canvas.locked = false;
     }
-    if (session.worksheetSession && session.ctx) {
-      session.ctx.availableToolNames = [...CANONICAL_AGENT_TOOL_KEYS];
-    }
+    session.ctx.availableToolNames = Object.keys(session.buildAgentToolkit());
     console.log(
       `  📋 Session type: ${sessionType}, canvas owner: ${session.ctx.canvas.owner}`,
     );

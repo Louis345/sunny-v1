@@ -3,6 +3,7 @@
  * Extracted from SessionManager for line-count / cohesion (D6d).
  */
 // @ts-nocheck
+import { shouldUseAdventureMapVoiceSlimToolkit } from "../utils/adventureMapAgentPolicy";
 import { redactProtectedSpellingValue } from "./currentBoardSnapshot";
 import { generateStoryImage } from "../utils/generateStoryImage";
 import { appendDeferredActivity } from "../utils/appendToContext";
@@ -346,6 +347,9 @@ export async function hostSessionStatus(session: any): Promise<Record<string, un
       string,
       unknown
     >;
+    if (shouldUseAdventureMapVoiceSlimToolkit({ worksheetMode: session.worksheetMode, sessionType: session.ctx?.sessionType })) {
+      for (const key of ["sessionPhase", "canvasOwner", "correctStreak", "roundNumber"]) delete base[key];
+    }
     return redactProtectedSpellingValue({
       ...base,
       turnState: session.turnSM.getState(),

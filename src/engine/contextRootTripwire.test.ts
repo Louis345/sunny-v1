@@ -12,6 +12,6 @@ it("builds every runtime child-data path through the configured data folder, nev
     .filter((name) => name.endsWith(".ts") && !name.endsWith(".test.ts") && !name.includes("tests/"))
     .map((name) => path.join(root, name)))
     .filter((file) => !file.endsWith(path.join("utils", "contextRoot.ts")));
-  const offenders = files.filter((file) => /(process\.cwd\(\)|__dirname)\s*,\s*["']src["']\s*,\s*["']context["']/.test(fs.readFileSync(file, "utf8")));
+  const offenders = files.filter((file) => /(?:SRC_DIR\s*,\s*["']context["']|(process\.cwd\(\)|__dirname)\s*,\s*["']src["']\s*,\s*["']context["'])/.test(fs.readFileSync(file, "utf8")));
   expect(offenders).toEqual([]);
 });

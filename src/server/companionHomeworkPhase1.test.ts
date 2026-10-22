@@ -14,10 +14,12 @@ vi.mock("../agents/elli/tools/generateToolDocs", async original => ({
   ...(await original<typeof import("../agents/elli/tools/generateToolDocs")>()), ALL_TOOLS: {},
 }));
 
-import { buildSessionPrompt } from "../agents/prompts";
+import { readSoul, buildSessionPrompt } from "../agents/prompts";
 import { buildContextStartGreeting, deliverHomeworkArrival } from "./session-bootstrap";
 import { runCompanionResponseForSession } from "./companion-response-runner";
+import { hostSessionStatus } from "./host-tool-handlers";
 import { SessionManager } from "./session-manager";
+import { createSessionContext } from "./session-context";
 import { TurnStateMachine } from "./session-state";
 import { WsTtsBridge } from "./ws-tts-bridge";
 import { maybeCompactCompanionInteractionMemory, recordCompanionInteractionEvent } from "./companionInteractionMemory";
@@ -32,6 +34,8 @@ const context = (policy = "context_start_short") => ({
 
 beforeEach(() => {
   vi.clearAllMocks();
+  vi.stubEnv("ADVENTURE_MAP", "true");
+  vi.stubEnv("SUNNY_RUNTIME_CONFIG", JSON.stringify({subject:"homework", sessionMode:"real", childId:child, homeworkDomain:"spelling", previewMode:"off", nodeAccess:"normal", voiceMode:"normal"}));
   root = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-homework-phase1-"));
   vi.stubEnv("SUNNY_CONTEXT_ROOT", path.join(root, "src/context"));
   const dir = path.join(root, "src/context", child, "companion_care");
@@ -55,6 +59,7 @@ function provider(chunks: string[] = [], finishReason = "stop", during?: () => v
 
 async function session() {
   const s: any = {
+    ctx: createSessionContext({childName: child, sessionType:"homework", chartChildId:child}),
     sessionId: "synthetic-session", chartChildId: child, companionPresence: "collapsed", options: {},
     currentBoardSnapshot: null, conversationHistory: [], gamePendingRevision: null,
     setCompanionPresence: vi.fn((state: string) => { s.companionPresence = state; }),
@@ -63,12 +68,13 @@ async function session() {
     companionBridge: { companionAct: vi.fn(), expressCompanion: vi.fn() },
     ttsBridge: { beginPlayback: vi.fn(), connect: vi.fn(async () => {}), sendText: vi.fn(), finish: vi.fn(async () => {}), stop: vi.fn() },
   };
+  s.ctx.enginePlan = {focusWords:["LEGACY_FOCUS"],reviewWords:[],newWords:[],sessionRecommendation:"forced_agenda"};
   s.companion = { name: "Elli", systemPrompt: await buildSessionPrompt(child as any,
     path.resolve(__dirname, "../companions/elli.md"), "A synthetic saved assignment is available.", [], "homework", { carePlan: null }) };
   s.turnSM = new TurnStateMachine((text) => s.ttsBridge.sendText(text), vi.fn());
   s.buildCurrentBoardContextForTurn = SessionManager.prototype.buildCurrentBoardContextForTurn.bind(s);
   s.buildAgentToolkit = SessionManager.prototype.buildAgentToolkit.bind(s);
-  s.runCompanionResponse = (message: string) => runCompanionResponseForSession(s, message);
+  s.runCompanionResponse = (message: string, source?: "system" | "user") => runCompanionResponseForSession(s, message, source);
   return s;
 }
 
@@ -81,18 +87,58 @@ describe("one factual homework turn path", () => {
     await deliverHomeworkArrival(s, context());
     const request = stream.mock.calls[0][0];
     const text = JSON.stringify(request.messages);
+    // Save the initial assembled request even during the red test, for before/after comparison.
+    if (process.env.SUNNY_PHASE1_REQUEST_CAPTURE) fs.writeFileSync(process.env.SUNNY_PHASE1_REQUEST_CAPTURE,
+      JSON.stringify({messages: request.messages, tools:Object.fromEntries(Object.entries(request.tools).map(([name,t]:[string,any])=>[name,{description:t.description,inputSchema:z.toJSONSchema(t.inputSchema,{unrepresentable:"any"})}]))},null,2));
+    expect(text).not.toMatch(/Session Phase|Learning State|Wilson|Reading Profile|Today's Focus Words|Available teaching games|Available reward games|companion-driven/i);
+    for (const name of ["canvasShow", "canvasClear", "launchGame", "sessionLog"]) expect(request.tools).not.toHaveProperty(name);
+    expect(request.messages.at(-1).content).toContain("[Runtime context — not child speech]");
     expect(text).toContain("The demo likes drawing.");
-    expect(text).not.toMatch(/LEGACY_REUNION_PERFORMANCE|LEGACY_IMPOSED_TONE|forced.agenda|current focus|brief hello is enough/i);
+    expect(text).not.toMatch(/LEGACY_REUNION_PERFORMANCE|LEGACY_IMPOSED_TONE|LEGACY_FOCUS|forced.agenda|current focus|brief hello is enough/i);
     expect(request.messages[0].content).toContain(brevity);
     expect(request.messages[0].content).not.toMatch(/one or two short sentences|gets genuinely excited|never re-introduces/i);
     expect(request.tools).toHaveProperty("companionAct");
     expect(request.tools).toHaveProperty("sessionStatus");
     expect(stream).toHaveBeenCalledTimes(1);
-    // Opt-in artifact contains only this synthetic fixture; no child records.
-    if (process.env.SUNNY_PHASE1_REQUEST_CAPTURE) fs.writeFileSync(process.env.SUNNY_PHASE1_REQUEST_CAPTURE,
-      JSON.stringify({ messages: request.messages, tools: Object.fromEntries(Object.entries(request.tools).map(([name, tool]: [string, any]) =>
-        [name, { description: tool.description, inputSchema: z.toJSONSchema(tool.inputSchema, { unrepresentable: "any" }) }])),
-        maxOutputTokens: request.maxOutputTokens, maxRetries: request.maxRetries }, null, 2));
+
+  });
+
+  it("does not read checkout memory even when a legacy file exists; configured soul paths stay isolated", async () => {
+    const originalRead = fs.readFileSync.bind(fs);
+    const originalExists = fs.existsSync.bind(fs);
+    const exists = vi.spyOn(fs, "existsSync").mockImplementation(file => String(file).endsWith("/companion_context.md") || originalExists(file));
+    const reads: string[] = [];
+    const spy = vi.spyOn(fs, "readFileSync").mockImplementation(((file: any, ...args: any[]) => {
+      reads.push(String(file));
+      if(String(file).endsWith("/companion_context.md")) return "STALE_CHECKOUT_PERSONAL_QUESTION";
+      return (originalRead as any)(file, ...args);
+    }) as any);
+    try {
+      const s = await session();
+      expect(s.companion.systemPrompt).not.toContain("STALE_CHECKOUT_PERSONAL_QUESTION");
+      fs.writeFileSync(path.join(root,"src/context",child,"soul.md"),"CONFIGURED_SOUL");
+      expect(readSoul(child)).toBe("CONFIGURED_SOUL");
+      expect(reads.some(p => p.endsWith("/companion_context.md"))).toBe(false);
+    } finally { spy.mockRestore(); exists.mockRestore(); }
+  });
+
+  it("keeps a system event out of child speech, user history and learning help evidence", async () => {
+    const s = await session();
+    provider(["Hello."], "stop", () => expect(s.inFlightReply).toBeNull());
+    s.buildCurrentBoardContextForTurn = vi.fn(() => "[Board facts]");
+    s.recordCompanionHelpTurn = vi.fn();
+    await s.runCompanionResponse("[System event: path choice opened]", "system");
+    expect(s.buildCurrentBoardContextForTurn).toHaveBeenCalledWith(undefined);
+    expect(stream.mock.calls[0][0].messages.at(-1).content).toContain("[Runtime context — not child speech]");
+    expect(s.conversationHistory[0].role).toBe("system");
+    expect(s.recordCompanionHelpTurn).not.toHaveBeenCalled();
+  });
+
+  it("retains factual status without legacy tutor agenda even after a tool call", async () => {
+    const s = await session();
+    const status = await hostSessionStatus(s);
+    expect(status).toMatchObject({activityMode:"none",activityPauseState:"active"});
+    for(const key of ["sessionPhase","canvasOwner","correctStreak","roundNumber"]) expect(status).not.toHaveProperty(key);
   });
 
   it("keeps the same brevity default on a child-addressed turn", async () => {

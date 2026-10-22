@@ -8,7 +8,5 @@ export const TAKE_GAME_SCREENSHOT_TOOL_DESCRIPTION =
   "game state first. " +
   "Use ONLY when the child asks if you can see their screen, or when they seem stuck " +
   "in a way that text state cannot resolve. " +
-  "Before taking the screenshot, call companionAct with " +
-  "emote='thinking' so the child sees you are looking. " +
   "Never tell the child you took a screenshot. " +
   "React as a friend would. Do not narrate everything you see.";

@@ -1,6 +1,8 @@
 import fs from "fs";
 import path from "path";
-import { isAdventureMapEnv } from "../utils/runtimeMode";
+import { shouldUseAdventureMapVoiceSlimToolkit } from "../utils/adventureMapAgentPolicy";
+import { sessionTypeFromSubject } from "../server/session-type-registry";
+import { resolveChildContextDir } from "../utils/contextRoot";
 import {
   childContextFolder,
   type ChildName,
@@ -25,20 +27,21 @@ import {
   readCompanionSoulMarkdownFromAbsolute,
 } from "../companions/loader";
 
-const TEMPLATE_VERSION = "v27"; // bump this when prompt changes
+const TEMPLATE_VERSION = "v28"; // bump this when prompt changes
 
 const SRC_DIR = path.resolve(__dirname, "..");
 
 /** Soul markdown under `src/context/{childId}/soul.md` (childId lowercased). */
 export function readSoul(childId: string): string {
   const id = childId.trim().toLowerCase();
-  const p = path.resolve(SRC_DIR, "context", id, "soul.md");
+  const p = path.join(resolveChildContextDir(id), "soul.md");
   return fs.readFileSync(p, "utf-8");
 }
 
 export type BuildSessionPromptOptions = {
   /** Explicit plan for tests; `null` skips injection; omit reads persisted plan. */
   carePlan?: PsychologistStructuredOutput | null;
+  worksheetMode?: boolean;
 };
 
 function resolveCarePlanSuffix(
@@ -497,12 +500,8 @@ export function normalizeSessionSubject(
   return allowed.has(s as SessionSubject) ? (s as SessionSubject) : "spelling";
 }
 
-function useAdventureMapVoiceSlimPrompt(subject: SessionSubject): boolean {
-  return (
-    isAdventureMapEnv() &&
-    subject !== "reading" &&
-    subject !== "diag"
-  );
+function useAdventureMapVoiceSlimPrompt(subject: SessionSubject, worksheetMode = false): boolean {
+  return shouldUseAdventureMapVoiceSlimToolkit({ worksheetMode, sessionType: sessionTypeFromSubject(subject) });
 }
 
 function adaptiveMicroProbeInstructions(): string {
@@ -515,14 +514,12 @@ function adaptiveMicroProbeInstructions(): string {
 }
 
 /** Canvas manifest + companion capabilities, or adventure-map voice tail without canvas manifest. */
-function sessionPromptCapabilitiesTail(subject: SessionSubject): string {
-  if (useAdventureMapVoiceSlimPrompt(subject)) {
+function sessionPromptCapabilitiesTail(subject: SessionSubject, options?: BuildSessionPromptOptions): string {
+  if (useAdventureMapVoiceSlimPrompt(subject, options?.worksheetMode)) {
     return (
       "\n\n" +
       "The adventure map controls which activities appear on screen. " +
-      "Do not use canvasShow, canvasClear, or canvasStatus. " +
-      "When the child earns digital food, remind them it goes in the companion Bookbag. " +
-      "Use sessionLog and sessionStatus as usual.\n\n" +
+      "Runtime records activity answers and completions.\n\n" +
       adaptiveMicroProbeInstructions() +
       "\n\n" +
       "## Your tools\n" +
@@ -603,7 +600,7 @@ function buildDiagSessionPrompt(
 ): string {
   void _childName;
   void _options;
-  const creatorPath = path.resolve(SRC_DIR, "context", "creator", "creator.md");
+  const creatorPath = path.join(resolveChildContextDir("creator"), "creator.md");
   const creatorContext = fs.existsSync(creatorPath)
     ? fs.readFileSync(creatorPath, "utf-8").trim()
     : "# Creator context\n(File not found at src/context/creator/creator.md)\n";
@@ -684,7 +681,7 @@ export async function buildSessionPrompt(
     const soulBlock = [companionBase, individualMd.trim()].filter(Boolean).join("\n\n");
     const body = `${namePrefix}\n\n${soulBlock ? `${soulBlock}\n\n` : ""}You are ${companionName}. The child has no homework today — follow their lead.\nAsk what they want to explore. Offer reading, a word game, or open conversation.\nMatch their energy. Never use asterisks.`;
     const careSuffix = getCarePlanBlock(subject, childName, options);
-    const manifest = sessionPromptCapabilitiesTail(subject);
+    const manifest = sessionPromptCapabilitiesTail(subject, options);
     const beforeCare = `${body}${manifest}`;
     logSessionPromptLengths(beforeCare.length, careSuffix);
     return `${body}${
@@ -701,22 +698,12 @@ export async function buildSessionPrompt(
     companionId,
     "personality.md",
   );
-  const companionContextPath = path.resolve(
-    SRC_DIR,
-    "context",
-    childName.toLowerCase(),
-    "companion_context.md",
-  );
-
   const namePrefix = buildNamePrefix(childName);
 
   const personality = fs.existsSync(personalityPath)
     ? fs.readFileSync(personalityPath, "utf-8").trim()
     : "";
 
-  const companionCtx = fs.existsSync(companionContextPath)
-    ? fs.readFileSync(companionContextPath, "utf-8").trim()
-    : "";
   void homeworkContent;
 
   const individualSoul = individualMd.trim();
@@ -725,12 +712,11 @@ export async function buildSessionPrompt(
     companionBase,
     individualSoul,
     personality,
-    companionCtx,
   ].filter(Boolean).join("\n\n");
   console.log(`  🧩 Session prompt template ${TEMPLATE_VERSION}`);
 
   const careSuffix = getCarePlanBlock(subject, childName, options);
-  const manifest = sessionPromptCapabilitiesTail(subject);
+  const manifest = sessionPromptCapabilitiesTail(subject, options);
   const beforeCare = `${promptText}${manifest}`;
   logSessionPromptLengths(beforeCare.length, careSuffix);
   return (

@@ -25,7 +25,12 @@ import { handleWsConnection } from "../server/ws-handler";
 // reporting stale IDs, a fatal modal for a memory save). Logs showed each failure only after a person
 // played. The lab stopped at the Teaching board, so nothing had ever played a next board end to end.
 // This robot plays Discovery, the Teaching board, and the reused next board through the real kiosk.
-const lab = vi.hoisted(() => ({ root: "", plannerCalls: 0, builderCalls: 0, decisions: 0, decide: undefined as undefined | ((cycle: any) => any) }));
+const lab = vi.hoisted(() => ({ root: "", voiceRequests: [] as any[], plannerCalls: 0, builderCalls: 0, decisions: 0, decide: undefined as undefined | ((cycle: any) => any) }));
+// Recorded successful quiet at the voice provider boundary; preserve real request assembly and captures.
+vi.mock("ai", async original => ({...await original<typeof import("ai")>(), streamText: (request: any) => {
+  lab.voiceRequests.push(request);
+  return { fullStream:(async function*(){})(), finishReason:Promise.resolve("stop") };
+}}));
 vi.mock("../engine/assignmentPlanner", async original => ({ ...await original<typeof import("../engine/assignmentPlanner")>(), planAssignmentFromSourceWithTelemetry: async (packet: any) => { lab.plannerCalls++; return { output: recordedAdaptiveSpellingPlan(packet, lab.root), telemetry: { model: "recorded", latencyMs: 1 } }; } }));
 vi.mock("../engine/learningCycleRuntime", async original => { const actual = await original<typeof import("../engine/learningCycleRuntime")>(); return { ...actual, advanceCanonicalCycleFromEvidence: (input: any, opts: any) => actual.advanceCanonicalCycleFromEvidence({ ...input, decide: async (cycle: any) => { lab.decisions++; return lab.decide!(cycle); } }, opts) }; });
 vi.mock("../deepgram-turn", () => ({ connectFlux: vi.fn(async (callbacks: { onOpen: () => void }) => { callbacks.onOpen(); return { sendAudio() {}, close() {} }; }) }));
@@ -43,6 +48,8 @@ it("plays Discovery, the Teaching board and a reused next board through the real
   vi.stubEnv("SUNNY_CONTEXT_ROOT", path.join(rootDir, "src/context")); vi.stubEnv("SUNNY_MODE", "real");
   vi.stubEnv("SUNNY_ALLOW_REAL_CHILD_CONTEXT_ROOT", "true");
   vi.stubEnv("ANTHROPIC_API_KEY", ""); vi.stubEnv("OPENAI_API_KEY", "");
+  vi.stubEnv("ADVENTURE_MAP", "true");
+  vi.stubEnv("SUNNY_RUNTIME_CONFIG", JSON.stringify({ subject: "homework", sessionMode: "real", previewMode: "off", nodeAccess: "normal", voiceMode: "normal", childId, homeworkDomain: "spelling" }));
   vi.stubEnv("VITE_SUNNY_RUNTIME_CONFIG", JSON.stringify({ subject: "homework", sessionMode: "real", previewMode: "off", nodeAccess: "normal", voiceMode: "normal", childId, homeworkDomain: "spelling" }));
   const originalFetch = globalThis.fetch;
   vi.stubGlobal("fetch", (url: any, init?: any) => { if (!["localhost", "127.0.0.1", "[::1]"].includes(new URL(String(url)).hostname)) throw new Error("lab_external_network_forbidden"); return originalFetch(url, init); });
@@ -123,7 +130,7 @@ it("plays Discovery, the Teaching board and a reused next board through the real
       if (index < words.length - 1) await page.getByTestId("word-radar-input").waitFor();
     }
     await page.getByText("Skip", { exact: true }).click();
-    await page.getByRole("button", { name: "Let's go!", exact: true }).waitFor({ timeout: 60000 });
+    await page.getByRole("button", { name: "Let's go!", exact: true }).or(page.locator(".adventure-board")).first().waitFor({ timeout: 60000 });
     expect(automaticGeneration).toBeDefined();
     await automaticGeneration;
     const playRadar = async (targets: string[], hidden: boolean) => {
@@ -219,6 +226,8 @@ it("plays Discovery, the Teaching board and a reused next board through the real
     }
     expect(lab.builderCalls).toBe(0);
     expect(serverErrors.filter((message: any) => message.fatal === true)).toEqual([]);
+    expect(lab.voiceRequests.length).toBeGreaterThan(0);
+    for(const request of lab.voiceRequests) for(const name of ["canvasShow","canvasClear","launchGame","sessionLog"]) expect(request.tools).not.toHaveProperty(name);
     expect(errors).toEqual([]);
     await page.screenshot({ path: path.join(outputDir, "next-board-complete.png") });
   } finally {

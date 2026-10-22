@@ -887,8 +887,8 @@ export class SessionManager {
     this.setCompanionPresence('summoned','client');
     this.resetCompanionDispositionAfterSpeech();
     console.log(` 🎮 [journey] [choice-addressed] [${choiceId}] request=${requestId}`);
-    if (this.turnSM.getState()!=='IDLE') this.bargeIn();
-    await this.runCompanionResponse('[Internal interaction: the child opened the displayed path choice and addressed you. Explain the actual options briefly from live context and invite their decision. Do not choose for them or infer a lasting preference.]');
+    if (this.turnSM.getState()!=='IDLE' || this.activeGameNarrationRequestId || this.pendingGameNarrationPlayback) this.bargeIn();
+    await this.runCompanionResponse('[System event: displayed path choice opened] Available options are in the live board snapshot. No option has been selected.', 'system');
   }
 
   public async requestInstructionReadAloud(input: {
@@ -912,9 +912,9 @@ export class SessionManager {
     this.resetCompanionDispositionAfterSpeech();
     this.recordGameTrace(request.trace);
     console.log(`  🎮 [companion-help] [agent-support] node=${input.nodeId} item=${input.itemId} trigger=${input.trigger ?? "child_request"}`);
-    if (this.turnSM.getState() !== "IDLE") this.bargeIn();
+    if (this.turnSM.getState() !== "IDLE" || this.activeGameNarrationRequestId || this.pendingGameNarrationPlayback) this.bargeIn();
     try {
-      await this.runCompanionResponse(request.prompt);
+      await this.runCompanionResponse(request.prompt, "system");
     } finally {
       if (
         this.lastInstructionReadRequestKey === request.requestKey
@@ -1960,8 +1960,8 @@ export class SessionManager {
     await this.runCompanionResponse(userMessage);
   }
 
-  private async runCompanionResponse(userMessage: string): Promise<void> {
-    await runCompanionResponseForSession(this, userMessage);
+  private async runCompanionResponse(userMessage: string, source: "user" | "system" = "user"): Promise<void> {
+    await runCompanionResponseForSession(this, userMessage, source);
   }
 
   public buildAgentToolkit(): Record<string, unknown> {
@@ -1991,17 +1991,7 @@ export class SessionManager {
       worksheetMode: this.worksheetMode,
       sessionType: this.ctx?.sessionType,
     });
-    const baseTools = slimVoice
-      ? {
-          sessionLog: six.sessionLog,
-          sessionStatus: six.sessionStatus,
-          spinWheel: six.spinWheel,
-          sessionEnd: six.sessionEnd,
-          recordChildSignal: six.recordChildSignal,
-          recordProductIssue: six.recordProductIssue,
-          companionAct: companionActTool,
-        }
-      : { ...six, companionAct: companionActTool };
+    const baseTools = { ...six, companionAct: companionActTool };
     const replayTools = createReplayWordTools({ speechRate: () => this.ttsBridge?.getSpeechRate?.(speechScopeFor(this.currentBoardSnapshot)) ?? 1, snapshot: () => this.currentBoardSnapshot,
       playbackBusy: () => Boolean(this.activeGameNarrationRequestId || this.pendingGameNarrationPlayback),
       assessmentItemId: () => this.spellingAssessment?.itemId,
@@ -2011,6 +2001,10 @@ export class SessionManager {
       ...replayTools,
       ...createSpeechTools(this.ttsBridge, receipt => this.recordDebugEvent("companion-speech", "rate_configured", receipt), () => speechScopeFor(this.currentBoardSnapshot)),
     };
+    if (slimVoice) {
+      const { canvasShow, canvasClear, canvasStatus, sessionLog, ...boardTools } = baseTools;
+      return { ...boardTools, dateTime, ...screenshotTools };
+    }
     if (this.worksheetSession && this.worksheetMode) {
       return {
         ...baseTools,
