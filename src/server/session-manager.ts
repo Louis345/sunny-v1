@@ -1960,8 +1960,8 @@ export class SessionManager {
     await this.runCompanionResponse(userMessage);
   }
 
-  private async runCompanionResponse(userMessage: string, options?: { arrival?: boolean }): Promise<void> {
-    await runCompanionResponseForSession(this, userMessage, options);
+  private async runCompanionResponse(userMessage: string): Promise<void> {
+    await runCompanionResponseForSession(this, userMessage);
   }
 
   public buildAgentToolkit(): Record<string, unknown> {

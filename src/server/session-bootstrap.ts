@@ -163,43 +163,28 @@ export function buildContextStartGreeting(context: any): string {
   const facts = title && title !== "Unknown"
     ? `[Session opening context] The board is available; current focus: ${title}. No activity has been selected.`
     : "[Session opening context] The board is available; no activity has been selected.";
-  return `${facts} The child has just arrived.`;
+  return `${facts} The child has just arrived. A brief hello is enough; let them settle in and choose what to do next.`;
 }
 
 export const INDEPENDENT_EVALUATION_OPENING =
-  "[Session opening context] Independent evaluation is ready. Controls: Tap the speaker for the word; type a response; Not sure is available. No target answer is supplied. The child has just arrived.";
+  "[Session opening context] Independent evaluation is ready. Controls: Tap the speaker for the word; type a response; Not sure is available. No target answer is supplied. Choose a useful orientation in your own words.";
 
 export async function deliverInteractiveCompanionOpening(
   session: Pick<any, "setCompanionPresence" | "runCompanionResponse"> & {companionWakeGateEnabled?:boolean},
   opening: string,
-  options: { independentEvaluationOrientation?: boolean; arrival?: boolean } = {},
+  options: { independentEvaluationOrientation?: boolean } = {},
 ): Promise<void> {
   if (session.companionWakeGateEnabled) {
     if (options.independentEvaluationOrientation) {
-      await session.runCompanionResponse(opening, { arrival: options.arrival });
-      console.log(" 🎮 [companion] [opening] [independent-orientation-evaluated]");
+      await session.runCompanionResponse(opening);
+      console.log(" 🎮 [companion] [opening] [independent-orientation-spoken]");
     } else {
       console.log(" 🎮 [companion] [opening] [child-invoked-only]");
     }
     return;
   }
-  if (!options.arrival) session.setCompanionPresence("summoned", "voice");
-  await session.runCompanionResponse(opening, { arrival: options.arrival });
-}
-
-/** One doorway for a homework arrival; an explicit silent policy buys no turn. */
-export async function deliverHomeworkArrival(session: any, context: any): Promise<void> {
-  const policy = context?.activeSessionPlan?.companionPolicy?.openingLinePolicy ?? "context_start_short";
-  if (policy !== "context_start_short" || session.options?.sttOnly) {
-    console.log(` 🎮 [companion] [arrival] [skipped] policy=${policy} sttOnly=${Boolean(session.options?.sttOnly)}`);
-    return;
-  }
-  const independent = Boolean(session.companionWakeGateEnabled);
-  await deliverInteractiveCompanionOpening(
-    session,
-    independent ? INDEPENDENT_EVALUATION_OPENING : buildContextStartGreeting(context),
-    { independentEvaluationOrientation: independent, arrival: true },
-  );
+  session.setCompanionPresence("summoned", "voice");
+  await session.runCompanionResponse(opening);
 }
 
 export function shouldLoadLegacyHomeworkFolder(opts: {
@@ -1545,6 +1530,21 @@ This is a safe space to test everything.
       };
     }
 
+    if (
+      (subject === "homework" || subject === "spelling") &&
+      sessionLearningProfile?.pendingHomework &&
+      !session.companionWakeGateEnabled &&
+      !session.companion.openingLine.trim()
+    ) {
+      session.companion.openingLine = buildContextStartGreeting(
+        {
+          pendingHomework: sessionLearningProfile.pendingHomework,
+          activeSessionPlan: sessionLearningProfile.activeSessionPlan,
+        },
+      );
+      console.log(" 🎮 [companion] [opening-context] [ready] source=live_homework_context");
+    }
+
     session.send("session_started", {
       sessionId: session.getSessionId(),
       child: session.childName,
@@ -1629,7 +1629,25 @@ This is a safe space to test everything.
         (subject === "homework" || subject === "spelling") &&
         sessionLearningProfile?.pendingHomework
       ) {
-        await deliverHomeworkArrival(session, sessionLearningProfile);
+        // Planner owns the opener policy: context_start_short means one warm
+        // greeting when the adventure board appears; silent/none stays quiet.
+        const openingPolicy =
+          sessionLearningProfile.activeSessionPlan?.companionPolicy?.openingLinePolicy ??
+          "context_start_short";
+        if (openingPolicy === "context_start_short" && !session.options?.sttOnly) {
+          const independentEvaluation = session.companionWakeGateEnabled;
+          await deliverInteractiveCompanionOpening(
+            session,
+            independentEvaluation
+              ? INDEPENDENT_EVALUATION_OPENING
+              : "[Session opening context] The adventure board is available. No activity has been selected. Meet the child naturally from the live context.",
+            { independentEvaluationOrientation: independentEvaluation },
+          );
+        } else {
+          console.log(
+            `  🎮 [session-bootstrap] [context-start] homework opener policy=${openingPolicy} — map starts silently`,
+          );
+        }
       } else {
         console.log("  🎮 [session-bootstrap] [opening-line] skipped");
       }

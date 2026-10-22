@@ -8,8 +8,6 @@ export interface RunAgentOptions {
   userMessage: string;
   profile: Profile;
   onToken: (chunk: string) => void;
-  /** Provider finish status distinguishes a deliberate empty turn from a failed/truncated one. */
-  onFinish?: (finishReason: string) => void;
   signal?: AbortSignal;
   onStepFinish?: (
     step: { finishReason: string; toolCalls?: unknown[]; toolResults?: unknown[] },
@@ -137,7 +135,6 @@ export async function runAgent(opts: RunAgentOptions): Promise<string> {
       }
     }
     const finishReason = await result.finishReason;
-    opts.onFinish?.(finishReason);
     const cache = (await result.usage)?.inputTokenDetails;
     if (cache) {
       console.log(

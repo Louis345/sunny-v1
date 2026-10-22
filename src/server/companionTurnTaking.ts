@@ -4,18 +4,12 @@
  */
 import type { ModelMessage } from "ai";
 
-export function companionTurnPrompt(arrival = false): string {
-  return [
-    "## How you talk",
-    arrival
-      ? "This is a board-arrival event, not a message from the child. Speech, an expression, or silence are available: an empty response leaves you quietly available. You have the live board context and your usual tools."
-      : "This is a live voice conversation with a child who can talk over you. Say one or two short sentences, one idea at a time, then stop so the child can talk.",
-    "If the child interrupts, answer what they just said.",
-    "Every word you write is spoken aloud: never write private notes or describe the child in the third person.",
-  ].join("\n");
-}
-
-export const COMPANION_SPOKEN_TURN_PROMPT = companionTurnPrompt();
+export const COMPANION_SPOKEN_TURN_PROMPT = [
+  "## How you talk",
+  "This is a live voice conversation with a child who can talk over you. Say one or two short sentences, one idea at a time, then stop so the child can talk.",
+  "If the child interrupts, answer what they just said.",
+  "Every word you write is spoken aloud: never write private notes or describe the child in the third person.",
+].join("\n");
 
 /**
  * History for a reply the child cut off: their message, only what Elli had
