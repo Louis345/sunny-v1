@@ -3,6 +3,9 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
+
+// Intake runs real file and checkpoint work; under full-suite load one case exceeded the 5 s default.
+vi.setConfig({ testTimeout: 30_000 });
 import { runSpellingDiscoveryIntake, applyPlannedHomeworkIngest } from "./ingestHomework";
 import { extractAssignmentSource } from "../engine/assignmentSourceExtraction";
 import { getLearningCycle } from "../engine/learningCycleRepository";
