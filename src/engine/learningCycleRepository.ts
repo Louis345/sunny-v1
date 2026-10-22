@@ -17,6 +17,7 @@ import {
 } from "../shared/adventureBoardFromPlan";
 import { resolveChildContextDir } from "../utils/contextRoot";
 import { validateVisualLearnerArtifactConfig } from "../shared/visualLearnerArtifactConfig";
+import { validateActivityEngineConfig, validateLetterRushConfig } from "./activityEngineConfig";
 import {
   assertPublishedBoardsImmutable,
   boardOwningNode,
@@ -1197,7 +1198,7 @@ function slugId(value: string): string {
  * identities become the new ones, and words the Planner left out are dropped. Returns undefined when
  * the setup cannot be re-pointed cleanly, so that activity is built instead of reporting stale IDs.
  */
-function repointReusedSetup(source: LearningCycleNodeContract, nodeId: string, items: Array<{ id: string; wordId: string }>): Record<string, unknown> | undefined {
+export function repointReusedSetup(source: LearningCycleNodeContract, nodeId: string, items: Array<{ id: string; wordId: string }>): Record<string, unknown> | undefined {
   const config = source.evidenceContract.nativeConfig;
   if (!config) return undefined;
   const newIdByWord = new Map(items.map((item) => [item.wordId, item.id]));
@@ -1205,8 +1206,12 @@ function repointReusedSetup(source: LearningCycleNodeContract, nodeId: string, i
   const idMap = new Map(oldItems.flatMap((item) => newIdByWord.has(item.wordId) ? [[item.id, newIdByWord.get(item.wordId)!] as const] : []));
   const dropped = new Set(oldItems.filter((item) => !newIdByWord.has(item.wordId)).map((item) => item.id));
   const DROP = Symbol("drop");
+  // The old activity ID is re-pointed only inside compound IDs ("hw:activity:kind"); a bare value such as
+  // a game type that happens to share the activity's name stays as it is.
+  const escaped = source.nodeId.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const compound = new RegExp(`(^|:)${escaped}(?=:)|(?<=:)${escaped}$`, "g");
   const repoint = (value: unknown): unknown => {
-    if (typeof value === "string") return idMap.get(value) ?? (dropped.has(value) ? DROP : value.split(source.nodeId).join(nodeId));
+    if (typeof value === "string") return idMap.get(value) ?? (dropped.has(value) ? DROP : value === source.nodeId ? value : value.replace(compound, (_match, lead = "") => `${lead}${nodeId}`));
     if (Array.isArray(value)) return value.map(repoint).filter((entry) => entry !== DROP);
     if (!value || typeof value !== "object") return value;
     const entries = Object.entries(value).map(([key, entry]) => [key, repoint(entry)] as const);
@@ -1214,8 +1219,11 @@ function repointReusedSetup(source: LearningCycleNodeContract, nodeId: string, i
   };
   const repointed = repoint(config);
   if (repointed === DROP || oldItems.some((item) => JSON.stringify(repointed).includes(item.id))) return undefined;
+  // A re-pointed setup must pass the same check the kiosk's config route applies, or it is built instead.
   try {
     if (source.implementationType === "visual-explainer") validateVisualLearnerArtifactConfig(repointed);
+    if (source.implementationType === "letter-rush" && !validateLetterRushConfig(repointed).ok) return undefined;
+    if (source.implementationType === "concept-check" && !validateActivityEngineConfig(repointed).ok) return undefined;
   } catch {
     return undefined;
   }

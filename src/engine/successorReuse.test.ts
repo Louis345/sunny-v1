@@ -6,7 +6,8 @@ import {afterEach,expect,it,vi} from 'vitest';
 import {linearJourneyFixture} from '../scripts/fixtures/authoredJourney';
 import {seedSpellingLab} from '../scripts/fixtures/spellingEvidenceFirst';
 import {buildSpellingRecallItems} from './learningCycleIngest';
-import {createLearningCycle,getLearningCycle,projectLearningCycle} from './learningCycleRepository';
+import {createLearningCycle,getLearningCycle,projectLearningCycle,repointReusedSetup} from './learningCycleRepository';
+import {validateLetterRushConfig} from './activityEngineConfig';
 import {currentBoardInstance,successorResumeAction} from './learningBoardInstances';
 import {prepareSuccessorBoard} from './canonicalProgressionGenerator';
 import {resolveAdaptiveMathDraftDir} from './adaptiveMathDiscovery';
@@ -180,4 +181,26 @@ it('sends an explainer to the builder instead of re-launching it when its check 
  const node=next.nodes.find(row=>row.title==='Silent Letter Detective Camp')!;
  expect(node.reusedFrom).toBeUndefined();
  expect(node.evidenceContract.nativeConfig).toBeUndefined();
+});
+
+// 2026-10-22 harness catch (self-run kiosk robot): a reused Letter Rush whose activity ID was literally
+// "letter-rush" had its game type rewritten to the new node ID, so the kiosk's config request returned 422
+// and the game said it could not load. The re-point treated every matching string as an identity.
+it('re-points only compound identities, never a bare value that happens to equal the old activity ID',()=>{
+ const items=buildSpellingRecallItems({homeworkId,words,evidenceIds:['school:lab'],measurementRole:'practice',exposure:'practiced',occasionId:'letter-rush'});
+ const config={schemaVersion:1,activityId:'letter-rush',mode:'read-and-race',topic:'Current spelling gaps',domain:'spelling',learningGoal:'Practice missed words',gradeBand:'early_elementary',
+  scaffolds:{showWord:true,letterBank:true,allowRetryBeforeScore:true,companionHints:false},words:words.map(text=>({text})),
+  evidencePolicy:{writesPracticeEvidence:true,writesMasteryEvidence:false,requiresPerTargetResult:true,allowedEvidence:['practice']}};
+ expect(validateLetterRushConfig(config).ok).toBe(true);
+ const source={nodeId:'letter-rush',implementationType:'letter-rush',evidenceContract:{spellingItems:Object.fromEntries(items.map(item=>[item.id,item])),nativeConfig:config}} as any;
+ const fresh=buildSpellingRecallItems({homeworkId,words,evidenceIds:['school:lab'],measurementRole:'practice',exposure:'practiced',occasionId:'b3'});
+ const repointed=repointReusedSetup(source,`${homeworkId}:b3:letter-rush`,fresh)!;
+ expect(repointed.activityId).toBe('letter-rush');
+ expect(validateLetterRushConfig(repointed).ok).toBe(true);
+});
+
+it('does not reuse a setup that its own game would reject',()=>{
+ const items=buildSpellingRecallItems({homeworkId,words,evidenceIds:['school:lab'],measurementRole:'practice',exposure:'practiced',occasionId:'letter-rush'});
+ const source={nodeId:'old-rush',implementationType:'letter-rush',evidenceContract:{spellingItems:Object.fromEntries(items.map(item=>[item.id,item])),nativeConfig:{schemaVersion:1,activityId:'letter-rush'}}} as any;
+ expect(repointReusedSetup(source,`${homeworkId}:b3:old-rush`,items)).toBeUndefined();
 });
