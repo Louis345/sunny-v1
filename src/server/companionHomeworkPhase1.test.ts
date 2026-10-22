@@ -60,7 +60,7 @@ function provider(chunks: string[] = [], finishReason = "stop", during?: () => v
 async function session() {
   const s: any = {
     ctx: createSessionContext({childName: child, sessionType:"homework", chartChildId:child}),
-    sessionId: "synthetic-session", chartChildId: child, companionPresence: "collapsed", options: {},
+    sessionId: "synthetic-session", chartChildId: child, companionPresence: "collapsed", options: { homeworkId: "hw-phase1" },
     currentBoardSnapshot: null, conversationHistory: [], gamePendingRevision: null,
     setCompanionPresence: vi.fn((state: string) => { s.companionPresence = state; }),
     send: vi.fn(), recordDebugEvent: vi.fn(), recordDebugError: vi.fn(), recordDebugTranscript: vi.fn(),
@@ -91,6 +91,10 @@ describe("one factual homework turn path", () => {
     if (process.env.SUNNY_PHASE1_REQUEST_CAPTURE) fs.writeFileSync(process.env.SUNNY_PHASE1_REQUEST_CAPTURE,
       JSON.stringify({messages: request.messages, tools:Object.fromEntries(Object.entries(request.tools).map(([name,t]:[string,any])=>[name,{description:t.description,inputSchema:z.toJSONSchema(t.inputSchema,{unrepresentable:"any"})}]))},null,2));
     expect(text).not.toMatch(/Session Phase|Learning State|Wilson|Reading Profile|Today's Focus Words|Available teaching games|Available reward games|companion-driven/i);
+    // 2026-10-22: the old canvas tracker said "Active activity: none" during board activities. On a board the
+    // kiosk's screen report is the only description of the screen.
+    expect(text).not.toContain("[Canvas State]");
+    expect(text).toContain("[Screen:");
     for (const name of ["canvasShow", "canvasClear", "launchGame", "sessionLog"]) expect(request.tools).not.toHaveProperty(name);
     expect(request.messages.at(-1).content).toContain("[Runtime context — not child speech]");
     expect(text).toContain("The demo likes drawing.");

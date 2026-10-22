@@ -129,8 +129,9 @@ export function isIndependentEvaluationPlan(planId: string | null | undefined): 
   return Boolean(activePlanId?.startsWith("discovery:") || activePlanId?.startsWith("probe-board:"));
 }
 
+/** Arrival is an event, not a screen description: what the child sees comes only from the kiosk's screen report. */
 export function buildContextStartGreeting(_context: any): string {
-  return "[System event: board arrival, not child speech] The board is available. No activity has been selected. The child has just arrived.";
+  return "[System event: the child arrived, not child speech]";
 }
 
 export async function deliverInteractiveCompanionOpening(

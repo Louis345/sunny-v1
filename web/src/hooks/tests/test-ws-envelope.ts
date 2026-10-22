@@ -243,6 +243,32 @@ describe("WS envelope vs canvas payload type", () => {
     expect(wsInstances).toHaveLength(4);
   });
 
+  // 2026-10-22 human catch: Elli described an evaluation while the kiosk showed "Planning your map"; screen
+  // updates sent before the session opened, or before a reconnect, were lost. The kiosk keeps its latest
+  // screen report and sends it whenever Sunny confirms the session, so the server never runs on a guess.
+  it("sends the latest screen report once the session is confirmed, and again after every reconnect", async () => {
+    vi.useFakeTimers();
+    const { result } = renderHook(() => useSession());
+    act(() => result.current.startSession("ila", { homeworkId: "hw-math-1" }));
+    await act(async () => { await vi.advanceTimersByTimeAsync(150); });
+    const reports = (ws: (typeof wsInstances)[number]) => ws.send.mock.calls.map(([raw]) => JSON.parse(String(raw))).filter(message => message.type === "screen_report").map(message => message.report);
+    act(() => result.current.reportScreen({ screen: "waiting", boardId: "b1" }));
+    act(() => result.current.reportScreen({ screen: "board", boardId: "b1" }));
+    expect(reports(wsInstances[0]!)).toEqual([]);
+    act(() => wsInstances[0]!.onmessage?.({ data: JSON.stringify({ type: "session_started", child: "Ila" }) } as MessageEvent));
+    await act(async () => { await Promise.resolve(); });
+    expect(reports(wsInstances[0]!)).toEqual([{ screen: "board", boardId: "b1" }]);
+    act(() => result.current.reportScreen({ screen: "activity", boardId: "b1", nodeId: "radar" }));
+    expect(reports(wsInstances[0]!).at(-1)).toEqual({ screen: "activity", boardId: "b1", nodeId: "radar" });
+    act(() => { wsInstances[0]!.readyState = 3; wsInstances[0]!.onclose?.(); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(1200); });
+    const reconnected = wsInstances.at(-1)!;
+    expect(reconnected).not.toBe(wsInstances[0]);
+    act(() => reconnected.onmessage?.({ data: JSON.stringify({ type: "session_started", child: "Ila" }) } as MessageEvent));
+    await act(async () => { await Promise.resolve(); });
+    expect(reports(reconnected)).toEqual([{ screen: "activity", boardId: "b1", nodeId: "radar" }]);
+  });
+
   // 2026-10-21 human catch (demo copy of Ila): a failed post-session memory save arrived as a plain server
   // error, the kiosk treated every unlabeled error as fatal, and Saori lost the whole board to "Sunny lost
   // the connection" while the connection was fine. Logs showed "Post-session processing failed"; no lab

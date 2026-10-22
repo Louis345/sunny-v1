@@ -25,7 +25,7 @@ describe("homework context greeting", () => {
 
     expect(spokenContexts).toHaveLength(1);
     expect(spokenContexts[0]).toContain("not child speech");
-    expect(spokenContexts[0]).toContain("The child has just arrived");
+    expect(spokenContexts[0]).toContain("the child arrived");
     expect(spokenContexts[0]).not.toMatch(/brief hello|choose what|Silent Letters/);
     expect(spokenContexts[0]).not.toMatch(/say ["“]|sentence limit|word limit/i);
   });
@@ -65,7 +65,7 @@ describe("homework context greeting", () => {
       nodes: [{ locked: false, targetLane: "multiplication_fluency", words: ["5 x 2"] }],
     });
     expect(greeting).not.toContain("Multiplication Fluency");
-    expect(greeting).toContain("[System event: board arrival, not child speech]");
+    expect(greeting).toContain("[System event: the child arrived, not child speech]");
     expect(greeting).not.toContain("Want to try it?");
   });
 
@@ -106,7 +106,8 @@ describe("homework context greeting", () => {
 
   it("keeps a sparse board arrival factual without an agenda", () => {
     const greeting = buildContextStartGreeting({ nodes: [{ locked: false }] });
-    expect(greeting).toContain("The board is available. No activity has been selected.");
+    // The screen is described only by the kiosk's screen report, never by the arrival event.
+    expect(greeting).not.toMatch(/board is available|no activity has been selected/i);
     expect(greeting).not.toContain("A brief hello is enough");
   });
 });

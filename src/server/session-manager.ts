@@ -98,6 +98,7 @@ import {
   findCompanionTruthContradictions,
   type CurrentBoardSnapshot,
 } from "./currentBoardSnapshot";
+import { normalizeScreenReport, type ScreenReport } from "./screenReport";
 import { compressGameScreenshotBase64 } from "./compressGameScreenshot";
 import { REWARD_CHARACTER_SVG } from "./canvas/registry";
 import { canvasStatePersistsThroughBargeIn } from "../shared/canvasRenderability";
@@ -196,6 +197,8 @@ export class SessionManager {
   private mathDiscoverySupport?: MathDiscoverySupportState;
   private mathDiscoverySupportHistory = new Map<string, MathDiscoverySupportState>();
   private currentBoardSnapshot: CurrentBoardSnapshot | null = null;
+  /** The kiosk's latest report of what the child sees; the only screen description Elli receives. */
+  private screenReport: ScreenReport | null = null;
   private pronunciationStruggleSignals = new Set<string>();
   private lastInstructionReadRequestKey: string | null = null;
   private pendingGameNarrationPlayback: Record<string, unknown> | null = null;
@@ -934,8 +937,20 @@ export class SessionManager {
     this.updateCurrentBoardSnapshot(state);
   }
 
+  public updateScreenReport(raw: unknown): void {
+    const report = normalizeScreenReport(raw);
+    if (!report) {
+      console.warn(" 🎮 [screen] [report] [rejected] malformed");
+      return;
+    }
+    this.screenReport = report;
+    console.log(` 🎮 [screen] [report] [received] screen=${report.screen} board=${report.boardId ?? "none"} node=${report.nodeId ?? "none"}`);
+  }
+
   public buildCurrentBoardContextForTurn(childSpeech?: string): string {
     return buildActivityCompanionContext({
+      // The homework board kiosk reports its screen; only there does the report decide what Elli is told.
+      ...(this.options?.homeworkId ? { screenReport: this.screenReport ?? null } : {}),
       snapshot: this.currentBoardSnapshot,
       childSpeech, speechRate: this.ttsBridge?.getSpeechRate?.(speechScopeFor(this.currentBoardSnapshot)),
       childId: this.chartChildId,

@@ -318,6 +318,12 @@ export function handleWsConnection(
         break;
       }
 
+      case "screen_report": {
+        if (!session) return;
+        session.updateScreenReport((msg as { report?: unknown }).report);
+        break;
+      }
+
       case "game_state_update": {
         if (!session) return;
         const { type, ...payload } = msg as Record<string, unknown>;

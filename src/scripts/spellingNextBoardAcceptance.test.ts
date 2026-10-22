@@ -19,6 +19,7 @@ import { currentBoardInstance } from "../engine/learningBoardInstances";
 import { seedSpellingLab, writeSpellingPdfFixture, recordedAdaptiveSpellingPlan, recordedSpellingDiagnostic } from "./fixtures/spellingEvidenceFirst";
 import { COMPANION_DEFAULTS } from "../shared/companionTypes";
 import { handleWsConnection } from "../server/ws-handler";
+import { getActiveVoiceSessionManagerForChild } from "../server/voice-session-registry";
 
 // 2026-10-21 human catch: every fix today passed its own tests, yet each real session on the kiosk Mac
 // found the next failure (a rejected canvas, a frozen board, AI rebuilds of reused games, an explainer
@@ -87,7 +88,7 @@ it("plays Discovery, the Teaching board and a reused next board through the real
   const server = app.listen(0, "127.0.0.1"); await new Promise<void>(resolve => server.once("listening", resolve));
   const address = server.address(); if (!address || typeof address === "string") throw new Error("lab_address_missing");
   const ws = new WebSocketServer({ server, path: "/ws" });
-  const errors: string[] = [], events: string[] = [], serverErrors: unknown[] = [], wordAdvanceMs: number[] = [];
+  const errors: string[] = [], events: string[] = [], serverErrors: unknown[] = [], wordAdvanceMs: number[] = [], screenChecks: string[] = [];
   let confirmedPlayback = 0;
   ws.on("connection", (socket, request) => {
     const observed = socket as any, productionSend = observed.send.bind(socket);
@@ -175,6 +176,14 @@ it("plays Discovery, the Teaching board and a reused next board through the real
       }
       await page.getByTestId("post-activity-engagement-overlay").getByRole("button", { name: "Back to map", exact: true }).click();
     };
+    // What Elli would be told about the screen right now: her real per-turn builder on the live session.
+    const elliScreen = () => {
+      const live = getActiveVoiceSessionManagerForChild(childId) as { buildCurrentBoardContextForTurn?: () => string } | undefined;
+      const context = live?.buildCurrentBoardContextForTurn?.() ?? "";
+      const start = context.indexOf("[Screen:");
+      return start < 0 ? "" : context.slice(start);
+    };
+    const elliSeesScreen = async (expected: RegExp) => { await expect.poll(elliScreen, { timeout: 10000 }).toMatch(expected); screenChecks.push(elliScreen()); };
     const enterBoard = async () => {
       const enter = page.getByRole("button", { name: "Let's go!", exact: true }), board = page.locator(".adventure-board");
       await enter.or(board).first().waitFor({ timeout: 45000 });
@@ -184,12 +193,18 @@ it("plays Discovery, the Teaching board and a reused next board through the real
     // Teaching board: the Speed route, then the final check.
     await enterBoard();
     const teaching = currentBoardInstance(getLearningCycle(childId, homeworkId, { rootDir })!);
+    await elliSeesScreen(/The board is showing[^]*No activity is open/);
     await page.getByRole("button", { name: "Choose your path", exact: true }).click();
     await page.getByRole("dialog").getByRole("button", { name: /Speed It/ }).click();
     await playRadar(missedWords, false);
     await page.getByTestId("post-activity-engagement-overlay").getByRole("button", { name: "Back to map", exact: true }).click();
     await playLetterRush("Letter Rush", missedWords);
     await page.getByRole("button", { name: "Recall Checkpoint", exact: true }).click();
+    await page.getByText(`Word 1 of ${words.length}`, { exact: true }).waitFor();
+    await elliSeesScreen(/Recall Checkpoint is open[^]*Current node: recall-checkpoint/);
+    // A dropped connection mid-activity: the kiosk reconnects and re-reports, so Elli still sees the open activity.
+    ws.clients.forEach(socket => socket.terminate());
+    await elliSeesScreen(/Recall Checkpoint is open/);
     await playRadar(words, true);
     await page.getByTestId("post-activity-engagement-overlay").getByRole("button", { name: "Play again", exact: true }).waitFor();
     await noModal();
@@ -202,11 +217,18 @@ it("plays Discovery, the Teaching board and a reused next board through the real
     const nextNodes = next.nodes.filter(node => nextBoard.nodeIds.includes(node.nodeId));
     expect(nextNodes.map(node => node.reusedFrom)).toEqual(["recall-practice", "letter-rush", "recall-checkpoint"]);
     expect(nextNodes.every(node => node.artifactBinding?.validationStatus === "passed" && !node.notReadyReason)).toBe(true);
-    // The robot plays the reused board in the real kiosk.
+    // Without a reload, the kiosk learns by itself that the next board is published and says so truthfully;
+    // by contract the new board opens at the child's next visit, never mid-session.
+    const label = (source: string) => nextBoard.definition!.portals.find(portal => portal.activityNodeId === nextNodes.find(node => node.reusedFrom === source)!.nodeId)!.label;
+    await page.getByTestId("post-activity-engagement-overlay").getByRole("button", { name: "Back to map", exact: true }).click();
+    await page.getByText("Your next adventure is ready for your next visit", { exact: false }).waitFor({ timeout: 30000 });
+    await elliSeesScreen(/The board is showing[^]*No activity is open\.\nThe next board is ready for the next visit\./);
+    // The next visit: the published board opens with Let's go, never a stale "Planning your map".
     await page.reload();
     await enterBoard();
-    // Each spot shows the label the Planner authored on the published board.
-    const label = (source: string) => nextBoard.definition!.portals.find(portal => portal.activityNodeId === nextNodes.find(node => node.reusedFrom === source)!.nodeId)!.label;
+    expect(await page.getByText("Planning your map", { exact: true }).count()).toBe(0);
+    await page.getByRole("button", { name: label("recall-practice"), exact: true }).waitFor();
+    await elliSeesScreen(/The board is showing[^]*No activity is open/);
     await page.getByRole("button", { name: label("recall-practice"), exact: true }).click();
     await playRadar(missedWords, false);
     await page.getByTestId("post-activity-engagement-overlay").getByRole("button", { name: "Back to map", exact: true }).click();
@@ -228,6 +250,11 @@ it("plays Discovery, the Teaching board and a reused next board through the real
     expect(serverErrors.filter((message: any) => message.fatal === true)).toEqual([]);
     expect(lab.voiceRequests.length).toBeGreaterThan(0);
     for(const request of lab.voiceRequests) for(const name of ["canvasShow","canvasClear","launchGame","sessionLog"]) expect(request.tools).not.toHaveProperty(name);
+    for (const request of lab.voiceRequests) {
+      const text = JSON.stringify(request.messages);
+      expect(text).toContain("[Screen:");
+      expect(text).not.toMatch(/Independent evaluation is ready|board is available|No activity has been selected|\[Canvas State\]/);
+    }
     expect(errors).toEqual([]);
     await page.screenshot({ path: path.join(outputDir, "next-board-complete.png") });
   } finally {
@@ -236,7 +263,7 @@ it("plays Discovery, the Teaching board and a reused next board through the real
       if (page) {
         // A diagnostic failure must not replace the actual acceptance failure or skip cleanup.
         await page.screenshot({ path: path.join(outputDir, "last-state.png") }).catch(error => console.warn("robot diagnostic screenshot failed:", error));
-        fs.writeFileSync(path.join(outputDir, "diagnostic.json"), JSON.stringify({ wordAdvanceMs, events, errors, serverErrors, decisions: lab.decisions, builderCalls: lab.builderCalls, body: await page.locator("body").innerText(), cycle: getLearningCycle(childId, homeworkId, { rootDir }) }));
+        fs.writeFileSync(path.join(outputDir, "diagnostic.json"), JSON.stringify({ screenChecks, wordAdvanceMs, events, errors, serverErrors, decisions: lab.decisions, builderCalls: lab.builderCalls, body: await page.locator("body").innerText(), cycle: getLearningCycle(childId, homeworkId, { rootDir }) }));
       }
       await browser.close();
     }

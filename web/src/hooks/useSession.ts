@@ -546,6 +546,9 @@ export function useSession(options?: UseSessionOptions) {
   setStateRef.current = setState;
 
   const sendMessageRef = useRef<(type: string, payload?: Record<string, unknown>) => void>(() => {});
+  // The kiosk's latest report of what the child sees; sent only to a confirmed session, and again after reconnects.
+  const latestScreenReportRef = useRef<Record<string, unknown> | null>(null);
+  const screenSessionConfirmedRef = useRef(false);
   const startMicRef = useRef<() => void>(() => {});
   const stopMicRef = useRef<() => void>(() => {});
   const adventureGameIframeSourceRef = useRef(options?.adventureGameIframeRef ?? null);
@@ -609,6 +612,13 @@ export function useSession(options?: UseSessionOptions) {
   }, []);
 
   sendMessageRef.current = sendMessage;
+
+  const reportScreen = useCallback((report: Record<string, unknown>) => {
+    latestScreenReportRef.current = report;
+    if (!screenSessionConfirmedRef.current || wsRef.current?.readyState !== WebSocket.OPEN) return;
+    wsRef.current.send(JSON.stringify({ type: "screen_report", report }));
+    console.log(` 🎮 [screen] [report] [sent] screen=${String(report.screen)}`);
+  }, []);
   finalizePlaybackRef.current = () => {
     if (!serverDoneRef.current) return;
     if (isPlayingRef.current) return;
@@ -681,6 +691,7 @@ export function useSession(options?: UseSessionOptions) {
       return;
     }
     const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+    screenSessionConfirmedRef.current = false;
     const ws = new WebSocket(`${protocol}//${window.location.host}/ws`);
     wsRef.current = ws;
 
@@ -828,6 +839,11 @@ export function useSession(options?: UseSessionOptions) {
 
       case "session_started": {
         reconnectHandshakePendingRef.current = false;
+        screenSessionConfirmedRef.current = true;
+        if (latestScreenReportRef.current && wsRef.current?.readyState === WebSocket.OPEN) {
+          wsRef.current.send(JSON.stringify({ type: "screen_report", report: latestScreenReportRef.current }));
+          console.log(` 🎮 [screen] [report] [resent] screen=${String(latestScreenReportRef.current.screen)}`);
+        }
         {
           // A Hear word tap made while reconnecting is resent now that Sunny is back.
           const held = actionOutboxRef.current.take();
@@ -2215,6 +2231,7 @@ export function useSession(options?: UseSessionOptions) {
     submitWorksheetAnswer,
     handleOverlayFieldChange,
     sendMessage,
+    reportScreen,
     micMuted,
     toggleMicMute,
     companionSpeechMuted,

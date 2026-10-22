@@ -7,6 +7,7 @@ import { runAgent } from "../agents/elli/run";
 import type { ModelMessage } from "ai";
 import { buildCanvasContext } from "../agents/prompts";
 import { buildCanvasContextMessage } from "./session-context";
+import { shouldUseAdventureMapVoiceSlimToolkit } from "../utils/adventureMapAgentPolicy";
 import { isDiagMapMode } from "../utils/runtimeMode";
 import { auditLog } from "./audit-log";
 import { getTool } from "./games/registry";
@@ -177,8 +178,10 @@ export async function runCompanionResponseForSession(
       // Prepend display state context so the AI always knows what is currently
       // shown — prevents duplicate showCanvas calls and enables intelligent
       // decisions about whether to update or hold the current display.
+      // On a board, the kiosk's screen report is the only description of the screen (no canvas tracker).
       const skipLiveDisplayContext =
-        isDiagMapMode() || session.ctx?.sessionType === "diag";
+        isDiagMapMode() || session.ctx?.sessionType === "diag"
+        || Boolean(session.ctx && shouldUseAdventureMapVoiceSlimToolkit({ worksheetMode: session.ctx.sessionType === "worksheet", sessionType: session.ctx.sessionType }));
       const canvasCtx = skipLiveDisplayContext
         ? ""
         : session.ctx

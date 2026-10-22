@@ -9,17 +9,22 @@ import { useAdventurePreparation } from "./useAdventurePreparation";
 
 export type PreparationSurface = "chapter" | "held" | null;
 
+/** The waiting screen's own words and real progress, as reported to Elli. */
+export type PreparationWaitingReport = { step: string; detail: string; ready: number; total: number };
+
 /** Spelling only: right after Discovery or a next-session map still building. */
 export function resolvePreparationSurface(input: {
   packet: ChildExperiencePacket | null;
   directDiscoveryMode: boolean;
   handoff: string | null | undefined;
   held: boolean;
+  /** The server reports the board published; a published board is never held behind the waiting screen. */
+  published?: boolean;
   preview: boolean;
 }): PreparationSurface {
   if (input.preview || input.packet?.activeSessionPlan?.domain !== "spelling") return null;
   if (input.directDiscoveryMode) return input.handoff === "targeted-planning" ? "chapter" : null;
-  return input.held ? "held" : null;
+  return input.held && !input.published ? "held" : null;
 }
 
 export function preparationWords(packet: ChildExperiencePacket | null): string[] {
@@ -45,7 +50,7 @@ export function useAppAdventurePreparation(input: {
   checkNow: () => void;
   onFinish: () => void;
   sendMessage: (type: string, payload?: Record<string, unknown>) => void;
-}): { screen: ReactNode | null } {
+}): { screen: ReactNode | null; waiting: PreparationWaitingReport | null } {
   const scope = `${input.childId ?? ""}:${input.homeworkId ?? ""}`;
   const [modeByScope, setModeByScope] = useState<{ scope: string; mode: PreparationMode } | null>(null);
   useEffect(() => {
@@ -114,48 +119,24 @@ export function useAppAdventurePreparation(input: {
   const contextLine = ctx?.line ?? "";
   const contextReady = ctx?.ready ?? 0;
   const contextTotal = ctx?.total ?? 0;
-  const contextReviewed = ctx?.reviewed.length ?? 0;
-  const contextReviewTotal = ctx?.reviewTotal ?? 0;
-  const contextActivityTypes = ctx?.stops.map(stop => stop.activityType).join("|") ?? "";
   const finishedBuilding = input.surface === null && contextTotal > 0 && contextReady >= contextTotal;
   const elapsedLabel = preparationElapsedLabel(input.status?.startedAt, now, finishedBuilding);
   const visible = Boolean(snapshot) && revealedScope !== scope && (mode === "chapter" || input.surface === "held" || state === "ready" || state === "stop");
 
-  // Keep Elli grounded in the same visual state the child can see. The screen
-  // stays quiet; this snapshot lets Elli answer naturally only when addressed.
-  useEffect(() => {
-    if (!visible || !active || !state || !ctx) return;
-    const countLine = contextTotal > 0 ? `${contextReady} of ${contextTotal} map activities ready.` : null;
-    const screenText = [
-      contextLine,
-      countLine,
+  // What the waiting screen shows, for the kiosk's one screen report to Elli (never a separate message).
+  // Elapsed time and "remaining time is not known" keep her from inventing completion estimates.
+  const waiting: PreparationWaitingReport | null = visible && active && state && ctx ? {
+    step: contextLine,
+    detail: [
+      contextTotal > 0 ? `${contextReady} of ${contextTotal} map activities ready.` : null,
       elapsedLabel ? `Elapsed: ${elapsedLabel}.` : null,
       finishedBuilding ? null : "Remaining time is not known.",
-    ].filter((line): line is string => Boolean(line));
-    console.log(` 🎮 [adventure-preparation] [state-context] [sent] phase=${state} ready=${contextReady}/${contextTotal}`);
-    sendMessage("game_event", {
-      event: {
-        type: "game_state_update",
-        payload: {
-          game: "adventure-preparation",
-          childId: childId ?? "unknown",
-          phase: state,
-          boardState: input.status?.phase ?? "preparing",
-          progress: contextLine,
-          screenText,
-          ready: contextReady,
-          total: contextTotal,
-          reviewed: contextReviewed,
-          reviewTotal: contextReviewTotal,
-          activityTypes: contextActivityTypes ? contextActivityTypes.split("|") : [],
-          elapsedLabel,
-          remainingTimeKnown: finishedBuilding,
-        },
-      },
-    });
-  }, [visible, active, childId, contextActivityTypes, contextLine, contextReady, contextReviewed, contextReviewTotal, contextTotal, elapsedLabel, finishedBuilding, input.status?.phase, sendMessage, state]); // eslint-disable-line react-hooks/exhaustive-deps
+    ].filter(Boolean).join(" "),
+    ready: contextReady,
+    total: contextTotal,
+  } : null;
 
-  if (!visible || !snapshot || !state || !ctx) return { screen: null };
+  if (!visible || !snapshot || !state || !ctx) return { screen: null, waiting: null };
   return {
     screen: (
       <div className="h-screen w-screen">
@@ -170,5 +151,6 @@ export function useAppAdventurePreparation(input: {
         />
       </div>
     ),
+    waiting,
   };
 }
