@@ -15,6 +15,7 @@ Sunny is a voice-first learning companion for two girls, Reina and Ila, running 
 3. **No silent failures [Law 4].** Every promise is handled and every intentional ignore is logged.
 4. **Prove it in the log [Law 5].** Significant state changes log as ` 🎮 [component] [action] [result]`.
 5. **Prove it before handing over [Law 7].** `npm run build` and the relevant tests must pass. Say plainly what was and was not verified, including what only a real session on Saori can prove.
+6. **Treat the disease, not the symptom [Law 15]. Diagnose broadly, change narrowly.** Name the class of failure, not just this instance (for example "two copies of the same truth", or "a downstream check can veto the Planner"). Prove it with runtime evidence (a captured request, a robot run, logs, saved state), never from reading code alone. Cure it at the single narrowest point where it can be removed for good, preferring deletion and one source of truth over a new layer; one disease per change, and a cure larger than two files needs an approved plan (rule 2). Add an invariant test that fails if the whole class returns. A patch is allowed only when a child is waiting: it must be labelled as a patch, degrade safely, and link the root-cause ticket.
 
 ## Planner is the artist; the board is the canvas
 
