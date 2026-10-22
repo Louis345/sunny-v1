@@ -41,3 +41,20 @@ Full suites run in a disposable copy with synthetic protected-child fixtures, bl
 Live demo acceptance: first open, brief hello or quiet without personal-question/recap/agenda; short useful requested help; a fuller requested explanation; board completion and successor publication; human judgment that Elli is not annoying. Capture the exact initial request privately. Stop on a failed opening, retain evidence, and do not retry a paid response to seek a better sample.
 
 Remaining backlog is unchanged: silence/presence policy, automatic thinking animations, existing activity narration and non-board tutor behavior require separate evidence and approval. This change does not promise those paths are free of scripted policy.
+
+## Execution result — 2026-10-22
+
+Application commit: `74ca3aba` on `test/elli-and-feedback-loop` (PR #25).
+
+- Build passed in implementation worktree and demo checkout. Handwritten production delta: 76 added / 81 removed, net **−5 lines**. Test/evidence additions are separate.
+- 65 focused tests passed, including real provider conversion with intercepted fetch, context-root isolation, quiet/failure behavior, internal-event provenance and requested help during narration.
+- Full web suite passed: **1,039 / 1,039**.
+- Full root suite was attempted in the isolated synthetic copy and interrupted after the clean robot failure under the owner's stop-on-surprise rule; **no full-root pass is claimed**. The copied harness also emitted missing-Git-metadata warnings. It needs a proper isolated repository fixture for a complete rerun.
+- Independent source review found provider-role and narration-help defects before acceptance; both were corrected and regression tested. Final source review reported no remaining concrete blocker, while explicitly reserving robot and human acceptance.
+- The first canonical baseline robot timed out waiting for its last word. A later run waited for an intermediate CTA although the board was already visible; the lab now accepts that CTA or the actual board and keeps subsequent lifecycle/play/evidence assertions. Voice requests use a recorded quiet provider result, with actual assembled toolkit exclusion assertions.
+- Another run published a reused successor, then lost Letter Rush because a concurrent build rewrote the watched game registry. Vite logged that reload immediately before disconnection. That was test orchestration interference, not evidence of a Letter Rush defect. Its partial results do not establish full loop success.
+- **Clean rerun failed** after Discovery and initial Teaching activities: the first hidden checkpoint word was generated locally, but the browser playback acknowledgement did not increment (10 → expected 11). No fatal modal, server error or page error was captured. Cause remains unproven. Its diagnostic screenshot timed out; any earlier screenshot is not current evidence. No assertions were relaxed and no production activity code was changed to hide this result.
+- **Live launch held.** The old demo kiosk was closed and the demo checkout was staged/built at the application commit, preserving local configuration/data. A fresh kiosk was not launched and no human acceptance is claimed. No re-ingestion, recovery, real-chart replay, paid retry, provider purchase, merge or ship command occurred.
+- Protected real child folder fingerprints remained identical (475 and 144 files respectively).
+
+Next required evidence: correlate the checkpoint narration request with client audio receipt, playback terminal/ack and item transition. Establish the audio failure's responsible layer before another fix or claiming the full loop is ready. Once the lab passes, capture the exact first demo arrival request privately and let the owner judge the opening. Do not use repeated paid openings to select a favorable sample.
