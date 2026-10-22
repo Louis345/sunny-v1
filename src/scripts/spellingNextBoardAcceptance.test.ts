@@ -80,7 +80,7 @@ it("plays Discovery, the Teaching board and a reused next board through the real
   const server = app.listen(0, "127.0.0.1"); await new Promise<void>(resolve => server.once("listening", resolve));
   const address = server.address(); if (!address || typeof address === "string") throw new Error("lab_address_missing");
   const ws = new WebSocketServer({ server, path: "/ws" });
-  const errors: string[] = [], events: string[] = [], serverErrors: unknown[] = [];
+  const errors: string[] = [], events: string[] = [], serverErrors: unknown[] = [], wordAdvanceMs: number[] = [];
   let confirmedPlayback = 0;
   ws.on("connection", (socket, request) => {
     const observed = socket as any, productionSend = observed.send.bind(socket);
@@ -133,9 +133,19 @@ it("plays Discovery, the Teaching board and a reused next board through the real
       if (!(await firstInput.isVisible())) await ready.click({ timeout: 5000 }).catch(() => events.push("robot:ready-replaced"));
       await firstInput.waitFor();
       for (const [index, word] of targets.entries()) {
+        // A hidden-word check is in step only once its counter shows this word (the proven Discovery pattern).
+        if (hidden) {
+          // Measured, not assumed: how long the child waits for each next word is reported with the run.
+          const waitedFrom = Date.now();
+          await page.getByText(`Word ${index + 1} of ${targets.length}`, { exact: true }).waitFor({ timeout: 30000 });
+          wordAdvanceMs.push(Date.now() - waitedFrom);
+          await hearAndSpell(word);
+          continue;
+        }
         const input = page.getByTestId("word-radar-input");
         await input.waitFor();
-        if (hidden) await hearAndSpell(word); else { await input.fill(word); await input.waitFor({ state: "hidden" }); }
+        await input.fill(word);
+        await input.waitFor({ state: "hidden" });
         if (index < targets.length - 1) await page.getByTestId("word-radar-input").waitFor();
       }
     };
@@ -216,7 +226,7 @@ it("plays Discovery, the Teaching board and a reused next board through the real
       const page = browser.contexts()[0]?.pages()[0];
       if (page) {
         await page.screenshot({ path: path.join(outputDir, "last-state.png") });
-        fs.writeFileSync(path.join(outputDir, "diagnostic.json"), JSON.stringify({ events, errors, serverErrors, decisions: lab.decisions, builderCalls: lab.builderCalls, body: await page.locator("body").innerText(), cycle: getLearningCycle(childId, homeworkId, { rootDir }) }));
+        fs.writeFileSync(path.join(outputDir, "diagnostic.json"), JSON.stringify({ wordAdvanceMs, events, errors, serverErrors, decisions: lab.decisions, builderCalls: lab.builderCalls, body: await page.locator("body").innerText(), cycle: getLearningCycle(childId, homeworkId, { rootDir }) }));
       }
       await browser.close();
     }
