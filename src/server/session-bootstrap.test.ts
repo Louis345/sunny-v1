@@ -10,7 +10,7 @@ import {
 } from "./session-bootstrap";
 
 describe("homework context greeting", () => {
-  it("gives an automatic board arrival a brief social purpose without scripting Elli's words", async () => {
+  it("supplies board arrival facts without prescribing Elli's response", async () => {
     // Human catch: a single mount turn became a greeting, level display and
     // activity pitch. Healthy audio logs did not identify unwanted initiation;
     // earlier labs checked contextual accuracy but not the purpose of the turn.
@@ -24,8 +24,8 @@ describe("homework context greeting", () => {
     }, greeting);
 
     expect(spokenContexts).toHaveLength(1);
-    expect(spokenContexts[0]).toContain("A brief hello is enough");
-    expect(spokenContexts[0]).toContain("choose what to do next");
+    expect(spokenContexts[0]).toContain("The child has just arrived");
+    expect(spokenContexts[0]).not.toMatch(/brief hello is enough|choose what to do next/i);
     expect(spokenContexts[0]).toContain("Silent Letters");
     expect(spokenContexts[0]).not.toMatch(/say ["“]|sentence limit|word limit/i);
   });
@@ -109,10 +109,11 @@ describe("homework context greeting", () => {
     expect(greeting).not.toContain("Silent Letters");
   });
 
-  it("keeps a sparse board arrival factual with the same brief social purpose", () => {
+  it("keeps a sparse board arrival factual without assigning a social task", () => {
     const greeting = buildContextStartGreeting({ nodes: [{ locked: false }] });
     expect(greeting).toContain("The board is available; no activity has been selected.");
-    expect(greeting).toContain("A brief hello is enough");
+    expect(greeting).toContain("The child has just arrived");
+    expect(greeting).not.toMatch(/brief hello is enough|choose what to do next/i);
   });
 });
 

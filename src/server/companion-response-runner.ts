@@ -19,7 +19,7 @@ import {
 } from "./debug-helpers";
 import { createThinkingEmoteOnFirstToolInStep } from "./companionThinkingEmote";
 import { COMPANION_EXPRESSION_PROMPT, createExpressionTagFilter } from "./companionExpressionTags";
-import { COMPANION_SPOKEN_TURN_PROMPT } from "./companionTurnTaking";
+import { companionTurnPrompt } from "./companionTurnTaking";
 
 /** Project remembered text too: a previous teaching turn must not reveal this check's stimulus. */
 export function protectSpellingModelMessages(messages, snapshot) {
@@ -103,6 +103,7 @@ export async function finalizePendingSessionEnd(session: any): Promise<boolean> 
 export async function runCompanionResponseForSession(
   session: any,
   userMessage: string,
+  options: { arrival?: boolean } = {},
 ): Promise<void> {
     if (deferCompanionUntilNarrationFinishes(session, userMessage)) return;
     session.voiceLatency?.beginResponse();
@@ -131,13 +132,18 @@ export async function runCompanionResponseForSession(
     const abortController = new AbortController();
     session.currentAbort = abortController;
     let fullResponse = "";
+    let finishReason: string | undefined;
     let responseLogged = false;
     session.toolCallsMadeThisTurn = 0;
 
-    // TTS connect and Claude run in parallel — don't serialize the handshake.
-    // Fire-and-forget the TTS connect; it'll be ready by the time the first
-    // sentence flushes from PROCESSING.
-    if (session.ttsBridge) {
+    // Arrival can be silent: open its audio only when Elli chooses spoken text.
+    // Child-addressed replies still connect alongside the model for low latency.
+    let audioStarted = false;
+    const startAudio = () => {
+      if (audioStarted) return;
+      audioStarted = true;
+      if (options.arrival && !session.companionWakeGateEnabled) session.setCompanionPresence("summoned", "voice");
+      if (!session.ttsBridge) return;
       const previousText = session.conversationHistory
         .filter((m) => m.role === "assistant")
         .slice(-3)
@@ -149,7 +155,8 @@ export async function runCompanionResponseForSession(
       session.ttsBridge.connect(previousText || undefined).catch((error: unknown) => {
         session.recordDebugError?.("companion_tts_connect_failed", error);
       });
-    }
+    };
+    if (!options.arrival) startAudio();
 
 
 
@@ -235,7 +242,7 @@ export async function runCompanionResponseForSession(
       }
 
       const thinkingHooks =
-        session.companionBridge
+        session.companionBridge && !options.arrival
           ? createThinkingEmoteOnFirstToolInStep(session.companionBridge)
           : null;
 
@@ -247,6 +254,8 @@ export async function runCompanionResponseForSession(
         );
       });
       const speakChunk = (chunk: string) => {
+        if (options.arrival && !fullResponse.trim() && !chunk.trim()) return;
+        if (options.arrival && !fullResponse.trim() && chunk.trim()) startAudio();
         fullResponse += chunk;
         session.send("response_text", { chunk });
         console.log(
@@ -259,7 +268,8 @@ export async function runCompanionResponseForSession(
         history: protectSpellingModelMessages(historyWithPin, session.currentBoardSnapshot),
         injectedContextMessages: protectSpellingModelMessages(gameContextMessages, session.currentBoardSnapshot),
         userMessage: redactProtectedSpellingText(messageWithContext, session.currentBoardSnapshot),
-        profile: { ...session.companion, systemPrompt: `${redactProtectedSpellingText(session.companion.systemPrompt, session.currentBoardSnapshot)}\n\n${COMPANION_SPOKEN_TURN_PROMPT}\n\n${COMPANION_EXPRESSION_PROMPT}` },
+        profile: { ...session.companion, systemPrompt: `${redactProtectedSpellingText(session.companion.systemPrompt, session.currentBoardSnapshot)}\n\n${companionTurnPrompt(options.arrival)}\n\n${COMPANION_EXPRESSION_PROMPT}` },
+        onFinish: reason => { finishReason = reason; },
         tools: finalTools,
         experimentalOnStepStart: thinkingHooks?.onStepStart,
         experimentalOnToolCallStart: thinkingHooks?.onToolCallStart,
@@ -657,10 +667,13 @@ export async function runCompanionResponseForSession(
       });
 
       if (rejectStaleOutput("completion")) return;
+      if (options.arrival && finishReason !== "stop") {
+        throw new Error(`companion_arrival_incomplete:${finishReason ?? "unknown"}`);
+      }
       const trailing = expressionTags.flush();
       if (trailing) speakChunk(trailing);
 
-      if (!fullResponse.trim() && session.toolCallsMadeThisTurn === 0) {
+      if (!fullResponse.trim() && session.toolCallsMadeThisTurn === 0 && !(options.arrival && finishReason === "stop")) {
         console.warn(
           "  ⚠️  runAgent completed with empty fullResponse — check onToken wiring",
         );
@@ -686,10 +699,14 @@ export async function runCompanionResponseForSession(
       session.inFlightReply = null;
       session.conversationHistory.push(
         { role: "user", content: userMessage },
-        { role: "assistant", content: fullResponse },
+        ...(fullResponse.trim() ? [{ role: "assistant", content: fullResponse }] : []),
       );
-      session.recordDebugTranscript?.("assistant", fullResponse);
-      session.recordCompanionHelpTurn?.(userMessage, fullResponse);
+      if (fullResponse.trim()) session.recordDebugTranscript?.("assistant", fullResponse);
+      if (!options.arrival) session.recordCompanionHelpTurn?.(userMessage, fullResponse);
+      if (options.arrival) {
+        session.recordDebugEvent?.("companion", "arrival_completed", { spoken: Boolean(fullResponse.trim()) });
+        console.log(` 🎮 [companion] [arrival] [completed] spoken=${Boolean(fullResponse.trim())}`);
+      }
 
       if (await finalizePendingSessionEnd(session)) {
         return;
@@ -697,13 +714,18 @@ export async function runCompanionResponseForSession(
 
       if (!fullResponse.trim()) {
         if (rejectStaleOutput("tool_only_completion")) return;
+        const pending = options.arrival ? session.turnSM.consumePendingTranscript() : null;
         const owner = session.ttsBridge?.currentPlaybackIdentity?.();
         const ownsAudio = owner?.requestId === playbackId;
         if (ownsAudio) session.ttsBridge.stop();
         session.turnSM.onSpeakingDone?.();
         session.send("audio_done", {requestId:playbackId,itemId:session.currentBoardSnapshot?.itemId});
         session.applyCompanionDispositionAfterSpeech?.();
-        console.log(" 🎮 [companion] [tool-only-turn] [completed] spoken=false");
+        console.log(` 🎮 [companion] [${options.arrival ? "silent-arrival" : "tool-only-turn"}] [completed] spoken=false`);
+        if (pending && !session.isEnding) {
+          void Promise.resolve().then(() => session.handleEndOfTurn(pending, true)).catch((error: unknown) =>
+            session.recordDebugError?.("arrival_pending_replay_failed", error));
+        }
         return;
       }
 
