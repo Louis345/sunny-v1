@@ -23,7 +23,7 @@ describe("successor readiness is executable availability, not a publication time
     const status = successorPreparationStatus(JSON.parse(before))!;
     expect(status.phase).toBe("needs_attention");
     expect(status.nodes).toHaveLength(5);
-    expect(status.nodes[0]).toMatchObject({ nodeId: "node-0", status: "needs_attention", reason: "successor_node_failed:human_review_required" });
+    expect(status.nodes[0]).toMatchObject({ nodeId: "node-0", status: "not_ready", reason: "successor_node_failed:human_review_required" });
     expect(JSON.stringify(cycle)).toBe(before);
   });
   it("keeps a partially usable authored board published with truthful unavailable siblings", () => {
@@ -31,12 +31,22 @@ describe("successor readiness is executable availability, not a publication time
     expect(status.phase).toBe("successor_published");
     expect(status.nodes).toEqual([
       { nodeId: "node-0", status: "ready" },
-      { nodeId: "node-1", status: "needs_attention", reason: "successor_node_failed:human_review_required" },
+      { nodeId: "node-1", status: "not_ready", reason: "successor_node_failed:human_review_required" },
     ]);
   });
   it("does not call an unverified binding playable", () => {
     const cycle = fixture(["ready"]);
     cycle.nodes[0].artifactBinding!.validationStatus = "failed" as never;
+    expect(successorPreparationStatus(cycle)?.phase).toBe("needs_attention");
+  });
+  it("uses the same unavailable-capability rule as launch and projection", () => {
+    const cycle = fixture(["ready"]);
+    cycle.nodes[0].implementationType = "word-builder";
+    expect(successorPreparationStatus(cycle)?.phase).toBe("needs_attention");
+  });
+  it("does not let an old passed binding override a recorded unavailable reason", () => {
+    const cycle = fixture(["ready"]);
+    cycle.nodes[0].notReadyReason = "retired_activity";
     expect(successorPreparationStatus(cycle)?.phase).toBe("needs_attention");
   });
 });

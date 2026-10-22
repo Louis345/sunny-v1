@@ -26,6 +26,7 @@ import {
   listBoardInstances,
   preparingBoardInstance,
   publishBoardInstance,
+  unavailableActivityReason,
   type LearningBoardInstance,
 } from "./learningBoardInstances";
 
@@ -768,8 +769,7 @@ function agencyNodeIds(experiment: LearningCycleAgencyExperiment): Set<string> {
   ]);
 }
 
-const unavailableActivityReason=(node:LearningCycleRecordV2['nodes'][number])=>nodeActivityType(node)==='word-builder' ? 'activity_unavailable:word-builder' : undefined;
-const notReadyNodeIds=(cycle:LearningCycleRecordV2)=>cycle.nodes.filter(node=>node.notReadyReason || unavailableActivityReason(node)).map(node=>node.nodeId);
+const notReadyNodeIds=(cycle:LearningCycleRecordV2)=>cycle.nodes.filter(node=>unavailableActivityReason(node)).map(node=>node.nodeId);
 export function canonicalJourneyFrontier(cycle:LearningCycleRecordV2) {
   const definition = currentBoardInstance(cycle).definition;
   return definition ? journeyFrontier(definition,cycle.routeSelection?.choices ?? {},cycle.nodes.filter(node=>node.state==='completed').map(node=>node.nodeId),notReadyNodeIds(cycle)) : undefined;

@@ -8,6 +8,12 @@ const status = (phase: string, nodes: Array<[string, string]> = [], extra: Recor
 const types = new Map([["a", "word-radar"], ["b", "letter-rush"]]);
 
 describe("published boards are final (single source: the server's publication)", () => {
+  it("finishes preparation for a usable published board without hiding unavailable siblings", () => {
+    expect(preparationEventsFromStatus(status("successor_published", [["a", "ready"], ["b", "not_ready"]]), types)).toEqual([
+      { type: "PLAN_DONE", stops: [{ activityType: "word-radar" }, { activityType: "letter-rush" }] },
+      { type: "ACTIVITY_READY", n: 2, total: 2, published: true },
+    ]);
+  });
   // 2026-10-22 human catch: the kiosk sat on "Planning your map" with a 1,395-minute timer while the server
   // reported successor_published. Next-board statuses carry no activity list, so no event ever reached the
   // waiting screen, and Not ready spots were read as "still preparing". The lab only modeled first boards.

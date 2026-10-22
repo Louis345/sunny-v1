@@ -28,6 +28,11 @@ export type LearningBoardInstance = {
 
 export type PublishBoardInstanceInput = Omit<LearningBoardInstance, "boardId" | "topologyHash">;
 
+/** Actual capability availability, shared by status, projection and launch. */
+export function unavailableActivityReason(node: LearningCycleNodeContract): string | undefined {
+  return node.notReadyReason ?? (node.implementationType === "word-builder" ? "activity_unavailable:word-builder" : undefined);
+}
+
 function stableJson(value: unknown): string {
   if (Array.isArray(value)) return `[${value.map(stableJson).join(",")}]`;
   if (value && typeof value === "object") {
@@ -249,9 +254,10 @@ export function successorPreparationStatus(cycle: LearningCycleRecordV2): { upda
   // Keep the current chapter stable, but expose actual availability on later visits.
   const nodes = latest.publishedAt === null ? [] : latest.nodeIds.map(nodeId => {
     const node = cycle.nodes.find(candidate => candidate.nodeId === nodeId);
-    const available = node?.artifactBinding?.validationStatus === "passed" && ["ready","active","completed"].includes(node.state);
-    return { nodeId, status: available ? (node!.state === "completed" ? "completed" : "ready") : "needs_attention",
-      ...(!available ? {reason:node?.notReadyReason ?? "successor_activity_unavailable"} : {}) };
+    const reason = node ? unavailableActivityReason(node) : "successor_activity_missing";
+    const available = !reason && node?.artifactBinding?.validationStatus === "passed" && ["ready","active","completed"].includes(node.state);
+    return { nodeId, status: available ? (node!.state === "completed" ? "completed" : "ready") : "not_ready",
+      ...(!available ? {reason:reason ?? "successor_activity_unavailable"} : {}) };
   });
   const attention = latest.publishedAt === null ? cycle.lifecycle === "blocked"
     : !nodes.some(node => node.status === "ready" || node.status === "completed");

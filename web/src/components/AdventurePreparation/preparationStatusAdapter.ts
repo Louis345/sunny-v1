@@ -31,7 +31,7 @@ export function preparationEventsFromStatus(status: GenerationStatus | null, act
   const stops: PreparationStop[] = status.nodes.map(node => ({ activityType: activityTypes.get(node.nodeId) ?? "" }));
   const ready = status.nodes.filter(node => PREPARED.has(node.status)).length;
   const events: PreparationEvent[] = [{ type: "PLAN_DONE", stops }];
-  if (ready > 0) events.push({ type: "ACTIVITY_READY", n: ready, total: stops.length });
+  if (ready > 0) events.push({ type: "ACTIVITY_READY", n: ready, total: stops.length, ...(PUBLISHED.has(status.phase) ? { published: true } : {}) });
   return events;
 }
 
