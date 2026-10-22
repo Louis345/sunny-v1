@@ -138,6 +138,7 @@ export function validateGeneratedGame(
     homeworkType: string;
     childId: string;
     generationStage?: "quest" | "boss" | "baseline";
+    artifactForm?: "refillable-shell" | "self-contained";
   },
 ): GameValidationResult {
   const failures: string[] = [];
@@ -177,7 +178,7 @@ export function validateGeneratedGame(
     }
   }
 
-  if (ctx.generationStage === "baseline") {
+  if (ctx.generationStage === "baseline" && ctx.artifactForm !== "self-contained") {
     const readsConfig =
       /\bconfig\b/i.test(html) &&
       (/\/api\/activity-config\//i.test(html) ||

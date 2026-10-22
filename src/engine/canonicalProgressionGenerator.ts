@@ -115,6 +115,7 @@ async function productionValidate(input: { html: string; node: LearningCycleNode
     homeworkType: input.cycle.domain,
     childId: input.cycle.childId,
     generationStage: stage,
+    artifactForm: "self-contained",
   });
   if (!staticReport.passed) return { passed: false, failures: staticReport.failures };
   const dir = input.cycle.domain === "spelling"
