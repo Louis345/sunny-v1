@@ -25,6 +25,7 @@ import type { ChildName } from "../../utils/childContextPaths";
 import { generateText } from "ai";
 import { anthropic } from "@ai-sdk/anthropic";
 import { INTAKE_PROMPT } from "../prompts";
+import { resolveChildContextDir } from "../../utils/contextRoot";
 
 const INTAKE_DIR = path.resolve(process.cwd(), "src", "intake");
 const SUPPORTED_EXTENSIONS = [".txt", ".md", ".json", ".vtt"];
@@ -94,7 +95,7 @@ async function classifyAndExtract(
 ): Promise<{ type: IngestResult["type"]; destination: IngestResult["destination"]; formatted: string }> {
   const soulFolder = child === "Ila" ? "ila" : "reina";
   const currentSoul = fs.readFileSync(
-    path.resolve(process.cwd(), "src", "context", soulFolder, "soul.md"),
+    path.resolve(resolveChildContextDir(soulFolder), "soul.md"),
     "utf-8",
   );
 
@@ -148,10 +149,7 @@ async function processFile(filePath: string): Promise<IngestResult> {
   const targetFile =
     destination === "soul"
       ? path.resolve(
-          process.cwd(),
-          "src",
-          "context",
-          child === "Ila" ? "ila" : "reina",
+          resolveChildContextDir(child === "Ila" ? "ila" : "reina"),
           "soul.md",
         )
       : resolveContextFilePath(child as ChildName);

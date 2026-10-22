@@ -2878,10 +2878,7 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
       return res.status(400).json({ ok: false, error: "childId required" });
     }
     const pendingPath = path.join(
-      process.cwd(),
-      "src",
-      "context",
-      childId,
+      resolveChildContextDir(childId),
       "homework",
       "pending",
       new Date().toISOString().slice(0, 10),
@@ -3042,10 +3039,7 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
     writeLearningProfile(childId, profile);
 
     const pendingDir = path.join(
-      process.cwd(),
-      "src",
-      "context",
-      childId,
+      resolveChildContextDir(childId),
       "homework",
       "pending",
       date,
@@ -3104,19 +3098,13 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
     const allApproved = profile.pendingHomework.nodes.every((n) => n.approved === true);
     if (allApproved) {
       const pendingDir = path.join(
-        process.cwd(),
-        "src",
-        "context",
-        childId,
+        resolveChildContextDir(childId),
         "homework",
         "pending",
         date,
       );
       const gamesDir = path.join(
-        process.cwd(),
-        "src",
-        "context",
-        childId,
+        resolveChildContextDir(childId),
         "homework",
         "games",
         date,
@@ -3155,10 +3143,7 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
         return res.status(404).json({ ok: false, error: "node not found" });
       }
       const pendingDir = path.join(
-        process.cwd(),
-        "src",
-        "context",
-        childId,
+        resolveChildContextDir(childId),
         "homework",
         "pending",
         date,
@@ -3262,19 +3247,13 @@ Return plain text only.`,
       return res.status(400).json({ error: "Invalid request" });
     }
     const pendingBase = path.resolve(
-      process.cwd(),
-      "src",
-      "context",
-      childId,
+      resolveChildContextDir(childId),
       "homework",
       "pending",
       date,
     );
     const gamesBase = path.resolve(
-      process.cwd(),
-      "src",
-      "context",
-      childId,
+      resolveChildContextDir(childId),
       "homework",
       "games",
       date,
