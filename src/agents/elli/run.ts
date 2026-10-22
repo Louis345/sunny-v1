@@ -81,69 +81,66 @@ export async function runAgent(opts: RunAgentOptions): Promise<string> {
   const effort = supportsEffort(modelId) ? voiceEffort() : undefined;
   if (!effort) console.log(` 🎮 [voice-effort] [skipped] model=${modelId} reason=unsupported`);
 
-  for (let attempt = 0; attempt < 2; attempt++) {
-    let toolCallsInAttempt = 0;
-    const result = streamText({
-      model: anthropic(modelId),
-      messages: [
-        // Cache breakpoint: tools + Elli's long system prompt are reused across turns.
-        {
-          role: "system",
-          content: profile.systemPrompt,
-          providerOptions: { anthropic: { cacheControl: { type: "ephemeral" } } },
-        },
-        ...history.filter(m => typeof m.content !== "string" || m.content.trim().length > 0),
-        ...injected,
-        { role: "user", content: userMessage }
-      ],
-      maxOutputTokens: attempt === 0 ? 1500 : 3000,
-      ...(effort && { providerOptions: { anthropic: { effort } } }),
-      tools: opts.tools ?? buildAgentTools({ allowTransitionToWork }),
-      stopWhen: stepCountIs(8),
-      abortSignal: signal,
-      experimental_onStepStart: experimentalOnStepStart,
-      experimental_onToolCallStart: experimentalOnToolCallStart,
-      onStepFinish: async (step) => {
-        toolCallsInAttempt += step.toolCalls?.length ?? 0;
-        if (onStepFinish) {
-          await onStepFinish(step);
-        }
-        if (!quiet) {
-          console.log(
-            "  🔧 Step finished:",
-            step.finishReason,
-            step.toolCalls?.length ?? 0,
-            "tool calls",
-          );
-          if (step.toolResults) {
-            console.log("  🔧 Tool results:", JSON.stringify(step.toolResults));
-          }
-        }
+  const result = streamText({
+    model: anthropic(modelId),
+    messages: [
+      // Cache breakpoint: tools + Elli's long system prompt are reused across turns.
+      {
+        role: "system",
+        content: profile.systemPrompt,
+        providerOptions: { anthropic: { cacheControl: { type: "ephemeral" } } },
       },
-    });
-
-    // Use fullStream to ensure text deltas reach onToken even when tools/stopWhen
-    // cause textStream to skip chunks on plain-text-only turns.
-    for await (const part of result.fullStream) {
-      if (part.type === "text-delta") {
-        const p = part as { textDelta?: string; text?: string };
-        const text = p.textDelta ?? p.text ?? "";
-        if (text) {
-          fullText += text;
-          onToken(text);
+      ...history.filter(m => typeof m.content !== "string" || m.content.trim().length > 0),
+      ...injected,
+      { role: "user", content: userMessage }
+    ],
+    maxOutputTokens: 1500,
+    maxRetries: 0,
+    ...(effort && { providerOptions: { anthropic: { effort } } }),
+    tools: opts.tools ?? buildAgentTools({ allowTransitionToWork }),
+    stopWhen: stepCountIs(8),
+    abortSignal: signal,
+    experimental_onStepStart: experimentalOnStepStart,
+    experimental_onToolCallStart: experimentalOnToolCallStart,
+    onStepFinish: async (step) => {
+      if (onStepFinish) {
+        await onStepFinish(step);
+      }
+      if (!quiet) {
+        console.log(
+          "  🔧 Step finished:",
+          step.finishReason,
+          step.toolCalls?.length ?? 0,
+          "tool calls",
+        );
+        if (step.toolResults) {
+          console.log("  🔧 Tool results:", JSON.stringify(step.toolResults));
         }
       }
+    },
+  });
+
+  // Use fullStream to ensure text deltas reach onToken even when tools/stopWhen
+  // cause textStream to skip chunks on plain-text-only turns.
+  for await (const part of result.fullStream) {
+    if (part.type === "text-delta") {
+      const p = part as { textDelta?: string; text?: string };
+      const text = p.textDelta ?? p.text ?? "";
+      if (text) {
+        fullText += text;
+        onToken(text);
+      }
     }
-    const finishReason = await result.finishReason;
-    const cache = (await result.usage)?.inputTokenDetails;
-    if (cache) {
-      console.log(
-        ` 🎮 [companion] [prompt-cache] read=${cache.cacheReadTokens ?? 0} created=${cache.cacheWriteTokens ?? 0}`,
-      );
-    }
-    if (finishReason === "length" && fullText.trim()) console.warn(" 🎮 [companion] [output-budget] [exhausted] replyMayBeIncomplete=true");
-    if (fullText.trim() || finishReason !== "length" || toolCallsInAttempt > 0) break;
-    if (attempt === 0) console.warn(" 🎮 [companion] [empty-length-turn] [retrying] budget=3000");
+  }
+  const finishReason = await result.finishReason;
+  const cache = (await result.usage)?.inputTokenDetails;
+  if (cache) {
+    console.log(
+      ` 🎮 [companion] [prompt-cache] read=${cache.cacheReadTokens ?? 0} created=${cache.cacheWriteTokens ?? 0}`,
+    );
+  }
+  if (finishReason !== "stop" && finishReason !== "tool-calls") {
+    throw new Error(`companion_response_incomplete:${finishReason ?? "unknown"}`);
   }
 
   return fullText;

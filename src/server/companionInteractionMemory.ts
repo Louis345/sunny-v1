@@ -74,10 +74,8 @@ export type CompanionMemorySummaryPatch = Pick<
   CompanionCareMemory,
   | "lastSessionSummary"
   | "lastEmotionalMoment"
-  | "reunionLineSeed"
   | "relationshipFacts"
   | "favoriteMoments"
-  | "emotionalTone"
   | "rivalryNote"
   | "companionSelfNotes"
 >;
@@ -248,17 +246,11 @@ function sanitizeMemoryPatch(patch: CompanionMemorySummaryPatch): CompanionMemor
     ...(sanitizeMemoryField(patch.lastEmotionalMoment) && {
       lastEmotionalMoment: sanitizeMemoryField(patch.lastEmotionalMoment),
     }),
-    ...(sanitizeMemoryField(patch.reunionLineSeed) && {
-      reunionLineSeed: sanitizeMemoryField(patch.reunionLineSeed),
-    }),
     ...(sanitizeMemoryList(patch.relationshipFacts) && {
       relationshipFacts: sanitizeMemoryList(patch.relationshipFacts),
     }),
     ...(sanitizeMemoryList(patch.favoriteMoments) && {
       favoriteMoments: sanitizeMemoryList(patch.favoriteMoments),
-    }),
-    ...(sanitizeMemoryField(patch.emotionalTone) && {
-      emotionalTone: sanitizeMemoryField(patch.emotionalTone),
     }),
     ...(sanitizeMemoryField(patch.rivalryNote) && {
       rivalryNote: sanitizeMemoryField(patch.rivalryNote),
@@ -439,7 +431,6 @@ async function summarizeCompanionInteractionsWithHaiku(input: {
           outputShape: {
             lastSessionSummary: "one concise summary",
             lastEmotionalMoment: "one concise emotional moment",
-            reunionLineSeed: "one short line seed for next call",
             rivalryNote:
               "one short line about the games they play, consistent with gameRecord; omit if no games played",
             companionSelfNotes: [
@@ -447,7 +438,6 @@ async function summarizeCompanionInteractionsWithHaiku(input: {
             ],
             relationshipFacts: ["stable facts to remember"],
             favoriteMoments: ["warm moments worth recalling"],
-            emotionalTone: "few words",
           },
         }),
       },
@@ -461,21 +451,17 @@ async function summarizeCompanionInteractionsWithHaiku(input: {
         properties: {
           lastSessionSummary: { type: "string" },
           lastEmotionalMoment: { type: "string" },
-          reunionLineSeed: { type: "string" },
           rivalryNote: { type: "string" },
           companionSelfNotes: { type: "array", maxItems: 3, items: { type: "string" } },
           relationshipFacts: { type: "array", maxItems: 8, items: { type: "string" } },
           favoriteMoments: { type: "array", maxItems: 8, items: { type: "string" } },
-          emotionalTone: { type: "string" },
         },
         required: [
           "lastSessionSummary",
           "lastEmotionalMoment",
-          "reunionLineSeed",
           "companionSelfNotes",
           "relationshipFacts",
           "favoriteMoments",
-          "emotionalTone",
         ],
       },
     }],
@@ -522,12 +508,14 @@ export async function maybeCompactCompanionInteractionMemory(
   }
 
   const summarize = opts.summarize ?? summarizeCompanionInteractionsWithHaiku;
+  // Old records remain intact; prospective dialogue is not evidence for a new summary.
+  const { reunionLineSeed: _seed, emotionalTone: _tone, ...existingMemory } = care.plan.memory;
   const patch = sanitizeMemoryPatch(
     await summarize({
       childId,
       companionId,
       events,
-      existingMemory: care.plan.memory,
+      existingMemory,
     }),
   );
   const latestEvent = events[events.length - 1];

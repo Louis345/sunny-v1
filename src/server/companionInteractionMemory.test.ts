@@ -185,12 +185,12 @@ describe("companion interaction memory", () => {
       lastSessionSummary:
         "Ila met Elli in the showroom, then earned a playful call after a mystery reward.",
       lastEmotionalMoment: "Ila was proud to show a drawing.",
-      reunionLineSeed: "Ask whether Ila wants another brave-color art check.",
       relationshipFacts: ["Ila likes video calls with Elli"],
       favoriteMoments: ["Elli dancing after Ila asked for a move"],
-      emotionalTone: "playful, proud, and connected",
       lastCompanionInteractionCompactedAt: "2026-05-27T12:02:00.000Z",
     });
+    expect(plan.memory.reunionLineSeed).toBeUndefined();
+    expect(plan.memory.emotionalTone).toBeUndefined();
   });
 
   it("ships a dev inspection script for ledger rows and compacted memory", () => {

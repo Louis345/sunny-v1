@@ -332,6 +332,11 @@ export class WsTtsBridge {
   }
 
   async finish(): Promise<void> {
+    // Canvas/game release can finish a short reply before the lazy socket opens.
+    const owner = this.playbackOwner;
+    const socket = this.elevenWs;
+    if (this.connectingPromise) await this.connectingPromise;
+    if (this.playbackOwner !== owner || (socket && this.elevenWs !== socket)) return;
     if (this.stopped) return;
     if (this.flushTimer) {
       clearTimeout(this.flushTimer);

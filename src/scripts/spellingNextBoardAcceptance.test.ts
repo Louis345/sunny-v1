@@ -225,7 +225,8 @@ it("plays Discovery, the Teaching board and a reused next board through the real
     if (browser) {
       const page = browser.contexts()[0]?.pages()[0];
       if (page) {
-        await page.screenshot({ path: path.join(outputDir, "last-state.png") });
+        // A diagnostic failure must not replace the actual acceptance failure or skip cleanup.
+        await page.screenshot({ path: path.join(outputDir, "last-state.png") }).catch(error => console.warn("robot diagnostic screenshot failed:", error));
         fs.writeFileSync(path.join(outputDir, "diagnostic.json"), JSON.stringify({ wordAdvanceMs, events, errors, serverErrors, decisions: lab.decisions, builderCalls: lab.builderCalls, body: await page.locator("body").innerText(), cycle: getLearningCycle(childId, homeworkId, { rootDir }) }));
       }
       await browser.close();

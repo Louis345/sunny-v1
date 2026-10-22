@@ -6,7 +6,7 @@ import type { ModelMessage } from "ai";
 
 export const COMPANION_SPOKEN_TURN_PROMPT = [
   "## How you talk",
-  "This is a live voice conversation with a child who can talk over you. Say one or two short sentences, one idea at a time, then stop so the child can talk.",
+  "Be warm and attentive. Keep ordinary conversation brief and leave room for the child. Expand when useful or requested. Respond meaningfully to direct requests, through speech or an appropriate action.",
   "If the child interrupts, answer what they just said.",
   "Every word you write is spoken aloud: never write private notes or describe the child in the third person.",
 ].join("\n");

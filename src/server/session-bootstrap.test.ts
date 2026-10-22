@@ -10,7 +10,7 @@ import {
 } from "./session-bootstrap";
 
 describe("homework context greeting", () => {
-  it("gives an automatic board arrival a brief social purpose without scripting Elli's words", async () => {
+  it("supplies a source-labelled arrival without a greeting task or lane agenda", async () => {
     // Human catch: a single mount turn became a greeting, level display and
     // activity pitch. Healthy audio logs did not identify unwanted initiation;
     // earlier labs checked contextual accuracy but not the purpose of the turn.
@@ -24,16 +24,16 @@ describe("homework context greeting", () => {
     }, greeting);
 
     expect(spokenContexts).toHaveLength(1);
-    expect(spokenContexts[0]).toContain("A brief hello is enough");
-    expect(spokenContexts[0]).toContain("choose what to do next");
-    expect(spokenContexts[0]).toContain("Silent Letters");
+    expect(spokenContexts[0]).toContain("not child speech");
+    expect(spokenContexts[0]).toContain("The child has just arrived");
+    expect(spokenContexts[0]).not.toMatch(/brief hello|choose what|Silent Letters/);
     expect(spokenContexts[0]).not.toMatch(/say ["“]|sentence limit|word limit/i);
   });
 
   it("supplies evaluation orientation facts without prescribing spoken wording", () => {
     expect(INDEPENDENT_EVALUATION_OPENING).toContain("Tap the speaker");
     expect(INDEPENDENT_EVALUATION_OPENING).toContain("Not sure");
-    expect(INDEPENDENT_EVALUATION_OPENING).toContain("[Session opening context]");
+    expect(INDEPENDENT_EVALUATION_OPENING).toContain("[System event: board arrival, not child speech]");
   });
   it("speaks one answer-neutral orientation without summoning an independent-evaluation companion",async()=>{
     // Human catch: the audio stack was healthy, but the wake gate made the
@@ -69,8 +69,8 @@ describe("homework context greeting", () => {
     const greeting = buildContextStartGreeting({
       nodes: [{ locked: false, targetLane: "multiplication_fluency", words: ["5 x 2"] }],
     });
-    expect(greeting).toContain("Multiplication Fluency");
-    expect(greeting).toContain("[Session opening context]");
+    expect(greeting).not.toContain("Multiplication Fluency");
+    expect(greeting).toContain("[System event: board arrival, not child speech]");
     expect(greeting).not.toContain("Want to try it?");
   });
 
@@ -88,7 +88,7 @@ describe("homework context greeting", () => {
         adventureBoard: { progress: { completedNodeIds: ["start", "discovery"] } },
       },
     });
-    expect(greeting).toContain("Silent Letters");
+    expect(greeting).not.toContain("Silent Letters");
     expect(greeting).not.toContain("Independent Discovery");
   });
 
@@ -105,14 +105,14 @@ describe("homework context greeting", () => {
         ],
       },
     });
-    expect(greeting).toContain("Independent Discovery");
+    expect(greeting).not.toContain("Independent Discovery");
     expect(greeting).not.toContain("Silent Letters");
   });
 
-  it("keeps a sparse board arrival factual with the same brief social purpose", () => {
+  it("keeps a sparse board arrival factual without an agenda", () => {
     const greeting = buildContextStartGreeting({ nodes: [{ locked: false }] });
-    expect(greeting).toContain("The board is available; no activity has been selected.");
-    expect(greeting).toContain("A brief hello is enough");
+    expect(greeting).toContain("The board is available. No activity has been selected.");
+    expect(greeting).not.toContain("A brief hello is enough");
   });
 });
 
