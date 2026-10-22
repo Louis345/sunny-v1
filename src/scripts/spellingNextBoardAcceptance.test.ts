@@ -49,6 +49,9 @@ it("plays Discovery, the Teaching board and a reused next board through the real
   vi.stubEnv("SUNNY_CONTEXT_ROOT", path.join(rootDir, "src/context")); vi.stubEnv("SUNNY_MODE", "real");
   vi.stubEnv("SUNNY_ALLOW_REAL_CHILD_CONTEXT_ROOT", "true");
   vi.stubEnv("ANTHROPIC_API_KEY", ""); vi.stubEnv("OPENAI_API_KEY", "");
+  // 2026-10-22 kiosk-Mac catch: the robot inherited SUNNY_CHART_DIR from the kiosk shell and switched into real-chart
+  // intake (planner_model_required). It must never depend on, or write to, the machine's real data settings.
+  for (const name of ["SUNNY_CHART_DIR", "SUNNY_PREVIEW_MODE", "SUNNY_CERTIFICATION_RUN_ID", "SUNNY_ACTIVITY_RESULT_LOG_ROOT", "SUNNY_LOG_REPO_DIR", "SUNNY_IMAGE_CACHE_PATH"]) vi.stubEnv(name, "");
   vi.stubEnv("ADVENTURE_MAP", "true");
   vi.stubEnv("SUNNY_RUNTIME_CONFIG", JSON.stringify({ subject: "homework", sessionMode: "real", previewMode: "off", nodeAccess: "normal", voiceMode: "normal", childId, homeworkDomain: "spelling" }));
   vi.stubEnv("VITE_SUNNY_RUNTIME_CONFIG", JSON.stringify({ subject: "homework", sessionMode: "real", previewMode: "off", nodeAccess: "normal", voiceMode: "normal", childId, homeworkDomain: "spelling" }));
