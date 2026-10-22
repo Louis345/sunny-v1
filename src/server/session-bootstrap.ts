@@ -26,6 +26,7 @@ import {
 } from "../agents/psychologist/psychologist";
 import { planSession } from "../engine/learningEngine";
 import { getChildChart } from "../profiles/childChart";
+import { currentBoardInstance } from "../engine/learningBoardInstances";
 import { computeProgression } from "../engine/progression";
 import {
   getSessionTypeConfig,
@@ -123,36 +124,21 @@ export function shouldEnableCompanionWakeGate(opts: {
   return opts.discovery === true || domain === "math" || /^hw-math(?:-|$)/i.test(String(opts.homeworkId ?? ""));
 }
 
-export function isIndependentEvaluationPlan(
-  planId: string | null | undefined,
-  pendingNodes: Array<{ targetLane?: string }> = [],
-): boolean {
+export function isIndependentEvaluationPlan(planId: string | null | undefined): boolean {
   const activePlanId = planId?.trim();
-  if (activePlanId) {
-    return activePlanId.startsWith("discovery:") || activePlanId.startsWith("probe-board:");
-  }
-  return pendingNodes.some(node => node.targetLane === "independent_discovery");
+  return Boolean(activePlanId?.startsWith("discovery:") || activePlanId?.startsWith("probe-board:"));
 }
 
 export function buildContextStartGreeting(_context: any): string {
   return "[System event: board arrival, not child speech] The board is available. No activity has been selected. The child has just arrived.";
 }
 
-export const INDEPENDENT_EVALUATION_OPENING =
-  "[System event: board arrival, not child speech] Independent evaluation is ready. Controls: Tap the speaker for the word; type a response; Not sure is available. No activity has been selected. No target answer is supplied.";
-
 export async function deliverInteractiveCompanionOpening(
   session: Pick<any, "setCompanionPresence" | "runCompanionResponse"> & {companionWakeGateEnabled?:boolean},
   opening: string,
-  options: { independentEvaluationOrientation?: boolean } = {},
 ): Promise<void> {
   if (session.companionWakeGateEnabled) {
-    if (options.independentEvaluationOrientation) {
-      await session.runCompanionResponse(opening, "system");
-      console.log(" 🎮 [companion] [opening] [independent-context-delivered]");
-    } else {
-      console.log(" 🎮 [companion] [opening] [child-invoked-only]");
-    }
+    console.log(" 🎮 [companion] [opening] [child-invoked-only]");
     return;
   }
   session.setCompanionPresence("summoned", "voice");
@@ -165,10 +151,7 @@ export async function deliverHomeworkArrival(session: any, context: any): Promis
     console.log(` 🎮 [session-bootstrap] [arrival] [skipped] policy=${policy} sttOnly=${Boolean(session.options?.sttOnly)}`);
     return;
   }
-  const independentEvaluationOrientation = Boolean(session.companionWakeGateEnabled);
-  await deliverInteractiveCompanionOpening(session,
-    independentEvaluationOrientation ? INDEPENDENT_EVALUATION_OPENING : buildContextStartGreeting(context),
-    { independentEvaluationOrientation });
+  await deliverInteractiveCompanionOpening(session, buildContextStartGreeting(context));
 }
 
 export function shouldLoadLegacyHomeworkFolder(opts: {
@@ -548,8 +531,12 @@ export async function runSessionStart(
     const sessionLearningProfile = !session.diagKioskFast
       ? readLearningProfile(String(homeworkChild).toLowerCase())
       : null;
+    let independentEvaluation = false;
     if (!session.diagKioskFast && subject === "homework") {
       const chart = getChildChart(String(homeworkChild).toLowerCase());
+      independentEvaluation = chart.learningCycle
+        ? currentBoardInstance(chart.learningCycle).kind === "probe"
+        : isIndependentEvaluationPlan(chart.activeSessionPlan?.planId);
       assertHomeworkSessionAssignment({
         expectedHomeworkId: session.options?.homeworkId,
         pendingHomeworkId: sessionLearningProfile?.pendingHomework?.homeworkId,
@@ -843,10 +830,7 @@ export async function runSessionStart(
       session.companionWakeGateEnabled = shouldEnableCompanionWakeGate({
         subject,
         homeworkId: pendingHomework.homeworkId,
-        discovery: isIndependentEvaluationPlan(
-          sessionLearningProfile?.activeSessionPlan?.planId,
-          sessionLearningProfile?.pendingHomework?.nodes,
-        ),
+        discovery: independentEvaluation,
         explicitDomain: explicitHomeworkDomain,
       });
       console.log(
@@ -1336,10 +1320,7 @@ export async function runSessionStart(
       session.companionWakeGateEnabled = shouldEnableCompanionWakeGate({
         subject,
         homeworkId: sessionLearningProfile?.pendingHomework?.homeworkId,
-        discovery: isIndependentEvaluationPlan(
-          sessionLearningProfile?.activeSessionPlan?.planId,
-          sessionLearningProfile?.pendingHomework?.nodes,
-        ),
+        discovery: independentEvaluation,
         explicitDomain:
           sessionLearningProfile?.pendingHomework?.contentProfile?.practiceDomain ??
           sessionLearningProfile?.pendingHomework?.capturedContent?.contentProfile?.practiceDomain,

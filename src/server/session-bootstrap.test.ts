@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   deliverInteractiveCompanionOpening,
-  INDEPENDENT_EVALUATION_OPENING,
+  deliverHomeworkArrival,
   buildContextStartGreeting,
   shouldEnableCompanionWakeGate,
   isIndependentEvaluationPlan,
@@ -30,21 +30,16 @@ describe("homework context greeting", () => {
     expect(spokenContexts[0]).not.toMatch(/say ["“]|sentence limit|word limit/i);
   });
 
-  it("supplies evaluation orientation facts without prescribing spoken wording", () => {
-    expect(INDEPENDENT_EVALUATION_OPENING).toContain("Tap the speaker");
-    expect(INDEPENDENT_EVALUATION_OPENING).toContain("Not sure");
-    expect(INDEPENDENT_EVALUATION_OPENING).toContain("[System event: board arrival, not child speech]");
-  });
-  it("speaks one answer-neutral orientation without summoning an independent-evaluation companion",async()=>{
-    // Human catch: the audio stack was healthy, but the wake gate made the
-    // opening completely silent, which looked exactly like another voice bug.
-    const events:string[]=[];
-    await deliverInteractiveCompanionOpening(
-      {companionWakeGateEnabled:true,setCompanionPresence:()=>events.push("summoned"),runCompanionResponse:async(text:string)=>{events.push(`spoke:${text}`);}},
-      "Give one warm direction without saying or spelling a target word.",
-      { independentEvaluationOrientation: true },
-    );
-    expect(events).toEqual(["spoke:Give one warm direction without saying or spelling a target word."]);
+  it("keeps wake-gated arrival child-invoked rather than purchasing orientation", async () => {
+    // The real failure supplied controls before a child request. The old test
+    // required that behavior. Arrival must not bypass the existing wake gate.
+    const events: string[] = [];
+    await deliverHomeworkArrival({
+      companionWakeGateEnabled:true,
+      setCompanionPresence:()=>events.push("summoned"),
+      runCompanionResponse:async()=>{events.push("model-request");},
+    }, {pendingHomework:{nodes:[{targetLane:"independent_discovery"}]}});
+    expect(events).toEqual([]);
   });
   it("opens conversational presence before delivering a companion-initiated greeting", async () => {
     const events: string[] = [];
@@ -161,15 +156,10 @@ describe("homework subject mode", () => {
     expect(isIndependentEvaluationPlan("probe-board:hw-math-1:cycle-r2")).toBe(true);
     expect(isIndependentEvaluationPlan("discovery:hw-spelling-1")).toBe(true);
     expect(isIndependentEvaluationPlan("targeted:hw-math-1")).toBe(false);
-    // Human-caught 2026-10-07: after Discovery built a teaching board, stale
-    // pending Discovery nodes caused the evaluation opener to play again. The
-    // lab checked each source independently but never tested their conflict.
-    expect(isIndependentEvaluationPlan("targeted:hw-spelling-1", [
-      { targetLane: "independent_discovery" },
-    ])).toBe(false);
-    expect(isIndependentEvaluationPlan(undefined, [
-      { targetLane: "independent_discovery" },
-    ])).toBe(true);
+    // Missing plan identity is not evidence of Discovery. The integration suite
+    // covers stale pending nodes against the real canonical board projection.
+    expect(isIndependentEvaluationPlan("targeted:hw-spelling-1")).toBe(false);
+    expect(isIndependentEvaluationPlan(undefined)).toBe(false);
     expect(shouldEnableCompanionWakeGate({ subject: "homework", explicitDomain: "spelling", discovery: true })).toBe(true);
     expect(shouldEnableCompanionWakeGate({
       subject: "homework",
