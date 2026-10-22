@@ -10,6 +10,26 @@ import {
 } from "./session-bootstrap";
 
 describe("homework context greeting", () => {
+  it("gives an automatic board arrival a brief social purpose without scripting Elli's words", async () => {
+    // Human catch: a single mount turn became a greeting, level display and
+    // activity pitch. Healthy audio logs did not identify unwanted initiation;
+    // earlier labs checked contextual accuracy but not the purpose of the turn.
+    const greeting = buildContextStartGreeting({
+      nodes: [{ locked: false, targetLane: "silent_letters" }],
+    });
+    const spokenContexts: string[] = [];
+    await deliverInteractiveCompanionOpening({
+      setCompanionPresence: () => {},
+      runCompanionResponse: async (context: string) => { spokenContexts.push(context); },
+    }, greeting);
+
+    expect(spokenContexts).toHaveLength(1);
+    expect(spokenContexts[0]).toContain("A brief hello is enough");
+    expect(spokenContexts[0]).toContain("choose what to do next");
+    expect(spokenContexts[0]).toContain("Silent Letters");
+    expect(spokenContexts[0]).not.toMatch(/say ["“]|sentence limit|word limit/i);
+  });
+
   it("supplies evaluation orientation facts without prescribing spoken wording", () => {
     expect(INDEPENDENT_EVALUATION_OPENING).toContain("Tap the speaker");
     expect(INDEPENDENT_EVALUATION_OPENING).toContain("Not sure");
@@ -89,10 +109,10 @@ describe("homework context greeting", () => {
     expect(greeting).not.toContain("Silent Letters");
   });
 
-  it("falls back to the first challenge when context is sparse", () => {
-    expect(buildContextStartGreeting({ nodes: [{ locked: false }] })).toBe(
-      "[Session opening context] The board is available; no activity has been selected.",
-    );
+  it("keeps a sparse board arrival factual with the same brief social purpose", () => {
+    const greeting = buildContextStartGreeting({ nodes: [{ locked: false }] });
+    expect(greeting).toContain("The board is available; no activity has been selected.");
+    expect(greeting).toContain("A brief hello is enough");
   });
 });
 

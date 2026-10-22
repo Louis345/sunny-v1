@@ -47,17 +47,12 @@ import {
   isDiagMapMode,
   isHomeworkMode,
 } from "../utils/runtimeMode";
-import {
-  buildMapSummaryFromPendingNodes,
-  MAP_SUMMARY_NATURAL_USE_INSTRUCTION,
-} from "../shared/mapSummary";
 import { ensureFreshPendingHomework } from "../scripts/homeworkSelector";
 import { resolveSunnyRuntimeConfig } from "../shared/runtimeConfig";
 import {
   applyDebugClaudeOpeningLineForSession,
   prependDebugClaudeDeveloperBlock,
 } from "./debug-helpers";
-import { getLatestMapStateForChild } from "./map-coordinator";
 import { generateCanvasCapabilitiesManifest } from "./canvas/registry";
 import { CHARLOTTE_DIAG_DEFAULT_VOICE_ID } from "../diag-voices";
 import { generateToolDocs } from "../agents/elli/tools/generateToolDocs";
@@ -165,9 +160,10 @@ export function buildContextStartGreeting(context: any): string {
   const firstNode = incompleteNodes.find((node: any) => !node.locked) ?? incompleteNodes[0];
   const lane = String(firstNode?.targetLane ?? "").replace(/[_-]+/g, " ").trim();
   const title = lane.replace(/\b\w/g, (letter: string) => letter.toUpperCase());
-  return title && title !== "Unknown"
+  const facts = title && title !== "Unknown"
     ? `[Session opening context] The board is available; current focus: ${title}. No activity has been selected.`
     : "[Session opening context] The board is available; no activity has been selected.";
+  return `${facts} The child has just arrived. A brief hello is enough; let them settle in and choose what to do next.`;
 }
 
 export const INDEPENDENT_EVALUATION_OPENING =
@@ -583,10 +579,6 @@ export async function runSessionStart(
         `  🎮 [session-bootstrap] [assignment-validation] [accepted] child=${homeworkChild} homework=${session.options?.homeworkId ?? "legacy"}`,
       );
     }
-    const activeMapState = !session.diagKioskFast
-      ? getLatestMapStateForChild(String(homeworkChild).toLowerCase())
-      : null;
-
     let homeworkPayload: Awaited<ReturnType<typeof loadHomeworkPayload>> | null =
       null;
 
@@ -1536,19 +1528,6 @@ This is a safe space to test everything.
           `will see. Nothing is recorded. ` +
           `Ask me anything or just play through the nodes.`,
       };
-    }
-
-    if (
-      sessionLearningProfile?.pendingHomework?.nodes?.length &&
-      (subject === "homework" || subject === "spelling")
-    ) {
-      const mapBlock = buildMapSummaryFromPendingNodes(
-        activeMapState?.nodes ?? sessionLearningProfile.pendingHomework.nodes,
-      );
-      if (mapBlock) {
-        session.companion.systemPrompt +=
-          `\n\n## Today's map\n${mapBlock}\n\n${MAP_SUMMARY_NATURAL_USE_INSTRUCTION}`;
-      }
     }
 
     if (

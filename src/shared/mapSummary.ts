@@ -1,9 +1,5 @@
 import { NODE_DISPLAY_LABELS } from "./nodeRegistry";
 
-export const MAP_SUMMARY_NATURAL_USE_INSTRUCTION = `Use the map summary to inform what you say naturally.
-Never recite node names literally. React with genuine curiosity.
-Reference what is coming up in a way that feels exciting, not clinical.`;
-
 export type MapSummaryNode = Readonly<{
   type: string;
   isGoal?: boolean;
