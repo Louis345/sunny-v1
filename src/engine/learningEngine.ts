@@ -30,7 +30,6 @@ import { writeSessionNote, updateLearningProfileFromSession } from "./psychologi
 import type { SessionData } from "./psychologistBridge";
 import { childIdFromSessionName } from "../shared/childRegistry";
 import { readPersistedTodaysPlan } from "../agents/psychologist/today-plan";
-import type { ChildName } from "../utils/childContextPaths";
 import { getBondContextInjection } from "./bondProtocol";
 import { sunnyPreviewBlocksPersistence } from "../utils/runtimeMode";
 import { defaultDomainClassifiers } from "./error-signals/domainClassifierRegistry";

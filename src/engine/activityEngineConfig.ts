@@ -344,7 +344,7 @@ function normalizeTargets(raw: unknown, errors: ActivityConfigFinding[]): Activi
   return out;
 }
 
-function normalizeOptions(raw: unknown, path: string): ActivityRoundOption[] {
+function normalizeOptions(raw: unknown, _path: string): ActivityRoundOption[] {
   if (!Array.isArray(raw)) return [];
   return raw.flatMap((item, index): ActivityRoundOption[] => {
     if (!isRecord(item)) return [];
