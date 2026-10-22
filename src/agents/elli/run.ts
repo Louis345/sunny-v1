@@ -1,3 +1,5 @@
+import fs from "fs";
+import path from "path";
 import { stepCountIs, streamText, type ModelMessage } from "ai";
 import { anthropic } from "@ai-sdk/anthropic";
 import type { Profile } from "../../profiles";
@@ -54,6 +56,25 @@ function supportsEffort(model: string): boolean {
   return /^claude-(?:(?:fable|mythos|opus|sonnet|haiku)-[5-9]|opus-4-[5-9]|sonnet-4-6)/.test(model);
 }
 
+let capturedRequests = 0;
+/**
+ * Diagnostic: with SUNNY_CAPTURE_COMPANION_REQUEST=<dir>, write the exact request Elli is about to receive
+ * (system prompt, messages, tool descriptions) so her behavior can be traced to its sources, not guessed.
+ */
+function captureCompanionRequest(request: { model: string; system: string; messages: ModelMessage[]; tools: Record<string, unknown> }): void {
+  const dir = process.env.SUNNY_CAPTURE_COMPANION_REQUEST?.trim();
+  if (!dir) return;
+  try {
+    fs.mkdirSync(dir, { recursive: true });
+    const file = path.join(dir, `${Date.now()}-${process.pid}-${++capturedRequests}.json`);
+    const tools = Object.entries(request.tools).map(([name, tool]) => ({ name, description: (tool as { description?: string }).description ?? "" }));
+    fs.writeFileSync(file, JSON.stringify({ capturedAt: new Date().toISOString(), model: request.model, system: request.system, messages: request.messages, tools }, null, 2));
+    console.log(` 🎮 [companion] [request-capture] [saved] file=${file}`);
+  } catch (error) {
+    console.warn(` 🎮 [companion] [request-capture] [failed] ${error instanceof Error ? error.message : String(error)}`);
+  }
+}
+
 export function buildAgentTools(_opts: { allowTransitionToWork?: boolean } = {}) {
   return { ...ALL_TOOLS };
 }
@@ -81,6 +102,13 @@ export async function runAgent(opts: RunAgentOptions): Promise<string> {
   const effort = supportsEffort(modelId) ? voiceEffort() : undefined;
   if (!effort) console.log(` 🎮 [voice-effort] [skipped] model=${modelId} reason=unsupported`);
 
+  const conversation: ModelMessage[] = [
+    ...history.filter(m => typeof m.content !== "string" || m.content.trim().length > 0),
+    ...injected,
+    { role: "user", content: userMessage },
+  ];
+  const tools = opts.tools ?? buildAgentTools({ allowTransitionToWork });
+  captureCompanionRequest({ model: modelId, system: profile.systemPrompt, messages: conversation, tools });
   const result = streamText({
     model: anthropic(modelId),
     messages: [
@@ -90,14 +118,12 @@ export async function runAgent(opts: RunAgentOptions): Promise<string> {
         content: profile.systemPrompt,
         providerOptions: { anthropic: { cacheControl: { type: "ephemeral" } } },
       },
-      ...history.filter(m => typeof m.content !== "string" || m.content.trim().length > 0),
-      ...injected,
-      { role: "user", content: userMessage }
+      ...conversation,
     ],
     maxOutputTokens: 1500,
     maxRetries: 0,
     ...(effort && { providerOptions: { anthropic: { effort } } }),
-    tools: opts.tools ?? buildAgentTools({ allowTransitionToWork }),
+    tools,
     stopWhen: stepCountIs(8),
     abortSignal: signal,
     experimental_onStepStart: experimentalOnStepStart,
