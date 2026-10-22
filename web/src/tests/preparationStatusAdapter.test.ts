@@ -7,6 +7,22 @@ const status = (phase: string, nodes: Array<[string, string]> = [], extra: Recor
   ({ phase, updatedAt: "t", nodes: nodes.map(([nodeId, s]) => ({ nodeId, status: s })), ...extra });
 const types = new Map([["a", "word-radar"], ["b", "letter-rush"]]);
 
+describe("published boards are final (single source: the server's publication)", () => {
+  // 2026-10-22 human catch: the kiosk sat on "Planning your map" with a 1,395-minute timer while the server
+  // reported successor_published. Next-board statuses carry no activity list, so no event ever reached the
+  // waiting screen, and Not ready spots were read as "still preparing". The lab only modeled first boards.
+  it("treats a published next board as ready even when its status lists no activities", () => {
+    expect(preparationEventsFromStatus(status("successor_published"), types)).toEqual([
+      { type: "PLAN_DONE", stops: [{ activityType: "word-radar" }, { activityType: "letter-rush" }] },
+      { type: "ACTIVITY_READY", n: 2, total: 2, published: true },
+    ]);
+  });
+
+  it("never holds the waiting screen over a board the server has published", () => {
+    expect(resolvePreparationSurface({ packet: { activeSessionPlan: { domain: "spelling" } } as never, directDiscoveryMode: false, handoff: null, held: true, published: true, preview: false })).toBeNull();
+  });
+});
+
 describe("preparationEventsFromStatus", () => {
   it("proves nothing while the Planner is still planning", () => {
     expect(preparationEventsFromStatus(null, types)).toEqual([]);
