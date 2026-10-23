@@ -1,0 +1,31 @@
+{
+  "source": "existing Experience Creator, synthetic operational QA, 2026-10-22, first candidate",
+  "type": "self-contained HTML replay fixture",
+  "title": "Signal Rescue",
+  "child": "synthetic-successor",
+  "homeworkId": "hw-synthetic-support",
+  "nodeId": "support",
+  "sha256": "019ef0517ed6828589010f24f1b3000b6c8e42c7d219c4f1076e698efc949ada",
+  "algorithmTargets": [
+    "retrieval-practice"
+  ],
+  "evidenceUsed": [
+    "synthetic:source"
+  ],
+  "reuseDecision": {
+    "decision": "reuse",
+    "reason": "Regression for unchanged valid practice rejected by literal prompt prose matching; never child evidence or selectable production content"
+  },
+  "itemBindings": [
+    {
+      "itemId": "hw-synthetic-support:support:176473d7313395b6",
+      "word": "night",
+      "measurementRole": "practice"
+    },
+    {
+      "itemId": "hw-synthetic-support:support:99a7026172d42714",
+      "word": "light",
+      "measurementRole": "practice"
+    }
+  ]
+}

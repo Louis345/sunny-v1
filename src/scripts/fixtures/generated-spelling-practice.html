@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Signal Rescue</title>
+<script src="/games/_contract.js"></script>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; font-family: 'Trebuchet MS', 'Segoe UI', sans-serif;
+    background: linear-gradient(180deg,#0b1d3a 0%, #13335c 60%, #1d4f7a 100%);
+    color: #fff; min-height: 100vh; display:flex; flex-direction:column; align-items:center;
+    padding: 14px 10px 40px;
+  }
+  h1 { margin: 6px 0 2px; font-size: 2.1em; text-shadow: 0 2px 6px rgba(0,0,0,.5); }
+  .subtitle { margin: 0 0 14px; opacity:.9; font-size: 1.05em; text-align:center; max-width: 520px; }
+  #app.paused { filter: grayscale(0.3) brightness(.85); pointer-events:none; }
+  .scene {
+    width: 100%; max-width: 560px; height: 220px; border-radius: 16px; position:relative;
+    background-image: linear-gradient(rgba(5,15,35,.35), rgba(5,15,35,.55)), url('/generated/adventure-board-demo/quest.jpeg');
+    background-size: cover; background-position: center;
+    box-shadow: 0 8px 24px rgba(0,0,0,.45); overflow:hidden; margin-bottom: 18px; border: 3px solid #ffd35c;
+  }
+  .beacon {
+    position:absolute; top: 18px; width: 26px; height: 26px; border-radius: 50%;
+    background: radial-gradient(circle, #665b2e 0%, #332d16 70%); border: 2px solid #ffd35c;
+    transition: all .4s ease;
+  }
+  #beacon0 { left: 40px; } #beacon1 { left: 90px; }
+  .beacon.lit { background: radial-gradient(circle, #fff6c2 0%, #ffd35c 60%, #ff9f1c 100%);
+    box-shadow: 0 0 24px 10px rgba(255,211,92,.8); }
+  .ship { position:absolute; bottom: 20px; left: 10px; font-size: 2.4em; transition: left 1s ease;
+    filter: drop-shadow(0 3px 4px rgba(0,0,0,.6)); }
+  #progress { margin-top: 6px; font-size: .95em; opacity: .85; }
+  .card {
+    width: 100%; max-width: 420px; background: #0e2a4a; border: 2px solid #3f6a9c;
+    border-radius: 16px; padding: 22px 18px; text-align:center; box-shadow: 0 6px 18px rgba(0,0,0,.4);
+  }
+  .card.hidden { display:none; }
+  .instructions { font-size: 1.08em; margin: 0 0 14px; }
+  .word-display {
+    font-size: 2.4em; letter-spacing: .12em; font-weight: bold; background: #123a63;
+    border-radius: 10px; padding: 14px; margin-bottom: 16px; color: #ffe8a3;
+    border: 2px dashed #ffd35c;
+  }
+  #answerInput {
+    font-size: 1.4em; text-align:center; padding: 10px; width: 90%; max-width: 260px;
+    border-radius: 10px; border: 2px solid #3f6a9c; margin-bottom: 14px; letter-spacing: .08em;
+  }
+  button {
+    font-size: 1em; padding: 10px 18px; border-radius: 10px; border: none; cursor: pointer;
+    background: #ffd35c; color: #0b1d3a; font-weight: bold; margin: 5px; transition: transform .12s;
+  }
+  button:hover { transform: scale(1.04); }
+  button:disabled { opacity: .5; cursor: default; }
+  .controls { display:flex; flex-wrap:wrap; justify-content:center; }
+  #peekDisplay { font-size: 1.6em; letter-spacing:.1em; color:#ffe8a3; margin-bottom: 10px; font-weight:bold; }
+  #peekDisplay.hidden { display:none; }
+  #feedbackText { font-size: 1.15em; margin-bottom: 16px; }
+  #completeCard h2 { margin-top:0; }
+</style>
+</head>
+<body>
+  <h1>Signal Rescue</h1>
+  <p class="subtitle">A ship is lost in the harbor fog! Spell each word right to flash the lighthouse signal and guide it home.</p>
+
+  <div id="app">
+    <div class="scene">
+      <div class="beacon" id="beacon0"></div>
+      <div class="beacon" id="beacon1"></div>
+      <div class="ship" id="ship">🚢</div>
+    </div>
+
+    <div id="studyCard" class="card">
+      <p class="instructions">Study the glowing word, sailor!</p>
+      <div class="word-display" id="studyWord"></div>
+      <button id="readyBtn">I'm Ready — Hide It!</button>
+    </div>
+
+    <div id="typeCard" class="card hidden">
+      <p class="instructions" id="typePrompt"></p>
+      <div id="peekDisplay" class="hidden"></div>
+      <input id="answerInput" autocomplete="off" spellcheck="false" />
+      <div class="controls">
+        <button id="submitBtn">Send Signal</button>
+        <button id="readAloudBtn" type="button">🔊 Read it to me</button>
+        <button id="peekBtn" type="button">👀 Peek</button>
+      </div>
+    </div>
+
+    <div id="feedbackCard" class="card hidden">
+      <p id="feedbackText"></p>
+      <button id="continueBtn">Continue</button>
+    </div>
+
+    <div id="completeCard" class="card hidden">
+      <h2>Ship Rescued! 🚢✨</h2>
+      <p id="scoreText"></p>
+      <button id="playAgainBtn">Play Again</button>
+    </div>
+
+    <div id="progress">Item <span id="itemNum">1</span> of 2</div>
+  </div>
+
+  <div id="sunny-companion"></div>
+
+<script>
+(function(){
+  var ITEMS = [
+    { itemId: "hw-synthetic-support:support:176473d7313395b6", word: "night", measurementRole: "practice",
+      acceptedForms: ["night"], studyPrompt: "Study this word closely.",
+      typePrompt: "Type the word you just studied: the word for when the sky turns dark and stars glow." },
+    { itemId: "hw-synthetic-support:support:99a7026172d42714", word: "light", measurementRole: "practice",
+      acceptedForms: ["light"], studyPrompt: "Study this word closely.",
+      typePrompt: "Type the word you just studied: the beam that shines from the lighthouse." }
+  ];
+
+  var evidenceContract = { spellingItems: {} };
+  ITEMS.forEach(function(it){
+    evidenceContract.spellingItems[it.itemId] = { word: it.word, acceptedForms: it.acceptedForms };
+  });
+
+  var idx = 0, phase = 'study', paused = false;
+  var startTime = 0, sessionStart = Date.now();
+  var targetResults = [];
+  var readAloudCounts = {};
+  var scaffoldUsed = false;
+  var currentPromptText = '';
+
+  function qs(id){ return document.getElementById(id); }
+  function nodeId(){ return (window.GAME_PARAMS && window.GAME_PARAMS.nodeId) || 'support'; }
+
+  function availableActionsForPhase(){
+    if (phase === 'study') return ['ready'];
+    if (phase === 'type') return ['submit', 'read_aloud', 'peek'];
+    if (phase === 'feedback') return ['continue'];
+    return ['play_again'];
+  }
+
+  function emitState(overrides){
+    var item = ITEMS[idx];
+    var challenge = Object.assign({
+      id: item.itemId,
+      prompt: currentPromptText,
+      mode: "spelling_letters",
+      measurementRole: item.measurementRole,
+      readAloudRequested: false,
+      readAloudCount: readAloudCounts[item.itemId] || 0,
+      companionSupportTrigger: null
+    }, overrides || {});
+    window.parent.postMessage({ type: "game_state_update", payload: {
+      game: "generated-spelling", activityId: "support", nodeId: "support", phase: "question",
+      activityTitle: "Signal Rescue", learningFocus: "long-i", mechanic: "word-recall",
+      currentChallenge: challenge,
+      availableActions: availableActionsForPhase(),
+      itemIndex: idx, totalItems: ITEMS.length,
+      answerVisibility: "hidden"
+    }}, "*");
+  }
+
+  function showStudy(){
+    phase = 'study'; scaffoldUsed = false;
+    var item = ITEMS[idx];
+    qs('studyCard').classList.remove('hidden');
+    qs('typeCard').classList.add('hidden');
+    qs('feedbackCard').classList.add('hidden');
+    qs('completeCard').classList.add('hidden');
+    qs('studyWord').textContent = item.word;
+    qs('itemNum').textContent = idx + 1;
+    currentPromptText = item.studyPrompt;
+    emitState({ readAloudRequested: false, companionSupportTrigger: null });
+  }
+
+  function showType(){
+    phase = 'type';
+    var item = ITEMS[idx];
+    qs('studyCard').classList.add('hidden');
+    qs('typeCard').classList.remove('hidden');
+    qs('peekDisplay').classList.add('hidden');
+    qs('answerInput').value = '';
+    currentPromptText = item.typePrompt;
+    qs('typePrompt').textContent = currentPromptText;
+    startTime = Date.now();
+    var firstTime = !(item.itemId in readAloudCounts);
+    if (firstTime) readAloudCounts[item.itemId] = 1;
+    emitState({
+      readAloudRequested: true,
+      readAloudCount: readAloudCounts[item.itemId],
+      companionSupportTrigger: firstTime ? 'guided_prompt' : null
+    });
+    qs('answerInput').focus();
+  }
+
+  function handleReadAloud(){
+    var item = ITEMS[idx];
+    readAloudCounts[item.itemId] = (readAloudCounts[item.itemId] || 1) + 1;
+    emitState({
+      readAloudRequested: true,
+      readAloudCount: readAloudCounts[item.itemId],
+      companionSupportTrigger: 'child_request'
+    });
+  }
+
+  function handlePeek(){
+    scaffoldUsed = true;
+    var item = ITEMS[idx];
+    var el = qs('peekDisplay');
+    el.textContent = item.word;
+    el.classList.remove('hidden');
+    setTimeout(function(){ el.classList.add('hidden'); }, 1400);
+  }
+
+  function handleSubmit(){
+    if (paused) return;
+    var item = ITEMS[idx];
+    var val = qs('answerInput').value.trim();
+    var responseTimeMs = Date.now() - startTime;
+    var correct = item.acceptedForms.some(function(f){ return f.toLowerCase() === val.toLowerCase(); });
+    var scaffoldLevel = scaffoldUsed ? 2 : 1;
+    var result = { target: item.word, correct: correct, attemptedValue: val, responseTimeMs: responseTimeMs, scaffoldLevel: scaffoldLevel };
+    targetResults.push(result);
+
+    window.fireAttemptEvent({ domain: "spelling", target: item.word, correct: correct, attemptedValue: val, responseTimeMs: responseTimeMs, scaffoldLevel: scaffoldLevel });
+    window.fireCompanionEvent(correct ? "correct_answer" : "wrong_answer", { target: item.word });
+
+    if (correct) {
+      qs('beacon' + idx).classList.add('lit');
+      qs('ship').style.left = (20 + (idx + 1) * 130) + 'px';
+      qs('feedbackText').textContent = "Signal received! The lighthouse beam flashes bright! \u2728";
+    } else {
+      qs('feedbackText').textContent = "The fog is thick... but the crew keeps watching for the next flash.";
+    }
+
+    qs('typeCard').classList.add('hidden');
+    qs('feedbackCard').classList.remove('hidden');
+    phase = 'feedback';
+
+    window.parent.postMessage({ type: "progress_event", payload: { nodeId: "support", completedItems: idx + 1, totalItems: ITEMS.length } }, "*");
+    emitState({ readAloudRequested: false, companionSupportTrigger: null });
+  }
+
+  function handleContinue(){
+    if (paused) return;
+    if (idx < ITEMS.length - 1) {
+      idx++;
+      showStudy();
+    } else {
+      showComplete();
+    }
+  }
+
+  function showComplete(){
+    phase = 'complete';
+    qs('feedbackCard').classList.add('hidden');
+    qs('completeCard').classList.remove('hidden');
+    var correctCount = targetResults.filter(function(r){ return r.correct; }).length;
+    var accuracy = targetResults.length ? correctCount / targetResults.length : 0;
+    qs('scoreText').textContent = "You guided the ship home with " + correctCount + " of " + targetResults.length + " signals correct!";
+    window.fireCompanionEvent("game_complete", {});
+    var timeSpent_ms = Date.now() - sessionStart;
+    window.sendNodeComplete({ nodeId: nodeId(), completed: true, accuracy: accuracy, targetResults: targetResults, timeSpent_ms: timeSpent_ms });
+  }
+
+  function resetAll(){
+    idx = 0; targetResults = []; readAloudCounts = {}; scaffoldUsed = false;
+    qs('beacon0').classList.remove('lit');
+    qs('beacon1').classList.remove('lit');
+    qs('ship').style.left = '10px';
+    sessionStart = Date.now();
+    showStudy();
+  }
+
+  document.addEventListener('DOMContentLoaded', function(){
+    qs('readyBtn').addEventListener('click', function(){ if (!paused) showType(); });
+    qs('submitBtn').addEventListener('click', handleSubmit);
+    qs('readAloudBtn').addEventListener('click', handleReadAloud);
+    qs('peekBtn').addEventListener('click', handlePeek);
+    qs('continueBtn').addEventListener('click', handleContinue);
+    qs('playAgainBtn').addEventListener('click', resetAll);
+    qs('answerInput').addEventListener('keydown', function(e){
+      if (e.key === 'Enter' && !paused) handleSubmit();
+    });
+
+    showStudy();
+    window.parent.postMessage({ type: "activity_ready", payload: { nodeId: "support" } }, "*");
+  });
+
+  window.addEventListener('message', function(e){
+    var d = e.data;
+    if (d && d.type === 'sunny_companion_presence') {
+      paused = !!(d.payload && d.payload.summoned);
+      qs('app').classList.toggle('paused', paused);
+      qs('answerInput').disabled = paused;
+      var btns = document.querySelectorAll('button');
+      for (var i = 0; i < btns.length; i++) btns[i].disabled = paused;
+    }
+  });
+
+  window.SUNNY_VALIDATION_HOOKS = {
+    journey: [
+      { itemId: "hw-synthetic-support:support:176473d7313395b6", steps: [
+        { action: "click", selector: "#readyBtn" },
+        { action: "fill", selector: "#answerInput", value: "night" },
+        { action: "click", selector: "#submitBtn" }
+      ]},
+      { itemId: "hw-synthetic-support:support:99a7026172d42714", steps: [
+        { action: "click", selector: "#continueBtn" },
+        { action: "click", selector: "#readyBtn" },
+        { action: "fill", selector: "#answerInput", value: "light" },
+        { action: "click", selector: "#submitBtn" },
+        { action: "click", selector: "#continueBtn" }
+      ]}
+    ]
+  };
+})();
+</script>
+</body>
+</html>

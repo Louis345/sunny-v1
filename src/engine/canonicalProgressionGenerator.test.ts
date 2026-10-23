@@ -152,7 +152,7 @@ describe("spelling Creator assignment-scoped checkpoints", () => {
       const artifact = artifacts[index * 2];
       expect(fs.readFileSync(artifact.htmlPath, "utf8")).toContain(`${value.item.id}: ${value.item.word}`);
       expect(artifact.itemIds).toEqual([value.item.id]);
-      expect(artifact.spellingItemBindings).toEqual([{ itemId: value.item.id, word: value.item.word }]);
+      expect(artifact.spellingItemBindings).toEqual([{ itemId: value.item.id, word: value.item.word, measurementRole: "practice" }]);
       expect(value.generateHtml).toHaveBeenCalledTimes(2);
       expect(value.generateArtwork).toHaveBeenCalledOnce();
     }

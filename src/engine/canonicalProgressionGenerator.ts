@@ -130,7 +130,7 @@ async function productionValidate(input: { html: string; node: LearningCycleNode
       : [];
     const report = await runDirectBrowserSmokeCheck({
       rootDir,
-      artifacts:[{nodeId:input.node.nodeId,childId:input.cycle.childId,homeworkId:input.cycle.homeworkId,title:input.node.title,htmlPath,htmlHash,artworkUrl:input.node.artwork.localPath??"",creatorPrompt:input.node.generationPrompt?.text??"",promptHash:input.node.generationPrompt?.promptId??"",plannerModel:"canonical",creatorModel:"canonical",...(input.node.evidenceContract.itemRoles?{itemIds:Object.keys(input.node.evidenceContract.itemRoles)}:{}),...(input.cycle.domain === "spelling" ? {spellingItemBindings:Object.values(input.node.evidenceContract.spellingItems ?? {}).map(item=>({itemId:item.id,word:item.word}))} : {})}],
+      artifacts:[{nodeId:input.node.nodeId,childId:input.cycle.childId,homeworkId:input.cycle.homeworkId,title:input.node.title,htmlPath,htmlHash,artworkUrl:input.node.artwork.localPath??"",creatorPrompt:input.node.generationPrompt?.text??"",promptHash:input.node.generationPrompt?.promptId??"",plannerModel:"canonical",creatorModel:"canonical",...(input.node.evidenceContract.itemRoles?{itemIds:Object.keys(input.node.evidenceContract.itemRoles)}:{}),...(input.cycle.domain === "spelling" ? {spellingItemBindings:Object.values(input.node.evidenceContract.spellingItems ?? {}).map(item=>({itemId:item.id,word:item.word,measurementRole:item.lineage?.measurementRole}))} : {})}],
       ...(mathItemContracts.length > 0 ? { itemContractsByNodeId: { [input.node.nodeId]: mathItemContracts } } : {}),
     });
     if (!report.passed) return {passed:false,failures:report.failures,screenshotPaths:report.screenshots,htmlHash,verifierVersion:MATH_BROWSER_VERIFIER_VERSION};
