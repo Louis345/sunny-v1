@@ -1235,10 +1235,9 @@ export function repointReusedSetup(source: LearningCycleNodeContract, nodeId: st
   if (!config) return undefined;
   const newIdByWord = new Map(items.map((item) => [item.wordId, item.id]));
   const oldItems = Object.values(source.evidenceContract.spellingItems ?? {});
-  // A built-in re-runs for exactly its own words: its setup holds nothing for a new word, and a dropped
-  // word could still be shown by setups that carry spellings rather than IDs.
+  // A built-in re-runs for its own words or fewer: its setup holds nothing for a new word.
   const oldWords = new Set(oldItems.map((item) => item.wordId));
-  if (items.length !== oldWords.size || items.some((item) => !oldWords.has(item.wordId))) return undefined;
+  if (!items.length || items.some((item) => !oldWords.has(item.wordId))) return undefined;
   const idMap = new Map(oldItems.flatMap((item) => newIdByWord.has(item.wordId) ? [[item.id, newIdByWord.get(item.wordId)!] as const] : []));
   const dropped = new Set(oldItems.filter((item) => !newIdByWord.has(item.wordId)).map((item) => item.id));
   const DROP = Symbol("drop");
@@ -1255,6 +1254,9 @@ export function repointReusedSetup(source: LearningCycleNodeContract, nodeId: st
   };
   const repointed = repoint(config);
   if (repointed === DROP || oldItems.some((item) => JSON.stringify(repointed).includes(item.id))) return undefined;
+  // A re-run never shows a word the new board does not score: setups that carry spellings, not IDs, keep dropped words.
+  const shown = JSON.stringify(repointed).toLocaleLowerCase("en-US");
+  if (oldItems.some((item) => !newIdByWord.has(item.wordId) && new RegExp(`\\b${item.word.toLocaleLowerCase("en-US").replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`).test(shown))) return undefined;
   // A re-pointed setup must pass the same check the kiosk's config route applies, or it is built instead.
   try {
     if (source.implementationType === "visual-explainer") validateVisualLearnerArtifactConfig(repointed);
@@ -1812,9 +1814,14 @@ export function transitionLearningCycle(
       throw new Error(`not_ready_repair_not_eligible:${node.nodeId}`);
     }
     const items = Object.values(node.evidenceContract.spellingItems ?? {});
-    const source = findReusableBuiltIn(next, event.builtInActivityId, items[0]?.lineage.measurementRole, node.nodeId);
+    const role = items[0]?.lineage.measurementRole;
+    const source = findReusableBuiltIn(next, event.builtInActivityId, role, node.nodeId);
     const setup = source?.evidenceContract.nativeConfig ? repointReusedSetup(source, node.nodeId, items) : undefined;
-    if (!source || !items.length || !sameWordSet(source, items) || (source.evidenceContract.nativeConfig && !setup)) throw new Error(`not_ready_repair_no_builtin:${node.nodeId}`);
+    const refusal = !items.length ? "step_has_no_words"
+      : !source ? (findReusableBuiltIn(next, event.builtInActivityId, undefined, node.nodeId) ? `checkpoint_needs_checkpoint_builtin:${event.builtInActivityId}` : `no_builtin_named:${event.builtInActivityId}`)
+      : source.evidenceContract.nativeConfig ? (setup ? undefined : `setup_cannot_take_these_words:builtin=${source.nodeId}:step_words=${items.map((item) => item.word).join(",")}:builtin_words=${Object.values(source.evidenceContract.spellingItems ?? {}).map((item) => item.word).join(",")}`)
+      : sameWordSet(source, items) ? undefined : `words_differ:builtin=${source.nodeId}`;
+    if (refusal || !source) throw new Error(`not_ready_repair_no_builtin:${node.nodeId}:${refusal}`);
     adoptBuiltInAnswerForms(source, items);
     node.implementationType = source.implementationType;
     node.reusedFrom = source.nodeId;

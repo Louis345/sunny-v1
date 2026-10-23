@@ -173,11 +173,13 @@ it('re-launches a reused explainer whose real completion lands on the new board'
  expect(successorResumeAction(played)).toBe('decide');
 });
 
-it('does not re-run an explainer for fewer words than its own',async()=>{
+it('re-runs an explainer for the Planner\'s narrowed words, since its setup carries question IDs',async()=>{
  const f=explainerFixture(['write','island']),opts={rootDir:f.rootDir};
  await runtime.advanceCanonicalCycleFromEvidence(f.request,opts);
  const node=getLearningCycle(childId,homeworkId,opts)!.nodes.find(row=>row.title==='Silent Letter Detective Camp')!;
- expect(node.reusedFrom).toBeUndefined();
+ expect(node.reusedFrom).toBe('explain-long-i');
+ expect((node.evidenceContract.nativeConfig as any).spellingModel.words.map((word:any)=>word.text)).toEqual(['write','island']);
+ expect(JSON.stringify(node.evidenceContract.nativeConfig)).not.toMatch(/\bminus\b/);
 });
 
 it('does not re-launch an explainer when its check question would be dropped',async()=>{
@@ -245,13 +247,20 @@ it('runs the built-in the Planner names under any new activity ID, and never bui
  expect(dig.notReadyReason).toContain('spelling_no_reusable_builtin');
  expect(board.publishedAt).not.toBeNull();
 });
-it('re-runs a built-in only for exactly its own words',()=>{
+it('re-runs a built-in for its own words or fewer, never a word its setup lacks or would still show',()=>{
  const items=buildSpellingRecallItems({homeworkId,words:['write','island','minus'],evidenceIds:['school:lab'],measurementRole:'practice',exposure:'practiced',occasionId:'radar-check'});
  const source={nodeId:'radar-check',implementationType:'word-radar',evidenceContract:{spellingItems:Object.fromEntries(items.slice(0,2).map(item=>[item.id,item])),nativeConfig:{activityId:'word-radar',wordRadarConfig}}} as any;
  const fresh=(count:number)=>buildSpellingRecallItems({homeworkId,words:['write','island','minus'].slice(0,count),evidenceIds:['school:lab'],measurementRole:'practice',exposure:'practiced',occasionId:'b3'});
  expect(repointReusedSetup(source,`${homeworkId}:b3:radar`,fresh(2))).toBeDefined();
- expect(repointReusedSetup(source,`${homeworkId}:b3:radar`,fresh(1))).toBeUndefined();
+ expect(repointReusedSetup(source,`${homeworkId}:b3:radar`,fresh(1))).toBeDefined();
  expect(repointReusedSetup(source,`${homeworkId}:b3:radar`,fresh(3))).toBeUndefined();
+ // Letter Rush carries spellings, not IDs: dropping a word would still show it, so that re-run is refused.
+ const rushConfig={schemaVersion:1,activityId:'letter-rush',mode:'read-and-race',topic:'Current spelling gaps',domain:'spelling',learningGoal:'Practice missed words',gradeBand:'early_elementary',
+  scaffolds:{showWord:true,letterBank:true,allowRetryBeforeScore:true,companionHints:false},words:['write','island'].map(text=>({text})),
+  evidencePolicy:{writesPracticeEvidence:true,writesMasteryEvidence:false,requiresPerTargetResult:true,allowedEvidence:['practice']}};
+ const rush={nodeId:'old-rush',implementationType:'letter-rush',evidenceContract:{spellingItems:Object.fromEntries(items.slice(0,2).map(item=>[item.id,item])),nativeConfig:rushConfig}} as any;
+ expect(repointReusedSetup(rush,`${homeworkId}:b3:rush`,fresh(2))).toBeDefined();
+ expect(repointReusedSetup(rush,`${homeworkId}:b3:rush`,fresh(1))).toBeUndefined();
 });
 it('scores a re-run activity with the answer forms of the built-in it re-runs',async()=>{
  const f=fixture([['w'],['s']]),opts={rootDir:f.rootDir};
@@ -308,6 +317,6 @@ it('repairs a Not ready step in place by re-running the built-in it named, with 
 it('leaves a Not ready step alone when it names no built-in to re-run',async()=>{
  const {opts,dig}=await legacyNotReadyBoard();
  const before=getLearningCycle(childId,homeworkId,opts)!;
- expect(()=>repairNotReadyActivity({childId,homeworkId,nodeId:dig.nodeId},opts)).toThrow('not_ready_repair_no_builtin');
+ expect(()=>repairNotReadyActivity({childId,homeworkId,nodeId:dig.nodeId},opts)).toThrow(/not_ready_repair_no_builtin:.*:no_builtin_named:/);
  expect(getLearningCycle(childId,homeworkId,opts)).toEqual(before);
 });
