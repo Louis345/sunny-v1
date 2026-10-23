@@ -1,6 +1,6 @@
 # Sunny Learning Feedback Loop
 
-Contract version: 49
+Contract version: 50
 
 This document is the **sole normative** authority for how Sunny forms, tests, and revises learning claims. Product changes that alter this loop must update this contract version before implementation. Other documents may describe infrastructure or history, but they must link here instead of creating another learning doctrine.
 
@@ -102,6 +102,8 @@ Encounter variability belongs to the Planner, not to code. Code never draws rand
 A checkpointed Planner response with unreadable educational intent or invalid academic/evidence claims, or a provider call whose outcome is uncertain, blocks the cycle visibly for a person; it is never re-bought automatically. Successor canvas bookkeeping and quality are not such failures. A successor activity that fails to build or fails its check becomes one Not ready portal that keeps its recorded reason, and the rest of the board builds and publishes; nothing downstream of the Planner holds a board back, and no automatic rebuild follows a restart.
 
 Generated activities built through the progression Creator (spelling Teaching activities and every successor board, spelling and math) pass only the text check before they open. There is no browser run and no AI screenshot review: the child playing the activity, and the server's scoring of her captured answers against the frozen items, are the check. For these activities, "verified" means the text check passed. Browser verification of initial math boards (Discovery and the first targeted board) is unchanged in this version.
+
+Spelling next boards run only tested built-in activities. Each next-board spelling step names, in its own prescription, the earlier built-in activity it re-runs (`spelling.builtInActivityId`), with exactly that activity's words; the re-run keeps that activity's answer forms, with fresh occasion IDs. That prescription is the single source of which activity runs; catalog reuse decisions are records only. A step that names no re-runnable built-in is one Not ready portal, never sent to the AI builder. Decisions saved before this field existed re-run the activity whose ID they repeated.
 
 A person may explicitly repair a Not ready generated activity on the current board in place, once. The repair binds the first of that activity's own saved Creator attempts that passes today's text check. It makes no provider call and changes no other portal, the board's design or lifecycle, evidence, predictions or receipts. A Not ready portal was never bound, so this is its first binding, not a replacement; a retired binding still stays retired.
 

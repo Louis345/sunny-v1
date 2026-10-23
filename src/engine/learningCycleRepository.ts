@@ -505,7 +505,16 @@ export type SpellingInstrumentPrescription = {
   wordIds: string[];
   measurementRole: "practice" | "fresh_checkpoint";
   responseMode: LearningCycleSpellingItem["response"]["mode"];
+  /** The tested built-in activity this step re-runs. Spelling boards run only built-ins. */
+  builtInActivityId?: string;
 };
+
+/** The tested built-in spelling activities a next board may re-run: one list for the Planner and the board. */
+export function spellingBuiltInActivities(cycle: LearningCycleRecordV2): LearningCycleNodeContract[] {
+  if (cycle.domain !== "spelling") return [];
+  return cycle.nodes.filter((node) => node.implementationType && node.implementationType !== "generated-baseline"
+    && node.artifactBinding?.validationStatus === "passed" && Object.keys(node.evidenceContract.spellingItems ?? {}).length > 0);
+}
 
 /** One allowlist shared by the Planner tool and the persisted board contract. */
 export function spellingAssignmentItems(cycle: LearningCycleRecordV2): Map<string, LearningCycleSpellingItem> {
@@ -527,7 +536,10 @@ export function validateSpellingPrescription(value: unknown): SpellingInstrument
     || !["spelling_letters", "tap_selection"].includes(String(row.responseMode))) {
     throw new Error("spelling_successor_prescription_invalid");
   }
-  return { wordIds: [...row.wordIds], measurementRole: row.measurementRole!, responseMode: row.responseMode! };
+  return {
+    wordIds: [...row.wordIds], measurementRole: row.measurementRole!, responseMode: row.responseMode!,
+    ...(typeof row.builtInActivityId === "string" && row.builtInActivityId.trim() ? { builtInActivityId: row.builtInActivityId.trim() } : {}),
+  };
 }
 
 /** One complete Planner-authored successor board program (contract 21). The Planner owns the count. */
@@ -1203,6 +1215,10 @@ export function repointReusedSetup(source: LearningCycleNodeContract, nodeId: st
   if (!config) return undefined;
   const newIdByWord = new Map(items.map((item) => [item.wordId, item.id]));
   const oldItems = Object.values(source.evidenceContract.spellingItems ?? {});
+  // A built-in re-runs for exactly its own words: its setup holds nothing for a new word, and a dropped
+  // word could still be shown by setups that carry spellings rather than IDs.
+  const oldWords = new Set(oldItems.map((item) => item.wordId));
+  if (items.length !== oldWords.size || items.some((item) => !oldWords.has(item.wordId))) return undefined;
   const idMap = new Map(oldItems.flatMap((item) => newIdByWord.has(item.wordId) ? [[item.id, newIdByWord.get(item.wordId)!] as const] : []));
   const dropped = new Set(oldItems.filter((item) => !newIdByWord.has(item.wordId)).map((item) => item.id));
   const DROP = Symbol("drop");
@@ -1251,8 +1267,7 @@ function prepareSuccessorBoard(
   const savedSpellingItems = spellingAssignmentItems(next);
   // Naming an earlier built-in spelling activity is the Planner's order to re-launch it, not to rebuild it.
   // A checkpoint may only reuse a checkpoint activity, so a re-launched check never shows the answer.
-  const reusable = (id: string, role: string | undefined) => next.domain !== "spelling" ? undefined : [...next.nodes].reverse().find((node) => (node.nodeId === id || node.artifactBinding?.contentId === id)
-    && node.implementationType && node.implementationType !== "generated-baseline" && node.artifactBinding?.validationStatus === "passed"
+  const reusable = (id: string, role: string | undefined) => [...spellingBuiltInActivities(next)].reverse().find((node) => (node.nodeId === id || node.artifactBinding?.contentId === id)
     && (role !== "fresh_checkpoint" || (Object.values(node.evidenceContract.itemRoles ?? {}).length > 0 && Object.values(node.evidenceContract.itemRoles ?? {}).every((itemRole) => itemRole === "fresh_checkpoint"))));
   const nodes = program.instruments.map((prescription): LearningCycleNodeContract => {
     const nodeId = idFor.get(prescription.nodeId)!;
@@ -1270,10 +1285,18 @@ function prepareSuccessorBoard(
       };
     });
     const design = prescriptionDesign(prescription);
-    const candidate = reusable(prescription.nodeId, spelling?.measurementRole);
+    // Decisions saved before the Planner named built-ins re-run the activity whose ID they repeated.
+    const candidate = reusable(spelling?.builtInActivityId ?? prescription.nodeId, spelling?.measurementRole);
     const reusedSetup = candidate?.evidenceContract.nativeConfig ? repointReusedSetup(candidate, nodeId, spellingItems ?? []) : undefined;
-    const source = candidate && (!candidate.evidenceContract.nativeConfig || reusedSetup) ? candidate : undefined;
+    const sameWords = (node: LearningCycleNodeContract) => {
+      const own = new Set(Object.values(node.evidenceContract.spellingItems ?? {}).map((item) => item.wordId));
+      return (spellingItems ?? []).length === own.size && (spellingItems ?? []).every((item) => own.has(item.wordId));
+    };
+    const source = candidate && (candidate.evidenceContract.nativeConfig ? reusedSetup : sameWords(candidate)) ? candidate : undefined;
     if (candidate && !source) console.warn(` 🎮 [learning-board] [successor-reuse] [not-reusable] node=${nodeId} from=${candidate.nodeId} reason=setup_cannot_be_repointed`);
+    // A re-run activity is scored exactly as the built-in it re-runs (its answer forms come with it).
+    const sourceResponses = new Map(Object.values(source?.evidenceContract.spellingItems ?? {}).map((item) => [item.wordId, item.response]));
+    for (const item of spellingItems ?? []) if (sourceResponses.has(item.wordId)) item.response = structuredClone(sourceResponses.get(item.wordId)!);
     const prompt = generationPrompt(next, role, nodeId, input.evidenceIds, input.reason, input.at);
     prompt.text = `${prescription.creatorPrompt} ${prompt.text}`;
     return {

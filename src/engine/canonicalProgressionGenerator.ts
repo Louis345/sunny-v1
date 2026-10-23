@@ -524,6 +524,8 @@ export async function prepareSuccessorBoard(
       let next: LearningCycleRecordV2;
       let failure = "";
       try {
+        // Spelling boards run only tested built-ins: a step with no re-runnable built-in is Not ready, never built.
+        if (cycle.domain === "spelling" && !pending.reusedFrom) throw new Error("spelling_no_reusable_builtin");
         next = pending.reusedFrom
           ? relaunchReusedActivity(input.childId, input.homeworkId, cycle, pending, opts)
           : await generateCanonicalProgressionArtifact({ ...input, nodeId: pending.nodeId }, opts);

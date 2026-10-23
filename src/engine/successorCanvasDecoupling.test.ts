@@ -7,6 +7,7 @@ import correction from '../scripts/fixtures/successor-correction-20261021.json';
 import {journeyExecutions, renderBoardDefinition} from '../shared/adventureBoardDefinition';
 import {parseCanonicalProgressionDecision, advanceCanonicalCycleFromEvidence} from './learningCycleRuntime';
 import {buildSpellingRecallItems} from './learningCycleIngest';
+import {builtInWordRadar} from '../scripts/fixtures/builtInSpellingActivity';
 import {createLearningCycle, getLearningCycle} from './learningCycleRepository';
 import {listBoardInstances} from './learningBoardInstances';
 import {prepareSuccessorBoard} from './canonicalProgressionGenerator';
@@ -122,7 +123,8 @@ describe('a canvas cannot veto a spelling successor',()=>{
   fs.writeFileSync(path.join(root,'src/context',childId,'learning_profile.json'),JSON.stringify({childId}));
   const items=buildSpellingRecallItems({homeworkId,words,evidenceIds:['source:lab'],measurementRole:'practice',exposure:'practiced',occasionId:'baseline'});
   const before=createLearningCycle({childId,homeworkId,domain:'spelling',assignment:{title:'Lab assignment',contentFingerprint:'lab',capturedEvidenceIds:['source:lab'],targets:words},academicTheory:{theoryId:'lab-theory',revision:1,hypothesis:'Teach from observed work',supportCriteria:[],reviseCriteria:[],falsifyCriteria:[]},engagementTheory:null,initialLifecycle:'baseline_evaluating',nodes:[{
-   nodeId:'baseline',role:'baseline',title:'Completed practice',state:'completed',academicTarget:{domain:'spelling',skill:'spelling',targets:words},algorithmOwner:'ai_tutor',theoryId:'lab-theory',experimentId:'lab-experiment',mechanic:'word-radar',theme:'world',openingScreen:{title:'Completed practice',purpose:'Practice'},generationPrompt:null,artifactBinding:null,artwork:{status:'ready',localPath:'/generated/world.jpeg',prompt:null},sfxContract:[],companionContract:{events:[]},evidenceContract:{academic:true,engagement:true,companionObservations:true,spellingItems:Object.fromEntries(items.map(item=>[item.id,item]))},evidenceIds:[],
+   nodeId:'baseline',role:'baseline',title:'Completed practice',state:'completed',academicTarget:{domain:'spelling',skill:'spelling',targets:words},algorithmOwner:'ai_tutor',theoryId:'lab-theory',experimentId:'lab-experiment',mechanic:'word-radar',theme:'world',openingScreen:{title:'Completed practice',purpose:'Practice'},generationPrompt:null,artwork:{status:'ready',localPath:'/generated/world.jpeg',prompt:null},sfxContract:[],companionContract:{events:[]},evidenceIds:[],
+   ...builtInWordRadar({rootDir:root,childId,homeworkId,nodeId:'baseline',title:'Completed practice',items}),
   }]},{rootDir:root});
   // Saved word IDs, rather than displayed words, remain authoritative.
   const actual=structuredClone(decision(primary));
@@ -130,7 +132,7 @@ describe('a canvas cannot veto a spelling successor',()=>{
    actual.boardDefinition={...primary,rootPathId:'root',paths:[{id:'root',portalIds:['p-start',...ids,'p-end']}],choices:[],portals:[{...primary.portals[0],id:'p-start',kind:'start'},...ids.map(id=>({id,label:id,kind:'activity',activityNodeId:id,position:{landscape:{x:.5,y:.5},portrait:{x:.5,y:.5}}})),{id:'p-end',label:'Done',kind:'endpoint',position:{landscape:{x:.9,y:.9},portrait:{x:.9,y:.9}}}],edges:[]} as any;
   }
   if(variant==='off-path-unknown')(actual.boardDefinition as typeof primary).portals.push({id:'ghost',label:'Unused',kind:'activity',activityNodeId:'nope',position:{landscape:{x:.5,y:.5},portrait:{x:.5,y:.5}}});
-  actual.nextInstruments.forEach(row=>row.spelling.wordIds=items.map(item=>item.wordId));
+  actual.nextInstruments.forEach(row=>Object.assign(row.spelling,{wordIds:items.map(item=>item.wordId),builtInActivityId:'baseline'}));
   const create=vi.fn().mockResolvedValue({id:'recorded-primary',stop_reason:'tool_use',content:[{type:'tool_use',name:'decide_learning_cycle_progression',input:actual}]});
   const request={childId,homeworkId,client:{messages:{stream:(payload:unknown)=>({finalMessage:()=>create(payload)})}} as never};
   const after=await advanceCanonicalCycleFromEvidence(request,{rootDir:root});
@@ -143,13 +145,13 @@ describe('a canvas cannot veto a spelling successor',()=>{
   const prepared=await prepareSuccessorBoard({childId,homeworkId,generateHtml,generateArtwork:async()=>'/generated/world.jpeg',validate:async()=>({passed:true,failures:[]})},{rootDir:root});
   expect(prepared.lifecycle).toBe('baseline_ready');
   expect(prepared.boards!.at(-1)!.publishedAt).not.toBeNull();
-  expect(generateHtml).toHaveBeenCalledTimes(5);
+  expect(generateHtml).not.toHaveBeenCalled();
   expect(prepared.decisionHistory.filter(row=>row.eventType==='block')).toHaveLength(0);
   expect(prepared.observations).toEqual(before.observations);
   await advanceCanonicalCycleFromEvidence(request,{rootDir:root});
   await prepareSuccessorBoard({childId,homeworkId,generateHtml},{rootDir:root});
   expect(create).toHaveBeenCalledTimes(1);
-  expect(generateHtml).toHaveBeenCalledTimes(5);
+  expect(generateHtml).not.toHaveBeenCalled();
   expect(getLearningCycle(childId,homeworkId,{rootDir:root})!.decisionHistory.filter(row=>row.eventType==='theory_decided')).toHaveLength(1);
   expect(diagnostic).toHaveBeenCalled();
  });

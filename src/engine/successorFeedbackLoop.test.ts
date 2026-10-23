@@ -6,6 +6,7 @@ import primary from '../scripts/fixtures/successor-primary-20261021.json';
 import correction from '../scripts/fixtures/successor-correction-20261021.json';
 import {linearJourneyFixture} from '../scripts/fixtures/authoredJourney';
 import {seedSpellingLab} from '../scripts/fixtures/spellingEvidenceFirst';
+import {builtInWordRadar} from '../scripts/fixtures/builtInSpellingActivity';
 import {journeyFrontier} from '../shared/adventureBoardDefinition';
 import {buildSpellingRecallItems} from './learningCycleIngest';
 import {createLearningCycle,getLearningCycle,transitionLearningCycle,type LearningCycleRecordV2} from './learningCycleRepository';
@@ -29,11 +30,12 @@ function fixture(board:unknown=primary){
  seedSpellingLab(rootDir,words,'',childId);
  const items=buildSpellingRecallItems({homeworkId,words,evidenceIds:['school:lab'],measurementRole:'practice',exposure:'practiced',occasionId:'first'});
  const initial=createLearningCycle({childId,homeworkId,domain:'spelling',assignment:{title:'Lab assignment',contentFingerprint:'lab',capturedEvidenceIds:['school:lab'],targets:words},academicTheory:{theoryId:'lab-theory',revision:1,hypothesis:'Practice may help; independent evidence is still missing',supportCriteria:[],reviseCriteria:[],falsifyCriteria:[]},engagementTheory:null,boardDefinition:linearJourneyFixture(['first']),initialLifecycle:'board_ready',nodes:[{
-  nodeId:'first',role:'baseline',title:'First chapter',state:'ready',academicTarget:{domain:'spelling',skill:'spelling',targets:words},algorithmOwner:'ai_tutor',theoryId:'lab-theory',experimentId:'first',mechanic:'word-radar',theme:'world',openingScreen:{title:'First chapter',purpose:'Practice'},generationPrompt:null,artifactBinding:{contentId:'first',artifactId:'first',localArtifactPath:'/games/first.html',localArtworkPath:'/generated/world.jpeg',contractFingerprint:'lab',validationStatus:'passed'},artwork:{status:'ready',localPath:'/generated/world.jpeg',prompt:null},sfxContract:[],companionContract:{events:[]},evidenceContract:{academic:true,engagement:true,companionObservations:true,spellingItems:Object.fromEntries(items.map(item=>[item.id,item]))},evidenceIds:[],
+  nodeId:'first',role:'baseline',title:'First chapter',state:'ready',academicTarget:{domain:'spelling',skill:'spelling',targets:words},algorithmOwner:'ai_tutor',theoryId:'lab-theory',experimentId:'first',mechanic:'word-radar',theme:'world',openingScreen:{title:'First chapter',purpose:'Practice'},generationPrompt:null,artwork:{status:'ready',localPath:'/generated/world.jpeg',prompt:null},sfxContract:[],companionContract:{events:[]},evidenceIds:[],
+  ...builtInWordRadar({rootDir,childId,homeworkId,nodeId:'first',title:'First chapter',items}),
  }]},{rootDir});
  const before=runtime.recordCanonicalNodeCompletion({childId,homeworkId,nodeId:'first',sessionId:'first-session',result:{completed:true,accuracy:0,timeSpent_ms:100,targetResults:items.map(item=>({target:item.id,correct:false,attemptedValue:'unknown'}))}},{rootDir})!;
  expect(before.lifecycle).toBe('baseline_evaluating');
- const decision={status:'inconclusive',reason:'Supported practice is not independent improvement.',progressionAction:'generate_support',preserve:[],change:[],testNext:[],nextEvidenceRequired:['Independent evidence'],predictionEvaluationIds:[],boardDefinition:board,nextInstruments:sourceIds.map(nodeId=>({nodeId,title:nodeId.split(':')[1],academicTarget:'Spelling',mechanic:'word-radar',theme:'Illustrated world',openingPurpose:'Practice',creatorPrompt:'Build this activity',spelling:{wordIds:items.map(item=>item.wordId),measurementRole:'practice',responseMode:'spelling_letters'}}))};
+ const decision={status:'inconclusive',reason:'Supported practice is not independent improvement.',progressionAction:'generate_support',preserve:[],change:[],testNext:[],nextEvidenceRequired:['Independent evidence'],predictionEvaluationIds:[],boardDefinition:board,nextInstruments:sourceIds.map(nodeId=>({nodeId,title:nodeId.split(':')[1],academicTarget:'Spelling',mechanic:'word-radar',theme:'Illustrated world',openingPurpose:'Practice',creatorPrompt:'Build this activity',spelling:{wordIds:items.map(item=>item.wordId),measurementRole:'practice',responseMode:'spelling_letters',builtInActivityId:'first'}}))};
  const requests:any[]=[];
  const create=vi.fn(async(payload:unknown)=>{requests.push(payload);return {id:`recorded-${requests.length}`,stop_reason:'tool_use',content:[{type:'tool_use',name:'decide_learning_cycle_progression',input:decision}]};});
  const request={childId,homeworkId,client:{messages:{stream:(payload:unknown)=>({finalMessage:()=>create(payload)})}} as never};
@@ -78,7 +80,7 @@ it.each([['primary-wheel',primary,'opt-wheel'],['primary-radar',primary,'opt-rad
  const published=structuredClone(currentBoardInstance(cycle));
  expect(published.publishedAt).not.toBeNull();
  expect(await prepare()).toEqual(cycle);
- expect(generateHtml).toHaveBeenCalledTimes(5);
+ expect(generateHtml).not.toHaveBeenCalled();
  const resultsBefore=cycle.observations.length;
  let complete=false,completedActivities=0;
  for(let step=0;step<8;step++){
@@ -116,7 +118,7 @@ it.each([['primary-wheel',primary,'opt-wheel'],['primary-radar',primary,'opt-rad
  expect(currentBoardInstance(ready).boardId).not.toBe(published.boardId);
  expect(ready.boards!.find(board=>board.boardId===published.boardId)).toEqual(published);
  expect(ready.decisionHistory.filter(row=>row.eventType==='theory_decided')).toHaveLength(2);
- expect(generateHtml).toHaveBeenCalledTimes(10);
+ expect(generateHtml).not.toHaveBeenCalled();
 });
 
 it.each(['max_tokens','refusal'])('never turns a %s response into a zero-cost replay or automatic paid retry',async stop=>{

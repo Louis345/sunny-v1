@@ -23,6 +23,7 @@ import {
   transitionLearningCycle,
   validateSpellingPrescription,
   spellingAssignmentItems,
+  spellingBuiltInActivities,
   type LearningCycleEvidenceSummary,
   type LearningCycleRecordV2,
   type LearningCycleDecision,
@@ -703,6 +704,7 @@ async function askPlanner(
     : ["generate_support", "generate_quest", "generate_boss", "collect_more_evidence", "await_calibration"];
   const plannerModel = model ?? (cycle.domain === "spelling" ? process.env.SUNNY_EXPERIENCE_PLANNER_MODEL : undefined) ?? process.env.SUNNY_INGEST_MODEL ?? "claude-sonnet-5";
   const savedSpellingItems = spellingAssignmentItems(cycle);
+  const builtIns = spellingBuiltInActivities(cycle);
   const legacyContentSchema = {type:'array',items:{type:'object',additionalProperties:false,properties:{contentId:{type:'string'},action:{type:'string',enum:['candidate','reuse','revise','retire']},reason:{type:'string'},evidenceIds:{type:'array',items:{type:'string'}}},required:['contentId','action','reason','evidenceIds']}};
   const contentSchema = cycle.domain !== 'spelling' ? legacyContentSchema : catalog.length && decisionEvidenceIds.size
     ? {...legacyContentSchema,items:{...legacyContentSchema.items,properties:{...legacyContentSchema.items.properties,contentId:{type:'string',enum:catalog.map(item=>item.contentId)},evidenceIds:{type:'array',minItems:1,items:{type:'string',enum:[...decisionEvidenceIds]}}}}}
@@ -725,8 +727,9 @@ async function askPlanner(
           wordIds: { type: "array", minItems: 1, uniqueItems: true, items: { type: "string", enum: [...savedSpellingItems.keys()] } },
           measurementRole: { type: "string", enum: ["practice", "fresh_checkpoint"] },
           responseMode: { type: "string", enum: ["spelling_letters", "tap_selection"] },
+          ...(builtIns.length ? { builtInActivityId: { type: "string", enum: builtIns.map(node => node.nodeId), description: "The tested built-in activity this step re-runs, with exactly its own words." } } : {}),
         },
-        required: ["wordIds", "measurementRole", "responseMode"],
+        required: ["wordIds", "measurementRole", "responseMode", ...(builtIns.length ? ["builtInActivityId"] : [])],
       } } : {}),
       encounter: { type: "string", enum: ["quest", "boss"], description: "Only on the single Quest or Boss node your progressionAction authorizes." },
       stakesDesign: { type: "string", minLength: 1, description: "What is genuinely at risk for the child in this instrument, and what losing it costs them." },
@@ -766,6 +769,9 @@ For math, do not copy assignment items or name a prototype to imitate. If eviden
 For spelling, each instrument must prescribe spelling.wordIds from the saved word identities below, a measurementRole, and a responseMode. You choose which words need teaching or practice and when to collect fresh recall. The server binds the saved spellings and new occasion IDs; you cannot replace answer keys or reset exposure. Fresh recall after practice is not unseen transfer or delayed retention. Include initially secure and targeted words when prescribing a final assignment check.
 Saved spelling words:
 ${JSON.stringify([...savedSpellingItems.values()].map(item => ({ wordId: item.wordId, word: item.word, responseMode: item.response.mode })))}
+For spelling, each next-board step re-runs one of these tested built-in activities: set spelling.builtInActivityId to its activityId and spelling.wordIds to exactly its wordIds. Sunny builds no new spelling games; creatorPrompt and the design fields are not used for spelling.
+Tested built-in activities:
+${JSON.stringify(builtIns.map(node => ({ activityId: node.nodeId, type: node.implementationType, title: node.title, wordIds: [...new Set(Object.values(node.evidenceContract.spellingItems ?? {}).map(item => item.wordId))], checkpoint: Object.values(node.evidenceContract.itemRoles ?? {}).length > 0 && Object.values(node.evidenceContract.itemRoles ?? {}).every(role => role === "fresh_checkpoint") })))}
 For spelling, Correct practice after long response time is not effortless recall. Examine per-word response time alongside assistance, exposure, response mode, and instrument ambiguity. When the evidence suggests a child is struggling, author teaching and guided practice before another fresh recall check; let Elli respond conversationally from the live item and child context. Do not infer mastery from supported or partial-visibility practice, and do not use a fixed latency threshold to choose the lesson.
 
 Child chart context:

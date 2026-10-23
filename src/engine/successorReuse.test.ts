@@ -25,12 +25,13 @@ const childId='reuse-lab',homeworkId='lab-assignment',words=['write','island'];
 const wordRadarConfig={recallMode:'hidden_word_recall',inputMode:'keyboard'};
 const sha=(value:unknown)=>createHash('sha256').update(JSON.stringify(value)).digest('hex');
 
-function fixture(){
+function fixture(answerForms?:string[][]){
  const rootDir=fs.mkdtempSync(path.join(os.tmpdir(),'sunny-successor-reuse-'));roots.push(rootDir);
  vi.stubEnv('SUNNY_CONTEXT_ROOT',path.join(rootDir,'src/context'));
  vi.stubGlobal('fetch',()=>{throw Error('lab_forbids_network');});
  seedSpellingLab(rootDir,words,'',childId);
- const items=buildSpellingRecallItems({homeworkId,words,evidenceIds:['school:lab'],measurementRole:'practice',exposure:'practiced',occasionId:'radar-check'});
+ const items=buildSpellingRecallItems({homeworkId,words,evidenceIds:['school:lab'],measurementRole:'practice',exposure:'practiced',occasionId:'radar-check'})
+  .map((item,index)=>answerForms?{...item,response:{mode:'tap_selection' as const,acceptedForms:answerForms[index],caseSensitive:false}}:item);
  const evidenceContract={academic:true,engagement:true,companionObservations:true,spellingItems:Object.fromEntries(items.map(item=>[item.id,item])),nativeConfig:{activityId:'word-radar',wordRadarConfig}};
  // Board 1's built-in Word Radar, bound exactly as the first board binds native instruments.
  const configFile=path.join(resolveAdaptiveMathDraftDir(childId,homeworkId,{rootDir}),'native-instruments','radar-check.json');
@@ -47,7 +48,7 @@ function fixture(){
  const nextInstruments=[instrument(`${homeworkId}:radar-check`,'word-radar','Reuse the word-radar configuration exactly as before with fresh occasion IDs.'),instrument(`${homeworkId}:treasure-dig`,'treasure-dig','Build a new digging game.')];
  const decision={status:'revised',reason:'Re-check with the proven radar; try one new game.',progressionAction:'generate_support',preserve:[],change:[],testNext:[],nextEvidenceRequired:['Independent evidence'],predictionEvaluationIds:[],boardDefinition:linearJourneyFixture(nextInstruments.map(row=>row.nodeId)),nextInstruments};
  const create=vi.fn(async(_payload:unknown)=>({id:'recorded',stop_reason:'tool_use',content:[{type:'tool_use',name:'decide_learning_cycle_progression',input:decision}]}));
- return {rootDir,items,configuration,request:{childId,homeworkId,client:{messages:{stream:(payload:unknown)=>({finalMessage:()=>create(payload)})}} as never}};
+ return {rootDir,items,configuration,create,decision,request:{childId,homeworkId,client:{messages:{stream:(payload:unknown)=>({finalMessage:()=>create(payload)})}} as never}};
 }
 
 it('re-launches an existing built-in activity the Planner names, with fresh question IDs and no AI build',async()=>{
@@ -59,8 +60,8 @@ it('re-launches an existing built-in activity the Planner names, with fresh ques
  const board=currentBoardInstance(after);
  expect(board.kind).toBe('successor');
  const reused=after.nodes.find(node=>board.nodeIds.includes(node.nodeId)&&node.title==='radar-check')!;
- // Only the activity the Planner asked to be new goes to the AI builder.
- expect(generateHtml.mock.calls.map(([call]:any)=>call.node.nodeId)).toEqual([after.nodes.find(node=>board.nodeIds.includes(node.nodeId)&&node.title==='treasure-dig')!.nodeId]);
+ // Nothing goes to the AI builder: the step with no built-in to re-run is Not ready (contract 50).
+ expect(generateHtml).not.toHaveBeenCalled();
  expect(reused.implementationType).toBe('word-radar');
  expect(reused.evidenceContract.nativeConfig).toEqual(f.configuration.evidenceContract.nativeConfig);
  expect(reused.artifactBinding?.validationStatus).toBe('passed');
@@ -77,10 +78,8 @@ it('re-launches an existing built-in activity the Planner names, with fresh ques
  // Answers on the re-launched game land on the new board's questions.
  const played=runtime.recordCanonicalNodeCompletion({childId,homeworkId,nodeId:reused.nodeId,sessionId:'board-2-session',result:{completed:true,accuracy:1,timeSpent_ms:100,targetResults:Object.keys(reused.evidenceContract.spellingItems!).map(target=>({target,correct:true,attemptedValue:'write'}))}},opts)!;
  expect(played.observations.filter(row=>reused.evidenceContract.spellingItems![row.itemId]).length).toBe(words.length);
- // Finishing the board hands the new evidence back to the Planner: the loop continues.
- const built=after.nodes.find(node=>board.nodeIds.includes(node.nodeId)&&node.title==='treasure-dig')!;
- const finished=runtime.recordCanonicalNodeCompletion({childId,homeworkId,nodeId:built.nodeId,sessionId:'board-2-session',result:{completed:true,accuracy:1,timeSpent_ms:100,targetResults:Object.keys(built.evidenceContract.spellingItems!).map(target=>({target,correct:true,attemptedValue:'island'}))}},opts)!;
- expect(successorResumeAction(finished)).toBe('decide');
+ // The Not ready step is passed over, so finishing the re-run hands the evidence back to the Planner.
+ expect(successorResumeAction(played)).toBe('decide');
 });
 
 it('keeps a reused activity playable across restarts without rebuilding it',async()=>{
@@ -91,7 +90,7 @@ it('keeps a reused activity playable across restarts without rebuilding it',asyn
  const prepare=()=>prepareSuccessorBoard({childId,homeworkId,generateHtml,generateArtwork:async()=>'/generated/world.jpeg',validate:async()=>({passed:true,failures:[]})},opts);
  const first=await prepare();
  expect(await prepare()).toEqual(first);
- expect(generateHtml).toHaveBeenCalledTimes(1);
+ expect(generateHtml).not.toHaveBeenCalled();
  expect(getLearningCycle(childId,homeworkId,opts)).toEqual(first);
 });
 
@@ -154,8 +153,8 @@ function explainerFixture(plannerWords:string[]){
  return {rootDir,items,explainerCompletion,request:{childId,homeworkId,client:{messages:{stream:(payload:unknown)=>({finalMessage:()=>create(payload)})}} as never}};
 }
 
-it('re-launches a reused explainer whose real completion lands on the new board, with the Planner\'s narrowed words',async()=>{
- const f=explainerFixture(['write','island']),opts={rootDir:f.rootDir};
+it('re-launches a reused explainer whose real completion lands on the new board',async()=>{
+ const f=explainerFixture(explainerWords),opts={rootDir:f.rootDir};
  await runtime.advanceCanonicalCycleFromEvidence(f.request,opts);
  vi.spyOn(canvas,'verifyPreparingBoardCanvas').mockResolvedValue(undefined);
  const generateHtml=vi.fn(async()=>'<html></html>');
@@ -167,14 +166,21 @@ it('re-launches a reused explainer whose real completion lands on the new board,
  const config=reused.evidenceContract.nativeConfig as any;
  // No identity from board 1 survives in the re-launched setup.
  for (const old of f.items) expect(JSON.stringify(config)).not.toContain(old.id);
- expect(config.spellingModel.words.map((word:any)=>word.text)).toEqual(['write','island']);
+ expect(config.spellingModel.words.map((word:any)=>word.text)).toEqual(explainerWords);
  expect(validateVisualLearnerArtifactConfig(config)).toBeTruthy();
  const played=runtime.recordCanonicalNodeCompletion({childId,homeworkId,nodeId:reused.nodeId,sessionId:'board-2-session',result:{completed:true,accuracy:1,timeSpent_ms:100,targetResults:f.explainerCompletion(config)}},opts)!;
  expect(played.nodes.find(node=>node.nodeId===reused.nodeId)?.state).toBe('completed');
  expect(successorResumeAction(played)).toBe('decide');
 });
 
-it('sends an explainer to the builder instead of re-launching it when its check question would be dropped',async()=>{
+it('does not re-run an explainer for fewer words than its own',async()=>{
+ const f=explainerFixture(['write','island']),opts={rootDir:f.rootDir};
+ await runtime.advanceCanonicalCycleFromEvidence(f.request,opts);
+ const node=getLearningCycle(childId,homeworkId,opts)!.nodes.find(row=>row.title==='Silent Letter Detective Camp')!;
+ expect(node.reusedFrom).toBeUndefined();
+});
+
+it('does not re-launch an explainer when its check question would be dropped',async()=>{
  const f=explainerFixture(['island','minus']),opts={rootDir:f.rootDir};
  await runtime.advanceCanonicalCycleFromEvidence(f.request,opts);
  const next=getLearningCycle(childId,homeworkId,opts)!;
@@ -203,4 +209,57 @@ it('does not reuse a setup that its own game would reject',()=>{
  const items=buildSpellingRecallItems({homeworkId,words,evidenceIds:['school:lab'],measurementRole:'practice',exposure:'practiced',occasionId:'letter-rush'});
  const source={nodeId:'old-rush',implementationType:'letter-rush',evidenceContract:{spellingItems:Object.fromEntries(items.map(item=>[item.id,item])),nativeConfig:{schemaVersion:1,activityId:'letter-rush'}}} as any;
  expect(repointReusedSetup(source,`${homeworkId}:b3:old-rush`,items)).toBeUndefined();
+});
+
+// 2026-10-23 human catch (Saori copy of Ila): the Planner said "reuse" for four activities, but reuse was
+// decided by matching activity IDs, so anything unmatched went to the AI builder, and the board showed
+// untested generated games. Logs showed the reuse decisions as catalog bookkeeping that nothing obeyed.
+// One source of truth now: each spelling activity names the tested built-in it re-runs.
+const named=(f:ReturnType<typeof fixture>,builtIn:Record<string,string|undefined>)=>{
+ for(const row of f.decision.nextInstruments as any[]){const id=builtIn[row.nodeId];if(id)row.spelling.builtInActivityId=id;}
+};
+it('offers the Planner only the tested built-in activities for spelling',async()=>{
+ const f=fixture(),opts={rootDir:f.rootDir};
+ await runtime.advanceCanonicalCycleFromEvidence(f.request,opts);
+ const tool=(f.create.mock.calls[0][0] as any).tools[0].input_schema;
+ const spelling=tool.properties.nextInstruments.items.properties.spelling;
+ expect(spelling.required).toContain('builtInActivityId');
+ expect(spelling.properties.builtInActivityId.enum).toEqual(['radar-check']);
+});
+it('runs the built-in the Planner names under any new activity ID, and never builds a spelling game',async()=>{
+ const f=fixture(),opts={rootDir:f.rootDir};
+ Object.assign(f.decision.nextInstruments[0] as any,{nodeId:`${homeworkId}:radar-again`,title:'radar-again'});
+ f.decision.boardDefinition=linearJourneyFixture(f.decision.nextInstruments.map(row=>row.nodeId));
+ named(f,{[`${homeworkId}:radar-again`]:'radar-check'});
+ await runtime.advanceCanonicalCycleFromEvidence(f.request,opts);
+ vi.spyOn(canvas,'verifyPreparingBoardCanvas').mockResolvedValue(undefined);
+ const generateHtml=vi.fn(async()=>'<html><body><h1>x</h1></body></html>');
+ const after=await prepareSuccessorBoard({childId,homeworkId,generateHtml,generateArtwork:async()=>'/generated/world.jpeg',validate:async()=>({passed:true,failures:[]})},opts);
+ const board=currentBoardInstance(after);
+ const radar=after.nodes.find(node=>board.nodeIds.includes(node.nodeId)&&node.title==='radar-again')!;
+ const dig=after.nodes.find(node=>board.nodeIds.includes(node.nodeId)&&node.title==='treasure-dig')!;
+ expect(radar.reusedFrom).toBe('radar-check');
+ expect(radar.artifactBinding?.validationStatus).toBe('passed');
+ expect(generateHtml).not.toHaveBeenCalled();
+ expect(dig.artifactBinding).toBeNull();
+ expect(dig.notReadyReason).toContain('spelling_no_reusable_builtin');
+ expect(board.publishedAt).not.toBeNull();
+});
+it('re-runs a built-in only for exactly its own words',()=>{
+ const items=buildSpellingRecallItems({homeworkId,words:['write','island','minus'],evidenceIds:['school:lab'],measurementRole:'practice',exposure:'practiced',occasionId:'radar-check'});
+ const source={nodeId:'radar-check',implementationType:'word-radar',evidenceContract:{spellingItems:Object.fromEntries(items.slice(0,2).map(item=>[item.id,item])),nativeConfig:{activityId:'word-radar',wordRadarConfig}}} as any;
+ const fresh=(count:number)=>buildSpellingRecallItems({homeworkId,words:['write','island','minus'].slice(0,count),evidenceIds:['school:lab'],measurementRole:'practice',exposure:'practiced',occasionId:'b3'});
+ expect(repointReusedSetup(source,`${homeworkId}:b3:radar`,fresh(2))).toBeDefined();
+ expect(repointReusedSetup(source,`${homeworkId}:b3:radar`,fresh(1))).toBeUndefined();
+ expect(repointReusedSetup(source,`${homeworkId}:b3:radar`,fresh(3))).toBeUndefined();
+});
+it('scores a re-run activity with the answer forms of the built-in it re-runs',async()=>{
+ const f=fixture([['w'],['s']]),opts={rootDir:f.rootDir};
+ named(f,{[`${homeworkId}:radar-check`]:'radar-check'});
+ await runtime.advanceCanonicalCycleFromEvidence(f.request,opts);
+ const next=getLearningCycle(childId,homeworkId,opts)!;
+ const radar=next.nodes.find(node=>node.reusedFrom==='radar-check')!;
+ const byWord=new Map(Object.values(radar.evidenceContract.spellingItems!).map(item=>[item.word,item.response]));
+ expect(byWord.get('write')).toEqual({mode:'tap_selection',acceptedForms:['w'],caseSensitive:false});
+ expect(byWord.get('island')).toEqual({mode:'tap_selection',acceptedForms:['s'],caseSensitive:false});
 });

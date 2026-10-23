@@ -9,9 +9,10 @@ import express from "express";
 import { expect, it, vi } from "vitest";
 import { setupRoutes, resumeSuccessorBoards } from "./routes";
 import { seedSpellingLab } from "../scripts/fixtures/spellingEvidenceFirst";
+import { builtInWordRadar } from "../scripts/fixtures/builtInSpellingActivity";
 import { buildSpellingRecallItems } from "../engine/learningCycleIngest";
 import { createLearningCycle, getLearningCycle, projectLearningCycle, type LearningCycleNodeContract } from "../engine/learningCycleRepository";
-import { currentBoardInstance, preparingBoardInstance, publishBoardInstance } from "../engine/learningBoardInstances";
+import { currentBoardInstance, publishBoardInstance } from "../engine/learningBoardInstances";
 import { linearJourneyFixture } from "../scripts/fixtures/authoredJourney";
 import { getChildChart } from "../profiles/childChart";
 import { buildChildExperiencePacket } from "../profiles/childExperiencePacket";
@@ -20,7 +21,7 @@ import { handleWsConnection } from "./ws-handler";
 import { __resetVoiceSessionRegistryForTests } from "./voice-session-registry";
 import { COMPANION_DEFAULTS } from "../shared/companionTypes";
 
-const lab = vi.hoisted(() => ({ decisions: 0, builds: 0, interruptAfterFirstBinding: true }));
+const lab = vi.hoisted(() => ({ decisions: 0, builds: 0, interruptBeforePreparing: true, interrupted: false }));
 vi.mock("../deepgram-turn", () => ({ connectFlux: vi.fn(async (callbacks: { onOpen: () => void }) => { callbacks.onOpen(); return { sendAudio() {}, close() {} }; }) }));
 vi.mock("../shared/childRegistry", async original => ({ ...await original<typeof import("../shared/childRegistry")>(), listChildProfileIds: () => ["ila"] }));
 vi.mock("../engine/learningCycleRuntime", async original => {
@@ -28,7 +29,7 @@ vi.mock("../engine/learningCycleRuntime", async original => {
   return { ...actual, advanceCanonicalCycleFromEvidence: (input: any, opts: any) => actual.advanceCanonicalCycleFromEvidence({ ...input, decide: async cycle => {
     lab.decisions += 1;
     const wordIds = Object.values(cycle.nodes[0].evidenceContract.spellingItems!).map(item => item.wordId);
-    return { status: "revised", reason: "Recorded support decision from the completed spelling evidence", progressionAction: "generate_support", preserve: [], change: ["guided practice"], testNext: ["later recall"], nextEvidenceRequired: ["delayed recall"], predictionEvaluationIds: cycle.predictionEvaluations.map(row => row.evaluationId), successor: { boardDefinition: linearJourneyFixture(["support-0", "support-1"]), instruments: ["Sound workshop", "Later recall"].map((title, index) => ({ nodeId: `support-${index}`, title, academicTarget: "spelling.night", mechanic: "guided spelling", theme: "recorded harbor", openingPurpose: "Practice the observed spelling gap", creatorPrompt: "Recorded fixture: practice night using the saved evidence", spelling: { wordIds, measurementRole: index === 0 ? "practice" : "fresh_checkpoint", responseMode: "spelling_letters" } })) } };
+    return { status: "revised", reason: "Recorded support decision from the completed spelling evidence", progressionAction: "generate_support", preserve: [], change: ["guided practice"], testNext: ["later recall"], nextEvidenceRequired: ["delayed recall"], predictionEvaluationIds: cycle.predictionEvaluations.map(row => row.evaluationId), successor: { boardDefinition: linearJourneyFixture(["support-0", "support-1"]), instruments: ["Sound workshop", "Later recall"].map((title, index) => ({ nodeId: `support-${index}`, title, academicTarget: "spelling.night", mechanic: "guided spelling", theme: "recorded harbor", openingPurpose: "Practice the observed spelling gap", creatorPrompt: "Recorded fixture: practice night using the saved evidence", spelling: { wordIds, measurementRole: index === 0 ? "practice" : "fresh_checkpoint", responseMode: "spelling_letters", builtInActivityId: "practice" } })) } };
   } }, opts) };
 });
 vi.mock("../engine/canonicalProgressionGenerator", async original => {
@@ -36,16 +37,16 @@ vi.mock("../engine/canonicalProgressionGenerator", async original => {
   return { ...actual, prepareSuccessorBoard: async (input: any, opts: any) => {
     // Recorded Creator and verifier receipts test handoff/recovery, not content quality.
     const fixtureInput = { ...input, generateHtml: async ({ node }: { node: LearningCycleNodeContract }) => { lab.builds += 1; return `<html><body><h1>${node.title}</h1></body></html>`; }, validate: async () => ({ passed: true, failures: [] }), generateArtwork: async () => "/generated/recorded-harbor.png" };
-    if (lab.interruptAfterFirstBinding) {
-      lab.interruptAfterFirstBinding = false;
-      const cycle = getLearningCycle(input.childId, input.homeworkId)!;
-      return actual.generateCanonicalProgressionArtifact({ ...fixtureInput, nodeId: preparingBoardInstance(cycle)!.nodeIds[0] }, opts);
+    // The first background preparation is interrupted before it binds anything.
+    if (lab.interruptBeforePreparing) {
+      lab.interruptBeforePreparing = false; lab.interrupted = true;
+      return getLearningCycle(input.childId, input.homeworkId)!;
     }
     return actual.prepareSuccessorBoard(fixtureInput, opts);
   } };
 });
 
-it("resumes a partially prepared spelling successor after HTTP completion without another decision or rebuilding its bound node", async () => {
+it("resumes an interrupted spelling successor after HTTP completion without another decision or any AI build", async () => {
   const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-spelling-handoff-"));
   // The kiosk supports the family identities; all files here are synthetic and
   // physically isolated under rootDir, as in spellingBrowserAcceptance.
@@ -84,9 +85,10 @@ it("resumes a partially prepared spelling successor after HTTP completion withou
       academicTarget: { domain: "spelling", skill: "spelling.night", targets: ["night"] },
       algorithmOwner: "retrieval-practice", theoryId: "spelling-theory", experimentId: "practice",
       mechanic: "guided spelling", theme: "harbor", openingScreen: { title: "Night practice", purpose: "Practice night" },
-      generationPrompt: null, artifactBinding: { contentId: "practice", artifactId: "practice", localArtifactPath: "/games/practice.html", localArtworkPath: "/generated/practice.png", contractFingerprint: "recorded", validationStatus: "passed" },
+      generationPrompt: null,
       artwork: { status: "ready", localPath: "/generated/practice.png", prompt: null }, sfxContract: [], companionContract: { events: ["completion"] },
-      evidenceContract: { academic: true, engagement: true, companionObservations: true, spellingItems: { [item.id]: item } }, evidenceIds: [],
+      evidenceIds: [],
+      ...builtInWordRadar({ rootDir, childId, homeworkId, nodeId: "practice", title: "Night practice", items: [item], checkpoint: true }),
     };
     const base = { childId, homeworkId, domain: "spelling", assignment: { title: "School spelling", contentFingerprint: "recorded", capturedEvidenceIds: ["school:one"], targets: ["night"] }, academicTheory: { theoryId: "spelling-theory", revision: 1, hypothesis: "Test the spelling gap", supportCriteria: [], reviseCriteria: [], falsifyCriteria: [] }, engagementTheory: null, nodes: [node], initialLifecycle: "board_ready" as const };
     const board = publishBoardInstance({ ...base, boards: [] } as never, { kind: "teaching", definition: linearJourneyFixture([node.nodeId]), predecessorBoardId: null, plannerDecisionId: "original-plan", evidenceIds: ["school:one"], nodeIds: [node.nodeId], publishedAt: "2026-10-01T00:00:00Z" });
@@ -112,8 +114,7 @@ it("resumes a partially prepared spelling successor after HTTP completion withou
     const address = activeServer.address(); if (!address || typeof address === "string") throw new Error("handoff_address_missing");
     const post = () => fetch(`http://127.0.0.1:${address.port}/api/learning-cycle/node-complete`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ childId, homeworkId, nodeId: node.nodeId, result: { sessionId: "recorded-session", completed: true, accuracy: 0, timeSpent_ms: 1000, targetResults: [{ target: item.id, correct: false, attemptedValue: "wrong" }] } }) });
     expect((await post()).status).toBe(200);
-    await vi.waitFor(() => expect(lab.builds).toBe(1));
-    await vi.waitFor(() => expect(getLearningCycle(childId, homeworkId)!.nodes.filter(row => row.nodeId !== "practice" && row.artifactBinding)).toHaveLength(1));
+    await vi.waitFor(() => expect(lab.interrupted).toBe(true));
     const partial = getLearningCycle(childId, homeworkId)!;
     expect(partial.nodes[0]!.state).toBe("completed");
     expect(partial.observations[0]!.result.correct).toBe(false);
@@ -122,16 +123,14 @@ it("resumes a partially prepared spelling successor after HTTP completion withou
     expect(currentBoardInstance(partial).boardId).toBe(board.boardId);
     expect(projectLearningCycle(partial).adventureBoard.boardId).toBe(board.boardId);
     const completedEvidence = structuredClone(partial.observations);
-    const bound = partial.nodes.find(row => row.nodeId !== "practice" && row.artifactBinding)!;
     // Execute the production startup recovery against the persisted synthetic cycle.
     vi.stubEnv("VITEST", ""); resumeSuccessorBoards();
     await vi.waitFor(() => expect(currentBoardInstance(getLearningCycle(childId, homeworkId)!).boardId).not.toBe(board.boardId), {timeout:5000});
     const ready = getLearningCycle(childId, homeworkId)!;
     expect(ready.boards).toHaveLength(2);
     expect(ready.observations).toEqual(completedEvidence);
-    expect(ready.nodes.find(row => row.nodeId === bound.nodeId)!.artifactBinding).toEqual(bound.artifactBinding);
     expect(ready.nodes.filter(row => currentBoardInstance(ready).nodeIds.includes(row.nodeId)).every(row => row.state === "ready" && row.artifactBinding?.validationStatus === "passed")).toBe(true);
-    expect(lab.decisions).toBe(1); expect(lab.builds).toBe(2);
+    expect(lab.decisions).toBe(1); expect(lab.builds).toBe(0);
     // Publication alone did not prove that a returning session consumes the
     // decision. Exercise the same chart doorway and packet used at startup.
     const decisions = ready.decisionHistory.filter(row => row.eventType === "theory_decided");
@@ -153,7 +152,7 @@ it("resumes a partially prepared spelling successor after HTTP completion withou
     expect(returningChart.learningHistory.recentDecisions.map(row => row.decisionId)).toContain(decisions[0].decisionId);
     resumeSuccessorBoards();
     await new Promise<void>(resolve => setImmediate(resolve));
-    expect(lab.decisions).toBe(1); expect(lab.builds).toBe(2);
+    expect(lab.decisions).toBe(1); expect(lab.builds).toBe(0);
     expect(getLearningCycle(childId, homeworkId)!.revision).toBe(ready.revision);
     const proofDir = path.join(process.cwd(), "outputs/spelling-next-session-proof");
     fs.mkdirSync(proofDir, { recursive: true });
@@ -172,12 +171,10 @@ it("resumes a partially prepared spelling successor after HTTP completion withou
     await page.getByRole("button", { name: "support-0", exact: true }).waitFor();
     await page.screenshot({ path: path.join(proofDir, "next-board.png") });
     await page.getByRole("button", { name: "support-0", exact: true }).click();
-    await expect.poll(async () => {
-      const visible = await Promise.all(page.frames().filter(frame => frame !== page.mainFrame()).map(frame => frame.getByRole("heading", { name: "Sound workshop", exact: true }).isVisible()));
-      return visible.some(Boolean);
-    }, { timeout: 15000 }).toBe(true);
+    // The re-run built-in Word Radar opens natively in the kiosk (no generated page).
+    await expect.poll(async () => page.getByTestId("word-radar-root").isVisible(), { timeout: 15000 }).toBe(true);
     await page.screenshot({ path: path.join(proofDir, "next-activity.png") });
-    expect(lab.decisions).toBe(1); expect(lab.builds).toBe(2);
+    expect(lab.decisions).toBe(1); expect(lab.builds).toBe(0);
     await page.context().close();
     fs.writeFileSync(path.join(proofDir, "report.json"), JSON.stringify({
       provider: "recorded", authority: "simulation", passed: true,
