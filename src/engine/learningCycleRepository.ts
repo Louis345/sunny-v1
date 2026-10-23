@@ -2294,23 +2294,6 @@ export function projectLearningCycle(
   };
 }
 
-export function assertLearningCycleProjectionWrite(
-  childId: string,
-  plan: ActiveSessionPlan,
-  opts: LearningCycleRepositoryOptions = {},
-): void {
-  const homeworkId = plan.activeHomeworkId;
-  if (!homeworkId) return;
-  const cycle = getLearningCycle(childId, homeworkId, opts);
-  if (!cycle) return;
-  const canonical = projectLearningCycle(cycle, {presentationPlan:plan}).activeSessionPlan;
-  if (JSON.stringify(plan) === JSON.stringify(canonical)) return;
-  const expected = projectLearningCycle(cycle, { presentationPlan: plan }).activeSessionPlan;
-  if (JSON.stringify(plan) !== JSON.stringify(expected)) {
-    throw new Error(`learning_cycle_compatibility_projection_drift:${homeworkId}:r${cycle.revision}`);
-  }
-}
-
 export function projectLearningCyclePlanForWrite(
   childId: string,
   plan: ActiveSessionPlan,
