@@ -1,3 +1,11 @@
+## 2026-10-23 — Remaining technician refusals on the spelling path (open)
+
+Today's decoupling removed the checkers, the AI screenshot judge, the record-blanking title rules, the catalog second list and plan-copy drift refusals on the spelling path. These refusals remain and still drop or block child work instead of recording it as practice:
+- `recordSpellingDiscoveryAttempt` throws `spelling_item_not_in_contract` and `spelling_instrument_not_active`, so an answer for an unknown item or an inactive room is lost (learningCycleRuntime.ts).
+- `instrument_observed` throws `learning_cycle_node_not_launchable`, `learning_board_batch_closed`, `learning_board_read_only` and `learning_board_not_published` (learningCycleRepository.ts).
+- Teaching-board ingestion still rejects the whole board for `board_definition_required/invalid` and `spelling_checkpoint_lineage_missing` instead of laying out a plain board (learningCycleIngest.ts).
+Each needs its own change: keep the answer as practice with a logged reason, never throw it away. The full sorted inventory of hard stops (2026-10-22) is the source list.
+
 ## Board arrival became an unsolicited activity pitch (2026-10-21, human replay pending)
 
 During isolated adult kiosk acceptance, the human heard Elli doing too much when the board appeared. One automatic opening turn greeted the user, opened a level display and promoted an activity. The decision chain was board mount → automatic voice session → startup summons Elli with board context → a second, legacy map block tells her to make upcoming activities exciting and encourage the first node → model-generated speech and tool use. The earliest wrong decision was treating arrival as an invitation to promote the map. This was not evidence of repeated mounting or a failed audio stream.
