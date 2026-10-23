@@ -161,7 +161,7 @@ describe("Planner-owned opening spelling diagnostic", () => {
     expect(cycle.assignment.title).toBe(good.title);
     expect(cycle.boards![0].definition?.portals.map(p=>({id:p.id,label:p.label,position:p.position}))).toEqual(good.boardDefinition.portals.map(p=>({id:p.id,label:p.label,position:p.position})));
     await runSpellingDiscoveryIntake(input,{callPlannerModel});
-    expect(callPlannerModel).toHaveBeenCalledTimes(2);
+    expect(callPlannerModel).toHaveBeenCalledTimes(defect==="missing"?1:2);
   });
 
   it("repairs one incomplete Planner response once, then reuses the validated intake on restart", async () => {
@@ -209,15 +209,17 @@ describe("Planner-owned opening spelling diagnostic", () => {
   });
 });
 
-it('returns invalid opening geometry once to the same Planner and resumes its saved correction',async()=>{
+it.each(['overlap','outside-canvas'])('accepts opening presentation %s with missing art and reuses its original receipt',async variant=>{
  const {packet,rootDir}=await fixture();const valid=capture(packet);const invalid=structuredClone(valid);
- invalid.boardDefinition.portals[1].position=structuredClone(invalid.boardDefinition.portals[0].position);
+ if(variant==='overlap')invalid.boardDefinition.portals[1].position=structuredClone(invalid.boardDefinition.portals[0].position);
+ else invalid.boardDefinition.portals[1].position.landscape.x=1.2;
+ invalid.boardDefinition.theme.background={type:'image',value:'/generated/missing-lab.png'} as any;
  const callPlannerModel=vi.fn().mockResolvedValueOnce({draft:invalid}).mockResolvedValueOnce({draft:valid});
  const options={callPlannerModel,providerReceipt:{draftDir:path.join(rootDir,'receipts'),stage:'intake'}};
- expect((await planSpellingIntakeFromSource(packet,options)).output.boardDefinition).toEqual(valid.boardDefinition);
- expect(callPlannerModel).toHaveBeenCalledTimes(2);
- expect((await planSpellingIntakeFromSource(packet,options)).output.boardDefinition).toEqual(valid.boardDefinition);
- expect(callPlannerModel).toHaveBeenCalledTimes(2);
+ expect((await planSpellingIntakeFromSource(packet,options)).output.boardDefinition).toEqual(invalid.boardDefinition);
+ expect(callPlannerModel).toHaveBeenCalledTimes(1);
+ expect((await planSpellingIntakeFromSource(packet,options)).output.boardDefinition).toEqual(invalid.boardDefinition);
+ expect(callPlannerModel).toHaveBeenCalledTimes(1);
 },20000);
 
 

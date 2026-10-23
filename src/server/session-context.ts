@@ -1,3 +1,4 @@
+import { shouldUseAdventureMapVoiceSlimToolkit } from "../utils/adventureMapAgentPolicy";
 import { determineScaffoldLevel } from "../algorithms/retrievalPractice";
 import type { Domain, ScaffoldLevel } from "../algorithms/types";
 import { getSessionTypeConfig } from "./session-type-registry";
@@ -637,19 +638,6 @@ export function buildCanvasContextMessage(
     lines.push(`Worksheet input fields: ${c.overlayFields.length}`);
   }
 
-  lines.push(`Canvas control: ${ctx.canvas.owner === "server" ? "server-driven" : "companion-driven"}`);
-
-  if (ctx.canvas.owner === "server") {
-    lines.push(
-      `IMPORTANT: Canvas is server-driven for this ${ctx.sessionType} session. Do not call showCanvas — the server controls what the child sees.`
-    );
-  }
-
-  if (ctx.availableToolNames.includes("launchGame")) {
-    lines.push(`Available teaching games: ${Object.keys(TEACHING_TOOLS).sort().join(", ")}`);
-    lines.push(`Available reward games: ${Object.keys(REWARD_GAMES).sort().join(", ")}`);
-  }
-
   if (c.mode in TEACHING_TOOLS || c.mode in REWARD_GAMES) {
     lines.push(
       `Game startup: ${
@@ -681,6 +669,23 @@ export function buildCanvasContextMessage(
     if (questions[currentIndex] && currentIndex < total && !activityPaused) {
       lines.push(`Current question: ${questions[currentIndex].text}`);
     }
+  }
+
+  if (shouldUseAdventureMapVoiceSlimToolkit({ worksheetMode: ctx.sessionType === "worksheet", sessionType: ctx.sessionType })) {
+    return lines.join("\n");
+  }
+
+  lines.push(`Canvas control: ${ctx.canvas.owner === "server" ? "server-driven" : "companion-driven"}`);
+
+  if (ctx.canvas.owner === "server") {
+    lines.push(
+      `IMPORTANT: Canvas is server-driven for this ${ctx.sessionType} session. Do not call showCanvas — the server controls what the child sees.`
+    );
+  }
+
+  if (ctx.availableToolNames.includes("launchGame")) {
+    lines.push(`Available teaching games: ${Object.keys(TEACHING_TOOLS).sort().join(", ")}`);
+    lines.push(`Available reward games: ${Object.keys(REWARD_GAMES).sort().join(", ")}`);
   }
 
   const tailBlocks = [

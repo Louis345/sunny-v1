@@ -65,26 +65,14 @@ describe("useAppAdventurePreparation", () => {
   // preparation tests only asserted fixed narration, so the missing live
   // context bridge was invisible to the lab.
   it("keeps Elli grounded in the visible preparation phase and real progress", async () => {
-    const { rerender, stateUpdates } = setup({ surface: "chapter", status: null });
-    expect(stateUpdates().at(-1)).toMatchObject({
-      game: "adventure-preparation",
-      childId: "lab",
-      phase: "look",
-      progress: "You did it! Let me look at all your words.",
-      ready: 0,
-      total: 0,
-    });
+    // The waiting screen describes itself through the kiosk's one screen report, never its own message.
+    const { result, rerender, stateUpdates } = setup({ surface: "chapter", status: null });
+    expect(result.current.waiting).toMatchObject({ step: "You did it! Let me look at all your words.", ready: 0, total: 0 });
 
     await act(async () => { await vi.advanceTimersByTimeAsync(8000); });
     rerender({ surface: "chapter", status: status("board_generating", [["a", "ready"], ["b", "preparing"]]) });
-    expect(stateUpdates().at(-1)).toMatchObject({
-      game: "adventure-preparation",
-      childId: "lab",
-      phase: "build",
-      progress: "I'm building your games. One is ready!",
-      ready: 1,
-      total: 2,
-    });
+    expect(result.current.waiting).toMatchObject({ step: "I'm building your games. One is ready!", ready: 1, total: 2 });
+    expect(stateUpdates()).toEqual([]);
   });
 
   // Human-caught 2026-10-07: Elli promised "a few more seconds" while the
@@ -94,23 +82,18 @@ describe("useAppAdventurePreparation", () => {
   it("gives Elli elapsed time and forbids invented completion estimates", async () => {
     const startedAt = new Date(Date.now() - 2 * 60_000).toISOString();
     const paused = { ...status("needs_attention", []), startedAt, error: "provider_unavailable" };
-    const { stateUpdates } = setup({ surface: "held", status: paused });
-    expect(stateUpdates().at(-1)).toMatchObject({
-      phase: "help",
-      boardState: "needs_attention",
-      elapsedLabel: "2 min so far",
-      remainingTimeKnown: false,
-      progress: "Your words are saved. Building is paused.",
-    });
-    expect(stateUpdates().at(-1)?.screenText).toContain("Remaining time is not known.");
+    const { result } = setup({ surface: "held", status: paused });
+    expect(result.current.waiting).toMatchObject({ step: "Your words are saved. Building is paused." });
+    expect(result.current.waiting?.detail).toContain("Elapsed: 2 min so far.");
+    expect(result.current.waiting?.detail).toContain("Remaining time is not known.");
   });
 
   it("uses visual state updates without automatic fixed loading narration", async () => {
-    const { rerender, spoken, stateUpdates } = setup({ surface: "chapter", status: null });
+    const { result, rerender, spoken } = setup({ surface: "chapter", status: null });
     await act(async () => { await vi.advanceTimersByTimeAsync(8000); });
     rerender({ surface: "chapter", status: status("board_generating", [["a", "ready"], ["b", "preparing"]]) });
     expect(spoken()).toEqual([]);
-    expect(stateUpdates().at(-1)).toMatchObject({ phase: "build", ready: 1, total: 2 });
+    expect(result.current.waiting).toMatchObject({ ready: 1, total: 2 });
   });
 
   it("offers the fully verified board after Discovery and reveals it only on request", async () => {
@@ -155,7 +138,8 @@ describe("useAppAdventurePreparation", () => {
     await act(async () => { await vi.advanceTimersByTimeAsync(8000); });
     const ready = status("board_ready", [["a", "ready"], ["b", "ready"]]);
     rerender({ surface: null, status: ready });
-    expect(stateUpdates().at(-1)).toMatchObject({ game: "adventure-preparation", phase: "ready" });
+    expect(result.current.waiting).toMatchObject({ step: "Your map is ready. Let's go!" });
+    expect(stateUpdates()).toEqual([]);
     const view = render(<>{result.current.screen}</>);
     fireEvent.click(screen.getByRole("button", { name: "Let's go!" }));
     view.unmount();
@@ -165,6 +149,7 @@ describe("useAppAdventurePreparation", () => {
     rerender({ surface: null, status: { ...ready, startedAt: new Date().toISOString() } });
 
     expect(result.current.screen).toBeNull();
+    expect(result.current.waiting).toBeNull();
     expect(stateUpdates()).toHaveLength(publishedBeforePlay);
   });
 
@@ -187,6 +172,16 @@ describe("useAppAdventurePreparation", () => {
     rerender({surface:null,status:status("board_ready",[["a","ready"],["b","ready"]])});
     render(<>{result.current.screen}</>);
     expect(screen.getByRole("button",{name:"Let's go!"})).toBeTruthy();
+  });
+
+  // 2026-10-22 human catch: a timer counted from yesterday's Planner decision over a finished board.
+  it("offers a published next board with Let's go and no elapsed timer, even from yesterday", () => {
+    const yesterday = new Date(Date.now() - 1395 * 60_000).toISOString();
+    const { result, rerender } = setup({ surface: "held", status: { phase: "successor_preparing", updatedAt: yesterday, startedAt: yesterday, nodes: [] } });
+    rerender({ surface: null, status: { phase: "successor_published", updatedAt: yesterday, startedAt: yesterday, nodes: [] } });
+    render(<>{result.current.screen}</>);
+    expect(screen.getByRole("button", { name: "Let's go!" })).toBeTruthy();
+    expect(screen.queryByText(/min/)).toBeNull();
   });
 
   it("allows declining a completed board without revealing it", () => {

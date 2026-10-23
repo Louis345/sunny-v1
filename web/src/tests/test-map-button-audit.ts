@@ -59,9 +59,11 @@ describe("map button audit", () => {
     expect(src).toContain("replayWords={plannerBoardLaunch.node.words ?? []}");
   });
 
-  it("adventure voice prompt reminds the companion about earned digital food", () => {
+  it("keeps Bookbag access without forcing a spoken reward reminder", () => {
     const src = read("../src/agents/prompts.ts");
-    expect(src).toContain("digital food");
-    expect(src).toContain("Bookbag");
+    expect(src).not.toMatch(/When the child earns digital food, remind them/);
+    const strip = read("src/components/TamagotchiStrip.tsx");
+    expect(strip).toContain("Open bookbag");
+    expect(strip).toContain("onOpenSheet");
   });
 });

@@ -27,13 +27,14 @@ function harness() {
 // survived and every later help request queued. Earlier labs asserted only
 // that stale text was suppressed, not that a child could get the next reply.
 describe("retiring a stale companion turn", () => {
-  it.each(["token", "completion", "error"])("releases its own processing/audio after stale %s", async action => {
+  it.each(["token", "completion", "error"].flatMap(action => [false, true].map(spoken => [action, spoken] as const)))("releases stale %s with playback=%s", async (action, spoken) => {
     const { session } = harness();
     let signal: AbortSignal;
     runAgent.mockImplementationOnce(async options => {
       signal = options.signal;
       await new Promise(resolve => setImmediate(resolve));
       expect(session.turnSM.getState()).toBe("PROCESSING");
+      if (spoken) options.onToken("A current reply.");
       session.currentBoardSnapshot = { game: "adventure-preparation", phase: "ready" };
       session.turnSM.setPendingTranscript("Elli, can you help me now?");
       if (action === "token") options.onToken("An obsolete reply.");
@@ -45,9 +46,10 @@ describe("retiring a stale companion turn", () => {
     expect(session.turnSM.getState()).toBe("IDLE");
     expect(session.currentAbort).toBeNull();
     expect(signal!.aborted).toBe(true);
-    expect(session.ttsBridge.stop).toHaveBeenCalledOnce();
-    expect(session.send).toHaveBeenCalledWith("audio_cancel", expect.anything());
-    expect(session.send).not.toHaveBeenCalledWith("response_text", expect.anything());
+    expect(session.ttsBridge.stop).toHaveBeenCalledTimes(spoken ? 1 : 0);
+    if (spoken) expect(session.send).toHaveBeenCalledWith("audio_cancel", expect.anything());
+    else expect(session.send).not.toHaveBeenCalledWith("audio_cancel", expect.anything());
+    expect(session.send).not.toHaveBeenCalledWith("response_text", { chunk: "An obsolete reply." });
     expect(session.handleEndOfTurn).toHaveBeenCalledExactlyOnceWith("Elli, can you help me now?", true);
   });
 

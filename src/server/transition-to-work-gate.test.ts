@@ -29,15 +29,15 @@ it('does not end a session because the model uses farewell words in ordinary con
 it.each([true,false])('accepts a completed tool-only turn without recovery speech, owned audio=%s',async owned=>{
  const {runCompanionResponseForSession}=await import('./companion-response-runner');
  const session:any={sessionId:'quiet',companion:{name:'Elli',systemPrompt:'Live persona'},conversationHistory:[],gamePendingRevision:null,
-  turnSM:{getState:()=> 'IDLE',onStartCompanionFromIdle:vi.fn(),onToken:vi.fn(),onAgentComplete:vi.fn(),onSpeakingDone:vi.fn(),onInterrupt:vi.fn()},
+  turnSM:{getState:()=> 'IDLE',onStartCompanionFromIdle:vi.fn(),onToken:vi.fn(),onAgentComplete:vi.fn(),onSpeakingDone:vi.fn(),onInterrupt:vi.fn(),consumePendingTranscript:()=>null},
   buildAgentToolkit:()=>({}),send:vi.fn(),flushPendingRoundComplete:vi.fn(),end:vi.fn(),recordDebugEvent:vi.fn(),handleCompanionTurn:vi.fn()};
  let owner:any;session.ttsBridge={beginPlayback:(requestId:string)=>{owner={requestId:owned?requestId:'native-word'};},currentPlaybackIdentity:()=>owner,connect:async()=>{},stop:vi.fn(),finish:vi.fn()};
  stream.mockReturnValue({fullStream:(async function*(){session.toolCallsMadeThisTurn=1;})(),finishReason:Promise.resolve('stop')});
  await runCompanionResponseForSession(session,'Wave to me');
  expect(session.handleCompanionTurn).not.toHaveBeenCalled();
  expect(session.ttsBridge.finish).not.toHaveBeenCalled();
- expect(session.ttsBridge.stop).toHaveBeenCalledTimes(owned?1:0);
- expect(session.send).toHaveBeenCalledWith('audio_done',expect.anything());
+ // Playback opens on Elli's first words, so a silent tool-only turn never owns audio to stop (owned=%s is foreign-audio safety).
+ expect(session.ttsBridge.stop).not.toHaveBeenCalled();
 });
 
 it.each([true,false])('releases a real tool-only turn without stopping foreign audio, owned=%s',async owned=>{
@@ -49,7 +49,7 @@ it.each([true,false])('releases a real tool-only turn without stopping foreign a
  stream.mockReturnValue({fullStream:(async function*(){await new Promise(resolve=>setImmediate(resolve));session.toolCallsMadeThisTurn=1;})(),finishReason:Promise.resolve('stop')});
  await runCompanionResponseForSession(session,'Wave to me');
  expect(turnSM.getState()).toBe('IDLE');
- expect(session.ttsBridge.stop).toHaveBeenCalledTimes(owned?1:0);
+ expect(session.ttsBridge.stop).not.toHaveBeenCalled();
  expect(session.ttsBridge.finish).not.toHaveBeenCalled();
  turnSM.onStartCompanionFromIdle();expect(turnSM.getState()).toBe('LOADING');
  turnSM.onInterrupt();

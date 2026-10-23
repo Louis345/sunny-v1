@@ -1,7 +1,6 @@
 import fs from "fs";
 import path from "path";
 import {
-  assertLearningCycleProjectionWrite,
   projectLearningCyclePlanForWrite,
 } from "../engine/learningCycleRepository";
 import type {
@@ -282,7 +281,6 @@ export function writeWaterfallSessionPlan(
   const activeSessionPlan = profile.activeSessionPlan
     ? projectLearningCyclePlanForWrite(childId, profile.activeSessionPlan, opts)
     : undefined;
-  if (activeSessionPlan) assertLearningCycleProjectionWrite(childId, activeSessionPlan, opts);
   const projectedProfile = activeSessionPlan
     ? {
         ...profile,

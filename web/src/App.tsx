@@ -101,6 +101,8 @@ import { useAdaptiveMathGenerationRefresh } from "./hooks/useAdaptiveMathGenerat
 import { DiscoveryCompletionChapter } from "./components/DiscoveryCompletionChapter";
 import { LearningPreparationStatus } from "./components/LearningPreparationStatus";
 import { resolvePreparationSurface, useAppAdventurePreparation } from "./components/AdventurePreparation/useAppAdventurePreparation";
+import { isPublishedStatus } from "./components/AdventurePreparation/preparationStatusAdapter";
+import { kioskScreenReport } from "./utils/kioskScreenReport";
 import {
   CompanionCareProvider,
   useCompanionCare,
@@ -553,6 +555,7 @@ function App() {
     analyserNodeRef,
     releaseCompanionAudioPlayback,
     setCompanionPresence,
+    reportScreen,
   } = useSession({
     adventureGameIframeRef,
     gateCompanionAudioUntilCurtainRef,
@@ -780,14 +783,16 @@ function App() {
   const targetedBoardHeldForPreparation = shouldHoldTargetedBoardForPreparation(plannerBoardPacket);
   const targetedMathGenerationPending = hasPendingLearningGeneration(plannerBoardPacket, effectiveDiscoveryCompletionHandoff === "targeted-planning")
     || targetedBoardHeldForPreparation;
-  const preparationSurface = resolvePreparationSurface({ packet: plannerBoardPacket, directDiscoveryMode, handoff: effectiveDiscoveryCompletionHandoff, held: targetedBoardHeldForPreparation, preview: parentPreviewActive });
+  const preparationSurfaceInput = { packet: plannerBoardPacket, directDiscoveryMode, handoff: effectiveDiscoveryCompletionHandoff, held: targetedBoardHeldForPreparation, preview: parentPreviewActive };
   const generationProgress = useAdaptiveMathGenerationRefresh({
     childId: adventureChildId,
     homeworkId: plannerBoardPacket?.activeSessionPlan?.activeHomeworkId,
     enabled: targetedMathGenerationPending && !parentPreviewActive && !homeworkSessionFinished,
-    intervalMs: preparationSurface ? 10_000 : undefined,
+    intervalMs: resolvePreparationSurface(preparationSurfaceInput) ? 10_000 : undefined,
     onStatusChanged: refreshPlannerBoardPacket,
   });
+  // Whether the board is ready is the server's publication fact, not a guess from portal locks.
+  const preparationSurface = resolvePreparationSurface({ ...preparationSurfaceInput, published: isPublishedStatus(generationProgress.status) });
   const finishHomeworkSession = useCallback(() => {
     setHomeworkFinishedForNow(true);
     setPlannerBoardLaunch(null);
@@ -801,6 +806,20 @@ function App() {
   });
   // While it is up, only the preparation UI and Elli's portrait show.
   const preparationScreenActive = preparation.screen != null;
+  // One report of what the child sees, from the same decisions that render it: Elli's only screen source.
+  const discoveryChapterEnd = directDiscoveryMode && Boolean(effectiveDiscoveryCompletionHandoff);
+  const screenReportKey = JSON.stringify(kioskScreenReport({
+    packet: plannerBoardPacket,
+    packetLoading: plannerBoardPacketState.loading,
+    sessionReady,
+    directDiscovery: directDiscoveryMode && !discoveryChapterEnd,
+    waiting: preparation.waiting,
+    heldStatusShown: !preparation.screen && (discoveryChapterEnd || (!directDiscoveryMode && targetedBoardHeldForPreparation)),
+    launch: plannerBoardLaunch ? { nodeId: plannerBoardLaunch.node.id, title: plannerBoardLaunch.node.title } : null,
+  }));
+  useEffect(() => {
+    if (homeworkBoardMode) reportScreen(JSON.parse(screenReportKey));
+  }, [homeworkBoardMode, screenReportKey, reportScreen]);
 
   const [vrrCelebrateEvent, setVrrCelebrateEvent] =
     useState<CompanionEventPayload | null>(null);

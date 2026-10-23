@@ -23,6 +23,7 @@ import {
 } from "./session-triggers";
 import { WsTtsBridge } from "./ws-tts-bridge";
 import { createLoggedVoiceTurnLatency } from "./voiceTurnLatency";
+import { interruptedExchange, isBackchannel, isListeningNoise, isVerbatimEchoOfCompanion, shouldBargeIn } from "./companionTurnTaking";
 import { appendRewardLog } from "../agents/elli/tools/logReward";
 import { mathProblem } from "../agents/elli/tools/mathProblem";
 import {
@@ -97,6 +98,7 @@ import {
   findCompanionTruthContradictions,
   type CurrentBoardSnapshot,
 } from "./currentBoardSnapshot";
+import { normalizeScreenReport, type ScreenReport } from "./screenReport";
 import { compressGameScreenshotBase64 } from "./compressGameScreenshot";
 import { REWARD_CHARACTER_SVG } from "./canvas/registry";
 import { canvasStatePersistsThroughBargeIn } from "../shared/canvasRenderability";
@@ -195,6 +197,8 @@ export class SessionManager {
   private mathDiscoverySupport?: MathDiscoverySupportState;
   private mathDiscoverySupportHistory = new Map<string, MathDiscoverySupportState>();
   private currentBoardSnapshot: CurrentBoardSnapshot | null = null;
+  /** The kiosk's latest report of what the child sees; the only screen description Elli receives. */
+  private screenReport: ScreenReport | null = null;
   private pronunciationStruggleSignals = new Set<string>();
   private lastInstructionReadRequestKey: string | null = null;
   private pendingGameNarrationPlayback: Record<string, unknown> | null = null;
@@ -214,6 +218,8 @@ export class SessionManager {
   private conversationHistory: ModelMessage[] = [];
   private readonly options?: SessionManagerOptions;
   private ttsBridge: WsTtsBridge | null = null;
+  /** Child message whose reply is still being written (set by the response runner). */
+  inFlightReply: string | null = null;
   readonly voiceLatency = createLoggedVoiceTurnLatency((record) => this.debugRecorder.recordEvent("latency", "turn", record));
   private currentAbort: AbortController | null = null;
   private companionResponseTurnId = 0;
@@ -884,8 +890,8 @@ export class SessionManager {
     this.setCompanionPresence('summoned','client');
     this.resetCompanionDispositionAfterSpeech();
     console.log(` 🎮 [journey] [choice-addressed] [${choiceId}] request=${requestId}`);
-    if (this.turnSM.getState()!=='IDLE') this.bargeIn();
-    await this.runCompanionResponse('[Internal interaction: the child opened the displayed path choice and addressed you. Explain the actual options briefly from live context and invite their decision. Do not choose for them or infer a lasting preference.]');
+    if (this.turnSM.getState()!=='IDLE' || this.activeGameNarrationRequestId || this.pendingGameNarrationPlayback) this.bargeIn();
+    await this.runCompanionResponse('[System event: displayed path choice opened] Available options are in the live board snapshot. No option has been selected.', 'system');
   }
 
   public async requestInstructionReadAloud(input: {
@@ -909,9 +915,9 @@ export class SessionManager {
     this.resetCompanionDispositionAfterSpeech();
     this.recordGameTrace(request.trace);
     console.log(`  🎮 [companion-help] [agent-support] node=${input.nodeId} item=${input.itemId} trigger=${input.trigger ?? "child_request"}`);
-    if (this.turnSM.getState() !== "IDLE") this.bargeIn();
+    if (this.turnSM.getState() !== "IDLE" || this.activeGameNarrationRequestId || this.pendingGameNarrationPlayback) this.bargeIn();
     try {
-      await this.runCompanionResponse(request.prompt);
+      await this.runCompanionResponse(request.prompt, "system");
     } finally {
       if (
         this.lastInstructionReadRequestKey === request.requestKey
@@ -931,8 +937,20 @@ export class SessionManager {
     this.updateCurrentBoardSnapshot(state);
   }
 
+  public updateScreenReport(raw: unknown): void {
+    const report = normalizeScreenReport(raw);
+    if (!report) {
+      console.warn(" 🎮 [screen] [report] [rejected] malformed");
+      return;
+    }
+    this.screenReport = report;
+    console.log(` 🎮 [screen] [report] [received] screen=${report.screen} board=${report.boardId ?? "none"} node=${report.nodeId ?? "none"}`);
+  }
+
   public buildCurrentBoardContextForTurn(childSpeech?: string): string {
     return buildActivityCompanionContext({
+      // The homework board kiosk reports its screen; only there does the report decide what Elli is told.
+      ...(this.options?.homeworkId ? { screenReport: this.screenReport ?? null } : {}),
       snapshot: this.currentBoardSnapshot,
       childSpeech, speechRate: this.ttsBridge?.getSpeechRate?.(speechScopeFor(this.currentBoardSnapshot)),
       childId: this.chartChildId,
@@ -1240,7 +1258,8 @@ export class SessionManager {
     this.handleEndOfTurn(value).catch(console.error);
   }
 
-  bargeIn(): void {
+  /** Stop Elli now. `child_speech` also records what the child actually heard before cutting in. */
+  bargeIn(cause: "child_speech" | "system" = "system"): void {
     this.voiceLatency?.cancelTurn("barge_in");
     this.companionResponseTurnId = Number(this.companionResponseTurnId ?? 0) + 1;
     this.pendingRoundComplete = null;
@@ -1258,6 +1277,9 @@ export class SessionManager {
     this.activeGameNarrationRequestId = null;
 
     const stateBefore = this.turnSM.getState();
+    const interrupted = this.inFlightReply;
+    this.inFlightReply = null;
+    if (cause === "child_speech") this.conversationHistory.push(...interruptedExchange(interrupted, this.turnSM.spokenText(), stateBefore));
     this.turnSM.onInterrupt();
     auditLog("turn", {
       action: "barge_in",
@@ -1520,6 +1542,7 @@ export class SessionManager {
       });
       console.error("  🔴 Post-session chain error:", message);
       this.send("error", {
+        fatal: false,
         message: "Post-session processing failed",
         debugPacketPath: this.debugRecorder.sessionDir || undefined,
       });
@@ -1533,19 +1556,16 @@ export class SessionManager {
     }
     const handle = await connectFlux({
       onOpen: () => console.log("  ✅ Deepgram Flux connected"),
-      onStartOfTurn: () => {
-        const MIN_SPEAK_MS = 1500;
-        if (
-          this.turnSM.getState() === "SPEAKING" &&
-          this.speakingStartedAt > 0 &&
-          Date.now() - this.speakingStartedAt >= MIN_SPEAK_MS
-        ) {
-          this.bargeIn();
-        }
-      },
+      // A bare start-of-speech sound no longer stops Elli; real words in the live transcript do (onInterim).
+      onStartOfTurn: () => {},
       onEagerEndOfTurn: (transcript: string) => this.handleFluxEndOfTurn(transcript, "eager"),
       onTurnResumed: () => this.clearHeldCompanionEagerTranscript("turn_resumed"),
-      onInterim: (text) => this.send("interim", { text }),
+      onInterim: (text) => {
+        this.send("interim", { text });
+        // Same gate as a final transcript: only speech the open companion conversation would answer may stop Elli.
+        const companionWouldAnswer = this.companionPresence === "summoned" && this.companionInteractionMode === "conversation" && !this.options?.sttOnly && !this.suppressTranscripts;
+        if (companionWouldAnswer && this.turnSM.getState() === "SPEAKING" && shouldBargeIn({ interim: text, companionSpoken: this.turnSM.spokenText(), speakingForMs: Date.now() - this.speakingStartedAt })) this.bargeIn("child_speech");
+      },
       onEndOfTurn: (transcript) => this.handleFluxEndOfTurn(transcript, "final"),
       onError: (err) => {
         this.debugRecorder.recordError("Deepgram error", err);
@@ -1746,7 +1766,7 @@ export class SessionManager {
       setPresence: (state, reason) => this.setCompanionPresence(state, reason),
       recordEvent: (component, action, fields) =>
         this.debugRecorder.recordEvent(component, action, fields),
-    })) return;
+    })) return void this.voiceLatency?.discardLatest("ignored");
 
     let state = this.turnSM.getState();
     if (urgentRoute && !checkUserGoodbye(transcript)) {
@@ -1843,80 +1863,29 @@ export class SessionManager {
       return;
     }
 
-    if (state === "PROCESSING" || (state === "SPEAKING" && !opts?.fromReadingComplete && this.turnSM.isComposing())) {
-      if (!this.shouldAcceptInterruptedTranscript(transcript)) {
-        auditLog("transcript", {
-          action: "dropped",
-          reason: "junk",
-          turnState: state,
-          tts,
-          childName: auditChild,
-          round: auditRound,
-        });
-        this.debugRecorder.recordEvent("transcript", "dropped", {
-          reason: "junk",
-          turnState: state,
-          round: auditRound,
-          transcriptLength: transcript.length,
-        });
+    // Newest wins: real words from the child while Elli is thinking or talking stop that
+    // reply and are answered now; junk, backchannels, and Elli's own echo are dropped.
+    if (state === "LOADING" || state === "PROCESSING" || (!opts?.fromReadingComplete && (state === "CANVAS_PENDING" || state === "SPEAKING"))) {
+      const dropReason = !this.shouldAcceptInterruptedTranscript(transcript) ? "junk"
+        : this.shouldSuppressTranscriptDuringKaraoke(transcript) ? "karaoke"
+        : isListeningNoise(transcript) ? "backchannel"
+        : isVerbatimEchoOfCompanion(transcript, this.turnSM.spokenText()) ? "echo" : null;
+      if (dropReason) {
+        auditLog("transcript", { action: "dropped", reason: dropReason, turnState: state, tts, childName: auditChild, round: auditRound });
+        this.debugRecorder.recordEvent("transcript", "dropped", { reason: dropReason, turnState: state, round: auditRound, transcriptLength: transcript.length });
+        this.voiceLatency?.discardLatest("ignored");
         return;
       }
-      this.turnSM.setPendingTranscript(transcript);
-      console.log("  📬 Queued transcript for after turn");
-      auditLog("transcript", {
-        action: "queued",
-        turnState: state,
-        tts,
-        childName: auditChild,
-        round: auditRound,
-      });
-      this.debugRecorder.recordEvent("transcript", "queued", {
-        turnState: state,
-        round: auditRound,
-        transcriptLength: transcript.length,
-      });
-      return;
-    }
-
-    if (
-      !opts?.fromReadingComplete &&
-      (state === "CANVAS_PENDING" || state === "SPEAKING")
-    ) {
-      if (!this.shouldAcceptInterruptedTranscript(transcript)) {
-        auditLog("transcript", {
-          action: "dropped",
-          reason: "junk",
-          turnState: state,
-          tts,
-          childName: auditChild,
-          round: auditRound,
-        });
-        this.debugRecorder.recordEvent("transcript", "dropped", {
-          reason: "junk",
-          turnState: state,
-          round: auditRound,
-          transcriptLength: transcript.length,
-        });
+      if (this.turnSM.inWordBuilderRun() || (state === "SPEAKING" && isBackchannel(transcript))) {
+        // Word Builder keeps its turn; a short "right/okay" while Elli talks is answered right after her.
+        this.turnSM.setPendingTranscript(transcript);
+        console.log(` 🎮 [turn-taking] [held-for-after] [queued] state=${state}`);
+        this.debugRecorder.recordEvent("transcript", "queued", { turnState: state, round: auditRound, transcriptLength: transcript.length });
         return;
       }
-      console.log(
-        `  🗑️  Ignoring transcript while assistant owns turn (${state}): "${transcript}"`,
-      );
-      auditLog("transcript", {
-        action: "dropped",
-        reason: "assistant_owns_turn",
-        turnState: state,
-        tts,
-        childName: auditChild,
-        round: auditRound,
-      });
-      this.debugRecorder.recordEvent("transcript", "dropped", {
-        reason: "assistant_owns_turn",
-        turnState: state,
-        round: auditRound,
-        transcriptLength: transcript.length,
-      });
-      return;
+      console.log(` 🎮 [turn-taking] [newest-wins] [interrupting] state=${state}`);
+      this.bargeIn("child_speech");
+      state = this.turnSM.getState();
     }
 
     auditLog("transcript", {
@@ -2006,8 +1975,8 @@ export class SessionManager {
     await this.runCompanionResponse(userMessage);
   }
 
-  private async runCompanionResponse(userMessage: string): Promise<void> {
-    await runCompanionResponseForSession(this, userMessage);
+  private async runCompanionResponse(userMessage: string, source: "user" | "system" = "user"): Promise<void> {
+    await runCompanionResponseForSession(this, userMessage, source);
   }
 
   public buildAgentToolkit(): Record<string, unknown> {
@@ -2037,17 +2006,7 @@ export class SessionManager {
       worksheetMode: this.worksheetMode,
       sessionType: this.ctx?.sessionType,
     });
-    const baseTools = slimVoice
-      ? {
-          sessionLog: six.sessionLog,
-          sessionStatus: six.sessionStatus,
-          spinWheel: six.spinWheel,
-          sessionEnd: six.sessionEnd,
-          recordChildSignal: six.recordChildSignal,
-          recordProductIssue: six.recordProductIssue,
-          companionAct: companionActTool,
-        }
-      : { ...six, companionAct: companionActTool };
+    const baseTools = { ...six, companionAct: companionActTool };
     const replayTools = createReplayWordTools({ speechRate: () => this.ttsBridge?.getSpeechRate?.(speechScopeFor(this.currentBoardSnapshot)) ?? 1, snapshot: () => this.currentBoardSnapshot,
       playbackBusy: () => Boolean(this.activeGameNarrationRequestId || this.pendingGameNarrationPlayback),
       assessmentItemId: () => this.spellingAssessment?.itemId,
@@ -2057,6 +2016,10 @@ export class SessionManager {
       ...replayTools,
       ...createSpeechTools(this.ttsBridge, receipt => this.recordDebugEvent("companion-speech", "rate_configured", receipt), () => speechScopeFor(this.currentBoardSnapshot)),
     };
+    if (slimVoice) {
+      const { canvasShow, canvasClear, canvasStatus, sessionLog, ...boardTools } = baseTools;
+      return { ...boardTools, dateTime, ...screenshotTools };
+    }
     if (this.worksheetSession && this.worksheetMode) {
       return {
         ...baseTools,

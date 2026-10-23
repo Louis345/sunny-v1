@@ -168,7 +168,8 @@ export function hasPendingLearningGeneration(packet: ChildExperiencePacket | nul
   return Boolean(nodes.some(node => node.state === "preview")
     || (isProbeBoardPacket(packet) && nodes.some(node =>
       node.state === "locked" && node.lock?.reason === "artifact-not-ready"))
-    || ["evidence_ready", "targeted_planning", "board_designing", "board_generating", "baseline_generating", "quest_generating", "boss_generating"].includes(packet?.childChart.learningCycle?.lifecycle ?? "")
+    // Deciding the next board is pending too: the kiosk keeps watching until the server publishes it.
+    || ["evidence_ready", "targeted_planning", "board_designing", "board_generating", "baseline_evaluating", "quest_evaluating", "boss_evaluating", "baseline_generating", "quest_generating", "boss_generating"].includes(packet?.childChart.learningCycle?.lifecycle ?? "")
     || (isDirectDiscoveryPacket(packet) && completingDiscovery));
 }
 

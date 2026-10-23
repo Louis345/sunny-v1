@@ -44,7 +44,6 @@ const ADVENTURE_MAP_VOICE_TOOL_KEYS = [
   "companionAct",
   "dateTime",
   "sessionEnd",
-  "sessionLog",
   "sessionStatus",
   "spinWheel",
   "recordChildSignal",

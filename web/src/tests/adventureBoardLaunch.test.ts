@@ -190,6 +190,17 @@ describe("direct Discovery entry", () => {
       expect(hasPendingLearningGeneration(current, false)).toBe(true);
     }
   });
+  // 2026-10-22 harness catch (no page reload): after the last activity the server is still deciding the next
+  // board (an *_evaluating lifecycle). The kiosk stopped watching, so it never learned the new board was
+  // published and the child stayed on her finished board. Watching continues until the next board is published.
+  it("keeps watching while the Planner decides the next board, not only while it is built", () => {
+    for (const lifecycle of ["baseline_evaluating", "quest_evaluating", "boss_evaluating"]) {
+      const current = packet("hw-1:board:2", []);
+      current.activeSessionPlan!.domain = "spelling";
+      current.childChart = { learningCycle: { lifecycle } } as never;
+      expect(hasPendingLearningGeneration(current, false)).toBe(true);
+    }
+  });
   it("keeps watching a Probe Board while verified siblings are still locked", () => {
     const probe = packet("probe-board:hw-1", [
       { id: "probe-ready", type: "generated-baseline", title: "Ready" },

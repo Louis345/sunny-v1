@@ -806,7 +806,7 @@ describe("adaptive math discovery", () => {
             const composition=compositionFromBoardDefinition(linearJourneyFixture(["probe-groups"]));if(repairsComposition===true)composition.portals[1].position=structuredClone(composition.portals[0].position);
             return { content: [{ type: "tool_use", name: "create_math_discovery_design", input: { contractHash, composition, design: { firstAction: "Tap what you notice", interaction: "Touch groups", recovery: "Continue honestly" }, backgroundSvg: "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"1365\" height=\"768\"><rect width=\"100%\" height=\"100%\" fill=\"navy\"/></svg>" } }], usage: { input_tokens: 10, output_tokens: 20 } };
           }
-          if(repairsComposition===true && calls.length===3){const contractHash=request.messages[0]!.content.match(/CONTRACT HASH: ([a-f0-9]+)/)?.[1];return {content:[{type:"tool_use",name:"create_math_discovery_design",input:{contractHash,composition:compositionFromBoardDefinition(linearJourneyFixture(["probe-groups"]))}}],usage:{input_tokens:10,output_tokens:20}};}
+
           return responses.shift()!;
         },
       }),
@@ -814,9 +814,10 @@ describe("adaptive math discovery", () => {
 
     const generated = await generateMathDiscoveryExperience({ rootDir, childId: "lab-child", homeworkId: "hw-1", assignmentText: "Four equal groups.", assignmentEvidenceIds: ["assignment:1"], factualChildContext: { age: 9 }, client: client as never, visualReview: async ({ html }) => html });
 
-    expect(calls).toHaveLength(repairsComposition?4:3);
-    const builderIndex=repairsComposition?3:2;
-    expect(generated.contract.boardDefinition).toEqual(linearJourneyFixture(["probe-groups"]));
+    expect(calls).toHaveLength(repairsComposition==="schema"?4:3);
+    const builderIndex=repairsComposition==="schema"?3:2;
+    const expectedBoard=linearJourneyFixture(["probe-groups"]);if(repairsComposition===true)expectedBoard.portals[1].position=structuredClone(expectedBoard.portals[0].position);
+    expect(generated.contract.boardDefinition).toEqual(expectedBoard);
     expect(nonStreamingCalls).toBe(0);
     expect(calls[builderIndex]?.model).toBe(process.env.SUNNY_GENERATION_MODEL ?? process.env.SUNNY_INGEST_MODEL ?? "claude-sonnet-5");
     expect(calls[0]?.prompt).not.toContain("world");
@@ -986,7 +987,7 @@ describe("adaptive math discovery", () => {
 
   it("keeps the canonical Probe contract aligned with progressive verified publication", () => {
     const learningContract = fs.readFileSync(path.join(process.cwd(), "LEARNING_FEEDBACK_LOOP.md"), "utf8");
-    expect(learningContract).toContain("Contract version: 43");
+    expect(learningContract).toContain("Contract version: 53");
     expect(learningContract).toContain("The Probe Board is the only board instance that may publish before every node is verified");
     expect(learningContract).toContain("Each probe node is implemented and verified before that node unlocks");
     expect(learningContract).toContain("unfinished siblings remain locked");
@@ -1539,7 +1540,7 @@ describe("adaptive math discovery", () => {
         creativeProvenance: { rationale: "r", qualityPrediction: "q", creatorPromptHash: "p", artworkPromptHash: "a", generatedHtmlHash: "h" },
       },
     }, { rootDir });
-    expect(cycle.lifecycle).toBe("board_generating");
+    expect(cycle.lifecycle).toBe("board_ready");
     await verifyPreparingBoardCanvas({rootDir,childId:"lab-child",homeworkId:"hw-equal-groups",directory:path.join(rootDir,"canvas")});
     cycle=getLearningCycle("lab-child","hw-equal-groups",{rootDir})!;
     expect(cycle.lifecycle).toBe("board_ready");
@@ -1869,30 +1870,16 @@ it("gives the Discovery Planner the original PDF when extracted text is empty",a
 
 // Human sessions reached a stuck loading screen; provider receipts existed, but
 // the lab never resumed an invalid opening Planner journey before Creator work.
-it.each(["corrected", "still-invalid", "changed-academics"])("bounds opening Probe journey correction: %s", async mode => {
-  const rootDir=root();
-  const {artifact,...base}=structuredClone(contract);
-  const valid={...base,probeActivities:[{nodeId:contract.evaluationId,title:contract.title,itemIds:["probe-1"]}]};
-  const invalid=structuredClone(valid);
-  invalid.boardDefinition!.portals[1].position=structuredClone(invalid.boardDefinition!.portals[0].position);
-  const corrected=mode==="still-invalid"?structuredClone(invalid):structuredClone(valid);
-  if(mode==="changed-academics")corrected.items[0].correctAnswerContract.acceptedValues=["99"];
-  const create=vi.fn().mockResolvedValueOnce({id:"original-probe",content:[{type:"tool_use",name:"create_math_discovery_contract",input:invalid}]})
-    .mockResolvedValueOnce({id:"corrected-probe",content:[{type:"tool_use",name:"create_math_discovery_contract",input:corrected}]})
-    .mockRejectedValue(new Error("creator-stop"));
-  const input={rootDir,childId:"lab-child",homeworkId:"hw-probe-correction",assignmentText:"Groups",assignmentEvidenceIds:valid.assignmentEvidenceIds,factualChildContext:{},client:{messages:{stream:(request:unknown)=>({finalMessage:()=>create(request)})}} as never};
-  const expected=mode==="corrected"?"creator-stop":mode==="still-invalid"?"board_canvas_invalid":"discovery_journey_correction_changed_academic_contract";
-  await expect(generateMathDiscoveryExperience(input)).rejects.toThrow(expected);
-  expect(create).toHaveBeenCalledTimes(mode==="corrected"?3:2);
-  if(mode!=="corrected") {
-    await expect(generateMathDiscoveryExperience(input)).rejects.toThrow(expected);
-    expect(create).toHaveBeenCalledTimes(2);
-  }
-  const draft=path.join(rootDir,"src/context/lab-child/homework/direct-drafts/hw-probe-correction");
-  const files=fs.readdirSync(path.join(draft,"provider-receipts")).filter(f=>!f.includes(".stage."));
-  const receipts=files.map(f=>fs.readFileSync(path.join(draft,"provider-receipts",f),"utf8")).join("\n");
-  expect(receipts).toContain("original-probe");expect(receipts).toContain("corrected-probe");
-  fs.rmSync(rootDir,{recursive:true,force:true});
+it('accepts the overlapping legacy opening map with missing artwork without a correction purchase',async()=>{
+ const rootDir=root();const {artifact,...academic}=structuredClone(contract);
+ academic.boardDefinition!.portals[1].position=structuredClone(academic.boardDefinition!.portals[0].position);
+ academic.boardDefinition!.theme.background={type:'image',value:'/generated/missing-lab.png'};
+ const create=vi.fn().mockResolvedValueOnce({id:'original-probe',content:[{type:'tool_use',name:'create_math_discovery_contract',input:{...academic,probeActivities:[{nodeId:contract.evaluationId,title:contract.title,itemIds:['probe-1']}]}}]}).mockRejectedValue(Error('creator-stop'));
+ const input={rootDir,childId:'lab-child',homeworkId:'hw-probe-correction',assignmentText:'Groups',assignmentEvidenceIds:academic.assignmentEvidenceIds,factualChildContext:{},client:{messages:{stream:(request:unknown)=>({finalMessage:()=>create(request)})}} as never};
+ await expect(generateMathDiscoveryExperience(input)).rejects.toThrow('creator-stop');
+ expect(create).toHaveBeenCalledTimes(2);
+ expect(create.mock.calls[1][0].tools[0].name).toBe('create_math_discovery_design');
+ fs.rmSync(rootDir,{recursive:true,force:true});
 },20000);
 
 it.each([false,true])('replays pre-change Planner and Creator receipts without repurchasing their missing checkpoints; oldCorrection=%s',async oldCorrection=>{
@@ -1914,3 +1901,47 @@ it.each([false,true])('replays pre-change Planner and Creator receipts without r
  expect(stream).toHaveBeenCalledTimes(1);
  await generateMathDiscoveryExperience(args);expect(stream).toHaveBeenCalledTimes(1);
 },30000);
+
+// 2026-10-21 Saori catch: kiosk startup re-ran a finished Oct 14 job for an older assignment,
+// and its republish overwrote Ila's active plan, while homework/current.json still named her
+// current homework. Logs showed only "[targeted-board-projection] [published]"; labs disable
+// startup recovery under VITEST and never held an older finished job beside a current one.
+describe("the chart's current homework is the only one that may write the active plan", () => {
+  const seed = (rootDir: string, currentHomeworkId: string) => {
+    const context = path.join(rootDir, "src/context/lab-child");
+    fs.mkdirSync(path.join(context, "plans"), { recursive: true });
+    fs.mkdirSync(path.join(context, "homework"), { recursive: true });
+    fs.writeFileSync(path.join(context, "plans/active_session_plan.json"), JSON.stringify({ activeByDomain: { math: { planId: "current-plan", activeHomeworkId: currentHomeworkId } } }));
+    fs.writeFileSync(path.join(context, "homework/current.json"), JSON.stringify({ selectedDomain: "math", current: { homeworkId: currentHomeworkId }, activeByDomain: { math: { homeworkId: currentHomeworkId } } }));
+    fs.writeFileSync(path.join(context, "learning_profile.json"), JSON.stringify({ childId: "lab-child", activeSessionPlanByDomain: { math: { planId: "current-plan" } } }));
+    return context;
+  };
+  it("does not let an older homework's republish overwrite the current plan", () => {
+    const rootDir = root();
+    const context = seed(rootDir, "hw-current");
+    const before = { plan: fs.readFileSync(path.join(context, "plans/active_session_plan.json"), "utf8"), profile: fs.readFileSync(path.join(context, "learning_profile.json"), "utf8") };
+    const plan = buildDiscoveryActiveSessionPlan({ childId: "lab-child", homeworkId: "hw-old", evaluation: contract, companion: { id: "elli", name: "Elli" } });
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    try {
+      publishTargetedBoardProjection({ rootDir, childId: "lab-child", activeSessionPlan: plan, nodeStatuses: {} });
+      expect(fs.readFileSync(path.join(context, "plans/active_session_plan.json"), "utf8")).toBe(before.plan);
+      expect(fs.readFileSync(path.join(context, "learning_profile.json"), "utf8")).toBe(before.profile);
+      expect(log.mock.calls.flat().join("\n")).toContain("[targeted-board-projection] [skipped] reason=not_current_homework homework=hw-old current=hw-current");
+    } finally { log.mockRestore(); }
+  });
+  it("still publishes the current homework's own board", () => {
+    const rootDir = root();
+    const context = seed(rootDir, "hw-1");
+    const plan = buildDiscoveryActiveSessionPlan({ childId: "lab-child", homeworkId: "hw-1", evaluation: contract, companion: { id: "elli", name: "Elli" } });
+    publishTargetedBoardProjection({ rootDir, childId: "lab-child", activeSessionPlan: plan, nodeStatuses: {} });
+    expect(JSON.parse(fs.readFileSync(path.join(context, "plans/active_session_plan.json"), "utf8")).activeByDomain.math.activeHomeworkId).toBe("hw-1");
+  });
+  it("only resumes startup jobs for the chart's current homework", async () => {
+    const { isStartupResumableHomework } = await import("../server/routes") as any;
+    expect(isStartupResumableHomework).toBeTypeOf("function");
+    const current = new Set(["hw-current"]);
+    expect(isStartupResumableHomework("hw-current", current)).toBe(true);
+    expect(isStartupResumableHomework("hw-old-finished", current)).toBe(false);
+    expect(isStartupResumableHomework("hw-any", undefined)).toBe(true); // no chart record yet: unchanged behaviour
+  });
+});

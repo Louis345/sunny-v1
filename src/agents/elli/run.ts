@@ -1,4 +1,7 @@
+import fs from "fs";
+import path from "path";
 import { stepCountIs, streamText, type ModelMessage } from "ai";
+import { z } from "zod";
 import { anthropic } from "@ai-sdk/anthropic";
 import type { Profile } from "../../profiles";
 import { ALL_TOOLS } from "./tools/generateToolDocs";
@@ -6,6 +9,7 @@ import { ALL_TOOLS } from "./tools/generateToolDocs";
 export interface RunAgentOptions {
   history: ModelMessage[];
   userMessage: string;
+  source?: "user" | "system";
   profile: Profile;
   onToken: (chunk: string) => void;
   signal?: AbortSignal;
@@ -54,6 +58,26 @@ function supportsEffort(model: string): boolean {
   return /^claude-(?:(?:fable|mythos|opus|sonnet|haiku)-[5-9]|opus-4-[5-9]|sonnet-4-6)/.test(model);
 }
 
+let capturedRequests = 0;
+/**
+ * Diagnostic: with SUNNY_CAPTURE_COMPANION_REQUEST=<dir>, write the exact request Elli is about to receive
+ * (system prompt, messages, tool descriptions and schemas; before SDK tool steps) so her behavior can be traced to its sources, not guessed.
+ */
+function captureCompanionRequest(request: { model: string; system: string; messages: ModelMessage[]; tools: Record<string, unknown> }): void {
+  const dir = process.env.SUNNY_CAPTURE_COMPANION_REQUEST?.trim();
+  if (!dir) return;
+  try {
+    fs.mkdirSync(dir, { recursive: true });
+    const file = path.join(dir, `${Date.now()}-${process.pid}-${++capturedRequests}.json`);
+    const tools = Object.entries(request.tools).map(([name, tool]: [string, any]) => ({ name, description: tool.description ?? "",
+      inputSchema: tool.inputSchema?._zod ? z.toJSONSchema(tool.inputSchema, { unrepresentable: "any" }) : tool.inputSchema }));
+    fs.writeFileSync(file, JSON.stringify({ capturedAt: new Date().toISOString(), model: request.model, system: request.system, messages: request.messages, tools, scope: "initial_assembled_request" }, null, 2), { mode: 0o600 });
+    console.log(` 🎮 [companion] [request-capture] [saved] file=${file}`);
+  } catch (error) {
+    console.warn(` 🎮 [companion] [request-capture] [failed] ${error instanceof Error ? error.message : String(error)}`);
+  }
+}
+
 export function buildAgentTools(_opts: { allowTransitionToWork?: boolean } = {}) {
   return { ...ALL_TOOLS };
 }
@@ -81,69 +105,73 @@ export async function runAgent(opts: RunAgentOptions): Promise<string> {
   const effort = supportsEffort(modelId) ? voiceEffort() : undefined;
   if (!effort) console.log(` 🎮 [voice-effort] [skipped] model=${modelId} reason=unsupported`);
 
-  for (let attempt = 0; attempt < 2; attempt++) {
-    let toolCallsInAttempt = 0;
-    const result = streamText({
-      model: anthropic(modelId),
-      messages: [
-        // Cache breakpoint: tools + Elli's long system prompt are reused across turns.
-        {
-          role: "system",
-          content: profile.systemPrompt,
-          providerOptions: { anthropic: { cacheControl: { type: "ephemeral" } } },
-        },
-        ...history.filter(m => typeof m.content !== "string" || m.content.trim().length > 0),
-        ...injected,
-        { role: "user", content: userMessage }
-      ],
-      maxOutputTokens: attempt === 0 ? 1500 : 3000,
-      ...(effort && { providerOptions: { anthropic: { effort } } }),
-      tools: opts.tools ?? buildAgentTools({ allowTransitionToWork }),
-      stopWhen: stepCountIs(8),
-      abortSignal: signal,
-      experimental_onStepStart: experimentalOnStepStart,
-      experimental_onToolCallStart: experimentalOnToolCallStart,
-      onStepFinish: async (step) => {
-        toolCallsInAttempt += step.toolCalls?.length ?? 0;
-        if (onStepFinish) {
-          await onStepFinish(step);
-        }
-        if (!quiet) {
-          console.log(
-            "  🔧 Step finished:",
-            step.finishReason,
-            step.toolCalls?.length ?? 0,
-            "tool calls",
-          );
-          if (step.toolResults) {
-            console.log("  🔧 Tool results:", JSON.stringify(step.toolResults));
-          }
-        }
+  const conversation: ModelMessage[] = [
+    ...history.filter(m => typeof m.content !== "string" || m.content.trim().length > 0),
+    ...injected,
+    { role: opts.source ?? "user", content: userMessage },
+  ].map((message): ModelMessage => message.role === "system"
+    ? { role: "user", content: `[Runtime context — not child speech]\n${message.content}` }
+    : message);
+  const tools = opts.tools ?? buildAgentTools({ allowTransitionToWork });
+  captureCompanionRequest({ model: modelId, system: profile.systemPrompt, messages: conversation, tools });
+  const result = streamText({
+    model: anthropic(modelId),
+    messages: [
+      // Cache breakpoint: tools + Elli's long system prompt are reused across turns.
+      {
+        role: "system",
+        content: profile.systemPrompt,
+        providerOptions: { anthropic: { cacheControl: { type: "ephemeral" } } },
       },
-    });
-
-    // Use fullStream to ensure text deltas reach onToken even when tools/stopWhen
-    // cause textStream to skip chunks on plain-text-only turns.
-    for await (const part of result.fullStream) {
-      if (part.type === "text-delta") {
-        const p = part as { textDelta?: string; text?: string };
-        const text = p.textDelta ?? p.text ?? "";
-        if (text) {
-          fullText += text;
-          onToken(text);
+      ...conversation,
+    ],
+    maxOutputTokens: 1500,
+    maxRetries: 0,
+    ...(effort && { providerOptions: { anthropic: { effort } } }),
+    tools,
+    stopWhen: stepCountIs(8),
+    abortSignal: signal,
+    experimental_onStepStart: experimentalOnStepStart,
+    experimental_onToolCallStart: experimentalOnToolCallStart,
+    onStepFinish: async (step) => {
+      if (onStepFinish) {
+        await onStepFinish(step);
+      }
+      if (!quiet) {
+        console.log(
+          "  🔧 Step finished:",
+          step.finishReason,
+          step.toolCalls?.length ?? 0,
+          "tool calls",
+        );
+        if (step.toolResults) {
+          console.log("  🔧 Tool results:", JSON.stringify(step.toolResults));
         }
       }
+    },
+  });
+
+  // Use fullStream to ensure text deltas reach onToken even when tools/stopWhen
+  // cause textStream to skip chunks on plain-text-only turns.
+  for await (const part of result.fullStream) {
+    if (part.type === "text-delta") {
+      const p = part as { textDelta?: string; text?: string };
+      const text = p.textDelta ?? p.text ?? "";
+      if (text) {
+        fullText += text;
+        onToken(text);
+      }
     }
-    const finishReason = await result.finishReason;
-    const cache = (await result.usage)?.inputTokenDetails;
-    if (cache) {
-      console.log(
-        ` 🎮 [companion] [prompt-cache] read=${cache.cacheReadTokens ?? 0} created=${cache.cacheWriteTokens ?? 0}`,
-      );
-    }
-    if (finishReason === "length" && fullText.trim()) console.warn(" 🎮 [companion] [output-budget] [exhausted] replyMayBeIncomplete=true");
-    if (fullText.trim() || finishReason !== "length" || toolCallsInAttempt > 0) break;
-    if (attempt === 0) console.warn(" 🎮 [companion] [empty-length-turn] [retrying] budget=3000");
+  }
+  const finishReason = await result.finishReason;
+  const cache = (await result.usage)?.inputTokenDetails;
+  if (cache) {
+    console.log(
+      ` 🎮 [companion] [prompt-cache] read=${cache.cacheReadTokens ?? 0} created=${cache.cacheWriteTokens ?? 0}`,
+    );
+  }
+  if (finishReason !== "stop" && finishReason !== "tool-calls") {
+    throw new Error(`companion_response_incomplete:${finishReason ?? "unknown"}`);
   }
 
   return fullText;

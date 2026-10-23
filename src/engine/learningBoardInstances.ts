@@ -28,6 +28,11 @@ export type LearningBoardInstance = {
 
 export type PublishBoardInstanceInput = Omit<LearningBoardInstance, "boardId" | "topologyHash">;
 
+/** Actual capability availability, shared by status, projection and launch. */
+export function unavailableActivityReason(node: LearningCycleNodeContract): string | undefined {
+  return node.notReadyReason ?? (node.implementationType === "word-builder" ? "activity_unavailable:word-builder" : undefined);
+}
+
 function stableJson(value: unknown): string {
   if (Array.isArray(value)) return `[${value.map(stableJson).join(",")}]`;
   if (value && typeof value === "object") {
@@ -85,7 +90,7 @@ export function publishBoardInstance(cycle: LearningCycleRecordV2, input: Publis
     if (!known.has(nodeId)) throw new Error(`learning_board_node_missing:${nodeId}`);
     if (owned.has(nodeId)) throw new Error(`learning_board_node_already_owned:${nodeId}`);
   }
-  if (input.definition) {
+  if (input.definition && input.kind !== 'successor') {
     const definition = adventureBoardDefinitionSchema.parse(input.definition);
     const issues = validateBoardDefinition(definition, input.nodeIds);
     if (issues.length) throw new Error(`board_definition_invalid:${JSON.stringify(issues)}`);
@@ -171,11 +176,21 @@ export function assertPublishedBoardsImmutable(previous: LearningCycleRecordV2, 
   const before = previous.boards ?? [];
   if (before.length === 0 && !next.boards?.length) return;
   const after = new Map((next.boards ?? []).map((board) => [board.boardId, board]));
+  const previousNodes = new Map(previous.nodes.map((node) => [node.nodeId, node]));
+  // A never-bound Not ready step re-pointed to the built-in it named is the one allowed change to a frozen node (contract 51).
+  const repointed = new Set(next.nodes.filter((node) => {
+    const old = previousNodes.get(node.nodeId);
+    return Boolean(old?.notReadyReason && !old.artifactBinding && !old.reusedFrom && node.reusedFrom);
+  }).map((node) => node.nodeId));
   for (const board of before) {
     const current = after.get(board.boardId);
     if (!current) throw new Error(`learning_board_removed:${board.boardId}`);
     const publication = board.publishedAt === null ? { ...current, publishedAt: null } : current;
-    if (stableJson(publication) !== stableJson(board) || boardTopologyHash(next, board) !== board.topologyHash) {
+    const rehashed = board.nodeIds.some((nodeId) => repointed.has(nodeId));
+    const othersFrozen = !rehashed || board.nodeIds.every((nodeId) => repointed.has(nodeId)
+      || stableJson(frozenNode(next.nodes.find((node) => node.nodeId === nodeId), nodeId)) === stableJson(frozenNode(previousNodes.get(nodeId), nodeId)));
+    const expected = rehashed ? { ...board, topologyHash: current.topologyHash } : board;
+    if (!othersFrozen || stableJson(publication) !== stableJson(expected) || boardTopologyHash(next, board) !== expected.topologyHash) {
       throw new Error(`learning_board_topology_changed:${board.boardId}`);
     }
     if (board.agencyExperiment && next.agencyExperiment?.experimentId === board.agencyExperiment.experimentId
@@ -202,7 +217,9 @@ export function assertPublishedBoardsImmutable(previous: LearningCycleRecordV2, 
     if (node.state === "locked" && ["ready", "active"].includes(old.state) && !routeNode) {
       throw new Error(`learning_board_state_regressed:${node.nodeId}`);
     }
-    if (old.state === "blocked" && old.artifactBinding === null && node.artifactBinding !== null) {
+    // A Not ready portal was never bound, so it may receive its first binding once (an in-place repair).
+    // A retired binding stays retired.
+    if (old.state === "blocked" && old.artifactBinding === null && node.artifactBinding !== null && !old.notReadyReason) {
       throw new Error(`learning_board_artifact_rebound:${node.nodeId}`);
     }
     if (old.artifactBinding) {
@@ -241,17 +258,27 @@ export function withInitialBoard<T extends Pick<LearningCycleRecordV2, "homework
  * from decision to publication so a polling session never refreshes into the new
  * board; the successor first appears on a later session.
  */
-export function successorPreparationStatus(cycle: LearningCycleRecordV2): { updatedAt: string; startedAt: string; phase: "successor_preparing" | "successor_published" | "needs_attention"; nodes: [] } | undefined {
+export function successorPreparationStatus(cycle: LearningCycleRecordV2): { updatedAt: string; startedAt: string; phase: "successor_preparing" | "successor_published" | "needs_attention"; nodes: Array<{nodeId:string;status:string;reason?:string}> } | undefined {
   const latest = listBoardInstances(cycle).at(-1);
   if (!latest || latest.kind !== "successor") return undefined;
   const decidedAt = cycle.decisionHistory.find((entry) => entry.decisionId === latest.plannerDecisionId)?.createdAt ?? cycle.createdAt;
-  const attention = latest.publishedAt === null && (cycle.lifecycle === "blocked" || cycle.nodes.some((node) => latest.nodeIds.includes(node.nodeId) && node.state === "blocked"));
-  return { updatedAt: decidedAt, startedAt: decidedAt, phase: attention ? "needs_attention" : latest.publishedAt === null ? "successor_preparing" : "successor_published", nodes: [] };
+  // Publication freezes the design; it does not prove that any portal can launch.
+  // Keep the current chapter stable, but expose actual availability on later visits.
+  const nodes = latest.publishedAt === null ? [] : latest.nodeIds.map(nodeId => {
+    const node = cycle.nodes.find(candidate => candidate.nodeId === nodeId);
+    const reason = node ? unavailableActivityReason(node) : "successor_activity_missing";
+    const available = !reason && node?.artifactBinding?.validationStatus === "passed" && ["ready","active","completed"].includes(node.state);
+    return { nodeId, status: available ? (node!.state === "completed" ? "completed" : "ready") : "not_ready",
+      ...(!available ? {reason:reason ?? "successor_activity_unavailable"} : {}) };
+  });
+  const attention = latest.publishedAt === null ? cycle.lifecycle === "blocked"
+    : !nodes.some(node => node.status === "ready" || node.status === "completed");
+  return { updatedAt: decidedAt, startedAt: decidedAt, phase: attention ? "needs_attention" : latest.publishedAt === null ? "successor_preparing" : "successor_published", nodes };
 }
 
 /**
  * The single outstanding successor step after a restart: a committed evidence batch still awaiting its
- * one Planner decision, or a preparing successor with unbuilt nodes. Nodes needing human attention never resume.
+ * one Planner decision, or a preparing successor with unbuilt or held nodes. Failed nodes are never rebuilt.
  */
 export function successorResumeAction(cycle: LearningCycleRecordV2): "decide" | "prepare" | null {
   // Legacy cycles never auto-resume: that would start Planner calls they never made before contract 21.
@@ -260,7 +287,8 @@ export function successorResumeAction(cycle: LearningCycleRecordV2): "decide" | 
   const preparing = preparingBoardInstance(cycle);
   if (!preparing) return null;
   const nodes = cycle.nodes.filter((node) => preparing.nodeIds.includes(node.nodeId));
-  if (nodes.some((node) => node.state === "blocked" && !node.notReadyReason)) return null;
+  // An activity held before the Not ready rule resumes so preparation can degrade it and publish.
+  if (nodes.some((node) => node.state === "blocked" && !node.notReadyReason)) return "prepare";
   return nodes.some((node) => node.state === "generating") || (preparing.definition && !cycle.canvasVerifications?.[preparing.boardId]) ? "prepare" : null;
 }
 

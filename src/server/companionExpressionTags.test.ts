@@ -57,11 +57,19 @@ describe("companion expression tags", () => {
     expect(run(["Bye [sm"])).toEqual({ spoken: "Bye [sm", emotes: [] });
   });
 
-  it("teaches Elli every available tag so new expressions need no prompt edit", () => {
-    for (const emote of COMPANION_EMOTES) {
+  it("teaches Elli every available tag except [thinking], so new expressions need no prompt edit", () => {
+    for (const emote of COMPANION_EMOTES.filter((emote) => emote !== "thinking")) {
       expect(COMPANION_EXPRESSION_PROMPT).toContain(`[${emote}]`);
     }
     expect(COMPANION_EXPRESSION_PROMPT).toContain("[smile]");
+  });
+
+  /** Oct 23 replay of Ila's captured request: at low effort Elli wrote "[thinking]" and then her
+   * thoughts, 5 of 5 times, and the thoughts were spoken. Logs showed the speech as normal replies;
+   * the lab tested tag stripping but never what the word "thinking" invites her to write next.
+   * Her avatar already shows a thinking face on its own while she works. */
+  it("never offers a [thinking] tag, which invites her to write her thoughts aloud", () => {
+    expect(COMPANION_EXPRESSION_PROMPT).not.toContain("[thinking]");
   });
 
   it("uses no child's name, since the same instructions serve every child and companion", () => {

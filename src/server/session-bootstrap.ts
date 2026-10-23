@@ -26,9 +26,9 @@ import {
 } from "../agents/psychologist/psychologist";
 import { planSession } from "../engine/learningEngine";
 import { getChildChart } from "../profiles/childChart";
+import { currentBoardInstance } from "../engine/learningBoardInstances";
 import { computeProgression } from "../engine/progression";
 import {
-  CANONICAL_AGENT_TOOL_KEYS,
   getSessionTypeConfig,
   resolveSessionType,
   sessionTypeFromSubject,
@@ -47,17 +47,12 @@ import {
   isDiagMapMode,
   isHomeworkMode,
 } from "../utils/runtimeMode";
-import {
-  buildMapSummaryFromPendingNodes,
-  MAP_SUMMARY_NATURAL_USE_INSTRUCTION,
-} from "../shared/mapSummary";
 import { ensureFreshPendingHomework } from "../scripts/homeworkSelector";
 import { resolveSunnyRuntimeConfig } from "../shared/runtimeConfig";
 import {
   applyDebugClaudeOpeningLineForSession,
   prependDebugClaudeDeveloperBlock,
 } from "./debug-helpers";
-import { getLatestMapStateForChild } from "./map-coordinator";
 import { generateCanvasCapabilitiesManifest } from "./canvas/registry";
 import { CHARLOTTE_DIAG_DEFAULT_VOICE_ID } from "../diag-voices";
 import { generateToolDocs } from "../agents/elli/tools/generateToolDocs";
@@ -129,66 +124,35 @@ export function shouldEnableCompanionWakeGate(opts: {
   return opts.discovery === true || domain === "math" || /^hw-math(?:-|$)/i.test(String(opts.homeworkId ?? ""));
 }
 
-export function isIndependentEvaluationPlan(
-  planId: string | null | undefined,
-  pendingNodes: Array<{ targetLane?: string }> = [],
-): boolean {
+export function isIndependentEvaluationPlan(planId: string | null | undefined): boolean {
   const activePlanId = planId?.trim();
-  if (activePlanId) {
-    return activePlanId.startsWith("discovery:") || activePlanId.startsWith("probe-board:");
-  }
-  return pendingNodes.some(node => node.targetLane === "independent_discovery");
+  return Boolean(activePlanId?.startsWith("discovery:") || activePlanId?.startsWith("probe-board:"));
 }
 
-export function buildContextStartGreeting(context: any): string {
-  const pendingHomework = context?.pendingHomework ?? context;
-  const activeSessionPlan = context?.activeSessionPlan;
-  const useActivePlan = Boolean(
-    activeSessionPlan?.nodePlan?.length &&
-    (!pendingHomework?.homeworkId || !activeSessionPlan?.activeHomeworkId ||
-      String(activeSessionPlan.activeHomeworkId) === String(pendingHomework.homeworkId)),
-  );
-  const source = useActivePlan
-    ? {
-        nodes: activeSessionPlan.nodePlan,
-        completedAdventureNodeIds: activeSessionPlan.adventureBoard?.progress?.completedNodeIds,
-      }
-    : pendingHomework;
-  const completed = new Set(
-    Array.isArray(source?.completedAdventureNodeIds)
-      ? source.completedAdventureNodeIds.map(String)
-      : [],
-  );
-  const incompleteNodes = (source?.nodes ?? []).filter(
-    (node: any) => !completed.has(String(node?.id ?? "")),
-  );
-  const firstNode = incompleteNodes.find((node: any) => !node.locked) ?? incompleteNodes[0];
-  const lane = String(firstNode?.targetLane ?? "").replace(/[_-]+/g, " ").trim();
-  const title = lane.replace(/\b\w/g, (letter: string) => letter.toUpperCase());
-  return title && title !== "Unknown"
-    ? `[Session opening context] The board is available; current focus: ${title}. No activity has been selected.`
-    : "[Session opening context] The board is available; no activity has been selected.";
+/** Arrival is an event, not a screen description: what the child sees comes only from the kiosk's screen report. */
+export function buildContextStartGreeting(_context: any): string {
+  return "[System event: the child arrived, not child speech]";
 }
-
-export const INDEPENDENT_EVALUATION_OPENING =
-  "[Session opening context] Independent evaluation is ready. Controls: Tap the speaker for the word; type a response; Not sure is available. No target answer is supplied. Choose a useful orientation in your own words.";
 
 export async function deliverInteractiveCompanionOpening(
   session: Pick<any, "setCompanionPresence" | "runCompanionResponse"> & {companionWakeGateEnabled?:boolean},
   opening: string,
-  options: { independentEvaluationOrientation?: boolean } = {},
 ): Promise<void> {
   if (session.companionWakeGateEnabled) {
-    if (options.independentEvaluationOrientation) {
-      await session.runCompanionResponse(opening);
-      console.log(" 🎮 [companion] [opening] [independent-orientation-spoken]");
-    } else {
-      console.log(" 🎮 [companion] [opening] [child-invoked-only]");
-    }
+    console.log(" 🎮 [companion] [opening] [child-invoked-only]");
     return;
   }
   session.setCompanionPresence("summoned", "voice");
-  await session.runCompanionResponse(opening);
+  await session.runCompanionResponse(opening, "system");
+}
+
+export async function deliverHomeworkArrival(session: any, context: any): Promise<void> {
+  const policy = context?.activeSessionPlan?.companionPolicy?.openingLinePolicy ?? "context_start_short";
+  if (session.options?.sttOnly || policy === "silent" || policy === "none") {
+    console.log(` 🎮 [session-bootstrap] [arrival] [skipped] policy=${policy} sttOnly=${Boolean(session.options?.sttOnly)}`);
+    return;
+  }
+  await deliverInteractiveCompanionOpening(session, buildContextStartGreeting(context));
 }
 
 export function shouldLoadLegacyHomeworkFolder(opts: {
@@ -568,8 +532,12 @@ export async function runSessionStart(
     const sessionLearningProfile = !session.diagKioskFast
       ? readLearningProfile(String(homeworkChild).toLowerCase())
       : null;
+    let independentEvaluation = false;
     if (!session.diagKioskFast && subject === "homework") {
       const chart = getChildChart(String(homeworkChild).toLowerCase());
+      independentEvaluation = chart.learningCycle
+        ? currentBoardInstance(chart.learningCycle).kind === "probe"
+        : isIndependentEvaluationPlan(chart.activeSessionPlan?.planId);
       assertHomeworkSessionAssignment({
         expectedHomeworkId: session.options?.homeworkId,
         pendingHomeworkId: sessionLearningProfile?.pendingHomework?.homeworkId,
@@ -583,10 +551,6 @@ export async function runSessionStart(
         `  🎮 [session-bootstrap] [assignment-validation] [accepted] child=${homeworkChild} homework=${session.options?.homeworkId ?? "legacy"}`,
       );
     }
-    const activeMapState = !session.diagKioskFast
-      ? getLatestMapStateForChild(String(homeworkChild).toLowerCase())
-      : null;
-
     let homeworkPayload: Awaited<ReturnType<typeof loadHomeworkPayload>> | null =
       null;
 
@@ -849,6 +813,7 @@ export async function runSessionStart(
             homeworkForPrompt,
             wordList,
             subject,
+            { worksheetMode: session.worksheetMode },
           );
       const homeworkCompanionSystemPrompt = isDebugClaude()
         ? sessionPrompt
@@ -866,10 +831,7 @@ export async function runSessionStart(
       session.companionWakeGateEnabled = shouldEnableCompanionWakeGate({
         subject,
         homeworkId: pendingHomework.homeworkId,
-        discovery: isIndependentEvaluationPlan(
-          sessionLearningProfile?.activeSessionPlan?.planId,
-          sessionLearningProfile?.pendingHomework?.nodes,
-        ),
+        discovery: independentEvaluation,
         explicitDomain: explicitHomeworkDomain,
       });
       console.log(
@@ -1282,6 +1244,7 @@ export async function runSessionStart(
             homeworkForPrompt,
             wordList,
             subject,
+            { worksheetMode: session.worksheetMode },
           );
         }
       }
@@ -1358,10 +1321,7 @@ export async function runSessionStart(
       session.companionWakeGateEnabled = shouldEnableCompanionWakeGate({
         subject,
         homeworkId: sessionLearningProfile?.pendingHomework?.homeworkId,
-        discovery: isIndependentEvaluationPlan(
-          sessionLearningProfile?.activeSessionPlan?.planId,
-          sessionLearningProfile?.pendingHomework?.nodes,
-        ),
+        discovery: independentEvaluation,
         explicitDomain:
           sessionLearningProfile?.pendingHomework?.contentProfile?.practiceDomain ??
           sessionLearningProfile?.pendingHomework?.capturedContent?.contentProfile?.practiceDomain,
@@ -1436,9 +1396,7 @@ export async function runSessionStart(
       session.ctx.canvas.owner = "claude" as CanvasOwner;
       session.ctx.canvas.locked = false;
     }
-    if (session.worksheetSession && session.ctx) {
-      session.ctx.availableToolNames = [...CANONICAL_AGENT_TOOL_KEYS];
-    }
+    session.ctx.availableToolNames = Object.keys(session.buildAgentToolkit());
     console.log(
       `  📋 Session type: ${sessionType}, canvas owner: ${session.ctx.canvas.owner}`,
     );
@@ -1539,19 +1497,6 @@ This is a safe space to test everything.
     }
 
     if (
-      sessionLearningProfile?.pendingHomework?.nodes?.length &&
-      (subject === "homework" || subject === "spelling")
-    ) {
-      const mapBlock = buildMapSummaryFromPendingNodes(
-        activeMapState?.nodes ?? sessionLearningProfile.pendingHomework.nodes,
-      );
-      if (mapBlock) {
-        session.companion.systemPrompt +=
-          `\n\n## Today's map\n${mapBlock}\n\n${MAP_SUMMARY_NATURAL_USE_INSTRUCTION}`;
-      }
-    }
-
-    if (
       (subject === "homework" || subject === "spelling") &&
       sessionLearningProfile?.pendingHomework &&
       !session.companionWakeGateEnabled &&
@@ -1643,32 +1588,13 @@ This is a safe space to test everything.
         );
       }
     } else {
-      const openingLine = session.companion.openingLine.trim();
-      if (openingLine) {
-        await deliverInteractiveCompanionOpening(session, openingLine);
-      } else if (
+      if (
         (subject === "homework" || subject === "spelling") &&
         sessionLearningProfile?.pendingHomework
       ) {
-        // Planner owns the opener policy: context_start_short means one warm
-        // greeting when the adventure board appears; silent/none stays quiet.
-        const openingPolicy =
-          sessionLearningProfile.activeSessionPlan?.companionPolicy?.openingLinePolicy ??
-          "context_start_short";
-        if (openingPolicy === "context_start_short" && !session.options?.sttOnly) {
-          const independentEvaluation = session.companionWakeGateEnabled;
-          await deliverInteractiveCompanionOpening(
-            session,
-            independentEvaluation
-              ? INDEPENDENT_EVALUATION_OPENING
-              : "[Session opening context] The adventure board is available. No activity has been selected. Meet the child naturally from the live context.",
-            { independentEvaluationOrientation: independentEvaluation },
-          );
-        } else {
-          console.log(
-            `  🎮 [session-bootstrap] [context-start] homework opener policy=${openingPolicy} — map starts silently`,
-          );
-        }
+        await deliverHomeworkArrival(session, sessionLearningProfile);
+      } else if (session.companion.openingLine.trim()) {
+        await deliverInteractiveCompanionOpening(session, session.companion.openingLine.trim());
       } else {
         console.log("  🎮 [session-bootstrap] [opening-line] skipped");
       }

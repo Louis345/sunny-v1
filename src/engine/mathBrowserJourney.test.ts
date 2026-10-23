@@ -9,17 +9,53 @@ import { runDirectBrowserSmokeCheck } from "./directMathExperience";
 
 const roots: string[] = [];
 afterEach(() => roots.splice(0).forEach(root => fs.rmSync(root, { recursive: true, force: true })));
-async function verify(body: string, itemIds?: string[], itemContracts?: unknown[]) {
+async function verify(body: string, itemIds?: string[], itemContracts?: unknown[], spellingItemBindings?: Array<{itemId:string;word:string;measurementRole?:string}>) {
   const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-browser-journey-")); roots.push(rootDir);
   const htmlPath = path.join(rootDir, "node.html");
   fs.writeFileSync(htmlPath, `<!doctype html><h1>Lab</h1>${body}`);
   return runDirectBrowserSmokeCheck({
     rootDir,
-    artifacts: [{ nodeId: "node", childId: "lab", homeworkId: "hw-lab", title: "Lab", htmlPath, artworkUrl: "/art.svg", creatorPrompt: "fixture", promptHash: "fixture", plannerModel: "mock", creatorModel: "mock", ...(itemIds ? { itemIds } : {}) }],
+    artifacts: [{ nodeId: "node", childId: "lab", homeworkId: "hw-lab", title: "Lab", htmlPath, artworkUrl: "/art.svg", creatorPrompt: "fixture", promptHash: "fixture", plannerModel: "mock", creatorModel: "mock", ...(itemIds ? { itemIds } : {}), ...(spellingItemBindings ? {spellingItemBindings} : {}) }],
     ...(itemContracts ? { itemContractsByNodeId: { node: itemContracts as never } } : {}),
   });
 }
 const journey = `<script>window.SUNNY_VALIDATION_HOOKS={journey:[{itemId:'one',steps:[{action:'click',selector:'#answer'}]}]};</script>`;
+
+// Human catch: generated spelling was checked using math's unique visible
+// prompt assumption. Logs called a correct practice word "contract ambiguity"
+// when the reported instruction paraphrased the visible instruction. Earlier
+// labs never exercised two generated spelling items with frozen word bindings.
+const visibleSpelling = (second = "light") => `<h2>Study the glowing word, sailor!</h2><p id="word">night</p><button id="answer">Send signal</button>
+<script>
+let item='one';
+window.SUNNY_VALIDATION_HOOKS={journey:['one','two'].map(itemId=>({itemId,steps:[{action:'click',selector:'#answer'}]}))};
+function report(){parent.postMessage({type:'game_state_update',payload:{currentChallenge:{id:item,prompt:'Study this word closely.'}}},'*');} report();
+document.querySelector('#answer').onclick=()=>{
+ parent.postMessage({type:'attempt_event',payload:{domain:'spelling',target:item,attemptedValue:item==='one'?'night':'light',correct:true,scaffoldLevel:1}},'*');
+ if(item==='one'){item='two';document.querySelector('#word').textContent=${JSON.stringify(second)};report();}
+ else parent.postMessage({type:'node_complete',payload:{nodeId:'node',targetResults:[{target:'one',attemptedValue:'night',correct:true},{target:'two',attemptedValue:'light',correct:true}]}},'*');
+};</script>`;
+const spellingBindings = (measurementRole = "practice") => [{itemId:"one",word:"night",measurementRole},{itemId:"two",word:"light",measurementRole}];
+it("confirms a visible practice word by its frozen binding without demanding identical instruction prose", async () => {
+  expect((await verify(visibleSpelling(), ["one","two"], undefined, spellingBindings())).passed).toBe(true);
+}, 20000);
+it("does not confirm a practice item when only a different word or substring is visible", async () => {
+  expect((await verify(visibleSpelling("lighthouse"), ["one","two"], undefined, spellingBindings())).passed).toBe(false);
+}, 20000);
+it("does not confirm the first practice item from a substring such as nightfall", async () => {
+  expect((await verify(visibleSpelling().replace('id="word">night<', 'id="word">nightfall<'), ["one","two"], undefined, spellingBindings())).passed).toBe(false);
+}, 20000);
+it("does not use visible target spelling to confirm an independent checkpoint", async () => {
+  expect((await verify(visibleSpelling(), ["one","two"], undefined, spellingBindings("fresh_checkpoint"))).passed).toBe(false);
+}, 20000);
+it("follows the submitted evidence-free reveal when the next practice item is announced before its word is revealed", async () => {
+  const body = visibleSpelling()
+    .replace('<button id="answer">', '<button id="reveal" hidden>Reveal word</button><button id="answer">')
+    .replace("steps:[{action:'click',selector:'#answer'}]", "steps:[...(itemId==='two'?[{action:'click',selector:'#reveal'}]:[]),{action:'click',selector:'#answer'}]")
+    .replace('document.querySelector(\'#word\').textContent="light";report();', "document.querySelector('#word').textContent='';document.querySelector('#reveal').hidden=false;report();")
+    .replace("function report(){", "document.querySelector('#reveal').onclick=()=>{document.querySelector('#word').textContent='light';document.querySelector('#reveal').hidden=true;report();};function report(){");
+  expect((await verify(body, ["one","two"], undefined, spellingBindings())).passed).toBe(true);
+}, 20000);
 it("accepts the teaching attempt protocol before a later completion", async () => {
   const result = await verify(`<button id="answer">Four</button><button id="next" hidden>Finish</button>
     <script>window.SUNNY_VALIDATION_HOOKS={journey:[{itemId:'one',steps:[{action:'click',selector:'#answer'},{action:'click',selector:'#next'}]}]};

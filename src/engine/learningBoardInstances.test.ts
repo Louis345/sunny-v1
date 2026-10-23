@@ -368,7 +368,7 @@ describe('canonical authored navigation', () => {
 
 // The human saw a complete-looking map whose controls overlapped. Activity-only
 // verification missed it because the canvas itself was never a release gate.
-it('keeps a prepared authored board unpublished until canvas and every artifact are verified', () => {
+it('publishes a prepared authored board once every artifact is verified, without waiting for a canvas proof', () => {
   const opts={rootDir:root()}; const input=cycleInput(false); delete input.agencyExperiment;
   input.nodes=['learn','play','check'].map(id=>node(id,{state:'generating'}));
   const definition=authoredJourney();
@@ -377,9 +377,10 @@ it('keeps a prepared authored board unpublished until canvas and every artifact 
   input.nodes.push(node('probe',{role:'evaluation',state:'completed'}));
   previous.topologyHash=boardTopologyHash(input as unknown as LearningCycleRecordV2,previous);
   let cycle=createLearningCycle({...input,boards:[previous,board],initialLifecycle:'board_generating'},opts);
-  for(const id of ['learn','play','check']) cycle=transitionLearningCycle(cycle.childId,cycle.homeworkId,cycle.revision,{type:'artifact_bound',nodeId:id,artifact:{...binding,artifactId:id}},opts);
-  expect(cycle.boards![1].publishedAt).toBeNull();
-  expect(successorResumeAction(cycle)).toBe("prepare"); // A restart must finish the outstanding canvas proof.
+  for(const id of ['learn','play']) cycle=transitionLearningCycle(cycle.childId,cycle.homeworkId,cycle.revision,{type:'artifact_bound',nodeId:id,artifact:{...binding,artifactId:id}},opts);
+  expect(cycle.boards![1].publishedAt).toBeNull(); // an unverified activity still holds the board
+  cycle=transitionLearningCycle(cycle.childId,cycle.homeworkId,cycle.revision,{type:'artifact_bound',nodeId:'check',artifact:{...binding,artifactId:'check'}},opts);
+  expect(cycle.boards![1].publishedAt).not.toBeNull(); // the canvas never holds it
   const proof={definitionHash:createHash('sha256').update(JSON.stringify(definition)).digest('hex'),rendererHash:'tested-renderer',viewports:['1280x720','768x1024'],screenshots:['/test/landscape.png','/test/portrait.png'],verifiedAt:'2026-10-09T00:00:00Z'};
   expect(()=>transitionLearningCycle(cycle.childId,cycle.homeworkId,cycle.revision,{type:'board_canvas_verified',boardId:board.boardId,proof:{...proof,definitionHash:'wrong'}},opts)).toThrow('board_canvas_proof_mismatch');
   cycle=transitionLearningCycle(cycle.childId,cycle.homeworkId,cycle.revision,{type:'board_canvas_verified',boardId:board.boardId,proof},opts);

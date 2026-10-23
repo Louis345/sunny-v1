@@ -6,6 +6,7 @@ import { describe, expect, it } from "vitest";
 import type { LearningProfile } from "../context/schemas/learningProfile";
 import { getChildChart } from "../profiles/childChart";
 import { publishBoardInstance } from "./learningBoardInstances";
+import { writeActiveSessionPlan } from "./sessionPlanFromChart";
 import {
   createLearningCycle,
   canonicalJourneyLaunchable,
@@ -16,7 +17,6 @@ import {
   projectLearningCyclePlanForWrite,
   recordLearningCycleCalibration,
   transitionLearningCycle,
-  assertLearningCycleProjectionWrite,
   type CreateLearningCycleInput,
 } from "./learningCycleRepository";
 
@@ -211,6 +211,19 @@ describe("canonical learning cycle repository", () => {
     expect(cycle.schemaVersion).toBe(2);
     expect(cycle.revision).toBe(1);
     expect(getLearningCycle("reina", "hw-math-cycle", { rootDir })).toEqual(cycle);
+  });
+
+  /** 2026-10-23 inventory of board hard stops: a title rule ran on every read, so two activities sharing
+   * a title, or an opening heading that differed from the portal title, made the child's whole record
+   * unreadable and no board appeared. Titles are the Planner's words for the child, not identities. */
+  it("reads a cycle whose activities share a title or whose opening heading differs", () => {
+    const rootDir = root();
+    const relaxed = input();
+    const [first, second] = relaxed.nodes;
+    (second as { title: string }).title = first.title;
+    (first as { openingScreen: { title: string; purpose: string } }).openingScreen = { ...first.openingScreen, title: "A different heading" };
+    expect(() => createLearningCycle(relaxed, { rootDir })).not.toThrow();
+    expect(getLearningCycle(relaxed.childId, relaxed.homeworkId, { rootDir })?.nodes[1].title).toBe(first.title);
   });
 
   it("rejects a cycle whose Boss has progressed before Quest evidence exists", () => {
@@ -529,7 +542,7 @@ describe("canonical learning cycle repository", () => {
     });
     expect(projected.adventureBoard.nodes.some((node) => node.kind === "quest" || node.kind === "boss")).toBe(false);
     expect(projected.adventureBoard.edges.map((edge) => edge.id)).toEqual(definition.edges.map((edge) => edge.id));
-    expect(() => assertLearningCycleProjectionWrite("reina", projected.activeSessionPlan, { rootDir })).not.toThrow();
+    expect(projectLearningCyclePlanForWrite("reina", projected.activeSessionPlan, { rootDir })).toEqual(projected.activeSessionPlan);
   });
 
   it.each(["spelling", "reading", "science"] as const)("leaves %s authored edge projection unchanged by math Discovery archival", domain => {
@@ -556,15 +569,17 @@ describe("canonical learning cycle repository", () => {
     expect(boardNode?.action?.type).toBe("launch-activity");
   });
 
-  it("rejects a compatibility plan that drifts from the canonical projection", () => {
+  /** 2026-10-23 decoupling: the saved active-plan file is a copy of the chart. A copy that disagreed
+   * threw on write ("projection drift") instead of simply being rewritten from the chart. */
+  it("writes the chart's version of a plan copy instead of refusing a drifted one", () => {
     const rootDir = root();
     const cycle = createLearningCycle(authoredInput(), { rootDir });
     const projection = projectLearningCycle(cycle).activeSessionPlan;
-    expect(() => assertLearningCycleProjectionWrite("reina", projection, { rootDir })).not.toThrow();
-    expect(() => assertLearningCycleProjectionWrite("reina", {
-      ...projection,
-      nodePlan: projection.nodePlan.map((node, index) => index === 0 ? { ...node, title: "Rocket Launch Countdown" } : node),
-    }, { rootDir })).toThrow("learning_cycle_compatibility_projection_drift");
+    writeJson(path.join(rootDir, "src/context/reina/learning_profile.json"), minimalProfile());
+    const drifted = { ...projection, nodePlan: projection.nodePlan.map((node, index) => index === 0 ? { ...node, title: "Rocket Launch Countdown" } : node) };
+    expect(() => writeActiveSessionPlan("reina", drifted, { rootDir })).not.toThrow();
+    const saved = JSON.parse(fs.readFileSync(path.join(rootDir, "src/context/reina/learning_profile.json"), "utf8"));
+    expect(saved.activeSessionPlan.nodePlan[0].title).toBe(projection.nodePlan[0].title);
   });
 
   it("records engagement mirror updates as canonical versioned transitions", () => {

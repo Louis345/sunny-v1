@@ -27,7 +27,7 @@ import type {
   PronunciationNodeConfig,
   WordRadarNodeConfig,
 } from "../shared/adventureTypes";
-import { assertLearningCycleProjectionWrite } from "./learningCycleRepository";
+import { projectLearningCyclePlanForWrite } from "./learningCycleRepository";
 
 export type PlanHomeworkSessionInput = {
   source: ActiveSessionPlanSource;
@@ -793,11 +793,12 @@ export function planHomeworkSessionFromChart(
 
 export function writeActiveSessionPlan(
   childId: string,
-  plan: ActiveSessionPlan,
+  requested: ActiveSessionPlan,
   opts: WriteActiveSessionPlanOptions = {},
 ): void {
   const rootDir = opts.rootDir ?? process.cwd();
-  assertLearningCycleProjectionWrite(childId, plan, { rootDir });
+  // The saved plan is a copy of the chart: when a cycle exists, its projection is what gets written.
+  const plan = projectLearningCyclePlanForWrite(childId, requested, { rootDir });
   const file = profilePath(rootDir, childId.trim().toLowerCase());
   const profile = JSON.parse(fs.readFileSync(file, "utf8")) as LearningProfile;
   const nextProfile = withActiveSessionPlanLane(profile, plan);
