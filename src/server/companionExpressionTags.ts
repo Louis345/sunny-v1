@@ -18,7 +18,8 @@ const MAX_TAG_LENGTH = 24;
 export const COMPANION_EXPRESSION_PROMPT = [
   "## Your expressions",
   "Your face and body are visible to the child. Optional inline tags show facial expressions, for example: \"[smile] Hi there!\".",
-  `Available tags: ${[...Object.keys(EXPRESSION_ALIASES), ...COMPANION_EMOTES].map((t) => `[${t}]`).join(" ")}.`,
+  // No [thinking] tag: offered one, she writes it and then her thoughts, which are spoken. Her avatar shows thinking on its own.
+  `Available tags: ${[...Object.keys(EXPRESSION_ALIASES), ...COMPANION_EMOTES.filter((t) => t !== "thinking")].map((t) => `[${t}]`).join(" ")}.`,
   "Tags are silent: they are never spoken or shown. Body animation and camera actions remain available through companionAct.",
 ].join("\n");
 
