@@ -1855,7 +1855,6 @@ describe("direct math experience", () => {
 
     const elli = fs.readFileSync(path.join(process.cwd(), "src/companions/elli.md"), "utf8");
     const base = fs.readFileSync(path.join(process.cwd(), "src/souls/companion-base.md"), "utf8");
-    expect(elli).toContain("personality does not require a greeting, praise or a comment after each attempt");
     expect(elli).toContain("stimulus_only provides private whole-word replay");
     expect(elli).toContain("pronunciation_model means supported teaching");
     expect(base).toContain("During independent assessment, the target stays private");

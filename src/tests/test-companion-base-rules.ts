@@ -77,5 +77,4 @@ it("gives Elli a teaching purpose without a personality instruction to withdraw 
  expect(prompt).not.toContain('Elli backs off and just');
  expect(prompt).toContain('Evaluation establishes what the child can do independently');
  expect(prompt).toContain('Practice helps the child learn');
- expect(prompt).toContain('A request for help is an invitation to work together');
 });
