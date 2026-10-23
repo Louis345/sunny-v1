@@ -742,23 +742,12 @@ function assertCycle(value: LearningCycleRecordV2): void {
   }
   const ids = value.nodes.map((node) => node.nodeId);
   if (new Set(ids).size !== ids.length) throw new Error("learning_cycle_duplicate_node_id");
-  // Child titles are unique within one board; a later board may reuse a name.
-  for (const board of listBoardInstances(value)) {
-    const titles = value.nodes
-      .filter((node) => board.nodeIds.includes(node.nodeId) && node.role !== "quest" && node.role !== "boss")
-      .map((node) => node.title);
-    if (new Set(titles).size !== titles.length) throw new Error("learning_cycle_duplicate_child_title");
-  }
   const questEvidenceExists = value.nodes.some((node) => node.role === "quest" && node.state === "completed" && node.evidenceIds.length > 0);
   if (value.nodes.some((node) => node.role === "boss" && node.state !== "locked") && !questEvidenceExists) {
     throw new Error("learning_cycle_boss_progress_requires_quest_evidence");
   }
   for (const node of value.nodes) {
-    // `role` is the machine-readable identity, and the board keys off that.
-    // The title is the child's, and the Planner authors it — a payoff node the
-    // AI is forbidden from naming can only ever be called "Quest".
-    if (!node.title.trim()) throw new Error(`learning_cycle_node_title_missing:${node.nodeId}`);
-    if (node.openingScreen.title !== node.title) throw new Error(`learning_cycle_opening_title_mismatch:${node.nodeId}`);
+    // Titles are the Planner's words for the child, not identities: no title rule can make the record unreadable.
     if (node.artifactBinding) {
       assertLocalPath(node.artifactBinding.localArtifactPath, "artifact_path");
       assertLocalPath(node.artifactBinding.localArtworkPath, "artwork_path");

@@ -213,6 +213,19 @@ describe("canonical learning cycle repository", () => {
     expect(getLearningCycle("reina", "hw-math-cycle", { rootDir })).toEqual(cycle);
   });
 
+  /** 2026-10-23 inventory of board hard stops: a title rule ran on every read, so two activities sharing
+   * a title, or an opening heading that differed from the portal title, made the child's whole record
+   * unreadable and no board appeared. Titles are the Planner's words for the child, not identities. */
+  it("reads a cycle whose activities share a title or whose opening heading differs", () => {
+    const rootDir = root();
+    const relaxed = input();
+    const [first, second] = relaxed.nodes;
+    (second as { title: string }).title = first.title;
+    (first as { openingScreen: { title: string; purpose: string } }).openingScreen = { ...first.openingScreen, title: "A different heading" };
+    expect(() => createLearningCycle(relaxed, { rootDir })).not.toThrow();
+    expect(getLearningCycle(relaxed.childId, relaxed.homeworkId, { rootDir })?.nodes[1].title).toBe(first.title);
+  });
+
   it("rejects a cycle whose Boss has progressed before Quest evidence exists", () => {
     const rootDir = root();
     const invalid = input();
