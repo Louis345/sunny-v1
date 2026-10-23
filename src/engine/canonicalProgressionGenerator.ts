@@ -13,12 +13,9 @@ import {
   runMathProviderStage,
 } from "./adaptiveMathDiscovery";
 import {
-  buildMathCreativeChildContext, createDirectArtwork, runDirectBrowserSmokeCheck, MATH_BROWSER_VERIFIER_VERSION,
-  generateAdaptiveProgressionActivityHtml,
+  buildMathCreativeChildContext, createDirectArtwork, generateAdaptiveProgressionActivityHtml,
 } from "./directMathExperience";
 import { engagementTheoryEvidenceContext } from "./engagementTheory";
-import { validateGeneratedArtifactRuntime } from "./generatedArtifactRuntimeValidator";
-import { judgeChildFacingScreens, selectChildFacingJourneyScreens } from "./childFacingVisualGate";
 import {
   getLearningCycle,
   transitionLearningCycle,
@@ -108,7 +105,10 @@ function openingIdentityFailures(html: string, node: LearningCycleNodeContract):
   return heading === expected ? [] : [`opening_title_mismatch:expected=${expected}:actual=${heading || "missing"}`];
 }
 
-async function productionValidate(input: { html: string; node: LearningCycleNodeContract; cycle: LearningCycleRecordV2 }, rootDir: string): Promise<ProgressionValidationResult> {
+/** Only the cheap text check runs before an activity opens. There is no browser
+ * run and no AI screenshot judge: the child playing it, and her scored answers,
+ * are the check. */
+async function productionValidate(input: { html: string; node: LearningCycleNodeContract; cycle: LearningCycleRecordV2 }): Promise<ProgressionValidationResult> {
   const stage = input.node.role === "boss" ? "boss" : input.node.role === "quest" ? "quest" : "baseline";
   const staticReport = validateGeneratedGame(input.html, {
     words: input.node.academicTarget.targets,
@@ -117,46 +117,7 @@ async function productionValidate(input: { html: string; node: LearningCycleNode
     generationStage: stage,
     artifactForm: "self-contained",
   });
-  if (!staticReport.passed) return { passed: false, failures: staticReport.failures };
-  const dir = input.cycle.domain === "spelling"
-    ? qualityDiagnosticsDir(rootDir, input.cycle, input.node)
-    : path.join(resolveChildContextDir(input.cycle.childId, { rootDir }), "homework/games/.validation", input.node.nodeId);
-  if (input.cycle.domain === "math" || input.cycle.domain === "spelling") {
-    fs.mkdirSync(dir, {recursive:true});
-    const htmlPath = path.join(dir, "candidate.html"); fs.writeFileSync(htmlPath, input.html);
-    const htmlHash = createHash("sha256").update(input.html).digest("hex");
-    const mathItemContracts = input.cycle.domain === "math"
-      ? Object.values(input.node.evidenceContract.itemContracts ?? {})
-      : [];
-    const report = await runDirectBrowserSmokeCheck({
-      rootDir,
-      artifacts:[{nodeId:input.node.nodeId,childId:input.cycle.childId,homeworkId:input.cycle.homeworkId,title:input.node.title,htmlPath,htmlHash,artworkUrl:input.node.artwork.localPath??"",creatorPrompt:input.node.generationPrompt?.text??"",promptHash:input.node.generationPrompt?.promptId??"",plannerModel:"canonical",creatorModel:"canonical",...(input.node.evidenceContract.itemRoles?{itemIds:Object.keys(input.node.evidenceContract.itemRoles)}:{}),...(input.cycle.domain === "spelling" ? {spellingItemBindings:Object.values(input.node.evidenceContract.spellingItems ?? {}).map(item=>({itemId:item.id,word:item.word,measurementRole:item.lineage?.measurementRole}))} : {})}],
-      ...(mathItemContracts.length > 0 ? { itemContractsByNodeId: { [input.node.nodeId]: mathItemContracts } } : {}),
-    });
-    if (!report.passed) return {passed:false,failures:report.failures,screenshotPaths:report.screenshots,htmlHash,verifierVersion:MATH_BROWSER_VERIFIER_VERSION};
-    const visualVerdict = await judgeChildFacingScreens({
-      screenshotPaths: selectChildFacingJourneyScreens(report.screenshots),
-      auditFile: path.join(dir, "blind-visual-verdict.json"),
-    });
-    const visualFailures = visualVerdict.decision === "reject"
-      ? visualVerdict.observations.map(observation => `child_visual_review:${observation}`)
-      : [];
-    return {passed:visualFailures.length===0,failures:visualFailures,screenshotPaths:report.screenshots,htmlHash,verifierVersion:MATH_BROWSER_VERIFIER_VERSION};
-  }
-  const runtime = await validateGeneratedArtifactRuntime({
-    html: input.html,
-    childId: input.cycle.childId,
-    stage,
-    homeworkType: input.cycle.domain,
-    words: input.node.academicTarget.targets,
-    outputDir: dir,
-  });
-  return {
-    passed: runtime.passed,
-    failures: runtime.failures,
-    screenshotPaths: runtime.runtimeValidation?.screenshotPaths ?? [],
-    interactionTrace: runtime.runtimeValidation ?? null,
-  };
+  return { passed: staticReport.passed, failures: staticReport.failures };
 }
 
 function progressionContractFingerprint(node: LearningCycleNodeContract): string {
@@ -303,7 +264,7 @@ export async function generateCanonicalProgressionArtifact(
   const generationPrompt = node.generationPrompt.text;
   const generate = input.generateHtml ?? ((creatorInput) => productionGenerate(creatorInput, rootDir));
   const creatorModel = process.env.SUNNY_GENERATION_MODEL ?? process.env.SUNNY_INGEST_MODEL ?? "claude-sonnet-5";
-  const validate = input.validate ?? ((validationInput) => productionValidate(validationInput, rootDir));
+  const validate = input.validate ?? productionValidate;
   let prompt = generationPrompt;
   let html = "";
   let validation: ProgressionValidationResult = { passed: false, failures: [] };
@@ -410,8 +371,8 @@ Correct only the implementation while preserving the Planner's academic target, 
       validationStatus: "passed",
       ...((node.role === "quest" || node.role === "boss") ? {
         creativeProvenance: {
-          rationale: "Publication requires technical runtime validation and an open-ended child-view screenshot review.",
-          qualityPrediction: "No numeric quality score is inferred; the screenshot verdict is stored in the validation audit.",
+          rationale: "Publication requires the text check only; the child playing it is the review.",
+          qualityPrediction: "No numeric quality score is inferred.",
           creatorPromptHash: createHash("sha256").update(generationPrompt).digest("hex"),
           artworkPromptHash: createHash("sha256").update(node.artwork.prompt ?? "").digest("hex"),
         },

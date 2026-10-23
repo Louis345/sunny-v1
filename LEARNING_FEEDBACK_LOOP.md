@@ -1,6 +1,6 @@
 # Sunny Learning Feedback Loop
 
-Contract version: 47
+Contract version: 48
 
 This document is the **sole normative** authority for how Sunny forms, tests, and revises learning claims. Product changes that alter this loop must update this contract version before implementation. Other documents may describe infrastructure or history, but they must link here instead of creating another learning doctrine.
 
@@ -100,6 +100,8 @@ Completing a board's evidence batch leads to at most one Planner decision and at
 Encounter variability belongs to the Planner, not to code. Code never draws randomness to select an educational step. Reproducibility comes from the committed decision and from raw provider checkpoints saved before validation: a restart from the same frozen snapshot reuses that decision or checkpoint, makes no new provider call, and prepares the same successor. Rewards, engagement, play frequency, and randomness cannot authorize Quest or Boss. Presentation variety (theme, skin, narrative) remains the Experience Creator's.
 
 A checkpointed Planner response with unreadable educational intent or invalid academic/evidence claims, or a provider call whose outcome is uncertain, blocks the cycle visibly for a person; it is never re-bought automatically. Successor canvas bookkeeping and quality are not such failures. A successor activity that fails to build or fails its check becomes one Not ready portal that keeps its recorded reason, and the rest of the board builds and publishes; nothing downstream of the Planner holds a board back, and no automatic rebuild follows a restart.
+
+Generated activities built through the progression Creator (spelling Teaching activities and every successor board, spelling and math) pass only the text check before they open. There is no browser run and no AI screenshot review: the child playing the activity, and the server's scoring of her captured answers against the frozen items, are the check. For these activities, "verified" means the text check passed. Browser verification of initial math boards (Discovery and the first targeted board) is unchanged in this version.
 
 A person may explicitly authorize one replacement attempt for a received primary next-plan response cut off by `max_tokens`. Authorization names the current blocking decision and records a reason. It preserves the closed evidence batch, prior receipt, predictions, observations and completed board; it creates a separate, durable attempt identity before any new purchase. Restart may continue that authorized attempt, but cannot authorize another. At most one decision and successor may be committed for the batch. This recovery does not apply to correction-stage truncation, refusals, uncertain provider outcomes or other validation failures; those remain blocked for separate diagnosis.
 
