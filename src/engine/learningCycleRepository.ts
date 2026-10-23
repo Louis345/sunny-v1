@@ -21,6 +21,7 @@ import { validateActivityEngineConfig, validateLetterRushConfig } from "./activi
 import {
   assertPublishedBoardsImmutable,
   boardOwningNode,
+  boardTopologyHash,
   boardsForWrite,
   currentBoardInstance,
   listBoardInstances,
@@ -516,6 +517,24 @@ export function spellingBuiltInActivities(cycle: LearningCycleRecordV2): Learnin
     && node.artifactBinding?.validationStatus === "passed" && Object.keys(node.evidenceContract.spellingItems ?? {}).length > 0);
 }
 
+/** The tested built-in a spelling step re-runs, by its activity ID (or, for older decisions, the ID the step repeated). */
+export function findReusableBuiltIn(cycle: LearningCycleRecordV2, id: string, role: string | undefined, exceptNodeId?: string): LearningCycleNodeContract | undefined {
+  const wanted = slugId(id);
+  return [...spellingBuiltInActivities(cycle)].reverse().find((node) => node.nodeId !== exceptNodeId
+    && [node.nodeId, node.artifactBinding?.contentId ?? ""].some((value) => value === id || slugId(value) === wanted)
+    && (role !== "fresh_checkpoint" || (Object.values(node.evidenceContract.itemRoles ?? {}).length > 0 && Object.values(node.evidenceContract.itemRoles ?? {}).every((itemRole) => itemRole === "fresh_checkpoint"))));
+}
+
+/** A built-in re-runs only for exactly its own words, scored with its own answer forms. */
+function sameWordSet(source: LearningCycleNodeContract, items: Array<{ wordId: string }>): boolean {
+  const own = new Set(Object.values(source.evidenceContract.spellingItems ?? {}).map((item) => item.wordId));
+  return items.length === own.size && items.every((item) => own.has(item.wordId));
+}
+function adoptBuiltInAnswerForms(source: LearningCycleNodeContract, items: LearningCycleSpellingItem[]): void {
+  const responses = new Map(Object.values(source.evidenceContract.spellingItems ?? {}).map((item) => [item.wordId, item.response]));
+  for (const item of items) if (responses.has(item.wordId)) item.response = structuredClone(responses.get(item.wordId)!);
+}
+
 /** One allowlist shared by the Planner tool and the persisted board contract. */
 export function spellingAssignmentItems(cycle: LearningCycleRecordV2): Map<string, LearningCycleSpellingItem> {
   const assigned = new Set(cycle.assignment.targets.map(word => word.normalize("NFC").trim().toLocaleLowerCase("en-US")));
@@ -609,6 +628,7 @@ export type LearningCycleEvent =
   | { type: "artifact_bound"; nodeId: string; artifact: LearningCycleArtifactBinding }
   | { type: "artifact_rejected"; nodeId: string; reason: string }
   | { type: "artifact_generation_attention_required"; nodeId: string; reason: string; notReady?: boolean }
+  | { type: "not_ready_rerun_builtin"; nodeId: string; builtInActivityId: string }
   | { type: "engagement_theory_updated"; theory: EngagementTheory; reason: string }
   | { type: "graded_work_received"; calibration: LearningCycleCalibration }
   | {
@@ -1267,8 +1287,6 @@ function prepareSuccessorBoard(
   const savedSpellingItems = spellingAssignmentItems(next);
   // Naming an earlier built-in spelling activity is the Planner's order to re-launch it, not to rebuild it.
   // A checkpoint may only reuse a checkpoint activity, so a re-launched check never shows the answer.
-  const reusable = (id: string, role: string | undefined) => [...spellingBuiltInActivities(next)].reverse().find((node) => (node.nodeId === id || node.artifactBinding?.contentId === id)
-    && (role !== "fresh_checkpoint" || (Object.values(node.evidenceContract.itemRoles ?? {}).length > 0 && Object.values(node.evidenceContract.itemRoles ?? {}).every((itemRole) => itemRole === "fresh_checkpoint"))));
   const nodes = program.instruments.map((prescription): LearningCycleNodeContract => {
     const nodeId = idFor.get(prescription.nodeId)!;
     const role: LearningCycleNodeRole = prescription.encounter ?? "baseline";
@@ -1286,17 +1304,11 @@ function prepareSuccessorBoard(
     });
     const design = prescriptionDesign(prescription);
     // Decisions saved before the Planner named built-ins re-run the activity whose ID they repeated.
-    const candidate = reusable(spelling?.builtInActivityId ?? prescription.nodeId, spelling?.measurementRole);
+    const candidate = next.domain === "spelling" ? findReusableBuiltIn(next, spelling?.builtInActivityId ?? prescription.nodeId, spelling?.measurementRole) : undefined;
     const reusedSetup = candidate?.evidenceContract.nativeConfig ? repointReusedSetup(candidate, nodeId, spellingItems ?? []) : undefined;
-    const sameWords = (node: LearningCycleNodeContract) => {
-      const own = new Set(Object.values(node.evidenceContract.spellingItems ?? {}).map((item) => item.wordId));
-      return (spellingItems ?? []).length === own.size && (spellingItems ?? []).every((item) => own.has(item.wordId));
-    };
-    const source = candidate && (candidate.evidenceContract.nativeConfig ? reusedSetup : sameWords(candidate)) ? candidate : undefined;
+    const source = candidate && (candidate.evidenceContract.nativeConfig ? reusedSetup : sameWordSet(candidate, spellingItems ?? [])) ? candidate : undefined;
     if (candidate && !source) console.warn(` 🎮 [learning-board] [successor-reuse] [not-reusable] node=${nodeId} from=${candidate.nodeId} reason=setup_cannot_be_repointed`);
-    // A re-run activity is scored exactly as the built-in it re-runs (its answer forms come with it).
-    const sourceResponses = new Map(Object.values(source?.evidenceContract.spellingItems ?? {}).map((item) => [item.wordId, item.response]));
-    for (const item of spellingItems ?? []) if (sourceResponses.has(item.wordId)) item.response = structuredClone(sourceResponses.get(item.wordId)!);
+    if (source) adoptBuiltInAnswerForms(source, spellingItems ?? []);
     const prompt = generationPrompt(next, role, nodeId, input.evidenceIds, input.reason, input.at);
     prompt.text = `${prescription.creatorPrompt} ${prompt.text}`;
     return {
@@ -1793,6 +1805,23 @@ export function transitionLearningCycle(
     if (!(next.boards && boardOwningNode(next, node.nodeId)?.publishedAt === null)) next.lifecycle = "board_ready";
     else if (event.notReady) publishPreparedBoardIfComplete(next, at);
     reason = event.reason;
+  } else if (event.type === "not_ready_rerun_builtin") {
+    // A never-playable spelling step on the current board is re-pointed, once, to the tested built-in it named (contract 51).
+    const node = nodeOrThrow(next, event.nodeId);
+    if (!node.notReadyReason || node.artifactBinding || node.reusedFrom || !next.boards || !currentBoardInstance(next).nodeIds.includes(node.nodeId)) {
+      throw new Error(`not_ready_repair_not_eligible:${node.nodeId}`);
+    }
+    const items = Object.values(node.evidenceContract.spellingItems ?? {});
+    const source = findReusableBuiltIn(next, event.builtInActivityId, items[0]?.lineage.measurementRole, node.nodeId);
+    const setup = source?.evidenceContract.nativeConfig ? repointReusedSetup(source, node.nodeId, items) : undefined;
+    if (!source || !items.length || !sameWordSet(source, items) || (source.evidenceContract.nativeConfig && !setup)) throw new Error(`not_ready_repair_no_builtin:${node.nodeId}`);
+    adoptBuiltInAnswerForms(source, items);
+    node.implementationType = source.implementationType;
+    node.reusedFrom = source.nodeId;
+    if (setup) node.evidenceContract.nativeConfig = setup;
+    const owner = boardOwningNode(next, node.nodeId)!;
+    owner.topologyHash = boardTopologyHash(next, owner);
+    reason = `Not ready step ${node.nodeId} re-runs the tested built-in ${source.nodeId}.`;
   } else if (event.type === "planner_retry_authorized") {
     const blocked = [...current.decisionHistory].reverse().find(row => row.fromLifecycle !== row.toLifecycle);
     if (current.lifecycle !== "blocked" || blocked?.eventType !== "block"

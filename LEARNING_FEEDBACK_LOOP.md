@@ -1,6 +1,6 @@
 # Sunny Learning Feedback Loop
 
-Contract version: 50
+Contract version: 51
 
 This document is the **sole normative** authority for how Sunny forms, tests, and revises learning claims. Product changes that alter this loop must update this contract version before implementation. Other documents may describe infrastructure or history, but they must link here instead of creating another learning doctrine.
 
@@ -105,7 +105,7 @@ Generated activities built through the progression Creator (spelling Teaching ac
 
 Spelling next boards run only tested built-in activities. Each next-board spelling step names, in its own prescription, the earlier built-in activity it re-runs (`spelling.builtInActivityId`), with exactly that activity's words; the re-run keeps that activity's answer forms, with fresh occasion IDs. That prescription is the single source of which activity runs; catalog reuse decisions are records only. A step that names no re-runnable built-in is one Not ready portal, never sent to the AI builder. Decisions saved before this field existed re-run the activity whose ID they repeated.
 
-A person may explicitly repair a Not ready generated activity on the current board in place, once. The repair binds the first of that activity's own saved Creator attempts that passes today's text check. It makes no provider call and changes no other portal, the board's design or lifecycle, evidence, predictions or receipts. A Not ready portal was never bound, so this is its first binding, not a replacement; a retired binding still stays retired.
+A person may explicitly repair a Not ready activity on the current board in place, once, with no provider call. A spelling step re-runs the tested built-in it named (older steps named it by repeating its activity ID), with exactly that activity's words and answer forms. This re-points a step that was never playable; it is the one allowed change to a published node's frozen implementation, the board's topology hash is recomputed for it, and every other portal must stay unchanged. Other subjects bind the first of that activity's own saved Creator attempts that passes today's text check. It makes no provider call and changes no other portal, the board's design or lifecycle, evidence, predictions or receipts. A Not ready portal was never bound, so this is its first binding, not a replacement; a retired binding still stays retired.
 
 A person may explicitly authorize one replacement attempt for a received primary next-plan response cut off by `max_tokens`. Authorization names the current blocking decision and records a reason. It preserves the closed evidence batch, prior receipt, predictions, observations and completed board; it creates a separate, durable attempt identity before any new purchase. Restart may continue that authorized attempt, but cannot authorize another. At most one decision and successor may be committed for the batch. This recovery does not apply to correction-stage truncation, refusals, uncertain provider outcomes or other validation failures; those remain blocked for separate diagnosis.
 

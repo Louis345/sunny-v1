@@ -405,9 +405,9 @@ function bindGeneratedHtml(input: {
 }
 
 /**
- * Repair a Not ready activity on the current board in place, once, from the
- * Creator's own saved attempts: the first one that passes today's text check is
- * bound. No provider call; the board's design, evidence and receipts stay as they are.
+ * Repair a Not ready activity on the current board in place, once, with no provider call.
+ * Spelling re-runs the tested built-in the step named; other subjects bind the first of the
+ * Creator's own saved attempts that passes today's text check.
  */
 export function repairNotReadyActivity(
   input: { childId: string; homeworkId: string; nodeId: string },
@@ -420,6 +420,20 @@ export function repairNotReadyActivity(
   const onCurrentBoard = !cycle.boards || currentBoardInstance(cycle).nodeIds.includes(input.nodeId);
   if (!node?.notReadyReason || node.artifactBinding || !node.generationPrompt || !onCurrentBoard) {
     throw new Error(`not_ready_repair_not_eligible:${input.nodeId}`);
+  }
+  // Spelling re-runs the tested built-in the step named; older steps named it by repeating its ID.
+  if (cycle.domain === "spelling") {
+    const builtInActivityId = node.nodeId.replace(/^.*:b\d+:/, "");
+    let repointed: LearningCycleRecordV2;
+    try {
+      repointed = transitionLearningCycle(input.childId, input.homeworkId, cycle.revision, { type: "not_ready_rerun_builtin", nodeId: node.nodeId, builtInActivityId }, opts);
+    } catch (error) {
+      console.warn(` 🎮 [board] [portal] [repair-failed] node=${node.nodeId} reason=${error instanceof Error ? error.message : String(error)}`);
+      throw error;
+    }
+    const rerun = repointed.nodes.find(candidate => candidate.nodeId === node.nodeId)!;
+    console.log(` 🎮 [board] [portal] [repaired] node=${node.nodeId} builtin=${rerun.reusedFrom} provider_calls=0`);
+    return relaunchReusedActivity(input.childId, input.homeworkId, repointed, rerun, opts);
   }
   const dir = qualityDiagnosticsDir(rootDir, cycle, node);
   const attempts = (fs.existsSync(dir) ? fs.readdirSync(dir) : [])

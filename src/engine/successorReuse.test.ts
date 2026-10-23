@@ -6,10 +6,10 @@ import {afterEach,expect,it,vi} from 'vitest';
 import {linearJourneyFixture} from '../scripts/fixtures/authoredJourney';
 import {seedSpellingLab} from '../scripts/fixtures/spellingEvidenceFirst';
 import {buildSpellingRecallItems} from './learningCycleIngest';
-import {createLearningCycle,getLearningCycle,projectLearningCycle,repointReusedSetup} from './learningCycleRepository';
+import {canonicalJourneyLaunchable,createLearningCycle,getLearningCycle,projectLearningCycle,repointReusedSetup} from './learningCycleRepository';
 import {validateLetterRushConfig} from './activityEngineConfig';
-import {currentBoardInstance,successorResumeAction} from './learningBoardInstances';
-import {prepareSuccessorBoard} from './canonicalProgressionGenerator';
+import {boardTopologyHash,currentBoardInstance,successorResumeAction} from './learningBoardInstances';
+import {prepareSuccessorBoard,repairNotReadyActivity} from './canonicalProgressionGenerator';
 import {resolveAdaptiveMathDraftDir} from './adaptiveMathDiscovery';
 import {resolveChildContextDir} from '../utils/contextRoot';
 import * as runtime from './learningCycleRuntime';
@@ -262,4 +262,52 @@ it('scores a re-run activity with the answer forms of the built-in it re-runs',a
  const byWord=new Map(Object.values(radar.evidenceContract.spellingItems!).map(item=>[item.word,item.response]));
  expect(byWord.get('write')).toEqual({mode:'tap_selection',acceptedForms:['w'],caseSensitive:false});
  expect(byWord.get('island')).toEqual({mode:'tap_selection',acceptedForms:['s'],caseSensitive:false});
+});
+
+// 2026-10-23 human catch (Saori copy of Ila): board 3 was made before built-in reuse existed, so all five
+// steps were sent to the AI builder and stayed Not ready; the first repair restored those AI-built files.
+// The repair must re-run the built-in the Planner asked for. This rebuilds that board's saved shape.
+async function legacyNotReadyBoard(){
+ const f=fixture(),opts={rootDir:f.rootDir};
+ await runtime.advanceCanonicalCycleFromEvidence(f.request,opts);
+ const file=path.join(resolveChildContextDir(childId,{rootDir:f.rootDir}),'homework/cycles',`${homeworkId}.json`);
+ const saved=JSON.parse(fs.readFileSync(file,'utf8'));
+ const preparing=saved.boards.at(-1);
+ for(const node of saved.nodes.filter((row:any)=>preparing.nodeIds.includes(row.nodeId))){
+  delete node.implementationType;delete node.reusedFrom;delete node.evidenceContract.nativeConfig;
+  for(const item of Object.values(node.evidenceContract.spellingItems) as any[])item.response={mode:'spelling_letters',acceptedForms:[item.word],caseSensitive:false};
+ }
+ preparing.topologyHash=boardTopologyHash(saved,preparing);
+ fs.writeFileSync(file,JSON.stringify(saved));
+ vi.spyOn(canvas,'verifyPreparingBoardCanvas').mockResolvedValue(undefined);
+ const generateHtml=vi.fn(async()=>'<html></html>');
+ const published=await prepareSuccessorBoard({childId,homeworkId,generateHtml,generateArtwork:async()=>'/generated/world.jpeg',validate:async()=>({passed:true,failures:[]})},opts);
+ const board=currentBoardInstance(published);
+ const step=(title:string)=>published.nodes.find(node=>board.nodeIds.includes(node.nodeId)&&node.title===title)!;
+ return {f,opts,published,board,generateHtml,radar:step('radar-check'),dig:step('treasure-dig')};
+}
+it('repairs a Not ready step in place by re-running the built-in it named, with no AI build',async()=>{
+ const {opts,published,board,generateHtml,radar,dig}=await legacyNotReadyBoard();
+ expect(board.publishedAt).not.toBeNull();
+ expect(radar.notReadyReason).toBeDefined();
+ const repaired=repairNotReadyActivity({childId,homeworkId,nodeId:radar.nodeId},opts);
+ const node=repaired.nodes.find(row=>row.nodeId===radar.nodeId)!;
+ expect(node.reusedFrom).toBe('radar-check');
+ expect(node.implementationType).toBe('word-radar');
+ expect(node.notReadyReason).toBeUndefined();
+ expect(node.artifactBinding?.validationStatus).toBe('passed');
+ expect(canonicalJourneyLaunchable(repaired,radar.nodeId)).toBe(true);
+ expect(generateHtml).not.toHaveBeenCalled();
+ expect(repaired.nodes.find(row=>row.nodeId===dig.nodeId)).toEqual(published.nodes.find(row=>row.nodeId===dig.nodeId));
+ expect(currentBoardInstance(repaired).definition).toEqual(board.definition);
+ expect(repaired.observations).toEqual(published.observations);
+ const played=runtime.recordCanonicalNodeCompletion({childId,homeworkId,nodeId:radar.nodeId,sessionId:'repaired-session',result:{completed:true,accuracy:1,timeSpent_ms:100,targetResults:Object.keys(node.evidenceContract.spellingItems!).map(target=>({target,correct:true,attemptedValue:'write'}))}},opts)!;
+ expect(played.observations.filter(row=>node.evidenceContract.spellingItems![row.itemId]).length).toBe(words.length);
+ expect(()=>repairNotReadyActivity({childId,homeworkId,nodeId:radar.nodeId},opts)).toThrow('not_ready_repair_not_eligible');
+});
+it('leaves a Not ready step alone when it names no built-in to re-run',async()=>{
+ const {opts,dig}=await legacyNotReadyBoard();
+ const before=getLearningCycle(childId,homeworkId,opts)!;
+ expect(()=>repairNotReadyActivity({childId,homeworkId,nodeId:dig.nodeId},opts)).toThrow('not_ready_repair_no_builtin');
+ expect(getLearningCycle(childId,homeworkId,opts)).toEqual(before);
 });

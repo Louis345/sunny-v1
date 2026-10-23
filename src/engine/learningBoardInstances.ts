@@ -176,11 +176,21 @@ export function assertPublishedBoardsImmutable(previous: LearningCycleRecordV2, 
   const before = previous.boards ?? [];
   if (before.length === 0 && !next.boards?.length) return;
   const after = new Map((next.boards ?? []).map((board) => [board.boardId, board]));
+  const previousNodes = new Map(previous.nodes.map((node) => [node.nodeId, node]));
+  // A never-bound Not ready step re-pointed to the built-in it named is the one allowed change to a frozen node (contract 51).
+  const repointed = new Set(next.nodes.filter((node) => {
+    const old = previousNodes.get(node.nodeId);
+    return Boolean(old?.notReadyReason && !old.artifactBinding && !old.reusedFrom && node.reusedFrom);
+  }).map((node) => node.nodeId));
   for (const board of before) {
     const current = after.get(board.boardId);
     if (!current) throw new Error(`learning_board_removed:${board.boardId}`);
     const publication = board.publishedAt === null ? { ...current, publishedAt: null } : current;
-    if (stableJson(publication) !== stableJson(board) || boardTopologyHash(next, board) !== board.topologyHash) {
+    const rehashed = board.nodeIds.some((nodeId) => repointed.has(nodeId));
+    const othersFrozen = !rehashed || board.nodeIds.every((nodeId) => repointed.has(nodeId)
+      || stableJson(frozenNode(next.nodes.find((node) => node.nodeId === nodeId), nodeId)) === stableJson(frozenNode(previousNodes.get(nodeId), nodeId)));
+    const expected = rehashed ? { ...board, topologyHash: current.topologyHash } : board;
+    if (!othersFrozen || stableJson(publication) !== stableJson(expected) || boardTopologyHash(next, board) !== expected.topologyHash) {
       throw new Error(`learning_board_topology_changed:${board.boardId}`);
     }
     if (board.agencyExperiment && next.agencyExperiment?.experimentId === board.agencyExperiment.experimentId
