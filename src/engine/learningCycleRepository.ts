@@ -24,7 +24,6 @@ import {
   boardTopologyHash,
   boardsForWrite,
   currentBoardInstance,
-  listBoardInstances,
   preparingBoardInstance,
   publishBoardInstance,
   unavailableActivityReason,

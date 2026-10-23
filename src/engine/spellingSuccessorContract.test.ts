@@ -125,21 +125,22 @@ it("keeps a received historical journey correction while executing the original 
   expect(calls).toBe(1);
 });
 
-it.each(['corrected','invalid','changed-plan','malformed-evidence'])("shares catalog/evidence handles and repairs all reference fields together: %s", async outcome => {
+// 2026-10-23: the Planner's separate catalog list for spelling was a second source of truth, and a
+// malformed one bought a paid correction turn. The orders are the one source now: the catalog follows
+// from them, so a Planner-written list is ignored, never checked and never corrected.
+it.each(['corrected','changed-plan'])("repairs only prediction citations and ignores a Planner-written catalog list: %s", async outcome => {
   const f = fixture();
   const before = getLearningCycle(f.childId,f.homeworkId,{rootDir:f.rootDir})!;
-  const cycleFile = path.join(f.rootDir,`src/context/${f.childId}/homework/cycles/${f.homeworkId}.json`);
-  const snapshot = fs.readFileSync(cycleFile,'utf8');
   const evidenceId = before.observations[0].observationId;
   const contentId = `${f.homeworkId}:practice`;
-  const item = {contentId,childId:f.childId,homeworkId:f.homeworkId,type:'activity',source:'generated',title:'Word workshop',algorithmTargets:['retrieval-practice'],targetSkills:['spelling'],targetWords:['night','light'],targetConcepts:[],engagementHooks:[],inputEvidence:{contentFingerprint:'recorded'},reuseStatus:'candidate',reuseReason:'Await evidence',theoryDecisionId:'original-plan'};
+  const item = {contentId,childId:f.childId,homeworkId:f.homeworkId,type:'activity',source:'generated',title:'Word workshop',algorithmTargets:['retrieval-practice'],targetSkills:['spelling'],targetWords:['night','light'],targetConcepts:[],engagementHooks:[],inputEvidence:{contentFingerprint:'lab'},reuseStatus:'candidate',reuseReason:'Await evidence',theoryDecisionId:'first-plan'};
   const profile = JSON.parse(fs.readFileSync(path.join(f.rootDir,`src/context/${f.childId}/learning_profile.json`),'utf8'));
   writeWaterfallContentCatalog(f.childId,{...profile,aiContentCatalog:[item]},{rootDir:f.rootDir});
-  const received = {...f.decision,predictionEvaluationIds:['invented-evaluation'],contentDecisions:[{contentId:'practice',action:'revise',reason:'Support gap',evidenceIds:[evidenceId]}]};
+  const received = {...f.decision,predictionEvaluationIds:['invented-evaluation'],contentDecisions:[{contentId:'foreign',action:'revise',reason:'Support gap',evidenceIds:[evidenceId,42]}]};
   const requests:any[]=[];
   const execute = async (request:any) => {
     requests.push(request);
-    const input = requests.length === 1 ? received : {predictionEvaluationIds:[],contentDecisions:[{...received.contentDecisions[0],contentId:outcome==='invalid'?'foreign':contentId,...(outcome==='malformed-evidence'?{evidenceIds:[evidenceId,42]}:{})}],...(outcome==='changed-plan'?{boardDefinition:received.boardDefinition}:{})};
+    const input = requests.length === 1 ? received : {predictionEvaluationIds:[],...(outcome==='changed-plan'?{boardDefinition:received.boardDefinition}:{})};
     return {content:[{type:'tool_use',name:'decide_learning_cycle_progression',input}]};
   };
   const run=()=>advanceCanonicalCycleFromEvidence({childId:f.childId,homeworkId:f.homeworkId,client:{messages:{stream:(request:any)=>({finalMessage:()=>execute(request)})}} as never},{rootDir:f.rootDir});
@@ -147,29 +148,22 @@ it.each(['corrected','invalid','changed-plan','malformed-evidence'])("shares cat
     const cycle=await run();
     expect(preparingBoardInstance(cycle)).toBeDefined();
     expect(currentBoardInstance(cycle).boardId).toBe(f.board.boardId);
-    expect(getChildChart(f.childId,{rootDir:f.rootDir}).contentCatalog.items[0].reuseStatus).toBe('revise');
-    // Crash after catalog persistence but before the cycle commit: no new paid reply.
-    fs.writeFileSync(cycleFile,snapshot);
-    await run();
   }else{
-    await expect(run()).rejects.toThrow(outcome==='invalid'?'math_catalog_decision_unknown_content':outcome==='malformed-evidence'?'canonical_progression_invalid_content_patch':'planner_correction_changed_protected_decision');
-    expect(getChildChart(f.childId,{rootDir:f.rootDir}).contentCatalog.items[0].reuseStatus).toBe('candidate');
+    await expect(run()).rejects.toThrow('planner_correction_changed_protected_decision');
   }
+  expect(getChildChart(f.childId,{rootDir:f.rootDir}).contentCatalog.items[0].reuseStatus).toBe('candidate');
   expect(requests).toHaveLength(2);
-  expect(requests[0].tools[0].input_schema.properties.contentDecisions.items.properties.contentId.enum).toEqual([contentId]);
-  expect(requests[0].tools[0].input_schema.properties.contentDecisions.items.properties.evidenceIds.items.enum).toContain(evidenceId);
-  expect(requests[0].messages[0].content).toContain(contentId);
-  expect(Object.keys(requests[1].tools[0].input_schema.properties)).toEqual(['predictionEvaluationIds','contentDecisions']);
+  expect(requests[0].tools[0].input_schema.properties.contentDecisions.maxItems).toBe(0);
+  expect(Object.keys(requests[1].tools[0].input_schema.properties)).toEqual(['predictionEvaluationIds']);
 });
 
-it.each(['non-array','mixed-ids','null'])("does not silently normalize original content decisions: %s", async shape => {
+it.each(['non-array','mixed-ids','null'])("ignores a malformed Planner-written catalog list without buying a correction: %s", async shape => {
   const f=fixture();const requests:any[]=[];
   const received={...f.decision,predictionEvaluationIds:[],contentDecisions:shape==='non-array'?'not an array':shape==='null'?null:[{contentId:'unknown',action:'revise',reason:'Support',evidenceIds:['saved',42]}]};
-  const execute=async(request:any)=>{requests.push(request);return {content:[{type:'tool_use',name:'decide_learning_cycle_progression',input:requests.length===1?received:{contentDecisions:[]}}]};};
+  const execute=async(request:any)=>{requests.push(request);return {content:[{type:'tool_use',name:'decide_learning_cycle_progression',input:received}]};};
   const result=await advanceCanonicalCycleFromEvidence({childId:f.childId,homeworkId:f.homeworkId,client:{messages:{stream:(request:any)=>({finalMessage:()=>execute(request)})}} as never},{rootDir:f.rootDir});
   expect(preparingBoardInstance(result)).toBeDefined();
-  expect(requests).toHaveLength(2);
-  expect(Object.keys(requests[1].tools[0].input_schema.properties)).toEqual(['contentDecisions']);
+  expect(requests).toHaveLength(1);
 });
 
 it.each(["missing", "unknown", "duplicate", "invalid-role"])("rejects a %s word prescription before saving a successor", async kind => {

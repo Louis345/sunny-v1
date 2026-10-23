@@ -628,6 +628,18 @@ export async function replayCanonicalPlannerResponse(input:{childId:string;homew
   return result;
 }
 
+/** Each spelling order that re-runs a built-in is that built-in's catalog reuse decision, cited by its own recorded answers. */
+function spellingReuseFromOrders(cycle: LearningCycleRecordV2, decision: CanonicalProgressionDecision): EvidenceBasedContentDecision[] {
+  return (decision.successor?.instruments ?? []).flatMap((order) => {
+    const builtIn = order.spelling?.builtInActivityId ? cycle.nodes.find((node) => node.nodeId === order.spelling!.builtInActivityId) : undefined;
+    const contentId = builtIn?.artifactBinding?.contentId;
+    const items = new Set(Object.keys(builtIn?.evidenceContract.spellingItems ?? {}));
+    const evidenceIds = cycle.observations.filter((row) => items.has(row.itemId)).map((row) => row.observationId);
+    if (!contentId || !evidenceIds.length) return [];
+    return [{ contentId, action: "reuse" as const, reason: `Re-run on the next board: ${decision.reason}`, evidenceIds }];
+  }).filter((row, index, rows) => rows.findIndex((other) => other.contentId === row.contentId) === index);
+}
+
 /** Math and encounter briefs: the Planner designs what the AI builder implements. */
 const ARTIST_BRIEF = `You are the artist here, not a compliance function. Sunny holds the academic truth and the evidence limits; everything else is yours. Stakes, failure, consequence, escalation, pacing, tone, and payoff are your decisions to make and to defend, and you may change them run to run. You have full freedom to choose a game, simulation, manipulative, story, conversation, demonstration, or another fitting form.
 
@@ -657,9 +669,7 @@ async function askPlanner(
   const toolName = "decide_learning_cycle_progression";
   const anthropic = client ?? new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
   const chart = getChildChart(cycle.childId, { rootDir: opts.rootDir });
-  const catalog = chart.contentCatalog.items;
   const {decisionEvidenceIds} = progressionEvidence(cycle);
-  const catalogCards = catalog.map(({contentId,title,homeworkId})=>({contentId,title,homeworkId}));
   const isSynthetic = (id: string): boolean => /(^|[:_-])(synthetic|playwright|browser-acceptance|readiness)([:_-]|$)/i.test(id);
   // Exclude dependent citations too: an ordinary-looking evaluation id can cite
   // an observation whose source identifies it as simulated.
@@ -708,7 +718,7 @@ async function askPlanner(
       instruments:cycle.nodes.filter(node=>priorBoard.nodeIds.includes(node.nodeId)).map(({nodeId,academicTarget,mechanic,evidenceContract})=>({nodeId,academicTarget,mechanic,evidenceContract})),
     },
     engagementEvidence: engagementTheoryEvidenceContext(chart.engagementTheory),
-    ...(cycle.domain === 'spelling' ? {contentCatalog:catalogCards,contentDecisionEvidenceIds:[...decisionEvidenceIds]} : {}),
+
   };
   const factualEvidence = {
     academic: cycle.evidence.academic.filter((item) => !isSynthetic(item.evidenceId)),
@@ -727,9 +737,8 @@ async function askPlanner(
   const savedSpellingItems = spellingAssignmentItems(cycle);
   const builtIns = spellingBuiltInActivities(cycle);
   const legacyContentSchema = {type:'array',items:{type:'object',additionalProperties:false,properties:{contentId:{type:'string'},action:{type:'string',enum:['candidate','reuse','revise','retire']},reason:{type:'string'},evidenceIds:{type:'array',items:{type:'string'}}},required:['contentId','action','reason','evidenceIds']}};
-  const contentSchema = cycle.domain !== 'spelling' ? legacyContentSchema : catalog.length && decisionEvidenceIds.size
-    ? {...legacyContentSchema,items:{...legacyContentSchema.items,properties:{...legacyContentSchema.items.properties,contentId:{type:'string',enum:catalog.map(item=>item.contentId)},evidenceIds:{type:'array',minItems:1,items:{type:'string',enum:[...decisionEvidenceIds]}}}}}
-    : {...legacyContentSchema,maxItems:0};
+  // Spelling orders name the built-ins they re-run; the catalog follows from them, so there is no second list to write.
+  const contentSchema = cycle.domain !== 'spelling' ? legacyContentSchema : {...legacyContentSchema,maxItems:0};
   const instrumentSchema = {
     type: "object",
     additionalProperties: false,
@@ -846,16 +855,16 @@ ${JSON.stringify({ lifecycle: cycle.lifecycle, assignment: cycle.assignment, the
   const rawDecision = await runMathProviderStage({draftDir,stage:decisionStage,model:request.model,request:frozen.receiptContext,beforeRequest:frozen.beforeRequest,execute:async()=>({plannerMessage:await requestPlannerMessage(anthropic,request,{timeout:frozen.timeout})})});
   console.log(` 🎮 [canonical-progression] [planner-response] [checkpointed] homework=${cycle.homeworkId} revision=${cycle.revision}`);
   const received = readPlannerToolReceipt(rawDecision, toolName);
-  let referenceErrors:Array<{field:'predictionEvaluationIds'|'contentDecisions';error:Error}> = [];
+  let referenceErrors:Array<{field:'predictionEvaluationIds';error:Error}> = [];
   const validate = async (value: unknown) => {
     referenceErrors = [];
     if(cycle.domain === 'spelling' && value && typeof value==='object' && !Array.isArray(value)) {
       const raw = value as Record<string,unknown>;
       const checks = {
         predictionEvaluationIds:()=>{const ids=raw.predictionEvaluationIds;if(ids!==undefined && (!Array.isArray(ids)||!ids.every(id=>typeof id==='string')))throw new Error('canonical_progression_invalid_citation_patch');assertPredictionCitations({predictionEvaluationIds:ids as string[]|undefined},cycle);},
-        contentDecisions:()=>{const decisions=raw.contentDecisions===undefined?[]:raw.contentDecisions;assertContentDecisionShape(decisions);validateEvidenceBasedContentDecisions(decisions,new Set(catalog.map(item=>item.contentId)),decisionEvidenceIds);},
       };
-      for(const field of ['predictionEvaluationIds','contentDecisions'] as const)try{checks[field]();}catch(error){if(!(error instanceof Error))throw error;referenceErrors.push({field,error});}
+      // A Planner-written catalog list is ignored for spelling (the catalog follows from the orders), so it is never checked or corrected.
+      for(const field of ['predictionEvaluationIds'] as const)try{checks[field]();}catch(error){if(!(error instanceof Error))throw error;referenceErrors.push({field,error});}
       if(referenceErrors.length)throw referenceErrors[0].error;
     }
     const decision = parseCanonicalProgressionDecision(value);
@@ -867,16 +876,12 @@ ${JSON.stringify({ lifecycle: cycle.lifecycle, assignment: cycle.assignment, the
     if (!(error instanceof Error)) throw error;
     const fields = referenceErrors.map(issue=>issue.field);
     if (!fields.length) throw error;
-    // Citation/content repairs cannot change the plan. There is no canvas correction purchase.
-    const citationOnly = fields.length === 1 && fields[0] === 'predictionEvaluationIds';
+    // A citation patch cannot change the plan. There is no canvas or catalog correction purchase.
     console.log(` 🎮 [canonical-progression] [reference-correction] [required] reason=${error.message}`);
     const tools = [{...request.tools[0],input_schema:{type:'object' as const,additionalProperties:false,properties:Object.fromEntries(fields.map(field=>[field,request.tools[0].input_schema.properties[field]])),required:fields}}];
-    const content = citationOnly
-      ? `Correct only predictionEvaluationIds in the received decision. Return only that field using the tool; this is a citation patch, not a new decision. Preregistered prediction IDs are not observed evaluation IDs. There is one correction attempt.\nDEFECT: ${error.message}\nAVAILABLE PREDICTION EVALUATION IDS: ${JSON.stringify(cycle.predictionEvaluations.map(evaluation=>evaluation.evaluationId))}\nRECEIVED CITATIONS: ${JSON.stringify((received as Record<string,unknown>).predictionEvaluationIds)}`
-      : `Correct only ${fields.join(' and ')}. Return only those fields using the tool, not a new decision. Bind contentDecisions to actual catalog contentId values and nonempty saved evidenceIds; activity node IDs are not catalog IDs. Revise or omit unsupported content decisions yourself. Preregistered prediction IDs are not observed evaluation IDs. Preserve the board, instruments and every other field exactly. There is one correction attempt.\nDEFECTS: ${JSON.stringify(referenceErrors.map(issue=>issue.error.message))}\nAVAILABLE PREDICTION EVALUATION IDS: ${JSON.stringify(cycle.predictionEvaluations.map(row=>row.evaluationId))}\nCATALOG: ${JSON.stringify(catalogCards)}\nAVAILABLE CONTENT EVIDENCE IDS: ${JSON.stringify([...decisionEvidenceIds])}\nRECEIVED FIELDS: ${JSON.stringify(Object.fromEntries(fields.map(field=>[field,(received as Record<string,unknown>)[field]])))}`;
+    const content = `Correct only predictionEvaluationIds in the received decision. Return only that field using the tool; this is a citation patch, not a new decision. Preregistered prediction IDs are not observed evaluation IDs. There is one correction attempt.\nDEFECT: ${error.message}\nAVAILABLE PREDICTION EVALUATION IDS: ${JSON.stringify(cycle.predictionEvaluations.map(evaluation=>evaluation.evaluationId))}\nRECEIVED CITATIONS: ${JSON.stringify((received as Record<string,unknown>).predictionEvaluationIds)}`;
     const correctionRequest = {...request,tools,messages:[{role:'user' as const,content}]};
-    const stage = citationOnly ? 'citation-patch' : 'reference-patch';
-    const correctionStage=`progression-${stage}-r${checkpointRevision}`;
+    const correctionStage=`progression-citation-patch-r${checkpointRevision}`;
     const savedCorrection=freezePlannerRequest({draftDir,stage:correctionStage,request:correctionRequest});
     const correction = await runMathProviderStage({draftDir,stage:correctionStage,model:savedCorrection.request.model,request:savedCorrection.receiptContext,beforeRequest:savedCorrection.beforeRequest,execute:async()=>({plannerMessage:await requestPlannerMessage(anthropic,savedCorrection.request,{timeout:savedCorrection.timeout})})});
     const reply = readPlannerToolReceipt(correction,toolName);
@@ -1000,8 +1005,11 @@ async function decideOnce(
     if (!replayOnly) throw new Error("canonical_progression_context_changed");
     console.log(` 🎮 [canonical-progression] [replay-preserved] fromRevision=${cycle.revision} toRevision=${latest.revision}`);
   }
-  if (!replay && decision.contentDecisions?.length) {
-    applyEvidenceBasedMathContentDecisions(cycle.childId, decision.contentDecisions, decisionEvidenceIds, opts);
+  // Catalog records never fail a decision: orders for built-ins with no catalog entry simply record nothing.
+  const cataloged = cycle.domain === "spelling" ? new Set(getChildChart(cycle.childId, opts).contentCatalog.items.map((item) => item.contentId)) : undefined;
+  const contentDecisions = cataloged ? spellingReuseFromOrders(cycle, decision).filter((row) => cataloged.has(row.contentId)) : decision.contentDecisions;
+  if (!replay && contentDecisions?.length) {
+    applyEvidenceBasedMathContentDecisions(cycle.childId, contentDecisions, decisionEvidenceIds, opts);
   }
   return transitionLearningCycle(cycle.childId, cycle.homeworkId, latest.revision, {
     type: "theory_decided",

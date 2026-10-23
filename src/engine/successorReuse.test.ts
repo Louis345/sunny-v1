@@ -15,6 +15,8 @@ import {resolveChildContextDir} from '../utils/contextRoot';
 import * as runtime from './learningCycleRuntime';
 import * as canvas from './adventureBoardCanvas';
 import {validateVisualLearnerArtifactConfig} from '../shared/visualLearnerArtifactConfig';
+import {writeWaterfallContentCatalog} from '../profiles/chartWaterfall';
+import {getChildChart} from '../profiles/childChart';
 
 // 2026-10-21 human catch: the Planner told board 3 to reuse four proven activities, two of them Word
 // Radar "exactly as before". Code sent all five to the AI builder, all failed, and Ila had nothing to
@@ -336,4 +338,23 @@ it('leaves a Not ready step alone when it names no built-in to re-run',async()=>
  const before=getLearningCycle(childId,homeworkId,opts)!;
  expect(()=>repairNotReadyActivity({childId,homeworkId,nodeId:dig.nodeId},opts)).toThrow(/not_ready_repair_no_builtin:.*:no_builtin_named:/);
  expect(getLearningCycle(childId,homeworkId,opts)).toEqual(before);
+});
+
+// 2026-10-23: the Planner wrote a separate catalog "reuse" list that nothing obeyed, beside the board it
+// actually ordered: two sources of truth about which activity runs. The orders are the one source now,
+// and the catalog records follow from them.
+it('marks a re-run built-in as reused in the catalog, from the order itself, with no separate list',async()=>{
+ const f=fixture(),opts={rootDir:f.rootDir};
+ const profilePath=path.join(f.rootDir,`src/context/${childId}/learning_profile.json`);
+ const profile=JSON.parse(fs.readFileSync(profilePath,'utf8'));
+ const contentId=`${homeworkId}:radar-check`;
+ const item={contentId,childId,homeworkId,type:'activity',source:'baseline',title:'Radar Check',algorithmTargets:['retrieval-practice'],targetSkills:['spelling'],targetWords:words,targetConcepts:[],engagementHooks:[],inputEvidence:{contentFingerprint:'lab'},reuseStatus:'candidate',reuseReason:'Await evidence',theoryDecisionId:'first-plan'};
+ const seeded={...profile,aiContentCatalog:[item]};fs.writeFileSync(profilePath,JSON.stringify(seeded));writeWaterfallContentCatalog(childId,seeded,opts);
+ named(f,{[`${homeworkId}:radar-check`]:'radar-check'});
+ await runtime.advanceCanonicalCycleFromEvidence(f.request,opts);
+ const payload=f.create.mock.calls[0][0] as any;
+ expect(payload.tools[0].input_schema.properties.contentDecisions.maxItems).toBe(0);
+ expect(payload.messages[0].content).not.toContain('contentDecisionEvidenceIds');
+ const recorded=getChildChart(childId,opts).contentCatalog.items.find(row=>row.contentId===contentId)!;
+ expect(recorded.reuseStatus).toBe('reuse');
 });
