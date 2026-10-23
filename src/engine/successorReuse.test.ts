@@ -228,6 +228,23 @@ it('offers the Planner only the tested built-in activities for spelling',async()
  expect(spelling.required).toContain('builtInActivityId');
  expect(spelling.properties.builtInActivityId.enum).toEqual(['radar-check']);
 });
+// 2026-10-23: the deepest cause of AI-built spelling games was the request itself. It told the Planner
+// "You are the artist ... choose a game" and required a creator prompt and game-design fields for every
+// spelling activity, while the code could only run built-ins. A spelling request is now an order form.
+it('asks the spelling Planner for orders from the built-in list, not game designs',async()=>{
+ const f=fixture(),opts={rootDir:f.rootDir};
+ await runtime.advanceCanonicalCycleFromEvidence(f.request,opts);
+ const payload=f.create.mock.calls[0][0] as any;
+ const instrument=payload.tools[0].input_schema.properties.nextInstruments.items;
+ for(const field of ['creatorPrompt','stakesDesign','failureMode','escalation','mechanicSpec','mathematicalHook']){
+  expect(instrument.properties[field]).toBeUndefined();
+  expect(instrument.required).not.toContain(field);
+ }
+ const prompt=payload.messages[0].content as string;
+ expect(prompt).not.toContain('You are the artist');
+ expect(prompt).not.toMatch(/choose a game/i);
+ expect(prompt).toContain('builtInActivityId');
+});
 it('runs the built-in the Planner names under any new activity ID, and never builds a spelling game',async()=>{
  const f=fixture(),opts={rootDir:f.rootDir};
  Object.assign(f.decision.nextInstruments[0] as any,{nodeId:`${homeworkId}:radar-again`,title:'radar-again'});

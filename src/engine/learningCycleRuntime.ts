@@ -432,11 +432,12 @@ function strings(value: unknown): string[] {
 function parseNextInstrument(value: unknown): NextInstrumentPrescription | undefined {
   if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
   const row = value as Record<string, unknown>;
-  const keys = ["nodeId", "title", "academicTarget", "mechanic", "theme", "openingPurpose", "creatorPrompt"] as const;
+  // A spelling step is an order for a built-in, so it carries no creator prompt.
+  const keys = ["nodeId", "title", "academicTarget", "mechanic", "theme", "openingPurpose", ...(row.spelling === undefined ? ["creatorPrompt"] as const : [])] as const;
   if (keys.some((key) => typeof row[key] !== "string" || !String(row[key]).trim())) return undefined;
   // Design decisions are optional so an older Planner response still parses,
   // but they are carried through whenever the Planner supplies them.
-  const designKeys = ["stakesDesign", "failureMode", "escalation", "mechanicSpec", "mathematicalHook"] as const;
+  const designKeys = ["creatorPrompt", "stakesDesign", "failureMode", "escalation", "mechanicSpec", "mathematicalHook"] as const;
   return {
     ...(Array.isArray(row.items) ? { items: row.items.map(parseDirectItem) } : {}),
     ...(row.spelling !== undefined ? { spelling: validateSpellingPrescription(row.spelling) } : {}),
@@ -627,6 +628,26 @@ export async function replayCanonicalPlannerResponse(input:{childId:string;homew
   return result;
 }
 
+/** Math and encounter briefs: the Planner designs what the AI builder implements. */
+const ARTIST_BRIEF = `You are the artist here, not a compliance function. Sunny holds the academic truth and the evidence limits; everything else is yours. Stakes, failure, consequence, escalation, pacing, tone, and payoff are your decisions to make and to defend, and you may change them run to run. You have full freedom to choose a game, simulation, manipulative, story, conversation, demonstration, or another fitting form.
+
+Two things this Planner has gotten wrong before, stated plainly so you can avoid them:
+- Do not name a stake and then remove it in the same breath. Phrases like "no penalty", "no hard fail", "not punitive", or "low-pressure" attached to a tension you just introduced produce an experience with nothing at risk, which children read as boring. If you want a real stake, let it cost something. If you want no stake, say so deliberately and own it — do not do both.
+- Do not treat the engagement context as a list of things to avoid. It is observation with sample sizes attached, and dimensions too weakly evidenced to act on have already been withheld from you. A presentation that has not been seen to work is untested, not forbidden. Nothing in that context constrains stakes, difficulty, or consequence.`;
+
+/** Spelling: the Planner is the doctor writing orders; Sunny runs each order with a tested built-in activity. */
+const SPELLING_ORDER_BRIEF = `You write the orders for the next spelling board, and Sunny runs each order exactly as written. Each step is one tested built-in activity from the list below: name it in spelling.builtInActivityId, choose spelling.wordIds from that activity's words (all of them or fewer), a measurementRole and a responseMode, and give the step a title the child will see. Choose which words need teaching or practice, in what order, and when to collect a fresh recall check. Sunny builds no new spelling games.`;
+
+/** Briefs for the AI builder. Spelling steps are orders for tested built-ins and never carry them. */
+const DESIGN_FIELDS_SCHEMA = {
+  creatorPrompt: { type: "string", minLength: 1 },
+  stakesDesign: { type: "string", minLength: 1, description: "What is genuinely at risk for the child in this instrument, and what losing it costs them." },
+  failureMode: { type: "string", minLength: 1, description: "How a run can end badly. If you decide it cannot be failed, say so and say why that serves this child right now." },
+  escalation: { type: "string", minLength: 1, description: "How difficulty or pressure moves from the first moment to the last." },
+  mechanicSpec: { type: "string", minLength: 1, description: "Concretely: what the child's finger or cursor does, what visibly moves in response, and what failure looks like on screen. Not an adjective or a genre name." },
+  mathematicalHook: { type: "string", minLength: 1, description: "The surprising or satisfying thing about this specific mathematics that could make a child say whoa." },
+} as const;
+
 async function askPlanner(
   cycle: LearningCycleRecordV2,
   client?: Anthropic,
@@ -719,7 +740,6 @@ async function askPlanner(
       mechanic: { type: "string", minLength: 1 },
       theme: { type: "string", minLength: 1 },
       openingPurpose: { type: "string", minLength: 1 },
-      creatorPrompt: { type: "string", minLength: 1 },
       ...(cycle.domain === "math" ? { items: MATH_ITEMS_SCHEMA } : {}),
       ...(cycle.domain === "spelling" ? { spelling: {
         type: "object", additionalProperties: false,
@@ -732,13 +752,10 @@ async function askPlanner(
         required: ["wordIds", "measurementRole", "responseMode", ...(builtIns.length ? ["builtInActivityId"] : [])],
       } } : {}),
       encounter: { type: "string", enum: ["quest", "boss"], description: "Only on the single Quest or Boss node your progressionAction authorizes." },
-      stakesDesign: { type: "string", minLength: 1, description: "What is genuinely at risk for the child in this instrument, and what losing it costs them." },
-      failureMode: { type: "string", minLength: 1, description: "How a run can end badly. If you decide it cannot be failed, say so and say why that serves this child right now." },
-      escalation: { type: "string", minLength: 1, description: "How difficulty or pressure moves from the first moment to the last." },
-      mechanicSpec: { type: "string", minLength: 1, description: "Concretely: what the child's finger or cursor does, what visibly moves in response, and what failure looks like on screen. Not an adjective or a genre name." },
-      mathematicalHook: { type: "string", minLength: 1, description: "The surprising or satisfying thing about this specific mathematics that could make a child say whoa." },
+      // A spelling step is an order for a tested built-in; the design fields brief the AI builder, which spelling never uses.
+      ...(cycle.domain === "spelling" ? {} : { ...DESIGN_FIELDS_SCHEMA }),
     },
-    required: ["nodeId", "title", "academicTarget", "mechanic", "theme", "openingPurpose", "creatorPrompt", ...(cycle.domain === "math" ? ["items"] : cycle.domain === "spelling" ? ["spelling"] : []), "stakesDesign", "failureMode", "escalation", "mechanicSpec", "mathematicalHook"],
+    required: ["nodeId", "title", "academicTarget", "mechanic", "theme", "openingPurpose", ...(cycle.domain === "math" ? ["items"] : cycle.domain === "spelling" ? ["spelling"] : []), ...(cycle.domain === "spelling" ? [] : Object.keys(DESIGN_FIELDS_SCHEMA))],
   };
   // The raw response is checkpointed before validation; a restart from the same
   // frozen snapshot replays it and makes no new provider call (contract 21).
@@ -757,11 +774,7 @@ async function askPlanner(
     max_tokens: 32000,
     messages: [{ role: "user", content: `You are Sunny's AI Planner. Compare the preregistered academic theory and predictions with the factual scorecard. Quest requires a captured, correct, unseen independent checkpoint. Practice cannot satisfy that boundary. For math, author nextItems with stable unique ids, prompts, lineage, and frozen response contracts. Include fresh checkpoint evidence when further progression is intended. Explanation responses remain unscored and cannot independently unlock progression. Never reuse exposed item ids or prompts. Quest tests unseen transfer; Boss tests unseen synthesis; Boss must end awaiting calibration. Call ${toolName} exactly once with one concise decision. Unless progressionAction is await_calibration, author the one complete next board in nextInstruments: you decide how many activities it has. ${BOARD_AUTHORING_INSTRUCTION} The current board is never changed; your program becomes a new board for a later session. Mark exactly one instrument with encounter "quest" only when progressionAction is generate_quest, or "boss" only when it is generate_boss; never add an encounter otherwise.
 
-You are the artist here, not a compliance function. Sunny holds the academic truth and the evidence limits; everything else is yours. Stakes, failure, consequence, escalation, pacing, tone, and payoff are your decisions to make and to defend, and you may change them run to run. You have full freedom to choose a game, simulation, manipulative, story, conversation, demonstration, or another fitting form.
-
-Two things this Planner has gotten wrong before, stated plainly so you can avoid them:
-- Do not name a stake and then remove it in the same breath. Phrases like "no penalty", "no hard fail", "not punitive", or "low-pressure" attached to a tension you just introduced produce an experience with nothing at risk, which children read as boring. If you want a real stake, let it cost something. If you want no stake, say so deliberately and own it — do not do both.
-- Do not treat the engagement context as a list of things to avoid. It is observation with sample sizes attached, and dimensions too weakly evidenced to act on have already been withheld from you. A presentation that has not been seen to work is untested, not forbidden. Nothing in that context constrains stakes, difficulty, or consequence.
+${cycle.domain === "spelling" ? SPELLING_ORDER_BRIEF : ARTIST_BRIEF}
 
 Title each instrument as the child should see it. It appears as the first thing on their screen, so give it a real name, not a category label.
 
@@ -769,8 +782,7 @@ For math, do not copy assignment items or name a prototype to imitate. If eviden
 For spelling, each instrument must prescribe spelling.wordIds from the saved word identities below, a measurementRole, and a responseMode. You choose which words need teaching or practice and when to collect fresh recall. The server binds the saved spellings and new occasion IDs; you cannot replace answer keys or reset exposure. Fresh recall after practice is not unseen transfer or delayed retention. Include initially secure and targeted words when prescribing a final assignment check.
 Saved spelling words:
 ${JSON.stringify([...savedSpellingItems.values()].map(item => ({ wordId: item.wordId, word: item.word, responseMode: item.response.mode })))}
-For spelling, each next-board step re-runs one of these tested built-in activities: set spelling.builtInActivityId to its activityId and spelling.wordIds to exactly its wordIds. Sunny builds no new spelling games; creatorPrompt and the design fields are not used for spelling.
-Tested built-in activities:
+Tested built-in activities (spelling.builtInActivityId; wordIds are that activity's words):
 ${JSON.stringify(builtIns.map(node => ({ activityId: node.nodeId, type: node.implementationType, title: node.title, wordIds: [...new Set(Object.values(node.evidenceContract.spellingItems ?? {}).map(item => item.wordId))], checkpoint: Object.values(node.evidenceContract.itemRoles ?? {}).length > 0 && Object.values(node.evidenceContract.itemRoles ?? {}).every(role => role === "fresh_checkpoint") })))}
 For spelling, Correct practice after long response time is not effortless recall. Examine per-word response time alongside assistance, exposure, response mode, and instrument ambiguity. When the evidence suggests a child is struggling, author teaching and guided practice before another fresh recall check; let Elli respond conversationally from the live item and child context. Do not infer mastery from supported or partial-visibility practice, and do not use a fixed latency threshold to choose the lesson.
 

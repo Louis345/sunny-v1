@@ -486,7 +486,8 @@ export type NextInstrumentPrescription = {
   mechanic: string;
   theme: string;
   openingPurpose: string;
-  creatorPrompt: string;
+  /** Absent on spelling steps, which are orders for tested built-ins. */
+  creatorPrompt?: string;
   /**
    * The Planner's design decisions, recorded verbatim so outcomes can later be
    * attributed to them. Without these the loop can only correlate engagement
@@ -1312,7 +1313,7 @@ function prepareSuccessorBoard(
     if (candidate && !source) console.warn(` 🎮 [learning-board] [successor-reuse] [not-reusable] node=${nodeId} from=${candidate.nodeId} reason=setup_cannot_be_repointed`);
     if (source) adoptBuiltInAnswerForms(source, spellingItems ?? []);
     const prompt = generationPrompt(next, role, nodeId, input.evidenceIds, input.reason, input.at);
-    prompt.text = `${prescription.creatorPrompt} ${prompt.text}`;
+    prompt.text = [prescription.creatorPrompt, prompt.text].filter(Boolean).join(" ");
     return {
       nodeId,
       role,
