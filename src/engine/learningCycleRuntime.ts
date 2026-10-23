@@ -640,6 +640,17 @@ function spellingReuseFromOrders(cycle: LearningCycleRecordV2, decision: Canonic
   }).filter((row, index, rows) => rows.findIndex((other) => other.contentId === row.contentId) === index);
 }
 
+function catalogedOnly(childId: string, decisions: EvidenceBasedContentDecision[], opts: LearningCycleRepositoryOptions): EvidenceBasedContentDecision[] {
+  if (!decisions.length) return decisions;
+  try {
+    const cataloged = new Set(getChildChart(childId, opts).contentCatalog.items.map((item) => item.contentId));
+    return decisions.filter((row) => cataloged.has(row.contentId));
+  } catch (error) {
+    console.warn(` 🎮 [content-catalog] [reuse-record] [skipped] child=${childId} reason=${error instanceof Error ? error.message : String(error)}`);
+    return [];
+  }
+}
+
 /** Math and encounter briefs: the Planner designs what the AI builder implements. */
 const ARTIST_BRIEF = `You are the artist here, not a compliance function. Sunny holds the academic truth and the evidence limits; everything else is yours. Stakes, failure, consequence, escalation, pacing, tone, and payoff are your decisions to make and to defend, and you may change them run to run. You have full freedom to choose a game, simulation, manipulative, story, conversation, demonstration, or another fitting form.
 
@@ -1005,9 +1016,8 @@ async function decideOnce(
     if (!replayOnly) throw new Error("canonical_progression_context_changed");
     console.log(` 🎮 [canonical-progression] [replay-preserved] fromRevision=${cycle.revision} toRevision=${latest.revision}`);
   }
-  // Catalog records never fail a decision: orders for built-ins with no catalog entry simply record nothing.
-  const cataloged = cycle.domain === "spelling" ? new Set(getChildChart(cycle.childId, opts).contentCatalog.items.map((item) => item.contentId)) : undefined;
-  const contentDecisions = cataloged ? spellingReuseFromOrders(cycle, decision).filter((row) => cataloged.has(row.contentId)) : decision.contentDecisions;
+  // Catalog records never fail a decision: an order whose built-in has no catalog entry (or no readable chart) records nothing.
+  const contentDecisions = cycle.domain === "spelling" ? catalogedOnly(cycle.childId, spellingReuseFromOrders(cycle, decision), opts) : decision.contentDecisions;
   if (!replay && contentDecisions?.length) {
     applyEvidenceBasedMathContentDecisions(cycle.childId, contentDecisions, decisionEvidenceIds, opts);
   }
