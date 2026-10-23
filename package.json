@@ -54,6 +54,7 @@
     "sunny:psychologist:audit": "npx tsx src/scripts/auditPsychologistPacket.ts",
     "sunny:planner:qa": "npx tsx src/scripts/plannerScenarioLab.ts",
     "sunny:planner:authorize-recovery": "npx tsx src/scripts/authorizePlannerRecovery.ts",
+    "sunny:board:repair-not-ready": "npx tsx src/scripts/repairNotReadyActivities.ts",
     "sunny:session:audit": "npx tsx src/scripts/auditSessionDirectory.ts",
     "sunny:spelling:certify": "npx tsx src/scripts/certifySpellingAdaptation.ts",
     "sunny:lab:spelling": "npx tsx src/scripts/runSyntheticChildLab.ts",

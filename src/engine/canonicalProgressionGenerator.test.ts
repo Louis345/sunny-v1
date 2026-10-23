@@ -18,7 +18,9 @@ vi.mock("./childFacingVisualGate",()=>({
   },
   judgeChildFacingScreens:vi.fn(async()=>({decision:"approve",observations:[]})),
 }));
-import { generateCanonicalProgressionArtifact } from "./canonicalProgressionGenerator";
+import { generateCanonicalProgressionArtifact, repairNotReadyActivities, repairNotReadyActivity } from "./canonicalProgressionGenerator";
+import { canonicalJourneyLaunchable } from "./learningCycleRepository";
+import { currentBoardInstance } from "./learningBoardInstances";
 
 function root(): string { return fs.mkdtempSync(path.join(os.tmpdir(), "sunny-progression-")); }
 
@@ -626,6 +628,81 @@ describe("a built activity opens without a browser check or AI judge", () => {
       expect(runDirectBrowserSmokeCheck).not.toHaveBeenCalled();
       expect(judgeChildFacingScreens).not.toHaveBeenCalled();
     } finally { fs.rmSync(rootDir, { recursive: true, force: true }); }
+  });
+});
+
+/** Oct 22: Ila's published next board kept five Not ready activities for good.
+ * Each had a saved, paid Creator attempt that the since-removed checkers had
+ * rejected, and the rules allowed no repair except a whole new board. Logs named
+ * every rejection; no lab ever tried to play a saved attempt on the live board. */
+describe("repairing a Not ready activity in place", () => {
+  async function notReadyQuest(rootDir: string, attempts: string[]) {
+    const created = createLearningCycle(baseInput(), { rootDir });
+    const questId = decideQuest(rootDir, created.revision).nodes.find(node => node.role === "quest")!.nodeId;
+    const generateHtml = vi.fn(async () => attempts[generateHtml.mock.calls.length - 1]);
+    await generateCanonicalProgressionArtifact({ childId: "reina", homeworkId: "hw-progression", generateHtml,
+      validate: async () => ({ passed: false, failures: ["recorded_checker_rejection"] }) }, { rootDir });
+    const failed = getLearningCycle("reina", "hw-progression", { rootDir })!;
+    const blocked = transitionLearningCycle("reina", "hw-progression", failed.revision, {
+      type: "artifact_generation_attention_required", nodeId: questId, reason: "successor_node_failed:recorded_checker_rejection", notReady: true,
+    }, { rootDir });
+    return { blocked, generateHtml, questId };
+  }
+
+  it("binds the first saved attempt that passes the text check, with no provider call and nothing else changed", async () => {
+    const rootDir = root();
+    try {
+      const { blocked, generateHtml, questId } = await notReadyQuest(rootDir, [
+        "<html><body><h1>Wrong title</h1></body></html>",
+        "<html><body><h1>Quest</h1><button>Answer</button></body></html>",
+      ]);
+      expect(currentBoardInstance(blocked).publishedAt).not.toBeNull();
+      expect(canonicalJourneyLaunchable(blocked, questId)).toBe(false);
+      const repaired = repairNotReadyActivity({ childId: "reina", homeworkId: "hw-progression", nodeId: questId }, { rootDir });
+      const quest = repaired.nodes.find(node => node.nodeId === questId)!;
+      expect(quest.state).toBe("ready");
+      expect(quest.notReadyReason).toBeUndefined();
+      expect(quest.artifactBinding?.validationStatus).toBe("passed");
+      const served = path.join(rootDir, "src/context/reina/homework/games", path.basename(quest.artifactBinding!.localArtifactPath));
+      expect(fs.readFileSync(served, "utf8")).toContain("<button>Answer</button>");
+      expect(canonicalJourneyLaunchable(repaired, questId)).toBe(true);
+      expect(generateHtml).toHaveBeenCalledTimes(2);
+      expect(repaired.observations).toEqual(blocked.observations);
+      expect(repaired.boards).toEqual(blocked.boards);
+      expect(repaired.nodes.find(node => node.nodeId === "facts")).toEqual(blocked.nodes.find(node => node.nodeId === "facts"));
+    } finally { fs.rmSync(rootDir, { recursive: true, force: true }); }
+  });
+
+  it("repairs only once and only a Not ready activity", async () => {
+    const rootDir = root();
+    try {
+      const { questId } = await notReadyQuest(rootDir, ["<html><body><h1>Quest</h1></body></html>", "<html><body><h1>Quest</h1></body></html>"]);
+      expect(() => repairNotReadyActivity({ childId: "reina", homeworkId: "hw-progression", nodeId: "facts" }, { rootDir })).toThrow("not_ready_repair_not_eligible");
+      const repaired = repairNotReadyActivity({ childId: "reina", homeworkId: "hw-progression", nodeId: questId }, { rootDir });
+      expect(() => repairNotReadyActivity({ childId: "reina", homeworkId: "hw-progression", nodeId: questId }, { rootDir })).toThrow("not_ready_repair_not_eligible");
+      expect(getLearningCycle("reina", "hw-progression", { rootDir })!.revision).toBe(repaired.revision);
+    } finally { fs.rmSync(rootDir, { recursive: true, force: true }); }
+  });
+
+  it("leaves the activity Not ready when no saved attempt passes the text check", async () => {
+    const rootDir = root();
+    try {
+      const { blocked, questId } = await notReadyQuest(rootDir, ["<html><body><h1>Wrong</h1></body></html>", "<html><body><h1>Also wrong</h1></body></html>"]);
+      expect(() => repairNotReadyActivity({ childId: "reina", homeworkId: "hw-progression", nodeId: questId }, { rootDir })).toThrow("not_ready_repair_no_passing_attempt");
+      expect(getLearningCycle("reina", "hw-progression", { rootDir })!.revision).toBe(blocked.revision);
+    } finally { fs.rmSync(rootDir, { recursive: true, force: true }); }
+  });
+  it("repairs every Not ready activity on the current board and reports the ones it could not", async () => {
+    const passing = root(), failing = root();
+    try {
+      const { questId } = await notReadyQuest(passing, ["<html><body><h1>Quest</h1></body></html>", "<html><body><h1>Quest</h1></body></html>"]);
+      expect(repairNotReadyActivities({ childId: "reina", homeworkId: "hw-progression" }, { rootDir: passing })).toEqual([{ nodeId: questId, repaired: true }]);
+      expect(repairNotReadyActivities({ childId: "reina", homeworkId: "hw-progression" }, { rootDir: passing })).toEqual([]);
+      await notReadyQuest(failing, ["<html><body><h1>Wrong</h1></body></html>", "<html><body><h1>Wrong</h1></body></html>"]);
+      expect(repairNotReadyActivities({ childId: "reina", homeworkId: "hw-progression" }, { rootDir: failing })).toEqual([
+        { nodeId: questId, repaired: false, reason: `not_ready_repair_no_passing_attempt:${questId}` },
+      ]);
+    } finally { for (const dir of [passing, failing]) fs.rmSync(dir, { recursive: true, force: true }); }
   });
 });
 

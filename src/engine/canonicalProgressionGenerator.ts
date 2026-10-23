@@ -23,7 +23,7 @@ import {
   type LearningCycleRecordV2,
   type LearningCycleRepositoryOptions,
 } from "./learningCycleRepository";
-import { preparingBoardInstance } from "./learningBoardInstances";
+import { currentBoardInstance, preparingBoardInstance } from "./learningBoardInstances";
 
 export type CanonicalProgressionGeneratorInput = {
   childId: string;
@@ -108,16 +108,20 @@ function openingIdentityFailures(html: string, node: LearningCycleNodeContract):
 /** Only the cheap text check runs before an activity opens. There is no browser
  * run and no AI screenshot judge: the child playing it, and her scored answers,
  * are the check. */
-async function productionValidate(input: { html: string; node: LearningCycleNodeContract; cycle: LearningCycleRecordV2 }): Promise<ProgressionValidationResult> {
-  const stage = input.node.role === "boss" ? "boss" : input.node.role === "quest" ? "quest" : "baseline";
-  const staticReport = validateGeneratedGame(input.html, {
-    words: input.node.academicTarget.targets,
-    homeworkType: input.cycle.domain,
-    childId: input.cycle.childId,
+function textCheckFailures(html: string, node: LearningCycleNodeContract, cycle: LearningCycleRecordV2): string[] {
+  const stage = node.role === "boss" ? "boss" : node.role === "quest" ? "quest" : "baseline";
+  return validateGeneratedGame(html, {
+    words: node.academicTarget.targets,
+    homeworkType: cycle.domain,
+    childId: cycle.childId,
     generationStage: stage,
     artifactForm: "self-contained",
-  });
-  return { passed: staticReport.passed, failures: staticReport.failures };
+  }).failures;
+}
+
+async function productionValidate(input: { html: string; node: LearningCycleNodeContract; cycle: LearningCycleRecordV2 }): Promise<ProgressionValidationResult> {
+  const failures = textCheckFailures(input.html, input.node, input.cycle);
+  return { passed: failures.length === 0, failures };
 }
 
 function progressionContractFingerprint(node: LearningCycleNodeContract): string {
@@ -344,25 +348,35 @@ Correct only the implementation while preserving the Planner's academic target, 
     return cycle;
   }
 
-  const filename = `${slug(cycle.homeworkId)}-${stage}-${slug(node.experimentId)}.html`;
-  const contractFingerprint = progressionContractFingerprint(node);
   const latest = getLearningCycle(cycle.childId, cycle.homeworkId, opts);
   const currentNode = latest?.nodes.find(candidate => candidate.nodeId === node.nodeId);
-  if (!latest || !currentNode || currentNode.state !== "generating" || progressionContractFingerprint(currentNode) !== contractFingerprint) {
+  if (!latest || !currentNode || currentNode.state !== "generating" || progressionContractFingerprint(currentNode) !== progressionContractFingerprint(node)) {
     throw new Error(`canonical_generation_contract_changed:${node.nodeId}`);
   }
+  return bindGeneratedHtml({ cycle: latest, node, html, artworkPath, validation }, opts);
+}
+
+/** Write an accepted activity where the kiosk serves it and bind it to its node. */
+function bindGeneratedHtml(input: {
+  cycle: LearningCycleRecordV2; node: LearningCycleNodeContract; html: string; artworkPath?: string | null; validation?: ProgressionValidationResult;
+}, opts: LearningCycleRepositoryOptions): LearningCycleRecordV2 {
+  const { cycle, node, html, artworkPath, validation } = input;
+  const rootDir = opts.rootDir ?? process.cwd();
+  const stage = node.role === "quest" ? "quest" : node.role === "boss" ? "boss" : "baseline";
+  const filename = `${slug(cycle.homeworkId)}-${stage}-${slug(node.experimentId)}.html`;
+  const contractFingerprint = progressionContractFingerprint(node);
   const gamesDir = path.join(resolveChildContextDir(cycle.childId, { rootDir }), "homework", "games");
   const file = node.role === "baseline"
     ? path.join(gamesDir, cycle.homeworkId, filename)
     : path.join(gamesDir, filename);
   fs.mkdirSync(path.dirname(file), { recursive: true });
   fs.writeFileSync(file, html, "utf8");
-  return transitionLearningCycle(cycle.childId, cycle.homeworkId, latest.revision, {
+  return transitionLearningCycle(cycle.childId, cycle.homeworkId, cycle.revision, {
     type: "artifact_bound",
     nodeId: node.nodeId,
     artifact: {
       contentId: `${cycle.homeworkId}:${stage}:${node.experimentId}`,
-      artifactId: `${node.generationPrompt.promptId}:artifact`,
+      artifactId: `${node.generationPrompt!.promptId}:artifact`,
       localArtifactPath: node.role === "baseline"
         ? `/api/homework/game/${cycle.childId}/${cycle.homeworkId}/${filename}`
         : `/api/homework/game/${cycle.childId}/${filename}`,
@@ -373,11 +387,11 @@ Correct only the implementation while preserving the Planner's academic target, 
         creativeProvenance: {
           rationale: "Publication requires the text check only; the child playing it is the review.",
           qualityPrediction: "No numeric quality score is inferred.",
-          creatorPromptHash: createHash("sha256").update(generationPrompt).digest("hex"),
+          creatorPromptHash: createHash("sha256").update(node.generationPrompt!.text).digest("hex"),
           artworkPromptHash: createHash("sha256").update(node.artwork.prompt ?? "").digest("hex"),
         },
       } : {}),
-      ...(validation.screenshotPaths?.length ? {
+      ...(validation?.screenshotPaths?.length ? {
         validationProof: {
           engine: "playwright" as const,
           passed: true,
@@ -388,6 +402,60 @@ Correct only the implementation while preserving the Planner's academic target, 
       } : {}),
     },
   }, opts);
+}
+
+/**
+ * Repair a Not ready activity on the current board in place, once, from the
+ * Creator's own saved attempts: the first one that passes today's text check is
+ * bound. No provider call; the board's design, evidence and receipts stay as they are.
+ */
+export function repairNotReadyActivity(
+  input: { childId: string; homeworkId: string; nodeId: string },
+  opts: LearningCycleRepositoryOptions = {},
+): LearningCycleRecordV2 {
+  const rootDir = opts.rootDir ?? process.cwd();
+  const cycle = getLearningCycle(input.childId, input.homeworkId, opts);
+  if (!cycle) throw new Error(`learning_cycle_missing:${input.homeworkId}`);
+  const node = cycle.nodes.find(candidate => candidate.nodeId === input.nodeId);
+  const onCurrentBoard = !cycle.boards || currentBoardInstance(cycle).nodeIds.includes(input.nodeId);
+  if (!node?.notReadyReason || node.artifactBinding || !node.generationPrompt || !onCurrentBoard) {
+    throw new Error(`not_ready_repair_not_eligible:${input.nodeId}`);
+  }
+  const dir = qualityDiagnosticsDir(rootDir, cycle, node);
+  const attempts = (fs.existsSync(dir) ? fs.readdirSync(dir) : [])
+    .map(name => /^iteration-(\d+)\.html$/.exec(name)).filter((match): match is RegExpExecArray => Boolean(match))
+    .sort((a, b) => Number(a[1]) - Number(b[1]));
+  for (const attempt of attempts) {
+    const html = fs.readFileSync(path.join(dir, attempt[0]), "utf8");
+    const failures = [...openingIdentityFailures(html, node), ...textCheckFailures(html, node, cycle)];
+    if (failures.length > 0) {
+      console.log(` 🎮 [board] [portal] [repair-attempt-skipped] node=${node.nodeId} attempt=${attempt[1]} reason=${failures.join("|")}`);
+      continue;
+    }
+    console.log(` 🎮 [board] [portal] [repaired] node=${node.nodeId} attempt=${attempt[1]} provider_calls=0`);
+    return bindGeneratedHtml({ cycle, node, html, artworkPath: node.artwork.localPath }, opts);
+  }
+  console.warn(` 🎮 [board] [portal] [repair-failed] node=${node.nodeId} attempts=${attempts.length} reason=no_passing_attempt`);
+  throw new Error(`not_ready_repair_no_passing_attempt:${input.nodeId}`);
+}
+
+/** Repair every Not ready generated activity on the current board; one bounded pass, each result reported. */
+export function repairNotReadyActivities(
+  input: { childId: string; homeworkId: string },
+  opts: LearningCycleRepositoryOptions = {},
+): Array<{ nodeId: string; repaired: boolean; reason?: string }> {
+  const cycle = getLearningCycle(input.childId, input.homeworkId, opts);
+  if (!cycle) throw new Error(`learning_cycle_missing:${input.homeworkId}`);
+  const board = cycle.boards ? currentBoardInstance(cycle).nodeIds : cycle.nodes.map(node => node.nodeId);
+  const candidates = cycle.nodes.filter(node => node.notReadyReason && !node.artifactBinding && node.generationPrompt && board.includes(node.nodeId));
+  return candidates.map(({ nodeId }) => {
+    try {
+      repairNotReadyActivity({ ...input, nodeId }, opts);
+      return { nodeId, repaired: true };
+    } catch (error) {
+      return { nodeId, repaired: false, reason: error instanceof Error ? error.message : String(error) };
+    }
+  });
 }
 
 /**

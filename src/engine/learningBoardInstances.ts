@@ -207,7 +207,9 @@ export function assertPublishedBoardsImmutable(previous: LearningCycleRecordV2, 
     if (node.state === "locked" && ["ready", "active"].includes(old.state) && !routeNode) {
       throw new Error(`learning_board_state_regressed:${node.nodeId}`);
     }
-    if (old.state === "blocked" && old.artifactBinding === null && node.artifactBinding !== null) {
+    // A Not ready portal was never bound, so it may receive its first binding once (an in-place repair).
+    // A retired binding stays retired.
+    if (old.state === "blocked" && old.artifactBinding === null && node.artifactBinding !== null && !old.notReadyReason) {
       throw new Error(`learning_board_artifact_rebound:${node.nodeId}`);
     }
     if (old.artifactBinding) {

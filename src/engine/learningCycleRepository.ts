@@ -1631,11 +1631,15 @@ export function transitionLearningCycle(
     if (event.artifact.validationStatus !== "passed") throw new Error("learning_cycle_artifact_validation_failed");
     assertLocalPath(event.artifact.localArtifactPath, "artifact_path");
     assertLocalPath(event.artifact.localArtworkPath, "artwork_path");
+    // Binding a Not ready portal is an in-place repair: it changes only that portal, never the board's lifecycle.
+    const repair = Boolean(node.notReadyReason);
+    delete node.notReadyReason;
     node.artifactBinding = event.artifact;
     node.artwork = { ...node.artwork, status: "ready", localPath: event.artifact.localArtworkPath };
     if (node.state !== "completed") node.state = "ready";
     const preparing = next.boards ? preparingBoardInstance(next) : undefined;
-    if (preparing?.nodeIds.includes(node.nodeId)) publishPreparedBoardIfComplete(next, at);
+    if (repair) { /* lifecycle unchanged */ }
+    else if (preparing?.nodeIds.includes(node.nodeId)) publishPreparedBoardIfComplete(next, at);
     else if (node.role === "quest") next.lifecycle = "quest_ready";
     else if (node.role === "boss") next.lifecycle = "boss_ready";
     else if (next.lifecycle === "baseline_generating") {
@@ -1654,7 +1658,7 @@ export function transitionLearningCycle(
           : "baseline_ready";
     }
     normalizeAgencyNodeStates(next);
-    reason = `Validated ${node.role} artifact bound to canonical node contract.`;
+    reason = repair ? `Not ready ${node.role} portal repaired in place from its saved Creator attempt.` : `Validated ${node.role} artifact bound to canonical node contract.`;
     evidenceIds = node.generationPrompt?.createdFromEvidenceIds ?? [];
   } else if (event.type === "returned_work_confirmed") {
     if (!next.evidenceSources.some((source) => source.sourceId === event.source.sourceId)) {
