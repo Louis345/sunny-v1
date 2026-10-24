@@ -28,6 +28,7 @@ import {
 } from "./activityToolCatalog";
 import {
   plannerEvidenceFieldsForActivity,
+  ACTIVITY_EVIDENCE_CONTRACTS,
   type ActivityEvidenceRole,
   type ActivityProofStrength,
   type PlannerEvidenceModeNote,
@@ -1114,9 +1115,8 @@ function realChildAllowedActivityIds(
   childId: string,
   extraction?: AssignmentSourceExtraction,
 ): Set<string> | null {
-  if (childId.trim().toLowerCase() === "demo-pashley" || inferPlannerCatalogDomain(extraction) === "math") {
-    return null;
-  }
+  // Every child, the demo included, gets the certified spelling menu, so a demo run tests what Ila gets.
+  if (inferPlannerCatalogDomain(extraction) === "math") return null;
   try {
     return new Set(
       certifySpellingAdaptation({ rootDir: process.cwd(), childId }).games
@@ -1176,7 +1176,9 @@ function activityCatalog(
           contract.plannerVisibility !== "wrapper" &&
           contract.id !== "quest" && contract.id !== "boss" &&
           NODE_TYPES.has(contract.id as NodeType) &&
-          (!allowed || allowed.has(contract.id) || PLANNER_DESTINATION_ACTIVITY_IDS.has(contract.id)),
+          (!allowed || allowed.has(contract.id) || PLANNER_DESTINATION_ACTIVITY_IDS.has(contract.id)) &&
+          // The evidence contract is the one record of an activity blocked for children; the menu honors it.
+          ACTIVITY_EVIDENCE_CONTRACTS.find((row) => row.activityId === contract.id)?.currentGap !== "blocked_for_real_child_sessions",
         ),
         plannerVisibility,
         domains: [...contract.domains],
