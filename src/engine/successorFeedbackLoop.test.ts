@@ -7,6 +7,7 @@ import correction from '../scripts/fixtures/successor-correction-20261021.json';
 import {linearJourneyFixture} from '../scripts/fixtures/authoredJourney';
 import {seedSpellingLab} from '../scripts/fixtures/spellingEvidenceFirst';
 import {builtInWordRadar} from '../scripts/fixtures/builtInSpellingActivity';
+import {plainDraw,saveOldFormDecision,successorToolReply} from '../scripts/fixtures/successorToolConversation';
 import {journeyFrontier} from '../shared/adventureBoardDefinition';
 import {buildSpellingRecallItems} from './learningCycleIngest';
 import {createLearningCycle,getLearningCycle,transitionLearningCycle,type LearningCycleRecordV2} from './learningCycleRepository';
@@ -37,14 +38,16 @@ function fixture(board:unknown=primary){
  expect(before.lifecycle).toBe('baseline_evaluating');
  const decision={status:'inconclusive',reason:'Supported practice is not independent improvement.',progressionAction:'generate_support',preserve:[],change:[],testNext:[],nextEvidenceRequired:['Independent evidence'],predictionEvaluationIds:[],boardDefinition:board,nextInstruments:sourceIds.map(nodeId=>({nodeId,title:nodeId.split(':')[1],academicTarget:'Spelling',mechanic:'word-radar',theme:'Illustrated world',openingPurpose:'Practice',creatorPrompt:'Build this activity',spelling:{wordIds:items.map(item=>item.wordId),measurementRole:'practice',responseMode:'spelling_letters',builtInActivityId:'first'}}))};
  const requests:any[]=[];
- const create=vi.fn(async(payload:unknown)=>{requests.push(payload);return {id:`recorded-${requests.length}`,stop_reason:'tool_use',content:[{type:'tool_use',name:'decide_learning_cycle_progression',input:decision}]};});
- const request={childId,homeworkId,client:{messages:{stream:(payload:unknown)=>({finalMessage:()=>create(payload)})}} as never};
+ const create=vi.fn(async(payload:unknown)=>{requests.push(payload);return successorToolReply(decision,payload);});
+ const request={childId,homeworkId,client:{messages:{stream:(payload:unknown)=>({finalMessage:()=>create(payload)})}} as never,draw:plainDraw};
  const receipts=()=>Object.fromEntries((fs.readdirSync(path.join(rootDir,`src/context/${childId}/homework/cycles/.planner/${homeworkId}`),{recursive:true}) as string[]).filter(file=>file.includes('provider-receipts/')&&file.endsWith('.json')).map(file=>[file,fs.readFileSync(path.join(rootDir,`src/context/${childId}/homework/cycles/.planner/${homeworkId}`,file),'utf8')]));
  return {rootDir,initial,before,decision,request,create,requests,receipts};
 }
 async function preserveHistoricalFailure(f:ReturnType<typeof fixture>){
- // Receive the real-shaped response, then interrupt before committing the new board.
- // This keeps the actual request/receipt boundary, not an invented alternate recovery store.
+ // The real 2026-10-21 failure: a decision received through the old single form (saved on disk),
+ // interrupted before the new board was committed. New tool decisions save every turn as it
+ // arrives and resume at no cost, so this explicit recovery path is for saved old-form decisions.
+ await saveOldFormDecision({rootDir:f.rootDir,childId,homeworkId,decision:f.decision});
  const rename=fs.renameSync;
  const spy=vi.spyOn(fs,'renameSync').mockImplementation((from,to)=>{
   if(String(to).endsWith(`/cycles/${homeworkId}.json`)&&JSON.parse(fs.readFileSync(from,'utf8')).lifecycle==='baseline_generating')throw Object.assign(Error('lab-interrupt-before-commit'),{status:409});
@@ -70,7 +73,7 @@ it.each([['primary-wheel',primary,'opt-wheel'],['primary-radar',primary,'opt-rad
  expect(recovered.decisionHistory.slice(0,blocked.decisionHistory.length)).toEqual(blocked.decisionHistory);
  expect(recovered.decisionHistory.at(-1)).toMatchObject({replayedResponse:{blockedDecisionId:replay.blockedDecisionId,reason:replay.reason,requestHash:expect.stringMatching(/^[a-f0-9]{64}$/),receiptHash:expect.stringMatching(/^[a-f0-9]{64}$/)}});
  expect(f.receipts()).toEqual(oldReceipts);
- expect(f.create).toHaveBeenCalledTimes(1);
+ expect(f.create).toHaveBeenCalledTimes(0);
  expect(await (runtime as any).replayCanonicalPlannerResponse(replay,opts)).toEqual(recovered);
  expect(successorResumeAction(getLearningCycle(childId,homeworkId,opts)!)).toBe('prepare');
  vi.spyOn(canvas,'verifyPreparingBoardCanvas').mockRejectedValue(Error('lab screenshot tool unavailable'));
@@ -106,12 +109,13 @@ it.each([['primary-wheel',primary,'opt-wheel'],['primary-radar',primary,'opt-rad
  expect(successorResumeAction(cycle)).toBe('decide');
  // This second fake provider sees the saved synthetic results, not a reset baseline.
  const next=await runtime.advanceCanonicalCycleFromEvidence(f.request,opts);
- const prompt=f.requests[1].messages[0].content;
+ // The next decision is new, so it goes through the tools (its first turn holds the facts).
+ const prompt=f.requests[0].messages[0].content[0].text;
  for(const observation of practice)expect(prompt).toContain(observation.observationId);
  expect(prompt).toContain('assisted');
  expect(next.observations).toEqual(cycle.observations);
  await runtime.advanceCanonicalCycleFromEvidence(f.request,opts);
- expect(f.create).toHaveBeenCalledTimes(2);
+ expect(f.create).toHaveBeenCalledTimes(2); // two tool turns; the repeated call bought nothing
  expect(f.receipts()).toMatchObject(oldReceipts);
  const ready=await prepare();
  expect(ready.lifecycle).toBe('baseline_ready');
@@ -151,7 +155,7 @@ it('keeps interrupted replay blocked and startup unable to repurchase, then comm
  const final=getLearningCycle(childId,homeworkId,opts)!;
  expect(final.decisionHistory.filter(row=>row.eventType==='theory_decided')).toHaveLength(1);
  expect(final.boards).toHaveLength(2);
- expect(f.create).toHaveBeenCalledTimes(1);
+ expect(f.create).toHaveBeenCalledTimes(0);
  expect(f.receipts()).toEqual(receipts);
 });
 
@@ -188,5 +192,5 @@ it.each([false,true])('does not write catalog effects before a replayed successo
  expect(fs.readFileSync(profilePath,'utf8')).toBe(beforeBytes);
  expect(getChildChart(childId,opts).contentCatalog.items).toEqual(beforeCatalog);
  expect(f.receipts()).toEqual(receipts);
- expect(f.create).toHaveBeenCalledTimes(1);
+ expect(f.create).toHaveBeenCalledTimes(0);
 });

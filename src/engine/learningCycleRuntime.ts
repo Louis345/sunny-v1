@@ -1,10 +1,13 @@
 import {isDeepStrictEqual} from "node:util";
-import {readSuccessorBoardDefinition, BOARD_DEFINITION_TOOL_SCHEMA, BOARD_AUTHORING_INSTRUCTION} from "../shared/adventureBoardDefinition";
+import {readSuccessorBoardDefinition, assembleAdventureBoardDefinition, BOARD_DEFINITION_TOOL_SCHEMA, BOARD_AUTHORING_INSTRUCTION, type AdventureBoardComposition, type AdventureJourneyDefinition} from "../shared/adventureBoardDefinition";
 import { canonicalJourneyLaunchable, isSpellingPracticeContinuation } from './learningCycleRepository';
 import {requestPlannerMessage, readPlannerToolReceipt, plannerTransportPolicy} from "./plannerTransport";
 import fs from "node:fs";
 import {randomUUID,createHash} from "node:crypto";
-import { MATH_ITEMS_SCHEMA, parseDirectItem, type DirectItem } from "./directMathExperience";
+import { MATH_ITEMS_SCHEMA, drawJourney, parseDirectItem, type DirectItem } from "./directMathExperience";
+import { runPlannerToolLoop } from "./plannerToolLoop";
+import { providerTurnSender } from "./plannerToolProvider";
+import { spellingSuccessorToolkit } from "./spellingSuccessorTools";
 import Anthropic from "@anthropic-ai/sdk";
 import path from "path";
 import { getChildChart } from "../profiles/childChart";
@@ -676,6 +679,7 @@ async function askPlanner(
   client?: Anthropic,
   model?: string,
   opts: LearningCycleRepositoryOptions = {},
+  draw?: AdvanceInput["draw"],
 ): Promise<CanonicalProgressionDecision> {
   const toolName = "decide_learning_cycle_progression";
   const anthropic = client ?? new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
@@ -859,6 +863,43 @@ ${JSON.stringify({ lifecycle: cycle.lifecycle, assignment: cycle.assignment, the
     }],
     tool_choice: { type: "tool", name: toolName },
   } satisfies Parameters<typeof requestPlannerMessage>[1];
+  // New spelling decisions are made through small locked tools; a decision already received through
+  // the old single form (its frozen request or receipt) replays below exactly as before.
+  const savedFormDecision=fs.existsSync(path.join(draftDir,`${decisionStage}.request.json`))||fs.existsSync(path.join(draftDir,'provider-receipts',`${decisionStage}.stage.json`));
+  if(cycle.domain==='spelling'&&!savedFormDecision){
+    const evaluationIds=cycle.predictionEvaluations.map(evaluation=>evaluation.evaluationId);
+    // Quest and Boss encounters are planned features spelling cannot run yet; they are not offered.
+    const actions=allowedProgressionActions.filter(action=>action!=="generate_quest"&&action!=="generate_boss");
+    const facts={builtIns:builtIns.map(node=>{const items=Object.values(node.evidenceContract.spellingItems??{});const roles=Object.values(node.evidenceContract.itemRoles??{});
+      return {nodeId:node.nodeId,title:node.title,implementationType:node.implementationType??"word-radar",wordIds:[...new Set(items.map(item=>item.wordId))],responseMode:items[0]?.response.mode??"spelling_letters",checkpoint:roles.length>0&&roles.every(role=>role==="fresh_checkpoint")};}),
+      evaluationIds,allowedActions:actions,idPrefix:`${cycle.homeworkId}-r${checkpointRevision}-step`};
+    const prompt=`You are Sunny's AI Planner. Compare the preregistered academic theory and predictions with the factual scorecard, then decide what happens next, using the tools.
+1. decide: one concise, evidence-grounded decision. Cite the prediction evaluations you judge.
+2. Unless you await calibration, build the next board: add_step for each step (each re-runs one tested built-in activity with all of its own words), then set_order and, when academically valid alternatives exist, add_choice. Then finish_board.
+Sunny runs each step exactly as written and builds no new spelling games. The current board is never changed; your board is for a later session. Each path from start to finish, counting the start, the choice and the finish, fits in 7 steps. Title each step as she should see it. Do not claim mastery or readiness. Fresh recall after practice is not unseen transfer or delayed retention.
+For spelling, Correct practice after long response time is not effortless recall. Examine per-word response time alongside assistance, exposure, response mode and instrument ambiguity. When the evidence suggests she is struggling, order teaching and guided practice before another fresh recall check; let Elli respond conversationally from the live item and child context. Do not infer mastery from supported or partial-visibility practice, and do not use a fixed latency threshold to choose the lesson.
+Tested built-in activities you may re-run:
+${JSON.stringify(facts.builtIns.map(row=>({builtIn:row.nodeId,title:row.title,type:row.implementationType,words:row.wordIds.length,checkpoint:row.checkpoint})))}
+Saved spelling words:
+${JSON.stringify([...savedSpellingItems.values()].map(item=>({wordId:item.wordId,word:item.word})))}
+Child chart context:
+${JSON.stringify(childContext, null, 2)}
+Baseline Quest eligibility (runtime truth boundary, not a mastery judgment):
+${JSON.stringify(baselineEligibility, null, 2)}
+Allowed progression actions: ${actions.join(", ")}
+Cycle:
+${JSON.stringify({ lifecycle: cycle.lifecycle, assignment: cycle.assignment, theory: cycle.academicTheory, predictions: cycle.academicPredictions, predictionEvaluations: cycle.predictionEvaluations, evidence: factualEvidence, observations: factualObservations, nodes: cycle.nodes.map((node) => ({ nodeId: node.nodeId, role: node.role, title: node.title, state: node.state, routeId: node.routeId, evidenceIds: node.evidenceIds.filter((id) => !isSynthetic(id)) })) }, null, 2)}`;
+    const kit=spellingSuccessorToolkit(facts);
+    const loop=await runPlannerToolLoop({label:"spelling-next-board",prompt,model:plannerModel,maxTokens:16000,tools:kit.tools,state:kit.initialState(),finished:kit.finished,
+      send:providerTurnSender({label:"spelling-next-board",stagePrefix:`${decisionStage}-tools`,draftDir,client:anthropic})});
+    console.log(` 🎮 [canonical-progression] [planner-response] [checkpointed] homework=${cycle.homeworkId} revision=${cycle.revision} tools=${loop.stats.stop}`);
+    if(!kit.finished(loop.state))throw new Error(`canonical_progression_tools_unfinished:${loop.stats.stop}`);
+    const {decision,journey}=kit.result(loop.state);
+    if(!journey)return parseCanonicalProgressionDecision(decision);
+    const drawing=draw?await draw(journey):await drawJourney({journey,label:`${cycle.homeworkId}:r${checkpointRevision}`,stagePrefix:`${decisionStage}-design`,identity:{childId:cycle.childId,homeworkId:cycle.homeworkId,batchId,journey},
+      checkpointFile:path.join(draftDir,`${decisionStage}-design.json`),rawResponseDir:draftDir,...(client?{client}:{})});
+    return parseCanonicalProgressionDecision({...decision,boardDefinition:assembleAdventureBoardDefinition(journey,drawing.composition,drawing.pattern)});
+  }
   // Freeze new requests before purchase. Legacy stage hashes remain readable;
   // a received old answer is never silently replaced by a changed prompt/budget.
   const frozen=freezePlannerRequest({draftDir,stage:decisionStage,request,legacyContext:snapshot});
@@ -912,6 +953,8 @@ type AdvanceInput = {
   client?: Anthropic;
   model?: string;
   decide?: (cycle: LearningCycleRecordV2) => Promise<CanonicalProgressionDecision>;
+  /** Draws the next board's journey; the map artist when omitted. Tests pass a plain layout. */
+  draw?: (journey: AdventureJourneyDefinition) => Promise<{ composition: AdventureBoardComposition; pattern?: string }>;
 };
 
 /**
@@ -965,7 +1008,7 @@ async function decideOnce(
       evaluations: missing,
     }, opts);
   }
-  const plannerDecision = input.decide ? await input.decide(cycle) : await askPlanner(cycle, input.client, input.model, opts);
+  const plannerDecision = input.decide ? await input.decide(cycle) : await askPlanner(cycle, input.client, input.model, opts, input.draw);
   const decision = resolveCanonicalProgressionDecisionForLifecycle(cycle.lifecycle, plannerDecision);
   const instruments = decision.successor?.instruments ?? [];
   if (cycle.domain === "math") {

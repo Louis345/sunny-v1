@@ -9,6 +9,7 @@ import {parseCanonicalProgressionDecision, advanceCanonicalCycleFromEvidence} fr
 import {buildSpellingRecallItems} from './learningCycleIngest';
 import {builtInWordRadar} from '../scripts/fixtures/builtInSpellingActivity';
 import {createLearningCycle, getLearningCycle} from './learningCycleRepository';
+import {plainDraw,saveOldFormDecision,successorToolReply} from '../scripts/fixtures/successorToolConversation';
 import {listBoardInstances} from './learningBoardInstances';
 import {prepareSuccessorBoard} from './canonicalProgressionGenerator';
 import * as canvas from './adventureBoardCanvas';
@@ -133,8 +134,12 @@ describe('a canvas cannot veto a spelling successor',()=>{
   }
   if(variant==='off-path-unknown')(actual.boardDefinition as typeof primary).portals.push({id:'ghost',label:'Unused',kind:'activity',activityNodeId:'nope',position:{landscape:{x:.5,y:.5},portrait:{x:.5,y:.5}}});
   actual.nextInstruments.forEach(row=>Object.assign(row.spelling,{wordIds:items.map(item=>item.wordId),builtInActivityId:'baseline'}));
-  const create=vi.fn().mockResolvedValue({id:'recorded-primary',stop_reason:'tool_use',content:[{type:'tool_use',name:'decide_learning_cycle_progression',input:actual}]});
-  const request={childId,homeworkId,client:{messages:{stream:(payload:unknown)=>({finalMessage:()=>create(payload)})}} as never};
+  // New decisions come through the tools, which cannot write a drawing defect at all; a defective
+  // drawing can only arrive in a decision already saved through the old single form.
+  const viaTools=variant==='recorded';
+  if(!viaTools)await saveOldFormDecision({rootDir:root,childId,homeworkId,decision:actual});
+  const create=vi.fn(async(payload:unknown)=>successorToolReply(actual as never,payload));
+  const request={childId,homeworkId,client:{messages:{stream:(payload:unknown)=>({finalMessage:()=>create(payload)})}} as never,draw:plainDraw};
   const after=await advanceCanonicalCycleFromEvidence(request,{rootDir:root});
   expect(after.lifecycle).toBe('baseline_generating');
   expect(after.observations).toEqual(before.observations);
@@ -150,7 +155,7 @@ describe('a canvas cannot veto a spelling successor',()=>{
   expect(prepared.observations).toEqual(before.observations);
   await advanceCanonicalCycleFromEvidence(request,{rootDir:root});
   await prepareSuccessorBoard({childId,homeworkId,generateHtml},{rootDir:root});
-  expect(create).toHaveBeenCalledTimes(1);
+  expect(create).toHaveBeenCalledTimes(viaTools?2:0);
   expect(generateHtml).not.toHaveBeenCalled();
   expect(getLearningCycle(childId,homeworkId,{rootDir:root})!.decisionHistory.filter(row=>row.eventType==='theory_decided')).toHaveLength(1);
   expect(diagnostic).toHaveBeenCalled();

@@ -3,6 +3,7 @@ import { z } from "zod";
 import { expandJourneySequence, journeyExecutions } from "../shared/adventureBoardDefinition";
 import { assignmentPlannerAllowedEvidenceIds, hydrateNativeLearningProgram, type AssignmentPlanningPacket } from "./assignmentPlanner";
 import type { PlannerTool } from "./plannerToolLoop";
+import { finishJourneySequence, journeyOrderTools, removeFromJourney, type JourneyOrderState } from "./journeyTools";
 
 /** The Teaching Planner's small locked tools. The model decides activities, words, order, the
  * choice and its predictions; the handlers stamp IDs, configuration, measurement bookkeeping and
@@ -13,10 +14,8 @@ type Prediction = {
   support_criteria: string; revise_criteria: string; falsify_criteria: string; evidence_ids: string[]; max_delay_days: number;
 };
 type Row = { id: string; title: string; type: string; role: "instruction" | "practice" | "fresh_checkpoint" | null; targets: string[]; prediction: Prediction | null; extra: Record<string, unknown> };
-export type TeachingState = {
+export type TeachingState = JourneyOrderState & {
   next: number; activities: Row[];
-  order?: { opening: string[]; closing: string[] };
-  choice?: { purpose: string; label: string; options: Array<{ id: string; label: string; hypothesis: string; nodeIds: string[] }> };
   requests: Array<{ id: string; skillTarget: string; domain: "spelling"; mechanicConstraints: string; reason: string }>;
   program?: Record<string, unknown>;
 };
@@ -125,31 +124,11 @@ export function spellingTeachingToolkit(packet: AssignmentPlanningPacket) {
       run: (state, input) => {
         if (!find(state, input.activity_id)) return { ok: false, error: `no activity ${input.activity_id}` };
         state.activities = state.activities.filter(row => row.id !== input.activity_id);
-        if (state.order) state.order = { opening: state.order.opening.filter(id => id !== input.activity_id), closing: state.order.closing.filter(id => id !== input.activity_id) };
-        if (state.choice) state.choice.options = state.choice.options.map(option => ({ ...option, nodeIds: option.nodeIds.filter(id => id !== input.activity_id) }));
+        removeFromJourney(state, input.activity_id);
         state.program = undefined;
         return { ok: true, result: { removed: input.activity_id } };
       } },
-    { name: "set_order", description: "Set the shared path: opening activities every child plays first, in order, and closing activities everyone plays after the choice (or after the opening when there is no choice). Calling it again replaces the order.",
-      schema: z.object({ opening: z.array(text("An activity_id.")), closing: z.array(text("An activity_id.")) }).strict(),
-      run: (state, input) => {
-        const ids = [...input.opening, ...input.closing];
-        const unknown = ids.find(id => !find(state, id)); if (unknown) return { ok: false, error: `no activity ${unknown}; use an activity_id you were given` };
-        const twice = repeated(ids); if (twice) return { ok: false, error: `${twice} is on the path more than once` };
-        state.order = { opening: [...input.opening], closing: [...input.closing] };
-        return { ok: true, result: { opening: input.opening.length, closing: input.closing.length } };
-      } },
-    { name: "add_choice", description: "Offer her a choice between 2 to 8 options, each a short sequence of activities, between the opening and the closing. Calling it again replaces the choice.",
-      schema: z.object({ purpose: text("The question she reads on the choice screen, in a few friendly words. Never explains your reasoning."), label: text("Short name of the choice portal."),
-        options: z.array(z.object({ label: text("Short option name she reads."), hypothesis: text("Why this option might work for her."), activity_ids: z.array(text("An activity_id.")).min(1) }).strict()).min(2).max(8) }).strict(),
-      run: (state, input) => {
-        for (const option of input.options) {
-          const unknown = option.activity_ids.find((id: string) => !find(state, id)); if (unknown) return { ok: false, error: `no activity ${unknown}; use an activity_id you were given` };
-          const twice = repeated(option.activity_ids); if (twice) return { ok: false, error: `${twice} is in option ${option.label} more than once` };
-        }
-        state.choice = { purpose: input.purpose, label: input.label, options: input.options.map((option: { label: string; hypothesis: string; activity_ids: string[] }, index: number) => ({ id: `option-${index + 1}`, label: option.label, hypothesis: option.hypothesis, nodeIds: [...option.activity_ids] })) };
-        return { ok: true, result: { options: input.options.length } };
-      } },
+    ...journeyOrderTools<TeachingState>({ exists: (state, id) => Boolean(find(state, id)), idName: "activity_id", onChange: state => { state.program = undefined; } }),
     { name: "request_capability", description: "Ask for a spelling activity Sunny does not have yet. The request goes to a person; nothing is built automatically.",
       schema: z.object({ skill_target: text("The skill it would practice."), mechanic_constraints: text("How it would work."), reason: text("Why the tested activities are not enough.") }).strict(),
       run: (state, input) => {
@@ -162,24 +141,11 @@ export function spellingTeachingToolkit(packet: AssignmentPlanningPacket) {
         plan_theory: z.object({ hypothesis: text("Your teaching theory."), evidence_summary: z.array(z.string().min(1)).min(1), intervention: text("What this board does."), support_criteria: z.array(z.string().min(1)).min(1), revise_criteria: z.array(z.string().min(1)).min(1), falsify_criteria: z.array(z.string().min(1)).min(1) }).strict(),
         review_questions: z.array(z.string().min(1)).max(8) }).strict(),
       run: (state, input) => {
-        if (!state.activities.length) return { ok: false, error: "add activities first with add_activity" };
-        if (!state.order) return { ok: false, error: "set the path first with set_order" };
-        const options = state.choice?.options.filter(option => option.nodeIds.length) ?? [];
-        const shared = new Set([...state.order.opening, ...state.order.closing]);
-        const inBoth = options.flatMap(option => option.nodeIds).find(id => shared.has(id));
-        if (inBoth) return { ok: false, error: `${inBoth} is both on the shared path and in a choice option; put it in one place` };
-        const placed = new Set([...shared, ...options.flatMap(option => option.nodeIds)]);
-        const loose = state.activities.find(row => !placed.has(row.id));
-        if (loose) return { ok: false, error: `${loose.id} (${loose.title}) is not on any path; place it with set_order or add_choice, or remove it with remove_activity` };
+        const finished = finishJourneySequence(state, state.activities, input, { add: "add_activity", plural: "activities", remove: "remove_activity" });
+        if (!finished.ok) return finished;
         const unpredicted = state.activities.filter(row => row.role && !row.prediction);
         if (unpredicted.length) return { ok: false, error: `call predict for ${unpredicted.map(row => row.id).join(", ")} first` };
-        if (options.length < 2 && !input.single_path_reason.trim()) return { ok: false, error: "explain single_path_reason when there is no choice" };
-        const sequence = {
-          title: input.title, opening: state.order.opening,
-          ...(options.length >= 2 ? { choice: { purpose: state.choice!.purpose, label: state.choice!.label, options: options.map(({ id, label, hypothesis, nodeIds }) => ({ id, label, hypothesis, nodeIds })) } } : {}),
-          closing: options.length === 1 ? [...options[0].nodeIds, ...state.order.closing] : state.order.closing,
-          ...(options.length >= 2 ? {} : { singlePathReason: input.single_path_reason.trim() }), endpointLabel: input.endpoint_label,
-        };
+        const sequence = finished.sequence;
         const executions = journeyExecutions(expandJourneySequence(sequence, state.activities)).map(path => path.activityNodeIds);
         const roleOf = new Map(state.activities.map(row => [row.id, row]));
         const isFinal = (row: Row) => executions.filter(path => path.includes(row.id)).every(path => path.slice(path.indexOf(row.id) + 1)

@@ -112,7 +112,7 @@ describe("spelling Teaching tools", () => {
     const radar = (addPredicted("add_activity", { activity: "word-radar:partial_visual_recall", role: "practice", words: [first, second], title: "Hunt"}) as any).result.activity_id;
     const check = (addPredicted("add_activity", { activity: "word-radar:hidden_word_recall", role: "fresh_checkpoint", words: [first, second], title: "Check"}) as any).result.activity_id;
     const reward = (call("add_reward", { title: "Mystery Box" }) as any).result.activity_id;
-    expect(call("add_choice", { purpose: "How do you want to practice?", label: "Pick a path", options: [{ label: "Race", hypothesis: "Speed keeps her going.", activity_ids: [game] }, { label: "Hunt", hypothesis: "Calm practice helps.", activity_ids: [radar] }] })).toMatchObject({ ok: true });
+    expect(call("add_choice", { purpose: "How do you want to practice?", label: "Pick a path", options: [{ label: "Race", hypothesis: "Speed keeps her going.", ids: [game] }, { label: "Hunt", hypothesis: "Calm practice helps.", ids: [radar] }] })).toMatchObject({ ok: true });
     expect(call("set_order", { opening: [(explainer as any).result.activity_id], closing: [check, reward] })).toMatchObject({ ok: true });
     expect(call("request_capability", { skill_target: "Silent letter sorting", mechanic_constraints: "Drag words into bins.", reason: "No sorting game exists." })).toMatchObject({ ok: true });
     expect(call("finish_board", { title: "Trail", endpoint_label: "Done", single_path_reason: "", plan_theory: theory, review_questions: ["Did the explainer help?"] })).toMatchObject({ ok: true });

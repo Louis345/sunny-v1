@@ -5,6 +5,7 @@ import {createHash} from 'node:crypto';
 import {afterEach,expect,it,vi} from 'vitest';
 import {linearJourneyFixture} from '../scripts/fixtures/authoredJourney';
 import {seedSpellingLab} from '../scripts/fixtures/spellingEvidenceFirst';
+import {plainDraw,saveOldFormDecision,successorToolReply} from '../scripts/fixtures/successorToolConversation';
 import {buildSpellingRecallItems} from './learningCycleIngest';
 import {canonicalJourneyLaunchable,createLearningCycle,getLearningCycle,projectLearningCycle,repointReusedSetup} from './learningCycleRepository';
 import {validateLetterRushConfig} from './activityEngineConfig';
@@ -49,8 +50,8 @@ function fixture(answerForms?:string[][]){
  const instrument=(nodeId:string,mechanic:string,creatorPrompt:string)=>({nodeId,title:nodeId.split(':')[1],academicTarget:'Spelling',mechanic,theme:'Illustrated world',openingPurpose:'Practice',creatorPrompt,spelling:{wordIds:items.map(item=>item.wordId),measurementRole:'practice',responseMode:'spelling_letters'}});
  const nextInstruments=[instrument(`${homeworkId}:radar-check`,'word-radar','Reuse the word-radar configuration exactly as before with fresh occasion IDs.'),instrument(`${homeworkId}:treasure-dig`,'treasure-dig','Build a new digging game.')];
  const decision={status:'revised',reason:'Re-check with the proven radar; try one new game.',progressionAction:'generate_support',preserve:[],change:[],testNext:[],nextEvidenceRequired:['Independent evidence'],predictionEvaluationIds:[],boardDefinition:linearJourneyFixture(nextInstruments.map(row=>row.nodeId)),nextInstruments};
- const create=vi.fn(async(_payload:unknown)=>({id:'recorded',stop_reason:'tool_use',content:[{type:'tool_use',name:'decide_learning_cycle_progression',input:decision}]}));
- return {rootDir,items,configuration,create,decision,request:{childId,homeworkId,client:{messages:{stream:(payload:unknown)=>({finalMessage:()=>create(payload)})}} as never}};
+ const create=vi.fn(async(payload:unknown)=>successorToolReply(decision,payload));
+ return {rootDir,items,configuration,create,decision,request:{childId,homeworkId,client:{messages:{stream:(payload:unknown)=>({finalMessage:()=>create(payload)})}} as never,draw:plainDraw}};
 }
 
 it('re-launches an existing built-in activity the Planner names, with fresh question IDs and no AI build',async()=>{
@@ -98,16 +99,16 @@ it('keeps a reused activity playable across restarts without rebuilding it',asyn
 
 it('never reuses a practice activity as a checkpoint, so a check cannot show the answer',async()=>{
  const f=fixture(),opts={rootDir:f.rootDir};
- // The Planner asks for a fresh checkpoint but names board 1's practice-only radar.
+ // Board 1's radar is practice-only. A step's role comes from the built-in it re-runs, so the Planner
+ // has no way to order this radar as a fresh checkpoint: the tool has no role to write.
  const cycle=getLearningCycle(childId,homeworkId,opts)!;
  expect(Object.values(cycle.nodes[0].evidenceContract.itemRoles??{}).every(role=>role==='practice')).toBe(true);
- const stream=(f.request as any).client.messages.stream;
- (f.request as any).client.messages.stream=(payload:unknown)=>({finalMessage:async()=>{const response=await stream(payload).finalMessage();for(const row of response.content[0].input.nextInstruments)row.spelling.measurementRole='fresh_checkpoint';return response;}});
  await runtime.advanceCanonicalCycleFromEvidence(f.request,opts);
+ const addStep=(f.create.mock.calls[0][0] as any).tools.find((tool:any)=>tool.name==='add_step').input_schema;
+ expect(Object.keys(addStep.properties)).not.toContain('role');
  const next=getLearningCycle(childId,homeworkId,opts)!;
  const radar=next.nodes.find(node=>node.title==='radar-check'&&node.nodeId!=='radar-check')!;
- expect(radar.reusedFrom).toBeUndefined();
- expect(radar.implementationType).toBeUndefined();
+ expect(Object.values(radar.evidenceContract.itemRoles??{}).every(role=>role==='practice')).toBe(true);
 });
 
 // 2026-10-21 human catch (demo copy of Ila): the re-launched explainer still reported board 1's question
@@ -151,8 +152,8 @@ function explainerFixture(plannerWords:string[]){
  runtime.recordCanonicalNodeCompletion({childId,homeworkId,nodeId,sessionId:'first-session',result:{completed:true,accuracy:1,timeSpent_ms:100,targetResults:explainerCompletion(nativeConfig)}},{rootDir});
  const nextInstruments=[{nodeId:`${homeworkId}:${nodeId}`,title:'Silent Letter Detective Camp',academicTarget:'Spelling',mechanic:'visual-explainer',theme:'Detective camp',openingPurpose:'Re-teach',creatorPrompt:'Build a visual-explainer reusing the proven framing.',spelling:{wordIds:plannerWords.map(word=>byWord.get(word)!.wordId),measurementRole:'practice',responseMode:'spelling_letters'}}];
  const decision={status:'revised',reason:'Re-teach the missed silent-letter words.',progressionAction:'generate_support',preserve:[],change:[],testNext:[],nextEvidenceRequired:['Independent evidence'],predictionEvaluationIds:[],boardDefinition:linearJourneyFixture(nextInstruments.map(row=>row.nodeId)),nextInstruments};
- const create=vi.fn(async(_payload:unknown)=>({id:'recorded',stop_reason:'tool_use',content:[{type:'tool_use',name:'decide_learning_cycle_progression',input:decision}]}));
- return {rootDir,items,explainerCompletion,request:{childId,homeworkId,client:{messages:{stream:(payload:unknown)=>({finalMessage:()=>create(payload)})}} as never}};
+ const create=vi.fn(async(payload:unknown)=>successorToolReply(decision,payload));
+ return {rootDir,items,explainerCompletion,request:{childId,homeworkId,client:{messages:{stream:(payload:unknown)=>({finalMessage:()=>create(payload)})}} as never,draw:plainDraw}};
 }
 
 it('re-launches a reused explainer whose real completion lands on the new board',async()=>{
@@ -225,10 +226,9 @@ const named=(f:ReturnType<typeof fixture>,builtIn:Record<string,string|undefined
 it('offers the Planner only the tested built-in activities for spelling',async()=>{
  const f=fixture(),opts={rootDir:f.rootDir};
  await runtime.advanceCanonicalCycleFromEvidence(f.request,opts);
- const tool=(f.create.mock.calls[0][0] as any).tools[0].input_schema;
- const spelling=tool.properties.nextInstruments.items.properties.spelling;
- expect(spelling.required).toContain('builtInActivityId');
- expect(spelling.properties.builtInActivityId.enum).toEqual(['radar-check']);
+ const addStep=(f.create.mock.calls[0][0] as any).tools.find((tool:any)=>tool.name==='add_step').input_schema;
+ expect(addStep.required).toContain('built_in');
+ expect(addStep.properties.built_in.enum).toEqual(['radar-check']);
 });
 // 2026-10-23: the deepest cause of AI-built spelling games was the request itself. It told the Planner
 // "You are the artist ... choose a game" and required a creator prompt and game-design fields for every
@@ -237,15 +237,12 @@ it('asks the spelling Planner for orders from the built-in list, not game design
  const f=fixture(),opts={rootDir:f.rootDir};
  await runtime.advanceCanonicalCycleFromEvidence(f.request,opts);
  const payload=f.create.mock.calls[0][0] as any;
- const instrument=payload.tools[0].input_schema.properties.nextInstruments.items;
- for(const field of ['creatorPrompt','stakesDesign','failureMode','escalation','mechanicSpec','mathematicalHook']){
-  expect(instrument.properties[field]).toBeUndefined();
-  expect(instrument.required).not.toContain(field);
- }
- const prompt=payload.messages[0].content as string;
+ const tools=JSON.stringify(payload.tools);
+ for(const field of ['creatorPrompt','stakesDesign','failureMode','escalation','mechanicSpec','mathematicalHook'])expect(tools).not.toContain(`"${field}"`);
+ const prompt=payload.messages[0].content[0].text as string;
  expect(prompt).not.toContain('You are the artist');
  expect(prompt).not.toMatch(/choose a game/i);
- expect(prompt).toContain('builtInActivityId');
+ expect(prompt).toContain('tested built-in');
 });
 it('runs the built-in the Planner names under any new activity ID, and never builds a spelling game',async()=>{
  const f=fixture(),opts={rootDir:f.rootDir};
@@ -258,12 +255,12 @@ it('runs the built-in the Planner names under any new activity ID, and never bui
  const after=await prepareSuccessorBoard({childId,homeworkId,generateHtml,generateArtwork:async()=>'/generated/world.jpeg',validate:async()=>({passed:true,failures:[]})},opts);
  const board=currentBoardInstance(after);
  const radar=after.nodes.find(node=>board.nodeIds.includes(node.nodeId)&&node.title==='radar-again')!;
- const dig=after.nodes.find(node=>board.nodeIds.includes(node.nodeId)&&node.title==='treasure-dig')!;
  expect(radar.reusedFrom).toBe('radar-check');
  expect(radar.artifactBinding?.validationStatus).toBe('passed');
  expect(generateHtml).not.toHaveBeenCalled();
- expect(dig.artifactBinding).toBeNull();
- expect(dig.notReadyReason).toContain('spelling_no_reusable_builtin');
+ // A brand-new game is not a built-in, so it cannot be ordered at all: no Not ready step exists.
+ expect(after.nodes.some(node=>board.nodeIds.includes(node.nodeId)&&node.title==='treasure-dig')).toBe(false);
+ expect(after.nodes.filter(node=>board.nodeIds.includes(node.nodeId)).every(node=>!node.notReadyReason)).toBe(true);
  expect(board.publishedAt).not.toBeNull();
 });
 it('re-runs a built-in for its own words or fewer, never a word its setup lacks or would still show',()=>{
@@ -297,6 +294,8 @@ it('scores a re-run activity with the answer forms of the built-in it re-runs',a
 // The repair must re-run the built-in the Planner asked for. This rebuilds that board's saved shape.
 async function legacyNotReadyBoard(){
  const f=fixture(),opts={rootDir:f.rootDir};
+ // That board's decision was received through the old single form and is saved on disk.
+ await saveOldFormDecision({rootDir:f.rootDir,childId,homeworkId,decision:f.decision});
  await runtime.advanceCanonicalCycleFromEvidence(f.request,opts);
  const file=path.join(resolveChildContextDir(childId,{rootDir:f.rootDir}),'homework/cycles',`${homeworkId}.json`);
  const saved=JSON.parse(fs.readFileSync(file,'utf8'));
@@ -353,8 +352,8 @@ it('marks a re-run built-in as reused in the catalog, from the order itself, wit
  named(f,{[`${homeworkId}:radar-check`]:'radar-check'});
  await runtime.advanceCanonicalCycleFromEvidence(f.request,opts);
  const payload=f.create.mock.calls[0][0] as any;
- expect(payload.tools[0].input_schema.properties.contentDecisions.maxItems).toBe(0);
- expect(payload.messages[0].content).not.toContain('contentDecisionEvidenceIds');
+ expect(JSON.stringify(payload.tools)).not.toContain('contentDecisions');
+ expect(payload.messages[0].content[0].text).not.toContain('contentDecisionEvidenceIds');
  const recorded=getChildChart(childId,opts).contentCatalog.items.find(row=>row.contentId===contentId)!;
  expect(recorded.reuseStatus).toBe('reuse');
 });
