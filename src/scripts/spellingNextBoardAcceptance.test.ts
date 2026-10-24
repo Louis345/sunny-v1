@@ -1,5 +1,3 @@
-import {planAssignmentFromSourceWithTelemetry} from "../engine/assignmentPlanner";
-import {linearJourneyFixture} from "./fixtures/authoredJourney";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -16,7 +14,8 @@ import { runSpellingDiscoveryIntake } from "./ingestHomework";
 import { runAdaptiveMathGeneration } from "./runAdaptiveMathGeneration";
 import { getLearningCycle } from "../engine/learningCycleRepository";
 import { currentBoardInstance } from "../engine/learningBoardInstances";
-import { seedSpellingLab, writeSpellingPdfFixture, recordedAdaptiveSpellingPlan, recordedSpellingDiagnostic } from "./fixtures/spellingEvidenceFirst";
+import { seedSpellingLab, writeSpellingPdfFixture } from "./fixtures/spellingEvidenceFirst";
+import type { RecordedToolLab } from "./fixtures/recordedToolPlanner";
 import { COMPANION_DEFAULTS } from "../shared/companionTypes";
 import { handleWsConnection } from "../server/ws-handler";
 import { getActiveVoiceSessionManagerForChild } from "../server/voice-session-registry";
@@ -26,29 +25,37 @@ import { getActiveVoiceSessionManagerForChild } from "../server/voice-session-re
 // reporting stale IDs, a fatal modal for a memory save). Logs showed each failure only after a person
 // played. The lab stopped at the Teaching board, so nothing had ever played a next board end to end.
 // This robot plays Discovery, the Teaching board, and the reused next board through the real kiosk.
-const lab = vi.hoisted(() => ({ root: "", voiceRequests: [] as any[], plannerCalls: 0, builderCalls: 0, decisions: 0, decide: undefined as undefined | ((cycle: any) => any) }));
+// 2026-10-24: the Planner now builds every board through small locked tools. The robot used to replace
+// the Planner, the next-board decision and the intake with their old single forms, so it never ran the
+// tool handlers that real sessions run. It now answers at the Anthropic client boundary instead.
+const lab = vi.hoisted(() => ({ voiceRequests: [] as any[], builderCalls: 0, planner: { root: "", childId: "", homeworkId: "", words: [], missedWords: [], requests: [], teachingBoards: 0, decisions: 0 } as RecordedToolLab }));
 // Recorded successful quiet at the voice provider boundary; preserve real request assembly and captures.
 vi.mock("ai", async original => ({...await original<typeof import("ai")>(), streamText: (request: any) => {
   lab.voiceRequests.push(request);
   return { fullStream:(async function*(){})(), finishReason:Promise.resolve("stop") };
 }}));
-vi.mock("../engine/assignmentPlanner", async original => ({ ...await original<typeof import("../engine/assignmentPlanner")>(), planAssignmentFromSourceWithTelemetry: async (packet: any) => { lab.plannerCalls++; return { output: recordedAdaptiveSpellingPlan(packet, lab.root), telemetry: { model: "recorded", latencyMs: 1 } }; } }));
-vi.mock("../engine/learningCycleRuntime", async original => { const actual = await original<typeof import("../engine/learningCycleRuntime")>(); return { ...actual, advanceCanonicalCycleFromEvidence: (input: any, opts: any) => actual.advanceCanonicalCycleFromEvidence({ ...input, decide: async (cycle: any) => { lab.decisions++; return lab.decide!(cycle); } }, opts) }; });
+// Every Planner and artist turn reaches this recorded client; nothing is sent to a provider.
+vi.mock("@anthropic-ai/sdk", async original => {
+  const actual = await original<typeof import("@anthropic-ai/sdk")>();
+  const { recordedToolReply } = await import("./fixtures/recordedToolPlanner");
+  class RecordedAnthropic { messages = { stream: (request: any) => ({ finalMessage: async () => recordedToolReply(lab.planner, request) }), create: async (request: any) => recordedToolReply(lab.planner, request) }; }
+  return { ...actual, default: RecordedAnthropic, Anthropic: RecordedAnthropic };
+});
 vi.mock("../deepgram-turn", () => ({ connectFlux: vi.fn(async (callbacks: { onOpen: () => void }) => { callbacks.onOpen(); return { sendAudio() {}, close() {} }; }) }));
 vi.mock("../shared/childRegistry", async original => ({ ...await original<typeof import("../shared/childRegistry")>(), listChildProfileIds: () => ["ila"] }));
 vi.mock("../engine/directMathExperience", async original => ({ ...await original<typeof import("../engine/directMathExperience")>(),
-  askLearningPlanner: vi.fn(async (input: any) => ({ domain: "spelling", planningResult: await planAssignmentFromSourceWithTelemetry(input.packet) })),
   // Reused activities must never reach the AI builder.
   generateAdaptiveProgressionActivityHtml: vi.fn(async () => { lab.builderCalls++; throw new Error("lab_builder_forbidden"); }),
 }));
 
 it("plays Discovery, the Teaching board and a reused next board through the real kiosk, then hands back to the Planner", async () => {
   const childId = "ila", viewport = { width: 1280, height: 720 };
-  const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-next-board-")); lab.root = rootDir;
+  const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-next-board-"));
   const outputDir = path.join(process.cwd(), "outputs/next-board-acceptance"); fs.mkdirSync(outputDir, { recursive: true });
   vi.stubEnv("SUNNY_CONTEXT_ROOT", path.join(rootDir, "src/context")); vi.stubEnv("SUNNY_MODE", "real");
   vi.stubEnv("SUNNY_ALLOW_REAL_CHILD_CONTEXT_ROOT", "true");
-  vi.stubEnv("ANTHROPIC_API_KEY", ""); vi.stubEnv("OPENAI_API_KEY", "");
+  // The key only satisfies preflight checks: the Anthropic client is the recorded one above.
+  vi.stubEnv("ANTHROPIC_API_KEY", "recorded-local-only"); vi.stubEnv("OPENAI_API_KEY", "");
   // 2026-10-22 kiosk-Mac catch: the robot inherited SUNNY_CHART_DIR from the kiosk shell and switched into real-chart
   // intake (planner_model_required). It must never depend on, or write to, the machine's real data settings.
   for (const name of ["SUNNY_CHART_DIR", "SUNNY_PREVIEW_MODE", "SUNNY_CERTIFICATION_RUN_ID", "SUNNY_ACTIVITY_RESULT_LOG_ROOT", "SUNNY_LOG_REPO_DIR", "SUNNY_IMAGE_CACHE_PATH"]) vi.stubEnv(name, "");
@@ -61,16 +68,9 @@ it("plays Discovery, the Teaching board and a reused next board through the real
   const missedWords = words.slice(6);
   seedSpellingLab(rootDir, words, "", childId);
   const source = writeSpellingPdfFixture(rootDir, words);
-  const { homeworkId } = await runSpellingDiscoveryIntake({ childId, sourceFile: source, rootDir }, { callPlannerModel: async (packet: Parameters<typeof recordedSpellingDiagnostic>[0]) => ({ draft: { boardDefinition: linearJourneyFixture(["diagnostic"]), diagnostic: recordedSpellingDiagnostic(packet), title: "School spelling", words: words.map(word => ({ word, pageNumber: 1 })), uncertainty: [] } }) });
-  // The recorded Planner's next board names three Teaching-board activities: practice radar, Letter Rush, final check.
-  lab.decide = (cycle: any) => {
-    const evidence = cycle.predictionEvaluations.map((row: any) => row.evaluationId);
-    if (lab.decisions > 1) return { status: "inconclusive", reason: "Immediate recall is not retention", progressionAction: "await_calibration", preserve: [], change: [], testNext: [], nextEvidenceRequired: ["Delayed recall"], predictionEvaluationIds: evidence };
-    const wordIds = new Map<string, string>(Object.values(cycle.nodes.find((node: any) => node.role === "evaluation").evidenceContract.spellingItems as Record<string, any>).map((item: any) => [item.word, item.wordId]));
-    const instrument = (nodeId: string, title: string, mechanic: string, targets: string[], measurementRole: string) => ({ nodeId, title, academicTarget: "Spelling", mechanic, theme: "Harbor", openingPurpose: "Practice again", creatorPrompt: `Reuse ${nodeId} exactly as before.`, spelling: { wordIds: targets.map(word => wordIds.get(word)!), measurementRole, responseMode: "spelling_letters" } });
-    const instruments = [instrument("recall-practice", "Radar Again", "word-radar", missedWords, "practice"), instrument("letter-rush", "Rush Again", "letter-rush", missedWords, "practice"), instrument("recall-checkpoint", "Final Radar", "word-radar", words, "fresh_checkpoint")];
-    return { status: "revised", reason: "Practice the missed words again, then recheck all words.", progressionAction: "generate_support", preserve: [], change: [], testNext: [], nextEvidenceRequired: ["Independent recall"], predictionEvaluationIds: evidence, successor: { instruments, boardDefinition: linearJourneyFixture(instruments.map(row => row.nodeId)) } };
-  };
+  Object.assign(lab.planner, { root: rootDir, childId, words, missedWords });
+  const { homeworkId } = await runSpellingDiscoveryIntake({ childId, sourceFile: source, rootDir });
+  lab.planner.homeworkId = homeworkId;
   const app = express(); app.use(express.json());
   app.get("/api/profile/:child", (_req, res) => res.json({ companion: { ...COMPANION_DEFAULTS, vrmUrl: "" } }));
   app.get("/api/child-experience/:child", (_req, res) => res.json(buildChildExperiencePacket(getChildChart(childId, { rootDir }))));
@@ -93,6 +93,7 @@ it("plays Discovery, the Teaching board and a reused next board through the real
   const ws = new WebSocketServer({ server, path: "/ws" });
   const errors: string[] = [], events: string[] = [], serverErrors: unknown[] = [], wordAdvanceMs: number[] = [], screenChecks: string[] = [];
   let confirmedPlayback = 0;
+  const notReadySeen: string[] = [];
   ws.on("connection", (socket, request) => {
     const observed = socket as any, productionSend = observed.send.bind(socket);
     observed.send = (data: unknown, ...args: unknown[]) => {
@@ -192,6 +193,7 @@ it("plays Discovery, the Teaching board and a reused next board through the real
       await enter.or(board).first().waitFor({ timeout: 45000 });
       if (await enter.isVisible()) await enter.click();
       await board.waitFor({ timeout: 30000 });
+      if (await page.getByText(/not ready/i).count()) notReadySeen.push(await board.innerText());
     };
     // Teaching board: the Speed route, then the final check.
     await enterBoard();
@@ -204,7 +206,8 @@ it("plays Discovery, the Teaching board and a reused next board through the real
     await playLetterRush("Letter Rush", missedWords);
     await page.getByRole("button", { name: "Recall Checkpoint", exact: true }).click();
     await page.getByText(`Word 1 of ${words.length}`, { exact: true }).waitFor();
-    await elliSeesScreen(/Recall Checkpoint is open[^]*Current node: recall-checkpoint/);
+    const checkpointId = getLearningCycle(childId, homeworkId, { rootDir })!.nodes.find(node => teaching.nodeIds.includes(node.nodeId) && node.title === "Recall Checkpoint")!.nodeId;
+    await elliSeesScreen(new RegExp(`Recall Checkpoint is open[^]*Current node: ${checkpointId}`));
     // A dropped connection mid-activity: the kiosk reconnects and re-reports, so Elli still sees the open activity.
     ws.clients.forEach(socket => socket.terminate());
     await elliSeesScreen(/Recall Checkpoint is open/);
@@ -213,16 +216,17 @@ it("plays Discovery, the Teaching board and a reused next board through the real
     await noModal();
     // Completing the Teaching board calls the Planner once, and the server builds the next board by itself.
     await expect.poll(() => { const cycle = getLearningCycle(childId, homeworkId, { rootDir })!; const board = currentBoardInstance(cycle); return board.boardId !== teaching.boardId && board.publishedAt !== null; }, { timeout: 60000 }).toBe(true);
-    expect(lab.decisions).toBe(1);
+    expect(lab.planner.decisions).toBe(1);
     expect(lab.builderCalls).toBe(0);
     const next = getLearningCycle(childId, homeworkId, { rootDir })!;
     const nextBoard = currentBoardInstance(next);
     const nextNodes = next.nodes.filter(node => nextBoard.nodeIds.includes(node.nodeId));
-    expect(nextNodes.map(node => node.reusedFrom)).toEqual(["recall-practice", "letter-rush", "recall-checkpoint"]);
+    const teachingId = (title: string) => next.nodes.find(node => teaching.nodeIds.includes(node.nodeId) && node.title === title)!.nodeId;
+    expect(nextNodes.map(node => node.reusedFrom)).toEqual(["Recall Practice", "Letter Rush", "Recall Checkpoint"].map(teachingId));
     expect(nextNodes.every(node => node.artifactBinding?.validationStatus === "passed" && !node.notReadyReason)).toBe(true);
     // Without a reload, the kiosk learns by itself that the next board is published and says so truthfully;
     // by contract the new board opens at the child's next visit, never mid-session.
-    const label = (source: string) => nextBoard.definition!.portals.find(portal => portal.activityNodeId === nextNodes.find(node => node.reusedFrom === source)!.nodeId)!.label;
+    const label = (title: string) => nextBoard.definition!.portals.find(portal => portal.activityNodeId === nextNodes.find(node => node.reusedFrom === teachingId(title))!.nodeId)!.label;
     await page.getByTestId("post-activity-engagement-overlay").getByRole("button", { name: "Back to map", exact: true }).click();
     await page.getByText("Your next adventure is ready for your next visit", { exact: false }).waitFor({ timeout: 30000 });
     await elliSeesScreen(/The board is showing[^]*No activity is open\.\nThe next board is ready for the next visit\./);
@@ -230,18 +234,18 @@ it("plays Discovery, the Teaching board and a reused next board through the real
     await page.reload();
     await enterBoard();
     expect(await page.getByText("Planning your map", { exact: true }).count()).toBe(0);
-    await page.getByRole("button", { name: label("recall-practice"), exact: true }).waitFor();
+    await page.getByRole("button", { name: label("Recall Practice"), exact: true }).waitFor();
     await elliSeesScreen(/The board is showing[^]*No activity is open/);
-    await page.getByRole("button", { name: label("recall-practice"), exact: true }).click();
+    await page.getByRole("button", { name: label("Recall Practice"), exact: true }).click();
     await playRadar(missedWords, false);
     await page.getByTestId("post-activity-engagement-overlay").getByRole("button", { name: "Back to map", exact: true }).click();
-    await playLetterRush(label("letter-rush"), missedWords);
-    await page.getByRole("button", { name: label("recall-checkpoint"), exact: true }).click();
+    await playLetterRush(label("Letter Rush"), missedWords);
+    await page.getByRole("button", { name: label("Recall Checkpoint"), exact: true }).click();
     await playRadar(words, true);
     await page.getByTestId("post-activity-engagement-overlay").getByRole("button", { name: "Play again", exact: true }).waitFor();
     await noModal();
     // Every answer lands on the next board's fresh questions, and finishing it hands back to the Planner.
-    await expect.poll(() => lab.decisions, { timeout: 60000 }).toBe(2);
+    await expect.poll(() => lab.planner.decisions, { timeout: 60000 }).toBe(2);
     const finished = getLearningCycle(childId, homeworkId, { rootDir })!;
     for (const node of finished.nodes.filter(row => nextBoard.nodeIds.includes(row.nodeId))) {
       expect(node.state).toBe("completed");
@@ -258,6 +262,17 @@ it("plays Discovery, the Teaching board and a reused next board through the real
       expect(text).toContain("[Screen:");
       expect(text).not.toMatch(/Independent evaluation is ready|board is available|No activity has been selected|\[Canvas State\]/);
     }
+    // The tiny-tools contract, measured at the provider boundary: every Planner and artist turn is a
+    // locked tool call (only the explainer's large form is unlocked), nothing buys a correction, and no
+    // board she sees has a Not-ready stop.
+    const requests = lab.planner.requests;
+    expect(lab.planner.teachingBoards).toBe(1);
+    expect(requests.flatMap(request => request.tools ?? []).filter((tool: any) => tool.strict !== true && tool.name !== "add_explainer").map((tool: any) => tool.name)).toEqual([]);
+    const stages = (fs.readdirSync(rootDir, { recursive: true }) as string[]).map(String).filter(name => name.endsWith(".stage.json"));
+    expect(stages.filter(name => /tools-turn-\d+\.stage\.json$/.test(name)).length).toBeGreaterThanOrEqual(5);
+    expect(stages.filter(name => /correction|patch/.test(name))).toEqual([]);
+    expect(finished.nodes.filter(node => node.notReadyReason).map(node => `${node.nodeId}: ${node.notReadyReason}`)).toEqual([]);
+    expect(notReadySeen).toEqual([]);
     expect(errors).toEqual([]);
     await page.screenshot({ path: path.join(outputDir, "next-board-complete.png") });
   } finally {
@@ -266,7 +281,7 @@ it("plays Discovery, the Teaching board and a reused next board through the real
       if (page) {
         // A diagnostic failure must not replace the actual acceptance failure or skip cleanup.
         await page.screenshot({ path: path.join(outputDir, "last-state.png") }).catch(error => console.warn("robot diagnostic screenshot failed:", error));
-        fs.writeFileSync(path.join(outputDir, "diagnostic.json"), JSON.stringify({ screenChecks, wordAdvanceMs, events, errors, serverErrors, decisions: lab.decisions, builderCalls: lab.builderCalls, body: await page.locator("body").innerText(), cycle: getLearningCycle(childId, homeworkId, { rootDir }) }));
+        fs.writeFileSync(path.join(outputDir, "diagnostic.json"), JSON.stringify({ screenChecks, wordAdvanceMs, events, errors, serverErrors, decisions: lab.planner.decisions, builderCalls: lab.builderCalls, body: await page.locator("body").innerText(), cycle: getLearningCycle(childId, homeworkId, { rootDir }) }));
       }
       await browser.close();
     }

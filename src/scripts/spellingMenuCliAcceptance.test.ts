@@ -1,15 +1,16 @@
-import {linearJourneyFixture} from "./fixtures/authoredJourney";
 import fs from "node:fs";
 import http from "node:http";
 import os from "node:os";
 import path from "node:path";
 import { spawn } from "node:child_process";
 import { expect, it } from "vitest";
-import { seedSpellingLab, recordedSpellingDiagnostic, writeSpellingPdfFixture } from "./fixtures/spellingEvidenceFirst";
+import { seedSpellingLab, writeSpellingPdfFixture } from "./fixtures/spellingEvidenceFirst";
+import { recordedToolReply, type RecordedToolLab } from "./fixtures/recordedToolPlanner";
 
 it("runs the real menu and ingestion subprocess twice with one local recorded provider response", async () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-spelling-cli-"));
   let requests = 0;
+  const lab: RecordedToolLab = { root, childId: "lab-child", homeworkId: "", words: ["night", "light"], missedWords: [], requests: [], teachingBoards: 0, decisions: 0 };
   const capturedRequests: Array<{ url: string; input: any }> = [];
   const provider = http.createServer((request, response) => {
     let body = "";
@@ -18,16 +19,17 @@ it("runs the real menu and ingestion subprocess twice with one local recorded pr
       requests++;
       const input = JSON.parse(body);
       capturedRequests.push({ url: request.url!, input });
-      const fileHash = JSON.stringify(input.messages).match(/\\"fileHash\\":\\"([a-f0-9]+)\\"/)?.[1];
-      if (!fileHash) { response.writeHead(400); response.end("recorded_source_hash_missing"); return; }
-      const message = { id: "recorded-capture", type: "message", role: "assistant", model: input.model, stop_reason: "tool_use", usage: { input_tokens: 0, output_tokens: 0 }, content: [{ type: "tool_use", id: "recorded-tool", name: input.tools[0].name, input: { plan: { boardDefinition:linearJourneyFixture(["diagnostic"]), diagnostic: recordedSpellingDiagnostic({ sourceDocument: { fileHash } }), title: "School spelling", words: ["night", "light"].map(word => ({ word, pageNumber: 1 })), uncertainty: [], sourceNotes: ["All assigned words are legible. Practice instructions add no new words."] } } }] };
-      expect(input.stream).toBe(true);
+      // The real intake talks to the Planner through small locked tools, then the map artist draws.
+      const message = recordedToolReply(lab, input);
+      if (!input.stream) { response.writeHead(200, { "content-type": "application/json" }); response.end(JSON.stringify(message)); return; }
       response.writeHead(200, { "content-type": "text/event-stream" });
       const send = (event: string, data: unknown) => response.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
       send("message_start", { type: "message_start", message: { ...message, content: [], stop_reason: null } });
-      send("content_block_start", { type: "content_block_start", index: 0, content_block: { ...message.content[0], input: {} } });
-      send("content_block_delta", { type: "content_block_delta", index: 0, delta: { type: "input_json_delta", partial_json: JSON.stringify(message.content[0].input) } });
-      send("content_block_stop", { type: "content_block_stop", index: 0 });
+      message.content.forEach((block: any, index: number) => {
+        send("content_block_start", { type: "content_block_start", index, content_block: { ...block, input: {} } });
+        send("content_block_delta", { type: "content_block_delta", index, delta: { type: "input_json_delta", partial_json: JSON.stringify(block.input) } });
+        send("content_block_stop", { type: "content_block_stop", index });
+      });
       send("message_delta", { type: "message_delta", delta: { stop_reason: "tool_use", stop_sequence: null }, usage: { output_tokens: 0 } });
       send("message_stop", { type: "message_stop" });
       response.end();
@@ -70,7 +72,8 @@ it("runs the real menu and ingestion subprocess twice with one local recorded pr
     expect(transcript.match(/Done — DISCOVERY_READY/g), transcript).toHaveLength(2);
     expect(transcript.match(/Activities: 1 launchable/g), transcript).toHaveLength(2);
     expect(transcript).not.toContain("Done — BLOCKED");
-    expect(requests).toBe(1);
+    // Intake and artist each answered once; the second run replays both saved receipts.
+    expect(requests).toBe(2);
     expect(capturedRequests[0].url).toBe("/v1/messages");
     // The source is sent as a base64 PDF, not as extracted plaintext.
     // Verify the exact supplied document instead of searching its encoding.
@@ -87,12 +90,9 @@ it("runs the real menu and ingestion subprocess twice with one local recorded pr
     expect(cycle.assignment.targets).toEqual(["night", "light"]);
     expect(cycle.nodes.map((node: any) => node.role)).toEqual(["evaluation"]);
     expect(cycle.observations).toEqual([]);
-    const schema = capturedRequests[0].input.tools[0].input_schema;
-    expect(schema.required).toEqual(["plan"]);
-    expect(schema.properties.plan.anyOf).toHaveLength(2);
-    for (const variant of schema.properties.plan.anyOf) expect(variant.required).toContain("diagnostic");
-    const selection = schema.properties.plan.anyOf.find((variant: any) => variant.properties.diagnostic.properties.action.const === "select");
-    expect(selection.required).toContain("boardDefinition");
+    // 2026-10-24: the single intake form was retired for small locked tools; every tool is strict.
+    expect(capturedRequests.map(row => row.input.tools.map((tool: any) => tool.name))).toEqual([["record_words", "choose_discovery", "finish_intake"], ["preview_board", "adjust_board", "submit_board"]]);
+    expect(capturedRequests.flatMap(row => row.input.tools).every((tool: any) => tool.strict === true)).toBe(true);
     expect(cycle.nodes[0].evidenceContract.diagnosticSelection.decision.action).toBe("select");
     const report = fs.readFileSync(path.join(root, "src/context/lab-child/homework/pending", new Date().toISOString().slice(0, 10), "ingest-report.md"), "utf8");
     expect(report).toContain("Status: **DISCOVERY_READY**");
