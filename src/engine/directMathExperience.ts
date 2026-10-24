@@ -1306,13 +1306,21 @@ function compositionFromDrawing(journey:AdventureJourneyDefinition,drawing:Artis
  * A refusal or an unreadable reply still publishes a board: the artist's last look if it had one,
  * otherwise the plain fallback layout. The loop is bounded at MAX_BOARD_PREVIEWS + 1 provider calls. */
 async function designNativeBoard(input:LearningCreatorInput,native:NativeLearningProgram):Promise<{packet:{composition:AdventureBoardComposition};plan:ActiveSessionPlan}> {
+  const journey=native.journey;
+  const {composition,pattern}=await drawJourney({...input,journey,label:native.planId,identity:{childId:input.childId,domain:"spelling",program:input.program},stagePrefix:"targeted-design"});
+  return {packet:{composition},plan:{...native.plan,journey,boardDefinition:assembleAdventureBoardDefinition(journey,composition,pattern)}};
+}
+/** The map artist paints one journey (Discovery, Teaching or next board). Shared so every
+ * spelling board is drawn the same way; `identity` keys the saved drawing so a restart never
+ * buys it twice, and `stagePrefix` names its saved provider turns. */
+export async function drawJourney(input:Pick<LearningCreatorInput,"client"|"model"|"checkpointFile"|"rawResponseDir"|"previousDesigns"|"retryUncertain">&{journey:AdventureJourneyDefinition;label:string;identity:unknown;stagePrefix:string}):Promise<{composition:AdventureBoardComposition;pattern?:string}> {
   const client=input.client??new Anthropic({apiKey:process.env.ANTHROPIC_API_KEY});
   const model=input.model??process.env.SUNNY_ARCHITECT_MODEL??"claude-fable-5";
-  const journey=native.journey,started=Date.now();
-  const sourceHash=crypto.createHash("sha256").update(JSON.stringify({childId:input.childId,domain:"spelling",program:input.program})).digest("hex");
+  const journey=input.journey,started=Date.now();
+  const sourceHash=crypto.createHash("sha256").update(JSON.stringify(input.identity)).digest("hex");
   const saved=input.checkpointFile&&fs.existsSync(input.checkpointFile)?JSON.parse(fs.readFileSync(input.checkpointFile,"utf8")) as {sourceHash?:string;composition?:AdventureBoardComposition;pattern?:string;previews?:number;elapsedMs?:number}:undefined;
   if(saved&&saved.sourceHash!==sourceHash)throw new Error("learning_design_checkpoint_program_mismatch");
-  const finish=(composition:AdventureBoardComposition,pattern?:string)=>({packet:{composition},plan:{...native.plan,journey,boardDefinition:assembleAdventureBoardDefinition(journey,composition,pattern)}});
+  const finish=(composition:AdventureBoardComposition,pattern?:string)=>({composition,...(pattern?{pattern}:{})});
   if(saved?.composition)return finish(saved.composition,saved.pattern);
   const draftDir=input.checkpointFile?path.dirname(input.checkpointFile):undefined;
   const workDir=path.join(input.rawResponseDir??draftDir??fs.mkdtempSync(path.join(os.tmpdir(),"sunny-design-")),"creator-preview");
@@ -1345,7 +1353,7 @@ The teacher's journey (immutable): stops ${JSON.stringify(journey.portals.map(po
   for(let turn=1;turn<=MAX_BOARD_PREVIEWS+1;turn+=1){
     const mustSubmit=previews>=MAX_BOARD_PREVIEWS;
     let request={model,max_tokens:Number(process.env.SUNNY_DIRECTOR_MAX_TOKENS??16000),messages,tools:mustSubmit?[finalTool]:tools,tool_choice:mustSubmit?{type:"tool",name:"submit_board"}:{type:"any"}} as Anthropic.MessageCreateParamsNonStreaming;
-    const stage=`targeted-design-${turn}`,pointer=draftDir?path.join(draftDir,"provider-receipts",`${stage}.stage.json`):undefined;
+    const stage=`${input.stagePrefix}-${turn}`,pointer=draftDir?path.join(draftDir,"provider-receipts",`${stage}.stage.json`):undefined;
     if(pointer&&fs.existsSync(pointer)){
       // Received work is replayed under its original request, never bought again.
       const {requestHash}=JSON.parse(fs.readFileSync(pointer,"utf8"));if(!/^[a-f0-9]{64}$/.test(requestHash))throw new Error("learning_design_saved_request_invalid");
@@ -1379,16 +1387,16 @@ The teacher's journey (immutable): stops ${JSON.stringify(journey.portals.map(po
     ]}]}];
   }
   const placed=drawing?.portals.size??0;
-  if(!placed)console.log(` 🎮 [experience-creator] [composition] [fallback-layout] reason=${ending==="submitted"?"nothing_placed":ending} plan=${native.planId}`);
-  else if(ending!=="submitted")console.log(` 🎮 [experience-creator] [composition] [last-look] reason=${ending} plan=${native.planId}`);
+  if(!placed)console.log(` 🎮 [experience-creator] [composition] [fallback-layout] reason=${ending==="submitted"?"nothing_placed":ending} plan=${input.label}`);
+  else if(ending!=="submitted")console.log(` 🎮 [experience-creator] [composition] [last-look] reason=${ending} plan=${input.label}`);
   console.log(` 🎮 [experience-creator] [pattern] ${drawing?.pattern??"none"}`);
   const composition=compositionFromDrawing(journey,drawing,!placed),elapsedMs=Date.now()-started;
   if(input.checkpointFile){
     fs.mkdirSync(path.dirname(input.checkpointFile),{recursive:true});
-    fs.writeFileSync(input.checkpointFile+".tmp",`${JSON.stringify({version:2,planId:native.planId,model,sourceHash,composition,...(drawing?.pattern?{pattern:drawing.pattern}:{}),ending,previews,elapsedMs},null,2)}\n`,"utf8");
+    fs.writeFileSync(input.checkpointFile+".tmp",`${JSON.stringify({version:2,planId:input.label,model,sourceHash,composition,...(drawing?.pattern?{pattern:drawing.pattern}:{}),ending,previews,elapsedMs},null,2)}\n`,"utf8");
     fs.renameSync(input.checkpointFile+".tmp",input.checkpointFile);
   }
-  console.log(` 🎮 [experience-creator] [composition] [accepted] plan=${native.planId} previews=${previews} ending=${ending} elapsed_ms=${elapsedMs}`);
+  console.log(` 🎮 [experience-creator] [composition] [accepted] plan=${input.label} previews=${previews} ending=${ending} elapsed_ms=${elapsedMs}`);
   return finish(composition,drawing?.pattern);
 }
 export function askLearningExperienceDesigner(input:LearningCreatorInput & {program:NativeLearningProgram}):Promise<{packet:{composition:AdventureBoardComposition};plan:ActiveSessionPlan}>;

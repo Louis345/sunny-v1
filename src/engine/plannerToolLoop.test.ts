@@ -109,6 +109,16 @@ describe("planner tool loop", () => {
     expect(sent.filter((tool: any) => tool.name !== "note").every((tool: any) => tool.strict === true)).toBe(true);
   });
 
+  it("can open with the worksheet page and a persona, caching everything up to the facts", async () => {
+    const script = scripted(reply({ name: "add", input: { word: "sign" } }, { name: "finish", input: { title: "Board" } }));
+    await runPlannerToolLoop<State>({ label: "test", prompt: "FACTS", system: "PERSONA", content: text => [{ type: "image", source: { type: "base64", media_type: "image/png", data: "AAAA" } }, { type: "text", text }],
+      model: "claude-sonnet-5", maxTokens: 1000, tools, state: { added: [], finished: false }, finished: state => state.finished, send: script.send });
+    const request = script.requests[0];
+    expect(request.system).toBe("PERSONA");
+    expect(request.messages[0].content.map((block: any) => block.type)).toEqual(["image", "text"]);
+    expect(request.messages[0].content[1]).toMatchObject({ text: "FACTS", cache_control: { type: "ephemeral" } });
+  });
+
   it("describes tools from their schemas with nothing the strict lock cannot hold", () => {
     const definitions = plannerToolDefinitions([{ name: "bounded", description: "d", schema: z.object({ n: z.number().min(0).max(1), list: z.array(z.string().min(1)).min(2).max(4) }).strict(), run: () => ({ ok: true, result: null }) }]);
     expect(strictBudget(definitions).unsupported).toEqual([]);

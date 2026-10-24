@@ -88,6 +88,7 @@ import {
 import { validateFullExperienceReadiness } from "../engine/fullExperienceReadiness";
 import { enrichMathNodeArtwork, localizeMathNodeArtwork } from "../engine/mathNodeArtwork";
 import { persistIngestedLearningCycle, buildSpellingRecallItems, createSpellingDiscoveryCycle, buildSpellingDiscoveryPlan } from "../engine/learningCycleIngest";
+import { planSpellingIntakeWithTools } from "../engine/spellingIntakeWithTools";
 import { acquireMathGenerationLease, releaseMathGenerationLease, resolveAdaptiveMathDraftDir, publishDiscoveryExperience, hashDiscoveryContract, runMathProviderStage, recordGenerationFailure } from "../engine/adaptiveMathDiscovery";
 import { getLearningCycle, repairLatestHistoricalLearningCycleBeforePlanning } from "../engine/learningCycleRepository";
 import { createIngestProgress, type IngestProgress } from "../utils/ingestOutput";
@@ -2166,7 +2167,11 @@ export async function runSpellingDiscoveryIntake(args: {
     const confirmationFile = path.join(draft, "spelling-intake-confirmation.json");
     let confirmation = args.confirmedCapture ?? (fs.existsSync(confirmationFile) ? JSON.parse(fs.readFileSync(confirmationFile, "utf8")) as NonNullable<typeof args.confirmedCapture> : null);
     if (confirmation && packet.spellingDiagnostics && (!saved || hashDiscoveryContract(parseSpellingIntake(confirmation.capture, packet).diagnostic) !== hashDiscoveryContract(parseSpellingIntake(saved.output, packet).diagnostic))) throw new Error("spelling_diagnostic_confirmation_changed");
-    const result: CaptureResult = confirmation ? { output: confirmation.capture, telemetry: { model: "human-confirmed", latencyMs: 0 } } : saved ?? await planSpellingIntakeFromSource(packet, { ...options, providerReceipt: { draftDir: draft, stage: "spelling-intake" } });
+    // A real intake talks to the Planner through small locked tools; an injected test Planner still
+    // answers through the single form until that path is retired.
+    const result: CaptureResult = confirmation ? { output: confirmation.capture, telemetry: { model: "human-confirmed", latencyMs: 0 } } : saved ?? (options.callPlannerModel
+      ? await planSpellingIntakeFromSource(packet, { ...options, providerReceipt: { draftDir: draft, stage: "spelling-intake" } })
+      : await planSpellingIntakeWithTools(packet, { model: options.model, draftDir: draft }));
     if (!saved && !confirmation) save("spelling-intake-response.json", { ...result, requestHash, outputHash: hashDiscoveryContract(result) });
     parseSpellingIntake(result.output, packet);
     console.log(` 🎮 [spelling-discovery] [assignment-capture] [${saved ? "reused" : "saved"}] hash=${hashDiscoveryContract(result.output)}`);
