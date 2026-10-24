@@ -527,11 +527,14 @@ describe("successor preparation status (no in-session swap)", () => {
   it("reports preparation and publication with one stable updatedAt so the child's current session never refreshes into the successor", async () => {
     const rootDir = root();
     const evaluated = await finishBaselineBoard(rootDir);
-    expect(successorPreparationStatus(evaluated)).toBeUndefined();
+    // While the Planner is still deciding, the next board is already preparing, on the same clock.
+    const deciding = successorPreparationStatus(evaluated)!;
+    expect(deciding).toMatchObject({ phase: "successor_preparing", nodes: [] });
     const decided = await advanceCanonicalCycleFromEvidence({ childId: CHILD, homeworkId: HW, decide: async () => decision("generate_support", supportSuccessor) }, { rootDir });
     const preparing = successorPreparationStatus(decided)!;
     expect(preparing).toMatchObject({ phase: "successor_preparing", nodes: [] });
     expect(preparing.startedAt).toBe(preparing.updatedAt);
+    expect(preparing.updatedAt).toBe(deciding.updatedAt);
     const published = successorPreparationStatus(bindAll(rootDir))!;
     expect(published.phase).toBe("successor_published");
     expect(published.updatedAt).toBe(preparing.updatedAt);

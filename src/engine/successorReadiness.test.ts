@@ -49,4 +49,13 @@ describe("successor readiness is executable availability, not a publication time
     cycle.nodes[0].notReadyReason = "retired_activity";
     expect(successorPreparationStatus(cycle)?.phase).toBe("needs_attention");
   });
+  // 2026-10-24 robot catch: while the Planner decides the next board (minutes live), no successor exists
+  // yet, so the route fell back to the Teaching board's old "board_ready" job. The kiosk stops watching on
+  // board_ready and never learned the next board was published. An instant recorded decision hid it.
+  it("reports the next board as preparing while the Planner is still deciding it", () => {
+    const cycle = { createdAt: "2026-10-24T20:00:00Z", lifecycle: "baseline_evaluating",
+      decisionHistory: [{ decisionId: "d1", fromLifecycle: "baseline_ready", toLifecycle: "baseline_evaluating", createdAt: "2026-10-24T21:00:00Z" }],
+      boards: [{ kind: "teaching", boardId: "teaching", publishedAt: "2026-10-24T20:30:00Z", nodeIds: [] }], nodes: [] } as unknown as LearningCycleRecordV2;
+    expect(successorPreparationStatus(cycle)).toEqual({ updatedAt: "2026-10-24T21:00:00Z", startedAt: "2026-10-24T21:00:00Z", phase: "successor_preparing", nodes: [] });
+  });
 });

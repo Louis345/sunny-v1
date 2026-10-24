@@ -260,8 +260,16 @@ export function withInitialBoard<T extends Pick<LearningCycleRecordV2, "homework
  */
 export function successorPreparationStatus(cycle: LearningCycleRecordV2): { updatedAt: string; startedAt: string; phase: "successor_preparing" | "successor_published" | "needs_attention"; nodes: Array<{nodeId:string;status:string;reason?:string}> } | undefined {
   const latest = listBoardInstances(cycle).at(-1);
+  // Preparation starts when evaluation starts: the Planner decides first (minutes live), then the board is built.
+  const evaluating = ["baseline_evaluating", "quest_evaluating", "boss_evaluating"];
+  const evaluatingSince = (before: number) => cycle.decisionHistory.slice(0, before).reverse().find(entry => evaluating.includes(entry.toLifecycle))?.createdAt;
+  if (latest?.publishedAt && evaluating.includes(cycle.lifecycle)) {
+    const since = evaluatingSince(cycle.decisionHistory.length) ?? cycle.createdAt;
+    return { updatedAt: since, startedAt: since, phase: "successor_preparing", nodes: [] };
+  }
   if (!latest || latest.kind !== "successor") return undefined;
-  const decidedAt = cycle.decisionHistory.find((entry) => entry.decisionId === latest.plannerDecisionId)?.createdAt ?? cycle.createdAt;
+  const decision = cycle.decisionHistory.findIndex((entry) => entry.decisionId === latest.plannerDecisionId);
+  const decidedAt = (decision >= 0 ? evaluatingSince(decision) ?? cycle.decisionHistory[decision]!.createdAt : undefined) ?? cycle.createdAt;
   // Publication freezes the design; it does not prove that any portal can launch.
   // Keep the current chapter stable, but expose actual availability on later visits.
   const nodes = latest.publishedAt === null ? [] : latest.nodeIds.map(nodeId => {
