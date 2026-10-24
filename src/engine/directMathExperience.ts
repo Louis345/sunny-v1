@@ -41,6 +41,9 @@ import {
   type LearningCycleRecordV2,
 } from "./learningCycleRepository";
 import { withInitialBoard } from "./learningBoardInstances";
+import { runPlannerToolLoop } from "./plannerToolLoop";
+import { providerTurnSender } from "./plannerToolProvider";
+import { spellingTeachingToolkit } from "./spellingTeachingTools";
 
 export type DirectActivity = {
   id: string;
@@ -2029,6 +2032,10 @@ export async function askLearningPlanner(input:LearningPlannerInput):Promise<Mat
   const maxTokens=input.maxTokens??Number(native?16000:process.env.SUNNY_PLANNER_MAX_TOKENS??32000);
   const started=Date.now();
   const client = input.client ?? new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+  // New spelling Teaching boards are built through small locked tools. A Teaching answer already
+  // received through the old single form (a saved targeted-planner receipt) replays below at no cost.
+  const savedFormReceipt=native&&input.rawResponseFile?path.join(path.dirname(input.rawResponseFile),'provider-receipts','targeted-planner.stage.json'):undefined;
+  if(native&&!(savedFormReceipt&&fs.existsSync(savedFormReceipt)))return askSpellingTeachingThroughTools({client,model,packet:packet!,rawResponseFile:input.rawResponseFile,started});
   const prompt = native ? `${learningPlannerInstructions('spelling').text}
 Call create_learning_program exactly once. Return domain, planId, journey, activities and planTheory directly at the tool root. Each activity carries its own measurement; do not invent a separate measurement ID or repeat the inventory in another field. spelling is the preregistered measurement prescription for academic activities and null for nonacademic rewards. It is never a measured learning claim.
 ${JOURNEY_SEQUENCE_INSTRUCTION}
@@ -2164,6 +2171,33 @@ ${JSON.stringify(factualModelContext(input.priorOutcomes ?? []), null, 2)}`;
   }
 }
 
+export function spellingTeachingToolPrompt(packet:AssignmentPlanningPacket):string {
+  return `${learningPlannerInstructions('spelling').text}
+Build the Teaching board with the tools:
+1. add_activity (or add_explainer, add_reward) for each activity, with the assigned words it covers. Each returns an activity_id.
+2. predict for every academic activity: your preregistered prediction. It is never a measured learning claim.
+3. set_order: opening activities everyone plays first, then closing activities everyone plays after the choice. Optionally add_choice: two or more options, each its own short sequence, with a label she reads and your engagement hypothesis. Give a meaningful choice when academically valid alternatives exist; otherwise explain single_path_reason. Options may order the same activities differently.
+4. finish_board. Sunny checks the board and replies accepted, or tells you exactly what to fix.
+You may call several tools in one turn. Activity IDs come back from add_activity; use them exactly.
+You choose activities, count, support, alternatives and hypotheses. Separate assisted practice, independent measurement (only word-radar:hidden_word_recall as a fresh_checkpoint) and engagement. Use the catalog for varied practice addressing measured gaps; activity count remains your decision. Each path from start to finish, counting the start, the choice and the finish, fits in 7 steps. Request a missing capability with request_capability; nothing is built automatically. Cite only the supplied observation IDs. Do not claim mastery or readiness. Sunny draws the start, portals, paths and connections, works out which activities each checkpoint follows, and the map artist owns artwork and placement.
+Homework and child-chart context:
+${JSON.stringify(compactPlannerFacts(packet))}`;
+}
+/** Teaching board through the small locked tools; the finished order is saved beside its turns. */
+async function askSpellingTeachingThroughTools(input:{client:Anthropic;model:string;packet:AssignmentPlanningPacket;rawResponseFile?:string;started:number}):Promise<NativePlannedProgram> {
+  const kit=spellingTeachingToolkit(input.packet);
+  const directory=input.rawResponseFile?path.dirname(input.rawResponseFile):undefined;
+  const loop=await runPlannerToolLoop({label:"spelling-teaching",prompt:spellingTeachingToolPrompt(input.packet),model:input.model,maxTokens:16000,
+    tools:kit.tools,state:kit.initialState(),finished:kit.finished,
+    send:providerTurnSender({label:"spelling-teaching",stagePrefix:"targeted-planner-tools",draftDir:directory,client:input.client})});
+  // No finished board means nothing to publish: generation stays paused with this reason.
+  if(!kit.finished(loop.state))throw new Error(`learning_planner_tools_unfinished:${loop.stats.stop}`);
+  const program=kit.program(loop.state);
+  if(input.rawResponseFile){fs.mkdirSync(path.dirname(input.rawResponseFile),{recursive:true});fs.writeFileSync(input.rawResponseFile,`${JSON.stringify({model:input.model,program,stats:loop.stats},null,2)}\n`,"utf8");}
+  const output=hydrateNativeLearningProgram(program,input.packet);
+  console.log(` 🎮 [learning-planner] [tools] [finished] plan=${output.activeSessionPlan.planId} activities=${output.activeSessionPlan.nodePlan.length} turns=${loop.stats.turns} calls=${loop.stats.calls} errors=${loop.stats.errors}`);
+  return {domain:"spelling",planId:output.activeSessionPlan.planId,journey:output.activeSessionPlan.journey!,plan:output.activeSessionPlan,planningResult:{output,telemetry:{model:input.model,latencyMs:Date.now()-input.started},receivedAt:output.activeSessionPlan.createdAt}};
+}
 /** Compatibility command; both domains enter the same Planner request sequence. */
 export function askDirectMathPlanner(input:LearningPlannerInput & {domain?:"math"}):Promise<MathLearningProgram>{return askLearningPlanner(input);}
 function nativeProgramFromResponse(response:unknown,packet:AssignmentPlanningPacket,model:string,latencyMs:number):NativePlannedProgram {

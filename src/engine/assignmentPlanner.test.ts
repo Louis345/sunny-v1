@@ -1,4 +1,4 @@
-import {askLearningPlanner} from "./directMathExperience";
+import {askLearningPlanner,compactPlannerFacts} from "./directMathExperience";
 import {linearJourneyFixture,choiceJourneyFixture} from '../scripts/fixtures/authoredJourney';
 import {adventureJourneySchema,journeyFromBoardDefinition,BOARD_DEFINITION_TOOL_SCHEMA} from '../shared/adventureBoardDefinition';
 import { describe, expect, it,vi } from "vitest";
@@ -136,6 +136,16 @@ function chart(): ChildChart {
     activityResults: { latest: null, recent: [] },
     decisionTrace: [],
   } as unknown as ChildChart;
+}
+
+/** New Teaching boards are built through small locked tools; an answer already received through the
+ * old single form exists only as a saved receipt, and replays without a new purchase. */
+async function savedFormAnswer(packet: any, input: unknown, root = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-saved-form-"))) {
+  const stream = vi.fn((_request?: unknown) => ({ finalMessage: async () => ({ id: "native-recorded", stop_reason: "tool_use", usage: { input_tokens: 1, output_tokens: 1 }, content: [{ type: "tool_use", id: "tool-1", name: "create_learning_program", input }] }) }));
+  const request = { model: "claude-sonnet-5", max_tokens: 16000, messages: [{ role: "user", content: [{ type: "text", text: `Saved single-form request\nHomework and child-chart context:\n${JSON.stringify(compactPlannerFacts(packet))}` }] }], tools: [{ name: "create_learning_program", input_schema: { type: "object" } }], tool_choice: { type: "tool", name: "create_learning_program" } };
+  const { runMathProviderStage } = await import("./adaptiveMathDiscovery");
+  await runMathProviderStage({ draftDir: root, stage: "targeted-planner", model: request.model, request, execute: async () => stream().finalMessage() });
+  return { root, stream, request, rawResponseFile: path.join(root, "targeted-planner.json") };
 }
 
 function planWithNodes(nodes: ActiveSessionPlan["nodePlan"]): ActiveSessionPlan {
@@ -1030,19 +1040,17 @@ describe("assignment planner", () => {
       expect(variant.properties.measurement.required).toContain("spelling");
     }
     expect(variants.find(variant=>variant.properties.type.const==="word-radar").properties.wordRadarConfig.properties.inputMode.enum).toEqual(["whole-word","letter-by-letter","keyboard"]);
-    const root=fs.mkdtempSync(path.join(os.tmpdir(),"sunny-shared-planner-"));
-    const stream=vi.fn((_request:unknown)=>({finalMessage:async()=>({id:"native-recorded",stop_reason:"tool_use",usage:{input_tokens:1,output_tokens:1},content:[{type:"tool_use",name:"create_learning_program",input}]})}));
+    const saved=await savedFormAnswer(packet,input);const root=saved.root,stream=saved.stream;
     try{
-      const args:any={domain:"spelling",childId:packet.childId,packet,chart:chart(),extraction:extraction(),model:"claude-sonnet-5",client:{messages:{stream}},rawResponseFile:path.join(root,"targeted-planner.json")};
+      const args:any={domain:"spelling",childId:packet.childId,packet,chart:chart(),extraction:extraction(),model:"claude-sonnet-5",client:{messages:{stream}},rawResponseFile:saved.rawResponseFile};
       const result=await askLearningPlanner(args);
       expect(result.domain).toBe("spelling");expect(result.plan.journey).toEqual(authoredJourney);
       expect(result.planningResult.output.plannedMeasurements.map((m:any)=>m.id)).toEqual(["measure-node-practice","measure-node-check"]);
-      const request:any=stream.mock.calls[0][0];expect(request.model).toBe("claude-sonnet-5");
-      expect(request.tools[0].input_schema.properties.activeSessionPlan).toBeUndefined();
+      const request:any=saved.request;
       await askLearningPlanner(args);expect(stream).toHaveBeenCalledTimes(1);
       const {runMathProviderStage}=await import('./adaptiveMathDiscovery');
       const frozenDirectory=path.join(root,'old-description');
-      const oldRequest=structuredClone(request);oldRequest.messages[0].content[0].text="Previous reviewed instructions\n"+oldRequest.messages[0].content[0].text;delete oldRequest.tools[0].input_schema.properties.activities.items.anyOf[0].description;
+      const oldRequest=structuredClone(request);oldRequest.messages[0].content[0].text="Previous reviewed instructions\n"+oldRequest.messages[0].content[0].text;
       await runMathProviderStage({draftDir:frozenDirectory,stage:'targeted-planner',model:args.model,request:oldRequest,execute:async()=>({id:"old-description",stop_reason:"tool_use",usage:{input_tokens:1,output_tokens:1},content:[{type:"tool_use",name:"create_learning_program",input}]})});
       const noCall=vi.fn(()=>{throw new Error('must_not_repurchase_received_work')});
       expect((await askLearningPlanner({...args,rawResponseFile:path.join(frozenDirectory,'targeted-planner.json'),client:{messages:{stream:noCall}}})).plan.journey).toEqual(authoredJourney);
@@ -1070,8 +1078,8 @@ describe("assignment planner", () => {
     };
     const hydrate=(input:unknown,packet:Parameters<typeof hydrateNativeLearningProgram>[1])=>hydrateNativeLearningProgram(input,packet) as ReturnType<typeof hydrateNativeLearningProgram>&{notReady:Array<{nodeId:string;reason:string}>};
     const ask=async(input:unknown,packet:any)=>{
-      const stream=vi.fn((_request:unknown)=>({finalMessage:async()=>({id:"native-recorded",stop_reason:"tool_use",usage:{input_tokens:1,output_tokens:1},content:[{type:"tool_use",id:"tool-1",name:"create_learning_program",input}]})}));
-      return {stream,result:askLearningPlanner({domain:"spelling",childId:packet.childId,packet,chart:chart(),extraction:extraction(),model:"claude-sonnet-5",client:{messages:{stream}}} as any)};
+      const {stream,rawResponseFile}=await savedFormAnswer(packet,input);
+      return {stream,result:askLearningPlanner({domain:"spelling",childId:packet.childId,packet,chart:chart(),extraction:extraction(),model:"claude-sonnet-5",client:{messages:{stream}},rawResponseFile} as any)};
     };
 
     it("accepts the journey sequence, expands it and derives checkpoint lineage",()=>{
