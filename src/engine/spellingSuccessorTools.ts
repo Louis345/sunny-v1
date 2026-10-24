@@ -9,6 +9,8 @@ import { toolFor, type PlannerTool } from "./plannerToolLoop";
 export type SuccessorFacts = {
   builtIns: Array<{ nodeId: string; title: string; implementationType: string; wordIds: string[]; responseMode: string; checkpoint: boolean }>;
   evaluationIds: string[]; allowedActions: string[]; idPrefix: string;
+  /** Whether the re-run step can really prepare this built-in for these words (the same check it runs). */
+  rerunnable: (nodeId: string, wordIds: string[]) => boolean;
 };
 type Step = { id: string; title: string; purpose: string; wordIds: string[]; builtIn: SuccessorFacts["builtIns"][number] };
 type Decision = { status: string; reason: string; progressionAction: string; preserve: string[]; change: string[]; testNext: string[]; nextEvidenceRequired: string[]; predictionEvaluationIds: string[]; revisedHypothesis: string };
@@ -19,7 +21,8 @@ const enumOf = (values: readonly string[], fallback: string) => z.enum((values.l
 
 export function spellingSuccessorToolkit(facts: SuccessorFacts) {
   const tool = toolFor<SuccessorState>();
-  const builtIns = new Map(facts.builtIns.map(row => [row.nodeId, row]));
+  // Only what the re-run step can prepare is on the menu: a built-in it cannot re-run at all never appears.
+  const builtIns = new Map(facts.builtIns.filter(row => facts.rerunnable(row.nodeId, row.wordIds)).map(row => [row.nodeId, row]));
   const allWordIds = [...new Set(facts.builtIns.flatMap(row => row.wordIds))];
   const strings = z.array(z.string().min(1));
   const tools: PlannerTool<SuccessorState>[] = [
@@ -48,6 +51,7 @@ export function spellingSuccessorToolkit(facts: SuccessorFacts) {
         const foreign = input.words.find(word => !builtIn.wordIds.includes(word));
         if (foreign) return { ok: false, error: `${foreign} is not one of ${builtIn.title}'s words (${builtIn.wordIds.join(", ")})` };
         if (new Set(input.words).size !== input.words.length) return { ok: false, error: "a word is listed more than once" };
+        if (input.words.length && !facts.rerunnable(builtIn.nodeId, input.words)) return { ok: false, error: `${builtIn.title} cannot be re-run for just those words (its questions or tiles use its other words). It can be re-run with all of its words: leave words empty, or choose another built-in.` };
         state.next += 1;
         const id = `${facts.idPrefix}-${state.next}`;
         state.steps.push({ id, title: input.title, purpose: input.purpose, wordIds: input.words.length ? [...input.words] : [...builtIn.wordIds], builtIn });

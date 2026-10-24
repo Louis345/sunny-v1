@@ -1,6 +1,6 @@
 import {isDeepStrictEqual} from "node:util";
 import {readSuccessorBoardDefinition, assembleAdventureBoardDefinition, BOARD_DEFINITION_TOOL_SCHEMA, BOARD_AUTHORING_INSTRUCTION, type AdventureBoardComposition, type AdventureJourneyDefinition} from "../shared/adventureBoardDefinition";
-import { canonicalJourneyLaunchable, isSpellingPracticeContinuation } from './learningCycleRepository';
+import { canonicalJourneyLaunchable, isSpellingPracticeContinuation, repointReusedSetup } from './learningCycleRepository';
 import {requestPlannerMessage, readPlannerToolReceipt, plannerTransportPolicy} from "./plannerTransport";
 import fs from "node:fs";
 import {randomUUID,createHash} from "node:crypto";
@@ -872,7 +872,9 @@ ${JSON.stringify({ lifecycle: cycle.lifecycle, assignment: cycle.assignment, the
     const actions=allowedProgressionActions.filter(action=>action!=="generate_quest"&&action!=="generate_boss");
     const facts={builtIns:builtIns.map(node=>{const items=Object.values(node.evidenceContract.spellingItems??{});const roles=Object.values(node.evidenceContract.itemRoles??{});
       return {nodeId:node.nodeId,title:node.title,implementationType:node.implementationType??"word-radar",wordIds:[...new Set(items.map(item=>item.wordId))],responseMode:items[0]?.response.mode??"spelling_letters",checkpoint:roles.length>0&&roles.every(role=>role==="fresh_checkpoint")};}),
-      evaluationIds,allowedActions:actions,idPrefix:`${cycle.homeworkId}-r${checkpointRevision}-step`};
+      evaluationIds,allowedActions:actions,idPrefix:`${cycle.homeworkId}-r${checkpointRevision}-step`,
+      // The same check the re-run step applies, asked while the Planner is still choosing.
+      rerunnable:(nodeId:string,wordIds:string[])=>{const source=builtIns.find(node=>node.nodeId===nodeId);return Boolean(source&&repointReusedSetup(source,`${nodeId}-check`,wordIds.map(wordId=>({id:`check:${wordId}`,wordId}))));}};
     const prompt=`You are Sunny's AI Planner. Compare the preregistered academic theory and predictions with the factual scorecard, then decide what happens next, using the tools.
 1. decide: one concise, evidence-grounded decision. Cite the prediction evaluations you judge.
 2. Unless you await calibration, build the next board: add_step for each step (each re-runs one tested built-in activity with all of its own words), then set_order and, when academically valid alternatives exist, add_choice. Then finish_board.

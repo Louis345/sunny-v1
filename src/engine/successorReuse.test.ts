@@ -186,12 +186,16 @@ it('re-runs an explainer for the Planner\'s narrowed words, since its setup carr
 });
 
 it('does not re-launch an explainer when its check question would be dropped',async()=>{
+ // Since 2026-10-24 the order tool asks the re-run check while the Planner chooses: narrowing this
+ // explainer away from its check word is refused with the reason, so it never becomes a Not ready step.
  const f=explainerFixture(['island','minus']),opts={rootDir:f.rootDir};
- await runtime.advanceCanonicalCycleFromEvidence(f.request,opts);
- const next=getLearningCycle(childId,homeworkId,opts)!;
- const node=next.nodes.find(row=>row.title==='Silent Letter Detective Camp')!;
- expect(node.reusedFrom).toBeUndefined();
- expect(node.evidenceContract.nativeConfig).toBeUndefined();
+ const before=getLearningCycle(childId,homeworkId,opts)!;
+ const requests:any[]=[];const stream=(f.request as any).client.messages.stream;
+ (f.request as any).client.messages.stream=(payload:any)=>{requests.push(payload);return stream(payload);};
+ await expect(runtime.advanceCanonicalCycleFromEvidence(f.request,opts)).rejects.toThrow('canonical_progression_tools_unfinished');
+ const refusal=requests[1].messages.at(-1).content.find((block:any)=>block.is_error);
+ expect(String(refusal.content)).toContain('cannot be re-run for just those words');
+ expect(getLearningCycle(childId,homeworkId,opts)!.boards).toEqual(before.boards);
 });
 
 // 2026-10-22 harness catch (self-run kiosk robot): a reused Letter Rush whose activity ID was literally

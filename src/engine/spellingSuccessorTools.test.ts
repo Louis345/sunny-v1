@@ -10,7 +10,10 @@ const facts = (overrides: Partial<SuccessorFacts> = {}): SuccessorFacts => ({
     { nodeId: "act-1", title: "Silent Letter Detectives", implementationType: "visual-explainer", wordIds: ["w-sign", "w-write"], responseMode: "tap_selection", checkpoint: false },
     { nodeId: "act-3", title: "Hidden Letters Practice", implementationType: "word-radar", wordIds: ["w-write", "w-gnat"], responseMode: "spelling_letters", checkpoint: false },
     { nodeId: "act-6", title: "Spelling Checkpoint", implementationType: "word-radar", wordIds: ["w-sign", "w-write", "w-gnat"], responseMode: "spelling_letters", checkpoint: true },
+    { nodeId: "act-5", title: "Word Puzzle", implementationType: "wordle", wordIds: ["w-write", "w-gnat"], responseMode: "spelling_letters", checkpoint: false },
   ],
+  // What the re-run step can really prepare: the explainer only with all its words, Wordle never.
+  rerunnable: (nodeId, wordIds) => nodeId === "act-5" ? false : nodeId === "act-1" ? wordIds.length === 2 : true,
   evaluationIds: ["eval-1", "eval-2"],
   allowedActions: ["generate_support", "collect_more_evidence", "await_calibration"],
   idPrefix: "next-r7",
@@ -72,6 +75,17 @@ describe("spelling next-board tools", () => {
     expect(call("set_order", { opening: ["missing"], closing: [] })).toMatchObject({ ok: false, error: expect.stringContaining("missing") });
     expect(call("set_order", { opening: [], closing: [] })).toMatchObject({ ok: true });
     expect(call("finish_board", { title: "T", endpoint_label: "E", single_path_reason: "r" })).toMatchObject({ ok: false, error: expect.stringContaining(a) });
+  });
+
+  // 2026-10-24 live board 3: add_step accepted "re-run the explainer for just gnat" and Wordle; the
+  // re-run step then refused both and the child saw Not ready. The tool now asks the same question first.
+  it("never offers a built-in that cannot be re-run, and refuses a word set it cannot be re-run for", () => {
+    const { kit, call } = session();
+    const builtIns = (plannerToolDefinitions(kit.tools).find(tool => tool.name === "add_step")!.input_schema as any).properties.built_in.enum;
+    expect(builtIns).not.toContain("act-5");
+    call("decide", decision());
+    expect(call("add_step", step("act-1", "Gnat Review", ["w-sign"]))).toMatchObject({ ok: false, error: expect.stringContaining("all of its words") });
+    expect(call("add_step", step("act-1", "Letters Review", []))).toMatchObject({ ok: true });
   });
 
   it("re-runs a built-in for fewer of its own words, never a word it lacks", () => {
