@@ -84,7 +84,7 @@ describe("canonical learning cycle runtime", () => {
       else recordCanonicalNodeCompletion({...completion,sessionId:"replay"},{rootDir});
       return {status:"inconclusive",reason:"Collect fresh evidence next",progressionAction:"collect_more_evidence",preserve:[],change:[],testNext:[],nextEvidenceRequired:[],successor:successorOf(prescription("fresh-check"))};
     }},{rootDir});
-    if(blocked) await expect(pending).rejects.toThrow("canonical_progression_context_changed");
+    if(blocked) await expect(pending).rejects.toThrow("canonical_progression_stage_changed:baseline_evaluating->blocked");
     else {
       const after=await pending;
       expect(after.lifecycle).toBe("baseline_generating");
@@ -98,11 +98,13 @@ describe("canonical learning cycle runtime", () => {
     fs.rmSync(rootDir,{recursive:true,force:true});
   });
 
-  it("retries one Planner decision from the latest engagement theory revision", async () => {
+  it("keeps one Planner decision when engagement theory updates while it decides", async () => {
     // Human catch: the final checkpoint closed revision 86, then the child's
     // post-activity choice updated engagement theory to 87 while the Planner
-    // was running. The valid context guard rejected the stale answer, but no
-    // bounded retry advanced the finished board.
+    // was running. A context guard rejected the answer; a bounded retry was added.
+    // 2026-10-25 Saori catch: that retry collided with the saved tool turns and blocked
+    // Reina's finished board. Engagement bookkeeping is later evidence, never a reason to
+    // discard the decision for the batch that closed: one call, decision applied.
     const rootDir = root();
     createLearningCycle({ ...input(), nodes: [node("facts", "baseline")] }, { rootDir });
     recordCanonicalNodeCompletion({
@@ -134,19 +136,19 @@ describe("canonical learning cycle runtime", () => {
             } as never,
             reason: "Post-activity choice updated engagement context.",
           }, { rootDir });
-        } else {
-          expect(cycle.engagementTheory?.theoryId).toBe("engagement-current");
         }
         return { status: "inconclusive", reason: "Collect fresh evidence next", progressionAction: "collect_more_evidence", preserve: [], change: [], testNext: [], nextEvidenceRequired: [], successor: successorOf(prescription("fresh-check")) };
       },
     }, { rootDir });
 
-    expect(calls).toBe(2);
+    expect(calls).toBe(1);
     expect(decided.lifecycle).toBe("baseline_generating");
+    expect(decided.engagementTheory?.theoryId).toBe("engagement-current");
     fs.rmSync(rootDir, { recursive: true, force: true });
   });
 
-  it("stops after one context-change retry", async () => {
+  // No retry loop: however often the chart changes while it decides, the Planner is asked once.
+  it("asks the Planner exactly once however often the chart changes", async () => {
     const rootDir = root();
     createLearningCycle({ ...input(), nodes: [node("facts", "baseline")] }, { rootDir });
     recordCanonicalNodeCompletion({
@@ -172,8 +174,8 @@ describe("canonical learning cycle runtime", () => {
       },
     }, { rootDir });
 
-    await expect(pending).rejects.toThrow("canonical_progression_context_changed");
-    expect(calls).toBe(2);
+    await expect(pending).resolves.toMatchObject({ lifecycle: "baseline_generating" });
+    expect(calls).toBe(1);
     fs.rmSync(rootDir, { recursive: true, force: true });
   });
 

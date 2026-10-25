@@ -814,8 +814,14 @@ ${JSON.stringify(baselineEligibility, null, 2)}
 Allowed progression actions: ${actions.join(", ")}
 Cycle:
 ${JSON.stringify({ lifecycle: cycle.lifecycle, assignment: cycle.assignment, theory: cycle.academicTheory, predictions: cycle.academicPredictions, predictionEvaluations: cycle.predictionEvaluations, evidence: factualEvidence, observations: factualObservations, nodes: cycle.nodes.map((node) => ({ nodeId: node.nodeId, role: node.role, title: node.title, state: node.state, routeId: node.routeId, evidenceIds: node.evidenceIds.filter((id) => !isSynthetic(id)) })) }, null, 2)}`;
-    const kit=spellingSuccessorToolkit(facts);
-    const loop=await runPlannerToolLoop({label:"spelling-next-board",prompt,model:plannerModel,maxTokens:16000,tools:kit.tools,state:kit.initialState(),finished:kit.finished,
+    // The question is frozen when its evidence batch closes: a restart asks the same question and replays
+    // the saved turns at no cost, whatever has been recorded since.
+    const frozenFile=path.join(draftDir,`${decisionStage}-tools.question.json`);
+    const {rerunnable,...factData}=facts;
+    const question=fs.existsSync(frozenFile)?JSON.parse(fs.readFileSync(frozenFile,"utf8")) as {prompt:string;model:string;facts:typeof factData}:{prompt,model:plannerModel,facts:factData};
+    if(!fs.existsSync(frozenFile)){fs.mkdirSync(draftDir,{recursive:true});fs.writeFileSync(`${frozenFile}.tmp`,JSON.stringify(question));fs.renameSync(`${frozenFile}.tmp`,frozenFile);}
+    const kit=spellingSuccessorToolkit({...question.facts,rerunnable});
+    const loop=await runPlannerToolLoop({label:"spelling-next-board",prompt:question.prompt,model:question.model,maxTokens:16000,tools:kit.tools,state:kit.initialState(),finished:kit.finished,
       send:providerTurnSender({label:"spelling-next-board",stagePrefix:`${decisionStage}-tools`,draftDir,client:anthropic})});
     console.log(` 🎮 [canonical-progression] [planner-response] [checkpointed] homework=${cycle.homeworkId} revision=${cycle.revision} tools=${loop.stats.stop}`);
     if(!kit.finished(loop.state))throw new Error(`canonical_progression_tools_unfinished:${loop.stats.stop}`);
@@ -924,30 +930,20 @@ export async function advanceCanonicalCycleFromEvidence(
   input: AdvanceInput,
   opts: LearningCycleRepositoryOptions = {},
 ): Promise<LearningCycleRecordV2> {
-  for (let attempt = 0; attempt < 2; attempt += 1) {
-    try {
-      return await decideOnce(input, opts);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      if (message === "canonical_progression_context_changed" && attempt === 0) {
-        const latestContext = getLearningCycle(input.childId, input.homeworkId, opts);
-        if (latestContext && ["baseline_evaluating", "quest_evaluating", "boss_evaluating"].includes(latestContext.lifecycle)) {
-          console.log(` 🎮 [canonical-progression] [context-retry] homework=${latestContext.homeworkId} revision=${latestContext.revision} attempt=2/2`);
-          continue;
-        }
-      }
-      const retryable = Boolean((error as { status?: number }).status)
-        || /^(learning_cycle_revision_conflict|canonical_progression_context_changed|provider_request_rejected|learning_cycle_missing)/.test(message);
-      const latest = !input.decide && !retryable ? getLearningCycle(input.childId, input.homeworkId, opts) : null;
-      if (latest && ["baseline_evaluating", "quest_evaluating", "boss_evaluating"].includes(latest.lifecycle)) {
-        const reason = message.startsWith("provider_outcome_uncertain") ? message : `planner_decision_invalid:${message}`;
-        transitionLearningCycle(latest.childId, latest.homeworkId, latest.revision, { type: "block", reason }, opts);
-        console.error(` 🎮 [canonical-progression] [blocked] homework=${latest.homeworkId} reason=${reason}`);
-      }
-      throw error;
+  try {
+    return await decideOnce(input, opts);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    const retryable = Boolean((error as { status?: number }).status)
+      || /^(learning_cycle_revision_conflict|provider_request_rejected|learning_cycle_missing)/.test(message);
+    const latest = !input.decide && !retryable ? getLearningCycle(input.childId, input.homeworkId, opts) : null;
+    if (latest && ["baseline_evaluating", "quest_evaluating", "boss_evaluating"].includes(latest.lifecycle)) {
+      const reason = message.startsWith("provider_outcome_uncertain") ? message : `planner_decision_invalid:${message}`;
+      transitionLearningCycle(latest.childId, latest.homeworkId, latest.revision, { type: "block", reason }, opts);
+      console.error(` 🎮 [canonical-progression] [blocked] homework=${latest.homeworkId} reason=${reason}`);
     }
+    throw error;
   }
-  throw new Error("canonical_progression_retry_exhausted");
 }
 
 async function decideOnce(
@@ -1010,14 +1006,13 @@ async function decideOnce(
   const {evidenceIds,decisionEvidenceIds} = progressionEvidence(cycle);
   const latest = getLearningCycle(cycle.childId, cycle.homeworkId, opts);
   if (!latest) throw new Error(`learning_cycle_missing:${cycle.homeworkId}`);
-  if (latest.revision !== cycle.revision) {
-    const intervening = latest.decisionHistory.slice(cycle.decisionHistory.length);
-    const replayOnly = latest.lifecycle === cycle.lifecycle && intervening.length === latest.revision - cycle.revision &&
-      intervening.every(event => event.eventType === "instrument_observed" && event.fromLifecycle === cycle.lifecycle && event.toLifecycle === cycle.lifecycle) &&
-      latest.observations.slice(cycle.observations.length).every(observation => observation.provenance === "practice");
-    if (!replayOnly) throw new Error("canonical_progression_context_changed");
-    console.log(` 🎮 [canonical-progression] [replay-preserved] fromRevision=${cycle.revision} toRevision=${latest.revision}`);
-  }
+  // The decision belongs to the evidence batch that closed; anything recorded since (practice replays,
+  // engagement bookkeeping, session notes) is evidence for the next decision, never a reason to discard
+  // this one. The transition below still applies only at the latest revision.
+  // The one real guard: a cycle that left this stage meanwhile (paused, or already decided) takes no decision.
+  // An explicit operator replay of a received decision onto its blocked cycle is the one exception.
+  if (!replay && latest.lifecycle !== cycle.lifecycle) throw new Error(`canonical_progression_stage_changed:${cycle.lifecycle}->${latest.lifecycle}`);
+  if (latest.revision !== cycle.revision) console.log(` 🎮 [canonical-progression] [later-evidence-kept] fromRevision=${cycle.revision} toRevision=${latest.revision}`);
   // Catalog records never fail a decision: an order whose built-in has no catalog entry (or no readable chart) records nothing.
   const contentDecisions = cycle.domain === "spelling" ? catalogedOnly(cycle.childId, spellingReuseFromOrders(cycle, decision), opts) : decision.contentDecisions;
   if (!replay && contentDecisions?.length) {

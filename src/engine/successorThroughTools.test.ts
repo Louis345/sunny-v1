@@ -7,6 +7,8 @@ import {linearJourneyFixture} from '../scripts/fixtures/authoredJourney';
 import {seedSpellingLab} from '../scripts/fixtures/spellingEvidenceFirst';
 import {oldFormDecisionStage,plainDraw,saveOldFormDecision,successorToolReply} from '../scripts/fixtures/successorToolConversation';
 import {plannerTransportPolicy} from './plannerTransport';
+import {buildInitialEngagementTheory,writeEngagementTheory} from './engagementTheory';
+import {getLearningCycle} from './learningCycleRepository';
 import {buildSpellingRecallItems} from './learningCycleIngest';
 import {createLearningCycle} from './learningCycleRepository';
 import {currentBoardInstance} from './learningBoardInstances';
@@ -97,4 +99,32 @@ it('never buys a citation patch for a saved old-form decision',async()=>{
  expect(f.stream).not.toHaveBeenCalled();
  const {draftDir}=await oldFormDecisionStage({rootDir:f.rootDir,childId,homeworkId});
  expect((fs.readdirSync(path.dirname(draftDir),{recursive:true}) as string[]).map(String).filter(name=>/citation-patch/.test(name))).toEqual([]);
+});
+
+// 2026-10-25 Saori catch: Reina finished her Teaching board and the Planner decided her next one, but
+// engagement bookkeeping updated her cycle 10 seconds later. A "chart changed during the decision" check
+// forced a retry, the retry rebuilt the Planner's question from the newer chart, collided with the saved
+// turns, and blocked the cycle. Logs named both steps; the lab child had no engagement record, so the
+// robot never lived through it. A decision belongs to the evidence batch that closed; later changes are
+// later evidence, and the Planner's question is frozen when the batch closes.
+it('publishes the next board when engagement updates while the Planner decides, buying nothing twice',async()=>{
+ const f=fixture();
+ const draw=async(journey:any)=>{writeEngagementTheory(childId,buildInitialEngagementTheory({childId,domain:'spelling',homeworkId}),{rootDir:f.rootDir});return plainDraw(journey);};
+ const cycle=await runtime.advanceCanonicalCycleFromEvidence({...f.request,draw},{rootDir:f.rootDir});
+ expect(cycle.lifecycle).not.toBe('blocked');
+ expect(cycle.decisionHistory.at(-1)?.eventType).toBe('theory_decided');
+ expect(f.stream).toHaveBeenCalledTimes(2);
+});
+
+it('replays the frozen question after a restart even though the chart changed meanwhile',async()=>{
+ const f=fixture();
+ const crash=async()=>{throw Object.assign(new Error('lab_process_stopped'),{status:503});};
+ await expect(runtime.advanceCanonicalCycleFromEvidence({...f.request,draw:crash},{rootDir:f.rootDir})).rejects.toThrow('lab_process_stopped');
+ expect(f.stream).toHaveBeenCalledTimes(2);
+ writeEngagementTheory(childId,buildInitialEngagementTheory({childId,domain:'spelling',homeworkId}),{rootDir:f.rootDir});
+ const noCall=vi.fn(()=>{throw new Error('must_not_buy_the_decision_again');});
+ const cycle=await runtime.advanceCanonicalCycleFromEvidence({...f.request,client:{messages:{stream:noCall}} as never},{rootDir:f.rootDir});
+ expect(noCall).not.toHaveBeenCalled();
+ expect(cycle.lifecycle).not.toBe('blocked');
+ expect(getLearningCycle(childId,homeworkId,{rootDir:f.rootDir})!.decisionHistory.at(-1)?.eventType).toBe('theory_decided');
 });
