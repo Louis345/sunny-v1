@@ -44,7 +44,14 @@ export function spellingTeachingToolkit(packet: AssignmentPlanningPacket) {
     ...games,
   ];
   const assigned = [...new Set([...packet.capturedHomework.words, ...(packet.capturedHomework.wordGroups ?? []).flatMap(group => group.words)])];
-  const evidence = assignmentPlannerAllowedEvidenceIds(packet);
+  // Predictions cite this homework's evidence. Her whole history stays in the prompt as context, but as
+  // a pick-list it outgrew what strict mode can compile (251 IDs on a real chart, 2026-10-25).
+  const thisHomework = new Set([
+    ...(packet.capturedHomework.wordGroups ?? []).flatMap(group => group.evidence),
+    ...(packet.discoveryEvidence?.observations ?? []).map(row => row.observationId),
+    ...(packet.discoveryEvidence?.summary.constructs ?? []).flatMap(construct => construct.observationIds),
+  ]);
+  const evidence = assignmentPlannerAllowedEvidenceIds(packet).filter(id => thisHomework.has(id));
   const idPrefix = `act-${packet.sourceDocument.fileHash.slice(0, 6)}`;
 
   const word = enumOf(assigned, "none").describe("One of her assigned words.");

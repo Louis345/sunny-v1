@@ -152,4 +152,22 @@ describe("spelling Teaching tools", () => {
     };
     expect(JSON.stringify(build())).toBe(JSON.stringify(build()));
   });
+
+  // 2026-10-25 kiosk catch: Ila's real Teaching request offered all 251 evidence IDs from her history
+  // as predict's pick-list, and the provider refused the strict forms ("Schema is too complex for
+  // compilation"), so her board never built. Demo and lab charts have a handful of IDs, so nothing
+  // caught it. The pick-list is this homework's evidence; a long history never grows the forms.
+  it("offers only this homework's evidence, so a long history never grows the forms", () => {
+    const small = packet();
+    const large = packet();
+    (large as any).discoveryEvidence.history = { constructs: { "spelling.word.history": {
+      observations: Array.from({ length: 200 }, (_, i) => ({ observationId: `history-obs-${i}` })),
+      evaluations: Array.from({ length: 50 }, (_, i) => ({ evaluationId: `history-eval-${i}` })) } } };
+    const forms = (p: AssignmentPlanningPacket) => plannerToolDefinitions(spellingTeachingToolkit(p).tools);
+    const predict = forms(large).find(tool => tool.name === "predict")!;
+    const offered: string[] = (predict.input_schema as any).properties.evidence_ids.items.enum;
+    expect(offered).toEqual(expect.arrayContaining(["obs-1", "obs-2"]));
+    expect(offered.filter(id => id.startsWith("history-"))).toEqual([]);
+    expect(JSON.stringify(forms(large))).toBe(JSON.stringify(forms(small)));
+  });
 });
