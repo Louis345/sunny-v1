@@ -12,7 +12,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import path from "path";
 import { getChildChart } from "../profiles/childChart";
 import { resolveChildContextDir } from "../utils/contextRoot";
-import { runMathProviderStage } from "./adaptiveMathDiscovery";
+import { hasReceivedMathProviderStage, readReceivedMathProviderStage, runMathProviderStage } from "./adaptiveMathDiscovery";
 import { engagementTheoryEvidenceContext } from "./engagementTheory";
 import { evaluateAcademicPredictions } from "./longitudinalLearning";
 import {
@@ -662,7 +662,6 @@ Two things this Planner has gotten wrong before, stated plainly so you can avoid
 - Do not treat the engagement context as a list of things to avoid. It is observation with sample sizes attached, and dimensions too weakly evidenced to act on have already been withheld from you. A presentation that has not been seen to work is untested, not forbidden. Nothing in that context constrains stakes, difficulty, or consequence.`;
 
 /** Spelling: the Planner is the doctor writing orders; Sunny runs each order with a tested built-in activity. */
-const SPELLING_ORDER_BRIEF = `You write the orders for the next spelling board, and Sunny runs each order exactly as written. Each step is one tested built-in activity from the list below: name it in spelling.builtInActivityId, choose spelling.wordIds from that activity's words (all of them or fewer), a measurementRole and a responseMode, and give the step a title the child will see. Choose which words need teaching or practice, in what order, and when to collect a fresh recall check. Sunny builds no new spelling games.`;
 
 /** Briefs for the AI builder. Spelling steps are orders for tested built-ins and never carry them. */
 const DESIGN_FIELDS_SCHEMA = {
@@ -752,8 +751,6 @@ async function askPlanner(
   const savedSpellingItems = spellingAssignmentItems(cycle);
   const builtIns = spellingBuiltInActivities(cycle);
   const legacyContentSchema = {type:'array',items:{type:'object',additionalProperties:false,properties:{contentId:{type:'string'},action:{type:'string',enum:['candidate','reuse','revise','retire']},reason:{type:'string'},evidenceIds:{type:'array',items:{type:'string'}}},required:['contentId','action','reason','evidenceIds']}};
-  // Spelling orders name the built-ins they re-run; the catalog follows from them, so there is no second list to write.
-  const contentSchema = cycle.domain !== 'spelling' ? legacyContentSchema : {...legacyContentSchema,maxItems:0};
   const instrumentSchema = {
     type: "object",
     additionalProperties: false,
@@ -765,21 +762,10 @@ async function askPlanner(
       theme: { type: "string", minLength: 1 },
       openingPurpose: { type: "string", minLength: 1 },
       ...(cycle.domain === "math" ? { items: MATH_ITEMS_SCHEMA } : {}),
-      ...(cycle.domain === "spelling" ? { spelling: {
-        type: "object", additionalProperties: false,
-        properties: {
-          wordIds: { type: "array", minItems: 1, uniqueItems: true, items: { type: "string", enum: [...savedSpellingItems.keys()] } },
-          measurementRole: { type: "string", enum: ["practice", "fresh_checkpoint"] },
-          responseMode: { type: "string", enum: ["spelling_letters", "tap_selection"] },
-          ...(builtIns.length ? { builtInActivityId: { type: "string", enum: builtIns.map(node => node.nodeId), description: "The tested built-in activity this step re-runs, with exactly its own words." } } : {}),
-        },
-        required: ["wordIds", "measurementRole", "responseMode", ...(builtIns.length ? ["builtInActivityId"] : [])],
-      } } : {}),
       encounter: { type: "string", enum: ["quest", "boss"], description: "Only on the single Quest or Boss node your progressionAction authorizes." },
-      // A spelling step is an order for a tested built-in; the design fields brief the AI builder, which spelling never uses.
-      ...(cycle.domain === "spelling" ? {} : { ...DESIGN_FIELDS_SCHEMA }),
+      ...DESIGN_FIELDS_SCHEMA,
     },
-    required: ["nodeId", "title", "academicTarget", "mechanic", "theme", "openingPurpose", ...(cycle.domain === "math" ? ["items"] : cycle.domain === "spelling" ? ["spelling"] : []), ...(cycle.domain === "spelling" ? [] : Object.keys(DESIGN_FIELDS_SCHEMA))],
+    required: ["nodeId", "title", "academicTarget", "mechanic", "theme", "openingPurpose", ...(cycle.domain === "math" ? ["items"] : []), ...Object.keys(DESIGN_FIELDS_SCHEMA)],
   };
   // The raw response is checkpointed before validation; a restart from the same
   // frozen snapshot replays it and makes no new provider call (contract 21).
@@ -792,13 +778,60 @@ async function askPlanner(
     observationIds: cycle.observations.filter((observation) => observation.provenance !== "practice").map((observation) => observation.observationId),
     model: plannerModel,
   };
+  // Spelling decides through small locked tools. A decision already received through the retired
+  // single form, and a citation patch received for it, replay read only; that form is never sent again.
+  if(cycle.domain==='spelling'){
+    const savedDecision=readReceivedMathProviderStage(draftDir,decisionStage);
+    if(savedDecision!==undefined){
+      const patchStage=`progression-citation-patch-r${checkpointRevision}`;
+      const patch=hasReceivedMathProviderStage(draftDir,patchStage)?readPlannerToolReceipt(readReceivedMathProviderStage(draftDir,patchStage),toolName) as Record<string,unknown>:{};
+      const decision=parseCanonicalProgressionDecision({...readPlannerToolReceipt(savedDecision,toolName) as Record<string,unknown>,...patch});
+      assertPredictionCitations(decision,cycle);
+      console.log(` 🎮 [canonical-progression] [saved-decision] [replayed] homework=${cycle.homeworkId} revision=${checkpointRevision}`);
+      return decision;
+    }
+    const evaluationIds=cycle.predictionEvaluations.map(evaluation=>evaluation.evaluationId);
+    // Quest and Boss encounters are planned features spelling cannot run yet; they are not offered.
+    const actions=allowedProgressionActions.filter(action=>action!=="generate_quest"&&action!=="generate_boss");
+    const facts={builtIns:builtIns.map(node=>{const items=Object.values(node.evidenceContract.spellingItems??{});const roles=Object.values(node.evidenceContract.itemRoles??{});
+      return {nodeId:node.nodeId,title:node.title,implementationType:node.implementationType??"word-radar",wordIds:[...new Set(items.map(item=>item.wordId))],responseMode:items[0]?.response.mode??"spelling_letters",checkpoint:roles.length>0&&roles.every(role=>role==="fresh_checkpoint")};}),
+      evaluationIds,allowedActions:actions,idPrefix:`${cycle.homeworkId}-r${checkpointRevision}-step`,
+      // The same check the re-run step applies, asked while the Planner is still choosing.
+      rerunnable:(nodeId:string,wordIds:string[])=>{const source=builtIns.find(node=>node.nodeId===nodeId);return Boolean(source&&repointReusedSetup(source,`${nodeId}-check`,wordIds.map(wordId=>({id:`check:${wordId}`,wordId}))));}};
+    const prompt=`You are Sunny's AI Planner. Compare the preregistered academic theory and predictions with the factual scorecard, then decide what happens next, using the tools.
+1. decide: one concise, evidence-grounded decision. Cite the prediction evaluations you judge.
+2. Unless you await calibration, build the next board: add_step for each step (each re-runs one tested built-in activity with all of its own words), then set_order and, when academically valid alternatives exist, add_choice. Then finish_board.
+Sunny runs each step exactly as written and builds no new spelling games. The current board is never changed; your board is for a later session. Each path from start to finish, counting the start, the choice and the finish, fits in 7 steps. Title each step as she should see it. Do not claim mastery or readiness. Fresh recall after practice is not unseen transfer or delayed retention.
+For spelling, Correct practice after long response time is not effortless recall. Examine per-word response time alongside assistance, exposure, response mode and instrument ambiguity. When the evidence suggests she is struggling, order teaching and guided practice before another fresh recall check; let Elli respond conversationally from the live item and child context. Do not infer mastery from supported or partial-visibility practice, and do not use a fixed latency threshold to choose the lesson.
+Tested built-in activities you may re-run:
+${JSON.stringify(facts.builtIns.map(row=>({builtIn:row.nodeId,title:row.title,type:row.implementationType,words:row.wordIds.length,checkpoint:row.checkpoint})))}
+Saved spelling words:
+${JSON.stringify([...savedSpellingItems.values()].map(item=>({wordId:item.wordId,word:item.word})))}
+Child chart context:
+${JSON.stringify(childContext, null, 2)}
+Baseline Quest eligibility (runtime truth boundary, not a mastery judgment):
+${JSON.stringify(baselineEligibility, null, 2)}
+Allowed progression actions: ${actions.join(", ")}
+Cycle:
+${JSON.stringify({ lifecycle: cycle.lifecycle, assignment: cycle.assignment, theory: cycle.academicTheory, predictions: cycle.academicPredictions, predictionEvaluations: cycle.predictionEvaluations, evidence: factualEvidence, observations: factualObservations, nodes: cycle.nodes.map((node) => ({ nodeId: node.nodeId, role: node.role, title: node.title, state: node.state, routeId: node.routeId, evidenceIds: node.evidenceIds.filter((id) => !isSynthetic(id)) })) }, null, 2)}`;
+    const kit=spellingSuccessorToolkit(facts);
+    const loop=await runPlannerToolLoop({label:"spelling-next-board",prompt,model:plannerModel,maxTokens:16000,tools:kit.tools,state:kit.initialState(),finished:kit.finished,
+      send:providerTurnSender({label:"spelling-next-board",stagePrefix:`${decisionStage}-tools`,draftDir,client:anthropic})});
+    console.log(` 🎮 [canonical-progression] [planner-response] [checkpointed] homework=${cycle.homeworkId} revision=${cycle.revision} tools=${loop.stats.stop}`);
+    if(!kit.finished(loop.state))throw new Error(`canonical_progression_tools_unfinished:${loop.stats.stop}`);
+    const {decision,journey}=kit.result(loop.state);
+    if(!journey)return parseCanonicalProgressionDecision(decision);
+    const drawing=draw?await draw(journey):await drawJourney({journey,label:`${cycle.homeworkId}:r${checkpointRevision}`,stagePrefix:`${decisionStage}-design`,identity:{childId:cycle.childId,homeworkId:cycle.homeworkId,batchId,journey},
+      checkpointFile:path.join(draftDir,`${decisionStage}-design.json`),rawResponseDir:draftDir,...(client?{client}:{})});
+    return parseCanonicalProgressionDecision({...decision,boardDefinition:assembleAdventureBoardDefinition(journey,drawing.composition,drawing.pattern)});
+  }
   let request = {
     model: plannerModel,
     // A complete successor program and board exceeded the former 6,000-token allowance.
     max_tokens: 32000,
     messages: [{ role: "user", content: `You are Sunny's AI Planner. Compare the preregistered academic theory and predictions with the factual scorecard. Quest requires a captured, correct, unseen independent checkpoint. Practice cannot satisfy that boundary. For math, author nextItems with stable unique ids, prompts, lineage, and frozen response contracts. Include fresh checkpoint evidence when further progression is intended. Explanation responses remain unscored and cannot independently unlock progression. Never reuse exposed item ids or prompts. Quest tests unseen transfer; Boss tests unseen synthesis; Boss must end awaiting calibration. Call ${toolName} exactly once with one concise decision. Unless progressionAction is await_calibration, author the one complete next board in nextInstruments: you decide how many activities it has. ${BOARD_AUTHORING_INSTRUCTION} The current board is never changed; your program becomes a new board for a later session. Mark exactly one instrument with encounter "quest" only when progressionAction is generate_quest, or "boss" only when it is generate_boss; never add an encounter otherwise.
 
-${cycle.domain === "spelling" ? SPELLING_ORDER_BRIEF : ARTIST_BRIEF}
+${ARTIST_BRIEF}
 
 Title each instrument as the child should see it. It appears as the first thing on their screen, so give it a real name, not a category label.
 
@@ -839,10 +872,8 @@ ${JSON.stringify({ lifecycle: cycle.lifecycle, assignment: cycle.assignment, the
           change: { type: "array", items: { type: "string" } },
           testNext: { type: "array", items: { type: "string" } },
           nextEvidenceRequired: { type: "array", items: { type: "string" } },
-          predictionEvaluationIds: cycle.domain !== "spelling" ? {type:"array",items:{type:"string"}} : cycle.predictionEvaluations.length
-            ? {type:"array",minItems:1,items:{type:"string",enum:cycle.predictionEvaluations.map(evaluation=>evaluation.evaluationId)}}
-            : {type:"array",maxItems:0,items:{type:"string"}},
-          contentDecisions: contentSchema,
+          predictionEvaluationIds: { type: "array", items: { type: "string" } },
+          contentDecisions: legacyContentSchema,
           revisedHypothesis: { type: "string" },
           nextInstruments: { type: "array", minItems: 1, items: instrumentSchema },
           boardDefinition: BOARD_DEFINITION_TOOL_SCHEMA,
@@ -863,45 +894,6 @@ ${JSON.stringify({ lifecycle: cycle.lifecycle, assignment: cycle.assignment, the
     }],
     tool_choice: { type: "tool", name: toolName },
   } satisfies Parameters<typeof requestPlannerMessage>[1];
-  // New spelling decisions are made through small locked tools; a decision already received through
-  // the old single form (its frozen request or receipt) replays below exactly as before.
-  const savedFormDecision=fs.existsSync(path.join(draftDir,`${decisionStage}.request.json`))||fs.existsSync(path.join(draftDir,'provider-receipts',`${decisionStage}.stage.json`));
-  if(cycle.domain==='spelling'&&!savedFormDecision){
-    const evaluationIds=cycle.predictionEvaluations.map(evaluation=>evaluation.evaluationId);
-    // Quest and Boss encounters are planned features spelling cannot run yet; they are not offered.
-    const actions=allowedProgressionActions.filter(action=>action!=="generate_quest"&&action!=="generate_boss");
-    const facts={builtIns:builtIns.map(node=>{const items=Object.values(node.evidenceContract.spellingItems??{});const roles=Object.values(node.evidenceContract.itemRoles??{});
-      return {nodeId:node.nodeId,title:node.title,implementationType:node.implementationType??"word-radar",wordIds:[...new Set(items.map(item=>item.wordId))],responseMode:items[0]?.response.mode??"spelling_letters",checkpoint:roles.length>0&&roles.every(role=>role==="fresh_checkpoint")};}),
-      evaluationIds,allowedActions:actions,idPrefix:`${cycle.homeworkId}-r${checkpointRevision}-step`,
-      // The same check the re-run step applies, asked while the Planner is still choosing.
-      rerunnable:(nodeId:string,wordIds:string[])=>{const source=builtIns.find(node=>node.nodeId===nodeId);return Boolean(source&&repointReusedSetup(source,`${nodeId}-check`,wordIds.map(wordId=>({id:`check:${wordId}`,wordId}))));}};
-    const prompt=`You are Sunny's AI Planner. Compare the preregistered academic theory and predictions with the factual scorecard, then decide what happens next, using the tools.
-1. decide: one concise, evidence-grounded decision. Cite the prediction evaluations you judge.
-2. Unless you await calibration, build the next board: add_step for each step (each re-runs one tested built-in activity with all of its own words), then set_order and, when academically valid alternatives exist, add_choice. Then finish_board.
-Sunny runs each step exactly as written and builds no new spelling games. The current board is never changed; your board is for a later session. Each path from start to finish, counting the start, the choice and the finish, fits in 7 steps. Title each step as she should see it. Do not claim mastery or readiness. Fresh recall after practice is not unseen transfer or delayed retention.
-For spelling, Correct practice after long response time is not effortless recall. Examine per-word response time alongside assistance, exposure, response mode and instrument ambiguity. When the evidence suggests she is struggling, order teaching and guided practice before another fresh recall check; let Elli respond conversationally from the live item and child context. Do not infer mastery from supported or partial-visibility practice, and do not use a fixed latency threshold to choose the lesson.
-Tested built-in activities you may re-run:
-${JSON.stringify(facts.builtIns.map(row=>({builtIn:row.nodeId,title:row.title,type:row.implementationType,words:row.wordIds.length,checkpoint:row.checkpoint})))}
-Saved spelling words:
-${JSON.stringify([...savedSpellingItems.values()].map(item=>({wordId:item.wordId,word:item.word})))}
-Child chart context:
-${JSON.stringify(childContext, null, 2)}
-Baseline Quest eligibility (runtime truth boundary, not a mastery judgment):
-${JSON.stringify(baselineEligibility, null, 2)}
-Allowed progression actions: ${actions.join(", ")}
-Cycle:
-${JSON.stringify({ lifecycle: cycle.lifecycle, assignment: cycle.assignment, theory: cycle.academicTheory, predictions: cycle.academicPredictions, predictionEvaluations: cycle.predictionEvaluations, evidence: factualEvidence, observations: factualObservations, nodes: cycle.nodes.map((node) => ({ nodeId: node.nodeId, role: node.role, title: node.title, state: node.state, routeId: node.routeId, evidenceIds: node.evidenceIds.filter((id) => !isSynthetic(id)) })) }, null, 2)}`;
-    const kit=spellingSuccessorToolkit(facts);
-    const loop=await runPlannerToolLoop({label:"spelling-next-board",prompt,model:plannerModel,maxTokens:16000,tools:kit.tools,state:kit.initialState(),finished:kit.finished,
-      send:providerTurnSender({label:"spelling-next-board",stagePrefix:`${decisionStage}-tools`,draftDir,client:anthropic})});
-    console.log(` 🎮 [canonical-progression] [planner-response] [checkpointed] homework=${cycle.homeworkId} revision=${cycle.revision} tools=${loop.stats.stop}`);
-    if(!kit.finished(loop.state))throw new Error(`canonical_progression_tools_unfinished:${loop.stats.stop}`);
-    const {decision,journey}=kit.result(loop.state);
-    if(!journey)return parseCanonicalProgressionDecision(decision);
-    const drawing=draw?await draw(journey):await drawJourney({journey,label:`${cycle.homeworkId}:r${checkpointRevision}`,stagePrefix:`${decisionStage}-design`,identity:{childId:cycle.childId,homeworkId:cycle.homeworkId,batchId,journey},
-      checkpointFile:path.join(draftDir,`${decisionStage}-design.json`),rawResponseDir:draftDir,...(client?{client}:{})});
-    return parseCanonicalProgressionDecision({...decision,boardDefinition:assembleAdventureBoardDefinition(journey,drawing.composition,drawing.pattern)});
-  }
   // Freeze new requests before purchase. Legacy stage hashes remain readable;
   // a received old answer is never silently replaced by a changed prompt/budget.
   const frozen=freezePlannerRequest({draftDir,stage:decisionStage,request,legacyContext:snapshot});
@@ -909,44 +901,9 @@ ${JSON.stringify({ lifecycle: cycle.lifecycle, assignment: cycle.assignment, the
   const rawDecision = await runMathProviderStage({draftDir,stage:decisionStage,model:request.model,request:frozen.receiptContext,beforeRequest:frozen.beforeRequest,execute:async()=>({plannerMessage:await requestPlannerMessage(anthropic,request,{timeout:frozen.timeout})})});
   console.log(` 🎮 [canonical-progression] [planner-response] [checkpointed] homework=${cycle.homeworkId} revision=${cycle.revision}`);
   const received = readPlannerToolReceipt(rawDecision, toolName);
-  let referenceErrors:Array<{field:'predictionEvaluationIds';error:Error}> = [];
-  const validate = async (value: unknown) => {
-    referenceErrors = [];
-    if(cycle.domain === 'spelling' && value && typeof value==='object' && !Array.isArray(value)) {
-      const raw = value as Record<string,unknown>;
-      const checks = {
-        predictionEvaluationIds:()=>{const ids=raw.predictionEvaluationIds;if(ids!==undefined && (!Array.isArray(ids)||!ids.every(id=>typeof id==='string')))throw new Error('canonical_progression_invalid_citation_patch');assertPredictionCitations({predictionEvaluationIds:ids as string[]|undefined},cycle);},
-      };
-      // A Planner-written catalog list is ignored for spelling (the catalog follows from the orders), so it is never checked or corrected.
-      for(const field of ['predictionEvaluationIds'] as const)try{checks[field]();}catch(error){if(!(error instanceof Error))throw error;referenceErrors.push({field,error});}
-      if(referenceErrors.length)throw referenceErrors[0].error;
-    }
-    const decision = parseCanonicalProgressionDecision(value);
-    if(cycle.domain !== 'spelling')assertPredictionCitations(decision,cycle);
-    return decision;
-  };
-  try { return await validate(received); }
-  catch (error) {
-    if (!(error instanceof Error)) throw error;
-    const fields = referenceErrors.map(issue=>issue.field);
-    if (!fields.length) throw error;
-    // A citation patch cannot change the plan. There is no canvas or catalog correction purchase.
-    console.log(` 🎮 [canonical-progression] [reference-correction] [required] reason=${error.message}`);
-    const tools = [{...request.tools[0],input_schema:{type:'object' as const,additionalProperties:false,properties:Object.fromEntries(fields.map(field=>[field,request.tools[0].input_schema.properties[field]])),required:fields}}];
-    const content = `Correct only predictionEvaluationIds in the received decision. Return only that field using the tool; this is a citation patch, not a new decision. Preregistered prediction IDs are not observed evaluation IDs. There is one correction attempt.\nDEFECT: ${error.message}\nAVAILABLE PREDICTION EVALUATION IDS: ${JSON.stringify(cycle.predictionEvaluations.map(evaluation=>evaluation.evaluationId))}\nRECEIVED CITATIONS: ${JSON.stringify((received as Record<string,unknown>).predictionEvaluationIds)}`;
-    const correctionRequest = {...request,tools,messages:[{role:'user' as const,content}]};
-    const correctionStage=`progression-citation-patch-r${checkpointRevision}`;
-    const savedCorrection=freezePlannerRequest({draftDir,stage:correctionStage,request:correctionRequest});
-    const correction = await runMathProviderStage({draftDir,stage:correctionStage,model:savedCorrection.request.model,request:savedCorrection.receiptContext,beforeRequest:savedCorrection.beforeRequest,execute:async()=>({plannerMessage:await requestPlannerMessage(anthropic,savedCorrection.request,{timeout:savedCorrection.timeout})})});
-    const reply = readPlannerToolReceipt(correction,toolName);
-    if(!reply || typeof reply !== 'object' || Array.isArray(reply) || Object.keys(reply).some(key=>!new Set<string>(fields).has(key)))throw new Error('planner_correction_changed_protected_decision');
-    const patch = reply as Record<string,unknown>;
-    for(const field of fields) {
-      if(!Array.isArray(patch[field]) || (field==='predictionEvaluationIds' && !(patch[field] as unknown[]).every(id=>typeof id==='string')))throw new Error('canonical_progression_invalid_citation_patch');
-    }
-    const corrected = {...received as Record<string,unknown>,...patch};
-    return validate(corrected);
-  }
+  const decision = parseCanonicalProgressionDecision(received);
+  assertPredictionCitations(decision,cycle);
+  return decision;
 }
 
 type AdvanceInput = {

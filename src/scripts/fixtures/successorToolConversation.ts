@@ -60,20 +60,25 @@ export function successorToolReply(recorded: unknown, request: any): any {
   ]);
 }
 
-/** Saves a next-board decision exactly as an older homework holds it on disk: received through the
- * old single form, keyed by its batch snapshot. Board 3 then replays it without a new purchase. */
-export async function saveOldFormDecision(input: { rootDir: string; childId: string; homeworkId: string; decision: unknown }): Promise<void> {
+/** Where an older homework keeps its next-board decision: the same batch rule as `plannerCheckpoint`. */
+export async function oldFormDecisionStage(input: { rootDir: string; childId: string; homeworkId: string }) {
   const { getLearningCycle } = await import("../../engine/learningCycleRepository");
-  const { runMathProviderStage } = await import("../../engine/adaptiveMathDiscovery");
   const { resolveChildContextDir } = await import("../../utils/contextRoot");
   const cycle = getLearningCycle(input.childId, input.homeworkId, { rootDir: input.rootDir })!;
-  // The same batch rule the runtime's plannerCheckpoint uses.
   const entry = [...cycle.decisionHistory].reverse().find(row => row.toLifecycle === cycle.lifecycle && row.fromLifecycle !== cycle.lifecycle);
   const batchId = entry?.decisionId ?? `${input.homeworkId}:r${cycle.revision}`;
   const recorded = Number(entry?.decisionId.match(/:r(\d+)$/)?.[1]);
   const revision = Number.isSafeInteger(recorded) ? recorded : cycle.revision;
   const draftDir = path.join(resolveChildContextDir(input.childId, { rootDir: input.rootDir }), "homework", "cycles", ".planner", input.homeworkId, batchId.replace(/[^a-zA-Z0-9_-]+/g, "_"));
+  return { cycle, batchId, revision, draftDir, stage: `progression-decision-r${revision}` };
+}
+
+/** Saves a next-board decision exactly as an older homework holds it on disk: received through the
+ * old single form, keyed by its batch snapshot. Board 3 then replays it without a new purchase. */
+export async function saveOldFormDecision(input: { rootDir: string; childId: string; homeworkId: string; decision: unknown }): Promise<void> {
+  const { runMathProviderStage } = await import("../../engine/adaptiveMathDiscovery");
+  const { cycle, batchId, revision, draftDir, stage } = await oldFormDecisionStage(input);
   const snapshot = { childId: input.childId, homeworkId: input.homeworkId, batchId, lifecycle: cycle.lifecycle, cycleRevision: revision,
     observationIds: cycle.observations.filter(row => row.provenance !== "practice").map(row => row.observationId), model: process.env.SUNNY_EXPERIENCE_PLANNER_MODEL ?? process.env.SUNNY_INGEST_MODEL ?? "claude-sonnet-5" };
-  await runMathProviderStage({ draftDir, stage: `progression-decision-r${revision}`, model: snapshot.model, request: snapshot, execute: async () => ({ plannerMessage: { id: "saved-old-form", stop_reason: "tool_use", content: [{ type: "tool_use", name: "decide_learning_cycle_progression", input: input.decision }] } }) });
+  await runMathProviderStage({ draftDir, stage, model: snapshot.model, request: snapshot, execute: async () => ({ plannerMessage: { id: "saved-old-form", stop_reason: "tool_use", content: [{ type: "tool_use", name: "decide_learning_cycle_progression", input: input.decision }] } }) });
 }

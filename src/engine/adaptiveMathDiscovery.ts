@@ -817,15 +817,19 @@ export function recordGenerationFailure(input: {draftDir:string;childId:string;h
 
 /** One durable receipt boundary for Discovery and targeted Creator work. */
 export function hasReceivedMathProviderStage(draftDir: string, stage: string): boolean {
+  return readReceivedMathProviderStage(draftDir, stage) !== undefined;
+}
+/** The saved provider answer for a stage, read only: never sends, and undefined unless it was received. */
+export function readReceivedMathProviderStage(draftDir: string, stage: string): unknown {
   const receipts = path.join(draftDir, "provider-receipts");
   const stageFile = path.join(receipts, `${stage}.stage.json`);
-  if (!fs.existsSync(stageFile)) return false;
+  if (!fs.existsSync(stageFile)) return undefined;
   const saved = JSON.parse(fs.readFileSync(stageFile, "utf8"));
   if (!/^[a-f0-9]{64}$/.test(saved?.requestHash)) throw new Error(`provider_receipt_invalid:${stageFile}`);
   const receiptFile = path.join(receipts, `${saved.requestHash}.json`);
   if (!fs.existsSync(receiptFile)) throw new Error(`provider_receipt_invalid:${receiptFile}`);
   const receipt = JSON.parse(fs.readFileSync(receiptFile, "utf8"));
-  return receipt.status === "received" && receipt.response != null;
+  return receipt.status === "received" && receipt.response != null ? receipt.response : undefined;
 }
 
 export async function runMathProviderStage<T>(input: {

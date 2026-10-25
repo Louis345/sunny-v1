@@ -5,7 +5,8 @@ import {createHash} from 'node:crypto';
 import {afterEach,expect,it,vi} from 'vitest';
 import {linearJourneyFixture} from '../scripts/fixtures/authoredJourney';
 import {seedSpellingLab} from '../scripts/fixtures/spellingEvidenceFirst';
-import {plainDraw,successorToolReply} from '../scripts/fixtures/successorToolConversation';
+import {oldFormDecisionStage,plainDraw,saveOldFormDecision,successorToolReply} from '../scripts/fixtures/successorToolConversation';
+import {plannerTransportPolicy} from './plannerTransport';
 import {buildSpellingRecallItems} from './learningCycleIngest';
 import {createLearningCycle} from './learningCycleRepository';
 import {currentBoardInstance} from './learningBoardInstances';
@@ -75,4 +76,25 @@ it('builds the next board through small locked tools, re-running only built-ins,
  const stages=fs.readdirSync(path.join(resolveChildContextDir(childId,{rootDir:f.rootDir}),'homework','cycles','.planner',homeworkId),{recursive:true}).map(String).filter(name=>name.endsWith('.stage.json'));
  expect(stages.some(name=>/-tools-turn-1\.stage\.json$/.test(name))).toBe(true);
  expect(stages.filter(name=>/correction|patch/.test(name))).toEqual([]);
+});
+
+// 2026-10-24: only a received old-form decision replays. A frozen old request that was never
+// answered is not sent as the retired single form, and a saved decision is never patched by a purchase.
+it('decides through the tools when an old single-form request was frozen but never answered',async()=>{
+ const f=fixture();
+ const {draftDir,stage}=await oldFormDecisionStage({rootDir:f.rootDir,childId,homeworkId});
+ const request={model:'claude-sonnet-5',max_tokens:32000,messages:[{role:'user',content:'old'}],tools:[{name:'decide_learning_cycle_progression',input_schema:{type:'object'}}],tool_choice:{type:'tool',name:'decide_learning_cycle_progression'}};
+ fs.mkdirSync(draftDir,{recursive:true});fs.writeFileSync(path.join(draftDir,`${stage}.request.json`),JSON.stringify({request,snapshot:null,policy:plannerTransportPolicy('claude-sonnet-5',32000,300000)}));
+ await runtime.advanceCanonicalCycleFromEvidence(f.request,{rootDir:f.rootDir});
+ expect(f.requests.flatMap((row:any)=>row.tools.map((tool:any)=>tool.name))).not.toContain('decide_learning_cycle_progression');
+ expect(f.requests[0].tools[0].name).toBe('decide');
+});
+
+it('never buys a citation patch for a saved old-form decision',async()=>{
+ const f=fixture();
+ await saveOldFormDecision({rootDir:f.rootDir,childId,homeworkId,decision:{status:'revised',reason:'Saved.',progressionAction:'collect_more_evidence',preserve:[],change:[],testNext:[],nextEvidenceRequired:['More'],predictionEvaluationIds:['not-an-evaluation'],nextInstruments:[]}});
+ await runtime.advanceCanonicalCycleFromEvidence(f.request,{rootDir:f.rootDir}).catch(()=>undefined);
+ expect(f.stream).not.toHaveBeenCalled();
+ const {draftDir}=await oldFormDecisionStage({rootDir:f.rootDir,childId,homeworkId});
+ expect((fs.readdirSync(path.dirname(draftDir),{recursive:true}) as string[]).map(String).filter(name=>/citation-patch/.test(name))).toEqual([]);
 });
