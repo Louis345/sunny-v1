@@ -34,6 +34,7 @@ The canvas, the runtime and Elli carry out the order faithfully. They never veto
 ## 5. Treat the disease [Laws 3, 4, 5, 6, 15]
 
 - Diagnose before you fix: post the decision chain that produced a human-caught bug (evidence → Planner → tool → component), name the earliest wrong decision with runtime evidence (a captured request, a robot run, logs, saved state), and wait for the owner to confirm it. Never diagnose from reading code alone.
+- Diagnosis card before any proposal, even in conversation: (1) did it work before, and what changed? (2) what was seen directly versus guessed, labelled; (3) the cheapest test that could prove the theory wrong, run first when it costs $0. Only seen facts may drive a fix.
 - Cure it at one point, preferring deletion and one source of truth over a new layer. One disease per change; log unrelated discoveries in `BUGS.md`. A cure larger than two files needs an approved plan, and show the tradeoffs before asking for approval.
 - No silent failures: every promise is handled, and every significant state change logs as ` 🎮 [component] [action] [result]`.
 - A patch is allowed only when a child is waiting; it is labelled a patch, degrades safely, and links the root-cause ticket.
