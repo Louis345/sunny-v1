@@ -66,8 +66,30 @@ describe("buildChildExperiencePacket", () => {
 
     const hydrated = {...chart,activeSessionPlan:readVerifiedSpellingResponseMode(chart as never,chart.activeSessionPlan as never)};
     expect(buildChildExperiencePacket(hydrated as never).activeSessionPlan?.nodePlan[0]?.wordRadarConfig).toEqual(artifact.node.wordRadarConfig);
+    // An altered file is never trusted: that one activity cannot launch, and the chart still opens.
     fs.writeFileSync(artifactPath, JSON.stringify({ ...artifact, node: { ...artifact.node, wordRadarConfig: { ...artifact.node.wordRadarConfig, recallMode: "full_recall" } } }));
-    expect(() => readVerifiedSpellingResponseMode(chart as never,chart.activeSessionPlan as never)).toThrow("verified_spelling_artifact_mismatch:teach-long-o");
+    const altered = readVerifiedSpellingResponseMode(chart as never,chart.activeSessionPlan as never)!;
+    expect(altered.nodePlan[0]).toMatchObject({ id: "teach-long-o", locked: true });
+    expect(altered.nodePlan[0]).not.toHaveProperty("wordRadarConfig");
+  });
+  // 2026-10-25 human catch (Saori): Reina's October Discovery was saved by older Sunny as a Discovery
+  // config at the draft root, not a Word Radar node file. The Oct 10 check threw on it, so her whole
+  // chart refused to load and no new homework could start. Logs named the node; the lab never loaded a
+  // chart written by an older Sunny. One unverifiable old activity is locked; the chart always opens.
+  it("locks one unverifiable old activity instead of refusing the whole chart", () => {
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-legacy-discovery-"));
+    const legacy = path.join(rootDir, "src/context/lab/homework/direct-drafts/hw/spelling-discovery-config.json");
+    fs.mkdirSync(path.dirname(legacy), { recursive: true });
+    fs.writeFileSync(legacy, JSON.stringify({ version: 1, mode: "independent_spelling_discovery", items: [], contractHash: "old" }));
+    const chart = { childId: "lab", rootDir, learningCycle: { domain: "spelling", homeworkId: "hw", nodes: [
+      { nodeId: "hw:discovery", role: "evaluation", state: "completed", implementationType: "word-radar", evidenceContract: { spellingItems: {} },
+        artifactBinding: { validationStatus: "passed", contractFingerprint: "f".repeat(64), localArtifactPath: legacy } },
+      { nodeId: "other", role: "baseline", state: "ready", implementationType: "word-radar", evidenceContract: { spellingItems: {}, nativeConfig: { activityId: "word-radar" } } },
+    ] } };
+    const plan = { planId: "hw", activeHomeworkId: "hw", nodePlan: [{ id: "hw:discovery", type: "word-radar" }, { id: "other", type: "word-radar" }] };
+    const read = readVerifiedSpellingResponseMode(chart as never, plan as never)!;
+    expect(read.nodePlan[0]).toMatchObject({ id: "hw:discovery", locked: true });
+    expect(read.nodePlan[1]).toEqual(plan.nodePlan[1]);
   });
   it("replays a completed recall check as practice rather than resubmitting the assessment", () => {
     const packet = buildChildExperiencePacket({ childId: "lab", companion: {}, homework: {}, learningCycle: { domain: "spelling", homeworkId: "hw", revision: 1, lifecycle: "board_ready", observations: [{ itemId: "i1" }], nodes: [{ nodeId: "check", role: "baseline", state: "completed", evidenceContract: { spellingItems: { i1: { id: "i1", word: "night", lineage: { measurementRole: "fresh_checkpoint" }, response: { acceptedForms: ["night"] } } } } }] } } as never);

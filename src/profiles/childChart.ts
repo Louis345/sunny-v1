@@ -315,20 +315,26 @@ export function readVerifiedSpellingResponseMode(
       if (planNode.wordRadarConfig || node?.implementationType !== "word-radar"
         || node.evidenceContract.nativeConfig || node.artifactBinding?.validationStatus !== "passed") return planNode;
       const binding = node.artifactBinding;
+      // An activity whose saved mode cannot be verified never launches in a guessed mode, and it
+      // never closes the chart: it is locked on its own, with the reason in the log.
+      const lock = (reason: string) => {
+        console.warn(` 🎮 [child-chart] [verified-spelling-mode] [locked] node=${node.nodeId} reason=${reason}`);
+        return { ...planNode, locked: true };
+      };
       const expectedDir = path.resolve(resolveChildContextDir(chart.childId, { rootDir: chart.rootDir }),
         "homework", "direct-drafts", cycle.homeworkId, "native-instruments");
       const artifactPath = path.resolve(resolveChildContextDir(chart.childId, { rootDir: chart.rootDir }),
         binding.localArtifactPath.replace(/^\/+/, ""));
+      if (!fs.existsSync(artifactPath) || !fs.existsSync(expectedDir)) return lock("verified_spelling_artifact_missing");
       if (path.dirname(artifactPath) !== expectedDir || path.dirname(fs.realpathSync(artifactPath)) !== fs.realpathSync(expectedDir)) {
-        throw new Error(`verified_spelling_artifact_path_mismatch:${node.nodeId}`);
+        return lock("verified_spelling_artifact_path_mismatch");
       }
-      const artifact = JSON.parse(fs.readFileSync(artifactPath, "utf8")) as {
-        node?: { id?: string; type?: string; wordRadarConfig?: WordRadarNodeConfig };
-      };
+      let artifact: { node?: { id?: string; type?: string; wordRadarConfig?: WordRadarNodeConfig } };
+      try { artifact = JSON.parse(fs.readFileSync(artifactPath, "utf8")); } catch { return lock("verified_spelling_artifact_unreadable"); }
       const fingerprint = createHash("sha256").update(JSON.stringify(artifact)).digest("hex");
       if (fingerprint !== binding.contractFingerprint || artifact.node?.id !== node.nodeId
         || artifact.node.type !== "word-radar" || !artifact.node.wordRadarConfig) {
-        throw new Error(`verified_spelling_artifact_mismatch:${node.nodeId}`);
+        return lock("verified_spelling_artifact_mismatch");
       }
       console.log(` 🎮 [child-experience] [verified-spelling-mode] [restored] node=${node.nodeId} mode=${artifact.node.wordRadarConfig.recallMode}`);
       return { ...planNode, wordRadarConfig: artifact.node.wordRadarConfig };
