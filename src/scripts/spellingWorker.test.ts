@@ -1,4 +1,5 @@
 import {journeyFromBoardDefinition,compositionFromBoardDefinition,assembleAdventureBoardDefinition} from "../shared/adventureBoardDefinition";
+import { recordedIntake } from "./fixtures/recordedIntake";
 import {askLearningPlanner,askLearningExperienceDesigner} from "../engine/directMathExperience";
 import {linearJourneyFixture} from "./fixtures/authoredJourney";
 import fs from "node:fs";
@@ -59,7 +60,7 @@ describe("spelling in the production generation worker", () => {
     fs.writeFileSync(path.join(child, "learning_profile.json"), JSON.stringify({ childId, name: "Lab", age: 8, grade: 3, totalSessions: 0, sessionHistory: [], preferences: {}, strengths: [], challenges: [], notes: [], diagnoses: [], learningGoals: [] }));
     fs.writeFileSync(path.join(rootDir, "children.config.json"), JSON.stringify({ childProfiles: { [childId]: {} }, companions: { elli: { dopamineGames: [], faceCamera: { position: [0, 0, 1], target: [0, 0, 0] } } }, defaultCompanionId: "elli" }));
     const sourceFile = path.join(rootDir, "words.txt"); fs.writeFileSync(sourceFile, "Spelling\nnight\nlight");
-    const { homeworkId } = await runSpellingDiscoveryIntake({ childId, rootDir, sourceFile }, { callPlannerModel: async (packet: Parameters<typeof recordedSpellingDiagnostic>[0]) => ({ draft: { boardDefinition:linearJourneyFixture(["diagnostic"]), diagnostic: recordedSpellingDiagnostic(packet), title: "School words", words: ["night", "light"].map(word => ({ word, pageNumber: 1 })), uncertainty: [] } }) });
+    const { homeworkId } = await runSpellingDiscoveryIntake({ childId, rootDir, sourceFile }, { plannerTools: recordedIntake( async (packet: Parameters<typeof recordedSpellingDiagnostic>[0]) => ({ draft: { boardDefinition:linearJourneyFixture(["diagnostic"]), diagnostic: recordedSpellingDiagnostic(packet), title: "School words", words: ["night", "light"].map(word => ({ word, pageNumber: 1 })), uncertainty: [] } }) )});
     const opening = getLearningCycle(childId, homeworkId, { rootDir })!;
     expect(generateStoryImage).not.toHaveBeenCalled();
     const items = Object.values(opening.nodes[0].evidenceContract.spellingItems!);

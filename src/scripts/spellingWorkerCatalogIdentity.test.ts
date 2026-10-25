@@ -1,4 +1,5 @@
 import {linearJourneyFixture} from "./fixtures/authoredJourney";
+import { recordedIntake } from "./fixtures/recordedIntake";
 import fs from "node:fs";
 import { createHash } from "node:crypto";
 import os from "node:os";
@@ -43,9 +44,9 @@ describe("spelling worker catalog identity on resume", () => {
   it.each(["math", "spelling"] as const)("catalogs only requested spelling artifacts with another %s assignment selected", async domain => {
     const sourceFile = seedSpellingLab(rootDir);
     const { homeworkId } = await runSpellingDiscoveryIntake({ childId, rootDir, sourceFile }, {
-      callPlannerModel: async packet => ({ draft: {
+      plannerTools: recordedIntake( async packet => ({ draft: {
         boardDefinition:linearJourneyFixture(["diagnostic"]), diagnostic: recordedSpellingDiagnostic(packet), title: "School words", words: ["night", "light"].map(word => ({ word, pageNumber: 1 })), uncertainty: [],
-      } }),
+      } })),
     });
     const opening = getLearningCycle(childId, homeworkId, { rootDir })!;
     Object.values(opening.nodes[0].evidenceContract.spellingItems!).forEach((item, index) => {

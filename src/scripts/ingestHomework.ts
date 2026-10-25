@@ -62,7 +62,6 @@ import {
   buildAssignmentPlanningPacket,
   buildPlannerReadinessAudit,
   planAssignmentFromSource,
-  planSpellingIntakeFromSource,
   prepareSpellingDiagnosticPacket,
   resolveSpellingDiagnosticSelection,
   parseSpellingIntake,
@@ -2131,7 +2130,10 @@ export async function reviewSpellingIntake(args: {
 export async function runSpellingDiscoveryIntake(args: {
   childId: string; sourceFile: string; rootDir?: string; testDate?: string | null;
   confirmedCapture?: { capture: SpellingIntake; reviewer: string; approvedAt: string };
-}, options: Parameters<typeof planSpellingIntakeFromSource>[1] & {
+}, options: {
+  model?: string;
+  /** Answers the intake's tool conversation and draws its map instead of the providers (tests and local fixtures). */
+  plannerTools?: (packet: AssignmentPlanningPacket) => Pick<NonNullable<Parameters<typeof planSpellingIntakeWithTools>[1]>, "send" | "draw">;
   confirmCapture?: (capture: SpellingIntake) => Promise<boolean>;
   reviewer?: string;
   chart?: {db: ChartDatabase; provider: SpellingProvider};
@@ -2160,18 +2162,16 @@ export async function runSpellingDiscoveryIntake(args: {
     if (packet.childId !== args.childId || packet.sourceDocument.fileHash !== fingerprint) throw new Error("spelling_intake_checkpoint_identity_mismatch");
     if (!fs.existsSync(packetFile)) save("spelling-intake-request.json", packet);
     const responseFile = path.join(draft, "spelling-intake-response.json");
-    type CaptureResult = Awaited<ReturnType<typeof planSpellingIntakeFromSource>>;
+    type CaptureResult = Awaited<ReturnType<typeof planSpellingIntakeWithTools>>;
     const saved = fs.existsSync(responseFile) ? JSON.parse(fs.readFileSync(responseFile, "utf8")) as CaptureResult & { requestHash: string; outputHash: string } : null;
     const requestHash = hashDiscoveryContract(packet);
     if (saved && (saved.requestHash !== requestHash || saved.outputHash !== hashDiscoveryContract({ output: saved.output, telemetry: saved.telemetry }))) throw new Error("spelling_intake_checkpoint_hash_mismatch");
     const confirmationFile = path.join(draft, "spelling-intake-confirmation.json");
     let confirmation = args.confirmedCapture ?? (fs.existsSync(confirmationFile) ? JSON.parse(fs.readFileSync(confirmationFile, "utf8")) as NonNullable<typeof args.confirmedCapture> : null);
     if (confirmation && packet.spellingDiagnostics && (!saved || hashDiscoveryContract(parseSpellingIntake(confirmation.capture, packet).diagnostic) !== hashDiscoveryContract(parseSpellingIntake(saved.output, packet).diagnostic))) throw new Error("spelling_diagnostic_confirmation_changed");
-    // A real intake talks to the Planner through small locked tools; an injected test Planner still
-    // answers through the single form until that path is retired.
-    const result: CaptureResult = confirmation ? { output: confirmation.capture, telemetry: { model: "human-confirmed", latencyMs: 0 } } : saved ?? (options.callPlannerModel
-      ? await planSpellingIntakeFromSource(packet, { ...options, providerReceipt: { draftDir: draft, stage: "spelling-intake" } })
-      : await planSpellingIntakeWithTools(packet, { model: options.model, draftDir: draft }));
+    // The intake talks to the Planner through small locked tools; the retired single form is never sent.
+    const result: CaptureResult = confirmation ? { output: confirmation.capture, telemetry: { model: "human-confirmed", latencyMs: 0 } } : saved
+      ?? await planSpellingIntakeWithTools(packet, { model: options.model, draftDir: draft, ...options.plannerTools?.(packet) });
     if (!saved && !confirmation) save("spelling-intake-response.json", { ...result, requestHash, outputHash: hashDiscoveryContract(result) });
     parseSpellingIntake(result.output, packet);
     console.log(` 🎮 [spelling-discovery] [assignment-capture] [${saved ? "reused" : "saved"}] hash=${hashDiscoveryContract(result.output)}`);

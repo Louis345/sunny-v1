@@ -1,4 +1,5 @@
 import {linearJourneyFixture} from "./fixtures/authoredJourney";
+import { recordedIntake } from "./fixtures/recordedIntake";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -148,7 +149,7 @@ afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals(); vi.unstubAllEnvs(
 async function fixture() {
   const childId = "lab-child", sourceFile = seedSpellingLab(rootDir);
   const { homeworkId } = await runSpellingDiscoveryIntake({ rootDir, childId, sourceFile }, {
-    callPlannerModel: async (packet: Parameters<typeof recordedSpellingDiagnostic>[0]) => ({ draft: { boardDefinition:linearJourneyFixture(["diagnostic"]), diagnostic: recordedSpellingDiagnostic(packet), title: "Recorded school words", words: ["night", "light"].map(word => ({ word, pageNumber: 1 })), uncertainty: [] } }),
+    plannerTools: recordedIntake( async (packet: Parameters<typeof recordedSpellingDiagnostic>[0]) => ({ draft: { boardDefinition:linearJourneyFixture(["diagnostic"]), diagnostic: recordedSpellingDiagnostic(packet), title: "Recorded school words", words: ["night", "light"].map(word => ({ word, pageNumber: 1 })), uncertainty: [] } })),
   });
   const scope = { rootDir, childId, homeworkId };
   const opening = getLearningCycle(childId, homeworkId, scope)!;
