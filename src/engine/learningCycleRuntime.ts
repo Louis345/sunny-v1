@@ -1,6 +1,6 @@
 import {isDeepStrictEqual} from "node:util";
 import {readSuccessorBoardDefinition, assembleAdventureBoardDefinition, BOARD_DEFINITION_TOOL_SCHEMA, BOARD_AUTHORING_INSTRUCTION, type AdventureBoardComposition, type AdventureJourneyDefinition} from "../shared/adventureBoardDefinition";
-import { canonicalJourneyLaunchable, isSpellingPracticeContinuation, repointReusedSetup } from './learningCycleRepository';
+import { canonicalJourneyLaunchable, isRetryablePlannerBlock, isSpellingPracticeContinuation, repointReusedSetup } from './learningCycleRepository';
 import {requestPlannerMessage, readPlannerToolReceipt, plannerTransportPolicy} from "./plannerTransport";
 import fs from "node:fs";
 import {randomUUID,createHash} from "node:crypto";
@@ -587,13 +587,25 @@ export function authorizeCanonicalPlannerRetry(input: {childId:string; homeworkI
   const cycle = getLearningCycle(input.childId,input.homeworkId,opts);
   const blocked = cycle && [...cycle.decisionHistory].reverse().find(row=>row.fromLifecycle!==row.toLifecycle);
   if (!cycle || cycle.lifecycle!=="blocked" || blocked?.eventType!=="block" || blocked.decisionId!==input.blockedDecisionId
-    || blocked.reason!=="planner_decision_invalid:planner_response_max_tokens" || !input.reason.trim()) throw Error("planner_retry_not_eligible");
+    || !isRetryablePlannerBlock(blocked.reason) || !input.reason.trim()) throw Error("planner_retry_not_eligible");
   const checkpoint = plannerCheckpoint({...cycle,lifecycle:blocked.fromLifecycle,decisionHistory:cycle.decisionHistory.slice(0,cycle.decisionHistory.indexOf(blocked))},opts);
   const receipts = path.join(checkpoint.draftDir,"provider-receipts");
-  const stage = JSON.parse(fs.readFileSync(path.join(receipts,`${checkpoint.stage}.stage.json`),"utf8"));
-  if (typeof stage.requestHash!=="string" || !/^[a-f0-9]{64}$/.test(stage.requestHash)) throw Error("planner_retry_receipt_invalid");
-  const receipt = JSON.parse(fs.readFileSync(path.join(receipts,`${stage.requestHash}.json`),"utf8"));
-  if (receipt.status!=="received" || receipt.response?.plannerMessage?.stop_reason!=="max_tokens") throw Error("planner_retry_receipt_not_truncated");
+  if (blocked.reason.startsWith("planner_decision_invalid:provider_stage_request_changed:")) {
+    // The collided attempt's saved turns and drawing are set aside (never deleted), so the fixed code decides fresh.
+    const superseded = path.join(checkpoint.draftDir,"superseded",input.blockedDecisionId.replace(/[^a-zA-Z0-9_-]+/g,"_"));
+    fs.mkdirSync(superseded,{recursive:true});
+    const stale = [
+      ...(fs.existsSync(receipts)?fs.readdirSync(receipts):[]).filter(name=>name.startsWith(`${checkpoint.stage}-tools-turn-`)||name.startsWith(`${checkpoint.stage}-design-`)).map(name=>path.join(receipts,name)),
+      ...[`${checkpoint.stage}-design.json`,`${checkpoint.stage}-tools.question.json`].map(name=>path.join(checkpoint.draftDir,name)).filter(file=>fs.existsSync(file)),
+    ];
+    for (const file of stale) fs.renameSync(file,path.join(superseded,path.basename(file)));
+    console.log(` 🎮 [canonical-progression] [retry] [superseded] homework=${cycle.homeworkId} files=${stale.length} dir=${superseded}`);
+  } else {
+    const stage = JSON.parse(fs.readFileSync(path.join(receipts,`${checkpoint.stage}.stage.json`),"utf8"));
+    if (typeof stage.requestHash!=="string" || !/^[a-f0-9]{64}$/.test(stage.requestHash)) throw Error("planner_retry_receipt_invalid");
+    const receipt = JSON.parse(fs.readFileSync(path.join(receipts,`${stage.requestHash}.json`),"utf8"));
+    if (receipt.status!=="received" || receipt.response?.plannerMessage?.stop_reason!=="max_tokens") throw Error("planner_retry_receipt_not_truncated");
+  }
   const authorized = transitionLearningCycle(input.childId,input.homeworkId,cycle.revision,{type:"planner_retry_authorized",blockedDecisionId:input.blockedDecisionId,reason:input.reason},opts);
   console.log(` 🎮 [canonical-progression] [retry] [authorized] homework=${cycle.homeworkId} blocked_decision=${input.blockedDecisionId} attempt=${authorized.decisionHistory.at(-1)!.decisionId}`);
   return authorized;

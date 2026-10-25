@@ -17,6 +17,7 @@ import {resolveAdaptiveMathDraftDir} from './adaptiveMathDiscovery';
 import {resolveChildContextDir} from '../utils/contextRoot';
 import {strictBudget} from './plannerTransport';
 import * as runtime from './learningCycleRuntime';
+import {transitionLearningCycle} from './learningCycleRepository';
 import * as canvas from './adventureBoardCanvas';
 
 // Board 3 is the feedback loop: after she plays, the Planner decides and orders the next board.
@@ -127,4 +128,29 @@ it('replays the frozen question after a restart even though the chart changed me
  expect(noCall).not.toHaveBeenCalled();
  expect(cycle.lifecycle).not.toBe('blocked');
  expect(getLearningCycle(childId,homeworkId,{rootDir:f.rootDir})!.decisionHistory.at(-1)?.eventType).toBe('theory_decided');
+});
+
+// 2026-10-25: Reina's next board was blocked by that bug before the fix shipped. "Blocked" waits for a
+// person; the operator retry accepted only truncated answers, so a cycle blocked by a since-fixed bug
+// had no logged way back. The retry also accepts that cause, sets the collided turns aside (never
+// deleted), and the fixed code decides fresh.
+it('lets an operator retry a cycle blocked by the fixed stage-changed bug, then publishes',async()=>{
+ const f=fixture(),opts={rootDir:f.rootDir};
+ const crash=async()=>{throw Object.assign(new Error('lab_process_stopped'),{status:503});};
+ await expect(runtime.advanceCanonicalCycleFromEvidence({...f.request,draw:crash},opts)).rejects.toThrow('lab_process_stopped');
+ const {draftDir,stage}=await oldFormDecisionStage({rootDir:f.rootDir,childId,homeworkId});
+ // As before the fix: no frozen question, and the chart has moved on since the saved turns.
+ fs.rmSync(path.join(draftDir,`${stage}-tools.question.json`),{force:true});
+ writeEngagementTheory(childId,buildInitialEngagementTheory({childId,domain:'spelling',homeworkId}),{rootDir:f.rootDir});
+ const before=getLearningCycle(childId,homeworkId,opts)!;
+ const blocked=transitionLearningCycle(childId,homeworkId,before.revision,{type:'block',reason:`planner_decision_invalid:provider_stage_request_changed:${stage}-tools-turn-1`},opts);
+ const blockedDecisionId=blocked.decisionHistory.at(-1)!.decisionId;
+ const reopened=runtime.authorizeCanonicalPlannerRetry({childId,homeworkId,blockedDecisionId,reason:'The stage-changed bug is fixed'},opts);
+ expect(reopened.lifecycle).toBe(before.lifecycle);
+ const superseded=path.join(draftDir,'superseded',blockedDecisionId.replace(/[^a-zA-Z0-9_-]+/g,'_'));
+ expect(fs.readdirSync(superseded).filter(name=>name.startsWith(`${stage}-tools-turn-`))).toHaveLength(2);
+ f.stream.mockClear();
+ const decided=await runtime.advanceCanonicalCycleFromEvidence(f.request,opts);
+ expect(decided.decisionHistory.at(-1)?.eventType).toBe('theory_decided');
+ expect(f.stream).toHaveBeenCalledTimes(2);
 });

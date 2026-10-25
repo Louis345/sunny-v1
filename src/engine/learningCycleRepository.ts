@@ -447,6 +447,13 @@ export type CreateLearningCycleInput = Omit<
 };
 
 /** Calibration authority requires sufficient evaluations linked to cited external facts. */
+/** Blocks an operator may retry: a truncated answer, or a decision blocked by the since-fixed
+ * stage-changed bug (a retry collided with its own saved turns; fixed 2026-10-25). */
+export function isRetryablePlannerBlock(reason: string): boolean {
+  return reason === "planner_decision_invalid:planner_response_max_tokens"
+    || reason.startsWith("planner_decision_invalid:provider_stage_request_changed:");
+}
+
 export function hasSufficientCalibrationEvidence(
   cycle: LearningCycleRecordV2,
   decision: Pick<LearningCycleDecision, "evidenceIds" | "predictionEvaluationIds">,
@@ -1822,7 +1829,7 @@ export function transitionLearningCycle(
     const blocked = [...current.decisionHistory].reverse().find(row => row.fromLifecycle !== row.toLifecycle);
     if (current.lifecycle !== "blocked" || blocked?.eventType !== "block"
       || blocked.decisionId !== event.blockedDecisionId
-      || blocked.reason !== "planner_decision_invalid:planner_response_max_tokens"
+      || !isRetryablePlannerBlock(blocked.reason)
       || !["baseline_evaluating", "quest_evaluating", "boss_evaluating"].includes(blocked.fromLifecycle)
       || !event.reason.trim()) throw new Error("planner_retry_not_eligible");
     next.lifecycle = blocked.fromLifecycle;
