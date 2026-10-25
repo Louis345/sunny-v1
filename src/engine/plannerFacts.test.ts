@@ -1,5 +1,4 @@
 import {it,expect} from "vitest";
-import fs from "node:fs";import path from "node:path";
 import * as creator from "./directMathExperience";
 
 // 2026-10-14: a full run read about 187,000 tokens. The Planner's biggest input was her
@@ -22,7 +21,8 @@ it("gives the Planner her answers per word, with every evidence ID, and only the
   expect(facts.activityCatalog[0].capabilityModes[0].config).toEqual({recallMode:"hidden_word_recall"});
   expect(text.length).toBeLessThan(JSON.stringify(packet()).length/2);
 });
+// The Teaching Planner now works through tools; its prompt carries exactly the compact facts.
 it("sends the Planner the compact facts",()=>{
-  const source=fs.readFileSync(path.join(process.cwd(),"src/engine/directMathExperience.ts"),"utf8");
-  expect(source).toContain("Homework and child-chart context:\n${JSON.stringify(compactPlannerFacts(packet!))}");
+  const prompt=(creator as any).spellingTeachingToolPrompt(packet());
+  expect(prompt.endsWith(`Homework and child-chart context:\n${JSON.stringify((creator as any).compactPlannerFacts(packet()))}`)).toBe(true);
 });

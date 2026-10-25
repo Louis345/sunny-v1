@@ -23,7 +23,7 @@ import { engagementTheoryEvidenceContext } from "./engagementTheory";
 import { assignmentLedgerPath, writeAssignmentLedgerEntry } from "./assignmentLedger";
 import { writeWaterfallContentCatalog } from "../profiles/chartWaterfall";
 import { OPENAI_REPAIR_MAX_OUTPUT_TOKENS, readOpenAiResponseStream } from "./openAiResponses";
-import { applyDiscoveryHtmlPatch, runMathProviderStage, hasReceivedMathProviderStage, estimateDiscoveryRepairCost } from "./adaptiveMathDiscovery";
+import { applyDiscoveryHtmlPatch, runMathProviderStage, hasReceivedMathProviderStage, readReceivedMathProviderStage, estimateDiscoveryRepairCost } from "./adaptiveMathDiscovery";
 import {
   buildPlannerContentCandidateCards,
   resolveExactMathCatalogReuse,
@@ -2032,17 +2032,24 @@ export async function askLearningPlanner(input:LearningPlannerInput):Promise<Mat
   const maxTokens=input.maxTokens??Number(native?16000:process.env.SUNNY_PLANNER_MAX_TOKENS??32000);
   const started=Date.now();
   const client = input.client ?? new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-  // New spelling Teaching boards are built through small locked tools. A Teaching answer already
-  // received through the old single form (a saved targeted-planner receipt) replays below at no cost.
-  const savedFormReceipt=native&&input.rawResponseFile?path.join(path.dirname(input.rawResponseFile),'provider-receipts','targeted-planner.stage.json'):undefined;
-  if(native&&!(savedFormReceipt&&fs.existsSync(savedFormReceipt)))return askSpellingTeachingThroughTools({client,model,packet:packet!,rawResponseFile:input.rawResponseFile,started});
-  const prompt = native ? `${learningPlannerInstructions('spelling').text}
-Call create_learning_program exactly once. Return domain, planId, journey, activities and planTheory directly at the tool root. Each activity carries its own measurement; do not invent a separate measurement ID or repeat the inventory in another field. spelling is the preregistered measurement prescription for academic activities and null for nonacademic rewards. It is never a measured learning claim.
-${JOURNEY_SEQUENCE_INSTRUCTION}
-You choose activities, count, support, alternatives and hypotheses.
-Use available native instruments through their supplied configuration schemas. Catalog presets are working examples, not an exhaustive configuration restriction. Request generated content only for a missing capability. Preserve captured words and cite the supplied observation IDs. Separate assisted practice, independent measurements and engagement. Do not claim mastery or readiness.
-Homework and child-chart context:
-${JSON.stringify(compactPlannerFacts(packet!))}` : `${learningPlannerInstructions('math').text}
+  // Spelling Teaching boards are built through small locked tools. A Teaching answer already received
+  // through the retired single form replays read only, for the same homework facts; that form is never sent again.
+  if(native){
+    const directory=input.rawResponseFile?path.dirname(input.rawResponseFile):undefined;
+    const saved=directory?readReceivedMathProviderStage(directory,'targeted-planner') as Anthropic.Messages.Message|undefined:undefined;
+    if(!directory||saved===undefined)return askSpellingTeachingThroughTools({client,model,packet:packet!,rawResponseFile:input.rawResponseFile,started});
+    const {requestHash}=JSON.parse(fs.readFileSync(path.join(directory,'provider-receipts','targeted-planner.stage.json'),'utf8'));
+    const receipt=JSON.parse(fs.readFileSync(path.join(directory,'provider-receipts',`${requestHash}.json`),'utf8'));
+    const frozen=JSON.parse(fs.readFileSync(path.join(directory,'provider-diagnostics',`${requestHash}.attempt-${receipt.attempts?.length??1}.request.json`),'utf8')).context as {model:string;messages:Array<{content:unknown}>};
+    const content=frozen.messages[0]?.content;
+    const text=Array.isArray(content)?(content as Array<{type?:string;text?:string}>).find(block=>block.type==='text')?.text:content;
+    if(typeof text!=='string'||!text.includes('Homework and child-chart context:\n'))throw new Error('learning_planner_initial_identity_unverifiable');
+    if(frozen.model!==model||!isDeepStrictEqual(JSON.parse(text.split('Homework and child-chart context:\n').at(-1)!),JSON.parse(JSON.stringify(compactPlannerFacts(packet!)))))throw new Error('learning_planner_initial_identity_mismatch');
+    console.log(' 🎮 [learning-planner] [initial-request] [frozen-replay]');
+    if(input.rawResponseFile&&!fs.existsSync(input.rawResponseFile)){fs.mkdirSync(path.dirname(input.rawResponseFile),{recursive:true});fs.writeFileSync(input.rawResponseFile,`${JSON.stringify({...saved,model,stopReason:saved.stop_reason,usage:saved.usage,content:saved.content},null,2)}\n`,"utf8");}
+    return nativeProgramFromResponse({...saved,stopReason:saved.stop_reason,content:saved.content},packet!,model,Date.now()-started);
+  }
+  const prompt = `${learningPlannerInstructions('math').text}
 
 Read the assignment, child chart, prior evidence, and prior calibration. Prescribe the smallest coherent learning program that can test your theory. Teach the concept the teacher is targeting rather than copying or lightly rewriting worksheet questions.
 
@@ -2100,8 +2107,8 @@ ${JSON.stringify(mathPlannerChartContext(input.chart), null, 2)}
 
   Prior factual outcomes and Planner interpretations:
 ${JSON.stringify(factualModelContext(input.priorOutcomes ?? []), null, 2)}`;
-  const toolName = native?"create_learning_program":"create_math_learning_program";
-  const plannerContent = native?[{type:"text" as const,text:prompt}]:assignmentPlannerContent(input.extraction,prompt);
+  const toolName = "create_math_learning_program";
+  const plannerContent = assignmentPlannerContent(input.extraction,prompt);
   // A whole board — every activity, item, prediction and creator prompt — is a
   // long generation against a 20k token budget, and the non-streaming request
   // was timing out before it finished. Stream it, as the Creator already does.
@@ -2111,29 +2118,12 @@ ${JSON.stringify(factualModelContext(input.priorOutcomes ?? []), null, 2)}`;
     messages: [{ role: "user", content: plannerContent }],
     tools: [{
       name: toolName,
-      description: native?"Return the semantic spelling program with inline instrument measurements.":"Return the academic-only math learning program.",
-      input_schema: native?nativeLearningProgramToolJsonSchema(packet!.activityCatalog) as Anthropic.Messages.Tool.InputSchema:MATH_LEARNING_PROGRAM_TOOL_SCHEMA,
+      description: "Return the academic-only math learning program.",
+      input_schema: MATH_LEARNING_PROGRAM_TOOL_SCHEMA,
     }],
     tool_choice: { type: "tool", name: toolName },
   } satisfies Parameters<typeof client.messages.stream>[0];
-  if(native && input.rawResponseFile){
-    const directory=path.dirname(input.rawResponseFile),pointer=path.join(directory,'provider-receipts','targeted-planner.stage.json');
-    if(fs.existsSync(pointer)){
-      const {requestHash}=JSON.parse(fs.readFileSync(pointer,'utf8'));
-      const receipt=JSON.parse(fs.readFileSync(path.join(directory,'provider-receipts',`${requestHash}.json`),'utf8'));
-      const frozen=JSON.parse(fs.readFileSync(path.join(directory,'provider-diagnostics',`${requestHash}.attempt-${receipt.attempts?.length??1}.request.json`),'utf8')).context as typeof request;
-      const facts=(candidate:typeof request)=>{
-        const content=candidate.messages[0].content;
-        const text=Array.isArray(content)?content.find(block=>block.type==='text')?.text:content;
-        if(typeof text!=='string' || !text.includes('Homework and child-chart context:\n'))throw new Error('learning_planner_initial_identity_unverifiable');
-        return JSON.parse(text.split('Homework and child-chart context:\n').at(-1)!);
-      };
-      if(frozen.model!==model || !isDeepStrictEqual(facts(frozen),facts(request)))throw new Error('learning_planner_initial_identity_mismatch');
-      request=frozen;
-      console.log(' 🎮 [learning-planner] [initial-request] [frozen-replay]');
-    }
-  }
-  const execute = () => native?requestPlannerMessage(client,request):client.messages.stream(request, { timeout: Number(process.env.SUNNY_AI_TIMEOUT_MS ?? 600000),maxRetries:0 }).finalMessage();
+  const execute = () => client.messages.stream(request, { timeout: Number(process.env.SUNNY_AI_TIMEOUT_MS ?? 600000),maxRetries:0 }).finalMessage();
   const response = input.rawResponseFile
     ? await runMathProviderStage({draftDir:path.dirname(input.rawResponseFile),stage:"targeted-planner",model:request.model,request,execute})
     : await execute();
@@ -2153,11 +2143,9 @@ ${JSON.stringify(factualModelContext(input.priorOutcomes ?? []), null, 2)}`;
     content: response.content,
   };
   try {
-    if(native)return nativeProgramFromResponse(savedResponse,packet!,model,Date.now()-started);
     const program=parseSavedDirectMathPlannerResponse(savedResponse, input.maxTokens ?? Number(process.env.SUNNY_PLANNER_MAX_TOKENS ?? 32000));
     return input.rawResponseFile ? await verifyMathPlannerCanvas(program,input.rawResponseFile) : program;
   } catch (error) {
-    if(native)throw error; // The Planner's work is never sent back for correction.
     if (!correctableMathPlannerTruthError(error)) throw error;
     console.log(` 🎮 [adaptive-math] [targeted-planner-truth] [correction-required] child=${input.childId} reason=${error.message}`);
     return correctSavedDirectMathPlannerResponse({

@@ -59,4 +59,22 @@ describe("Teaching Planner through small locked tools", () => {
     await expect(askLearningPlanner({ domain: "spelling", childId: packet.childId, packet, chart, extraction, model: "claude-sonnet-5", client: { messages: { stream } } } as any)).rejects.toThrow("learning_planner_tools_unfinished:cap_errors");
     expect(stream).toHaveBeenCalledTimes(3);
   });
+
+  // 2026-10-24: only a received old-form answer replays. One that never arrived is not resent as the
+  // retired single form; the board is built through the tools like any new board.
+  it("builds through the tools when an old single-form answer never arrived", async () => {
+    const { packet, chart, extraction } = fixture();
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-teaching-unreceived-"));
+    try {
+      const { runMathProviderStage } = await import("./adaptiveMathDiscovery");
+      await runMathProviderStage({ draftDir: path.join(root, "provider-diagnostics"), stage: "targeted-planner", model: "claude-sonnet-5", request: { old: true },
+        execute: async () => { throw Object.assign(new Error("recorded_rejection"), { status: 400 }); } }).catch(() => undefined);
+      expect(fs.existsSync(path.join(root, "provider-diagnostics", "provider-receipts", "targeted-planner.stage.json"))).toBe(true);
+      const turns = script();
+      const stream = vi.fn((_request: any) => ({ finalMessage: async () => turns.shift() }));
+      const result = await askLearningPlanner({ domain: "spelling", childId: packet.childId, packet, chart, extraction, model: "claude-sonnet-5", client: { messages: { stream } }, rawResponseFile: path.join(root, "provider-diagnostics", "targeted-planner-response.json") } as any);
+      expect(stream.mock.calls.map(call => call[0].tools.map((tool: any) => tool.name)).flat()).not.toContain("create_learning_program");
+      expect(result.plan.nodePlan.map((node: { id: string }) => node.id)).toEqual([id(1), id(2)]);
+    } finally { fs.rmSync(root, { recursive: true, force: true }); }
+  });
 });

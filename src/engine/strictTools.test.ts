@@ -77,12 +77,16 @@ describe("strict tools lock the model to the schema",()=>{
   // Planner stays unlocked, with the decoder, until its form is slimmed (proposal step 3).
   // Live compile check 2026-10-19 (claude-fable-5): the slimmed map-artist tools compiled strict and
   // painted a full board; they are locked (mapArtistCanvas.test.ts).
-  it("keeps the lesson Planner unlocked until its form passes a live compile check",async()=>{
+  // 2026-10-24: spelling's lesson Planner no longer sends this form; it builds through small locked
+  // tools (askLearningPlannerTools.test.ts). Math's form is unchanged, and the spelling form's
+  // schema remains only to read answers already received.
+  it("keeps the math lesson Planner unlocked until its form passes a live compile check",async()=>{
     const fs=await import("node:fs"),path=await import("node:path");
     const source=fs.readFileSync(path.join(__dirname,"directMathExperience.ts"),"utf8");
-    const start=source.indexOf('const toolName = native?"create_learning_program"');
+    const start=source.indexOf('const toolName = "create_math_learning_program"');
+    expect(start).toBeGreaterThan(0);
     const plannerRequest=source.slice(start,source.indexOf('tool_choice: { type: "tool", name: toolName }',start));
-    expect(plannerRequest).toContain("nativeLearningProgramToolJsonSchema");
+    expect(plannerRequest).toContain("MATH_LEARNING_PROGRAM_TOOL_SCHEMA");
     expect(plannerRequest).not.toContain("strictTool(");
     expect(plannerRequest).not.toMatch(/strict:\s*true/);
     expect(planner.nativeLearningProgramToolJsonSchema(catalog)).toBeDefined();
