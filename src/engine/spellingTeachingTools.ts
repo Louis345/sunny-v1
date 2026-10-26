@@ -104,14 +104,18 @@ export function spellingTeachingToolkit(packet: AssignmentPlanningPacket) {
       } },
     // The explainer's teaching content is too large for the API's strict grammar alongside the
     // other tools (live compile check 2026-10-24); it stays unlocked and its handler checks it.
-    ...(offered.has("visual-explainer") ? [{ name: "add_explainer", strict: false, description: "Add a Visual Explainer that teaches a spelling pattern with chunked words and one check question. It is always instruction. Returns its activity_id; then call predict for it.",
+    ...(offered.has("visual-explainer") ? [{ name: "add_explainer", strict: false, description: `Add a Visual Explainer that teaches a spelling pattern with chunked words and one check question at the end. It is always instruction. She is in grade ${packet.childChart.grade ?? "school"} and Elli reads it with her: every line is short and in her words. Returns its activity_id; then call predict for it.`,
       schema: z.object({
         title: text("The short name she sees under the portal."), ...look, topic: z.string().min(1).max(120), learning_goal: z.string().min(1).max(220), misconception: text("The mistake this explainer addresses."),
-        strategy: z.object({ title: z.string().min(1).max(100), steps: z.array(z.string().min(1).max(140)).min(2).max(4) }).strict(),
-        words: z.array(z.object({ text: word, chunks: z.array(z.string().min(1)).min(2).max(6).describe("Letters split into chunks that join to spell the word exactly."), spoken_chunks: z.array(z.string().min(1).max(100)).min(2).max(6).describe("How each chunk sounds, one per chunk in the same order, spelled the way it is said (lee for ly), never letter names."), focus_chunk: text("One chunk from this word."), tip: z.string().min(1).max(160) }).strict()).min(1).max(8),
-        check: z.object({ target_word: word, prompt: z.string().min(1).max(180), options: z.array(z.object({ label: text("An answer choice."), correct: z.boolean() }).strict()).min(2).max(4).describe("Exactly one option is correct.") }).strict(),
+        strategy: z.object({ title: z.string().min(1).max(32).describe("A name for the trick, in her words."), steps: z.array(z.string().min(1).max(60)).min(2).max(3).describe("Two or three short steps she can hear and remember.") }).strict(),
+        words: z.array(z.object({ text: word, chunks: z.array(z.string().min(1)).min(2).max(6).describe("Letters split into chunks that join to spell the word exactly."), spoken_chunks: z.array(z.string().min(1).max(100)).min(2).max(6).describe("How each chunk sounds, one per chunk in the same order, spelled the way it is said (lee for ly), never letter names."), focus_chunk: text("One chunk from this word."), tip: z.string().min(1).max(60).describe("One short line Elli reads with this word.") }).strict()).min(1).max(8),
+        check: z.object({ target_word: word, prompt: z.string().min(1).max(90).describe("Asked after the lesson: about the pattern across her words, such as which word has the sneaky letter."), options: z.array(z.object({ label: text("An answer choice."), correct: z.boolean() }).strict()).min(2).max(4).describe("Exactly one option is correct.") }).strict(),
       }).strict(),
       run: (state: TeachingState, input: any): Result => {
+        // She reads letters, not phonetic notation: a sound is written the way it is said.
+        if ([...input.strategy.steps, ...input.words.flatMap((row: { tip: string; spoken_chunks: string[] }) => [row.tip, ...row.spoken_chunks])].some((line: string) => line.includes("/"))) {
+          return { ok: false, error: "write sounds in letters she can read, without slash notation like /nock/" };
+        }
         for (const row of input.words) {
           if (row.chunks.join("") !== row.text) return { ok: false, error: `the chunks for ${row.text} must join to spell it exactly` };
           if (!row.chunks.includes(row.focus_chunk)) return { ok: false, error: `focus_chunk for ${row.text} must be one of its chunks` };
