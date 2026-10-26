@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   deliverInteractiveCompanionOpening,
-  INDEPENDENT_EVALUATION_OPENING,
+  deliverHomeworkArrival,
   buildContextStartGreeting,
   shouldEnableCompanionWakeGate,
   isIndependentEvaluationPlan,
@@ -10,21 +10,36 @@ import {
 } from "./session-bootstrap";
 
 describe("homework context greeting", () => {
-  it("supplies evaluation orientation facts without prescribing spoken wording", () => {
-    expect(INDEPENDENT_EVALUATION_OPENING).toContain("Tap the speaker");
-    expect(INDEPENDENT_EVALUATION_OPENING).toContain("Not sure");
-    expect(INDEPENDENT_EVALUATION_OPENING).toContain("[Session opening context]");
+  it("supplies a source-labelled arrival without a greeting task or lane agenda", async () => {
+    // Human catch: a single mount turn became a greeting, level display and
+    // activity pitch. Healthy audio logs did not identify unwanted initiation;
+    // earlier labs checked contextual accuracy but not the purpose of the turn.
+    const greeting = buildContextStartGreeting({
+      nodes: [{ locked: false, targetLane: "silent_letters" }],
+    });
+    const spokenContexts: string[] = [];
+    await deliverInteractiveCompanionOpening({
+      setCompanionPresence: () => {},
+      runCompanionResponse: async (context: string) => { spokenContexts.push(context); },
+    }, greeting);
+
+    expect(spokenContexts).toHaveLength(1);
+    expect(spokenContexts[0]).toContain("not child speech");
+    expect(spokenContexts[0]).toContain("the child arrived");
+    expect(spokenContexts[0]).not.toMatch(/brief hello|choose what|Silent Letters/);
+    expect(spokenContexts[0]).not.toMatch(/say ["“]|sentence limit|word limit/i);
   });
-  it("speaks one answer-neutral orientation without summoning an independent-evaluation companion",async()=>{
-    // Human catch: the audio stack was healthy, but the wake gate made the
-    // opening completely silent, which looked exactly like another voice bug.
-    const events:string[]=[];
-    await deliverInteractiveCompanionOpening(
-      {companionWakeGateEnabled:true,setCompanionPresence:()=>events.push("summoned"),runCompanionResponse:async(text:string)=>{events.push(`spoke:${text}`);}},
-      "Give one warm direction without saying or spelling a target word.",
-      { independentEvaluationOrientation: true },
-    );
-    expect(events).toEqual(["spoke:Give one warm direction without saying or spelling a target word."]);
+
+  it("keeps wake-gated arrival child-invoked rather than purchasing orientation", async () => {
+    // The real failure supplied controls before a child request. The old test
+    // required that behavior. Arrival must not bypass the existing wake gate.
+    const events: string[] = [];
+    await deliverHomeworkArrival({
+      companionWakeGateEnabled:true,
+      setCompanionPresence:()=>events.push("summoned"),
+      runCompanionResponse:async()=>{events.push("model-request");},
+    }, {pendingHomework:{nodes:[{targetLane:"independent_discovery"}]}});
+    expect(events).toEqual([]);
   });
   it("opens conversational presence before delivering a companion-initiated greeting", async () => {
     const events: string[] = [];
@@ -49,8 +64,8 @@ describe("homework context greeting", () => {
     const greeting = buildContextStartGreeting({
       nodes: [{ locked: false, targetLane: "multiplication_fluency", words: ["5 x 2"] }],
     });
-    expect(greeting).toContain("Multiplication Fluency");
-    expect(greeting).toContain("[Session opening context]");
+    expect(greeting).not.toContain("Multiplication Fluency");
+    expect(greeting).toContain("[System event: the child arrived, not child speech]");
     expect(greeting).not.toContain("Want to try it?");
   });
 
@@ -68,7 +83,7 @@ describe("homework context greeting", () => {
         adventureBoard: { progress: { completedNodeIds: ["start", "discovery"] } },
       },
     });
-    expect(greeting).toContain("Silent Letters");
+    expect(greeting).not.toContain("Silent Letters");
     expect(greeting).not.toContain("Independent Discovery");
   });
 
@@ -85,14 +100,15 @@ describe("homework context greeting", () => {
         ],
       },
     });
-    expect(greeting).toContain("Independent Discovery");
+    expect(greeting).not.toContain("Independent Discovery");
     expect(greeting).not.toContain("Silent Letters");
   });
 
-  it("falls back to the first challenge when context is sparse", () => {
-    expect(buildContextStartGreeting({ nodes: [{ locked: false }] })).toBe(
-      "[Session opening context] The board is available; no activity has been selected.",
-    );
+  it("keeps a sparse board arrival factual without an agenda", () => {
+    const greeting = buildContextStartGreeting({ nodes: [{ locked: false }] });
+    // The screen is described only by the kiosk's screen report, never by the arrival event.
+    expect(greeting).not.toMatch(/board is available|no activity has been selected/i);
+    expect(greeting).not.toContain("A brief hello is enough");
   });
 });
 
@@ -141,15 +157,10 @@ describe("homework subject mode", () => {
     expect(isIndependentEvaluationPlan("probe-board:hw-math-1:cycle-r2")).toBe(true);
     expect(isIndependentEvaluationPlan("discovery:hw-spelling-1")).toBe(true);
     expect(isIndependentEvaluationPlan("targeted:hw-math-1")).toBe(false);
-    // Human-caught 2026-10-07: after Discovery built a teaching board, stale
-    // pending Discovery nodes caused the evaluation opener to play again. The
-    // lab checked each source independently but never tested their conflict.
-    expect(isIndependentEvaluationPlan("targeted:hw-spelling-1", [
-      { targetLane: "independent_discovery" },
-    ])).toBe(false);
-    expect(isIndependentEvaluationPlan(undefined, [
-      { targetLane: "independent_discovery" },
-    ])).toBe(true);
+    // Missing plan identity is not evidence of Discovery. The integration suite
+    // covers stale pending nodes against the real canonical board projection.
+    expect(isIndependentEvaluationPlan("targeted:hw-spelling-1")).toBe(false);
+    expect(isIndependentEvaluationPlan(undefined)).toBe(false);
     expect(shouldEnableCompanionWakeGate({ subject: "homework", explicitDomain: "spelling", discovery: true })).toBe(true);
     expect(shouldEnableCompanionWakeGate({
       subject: "homework",

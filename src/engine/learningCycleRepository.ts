@@ -10,19 +10,23 @@ import type {
   LearningTheoryDecisionStatus,
 } from "../context/schemas/learningProfile";
 import type { AdventureBoardJson } from "../shared/adventureBoardJson";
+import type {EvidenceBasedContentDecision} from './learningDecisionContext';
 import {
   buildAdventureBoardFromActiveSessionPlan,
   type ActiveSessionPlanBoardSnapshot,
 } from "../shared/adventureBoardFromPlan";
 import { resolveChildContextDir } from "../utils/contextRoot";
+import { validateVisualLearnerArtifactConfig } from "../shared/visualLearnerArtifactConfig";
+import { validateActivityEngineConfig, validateLetterRushConfig } from "./activityEngineConfig";
 import {
   assertPublishedBoardsImmutable,
   boardOwningNode,
+  boardTopologyHash,
   boardsForWrite,
   currentBoardInstance,
-  listBoardInstances,
   preparingBoardInstance,
   publishBoardInstance,
+  unavailableActivityReason,
   type LearningBoardInstance,
 } from "./learningBoardInstances";
 
@@ -157,6 +161,8 @@ export type LearningCycleNodeContract = {
   /** A truth check failed for this portal: it publishes as not ready, is never built and is passed over. */
   notReadyReason?: string;
   implementationType?: ActiveSessionPlan["nodePlan"][number]["type"];
+  /** The earlier built-in activity the Planner named; it is re-launched with this node's items instead of rebuilt. */
+  reusedFrom?: string;
   nodeId: string;
   routeId?: string;
   predictionId?: string;
@@ -350,6 +356,7 @@ export type LearningCycleDecision = {
   nextEvidenceRequired?: string[];
   predictionEvaluationIds?: string[];
   assumptionAssessments?: AssumptionAssessment[];
+  replayedResponse?: {blockedDecisionId:string;requestHash:string;receiptHash:string;reason:string;deferredContentDecisions?:EvidenceBasedContentDecision[]};
 };
 
 export type LearningCycleAgencyExperiment = {
@@ -440,6 +447,13 @@ export type CreateLearningCycleInput = Omit<
 };
 
 /** Calibration authority requires sufficient evaluations linked to cited external facts. */
+/** Blocks an operator may retry: a truncated answer, or a decision blocked by the since-fixed
+ * stage-changed bug (a retry collided with its own saved turns; fixed 2026-10-25). */
+export function isRetryablePlannerBlock(reason: string): boolean {
+  return reason === "planner_decision_invalid:planner_response_max_tokens"
+    || reason.startsWith("planner_decision_invalid:provider_stage_request_changed:");
+}
+
 export function hasSufficientCalibrationEvidence(
   cycle: LearningCycleRecordV2,
   decision: Pick<LearningCycleDecision, "evidenceIds" | "predictionEvaluationIds">,
@@ -478,7 +492,8 @@ export type NextInstrumentPrescription = {
   mechanic: string;
   theme: string;
   openingPurpose: string;
-  creatorPrompt: string;
+  /** Absent on spelling steps, which are orders for tested built-ins. */
+  creatorPrompt?: string;
   /**
    * The Planner's design decisions, recorded verbatim so outcomes can later be
    * attributed to them. Without these the loop can only correlate engagement
@@ -498,7 +513,34 @@ export type SpellingInstrumentPrescription = {
   wordIds: string[];
   measurementRole: "practice" | "fresh_checkpoint";
   responseMode: LearningCycleSpellingItem["response"]["mode"];
+  /** The tested built-in activity this step re-runs. Spelling boards run only built-ins. */
+  builtInActivityId?: string;
 };
+
+/** The tested built-in spelling activities a next board may re-run: one list for the Planner and the board. */
+export function spellingBuiltInActivities(cycle: LearningCycleRecordV2): LearningCycleNodeContract[] {
+  if (cycle.domain !== "spelling") return [];
+  return cycle.nodes.filter((node) => node.implementationType && node.implementationType !== "generated-baseline"
+    && node.artifactBinding?.validationStatus === "passed" && Object.keys(node.evidenceContract.spellingItems ?? {}).length > 0);
+}
+
+/** The tested built-in a spelling step re-runs, by its activity ID (or, for older decisions, the ID the step repeated). */
+export function findReusableBuiltIn(cycle: LearningCycleRecordV2, id: string, role: string | undefined, exceptNodeId?: string): LearningCycleNodeContract | undefined {
+  const wanted = slugId(id);
+  return [...spellingBuiltInActivities(cycle)].reverse().find((node) => node.nodeId !== exceptNodeId
+    && [node.nodeId, node.artifactBinding?.contentId ?? ""].some((value) => value === id || slugId(value) === wanted)
+    && (role !== "fresh_checkpoint" || (Object.values(node.evidenceContract.itemRoles ?? {}).length > 0 && Object.values(node.evidenceContract.itemRoles ?? {}).every((itemRole) => itemRole === "fresh_checkpoint"))));
+}
+
+/** A built-in re-runs only for exactly its own words, scored with its own answer forms. */
+function sameWordSet(source: LearningCycleNodeContract, items: Array<{ wordId: string }>): boolean {
+  const own = new Set(Object.values(source.evidenceContract.spellingItems ?? {}).map((item) => item.wordId));
+  return items.length === own.size && items.every((item) => own.has(item.wordId));
+}
+function adoptBuiltInAnswerForms(source: LearningCycleNodeContract, items: LearningCycleSpellingItem[]): void {
+  const responses = new Map(Object.values(source.evidenceContract.spellingItems ?? {}).map((item) => [item.wordId, item.response]));
+  for (const item of items) if (responses.has(item.wordId)) item.response = structuredClone(responses.get(item.wordId)!);
+}
 
 /** One allowlist shared by the Planner tool and the persisted board contract. */
 export function spellingAssignmentItems(cycle: LearningCycleRecordV2): Map<string, LearningCycleSpellingItem> {
@@ -520,7 +562,10 @@ export function validateSpellingPrescription(value: unknown): SpellingInstrument
     || !["spelling_letters", "tap_selection"].includes(String(row.responseMode))) {
     throw new Error("spelling_successor_prescription_invalid");
   }
-  return { wordIds: [...row.wordIds], measurementRole: row.measurementRole!, responseMode: row.responseMode! };
+  return {
+    wordIds: [...row.wordIds], measurementRole: row.measurementRole!, responseMode: row.responseMode!,
+    ...(typeof row.builtInActivityId === "string" && row.builtInActivityId.trim() ? { builtInActivityId: row.builtInActivityId.trim() } : {}),
+  };
 }
 
 /** One complete Planner-authored successor board program (contract 21). The Planner owns the count. */
@@ -585,10 +630,12 @@ export type LearningCycleEvent =
     }
   | ({ type: "instrument_observed"; observations: LearningObservation[]; completed?: boolean } & OutcomeEvidence)
   | { type: "prediction_evaluations_recorded"; evaluations: PredictionEvaluation[] }
+  | { type: "board_preparation_checked" }
   | { type: "board_canvas_verified"; boardId: string; proof: BoardCanvasProof }
   | { type: "artifact_bound"; nodeId: string; artifact: LearningCycleArtifactBinding }
   | { type: "artifact_rejected"; nodeId: string; reason: string }
   | { type: "artifact_generation_attention_required"; nodeId: string; reason: string; notReady?: boolean }
+  | { type: "not_ready_rerun_builtin"; nodeId: string; builtInActivityId: string }
   | { type: "engagement_theory_updated"; theory: EngagementTheory; reason: string }
   | { type: "graded_work_received"; calibration: LearningCycleCalibration }
   | {
@@ -614,8 +661,10 @@ export type LearningCycleEvent =
         revisedHypothesis?: string;
         progressionAction?: LearningProgressionAction;
         successor?: SuccessorProgram;
+        replayedResponse?: LearningCycleDecision['replayedResponse'];
       };
     }
+  | { type: "planner_retry_authorized"; blockedDecisionId: string; reason: string }
   | { type: "block"; reason: string };
 
 export type LearningCycleRepositoryOptions = {
@@ -699,23 +748,12 @@ function assertCycle(value: LearningCycleRecordV2): void {
   }
   const ids = value.nodes.map((node) => node.nodeId);
   if (new Set(ids).size !== ids.length) throw new Error("learning_cycle_duplicate_node_id");
-  // Child titles are unique within one board; a later board may reuse a name.
-  for (const board of listBoardInstances(value)) {
-    const titles = value.nodes
-      .filter((node) => board.nodeIds.includes(node.nodeId) && node.role !== "quest" && node.role !== "boss")
-      .map((node) => node.title);
-    if (new Set(titles).size !== titles.length) throw new Error("learning_cycle_duplicate_child_title");
-  }
   const questEvidenceExists = value.nodes.some((node) => node.role === "quest" && node.state === "completed" && node.evidenceIds.length > 0);
   if (value.nodes.some((node) => node.role === "boss" && node.state !== "locked") && !questEvidenceExists) {
     throw new Error("learning_cycle_boss_progress_requires_quest_evidence");
   }
   for (const node of value.nodes) {
-    // `role` is the machine-readable identity, and the board keys off that.
-    // The title is the child's, and the Planner authors it — a payoff node the
-    // AI is forbidden from naming can only ever be called "Quest".
-    if (!node.title.trim()) throw new Error(`learning_cycle_node_title_missing:${node.nodeId}`);
-    if (node.openingScreen.title !== node.title) throw new Error(`learning_cycle_opening_title_mismatch:${node.nodeId}`);
+    // Titles are the Planner's words for the child, not identities: no title rule can make the record unreadable.
     if (node.artifactBinding) {
       assertLocalPath(node.artifactBinding.localArtifactPath, "artifact_path");
       assertLocalPath(node.artifactBinding.localArtworkPath, "artwork_path");
@@ -759,8 +797,7 @@ function agencyNodeIds(experiment: LearningCycleAgencyExperiment): Set<string> {
   ]);
 }
 
-const unavailableActivityReason=(node:LearningCycleRecordV2['nodes'][number])=>nodeActivityType(node)==='word-builder' ? 'activity_unavailable:word-builder' : undefined;
-const notReadyNodeIds=(cycle:LearningCycleRecordV2)=>cycle.nodes.filter(node=>node.notReadyReason || unavailableActivityReason(node)).map(node=>node.nodeId);
+const notReadyNodeIds=(cycle:LearningCycleRecordV2)=>cycle.nodes.filter(node=>unavailableActivityReason(node)).map(node=>node.nodeId);
 export function canonicalJourneyFrontier(cycle:LearningCycleRecordV2) {
   const definition = currentBoardInstance(cycle).definition;
   return definition ? journeyFrontier(definition,cycle.routeSelection?.choices ?? {},cycle.nodes.filter(node=>node.state==='completed').map(node=>node.nodeId),notReadyNodeIds(cycle)) : undefined;
@@ -1184,6 +1221,49 @@ function slugId(value: string): string {
   return value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "node";
 }
 
+/**
+ * Re-point an earlier activity's built-in setup at a new node's questions: board 1's question and node
+ * identities become the new ones, and words the Planner left out are dropped. Returns undefined when
+ * the setup cannot be re-pointed cleanly, so that activity is built instead of reporting stale IDs.
+ */
+export function repointReusedSetup(source: LearningCycleNodeContract, nodeId: string, items: Array<{ id: string; wordId: string }>): Record<string, unknown> | undefined {
+  const config = source.evidenceContract.nativeConfig;
+  if (!config) return undefined;
+  const newIdByWord = new Map(items.map((item) => [item.wordId, item.id]));
+  const oldItems = Object.values(source.evidenceContract.spellingItems ?? {});
+  // A built-in re-runs for its own words or fewer: its setup holds nothing for a new word.
+  const oldWords = new Set(oldItems.map((item) => item.wordId));
+  if (!items.length || items.some((item) => !oldWords.has(item.wordId))) return undefined;
+  const idMap = new Map(oldItems.flatMap((item) => newIdByWord.has(item.wordId) ? [[item.id, newIdByWord.get(item.wordId)!] as const] : []));
+  const dropped = new Set(oldItems.filter((item) => !newIdByWord.has(item.wordId)).map((item) => item.id));
+  const DROP = Symbol("drop");
+  // The old activity ID is re-pointed only inside compound IDs ("hw:activity:kind"); a bare value such as
+  // a game type that happens to share the activity's name stays as it is.
+  const escaped = source.nodeId.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const compound = new RegExp(`(^|:)${escaped}(?=:)|(?<=:)${escaped}$`, "g");
+  const repoint = (value: unknown): unknown => {
+    if (typeof value === "string") return idMap.get(value) ?? (dropped.has(value) ? DROP : value === source.nodeId ? value : value.replace(compound, (_match, lead = "") => `${lead}${nodeId}`));
+    if (Array.isArray(value)) return value.map(repoint).filter((entry) => entry !== DROP);
+    if (!value || typeof value !== "object") return value;
+    const entries = Object.entries(value).map(([key, entry]) => [key, repoint(entry)] as const);
+    return entries.some(([, entry]) => entry === DROP) ? DROP : Object.fromEntries(entries);
+  };
+  const repointed = repoint(config);
+  if (repointed === DROP || oldItems.some((item) => JSON.stringify(repointed).includes(item.id))) return undefined;
+  // A re-run never shows a word the new board does not score: setups that carry spellings, not IDs, keep dropped words.
+  const shown = JSON.stringify(repointed).toLocaleLowerCase("en-US");
+  if (oldItems.some((item) => !newIdByWord.has(item.wordId) && new RegExp(`\\b${item.word.toLocaleLowerCase("en-US").replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`).test(shown))) return undefined;
+  // A re-pointed setup must pass the same check the kiosk's config route applies, or it is built instead.
+  try {
+    if (source.implementationType === "visual-explainer") validateVisualLearnerArtifactConfig(repointed);
+    if (source.implementationType === "letter-rush" && !validateLetterRushConfig(repointed).ok) return undefined;
+    if (source.implementationType === "concept-check" && !validateActivityEngineConfig(repointed).ok) return undefined;
+  } catch {
+    return undefined;
+  }
+  return repointed as Record<string, unknown>;
+}
+
 /** Freeze one Planner-authored successor program as a new, unpublished board instance. */
 function prepareSuccessorBoard(
   next: LearningCycleRecordV2,
@@ -1203,6 +1283,8 @@ function prepareSuccessorBoard(
   });
   const reference = [...next.nodes].reverse().find((node) => node.artwork.localPath);
   const savedSpellingItems = spellingAssignmentItems(next);
+  // Naming an earlier built-in spelling activity is the Planner's order to re-launch it, not to rebuild it.
+  // A checkpoint may only reuse a checkpoint activity, so a re-launched check never shows the answer.
   const nodes = program.instruments.map((prescription): LearningCycleNodeContract => {
     const nodeId = idFor.get(prescription.nodeId)!;
     const role: LearningCycleNodeRole = prescription.encounter ?? "baseline";
@@ -1219,8 +1301,14 @@ function prepareSuccessorBoard(
       };
     });
     const design = prescriptionDesign(prescription);
+    // Decisions saved before the Planner named built-ins re-run the activity whose ID they repeated.
+    const candidate = next.domain === "spelling" ? findReusableBuiltIn(next, spelling?.builtInActivityId ?? prescription.nodeId, spelling?.measurementRole) : undefined;
+    const reusedSetup = candidate?.evidenceContract.nativeConfig ? repointReusedSetup(candidate, nodeId, spellingItems ?? []) : undefined;
+    const source = candidate && (candidate.evidenceContract.nativeConfig ? reusedSetup : sameWordSet(candidate, spellingItems ?? [])) ? candidate : undefined;
+    if (candidate && !source) console.warn(` 🎮 [learning-board] [successor-reuse] [not-reusable] node=${nodeId} from=${candidate.nodeId} reason=setup_cannot_be_repointed`);
+    if (source) adoptBuiltInAnswerForms(source, spellingItems ?? []);
     const prompt = generationPrompt(next, role, nodeId, input.evidenceIds, input.reason, input.at);
-    prompt.text = `${prescription.creatorPrompt} ${prompt.text}`;
+    prompt.text = [prescription.creatorPrompt, prompt.text].filter(Boolean).join(" ");
     return {
       nodeId,
       role,
@@ -1231,6 +1319,7 @@ function prepareSuccessorBoard(
       theoryId: next.academicTheory.theoryId,
       experimentId: `${prefix}:${role}:${slugId(prescription.nodeId)}`,
       mechanic: prescription.mechanic,
+      ...(source ? { implementationType: source.implementationType, reusedFrom: source.nodeId } : {}),
       theme: prescription.theme,
       ...(design ? { design } : {}),
       openingScreen: { title: prescription.title, purpose: prescription.openingPurpose },
@@ -1253,6 +1342,7 @@ function prepareSuccessorBoard(
           spellingItems: Object.fromEntries(spellingItems.map(item => [item.id, item])),
           itemRoles: Object.fromEntries(spellingItems.map(item => [item.id, item.lineage.measurementRole])),
         } : {}),
+        ...(source && reusedSetup ? { nativeConfig: reusedSetup } : {}),
       },
       evidenceIds: [],
     };
@@ -1280,7 +1370,6 @@ function publishPreparedBoardIfComplete(next: LearningCycleRecordV2, at: string)
   if (!board) return undefined;
   const nodes = next.nodes.filter((node) => board.nodeIds.includes(node.nodeId));
   if (nodes.some((node) => !node.notReadyReason && (node.state === "generating" || node.state === "blocked" || node.artifactBinding?.validationStatus !== "passed"))) return undefined;
-  if (board.definition && next.canvasVerifications?.[board.boardId]?.definitionHash !== createHash('sha256').update(JSON.stringify(board.definition)).digest('hex')) return undefined;
   next.boards = next.boards!.map((candidate) => candidate.boardId === board.boardId ? { ...candidate, publishedAt: at } : candidate);
   next.agencyExperiment = board.agencyExperiment ? structuredClone(board.agencyExperiment) : undefined;
   next.routeSelection = undefined;
@@ -1560,6 +1649,9 @@ export function transitionLearningCycle(
     evidenceIds = fresh.flatMap((evaluation) => evaluation.observationIds);
     reason = `Recorded ${fresh.length} idempotent prediction evaluation${fresh.length === 1 ? "" : "s"}.`;
     nextAction = "Give the evaluations to the existing progression Planner.";
+  } else if (event.type === "board_preparation_checked") {
+    publishPreparedBoardIfComplete(next, at);
+    reason = "Checked verified activity readiness independently of canvas diagnostics.";
   } else if (event.type === "board_canvas_verified") {
     const board = next.boards?.find(candidate => candidate.boardId === event.boardId);
     if (!board?.definition || event.proof.definitionHash !== createHash('sha256').update(JSON.stringify(board.definition)).digest('hex')) throw new Error('board_canvas_proof_mismatch');
@@ -1572,11 +1664,15 @@ export function transitionLearningCycle(
     if (event.artifact.validationStatus !== "passed") throw new Error("learning_cycle_artifact_validation_failed");
     assertLocalPath(event.artifact.localArtifactPath, "artifact_path");
     assertLocalPath(event.artifact.localArtworkPath, "artwork_path");
+    // Binding a Not ready portal is an in-place repair: it changes only that portal, never the board's lifecycle.
+    const repair = Boolean(node.notReadyReason);
+    delete node.notReadyReason;
     node.artifactBinding = event.artifact;
     node.artwork = { ...node.artwork, status: "ready", localPath: event.artifact.localArtworkPath };
     if (node.state !== "completed") node.state = "ready";
     const preparing = next.boards ? preparingBoardInstance(next) : undefined;
-    if (preparing?.nodeIds.includes(node.nodeId)) publishPreparedBoardIfComplete(next, at);
+    if (repair) { /* lifecycle unchanged */ }
+    else if (preparing?.nodeIds.includes(node.nodeId)) publishPreparedBoardIfComplete(next, at);
     else if (node.role === "quest") next.lifecycle = "quest_ready";
     else if (node.role === "boss") next.lifecycle = "boss_ready";
     else if (next.lifecycle === "baseline_generating") {
@@ -1595,7 +1691,7 @@ export function transitionLearningCycle(
           : "baseline_ready";
     }
     normalizeAgencyNodeStates(next);
-    reason = `Validated ${node.role} artifact bound to canonical node contract.`;
+    reason = repair ? `Not ready ${node.role} portal repaired in place from its saved Creator attempt.` : `Validated ${node.role} artifact bound to canonical node contract.`;
     evidenceIds = node.generationPrompt?.createdFromEvidenceIds ?? [];
   } else if (event.type === "returned_work_confirmed") {
     if (!next.evidenceSources.some((source) => source.sourceId === event.source.sourceId)) {
@@ -1625,6 +1721,12 @@ export function transitionLearningCycle(
     reason = event.calibration.reason;
     nextAction = event.calibration.nextAction;
   } else if (event.type === "theory_decided") {
+    if(event.decision.replayedResponse){
+      const replay=event.decision.replayedResponse,blocked=[...current.decisionHistory].reverse().find(row=>row.fromLifecycle!==row.toLifecycle);
+      if(current.lifecycle!=='blocked'||blocked?.eventType!=='block'||blocked.decisionId!==replay.blockedDecisionId
+        ||!/^planner_decision_invalid:(board_definition_|board_canvas_invalid:)/.test(blocked.reason)
+        ||!replay.reason.trim()||![replay.requestHash,replay.receiptHash].every(hash=>/^[a-f0-9]{64}$/.test(hash)))throw new Error('planner_replay_not_eligible');
+    }
     if (fromLifecycle === "awaiting_calibration"
       && ["supported", "falsified"].includes(event.decision.status)
       && !hasSufficientCalibrationEvidence(current, event.decision)) {
@@ -1701,6 +1803,37 @@ export function transitionLearningCycle(
     if (!(next.boards && boardOwningNode(next, node.nodeId)?.publishedAt === null)) next.lifecycle = "board_ready";
     else if (event.notReady) publishPreparedBoardIfComplete(next, at);
     reason = event.reason;
+  } else if (event.type === "not_ready_rerun_builtin") {
+    // A never-playable spelling step on the current board is re-pointed, once, to the tested built-in it named (contract 51).
+    const node = nodeOrThrow(next, event.nodeId);
+    if (!node.notReadyReason || node.artifactBinding || node.reusedFrom || !next.boards || !currentBoardInstance(next).nodeIds.includes(node.nodeId)) {
+      throw new Error(`not_ready_repair_not_eligible:${node.nodeId}`);
+    }
+    const items = Object.values(node.evidenceContract.spellingItems ?? {});
+    const role = items[0]?.lineage.measurementRole;
+    const source = findReusableBuiltIn(next, event.builtInActivityId, role, node.nodeId);
+    const setup = source?.evidenceContract.nativeConfig ? repointReusedSetup(source, node.nodeId, items) : undefined;
+    const refusal = !items.length ? "step_has_no_words"
+      : !source ? (findReusableBuiltIn(next, event.builtInActivityId, undefined, node.nodeId) ? `checkpoint_needs_checkpoint_builtin:${event.builtInActivityId}` : `no_builtin_named:${event.builtInActivityId}`)
+      : source.evidenceContract.nativeConfig ? (setup ? undefined : `setup_cannot_take_these_words:builtin=${source.nodeId}:step_words=${items.map((item) => item.word).join(",")}:builtin_words=${Object.values(source.evidenceContract.spellingItems ?? {}).map((item) => item.word).join(",")}`)
+      : sameWordSet(source, items) ? undefined : `words_differ:builtin=${source.nodeId}`;
+    if (refusal || !source) throw new Error(`not_ready_repair_no_builtin:${node.nodeId}:${refusal}`);
+    adoptBuiltInAnswerForms(source, items);
+    node.implementationType = source.implementationType;
+    node.reusedFrom = source.nodeId;
+    if (setup) node.evidenceContract.nativeConfig = setup;
+    const owner = boardOwningNode(next, node.nodeId)!;
+    owner.topologyHash = boardTopologyHash(next, owner);
+    reason = `Not ready step ${node.nodeId} re-runs the tested built-in ${source.nodeId}.`;
+  } else if (event.type === "planner_retry_authorized") {
+    const blocked = [...current.decisionHistory].reverse().find(row => row.fromLifecycle !== row.toLifecycle);
+    if (current.lifecycle !== "blocked" || blocked?.eventType !== "block"
+      || blocked.decisionId !== event.blockedDecisionId
+      || !isRetryablePlannerBlock(blocked.reason)
+      || !["baseline_evaluating", "quest_evaluating", "boss_evaluating"].includes(blocked.fromLifecycle)
+      || !event.reason.trim()) throw new Error("planner_retry_not_eligible");
+    next.lifecycle = blocked.fromLifecycle;
+    reason = `Replacement authorized for ${event.blockedDecisionId}: ${event.reason.trim()}`;
   } else {
     next.lifecycle = "blocked";
     reason = event.reason;
@@ -1725,6 +1858,7 @@ export function transitionLearningCycle(
       nextEvidenceRequired: event.decision.nextEvidenceRequired,
       predictionEvaluationIds: event.decision.predictionEvaluationIds,
       assumptionAssessments: event.decision.assumptionAssessments,
+      ...(event.decision.replayedResponse?{replayedResponse:structuredClone(event.decision.replayedResponse)}:{}),
     } : {}),
   };
   next.decisionHistory.push(decision);
@@ -2165,23 +2299,6 @@ export function projectLearningCycle(
     activeSessionPlan: mergedPlan,
     adventureBoard: mergedBoard,
   };
-}
-
-export function assertLearningCycleProjectionWrite(
-  childId: string,
-  plan: ActiveSessionPlan,
-  opts: LearningCycleRepositoryOptions = {},
-): void {
-  const homeworkId = plan.activeHomeworkId;
-  if (!homeworkId) return;
-  const cycle = getLearningCycle(childId, homeworkId, opts);
-  if (!cycle) return;
-  const canonical = projectLearningCycle(cycle, {presentationPlan:plan}).activeSessionPlan;
-  if (JSON.stringify(plan) === JSON.stringify(canonical)) return;
-  const expected = projectLearningCycle(cycle, { presentationPlan: plan }).activeSessionPlan;
-  if (JSON.stringify(plan) !== JSON.stringify(expected)) {
-    throw new Error(`learning_cycle_compatibility_projection_drift:${homeworkId}:r${cycle.revision}`);
-  }
 }
 
 export function projectLearningCyclePlanForWrite(

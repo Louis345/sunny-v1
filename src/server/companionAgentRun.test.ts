@@ -17,7 +17,7 @@ function stream(parts: Array<{ type: string; text?: string }>, finishReason: str
 describe("Elli's spoken turn", () => {
   beforeEach(() => streamText.mockReset());
 
-  it("retries one empty length-limited turn so the child receives actual speech", async () => {
+  it("reports an empty length-limited turn without purchasing another response", async () => {
     // Human catch: Ila asked why Sunny was silent. The log showed an accepted
     // turn ending at `length` with no text or tools; earlier labs only tested
     // routing and TTS, never a zero-text model result at the output limit.
@@ -26,23 +26,21 @@ describe("Elli's spoken turn", () => {
       .mockReturnValueOnce(stream([{ type: "text-delta", text: "I'm here." }], "stop"));
     const onToken = vi.fn();
 
-    const answer = await runAgent({ history: [], userMessage: "Sunny, can you hear me?",
-      profile: { systemPrompt: "Speak to Ila." } as never, onToken, quiet: true });
-
-    expect(answer).toBe("I'm here.");
-    expect(onToken).toHaveBeenCalledExactlyOnceWith("I'm here.");
-    expect(streamText).toHaveBeenCalledTimes(2);
-    expect(streamText.mock.calls[1][0].maxOutputTokens).toBeGreaterThan(streamText.mock.calls[0][0].maxOutputTokens);
+    await expect(runAgent({ history: [], userMessage: "Sunny, can you hear me?",
+      profile: { systemPrompt: "Speak to the demo." } as never, onToken, quiet: true })).rejects.toThrow("companion_response_incomplete:length");
+    expect(onToken).not.toHaveBeenCalled();
+    expect(streamText).toHaveBeenCalledOnce();
+    expect(streamText.mock.calls[0][0].maxRetries).toBe(0);
   });
 
-  it("stops after one retry if the provider produces no text twice", async () => {
-    streamText.mockReturnValue(stream([], "length"));
+  it("accepts successful quiet without a second provider request", async () => {
+    streamText.mockReturnValue(stream([], "stop"));
 
     const answer = await runAgent({ history: [], userMessage: "Sunny?",
       profile: { systemPrompt: "Speak to Ila." } as never, onToken: vi.fn(), quiet: true });
 
     expect(answer).toBe("");
-    expect(streamText).toHaveBeenCalledTimes(2);
+    expect(streamText).toHaveBeenCalledOnce();
   });
 
   it("does not repeat a normal spoken answer", async () => {
@@ -61,8 +59,8 @@ describe("Elli's spoken turn", () => {
       return stream([], "length");
     });
 
-    await runAgent({ history: [], userMessage: "Sunny?",
-      profile: { systemPrompt: "Speak to Ila." } as never, onToken: vi.fn(), quiet: true });
+    await expect(runAgent({ history: [], userMessage: "Sunny?",
+      profile: { systemPrompt: "Speak to the demo." } as never, onToken: vi.fn(), quiet: true })).rejects.toThrow("companion_response_incomplete:length");
 
     expect(streamText).toHaveBeenCalledOnce();
   });

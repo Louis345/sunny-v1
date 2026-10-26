@@ -12,7 +12,7 @@ const companionActInputSchema = z.object({
   type: z
     .string()
     .describe(
-      "Capability id from [Companion Capabilities] in the session manifest (e.g. emote, camera).",
+      "Capability id from [Companion Capabilities] in the session manifest (e.g. camera, animate).",
     ),
   payload: z
     .record(z.string(), z.unknown())
@@ -28,7 +28,7 @@ const companionActInputSchema = z.object({
 export function createCompanionActTool(host: CompanionActHost) {
   return tool({
     description:
-      "Drive the on-screen VRM companion (expressions, camera, …). Read [Companion Capabilities] in the session manifest for valid `type` and `payload` keys. Prefer showing emotion here instead of action lines in asterisks. During requested activity help, presenceAfterSpeech may keep one useful follow-up open; otherwise Elli returns to standby.",
+      "Drive the on-screen VRM companion’s body, camera and available actions. Facial expressions use inline tags. Read [Companion Capabilities] in the session manifest for valid `type` and `payload` keys. During requested activity help, presenceAfterSpeech may keep one useful follow-up open; otherwise Elli returns to standby.",
     inputSchema: companionActInputSchema,
     execute: async (args) =>
       host.companionAct(args as Record<string, unknown>),

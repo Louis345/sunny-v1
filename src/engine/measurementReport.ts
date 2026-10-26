@@ -4,6 +4,7 @@ import type { StepSessionRecord } from "../algorithms/types";
 import { evaluateMasteryGate } from "../algorithms/masteryGating";
 import { readWordBank } from "../utils/wordBankIO";
 import { readLearningProfile } from "../utils/learningProfileIO";
+import { resolveChildContextDir } from "../utils/contextRoot";
 
 function today(): string {
   return new Date().toISOString().slice(0, 10);
@@ -16,7 +17,7 @@ function parseSessionNoteAccuracy(md: string): number | null {
 }
 
 function listRecentSessionNotes(childId: string, max: number): { name: string; acc: number; attempts: number }[] {
-  const dir = path.resolve(process.cwd(), "src", "context", childId, "session_notes");
+  const dir = path.resolve(resolveChildContextDir(childId), "session_notes");
   if (!fs.existsSync(dir)) return [];
   const files = fs
     .readdirSync(dir)

@@ -30,12 +30,12 @@ import { writeSessionNote, updateLearningProfileFromSession } from "./psychologi
 import type { SessionData } from "./psychologistBridge";
 import { childIdFromSessionName } from "../shared/childRegistry";
 import { readPersistedTodaysPlan } from "../agents/psychologist/today-plan";
-import type { ChildName } from "../utils/childContextPaths";
 import { getBondContextInjection } from "./bondProtocol";
 import { sunnyPreviewBlocksPersistence } from "../utils/runtimeMode";
 import { defaultDomainClassifiers } from "./error-signals/domainClassifierRegistry";
 import { extractErrorSignal } from "./error-signals/extractor";
 import { resolveAttentionModel } from "./attentionModel";
+import { resolveChildContextDir } from "../utils/contextRoot";
 
 export interface PlanSessionOptions {
   /** OCR / extracted homework list — used only when curriculum + bank yield no session words. */
@@ -173,10 +173,7 @@ function childIdFromName(childName: string): string {
 
 function resolveTodaysPlanPathForChildId(childId: string): string {
   return path.resolve(
-    process.cwd(),
-    "src",
-    "context",
-    childId.trim().toLowerCase(),
+    resolveChildContextDir(childId.trim().toLowerCase()),
     "todays_plan.json",
   );
 }

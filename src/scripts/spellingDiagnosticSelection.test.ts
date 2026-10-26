@@ -1,4 +1,4 @@
-import {runMathProviderStage,hashDiscoveryContract} from "../engine/adaptiveMathDiscovery";
+import { recordedIntake } from "./fixtures/recordedIntake";
 import {linearJourneyFixture} from './fixtures/authoredJourney';
 import fs from "node:fs";
 import os from "node:os";
@@ -6,7 +6,8 @@ import path from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { seedSpellingLab } from "./fixtures/spellingEvidenceFirst";
 import { runSpellingDiscoveryIntake } from "./ingestHomework";
-import { buildAssignmentPlanningPacket, prepareSpellingDiagnosticPacket, planSpellingIntakeFromSource, parseSpellingIntake, buildSpellingIntakePrompt, spellingIntakeAuthoringSchema, spellingIntakeToolJsonSchema, type AssignmentPlanningPacket } from "../engine/assignmentPlanner";
+import { buildAssignmentPlanningPacket, prepareSpellingDiagnosticPacket, parseSpellingIntake, type AssignmentPlanningPacket } from "../engine/assignmentPlanner";
+import { buildSpellingIntakeToolPrompt } from "../engine/spellingIntakeWithTools";
 import { extractAssignmentSource } from "../engine/assignmentSourceExtraction";
 import { getChildChart } from "../profiles/childChart";
 import { getLearningCycle } from "../engine/learningCycleRepository";
@@ -15,8 +16,6 @@ import { attachSpellingDiscoveryEvidence } from "../engine/assignmentPlanner";
 import { recordSpellingDiscoveryAttempt } from "../engine/learningCycleRuntime";
 import { completeDiscoveryEvaluation } from "../engine/adaptiveMathDiscovery";
 
-import { requestPlannerMessage } from "../engine/plannerTransport";
-vi.mock("../engine/plannerTransport",async original=>({...await original<typeof import("../engine/plannerTransport")>(),requestPlannerMessage:vi.fn()}));
 const roots: string[] = [];
 afterEach(() => roots.splice(0).forEach(root => fs.rmSync(root, { recursive: true, force: true })));
 async function fixture() {
@@ -37,7 +36,7 @@ describe("Planner-owned opening spelling diagnostic", () => {
     expect(packet.spellingDiagnostics!.instruments.map(row => `${row.activityId}/${row.modeId}`)).toEqual(["word-radar/independent_spelling_discovery"]);
     expect(packet.spellingDiagnostics!.instruments[0]).toMatchObject({ protocol: "spelling-recall-v1", config: { inputMode: "keyboard", showTimer: false, hideWordDuringResponse: true } });
     expect(packet.spellingDiagnostics!.device).toEqual({ status: "unknown" });
-    const prompt = buildSpellingIntakePrompt(packet);
+    const prompt = buildSpellingIntakeToolPrompt(packet);
     expect(prompt).toContain("needs_instrument");
     expect(prompt).toContain("independent_spelling_discovery");
     expect(prompt).not.toContain("The existing hidden-word recall instrument will offer every captured word");
@@ -68,14 +67,14 @@ describe("Planner-owned opening spelling diagnostic", () => {
   it("commits the Planner's decision and frozen capability once, projects it, and reuses on restart", async () => {
     const input = await fixture();
     const callPlannerModel = vi.fn(async (packet: AssignmentPlanningPacket) => ({ draft: capture(packet) }));
-    const first = await runSpellingDiscoveryIntake(input, { callPlannerModel });
+    const first = await runSpellingDiscoveryIntake(input, { plannerTools: recordedIntake(callPlannerModel) });
     const cycle = getLearningCycle(input.childId, first.homeworkId, input)!;
     const selected = cycle.nodes[0].evidenceContract.diagnosticSelection!;
     expect(selected.decision).toEqual(capture(input.packet).diagnostic);
     expect(selected.instrument).toMatchObject({ activityId: "word-radar", modeId: "independent_spelling_discovery", protocol: "spelling-recall-v1" });
     const plan = buildSpellingDiscoveryPlan({ cycle, companion: { id: "elli", name: "Elli" } });
     expect(plan.nodePlan[0]).toMatchObject({ activityId: selected.instrument.activityId, wordRadarConfig: selected.instrument.config });
-    await runSpellingDiscoveryIntake(input, { callPlannerModel });
+    await runSpellingDiscoveryIntake(input, { plannerTools: recordedIntake(callPlannerModel) });
     expect(getLearningCycle(input.childId, first.homeworkId, input)!.nodes[0].evidenceContract.diagnosticSelection).toEqual(selected);
     expect(callPlannerModel).toHaveBeenCalledOnce();
     const modified = structuredClone(cycle);
@@ -89,7 +88,7 @@ describe("Planner-owned opening spelling diagnostic", () => {
       const draft = capture(packet), { activityId: _, modeId: __, ...diagnostic } = draft.diagnostic;
       return { draft: { ...draft, diagnostic: { ...diagnostic, action: "needs_instrument", reason: "Available capture cannot establish the requested construct with known conditions." } } };
     });
-    for (let i = 0; i < 2; i++) await expect(runSpellingDiscoveryIntake(input, { callPlannerModel })).rejects.toThrow("spelling_diagnostic_needs_instrument");
+    for (let i = 0; i < 2; i++) await expect(runSpellingDiscoveryIntake(input, { plannerTools: recordedIntake(callPlannerModel) })).rejects.toThrow("spelling_diagnostic_needs_instrument");
     const homeworkId = `hw-spelling-${input.packet.sourceDocument.fileHash.slice(0, 8)}`;
     expect(getLearningCycle(input.childId, homeworkId, input)).toBeNull();
     const saved = JSON.parse(fs.readFileSync(path.join(input.rootDir, "src/context/lab-child/homework/direct-drafts", homeworkId, "spelling-intake-response.json"), "utf8"));
@@ -102,7 +101,7 @@ describe("Planner-owned opening spelling diagnostic", () => {
   });
   it("passes the recorded diagnostic rationale forward with actual outcomes, without raw responses", async () => {
     const input = await fixture();
-    const { homeworkId } = await runSpellingDiscoveryIntake(input, { callPlannerModel: async packet => ({ draft: capture(packet) }) });
+    const { homeworkId } = await runSpellingDiscoveryIntake(input, { plannerTools: recordedIntake( async packet => ({ draft: capture(packet) }) )});
     const opening = getLearningCycle(input.childId, homeworkId, input)!;
     Object.values(opening.nodes[0].evidenceContract.spellingItems!).forEach((item, index) => recordSpellingDiscoveryAttempt({ childId: input.childId, homeworkId,
       attempt: { attemptId: `observation-${index}`, itemId: item.id, attemptedValue: index ? "wrong-private-response" : item.word, observedAt: "2026-09-09T12:00:00Z" }, support: { status: "unassisted", scaffolds: [] } }, input));
@@ -115,55 +114,6 @@ describe("Planner-owned opening spelling diagnostic", () => {
     expect(next.spellingDiagnostics!.evidenceIds).toEqual(expect.arrayContaining(["observation-0", "observation-1"]));
     expect(JSON.stringify(next.spellingDiagnostics)).not.toContain("wrong-private-response");
   });
-  it("sends the same conditional contract inside a provider-supported object tool envelope",()=>{
-    const schema=spellingIntakeToolJsonSchema(spellingIntakeAuthoringSchema(true)) as any;
-    expect(schema.type).toBe("object");expect(schema.anyOf).toBeUndefined();
-    expect(schema.required).toEqual(["plan"]);
-    expect(schema.properties.plan.anyOf[0].required).toContain("boardDefinition");
-  });
-  it("makes activity bindings executable tool arguments, not guessed activity names", async () => {
-    const {packet}=await fixture(), draft=capture(packet);
-    const schema=spellingIntakeAuthoringSchema(true);
-    const wrong=structuredClone(draft); wrong.boardDefinition.portals.find(p=>p.kind==='activity')!.activityNodeId='word-radar';
-    expect(schema.safeParse(wrong).success).toBe(false);
-    const missing=structuredClone(draft); delete missing.boardDefinition.portals.find(p=>p.kind==='activity')!.activityNodeId;
-    expect(schema.safeParse(missing).success).toBe(false);
-    expect(schema.safeParse(draft).success).toBe(true);
-    const tool=spellingIntakeToolJsonSchema(schema) as any;
-    const resolve=(node:any):any=>node.$ref ? resolve(tool.$defs[node.$ref.split("/").at(-1)]) : node;
-    const board=resolve(tool.properties.plan.anyOf[0].properties.boardDefinition);
-    const portals=resolve(board.properties.portals.items).anyOf.map(resolve);
-    expect(portals[0].required).toContain('activityNodeId');
-    expect(resolve(portals[0].properties.activityNodeId).enum).toEqual(['diagnostic']);
-    expect(JSON.stringify(tool)).not.toContain('"minimum"');
-    expect(JSON.stringify(tool)).not.toContain('"maxItems"');
-    expect(JSON.stringify(tool)).not.toContain('"pattern"');
-    expect(JSON.stringify(tool)).toContain('Runtime constraints:');
-    expect(tool.$defs).toBeDefined();
-  });
-  it.each(["renamed","wrong","missing"])("repairs %s bindings without regenerating captured homework", async defect => {
-    const input = await fixture();
-    const good = capture(input.packet);
-    const missing = structuredClone(good);
-    delete (missing as Partial<typeof missing>).boardDefinition;
-    expect(spellingIntakeAuthoringSchema(true).safeParse(missing).success).toBe(false);
-    const gap = {...missing, diagnostic:{action:"needs_instrument",reason:"No valid instrument",evidenceIds:[input.packet.spellingDiagnostics!.evidenceIds[0]],uncertainty:["unknown"],nextEvidenceNeeded:["instrument"]}};
-    expect(spellingIntakeAuthoringSchema(true).safeParse(gap).success).toBe(true);
-    const malformed = structuredClone(good) as any;
-    const portal = malformed.boardDefinition.portals.find((p:any)=>p.kind==="activity");
-    if(defect==="renamed") {portal.activityId=portal.activityNodeId;delete portal.activityNodeId;}
-    else if(defect==="wrong") portal.activityNodeId="word-radar";
-    else delete portal.activityNodeId;
-    const callPlannerModel=vi.fn().mockResolvedValueOnce({draft:malformed})
-      .mockResolvedValueOnce({draft:{diagnostic:good.diagnostic,boardDefinition:good.boardDefinition}});
-    const first=await runSpellingDiscoveryIntake(input,{callPlannerModel});
-    const cycle=getLearningCycle(input.childId,first.homeworkId,input)!;
-    expect(cycle.assignment.title).toBe(good.title);
-    expect(cycle.boards![0].definition?.portals.map(p=>({id:p.id,label:p.label,position:p.position}))).toEqual(good.boardDefinition.portals.map(p=>({id:p.id,label:p.label,position:p.position})));
-    await runSpellingDiscoveryIntake(input,{callPlannerModel});
-    expect(callPlannerModel).toHaveBeenCalledTimes(2);
-  });
-
   it("repairs one incomplete Planner response once, then reuses the validated intake on restart", async () => {
     // Human catch: the real provider omitted one required field while the 12 visible words looked correct.
     // Log catch: Zod named the missing field, but the durable raw receipt made every restart repeat the failure.
@@ -175,51 +125,24 @@ describe("Planner-owned opening spelling diagnostic", () => {
       .mockResolvedValueOnce({ draft: incomplete })
       .mockResolvedValueOnce({ draft: capture(input.packet) });
 
-    const first = await runSpellingDiscoveryIntake(input, { callPlannerModel });
+    const first = await runSpellingDiscoveryIntake(input, { plannerTools: recordedIntake(callPlannerModel) });
     const cycle = getLearningCycle(input.childId, first.homeworkId, input)!;
     expect(Object.values(cycle.nodes[0].evidenceContract.spellingItems!).map(item => item.word)).toEqual(["night", "light"]);
     expect(cycle.nodes[0].evidenceContract.diagnosticSelection!.decision.nextEvidenceNeeded).toEqual(capture(input.packet).diagnostic.nextEvidenceNeeded);
     expect(callPlannerModel).toHaveBeenCalledTimes(2);
 
-    await runSpellingDiscoveryIntake(input, { callPlannerModel });
+    await runSpellingDiscoveryIntake(input, { plannerTools: recordedIntake(callPlannerModel) });
     expect(callPlannerModel).toHaveBeenCalledTimes(2);
-  });
-  it.each(["diagnostic-schema-correction-v1","authoring-correction-v3"])("recovers a successful paid %s correction without another provider call", async suffix=>{
-    const input=await fixture(),good=capture(input.packet),bad=structuredClone(good) as any;
-    delete bad.diagnostic.nextEvidenceNeeded;
-    const homeworkId=`hw-spelling-${input.packet.sourceDocument.fileHash.slice(0,8)}`;
-    const draftDir=path.join(input.rootDir,'src/context',input.childId,'homework/direct-drafts',homeworkId);
-    fs.mkdirSync(draftDir,{recursive:true});
-    fs.writeFileSync(path.join(draftDir,'spelling-intake-request.json'),JSON.stringify(input.packet));
-    await runMathProviderStage({draftDir,stage:'spelling-intake',model:'recorded',request:input.packet,execute:async()=>({draft:bad,latencyMs:0})});
-    await runMathProviderStage({draftDir,stage:`spelling-intake-${suffix}`,model:'recorded',request:{originalRequestHash:hashDiscoveryContract(input.packet)},execute:async()=>({draft:suffix.endsWith("v3")?{diagnostic:good.diagnostic,boardDefinition:good.boardDefinition}:good,latencyMs:0})});
-    fs.rmSync(path.join(draftDir,'provider-diagnostics'),{recursive:true,force:true});
-    const provider=vi.fn(async()=>{throw Error('paid call forbidden on received legacy recovery');});
-    const result=await runSpellingDiscoveryIntake(input,{callPlannerModel:provider});
-    expect(getLearningCycle(input.childId,result.homeworkId,input)).not.toBeNull();
-    expect(provider).not.toHaveBeenCalled();
   });
   it("source confirmation cannot replace the Planner's diagnostic decision", async () => {
     const input = await fixture(), draft = capture(input.packet);
     const callPlannerModel = vi.fn(async () => ({ draft: { ...draft, uncertainty: [{ kind: "ambiguous_word", pageNumber: 1, detail: "Confirm word identity." }] } }));
-    await expect(runSpellingDiscoveryIntake(input, { callPlannerModel })).rejects.toThrow("confirmation_required");
+    await expect(runSpellingDiscoveryIntake(input, { plannerTools: recordedIntake(callPlannerModel) })).rejects.toThrow("confirmation_required");
     const confirmedCapture = { capture: { ...draft, diagnostic: { ...draft.diagnostic, reason: "Not the Planner's recorded reason." } }, reviewer: "lab-parent", approvedAt: "2026-09-09T12:00:00Z" };
-    await expect(runSpellingDiscoveryIntake({ ...input, confirmedCapture } as never, { callPlannerModel })).rejects.toThrow("spelling_diagnostic_confirmation_changed");
+    await expect(runSpellingDiscoveryIntake({ ...input, confirmedCapture } as never, { plannerTools: recordedIntake(callPlannerModel) })).rejects.toThrow("spelling_diagnostic_confirmation_changed");
     expect(callPlannerModel).toHaveBeenCalledOnce();
   });
 });
-
-it('returns invalid opening geometry once to the same Planner and resumes its saved correction',async()=>{
- const {packet,rootDir}=await fixture();const valid=capture(packet);const invalid=structuredClone(valid);
- invalid.boardDefinition.portals[1].position=structuredClone(invalid.boardDefinition.portals[0].position);
- const callPlannerModel=vi.fn().mockResolvedValueOnce({draft:invalid}).mockResolvedValueOnce({draft:valid});
- const options={callPlannerModel,providerReceipt:{draftDir:path.join(rootDir,'receipts'),stage:'intake'}};
- expect((await planSpellingIntakeFromSource(packet,options)).output.boardDefinition).toEqual(valid.boardDefinition);
- expect(callPlannerModel).toHaveBeenCalledTimes(2);
- expect((await planSpellingIntakeFromSource(packet,options)).output.boardDefinition).toEqual(valid.boardDefinition);
- expect(callPlannerModel).toHaveBeenCalledTimes(2);
-},20000);
-
 
 it('uses the shared endpoint binding contract in diagnostic authoring and execution', async () => {
   const { packet } = await fixture();
@@ -230,65 +153,5 @@ it('uses the shared endpoint binding contract in diagnostic authoring and execut
   board.paths[0].portalIds = ['start', 'diagnostic'];
   board.edges = board.edges.filter(edge => edge.to !== 'end');
   const authored = {...draft, boardDefinition:board};
-  expect(spellingIntakeAuthoringSchema(true).parse(authored)).toEqual(authored);
   expect(parseSpellingIntake(authored, packet).boardDefinition).toEqual(board);
-});
-
-it('repairs only the board when the initial diagnostic decision is valid, preserving it across restart',async()=>{
- const {packet,rootDir}=await fixture(),valid=capture(packet),invalid=structuredClone(valid);
- (invalid.boardDefinition as {version:number}).version=1;
- const callPlannerModel=vi.fn().mockResolvedValueOnce({draft:invalid}).mockResolvedValueOnce({draft:{boardDefinition:valid.boardDefinition}});
- const options={callPlannerModel,providerReceipt:{draftDir:path.join(rootDir,'frozen-diagnostic-receipts'),stage:'intake'}};
- const result=await planSpellingIntakeFromSource(packet,options);
- expect(result.output.diagnostic).toEqual(valid.diagnostic);
- expect(result.output.boardDefinition).toEqual(valid.boardDefinition);
- expect((await planSpellingIntakeFromSource(packet,options)).output).toEqual(result.output);
- expect(callPlannerModel).toHaveBeenCalledTimes(2);
-});
-
-it('does not accept a board correction that rewrites a valid diagnostic rationale',async()=>{
- const {packet,rootDir}=await fixture(),valid=capture(packet),invalid=structuredClone(valid);
- (invalid.boardDefinition as {version:number}).version=1;
- const callPlannerModel=vi.fn().mockResolvedValueOnce({draft:invalid}).mockResolvedValueOnce({draft:{boardDefinition:valid.boardDefinition,diagnostic:{...valid.diagnostic,reason:'Changed independently of board repair'}}});
- await expect(planSpellingIntakeFromSource(packet,{callPlannerModel,providerReceipt:{draftDir:path.join(rootDir,'diagnostic-drift-receipts'),stage:'intake'}})).rejects.toThrow('spelling_intake_correction_changed_diagnostic');
- expect(callPlannerModel).toHaveBeenCalledTimes(2);
-});
-
-it('production intake board repair exposes no diagnostic field to the provider',async()=>{
- const {packet,rootDir}=await fixture(),valid=capture(packet),invalid=structuredClone(valid);
- (invalid.boardDefinition as {version:number}).version=1;
- vi.stubEnv('ANTHROPIC_API_KEY','recorded-no-network');
- const requests:any[]=[];
- vi.mocked(requestPlannerMessage).mockReset().mockImplementation(async(_client,request:any)=>{
-  requests.push(request);
-  return {id:'recorded-intake-'+requests.length,stop_reason:'tool_use',content:[{type:'tool_use',id:'tool-'+requests.length,name:'write_adventure_session_plan',input:{plan:requests.length===1?invalid:{boardDefinition:valid.boardDefinition}}}],usage:{input_tokens:1,output_tokens:1}} as never;
- });
- try {
-  const options={providerReceipt:{draftDir:path.join(rootDir,'board-only-provider'),stage:'intake'}};
-  const result=await planSpellingIntakeFromSource(packet,options);
-  expect(result.output.diagnostic).toEqual(valid.diagnostic);
-  expect(requests).toHaveLength(2);
-  expect(Object.keys(requests[1].tools[0].input_schema.properties.plan.properties)).toEqual(['boardDefinition']);
-  expect(JSON.stringify(requests[1].messages)).toContain('already valid and frozen');
-  await planSpellingIntakeFromSource(packet,options);
-  expect(requests).toHaveLength(2);
- } finally {vi.unstubAllEnvs();}
-});
-
-it('reuses a legacy full board repair with the same normalized diagnostic rationale',async()=>{
- const {packet,rootDir}=await fixture(),valid=capture(packet);
- valid.diagnostic.reason='  '+valid.diagnostic.reason+'  ';
- const invalid=structuredClone(valid);(invalid.boardDefinition as {version:number}).version=1;
- const callPlannerModel=vi.fn().mockResolvedValueOnce({draft:invalid}).mockResolvedValueOnce({draft:valid});
- const options={callPlannerModel,providerReceipt:{draftDir:path.join(rootDir,'normalized-diagnostic-receipts'),stage:'intake'}};
- expect((await planSpellingIntakeFromSource(packet,options)).output.diagnostic?.reason).toBe(valid.diagnostic.reason.trim());
- await planSpellingIntakeFromSource(packet,options);
- expect(callPlannerModel).toHaveBeenCalledTimes(2);
-});
-it('rejects explicit null diagnostic in a legacy full board repair',async()=>{
- const {packet,rootDir}=await fixture(),valid=capture(packet),invalid=structuredClone(valid);
- (invalid.boardDefinition as {version:number}).version=1;
- const callPlannerModel=vi.fn().mockResolvedValueOnce({draft:invalid}).mockResolvedValueOnce({draft:{boardDefinition:valid.boardDefinition,diagnostic:null}});
- await expect(planSpellingIntakeFromSource(packet,{callPlannerModel,providerReceipt:{draftDir:path.join(rootDir,'null-diagnostic-receipts'),stage:'intake'}})).rejects.toThrow('spelling_intake_correction_changed_diagnostic');
- expect(callPlannerModel).toHaveBeenCalledTimes(2);
 });

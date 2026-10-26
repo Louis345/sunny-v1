@@ -4,6 +4,7 @@ import { buildMeasurementReport } from "../../engine/measurementReport";
 import { loadChildFiles } from "../../utils/loadChildFiles";
 import { PSYCHOLOGIST_CONTEXT } from "../prompts";
 import { loadCycles } from "../../scripts/ingestScanResult";
+import { resolveChildContextDir } from "../../utils/contextRoot";
 
 /**
  * Load optional SLP (Natalie) notes from src/context/{ila|reina}/natalie/*.md
@@ -11,7 +12,7 @@ import { loadCycles } from "../../scripts/ingestScanResult";
 export function readNatalieContext(childSlug: string): string | null {
   const slug = childSlug.trim().toLowerCase();
   if (slug !== "ila" && slug !== "reina") return null;
-  const dir = path.resolve(process.cwd(), "src", "context", slug, "natalie");
+  const dir = path.resolve(resolveChildContextDir(slug), "natalie");
   if (!fs.existsSync(dir) || !fs.statSync(dir).isDirectory()) return null;
   const files = fs
     .readdirSync(dir)

@@ -70,6 +70,7 @@ import {
 } from "../engine/choiceEvents";
 import { interpretDirectExperienceOutcome } from "../engine/directExperienceFeedback";
 import {
+  chartCurrentHomeworkByDomain,
   completeDiscoveryEvaluation,
   getMathGenerationStatus,
   hasResumableMathGenerationWork,
@@ -169,6 +170,11 @@ export function resumeSuccessorBoards(options: { force?: boolean } = {}): void {
   }
 }
 
+/** Startup repairs only the chart's current homework; older homework, even finished, never resumes. */
+export function isStartupResumableHomework(homeworkId: string, current: ReadonlySet<string> | undefined): boolean {
+  return !current || current.has(homeworkId);
+}
+
 export function resumeAdaptiveMathWorkers(options: { force?: boolean } = {}): void {
   if (process.env.VITEST && !options.force) return;
   const certificationScope = certificationWorkerScope();
@@ -178,7 +184,13 @@ export function resumeAdaptiveMathWorkers(options: { force?: boolean } = {}): vo
     const homeworkIds = certificationScope
       ? [certificationScope.homeworkId]
       : fs.readdirSync(drafts);
+    const currentByDomain = certificationScope ? undefined : chartCurrentHomeworkByDomain(childId);
+    const current = currentByDomain ? new Set(Object.values(currentByDomain)) : undefined;
     for (const homeworkId of homeworkIds) {
+      if (!isStartupResumableHomework(homeworkId, current)) {
+        console.log(` 🎮 [adaptive-math] [worker-resume] [skipped] child=${childId} homework=${homeworkId} reason=not_current_homework`);
+        continue;
+      }
       try {
         const job = getMathGenerationStatus(childId, homeworkId);
         if (job && shouldResumeAdaptiveMathWorker(job)) launchAdaptiveMathWorker(childId, homeworkId);
@@ -2866,10 +2878,7 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
       return res.status(400).json({ ok: false, error: "childId required" });
     }
     const pendingPath = path.join(
-      process.cwd(),
-      "src",
-      "context",
-      childId,
+      resolveChildContextDir(childId),
       "homework",
       "pending",
       new Date().toISOString().slice(0, 10),
@@ -3030,10 +3039,7 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
     writeLearningProfile(childId, profile);
 
     const pendingDir = path.join(
-      process.cwd(),
-      "src",
-      "context",
-      childId,
+      resolveChildContextDir(childId),
       "homework",
       "pending",
       date,
@@ -3092,19 +3098,13 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
     const allApproved = profile.pendingHomework.nodes.every((n) => n.approved === true);
     if (allApproved) {
       const pendingDir = path.join(
-        process.cwd(),
-        "src",
-        "context",
-        childId,
+        resolveChildContextDir(childId),
         "homework",
         "pending",
         date,
       );
       const gamesDir = path.join(
-        process.cwd(),
-        "src",
-        "context",
-        childId,
+        resolveChildContextDir(childId),
         "homework",
         "games",
         date,
@@ -3143,10 +3143,7 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
         return res.status(404).json({ ok: false, error: "node not found" });
       }
       const pendingDir = path.join(
-        process.cwd(),
-        "src",
-        "context",
-        childId,
+        resolveChildContextDir(childId),
         "homework",
         "pending",
         date,
@@ -3250,19 +3247,13 @@ Return plain text only.`,
       return res.status(400).json({ error: "Invalid request" });
     }
     const pendingBase = path.resolve(
-      process.cwd(),
-      "src",
-      "context",
-      childId,
+      resolveChildContextDir(childId),
       "homework",
       "pending",
       date,
     );
     const gamesBase = path.resolve(
-      process.cwd(),
-      "src",
-      "context",
-      childId,
+      resolveChildContextDir(childId),
       "homework",
       "games",
       date,

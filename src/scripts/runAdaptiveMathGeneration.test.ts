@@ -4,6 +4,8 @@ import os from "node:os";
 import path from "node:path";
 import { createHash } from "node:crypto";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
+// Each case drives a full math generation run (~2s idle, 5s+ on a busy runner); 5s flaked in CI.
+vi.setConfig({ testTimeout: 30_000 });
 import { plan, learningProgram } from "./fixtures/adaptiveMathRelease";
 import { createDiscoveryLearningCycle, completeDiscoveryEvaluation, recordDiscoveryAttempt, getMathGenerationStatus, hashDiscoveryContract, setMathGenerationPhase, updateMathGenerationNode, writeMathGenerationJob } from "../engine/adaptiveMathDiscovery";
 import { getLearningCycle, projectLearningCycle, transitionLearningCycle } from "../engine/learningCycleRepository";

@@ -6,6 +6,7 @@ import type {
   InterventionMeasurement,
   LearningTheory,
 } from "../context/schemas/homeworkCycle";
+import { resolveChildContextDir } from "../utils/contextRoot";
 
 type BuildTheoryInput = {
   cycle: HomeworkCycle;
@@ -252,7 +253,7 @@ export function recordNodeMeasurement(input: RecordMeasurementInput): HomeworkCy
 }
 
 function cyclesDirFor(childId: string): string {
-  return path.join(process.cwd(), "src", "context", childId, "homework", "cycles");
+  return path.join(resolveChildContextDir(childId), "homework", "cycles");
 }
 
 export function readHomeworkCycle(

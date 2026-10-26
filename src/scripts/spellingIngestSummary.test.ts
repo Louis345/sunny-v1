@@ -1,4 +1,5 @@
 import {linearJourneyFixture} from "./fixtures/authoredJourney";
+import { recordedIntake } from "./fixtures/recordedIntake";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -18,7 +19,7 @@ async function fixture() {
   const childId = "lab-child";
   const callPlannerModel = vi.fn(async (packet: Parameters<typeof recordedSpellingDiagnostic>[0]) => ({ draft: { boardDefinition:linearJourneyFixture(["diagnostic"]), diagnostic: recordedSpellingDiagnostic(packet), title: "School spelling", words: ["night", "light"].map(word => ({ word, pageNumber: 1 })), sourceNotes: [], uncertainty: [] } }));
   const input = { rootDir, childId, sourceFile };
-  const { homeworkId } = await runSpellingDiscoveryIntake(input, { callPlannerModel });
+  const { homeworkId } = await runSpellingDiscoveryIntake(input, { plannerTools: recordedIntake(callPlannerModel) });
   const child = path.join(rootDir, "src/context", childId);
   const planFile = path.join(child, "plans/active_session_plan.json");
   const cycleFile = path.join(child, "homework/cycles", `${homeworkId}.json`);

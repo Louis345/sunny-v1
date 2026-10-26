@@ -9,15 +9,13 @@ import {
   acquireMathGenerationLease,
   hashDiscoveryContract,
   releaseMathGenerationLease,
+  resolveAdaptiveMathDraftDir,
   runMathProviderStage,
 } from "./adaptiveMathDiscovery";
 import {
-  buildMathCreativeChildContext, createDirectArtwork, runDirectBrowserSmokeCheck, MATH_BROWSER_VERIFIER_VERSION,
-  generateAdaptiveProgressionActivityHtml,
+  buildMathCreativeChildContext, createDirectArtwork, generateAdaptiveProgressionActivityHtml,
 } from "./directMathExperience";
 import { engagementTheoryEvidenceContext } from "./engagementTheory";
-import { validateGeneratedArtifactRuntime } from "./generatedArtifactRuntimeValidator";
-import { judgeChildFacingScreens, selectChildFacingJourneyScreens } from "./childFacingVisualGate";
 import {
   getLearningCycle,
   transitionLearningCycle,
@@ -25,7 +23,7 @@ import {
   type LearningCycleRecordV2,
   type LearningCycleRepositoryOptions,
 } from "./learningCycleRepository";
-import { preparingBoardInstance } from "./learningBoardInstances";
+import { currentBoardInstance, preparingBoardInstance } from "./learningBoardInstances";
 
 export type CanonicalProgressionGeneratorInput = {
   childId: string;
@@ -107,54 +105,23 @@ function openingIdentityFailures(html: string, node: LearningCycleNodeContract):
   return heading === expected ? [] : [`opening_title_mismatch:expected=${expected}:actual=${heading || "missing"}`];
 }
 
-async function productionValidate(input: { html: string; node: LearningCycleNodeContract; cycle: LearningCycleRecordV2 }, rootDir: string): Promise<ProgressionValidationResult> {
-  const stage = input.node.role === "boss" ? "boss" : input.node.role === "quest" ? "quest" : "baseline";
-  const staticReport = validateGeneratedGame(input.html, {
-    words: input.node.academicTarget.targets,
-    homeworkType: input.cycle.domain,
-    childId: input.cycle.childId,
+/** Only the cheap text check runs before an activity opens. There is no browser
+ * run and no AI screenshot judge: the child playing it, and her scored answers,
+ * are the check. */
+function textCheckFailures(html: string, node: LearningCycleNodeContract, cycle: LearningCycleRecordV2): string[] {
+  const stage = node.role === "boss" ? "boss" : node.role === "quest" ? "quest" : "baseline";
+  return validateGeneratedGame(html, {
+    words: node.academicTarget.targets,
+    homeworkType: cycle.domain,
+    childId: cycle.childId,
     generationStage: stage,
-  });
-  if (!staticReport.passed) return { passed: false, failures: staticReport.failures };
-  const dir = input.cycle.domain === "spelling"
-    ? qualityDiagnosticsDir(rootDir, input.cycle, input.node)
-    : path.join(resolveChildContextDir(input.cycle.childId, { rootDir }), "homework/games/.validation", input.node.nodeId);
-  if (input.cycle.domain === "math" || input.cycle.domain === "spelling") {
-    fs.mkdirSync(dir, {recursive:true});
-    const htmlPath = path.join(dir, "candidate.html"); fs.writeFileSync(htmlPath, input.html);
-    const htmlHash = createHash("sha256").update(input.html).digest("hex");
-    const mathItemContracts = input.cycle.domain === "math"
-      ? Object.values(input.node.evidenceContract.itemContracts ?? {})
-      : [];
-    const report = await runDirectBrowserSmokeCheck({
-      rootDir,
-      artifacts:[{nodeId:input.node.nodeId,childId:input.cycle.childId,homeworkId:input.cycle.homeworkId,title:input.node.title,htmlPath,htmlHash,artworkUrl:input.node.artwork.localPath??"",creatorPrompt:input.node.generationPrompt?.text??"",promptHash:input.node.generationPrompt?.promptId??"",plannerModel:"canonical",creatorModel:"canonical",...(input.node.evidenceContract.itemRoles?{itemIds:Object.keys(input.node.evidenceContract.itemRoles)}:{}),...(input.cycle.domain === "spelling" ? {spellingItemBindings:Object.values(input.node.evidenceContract.spellingItems ?? {}).map(item=>({itemId:item.id,word:item.word}))} : {})}],
-      ...(mathItemContracts.length > 0 ? { itemContractsByNodeId: { [input.node.nodeId]: mathItemContracts } } : {}),
-    });
-    if (!report.passed) return {passed:false,failures:report.failures,screenshotPaths:report.screenshots,htmlHash,verifierVersion:MATH_BROWSER_VERIFIER_VERSION};
-    const visualVerdict = await judgeChildFacingScreens({
-      screenshotPaths: selectChildFacingJourneyScreens(report.screenshots),
-      auditFile: path.join(dir, "blind-visual-verdict.json"),
-    });
-    const visualFailures = visualVerdict.decision === "reject"
-      ? visualVerdict.observations.map(observation => `child_visual_review:${observation}`)
-      : [];
-    return {passed:visualFailures.length===0,failures:visualFailures,screenshotPaths:report.screenshots,htmlHash,verifierVersion:MATH_BROWSER_VERIFIER_VERSION};
-  }
-  const runtime = await validateGeneratedArtifactRuntime({
-    html: input.html,
-    childId: input.cycle.childId,
-    stage,
-    homeworkType: input.cycle.domain,
-    words: input.node.academicTarget.targets,
-    outputDir: dir,
-  });
-  return {
-    passed: runtime.passed,
-    failures: runtime.failures,
-    screenshotPaths: runtime.runtimeValidation?.screenshotPaths ?? [],
-    interactionTrace: runtime.runtimeValidation ?? null,
-  };
+    artifactForm: "self-contained",
+  }).failures;
+}
+
+async function productionValidate(input: { html: string; node: LearningCycleNodeContract; cycle: LearningCycleRecordV2 }): Promise<ProgressionValidationResult> {
+  const failures = textCheckFailures(input.html, input.node, input.cycle);
+  return { passed: failures.length === 0, failures };
 }
 
 function progressionContractFingerprint(node: LearningCycleNodeContract): string {
@@ -261,6 +228,15 @@ function persistQualityCandidate(input: {
   }, null, 2)}\n`, "utf8");
 }
 
+/** The newest saved build or check failure for a node, so its Not ready portal keeps the real reason. */
+function latestQualityFailure(rootDir: string, cycle: LearningCycleRecordV2, node: LearningCycleNodeContract): string | undefined {
+  const dir = qualityDiagnosticsDir(rootDir, cycle, node);
+  const latest = (fs.existsSync(dir) ? fs.readdirSync(dir) : []).map(name => /^iteration-(\d+)\.json$/.exec(name)).filter(Boolean).sort((a, b) => Number(b![1]) - Number(a![1]))[0];
+  if (!latest) return undefined;
+  const saved = JSON.parse(fs.readFileSync(path.join(dir, latest[0]), "utf8")) as { validation?: { failures?: string[] } | null; error?: string | null };
+  return saved.validation?.failures?.join(" | ") || saved.error || undefined;
+}
+
 export async function generateCanonicalProgressionArtifact(
   input: CanonicalProgressionGeneratorInput,
   opts: LearningCycleRepositoryOptions = {},
@@ -292,7 +268,7 @@ export async function generateCanonicalProgressionArtifact(
   const generationPrompt = node.generationPrompt.text;
   const generate = input.generateHtml ?? ((creatorInput) => productionGenerate(creatorInput, rootDir));
   const creatorModel = process.env.SUNNY_GENERATION_MODEL ?? process.env.SUNNY_INGEST_MODEL ?? "claude-sonnet-5";
-  const validate = input.validate ?? ((validationInput) => productionValidate(validationInput, rootDir));
+  const validate = input.validate ?? productionValidate;
   let prompt = generationPrompt;
   let html = "";
   let validation: ProgressionValidationResult = { passed: false, failures: [] };
@@ -372,25 +348,35 @@ Correct only the implementation while preserving the Planner's academic target, 
     return cycle;
   }
 
-  const filename = `${slug(cycle.homeworkId)}-${stage}-${slug(node.experimentId)}.html`;
-  const contractFingerprint = progressionContractFingerprint(node);
   const latest = getLearningCycle(cycle.childId, cycle.homeworkId, opts);
   const currentNode = latest?.nodes.find(candidate => candidate.nodeId === node.nodeId);
-  if (!latest || !currentNode || currentNode.state !== "generating" || progressionContractFingerprint(currentNode) !== contractFingerprint) {
+  if (!latest || !currentNode || currentNode.state !== "generating" || progressionContractFingerprint(currentNode) !== progressionContractFingerprint(node)) {
     throw new Error(`canonical_generation_contract_changed:${node.nodeId}`);
   }
+  return bindGeneratedHtml({ cycle: latest, node, html, artworkPath, validation }, opts);
+}
+
+/** Write an accepted activity where the kiosk serves it and bind it to its node. */
+function bindGeneratedHtml(input: {
+  cycle: LearningCycleRecordV2; node: LearningCycleNodeContract; html: string; artworkPath?: string | null; validation?: ProgressionValidationResult;
+}, opts: LearningCycleRepositoryOptions): LearningCycleRecordV2 {
+  const { cycle, node, html, artworkPath, validation } = input;
+  const rootDir = opts.rootDir ?? process.cwd();
+  const stage = node.role === "quest" ? "quest" : node.role === "boss" ? "boss" : "baseline";
+  const filename = `${slug(cycle.homeworkId)}-${stage}-${slug(node.experimentId)}.html`;
+  const contractFingerprint = progressionContractFingerprint(node);
   const gamesDir = path.join(resolveChildContextDir(cycle.childId, { rootDir }), "homework", "games");
   const file = node.role === "baseline"
     ? path.join(gamesDir, cycle.homeworkId, filename)
     : path.join(gamesDir, filename);
   fs.mkdirSync(path.dirname(file), { recursive: true });
   fs.writeFileSync(file, html, "utf8");
-  return transitionLearningCycle(cycle.childId, cycle.homeworkId, latest.revision, {
+  return transitionLearningCycle(cycle.childId, cycle.homeworkId, cycle.revision, {
     type: "artifact_bound",
     nodeId: node.nodeId,
     artifact: {
       contentId: `${cycle.homeworkId}:${stage}:${node.experimentId}`,
-      artifactId: `${node.generationPrompt.promptId}:artifact`,
+      artifactId: `${node.generationPrompt!.promptId}:artifact`,
       localArtifactPath: node.role === "baseline"
         ? `/api/homework/game/${cycle.childId}/${cycle.homeworkId}/${filename}`
         : `/api/homework/game/${cycle.childId}/${filename}`,
@@ -399,13 +385,13 @@ Correct only the implementation while preserving the Planner's academic target, 
       validationStatus: "passed",
       ...((node.role === "quest" || node.role === "boss") ? {
         creativeProvenance: {
-          rationale: "Publication requires technical runtime validation and an open-ended child-view screenshot review.",
-          qualityPrediction: "No numeric quality score is inferred; the screenshot verdict is stored in the validation audit.",
-          creatorPromptHash: createHash("sha256").update(generationPrompt).digest("hex"),
+          rationale: "Publication requires the text check only; the child playing it is the review.",
+          qualityPrediction: "No numeric quality score is inferred.",
+          creatorPromptHash: createHash("sha256").update(node.generationPrompt!.text).digest("hex"),
           artworkPromptHash: createHash("sha256").update(node.artwork.prompt ?? "").digest("hex"),
         },
       } : {}),
-      ...(validation.screenshotPaths?.length ? {
+      ...(validation?.screenshotPaths?.length ? {
         validationProof: {
           engine: "playwright" as const,
           passed: true,
@@ -419,10 +405,105 @@ Correct only the implementation while preserving the Planner's academic target, 
 }
 
 /**
+ * Repair a Not ready activity on the current board in place, once, with no provider call.
+ * Spelling re-runs the tested built-in the step named; other subjects bind the first of the
+ * Creator's own saved attempts that passes today's text check.
+ */
+export function repairNotReadyActivity(
+  input: { childId: string; homeworkId: string; nodeId: string },
+  opts: LearningCycleRepositoryOptions = {},
+): LearningCycleRecordV2 {
+  const rootDir = opts.rootDir ?? process.cwd();
+  const cycle = getLearningCycle(input.childId, input.homeworkId, opts);
+  if (!cycle) throw new Error(`learning_cycle_missing:${input.homeworkId}`);
+  const node = cycle.nodes.find(candidate => candidate.nodeId === input.nodeId);
+  const onCurrentBoard = !cycle.boards || currentBoardInstance(cycle).nodeIds.includes(input.nodeId);
+  if (!node?.notReadyReason || node.artifactBinding || !node.generationPrompt || !onCurrentBoard) {
+    throw new Error(`not_ready_repair_not_eligible:${input.nodeId}`);
+  }
+  // Spelling re-runs the tested built-in the step named; older steps named it by repeating its ID.
+  if (cycle.domain === "spelling") {
+    const builtInActivityId = node.nodeId.replace(/^.*:b\d+:/, "");
+    let repointed: LearningCycleRecordV2;
+    try {
+      repointed = transitionLearningCycle(input.childId, input.homeworkId, cycle.revision, { type: "not_ready_rerun_builtin", nodeId: node.nodeId, builtInActivityId }, opts);
+    } catch (error) {
+      console.warn(` 🎮 [board] [portal] [repair-failed] node=${node.nodeId} reason=${error instanceof Error ? error.message : String(error)}`);
+      throw error;
+    }
+    const rerun = repointed.nodes.find(candidate => candidate.nodeId === node.nodeId)!;
+    console.log(` 🎮 [board] [portal] [repaired] node=${node.nodeId} builtin=${rerun.reusedFrom} provider_calls=0`);
+    return relaunchReusedActivity(input.childId, input.homeworkId, repointed, rerun, opts);
+  }
+  const dir = qualityDiagnosticsDir(rootDir, cycle, node);
+  const attempts = (fs.existsSync(dir) ? fs.readdirSync(dir) : [])
+    .map(name => /^iteration-(\d+)\.html$/.exec(name)).filter((match): match is RegExpExecArray => Boolean(match))
+    .sort((a, b) => Number(a[1]) - Number(b[1]));
+  for (const attempt of attempts) {
+    const html = fs.readFileSync(path.join(dir, attempt[0]), "utf8");
+    const failures = [...openingIdentityFailures(html, node), ...textCheckFailures(html, node, cycle)];
+    if (failures.length > 0) {
+      console.log(` 🎮 [board] [portal] [repair-attempt-skipped] node=${node.nodeId} attempt=${attempt[1]} reason=${failures.join("|")}`);
+      continue;
+    }
+    console.log(` 🎮 [board] [portal] [repaired] node=${node.nodeId} attempt=${attempt[1]} provider_calls=0`);
+    return bindGeneratedHtml({ cycle, node, html, artworkPath: node.artwork.localPath }, opts);
+  }
+  console.warn(` 🎮 [board] [portal] [repair-failed] node=${node.nodeId} attempts=${attempts.length} reason=no_passing_attempt`);
+  throw new Error(`not_ready_repair_no_passing_attempt:${input.nodeId}`);
+}
+
+/** Repair every Not ready generated activity on the current board; one bounded pass, each result reported. */
+export function repairNotReadyActivities(
+  input: { childId: string; homeworkId: string },
+  opts: LearningCycleRepositoryOptions = {},
+): Array<{ nodeId: string; repaired: boolean; reason?: string }> {
+  const cycle = getLearningCycle(input.childId, input.homeworkId, opts);
+  if (!cycle) throw new Error(`learning_cycle_missing:${input.homeworkId}`);
+  const board = cycle.boards ? currentBoardInstance(cycle).nodeIds : cycle.nodes.map(node => node.nodeId);
+  const candidates = cycle.nodes.filter(node => node.notReadyReason && !node.artifactBinding && node.generationPrompt && board.includes(node.nodeId));
+  return candidates.map(({ nodeId }) => {
+    try {
+      repairNotReadyActivity({ ...input, nodeId }, opts);
+      return { nodeId, repaired: true };
+    } catch (error) {
+      return { nodeId, repaired: false, reason: error instanceof Error ? error.message : String(error) };
+    }
+  });
+}
+
+/**
  * Implement and verify every node of the one preparing successor board, reusing
  * nodes already bound by an earlier run. The board publishes on its last verified
  * binding; it never opens a node or interrupts the child.
  */
+/** Re-launch the earlier built-in activity the Planner named, with this node's fresh items: no build, no provider. */
+function relaunchReusedActivity(childId: string, homeworkId: string, cycle: LearningCycleRecordV2, node: LearningCycleNodeContract, opts: LearningCycleRepositoryOptions): LearningCycleRecordV2 {
+  const rootDir = opts.rootDir ?? process.cwd();
+  const source = cycle.nodes.find((candidate) => candidate.nodeId === node.reusedFrom);
+  if (!source?.artifactBinding) throw new Error(`reused_activity_missing:${node.reusedFrom}`);
+  const contextDir = resolveChildContextDir(childId, { rootDir });
+  const nativeDir = path.join(resolveAdaptiveMathDraftDir(childId, homeworkId, { rootDir }), "native-instruments");
+  const fileFor = (nodeId: string) => path.join(nativeDir, `${nodeId.replace(/[^a-zA-Z0-9_-]/g, "_")}.json`);
+  const sourceContract = JSON.parse(fs.readFileSync(fileFor(source.nodeId), "utf8")) as { node: Record<string, unknown> };
+  const configuration = { version: 1, node: { ...sourceContract.node, id: node.nodeId, title: node.title, targets: [...node.academicTarget.targets] }, evidenceContract: node.evidenceContract };
+  const write = (file: string, value: unknown) => { fs.mkdirSync(path.dirname(file), { recursive: true }); fs.writeFileSync(`${file}.${process.pid}.tmp`, JSON.stringify(value, null, 2)); fs.renameSync(`${file}.${process.pid}.tmp`, file); };
+  write(fileFor(node.nodeId), configuration);
+  let activityConfigPath: string | undefined;
+  if (node.evidenceContract.nativeConfig) {
+    const filename = `${node.nodeId.replace(/[^a-zA-Z0-9_-]/g, "_")}-${hashDiscoveryContract(node.nodeId).slice(0, 8)}.json`;
+    write(path.join(contextDir, "homework/games", homeworkId, filename), node.evidenceContract.nativeConfig);
+    activityConfigPath = `/api/activity-config/${childId}/${homeworkId}/${filename}`;
+  }
+  console.log(` 🎮 [learning-board] [successor-preparation] [reused] node=${node.nodeId} from=${source.nodeId} type=${node.implementationType}`);
+  return transitionLearningCycle(childId, homeworkId, cycle.revision, { type: "artifact_bound", nodeId: node.nodeId, artifact: {
+    contentId: `${homeworkId}:${node.nodeId}`, artifactId: `${homeworkId}:${node.nodeId}:native`,
+    localArtifactPath: node.implementationType === "visual-explainer" ? "/games/spelling-visual-explainer.html" : `/${path.relative(contextDir, fileFor(node.nodeId)).split(path.sep).join("/")}`,
+    localArtworkPath: source.artifactBinding.localArtworkPath, contractFingerprint: hashDiscoveryContract(configuration), validationStatus: "passed",
+    ...(activityConfigPath ? { activityConfigPath } : {}),
+  } }, opts);
+}
+
 export async function prepareSuccessorBoard(
   input: Omit<CanonicalProgressionGeneratorInput, "nodeId">,
   opts: LearningCycleRepositoryOptions = {},
@@ -433,10 +514,6 @@ export async function prepareSuccessorBoard(
   if (!cycle.boards) return generateCanonicalProgressionArtifact(input, opts);
   const board = preparingBoardInstance(cycle);
   if (!board || cycle.lifecycle === "blocked") return cycle;
-  if (cycle.nodes.some((node) => board.nodeIds.includes(node.nodeId) && node.state === "blocked")) {
-    console.warn(` 🎮 [learning-board] [successor-preparation] [awaiting-attention] board=${board.boardId}`);
-    return cycle;
-  }
   const lease = acquireMathGenerationLease({ rootDir: opts.rootDir, childId: input.childId, homeworkId: input.homeworkId });
   if (!lease.acquired || !lease.token) {
     console.log(` 🎮 [learning-board] [successor-preparation] [already-running] board=${board.boardId}`);
@@ -444,31 +521,39 @@ export async function prepareSuccessorBoard(
   }
   try {
     try {
-      await verifyPreparingBoardCanvas({rootDir:opts.rootDir??process.cwd(),childId:input.childId,homeworkId:input.homeworkId,directory:path.join(resolveChildContextDir(input.childId,opts),'homework','canvas-verification',board.boardId.replace(/[^a-zA-Z0-9_-]/g,'_'))});
+      await verifyPreparingBoardCanvas({rootDir:opts.rootDir??process.cwd(),childId:input.childId,homeworkId:input.homeworkId,acceptAsAuthored:true,directory:path.join(resolveChildContextDir(input.childId,opts),'homework','canvas-verification',board.boardId.replace(/[^a-zA-Z0-9_-]/g,'_'))});
     } catch (error) {
-      const reason = `successor_canvas_failed:${error instanceof Error ? error.message : String(error)}`;
-      console.warn(` 🎮 [learning-board] [successor-preparation] [needs-attention] board=${board.boardId} reason=${reason}`);
-      const latest = getLearningCycle(input.childId, input.homeworkId, opts)!;
-      return transitionLearningCycle(input.childId, input.homeworkId, latest.revision, { type: "block", reason }, opts);
+      console.warn(` 🎮 [learning-board] [canvas-diagnostic] [unavailable] board=${board.boardId} reason=${error instanceof Error ? error.message : String(error)}`);
     }
     cycle=getLearningCycle(input.childId,input.homeworkId,opts)!;
+    // An activity held for attention before this rule becomes Not ready at $0, keeping its recorded reason.
+    const heldReason = [...cycle.decisionHistory].reverse().find(row => row.eventType === "artifact_generation_attention_required")?.reason ?? "activity_build_failed";
+    for (const held of cycle.nodes.filter((node) => board.nodeIds.includes(node.nodeId) && node.state === "blocked" && !node.notReadyReason)) {
+      console.warn(` 🎮 [learning-board] [successor-preparation] [not-ready] board=${board.boardId} node=${held.nodeId} reason=${heldReason}`);
+      cycle = transitionLearningCycle(input.childId, input.homeworkId, cycle.revision, { type: "artifact_generation_attention_required", nodeId: held.nodeId, reason: heldReason, notReady: true }, opts);
+    }
     for (let attempt = 0; attempt <= board.nodeIds.length; attempt += 1) {
       const pending = cycle.nodes.find((node) => board.nodeIds.includes(node.nodeId) && node.state === "generating" && node.generationPrompt);
       if (!pending) return cycle;
       let next: LearningCycleRecordV2;
       let failure = "";
       try {
-        next = await generateCanonicalProgressionArtifact({ ...input, nodeId: pending.nodeId }, opts);
-        if (next.revision === cycle.revision) failure = "human_review_required";
+        // Spelling boards run only tested built-ins: a step with no re-runnable built-in is Not ready, never built.
+        if (cycle.domain === "spelling" && !pending.reusedFrom) throw new Error("spelling_no_reusable_builtin");
+        next = pending.reusedFrom
+          ? relaunchReusedActivity(input.childId, input.homeworkId, cycle, pending, opts)
+          : await generateCanonicalProgressionArtifact({ ...input, nodeId: pending.nodeId }, opts);
+        if (next.revision === cycle.revision) failure = latestQualityFailure(opts.rootDir ?? process.cwd(), cycle, pending) ?? "human_review_required";
       } catch (error) {
         failure = error instanceof Error ? error.message : String(error);
         next = getLearningCycle(input.childId, input.homeworkId, opts)!;
       }
       if (failure) {
-        // One bounded attempt per node: it waits for a person instead of re-buying builds on every restart.
-        console.warn(` 🎮 [learning-board] [successor-preparation] [needs-attention] board=${board.boardId} node=${pending.nodeId} reason=${failure}`);
-        return transitionLearningCycle(input.childId, input.homeworkId, next.revision, {
-          type: "artifact_generation_attention_required", nodeId: pending.nodeId, reason: `successor_node_failed:${failure}`,
+        // One bounded attempt per node, never re-bought on restart. The failed activity degrades to one
+        // Not ready portal with its reason; the rest of the board still builds and publishes.
+        console.warn(` 🎮 [learning-board] [successor-preparation] [not-ready] board=${board.boardId} node=${pending.nodeId} reason=${failure}`);
+        next = transitionLearningCycle(input.childId, input.homeworkId, next.revision, {
+          type: "artifact_generation_attention_required", nodeId: pending.nodeId, reason: `successor_node_failed:${failure}`, notReady: true,
         }, opts);
       }
       cycle = next;

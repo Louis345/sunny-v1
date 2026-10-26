@@ -35,15 +35,12 @@ export function probeTargetsRelativeFromSrc(childName: ChildName): string {
 }
 
 export function resolveProbeTargetsPath(childName: ChildName): string {
-  return path.resolve(process.cwd(), "src", probeTargetsRelativeFromSrc(childName));
+  return path.join(resolveChildContextDir(childContextFolder(childName)), "probe_targets.md");
 }
 
 export function resolveTodaysPlanJsonPath(childName: ChildName): string {
   return path.resolve(
-    process.cwd(),
-    "src",
-    "context",
-    childContextFolder(childName),
+    resolveChildContextDir(childContextFolder(childName)),
     "todays_plan.json",
   );
 }
@@ -51,10 +48,7 @@ export function resolveTodaysPlanJsonPath(childName: ChildName): string {
 /** Per-child curriculum markdown (moved from src/curriculum/*). */
 export function resolveCurriculumFilePath(childName: ChildName): string {
   return path.resolve(
-    process.cwd(),
-    "src",
-    "context",
-    childContextFolder(childName),
+    resolveChildContextDir(childContextFolder(childName)),
     "curriculum.md",
   );
 }

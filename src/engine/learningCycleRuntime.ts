@@ -1,14 +1,18 @@
 import {isDeepStrictEqual} from "node:util";
-import {verifyAuthoredBoardCanvas} from "./adventureBoardCanvas";
-import {requireBoardDefinition, BOARD_DEFINITION_TOOL_SCHEMA, BOARD_AUTHORING_INSTRUCTION} from "../shared/adventureBoardDefinition";
-import { canonicalJourneyLaunchable, isSpellingPracticeContinuation } from './learningCycleRepository';
-import {requestPlannerMessage, readPlannerToolReceipt} from "./plannerTransport";
-import { MATH_ITEMS_SCHEMA, parseDirectItem, type DirectItem } from "./directMathExperience";
+import {readSuccessorBoardDefinition, assembleAdventureBoardDefinition, BOARD_DEFINITION_TOOL_SCHEMA, BOARD_AUTHORING_INSTRUCTION, type AdventureBoardComposition, type AdventureJourneyDefinition} from "../shared/adventureBoardDefinition";
+import { canonicalJourneyLaunchable, isRetryablePlannerBlock, isSpellingPracticeContinuation, repointReusedSetup } from './learningCycleRepository';
+import {requestPlannerMessage, readPlannerToolReceipt, plannerTransportPolicy} from "./plannerTransport";
+import fs from "node:fs";
+import {randomUUID,createHash} from "node:crypto";
+import { MATH_ITEMS_SCHEMA, drawJourney, parseDirectItem, type DirectItem } from "./directMathExperience";
+import { runPlannerToolLoop } from "./plannerToolLoop";
+import { providerTurnSender } from "./plannerToolProvider";
+import { spellingSuccessorToolkit } from "./spellingSuccessorTools";
 import Anthropic from "@anthropic-ai/sdk";
 import path from "path";
 import { getChildChart } from "../profiles/childChart";
 import { resolveChildContextDir } from "../utils/contextRoot";
-import { runMathProviderStage } from "./adaptiveMathDiscovery";
+import { hasReceivedMathProviderStage, readReceivedMathProviderStage, runMathProviderStage } from "./adaptiveMathDiscovery";
 import { engagementTheoryEvidenceContext } from "./engagementTheory";
 import { evaluateAcademicPredictions } from "./longitudinalLearning";
 import {
@@ -22,8 +26,10 @@ import {
   transitionLearningCycle,
   validateSpellingPrescription,
   spellingAssignmentItems,
+  spellingBuiltInActivities,
   type LearningCycleEvidenceSummary,
   type LearningCycleRecordV2,
+  type LearningCycleDecision,
   type LearningCycleRepositoryOptions,
   type LearningObservation,
   type LearningCycleSpellingItem,
@@ -32,6 +38,7 @@ import {
   type SuccessorProgram,
 } from "./learningCycleRepository";
 import { areDistinctWordsPronunciationEquivalent } from "../shared/karaokeMatchWord";
+import {currentBoardInstance} from "./learningBoardInstances";
 
 export type CanonicalCompletionResult = {
   /** Server-validated launch whose per-answer records already exist. */
@@ -428,11 +435,12 @@ function strings(value: unknown): string[] {
 function parseNextInstrument(value: unknown): NextInstrumentPrescription | undefined {
   if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
   const row = value as Record<string, unknown>;
-  const keys = ["nodeId", "title", "academicTarget", "mechanic", "theme", "openingPurpose", "creatorPrompt"] as const;
+  // A spelling step is an order for a built-in, so it carries no creator prompt.
+  const keys = ["nodeId", "title", "academicTarget", "mechanic", "theme", "openingPurpose", ...(row.spelling === undefined ? ["creatorPrompt"] as const : [])] as const;
   if (keys.some((key) => typeof row[key] !== "string" || !String(row[key]).trim())) return undefined;
   // Design decisions are optional so an older Planner response still parses,
   // but they are carried through whenever the Planner supplies them.
-  const designKeys = ["stakesDesign", "failureMode", "escalation", "mechanicSpec", "mathematicalHook"] as const;
+  const designKeys = ["creatorPrompt", "stakesDesign", "failureMode", "escalation", "mechanicSpec", "mathematicalHook"] as const;
   return {
     ...(Array.isArray(row.items) ? { items: row.items.map(parseDirectItem) } : {}),
     ...(row.spelling !== undefined ? { spelling: validateSpellingPrescription(row.spelling) } : {}),
@@ -483,7 +491,7 @@ export function parseCanonicalProgressionDecision(value: unknown): CanonicalProg
         return parsed;
       })
     : legacyInstrument ? [legacyInstrument] : [];
-  const boardDefinition = action === 'await_calibration' ? undefined : requireBoardDefinition(row.boardDefinition, instruments.map(instrument => instrument.nodeId));
+  const boardDefinition = action === 'await_calibration' ? undefined : readSuccessorBoardDefinition(row.boardDefinition,instruments);
   const contentDecisions = (Array.isArray(row.contentDecisions) ? row.contentDecisions : []).map((value) => {
     if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("canonical_progression_content_decision_invalid");
     const decision = value as Record<string, unknown>;
@@ -537,26 +545,207 @@ function progressionEvidence(cycle:LearningCycleRecordV2) {
   return {evidenceIds, decisionEvidenceIds:new Set([...evidenceIds,...cycle.observations.map(row=>row.observationId),...cycle.predictionEvaluations.map(row=>row.evaluationId)])};
 }
 
+function plannerCheckpoint(cycle: LearningCycleRecordV2, opts: LearningCycleRepositoryOptions) {
+  const entry = [...cycle.decisionHistory].reverse().find(row => row.toLifecycle === cycle.lifecycle && row.fromLifecycle !== cycle.lifecycle);
+  const batchId = entry?.decisionId ?? `${cycle.homeworkId}:r${cycle.revision}`;
+  const recordedRevision = Number(entry?.decisionId.match(/:r(\d+)$/)?.[1]);
+  const revision = Number.isSafeInteger(recordedRevision) ? recordedRevision : cycle.revision;
+  return {batchId, revision, stage:`progression-decision-r${revision}`, draftDir:path.join(resolveChildContextDir(cycle.childId, {rootDir:opts.rootDir}), "homework", "cycles", ".planner", cycle.homeworkId, batchId.replace(/[^a-zA-Z0-9_-]+/g,"_"))};
+}
+
+/** Freeze the purchased request, without changing the identity of old receipts. */
+function freezePlannerRequest<T extends Parameters<typeof requestPlannerMessage>[1]>(input: {draftDir:string; stage:string; request:T; legacyContext?:unknown}) {
+  const file=path.join(input.draftDir,`${input.stage}.request.json`);
+  const legacy=!fs.existsSync(file) && fs.existsSync(path.join(input.draftDir,'provider-receipts',`${input.stage}.stage.json`));
+  const timeout=Number(process.env.SUNNY_AI_TIMEOUT_MS??300000);
+  if(legacy) {
+    // The old primary used a small snapshot; its corrections hashed the full 6k request.
+    const request={...input.request,max_tokens:6000};
+    return {request,timeout,receiptContext:input.legacyContext??request,beforeRequest:undefined};
+  }
+  fs.mkdirSync(input.draftDir,{recursive:true});
+  if(!fs.existsSync(file)) {
+    const temporary=`${file}.${randomUUID()}.tmp`;
+    try {
+      fs.writeFileSync(temporary,JSON.stringify({request:input.request,snapshot:input.legacyContext??null,policy:plannerTransportPolicy(input.request.model,input.request.max_tokens,timeout)}));
+      try {fs.linkSync(temporary,file);} catch(error) {if((error as NodeJS.ErrnoException).code!=='EEXIST') throw error;}
+    } finally {if(fs.existsSync(temporary)) fs.unlinkSync(temporary);}
+  }
+  const frozen=JSON.parse(fs.readFileSync(file,'utf8'));
+  if(!frozen.request?.model || !('snapshot' in frozen) || !frozen.policy) throw Error('planner_frozen_request_invalid');
+  const request=frozen.request as T;
+  return {request,timeout:frozen.policy.timeout as number,receiptContext:frozen as unknown,beforeRequest:()=>{
+    if(!isDeepStrictEqual(plannerTransportPolicy(request.model,request.max_tokens,frozen.policy.timeout),frozen.policy)) {
+      // No request was sent: leave the existing rejected/absent receipt resumable.
+      throw Object.assign(Error('planner_frozen_transport_changed'),{status:409});
+    }
+  }};
+}
+
+/** Explicit operator action only. No purchase, deletion or evidence rewrite. */
+export function authorizeCanonicalPlannerRetry(input: {childId:string; homeworkId:string; blockedDecisionId:string; reason:string}, opts: LearningCycleRepositoryOptions = {}) {
+  const cycle = getLearningCycle(input.childId,input.homeworkId,opts);
+  const blocked = cycle && [...cycle.decisionHistory].reverse().find(row=>row.fromLifecycle!==row.toLifecycle);
+  if (!cycle || cycle.lifecycle!=="blocked" || blocked?.eventType!=="block" || blocked.decisionId!==input.blockedDecisionId
+    || !isRetryablePlannerBlock(blocked.reason) || !input.reason.trim()) throw Error("planner_retry_not_eligible");
+  const checkpoint = plannerCheckpoint({...cycle,lifecycle:blocked.fromLifecycle,decisionHistory:cycle.decisionHistory.slice(0,cycle.decisionHistory.indexOf(blocked))},opts);
+  const receipts = path.join(checkpoint.draftDir,"provider-receipts");
+  if (blocked.reason.startsWith("planner_decision_invalid:provider_stage_request_changed:")) {
+    // The collided attempt's saved turns and drawing are set aside (never deleted), so the fixed code decides fresh.
+    const superseded = path.join(checkpoint.draftDir,"superseded",input.blockedDecisionId.replace(/[^a-zA-Z0-9_-]+/g,"_"));
+    fs.mkdirSync(superseded,{recursive:true});
+    const stale = [
+      ...(fs.existsSync(receipts)?fs.readdirSync(receipts):[]).filter(name=>name.startsWith(`${checkpoint.stage}-tools-turn-`)||name.startsWith(`${checkpoint.stage}-design-`)).map(name=>path.join(receipts,name)),
+      ...[`${checkpoint.stage}-design.json`,`${checkpoint.stage}-tools.question.json`].map(name=>path.join(checkpoint.draftDir,name)).filter(file=>fs.existsSync(file)),
+    ];
+    for (const file of stale) fs.renameSync(file,path.join(superseded,path.basename(file)));
+    console.log(` 🎮 [canonical-progression] [retry] [superseded] homework=${cycle.homeworkId} files=${stale.length} dir=${superseded}`);
+  } else {
+    const stage = JSON.parse(fs.readFileSync(path.join(receipts,`${checkpoint.stage}.stage.json`),"utf8"));
+    if (typeof stage.requestHash!=="string" || !/^[a-f0-9]{64}$/.test(stage.requestHash)) throw Error("planner_retry_receipt_invalid");
+    const receipt = JSON.parse(fs.readFileSync(path.join(receipts,`${stage.requestHash}.json`),"utf8"));
+    if (receipt.status!=="received" || receipt.response?.plannerMessage?.stop_reason!=="max_tokens") throw Error("planner_retry_receipt_not_truncated");
+  }
+  const authorized = transitionLearningCycle(input.childId,input.homeworkId,cycle.revision,{type:"planner_retry_authorized",blockedDecisionId:input.blockedDecisionId,reason:input.reason},opts);
+  console.log(` 🎮 [canonical-progression] [retry] [authorized] homework=${cycle.homeworkId} blocked_decision=${input.blockedDecisionId} attempt=${authorized.decisionHistory.at(-1)!.decisionId}`);
+  return authorized;
+}
+
+/** Explicit zero-purchase recovery of a complete primary response. No intermediate lifecycle
+ * is persisted: a crash cannot leave normal startup authorized to buy another decision. */
+export async function replayCanonicalPlannerResponse(input:{childId:string;homeworkId:string;blockedDecisionId:string;reason:string},opts:LearningCycleRepositoryOptions={}) {
+  const chart=getChildChart(input.childId,{rootDir:opts.rootDir});
+  if(chart.childId!==input.childId || !input.reason.trim())throw new Error('planner_replay_not_eligible');
+  const cycle=getLearningCycle(input.childId,input.homeworkId,opts);
+  if(!cycle)throw new Error(`learning_cycle_missing:${input.homeworkId}`);
+  if(cycle.decisionHistory.some(row=>row.replayedResponse?.blockedDecisionId===input.blockedDecisionId))return cycle;
+  const blocked=[...cycle.decisionHistory].reverse().find(row=>row.fromLifecycle!==row.toLifecycle);
+  if(cycle.lifecycle!=='blocked'||blocked?.eventType!=='block'||blocked.decisionId!==input.blockedDecisionId
+    ||!/^planner_decision_invalid:(board_definition_|board_canvas_invalid:)/.test(blocked.reason)
+    ||!['baseline_evaluating','quest_evaluating','boss_evaluating'].includes(blocked.fromLifecycle))throw new Error('planner_replay_not_eligible');
+  const checkpoint=plannerCheckpoint({...cycle,lifecycle:blocked.fromLifecycle,decisionHistory:cycle.decisionHistory.slice(0,cycle.decisionHistory.indexOf(blocked))},opts);
+  const directory=path.join(checkpoint.draftDir,'provider-receipts');
+  const pointer=JSON.parse(fs.readFileSync(path.join(directory,`${checkpoint.stage}.stage.json`),'utf8'));
+  if(!/^[a-f0-9]{64}$/.test(pointer.requestHash))throw new Error('planner_replay_receipt_invalid');
+  const bytes=fs.readFileSync(path.join(directory,`${pointer.requestHash}.json`));
+  const receipt=JSON.parse(bytes.toString('utf8'));
+  if(receipt.status!=='received'||receipt.response?.plannerMessage?.stop_reason!=='tool_use')throw new Error('planner_replay_receipt_not_complete');
+  const received=readPlannerToolReceipt(receipt.response,'decide_learning_cycle_progression');
+  const content=(received as Record<string,unknown>).contentDecisions??[];
+  assertContentDecisionShape(content);
+  validateEvidenceBasedContentDecisions(content,new Set(chart.contentCatalog.items.map(item=>item.contentId)),progressionEvidence(cycle).decisionEvidenceIds);
+  const decision=parseCanonicalProgressionDecision(received);
+  const replay={blockedDecisionId:input.blockedDecisionId,requestHash:pointer.requestHash,receiptHash:createHash('sha256').update(bytes).digest('hex'),reason:input.reason.trim(),
+    ...(decision.contentDecisions?.length?{deferredContentDecisions:decision.contentDecisions}:{})};
+  const result=await decideOnce({childId:input.childId,homeworkId:input.homeworkId,decide:async()=>decision},opts,{...replay,fromLifecycle:blocked.fromLifecycle});
+  console.log(` 🎮 [canonical-progression] [received-response] [replayed] homework=${cycle.homeworkId} blocked_decision=${blocked.decisionId} provider_calls=0`);
+  if(replay.deferredContentDecisions?.length)console.log(` 🎮 [canonical-progression] [catalog-proposals] [deferred] count=${replay.deferredContentDecisions.length} reason=separate-profile-writes-not-in-replay-transaction`);
+  return result;
+}
+
+/** Each spelling order that re-runs a built-in is that built-in's catalog reuse decision, cited by its own recorded answers. */
+function spellingReuseFromOrders(cycle: LearningCycleRecordV2, decision: CanonicalProgressionDecision): EvidenceBasedContentDecision[] {
+  return (decision.successor?.instruments ?? []).flatMap((order) => {
+    const builtIn = order.spelling?.builtInActivityId ? cycle.nodes.find((node) => node.nodeId === order.spelling!.builtInActivityId) : undefined;
+    const contentId = builtIn?.artifactBinding?.contentId;
+    const items = new Set(Object.keys(builtIn?.evidenceContract.spellingItems ?? {}));
+    const evidenceIds = cycle.observations.filter((row) => items.has(row.itemId)).map((row) => row.observationId);
+    if (!contentId || !evidenceIds.length) return [];
+    return [{ contentId, action: "reuse" as const, reason: `Re-run on the next board: ${decision.reason}`, evidenceIds }];
+  }).filter((row, index, rows) => rows.findIndex((other) => other.contentId === row.contentId) === index);
+}
+
+function catalogedOnly(childId: string, decisions: EvidenceBasedContentDecision[], opts: LearningCycleRepositoryOptions): EvidenceBasedContentDecision[] {
+  if (!decisions.length) return decisions;
+  try {
+    const cataloged = new Set(getChildChart(childId, opts).contentCatalog.items.map((item) => item.contentId));
+    return decisions.filter((row) => cataloged.has(row.contentId));
+  } catch (error) {
+    console.warn(` 🎮 [content-catalog] [reuse-record] [skipped] child=${childId} reason=${error instanceof Error ? error.message : String(error)}`);
+    return [];
+  }
+}
+
+/** Math and encounter briefs: the Planner designs what the AI builder implements. */
+const ARTIST_BRIEF = `You are the artist here, not a compliance function. Sunny holds the academic truth and the evidence limits; everything else is yours. Stakes, failure, consequence, escalation, pacing, tone, and payoff are your decisions to make and to defend, and you may change them run to run. You have full freedom to choose a game, simulation, manipulative, story, conversation, demonstration, or another fitting form.
+
+Two things this Planner has gotten wrong before, stated plainly so you can avoid them:
+- Do not name a stake and then remove it in the same breath. Phrases like "no penalty", "no hard fail", "not punitive", or "low-pressure" attached to a tension you just introduced produce an experience with nothing at risk, which children read as boring. If you want a real stake, let it cost something. If you want no stake, say so deliberately and own it — do not do both.
+- Do not treat the engagement context as a list of things to avoid. It is observation with sample sizes attached, and dimensions too weakly evidenced to act on have already been withheld from you. A presentation that has not been seen to work is untested, not forbidden. Nothing in that context constrains stakes, difficulty, or consequence.`;
+
+/** Spelling: the Planner is the doctor writing orders; Sunny runs each order with a tested built-in activity. */
+
+/** Briefs for the AI builder. Spelling steps are orders for tested built-ins and never carry them. */
+const DESIGN_FIELDS_SCHEMA = {
+  creatorPrompt: { type: "string", minLength: 1 },
+  stakesDesign: { type: "string", minLength: 1, description: "What is genuinely at risk for the child in this instrument, and what losing it costs them." },
+  failureMode: { type: "string", minLength: 1, description: "How a run can end badly. If you decide it cannot be failed, say so and say why that serves this child right now." },
+  escalation: { type: "string", minLength: 1, description: "How difficulty or pressure moves from the first moment to the last." },
+  mechanicSpec: { type: "string", minLength: 1, description: "Concretely: what the child's finger or cursor does, what visibly moves in response, and what failure looks like on screen. Not an adjective or a genre name." },
+  mathematicalHook: { type: "string", minLength: 1, description: "The surprising or satisfying thing about this specific mathematics that could make a child say whoa." },
+} as const;
+
 async function askPlanner(
   cycle: LearningCycleRecordV2,
   client?: Anthropic,
   model?: string,
   opts: LearningCycleRepositoryOptions = {},
+  draw?: AdvanceInput["draw"],
 ): Promise<CanonicalProgressionDecision> {
   const toolName = "decide_learning_cycle_progression";
   const anthropic = client ?? new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
   const chart = getChildChart(cycle.childId, { rootDir: opts.rootDir });
-  const catalog = chart.contentCatalog.items;
   const {decisionEvidenceIds} = progressionEvidence(cycle);
-  const catalogCards = catalog.map(({contentId,title,homeworkId})=>({contentId,title,homeworkId}));
+  const isSynthetic = (id: string): boolean => /(^|[:_-])(synthetic|playwright|browser-acceptance|readiness)([:_-]|$)/i.test(id);
+  // Exclude dependent citations too: an ordinary-looking evaluation id can cite
+  // an observation whose source identifies it as simulated.
+  const excluded=new Set<string>();
+  const histories=Object.values(chart.learningHistory.constructs);
+  for(const history of histories) {
+    for(const row of history.observations) if([row.observationId,row.sourceId].some(isSynthetic)) {excluded.add(row.observationId);excluded.add(row.sourceId);}
+  }
+  const excludedReference=(id:string)=>isSynthetic(id)||excluded.has(id);
+  const dependencies=histories.flatMap(history=>[
+    ...history.predictions.map(row=>({id:row.predictionId,references:row.evidenceIds})),
+    ...history.evaluations.map(row=>({id:row.evaluationId,references:[row.predictionId,row.sourceId,...row.observationIds]})),
+    ...history.decisions.map(row=>({id:row.decisionId,references:[...row.evidenceIds,...(row.predictionEvaluationIds??[])]})),
+  ]);
+  // Each changing pass excludes at least one of these finite record identities.
+  for(let pass=0;pass<dependencies.length;pass++) {
+    let changed=false;
+    for(const row of dependencies) if(!excluded.has(row.id) && [row.id,...row.references].some(excludedReference)) {excluded.add(row.id);changed=true;}
+    if(!changed) break;
+  }
+  const factualDecision = (row: LearningCycleRecordV2['decisionHistory'][number]) =>
+    ![row.decisionId,...row.evidenceIds,...(row.predictionEvaluationIds??[])].some(excludedReference);
+  const constructIds = new Set([
+    ...cycle.academicPredictions.map(row=>row.constructId),
+    ...cycle.observations.flatMap(row=>row.constructLinks.map(link=>link.constructId)),
+  ]);
+  const priorBoard = currentBoardInstance(cycle);
   const childContext = {
     identity: chart.identity,
     demographics: chart.demographics,
+    learningHistory: {
+      constructs:Object.fromEntries(Object.entries(chart.learningHistory.constructs).filter(([id])=>constructIds.has(id) && !isSynthetic(id)).map(([id,history])=>[id,{
+        constructId:id,
+        predictions:history.predictions.filter(row=>!excludedReference(row.predictionId)),
+        observations:history.observations.filter(row=>!excludedReference(row.observationId)),
+        evaluations:history.evaluations.filter(row=>!excludedReference(row.evaluationId)),
+        decisions:history.decisions.filter(factualDecision),
+      }])),
+      recentDecisions:chart.learningHistory.recentDecisions.filter(factualDecision),
+      pendingInterpretation:chart.learningHistory.pendingInterpretation.filter(row=>![row.sourceId,...row.evaluationIds].some(excludedReference)),
+    },
+    priorPlan: {
+      // Earlier author choices, not instructions or proof about the child.
+      boardId:priorBoard.boardId,
+      plannerDecisionId:priorBoard.plannerDecisionId,
+      instruments:cycle.nodes.filter(node=>priorBoard.nodeIds.includes(node.nodeId)).map(({nodeId,academicTarget,mechanic,evidenceContract})=>({nodeId,academicTarget,mechanic,evidenceContract})),
+    },
     engagementEvidence: engagementTheoryEvidenceContext(chart.engagementTheory),
-    ...(cycle.domain === 'spelling' ? {contentCatalog:catalogCards,contentDecisionEvidenceIds:[...decisionEvidenceIds]} : {}),
+
   };
-  const isSynthetic = (id: string): boolean =>
-    /(^|[:_-])(synthetic|playwright|browser-acceptance|readiness)([:_-]|$)/i.test(id);
   const factualEvidence = {
     academic: cycle.evidence.academic.filter((item) => !isSynthetic(item.evidenceId)),
     engagement: cycle.evidence.engagement.filter((item) => !isSynthetic(item.evidenceId)),
@@ -572,10 +761,8 @@ async function askPlanner(
     : ["generate_support", "generate_quest", "generate_boss", "collect_more_evidence", "await_calibration"];
   const plannerModel = model ?? (cycle.domain === "spelling" ? process.env.SUNNY_EXPERIENCE_PLANNER_MODEL : undefined) ?? process.env.SUNNY_INGEST_MODEL ?? "claude-sonnet-5";
   const savedSpellingItems = spellingAssignmentItems(cycle);
+  const builtIns = spellingBuiltInActivities(cycle);
   const legacyContentSchema = {type:'array',items:{type:'object',additionalProperties:false,properties:{contentId:{type:'string'},action:{type:'string',enum:['candidate','reuse','revise','retire']},reason:{type:'string'},evidenceIds:{type:'array',items:{type:'string'}}},required:['contentId','action','reason','evidenceIds']}};
-  const contentSchema = cycle.domain !== 'spelling' ? legacyContentSchema : catalog.length && decisionEvidenceIds.size
-    ? {...legacyContentSchema,items:{...legacyContentSchema.items,properties:{...legacyContentSchema.items.properties,contentId:{type:'string',enum:catalog.map(item=>item.contentId)},evidenceIds:{type:'array',minItems:1,items:{type:'string',enum:[...decisionEvidenceIds]}}}}}
-    : {...legacyContentSchema,maxItems:0};
   const instrumentSchema = {
     type: "object",
     additionalProperties: false,
@@ -586,52 +773,83 @@ async function askPlanner(
       mechanic: { type: "string", minLength: 1 },
       theme: { type: "string", minLength: 1 },
       openingPurpose: { type: "string", minLength: 1 },
-      creatorPrompt: { type: "string", minLength: 1 },
       ...(cycle.domain === "math" ? { items: MATH_ITEMS_SCHEMA } : {}),
-      ...(cycle.domain === "spelling" ? { spelling: {
-        type: "object", additionalProperties: false,
-        properties: {
-          wordIds: { type: "array", minItems: 1, uniqueItems: true, items: { type: "string", enum: [...savedSpellingItems.keys()] } },
-          measurementRole: { type: "string", enum: ["practice", "fresh_checkpoint"] },
-          responseMode: { type: "string", enum: ["spelling_letters", "tap_selection"] },
-        },
-        required: ["wordIds", "measurementRole", "responseMode"],
-      } } : {}),
       encounter: { type: "string", enum: ["quest", "boss"], description: "Only on the single Quest or Boss node your progressionAction authorizes." },
-      stakesDesign: { type: "string", minLength: 1, description: "What is genuinely at risk for the child in this instrument, and what losing it costs them." },
-      failureMode: { type: "string", minLength: 1, description: "How a run can end badly. If you decide it cannot be failed, say so and say why that serves this child right now." },
-      escalation: { type: "string", minLength: 1, description: "How difficulty or pressure moves from the first moment to the last." },
-      mechanicSpec: { type: "string", minLength: 1, description: "Concretely: what the child's finger or cursor does, what visibly moves in response, and what failure looks like on screen. Not an adjective or a genre name." },
-      mathematicalHook: { type: "string", minLength: 1, description: "The surprising or satisfying thing about this specific mathematics that could make a child say whoa." },
+      ...DESIGN_FIELDS_SCHEMA,
     },
-    required: ["nodeId", "title", "academicTarget", "mechanic", "theme", "openingPurpose", "creatorPrompt", ...(cycle.domain === "math" ? ["items"] : cycle.domain === "spelling" ? ["spelling"] : []), "stakesDesign", "failureMode", "escalation", "mechanicSpec", "mathematicalHook"],
+    required: ["nodeId", "title", "academicTarget", "mechanic", "theme", "openingPurpose", ...(cycle.domain === "math" ? ["items"] : []), ...Object.keys(DESIGN_FIELDS_SCHEMA)],
   };
   // The raw response is checkpointed before validation; a restart from the same
   // frozen snapshot replays it and makes no new provider call (contract 21).
   // One checkpoint per closed evidence batch: keyed by the transition that closed it, so practice
   // replays and recorded prediction evaluations cannot turn a restart into a new paid call.
-  const batchEntry = [...cycle.decisionHistory].reverse().find((entry) => entry.toLifecycle === cycle.lifecycle && entry.fromLifecycle !== cycle.lifecycle);
-  const batchId = batchEntry?.decisionId ?? `${cycle.homeworkId}:r${cycle.revision}`;
-  const recordedRevision = Number(batchEntry?.decisionId.match(/:r(\d+)$/)?.[1]);
-  const checkpointRevision = Number.isSafeInteger(recordedRevision) ? recordedRevision : cycle.revision;
-  const draftDir = path.join(resolveChildContextDir(cycle.childId, { rootDir: opts.rootDir }), "homework", "cycles", ".planner", cycle.homeworkId, batchId.replace(/[^a-zA-Z0-9_-]+/g, "_"));
+  const {batchId, revision:checkpointRevision, draftDir, stage:decisionStage} = plannerCheckpoint(cycle,opts);
   const snapshot = {
     childId: cycle.childId, homeworkId: cycle.homeworkId, batchId, lifecycle: cycle.lifecycle,
     cycleRevision: checkpointRevision,
     observationIds: cycle.observations.filter((observation) => observation.provenance !== "practice").map((observation) => observation.observationId),
     model: plannerModel,
   };
-  const request = {
+  // Spelling decides through small locked tools. A decision already received through the retired
+  // single form, and a citation patch received for it, replay read only; that form is never sent again.
+  if(cycle.domain==='spelling'){
+    const savedDecision=readReceivedMathProviderStage(draftDir,decisionStage);
+    if(savedDecision!==undefined){
+      const patchStage=`progression-citation-patch-r${checkpointRevision}`;
+      const patch=hasReceivedMathProviderStage(draftDir,patchStage)?readPlannerToolReceipt(readReceivedMathProviderStage(draftDir,patchStage),toolName) as Record<string,unknown>:{};
+      const decision=parseCanonicalProgressionDecision({...readPlannerToolReceipt(savedDecision,toolName) as Record<string,unknown>,...patch});
+      assertPredictionCitations(decision,cycle);
+      console.log(` 🎮 [canonical-progression] [saved-decision] [replayed] homework=${cycle.homeworkId} revision=${checkpointRevision}`);
+      return decision;
+    }
+    const evaluationIds=cycle.predictionEvaluations.map(evaluation=>evaluation.evaluationId);
+    // Quest and Boss encounters are planned features spelling cannot run yet; they are not offered.
+    const actions=allowedProgressionActions.filter(action=>action!=="generate_quest"&&action!=="generate_boss");
+    const facts={builtIns:builtIns.map(node=>{const items=Object.values(node.evidenceContract.spellingItems??{});const roles=Object.values(node.evidenceContract.itemRoles??{});
+      return {nodeId:node.nodeId,title:node.title,implementationType:node.implementationType??"word-radar",wordIds:[...new Set(items.map(item=>item.wordId))],responseMode:items[0]?.response.mode??"spelling_letters",checkpoint:roles.length>0&&roles.every(role=>role==="fresh_checkpoint")};}),
+      evaluationIds,allowedActions:actions,idPrefix:`${cycle.homeworkId}-r${checkpointRevision}-step`,
+      // The same check the re-run step applies, asked while the Planner is still choosing.
+      rerunnable:(nodeId:string,wordIds:string[])=>{const source=builtIns.find(node=>node.nodeId===nodeId);return Boolean(source&&repointReusedSetup(source,`${nodeId}-check`,wordIds.map(wordId=>({id:`check:${wordId}`,wordId}))));}};
+    const prompt=`You are Sunny's AI Planner. Compare the preregistered academic theory and predictions with the factual scorecard, then decide what happens next, using the tools.
+1. decide: one concise, evidence-grounded decision. Cite the prediction evaluations you judge.
+2. Unless you await calibration, build the next board: add_step for each step (each re-runs one tested built-in activity with all of its own words), then set_order and, when academically valid alternatives exist, add_choice. Then finish_board.
+Sunny runs each step exactly as written and builds no new spelling games. The current board is never changed; your board is for a later session. Each path from start to finish, counting the start, the choice and the finish, fits in 7 steps. Title each step as she should see it. Do not claim mastery or readiness. Fresh recall after practice is not unseen transfer or delayed retention.
+For spelling, Correct practice after long response time is not effortless recall. Examine per-word response time alongside assistance, exposure, response mode and instrument ambiguity. When the evidence suggests she is struggling, order teaching and guided practice before another fresh recall check; let Elli respond conversationally from the live item and child context. Do not infer mastery from supported or partial-visibility practice, and do not use a fixed latency threshold to choose the lesson.
+Tested built-in activities you may re-run:
+${JSON.stringify(facts.builtIns.map(row=>({builtIn:row.nodeId,title:row.title,type:row.implementationType,words:row.wordIds.length,checkpoint:row.checkpoint})))}
+Saved spelling words:
+${JSON.stringify([...savedSpellingItems.values()].map(item=>({wordId:item.wordId,word:item.word})))}
+Child chart context:
+${JSON.stringify(childContext, null, 2)}
+Baseline Quest eligibility (runtime truth boundary, not a mastery judgment):
+${JSON.stringify(baselineEligibility, null, 2)}
+Allowed progression actions: ${actions.join(", ")}
+Cycle:
+${JSON.stringify({ lifecycle: cycle.lifecycle, assignment: cycle.assignment, theory: cycle.academicTheory, predictions: cycle.academicPredictions, predictionEvaluations: cycle.predictionEvaluations, evidence: factualEvidence, observations: factualObservations, nodes: cycle.nodes.map((node) => ({ nodeId: node.nodeId, role: node.role, title: node.title, state: node.state, routeId: node.routeId, evidenceIds: node.evidenceIds.filter((id) => !isSynthetic(id)) })) }, null, 2)}`;
+    // The question is frozen when its evidence batch closes: a restart asks the same question and replays
+    // the saved turns at no cost, whatever has been recorded since.
+    const frozenFile=path.join(draftDir,`${decisionStage}-tools.question.json`);
+    const {rerunnable,...factData}=facts;
+    const question=fs.existsSync(frozenFile)?JSON.parse(fs.readFileSync(frozenFile,"utf8")) as {prompt:string;model:string;facts:typeof factData}:{prompt,model:plannerModel,facts:factData};
+    if(!fs.existsSync(frozenFile)){fs.mkdirSync(draftDir,{recursive:true});fs.writeFileSync(`${frozenFile}.tmp`,JSON.stringify(question));fs.renameSync(`${frozenFile}.tmp`,frozenFile);}
+    const kit=spellingSuccessorToolkit({...question.facts,rerunnable});
+    const loop=await runPlannerToolLoop({label:"spelling-next-board",prompt:question.prompt,model:question.model,maxTokens:16000,tools:kit.tools,state:kit.initialState(),finished:kit.finished,
+      send:providerTurnSender({label:"spelling-next-board",stagePrefix:`${decisionStage}-tools`,draftDir,client:anthropic})});
+    console.log(` 🎮 [canonical-progression] [planner-response] [checkpointed] homework=${cycle.homeworkId} revision=${cycle.revision} tools=${loop.stats.stop}`);
+    if(!kit.finished(loop.state))throw new Error(`canonical_progression_tools_unfinished:${loop.stats.stop}`);
+    const {decision,journey}=kit.result(loop.state);
+    if(!journey)return parseCanonicalProgressionDecision(decision);
+    const drawing=draw?await draw(journey):await drawJourney({journey,label:`${cycle.homeworkId}:r${checkpointRevision}`,stagePrefix:`${decisionStage}-design`,identity:{childId:cycle.childId,homeworkId:cycle.homeworkId,batchId,journey},
+      checkpointFile:path.join(draftDir,`${decisionStage}-design.json`),rawResponseDir:draftDir,...(client?{client}:{})});
+    return parseCanonicalProgressionDecision({...decision,boardDefinition:assembleAdventureBoardDefinition(journey,drawing.composition,drawing.pattern)});
+  }
+  let request = {
     model: plannerModel,
-    // The prescription now carries five additional design fields; 2600 truncated them.
-    max_tokens: 6000,
+    // A complete successor program and board exceeded the former 6,000-token allowance.
+    max_tokens: 32000,
     messages: [{ role: "user", content: `You are Sunny's AI Planner. Compare the preregistered academic theory and predictions with the factual scorecard. Quest requires a captured, correct, unseen independent checkpoint. Practice cannot satisfy that boundary. For math, author nextItems with stable unique ids, prompts, lineage, and frozen response contracts. Include fresh checkpoint evidence when further progression is intended. Explanation responses remain unscored and cannot independently unlock progression. Never reuse exposed item ids or prompts. Quest tests unseen transfer; Boss tests unseen synthesis; Boss must end awaiting calibration. Call ${toolName} exactly once with one concise decision. Unless progressionAction is await_calibration, author the one complete next board in nextInstruments: you decide how many activities it has. ${BOARD_AUTHORING_INSTRUCTION} The current board is never changed; your program becomes a new board for a later session. Mark exactly one instrument with encounter "quest" only when progressionAction is generate_quest, or "boss" only when it is generate_boss; never add an encounter otherwise.
 
-You are the artist here, not a compliance function. Sunny holds the academic truth and the evidence limits; everything else is yours. Stakes, failure, consequence, escalation, pacing, tone, and payoff are your decisions to make and to defend, and you may change them run to run. You have full freedom to choose a game, simulation, manipulative, story, conversation, demonstration, or another fitting form.
-
-Two things this Planner has gotten wrong before, stated plainly so you can avoid them:
-- Do not name a stake and then remove it in the same breath. Phrases like "no penalty", "no hard fail", "not punitive", or "low-pressure" attached to a tension you just introduced produce an experience with nothing at risk, which children read as boring. If you want a real stake, let it cost something. If you want no stake, say so deliberately and own it — do not do both.
-- Do not treat the engagement context as a list of things to avoid. It is observation with sample sizes attached, and dimensions too weakly evidenced to act on have already been withheld from you. A presentation that has not been seen to work is untested, not forbidden. Nothing in that context constrains stakes, difficulty, or consequence.
+${ARTIST_BRIEF}
 
 Title each instrument as the child should see it. It appears as the first thing on their screen, so give it a real name, not a category label.
 
@@ -639,6 +857,8 @@ For math, do not copy assignment items or name a prototype to imitate. If eviden
 For spelling, each instrument must prescribe spelling.wordIds from the saved word identities below, a measurementRole, and a responseMode. You choose which words need teaching or practice and when to collect fresh recall. The server binds the saved spellings and new occasion IDs; you cannot replace answer keys or reset exposure. Fresh recall after practice is not unseen transfer or delayed retention. Include initially secure and targeted words when prescribing a final assignment check.
 Saved spelling words:
 ${JSON.stringify([...savedSpellingItems.values()].map(item => ({ wordId: item.wordId, word: item.word, responseMode: item.response.mode })))}
+Tested built-in activities (spelling.builtInActivityId; wordIds are that activity's words):
+${JSON.stringify(builtIns.map(node => ({ activityId: node.nodeId, type: node.implementationType, title: node.title, wordIds: [...new Set(Object.values(node.evidenceContract.spellingItems ?? {}).map(item => item.wordId))], checkpoint: Object.values(node.evidenceContract.itemRoles ?? {}).length > 0 && Object.values(node.evidenceContract.itemRoles ?? {}).every(role => role === "fresh_checkpoint") })))}
 For spelling, Correct practice after long response time is not effortless recall. Examine per-word response time alongside assistance, exposure, response mode, and instrument ambiguity. When the evidence suggests a child is struggling, author teaching and guided practice before another fresh recall check; let Elli respond conversationally from the live item and child context. Do not infer mastery from supported or partial-visibility practice, and do not use a fixed latency threshold to choose the lesson.
 
 Child chart context:
@@ -670,10 +890,8 @@ ${JSON.stringify({ lifecycle: cycle.lifecycle, assignment: cycle.assignment, the
           change: { type: "array", items: { type: "string" } },
           testNext: { type: "array", items: { type: "string" } },
           nextEvidenceRequired: { type: "array", items: { type: "string" } },
-          predictionEvaluationIds: cycle.domain !== "spelling" ? {type:"array",items:{type:"string"}} : cycle.predictionEvaluations.length
-            ? {type:"array",minItems:1,items:{type:"string",enum:cycle.predictionEvaluations.map(evaluation=>evaluation.evaluationId)}}
-            : {type:"array",maxItems:0,items:{type:"string"}},
-          contentDecisions: contentSchema,
+          predictionEvaluationIds: { type: "array", items: { type: "string" } },
+          contentDecisions: legacyContentSchema,
           revisedHypothesis: { type: "string" },
           nextInstruments: { type: "array", minItems: 1, items: instrumentSchema },
           boardDefinition: BOARD_DEFINITION_TOOL_SCHEMA,
@@ -694,58 +912,16 @@ ${JSON.stringify({ lifecycle: cycle.lifecycle, assignment: cycle.assignment, the
     }],
     tool_choice: { type: "tool", name: toolName },
   } satisfies Parameters<typeof requestPlannerMessage>[1];
-  const rawDecision = await runMathProviderStage({draftDir,stage:`progression-decision-r${checkpointRevision}`,model:plannerModel,request:snapshot,execute:async()=>({plannerMessage:await requestPlannerMessage(anthropic,request,{timeout:Number(process.env.SUNNY_AI_TIMEOUT_MS??120000)})})});
+  // Freeze new requests before purchase. Legacy stage hashes remain readable;
+  // a received old answer is never silently replaced by a changed prompt/budget.
+  const frozen=freezePlannerRequest({draftDir,stage:decisionStage,request,legacyContext:snapshot});
+  request=frozen.request;
+  const rawDecision = await runMathProviderStage({draftDir,stage:decisionStage,model:request.model,request:frozen.receiptContext,beforeRequest:frozen.beforeRequest,execute:async()=>({plannerMessage:await requestPlannerMessage(anthropic,request,{timeout:frozen.timeout})})});
   console.log(` 🎮 [canonical-progression] [planner-response] [checkpointed] homework=${cycle.homeworkId} revision=${cycle.revision}`);
   const received = readPlannerToolReceipt(rawDecision, toolName);
-  let referenceErrors:Array<{field:'predictionEvaluationIds'|'contentDecisions';error:Error}> = [];
-  const validate = async (value: unknown) => {
-    referenceErrors = [];
-    if(cycle.domain === 'spelling' && value && typeof value==='object' && !Array.isArray(value)) {
-      const raw = value as Record<string,unknown>;
-      const checks = {
-        predictionEvaluationIds:()=>{const ids=raw.predictionEvaluationIds;if(ids!==undefined && (!Array.isArray(ids)||!ids.every(id=>typeof id==='string')))throw new Error('canonical_progression_invalid_citation_patch');assertPredictionCitations({predictionEvaluationIds:ids as string[]|undefined},cycle);},
-        contentDecisions:()=>{const decisions=raw.contentDecisions===undefined?[]:raw.contentDecisions;assertContentDecisionShape(decisions);validateEvidenceBasedContentDecisions(decisions,new Set(catalog.map(item=>item.contentId)),decisionEvidenceIds);},
-      };
-      for(const field of ['predictionEvaluationIds','contentDecisions'] as const)try{checks[field]();}catch(error){if(!(error instanceof Error))throw error;referenceErrors.push({field,error});}
-      if(referenceErrors.length)throw referenceErrors[0].error;
-    }
-    const decision = parseCanonicalProgressionDecision(value);
-    if(cycle.domain !== 'spelling')assertPredictionCitations(decision,cycle);
-    if (decision.successor) await verifyAuthoredBoardCanvas({definition:decision.successor.boardDefinition!,rootDir:opts.rootDir??process.cwd(),directory:path.join(draftDir,"canvas-verification")});
-    return decision;
-  };
-  try { return await validate(received); }
-  catch (error) {
-    if (!(error instanceof Error)) throw error;
-    const fields = referenceErrors.map(issue=>issue.field);
-    const references = fields.length > 0;
-    const citationOnly = fields.length === 1 && fields[0] === 'predictionEvaluationIds';
-    if (!references && !/^(board_definition_|board_canvas_invalid:)/.test(error.message)) throw error;
-    const editable = references ? fields : ['boardDefinition'];
-    console.log(` 🎮 [canonical-progression] [${references ? 'reference' : 'journey'}-correction] [required] reason=${error.message}`);
-    // Retain the historical journey request exactly to recover paid receipts.
-    const tools = references
-      ? [{...request.tools[0],input_schema:{type:'object' as const,additionalProperties:false,properties:Object.fromEntries(fields.map(field=>[field,request.tools[0].input_schema.properties[field]])),required:fields}}]
-      : request.tools.map(tool=>({...tool,input_schema:{...tool.input_schema,properties:{...tool.input_schema.properties,predictionEvaluationIds:{type:'array',items:{type:'string'}},contentDecisions:legacyContentSchema}}}));
-    const content = citationOnly
-      ? `Correct only predictionEvaluationIds in the received decision. Return only that field using the tool; this is a citation patch, not a new decision. Preregistered prediction IDs are not observed evaluation IDs. There is one correction attempt.\nDEFECT: ${error.message}\nAVAILABLE PREDICTION EVALUATION IDS: ${JSON.stringify(cycle.predictionEvaluations.map(evaluation=>evaluation.evaluationId))}\nRECEIVED CITATIONS: ${JSON.stringify((received as Record<string,unknown>).predictionEvaluationIds)}`
-      : references
-        ? `Correct only ${fields.join(' and ')}. Return only those fields using the tool, not a new decision. Bind contentDecisions to actual catalog contentId values and nonempty saved evidenceIds; activity node IDs are not catalog IDs. Revise or omit unsupported content decisions yourself. Preregistered prediction IDs are not observed evaluation IDs. Preserve the board, instruments and every other field exactly. There is one correction attempt.\nDEFECTS: ${JSON.stringify(referenceErrors.map(issue=>issue.error.message))}\nAVAILABLE PREDICTION EVALUATION IDS: ${JSON.stringify(cycle.predictionEvaluations.map(row=>row.evaluationId))}\nCATALOG: ${JSON.stringify(catalogCards)}\nAVAILABLE CONTENT EVIDENCE IDS: ${JSON.stringify([...decisionEvidenceIds])}\nRECEIVED FIELDS: ${JSON.stringify(Object.fromEntries(fields.map(field=>[field,(received as Record<string,unknown>)[field]])))}`
-        : `Correct only boardDefinition in the received decision to fix this executable journey defect. Preserve every other field, instrument, academic claim, evidence reference and progression action unchanged. Return the complete decision using the same tool. There is one correction attempt.\nDEFECT: ${error.message}\nRECEIVED DECISION: ${JSON.stringify(received)}`;
-    const correctionRequest = {...request,tools,messages:[{role:'user' as const,content}]};
-    const stage = citationOnly ? 'citation-patch' : references ? 'reference-patch' : 'journey-correction';
-    const correction = await runMathProviderStage({draftDir,stage:`progression-${stage}-r${checkpointRevision}`,model:plannerModel,request:correctionRequest,execute:async()=>({plannerMessage:await requestPlannerMessage(anthropic,correctionRequest,{timeout:Number(process.env.SUNNY_AI_TIMEOUT_MS??120000)})})});
-    const reply = readPlannerToolReceipt(correction,toolName);
-    if(references && (!reply || typeof reply !== 'object' || Array.isArray(reply) || Object.keys(reply).some(key=>!editable.includes(key))))throw new Error('planner_correction_changed_protected_decision');
-    const patch = reply as Record<string,unknown>;
-    for(const field of fields) {
-      if(!Array.isArray(patch[field]) || (field==='predictionEvaluationIds' && !(patch[field] as unknown[]).every(id=>typeof id==='string')))throw new Error('canonical_progression_invalid_citation_patch');
-    }
-    const corrected = references ? {...received as Record<string,unknown>,...patch} : reply;
-    const protectedFields = (value:unknown) => Object.fromEntries(Object.entries(value as Record<string,unknown>).filter(([key])=>!editable.includes(key)));
-    if (!isDeepStrictEqual(protectedFields(received),protectedFields(corrected))) throw new Error(references ? 'planner_correction_changed_protected_decision' : 'planner_journey_correction_changed_academic_decision');
-    return validate(corrected);
-  }
+  const decision = parseCanonicalProgressionDecision(received);
+  assertPredictionCitations(decision,cycle);
+  return decision;
 }
 
 type AdvanceInput = {
@@ -754,6 +930,8 @@ type AdvanceInput = {
   client?: Anthropic;
   model?: string;
   decide?: (cycle: LearningCycleRecordV2) => Promise<CanonicalProgressionDecision>;
+  /** Draws the next board's journey; the map artist when omitted. Tests pass a plain layout. */
+  draw?: (journey: AdventureJourneyDefinition) => Promise<{ composition: AdventureBoardComposition; pattern?: string }>;
 };
 
 /**
@@ -764,40 +942,32 @@ export async function advanceCanonicalCycleFromEvidence(
   input: AdvanceInput,
   opts: LearningCycleRepositoryOptions = {},
 ): Promise<LearningCycleRecordV2> {
-  for (let attempt = 0; attempt < 2; attempt += 1) {
-    try {
-      return await decideOnce(input, opts);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      if (message === "canonical_progression_context_changed" && attempt === 0) {
-        const latestContext = getLearningCycle(input.childId, input.homeworkId, opts);
-        if (latestContext && ["baseline_evaluating", "quest_evaluating", "boss_evaluating"].includes(latestContext.lifecycle)) {
-          console.log(` 🎮 [canonical-progression] [context-retry] homework=${latestContext.homeworkId} revision=${latestContext.revision} attempt=2/2`);
-          continue;
-        }
-      }
-      const retryable = Boolean((error as { status?: number }).status)
-        || /^(learning_cycle_revision_conflict|canonical_progression_context_changed|provider_request_rejected|learning_cycle_missing)/.test(message);
-      const latest = !input.decide && !retryable ? getLearningCycle(input.childId, input.homeworkId, opts) : null;
-      if (latest && ["baseline_evaluating", "quest_evaluating", "boss_evaluating"].includes(latest.lifecycle)) {
-        const reason = message.startsWith("provider_outcome_uncertain") ? message : `planner_decision_invalid:${message}`;
-        transitionLearningCycle(latest.childId, latest.homeworkId, latest.revision, { type: "block", reason }, opts);
-        console.error(` 🎮 [canonical-progression] [blocked] homework=${latest.homeworkId} reason=${reason}`);
-      }
-      throw error;
+  try {
+    return await decideOnce(input, opts);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    const retryable = Boolean((error as { status?: number }).status)
+      || /^(learning_cycle_revision_conflict|provider_request_rejected|learning_cycle_missing)/.test(message);
+    const latest = !input.decide && !retryable ? getLearningCycle(input.childId, input.homeworkId, opts) : null;
+    if (latest && ["baseline_evaluating", "quest_evaluating", "boss_evaluating"].includes(latest.lifecycle)) {
+      const reason = message.startsWith("provider_outcome_uncertain") ? message : `planner_decision_invalid:${message}`;
+      transitionLearningCycle(latest.childId, latest.homeworkId, latest.revision, { type: "block", reason }, opts);
+      console.error(` 🎮 [canonical-progression] [blocked] homework=${latest.homeworkId} reason=${reason}`);
     }
+    throw error;
   }
-  throw new Error("canonical_progression_retry_exhausted");
 }
 
 async function decideOnce(
   input: AdvanceInput,
   opts: LearningCycleRepositoryOptions,
+  replay?:NonNullable<LearningCycleDecision['replayedResponse']>&{fromLifecycle:LearningCycleRecordV2['lifecycle']},
 ): Promise<LearningCycleRecordV2> {
   let cycle = getLearningCycle(input.childId, input.homeworkId, opts);
   if (!cycle) throw new Error(`learning_cycle_missing:${input.homeworkId}`);
+  if(replay)cycle={...cycle,lifecycle:replay.fromLifecycle};
   if (!["baseline_evaluating", "quest_evaluating", "boss_evaluating"].includes(cycle.lifecycle)) return cycle;
-  const calculated = evaluateAcademicPredictions(cycle.academicPredictions, cycle.observations, (opts.now ?? new Date()).toISOString());
+  const calculated = replay ? [] : evaluateAcademicPredictions(cycle.academicPredictions, cycle.observations, (opts.now ?? new Date()).toISOString());
   const missing = calculated.filter((evaluation) => !cycle!.predictionEvaluations.some((saved) => saved.evaluationId === evaluation.evaluationId));
   if (missing.length > 0) {
     cycle = transitionLearningCycle(cycle.childId, cycle.homeworkId, cycle.revision, {
@@ -805,7 +975,7 @@ async function decideOnce(
       evaluations: missing,
     }, opts);
   }
-  const plannerDecision = input.decide ? await input.decide(cycle) : await askPlanner(cycle, input.client, input.model, opts);
+  const plannerDecision = input.decide ? await input.decide(cycle) : await askPlanner(cycle, input.client, input.model, opts, input.draw);
   const decision = resolveCanonicalProgressionDecisionForLifecycle(cycle.lifecycle, plannerDecision);
   const instruments = decision.successor?.instruments ?? [];
   if (cycle.domain === "math") {
@@ -848,16 +1018,17 @@ async function decideOnce(
   const {evidenceIds,decisionEvidenceIds} = progressionEvidence(cycle);
   const latest = getLearningCycle(cycle.childId, cycle.homeworkId, opts);
   if (!latest) throw new Error(`learning_cycle_missing:${cycle.homeworkId}`);
-  if (latest.revision !== cycle.revision) {
-    const intervening = latest.decisionHistory.slice(cycle.decisionHistory.length);
-    const replayOnly = latest.lifecycle === cycle.lifecycle && intervening.length === latest.revision - cycle.revision &&
-      intervening.every(event => event.eventType === "instrument_observed" && event.fromLifecycle === cycle.lifecycle && event.toLifecycle === cycle.lifecycle) &&
-      latest.observations.slice(cycle.observations.length).every(observation => observation.provenance === "practice");
-    if (!replayOnly) throw new Error("canonical_progression_context_changed");
-    console.log(` 🎮 [canonical-progression] [replay-preserved] fromRevision=${cycle.revision} toRevision=${latest.revision}`);
-  }
-  if (decision.contentDecisions?.length) {
-    applyEvidenceBasedMathContentDecisions(cycle.childId, decision.contentDecisions, decisionEvidenceIds, opts);
+  // The decision belongs to the evidence batch that closed; anything recorded since (practice replays,
+  // engagement bookkeeping, session notes) is evidence for the next decision, never a reason to discard
+  // this one. The transition below still applies only at the latest revision.
+  // The one real guard: a cycle that left this stage meanwhile (paused, or already decided) takes no decision.
+  // An explicit operator replay of a received decision onto its blocked cycle is the one exception.
+  if (!replay && latest.lifecycle !== cycle.lifecycle) throw new Error(`canonical_progression_stage_changed:${cycle.lifecycle}->${latest.lifecycle}`);
+  if (latest.revision !== cycle.revision) console.log(` 🎮 [canonical-progression] [later-evidence-kept] fromRevision=${cycle.revision} toRevision=${latest.revision}`);
+  // Catalog records never fail a decision: an order whose built-in has no catalog entry (or no readable chart) records nothing.
+  const contentDecisions = cycle.domain === "spelling" ? catalogedOnly(cycle.childId, spellingReuseFromOrders(cycle, decision), opts) : decision.contentDecisions;
+  if (!replay && contentDecisions?.length) {
+    applyEvidenceBasedMathContentDecisions(cycle.childId, contentDecisions, decisionEvidenceIds, opts);
   }
   return transitionLearningCycle(cycle.childId, cycle.homeworkId, latest.revision, {
     type: "theory_decided",
@@ -866,6 +1037,7 @@ async function decideOnce(
       nextAction: decision.progressionAction,
       evidenceIds,
       predictionEvaluationIds: citedEvaluationIds,
+      ...(replay?{replayedResponse:{blockedDecisionId:replay.blockedDecisionId,requestHash:replay.requestHash,receiptHash:replay.receiptHash,reason:replay.reason,...(replay.deferredContentDecisions?{deferredContentDecisions:replay.deferredContentDecisions}:{})}}:{}),
     },
   }, opts);
 }

@@ -1,4 +1,5 @@
 import fs from 'node:fs';
+import { recordedIntake } from "./fixtures/recordedIntake";
 import os from 'node:os';
 import path from 'node:path';
 import {afterEach,expect,it,vi} from 'vitest';
@@ -21,7 +22,7 @@ afterEach(()=>{vi.unstubAllEnvs();vi.unstubAllGlobals();vi.clearAllMocks();roots
 async function fixture(replies?:unknown[]) {
  const rootDir=fs.mkdtempSync(path.join(os.tmpdir(),'sunny-measurement-patch-'));roots.push(rootDir);
  const childId='lab-child',sourceFile=seedSpellingLab(rootDir);
- const {homeworkId}=await runSpellingDiscoveryIntake({rootDir,childId,sourceFile},{callPlannerModel:async packet=>({draft:{title:'Recorded words',words:['night','light'].map(word=>({word,pageNumber:1})),uncertainty:[],diagnostic:recordedSpellingDiagnostic(packet),boardDefinition:linearJourneyFixture(['diagnostic'])}})});
+ const {homeworkId}=await runSpellingDiscoveryIntake({rootDir,childId,sourceFile},{plannerTools: recordedIntake(async packet=>({draft:{title:'Recorded words',words:['night','light'].map(word=>({word,pageNumber:1})),uncertainty:[],diagnostic:recordedSpellingDiagnostic(packet),boardDefinition:linearJourneyFixture(['diagnostic'])}}))});
  const scope={rootDir,childId,homeworkId},opening=getLearningCycle(childId,homeworkId,scope)!;
  Object.values(opening.nodes[0].evidenceContract.spellingItems!).forEach((item,index)=>recordSpellingDiscoveryAttempt({childId,homeworkId,attempt:{attemptId:'observed-'+index,itemId:item.id,attemptedValue:item.word,observedAt:'2026-10-11T12:00:00Z'},support:{status:'unassisted',scaffolds:[]}},scope));
  completeDiscoveryEvaluation({...scope,completedAt:'2026-10-11T12:01:00Z'});

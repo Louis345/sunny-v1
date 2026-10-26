@@ -1,8 +1,12 @@
 import {linearJourneyFixture} from "./fixtures/authoredJourney";
+import { recordedIntake } from "./fixtures/recordedIntake";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+// Each case replays real Planner receipts through the full parser (~1-4s locally); CI timed out
+// at 5s twice, and a timed-out case left its receipt half-written for the next (ENOENT).
+vi.setConfig({ testTimeout: 30_000 });
 import { ASSIGNMENT_PLANNER_TOOL_NAME, assignmentPlannerToolJsonSchema, attachSpellingDiscoveryEvidence, buildAssignmentPlanningPacket, planAssignmentFromSourceWithTelemetry, parseAssignmentPlannerToolUseResponse, resolveAssignmentPlannerModel } from "../engine/assignmentPlanner";
 import { completeDiscoveryEvaluation, getMathGenerationStatus, hashDiscoveryContract, hasReceivedMathProviderStage, resolveAdaptiveMathDraftDir, runMathProviderStage, setMathGenerationPhase } from "../engine/adaptiveMathDiscovery";
 import { readAssignmentSourceExtraction } from "../engine/assignmentSourceExtraction";
@@ -145,7 +149,7 @@ afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals(); vi.unstubAllEnvs(
 async function fixture() {
   const childId = "lab-child", sourceFile = seedSpellingLab(rootDir);
   const { homeworkId } = await runSpellingDiscoveryIntake({ rootDir, childId, sourceFile }, {
-    callPlannerModel: async (packet: Parameters<typeof recordedSpellingDiagnostic>[0]) => ({ draft: { boardDefinition:linearJourneyFixture(["diagnostic"]), diagnostic: recordedSpellingDiagnostic(packet), title: "Recorded school words", words: ["night", "light"].map(word => ({ word, pageNumber: 1 })), uncertainty: [] } }),
+    plannerTools: recordedIntake( async (packet: Parameters<typeof recordedSpellingDiagnostic>[0]) => ({ draft: { boardDefinition:linearJourneyFixture(["diagnostic"]), diagnostic: recordedSpellingDiagnostic(packet), title: "Recorded school words", words: ["night", "light"].map(word => ({ word, pageNumber: 1 })), uncertainty: [] } })),
   });
   const scope = { rootDir, childId, homeworkId };
   const opening = getLearningCycle(childId, homeworkId, scope)!;
@@ -688,16 +692,17 @@ await f.worker();
 });
 import { recordedSpellingDiagnostic } from "./fixtures/spellingEvidenceFirst";
 
-it('returns canvas collisions to the same bounded Planner correction and preserves both responses',async()=>{
- const f=await fixture();const invalid=structuredClone(f.message);
- const definition=invalid.content[1].input!.activeSessionPlan.boardDefinition!;
+// 2026-10-21: overlapping portals are a drawing fact, not a Planner error. The plan is kept
+// as authored and no correction is bought; the receipt replays it without another call.
+it('keeps a Planner board with canvas collisions as authored without buying a correction',async()=>{
+ const f=await fixture();const overlapping=structuredClone(f.message);
+ const definition=overlapping.content[1].input!.activeSessionPlan.boardDefinition!;
  definition.portals[1].position=structuredClone(definition.portals[2].position);
- transport.create.mockResolvedValueOnce(invalid).mockResolvedValueOnce(structuredClone(f.message));
+ transport.create.mockResolvedValueOnce(overlapping);
  const first=await f.run();
- expect(transport.create).toHaveBeenCalledTimes(2);
- expect(JSON.stringify(transport.create.mock.calls[1][0])).toContain('board_canvas_invalid');
- expect(first.output.activeSessionPlan.boardDefinition).toEqual(f.output.activeSessionPlan.boardDefinition);
+ expect(transport.create).toHaveBeenCalledTimes(1);
+ expect(first.output.activeSessionPlan.boardDefinition!.portals[1].position).toEqual(definition.portals[2].position);
  vi.stubEnv('ANTHROPIC_API_KEY','');
  expect((await f.run()).output).toEqual(first.output);
- expect(transport.create).toHaveBeenCalledTimes(2);
+ expect(transport.create).toHaveBeenCalledTimes(1);
 },30000);

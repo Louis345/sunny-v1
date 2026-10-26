@@ -573,7 +573,9 @@ describe("companion showroom talk contract", () => {
 
     expect(prompt).toContain("Ila laughed");
     expect(prompt).toContain("silly dances");
-    expect(prompt).toContain("playful and brave");
+    // Derived tone labels and reunion seeds are not evidence, so they never reach a prompt (623c7d62).
+    expect(prompt).not.toContain("playful and brave");
+    expect(prompt).not.toContain("brave-color drawing");
     expect(prompt).not.toContain("base64");
     expect(prompt).not.toContain("visualSnapshot");
   });

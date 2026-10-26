@@ -7,6 +7,8 @@ import type {
 } from "../engine/childSignals";
 import type { ProductIssueInput } from "../engine/productIssues";
 import { buildShowroomTalkMemoryPrompt } from "./companionShowroomTalk";
+import { describeScreenForCompanion, screenShowsActivity, type ScreenReport } from "./screenReport";
+import { currentBoardInstance } from "../engine/learningBoardInstances";
 import {
   maybeCompactCompanionInteractionMemory,
   readCompanionCareMemoryForPrompt,
@@ -229,15 +231,24 @@ export function buildActivityCompanionContext(input: {
   childId: string;
   companionId: string;
   presence: CompanionPresence;
+  /** The kiosk's screen report: the only description of the screen, checked against the current board. */
+  screenReport?: ScreenReport | null;
 }): string {
-  const cycle = input.snapshot?.nodeId ? readCompanionCycle(input.childId) : undefined;
+  const reported = input.screenReport !== undefined;
+  const cycle = input.snapshot?.nodeId || reported ? readCompanionCycle(input.childId) : undefined;
   const snapshot = input.snapshot ? { ...input.snapshot,
     recordedActivityStatus: cycle?.nodes.find(node => node.nodeId === input.snapshot?.nodeId)?.state } : null;
-  const board = buildCurrentBoardSnapshotContext(snapshot, { childSpeech: input.childSpeech });
+  const activityState = buildCurrentBoardSnapshotContext(snapshot, { childSpeech: input.childSpeech });
+  const published = (cycle?.boards ?? []).filter(board => board.publishedAt !== null).map(board => board.boardId);
+  const boards = { published, newest: cycle?.boards?.length ? currentBoardInstance(cycle).boardId : undefined };
+  const check = { report: input.screenReport ?? null, boards, activityNodeId: input.snapshot?.nodeId };
+  // Activity state, help objective and spelling facts describe the open activity: only when it is on screen.
+  const activityOnScreen = !reported || screenShowsActivity(check);
+  const board = reported ? describeScreenForCompanion({ ...check, activityContext: activityState }) : activityState;
   const memory = buildShowroomTalkMemoryPrompt(
     readCompanionCareMemoryForPrompt(input.childId, input.companionId),
   );
-  const helpObjective = input.presence === "summoned" && input.snapshot
+  const helpObjective = input.presence === "summoned" && input.snapshot && activityOnScreen
     ? [
         "Activity-help objective:",
         "Resolve the child's request briefly from the answer-hidden activity context.",
@@ -247,7 +258,7 @@ export function buildActivityCompanionContext(input: {
     : "";
   let spelling = "";
   const assessment = input.spellingAssessment;
-  if (assessment && input.snapshot?.itemId === assessment.itemId) {
+  if (assessment && activityOnScreen && input.snapshot?.itemId === assessment.itemId) {
     const items = cycle?.nodes.find(node => node.nodeId === assessment.nodeId)?.evidenceContract.spellingItems;
     const last = cycle?.observations?.filter(observation => items?.[observation.itemId]).at(-1);
     spelling = ["[Canonical spelling activity facts]",

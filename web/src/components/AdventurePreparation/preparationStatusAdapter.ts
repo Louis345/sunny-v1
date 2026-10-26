@@ -5,6 +5,12 @@ import type { PreparationEvent, PreparationStop } from "./adventurePreparationMa
 const PREPARED = new Set(["ready", "completed", "evidence_locked", "not_ready"]);
 const FAILED = new Set(["needs_attention", "failed_resumable"]);
 const PLANNING = new Set(["evidence_ready", "targeted_planning"]);
+const PUBLISHED = new Set(["board_ready", "successor_published"]);
+
+/** The server published the board: that fact, not the waiting screen's history, decides readiness. */
+export function isPublishedStatus(status: GenerationStatus | null): boolean {
+  return Boolean(status && PUBLISHED.has(status.phase));
+}
 
 /**
  * Turns one real generation status into the events it proves. The machine ignores
@@ -16,11 +22,16 @@ export function preparationEventsFromStatus(status: GenerationStatus | null, act
   if (status.phase === "needs_attention" || failedNodes.length > 0) {
     return [{ type: "FAILED", reason: status.error ?? failedNodes[0]?.status ?? "needs_attention", retryable: failedNodes.some(node => node.status === "failed_resumable") }];
   }
+  if (PUBLISHED.has(status.phase) && status.nodes.length === 0) {
+    // A next board's status lists no activities; the published board's own portals are its stops.
+    const stops: PreparationStop[] = [...activityTypes.values()].map(activityType => ({ activityType }));
+    return [{ type: "PLAN_DONE", stops }, { type: "ACTIVITY_READY", n: Math.max(stops.length, 1), total: Math.max(stops.length, 1), published: true }];
+  }
   if (PLANNING.has(status.phase) || status.nodes.length === 0) return [];
   const stops: PreparationStop[] = status.nodes.map(node => ({ activityType: activityTypes.get(node.nodeId) ?? "" }));
   const ready = status.nodes.filter(node => PREPARED.has(node.status)).length;
   const events: PreparationEvent[] = [{ type: "PLAN_DONE", stops }];
-  if (ready > 0) events.push({ type: "ACTIVITY_READY", n: ready, total: stops.length });
+  if (ready > 0) events.push({ type: "ACTIVITY_READY", n: ready, total: stops.length, ...(PUBLISHED.has(status.phase) ? { published: true } : {}) });
   return events;
 }
 

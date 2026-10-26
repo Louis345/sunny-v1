@@ -54,7 +54,7 @@ import { reconcileCompanionCurrencyAward } from "./currencyAward";
 import { computeStoryMovieCost } from "../shared/rewardEconomy";
 import { recordLearningAttempt } from "./learningAttemptEvents";
 import { getDopamineGameSlugsForChild } from "../profiles/childrenConfig";
-import { resolveChildContextDir } from "../utils/contextRoot";
+import { resolveChildContextDir, resolveContextRoot } from "../utils/contextRoot";
 import {
   applySunnyRuntimeOverrides,
   resolveSunnyRuntimeConfig,
@@ -2054,7 +2054,7 @@ function appendActivityResultFlightRecorder(input: {
     const dateStr = input.sessionDate.slice(0, 10);
     const root =
       process.env.SUNNY_ACTIVITY_RESULT_LOG_ROOT ||
-      path.join(process.cwd(), "src", "context");
+      resolveContextRoot();
     const dir = path.join(
       root,
       input.childId,

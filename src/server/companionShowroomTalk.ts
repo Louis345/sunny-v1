@@ -838,8 +838,6 @@ export function buildShowroomTalkMemoryPrompt(
     "Compacted companion memory:",
     memory.lastSessionSummary && `Last session: ${memory.lastSessionSummary}`,
     memory.lastEmotionalMoment && `Last emotional moment: ${memory.lastEmotionalMoment}`,
-    memory.reunionLineSeed && `Possible reunion seed: ${memory.reunionLineSeed}`,
-    memory.emotionalTone && `Emotional tone: ${memory.emotionalTone}`,
     formatMemoryList("Relationship facts", memory.relationshipFacts),
     formatMemoryList("Favorite moments", memory.favoriteMoments),
     formatMemoryList("Things you have shown about yourself", memory.companionSelfNotes),

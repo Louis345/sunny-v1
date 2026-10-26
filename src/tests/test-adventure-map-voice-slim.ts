@@ -101,6 +101,12 @@ describe("buildSessionPrompt — ADVENTURE_MAP voice slim", () => {
     expect(prompt).toMatch(/show_level_path[\s\S]*never open it proactively/i);
   });
 
+  it("keeps the worksheet manifest when the same subject is hosted as a worksheet", async () => {
+    vi.stubEnv("ADVENTURE_MAP", "true");
+    const prompt = await buildSessionPrompt("synthetic" as any, companionIla, "Synthetic worksheet", [], "homework", {carePlan:null,worksheetMode:true});
+    expect(prompt).toContain("[Canvas Capabilities]");
+  });
+
   it("does not seed adventure-map companion chatter", async () => {
     vi.stubEnv("ADVENTURE_MAP", "true");
     const prompts = [
@@ -214,7 +220,8 @@ describe("SessionManager.buildAgentToolkit — ADVENTURE_MAP voice slim", () => 
     ).sort();
     expect(keys).not.toContain("canvasShow");
     expect(keys).toContain("takeGameScreenshot");
-    expect(keys).toContain("sessionLog");
+    expect(keys).not.toContain("sessionLog");
+    expect(keys).not.toContain("launchGame");
     expect(keys).toContain("companionAct");
   });
 

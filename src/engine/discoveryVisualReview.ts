@@ -31,7 +31,7 @@ export type JourneyCapture = {
   observedItemId: string | null;
   promptVisible: boolean;
 };
-export type JourneyCaptureRequest = { kind: "transition" | "academic_item"; itemId: string; itemIndex: number; prompt?: string };
+export type JourneyCaptureRequest = { kind: "transition" | "academic_item"; itemId: string; itemIndex: number; prompt?: string; wholeWord?: boolean };
 export type JourneyScreenshots = string[] & { captures?: JourneyCapture[] };
 
 export type ReviewFinding = { screen: number | null; claim: "visual_defect" | "content_missing"; observation: string };
@@ -597,12 +597,19 @@ const VISIBLE_NORMALIZED_TEXT_NODES_SOURCE = String.raw`() => {
 }`;
 const VISIBLE_NORMALIZED_DOCUMENT_TEXT_SOURCE = `() => (${VISIBLE_NORMALIZED_TEXT_NODES_SOURCE})().join(" ")`;
 
+function containsWholeWord(text: string, word: string): boolean {
+  const words: string[] = text.match(/[\p{L}\p{N}]+(?:['’-][\p{L}\p{N}]+)*/gu) ?? [];
+  return word.length > 0 && words.includes(word);
+}
+
 export async function verifyMathControlJourney(page: BrowserPage, input: {
   completionType: "evaluation_complete" | "node_complete";
   itemIds?: string[];
   requireItemStateTransitions?: boolean;
   itemContracts?: MathJourneyItemContract[];
   frozenPromptsByItem?: Record<string, string>;
+  /** Frozen practice/instruction words only; visible answers never confirm independent measurement. */
+  practiceSpellingWordsByItem?: Record<string, string>;
   journeyKey?: "journey" | "incorrectJourney" | "notSureJourney";
   acceptedValuesByItem?: Record<string, string[]>;
   /** Trusted sidecar journey for new Creator artifacts; legacy pages may still expose the in-page hook. */
@@ -809,16 +816,16 @@ export async function verifyMathControlJourney(page: BrowserPage, input: {
         itemStarted = true;
       }
       if (!itemCommitted && !itemConfirmed) {
-        const frozenPrompt = frozenPromptsByItem[item.itemId];
+        const frozenPrompt = frozenPromptsByItem[item.itemId] ?? input.practiceSpellingWordsByItem?.[item.itemId];
         const captureRequest: JourneyCaptureRequest = {
           kind: "academic_item",
           itemId: item.itemId,
           itemIndex,
-          ...(frozenPrompt ? { prompt: frozenPrompt } : {}),
+          ...(frozenPrompt ? { prompt: frozenPrompt, ...(input.practiceSpellingWordsByItem?.[item.itemId] && !frozenPromptsByItem[item.itemId] ? { wholeWord: true } : {}) } : {}),
         };
         let promptConfirmed = true;
         if (frozenPrompt) {
-          const observed = await observeJourneyState(page, { itemId: item.itemId, prompt: frozenPrompt });
+          const observed = await observeJourneyState(page, captureRequest);
           promptConfirmed = observed.observedItemId === item.itemId && observed.promptVisible;
           if (promptConfirmed) itemPromptVisible = true;
           if (!promptConfirmed && stepIndex === itemSteps.length - 1) {
@@ -877,7 +884,7 @@ export async function verifyMathControlJourney(page: BrowserPage, input: {
         throw new Error(`math_journey_not_sure_control_label;item=${item.itemId}`);
       }
       if (committed) itemCommitted = true;
-      if (committed && frozenPromptsByItem[item.itemId]) {
+      if (committed && (frozenPromptsByItem[item.itemId] || input.practiceSpellingWordsByItem?.[item.itemId])) {
         if (!itemPromptVisible) throw new Error(`math_journey_item_state_not_visible;item=${item.itemId};reported=${item.itemId}`);
         if (input.captureState && !itemConfirmed) {
           throw new Error(`math_journey_item_committed_without_confirmed_prompt;item=${item.itemId}`);
@@ -920,6 +927,8 @@ export async function verifyMathControlJourney(page: BrowserPage, input: {
             .some(sentence => visibleTextNodes().some(text => text.includes(sentence)));
         const reportedPromptCurrentlyVisible = prompt.length > 0 && visibleText.includes(prompt);
         const frozenPromptCurrentlyVisible = frozenPrompt.length > 0 && visibleText.includes(frozenPrompt);
+        const practiceWord = normalize((${JSON.stringify(input.practiceSpellingWordsByItem ?? {})})[challenge?.id]);
+        const practiceWordVisible = (${containsWholeWord.toString()})(visibleText, practiceWord);
         return {
           id: challenge?.id ?? null,
           reportedPrompt: prompt,
@@ -928,7 +937,7 @@ export async function verifyMathControlJourney(page: BrowserPage, input: {
           previousPromptVisible,
           reportedPromptCurrentlyVisible,
           frozenPromptCurrentlyVisible,
-          promptVisible: (Boolean(receipt?.promptVisibleAtReceipt) && prompt.length > 0 && visibleText.includes(prompt))
+          promptVisible: practiceWordVisible || (Boolean(receipt?.promptVisibleAtReceipt) && prompt.length > 0 && visibleText.includes(prompt))
             || (Boolean(receipt?.frozenPromptVisibleAtReceipt) && frozenPrompt.length > 0 && visibleText.includes(frozenPrompt))
             || (completeReportedSentenceVisible && !previousPromptVisible),
         };
@@ -950,7 +959,8 @@ export async function verifyMathControlJourney(page: BrowserPage, input: {
         const stateBeforeEntry = !nextStateReady
           ? await page.evaluate(nextStateSnapshotExpression) as { id: string | null }
           : undefined;
-        if (!nextStateReady && stateBeforeEntry?.id !== nextItem.itemId && !nextEntryWasVisible && nextEntryStep?.action === "click") {
+        const practiceReveal = Boolean(input.practiceSpellingWordsByItem?.[nextItem.itemId]);
+        if (!nextStateReady && (stateBeforeEntry?.id !== nextItem.itemId || practiceReveal) && !nextEntryWasVisible && nextEntryStep?.action === "click") {
           const entryControl = page.locator(nextEntryStep.selector);
           let entryReady = false;
           try {
@@ -974,8 +984,8 @@ export async function verifyMathControlJourney(page: BrowserPage, input: {
             } catch {
               // A true entry control does not report the next academic item until activated.
             }
-            const reportedAfterControlAppeared = await page.evaluate(nextStateSnapshotExpression) as { id: string | null };
-            if (reportedAfterControlAppeared.id !== nextItem.itemId) {
+            const reportedAfterControlAppeared = await page.evaluate(nextStateSnapshotExpression) as { id: string | null; promptVisible: boolean };
+            if (reportedAfterControlAppeared.id !== nextItem.itemId || (practiceReveal && !reportedAfterControlAppeared.promptVisible)) {
               await input.captureState?.({ kind: "transition", itemId: nextItem.itemId, itemIndex: itemIndex + 1 });
               const evidenceBefore = Number(await page.evaluate(`(window.__sunnyMessages ?? []).filter(message => ["attempt_event","evaluation_attempt","evaluation_complete","node_complete"].includes(message?.type)).length`));
               await entryControl.click({ timeout: 3000 });
@@ -1128,7 +1138,7 @@ export async function verifyMathControlJourney(page: BrowserPage, input: {
 /** Reads what the page itself reports and renders right now; nothing generated can assert it. */
 export async function observeJourneyState(
   page: BrowserPage,
-  expected?: { itemId: string; prompt?: string },
+  expected?: { itemId: string; prompt?: string; wholeWord?: boolean },
 ): Promise<{ observedItemId: string | null; promptVisible: boolean }> {
   return await page.evaluate(`(() => {
     const states = (window.__sunnyMessages ?? []).filter(message => message?.type === "game_state_update");
@@ -1137,7 +1147,9 @@ export async function observeJourneyState(
     const prompt = normalize(challenge?.prompt);
     const expectedPrompt = normalize(${JSON.stringify(expected?.prompt ?? "")});
     const visibleText = (${VISIBLE_NORMALIZED_DOCUMENT_TEXT_SOURCE})();
-    const expectedPromptVisible = expectedPrompt.length > 0 && visibleText.includes(expectedPrompt);
+    const expectedPromptVisible = ${Boolean(expected?.wholeWord)}
+      ? (${containsWholeWord.toString()})(visibleText, expectedPrompt)
+      : expectedPrompt.length > 0 && visibleText.includes(expectedPrompt);
     const reportedPromptVisible = prompt.length > 0 && visibleText.includes(prompt);
     const completeSentences = value => (String(value ?? "").match(/[^.!?]+[.!?]+/g) ?? [])
       .map(normalize)
@@ -1154,7 +1166,7 @@ export async function observeJourneyState(
       // Prefer the exact frozen prompt. A shorter rendering is accepted only
       // when it contains a complete reported sentence carrying the prompt's
       // explicit academic marker (for example ROWS or COLUMNS).
-      promptVisible: expectedPrompt.length > 0
+      promptVisible: ${Boolean(expected?.wholeWord)} ? expectedPromptVisible : expectedPrompt.length > 0
         ? expectedPromptVisible || completeReportedAcademicSentenceVisible
         : reportedPromptVisible,
     };

@@ -4,8 +4,8 @@ import {layoutJourney,THEME_PRESETS,DEFAULT_THEME_PRESET,themeOfPreset,type Port
 import {isDeepStrictEqual} from "node:util";
 import {z} from "zod";
 import {learningPlannerInstructions} from "./learningPlannerInstructions";
-import {verifyAuthoredBoardCanvas,verifyPreparingBoardCanvas,renderBoardPreview,measureBoardPortals} from './adventureBoardCanvas';
-import {adventureCompositionCorrectionTool,applyAdventureCompositionCorrection,JOURNEY_AUTHORING_INSTRUCTION,JOURNEY_SEQUENCE_INSTRUCTION,adventureJourneySchema,ADVENTURE_JOURNEY_TOOL_SCHEMA,journeyFromBoardDefinition,validateBoardDefinition,adventureCompositionSchema,assembleAdventureBoardDefinition,BOARD_CANVAS_AUTHORING_CONSTRAINTS,type AdventureJourneyDefinition,type AdventureBoardComposition, requireBoardDefinition, BOARD_DEFINITION_TOOL_SCHEMA, BOARD_AUTHORING_INSTRUCTION, journeyExecutions, renderBoardDefinition, type AdventureBoardDefinition } from "../shared/adventureBoardDefinition";
+import {reportAuthoredBoardCanvas,verifyPreparingBoardCanvas,renderBoardPreview,measureBoardPortals} from './adventureBoardCanvas';
+import {COMPOSITION_TOOL_SCHEMA,assembleAuthoredBoardDefinition,JOURNEY_AUTHORING_INSTRUCTION,JOURNEY_SEQUENCE_INSTRUCTION,compositionFromBoardDefinition,adventureJourneySchema,ADVENTURE_JOURNEY_TOOL_SCHEMA,journeyFromBoardDefinition,validateBoardDefinition,adventureCompositionSchema,assembleAdventureBoardDefinition,BOARD_CANVAS_AUTHORING_CONSTRAINTS,type AdventureJourneyDefinition,type AdventureBoardComposition, requireBoardDefinition, BOARD_DEFINITION_TOOL_SCHEMA, BOARD_AUTHORING_INSTRUCTION, journeyExecutions, renderBoardDefinition, type AdventureBoardDefinition } from "../shared/adventureBoardDefinition";
 import Anthropic from "@anthropic-ai/sdk";
 import crypto from "node:crypto";
 import fs from "node:fs";
@@ -23,7 +23,7 @@ import { engagementTheoryEvidenceContext } from "./engagementTheory";
 import { assignmentLedgerPath, writeAssignmentLedgerEntry } from "./assignmentLedger";
 import { writeWaterfallContentCatalog } from "../profiles/chartWaterfall";
 import { OPENAI_REPAIR_MAX_OUTPUT_TOKENS, readOpenAiResponseStream } from "./openAiResponses";
-import { applyDiscoveryHtmlPatch, runMathProviderStage, hasReceivedMathProviderStage, estimateDiscoveryRepairCost } from "./adaptiveMathDiscovery";
+import { applyDiscoveryHtmlPatch, runMathProviderStage, hasReceivedMathProviderStage, readReceivedMathProviderStage, estimateDiscoveryRepairCost } from "./adaptiveMathDiscovery";
 import {
   buildPlannerContentCandidateCards,
   resolveExactMathCatalogReuse,
@@ -41,6 +41,9 @@ import {
   type LearningCycleRecordV2,
 } from "./learningCycleRepository";
 import { withInitialBoard } from "./learningBoardInstances";
+import { runPlannerToolLoop } from "./plannerToolLoop";
+import { providerTurnSender } from "./plannerToolProvider";
+import { spellingTeachingToolkit } from "./spellingTeachingTools";
 
 export type DirectActivity = {
   id: string;
@@ -474,7 +477,7 @@ export type DirectArtifact = {
   htmlHash?: string;
   externalLibraryUrls?: string[];
   itemIds?: string[];
-  spellingItemBindings?: Array<{ itemId: string; word: string }>;
+  spellingItemBindings?: Array<{ itemId: string; word: string; measurementRole?: string }>;
   generationElapsedMs?: number;
   inputTokens?: number;
   outputTokens?: number;
@@ -512,7 +515,7 @@ export type DirectArtworkBundle = {
   reusedImages: number;
 };
 
-export const MATH_BROWSER_VERIFIER_VERSION = 17;
+export const MATH_BROWSER_VERIFIER_VERSION = 18;
 
 export const TARGETED_COMPANION_RUNTIME_CONTRACT = `Represent currentChallenge as {id,prompt,mode,measurementRole,readAloudRequested,readAloudCount,companionSupportTrigger}. For each instruction or practice item, its first answer-hidden state must set readAloudRequested:true, readAloudCount:1, and companionSupportTrigger:"guided_prompt" so Elli can give one brief contextual introduction. Do this once per item, never after an answer. A fresh_checkpoint must not summon Elli automatically. When the child activates a visible Read it to me or Explain control on any item, increment readAloudCount and resend that same answer-hidden state with readAloudRequested:true and companionSupportTrigger:"child_request". Elli owns spoken teaching; do not narrate inside the activity.`;
 
@@ -845,15 +848,15 @@ export function parseSavedDirectMathPlannerResponse(
   return parseMathLearningProgram(toolUse.input);
 }
 
-/** The existing Planner corrects executable geometry before its program is frozen. */
+/** Record the received drawing without asking the Planner to correct presentation. */
 export async function verifyMathPlannerCanvas(program: MathLearningProgram, responseFile: string): Promise<MathLearningProgram> {
   if(program.journey && !program.boardDefinition)return program;
-  await verifyAuthoredBoardCanvas({definition:requireBoardDefinition(program.boardDefinition,program.activities.map(activity=>activity.id)),rootDir:process.cwd(),directory:path.join(path.dirname(responseFile),'canvas-verification')});
+  await reportAuthoredBoardCanvas({definition:requireBoardDefinition(program.boardDefinition,program.activities.map(activity=>activity.id)),rootDir:process.cwd(),directory:path.join(path.dirname(responseFile),'canvas-verification')});
   return program;
 }
 
 export function correctableMathPlannerTruthError(error: unknown): error is Error {
-  return error instanceof Error && ["math_item_clock_state_inconsistent:", "board_definition_", "board_canvas_invalid:"].some(prefix => error.message.startsWith(prefix));
+  return error instanceof Error && ["math_item_clock_state_inconsistent:", "board_definition_"].some(prefix => error.message.startsWith(prefix));
 }
 
 export async function correctSavedDirectMathPlannerResponse(input: {
@@ -1306,13 +1309,21 @@ function compositionFromDrawing(journey:AdventureJourneyDefinition,drawing:Artis
  * A refusal or an unreadable reply still publishes a board: the artist's last look if it had one,
  * otherwise the plain fallback layout. The loop is bounded at MAX_BOARD_PREVIEWS + 1 provider calls. */
 async function designNativeBoard(input:LearningCreatorInput,native:NativeLearningProgram):Promise<{packet:{composition:AdventureBoardComposition};plan:ActiveSessionPlan}> {
+  const journey=native.journey;
+  const {composition,pattern}=await drawJourney({...input,journey,label:native.planId,identity:{childId:input.childId,domain:"spelling",program:input.program},stagePrefix:"targeted-design"});
+  return {packet:{composition},plan:{...native.plan,journey,boardDefinition:assembleAdventureBoardDefinition(journey,composition,pattern)}};
+}
+/** The map artist paints one journey (Discovery, Teaching or next board). Shared so every
+ * spelling board is drawn the same way; `identity` keys the saved drawing so a restart never
+ * buys it twice, and `stagePrefix` names its saved provider turns. */
+export async function drawJourney(input:Pick<LearningCreatorInput,"client"|"model"|"checkpointFile"|"rawResponseDir"|"previousDesigns"|"retryUncertain">&{journey:AdventureJourneyDefinition;label:string;identity:unknown;stagePrefix:string}):Promise<{composition:AdventureBoardComposition;pattern?:string}> {
   const client=input.client??new Anthropic({apiKey:process.env.ANTHROPIC_API_KEY});
   const model=input.model??process.env.SUNNY_ARCHITECT_MODEL??"claude-fable-5";
-  const journey=native.journey,started=Date.now();
-  const sourceHash=crypto.createHash("sha256").update(JSON.stringify({childId:input.childId,domain:"spelling",program:input.program})).digest("hex");
+  const journey=input.journey,started=Date.now();
+  const sourceHash=crypto.createHash("sha256").update(JSON.stringify(input.identity)).digest("hex");
   const saved=input.checkpointFile&&fs.existsSync(input.checkpointFile)?JSON.parse(fs.readFileSync(input.checkpointFile,"utf8")) as {sourceHash?:string;composition?:AdventureBoardComposition;pattern?:string;previews?:number;elapsedMs?:number}:undefined;
   if(saved&&saved.sourceHash!==sourceHash)throw new Error("learning_design_checkpoint_program_mismatch");
-  const finish=(composition:AdventureBoardComposition,pattern?:string)=>({packet:{composition},plan:{...native.plan,journey,boardDefinition:assembleAdventureBoardDefinition(journey,composition,pattern)}});
+  const finish=(composition:AdventureBoardComposition,pattern?:string)=>({composition,...(pattern?{pattern}:{})});
   if(saved?.composition)return finish(saved.composition,saved.pattern);
   const draftDir=input.checkpointFile?path.dirname(input.checkpointFile):undefined;
   const workDir=path.join(input.rawResponseDir??draftDir??fs.mkdtempSync(path.join(os.tmpdir(),"sunny-design-")),"creator-preview");
@@ -1345,7 +1356,7 @@ The teacher's journey (immutable): stops ${JSON.stringify(journey.portals.map(po
   for(let turn=1;turn<=MAX_BOARD_PREVIEWS+1;turn+=1){
     const mustSubmit=previews>=MAX_BOARD_PREVIEWS;
     let request={model,max_tokens:Number(process.env.SUNNY_DIRECTOR_MAX_TOKENS??16000),messages,tools:mustSubmit?[finalTool]:tools,tool_choice:mustSubmit?{type:"tool",name:"submit_board"}:{type:"any"}} as Anthropic.MessageCreateParamsNonStreaming;
-    const stage=`targeted-design-${turn}`,pointer=draftDir?path.join(draftDir,"provider-receipts",`${stage}.stage.json`):undefined;
+    const stage=`${input.stagePrefix}-${turn}`,pointer=draftDir?path.join(draftDir,"provider-receipts",`${stage}.stage.json`):undefined;
     if(pointer&&fs.existsSync(pointer)){
       // Received work is replayed under its original request, never bought again.
       const {requestHash}=JSON.parse(fs.readFileSync(pointer,"utf8"));if(!/^[a-f0-9]{64}$/.test(requestHash))throw new Error("learning_design_saved_request_invalid");
@@ -1379,16 +1390,16 @@ The teacher's journey (immutable): stops ${JSON.stringify(journey.portals.map(po
     ]}]}];
   }
   const placed=drawing?.portals.size??0;
-  if(!placed)console.log(` 🎮 [experience-creator] [composition] [fallback-layout] reason=${ending==="submitted"?"nothing_placed":ending} plan=${native.planId}`);
-  else if(ending!=="submitted")console.log(` 🎮 [experience-creator] [composition] [last-look] reason=${ending} plan=${native.planId}`);
+  if(!placed)console.log(` 🎮 [experience-creator] [composition] [fallback-layout] reason=${ending==="submitted"?"nothing_placed":ending} plan=${input.label}`);
+  else if(ending!=="submitted")console.log(` 🎮 [experience-creator] [composition] [last-look] reason=${ending} plan=${input.label}`);
   console.log(` 🎮 [experience-creator] [pattern] ${drawing?.pattern??"none"}`);
   const composition=compositionFromDrawing(journey,drawing,!placed),elapsedMs=Date.now()-started;
   if(input.checkpointFile){
     fs.mkdirSync(path.dirname(input.checkpointFile),{recursive:true});
-    fs.writeFileSync(input.checkpointFile+".tmp",`${JSON.stringify({version:2,planId:native.planId,model,sourceHash,composition,...(drawing?.pattern?{pattern:drawing.pattern}:{}),ending,previews,elapsedMs},null,2)}\n`,"utf8");
+    fs.writeFileSync(input.checkpointFile+".tmp",`${JSON.stringify({version:2,planId:input.label,model,sourceHash,composition,...(drawing?.pattern?{pattern:drawing.pattern}:{}),ending,previews,elapsedMs},null,2)}\n`,"utf8");
     fs.renameSync(input.checkpointFile+".tmp",input.checkpointFile);
   }
-  console.log(` 🎮 [experience-creator] [composition] [accepted] plan=${native.planId} previews=${previews} ending=${ending} elapsed_ms=${elapsedMs}`);
+  console.log(` 🎮 [experience-creator] [composition] [accepted] plan=${input.label} previews=${previews} ending=${ending} elapsed_ms=${elapsedMs}`);
   return finish(composition,drawing?.pattern);
 }
 export function askLearningExperienceDesigner(input:LearningCreatorInput & {program:NativeLearningProgram}):Promise<{packet:{composition:AdventureBoardComposition};plan:ActiveSessionPlan}>;
@@ -1501,10 +1512,8 @@ ${JSON.stringify(factualModelContext(input.childContext), null, 2)}
 Factual prior outcomes and catalog history:
 ${JSON.stringify(factualModelContext(input.priorOutcomes), null, 2)}
 
-${journey ? `Author composition for the immutable journey: ${JSON.stringify(journey)}. Preserve labels and bindings. Use illustrated Grok artwork, animated paths and independently composed portrait. Available artwork: /generated/adventure-board-demo/silent-letter-world.jpeg. ${BOARD_CANVAS_AUTHORING_CONSTRAINTS}${checkpoint.compositionDefect ? ` Fix only the diagnosed geometry on this received candidate, preserving every other field: ${JSON.stringify(checkpoint.rejectedComposition)}. Defect: ${checkpoint.compositionDefect}` : ""}\n\n` : ""}Immutable MathLearningProgram:
+${journey ? `Author composition for the immutable journey: ${JSON.stringify(journey)}. Preserve labels and bindings. Use illustrated Grok artwork, animated paths and independently composed portrait. Available artwork: /generated/adventure-board-demo/silent-letter-world.jpeg. ${BOARD_CANVAS_AUTHORING_CONSTRAINTS}\n\n` : ""}Immutable MathLearningProgram:
 ${JSON.stringify({ ...programWithoutBonusDuplicate, activities: contracts }, null, 2)}`;
-    const geometryTool=journey&&checkpoint.rejectedComposition&&checkpoint.compositionDefect
-      ? adventureCompositionCorrectionTool(checkpoint.rejectedComposition,journey,new Error(checkpoint.compositionDefect)):undefined;
     const startedAt = Date.now();
     let request = {
       model,
@@ -1519,7 +1528,7 @@ ${JSON.stringify({ ...programWithoutBonusDuplicate, activities: contracts }, nul
           additionalProperties: true,
           required: [...(presentationOnly || !isContinuation ? ["boardCreativeSpine", "artifacts", "rationale"] : ["artifacts", "rationale"]),...(journey && !checkpoint.composition ? ["composition"] : [])],
           properties: {
-            ...(journey ? {composition:z.toJSONSchema(adventureCompositionSchema,{io:"input"})} : {}),
+            ...(journey ? {composition:COMPOSITION_TOOL_SCHEMA} : {}),
             boardCreativeSpine: boardCreativeSpineSchema,
             artifacts: {
               type: "array",
@@ -1533,13 +1542,6 @@ ${JSON.stringify({ ...programWithoutBonusDuplicate, activities: contracts }, nul
       }],
       tool_choice: { type: "tool", name: toolName },
     } as unknown as Anthropic.MessageCreateParamsNonStreaming;
-    if(geometryTool&&requestedNodeIds.length===0){
-      request.tools=[geometryTool as never];request.tool_choice={type:'tool',name:geometryTool.name};
-      request.messages=[{role:'user',content:`You are Sunny's existing Experience Creator. Repair only the diagnosed geometry on the received candidate. Preserve every other field, including successful orientation, artwork, palette, labels and identities. Return explicit geometry patches. This is attempt ${checkpoint.attempts.length+1} of 2; no new design loop.
-Immutable source hash: ${checkpoint.sourceHash}\nReceived candidate: ${JSON.stringify(checkpoint.rejectedComposition)}
-Immutable journey: ${JSON.stringify(journey)}
-Measured defects: ${checkpoint.compositionDefect}`}];
-    }
     if(input.checkpointFile){
       const directory=path.dirname(input.checkpointFile),pointer=path.join(directory,'provider-receipts',`targeted-design-${checkpoint.attempts.length+1}.stage.json`);
       if(fs.existsSync(pointer)){
@@ -1610,27 +1612,9 @@ Measured defects: ${checkpoint.compositionDefect}`}];
     if (!root) throw new Error(`math_design_provider_contract_failed:invalid_tool_output:nodes=${requestedNodeIds.join(",")}`);
     let composition=checkpoint.composition;
     if(journey && !composition){
-      let candidate:AdventureBoardComposition|undefined;
-      try {
-        candidate=responseToolName==='repair_board_geometry'
-          ? applyAdventureCompositionCorrection(checkpoint.rejectedComposition!,journey,root,new Error(checkpoint.compositionDefect))
-          : adventureCompositionSchema.parse(root.composition);
-        if(geometryTool&&responseToolName!=='repair_board_geometry'){
-          const paths=geometryTool.input_schema.properties.patches.items.properties.path.enum;
-          const patches=paths.map(pointer=>{let value:unknown=candidate;for(const part of pointer.slice(1).split('/'))value=(value as Record<string,unknown>)[part];return {path:pointer,value};});
-          const preserved=applyAdventureCompositionCorrection(checkpoint.rejectedComposition!,journey,{patches},new Error(checkpoint.compositionDefect));
-          if(!isDeepStrictEqual(candidate,preserved))throw new Error('composition_correction_changed_protected_fields');
-        }
-        composition=candidate;
-        const definition=assembleAdventureBoardDefinition(journey,composition);
-        await verifyAuthoredBoardCanvas({definition,rootDir:process.cwd(),directory:path.join(input.rawResponseDir??path.dirname(input.checkpointFile??path.join(os.tmpdir(),"sunny-design.json")),"creator-canvas")});
-      }
-      catch(error){
-        const authoringDefect=error instanceof z.ZodError || (error instanceof Error && ["board_composition_identity_invalid","board_canvas_invalid:"].some(prefix=>error.message.startsWith(prefix)));
-        if(!authoringDefect)throw error;
-        composition=undefined;checkpoint={...checkpoint,...(candidate?{rejectedComposition:candidate}:{}),compositionDefect:error instanceof Error?error.message:String(error)};
-        console.warn(` 🎮 [experience-creator] [composition] [invalid] ${checkpoint.compositionDefect}`);
-      }
+      const definition=assembleAuthoredBoardDefinition(journey,root.composition);
+      composition=compositionFromBoardDefinition(definition);
+      await reportAuthoredBoardCanvas({definition,rootDir:process.cwd(),directory:path.join(input.rawResponseDir??path.dirname(input.checkpointFile??path.join(os.tmpdir(),"sunny-design.json")),"creator-canvas")});
     }
     let boardCreativeSpine = checkpoint.boardCreativeSpine;
     if (presentationOnly && boardCreativeSpine && root.boardCreativeSpine) {
@@ -2048,13 +2032,24 @@ export async function askLearningPlanner(input:LearningPlannerInput):Promise<Mat
   const maxTokens=input.maxTokens??Number(native?16000:process.env.SUNNY_PLANNER_MAX_TOKENS??32000);
   const started=Date.now();
   const client = input.client ?? new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-  const prompt = native ? `${learningPlannerInstructions('spelling').text}
-Call create_learning_program exactly once. Return domain, planId, journey, activities and planTheory directly at the tool root. Each activity carries its own measurement; do not invent a separate measurement ID or repeat the inventory in another field. spelling is the preregistered measurement prescription for academic activities and null for nonacademic rewards. It is never a measured learning claim.
-${JOURNEY_SEQUENCE_INSTRUCTION}
-You choose activities, count, support, alternatives and hypotheses.
-Use available native instruments through their supplied configuration schemas. Catalog presets are working examples, not an exhaustive configuration restriction. Request generated content only for a missing capability. Preserve captured words and cite the supplied observation IDs. Separate assisted practice, independent measurements and engagement. Do not claim mastery or readiness.
-Homework and child-chart context:
-${JSON.stringify(compactPlannerFacts(packet!))}` : `${learningPlannerInstructions('math').text}
+  // Spelling Teaching boards are built through small locked tools. A Teaching answer already received
+  // through the retired single form replays read only, for the same homework facts; that form is never sent again.
+  if(native){
+    const directory=input.rawResponseFile?path.dirname(input.rawResponseFile):undefined;
+    const saved=directory?readReceivedMathProviderStage(directory,'targeted-planner') as Anthropic.Messages.Message|undefined:undefined;
+    if(!directory||saved===undefined)return askSpellingTeachingThroughTools({client,model,packet:packet!,rawResponseFile:input.rawResponseFile,started});
+    const {requestHash}=JSON.parse(fs.readFileSync(path.join(directory,'provider-receipts','targeted-planner.stage.json'),'utf8'));
+    const receipt=JSON.parse(fs.readFileSync(path.join(directory,'provider-receipts',`${requestHash}.json`),'utf8'));
+    const frozen=JSON.parse(fs.readFileSync(path.join(directory,'provider-diagnostics',`${requestHash}.attempt-${receipt.attempts?.length??1}.request.json`),'utf8')).context as {model:string;messages:Array<{content:unknown}>};
+    const content=frozen.messages[0]?.content;
+    const text=Array.isArray(content)?(content as Array<{type?:string;text?:string}>).find(block=>block.type==='text')?.text:content;
+    if(typeof text!=='string'||!text.includes('Homework and child-chart context:\n'))throw new Error('learning_planner_initial_identity_unverifiable');
+    if(frozen.model!==model||!isDeepStrictEqual(JSON.parse(text.split('Homework and child-chart context:\n').at(-1)!),JSON.parse(JSON.stringify(compactPlannerFacts(packet!)))))throw new Error('learning_planner_initial_identity_mismatch');
+    console.log(' 🎮 [learning-planner] [initial-request] [frozen-replay]');
+    if(input.rawResponseFile&&!fs.existsSync(input.rawResponseFile)){fs.mkdirSync(path.dirname(input.rawResponseFile),{recursive:true});fs.writeFileSync(input.rawResponseFile,`${JSON.stringify({...saved,model,stopReason:saved.stop_reason,usage:saved.usage,content:saved.content},null,2)}\n`,"utf8");}
+    return nativeProgramFromResponse({...saved,stopReason:saved.stop_reason,content:saved.content},packet!,model,Date.now()-started);
+  }
+  const prompt = `${learningPlannerInstructions('math').text}
 
 Read the assignment, child chart, prior evidence, and prior calibration. Prescribe the smallest coherent learning program that can test your theory. Teach the concept the teacher is targeting rather than copying or lightly rewriting worksheet questions.
 
@@ -2112,8 +2107,8 @@ ${JSON.stringify(mathPlannerChartContext(input.chart), null, 2)}
 
   Prior factual outcomes and Planner interpretations:
 ${JSON.stringify(factualModelContext(input.priorOutcomes ?? []), null, 2)}`;
-  const toolName = native?"create_learning_program":"create_math_learning_program";
-  const plannerContent = native?[{type:"text" as const,text:prompt}]:assignmentPlannerContent(input.extraction,prompt);
+  const toolName = "create_math_learning_program";
+  const plannerContent = assignmentPlannerContent(input.extraction,prompt);
   // A whole board — every activity, item, prediction and creator prompt — is a
   // long generation against a 20k token budget, and the non-streaming request
   // was timing out before it finished. Stream it, as the Creator already does.
@@ -2123,29 +2118,12 @@ ${JSON.stringify(factualModelContext(input.priorOutcomes ?? []), null, 2)}`;
     messages: [{ role: "user", content: plannerContent }],
     tools: [{
       name: toolName,
-      description: native?"Return the semantic spelling program with inline instrument measurements.":"Return the academic-only math learning program.",
-      input_schema: native?nativeLearningProgramToolJsonSchema(packet!.activityCatalog) as Anthropic.Messages.Tool.InputSchema:MATH_LEARNING_PROGRAM_TOOL_SCHEMA,
+      description: "Return the academic-only math learning program.",
+      input_schema: MATH_LEARNING_PROGRAM_TOOL_SCHEMA,
     }],
     tool_choice: { type: "tool", name: toolName },
   } satisfies Parameters<typeof client.messages.stream>[0];
-  if(native && input.rawResponseFile){
-    const directory=path.dirname(input.rawResponseFile),pointer=path.join(directory,'provider-receipts','targeted-planner.stage.json');
-    if(fs.existsSync(pointer)){
-      const {requestHash}=JSON.parse(fs.readFileSync(pointer,'utf8'));
-      const receipt=JSON.parse(fs.readFileSync(path.join(directory,'provider-receipts',`${requestHash}.json`),'utf8'));
-      const frozen=JSON.parse(fs.readFileSync(path.join(directory,'provider-diagnostics',`${requestHash}.attempt-${receipt.attempts?.length??1}.request.json`),'utf8')).context as typeof request;
-      const facts=(candidate:typeof request)=>{
-        const content=candidate.messages[0].content;
-        const text=Array.isArray(content)?content.find(block=>block.type==='text')?.text:content;
-        if(typeof text!=='string' || !text.includes('Homework and child-chart context:\n'))throw new Error('learning_planner_initial_identity_unverifiable');
-        return JSON.parse(text.split('Homework and child-chart context:\n').at(-1)!);
-      };
-      if(frozen.model!==model || !isDeepStrictEqual(facts(frozen),facts(request)))throw new Error('learning_planner_initial_identity_mismatch');
-      request=frozen;
-      console.log(' 🎮 [learning-planner] [initial-request] [frozen-replay]');
-    }
-  }
-  const execute = () => native?requestPlannerMessage(client,request):client.messages.stream(request, { timeout: Number(process.env.SUNNY_AI_TIMEOUT_MS ?? 600000),maxRetries:0 }).finalMessage();
+  const execute = () => client.messages.stream(request, { timeout: Number(process.env.SUNNY_AI_TIMEOUT_MS ?? 600000),maxRetries:0 }).finalMessage();
   const response = input.rawResponseFile
     ? await runMathProviderStage({draftDir:path.dirname(input.rawResponseFile),stage:"targeted-planner",model:request.model,request,execute})
     : await execute();
@@ -2165,11 +2143,9 @@ ${JSON.stringify(factualModelContext(input.priorOutcomes ?? []), null, 2)}`;
     content: response.content,
   };
   try {
-    if(native)return nativeProgramFromResponse(savedResponse,packet!,model,Date.now()-started);
     const program=parseSavedDirectMathPlannerResponse(savedResponse, input.maxTokens ?? Number(process.env.SUNNY_PLANNER_MAX_TOKENS ?? 32000));
     return input.rawResponseFile ? await verifyMathPlannerCanvas(program,input.rawResponseFile) : program;
   } catch (error) {
-    if(native)throw error; // The Planner's work is never sent back for correction.
     if (!correctableMathPlannerTruthError(error)) throw error;
     console.log(` 🎮 [adaptive-math] [targeted-planner-truth] [correction-required] child=${input.childId} reason=${error.message}`);
     return correctSavedDirectMathPlannerResponse({
@@ -2183,6 +2159,33 @@ ${JSON.stringify(factualModelContext(input.priorOutcomes ?? []), null, 2)}`;
   }
 }
 
+export function spellingTeachingToolPrompt(packet:AssignmentPlanningPacket):string {
+  return `${learningPlannerInstructions('spelling').text}
+Build the Teaching board with the tools:
+1. add_activity (or add_explainer, add_reward) for each activity, with the assigned words it covers. Each returns an activity_id.
+2. predict for every academic activity: your preregistered prediction. It is never a measured learning claim.
+3. set_order: opening activities everyone plays first, then closing activities everyone plays after the choice. Optionally add_choice: two or more options, each its own short sequence, with a label she reads and your engagement hypothesis. Give a meaningful choice when academically valid alternatives exist; otherwise explain single_path_reason. Options may order the same activities differently.
+4. finish_board. Sunny checks the board and replies accepted, or tells you exactly what to fix.
+You may call several tools in one turn. Activity IDs come back from add_activity; use them exactly.
+You choose activities, count, support, alternatives and hypotheses. Separate assisted practice, independent measurement (only word-radar:hidden_word_recall as a fresh_checkpoint) and engagement. Use the catalog for varied practice addressing measured gaps; activity count remains your decision. Each path from start to finish, counting the start, the choice and the finish, fits in 7 steps. Request a missing capability with request_capability; nothing is built automatically. Cite only the supplied observation IDs. Do not claim mastery or readiness. Sunny draws the start, portals, paths and connections, works out which activities each checkpoint follows, and the map artist owns artwork and placement.
+Homework and child-chart context:
+${JSON.stringify(compactPlannerFacts(packet))}`;
+}
+/** Teaching board through the small locked tools; the finished order is saved beside its turns. */
+async function askSpellingTeachingThroughTools(input:{client:Anthropic;model:string;packet:AssignmentPlanningPacket;rawResponseFile?:string;started:number}):Promise<NativePlannedProgram> {
+  const kit=spellingTeachingToolkit(input.packet);
+  const directory=input.rawResponseFile?path.dirname(input.rawResponseFile):undefined;
+  const loop=await runPlannerToolLoop({label:"spelling-teaching",prompt:spellingTeachingToolPrompt(input.packet),model:input.model,maxTokens:16000,
+    tools:kit.tools,state:kit.initialState(),finished:kit.finished,
+    send:providerTurnSender({label:"spelling-teaching",stagePrefix:"targeted-planner-tools",draftDir:directory,client:input.client})});
+  // No finished board means nothing to publish: generation stays paused with this reason.
+  if(!kit.finished(loop.state))throw new Error(`learning_planner_tools_unfinished:${loop.stats.stop}`);
+  const program=kit.program(loop.state);
+  if(input.rawResponseFile){fs.mkdirSync(path.dirname(input.rawResponseFile),{recursive:true});fs.writeFileSync(input.rawResponseFile,`${JSON.stringify({model:input.model,program,stats:loop.stats},null,2)}\n`,"utf8");}
+  const output=hydrateNativeLearningProgram(program,input.packet);
+  console.log(` 🎮 [learning-planner] [tools] [finished] plan=${output.activeSessionPlan.planId} activities=${output.activeSessionPlan.nodePlan.length} turns=${loop.stats.turns} calls=${loop.stats.calls} errors=${loop.stats.errors}`);
+  return {domain:"spelling",planId:output.activeSessionPlan.planId,journey:output.activeSessionPlan.journey!,plan:output.activeSessionPlan,planningResult:{output,telemetry:{model:input.model,latencyMs:Date.now()-input.started},receivedAt:output.activeSessionPlan.createdAt}};
+}
 /** Compatibility command; both domains enter the same Planner request sequence. */
 export function askDirectMathPlanner(input:LearningPlannerInput & {domain?:"math"}):Promise<MathLearningProgram>{return askLearningPlanner(input);}
 function nativeProgramFromResponse(response:unknown,packet:AssignmentPlanningPacket,model:string,latencyMs:number):NativePlannedProgram {
@@ -3418,6 +3421,9 @@ export async function runDirectBrowserSmokeCheck(input: {
           itemIds: artifact.itemIds,
           requireItemStateTransitions: Boolean(artifact.itemIds?.length),
           itemContracts: input.itemContractsByNodeId?.[artifact.nodeId],
+          practiceSpellingWordsByItem: Object.fromEntries((artifact.spellingItemBindings ?? [])
+            .filter(item => ["practice", "instruction"].includes(item.measurementRole ?? ""))
+            .map(item => [item.itemId, item.word])),
           journey: creatorManifest?.journey.map((item) => ({ itemId: item.itemId, steps: item.steps })),
           captureState: async (request) => {
             const recorded = await recordJourneyCapture(page, {
@@ -3708,7 +3714,7 @@ export async function persistDirectExperience(input: {
   if (!input.report.passed || input.report.failures.length) throw new Error("direct_publication_browser_verification_required");
   const rootDir = input.rootDir ?? process.cwd();
   const contextDir = resolveChildContextDir(input.childId, { rootDir });
-  const canvasProof = await verifyAuthoredBoardCanvas({definition:requireBoardDefinition(input.activeSessionPlan.boardDefinition,input.activeSessionPlan.nodePlan.map(node=>node.id)),rootDir,directory:path.join(contextDir,"homework","direct-drafts",input.homeworkId,"canvas-verification")});
+  await reportAuthoredBoardCanvas({definition:requireBoardDefinition(input.activeSessionPlan.boardDefinition,input.activeSessionPlan.nodePlan.map(node=>node.id)),rootDir,directory:path.join(contextDir,"homework","direct-drafts",input.homeworkId,"canvas-verification")});
   const directPath = path.join(contextDir, "homework", "direct_experience_plan.json");
   const now = new Date().toISOString();
   let priorFeedback: { feedbackObservations?: unknown[]; feedbackDecisions?: unknown[] } = {};
@@ -3792,8 +3798,8 @@ export async function persistDirectExperience(input: {
       reason: "Re-ingestion reconciled the AI-authored board with the existing assignment cycle.",
     }, { rootDir, now: new Date(now) });
   } else if (!existingCycle) {
-    const created = createLearningCycle(withInitialBoard(canonicalInput, "teaching", now), { rootDir, now: new Date(now) });
-    transitionLearningCycle(input.childId,input.homeworkId,created.revision,{type:"board_canvas_verified",boardId:created.boards![0].boardId,proof:canvasProof},{rootDir,now:new Date(now)});
+    createLearningCycle(withInitialBoard(canonicalInput, "teaching", now), { rootDir, now: new Date(now) });
+    await verifyPreparingBoardCanvas({rootDir,childId:input.childId,homeworkId:input.homeworkId,directory:path.join(contextDir,"homework","direct-drafts",input.homeworkId,"canvas-verification")});
   }
   writeAssignmentLedgerEntry(ledgerEntry, { rootDir });
   fs.mkdirSync(path.dirname(directPath), { recursive: true });

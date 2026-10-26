@@ -1,4 +1,5 @@
 import {planAssignmentFromSourceWithTelemetry} from "../engine/assignmentPlanner";
+import { recordedIntake } from "./fixtures/recordedIntake";
 import { journeyFrontier } from "../shared/adventureBoardDefinition";
 import {linearJourneyFixture} from "./fixtures/authoredJourney";
 import {prepareExistingOriginalSpelling} from '../chart/spelling/originalPreparation';
@@ -129,7 +130,7 @@ it.each([
   };
   const source = writeSpellingPdfFixture(rootDir, words);
   const legacyAttempt = vi.spyOn(legacyLearning, "recordAttempt");
-  const { homeworkId } = await runSpellingDiscoveryIntake({ childId, sourceFile: source, rootDir }, { ...(chartDb&&!scenario.existing ? {chart:{db:chartDb,provider:chartProvider}} : {}), callPlannerModel: async (packet: Parameters<typeof recordedSpellingDiagnostic>[0]) => ({ draft: { boardDefinition:linearJourneyFixture(["diagnostic"]), diagnostic: recordedSpellingDiagnostic(packet), title: "School spelling", words: words.map(word => ({ word, pageNumber: 1 })), uncertainty: [] } }) });
+  const { homeworkId } = await runSpellingDiscoveryIntake({ childId, sourceFile: source, rootDir }, { ...(chartDb&&!scenario.existing ? {chart:{db:chartDb,provider:chartProvider}} : {}), plannerTools: recordedIntake( async (packet: Parameters<typeof recordedSpellingDiagnostic>[0]) => ({ draft: { boardDefinition:linearJourneyFixture(["diagnostic"]), diagnostic: recordedSpellingDiagnostic(packet), title: "School spelling", words: words.map(word => ({ word, pageNumber: 1 })), uncertainty: [] } }) )});
   if(scenario.existing){
     vi.stubEnv("SUNNY_CHART_DIR",path.join(rootDir,"charts"));
     chartDb=openChart(childId,{chartDir:path.join(rootDir,"charts")});

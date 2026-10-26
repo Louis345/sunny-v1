@@ -3,8 +3,8 @@ import {learningPlannerInstructions} from "./learningPlannerInstructions";
 import {isDeepStrictEqual} from "node:util";
 import {AsyncLocalStorage} from "node:async_hooks";
 import {execFileSync} from "node:child_process";
-import {verifyAuthoredBoardCanvas,verifyBoardArtworkReady} from './adventureBoardCanvas';
-import { adventureJourneySchema,ADVENTURE_JOURNEY_TOOL_SCHEMA,adventureCompositionSchema,assembleAdventureBoardDefinition,validateBoardDefinition,JOURNEY_AUTHORING_INSTRUCTION,BOARD_CANVAS_AUTHORING_CONSTRAINTS,type AdventureJourneyDefinition, requireBoardDefinition, renderBoardDefinition, type AdventureBoardDefinition } from '../shared/adventureBoardDefinition';
+import {reportAuthoredBoardCanvas} from './adventureBoardCanvas';
+import { COMPOSITION_TOOL_SCHEMA,adventureJourneySchema,ADVENTURE_JOURNEY_TOOL_SCHEMA,adventureCompositionSchema,assembleAdventureBoardDefinition,assembleAuthoredBoardDefinition,validateBoardDefinition,JOURNEY_AUTHORING_INSTRUCTION,BOARD_CANVAS_AUTHORING_CONSTRAINTS,type AdventureJourneyDefinition, requireBoardDefinition, renderBoardDefinition, type AdventureBoardDefinition } from '../shared/adventureBoardDefinition';
 import fs from "node:fs";
 import path from "node:path";
 import { createHash, randomUUID } from "node:crypto";
@@ -817,15 +817,19 @@ export function recordGenerationFailure(input: {draftDir:string;childId:string;h
 
 /** One durable receipt boundary for Discovery and targeted Creator work. */
 export function hasReceivedMathProviderStage(draftDir: string, stage: string): boolean {
+  return readReceivedMathProviderStage(draftDir, stage) !== undefined;
+}
+/** The saved provider answer for a stage, read only: never sends, and undefined unless it was received. */
+export function readReceivedMathProviderStage(draftDir: string, stage: string): unknown {
   const receipts = path.join(draftDir, "provider-receipts");
   const stageFile = path.join(receipts, `${stage}.stage.json`);
-  if (!fs.existsSync(stageFile)) return false;
+  if (!fs.existsSync(stageFile)) return undefined;
   const saved = JSON.parse(fs.readFileSync(stageFile, "utf8"));
   if (!/^[a-f0-9]{64}$/.test(saved?.requestHash)) throw new Error(`provider_receipt_invalid:${stageFile}`);
   const receiptFile = path.join(receipts, `${saved.requestHash}.json`);
   if (!fs.existsSync(receiptFile)) throw new Error(`provider_receipt_invalid:${receiptFile}`);
   const receipt = JSON.parse(fs.readFileSync(receiptFile, "utf8"));
-  return receipt.status === "received" && receipt.response != null;
+  return receipt.status === "received" && receipt.response != null ? receipt.response : undefined;
 }
 
 export async function runMathProviderStage<T>(input: {
@@ -1063,14 +1067,28 @@ export async function generateMathDiscoveryExperience(input: {
     assertDiscoveryResponseContracts(academic);
     assertDiscoveryConstructSemantics(academic);
   }
+  // A completed historical correction can already own the downstream design hash.
+  // Reuse that received history without purchasing a new presentation correction.
+  const legacyCorrection=path.join(draftDir,'provider-receipts','opening-journey-correction.stage.json');
+  if(!fs.existsSync(academicCheckpointFile) && fs.existsSync(legacyCorrection)){
+    const {requestHash}=JSON.parse(fs.readFileSync(legacyCorrection,'utf8'));
+    if(!/^[a-f0-9]{64}$/.test(requestHash))throw new Error('discovery_legacy_correction_receipt_invalid');
+    const receipt=JSON.parse(fs.readFileSync(path.join(draftDir,'provider-receipts',`${requestHash}.json`),'utf8'));
+    if(receipt.status==='received'){
+      const corrected=toolInput(receipt.response,'create_math_discovery_contract') as DiscoveryAcademicContract;
+      const facts=(value:DiscoveryAcademicContract)=>{const {boardDefinition,journey,...fields}=value;return fields;};
+      if(!isDeepStrictEqual(facts(academic),facts(corrected)))throw new Error('discovery_journey_correction_changed_academic_contract');
+      academic=corrected;console.log(' 🎮 [adaptive-math] [opening-journey-correction] [legacy-received-reused] provider_calls=0');
+    }
+  }
   const validateJourney = async (candidate: DiscoveryAcademicContract) => {
     if(candidate.journey){const parsed=adventureJourneySchema.safeParse(candidate.journey);if(!parsed.success)throw new Error(`board_definition_invalid:${JSON.stringify(parsed.error.issues)}`);const journey=parsed.data;const defects=validateBoardDefinition(journey,discoveryProbeActivities(candidate as MathDiscoveryEvaluationContract).map(activity=>activity.nodeId));if(defects.length)throw new Error(`board_definition_invalid:${JSON.stringify(defects)}`);return journey;}
     const definition=requireBoardDefinition(candidate.boardDefinition,discoveryProbeActivities(candidate as MathDiscoveryEvaluationContract).map(activity=>activity.nodeId));
-    await verifyAuthoredBoardCanvas({definition,rootDir,directory:path.join(draftDir,"opening-canvas-verification")});
+    await reportAuthoredBoardCanvas({definition,rootDir,directory:path.join(draftDir,"opening-canvas-verification")});
   };
   try { const journey=await validateJourney(academic);if(journey)academic={...academic,journey}; }
   catch(error) {
-    if(!(error instanceof Error) || !/^(board_definition_|board_canvas_invalid:)/.test(error.message))throw error;
+    if(!(error instanceof Error) || !/^(board_definition_)/.test(error.message))throw error;
     console.log(` 🎮 [adaptive-math] [opening-journey-correction] [required] reason=${error.message}`);
     const response=await create(input.plannerModel??process.env.SUNNY_PLANNER_MODEL??"claude-opus-5",
       `Correct only the semantic journey in the received opening evaluation. Preserve every other field exactly. There is one correction attempt. ${JOURNEY_AUTHORING_INSTRUCTION}\nDEFECT: ${error.message}\nRECEIVED: ${JSON.stringify(academic)}`,
@@ -1110,21 +1128,15 @@ export async function generateMathDiscoveryExperience(input: {
   } else {
     const architectResponse = await create(input.architectModel ?? process.env.SUNNY_ARCHITECT_MODEL ?? "claude-fable-5", `You are Sunny's Experience Creator. Design the frozen independent evaluation below for the child and device. Choose the presentation, interaction, pacing, stakes, recovery, visual language, motion, sound cues, and payoff. Make the first action immediately understandable and make mathematics visibly control the interaction. Do not teach or reveal an answer before the first committed response to an item. Never trap the child. Preserve the contract exactly.\n\nCONTRACT HASH: ${contractHash}\n${JSON.stringify(academic, null, 2)}\n\nCHILD PRESENTATION AND HOST CONTRACT:\n${JSON.stringify(presentationContract, null, 2)}\n\n${academic.journey?`Compose the immutable journey with illustrated artwork and authored landscape/portrait positions. ${BOARD_CANVAS_AUTHORING_CONSTRAINTS}`:""}\n${common}`, {
       name: "create_math_discovery_design",
-      schema: { type: "object", additionalProperties: false, required: ["contractHash", "design", "backgroundSvg",...(academic.journey?["composition"]:[])], properties: { ...(academic.journey?{composition:z.toJSONSchema(adventureCompositionSchema,{io:"input"})}:{}),contractHash: { type: "string" }, design: { type: "object", additionalProperties: true }, backgroundSvg: { type: "string" } } },
+      schema: { type: "object", additionalProperties: false, required: ["contractHash", "design", "backgroundSvg",...(academic.journey?["composition"]:[])], properties: { ...(academic.journey?{composition:COMPOSITION_TOOL_SCHEMA}:{}),contractHash: { type: "string" }, design: { type: "object", additionalProperties: true }, backgroundSvg: { type: "string" } } },
     });
     designed = toolInput(architectResponse, "create_math_discovery_design");
     atomicJson(designCheckpointFile, designed);
   }
   let boardDefinition=academic.boardDefinition;
   if(academic.journey){
-    const verifyComposition=async()=>{const definition=assembleAdventureBoardDefinition(academic.journey!,adventureCompositionSchema.parse(designed!.composition));await verifyAuthoredBoardCanvas({definition,rootDir,directory:path.join(draftDir,"opening-canvas-verification")});return definition;};
-    try{boardDefinition=await verifyComposition();}
-    catch(error){
-      if(!(error instanceof z.ZodError) && !(error instanceof Error && /^(board_composition_identity_invalid|board_canvas_invalid:)/.test(error.message)))throw error;
-      const response=await create(input.architectModel??process.env.SUNNY_ARCHITECT_MODEL??"claude-fable-5",`Correct only the received composition. There is one correction attempt. Preserve the immutable journey and existing activity design. ${BOARD_CANVAS_AUTHORING_CONSTRAINTS}\nCONTRACT HASH: ${contractHash}\nJOURNEY: ${JSON.stringify(academic.journey)}\nRECEIVED COMPOSITION: ${JSON.stringify(designed.composition)}\nDEFECT: ${error.message}`,{name:"create_math_discovery_design",schema:{type:"object",additionalProperties:false,required:["contractHash","composition"],properties:{contractHash:{type:"string"},composition:z.toJSONSchema(adventureCompositionSchema,{io:"input"})}}},"opening-composition-correction");
-      const patch=toolInput(response,"create_math_discovery_design");if(patch.contractHash!==contractHash)throw new Error("discovery_design_changed_contract_hash");
-      designed={...designed,composition:patch.composition};boardDefinition=await verifyComposition();atomicJson(designCheckpointFile,designed);
-    }
+    boardDefinition=assembleAuthoredBoardDefinition(academic.journey,designed.composition);
+    await reportAuthoredBoardCanvas({definition:boardDefinition,rootDir,directory:path.join(draftDir,'opening-canvas-verification')});
   }
   if (designed.contractHash !== contractHash) throw new Error("discovery_design_changed_contract_hash");
   const { designHash: _legacyDesignHash, ...stableDesigned } = designed;
@@ -1623,8 +1635,7 @@ export async function publishDiscoveryExperience(input: {
 }): Promise<void> {
   const rootDir = input.rootDir ?? process.cwd();
   const definition=requireBoardDefinition(input.activeSessionPlan.boardDefinition,input.activeSessionPlan.nodePlan.map(node=>node.id));
-  verifyBoardArtworkReady({definition,rootDir});
-  await verifyAuthoredBoardCanvas({definition,rootDir,directory:path.join(resolveAdaptiveMathDraftDir(input.childId,input.homeworkId,{rootDir}),'canvas-verification')});
+  await reportAuthoredBoardCanvas({definition,rootDir,directory:path.join(resolveAdaptiveMathDraftDir(input.childId,input.homeworkId,{rootDir}),'canvas-verification')});
   const contextDir = resolveChildContextDir(input.childId, { rootDir });
   const planPath = path.join(contextDir, "plans", "active_session_plan.json");
   const homeworkPath = path.join(contextDir, "homework", "current.json");
@@ -1751,6 +1762,16 @@ export async function recoverDiscoveryPublication(input: {rootDir?: string; chil
   await publishDiscoveryExperience({...saved.input,...input});
 }
 
+/** The chart's current homework per domain (homework/current.json); undefined when none is recorded yet. */
+export function chartCurrentHomeworkByDomain(childId: string, opts: { rootDir?: string } = {}): Record<string, string> | undefined {
+  let file: { selectedDomain?: unknown; current?: { homeworkId?: unknown }; activeByDomain?: Record<string, { homeworkId?: unknown }> };
+  try { file = JSON.parse(fs.readFileSync(path.join(resolveChildContextDir(childId, { rootDir: opts.rootDir ?? process.cwd() }), "homework", "current.json"), "utf8")); } catch { return undefined; }
+  const byDomain: Record<string, string> = {};
+  for (const [domain, entry] of Object.entries(file.activeByDomain ?? {})) if (typeof entry?.homeworkId === "string") byDomain[domain] = entry.homeworkId;
+  if (typeof file.selectedDomain === "string" && typeof file.current?.homeworkId === "string") byDomain[file.selectedDomain] ??= file.current.homeworkId;
+  return Object.keys(byDomain).length ? byDomain : undefined;
+}
+
 export function publishTargetedBoardProjection(input: {
   rootDir?: string;
   childId: string;
@@ -1758,6 +1779,12 @@ export function publishTargetedBoardProjection(input: {
   nodeStatuses: Record<string, MathGenerationNodeStatus>;
 }): void {
   const rootDir = input.rootDir ?? process.cwd();
+  // Only the chart's current homework may write the active plan; an older job never overwrites it.
+  const current = chartCurrentHomeworkByDomain(input.childId, { rootDir })?.[input.activeSessionPlan.domain];
+  if (current && current !== input.activeSessionPlan.activeHomeworkId) {
+    console.log(` 🎮 [adaptive-math] [targeted-board-projection] [skipped] reason=not_current_homework homework=${input.activeSessionPlan.activeHomeworkId} current=${current}`);
+    return;
+  }
   const contextDir = resolveChildContextDir(input.childId, { rootDir });
   const planPath = path.join(contextDir, "plans", "active_session_plan.json");
   const profilePath = path.join(contextDir, "learning_profile.json");
