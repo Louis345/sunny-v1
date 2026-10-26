@@ -5,7 +5,6 @@ import { afterEach, expect, it, vi } from "vitest";
 import { runSpellingDiscoveryIntake } from "./ingestHomework";
 import { runAdaptiveMathGeneration } from "./runAdaptiveMathGeneration";
 import { seedSpellingLab, writeSpellingPdfFixture } from "./fixtures/spellingEvidenceFirst";
-import { plainDraw } from "./fixtures/successorToolConversation";
 import type { RecordedToolLab } from "./fixtures/recordedToolPlanner";
 import { getLearningCycle, projectLearningCycle, transitionLearningCycle } from "../engine/learningCycleRepository";
 import { currentBoardInstance } from "../engine/learningBoardInstances";
@@ -32,7 +31,9 @@ vi.mock("../engine/directMathExperience", async original => ({ ...await original
 const roots: string[] = [];
 afterEach(() => { vi.restoreAllMocks(); vi.unstubAllEnvs(); vi.unstubAllGlobals(); for (const root of roots.splice(0)) fs.rmSync(root, { recursive: true, force: true }); });
 
-it("prepares every built-in the next-board menu offers, Discovery included", async () => {
+/** Real intake, Discovery and Teaching board at $0, then the next-board decision. */
+async function playToNextBoard() {
+  Object.assign(lab.planner, { requests: [], decisions: 0, teachingBoards: 0 });
   const childId = "ila", rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-next-board-menu-")); roots.push(rootDir);
   vi.stubEnv("SUNNY_CONTEXT_ROOT", path.join(rootDir, "src/context")); vi.stubEnv("SUNNY_ALLOW_REAL_CHILD_CONTEXT_ROOT", "true");
   vi.stubEnv("ANTHROPIC_API_KEY", "recorded-local-only"); vi.stubEnv("OPENAI_API_KEY", "");
@@ -41,6 +42,11 @@ it("prepares every built-in the next-board menu offers, Discovery included", asy
   vi.spyOn(canvas, "verifyPreparingBoardCanvas").mockResolvedValue(undefined);
   const words = ["night", "light", "right", "sight", "might", "fight", "write", "knife", "wrong", "climb"];
   seedSpellingLab(rootDir, words, "", childId);
+  // Who she is, in her family's words and her own: what a tutor would plan around.
+  const childDir = path.join(rootDir, "src/context", childId);
+  fs.writeFileSync(path.join(childDir, "soul.md"), "# Lab child\n\n## Who She Is\nA fictional third grader.\n\n## Her Brain\nIndex score 87 (clinical detail the board does not need).\n\n## Favorite Things\n- Pottery wheels and glazing mugs\n");
+  fs.mkdirSync(path.join(childDir, "child_signals"), { recursive: true });
+  fs.writeFileSync(path.join(childDir, "child_signals", "2026-10-24.ndjson"), `${JSON.stringify({ type: "child_signal", version: 1, childSignalId: "lab-signal", childId, activityId: "word-radar", domain: "spelling", signalType: "stated_preference", dimension: "novelty", valence: "negative", confidence: 0.9, evidenceText: "child said: this is boring, same game again", source: "child_statement", createdAt: "2026-10-24T18:00:00Z" })}\n`);
   Object.assign(lab.planner, { root: rootDir, childId, words, missedWords: words.slice(6) });
   const { homeworkId } = await runSpellingDiscoveryIntake({ childId, sourceFile: writeSpellingPdfFixture(rootDir, words), rootDir });
   lab.planner.homeworkId = homeworkId;
@@ -66,7 +72,12 @@ it("prepares every built-in the next-board menu offers, Discovery included", asy
       targetResults: Object.values(node.evidenceContract.spellingItems ?? {}).map(item => ({ target: item.id, correct: true, attemptedValue: item.word })) } }, opts);
   }
   // The next board: the recorded Planner orders one step for every built-in the menu offers.
-  await runtime.advanceCanonicalCycleFromEvidence({ childId, homeworkId, draw: plainDraw }, opts);
+  await runtime.advanceCanonicalCycleFromEvidence({ childId, homeworkId }, opts);
+  return { childId, homeworkId, opts, discovery };
+}
+
+it("prepares every built-in the next-board menu offers, Discovery included", async () => {
+  const { childId, homeworkId, opts, discovery } = await playToNextBoard();
   const menu: string[] = lab.planner.requests.find(request => request.tools?.some((tool: any) => tool.name === "add_step"))!
     .tools.find((tool: any) => tool.name === "add_step").input_schema.properties.built_in.enum;
   expect(menu).toContain(discovery.nodeId);
@@ -79,4 +90,21 @@ it("prepares every built-in the next-board menu offers, Discovery included", asy
   // Prepared means the kiosk can launch it: unlocked, and a re-run radar keeps its recall mode.
   const plan = projectLearningCycle(after).activeSessionPlan.nodePlan.filter(row => board.nodeIds.includes(row.id));
   expect(plan.filter(row => row.locked || (row.type === "word-radar" && !row.wordRadarConfig)).map(row => row.id)).toEqual([]);
+}, 120000);
+
+// 2026-10-25 owner review: the boards felt bland because the Planner and the map artist never learned who
+// she is. Her interests lived in her soul file and her own words in her signals, which only Elli read.
+// Logs could not show it (nothing failed); the lab never asked what the Planner was told about her.
+it("tells the Planner and the map artist who she is on every board, without her clinical detail", async () => {
+  await playToNextBoard();
+  const told = (request: any) => JSON.stringify(request.messages ?? []);
+  const asked = (tool: string) => lab.planner.requests.filter(request => request.tools?.some((row: any) => row.name === tool));
+  for (const tool of ["record_words", "add_activity", "decide", "submit_board"]) {
+    expect(asked(tool).length, tool).toBeGreaterThan(0);
+    for (const request of asked(tool)) {
+      expect(told(request), tool).toContain("Pottery wheels and glazing mugs");
+      expect(told(request), tool).toContain("this is boring, same game again");
+      expect(told(request), tool).not.toContain("Index score 87");
+    }
+  }
 }, 120000);

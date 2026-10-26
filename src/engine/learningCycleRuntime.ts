@@ -726,6 +726,7 @@ async function askPlanner(
   const childContext = {
     identity: chart.identity,
     demographics: chart.demographics,
+    childVoice: chart.childVoice,
     learningHistory: {
       constructs:Object.fromEntries(Object.entries(chart.learningHistory.constructs).filter(([id])=>constructIds.has(id) && !isSynthetic(id)).map(([id,history])=>[id,{
         constructId:id,
@@ -839,7 +840,7 @@ ${JSON.stringify({ lifecycle: cycle.lifecycle, assignment: cycle.assignment, the
     if(!kit.finished(loop.state))throw new Error(`canonical_progression_tools_unfinished:${loop.stats.stop}`);
     const {decision,journey}=kit.result(loop.state);
     if(!journey)return parseCanonicalProgressionDecision(decision);
-    const drawing=draw?await draw(journey):await drawJourney({journey,label:`${cycle.homeworkId}:r${checkpointRevision}`,stagePrefix:`${decisionStage}-design`,identity:{childId:cycle.childId,homeworkId:cycle.homeworkId,batchId,journey},
+    const drawing=draw?await draw(journey):await drawJourney({journey,label:`${cycle.homeworkId}:r${checkpointRevision}`,stagePrefix:`${decisionStage}-design`,identity:{childId:cycle.childId,homeworkId:cycle.homeworkId,batchId,journey},child:chart.childVoice,
       checkpointFile:path.join(draftDir,`${decisionStage}-design.json`),rawResponseDir:draftDir,...(client?{client}:{})});
     return parseCanonicalProgressionDecision({...decision,boardDefinition:assembleAdventureBoardDefinition(journey,drawing.composition,drawing.pattern)});
   }

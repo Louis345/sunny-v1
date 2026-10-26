@@ -43,7 +43,7 @@ export async function planSpellingIntakeWithTools(packet: AssignmentPlanningPack
   const { capture, journey } = kit.result(loop.state);
   if (!journey) return { output: capture, telemetry: { model, latencyMs: Date.now() - started } };
   const drawing = await (opts.draw ?? (given => drawJourney({ journey: given, label: `discovery:${packet.sourceDocument.fileHash.slice(0, 8)}`, stagePrefix: "discovery-design",
-    identity: { childId: packet.childId, assignment: packet.sourceDocument.fileHash, journey: given },
+    identity: { childId: packet.childId, assignment: packet.sourceDocument.fileHash, journey: given }, ...(packet.childChart.childVoice ? { child: packet.childChart.childVoice } : {}),
     ...(opts.draftDir ? { checkpointFile: path.join(opts.draftDir, "discovery-design.json"), rawResponseDir: path.join(opts.draftDir, "provider-diagnostics") } : {}) })))(journey);
   return { output: { ...capture, boardDefinition: assembleAdventureBoardDefinition(journey, drawing.composition, drawing.pattern) }, telemetry: { model, latencyMs: Date.now() - started } };
 }

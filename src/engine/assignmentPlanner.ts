@@ -125,6 +125,8 @@ export type AssignmentPlanningChildChartSummary = {
   carePlanSummary?: string | null;
   recentEvidence: string[];
   learningSignals?: AssignmentPlanningChildLearningSignals;
+  /** Who she is and what she has said: what to plan around so she wants to come back. */
+  childVoice?: ChildChart["childVoice"];
 };
 
 export type AssignmentPlanningChildLearningSignals = {
@@ -1122,6 +1124,7 @@ function childChartSummaryForPacket(
     carePlanSummary: summarizeCarePlan(chart),
     recentEvidence,
     learningSignals: childLearningSignalsForPacket(chart),
+    ...(chart.childVoice ? { childVoice: chart.childVoice } : {}),
   };
 }
 

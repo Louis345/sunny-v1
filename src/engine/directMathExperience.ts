@@ -1238,6 +1238,8 @@ type LearningCreatorInput = {
   checkpointFile?: string;
   rawResponseDir?: string;
   retryUncertain?: boolean;
+  /** Who she is and what she has said, from the child chart, so the map is made for her. */
+  child?: import("../profiles/childChart").ChildVoice;
   /** Presentation history from the child chart, so each spelling map can be a new design. */
   previousDesigns?: ReadonlyArray<{pattern:string;theme?:string|null}>;
 };
@@ -1316,7 +1318,7 @@ async function designNativeBoard(input:LearningCreatorInput,native:NativeLearnin
 /** The map artist paints one journey (Discovery, Teaching or next board). Shared so every
  * spelling board is drawn the same way; `identity` keys the saved drawing so a restart never
  * buys it twice, and `stagePrefix` names its saved provider turns. */
-export async function drawJourney(input:Pick<LearningCreatorInput,"client"|"model"|"checkpointFile"|"rawResponseDir"|"previousDesigns"|"retryUncertain">&{journey:AdventureJourneyDefinition;label:string;identity:unknown;stagePrefix:string}):Promise<{composition:AdventureBoardComposition;pattern?:string}> {
+export async function drawJourney(input:Pick<LearningCreatorInput,"client"|"model"|"checkpointFile"|"rawResponseDir"|"previousDesigns"|"retryUncertain"|"child">&{journey:AdventureJourneyDefinition;label:string;identity:unknown;stagePrefix:string}):Promise<{composition:AdventureBoardComposition;pattern?:string}> {
   const client=input.client??new Anthropic({apiKey:process.env.ANTHROPIC_API_KEY});
   const model=input.model??process.env.SUNNY_ARCHITECT_MODEL??"claude-fable-5";
   const journey=input.journey,started=Date.now();
@@ -1344,7 +1346,8 @@ export async function drawJourney(input:Pick<LearningCreatorInput,"client"|"mode
   ];
   const earlier=(input.previousDesigns??[]).filter(design=>design.pattern.trim());
   let messages:Anthropic.Messages.MessageParam[]=[{role:"user",content:`${MAP_ARTIST_PERSONA}
-Design the map for landscape (1280x720 kiosk) and portrait (768x1024). Each stop's position is x and y from 0 to 1 across the board's open area, 0,0 at the top-left; the numbers are the centre of the stop. Choose any shape that suits this journey: a ring, a spiral, a climb, a river, a constellation, a winding road, or an idea of your own, and name it in pattern. When the journey splits at a choice, give each option its own branch until the options rejoin, so she sees a real fork. For each path choose a curve (straight, arc, wave or loop) and a style (solid, dashed or glow).
+${input.child?`Who she is: ${JSON.stringify(input.child)}
+`:""}Design the map for landscape (1280x720 kiosk) and portrait (768x1024). Each stop's position is x and y from 0 to 1 across the board's open area, 0,0 at the top-left; the numbers are the centre of the stop. Choose any shape that suits this journey: a ring, a spiral, a climb, a river, a constellation, a winding road, or an idea of your own, and name it in pattern. When the journey splits at a choice, give each option its own branch until the options rejoin, so she sees a real fork. For each path choose a curve (straight, arc, wave or loop) and a style (solid, dashed or glow).
 The background is always the illustrated world, ${BOARD_ARTWORK}. Choose one theme for the colours: ${THEME_PRESETS.map(preset=>`${preset.id} (${preset.label})`).join(", ")}. Every label is drawn as text on a rounded plate; each theme's text and plate colours are already chosen so a child can read every label at a glance.
 Spacing: each portal is an orb with its label plate underneath; the measured sizes below include the wrapped label. Use the whole canvas so the map breathes, and leave at least 28 pixels of air between stops.
 Already taken on screen, so keep portals away: the level badge in the top-left corner, the status bar along the bottom centre, and Elli, the companion, who stands in the bottom-right corner.
