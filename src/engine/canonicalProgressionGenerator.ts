@@ -485,8 +485,11 @@ function relaunchReusedActivity(childId: string, homeworkId: string, cycle: Lear
   const contextDir = resolveChildContextDir(childId, { rootDir });
   const nativeDir = path.join(resolveAdaptiveMathDraftDir(childId, homeworkId, { rootDir }), "native-instruments");
   const fileFor = (nodeId: string) => path.join(nativeDir, `${nodeId.replace(/[^a-zA-Z0-9_-]/g, "_")}.json`);
-  const sourceContract = JSON.parse(fs.readFileSync(fileFor(source.nodeId), "utf8")) as { node: Record<string, unknown> };
-  const configuration = { version: 1, node: { ...sourceContract.node, id: node.nodeId, title: node.title, targets: [...node.academicTarget.targets] }, evidenceContract: node.evidenceContract };
+  // Discovery keeps its setup on its own contract and saves no instrument file, so its re-run starts from that setup.
+  const sourceNode = source.role === "evaluation"
+    ? { type: source.implementationType, difficulty: 1, ...source.evidenceContract.nativeConfig }
+    : (JSON.parse(fs.readFileSync(fileFor(source.nodeId), "utf8")) as { node: Record<string, unknown> }).node;
+  const configuration = { version: 1, node: { ...sourceNode, id: node.nodeId, title: node.title, targets: [...node.academicTarget.targets] }, evidenceContract: node.evidenceContract };
   const write = (file: string, value: unknown) => { fs.mkdirSync(path.dirname(file), { recursive: true }); fs.writeFileSync(`${file}.${process.pid}.tmp`, JSON.stringify(value, null, 2)); fs.renameSync(`${file}.${process.pid}.tmp`, file); };
   write(fileFor(node.nodeId), configuration);
   let activityConfigPath: string | undefined;

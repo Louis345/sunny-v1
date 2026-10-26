@@ -4,6 +4,8 @@ import { getLearningCycle } from "../../engine/learningCycleRepository";
 export type RecordedToolLab = {
   root: string; childId: string; homeworkId: string; words: string[]; missedWords: string[];
   requests: any[]; teachingBoards: number; decisions: number;
+  /** Order one next-board step for every built-in the menu offers, instead of the robot's three. */
+  everyBuiltIn?: boolean;
 };
 
 /** One recorded Planner, artist and next-board Planner at the Anthropic client boundary. It answers
@@ -77,6 +79,7 @@ export function recordedToolReply(lab: RecordedToolLab, request: any): any {
         if (!node) throw new Error(`recorded_planner_built_in_missing:${title} offered=${builtIns.join(",")}`);
         return { name: "add_step", input: { built_in: node.nodeId, words: [], title: `${title} Again`, purpose: "Practice again." } };
       };
+      if (lab.everyBuiltIn) return message([decide("revised", "generate_support"), ...builtIns.map(built_in => ({ name: "add_step", input: { built_in, words: [], title: "Again", purpose: "Practice again." } }))]);
       return message([decide("revised", "generate_support"), step("Recall Practice"), step("Letter Rush"), step("Recall Checkpoint")]);
     }
     const steps: string[] = results.map(row => row.step_id).filter(Boolean);
