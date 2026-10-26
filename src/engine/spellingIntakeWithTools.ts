@@ -9,7 +9,7 @@ import { spellingDiscoveryToolkit } from "./spellingDiscoveryTools";
 import type Anthropic from "@anthropic-ai/sdk";
 
 export function buildSpellingIntakeToolPrompt(packet: AssignmentPlanningPacket): string {
-  return `This is the assignment-capture and Discovery-choice phase of Sunny's Planner. The goal: she wants to come back to Sunny, and she knows her words by the test. Use the tools.
+  return `This is the assignment-capture and Discovery-choice phase of Sunny's Planner. The goal: she wants to come back to Sunny, and she knows her words by the school test. Use the tools.
 1. record_words: every assigned spelling word from the complete school source, spelled exactly as printed, with its page. Notes about headers, OCR and repeated pages go in source_notes and are informational. Use uncertainty for a word you cannot read or an unclear assignment scope.
 2. choose_discovery: you choose the Discovery check: the validated mode that best finds her independent starting point on these words, for this child. Hearing a whole word is stimulus; spelling or letter clues are assistance. If none fits, use action needs_instrument with instrument none.
 3. finish_intake: the assignment title and the short names she sees.
