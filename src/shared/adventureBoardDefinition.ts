@@ -212,7 +212,7 @@ export function validateBoardDefinition(definition:AdventureJourneyDefinition, a
 }
 
 /** The options of each choice she can still play: an option whose activities are all not ready is no option. */
-export function playableChoiceOptions(definition:AdventureJourneyDefinition, notReady:readonly string[]):Map<string,AdventureJourneyDefinition['choices'][number]['options']> {
+function playableChoiceOptions(definition:AdventureJourneyDefinition, notReady:readonly string[]):Map<string,AdventureJourneyDefinition['choices'][number]['options']> {
   const paths = new Map(definition.paths.map(path => [path.id,path.portalIds]));
   const portals = new Map(definition.portals.map(portal => [portal.id,portal]));
   return new Map(definition.choices.map(choice => [choice.id,choice.options.filter(option => (paths.get(option.pathId) ?? [])
@@ -294,7 +294,6 @@ export function renderBoardDefinition(definition:AdventureBoardDefinition, input
   const choices = definition.choices.filter(choice => playable.get(choice.id)!.length >= 2);
   const hidden = new Set(definition.portals.filter(portal => portal.activityNodeId ? notReady.includes(portal.activityNodeId) : portal.kind === 'choice' && !choices.some(choice => choice.portalId === portal.id)).map(portal => portal.id));
   const anyOrder = input.allowReadyActivitySelection === true;
-  const taken = withCollapsedChoices(definition,input.selections ?? {},notReady);
   const availableChoices=new Set(choices.filter(choice=>!input.activities.some(item=>item.state==='active')&&journeyChoiceAvailable(definition,input.selections??{},completed,choice.id,notReady,anyOrder)).map(choice=>choice.id));
   const choiceByPortal = new Map(choices.map(choice => [choice.portalId,choice]));
   const nodes:import('./adventureBoardJson').AdventureBoardNode[] = definition.portals.map(portal => {
@@ -304,8 +303,8 @@ export function renderBoardDefinition(definition:AdventureBoardDefinition, input
     const state = hidden.has(portal.id) ? 'hidden' : portal.kind === 'start' || (portal.activityNodeId && done.has(portal.activityNodeId)) ? 'completed'
       : (input.allowReadyActivitySelection && portal.activityNodeId && verified) || (portal.id === frontier.portalId && !choice && verified) || (choice && availableChoices.has(choice.id)) ? 'available'
       : portal.kind === 'endpoint' && frontier.complete ? 'completed'
-      // Any order: the finish is her goal and a made choice shows as made; the planned order is a suggestion, never a lock.
-      : anyOrder && portal.kind === 'endpoint' ? 'available' : anyOrder && choice && (frontier.complete || taken[choice.id]) ? 'completed' : 'locked';
+      // Any order: the finish is her goal and a choice shows as made once the board is done; the planned order is a suggestion, never a lock.
+      : anyOrder && portal.kind === 'endpoint' ? 'available' : anyOrder && choice && frontier.complete ? 'completed' : 'locked';
     return { id:portal.id, activityNodeId:portal.activityNodeId, label:portal.label,
       kind:portal.kind === 'choice' ? 'choice-gate' : portal.kind === 'endpoint' ? (portal.activityNodeId ? 'activity' : 'reward') : portal.kind,
       position:portal.position.landscape, portraitPosition:portal.position.portrait,

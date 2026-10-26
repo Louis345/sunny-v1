@@ -90,6 +90,17 @@ it('keeps a dormant nested fork unavailable after switching its parent path',()=
  expect(board.choiceSets!.find(choice=>choice.id==='nested')!.options.every(option=>option.state==='locked')).toBe(true);
 });
 
+it('keeps a nested fork closed until its parent is chosen, even on a board played in any order',()=>{
+ const definition=authoredJourney();
+ definition.portals.push({...definition.portals[1],id:'nested'});
+ definition.paths.find(path=>path.id==='learn-first')!.portalIds=['nested','play-a'];
+ definition.paths.push({id:'nested-a',portalIds:['learn-a']},{id:'nested-b',portalIds:['learn-b']});
+ definition.choices.push({id:'nested',portalId:'nested',purpose:'Nested options',options:[{id:'a',label:'A',pathId:'nested-a',hypothesis:'A'},{id:'b',label:'B',pathId:'nested-b',hypothesis:'B'}]});
+ const board=renderBoardDefinition(definition,{boardId:'b',planId:'p',childId:'test',domain:'spelling',allowReadyActivitySelection:true,activities:inventory.map(id=>({id,state:'ready',verified:true})),selections:{}});
+ expect(board.nodes.find(node=>node.id==='choose')!.state).toBe('available');
+ expect(board.nodes.find(node=>node.id==='nested')!.state).toBe('locked');
+});
+
 it('reports a missing single-path reason and orphan paths, but rejects repeated presentation identities',()=>{
  const definition:any=linearJourneyFixture(['learn']);delete definition.singlePathReason;
  expect(validateBoardDefinition(definition,['learn'])).toEqual([]);
