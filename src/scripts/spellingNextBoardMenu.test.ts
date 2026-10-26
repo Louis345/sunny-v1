@@ -76,17 +76,21 @@ async function playToNextBoard() {
   return { childId, homeworkId, opts, discovery };
 }
 
-it("prepares every built-in the next-board menu offers, Discovery included", async () => {
+// 2026-10-25 owner review: the next board could only replay games she had already played. Its menu now
+// offers every game and mode the Teaching board offers, plus re-runs; every entry must still prepare.
+it("prepares everything the next-board menu offers: re-runs, Discovery included, and every game and mode", async () => {
   const { childId, homeworkId, opts, discovery } = await playToNextBoard();
   const menu: string[] = lab.planner.requests.find(request => request.tools?.some((tool: any) => tool.name === "add_step"))!
     .tools.find((tool: any) => tool.name === "add_step").input_schema.properties.built_in.enum;
   expect(menu).toContain(discovery.nodeId);
+  for (const fresh of ["word-radar:visible_read", "word-radar:partial_visual_recall", "word-radar:hidden_word_recall", "letter-rush:read-and-race", "letter-rush:hear-and-spell", "letter-rush:type-and-spell"]) expect(menu).toContain(fresh);
   const after = await prepareSuccessorBoard({ childId, homeworkId }, opts);
   const board = currentBoardInstance(after);
   expect(board.publishedAt).not.toBeNull();
   const steps = after.nodes.filter(node => board.nodeIds.includes(node.nodeId));
-  expect(steps.map(node => node.reusedFrom).sort()).toEqual([...menu].sort());
-  expect(steps.filter(node => node.notReadyReason || node.artifactBinding?.validationStatus !== "passed").map(node => `${node.reusedFrom}: ${node.notReadyReason}`)).toEqual([]);
+  expect(steps).toHaveLength(menu.length);
+  expect(steps.filter(node => node.reusedFrom).map(node => node.reusedFrom).sort()).toEqual(menu.filter(id => after.nodes.some(node => node.nodeId === id)).sort());
+  expect(steps.filter(node => node.notReadyReason || node.artifactBinding?.validationStatus !== "passed").map(node => `${node.reusedFrom ?? node.mechanic}: ${node.notReadyReason}`)).toEqual([]);
   // Prepared means the kiosk can launch it: unlocked, and a re-run radar keeps its recall mode.
   const plan = projectLearningCycle(after).activeSessionPlan.nodePlan.filter(row => board.nodeIds.includes(row.id));
   expect(plan.filter(row => row.locked || (row.type === "word-radar" && !row.wordRadarConfig)).map(row => row.id)).toEqual([]);

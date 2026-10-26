@@ -79,8 +79,14 @@ export function recordedToolReply(lab: RecordedToolLab, request: any): any {
         if (!node) throw new Error(`recorded_planner_built_in_missing:${title} offered=${builtIns.join(",")}`);
         return { name: "add_step", input: { built_in: node.nodeId, words: [], title: `${title} Again`, purpose: "Practice again.", story: `Story: ${title} Again`, picture: `Picture: ${title} Again` } };
       };
-      if (lab.everyBuiltIn) return message([decide("revised", "generate_support"), ...builtIns.map((built_in, index) => ({ name: "add_step", input: { built_in, words: [], title: `Again ${index + 1}`, purpose: "Practice again.", story: `Story: Again ${index + 1}`, picture: `Picture: Again ${index + 1}` } }))]);
-      return message([decide("revised", "generate_support"), step("Recall Practice"), step("Letter Rush"), step("Recall Checkpoint")]);
+      if (lab.everyBuiltIn) return message([decide("revised", "generate_support"), ...builtIns.map((built_in, index) => ({ name: "add_step", input: { built_in,
+        // A re-run takes all of its own words; a fresh game from the menu practices her missed words.
+        words: cycle.nodes.some(node => node.nodeId === built_in) ? [] : [...new Set(cycle.nodes.flatMap(node => Object.values(node.evidenceContract.spellingItems ?? {})).filter(item => lab.missedWords.includes(item.word)).map(item => item.wordId))],
+        title: `Again ${index + 1}`, purpose: "Practice again.", story: `Story: Again ${index + 1}`, picture: `Picture: Again ${index + 1}` } }))]);
+      // The first step is a fresh game from the menu, so the robot plays one the board set up new.
+      const missed = [...new Set(cycle.nodes.flatMap(node => Object.values(node.evidenceContract.spellingItems ?? {})).filter(item => lab.missedWords.includes(item.word)).map(item => item.wordId))];
+      const fresh = { name: "add_step", input: { built_in: pick(builtIns, "word-radar:visible_read"), words: missed, title: "Fresh Radar", purpose: "Practice the missed words.", story: "Story: Fresh Radar", picture: "Picture: Fresh Radar" } };
+      return message([decide("revised", "generate_support"), fresh, step("Letter Rush"), step("Recall Checkpoint")]);
     }
     const steps: string[] = results.map(row => row.step_id).filter(Boolean);
     return message([{ name: "set_order", input: { opening: steps, closing: [] } },

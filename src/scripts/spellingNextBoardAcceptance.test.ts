@@ -222,11 +222,13 @@ it("plays Discovery, the Teaching board and a reused next board through the real
     const nextBoard = currentBoardInstance(next);
     const nextNodes = next.nodes.filter(node => nextBoard.nodeIds.includes(node.nodeId));
     const teachingId = (title: string) => next.nodes.find(node => teaching.nodeIds.includes(node.nodeId) && node.title === title)!.nodeId;
-    expect(nextNodes.map(node => node.reusedFrom)).toEqual(["Recall Practice", "Letter Rush", "Recall Checkpoint"].map(teachingId));
+    // The first stop is a fresh game from the menu; the other two re-run what she played.
+    expect(nextNodes.map(node => node.reusedFrom)).toEqual([undefined, ...["Letter Rush", "Recall Checkpoint"].map(teachingId)]);
+    expect(nextNodes[0]).toMatchObject({ implementationType: "word-radar", title: "Fresh Radar" });
     expect(nextNodes.every(node => node.artifactBinding?.validationStatus === "passed" && !node.notReadyReason)).toBe(true);
     // Without a reload, the kiosk learns by itself that the next board is published and says so truthfully;
     // by contract the new board opens at the child's next visit, never mid-session.
-    const label = (title: string) => nextBoard.definition!.portals.find(portal => portal.activityNodeId === nextNodes.find(node => node.reusedFrom === teachingId(title))!.nodeId)!.label;
+    const label = (title: string) => nextBoard.definition!.portals.find(portal => portal.activityNodeId === (title === "Fresh Radar" ? nextNodes[0] : nextNodes.find(node => node.reusedFrom === teachingId(title))!).nodeId)!.label;
     await page.getByTestId("post-activity-engagement-overlay").getByRole("button", { name: "Back to map", exact: true }).click();
     await page.getByText("Your next adventure is ready for your next visit", { exact: false }).waitFor({ timeout: 30000 });
     await elliSeesScreen(/The board is showing[^]*No activity is open\.\nThe next board is ready for the next visit\./);
@@ -234,9 +236,9 @@ it("plays Discovery, the Teaching board and a reused next board through the real
     await page.reload();
     await enterBoard();
     expect(await page.getByText("Planning your map", { exact: true }).count()).toBe(0);
-    await page.getByRole("button", { name: label("Recall Practice"), exact: true }).waitFor();
+    await page.getByRole("button", { name: label("Fresh Radar"), exact: true }).waitFor();
     await elliSeesScreen(/The board is showing[^]*No activity is open/);
-    await page.getByRole("button", { name: label("Recall Practice"), exact: true }).click();
+    await page.getByRole("button", { name: label("Fresh Radar"), exact: true }).click();
     await playRadar(missedWords, false);
     await page.getByTestId("post-activity-engagement-overlay").getByRole("button", { name: "Back to map", exact: true }).click();
     await playLetterRush(label("Letter Rush"), missedWords);

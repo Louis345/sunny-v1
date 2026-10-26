@@ -965,12 +965,15 @@ function classifyPlannerCatalogDomainFromText(text: string): LearningDomain | nu
   return null;
 }
 
+/** The certified spelling catalog the Planner chooses from, for a board planned without a new worksheet. */
+export const spellingActivityCatalog = (childId: string): AssignmentActivityCard[] => activityCatalog(childId, undefined, "spelling");
+
 function activityCatalog(
   childId = "demo_adaptive",
   extraction?: AssignmentSourceExtraction,
+  domain: LearningDomain = inferPlannerCatalogDomain(extraction),
 ): AssignmentActivityCard[] {
   const allowed = realChildAllowedActivityIds(childId, extraction);
-  const domain = inferPlannerCatalogDomain(extraction);
   return listActivityToolContracts()
     .filter((contract) =>
       contract.domains.includes(domain) &&

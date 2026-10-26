@@ -29,8 +29,9 @@ const ROLES: Record<string, ReadonlyArray<"instruction" | "practice" | "fresh_ch
   "word-radar:partial_visual_recall": ["instruction", "practice"],
 };
 
-export function spellingTeachingToolkit(packet: AssignmentPlanningPacket) {
-  const launchable = packet.activityCatalog.filter(card => card.launchable);
+/** The tested games and modes a spelling board can offer: one menu for the Teaching board and the next board. */
+export function spellingActivityMenu(catalog: AssignmentPlanningPacket["activityCatalog"]) {
+  const launchable = catalog.filter(card => card.launchable);
   const offered = new Set(launchable.map(card => card.nodeType ?? card.activityId));
   const radarModes = new Map<string, Record<string, unknown>>();
   for (const mode of launchable.find(card => card.activityId === "word-radar")?.capabilityModes ?? []) {
@@ -43,6 +44,18 @@ export function spellingTeachingToolkit(packet: AssignmentPlanningPacket) {
     ...(offered.has("letter-rush") ? ["letter-rush:read-and-race", "letter-rush:hear-and-spell", "letter-rush:type-and-spell"] : []),
     ...games,
   ];
+  /** The roles a game can play: only a hidden-word Radar measures what she knows. */
+  const roles = (activity: string): ReadonlyArray<"instruction" | "practice" | "fresh_checkpoint"> => ROLES[activity] ?? (activity.startsWith("letter-rush:") ? ["practice"] : ["instruction", "practice"]);
+  /** What code fills in for a game and mode: the Radar's settings or Letter Rush's mode. */
+  const setup = (activity: string): { type: string; wordRadarConfig?: Record<string, unknown>; letterRushMode?: string } => {
+    const [type, mode] = activity.split(":");
+    return { type, ...(type === "word-radar" ? { wordRadarConfig: structuredClone(radarModes.get(mode)) } : type === "letter-rush" ? { letterRushMode: mode } : {}) };
+  };
+  return { offered, choices, roles, setup };
+}
+
+export function spellingTeachingToolkit(packet: AssignmentPlanningPacket) {
+  const { offered, choices, roles, setup } = spellingActivityMenu(packet.activityCatalog);
   const assigned = [...new Set([...packet.capturedHomework.words, ...(packet.capturedHomework.wordGroups ?? []).flatMap(group => group.words)])];
   // Predictions cite this homework's evidence. Her whole history stays in the prompt as context, but as
   // a pick-list it outgrew what strict mode can compile (251 IDs on a real chart, 2026-10-25).
@@ -83,11 +96,10 @@ export function spellingTeachingToolkit(packet: AssignmentPlanningPacket) {
     { name: "add_activity", description: "Add one activity with the words it practices or checks. Returns its activity_id; then call predict for it. A fresh_checkpoint is the only independent measurement and must use word-radar:hidden_word_recall.",
       schema: z.object({ activity: enumOf(choices, "word-radar:hidden_word_recall").describe("Which tested activity, and its mode."), role: z.enum(["instruction", "practice", "fresh_checkpoint"]), words: z.array(word).min(1), title: text("The short name she sees under the portal: 2 to 4 words, like a game title."), ...look }).strict(),
       run: (state, input) => {
-        const allowed = ROLES[input.activity] ?? (input.activity.startsWith("letter-rush:") ? ["practice"] : ["instruction", "practice"]);
+        const allowed = roles(input.activity);
         if (!allowed.includes(input.role)) return { ok: false, error: input.role === "fresh_checkpoint" ? "only word-radar:hidden_word_recall can be a fresh_checkpoint" : `${input.activity} can only be ${allowed.join(" or ")}` };
         const twice = repeated(input.words); if (twice) return { ok: false, error: `the word ${twice} is listed more than once` };
-        const [type, mode] = input.activity.split(":");
-        const extra = type === "word-radar" ? { wordRadarConfig: structuredClone(radarModes.get(mode)) } : type === "letter-rush" ? { letterRushMode: mode } : {};
+        const { type, ...extra } = setup(input.activity);
         return add(state, { title: input.title, type, role: input.role, targets: [...input.words], prediction: null, extra: { ...extra, ...lookOf(input) } });
       } },
     // The explainer's teaching content is too large for the API's strict grammar alongside the
