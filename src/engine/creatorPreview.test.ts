@@ -28,8 +28,9 @@ function design(turns:Array<[string,unknown]>|((call:number)=>[string,unknown]))
  const root=fs.mkdtempSync(path.join(os.tmpdir(),'sunny-creator-preview-'));roots.push(root);
  const stream=vi.fn((_request:unknown)=>({finalMessage:async()=>{const index=stream.mock.calls.length;const [name,input]=typeof turns==='function'?turns(index):turns[index-1];return reply(name,input,index);}}));
  const plan:any={planId:'preview',childId:'lab',domain:'spelling',journey,nodePlan:['learn','play','check'].map(id=>({id,type:'word-radar',activityId:'word-radar',targets:['piece']}))};
- const input:any={childId:'lab',program:{domain:'spelling',planId:plan.planId,journey,plan},childContext:{},priorOutcomes:{},checkpointFile:path.join(root,'design.json'),rawResponseDir:path.join(root,'diagnostics'),client:{messages:{stream}}};
- return {stream,run:()=>creator.askLearningExperienceDesigner(input)};
+ const paint=vi.fn(async(scene:string)=>`/generated/board-scenes/${scene.length}.jpeg`);
+ const input:any={childId:'lab',program:{domain:'spelling',planId:plan.planId,journey,plan},childContext:{},priorOutcomes:{},checkpointFile:path.join(root,'design.json'),rawResponseDir:path.join(root,'diagnostics'),client:{messages:{stream}},paint};
+ return {stream,paint,input,run:()=>creator.askLearningExperienceDesigner(input)};
 }
 const requests=(stream:ReturnType<typeof design>['stream'])=>stream.mock.calls.map(call=>call[0] as any);
 
@@ -59,7 +60,7 @@ describe('the map artist can see its work',()=>{
   await run();
   const first=requests(stream)[0],text=JSON.stringify(first.messages[0]);
   expect(text).toContain("You are Sunny's map artist");
-  expect(text).toContain('You never change the lesson');
+  expect(text).toContain('the teacher owns the lesson');
   expect(canvas).toHaveProperty('measureBoardPortals');
   expect(text).toContain('187');expect(text).toContain('211');
   expect(first.tools.map((tool:{name:string})=>tool.name).sort()).toEqual(['adjust_board','preview_board','submit_board']);
@@ -186,5 +187,28 @@ describe('the map artist can see its work',()=>{
  it('reads stops sent as JSON text',async()=>{
   const {run}=design([['submit_board',{whatISee:'Placed.',...composition,portals:JSON.stringify(placed),rationale:'Text.'}]]);
   expect(positionsOf((await run()).plan.boardDefinition)).toEqual(placed);
+ });
+});
+
+// 2026-10-25 owner review: every board had the same background, because the artist was told the background
+// is always one illustrated world. The artist now describes the scene for her board, and it is painted.
+describe('the artist paints a background made for her',()=>{
+ it('paints the scene the artist describes and keeps it on replay at no cost',async()=>{
+  const {stream,paint,run}=design([['submit_board',{...composition,scene:'A sunny pottery studio with shelves of glazed mugs',rationale:'Her favourite place.'}]]);
+  const first=await run();
+  expect(paint).toHaveBeenCalledOnce();
+  expect(paint.mock.calls[0][0]).toContain('A sunny pottery studio with shelves of glazed mugs');
+  expect(first.plan.boardDefinition!.theme.background).toEqual({type:'image',value:'/generated/board-scenes/'+paint.mock.calls[0][0].length+'.jpeg'});
+  expect(JSON.stringify(requests(stream)[0].tools)).toContain('"scene"');
+  expect((await run()).plan.boardDefinition).toEqual(first.plan.boardDefinition);
+  expect(paint).toHaveBeenCalledOnce();
+ });
+ it('keeps the illustrated world when no scene is described or the painting fails',async()=>{
+  const plain=design([['submit_board',{...composition,rationale:'Placed once.'}]]);
+  expect((await plain.run()).plan.boardDefinition!.theme.background).toEqual(THEME_PRESETS[0].background);
+  expect(plain.paint).not.toHaveBeenCalled();
+  const failing=design([['submit_board',{...composition,scene:'A castle',rationale:'Placed once.'}]]);
+  failing.paint.mockRejectedValueOnce(new Error('grok_down'));
+  expect((await failing.run()).plan.boardDefinition!.theme.background).toEqual(THEME_PRESETS[0].background);
  });
 });

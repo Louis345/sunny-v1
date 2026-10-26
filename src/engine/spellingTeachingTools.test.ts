@@ -25,7 +25,9 @@ function session(p = packet()) {
   const call = (name: string, input: unknown) => {
     const tool = kit.tools.find(row => row.name === name);
     if (!tool) throw new Error(`no tool ${name}`);
-    const parsed = tool.schema.safeParse(input);
+    // Every stop carries a story and a picture; tests that are not about them get plain ones.
+    const look = ["add_activity", "add_explainer", "add_reward"].includes(name) ? { story: "A story.", picture: "A picture." } : {};
+    const parsed = tool.schema.safeParse({ ...look, ...(input as object) });
     if (!parsed.success) return { ok: false as const, error: `schema: ${parsed.error.message}` };
     return tool.run(state, parsed.data);
   };
@@ -132,6 +134,27 @@ describe("spelling Teaching tools", () => {
     call("set_order", { opening: [], closing: [id] });
     expect(call("finish_board", { title: "T", endpoint_label: "E", single_path_reason: "One check.", plan_theory: theory, review_questions: [] })).toMatchObject({ ok: false, error: expect.stringContaining(`predict`) });
     expect(call("predict", { activity_id: "missing", ...prediction() })).toMatchObject({ ok: false, error: expect.stringContaining("missing") });
+  });
+
+  // 2026-10-26 parent test (Saori, demo-pashley): the syllables page was too much to read for her child,
+  // with adult words, slash sounds like "/nock/" and four strategy steps. Logs could not show confusion;
+  // the lab only checked that chunks join to spell the word. The explainer tool now caps it at kid size.
+  it("keeps an explainer short and readable for her: 2 to 3 short steps, short tips, no slash sounds", () => {
+    const graded = packet(); graded.childChart.grade = 3;
+    const { p, call, kit } = session(graded);
+    const [first] = words(p);
+    const explainer = (over: Record<string, unknown> = {}, word: Record<string, unknown> = {}) => call("add_explainer", { title: "Sneaky Letters", topic: "Silent letters", learning_goal: "Keep the silent letter.", misconception: "Every letter makes a sound.",
+      strategy: { title: "Sneaky letters", steps: ["Some letters hide.", "Write them anyway!"] },
+      words: [{ text: first, chunks: [first.slice(0, 2), first.slice(2)], spoken_chunks: ["sss", "ine"], focus_chunk: first.slice(0, 2), tip: "The g hides quietly.", ...word }],
+      check: { target_word: first, prompt: "Which word has a sneaky letter?", options: [{ label: first, correct: true }, { label: "sin", correct: false }] }, ...over });
+    expect(explainer()).toMatchObject({ ok: true });
+    expect(explainer({ strategy: { title: "Spot the Silent Partner", steps: ["Find the pattern.", "Say it slowly.", "Write the chunk.", "Check it."] } })).toMatchObject({ ok: false });
+    expect(explainer({ strategy: { title: "Sneaky letters", steps: ["Find the hidden-letter pattern in the word before you start to write it down.", "Write it."] } })).toMatchObject({ ok: false });
+    expect(explainer({}, { tip: "Say /sine/ but remember the silent g before n." })).toMatchObject({ ok: false, error: expect.stringContaining("slash") });
+    expect(explainer({}, { tip: "Remember that the silent letter g is still written even though you cannot hear it at all." })).toMatchObject({ ok: false });
+    // She is told who reads it: her grade, and that Elli reads with her.
+    const add = JSON.stringify(plannerToolDefinitions(kit.tools).find(tool => tool.name === "add_explainer"));
+    expect(add).toContain("grade 3");
   });
 
   it("rejects an explainer check without exactly one correct answer", () => {

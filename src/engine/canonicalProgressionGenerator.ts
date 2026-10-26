@@ -1,4 +1,5 @@
 import {verifyPreparingBoardCanvas} from './adventureBoardCanvas';
+import { thumbnailUrlForActivity } from "../shared/activityPresentation";
 import { createHash } from "crypto";
 import fs from "fs";
 import path from "path";
@@ -433,7 +434,7 @@ export function repairNotReadyActivity(
     }
     const rerun = repointed.nodes.find(candidate => candidate.nodeId === node.nodeId)!;
     console.log(` 🎮 [board] [portal] [repaired] node=${node.nodeId} builtin=${rerun.reusedFrom} provider_calls=0`);
-    return relaunchReusedActivity(input.childId, input.homeworkId, repointed, rerun, opts);
+    return launchBuiltInActivity(input.childId, input.homeworkId, repointed, rerun, opts);
   }
   const dir = qualityDiagnosticsDir(rootDir, cycle, node);
   const attempts = (fs.existsSync(dir) ? fs.readdirSync(dir) : [])
@@ -477,16 +478,21 @@ export function repairNotReadyActivities(
  * nodes already bound by an earlier run. The board publishes on its last verified
  * binding; it never opens a node or interrupts the child.
  */
-/** Re-launch the earlier built-in activity the Planner named, with this node's fresh items: no build, no provider. */
-function relaunchReusedActivity(childId: string, homeworkId: string, cycle: LearningCycleRecordV2, node: LearningCycleNodeContract, opts: LearningCycleRepositoryOptions): LearningCycleRecordV2 {
+/** Launch a built-in spelling game for this node's fresh items: the earlier activity the Planner named,
+ * or a game and mode from the menu set up from the node's own contract. No build, no provider. */
+function launchBuiltInActivity(childId: string, homeworkId: string, cycle: LearningCycleRecordV2, node: LearningCycleNodeContract, opts: LearningCycleRepositoryOptions): LearningCycleRecordV2 {
   const rootDir = opts.rootDir ?? process.cwd();
-  const source = cycle.nodes.find((candidate) => candidate.nodeId === node.reusedFrom);
-  if (!source?.artifactBinding) throw new Error(`reused_activity_missing:${node.reusedFrom}`);
+  const source = node.reusedFrom ? cycle.nodes.find((candidate) => candidate.nodeId === node.reusedFrom) : undefined;
+  if (node.reusedFrom && !source?.artifactBinding) throw new Error(`reused_activity_missing:${node.reusedFrom}`);
   const contextDir = resolveChildContextDir(childId, { rootDir });
   const nativeDir = path.join(resolveAdaptiveMathDraftDir(childId, homeworkId, { rootDir }), "native-instruments");
   const fileFor = (nodeId: string) => path.join(nativeDir, `${nodeId.replace(/[^a-zA-Z0-9_-]/g, "_")}.json`);
-  const sourceContract = JSON.parse(fs.readFileSync(fileFor(source.nodeId), "utf8")) as { node: Record<string, unknown> };
-  const configuration = { version: 1, node: { ...sourceContract.node, id: node.nodeId, title: node.title, targets: [...node.academicTarget.targets] }, evidenceContract: node.evidenceContract };
+  // Discovery and a fresh game keep their setup on their own contract and have no instrument file to start from.
+  const fromContract = (row: LearningCycleNodeContract) => ({ type: row.implementationType, activityId: row.implementationType, difficulty: 1,
+    ...(row.evidenceContract.nativeConfig?.wordRadarConfig ? { wordRadarConfig: row.evidenceContract.nativeConfig.wordRadarConfig } : {}) });
+  const sourceNode = !source ? fromContract(node) : source.role === "evaluation" ? fromContract(source)
+    : (JSON.parse(fs.readFileSync(fileFor(source.nodeId), "utf8")) as { node: Record<string, unknown> }).node;
+  const configuration = { version: 1, node: { ...sourceNode, id: node.nodeId, title: node.title, targets: [...node.academicTarget.targets] }, evidenceContract: node.evidenceContract };
   const write = (file: string, value: unknown) => { fs.mkdirSync(path.dirname(file), { recursive: true }); fs.writeFileSync(`${file}.${process.pid}.tmp`, JSON.stringify(value, null, 2)); fs.renameSync(`${file}.${process.pid}.tmp`, file); };
   write(fileFor(node.nodeId), configuration);
   let activityConfigPath: string | undefined;
@@ -495,11 +501,11 @@ function relaunchReusedActivity(childId: string, homeworkId: string, cycle: Lear
     write(path.join(contextDir, "homework/games", homeworkId, filename), node.evidenceContract.nativeConfig);
     activityConfigPath = `/api/activity-config/${childId}/${homeworkId}/${filename}`;
   }
-  console.log(` 🎮 [learning-board] [successor-preparation] [reused] node=${node.nodeId} from=${source.nodeId} type=${node.implementationType}`);
+  console.log(` 🎮 [learning-board] [successor-preparation] [${source ? "reused" : "fresh"}] node=${node.nodeId} from=${source?.nodeId ?? "menu"} type=${node.implementationType}`);
   return transitionLearningCycle(childId, homeworkId, cycle.revision, { type: "artifact_bound", nodeId: node.nodeId, artifact: {
     contentId: `${homeworkId}:${node.nodeId}`, artifactId: `${homeworkId}:${node.nodeId}:native`,
     localArtifactPath: node.implementationType === "visual-explainer" ? "/games/spelling-visual-explainer.html" : `/${path.relative(contextDir, fileFor(node.nodeId)).split(path.sep).join("/")}`,
-    localArtworkPath: source.artifactBinding.localArtworkPath, contractFingerprint: hashDiscoveryContract(configuration), validationStatus: "passed",
+    localArtworkPath: source?.artifactBinding?.localArtworkPath ?? thumbnailUrlForActivity(node.implementationType ?? "word-radar"), contractFingerprint: hashDiscoveryContract(configuration), validationStatus: "passed",
     ...(activityConfigPath ? { activityConfigPath } : {}),
   } }, opts);
 }
@@ -538,10 +544,10 @@ export async function prepareSuccessorBoard(
       let next: LearningCycleRecordV2;
       let failure = "";
       try {
-        // Spelling boards run only tested built-ins: a step with no re-runnable built-in is Not ready, never built.
-        if (cycle.domain === "spelling" && !pending.reusedFrom) throw new Error("spelling_no_reusable_builtin");
-        next = pending.reusedFrom
-          ? relaunchReusedActivity(input.childId, input.homeworkId, cycle, pending, opts)
+        // Spelling boards run only tested built-in games: a step with none to launch is Not ready, never built.
+        if (cycle.domain === "spelling" && !pending.reusedFrom && !pending.implementationType) throw new Error("spelling_no_reusable_builtin");
+        next = cycle.domain === "spelling"
+          ? launchBuiltInActivity(input.childId, input.homeworkId, cycle, pending, opts)
           : await generateCanonicalProgressionArtifact({ ...input, nodeId: pending.nodeId }, opts);
         if (next.revision === cycle.revision) failure = latestQualityFailure(opts.rootDir ?? process.cwd(), cycle, pending) ?? "human_review_required";
       } catch (error) {

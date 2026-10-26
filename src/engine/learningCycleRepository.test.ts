@@ -8,6 +8,7 @@ import { getChildChart } from "../profiles/childChart";
 import { publishBoardInstance } from "./learningBoardInstances";
 import { writeActiveSessionPlan } from "./sessionPlanFromChart";
 import {
+  assertJourneyChoiceAvailable,
   createLearningCycle,
   canonicalJourneyLaunchable,
   getLearningCycle,
@@ -301,6 +302,44 @@ describe("canonical learning cycle repository", () => {
     expect(cycle.predictionEvaluations).toEqual(closed.predictionEvaluations);
   });
 
+  // 2026-10-25 child feedback: a stop on her board said "Keep going" under its name and did nothing when
+  // she tapped it. Activities were already open in any order, but the choice and the finish kept the
+  // planned-order lock. Logs showed nothing (a lock is not an error); the lab asserted the lock as correct.
+  it("never locks a stop on a spelling teaching board behind the planned order", () => {
+    const plan = input();
+    plan.domain = "spelling";
+    const ids = ["chunks", "fast", "slow", "checkpoint"];
+    plan.nodes = ids.map((id) => ({
+      ...structuredClone(plan.nodes[0]!), nodeId: id, title: id, openingScreen: { title: id, purpose: "Spelling practice" },
+      academicTarget: { domain: "spelling", skill: "spelling", targets: ["tomorrow"] }, implementationType: "word-radar",
+      artifactBinding: { contentId: id, artifactId: id, localArtifactPath: `/games/${id}.html`, localArtworkPath: "/thumbnails/activities/word-radar.svg", contractFingerprint: id, validationStatus: "passed" },
+    }));
+    const cycle = createLearningCycle(plan, { rootDir: root() });
+    const definition = choiceJourneyFixture([{ id: "fast", label: "Fast", nodeIds: ["fast"] }, { id: "slow", label: "Slow", nodeIds: ["slow"] }], ["chunks"], ["checkpoint"]);
+    cycle.boards = [publishBoardInstance(cycle, { kind: "teaching", predecessorBoardId: null, plannerDecisionId: "decision-1", evidenceIds: [], nodeIds: ids, definition, publishedAt: cycle.createdAt })];
+    cycle.lifecycle = "board_ready";
+    const board = projectLearningCycle(cycle).adventureBoard;
+    // Nothing she sees is locked: she may choose her path before the first stop, and the finish is a goal, not a wall.
+    expect(board.nodes.filter((node) => node.state === "locked").map((node) => `${node.id}: ${node.lock?.label}`)).toEqual([]);
+    expect(board.choiceSets![0]!.options.map((option) => option.state)).toEqual(["available", "available"]);
+    expect(() => assertJourneyChoiceAvailable(cycle, "choice", "slow")).not.toThrow();
+    // The planned order is still shown as the suggestion.
+    expect(board.progress?.currentNodeId).toBe("chunks");
+    // Once the board is done, the choice shows as made and opens nothing.
+    const done = structuredClone(cycle);
+    done.routeSelection = { choices: { choice: "fast" }, experimentId: "choice", selectedRouteId: "choice=fast", selectedAt: cycle.createdAt, choiceEventId: "e", history: [] } as never;
+    for (const node of done.nodes) if (node.nodeId !== "slow") node.state = "completed";
+    const finished = projectLearningCycle(done).adventureBoard.nodes;
+    expect(finished.filter((node) => node.state === "locked").map((node) => `${node.id}: ${node.lock?.label}`)).toEqual([]);
+    expect(finished.find((node) => node.id === "choice")).toMatchObject({ state: "completed" });
+    expect(finished.find((node) => node.id === "choice")!.choiceSetId).toBeUndefined();
+    expect(finished.find((node) => node.id === "end")!.state).toBe("completed");
+    // An older board saved without a definition, drawn from its saved presentation, opens in any order too.
+    const legacy = structuredClone(cycle);
+    delete legacy.boards![0]!.definition;
+    expect(projectLearningCycle(legacy, { presentationPlan: { adventureBoard: board } as never }).adventureBoard.nodes.filter((node) => node.lock?.reason === "planner-sequence").map((node) => node.id)).toEqual([]);
+  });
+
   it("opens every prepared spelling teaching activity without a sequence prerequisite", () => {
     // Human-approved change: a suggested teaching order must not lock prepared activities.
     const plan = input();
@@ -342,11 +381,12 @@ describe("canonical learning cycle repository", () => {
     unavailable.nodes[1]!.state = "blocked";
     unavailable.nodes[1]!.notReadyReason = "artifact_missing";
     expect(canonicalJourneyLaunchable(unavailable, "practice")).toBe(false);
-    expect(projectLearningCycle(unavailable).adventureBoard.nodes.find(node => node.id === "practice")?.state).toBe("locked");
+    // A stop she cannot play is left off her board, never drawn locked (#28).
+    expect(projectLearningCycle(unavailable).adventureBoard.nodes.find(node => node.id === "practice")?.state).toBe("hidden");
     const unfinishedBuilder = structuredClone(cycle);
     unfinishedBuilder.nodes[1]!.implementationType = "word-builder";
     expect(canonicalJourneyLaunchable(unfinishedBuilder, "practice")).toBe(false);
-    expect(projectLearningCycle(unfinishedBuilder).adventureBoard.nodes.find(node => node.id === "practice")).toMatchObject({ state: "locked", lock: { reason: "not-ready" } });
+    expect(projectLearningCycle(unfinishedBuilder).adventureBoard.nodes.find(node => node.id === "practice")).toMatchObject({ state: "hidden" });
     const legacyBuilder = structuredClone(unfinishedBuilder);
     legacyBuilder.boards![0]!.kind = "legacy";
     delete legacyBuilder.boards![0]!.definition;

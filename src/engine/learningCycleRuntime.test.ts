@@ -1012,7 +1012,8 @@ it('keeps slow correct spelling practice visible as latency evidence, not effort
   const create=vi.fn(async(_payload?:unknown)=>{throw Error('fixture-stop');});
   await expect(advanceCanonicalCycleFromEvidence({childId:'reina',homeworkId:'hw-runtime',client:{messages:{create,stream:(payload:unknown)=>({finalMessage:()=>create(payload)})}} as never},{rootDir})).rejects.toThrow('fixture-stop');
   const plannerRequest=JSON.stringify(create.mock.calls[0]);
-  expect(plannerRequest).toContain('Correct practice after long response time is not effortless recall');
+  // The Planner sees the slow answer as evidence; a sentence warning it is no longer needed (owner rule 2026-10-25).
+  expect(plannerRequest).toContain('tomorrow: response=74000ms');
 });
 
 it.each(['max_tokens','refusal'])('preserves canonical Planner %s as a known completed response',async(reason)=>{

@@ -1,4 +1,6 @@
 import fs from 'node:fs';
+import {spellingActivityMenu} from './spellingTeachingTools';
+import {spellingActivityCatalog} from './assignmentPlanner';
 import os from 'node:os';
 import path from 'node:path';
 import {createHash} from 'node:crypto';
@@ -64,8 +66,8 @@ it('builds the next board through small locked tools, re-running only built-ins,
  expect(tools.every((tool:any)=>tool.strict===true)).toBe(true);
  expect(strictBudget(tools).unsupported).toEqual([]);
  expect(f.requests[0].tool_choice).toEqual({type:'auto'});
- // The only built-in on offer is the proven radar; a brand-new game cannot be ordered at all.
- expect(tools.find((tool:any)=>tool.name==='add_step').input_schema.properties.built_in.enum).toEqual(['radar-check']);
+ // On offer: the proven radar to re-run and the certified games and modes; a brand-new game cannot be ordered at all.
+ expect(tools.find((tool:any)=>tool.name==='add_step').input_schema.properties.built_in.enum).toEqual(['radar-check',...spellingActivityMenu(spellingActivityCatalog(childId)).choices]);
  vi.spyOn(canvas,'verifyPreparingBoardCanvas').mockResolvedValue(undefined);
  const generateHtml=vi.fn(async()=>'<html></html>');
  const after=await prepareSuccessorBoard({childId,homeworkId,generateHtml,generateArtwork:async()=>'/generated/world.jpeg',validate:async()=>({passed:true,failures:[]})},opts);

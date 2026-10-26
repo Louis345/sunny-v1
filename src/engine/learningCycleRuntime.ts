@@ -1,4 +1,6 @@
 import {isDeepStrictEqual} from "node:util";
+import { spellingActivityMenu } from "./spellingTeachingTools";
+import { spellingActivityCatalog } from "./assignmentPlanner";
 import {readSuccessorBoardDefinition, assembleAdventureBoardDefinition, BOARD_DEFINITION_TOOL_SCHEMA, BOARD_AUTHORING_INSTRUCTION, type AdventureBoardComposition, type AdventureJourneyDefinition} from "../shared/adventureBoardDefinition";
 import { canonicalJourneyLaunchable, isRetryablePlannerBlock, isSpellingPracticeContinuation, repointReusedSetup } from './learningCycleRepository';
 import {requestPlannerMessage, readPlannerToolReceipt, plannerTransportPolicy} from "./plannerTransport";
@@ -440,7 +442,7 @@ function parseNextInstrument(value: unknown): NextInstrumentPrescription | undef
   if (keys.some((key) => typeof row[key] !== "string" || !String(row[key]).trim())) return undefined;
   // Design decisions are optional so an older Planner response still parses,
   // but they are carried through whenever the Planner supplies them.
-  const designKeys = ["creatorPrompt", "stakesDesign", "failureMode", "escalation", "mechanicSpec", "mathematicalHook"] as const;
+  const designKeys = ["creatorPrompt", "stakesDesign", "failureMode", "escalation", "mechanicSpec", "mathematicalHook", "picture"] as const;
   return {
     ...(Array.isArray(row.items) ? { items: row.items.map(parseDirectItem) } : {}),
     ...(row.spelling !== undefined ? { spelling: validateSpellingPrescription(row.spelling) } : {}),
@@ -726,6 +728,7 @@ async function askPlanner(
   const childContext = {
     identity: chart.identity,
     demographics: chart.demographics,
+    childVoice: chart.childVoice,
     learningHistory: {
       constructs:Object.fromEntries(Object.entries(chart.learningHistory.constructs).filter(([id])=>constructIds.has(id) && !isSynthetic(id)).map(([id,history])=>[id,{
         constructId:id,
@@ -807,15 +810,18 @@ async function askPlanner(
     const actions=allowedProgressionActions.filter(action=>action!=="generate_quest"&&action!=="generate_boss");
     const facts={builtIns:builtIns.map(node=>{const items=Object.values(node.evidenceContract.spellingItems??{});const roles=Object.values(node.evidenceContract.itemRoles??{});
       return {nodeId:node.nodeId,title:node.title,implementationType:node.implementationType??"word-radar",wordIds:[...new Set(items.map(item=>item.wordId))],responseMode:items[0]?.response.mode??"spelling_letters",checkpoint:roles.length>0&&roles.every(role=>role==="fresh_checkpoint")};}),
+      // The Teaching board's own menu: every certified game and mode, set up fresh for the words she is given.
+      activities:(()=>{const menu=spellingActivityMenu(spellingActivityCatalog(cycle.childId));return menu.choices.map(id=>({id,checkpoint:menu.roles(id).includes("fresh_checkpoint"),setup:menu.setup(id)}));})(),
       evaluationIds,allowedActions:actions,idPrefix:`${cycle.homeworkId}-r${checkpointRevision}-step`,
       // The same check the re-run step applies, asked while the Planner is still choosing.
       rerunnable:(nodeId:string,wordIds:string[])=>{const source=builtIns.find(node=>node.nodeId===nodeId);return Boolean(source&&repointReusedSetup(source,`${nodeId}-check`,wordIds.map(wordId=>({id:`check:${wordId}`,wordId}))));}};
-    const prompt=`You are Sunny's AI Planner. Compare the preregistered academic theory and predictions with the factual scorecard, then decide what happens next, using the tools.
-1. decide: one concise, evidence-grounded decision. Cite the prediction evaluations you judge.
-2. Unless you await calibration, build the next board: add_step for each step (each re-runs one tested built-in activity with all of its own words), then set_order and, when academically valid alternatives exist, add_choice. Then finish_board.
-Sunny runs each step exactly as written and builds no new spelling games. The current board is never changed; your board is for a later session. Each path from start to finish, counting the start, the choice and the finish, fits in 7 steps. Title each step as she should see it. Do not claim mastery or readiness. Fresh recall after practice is not unseen transfer or delayed retention.
-For spelling, Correct practice after long response time is not effortless recall. Examine per-word response time alongside assistance, exposure, response mode and instrument ambiguity. When the evidence suggests she is struggling, order teaching and guided practice before another fresh recall check; let Elli respond conversationally from the live item and child context. Do not infer mastery from supported or partial-visibility practice, and do not use a fixed latency threshold to choose the lesson.
-Tested built-in activities you may re-run:
+    const prompt=`You are Sunny's AI Planner, her spelling tutor. The goal: she wants to come back to Sunny, and she knows her words by the school test. Compare your preregistered theory and predictions with what she actually did and said, decide what happens next, and build her next board, using the tools.
+1. decide: one evidence-grounded decision. Cite the prediction evaluations you judge.
+2. Unless you await calibration, build the next board: add_step for each step, then set_order and, when she should pick her path, add_choice. Then finish_board.
+Sunny runs each step as you write it. The board she has now stays as it is; yours opens at a later session. The kiosk screen shows up to 7 stops along any one path, counting the start, the choice and the finish. Title each step as she should see it. Per-word response time, assistance, exposure and response mode are in the evidence below; Elli talks with her during each activity.
+Games and modes on the menu (a hidden-word Radar is an independent check; the rest are practice):
+${JSON.stringify(facts.activities.map(row=>row.id))}
+Tested built-in activities she played, which you may re-run:
 ${JSON.stringify(facts.builtIns.map(row=>({builtIn:row.nodeId,title:row.title,type:row.implementationType,words:row.wordIds.length,checkpoint:row.checkpoint})))}
 Saved spelling words:
 ${JSON.stringify([...savedSpellingItems.values()].map(item=>({wordId:item.wordId,word:item.word})))}
@@ -839,7 +845,7 @@ ${JSON.stringify({ lifecycle: cycle.lifecycle, assignment: cycle.assignment, the
     if(!kit.finished(loop.state))throw new Error(`canonical_progression_tools_unfinished:${loop.stats.stop}`);
     const {decision,journey}=kit.result(loop.state);
     if(!journey)return parseCanonicalProgressionDecision(decision);
-    const drawing=draw?await draw(journey):await drawJourney({journey,label:`${cycle.homeworkId}:r${checkpointRevision}`,stagePrefix:`${decisionStage}-design`,identity:{childId:cycle.childId,homeworkId:cycle.homeworkId,batchId,journey},
+    const drawing=draw?await draw(journey):await drawJourney({journey,label:`${cycle.homeworkId}:r${checkpointRevision}`,stagePrefix:`${decisionStage}-design`,identity:{childId:cycle.childId,homeworkId:cycle.homeworkId,batchId,journey},child:chart.childVoice,
       checkpointFile:path.join(draftDir,`${decisionStage}-design.json`),rawResponseDir:draftDir,...(client?{client}:{})});
     return parseCanonicalProgressionDecision({...decision,boardDefinition:assembleAdventureBoardDefinition(journey,drawing.composition,drawing.pattern)});
   }

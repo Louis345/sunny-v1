@@ -115,6 +115,8 @@
     "test:session-plan-injection": "vitest run src/tests/test-session-plan-injection.ts",
     "test:canvas-voice-sync": "vitest run src/tests/test-canvas-voice-sync.ts",
     "test": "vitest run && cd web && npm run test",
+    "harness": "vitest run --config vitest.harness.config.ts",
+    "harness:walls": "tsx src/scripts/harnessWalls.ts",
     "test:system": "vitest run && cd web && ./node_modules/.bin/vitest run src/tests/test-adventure-diag-fixes.tsx",
     "server": "npx tsx src/server.ts",
     "web": "cd web && npm run dev",

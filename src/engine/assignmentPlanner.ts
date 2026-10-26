@@ -1,4 +1,5 @@
 import {LEARNING_PLANNER_PERSONA,learningPlannerInstructions} from "./learningPlannerInstructions";
+import { letterRushConfig } from "./spellingNativeSetup";
 import {spellingImplementationType,SPELLING_MYSTERY_INSTRUMENT_IDS} from "./activityEngineConfig";
 import {reportAuthoredBoardCanvas} from './adventureBoardCanvas';
 import { readSuccessorBoardDefinition,JOURNEY_AUTHORING_INSTRUCTION, authoredBoardDefinitionSchema, adventureJourneySchema,ADVENTURE_JOURNEY_TOOL_SCHEMA, journeySequenceSchema, expandJourneySequence, journeyFromBoardDefinition, adventureBoardDefinitionSchema, BOARD_AUTHORING_INSTRUCTION, BOARD_CANVAS_AUTHORING_CONSTRAINTS, renderBoardDefinition, validateBoardDefinition, journeyExecutions, type BoardDefinitionIssue, type AdventureBoardDefinition } from '../shared/adventureBoardDefinition';
@@ -125,6 +126,8 @@ export type AssignmentPlanningChildChartSummary = {
   carePlanSummary?: string | null;
   recentEvidence: string[];
   learningSignals?: AssignmentPlanningChildLearningSignals;
+  /** Who she is and what she has said: what to plan around so she wants to come back. */
+  childVoice?: ChildChart["childVoice"];
 };
 
 export type AssignmentPlanningChildLearningSignals = {
@@ -729,6 +732,9 @@ const baselineRoundSchema = z.object({
 const compactNodePlanSchema = z.object({
   id: z.string().min(1),
   title: z.string().trim().min(1).optional(),
+  /** The Planner's story for this stop and what its picture shows. */
+  theme: z.string().min(1).optional(),
+  thumbnailPrompt: z.string().min(1).optional(),
   type: z.enum(PLANNER_NODE_ACTIVITY_IDS),
   activityId: z.enum(PLANNER_NODE_ACTIVITY_IDS),
   targets: compactTargetsSchema,
@@ -822,7 +828,7 @@ const nativeLearningProgramSchema=z.object({
  * cannot run cannot be written down. Rules live here, not in prose and not in after-the-fact checks. */
 const brief=z.string().min(1).describe("One short sentence. She is waiting while you write.");
 const nativeSpellingMeasurement=<const Role extends string>(roles:readonly [Role,...Role[]])=>nativeMeasurementSchema.extend({supportCriteria:brief,reviseCriteria:brief,falsifyCriteria:brief,spelling:plannedMeasurementSchema.shape.spelling.unwrap().omit({interventionNodeIds:true}).extend({role:z.enum(roles),reason:brief,uncertainty:brief})}).strict();
-const nativeActivityBase=z.object({id:z.string().min(1),title:z.string().trim().min(1).describe("The short name she sees under the portal on the map: 2 to 4 words, about 24 characters, like a game title. No colons, no explanations."),difficulty:compactNodePlanSchema.shape.difficulty,targetLane:z.string().nullable().optional().describe("The captured word-group id these targets come from, when they share one.")});
+const nativeActivityBase=z.object({theme:z.string().min(1).optional(),thumbnailPrompt:z.string().min(1).optional(),id:z.string().min(1),title:z.string().trim().min(1).describe("The short name she sees under the portal on the map: 2 to 4 words, about 24 characters, like a game title. No colons, no explanations."),difficulty:compactNodePlanSchema.shape.difficulty,targetLane:z.string().nullable().optional().describe("The captured word-group id these targets come from, when they share one.")});
 const nativeTargets=z.array(z.string().min(1)).min(1).describe("Assigned words only.");
 const explainerAuthoringSchema=z.object({
   topic:z.string().min(1).max(120),learningGoal:z.string().min(1).max(220),misconception:z.string().min(1),
@@ -863,10 +869,8 @@ export function deriveNativeActivity(row:unknown):unknown {
       evidencePolicy:{writesPracticeEvidence:true,writesMasteryEvidence:false,requiresPerTargetResult:false,allowedEvidence:["practice","companion"]}}};
   }
   if(activity.type==="letter-rush"&&!config&&Array.isArray(activity.targets)){
-    const {letterRushMode,...rest}=activity,mode=typeof letterRushMode==="string"?letterRushMode:"read-and-race";
-    return {...rest,activityConfig:{schemaVersion:1,activityId:"letter-rush",mode,topic:String(activity.title??"Spelling words"),domain:"spelling",learningGoal:"Practice the assigned spelling words.",gradeBand:"early_elementary",
-      scaffolds:{showWord:mode==="read-and-race",letterBank:true,allowRetryBeforeScore:true,companionHints:false},words:activity.targets.map(text=>({text})),
-      evidencePolicy:{writesPracticeEvidence:true,writesMasteryEvidence:false,requiresPerTargetResult:true,allowedEvidence:["practice"]}}};
+    const {letterRushMode,...rest}=activity;
+    return {...rest,activityConfig:letterRushConfig({mode:typeof letterRushMode==="string"?letterRushMode:"read-and-race",title:String(activity.title??"Spelling words"),words:activity.targets.map(String)})};
   }
   return row;
 }
@@ -961,12 +965,15 @@ function classifyPlannerCatalogDomainFromText(text: string): LearningDomain | nu
   return null;
 }
 
+/** The certified spelling catalog the Planner chooses from, for a board planned without a new worksheet. */
+export const spellingActivityCatalog = (childId: string): AssignmentActivityCard[] => activityCatalog(childId, undefined, "spelling");
+
 function activityCatalog(
   childId = "demo_adaptive",
   extraction?: AssignmentSourceExtraction,
+  domain: LearningDomain = inferPlannerCatalogDomain(extraction),
 ): AssignmentActivityCard[] {
   const allowed = realChildAllowedActivityIds(childId, extraction);
-  const domain = inferPlannerCatalogDomain(extraction);
   return listActivityToolContracts()
     .filter((contract) =>
       contract.domains.includes(domain) &&
@@ -1122,6 +1129,7 @@ function childChartSummaryForPacket(
     carePlanSummary: summarizeCarePlan(chart),
     recentEvidence,
     learningSignals: childLearningSignalsForPacket(chart),
+    ...(chart.childVoice ? { childVoice: chart.childVoice } : {}),
   };
 }
 

@@ -1,4 +1,6 @@
 import {linearJourneyFixture} from '../scripts/fixtures/authoredJourney';
+import { spellingActivityMenu } from "./spellingTeachingTools";
+import { spellingActivityCatalog } from "./assignmentPlanner";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -48,7 +50,7 @@ it("carries the Planner's saved word references through its tool, frozen success
   const stream = (payload: any) => { requests.push(payload); return { finalMessage: async () => successorToolReply(f.decision as never, payload) }; };
   const cycle = await advanceCanonicalCycleFromEvidence({ childId: f.childId, homeworkId: f.homeworkId, client: { messages: { stream } } as never, draw: plainDraw }, { rootDir: f.rootDir });
   const addStep = requests[0].tools.find((tool: any) => tool.name === "add_step");
-  expect(addStep.input_schema.properties.built_in.enum).toEqual(["practice"]);
+  expect(addStep.input_schema.properties.built_in.enum).toEqual(["practice", ...spellingActivityMenu(spellingActivityCatalog(f.childId)).choices]);
   expect(requests[0].messages[0].content[0].text).toContain(f.items[0].wordId);
   const board = preparingBoardInstance(cycle)!;
   const node = cycle.nodes.find(node => board.nodeIds.includes(node.nodeId))!;

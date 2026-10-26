@@ -95,6 +95,14 @@ describe("CurrentBoardSnapshot", () => {
     expect(context).not.toContain("Correct answer");
   });
 
+  // 2026-10-25: the Planner now writes each stop's story; Elli frames the stop from it in her own words.
+  it("gives Elli the story the Planner wrote for the stop that is opening", () => {
+    const snapshot = buildCurrentBoardSnapshot({ childId: "ila", sessionId: "voice-1", state: { game: "word-radar", activityId: "glaze", nodeId: "glaze", phase: "opening",
+      activityTitle: "Glaze the Mugs", activityStory: "The pottery studio needs every mug glazed before the kiln opens.", answerVisibility: "hidden" } });
+    expect(snapshot.activityStory).toBe("The pottery studio needs every mug glazed before the kiln opens.");
+    expect(buildCurrentBoardSnapshotContext(snapshot)).toContain("Activity story: The pottery studio needs every mug glazed before the kiln opens.");
+  });
+
   it("extracts the exact visible prompt from an object-shaped generated challenge", () => {
     const snapshot = buildCurrentBoardSnapshot({
       childId: "reina",

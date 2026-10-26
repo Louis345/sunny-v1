@@ -4,6 +4,8 @@ import { getLearningCycle } from "../../engine/learningCycleRepository";
 export type RecordedToolLab = {
   root: string; childId: string; homeworkId: string; words: string[]; missedWords: string[];
   requests: any[]; teachingBoards: number; decisions: number;
+  /** Order one next-board step for every built-in the menu offers, instead of the robot's three. */
+  everyBuiltIn?: boolean;
 };
 
 /** One recorded Planner, artist and next-board Planner at the Anthropic client boundary. It answers
@@ -43,7 +45,7 @@ export function recordedToolReply(lab: RecordedToolLab, request: any): any {
       { activity: pick(activities, "word-radar:partial_visual_recall"), role: "practice", words: lab.missedWords, title: "Sound Steps" },
       { activity: pick(activities, "word-radar:hidden_word_recall"), role: "fresh_checkpoint", words: lab.words, title: "Recall Checkpoint" },
     ];
-    if (turn === 0) { lab.teachingBoards += 1; return message(rows.map(input => ({ name: "add_activity", input }))); }
+    if (turn === 0) { lab.teachingBoards += 1; return message(rows.map(input => ({ name: "add_activity", input: { ...input, story: `Story: ${input.title}`, picture: `Picture: ${input.title}` } }))); }
     const ids: string[] = results.map(row => row.activity_id).filter(Boolean);
     if (ids.length !== rows.length) throw new Error(`recorded_planner_expected_activity_ids:${JSON.stringify(results)}`);
     const evidence = offered("predict", "evidence_ids").slice(0, 1);
@@ -75,9 +77,16 @@ export function recordedToolReply(lab: RecordedToolLab, request: any): any {
       const step = (title: string) => {
         const node = cycle.nodes.find(row => row.title === title && builtIns.includes(row.nodeId));
         if (!node) throw new Error(`recorded_planner_built_in_missing:${title} offered=${builtIns.join(",")}`);
-        return { name: "add_step", input: { built_in: node.nodeId, words: [], title: `${title} Again`, purpose: "Practice again." } };
+        return { name: "add_step", input: { built_in: node.nodeId, words: [], title: `${title} Again`, purpose: "Practice again.", story: `Story: ${title} Again`, picture: `Picture: ${title} Again` } };
       };
-      return message([decide("revised", "generate_support"), step("Recall Practice"), step("Letter Rush"), step("Recall Checkpoint")]);
+      if (lab.everyBuiltIn) return message([decide("revised", "generate_support"), ...builtIns.map((built_in, index) => ({ name: "add_step", input: { built_in,
+        // A re-run takes all of its own words; a fresh game from the menu practices her missed words.
+        words: cycle.nodes.some(node => node.nodeId === built_in) ? [] : [...new Set(cycle.nodes.flatMap(node => Object.values(node.evidenceContract.spellingItems ?? {})).filter(item => lab.missedWords.includes(item.word)).map(item => item.wordId))],
+        title: `Again ${index + 1}`, purpose: "Practice again.", story: `Story: Again ${index + 1}`, picture: `Picture: Again ${index + 1}` } }))]);
+      // The first step is a fresh game from the menu, so the robot plays one the board set up new.
+      const missed = [...new Set(cycle.nodes.flatMap(node => Object.values(node.evidenceContract.spellingItems ?? {})).filter(item => lab.missedWords.includes(item.word)).map(item => item.wordId))];
+      const fresh = { name: "add_step", input: { built_in: pick(builtIns, "word-radar:visible_read"), words: missed, title: "Fresh Radar", purpose: "Practice the missed words.", story: "Story: Fresh Radar", picture: "Picture: Fresh Radar" } };
+      return message([decide("revised", "generate_support"), fresh, step("Letter Rush"), step("Recall Checkpoint")]);
     }
     const steps: string[] = results.map(row => row.step_id).filter(Boolean);
     return message([{ name: "set_order", input: { opening: steps, closing: [] } },

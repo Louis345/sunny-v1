@@ -1,4 +1,6 @@
 import fs from 'node:fs';
+import {spellingActivityMenu} from './spellingTeachingTools';
+import {spellingActivityCatalog} from './assignmentPlanner';
 import os from 'node:os';
 import path from 'node:path';
 import {createHash} from 'node:crypto';
@@ -227,12 +229,15 @@ it('does not reuse a setup that its own game would reject',()=>{
 const named=(f:ReturnType<typeof fixture>,builtIn:Record<string,string|undefined>)=>{
  for(const row of f.decision.nextInstruments as any[]){const id=builtIn[row.nodeId];if(id)row.spelling.builtInActivityId=id;}
 };
-it('offers the Planner only the tested built-in activities for spelling',async()=>{
+// 2026-10-25 owner review: the menu was only games she had played, so next boards were replays. It now
+// offers those re-runs plus every certified game and mode; a brand-new AI-built game is still not on it.
+it('offers the Planner the built-ins she played and every certified game and mode, never a new AI build',async()=>{
  const f=fixture(),opts={rootDir:f.rootDir};
  await runtime.advanceCanonicalCycleFromEvidence(f.request,opts);
  const addStep=(f.create.mock.calls[0][0] as any).tools.find((tool:any)=>tool.name==='add_step').input_schema;
  expect(addStep.required).toContain('built_in');
- expect(addStep.properties.built_in.enum).toEqual(['radar-check']);
+ expect(addStep.properties.built_in.enum).toEqual(['radar-check',...spellingActivityMenu(spellingActivityCatalog(childId)).choices]);
+ expect(addStep.properties.built_in.enum).not.toContain('generated-baseline');
 });
 // 2026-10-23: the deepest cause of AI-built spelling games was the request itself. It told the Planner
 // "You are the artist ... choose a game" and required a creator prompt and game-design fields for every
@@ -246,7 +251,7 @@ it('asks the spelling Planner for orders from the built-in list, not game design
  const prompt=payload.messages[0].content[0].text as string;
  expect(prompt).not.toContain('You are the artist');
  expect(prompt).not.toMatch(/choose a game/i);
- expect(prompt).toContain('tested built-in');
+ expect(prompt).toMatch(/tested built-in/i);
 });
 it('runs the built-in the Planner names under any new activity ID, and never builds a spelling game',async()=>{
  const f=fixture(),opts={rootDir:f.rootDir};

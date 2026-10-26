@@ -390,6 +390,9 @@ export function resolvePlannerBoardLaunchNode(
   const source = planNode as Partial<NodeConfig> | undefined;
   const firstRound = planNode?.rounds?.[0];
   const activityTitle = planNode?.title ?? boardNode.label;
+  // The Planner's story for the stop; older boards hold their title or a default there, which is no story.
+  const story = typeof planNode?.theme === "string" ? planNode.theme.trim() : "";
+  const activityStory = story && story !== activityTitle && !["learning adventure", "pending", "existing-instrument"].includes(story) ? story : undefined;
   const learningFocus = planNode?.targetLane ?? boardNode.target?.laneId;
   const mechanic = source?.mechanic ?? boardNode.mechanic;
 
@@ -431,6 +434,7 @@ export function resolvePlannerBoardLaunchNode(
     companionPolicy: source?.companionPolicy ?? boardNode.companionPolicy,
     companionContext: {
       activityTitle,
+      ...(activityStory ? { activityStory } : {}),
       ...(learningFocus ? { learningFocus } : {}),
       ...(mechanic ? { mechanic } : {}),
       ...(firstRound?.prompt ? { currentChallenge: firstRound.prompt } : {}),
@@ -459,6 +463,7 @@ export function buildPlannerBoardCompanionContext(
     phase: "opening",
     boardState: "activity_opening",
     activityTitle,
+    ...(context.activityStory ? { activityStory: context.activityStory } : {}),
     ...(context.learningFocus ? { learningFocus: context.learningFocus } : {}),
     ...(context.mechanic ? { mechanic: context.mechanic } : {}),
     ...(context.currentChallenge ? { currentChallenge: context.currentChallenge } : {}),

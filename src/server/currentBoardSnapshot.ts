@@ -11,6 +11,8 @@ export type CurrentBoardSnapshot = {
   launchToken?: string;
   activityId?: string;
   activityTitle?: string;
+  /** The story the Planner wrote for this stop; Elli frames the stop from it in her own words. */
+  activityStory?: string;
   learningFocus?: string;
   mechanic?: string;
   currentChallenge?: string;
@@ -174,6 +176,7 @@ export function buildCurrentBoardSnapshot(
     ["itemId", state.itemId ?? objectChallenge?.id],
     ["activityId", state.activityId],
     ["activityTitle", state.activityTitle],
+    ["activityStory", state.activityStory],
     ["learningFocus", state.learningFocus],
     ["mechanic", state.mechanic],
     ["currentChallenge", currentChallenge],
@@ -286,6 +289,7 @@ export function buildCurrentBoardSnapshotContext(
   if (snapshot.game) lines.push(`Current game: ${snapshot.game}`);
   if (snapshot.activityId) lines.push(`Current activity: ${snapshot.activityId}`);
   if (snapshot.activityTitle) lines.push(`Activity title: ${snapshot.activityTitle}`);
+  if (snapshot.activityStory) lines.push(`Activity story: ${snapshot.activityStory}`);
   if (snapshot.learningFocus) lines.push(`Learning focus: ${snapshot.learningFocus}`);
   if (snapshot.mechanic) lines.push(`Child interaction: ${snapshot.mechanic}`);
   if (snapshot.currentChallenge) lines.push(`Current challenge: ${snapshot.currentChallenge}`);

@@ -1238,6 +1238,10 @@ type LearningCreatorInput = {
   checkpointFile?: string;
   rawResponseDir?: string;
   retryUncertain?: boolean;
+  /** Who she is and what she has said, from the child chart, so the map is made for her. */
+  child?: import("../profiles/childChart").ChildVoice;
+  /** Paints the artist's background scene and returns its served path; Grok by default. */
+  paint?: (scene: string) => Promise<string>;
   /** Presentation history from the child chart, so each spelling map can be a new design. */
   previousDesigns?: ReadonlyArray<{pattern:string;theme?:string|null}>;
 };
@@ -1259,11 +1263,11 @@ export function compactPlannerFacts(packet:AssignmentPlanningPacket) {
     ...(history.length?{history:Object.fromEntries(history.map(([construct,entry])=>[construct,{observations:(entry.observations??[]).map(row=>({observationId:row.observationId,typed:row.childResponse??null,correct:row.result?.correct??null})),evaluations:(entry.evaluations??[]).map(row=>row.evaluationId)}]))}:{}),
   };
 }
-const MAP_ARTIST_PERSONA="You are Sunny's map artist. You design adventure maps a child wants to finish. You receive the teacher's journey and the illustrated world. You decide the shape of the map, where each stop sits, how each path curves and which look it wears. You never change the lesson.";
+const MAP_ARTIST_PERSONA="You are Sunny's map artist. You design adventure maps a child wants to finish. You receive the teacher's journey and the illustrated world. You decide the shape of the map, where each stop sits, how each path curves and which look it wears; the teacher owns the lesson.";
 const BOARD_ARTWORK="/generated/adventure-board-demo/silent-letter-world.jpeg";
 const ARTIST_CURVES=["straight","arc","wave","loop"] as const,ARTIST_STYLES=["solid","dashed","glow"] as const;
 type BoardPoint={x:number;y:number};
-type ArtistDrawing={pattern?:string;theme?:string;portals:Map<string,PortalPlacement>;edges:Map<string,{curve:string;style:string}>};
+type ArtistDrawing={pattern?:string;theme?:string;scene?:string;portals:Map<string,PortalPlacement>;edges:Map<string,{curve:string;style:string}>};
 const unit=(value:unknown)=>typeof value==="number"&&Number.isFinite(value)?Math.min(1,Math.max(0,Math.round(value*1000)/1000)):undefined;
 const boardPoint=(value:unknown):BoardPoint|undefined=>{const point=object(value),x=unit(point?.x),y=unit(point?.y);return x===undefined||y===undefined?undefined:{x,y};};
 /** Control points for the curve the artist chose; the board draws a path through them. */
@@ -1276,9 +1280,10 @@ function curvePoints(curve:string,from:BoardPoint,to:BoardPoint):BoardPoint[]|un
 /** Merges one artist turn into its drawing. A preview is a whole new map; an adjustment or the
  * submission changes only what it names. Anything unreadable is simply not drawn. */
 function drawArtistTurn(drawing:ArtistDrawing|undefined,given:Record<string,unknown>,whole:boolean):ArtistDrawing {
-  const next:ArtistDrawing={pattern:drawing?.pattern,theme:drawing?.theme,portals:new Map(whole?[]:drawing?.portals??[]),edges:new Map(whole?[]:drawing?.edges??[])};
+  const next:ArtistDrawing={pattern:drawing?.pattern,theme:drawing?.theme,scene:drawing?.scene,portals:new Map(whole?[]:drawing?.portals??[]),edges:new Map(whole?[]:drawing?.edges??[])};
   if(typeof given.pattern==="string"&&given.pattern.trim())next.pattern=given.pattern.trim();
   if(typeof given.theme==="string")next.theme=given.theme;
+  if(typeof given.scene==="string"&&given.scene.trim())next.scene=given.scene.trim();
   for(const row of Array.isArray(given.portals)?given.portals:[]){const portal=object(row),landscape=boardPoint(portal?.landscape),portrait=boardPoint(portal?.portrait);if(typeof portal?.id==="string"&&landscape&&portrait)next.portals.set(portal.id,{landscape,portrait});}
   for(const row of Array.isArray(given.edges)?given.edges:[]){const edge=object(row);if(typeof edge?.id==="string"&&typeof edge.curve==="string"&&(ARTIST_STYLES as readonly unknown[]).includes(edge.style))next.edges.set(edge.id,{curve:edge.curve,style:String(edge.style)});}
   return next;
@@ -1316,7 +1321,7 @@ async function designNativeBoard(input:LearningCreatorInput,native:NativeLearnin
 /** The map artist paints one journey (Discovery, Teaching or next board). Shared so every
  * spelling board is drawn the same way; `identity` keys the saved drawing so a restart never
  * buys it twice, and `stagePrefix` names its saved provider turns. */
-export async function drawJourney(input:Pick<LearningCreatorInput,"client"|"model"|"checkpointFile"|"rawResponseDir"|"previousDesigns"|"retryUncertain">&{journey:AdventureJourneyDefinition;label:string;identity:unknown;stagePrefix:string}):Promise<{composition:AdventureBoardComposition;pattern?:string}> {
+export async function drawJourney(input:Pick<LearningCreatorInput,"client"|"model"|"checkpointFile"|"rawResponseDir"|"previousDesigns"|"retryUncertain"|"child"|"paint">&{journey:AdventureJourneyDefinition;label:string;identity:unknown;stagePrefix:string}):Promise<{composition:AdventureBoardComposition;pattern?:string}> {
   const client=input.client??new Anthropic({apiKey:process.env.ANTHROPIC_API_KEY});
   const model=input.model??process.env.SUNNY_ARCHITECT_MODEL??"claude-fable-5";
   const journey=input.journey,started=Date.now();
@@ -1333,19 +1338,21 @@ export async function drawJourney(input:Pick<LearningCreatorInput,"client"|"mode
   const edges={type:"array",description:"How each path between two stops is drawn.",items:{type:"object",additionalProperties:false,required:["id","curve","style"],properties:{id:{type:"string",enum:journey.edges.map(edge=>edge.id)},curve:{type:"string",enum:[...ARTIST_CURVES]},style:{type:"string",enum:[...ARTIST_STYLES]}}}};
   const theme={type:"string",enum:THEME_PRESETS.map(preset=>preset.id),description:"The look of the map."};
   const pattern={type:"string",description:"Your design idea in a few words, for example octagon ring, spiral or mountain climb."};
+  const scene={type:"string",description:"The background picture of the whole map, made for her from who she is: one or two sentences for the illustrator. A wide, bright scene with open ground where the stops sit, and no words or letters. Leave it out to keep the illustrated world."};
   const whatISee={type:"string",description:"Write this first. Before your first look, say what you intend. After a look, describe what the screenshots actually show: can you read every label against the scene, and do any portals or labels crowd or overlap? Say what you will change, or why it is ready."} as const;
   const tool=(name:string,description:string,properties:Record<string,unknown>,required:string[])=>strictTool({name,description,input_schema:{type:"object" as const,additionalProperties:false,required,properties}});
   // Once the looks are used, the last turn takes changes only: a full redraw costs the child minutes.
-  const finalTool=tool("submit_board","Your looks are used. Submit the map as you last saw it, with any last changes. Do not redraw it.",{whatISee,pattern,theme,portals,edges,rationale:schemaString},["whatISee","pattern","rationale"]);
+  const finalTool=tool("submit_board","Your looks are used. Submit the map as you last saw it, with any last changes; a redraw costs her waiting time.",{whatISee,pattern,theme,scene,portals,edges,rationale:schemaString},["whatISee","pattern","rationale"]);
   const tools=[
-    tool("preview_board",`Place the whole map and see it rendered on the real board at 1280x720 and 768x1024, with each portal's measured box and any overlaps. You may look at most ${MAX_BOARD_PREVIEWS} times in total.`,{whatISee,pattern,theme,portals,edges},["whatISee","pattern","theme","portals","edges"]),
-    tool("adjust_board","After a look, change only what needs changing and look again. Everything you do not mention stays exactly as it was. This is much faster than sending the whole map again.",{whatISee,pattern,theme,portals,edges},["whatISee"]),
-    tool("submit_board","Submit the finished map. It is published exactly as submitted. Leave portals and edges out to submit the map as you last saw it; you may include a few last changes.",{whatISee,pattern,theme,portals,edges,rationale:schemaString},["whatISee","pattern","rationale"]),
+    tool("preview_board",`Place the whole map and see it rendered on the real board at 1280x720 and 768x1024, with each portal's measured box and any overlaps. You may look at most ${MAX_BOARD_PREVIEWS} times in total.`,{whatISee,pattern,theme,scene,portals,edges},["whatISee","pattern","theme","portals","edges"]),
+    tool("adjust_board","After a look, change only what needs changing and look again. Everything you do not mention stays exactly as it was. This is much faster than sending the whole map again.",{whatISee,pattern,theme,scene,portals,edges},["whatISee"]),
+    tool("submit_board","Submit the finished map. It is published exactly as submitted. Leave portals and edges out to submit the map as you last saw it; you may include a few last changes.",{whatISee,pattern,theme,scene,portals,edges,rationale:schemaString},["whatISee","pattern","rationale"]),
   ];
   const earlier=(input.previousDesigns??[]).filter(design=>design.pattern.trim());
   let messages:Anthropic.Messages.MessageParam[]=[{role:"user",content:`${MAP_ARTIST_PERSONA}
-Design the map for landscape (1280x720 kiosk) and portrait (768x1024). Each stop's position is x and y from 0 to 1 across the board's open area, 0,0 at the top-left; the numbers are the centre of the stop. Choose any shape that suits this journey: a ring, a spiral, a climb, a river, a constellation, a winding road, or an idea of your own, and name it in pattern. When the journey splits at a choice, give each option its own branch until the options rejoin, so she sees a real fork. For each path choose a curve (straight, arc, wave or loop) and a style (solid, dashed or glow).
-The background is always the illustrated world, ${BOARD_ARTWORK}. Choose one theme for the colours: ${THEME_PRESETS.map(preset=>`${preset.id} (${preset.label})`).join(", ")}. Every label is drawn as text on a rounded plate; each theme's text and plate colours are already chosen so a child can read every label at a glance.
+${input.child?`Who she is: ${JSON.stringify(input.child)}
+`:""}Design the map for landscape (1280x720 kiosk) and portrait (768x1024). Each stop's position is x and y from 0 to 1 across the board's open area, 0,0 at the top-left; the numbers are the centre of the stop. Choose any shape that suits this journey: a ring, a spiral, a climb, a river, a constellation, a winding road, or an idea of your own, and name it in pattern. When the journey splits at a choice, give each option its own branch until the options rejoin, so she sees a real fork. For each path choose a curve (straight, arc, wave or loop) and a style (solid, dashed or glow).
+The background is the illustrated world, ${BOARD_ARTWORK}, unless you describe a new one for her in scene; an illustrator paints it after you submit, and your looks show the illustrated world. Choose one theme for the label colours: ${THEME_PRESETS.map(preset=>`${preset.id} (${preset.label})`).join(", ")}. Every label is drawn as text on a rounded plate; each theme's text and plate colours are already chosen so a child can read every label at a glance.
 Spacing: each portal is an orb with its label plate underneath; the measured sizes below include the wrapped label. Use the whole canvas so the map breathes, and leave at least 28 pixels of air between stops.
 Already taken on screen, so keep portals away: the level badge in the top-left corner, the status bar along the bottom centre, and Elli, the companion, who stands in the bottom-right corner.
 ${earlier.length?`Her earlier maps: ${earlier.map(design=>`${design.pattern}${design.theme?` (${design.theme})`:""}`).join("; ")}. Make this a new design she has not seen: a different shape and feel.`:"Make this a new design: a shape and feel she will remember."}
@@ -1393,7 +1400,14 @@ The teacher's journey (immutable): stops ${JSON.stringify(journey.portals.map(po
   if(!placed)console.log(` 🎮 [experience-creator] [composition] [fallback-layout] reason=${ending==="submitted"?"nothing_placed":ending} plan=${input.label}`);
   else if(ending!=="submitted")console.log(` 🎮 [experience-creator] [composition] [last-look] reason=${ending} plan=${input.label}`);
   console.log(` 🎮 [experience-creator] [pattern] ${drawing?.pattern??"none"}`);
-  const composition=compositionFromDrawing(journey,drawing,!placed),elapsedMs=Date.now()-started;
+  const composition=compositionFromDrawing(journey,drawing,!placed);
+  // The artist's scene is painted once; a failed painting keeps the illustrated world, logged.
+  if(drawing?.scene){
+    const paint=input.paint??(given=>createDirectArtwork(given,path.join(process.cwd(),"web","public"),`board-scene-${crypto.createHash("sha256").update(sourceHash+given).digest("hex").slice(0,16)}.jpeg`));
+    try{composition.theme={...composition.theme,background:{type:"image",value:await paint(`Wide landscape background for a child's adventure map: ${drawing.scene} Bright, friendly, painterly, with open ground for the stops. No text, no letters, no numbers.`)}};console.log(` 🎮 [experience-creator] [scene] [painted] plan=${input.label}`);}
+    catch(error){console.warn(` 🎮 [experience-creator] [scene] [fallback] plan=${input.label} reason=${error instanceof Error?error.message:String(error)}`);}
+  }
+  const elapsedMs=Date.now()-started;
   if(input.checkpointFile){
     fs.mkdirSync(path.dirname(input.checkpointFile),{recursive:true});
     fs.writeFileSync(input.checkpointFile+".tmp",`${JSON.stringify({version:2,planId:input.label,model,sourceHash,composition,...(drawing?.pattern?{pattern:drawing.pattern}:{}),ending,previews,elapsedMs},null,2)}\n`,"utf8");
@@ -2163,11 +2177,11 @@ export function spellingTeachingToolPrompt(packet:AssignmentPlanningPacket):stri
   return `${learningPlannerInstructions('spelling').text}
 Build the Teaching board with the tools:
 1. add_activity (or add_explainer, add_reward) for each activity, with the assigned words it covers. Each returns an activity_id.
-2. predict for every academic activity: your preregistered prediction. It is never a measured learning claim.
-3. set_order: opening activities everyone plays first, then closing activities everyone plays after the choice. Optionally add_choice: two or more options, each its own short sequence, with a label she reads and your engagement hypothesis. Give a meaningful choice when academically valid alternatives exist; otherwise explain single_path_reason. Options may order the same activities differently.
+2. predict for every academic activity: what you expect to happen. It is a prediction, not a learning result.
+3. set_order: activities everyone plays first, then activities everyone plays after the choice. add_choice when she should pick her path: two or more options, each its own short sequence, with a label she reads and why it might work for her. Options may order the same activities differently.
 4. finish_board. Sunny checks the board and replies accepted, or tells you exactly what to fix.
 You may call several tools in one turn. Activity IDs come back from add_activity; use them exactly.
-You choose activities, count, support, alternatives and hypotheses. Separate assisted practice, independent measurement (only word-radar:hidden_word_recall as a fresh_checkpoint) and engagement. Use the catalog for varied practice addressing measured gaps; activity count remains your decision. Each path from start to finish, counting the start, the choice and the finish, fits in 7 steps. Request a missing capability with request_capability; nothing is built automatically. Cite only the supplied observation IDs. Do not claim mastery or readiness. Sunny draws the start, portals, paths and connections, works out which activities each checkpoint follows, and the map artist owns artwork and placement.
+The kiosk screen shows up to 7 stops along any one path, counting the start, the choice and the finish. When no activity fits what she needs, ask for one with request_capability; a person reads every request. Sunny draws the start, portals, paths and connections and works out which activities each checkpoint follows; the map artist owns the artwork and placement.
 Homework and child-chart context:
 ${JSON.stringify(compactPlannerFacts(packet))}`;
 }

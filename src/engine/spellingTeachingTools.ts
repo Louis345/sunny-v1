@@ -29,8 +29,9 @@ const ROLES: Record<string, ReadonlyArray<"instruction" | "practice" | "fresh_ch
   "word-radar:partial_visual_recall": ["instruction", "practice"],
 };
 
-export function spellingTeachingToolkit(packet: AssignmentPlanningPacket) {
-  const launchable = packet.activityCatalog.filter(card => card.launchable);
+/** The tested games and modes a spelling board can offer: one menu for the Teaching board and the next board. */
+export function spellingActivityMenu(catalog: AssignmentPlanningPacket["activityCatalog"]) {
+  const launchable = catalog.filter(card => card.launchable);
   const offered = new Set(launchable.map(card => card.nodeType ?? card.activityId));
   const radarModes = new Map<string, Record<string, unknown>>();
   for (const mode of launchable.find(card => card.activityId === "word-radar")?.capabilityModes ?? []) {
@@ -43,6 +44,18 @@ export function spellingTeachingToolkit(packet: AssignmentPlanningPacket) {
     ...(offered.has("letter-rush") ? ["letter-rush:read-and-race", "letter-rush:hear-and-spell", "letter-rush:type-and-spell"] : []),
     ...games,
   ];
+  /** The roles a game can play: only a hidden-word Radar measures what she knows. */
+  const roles = (activity: string): ReadonlyArray<"instruction" | "practice" | "fresh_checkpoint"> => ROLES[activity] ?? (activity.startsWith("letter-rush:") ? ["practice"] : ["instruction", "practice"]);
+  /** What code fills in for a game and mode: the Radar's settings or Letter Rush's mode. */
+  const setup = (activity: string): { type: string; wordRadarConfig?: Record<string, unknown>; letterRushMode?: string } => {
+    const [type, mode] = activity.split(":");
+    return { type, ...(type === "word-radar" ? { wordRadarConfig: structuredClone(radarModes.get(mode)) } : type === "letter-rush" ? { letterRushMode: mode } : {}) };
+  };
+  return { offered, choices, roles, setup };
+}
+
+export function spellingTeachingToolkit(packet: AssignmentPlanningPacket) {
+  const { offered, choices, roles, setup } = spellingActivityMenu(packet.activityCatalog);
   const assigned = [...new Set([...packet.capturedHomework.words, ...(packet.capturedHomework.wordGroups ?? []).flatMap(group => group.words)])];
   // Predictions cite this homework's evidence. Her whole history stays in the prompt as context, but as
   // a pick-list it outgrew what strict mode can compile (251 IDs on a real chart, 2026-10-25).
@@ -55,6 +68,9 @@ export function spellingTeachingToolkit(packet: AssignmentPlanningPacket) {
   const idPrefix = `act-${packet.sourceDocument.fileHash.slice(0, 6)}`;
 
   const word = enumOf(assigned, "none").describe("One of her assigned words.");
+  // What she meets at this stop: the story Elli can tell as it opens, and what its picture on the map shows.
+  const look = { story: text("What this stop is in her world: one or two sentences Elli can tell her as it opens."), picture: text("What this stop's picture on her map shows, for the illustrator.") };
+  const lookOf = (input: { story: string; picture: string }) => ({ theme: input.story, thumbnailPrompt: input.picture });
   const predictionSchema = z.object({
     activity_id: text("The activity this prediction is for."),
     expected_accuracy_min: z.number().min(0).max(1), expected_accuracy_max: z.number().min(0).max(1),
@@ -78,25 +94,28 @@ export function spellingTeachingToolkit(packet: AssignmentPlanningPacket) {
 
   const tools: PlannerTool<TeachingState>[] = [
     { name: "add_activity", description: "Add one activity with the words it practices or checks. Returns its activity_id; then call predict for it. A fresh_checkpoint is the only independent measurement and must use word-radar:hidden_word_recall.",
-      schema: z.object({ activity: enumOf(choices, "word-radar:hidden_word_recall").describe("Which tested activity, and its mode."), role: z.enum(["instruction", "practice", "fresh_checkpoint"]), words: z.array(word).min(1), title: text("The short name she sees under the portal: 2 to 4 words, like a game title.") }).strict(),
+      schema: z.object({ activity: enumOf(choices, "word-radar:hidden_word_recall").describe("Which tested activity, and its mode."), role: z.enum(["instruction", "practice", "fresh_checkpoint"]), words: z.array(word).min(1), title: text("The short name she sees under the portal: 2 to 4 words, like a game title."), ...look }).strict(),
       run: (state, input) => {
-        const allowed = ROLES[input.activity] ?? (input.activity.startsWith("letter-rush:") ? ["practice"] : ["instruction", "practice"]);
+        const allowed = roles(input.activity);
         if (!allowed.includes(input.role)) return { ok: false, error: input.role === "fresh_checkpoint" ? "only word-radar:hidden_word_recall can be a fresh_checkpoint" : `${input.activity} can only be ${allowed.join(" or ")}` };
         const twice = repeated(input.words); if (twice) return { ok: false, error: `the word ${twice} is listed more than once` };
-        const [type, mode] = input.activity.split(":");
-        const extra = type === "word-radar" ? { wordRadarConfig: structuredClone(radarModes.get(mode)) } : type === "letter-rush" ? { letterRushMode: mode } : {};
-        return add(state, { title: input.title, type, role: input.role, targets: [...input.words], prediction: null, extra });
+        const { type, ...extra } = setup(input.activity);
+        return add(state, { title: input.title, type, role: input.role, targets: [...input.words], prediction: null, extra: { ...extra, ...lookOf(input) } });
       } },
     // The explainer's teaching content is too large for the API's strict grammar alongside the
     // other tools (live compile check 2026-10-24); it stays unlocked and its handler checks it.
-    ...(offered.has("visual-explainer") ? [{ name: "add_explainer", strict: false, description: "Add a Visual Explainer that teaches a spelling pattern with chunked words and one check question. It is always instruction. Returns its activity_id; then call predict for it.",
+    ...(offered.has("visual-explainer") ? [{ name: "add_explainer", strict: false, description: `Add a Visual Explainer that teaches a spelling pattern with chunked words and one check question at the end. It is always instruction. She is in grade ${packet.childChart.grade ?? "school"} and Elli reads it with her: every line is short and in her words. Returns its activity_id; then call predict for it.`,
       schema: z.object({
-        title: text("The short name she sees under the portal."), topic: z.string().min(1).max(120), learning_goal: z.string().min(1).max(220), misconception: text("The mistake this explainer addresses."),
-        strategy: z.object({ title: z.string().min(1).max(100), steps: z.array(z.string().min(1).max(140)).min(2).max(4) }).strict(),
-        words: z.array(z.object({ text: word, chunks: z.array(z.string().min(1)).min(2).max(6).describe("Letters split into chunks that join to spell the word exactly."), spoken_chunks: z.array(z.string().min(1).max(100)).min(2).max(6).describe("How each chunk sounds, one per chunk in the same order, spelled the way it is said (lee for ly), never letter names."), focus_chunk: text("One chunk from this word."), tip: z.string().min(1).max(160) }).strict()).min(1).max(8),
-        check: z.object({ target_word: word, prompt: z.string().min(1).max(180), options: z.array(z.object({ label: text("An answer choice."), correct: z.boolean() }).strict()).min(2).max(4).describe("Exactly one option is correct.") }).strict(),
+        title: text("The short name she sees under the portal."), ...look, topic: z.string().min(1).max(120), learning_goal: z.string().min(1).max(220), misconception: text("The mistake this explainer addresses."),
+        strategy: z.object({ title: z.string().min(1).max(32).describe("A name for the trick, in her words."), steps: z.array(z.string().min(1).max(60)).min(2).max(3).describe("Two or three short steps she can hear and remember.") }).strict(),
+        words: z.array(z.object({ text: word, chunks: z.array(z.string().min(1)).min(2).max(6).describe("Letters split into chunks that join to spell the word exactly."), spoken_chunks: z.array(z.string().min(1).max(100)).min(2).max(6).describe("How each chunk sounds, one per chunk in the same order, spelled the way it is said (lee for ly), never letter names."), focus_chunk: text("One chunk from this word."), tip: z.string().min(1).max(60).describe("One short line Elli reads with this word.") }).strict()).min(1).max(8),
+        check: z.object({ target_word: word, prompt: z.string().min(1).max(90).describe("Asked after the lesson: about the pattern across her words, such as which word has the sneaky letter."), options: z.array(z.object({ label: text("An answer choice."), correct: z.boolean() }).strict()).min(2).max(4).describe("Exactly one option is correct.") }).strict(),
       }).strict(),
       run: (state: TeachingState, input: any): Result => {
+        // She reads letters, not phonetic notation: a sound is written the way it is said.
+        if ([...input.strategy.steps, ...input.words.flatMap((row: { tip: string; spoken_chunks: string[] }) => [row.tip, ...row.spoken_chunks])].some((line: string) => line.includes("/"))) {
+          return { ok: false, error: "write sounds in letters she can read, without slash notation like /nock/" };
+        }
         for (const row of input.words) {
           if (row.chunks.join("") !== row.text) return { ok: false, error: `the chunks for ${row.text} must join to spell it exactly` };
           if (!row.chunks.includes(row.focus_chunk)) return { ok: false, error: `focus_chunk for ${row.text} must be one of its chunks` };
@@ -105,15 +124,15 @@ export function spellingTeachingToolkit(packet: AssignmentPlanningPacket) {
         if (!input.words.some((row: { text: string }) => row.text === input.check.target_word)) return { ok: false, error: "check.target_word must be one of this explainer's words" };
         if (input.check.options.filter((option: { correct: boolean }) => option.correct).length !== 1) return { ok: false, error: "the check needs exactly one correct option" };
         const options = input.check.options.map((option: { label: string; correct: boolean }, index: number) => ({ id: `option-${index + 1}`, label: option.label, correct: option.correct }));
-        return add(state, { title: input.title, type: "visual-explainer", role: "instruction", targets: input.words.map((row: { text: string }) => row.text), prediction: null, extra: { activityConfig: {
+        return add(state, { title: input.title, type: "visual-explainer", role: "instruction", targets: input.words.map((row: { text: string }) => row.text), prediction: null, extra: { ...lookOf(input), activityConfig: {
           topic: input.topic, learningGoal: input.learning_goal, misconception: input.misconception, strategy: input.strategy,
           words: input.words.map((row: any) => ({ text: row.text, chunks: row.chunks, spokenChunks: row.spoken_chunks, focusChunk: row.focus_chunk, tip: row.tip })),
           check: { targetWord: input.check.target_word, prompt: input.check.prompt, options, correctOptionId: options.find((option: { correct: boolean }) => option.correct).id },
         } } });
       } } as PlannerTool<TeachingState>] : []),
     ...(offered.has("mystery") ? [{ name: "add_reward", description: "Add a Mystery reward with no words and no measurement. Returns its activity_id.",
-      schema: z.object({ title: text("The short name she sees under the portal.") }).strict(),
-      run: (state: TeachingState, input: { title: string }) => add(state, { title: input.title, type: "mystery", role: null, targets: [], prediction: null, extra: {} }) } as PlannerTool<TeachingState>] : []),
+      schema: z.object({ title: text("The short name she sees under the portal."), ...look }).strict(),
+      run: (state: TeachingState, input: { title: string; story: string; picture: string }) => add(state, { title: input.title, type: "mystery", role: null, targets: [], prediction: null, extra: lookOf(input) }) } as PlannerTool<TeachingState>] : []),
     { name: "predict", description: "Record your preregistered prediction for one academic activity. Every activity except a reward needs one. Calling it again replaces it. It is never a claim she has learned anything.",
       schema: predictionSchema,
       run: (state, input) => {

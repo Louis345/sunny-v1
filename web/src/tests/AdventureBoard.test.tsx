@@ -1094,6 +1094,15 @@ describe("AdventureBoardExperience", () => {
       progress: "Opening Silent Letter Signal Hunt.",
     });
 
+    // The stop's story reaches Elli as it opens; a placeholder theme (its title, or the default) never does.
+    expect(buildPlannerBoardCompanionContext({ ...node!, companionContext: { ...node!.companionContext, activityStory: "The kiln opens at noon." } })).toMatchObject({ activityStory: "The kiln opens at noon." });
+    const storied = resolvePlannerBoardLaunchNode({ ...packet, activeSessionPlan: { ...packet.activeSessionPlan!, nodePlan: packet.activeSessionPlan!.nodePlan.map(row => ({ ...row, theme: "The kiln opens at noon." })) } } as typeof packet, board.nodes[0]);
+    expect(storied?.companionContext).toMatchObject({ activityStory: "The kiln opens at noon." });
+    for (const theme of ["learning adventure", "Silent Letter Signal Hunt"]) {
+      const plain = resolvePlannerBoardLaunchNode({ ...packet, activeSessionPlan: { ...packet.activeSessionPlan!, nodePlan: packet.activeSessionPlan!.nodePlan.map(row => ({ ...row, theme })) } } as typeof packet, board.nodes[0]);
+      expect(plain?.companionContext).not.toHaveProperty("activityStory");
+    }
+
     const action = buildNodeLaunchAction(node!, {
       childId: "reina",
       companion: "matilda",

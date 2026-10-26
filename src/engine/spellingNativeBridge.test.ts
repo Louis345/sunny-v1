@@ -51,11 +51,12 @@ it('records explainer exposure only when a word chunk actually becomes visible',
  const html=fs.readFileSync(path.join(process.cwd(),'web/public/games/spelling-visual-explainer.html'),'utf8');
  const source=html.slice(html.indexOf('      function renderScene('),html.indexOf('      function checkEvidence('));
  const calls:any[]=[];const toggle={toggle(){}};
- const sandbox:any={modelNodes:[{word:{text:'night'},chunkNodes:[{classList:toggle,dataset:{}}],tip:{classList:toggle}},{word:{text:'light'},chunkNodes:[{classList:toggle,dataset:{}}],tip:{classList:toggle}}],el:{finishButton:{}},window:{GameBridge:{reportState:(label:string,payload:any)=>calls.push(payload)}}};
+ const sandbox:any={LESSON_START:12,RECAP_START:80,document:{querySelector:()=>({}),getElementById:()=>({classList:{toggle(){}}})},modelNodes:['night','light'].map(text=>({word:{text},row:{},chunkNodes:[{classList:toggle,dataset:{}}],tip:{classList:toggle}})),el:{finishButton:{}},window:{GameBridge:{reportState:(label:string,payload:any)=>calls.push(payload)}}};
  vm.runInNewContext(source+'\nrenderScene({progress:0});',sandbox);expect(calls).toHaveLength(0);
- vm.runInNewContext('renderScene({progress:8});renderScene({progress:8});',sandbox);
+ // One word at a time (2026-10-26): the first word's chunks show early in its turn, the second word's in its own.
+ vm.runInNewContext('renderScene({progress:20});renderScene({progress:20});',sandbox);
  expect(calls).toHaveLength(1);expect(calls[0]).toMatchObject({spellingItemOpened:true,currentWord:'night',answerVisibility:'visible'});
- vm.runInNewContext('renderScene({progress:12});',sandbox);expect(calls.map(c=>c.currentWord)).toEqual(['night','light']);
+ vm.runInNewContext('renderScene({progress:60});',sandbox);expect(calls.map(c=>c.currentWord)).toEqual(['night','light']);
 });
 
 it('preserves the explainer chunk choice as non-spelling evidence at its source',()=>{

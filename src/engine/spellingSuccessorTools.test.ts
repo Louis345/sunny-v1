@@ -32,7 +32,7 @@ function session(given = facts()) {
   return { kit, state, call };
 }
 const decision = (overrides: Record<string, unknown> = {}) => ({ status: "revised", reason: "Silent letters still missed.", progression_action: "generate_support", preserve: ["Explainer first."], change: ["More practice."], test_next: ["Silent letters."], next_evidence_required: ["Fresh recall."], prediction_evaluation_ids: ["eval-1"], revised_hypothesis: "More guided practice before recall.", ...overrides });
-const step = (built_in: string, title: string, words: string[] = []) => ({ built_in, words, title, purpose: "Practice the missed silent letters." });
+const step = (built_in: string, title: string, words: string[] = []) => ({ built_in, words, title, purpose: "Practice the missed silent letters.", story: `Story: ${title}`, picture: `Picture: ${title}` });
 
 describe("spelling next-board tools", () => {
   it("offers small strict tools whose pick-lists are her tested built-ins and real evaluations", () => {

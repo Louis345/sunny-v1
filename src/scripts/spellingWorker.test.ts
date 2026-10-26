@@ -149,7 +149,7 @@ describe("spelling in the production generation worker", () => {
       }
       if (scenario === "build-failure") {
         expect(job.nodes.find(node => node.nodeId === "practice")!.status).toBe("not_ready");
-        expect(portal("practice")).toMatchObject({ state: "locked", lock: { reason: "not-ready", label: "Not ready" } });
+        expect(portal("practice")).toMatchObject({ state: "hidden" });
         expect(portal("check").state).toBe("available");
         expect(published.nodes.find(node => node.nodeId === "practice")!.notReadyReason).toContain("spelling_native_contract_changed");
         expect(report.notReady).toEqual([{ nodeId: "practice", reason: expect.stringContaining("spelling_native_contract_changed") }]);
@@ -157,7 +157,7 @@ describe("spelling in the production generation worker", () => {
       }
       expect(report.notReady).toEqual([{ nodeId: "practice", reason: "unknown_target_word:zebra" }]);
       expect(job.nodes.find(node => node.nodeId === "practice")!.status).toBe("not_ready");
-      expect(portal("practice")).toMatchObject({ state: "locked", lock: { reason: "not-ready", label: "Not ready" } });
+      expect(portal("practice")).toMatchObject({ state: "hidden" });
       expect(portal("check").state).toBe("available");
       expect(published.nodes.find(node => node.nodeId === "practice")).toMatchObject({ state: "blocked", artifactBinding: null });
       expect(fs.existsSync(path.join(child, "homework/direct-drafts", homeworkId, "native-instruments/practice.json"))).toBe(false);

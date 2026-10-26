@@ -1,4 +1,5 @@
 import {journeyChoiceAvailable} from '../shared/adventureBoardDefinition';
+import { letterRushConfig, spellingNativeConfig } from "./spellingNativeSetup";
 import type { BoardCanvasProof } from './adventureBoardCanvas';
 import { renderBoardDefinition, journeyFrontier, type AdventureBoardDefinition } from '../shared/adventureBoardDefinition';
 import fs from "fs";
@@ -505,6 +506,8 @@ export type NextInstrumentPrescription = {
   escalation?: string;
   mechanicSpec?: string;
   mathematicalHook?: string;
+  /** What the stop's picture on her map shows, written by the Planner. */
+  picture?: string;
   /** Marks the one Planner-authorized encounter on a Quest or Boss successor board. */
   encounter?: "quest" | "boss";
 };
@@ -513,8 +516,10 @@ export type SpellingInstrumentPrescription = {
   wordIds: string[];
   measurementRole: "practice" | "fresh_checkpoint";
   responseMode: LearningCycleSpellingItem["response"]["mode"];
-  /** The tested built-in activity this step re-runs. Spelling boards run only built-ins. */
+  /** The tested built-in activity this step re-runs. */
   builtInActivityId?: string;
+  /** Or a game and mode from the menu, set up fresh for this step's words. */
+  activity?: { id: string; type: string; wordRadarConfig?: Record<string, unknown>; letterRushMode?: string };
 };
 
 /** The tested built-in spelling activities a next board may re-run: one list for the Planner and the board. */
@@ -565,6 +570,7 @@ export function validateSpellingPrescription(value: unknown): SpellingInstrument
   return {
     wordIds: [...row.wordIds], measurementRole: row.measurementRole!, responseMode: row.responseMode!,
     ...(typeof row.builtInActivityId === "string" && row.builtInActivityId.trim() ? { builtInActivityId: row.builtInActivityId.trim() } : {}),
+    ...(row.activity && typeof row.activity === "object" && typeof row.activity.id === "string" && typeof row.activity.type === "string" ? { activity: structuredClone(row.activity) } : {}),
   };
 }
 
@@ -835,7 +841,7 @@ export function assertJourneyChoiceAvailable(cycle:LearningCycleRecordV2,choiceI
   const selections=cycle.routeSelection?.choices??{};
   const completed=cycle.nodes.filter(node=>node.state==='completed').map(node=>node.nodeId);
   journeyFrontier(definition,{...selections,[choiceId]:optionId},completed,notReadyNodeIds(cycle));
-  if(!journeyChoiceAvailable(definition,selections,completed,choiceId,notReadyNodeIds(cycle)))throw new Error('journey_choice_not_reached');
+  if(!journeyChoiceAvailable(definition,selections,completed,choiceId,notReadyNodeIds(cycle),allowsReadyActivitySelection(cycle)))throw new Error('journey_choice_not_reached');
 }
 
 function normalizeAgencyNodeStates(cycle: LearningCycleRecordV2): void {
@@ -1302,7 +1308,19 @@ function prepareSuccessorBoard(
     });
     const design = prescriptionDesign(prescription);
     // Decisions saved before the Planner named built-ins re-run the activity whose ID they repeated.
-    const candidate = next.domain === "spelling" ? findReusableBuiltIn(next, spelling?.builtInActivityId ?? prescription.nodeId, spelling?.measurementRole) : undefined;
+    // A game and mode from the menu is set up fresh for this step's words, the way the Teaching board sets it up.
+    const fresh = spelling?.activity;
+    let freshSetup: Record<string, unknown> | undefined, freshReady = Boolean(fresh);
+    if (fresh) {
+      try {
+        freshSetup = spellingNativeConfig({ type: fresh.type, nodeId, items: spellingItems ?? [], wordRadarConfig: fresh.wordRadarConfig,
+          activityConfig: fresh.type === "letter-rush" ? letterRushConfig({ mode: fresh.letterRushMode ?? "read-and-race", title: prescription.title, words: (spellingItems ?? []).map(item => item.word) }) : undefined });
+      } catch (error) {
+        freshReady = false;
+        console.warn(` 🎮 [learning-board] [successor-fresh] [not-ready] node=${nodeId} activity=${fresh.id} reason=${error instanceof Error ? error.message : String(error)}`);
+      }
+    }
+    const candidate = next.domain === "spelling" && !fresh ? findReusableBuiltIn(next, spelling?.builtInActivityId ?? prescription.nodeId, spelling?.measurementRole) : undefined;
     const reusedSetup = candidate?.evidenceContract.nativeConfig ? repointReusedSetup(candidate, nodeId, spellingItems ?? []) : undefined;
     const source = candidate && (candidate.evidenceContract.nativeConfig ? reusedSetup : sameWordSet(candidate, spellingItems ?? [])) ? candidate : undefined;
     if (candidate && !source) console.warn(` 🎮 [learning-board] [successor-reuse] [not-reusable] node=${nodeId} from=${candidate.nodeId} reason=setup_cannot_be_repointed`);
@@ -1319,7 +1337,7 @@ function prepareSuccessorBoard(
       theoryId: next.academicTheory.theoryId,
       experimentId: `${prefix}:${role}:${slugId(prescription.nodeId)}`,
       mechanic: prescription.mechanic,
-      ...(source ? { implementationType: source.implementationType, reusedFrom: source.nodeId } : {}),
+      ...(source ? { implementationType: source.implementationType, reusedFrom: source.nodeId } : fresh && freshReady ? { implementationType: fresh.type as LearningCycleNodeContract["implementationType"] } : {}),
       theme: prescription.theme,
       ...(design ? { design } : {}),
       openingScreen: { title: prescription.title, purpose: prescription.openingPurpose },
@@ -1331,8 +1349,8 @@ function prepareSuccessorBoard(
       },
       artifactBinding: null,
       artwork: role === "baseline" && reference?.artwork.localPath
-        ? { status: "ready", localPath: reference.artwork.localPath, prompt: null }
-        : { status: "placeholder", localPath: `/generated/adventure-board-demo/${role === "boss" ? "boss" : "quest"}.jpeg`, prompt: null },
+        ? { status: "ready", localPath: reference.artwork.localPath, prompt: prescription.picture ?? null }
+        : { status: "placeholder", localPath: `/generated/adventure-board-demo/${role === "boss" ? "boss" : "quest"}.jpeg`, prompt: prescription.picture ?? null },
       sfxContract: ["interaction", "recovery", "progress", "completion"],
       companionContract: { events: ["completion", "frustration"] },
       evidenceContract: {
@@ -1342,7 +1360,7 @@ function prepareSuccessorBoard(
           spellingItems: Object.fromEntries(spellingItems.map(item => [item.id, item])),
           itemRoles: Object.fromEntries(spellingItems.map(item => [item.id, item.lineage.measurementRole])),
         } : {}),
-        ...(source && reusedSetup ? { nativeConfig: reusedSetup } : {}),
+        ...(source && reusedSetup ? { nativeConfig: reusedSetup } : freshSetup ? { nativeConfig: freshSetup } : {}),
       },
       evidenceIds: [],
     };
@@ -2051,7 +2069,8 @@ export function projectLearningCycle(
     && board.nodeIds.every((id) => cycleNodeById.get(id)?.artifactBinding?.validationStatus === "passed")
       ? experiment.routes.map((route) => route.nodeIds[0]).filter((id): id is string => Boolean(id))
       : []);
-  const linearTeachingFrontier = (board.kind === "teaching" || board.kind === "successor") && !experiment
+  // Spelling Teaching and next boards open in any order, so only other subjects keep a sequence lock.
+  const linearTeachingFrontier = (board.kind === "teaching" || board.kind === "successor") && !experiment && !allowsReadyActivitySelection(cycle)
     ? board.nodeIds.findIndex((nodeId) => cycleNodeById.get(nodeId)?.state !== "completed")
     : -1;
   adventureBoard.nodes = adventureBoard.nodes.map((node) => {
