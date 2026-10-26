@@ -21,7 +21,7 @@ There is one source of truth for each fact. New Planner, generator, care-plan an
 
 ## 3. Everyone else is a nurse
 
-The canvas, the runtime and Elli carry out the order faithfully. They never veto, reorder, rewrite or second-guess it, and they never send it back. What physically cannot load is left off the child's screen and logged as ` 🎮 [board] [portal] [not-ready] reason=...`; the board always publishes (today such a portal still shows "Not ready": [issue 28](https://github.com/Louis345/sunny-v1/issues/28)). Elli talks from live screen state and context, never from canned scripts. Wrong orders belong to the Planner; unfaithful execution belongs to the nurse; a mismatch between tool and runtime belongs to the shared contract.
+The canvas, the runtime and Elli carry out the order faithfully. They never veto, reorder, rewrite or second-guess it, and they never send it back. What physically cannot load is left off the child's screen and logged as ` 🎮 [board] [portal] [not-ready] reason=...`; the board always publishes. Elli talks from live screen state and context, never from canned scripts. Wrong orders belong to the Planner; unfaithful execution belongs to the nurse; a mismatch between tool and runtime belongs to the shared contract.
 
 ## 4. The children are real
 

@@ -211,10 +211,28 @@ export function validateBoardDefinition(definition:AdventureJourneyDefinition, a
   return issues;
 }
 
+/** The options of each choice she can still play: an option whose activities are all not ready is no option. */
+export function playableChoiceOptions(definition:AdventureJourneyDefinition, notReady:readonly string[]):Map<string,AdventureJourneyDefinition['choices'][number]['options']> {
+  const paths = new Map(definition.paths.map(path => [path.id,path.portalIds]));
+  const portals = new Map(definition.portals.map(portal => [portal.id,portal]));
+  return new Map(definition.choices.map(choice => [choice.id,choice.options.filter(option => (paths.get(option.pathId) ?? [])
+    .some(id => { const nodeId = portals.get(id)?.activityNodeId; return Boolean(nodeId && !notReady.includes(nodeId)); }))]));
+}
+
+/** A choice left with fewer than two playable options is a straight path: its one option (or none) is taken. */
+function withCollapsedChoices(definition:AdventureJourneyDefinition, selections:Readonly<Record<string,string>>, notReady:readonly string[]):Record<string,string> {
+  const taken = {...selections};
+  for (const [choiceId,options] of playableChoiceOptions(definition,notReady)) if (!taken[choiceId] && options.length < 2) {
+    taken[choiceId] = (options[0] ?? definition.choices.find(choice => choice.id === choiceId)!.options[0]).id;
+  }
+  return taken;
+}
+
 /** Sole interpretation of selected order; completed instruments survive a route switch. */
-export function journeyFrontier(definition:AdventureJourneyDefinition, selections:Readonly<Record<string,string>>, completed:readonly string[], notReady:readonly string[]=[]):{activityNodeId?:string;portalId?:string;choiceId?:string;complete:boolean} {
+export function journeyFrontier(definition:AdventureJourneyDefinition, chosen:Readonly<Record<string,string>>, completed:readonly string[], notReady:readonly string[]=[]):{activityNodeId?:string;portalId?:string;choiceId?:string;complete:boolean} {
   const choices = new Map(definition.choices.map(choice => [choice.portalId,choice]));
-  for (const [choiceId,optionId] of Object.entries(selections)) if (!definition.choices.some(choice => choice.id === choiceId && choice.options.some(option => option.id === optionId))) throw new Error(`choice_option_missing:${choiceId}:${optionId}`);
+  for (const [choiceId,optionId] of Object.entries(chosen)) if (!definition.choices.some(choice => choice.id === choiceId && choice.options.some(option => option.id === optionId))) throw new Error(`choice_option_missing:${choiceId}:${optionId}`);
+  const selections = withCollapsedChoices(definition,chosen,notReady);
   const execution = journeyExecutions(definition).find(candidate => Object.entries(selections).every(([key,value]) => candidate.selections[key] === undefined || candidate.selections[key] === value));
   if (!execution) throw new Error('journey_selection_incompatible');
   // A not-ready activity is never played, so the path passes over it.
@@ -241,6 +259,23 @@ export function journeyChoiceAvailable(definition:AdventureJourneyDefinition,sel
   return typeof index==='number'&&index>=0&&index<execution!.portalIds.indexOf(frontier.portalId!);
 }
 
+/** The authored connections between stops she sees, joined around hidden ones along the routes she can play. */
+function playableEdges(definition:AdventureBoardDefinition, notReady:readonly string[], hidden:ReadonlySet<string>):AdventureBoardDefinition['edges'] {
+  if (!hidden.size) return definition.edges;
+  const playable = playableChoiceOptions(definition,notReady), taken = withCollapsedChoices(definition,{},notReady);
+  const edges = definition.edges.filter(edge => !hidden.has(edge.from) && !hidden.has(edge.to));
+  const known = new Set(edges.map(edge => `${edge.from}\0${edge.to}`));
+  for (const execution of journeyExecutions(definition)) {
+    if (Object.entries(execution.selections).some(([choiceId,optionId]) => taken[choiceId] ? taken[choiceId] !== optionId : !playable.get(choiceId)!.some(option => option.id === optionId))) continue;
+    const visible = execution.portalIds.filter(id => !hidden.has(id));
+    for (let i = 1; i < visible.length; i++) if (!known.has(`${visible[i-1]}\0${visible[i]}`)) {
+      known.add(`${visible[i-1]}\0${visible[i]}`);
+      edges.push({id:`${visible[i-1]}>${visible[i]}`,from:visible[i-1],to:visible[i]});
+    }
+  }
+  return edges;
+}
+
 export type BoardRuntimeActivity = { id:string; activityId?:string; type?:string; state?:string; verified?:boolean; thumbnailUrl?:string; gameHtmlPath?:string; activityConfigPath?:string; targets?:string[]; wordRadarConfig?:import('./adventureBoardJson').AdventureBoardWordRadarConfig };
 /** Pure projection: presentation comes from the definition, operational facts from runtime. */
 export function renderBoardDefinition(definition:AdventureBoardDefinition, input:{boardId:string;planId:string;childId:string;domain:string;allowReadyActivitySelection?:boolean;activities:readonly BoardRuntimeActivity[];completedNodeIds?:readonly string[];selections?:Record<string,string>;companion?:import('./adventureBoardJson').AdventureBoardCompanion;notReady?:Readonly<Record<string,string>>}):import('./adventureBoardJson').AdventureBoardJson {
@@ -249,14 +284,17 @@ export function renderBoardDefinition(definition:AdventureBoardDefinition, input
   const notReady = Object.keys(input.notReady ?? {}).filter(id => !completed.includes(id));
   const frontier = journeyFrontier(definition,input.selections ?? {},completed,notReady);
   const done = new Set(completed);
-  const availableChoices=new Set(definition.choices.filter(choice=>!input.activities.some(item=>item.state==='active')&&journeyChoiceAvailable(definition,input.selections??{},completed,choice.id,notReady)).map(choice=>choice.id));
-  const choiceByPortal = new Map(definition.choices.map(choice => [choice.portalId,choice]));
+  // She never sees a stop she cannot play: a not-ready activity, or a choice left with fewer than two playable options.
+  const playable = playableChoiceOptions(definition,notReady);
+  const choices = definition.choices.filter(choice => playable.get(choice.id)!.length >= 2);
+  const hidden = new Set(definition.portals.filter(portal => portal.activityNodeId ? notReady.includes(portal.activityNodeId) : portal.kind === 'choice' && !choices.some(choice => choice.portalId === portal.id)).map(portal => portal.id));
+  const availableChoices=new Set(choices.filter(choice=>!input.activities.some(item=>item.state==='active')&&journeyChoiceAvailable(definition,input.selections??{},completed,choice.id,notReady)).map(choice=>choice.id));
+  const choiceByPortal = new Map(choices.map(choice => [choice.portalId,choice]));
   const nodes:import('./adventureBoardJson').AdventureBoardNode[] = definition.portals.map(portal => {
     const activity = portal.activityNodeId ? activities.get(portal.activityNodeId) : undefined;
     const choice = choiceByPortal.get(portal.id);
     const verified = !portal.activityNodeId || (activity?.verified === true && ['ready','active','completed'].includes(activity.state ?? ''));
-    const blocked = Boolean(portal.activityNodeId && notReady.includes(portal.activityNodeId));
-    const state = blocked ? 'locked' : portal.kind === 'start' || (portal.activityNodeId && done.has(portal.activityNodeId)) ? 'completed'
+    const state = hidden.has(portal.id) ? 'hidden' : portal.kind === 'start' || (portal.activityNodeId && done.has(portal.activityNodeId)) ? 'completed'
       : (input.allowReadyActivitySelection && portal.activityNodeId && verified) || (portal.id === frontier.portalId && !choice && verified) || (choice && availableChoices.has(choice.id)) ? 'available'
       : portal.kind === 'endpoint' && frontier.complete ? 'completed' : 'locked';
     return { id:portal.id, activityNodeId:portal.activityNodeId, label:portal.label,
@@ -266,15 +304,15 @@ export function renderBoardDefinition(definition:AdventureBoardDefinition, input
       activityId:activity?.activityId ?? activity?.type, state,
       ...(activity ? {target:{laneId:activity.id,skill:activity.id,words:activity.targets},wordRadarConfig:activity.wordRadarConfig} : {}),
       ...(choice ? {choiceSetId:choice.id,action:{type:'open-choice-set' as const,payloadId:choice.id}} : portal.activityNodeId ? {action:{type:'launch-activity' as const,payloadId:portal.activityNodeId}} : {}),
-      ...(state === 'locked' ? {lock:blocked ? {reason:'not-ready',label:'Not ready'} : frontier.complete && portal.activityNodeId ? {reason:'route-not-taken',label:'Not taken'} : {reason:verified ? 'planner-sequence' : 'artifact-not-ready',label:verified ? 'Keep going' : 'Locked'}} : {}),
+      ...(state === 'locked' ? {lock:frontier.complete && portal.activityNodeId ? {reason:'route-not-taken',label:'Not taken'} : {reason:verified ? 'planner-sequence' : 'artifact-not-ready',label:verified ? 'Keep going' : 'Locked'}} : {}),
     };
   });
   const states = new Map(nodes.map(node => [node.id,node.state]));
   return {schemaVersion:1, definition, boardId:input.boardId,planId:input.planId,childId:input.childId,
     domain:(['spelling','math','reading','science'].includes(input.domain) ? input.domain : 'generic') as import('./adventureBoardJson').AdventureBoardDomain,
     title:definition.title,theme:definition.theme,companion:input.companion,nodes,
-    edges:definition.edges.map(edge => ({...edge,state:states.get(edge.to) === 'completed' ? 'completed' : states.get(edge.to) === 'available' ? 'available' : 'locked'})),
-    choiceSets:definition.choices.map(choice => ({id:choice.id,kind:'baseline-route',title:choice.purpose,options:choice.options.map(option => {
+    edges:playableEdges(definition,notReady,hidden).map(edge => ({...edge,state:states.get(edge.to) === 'completed' ? 'completed' : states.get(edge.to) === 'available' ? 'available' : 'locked'})),
+    choiceSets:choices.map(choice => ({id:choice.id,kind:'baseline-route',title:choice.purpose,options:playable.get(choice.id)!.map(option => {
       const next = journeyFrontier(definition,{...input.selections,[choice.id]:option.id},completed,notReady);
       const portal = definition.portals.find(portal => portal.id === next.portalId);
       return {id:option.id,label:option.label,journeyChoiceId:choice.id,journeyOptionId:option.id,

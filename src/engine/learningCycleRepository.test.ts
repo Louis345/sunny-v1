@@ -342,11 +342,12 @@ describe("canonical learning cycle repository", () => {
     unavailable.nodes[1]!.state = "blocked";
     unavailable.nodes[1]!.notReadyReason = "artifact_missing";
     expect(canonicalJourneyLaunchable(unavailable, "practice")).toBe(false);
-    expect(projectLearningCycle(unavailable).adventureBoard.nodes.find(node => node.id === "practice")?.state).toBe("locked");
+    // A stop she cannot play is left off her board, never drawn locked (#28).
+    expect(projectLearningCycle(unavailable).adventureBoard.nodes.find(node => node.id === "practice")?.state).toBe("hidden");
     const unfinishedBuilder = structuredClone(cycle);
     unfinishedBuilder.nodes[1]!.implementationType = "word-builder";
     expect(canonicalJourneyLaunchable(unfinishedBuilder, "practice")).toBe(false);
-    expect(projectLearningCycle(unfinishedBuilder).adventureBoard.nodes.find(node => node.id === "practice")).toMatchObject({ state: "locked", lock: { reason: "not-ready" } });
+    expect(projectLearningCycle(unfinishedBuilder).adventureBoard.nodes.find(node => node.id === "practice")).toMatchObject({ state: "hidden" });
     const legacyBuilder = structuredClone(unfinishedBuilder);
     legacyBuilder.boards![0]!.kind = "legacy";
     delete legacyBuilder.boards![0]!.definition;
