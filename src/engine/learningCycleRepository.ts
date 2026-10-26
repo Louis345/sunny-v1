@@ -835,7 +835,7 @@ export function assertJourneyChoiceAvailable(cycle:LearningCycleRecordV2,choiceI
   const selections=cycle.routeSelection?.choices??{};
   const completed=cycle.nodes.filter(node=>node.state==='completed').map(node=>node.nodeId);
   journeyFrontier(definition,{...selections,[choiceId]:optionId},completed,notReadyNodeIds(cycle));
-  if(!journeyChoiceAvailable(definition,selections,completed,choiceId,notReadyNodeIds(cycle)))throw new Error('journey_choice_not_reached');
+  if(!journeyChoiceAvailable(definition,selections,completed,choiceId,notReadyNodeIds(cycle),allowsReadyActivitySelection(cycle)))throw new Error('journey_choice_not_reached');
 }
 
 function normalizeAgencyNodeStates(cycle: LearningCycleRecordV2): void {
@@ -2051,7 +2051,8 @@ export function projectLearningCycle(
     && board.nodeIds.every((id) => cycleNodeById.get(id)?.artifactBinding?.validationStatus === "passed")
       ? experiment.routes.map((route) => route.nodeIds[0]).filter((id): id is string => Boolean(id))
       : []);
-  const linearTeachingFrontier = (board.kind === "teaching" || board.kind === "successor") && !experiment
+  // Spelling Teaching and next boards open in any order, so only other subjects keep a sequence lock.
+  const linearTeachingFrontier = (board.kind === "teaching" || board.kind === "successor") && !experiment && !allowsReadyActivitySelection(cycle)
     ? board.nodeIds.findIndex((nodeId) => cycleNodeById.get(nodeId)?.state !== "completed")
     : -1;
   adventureBoard.nodes = adventureBoard.nodes.map((node) => {

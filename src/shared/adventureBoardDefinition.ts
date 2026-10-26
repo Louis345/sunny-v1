@@ -247,16 +247,21 @@ export function journeyFrontier(definition:AdventureJourneyDefinition, chosen:Re
   return {complete:true};
 }
 
-/** A remembered selection on an unchosen branch remains history, not a visible fork. */
-export function journeyChoiceAvailable(definition:AdventureJourneyDefinition,selections:Record<string,string>,completed:readonly string[],choiceId:string,notReady:readonly string[]=[]):boolean {
+/** A remembered selection on an unchosen branch remains history, not a visible fork.
+ * On a board she may play in any order, a choice on her path is open until the board is done. */
+export function journeyChoiceAvailable(definition:AdventureJourneyDefinition,selections:Record<string,string>,completed:readonly string[],choiceId:string,notReady:readonly string[]=[],anyOrder=false):boolean {
   const frontier=journeyFrontier(definition,selections,completed,notReady);
   if(frontier.complete)return false;
   if(frontier.choiceId===choiceId)return true;
-  if(!selections[choiceId])return false;
-  const execution=journeyExecutions(definition).find(candidate=>Object.entries(selections).every(([key,value])=>candidate.selections[key]===undefined||candidate.selections[key]===value));
+  if(!selections[choiceId]&&!anyOrder)return false;
+  const taken=withCollapsedChoices(definition,selections,notReady);
+  const execution=journeyExecutions(definition).find(candidate=>Object.entries(taken).every(([key,value])=>candidate.selections[key]===undefined||candidate.selections[key]===value));
   const choice=definition.choices.find(candidate=>candidate.id===choiceId);
   const index=choice&&execution?.portalIds.indexOf(choice.portalId);
-  return typeof index==='number'&&index>=0&&index<execution!.portalIds.indexOf(frontier.portalId!);
+  if(typeof index!=='number'||index<0)return false;
+  if(anyOrder)return playableChoiceOptions(definition,notReady).get(choiceId)!.length>=2
+    &&definition.choices.every(other=>!execution!.portalIds.slice(0,index).includes(other.portalId)||Boolean(taken[other.id]));
+  return index<execution!.portalIds.indexOf(frontier.portalId!);
 }
 
 /** The authored connections between stops she sees, joined around hidden ones along the routes she can play. */
@@ -288,7 +293,9 @@ export function renderBoardDefinition(definition:AdventureBoardDefinition, input
   const playable = playableChoiceOptions(definition,notReady);
   const choices = definition.choices.filter(choice => playable.get(choice.id)!.length >= 2);
   const hidden = new Set(definition.portals.filter(portal => portal.activityNodeId ? notReady.includes(portal.activityNodeId) : portal.kind === 'choice' && !choices.some(choice => choice.portalId === portal.id)).map(portal => portal.id));
-  const availableChoices=new Set(choices.filter(choice=>!input.activities.some(item=>item.state==='active')&&journeyChoiceAvailable(definition,input.selections??{},completed,choice.id,notReady)).map(choice=>choice.id));
+  const anyOrder = input.allowReadyActivitySelection === true;
+  const taken = withCollapsedChoices(definition,input.selections ?? {},notReady);
+  const availableChoices=new Set(choices.filter(choice=>!input.activities.some(item=>item.state==='active')&&journeyChoiceAvailable(definition,input.selections??{},completed,choice.id,notReady,anyOrder)).map(choice=>choice.id));
   const choiceByPortal = new Map(choices.map(choice => [choice.portalId,choice]));
   const nodes:import('./adventureBoardJson').AdventureBoardNode[] = definition.portals.map(portal => {
     const activity = portal.activityNodeId ? activities.get(portal.activityNodeId) : undefined;
@@ -296,14 +303,16 @@ export function renderBoardDefinition(definition:AdventureBoardDefinition, input
     const verified = !portal.activityNodeId || (activity?.verified === true && ['ready','active','completed'].includes(activity.state ?? ''));
     const state = hidden.has(portal.id) ? 'hidden' : portal.kind === 'start' || (portal.activityNodeId && done.has(portal.activityNodeId)) ? 'completed'
       : (input.allowReadyActivitySelection && portal.activityNodeId && verified) || (portal.id === frontier.portalId && !choice && verified) || (choice && availableChoices.has(choice.id)) ? 'available'
-      : portal.kind === 'endpoint' && frontier.complete ? 'completed' : 'locked';
+      : portal.kind === 'endpoint' && frontier.complete ? 'completed'
+      // Any order: the finish is her goal and a made choice shows as made; the planned order is a suggestion, never a lock.
+      : anyOrder && portal.kind === 'endpoint' ? 'available' : anyOrder && choice && (frontier.complete || taken[choice.id]) ? 'completed' : 'locked';
     return { id:portal.id, activityNodeId:portal.activityNodeId, label:portal.label,
       kind:portal.kind === 'choice' ? 'choice-gate' : portal.kind === 'endpoint' ? (portal.activityNodeId ? 'activity' : 'reward') : portal.kind,
       position:portal.position.landscape, portraitPosition:portal.position.portrait,
       icon:portal.icon, thumbnailUrl:portal.thumbnailUrl ?? activity?.thumbnailUrl,
       activityId:activity?.activityId ?? activity?.type, state,
       ...(activity ? {target:{laneId:activity.id,skill:activity.id,words:activity.targets},wordRadarConfig:activity.wordRadarConfig} : {}),
-      ...(choice ? {choiceSetId:choice.id,action:{type:'open-choice-set' as const,payloadId:choice.id}} : portal.activityNodeId ? {action:{type:'launch-activity' as const,payloadId:portal.activityNodeId}} : {}),
+      ...(choice ? (state === 'completed' ? {} : {choiceSetId:choice.id,action:{type:'open-choice-set' as const,payloadId:choice.id}}) : portal.activityNodeId ? {action:{type:'launch-activity' as const,payloadId:portal.activityNodeId}} : {}),
       ...(state === 'locked' ? {lock:frontier.complete && portal.activityNodeId ? {reason:'route-not-taken',label:'Not taken'} : {reason:verified ? 'planner-sequence' : 'artifact-not-ready',label:verified ? 'Keep going' : 'Locked'}} : {}),
     };
   });
