@@ -25,7 +25,9 @@ function session(p = packet()) {
   const call = (name: string, input: unknown) => {
     const tool = kit.tools.find(row => row.name === name);
     if (!tool) throw new Error(`no tool ${name}`);
-    const parsed = tool.schema.safeParse(input);
+    // Every stop carries a story and a picture; tests that are not about them get plain ones.
+    const look = ["add_activity", "add_explainer", "add_reward"].includes(name) ? { story: "A story.", picture: "A picture." } : {};
+    const parsed = tool.schema.safeParse({ ...look, ...(input as object) });
     if (!parsed.success) return { ok: false as const, error: `schema: ${parsed.error.message}` };
     return tool.run(state, parsed.data);
   };

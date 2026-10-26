@@ -246,7 +246,7 @@ it('asks the spelling Planner for orders from the built-in list, not game design
  const prompt=payload.messages[0].content[0].text as string;
  expect(prompt).not.toContain('You are the artist');
  expect(prompt).not.toMatch(/choose a game/i);
- expect(prompt).toContain('tested built-in');
+ expect(prompt).toMatch(/tested built-in/i);
 });
 it('runs the built-in the Planner names under any new activity ID, and never builds a spelling game',async()=>{
  const f=fixture(),opts={rootDir:f.rootDir};

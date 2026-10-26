@@ -281,7 +281,7 @@ function playableEdges(definition:AdventureBoardDefinition, notReady:readonly st
   return edges;
 }
 
-export type BoardRuntimeActivity = { id:string; activityId?:string; type?:string; state?:string; verified?:boolean; thumbnailUrl?:string; gameHtmlPath?:string; activityConfigPath?:string; targets?:string[]; wordRadarConfig?:import('./adventureBoardJson').AdventureBoardWordRadarConfig };
+export type BoardRuntimeActivity = { id:string; activityId?:string; type?:string; state?:string; verified?:boolean; thumbnailUrl?:string; thumbnailPrompt?:string; gameHtmlPath?:string; activityConfigPath?:string; targets?:string[]; wordRadarConfig?:import('./adventureBoardJson').AdventureBoardWordRadarConfig };
 /** Pure projection: presentation comes from the definition, operational facts from runtime. */
 export function renderBoardDefinition(definition:AdventureBoardDefinition, input:{boardId:string;planId:string;childId:string;domain:string;allowReadyActivitySelection?:boolean;activities:readonly BoardRuntimeActivity[];completedNodeIds?:readonly string[];selections?:Record<string,string>;companion?:import('./adventureBoardJson').AdventureBoardCompanion;notReady?:Readonly<Record<string,string>>}):import('./adventureBoardJson').AdventureBoardJson {
   const activities = new Map(input.activities.map(activity => [activity.id,activity]));
@@ -308,7 +308,7 @@ export function renderBoardDefinition(definition:AdventureBoardDefinition, input
     return { id:portal.id, activityNodeId:portal.activityNodeId, label:portal.label,
       kind:portal.kind === 'choice' ? 'choice-gate' : portal.kind === 'endpoint' ? (portal.activityNodeId ? 'activity' : 'reward') : portal.kind,
       position:portal.position.landscape, portraitPosition:portal.position.portrait,
-      icon:portal.icon, thumbnailUrl:portal.thumbnailUrl ?? activity?.thumbnailUrl,
+      icon:portal.icon, thumbnailUrl:portal.thumbnailUrl ?? activity?.thumbnailUrl, ...(activity?.thumbnailPrompt ? {thumbnailPrompt:activity.thumbnailPrompt} : {}),
       activityId:activity?.activityId ?? activity?.type, state,
       ...(activity ? {target:{laneId:activity.id,skill:activity.id,words:activity.targets},wordRadarConfig:activity.wordRadarConfig} : {}),
       ...(choice ? (state === 'completed' ? {} : {choiceSetId:choice.id,action:{type:'open-choice-set' as const,payloadId:choice.id}}) : portal.activityNodeId ? {action:{type:'launch-activity' as const,payloadId:portal.activityNodeId}} : {}),

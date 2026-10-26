@@ -45,7 +45,7 @@ export function recordedToolReply(lab: RecordedToolLab, request: any): any {
       { activity: pick(activities, "word-radar:partial_visual_recall"), role: "practice", words: lab.missedWords, title: "Sound Steps" },
       { activity: pick(activities, "word-radar:hidden_word_recall"), role: "fresh_checkpoint", words: lab.words, title: "Recall Checkpoint" },
     ];
-    if (turn === 0) { lab.teachingBoards += 1; return message(rows.map(input => ({ name: "add_activity", input }))); }
+    if (turn === 0) { lab.teachingBoards += 1; return message(rows.map(input => ({ name: "add_activity", input: { ...input, story: `Story: ${input.title}`, picture: `Picture: ${input.title}` } }))); }
     const ids: string[] = results.map(row => row.activity_id).filter(Boolean);
     if (ids.length !== rows.length) throw new Error(`recorded_planner_expected_activity_ids:${JSON.stringify(results)}`);
     const evidence = offered("predict", "evidence_ids").slice(0, 1);
@@ -77,9 +77,9 @@ export function recordedToolReply(lab: RecordedToolLab, request: any): any {
       const step = (title: string) => {
         const node = cycle.nodes.find(row => row.title === title && builtIns.includes(row.nodeId));
         if (!node) throw new Error(`recorded_planner_built_in_missing:${title} offered=${builtIns.join(",")}`);
-        return { name: "add_step", input: { built_in: node.nodeId, words: [], title: `${title} Again`, purpose: "Practice again." } };
+        return { name: "add_step", input: { built_in: node.nodeId, words: [], title: `${title} Again`, purpose: "Practice again.", story: `Story: ${title} Again`, picture: `Picture: ${title} Again` } };
       };
-      if (lab.everyBuiltIn) return message([decide("revised", "generate_support"), ...builtIns.map(built_in => ({ name: "add_step", input: { built_in, words: [], title: "Again", purpose: "Practice again." } }))]);
+      if (lab.everyBuiltIn) return message([decide("revised", "generate_support"), ...builtIns.map((built_in, index) => ({ name: "add_step", input: { built_in, words: [], title: `Again ${index + 1}`, purpose: "Practice again.", story: `Story: Again ${index + 1}`, picture: `Picture: Again ${index + 1}` } }))]);
       return message([decide("revised", "generate_support"), step("Recall Practice"), step("Letter Rush"), step("Recall Checkpoint")]);
     }
     const steps: string[] = results.map(row => row.step_id).filter(Boolean);

@@ -731,6 +731,9 @@ const baselineRoundSchema = z.object({
 const compactNodePlanSchema = z.object({
   id: z.string().min(1),
   title: z.string().trim().min(1).optional(),
+  /** The Planner's story for this stop and what its picture shows. */
+  theme: z.string().min(1).optional(),
+  thumbnailPrompt: z.string().min(1).optional(),
   type: z.enum(PLANNER_NODE_ACTIVITY_IDS),
   activityId: z.enum(PLANNER_NODE_ACTIVITY_IDS),
   targets: compactTargetsSchema,
@@ -824,7 +827,7 @@ const nativeLearningProgramSchema=z.object({
  * cannot run cannot be written down. Rules live here, not in prose and not in after-the-fact checks. */
 const brief=z.string().min(1).describe("One short sentence. She is waiting while you write.");
 const nativeSpellingMeasurement=<const Role extends string>(roles:readonly [Role,...Role[]])=>nativeMeasurementSchema.extend({supportCriteria:brief,reviseCriteria:brief,falsifyCriteria:brief,spelling:plannedMeasurementSchema.shape.spelling.unwrap().omit({interventionNodeIds:true}).extend({role:z.enum(roles),reason:brief,uncertainty:brief})}).strict();
-const nativeActivityBase=z.object({id:z.string().min(1),title:z.string().trim().min(1).describe("The short name she sees under the portal on the map: 2 to 4 words, about 24 characters, like a game title. No colons, no explanations."),difficulty:compactNodePlanSchema.shape.difficulty,targetLane:z.string().nullable().optional().describe("The captured word-group id these targets come from, when they share one.")});
+const nativeActivityBase=z.object({theme:z.string().min(1).optional(),thumbnailPrompt:z.string().min(1).optional(),id:z.string().min(1),title:z.string().trim().min(1).describe("The short name she sees under the portal on the map: 2 to 4 words, about 24 characters, like a game title. No colons, no explanations."),difficulty:compactNodePlanSchema.shape.difficulty,targetLane:z.string().nullable().optional().describe("The captured word-group id these targets come from, when they share one.")});
 const nativeTargets=z.array(z.string().min(1)).min(1).describe("Assigned words only.");
 const explainerAuthoringSchema=z.object({
   topic:z.string().min(1).max(120),learningGoal:z.string().min(1).max(220),misconception:z.string().min(1),

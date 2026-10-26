@@ -12,7 +12,7 @@ export type SuccessorFacts = {
   /** Whether the re-run step can really prepare this built-in for these words (the same check it runs). */
   rerunnable: (nodeId: string, wordIds: string[]) => boolean;
 };
-type Step = { id: string; title: string; purpose: string; wordIds: string[]; builtIn: SuccessorFacts["builtIns"][number] };
+type Step = { id: string; title: string; purpose: string; story: string; picture: string; wordIds: string[]; builtIn: SuccessorFacts["builtIns"][number] };
 type Decision = { status: string; reason: string; progressionAction: string; preserve: string[]; change: string[]; testNext: string[]; nextEvidenceRequired: string[]; predictionEvaluationIds: string[]; revisedHypothesis: string };
 export type SuccessorState = JourneyOrderState & { next: number; steps: Step[]; decision?: Decision; result?: { decision: Record<string, unknown>; journey?: AdventureJourneyDefinition } };
 
@@ -44,7 +44,8 @@ export function spellingSuccessorToolkit(facts: SuccessorFacts) {
     tool({ name: "add_step", description: "Add one step: re-run a tested built-in activity from her boards, for all of its own words or fewer. Returns its step_id.",
       schema: z.object({ built_in: enumOf([...builtIns.keys()], "none").describe("The tested built-in this step re-runs."),
         words: z.array(enumOf(allWordIds, "none")).describe("Which of that built-in's own words to re-run. Empty means all of them."),
-        title: text("The short name she sees under the portal: 2 to 4 words."), purpose: text("What this step is for, in one sentence.") }).strict(),
+        title: text("The short name she sees under the portal: 2 to 4 words."), purpose: text("What this step is for, in one sentence."),
+        story: text("What this stop is in her world: one or two sentences Elli can tell her as it opens."), picture: text("What this stop's picture on her map shows, for the illustrator.") }).strict(),
       run: (state, input) => {
         const builtIn = builtIns.get(input.built_in);
         if (!builtIn) return { ok: false, error: `no built-in ${input.built_in}` };
@@ -54,7 +55,7 @@ export function spellingSuccessorToolkit(facts: SuccessorFacts) {
         if (input.words.length && !facts.rerunnable(builtIn.nodeId, input.words)) return { ok: false, error: `${builtIn.title} cannot be re-run for just those words (its questions or tiles use its other words). It can be re-run with all of its words: leave words empty, or choose another built-in.` };
         state.next += 1;
         const id = `${facts.idPrefix}-${state.next}`;
-        state.steps.push({ id, title: input.title, purpose: input.purpose, wordIds: input.words.length ? [...input.words] : [...builtIn.wordIds], builtIn });
+        state.steps.push({ id, title: input.title, purpose: input.purpose, story: input.story, picture: input.picture, wordIds: input.words.length ? [...input.words] : [...builtIn.wordIds], builtIn });
         state.result = undefined;
         return { ok: true, result: { step_id: id, words: state.steps.at(-1)!.wordIds.length, role: builtIn.checkpoint ? "fresh_checkpoint" : "practice" } };
       } }),
@@ -81,7 +82,7 @@ export function spellingSuccessorToolkit(facts: SuccessorFacts) {
         if (!sequence.ok) return sequence;
         const journey = expandJourneySequence(sequence.sequence, state.steps);
         const nextInstruments = state.steps.map(row => ({
-          nodeId: row.id, title: row.title, academicTarget: row.purpose, mechanic: row.builtIn.implementationType, theme: row.title, openingPurpose: row.purpose,
+          nodeId: row.id, title: row.title, academicTarget: row.purpose, mechanic: row.builtIn.implementationType, theme: row.story, picture: row.picture, openingPurpose: row.purpose,
           spelling: { wordIds: [...row.wordIds], measurementRole: row.builtIn.checkpoint ? "fresh_checkpoint" : "practice", responseMode: row.builtIn.responseMode, builtInActivityId: row.builtIn.nodeId },
         }));
         state.result = { decision: { ...base, nextInstruments }, journey };

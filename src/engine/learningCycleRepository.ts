@@ -505,6 +505,8 @@ export type NextInstrumentPrescription = {
   escalation?: string;
   mechanicSpec?: string;
   mathematicalHook?: string;
+  /** What the stop's picture on her map shows, written by the Planner. */
+  picture?: string;
   /** Marks the one Planner-authorized encounter on a Quest or Boss successor board. */
   encounter?: "quest" | "boss";
 };
@@ -1331,8 +1333,8 @@ function prepareSuccessorBoard(
       },
       artifactBinding: null,
       artwork: role === "baseline" && reference?.artwork.localPath
-        ? { status: "ready", localPath: reference.artwork.localPath, prompt: null }
-        : { status: "placeholder", localPath: `/generated/adventure-board-demo/${role === "boss" ? "boss" : "quest"}.jpeg`, prompt: null },
+        ? { status: "ready", localPath: reference.artwork.localPath, prompt: prescription.picture ?? null }
+        : { status: "placeholder", localPath: `/generated/adventure-board-demo/${role === "boss" ? "boss" : "quest"}.jpeg`, prompt: prescription.picture ?? null },
       sfxContract: ["interaction", "recovery", "progress", "completion"],
       companionContract: { events: ["completion", "frustration"] },
       evidenceContract: {

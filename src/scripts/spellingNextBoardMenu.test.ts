@@ -120,8 +120,26 @@ it("gives every Planner one goal, that she wants to come back, and no do-not lin
     return [tool, typeof first === "string" ? first : first.filter((block: any) => block.type === "text").map((block: any) => block.text).join("\n")] as const;
   });
   for (const [tool, prompt] of prompts) {
-    const instructions = prompt.split("\n").filter(line => !/^\s*[[{"]/.test(line) && line.length < 2000);
-    expect(instructions.filter(line => /\b(do not|don't|never|must not)\b/i.test(line)), tool).toEqual([]);
+    const instructions = (prompt as string).split("\n").filter((line: string) => !/^\s*[[{"]/.test(line) && line.length < 2000);
+    expect(instructions.filter((line: string) => /\b(do not|don't|never|must not)\b/i.test(line)), tool).toEqual([]);
     if (tool !== "submit_board") expect(prompt, tool).toContain("she wants to come back");
   }
+}, 120000);
+
+// 2026-10-25 owner review: every stop looked and sounded the same. Code filled each stop's theme with its
+// title and drew its picture from one template; the Planner had no field for either. Nothing failed, so no
+// log or lab noticed. Now the Planner writes each stop's story and picture, and both reach the board.
+it("puts the story and picture the Planner wrote on every stop of both boards", async () => {
+  const { childId, homeworkId, opts } = await playToNextBoard();
+  const after = await prepareSuccessorBoard({ childId, homeworkId }, opts);
+  const boards = after.boards!.filter(board => board.kind === "teaching" || board.kind === "successor");
+  expect(boards.map(board => board.kind)).toEqual(["teaching", "successor"]);
+  for (const board of boards) for (const node of after.nodes.filter(row => board.nodeIds.includes(row.nodeId) && row.role !== "evaluation")) {
+    expect(node.theme, node.nodeId).toBe(`Story: ${node.title}`);
+    expect(node.artwork.prompt, node.nodeId).toBe(`Picture: ${node.title}`);
+  }
+  // The picture is what the illustrator draws for the stop on her map.
+  const shown = projectLearningCycle(after).adventureBoard.nodes.filter(node => node.activityNodeId);
+  expect(shown.length).toBeGreaterThan(0);
+  for (const node of shown) expect(node.thumbnailPrompt, node.id).toMatch(/^Picture: /);
 }, 120000);

@@ -440,7 +440,7 @@ function parseNextInstrument(value: unknown): NextInstrumentPrescription | undef
   if (keys.some((key) => typeof row[key] !== "string" || !String(row[key]).trim())) return undefined;
   // Design decisions are optional so an older Planner response still parses,
   // but they are carried through whenever the Planner supplies them.
-  const designKeys = ["creatorPrompt", "stakesDesign", "failureMode", "escalation", "mechanicSpec", "mathematicalHook"] as const;
+  const designKeys = ["creatorPrompt", "stakesDesign", "failureMode", "escalation", "mechanicSpec", "mathematicalHook", "picture"] as const;
   return {
     ...(Array.isArray(row.items) ? { items: row.items.map(parseDirectItem) } : {}),
     ...(row.spelling !== undefined ? { spelling: validateSpellingPrescription(row.spelling) } : {}),

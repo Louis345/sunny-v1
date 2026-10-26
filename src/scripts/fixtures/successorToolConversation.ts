@@ -36,7 +36,7 @@ export function successorToolReply(recorded: unknown, request: any): any {
     const builtIn = builtIns.find(id => wanted.some(want => id === want || last(id) === last(want)));
     const offeredWords: string[] = schema("add_step").words.items?.enum ?? [];
     const words = (row.spelling?.wordIds ?? []).filter(word => offeredWords.includes(word));
-    return builtIn ? [{ nodeId: row.nodeId, input: { built_in: builtIn, words, title: row.title, purpose: row.academicTarget || row.openingPurpose || "Practice." } }] : [];
+    return builtIn ? [{ nodeId: row.nodeId, input: { built_in: builtIn, words, title: row.title, purpose: row.academicTarget || row.openingPurpose || "Practice.", story: `Story: ${row.title}`, picture: `Picture: ${row.title}` } }] : [];
   });
   const assistantTurns = (request.messages ?? []).filter((row: any) => row.role === "assistant").length;
   if (decision.progressionAction === "await_calibration") return message([decide, { name: "finish_board", input: { title: "Waiting", endpoint_label: "Finish", single_path_reason: "Awaiting graded work." } }]);

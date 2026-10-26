@@ -289,6 +289,8 @@ export interface NodeConfig {
   /** Factual activity context supplied to Elli; contains no answer key. */
   companionContext?: {
     activityTitle?: string;
+    /** The Planner's story for this stop, for Elli to frame it. */
+    activityStory?: string;
     learningFocus?: string;
     mechanic?: string;
     currentChallenge?: string;
