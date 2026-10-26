@@ -59,6 +59,8 @@
     var sessionStartedAt = Date.now();
     var defaultConfigPath = options.defaultConfigPath || "./artifact.config.json";
     var revealStartProgress = Number(options.revealStartProgress) || 56;
+    // A page may hold its question until its lesson is shown, whatever an older saved config asks for.
+    var minPredictionProgress = Number(options.minPredictionProgress) || 0;
     var api = null;
 
     function currentQuestion() {
@@ -234,7 +236,7 @@
     function applyArtifactConfig(config) {
       artifactConfig = mergeArtifactConfig(defaultConfig, config);
       var q = currentQuestion();
-      predictionPoint = Number(q.pauseAtProgress) || predictionPoint;
+      predictionPoint = Math.max(Number(q.pauseAtProgress) || predictionPoint, minPredictionProgress);
       revealStartProgress = Math.max(revealStartProgress, predictionPoint + 1);
 
       if (el.narrationAudio && artifactConfig.narration.enabled && artifactConfig.narration.audioPath) {

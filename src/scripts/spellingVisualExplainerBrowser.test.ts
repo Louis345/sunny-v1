@@ -103,13 +103,13 @@ describe.each(viewports)("spelling Visual Explainer at $width×$height", (viewpo
     await assertUsable(frame.getByRole("button", { name: "Show me" }));
     await page.screenshot({ path: path.join(proofDir, `opening-${viewport.width}x${viewport.height}.png`) });
     await frame.locator("body").evaluate(() => {
-      (globalThis as any).SunnySpellingVisualExplainer.setProgress(48, false);
+      (globalThis as any).SunnySpellingVisualExplainer.setProgress(85, false);
     });
     const correct = frame.getByRole("button", { name: "ight", exact: true });
     await assertUsable(correct);
     await page.screenshot({ path: path.join(proofDir, `question-${viewport.width}x${viewport.height}.png`) });
     await correct.click();
-    const reveal = frame.getByRole("button", { name: "See the strategy" });
+    const reveal = frame.getByRole("button", { name: "Keep going" });
     await assertUsable(reveal);
     await reveal.click();
     await page.screenshot({ path: path.join(proofDir, `strategy-${viewport.width}x${viewport.height}.png`) });
@@ -151,9 +151,9 @@ describe.each(viewports)("spelling Visual Explainer at $width×$height", (viewpo
 
   it("keeps the completed strategy readable until Done is tapped", async () => {
     const { page, frame } = await launch(viewport);
-    await frame.locator("body").evaluate(() => (globalThis as any).SunnySpellingVisualExplainer.setProgress(48, false));
+    await frame.locator("body").evaluate(() => (globalThis as any).SunnySpellingVisualExplainer.setProgress(85, false));
     await frame.getByRole("button", { name: "ight", exact: true }).click();
-    await frame.getByRole("button", { name: "See the strategy" }).click();
+    await frame.getByRole("button", { name: "Keep going" }).click();
     await frame.locator("body").evaluate(() => {
       (globalThis as any).SunnySpellingVisualExplainer.pause();
       (globalThis as any).SunnySpellingVisualExplainer.setProgress(99, false);
@@ -170,9 +170,9 @@ describe.each(viewports)("spelling Visual Explainer at $width×$height", (viewpo
 
   it("lets Ila request each visible chunk aloud", async () => {
     const { page, frame } = await launch(viewport);
-    await frame.locator("body").evaluate(() => (globalThis as any).SunnySpellingVisualExplainer.setProgress(48, false));
+    await frame.locator("body").evaluate(() => (globalThis as any).SunnySpellingVisualExplainer.setProgress(85, false));
     await frame.getByRole("button", { name: "ight", exact: true }).click();
-    await frame.getByRole("button", { name: "See the strategy" }).click();
+    await frame.getByRole("button", { name: "Keep going" }).click();
     await frame.locator("body").evaluate(() => {
       (globalThis as any).SunnySpellingVisualExplainer.pause();
       (globalThis as any).SunnySpellingVisualExplainer.setProgress(70, false);
@@ -221,9 +221,9 @@ it.each([{width:1280,height:720},{width:768,height:1024},{width:548,height:1024}
  await assertUsable(frame.getByRole('button',{name:'Show me'}));
  expect(await frame.locator('.card').evaluate((e:any)=>{const card=e.getBoundingClientRect(),header=e.ownerDocument.querySelector('header').getBoundingClientRect();return card.top>=header.bottom && card.bottom<=e.ownerDocument.defaultView.innerHeight;})).toBe(true);
  expect(await frame.locator('header').evaluate((e:any)=>e.getBoundingClientRect().top)).toBeGreaterThanOrEqual(0);
- await frame.locator('body').evaluate(()=>(globalThis as any).SunnySpellingVisualExplainer.setProgress(48,false));
+ await frame.locator('body').evaluate(()=>(globalThis as any).SunnySpellingVisualExplainer.setProgress(85,false));
  await frame.getByRole('button',{name:'ight',exact:true}).click();
- await frame.getByRole('button',{name:'See the strategy',exact:true}).click();
+ await frame.getByRole('button',{name:'Keep going',exact:true}).click();
  await frame.locator('body').evaluate(()=>(globalThis as any).SunnySpellingVisualExplainer.setProgress(100,false));
  await assertUsable(frame.getByRole('button',{name:'Done',exact:true}));
  await frame.locator('#wordModels').evaluate(async(e:any)=>Promise.all(e.getAnimations({subtree:true}).map((a:any)=>a.finished)));
@@ -243,9 +243,9 @@ it('highlights a focus across authored chunk boundaries without changing tiles o
  const modelConfig=structuredClone(config);
  Object.assign(modelConfig.spellingModel.words[0],{chunks:['li','ght'],spokenChunks:['lih sound','t sound'],focusChunk:'ight'});
  const {page,frame,errors}=await launch({width:1280,height:720},{modelConfig});
- await frame.locator('body').evaluate(()=>(globalThis as any).SunnySpellingVisualExplainer.setProgress(48,false));
+ await frame.locator('body').evaluate(()=>(globalThis as any).SunnySpellingVisualExplainer.setProgress(85,false));
  await frame.getByRole('button',{name:'ight',exact:true}).click();
- await frame.getByRole('button',{name:'See the strategy',exact:true}).click();
+ await frame.getByRole('button',{name:'Keep going',exact:true}).click();
  await frame.locator('body').evaluate(()=>(globalThis as any).SunnySpellingVisualExplainer.setProgress(100,false));
  expect(await frame.locator('.chunk').allTextContents()).toEqual(['li','ght']);
  expect((await frame.locator('.focus-letter').allTextContents()).join('')).toBe('ight');
@@ -254,5 +254,39 @@ it('highlights a focus across authored chunk boundaries without changing tiles o
  await expect.poll(async()=>(await page.evaluate<any[]>('window.captured')).filter(message=>message.type==='narration_request').length).toBe(2);
  const requests=await page.evaluate<any[]>('window.captured');
  expect(requests.filter(message=>message.type==='narration_request').map(message=>({text:message.text,chunk:message.chunk,index:message.chunkIndex}))).toEqual([{text:'lih sound',chunk:'li',index:0},{text:'t sound',chunk:'ght',index:1}]);
+ expect(errors).toEqual([]);
+});
+
+// 2026-10-26 parent test (Saori, demo-pashley): the syllables page quizzed her on one word ("thumb") halfway
+// through, before anything was taught, showed a teacher's note about her as the heading, and put every word
+// and tip on screen at once. Nothing failed, so no log showed it; these tests only checked that it completed.
+it('teaches one word at a time under her trick, and checks only after the lesson',async()=>{
+ const modelConfig=structuredClone(config);
+ modelConfig.learningGoal='She will recognize the ight pattern and keep it together.';
+ modelConfig.spellingModel.strategy={title:'Keep ight together',steps:['ight is a team.','Write it as one.']};
+ modelConfig.spellingModel.words=['light','night','right'].map(text=>({id:'frozen-'+text,text,chunks:[text[0],'ight'],focusChunk:'ight',tip:'ight sticks together.'}));
+ // A saved explainer still asks for its check at 48%; the page waits for the end of the lesson anyway.
+ (modelConfig.questions[0] as any).pauseAtProgress=48;
+ const {frame,errors}=await launch({width:1280,height:720},{modelConfig});
+ expect(await frame.locator('h1').textContent()).toBe('Keep ight together');
+ expect(await frame.locator('#strategySteps li').allTextContents()).toEqual(['ight is a team.','Write it as one.']);
+ for(const note of await frame.getByText('She will recognize',{exact:false}).all())expect(await note.isVisible()).toBe(false);
+ const shown=async()=>frame.locator('.word-model:not([hidden])').evaluateAll((rows:any[])=>rows.map(row=>row.dataset.itemId));
+ await frame.locator('body').evaluate(()=>(globalThis as any).SunnySpellingVisualExplainer.setProgress(20,false));
+ expect(await shown()).toEqual(['frozen-light']);
+ await frame.locator('body').evaluate(()=>(globalThis as any).SunnySpellingVisualExplainer.setProgress(60,false));
+ expect(await shown()).toEqual(['frozen-right']);
+ expect(await frame.locator('body').evaluate((body:any)=>body.classList.contains('question-active'))).toBe(false);
+ await frame.locator('body').evaluate(()=>(globalThis as any).SunnySpellingVisualExplainer.setProgress(85,false));
+ expect(await frame.locator('body').evaluate((body:any)=>body.classList.contains('question-active'))).toBe(true);
+ expect(await shown()).toEqual(['frozen-light','frozen-night','frozen-right']);
+ expect(errors).toEqual([]);
+});
+
+it('leaves an older saved explainer\'s long adult steps off her screen',async()=>{
+ const modelConfig=structuredClone(config);
+ modelConfig.spellingModel.strategy.steps=['Find the hidden-letter pattern in the word: kn, wr, or mb.','Say the word slowly and notice the silent letter makes no sound of its own.','Write the whole pattern together as one chunk so you do not skip it.','Check your word.'];
+ const {frame,errors}=await launch({width:1280,height:720},{modelConfig});
+ expect(await frame.locator('#strategySteps li').count()).toBe(0);
  expect(errors).toEqual([]);
 });

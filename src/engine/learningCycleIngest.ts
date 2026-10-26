@@ -442,7 +442,7 @@ export function buildSpellingTargetedCycleInput(input: {
               correctOptionId: visual.check.correctOptionId,
               targetConcept: checkItem.id,
               misconceptionTag: visual.misconception,
-              pauseAtProgress: 48,
+              pauseAtProgress: 85,
               scaffoldLevel: 2,
             }],
             companionContext: { role: "hint_only", maxSentences: 3, canRevealAnswer: true },

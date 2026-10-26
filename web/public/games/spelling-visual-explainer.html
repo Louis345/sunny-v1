@@ -29,6 +29,8 @@
     .eyebrow { margin:0 0 3px; color:var(--mint); font-size:13px; font-weight:900; letter-spacing:.14em; text-transform:uppercase; }
     h1 { margin:0; font-size:clamp(24px,3vw,38px); letter-spacing:-.03em; }
     .goal { margin:5px 0 0; color:rgba(255,255,255,.75); font-size:clamp(14px,1.5vw,18px); }
+    /* The learning goal is a note for adults; she sees her trick, not a sentence about her. */
+    body.child-mode:not(.parent-preview) .goal { display:none; }
     .stage { min-height:0; display:grid; place-items:center; }
     .card {
       width:min(940px,100%); height:100%; min-height:0; max-height:100%;
@@ -38,11 +40,18 @@
       display:grid; grid-template-rows:auto minmax(0,1fr) auto; gap:22px;
     }
     .strategy { text-align:center; }
+    .strategy[hidden] { display:none !important; }
     .strategy h2 { margin:0; color:var(--sun); font-size:clamp(24px,3vw,36px); }
     .steps { margin:12px auto 0; padding:0; list-style:none; display:flex; justify-content:center; flex-wrap:wrap; gap:8px; }
     .steps li { background:rgba(255,255,255,.09); border:1px solid rgba(255,255,255,.16); border-radius:999px; padding:8px 13px; font-weight:750; }
     .word-models { min-height:0; overflow:auto; display:grid; align-content:start; gap:18px; padding:12px 6px; }
     .word-model { display:grid; gap:9px; justify-items:center; }
+    /* While she meets one word, it fills the card: big tiles in the middle, its tip right below. */
+    .word-models.single { align-content:center; }
+    /* Rows stay put when the strategy line is hidden, so the word keeps the big middle row. */
+    .card > .strategy { grid-row:1; } .card > .word-models { grid-row:2; } .card > .controls { grid-row:3; }
+    .word-models.single .chunk { font-size:clamp(44px,7vw,92px); padding:16px 24px; }
+    .word-models.single .tip { font-size:clamp(20px,2.4vw,30px); }
     .chunks { display:flex; justify-content:center; flex-wrap:wrap; gap:9px; }
     .chunk {
       min-width:62px; padding:13px 17px; border:2px solid rgba(255,255,255,.22); border-radius:18px;
@@ -88,7 +97,7 @@
   <main class="page">
     <header>
       <div>
-        <p class="eyebrow">Spelling strategy</p>
+        <p class="eyebrow">Spelling trick</p>
         <h1 id="title">See the word in pieces</h1>
         <p id="goal" class="goal">Notice a helpful chunk, then try it on your own later.</p>
       </div>
@@ -120,7 +129,7 @@
         <button class="choice" type="button" data-choice="four"></button>
       </div>
       <p id="predFeedback" class="feedback">Choose what you notice.</p>
-      <button id="revealButton" class="reveal" type="button">See the strategy</button>
+      <button id="revealButton" class="reveal" type="button">Keep going</button>
     </div>
   </section>
   <div id="artifactDebug" class="parent" data-parent-only="artifact-debug"></div>
@@ -157,11 +166,16 @@
 
       function renderModel(config) {
         const model = config.spellingModel || DEFAULT_CONFIG.spellingModel;
-        document.getElementById("title").textContent = config.concept;
+        document.getElementById("title").textContent = model.strategy.title;
         document.getElementById("goal").textContent = config.learningGoal;
-        document.getElementById("strategyTitle").textContent = model.strategy.title;
+        // Her trick is the page title; the card shows its steps only when they are kid-sized (an older
+        // saved explainer may hold long adult steps, which Elli can talk through instead).
+        document.getElementById("strategyTitle").hidden = true;
+        const kidSized = model.strategy.steps.length <= 3 && model.strategy.steps.every((step) => step.length <= 60);
+        // With no steps to show, the first word starts right away instead of an empty card.
+        LESSON_START = kidSized && model.strategy.steps.length ? 12 : 0;
         const steps = document.getElementById("strategySteps");
-        steps.replaceChildren(...model.strategy.steps.map((step) => {
+        steps.replaceChildren(...(kidSized ? model.strategy.steps : []).map((step) => {
           const item = document.createElement("li"); item.textContent = step; return item;
         }));
         const words = document.getElementById("wordModels");
@@ -202,43 +216,56 @@
         words.replaceChildren(...modelNodes.map((entry) => entry.row));
       }
 
+      // The lesson shows one word at a time with its tip; then all her words come back together for the check.
+      const RECAP_START = 80, CHECK_AT = 85;
+      let LESSON_START = 12;
       function renderScene({ progress }) {
+        const slot = (RECAP_START - LESSON_START) / Math.max(1, modelNodes.length);
+        const current = Math.min(modelNodes.length - 1, Math.floor((progress - LESSON_START) / slot));
+        const recap = progress >= RECAP_START;
+        document.querySelector(".strategy").hidden = progress >= LESSON_START && !recap;
+        document.getElementById("wordModels").classList.toggle("single", progress >= LESSON_START && !recap);
         modelNodes.forEach((entry, rowIndex) => {
+          const shownNow = recap || (progress >= LESSON_START && rowIndex === current);
+          const local = recap ? 1 : (progress - LESSON_START - rowIndex * slot) / slot;
+          entry.row.hidden = !shownNow;
           entry.chunkNodes.forEach((chunk, chunkIndex) => {
-            const threshold = 8 + rowIndex * 4 + chunkIndex * 7;
-            chunk.classList.toggle("visible", progress >= threshold);
-            chunk.disabled = progress < threshold;
-            if (progress >= threshold && !entry.exposureRecorded && window.GameBridge) {
+            const visible = shownNow && local >= .08 + chunkIndex * .14;
+            chunk.classList.toggle("visible", visible);
+            chunk.disabled = !visible;
+            if (visible && !entry.exposureRecorded && window.GameBridge) {
               entry.exposureRecorded = true;
               window.GameBridge.reportState("Spelling model shown", { spellingItemOpened:true, currentWord:entry.word.text, phase:"presentation", answerVisibility:"visible" });
             }
-            chunk.classList.toggle("focus", progress >= 60 && chunk.dataset.focus === "true");
+            chunk.classList.toggle("focus", shownNow && local >= .55 && chunk.dataset.focus === "true");
           });
-          entry.tip.classList.toggle("visible", progress >= 66 + rowIndex * 3);
+          entry.tip.classList.toggle("visible", shownNow && !recap && local >= .62);
         });
         el.finishButton.hidden = progress < 96;
       }
 
       function checkEvidence({ progress, shell }) {
         if (progress >= 10) shell.emitEvidence("model-visible", "Planner-authored word chunks became visible.");
-        if (progress >= 66) shell.emitEvidence("strategy-revealed", "Assisted spelling strategy was revealed.");
+        if (progress >= RECAP_START) shell.emitEvidence("strategy-revealed", "Assisted spelling strategy was revealed.");
       }
 
       const shell = window.SunnyVisualLearnerArtifactShell.mount({
         defaultConfig: DEFAULT_CONFIG,
         defaultConfigPath: "./spelling-visual-explainer.config.json",
         elements: el,
-        revealStartProgress: 58,
-        progressPerMs: .009,
+        revealStartProgress: CHECK_AT + 1,
+        minPredictionProgress: CHECK_AT,
+        // Slow enough for Elli to say each word's chunks and tip before the next word.
+        progressPerMs: .004,
         autoCompleteOnTimelineEnd: false,
-        getPhase(progress) { return progress < 10 ? "intro" : progress < 48 ? "model" : progress < 58 ? "practice-check" : progress < 96 ? "strategy" : "complete"; },
+        getPhase(progress) { return progress < LESSON_START ? "intro" : progress < CHECK_AT ? "model" : progress < CHECK_AT + 1 ? "practice-check" : progress < 96 ? "strategy" : "complete"; },
         renderScene,
         checkEvidence,
         onConfigApplied({ config }) { renderModel(config); },
         formatPredictionFeedback({ state, selectedOption, progress }) {
           if (!state.predictionMade) return "Choose what you notice.";
-          if (progress < 58) return "Choice saved. Now reveal the strategy.";
-          return selectedOption && selectedOption.correct ? "Yes—that chunk stays together." : "Look again at the highlighted chunk.";
+          if (progress < CHECK_AT + 1) return "Choice saved. Tap Keep going.";
+          return selectedOption && selectedOption.correct ? "Yes, you spotted it!" : "Look again at the bright letters.";
         },
       });
       window.SunnySpellingVisualExplainer = shell;
