@@ -59,7 +59,7 @@ describe('the map artist can see its work',()=>{
   await run();
   const first=requests(stream)[0],text=JSON.stringify(first.messages[0]);
   expect(text).toContain("You are Sunny's map artist");
-  expect(text).toContain('You never change the lesson');
+  expect(text).toContain('the teacher owns the lesson');
   expect(canvas).toHaveProperty('measureBoardPortals');
   expect(text).toContain('187');expect(text).toContain('211');
   expect(first.tools.map((tool:{name:string})=>tool.name).sort()).toEqual(['adjust_board','preview_board','submit_board']);

@@ -40,7 +40,7 @@ describe("spelling intake is the opening phase of the existing Planner", () => {
   });
   it("asks for assignment capture, not a teaching board before current evidence", () => {
     const prompt = buildSpellingIntakeToolPrompt(packet);
-    expect(prompt).toContain("Do not prescribe a teaching board");
+    expect(prompt).toContain("Discovery comes first, before any teaching");
     expect(prompt).toContain("every assigned spelling word");
     expect(recordWords({ activeSessionPlan: { nodePlan: [] } }).outcome.ok).toBe(false);
   });

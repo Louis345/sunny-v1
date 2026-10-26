@@ -811,11 +811,10 @@ async function askPlanner(
       evaluationIds,allowedActions:actions,idPrefix:`${cycle.homeworkId}-r${checkpointRevision}-step`,
       // The same check the re-run step applies, asked while the Planner is still choosing.
       rerunnable:(nodeId:string,wordIds:string[])=>{const source=builtIns.find(node=>node.nodeId===nodeId);return Boolean(source&&repointReusedSetup(source,`${nodeId}-check`,wordIds.map(wordId=>({id:`check:${wordId}`,wordId}))));}};
-    const prompt=`You are Sunny's AI Planner. Compare the preregistered academic theory and predictions with the factual scorecard, then decide what happens next, using the tools.
-1. decide: one concise, evidence-grounded decision. Cite the prediction evaluations you judge.
-2. Unless you await calibration, build the next board: add_step for each step (each re-runs one tested built-in activity with all of its own words), then set_order and, when academically valid alternatives exist, add_choice. Then finish_board.
-Sunny runs each step exactly as written and builds no new spelling games. The current board is never changed; your board is for a later session. Each path from start to finish, counting the start, the choice and the finish, fits in 7 steps. Title each step as she should see it. Do not claim mastery or readiness. Fresh recall after practice is not unseen transfer or delayed retention.
-For spelling, Correct practice after long response time is not effortless recall. Examine per-word response time alongside assistance, exposure, response mode and instrument ambiguity. When the evidence suggests she is struggling, order teaching and guided practice before another fresh recall check; let Elli respond conversationally from the live item and child context. Do not infer mastery from supported or partial-visibility practice, and do not use a fixed latency threshold to choose the lesson.
+    const prompt=`You are Sunny's AI Planner, her spelling tutor. The goal: she wants to come back to Sunny, and she knows her words by the test. Compare your preregistered theory and predictions with what she actually did and said, decide what happens next, and build her next board, using the tools.
+1. decide: one evidence-grounded decision. Cite the prediction evaluations you judge.
+2. Unless you await calibration, build the next board: add_step for each step, then set_order and, when she should pick her path, add_choice. Then finish_board.
+Sunny runs each step as you write it. The board she has now stays as it is; yours opens at a later session. The kiosk screen shows up to 7 stops along any one path, counting the start, the choice and the finish. Title each step as she should see it. Per-word response time, assistance, exposure and response mode are in the evidence below; Elli talks with her during each activity.
 Tested built-in activities you may re-run:
 ${JSON.stringify(facts.builtIns.map(row=>({builtIn:row.nodeId,title:row.title,type:row.implementationType,words:row.wordIds.length,checkpoint:row.checkpoint})))}
 Saved spelling words:

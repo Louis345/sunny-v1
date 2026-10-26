@@ -108,3 +108,20 @@ it("tells the Planner and the map artist who she is on every board, without her 
     }
   }
 }, 120000);
+
+// 2026-10-25 owner review: the Planner's instructions were mostly "do not" lines guarding against old
+// failures, and its only goal was academic. The owner's rule: one goal, the facts, and tools; a limit is
+// what a strict tool accepts, never a sentence. This keeps the instructions from growing walls again.
+it("gives every Planner one goal, that she wants to come back, and no do-not lines", async () => {
+  await playToNextBoard();
+  const prompts = ["record_words", "add_activity", "decide", "submit_board"].map(tool => {
+    const request = lab.planner.requests.find(row => row.tools?.some((item: any) => item.name === tool))!;
+    const first = request.messages[0].content;
+    return [tool, typeof first === "string" ? first : first.filter((block: any) => block.type === "text").map((block: any) => block.text).join("\n")] as const;
+  });
+  for (const [tool, prompt] of prompts) {
+    const instructions = prompt.split("\n").filter(line => !/^\s*[[{"]/.test(line) && line.length < 2000);
+    expect(instructions.filter(line => /\b(do not|don't|never|must not)\b/i.test(line)), tool).toEqual([]);
+    if (tool !== "submit_board") expect(prompt, tool).toContain("she wants to come back");
+  }
+}, 120000);

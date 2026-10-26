@@ -9,11 +9,11 @@ import { spellingDiscoveryToolkit } from "./spellingDiscoveryTools";
 import type Anthropic from "@anthropic-ai/sdk";
 
 export function buildSpellingIntakeToolPrompt(packet: AssignmentPlanningPacket): string {
-  return `This is the assignment-capture and Discovery-choice phase of Sunny's Planner. Use the tools.
-1. record_words: every assigned spelling word from the complete school source, spelled exactly, with its page. Do not add practice words or guess unreadable words. Put informational observations about headers, OCR and repeated pages in source_notes; they never block anything. Use uncertainty only for unresolved word identity or assignment scope, and leave it empty when the words and scope are clear.
-2. choose_discovery: you own the Discovery choice. Choose a validated instrument whose capture can establish the assigned words' independent starting point for this child. Compare its capabilities and measurement risks with the source, child chart, factual observations and device uncertainty. Availability does not establish suitability. The instrument must offer every assigned word without first exposing its spelling, allow Not sure, exit and resume, and preserve unknown, support and confound status. Hearing a whole word is stimulus; spelling or letter clues are assistance. If none fits, use action needs_instrument with instrument none. Do not substitute an unvalidated practice game or invent a device or a permanent learning-style preference. Cite only the evidence IDs offered.
+  return `This is the assignment-capture and Discovery-choice phase of Sunny's Planner. The goal: she wants to come back to Sunny, and she knows her words by the test. Use the tools.
+1. record_words: every assigned spelling word from the complete school source, spelled exactly as printed, with its page. Notes about headers, OCR and repeated pages go in source_notes and are informational. Use uncertainty for a word you cannot read or an unclear assignment scope.
+2. choose_discovery: you choose the Discovery check: the validated mode that best finds her independent starting point on these words, for this child. Hearing a whole word is stimulus; spelling or letter clues are assistance. If none fits, use action needs_instrument with instrument none.
 3. finish_intake: the assignment title and the short names she sees.
-Do not prescribe a teaching board, predictions, games or mastered/weak labels: no Discovery evidence exists yet. Sunny builds the board and the map artist draws it; you never write positions, IDs or links.
+Discovery comes first, before any teaching: Sunny builds this one-stop board from your choice and the map artist draws it.
 SOURCE:
 ${JSON.stringify(packet.sourceDocument)}
 CHILD CHART:

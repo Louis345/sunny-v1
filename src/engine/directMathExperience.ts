@@ -1261,7 +1261,7 @@ export function compactPlannerFacts(packet:AssignmentPlanningPacket) {
     ...(history.length?{history:Object.fromEntries(history.map(([construct,entry])=>[construct,{observations:(entry.observations??[]).map(row=>({observationId:row.observationId,typed:row.childResponse??null,correct:row.result?.correct??null})),evaluations:(entry.evaluations??[]).map(row=>row.evaluationId)}]))}:{}),
   };
 }
-const MAP_ARTIST_PERSONA="You are Sunny's map artist. You design adventure maps a child wants to finish. You receive the teacher's journey and the illustrated world. You decide the shape of the map, where each stop sits, how each path curves and which look it wears. You never change the lesson.";
+const MAP_ARTIST_PERSONA="You are Sunny's map artist. You design adventure maps a child wants to finish. You receive the teacher's journey and the illustrated world. You decide the shape of the map, where each stop sits, how each path curves and which look it wears; the teacher owns the lesson.";
 const BOARD_ARTWORK="/generated/adventure-board-demo/silent-letter-world.jpeg";
 const ARTIST_CURVES=["straight","arc","wave","loop"] as const,ARTIST_STYLES=["solid","dashed","glow"] as const;
 type BoardPoint={x:number;y:number};
@@ -2166,11 +2166,11 @@ export function spellingTeachingToolPrompt(packet:AssignmentPlanningPacket):stri
   return `${learningPlannerInstructions('spelling').text}
 Build the Teaching board with the tools:
 1. add_activity (or add_explainer, add_reward) for each activity, with the assigned words it covers. Each returns an activity_id.
-2. predict for every academic activity: your preregistered prediction. It is never a measured learning claim.
-3. set_order: opening activities everyone plays first, then closing activities everyone plays after the choice. Optionally add_choice: two or more options, each its own short sequence, with a label she reads and your engagement hypothesis. Give a meaningful choice when academically valid alternatives exist; otherwise explain single_path_reason. Options may order the same activities differently.
+2. predict for every academic activity: what you expect to happen. It is a prediction, not a learning result.
+3. set_order: activities everyone plays first, then activities everyone plays after the choice. add_choice when she should pick her path: two or more options, each its own short sequence, with a label she reads and why it might work for her. Options may order the same activities differently.
 4. finish_board. Sunny checks the board and replies accepted, or tells you exactly what to fix.
 You may call several tools in one turn. Activity IDs come back from add_activity; use them exactly.
-You choose activities, count, support, alternatives and hypotheses. Separate assisted practice, independent measurement (only word-radar:hidden_word_recall as a fresh_checkpoint) and engagement. Use the catalog for varied practice addressing measured gaps; activity count remains your decision. Each path from start to finish, counting the start, the choice and the finish, fits in 7 steps. Request a missing capability with request_capability; nothing is built automatically. Cite only the supplied observation IDs. Do not claim mastery or readiness. Sunny draws the start, portals, paths and connections, works out which activities each checkpoint follows, and the map artist owns artwork and placement.
+The kiosk screen shows up to 7 stops along any one path, counting the start, the choice and the finish. When no activity fits what she needs, ask for one with request_capability; a person reads every request. Sunny draws the start, portals, paths and connections and works out which activities each checkpoint follows; the map artist owns the artwork and placement.
 Homework and child-chart context:
 ${JSON.stringify(compactPlannerFacts(packet))}`;
 }
