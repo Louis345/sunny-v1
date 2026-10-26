@@ -438,7 +438,8 @@ export function AdventureBoard({
               ].join(" ")}
               style={nodePositionStyle(node)}
               onClick={() => {
-                if (board.definition && isLocked) return;
+                // An authored stop with nothing to open (start, finish, a choice already made) is quiet, never a locked sound.
+                if (board.definition && (isLocked || !node.action)) return;
                 if (isPreparing) {
                   console.log(` 🎮 [adventure-board] [preparing-node] [acknowledged] node=${node.id}`);
                   setPreparingMessage(`${node.shortLabel ?? node.label} is still being prepared. You can keep exploring or come back later.`);
