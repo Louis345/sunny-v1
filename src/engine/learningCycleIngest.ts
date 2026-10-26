@@ -7,7 +7,8 @@ import { buildAdventureBoardFromActiveSessionPlan } from "../shared/adventureBoa
 import type { ActiveSessionPlan, EngagementTheory } from "../context/schemas/learningProfile";
 import { getActivityCapabilityMode } from "./activityToolCatalog";
 import { hashDiscoveryContract } from "./adaptiveMathDiscovery";
-import { spellingImplementationType, validateActivityEngineConfig, validateLetterRushConfig, type ActivityEngineConfig, type LetterRushConfig } from "./activityEngineConfig";
+import { spellingImplementationType } from "./activityEngineConfig";
+import { spellingNativeConfig } from "./spellingNativeSetup";
 import {
   validateSpellingVisualExplainerPlanConfig,
   validateVisualLearnerArtifactConfig,
@@ -388,38 +389,8 @@ export function buildSpellingTargetedCycleInput(input: {
       if (contract.nodes[index].role === "mystery" && items.length > 0 && implementationType === "mystery") {
         throw new Error(`spelling_mystery_academic_instrument_missing:${node.id}`);
       }
-      let nativeConfig: Record<string, unknown> | undefined;
-      if (implementationType === "word-radar" && node.wordRadarConfig) {
-        nativeConfig = {
-          activityId: "word-radar",
-          wordRadarConfig: structuredClone(node.wordRadarConfig),
-        };
-      } else if (implementationType === "letter-rush" || implementationType === "concept-check") {
-        const parsed = implementationType === "letter-rush" ? validateLetterRushConfig(node.activityConfig) : validateActivityEngineConfig(node.activityConfig);
-        if (!parsed.ok || !parsed.normalized || parsed.normalized.domain !== "spelling" || parsed.normalized.activityId !== implementationType
-          || parsed.normalized.evidencePolicy.writesMasteryEvidence) throw new Error(`spelling_engine_config_invalid:${node.id}`);
-        const config = structuredClone(parsed.normalized);
-        const match = (word: string) => items.find(item => item.word.normalize("NFC").toLowerCase() === word.normalize("NFC").toLowerCase());
-        if (implementationType === "letter-rush") {
-          const letter = config as LetterRushConfig;
-          if (letter.words.length !== items.length || new Set(letter.words.map(word => word.text.toLowerCase())).size !== items.length) throw new Error(`spelling_engine_coverage_invalid:${node.id}`);
-          letter.words = letter.words.map(word => { const item = match(word.text); if (!item) throw new Error(`spelling_engine_unknown_word:${node.id}`); return { ...word, id: item.id }; });
-        } else {
-          const concept = config as ActivityEngineConfig;
-          const ids = new Map(concept.targets.map(target => [target.id, match(target.label)]));
-          if (concept.targets.length !== items.length || [...ids.values()].some(item => !item)
-            || concept.rounds.length !== items.length || new Set(concept.rounds.map(round => round.targetId)).size !== items.length) throw new Error(`spelling_engine_coverage_invalid:${node.id}`);
-          concept.targets = concept.targets.map(target => ({ ...target, id: ids.get(target.id)!.id }));
-          concept.rounds = concept.rounds.map(round => {
-            const item = ids.get(round.targetId); if (!item) throw new Error(`spelling_engine_unknown_word:${node.id}`);
-            const accepted = (round.options ?? []).filter(option => option.correct).map(option => option.label);
-            if (!accepted.length) throw new Error(`spelling_engine_answer_missing:${node.id}`);
-            item.response = { mode: "tap_selection", acceptedForms: accepted, caseSensitive: false };
-            return { ...round, targetId: item.id };
-          });
-        }
-        nativeConfig = config as unknown as Record<string, unknown>;
-      } else if (implementationType === "visual-explainer") {
+      let nativeConfig = spellingNativeConfig({ type: implementationType, nodeId: node.id, items, wordRadarConfig: node.wordRadarConfig as Record<string, unknown> | undefined, activityConfig: node.activityConfig });
+      if (implementationType === "visual-explainer") {
         try {
           const visual = validateSpellingVisualExplainerPlanConfig(node.activityConfig);
           const normalize = (value: string) => value.normalize("NFC").trim().toLocaleLowerCase("en-US");

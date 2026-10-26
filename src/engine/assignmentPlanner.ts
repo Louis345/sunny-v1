@@ -1,4 +1,5 @@
 import {LEARNING_PLANNER_PERSONA,learningPlannerInstructions} from "./learningPlannerInstructions";
+import { letterRushConfig } from "./spellingNativeSetup";
 import {spellingImplementationType,SPELLING_MYSTERY_INSTRUMENT_IDS} from "./activityEngineConfig";
 import {reportAuthoredBoardCanvas} from './adventureBoardCanvas';
 import { readSuccessorBoardDefinition,JOURNEY_AUTHORING_INSTRUCTION, authoredBoardDefinitionSchema, adventureJourneySchema,ADVENTURE_JOURNEY_TOOL_SCHEMA, journeySequenceSchema, expandJourneySequence, journeyFromBoardDefinition, adventureBoardDefinitionSchema, BOARD_AUTHORING_INSTRUCTION, BOARD_CANVAS_AUTHORING_CONSTRAINTS, renderBoardDefinition, validateBoardDefinition, journeyExecutions, type BoardDefinitionIssue, type AdventureBoardDefinition } from '../shared/adventureBoardDefinition';
@@ -868,10 +869,8 @@ export function deriveNativeActivity(row:unknown):unknown {
       evidencePolicy:{writesPracticeEvidence:true,writesMasteryEvidence:false,requiresPerTargetResult:false,allowedEvidence:["practice","companion"]}}};
   }
   if(activity.type==="letter-rush"&&!config&&Array.isArray(activity.targets)){
-    const {letterRushMode,...rest}=activity,mode=typeof letterRushMode==="string"?letterRushMode:"read-and-race";
-    return {...rest,activityConfig:{schemaVersion:1,activityId:"letter-rush",mode,topic:String(activity.title??"Spelling words"),domain:"spelling",learningGoal:"Practice the assigned spelling words.",gradeBand:"early_elementary",
-      scaffolds:{showWord:mode==="read-and-race",letterBank:true,allowRetryBeforeScore:true,companionHints:false},words:activity.targets.map(text=>({text})),
-      evidencePolicy:{writesPracticeEvidence:true,writesMasteryEvidence:false,requiresPerTargetResult:true,allowedEvidence:["practice"]}}};
+    const {letterRushMode,...rest}=activity;
+    return {...rest,activityConfig:letterRushConfig({mode:typeof letterRushMode==="string"?letterRushMode:"read-and-race",title:String(activity.title??"Spelling words"),words:activity.targets.map(String)})};
   }
   return row;
 }
