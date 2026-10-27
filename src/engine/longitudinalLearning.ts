@@ -17,6 +17,7 @@ import {
   type LearningObservation,
   type PredictionEvaluation,
 } from "./learningCycleRepository";
+import { requestForModel } from "./plannerTransport";
 
 export type ConfirmedReturnedWorkItem = {
   itemId: string;
@@ -334,7 +335,7 @@ async function askPlannerForTheoryDecision(input: {
   const evaluations = input.cycle.predictionEvaluations.filter((evaluation) => evaluation.sourceId === input.sourceId);
   const client = input.client ?? new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
   const toolName = "record_longitudinal_theory_decision";
-  const response = await client.messages.create({
+  const response = await client.messages.create(requestForModel({
     model: input.model ?? process.env.SUNNY_INGEST_MODEL ?? "claude-sonnet-5",
     max_tokens: 5000,
     messages: [{ role: "user", content: `You are Sunny's AI learning Planner. Interpret one confirmed external-evidence batch. Observations are immutable facts. Compare only preregistered predictions with their evaluations and return exactly one theory decision. A supported prediction does not automatically prove mastery. Cite only supplied observation and evaluation IDs. Assess every preregistered assumption as supported, rejected, or uncertain; do not rewrite it.\n\nTheory:\n${JSON.stringify(input.cycle.academicTheory, null, 2)}\n\nAssumptions:\n${JSON.stringify(input.cycle.assumptions, null, 2)}\n\nPredictions:\n${JSON.stringify(input.cycle.academicPredictions, null, 2)}\n\nObservations:\n${JSON.stringify(observations, null, 2)}\n\nEvaluations:\n${JSON.stringify(evaluations, null, 2)}` }],
@@ -374,7 +375,7 @@ async function askPlannerForTheoryDecision(input: {
       },
     }],
     tool_choice: { type: "tool", name: toolName },
-  }, { timeout: Number(process.env.SUNNY_AI_TIMEOUT_MS ?? 120000) });
+  }), { timeout: Number(process.env.SUNNY_AI_TIMEOUT_MS ?? 120000) });
   const tool = response.content.find((block) => block.type === "tool_use" && block.name === toolName);
   if (!tool || tool.type !== "tool_use") throw new Error("longitudinal_theory_decision_missing");
   return parseTheoryDecision(tool.input, input.cycle);

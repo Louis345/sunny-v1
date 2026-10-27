@@ -30,6 +30,7 @@ import {
   type QuestBossKind,
 } from "../engine/questBossTeamPipeline";
 import { HAIKU_MODEL, SONNET_MODEL } from "./generateGame";
+import { requestForModel } from "../engine/plannerTransport";
 
 loadDotenv({ override: false });
 
@@ -537,7 +538,7 @@ async function anthropicCandidates(input: {
 }): Promise<{ candidates: QuestBossCandidate[]; usage?: unknown; latencyMs: number }> {
   const started = Date.now();
   const client = new Anthropic();
-  const message = await client.messages.create({
+  const message = await client.messages.create(requestForModel({
     model: input.model,
     max_tokens: 2400,
     messages: [{
@@ -562,7 +563,7 @@ Rules:
 - Do not use phrases like "master comparative suffixes", "assessment", "intervention", "mastery gate", "spelling accuracy determines", or "target words" in title/description/mechanicMetaphor/companionLines.
 - Use vivid game worlds, not worksheets, flashcards, or clinical labels.`,
     }],
-  });
+  }));
   const text = message.content
     .filter((part): part is Anthropic.TextBlock => part.type === "text")
     .map((part) => part.text)
@@ -626,7 +627,7 @@ async function generateQuestBossDynamicPromptBrief(input: {
   });
   const client = new Anthropic();
   const toolName = "create_quest_boss_dynamic_prompt_brief";
-  const message = await client.messages.create({
+  const message = await client.messages.create(requestForModel({
     model: HAIKU_MODEL,
     max_tokens: 1800,
     tools: [{
@@ -642,7 +643,7 @@ async function generateQuestBossDynamicPromptBrief(input: {
       role: "user",
       content: buildQuestBossCreativeDirectorPrompt(directorInput),
     }],
-  });
+  }));
   const toolUse = message.content.find((part): part is Anthropic.ToolUseBlock =>
     part.type === "tool_use" && part.name === toolName,
   );

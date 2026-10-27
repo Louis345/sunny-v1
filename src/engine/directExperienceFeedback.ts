@@ -2,6 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import fs from "node:fs";
 import path from "node:path";
 import { readChoiceEvents, type ChoiceEvent } from "./choiceEvents";
+import { requestForModel } from "./plannerTransport";
 
 export type DirectFeedbackOutcome = "supported" | "revised" | "inconclusive";
 
@@ -126,13 +127,13 @@ async function askPlannerForInterpretation(input: {
 }): Promise<DecisionContent> {
   const client = input.client ?? new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
   const toolName = "interpret_direct_experience_outcome";
-  const response = await client.messages.create({
+  const response = await client.messages.create(requestForModel({
     model: input.model,
     max_tokens: 1400,
     messages: [{ role: "user", content: `You are Sunny's learning-experience Planner. Compare the preregistered design prediction with the factual observation. Return exactly one supported, revised, or inconclusive design decision. Keep academic performance, interaction confusion, and engagement separate. A demo request or low fun rating cannot reduce mastery. Cite only supplied evidence IDs.\n\nPrediction:\n${input.designPrediction}\n\nObservation:\n${JSON.stringify(input.observation, null, 2)}` }],
     tools: [{ name: toolName, description: "Record one bounded design interpretation.", input_schema: { type: "object", additionalProperties: true } }],
     tool_choice: { type: "tool", name: toolName },
-  }, { timeout: Number(process.env.SUNNY_AI_TIMEOUT_MS ?? 120000) });
+  }), { timeout: Number(process.env.SUNNY_AI_TIMEOUT_MS ?? 120000) });
   const tool = response.content.find((block) => block.type === "tool_use" && block.name === toolName);
   if (!tool || tool.type !== "tool_use") throw new Error("direct_feedback_tool_output_missing");
   return parseDecision(tool.input);

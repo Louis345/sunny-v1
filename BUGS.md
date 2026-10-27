@@ -1,3 +1,11 @@
+## 2026-10-27 — Found while making AI models swappable (open)
+
+- **Sunny broke on the 5.5 models (fixed on `fix/one-front-door-for-ai-calls`).** A paid harness run with `claude-sonnet-5-5` (pretend children) stopped at intake: "tool_choice: type tool and any are not supported for this model". Only `requestPlannerMessage` knew that; 16 direct calls forced a tool. Caught by the harness, not a child; no log or test sent a 5.5 request through those calls. Invariant: `modelRequestShape.test.ts`.
+- **The harness swaps the model after Sunny shapes the request (open, on #49).** `plannerHarness.harness.ts` sends `{...request, model: HARNESS_MODEL}`, so a request shaped for Sunny's default reaches another model. Set Sunny's `SUNNY_*_MODEL` from `HARNESS_MODEL` instead.
+- **`spellingBrowserAcceptance` is flaky on this Mac (open).** "plays spelling through the real host" times out waiting for `word-radar-input` (12s) at 1365×768 and 1280×720 on unchanged `main` (bf056e98); it passed in one full run and failed in others. CI passes.
+- **The full test suite writes tracked files (open).** After `npx vitest run`, `src/context/creator/{care_plan/current.json,content_catalog.json,homework/current.json,plans/active_session_plan.json}` are modified. Tests should write to a temp root.
+- **Board previews differ from the kiosk (guess, open).** The artist's preview (`renderBoardPreview`) shows "Keep going" locks on spelling stops and a stray "â" in the XP bar; it renders with `domain:'generic'` and no charset. Check what the artist is shown against the kiosk.
+
 ## 2026-10-24 — Findings from the first full live loop on tiny tools (demo profile, this Mac)
 
 Discovery → Teaching → board 3 → board 4 ran for real through the small locked tools (Sonnet 5). Ila's and Reina's data were hashed before and after: unchanged.
