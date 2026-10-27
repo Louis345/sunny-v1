@@ -17,6 +17,7 @@ import {
   type ConfirmedReturnedWorkItem,
   type TheoryDecisionContent,
 } from "./longitudinalLearning";
+import { requestForModel } from "./plannerTransport";
 
 export type ReturnedWorkExtraction = {
   score?: { earned: number; possible: number };
@@ -288,7 +289,7 @@ async function extractWithPlanner(input: {
   const media = input.mimeType === "application/pdf"
     ? { type: "document", source: { type: "base64", media_type: "application/pdf", data: input.dataBase64 } }
     : { type: "image", source: { type: "base64", media_type: input.mimeType, data: input.dataBase64 } };
-  const response = await client.messages.create({
+  const response = await client.messages.create(requestForModel({
     model: input.model ?? process.env.SUNNY_INGEST_MODEL ?? "claude-sonnet-5",
     max_tokens: 3500,
     messages: [{
@@ -348,7 +349,7 @@ async function extractWithPlanner(input: {
       },
     }],
     tool_choice: { type: "tool", name: toolName },
-  }, { timeout: Number(process.env.SUNNY_AI_TIMEOUT_MS ?? 120000) });
+  }), { timeout: Number(process.env.SUNNY_AI_TIMEOUT_MS ?? 120000) });
   const tool = response.content.find((block) => block.type === "tool_use" && block.name === toolName);
   if (!tool || tool.type !== "tool_use") throw new Error("returned_work_extraction_missing");
   return parseReturnedWorkExtraction(tool.input);

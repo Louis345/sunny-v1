@@ -10,6 +10,7 @@ import type {
   ShowroomVisualSnapshot,
 } from "./companionShowroomTalk";
 import { resolveChildContextDir } from "../utils/contextRoot";
+import { requestForModel } from "../engine/plannerTransport";
 
 const COMPANION_MEMORY_HAIKU_MODEL = "claude-haiku-4-5-20251001";
 const DEFAULT_COMPACT_EVENT_THRESHOLD = 3;
@@ -411,7 +412,7 @@ async function summarizeCompanionInteractionsWithHaiku(input: {
   existingMemory: CompanionCareMemory;
 }): Promise<CompanionMemorySummaryPatch> {
   const client = new Anthropic();
-  const message = await client.messages.create({
+  const message = await client.messages.create(requestForModel({
     model: COMPANION_MEMORY_HAIKU_MODEL,
     max_tokens: 900,
     system:
@@ -466,7 +467,7 @@ async function summarizeCompanionInteractionsWithHaiku(input: {
       },
     }],
     tool_choice: { type: "tool", name: COMPANION_MEMORY_SUMMARY_TOOL },
-  });
+  }));
   try {
     return readCompanionMemorySummaryToolResult(message.content);
   } catch (error) {

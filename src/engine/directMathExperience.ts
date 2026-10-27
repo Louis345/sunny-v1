@@ -1,5 +1,5 @@
 import {hydrateNativeLearningProgram,nativeLearningProgramToolJsonSchema,resolveAssignmentPlannerModel,type AssignmentPlanningPacket,type AssignmentPlannerOutput,type AssignmentPlannerTelemetry} from "./assignmentPlanner";
-import {requestPlannerMessage,assertPlannerResponseComplete,decodeToolInput,describeRefusal,refusalDetails,strictTool} from "./plannerTransport";
+import {requestPlannerMessage,assertPlannerResponseComplete,decodeToolInput,describeRefusal,refusalDetails,strictTool,requestForModel} from "./plannerTransport";
 import {layoutJourney,THEME_PRESETS,DEFAULT_THEME_PRESET,themeOfPreset,type PortalPlacement} from "../shared/boardLayout";
 import {isDeepStrictEqual} from "node:util";
 import {z} from "zod";
@@ -888,7 +888,7 @@ export async function correctSavedDirectMathPlannerResponse(input: {
     }],
     tool_choice: { type: "tool", name: "create_math_learning_program" },
   } satisfies Parameters<typeof client.messages.stream>[0];
-  const execute = () => client.messages.stream(request, { timeout: Number(process.env.SUNNY_AI_TIMEOUT_MS ?? 600000) }).finalMessage();
+  const execute = () => client.messages.stream(requestForModel(request), { timeout: Number(process.env.SUNNY_AI_TIMEOUT_MS ?? 600000) }).finalMessage();
   const response = input.correctionResponseFile
     ? await runMathProviderStage({draftDir:path.dirname(input.correctionResponseFile),stage:"targeted-planner-correction",model:request.model,request,execute})
     : await execute();
@@ -1364,7 +1364,7 @@ The teacher's journey (immutable): stops ${JSON.stringify(journey.portals.map(po
       request=JSON.parse(fs.readFileSync(path.join(draftDir!,"provider-diagnostics",`${requestHash}.attempt-${receipt.attempts?.length??1}.request.json`),"utf8")).context;
       messages=[...request.messages];
     }
-    const execute=()=>client.messages.stream(request,{timeout:Number(process.env.SUNNY_AI_TIMEOUT_MS??600000),maxRetries:0}).finalMessage();
+    const execute=()=>client.messages.stream(requestForModel(request),{timeout:Number(process.env.SUNNY_AI_TIMEOUT_MS??600000),maxRetries:0}).finalMessage();
     const response=draftDir?await runMathProviderStage({draftDir,stage,model,request,execute,retryUncertain:input.retryUncertain,beforeRequest:()=>{if(!input.client&&!process.env.ANTHROPIC_API_KEY?.trim())throw new Error("preflight_missing:ANTHROPIC_API_KEY");}}):await execute();
     if(input.rawResponseDir){fs.mkdirSync(input.rawResponseDir,{recursive:true});fs.writeFileSync(path.join(input.rawResponseDir,`design-response-${turn}.json`),`${JSON.stringify({model,stopReason:response.stop_reason,stopDetails:refusalDetails(response),usage:response.usage,content:response.content},null,2)}\n`,"utf8");}
     // A refusal ends the artist's turns: its partial output is never trusted and never bought
@@ -1557,7 +1557,7 @@ ${JSON.stringify({ ...programWithoutBonusDuplicate, activities: contracts }, nul
     let response: Awaited<ReturnType<ReturnType<typeof client.messages.stream>["finalMessage"]>> | undefined;
     for (let transportAttempt = 1; transportAttempt <= 2; transportAttempt += 1) {
       try {
-        const execute = () => client.messages.stream(request, { timeout: Number(process.env.SUNNY_AI_TIMEOUT_MS ?? 600000), maxRetries: 0 }).finalMessage();
+        const execute = () => client.messages.stream(requestForModel(request), { timeout: Number(process.env.SUNNY_AI_TIMEOUT_MS ?? 600000), maxRetries: 0 }).finalMessage();
         response = input.checkpointFile
           ? await runMathProviderStage({draftDir:path.dirname(input.checkpointFile),stage:`targeted-design-${checkpoint.attempts.length+1}`,model,request,execute,retryUncertain:input.retryUncertain,beforeRequest:()=>{
             if(!input.client&&!process.env.ANTHROPIC_API_KEY?.trim())throw new Error("preflight_missing:ANTHROPIC_API_KEY");
@@ -2123,7 +2123,7 @@ ${JSON.stringify(factualModelContext(input.priorOutcomes ?? []), null, 2)}`;
     }],
     tool_choice: { type: "tool", name: toolName },
   } satisfies Parameters<typeof client.messages.stream>[0];
-  const execute = () => client.messages.stream(request, { timeout: Number(process.env.SUNNY_AI_TIMEOUT_MS ?? 600000),maxRetries:0 }).finalMessage();
+  const execute = () => client.messages.stream(requestForModel(request), { timeout: Number(process.env.SUNNY_AI_TIMEOUT_MS ?? 600000),maxRetries:0 }).finalMessage();
   const response = input.rawResponseFile
     ? await runMathProviderStage({draftDir:path.dirname(input.rawResponseFile),stage:"targeted-planner",model:request.model,request,execute})
     : await execute();
@@ -2772,7 +2772,7 @@ export async function generateAdaptiveProgressionActivityHtml(input: {
     messages: [{ role: "user", content: buildAdaptiveProgressionCreatorPrompt(input) }],
   } as never;
   const response = await client.messages
-    .stream(request, { timeout: Number(process.env.SUNNY_AI_TIMEOUT_MS ?? 120000) })
+    .stream(requestForModel(request), { timeout: Number(process.env.SUNNY_AI_TIMEOUT_MS ?? 120000) })
     .finalMessage();
   const html = normalizeGeneratedHtml(stripHtml(response.content
     .filter((block) => block.type === "text")
@@ -2841,7 +2841,7 @@ async function generateActivityHtml(input: {
     }
     ({ raw, inputTokens, outputTokens, stopReason } = await readOpenAiResponseStream(response));
   } else {
-    const response = await input.client.messages.stream(request as never, { timeout: Number(process.env.SUNNY_AI_TIMEOUT_MS ?? 600000), maxRetries: 0 }).finalMessage();
+    const response = await input.client.messages.stream(requestForModel(request as never), { timeout: Number(process.env.SUNNY_AI_TIMEOUT_MS ?? 600000), maxRetries: 0 }).finalMessage();
     raw = response.content.filter((block) => block.type === "text").map((block) => block.text).join("\n");
     inputTokens = response.usage.input_tokens;
     outputTokens = response.usage.output_tokens;

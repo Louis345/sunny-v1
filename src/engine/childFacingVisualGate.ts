@@ -3,6 +3,7 @@ import path from "node:path";
 import { createHash } from "node:crypto";
 import Anthropic from "@anthropic-ai/sdk";
 import type { JourneyCapture, ReviewFinding } from "./discoveryVisualReview";
+import { requestForModel } from "./plannerTransport";
 
 export const CHILD_FACING_VISUAL_GATE_VERSION = 5;
 export const CHILD_FACING_VISUAL_MAX_OUTPUT_TOKENS = 4_000;
@@ -374,7 +375,7 @@ export async function judgeChildFacingScreens(input: {
     rawResponse = payload;
   } else {
     const client = input.client ?? new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-    rawResponse = await client.messages.create({
+    rawResponse = await client.messages.create(requestForModel({
       model,
       max_tokens: CHILD_FACING_VISUAL_MAX_OUTPUT_TOKENS,
       tools: [{
@@ -402,7 +403,7 @@ export async function judgeChildFacingScreens(input: {
           { type: "text" as const, text: reviewPrompt },
         ],
       }],
-    });
+    }));
   }
   } catch (error) {
     const code = Number((error as { status?: number }).status ?? 0);
