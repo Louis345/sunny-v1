@@ -41,6 +41,7 @@ import {
   validateBoardGraph,
   validateBoardVisualContract,
 } from "../shared/adventureBoardValidation";
+import { requestForModel } from "./plannerTransport";
 
 export function resolveDiscoveryRepairModel(input: {
   builderModel: string;
@@ -1031,7 +1032,7 @@ export async function generateMathDiscoveryExperience(input: {
           visible_text_characters: streamed.visibleTextCharacters,
         };
       } else {
-        response = await client().messages.stream(request as never, { timeout: Number(process.env.SUNNY_AI_TIMEOUT_MS ?? 600_000), maxRetries: 0 }).finalMessage();
+        response = await client().messages.stream(requestForModel(request as never), { timeout: Number(process.env.SUNNY_AI_TIMEOUT_MS ?? 600_000), maxRetries: 0 }).finalMessage();
       }
       return response;
     }});

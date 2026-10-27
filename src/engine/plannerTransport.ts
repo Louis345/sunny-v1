@@ -13,6 +13,16 @@ export function plannerTransportPolicy(model: string, maxTokens: number, timeout
   return { streaming: true, maxTokens: budget, timeout: deadline, effort };
 }
 
+/** How each model is asked: the one place for model differences on calls that do not go through
+ * requestPlannerMessage. A model that refuses a forced tool is asked to choose the tool itself;
+ * every other request is returned unchanged, the same object, so its bytes and receipts stay identical. */
+export function requestForModel<P extends Anthropic.Messages.MessageCreateParams>(request: P): P {
+  const choice = request.tool_choice?.type;
+  if (!adaptiveModels.has(request.model) || (choice !== 'tool' && choice !== 'any')) return request;
+  console.log(` 🎮 [planner-transport] [tool-choice] [auto] model=${request.model} requested=${choice}`);
+  return { ...request, tool_choice: { type: 'auto' } };
+}
+
 /** Return the raw message. Callers must checkpoint it BEFORE interpreting stop/content. */
 export async function requestPlannerMessage(
   client: Anthropic,
