@@ -103,21 +103,29 @@ export async function browserCheck(html: string, child: SandboxChild): Promise<{
       const start = frame.getByRole("button", { name: /start|play|go|begin|let'?s|ready/i }).first();
       if (await start.isVisible().catch(() => false)) await start.click({ timeout: 2000 }).catch(() => undefined);
       await page.waitForTimeout(800);
+      const answered = () => messages.some(row => row.type === "spelling-answer");
       const box = frame.locator("input[type=text], input:not([type]), textarea").first();
       if (await box.isVisible().catch(() => false)) {
         await box.fill("zzz", { timeout: 2000 }).catch(() => undefined);
         await box.press("Enter").catch(() => undefined);
-        const check = frame.getByRole("button", { name: /check|submit|enter|done|go|spell|attack|throw/i }).first();
-        if (!messages.some(row => row.type === "spelling-answer") && await check.isVisible().catch(() => false)) await check.click({ timeout: 2000 }).catch(() => undefined);
+      } else {
+        // Tap-keyboard games: tap a letter key a few times, or type on the keyboard the game listens to.
+        const key = frame.getByRole("button", { name: /^z$/i }).first();
+        if (await key.isVisible().catch(() => false)) for (let tap = 0; tap < 12 && !answered(); tap++) await key.click({ timeout: 1000 }).catch(() => undefined);
+        else { await frame.locator("body").click({ timeout: 1000 }).catch(() => undefined); await page.keyboard.type("zzzzzzzzzzzz"); }
+        await page.keyboard.press("Enter").catch(() => undefined);
       }
+      await page.waitForTimeout(700);
+      const check = frame.getByRole("button", { name: /check|submit|enter|done|go|spell|attack|throw|fire|✓|➜|→/i }).first();
+      if (!answered() && await check.isVisible().catch(() => false)) await check.click({ timeout: 2000 }).catch(() => undefined);
       await page.waitForTimeout(1500);
     }
     const answered = messages.some(row => row.type === "spelling-answer");
     return { screenshot, checks: [
       { name: "loads", passed: errors.length === 0 && visible.trim().length > 0, detail: errors.length ? `errors: ${errors.slice(0, 2).join(" | ")}` : visible.trim() ? "shows a screen with no errors" : "blank screen" },
       { name: "no requests", passed: requests.length === 0, detail: requests.length ? `tried: ${requests.slice(0, 2).join(" ")}` : "asked for nothing outside" },
-      { name: "words hidden at start", passed: shown.length === 0, detail: shown.length ? `first screen shows: ${shown.join(", ")}` : "no spelling word on the first screen" },
-      { name: "answers recorded", passed: answered, detail: answered ? "a robot's typed answer arrived" : "the robot could not get an answer through (a person may still can)" },
+      { name: "words hidden at start", passed: shown.length === 0, detail: shown.length ? `first screen has the word ${shown.join(", ")} somewhere (often ordinary text, like a wrestling "match"; look before trusting it)` : "no spelling word on the first screen" },
+      { name: "robot got an answer through", passed: answered, detail: answered ? "a robot's typed answer arrived" : "the simple robot could not finish a word (start screens, tap keyboards and custom buttons beat it); play it to be sure" },
     ] };
   } finally { await browser.close(); }
 }
@@ -176,7 +184,7 @@ export function renderPage(run: SandboxRun): string {
       const label = String.fromCharCode(65 + index), id = `${child.id}:${label}`;
       reveal[id] = { model: candidate.model, tokens: candidate.inputTokens + candidate.outputTokens, costUsd: Math.round(candidate.costUsd * 1000) / 1000, seconds: Math.round(candidate.ms / 1000), error: candidate.error ?? null, checks: candidate.checks };
       const game = playable(candidate)
-        ? `<iframe sandbox="allow-scripts" data-card="${escape(id)}" title="Game ${label}" srcdoc="${attr(frameDoc(candidate.html))}"></iframe>`
+        ? `<div class="stage"><iframe sandbox="allow-scripts" data-card="${escape(id)}" title="Game ${label}" srcdoc="${attr(frameDoc(candidate.html))}"></iframe></div>`
         : `<div class="broken">This game did not build${candidate.error ? "" : " safely"}, so nobody plays it.</div>`;
       const picks = run.pickers.map(name => `<button class="pick" data-case="${escape(child.id)}" data-card="${escape(id)}" data-picker="${escape(name)}">${escape(name)} picks ${label}</button>`).join("");
       return `<article class="card" data-card="${escape(id)}"><header><h3>${label}</h3>${playable(candidate) ? `<button class="restart" data-card="${escape(id)}">Start over</button>` : ""}<span class="score" data-card="${escape(id)}"></span></header>${game}<div class="picks">${picks}</div><div class="reveal" hidden></div></article>`;
@@ -187,7 +195,7 @@ export function renderPage(run: SandboxRun): string {
   const players = run.pickers.map((name, index) => `<button class="player${index === 0 ? " on" : ""}" data-player="${escape(name)}">${escape(name)}</button>`).join("");
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Spelling Sandbox</title>
 <style>:root{--bg:#f7f7fb;--fg:#1f2937;--muted:#6b7280;--card:#fff;--line:#e5e7eb;--accent:#7c3aed;--good:#15803d;--bad:#b91c1c}@media (prefers-color-scheme:dark){:root{--bg:#111827;--fg:#f3f4f6;--muted:#9ca3af;--card:#1f2937;--line:#374151;--accent:#a78bfa;--good:#4ade80;--bad:#f87171}}
-*{box-sizing:border-box}body{background:var(--bg);color:var(--fg);font:16px/1.45 system-ui,sans-serif;margin:0 auto;max-width:1900px;padding:16px}.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,460px),1fr));gap:16px}.card{background:var(--card);border:2px solid var(--line);border-radius:14px;padding:12px}.card.picked{border-color:var(--accent)}.card header{display:flex;align-items:center;gap:10px}h3{margin:0;font-size:30px}iframe{width:100%;aspect-ratio:900/650;border:1px solid var(--line);border-radius:10px;background:#fff;margin-top:8px}.broken{padding:40px 16px;text-align:center;color:var(--muted);border:1px dashed var(--line);border-radius:10px;margin-top:8px}.small,small{color:var(--muted);font-size:14px}.score{margin-left:auto;color:var(--muted);font-size:14px}.picks{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}button{font:inherit;border-radius:999px;border:1px solid var(--line);background:var(--bg);color:var(--fg);padding:6px 12px;cursor:pointer}button.on{background:var(--accent);color:#fff;border-color:var(--accent)}.bar{position:sticky;top:0;background:var(--bg);padding:8px 0;display:flex;gap:8px;flex-wrap:wrap;align-items:center;z-index:1;border-bottom:1px solid var(--line)}.reveal{margin-top:10px;font-size:14px}.ok{color:var(--good)}.no{color:var(--bad)}pre{white-space:pre-wrap;font-size:13px}</style></head>
+*{box-sizing:border-box}body{background:var(--bg);color:var(--fg);font:16px/1.45 system-ui,sans-serif;margin:0 auto;max-width:1900px;padding:16px}.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,460px),1fr));gap:16px}.card{background:var(--card);border:2px solid var(--line);border-radius:14px;padding:12px}.card.picked{border-color:var(--accent)}.card header{display:flex;align-items:center;gap:10px}h3{margin:0;font-size:30px}.stage{position:relative;width:100%;aspect-ratio:900/650;overflow:hidden;border:1px solid var(--line);border-radius:10px;background:#fff;margin-top:8px}.stage iframe{position:absolute;top:0;left:0;width:900px;height:650px;border:0;transform-origin:0 0}.broken{padding:40px 16px;text-align:center;color:var(--muted);border:1px dashed var(--line);border-radius:10px;margin-top:8px}.small,small{color:var(--muted);font-size:14px}.score{margin-left:auto;color:var(--muted);font-size:14px}.picks{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}button{font:inherit;border-radius:999px;border:1px solid var(--line);background:var(--bg);color:var(--fg);padding:6px 12px;cursor:pointer}button.on{background:var(--accent);color:#fff;border-color:var(--accent)}.bar{position:sticky;top:0;background:var(--bg);padding:8px 0;display:flex;gap:8px;flex-wrap:wrap;align-items:center;z-index:1;border-bottom:1px solid var(--line)}.reveal{margin-top:10px;font-size:14px}.ok{color:var(--good)}.no{color:var(--bad)}pre{white-space:pre-wrap;font-size:13px}</style></head>
 <body><h1>Spelling Sandbox</h1><p class="small">Run ${escape(run.runId)}. Each card is a game a different AI model built for the same pretend child. Pick who is playing, play, then pick a favorite. Reveal shows which model built each game.</p>
 <div class="bar"><span>Who's playing?</span>${players}<span style="flex:1"></span><button id="reveal">Reveal</button><button id="download">Download results</button><button id="clear">Clear</button></div>${sections}
 <script type="application/json" id="data">${data}</script>
@@ -213,6 +221,8 @@ const line=(t,cls)=>{const d=document.createElement('div');if(cls)d.className=cl
 line('$'+r.costUsd.toFixed(3)+' · '+r.tokens+' tokens · '+r.seconds+' s'+(r.error?' · '+r.error:''));
 for(const name of new Set((state.answers[c.dataset.card]||[]).map(x=>x.player))){const t=tally(c.dataset.card,name);line(name+': '+t.right+' of '+t.total+' right')}
 (r.checks||[]).forEach(x=>line((x.passed?'✓ ':'✗ ')+x.name+': '+x.detail,x.passed?'ok':'no'))})});
+// Games are built for 900×650; each is shown at that size and scaled to fit its card.
+const fit=()=>document.querySelectorAll('.stage').forEach(s=>{s.firstElementChild.style.transform='scale('+(s.clientWidth/900)+')'});addEventListener('resize',fit);fit();
 paint();</script></body></html>`;
 }
 
@@ -256,7 +266,27 @@ export async function runSandbox(input: { models: string[]; caseIds?: string[]; 
   return { run, file };
 }
 
-if (import.meta.url === pathToFileURL(process.argv[1] ?? "").href) {
+/** Re-run the checks on a finished run's saved games and rewrite its page. No model is called. */
+export async function recheckRun(directory: string): Promise<string> {
+  const saved = JSON.parse(fs.readFileSync(path.join(directory, "run.json"), "utf8")) as SandboxRun;
+  for (const { child, candidates } of saved.cases) for (const candidate of candidates) {
+    const file = path.join(directory, `${child.id}-${candidate.model}.html`);
+    candidate.html = fs.existsSync(file) ? fs.readFileSync(file, "utf8") : "";
+    if (!candidate.html) continue;
+    const browser = await browserCheck(candidate.html, child);
+    candidate.checks = [...staticChecks(candidate.html, child), ...browser.checks];
+    console.log(` 🎮 [spelling-sandbox] [recheck] [${candidate.checks.every(check => check.passed) ? "all-passed" : "some-failed"}] model=${candidate.model} child=${child.id} ${candidate.checks.filter(check => !check.passed).map(check => check.name).join(",")}`);
+  }
+  fs.writeFileSync(path.join(directory, "run.json"), JSON.stringify({ ...saved, cases: saved.cases.map(row => ({ ...row, candidates: row.candidates.map(({ html: _html, screenshot: _shot, ...rest }) => rest) })) }, null, 2));
+  const page = path.join(directory, "index.html");
+  fs.writeFileSync(page, renderPage(saved));
+  console.log(` 🎮 [spelling-sandbox] [page] [rewritten] file=${page}`);
+  return page;
+}
+
+if (import.meta.url === pathToFileURL(process.argv[1] ?? "").href && process.argv.some(value => value.startsWith("--recheck="))) {
+  recheckRun(path.resolve(process.argv.find(value => value.startsWith("--recheck="))!.split("=").slice(1).join("="))).catch(error => { console.error(` 🎮 [spelling-sandbox] [recheck] [failed] reason=${error instanceof Error ? error.message : String(error)}`); process.exitCode = 1; });
+} else if (import.meta.url === pathToFileURL(process.argv[1] ?? "").href) {
   const arg = (name: string) => process.argv.find(value => value.startsWith(`--${name}=`))?.split("=").slice(1).join("=");
   const list = (value: string | undefined) => value?.split(",").map(row => row.trim()).filter(Boolean);
   runSandbox({
