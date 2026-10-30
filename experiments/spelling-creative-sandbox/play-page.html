@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Spelling Sandbox</title>
+<style>
+:root{--bg:#1b1140;--fg:#fff;--muted:#c9c2e8;--card:#2c1f5e;--line:#4a3a8a;--accent:#ffc933;--good:#4ade80;--bad:#f87171}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--fg);font:18px/1.4 system-ui,sans-serif}
+.view{display:none;min-height:100%;padding:16px}
+.view.on{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px}
+h1{font-size:clamp(30px,6vw,56px);margin:0;text-align:center}
+button{font:inherit;color:inherit;cursor:pointer;border:0}
+.names,.choices{display:flex;flex-wrap:wrap;gap:20px;justify-content:center;width:100%}
+.big{background:var(--accent);color:#2a1a00;font-size:clamp(26px,5vw,44px);font-weight:800;border-radius:24px;padding:24px 40px;min-width:220px}
+.quiet{background:var(--card);color:var(--fg)}
+.choice{background:var(--card);border:6px solid var(--line);border-radius:20px;padding:0;width:min(31%,560px);min-width:240px;overflow:hidden}
+.choice:hover,.choice:focus{border-color:var(--accent)}
+.choice img{display:block;width:100%;aspect-ratio:900/650;object-fit:cover}
+.choice span{display:block;font-size:40px;padding:8px}
+#play.on{padding:0;justify-content:flex-start;gap:0;height:100%}
+.stage{position:relative;overflow:hidden;background:#000;flex:none}
+.stage iframe{position:absolute;top:0;left:0;width:900px;height:650px;border:0;transform-origin:0 0}
+.below{height:84px;flex:none;display:flex;align-items:center;justify-content:center;width:100%}
+.below .big{padding:10px 32px;font-size:30px}
+.grown{position:fixed;right:10px;bottom:8px;background:none;color:var(--muted);font-size:13px;opacity:.6}
+#gate{display:none;position:fixed;right:10px;bottom:34px;background:var(--card);padding:10px;border-radius:10px}
+#gate input{font:inherit;width:70px}
+#parent.on{display:block;max-width:1200px;margin:0 auto}
+#parent h1{text-align:left;font-size:30px}
+.bar{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}
+.bar button{background:var(--card);border:1px solid var(--line);border-radius:999px;padding:6px 14px}
+.round h2{margin:24px 0 8px}
+.games{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:12px}
+.game{background:var(--card);border-radius:12px;padding:10px;font-size:15px}
+.game img{width:100%;border-radius:8px;display:block}
+.ok{color:var(--good)}.no{color:var(--bad)}.dim{color:var(--muted)}
+</style>
+</head>
+<body>
+<section class="view" id="names"><h1>Who's playing?</h1><div class="names" id="nameButtons"></div></section>
+<section class="view" id="play"><div class="stage" id="stage"></div><div class="below"><button class="big" id="next"></button></div></section>
+<section class="view" id="choose"><h1>Which one do you want to play again?</h1><div class="choices" id="choices"></div></section>
+<section class="view" id="more"><h1>Play more games?</h1><div class="names"><button class="big" id="yes">Yes! 🎮</button><button class="big quiet" id="no">All done 👋</button></div></section>
+<section class="view" id="thanks"><h1>Thanks for playing! 🌟</h1></section>
+<section class="view" id="parent"><h1>For grown-ups</h1>
+<div class="bar"><button id="reveal">Reveal</button><button id="download">Download results</button><button id="clear">Clear</button><button id="kids">Back to kids</button></div>
+<div id="report"></div></section>
+<button class="grown" id="grown">grown-ups</button>
+<div id="gate"><label>7 × 8 = <input id="gateAnswer" inputmode="numeric"></label></div>
+<script type="application/json" id="data">/*DATA*/null</script>
+<script>
+const data=JSON.parse(document.getElementById('data').textContent);
+const key='spelling-sandbox-kids:'+data.runId;
+const $=id=>document.getElementById(id);
+const load=()=>{try{return JSON.parse(localStorage.getItem(key)||'{}')}catch{return {}}};
+const save=()=>{try{localStorage.setItem(key,JSON.stringify(state))}catch{}};
+const state=Object.assign({picks:{},plays:[]},load());
+let player=null,round=null,order=[],index=0,frame=null,current=null,revealed=false;
+
+const show=id=>{document.querySelectorAll('.view').forEach(v=>v.classList.toggle('on',v.id===id));$('grown').style.display=id==='names'?'':'none';$('gate').style.display='none'};
+const hash=text=>[...text].reduce((sum,c)=>(sum*31+c.charCodeAt(0))>>>0,7);
+// Each child gets her own order, so no game is always first or last.
+const shuffled=(items,seed)=>items.map((item,i)=>({item,k:hash(seed+':'+i)})).sort((a,b)=>a.k-b.k).map(row=>row.item);
+const pickKey=(r,p)=>r.id+'|'+p;
+const nextRound=()=>data.rounds.find(r=>r.games.length&&!state.picks[pickKey(r,player)]);
+
+function startRound(){round=nextRound();if(!round)return finish();order=shuffled(round.games,player+':'+round.id);index=0;playGame()}
+function fit(){const stage=$('stage'),scale=Math.min(innerWidth/900,(innerHeight-84)/650);stage.style.width=900*scale+'px';stage.style.height=650*scale+'px';if(frame)frame.style.transform='scale('+scale+')'}
+function playGame(){const game=order[index];stopGame();show('play');
+ frame=document.createElement('iframe');frame.setAttribute('sandbox','allow-scripts');frame.title='Game';frame.srcdoc=game.html;$('stage').appendChild(frame);
+ current={player,round:round.id,card:game.card,order:index,started:Date.now(),done:false,answers:[]};
+ $('next').textContent=index<order.length-1?'Next game ▶':'Pick your favorite ⭐';fit()}
+function stopGame(){if(!frame)return;frame.remove();frame=null;current.seconds=Math.round((Date.now()-current.started)/1000);delete current.started;state.plays.push(current);current=null;save();console.log(' 🎮 [spelling-sandbox] [play] [saved]')}
+addEventListener('message',e=>{if(!frame||e.source!==frame.contentWindow||!e.data||typeof e.data!=='object')return;
+ if(e.data.type==='spelling-answer')current.answers.push({word:String(e.data.word||''),typed:String(e.data.typed||''),correct:e.data.correct===true});
+ if(e.data.type==='spelling-done')current.done=true});
+addEventListener('resize',fit);
+$('next').onclick=()=>{stopGame();index++;index<order.length?playGame():choose()};
+function choose(){show('choose');const box=$('choices');box.textContent='';
+ if(order.length===1){return pick(order[0])}
+ shuffled(order,player+':choose').forEach(game=>{const b=document.createElement('button');b.className='choice';
+  if(game.shot){const i=document.createElement('img');i.src=game.shot;i.alt='A game';b.appendChild(i)}else{const s=document.createElement('span');s.textContent='🎮';b.appendChild(s)}
+  b.onclick=()=>pick(game);box.appendChild(b)})}
+function pick(game){state.picks[pickKey(round,player)]=game.card;save();nextRound()?show('more'):finish()}
+function finish(){show('thanks');setTimeout(()=>{player=null;show('names')},2500)}
+$('yes').onclick=startRound;$('no').onclick=finish;
+data.players.forEach(name=>{const b=document.createElement('button');b.className='big';b.textContent=name;b.onclick=()=>{player=name;startRound()};$('nameButtons').appendChild(b)});
+
+$('grown').onclick=()=>{$('gate').style.display='block';$('gateAnswer').value='';$('gateAnswer').focus()};
+$('gateAnswer').oninput=e=>{if(e.target.value.trim()==='56'){report();show('parent')}};
+$('kids').onclick=()=>{revealed=false;show('names')};
+$('reveal').onclick=()=>{revealed=true;report()};
+$('clear').onclick=()=>{if(confirm('Clear every pick and score for this run?')){state.picks={};state.plays=[];save();report()}};
+$('download').onclick=()=>{const a=document.createElement('a');const cards=revealed?data.reveal:undefined;a.href=URL.createObjectURL(new Blob([JSON.stringify({runId:data.runId,picks:state.picks,plays:state.plays,reveal:cards},null,2)],{type:'application/json'}));a.download='sandbox-results-'+data.runId+'.json';a.click()};
+function line(parent,text,cls){const d=document.createElement('div');if(cls)d.className=cls;d.textContent=text;parent.appendChild(d)}
+function report(){const box=$('report');box.textContent='';
+ data.rounds.forEach(r=>{const sec=document.createElement('div');sec.className='round';const h=document.createElement('h2');h.textContent=r.id;sec.appendChild(h);const grid=document.createElement('div');grid.className='games';
+  r.all.forEach(card=>{const game=r.games.find(g=>g.card===card),info=data.reveal[card],c=document.createElement('div');c.className='game';
+   if(game&&game.shot){const i=document.createElement('img');i.src=game.shot;i.alt='';c.appendChild(i)}
+   const pickers=data.players.filter(p=>state.picks[r.id+'|'+p]===card);line(c,'Picked by: '+(pickers.join(', ')||'nobody yet'));
+   data.players.forEach(p=>{const plays=state.plays.filter(x=>x.card===card&&x.player===p);if(!plays.length)return;const a=plays.flatMap(x=>x.answers),right=a.filter(x=>x.correct).length,secs=plays.reduce((s,x)=>s+(x.seconds||0),0);line(c,p+': '+right+' of '+a.length+' right, '+secs+' s'+(plays.some(x=>x.done)?', finished':', stopped early'),'dim')});
+   if(!game)line(c,'Did not build, so nobody played it.','no');
+   if(revealed){const b=document.createElement('b');b.textContent=info.model;c.appendChild(b);line(c,'$'+info.costUsd.toFixed(3)+' · '+info.tokens+' tokens · '+info.seconds+' s'+(info.images?' · '+info.images+' painting':'')+(info.error?' · '+info.error:''));(info.checks||[]).forEach(x=>line(c,(x.passed?'✓ ':'✗ ')+x.name+': '+x.detail,x.passed?'ok':'no'))}
+   grid.appendChild(c)});
+  sec.appendChild(grid);box.appendChild(sec)})}
+show('names');
+</script>
+</body>
+</html>
