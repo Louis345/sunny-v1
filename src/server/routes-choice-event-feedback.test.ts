@@ -30,6 +30,7 @@ vi.mock("../engine/directExperienceFeedback", () => ({
 }));
 
 vi.mock("../engine/learningCycleRuntime", () => ({
+  pageTimeFromKiosk: vi.fn(() => undefined),
   recordCanonicalNodeCompletion: vi.fn(() => ({
     childId: "demo-pashley",
     homeworkId: "hw-math",
