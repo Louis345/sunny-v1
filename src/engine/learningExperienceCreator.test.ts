@@ -31,6 +31,11 @@ describe('existing Creator realizes native spelling journeys',()=>{
    for(const tool of request.tools){expect(tool.input_schema.properties).not.toHaveProperty('journey');expect(tool.input_schema.properties).not.toHaveProperty('activities');}
    await creator.askLearningExperienceDesigner(input);
    expect(stream).toHaveBeenCalledTimes(1);
+   // 2026-11-01 Ila's restart: the plan around the journey differed on the re-run, which threw this mismatch
+   // on a board she was already playing. The drawing depends only on the journey.
+   input.program.plan={...input.program.plan,nodePlan:[...input.program.plan.nodePlan]};(input.program.plan as any).restartDetail='rebuilt on restart';
+   await creator.askLearningExperienceDesigner(input);
+   expect(stream).toHaveBeenCalledTimes(1);
    input.program.journey=structuredClone(journey);input.program.journey.portals[0].label='A changed educational label';
    await expect(creator.askLearningExperienceDesigner(input)).rejects.toThrow('learning_design_checkpoint_program_mismatch');
    expect(stream).toHaveBeenCalledTimes(1);

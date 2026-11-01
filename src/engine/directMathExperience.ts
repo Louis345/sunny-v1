@@ -1315,7 +1315,7 @@ function compositionFromDrawing(journey:AdventureJourneyDefinition,drawing:Artis
  * otherwise the plain fallback layout. The loop is bounded at MAX_BOARD_PREVIEWS + 1 provider calls. */
 async function designNativeBoard(input:LearningCreatorInput,native:NativeLearningProgram):Promise<{packet:{composition:AdventureBoardComposition};plan:ActiveSessionPlan}> {
   const journey=native.journey;
-  const {composition,pattern}=await drawJourney({...input,journey,label:native.planId,identity:{childId:input.childId,domain:"spelling",program:input.program},stagePrefix:"targeted-design"});
+  const {composition,pattern}=await drawJourney({...input,journey,label:native.planId,identity:{childId:input.childId,domain:"spelling",journey},stagePrefix:"targeted-design"});
   return {packet:{composition},plan:{...native.plan,journey,boardDefinition:assembleAdventureBoardDefinition(journey,composition,pattern)}};
 }
 /** The map artist paints one journey (Discovery, Teaching or next board). Shared so every
