@@ -33,6 +33,30 @@ describe("buildChildExperiencePacket", () => {
     ]);
     expect(buildChildExperiencePacket({ ...chart, learningCycle: { ...chart.learningCycle, lifecycle: "evaluation_active" } } as never).spellingEvaluationResults).toBeUndefined();
   });
+  // 2026-11-01 owner: when a board ends, the waiting screen shows where she started and what she got right.
+  it("compares each word's first try with her latest try without help, and never counts a helped answer", () => {
+    const link = (id: string) => [{ constructId: `word.${id}` }];
+    const cycle = { homeworkId: "hw", revision: 9, lifecycle: "baseline_evaluating", domain: "spelling", boards: [{ boardId: "hw:board:2", kind: "teaching" }],
+      nodes: [{ nodeId: "eval", role: "evaluation", evidenceContract: { spellingItems: {
+        a: { id: "a", word: "mailbox", response: { acceptedForms: ["mailbox"] } }, b: { id: "b", word: "moonlight", response: { acceptedForms: ["moonlight"] } }, c: { id: "c", word: "raincoat", response: { acceptedForms: ["raincoat"] } }, d: { id: "d", word: "sunfish", response: { acceptedForms: ["sunfish"] } } } } }],
+      observations: [
+        { itemId: "a", sourceId: "evaluation:eval", constructLinks: link("a"), result: { correct: false }, assistance: { status: "unassisted" } },
+        { itemId: "b", sourceId: "evaluation:eval", constructLinks: link("b"), result: { correct: true }, assistance: { status: "unassisted" } },
+        { itemId: "c", sourceId: "evaluation:eval", constructLinks: link("c"), result: { correct: false }, assistance: { status: "unassisted" } },
+        { itemId: "d", sourceId: "evaluation:eval", constructLinks: link("d"), result: { correct: true }, assistance: { status: "unassisted" } },
+        { itemId: "a1", sourceId: "activity:check:recall", constructLinks: link("a"), result: { correct: false }, assistance: { status: "unassisted" } },
+        { itemId: "a2", sourceId: "activity:check:recall", constructLinks: link("a"), result: { correct: true }, assistance: { status: "unassisted" } },
+        { itemId: "b1", sourceId: "activity:check:recall", constructLinks: link("b"), result: { correct: false }, assistance: { status: "unassisted" } },
+        { itemId: "c1", sourceId: "activity:practice:recall", constructLinks: link("c"), result: { correct: true }, assistance: { status: "assisted" } },
+      ] };
+    const results = buildChildExperiencePacket({ childId: "lab", companion: {}, homework: {}, learningCycle: cycle, activeSessionPlan: { planId: "p", nodePlan: [], adventureBoard: { nodes: [] } } } as never).spellingBoardResults;
+    expect(results).toEqual([
+      { display: "mailbox", firstTry: false, correct: true },
+      { display: "moonlight", firstTry: true, correct: false },
+      { display: "raincoat", firstTry: false },
+      { display: "sunfish", firstTry: true },
+    ]);
+  });
   it("projects the displayed canonical board kind independent of the plan ID", () => {
     const packet=buildChildExperiencePacket({childId:"lab", companion:{}, homework:{},
       learningCycle:{homeworkId:"hw", revision:2, lifecycle:"evaluation_ready", nodes:[], observations:[], boards:[{boardId:"hw:board:1",kind:"probe"}]},

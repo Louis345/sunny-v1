@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { isBoardFinishedPacket } from "../utils/adventureBoardLaunch";
 import { resolvePreparationSurface } from "../components/AdventurePreparation/useAppAdventurePreparation";
 import * as adapter from "../components/AdventurePreparation/preparationStatusAdapter";
 import { isPreparationSlow, preparationElapsedLabel, preparationEventsFromStatus } from "../components/AdventurePreparation/preparationStatusAdapter";
@@ -95,5 +96,21 @@ describe("truthful waiting screen", () => {
     const events = preparationEventsFromStatus(status("board_generating", [["a", "ready"], ["b", "not_ready"]]), types);
     expect(events.some(event => event.type === "FAILED")).toBe(false);
     expect(events.at(-1)).toEqual({ type: "ACTIVITY_READY", n: 2, total: 2 });
+  });
+});
+
+describe("a finished board", () => {
+  const packet = (lifecycle: string, domain = "spelling") => ({ activeSessionPlan: { domain }, childChart: { learningCycle: { lifecycle } } }) as never;
+  it("opens the same waiting screen until the next board is published", () => {
+    const input = { packet: packet("baseline_evaluating"), directDiscoveryMode: false, handoff: "targeted-planning", held: false, preview: false, boardFinished: true };
+    expect(resolvePreparationSurface(input)).toBe("chapter");
+    expect(resolvePreparationSurface({ ...input, published: true })).toBeNull();
+    expect(resolvePreparationSurface({ ...input, preview: true })).toBeNull();
+  });
+  it("is known from the cycle deciding what comes next, on spelling only", () => {
+    for (const lifecycle of ["baseline_evaluating", "quest_evaluating", "boss_evaluating"]) expect(isBoardFinishedPacket(packet(lifecycle))).toBe(true);
+    expect(isBoardFinishedPacket(packet("board_ready"))).toBe(false);
+    expect(isBoardFinishedPacket(packet("baseline_evaluating", "math"))).toBe(false);
+    expect(isBoardFinishedPacket(null)).toBe(false);
   });
 });

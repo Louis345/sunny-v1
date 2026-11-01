@@ -20,9 +20,12 @@ export function resolvePreparationSurface(input: {
   held: boolean;
   /** The server reports the board published; a published board is never held behind the waiting screen. */
   published?: boolean;
+  /** She finished a board this session: the same screen shows what she did while the next one is made. */
+  boardFinished?: boolean;
   preview: boolean;
 }): PreparationSurface {
   if (input.preview || input.packet?.activeSessionPlan?.domain !== "spelling") return null;
+  if (input.boardFinished) return input.published ? null : "chapter";
   if (input.directDiscoveryMode) return input.handoff === "targeted-planning" ? "chapter" : null;
   return input.held && !input.published ? "held" : null;
 }
@@ -46,25 +49,34 @@ export function useAppAdventurePreparation(input: {
   childId: string | null;
   homeworkId: string | null | undefined;
   status: GenerationStatus | null;
+  /** The board she just finished; each finished board opens this screen once. */
+  finishedBoardId?: string | null;
   finished: boolean;
   checkNow: () => void;
   onFinish: () => void;
+  /** "Let's go!" on a next board: the published board has to be read before it can show. */
+  onReveal?: () => void;
   sendMessage: (type: string, payload?: Record<string, unknown>) => void;
 }): { screen: ReactNode | null; waiting: PreparationWaitingReport | null } {
-  const scope = `${input.childId ?? ""}:${input.homeworkId ?? ""}`;
+  const scope = `${input.childId ?? ""}:${input.homeworkId ?? ""}:${input.finishedBoardId ?? ""}`;
   const [modeByScope, setModeByScope] = useState<{ scope: string; mode: PreparationMode } | null>(null);
   useEffect(() => {
-    if (!input.surface) return;
-    setModeByScope(prev => (prev?.scope === scope ? prev : { scope, mode: input.surface === "chapter" ? "chapter" : "resume" }));
-  }, [input.surface, scope]);
+    // The next board may publish before she leaves her last game, so a finished board opens with no surface too.
+    if (!input.surface && !input.finishedBoardId) return;
+    setModeByScope(prev => (prev?.scope === scope ? prev : { scope, mode: input.surface === "held" ? "resume" : "chapter" }));
+  }, [input.surface, input.finishedBoardId, scope]);
   const mode = modeByScope?.scope === scope ? modeByScope.mode : null;
 
   const wordsRef = useRef<{ scope: string; words: string[] }>({ scope: "", words: [] });
   const words = preparationWords(input.packet);
   if (words.length && wordsRef.current.scope !== scope) wordsRef.current = { scope, words };
-  const results = mode === "chapter" ? input.packet?.spellingEvaluationResults : undefined;
+  const results: Array<{ display: string; firstTry?: boolean; correct?: boolean }> | undefined = mode !== "chapter" ? undefined
+    : input.finishedBoardId ? input.packet?.spellingBoardResults : input.packet?.spellingEvaluationResults;
   const resultsKey = JSON.stringify(results);
-  const items = useMemo(() => (wordsRef.current.scope === scope ? wordsRef.current.words : words).map(face => ({ face, spoken: face, correct: results?.find(item => item.display === face)?.correct })), [scope, words.join("|"), resultsKey]); // eslint-disable-line react-hooks/exhaustive-deps
+  const items = useMemo(() => (wordsRef.current.scope === scope ? wordsRef.current.words : words).map(face => {
+    const result = results?.find(item => item.display === face);
+    return { face, spoken: face, correct: result?.correct, improved: result?.firstTry === false && result.correct === true };
+  }), [scope, words.join("|"), resultsKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const activityTypes = useMemo(() => new Map(
     (input.packet?.activeSessionPlan?.adventureBoard?.nodes ?? []).map(node => [node.id, node.activityId ?? node.kind] as [string, string]),
@@ -131,6 +143,7 @@ export function useAppAdventurePreparation(input: {
       contextTotal > 0 ? `${contextReady} of ${contextTotal} map activities ready.` : null,
       elapsedLabel ? `Elapsed: ${elapsedLabel}.` : null,
       finishedBuilding ? null : "Remaining time is not known.",
+      items.some(item => item.improved) ? `New since her first try: ${items.filter(item => item.improved).map(item => item.face).join(", ")}.` : null,
     ].filter(Boolean).join(" "),
     ready: contextReady,
     total: contextTotal,
@@ -147,7 +160,7 @@ export function useAppAdventurePreparation(input: {
           onStop={() => send({ type: "STOP" })}
           onTryAgain={() => { send({ type: "RETRY" }); input.checkNow(); }}
           onBye={input.onFinish}
-          onLetsGo={() => { if(input.surface || state !== "ready") { console.log(" 🎮 [adventure-preparation] [reveal] [waiting-for-publication]"); return; } console.log(" 🎮 [adventure-preparation] [reveal] [opened]"); setRevealedScope(scope); }}
+          onLetsGo={() => { if(input.surface || state !== "ready") { console.log(" 🎮 [adventure-preparation] [reveal] [waiting-for-publication]"); return; } console.log(" 🎮 [adventure-preparation] [reveal] [opened]"); setRevealedScope(scope); input.onReveal?.(); }}
         />
       </div>
     ),

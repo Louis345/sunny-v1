@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import type { PreparationState, PreparationStop } from "./adventurePreparationMachine";
 import "./AdventurePreparationScreen.css";
 
-export type PreparationItem = { face: string; spoken: string; correct?: boolean };
+export type PreparationItem = { face: string; spoken: string; correct?: boolean; improved?: boolean };
 
 export type AdventurePreparationScreenProps = {
   state: PreparationState;
@@ -115,6 +115,7 @@ export function AdventurePreparationScreen(props: AdventurePreparationScreenProp
                     style={{ animationDelay: `${i * 120}ms` }} onClick={() => hear(i)}
                   >
                     {item.correct !== undefined && <span className="ap-result" aria-hidden="true">{item.correct ? "✓" : "✕"}</span>}{item.face}<SpeakerIcon />
+                    {item.improved && <span className="ap-new">New!</span>}
                     {reviewed.includes(i) && <i className="ap-seen" aria-hidden="true" />}
                   </button>
                 ))}
@@ -140,7 +141,10 @@ export function AdventurePreparationScreen(props: AdventurePreparationScreenProp
                   {[[12, 18], [30, 78], [52, 14], [70, 70], [88, 46], [44, 44]].map(([x, y], i) => (
                     <i key={i} className="ap-burst" aria-hidden="true" style={{ left: `${x}%`, top: `${y}%`, animationDelay: `${i * 90}ms` }} />
                   ))}
-                  <button type="button" className="ap-bigbtn ap-go ap-letsgo" onClick={letsGo}>Let&apos;s go!</button>
+                  <div className="ap-letsgo">
+                    <button type="button" className="ap-bigbtn ap-go" onClick={letsGo}>Let&apos;s go!</button>
+                    <button type="button" className="ap-bigbtn ap-lav" onClick={bye}><MoonIcon />Save for next time</button>
+                  </div>
                 </>
               ) : (
                 <div className="ap-tray">

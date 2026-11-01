@@ -100,7 +100,7 @@
 .ap-bigbtn svg { width: 6cqmin; height: 6cqmin; }
 .ap-bigbtn.ap-go { background: var(--ap-go); color: var(--ap-go-ink); box-shadow: 0 1.2cqmin 0 #2e9b57; }
 .ap-bigbtn.ap-lav { background: var(--ap-lav); color: var(--ap-night); box-shadow: 0 1.2cqmin 0 #7e6bb8; }
-.ap-letsgo { position: absolute; left: 50%; bottom: 6cqmin; transform: translateX(-50%); animation: ap-grow .6s .9s cubic-bezier(.3,1.5,.5,1) both; z-index: 4; }
+.ap-letsgo { position: absolute; left: 50%; bottom: 6cqmin; transform: translateX(-50%); display: flex; flex-wrap: wrap; justify-content: center; gap: 3cqmin; width: 100%; animation: ap-grow .6s .9s cubic-bezier(.3,1.5,.5,1) both; z-index: 4; }
 @keyframes ap-grow { from { transform: translateX(-50%) scale(0); } to { transform: translateX(-50%) scale(1); } }
 .ap-burst { position: absolute; width: 2.6cqmin; height: 2.6cqmin; background: var(--ap-gold); clip-path: polygon(50% 0,61% 39%,100% 50%,61% 61%,50% 100%,39% 61%,0 50%,39% 39%); animation: ap-burst 1.4s ease-out both; }
 @keyframes ap-burst { 0% { opacity: 0; transform: scale(0); } 30% { opacity: 1; transform: scale(1.4); } 100% { opacity: .35; transform: scale(.8); } }
@@ -151,5 +151,6 @@
   .ap-root * { animation-duration: 0s !important; animation-iteration-count: 1 !important; transition-duration: 0s !important; }
 }
 
+.ap-card .ap-new { position: absolute; left: 50%; top: -2cqmin; transform: translateX(-50%); padding: .3cqmin 1.2cqmin; border-radius: 1.2cqmin; background: var(--ap-go); color: var(--ap-go-ink); font-size: 2.4cqmin; font-weight: 800; white-space: nowrap; }
 .ap-card[data-result="correct"] .ap-result { color: #17643b; }
 .ap-card[data-result="incorrect"] .ap-result { color: #a52b28; }

@@ -173,6 +173,12 @@ export function hasPendingLearningGeneration(packet: ChildExperiencePacket | nul
     || (isDirectDiscoveryPacket(packet) && completingDiscovery));
 }
 
+/** The board she was on is finished and Sunny is deciding what comes next. */
+export function isBoardFinishedPacket(packet: ChildExperiencePacket | null): boolean {
+  return packet?.activeSessionPlan?.domain === "spelling"
+    && ["baseline_evaluating", "quest_evaluating", "boss_evaluating"].includes(packet.childChart?.learningCycle?.lifecycle ?? "");
+}
+
 /** A Teaching Board opens as one complete chapter; Probe siblings may unlock independently. */
 export function shouldHoldTargetedBoardForPreparation(packet: ChildExperiencePacket | null): boolean {
   if (!packet || isDirectDiscoveryPacket(packet)) return false;

@@ -34,6 +34,58 @@ describe("useAppAdventurePreparation", () => {
     expect(screen.getByRole("button", { name: "Hear word9 — To practise" })).toHaveTextContent("✕");
   });
 
+  // 2026-11-01 Ila finished her board and nothing happened: the next board was ready but her screen still said done.
+  describe("when she finishes a board", () => {
+    const finished = { activeSessionPlan: { domain: "spelling", nodePlan: [{ targets: ["mailbox", "moonlight"] }] },
+      spellingEvaluationResults: [{ display: "mailbox", correct: false }, { display: "moonlight", correct: true }],
+      spellingBoardResults: [{ display: "mailbox", firstTry: false, correct: true }, { display: "moonlight", firstTry: true, correct: false }] };
+    const open = (over: Partial<Parameters<typeof useAppAdventurePreparation>[0]> = {}) => {
+      const onFinish = vi.fn(), onReveal = vi.fn();
+      const hook = renderHook((props: { surface: PreparationSurface; status: GenerationStatus | null }) => useAppAdventurePreparation({
+        ...props, packet: finished as never, childId: "lab", homeworkId: "hw", finishedBoardId: "hw:board:2", finished: false,
+        checkNow: vi.fn(), onFinish, onReveal, sendMessage: vi.fn(), ...over,
+      }), { initialProps: { surface: "chapter" as PreparationSurface, status: status("successor_preparing", []) } });
+      return { ...hook, onFinish, onReveal };
+    };
+
+    it("shows her latest try and marks the words she got that she missed at the start", () => {
+      const { result } = open();
+      render(<>{result.current.screen}</>);
+      expect(screen.getByRole("button", { name: /Hear mailbox — Correct/ })).toHaveTextContent("New!");
+      expect(screen.getByRole("button", { name: /Hear moonlight — To practise/ })).not.toHaveTextContent("New!");
+      expect(result.current.waiting?.detail ?? "").toContain("New since her first try: mailbox.");
+    });
+
+    it("opens again after the Discovery screen was already used on this homework", async () => {
+      const { result, rerender } = renderHook(({ finishedBoardId }) => useAppAdventurePreparation({
+        surface: "chapter", packet: finished as never, childId: "lab", homeworkId: "hw", finishedBoardId, status: status("successor_preparing", []),
+        finished: false, checkNow: vi.fn(), onFinish: vi.fn(), sendMessage: vi.fn(),
+      }), { initialProps: { finishedBoardId: null as string | null } });
+      await act(async () => { await vi.advanceTimersByTimeAsync(20_000); });
+      rerender({ finishedBoardId: "hw:board:2" });
+      const view = render(<>{result.current.screen}</>);
+      expect(view.container.querySelector(".ap-root")).toHaveAttribute("data-state", "look");
+    });
+
+    it("gives her two choices once the next map is ready: play it now, or save it for next time", async () => {
+      const hook = open();
+      hook.rerender({ surface: null, status: status("successor_published", [["n1", "ready"]]) });
+      await act(async () => { await vi.advanceTimersByTimeAsync(20_000); });
+      const view = render(<>{hook.result.current.screen}</>);
+      expect(view.container.querySelector(".ap-root")).toHaveAttribute("data-state", "ready");
+      fireEvent.click(screen.getByRole("button", { name: "Save for next time" }));
+      expect(hook.onFinish).toHaveBeenCalledOnce();
+      expect(hook.onReveal).not.toHaveBeenCalled();
+      view.unmount();
+      const again = open({ childId: "other" });
+      again.rerender({ surface: null, status: status("successor_published", [["n1", "ready"]]) });
+      await act(async () => { await vi.advanceTimersByTimeAsync(20_000); });
+      render(<>{again.result.current.screen}</>);
+      fireEvent.click(screen.getByRole("button", { name: "Let's go!" }));
+      expect(again.onReveal).toHaveBeenCalledOnce();
+    });
+  });
+
   it("does not restart review on equivalent packet refreshes or mark a later held screen", async () => {
     const sendMessage = vi.fn();
     const makePacket = () => ({ activeSessionPlan: { domain: "spelling", nodePlan: [{ targets: ["night", "light"] }] },

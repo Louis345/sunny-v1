@@ -7,6 +7,8 @@ import { readChoiceEvents } from "../engine/choiceEvents";
 
 export type ChildExperiencePacket = {
   spellingEvaluationResults?: Array<{ display: string; correct?: boolean }>;
+  /** Her first try at each word, and her latest try without help; a word with no such try has no `correct`. */
+  spellingBoardResults?: Array<{ display: string; firstTry?: boolean; correct?: boolean }>;
   spellingDiscovery?: { nodeId: string; items: Array<{ itemId: string; display: string; acceptedResponses: string[]; label: string; subject: string }> };
   spellingInstruments?: Record<string, { assessment: boolean; items: NonNullable<ChildExperiencePacket["spellingDiscovery"]>["items"] }>;
   childChart: {
@@ -231,8 +233,17 @@ export function buildChildExperiencePacket(chart: ChildChart): ChildExperiencePa
         return { display: item.word, ...(typeof observation?.result.correct === "boolean" ? { correct: observation.result.correct } : {}) };
       }))
     : undefined;
+  const spellingBoardResults = spellingEvaluationResults?.length ? chart.learningCycle!.nodes.filter(node => node.role === "evaluation").flatMap(node =>
+    Object.values(node.evidenceContract.spellingItems ?? {}).map(item => {
+      const first = chart.learningCycle!.observations.find(row => row.itemId === item.id && row.sourceId === `evaluation:${node.nodeId}`);
+      const construct = first?.constructLinks?.[0]?.constructId;
+      const latest = construct ? chart.learningCycle!.observations.filter(row => !row.sourceId.startsWith("evaluation:")
+        && row.assistance?.status === "unassisted" && row.constructLinks?.some(link => link.constructId === construct)).at(-1) : undefined;
+      return { display: item.word, ...(typeof first?.result.correct === "boolean" ? { firstTry: first.result.correct } : {}), ...(typeof latest?.result.correct === "boolean" ? { correct: latest.result.correct } : {}) };
+    })) : undefined;
   return {
     ...(spellingEvaluationResults?.length ? { spellingEvaluationResults } : {}),
+    ...(spellingBoardResults?.length ? { spellingBoardResults } : {}),
     ...(spellingInstruments ? { spellingInstruments } : {}),
     ...(spellingEvaluation ? { spellingDiscovery: { nodeId: spellingEvaluation.nodeId, items: Object.values(spellingEvaluation.evidenceContract.spellingItems!).filter(item => !answered.has(item.id)).map(item => ({ itemId: item.id, display: item.word, acceptedResponses: item.response.acceptedForms, label: "Spelling", subject: "spelling" })) } } : {}),
     childChart: {

@@ -256,7 +256,7 @@ export function withInitialBoard<T extends Pick<LearningCycleRecordV2, "homework
 /**
  * Operational status for the one successor being prepared. updatedAt stays fixed
  * from decision to publication so a polling session never refreshes into the new
- * board; the successor first appears on a later session.
+ * board on its own; she opens it from the waiting screen, or on a later session.
  */
 export function successorPreparationStatus(cycle: LearningCycleRecordV2): { updatedAt: string; startedAt: string; phase: "successor_preparing" | "successor_published" | "needs_attention"; nodes: Array<{nodeId:string;status:string;reason?:string}> } | undefined {
   const latest = listBoardInstances(cycle).at(-1);

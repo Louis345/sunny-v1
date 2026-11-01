@@ -80,6 +80,7 @@ import {
   resolvePersistedDiscoveryHandoff,
   resolvePlannerBoardChoiceLaunchNode,
   resolvePlannerBoardLaunchNode,
+  isBoardFinishedPacket,
   shouldHoldTargetedBoardForPreparation,
 } from "./utils/adventureBoardLaunch";
 import { createBrowserRequestId } from "./utils/browserRequestId";
@@ -781,6 +782,13 @@ function App() {
     plannerBoardRuntimeRequested &&
     (plannerBoardPacketState.loading || Boolean(plannerBoardPacket));
   const targetedBoardHeldForPreparation = shouldHoldTargetedBoardForPreparation(plannerBoardPacket);
+  // Held once seen: the next board can publish while she is still in a game, and she has not seen this screen yet.
+  const [finishedBoardId, setFinishedBoardId] = useState<string | null>(null);
+  const currentBoardId = plannerBoardPacket?.activeSessionPlan?.adventureBoard?.boardId ?? null;
+  const boardJustFinished = isBoardFinishedPacket(plannerBoardPacket);
+  useEffect(() => {
+    if (boardJustFinished && currentBoardId) setFinishedBoardId(prev => prev ?? currentBoardId);
+  }, [boardJustFinished, currentBoardId]);
   const targetedMathGenerationPending = hasPendingLearningGeneration(plannerBoardPacket, effectiveDiscoveryCompletionHandoff === "targeted-planning")
     || targetedBoardHeldForPreparation;
   const preparationSurfaceInput = { packet: plannerBoardPacket, directDiscoveryMode, handoff: effectiveDiscoveryCompletionHandoff, held: targetedBoardHeldForPreparation, preview: parentPreviewActive };
@@ -801,8 +809,9 @@ function App() {
   }, [endSession]);
   const preparation = useAppAdventurePreparation({
     surface: preparationSurface, packet: plannerBoardPacket, childId: adventureChildId,
-    homeworkId: plannerBoardPacket?.activeSessionPlan?.activeHomeworkId, status: generationProgress.status,
+    homeworkId: plannerBoardPacket?.activeSessionPlan?.activeHomeworkId, finishedBoardId: plannerBoardLaunch ? null : finishedBoardId, status: generationProgress.status,
     finished: homeworkSessionFinished, checkNow: generationProgress.checkNow, onFinish: finishHomeworkSession, sendMessage,
+    onReveal: () => { if (finishedBoardId) { setFinishedBoardId(null); void refreshPlannerBoardPacket(); } },
   });
   // While it is up, only the preparation UI and Elli's portrait show.
   const preparationScreenActive = preparation.screen != null;
