@@ -274,7 +274,7 @@ import { resolveSunnyRuntimeConfig } from "../shared/runtimeConfig";
 import { reconcileCompanionCareCurrencyAward } from "./currencyAward";
 import { companionPickerIdentity } from "./companionPickerRows";
 import { isSpellingPracticeContinuation } from "../engine/learningCycleRepository";
-import { advanceCanonicalCycleFromEvidence, recordCanonicalNodeCompletion, recordSpellingDiscoveryAttempt } from "../engine/learningCycleRuntime";
+import { advanceCanonicalCycleFromEvidence, pageTimeFromKiosk, recordCanonicalNodeCompletion, recordSpellingDiscoveryAttempt } from "../engine/learningCycleRuntime";
 import { getVoiceSessionManagerForChildSession } from "./voice-session-registry";
 import { prepareSuccessorBoard } from "../engine/canonicalProgressionGenerator";
 import { successorPreparationStatus, successorResumeAction } from "../engine/learningBoardInstances";
@@ -1030,6 +1030,7 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
           companionInteractions: Array.isArray(body.result.companionInteractions)
             ? body.result.companionInteractions.map(String)
             : undefined,
+          pageTime: pageTimeFromKiosk(body.result.pageTime),
         },
       });
       if (!updated) return res.status(404).json({ error: "learning_cycle_not_found" });

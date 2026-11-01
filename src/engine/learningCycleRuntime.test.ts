@@ -6,7 +6,7 @@ import os from "os";
 import path from "path";
 import { describe, expect, it, vi } from "vitest";
 import { createLearningCycle, getLearningCycle, projectLearningCycle, transitionLearningCycle, type CreateLearningCycleInput } from "./learningCycleRepository";
-import { advanceCanonicalCycleFromEvidence, authorizeCanonicalPlannerRetry, parseCanonicalProgressionDecision, recordCanonicalNodeCompletion } from "./learningCycleRuntime";
+import { pageTimeFromKiosk, advanceCanonicalCycleFromEvidence, authorizeCanonicalPlannerRetry, parseCanonicalProgressionDecision, recordCanonicalNodeCompletion } from "./learningCycleRuntime";
 import {runMathProviderStage} from "./adaptiveMathDiscovery";
 import {authorizePlannerRecoveryFromArgs} from "../scripts/authorizePlannerRecovery";
 
@@ -64,6 +64,28 @@ function input(): CreateLearningCycleInput {
 }
 
 describe("canonical learning cycle runtime", () => {
+  // 2026-11-01 owner: Ila clicks through the explainer. The Planner saw "lesson completed" either way, so it
+  // could credit or blame a page she never read. The human saw it; the logs held only a total time.
+  it("tells the Planner how she moved through an explainer page, as engagement evidence only", () => {
+    const rootDir=root();
+    createLearningCycle({...input(),nodes:[node("facts","baseline")]},{rootDir});
+    const before=recordCanonicalNodeCompletion({childId:"reina",homeworkId:"hw-runtime",nodeId:"facts",sessionId:"plain",result:{completed:true,accuracy:1,timeSpent_ms:1000,targetResults:[{target:"checkpoint-1",correct:true,attemptedValue:"10"}]}},{rootDir})!;
+    expect(before.evidence.engagement.at(-1)!.summary).not.toContain("page:");
+    const after=recordCanonicalNodeCompletion({childId:"reina",homeworkId:"hw-runtime",nodeId:"facts",sessionId:"page",result:{completed:true,accuracy:1,timeSpent_ms:21000,targetResults:[{target:"checkpoint-1",correct:true,attemptedValue:"10"}],
+      pageTime:{words:[{word:"raincoat",shownMs:4200,chunkTaps:0},{word:"daydream",shownMs:4100,chunkTaps:2}],questionMs:900,afterQuestionMs:1200}}},{rootDir})!;
+    const summary=after.evidence.engagement.at(-1)!.summary;
+    expect(summary).toContain("page: raincoat 4s, 0 tiles tapped; daydream 4s, 2 tiles tapped; answered the question in 1s; left 1s after it");
+    expect(JSON.stringify(after.evidence.academic)).not.toContain("tiles tapped");
+    expect(JSON.stringify(after.observations)).not.toContain("tiles tapped");
+  });
+
+  it("reads only well-formed page time from the kiosk", () => {
+    expect(pageTimeFromKiosk(undefined)).toBeUndefined();
+    expect(pageTimeFromKiosk({words:"nope"})).toBeUndefined();
+    expect(pageTimeFromKiosk({words:[{word:"x".repeat(200),shownMs:-5,chunkTaps:"a"},{shownMs:3}],questionMs:"soon"})).toEqual({words:[{word:"x".repeat(60),shownMs:0,chunkTaps:0}]});
+    expect(pageTimeFromKiosk({words:Array.from({length:50},(_,index)=>({word:`w${index}`,shownMs:1,chunkTaps:0}))})!.words).toHaveLength(12);
+  });
+
   it.each(["ready", "completed"] as const)("keeps %s Discovery out of generic teaching completion", (state) => {
     const rootDir=root();
     const before=createLearningCycle({...input(),nodes:[{...node("discovery","baseline"),role:"evaluation",state}]},{rootDir});

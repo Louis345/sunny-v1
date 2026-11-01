@@ -163,6 +163,21 @@
         choices: Array.from(document.querySelectorAll(".choice")),
       };
       let modelNodes = [];
+      // What she did on the page, for the Planner: engagement facts, never a score.
+      const clock = { word: null, last: null, questionAt: null, answeredAt: null };
+      function tickClock(progress, current) {
+        const now = performance.now();
+        if (clock.word && clock.last !== null) clock.word.shownMs += now - clock.last;
+        clock.last = now;
+        clock.word = progress >= LESSON_START && progress < RECAP_START ? modelNodes[current] ?? null : null;
+        if (progress >= CHECK_AT && clock.questionAt === null) clock.questionAt = now;
+      }
+      el.choices.forEach((choice) => choice.addEventListener("click", () => { if (clock.answeredAt === null) clock.answeredAt = performance.now(); }));
+      function pageTime() {
+        const now = performance.now();
+        return { pageTime: { words: modelNodes.map((entry) => ({ word: entry.word.text, shownMs: Math.round(entry.shownMs), chunkTaps: entry.chunkTaps })),
+          ...(clock.questionAt !== null && clock.answeredAt !== null ? { questionMs: Math.round(clock.answeredAt - clock.questionAt), afterQuestionMs: Math.round(now - clock.answeredAt) } : {}) } };
+      }
 
       function renderModel(config) {
         const model = config.spellingModel || DEFAULT_CONFIG.spellingModel;
@@ -179,7 +194,7 @@
           const item = document.createElement("li"); item.textContent = step; return item;
         }));
         const words = document.getElementById("wordModels");
-        modelNodes = model.words.map((word) => {
+        modelNodes = model.words.map((word, rowIndex) => {
           const row = document.createElement("article"); row.className = "word-model"; row.dataset.itemId = word.id;
           const chunks = document.createElement("div"); chunks.className = "chunks";
           const normalizedWord = word.text.normalize("NFC").toLocaleLowerCase("en-US");
@@ -202,6 +217,7 @@
               const spoken = Array.isArray(word.spokenChunks) && typeof word.spokenChunks[chunkIndex] === "string"
                 ? word.spokenChunks[chunkIndex].trim() : chunk;
               if (!spoken || !tile.classList.contains("visible")) return;
+              modelNodes[rowIndex].chunkTaps += 1;
               window.parent.postMessage({ type:"narration_request", version:"1.0", game:config.artifactId,
                 word:word.text, text:spoken, reason:"spelling_chunk", chunk, chunkIndex }, "*");
               console.log(" 🎮 [spelling-visual-explainer] [chunk-audio] [requested]", { word:word.text, chunk });
@@ -211,7 +227,7 @@
           });
           const tip = document.createElement("p"); tip.className = "tip"; tip.textContent = word.tip;
           row.append(chunks, tip);
-          return { row, chunkNodes, tip, word, exposureRecorded: false };
+          return { row, chunkNodes, tip, word, exposureRecorded: false, shownMs: 0, chunkTaps: 0 };
         });
         words.replaceChildren(...modelNodes.map((entry) => entry.row));
       }
@@ -223,6 +239,7 @@
         const slot = (RECAP_START - LESSON_START) / Math.max(1, modelNodes.length);
         const current = Math.min(modelNodes.length - 1, Math.floor((progress - LESSON_START) / slot));
         const recap = progress >= RECAP_START;
+        tickClock(progress, current);
         document.querySelector(".strategy").hidden = progress >= LESSON_START && !recap;
         document.getElementById("wordModels").classList.toggle("single", progress >= LESSON_START && !recap);
         modelNodes.forEach((entry, rowIndex) => {
@@ -258,6 +275,7 @@
         // Slow enough for Elli to say each word's chunks and tip before the next word.
         progressPerMs: .004,
         autoCompleteOnTimelineEnd: false,
+        completionDetail: pageTime,
         getPhase(progress) { return progress < LESSON_START ? "intro" : progress < CHECK_AT ? "model" : progress < CHECK_AT + 1 ? "practice-check" : progress < 96 ? "strategy" : "complete"; },
         renderScene,
         checkEvidence,

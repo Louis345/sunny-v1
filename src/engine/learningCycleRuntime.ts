@@ -64,7 +64,29 @@ export type CanonicalCompletionResult = {
   frustrationSignals?: string[];
   replay?: boolean;
   companionInteractions?: string[];
+  /** How she moved through an explainer page. Engagement evidence only; it never scores a word. */
+  pageTime?: PageTime;
 };
+
+export type PageTime = { words: Array<{ word: string; shownMs: number; chunkTaps: number }>; questionMs?: number; afterQuestionMs?: number };
+
+const milliseconds = (value: unknown) => Number.isFinite(value) && Number(value) >= 0 ? Math.round(Number(value)) : undefined;
+/** The kiosk reports this, so only well-formed, bounded facts reach the cycle. */
+export function pageTimeFromKiosk(value: unknown): PageTime | undefined {
+  const given = value as { words?: unknown; questionMs?: unknown; afterQuestionMs?: unknown } | null | undefined;
+  if (!given || !Array.isArray(given.words)) return undefined;
+  const words = given.words.filter(row => typeof row?.word === "string" && row.word.trim()).slice(0, 12)
+    .map(row => ({ word: String(row.word).slice(0, 60), shownMs: milliseconds(row.shownMs) ?? 0, chunkTaps: milliseconds(row.chunkTaps) ?? 0 }));
+  const questionMs = milliseconds(given.questionMs), afterQuestionMs = milliseconds(given.afterQuestionMs);
+  return { words, ...(questionMs === undefined ? {} : { questionMs }), ...(afterQuestionMs === undefined ? {} : { afterQuestionMs }) };
+}
+const seconds = (ms: number) => `${Math.round(ms / 1000)}s`;
+function pageTimeSummary(time: PageTime | undefined): string {
+  if (!time) return "";
+  return `; page: ${[...time.words.map(row => `${row.word} ${seconds(row.shownMs)}, ${row.chunkTaps} tiles tapped`),
+    ...(time.questionMs === undefined ? [] : [`answered the question in ${seconds(time.questionMs)}`]),
+    ...(time.afterQuestionMs === undefined ? [] : [`left ${seconds(time.afterQuestionMs)} after it`])].join("; ")}`;
+}
 
 export type CanonicalProgressionDecision = {
   status: "supported" | "revised" | "falsified" | "inconclusive" | "awaiting_calibration";
@@ -414,7 +436,7 @@ export function recordCanonicalNodeCompletion(
     : "not-applicable";
   const engagementEvidence: LearningCycleEvidenceSummary[] = [{
     evidenceId: `${evidenceId}:engagement`,
-    summary: `${node.title} completed in ${Math.max(0, input.result.timeSpent_ms)}ms; won=${input.result.won ?? "unreported"}; replay=${node.state === "completed"}; reportedFrustration=${(input.result.frustrationSignals ?? []).join(",") || "none"}; practiceResponseTimes=${spellingResponseTimes}.`,
+    summary: `${node.title} completed in ${Math.max(0, input.result.timeSpent_ms)}ms; won=${input.result.won ?? "unreported"}; replay=${node.state === "completed"}; reportedFrustration=${(input.result.frustrationSignals ?? []).join(",") || "none"}; practiceResponseTimes=${spellingResponseTimes}.` + pageTimeSummary(input.result.pageTime),
   }];
   const companionObservations: LearningCycleEvidenceSummary[] = (input.result.companionInteractions ?? []).map((summary, index) => ({
     evidenceId: `${evidenceId}:companion:${index + 1}`,

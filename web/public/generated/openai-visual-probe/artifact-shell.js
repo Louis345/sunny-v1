@@ -674,6 +674,7 @@
         targetResults: canonicalTargetResults,
         activityEvents: null,
       };
+      if (typeof options.completionDetail === "function") Object.assign(completion, options.completionDetail());
       emitEvidence("activity_complete", "Visual learner artifact complete.", {
         activityId: artifactConfig.artifactId,
         accuracy: accuracy,

@@ -260,6 +260,25 @@ it('highlights a focus across authored chunk boundaries without changing tiles o
 // 2026-10-26 parent test (Saori, demo-pashley): the syllables page quizzed her on one word ("thumb") halfway
 // through, before anything was taught, showed a teacher's note about her as the heading, and put every word
 // and tip on screen at once. Nothing failed, so no log showed it; these tests only checked that it completed.
+// 2026-11-01 owner: she clicks through the page. These are the facts the Planner needs to see that.
+it('reports how long each word was up, which tiles she tapped, and how fast she answered',async()=>{
+ const { page, frame } = await launch({ width: 1280, height: 720 });
+ await frame.locator("body").evaluate(() => { (globalThis as any).SunnySpellingVisualExplainer.setProgress(40, false); });
+ const tile = frame.locator(".chunk.visible").first();
+ await tile.waitFor();
+ await tile.click();
+ await frame.locator("body").evaluate(() => { (globalThis as any).SunnySpellingVisualExplainer.setProgress(85, false); });
+ await frame.getByRole("button", { name: "ight", exact: true }).click();
+ await frame.getByRole("button", { name: "Keep going" }).click();
+ await frame.locator("body").evaluate(() => { const shell = (globalThis as any).SunnySpellingVisualExplainer; shell.setProgress(100, false); shell.completeActivity(); });
+ await page.waitForFunction(() => (globalThis as any).captured.some((row: any) => row.type === "node_complete"));
+ const done = await page.evaluate(() => (globalThis as any).captured.find((row: any) => row.type === "node_complete"));
+ const time = (done.payload ?? done.result ?? done).pageTime;
+ expect(time.words.map((row: { word: string }) => row.word)).toContain(config.spellingModel.words[0].text);
+ expect(time.words.reduce((sum: number, row: { chunkTaps: number }) => sum + row.chunkTaps, 0)).toBe(1);
+ expect(time.questionMs).toBeGreaterThanOrEqual(0);
+ expect(time.afterQuestionMs).toBeGreaterThanOrEqual(0);
+});
 it('teaches one word at a time under her trick, and checks only after the lesson',async()=>{
  const modelConfig=structuredClone(config);
  modelConfig.learningGoal='She will recognize the ight pattern and keep it together.';
