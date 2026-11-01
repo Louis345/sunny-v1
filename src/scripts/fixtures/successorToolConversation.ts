@@ -41,7 +41,10 @@ export function successorToolReply(recorded: unknown, request: any): any {
   const assistantTurns = (request.messages ?? []).filter((row: any) => row.role === "assistant").length;
   if (decision.progressionAction === "await_calibration") return message([decide, { name: "finish_board", input: { title: "Waiting", endpoint_label: "Finish", single_path_reason: "Awaiting graded work." } }]);
   if (assistantTurns === 0) return message([decide, ...steps.map(step => ({ name: "add_step", input: step.input }))]);
-  const results = (request.messages.at(-1).content as any[]).filter(block => block.type === "tool_result" && !block.is_error).map(block => JSON.parse(block.content)).filter(row => row?.step_id);
+  const answers = (request.messages.at(-1).content as any[]).filter(block => block.type === "tool_result" && !block.is_error).map(block => JSON.parse(block.content));
+  // The Planner's one look at its board: a recorded decision accepts what it built.
+  if (answers.some(row => row?.board_as_served)) return message([{ name: "finish_board", input: { title: decision.boardDefinition?.title ?? "Next board", endpoint_label: "Finish", single_path_reason: "The recorded order." } }]);
+  const results = answers.filter(row => row?.step_id);
   const stepOf = new Map(steps.map((step, index) => [step.nodeId, results[index]?.step_id as string]));
   const board = decision.boardDefinition;
   const portals = new Map((board?.portals ?? []).map(portal => [portal.id, portal]));

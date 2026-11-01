@@ -837,7 +837,8 @@ async function askPlanner(
     // Quest and Boss encounters are planned features spelling cannot run yet; they are not offered.
     const actions=allowedProgressionActions.filter(action=>action!=="generate_quest"&&action!=="generate_boss");
     const facts={builtIns:builtIns.map(node=>{const items=Object.values(node.evidenceContract.spellingItems??{});const roles=Object.values(node.evidenceContract.itemRoles??{});
-      return {nodeId:node.nodeId,title:node.title,implementationType:node.implementationType??"word-radar",wordIds:[...new Set(items.map(item=>item.wordId))],responseMode:items[0]?.response.mode??"spelling_letters",checkpoint:roles.length>0&&roles.every(role=>role==="fresh_checkpoint")};}),
+      const model=(node.evidenceContract.nativeConfig as {spellingModel?:{strategy:{title:string;steps:string[]};words:Array<{text:string;tip:string}>};questions?:Array<{prompt:string}>}|undefined);
+      return {...(model?.spellingModel?{page:{trick:model.spellingModel.strategy.title,steps:model.spellingModel.strategy.steps,words:model.spellingModel.words.map(word=>({word:word.text,tip:word.tip})),check:model.questions?.[0]?.prompt??""}}:{}),nodeId:node.nodeId,title:node.title,implementationType:node.implementationType??"word-radar",wordIds:[...new Set(items.map(item=>item.wordId))],responseMode:items[0]?.response.mode??"spelling_letters",checkpoint:roles.length>0&&roles.every(role=>role==="fresh_checkpoint")};}),
       // The Teaching board's own menu: every certified game and mode, set up fresh for the words she is given.
       activities:(()=>{const menu=spellingActivityMenu(spellingActivityCatalog(cycle.childId));return menu.choices.map(id=>({id,checkpoint:menu.roles(id).includes("fresh_checkpoint"),setup:menu.setup(id)}));})(),
       ...(spellingActivityMenu(spellingActivityCatalog(cycle.childId)).offered.has("visual-explainer")?{explainer:{grade:chart.demographics?.grade,words:[...savedSpellingItems.values()].map(item=>({wordId:item.wordId,word:item.word}))}}:{}),
@@ -868,11 +869,17 @@ ${JSON.stringify({ lifecycle: cycle.lifecycle, assignment: cycle.assignment, the
     const question=fs.existsSync(frozenFile)?JSON.parse(fs.readFileSync(frozenFile,"utf8")) as {prompt:string;model:string;facts:typeof factData}:{prompt,model:plannerModel,facts:factData};
     if(!fs.existsSync(frozenFile)){fs.mkdirSync(draftDir,{recursive:true});fs.writeFileSync(`${frozenFile}.tmp`,JSON.stringify(question));fs.renameSync(`${frozenFile}.tmp`,frozenFile);}
     const kit=spellingSuccessorToolkit({...question.facts,rerunnable});
-    const loop=await runPlannerToolLoop({label:"spelling-next-board",prompt:question.prompt,model:question.model,maxTokens:16000,tools:kit.tools,state:kit.initialState(),finished:kit.finished,
-      send:providerTurnSender({label:"spelling-next-board",stagePrefix:`${decisionStage}-tools`,draftDir,client:anthropic})});
-    console.log(` 🎮 [canonical-progression] [planner-response] [checkpointed] homework=${cycle.homeworkId} revision=${cycle.revision} tools=${loop.stats.stop}`);
-    if(!kit.finished(loop.state))throw new Error(`canonical_progression_tools_unfinished:${loop.stats.stop}`);
-    const {decision,journey}=kit.result(loop.state);
+    const state=kit.initialState();
+    // The self-check never holds back a board: once one is drafted, a failed provider turn publishes the draft.
+    const stop=await runPlannerToolLoop({label:"spelling-next-board",prompt:question.prompt,model:question.model,maxTokens:16000,tools:kit.tools,state,finished:kit.finished,
+      send:providerTurnSender({label:"spelling-next-board",stagePrefix:`${decisionStage}-tools`,draftDir,client:anthropic})}).then(loop=>loop.stats.stop as string,(error:unknown)=>{
+        if(!kit.drafted(state))throw error;
+        return `failed:${error instanceof Error?error.message:String(error)}`;
+      });
+    console.log(` 🎮 [canonical-progression] [planner-response] [checkpointed] homework=${cycle.homeworkId} revision=${cycle.revision} tools=${stop}`);
+    if(!kit.finished(state)&&!kit.drafted(state))throw new Error(`canonical_progression_tools_unfinished:${stop}`);
+    if(!kit.finished(state))console.warn(` 🎮 [planner-tools] [self-check] [unfinished] draft-stands reason=${stop}`);
+    const {decision,journey}=kit.result(state);
     if(!journey)return parseCanonicalProgressionDecision(decision);
     const drawing=draw?await draw(journey):await drawJourney({journey,label:`${cycle.homeworkId}:r${checkpointRevision}`,stagePrefix:`${decisionStage}-design`,identity:{childId:cycle.childId,homeworkId:cycle.homeworkId,batchId,journey},child:chart.childVoice,
       checkpointFile:path.join(draftDir,`${decisionStage}-design.json`),rawResponseDir:draftDir,...(client?{client}:{})});

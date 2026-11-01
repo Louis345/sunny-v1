@@ -60,7 +60,7 @@ it('builds the next board through small locked tools, re-running only built-ins,
  const f=fixture(),opts={rootDir:f.rootDir};
  await runtime.advanceCanonicalCycleFromEvidence(f.request,opts);
  // A short conversation of locked tools, never the old single form.
- expect(f.stream).toHaveBeenCalledTimes(2);
+ expect(f.stream).toHaveBeenCalledTimes(3);
  const tools=f.requests[0].tools;
  expect(tools.map((tool:any)=>tool.name)).toEqual(['decide','add_step','add_explainer','remove_step','set_order','add_choice','finish_board']);
  expect(tools.filter((tool:any)=>tool.name!=='add_explainer').every((tool:any)=>tool.strict===true)).toBe(true);
@@ -116,14 +116,26 @@ it('publishes the next board when engagement updates while the Planner decides, 
  const cycle=await runtime.advanceCanonicalCycleFromEvidence({...f.request,draw},{rootDir:f.rootDir});
  expect(cycle.lifecycle).not.toBe('blocked');
  expect(cycle.decisionHistory.at(-1)?.eventType).toBe('theory_decided');
- expect(f.stream).toHaveBeenCalledTimes(2);
+ expect(f.stream).toHaveBeenCalledTimes(3);
+});
+
+it('publishes the drafted board when the Planner cannot answer its one look',async()=>{
+ const f=fixture();
+ const answer=f.stream.getMockImplementation()!;
+ f.stream.mockImplementation((...args:any[])=>{if(f.stream.mock.calls.length>=3)return {finalMessage:async()=>{throw Object.assign(new Error('lab_provider_down'),{status:400});}} as never;return (answer as any)(...args);});
+ const warn=vi.spyOn(console,'warn');
+ const cycle=await runtime.advanceCanonicalCycleFromEvidence(f.request,{rootDir:f.rootDir});
+ expect(cycle.lifecycle).not.toBe('blocked');
+ expect(getLearningCycle(childId,homeworkId,{rootDir:f.rootDir})!.boards?.at(-1)?.kind).toBe('successor');
+ expect(warn.mock.calls.flat().join(' ')).toContain('[self-check] [unfinished] draft-stands');
+ warn.mockRestore();
 });
 
 it('replays the frozen question after a restart even though the chart changed meanwhile',async()=>{
  const f=fixture();
  const crash=async()=>{throw Object.assign(new Error('lab_process_stopped'),{status:503});};
  await expect(runtime.advanceCanonicalCycleFromEvidence({...f.request,draw:crash},{rootDir:f.rootDir})).rejects.toThrow('lab_process_stopped');
- expect(f.stream).toHaveBeenCalledTimes(2);
+ expect(f.stream).toHaveBeenCalledTimes(3);
  writeEngagementTheory(childId,buildInitialEngagementTheory({childId,domain:'spelling',homeworkId}),{rootDir:f.rootDir});
  const noCall=vi.fn(()=>{throw new Error('must_not_buy_the_decision_again');});
  const cycle=await runtime.advanceCanonicalCycleFromEvidence({...f.request,client:{messages:{stream:noCall}} as never},{rootDir:f.rootDir});
@@ -150,9 +162,9 @@ it('lets an operator retry a cycle blocked by the fixed stage-changed bug, then 
  const reopened=runtime.authorizeCanonicalPlannerRetry({childId,homeworkId,blockedDecisionId,reason:'The stage-changed bug is fixed'},opts);
  expect(reopened.lifecycle).toBe(before.lifecycle);
  const superseded=path.join(draftDir,'superseded',blockedDecisionId.replace(/[^a-zA-Z0-9_-]+/g,'_'));
- expect(fs.readdirSync(superseded).filter(name=>name.startsWith(`${stage}-tools-turn-`))).toHaveLength(2);
+ expect(fs.readdirSync(superseded).filter(name=>name.startsWith(`${stage}-tools-turn-`))).toHaveLength(3);
  f.stream.mockClear();
  const decided=await runtime.advanceCanonicalCycleFromEvidence(f.request,opts);
  expect(decided.decisionHistory.at(-1)?.eventType).toBe('theory_decided');
- expect(f.stream).toHaveBeenCalledTimes(2);
+ expect(f.stream).toHaveBeenCalledTimes(3);
 });

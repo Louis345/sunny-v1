@@ -115,7 +115,7 @@ it.each([['primary-wheel',primary,'opt-wheel'],['primary-radar',primary,'opt-rad
  expect(prompt).toContain('assisted');
  expect(next.observations).toEqual(cycle.observations);
  await runtime.advanceCanonicalCycleFromEvidence(f.request,opts);
- expect(f.create).toHaveBeenCalledTimes(2); // two tool turns; the repeated call bought nothing
+ expect(f.create).toHaveBeenCalledTimes(3); // three tool turns, the last accepting its one look; the repeated call bought nothing
  expect(f.receipts()).toMatchObject(oldReceipts);
  const ready=await prepare();
  expect(ready.lifecycle).toBe('baseline_ready');

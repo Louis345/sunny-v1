@@ -155,7 +155,7 @@ describe('a canvas cannot veto a spelling successor',()=>{
   expect(prepared.observations).toEqual(before.observations);
   await advanceCanonicalCycleFromEvidence(request,{rootDir:root});
   await prepareSuccessorBoard({childId,homeworkId,generateHtml},{rootDir:root});
-  expect(create).toHaveBeenCalledTimes(viaTools?2:0);
+  expect(create).toHaveBeenCalledTimes(viaTools?3:0);
   expect(generateHtml).not.toHaveBeenCalled();
   expect(getLearningCycle(childId,homeworkId,{rootDir:root})!.decisionHistory.filter(row=>row.eventType==='theory_decided')).toHaveLength(1);
   expect(diagnostic).toHaveBeenCalled();

@@ -97,6 +97,8 @@ export function recordedToolReply(lab: RecordedToolLab, request: any): any {
       const fresh = { name: "add_step", input: { built_in: pick(builtIns, "word-radar:visible_read"), words: missed, title: "Fresh Radar", purpose: "Practice the missed words.", story: "Story: Fresh Radar", picture: "Picture: Fresh Radar" } };
       return message([decide("revised", "generate_support"), fresh, step("Letter Rush"), step("Recall Checkpoint")]);
     }
+    // The Planner's one look at its board: the recorded Planner is content with what it built.
+    if (results.some(row => row.board_as_served)) return message([{ name: "finish_board", input: { title: "Next Practice", endpoint_label: "Finish", single_path_reason: "One path re-runs what she practiced." } }]);
     const steps: string[] = results.map(row => row.step_id).filter(Boolean);
     return message([{ name: "set_order", input: { opening: steps, closing: [] } },
       { name: "finish_board", input: { title: "Next Practice", endpoint_label: "Finish", single_path_reason: "One path re-runs what she practiced." } }]);

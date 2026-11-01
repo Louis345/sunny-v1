@@ -35,6 +35,63 @@ const decision = (overrides: Record<string, unknown> = {}) => ({ status: "revise
 const step = (built_in: string, title: string, words: string[] = []) => ({ built_in, words, title, purpose: "Practice the missed silent letters.", story: `Story: ${title}`, picture: `Picture: ${title}` });
 
 describe("spelling next-board tools", () => {
+  // 2026-11-01: the Planner's decision and the board it built disagreed: a stop was retitled but its page still
+  // taught the old lesson. Nothing showed the Planner the board as served next to what it said it would change.
+  describe("the Planner's one look at its own board", () => {
+    const page = { title: "Silent Clues", story: "Story: clues", picture: "Picture: clues", topic: "Silent letters", learning_goal: "Spot the silent letter.", misconception: "She spells what she hears.",
+      strategy: { title: "Spot the quiet letter", steps: ["Say the word.", "Find the quiet letter."] },
+      words: [{ text: "sign", chunks: ["si", "gn"], spoken_chunks: ["sigh", "n"], focus_chunk: "gn", tip: "The g stays quiet." }],
+      check: { target_word: "sign", prompt: "Which letter is quiet?", options: [{ label: "g", correct: true }, { label: "n", correct: false }] } };
+    const reviewed = () => {
+      const old = facts({ explainer: { grade: "3", words: [{ wordId: "w-sign", word: "sign" }, { wordId: "w-write", word: "write" }, { wordId: "w-gnat", word: "gnat" }] } });
+      old.builtIns[0].page = { trick: "Old Trick", steps: ["Old step."], words: [{ word: "sign", tip: "Old tip." }], check: "Old question?" };
+      const run = session(old);
+      run.call("decide", decision({ change: ["Teach the vowel pair instead."] }));
+      const added = run.call("add_step", step("act-1", "Rain Clues"));
+      const fresh = run.call("add_explainer", page);
+      const ids = [added, fresh].map(row => (row as { result: { step_id: string } }).result.step_id);
+      run.call("set_order", { opening: ids, closing: [] });
+      return { ...run, ids };
+    };
+    const finish = { title: "Next", endpoint_label: "Finish", single_path_reason: "One path." };
+
+    it("shows the board as served next to its change list before accepting it", () => {
+      const { call, kit, state } = reviewed();
+      const first = call("finish_board", finish) as { ok: true; result: any };
+      expect(first.ok).toBe(true);
+      expect(kit.finished(state)).toBe(false);
+      expect(first.result.your_change_list).toEqual(["Teach the vowel pair instead."]);
+      expect(first.result.board_as_served[0]).toMatchObject({ title: "Rain Clues", story: "Story: Rain Clues", words: ["sign", "write"], lesson_page: { trick: "Old Trick", words: [{ word: "sign", tip: "Old tip." }], check: "Old question?" } });
+      expect(first.result.board_as_served[1]).toMatchObject({ title: "Silent Clues", words: ["sign"], lesson_page: { trick: "Spot the quiet letter", check: "Which letter is quiet?" } });
+    });
+
+    it("lets it fix the board once, then accepts", () => {
+      const { call, kit, state, ids } = reviewed();
+      call("finish_board", finish);
+      call("remove_step", { step_id: ids[0] });
+      expect(call("finish_board", finish)).toMatchObject({ ok: true, result: { accepted: true, steps: 1 } });
+      expect(kit.finished(state)).toBe(true);
+      expect((kit.result(state).decision.nextInstruments as unknown[])).toHaveLength(1);
+    });
+
+    it("never holds back a board: the drafted board stands if the Planner never finishes", () => {
+      const { call, kit, state, ids } = reviewed();
+      expect(kit.drafted(state)).toBe(false);
+      call("finish_board", finish);
+      call("remove_step", { step_id: ids[1] });
+      expect(kit.finished(state)).toBe(false);
+      expect(kit.drafted(state)).toBe(true);
+      expect((kit.result(state).decision.nextInstruments as unknown[])).toHaveLength(2);
+    });
+
+    it("skips the look when there is no board to look at", () => {
+      const { call, kit, state } = session();
+      call("decide", decision({ status: "inconclusive", progression_action: "await_calibration" }));
+      expect(call("finish_board", finish)).toMatchObject({ ok: true, result: { accepted: true, board: false } });
+      expect(kit.finished(state)).toBe(true);
+    });
+  });
+
   // 2026-11-01: a board decision said to teach new vowel patterns for two words, but add_step refused those
   // words for the old page and told the Planner to leave them empty. The stop got a new title over the old
   // lesson. The human caught it reading the board; nothing compared the page with the decision.

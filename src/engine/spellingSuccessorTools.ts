@@ -9,8 +9,9 @@ import { explainerPageTool } from "./spellingTeachingTools";
  * step: a re-run of a tested built-in she played (its own words or fewer), or any game and mode on the
  * Teaching menu with any of her words. Code fills each step's response mode, role, setup and identity.
  * The artist draws the journey afterwards. */
+export type LessonPage = { trick: string; steps: string[]; words: Array<{ word: string; tip: string }>; check: string };
 export type SuccessorFacts = {
-  builtIns: Array<{ nodeId: string; title: string; implementationType: string; wordIds: string[]; responseMode: string; checkpoint: boolean }>;
+  builtIns: Array<{ nodeId: string; title: string; implementationType: string; wordIds: string[]; responseMode: string; checkpoint: boolean; page?: LessonPage }>;
   /** The games and modes on the menu, with what code fills in for each. Older frozen questions have none. */
   activities?: Array<{ id: string; checkpoint: boolean; setup: { type: string; wordRadarConfig?: Record<string, unknown>; letterRushMode?: string } }>;
   /** Present when a new page can be written: her grade, and her words as text with their identities. */
@@ -22,7 +23,11 @@ export type SuccessorFacts = {
 type Fresh = NonNullable<SuccessorFacts["activities"]>[number];
 type Step = { id: string; title: string; purpose: string; story: string; picture: string; wordIds: string[]; builtIn?: SuccessorFacts["builtIns"][number]; fresh?: Fresh; page?: Record<string, unknown> };
 type Decision = { status: string; reason: string; progressionAction: string; preserve: string[]; change: string[]; testNext: string[]; nextEvidenceRequired: string[]; predictionEvaluationIds: string[]; revisedHypothesis: string };
-export type SuccessorState = JourneyOrderState & { next: number; steps: Step[]; decision?: Decision; result?: { decision: Record<string, unknown>; journey?: AdventureJourneyDefinition } };
+type Finished = { decision: Record<string, unknown>; journey?: AdventureJourneyDefinition };
+export type SuccessorState = JourneyOrderState & { next: number; steps: Step[]; decision?: Decision; result?: Finished; draft?: Finished; selfChecks?: number };
+
+/** The Planner gets one look at the board as served before it is accepted; it can never loop on it. */
+const MAX_SELF_CHECKS = 1;
 
 const text = (description: string) => z.string().min(1).describe(description);
 const enumOf = (values: readonly string[], fallback: string) => z.enum((values.length ? values : [fallback]) as [string, ...string[]]);
@@ -100,7 +105,7 @@ export function spellingSuccessorToolkit(facts: SuccessorFacts) {
         return { ok: true, result: { removed: input.step_id } };
       } }),
     ...journeyOrderTools<SuccessorState>({ exists: (state, id) => state.steps.some(row => row.id === id), idName: "step_id", onChange: state => { state.result = undefined; } }),
-    tool({ name: "finish_board", description: "Finish after deciding (and, unless you await calibration, placing every step). Sunny checks it and replies accepted, or says exactly what to fix.",
+    tool({ name: "finish_board", description: "Finish after deciding (and, unless you await calibration, placing every step). Sunny first shows you the board as she will see it, once, next to your change list; call finish_board again to accept it. Otherwise it says exactly what to fix.",
       schema: z.object({ title: text("The board's name she sees."), endpoint_label: text("Name of the finish portal."), single_path_reason: z.string().describe("When there is no choice, why one path is right. Empty when there is a choice.") }).strict(),
       run: (state, input) => {
         if (!state.decision) return { ok: false, error: "make your decision first with decide" };
@@ -112,6 +117,12 @@ export function spellingSuccessorToolkit(facts: SuccessorFacts) {
         const sequence = finishJourneySequence(state, state.steps, input, { add: "add_step", plural: "steps", remove: "remove_step" });
         if (!sequence.ok) return sequence;
         const journey = expandJourneySequence(sequence.sequence, state.steps);
+        const word = (id: string) => facts.explainer?.words.find(row => row.wordId === id)?.word ?? id;
+        const pageOf = (row: Step): LessonPage | undefined => {
+          if (!row.page) return row.builtIn?.page;
+          const config = row.page as { strategy: { title: string; steps: string[] }; words: Array<{ text: string; tip: string }>; check: { prompt: string } };
+          return { trick: config.strategy.title, steps: config.strategy.steps, words: config.words.map(item => ({ word: item.text, tip: item.tip })), check: config.check.prompt };
+        };
         const nextInstruments = state.steps.map(row => ({
           nodeId: row.id, title: row.title, academicTarget: row.purpose, mechanic: row.page ? "visual-explainer" : row.builtIn?.implementationType ?? row.fresh!.setup.type, theme: row.story, picture: row.picture, openingPurpose: row.purpose,
           spelling: row.page
@@ -120,7 +131,19 @@ export function spellingSuccessorToolkit(facts: SuccessorFacts) {
             ? { wordIds: [...row.wordIds], measurementRole: row.builtIn.checkpoint ? "fresh_checkpoint" : "practice", responseMode: row.builtIn.responseMode, builtInActivityId: row.builtIn.nodeId }
             : { wordIds: [...row.wordIds], measurementRole: row.fresh!.checkpoint ? "fresh_checkpoint" : "practice", responseMode: "spelling_letters", activity: { id: row.fresh!.id, ...structuredClone(row.fresh!.setup) } },
         }));
-        state.result = { decision: { ...base, nextInstruments }, journey };
+        const finished = { decision: { ...base, nextInstruments }, journey };
+        state.selfChecks = state.selfChecks ?? 0;
+        if (state.selfChecks < MAX_SELF_CHECKS) {
+          state.selfChecks += 1;
+          state.draft = finished;
+          console.log(` 🎮 [planner-tools] [self-check] [shown] steps=${nextInstruments.length}`);
+          return { ok: true, result: { accepted: false, your_change_list: state.decision.change,
+            board_as_served: state.steps.map(row => ({ step_id: row.id, title: row.title, story: row.story, game: row.page ? "visual-explainer" : row.builtIn?.implementationType ?? row.fresh!.setup.type,
+              words: row.wordIds.map(word), ...(pageOf(row) ? { lesson_page: pageOf(row) } : {}) })),
+            next: "This is what she will see. Compare it with your change list: does each stop really teach what you said? Fix anything that does not with add_step, add_explainer or remove_step, then call finish_board again. If it is right, call finish_board again now." } };
+        }
+        state.result = finished;
+        console.log(` 🎮 [planner-tools] [self-check] [${JSON.stringify(state.draft?.decision.nextInstruments) === JSON.stringify(nextInstruments) ? "confirmed" : "revised"}] steps=${nextInstruments.length}`);
         return { ok: true, result: { accepted: true, steps: nextInstruments.length } };
       } }),
   ];
@@ -128,6 +151,8 @@ export function spellingSuccessorToolkit(facts: SuccessorFacts) {
     tools,
     initialState: (): SuccessorState => ({ next: 0, steps: [] }),
     finished: (state: SuccessorState) => Boolean(state.result),
-    result: (state: SuccessorState) => { if (!state.result) throw new Error("successor_board_unfinished"); return state.result; },
+    /** A board reached the self-check, so it stands even if the Planner never finishes again. */
+    drafted: (state: SuccessorState) => Boolean(state.draft),
+    result: (state: SuccessorState) => { const finished = state.result ?? state.draft; if (!finished) throw new Error("successor_board_unfinished"); return finished; },
   };
 }
