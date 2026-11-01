@@ -27,6 +27,7 @@ import {
 import { planSession } from "../engine/learningEngine";
 import { getChildChart } from "../profiles/childChart";
 import { currentBoardInstance } from "../engine/learningBoardInstances";
+import { getMathGenerationStatus } from "../engine/adaptiveMathDiscovery";
 import { computeProgression } from "../engine/progression";
 import {
   getSessionTypeConfig,
@@ -56,7 +57,7 @@ import {
 import { generateCanvasCapabilitiesManifest } from "./canvas/registry";
 import { CHARLOTTE_DIAG_DEFAULT_VOICE_ID } from "../diag-voices";
 import { generateToolDocs } from "../agents/elli/tools/generateToolDocs";
-import { startMaxDurationTimer } from "./session-triggers";
+import { isBoardBeingPrepared, startMaxDurationTimer } from "./session-triggers";
 import { WsTtsBridge } from "./ws-tts-bridge";
 import type { VoiceLatencyMark } from "./voiceTurnLatency";
 import { mathProblem, resetMathProbeSession } from "../agents/elli/tools/mathProblem";
@@ -1552,6 +1553,15 @@ This is a safe space to test everything.
       void session.end().catch((err) => {
         console.error("  🔴 [session-end] timeout finalizer failed:", err);
       });
+    }, () => {
+      try {
+        const limitChildId = String(session.chartChildId ?? homeworkChild).toLowerCase();
+        const homeworkId = getChildChart(limitChildId).learningCycle?.homeworkId;
+        return Boolean(homeworkId) && isBoardBeingPrepared(getMathGenerationStatus(limitChildId, homeworkId!)?.phase);
+      } catch (err) {
+        console.error("  🎮 [session-limit] [board-status] [unavailable]", err);
+        return false;
+      }
     });
 
     resetMathProbeSession(session.childName);

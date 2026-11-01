@@ -2,7 +2,7 @@
  * Session end logic for the web path.
  * Three triggers — whichever fires first ends the session:
  * 1. User says goodbye (isGoodbye)
- * 2. Max session duration (15 min, configurable)
+ * 2. Max session duration (configurable), which never ends a session while her board is being prepared
  * 3. Companion detects disengagement and says goodbye (triggers #1)
  */
 
@@ -105,11 +105,35 @@ export function checkAssistantGoodbye(assistantText: string): boolean {
  * Call when session starts. Returns a cleanup function.
  * The callback fires once when the timer expires.
  */
+/** One look a minute, so a stuck preparation still ends the session after half an hour. */
+export const MAX_BOARD_WAITS = 30;
+const BOARD_WAIT_MS = 60_000;
+const PREPARING_PHASES = new Set(["evidence_ready", "targeted_planning", "board_designing", "board_generating"]);
+
+export function isBoardBeingPrepared(phase: string | null | undefined): boolean {
+  return PREPARING_PHASES.has(phase ?? "");
+}
+
 export function startMaxDurationTimer(
   childName: ChildName,
-  onExpired: () => void
+  onExpired: () => void,
+  boardBeingPrepared: () => boolean = () => false,
 ): () => void {
   const ms = getMaxDurationMs(childName);
-  const timeout = setTimeout(onExpired, ms);
+  let waits = 0;
+  let timeout: ReturnType<typeof setTimeout>;
+  const fire = (): void => {
+    if (waits < MAX_BOARD_WAITS && boardBeingPrepared()) {
+      waits += 1;
+      console.log(` 🎮 [session-limit] [waiting-for-board] look=${waits}`);
+      timeout = setTimeout(fire, BOARD_WAIT_MS);
+    } else if (waits > 0 && waits < MAX_BOARD_WAITS) {
+      // Waiting was not playing: the board she waited for gets a full session.
+      waits = 0;
+      console.log(" 🎮 [session-limit] [board-opened] full-session");
+      timeout = setTimeout(fire, ms);
+    } else onExpired();
+  };
+  timeout = setTimeout(fire, ms);
   return () => clearTimeout(timeout);
 }
