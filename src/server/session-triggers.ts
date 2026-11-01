@@ -105,6 +105,14 @@ export function checkAssistantGoodbye(assistantText: string): boolean {
  * Call when session starts. Returns a cleanup function.
  * The callback fires once when the timer expires.
  */
+/** The older session counters see nothing of a board: her answers and decisions live in the learning cycle. */
+export function finalizeStatus(decisionStatus: string | undefined, hasLearningCycle: boolean): string {
+  return decisionStatus ?? (hasLearningCycle ? "learning_cycle_owns_this_session" : "not_a_learning_session");
+}
+export function legacyAttemptsNote(attempts: number, hasLearningCycle: boolean): string {
+  return hasLearningCycle ? `${attempts} attempts (older counter; her answers are in the learning cycle)` : `${attempts} attempts`;
+}
+
 /** One look a minute, so a stuck preparation still ends the session after half an hour. */
 export const MAX_BOARD_WAITS = 30;
 const BOARD_WAIT_MS = 60_000;

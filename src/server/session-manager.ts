@@ -20,6 +20,8 @@ import { connectFlux, type FluxHandle } from "../deepgram-turn";
 import {
   checkUserGoodbye,
   getRewardDurations,
+  finalizeStatus,
+  legacyAttemptsNote,
 } from "./session-triggers";
 import { WsTtsBridge } from "./ws-tts-bridge";
 import { createLoggedVoiceTurnLatency } from "./voiceTurnLatency";
@@ -1488,7 +1490,7 @@ export class SessionManager {
             accuracy: summary.accuracy,
           });
           console.log(
-            `  🎮 [engine] session finalized: ${summary.totalAttempts} attempts, ` +
+            `  🎮 [engine] session finalized: ${legacyAttemptsNote(summary.totalAttempts, Boolean(getChildChart(this.chartChildId).learningCycle))}, ` +
               formatLegacySessionAccuracy(summary),
           );
         } catch (err) {
@@ -1525,7 +1527,7 @@ export class SessionManager {
         const truth = writePostSessionTruthPacket(this.debugRecorder.sessionDir);
         const decision = persistLearningTheoryDecision(this.chartChildId, truth);
         console.log(
-          `  🎮 [learning-loop] [session-finalize] status=${decision?.status ?? "not_a_learning_session"}`,
+          `  🎮 [learning-loop] [session-finalize] status=${finalizeStatus(decision?.status, Boolean(getChildChart(this.chartChildId).learningCycle))}`,
         );
       }
       this.send("session_ended", {
