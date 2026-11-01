@@ -8,11 +8,7 @@ import type { ActiveSessionPlan, EngagementTheory } from "../context/schemas/lea
 import { getActivityCapabilityMode } from "./activityToolCatalog";
 import { hashDiscoveryContract } from "./adaptiveMathDiscovery";
 import { spellingImplementationType } from "./activityEngineConfig";
-import { spellingNativeConfig } from "./spellingNativeSetup";
-import {
-  validateSpellingVisualExplainerPlanConfig,
-  validateVisualLearnerArtifactConfig,
-} from "../shared/visualLearnerArtifactConfig";
+import { spellingExplainerConfig, spellingNativeConfig } from "./spellingNativeSetup";
 import {
   createLearningCycle,
   getLearningCycle,
@@ -390,78 +386,7 @@ export function buildSpellingTargetedCycleInput(input: {
         throw new Error(`spelling_mystery_academic_instrument_missing:${node.id}`);
       }
       let nativeConfig = spellingNativeConfig({ type: implementationType, nodeId: node.id, items, wordRadarConfig: node.wordRadarConfig as Record<string, unknown> | undefined, activityConfig: node.activityConfig });
-      if (implementationType === "visual-explainer") {
-        try {
-          const visual = validateSpellingVisualExplainerPlanConfig(node.activityConfig);
-          const normalize = (value: string) => value.normalize("NFC").trim().toLocaleLowerCase("en-US");
-          const itemByWord = new Map(items.map((item) => [normalize(item.word), item]));
-          const configuredWords = visual.words.map((word) => normalize(word.text));
-          if (configuredWords.length !== items.length
-            || new Set(configuredWords).size !== items.length
-            || configuredWords.some((word) => !itemByWord.has(word))) {
-            throw new Error("coverage");
-          }
-          const checkItem = itemByWord.get(normalize(visual.check.targetWord));
-          if (!checkItem) throw new Error("check_target");
-          const frozenWords = visual.words.map((word) => ({
-            ...word,
-            id: itemByWord.get(normalize(word.text))!.id,
-          }));
-          nativeConfig = validateVisualLearnerArtifactConfig({
-            artifactId: `${cycle.homeworkId}:${node.id}:visual-explainer`,
-            type: "visual-explainer",
-            concept: visual.topic,
-            learningGoal: visual.learningGoal,
-            misconception: visual.misconception,
-            sourceEvidence: {
-              source: `assignment:${cycle.homeworkId}`,
-              capturedAt: input.now,
-              summary: decision.reason,
-            },
-            algorithmTargets: ["error-pattern-remediation", "retrieval-practice"],
-            reuseDecision: {
-              status: "candidate",
-              reason: "Planner-selected assisted spelling instruction; checkpoint outcomes are still pending.",
-            },
-            parentApproval: { status: "pending" },
-            mode: { default: "pause-for-question" },
-            preview: { allowPlaythrough: true },
-            narration: {
-              enabled: false,
-              provider: "companion",
-              voiceId: "runtime-companion",
-              modelId: "runtime-companion",
-              audioPath: "none",
-              scriptPath: "none",
-              timings: [{ id: "strategy", startProgress: 0, endProgress: 100, text: visual.strategy.title }],
-            },
-            questions: [{
-              id: visual.check.id,
-              prompt: visual.check.prompt,
-              options: visual.check.options,
-              correctOptionId: visual.check.correctOptionId,
-              targetConcept: checkItem.id,
-              misconceptionTag: visual.misconception,
-              pauseAtProgress: 85,
-              scaffoldLevel: 2,
-            }],
-            companionContext: { role: "hint_only", maxSentences: 3, canRevealAnswer: true },
-            evidence: {
-              targetResults: items.map((item) => item.id),
-              completion: `${node.id}:assisted-visual-instruction-complete`,
-            },
-            chrome: {
-              childShowsEvidence: false,
-              parentShowsEvidence: true,
-              childShowsCarePlan: false,
-              parentShowsCarePlan: true,
-            },
-            spellingModel: { strategy: visual.strategy, words: frozenWords },
-          }) as unknown as Record<string, unknown>;
-        } catch {
-          throw new Error(`spelling_visual_explainer_config_invalid:${node.id}`);
-        }
-      }
+      if (implementationType === "visual-explainer") nativeConfig = spellingExplainerConfig({ homeworkId: cycle.homeworkId, nodeId: node.id, items, activityConfig: node.activityConfig, summary: decision.reason, capturedAt: input.now });
       contract.nodes[index] = { ...contract.nodes[index], implementationType, mechanic: node.activityId, state: "generating", artifactBinding: null, evidenceContract: { ...contract.nodes[index].evidenceContract, academic: items.length > 0, ...(nativeConfig ? { nativeConfig } : {}), ...(items.length ? { spellingItems: Object.fromEntries(items.map(item => [item.id, item])), itemRoles: Object.fromEntries(items.map(item => [item.id, decision.role])) } : {}) } };
     } catch (error) {
       // A failed truth check degrades this one portal; the rest of the board still publishes.

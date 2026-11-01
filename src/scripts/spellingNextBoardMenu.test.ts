@@ -96,6 +96,27 @@ it("prepares everything the next-board menu offers: re-runs, Discovery included,
   expect(plan.filter(row => row.locked || (row.type === "word-radar" && !row.wordRadarConfig)).map(row => row.id)).toEqual([]);
 }, 120000);
 
+// 2026-11-01: the next board could keep an old lesson's page under a new title, because it had no way to write one.
+it("prepares a new explainer page on the next board for just the words it teaches", async () => {
+  Object.assign(lab.planner, { newExplainer: true, everyBuiltIn: false });
+  try {
+    const { childId, homeworkId, opts } = await playToNextBoard();
+    const after = await prepareSuccessorBoard({ childId, homeworkId }, opts);
+    const board = currentBoardInstance(after);
+    expect(board.publishedAt).not.toBeNull();
+    const [page] = after.nodes.filter(node => board.nodeIds.includes(node.nodeId));
+    expect(page).toMatchObject({ implementationType: "visual-explainer", title: "New Clues" });
+    expect(page.notReadyReason).toBeUndefined();
+    expect(page.reusedFrom).toBeUndefined();
+    expect(page.artifactBinding).toMatchObject({ localArtifactPath: "/games/spelling-visual-explainer.html", validationStatus: "passed" });
+    expect(Object.values(page.evidenceContract.spellingItems ?? {}).map(item => item.word)).toEqual(lab.planner.missedWords.slice(0, 2));
+    const model = (page.evidenceContract.nativeConfig as { spellingModel: { words: Array<{ text: string; id: string }> } }).spellingModel.words;
+    expect(model.map(word => word.text)).toEqual(lab.planner.missedWords.slice(0, 2));
+    expect(model.every(word => page.evidenceContract.spellingItems?.[word.id])).toBe(true);
+    expect(projectLearningCycle(after).activeSessionPlan.nodePlan.find(row => row.id === page.nodeId)?.locked).toBeFalsy();
+  } finally { Object.assign(lab.planner, { newExplainer: false, everyBuiltIn: true }); }
+}, 120000);
+
 // 2026-10-25 owner review: the boards felt bland because the Planner and the map artist never learned who
 // she is. Her interests lived in her soul file and her own words in her signals, which only Elli read.
 // Logs could not show it (nothing failed); the lab never asked what the Planner was told about her.

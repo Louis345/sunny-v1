@@ -2,6 +2,8 @@ import { z } from "zod";
 import { expandJourneySequence, type AdventureJourneyDefinition } from "../shared/adventureBoardDefinition";
 import { finishJourneySequence, journeyOrderTools, removeFromJourney, type JourneyOrderState } from "./journeyTools";
 import { toolFor, type PlannerTool } from "./plannerToolLoop";
+import { deriveNativeActivity } from "./assignmentPlanner";
+import { explainerPageTool } from "./spellingTeachingTools";
 
 /** The next-board Planner's small locked tools. The Planner makes the theory decision and orders each
  * step: a re-run of a tested built-in she played (its own words or fewer), or any game and mode on the
@@ -11,12 +13,14 @@ export type SuccessorFacts = {
   builtIns: Array<{ nodeId: string; title: string; implementationType: string; wordIds: string[]; responseMode: string; checkpoint: boolean }>;
   /** The games and modes on the menu, with what code fills in for each. Older frozen questions have none. */
   activities?: Array<{ id: string; checkpoint: boolean; setup: { type: string; wordRadarConfig?: Record<string, unknown>; letterRushMode?: string } }>;
+  /** Present when a new page can be written: her grade, and her words as text with their identities. */
+  explainer?: { grade: unknown; words: Array<{ wordId: string; word: string }> };
   evaluationIds: string[]; allowedActions: string[]; idPrefix: string;
   /** Whether the re-run step can really prepare this built-in for these words (the same check it runs). */
   rerunnable: (nodeId: string, wordIds: string[]) => boolean;
 };
 type Fresh = NonNullable<SuccessorFacts["activities"]>[number];
-type Step = { id: string; title: string; purpose: string; story: string; picture: string; wordIds: string[]; builtIn?: SuccessorFacts["builtIns"][number]; fresh?: Fresh };
+type Step = { id: string; title: string; purpose: string; story: string; picture: string; wordIds: string[]; builtIn?: SuccessorFacts["builtIns"][number]; fresh?: Fresh; page?: Record<string, unknown> };
 type Decision = { status: string; reason: string; progressionAction: string; preserve: string[]; change: string[]; testNext: string[]; nextEvidenceRequired: string[]; predictionEvaluationIds: string[]; revisedHypothesis: string };
 export type SuccessorState = JourneyOrderState & { next: number; steps: Step[]; decision?: Decision; result?: { decision: Record<string, unknown>; journey?: AdventureJourneyDefinition } };
 
@@ -66,13 +70,26 @@ export function spellingSuccessorToolkit(facts: SuccessorFacts) {
         if (!builtIn) return { ok: false, error: `no built-in ${input.built_in}` };
         const foreign = input.words.find(word => !builtIn.wordIds.includes(word));
         if (foreign) return { ok: false, error: `${foreign} is not one of ${builtIn.title}'s words (${builtIn.wordIds.join(", ")})` };
-        if (input.words.length && !facts.rerunnable(builtIn.nodeId, input.words)) return { ok: false, error: `${builtIn.title} cannot be re-run for just those words (its questions or tiles use its other words). It can be re-run with all of its words: leave words empty, or choose another built-in.` };
+        if (input.words.length && !facts.rerunnable(builtIn.nodeId, input.words)) return { ok: false, error: `${builtIn.title} cannot be re-run for just those words (its questions or tiles use its other words). It can be re-run with all of its words: leave words empty, or choose another built-in.${facts.explainer && builtIn.implementationType === "visual-explainer" ? " To teach just those words, write a new page with add_explainer." : ""}` };
         state.next += 1;
         const id = `${facts.idPrefix}-${state.next}`;
         state.steps.push({ id, title: input.title, purpose: input.purpose, story: input.story, picture: input.picture, wordIds: input.words.length ? [...input.words] : [...builtIn.wordIds], builtIn });
         state.result = undefined;
         return { ok: true, result: { step_id: id, words: state.steps.at(-1)!.wordIds.length, role: builtIn.checkpoint ? "fresh_checkpoint" : "practice" } };
       } }),
+    ...(facts.explainer ? [explainerPageTool<SuccessorState>({ grade: facts.explainer.grade, returns: "step_id",
+      word: enumOf(facts.explainer.words.map(row => row.word), "none").describe("One of her words."),
+      look: { story: text("What this stop is in her world: one or two sentences Elli can tell her as it opens."), picture: text("What this stop's picture on her map shows, for the illustrator.") },
+      run: (state, page, input) => {
+        state.next += 1;
+        const id = `${facts.idPrefix}-${state.next}`;
+        const wordIds = page.words.map(word => facts.explainer!.words.find(row => row.word === word)!.wordId);
+        // The same completion every Teaching page goes through, so both reach the kiosk in one form.
+        const { activityConfig } = deriveNativeActivity({ id, type: "visual-explainer", activityConfig: page.activityConfig }) as { activityConfig: Record<string, unknown> };
+        state.steps.push({ id, title: input.title, purpose: String(activityConfig.learningGoal), story: input.story, picture: input.picture, wordIds, page: activityConfig });
+        state.result = undefined;
+        return { ok: true, result: { step_id: id, words: wordIds.length, role: "practice" } };
+      } })] : []),
     tool({ name: "remove_step", description: "Remove a step you added, and take it off the order and the choice.",
       schema: z.object({ step_id: text("A step_id you were given.") }).strict(),
       run: (state, input) => {
@@ -96,8 +113,10 @@ export function spellingSuccessorToolkit(facts: SuccessorFacts) {
         if (!sequence.ok) return sequence;
         const journey = expandJourneySequence(sequence.sequence, state.steps);
         const nextInstruments = state.steps.map(row => ({
-          nodeId: row.id, title: row.title, academicTarget: row.purpose, mechanic: row.builtIn?.implementationType ?? row.fresh!.setup.type, theme: row.story, picture: row.picture, openingPurpose: row.purpose,
-          spelling: row.builtIn
+          nodeId: row.id, title: row.title, academicTarget: row.purpose, mechanic: row.page ? "visual-explainer" : row.builtIn?.implementationType ?? row.fresh!.setup.type, theme: row.story, picture: row.picture, openingPurpose: row.purpose,
+          spelling: row.page
+            ? { wordIds: [...row.wordIds], measurementRole: "practice", responseMode: "tap_selection", activity: { id: "visual-explainer", type: "visual-explainer", activityConfig: row.page } }
+            : row.builtIn
             ? { wordIds: [...row.wordIds], measurementRole: row.builtIn.checkpoint ? "fresh_checkpoint" : "practice", responseMode: row.builtIn.responseMode, builtInActivityId: row.builtIn.nodeId }
             : { wordIds: [...row.wordIds], measurementRole: row.fresh!.checkpoint ? "fresh_checkpoint" : "practice", responseMode: "spelling_letters", activity: { id: row.fresh!.id, ...structuredClone(row.fresh!.setup) } },
         }));

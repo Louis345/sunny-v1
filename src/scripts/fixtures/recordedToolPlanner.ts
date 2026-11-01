@@ -6,6 +6,8 @@ export type RecordedToolLab = {
   requests: any[]; teachingBoards: number; decisions: number;
   /** Order one next-board step for every built-in the menu offers, instead of the robot's three. */
   everyBuiltIn?: boolean;
+  /** Write one new explainer page for two missed words on the next board. */
+  newExplainer?: boolean;
 };
 
 /** One recorded Planner, artist and next-board Planner at the Anthropic client boundary. It answers
@@ -83,6 +85,13 @@ export function recordedToolReply(lab: RecordedToolLab, request: any): any {
         // A re-run takes all of its own words; a fresh game from the menu practices her missed words.
         words: cycle.nodes.some(node => node.nodeId === built_in) ? [] : [...new Set(cycle.nodes.flatMap(node => Object.values(node.evidenceContract.spellingItems ?? {})).filter(item => lab.missedWords.includes(item.word)).map(item => item.wordId))],
         title: `Again ${index + 1}`, purpose: "Practice again.", story: `Story: Again ${index + 1}`, picture: `Picture: Again ${index + 1}` } }))]);
+      if (lab.newExplainer) {
+        const [first, second] = lab.missedWords;
+        const row = (text: string) => ({ text, chunks: [text.slice(0, 2), text.slice(2)], spoken_chunks: [text.slice(0, 2), text.slice(2)], focus_chunk: text.slice(2), tip: `Listen for ${text.slice(2)}.` });
+        return message([decide("revised", "generate_support"), { name: "add_explainer", input: { title: "New Clues", story: "Story: New Clues", picture: "Picture: New Clues", topic: "A new pattern", learning_goal: "Spot the pattern.", misconception: "She spells what she hears.",
+          strategy: { title: "Find the tricky part", steps: ["Say the word.", "Find the tricky part."] }, words: [row(first), row(second)],
+          check: { target_word: first, prompt: "Which part is tricky?", options: [{ label: first.slice(2), correct: true }, { label: first.slice(0, 2), correct: false }] } } }]);
+      }
       // The first step is a fresh game from the menu, so the robot plays one the board set up new.
       const missed = [...new Set(cycle.nodes.flatMap(node => Object.values(node.evidenceContract.spellingItems ?? {})).filter(item => lab.missedWords.includes(item.word)).map(item => item.wordId))];
       const fresh = { name: "add_step", input: { built_in: pick(builtIns, "word-radar:visible_read"), words: missed, title: "Fresh Radar", purpose: "Practice the missed words.", story: "Story: Fresh Radar", picture: "Picture: Fresh Radar" } };

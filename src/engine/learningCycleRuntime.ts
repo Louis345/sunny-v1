@@ -812,12 +812,13 @@ async function askPlanner(
       return {nodeId:node.nodeId,title:node.title,implementationType:node.implementationType??"word-radar",wordIds:[...new Set(items.map(item=>item.wordId))],responseMode:items[0]?.response.mode??"spelling_letters",checkpoint:roles.length>0&&roles.every(role=>role==="fresh_checkpoint")};}),
       // The Teaching board's own menu: every certified game and mode, set up fresh for the words she is given.
       activities:(()=>{const menu=spellingActivityMenu(spellingActivityCatalog(cycle.childId));return menu.choices.map(id=>({id,checkpoint:menu.roles(id).includes("fresh_checkpoint"),setup:menu.setup(id)}));})(),
+      ...(spellingActivityMenu(spellingActivityCatalog(cycle.childId)).offered.has("visual-explainer")?{explainer:{grade:chart.demographics?.grade,words:[...savedSpellingItems.values()].map(item=>({wordId:item.wordId,word:item.word}))}}:{}),
       evaluationIds,allowedActions:actions,idPrefix:`${cycle.homeworkId}-r${checkpointRevision}-step`,
       // The same check the re-run step applies, asked while the Planner is still choosing.
       rerunnable:(nodeId:string,wordIds:string[])=>{const source=builtIns.find(node=>node.nodeId===nodeId);return Boolean(source&&repointReusedSetup(source,`${nodeId}-check`,wordIds.map(wordId=>({id:`check:${wordId}`,wordId}))));}};
     const prompt=`You are Sunny's AI Planner, her spelling tutor. The goal: she wants to come back to Sunny, and she knows her words by the school test. Compare your preregistered theory and predictions with what she actually did and said, decide what happens next, and build her next board, using the tools.
 1. decide: one evidence-grounded decision. Cite the prediction evaluations you judge.
-2. Unless you await calibration, build the next board: add_step for each step, then set_order and, when she should pick her path, add_choice. Then finish_board.
+2. Unless you await calibration, build the next board: add_step for each step, add_explainer for a new lesson page, then set_order and, when she should pick her path, add_choice. Then finish_board.
 Sunny runs each step as you write it. The board she has now stays as it is; yours opens when she chooses it, right away or at a later session. The kiosk screen shows up to 7 stops along any one path, counting the start, the choice and the finish. Title each step as she should see it. Per-word response time, assistance, exposure and response mode are in the evidence below; Elli talks with her during each activity.
 Games and modes on the menu (a hidden-word Radar is an independent check; the rest are practice):
 ${JSON.stringify(facts.activities.map(row=>row.id))}

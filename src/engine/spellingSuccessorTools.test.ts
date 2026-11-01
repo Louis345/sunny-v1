@@ -35,6 +35,52 @@ const decision = (overrides: Record<string, unknown> = {}) => ({ status: "revise
 const step = (built_in: string, title: string, words: string[] = []) => ({ built_in, words, title, purpose: "Practice the missed silent letters.", story: `Story: ${title}`, picture: `Picture: ${title}` });
 
 describe("spelling next-board tools", () => {
+  // 2026-11-01: a board decision said to teach new vowel patterns for two words, but add_step refused those
+  // words for the old page and told the Planner to leave them empty. The stop got a new title over the old
+  // lesson. The human caught it reading the board; nothing compared the page with the decision.
+  describe("a new explainer on a next board", () => {
+    const words = [{ wordId: "w-sign", word: "sign" }, { wordId: "w-write", word: "write" }, { wordId: "w-gnat", word: "gnat" }];
+    const page = (overrides: Record<string, unknown> = {}) => ({ title: "Silent Clues", story: "Story: clues", picture: "Picture: clues", topic: "Silent letters", learning_goal: "Spot the silent letter.", misconception: "She spells what she hears.",
+      strategy: { title: "Spot the quiet letter", steps: ["Say the word.", "Find the quiet letter."] },
+      words: [{ text: "sign", chunks: ["si", "gn"], spoken_chunks: ["sigh", "n"], focus_chunk: "gn", tip: "The g stays quiet." }],
+      check: { target_word: "sign", prompt: "Which letter is quiet?", options: [{ label: "g", correct: true }, { label: "n", correct: false }] }, ...overrides });
+    const withExplainer = () => session(facts({ explainer: { grade: "3", words } }));
+
+    it("offers the same page tool Teaching has, for any of her words", () => {
+      expect(session().kit.tools.map(row => row.name)).not.toContain("add_explainer");
+      const { kit } = withExplainer();
+      const tool = plannerToolDefinitions(kit.tools).find(row => row.name === "add_explainer")!;
+      expect(tool.description).toContain("grade 3");
+      expect((tool as { strict?: boolean }).strict).toBeUndefined();
+    });
+
+    it("serves only the words the page teaches, and carries the page to the board", () => {
+      const { call, state, kit } = withExplainer();
+      call("decide", decision());
+      const added = call("add_explainer", page());
+      expect(added).toMatchObject({ ok: true, result: { words: 1 } });
+      const id = (added as { result: { step_id: string } }).result.step_id;
+      call("set_order", { opening: [id], closing: [] });
+      expect(call("finish_board", { title: "Next", endpoint_label: "Finish", single_path_reason: "One lesson." }).ok).toBe(true);
+      const instrument = (kit.result(state).decision.nextInstruments as Array<any>)[0];
+      expect(instrument.spelling).toMatchObject({ wordIds: ["w-sign"], measurementRole: "practice", activity: { id: "visual-explainer", type: "visual-explainer" } });
+      expect(instrument.spelling.activity.activityConfig.words.map((row: { text: string }) => row.text)).toEqual(["sign"]);
+      expect(instrument).toMatchObject({ mechanic: "visual-explainer", theme: "Story: clues", picture: "Picture: clues" });
+    });
+
+    it("holds a next-board page to the same checks as a Teaching page", () => {
+      const { call } = withExplainer();
+      expect(call("add_explainer", page({ strategy: { title: "x".repeat(33), steps: ["a", "b"] } }))).toMatchObject({ ok: false });
+      expect(call("add_explainer", page({ words: [{ text: "sign", chunks: ["si", "n"], spoken_chunks: ["sigh", "n"], focus_chunk: "si", tip: "t" }] }))).toMatchObject({ ok: false, error: expect.stringContaining("join to spell") });
+      expect(call("add_explainer", page({ strategy: { title: "Spot", steps: ["Say /sign/.", "Find it."] } }))).toMatchObject({ ok: false, error: expect.stringContaining("slash") });
+    });
+
+    it("points the Planner to add_explainer when an old page cannot be cut down to some of its words", () => {
+      const { call } = withExplainer();
+      expect(call("add_step", step("act-1", "Part of It", ["w-sign"]))).toMatchObject({ ok: false, error: expect.stringContaining("add_explainer") });
+    });
+  });
+
   it("offers small strict tools whose pick-lists are her tested built-ins and real evaluations", () => {
     const { kit } = session();
     const definitions = plannerToolDefinitions(kit.tools);

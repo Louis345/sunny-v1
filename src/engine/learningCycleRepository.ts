@@ -1,5 +1,5 @@
 import {journeyChoiceAvailable} from '../shared/adventureBoardDefinition';
-import { letterRushConfig, spellingNativeConfig } from "./spellingNativeSetup";
+import { letterRushConfig, spellingExplainerConfig, spellingNativeConfig } from "./spellingNativeSetup";
 import type { BoardCanvasProof } from './adventureBoardCanvas';
 import { renderBoardDefinition, journeyFrontier, type AdventureBoardDefinition } from '../shared/adventureBoardDefinition';
 import fs from "fs";
@@ -519,7 +519,7 @@ export type SpellingInstrumentPrescription = {
   /** The tested built-in activity this step re-runs. */
   builtInActivityId?: string;
   /** Or a game and mode from the menu, set up fresh for this step's words. */
-  activity?: { id: string; type: string; wordRadarConfig?: Record<string, unknown>; letterRushMode?: string };
+  activity?: { id: string; type: string; wordRadarConfig?: Record<string, unknown>; letterRushMode?: string; activityConfig?: unknown };
 };
 
 /** The tested built-in spelling activities a next board may re-run: one list for the Planner and the board. */
@@ -1314,7 +1314,9 @@ function prepareSuccessorBoard(
     let freshSetup: Record<string, unknown> | undefined, freshReady = Boolean(fresh);
     if (fresh) {
       try {
-        freshSetup = spellingNativeConfig({ type: fresh.type, nodeId, items: spellingItems ?? [], wordRadarConfig: fresh.wordRadarConfig,
+        freshSetup = fresh.type === "visual-explainer"
+          ? spellingExplainerConfig({ homeworkId: next.homeworkId, nodeId, items: spellingItems ?? [], activityConfig: fresh.activityConfig, summary: input.reason, capturedAt: input.at })
+          : spellingNativeConfig({ type: fresh.type, nodeId, items: spellingItems ?? [], wordRadarConfig: fresh.wordRadarConfig,
           activityConfig: fresh.type === "letter-rush" ? letterRushConfig({ mode: fresh.letterRushMode ?? "read-and-race", title: prescription.title, words: (spellingItems ?? []).map(item => item.word) }) : undefined });
       } catch (error) {
         freshReady = false;

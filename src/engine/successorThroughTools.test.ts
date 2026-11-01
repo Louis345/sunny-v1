@@ -62,9 +62,9 @@ it('builds the next board through small locked tools, re-running only built-ins,
  // A short conversation of locked tools, never the old single form.
  expect(f.stream).toHaveBeenCalledTimes(2);
  const tools=f.requests[0].tools;
- expect(tools.map((tool:any)=>tool.name)).toEqual(['decide','add_step','remove_step','set_order','add_choice','finish_board']);
- expect(tools.every((tool:any)=>tool.strict===true)).toBe(true);
- expect(strictBudget(tools).unsupported).toEqual([]);
+ expect(tools.map((tool:any)=>tool.name)).toEqual(['decide','add_step','add_explainer','remove_step','set_order','add_choice','finish_board']);
+ expect(tools.filter((tool:any)=>tool.name!=='add_explainer').every((tool:any)=>tool.strict===true)).toBe(true);
+ expect(strictBudget(tools.filter((tool:any)=>tool.strict===true)).unsupported).toEqual([]);
  expect(f.requests[0].tool_choice).toEqual({type:'auto'});
  // On offer: the proven radar to re-run and the certified games and modes; a brand-new game cannot be ordered at all.
  expect(tools.find((tool:any)=>tool.name==='add_step').input_schema.properties.built_in.enum).toEqual(['radar-check',...spellingActivityMenu(spellingActivityCatalog(childId)).choices]);
