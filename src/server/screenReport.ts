@@ -3,7 +3,7 @@
  * It is checked against the server's current board; anything unconfirmed is reported as unknown or
  * updating, never guessed.
  */
-export type ScreenKind = "loading" | "unavailable" | "evaluation" | "waiting" | "board" | "activity";
+export type ScreenKind = "loading" | "unavailable" | "evaluation" | "waiting" | "board" | "activity" | "resting";
 
 export type ScreenReport = {
   screen: ScreenKind;
@@ -14,7 +14,7 @@ export type ScreenReport = {
   waiting?: { step?: string; detail?: string; ready?: number; total?: number };
 };
 
-const KINDS = new Set<ScreenKind>(["loading", "unavailable", "evaluation", "waiting", "board", "activity"]);
+const KINDS = new Set<ScreenKind>(["loading", "unavailable", "evaluation", "waiting", "board", "activity", "resting"]);
 const text = (value: unknown) => (typeof value === "string" && value.trim() ? value.trim().slice(0, 160) : undefined);
 const count = (value: unknown) => (typeof value === "number" && Number.isFinite(value) && value >= 0 ? Math.floor(value) : undefined);
 
@@ -67,6 +67,7 @@ export function describeScreenForCompanion(input: {
   switch (report.screen) {
     case "loading": return `${header}\nSunny is still loading.`;
     case "unavailable": return `${header}\nThe board could not be loaded.`;
+    case "resting": return `${header}\nThe session has ended and the kiosk is resting.`;
     case "waiting": {
       const progress = report.waiting?.total ? `${report.waiting.ready ?? 0} of ${report.waiting.total} activities ready.` : undefined;
       return [header, "The waiting screen is showing.", report.waiting?.step, report.waiting?.detail, progress].filter(Boolean).join("\n");

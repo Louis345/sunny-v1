@@ -81,3 +81,7 @@ it("feeds Elli's real per-turn context: activity details appear only while the k
     fs.rmSync(root, { recursive: true, force: true });
   }
 });
+
+it("accepts the kiosk's resting screen", () => {
+  expect(normalizeScreenReport({ screen: "resting" })).toEqual({ screen: "resting" });
+});

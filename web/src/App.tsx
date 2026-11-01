@@ -825,6 +825,7 @@ function App() {
     waiting: preparation.waiting,
     heldStatusShown: !preparation.screen && (discoveryChapterEnd || (!directDiscoveryMode && targetedBoardHeldForPreparation)),
     launch: plannerBoardLaunch ? { nodeId: plannerBoardLaunch.node.id, title: plannerBoardLaunch.node.title } : null,
+    finished: homeworkSessionFinished,
   }));
   useEffect(() => {
     if (homeworkBoardMode) reportScreen(JSON.parse(screenReportKey));

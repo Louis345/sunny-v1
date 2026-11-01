@@ -3,7 +3,7 @@ import type { PreparationWaitingReport } from "../components/AdventurePreparatio
 
 /** What the kiosk is showing, as reported to Sunny. The only description of the screen Elli receives. */
 export type KioskScreenReport = {
-  screen: "loading" | "unavailable" | "evaluation" | "waiting" | "board" | "activity";
+  screen: "loading" | "unavailable" | "evaluation" | "waiting" | "board" | "activity" | "resting";
   boardId?: string;
   boardTitle?: string;
   nodeId?: string;
@@ -20,7 +20,10 @@ export function kioskScreenReport(input: {
   waiting: PreparationWaitingReport | null;
   heldStatusShown: boolean;
   launch: { nodeId: string; title?: string } | null;
+  /** The session is over: the App renders its resting screen ahead of everything else. */
+  finished?: boolean;
 }): KioskScreenReport {
+  if (input.finished) return { screen: "resting" };
   if (!input.packet) return { screen: input.packetLoading ? "loading" : "unavailable" };
   const board = input.packet.activeSessionPlan?.adventureBoard;
   const boardId = board?.boardId ? { boardId: board.boardId } : {};
