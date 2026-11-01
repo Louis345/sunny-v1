@@ -55,6 +55,8 @@ export async function generateBoardNodeImages(input: {
   plan?: ActiveSessionPlan;
   generateMissing?: boolean;
   onPlanUpdated?: (plan: ActiveSessionPlan) => void;
+  /** A stop's own picture is ready; `nodeId` is the learning-cycle stop it belongs to. */
+  onNodePainted?: (nodeId: string, servedUrl: string) => void;
 }): Promise<{ generated: number; reused: number; skipped: string | null; plan?: ActiveSessionPlan }> {
   const rootDir = input.rootDir ?? process.cwd();
   const childId = input.childId.trim().toLowerCase();
@@ -74,7 +76,8 @@ export async function generateBoardNodeImages(input: {
   const updatedPlan = (): ActiveSessionPlan => ({ ...plan, adventureBoard: { ...board, nodes: [...nextNodes] } });
   for (const [index, node] of board.nodes.entries()) {
     if (!BOARD_IMAGE_KINDS.has(node.kind)) continue;
-    if (node.thumbnailUrl?.startsWith("/thumbnails/")) {
+    // A built-in game's icon is a fallback, not art: the picture the Planner wrote for this stop comes first.
+    if (node.thumbnailUrl?.startsWith("/thumbnails/") && !node.thumbnailPrompt) {
       reused++;
       continue;
     }
@@ -84,6 +87,7 @@ export async function generateBoardNodeImages(input: {
     if (fs.existsSync(destPath)) {
       nextNodes[index] = { ...node, thumbnailUrl: servedUrl };
       reused++;
+      if (!skipped) input.onNodePainted?.(node.target?.laneId ?? node.id, servedUrl);
       continue;
     }
     if (skipped || attempted >= MAX_NODE_IMAGES_PER_INGEST) continue;
@@ -99,6 +103,7 @@ export async function generateBoardNodeImages(input: {
         nextNodes[index] = { ...node, thumbnailUrl: servedUrl };
         generated++;
         console.log(`  🎮 [board-image] [node] [saved] ${node.id} → ${servedUrl}`);
+        input.onNodePainted?.(node.target?.laneId ?? node.id, servedUrl);
       } else console.warn(` 🎮 [board-image] [node] [unavailable] node=${node.id} existing-presentation=preserved`);
     } catch (error) {
       console.warn(` 🎮 [board-image] [node] [failed] node=${node.id} ${error instanceof Error ? error.message : String(error)}`);

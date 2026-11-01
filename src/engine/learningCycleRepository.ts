@@ -615,6 +615,7 @@ export type LearningCycleEvent =
       assumptions: LearningAssumption[];
       agencyExperiment?: LearningCycleAgencyExperiment;
     }
+  | { type: "node_artwork_saved"; nodeId: string; localPath: string }
   | {
       type: "plan_reconciled";
       boardDefinition?: AdventureBoardDefinition;
@@ -1287,7 +1288,7 @@ function prepareSuccessorBoard(
     if (!mapped) throw new Error(`learning_cycle_successor_route_node_missing:${id}`);
     return mapped;
   });
-  const reference = [...next.nodes].reverse().find((node) => node.artwork.localPath);
+  const reference = inheritableArtworkNode(next.nodes);
   const savedSpellingItems = spellingAssignmentItems(next);
   // Naming an earlier built-in spelling activity is the Planner's order to re-launch it, not to rebuild it.
   // A checkpoint may only reuse a checkpoint activity, so a re-launched check never shows the answer.
@@ -1396,6 +1397,26 @@ function publishPreparedBoardIfComplete(next: LearningCycleRecordV2, at: string)
   normalizeAgencyNodeStates(next);
   console.log(` 🎮 [learning-board] [published] [${board.boardId}] kind=${board.kind} lifecycle=${next.lifecycle}`);
   return board;
+}
+
+/** A next-board stop may borrow an earlier stop's look, but a picture painted for one stop stays on that stop. */
+export function inheritableArtworkNode<T extends { artwork: { localPath: string | null } }>(nodes: T[]): T | undefined {
+  return [...nodes].reverse().find((node) => node.artwork.localPath && !node.artwork.localPath.startsWith("/generated/adventure-board/"));
+}
+
+/** Pictures arrive while she plays, so a save that lost the race to her answers reads the cycle again; bounded. */
+export function savePaintedNodeArtwork(childId: string, homeworkId: string, nodeId: string, localPath: string, opts: LearningCycleRepositoryOptions = {}): void {
+  for (let attempt = 1; ; attempt += 1) {
+    const cycle = getLearningCycle(childId, homeworkId, opts);
+    if (!cycle) throw new Error(`learning_cycle_missing:${homeworkId}`);
+    if (cycle.nodes.find((node) => node.nodeId === nodeId)?.artwork.localPath === localPath) return;
+    try {
+      transitionLearningCycle(childId, homeworkId, cycle.revision, { type: "node_artwork_saved", nodeId, localPath }, opts);
+      return;
+    } catch (error) {
+      if (attempt >= 5 || !String(error).includes("learning_cycle_revision_conflict")) throw error;
+    }
+  }
 }
 
 export function transitionLearningCycle(
@@ -1507,6 +1528,12 @@ export function transitionLearningCycle(
     };
     reason = "The coherent targeted map is frozen; it publishes once every node artifact is verified.";
     evidenceIds = next.observations.map((observation) => observation.observationId);
+  } else if (event.type === "node_artwork_saved") {
+    assertLocalPath(event.localPath, "artwork_path");
+    const node = next.nodes.find((row) => row.nodeId === event.nodeId);
+    if (!node) throw new Error(`learning_cycle_node_missing:${event.nodeId}`);
+    node.artwork = { ...node.artwork, status: "ready", localPath: event.localPath };
+    reason = "A stop's own picture was painted; only its look changed.";
   } else if (event.type === "plan_reconciled") {
     if (event.boardDefinition && !current.boards?.some(board=>board.definition)) throw new Error('historical_board_replacement_requires_new_instance');
     if (event.boardDefinition && JSON.stringify(event.boardDefinition)!==JSON.stringify(preparingBoardInstance(current)?.definition??currentBoardInstance(current).definition)) throw new Error('learning_board_definition_reconciliation_forbidden');
