@@ -6,6 +6,8 @@
 import { isSpellingPracticeContinuation } from "../engine/learningCycleRepository";
 import { recordClockAttempt } from "../engine/clockTracker";
 import { childIdFromName, recordAttempt } from "../engine/learningEngine";
+import { recordExitChoice } from "../engine/learningCycleRuntime";
+import { getChildChart } from "../profiles/childChart";
 import { recordLearningAttempt } from "./learningAttemptEvents";
 import { generateStoryImage } from "../utils/generateStoryImage";
 import { sessionEventBus } from "./session-event-bus";
@@ -100,6 +102,8 @@ export async function narrateGameStimulus(input: {
   input.record("tts_stream_done", event);
   return true;
 }
+
+const PREPARATION_EXITS = new Set(["lets_go", "save_for_next_time", "stop_for_now", "bye_for_now"]);
 
 const TRACEABLE_GAME_EVENT_TYPES = new Set([
   "combo_breaker",
@@ -333,6 +337,20 @@ export function handleGameEventForSession(
   }
 
   if (type === "activity_evidence") {
+    return;
+  }
+
+  if (type === "preparation_exit") {
+    const button = String(event.button ?? "");
+    if (!PREPARATION_EXITS.has(button)) return;
+    const childId = chartChildIdForSession(s);
+    console.log(` 🎮 [adventure-preparation] [exit] [${button}] child=${childId}`);
+    try {
+      const homeworkId = getChildChart(childId).learningCycle?.homeworkId;
+      if (homeworkId) recordExitChoice(childId, homeworkId, button);
+    } catch (err: unknown) {
+      console.warn(` 🎮 [adventure-preparation] [exit-note] [unavailable] ${err instanceof Error ? err.message : String(err)}`);
+    }
     return;
   }
 

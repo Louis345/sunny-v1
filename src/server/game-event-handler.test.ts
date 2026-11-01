@@ -27,6 +27,15 @@ describe("game event handler companion events", () => {
     handleGameEventForSession(session,{type:'game_state_update',phase:'loading',choiceSetId:'order'});
     expect(session.requestJourneyChoiceSupport).toHaveBeenCalledTimes(1);
   });
+  it("logs which button she tapped on the waiting screen, and drops anything else", () => {
+    const session = { recordDebugEvent: vi.fn(), recordGameTrace: vi.fn(), chartChildId: "lab-child", childName: "Ila" } as never;
+    const log = vi.spyOn(console, "log");
+    handleGameEventForSession(session, { type: "preparation_exit", button: "save_for_next_time" });
+    expect(log).toHaveBeenCalledWith(" 🎮 [adventure-preparation] [exit] [save_for_next_time] child=lab-child");
+    handleGameEventForSession(session, { type: "preparation_exit", button: "<script>" });
+    expect(log).toHaveBeenCalledTimes(1);
+    log.mockRestore();
+  });
   it("speaks a tapped spelling chunk through the companion narration channel", () => {
     const speakGameNarration = vi.fn().mockResolvedValue(true);
     handleGameEventForSession({ recordDebugEvent: vi.fn(), recordGameTrace: vi.fn(), speakGameNarration }, {

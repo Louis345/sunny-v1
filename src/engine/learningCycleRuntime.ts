@@ -25,6 +25,7 @@ import {
 } from "./learningDecisionContext";
 import {
   getLearningCycle,
+  transitionLatestLearningCycle,
   transitionLearningCycle,
   validateSpellingPrescription,
   spellingAssignmentItems,
@@ -86,6 +87,11 @@ function pageTimeSummary(time: PageTime | undefined): string {
   return `; page: ${[...time.words.map(row => `${row.word} ${seconds(row.shownMs)}, ${row.chunkTaps} tiles tapped`),
     ...(time.questionMs === undefined ? [] : [`answered the question in ${seconds(time.questionMs)}`]),
     ...(time.afterQuestionMs === undefined ? [] : [`left ${seconds(time.afterQuestionMs)} after it`])].join("; ")}`;
+}
+
+/** Which way she left the waiting screen: persistence, so engagement evidence, never a learning claim. */
+export function recordExitChoice(childId: string, homeworkId: string, button: string, opts: LearningCycleRepositoryOptions = {}): LearningCycleRecordV2 {
+  return transitionLatestLearningCycle(childId, homeworkId, { type: "engagement_noted", evidenceId: `exit:${button}:${new Date().toISOString()}`, summary: `On the waiting screen she chose: ${button.replace(/_/g, " ")}.` }, opts);
 }
 
 export type CanonicalProgressionDecision = {

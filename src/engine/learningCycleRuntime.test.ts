@@ -6,7 +6,7 @@ import os from "os";
 import path from "path";
 import { describe, expect, it, vi } from "vitest";
 import { createLearningCycle, getLearningCycle, projectLearningCycle, transitionLearningCycle, type CreateLearningCycleInput } from "./learningCycleRepository";
-import { pageTimeFromKiosk, advanceCanonicalCycleFromEvidence, authorizeCanonicalPlannerRetry, parseCanonicalProgressionDecision, recordCanonicalNodeCompletion } from "./learningCycleRuntime";
+import { pageTimeFromKiosk, recordExitChoice, advanceCanonicalCycleFromEvidence, authorizeCanonicalPlannerRetry, parseCanonicalProgressionDecision, recordCanonicalNodeCompletion } from "./learningCycleRuntime";
 import {runMathProviderStage} from "./adaptiveMathDiscovery";
 import {authorizePlannerRecoveryFromArgs} from "../scripts/authorizePlannerRecovery";
 
@@ -77,6 +77,16 @@ describe("canonical learning cycle runtime", () => {
     expect(summary).toContain("page: raincoat 4s, 0 tiles tapped; daydream 4s, 2 tiles tapped; answered the question in 1s; left 1s after it");
     expect(JSON.stringify(after.evidence.academic)).not.toContain("tiles tapped");
     expect(JSON.stringify(after.observations)).not.toContain("tiles tapped");
+  });
+
+  it("keeps her exit choice as engagement evidence, and it never changes the cycle's place", () => {
+    const rootDir=root();
+    const created=createLearningCycle({...input(),nodes:[node("facts","baseline")]},{rootDir});
+    const after=recordExitChoice("reina","hw-runtime","save_for_next_time",{rootDir});
+    expect(after.evidence.engagement.at(-1)!.summary).toBe("On the waiting screen she chose: save for next time.");
+    expect(after.lifecycle).toBe(created.lifecycle);
+    expect(after.observations).toEqual(created.observations);
+    expect(after.evidence.academic).toEqual(created.evidence.academic);
   });
 
   it("reads only well-formed page time from the kiosk", () => {

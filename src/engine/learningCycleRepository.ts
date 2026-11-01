@@ -616,6 +616,7 @@ export type LearningCycleEvent =
       agencyExperiment?: LearningCycleAgencyExperiment;
     }
   | { type: "node_artwork_saved"; nodeId: string; localPath: string }
+  | { type: "engagement_noted"; evidenceId: string; summary: string }
   | {
       type: "plan_reconciled";
       boardDefinition?: AdventureBoardDefinition;
@@ -1406,19 +1407,22 @@ export function inheritableArtworkNode<T extends { artwork: { localPath: string 
   return [...nodes].reverse().find((node) => node.artwork.localPath && !node.artwork.localPath.startsWith("/generated/adventure-board/"));
 }
 
-/** Pictures arrive while she plays, so a save that lost the race to her answers reads the cycle again; bounded. */
-export function savePaintedNodeArtwork(childId: string, homeworkId: string, nodeId: string, localPath: string, opts: LearningCycleRepositoryOptions = {}): void {
+/** Side facts arrive while she plays, so a write that lost the race to her answers reads the cycle again; bounded. */
+export function transitionLatestLearningCycle(childId: string, homeworkId: string, event: LearningCycleEvent, opts: LearningCycleRepositoryOptions = {}): LearningCycleRecordV2 {
   for (let attempt = 1; ; attempt += 1) {
     const cycle = getLearningCycle(childId, homeworkId, opts);
     if (!cycle) throw new Error(`learning_cycle_missing:${homeworkId}`);
-    if (cycle.nodes.find((node) => node.nodeId === nodeId)?.artwork.localPath === localPath) return;
     try {
-      transitionLearningCycle(childId, homeworkId, cycle.revision, { type: "node_artwork_saved", nodeId, localPath }, opts);
-      return;
+      return transitionLearningCycle(childId, homeworkId, cycle.revision, event, opts);
     } catch (error) {
       if (attempt >= 5 || !String(error).includes("learning_cycle_revision_conflict")) throw error;
     }
   }
+}
+
+export function savePaintedNodeArtwork(childId: string, homeworkId: string, nodeId: string, localPath: string, opts: LearningCycleRepositoryOptions = {}): void {
+  if (getLearningCycle(childId, homeworkId, opts)?.nodes.find((node) => node.nodeId === nodeId)?.artwork.localPath === localPath) return;
+  transitionLatestLearningCycle(childId, homeworkId, { type: "node_artwork_saved", nodeId, localPath }, opts);
 }
 
 export function transitionLearningCycle(
@@ -1536,6 +1540,10 @@ export function transitionLearningCycle(
     if (!node) throw new Error(`learning_cycle_node_missing:${event.nodeId}`);
     node.artwork = { ...node.artwork, status: "ready", localPath: event.localPath };
     reason = "A stop's own picture was painted; only its look changed.";
+  } else if (event.type === "engagement_noted") {
+    next.evidence.engagement = uniqueEvidence([...next.evidence.engagement, { evidenceId: event.evidenceId, summary: event.summary }]);
+    evidenceIds = [event.evidenceId];
+    reason = "An engagement fact was noted; nothing about her learning changed.";
   } else if (event.type === "plan_reconciled") {
     if (event.boardDefinition && !current.boards?.some(board=>board.definition)) throw new Error('historical_board_replacement_requires_new_instance');
     if (event.boardDefinition && JSON.stringify(event.boardDefinition)!==JSON.stringify(preparingBoardInstance(current)?.definition??currentBoardInstance(current).definition)) throw new Error('learning_board_definition_reconciliation_forbidden');

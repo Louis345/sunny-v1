@@ -88,6 +88,31 @@ describe("useAppAdventurePreparation", () => {
       expect(screen.getByRole("button", { name: /Hear mailbox/ })).toHaveTextContent("New!");
     });
 
+    // 2026-11-01: a session ended on this screen and the server log could not say which button ended it.
+    it("tells the server which button she tapped", async () => {
+      const sendMessage = vi.fn();
+      const exits = () => sendMessage.mock.calls.map(call => (call[1] as { event: { type: string; payload: { button: string } } }).event).filter(event => event.type === "preparation_exit").map(event => event.payload.button);
+      const stopping = open({ sendMessage });
+      await act(async () => { await vi.advanceTimersByTimeAsync(20_000); });
+      let view = render(<>{stopping.result.current.screen}</>);
+      fireEvent.click(screen.getByRole("button", { name: "Stop for now" }));
+      expect(exits()).toEqual(["stop_for_now"]);
+      await act(async () => { await vi.advanceTimersByTimeAsync(1_000); });
+      view.unmount();
+      view = render(<>{stopping.result.current.screen}</>);
+      fireEvent.click(screen.getByRole("button", { name: "Bye for now" }));
+      expect(exits()).toEqual(["stop_for_now", "bye_for_now"]);
+      view.unmount();
+      sendMessage.mockClear();
+      const ready = open({ sendMessage, childId: "other" });
+      ready.rerender({ surface: null, status: status("successor_published", [["n1", "ready"]]) });
+      await act(async () => { await vi.advanceTimersByTimeAsync(20_000); });
+      view = render(<>{ready.result.current.screen}</>);
+      fireEvent.click(screen.getByRole("button", { name: "Save for next time" }));
+      fireEvent.click(screen.getByRole("button", { name: "Let's go!" }));
+      expect(exits()).toEqual(["save_for_next_time", "lets_go"]);
+    });
+
     it("gives her two choices once the next map is ready: play it now, or save it for next time", async () => {
       const hook = open();
       hook.rerender({ surface: null, status: status("successor_published", [["n1", "ready"]]) });

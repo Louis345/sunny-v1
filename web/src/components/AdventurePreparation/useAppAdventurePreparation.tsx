@@ -93,6 +93,8 @@ export function useAppAdventurePreparation(input: {
     sendMessage("game_event", { event: { type: "narration_request", payload: { game: "adventure-preparation", childId: childId ?? "unknown", text, reason } } });
   }, [childId, sendMessage]);
 
+  const exit = (button: string) => sendMessage("game_event", { event: { type: "preparation_exit", payload: { button } } });
+
   // A resume waits for the first real status so it opens on the true step.
   const active = Boolean(mode) && !input.finished && (mode === "chapter" || input.status !== null);
   const { snapshot, send } = useAdventurePreparation({
@@ -162,10 +164,10 @@ export function useAppAdventurePreparation(input: {
           state={state} items={items} reviewed={ctx.reviewed} stops={ctx.stops} ready={ctx.ready}
           elapsedLabel={elapsedLabel}
           onHearItem={item => say(/[.!?]$/.test(item.spoken) ? item.spoken : `${item.spoken}.`, "preparation_word")}
-          onStop={() => send({ type: "STOP" })}
+          onStop={() => { exit("stop_for_now"); send({ type: "STOP" }); }}
           onTryAgain={() => { send({ type: "RETRY" }); input.checkNow(); }}
-          onBye={input.onFinish}
-          onLetsGo={() => { if(input.surface || state !== "ready") { console.log(" 🎮 [adventure-preparation] [reveal] [waiting-for-publication]"); return; } console.log(" 🎮 [adventure-preparation] [reveal] [opened]"); setRevealedScope(scope); input.onReveal?.(); }}
+          onBye={() => { exit(state === "stop" ? "bye_for_now" : "save_for_next_time"); input.onFinish(); }}
+          onLetsGo={() => { if(input.surface || state !== "ready") { console.log(" 🎮 [adventure-preparation] [reveal] [waiting-for-publication]"); return; } console.log(" 🎮 [adventure-preparation] [reveal] [opened]"); exit("lets_go"); setRevealedScope(scope); input.onReveal?.(); }}
         />
       </div>
     ),
