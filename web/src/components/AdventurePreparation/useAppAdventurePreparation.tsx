@@ -37,6 +37,8 @@ export function preparationWords(packet: ChildExperiencePacket | null): string[]
 }
 
 const REVIEW_DWELL_MS = 4000;
+/** Her results are the point of this screen after a finished board, so they stay up longer. */
+const FINISHED_BOARD_DWELL_MS = 9000;
 const REVIEW_STAGGER_MS = 150;
 
 /**
@@ -104,12 +106,15 @@ export function useAppAdventurePreparation(input: {
   useEffect(() => {
     if (state !== "look") return;
     send({ type: "REVIEW_STARTED", total: items.length });
-    const timers = items.map((_, index) => setTimeout(() => send({ type: "REVIEW_ITEM", index }), REVIEW_DWELL_MS + index * REVIEW_STAGGER_MS));
-    timers.push(setTimeout(() => send({ type: "REVIEW_DONE" }), REVIEW_DWELL_MS + items.length * REVIEW_STAGGER_MS + 1200));
+    const dwell = input.finishedBoardId ? FINISHED_BOARD_DWELL_MS : REVIEW_DWELL_MS;
+    const timers = items.map((_, index) => setTimeout(() => send({ type: "REVIEW_ITEM", index }), dwell + index * REVIEW_STAGGER_MS));
+    timers.push(setTimeout(() => send({ type: "REVIEW_DONE" }), dwell + items.length * REVIEW_STAGGER_MS + 1200));
     return () => timers.forEach(clearTimeout);
   }, [state === "look", items, send]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  useEffect(() => { if (snapshot) statusEvents.forEach(event => send(event.type === "ACTIVITY_READY" ? {...event, published:input.surface === null} : event)); }, [statusEvents, input.surface, snapshot !== null, send]); // eslint-disable-line react-hooks/exhaustive-deps
+  // A next board can already be published when she gets here: she still sees her results first.
+  const holdForResults = Boolean(input.finishedBoardId) && state === "look";
+  useEffect(() => { if (snapshot && !holdForResults) statusEvents.forEach(event => send(event.type === "ACTIVITY_READY" ? {...event, published:input.surface === null} : event)); }, [statusEvents, input.surface, snapshot !== null, holdForResults, send]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
@@ -122,9 +127,9 @@ export function useAppAdventurePreparation(input: {
   // The complete map became playable; keep its explicit reveal control visible.
   const total = snapshot?.context.total ?? 0;
   useEffect(() => {
-    if (!snapshot || input.surface) return;
+    if (!snapshot || input.surface || holdForResults) return;
     send({ type: "ACTIVITY_READY", n: Math.max(total, 1), total: Math.max(total, 1) });
-  }, [input.surface, snapshot !== null, total, send]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [input.surface, snapshot !== null, total, holdForResults, send]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const [revealedScope, setRevealedScope] = useState<string | null>(null);
   const ctx = snapshot?.context;

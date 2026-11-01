@@ -226,15 +226,15 @@ it("plays Discovery, the Teaching board and a reused next board through the real
     expect(nextNodes.map(node => node.reusedFrom)).toEqual([undefined, ...["Letter Rush", "Recall Checkpoint"].map(teachingId)]);
     expect(nextNodes[0]).toMatchObject({ implementationType: "word-radar", title: "Fresh Radar" });
     expect(nextNodes.every(node => node.artifactBinding?.validationStatus === "passed" && !node.notReadyReason)).toBe(true);
-    // Without a reload, the kiosk learns by itself that the next board is published and says so truthfully;
-    // by contract the new board opens at the child's next visit, never mid-session.
+    // 2026-11-01 owner: finishing a board shows her results on the same waiting screen, then she chooses:
+    // play the next board now, or save it for next time. Without a reload, the kiosk learns it is published.
     const label = (title: string) => nextBoard.definition!.portals.find(portal => portal.activityNodeId === (title === "Fresh Radar" ? nextNodes[0] : nextNodes.find(node => node.reusedFrom === teachingId(title))!).nodeId)!.label;
     await page.getByTestId("post-activity-engagement-overlay").getByRole("button", { name: "Back to map", exact: true }).click();
-    await page.getByText("Your next adventure is ready for your next visit", { exact: false }).waitFor({ timeout: 30000 });
-    await elliSeesScreen(/The board is showing[^]*No activity is open\.\nThe next board is ready for the next visit\./);
-    // The next visit: the published board opens with Let's go, never a stale "Planning your map".
-    await page.reload();
-    await enterBoard();
+    await page.getByRole("heading", { name: "You did it!" }).waitFor({ timeout: 30000 });
+    await page.getByText("New!", { exact: true }).first().waitFor();
+    await page.getByRole("button", { name: "Save for next time", exact: true }).waitFor({ timeout: 45000 });
+    await page.getByRole("button", { name: "Let's go!", exact: true }).click();
+    await page.locator(".adventure-board").waitFor({ timeout: 30000 });
     expect(await page.getByText("Planning your map", { exact: true }).count()).toBe(0);
     await page.getByRole("button", { name: label("Fresh Radar"), exact: true }).waitFor();
     await elliSeesScreen(/The board is showing[^]*No activity is open/);

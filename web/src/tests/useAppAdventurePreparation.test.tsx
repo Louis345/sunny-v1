@@ -67,6 +67,27 @@ describe("useAppAdventurePreparation", () => {
       expect(view.container.querySelector(".ap-root")).toHaveAttribute("data-state", "look");
     });
 
+    // The robot caught this: a next board published before she left her last game skipped her results entirely.
+    it("shows her results first even when the next board is already published", async () => {
+      const hook = open();
+      hook.rerender({ surface: null, status: status("successor_published", [["n1", "ready"]]) });
+      await act(async () => { await vi.advanceTimersByTimeAsync(7_000); });
+      const view = render(<>{hook.result.current.screen}</>);
+      expect(view.container.querySelector(".ap-root")).toHaveAttribute("data-state", "look");
+      expect(screen.getByText("You did it!")).toBeTruthy();
+      view.unmount();
+      await act(async () => { await vi.advanceTimersByTimeAsync(20_000); });
+      render(<>{hook.result.current.screen}</>);
+      expect(screen.getByRole("button", { name: "Let's go!" })).toBeTruthy();
+    });
+
+    it("keeps the New! mark on the words she can tap while the map is being built", async () => {
+      const hook = open();
+      await act(async () => { await vi.advanceTimersByTimeAsync(20_000); });
+      render(<>{hook.result.current.screen}</>);
+      expect(screen.getByRole("button", { name: /Hear mailbox/ })).toHaveTextContent("New!");
+    });
+
     it("gives her two choices once the next map is ready: play it now, or save it for next time", async () => {
       const hook = open();
       hook.rerender({ surface: null, status: status("successor_published", [["n1", "ready"]]) });

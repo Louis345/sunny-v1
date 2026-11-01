@@ -152,6 +152,7 @@ export function AdventurePreparationScreen(props: AdventurePreparationScreenProp
                   {items.map((item, i) => (
                     <button key={`${item.face}:${i}`} type="button" aria-label={`Hear ${item.face}${item.correct === undefined ? "" : item.correct ? " — Correct" : " — To practise"}`} data-result={item.correct === undefined ? undefined : item.correct ? "correct" : "incorrect"} className={`ap-card${tapped === i ? " ap-tapped" : ""}`} onClick={() => hear(i)}>
                       {item.correct !== undefined && <span className="ap-result" aria-hidden="true">{item.correct ? "✓" : "✕"}</span>}{item.face}
+                      {item.improved && <span className="ap-new">New!</span>}
                     </button>
                   ))}
                 </div>
