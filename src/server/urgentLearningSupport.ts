@@ -329,7 +329,8 @@ export function handleCompanionPresenceTranscript(input: {
     const ignoredReason = normalizeSpeechText(input.transcript)
       ? "companion_collapsed_without_wake_phrase"
       : "transcript_empty_after_normalization";
-    console.log("  🎮 [companion-presence] [ambient-ignored]");
+    // The words go to the local console only; session events are uploaded.
+    console.log(`  🎮 [companion-presence] [ambient-ignored] reason=${ignoredReason} text=${JSON.stringify(input.transcript)}`);
     input.recordEvent("transcript", "ambient_ignored", {
       transcriptLength: input.transcript.length,
       nodeId: input.nodeId,

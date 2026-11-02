@@ -341,6 +341,28 @@ describe("urgent learning support", () => {
     expect(sendFinal).toHaveBeenCalledWith("three equal parts");
   });
 
+  it("keeps ignored speech text in the local console log only", () => {
+    // Human catch (Nov 1): the child talked and Elli did not answer, 30 times in
+    // about 15 minutes. Logs said ambient-ignored but kept no words, so no one
+    // could tell which rule dropped speech meant for Elli. Session events are
+    // uploaded to the log repo, so the words stay out of them.
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    const recordEvent = vi.fn();
+    try {
+      expect(handleCompanionPresenceTranscript({
+        enabled: true, companionName: "Elli", speechCaptureArmed: false,
+        sendFinal: vi.fn(), setPresence: vi.fn(), recordEvent,
+        transcript: "can you say it again", presence: "collapsed",
+      })).toBe(true);
+      expect(log.mock.calls.map(call => String(call[0]))).toContain(
+        '  🎮 [companion-presence] [ambient-ignored] reason=companion_collapsed_without_wake_phrase text="can you say it again"',
+      );
+      expect(JSON.stringify(recordEvent.mock.calls)).not.toContain("say it again");
+    } finally {
+      log.mockRestore();
+    }
+  });
+
   it("detects active-game help and scaffolds from the current word", () => {
     const context = buildLiveLearningContext({
       childId: "ila",
