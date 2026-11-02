@@ -4,6 +4,8 @@ export default defineConfig({
   test: {
     // Engine/integration tests mutate real paths under src/context/<childId>/; parallel files race.
     fileParallelism: false,
+    // Fails the run if any test leaves a change in a real child's src/context folder.
+    globalSetup: ["src/tests/realChildContextGuard.ts"],
     environment: "node",
     include: [
       "src/tests/test-six-tools.ts",
