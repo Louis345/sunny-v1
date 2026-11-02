@@ -153,6 +153,21 @@ describe("live spelling assistance and audio provenance", () => {
       scaffolds: [],
     });
   });
+  it("does not book help from the map onto the next activity's first word", () => {
+    // Nov 1 human catch: the Planner said one check word "got help" on two
+    // checks in a row. Opening a path choice summons Elli on the map, with no
+    // word active; that set the pending-support flag, and the chosen check's
+    // first word was presented as companionHelp:true before she saw it. The
+    // chart kept the flag but no log line named its source, and the lab never
+    // summoned Elli between two launches.
+    const s = session();
+    s.updateCurrentBoardSnapshot({ phase: "closed", boardState: "map" });
+    s.setCompanionPresence("summoned", "client");
+    s.setCompanionPresence("collapsed", "client");
+    s.updateCurrentBoardSnapshot({ phase: "launched", nodeId: "opening" });
+    s.updateCurrentBoardSnapshot({ assessmentMode: true, nodeId: "opening", itemId: "i1", phase: "response", answerVisibility: "hidden" });
+    expect(s.getDiscoveryAttemptContext("hw-words", "i1")?.support).toEqual({ status: "unassisted", scaffolds: [] });
+  });
   it("does not misreport a failed or mismatched audio stimulus as delivered", async () => {
     const s = session();
     s.updateCurrentBoardSnapshot({ assessmentMode: true, nodeId: "opening", itemId: "i1", phase: "response", answerVisibility: "hidden" });

@@ -771,6 +771,8 @@ export class SessionManager {
       console.log(" 🎮 [spelling] [node-launch] [released]");
     }
     if (state.phase === "opening" || state.phase === "launched") {
+      // Help asked on the map (a path choice summons Elli) belongs to no word of this launch.
+      this.pendingSpellingAssessmentSupport = false;
       const cycle = getChildChart(this.chartChildId).learningCycle;
       if (cycle?.domain === "spelling") {
         const node = cycle.nodes.find(node => node.nodeId === state.nodeId);
