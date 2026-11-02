@@ -82,6 +82,27 @@ it("feeds Elli's real per-turn context: activity details appear only while the k
   }
 });
 
+it("tells Elli a check word gets the child's own try before any spelling help", async () => {
+  const fs = await import("node:fs"), os = await import("node:os"), path = await import("node:path");
+  const { vi } = await import("vitest");
+  const { buildActivityCompanionContext } = await import("./urgentLearningSupport");
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-try-first-"));
+  vi.stubEnv("SUNNY_CONTEXT_ROOT", root);
+  try {
+    const snapshot = { childId: "try-lab", sessionId: "s", nodeId: "check", itemId: "w1", activityId: "word-radar", targetIsSpeakable: false,
+      answerVisibility: "hidden" as const, allowedActivities: [], updatedAt: "now" };
+    const assessment = (instrument: "recall_check" | "practice") => ({ audioPlaybacks: 1, instrument, nodeId: "check", homeworkId: "hw", itemId: "w1",
+      word: "night", artifactHash: "h", audioDelivered: true, supportIds: [], lettersVisible: false });
+    const turn = (instrument: "recall_check" | "practice") => buildActivityCompanionContext({ snapshot, childId: "try-lab", companionId: "Elli",
+      presence: "summoned", spellingAssessment: assessment(instrument) });
+    expect(turn("recall_check")).toContain("let her make her own try");
+    expect(turn("practice")).not.toContain("let her make her own try");
+  } finally {
+    vi.unstubAllEnvs();
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
 it("accepts the kiosk's resting screen", () => {
   expect(normalizeScreenReport({ screen: "resting" })).toEqual({ screen: "resting" });
 });

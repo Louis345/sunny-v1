@@ -45,7 +45,7 @@ import {
 import { recordWordRadarAttempts } from "./recordWordRadarAttempts";
 import { recordLearningAttempt } from "./learningAttemptEvents";
 import { type ModelMessage } from "ai";
-import { markCurrentSpellingSupport, recordSpellingAudio } from "./spellingSpeechEvidence";
+import { markCurrentSpellingSupport, recordSpellingAudio, replyGivesSpelling, snapshotOnSpellingItem } from "./spellingSpeechEvidence";
 import { createSpeechTools, speechScopeFor } from "./companionSpeechTools";
 import { createReplayWordTools } from "./companionReplayTool";
 import type { HomeworkExtractionResult } from "../agents/psychologist/psychologist";
@@ -195,7 +195,6 @@ export class SessionManager {
   private spellingAssessment?: gev.SpellingAssessmentState;
   private spellingLaunch?: {homeworkId:string;nodeId:string;launchId:string;launchToken?:string};
   private spellingAssessmentHistory = new Map<string, NonNullable<SessionManager["spellingAssessment"]>>();
-  private pendingSpellingAssessmentSupport = false;
   private mathDiscoverySupport?: MathDiscoverySupportState;
   private mathDiscoverySupportHistory = new Map<string, MathDiscoverySupportState>();
   private currentBoardSnapshot: CurrentBoardSnapshot | null = null;
@@ -767,12 +766,9 @@ export class SessionManager {
       && state.nodeId === this.spellingLaunch.nodeId && state.launchToken === this.spellingLaunch.launchToken) {
       this.spellingLaunch = undefined;
       this.spellingAssessment = undefined;
-      this.pendingSpellingAssessmentSupport = false;
       console.log(" 🎮 [spelling] [node-launch] [released]");
     }
     if (state.phase === "opening" || state.phase === "launched") {
-      // Help asked on the map (a path choice summons Elli) belongs to no word of this launch.
-      this.pendingSpellingAssessmentSupport = false;
       const cycle = getChildChart(this.chartChildId).learningCycle;
       if (cycle?.domain === "spelling") {
         const node = cycle.nodes.find(node => node.nodeId === state.nodeId);
@@ -784,12 +780,8 @@ export class SessionManager {
     if (state.assessmentMode === true || state.practiceCapture === true) {
       this.spellingAssessmentHistory ??= new Map();
       const itemId = String(state.itemId ?? "");
-      const pendingSupportId = this.pendingSpellingAssessmentSupport && itemId
-        ? `support:${this.sessionId}:${itemId}`
-        : undefined;
       this.spellingAssessment = gev.bindSpellingAssessment({ state, cycle: getChildChart(this.chartChildId).learningCycle,
-        current: this.spellingAssessment, history: this.spellingAssessmentHistory, pendingSupportId, launch:this.spellingLaunch });
-      if (pendingSupportId && this.spellingAssessment?.itemId === itemId) this.pendingSpellingAssessmentSupport = false;
+        current: this.spellingAssessment, history: this.spellingAssessmentHistory, launch:this.spellingLaunch });
       const assessment=this.spellingAssessment;
       if((state.phase === "response" || (state.practiceCapture === true && (state.phase === "flash" || state.spellingItemOpened === true))) && assessment?.launchId && !assessment.chartItemId){
         const presentation=withOriginalSpellingChart(this.chartChildId,db=>presentOriginalSpellingItem(db,{
@@ -844,10 +836,9 @@ export class SessionManager {
     const next = transitionCompanionPresence({ state, reason });
     this.companionPresence = next.presence;
     if (state === "summoned") {
+      // Summoning Elli is a help request (engagement), never help by itself.
       const assessment = this.spellingAssessment;
-      const snapshotMatchesAssessment = markCurrentSpellingSupport(this.spellingAssessment, this.currentBoardSnapshot);
-      if (newlySummoned && snapshotMatchesAssessment && assessment) this.recordSpellingEngagement(assessment, "help_requests", randomUUID());
-      if (!assessment) this.pendingSpellingAssessmentSupport = true;
+      if (newlySummoned && assessment && snapshotOnSpellingItem(assessment, this.currentBoardSnapshot)) this.recordSpellingEngagement(assessment, "help_requests", randomUUID());
     }
     if (state === "summoned" && this.mathDiscoverySupport && !this.mathDiscoverySupport.supportIds.length) {
       this.mathDiscoverySupport.supportIds.push(`support:${this.sessionId}:${this.mathDiscoverySupport.itemId}`);
@@ -965,7 +956,9 @@ export class SessionManager {
   }
 
   public recordCompanionHelpTurn(userMessage: string, companionText: string): void {
-    markCurrentSpellingSupport(this.spellingAssessment, this.currentBoardSnapshot);
+    // A measured word is assisted only when Elli's reply gives its spelling, not when she chats.
+    const assessment = this.spellingAssessment;
+    if (assessment && (assessment.instrument === "practice" || replyGivesSpelling(companionText, assessment.word))) markCurrentSpellingSupport(assessment, this.currentBoardSnapshot);
     recordActivityCompanionHelp({
       childId: this.chartChildId,
       companionId: this.companion.name,

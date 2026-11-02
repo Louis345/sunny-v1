@@ -266,6 +266,7 @@ export function buildActivityCompanionContext(input: {
         instrument:assessment.instrument, lastAcknowledgedStimulusRates:assessment.lastStimulusRates ?? null, answerVisibility:input.snapshot.answerVisibility,
         ...(cycle ? {lastSubmittedResponse:last ? {itemId:last.itemId,response:last.childResponse,result:last.result,assistance:last.assistance} : null} : {recordedHistoryAvailable:false}) }),
       "The activity owns answer submission and grading. Spoken repetition is not a submitted spelling answer. These facts supersede prior conversational grades; a hidden answer must not be revealed as written letters.",
+      ...(assessment.instrument === "practice" ? [] : ["This word measures what she can do alone: let her make her own try before you give any letters, sounds or parts of it. Until her answer for this item is submitted, you may say the word again or encourage her."]),
     ].join("\n");
   }
   return redactProtectedSpellingText([board, input.speechRate === undefined ? "" : `Configured speech speed: ${input.speechRate} (1=normal; resets on item or launch change).`, memory, helpObjective, spelling].filter(Boolean).join("\n\n"), input.snapshot);

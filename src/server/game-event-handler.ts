@@ -55,7 +55,7 @@ export function armGameNarrationPlaybackTimer(
 export type SpellingAssessmentState = { lastStimulusRates?:number[]|null; launchToken?:string; chartItemId?:string; audioPlaybacks:number; instrument:"discovery"|"practice"|"recall_check"; launchId?: string; nodeId: string; homeworkId: string; itemId: string; word: string; artifactHash: string; audioDelivered: boolean; supportIds: string[]; lettersVisible: boolean|null };
 export function bindSpellingAssessment(input: {
   state: Record<string, unknown>; cycle?: LearningCycleRecordV2 | null; current?: SpellingAssessmentState;
-  history: Map<string, SpellingAssessmentState>; pendingSupportId?: string;
+  history: Map<string, SpellingAssessmentState>;
   launch?: {homeworkId:string;nodeId:string;launchId:string;launchToken?:string};
 }): SpellingAssessmentState | undefined {
   const { state, cycle, current, history } = input;
@@ -70,7 +70,7 @@ export function bindSpellingAssessment(input: {
   }
   const key = JSON.stringify([input.launch?.launchId ?? null, item.id]);
   if (current?.itemId === item.id && current.launchId === input.launch?.launchId) return current;
-  const next = history.get(key) ?? { ...(input.launch?.homeworkId === cycle.homeworkId && input.launch.nodeId === node.nodeId ? {launchId:input.launch.launchId,launchToken:input.launch.launchToken} : {}), audioPlaybacks:0, instrument:state.practiceCapture === true || isSpellingPracticeContinuation(cycle) ? "practice" as const : node.role === "evaluation" ? "discovery" as const : item.lineage?.measurementRole === "fresh_checkpoint" ? "recall_check" as const : "practice" as const, nodeId: node.nodeId, homeworkId: cycle.homeworkId, itemId: item.id, word: item.word, artifactHash: node.artifactBinding.contractFingerprint, audioDelivered: false, supportIds: input.pendingSupportId ? [input.pendingSupportId] : [], lettersVisible: state.answerVisibility === "visible" ? true : state.answerVisibility === "hidden" ? false : null };
+  const next = history.get(key) ?? { ...(input.launch?.homeworkId === cycle.homeworkId && input.launch.nodeId === node.nodeId ? {launchId:input.launch.launchId,launchToken:input.launch.launchToken} : {}), audioPlaybacks:0, instrument:state.practiceCapture === true || isSpellingPracticeContinuation(cycle) ? "practice" as const : node.role === "evaluation" ? "discovery" as const : item.lineage?.measurementRole === "fresh_checkpoint" ? "recall_check" as const : "practice" as const, nodeId: node.nodeId, homeworkId: cycle.homeworkId, itemId: item.id, word: item.word, artifactHash: node.artifactBinding.contractFingerprint, audioDelivered: false, supportIds: [], lettersVisible: state.answerVisibility === "visible" ? true : state.answerVisibility === "hidden" ? false : null };
   history.set(key, next);
   console.log(` 🎮 [spelling-discovery] [live-context] [bound] item=${item.id}`);
   return next;
