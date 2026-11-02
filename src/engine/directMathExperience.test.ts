@@ -1853,14 +1853,14 @@ describe("direct math experience", () => {
     expect(prompt).toContain("right-side companion safe area");
     expect(prompt).toContain("essential instructions, mathematical representations, and primary controls outside it");
 
-    const elli = fs.readFileSync(path.join(process.cwd(), "src/companions/elli.md"), "utf8");
+    // Teaching and evidence duties live in the shared mission every companion inherits.
     const base = fs.readFileSync(path.join(process.cwd(), "src/souls/companion-base.md"), "utf8");
-    expect(elli).toContain("stimulus_only provides private whole-word replay");
-    expect(elli).toContain("pronunciation_model means supported teaching");
+    expect(base).toContain("stimulus_only provides private whole-word replay");
+    expect(base).toContain("pronunciation_model means supported teaching");
     expect(base).toContain("During independent assessment, the target stays private");
     expect(base).toContain("Record assistance; supported success is practice, not independent mastery");
-    expect(elli).toContain("recordChildSignal");
-    expect(elli).toContain("help_needed");
+    expect(base).toContain("recordChildSignal");
+    expect(base).toContain("help_needed");
   });
 
   it("projects the active child's companion instead of stamping Elli into every math board", () => {
