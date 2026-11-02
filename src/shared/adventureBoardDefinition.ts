@@ -264,6 +264,12 @@ export function journeyChoiceAvailable(definition:AdventureJourneyDefinition,sel
   return index<execution!.portalIds.indexOf(frontier.portalId!);
 }
 
+/** Sole rule for unfinished games and path choices: on a board she may play in any order, a game she
+ * started and left does not hold the choices closed; its answers stay recorded and it stays unfinished. */
+export function unfinishedActivityClosesChoices(anyOrder:boolean,activityStates:readonly (string|undefined)[]):boolean {
+  return !anyOrder&&activityStates.includes('active');
+}
+
 /** The authored connections between stops she sees, joined around hidden ones along the routes she can play. */
 function playableEdges(definition:AdventureBoardDefinition, notReady:readonly string[], hidden:ReadonlySet<string>):AdventureBoardDefinition['edges'] {
   if (!hidden.size) return definition.edges;
@@ -294,7 +300,7 @@ export function renderBoardDefinition(definition:AdventureBoardDefinition, input
   const choices = definition.choices.filter(choice => playable.get(choice.id)!.length >= 2);
   const hidden = new Set(definition.portals.filter(portal => portal.activityNodeId ? notReady.includes(portal.activityNodeId) : portal.kind === 'choice' && !choices.some(choice => choice.portalId === portal.id)).map(portal => portal.id));
   const anyOrder = input.allowReadyActivitySelection === true;
-  const availableChoices=new Set(choices.filter(choice=>!input.activities.some(item=>item.state==='active')&&journeyChoiceAvailable(definition,input.selections??{},completed,choice.id,notReady,anyOrder)).map(choice=>choice.id));
+  const availableChoices=new Set(choices.filter(choice=>!unfinishedActivityClosesChoices(anyOrder,input.activities.map(item=>item.state))&&journeyChoiceAvailable(definition,input.selections??{},completed,choice.id,notReady,anyOrder)).map(choice=>choice.id));
   const choiceByPortal = new Map(choices.map(choice => [choice.portalId,choice]));
   const nodes:import('./adventureBoardJson').AdventureBoardNode[] = definition.portals.map(portal => {
     const activity = portal.activityNodeId ? activities.get(portal.activityNodeId) : undefined;

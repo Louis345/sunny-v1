@@ -1,4 +1,4 @@
-import {journeyChoiceAvailable} from '../shared/adventureBoardDefinition';
+import {journeyChoiceAvailable,unfinishedActivityClosesChoices} from '../shared/adventureBoardDefinition';
 import { letterRushConfig, spellingExplainerConfig, spellingNativeConfig } from "./spellingNativeSetup";
 import type { BoardCanvasProof } from './adventureBoardCanvas';
 import { renderBoardDefinition, journeyFrontier, type AdventureBoardDefinition } from '../shared/adventureBoardDefinition';
@@ -839,7 +839,7 @@ export function assertJourneyChoiceAvailable(cycle:LearningCycleRecordV2,choiceI
   if(!definition)throw new Error('board_definition_missing');
   if(board.publishedAt === null)throw new Error('learning_board_not_published');
   if(BATCH_CLOSED_LIFECYCLES.has(cycle.lifecycle))throw new Error('learning_board_batch_closed');
-  if(cycle.nodes.some(node=>board.nodeIds.includes(node.nodeId)&&node.state==='active'))throw new Error('journey_choice_activity_in_progress');
+  if(unfinishedActivityClosesChoices(allowsReadyActivitySelection(cycle),cycle.nodes.filter(node=>board.nodeIds.includes(node.nodeId)).map(node=>node.state)))throw new Error('journey_choice_activity_in_progress');
   const selections=cycle.routeSelection?.choices??{};
   const completed=cycle.nodes.filter(node=>node.state==='completed').map(node=>node.nodeId);
   journeyFrontier(definition,{...selections,[choiceId]:optionId},completed,notReadyNodeIds(cycle));
