@@ -94,7 +94,7 @@ jobs:
 
   voice-regression:
     # Always run, including branches using the restricted spelling acceptance job.
-    runs-on: macos-14
+    runs-on: macos-15
     env:
       DOTENV_CONFIG_PATH: /dev/null
       SKIP_COMPANION_VRM_DOWNLOAD: "true"
