@@ -63,6 +63,16 @@ describe("urgent learning support", () => {
       disposition: "standby_after_speech",
     })).toBe("conversation_open");
   });
+  it("hears Elli's name as speech recognition wrote it on Nov 1", () => {
+    // Nov 2 human catch: the children said Elli was not responding. Nov 1 had
+    // one wake-word summon in four sessions; an accepted turn shows the child
+    // saying "Come on, Ellen ... Ellie" - the first call was transcribed as
+    // "Ellen" and only the second reached Elli. Ignored lines kept no words, so
+    // the logs could not show other misses; the lab only tested exact spellings.
+    expect(routeCompanionPresenceTranscript({ transcript: "Come on, Ellen.", presence: "collapsed", companionName: "Elli" }))
+      .toEqual({ action: "summon_and_respond" });
+  });
+
   it("routes activity speech through an explicit wake and dismiss presence contract", () => {
     // Human catch: Ila called Sunny during a live Word Radar response and heard
     // no answer. Logs showed valid speech recognition, then game routing or

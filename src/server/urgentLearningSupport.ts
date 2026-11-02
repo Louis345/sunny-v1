@@ -356,7 +356,8 @@ export function routeCompanionPresenceTranscript(input: {
 }): CompanionPresenceTranscriptRoute {
   const text = normalizeSpeechText(input.transcript);
   if (!text) return { action: "ignore_ambient" };
-  const aliases = [...new Set(["sunny", "sonny", "sony", "elli", "ellie", input.companionName]
+  // "ellen": Nov 1 speech recognition wrote the child's call to Elli that way.
+  const aliases = [...new Set(["sunny", "sonny", "sony", "elli", "ellie", "ellen", input.companionName]
     .map(normalizeSpeechText)
     .filter(Boolean))];
   const aliasPattern = aliases.map(escapeRegExp).join("|");
