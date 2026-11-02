@@ -322,7 +322,7 @@ export function buildCurrentBoardSnapshotContext(
         "Use replayWord for the activity’s own whole-word audio. The private stimulus is held by the activity, not supplied in this context.");
     } else {
       lines.push(`Authoritative spelling target (internal): ${snapshot.spellingTarget}`,
-        "Purpose: help the child learn this word together. A request for help gives you room to demonstrate and adapt, using the child's feedback to judge what helps.",
+        "When the child asks for help with this word or is clearly stuck, help her learn it together: demonstrate and adapt, using her feedback to judge what helps. Otherwise follow her lead.",
         "Supported practice: sounds, syllables, blending, letter names and spelling demonstrations are available. The canonical target comes from this activity, not room conversation.");
       const phones = cmuDictionary[snapshot.spellingTarget.normalize("NFC").toLowerCase()];
       if (typeof phones === "string" && phones) {
