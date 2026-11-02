@@ -63,6 +63,32 @@ describe("urgent learning support", () => {
       disposition: "standby_after_speech",
     })).toBe("conversation_open");
   });
+  it("lets Elli hear speech while collapsed and drops only what is clearly not the child", () => {
+    // Nov 2 human catch: the children said Elli was not responding. Nov 1
+    // logged 229 ambient-ignored lines, all "collapsed without wake phrase",
+    // but kept no words, so logs could not show what she missed. The lab only
+    // tested the wake word. Owner rule: Elli can always be reached; Elli, not a
+    // gate, decides whether the speech was for her.
+    const route = (transcript: string, extra: Partial<Parameters<typeof routeCompanionPresenceTranscript>[0]> = {}) =>
+      routeCompanionPresenceTranscript({ transcript, presence: "collapsed", companionName: "Elli", ...extra });
+    expect(route("can you say it again?")).toEqual({ action: "summon_and_respond", overheard: true });
+    expect(route("can you say it again?", { playbackActive: true })).toEqual({ action: "ignore_ambient", reason: "during_playback" });
+    expect(route("Night.", { currentWord: "night" })).toEqual({ action: "ignore_ambient", reason: "stimulus_echo" });
+    expect(route("listen carefully to the word and then spell it", { companionSpoken: "Listen carefully to the word and then spell it." }))
+      .toEqual({ action: "ignore_ambient", reason: "companion_echo" });
+    expect(route("and then he said we could go to the park after dinner if everyone finished their homework and cleaned up the kitchen first okay"))
+      .toEqual({ action: "summon_and_respond", overheard: true });
+    expect(route("x".repeat(161))).toEqual({ action: "ignore_ambient", reason: "long_transcript" });
+    expect(route("   ")).toEqual({ action: "ignore_ambient", reason: "empty" });
+    expect(route("Elli, help", { playbackActive: true })).toEqual({ action: "summon_and_respond" });
+    // Earlier human catch: self-talk during Discovery triggered replies. While a
+    // measured word waits for her answer, her name or a tap still reaches Elli.
+    expect(route("I think I forgot where my pencil is", { measuredWordOpen: true })).toEqual({ action: "ignore_ambient", reason: "measured_word_open" });
+    expect(route("Ellie can you say it again", { measuredWordOpen: true })).toEqual({ action: "summon_and_respond" });
+    // After she says goodbye, only her name or a tap brings Elli back.
+    expect(route("I am talking to someone in the room", { dismissed: true })).toEqual({ action: "ignore_ambient", reason: "dismissed" });
+  });
+
   it("routes activity speech through an explicit wake and dismiss presence contract", () => {
     // Human catch: Ila called Sunny during a live Word Radar response and heard
     // no answer. Logs showed valid speech recognition, then game routing or
@@ -73,7 +99,8 @@ describe("urgent learning support", () => {
         presence: "collapsed",
         companionName: "Elli",
       }),
-    ).toEqual({ action: "ignore_ambient" });
+      // Nov 2 owner rule: collapsed Elli still hears it and decides whether it was for her.
+    ).toEqual({ action: "summon_and_respond", overheard: true });
     expect(
       routeCompanionPresenceTranscript({
         transcript: "Hey Sunny, I don't understand",
@@ -314,9 +341,16 @@ describe("urgent learning support", () => {
       ...base,
       transcript: "three equal parts",
       presence: "collapsed",
+    })).toBe(false);
+    expect(setPresence).toHaveBeenLastCalledWith("summoned", "overheard");
+    expect(handleCompanionPresenceTranscript({
+      ...base,
+      transcript: "three equal parts",
+      presence: "collapsed",
+      playbackActive: true,
     })).toBe(true);
     expect(recordEvent).toHaveBeenCalledWith("transcript", "ambient_ignored", expect.objectContaining({
-      reason: "companion_collapsed_without_wake_phrase",
+      reason: "during_playback",
       companionPresence: "collapsed",
       speechCaptureArmed: false,
     }));
@@ -327,7 +361,7 @@ describe("urgent learning support", () => {
       presence: "summoned",
     })).toBe(true);
     expect(recordEvent).toHaveBeenLastCalledWith("transcript", "ambient_ignored", expect.objectContaining({
-      reason: "transcript_empty_after_normalization",
+      reason: "empty",
       companionPresence: "summoned",
       speechCaptureArmed: false,
     }));
@@ -352,10 +386,10 @@ describe("urgent learning support", () => {
       expect(handleCompanionPresenceTranscript({
         enabled: true, companionName: "Elli", speechCaptureArmed: false,
         sendFinal: vi.fn(), setPresence: vi.fn(), recordEvent,
-        transcript: "can you say it again", presence: "collapsed",
+        transcript: "can you say it again", presence: "collapsed", playbackActive: true,
       })).toBe(true);
       expect(log.mock.calls.map(call => String(call[0]))).toContain(
-        '  🎮 [companion-presence] [ambient-ignored] reason=companion_collapsed_without_wake_phrase text="can you say it again"',
+        '  🎮 [companion-presence] [ambient-ignored] reason=during_playback text="can you say it again"',
       );
       expect(JSON.stringify(recordEvent.mock.calls)).not.toContain("say it again");
     } finally {
