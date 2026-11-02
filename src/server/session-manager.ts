@@ -5,6 +5,7 @@ import path from "path";
 import { randomUUID } from "crypto";
 import type { WebSocket } from "ws";
 import {
+  COMPANION_WAKE_NAMES,
   ELLI,
   getCompanionConfig,
   type ChildName,
@@ -1734,7 +1735,7 @@ export class SessionManager {
     const speechCaptureArmed = this.currentBoardSnapshot?.speechCaptureArmed === true;
     const presenceRoute = routeCompanionPresenceTranscript({
       transcript, presence: this.companionPresence,
-      companionName: this.companion.name, speechCaptureArmed,
+      companionWakeNames: COMPANION_WAKE_NAMES, speechCaptureArmed,
     });
     if (this.companionPresence === "collapsed" && presenceRoute.action === "summon_and_respond") {
       this.setCompanionPresence("summoned", "voice");
@@ -1756,7 +1757,7 @@ export class SessionManager {
         (presenceRoute.action === "dismiss" || this.companionPresence === "collapsed" || generatedMathActivity || this.companionWakeGateEnabled || Boolean(this.spellingAssessment)),
       transcript,
       presence: this.companionPresence,
-      companionName: this.companion.name,
+      companionWakeNames: COMPANION_WAKE_NAMES,
       speechCaptureArmed,
       nodeId: this.currentBoardSnapshot?.nodeId,
       sendFinal: (text) => this.send(/^[a-z]$/i.test(text.trim()) ? "interim" : "final", { text }),

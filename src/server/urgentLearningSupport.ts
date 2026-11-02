@@ -304,7 +304,7 @@ export function handleCompanionPresenceTranscript(input: {
   enabled: boolean;
   transcript: string;
   presence: CompanionPresence;
-  companionName: string;
+  companionWakeNames: readonly string[];
   speechCaptureArmed: boolean;
   nodeId?: string;
   sendFinal: (text: string) => void;
@@ -351,13 +351,13 @@ export function handleCompanionPresenceTranscript(input: {
 export function routeCompanionPresenceTranscript(input: {
   transcript: string;
   presence: "collapsed" | "summoned";
-  companionName: string;
+  companionWakeNames: readonly string[];
   speechCaptureArmed?: boolean;
 }): CompanionPresenceTranscriptRoute {
   const text = normalizeSpeechText(input.transcript);
   if (!text) return { action: "ignore_ambient" };
-  // "ellen": Nov 1 speech recognition wrote the child's call to Elli that way.
-  const aliases = [...new Set(["sunny", "sonny", "sony", "elli", "ellie", "ellen", input.companionName]
+  // Sunny wakes every companion; each companion file lists her own names.
+  const aliases = [...new Set(["sunny", "sonny", "sony", ...input.companionWakeNames]
     .map(normalizeSpeechText)
     .filter(Boolean))];
   const aliasPattern = aliases.map(escapeRegExp).join("|");

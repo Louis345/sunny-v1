@@ -6,6 +6,7 @@ import {
   recordCompanionInteractionEvent,
 } from "./companionInteractionMemory";
 import { shouldPersistSessionData } from "../utils/runtimeMode";
+import { CHARLOTTE_CREATOR, COMPANION_WAKE_NAMES, ELLI, MATILDA } from "../companions/loader";
 
 vi.mock("./companionInteractionMemory", async (importOriginal) => {
   const actual = await importOriginal<typeof import("./companionInteractionMemory")>();
@@ -69,8 +70,26 @@ describe("urgent learning support", () => {
     // saying "Come on, Ellen ... Ellie" - the first call was transcribed as
     // "Ellen" and only the second reached Elli. Ignored lines kept no words, so
     // the logs could not show other misses; the lab only tested exact spellings.
-    expect(routeCompanionPresenceTranscript({ transcript: "Come on, Ellen.", presence: "collapsed", companionName: "Elli" }))
+    expect(routeCompanionPresenceTranscript({ transcript: "Come on, Ellen.", presence: "collapsed", companionWakeNames: ELLI.wakeNames }))
       .toEqual({ action: "summon_and_respond" });
+  });
+
+  it("wakes any companion by the names listed in every companion file", () => {
+    // Nov 2 human catch: the children call "Hey Elli" and asked that every
+    // companion be reachable the same way. Elli's names were hardcoded in the
+    // gate, so only Elli had misheard spellings and Charlotte could not be
+    // called by name. Reina has said "Ellie" to Matilda, so names stay shared.
+    expect(ELLI.wakeNames).toEqual(["Elli", "Ellie", "Ellen"]);
+    expect(MATILDA.wakeNames).toEqual(["Matilda"]);
+    expect(CHARLOTTE_CREATOR.wakeNames).toEqual(["Charlotte"]);
+    expect([...COMPANION_WAKE_NAMES].sort()).toEqual(["Charlotte", "Ellen", "Elli", "Ellie", "Matilda"]);
+    const collapsed = (transcript: string) =>
+      routeCompanionPresenceTranscript({ transcript, presence: "collapsed", companionWakeNames: COMPANION_WAKE_NAMES }).action;
+    expect(collapsed("Hey Matilda, help me")).toBe("summon_and_respond");
+    expect(collapsed("Alright, Ellie.")).toBe("summon_and_respond");
+    expect(collapsed("Hey Charlotte")).toBe("summon_and_respond");
+    expect(collapsed("Hey Sunny, help me")).toBe("summon_and_respond");
+    expect(collapsed("The rectangles look equal")).toBe("ignore_ambient");
   });
 
   it("routes activity speech through an explicit wake and dismiss presence contract", () => {
@@ -81,42 +100,42 @@ describe("urgent learning support", () => {
       routeCompanionPresenceTranscript({
         transcript: "The rectangles look equal",
         presence: "collapsed",
-        companionName: "Elli",
+        companionWakeNames: ELLI.wakeNames,
       }),
     ).toEqual({ action: "ignore_ambient" });
     expect(
       routeCompanionPresenceTranscript({
         transcript: "Hey Sunny, I don't understand",
         presence: "collapsed",
-        companionName: "Elli",
+        companionWakeNames: ELLI.wakeNames,
       }),
     ).toEqual({ action: "summon_and_respond" });
     expect(
       routeCompanionPresenceTranscript({
         transcript: "Bye Elli",
         presence: "summoned",
-        companionName: "Elli",
+        companionWakeNames: ELLI.wakeNames,
       }),
     ).toEqual({ action: "dismiss" });
     expect(
       routeCompanionPresenceTranscript({
         transcript: "Bye Elli, bye Sunny.",
         presence: "summoned",
-        companionName: "Elli",
+        companionWakeNames: ELLI.wakeNames,
       }),
     ).toEqual({ action: "dismiss" });
     expect(
       routeCompanionPresenceTranscript({
         transcript: "Alright, bye Sony.",
         presence: "summoned",
-        companionName: "Elli",
+        companionWakeNames: ELLI.wakeNames,
       }),
     ).toEqual({ action: "dismiss" });
     expect(
       routeCompanionPresenceTranscript({
         transcript: "k. Bye, Sunny.",
         presence: "summoned",
-        companionName: "Elli",
+        companionWakeNames: ELLI.wakeNames,
         speechCaptureArmed: true,
       }),
     ).toEqual({ action: "dismiss" });
@@ -124,14 +143,14 @@ describe("urgent learning support", () => {
       routeCompanionPresenceTranscript({
         transcript: "Can you explain this another way?",
         presence: "summoned",
-        companionName: "Elli",
+        companionWakeNames: ELLI.wakeNames,
       }),
     ).toEqual({ action: "respond" });
     expect(
       routeCompanionPresenceTranscript({
         transcript: "three equal parts",
         presence: "collapsed",
-        companionName: "Elli",
+        companionWakeNames: ELLI.wakeNames,
         speechCaptureArmed: true,
       }),
     ).toEqual({ action: "route_to_game" });
@@ -139,7 +158,7 @@ describe("urgent learning support", () => {
       routeCompanionPresenceTranscript({
         transcript: "Sunny, can you hear me?",
         presence: "collapsed",
-        companionName: "Elli",
+        companionWakeNames: ELLI.wakeNames,
         speechCaptureArmed: true,
       }),
     ).toEqual({ action: "summon_and_respond" });
@@ -147,7 +166,7 @@ describe("urgent learning support", () => {
       routeCompanionPresenceTranscript({
         transcript: "Sunny",
         presence: "collapsed",
-        companionName: "Elli",
+        companionWakeNames: ELLI.wakeNames,
         speechCaptureArmed: true,
       }),
     ).toEqual({ action: "summon_and_respond" });
@@ -155,7 +174,7 @@ describe("urgent learning support", () => {
       routeCompanionPresenceTranscript({
         transcript: "B. Sonny, is it B?",
         presence: "collapsed",
-        companionName: "Elli",
+        companionWakeNames: ELLI.wakeNames,
         speechCaptureArmed: true,
       }),
     ).toEqual({ action: "summon_and_respond" });
@@ -163,7 +182,7 @@ describe("urgent learning support", () => {
       routeCompanionPresenceTranscript({
         transcript: "u. Sonny, I'm asking you.",
         presence: "collapsed",
-        companionName: "Elli",
+        companionWakeNames: ELLI.wakeNames,
         speechCaptureArmed: true,
       }),
     ).toEqual({ action: "summon_and_respond" });
@@ -171,7 +190,7 @@ describe("urgent learning support", () => {
       routeCompanionPresenceTranscript({
         transcript: "b",
         presence: "collapsed",
-        companionName: "Elli",
+        companionWakeNames: ELLI.wakeNames,
         speechCaptureArmed: true,
       }),
     ).toEqual({ action: "route_to_game" });
@@ -280,7 +299,7 @@ describe("urgent learning support", () => {
     const recordEvent = vi.fn();
     const base = {
       enabled: true,
-      companionName: "Elli",
+      companionWakeNames: ELLI.wakeNames,
       speechCaptureArmed: false,
       sendFinal,
       setPresence,
@@ -360,7 +379,7 @@ describe("urgent learning support", () => {
     const recordEvent = vi.fn();
     try {
       expect(handleCompanionPresenceTranscript({
-        enabled: true, companionName: "Elli", speechCaptureArmed: false,
+        enabled: true, companionWakeNames: ELLI.wakeNames, speechCaptureArmed: false,
         sendFinal: vi.fn(), setPresence: vi.fn(), recordEvent,
         transcript: "can you say it again", presence: "collapsed",
       })).toBe(true);
