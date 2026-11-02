@@ -66,8 +66,7 @@ describe("SessionManager voice turn latency wiring", () => {
     const harness = session as unknown as Harness;
     harness.companionPresence = "collapsed";
 
-    // Nov 2: short overheard lines now reach Elli; room talk over 160 chars is still dropped.
-    harness.handleFluxEndOfTurn("I think we should go outside later and then maybe we can get ice cream if the store is still open and everyone has finished their homework and cleaned up the whole kitchen after dinner tonight", "final");
+    harness.handleFluxEndOfTurn("I think we should go outside later", "final");
 
     await vi.waitFor(() => {
       const lines = latencyLines(logSpy);

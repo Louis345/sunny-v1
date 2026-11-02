@@ -46,7 +46,6 @@ import { recordWordRadarAttempts } from "./recordWordRadarAttempts";
 import { recordLearningAttempt } from "./learningAttemptEvents";
 import { type ModelMessage } from "ai";
 import { markCurrentSpellingSupport, recordSpellingAudio, replyGivesSpelling, snapshotOnSpellingItem } from "./spellingSpeechEvidence";
-import { createStayQuietTool, OVERHEARD_TURN_NOTE } from "./companionOverheard";
 import { createSpeechTools, speechScopeFor } from "./companionSpeechTools";
 import { createReplayWordTools } from "./companionReplayTool";
 import type { HomeworkExtractionResult } from "../agents/psychologist/psychologist";
@@ -186,9 +185,6 @@ export { isSpellingAttempt, stripSvgFences } from "./sessionTextHelpers";
 
 export type { SessionManagerOptions } from "./session-context";
 
-/** Speakers can still ring in the mic just after audio ends. */
-const PLAYBACK_ECHO_WINDOW_MS = 1500;
-
 export class SessionManager {
   /** When true, child speech is not sent to the companion (silent reward games). */
   public suppressTranscripts: boolean = false;
@@ -210,11 +206,6 @@ export class SessionManager {
   private activeGameNarrationRequestId: string | null = null;
   private gameNarrationPlaybackTimer: ReturnType<typeof setTimeout> | null = null;
   private companionPresence: "collapsed" | "summoned" = "collapsed";
-  /** This turn answers speech heard without Elli's name; she may stay quiet. */
-  private overheardTurn = false;
-  /** She said goodbye to Elli; overheard speech waits for her name or a tap. */
-  private companionDismissed = false;
-  private lastPlaybackEndedAt = 0;
   private companionDispositionAfterSpeech:
     | "standby_after_speech"
     | "await_child_response" = "standby_after_speech";
@@ -836,19 +827,18 @@ export class SessionManager {
 
   public setCompanionPresence(
     state: "collapsed" | "summoned",
-    reason: "client" | "voice" | "read_instruction" | "overheard" = "client",
+    reason: "client" | "voice" | "read_instruction" = "client",
   ): void {
     if (state === "collapsed") {
       this.clearHeldCompanionEagerTranscript("presence_collapsed");
     }
     const newlySummoned = state === "summoned" && this.companionPresence !== "summoned";
-    if (state === "summoned" && reason !== "overheard") this.companionDismissed = false;
     const next = transitionCompanionPresence({ state, reason });
     this.companionPresence = next.presence;
     if (state === "summoned") {
       // Summoning Elli is a help request (engagement), never help by itself.
       const assessment = this.spellingAssessment;
-      if (newlySummoned && reason !== "overheard" && assessment && snapshotOnSpellingItem(assessment, this.currentBoardSnapshot)) this.recordSpellingEngagement(assessment, "help_requests", randomUUID());
+      if (newlySummoned && assessment && snapshotOnSpellingItem(assessment, this.currentBoardSnapshot)) this.recordSpellingEngagement(assessment, "help_requests", randomUUID());
     }
     if (state === "summoned" && this.mathDiscoverySupport && !this.mathDiscoverySupport.supportIds.length) {
       this.mathDiscoverySupport.supportIds.push(`support:${this.sessionId}:${this.mathDiscoverySupport.itemId}`);
@@ -962,29 +952,7 @@ export class SessionManager {
       companionId: this.companion.name,
       presence: this.companionPresence,
       spellingAssessment: this.spellingLaunch ? this.spellingAssessment : undefined,
-    }) + (this.overheardTurn ? `\n\n${OVERHEARD_TURN_NOTE}` : "");
-  }
-
-  /** Overheard speech Elli should not get: echo of audio just played, her own words, or the word she was given. */
-  private overheardSpeechInputs(): { playbackActive: boolean; companionSpoken: string; currentWord?: string; measuredWordOpen: boolean; dismissed: boolean } {
-    const assessment = this.spellingAssessment;
-    return {
-      measuredWordOpen: Boolean(assessment && assessment.instrument !== "practice" && snapshotOnSpellingItem(assessment, this.currentBoardSnapshot)),
-      dismissed: this.companionDismissed,
-      playbackActive: this.turnSM.getState() === "SPEAKING" || Boolean(this.activeGameNarrationRequestId || this.pendingGameNarrationPlayback)
-        || Date.now() - this.lastPlaybackEndedAt < PLAYBACK_ECHO_WINDOW_MS,
-      companionSpoken: this.turnSM.spokenText(),
-      currentWord: this.spellingAssessment?.word,
-    };
-  }
-
-  public buildStayQuietTool(): Record<string, unknown> {
-    return createStayQuietTool({ stayQuiet: () => {
-      console.log("  🎮 [companion-presence] [overheard] [stayed-quiet]");
-      this.overheardTurn = false;
-      this.setCompanionPresence("collapsed", "overheard");
-      this.currentAbort?.abort();
-    } });
+    });
   }
 
   public recordCompanionHelpTurn(userMessage: string, companionText: string): void {
@@ -1367,7 +1335,6 @@ export class SessionManager {
   }
 
   playbackDone(payload: Record<string, unknown> = {}): void {
-    this.lastPlaybackEndedAt = Date.now();
     if (this.pendingGameNarrationPlayback) {
       const pending = this.pendingGameNarrationPlayback;
       const expectedRequestId = String(pending.requestId ?? "");
@@ -1765,15 +1732,12 @@ export class SessionManager {
     const generatedMathActivity =
       activeGame === "generated-baseline" || activeGame === "generated-math";
     const speechCaptureArmed = this.currentBoardSnapshot?.speechCaptureArmed === true;
-    const overheardInputs = this.overheardSpeechInputs();
     const presenceRoute = routeCompanionPresenceTranscript({
       transcript, presence: this.companionPresence,
-      companionName: this.companion.name, speechCaptureArmed, ...overheardInputs,
+      companionName: this.companion.name, speechCaptureArmed,
     });
-    this.overheardTurn = presenceRoute.action === "summon_and_respond" && presenceRoute.overheard === true;
-    if (presenceRoute.action === "dismiss") this.companionDismissed = true;
     if (this.companionPresence === "collapsed" && presenceRoute.action === "summon_and_respond") {
-      this.setCompanionPresence("summoned", this.overheardTurn ? "overheard" : "voice");
+      this.setCompanionPresence("summoned", "voice");
     }
     const urgentRoute = !opts?.fromReadingComplete
       && (this.companionPresence === "summoned" || presenceRoute.action === "summon_and_respond")
@@ -1793,7 +1757,7 @@ export class SessionManager {
       transcript,
       presence: this.companionPresence,
       companionName: this.companion.name,
-      speechCaptureArmed, ...overheardInputs,
+      speechCaptureArmed,
       nodeId: this.currentBoardSnapshot?.nodeId,
       sendFinal: (text) => this.send(/^[a-z]$/i.test(text.trim()) ? "interim" : "final", { text }),
       setPresence: (state, reason) => this.setCompanionPresence(state, reason),

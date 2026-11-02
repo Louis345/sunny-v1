@@ -20,7 +20,6 @@ import {
   type CurrentBoardSnapshot,
 } from "./currentBoardSnapshot";
 import { shouldPersistSessionData } from "../utils/runtimeMode";
-import { isVerbatimEchoOfCompanion } from "./companionTurnTaking";
 
 export type UrgentIntentType =
   | "help_request"
@@ -135,23 +134,12 @@ function normalizeSpeechText(value: string): string {
 export type CompanionPresenceTranscriptRoute =
   | { action: "route_to_game" }
   | { action: "dismiss" }
-  | { action: "summon_and_respond"; overheard?: true }
+  | { action: "summon_and_respond" }
   | { action: "respond" }
-  | { action: "ignore_ambient"; reason: AmbientDropReason };
-
-/** Only speech that is clearly not the child is dropped before Elli hears it. */
-export type AmbientDropReason = "empty" | "during_playback" | "companion_echo" | "stimulus_echo" | "long_transcript" | "measured_word_open" | "dismissed";
-/**
- * While a Discovery or check word waits for her answer, self-talk is not for Elli
- * (earlier human catch); the wake word or a tap still reaches her. Set to false
- * to let Elli decide mid-check too.
- */
-export const WAKE_WORD_DURING_MEASURED_WORD = true;
-/** Nov 1: median ignored line 73 chars, p90 645; longer runs are room talk or TV. */
-export const OVERHEARD_MAX_CHARS = 160;
+  | { action: "ignore_ambient" };
 
 export type CompanionPresence = "collapsed" | "summoned";
-export type CompanionPresenceReason = "client" | "voice" | "read_instruction" | "overheard";
+export type CompanionPresenceReason = "client" | "voice" | "read_instruction";
 export type CompanionDisposition = "standby_after_speech" | "await_child_response";
 export type CompanionInteractionMode = "activity_help" | "conversation";
 
@@ -318,11 +306,6 @@ export function handleCompanionPresenceTranscript(input: {
   presence: CompanionPresence;
   companionName: string;
   speechCaptureArmed: boolean;
-  playbackActive?: boolean;
-  companionSpoken?: string;
-  currentWord?: string;
-  measuredWordOpen?: boolean;
-  dismissed?: boolean;
   nodeId?: string;
   sendFinal: (text: string) => void;
   setPresence: (state: CompanionPresence, reason: CompanionPresenceReason) => void;
@@ -344,7 +327,9 @@ export function handleCompanionPresenceTranscript(input: {
     return true;
   }
   if (route.action === "ignore_ambient") {
-    const ignoredReason = route.reason;
+    const ignoredReason = normalizeSpeechText(input.transcript)
+      ? "companion_collapsed_without_wake_phrase"
+      : "transcript_empty_after_normalization";
     // The words go to the local console only; session events are uploaded.
     console.log(`  🎮 [companion-presence] [ambient-ignored] reason=${ignoredReason} text=${JSON.stringify(input.transcript)}`);
     input.recordEvent("transcript", "ambient_ignored", {
@@ -357,7 +342,7 @@ export function handleCompanionPresenceTranscript(input: {
     return true;
   }
   if (route.action === "summon_and_respond") {
-    input.setPresence("summoned", route.overheard ? "overheard" : "voice");
+    input.setPresence("summoned", "voice");
     return false;
   }
   return false;
@@ -368,17 +353,9 @@ export function routeCompanionPresenceTranscript(input: {
   presence: "collapsed" | "summoned";
   companionName: string;
   speechCaptureArmed?: boolean;
-  /** Elli or the game is playing audio now, or just finished: the mic may hear it. */
-  playbackActive?: boolean;
-  companionSpoken?: string;
-  currentWord?: string;
-  /** A Discovery or check word is waiting for her answer. */
-  measuredWordOpen?: boolean;
-  /** She said goodbye to Elli; only her name or a tap brings Elli back. */
-  dismissed?: boolean;
 }): CompanionPresenceTranscriptRoute {
   const text = normalizeSpeechText(input.transcript);
-  if (!text) return { action: "ignore_ambient", reason: "empty" };
+  if (!text) return { action: "ignore_ambient" };
   const aliases = [...new Set(["sunny", "sonny", "sony", "elli", "ellie", input.companionName]
     .map(normalizeSpeechText)
     .filter(Boolean))];
@@ -399,16 +376,9 @@ export function routeCompanionPresenceTranscript(input: {
   const wake = new RegExp(`(?:^|\\s)(?:${aliasPattern})(?:\\b|$)`, "i");
   if (wake.test(text)) return { action: "summon_and_respond" };
   if (input.speechCaptureArmed) return { action: "route_to_game" };
-  if (input.presence === "summoned") return { action: "respond" };
-  // Collapsed, no wake word: Elli hears it and decides, unless it is clearly not the child.
-  if (input.dismissed) return { action: "ignore_ambient", reason: "dismissed" };
-  if (WAKE_WORD_DURING_MEASURED_WORD && input.measuredWordOpen) return { action: "ignore_ambient", reason: "measured_word_open" };
-  if (input.playbackActive) return { action: "ignore_ambient", reason: "during_playback" };
-  if (isVerbatimEchoOfCompanion(input.transcript, input.companionSpoken ?? "")) return { action: "ignore_ambient", reason: "companion_echo" };
-  const word = input.currentWord ? normalizeSpeechText(input.currentWord) : "";
-  if (word && text.split(" ").every(token => token === word)) return { action: "ignore_ambient", reason: "stimulus_echo" };
-  if (input.transcript.trim().length > OVERHEARD_MAX_CHARS) return { action: "ignore_ambient", reason: "long_transcript" };
-  return { action: "summon_and_respond", overheard: true };
+  return input.presence === "summoned"
+    ? { action: "respond" }
+    : { action: "ignore_ambient" };
 }
 
 type ProductComplaintKind = "companion_lag" | "flow_complaint" | "bug_report";

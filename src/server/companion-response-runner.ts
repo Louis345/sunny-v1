@@ -205,7 +205,6 @@ export async function runCompanionResponseForSession(
         .join("\n\n");
 
       const finalTools = session.buildAgentToolkit();
-      if (session.overheardTurn && typeof session.buildStayQuietTool === "function") Object.assign(finalTools, session.buildStayQuietTool());
       if (session.spellingLaunch) delete finalTools.sessionLog;
 
       debugPrintClaudePreRun(session, userMessage);
