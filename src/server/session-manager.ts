@@ -26,7 +26,7 @@ import {
 } from "./session-triggers";
 import { WsTtsBridge } from "./ws-tts-bridge";
 import { createLoggedVoiceTurnLatency } from "./voiceTurnLatency";
-import { interruptedExchange, isBackchannel, isListeningNoise, isVerbatimEchoOfCompanion, shouldBargeIn } from "./companionTurnTaking";
+import { interruptedExchange, isBackchannel, isListeningNoise, isVerbatimEchoOfCompanion, preAudioSpeechAction, shouldBargeIn } from "./companionTurnTaking";
 import { appendRewardLog } from "../agents/elli/tools/logReward";
 import { mathProblem } from "../agents/elli/tools/mathProblem";
 import {
@@ -222,6 +222,8 @@ export class SessionManager {
   private ttsBridge: WsTtsBridge | null = null;
   /** Child message whose reply is still being written (set by the response runner). */
   inFlightReply: string | null = null;
+  /** Replies restarted by the child's speech before any of the reply was heard. */
+  private preAudioRestarts = 0;
   readonly voiceLatency = createLoggedVoiceTurnLatency((record) => this.debugRecorder.recordEvent("latency", "turn", record));
   private currentAbort: AbortController | null = null;
   private companionResponseTurnId = 0;
@@ -1767,6 +1769,7 @@ export class SessionManager {
     })) return void this.voiceLatency?.discardLatest("ignored");
 
     let state = this.turnSM.getState();
+    if (state === "IDLE") this.preAudioRestarts = 0;
     if (urgentRoute && !checkUserGoodbye(transcript)) {
       if (
         state === "PROCESSING" ||
@@ -1874,6 +1877,14 @@ export class SessionManager {
         this.voiceLatency?.discardLatest("ignored");
         return;
       }
+      if (state !== "SPEAKING") {
+        const action = preAudioSpeechAction({ transcript, inFlightRequest: this.inFlightReply, restarts: this.preAudioRestarts, wakeNames: COMPANION_WAKE_NAMES });
+        console.log(` 🎮 [turn-taking] [pre-audio] [${action}] state=${state} restarts=${this.preAudioRestarts}`);
+        this.debugRecorder.recordEvent("transcript", `pre_audio_${action}`, { turnState: state, round: auditRound, transcriptLength: transcript.length });
+        if (action === "repeat") return;
+        if (action === "hold") return void this.turnSM.setPendingTranscript(transcript);
+        this.preAudioRestarts += 1;
+      } else this.preAudioRestarts = 0;
       if (this.turnSM.inWordBuilderRun() || (state === "SPEAKING" && isBackchannel(transcript))) {
         // Word Builder keeps its turn; a short "right/okay" while Elli talks is answered right after her.
         this.turnSM.setPendingTranscript(transcript);

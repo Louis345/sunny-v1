@@ -101,3 +101,36 @@ export function shouldBargeIn(input: { interim: string; companionSpoken: string;
   if (isBackchannel(input.interim)) return false;
   return !isEchoOfCompanion(input.interim, input.companionSpoken);
 }
+
+/** A name heard through speech recognition: one or two letters off ("Latilda" for Matilda). */
+function soundsLikeName(word: string, name: string): boolean {
+  if (word === name) return true;
+  if (name.length < 5 || Math.abs(word.length - name.length) > 2) return false;
+  let previous = Array.from({ length: name.length + 1 }, (_, index) => index);
+  for (let row = 1; row <= word.length; row += 1) {
+    const current = [row];
+    for (let col = 1; col <= name.length; col += 1) {
+      current[col] = Math.min(previous[col] + 1, current[col - 1] + 1, previous[col - 1] + (word[row - 1] === name[col - 1] ? 0 : 1));
+    }
+    previous = current;
+  }
+  return previous[name.length] <= 2;
+}
+
+export const PRE_AUDIO_RESTART_LIMIT = 2;
+
+/**
+ * Speech that arrives before the companion's reply is heard, following LiveKit (a capped number
+ * of regenerations per turn; interruptions only over audible speech) and Deepgram Flux (speak
+ * once the turn ends). Her companion's name or the same request again is a repeat and does not
+ * restart the reply; new words restart it at most twice, then wait to be answered right after.
+ */
+export function preAudioSpeechAction(input: {
+  transcript: string; inFlightRequest: string | null; restarts: number; wakeNames: readonly string[];
+}): "restart" | "repeat" | "hold" {
+  const words = spokenWords(input.transcript);
+  const names = input.wakeNames.flatMap(spokenWords);
+  const sameRequest = input.inFlightRequest !== null && words.join(" ") === spokenWords(input.inFlightRequest).join(" ");
+  if (words.length > 0 && (sameRequest || words.every(word => names.some(name => soundsLikeName(word, name))))) return "repeat";
+  return input.restarts < PRE_AUDIO_RESTART_LIMIT ? "restart" : "hold";
+}
