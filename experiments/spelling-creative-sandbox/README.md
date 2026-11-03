@@ -37,6 +37,14 @@ npx tsx experiments/spelling-creative-sandbox/sandbox.ts \
   --cases=potter,wrestler,no-soul-file --pickers=Ila,Reina,Saori --max-tokens=250000
 ```
 
+**Play with Elli's voice:** serve a run, then open http://127.0.0.1:8930/ on this Mac. Games speak through Sunny's `narration_request`, and the server says each line in Elli's ElevenLabs voice. Each line is saved in the run's `voice/` folder, so it's paid for once; `--max-new-lines` (default 300) caps new lines per start. Without a key, or opened as a plain file, the browser voice stands in.
+
+```bash
+npx tsx experiments/spelling-creative-sandbox/serve.ts --run=outputs/spelling-creative-sandbox/<run>
+```
+
+Every game runs with Sunny's own game contract (`web/public/games/_contract.js`) inlined, with the pretend child's words filled in. Games report answers with `fireAttemptEvent`, finish with `sendNodeComplete`, and mark big moments with `fireCompanionEvent` (these are listed for grown-ups; Elli doesn't react to them live yet). Older games that call the browser voice are heard in Elli's voice too.
+
 The output goes to `outputs/spelling-creative-sandbox/<run>/` (git-ignored):
 - `index.html`, the play page;
 - each game's own HTML file;
