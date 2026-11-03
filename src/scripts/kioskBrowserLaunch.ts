@@ -41,6 +41,14 @@ export function acceptVisibleMacKiosk(visible: boolean, table: string, browser: 
   return { accepted: visible, browserPid };
 }
 
+/** A kiosk window that quits mid-session reopens once, so a stray close never ends study
+ * time unnoticed; closing it again is a grown-up stopping Sunny, and Sunny shuts down.
+ */
+export const KIOSK_BROWSER_REOPEN_LIMIT = 1;
+export function kioskBrowserExitAction(reopensUsed: number): "reopen" | "shutdown" {
+  return reopensUsed < KIOSK_BROWSER_REOPEN_LIMIT ? "reopen" : "shutdown";
+}
+
 export function macShutdownBrowserTargets(browserPid: number | undefined, table: string, profileDir: string): number[] {
   return browserPid ? [browserPid] : findStaleSunnyKioskPids(table, profileDir);
 }
