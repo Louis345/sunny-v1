@@ -241,6 +241,15 @@ describe("spelling pronunciation context", () => {
     expect(context).not.toContain("ARPABET");
   });
 
+  it("lets the companion answer a help request on a check instead of offering replay to everything", () => {
+    // Human-caught (Nov 3, Reina): every Matilda reply on the check was "Want me to play the
+    // word again?", including to "hi" and "help me", because replay was the only help named.
+    const value = snapshot({ game: "word-radar", itemId: "item-title", currentTarget: "title", answerVisibility: "hidden", assessmentMode: true });
+    const context = buildCurrentBoardSnapshotContext(value, { childSpeech: "Help me" });
+    expect(context).toContain("practice with full help comes after this check");
+    expect(context).toContain("offering a replay is not a reply to everything");
+  });
+
   it.each([
     ["myself", "M AY2 S EH1 L F", 2],
     ["tonight", "T AH0 N AY1 T", 2],
