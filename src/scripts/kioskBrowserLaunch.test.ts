@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import fs from "node:fs";
 import path from "node:path";
-import { kioskBrowserCommand, kioskBrowserExitAction, kioskPageClosed, macKioskBrowserPid } from "./kioskBrowserLaunch";
+import { kioskBrowserCommand, kioskBrowserExitAction, macKioskBrowserPid } from "./kioskBrowserLaunch";
 
 const browser = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
 const args = ["--kiosk", "--user-data-dir=/tmp/sunny-profile", "--app=http://localhost:3001/?sunnyKioskToken=owned"];
@@ -80,26 +80,5 @@ describe("kiosk window closed during a session", () => {
     const source = fs.readFileSync(path.join(process.cwd(), "src/scripts/launch-kiosk.ts"), "utf8");
     expect(source).toContain("kioskBrowserExitAction(browserReopens)");
     expect(source).toContain("[kiosk] [browser-exit] [reopening]");
-  });
-});
-
-describe("kiosk window closed while Chrome keeps running", () => {
-  // Human-caught: on Nov 3 the owner closed Reina's kiosk window; on macOS Chrome stays
-  // running with no window, so the browser-exit reopen never fired and nobody was told.
-  // The lab only simulated Chrome quitting, never a window closing.
-  it("treats the page as closed only after it was open and has been gone for 10 seconds", () => {
-    expect(kioskPageClosed({ pageSockets: 0, lastOpenAt: null, now: 60_000 })).toBe(false);
-    expect(kioskPageClosed({ pageSockets: 1, lastOpenAt: 50_000, now: 60_000 })).toBe(false);
-    expect(kioskPageClosed({ pageSockets: 0, lastOpenAt: 55_000, now: 60_000 })).toBe(false);
-    expect(kioskPageClosed({ pageSockets: 0, lastOpenAt: 50_000, now: 60_000 })).toBe(true);
-  });
-  it("watches the page through the health check and reopens with the same budget", () => {
-    const launcher = fs.readFileSync(path.join(process.cwd(), "src/scripts/launch-kiosk.ts"), "utf8");
-    const health = fs.readFileSync(path.join(process.cwd(), "src/server/kioskHealthRoutes.ts"), "utf8");
-    const ws = fs.readFileSync(path.join(process.cwd(), "src/server/ws-handler.ts"), "utf8");
-    expect(launcher).toContain("kioskPageClosed({");
-    expect(launcher).toContain("[kiosk] [page-closed] [reopening]");
-    expect(health).toContain("kioskPageSockets");
-    expect(ws).toContain("noteKioskPageSocket(");
   });
 });

@@ -13,7 +13,6 @@ import {
 import type { ChildName } from "./session-triggers";
 import { resolveSunnyRuntimeConfig } from "../shared/runtimeConfig";
 import { getChildChart } from "../profiles/childChart";
-import { noteKioskPageSocket } from "./kioskHealthRoutes";
 
 function formatSessionStartError(message: string): { code: string; message: string } {
   if (message.includes("DEEPGRAM_API_KEY")) {
@@ -45,7 +44,6 @@ export function handleWsConnection(
   console.log(
     `  📡 [${ts()}] WebSocket connected from ${req.socket.remoteAddress}`
   );
-  noteKioskPageSocket(1);
 
   let session: SessionManager | null = null;
   let audioGate: ReturnType<typeof createAudioGate> | null = null;
@@ -426,7 +424,6 @@ export function handleWsConnection(
 
   ws.on("close", async () => {
     console.log(`  📡 [${ts()}] WebSocket disconnected`);
-    noteKioskPageSocket(-1);
     if (session) {
       await session.end().catch(console.error);
       session = null;

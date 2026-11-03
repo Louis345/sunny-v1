@@ -49,14 +49,6 @@ export function kioskBrowserExitAction(reopensUsed: number): "reopen" | "shutdow
   return reopensUsed < KIOSK_BROWSER_REOPEN_LIMIT ? "reopen" : "shutdown";
 }
 
-/** On macOS closing the window leaves Chrome running, so a page that was open and has had no
- * connection for 10 seconds counts as a closed window, the same as Chrome quitting.
- */
-export const KIOSK_PAGE_GONE_MS = 10_000;
-export function kioskPageClosed(input: { pageSockets: number; lastOpenAt: number | null; now: number }): boolean {
-  return input.lastOpenAt !== null && input.pageSockets === 0 && input.now - input.lastOpenAt >= KIOSK_PAGE_GONE_MS;
-}
-
 export function macShutdownBrowserTargets(browserPid: number | undefined, table: string, profileDir: string): number[] {
   return browserPid ? [browserPid] : findStaleSunnyKioskPids(table, profileDir);
 }
