@@ -1,5 +1,5 @@
 import "dotenv/config";
-import { acceptVisibleMacKiosk, kioskBrowserCommand, kioskBrowserExitAction, macShutdownBrowserTargets } from "./kioskBrowserLaunch";
+import { acceptVisibleMacKiosk, kioskBrowserCommand, kioskBrowserExitAction, kioskPageClosed, macShutdownBrowserTargets } from "./kioskBrowserLaunch";
 import { writeCanvasCapabilities } from "../utils/generateCanvasCapabilities";
 writeCanvasCapabilities();
 
@@ -239,6 +239,7 @@ async function main() {
 
     fs.mkdirSync(BROWSER_PROFILE_DIR, { recursive: true });
     let browserReopens = 0;
+    let pageWatch: NodeJS.Timeout | null = null;
     // The server keeps the first launch's visible-identity proof, so a reopened window
     // is accepted by its matched profile and kiosk URL rather than a fresh page handshake.
     const openVisibleBrowser = async (): Promise<void> => {
@@ -323,17 +324,31 @@ async function main() {
         throw new Error("visible_kiosk_not_confirmed");
       }
       const visibleBrowser = chromium;
-      visibleBrowser.once("exit", (code, signal) => {
-        if (shuttingDown) return;
-        const exit = `browser-exit:${signal ?? code ?? "unknown"}`;
-        if (kioskBrowserExitAction(browserReopens) === "shutdown") return void shutdown(exit, code ?? 1);
+      // A replaced browser's own exit is not a new close: only the current window counts.
+      const onWindowGone = (exit: string, exitCode: number, reopening: string): void => {
+        if (shuttingDown || chromium !== visibleBrowser) return;
+        if (pageWatch) clearInterval(pageWatch);
+        pageWatch = null;
+        if (kioskBrowserExitAction(browserReopens) === "shutdown") return void shutdown(exit, exitCode);
         browserReopens += 1;
-        console.warn(` 🎮 [kiosk] [browser-exit] [reopening] ${exit} reopen=${browserReopens}`);
+        console.warn(`${reopening} ${exit} reopen=${browserReopens}`);
         openVisibleBrowser().catch(async (error) => {
           console.error(" 🎮 [kiosk] [browser-reopen] [failed]", error);
           await shutdown("browser-reopen-failed", 1);
         });
-      });
+      };
+      visibleBrowser.once("exit", (code, signal) => onWindowGone(`browser-exit:${signal ?? code ?? "unknown"}`, code ?? 1, " 🎮 [kiosk] [browser-exit] [reopening]"));
+      let lastOpenAt: number | null = null;
+      pageWatch = setInterval(() => {
+        fetch(`http://localhost:${PORT}/api/health`)
+          .then((res) => res.json() as Promise<{ kioskPageSockets?: number }>)
+          .then(({ kioskPageSockets = 0 }) => {
+            const now = Date.now();
+            if (kioskPageSockets > 0) lastOpenAt = now;
+            if (kioskPageClosed({ pageSockets: kioskPageSockets, lastOpenAt, now })) onWindowGone("page-closed", 0, " 🎮 [kiosk] [page-closed] [reopening]");
+          })
+          .catch((error) => console.warn(" 🎮 [kiosk] [page-watch] [failed]", error));
+      }, 2000);
     };
     await openVisibleBrowser();
   } catch (error) {

@@ -1,4 +1,9 @@
 import type { Express, Request, Response } from "express";
+let kioskPageSockets = 0;
+/** The launcher learns a closed kiosk window from this count reaching zero. */
+export function noteKioskPageSocket(change: 1 | -1): void {
+    kioskPageSockets = Math.max(0, kioskPageSockets + change);
+}
 export function setupKioskHealthRoutes(app: Express) {
     const expectedKioskToken = process.env.SUNNY_KIOSK_TOKEN?.trim() || null;
     let visibleKioskToken: string | null = null;
@@ -10,7 +15,7 @@ export function setupKioskHealthRoutes(app: Express) {
                 ? { certificationRunId: process.env.SUNNY_CERTIFICATION_RUN_ID }
                 : {}),
             ...(process.env.SUNNY_BUILD_ID ? { buildId: process.env.SUNNY_BUILD_ID } : {}),
-            ...(expectedKioskToken ? { kioskReady: visibleKioskToken === expectedKioskToken } : {}),
+            ...(expectedKioskToken ? { kioskReady: visibleKioskToken === expectedKioskToken, kioskPageSockets } : {}),
         });
     });
     app.get("/api/kiosk/ready", (req: Request, res: Response) => {
