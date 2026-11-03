@@ -85,7 +85,7 @@ export async function narrateGameStimulus(input: {
 }): Promise<boolean> {
   const { text, metadata, assessment, bridge } = input;
   if (metadata.assessmentMode === true) {
-    if (!assessment || (assessment.launchToken !== undefined && assessment.launchToken !== metadata.launchToken) || assessment.itemId !== metadata.itemId || text.replace(/[.!?]$/, "").trim() !== assessment.word) throw new Error("spelling_stimulus_mismatch");
+    if (!assessment || (assessment.launchToken !== undefined && assessment.launchToken !== metadata.launchToken) || assessment.itemId !== metadata.itemId || ![text.trim(), text.replace(/[.!?]$/, "").trim()].includes(assessment.word)) throw new Error("spelling_stimulus_mismatch");
     assessment.audioDelivered = false;
     if (!bridge) throw new Error("spelling_stimulus_audio_unavailable");
   }
