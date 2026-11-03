@@ -59,10 +59,13 @@ ${goal}
 
 How the game must work:
 - One complete, self-contained HTML document: inline CSS and JavaScript only. ${drawing} It runs in a sandboxed frame about 900×650 pixels, with mouse or touch.
-- She spells each of the 10 words at least once, by typing or tapping letters. While she spells a word, do not show that word on screen; give a clue instead: say it aloud with speechSynthesis, a picture or emoji, or a sentence with a blank.
-- After every spelling attempt, call parent.postMessage({type: "spelling-answer", word: "<the target word>", typed: "<what she typed>", correct: true or false}, "*").
-- When she finishes, call parent.postMessage({type: "spelling-done"}, "*").
-- Keep instructions short and also say them aloud. A wrong answer never ends the game.
+- Sunny's game contract is already loaded in the page, the same one Sunny's own games use. window.GAME_PARAMS.words holds her words.
+- Elli is her companion and speaks for the game. To say anything aloud (a word, a clue, an instruction, a cheer), call parent.postMessage({type: "narration_request", text: "<what to say>", reason: "<why>"}, "*"). Do not use speechSynthesis.
+- At big moments (a streak, a miss, a win), call window.fireCompanionEvent("<moment>", {word: "<word>"}) so Elli can react.
+- She spells each of the 10 words at least once, by typing or tapping letters. While she spells a word, do not show that word on screen; give a clue instead: Elli says it, a picture or emoji, or a sentence with a blank.
+- After every spelling attempt, call window.fireAttemptEvent({domain: "spelling", target: "<the target word>", attemptedValue: "<what she typed>", correct: true or false}).
+- When she finishes, call window.sendNodeComplete({completed: true}).
+- Keep instructions short and have Elli say them. A wrong answer never ends the game.
 
 ${reply}`;
   return { prompt, hash: crypto.createHash("sha256").update(prompt).digest("hex") };
@@ -79,17 +82,25 @@ export function extractHtml(text: string): string {
 /** Facts readable from the source before anything runs. */
 export function staticChecks(html: string, child: SandboxChild): Check[] {
   const external = html.match(/(?:src|href)\s*=\s*["']\s*(?:https?:)?\/\/[^"']+|\bfetch\s*\(|XMLHttpRequest|new\s+WebSocket|@import\s+url\(\s*["']?https?:/gi) ?? [];
-  const missing = child.words.filter(word => !html.toLowerCase().includes(word.toLowerCase()));
+  // A game may carry its words, or take them from Sunny's contract (window.GAME_PARAMS.words).
+  const missing = /GAME_PARAMS\s*\.\s*words/.test(html) ? [] : child.words.filter(word => !html.toLowerCase().includes(word.toLowerCase()));
   return [
     { name: "game in reply", passed: html.length > 0, detail: html.length ? `${Math.round(html.length / 1000)}k characters` : "no HTML document in the reply" },
     { name: "no internet", passed: external.length === 0, detail: external.length ? `reaches outside: ${[...new Set(external)].slice(0, 3).join(" ")}` : "nothing outside the page" },
-    { name: "reports answers", passed: /postMessage/.test(html) && html.includes("spelling-answer"), detail: html.includes("spelling-answer") ? "sends spelling-answer" : "never sends spelling-answer" },
-    { name: "says when done", passed: html.includes("spelling-done"), detail: html.includes("spelling-done") ? "sends spelling-done" : "never sends spelling-done" },
+    { name: "reports answers", passed: /fireAttemptEvent|spelling-answer/.test(html), detail: /fireAttemptEvent|spelling-answer/.test(html) ? "reports each attempt" : "never reports an attempt" },
+    { name: "says when done", passed: /sendNodeComplete|spelling-done/.test(html), detail: /sendNodeComplete|spelling-done/.test(html) ? "says when she finishes" : "never says it is done" },
+    { name: "Elli speaks", passed: html.includes("narration_request") && !/speechSynthesis/.test(html), detail: html.includes("narration_request") ? (/speechSynthesis/.test(html) ? "asks Elli, but also uses the browser voice" : "speech goes to Elli") : "no speech for Elli (browser voice or silent)" },
     { name: "all 10 words in the game", passed: missing.length === 0, detail: missing.length ? `missing: ${missing.join(", ")}` : "every word is in the game" },
   ];
 }
 
-export const frameDoc = (html: string) => /<head[^>]*>/i.test(html) ? html.replace(/<head[^>]*>/i, match => `${match}${CSP}`) : `${CSP}${html}`;
+// Sunny's own game contract, inlined so the game stays offline. It reads its parameters from the page address,
+// which a sandboxed frame does not have, so the child's are filled in right after it loads.
+const CONTRACT = fs.readFileSync(path.join(path.dirname(fileURLToPath(import.meta.url)), "../../web/public/games/_contract.js"), "utf8").replace(/<\/script/gi, "<\\/script");
+const contractFor = (child: SandboxChild) => `<script>${CONTRACT}</script><script>Object.assign(window.GAME_PARAMS,${JSON.stringify({ words: child.words, childId: child.id, childName: child.id, companion: "elli", companionName: "Elli", nodeId: "sandbox", sessionId: "sandbox" }).replace(/</g, "\\u003c")});
+// Games that still use the browser voice are heard in Elli's voice too.
+if(window.speechSynthesis){speechSynthesis.speak=u=>parent.postMessage({type:"narration_request",text:String(u&&u.text||""),reason:"speech"},"*");speechSynthesis.cancel=()=>{};}</script>`;
+export const frameDoc = (html: string, child: SandboxChild) => { const head = `${CSP}${contractFor(child)}`; return /<head[^>]*>/i.test(html) ? html.replace(/<head[^>]*>/i, match => `${match}${head}`) : `${head}${html}`; };
 const attr = (value: string) => value.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
 /** Load the game in a real browser, framed exactly as on the play page, and let a robot try one answer. */
@@ -102,7 +113,7 @@ export async function browserCheck(html: string, child: SandboxChild): Promise<{
     page.on("console", message => { if (message.type() === "error" && !/Content Security Policy/i.test(message.text())) errors.push(message.text().slice(0, 160)); });
     page.on("pageerror", error => errors.push(error.message.slice(0, 160)));
     await page.exposeFunction("__sandboxMessage", (data: { type?: string }) => { messages.push(data); });
-    await page.setContent(`<!doctype html><html><body style="margin:0"><iframe id="game" sandbox="allow-scripts" style="width:900px;height:650px;border:0" srcdoc="${attr(frameDoc(html))}"></iframe><script>addEventListener("message",event=>window.__sandboxMessage(event.data))</script></body></html>`);
+    await page.setContent(`<!doctype html><html><body style="margin:0"><iframe id="game" sandbox="allow-scripts" style="width:900px;height:650px;border:0" srcdoc="${attr(frameDoc(html, child))}"></iframe><script>addEventListener("message",event=>window.__sandboxMessage(event.data))</script></body></html>`);
     await page.waitForTimeout(2500);
     const frame = page.frames().find(row => row !== page.mainFrame());
     const visible = frame ? (await frame.locator("body").innerText({ timeout: 2000 }).catch(() => "")).toLowerCase() : "";
@@ -113,7 +124,7 @@ export async function browserCheck(html: string, child: SandboxChild): Promise<{
       const start = frame.getByRole("button", { name: /start|play|go|begin|let'?s|ready/i }).first();
       if (await start.isVisible().catch(() => false)) await start.click({ timeout: 2000 }).catch(() => undefined);
       await page.waitForTimeout(800);
-      const answered = () => messages.some(row => row.type === "spelling-answer");
+      const answered = () => messages.some(row => row.type === "spelling-answer" || row.type === "attempt_event");
       const box = frame.locator("input[type=text], input:not([type]), textarea").first();
       if (await box.isVisible().catch(() => false)) {
         await box.fill("zzz", { timeout: 2000 }).catch(() => undefined);
@@ -130,9 +141,9 @@ export async function browserCheck(html: string, child: SandboxChild): Promise<{
       if (!answered() && await check.isVisible().catch(() => false)) await check.click({ timeout: 2000 }).catch(() => undefined);
       await page.waitForTimeout(1500);
     }
-    const answered = messages.some(row => row.type === "spelling-answer");
+    const answered = messages.some(row => row.type === "spelling-answer" || row.type === "attempt_event");
     return { screenshot, checks: [
-      { name: "loads", passed: errors.length === 0 && visible.trim().length > 0, detail: errors.length ? `errors: ${errors.slice(0, 2).join(" | ")}` : visible.trim() ? "shows a screen with no errors" : "blank screen" },
+      { name: "loads", passed: errors.length === 0 && visible.trim().length > 0, detail: errors.length ? `errors while loading or while the robot played: ${errors.slice(0, 2).join(" | ")}` : visible.trim() ? "shows a screen with no errors" : "blank screen" },
       { name: "no requests", passed: requests.length === 0, detail: requests.length ? `tried: ${requests.slice(0, 2).join(" ")}` : "asked for nothing outside" },
       { name: "words hidden at start", passed: shown.length === 0, detail: shown.length ? `first screen has the word ${shown.join(", ")} somewhere (often ordinary text, like a wrestling "match"; look before trusting it)` : "no spelling word on the first screen" },
       { name: "robot got an answer through", passed: answered, detail: answered ? "a robot's typed answer arrived" : "the simple robot could not finish a word (start screens, tap keyboards and custom buttons beat it); play it to be sure" },
@@ -182,10 +193,10 @@ export async function askModel(client: Client, model: string, ask: Ask): Promise
 export function dryGame(child: SandboxChild): string {
   return `<!doctype html><html><head><meta charset="utf-8"><style>body{font:22px system-ui;text-align:center;background:#fef3c7;margin:0;padding:24px}button,input{font:inherit;padding:8px 14px;border-radius:10px}#clue{font-size:64px}</style></head><body>
 <h1>Practice game</h1><p>Listen, then spell the word.</p><div id="clue">🔊</div><p><button id="say">Hear it</button></p><p><input id="box" autocomplete="off"> <button id="check">Check</button></p><p id="note"></p>
-<script>const words=${JSON.stringify(child.words)};let i=0;const say=()=>{try{speechSynthesis.speak(new SpeechSynthesisUtterance(words[i]))}catch(e){}};
+<script>const words=window.GAME_PARAMS.words;let i=0;const say=()=>parent.postMessage({type:"narration_request",text:words[i],reason:"spelling_word"},"*");
 document.getElementById("say").onclick=say;const check=()=>{const box=document.getElementById("box"),typed=box.value.trim(),correct=typed.toLowerCase()===words[i];
-parent.postMessage({type:"spelling-answer",word:words[i],typed,correct},"*");document.getElementById("note").textContent=correct?"Yes!":"Nice try, next one.";box.value="";i++;
-if(i>=words.length){parent.postMessage({type:"spelling-done"},"*");document.getElementById("note").textContent="All done!";}};
+window.fireAttemptEvent({domain:"spelling",target:words[i],attemptedValue:typed,correct});if(!correct)window.fireCompanionEvent("miss",{word:words[i]});document.getElementById("note").textContent=correct?"Yes!":"Nice try, next one.";box.value="";i++;
+if(i>=words.length){window.sendNodeComplete({completed:true});document.getElementById("note").textContent="All done!";}};
 document.getElementById("check").onclick=check;document.getElementById("box").addEventListener("keydown",e=>{if(e.key==="Enter")check()});</script></body></html>`;
 }
 
@@ -211,7 +222,7 @@ export function renderPage(run: SandboxRun): string {
       reveal[card] = { model: candidate.model, tokens: candidate.inputTokens + candidate.outputTokens, costUsd: Math.round(candidate.costUsd * 1000) / 1000, seconds: Math.round(candidate.ms / 1000), images: candidate.images ?? 0, scene: candidate.scene ?? null, error: candidate.error ?? null, checks: candidate.checks };
       return { card, candidate };
     });
-    return { id: child.id, all: cards.map(row => row.card), games: cards.filter(row => playable(row.candidate)).map(row => ({ card: row.card, html: frameDoc(row.candidate.html), shot: row.candidate.screenshot ?? null })) };
+    return { id: child.id, all: cards.map(row => row.card), games: cards.filter(row => playable(row.candidate)).map(row => ({ card: row.card, html: frameDoc(row.candidate.html, child), shot: row.candidate.screenshot ?? null })) };
   });
   const data = JSON.stringify({ runId: run.runId, variant: run.variant ?? "plain", players: run.pickers, rounds, reveal }).replace(/</g, "\\u003c");
   const template = fs.readFileSync(path.join(path.dirname(fileURLToPath(import.meta.url)), "play-page.html"), "utf8");

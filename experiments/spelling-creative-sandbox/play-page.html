@@ -75,8 +75,19 @@ function playGame(){const game=order[index];stopGame();show('play');
  $('next').textContent=index<order.length-1?'Next game ▶':'Pick your favorite ⭐';fit()}
 function stopGame(){if(!frame)return;frame.remove();frame=null;current.seconds=Math.round((Date.now()-current.started)/1000);delete current.started;state.plays.push(current);current=null;save();console.log(' 🎮 [spelling-sandbox] [play] [saved]')}
 addEventListener('message',e=>{if(!frame||e.source!==frame.contentWindow||!e.data||typeof e.data!=='object')return;
- if(e.data.type==='spelling-answer')current.answers.push({word:String(e.data.word||''),typed:String(e.data.typed||''),correct:e.data.correct===true});
- if(e.data.type==='spelling-done')current.done=true});
+ const d=e.data,p=d.payload||{};
+ // Sunny's contract (attempt_event, node_complete, companion_event) and the first games' messages.
+ if(d.type==='attempt_event')current.answers.push({word:String(p.target||p.word||''),typed:String(p.attemptedValue||''),correct:p.correct===true});
+ if(d.type==='spelling-answer')current.answers.push({word:String(d.word||''),typed:String(d.typed||''),correct:d.correct===true});
+ if(d.type==='node_complete'||d.type==='game_complete'||d.type==='spelling-done')current.done=true;
+ if(d.type==='companion_event')(current.moments=current.moments||[]).push(String(p.trigger||''));
+ if(d.type==='narration_request')speak(String(d.text||''))});
+// Elli's voice comes from the sandbox server (cached per line); opened as a plain file, the browser voice stands in.
+let voice=null;
+function speak(text){text=text.trim().slice(0,300);if(!text)return;if(voice){voice.pause();voice=null}
+ if(location.protocol.startsWith('http')){fetch('/speak',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text})}).then(r=>{if(!r.ok)throw Error('speak '+r.status);return r.blob()}).then(b=>{voice=new Audio(URL.createObjectURL(b));return voice.play()}).catch(err=>{console.warn(' 🎮 [spelling-sandbox] [voice] [failed]',err);fallback(text)})}
+ else fallback(text)}
+function fallback(text){try{speechSynthesis.cancel();speechSynthesis.speak(new SpeechSynthesisUtterance(text))}catch{}}
 addEventListener('resize',fit);
 $('next').onclick=()=>{stopGame();index++;index<order.length?playGame():choose()};
 function choose(){show('choose');const box=$('choices');box.textContent='';
@@ -101,7 +112,7 @@ function report(){const box=$('report');box.textContent='';
   r.all.forEach(card=>{const game=r.games.find(g=>g.card===card),info=data.reveal[card],c=document.createElement('div');c.className='game';
    if(game&&game.shot){const i=document.createElement('img');i.src=game.shot;i.alt='';c.appendChild(i)}
    const pickers=data.players.filter(p=>state.picks[r.id+'|'+p]===card);line(c,'Picked by: '+(pickers.join(', ')||'nobody yet'));
-   data.players.forEach(p=>{const plays=state.plays.filter(x=>x.card===card&&x.player===p);if(!plays.length)return;const a=plays.flatMap(x=>x.answers),right=a.filter(x=>x.correct).length,secs=plays.reduce((s,x)=>s+(x.seconds||0),0);line(c,p+': '+right+' of '+a.length+' right, '+secs+' s'+(plays.some(x=>x.done)?', finished':', stopped early'),'dim')});
+   data.players.forEach(p=>{const plays=state.plays.filter(x=>x.card===card&&x.player===p);if(!plays.length)return;const a=plays.flatMap(x=>x.answers),right=a.filter(x=>x.correct).length,secs=plays.reduce((s,x)=>s+(x.seconds||0),0);line(c,p+': '+right+' of '+a.length+' right, '+secs+' s'+(plays.some(x=>x.done)?', finished':', stopped early')+(plays.some(x=>x.moments&&x.moments.length)?', Elli moments: '+[...new Set(plays.flatMap(x=>x.moments||[]))].join(' '):''),'dim')});
    if(!game)line(c,'Did not build, so nobody played it.','no');
    if(revealed){const b=document.createElement('b');b.textContent=info.model;c.appendChild(b);line(c,'$'+info.costUsd.toFixed(3)+' · '+info.tokens+' tokens · '+info.seconds+' s'+(info.images?' · '+info.images+' painting':'')+(info.error?' · '+info.error:''));(info.checks||[]).forEach(x=>line(c,(x.passed?'✓ ':'✗ ')+x.name+': '+x.detail,x.passed?'ok':'no'))}
    grid.appendChild(c)});
