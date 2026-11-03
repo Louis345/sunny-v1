@@ -10,7 +10,7 @@ import { SANDBOX_CHILDREN, type SandboxChild } from "./cases";
 
 /**
  * Spelling creative sandbox. Every model gets the same ask for the same fictional child (her profile and
- * her 10 spelling words) and builds one playable spelling game. Code checks each game in a real browser
+ * her spelling words) and builds one playable spelling game. Code checks each game in a real browser
  * (it loads, reaches nothing outside, reports answers). One page shows the games side by side, blind, in
  * locked-down frames: the family plays them, code records every answer, each player picks a favorite, and
  * Reveal shows which model built which game, its cost, and how each player did. A model that wins here
@@ -43,7 +43,7 @@ const PAINTED_RULE = `No external files, no internet. A painter will make the ba
 const PAINTED_REPLY = `First write one line starting with SCENE: and one paragraph describing the painting. Then build the game on top of that painting. After the SCENE line, reply with only the HTML document.`;
 
 /** The one ask every model gets for this child. Its fingerprint proves the comparison was fair. */
-export function buildAsk(child: SandboxChild, variant: Variant = "plain"): Ask {
+export function buildAsk(child: SandboxChild, variant: Variant = "plain", bar?: string): Ask {
   const goal = variant === "plain" ? "Make it something she will want to play again, and that helps her spell these words without help." : GOAL;
   const drawing = variant === "painted" ? PAINTED_RULE : "No external files, no internet, no image URLs; draw with CSS, SVG, canvas or emoji.";
   const reply = variant === "painted" ? PAINTED_REPLY : "Reply with only the HTML document.";
@@ -52,9 +52,9 @@ export function buildAsk(child: SandboxChild, variant: Variant = "plain"): Ask {
 About her (her own profile; empty means we know nothing yet):
 ${child.soul.trim() || "(no profile yet)"}
 Grade: ${child.grade}
-Her 10 spelling words: ${child.words.join(", ")}
-Words she missed on her first check: ${child.missedWords.join(", ")}
-
+Her ${child.words.length} spelling words: ${child.words.join(", ")}
+Words she missed on her first check: ${child.missedWords.join(", ") || "none"}
+${child.history ? `\nHow she has played Sunny's games so far:\n${child.history.trim()}\n` : ""}${bar ? `\nThe bar: below is a Sunny game she chooses to play again. Match its energy and polish, but do not copy it; invent something new for her.\n<bar-game>\n${bar}\n</bar-game>\n` : ""}
 ${goal}
 
 How the game must work:
@@ -62,7 +62,7 @@ How the game must work:
 - Sunny's game contract is already loaded in the page, the same one Sunny's own games use. window.GAME_PARAMS.words holds her words.
 - Elli is her companion and speaks for the game. To say anything aloud (a word, a clue, an instruction, a cheer), call parent.postMessage({type: "narration_request", text: "<what to say>", reason: "<why>"}, "*"). Do not use speechSynthesis.
 - At big moments (a streak, a miss, a win), call window.fireCompanionEvent("<moment>", {word: "<word>"}) so Elli can react.
-- She spells each of the 10 words at least once, by typing or tapping letters. While she spells a word, do not show that word on screen; give a clue instead: Elli says it, a picture or emoji, or a sentence with a blank.
+- She spells each of her ${child.words.length} words at least once, by typing or tapping letters. While she spells a word, do not show that word on screen; give a clue instead: Elli says it, a picture or emoji, or a sentence with a blank.
 - After every spelling attempt, call window.fireAttemptEvent({domain: "spelling", target: "<the target word>", attemptedValue: "<what she typed>", correct: true or false}).
 - When she finishes, call window.sendNodeComplete({completed: true}).
 - Keep instructions short and have Elli say them. A wrong answer never ends the game.
@@ -90,14 +90,14 @@ export function staticChecks(html: string, child: SandboxChild): Check[] {
     { name: "reports answers", passed: /fireAttemptEvent|spelling-answer/.test(html), detail: /fireAttemptEvent|spelling-answer/.test(html) ? "reports each attempt" : "never reports an attempt" },
     { name: "says when done", passed: /sendNodeComplete|spelling-done/.test(html), detail: /sendNodeComplete|spelling-done/.test(html) ? "says when she finishes" : "never says it is done" },
     { name: "Elli speaks", passed: html.includes("narration_request") && !/speechSynthesis/.test(html), detail: html.includes("narration_request") ? (/speechSynthesis/.test(html) ? "asks Elli, but also uses the browser voice" : "speech goes to Elli") : "no speech for Elli (browser voice or silent)" },
-    { name: "all 10 words in the game", passed: missing.length === 0, detail: missing.length ? `missing: ${missing.join(", ")}` : "every word is in the game" },
+    { name: "all her words in the game", passed: missing.length === 0, detail: missing.length ? `missing: ${missing.join(", ")}` : "every word is in the game" },
   ];
 }
 
 // Sunny's own game contract, inlined so the game stays offline. It reads its parameters from the page address,
 // which a sandboxed frame does not have, so the child's are filled in right after it loads.
 const CONTRACT = fs.readFileSync(path.join(path.dirname(fileURLToPath(import.meta.url)), "../../web/public/games/_contract.js"), "utf8").replace(/<\/script/gi, "<\\/script");
-const contractFor = (child: SandboxChild) => `<script>${CONTRACT}</script><script>Object.assign(window.GAME_PARAMS,${JSON.stringify({ words: child.words, childId: child.id, childName: child.id, companion: "elli", companionName: "Elli", nodeId: "sandbox", sessionId: "sandbox" }).replace(/</g, "\\u003c")});
+const contractFor = (child: SandboxChild) => `<script>${CONTRACT}</script><script>Object.assign(window.GAME_PARAMS,${JSON.stringify({ words: child.words, childId: child.id, childName: child.name ?? child.id, companion: "elli", companionName: "Elli", nodeId: "sandbox", sessionId: "sandbox" }).replace(/</g, "\\u003c")});
 // Games that still use the browser voice are heard in Elli's voice too.
 if(window.speechSynthesis){speechSynthesis.speak=u=>parent.postMessage({type:"narration_request",text:String(u&&u.text||""),reason:"speech"},"*");speechSynthesis.cancel=()=>{};}</script>`;
 export const frameDoc = (html: string, child: SandboxChild) => { const head = `${CSP}${contractFor(child)}`; return /<head[^>]*>/i.test(html) ? html.replace(/<head[^>]*>/i, match => `${match}${head}`) : `${head}${html}`; };
@@ -229,16 +229,26 @@ export function renderPage(run: SandboxRun): string {
   return template.replace("/*DATA*/null", () => data);
 }
 
-export async function runSandbox(input: { models: string[]; variant?: Variant; caseIds?: string[]; pickers?: string[]; dry?: boolean; maxTokens?: number; outputRoot?: string; client?: Client; skipBrowser?: boolean }): Promise<{ run: SandboxRun; file: string }> {
-  const children = SANDBOX_CHILDREN.filter(child => !input.caseIds?.length || input.caseIds.includes(child.id));
-  for (const child of children) if (REAL_CHILDREN.has(child.id)) throw new Error(`sandbox_real_child_refused:${child.id}`);
+/** Child files (`<id>.json`, shaped like SandboxChild) from a folder outside the repo. The owner copies them
+ * there; the sandbox never opens Sunny's charts, and never writes back. */
+export function loadChildren(directory: string): SandboxChild[] {
+  if (path.resolve(directory).startsWith(path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../.."))) throw new Error(`sandbox_children_inside_repo:${directory}`);
+  return fs.readdirSync(directory).filter(file => file.endsWith(".json")).sort().map(file => JSON.parse(fs.readFileSync(path.join(directory, file), "utf8")) as SandboxChild);
+}
+
+export async function runSandbox(input: { models: string[]; variant?: Variant; caseIds?: string[]; childrenDir?: string; bar?: string; pickers?: string[]; dry?: boolean; maxTokens?: number; outputRoot?: string; client?: Client; skipBrowser?: boolean }): Promise<{ run: SandboxRun; file: string }> {
+  const pool = input.childrenDir ? loadChildren(input.childrenDir) : SANDBOX_CHILDREN;
+  const children = pool.filter(child => !input.caseIds?.length || input.caseIds.includes(child.id));
+  // Real children come only from the owner's copied files, never from the built-in cases.
+  if (!input.childrenDir) for (const child of children) if (REAL_CHILDREN.has(child.id)) throw new Error(`sandbox_real_child_refused:${child.id}`);
+  const bar = input.bar ? fs.readFileSync(input.bar, "utf8") : undefined;
   const cap = input.maxTokens ?? 200_000, variant = input.variant ?? "plain";
   const runId = new Date().toISOString().replace(/[:.]/g, "-") + `-${variant}` + (input.dry ? "-dry" : "");
   const run: SandboxRun = { runId, createdAt: new Date().toISOString(), variant, pickers: input.pickers ?? ["Ila", "Reina", "Saori"], cases: [] };
   const client = input.client ?? (input.dry ? dryClient : new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY, maxRetries: 0 }));
   let tokens = 0;
   for (const child of children) {
-    const ask = buildAsk(child, variant), candidates: Candidate[] = [];
+    const ask = buildAsk(child, variant, bar), candidates: Candidate[] = [];
     // The models build in parallel for one child; the cap is checked before each child.
     const asked = tokens >= cap
       ? input.models.map(model => ({ model, html: "", inputTokens: 0, outputTokens: 0, costUsd: 0, ms: 0, error: `token cap ${cap} reached; not asked`, checks: [] } as Candidate))
@@ -305,6 +315,8 @@ if (import.meta.url === pathToFileURL(process.argv[1] ?? "").href && process.arg
     models: list(arg("models")) ?? ["claude-sonnet-5", "claude-sonnet-5-5", "claude-opus-5-5"],
     variant: (arg("set") ?? "plain") as Variant,
     caseIds: list(arg("cases")),
+    childrenDir: arg("children"),
+    bar: arg("bar"),
     pickers: list(arg("pickers")),
     dry: process.argv.includes("--dry"),
     maxTokens: arg("max-tokens") ? Number(arg("max-tokens")) : undefined,

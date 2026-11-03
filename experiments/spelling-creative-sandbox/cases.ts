@@ -1,6 +1,7 @@
 /** Fictional children for the spelling sandbox, 10 words each. None is a real child; real charts are never
- * read. Profiles match the Planner harness cases (`src/harness/harnessChildren.ts` on PR #49). */
-export type SandboxChild = { id: string; grade: number; words: string[]; missedWords: string[]; soul: string };
+ * read. Profiles match the Planner harness cases (`src/harness/harnessChildren.ts` on PR #49). A run may
+ * instead take child files from a folder outside the repo (`--children=`), copied there by hand. */
+export type SandboxChild = { id: string; name?: string; grade: number; words: string[]; missedWords: string[]; soul: string; history?: string };
 
 export const SANDBOX_CHILDREN: SandboxChild[] = [
   {

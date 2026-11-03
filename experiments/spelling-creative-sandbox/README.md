@@ -52,6 +52,8 @@ The output goes to `outputs/spelling-creative-sandbox/<run>/` (git-ignored):
 
 Other details:
 - **Picks and answers** stay in that browser, so play and review in the same one. **Download results** saves them as JSON.
-- **Cases** are fictional (`cases.ts`). The script refuses a real child's id.
+- **Cases** are fictional (`cases.ts`). The script refuses a real child's id among them.
+- **Real children** come only from child files the owner copies into a folder outside the repo: `--children=<folder>` reads `<id>.json` files shaped like `SandboxChild`, with an optional `history` (how she has played Sunny's games). The sandbox never opens a chart and never writes back; the run folder holds the ask, so it stays on this Mac (git-ignored).
+- **The bar:** `--bar=web/public/games/monster-stampede.html` shows every model a Sunny game the child replays, with the rule to match its energy but invent something new.
 - **Same footing for every model:** each is asked at effort `high` through Sunny's `requestForModel` (`src/engine/plannerTransport.ts`).
 - **Prices** come from the Claude API model table (cached 2026-10-06).
