@@ -1,4 +1,5 @@
 import fs from "node:fs";
+import { getChildChart } from "../profiles/childChart";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, expect, it, vi } from "vitest";
@@ -45,6 +46,10 @@ async function playToNextBoard() {
   // Who she is, in her family's words and her own: what a tutor would plan around.
   const childDir = path.join(rootDir, "src/context", childId);
   fs.writeFileSync(path.join(childDir, "soul.md"), "# Lab child\n\n## Who She Is\nA fictional third grader.\n\n## Her Brain\nIndex score 87 (clinical detail the board does not need).\n\n## Favorite Things\n- Pottery wheels and glazing mugs\n");
+  // Her profile's favorites: what a child without a soul file still has (demo-pashley, 2026-10-26).
+  const profileFile = path.join(childDir, "learning_profile.json");
+  const profile = JSON.parse(fs.readFileSync(profileFile, "utf8"));
+  fs.writeFileSync(profileFile, JSON.stringify({ ...profile, rewardPreferences: { ...profile.rewardPreferences, favoriteGames: ["space rockets", "puppies"] } }));
   fs.mkdirSync(path.join(childDir, "child_signals"), { recursive: true });
   fs.writeFileSync(path.join(childDir, "child_signals", "2026-10-24.ndjson"), `${JSON.stringify({ type: "child_signal", version: 1, childSignalId: "lab-signal", childId, activityId: "word-radar", domain: "spelling", signalType: "stated_preference", dimension: "novelty", valence: "negative", confidence: 0.9, evidenceText: "child said: this is boring, same game again", source: "child_statement", createdAt: "2026-10-24T18:00:00Z" })}\n`);
   Object.assign(lab.planner, { root: rootDir, childId, words, missedWords: words.slice(6) });
@@ -129,6 +134,7 @@ it("tells the Planner and the map artist who she is on every board, without her 
     for (const request of asked(tool)) {
       expect(told(request), tool).toContain("Pottery wheels and glazing mugs");
       expect(told(request), tool).toContain("this is boring, same game again");
+      expect(told(request), tool).toContain("space rockets");
       expect(told(request), tool).not.toContain("Index score 87");
     }
   }
@@ -168,3 +174,14 @@ it("puts the story and picture the Planner wrote on every stop of both boards", 
   expect(shown.length).toBeGreaterThan(0);
   for (const node of shown) expect(node.thumbnailPrompt, node.id).toMatch(/^Picture: /);
 }, 120000);
+
+// 2026-10-26 parent test: demo-pashley's profile lists her favorites (space, animals, adventure), but she has
+// no soul file, so nothing about her reached the Planner. Her profile's favorites now count as her voice.
+it("tells the Planner a child's profile favorites even when she has no soul file", async () => {
+  const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-favorites-")); roots.push(rootDir);
+  seedSpellingLab(rootDir, ["night"], "", "lab-child");
+  const profileFile = path.join(rootDir, "src/context/lab-child/learning_profile.json");
+  const profile = JSON.parse(fs.readFileSync(profileFile, "utf8"));
+  fs.writeFileSync(profileFile, JSON.stringify({ ...profile, rewardPreferences: { ...profile.rewardPreferences, favoriteGames: ["space", "animals", "adventure"] } }));
+  expect(getChildChart("lab-child", { rootDir }).childVoice).toMatchObject({ aboutHer: null, favorites: ["space", "animals", "adventure"] });
+});

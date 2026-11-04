@@ -218,6 +218,8 @@ function resolveLinkedPath(baseDir: string, link: string): string {
 export type ChildVoice = {
   /** The child-facing sections of her soul file (who she is, what works, her life, favorite things, her goals). */
   aboutHer: string | null;
+  /** The favorites her profile lists (rewardPreferences.favoriteGames), even when she has no soul file. */
+  favorites: string[];
   /** Her most recent recorded preferences and reactions, in her words or as observed. */
   recentSignals: Array<{ at: string; kind: string; about: string; feeling: string; text: string }>;
 };
@@ -227,7 +229,7 @@ const ABOUT_HER_SECTIONS = /^(who she is|what works|what doesn'?t work|her life|
 const VOICE_SIGNALS = new Set(["stated_preference", "theme_affinity", "engagement", "frustration", "avoidance", "autonomy_pushback", "confidence"]);
 
 /** Low-level reader for the chart: her soul file's child-facing sections and her recent signals. */
-function readChildVoice(childId: string, rootDir: string): ChildVoice {
+function readChildVoice(childId: string, rootDir: string, profile: LearningProfile): ChildVoice {
   let aboutHer: string | null = null;
   try {
     const soul = fs.readFileSync(path.join(contextDir(rootDir, childId), "soul.md"), "utf8");
@@ -238,7 +240,8 @@ function readChildVoice(childId: string, rootDir: string): ChildVoice {
   }
   const recentSignals = readChildSignals(childId, { rootDir }).filter(row => VOICE_SIGNALS.has(row.signalType)).slice(-20)
     .map(row => ({ at: row.createdAt, kind: row.signalType, about: row.dimension, feeling: row.valence, text: String(row.evidenceText ?? "").slice(0, 240) }));
-  return { aboutHer, recentSignals };
+  const favorites = (profile.rewardPreferences?.favoriteGames ?? []).filter((row): row is string => typeof row === "string" && Boolean(row.trim())).map(row => row.trim()).slice(0, 12);
+  return { aboutHer, favorites, recentSignals };
 }
 
 function readJson<T>(file: string): T | null {
@@ -549,7 +552,7 @@ export function getChildChart(childIdRaw: string, opts: ChildChartOptions | Spel
     learningCycle,
     learningHistory,
     boardDesignHistory,
-    childVoice: readChildVoice(childId, rootDir),
+    childVoice: readChildVoice(childId, rootDir, learningProfile),
     plannerTrust: learningProfile.plannerTrust ?? null,
     activeSessionPlan: selectedActiveSessionPlan,
     sessionPlan: {
