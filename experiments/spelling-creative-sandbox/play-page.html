@@ -65,7 +65,9 @@ const hash=text=>[...text].reduce((sum,c)=>(sum*31+c.charCodeAt(0))>>>0,7);
 // Each child gets her own order, so no game is always first or last.
 const shuffled=(items,seed)=>items.map((item,i)=>({item,k:hash(seed+':'+i)})).sort((a,b)=>a.k-b.k).map(row=>row.item);
 const pickKey=(r,p)=>r.id+'|'+p;
-const nextRound=()=>data.rounds.find(r=>r.games.length&&!state.picks[pickKey(r,player)]);
+// A child plays only the games built for her; a grown-up (a name with no round of her own) plays them all.
+const mine=r=>!data.rounds.some(x=>x.id===player.toLowerCase())||r.id===player.toLowerCase();
+const nextRound=()=>data.rounds.find(r=>r.games.length&&mine(r)&&!state.picks[pickKey(r,player)]);
 
 function startRound(){round=nextRound();if(!round)return finish();order=shuffled(round.games,player+':'+round.id);index=0;playGame()}
 function fit(){const stage=$('stage'),scale=Math.min(innerWidth/900,(innerHeight-84)/650);stage.style.width=900*scale+'px';stage.style.height=650*scale+'px';if(frame)frame.style.transform='scale('+scale+')'}
@@ -114,7 +116,7 @@ function report(){const box=$('report');box.textContent='';
    const pickers=data.players.filter(p=>state.picks[r.id+'|'+p]===card);line(c,'Picked by: '+(pickers.join(', ')||'nobody yet'));
    data.players.forEach(p=>{const plays=state.plays.filter(x=>x.card===card&&x.player===p);if(!plays.length)return;const a=plays.flatMap(x=>x.answers),right=a.filter(x=>x.correct).length,secs=plays.reduce((s,x)=>s+(x.seconds||0),0);line(c,p+': '+right+' of '+a.length+' right, '+secs+' s'+(plays.some(x=>x.done)?', finished':', stopped early')+(plays.some(x=>x.moments&&x.moments.length)?', Elli moments: '+[...new Set(plays.flatMap(x=>x.moments||[]))].join(' '):''),'dim')});
    if(!game)line(c,'Did not build, so nobody played it.','no');
-   if(revealed){const b=document.createElement('b');b.textContent=info.model;c.appendChild(b);line(c,'$'+info.costUsd.toFixed(3)+' · '+info.tokens+' tokens · '+info.seconds+' s'+(info.images?' · '+info.images+' painting':'')+(info.error?' · '+info.error:''));(info.checks||[]).forEach(x=>line(c,(x.passed?'✓ ':'✗ ')+x.name+': '+x.detail,x.passed?'ok':'no'))}
+   if(revealed){const b=document.createElement('b');b.textContent=info.model;c.appendChild(b);line(c,'$'+info.costUsd.toFixed(3)+' · '+info.tokens+' tokens · '+info.seconds+' s'+(info.images?' · '+info.images+' painting':'')+(info.error?' · '+info.error:''));(info.notes||[]).forEach(n=>line(c,n,'dim'));(info.checks||[]).forEach(x=>line(c,(x.passed?'✓ ':'✗ ')+x.name+': '+x.detail,x.passed?'ok':'no'))}
    grid.appendChild(c)});
   sec.appendChild(grid);box.appendChild(sec)})}
 show('names');
