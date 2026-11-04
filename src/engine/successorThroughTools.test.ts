@@ -144,6 +144,29 @@ it('replays the frozen question after a restart even though the chart changed me
  expect(getLearningCycle(childId,homeworkId,{rootDir:f.rootDir})!.decisionHistory.at(-1)?.eventType).toBe('theory_decided');
 });
 
+// 2026-11-04, human-caught: Saori changed Wi-Fi while Reina's next-board question was in flight. The
+// request aborted, the cycle blocked as provider_outcome_uncertain (correct: Sunny cannot know whether it
+// was billed), but the operator retry refused that cause, so her loop stopped at board 3 with no way back.
+// Logs showed the block; the lab never cut a connection mid-request.
+it('lets an operator retry a cycle blocked by a request that lost its connection, then publishes',async()=>{
+ const f=fixture(),opts={rootDir:f.rootDir};
+ const aborted=()=>{throw new Error('Request was aborted.');};
+ await expect(runtime.advanceCanonicalCycleFromEvidence({...f.request,client:{messages:{stream:aborted}} as never},opts)).rejects.toThrow();
+ const blocked=getLearningCycle(childId,homeworkId,opts)!;
+ expect(blocked.lifecycle).toBe('blocked');
+ const block=blocked.decisionHistory.at(-1)!;
+ expect(block.reason).toMatch(/^provider_outcome_uncertain:/);
+ const reopened=runtime.authorizeCanonicalPlannerRetry({childId,homeworkId,blockedDecisionId:block.decisionId,reason:'The connection dropped; one fresh attempt approved'},opts);
+ expect(reopened.lifecycle).toBe(block.fromLifecycle);
+ expect(reopened.observations).toEqual(blocked.observations);
+ // One approval buys one attempt; it cannot be approved again.
+ expect(()=>runtime.authorizeCanonicalPlannerRetry({childId,homeworkId,blockedDecisionId:block.decisionId,reason:'again'},opts)).toThrow('planner_retry_not_eligible');
+ f.stream.mockClear();
+ const decided=await runtime.advanceCanonicalCycleFromEvidence(f.request,opts);
+ expect(decided.decisionHistory.at(-1)?.eventType).toBe('theory_decided');
+ expect(f.stream).toHaveBeenCalled();
+});
+
 // 2026-10-25: Reina's next board was blocked by that bug before the fix shipped. "Blocked" waits for a
 // person; the operator retry accepted only truncated answers, so a cycle blocked by a since-fixed bug
 // had no logged way back. The retry also accepts that cause, sets the collided turns aside (never

@@ -1256,11 +1256,11 @@ describe('completed-board Planner delivery and explicit recovery', () => {
     } finally {spy.mockRestore();fs.rmSync(f.rootDir,{recursive:true,force:true});}
   },20000);
 
-  it.each(['refusal','uncertain','missing-receipt','wrong-block-id'])('does not authorize replacement for %s', async mode => {
+  // A lost connection may be retried once by an operator (owner, 2026-11-04); see successorThroughTools.test.ts.
+  it.each(['refusal','missing-receipt','wrong-block-id'])('does not authorize replacement for %s', async mode => {
     const f=fixture();
     try {
-      if(mode==='uncertain') f.create.mockRejectedValue(Error('connection lost after sending'));
-      else f.create.mockResolvedValue({stop_reason:mode==='refusal'?'refusal':'max_tokens',content:[]});
+      f.create.mockResolvedValue({stop_reason:mode==='refusal'?'refusal':'max_tokens',content:[]});
       await expect(advanceCanonicalCycleFromEvidence(f.request,{rootDir:f.rootDir})).rejects.toThrow();
       const blocked=getLearningCycle('reina','hw-runtime',{rootDir:f.rootDir})!;
       if(mode==='missing-receipt') for(const file of Object.keys(f.receiptBytes())) fs.unlinkSync(path.join(f.rootDir,'src/context/reina/homework/cycles/.planner/hw-runtime',file));

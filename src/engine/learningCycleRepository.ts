@@ -448,11 +448,13 @@ export type CreateLearningCycleInput = Omit<
 };
 
 /** Calibration authority requires sufficient evaluations linked to cited external facts. */
-/** Blocks an operator may retry: a truncated answer, or a decision blocked by the since-fixed
- * stage-changed bug (a retry collided with its own saved turns; fixed 2026-10-25). */
+/** Blocks an operator may retry: a truncated answer, a decision blocked by the since-fixed
+ * stage-changed bug (a retry collided with its own saved turns; fixed 2026-10-25), or a request
+ * whose connection dropped before any answer arrived (2026-11-04). */
 export function isRetryablePlannerBlock(reason: string): boolean {
   return reason === "planner_decision_invalid:planner_response_max_tokens"
-    || reason.startsWith("planner_decision_invalid:provider_stage_request_changed:");
+    || reason.startsWith("planner_decision_invalid:provider_stage_request_changed:")
+    || reason.startsWith("provider_outcome_uncertain:");
 }
 
 export function hasSufficientCalibrationEvidence(
