@@ -25,6 +25,7 @@ import {
   type LearningCycleRepositoryOptions,
 } from "./learningCycleRepository";
 import { currentBoardInstance, preparingBoardInstance } from "./learningBoardInstances";
+import { prepareGeneratedSpellingGame, type SpellingGameClient } from "./spellingGameBuilder";
 
 export type CanonicalProgressionGeneratorInput = {
   childId: string;
@@ -37,6 +38,8 @@ export type CanonicalProgressionGeneratorInput = {
   }) => Promise<string>;
   generateHtml?: (input: { prompt: string; node: LearningCycleNodeContract; cycle: LearningCycleRecordV2 }) => Promise<string>;
   validate?: (input: { html: string; node: LearningCycleNodeContract; cycle: LearningCycleRecordV2 }) => Promise<ProgressionValidationResult>;
+  /** The model client for her generated spelling games; tests pass a recorded one. */
+  spellingGameClient?: SpellingGameClient;
 };
 
 type ProgressionValidationResult = {
@@ -546,7 +549,10 @@ export async function prepareSuccessorBoard(
       try {
         // Spelling boards run only tested built-in games: a step with none to launch is Not ready, never built.
         if (cycle.domain === "spelling" && !pending.reusedFrom && !pending.implementationType) throw new Error("spelling_no_reusable_builtin");
-        next = cycle.domain === "spelling"
+        // Her own game is built for her once, from her chart and the Planner's story; a re-run reuses its file.
+        next = cycle.domain === "spelling" && pending.implementationType === "generated-game" && !pending.reusedFrom
+          ? await prepareGeneratedSpellingGame({ cycle, node: pending, client: input.spellingGameClient, draftDir: qualityDiagnosticsDir(opts.rootDir ?? process.cwd(), cycle, pending) }, opts)
+          : cycle.domain === "spelling"
           ? launchBuiltInActivity(input.childId, input.homeworkId, cycle, pending, opts)
           : await generateCanonicalProgressionArtifact({ ...input, nodeId: pending.nodeId }, opts);
         if (next.revision === cycle.revision) failure = latestQualityFailure(opts.rootDir ?? process.cwd(), cycle, pending) ?? "human_review_required";

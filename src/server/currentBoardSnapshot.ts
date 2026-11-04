@@ -216,7 +216,7 @@ export function buildCurrentBoardSnapshot(
   // Only spelling instruments have a spoken stimulus distinct from the hidden
   // written response. Never project a hidden Wheel/math answer through this path.
   const spellingGames = new Set(["word-radar", "spell-check", "monster-stampede",
-    "letter-rush", "word-builder", "speed-catcher", "pronunciation", "visual-explainer"]);
+    "letter-rush", "word-builder", "speed-catcher", "pronunciation", "visual-explainer", "generated-game"]);
   const game = String(state.game ?? state.activityId ?? "").toLowerCase();
   if (rawTarget && spellingGames.has(game)) {
     snapshot.spellingTarget = rawTarget;

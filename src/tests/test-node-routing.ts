@@ -201,6 +201,7 @@ describe("map node routing", () => {
       "quest",
       "boss",
       "generated-baseline",
+      "generated-game",
       "clock-game",
       "coin-counter",
       "dopamine",

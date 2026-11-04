@@ -27,7 +27,8 @@ describe("openSpellingItem", () => {
     const { window, posted } = loadContract("Spell the word Elli says. Tap the lantern.");
     window.openSpellingItem!("raincoat", "Lantern 1 of 8");
     const state = posted.find(row => row.type === "game_state_update")?.payload as Record<string, unknown>;
-    expect(state).toMatchObject({ itemId: "item-raincoat", practiceCapture: true, spellingItemOpened: true, answerVisibility: "hidden", launchToken: "token-1", nodeId: "quest-1" });
+    // Reported as Sunny's generated-game, whatever the game's own title, so Elli knows it is a spelling word.
+    expect(state).toMatchObject({ game: "generated-game", itemId: "item-raincoat", practiceCapture: true, spellingItemOpened: true, answerVisibility: "hidden", launchToken: "token-1", nodeId: "quest-1" });
     expect(posted.find(row => row.type === "narration_request")).toMatchObject({ word: "raincoat", nodeId: "quest-1" });
   });
 

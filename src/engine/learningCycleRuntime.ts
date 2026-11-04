@@ -851,7 +851,8 @@ async function askPlanner(
 Sunny runs each step as you write it. The board she has now stays as it is; yours opens when she chooses it, right away or at a later session. The kiosk screen shows up to 7 stops along any one path, counting the start, the choice and the finish. Title each step as she should see it. Per-word response time, assistance, exposure and response mode are in the evidence below; Elli talks with her during each activity.
 Games and modes on the menu (a hidden-word Radar is an independent check; the rest are practice):
 ${JSON.stringify(facts.activities.map(row=>row.id))}
-Tested built-in activities she played, which you may re-run:
+${facts.activities.some(row=>row.id==="generated-game")?`generated-game is a new game Sunny builds for her from her chart and the story you write for that step. Her family wants each next board to give her a choice where one option is her generated-game and another is a hand-made game, so what she picks and replays tells you what she enjoys.
+`:""}Tested built-in activities she played, which you may re-run:
 ${JSON.stringify(facts.builtIns.map(row=>({builtIn:row.nodeId,title:row.title,type:row.implementationType,words:row.wordIds.length,checkpoint:row.checkpoint})))}
 Saved spelling words:
 ${JSON.stringify([...savedSpellingItems.values()].map(item=>({wordId:item.wordId,word:item.word})))}

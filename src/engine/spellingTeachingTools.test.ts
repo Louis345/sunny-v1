@@ -194,3 +194,10 @@ describe("spelling Teaching tools", () => {
     expect(JSON.stringify(forms(large))).toBe(JSON.stringify(forms(small)));
   });
 });
+
+it("keeps her generated game off the Teaching board, which is published before any game can be built", () => {
+  // 2026-11-04: her own game joined the menu for the next board. The Teaching board is published at
+  // intake and never runs the builder, so offering it there would publish a stop with nothing behind it.
+  const addActivity = spellingTeachingToolkit(packet()).tools.find(row => row.name === "add_activity")!;
+  expect(addActivity.schema.safeParse({ activity: "generated-game", role: "practice", words: ["sign"], title: "Her game", story: "A story.", picture: "A picture." }).success).toBe(false);
+});

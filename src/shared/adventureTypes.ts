@@ -28,6 +28,7 @@ export type NodeType =
   | "space-frogger"
   | "boss"
   | "generated-baseline"
+  | "generated-game"
   | "wheel-of-fortune";
 
 export type AdaptiveArtifactLifecycleStatus =
@@ -473,5 +474,6 @@ export const ALL_NODE_TYPES: readonly NodeType[] = [
   "quest",
   "boss",
   "generated-baseline",
+  "generated-game",
   "wheel-of-fortune",
 ] as const;

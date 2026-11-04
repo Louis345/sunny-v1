@@ -28,6 +28,8 @@ const ROLES: Record<string, ReadonlyArray<"instruction" | "practice" | "fresh_ch
   "word-radar:hidden_word_recall": ["fresh_checkpoint", "practice", "instruction"],
   "word-radar:visible_read": ["instruction", "practice"],
   "word-radar:partial_visual_recall": ["instruction", "practice"],
+  // Her answers in a game built for her are practice; its pick and replays are the taste signal.
+  "generated-game": ["practice"],
 };
 
 /** The tested games and modes a spelling board can offer: one menu for the Teaching board and the next board. */
@@ -92,7 +94,10 @@ export function explainerPageTool<State>(input: { grade: unknown; word: z.ZodTyp
 }
 
 export function spellingTeachingToolkit(packet: AssignmentPlanningPacket) {
-  const { offered, choices, roles, setup } = spellingActivityMenu(packet.activityCatalog);
+  const menu = spellingActivityMenu(packet.activityCatalog);
+  const { offered, roles, setup } = menu;
+  // The Teaching board is published at intake, before any game can be built: her own game starts on the next board.
+  const choices = menu.choices.filter(id => id !== "generated-game");
   const assigned = [...new Set([...packet.capturedHomework.words, ...(packet.capturedHomework.wordGroups ?? []).flatMap(group => group.words)])];
   // Predictions cite this homework's evidence. Her whole history stays in the prompt as context, but as
   // a pick-list it outgrew what strict mode can compile (251 IDs on a real chart, 2026-10-25).

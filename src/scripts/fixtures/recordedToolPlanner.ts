@@ -14,6 +14,16 @@ export type RecordedToolLab = {
  * each real tool conversation the way the model would, using only what the request offers (its tool
  * names, enums and Sunny's own tool results), so the real handlers, checks and receipts all run at $0.
  * A request it does not recognise fails the run: no paid call can hide behind the robot. */
+/** A small game the builder could have made: one word at a time, opened through the contract, typed and reported. */
+export const RECORDED_SPELLING_GAME = `<!doctype html><html><head><title>Recorded game</title></head><body><p id="clue">Spell the word Elli says.</p><input id="box" data-testid="generated-game-input" aria-label="Spell it"><script>
+const words = window.GAME_PARAMS.words; let i = 0;
+window.openSpellingItem(words[i], "Word 1 of " + words.length);
+document.getElementById("box").addEventListener("change", event => { const typed = event.target.value.trim();
+  window.fireAttemptEvent({ domain: "spelling", target: words[i], attemptedValue: typed, correct: typed.toLowerCase() === words[i] });
+  event.target.value = ""; i += 1;
+  if (i < words.length) window.openSpellingItem(words[i], "Word " + (i + 1) + " of " + words.length); else window.sendNodeComplete({ completed: true }); });
+</script></body></html>`;
+
 export function recordedToolReply(lab: RecordedToolLab, request: any): any {
   lab.requests.push(structuredClone(request));
   const names: string[] = (request.tools ?? []).map((tool: any) => tool.name);
@@ -102,6 +112,10 @@ export function recordedToolReply(lab: RecordedToolLab, request: any): any {
     const steps: string[] = results.map(row => row.step_id).filter(Boolean);
     return message([{ name: "set_order", input: { opening: steps, closing: [] } },
       { name: "finish_board", input: { title: "Next Practice", endpoint_label: "Finish", single_path_reason: "One path re-runs what she practiced." } }]);
+  }
+  // Sunny's spelling builder asks for one game with no tools: a recorded game that opens every word through the contract.
+  if (!names.length && /^Build one spelling game/.test(String(request.messages?.[0]?.content ?? ""))) {
+    return { id: `recorded-game-${lab.requests.length}`, type: "message", role: "assistant", model: request.model, stop_reason: "end_turn", stop_sequence: null, usage: { input_tokens: 1, output_tokens: 1 }, content: [{ type: "text", text: RECORDED_SPELLING_GAME }] };
   }
   throw new Error(`recorded_planner_unscripted_request:${names.join(",") || "no_tools"}`);
 }

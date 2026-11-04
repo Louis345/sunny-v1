@@ -584,13 +584,14 @@ window.openSpellingItem = function (word, progress) {
   var escaped = word.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   var shown = new RegExp("(^|[^\\p{L}])" + escaped + "($|[^\\p{L}])", "iu").test(screen);
   window.GameBridge.reportState(typeof progress === "string" && progress.trim() ? progress : "Spelling word ready.", {
+    game: "generated-game",
     spellingItemOpened: true,
     currentWord: word,
     answerVisibility: shown ? "visible" : "hidden",
     phase: "playing",
     targetMasked: !shown,
   });
-  window.parent.postMessage({ type: "narration_request", activityId: document.title || "generated", nodeId: window.GAME_PARAMS.nodeId, word: word, reason: "target_word" }, "*");
+  window.parent.postMessage({ type: "narration_request", activityId: "generated-game", nodeId: window.GAME_PARAMS.nodeId, word: word, reason: "target_word" }, "*");
 };
 
 window.SunnyActivity = {

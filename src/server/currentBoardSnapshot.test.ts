@@ -227,6 +227,11 @@ describe("spelling pronunciation context", () => {
     childId: "lab-child", sessionId: "lab-session", state,
   });
 
+  it("knows the word in a game Sunny built for her, so Elli can say it", () => {
+    // 2026-11-04: her generated games open each word through the contract as generated-game.
+    expect(snapshot({ game: "generated-game", itemId: "item-night", currentWord: "night", answerVisibility: "hidden", practiceCapture: true })).toHaveProperty("spellingTarget", "night");
+  });
+
   it("retains hidden spelling truth internally without permitting written-answer disclosure", () => {
     const value = snapshot({ game: "word-radar", itemId: "item-title", currentTarget: "title", answerVisibility: "hidden", assessmentMode: true });
     expect(value).toHaveProperty("spellingTarget", "title");

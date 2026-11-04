@@ -997,7 +997,8 @@ function activityCatalog(
           contract.plannerVisibility !== "wrapper" &&
           contract.id !== "quest" && contract.id !== "boss" &&
           NODE_TYPES.has(contract.id as NodeType) &&
-          (!allowed || allowed.has(contract.id) || PLANNER_DESTINATION_ACTIVITY_IDS.has(contract.id)) &&
+          // A generated game is checked one game at a time when it is built, not certified once as a file.
+          (!allowed || allowed.has(contract.id) || PLANNER_DESTINATION_ACTIVITY_IDS.has(contract.id) || contract.id === "generated-game") &&
           // The evidence contract is the one record of an activity blocked for children; the menu honors it.
           ACTIVITY_EVIDENCE_CONTRACTS.find((row) => row.activityId === contract.id)?.currentGap !== "blocked_for_real_child_sessions",
         ),
