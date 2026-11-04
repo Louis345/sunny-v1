@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Unlock Ceremony Demo</title>
+<style>
+:root{--gold:#ffd54a;--hot:#ff8a00;--boss:#ff3d6e;--ink:#120a2a}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:#05030c;color:#fff;font:16px/1.3 system-ui,sans-serif;overflow:hidden}
+#stage{position:absolute;left:50%;top:50%;width:1130px;height:734px;transform-origin:0 0;overflow:hidden;border-radius:18px}
+#world{position:absolute;inset:0;transform-origin:50% 50%;transition:transform 900ms cubic-bezier(.2,.9,.2,1),filter 600ms}
+#world.dim{filter:brightness(.38) saturate(.7)}
+#bg{position:absolute;inset:0;background:url(silent-letter-world.jpeg) center/cover}
+.node{position:absolute;width:104px;height:104px;margin:-52px 0 0 -52px;border-radius:50%;border:4px solid #fff;background:center/cover;box-shadow:0 6px 18px #0008}
+.node b{position:absolute;top:110px;left:50%;transform:translateX(-50%);white-space:nowrap;background:#1d1240e0;padding:3px 10px;border-radius:999px;font-size:14px}
+.node.locked{filter:grayscale(1) brightness(.45);border-color:#999}
+.node.locked::after{content:"🔒";position:absolute;right:-6px;bottom:-6px;font-size:26px}
+.node.hidden{opacity:0;transform:translateY(60px) scale(.3)}
+.node.rise{animation:rise 900ms cubic-bezier(.2,1.6,.4,1) forwards}
+.node.glow{animation:glow 1.2s ease-in-out infinite alternate}
+.node.bossglow{animation:bossglow .9s ease-in-out infinite alternate}
+@keyframes rise{0%{opacity:0;transform:translateY(80px) scale(.2)}60%{opacity:1;transform:translateY(-30px) scale(1.35)}100%{opacity:1;transform:none}}
+@keyframes glow{from{box-shadow:0 0 18px 4px var(--gold)}to{box-shadow:0 0 46px 16px var(--gold)}}
+@keyframes bossglow{from{box-shadow:0 0 18px 4px var(--boss)}to{box-shadow:0 0 60px 22px var(--boss)}}
+#fx{position:absolute;inset:0;pointer-events:none}
+.shake{animation:shake 600ms linear}
+@keyframes shake{0%,100%{translate:0 0}10%{translate:-9px 4px}20%{translate:8px -6px}30%{translate:-7px -3px}40%{translate:6px 5px}50%{translate:-5px 3px}60%{translate:4px -4px}70%{translate:-3px 2px}80%{translate:2px -2px}}
+#flash{position:absolute;inset:0;background:#fff;opacity:0;pointer-events:none}
+#flash.on{animation:flash 420ms ease-out}
+@keyframes flash{0%{opacity:.85}100%{opacity:0}}
+#banner{position:absolute;left:50%;top:70px;transform:translateX(-50%) scale(0);text-align:center;pointer-events:none}
+#banner.on{animation:slam 700ms cubic-bezier(.2,1.8,.4,1) forwards}
+#banner small{display:block;letter-spacing:.3em;font-weight:800;color:var(--gold);font-size:18px;text-shadow:0 2px 8px #000}
+#banner strong{display:block;font-size:76px;font-weight:900;letter-spacing:.02em;background:linear-gradient(#fff6c2,var(--gold) 45%,var(--hot));-webkit-background-clip:text;background-clip:text;color:transparent;-webkit-text-stroke:2px #3a1a00;filter:drop-shadow(0 6px 0 #3a1a00) drop-shadow(0 0 26px #ffb300aa)}
+#banner.boss small{color:#ffc2d1}
+#banner.boss strong{background:linear-gradient(#ffe0e8,var(--boss) 50%,#7a0024);-webkit-background-clip:text;background-clip:text;-webkit-text-stroke:2px #2a0010;filter:drop-shadow(0 6px 0 #2a0010) drop-shadow(0 0 30px #ff3d6eaa)}
+@keyframes slam{0%{transform:translateX(-50%) scale(3);opacity:0}60%{transform:translateX(-50%) scale(.92);opacity:1}100%{transform:translateX(-50%) scale(1);opacity:1}}
+#elli{position:absolute;left:28px;bottom:28px;display:flex;align-items:flex-end;gap:12px;transform:translateY(160px);transition:transform 500ms cubic-bezier(.2,1.6,.4,1)}
+#elli.on{transform:none}
+#elli .face{width:88px;height:88px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#fff,#b9a6ff 45%,#6b4bff);display:grid;place-items:center;font-size:44px;box-shadow:0 0 30px #8f7bffaa;animation:bob 1.4s ease-in-out infinite}
+@keyframes bob{50%{transform:translateY(-8px)}}
+#elli .bubble{background:#fff;color:var(--ink);font-weight:700;font-size:20px;padding:14px 18px;border-radius:18px 18px 18px 4px;max-width:420px;box-shadow:0 8px 24px #0008}
+#loot{position:absolute;left:50%;top:52%;width:230px;height:300px;margin:-150px 0 0 -115px;perspective:900px;opacity:0;transform:scale(.4);transition:opacity .3s,transform .5s cubic-bezier(.2,1.6,.4,1);pointer-events:none}
+#loot.on{opacity:1;transform:scale(1)}
+#loot .card{position:absolute;inset:0;transform-style:preserve-3d;transition:transform .7s cubic-bezier(.3,1.4,.4,1)}
+#loot.flip .card{transform:rotateY(180deg)}
+#loot.suspense .card{animation:jitter .12s linear infinite}
+@keyframes jitter{0%{translate:-3px 0}50%{translate:3px -2px}100%{translate:-2px 2px}}
+#loot .face{position:absolute;inset:0;border-radius:18px;backface-visibility:hidden;border:5px solid var(--r,#fff);box-shadow:0 0 40px 10px var(--r,#fff)}
+#loot .back{background:repeating-linear-gradient(45deg,#2a1a5e,#2a1a5e 12px,#3b2a7a 12px,#3b2a7a 24px);display:grid;place-items:center;font-size:90px}
+#loot .front{transform:rotateY(180deg);background:#140c30;overflow:hidden;text-align:center}
+#loot .front i{display:block;height:170px;background:center/cover}
+#loot .front em{display:block;font-style:normal;font-weight:900;letter-spacing:.2em;font-size:15px;color:var(--r);margin-top:12px}
+#loot .front strong{display:block;font-size:20px;padding:6px 12px 0}
+#controls .r{color:#fff}
+#controls{position:fixed;left:50%;bottom:10px;transform:translateX(-50%);display:flex;gap:6px;z-index:9;flex-wrap:nowrap}
+#controls button{font:inherit;font-size:13px;font-weight:800;border:0;border-radius:999px;padding:8px 12px;white-space:nowrap;cursor:pointer;background:var(--gold);color:#3a1a00}
+#controls button.boss{background:var(--boss);color:#fff}
+#controls button.quiet{background:#2a2050;color:#fff}
+</style>
+</head>
+<body>
+<div id="stage">
+  <div id="world">
+    <div id="bg"></div>
+    <div class="node" style="left:10%;top:78%;background-image:url(word-radar.jpeg)"><b>Start</b></div>
+    <div class="node" style="left:10%;top:56%;background-image:url(word-radar.jpeg)"><b>Know / Write</b></div>
+    <div class="node" style="left:10%;top:34%;background-image:url(spell-check.jpeg)"><b>Verify</b></div>
+    <div class="node" style="left:46%;top:34%;background-image:url(word-radar.jpeg)"><b>Story Spark</b></div>
+    <div class="node" id="mystery" style="left:94%;top:34%;background-image:url(mystery.jpeg)"><b>Mystery</b></div>
+    <div class="node locked" id="quest" style="left:82%;top:78%;background-image:url(quest.jpeg)"><b>Quest</b></div>
+    <div class="node locked" id="boss" style="left:28%;top:78%;background-image:url(boss.jpeg)"><b>Boss</b></div>
+    <canvas id="fx" width="1130" height="734"></canvas>
+  </div>
+  <div id="flash"></div>
+  <div id="banner"><small id="bannerSmall">A NEW PATH OPENS</small><strong id="bannerBig">QUEST UNLOCKED!</strong></div>
+  <div id="loot"><div class="card"><div class="face back">?</div><div class="face front"><i id="lootImg"></i><em id="lootTier"></em><strong id="lootName"></strong></div></div></div>
+  <div id="elli"><div class="face">✨</div><div class="bubble" id="say"></div></div>
+</div>
+<div id="controls">
+  <button id="playQuest">▶ Quest: random drop</button>
+  <button class="r" data-r="common" style="background:#3f8f4f">Common</button>
+  <button class="r" data-r="rare" style="background:#2f7fe0">Rare</button>
+  <button class="r" data-r="epic" style="background:#8a46e8">Epic</button>
+  <button class="r" data-r="legendary" style="background:#e8820f">Legendary</button>
+  <button id="playBoss" class="boss">▶ Boss awakens</button>
+  <button id="reset" class="quiet">Reset</button>
+</div>
+<script>
+const $=id=>document.getElementById(id);
+const W=1130,H=734,stage=$('stage'),world=$('world'),fx=$('fx'),g=fx.getContext('2d');
+function fit(){const s=Math.min(innerWidth/W,(innerHeight-70)/H);stage.style.transform=`translate(${-W*s/2}px,${-H*s/2-30}px) scale(${s})`}
+addEventListener('resize',fit);fit();
+const at=el=>({x:parseFloat(el.style.left)/100*W,y:parseFloat(el.style.top)/100*H});
+
+// Sound: built from oscillators, no files.
+let ac=null;const audio=()=>ac||(ac=new AudioContext());
+function tone(f,t0,d,type='sine',v=.2,slide){const a=audio(),o=a.createOscillator(),gn=a.createGain();o.type=type;o.frequency.setValueAtTime(f,a.currentTime+t0);if(slide)o.frequency.exponentialRampToValueAtTime(slide,a.currentTime+t0+d);gn.gain.setValueAtTime(v,a.currentTime+t0);gn.gain.exponentialRampToValueAtTime(.001,a.currentTime+t0+d);o.connect(gn).connect(a.destination);o.start(a.currentTime+t0);o.stop(a.currentTime+t0+d+.05)}
+function rumble(t0,d,v=.35){const a=audio(),n=a.createBufferSource(),b=a.createBuffer(1,a.sampleRate*d,a.sampleRate),c=b.getChannelData(0);for(let i=0;i<c.length;i++)c[i]=(Math.random()*2-1)*(1-i/c.length);n.buffer=b;const f=a.createBiquadFilter();f.type='lowpass';f.frequency.value=140;const gn=a.createGain();gn.gain.value=v;n.connect(f).connect(gn).connect(a.destination);n.start(a.currentTime+t0)}
+const fanfare=(notes,t0,step=.11)=>notes.forEach((f,i)=>{tone(f,t0+i*step,.35,'square',.08);tone(f*2,t0+i*step,.25,'triangle',.05)});
+
+
+// Real sound effects (made with ElevenLabs), decoded once so they can overlap without delay.
+const SFX={};['rumble','riser','boom','coin','fanfare','boss','tick','common','rare','epic','legendary'].forEach(n=>fetch(`sfx/${n}.mp3`).then(r=>r.arrayBuffer()).then(b=>audio().decodeAudioData(b)).then(d=>SFX[n]=d).catch(()=>{}));
+function sfx(n,rate=1,vol=1){const a=audio(),b=SFX[n];if(!b)return;const src=a.createBufferSource(),gn=a.createGain();src.buffer=b;src.playbackRate.value=rate;gn.gain.value=vol;src.connect(gn).connect(a.destination);src.start()}
+// Particles: sparks, a shockwave ring, a light pillar and coins along the path.
+let parts=[],rings=[],pillar=null,coins=[],raf=0;
+function burst(x,y,n,colors,speed=9){for(let i=0;i<n;i++){const a=Math.random()*Math.PI*2,s=Math.random()*speed+2;parts.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s-3,life:1,c:colors[i%colors.length],r:Math.random()*4+2})}}
+function loop(){g.clearRect(0,0,W,H);
+ if(pillar){pillar.t+=.016;const k=Math.min(1,pillar.t/.25)*(pillar.t>1.1?Math.max(0,1-(pillar.t-1.1)/.5):1);const grad=g.createLinearGradient(pillar.x-60,0,pillar.x+60,0);grad.addColorStop(0,'#fff0');grad.addColorStop(.5,pillar.c);grad.addColorStop(1,'#fff0');g.globalAlpha=k*.85;g.fillStyle=grad;g.fillRect(pillar.x-60,0,120,pillar.y);g.globalAlpha=1;if(pillar.t>1.7)pillar=null}
+ rings=rings.filter(r=>(r.r+=r.v,r.a-=.02,r.a>0));rings.forEach(r=>{g.strokeStyle=r.c;g.globalAlpha=r.a;g.lineWidth=6;g.beginPath();g.arc(r.x,r.y,r.r,0,7);g.stroke();g.globalAlpha=1});
+ coins.forEach(c=>{if(performance.now()<c.at)return;if(!c.rung){c.rung=1;sfx('coin',.9+c.i*.05,.6)}c.p=Math.min(1,(c.p||0)+.12);g.fillStyle=c.c;g.globalAlpha=c.p;g.beginPath();g.arc(c.x,c.y,7*c.p,0,7);g.fill();g.globalAlpha=1});
+ parts=parts.filter(p=>(p.x+=p.vx,p.y+=p.vy,p.vy+=.25,p.life-=.018,p.life>0));parts.forEach(p=>{g.fillStyle=p.c;g.globalAlpha=p.life;g.beginPath();g.arc(p.x,p.y,p.r,0,7);g.fill();g.globalAlpha=1});
+ raf=requestAnimationFrame(loop)}
+loop();
+function pathCoins(from,to,colors,startAt){const n=12;for(let i=1;i<=n;i++){const t=i/n;coins.push({i,x:from.x+(to.x-from.x)*t,y:from.y+(to.y-from.y)*t-Math.sin(t*Math.PI)*40,at:startAt+i*70,f:660+i*40,c:colors[i%2]})}}
+
+
+// Drops: what the Quest gives her. Rarity is rolled; the card flickers through colors before it lands.
+const TIERS={common:{c:'#7ee08a',label:'COMMON',name:'Hush Bridge',img:'quest.jpeg',n:60},rare:{c:'#4fa3ff',label:'RARE',name:'Volcano Championship',img:'boss.jpeg',n:120},epic:{c:'#b46bff',label:'EPIC',name:'Reina & Elli: The Secret Library',img:'mystery.jpeg',n:200},legendary:{c:'#ffa62b',label:'LEGENDARY',name:'Secret Chapter: Elli speaks Japanese',img:'spell-check.jpeg',n:320}};
+const ORDER=['common','rare','epic','legendary'];
+const roll=()=>{const x=Math.random();return x<.6?'common':x<.85?'rare':x<.97?'epic':'legendary'};
+function drop(tier,t0){const T=TIERS[tier],loot=$('loot'),card=loot;
+ later(t0,()=>{$('elli').classList.remove('on');$('banner').animate([{opacity:1},{opacity:0}],{duration:400,fill:'forwards'});loot.className='on suspense';loot.style.setProperty('--r','#fff')});
+ // Suspense: the glow climbs through the tiers, ticking faster, then stops on hers.
+ const steps=8+ORDER.indexOf(tier)*3;
+ for(let i=0;i<steps;i++)later(t0+200+i*(80+i*4),()=>{loot.style.setProperty('--r',TIERS[ORDER[i%4]].c);sfx('tick',1+i*.04,.5)});
+ const flipAt=t0+200+steps*(80+steps*4);
+ later(flipAt,()=>{loot.style.setProperty('--r',T.c);$('lootImg').style.backgroundImage=`url(${T.img})`;$('lootTier').textContent=T.label;$('lootName').textContent=T.name;loot.className='on flip';
+  const c=at({style:{left:'50%',top:'52%'}});burst(c.x,c.y,T.n,[T.c,'#fff',T.c],8+ORDER.indexOf(tier)*2);rings.push({x:c.x,y:c.y,r:30,v:8,a:1,c:T.c});$('flash').classList.remove('on');void $('flash').offsetWidth;if(tier!=='common')$('flash').classList.add('on');
+  sfx(tier)});
+ later(flipAt+600,()=>{$('say').textContent={common:'A new world just for you! Want to go in?',rare:'Ooh, a rare one! This one is in your favorite world!',epic:'Epic! This story stars you and me!',legendary:'Legendary! Nobody else has this one. Only you!'}[tier];$('elli').classList.add('on');if(voice)voice.pause();voice=new Audio(`elli-${tier}.mp3`);voice.play().catch(()=>{})});
+}
+let timers=[];const later=(ms,f)=>timers.push(setTimeout(f,ms));
+let voice=null;
+function play(kind,tier){reset(true);audio().resume();
+ const node=$(kind),p=at(node),from=at(kind==='quest'?$('mystery'):$('quest'));
+ const boss=kind==='boss',colors=boss?['#ff3d6e','#ffd1dc','#ff8a00','#fff']:['#ffd54a','#fff6c2','#ff8a00','#fff'];
+ // 1. The world holds its breath: dim, then the camera leans toward the spot.
+ world.classList.add('dim');sfx('rumble',boss?.8:1,boss?1:.8);
+ later(150,()=>{world.style.transform=`scale(1.35) translate(${(W/2-p.x)*.35}px,${(H/2-p.y)*.35}px)`});
+ later(450,()=>{stage.classList.add('shake');node.classList.add('hidden');node.classList.remove('locked')});
+ // 2. A pillar of light, a flash, and the node bursts up out of the ground.
+ later(900,()=>{pillar={x:p.x,y:p.y,t:0,c:boss?'#ff3d6e':'#fff3a0'};sfx('riser')});
+ later(1250,()=>{$('flash').classList.add('on');node.classList.remove('hidden');node.classList.add('rise');burst(p.x,p.y,140,colors,boss?12:9);rings.push({x:p.x,y:p.y,r:20,v:9,a:1,c:colors[0]},{x:p.x,y:p.y,r:10,v:6,a:.8,c:'#fff'});sfx('boom',boss?.75:1);if(boss)sfx('boss')});
+ // 3. The camera pulls back while coins draw the path to it.
+ later(1900,()=>{world.classList.remove('dim');world.style.transform='';node.classList.add(boss?'bossglow':'glow');pathCoins(from,p,colors,performance.now())});
+ // 4. Banner slams in with a fanfare.
+ later(2200,()=>{$('bannerSmall').textContent=boss?'YOU WOKE IT UP':'A NEW PATH OPENS';$('bannerBig').textContent=boss?'BOSS AWAKENS!':'QUEST UNLOCKED!';$('banner').className=boss?'boss on':'on';if(!boss)sfx('fanfare');else later(300,()=>stage.classList.add('shake'))});
+ // 5. Elli pops in and reacts (in Sunny she speaks from live context; this line is a demo stand-in).
+ later(2900,()=>{$('say').textContent=boss?'The Boss is awake! You earned this. Let’s show it what you can spell!':'Whoa, look! Your Quest just opened! Ready to go in?';$('elli').classList.add('on');voice=new Audio(boss?'elli-boss.mp3':'elli-quest.mp3');voice.play().catch(()=>{})});
+ if(kind==='quest')drop(tier||roll(),4200);
+ later(1000,()=>stage.classList.remove('shake'));later(3200,()=>stage.classList.remove('shake'));
+}
+function reset(keep){$('banner').getAnimations().forEach(a=>a.cancel());timers.forEach(clearTimeout);timers=[];parts=[];rings=[];coins=[];pillar=null;if(voice){voice.pause();voice=null}
+ world.classList.remove('dim');world.style.transform='';stage.classList.remove('shake');$('flash').classList.remove('on');$('banner').className='';$('elli').classList.remove('on');$('loot').className='';
+ for(const id of ['quest','boss']){const n=$(id);n.className='node locked'}
+ if(keep===true)void stage.offsetWidth}
+$('playQuest').onclick=()=>play('quest');document.querySelectorAll('[data-r]').forEach(b=>b.onclick=()=>play('quest',b.dataset.r));$('playBoss').onclick=()=>play('boss');$('reset').onclick=()=>reset();
+</script>
+</body>
+</html>
