@@ -30,6 +30,7 @@ import { COMPANION_DEFAULTS } from "../shared/companionTypes";
 import { handleWsConnection } from "../server/ws-handler";
 import { SessionManager } from "../server/session-manager";
 import * as legacyLearning from "../engine/learningEngine";
+import { trackedBody, waitForUnfinishedBodies } from "../tests/unfinishedTestBodies";
 const lab = vi.hoisted(() => ({ root: "", plannerCalls: 0, adaptive: false, refusePreparation: false, refusalCalls: 0 }));
 vi.mock("../engine/assignmentPlanner", async original => ({ ...await original<typeof import("../engine/assignmentPlanner")>(), planAssignmentFromSourceWithTelemetry: async (packet: any) => { lab.plannerCalls++; return { output: lab.adaptive ? recordedAdaptiveSpellingPlan(packet, lab.root) : recordedSpellingPlan(packet, lab.root), telemetry: { model: "recorded", latencyMs: 1 } }; } }));
 vi.mock("../engine/learningCycleRuntime", async original => { const actual = await original<typeof import("../engine/learningCycleRuntime")>(); return { ...actual, advanceCanonicalCycleFromEvidence: (input: any, opts: any) => actual.advanceCanonicalCycleFromEvidence({ ...input, decide: async cycle => ({ status: "inconclusive", reason: "Immediate recall is not retention", progressionAction: "await_calibration", preserve: [], change: [], testNext: [], nextEvidenceRequired: ["Delayed recall"], predictionEvaluationIds: cycle.predictionEvaluations.map(row => row.evaluationId) }) }, opts) }; });
@@ -76,6 +77,9 @@ it("keeps the spelling audio proof on Sunny's production WebSocket and TTS path"
   expect(source).toContain('transport: "production_ws_handler_and_tts_bridge"');
 });
 
+// A scenario that times out keeps running; the next one starts only after its cleanup (Nov 4 catch).
+waitForUnfinishedBodies(120000);
+
 it.each([
   { width: 1365, height: 768, adaptive: false, chart: false },
   { width: 1280, height: 720, adaptive: false, chart: false },
@@ -85,7 +89,7 @@ it.each([
   { width: 768, height: 1024, adaptive: true, chart: true },
   { width: 768, height: 1024, adaptive: false, chart: true, existing: true },
   { width: 1280, height: 720, adaptive: false, chart: false, failure: true },
-])("plays spelling through the real host and canonical routes at $width×$height adaptive=$adaptive chart=$chart existing=$existing failure=$failure", async scenario => {
+])("plays spelling through the real host and canonical routes at $width×$height adaptive=$adaptive chart=$chart existing=$existing failure=$failure", trackedBody(async scenario => {
   const childId = "ila";
   const viewport = { width: scenario.width, height: scenario.height };
   const canonicalFamilyPaths = [
@@ -723,5 +727,5 @@ it.each([
     chartDb?.close();
     fs.rmSync(rootDir, { recursive: true, force: true });
   }
-}, 180000);
+}), 180000);
 import { recordedSpellingDiagnostic } from "./fixtures/spellingEvidenceFirst";
