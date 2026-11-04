@@ -116,6 +116,24 @@ describe("live spelling assistance and audio provenance", () => {
     expect(s.getDiscoveryAttemptContext("hw-words", "i1")).toMatchObject({ support: { status: "unassisted" }, instrumentSignals: [], artifactHash: "frozen" });
     expect(s.getDiscoveryAttemptContext("other-homework", "i1")).toBeUndefined();
   });
+  it("counts a word heard earlier in the same session when the check is reopened before answering", async () => {
+    // Human-caught (Nov 3, Ila): she heard "raincoat", closed the check, reopened it within
+    // seconds and typed it correctly without tapping Hear again; the answer became can't-tell.
+    // Every lab check was answered in the launch where its word played.
+    const s = session() as any;
+    s.spellingLaunch.launchToken = "first";
+    s.updateCurrentBoardSnapshot({ assessmentMode: true, nodeId: "opening", itemId: "i1", phase: "response", answerVisibility: "hidden", launchToken: "first" });
+    await s.speakGameNarration("night.", { assessmentMode: true, itemId: "i1", launchToken: "first" });
+    confirmCurrentPlayback(s);
+    s.updateCurrentBoardSnapshot({ phase: "closed", boardState: "map", launchToken: "first" });
+    s.updateCurrentBoardSnapshot({ phase: "launched", nodeId: "opening" });
+    s.spellingLaunch.launchToken = "second";
+    s.updateCurrentBoardSnapshot({ assessmentMode: true, nodeId: "opening", itemId: "i1", phase: "response", answerVisibility: "hidden", launchToken: "second" });
+    expect(s.getDiscoveryAttemptContext("hw-words", "i1", "second")).toMatchObject({ support: { status: "unassisted" } });
+    expect(s.getDiscoveryAttemptContext("hw-words", "i1", "second")?.instrumentSignals).not.toContain("audio_unavailable");
+    s.updateCurrentBoardSnapshot({ assessmentMode: true, nodeId: "opening", itemId: "i2", phase: "response", answerVisibility: "hidden", launchToken: "second" });
+    expect(s.getDiscoveryAttemptContext("hw-words", "i2", "second")?.instrumentSignals).toContain("audio_unavailable");
+  });
   it("keeps Elli's spelling help assisted even after she collapses", async () => {
     const s = session();
     s.updateCurrentBoardSnapshot({ assessmentMode: true, nodeId: "opening", itemId: "i1", phase: "response", answerVisibility: "hidden" });
