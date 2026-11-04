@@ -3,6 +3,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
+import vm from "node:vm";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { chromium } from "playwright";
 import { requestForModel } from "../../src/engine/plannerTransport";
@@ -18,7 +19,7 @@ import { SANDBOX_CHILDREN, type SandboxChild } from "./cases";
  */
 export type Check = { name: string; passed: boolean; detail: string };
 export type Variant = "plain" | "goal" | "painted";
-export type Candidate = { model: string; scene?: string; images?: number; html: string; inputTokens: number; outputTokens: number; costUsd: number; ms: number; error?: string; checks: Check[]; screenshot?: string };
+export type Candidate = { model: string; scene?: string; images?: number; html: string; inputTokens: number; outputTokens: number; costUsd: number; ms: number; error?: string; checks: Check[]; screenshot?: string; firstTry?: { costUsd: number; inputTokens: number; outputTokens: number; error?: string }; repair?: { costUsd: number; inputTokens: number; outputTokens: number; problems: string[]; firstChecks: Check[]; error?: string } };
 export type Ask = { prompt: string; hash: string };
 export type SandboxRun = { runId: string; createdAt: string; variant?: Variant; pickers: string[]; cases: Array<{ child: SandboxChild; ask: Ask; candidates: Candidate[] }> };
 
@@ -170,10 +171,10 @@ async function paintScene(scene: string, dry: boolean): Promise<string> {
 const withPainting = (html: string, painting: string) => { const style = `<style>:root{--painting:url("${painting}")}</style>`; return /<head[^>]*>/i.test(html) ? html.replace(/<head[^>]*>/i, match => `${match}${style}`) : `${style}${html}`; };
 
 /** One game per model and child, asked through Sunny's one rule for how each model is asked. */
-export async function askModel(client: Client, model: string, ask: Ask): Promise<Candidate> {
+export async function askModel(client: Client, model: string, ask: Ask, maxOutput = 64_000): Promise<Candidate> {
   const started = Date.now();
   try {
-    const message = await client.messages.stream(requestForModel({ model, max_tokens: 64000, output_config: { effort: EFFORT }, messages: [{ role: "user", content: ask.prompt }] } as Anthropic.Messages.MessageStreamParams)).finalMessage();
+    const message = await client.messages.stream(requestForModel({ model, max_tokens: maxOutput, output_config: { effort: EFFORT }, messages: [{ role: "user", content: ask.prompt }] } as Anthropic.Messages.MessageStreamParams)).finalMessage();
     const text = message.content.flatMap(block => block.type === "text" ? [block.text] : []).join("\n");
     const inputTokens = message.usage?.input_tokens ?? 0, outputTokens = message.usage?.output_tokens ?? 0;
     const price = PRICES[model];
@@ -214,12 +215,18 @@ export function blindOrder<T>(runId: string, caseId: string, items: T[]): T[] {
 export const playable = (candidate: Candidate) => !candidate.error && candidate.html.length > 0 && candidate.checks.filter(check => ["game in reply", "no internet", "reports answers"].includes(check.name)).every(check => check.passed);
 
 /** The kids' page: a name, one game at a time, a pick by picture. Reveal lives behind the grown-ups door. */
+/** What it took to get this game: a first try that built nothing, a repair, and what each cost. */
+const notesFor = (candidate: Candidate) => [
+  ...(candidate.firstTry ? [`First try built nothing (${candidate.firstTry.error ?? "no game"}), $${candidate.firstTry.costUsd.toFixed(2)}; this is the second try.`] : []),
+  ...(candidate.repair ? [`${candidate.repair.error ? "Repair failed" : "Repaired once"} ($${candidate.repair.costUsd.toFixed(2)}). First try had: ${candidate.repair.problems.join("; ")}`] : ["Worked as built, no repair."]),
+];
+
 export function renderPage(run: SandboxRun): string {
   const reveal: Record<string, unknown> = {};
   const rounds = run.cases.map(({ child, candidates }) => {
     const cards = blindOrder(run.runId, child.id, candidates).map((candidate, index) => {
       const card = `${child.id}:${String.fromCharCode(65 + index)}`;
-      reveal[card] = { model: candidate.model, tokens: candidate.inputTokens + candidate.outputTokens, costUsd: Math.round(candidate.costUsd * 1000) / 1000, seconds: Math.round(candidate.ms / 1000), images: candidate.images ?? 0, scene: candidate.scene ?? null, error: candidate.error ?? null, checks: candidate.checks };
+      reveal[card] = { model: candidate.model, tokens: candidate.inputTokens + candidate.outputTokens, costUsd: Math.round(candidate.costUsd * 1000) / 1000, seconds: Math.round(candidate.ms / 1000), images: candidate.images ?? 0, scene: candidate.scene ?? null, error: candidate.error ?? null, checks: candidate.checks, notes: notesFor(candidate) };
       return { card, candidate };
     });
     return { id: child.id, all: cards.map(row => row.card), games: cards.filter(row => playable(row.candidate)).map(row => ({ card: row.card, html: frameDoc(row.candidate.html, child), shot: row.candidate.screenshot ?? null })) };
@@ -236,7 +243,7 @@ export function loadChildren(directory: string): SandboxChild[] {
   return fs.readdirSync(directory).filter(file => file.endsWith(".json")).sort().map(file => JSON.parse(fs.readFileSync(path.join(directory, file), "utf8")) as SandboxChild);
 }
 
-export async function runSandbox(input: { models: string[]; variant?: Variant; caseIds?: string[]; childrenDir?: string; bar?: string; pickers?: string[]; dry?: boolean; maxTokens?: number; outputRoot?: string; client?: Client; skipBrowser?: boolean }): Promise<{ run: SandboxRun; file: string }> {
+export async function runSandbox(input: { models: string[]; variant?: Variant; caseIds?: string[]; childrenDir?: string; maxOutput?: number; bar?: string; pickers?: string[]; dry?: boolean; maxTokens?: number; outputRoot?: string; client?: Client; skipBrowser?: boolean }): Promise<{ run: SandboxRun; file: string }> {
   const pool = input.childrenDir ? loadChildren(input.childrenDir) : SANDBOX_CHILDREN;
   const children = pool.filter(child => !input.caseIds?.length || input.caseIds.includes(child.id));
   // Real children come only from the owner's copied files, never from the built-in cases.
@@ -252,7 +259,7 @@ export async function runSandbox(input: { models: string[]; variant?: Variant; c
     // The models build in parallel for one child; the cap is checked before each child.
     const asked = tokens >= cap
       ? input.models.map(model => ({ model, html: "", inputTokens: 0, outputTokens: 0, costUsd: 0, ms: 0, error: `token cap ${cap} reached; not asked`, checks: [] } as Candidate))
-      : await Promise.all(input.models.map(model => askModel(client, model, ask)));
+      : await Promise.all(input.models.map(model => askModel(client, model, ask, input.maxOutput)));
     for (const candidate of asked) {
       tokens += candidate.inputTokens + candidate.outputTokens;
       if (candidate.html && variant === "painted") {
@@ -306,7 +313,66 @@ export async function recheckRun(directory: string): Promise<string> {
   return page;
 }
 
-if (import.meta.url === pathToFileURL(process.argv[1] ?? "").href && process.argv.some(value => value.startsWith("--recheck="))) {
+// Problems code can see for itself. The robot's clumsiness is not one: it cannot play every game.
+const REPAIRABLE = ["game in reply", "no internet", "reports answers", "says when done", "loads", "no requests"];
+const PAINTING = /<style>:root\{--painting:url\("[^"]*"\)\}<\/style>/;
+
+/** Each inline script that will not even parse, with its line, so a model can find it. */
+export function scriptErrors(html: string): string[] {
+  return [...html.matchAll(/<script(?![^>]*\bsrc=)[^>]*>([\s\S]*?)<\/script>/gi)].flatMap((match, index) => {
+    try { new vm.Script(match[1]!); return []; } catch (error) {
+      const line = Number(String((error as Error).stack ?? "").match(/evalmachine\.<anonymous>:(\d+)/)?.[1] ?? 0);
+      const text = line ? match[1]!.split("\n")[line - 1]?.trim().slice(0, 200) : "";
+      return [`script ${index + 1} does not parse: ${(error as Error).message}${text ? ` at: ${text}` : ""}`];
+    }
+  });
+}
+
+/** One repair round, the same rule for every model: a game with a problem code can see goes back to the model
+ * that built it, with its own game, the problems and a screenshot, and comes back whole. */
+export async function repairRun(directory: string, maxOutput = 64_000, client: Client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY, maxRetries: 0 })): Promise<string> {
+  const saved = JSON.parse(fs.readFileSync(path.join(directory, "run.json"), "utf8")) as SandboxRun;
+  for (const { child, ask, candidates } of saved.cases) for (const candidate of candidates) {
+    const file = path.join(directory, `${child.id}-${candidate.model}.html`);
+    candidate.html = fs.existsSync(file) ? fs.readFileSync(file, "utf8") : "";
+    if (!candidate.html || candidate.repair) continue;
+    const browser = await browserCheck(candidate.html, child);
+    const checks = [...staticChecks(candidate.html, child), ...browser.checks];
+    const problems = [...checks.filter(check => !check.passed && REPAIRABLE.includes(check.name)).map(check => `${check.name}: ${check.detail}`), ...scriptErrors(candidate.html)];
+    if (!problems.length) continue;
+    const painting = candidate.html.match(PAINTING)?.[0];
+    const game = candidate.html.replace(PAINTING, "");
+    const feedback = `Sunny tested your game in a browser. It has these problems:\n${problems.map(row => `- ${row}`).join("\n")}\n\nThe screenshot is its first screen. Fix the problems and keep everything else. ${painting ? "The painting is still provided as var(--painting). " : ""}Reply with only the whole fixed HTML document.`;
+    const shot = browser.screenshot?.replace(/^data:image\/png;base64,/, "");
+    const started = Date.now();
+    try {
+      const message = await client.messages.stream(requestForModel({ model: candidate.model, max_tokens: maxOutput, output_config: { effort: EFFORT }, messages: [
+        { role: "user", content: ask.prompt },
+        { role: "assistant", content: game },
+        { role: "user", content: [...(shot ? [{ type: "image" as const, source: { type: "base64" as const, media_type: "image/png" as const, data: shot } }] : []), { type: "text" as const, text: feedback }] },
+      ] } as Anthropic.Messages.MessageStreamParams)).finalMessage();
+      const text = message.content.flatMap(block => block.type === "text" ? [block.text] : []).join("\n");
+      const inputTokens = message.usage?.input_tokens ?? 0, outputTokens = message.usage?.output_tokens ?? 0, price = PRICES[candidate.model];
+      const costUsd = price ? (inputTokens * price.input + outputTokens * price.output) / 1e6 : 0;
+      const fixed = extractHtml(text);
+      candidate.repair = { costUsd, inputTokens, outputTokens, problems, firstChecks: checks, ...(fixed ? {} : { error: `no game in the reply (stop=${message.stop_reason})` }) };
+      if (fixed) { candidate.html = painting ? withPainting(fixed, painting.match(/url\("([^"]*)"\)/)![1]!) : fixed; fs.writeFileSync(file, candidate.html); }
+      console.log(` 🎮 [spelling-sandbox] [repair] [${fixed ? "received" : "empty"}] model=${candidate.model} child=${child.id} problems=${problems.length} cost_usd=${costUsd.toFixed(3)} seconds=${Math.round((Date.now() - started) / 1000)}`);
+    } catch (error) {
+      candidate.repair = { costUsd: 0, inputTokens: 0, outputTokens: 0, problems, firstChecks: checks, error: error instanceof Error ? error.message : String(error) };
+      console.error(` 🎮 [spelling-sandbox] [repair] [failed] model=${candidate.model} child=${child.id} reason=${candidate.repair.error}`);
+    }
+  }
+  for (const { candidates } of saved.cases) for (const candidate of candidates) delete (candidate as Partial<Candidate>).html;
+  fs.writeFileSync(path.join(directory, "run.json"), JSON.stringify(saved, null, 2));
+  return recheckRun(directory);
+}
+
+if (process.argv.some(value => value.startsWith("--repair="))) {
+  const target = path.resolve(process.argv.find(value => value.startsWith("--repair="))!.split("=").slice(1).join("="));
+  const max = process.argv.find(value => value.startsWith("--max-output="));
+  repairRun(target, max ? Number(max.split("=")[1]) : undefined).catch(error => { console.error(` 🎮 [spelling-sandbox] [repair] [failed] reason=${error instanceof Error ? error.message : String(error)}`); process.exitCode = 1; });
+} else if (import.meta.url === pathToFileURL(process.argv[1] ?? "").href && process.argv.some(value => value.startsWith("--recheck="))) {
   recheckRun(path.resolve(process.argv.find(value => value.startsWith("--recheck="))!.split("=").slice(1).join("="))).catch(error => { console.error(` 🎮 [spelling-sandbox] [recheck] [failed] reason=${error instanceof Error ? error.message : String(error)}`); process.exitCode = 1; });
 } else if (import.meta.url === pathToFileURL(process.argv[1] ?? "").href) {
   const arg = (name: string) => process.argv.find(value => value.startsWith(`--${name}=`))?.split("=").slice(1).join("=");
@@ -316,6 +382,7 @@ if (import.meta.url === pathToFileURL(process.argv[1] ?? "").href && process.arg
     variant: (arg("set") ?? "plain") as Variant,
     caseIds: list(arg("cases")),
     childrenDir: arg("children"),
+    maxOutput: arg("max-output") ? Number(arg("max-output")) : undefined,
     bar: arg("bar"),
     pickers: list(arg("pickers")),
     dry: process.argv.includes("--dry"),
