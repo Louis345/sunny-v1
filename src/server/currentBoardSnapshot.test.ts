@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import path from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   buildCurrentBoardSnapshot,
@@ -244,6 +246,23 @@ describe("spelling pronunciation context", () => {
     expect(context).toContain("Purpose: establish what the child can spell independently");
     expect(context).toContain("syllables, letters and spelling demonstrations would supply part of the answer");
     expect(context).not.toContain("ARPABET");
+  });
+
+  it("gives the companion the Planner's current read on her during practice, never on a check", () => {
+    // Human-caught (Nov 4, owner): the Planner concluded Ila rushes daydream and something,
+    // but Elli only saw each stop's story, so she could not watch for rushing while they practiced.
+    const plannerRead = "Daydream's misses look like rushing, not a knowledge gap; stop, say, check fixed moonlight.";
+    const practice = buildCurrentBoardSnapshot({ childId: "lab-child", sessionId: "lab-session", canonicalPractice: true, plannerRead,
+      state: { game: "word-radar", itemId: "item-daydream", currentWord: "daydream", answerVisibility: "visible", practiceCapture: true } });
+    const practiceContext = buildCurrentBoardSnapshotContext(practice);
+    expect(practiceContext).toContain(plannerRead);
+    expect(practiceContext).toContain("a hypothesis");
+    const check = buildCurrentBoardSnapshot({ childId: "lab-child", sessionId: "lab-session", canonicalPractice: false, plannerRead,
+      state: { game: "word-radar", itemId: "item-daydream", currentTarget: "daydream", answerVisibility: "hidden", assessmentMode: true } });
+    expect(check.plannerRead).toBeUndefined();
+    expect(buildCurrentBoardSnapshotContext(check)).not.toContain("rushing");
+    // The live session reads the read from her chart's current theory.
+    expect(readFileSync(path.join(process.cwd(), "src/server/session-manager.ts"), "utf8")).toContain("plannerRead: cycle?.academicTheory?.hypothesis");
   });
 
   it("lets the companion answer a help request on a check instead of offering replay to everything", () => {

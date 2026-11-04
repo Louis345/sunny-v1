@@ -26,6 +26,8 @@ export type CurrentBoardSnapshot = {
   currentTarget?: string;
   /** Internal spelling truth; this is not permission to display the answer. */
   spellingTarget?: string;
+  /** The Planner's current read on her learning, present only on Planner-verified practice. */
+  plannerRead?: string;
   spellingSupportMode?: "stimulus_only" | "pronunciation_model";
   targetIsSpeakable: boolean;
   speechCaptureArmed?: boolean;
@@ -67,6 +69,8 @@ type BuildSnapshotInput = {
   assessment?: { itemId: string; word: string };
   /** Server-verified Planner practice role, independent of whether letters are displayed. */
   canonicalPractice?: boolean;
+  /** The Planner's current theory of her learning; reaches the companion on practice only. */
+  plannerRead?: string;
 };
 
 /** The Planner's frozen item role grants teaching; a browser visibility flag does not. */
@@ -228,6 +232,9 @@ export function buildCurrentBoardSnapshot(
       && (input.canonicalPractice === true || input.canonicalPractice !== false && (explicitVisibility === "visible" || explicitVisibility === "revealed"))
       ? "pronunciation_model" : "stimulus_only";
   }
+  // A check measures her alone, so the Planner's read on her reaches Elli on practice only.
+  const plannerRead = asString(input.plannerRead);
+  if (plannerRead && input.canonicalPractice === true && snapshot.spellingSupportMode === "pronunciation_model") snapshot.plannerRead = plannerRead;
 
   for (const key of ["itemIndex", "totalItems", "score", "coins", "coinsEarned", "accuracy"] as const) {
     const n = asNumber(state[key]);
@@ -325,6 +332,7 @@ export function buildCurrentBoardSnapshotContext(
       lines.push(`Authoritative spelling target (internal): ${snapshot.spellingTarget}`,
         "When the child asks for help with this word or is clearly stuck, help her learn it together: demonstrate and adapt, using her feedback to judge what helps. Otherwise follow her lead.",
         "Supported practice: sounds, syllables, blending, letter names and spelling demonstrations are available. The canonical target comes from this activity, not room conversation.");
+      if (snapshot.plannerRead) lines.push(`The Planner's current read on her learning (a hypothesis to notice as you practice, not a script): ${snapshot.plannerRead}`);
       const phones = cmuDictionary[snapshot.spellingTarget.normalize("NFC").toLowerCase()];
       if (typeof phones === "string" && phones) {
         const vowelNuclei = phones.split(/\s+/).filter(phone => /[012]$/.test(phone));

@@ -810,7 +810,8 @@ export class SessionManager {
       console.log("  🎮 [board-snapshot] [ignored] stale state after node_complete");
       return;
     }
-    const snapshot = buildCurrentBoardSnapshot({ childId: this.chartChildId, sessionId: this.sessionId, state, assessment: this.spellingAssessment, canonicalPractice: canonicalSpellingPractice(getChildChart(this.chartChildId).learningCycle, this.spellingLaunch, this.spellingAssessment, state) });
+    const cycle = getChildChart(this.chartChildId).learningCycle;
+    const snapshot = buildCurrentBoardSnapshot({ childId: this.chartChildId, sessionId: this.sessionId, state, assessment: this.spellingAssessment, canonicalPractice: canonicalSpellingPractice(cycle, this.spellingLaunch, this.spellingAssessment, state), plannerRead: cycle?.academicTheory?.hypothesis });
     this.currentBoardSnapshot = snapshot;
     if (snapshot.nodeId && snapshot.itemId && (snapshot.phase === "question" || snapshot.phase === "response")) {
       this.bindMathDiscoverySupport(snapshot.nodeId, snapshot.itemId);
