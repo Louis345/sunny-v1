@@ -75,7 +75,7 @@ function playGame(){const game=order[index];stopGame();show('play');
  frame=document.createElement('iframe');frame.setAttribute('sandbox','allow-scripts');frame.title='Game';frame.srcdoc=game.html;$('stage').appendChild(frame);
  current={player,round:round.id,card:game.card,order:index,started:Date.now(),done:false,answers:[]};
  $('next').textContent=index<order.length-1?'Next game ▶':'Pick your favorite ⭐';fit()}
-function stopGame(){if(!frame)return;frame.remove();frame=null;current.seconds=Math.round((Date.now()-current.started)/1000);delete current.started;state.plays.push(current);current=null;save();console.log(' 🎮 [spelling-sandbox] [play] [saved]')}
+function stopGame(){if(!frame)return;said++;if(voice){voice.pause();voice=null}try{speechSynthesis.cancel()}catch{}frame.remove();frame=null;current.seconds=Math.round((Date.now()-current.started)/1000);delete current.started;state.plays.push(current);current=null;save();console.log(' 🎮 [spelling-sandbox] [play] [saved]')}
 addEventListener('message',e=>{if(!frame||e.source!==frame.contentWindow||!e.data||typeof e.data!=='object')return;
  const d=e.data,p=d.payload||{};
  // Sunny's contract (attempt_event, node_complete, companion_event) and the first games' messages.
@@ -85,9 +85,10 @@ addEventListener('message',e=>{if(!frame||e.source!==frame.contentWindow||!e.dat
  if(d.type==='companion_event')(current.moments=current.moments||[]).push(String(p.trigger||''));
  if(d.type==='narration_request')speak(String(d.text||''))});
 // Elli's voice comes from the sandbox server (cached per line); opened as a plain file, the browser voice stands in.
-let voice=null;
-function speak(text){text=text.trim().slice(0,300);if(!text)return;if(voice){voice.pause();voice=null}
- if(location.protocol.startsWith('http')){fetch('/speak',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text})}).then(r=>{if(!r.ok)throw Error('speak '+r.status);return r.blob()}).then(b=>{voice=new Audio(URL.createObjectURL(b));return voice.play()}).catch(err=>{console.warn(' 🎮 [spelling-sandbox] [voice] [failed]',err);fallback(text)})}
+// One voice at a time: a newer line replaces an older one, even one still on its way from the server.
+let voice=null,said=0;
+function speak(text){text=text.trim().slice(0,300);if(!text)return;const turn=++said;if(voice){voice.pause();voice=null}
+ if(location.protocol.startsWith('http')){fetch('/speak',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text})}).then(r=>{if(!r.ok)throw Error('speak '+r.status);return r.blob()}).then(b=>{if(turn!==said)return;if(voice)voice.pause();voice=new Audio(URL.createObjectURL(b));return voice.play()}).catch(err=>{console.warn(' 🎮 [spelling-sandbox] [voice] [failed]',err);fallback(text)})}
  else fallback(text)}
 function fallback(text){try{speechSynthesis.cancel();speechSynthesis.speak(new SpeechSynthesisUtterance(text))}catch{}}
 addEventListener('resize',fit);
