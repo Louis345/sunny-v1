@@ -10,7 +10,7 @@ export async function plainDraw(journey: AdventureJourneyDefinition): Promise<{ 
 }
 
 type Recorded = { progressionAction: string; status: string; reason: string; preserve?: string[]; change?: string[]; testNext?: string[]; nextEvidenceRequired?: string[]; predictionEvaluationIds?: string[]; revisedHypothesis?: string;
-  nextInstruments?: Array<{ nodeId: string; title: string; academicTarget?: string; openingPurpose?: string; spelling?: { builtInActivityId?: string; wordIds?: string[] } }>;
+  nextInstruments?: Array<{ nodeId: string; title: string; academicTarget?: string; openingPurpose?: string; encounter?: string; spelling?: { builtInActivityId?: string; wordIds?: string[] } }>;
   boardDefinition?: { title?: string; rootPathId: string; portals: Array<{ id: string; kind: string; activityNodeId?: string }>; paths: Array<{ id: string; portalIds: string[] }>; choices: Array<{ portalId: string; purpose: string; options: Array<{ label: string; hypothesis: string; pathId: string }> }> } };
 const last = (id: string) => id.split(":").pop();
 let replies = 0;
@@ -36,7 +36,9 @@ export function successorToolReply(recorded: unknown, request: any): any {
     const builtIn = builtIns.find(id => wanted.some(want => id === want || last(id) === last(want)));
     const offeredWords: string[] = schema("add_step").words.items?.enum ?? [];
     const words = (row.spelling?.wordIds ?? []).filter(word => offeredWords.includes(word));
-    return builtIn ? [{ nodeId: row.nodeId, input: { built_in: builtIn, words, title: row.title, purpose: row.academicTarget || row.openingPurpose || "Practice.", story: `Story: ${row.title}`, picture: `Picture: ${row.title}` } }] : [];
+    // When Quest/Boss are offered, every step says whether it is the encounter.
+    const encounter = schema("add_step").encounter ? { encounter: row.encounter ?? "none" } : {};
+    return builtIn ? [{ nodeId: row.nodeId, input: { built_in: builtIn, words, title: row.title, purpose: row.academicTarget || row.openingPurpose || "Practice.", story: `Story: ${row.title}`, picture: `Picture: ${row.title}`, ...encounter } }] : [];
   });
   const assistantTurns = (request.messages ?? []).filter((row: any) => row.role === "assistant").length;
   if (decision.progressionAction === "await_calibration") return message([decide, { name: "finish_board", input: { title: "Waiting", endpoint_label: "Finish", single_path_reason: "Awaiting graded work." } }]);

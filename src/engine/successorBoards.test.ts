@@ -278,7 +278,8 @@ describe("successor boards (contract 21)", () => {
     expect(quest).toMatchObject({ title: "Lantern Rescue", state: "ready" });
     const projected = projectLearningCycle(published);
     const questNode = projected.adventureBoard.nodes.find((node) => node.activityNodeId === quest.nodeId)!;
-    expect(questNode.kind).toBe("activity");
+    // Owner, 2026-11-05: an authorized Quest looks like one on her map (star, unlock ceremony).
+    expect(questNode.kind).toBe("quest");
     expect(questNode.state).toBe("locked");
     complete(rootDir,published.nodes.find(node=>node.nodeId.endsWith(":warmup"))!.nodeId,"s2","s-1");
     expect(projectLearningCycle(getLearningCycle(CHILD,HW,{rootDir})!).adventureBoard.nodes.find(node=>node.activityNodeId===quest.nodeId)?.state).toBe("available");
@@ -345,7 +346,7 @@ describe("successor boards (contract 21)", () => {
     cycle = bindAll(rootDir);
     expect(cycle.lifecycle).toBe("boss_ready");
     const boss = nodesOfBoard(cycle, currentBoardInstance(cycle).boardId).find((node) => node.role === "boss")!;
-    expect(projectLearningCycle(cycle).adventureBoard.nodes.find((node) => node.activityNodeId === boss.nodeId)?.kind).toBe("activity");
+    expect(projectLearningCycle(cycle).adventureBoard.nodes.find((node) => node.activityNodeId === boss.nodeId)?.kind).toBe("boss");
     complete(rootDir, boss.nodeId, "s3", "boss-1");
     const awaiting = await advanceCanonicalCycleFromEvidence({ childId: CHILD, homeworkId: HW, decide: async () => ({ ...decision("await_calibration"), status: "awaiting_calibration" }) }, { rootDir });
     expect(awaiting.lifecycle).toBe("awaiting_calibration");

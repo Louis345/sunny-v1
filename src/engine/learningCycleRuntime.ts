@@ -259,7 +259,9 @@ export function recordSpellingDiscoveryAttempt(input: {
   const result = signals.length ? { observedErrorType: "instrument_ambiguous" } : scoreSpellingRecall(item, attempt.attemptedValue, attempt);
   const exposure: LearningObservation["exposure"] = previouslyExposed || item.lineage.exposure === "practiced"
     ? "previously_practiced" : item.lineage.exposure === "taught" ? "previously_taught" : "unseen";
-  const independent = node.role === "evaluation" && support.status === "unassisted" && exposure === "unseen" && typeof result.correct === "boolean";
+  // A Quest or Boss check of her practiced words is independent recall, never unseen (owner, 2026-11-05).
+  const encounterCheck = (node.role === "quest" || node.role === "boss") && item.lineage.measurementRole === "fresh_checkpoint" && !repeated;
+  const independent = (node.role === "evaluation" && exposure === "unseen" || encounterCheck) && support.status === "unassisted" && typeof result.correct === "boolean";
   if (node.role !== "evaluation" && !["ready", "active", "completed"].includes(node.state)) throw new Error("spelling_instrument_not_active");
   if (cycle.lifecycle === "evaluation_ready") cycle = transitionLearningCycle(input.childId, input.homeworkId, cycle.revision, { type: "evaluation_started", evaluationId: node.nodeId }, opts);
   const observation: LearningObservation = {
@@ -853,8 +855,12 @@ async function askPlanner(
       return decision;
     }
     const evaluationIds=cycle.predictionEvaluations.map(evaluation=>evaluation.evaluationId);
-    // Quest and Boss encounters are planned features spelling cannot run yet; they are not offered.
-    const actions=allowedProgressionActions.filter(action=>action!=="generate_quest"&&action!=="generate_boss");
+    // Spelling Quest and Boss (owner, 2026-11-05): Quest is the primer once fresh evidence exists, Boss the final
+    // check after a Quest; each stage is offered only the choices the contract allows it.
+    const actions:LearningProgressionAction[]=cycle.lifecycle==="quest_evaluating"?["generate_boss","generate_support","await_calibration"]
+      :cycle.lifecycle==="boss_evaluating"?["await_calibration"]
+      :allowedProgressionActions.filter(action=>action!=="generate_boss"&&action!=="await_calibration");
+    console.log(` 🎮 [canonical-progression] [actions-offered] homework=${cycle.homeworkId} lifecycle=${cycle.lifecycle} actions=${actions.join(",")}`);
     const facts={builtIns:builtIns.map(node=>{const items=Object.values(node.evidenceContract.spellingItems??{});const roles=Object.values(node.evidenceContract.itemRoles??{});
       const model=(node.evidenceContract.nativeConfig as {spellingModel?:{strategy:{title:string;steps:string[]};words:Array<{text:string;tip:string}>};questions?:Array<{prompt:string}>}|undefined);
       return {...(model?.spellingModel?{page:{trick:model.spellingModel.strategy.title,steps:model.spellingModel.strategy.steps,words:model.spellingModel.words.map(word=>({word:word.text,tip:word.tip})),check:model.questions?.[0]?.prompt??""}}:{}),nodeId:node.nodeId,title:node.title,implementationType:node.implementationType??"word-radar",wordIds:[...new Set(items.map(item=>item.wordId))],responseMode:items[0]?.response.mode??"spelling_letters",checkpoint:roles.length>0&&roles.every(role=>role==="fresh_checkpoint")};}),
@@ -880,7 +886,8 @@ ${JSON.stringify(childContext)}
 Baseline Quest eligibility (runtime truth boundary, not a mastery judgment):
 ${JSON.stringify(baselineEligibility)}
 Allowed progression actions: ${actions.join(", ")}
-Cycle:
+${actions.some(action=>action==="generate_quest"||action==="generate_boss")?`Quest and Boss use her own list words in new, fun content. Quest is the primer: a fun check of her words, the way a raid has a warm-up before its boss. Boss is the final check before the school test; it opens from her Quest results and always ends awaiting the graded test. When you choose generate_quest or generate_boss, add exactly one step with that encounter: a hidden-word check or her generated-game, where each word is hidden and she types it without help.
+`:""}Cycle:
 ${JSON.stringify({ lifecycle: cycle.lifecycle, assignment: cycle.assignment, theory: cycle.academicTheory, predictions: cycle.academicPredictions, predictionEvaluations: cycle.predictionEvaluations, evidence: factualEvidence, observations: factualObservations, nodes: cycle.nodes.map((node) => ({ nodeId: node.nodeId, role: node.role, title: node.title, state: node.state, routeId: node.routeId, evidenceIds: node.evidenceIds.filter((id) => !isSynthetic(id)) })) })}`;
     // The question is frozen when its evidence batch closes: a restart asks the same question and replays
     // the saved turns at no cost, whatever has been recorded since.
@@ -1059,10 +1066,11 @@ async function decideOnce(
   }
   if (cycle.lifecycle === "quest_evaluating" && decision.progressionAction === "generate_boss") {
     const completedQuests = cycle.nodes.filter((node) => node.role === "quest" && node.state === "completed");
+    // Spelling's Quest checks her practiced list words, so its evidence is independent but never unseen.
     const hasUnassistedUnseenQuestEvidence = cycle.observations.some((observation) =>
-      completedQuests.some((quest) => observation.sourceId.endsWith(`:${quest.nodeId}`)) &&
+      completedQuests.some((quest) => observationNode(cycle, observation)?.nodeId === quest.nodeId) &&
       observation.provenance === "independent_probe" &&
-      observation.exposure === "unseen" &&
+      (observation.exposure === "unseen" || cycle.domain === "spelling") &&
       observation.assistance.status === "unassisted");
     if (!hasUnassistedUnseenQuestEvidence) {
       throw new Error("canonical_progression_boss_requires_unseen_quest_evidence");

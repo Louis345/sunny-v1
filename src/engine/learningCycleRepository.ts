@@ -1808,8 +1808,9 @@ export function transitionLearningCycle(
         throw new Error(`learning_cycle_encounter_not_authorized:${action}`);
       }
       const independentQuestEvidence = next.nodes.some((node) => node.role === "quest" && node.state === "completed"
-        && next.observations.some((observation) => observation.sourceId.endsWith(`:${node.nodeId}`)
-          && observation.provenance === "independent_probe" && observation.exposure === "unseen"
+        // A typed answer is saved as `activity:<node>:recall`; spelling's Quest checks practiced words (2026-11-05).
+        && next.observations.some((observation) => (observation.sourceId.endsWith(`:${node.nodeId}`) || observation.sourceId === `activity:${node.nodeId}:recall`)
+          && observation.provenance === "independent_probe" && (observation.exposure === "unseen" || next.domain === "spelling")
           && observation.assistance.status === "unassisted"));
       if (expected === "boss" && !independentQuestEvidence) throw new Error("learning_cycle_boss_progress_requires_quest_evidence");
       prepareSuccessorBoard(next, program, {
@@ -1962,6 +1963,8 @@ function isExplicitUnusedCyclePlaceholder(node: LearningCycleNodeContract): bool
     || node.academicTarget.skill.trim().toLowerCase() === "unused";
 }
 
+const encounterOf = (node?: LearningCycleNodeContract) => node?.role === "quest" || node?.role === "boss" ? { encounter: node.role } : {};
+
 export function projectLearningCycle(
   cycle: LearningCycleRecordV2,
   options: ProjectLearningCycleOptions = {},
@@ -2069,7 +2072,7 @@ export function projectLearningCycle(
   const adventureBoard = board.definition ? renderBoardDefinition(board.definition, {
     boardId:board.boardId,planId,childId:cycle.childId,domain:cycle.domain,
     allowReadyActivitySelection:allowsReadyActivitySelection(cycle),
-    activities:nodePlan.map(node => ({...node,verified:boardNodes.find(item => item.nodeId === node.id)?.artifactBinding?.validationStatus === "passed",wordRadarConfig:node.wordRadarConfig ? {...node.wordRadarConfig} : undefined,state:boardNodes.find(item => item.nodeId === node.id)?.state})),
+    activities:nodePlan.map(node => ({...node,...encounterOf(boardNodes.find(item => item.nodeId === node.id)),verified:boardNodes.find(item => item.nodeId === node.id)?.artifactBinding?.validationStatus === "passed",wordRadarConfig:node.wordRadarConfig ? {...node.wordRadarConfig} : undefined,state:boardNodes.find(item => item.nodeId === node.id)?.state})),
     selections:cycle.routeSelection?.choices,companion:{id:"elli",name:"Elli"},
     notReady:Object.fromEntries(boardNodes.flatMap(node=> { const reason = node.notReadyReason ?? unavailableActivityReason(node); return reason ? [[node.nodeId,reason]] : []; })),
   }) : buildAdventureBoardFromActiveSessionPlan({

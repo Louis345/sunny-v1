@@ -287,7 +287,7 @@ function playableEdges(definition:AdventureBoardDefinition, notReady:readonly st
   return edges;
 }
 
-export type BoardRuntimeActivity = { id:string; activityId?:string; type?:string; state?:string; verified?:boolean; thumbnailUrl?:string; thumbnailPrompt?:string; gameHtmlPath?:string; activityConfigPath?:string; targets?:string[]; wordRadarConfig?:import('./adventureBoardJson').AdventureBoardWordRadarConfig };
+export type BoardRuntimeActivity = { id:string; activityId?:string; type?:string; state?:string; encounter?:'quest'|'boss'; verified?:boolean; thumbnailUrl?:string; thumbnailPrompt?:string; gameHtmlPath?:string; activityConfigPath?:string; targets?:string[]; wordRadarConfig?:import('./adventureBoardJson').AdventureBoardWordRadarConfig };
 /** Pure projection: presentation comes from the definition, operational facts from runtime. */
 export function renderBoardDefinition(definition:AdventureBoardDefinition, input:{boardId:string;planId:string;childId:string;domain:string;allowReadyActivitySelection?:boolean;activities:readonly BoardRuntimeActivity[];completedNodeIds?:readonly string[];selections?:Record<string,string>;companion?:import('./adventureBoardJson').AdventureBoardCompanion;notReady?:Readonly<Record<string,string>>}):import('./adventureBoardJson').AdventureBoardJson {
   const activities = new Map(input.activities.map(activity => [activity.id,activity]));
@@ -312,7 +312,8 @@ export function renderBoardDefinition(definition:AdventureBoardDefinition, input
       // Any order: the finish is her goal and a choice shows as made once the board is done; the planned order is a suggestion, never a lock.
       : anyOrder && portal.kind === 'endpoint' ? 'available' : anyOrder && choice && frontier.complete ? 'completed' : 'locked';
     return { id:portal.id, activityNodeId:portal.activityNodeId, label:portal.label,
-      kind:portal.kind === 'choice' ? 'choice-gate' : portal.kind === 'endpoint' ? (portal.activityNodeId ? 'activity' : 'reward') : portal.kind,
+      // A Planner-authorized Quest or Boss stop looks like one: its star or crown, and the unlock ceremony.
+      kind:activity?.encounter ?? (portal.kind === 'choice' ? 'choice-gate' : portal.kind === 'endpoint' ? (portal.activityNodeId ? 'activity' : 'reward') : portal.kind),
       position:portal.position.landscape, portraitPosition:portal.position.portrait,
       icon:portal.icon, thumbnailUrl:portal.thumbnailUrl ?? activity?.thumbnailUrl, ...(activity?.thumbnailPrompt ? {thumbnailPrompt:activity.thumbnailPrompt} : {}),
       activityId:activity?.activityId ?? activity?.type, state,

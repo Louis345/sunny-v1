@@ -21,7 +21,8 @@ export type SuccessorFacts = {
   rerunnable: (nodeId: string, wordIds: string[]) => boolean;
 };
 type Fresh = NonNullable<SuccessorFacts["activities"]>[number];
-type Step = { id: string; title: string; purpose: string; story: string; picture: string; wordIds: string[]; builtIn?: SuccessorFacts["builtIns"][number]; fresh?: Fresh; page?: Record<string, unknown> };
+type Encounter = "quest" | "boss";
+type Step = { id: string; title: string; purpose: string; story: string; picture: string; wordIds: string[]; builtIn?: SuccessorFacts["builtIns"][number]; fresh?: Fresh; page?: Record<string, unknown>; encounter?: Encounter };
 type Decision = { status: string; reason: string; progressionAction: string; preserve: string[]; change: string[]; testNext: string[]; nextEvidenceRequired: string[]; predictionEvaluationIds: string[]; revisedHypothesis: string };
 type Finished = { decision: Record<string, unknown>; journey?: AdventureJourneyDefinition };
 export type SuccessorState = JourneyOrderState & { next: number; steps: Step[]; decision?: Decision; result?: Finished; draft?: Finished; selfChecks?: number };
@@ -39,6 +40,9 @@ export function spellingSuccessorToolkit(facts: SuccessorFacts) {
   const fresh = new Map((facts.activities ?? []).filter(row => !builtIns.has(row.id)).map(row => [row.id, row]));
   const allWordIds = [...new Set(facts.builtIns.flatMap(row => row.wordIds))];
   const strings = z.array(z.string().min(1));
+  // Quest and Boss are offered only when the decision may authorize them, so older frozen questions keep their exact tools.
+  const encounters = (["quest", "boss"] as const).filter(name => facts.allowedActions.includes(`generate_${name}`));
+  const encounterFor = (action: string): Encounter | undefined => action === "generate_quest" ? "quest" : action === "generate_boss" ? "boss" : undefined;
   const tools: PlannerTool<SuccessorState>[] = [
     tool({ name: "decide", description: "Your one decision about the learning theory, compared with what she actually did. Calling it again replaces it.",
       schema: z.object({
@@ -59,17 +63,26 @@ export function spellingSuccessorToolkit(facts: SuccessorFacts) {
       schema: z.object({ built_in: enumOf([...builtIns.keys(), ...fresh.keys()], "none").describe("The game and mode for this step, or the built-in it re-runs."),
         words: z.array(enumOf(allWordIds, "none")).describe("Which of her words this step uses. For a re-run, empty means all of its own words."),
         title: text("The short name she sees under the portal: 2 to 4 words."), purpose: text("What this step is for, in one sentence."),
-        story: text("What this stop is in her world: one or two sentences Elli can tell her as it opens."), picture: text("What this stop's picture on her map shows, for the illustrator.") }).strict(),
+        story: text("What this stop is in her world: one or two sentences Elli can tell her as it opens."), picture: text("What this stop's picture on her map shows, for the illustrator."),
+        ...(encounters.length ? { encounter: enumOf(["none", ...encounters], "none").describe("quest or boss only on the one step your progression_action authorizes; none for every other step.") } : {}) }).strict(),
       run: (state, input) => {
         if (new Set(input.words).size !== input.words.length) return { ok: false, error: "a word is listed more than once" };
+        const encounter = input.encounter && input.encounter !== "none" ? input.encounter as Encounter : undefined;
+        if (encounter) {
+          if (!state.decision || encounterFor(state.decision.progressionAction) !== encounter) return { ok: false, error: `a ${encounter} step needs progression_action generate_${encounter}: decide first` };
+          if (state.steps.some(row => row.encounter)) return { ok: false, error: "the board already has its one encounter step" };
+          // Her words are hidden and typed without help: a hidden-word check, or her own generated game.
+          const id = input.built_in, checkable = fresh.get(id)?.checkpoint || builtIns.get(id)?.checkpoint || fresh.get(id)?.setup.type === "generated-game";
+          if (!checkable) return { ok: false, error: `${id} cannot be the ${encounter}: use a hidden-word check or generated-game, where her words are hidden and typed` };
+        }
         const game = fresh.get(input.built_in);
         if (game) {
           if (!input.words.length) return { ok: false, error: `${input.built_in} needs the words it practices` };
           state.next += 1;
           const id = `${facts.idPrefix}-${state.next}`;
-          state.steps.push({ id, title: input.title, purpose: input.purpose, story: input.story, picture: input.picture, wordIds: [...input.words], fresh: game });
+          state.steps.push({ id, title: input.title, purpose: input.purpose, story: input.story, picture: input.picture, wordIds: [...input.words], fresh: game, ...(encounter ? { encounter } : {}) });
           state.result = undefined;
-          return { ok: true, result: { step_id: id, words: input.words.length, role: game.checkpoint ? "fresh_checkpoint" : "practice" } };
+          return { ok: true, result: { step_id: id, words: input.words.length, role: encounter || game.checkpoint ? "fresh_checkpoint" : "practice", ...(encounter ? { encounter } : {}) } };
         }
         const builtIn = builtIns.get(input.built_in);
         if (!builtIn) return { ok: false, error: `no built-in ${input.built_in}` };
@@ -78,9 +91,9 @@ export function spellingSuccessorToolkit(facts: SuccessorFacts) {
         if (input.words.length && !facts.rerunnable(builtIn.nodeId, input.words)) return { ok: false, error: `${builtIn.title} cannot be re-run for just those words (its questions or tiles use its other words). It can be re-run with all of its words: leave words empty, or choose another built-in.${facts.explainer && builtIn.implementationType === "visual-explainer" ? " To teach just those words, write a new page with add_explainer." : ""}` };
         state.next += 1;
         const id = `${facts.idPrefix}-${state.next}`;
-        state.steps.push({ id, title: input.title, purpose: input.purpose, story: input.story, picture: input.picture, wordIds: input.words.length ? [...input.words] : [...builtIn.wordIds], builtIn });
+        state.steps.push({ id, title: input.title, purpose: input.purpose, story: input.story, picture: input.picture, wordIds: input.words.length ? [...input.words] : [...builtIn.wordIds], builtIn, ...(encounter ? { encounter } : {}) });
         state.result = undefined;
-        return { ok: true, result: { step_id: id, words: state.steps.at(-1)!.wordIds.length, role: builtIn.checkpoint ? "fresh_checkpoint" : "practice" } };
+        return { ok: true, result: { step_id: id, words: state.steps.at(-1)!.wordIds.length, role: builtIn.checkpoint ? "fresh_checkpoint" : "practice", ...(encounter ? { encounter } : {}) } };
       } }),
     ...(facts.explainer ? [explainerPageTool<SuccessorState>({ grade: facts.explainer.grade, returns: "step_id",
       word: enumOf(facts.explainer.words.map(row => row.word), "none").describe("One of her words."),
@@ -114,6 +127,9 @@ export function spellingSuccessorToolkit(facts: SuccessorFacts) {
           state.result = { decision: { ...base, nextInstruments: [] } };
           return { ok: true, result: { accepted: true, board: false } };
         }
+        const wanted = encounterFor(state.decision.progressionAction), marked = state.steps.filter(row => row.encounter);
+        if (wanted && (marked.length !== 1 || marked[0].encounter !== wanted)) return { ok: false, error: `generate_${wanted} needs exactly one step added with encounter ${wanted}` };
+        if (!wanted && marked.length) return { ok: false, error: `remove the ${marked[0].encounter} step: your progression_action does not authorize it` };
         const sequence = finishJourneySequence(state, state.steps, input, { add: "add_step", plural: "steps", remove: "remove_step" });
         if (!sequence.ok) return sequence;
         const journey = expandJourneySequence(sequence.sequence, state.steps);
@@ -125,7 +141,10 @@ export function spellingSuccessorToolkit(facts: SuccessorFacts) {
         };
         const nextInstruments = state.steps.map(row => ({
           nodeId: row.id, title: row.title, academicTarget: row.purpose, mechanic: row.page ? "visual-explainer" : row.builtIn?.implementationType ?? row.fresh!.setup.type, theme: row.story, picture: row.picture, openingPurpose: row.purpose,
-          spelling: row.page
+          ...(row.encounter ? { encounter: row.encounter } : {}),
+          spelling: row.encounter
+            ? { wordIds: [...row.wordIds], measurementRole: "fresh_checkpoint", responseMode: "spelling_letters", ...(row.builtIn ? { builtInActivityId: row.builtIn.nodeId } : { activity: { id: row.fresh!.id, ...structuredClone(row.fresh!.setup) } }) }
+            : row.page
             ? { wordIds: [...row.wordIds], measurementRole: "practice", responseMode: "tap_selection", activity: { id: "visual-explainer", type: "visual-explainer", activityConfig: row.page } }
             : row.builtIn
             ? { wordIds: [...row.wordIds], measurementRole: row.builtIn.checkpoint ? "fresh_checkpoint" : "practice", responseMode: row.builtIn.responseMode, builtInActivityId: row.builtIn.nodeId }
