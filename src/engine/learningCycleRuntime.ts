@@ -753,6 +753,10 @@ async function askPlanner(
     ...cycle.observations.flatMap(row=>row.constructLinks.map(link=>link.constructId)),
   ]);
   const priorBoard = currentBoardInstance(cycle);
+  // Each fact reaches the Planner once (2026-11-04): history rows already in this cycle's section
+  // are left out here, and each decision is listed once, not under every word it touched.
+  const inCycle = new Set([...cycle.observations.map(row=>row.observationId), ...cycle.academicPredictions.map(row=>row.predictionId), ...cycle.predictionEvaluations.map(row=>row.evaluationId)]);
+  const decisions = new Map([...histories.flatMap(history=>history.decisions), ...chart.learningHistory.recentDecisions].filter(factualDecision).map(row=>[row.decisionId,row]));
   const childContext = {
     identity: chart.identity,
     demographics: chart.demographics,
@@ -760,12 +764,11 @@ async function askPlanner(
     learningHistory: {
       constructs:Object.fromEntries(Object.entries(chart.learningHistory.constructs).filter(([id])=>constructIds.has(id) && !isSynthetic(id)).map(([id,history])=>[id,{
         constructId:id,
-        predictions:history.predictions.filter(row=>!excludedReference(row.predictionId)),
-        observations:history.observations.filter(row=>!excludedReference(row.observationId)),
-        evaluations:history.evaluations.filter(row=>!excludedReference(row.evaluationId)),
-        decisions:history.decisions.filter(factualDecision),
-      }])),
-      recentDecisions:chart.learningHistory.recentDecisions.filter(factualDecision),
+        predictions:history.predictions.filter(row=>!excludedReference(row.predictionId) && !inCycle.has(row.predictionId)),
+        observations:history.observations.filter(row=>!excludedReference(row.observationId) && !inCycle.has(row.observationId)),
+        evaluations:history.evaluations.filter(row=>!excludedReference(row.evaluationId) && !inCycle.has(row.evaluationId)),
+      }] as const).filter(([,row])=>row.predictions.length+row.observations.length+row.evaluations.length>0)),
+      decisions:[...decisions.values()],
       pendingInterpretation:chart.learningHistory.pendingInterpretation.filter(row=>![row.sourceId,...row.evaluationIds].some(excludedReference)),
     },
     priorPlan: {
@@ -857,12 +860,12 @@ ${JSON.stringify(facts.builtIns.map(row=>({builtIn:row.nodeId,title:row.title,ty
 Saved spelling words:
 ${JSON.stringify([...savedSpellingItems.values()].map(item=>({wordId:item.wordId,word:item.word})))}
 Child chart context:
-${JSON.stringify(childContext, null, 2)}
+${JSON.stringify(childContext)}
 Baseline Quest eligibility (runtime truth boundary, not a mastery judgment):
-${JSON.stringify(baselineEligibility, null, 2)}
+${JSON.stringify(baselineEligibility)}
 Allowed progression actions: ${actions.join(", ")}
 Cycle:
-${JSON.stringify({ lifecycle: cycle.lifecycle, assignment: cycle.assignment, theory: cycle.academicTheory, predictions: cycle.academicPredictions, predictionEvaluations: cycle.predictionEvaluations, evidence: factualEvidence, observations: factualObservations, nodes: cycle.nodes.map((node) => ({ nodeId: node.nodeId, role: node.role, title: node.title, state: node.state, routeId: node.routeId, evidenceIds: node.evidenceIds.filter((id) => !isSynthetic(id)) })) }, null, 2)}`;
+${JSON.stringify({ lifecycle: cycle.lifecycle, assignment: cycle.assignment, theory: cycle.academicTheory, predictions: cycle.academicPredictions, predictionEvaluations: cycle.predictionEvaluations, evidence: factualEvidence, observations: factualObservations, nodes: cycle.nodes.map((node) => ({ nodeId: node.nodeId, role: node.role, title: node.title, state: node.state, routeId: node.routeId, evidenceIds: node.evidenceIds.filter((id) => !isSynthetic(id)) })) })}`;
     // The question is frozen when its evidence batch closes: a restart asks the same question and replays
     // the saved turns at no cost, whatever has been recorded since.
     const frozenFile=path.join(draftDir,`${decisionStage}-tools.question.json`);
@@ -905,14 +908,14 @@ ${JSON.stringify(builtIns.map(node => ({ activityId: node.nodeId, type: node.imp
 For spelling, Correct practice after long response time is not effortless recall. Examine per-word response time alongside assistance, exposure, response mode, and instrument ambiguity. When the evidence suggests a child is struggling, author teaching and guided practice before another fresh recall check; let Elli respond conversationally from the live item and child context. Do not infer mastery from supported or partial-visibility practice, and do not use a fixed latency threshold to choose the lesson.
 
 Child chart context:
-${JSON.stringify(childContext, null, 2)}
+${JSON.stringify(childContext)}
 
 Baseline Quest eligibility (runtime truth boundary, not a mastery judgment):
-${JSON.stringify(baselineEligibility, null, 2)}
+${JSON.stringify(baselineEligibility)}
 Allowed progression actions for this lifecycle: ${allowedProgressionActions.join(", ")}
 
 Cycle:
-${JSON.stringify({ lifecycle: cycle.lifecycle, assignment: cycle.assignment, theory: cycle.academicTheory, predictions: cycle.academicPredictions, predictionEvaluations: cycle.predictionEvaluations, evidence: factualEvidence, observations: factualObservations, nodes: cycle.nodes.map((node) => ({ nodeId: node.nodeId, role: node.role, title: node.title, state: node.state, routeId: node.routeId, evidenceIds: node.evidenceIds.filter((id) => !isSynthetic(id)) })) }, null, 2)}` }],
+${JSON.stringify({ lifecycle: cycle.lifecycle, assignment: cycle.assignment, theory: cycle.academicTheory, predictions: cycle.academicPredictions, predictionEvaluations: cycle.predictionEvaluations, evidence: factualEvidence, observations: factualObservations, nodes: cycle.nodes.map((node) => ({ nodeId: node.nodeId, role: node.role, title: node.title, state: node.state, routeId: node.routeId, evidenceIds: node.evidenceIds.filter((id) => !isSynthetic(id)) })) })}` }],
     tools: [{
       name: toolName,
       description: "Return one evidence-grounded progression decision.",

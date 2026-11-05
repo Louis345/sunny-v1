@@ -167,6 +167,20 @@ it('lets an operator retry a cycle blocked by a request that lost its connection
  expect(f.stream).toHaveBeenCalled();
 });
 
+// Human-caught 2026-11-04: Reina's next-board question was 536K characters and Ila's 1.39M, growing
+// about 250K a board, because every answer, prediction and decision was sent twice or sixteen times
+// and padded with indentation. The first turn ran into the 5-minute deadline. Each fact goes once.
+it('sends the Planner each fact once, without padding',async()=>{
+ const f=fixture(),opts={rootDir:f.rootDir};
+ await runtime.advanceCanonicalCycleFromEvidence(f.request,opts);
+ const content=f.requests[0].messages[0].content;
+ const prompt=typeof content==='string'?content:content.map((block:any)=>block.text??'').join('');
+ const observationIds=getLearningCycle(childId,homeworkId,opts)!.observations.map(row=>row.observationId);
+ expect(observationIds.length).toBeGreaterThan(0);
+ for(const id of observationIds)expect(prompt.match(new RegExp(`"observationId":\\s*"${id}"`,'g'))?.length,id).toBe(1);
+ expect(prompt).not.toMatch(/\n {2,}"/);
+});
+
 // 2026-10-25: Reina's next board was blocked by that bug before the fix shipped. "Blocked" waits for a
 // person; the operator retry accepted only truncated answers, so a cycle blocked by a since-fixed bug
 // had no logged way back. The retry also accepts that cause, sets the collided turns aside (never
