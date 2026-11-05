@@ -1430,6 +1430,33 @@ describe("AdventureBoardExperience", () => {
     expect(screen.getByRole("button", { name: "Mystery" })).toBeVisible();
   });
 
+  // Owner, 2026-11-05: "they never see the quest and boss node". A Quest or Boss built ahead appears ready on her
+  // next board; it bursts out with the approved ceremony the first time she sees it, never again, and opens with one tap.
+  it("plays the ceremony the first time a ready Quest appears, and only once", () => {
+    vi.useFakeTimers();
+    window.localStorage.clear();
+    const board: AdventureBoardJson = {
+      schemaVersion: 1, boardId: "first-appearance-board", planId: "first-appearance-plan", childId: "reina", domain: "spelling",
+      theme: { background: { type: "solid", value: "#10203d" }, palette: { path: "#fff", completed: "#2f9f6f", available: "#6d5dfc", locked: "#9aa3ad", current: "#f59e0b", preview: "#c6ced6", text: "#fff", panel: "#111827" } },
+      nodes: [
+        { id: "start", kind: "activity", label: "Start", state: "completed", position: { x: 0.3, y: 0.6 } },
+        { id: "quest", kind: "quest", label: "Lantern Trail", state: "available", position: { x: 0.7, y: 0.4 } },
+      ],
+      edges: [{ id: "to-quest", from: "start", to: "quest", state: "available" }],
+    };
+    const onNodeClick = vi.fn();
+    const first = render(<AdventureBoard board={board} onNodeClick={onNodeClick} />);
+    expect(screen.getByRole("status", { name: "Quest unlocked" })).toHaveTextContent("Lantern Trail");
+    act(() => vi.advanceTimersByTime(4600));
+    expect(screen.queryByRole("status", { name: "Quest unlocked" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Lantern Trail" }));
+    expect(onNodeClick).toHaveBeenCalledWith(expect.objectContaining({ id: "quest" }));
+    first.unmount();
+    render(<AdventureBoard board={board} onNodeClick={onNodeClick} />);
+    expect(screen.queryByRole("status", { name: "Quest unlocked" })).not.toBeInTheDocument();
+    vi.useRealTimers();
+  });
+
   it("exports a Reina chart packet Storybook story", () => {
     expect(ReinaChartPacket.render).toBeTypeOf("function");
   });

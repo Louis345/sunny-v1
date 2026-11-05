@@ -307,8 +307,7 @@ export function renderBoardDefinition(definition:AdventureBoardDefinition, input
     const choice = choiceByPortal.get(portal.id);
     const verified = !portal.activityNodeId || (activity?.verified === true && ['ready','active','completed'].includes(activity.state ?? ''));
     const state = hidden.has(portal.id) ? 'hidden' : portal.kind === 'start' || (portal.activityNodeId && done.has(portal.activityNodeId)) ? 'completed'
-      // Any order is for practice: a Quest or Boss opens only when her path reaches it, which is when its ceremony plays.
-      : (input.allowReadyActivitySelection && portal.activityNodeId && verified && !activity?.encounter) || (portal.id === frontier.portalId && !choice && verified) || (choice && availableChoices.has(choice.id)) ? 'available'
+      : (input.allowReadyActivitySelection && portal.activityNodeId && verified) || (portal.id === frontier.portalId && !choice && verified) || (choice && availableChoices.has(choice.id)) ? 'available'
       : portal.kind === 'endpoint' && frontier.complete ? 'completed'
       // Any order: the finish is her goal and a choice shows as made once the board is done; the planned order is a suggestion, never a lock.
       : anyOrder && portal.kind === 'endpoint' ? 'available' : anyOrder && choice && frontier.complete ? 'completed' : 'locked';

@@ -52,6 +52,26 @@ export type UnlockCeremonyEvent = {
   label: string;
 };
 
+// Which Quest and Boss nodes she has already watched burst out, per child, so each plays its ceremony once.
+const revealedKey = (childId: string | undefined) => `sunny:encounter-revealed:${childId ?? "unknown"}`;
+function readRevealedEncounters(childId: string | undefined): Set<string> {
+  try {
+    return new Set(JSON.parse(window.localStorage.getItem(revealedKey(childId)) ?? "[]") as string[]);
+  } catch (error) {
+    console.warn(" 🎮 [adventure-board] [encounter-revealed] [unreadable]", error);
+    return new Set();
+  }
+}
+function rememberRevealedEncounter(childId: string | undefined, nodeId: string): void {
+  try {
+    const seen = readRevealedEncounters(childId);
+    seen.add(nodeId);
+    window.localStorage.setItem(revealedKey(childId), JSON.stringify([...seen].slice(-200)));
+  } catch (error) {
+    console.warn(" 🎮 [adventure-board] [encounter-revealed] [not-saved]", error);
+  }
+}
+
 type PositionedAdventureBoardNode = AdventureBoardNode & {
   position: { x: number; y: number };
   narrowPosition: { x: number; y: number };
@@ -185,13 +205,14 @@ export function AdventureBoard({
   const [brokenThumbnails, setBrokenThumbnails] = useState<Set<string>>(() => new Set());
 
   useEffect(() => {
+    // A Quest or Boss plays its ceremony when it opens, or the first time she ever sees it open (owner,
+    // 2026-11-05: "they never see the quest and boss node" until it is ready, built ahead of time).
+    const revealed = readRevealedEncounters(board.childId);
     const newlyUnlocked = board.nodes.find((node) => {
       if (node.kind !== "quest" && node.kind !== "boss") return false;
+      if (node.state !== "available" && node.state !== "current") return false;
       const previousState = previousNodeStates.current.get(node.id);
-      return (
-        (previousState === "locked" || previousState === "preview") &&
-        (node.state === "available" || node.state === "current")
-      );
+      return previousState === "locked" || previousState === "preview" || !revealed.has(node.id);
     });
     previousNodeStates.current = new Map(board.nodes.map((node) => [node.id, node.state]));
     if (!newlyUnlocked) return;
@@ -217,6 +238,7 @@ export function AdventureBoard({
     setCeremonyStage("dim");
     setCeremonyShakeAgain(false);
     setUnlockCeremony(event);
+    rememberRevealedEncounter(board.childId, event.nodeId);
     onUnlockCeremony?.(event);
     console.log(` 🎮 [adventure-board] [unlock-ceremony] [started] kind=${event.kind} node=${event.nodeId}`);
     const later = (ms: number, run: () => void) => unlockCeremonyTimers.current.push(setTimeout(run, ms));
@@ -227,7 +249,7 @@ export function AdventureBoard({
       unlockCeremonyTimers.current = [];
       console.log(` 🎮 [adventure-board] [unlock-ceremony] [finished] kind=${event.kind} node=${event.nodeId}`);
     });
-  }, [board.boardId, board.nodes, board.edges, onUnlockCeremony]);
+  }, [board.boardId, board.childId, board.nodes, board.edges, onUnlockCeremony]);
 
   useEffect(() => () => {
     unlockCeremonyTimers.current.forEach(clearTimeout);
@@ -440,7 +462,7 @@ export function AdventureBoard({
                 `adventure-board__node--${node.kind}`,
                 `adventure-board__node--${node.state}`,
                 unlockCeremony?.nodeId === node.id ? "adventure-board__node--unlocking" : "",
-                unlockCeremony?.nodeId === node.id && stageReached(ceremonyStage, "shake") && !stageReached(ceremonyStage, "rise")
+                unlockCeremony?.nodeId === node.id && !stageReached(ceremonyStage, "rise")
                   ? "adventure-board__node--underground"
                   : "",
                 unlockCeremony?.nodeId === node.id && stageReached(ceremonyStage, "rise")
