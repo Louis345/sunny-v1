@@ -370,6 +370,10 @@ function observationsForCompletion(input: {
         ...(scaffolded ? ["assistance_present"] : []),
         ...(repeatedAssessmentItem ? ["item_previously_exposed"] : []),
         ...(result.observedErrorType ? [result.observedErrorType] : []),
+        // A letter game's own report on the word, labelled as the game's, so the Planner sees the
+        // repetition; it is never scored as recall (owner, 2026-11-04).
+        ...(spellingItem && responseNotCaptured && typeof row.correct === "boolean" ? [`game_reported:${row.correct ? "solved" : "not_solved"}`] : []),
+        ...(spellingItem && responseNotCaptured && Number.isSafeInteger(row.attempts) && row.attempts! > 0 ? [`game_reported_attempts:${row.attempts}`] : []),
         `measurement_role:${measurementRole}`,
       ],
     };

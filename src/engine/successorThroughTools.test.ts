@@ -181,6 +181,20 @@ it('sends the Planner each fact once, without padding',async()=>{
  expect(prompt).not.toMatch(/\n {2,}"/);
 });
 
+// Human-caught 2026-11-04: Ila solved a word in Wheel of Words by picking letters; her cycle said only
+// "response not captured", so the Planner never saw that she solved it or how many tries it took.
+// A letter game's own report is kept as a labelled practice fact; it is never scored as recall.
+it('keeps what a letter game reported about each word as practice, never as recall',async()=>{
+ const f=fixture(),opts={rootDir:f.rootDir};
+ const cycle=runtime.recordCanonicalNodeCompletion({childId,homeworkId,nodeId:'radar-check',sessionId:'letter-game',result:{completed:true,accuracy:0.67,timeSpent_ms:74000,
+  targetResults:[{target:f.items[0].id,correct:true,attempts:3,scaffoldLevel:1},{target:f.items[1].id,correct:false,attempts:5,scaffoldLevel:1}]}},opts)!;
+ const [solved,unsolved]=cycle.observations.filter(row=>row.sourceId.includes('letter-game'));
+ expect(solved.result).toEqual({observedErrorType:'response_not_captured'});
+ expect(solved.provenance).toBe('practice');
+ expect(solved.confounds).toEqual(expect.arrayContaining(['game_reported:solved','game_reported_attempts:3']));
+ expect(unsolved.confounds).toEqual(expect.arrayContaining(['game_reported:not_solved','game_reported_attempts:5']));
+});
+
 // 2026-10-25: Reina's next board was blocked by that bug before the fix shipped. "Blocked" waits for a
 // person; the operator retry accepted only truncated answers, so a cycle blocked by a since-fixed bug
 // had no logged way back. The retry also accepts that cause, sets the collided turns aside (never
