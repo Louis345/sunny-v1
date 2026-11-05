@@ -59,6 +59,15 @@ export interface CompanionCareMemory {
   interactionSummaryRevision?: number;
 }
 
+export type BossDropTier = "common" | "rare" | "epic" | "legendary";
+export interface BossDrop {
+  homeworkId: string;
+  bossNodeId: string;
+  tier: BossDropTier;
+  coins: number;
+  droppedAt: string;
+}
+
 export interface CompanionCarePlan {
   version: 1;
   childId: string;
@@ -84,6 +93,8 @@ export interface CompanionCarePlan {
       amount: number;
       awardedAt: string;
     }>;
+    /** One loot drop per beaten Boss: rolled once, saved, shown again on replay. */
+    bossDrops?: BossDrop[];
   };
   updatedAt: string;
 }

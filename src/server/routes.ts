@@ -1,3 +1,4 @@
+import { awardBossDropOnCompletion } from "./bossDropAward";
 import { runOriginalSpellingForecast } from '../chart/spelling/originalForecast';
 import { setupOriginalSpellingParentRoutes } from './originalSpellingParent';
 import {commitOriginalSpellingAttempt} from './originalSpellingCommit';
@@ -1078,6 +1079,7 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
           console.error(` 🎮 [learning-cycle-route] [video-call-ticket] [deferred] ${error instanceof Error ? error.message : String(error)}`);
         }
       }
+      const bossDrop = awardBossDropOnCompletion(finalCycle, nodeId);
       console.log(` 🎮 [learning-cycle-route] [completion] [saved] child=${childId} node=${nodeId} state=${nodeState} transitioned=${becameCompleted} lifecycle=${finalCycle.lifecycle} revision=${finalCycle.revision}`);
       if (becameCompleted && !practiceContinuation && ["baseline_evaluating", "quest_evaluating", "boss_evaluating"].includes(finalCycle.lifecycle)) {
         void advanceCanonicalCycleFromEvidence({ childId, homeworkId })
@@ -1109,6 +1111,7 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
         academicAccuracy: updated.evidence?.academic.find(item => item.evidenceId === `${sessionId}:${nodeId}:completion`)?.accuracy ?? null,
         ...(award?.ok ? { coinAward: { amount: 25, balance: award.balance } } : {}),
         ...(videoCallTicket ? { videoCallTicket } : {}),
+        ...(bossDrop ? { bossDrop } : {}),
       });
     } catch (error) {
       console.error(" 🎮 [learning-cycle-route] [completion] [failed]", error);

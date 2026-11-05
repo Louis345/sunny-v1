@@ -73,6 +73,9 @@ function normalizeLoadedPlan(
       bonusRewardReceipts: Array.isArray(plan.economy?.bonusRewardReceipts)
         ? plan.economy.bonusRewardReceipts.map((receipt) => ({ ...receipt }))
         : [],
+      bossDrops: Array.isArray(plan.economy?.bossDrops)
+        ? plan.economy.bossDrops.map((drop) => ({ ...drop }))
+        : [],
     },
     inventory: {
       food: Array.isArray(plan.inventory?.food) ? plan.inventory.food : [],

@@ -109,6 +109,7 @@ import {
   useCompanionCare,
 } from "./context/CompanionCareContext";
 import { resolveSunnyRuntimeConfig } from "../../src/shared/runtimeConfig";
+import { BossDropReveal } from "./components/BossDropReveal";
 import type { PostActivityAction } from "../../src/engine/choiceEvents";
 import {
   playAdventureBoardSfx,
@@ -605,6 +606,8 @@ function App() {
     replayNonce: number;
     completionId: string;
   } | null>(null);
+  // Beating the Boss drops loot: the saved server roll, shown once per completion reply.
+  const [bossDrop, setBossDrop] = useState<{ tier: "common" | "rare" | "epic" | "legendary"; coins: number } | null>(null);
   const [postActivityEngagement, setPostActivityEngagement] = useState<{
     node: NodeConfig;
     outcome: PostActivityOutcome;
@@ -1638,6 +1641,7 @@ function App() {
         : !hasCanonicalLearningCycle(plannerBoardPacket) && payload.completed === true && payload.earlyExit !== true;
       if (completed) setLocallyCompletedPlannerNodeIds(current => current.includes(launch.node.id) ? current : [...current, launch.node.id]);
       if (completion?.coinAward) setProfileCompanionCurrency(completion.coinAward.balance);
+      if (completion?.bossDrop) setBossDrop(completion.bossDrop);
       showPlannerBoardEngagementOverlay(launch.node, completion ? completion.outcome : payload, completion?.coinAward, completion?.videoCallTicket);
       console.log(" 🎮 [AdventureBoard] [canonical-completion] [saved]", { nodeId: launch.node.id, nodeState: completion?.nodeState, completed });
     }).catch((error: unknown) => {
@@ -2460,6 +2464,7 @@ function App() {
           />
         </FlowGameOverlay>
       ) : null}
+      {bossDrop ? <BossDropReveal drop={bossDrop} onDone={() => setBossDrop(null)} /> : null}
       {!homeworkSessionFinished && plannerBoardLaunch?.node.type === "word-radar" ? (
         <FlowGameOverlay onBack={handlePlannerBoardOverlayBack} backLabel={directDiscoveryMode ? "Leave Discovery" : "Back to map"} completionNavigation={postActivityEngagement ? {completed:postActivityEngagement.outcome.completed,ownsBack:!directDiscoveryMode} : undefined}>
           <WordRadar
