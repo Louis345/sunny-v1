@@ -1372,7 +1372,12 @@ The teacher's journey (immutable): stops ${JSON.stringify(journey.portals.map(po
       messages=[...request.messages];
     }
     const execute=()=>client.messages.stream(requestForModel(request),{timeout:Number(process.env.SUNNY_AI_TIMEOUT_MS??600000),maxRetries:0}).finalMessage();
-    const response=draftDir?await runMathProviderStage({draftDir,stage,model,request,execute,retryUncertain:input.retryUncertain,beforeRequest:()=>{if(!input.client&&!process.env.ANTHROPIC_API_KEY?.trim())throw new Error("preflight_missing:ANTHROPIC_API_KEY");}}):await execute();
+    // A failed request (a lost connection, an outage) ends the artist's turns like a refusal: the
+    // map is decoration, so the board publishes from its last look or the plain layout and the
+    // uncertain request is never bought again (owner, 2026-11-04).
+    let response:Awaited<ReturnType<typeof execute>>;
+    try{response=draftDir?await runMathProviderStage({draftDir,stage,model,request,execute,retryUncertain:input.retryUncertain,beforeRequest:()=>{if(!input.client&&!process.env.ANTHROPIC_API_KEY?.trim())throw new Error("preflight_missing:ANTHROPIC_API_KEY");}}):await execute();}
+    catch(error){const reason=error instanceof Error?error.message:String(error);console.error(` 🎮 [experience-creator] [response] [failed] stage=${stage} ${reason}`);ending=`provider_failed:${reason.split(":")[0]}`;break;}
     if(input.rawResponseDir){fs.mkdirSync(input.rawResponseDir,{recursive:true});fs.writeFileSync(path.join(input.rawResponseDir,`design-response-${turn}.json`),`${JSON.stringify({model,stopReason:response.stop_reason,stopDetails:refusalDetails(response),usage:response.usage,content:response.content},null,2)}\n`,"utf8");}
     // A refusal ends the artist's turns: its partial output is never trusted and never bought
     // again. The board still publishes, from its last look or the plain layout (contract 39).
