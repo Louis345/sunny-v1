@@ -8,6 +8,7 @@
  * chart database, as if her current board had just finished. Only the result, one kit file, is written into
  * her real folder; Sunny uses it at her real board's end and checks it like a fresh decision.
  */
+import "dotenv/config";
 import { execFileSync, spawnSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
@@ -49,6 +50,9 @@ async function outer(childId: string): Promise<void> {
   const sandbox = fs.mkdtempSync(path.join(os.tmpdir(), `sunny-prebuild-${childId}-`));
   execFileSync("rsync", ["-a", "--exclude", "node_modules", "--exclude", ".git", "--exclude", "dist", `${real}/`, `${sandbox}/`]);
   fs.symlinkSync(path.join(real, "node_modules"), path.join(sandbox, "node_modules"));
+  // The board preview needs the web packages, and the builder stamps each game with the code version.
+  if (fs.existsSync(path.join(real, "web/node_modules"))) fs.symlinkSync(path.join(real, "web/node_modules"), path.join(sandbox, "web/node_modules"));
+  fs.symlinkSync(path.join(real, ".git"), path.join(sandbox, ".git"));
   const sandboxChart = path.join(sandbox, ".prebuild-chart");
   fs.mkdirSync(sandboxChart);
   for (const name of fs.readdirSync(chartDir).filter(file => file.startsWith(`${childId}.db`))) fs.copyFileSync(path.join(chartDir, name), path.join(sandboxChart, name));
@@ -58,10 +62,14 @@ async function outer(childId: string): Promise<void> {
   const copy = JSON.parse(fs.readFileSync(cycleFile(sandbox), "utf8"));
   copy.lifecycle = "baseline_evaluating";
   fs.writeFileSync(cycleFile(sandbox), JSON.stringify(copy, null, 2));
+  // Her saved Planner answers would replay the decision that built the board she has now: ask fresh.
+  fs.rmSync(path.join(sandbox, "src/context", childId, "homework/cycles/.planner", homeworkId), { recursive: true, force: true });
 
   // 3. The paid Planner and game builder run there, with capture on.
   const capture = path.join(sandbox, ".prebuild-capture");
-  const env = { ...process.env, SUNNY_CHART_DIR: sandboxChart, SUNNY_CONTEXT_ROOT: path.join(sandbox, "src/context"), SUNNY_PREBUILD_CAPTURE: capture };
+  // The sandbox's own src/context is its default root (cwd); a context-root override for a real child is refused by design.
+  const { SUNNY_CONTEXT_ROOT: _ignored, ...inherited } = process.env;
+  const env = { ...inherited, SUNNY_CHART_DIR: sandboxChart, SUNNY_PREBUILD_CAPTURE: capture };
   const run = spawnSync("npx", ["tsx", "src/scripts/prebuildBoard.ts", "--inner", "--child", childId, "--homework", homeworkId], { cwd: sandbox, env, stdio: "inherit" });
   if (run.status !== 0) throw new Error(`prebuild_sandbox_failed:exit=${run.status}`);
 
