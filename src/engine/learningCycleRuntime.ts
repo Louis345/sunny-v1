@@ -1011,6 +1011,11 @@ export async function advanceCanonicalCycleFromEvidence(
   input: AdvanceInput,
   opts: LearningCycleRepositoryOptions = {},
 ): Promise<LearningCycleRecordV2> {
+  // The demo child's free walkthrough answers in code (owner, 2026-11-05); a real child never matches.
+  if (!input.client && !input.decide) {
+    const demo = (await import("../scripts/questBossDemo")).freeDemoPlannerFor(input.childId, input.homeworkId, opts);
+    if (demo) input = { ...input, ...demo };
+  }
   try {
     return await decideOnce(input, opts);
   } catch (error) {
