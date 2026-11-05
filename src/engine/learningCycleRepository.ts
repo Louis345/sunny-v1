@@ -825,6 +825,9 @@ export function isSpellingPracticeContinuation(cycle:LearningCycleRecordV2):bool
 }
 
 /** Undefined is the read-only legacy navigation contract, never permission. */
+// Any-order practice never opens a Quest or Boss early: its authored path decides when it unlocks (2026-11-05).
+const isEncounter = (node: LearningCycleNodeContract) => node.role === "quest" || node.role === "boss";
+
 export function canonicalJourneyLaunchable(cycle:LearningCycleRecordV2, nodeId:string):boolean | undefined {
   if (currentBoardInstance(cycle).publishedAt === null) return false;
   const node = cycle.nodes.find(node=>node.nodeId===nodeId);
@@ -832,7 +835,7 @@ export function canonicalJourneyLaunchable(cycle:LearningCycleRecordV2, nodeId:s
   const frontier = canonicalJourneyFrontier(cycle);
   if (!frontier) return undefined;
   return Boolean(node && currentBoardInstance(cycle).nodeIds.includes(nodeId) && node.artifactBinding?.validationStatus === 'passed'
-    && ['ready','active','completed'].includes(node.state) && (node.state==='completed' || allowsReadyActivitySelection(cycle) || (!BATCH_CLOSED_LIFECYCLES.has(cycle.lifecycle) && frontier.activityNodeId===nodeId)));
+    && ['ready','active','completed'].includes(node.state) && (node.state==='completed' || (allowsReadyActivitySelection(cycle) && !isEncounter(node)) || (!BATCH_CLOSED_LIFECYCLES.has(cycle.lifecycle) && frontier.activityNodeId===nodeId)));
 }
 
 export function assertJourneyChoiceAvailable(cycle:LearningCycleRecordV2,choiceId:string,optionId:string):void {
