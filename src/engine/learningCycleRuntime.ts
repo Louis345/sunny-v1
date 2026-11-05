@@ -116,15 +116,27 @@ export type BaselineQuestEvidenceEligibility = {
   reason: "eligible_independent_correct_evidence" | "no_target_aligned_baseline_evidence" | "no_independent_correct_baseline_evidence";
 };
 
+/** The node an observation came from, for every source form the runtime writes: a node completion
+ * (`activity:<session>:<node>`), a typed answer (`activity:<node>:recall`) and Discovery (`evaluation:<node>`). */
+export function observationNode(cycle: LearningCycleRecordV2, observation: LearningObservation) {
+  // The most specific id wins: an earlier `quest` node must not claim `...:b2:quest`'s answers.
+  return cycle.nodes.find(node => observation.sourceId === `activity:${node.nodeId}:recall`)
+    ?? cycle.nodes.filter(node => observation.sourceId.endsWith(`:${node.nodeId}`)).sort((a, b) => b.nodeId.length - a.nodeId.length)[0];
+}
+
 export function baselineQuestEvidenceEligibility(
   cycle: LearningCycleRecordV2,
 ): BaselineQuestEvidenceEligibility {
   const targetAligned = cycle.observations.filter(observation => {
     if (/(^|[:_-])(synthetic|playwright|browser-acceptance|readiness)([:_-]|$)/i.test(`${observation.observationId} ${observation.sourceId}`)) return false;
-    const node = cycle.nodes.find(node => node.role === "baseline" && observation.sourceId.endsWith(`:${node.nodeId}`));
-    if (!node) return false;
-    const construct = cycle.academicPredictions.find(p => p.predictionId === node.predictionId)?.constructId ?? `${cycle.domain}.${slug(node.academicTarget.skill)}`;
-    return observation.constructLinks.some(link => link.role === "primary" && link.confidence > 0 && link.constructId === construct)
+    // Discovery's first check is baseline evidence too (2026-11-05); spelling links each answer to its word.
+    const node = observationNode(cycle, observation);
+    if (!node || (node.role !== "baseline" && node.role !== "evaluation")) return false;
+    const constructs = new Set([
+      cycle.academicPredictions.find(p => p.predictionId === node.predictionId)?.constructId ?? `${cycle.domain}.${slug(node.academicTarget.skill)}`,
+      ...Object.values(node.evidenceContract?.spellingItems ?? {}).map(item => item.constructId),
+    ]);
+    return observation.constructLinks.some(link => link.role === "primary" && link.confidence > 0 && constructs.has(link.constructId))
       && !observation.confounds.includes("response_not_captured");
   });
   const independentCorrect = targetAligned.filter((observation) =>
