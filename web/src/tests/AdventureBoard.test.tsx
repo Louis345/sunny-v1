@@ -5,7 +5,6 @@ import { describe, expect, it, vi } from "vitest";
 import {
   AdventureBoard,
   HORIZONTAL_ADVENTURE_SLOTS,
-  unlockCeremonyVariantFor,
 } from "../components/AdventureBoard";
 import { AdventureBoardExperience } from "../components/AdventureBoardExperience";
 import {
@@ -188,29 +187,19 @@ function boardWithSpecialChoice(
 }
 
 describe("AdventureBoard", () => {
-  it("rotates stable Quest and Boss ceremonies without repeating within one assignment", () => {
-    const boardIds = Array.from({ length: 18 }, (_, index) => `homework-board-${index}`);
-    const observed = new Set<string>();
-
-    for (const boardId of boardIds) {
-      const quest = unlockCeremonyVariantFor(boardId, "quest");
-      const boss = unlockCeremonyVariantFor(boardId, "boss");
-      expect(unlockCeremonyVariantFor(boardId, "quest")).toBe(quest);
-      expect(boss).not.toBe(quest);
-      observed.add(quest);
-      observed.add(boss);
-    }
-
-    expect(observed).toEqual(new Set(["power", "gate", "warp", "thunder"]));
-  });
-
+  // Owner, 2026-11-03: "yes thats it perfect" approved experiments/unlock-ceremony as the bar for Quest and Boss
+  // unlocks. Human-caught 2026-11-05: the kiosk still played an older 2.4s glow, so the approved moment never
+  // reached a child. The board must play the approved timeline: dim and lean in, shake, a light pillar, the node
+  // bursting out of the ground, coins along the new path, then the banner.
   it.each([
-    { kind: "quest" as const, label: "The Kraken's Toll", status: "Quest unlocked" },
-    { kind: "boss" as const, label: "The Iron Leviathan", status: "Boss unlocked" },
-  ])("presents the existing $kind unlock transition without launching or unlocking the node itself", ({
+    { kind: "quest" as const, label: "The Kraken's Toll", status: "Quest unlocked", small: "A NEW PATH OPENS", big: "QUEST UNLOCKED!" },
+    { kind: "boss" as const, label: "The Iron Leviathan", status: "Boss unlocked", small: "YOU WOKE IT UP", big: "BOSS AWAKENS!" },
+  ])("plays the approved $kind unlock ceremony without launching or unlocking the node itself", ({
     kind,
     label,
     status,
+    small,
+    big,
   }) => {
     vi.useFakeTimers();
     const onNodeClick = vi.fn();
@@ -270,13 +259,35 @@ describe("AdventureBoard", () => {
       />,
     );
 
+    const section = document.querySelector(".adventure-board")!;
+    const node = () => screen.getByRole("button", { name: label });
     expect(screen.getByRole("status", { name: status })).toHaveTextContent(label);
     expect(onUnlockCeremony).toHaveBeenCalledWith(expect.objectContaining({ kind, label }));
     expect(onNodeClick).not.toHaveBeenCalled();
-    expect(document.querySelector(".adventure-board__edge--unlocking")).not.toBeNull();
+    expect(section).toHaveClass("adventure-board--ceremony-dim");
+    expect(section).toHaveClass(`adventure-board--ceremony-${kind}`);
+    expect(screen.queryByText(big)).not.toBeInTheDocument();
 
-    act(() => vi.advanceTimersByTime(2600));
+    act(() => vi.advanceTimersByTime(460));
+    expect(section).toHaveClass("adventure-board--ceremony-shake");
+    expect(node()).toHaveClass("adventure-board__node--underground");
+
+    act(() => vi.advanceTimersByTime(800));
+    expect(document.querySelector(".unlock-ceremony__pillar")).not.toBeNull();
+    expect(document.querySelector(".unlock-ceremony__flash")).not.toBeNull();
+    expect(node()).toHaveClass("adventure-board__node--rising");
+    expect(document.querySelectorAll(".unlock-ceremony__spark").length).toBeGreaterThan(20);
+
+    act(() => vi.advanceTimersByTime(1000));
+    expect(section).not.toHaveClass("adventure-board--ceremony-dim");
+    expect(document.querySelectorAll(".unlock-ceremony__coin")).toHaveLength(12);
+    expect(document.querySelector(".adventure-board__edge--unlocking")).not.toBeNull();
+    expect(screen.getByText(small)).toBeInTheDocument();
+    expect(screen.getByText(big)).toBeInTheDocument();
+
+    act(() => vi.advanceTimersByTime(2400));
     expect(screen.queryByRole("status", { name: status })).not.toBeInTheDocument();
+    expect(section).not.toHaveClass(`adventure-board--ceremony-${kind}`);
     expect(screen.getByRole("button", { name: label })).toHaveClass("adventure-board__node--available");
     expect(onNodeClick).not.toHaveBeenCalled();
     vi.useRealTimers();
@@ -1433,17 +1444,17 @@ describe("AdventureBoardExperience", () => {
     expect(source).toContain("Play child Quest unlock");
     expect(source).toContain("Play child Boss unlock");
     expect(source).toContain("Reset ceremony");
-    expect(source).toContain("playAdventureBoardUnlockSfx(event.variant, event.kind)");
+    expect(source).toContain("playUnlockCeremonySfx(event.kind)");
   });
 
-  it("previews the child ceremony against Reina's current board with every production variant", () => {
+  it("previews the approved child ceremony against Reina's current board", () => {
     const source = readFileSync(
       resolve(__dirname, "../stories/AdventureBoard.stories.tsx"),
       "utf8",
     );
 
     expect(source).toContain("baseBoard={reinaCurrentHomeworkBoard}");
-    expect(source).toContain("unlockCeremonyVariantFor(candidateBoardId, kind)");
+    expect(source).not.toContain("unlockCeremonyVariantFor");
     expect(source).toContain("Play child Quest unlock");
     expect(source).toContain("Play child Boss unlock");
     expect(source).toContain('aria-label="Storybook ceremony controls"');

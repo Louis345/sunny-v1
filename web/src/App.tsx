@@ -113,7 +113,7 @@ import { BossDropReveal } from "./components/BossDropReveal";
 import type { PostActivityAction } from "../../src/engine/choiceEvents";
 import {
   playAdventureBoardSfx,
-  playAdventureBoardUnlockSfx,
+  playUnlockCeremonySfx,
   playGeneratedMathSfx,
   type GeneratedMathSfxCue,
 } from "./utils/gameSfx";
@@ -2144,7 +2144,7 @@ function App() {
             onUnlockCeremony={(event) => {
               console.log(" 🎮 [AdventureBoard] unlock_ceremony", event);
               if (!generatedMathSoundMuted) {
-                playAdventureBoardUnlockSfx(event.variant, event.kind);
+                playUnlockCeremonySfx(event.kind);
               }
             }}
           />

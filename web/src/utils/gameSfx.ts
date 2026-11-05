@@ -26,7 +26,6 @@ export const GAME_SFX = {
 
 export type AdventureBoardSfxCue = keyof typeof GAME_SFX.adventureBoard;
 export type GeneratedMathSfxCue = keyof typeof GAME_SFX.generatedMath;
-export type UnlockCeremonySfxVariant = "power" | "gate" | "warp" | "thunder";
 
 export const GAME_SFX_CONFIG = {
   pronunciation: {
@@ -250,31 +249,28 @@ export function playAdventureBoardSfx(cue: AdventureBoardSfxCue): boolean {
   return playGameSfx("adventureBoard", cue);
 }
 
-export function playAdventureBoardUnlockSfx(
-  variant: UnlockCeremonySfxVariant,
-  kind: "quest" | "boss",
-): boolean {
-  if (!getAudioCtx()) return false;
-  if (variant === "power") {
-    [392, 493.88, 587.33, 783.99, 659.25, 880, 987.77, 1174.66].forEach((frequency, index) => {
-      playTone(frequency, index * 0.105, index === 7 ? 0.55 : 0.19, 0.055, "square");
-      playTone(frequency / 2, index * 0.105, 0.22, 0.026, "triangle");
-    });
-  } else if (variant === "gate") {
-    [92, 102, 112].forEach((frequency, index) => playTone(frequency, index * 0.12, 0.14, 0.1, "triangle"));
-    [261.63, 329.63, 392, 523.25, 659.25, 783.99].forEach((frequency, index) =>
-      playTone(frequency, 0.42 + index * 0.09, 0.42, 0.04, "sawtooth"));
-  } else if (variant === "warp") {
-    playSweep(130, 980, 0.72, 0.09);
-    [440, 554.37, 659.25, 880].forEach((frequency, index) =>
-      playTone(frequency, 0.58 + index * 0.09, 0.3, 0.05, "square"));
-  } else {
-    playSweep(68, 42, 0.48, 0.18);
-    [196, 246.94, 293.66, 392, 493.88, 587.33].forEach((frequency, index) =>
-      playTone(frequency, 0.48 + index * 0.08, 0.5, 0.052, "square"));
-  }
-  if (kind === "boss") playTone(98, 0.38, 0.9, 0.08, "triangle");
-  console.log(" 🎮 [sfx] [unlock-ceremony] [played]", { variant, kind });
+/** The approved unlock ceremony's recorded sounds (owner, 2026-11-03), timed to the board's ceremony stages:
+ * rumble as the board dims, riser with the light pillar, the boom as the node bursts out, coins along the
+ * new path, then the fanfare (Quest) or the boss hit. */
+export function playUnlockCeremonySfx(kind: "quest" | "boss"): boolean {
+  if (typeof Audio === "undefined") return false;
+  const boss = kind === "boss";
+  const play = (name: string, rate = 1, volume = 0.85) => {
+    try {
+      const audio = new Audio(`/sfx/unlock/${name}.mp3`);
+      audio.playbackRate = rate;
+      audio.volume = volume;
+      void audio.play().catch((error: unknown) => console.warn(" 🎮 [sfx] [unlock-ceremony] [blocked]", { name, error }));
+    } catch (error) {
+      console.warn(" 🎮 [sfx] [unlock-ceremony] [unavailable]", { name, error });
+    }
+  };
+  play("rumble", boss ? 0.8 : 1, boss ? 1 : 0.8);
+  setTimeout(() => play("riser"), 900);
+  setTimeout(() => { play("boom", boss ? 0.75 : 1); if (boss) play("boss"); }, 1250);
+  for (let index = 1; index <= 12; index += 1) setTimeout(() => play("coin", 0.9 + index * 0.05, 0.6), 1900 + index * 70);
+  if (!boss) setTimeout(() => play("fanfare"), 2200);
+  console.log(" 🎮 [sfx] [unlock-ceremony] [played]", { kind });
   return true;
 }
 

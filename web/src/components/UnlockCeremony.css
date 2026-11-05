@@ -1,0 +1,245 @@
+/* The approved unlock ceremony (owner, 2026-11-03, experiments/unlock-ceremony/index.html). */
+.unlock-ceremony {
+  --ceremony-main: #ffd54a;
+  --ceremony-hot: #ff8a00;
+  --ceremony-light: #fff3a0;
+  position: absolute;
+  inset: 0;
+  z-index: 30;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.unlock-ceremony--boss {
+  --ceremony-main: #ff3d6e;
+  --ceremony-hot: #ff8a00;
+  --ceremony-light: #ff3d6e;
+}
+
+.unlock-ceremony__pillar {
+  position: absolute;
+  top: 0;
+  width: 120px;
+  margin-left: -60px;
+  background: linear-gradient(90deg, transparent, var(--ceremony-light), transparent);
+  opacity: 0;
+  animation: unlockCeremonyPillar 1.7s ease-out forwards;
+}
+
+@keyframes unlockCeremonyPillar {
+  0% { opacity: 0; }
+  15%, 65% { opacity: 0.85; }
+  100% { opacity: 0; }
+}
+
+.unlock-ceremony__flash {
+  position: absolute;
+  inset: 0;
+  background: #fff;
+  opacity: 0;
+  animation: unlockCeremonyFlash 420ms ease-out;
+}
+
+@keyframes unlockCeremonyFlash {
+  0% { opacity: 0.85; }
+  100% { opacity: 0; }
+}
+
+.unlock-ceremony__ring {
+  position: absolute;
+  width: 40px;
+  height: 40px;
+  margin: -20px 0 0 -20px;
+  border: 6px solid var(--ceremony-main);
+  border-radius: 50%;
+  opacity: 0;
+  animation: unlockCeremonyRing 900ms ease-out forwards;
+}
+
+.unlock-ceremony__ring--inner {
+  border-color: #fff;
+  animation-duration: 1.1s;
+}
+
+@keyframes unlockCeremonyRing {
+  0% { opacity: 1; transform: scale(0.5); }
+  100% { opacity: 0; transform: scale(12); }
+}
+
+.unlock-ceremony__spark {
+  position: absolute;
+  width: var(--spark-size);
+  height: var(--spark-size);
+  border-radius: 50%;
+  background: var(--ceremony-main);
+  box-shadow: 0 0 10px var(--ceremony-main);
+  opacity: 0;
+  animation: unlockCeremonySpark 1.1s cubic-bezier(0.15, 0.8, 0.3, 1) var(--spark-delay) forwards;
+}
+
+.unlock-ceremony__spark:nth-child(3n) { background: #fff; }
+.unlock-ceremony__spark:nth-child(4n) { background: var(--ceremony-hot); }
+
+@keyframes unlockCeremonySpark {
+  0% { opacity: 1; transform: translate(0, 0) scale(1); }
+  70% { opacity: 1; }
+  100% { opacity: 0; transform: translate(var(--spark-dx), calc(var(--spark-dy) + 60px)) scale(0.6); }
+}
+
+.unlock-ceremony__coin {
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  margin: -7px 0 0 -7px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #fff8b8, var(--ceremony-main) 55%, var(--ceremony-hot));
+  box-shadow: 0 0 10px var(--ceremony-main);
+  opacity: 0;
+  transform: scale(0);
+  animation: unlockCeremonyCoin 2.2s ease-out var(--coin-delay) forwards;
+}
+
+@keyframes unlockCeremonyCoin {
+  0% { opacity: 0; transform: scale(0); }
+  12%, 80% { opacity: 1; transform: scale(1); }
+  100% { opacity: 0; transform: scale(1); }
+}
+
+.unlock-ceremony__banner {
+  position: absolute;
+  top: clamp(28px, 9%, 90px);
+  left: 50%;
+  text-align: center;
+  white-space: nowrap;
+  animation: unlockCeremonySlam 700ms cubic-bezier(0.2, 1.8, 0.4, 1) forwards;
+}
+
+.unlock-ceremony__banner small {
+  display: block;
+  color: var(--ceremony-main);
+  font-size: clamp(13px, 1.6vw, 18px);
+  font-weight: 800;
+  letter-spacing: 0.3em;
+  text-shadow: 0 2px 8px #000;
+}
+
+.unlock-ceremony__banner strong {
+  display: block;
+  font-size: clamp(42px, 7vw, 76px);
+  font-weight: 900;
+  letter-spacing: 0.02em;
+  background: linear-gradient(#fff6c2, #ffd54a 45%, #ff8a00);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  -webkit-text-stroke: 2px #3a1a00;
+  filter: drop-shadow(0 6px 0 #3a1a00) drop-shadow(0 0 26px #ffb300aa);
+}
+
+.unlock-ceremony--boss .unlock-ceremony__banner small { color: #ffc2d1; }
+
+.unlock-ceremony--boss .unlock-ceremony__banner strong {
+  background: linear-gradient(#ffe0e8, #ff3d6e 50%, #7a0024);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-stroke: 2px #2a0010;
+  filter: drop-shadow(0 6px 0 #2a0010) drop-shadow(0 0 30px #ff3d6eaa);
+}
+
+@keyframes unlockCeremonySlam {
+  0% { opacity: 0; transform: translateX(-50%) scale(3); }
+  60% { opacity: 1; transform: translateX(-50%) scale(0.92); }
+  100% { opacity: 1; transform: translateX(-50%) scale(1); }
+}
+
+/* The board's side of the ceremony: dim, lean in, shake, and the node bursting out of the ground. */
+.adventure-board {
+  transition: transform 900ms cubic-bezier(0.2, 0.9, 0.2, 1);
+}
+
+/* The camera leans toward the node while the world holds its breath. */
+.adventure-board--ceremony-dim {
+  transform: scale(1.18);
+  transform-origin: var(--ceremony-x, 50%) var(--ceremony-y, 50%);
+}
+
+.unlock-ceremony__dim {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  background: rgb(5 3 12 / 62%);
+  animation: unlockCeremonyDim 600ms ease-out both;
+}
+
+.adventure-board--ceremony-dim .adventure-board__node:not(.adventure-board__node--unlocking) {
+  filter: brightness(0.38) saturate(0.7);
+}
+
+.unlock-ceremony__dim--lifting { animation: unlockCeremonyUndim 600ms ease-out both; }
+
+@keyframes unlockCeremonyDim { from { opacity: 0; } to { opacity: 1; } }
+@keyframes unlockCeremonyUndim { from { opacity: 1; } to { opacity: 0; } }
+
+.adventure-board--ceremony-shake { animation: unlockCeremonyShake 600ms linear; }
+.adventure-board--ceremony-shake-again { animation: unlockCeremonyShakeAgain 600ms linear; }
+
+@keyframes unlockCeremonyShake {
+  0%, 100% { translate: 0 0; }
+  10% { translate: -9px 4px; } 20% { translate: 8px -6px; } 30% { translate: -7px -3px; }
+  40% { translate: 6px 5px; } 50% { translate: -5px 3px; } 60% { translate: 4px -4px; }
+  70% { translate: -3px 2px; } 80% { translate: 2px -2px; }
+}
+
+@keyframes unlockCeremonyShakeAgain {
+  0%, 100% { translate: 0 0; }
+  10% { translate: 9px -4px; } 25% { translate: -8px 6px; } 40% { translate: 6px 3px; }
+  55% { translate: -5px -4px; } 70% { translate: 3px 2px; } 85% { translate: -2px 1px; }
+}
+
+.adventure-board__node--underground { opacity: 0; transform: translate(-50%, calc(-50% + 60px)) scale(0.3); }
+
+.adventure-board__node--rising .adventure-board__node-orb {
+  animation: unlockCeremonyRise 900ms cubic-bezier(0.2, 1.6, 0.4, 1) both, unlockCeremonyGlow 1.2s ease-in-out 900ms infinite alternate;
+}
+
+.adventure-board--ceremony-boss .adventure-board__node--rising .adventure-board__node-orb {
+  animation-name: unlockCeremonyRise, unlockCeremonyBossGlow;
+}
+
+@keyframes unlockCeremonyRise {
+  0% { opacity: 0; transform: translateY(80px) scale(0.2); }
+  60% { opacity: 1; transform: translateY(-30px) scale(1.35); }
+  100% { opacity: 1; transform: none; }
+}
+
+@keyframes unlockCeremonyGlow {
+  from { box-shadow: 0 0 18px 4px #ffd54a; }
+  to { box-shadow: 0 0 46px 16px #ffd54a; }
+}
+
+@keyframes unlockCeremonyBossGlow {
+  from { box-shadow: 0 0 18px 4px #ff3d6e; }
+  to { box-shadow: 0 0 60px 22px #ff3d6e; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .adventure-board--ceremony-dim { transform: none; }
+  .adventure-board--ceremony-shake,
+  .adventure-board--ceremony-shake-again,
+  .adventure-board__node--rising .adventure-board__node-orb,
+  .unlock-ceremony__spark,
+  .unlock-ceremony__ring,
+  .unlock-ceremony__banner { animation: none; }
+  .unlock-ceremony__banner { transform: translateX(-50%); }
+  .unlock-ceremony__spark, .unlock-ceremony__ring { display: none; }
+}
+
+.adventure-board__sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
