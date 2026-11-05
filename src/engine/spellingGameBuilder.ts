@@ -9,6 +9,7 @@ import { resolveChildContextDir } from "../utils/contextRoot";
 import { runMathProviderStage } from "./adaptiveMathDiscovery";
 import { engagementTheoryEvidenceContext } from "./engagementTheory";
 import { requestForModel } from "./plannerTransport";
+import { captureGame } from "./prebuiltBoard";
 import {
   transitionLearningCycle,
   type LearningCycleNodeContract,
@@ -129,6 +130,7 @@ export async function prepareGeneratedSpellingGame(input: {
     console.log(` 🎮 [spelling-game] [repair] [${problems.length ? "still-broken" : "fixed"}] node=${node.nodeId} problems=${problems.length}`);
   }
   if (problems.length) throw new Error(`generated_game_problems:${problems.join(" | ")}`);
+  captureGame(node.nodeId, game.html);
   const html = withSunnyContract(game.html);
   const contextDir = resolveChildContextDir(cycle.childId, { rootDir });
   const filename = `${node.nodeId.replace(/[^a-zA-Z0-9_-]/g, "_")}.html`;

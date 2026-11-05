@@ -49,6 +49,7 @@
     "sunny:adapt:demo:reset": "npx tsx src/scripts/adaptabilityDemo.ts --reset-only",
     "sunny:adapt:demo": "npx tsx src/scripts/adaptabilityDemo.ts",
     "sunny:demo:quest-boss": "npx tsx src/scripts/questBossDemo.ts",
+    "sunny:prebuild": "npx tsx src/scripts/prebuildBoard.ts",
     "sunny:adapt:demo:preview": "npx tsx src/scripts/adaptabilityDemo.ts --preview",
     "sunny:chart:migrate": "npx tsx src/scripts/migrateChildChartWaterfall.ts",
     "sunny:chart:migrate:slim": "npx tsx src/scripts/migrateChildChartWaterfall.ts --slim",

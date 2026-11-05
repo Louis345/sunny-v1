@@ -1,4 +1,5 @@
 import {verifyPreparingBoardCanvas} from './adventureBoardCanvas';
+import { prebuiltGameClient } from "./prebuiltBoard";
 import { thumbnailUrlForActivity } from "../shared/activityPresentation";
 import { createHash } from "crypto";
 import fs from "fs";
@@ -551,7 +552,7 @@ export async function prepareSuccessorBoard(
         if (cycle.domain === "spelling" && !pending.reusedFrom && !pending.implementationType) throw new Error("spelling_no_reusable_builtin");
         // Her own game is built for her once, from her chart and the Planner's story; a re-run reuses its file.
         next = cycle.domain === "spelling" && pending.implementationType === "generated-game" && !pending.reusedFrom
-          ? await prepareGeneratedSpellingGame({ cycle, node: pending, client: input.spellingGameClient, draftDir: qualityDiagnosticsDir(opts.rootDir ?? process.cwd(), cycle, pending) }, opts)
+          ? await prepareGeneratedSpellingGame({ cycle, node: pending, client: input.spellingGameClient ?? prebuiltGameClient(input.childId, input.homeworkId, pending.nodeId, opts), draftDir: qualityDiagnosticsDir(opts.rootDir ?? process.cwd(), cycle, pending) }, opts)
           : cycle.domain === "spelling"
           ? launchBuiltInActivity(input.childId, input.homeworkId, cycle, pending, opts)
           : await generateCanonicalProgressionArtifact({ ...input, nodeId: pending.nodeId }, opts);

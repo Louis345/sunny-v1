@@ -1016,6 +1016,24 @@ export async function advanceCanonicalCycleFromEvidence(
     const demo = (await import("../scripts/questBossDemo")).freeDemoPlannerFor(input.childId, input.homeworkId, opts);
     if (demo) input = { ...input, ...demo };
   }
+  // Experiment (owner, 2026-11-05): a decision built ahead on a sandbox copy is used the moment her board
+  // finishes. The runtime checks it like a fresh one; a kit it refuses is marked failed and the Planner decides live.
+  if (!input.decide) {
+    const prebuilt = await import("./prebuiltBoard");
+    const kit = prebuilt.prebuiltDecisionFor(getLearningCycle(input.childId, input.homeworkId, opts), opts);
+    if (kit) {
+      try {
+        const decided = await decideOnce({ ...input, decide: async () => structuredClone(kit.decision) as unknown as CanonicalProgressionDecision }, opts);
+        prebuilt.markPrebuiltKit(kit, "used", opts);
+        console.log(` 🎮 [prebuilt-board] [decision] [used] homework=${input.homeworkId} action=${kit.decision.progressionAction} provider_calls=0`);
+        return decided;
+      } catch (error) {
+        const reason = error instanceof Error ? error.message : String(error);
+        prebuilt.markPrebuiltKit(kit, "failed", opts, reason);
+        console.warn(` 🎮 [prebuilt-board] [decision] [refused] homework=${input.homeworkId} reason=${reason} fallback=live_planner`);
+      }
+    }
+  }
   try {
     return await decideOnce(input, opts);
   } catch (error) {
@@ -1050,6 +1068,7 @@ async function decideOnce(
     }, opts);
   }
   const plannerDecision = input.decide ? await input.decide(cycle) : await askPlanner(cycle, input.client, input.model, opts, input.draw);
+  if (!input.decide && process.env.SUNNY_PREBUILD_CAPTURE) (await import("./prebuiltBoard")).captureDecision(plannerDecision);
   const decision = resolveCanonicalProgressionDecisionForLifecycle(cycle.lifecycle, plannerDecision);
   const instruments = decision.successor?.instruments ?? [];
   if (cycle.domain === "math") {
