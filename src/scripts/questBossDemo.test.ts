@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import {afterEach,expect,it,vi} from 'vitest';
-import {getLearningCycle} from '../engine/learningCycleRepository';
+import {canonicalJourneyLaunchable,getLearningCycle,projectLearningCycle} from '../engine/learningCycleRepository';
 import {currentBoardInstance} from '../engine/learningBoardInstances';
 import {prepareSuccessorBoard} from '../engine/canonicalProgressionGenerator';
 import * as runtime from '../engine/learningCycleRuntime';
@@ -45,10 +45,19 @@ it('seeds the demo child a Quest board and plays it through Boss for free',async
  expect(current.current.homeworkId).toBe(DEMO_HOMEWORK_ID);
  expect(getChildChart(DEMO_CHILD_ID,{rootDir}).learningCycle?.homeworkId).toBe(DEMO_HOMEWORK_ID);
  // The route asks with no client: the demo answers in code.
+ // The encounter is locked behind a warm-up, so finishing the warm-up unlocks it (the ceremony's moment).
+ const warmUp=(cycle:any)=>cycle.nodes.find((row:any)=>currentBoardInstance(cycle).nodeIds.includes(row.nodeId)&&row.role==='baseline')!;
+ const stateOf=(cycle:any,nodeId:string)=>(projectLearningCycle(cycle) as any).adventureBoard.nodes.find((row:any)=>row.activityNodeId===nodeId)?.state;
+ expect(stateOf(seeded,encounter(seeded,'quest').nodeId)).toBe('locked');
+ const warmed=play(opts,warmUp(seeded).nodeId,'quest-warm-up');
+ expect(canonicalJourneyLaunchable(seeded,encounter(seeded,'quest').nodeId)).toBe(false);
+ expect(stateOf(warmed,encounter(seeded,'quest').nodeId)).toBe('available');
+ expect(canonicalJourneyLaunchable(warmed,encounter(seeded,'quest').nodeId)).toBe(true);
  expect(play(opts,encounter(seeded,'quest').nodeId,'quest').lifecycle).toBe('quest_evaluating');
  await runtime.advanceCanonicalCycleFromEvidence({childId:DEMO_CHILD_ID,homeworkId:DEMO_HOMEWORK_ID},opts);
  const boss=await prepareSuccessorBoard({childId:DEMO_CHILD_ID,homeworkId:DEMO_HOMEWORK_ID},opts);
  expect(boss.lifecycle).toBe('boss_ready');
+ play(opts,warmUp(boss).nodeId,'boss-warm-up');
  expect(play(opts,encounter(boss,'boss').nodeId,'boss').lifecycle).toBe('boss_evaluating');
  const done=await runtime.advanceCanonicalCycleFromEvidence({childId:DEMO_CHILD_ID,homeworkId:DEMO_HOMEWORK_ID},opts);
  expect(done.lifecycle).toBe('awaiting_calibration');

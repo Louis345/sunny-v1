@@ -22,11 +22,14 @@ const items = () => buildSpellingRecallItems({ homeworkId: DEMO_HOMEWORK_ID, wor
 
 /** The decision a Planner would make at each stage of the demo, answered through the same locked tools. */
 function demoDecision(cycle: LearningCycleRecordV2) {
-  const step = (title: string, encounter: "quest" | "boss") => ({ nodeId: `${DEMO_HOMEWORK_ID}:${RADAR}`, title, academicTarget: "Spell each word from memory", openingPurpose: "Check", encounter,
+  // A warm-up stop first, so finishing it unlocks the encounter in front of you: that is when the ceremony plays.
+  const step = (id: string, title: string, encounter?: "quest" | "boss") => ({ nodeId: `${DEMO_HOMEWORK_ID}:${id}`, title, academicTarget: "Spell each word from memory", openingPurpose: "Check", ...(encounter ? { encounter } : {}),
     spelling: { builtInActivityId: RADAR, wordIds: items().map(item => item.wordId) } });
+  const board = (title: string, encounter: "quest" | "boss", name: string) => ({ nextInstruments: [step("warm-up", "Warm-up"), step(RADAR, name, encounter)],
+    boardDefinition: { ...linearJourneyFixture([`${DEMO_HOMEWORK_ID}:warm-up`, `${DEMO_HOMEWORK_ID}:${RADAR}`]), title } });
   const base = { status: "supported", reason: "Demo: recorded decision for the free Quest/Boss walkthrough.", preserve: [], change: [], testNext: [], nextEvidenceRequired: ["Typed words"], predictionEvaluationIds: [] };
-  if (cycle.lifecycle === "baseline_evaluating") return { ...base, progressionAction: "generate_quest", nextInstruments: [step("Quest: Lantern Trail", "quest")], boardDefinition: { ...linearJourneyFixture([`${DEMO_HOMEWORK_ID}:${RADAR}`]), title: "Quest Board" } };
-  if (cycle.lifecycle === "quest_evaluating") return { ...base, progressionAction: "generate_boss", nextInstruments: [step("Boss: Storm Dragon", "boss")], boardDefinition: { ...linearJourneyFixture([`${DEMO_HOMEWORK_ID}:${RADAR}`]), title: "Boss Board" } };
+  if (cycle.lifecycle === "baseline_evaluating") return { ...base, progressionAction: "generate_quest", ...board("Quest Board", "quest", "Quest: Lantern Trail") };
+  if (cycle.lifecycle === "quest_evaluating") return { ...base, progressionAction: "generate_boss", ...board("Boss Board", "boss", "Boss: Storm Dragon") };
   return { ...base, status: "awaiting_calibration", progressionAction: "await_calibration" };
 }
 
