@@ -322,6 +322,7 @@ export function handleCompanionPresenceTranscript(input: {
     return true;
   }
   if (route.action === "dismiss") {
+    console.log(` 🎮 [companion-presence] [dismissed] from=${input.presence}`);
     input.setPresence("collapsed", "voice");
     input.recordEvent("companion_presence", "dismissed", { nodeId: input.nodeId });
     return true;
@@ -357,7 +358,8 @@ export function routeCompanionPresenceTranscript(input: {
   const text = normalizeSpeechText(input.transcript);
   if (!text) return { action: "ignore_ambient" };
   // Sunny wakes every companion; each companion file lists her own names.
-  const aliases = [...new Set(["sunny", "sonny", "sony", ...input.companionWakeNames]
+  // "eddie" is how speech recognition hears Ila's "Ellie" (2026-11-05 dismissal transcript).
+  const aliases = [...new Set(["sunny", "sonny", "sony", "eddie", ...input.companionWakeNames]
     .map(normalizeSpeechText)
     .filter(Boolean))];
   const aliasPattern = aliases.map(escapeRegExp).join("|");
@@ -368,9 +370,17 @@ export function routeCompanionPresenceTranscript(input: {
     `^(?:${repeatedFarewell}|(?:dismiss|go away|im good|i am good)(?:\\s+${aliasToken})?)$`,
     "i",
   );
+  // A goodbye anywhere, a go-away phrase, or her name with go/stop/bye dismisses her, collapsed or not,
+  // so a dismissal never summons her. A bare "go" during play is not addressed to her.
+  const goodbyeAnywhere = /\b(?:bye|goodbye)\b/.test(text) && !/\b(?:spell|spelling|spelled|mean|means|word|rhymes?)\b/.test(text);
+  const goAwayPhrase = /\b(?:go away|leave me alone|stop talking|be quiet|shut up)\b/.test(text);
+  const addressedGoStop = new RegExp(
+    `(?:^|\\s)${aliasToken}\\s+(?:go|stop|leave)(?=\\s+(?:now|away|go|stop|no|${aliasPattern})(?:\\s|$)|$)|(?:^|\\s)stop\\s+${aliasToken}(?:\\s|$)`,
+    "i",
+  ).test(text);
   if (
-    input.presence === "summoned" &&
-    (dismissal.test(text) || shortRecognizedFarewell.test(text))
+    (input.presence === "summoned" && (dismissal.test(text) || shortRecognizedFarewell.test(text)))
+    || goodbyeAnywhere || goAwayPhrase || addressedGoStop
   ) {
     return { action: "dismiss" };
   }
