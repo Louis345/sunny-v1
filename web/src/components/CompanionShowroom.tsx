@@ -1,3 +1,5 @@
+import {attachWardrobeHairCollisions} from '../lib/wardrobeHairCollision';
+import { applyWardrobeInspection, type WardrobeInspection } from "../lib/wardrobeInspection";
 import {
   useCallback,
   useEffect,
@@ -8,8 +10,9 @@ import {
   type PointerEvent as PointEvt,
 } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Mic, Send, Video, X } from "lucide-react";
+import { Mic, Send, ShoppingBag, Video, X } from "lucide-react";
 import * as THREE from "three";
+import { VRMUtils, type VRM } from "@pixiv/three-vrm";
 import { WebGPURenderer } from "three/webgpu";
 import { CompanionMotor } from "../companion/CompanionMotor";
 import {
@@ -47,6 +50,36 @@ import {
   emitCompanionVideoCallTrace,
 } from "../utils/companionVideoCallTrace";
 import { loadCompanionVrm } from "../utils/loadCompanionVrm";
+import { applyPreparedAccessoryFit, retainIntrinsicAccessories } from "../lib/wardrobeAccessoryFit";
+import {
+  attachXwearOutfit,
+  captureXwearAvatarBindPose,
+  getXwearOutfitDefinition,
+  isXwearOutfitApprovedForAvatar,
+  isXwearOutfitAnimationSupported,
+  setVrmBaseClothingVisible,
+  type XwearMaterialVariant,
+} from "../lib/xwearDress";
+import {
+  WARDROBE_STORE_CATALOG,
+  isWardrobeOutfitCompatible,
+  type WardrobeAccessoryId,
+  type WardrobeOutfitId,
+  type WardrobeSelection,
+} from "../lib/wardrobeStore";
+import {
+  WardrobeStoreLab,
+  type WardrobeShoppingContext,
+  type WardrobeShoppingEvent,
+  type WardrobeStoreDebugEvent,
+} from "./WardrobeStoreLab";
+import { WardrobeCompatibilityLab } from "./WardrobeCompatibilityLab";
+import {
+  WARDROBE_STORE_CERTIFICATION_CASES,
+  isWardrobeReadyForHumanReview,
+  resolvePreparedWardrobePresentation,
+} from "../lib/wardrobeBodyProfiles";
+
 import {
   StorybookFootlights,
   StorybookSparkles,
@@ -527,6 +560,26 @@ type ShowroomVideoSnapshotPayload = {
   width: number;
   height: number;
 };
+type ShowroomShoppingEvent = WardrobeShoppingEvent;
+
+export function getWardrobeShoppingReactionKey(
+  context: WardrobeShoppingContext,
+  event: ShowroomShoppingEvent,
+): string {
+  return `${context.visitId}:${context.mode}:${event.type}:${event.itemId}`;
+}
+
+export function isWardrobeShoppingReactionCurrent(
+  expectedKey: string,
+  currentContext: WardrobeShoppingContext | null,
+  event: ShowroomShoppingEvent | undefined,
+): boolean {
+  if (!currentContext?.selectedItem || !event) return false;
+  return expectedKey === getWardrobeShoppingReactionKey(currentContext, {
+    ...event,
+    itemId: currentContext.selectedItem.id,
+  });
+}
 
 type ShowroomSpeechRecognition = {
   lang: string;
@@ -548,7 +601,9 @@ type WindowWithSpeechRecognition = Window & {
 const accent = "#6D5EF5";
 const confettiColours = ["#6D5EF5", "#a78bfa", "#fbbf24", "#f472b6", "#34d399"];
 const SHOWROOM_COMMAND_CHILD_ID = "showroom";
-const SHOWROOM_MAX_DISPLAY_SCALE = 1.25;
+const SHOWROOM_MIN_DISPLAY_SCALE = 0.7;
+const SHOWROOM_MAX_DISPLAY_SCALE = 1.05;
+const SHOWROOM_DISPLAY_SCALE_STEP = 0.05;
 const SHOWROOM_VIDEO_CHAT_NO_SPEECH_RETRY_DELAY_MS = 560;
 const SHOWROOM_VIDEO_CHAT_NO_SPEECH_RETRY_LIMIT = 2;
 const SHOWROOM_VIDEO_CHAT_HANDS_FREE_REARM_MS = 360;
@@ -605,6 +660,18 @@ export type ShowroomContainedSlotFraming = {
   motorDisplayScale: number;
   transformOrigin: string;
 };
+
+export type WardrobePresentationState = "loading" | "ready" | "failed";
+
+export function shouldRevealWardrobeCompanionCanvas(args: {
+  requiresReady?: boolean;
+  requestedKey?: string;
+  settledKey?: string | null;
+  presentationState: WardrobePresentationState;
+}): boolean {
+  return !(args.requiresReady) ||
+    (args.presentationState === "ready" && args.requestedKey === args.settledKey);
+}
 
 export function getShowroomVideoChatLatencyBudget(): ShowroomVideoChatLatencyBudget {
   return {
@@ -1365,6 +1432,8 @@ export function createShowroomTalkPayload(args: {
   turnId?: string;
   visualSnapshot?: ShowroomVideoSnapshotPayload;
   lastVisualSummary?: string;
+  shoppingContext?: WardrobeShoppingContext;
+  shoppingEvent?: ShowroomShoppingEvent;
 }): {
   childId: string;
   companionId: string;
@@ -1382,6 +1451,8 @@ export function createShowroomTalkPayload(args: {
   turnId?: string;
   visualSnapshot?: ShowroomVideoSnapshotPayload;
   lastVisualSummary?: string;
+  shoppingContext?: WardrobeShoppingContext;
+  shoppingEvent?: ShowroomShoppingEvent;
 } {
   const { activeActivity, activityReaction, ...payload } = args;
   return {
@@ -2092,11 +2163,14 @@ function createPersistentSlotEntries(
   });
 }
 
-function slotFrameStyle(
+export function slotFrameStyle(
   slot: SlotName,
-  opts: { soleFlankPair?: boolean } = {},
+  opts: {
+    soleFlankPair?: boolean;
+    instantAvatarSwitch?: boolean;
+  } = {},
 ): CSSProperties {
-  const { soleFlankPair } = opts;
+  const { instantAvatarSwitch = false, soleFlankPair } = opts;
   const base: CSSProperties = {
     position: "absolute",
     top: slot === "current" ? "5%" : "8%",
@@ -2104,8 +2178,9 @@ function slotFrameStyle(
     height: "min(66vh, 560px)",
     minWidth: slot === "current" ? 230 : 150,
     minHeight: 300,
-    transition:
-      "left 620ms cubic-bezier(0.22, 1, 0.36, 1), width 620ms cubic-bezier(0.22, 1, 0.36, 1), transform 620ms cubic-bezier(0.22, 1, 0.36, 1), opacity 420ms ease, filter 420ms ease",
+    transition: instantAvatarSwitch
+      ? "none"
+      : "left 620ms cubic-bezier(0.22, 1, 0.36, 1), width 620ms cubic-bezier(0.22, 1, 0.36, 1), transform 620ms cubic-bezier(0.22, 1, 0.36, 1), opacity 420ms ease, filter 420ms ease",
     pointerEvents: slot === "current" ? "auto" : "none",
   };
 
@@ -2113,7 +2188,7 @@ function slotFrameStyle(
     return {
       ...base,
       left: soleFlankPair ? "24%" : "16%",
-      opacity: 0.4,
+      opacity: instantAvatarSwitch ? 0 : 0.4,
       filter: "saturate(0.75)",
       transform: "translateX(-50%) scale(0.76)",
       zIndex: 1,
@@ -2123,7 +2198,7 @@ function slotFrameStyle(
     return {
       ...base,
       left: soleFlankPair ? "76%" : "84%",
-      opacity: soleFlankPair ? 0.5 : 0.4,
+      opacity: instantAvatarSwitch ? 0 : soleFlankPair ? 0.5 : 0.4,
       filter: "saturate(0.75)",
       transform: `translateX(-50%) scale(${soleFlankPair ? 0.78 : 0.76})`,
       zIndex: 1,
@@ -2230,63 +2305,159 @@ function launchConfetti(): () => void {
   return cleanup;
 }
 
-function createAmbientMusic(): AmbientMusicHandle | null {
-  if (typeof window === "undefined") return null;
-  const AudioContextCtor =
-    window.AudioContext ?? (window as WindowWithWebkitAudio).webkitAudioContext;
-  if (!AudioContextCtor) return null;
+function createWardrobeAccessory(
+  accessoryId: Exclude<WardrobeAccessoryId, "none">,
+): THREE.Group {
+  const accessory = new THREE.Group();
+  accessory.name = `sunny-wardrobe-${accessoryId}`;
 
-  const context = new AudioContextCtor();
-  const master = context.createGain();
-  master.gain.value = 0.038;
-  master.connect(context.destination);
+  if (accessoryId === "crown") {
+    const gold = new THREE.MeshStandardMaterial({
+      color: 0xffc83d,
+      emissive: 0x8a4b00,
+      emissiveIntensity: 0.22,
+      metalness: 0.55,
+      roughness: 0.3,
+    });
+    const jewel = new THREE.MeshStandardMaterial({
+      color: 0xa855f7,
+      emissive: 0x5b21b6,
+      emissiveIntensity: 0.5,
+      roughness: 0.2,
+    });
+    const band = new THREE.Mesh(new THREE.TorusGeometry(0.105, 0.014, 10, 36), gold);
+    band.rotation.x = Math.PI / 2;
+    accessory.add(band);
+    for (const [index, x] of [-0.07, 0, 0.07].entries()) {
+      const point = new THREE.Mesh(
+        new THREE.ConeGeometry(index === 1 ? 0.035 : 0.028, index === 1 ? 0.12 : 0.09, 5),
+        gold,
+      );
+      point.position.set(x, index === 1 ? 0.055 : 0.04, 0);
+      accessory.add(point);
+    }
+    const centerJewel = new THREE.Mesh(new THREE.OctahedronGeometry(0.027), jewel);
+    centerJewel.position.set(0, 0.035, -0.1);
+    accessory.add(centerJewel);
+  }
 
-  const padGain = context.createGain();
-  padGain.gain.value = 0.018;
-  padGain.connect(master);
+  if (accessoryId === "cat-ears") {
+    const fur = new THREE.MeshStandardMaterial({
+      color: 0x7c3aed,
+      roughness: 0.55,
+    });
+    const inner = new THREE.MeshStandardMaterial({
+      color: 0xf9a8d4,
+      emissive: 0x831843,
+      emissiveIntensity: 0.12,
+      roughness: 0.7,
+    });
+    for (const side of [-1, 1]) {
+      const ear = new THREE.Mesh(new THREE.ConeGeometry(0.07, 0.15, 3), fur);
+      ear.position.set(side * 0.085, 0.175, 0);
+      ear.rotation.z = side * -0.12;
+      accessory.add(ear);
+      const earInner = new THREE.Mesh(new THREE.ConeGeometry(0.041, 0.1, 3), inner);
+      earInner.position.set(side * 0.085, 0.17, -0.036);
+      earInner.rotation.z = side * -0.12;
+      accessory.add(earInner);
+    }
+  }
 
-  const padRoot = context.createOscillator();
-  padRoot.type = "sine";
-  padRoot.frequency.value = 220;
-  padRoot.connect(padGain);
-  padRoot.start();
+  if (accessoryId === "halo") {
+    const glow = new THREE.MeshStandardMaterial({
+      color: 0xfff1a8,
+      emissive: 0xffc400,
+      emissiveIntensity: 2.2,
+      metalness: 0.1,
+      roughness: 0.25,
+    });
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.14, 0.015, 12, 48), glow);
+    ring.rotation.x = Math.PI / 2;
+    accessory.add(ring);
+  }
 
-  const padFifth = context.createOscillator();
-  padFifth.type = "triangle";
-  padFifth.frequency.value = 329.63;
-  padFifth.connect(padGain);
-  padFifth.start();
+  return accessory;
+}
 
-  let step = 0;
-  const melody = [659.25, 739.99, 880, 739.99, 587.33, 659.25];
-  const playChime = () => {
-    const now = context.currentTime;
-    const osc = context.createOscillator();
-    const gain = context.createGain();
-    osc.type = "sine";
-    osc.frequency.value = melody[step % melody.length];
-    gain.gain.setValueAtTime(0.0001, now);
-    gain.gain.exponentialRampToValueAtTime(0.052, now + 0.04);
-    gain.gain.exponentialRampToValueAtTime(0.0001, now + 1.15);
-    osc.connect(gain);
-    gain.connect(master);
-    osc.start(now);
-    osc.stop(now + 1.2);
-    step += 1;
-  };
+function getWardrobeAccessoryWorldOffset(
+  accessoryId: Exclude<WardrobeAccessoryId, "none">,
+): THREE.Vector3 {
+  if (accessoryId === "halo") return new THREE.Vector3(0, 0.25, 0.005);
+  if (accessoryId === "cat-ears") return new THREE.Vector3(0, 0.16, 0);
+  return new THREE.Vector3(0, 0.16, 0);
+}
 
-  playChime();
-  const interval = window.setInterval(playChime, 1850);
-  void context.resume();
+export function removeWardrobeAccessory(accessory: THREE.Object3D | null): void {
+  if (!accessory) return;
+  accessory.removeFromParent();
+  accessory.traverse((child) => {
+    if (!(child instanceof THREE.Mesh)) return;
+    if (child instanceof THREE.SkinnedMesh) child.skeleton?.dispose();
+    child.geometry.dispose();
+    const materials = Array.isArray(child.material) ? child.material : [child.material];
+    for (const material of materials) {
+      if ("map" in material && material.map instanceof THREE.Texture) {
+        material.map.dispose();
+      }
+      material.dispose();
+    }
+  });
+}
 
-  return {
-    stop: () => {
-      window.clearInterval(interval);
-      padRoot.stop();
-      padFifth.stop();
-      void context.close();
-    },
-  };
+export function attachWardrobeAccessory(
+  head: THREE.Object3D,
+  accessoryId: Exclude<WardrobeAccessoryId, "none">,
+  modelUrl = "",
+): THREE.Group {
+  const accessory = createWardrobeAccessory(accessoryId);
+  try {
+    if(applyPreparedAccessoryFit(accessory,head,modelUrl,accessoryId)){
+      head.add(accessory);
+      return accessory;
+    }
+  } catch(error) {
+    removeWardrobeAccessory(accessory);
+    console.error(` 🎮 [wardrobe-accessory] attachment failed model=${modelUrl} accessory=${accessoryId}`,error);
+    throw error;
+  }
+  head.updateWorldMatrix(true, false);
+  const worldPosition = new THREE.Vector3();
+  head.getWorldPosition(worldPosition);
+  worldPosition.add(getWardrobeAccessoryWorldOffset(accessoryId));
+  accessory.position.copy(head.worldToLocal(worldPosition));
+  const headWorldQuaternion = new THREE.Quaternion();
+  head.getWorldQuaternion(headWorldQuaternion);
+  accessory.quaternion.copy(headWorldQuaternion.invert());
+  head.add(accessory);
+  console.log(
+    ` 🎮 [companion-wardrobe-lab] accessory_preview applied accessory=${accessoryId}`,
+  );
+  return accessory;
+}
+
+function removeWardrobeOutfit(parts: THREE.Object3D[]): void {
+  for (const part of parts) {
+    part.userData.disposeWardrobeColliders?.();
+    removeWardrobeAccessory(part);
+  }
+}
+
+function reconcileVrmBaseClothingVisibility(
+  vrmScene: THREE.Object3D,
+  outfitId: WardrobeOutfitId,
+  outfitParts: readonly THREE.Object3D[],
+): void {
+  setVrmBaseClothingVisible(vrmScene, true);
+  const outfitDefinition = getXwearOutfitDefinition(outfitId);
+  if (outfitDefinition && outfitParts.length > 0) {
+    setVrmBaseClothingVisible(
+      vrmScene,
+      false,
+      outfitDefinition.slots.replaces,
+      outfitDefinition.id,
+    );
+  }
 }
 
 function CompanionSlot({
@@ -2294,13 +2465,22 @@ function CompanionSlot({
   slot,
   active,
   soleFlankPair,
+  instantAvatarSwitch = false,
   contained = false,
+  displayScaleOverride,
+  cameraAngleOverride,
   vfxPreset,
   vfxLevel = "idle",
   getAnalyser,
+  wardrobeAccessoryId = "none",
+  wardrobeOutfitId = "none",
+  wardrobeOutfitMaterialVariant = null,
+  wardrobeQaMode = "enforced",
+  wardrobeInspection,
   onMotorReady,
   onLoadSettled,
   onVrmAttached,
+  onHeadScreenAnchorChange,
 }: {
   entry: CompanionManifestEntry;
   slot: SlotName;
@@ -2310,15 +2490,26 @@ function CompanionSlot({
    * than the default side preview.
   */
   soleFlankPair?: boolean;
+  instantAvatarSwitch?: boolean;
   contained?: boolean;
+  displayScaleOverride?: number;
+  cameraAngleOverride?: CameraAngle;
   vfxPreset?: CompanionVfxPreset;
   vfxLevel?: CompanionVfxLevel;
   getAnalyser?: () => AnalyserNode | null;
+  wardrobeAccessoryId?: WardrobeAccessoryId;
+  wardrobeOutfitId?: WardrobeOutfitId;
+  wardrobeOutfitMaterialVariant?: XwearMaterialVariant | null;
+  wardrobeQaMode?: "enforced" | "candidate_preview";
+  wardrobeInspection?: WardrobeInspection;
   onMotorReady?: (slot: SlotName, motor: CompanionMotor | null) => void;
   onLoadSettled: (slotKey: string) => void;
   /** Fires once after `attachVrm` succeeds (not called on load failure). */
   onVrmAttached?: () => void;
+  onHeadScreenAnchorChange?: (anchor: { x: number; y: number } | null) => void;
 }) {
+  const inspectionRef = useRef(wardrobeInspection);
+  inspectionRef.current = wardrobeInspection;
   const slotKey = entry.id;
   const mountRef = useRef<HTMLDivElement>(null);
   const rafRef = useRef<number | null>(null);
@@ -2328,6 +2519,28 @@ function CompanionSlot({
   const rendererRef = useRef<CompanionRenderer | null>(null);
   const sceneRef = useRef<THREE.Scene | null>(null);
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
+  const wardrobeHeadRef = useRef<THREE.Object3D | null>(null);
+  const headProjectionRef = useRef(new THREE.Vector3());
+  const lastHeadAnchorRef = useRef<{ x: number; y: number } | null>(null);
+  const wardrobeAccessoryRef = useRef<THREE.Group | null>(null);
+  const wardrobeAccessoryIdRef = useRef<WardrobeAccessoryId>(wardrobeAccessoryId);
+  const wardrobeVrmSceneRef = useRef<THREE.Object3D | null>(null);
+  const wardrobeVrmRef = useRef<VRM | null>(null);
+  const selectionKey = JSON.stringify([entry.id, entry.companionConfig?.vrmUrl ?? entry.vrmUrl, wardrobeOutfitId, wardrobeOutfitMaterialVariant, wardrobeAccessoryId]);
+  const [settledSelectionKey, setSettledSelectionKey] = useState<string | null>(null);
+  const [presentationState, setPresentationState] =
+    useState<WardrobePresentationState>(
+      "loading",
+    );
+  const wardrobeOutfitPartsRef = useRef<THREE.Object3D[]>([]);
+  const wardrobeOutfitIdRef = useRef<WardrobeOutfitId>(wardrobeOutfitId);
+  const wardrobeOutfitMaterialVariantRef = useRef<XwearMaterialVariant | null>(
+    wardrobeOutfitMaterialVariant,
+  );
+  const wardrobeOutfitRequestKeyRef = useRef(
+    `${wardrobeOutfitId}:${wardrobeOutfitMaterialVariant?.id ?? "base"}:${wardrobeOutfitMaterialVariant?.tint ?? "none"}`,
+  );
+  const wardrobeOutfitRequestGenerationRef = useRef(0);
   const slotRef = useRef(slot);
   const activeRef = useRef(active);
   const containedRef = useRef(contained);
@@ -2341,36 +2554,55 @@ function CompanionSlot({
       ),
     [entry.companionConfig, entry.id, entry.vrmUrl],
   );
+  const requestedDisplayScale =
+    typeof displayScaleOverride === "number" && Number.isFinite(displayScaleOverride)
+      ? displayScaleOverride
+      : companionConfig.displayScale;
   const displayScale =
-    typeof companionConfig.displayScale === "number" &&
-    Number.isFinite(companionConfig.displayScale)
-      ? Math.min(Math.max(companionConfig.displayScale, 1), 4)
+    typeof requestedDisplayScale === "number" && Number.isFinite(requestedDisplayScale)
+      ? Math.min(Math.max(requestedDisplayScale, SHOWROOM_MIN_DISPLAY_SCALE), 4)
       : 1;
   const containedFraming = useMemo(
     () => resolveShowroomContainedSlotFraming({ contained, displayScale }),
     [contained, displayScale],
   );
+  const previewCameraAngle = cameraAngleOverride ?? containedFraming.cameraAngle;
   const motorDisplayScale = contained
     ? containedFraming.motorDisplayScale
     : Math.min(displayScale, SHOWROOM_MAX_DISPLAY_SCALE);
   const showroomCompanionConfig = useMemo(
-    () =>
-      motorDisplayScale !== displayScale
-        ? {
-            ...companionConfig,
-            displayScale: motorDisplayScale,
-          }
-        : companionConfig,
-    [companionConfig, displayScale, motorDisplayScale],
+    () => ({
+      ...companionConfig,
+      displayScale: motorDisplayScale,
+    }),
+    [companionConfig, motorDisplayScale],
   );
   const slotStyle = slotFrameStyle(slot, {
     soleFlankPair: Boolean(soleFlankPair) && (slot === "next" || slot === "prev"),
+    instantAvatarSwitch,
   });
   const hasCustomDisplayScale = displayScale > 1 && !contained;
+  const revealCompanionCanvas = shouldRevealWardrobeCompanionCanvas({
+    presentationState,
+    requiresReady: true,
+    requestedKey: selectionKey,
+    settledKey: settledSelectionKey,
+  });
 
   useEffect(() => {
     vfxLayerRef.current?.setLevel(vfxLevel);
   }, [vfxLevel]);
+
+  useEffect(() => {
+    wardrobeAccessoryIdRef.current = wardrobeAccessoryId;
+    removeWardrobeAccessory(wardrobeAccessoryRef.current);
+    wardrobeAccessoryRef.current = null;
+    const head = wardrobeHeadRef.current;
+    const nativeAccessory=wardrobeVrmSceneRef.current?retainIntrinsicAccessories(wardrobeVrmSceneRef.current,wardrobeAccessoryId):false;
+    if (head && wardrobeAccessoryId !== "none" && !nativeAccessory) {
+      wardrobeAccessoryRef.current = attachWardrobeAccessory(head, wardrobeAccessoryId, showroomCompanionConfig.vrmUrl);
+    }
+  }, [wardrobeAccessoryId]);
 
   useEffect(() => {
     const previousSlot = slotRef.current;
@@ -2382,8 +2614,8 @@ function CompanionSlot({
         onMotorReady?.(slot, motor);
       }
     }
-    motor?.setCameraAngle(containedFraming.cameraAngle, 680);
-  }, [contained, containedFraming.cameraAngle, onMotorReady, slot]);
+    motor?.setCameraAngle(previewCameraAngle, 680);
+  }, [contained, onMotorReady, previewCameraAngle, slot]);
 
   const stopLoop = useCallback(() => {
     if (rafRef.current != null) {
@@ -2436,7 +2668,7 @@ function CompanionSlot({
 
       timer.update(time);
       const dt = timer.getDelta();
-      motor.tick({
+      if (!wardrobeVrmRef.current || !inspectionRef.current) motor.tick({
         dt,
         dtMs: Math.min(dt * 1000, 100),
         companionEvents: [],
@@ -2446,8 +2678,45 @@ function CompanionSlot({
         activeNodeScreen: null,
         analyser: getAnalyser?.() ?? null,
       });
+      const standardVrm = wardrobeVrmRef.current;
+      if (standardVrm && inspectionRef.current) applyWardrobeInspection(standardVrm, camera, inspectionRef.current, time / 1000, dt);
       vfxLayerRef.current?.tick(dt, camera);
       renderer.render(scene, camera);
+      const head = wardrobeHeadRef.current;
+      const mount = mountRef.current;
+      if (head && mount && onHeadScreenAnchorChange) {
+        head.updateWorldMatrix(true, false);
+        const projectedHead = headProjectionRef.current;
+        head.getWorldPosition(projectedHead);
+        projectedHead.project(camera);
+        const mountRect = mount.getBoundingClientRect();
+        const preview = mount.closest<HTMLElement>('[data-wardrobe-preview="true"]');
+        const previewRect = preview?.getBoundingClientRect();
+        if (
+          previewRect &&
+          previewRect.width > 0 &&
+          previewRect.height > 0 &&
+          Number.isFinite(projectedHead.x) &&
+          Number.isFinite(projectedHead.y)
+        ) {
+          const canvasX = (projectedHead.x + 1) / 2;
+          const canvasY = (1 - projectedHead.y) / 2;
+          const nextAnchor = {
+            x: Math.min(
+              0.96,
+              Math.max(0.04, (mountRect.left + canvasX * mountRect.width - previewRect.left) / previewRect.width),
+            ),
+            y: Math.min(
+              0.96,
+              Math.max(0.04, (mountRect.top + canvasY * mountRect.height - previewRect.top) / previewRect.height),
+            ),
+          };
+          if (!lastHeadAnchorRef.current) {
+            lastHeadAnchorRef.current = nextAnchor;
+            onHeadScreenAnchorChange(nextAnchor);
+          }
+        }
+      }
       rafRef.current = requestAnimationFrame(tick);
     };
     rafRef.current = requestAnimationFrame(tick);
@@ -2470,8 +2739,27 @@ function CompanionSlot({
     if (!mount) return;
 
     let cancelled = false;
+    let loadSettled = false;
+    setPresentationState("loading");
+    setSettledSelectionKey(null);
+    wardrobeOutfitIdRef.current = wardrobeOutfitId;
+    wardrobeOutfitMaterialVariantRef.current = wardrobeOutfitMaterialVariant;
+    console.log(` 🎮 [wardrobe-selection] loading selection=${selectionKey}`);
     let resizeObserver: ResizeObserver | null = null;
     stopLoop();
+
+    const settleLoad = (state: WardrobePresentationState) => {
+      if (cancelled || loadSettled) return;
+      if (state === "ready" && ((wardrobeOutfitIdRef.current !== "none" && wardrobeOutfitPartsRef.current.length === 0))) return;
+      loadSettled = true;
+      setSettledSelectionKey(selectionKey);
+      setPresentationState(state);
+      onLoadSettled(slotKey);
+      if (state === "ready") onVrmAttached?.();
+      console.log(
+        ` 🎮 [wardrobe-identity-lab] preview_settled result=${state} companion=${entry.id} model=${showroomCompanionConfig.vrmUrl}`,
+      );
+    };
 
     const readMountSize = () => {
       const rawW = Math.floor(mount.clientWidth || 0);
@@ -2490,7 +2778,7 @@ function CompanionSlot({
     const motor = new CompanionMotor();
     motor.resetSessionState();
     motor.setCamera(camera);
-    motor.setCameraAngle(containedFraming.cameraAngle, 0);
+    motor.setCameraAngle(previewCameraAngle, 0);
     motorRef.current = motor;
     if (slotRef.current !== "hidden") {
       onMotorReady?.(slotRef.current, motor);
@@ -2508,6 +2796,7 @@ function CompanionSlot({
       if (currentMotor?.hasVrm()) {
         currentMotor.syncCameraToMount(size.w, size.h);
       }
+      lastHeadAnchorRef.current = null;
     };
 
     const finishSetup = (renderer: CompanionRenderer, webgpuMaterials: boolean) => {
@@ -2538,12 +2827,100 @@ function CompanionSlot({
       })
         .then((vrm) => {
           if (cancelled) {
-            vrm.scene.removeFromParent();
+            VRMUtils.deepDispose(vrm.scene);
             return;
           }
+          captureXwearAvatarBindPose(vrm.scene);
           const size = readMountSize();
           motor.attachVrm(vrm, scene, size.w, size.h, showroomCompanionConfig);
-          motor.setCameraAngle(containedFraming.cameraAngle, 0);
+          wardrobeVrmRef.current = vrm;
+          wardrobeVrmSceneRef.current = vrm.scene;
+          const head = vrm.humanoid?.getRawBoneNode("head") ?? null;
+          wardrobeHeadRef.current = head;
+          const selectedAccessoryId = wardrobeAccessoryIdRef.current;
+          const nativeAccessory=retainIntrinsicAccessories(vrm.scene,selectedAccessoryId);
+          if (head && selectedAccessoryId !== "none" && !nativeAccessory) {
+            wardrobeAccessoryRef.current = attachWardrobeAccessory(
+              head,
+              selectedAccessoryId,
+              showroomCompanionConfig.vrmUrl,
+            );
+          }
+          if (
+            getXwearOutfitDefinition(wardrobeOutfitIdRef.current) &&
+            (wardrobeQaMode === "candidate_preview" ||
+              isXwearOutfitApprovedForAvatar(
+                getXwearOutfitDefinition(wardrobeOutfitIdRef.current)!,
+                showroomCompanionConfig.vrmUrl,
+              ))
+          ) {
+            const outfitDefinition = getXwearOutfitDefinition(
+              wardrobeOutfitIdRef.current,
+            )!;
+            if (wardrobeQaMode === "candidate_preview") {
+              console.log(
+                ` 🎮 [wardrobe-compatibility-lab] candidate_preview allowed outfit=${outfitDefinition.id} model=${showroomCompanionConfig.vrmUrl}`,
+              );
+            }
+            const selectedMaterialVariant = wardrobeOutfitMaterialVariantRef.current;
+            const requestKey = `${outfitDefinition.id}:${selectedMaterialVariant?.id ?? "base"}:${selectedMaterialVariant?.tint ?? "none"}`;
+            const requestGeneration = wardrobeOutfitRequestGenerationRef.current + 1;
+            wardrobeOutfitRequestGenerationRef.current = requestGeneration;
+            wardrobeOutfitRequestKeyRef.current = requestKey;
+            void attachXwearOutfit(vrm.scene, outfitDefinition, selectedMaterialVariant, showroomCompanionConfig.vrmUrl)
+              .then((outfit) => {
+                if (
+                  cancelled ||
+                  wardrobeOutfitRequestGenerationRef.current !== requestGeneration ||
+                  wardrobeOutfitRequestKeyRef.current !== requestKey
+                ) {
+                  removeWardrobeOutfit([outfit]);
+                  reconcileVrmBaseClothingVisibility(
+                    vrm.scene,
+                    wardrobeOutfitIdRef.current,
+                    wardrobeOutfitPartsRef.current,
+                  );
+                  console.log(
+                    ` 🎮 [companion-wardrobe-lab] outfit_variant stale_result_discarded generation=${requestGeneration} current_generation=${wardrobeOutfitRequestGenerationRef.current}`,
+                  );
+                  return;
+                }
+                wardrobeOutfitPartsRef.current = [outfit];
+                outfit.userData.disposeWardrobeColliders=attachWardrobeHairCollisions(vrm,outfitDefinition.id);
+                reconcileVrmBaseClothingVisibility(
+                  vrm.scene,
+                  wardrobeOutfitIdRef.current,
+                  wardrobeOutfitPartsRef.current,
+                );
+                settleLoad("ready");
+              })
+              .catch((error: unknown) => {
+                if (
+                  cancelled ||
+                  wardrobeOutfitRequestGenerationRef.current !== requestGeneration
+                ) {
+                  reconcileVrmBaseClothingVisibility(
+                    vrm.scene,
+                    wardrobeOutfitIdRef.current,
+                    wardrobeOutfitPartsRef.current,
+                  );
+                  console.log(
+                    ` 🎮 [companion-wardrobe-lab] outfit_variant stale_failure_discarded generation=${requestGeneration} current_generation=${wardrobeOutfitRequestGenerationRef.current}`,
+                  );
+                  return;
+                }
+                removeWardrobeOutfit(wardrobeOutfitPartsRef.current);
+                wardrobeOutfitPartsRef.current=[];
+                settleLoad("failed");
+                reconcileVrmBaseClothingVisibility(vrm.scene, "none", []);
+                console.error(
+                  " 🎮 [companion-wardrobe-lab] downloaded_outfit failed",
+                  error,
+                );
+              });
+          }
+          if (wardrobeOutfitIdRef.current !== "none" && wardrobeQaMode !== "candidate_preview" && !isXwearOutfitApprovedForAvatar(getXwearOutfitDefinition(wardrobeOutfitIdRef.current)!, showroomCompanionConfig.vrmUrl)) settleLoad("failed");
+          motor.setCameraAngle(previewCameraAngle, 0);
           syncRendererToMount();
           requestAnimationFrame(syncRendererToMount);
           if (
@@ -2555,12 +2932,11 @@ function CompanionSlot({
           ) {
             startLoop();
           }
-          onLoadSettled(slotKey);
-          onVrmAttached?.();
+          settleLoad("ready");
         })
         .catch((err: unknown) => {
           console.error("CompanionShowroom: failed to load VRM —", err);
-          onLoadSettled(slotKey);
+          settleLoad("failed");
         });
     };
 
@@ -2574,9 +2950,13 @@ function CompanionSlot({
       let webgpuAttempt: WebGPURenderer | undefined;
 
       try {
-        webgpuAttempt = new WebGPURenderer({ antialias: true });
-        await webgpuAttempt.init();
-        renderer = webgpuAttempt;
+        // The wardrobe loader supplies classic MToon/ShaderMaterial assets.
+        // Certification must use the renderer that can actually display them.
+        if (wardrobeQaMode !== "candidate_preview" && wardrobeOutfitId === "none" && !showroomCompanionConfig.vrmUrl.includes("wardrobe-")) {
+          webgpuAttempt = new WebGPURenderer({ antialias: true });
+          await webgpuAttempt.init();
+          renderer = webgpuAttempt;
+        }
       } catch (err: unknown) {
         console.error("CompanionShowroom: WebGPU failed, falling back:", err);
         if (webgpuAttempt) {
@@ -2586,6 +2966,8 @@ function CompanionSlot({
             console.error("CompanionShowroom: WebGPU dispose after failure:", disposeErr);
           }
         }
+      }
+      if (!renderer) {
         renderer = new THREE.WebGLRenderer({
           alpha: true,
           antialias: true,
@@ -2608,10 +2990,15 @@ function CompanionSlot({
       mount.appendChild(renderer.domElement);
       syncRendererToMount();
       finishSetup(renderer, isWebGpuRenderer(renderer));
-    })();
+    })().catch((error: unknown) => {
+      console.error(" 🎮 [wardrobe-selection] renderer_setup failed", error);
+      settleLoad("failed");
+    });
 
     return () => {
       cancelled = true;
+      console.log(` 🎮 [wardrobe-selection] cancelled selection=${selectionKey}`);
+      wardrobeOutfitRequestGenerationRef.current += 1;
       resizeObserver?.disconnect();
       stopLoop();
       if (slotRef.current !== "hidden") {
@@ -2619,6 +3006,16 @@ function CompanionSlot({
       }
       motor.dispose();
       motorRef.current = null;
+      removeWardrobeAccessory(wardrobeAccessoryRef.current);
+      wardrobeAccessoryRef.current = null;
+      wardrobeHeadRef.current = null;
+      lastHeadAnchorRef.current = null;
+      onHeadScreenAnchorChange?.(null);
+      removeWardrobeOutfit(wardrobeOutfitPartsRef.current);
+      wardrobeOutfitPartsRef.current = [];
+      if (wardrobeVrmSceneRef.current) VRMUtils.deepDispose(wardrobeVrmSceneRef.current);
+      wardrobeVrmSceneRef.current = null;
+      wardrobeVrmRef.current = null;
       timerRef.current?.dispose();
       timerRef.current = null;
       const renderer = rendererRef.current;
@@ -2635,15 +3032,18 @@ function CompanionSlot({
     };
   }, [
     contained,
-    containedFraming.cameraAngle,
+    previewCameraAngle,
     onLoadSettled,
     onMotorReady,
     onVrmAttached,
+    onHeadScreenAnchorChange,
     showroomCompanionConfig,
     slotKey,
     startLoop,
     stopLoop,
     vfxPreset,
+    wardrobeQaMode,
+    selectionKey,
   ]);
 
   return (
@@ -2667,13 +3067,17 @@ function CompanionSlot({
       }
     >
       <motion.div
+        data-wardrobe-state={presentationState}
+        data-wardrobe-selection={selectionKey}
+        data-wardrobe-revealed={revealCompanionCanvas}
         initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
+        animate={{ opacity: revealCompanionCanvas ? 1 : 0 }}
         exit={{ opacity: 0 }}
-        transition={{ duration: 0.34, ease: "easeOut" }}
+        transition={{ duration: wardrobeInspection ? 0 : 0.34, ease: "easeOut" }}
         style={{
           width: "100%",
           height: "100%",
+          visibility: revealCompanionCanvas ? "visible" : "hidden",
           animation: active ? "sunny-showroom-breathe 3s ease-in-out infinite alternate" : undefined,
         }}
       >
@@ -2687,6 +3091,27 @@ function CompanionSlot({
           }}
         />
       </motion.div>
+      {contained && !revealCompanionCanvas && (
+        <div
+          role="status"
+          aria-live="polite"
+          style={{
+            position: "absolute",
+            inset: 0,
+            display: "grid",
+            placeItems: "center",
+            color: "rgba(62, 48, 76, 0.68)",
+            fontFamily: "Lexend, system-ui, sans-serif",
+            fontSize: 13,
+            fontWeight: 800,
+            letterSpacing: 0.2,
+          }}
+        >
+          {presentationState === "failed"
+            ? `${entry.name} preview unavailable`
+            : `Preparing ${entry.name}`}
+        </div>
+      )}
     </motion.div>
   );
 }
@@ -3166,7 +3591,6 @@ export function CompanionShowroom({
   childName,
   useGeneratedBackground = false,
   generatedBackgroundUrl,
-  enableBackgroundMusic = false,
   generatedBackgroundLoading = false,
   initialTheme,
   availableThemes,
@@ -3178,7 +3602,32 @@ export function CompanionShowroom({
     : new URLSearchParams(window.location.search).get("bonusUrl");
   const generatedBonusFrameRef = useRef<HTMLIFrameElement | null>(null);
   const initialAvailableThemes = resolveAvailableShowroomThemes(availableThemes);
+  const wardrobeLabEnabled =
+    typeof window !== "undefined" &&
+    new URLSearchParams(window.location.search).get("wardrobeLab") === "true";
+  const wardrobeDebugEnabled =
+    typeof window !== "undefined" &&
+    new URLSearchParams(window.location.search).get("wardrobeDebug") === "true";
+  const wardrobeCompatibilityLabEnabled =
+    typeof window !== "undefined" &&
+    new URLSearchParams(window.location.search).get("wardrobeCompatibilityLab") === "true";
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [showroomAvatarSwitching, setShowroomAvatarSwitching] = useState(false);
+  const [wardrobeAccessoryId, setWardrobeAccessoryId] =
+    useState<WardrobeAccessoryId>("none");
+  const [wardrobeOutfitId, setWardrobeOutfitId] =
+    useState<WardrobeOutfitId>("none");
+  const [wardrobeOutfitMaterialVariant, setWardrobeOutfitMaterialVariant] =
+    useState<XwearMaterialVariant | null>(null);
+  const handleWardrobeStoreChange = useCallback(
+    (selection: WardrobeSelection) => {
+      setWardrobeAccessoryId(selection.accessoryId);
+      setWardrobeOutfitId(selection.outfitId);
+      setWardrobeOutfitMaterialVariant(selection.outfitMaterialVariant ?? null);
+    },
+    [],
+  );
+  const handleWardrobePreviewLoadSettled = useCallback(() => {}, []);
   const [activeThemeId, setActiveThemeId] = useState<ShowroomTheme>(() =>
     resolveShowroomThemeWithinAvailability(
       resolveInitialShowroomTheme(initialTheme),
@@ -3188,7 +3637,6 @@ export function CompanionShowroom({
   const [spotlightOpen, setSpotlightOpen] = useState(false);
   const [introVisible, setIntroVisible] = useState(false);
   const [picking, setPicking] = useState(false);
-  const [musicOn, setMusicOn] = useState(enableBackgroundMusic);
   const [speakingLine, setSpeakingLine] = useState<SpeakingLine | null>(null);
   const [speechError, setSpeechError] = useState<string | null>(null);
   const [signatureMoveLevel, setSignatureMoveLevel] =
@@ -3201,6 +3649,13 @@ export function CompanionShowroom({
   const [showroomTalkResponse, setShowroomTalkResponse] = useState("");
   const [showroomTalkError, setShowroomTalkError] = useState<string | null>(null);
   const [showroomVideoChatOpen, setShowroomVideoChatOpen] = useState(false);
+  const [wardrobeStoreReturnTarget, setWardrobeStoreReturnTarget] =
+    useState<"showroom" | "call" | null>(null);
+  const [wardrobeShoppingContext, setWardrobeShoppingContext] =
+    useState<WardrobeShoppingContext | null>(null);
+  const [companionHeadAnchor, setCompanionHeadAnchor] =
+    useState<{ x: number; y: number } | null>(null);
+  const wardrobeStoreOpen = wardrobeStoreReturnTarget !== null;
   const [showroomVideoChatCameraState, setShowroomVideoChatCameraState] =
     useState<ShowroomVideoChatCameraState>("off");
   const [showroomVideoCallPhase, setShowroomVideoCallPhase] =
@@ -3222,9 +3677,18 @@ export function CompanionShowroom({
   const [showroomVideoTraceCopyStatus, setShowroomVideoTraceCopyStatus] =
     useState<string | null>(null);
   const [showroomDiagAnimation, setShowroomDiagAnimation] = useState<string>("idle");
+  const showroomOutfitDefinition = getXwearOutfitDefinition(wardrobeOutfitId);
+  const showroomDiagAnimationSupported =
+    !showroomOutfitDefinition ||
+    isXwearOutfitAnimationSupported(
+      showroomOutfitDefinition,
+      showroomDiagAnimation,
+    );
   const [showroomDiagLastCommand, setShowroomDiagLastCommand] =
     useState<string>("none");
   const [showShowroomDiagPanel, setShowShowroomDiagPanel] = useState(false);
+  const [showroomCharacterScaleOverrides, setShowroomCharacterScaleOverrides] =
+    useState<Record<string, number>>({});
   const [initialCurtainDismissed, setInitialCurtainDismissed] = useState(false);
   const [settledSlotKeys, setSettledSlotKeys] = useState<Set<string>>(
     () => new Set(),
@@ -3292,7 +3756,6 @@ export function CompanionShowroom({
   const [cardPreviewVrmReady, setCardPreviewVrmReady] = useState(false);
   const timersRef = useRef<Set<number>>(new Set());
   const confettiCleanupRef = useRef<(() => void) | null>(null);
-  const musicRef = useRef<AmbientMusicHandle | null>(null);
   const speechAudioRef = useRef<{
     audio: HTMLAudioElement;
     context: AudioContext;
@@ -3312,6 +3775,7 @@ export function CompanionShowroom({
   const videoCallRepeatAfterModeRef = useRef(false);
   const videoChatMotorRef = useRef<CompanionMotor | null>(null);
   const videoChatContinuousListenRef = useRef(false);
+  const wardrobeShoppingContextRef = useRef<WardrobeShoppingContext | null>(null);
   const videoChatNoSpeechRetryCountRef = useRef(0);
   const videoChatHandsFreeRearmRef = useRef<((reason: string, delayMs?: number) => void) | null>(
     null,
@@ -3360,6 +3824,79 @@ export function CompanionShowroom({
   const entries = COMPANION_MANIFEST;
   const isPairDuo = entries.length === 2;
   const current = entries[currentIndex] ?? null;
+  const currentCharacterScale = current
+    ? showroomCharacterScaleOverrides[current.id] ??
+      Math.min(
+        Math.max(
+          current.companionConfig?.displayScale ?? 1,
+          SHOWROOM_MIN_DISPLAY_SCALE,
+        ),
+        SHOWROOM_MAX_DISPLAY_SCALE,
+      )
+    : 1;
+  const resizeCurrentShowroomCharacter = useCallback(
+    (direction: -1 | 1) => {
+      if (!current) return;
+      setShowroomCharacterScaleOverrides((previous) => {
+        const configuredScale = Math.min(
+          Math.max(
+            current.companionConfig?.displayScale ?? 1,
+            SHOWROOM_MIN_DISPLAY_SCALE,
+          ),
+          SHOWROOM_MAX_DISPLAY_SCALE,
+        );
+        const existingScale = previous[current.id] ?? configuredScale;
+        const nextScale = Math.min(
+          Math.max(
+            Math.round(
+              (existingScale + direction * SHOWROOM_DISPLAY_SCALE_STEP) * 100,
+            ) / 100,
+            SHOWROOM_MIN_DISPLAY_SCALE,
+          ),
+          SHOWROOM_MAX_DISPLAY_SCALE,
+        );
+        console.log(
+          ` 🎮 [companion-showroom] character_resize applied companion=${current.id} scale=${nextScale.toFixed(2)}`,
+        );
+        return { ...previous, [current.id]: nextScale };
+      });
+    },
+    [current],
+  );
+  const currentCompanionModelUrl = current
+    ? current.companionConfig?.vrmUrl ?? current.vrmUrl
+    : "";
+  const wardrobePresentation = useMemo(
+    () =>
+      current
+        ? resolvePreparedWardrobePresentation(current.id)
+        : null,
+    [current],
+  );
+  const wardrobeStoreEntry = useMemo<CompanionManifestEntry | null>(() => {
+    if (!current || !wardrobePresentation) return null;
+    return {
+      ...current,
+      companionConfig: {
+        ...current.companionConfig,
+        companionId: current.id,
+        vrmUrl: wardrobePresentation.bodyModelUrl,
+      },
+    };
+  }, [current, wardrobePresentation]);
+  const currentWardrobeModelUrl =
+    wardrobePresentation?.bodyModelUrl ?? currentCompanionModelUrl;
+  const effectiveWardrobeOutfitId: WardrobeOutfitId =
+    current &&
+    isWardrobeOutfitCompatible(
+      wardrobeOutfitId,
+      currentWardrobeModelUrl,
+      current.id,
+    )
+      ? wardrobeOutfitId
+      : "none";
+  const effectiveWardrobeOutfitMaterialVariant =
+    effectiveWardrobeOutfitId === "none" ? null : wardrobeOutfitMaterialVariant;
   const introText = current ? getText(current.id) : "";
   const showroomVideoTraceLink = useMemo(
     () =>
@@ -3436,6 +3973,18 @@ export function CompanionShowroom({
         fallbackCopy();
       });
   }, [showroomVideoTraceLink]);
+  const handleWardrobeDebugEvent = useCallback(
+    (event: WardrobeStoreDebugEvent) => {
+      emitShowroomVideoCallTrace({
+        eventName: event.type,
+        payload: { shoppingContext: event.context },
+      });
+      console.log(
+        ` 🎮 [wardrobe-store-debug] ${event.type} recorded mode=${event.context.mode} item=${event.context.selectedItem?.id ?? "none"}`,
+      );
+    },
+    [emitShowroomVideoCallTrace],
+  );
   const slots = useMemo(
     () => createPersistentSlotEntries(entries, currentIndex),
     [entries, currentIndex],
@@ -3639,10 +4188,7 @@ export function CompanionShowroom({
     [],
   );
 
-  const startMusic = useCallback(() => {
-    if (!enableBackgroundMusic || !musicOn || musicRef.current) return;
-    musicRef.current = createAmbientMusic();
-  }, [enableBackgroundMusic, musicOn]);
+  const startMusic = useCallback(() => {}, []);
 
   const clearSpeechGestures = useCallback(() => {
     if (speechGestureIntervalRef.current != null) {
@@ -4387,6 +4933,7 @@ export function CompanionShowroom({
         forceVisualSnapshot?: boolean;
         visualReason?: string;
         turnId?: string;
+        shoppingContextOverride?: WardrobeShoppingContext;
       },
     ) => {
       if (!current || picking || shouldGateShowroomTalkMic(showroomTalkPhaseRef.current)) {
@@ -4521,6 +5068,11 @@ export function CompanionShowroom({
             callSource: activeVideoCallContext.callSource,
             relationshipState: activeVideoCallContext.relationshipState,
           }),
+          ...(talkMode === "video_call" &&
+            (options?.shoppingContextOverride ?? wardrobeShoppingContext) && {
+              shoppingContext:
+                options?.shoppingContextOverride ?? wardrobeShoppingContext ?? undefined,
+            }),
           ...(talkMode === "video_call" &&
             Object.keys(activeVideoCallContext.rewardContext).length > 0 && {
               rewardContext: activeVideoCallContext.rewardContext,
@@ -4979,6 +5531,7 @@ export function CompanionShowroom({
       showroomVideoChatOpen,
       showroomVideoCallTraceId,
       showroomVideoLastVisualSummary,
+      wardrobeShoppingContext,
       startMusic,
       stopSpeech,
       talkChildId,
@@ -5273,7 +5826,7 @@ export function CompanionShowroom({
   });
 
   const startShowroomVideoCallListening = useCallback(() => {
-    if (!current || !videoChatContinuousListenRef.current) return;
+    if (!current || (!videoChatContinuousListenRef.current && !wardrobeStoreOpen)) return;
     setShowroomTalkError(null);
     setShowroomTalkOpen(false);
     setShowroomTalkPhase("listening");
@@ -5303,6 +5856,7 @@ export function CompanionShowroom({
     emitShowroomVideoCallTrace,
     talkChildId,
     videoCallStt,
+    wardrobeStoreOpen,
   ]);
   videoChatStartListeningRef.current = startShowroomVideoCallListening;
 
@@ -5528,8 +6082,10 @@ export function CompanionShowroom({
     voiceSelections,
   ]);
 
-  const openShowroomVideoChat = useCallback(() => {
+  const openShowroomVideoChat = useCallback(
+    (options: { handsFree?: boolean } = {}) => {
     if (!current) return;
+    const handsFree = options.handsFree !== false;
     const traceId = createCompanionVideoCallTraceId();
     setShowroomVideoCallTraceId(traceId);
     setShowroomVideoTraceCopyStatus("Trace ready");
@@ -5600,11 +6156,18 @@ export function CompanionShowroom({
     setShowroomVideoActiveActivity(null);
     setVideoCallLayout(generatedBonusUrl ? "play" : "call");
     setVideoCallCompanionView("full_body");
-    videoChatContinuousListenRef.current = true;
+    videoChatContinuousListenRef.current = handsFree;
     videoChatNoSpeechRetryCountRef.current = 0;
     setShowroomVideoChatOpen(true);
-    setShowroomVideoCallPhase("calling");
     videoChatRingtoneRef.current?.stop();
+    if (!handsFree) {
+      videoChatRingtoneRef.current = null;
+      setShowroomVideoCallPhase("live");
+      playCurrentCompanionAnimation("idle", { loop: true });
+      console.log(" 🎮 [wardrobe-store-lab] hands_free disabled");
+      return;
+    }
+    setShowroomVideoCallPhase("calling");
     videoChatRingtoneRef.current = playVideoCallRingtone();
     console.log(` 🎮 [showroom-video-chat] ringing style=${SHOWROOM_VIDEO_CHAT_RINGTONE_STYLE}`);
     playCurrentCompanionAnimation("idle", { loop: true });
@@ -5658,6 +6221,9 @@ export function CompanionShowroom({
     stopSpeech();
     resetShowroomTalk();
     setShowroomVideoChatOpen(false);
+    setWardrobeStoreReturnTarget(null);
+    setWardrobeShoppingContext(null);
+    wardrobeShoppingContextRef.current = null;
     setShowroomVideoCallPhase("idle");
     setShowroomVideoChatError(null);
     setShowroomVideoLastVisualSummary("");
@@ -5840,6 +6406,99 @@ export function CompanionShowroom({
     voiceSelections,
   ]);
 
+  const disableWardrobeHandsFreeListening = useCallback(() => {
+    videoChatContinuousListenRef.current = false;
+    videoChatNoSpeechRetryCountRef.current = 0;
+    videoCallStt.stop();
+    if (showroomTalkPhaseRef.current === "listening") {
+      setShowroomTalkPhase("idle");
+    }
+    console.log(" 🎮 [wardrobe-store-lab] hands_free disabled");
+  }, [videoCallStt]);
+
+  const openWardrobeStoreFromCall = useCallback(() => {
+    if (
+      !wardrobeLabEnabled ||
+      !current ||
+      !wardrobePresentation ||
+      !showroomVideoChatOpen
+    ) return;
+    disableWardrobeHandsFreeListening();
+    setWardrobeStoreReturnTarget("call");
+    console.log(
+      ` 🎮 [wardrobe-store-lab] launched_from_call companion=${current.id} body=${wardrobePresentation.bodyModelUrl} profile=${wardrobePresentation.bodyProfileId}`,
+    );
+  }, [
+    current,
+    disableWardrobeHandsFreeListening,
+    showroomVideoChatOpen,
+    wardrobeLabEnabled,
+    wardrobePresentation,
+  ]);
+
+  const openWardrobeStoreFromShowroom = useCallback(() => {
+    if (!wardrobeLabEnabled || !current || !wardrobePresentation) return;
+    openShowroomVideoChat({ handsFree: false });
+    setWardrobeStoreReturnTarget("showroom");
+    console.log(
+      ` 🎮 [wardrobe-store-lab] launched_from_showroom companion=${current.id} body=${wardrobePresentation.bodyModelUrl} profile=${wardrobePresentation.bodyProfileId}`,
+    );
+  }, [current, openShowroomVideoChat, wardrobeLabEnabled, wardrobePresentation]);
+
+  const closeWardrobeStore = useCallback(() => {
+    const shouldEndShoppingCall = wardrobeStoreReturnTarget === "showroom";
+    setWardrobeStoreReturnTarget(null);
+    setWardrobeShoppingContext(null);
+    wardrobeShoppingContextRef.current = null;
+    if (shouldEndShoppingCall) {
+      closeShowroomVideoChat();
+    } else {
+      videoChatContinuousListenRef.current = true;
+      scheduleVideoChatHandsFreeRearm("wardrobe_store_closed");
+    }
+    console.log(
+      ` 🎮 [wardrobe-store-lab] returned_to_${wardrobeStoreReturnTarget ?? "showroom"}`,
+    );
+  }, [
+    closeShowroomVideoChat,
+    scheduleVideoChatHandsFreeRearm,
+    wardrobeStoreReturnTarget,
+  ]);
+
+  const handleWardrobeShoppingContextChange = useCallback(
+    (context: WardrobeShoppingContext) => {
+      wardrobeShoppingContextRef.current = context;
+      setWardrobeShoppingContext(context);
+    },
+    [],
+  );
+
+  const selectShowroomCompanionIndex = useCallback(
+    (nextIndex: number) => {
+      if (entries.length <= 1) return;
+      const normalizedIndex =
+        (nextIndex % entries.length + entries.length) % entries.length;
+      if (normalizedIndex === currentIndex) return;
+      console.log(
+        ` 🎮 [companion-showroom] [avatar-switch] [started] from=${entries[currentIndex]?.id ?? "none"} to=${entries[normalizedIndex]?.id ?? "none"}`,
+      );
+      setShowroomAvatarSwitching(true);
+      setCurrentIndex(normalizedIndex);
+    },
+    [currentIndex, entries],
+  );
+
+  useEffect(() => {
+    if (!showroomAvatarSwitching) return;
+    const frame = window.requestAnimationFrame(() => {
+      setShowroomAvatarSwitching(false);
+      console.log(
+        ` 🎮 [companion-showroom] [avatar-switch] [settled] companion=${current?.id ?? "none"}`,
+      );
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [current?.id, showroomAvatarSwitching]);
+
   const cycle = useCallback(
     (direction: -1 | 1) => {
       if (entries.length <= 1 || spotlightOpen || picking) return;
@@ -5862,12 +6521,14 @@ export function CompanionShowroom({
       setVideoCallLayout("call");
       setVideoCallCompanionView("full_body");
       setIntroVisible(false);
-      setCurrentIndex((prev) => (prev + direction + entries.length) % entries.length);
+      selectShowroomCompanionIndex(currentIndex + direction);
     },
     [
+      currentIndex,
       entries.length,
       picking,
       resetShowroomTalk,
+      selectShowroomCompanionIndex,
       spotlightOpen,
       stopShowroomVideoChatCamera,
       stopSpeech,
@@ -6151,22 +6812,6 @@ export function CompanionShowroom({
     return () => window.clearTimeout(timer);
   }, [initialCurtainDismissed, showroomReady]);
 
-  useEffect(() => {
-    if (!enableBackgroundMusic || !musicOn) {
-      musicRef.current?.stop();
-      musicRef.current = null;
-      return;
-    }
-
-    const startFromGesture = () => startMusic();
-    window.addEventListener("pointerdown", startFromGesture, { once: true });
-    window.addEventListener("keydown", startFromGesture, { once: true });
-    return () => {
-      window.removeEventListener("pointerdown", startFromGesture);
-      window.removeEventListener("keydown", startFromGesture);
-    };
-  }, [enableBackgroundMusic, musicOn, startMusic]);
-
 	  useEffect(() => {
 	    return () => {
 	      clearTimers();
@@ -6176,8 +6821,6 @@ export function CompanionShowroom({
       stopShowroomVideoChatCamera();
       confettiCleanupRef.current?.();
       confettiCleanupRef.current = null;
-      musicRef.current?.stop();
-      musicRef.current = null;
       powerUpSfxRef.current?.stop();
       powerUpSfxRef.current = null;
       videoChatRingtoneRef.current?.stop();
@@ -6257,7 +6900,7 @@ export function CompanionShowroom({
     <button
       type="button"
       aria-label={`Call ${current.name}`}
-      onClick={openShowroomVideoChat}
+      onClick={() => openShowroomVideoChat()}
       disabled={videoChatButtonDisabled}
       style={{
         ...videoChatButtonStyle,
@@ -6292,6 +6935,129 @@ export function CompanionShowroom({
       </span>
     </button>
   );
+  const renderWardrobeStoreButton = () =>
+    wardrobeLabEnabled ? (
+      <button
+        type="button"
+        aria-label="Go Shopping"
+        onClick={openWardrobeStoreFromShowroom}
+        disabled={initialStageLoading}
+        style={{
+          ...videoChatButtonStyle,
+          border: "1px solid rgba(255,236,159,0.72)",
+          background: "linear-gradient(135deg, #ffec9f, #f5c95b)",
+          color: "#392f18",
+          cursor: initialStageLoading ? "wait" : "pointer",
+          opacity: initialStageLoading ? 0.62 : 1,
+        }}
+      >
+        <span
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 7,
+            fontSize: 16,
+            fontWeight: 900,
+            lineHeight: 1,
+          }}
+        >
+          <ShoppingBag size={17} aria-hidden />
+          Go Shopping
+        </span>
+        <span style={{ fontSize: 12, fontWeight: 800, lineHeight: 1 }}>
+          Visit the boutique
+        </span>
+      </button>
+    ) : null;
+
+  if (wardrobeCompatibilityLabEnabled) {
+    return (
+      <WardrobeCompatibilityLab
+        cases={WARDROBE_STORE_CERTIFICATION_CASES.filter(testCase => new URLSearchParams(window.location.search).get("wardrobeEngineering") === "true" || isWardrobeReadyForHumanReview(testCase.companionId))}
+        items={WARDROBE_STORE_CATALOG}
+        onExit={() => {
+          const params = new URLSearchParams(window.location.search);
+          params.delete("wardrobeCompatibilityLab");
+          window.location.search = params.toString();
+        }}
+        renderSourceCompanion={(testCase, inspection) => {
+          const sourceEntry = entries.find(
+            (entry) => entry.id === testCase.companionId,
+          );
+          if (!sourceEntry) return null;
+          const sourcePreviewEntry: CompanionManifestEntry = {
+            ...sourceEntry,
+            companionConfig: {
+              ...sourceEntry.companionConfig,
+              companionId: sourceEntry.id,
+              vrmUrl: testCase.sourceModelUrl ?? testCase.modelUrl,
+            },
+          };
+          return (
+            <CompanionSlot
+              key={`${testCase.id}-source`}
+              entry={sourcePreviewEntry}
+              slot="current"
+              active
+              contained
+              displayScaleOverride={4}
+              cameraAngleOverride="full-body"
+              wardrobeInspection={inspection}
+              wardrobeQaMode="candidate_preview"
+              onLoadSettled={(slotKey) => {
+                console.log(
+                  ` 🎮 [wardrobe-compatibility-lab] source_loaded result=settled case=${testCase.id} slot=${slotKey}`,
+                );
+              }}
+            />
+          );
+        }}
+        renderCompanion={(testCase, item, inspection) => {
+          const sourceEntry = entries.find(
+            (entry) => entry.id === testCase.companionId,
+          );
+          if (!sourceEntry) return null;
+          const compatibilityEntry: CompanionManifestEntry = {
+            ...sourceEntry,
+            companionConfig: {
+              ...sourceEntry.companionConfig,
+              companionId: sourceEntry.id,
+              vrmUrl: testCase.modelUrl,
+            },
+          };
+          return (
+            <CompanionSlot
+              key={testCase.id}
+              entry={compatibilityEntry}
+              slot="current"
+              active
+              contained
+              displayScaleOverride={4}
+              cameraAngleOverride="full-body"
+              wardrobeInspection={inspection}
+              wardrobeAccessoryId={inspection.accessory}
+              wardrobeOutfitId={
+                item.asset.kind === "outfit"
+                  ? item.asset.outfitId
+                  : "none"
+              }
+              wardrobeOutfitMaterialVariant={
+                item.asset.kind === "outfit"
+                  ? item.asset.materialVariant
+                  : undefined
+              }
+              wardrobeQaMode="candidate_preview"
+              onLoadSettled={(slotKey) => {
+                console.log(
+                  ` 🎮 [wardrobe-compatibility-lab] model_loaded result=settled case=${testCase.id} slot=${slotKey}`,
+                );
+              }}
+            />
+          );
+        }}
+      />
+    );
+  }
 
 
   return (
@@ -6356,7 +7122,7 @@ export function CompanionShowroom({
             animation: sunny-kefla-shake 130ms linear infinite;
           }
           @media (max-width: 640px) {
-            .sunny-showroom-stage { height: 58vh !important; }
+            .sunny-showroom-stage { height: 100dvh !important; }
             .sunny-showroom-dots { bottom: 4px !important; }
             .sunny-showroom-theme-cycler {
               top: 14px !important;
@@ -6388,46 +7154,8 @@ export function CompanionShowroom({
         disabled={spotlightOpen || picking}
         onSelect={selectShowroomTheme}
         onCycle={cycleShowroomTheme}
-        leftOffsetPx={enableBackgroundMusic ? 74 : 16}
+        leftOffsetPx={16}
       />
-
-      {enableBackgroundMusic && (
-        <button
-          type="button"
-          aria-label={musicOn ? "Turn background music off" : "Turn background music on"}
-          onClick={() => {
-            if (musicOn) {
-              musicRef.current?.stop();
-              musicRef.current = null;
-              setMusicOn(false);
-            } else {
-              setMusicOn(true);
-              window.setTimeout(() => {
-                if (!musicRef.current) {
-                  musicRef.current = createAmbientMusic();
-                }
-              }, 0);
-            }
-          }}
-          style={{
-            position: "absolute",
-            top: 18,
-            left: 18,
-            zIndex: 42,
-            width: 46,
-            height: 46,
-            borderRadius: "50%",
-            border: `1px solid ${activeTheme.controlBorder}`,
-            background: activeTheme.controlBackground,
-            color: activeTheme.controlForeground,
-            fontSize: 20,
-            cursor: "pointer",
-            boxShadow: "0 12px 34px rgba(0,0,0,0.28)",
-          }}
-        >
-          {musicOn ? "♫" : "♪"}
-        </button>
-      )}
 
       {import.meta.env.DEV && !showShowroomDiagPanel && (
         <button
@@ -6527,16 +7255,21 @@ export function CompanionShowroom({
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
             <button
               type="button"
-              onClick={() => fireShowroomDiagAnimation(showroomDiagAnimation)}
+              disabled={!showroomDiagAnimationSupported}
+              onClick={() => {
+                if (!showroomDiagAnimationSupported) return;
+                fireShowroomDiagAnimation(showroomDiagAnimation);
+              }}
               style={{
                 border: 0,
                 borderRadius: 8,
-                background: "#0f7dad",
+                background: showroomDiagAnimationSupported ? "#0f7dad" : "#475569",
                 color: "#fff",
                 fontSize: 13,
                 fontWeight: 800,
                 padding: "9px 10px",
-                cursor: "pointer",
+                cursor: showroomDiagAnimationSupported ? "pointer" : "not-allowed",
+                opacity: showroomDiagAnimationSupported ? 1 : 0.68,
               }}
             >
               Fire
@@ -6556,6 +7289,60 @@ export function CompanionShowroom({
               }}
             >
               Force idle
+            </button>
+          </div>
+          {!showroomDiagAnimationSupported && (
+            <div
+              role="status"
+              style={{
+                marginTop: 8,
+                fontSize: 11,
+                color: "#fde68a",
+              }}
+            >
+              This outfit has not passed fit QA for {showroomDiagAnimation}.
+            </div>
+          )}
+          <div
+            style={{
+              marginTop: 10,
+              paddingTop: 10,
+              borderTop: "1px solid rgba(255,255,255,0.12)",
+              display: "grid",
+              gridTemplateColumns: "1fr auto auto",
+              gap: 8,
+              alignItems: "center",
+            }}
+          >
+            <div>
+              <div style={{ fontSize: 11, fontWeight: 800 }}>Character size</div>
+              <div style={{ fontSize: 11, color: "rgba(248,250,252,0.62)" }}>
+                {current.name} · {Math.round(currentCharacterScale * 100)}%
+              </div>
+            </div>
+            <button
+              type="button"
+              aria-label={`Make ${current.name} smaller`}
+              disabled={currentCharacterScale <= SHOWROOM_MIN_DISPLAY_SCALE}
+              onClick={() => resizeCurrentShowroomCharacter(-1)}
+              style={showroomThemeIconButtonStyle(
+                activeTheme,
+                currentCharacterScale <= SHOWROOM_MIN_DISPLAY_SCALE,
+              )}
+            >
+              −
+            </button>
+            <button
+              type="button"
+              aria-label={`Make ${current.name} larger`}
+              disabled={currentCharacterScale >= SHOWROOM_MAX_DISPLAY_SCALE}
+              onClick={() => resizeCurrentShowroomCharacter(1)}
+              style={showroomThemeIconButtonStyle(
+                activeTheme,
+                currentCharacterScale >= SHOWROOM_MAX_DISPLAY_SCALE,
+              )}
+            >
+              +
             </button>
           </div>
           <div
@@ -6578,7 +7365,7 @@ export function CompanionShowroom({
         onPointerCancel={onStagePointerCancel}
         style={{
           position: "relative",
-          height: "72vh",
+          height: "100dvh",
           minHeight: 440,
           zIndex: 1,
           touchAction: entries.length > 1 && !spotlightOpen && !picking ? "none" : "auto",
@@ -6636,16 +7423,94 @@ export function CompanionShowroom({
               key={slot.entry.id}
               entry={slot.entry}
               slot={slot.slot}
-              active={!spotlightOpen}
+              instantAvatarSwitch={showroomAvatarSwitching}
+              active={
+                !spotlightOpen && !(wardrobeLabEnabled && wardrobeStoreOpen)
+              }
+              displayScaleOverride={showroomCharacterScaleOverrides[slot.entry.id]}
               soleFlankPair={isPairDuo}
               vfxPreset={slot.slot === "current" ? signatureMoveVfxPreset(slot.entry) : undefined}
               vfxLevel={slot.slot === "current" ? signatureMoveLevel : "idle"}
               getAnalyser={getSpeechAnalyser}
+              wardrobeAccessoryId={
+                wardrobeLabEnabled && slot.slot === "current"
+                  ? wardrobeAccessoryId
+                  : "none"
+              }
+              wardrobeOutfitId={
+                wardrobeLabEnabled && slot.slot === "current"
+                  ? effectiveWardrobeOutfitId
+                  : "none"
+              }
+              wardrobeOutfitMaterialVariant={
+                wardrobeLabEnabled && slot.slot === "current"
+                  ? effectiveWardrobeOutfitMaterialVariant
+                  : null
+              }
               onMotorReady={setMotor}
               onLoadSettled={markSlotLoadSettled}
             />
           ))}
         </AnimatePresence>
+        {wardrobeLabEnabled &&
+          wardrobeStoreOpen &&
+          !spotlightOpen &&
+          current &&
+          wardrobePresentation &&
+          wardrobeStoreEntry && (
+          <WardrobeStoreLab
+            companion={{
+              id: current.id,
+              name: current.name,
+              modelUrl: wardrobePresentation.bodyModelUrl,
+            }}
+            companionPreview={(view) => (
+              <CompanionSlot
+                key={`wardrobe-store-${view}-${current.id}`}
+                entry={wardrobeStoreEntry}
+                slot="current"
+                active
+                contained
+                displayScaleOverride={4}
+                cameraAngleOverride="full-body"
+                getAnalyser={getSpeechAnalyser}
+                wardrobeAccessoryId={wardrobeAccessoryId}
+                wardrobeOutfitId={effectiveWardrobeOutfitId}
+                wardrobeOutfitMaterialVariant={effectiveWardrobeOutfitMaterialVariant}
+                onMotorReady={handleVideoChatMotorReady}
+                onLoadSettled={handleWardrobePreviewLoadSettled}
+                onHeadScreenAnchorChange={setCompanionHeadAnchor}
+              />
+            )}
+            companionHeadAnchor={companionHeadAnchor}
+            call={{
+              talkPhase: showroomTalkPhase,
+              responseText: showroomTalkResponse,
+              error: showroomTalkError || showroomVideoChatError,
+              onAskVoice: startShowroomVideoCallListening,
+            }}
+            onWardrobeChange={handleWardrobeStoreChange}
+            onShoppingContextChange={handleWardrobeShoppingContextChange}
+            onDebugEvent={
+              wardrobeDebugEnabled ? handleWardrobeDebugEvent : undefined
+            }
+            debugTraceLink={
+              wardrobeDebugEnabled ? showroomVideoTraceLink : null
+            }
+            debugTraceCopyStatus={
+              wardrobeDebugEnabled ? showroomVideoTraceCopyStatus : null
+            }
+            onCopyDebugTraceLink={
+              wardrobeDebugEnabled ? copyShowroomVideoTraceLink : undefined
+            }
+            onExit={closeWardrobeStore}
+            exitLabel={
+              wardrobeStoreReturnTarget === "call"
+                ? "Back to the call"
+                : "Back to the showroom"
+            }
+          />
+        )}
         {activeTheme.chrome === "crystal" && (
           <>
             {slots
@@ -6698,7 +7563,7 @@ export function CompanionShowroom({
                   aria-current={dotActive ? "true" : undefined}
                   onClick={() => {
                     if (picking) return;
-                    setCurrentIndex(i);
+                    selectShowroomCompanionIndex(i);
                   }}
                   style={{
                     width: dotActive ? 12 : 9,
@@ -6747,10 +7612,11 @@ export function CompanionShowroom({
       </button>
 
       <div
+        className="sunny-showroom-actions"
         style={{
           position: "absolute",
           left: "50%",
-          top: "calc(72vh - 36px)",
+          bottom: "clamp(48px, 7dvh, 78px)",
           transform: "translateX(-50%)",
           zIndex: 18,
           display: "flex",
@@ -6758,7 +7624,7 @@ export function CompanionShowroom({
           justifyContent: "center",
           alignItems: "center",
           flexWrap: "wrap",
-          width: "min(94vw, 720px)",
+          width: wardrobeLabEnabled ? "min(96vw, 980px)" : "min(94vw, 720px)",
         }}
       >
         {!spotlightOpen && (
@@ -6788,6 +7654,7 @@ export function CompanionShowroom({
               }}
             >
               {renderCallAction()}
+              {renderWardrobeStoreButton()}
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 14, minHeight: 26 }}>
               <button
@@ -7044,7 +7911,7 @@ export function CompanionShowroom({
 	      </AnimatePresence>
 
 	      <CompanionVideoCallOverlay
-	        open={showroomVideoChatOpen}
+	        open={showroomVideoChatOpen && !wardrobeStoreOpen}
 	        companionName={current.name}
 	        phase={showroomVideoCallPhase}
 	        cameraState={showroomVideoChatCameraState}
@@ -7114,6 +7981,7 @@ export function CompanionShowroom({
 	        onLayoutChange={setVideoCallLayout}
 	        onCompanionViewChange={setVideoCallCompanionView}
 	        onCopyTraceLink={copyShowroomVideoTraceLink}
+	        onGoShopping={wardrobeLabEnabled ? openWardrobeStoreFromCall : undefined}
 	        onAskVoice={startShowroomVideoCallListening}
 	        onQuestionChange={(value) => {
 	          setShowroomTalkQuestion(value);

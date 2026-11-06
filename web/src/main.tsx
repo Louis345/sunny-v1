@@ -13,10 +13,12 @@ import { resolveSunnyRuntimeConfig } from "../../src/shared/runtimeConfig";
 import { ReturnedWorkPage } from "./components/ReturnedWorkPage";
 import { LearningReportPage } from "./components/LearningReportPage";
 import { announceKioskReady } from "./kioskReady";
+import { CompanionShowroomPage } from "./CompanionShowroomPage";
 
 const runtimeConfig = resolveSunnyRuntimeConfig(import.meta.env);
 const diagReadingEnabled = import.meta.env.VITE_DIAG_READING === "true";
 const companionDiagEnabled = import.meta.env.VITE_COMPANION_DIAG === "true";
+const companionShowroomEnabled = import.meta.env.VITE_MODE === "intro";
 const visualExplainerRenderEnabled = window.location.pathname === "/__render";
 const returnedWorkEnabled = window.location.pathname === "/parent/returned-work";
 const learningReportEnabled = window.location.pathname === "/parent/learning-report";
@@ -36,6 +38,8 @@ createRoot(document.getElementById("root")!).render(
     <TransitionProvider>
       {window.location.pathname === "/parent/spelling" ? (<SpellingParentPage childId={returnedWorkChildId} />) : learningReportEnabled ? (
         <LearningReportPage childId={returnedWorkChildId} initialHomeworkId={learningReportHomeworkId} />
+      ) : companionShowroomEnabled ? (
+        <CompanionShowroomPage />
       ) : returnedWorkEnabled ? (
         <ReturnedWorkPage childId={returnedWorkChildId} />
       ) : visualExplainerRenderEnabled ? (

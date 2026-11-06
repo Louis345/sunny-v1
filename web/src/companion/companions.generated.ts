@@ -392,7 +392,7 @@ export const COMPANION_MANIFEST: CompanionManifestEntry[] = [
     ],
     "companionConfig": {
       "companionId": "matilda",
-      "vrmUrl": "/companions/sample.vrm",
+      "vrmUrl": "/companions/673852811403133503.vrm",
       "expressions": {
         "idle": "neutral",
         "happy": "happy",
