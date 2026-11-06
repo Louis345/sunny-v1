@@ -26,7 +26,10 @@ import {
 } from "./session-triggers";
 import { WsTtsBridge } from "./ws-tts-bridge";
 import { createLoggedVoiceTurnLatency } from "./voiceTurnLatency";
-import { interruptedExchange, isBackchannel, isListeningNoise, isVerbatimEchoOfCompanion, preAudioSpeechAction, shouldBargeIn } from "./companionTurnTaking";
+import { interruptedExchange, isBackchannel, isListeningNoise, isSelfEcho, isVerbatimEchoOfCompanion, preAudioSpeechAction, shouldBargeIn } from "./companionTurnTaking";
+
+/** Sunny's own speech (narration or a reply) can come back through the room mic this long after it played. */
+const SELF_ECHO_WINDOW_MS = 15_000;
 import { appendRewardLog } from "../agents/elli/tools/logReward";
 import { mathProblem } from "../agents/elli/tools/mathProblem";
 import {
@@ -1688,6 +1691,14 @@ export class SessionManager {
         round: auditRound,
         transcriptLength: transcript.length,
       });
+    }
+
+    if (!opts?.fromReadingComplete && isSelfEcho(transcript, this.ttsBridge?.recentlySpoken?.(SELF_ECHO_WINDOW_MS) ?? [])) {
+      console.log(` 🎮 [transcript] [self-echo-dropped] words=${transcript.split(/\s+/).length} replay=${isReplay}`);
+      auditLog("transcript", { action: "dropped", reason: "self_echo", turnState: this.turnSM.getState(), tts, childName: auditChild, round: auditRound });
+      this.debugRecorder.recordEvent("transcript", "dropped", { reason: "self_echo", round: auditRound, transcriptLength: transcript.length });
+      this.voiceLatency?.discardLatest("ignored");
+      return;
     }
 
     if (!isReplay) {

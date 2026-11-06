@@ -92,6 +92,29 @@ export function isVerbatimEchoOfCompanion(text: string, companionSpoken: string)
   return words.filter((w) => recent.has(w)).length / words.length >= 0.9;
 }
 
+/** Case- and punctuation-free words: "Nope. Nope..." and "nope, nope" are the same utterance. */
+export function normalizeUtterance(text: string): string {
+  return spokenWords(text).join(" ");
+}
+
+/**
+ * Anything Sunny spoke recently (game narration or a reply) coming back through the room mic.
+ * Only a multi-word transcript counts: most of its words are in one recent utterance and it
+ * repeats a run of three of them in order. A child repeating a word or two ("plane",
+ * "is it plane?") is a real answer, and a letter-by-letter spelling attempt is always hers.
+ */
+export function isSelfEcho(transcript: string, recentSpeech: readonly string[]): boolean {
+  const words = spokenWords(transcript);
+  if (words.length < 4 || words.every((w) => w.length === 1)) return false;
+  return recentSpeech.some((utterance) => {
+    const said = spokenWords(utterance);
+    const vocabulary = new Set(said);
+    if (words.filter((w) => vocabulary.has(w)).length / words.length < 0.75) return false;
+    const runs = new Set(said.slice(2).map((w, i) => `${said[i]} ${said[i + 1]} ${w}`));
+    return words.slice(2).some((w, i) => runs.has(`${words[i]} ${words[i + 1]} ${w}`));
+  });
+}
+
 /**
  * Should the child's live (interim) transcript stop Elli mid-reply? Yes once
  * it holds two real words that are neither a backchannel nor Elli's own echo.

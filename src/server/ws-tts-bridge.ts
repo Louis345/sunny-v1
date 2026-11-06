@@ -288,8 +288,29 @@ export class WsTtsBridge {
     }, FLUSH_INTERVAL_MS);
   }
 
+  /** What this bridge sent to the speakers, one entry per playback, so the mic can tell Sunny's voice from the child's. */
+  private spokenLog: Array<{ requestId: string; text: string; at: number }> = [];
+
+  recentlySpoken(withinMs: number, now = Date.now()): string[] {
+    this.spokenLog = this.spokenLog.filter((entry) => now - entry.at <= Math.max(withinMs, 60_000));
+    return this.spokenLog.filter((entry) => now - entry.at <= withinMs).map((entry) => entry.text);
+  }
+
+  private rememberSpoken(chunk: string): void {
+    const requestId = this.playbackOwner?.requestId ?? "";
+    const last = this.spokenLog.at(-1);
+    if (last && last.requestId === requestId) {
+      last.text += chunk;
+      last.at = Date.now();
+    } else {
+      this.spokenLog.push({ requestId, text: chunk, at: Date.now() });
+      if (this.spokenLog.length > 20) this.spokenLog.shift();
+    }
+  }
+
   sendText(chunk: string): void {
     if (this.stopped) return;
+    this.rememberSpoken(chunk);
     let piece = chunk;
     const bufTrim = this.buffer.trimEnd();
     if (bufTrim.length > 0 && piece.trim().length > 0) {
