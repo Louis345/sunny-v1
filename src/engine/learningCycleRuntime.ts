@@ -638,7 +638,12 @@ export function authorizeCanonicalPlannerRetry(input: {childId:string; homeworkI
     || !isRetryablePlannerBlock(blocked.reason) || !input.reason.trim()) throw Error("planner_retry_not_eligible");
   const checkpoint = plannerCheckpoint({...cycle,lifecycle:blocked.fromLifecycle,decisionHistory:cycle.decisionHistory.slice(0,cycle.decisionHistory.indexOf(blocked))},opts);
   const receipts = path.join(checkpoint.draftDir,"provider-receipts");
-  if (blocked.reason.startsWith("planner_decision_invalid:provider_stage_request_changed:") || blocked.reason.startsWith("provider_outcome_uncertain:")) {
+  // The tools Planner keeps one receipt per turn and never the old single-form stage file, so a
+  // tools answer that ran out of room is set aside and decided fresh (human-caught 2026-11-05).
+  const toolsRunTruncated = blocked.reason === "planner_decision_invalid:planner_response_max_tokens"
+    && !fs.existsSync(path.join(receipts,`${checkpoint.stage}.stage.json`))
+    && fs.existsSync(receipts) && fs.readdirSync(receipts).some(name=>name.startsWith(`${checkpoint.stage}-tools-turn-`));
+  if (blocked.reason.startsWith("planner_decision_invalid:provider_stage_request_changed:") || blocked.reason.startsWith("provider_outcome_uncertain:") || toolsRunTruncated) {
     // The collided or cut-off attempt's saved turns and drawing are set aside (never deleted), so the code decides fresh.
     const superseded = path.join(checkpoint.draftDir,"superseded",input.blockedDecisionId.replace(/[^a-zA-Z0-9_-]+/g,"_"));
     fs.mkdirSync(superseded,{recursive:true});

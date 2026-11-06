@@ -167,6 +167,25 @@ it('lets an operator retry a cycle blocked by a request that lost its connection
  expect(f.stream).toHaveBeenCalled();
 });
 
+// Human-caught 2026-11-05: Reina's retry after a dropped connection ran out of room (max_tokens) on the
+// tools Planner's first turn. The operator retry then failed: it looked for the old single-form receipt
+// the tools Planner never writes, so her next board stayed blocked the night before her test.
+it('lets an operator retry a tools Planner answer that ran out of room, then publishes',async()=>{
+ const f=fixture(),opts={rootDir:f.rootDir};
+ const truncated=()=>({finalMessage:async()=>({id:'msg_truncated',type:'message',role:'assistant',model:'claude-sonnet-5',content:[{type:'text',text:'Thinking about her board'}],stop_reason:'max_tokens',stop_sequence:null,usage:{input_tokens:10,output_tokens:16000}})});
+ await expect(runtime.advanceCanonicalCycleFromEvidence({...f.request,client:{messages:{stream:truncated}} as never},opts)).rejects.toThrow();
+ const blocked=getLearningCycle(childId,homeworkId,opts)!;
+ expect(blocked.lifecycle).toBe('blocked');
+ const block=blocked.decisionHistory.at(-1)!;
+ expect(block.reason).toBe('planner_decision_invalid:planner_response_max_tokens');
+ const reopened=runtime.authorizeCanonicalPlannerRetry({childId,homeworkId,blockedDecisionId:block.decisionId,reason:'Ran out of room; one fresh attempt approved'},opts);
+ expect(reopened.lifecycle).toBe(block.fromLifecycle);
+ f.stream.mockClear();
+ const decided=await runtime.advanceCanonicalCycleFromEvidence(f.request,opts);
+ expect(decided.decisionHistory.at(-1)?.eventType).toBe('theory_decided');
+ expect(f.stream).toHaveBeenCalled();
+});
+
 // Human-caught 2026-11-04: Reina's next-board question was 536K characters and Ila's 1.39M, growing
 // about 250K a board, because every answer, prediction and decision was sent twice or sixteen times
 // and padded with indentation. The first turn ran into the 5-minute deadline. Each fact goes once.
