@@ -30,7 +30,7 @@ const childId='tools-lab',homeworkId='lab-assignment',words=['write','island'];
 const wordRadarConfig={recallMode:'hidden_word_recall',inputMode:'keyboard'};
 const sha=(value:unknown)=>createHash('sha256').update(JSON.stringify(value)).digest('hex');
 
-function fixture(){
+function fixture(withLaunchCodes=false){
  const rootDir=fs.mkdtempSync(path.join(os.tmpdir(),'sunny-successor-tools-'));roots.push(rootDir);
  vi.stubEnv('SUNNY_CONTEXT_ROOT',path.join(rootDir,'src/context'));
  vi.stubGlobal('fetch',()=>{throw Error('lab_forbids_network');});
@@ -46,6 +46,7 @@ function fixture(){
   artifactBinding:{contentId:`${homeworkId}:radar-check`,artifactId:`${homeworkId}:radar-check:native`,localArtifactPath,localArtworkPath:'/generated/world.jpeg',contractFingerprint:sha(configuration),validationStatus:'passed'},
   artwork:{status:'ready',localPath:'/generated/world.jpeg',prompt:null},sfxContract:[],companionContract:{events:[]},evidenceContract,evidenceIds:[],
  }]},{rootDir});
+ if(withLaunchCodes)for(const item of items)runtime.recordSpellingDiscoveryAttempt({childId,homeworkId,attempt:{attemptId:`a-${item.wordId}`,itemId:item.id,attemptedValue:'rite',observedAt:new Date(0).toISOString()},artifactHash:'f'.repeat(64),sessionId:'first-session',launchId:'launch-1'},{rootDir});
  runtime.recordCanonicalNodeCompletion({childId,homeworkId,nodeId:'radar-check',sessionId:'first-session',result:{completed:true,accuracy:0,timeSpent_ms:100,targetResults:items.map(item=>({target:item.id,correct:false,attemptedValue:'rite'}))}},{rootDir});
  // The recorded decision re-runs the proven radar and also asks for a brand-new game.
  const instrument=(nodeId:string)=>({nodeId,title:nodeId.split(':')[1],academicTarget:'Spelling',mechanic:'word-radar',theme:'world',openingPurpose:'Practice',spelling:{wordIds:items.map(item=>item.wordId),measurementRole:'practice',responseMode:'spelling_letters'}});
@@ -198,6 +199,21 @@ it('sends the Planner each fact once, without padding',async()=>{
  expect(observationIds.length).toBeGreaterThan(0);
  for(const id of observationIds)expect(prompt.match(new RegExp(`"observationId":\\s*"${id}"`,'g'))?.length,id).toBe(1);
  expect(prompt).not.toMatch(/\n {2,}"/);
+});
+
+// Issue #56: the Planner reads her attempts without operational codes it cannot use, while the
+// chart keeps every code exactly as recorded.
+it('leaves operational codes out of the question and keeps them in her chart',async()=>{
+ const f=fixture(true),opts={rootDir:f.rootDir};
+ const stored=()=>getLearningCycle(childId,homeworkId,opts)!.observations.flatMap(row=>row.confounds);
+ const operational=(value:string)=>/^(artifact_hash|launch_id):/.test(value);
+ expect(stored().some(operational)).toBe(true);
+ await runtime.advanceCanonicalCycleFromEvidence(f.request,opts);
+ const content=f.requests[0].messages[0].content;
+ const prompt=typeof content==='string'?content:content.map((block:any)=>block.text??'').join('');
+ expect(prompt).not.toMatch(/artifact_hash:|launch_id:/);
+ expect(prompt).toContain('first_response');
+ expect(stored().some(operational)).toBe(true);
 });
 
 // Human-caught 2026-11-04: Ila solved a word in Wheel of Words by picking letters; her cycle said only
