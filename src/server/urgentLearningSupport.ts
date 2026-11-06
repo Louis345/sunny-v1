@@ -9,6 +9,8 @@ import type { ProductIssueInput } from "../engine/productIssues";
 import { buildShowroomTalkMemoryPrompt } from "./companionShowroomTalk";
 import { describeScreenForCompanion, screenShowsActivity, type ScreenReport } from "./screenReport";
 import { currentBoardInstance } from "../engine/learningBoardInstances";
+import { canonicalJourneyFrontier, canonicalJourneyLaunchable } from "../engine/learningCycleRepository";
+import type { CompanionCareMemory } from "../shared/companionCareTypes";
 import {
   maybeCompactCompanionInteractionMemory,
   readCompanionCareMemoryForPrompt,
@@ -245,9 +247,12 @@ export function buildActivityCompanionContext(input: {
   // Activity state, help objective and spelling facts describe the open activity: only when it is on screen.
   const activityOnScreen = !reported || screenShowsActivity(check);
   const board = reported ? describeScreenForCompanion({ ...check, activityContext: activityState }) : activityState;
-  const memory = buildShowroomTalkMemoryPrompt(
-    readCompanionCareMemoryForPrompt(input.childId, input.companionId),
+  const liveBoard = cycle ? describeLiveBoardForCompanion(cycle) : "";
+  const remembered = buildShowroomTalkMemoryPrompt(
+    withoutRememberedPosition(readCompanionCareMemoryForPrompt(input.childId, input.companionId)),
   );
+  const memory = remembered && [remembered,
+    "Memory is from past sessions: use it for who she is, never for where she is. Where she left off, what she just did and what is next come only from the live board and screen above; never offer a remembered game, round or level to resume."].join("\n");
   const helpObjective = input.presence === "summoned" && input.snapshot && activityOnScreen
     ? [
         "Activity-help objective:",
@@ -269,7 +274,79 @@ export function buildActivityCompanionContext(input: {
       ...(assessment.instrument === "practice" ? [] : ["This word measures what she can do alone: let her make her own try before you give any letters, sounds or parts of it. Until her answer for this item is submitted, you may say the word again or encourage her."]),
     ].join("\n");
   }
-  return redactProtectedSpellingText([board, input.speechRate === undefined ? "" : `Configured speech speed: ${input.speechRate} (1=normal; resets on item or launch change).`, memory, helpObjective, spelling].filter(Boolean).join("\n\n"), input.snapshot);
+  return redactProtectedSpellingText([board, liveBoard, input.speechRate === undefined ? "" : `Configured speech speed: ${input.speechRate} (1=normal; resets on item or launch change).`, memory, helpObjective, spelling].filter(Boolean).join("\n\n"), input.snapshot);
+}
+
+type CompanionCycle = NonNullable<ReturnType<typeof readCompanionCycle>>;
+
+/** The current board's path, its saved progress and the next step: the only answer to "where did I leave off". */
+export function describeLiveBoardForCompanion(cycle: CompanionCycle): string {
+  try {
+    const board = currentBoardInstance(cycle);
+    if (board.publishedAt === null) return "";
+    const nodes = new Map(cycle.nodes.map(node => [node.nodeId, node]));
+    const status = (nodeId: string) => {
+      const node = nodes.get(nodeId);
+      if (!node) return "missing";
+      if (node.state === "completed") return "completed";
+      return canonicalJourneyLaunchable(cycle, nodeId) === false ? "locked until an earlier step is done" : "open now";
+    };
+    const activity = (nodeId: string) => `${nodes.get(nodeId)?.title ?? nodeId} (${status(nodeId)})`;
+    const definition = board.definition;
+    const lines = ["[Live board: where she is, what she did, and what is next]",
+      ...(definition?.title ? [`Board: ${definition.title}`] : [])];
+    if (definition) {
+      const portals = new Map(definition.portals.map(portal => [portal.id, portal]));
+      const paths = new Map(definition.paths.map(path => [path.id, path.portalIds]));
+      const root = paths.get(definition.rootPathId) ?? [];
+      for (const portalId of root) {
+        const portal = portals.get(portalId);
+        const choice = definition.choices.find(candidate => candidate.portalId === portalId);
+        if (choice) {
+          const picked = cycle.routeSelection?.choices?.[choice.id];
+          const options = choice.options.map(option => {
+            const ids = (paths.get(option.pathId) ?? []).map(id => portals.get(id)?.activityNodeId).filter((id): id is string => Boolean(id));
+            const titles = ids.map(activity).join(", ");
+            const label = ids.length === 1 && nodes.get(ids[0])?.title === option.label ? "" : `${option.label}: `;
+            return `${label}${titles}${picked === option.id ? " [picked]" : ""}`;
+          });
+          lines.push(`- Choice "${portal?.label ?? choice.id}" (play one): ${options.join(" | ")}`);
+        } else if (portal?.activityNodeId) {
+          lines.push(`- ${activity(portal.activityNodeId)}`);
+        }
+      }
+    } else {
+      lines.push(...board.nodeIds.map(nodeId => `- ${activity(nodeId)}`));
+    }
+    const frontier = canonicalJourneyFrontier(cycle);
+    if (frontier?.complete) lines.push("Next step: this board is finished.");
+    else if (frontier?.choiceId) {
+      const choice = definition?.choices.find(candidate => candidate.id === frontier.choiceId);
+      lines.push(`Next step: pick one at "${definition?.portals.find(portal => portal.id === choice?.portalId)?.label ?? frontier.choiceId}".`);
+    } else if (frontier?.activityNodeId) lines.push(`Next step: ${nodes.get(frontier.activityNodeId)?.title ?? frontier.activityNodeId}.`);
+    lines.push("If she asks where she left off or what to do, answer from this board only. Only activities listed here exist on her board.");
+    return lines.join("\n");
+  } catch (error) {
+    console.warn(" 🎮 [companion] [live-board] [unavailable]", error instanceof Error ? error.message : String(error));
+    return "";
+  }
+}
+
+/** A remembered round, level or stopping point is stale the moment a new board opens. */
+const REMEMBERED_POSITION = /\b(?:round|level|stage|wave|chapter)\s+\d+\b|\bleft off\b|\bresume\b|\bpick(?:ed)? up where\b|\bwhere (?:she|you|we|ila) (?:stopped|was|were)\b/i;
+
+function withoutRememberedPosition(memory: CompanionCareMemory | undefined): CompanionCareMemory | undefined {
+  if (!memory) return memory;
+  const keep = (text: string) => !REMEMBERED_POSITION.test(text);
+  const sentences = (text: string | undefined) => text?.split(/(?<=[.!?])\s+/).filter(keep).join(" ") || undefined;
+  const list = (values: string[] | undefined) => values?.filter(keep);
+  const dropped = [memory.lastSessionSummary, memory.lastEmotionalMoment, memory.rivalryNote, ...(memory.relationshipFacts ?? []), ...(memory.favoriteMoments ?? []), ...(memory.companionSelfNotes ?? [])]
+    .filter((text): text is string => typeof text === "string" && REMEMBERED_POSITION.test(text)).length;
+  if (dropped) console.log(` 🎮 [companion-memory] [position-filtered] dropped=${dropped}`);
+  return { ...memory,
+    lastSessionSummary: sentences(memory.lastSessionSummary), lastEmotionalMoment: sentences(memory.lastEmotionalMoment),
+    rivalryNote: sentences(memory.rivalryNote), relationshipFacts: list(memory.relationshipFacts),
+    favoriteMoments: list(memory.favoriteMoments), companionSelfNotes: list(memory.companionSelfNotes) };
 }
 
 export function recordActivityCompanionHelp(input: {
