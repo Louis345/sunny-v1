@@ -1,3 +1,4 @@
+import { StrictMode } from "react";
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
@@ -1454,6 +1455,27 @@ describe("AdventureBoardExperience", () => {
     first.unmount();
     render(<AdventureBoard board={board} onNodeClick={onNodeClick} />);
     expect(screen.queryByRole("status", { name: "Quest unlocked" })).not.toBeInTheDocument();
+    vi.useRealTimers();
+  });
+
+  // 2026-11-06 lab: under React StrictMode (the dev kiosk) the mount-unmount-mount cancelled the ceremony's timers
+  // and the remount saw the Quest as already revealed, so it stayed underground and could never be tapped.
+  it("finishes the ceremony and opens the Quest even when the board is remounted mid-ceremony", () => {
+    vi.useFakeTimers();
+    window.localStorage.clear();
+    const board: AdventureBoardJson = {
+      schemaVersion: 1, boardId: "strict-board", planId: "strict-plan", childId: "reina", domain: "spelling",
+      theme: { background: { type: "solid", value: "#10203d" }, palette: { path: "#fff", completed: "#2f9f6f", available: "#6d5dfc", locked: "#9aa3ad", current: "#f59e0b", preview: "#c6ced6", text: "#fff", panel: "#111827" } },
+      nodes: [
+        { id: "start", kind: "activity", label: "Start", state: "completed", position: { x: 0.3, y: 0.6 } },
+        { id: "quest", kind: "quest", label: "Lantern Trail", state: "available", position: { x: 0.7, y: 0.4 } },
+      ],
+      edges: [{ id: "to-quest", from: "start", to: "quest", state: "available" }],
+    };
+    render(<StrictMode><AdventureBoard board={board} onNodeClick={vi.fn()} /></StrictMode>);
+    act(() => vi.advanceTimersByTime(4600));
+    expect(screen.queryByRole("status", { name: "Quest unlocked" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Lantern Trail" })).not.toHaveClass("adventure-board__node--underground");
     vi.useRealTimers();
   });
 

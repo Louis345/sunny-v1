@@ -195,7 +195,6 @@ export function AdventureBoard({
   onUnlockCeremony,
 }: AdventureBoardProps): React.ReactElement {
   const previousNodeStates = useRef(new Map(board.nodes.map((node) => [node.id, node.state])));
-  const unlockCeremonyTimers = useRef<ReturnType<typeof setTimeout>[]>([]);
   const boardRef = useRef<HTMLElement | null>(null);
   const [unlockCeremony, setUnlockCeremony] = useState<UnlockCeremonyEvent | null>(null);
   const [ceremonyStage, setCeremonyStage] = useState<UnlockCeremonyStage>("dim");
@@ -217,8 +216,6 @@ export function AdventureBoard({
     previousNodeStates.current = new Map(board.nodes.map((node) => [node.id, node.state]));
     if (!newlyUnlocked) return;
 
-    unlockCeremonyTimers.current.forEach(clearTimeout);
-    unlockCeremonyTimers.current = [];
     const event: UnlockCeremonyEvent = {
       nodeId: newlyUnlocked.id,
       kind: newlyUnlocked.kind === "boss" ? "boss" : "quest",
@@ -241,19 +238,22 @@ export function AdventureBoard({
     rememberRevealedEncounter(board.childId, event.nodeId);
     onUnlockCeremony?.(event);
     console.log(` 🎮 [adventure-board] [unlock-ceremony] [started] kind=${event.kind} node=${event.nodeId}`);
-    const later = (ms: number, run: () => void) => unlockCeremonyTimers.current.push(setTimeout(run, ms));
-    for (const { stage, at } of UNLOCK_CEREMONY_STAGES.slice(1)) later(at, () => setCeremonyStage(stage));
-    if (event.kind === "boss") later(2500, () => setCeremonyShakeAgain(true));
-    later(UNLOCK_CEREMONY_END_MS, () => {
-      setUnlockCeremony(null);
-      unlockCeremonyTimers.current = [];
-      console.log(` 🎮 [adventure-board] [unlock-ceremony] [finished] kind=${event.kind} node=${event.nodeId}`);
-    });
   }, [board.boardId, board.childId, board.nodes, board.edges, onUnlockCeremony]);
 
-  useEffect(() => () => {
-    unlockCeremonyTimers.current.forEach(clearTimeout);
-  }, []);
+  // The running ceremony owns its timers, so a remount (StrictMode, a reconnect) re-arms them instead of
+  // leaving the node underground forever.
+  useEffect(() => {
+    if (!unlockCeremony) return;
+    const timers: ReturnType<typeof setTimeout>[] = [];
+    const later = (ms: number, run: () => void) => timers.push(setTimeout(run, ms));
+    for (const { stage, at } of UNLOCK_CEREMONY_STAGES.slice(1)) later(at, () => setCeremonyStage(stage));
+    if (unlockCeremony.kind === "boss") later(2500, () => setCeremonyShakeAgain(true));
+    later(UNLOCK_CEREMONY_END_MS, () => {
+      setUnlockCeremony(null);
+      console.log(` 🎮 [adventure-board] [unlock-ceremony] [finished] kind=${unlockCeremony.kind} node=${unlockCeremony.nodeId}`);
+    });
+    return () => timers.forEach(clearTimeout);
+  }, [unlockCeremony]);
 
   const projectedChoiceSets = (board.choiceSets ?? []).map((choiceSet) =>
     inspectBaselineNodes && choiceSet.kind === "baseline-route"
