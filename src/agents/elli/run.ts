@@ -1,6 +1,6 @@
 import fs from "fs";
 import path from "path";
-import { stepCountIs, streamText, type ModelMessage } from "ai";
+import { stepCountIs, streamText, type ModelMessage, type StopCondition } from "ai";
 import { z } from "zod";
 import { anthropic } from "@ai-sdk/anthropic";
 import type { Profile } from "../../profiles";
@@ -78,6 +78,21 @@ function captureCompanionRequest(request: { model: string; system: string; messa
   }
 }
 
+/** Evidence-only tools: they change nothing the child sees or hears, so they never need a reply after them. */
+const RECORD_ONLY_TOOLS = new Set(["recordChildSignal", "recordProductIssue", "record_child_signal", "record_product_issue"]);
+
+/**
+ * She already spoke and the step only recorded evidence: end the turn instead of paying a
+ * second model round trip that could also speak a second reply over the first.
+ */
+export const spokeThenOnlyRecorded: StopCondition<any> = ({ steps }) => {
+  const calls = steps.at(-1)?.toolCalls ?? [];
+  if (calls.length === 0 || !calls.every((call) => RECORD_ONLY_TOOLS.has(call.toolName))) return false;
+  if (!steps.some((step) => step.text.trim())) return false;
+  console.log(` 🎮 [companion] [record-only-step] [turn-ended] tools=${calls.map((call) => call.toolName).join(",")} reason=already_spoke`);
+  return true;
+};
+
 export function buildAgentTools(_opts: { allowTransitionToWork?: boolean } = {}) {
   return { ...ALL_TOOLS };
 }
@@ -129,7 +144,7 @@ export async function runAgent(opts: RunAgentOptions): Promise<string> {
     maxRetries: 0,
     ...(effort && { providerOptions: { anthropic: { effort } } }),
     tools,
-    stopWhen: stepCountIs(8),
+    stopWhen: [stepCountIs(8), spokeThenOnlyRecorded],
     abortSignal: signal,
     experimental_onStepStart: experimentalOnStepStart,
     experimental_onToolCallStart: experimentalOnToolCallStart,
