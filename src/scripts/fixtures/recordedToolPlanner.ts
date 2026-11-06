@@ -34,7 +34,9 @@ export function recordedToolReply(lab: RecordedToolLab, request: any): any {
     .filter(block => block.type === "tool_result" && !block.is_error).map(block => JSON.parse(typeof block.content === "string" ? block.content : block.content[0].text));
   const message = (calls: Array<{ name: string; input: unknown }>) => ({ id: `recorded-${lab.requests.length}`, type: "message", role: "assistant", model: request.model,
     stop_reason: "tool_use", stop_sequence: null, usage: { input_tokens: 1, output_tokens: 1 },
-    content: calls.map((call, index) => ({ type: "tool_use", id: `tool-${lab.requests.length}-${index}`, name: call.name, input: call.input })) });
+    content: calls.map((call, index) => ({ type: "tool_use", id: `tool-${lab.requests.length}-${index}`, name: call.name, input: withNoEncounter(call) })) });
+  // Like the real Planner, fill the required encounter field with "none" when the tool offers Quest or Boss.
+  const withNoEncounter = (call: { name: string; input: any }) => call.name === "add_step" && properties("add_step")?.encounter && !("encounter" in call.input) ? { ...call.input, encounter: "none" } : call.input;
   const pick = (values: string[], wanted: string) => { const value = values.find(row => row === wanted || row.endsWith(wanted)); if (!value) throw new Error(`recorded_planner_offer_missing:${wanted} offered=${values.join(",")}`); return value; };
 
   // Discovery intake: the assigned words, then the hidden-word radar that finds her starting point.
