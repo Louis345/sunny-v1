@@ -28,7 +28,9 @@ import { getLearningCycle } from "../engine/learningCycleRepository";
 import { seedSpellingLab, writeSpellingPdfFixture, recordedAdaptiveSpellingPlan, recordedSpellingPlan } from "./fixtures/spellingEvidenceFirst";
 import { COMPANION_DEFAULTS } from "../shared/companionTypes";
 import { handleWsConnection } from "../server/ws-handler";
+import { SessionManager } from "../server/session-manager";
 import * as legacyLearning from "../engine/learningEngine";
+import { trackedBody, waitForUnfinishedBodies } from "../tests/unfinishedTestBodies";
 const lab = vi.hoisted(() => ({ root: "", plannerCalls: 0, adaptive: false, refusePreparation: false, refusalCalls: 0 }));
 vi.mock("../engine/assignmentPlanner", async original => ({ ...await original<typeof import("../engine/assignmentPlanner")>(), planAssignmentFromSourceWithTelemetry: async (packet: any) => { lab.plannerCalls++; return { output: lab.adaptive ? recordedAdaptiveSpellingPlan(packet, lab.root) : recordedSpellingPlan(packet, lab.root), telemetry: { model: "recorded", latencyMs: 1 } }; } }));
 vi.mock("../engine/learningCycleRuntime", async original => { const actual = await original<typeof import("../engine/learningCycleRuntime")>(); return { ...actual, advanceCanonicalCycleFromEvidence: (input: any, opts: any) => actual.advanceCanonicalCycleFromEvidence({ ...input, decide: async cycle => ({ status: "inconclusive", reason: "Immediate recall is not retention", progressionAction: "await_calibration", preserve: [], change: [], testNext: [], nextEvidenceRequired: ["Delayed recall"], predictionEvaluationIds: cycle.predictionEvaluations.map(row => row.evaluationId) }) }, opts) }; });
@@ -75,6 +77,9 @@ it("keeps the spelling audio proof on Sunny's production WebSocket and TTS path"
   expect(source).toContain('transport: "production_ws_handler_and_tts_bridge"');
 });
 
+// A scenario that times out keeps running; the next one starts only after its cleanup (Nov 4 catch).
+waitForUnfinishedBodies(120000);
+
 it.each([
   { width: 1365, height: 768, adaptive: false, chart: false },
   { width: 1280, height: 720, adaptive: false, chart: false },
@@ -84,7 +89,7 @@ it.each([
   { width: 768, height: 1024, adaptive: true, chart: true },
   { width: 768, height: 1024, adaptive: false, chart: true, existing: true },
   { width: 1280, height: 720, adaptive: false, chart: false, failure: true },
-])("plays spelling through the real host and canonical routes at $width×$height adaptive=$adaptive chart=$chart existing=$existing failure=$failure", async scenario => {
+])("plays spelling through the real host and canonical routes at $width×$height adaptive=$adaptive chart=$chart existing=$existing failure=$failure", trackedBody(async scenario => {
   const childId = "ila";
   const viewport = { width: scenario.width, height: scenario.height };
   const canonicalFamilyPaths = [
@@ -165,6 +170,11 @@ it.each([
   const recordedPcmFrame = Buffer.alloc(4_800).toString("base64");
   let recordedProviderConnections = 0;
   let recordedProviderAudioFrames = 0;
+  // Nov 2 catch: a session that ended after vi.unstubAllEnvs wrote its
+  // finalizers into the real src/context/ila. Teardown waits for every end.
+  const sessionEnds: Promise<void>[] = [];
+  const endSession = SessionManager.prototype.end;
+  vi.spyOn(SessionManager.prototype, "end").mockImplementation(function (this: SessionManager) { const ending = endSession.call(this); sessionEnds.push(ending); return ending; });
   const ttsProvider = new WebSocketServer({ host: "127.0.0.1", port: 0 });
   await new Promise<void>(resolve => ttsProvider.once("listening", resolve));
   const ttsAddress = ttsProvider.address();
@@ -297,7 +307,11 @@ it.each([
         expect(await page.getByTestId("word-radar-input").count()).toBe(0);
         expect(getLearningCycle(childId, homeworkId, {rootDir})!.observations).toEqual(committedBeforeRestart);
         await page.getByRole("button", {name:"Start Sunny",exact:true}).click();
-        await page.getByTestId("word-radar-input").waitFor();
+        // Start Sunny reloads the page: a second full startup. Measured in #55,
+        // software-rendered startup blocked the main thread for 5-11s and the
+        // resume took 10-29s, always to the right word. It gets the same
+        // bounded startup budget as the first entry.
+        await page.getByTestId("word-radar-input").waitFor({ timeout: 45000 });
         expect(getLearningCycle(childId, homeworkId, { rootDir })!.observations).toEqual(committedBeforeRestart);
         expect(await page.getByText(words[2], { exact: true }).count()).toBe(0);
       }
@@ -703,6 +717,7 @@ it.each([
     ws.clients.forEach(socket => socket.terminate());
     await new Promise<void>(resolve => ws.close(() => resolve()));
     await new Promise<void>(resolve => server.close(() => resolve()));
+    await Promise.allSettled(sessionEnds);
     ttsProvider.clients.forEach(socket => socket.terminate());
     await new Promise<void>(resolve => ttsProvider.close(() => resolve()));
     __resetVoiceSessionRegistryForTests();
@@ -712,5 +727,5 @@ it.each([
     chartDb?.close();
     fs.rmSync(rootDir, { recursive: true, force: true });
   }
-}, 180000);
+}), 180000);
 import { recordedSpellingDiagnostic } from "./fixtures/spellingEvidenceFirst";

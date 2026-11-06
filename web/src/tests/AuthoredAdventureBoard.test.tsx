@@ -50,3 +50,13 @@ it('records shown options and explicit dismissal without selecting an alternativ
  expect(visibility).toHaveBeenLastCalledWith(expect.objectContaining({id:'order'}),false);
  expect(selected).not.toHaveBeenCalled();
 });
+// 2026-10-25: once the finish stopped wearing a padlock, tapping it reached the launcher and played
+// the "locked" sound. A stop with nothing to open is quiet: the start, the finish, a choice already made.
+it('stays quiet when she taps a stop with nothing to open', () => {
+  const opened=vi.fn();
+  const rendered=renderBoardDefinition(authoredJourney(),{boardId:'board',planId:'plan',childId:'synthetic',domain:'spelling',allowReadyActivitySelection:true,activities:['learn','play','check'].map(id=>({id,type:'word-radar',state:'ready',verified:true,targets:['float']}))});
+  render(<AdventureBoard board={rendered} onNodeClick={opened}/>);
+  fireEvent.click(screen.getByRole('button',{name:'end'}));
+  fireEvent.click(screen.getByRole('button',{name:'start'}));
+  expect(opened).not.toHaveBeenCalled();
+});

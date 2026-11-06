@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { adventureBoardDefinitionSchema, validateBoardDefinition, journeyExecutions, journeyFrontier, renderBoardDefinition } from '../shared/adventureBoardDefinition';
+import { adventureBoardDefinitionSchema, validateBoardDefinition, journeyExecutions, journeyFrontier, renderBoardDefinition, unfinishedActivityClosesChoices } from '../shared/adventureBoardDefinition';
 
 // Human found a missing fork: the model selected two sequences through the same
 // instruments, but normalization discarded both. Logs warned without preventing
@@ -88,6 +88,33 @@ it('keeps a dormant nested fork unavailable after switching its parent path',()=
  const board=renderBoardDefinition(definition,{boardId:'b',planId:'p',childId:'test',domain:'spelling',activities:inventory.map(id=>({id,state:'ready',verified:true})),selections:{order:'play',nested:'a'}});
  expect(board.nodes.find(node=>node.id==='nested')!.state).toBe('locked');
  expect(board.choiceSets!.find(choice=>choice.id==='nested')!.options.every(option=>option.state==='locked')).toBe(true);
+});
+
+it('keeps a nested fork closed until its parent is chosen, even on a board played in any order',()=>{
+ const definition=authoredJourney();
+ definition.portals.push({...definition.portals[1],id:'nested'});
+ definition.paths.find(path=>path.id==='learn-first')!.portalIds=['nested','play-a'];
+ definition.paths.push({id:'nested-a',portalIds:['learn-a']},{id:'nested-b',portalIds:['learn-b']});
+ definition.choices.push({id:'nested',portalId:'nested',purpose:'Nested options',options:[{id:'a',label:'A',pathId:'nested-a',hypothesis:'A'},{id:'b',label:'B',pathId:'nested-b',hypothesis:'B'}]});
+ const board=renderBoardDefinition(definition,{boardId:'b',planId:'p',childId:'test',domain:'spelling',allowReadyActivitySelection:true,activities:inventory.map(id=>({id,state:'ready',verified:true})),selections:{}});
+ expect(board.nodes.find(node=>node.id==='choose')!.state).toBe('available');
+ expect(board.nodes.find(node=>node.id==='nested')!.state).toBe('locked');
+});
+
+// 2026-11-02 human catch: Ila picked a practice path, left that game before finishing, then tapped
+// "Practice Path" 13 times and nothing opened ("it transport me back"). Answering one item marks a
+// game in progress, and any in-progress game closed every choice. Logs showed each refused tap
+// (journey_choice_not_available) without calling it a dead end; labs only tested finished games.
+it('keeps the path choice open on an any-order board after she leaves a game unfinished',()=>{
+ const project=(allowReadyActivitySelection:boolean)=>renderBoardDefinition(authoredJourney(),{boardId:'b',planId:'p',childId:'test',domain:'spelling',allowReadyActivitySelection,
+  activities:inventory.map(id=>({id,state:id==='play'?'active':'ready',verified:true})),selections:{order:'play'}});
+ const anyOrder=project(true);
+ expect(anyOrder.nodes.find(node=>node.id==='choose')!.state).toBe('available');
+ expect(anyOrder.choiceSets![0].options.every(option=>option.state==='available')).toBe(true);
+ expect(unfinishedActivityClosesChoices(true,['active'])).toBe(false);
+ // A board played in its set order keeps choices closed while a game is unfinished.
+ expect(project(false).nodes.find(node=>node.id==='choose')!.state).not.toBe('available');
+ expect(unfinishedActivityClosesChoices(false,['ready','active'])).toBe(true);
 });
 
 it('reports a missing single-path reason and orphan paths, but rejects repeated presentation identities',()=>{

@@ -33,8 +33,9 @@ it("Elli's identity permits live teaching instead of contradicting its capabilit
   const identity = readFileSync(resolve(__dirname, "../../src/companions/elli.md"), "utf8");
   expect(identity).not.toContain("Do not repeat the target");
   expect(identity).not.toContain("Never reveal the active answer");
-  expect(identity).toContain("pronunciation_model");
-  expect(identity).toContain("setSpeechRate");
+  // Teaching capabilities belong to the shared mission every companion inherits.
+  expect(companionBase).toContain("pronunciation_model");
+  expect(companionBase).toContain("setSpeechRate");
   expect(companionBase).not.toContain("3-level hint scaffold");
   expect(companionBase).not.toContain("2 sentences maximum");
 });

@@ -11,7 +11,7 @@ on:
 jobs:
   verify:
     if: ${{ github.head_ref != 'codex/spelling-chart-core' && github.head_ref != 'codex/spelling-plumbing' }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     env:
       # Remove when GitHub Release `companion-vrms-v1` (see scripts/companion-vrms.manifest.json) ships all .vrm assets.
       SKIP_COMPANION_VRM_DOWNLOAD: "true"
@@ -54,7 +54,7 @@ jobs:
 
   spelling-core-acceptance:
     if: ${{ (github.head_ref == 'codex/spelling-chart-core' || github.head_ref == 'codex/spelling-plumbing') }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
         with:
@@ -94,7 +94,7 @@ jobs:
 
   voice-regression:
     # Always run, including branches using the restricted spelling acceptance job.
-    runs-on: macos-14
+    runs-on: macos-15
     env:
       DOTENV_CONFIG_PATH: /dev/null
       SKIP_COMPANION_VRM_DOWNLOAD: "true"

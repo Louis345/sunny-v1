@@ -21,7 +21,7 @@ There is one source of truth for each fact. New Planner, generator, care-plan an
 
 ## 3. Everyone else is a nurse
 
-The canvas, the runtime and Elli carry out the order faithfully. They never veto, reorder, rewrite or second-guess it, and they never send it back. What physically cannot load is left off the child's screen and logged as ` 🎮 [board] [portal] [not-ready] reason=...`; the board always publishes (today such a portal still shows "Not ready": [issue 28](https://github.com/Louis345/sunny-v1/issues/28)). Elli talks from live screen state and context, never from canned scripts. Wrong orders belong to the Planner; unfaithful execution belongs to the nurse; a mismatch between tool and runtime belongs to the shared contract.
+The canvas, the runtime and Elli carry out the order faithfully. They never veto, reorder, rewrite or second-guess it, and they never send it back. What physically cannot load is left off the child's screen and logged as ` 🎮 [board] [portal] [not-ready] reason=...`; the board always publishes. Elli talks from live screen state and context, never from canned scripts. Wrong orders belong to the Planner; unfaithful execution belongs to the nurse; a mismatch between tool and runtime belongs to the shared contract.
 
 ## 4. The children are real
 
@@ -49,3 +49,10 @@ The canvas, the runtime and Elli carry out the order faithfully. They never veto
 ## Autonomous milestones
 
 When the owner approves a defined milestone to run unattended, that approval covers its files and its red-green steps without stopping at each one. It does not cover broader scope, destructive operations, publishing, paid calls, or weakening any rule above. Use bounded attempts, keep diagnostics, and stop with a precise blocker when credentials, providers or an unmade product decision block progress.
+
+## Adding a new AI model
+
+Models are swappable; Sunny is never tied to one.
+1. **Request shape:** every call goes through `requestForModel` (`src/engine/plannerTransport.ts`). If a new model refuses something (today: a forced `tool_choice` for `claude-opus-5-5`, `claude-sonnet-5-5`, `claude-fable-5-1`), add it to that one rule there; `src/engine/modelRequestShape.test.ts` fails if a call bypasses it.
+2. **Try it for free first, then cheaply:** run the spelling sandbox (`experiments/spelling-creative-sandbox/README.md`) with `--dry`, then a paid run with `--models=<new id>` on the pretend children (the owner approves paid runs). It must build a working game for the child's profile; the sandbox also records its cost.
+3. **Let the girls decide:** the winning model becomes a role's model through its env var (for example `SUNNY_SPELLING_GAME_MODEL`, which builds her spelling games). The chart's picks, replays and later-day accuracy per model decide whether it stays.

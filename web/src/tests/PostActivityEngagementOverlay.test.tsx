@@ -30,6 +30,28 @@ describe("PostActivityEngagementOverlay", () => {
     expect(onAction).toHaveBeenNthCalledWith(2, "back_to_map");
   });
 
+  it("makes moving on the first, main choice and keeps replay available", () => {
+    // Human catch (Nov 1): after most finished games the child tapped "Play
+    // again" and left the replay within seconds. Logs held the replay_same ->
+    // abandon pairs but nothing read them; the lab only checked that each
+    // button emits its action, never which one the screen puts first.
+    render(
+      <PostActivityEngagementOverlay
+        title="Word Radar"
+        outcome={{ completed: true, accuracy: 1 }}
+        canReplay
+        onAction={vi.fn()}
+      />,
+    );
+
+    const [first, ...rest] = screen.getAllByRole("button");
+    expect(first.textContent).toBe("Back to map");
+    expect(first.getAttribute("data-primary")).toBe("true");
+    const replay = screen.getByRole("button", { name: "Play again" });
+    expect(rest).toContain(replay);
+    expect(replay.getAttribute("data-primary")).toBeNull();
+  });
+
   it("only shows harder replay when the activity supports it", () => {
     const onAction = vi.fn();
 

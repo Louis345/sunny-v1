@@ -57,6 +57,30 @@ describe('step 2: the canvas never stops the board',()=>{
   expect(positions(result.plan.boardDefinition)).toEqual(Object.fromEntries(ring.map(({id,...position})=>[id,position])));
  });
 
+ // Human-caught 2026-11-04: Reina's Planner finished her next board, then the artist's request
+ // lost its connection (read ETIMEDOUT) and the whole board was blocked; she had no board at all.
+ // Logs showed [canonical-progression] [blocked]; no lab dropped the artist's connection.
+ it('publishes the board on the plain layout when the artist loses its connection, and never buys it again',async()=>{
+  const logs=vi.spyOn(console,'log').mockImplementation(()=>{});vi.spyOn(console,'error').mockImplementation(()=>{});vi.spyOn(console,'warn').mockImplementation(()=>{});
+  const {stream,run}=design([]);
+  stream.mockImplementation((_request:unknown)=>({finalMessage:async()=>{throw new Error('read ETIMEDOUT');}}));
+  const result=await run();
+  expect(stream).toHaveBeenCalledTimes(1);
+  expect(positions(result.plan.boardDefinition)).toEqual(await fallback());
+  expect(logs.mock.calls.map(call=>call.join(' ')).join('\n')).toMatch(/\[composition\] \[fallback-layout\] reason=provider_failed:/);
+  await run();
+  expect(stream).toHaveBeenCalledTimes(1);
+ });
+
+ it('publishes the map the artist last previewed when its next request loses its connection',async()=>{
+  vi.spyOn(console,'log').mockImplementation(()=>{});vi.spyOn(console,'error').mockImplementation(()=>{});vi.spyOn(console,'warn').mockImplementation(()=>{});
+  const {stream,run}=design([reply('preview_board',{whatISee:'An octagon ring.',...map},1)]);
+  stream.mockImplementation((_request:unknown)=>({finalMessage:async()=>{if(stream.mock.calls.length>1)throw new Error('Request was aborted.');return reply('preview_board',{whatISee:'An octagon ring.',...map},1);}}));
+  const result=await run();
+  expect(stream).toHaveBeenCalledTimes(2);
+  expect(positions(result.plan.boardDefinition)).toEqual(Object.fromEntries(ring.map(({id,...position})=>[id,position])));
+ });
+
  it('gives only the portals the artist skipped a fallback spot',async()=>{
   const logs=vi.spyOn(console,'log').mockImplementation(()=>{});
   const skipped=journey.portals[3].id;

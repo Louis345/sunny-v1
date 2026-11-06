@@ -6,6 +6,7 @@ import {
   recordCompanionInteractionEvent,
 } from "./companionInteractionMemory";
 import { shouldPersistSessionData } from "../utils/runtimeMode";
+import { CHARLOTTE_CREATOR, COMPANION_WAKE_NAMES, ELLI, MATILDA } from "../companions/loader";
 
 vi.mock("./companionInteractionMemory", async (importOriginal) => {
   const actual = await importOriginal<typeof import("./companionInteractionMemory")>();
@@ -63,6 +64,34 @@ describe("urgent learning support", () => {
       disposition: "standby_after_speech",
     })).toBe("conversation_open");
   });
+  it("hears Elli's name as speech recognition wrote it on Nov 1", () => {
+    // Nov 2 human catch: the children said Elli was not responding. Nov 1 had
+    // one wake-word summon in four sessions; an accepted turn shows the child
+    // saying "Come on, Ellen ... Ellie" - the first call was transcribed as
+    // "Ellen" and only the second reached Elli. Ignored lines kept no words, so
+    // the logs could not show other misses; the lab only tested exact spellings.
+    expect(routeCompanionPresenceTranscript({ transcript: "Come on, Ellen.", presence: "collapsed", companionWakeNames: ELLI.wakeNames }))
+      .toEqual({ action: "summon_and_respond" });
+  });
+
+  it("wakes any companion by the names listed in every companion file", () => {
+    // Nov 2 human catch: the children call "Hey Elli" and asked that every
+    // companion be reachable the same way. Elli's names were hardcoded in the
+    // gate, so only Elli had misheard spellings and Charlotte could not be
+    // called by name. Reina has said "Ellie" to Matilda, so names stay shared.
+    expect(ELLI.wakeNames).toEqual(["Elli", "Ellie", "Ellen"]);
+    expect(MATILDA.wakeNames).toEqual(["Matilda"]);
+    expect(CHARLOTTE_CREATOR.wakeNames).toEqual(["Charlotte"]);
+    expect([...COMPANION_WAKE_NAMES].sort()).toEqual(["Charlotte", "Ellen", "Elli", "Ellie", "Matilda"]);
+    const collapsed = (transcript: string) =>
+      routeCompanionPresenceTranscript({ transcript, presence: "collapsed", companionWakeNames: COMPANION_WAKE_NAMES }).action;
+    expect(collapsed("Hey Matilda, help me")).toBe("summon_and_respond");
+    expect(collapsed("Alright, Ellie.")).toBe("summon_and_respond");
+    expect(collapsed("Hey Charlotte")).toBe("summon_and_respond");
+    expect(collapsed("Hey Sunny, help me")).toBe("summon_and_respond");
+    expect(collapsed("The rectangles look equal")).toBe("ignore_ambient");
+  });
+
   it("routes activity speech through an explicit wake and dismiss presence contract", () => {
     // Human catch: Ila called Sunny during a live Word Radar response and heard
     // no answer. Logs showed valid speech recognition, then game routing or
@@ -71,42 +100,42 @@ describe("urgent learning support", () => {
       routeCompanionPresenceTranscript({
         transcript: "The rectangles look equal",
         presence: "collapsed",
-        companionName: "Elli",
+        companionWakeNames: ELLI.wakeNames,
       }),
     ).toEqual({ action: "ignore_ambient" });
     expect(
       routeCompanionPresenceTranscript({
         transcript: "Hey Sunny, I don't understand",
         presence: "collapsed",
-        companionName: "Elli",
+        companionWakeNames: ELLI.wakeNames,
       }),
     ).toEqual({ action: "summon_and_respond" });
     expect(
       routeCompanionPresenceTranscript({
         transcript: "Bye Elli",
         presence: "summoned",
-        companionName: "Elli",
+        companionWakeNames: ELLI.wakeNames,
       }),
     ).toEqual({ action: "dismiss" });
     expect(
       routeCompanionPresenceTranscript({
         transcript: "Bye Elli, bye Sunny.",
         presence: "summoned",
-        companionName: "Elli",
+        companionWakeNames: ELLI.wakeNames,
       }),
     ).toEqual({ action: "dismiss" });
     expect(
       routeCompanionPresenceTranscript({
         transcript: "Alright, bye Sony.",
         presence: "summoned",
-        companionName: "Elli",
+        companionWakeNames: ELLI.wakeNames,
       }),
     ).toEqual({ action: "dismiss" });
     expect(
       routeCompanionPresenceTranscript({
         transcript: "k. Bye, Sunny.",
         presence: "summoned",
-        companionName: "Elli",
+        companionWakeNames: ELLI.wakeNames,
         speechCaptureArmed: true,
       }),
     ).toEqual({ action: "dismiss" });
@@ -114,14 +143,14 @@ describe("urgent learning support", () => {
       routeCompanionPresenceTranscript({
         transcript: "Can you explain this another way?",
         presence: "summoned",
-        companionName: "Elli",
+        companionWakeNames: ELLI.wakeNames,
       }),
     ).toEqual({ action: "respond" });
     expect(
       routeCompanionPresenceTranscript({
         transcript: "three equal parts",
         presence: "collapsed",
-        companionName: "Elli",
+        companionWakeNames: ELLI.wakeNames,
         speechCaptureArmed: true,
       }),
     ).toEqual({ action: "route_to_game" });
@@ -129,7 +158,7 @@ describe("urgent learning support", () => {
       routeCompanionPresenceTranscript({
         transcript: "Sunny, can you hear me?",
         presence: "collapsed",
-        companionName: "Elli",
+        companionWakeNames: ELLI.wakeNames,
         speechCaptureArmed: true,
       }),
     ).toEqual({ action: "summon_and_respond" });
@@ -137,7 +166,7 @@ describe("urgent learning support", () => {
       routeCompanionPresenceTranscript({
         transcript: "Sunny",
         presence: "collapsed",
-        companionName: "Elli",
+        companionWakeNames: ELLI.wakeNames,
         speechCaptureArmed: true,
       }),
     ).toEqual({ action: "summon_and_respond" });
@@ -145,7 +174,7 @@ describe("urgent learning support", () => {
       routeCompanionPresenceTranscript({
         transcript: "B. Sonny, is it B?",
         presence: "collapsed",
-        companionName: "Elli",
+        companionWakeNames: ELLI.wakeNames,
         speechCaptureArmed: true,
       }),
     ).toEqual({ action: "summon_and_respond" });
@@ -153,7 +182,7 @@ describe("urgent learning support", () => {
       routeCompanionPresenceTranscript({
         transcript: "u. Sonny, I'm asking you.",
         presence: "collapsed",
-        companionName: "Elli",
+        companionWakeNames: ELLI.wakeNames,
         speechCaptureArmed: true,
       }),
     ).toEqual({ action: "summon_and_respond" });
@@ -161,7 +190,7 @@ describe("urgent learning support", () => {
       routeCompanionPresenceTranscript({
         transcript: "b",
         presence: "collapsed",
-        companionName: "Elli",
+        companionWakeNames: ELLI.wakeNames,
         speechCaptureArmed: true,
       }),
     ).toEqual({ action: "route_to_game" });
@@ -270,7 +299,7 @@ describe("urgent learning support", () => {
     const recordEvent = vi.fn();
     const base = {
       enabled: true,
-      companionName: "Elli",
+      companionWakeNames: ELLI.wakeNames,
       speechCaptureArmed: false,
       sendFinal,
       setPresence,
@@ -339,6 +368,28 @@ describe("urgent learning support", () => {
       speechCaptureArmed: true,
     })).toBe(true);
     expect(sendFinal).toHaveBeenCalledWith("three equal parts");
+  });
+
+  it("keeps ignored speech text in the local console log only", () => {
+    // Human catch (Nov 1): the child talked and Elli did not answer, 30 times in
+    // about 15 minutes. Logs said ambient-ignored but kept no words, so no one
+    // could tell which rule dropped speech meant for Elli. Session events are
+    // uploaded to the log repo, so the words stay out of them.
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    const recordEvent = vi.fn();
+    try {
+      expect(handleCompanionPresenceTranscript({
+        enabled: true, companionWakeNames: ELLI.wakeNames, speechCaptureArmed: false,
+        sendFinal: vi.fn(), setPresence: vi.fn(), recordEvent,
+        transcript: "can you say it again", presence: "collapsed",
+      })).toBe(true);
+      expect(log.mock.calls.map(call => String(call[0]))).toContain(
+        '  🎮 [companion-presence] [ambient-ignored] reason=companion_collapsed_without_wake_phrase text="can you say it again"',
+      );
+      expect(JSON.stringify(recordEvent.mock.calls)).not.toContain("say it again");
+    } finally {
+      log.mockRestore();
+    }
   });
 
   it("detects active-game help and scaffolds from the current word", () => {

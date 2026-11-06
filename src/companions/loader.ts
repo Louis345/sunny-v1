@@ -66,6 +66,8 @@ export interface CompanionConfig {
   openingLine: string;
   goodbye: string;
   markdownPath: string;
+  /** Names that wake this companion while she is collapsed: her name, then misheard spellings. */
+  wakeNames: string[];
   tracksActiveWord?: boolean;
   usesCanonicalMathProblem?: boolean;
 }
@@ -87,6 +89,9 @@ function loadCompanion(
   const name = parseMeta(companionMd, "Name");
   const childName = parseMeta(companionMd, "Child").replace(/\s*\(.*\)/, "");
   const emoji = parseMeta(companionMd, "Emoji");
+  const wakeNames = [...new Set([name, ...parseMeta(companionMd, "Wake names").split(",")]
+    .map((wakeName) => wakeName.trim())
+    .filter(Boolean))];
   const voiceId = process.env[voiceEnvKey] || voiceFallback;
 
   const openingLine = getTimeBasedGreeting(childName);
@@ -102,6 +107,7 @@ function loadCompanion(
     openingLine,
     goodbye,
     markdownPath,
+    wakeNames,
     ...behavior,
   };
 }
@@ -131,6 +137,7 @@ export const MATILDA = loadCompanion(
 export const CHARLOTTE_CREATOR: CompanionConfig = {
   ...ELLI,
   name: "Charlotte",
+  wakeNames: ["Charlotte"],
   childName: "creator",
   tracksActiveWord: false,
 };
@@ -140,6 +147,11 @@ export const COMPANIONS_BY_CHILD: Record<ChildName, CompanionConfig> = {
   Reina: MATILDA,
   creator: CHARLOTTE_CREATOR,
 };
+
+/** The children call companions by each other's names (Reina has said "Ellie" to Matilda), so any companion name wakes the active one. */
+export const COMPANION_WAKE_NAMES: readonly string[] = [
+  ...new Set(Object.values(COMPANIONS_BY_CHILD).flatMap((companion) => companion.wakeNames)),
+];
 
 export function getCompanionConfig(childName: ChildName): CompanionConfig {
   return COMPANIONS_BY_CHILD[childName];

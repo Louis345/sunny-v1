@@ -1,4 +1,5 @@
 import type {
+  BossDrop,
   CompanionCareAnimationIntent,
   CompanionCareItem,
   CompanionCarePlan,
@@ -299,6 +300,36 @@ export function awardHomeworkBonusCoins(
   };
 }
 
+/** The approved unlock-ceremony odds (owner, 2026-11-03): 60/25/12/3. Coins are a placeholder until the
+ * family economy is designed. A reward follows the learning; it never selects an educational step. */
+const BOSS_DROP_TIERS: ReadonlyArray<{ tier: BossDrop["tier"]; below: number; coins: number }> = [
+  { tier: "common", below: 0.6, coins: 15 },
+  { tier: "rare", below: 0.85, coins: 30 },
+  { tier: "epic", below: 0.97, coins: 60 },
+  { tier: "legendary", below: Infinity, coins: 120 },
+];
+
+export function grantBossDrop(
+  plan: CompanionCarePlan,
+  input: { homeworkId: string; bossNodeId: string; nowIso: string; roll?: () => number },
+): { plan: CompanionCarePlan; granted: boolean; drop: BossDrop } {
+  const drops = plan.economy.bossDrops ?? [];
+  const prior = drops.find((entry) => entry.bossNodeId === input.bossNodeId);
+  if (prior) return { plan, granted: false, drop: { ...prior } };
+  const value = (input.roll ?? Math.random)();
+  const pick = BOSS_DROP_TIERS.find((row) => value < row.below)!;
+  const drop: BossDrop = { homeworkId: input.homeworkId, bossNodeId: input.bossNodeId, tier: pick.tier, coins: pick.coins, droppedAt: input.nowIso };
+  return {
+    granted: true,
+    drop,
+    plan: {
+      ...plan,
+      economy: { ...plan.economy, coins: Math.max(0, Math.floor(plan.economy.coins)) + drop.coins, bossDrops: [...drops, drop] },
+      updatedAt: input.nowIso,
+    },
+  };
+}
+
 export function companionCareToTamagotchi(plan: CompanionCarePlan): TamagotchiState {
   return {
     hunger: clamp01(plan.state.hunger),
@@ -455,6 +486,7 @@ export function companionCareToView(
       purchaseReceipts: [...(plan.economy.purchaseReceipts ?? [])],
       videoCallTickets: (plan.economy.videoCallTickets ?? []).map((ticket) => ({ ...ticket })),
       bonusRewardReceipts: (plan.economy.bonusRewardReceipts ?? []).map((receipt) => ({ ...receipt })),
+      bossDrops: (plan.economy.bossDrops ?? []).map((drop) => ({ ...drop })),
     },
     inventory: {
       food: plan.inventory.food.map((item) => ({ ...item })),

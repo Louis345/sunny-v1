@@ -10,7 +10,7 @@ export async function plainDraw(journey: AdventureJourneyDefinition): Promise<{ 
 }
 
 type Recorded = { progressionAction: string; status: string; reason: string; preserve?: string[]; change?: string[]; testNext?: string[]; nextEvidenceRequired?: string[]; predictionEvaluationIds?: string[]; revisedHypothesis?: string;
-  nextInstruments?: Array<{ nodeId: string; title: string; academicTarget?: string; openingPurpose?: string; spelling?: { builtInActivityId?: string; wordIds?: string[] } }>;
+  nextInstruments?: Array<{ nodeId: string; title: string; academicTarget?: string; openingPurpose?: string; encounter?: string; spelling?: { builtInActivityId?: string; wordIds?: string[] } }>;
   boardDefinition?: { title?: string; rootPathId: string; portals: Array<{ id: string; kind: string; activityNodeId?: string }>; paths: Array<{ id: string; portalIds: string[] }>; choices: Array<{ portalId: string; purpose: string; options: Array<{ label: string; hypothesis: string; pathId: string }> }> } };
 const last = (id: string) => id.split(":").pop();
 let replies = 0;
@@ -36,12 +36,17 @@ export function successorToolReply(recorded: unknown, request: any): any {
     const builtIn = builtIns.find(id => wanted.some(want => id === want || last(id) === last(want)));
     const offeredWords: string[] = schema("add_step").words.items?.enum ?? [];
     const words = (row.spelling?.wordIds ?? []).filter(word => offeredWords.includes(word));
-    return builtIn ? [{ nodeId: row.nodeId, input: { built_in: builtIn, words, title: row.title, purpose: row.academicTarget || row.openingPurpose || "Practice." } }] : [];
+    // When Quest/Boss are offered, every step says whether it is the encounter.
+    const encounter = schema("add_step").encounter ? { encounter: row.encounter ?? "none" } : {};
+    return builtIn ? [{ nodeId: row.nodeId, input: { built_in: builtIn, words, title: row.title, purpose: row.academicTarget || row.openingPurpose || "Practice.", story: `Story: ${row.title}`, picture: `Picture: ${row.title}`, ...encounter } }] : [];
   });
   const assistantTurns = (request.messages ?? []).filter((row: any) => row.role === "assistant").length;
   if (decision.progressionAction === "await_calibration") return message([decide, { name: "finish_board", input: { title: "Waiting", endpoint_label: "Finish", single_path_reason: "Awaiting graded work." } }]);
   if (assistantTurns === 0) return message([decide, ...steps.map(step => ({ name: "add_step", input: step.input }))]);
-  const results = (request.messages.at(-1).content as any[]).filter(block => block.type === "tool_result" && !block.is_error).map(block => JSON.parse(block.content)).filter(row => row?.step_id);
+  const answers = (request.messages.at(-1).content as any[]).filter(block => block.type === "tool_result" && !block.is_error).map(block => JSON.parse(block.content));
+  // The Planner's one look at its board: a recorded decision accepts what it built.
+  if (answers.some(row => row?.board_as_served)) return message([{ name: "finish_board", input: { title: decision.boardDefinition?.title ?? "Next board", endpoint_label: "Finish", single_path_reason: "The recorded order." } }]);
+  const results = answers.filter(row => row?.step_id);
   const stepOf = new Map(steps.map((step, index) => [step.nodeId, results[index]?.step_id as string]));
   const board = decision.boardDefinition;
   const portals = new Map((board?.portals ?? []).map(portal => [portal.id, portal]));

@@ -21,6 +21,7 @@ export const NODE_DISPLAY_LABELS: Record<string, string> = {
   quest: "⚔️ Quest",
   boss: "👹 Boss",
   "generated-baseline": "Generated Baseline",
+  "generated-game": "Her Game",
   "clock-game": "Clock Game",
   "coin-counter": "Coin Counter",
   dopamine: "Game",
@@ -325,6 +326,14 @@ export const NODE_REGISTRY: Record<string, NodeHandler> = {
         }
       }
       return "";
+    },
+  },
+  // A game Sunny built for her, served from her own folder; her frozen items bind each answer.
+  "generated-game": {
+    getUrl: (node, ctx) => {
+      const filename = node.gameHtmlPath?.split("/").pop();
+      if (!filename || !node.date) return "";
+      return `/api/homework/game/${ctx.childId}/${encodeURIComponent(node.date)}/${encodeURIComponent(filename)}?${buildNodeUrlSearchParams(node, ctx).toString()}`;
     },
   },
   "clock-game": {

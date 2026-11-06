@@ -753,6 +753,7 @@ export function isWordDrivenHomeworkNodeType(t: string): boolean {
     t === "spell-check" ||
     t === "letter-rush" ||
     t === "monster-stampede" ||
+    t === "generated-game" ||
     t === "wordle" ||
     t === "wheel-of-fortune" ||
     t === "quest" ||

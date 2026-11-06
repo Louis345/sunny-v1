@@ -1,6 +1,10 @@
+import fs from "node:fs";
+import path from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   COMPANION_SPOKEN_TURN_PROMPT,
+  PRE_AUDIO_RESTART_LIMIT,
+  preAudioSpeechAction,
   isBackchannel,
   isEchoOfCompanion,
   shouldBargeIn,
@@ -65,5 +69,34 @@ describe("Elli's spoken-turn rule", () => {
     for (const name of ["Ila", "Reina", "Elli", "Matilda"]) {
       expect(COMPANION_SPOKEN_TURN_PROMPT).not.toContain(name);
     }
+  });
+});
+
+describe("speech before the companion's reply is heard", () => {
+  // Human-caught: on Nov 3 Reina asked Matilda for help nine times in 32 seconds and got no
+  // answer: each new utterance (often just "Matilda" again) cancelled the reply before it
+  // played. Logs showed barge_in every time; the lab never spoke twice before first audio.
+  const wakeNames = ["Matilda", "Elli", "Ellie", "Sunny"];
+  it("does not restart for her companion's name or the same request said again", () => {
+    for (const transcript of ["Matilda.", "Lateilda. Matilda.", "Latilda", "Matilda. Matilda. Matilda. Matilda."]) {
+      expect(preAudioSpeechAction({ transcript, inFlightRequest: "Can you help me with desired", restarts: 0, wakeNames })).toBe("repeat");
+    }
+    expect(preAudioSpeechAction({ transcript: "Matilda, can you help me with the word?", inFlightRequest: "Matilda, can you help me with the word?", restarts: 0, wakeNames })).toBe("repeat");
+  });
+  it("restarts for new words, at most twice per turn, then holds them for right after the reply", () => {
+    const said = ["Help me.", "Foot tilt is only", "Look. What's this?", "Yeah.", "Help me."];
+    let restarts = 0;
+    const actions = said.map(transcript => {
+      const action = preAudioSpeechAction({ transcript, inFlightRequest: "Matilda", restarts, wakeNames });
+      if (action === "restart") restarts += 1;
+      return action;
+    });
+    expect(actions).toEqual(["restart", "restart", "hold", "hold", "hold"]);
+    expect(restarts).toBe(PRE_AUDIO_RESTART_LIMIT);
+  });
+  it("routes pre-audio speech through the rule in the session", () => {
+    const source = fs.readFileSync(path.join(process.cwd(), "src/server/session-manager.ts"), "utf8");
+    expect(source).toContain("preAudioSpeechAction({");
+    expect(source).toContain("[turn-taking] [pre-audio]");
   });
 });

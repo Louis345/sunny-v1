@@ -1,3 +1,4 @@
+import { awardBossDropOnCompletion } from "./bossDropAward";
 import { runOriginalSpellingForecast } from '../chart/spelling/originalForecast';
 import { setupOriginalSpellingParentRoutes } from './originalSpellingParent';
 import {commitOriginalSpellingAttempt} from './originalSpellingCommit';
@@ -274,7 +275,7 @@ import { resolveSunnyRuntimeConfig } from "../shared/runtimeConfig";
 import { reconcileCompanionCareCurrencyAward } from "./currencyAward";
 import { companionPickerIdentity } from "./companionPickerRows";
 import { isSpellingPracticeContinuation } from "../engine/learningCycleRepository";
-import { advanceCanonicalCycleFromEvidence, recordCanonicalNodeCompletion, recordSpellingDiscoveryAttempt } from "../engine/learningCycleRuntime";
+import { advanceCanonicalCycleFromEvidence, pageTimeFromKiosk, recordCanonicalNodeCompletion, recordSpellingDiscoveryAttempt } from "../engine/learningCycleRuntime";
 import { getVoiceSessionManagerForChildSession } from "./voice-session-registry";
 import { prepareSuccessorBoard } from "../engine/canonicalProgressionGenerator";
 import { successorPreparationStatus, successorResumeAction } from "../engine/learningBoardInstances";
@@ -1030,6 +1031,7 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
           companionInteractions: Array.isArray(body.result.companionInteractions)
             ? body.result.companionInteractions.map(String)
             : undefined,
+          pageTime: pageTimeFromKiosk(body.result.pageTime),
         },
       });
       if (!updated) return res.status(404).json({ error: "learning_cycle_not_found" });
@@ -1077,6 +1079,7 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
           console.error(` 🎮 [learning-cycle-route] [video-call-ticket] [deferred] ${error instanceof Error ? error.message : String(error)}`);
         }
       }
+      const bossDrop = awardBossDropOnCompletion(finalCycle, nodeId);
       console.log(` 🎮 [learning-cycle-route] [completion] [saved] child=${childId} node=${nodeId} state=${nodeState} transitioned=${becameCompleted} lifecycle=${finalCycle.lifecycle} revision=${finalCycle.revision}`);
       if (becameCompleted && !practiceContinuation && ["baseline_evaluating", "quest_evaluating", "boss_evaluating"].includes(finalCycle.lifecycle)) {
         void advanceCanonicalCycleFromEvidence({ childId, homeworkId })
@@ -1108,6 +1111,7 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
         academicAccuracy: updated.evidence?.academic.find(item => item.evidenceId === `${sessionId}:${nodeId}:completion`)?.accuracy ?? null,
         ...(award?.ok ? { coinAward: { amount: 25, balance: award.balance } } : {}),
         ...(videoCallTicket ? { videoCallTicket } : {}),
+        ...(bossDrop ? { bossDrop } : {}),
       });
     } catch (error) {
       console.error(" 🎮 [learning-cycle-route] [completion] [failed]", error);

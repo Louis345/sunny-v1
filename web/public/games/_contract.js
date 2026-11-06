@@ -572,6 +572,28 @@ window.fireAttemptEvent = function (attempt) {
   window.GameBridge.reportAttempt(attempt);
 };
 
+/**
+ * Generated games open each spelling word here, then report the child's try with fireAttemptEvent.
+ * The contract owns the bookkeeping: it binds the word to its frozen item, checks for itself whether
+ * the word is written on the screen (a shown word is assisted, whatever the game says), and asks Elli
+ * to say the word. Words drawn only on a canvas cannot be seen by this check.
+ */
+window.openSpellingItem = function (word, progress) {
+  if (typeof word !== "string" || !word.trim()) return;
+  var screen = (document.body && document.body.innerText) || "";
+  var escaped = word.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  var shown = new RegExp("(^|[^\\p{L}])" + escaped + "($|[^\\p{L}])", "iu").test(screen);
+  window.GameBridge.reportState(typeof progress === "string" && progress.trim() ? progress : "Spelling word ready.", {
+    game: "generated-game",
+    spellingItemOpened: true,
+    currentWord: word,
+    answerVisibility: shown ? "visible" : "hidden",
+    phase: "playing",
+    targetMasked: !shown,
+  });
+  window.parent.postMessage({ type: "narration_request", activityId: "generated-game", nodeId: window.GAME_PARAMS.nodeId, word: word, reason: "target_word" }, "*");
+};
+
 window.SunnyActivity = {
   params: window.GAME_PARAMS,
   snapshot: function (snapshot) {

@@ -16,6 +16,7 @@ import {
 import type { BaselineMechanicBrief } from "./baselineMechanicBrief";
 import { readContentFeedbackLessons } from "./contentFeedbackMemory";
 import fs from "fs";
+import { requestForModel } from "./plannerTransport";
 
 export type BaselineShellAutoAttachResult = {
   attached: boolean;
@@ -89,7 +90,7 @@ async function deriveRoundsWithLlm(input: {
 }): Promise<BaselineLaneRound[]> {
   if (input.targets.length === 0) return [];
   const client = new Anthropic();
-  const response = await client.messages.create({
+  const response = await client.messages.create(requestForModel({
     model: input.model ?? "claude-sonnet-5",
     max_tokens: 1_200,
     tools: [{
@@ -133,7 +134,7 @@ async function deriveRoundsWithLlm(input: {
       role: "user",
       content: `Domain: ${input.domain}. Turn each homework target into one multiple-choice round with exactly one correct option and plausible distractors. Targets:\n${input.targets.join("\n")}\n\nWorksheet context:\n${input.worksheetText.slice(0, 1_500)}`,
     }],
-  });
+  }));
   const toolUse = response.content.find((block) => block.type === "tool_use");
   const rounds = (toolUse?.type === "tool_use"
     ? (toolUse.input as { rounds?: BaselineLaneRound[] }).rounds

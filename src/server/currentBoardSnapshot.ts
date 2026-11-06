@@ -11,6 +11,8 @@ export type CurrentBoardSnapshot = {
   launchToken?: string;
   activityId?: string;
   activityTitle?: string;
+  /** The story the Planner wrote for this stop; Elli frames the stop from it in her own words. */
+  activityStory?: string;
   learningFocus?: string;
   mechanic?: string;
   currentChallenge?: string;
@@ -24,6 +26,8 @@ export type CurrentBoardSnapshot = {
   currentTarget?: string;
   /** Internal spelling truth; this is not permission to display the answer. */
   spellingTarget?: string;
+  /** The Planner's current read on her learning, present only on Planner-verified practice. */
+  plannerRead?: string;
   spellingSupportMode?: "stimulus_only" | "pronunciation_model";
   targetIsSpeakable: boolean;
   speechCaptureArmed?: boolean;
@@ -65,6 +69,8 @@ type BuildSnapshotInput = {
   assessment?: { itemId: string; word: string };
   /** Server-verified Planner practice role, independent of whether letters are displayed. */
   canonicalPractice?: boolean;
+  /** The Planner's current theory of her learning; reaches the companion on practice only. */
+  plannerRead?: string;
 };
 
 /** The Planner's frozen item role grants teaching; a browser visibility flag does not. */
@@ -174,6 +180,7 @@ export function buildCurrentBoardSnapshot(
     ["itemId", state.itemId ?? objectChallenge?.id],
     ["activityId", state.activityId],
     ["activityTitle", state.activityTitle],
+    ["activityStory", state.activityStory],
     ["learningFocus", state.learningFocus],
     ["mechanic", state.mechanic],
     ["currentChallenge", currentChallenge],
@@ -213,7 +220,7 @@ export function buildCurrentBoardSnapshot(
   // Only spelling instruments have a spoken stimulus distinct from the hidden
   // written response. Never project a hidden Wheel/math answer through this path.
   const spellingGames = new Set(["word-radar", "spell-check", "monster-stampede",
-    "letter-rush", "word-builder", "speed-catcher", "pronunciation", "visual-explainer"]);
+    "letter-rush", "word-builder", "speed-catcher", "pronunciation", "visual-explainer", "generated-game"]);
   const game = String(state.game ?? state.activityId ?? "").toLowerCase();
   if (rawTarget && spellingGames.has(game)) {
     snapshot.spellingTarget = rawTarget;
@@ -225,6 +232,9 @@ export function buildCurrentBoardSnapshot(
       && (input.canonicalPractice === true || input.canonicalPractice !== false && (explicitVisibility === "visible" || explicitVisibility === "revealed"))
       ? "pronunciation_model" : "stimulus_only";
   }
+  // A check measures her alone, so the Planner's read on her reaches Elli on practice only.
+  const plannerRead = asString(input.plannerRead);
+  if (plannerRead && input.canonicalPractice === true && snapshot.spellingSupportMode === "pronunciation_model") snapshot.plannerRead = plannerRead;
 
   for (const key of ["itemIndex", "totalItems", "score", "coins", "coinsEarned", "accuracy"] as const) {
     const n = asNumber(state[key]);
@@ -286,6 +296,7 @@ export function buildCurrentBoardSnapshotContext(
   if (snapshot.game) lines.push(`Current game: ${snapshot.game}`);
   if (snapshot.activityId) lines.push(`Current activity: ${snapshot.activityId}`);
   if (snapshot.activityTitle) lines.push(`Activity title: ${snapshot.activityTitle}`);
+  if (snapshot.activityStory) lines.push(`Activity story: ${snapshot.activityStory}`);
   if (snapshot.learningFocus) lines.push(`Learning focus: ${snapshot.learningFocus}`);
   if (snapshot.mechanic) lines.push(`Child interaction: ${snapshot.mechanic}`);
   if (snapshot.currentChallenge) lines.push(`Current challenge: ${snapshot.currentChallenge}`);
@@ -314,12 +325,14 @@ export function buildCurrentBoardSnapshotContext(
     lines.push("[Spelling pronunciation support]",
       "The activity controls written answer visibility. Teaching is assistance, not an independent spelling result.");
     if (snapshot.spellingSupportMode === "stimulus_only") {
-      lines.push("Purpose: establish what the child can spell independently. Whole-word replay and task clarification support that measurement; syllables, letters and spelling demonstrations would supply part of the answer.",
-        "Use replayWord for the activity’s own whole-word audio. The private stimulus is held by the activity, not supplied in this context.");
+      lines.push("Purpose: establish what the child can spell independently; practice with full help comes after this check. Whole-word replay and task clarification support that measurement; syllables, letters and spelling demonstrations would supply part of the answer.",
+        "If she asks for help spelling it, be honest that this one is hers to try, help comes next, and a best guess or Not sure is fine.",
+        "Use replayWord for the activity’s own whole-word audio when she wants to hear it. Answer what she actually says: offering a replay is not a reply to everything, and an offer she did not take up needs no repeating. The private stimulus is held by the activity, not supplied in this context.");
     } else {
       lines.push(`Authoritative spelling target (internal): ${snapshot.spellingTarget}`,
-        "Purpose: help the child learn this word together. A request for help gives you room to demonstrate and adapt, using the child's feedback to judge what helps.",
+        "When the child asks for help with this word or is clearly stuck, help her learn it together: demonstrate and adapt, using her feedback to judge what helps. Otherwise follow her lead.",
         "Supported practice: sounds, syllables, blending, letter names and spelling demonstrations are available. The canonical target comes from this activity, not room conversation.");
+      if (snapshot.plannerRead) lines.push(`The Planner's current read on her learning (a hypothesis to notice as you practice, not a script): ${snapshot.plannerRead}`);
       const phones = cmuDictionary[snapshot.spellingTarget.normalize("NFC").toLowerCase()];
       if (typeof phones === "string" && phones) {
         const vowelNuclei = phones.split(/\s+/).filter(phone => /[012]$/.test(phone));

@@ -28,6 +28,7 @@ export type NodeType =
   | "space-frogger"
   | "boss"
   | "generated-baseline"
+  | "generated-game"
   | "wheel-of-fortune";
 
 export type AdaptiveArtifactLifecycleStatus =
@@ -289,6 +290,8 @@ export interface NodeConfig {
   /** Factual activity context supplied to Elli; contains no answer key. */
   companionContext?: {
     activityTitle?: string;
+    /** The Planner's story for this stop, for Elli to frame it. */
+    activityStory?: string;
     learningFocus?: string;
     mechanic?: string;
     currentChallenge?: string;
@@ -471,5 +474,6 @@ export const ALL_NODE_TYPES: readonly NodeType[] = [
   "quest",
   "boss",
   "generated-baseline",
+  "generated-game",
   "wheel-of-fortune",
 ] as const;

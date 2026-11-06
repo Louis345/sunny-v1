@@ -97,6 +97,7 @@ describe("live spelling assistance and audio provenance", () => {
     const s = session();
     s.setCompanionPresence("summoned");
     s.updateCurrentBoardSnapshot({ assessmentMode: true, nodeId: "opening", itemId: "i1", phase: "response", answerVisibility: "hidden" });
+    s.recordCompanionHelpTurn("help", "It starts with n.");
     await s.speakGameNarration("night.", { assessmentMode: true, itemId: "i1" });
     confirmCurrentPlayback(s);
     s.updateCurrentBoardSnapshot({ assessmentMode: true, nodeId: "opening", itemId: "i1", phase: "feedback", answerVisibility: "visible" });
@@ -115,11 +116,29 @@ describe("live spelling assistance and audio provenance", () => {
     expect(s.getDiscoveryAttemptContext("hw-words", "i1")).toMatchObject({ support: { status: "unassisted" }, instrumentSignals: [], artifactHash: "frozen" });
     expect(s.getDiscoveryAttemptContext("other-homework", "i1")).toBeUndefined();
   });
-  it("keeps a help request assisted even after Elli collapses", async () => {
+  it("counts a word heard earlier in the same session when the check is reopened before answering", async () => {
+    // Human-caught (Nov 3, Ila): she heard "raincoat", closed the check, reopened it within
+    // seconds and typed it correctly without tapping Hear again; the answer became can't-tell.
+    // Every lab check was answered in the launch where its word played.
+    const s = session() as any;
+    s.spellingLaunch.launchToken = "first";
+    s.updateCurrentBoardSnapshot({ assessmentMode: true, nodeId: "opening", itemId: "i1", phase: "response", answerVisibility: "hidden", launchToken: "first" });
+    await s.speakGameNarration("night.", { assessmentMode: true, itemId: "i1", launchToken: "first" });
+    confirmCurrentPlayback(s);
+    s.updateCurrentBoardSnapshot({ phase: "closed", boardState: "map", launchToken: "first" });
+    s.updateCurrentBoardSnapshot({ phase: "launched", nodeId: "opening" });
+    s.spellingLaunch.launchToken = "second";
+    s.updateCurrentBoardSnapshot({ assessmentMode: true, nodeId: "opening", itemId: "i1", phase: "response", answerVisibility: "hidden", launchToken: "second" });
+    expect(s.getDiscoveryAttemptContext("hw-words", "i1", "second")).toMatchObject({ support: { status: "unassisted" } });
+    expect(s.getDiscoveryAttemptContext("hw-words", "i1", "second")?.instrumentSignals).not.toContain("audio_unavailable");
+    s.updateCurrentBoardSnapshot({ assessmentMode: true, nodeId: "opening", itemId: "i2", phase: "response", answerVisibility: "hidden", launchToken: "second" });
+    expect(s.getDiscoveryAttemptContext("hw-words", "i2", "second")?.instrumentSignals).toContain("audio_unavailable");
+  });
+  it("keeps Elli's spelling help assisted even after she collapses", async () => {
     const s = session();
     s.updateCurrentBoardSnapshot({ assessmentMode: true, nodeId: "opening", itemId: "i1", phase: "response", answerVisibility: "hidden" });
     await s.speakGameNarration("night.", { assessmentMode: true, itemId: "i1" });
-    s.setCompanionPresence("summoned"); s.setCompanionPresence("collapsed");
+    s.setCompanionPresence("summoned"); s.recordCompanionHelpTurn("help", "N, i, g..."); s.setCompanionPresence("collapsed");
     expect(s.getDiscoveryAttemptContext("hw-words", "i1")?.support.status).toBe("assisted");
   });
   it("records help Elli gives on a later item while she stays summoned", () => {
@@ -133,9 +152,10 @@ describe("live spelling assistance and audio provenance", () => {
     s.setCompanionPresence("summoned");
     s.updateCurrentBoardSnapshot({ assessmentMode: true, nodeId: "opening", itemId: "i2", phase: "response", answerVisibility: "hidden" });
     expect(s.getDiscoveryAttemptContext("hw-words", "i2")?.support.status).toBe("unassisted");
-    s.recordCompanionHelpTurn("help me with this one", "Dis... sat... is... fied.");
+    s.recordCompanionHelpTurn("help me with this one", "Li... ght.");
     expect(s.getDiscoveryAttemptContext("hw-words", "i2")?.support.status).toBe("assisted");
-    expect(s.getDiscoveryAttemptContext("hw-words", "i1")?.support.status).toBe("assisted");
+    // Nov 2 owner rule: summoning Elli on i1 without spelling help is not help.
+    expect(s.getDiscoveryAttemptContext("hw-words", "i1")?.support.status).toBe("unassisted");
   });
   it("does not carry one item's help into the next item while the companion remains open", async () => {
     // Human catch: one summoned companion state made every later spelling word
@@ -144,6 +164,7 @@ describe("live spelling assistance and audio provenance", () => {
     const s = session();
     s.updateCurrentBoardSnapshot({ assessmentMode: true, nodeId: "opening", itemId: "i1", phase: "response", answerVisibility: "hidden" });
     s.setCompanionPresence("summoned");
+    s.recordCompanionHelpTurn("help", "N, i, g...");
     expect(s.getDiscoveryAttemptContext("hw-words", "i1")?.support.status).toBe("assisted");
 
     s.updateCurrentBoardSnapshot({ assessmentMode: true, nodeId: "opening", itemId: "i2", phase: "response", answerVisibility: "hidden" });
@@ -152,6 +173,39 @@ describe("live spelling assistance and audio provenance", () => {
       status: "unassisted",
       scaffolds: [],
     });
+  });
+  it("counts a check word as assisted only when Elli's reply gives its spelling", () => {
+    // Owner rule, Nov 2: talking to Elli during a check is never help by
+    // itself. The children said Elli did not respond; making her reachable
+    // must not turn every chat into an "assisted" word. Until now any summon
+    // or any reply during the response phase marked the word assisted.
+    const s = session();
+    s.updateCurrentBoardSnapshot({ assessmentMode: true, nodeId: "opening", itemId: "i1", phase: "response", answerVisibility: "hidden" });
+    s.setCompanionPresence("summoned", "voice");
+    s.recordCompanionHelpTurn("can you say it again?", "Sure! Listen: night.");
+    s.recordCompanionHelpTurn("is this hard", "You're doing great. Give it your best try first!");
+    expect(s.getDiscoveryAttemptContext("hw-words", "i1")?.support.status).toBe("unassisted");
+    s.recordCompanionHelpTurn("help me", "It starts n, i, g...");
+    expect(s.getDiscoveryAttemptContext("hw-words", "i1")?.support.status).toBe("assisted");
+
+    s.updateCurrentBoardSnapshot({ assessmentMode: true, nodeId: "opening", itemId: "i2", phase: "response", answerVisibility: "hidden" });
+    s.recordCompanionHelpTurn("help", "Li... ght.");
+    expect(s.getDiscoveryAttemptContext("hw-words", "i2")?.support.status).toBe("assisted");
+  });
+  it("does not book help from the map onto the next activity's first word", () => {
+    // Nov 1 human catch: the Planner said one check word "got help" on two
+    // checks in a row. Opening a path choice summons Elli on the map, with no
+    // word active; that set the pending-support flag, and the chosen check's
+    // first word was presented as companionHelp:true before she saw it. The
+    // chart kept the flag but no log line named its source, and the lab never
+    // summoned Elli between two launches.
+    const s = session();
+    s.updateCurrentBoardSnapshot({ phase: "closed", boardState: "map" });
+    s.setCompanionPresence("summoned", "client");
+    s.setCompanionPresence("collapsed", "client");
+    s.updateCurrentBoardSnapshot({ phase: "launched", nodeId: "opening" });
+    s.updateCurrentBoardSnapshot({ assessmentMode: true, nodeId: "opening", itemId: "i1", phase: "response", answerVisibility: "hidden" });
+    expect(s.getDiscoveryAttemptContext("hw-words", "i1")?.support).toEqual({ status: "unassisted", scaffolds: [] });
   });
   it("does not misreport a failed or mismatched audio stimulus as delivered", async () => {
     const s = session();
@@ -266,7 +320,7 @@ it('keeps replay and delayed responses attached to their distinct launches',asyn
  const s=session();
  s.updateCurrentBoardSnapshot({phase:'launched',nodeId:'opening',launchToken:'first'});
  s.updateCurrentBoardSnapshot({assessmentMode:true,nodeId:'opening',itemId:'i1',phase:'response',answerVisibility:'hidden',launchToken:'first'});
- s.setCompanionPresence('summoned');
+ s.setCompanionPresence('summoned');s.recordCompanionHelpTurn('help','N, i, g...');
  const first=s.getDiscoveryAttemptContext('hw-words','i1','first');
  s.updateCurrentBoardSnapshot({phase:'launched',nodeId:'opening',launchToken:'second'});
  s.updateCurrentBoardSnapshot({assessmentMode:true,nodeId:'opening',itemId:'i1',phase:'response',answerVisibility:'hidden',launchToken:'second'});

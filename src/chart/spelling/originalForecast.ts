@@ -20,6 +20,11 @@ export function originalForecastStatus(db:ChartDatabase,id:string){
  const files=fs.existsSync(dir)?fs.readdirSync(dir).filter(f=>f.startsWith(prefix+'.')):[];
  return {pending:isCheckpointAttemptActive(base),attempted:files.some(f=>f.endsWith('.request.json')),needsAttention:files.some(f=>f.endsWith('.error.json'))};
 }
+/** The chart position the latest attempt was asked about. */
+function lastAskedSequence(db:ChartDatabase,id:string):number{
+ const base=baseFor(db,id),dir=path.dirname(base),prefix=path.basename(base);
+ return Math.max(0,...fs.readdirSync(dir).filter(f=>f.startsWith(prefix+'.')&&f.endsWith('.request.json')).map(f=>Number((JSON.parse(fs.readFileSync(path.join(dir,f),'utf8')) as {packet?:{asOfSequence?:unknown}}).packet?.asOfSequence)||0));
+}
 /** Original checkpoint uses the same chart doorway, receipt transport and fact validation, without inventing a plan. */
 export async function forecastOriginalSpelling(db:ChartDatabase,id:string,provider:SpellingProvider,recover=false){
  const chart=getChildChart(db.childId,{department:'spelling',database:db});
@@ -29,7 +34,8 @@ export async function forecastOriginalSpelling(db:ChartDatabase,id:string,provid
  if(!view.assignment || !view.recallChecks.length)throw Error('forecast_recall_required');
  const status=originalForecastStatus(db,id);
  if(recover&&!status.attempted)throw Error('forecast_recovery_not_started');
- if(status.needsAttention&&!recover)throw Error('forecast_needs_attention');
+ // One failed try never stops the forecast for good: a newer recall check is new evidence worth asking about.
+ if(status.needsAttention&&!recover&&view.recallChecks.at(-1)!.sequence<=lastAskedSequence(db,id))throw Error('forecast_needs_attention');
  const schedule=projectTestSchedule(chart.events,id);
  const packet:SpellingPacket={...buildPlannerPacket(chart.events,id),profile:chart.profile,schedule};
  // The captured document date is a proposal, never the forecast's confirmed schedule.
@@ -40,8 +46,12 @@ export async function forecastOriginalSpelling(db:ChartDatabase,id:string,provid
   const request=metadata as {packet:SpellingPacket};
   return db.sql.transaction(()=>{
    if(Math.max(0,...exportEvents(db).map(e=>e.sequence))!==request.packet.asOfSequence)throw Error('planner_stale_chart');
-   const p=schemas['readiness.forecast'].parse(proposal);
-   if(p.assignmentId!==id)throw Error('forecast_assignment');
+   const parsed=schemas['readiness.forecast'].parse(proposal);
+   if(parsed.assignmentId!==id)throw Error('forecast_assignment');
+   // A forecast rests on recall checks only. The Planner also reads her other answers and may name them; code keeps the checks.
+   const recallIds=new Set(request.packet.assignment.recallChecks.map(row=>row.eventId));
+   const p={...parsed,responseIds:parsed.responseIds.filter(responseId=>recallIds.has(responseId))};
+   if(p.responseIds.length<parsed.responseIds.length)console.log(` 🎮 [spelling-forecast] [citations] [kept-recall] kept=${p.responseIds.length} of=${parsed.responseIds.length}`);
    const frozen=request.packet.schedule!;
    return recordForecast(db,{...p,scheduledTestDate:frozen.testDate,scheduleFactId:frozen.scheduleFactId},{cites:[...p.responseIds,...(frozen.scheduleFactId?[frozen.scheduleFactId]:[])]});
   }).immediate();

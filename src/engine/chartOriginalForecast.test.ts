@@ -35,3 +35,26 @@ it('reports a running forecast as pending while preserving one provider request'
  const during=originalForecastStatus(db,'a');
  release();await work;expect(during).toMatchObject({pending:true});expect(originalForecastStatus(db,'a')).toMatchObject({pending:false});
 });
+
+// 2026-11-01 Ila's Teaching check: the Planner cited her Discovery answers beside her recall checks, the rule
+// refused the whole forecast (a paid answer thrown away, issue #41), and that one failure then stopped every
+// later forecast on the homework. The human saw the error line; the board never showed it.
+const answer=(itemId:string,instrument:string,rawResponse:string)=>{const shown=recordPresentation(db,{assignmentId:'a',sessionId:'s',itemId,word:'knee',acceptedForms:['knee'],instrument,role:'measure',protocolVersion:1,shown:{lettersVisible:false,hint:false,companionHelp:false}} as never);return recordResponse(db,{assignmentId:'a',sessionId:'s',itemId,attempt:1,rawResponse,status:'answered',support:{audioReplays:0,spellingShown:false,hint:false,companionHelp:false}} as never,{cites:[shown.event_id]}).event_id;};
+it('keeps only the recall checks a forecast cites, so a good answer is not thrown away',async()=>{
+ const discovery=answer('d1','discovery','nee');
+ const model=vi.fn(async(_stage:any,packet:any)=>({assignmentId:'a',probabilities:[{word:'knee',pCorrect:.7}],uncertainty:'Immediate recall only',missingEvidence:[],responseIds:[discovery,...packet.assignment.recallChecks.map((row:any)=>row.eventId)]}));
+ await forecastOriginalSpelling(db,'a',model);
+ const forecast=exportEvents(db).find(e=>e.type==='readiness.forecast')!;
+ expect((forecast.payload as {responseIds:string[]}).responseIds).not.toContain(discovery);
+ expect((forecast.payload as {responseIds:string[]}).responseIds.length).toBeGreaterThan(0);
+});
+it('lets a later recall check try again after a failure, without buying a call for the same evidence',async()=>{
+ const model=provider().mockRejectedValueOnce(Error('fixture failure'));
+ await expect(forecastOriginalSpelling(db,'a',model)).rejects.toThrow('fixture failure');
+ await expect(forecastOriginalSpelling(db,'a',model)).rejects.toThrow('forecast_needs_attention');
+ expect(model).toHaveBeenCalledTimes(1);
+ answer('later','recall_check','knee');
+ await forecastOriginalSpelling(db,'a',model);
+ expect(model).toHaveBeenCalledTimes(2);
+ expect(exportEvents(db).some(e=>e.type==='readiness.forecast')).toBe(true);
+});

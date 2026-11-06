@@ -1,4 +1,6 @@
 import fs from 'node:fs';
+import {spellingActivityMenu} from './spellingTeachingTools';
+import {spellingActivityCatalog} from './assignmentPlanner';
 import os from 'node:os';
 import path from 'node:path';
 import {createHash} from 'node:crypto';
@@ -58,14 +60,14 @@ it('builds the next board through small locked tools, re-running only built-ins,
  const f=fixture(),opts={rootDir:f.rootDir};
  await runtime.advanceCanonicalCycleFromEvidence(f.request,opts);
  // A short conversation of locked tools, never the old single form.
- expect(f.stream).toHaveBeenCalledTimes(2);
+ expect(f.stream).toHaveBeenCalledTimes(3);
  const tools=f.requests[0].tools;
- expect(tools.map((tool:any)=>tool.name)).toEqual(['decide','add_step','remove_step','set_order','add_choice','finish_board']);
- expect(tools.every((tool:any)=>tool.strict===true)).toBe(true);
- expect(strictBudget(tools).unsupported).toEqual([]);
+ expect(tools.map((tool:any)=>tool.name)).toEqual(['decide','add_step','add_explainer','remove_step','set_order','add_choice','finish_board']);
+ expect(tools.filter((tool:any)=>tool.name!=='add_explainer').every((tool:any)=>tool.strict===true)).toBe(true);
+ expect(strictBudget(tools.filter((tool:any)=>tool.strict===true)).unsupported).toEqual([]);
  expect(f.requests[0].tool_choice).toEqual({type:'auto'});
- // The only built-in on offer is the proven radar; a brand-new game cannot be ordered at all.
- expect(tools.find((tool:any)=>tool.name==='add_step').input_schema.properties.built_in.enum).toEqual(['radar-check']);
+ // On offer: the proven radar to re-run and the certified games and modes; a brand-new game cannot be ordered at all.
+ expect(tools.find((tool:any)=>tool.name==='add_step').input_schema.properties.built_in.enum).toEqual(['radar-check',...spellingActivityMenu(spellingActivityCatalog(childId)).choices]);
  vi.spyOn(canvas,'verifyPreparingBoardCanvas').mockResolvedValue(undefined);
  const generateHtml=vi.fn(async()=>'<html></html>');
  const after=await prepareSuccessorBoard({childId,homeworkId,generateHtml,generateArtwork:async()=>'/generated/world.jpeg',validate:async()=>({passed:true,failures:[]})},opts);
@@ -114,20 +116,102 @@ it('publishes the next board when engagement updates while the Planner decides, 
  const cycle=await runtime.advanceCanonicalCycleFromEvidence({...f.request,draw},{rootDir:f.rootDir});
  expect(cycle.lifecycle).not.toBe('blocked');
  expect(cycle.decisionHistory.at(-1)?.eventType).toBe('theory_decided');
- expect(f.stream).toHaveBeenCalledTimes(2);
+ expect(f.stream).toHaveBeenCalledTimes(3);
+});
+
+it('publishes the drafted board when the Planner cannot answer its one look',async()=>{
+ const f=fixture();
+ const answer=f.stream.getMockImplementation()!;
+ f.stream.mockImplementation((...args:any[])=>{if(f.stream.mock.calls.length>=3)return {finalMessage:async()=>{throw Object.assign(new Error('lab_provider_down'),{status:400});}} as never;return (answer as any)(...args);});
+ const warn=vi.spyOn(console,'warn');
+ const cycle=await runtime.advanceCanonicalCycleFromEvidence(f.request,{rootDir:f.rootDir});
+ expect(cycle.lifecycle).not.toBe('blocked');
+ expect(getLearningCycle(childId,homeworkId,{rootDir:f.rootDir})!.boards?.at(-1)?.kind).toBe('successor');
+ expect(warn.mock.calls.flat().join(' ')).toContain('[self-check] [unfinished] draft-stands');
+ warn.mockRestore();
 });
 
 it('replays the frozen question after a restart even though the chart changed meanwhile',async()=>{
  const f=fixture();
  const crash=async()=>{throw Object.assign(new Error('lab_process_stopped'),{status:503});};
  await expect(runtime.advanceCanonicalCycleFromEvidence({...f.request,draw:crash},{rootDir:f.rootDir})).rejects.toThrow('lab_process_stopped');
- expect(f.stream).toHaveBeenCalledTimes(2);
+ expect(f.stream).toHaveBeenCalledTimes(3);
  writeEngagementTheory(childId,buildInitialEngagementTheory({childId,domain:'spelling',homeworkId}),{rootDir:f.rootDir});
  const noCall=vi.fn(()=>{throw new Error('must_not_buy_the_decision_again');});
  const cycle=await runtime.advanceCanonicalCycleFromEvidence({...f.request,client:{messages:{stream:noCall}} as never},{rootDir:f.rootDir});
  expect(noCall).not.toHaveBeenCalled();
  expect(cycle.lifecycle).not.toBe('blocked');
  expect(getLearningCycle(childId,homeworkId,{rootDir:f.rootDir})!.decisionHistory.at(-1)?.eventType).toBe('theory_decided');
+});
+
+// 2026-11-04, human-caught: Saori changed Wi-Fi while Reina's next-board question was in flight. The
+// request aborted, the cycle blocked as provider_outcome_uncertain (correct: Sunny cannot know whether it
+// was billed), but the operator retry refused that cause, so her loop stopped at board 3 with no way back.
+// Logs showed the block; the lab never cut a connection mid-request.
+it('lets an operator retry a cycle blocked by a request that lost its connection, then publishes',async()=>{
+ const f=fixture(),opts={rootDir:f.rootDir};
+ const aborted=()=>{throw new Error('Request was aborted.');};
+ await expect(runtime.advanceCanonicalCycleFromEvidence({...f.request,client:{messages:{stream:aborted}} as never},opts)).rejects.toThrow();
+ const blocked=getLearningCycle(childId,homeworkId,opts)!;
+ expect(blocked.lifecycle).toBe('blocked');
+ const block=blocked.decisionHistory.at(-1)!;
+ expect(block.reason).toMatch(/^provider_outcome_uncertain:/);
+ const reopened=runtime.authorizeCanonicalPlannerRetry({childId,homeworkId,blockedDecisionId:block.decisionId,reason:'The connection dropped; one fresh attempt approved'},opts);
+ expect(reopened.lifecycle).toBe(block.fromLifecycle);
+ expect(reopened.observations).toEqual(blocked.observations);
+ // One approval buys one attempt; it cannot be approved again.
+ expect(()=>runtime.authorizeCanonicalPlannerRetry({childId,homeworkId,blockedDecisionId:block.decisionId,reason:'again'},opts)).toThrow('planner_retry_not_eligible');
+ f.stream.mockClear();
+ const decided=await runtime.advanceCanonicalCycleFromEvidence(f.request,opts);
+ expect(decided.decisionHistory.at(-1)?.eventType).toBe('theory_decided');
+ expect(f.stream).toHaveBeenCalled();
+});
+
+// Human-caught 2026-11-05: Reina's retry after a dropped connection ran out of room (max_tokens) on the
+// tools Planner's first turn. The operator retry then failed: it looked for the old single-form receipt
+// the tools Planner never writes, so her next board stayed blocked the night before her test.
+it('lets an operator retry a tools Planner answer that ran out of room, then publishes',async()=>{
+ const f=fixture(),opts={rootDir:f.rootDir};
+ const truncated=()=>({finalMessage:async()=>({id:'msg_truncated',type:'message',role:'assistant',model:'claude-sonnet-5',content:[{type:'text',text:'Thinking about her board'}],stop_reason:'max_tokens',stop_sequence:null,usage:{input_tokens:10,output_tokens:16000}})});
+ await expect(runtime.advanceCanonicalCycleFromEvidence({...f.request,client:{messages:{stream:truncated}} as never},opts)).rejects.toThrow();
+ const blocked=getLearningCycle(childId,homeworkId,opts)!;
+ expect(blocked.lifecycle).toBe('blocked');
+ const block=blocked.decisionHistory.at(-1)!;
+ expect(block.reason).toBe('planner_decision_invalid:planner_response_max_tokens');
+ const reopened=runtime.authorizeCanonicalPlannerRetry({childId,homeworkId,blockedDecisionId:block.decisionId,reason:'Ran out of room; one fresh attempt approved'},opts);
+ expect(reopened.lifecycle).toBe(block.fromLifecycle);
+ f.stream.mockClear();
+ const decided=await runtime.advanceCanonicalCycleFromEvidence(f.request,opts);
+ expect(decided.decisionHistory.at(-1)?.eventType).toBe('theory_decided');
+ expect(f.stream).toHaveBeenCalled();
+});
+
+// Human-caught 2026-11-04: Reina's next-board question was 536K characters and Ila's 1.39M, growing
+// about 250K a board, because every answer, prediction and decision was sent twice or sixteen times
+// and padded with indentation. The first turn ran into the 5-minute deadline. Each fact goes once.
+it('sends the Planner each fact once, without padding',async()=>{
+ const f=fixture(),opts={rootDir:f.rootDir};
+ await runtime.advanceCanonicalCycleFromEvidence(f.request,opts);
+ const content=f.requests[0].messages[0].content;
+ const prompt=typeof content==='string'?content:content.map((block:any)=>block.text??'').join('');
+ const observationIds=getLearningCycle(childId,homeworkId,opts)!.observations.map(row=>row.observationId);
+ expect(observationIds.length).toBeGreaterThan(0);
+ for(const id of observationIds)expect(prompt.match(new RegExp(`"observationId":\\s*"${id}"`,'g'))?.length,id).toBe(1);
+ expect(prompt).not.toMatch(/\n {2,}"/);
+});
+
+// Human-caught 2026-11-04: Ila solved a word in Wheel of Words by picking letters; her cycle said only
+// "response not captured", so the Planner never saw that she solved it or how many tries it took.
+// A letter game's own report is kept as a labelled practice fact; it is never scored as recall.
+it('keeps what a letter game reported about each word as practice, never as recall',async()=>{
+ const f=fixture(),opts={rootDir:f.rootDir};
+ const cycle=runtime.recordCanonicalNodeCompletion({childId,homeworkId,nodeId:'radar-check',sessionId:'letter-game',result:{completed:true,accuracy:0.67,timeSpent_ms:74000,
+  targetResults:[{target:f.items[0].id,correct:true,attempts:3,scaffoldLevel:1},{target:f.items[1].id,correct:false,attempts:5,scaffoldLevel:1}]}},opts)!;
+ const [solved,unsolved]=cycle.observations.filter(row=>row.sourceId.includes('letter-game'));
+ expect(solved.result).toEqual({observedErrorType:'response_not_captured'});
+ expect(solved.provenance).toBe('practice');
+ expect(solved.confounds).toEqual(expect.arrayContaining(['game_reported:solved','game_reported_attempts:3']));
+ expect(unsolved.confounds).toEqual(expect.arrayContaining(['game_reported:not_solved','game_reported_attempts:5']));
 });
 
 // 2026-10-25: Reina's next board was blocked by that bug before the fix shipped. "Blocked" waits for a
@@ -148,9 +232,9 @@ it('lets an operator retry a cycle blocked by the fixed stage-changed bug, then 
  const reopened=runtime.authorizeCanonicalPlannerRetry({childId,homeworkId,blockedDecisionId,reason:'The stage-changed bug is fixed'},opts);
  expect(reopened.lifecycle).toBe(before.lifecycle);
  const superseded=path.join(draftDir,'superseded',blockedDecisionId.replace(/[^a-zA-Z0-9_-]+/g,'_'));
- expect(fs.readdirSync(superseded).filter(name=>name.startsWith(`${stage}-tools-turn-`))).toHaveLength(2);
+ expect(fs.readdirSync(superseded).filter(name=>name.startsWith(`${stage}-tools-turn-`))).toHaveLength(3);
  f.stream.mockClear();
  const decided=await runtime.advanceCanonicalCycleFromEvidence(f.request,opts);
  expect(decided.decisionHistory.at(-1)?.eventType).toBe('theory_decided');
- expect(f.stream).toHaveBeenCalledTimes(2);
+ expect(f.stream).toHaveBeenCalledTimes(3);
 });

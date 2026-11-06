@@ -9,6 +9,8 @@ import type { ProductIssueInput } from "../engine/productIssues";
 import { buildShowroomTalkMemoryPrompt } from "./companionShowroomTalk";
 import { describeScreenForCompanion, screenShowsActivity, type ScreenReport } from "./screenReport";
 import { currentBoardInstance } from "../engine/learningBoardInstances";
+import { canonicalJourneyFrontier, canonicalJourneyLaunchable } from "../engine/learningCycleRepository";
+import type { CompanionCareMemory } from "../shared/companionCareTypes";
 import {
   maybeCompactCompanionInteractionMemory,
   readCompanionCareMemoryForPrompt,
@@ -245,9 +247,12 @@ export function buildActivityCompanionContext(input: {
   // Activity state, help objective and spelling facts describe the open activity: only when it is on screen.
   const activityOnScreen = !reported || screenShowsActivity(check);
   const board = reported ? describeScreenForCompanion({ ...check, activityContext: activityState }) : activityState;
-  const memory = buildShowroomTalkMemoryPrompt(
-    readCompanionCareMemoryForPrompt(input.childId, input.companionId),
+  const liveBoard = cycle ? describeLiveBoardForCompanion(cycle) : "";
+  const remembered = buildShowroomTalkMemoryPrompt(
+    withoutRememberedPosition(readCompanionCareMemoryForPrompt(input.childId, input.companionId)),
   );
+  const memory = remembered && [remembered,
+    "Memory is from past sessions: use it for who she is, never for where she is. Where she left off, what she just did and what is next come only from the live board and screen above; never offer a remembered game, round or level to resume."].join("\n");
   const helpObjective = input.presence === "summoned" && input.snapshot && activityOnScreen
     ? [
         "Activity-help objective:",
@@ -266,9 +271,82 @@ export function buildActivityCompanionContext(input: {
         instrument:assessment.instrument, lastAcknowledgedStimulusRates:assessment.lastStimulusRates ?? null, answerVisibility:input.snapshot.answerVisibility,
         ...(cycle ? {lastSubmittedResponse:last ? {itemId:last.itemId,response:last.childResponse,result:last.result,assistance:last.assistance} : null} : {recordedHistoryAvailable:false}) }),
       "The activity owns answer submission and grading. Spoken repetition is not a submitted spelling answer. These facts supersede prior conversational grades; a hidden answer must not be revealed as written letters.",
+      ...(assessment.instrument === "practice" ? [] : ["This word measures what she can do alone: let her make her own try before you give any letters, sounds or parts of it. Until her answer for this item is submitted, you may say the word again or encourage her."]),
     ].join("\n");
   }
-  return redactProtectedSpellingText([board, input.speechRate === undefined ? "" : `Configured speech speed: ${input.speechRate} (1=normal; resets on item or launch change).`, memory, helpObjective, spelling].filter(Boolean).join("\n\n"), input.snapshot);
+  return redactProtectedSpellingText([board, liveBoard, input.speechRate === undefined ? "" : `Configured speech speed: ${input.speechRate} (1=normal; resets on item or launch change).`, memory, helpObjective, spelling].filter(Boolean).join("\n\n"), input.snapshot);
+}
+
+type CompanionCycle = NonNullable<ReturnType<typeof readCompanionCycle>>;
+
+/** The current board's path, its saved progress and the next step: the only answer to "where did I leave off". */
+export function describeLiveBoardForCompanion(cycle: CompanionCycle): string {
+  try {
+    const board = currentBoardInstance(cycle);
+    if (board.publishedAt === null) return "";
+    const nodes = new Map(cycle.nodes.map(node => [node.nodeId, node]));
+    const status = (nodeId: string) => {
+      const node = nodes.get(nodeId);
+      if (!node) return "missing";
+      if (node.state === "completed") return "completed";
+      return canonicalJourneyLaunchable(cycle, nodeId) === false ? "locked until an earlier step is done" : "open now";
+    };
+    const activity = (nodeId: string) => `${nodes.get(nodeId)?.title ?? nodeId} (${status(nodeId)})`;
+    const definition = board.definition;
+    const lines = ["[Live board: where she is, what she did, and what is next]",
+      ...(definition?.title ? [`Board: ${definition.title}`] : [])];
+    if (definition) {
+      const portals = new Map(definition.portals.map(portal => [portal.id, portal]));
+      const paths = new Map(definition.paths.map(path => [path.id, path.portalIds]));
+      const root = paths.get(definition.rootPathId) ?? [];
+      for (const portalId of root) {
+        const portal = portals.get(portalId);
+        const choice = definition.choices.find(candidate => candidate.portalId === portalId);
+        if (choice) {
+          const picked = cycle.routeSelection?.choices?.[choice.id];
+          const options = choice.options.map(option => {
+            const ids = (paths.get(option.pathId) ?? []).map(id => portals.get(id)?.activityNodeId).filter((id): id is string => Boolean(id));
+            const titles = ids.map(activity).join(", ");
+            const label = ids.length === 1 && nodes.get(ids[0])?.title === option.label ? "" : `${option.label}: `;
+            return `${label}${titles}${picked === option.id ? " [picked]" : ""}`;
+          });
+          lines.push(`- Choice "${portal?.label ?? choice.id}" (play one): ${options.join(" | ")}`);
+        } else if (portal?.activityNodeId) {
+          lines.push(`- ${activity(portal.activityNodeId)}`);
+        }
+      }
+    } else {
+      lines.push(...board.nodeIds.map(nodeId => `- ${activity(nodeId)}`));
+    }
+    const frontier = canonicalJourneyFrontier(cycle);
+    if (frontier?.complete) lines.push("Next step: this board is finished.");
+    else if (frontier?.choiceId) {
+      const choice = definition?.choices.find(candidate => candidate.id === frontier.choiceId);
+      lines.push(`Next step: pick one at "${definition?.portals.find(portal => portal.id === choice?.portalId)?.label ?? frontier.choiceId}".`);
+    } else if (frontier?.activityNodeId) lines.push(`Next step: ${nodes.get(frontier.activityNodeId)?.title ?? frontier.activityNodeId}.`);
+    lines.push("If she asks where she left off or what to do, answer from this board only. Only activities listed here exist on her board.");
+    return lines.join("\n");
+  } catch (error) {
+    console.warn(" 🎮 [companion] [live-board] [unavailable]", error instanceof Error ? error.message : String(error));
+    return "";
+  }
+}
+
+/** A remembered round, level or stopping point is stale the moment a new board opens. */
+const REMEMBERED_POSITION = /\b(?:round|level|stage|wave|chapter)\s+\d+\b|\bleft off\b|\bresume\b|\bpick(?:ed)? up where\b|\bwhere (?:she|you|we|ila) (?:stopped|was|were)\b/i;
+
+function withoutRememberedPosition(memory: CompanionCareMemory | undefined): CompanionCareMemory | undefined {
+  if (!memory) return memory;
+  const keep = (text: string) => !REMEMBERED_POSITION.test(text);
+  const sentences = (text: string | undefined) => text?.split(/(?<=[.!?])\s+/).filter(keep).join(" ") || undefined;
+  const list = (values: string[] | undefined) => values?.filter(keep);
+  const dropped = [memory.lastSessionSummary, memory.lastEmotionalMoment, memory.rivalryNote, ...(memory.relationshipFacts ?? []), ...(memory.favoriteMoments ?? []), ...(memory.companionSelfNotes ?? [])]
+    .filter((text): text is string => typeof text === "string" && REMEMBERED_POSITION.test(text)).length;
+  if (dropped) console.log(` 🎮 [companion-memory] [position-filtered] dropped=${dropped}`);
+  return { ...memory,
+    lastSessionSummary: sentences(memory.lastSessionSummary), lastEmotionalMoment: sentences(memory.lastEmotionalMoment),
+    rivalryNote: sentences(memory.rivalryNote), relationshipFacts: list(memory.relationshipFacts),
+    favoriteMoments: list(memory.favoriteMoments), companionSelfNotes: list(memory.companionSelfNotes) };
 }
 
 export function recordActivityCompanionHelp(input: {
@@ -303,7 +381,7 @@ export function handleCompanionPresenceTranscript(input: {
   enabled: boolean;
   transcript: string;
   presence: CompanionPresence;
-  companionName: string;
+  companionWakeNames: readonly string[];
   speechCaptureArmed: boolean;
   nodeId?: string;
   sendFinal: (text: string) => void;
@@ -321,6 +399,7 @@ export function handleCompanionPresenceTranscript(input: {
     return true;
   }
   if (route.action === "dismiss") {
+    console.log(` 🎮 [companion-presence] [dismissed] from=${input.presence}`);
     input.setPresence("collapsed", "voice");
     input.recordEvent("companion_presence", "dismissed", { nodeId: input.nodeId });
     return true;
@@ -329,7 +408,8 @@ export function handleCompanionPresenceTranscript(input: {
     const ignoredReason = normalizeSpeechText(input.transcript)
       ? "companion_collapsed_without_wake_phrase"
       : "transcript_empty_after_normalization";
-    console.log("  🎮 [companion-presence] [ambient-ignored]");
+    // The words go to the local console only; session events are uploaded.
+    console.log(`  🎮 [companion-presence] [ambient-ignored] reason=${ignoredReason} text=${JSON.stringify(input.transcript)}`);
     input.recordEvent("transcript", "ambient_ignored", {
       transcriptLength: input.transcript.length,
       nodeId: input.nodeId,
@@ -349,12 +429,14 @@ export function handleCompanionPresenceTranscript(input: {
 export function routeCompanionPresenceTranscript(input: {
   transcript: string;
   presence: "collapsed" | "summoned";
-  companionName: string;
+  companionWakeNames: readonly string[];
   speechCaptureArmed?: boolean;
 }): CompanionPresenceTranscriptRoute {
   const text = normalizeSpeechText(input.transcript);
   if (!text) return { action: "ignore_ambient" };
-  const aliases = [...new Set(["sunny", "sonny", "sony", "elli", "ellie", input.companionName]
+  // Sunny wakes every companion; each companion file lists her own names.
+  // "eddie" is how speech recognition hears Ila's "Ellie" (2026-11-05 dismissal transcript).
+  const aliases = [...new Set(["sunny", "sonny", "sony", "eddie", ...input.companionWakeNames]
     .map(normalizeSpeechText)
     .filter(Boolean))];
   const aliasPattern = aliases.map(escapeRegExp).join("|");
@@ -365,9 +447,17 @@ export function routeCompanionPresenceTranscript(input: {
     `^(?:${repeatedFarewell}|(?:dismiss|go away|im good|i am good)(?:\\s+${aliasToken})?)$`,
     "i",
   );
+  // A goodbye anywhere, a go-away phrase, or her name with go/stop/bye dismisses her, collapsed or not,
+  // so a dismissal never summons her. A bare "go" during play is not addressed to her.
+  const goodbyeAnywhere = /\b(?:bye|goodbye)\b/.test(text) && !/\b(?:spell|spelling|spelled|mean|means|word|rhymes?)\b/.test(text);
+  const goAwayPhrase = /\b(?:go away|leave me alone|stop talking|be quiet|shut up)\b/.test(text);
+  const addressedGoStop = new RegExp(
+    `(?:^|\\s)${aliasToken}\\s+(?:go|stop|leave)(?=\\s+(?:now|away|go|stop|no|${aliasPattern})(?:\\s|$)|$)|(?:^|\\s)stop\\s+${aliasToken}(?:\\s|$)`,
+    "i",
+  ).test(text);
   if (
-    input.presence === "summoned" &&
-    (dismissal.test(text) || shortRecognizedFarewell.test(text))
+    (input.presence === "summoned" && (dismissal.test(text) || shortRecognizedFarewell.test(text)))
+    || goodbyeAnywhere || goAwayPhrase || addressedGoStop
   ) {
     return { action: "dismiss" };
   }

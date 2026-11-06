@@ -80,6 +80,7 @@ import {
   resolvePersistedDiscoveryHandoff,
   resolvePlannerBoardChoiceLaunchNode,
   resolvePlannerBoardLaunchNode,
+  isBoardFinishedPacket,
   shouldHoldTargetedBoardForPreparation,
 } from "./utils/adventureBoardLaunch";
 import { createBrowserRequestId } from "./utils/browserRequestId";
@@ -108,10 +109,12 @@ import {
   useCompanionCare,
 } from "./context/CompanionCareContext";
 import { resolveSunnyRuntimeConfig } from "../../src/shared/runtimeConfig";
+import { BossDropReveal } from "./components/BossDropReveal";
+import { rewardCallHeldReason } from "./utils/rewardCallOffer";
 import type { PostActivityAction } from "../../src/engine/choiceEvents";
 import {
   playAdventureBoardSfx,
-  playAdventureBoardUnlockSfx,
+  playUnlockCeremonySfx,
   playGeneratedMathSfx,
   type GeneratedMathSfxCue,
 } from "./utils/gameSfx";
@@ -196,6 +199,8 @@ function CompanionEconomyControls(props: {
   tamagotchi: TamagotchiState;
   balance: number;
   homeworkId?: string;
+  /** False while the one reward-call rule holds the call; the saved ticket waits. */
+  callOffered: boolean;
   onOpenVideoCall: (ticket: { homeworkId: string; earnedAt: string; bonusUrl?: string }) => void;
 }) {
   const companionCare = useCompanionCare();
@@ -206,7 +211,7 @@ function CompanionEconomyControls(props: {
   if (!props.visible) return null;
   return (
     <>
-      {earnedTicket ? (
+      {earnedTicket && props.callOffered ? (
         <button
           type="button"
           className="fixed right-5 top-20 z-[90] rounded-lg bg-cyan-400 px-4 py-3 text-sm font-black text-slate-950 shadow-xl"
@@ -604,6 +609,8 @@ function App() {
     replayNonce: number;
     completionId: string;
   } | null>(null);
+  // Beating the Boss drops loot: the saved server roll, shown once per completion reply.
+  const [bossDrop, setBossDrop] = useState<{ tier: "common" | "rare" | "epic" | "legendary"; coins: number } | null>(null);
   const [postActivityEngagement, setPostActivityEngagement] = useState<{
     node: NodeConfig;
     outcome: PostActivityOutcome;
@@ -781,6 +788,20 @@ function App() {
     plannerBoardRuntimeRequested &&
     (plannerBoardPacketState.loading || Boolean(plannerBoardPacket));
   const targetedBoardHeldForPreparation = shouldHoldTargetedBoardForPreparation(plannerBoardPacket);
+  // Held once seen: the next board can publish while she is still in a game, and she has not seen this screen yet.
+  const [finishedBoardId, setFinishedBoardId] = useState<string | null>(null);
+  const currentBoardId = plannerBoardPacket?.activeSessionPlan?.adventureBoard?.boardId ?? null;
+  const boardJustFinished = isBoardFinishedPacket(plannerBoardPacket);
+  useEffect(() => {
+    if (boardJustFinished && currentBoardId) setFinishedBoardId(prev => prev ?? currentBoardId);
+  }, [boardJustFinished, currentBoardId]);
+  // An earned call waits for a calm moment: never over a pending reveal, a board being built, or a Quest/Boss.
+  const rewardCallHeld = rewardCallHeldReason(
+    plannerBoardPacket?.childChart.learningCycle, finishedBoardId != null,
+  );
+  useEffect(() => {
+    console.log(` 🎮 [reward-loop] [call-offer] [${rewardCallHeld ? `held:${rewardCallHeld}` : "offerable"}]`);
+  }, [rewardCallHeld]);
   const targetedMathGenerationPending = hasPendingLearningGeneration(plannerBoardPacket, effectiveDiscoveryCompletionHandoff === "targeted-planning")
     || targetedBoardHeldForPreparation;
   const preparationSurfaceInput = { packet: plannerBoardPacket, directDiscoveryMode, handoff: effectiveDiscoveryCompletionHandoff, held: targetedBoardHeldForPreparation, preview: parentPreviewActive };
@@ -801,8 +822,9 @@ function App() {
   }, [endSession]);
   const preparation = useAppAdventurePreparation({
     surface: preparationSurface, packet: plannerBoardPacket, childId: adventureChildId,
-    homeworkId: plannerBoardPacket?.activeSessionPlan?.activeHomeworkId, status: generationProgress.status,
+    homeworkId: plannerBoardPacket?.activeSessionPlan?.activeHomeworkId, finishedBoardId: plannerBoardLaunch ? null : finishedBoardId, status: generationProgress.status,
     finished: homeworkSessionFinished, checkNow: generationProgress.checkNow, onFinish: finishHomeworkSession, sendMessage,
+    onReveal: () => { if (finishedBoardId) { setFinishedBoardId(null); void refreshPlannerBoardPacket(); } },
   });
   // While it is up, only the preparation UI and Elli's portrait show.
   const preparationScreenActive = preparation.screen != null;
@@ -816,6 +838,7 @@ function App() {
     waiting: preparation.waiting,
     heldStatusShown: !preparation.screen && (discoveryChapterEnd || (!directDiscoveryMode && targetedBoardHeldForPreparation)),
     launch: plannerBoardLaunch ? { nodeId: plannerBoardLaunch.node.id, title: plannerBoardLaunch.node.title } : null,
+    finished: homeworkSessionFinished,
   }));
   useEffect(() => {
     if (homeworkBoardMode) reportScreen(JSON.parse(screenReportKey));
@@ -1559,6 +1582,10 @@ function App() {
     ticket: { homeworkId: string; earnedAt: string; bonusUrl?: string },
   ) => {
     if (!ticket || !adventureChildId) return;
+    if (rewardCallHeld) {
+      console.log(` 🎮 [reward-loop] [call-offer] [held:${rewardCallHeld}] ticket kept for homework=${ticket.homeworkId}`);
+      return;
+    }
     const response = await fetch("/api/learning-cycle/reward/open", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -1578,7 +1605,7 @@ function App() {
       ...(ticket.bonusUrl ? { bonusUrl: ticket.bonusUrl } : {}),
     });
     window.location.assign(`/companions?${query.toString()}`);
-  }, [adventureChildId]);
+  }, [adventureChildId, rewardCallHeld]);
 
   const openEarnedVideoCall = useCallback(() => {
     const ticket = postActivityEngagement?.videoCallTicket;
@@ -1628,6 +1655,7 @@ function App() {
         : !hasCanonicalLearningCycle(plannerBoardPacket) && payload.completed === true && payload.earlyExit !== true;
       if (completed) setLocallyCompletedPlannerNodeIds(current => current.includes(launch.node.id) ? current : [...current, launch.node.id]);
       if (completion?.coinAward) setProfileCompanionCurrency(completion.coinAward.balance);
+      if (completion?.bossDrop) setBossDrop(completion.bossDrop);
       showPlannerBoardEngagementOverlay(launch.node, completion ? completion.outcome : payload, completion?.coinAward, completion?.videoCallTicket);
       console.log(" 🎮 [AdventureBoard] [canonical-completion] [saved]", { nodeId: launch.node.id, nodeState: completion?.nodeState, completed });
     }).catch((error: unknown) => {
@@ -2130,7 +2158,7 @@ function App() {
             onUnlockCeremony={(event) => {
               console.log(" 🎮 [AdventureBoard] unlock_ceremony", event);
               if (!generatedMathSoundMuted) {
-                playAdventureBoardUnlockSfx(event.variant, event.kind);
+                playUnlockCeremonySfx(event.kind);
               }
             }}
           />
@@ -2326,6 +2354,7 @@ function App() {
         tamagotchi={profileTamagotchi ?? DEFAULT_TAMAGOTCHI}
         balance={profileCompanionCurrency}
         homeworkId={plannerBoardPacket?.childChart.learningCycle?.homeworkId}
+        callOffered={rewardCallHeld == null}
         onOpenVideoCall={(ticket) => void openVideoCallTicket(ticket)}
       />
       {adventureMapEnabled &&
@@ -2450,6 +2479,7 @@ function App() {
           />
         </FlowGameOverlay>
       ) : null}
+      {bossDrop ? <BossDropReveal drop={bossDrop} onDone={() => setBossDrop(null)} /> : null}
       {!homeworkSessionFinished && plannerBoardLaunch?.node.type === "word-radar" ? (
         <FlowGameOverlay onBack={handlePlannerBoardOverlayBack} backLabel={directDiscoveryMode ? "Leave Discovery" : "Back to map"} completionNavigation={postActivityEngagement ? {completed:postActivityEngagement.outcome.completed,ownsBack:!directDiscoveryMode} : undefined}>
           <WordRadar
@@ -2524,7 +2554,7 @@ function App() {
               onFunRating={handlePlannerBoardFunRating}
               coinAward={postActivityEngagement.coinAward}
               onOpenVideoCall={
-                postActivityEngagement.videoCallTicket ? openEarnedVideoCall : null
+                postActivityEngagement.videoCallTicket && !rewardCallHeld ? openEarnedVideoCall : null
               }
             />
           ) : null}
@@ -2613,7 +2643,7 @@ function App() {
               onFunRating={handlePlannerBoardFunRating}
               coinAward={postActivityEngagement.coinAward}
               onOpenVideoCall={
-                postActivityEngagement.videoCallTicket ? openEarnedVideoCall : null
+                postActivityEngagement.videoCallTicket && !rewardCallHeld ? openEarnedVideoCall : null
               }
             />
           ) : null}

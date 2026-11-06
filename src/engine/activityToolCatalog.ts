@@ -300,6 +300,15 @@ const ACTIVITY_TRAITS_BY_ID = {
     evidenceType: "diagnostic",
     preferenceDimensions: ["typing", "challenge", "control", "confidence"],
   },
+  "generated-game": {
+    skillTargets: ["spell_from_memory", "retrieval_practice"],
+    friction: "medium",
+    pacing: "medium",
+    inputModes: ["typing", "visual"],
+    scaffoldLevel: "low",
+    evidenceType: "practice",
+    preferenceDimensions: ["story", "novelty", "challenge", "visual"],
+  },
   "monster-stampede": {
     skillTargets: ["spell_from_memory", "typing_fluency", "retrieval_practice"],
     friction: "medium",
@@ -2313,6 +2322,42 @@ const ACTIVITY_TOOL_CONTRACTS: ActivityToolContractSource[] = [
         ],
       },
     ],
+  },
+  {
+    id: "generated-game",
+    label: "Her Game",
+    nodeType: "generated-game",
+    purposes: ["practice", "reward"],
+    domains: ["spelling"],
+    strengths: [
+      "A new game Sunny builds for her from her chart: what she likes, how she has played, and the story you give this stop.",
+      "Sits in a choice beside the hand-made games, so what she picks and replays tells you what she enjoys.",
+    ],
+    weakFor: ["initial-baseline", "mastery-gating", "independent-retrieval"],
+    goodFitWhen: [
+      "You want to learn her taste: offer it as one option of a choice, next to hand-made games.",
+      "Her words need practice in a world that feels made for her.",
+    ],
+    badFitWhen: [
+      "The step must measure what she knows without help: that is a hidden-word Radar.",
+    ],
+    scaffolds: ["retry"],
+    evidence: {
+      writesPracticeEvidence: true,
+      writesMasteryEvidence: false,
+      requiresPerTargetResult: true,
+      allowedEvidence: ["practice", "attention", "reward"],
+      contaminationRisks: ["retry"],
+    },
+    measures: [
+      "Per-word spelling attempts in a new game, bound to her frozen items.",
+      "Whether she picks it over hand-made games, finishes it, and plays it again.",
+    ],
+    configKnobs: ["story", "picture", "words"],
+    realDifficultyLevels: ["practice: the words she is given, in a world built for her."],
+    signalsEmitted: ["attempt events per word", "completion", "choice and replay"],
+    signalsMissing: ["Independent recall: it is practice."],
+    psychologistGuidance: ["Use it as one option of a choice so her pick is a real preference signal."],
   },
   {
     id: "letter-rush",

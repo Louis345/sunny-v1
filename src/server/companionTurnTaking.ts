@@ -8,6 +8,7 @@ export const COMPANION_SPOKEN_TURN_PROMPT = [
   "## How you talk",
   "Be warm and attentive. Keep ordinary conversation brief and leave room for the child. Expand when useful or requested. Respond meaningfully to direct requests, through speech or an appropriate action.",
   "If the child interrupts, answer what they just said.",
+  "Speak first, record after: write your spoken reply before any recordChildSignal or recordProductIssue call, and say nothing after those calls.",
   "Every word you write is spoken aloud: never write private notes or describe the child in the third person.",
 ].join("\n");
 
@@ -91,6 +92,29 @@ export function isVerbatimEchoOfCompanion(text: string, companionSpoken: string)
   return words.filter((w) => recent.has(w)).length / words.length >= 0.9;
 }
 
+/** Case- and punctuation-free words: "Nope. Nope..." and "nope, nope" are the same utterance. */
+export function normalizeUtterance(text: string): string {
+  return spokenWords(text).join(" ");
+}
+
+/**
+ * Anything Sunny spoke recently (game narration or a reply) coming back through the room mic.
+ * Only a multi-word transcript counts: most of its words are in one recent utterance and it
+ * repeats a run of three of them in order. A child repeating a word or two ("plane",
+ * "is it plane?") is a real answer, and a letter-by-letter spelling attempt is always hers.
+ */
+export function isSelfEcho(transcript: string, recentSpeech: readonly string[]): boolean {
+  const words = spokenWords(transcript);
+  if (words.length < 4 || words.every((w) => w.length === 1)) return false;
+  return recentSpeech.some((utterance) => {
+    const said = spokenWords(utterance);
+    const vocabulary = new Set(said);
+    if (words.filter((w) => vocabulary.has(w)).length / words.length < 0.75) return false;
+    const runs = new Set(said.slice(2).map((w, i) => `${said[i]} ${said[i + 1]} ${w}`));
+    return words.slice(2).some((w, i) => runs.has(`${words[i]} ${words[i + 1]} ${w}`));
+  });
+}
+
 /**
  * Should the child's live (interim) transcript stop Elli mid-reply? Yes once
  * it holds two real words that are neither a backchannel nor Elli's own echo.
@@ -100,4 +124,37 @@ export function shouldBargeIn(input: { interim: string; companionSpoken: string;
   if (spokenWords(input.interim).length < 2) return false;
   if (isBackchannel(input.interim)) return false;
   return !isEchoOfCompanion(input.interim, input.companionSpoken);
+}
+
+/** A name heard through speech recognition: one or two letters off ("Latilda" for Matilda). */
+function soundsLikeName(word: string, name: string): boolean {
+  if (word === name) return true;
+  if (name.length < 5 || Math.abs(word.length - name.length) > 2) return false;
+  let previous = Array.from({ length: name.length + 1 }, (_, index) => index);
+  for (let row = 1; row <= word.length; row += 1) {
+    const current = [row];
+    for (let col = 1; col <= name.length; col += 1) {
+      current[col] = Math.min(previous[col] + 1, current[col - 1] + 1, previous[col - 1] + (word[row - 1] === name[col - 1] ? 0 : 1));
+    }
+    previous = current;
+  }
+  return previous[name.length] <= 2;
+}
+
+export const PRE_AUDIO_RESTART_LIMIT = 2;
+
+/**
+ * Speech that arrives before the companion's reply is heard, following LiveKit (a capped number
+ * of regenerations per turn; interruptions only over audible speech) and Deepgram Flux (speak
+ * once the turn ends). Her companion's name or the same request again is a repeat and does not
+ * restart the reply; new words restart it at most twice, then wait to be answered right after.
+ */
+export function preAudioSpeechAction(input: {
+  transcript: string; inFlightRequest: string | null; restarts: number; wakeNames: readonly string[];
+}): "restart" | "repeat" | "hold" {
+  const words = spokenWords(input.transcript);
+  const names = input.wakeNames.flatMap(spokenWords);
+  const sameRequest = input.inFlightRequest !== null && words.join(" ") === spokenWords(input.inFlightRequest).join(" ");
+  if (words.length > 0 && (sameRequest || words.every(word => names.some(name => soundsLikeName(word, name))))) return "repeat";
+  return input.restarts < PRE_AUDIO_RESTART_LIMIT ? "restart" : "hold";
 }

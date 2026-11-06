@@ -22,7 +22,7 @@ let n = 0;
 const turn = (...calls: Array<[string, unknown]>) => ({ id: `m${++n}`, type: "message", role: "assistant", model: "claude-sonnet-5", stop_reason: "tool_use", stop_sequence: null, usage: { input_tokens: 1, output_tokens: 1 },
   content: calls.map(([name, input], index) => ({ type: "tool_use", id: `t${n}_${index}`, name, input })) });
 const script = () => [
-  turn(["add_activity", { activity: "word-radar:partial_visual_recall", role: "practice", words: ["sign", "know"], title: "Letter Hunt" }], ["add_activity", { activity: "word-radar:hidden_word_recall", role: "fresh_checkpoint", words: ["sign", "know"], title: "Radar Check" }]),
+  turn(["add_activity", { activity: "word-radar:partial_visual_recall", role: "practice", words: ["sign", "know"], title: "Letter Hunt", story: "Hunt the silent letters in the castle.", picture: "A castle with hidden letters" }], ["add_activity", { activity: "word-radar:hidden_word_recall", role: "fresh_checkpoint", words: ["sign", "know"], title: "Radar Check", story: "Check every word on the radar.", picture: "A glowing radar screen" }]),
   turn(["predict", prediction(id(1))], ["predict", prediction(id(2))], ["set_order", { opening: [id(1)], closing: [id(2)] }], ["finish_board", { title: "Trail", endpoint_label: "Done", single_path_reason: "Practice, then check.", plan_theory: theory, review_questions: [] }]),
 ];
 

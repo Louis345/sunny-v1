@@ -20,9 +20,12 @@ export function resolvePreparationSurface(input: {
   held: boolean;
   /** The server reports the board published; a published board is never held behind the waiting screen. */
   published?: boolean;
+  /** She finished a board this session: the same screen shows what she did while the next one is made. */
+  boardFinished?: boolean;
   preview: boolean;
 }): PreparationSurface {
   if (input.preview || input.packet?.activeSessionPlan?.domain !== "spelling") return null;
+  if (input.boardFinished) return input.published ? null : "chapter";
   if (input.directDiscoveryMode) return input.handoff === "targeted-planning" ? "chapter" : null;
   return input.held && !input.published ? "held" : null;
 }
@@ -34,6 +37,8 @@ export function preparationWords(packet: ChildExperiencePacket | null): string[]
 }
 
 const REVIEW_DWELL_MS = 4000;
+/** Her results are the point of this screen after a finished board, so they stay up longer. */
+const FINISHED_BOARD_DWELL_MS = 9000;
 const REVIEW_STAGGER_MS = 150;
 
 /**
@@ -46,25 +51,34 @@ export function useAppAdventurePreparation(input: {
   childId: string | null;
   homeworkId: string | null | undefined;
   status: GenerationStatus | null;
+  /** The board she just finished; each finished board opens this screen once. */
+  finishedBoardId?: string | null;
   finished: boolean;
   checkNow: () => void;
   onFinish: () => void;
+  /** "Let's go!" on a next board: the published board has to be read before it can show. */
+  onReveal?: () => void;
   sendMessage: (type: string, payload?: Record<string, unknown>) => void;
 }): { screen: ReactNode | null; waiting: PreparationWaitingReport | null } {
-  const scope = `${input.childId ?? ""}:${input.homeworkId ?? ""}`;
+  const scope = `${input.childId ?? ""}:${input.homeworkId ?? ""}:${input.finishedBoardId ?? ""}`;
   const [modeByScope, setModeByScope] = useState<{ scope: string; mode: PreparationMode } | null>(null);
   useEffect(() => {
-    if (!input.surface) return;
-    setModeByScope(prev => (prev?.scope === scope ? prev : { scope, mode: input.surface === "chapter" ? "chapter" : "resume" }));
-  }, [input.surface, scope]);
+    // The next board may publish before she leaves her last game, so a finished board opens with no surface too.
+    if (!input.surface && !input.finishedBoardId) return;
+    setModeByScope(prev => (prev?.scope === scope ? prev : { scope, mode: input.surface === "held" ? "resume" : "chapter" }));
+  }, [input.surface, input.finishedBoardId, scope]);
   const mode = modeByScope?.scope === scope ? modeByScope.mode : null;
 
   const wordsRef = useRef<{ scope: string; words: string[] }>({ scope: "", words: [] });
   const words = preparationWords(input.packet);
   if (words.length && wordsRef.current.scope !== scope) wordsRef.current = { scope, words };
-  const results = mode === "chapter" ? input.packet?.spellingEvaluationResults : undefined;
+  const results: Array<{ display: string; firstTry?: boolean; correct?: boolean }> | undefined = mode !== "chapter" ? undefined
+    : input.finishedBoardId ? input.packet?.spellingBoardResults : input.packet?.spellingEvaluationResults;
   const resultsKey = JSON.stringify(results);
-  const items = useMemo(() => (wordsRef.current.scope === scope ? wordsRef.current.words : words).map(face => ({ face, spoken: face, correct: results?.find(item => item.display === face)?.correct })), [scope, words.join("|"), resultsKey]); // eslint-disable-line react-hooks/exhaustive-deps
+  const items = useMemo(() => (wordsRef.current.scope === scope ? wordsRef.current.words : words).map(face => {
+    const result = results?.find(item => item.display === face);
+    return { face, spoken: face, correct: result?.correct, improved: result?.firstTry === false && result.correct === true };
+  }), [scope, words.join("|"), resultsKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const activityTypes = useMemo(() => new Map(
     (input.packet?.activeSessionPlan?.adventureBoard?.nodes ?? []).map(node => [node.id, node.activityId ?? node.kind] as [string, string]),
@@ -79,6 +93,8 @@ export function useAppAdventurePreparation(input: {
     sendMessage("game_event", { event: { type: "narration_request", payload: { game: "adventure-preparation", childId: childId ?? "unknown", text, reason } } });
   }, [childId, sendMessage]);
 
+  const exit = (button: string) => sendMessage("game_event", { event: { type: "preparation_exit", payload: { button } } });
+
   // A resume waits for the first real status so it opens on the true step.
   const active = Boolean(mode) && !input.finished && (mode === "chapter" || input.status !== null);
   const { snapshot, send } = useAdventurePreparation({
@@ -92,12 +108,15 @@ export function useAppAdventurePreparation(input: {
   useEffect(() => {
     if (state !== "look") return;
     send({ type: "REVIEW_STARTED", total: items.length });
-    const timers = items.map((_, index) => setTimeout(() => send({ type: "REVIEW_ITEM", index }), REVIEW_DWELL_MS + index * REVIEW_STAGGER_MS));
-    timers.push(setTimeout(() => send({ type: "REVIEW_DONE" }), REVIEW_DWELL_MS + items.length * REVIEW_STAGGER_MS + 1200));
+    const dwell = input.finishedBoardId ? FINISHED_BOARD_DWELL_MS : REVIEW_DWELL_MS;
+    const timers = items.map((_, index) => setTimeout(() => send({ type: "REVIEW_ITEM", index }), dwell + index * REVIEW_STAGGER_MS));
+    timers.push(setTimeout(() => send({ type: "REVIEW_DONE" }), dwell + items.length * REVIEW_STAGGER_MS + 1200));
     return () => timers.forEach(clearTimeout);
   }, [state === "look", items, send]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  useEffect(() => { if (snapshot) statusEvents.forEach(event => send(event.type === "ACTIVITY_READY" ? {...event, published:input.surface === null} : event)); }, [statusEvents, input.surface, snapshot !== null, send]); // eslint-disable-line react-hooks/exhaustive-deps
+  // A next board can already be published when she gets here: she still sees her results first.
+  const holdForResults = Boolean(input.finishedBoardId) && state === "look";
+  useEffect(() => { if (snapshot && !holdForResults) statusEvents.forEach(event => send(event.type === "ACTIVITY_READY" ? {...event, published:input.surface === null} : event)); }, [statusEvents, input.surface, snapshot !== null, holdForResults, send]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
@@ -110,9 +129,9 @@ export function useAppAdventurePreparation(input: {
   // The complete map became playable; keep its explicit reveal control visible.
   const total = snapshot?.context.total ?? 0;
   useEffect(() => {
-    if (!snapshot || input.surface) return;
+    if (!snapshot || input.surface || holdForResults) return;
     send({ type: "ACTIVITY_READY", n: Math.max(total, 1), total: Math.max(total, 1) });
-  }, [input.surface, snapshot !== null, total, send]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [input.surface, snapshot !== null, total, holdForResults, send]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const [revealedScope, setRevealedScope] = useState<string | null>(null);
   const ctx = snapshot?.context;
@@ -131,6 +150,7 @@ export function useAppAdventurePreparation(input: {
       contextTotal > 0 ? `${contextReady} of ${contextTotal} map activities ready.` : null,
       elapsedLabel ? `Elapsed: ${elapsedLabel}.` : null,
       finishedBuilding ? null : "Remaining time is not known.",
+      items.some(item => item.improved) ? `New since her first try: ${items.filter(item => item.improved).map(item => item.face).join(", ")}.` : null,
     ].filter(Boolean).join(" "),
     ready: contextReady,
     total: contextTotal,
@@ -144,10 +164,10 @@ export function useAppAdventurePreparation(input: {
           state={state} items={items} reviewed={ctx.reviewed} stops={ctx.stops} ready={ctx.ready}
           elapsedLabel={elapsedLabel}
           onHearItem={item => say(/[.!?]$/.test(item.spoken) ? item.spoken : `${item.spoken}.`, "preparation_word")}
-          onStop={() => send({ type: "STOP" })}
+          onStop={() => { exit("stop_for_now"); send({ type: "STOP" }); }}
           onTryAgain={() => { send({ type: "RETRY" }); input.checkNow(); }}
-          onBye={input.onFinish}
-          onLetsGo={() => { if(input.surface || state !== "ready") { console.log(" 🎮 [adventure-preparation] [reveal] [waiting-for-publication]"); return; } console.log(" 🎮 [adventure-preparation] [reveal] [opened]"); setRevealedScope(scope); }}
+          onBye={() => { exit(state === "stop" ? "bye_for_now" : "save_for_next_time"); input.onFinish(); }}
+          onLetsGo={() => { if(input.surface || state !== "ready") { console.log(" 🎮 [adventure-preparation] [reveal] [waiting-for-publication]"); return; } console.log(" 🎮 [adventure-preparation] [reveal] [opened]"); exit("lets_go"); setRevealedScope(scope); input.onReveal?.(); }}
         />
       </div>
     ),

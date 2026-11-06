@@ -130,6 +130,9 @@ export class ServerCompanionBridge {
       source: "claude",
     });
     if (!cmd) {
+      console.warn(
+        `  🎮 [companion] [companionAct] [rejected] type=${String(args.type)} payload=${JSON.stringify(args.payload ?? null)} childId=${childId}`,
+      );
       return { ok: false, error: "invalid_or_unknown_companion_command" };
     }
     const send = this.send;

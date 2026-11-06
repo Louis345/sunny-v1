@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import path from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   buildCurrentBoardSnapshot,
@@ -93,6 +95,14 @@ describe("CurrentBoardSnapshot", () => {
     expect(context).toContain("Current challenge: Skip count by 5s: 5, 10, 15, __?");
     expect(context).toContain("Available child actions: 20 | 16 | 25");
     expect(context).not.toContain("Correct answer");
+  });
+
+  // 2026-10-25: the Planner now writes each stop's story; Elli frames the stop from it in her own words.
+  it("gives Elli the story the Planner wrote for the stop that is opening", () => {
+    const snapshot = buildCurrentBoardSnapshot({ childId: "ila", sessionId: "voice-1", state: { game: "word-radar", activityId: "glaze", nodeId: "glaze", phase: "opening",
+      activityTitle: "Glaze the Mugs", activityStory: "The pottery studio needs every mug glazed before the kiln opens.", answerVisibility: "hidden" } });
+    expect(snapshot.activityStory).toBe("The pottery studio needs every mug glazed before the kiln opens.");
+    expect(buildCurrentBoardSnapshotContext(snapshot)).toContain("Activity story: The pottery studio needs every mug glazed before the kiln opens.");
   });
 
   it("extracts the exact visible prompt from an object-shaped generated challenge", () => {
@@ -219,6 +229,11 @@ describe("spelling pronunciation context", () => {
     childId: "lab-child", sessionId: "lab-session", state,
   });
 
+  it("knows the word in a game Sunny built for her, so Elli can say it", () => {
+    // 2026-11-04: her generated games open each word through the contract as generated-game.
+    expect(snapshot({ game: "generated-game", itemId: "item-night", currentWord: "night", answerVisibility: "hidden", practiceCapture: true })).toHaveProperty("spellingTarget", "night");
+  });
+
   it("retains hidden spelling truth internally without permitting written-answer disclosure", () => {
     const value = snapshot({ game: "word-radar", itemId: "item-title", currentTarget: "title", answerVisibility: "hidden", assessmentMode: true });
     expect(value).toHaveProperty("spellingTarget", "title");
@@ -231,6 +246,32 @@ describe("spelling pronunciation context", () => {
     expect(context).toContain("Purpose: establish what the child can spell independently");
     expect(context).toContain("syllables, letters and spelling demonstrations would supply part of the answer");
     expect(context).not.toContain("ARPABET");
+  });
+
+  it("gives the companion the Planner's current read on her during practice, never on a check", () => {
+    // Human-caught (Nov 4, owner): the Planner concluded Ila rushes daydream and something,
+    // but Elli only saw each stop's story, so she could not watch for rushing while they practiced.
+    const plannerRead = "Daydream's misses look like rushing, not a knowledge gap; stop, say, check fixed moonlight.";
+    const practice = buildCurrentBoardSnapshot({ childId: "lab-child", sessionId: "lab-session", canonicalPractice: true, plannerRead,
+      state: { game: "word-radar", itemId: "item-daydream", currentWord: "daydream", answerVisibility: "visible", practiceCapture: true } });
+    const practiceContext = buildCurrentBoardSnapshotContext(practice);
+    expect(practiceContext).toContain(plannerRead);
+    expect(practiceContext).toContain("a hypothesis");
+    const check = buildCurrentBoardSnapshot({ childId: "lab-child", sessionId: "lab-session", canonicalPractice: false, plannerRead,
+      state: { game: "word-radar", itemId: "item-daydream", currentTarget: "daydream", answerVisibility: "hidden", assessmentMode: true } });
+    expect(check.plannerRead).toBeUndefined();
+    expect(buildCurrentBoardSnapshotContext(check)).not.toContain("rushing");
+    // The live session reads the read from her chart's current theory.
+    expect(readFileSync(path.join(process.cwd(), "src/server/session-manager.ts"), "utf8")).toContain("plannerRead: cycle?.academicTheory?.hypothesis");
+  });
+
+  it("lets the companion answer a help request on a check instead of offering replay to everything", () => {
+    // Human-caught (Nov 3, Reina): every Matilda reply on the check was "Want me to play the
+    // word again?", including to "hi" and "help me", because replay was the only help named.
+    const value = snapshot({ game: "word-radar", itemId: "item-title", currentTarget: "title", answerVisibility: "hidden", assessmentMode: true });
+    const context = buildCurrentBoardSnapshotContext(value, { childSpeech: "Help me" });
+    expect(context).toContain("practice with full help comes after this check");
+    expect(context).toContain("offering a replay is not a reply to everything");
   });
 
   it.each([

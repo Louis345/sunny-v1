@@ -54,11 +54,12 @@ it("rejects an explicit plan belonging to another child or assignment before any
   expect(writeActiveSessionPlan).not.toHaveBeenCalled();
 });
 
-it("keeps verified native activity identity art instead of spending on replacement thumbnails", async () => {
+it("keeps verified native activity identity art when the Planner wrote no picture for the stop", async () => {
   vi.stubEnv("GROK_API_KEY", "recorded-not-a-key");
   const input = fixture();
   input.plan.adventureBoard!.nodes = input.plan.adventureBoard!.nodes.map((node, index) => ({
     ...node,
+    thumbnailPrompt: undefined,
     activityId: index === 0 ? "word-radar" : "spell-check",
     thumbnailUrl: index === 0
       ? "/thumbnails/activities/word-radar.svg"
@@ -74,4 +75,21 @@ it("keeps verified native activity identity art instead of spending on replaceme
     "/thumbnails/activities/word-radar.svg",
     "/thumbnails/activities/spell-check.svg",
   ]);
+});
+
+// 2026-11-01 Ila's live board logged generated=0 reused=6: every spelling stop is a built-in game, so its
+// game icon counted as art and the picture the Planner wrote was dropped. The human caught it by comparing
+// the board with an older one; the log showed the count but nothing said it was wrong; the lab mocked art.
+it("paints the picture the Planner wrote over a built-in game icon, and keeps the icon if painting fails", async () => {
+  vi.stubEnv("GROK_API_KEY", "recorded-not-a-key");
+  const input = fixture();
+  input.plan.adventureBoard!.nodes = input.plan.adventureBoard!.nodes.map((node, index) => ({
+    ...node, activityId: "word-radar", thumbnailUrl: "/thumbnails/activities/word-radar.svg", thumbnailPrompt: `Lantern scene ${index}`,
+  }));
+  vi.mocked(generateStoryImage).mockResolvedValueOnce("https://recorded.invalid/image").mockRejectedValueOnce(new Error("recorded_failure"));
+  vi.stubGlobal("fetch", vi.fn(async () => new Response(new Uint8Array([1, 2, 3]))));
+  const result = await generateBoardNodeImages(input);
+  expect(vi.mocked(generateStoryImage).mock.calls.map(call => call[0])).toEqual(["Lantern scene 0", "Lantern scene 1"]);
+  expect(result.generated).toBe(1);
+  expect(result.plan?.adventureBoard?.nodes.map(node => node.thumbnailUrl)).toEqual([expect.stringContaining("school-words-practice.jpeg"), "/thumbnails/activities/word-radar.svg"]);
 });

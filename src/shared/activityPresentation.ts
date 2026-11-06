@@ -1,6 +1,7 @@
 const ACTIVITY_THUMBNAILS: Record<string, string> = {
   asteroid: "/thumbnails/activities/asteroid.svg",
   karaoke: "/thumbnails/activities/karaoke.svg",
+  "generated-game": "/thumbnails/activities/generated-game.svg",
   "letter-rush": "/thumbnails/activities/letter-rush.svg",
   "monster-stampede": "/thumbnails/activities/monster-stampede.svg",
   pronunciation: "/thumbnails/activities/pronunciation.svg",

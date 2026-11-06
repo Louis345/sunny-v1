@@ -1,4 +1,5 @@
-import {journeyChoiceAvailable} from '../shared/adventureBoardDefinition';
+import {journeyChoiceAvailable,unfinishedActivityClosesChoices} from '../shared/adventureBoardDefinition';
+import { letterRushConfig, spellingExplainerConfig, spellingNativeConfig } from "./spellingNativeSetup";
 import type { BoardCanvasProof } from './adventureBoardCanvas';
 import { renderBoardDefinition, journeyFrontier, type AdventureBoardDefinition } from '../shared/adventureBoardDefinition';
 import fs from "fs";
@@ -447,11 +448,13 @@ export type CreateLearningCycleInput = Omit<
 };
 
 /** Calibration authority requires sufficient evaluations linked to cited external facts. */
-/** Blocks an operator may retry: a truncated answer, or a decision blocked by the since-fixed
- * stage-changed bug (a retry collided with its own saved turns; fixed 2026-10-25). */
+/** Blocks an operator may retry: a truncated answer, a decision blocked by the since-fixed
+ * stage-changed bug (a retry collided with its own saved turns; fixed 2026-10-25), or a request
+ * whose connection dropped before any answer arrived (2026-11-04). */
 export function isRetryablePlannerBlock(reason: string): boolean {
   return reason === "planner_decision_invalid:planner_response_max_tokens"
-    || reason.startsWith("planner_decision_invalid:provider_stage_request_changed:");
+    || reason.startsWith("planner_decision_invalid:provider_stage_request_changed:")
+    || reason.startsWith("provider_outcome_uncertain:");
 }
 
 export function hasSufficientCalibrationEvidence(
@@ -505,6 +508,8 @@ export type NextInstrumentPrescription = {
   escalation?: string;
   mechanicSpec?: string;
   mathematicalHook?: string;
+  /** What the stop's picture on her map shows, written by the Planner. */
+  picture?: string;
   /** Marks the one Planner-authorized encounter on a Quest or Boss successor board. */
   encounter?: "quest" | "boss";
 };
@@ -513,8 +518,10 @@ export type SpellingInstrumentPrescription = {
   wordIds: string[];
   measurementRole: "practice" | "fresh_checkpoint";
   responseMode: LearningCycleSpellingItem["response"]["mode"];
-  /** The tested built-in activity this step re-runs. Spelling boards run only built-ins. */
+  /** The tested built-in activity this step re-runs. */
   builtInActivityId?: string;
+  /** Or a game and mode from the menu, set up fresh for this step's words. */
+  activity?: { id: string; type: string; wordRadarConfig?: Record<string, unknown>; letterRushMode?: string; activityConfig?: unknown };
 };
 
 /** The tested built-in spelling activities a next board may re-run: one list for the Planner and the board. */
@@ -565,6 +572,7 @@ export function validateSpellingPrescription(value: unknown): SpellingInstrument
   return {
     wordIds: [...row.wordIds], measurementRole: row.measurementRole!, responseMode: row.responseMode!,
     ...(typeof row.builtInActivityId === "string" && row.builtInActivityId.trim() ? { builtInActivityId: row.builtInActivityId.trim() } : {}),
+    ...(row.activity && typeof row.activity === "object" && typeof row.activity.id === "string" && typeof row.activity.type === "string" ? { activity: structuredClone(row.activity) } : {}),
   };
 }
 
@@ -609,6 +617,8 @@ export type LearningCycleEvent =
       assumptions: LearningAssumption[];
       agencyExperiment?: LearningCycleAgencyExperiment;
     }
+  | { type: "node_artwork_saved"; nodeId: string; localPath: string }
+  | { type: "engagement_noted"; evidenceId: string; summary: string }
   | {
       type: "plan_reconciled";
       boardDefinition?: AdventureBoardDefinition;
@@ -815,6 +825,9 @@ export function isSpellingPracticeContinuation(cycle:LearningCycleRecordV2):bool
 }
 
 /** Undefined is the read-only legacy navigation contract, never permission. */
+// Any-order practice never opens a Quest or Boss early: its authored path decides when it unlocks (2026-11-05).
+const isEncounter = (node: LearningCycleNodeContract) => node.role === "quest" || node.role === "boss";
+
 export function canonicalJourneyLaunchable(cycle:LearningCycleRecordV2, nodeId:string):boolean | undefined {
   if (currentBoardInstance(cycle).publishedAt === null) return false;
   const node = cycle.nodes.find(node=>node.nodeId===nodeId);
@@ -822,7 +835,7 @@ export function canonicalJourneyLaunchable(cycle:LearningCycleRecordV2, nodeId:s
   const frontier = canonicalJourneyFrontier(cycle);
   if (!frontier) return undefined;
   return Boolean(node && currentBoardInstance(cycle).nodeIds.includes(nodeId) && node.artifactBinding?.validationStatus === 'passed'
-    && ['ready','active','completed'].includes(node.state) && (node.state==='completed' || allowsReadyActivitySelection(cycle) || (!BATCH_CLOSED_LIFECYCLES.has(cycle.lifecycle) && frontier.activityNodeId===nodeId)));
+    && ['ready','active','completed'].includes(node.state) && (node.state==='completed' || (allowsReadyActivitySelection(cycle) && !isEncounter(node)) || (!BATCH_CLOSED_LIFECYCLES.has(cycle.lifecycle) && frontier.activityNodeId===nodeId)));
 }
 
 export function assertJourneyChoiceAvailable(cycle:LearningCycleRecordV2,choiceId:string,optionId:string):void {
@@ -831,11 +844,11 @@ export function assertJourneyChoiceAvailable(cycle:LearningCycleRecordV2,choiceI
   if(!definition)throw new Error('board_definition_missing');
   if(board.publishedAt === null)throw new Error('learning_board_not_published');
   if(BATCH_CLOSED_LIFECYCLES.has(cycle.lifecycle))throw new Error('learning_board_batch_closed');
-  if(cycle.nodes.some(node=>board.nodeIds.includes(node.nodeId)&&node.state==='active'))throw new Error('journey_choice_activity_in_progress');
+  if(unfinishedActivityClosesChoices(allowsReadyActivitySelection(cycle),cycle.nodes.filter(node=>board.nodeIds.includes(node.nodeId)).map(node=>node.state)))throw new Error('journey_choice_activity_in_progress');
   const selections=cycle.routeSelection?.choices??{};
   const completed=cycle.nodes.filter(node=>node.state==='completed').map(node=>node.nodeId);
   journeyFrontier(definition,{...selections,[choiceId]:optionId},completed,notReadyNodeIds(cycle));
-  if(!journeyChoiceAvailable(definition,selections,completed,choiceId,notReadyNodeIds(cycle)))throw new Error('journey_choice_not_reached');
+  if(!journeyChoiceAvailable(definition,selections,completed,choiceId,notReadyNodeIds(cycle),allowsReadyActivitySelection(cycle)))throw new Error('journey_choice_not_reached');
 }
 
 function normalizeAgencyNodeStates(cycle: LearningCycleRecordV2): void {
@@ -1281,7 +1294,7 @@ function prepareSuccessorBoard(
     if (!mapped) throw new Error(`learning_cycle_successor_route_node_missing:${id}`);
     return mapped;
   });
-  const reference = [...next.nodes].reverse().find((node) => node.artwork.localPath);
+  const reference = inheritableArtworkNode(next.nodes);
   const savedSpellingItems = spellingAssignmentItems(next);
   // Naming an earlier built-in spelling activity is the Planner's order to re-launch it, not to rebuild it.
   // A checkpoint may only reuse a checkpoint activity, so a re-launched check never shows the answer.
@@ -1302,7 +1315,21 @@ function prepareSuccessorBoard(
     });
     const design = prescriptionDesign(prescription);
     // Decisions saved before the Planner named built-ins re-run the activity whose ID they repeated.
-    const candidate = next.domain === "spelling" ? findReusableBuiltIn(next, spelling?.builtInActivityId ?? prescription.nodeId, spelling?.measurementRole) : undefined;
+    // A game and mode from the menu is set up fresh for this step's words, the way the Teaching board sets it up.
+    const fresh = spelling?.activity;
+    let freshSetup: Record<string, unknown> | undefined, freshReady = Boolean(fresh);
+    if (fresh) {
+      try {
+        freshSetup = fresh.type === "visual-explainer"
+          ? spellingExplainerConfig({ homeworkId: next.homeworkId, nodeId, items: spellingItems ?? [], activityConfig: fresh.activityConfig, summary: input.reason, capturedAt: input.at })
+          : spellingNativeConfig({ type: fresh.type, nodeId, items: spellingItems ?? [], wordRadarConfig: fresh.wordRadarConfig,
+          activityConfig: fresh.type === "letter-rush" ? letterRushConfig({ mode: fresh.letterRushMode ?? "read-and-race", title: prescription.title, words: (spellingItems ?? []).map(item => item.word) }) : undefined });
+      } catch (error) {
+        freshReady = false;
+        console.warn(` 🎮 [learning-board] [successor-fresh] [not-ready] node=${nodeId} activity=${fresh.id} reason=${error instanceof Error ? error.message : String(error)}`);
+      }
+    }
+    const candidate = next.domain === "spelling" && !fresh ? findReusableBuiltIn(next, spelling?.builtInActivityId ?? prescription.nodeId, spelling?.measurementRole) : undefined;
     const reusedSetup = candidate?.evidenceContract.nativeConfig ? repointReusedSetup(candidate, nodeId, spellingItems ?? []) : undefined;
     const source = candidate && (candidate.evidenceContract.nativeConfig ? reusedSetup : sameWordSet(candidate, spellingItems ?? [])) ? candidate : undefined;
     if (candidate && !source) console.warn(` 🎮 [learning-board] [successor-reuse] [not-reusable] node=${nodeId} from=${candidate.nodeId} reason=setup_cannot_be_repointed`);
@@ -1319,7 +1346,7 @@ function prepareSuccessorBoard(
       theoryId: next.academicTheory.theoryId,
       experimentId: `${prefix}:${role}:${slugId(prescription.nodeId)}`,
       mechanic: prescription.mechanic,
-      ...(source ? { implementationType: source.implementationType, reusedFrom: source.nodeId } : {}),
+      ...(source ? { implementationType: source.implementationType, reusedFrom: source.nodeId } : fresh && freshReady ? { implementationType: fresh.type as LearningCycleNodeContract["implementationType"] } : {}),
       theme: prescription.theme,
       ...(design ? { design } : {}),
       openingScreen: { title: prescription.title, purpose: prescription.openingPurpose },
@@ -1331,8 +1358,8 @@ function prepareSuccessorBoard(
       },
       artifactBinding: null,
       artwork: role === "baseline" && reference?.artwork.localPath
-        ? { status: "ready", localPath: reference.artwork.localPath, prompt: null }
-        : { status: "placeholder", localPath: `/generated/adventure-board-demo/${role === "boss" ? "boss" : "quest"}.jpeg`, prompt: null },
+        ? { status: "ready", localPath: reference.artwork.localPath, prompt: prescription.picture ?? null }
+        : { status: "placeholder", localPath: `/generated/adventure-board-demo/${role === "boss" ? "boss" : "quest"}.jpeg`, prompt: prescription.picture ?? null },
       sfxContract: ["interaction", "recovery", "progress", "completion"],
       companionContract: { events: ["completion", "frustration"] },
       evidenceContract: {
@@ -1342,7 +1369,7 @@ function prepareSuccessorBoard(
           spellingItems: Object.fromEntries(spellingItems.map(item => [item.id, item])),
           itemRoles: Object.fromEntries(spellingItems.map(item => [item.id, item.lineage.measurementRole])),
         } : {}),
-        ...(source && reusedSetup ? { nativeConfig: reusedSetup } : {}),
+        ...(source && reusedSetup ? { nativeConfig: reusedSetup } : freshSetup ? { nativeConfig: freshSetup } : {}),
       },
       evidenceIds: [],
     };
@@ -1378,6 +1405,29 @@ function publishPreparedBoardIfComplete(next: LearningCycleRecordV2, at: string)
   normalizeAgencyNodeStates(next);
   console.log(` 🎮 [learning-board] [published] [${board.boardId}] kind=${board.kind} lifecycle=${next.lifecycle}`);
   return board;
+}
+
+/** A next-board stop may borrow an earlier stop's look, but a picture painted for one stop stays on that stop. */
+export function inheritableArtworkNode<T extends { artwork: { localPath: string | null } }>(nodes: T[]): T | undefined {
+  return [...nodes].reverse().find((node) => node.artwork.localPath && !node.artwork.localPath.startsWith("/generated/adventure-board/"));
+}
+
+/** Side facts arrive while she plays, so a write that lost the race to her answers reads the cycle again; bounded. */
+export function transitionLatestLearningCycle(childId: string, homeworkId: string, event: LearningCycleEvent, opts: LearningCycleRepositoryOptions = {}): LearningCycleRecordV2 {
+  for (let attempt = 1; ; attempt += 1) {
+    const cycle = getLearningCycle(childId, homeworkId, opts);
+    if (!cycle) throw new Error(`learning_cycle_missing:${homeworkId}`);
+    try {
+      return transitionLearningCycle(childId, homeworkId, cycle.revision, event, opts);
+    } catch (error) {
+      if (attempt >= 5 || !String(error).includes("learning_cycle_revision_conflict")) throw error;
+    }
+  }
+}
+
+export function savePaintedNodeArtwork(childId: string, homeworkId: string, nodeId: string, localPath: string, opts: LearningCycleRepositoryOptions = {}): void {
+  if (getLearningCycle(childId, homeworkId, opts)?.nodes.find((node) => node.nodeId === nodeId)?.artwork.localPath === localPath) return;
+  transitionLatestLearningCycle(childId, homeworkId, { type: "node_artwork_saved", nodeId, localPath }, opts);
 }
 
 export function transitionLearningCycle(
@@ -1489,6 +1539,16 @@ export function transitionLearningCycle(
     };
     reason = "The coherent targeted map is frozen; it publishes once every node artifact is verified.";
     evidenceIds = next.observations.map((observation) => observation.observationId);
+  } else if (event.type === "node_artwork_saved") {
+    assertLocalPath(event.localPath, "artwork_path");
+    const node = next.nodes.find((row) => row.nodeId === event.nodeId);
+    if (!node) throw new Error(`learning_cycle_node_missing:${event.nodeId}`);
+    node.artwork = { ...node.artwork, status: "ready", localPath: event.localPath };
+    reason = "A stop's own picture was painted; only its look changed.";
+  } else if (event.type === "engagement_noted") {
+    next.evidence.engagement = uniqueEvidence([...next.evidence.engagement, { evidenceId: event.evidenceId, summary: event.summary }]);
+    evidenceIds = [event.evidenceId];
+    reason = "An engagement fact was noted; nothing about her learning changed.";
   } else if (event.type === "plan_reconciled") {
     if (event.boardDefinition && !current.boards?.some(board=>board.definition)) throw new Error('historical_board_replacement_requires_new_instance');
     if (event.boardDefinition && JSON.stringify(event.boardDefinition)!==JSON.stringify(preparingBoardInstance(current)?.definition??currentBoardInstance(current).definition)) throw new Error('learning_board_definition_reconciliation_forbidden');
@@ -1751,8 +1811,9 @@ export function transitionLearningCycle(
         throw new Error(`learning_cycle_encounter_not_authorized:${action}`);
       }
       const independentQuestEvidence = next.nodes.some((node) => node.role === "quest" && node.state === "completed"
-        && next.observations.some((observation) => observation.sourceId.endsWith(`:${node.nodeId}`)
-          && observation.provenance === "independent_probe" && observation.exposure === "unseen"
+        // A typed answer is saved as `activity:<node>:recall`; spelling's Quest checks practiced words (2026-11-05).
+        && next.observations.some((observation) => (observation.sourceId.endsWith(`:${node.nodeId}`) || observation.sourceId === `activity:${node.nodeId}:recall`)
+          && observation.provenance === "independent_probe" && (observation.exposure === "unseen" || next.domain === "spelling")
           && observation.assistance.status === "unassisted"));
       if (expected === "boss" && !independentQuestEvidence) throw new Error("learning_cycle_boss_progress_requires_quest_evidence");
       prepareSuccessorBoard(next, program, {
@@ -1905,6 +1966,8 @@ function isExplicitUnusedCyclePlaceholder(node: LearningCycleNodeContract): bool
     || node.academicTarget.skill.trim().toLowerCase() === "unused";
 }
 
+const encounterOf = (node?: LearningCycleNodeContract) => node?.role === "quest" || node?.role === "boss" ? { encounter: node.role } : {};
+
 export function projectLearningCycle(
   cycle: LearningCycleRecordV2,
   options: ProjectLearningCycleOptions = {},
@@ -2012,7 +2075,7 @@ export function projectLearningCycle(
   const adventureBoard = board.definition ? renderBoardDefinition(board.definition, {
     boardId:board.boardId,planId,childId:cycle.childId,domain:cycle.domain,
     allowReadyActivitySelection:allowsReadyActivitySelection(cycle),
-    activities:nodePlan.map(node => ({...node,verified:boardNodes.find(item => item.nodeId === node.id)?.artifactBinding?.validationStatus === "passed",wordRadarConfig:node.wordRadarConfig ? {...node.wordRadarConfig} : undefined,state:boardNodes.find(item => item.nodeId === node.id)?.state})),
+    activities:nodePlan.map(node => ({...node,...encounterOf(boardNodes.find(item => item.nodeId === node.id)),verified:boardNodes.find(item => item.nodeId === node.id)?.artifactBinding?.validationStatus === "passed",wordRadarConfig:node.wordRadarConfig ? {...node.wordRadarConfig} : undefined,state:boardNodes.find(item => item.nodeId === node.id)?.state})),
     selections:cycle.routeSelection?.choices,companion:{id:"elli",name:"Elli"},
     notReady:Object.fromEntries(boardNodes.flatMap(node=> { const reason = node.notReadyReason ?? unavailableActivityReason(node); return reason ? [[node.nodeId,reason]] : []; })),
   }) : buildAdventureBoardFromActiveSessionPlan({
@@ -2051,7 +2114,8 @@ export function projectLearningCycle(
     && board.nodeIds.every((id) => cycleNodeById.get(id)?.artifactBinding?.validationStatus === "passed")
       ? experiment.routes.map((route) => route.nodeIds[0]).filter((id): id is string => Boolean(id))
       : []);
-  const linearTeachingFrontier = (board.kind === "teaching" || board.kind === "successor") && !experiment
+  // Spelling Teaching and next boards open in any order, so only other subjects keep a sequence lock.
+  const linearTeachingFrontier = (board.kind === "teaching" || board.kind === "successor") && !experiment && !allowsReadyActivitySelection(cycle)
     ? board.nodeIds.findIndex((nodeId) => cycleNodeById.get(nodeId)?.state !== "completed")
     : -1;
   adventureBoard.nodes = adventureBoard.nodes.map((node) => {

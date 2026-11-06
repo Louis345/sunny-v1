@@ -23,3 +23,10 @@ it("reports the spelling check only once its activity is actually open", () => {
   expect(kioskScreenReport({ ...base, directDiscovery: true, launch: { nodeId: "diagnostic", title: "Spelling check" } }))
     .toEqual({ screen: "evaluation", boardId: "b2", nodeId: "diagnostic", activityTitle: "Spelling check" });
 });
+
+// 2026-11-01: the log said screen=board after her session ended, though the kiosk had moved to its resting
+// screen. Only the report was wrong: the app renders the resting screen before anything else.
+it("names the resting screen once the session has ended, whatever is still loaded", () => {
+  expect(kioskScreenReport({ ...base, finished: true })).toEqual({ screen: "resting" });
+  expect(kioskScreenReport({ ...base, finished: true, launch: { nodeId: "n" }, heldStatusShown: true })).toEqual({ screen: "resting" });
+});

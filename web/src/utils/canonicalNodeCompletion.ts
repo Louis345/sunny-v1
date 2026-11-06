@@ -153,6 +153,7 @@ export async function postCanonicalNodeCompletion(input: CanonicalNodeCompletion
   outcome: CanonicalNodeCompletionInput["result"];
   coinAward?: { amount: number; balance: number };
   videoCallTicket?: { homeworkId: string; earnedAt: string; bonusUrl?: string };
+  bossDrop?: { tier: "common" | "rare" | "epic" | "legendary"; coins: number };
 }> {
   const { completionId, ...request } = input;
   const response = await fetch("/api/learning-cycle/node-complete", {
@@ -168,6 +169,7 @@ export async function postCanonicalNodeCompletion(input: CanonicalNodeCompletion
     academicAccuracy?: number | null;
     coinAward?: { amount: number; balance: number };
     videoCallTicket?: { homeworkId: string; earnedAt: string; bonusUrl?: string };
+    bossDrop?: { tier: "common" | "rare" | "epic" | "legendary"; coins: number };
   };
   window.dispatchEvent(new CustomEvent("sunny_learning_cycle_progression", { detail: result }));
   return { ...result, outcome: { ...input.result, completed: result.nodeState === "completed", accuracy: result.academicAccuracy ?? undefined } };

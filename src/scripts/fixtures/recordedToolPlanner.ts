@@ -4,12 +4,26 @@ import { getLearningCycle } from "../../engine/learningCycleRepository";
 export type RecordedToolLab = {
   root: string; childId: string; homeworkId: string; words: string[]; missedWords: string[];
   requests: any[]; teachingBoards: number; decisions: number;
+  /** Order one next-board step for every built-in the menu offers, instead of the robot's three. */
+  everyBuiltIn?: boolean;
+  /** Write one new explainer page for two missed words on the next board. */
+  newExplainer?: boolean;
 };
 
 /** One recorded Planner, artist and next-board Planner at the Anthropic client boundary. It answers
  * each real tool conversation the way the model would, using only what the request offers (its tool
  * names, enums and Sunny's own tool results), so the real handlers, checks and receipts all run at $0.
  * A request it does not recognise fails the run: no paid call can hide behind the robot. */
+/** A small game the builder could have made: one word at a time, opened through the contract, typed and reported. */
+export const RECORDED_SPELLING_GAME = `<!doctype html><html><head><title>Recorded game</title></head><body><p id="clue">Spell the word Elli says.</p><input id="box" data-testid="generated-game-input" aria-label="Spell it"><script>
+const words = window.GAME_PARAMS.words; let i = 0;
+window.openSpellingItem(words[i], "Word 1 of " + words.length);
+document.getElementById("box").addEventListener("change", event => { const typed = event.target.value.trim();
+  window.fireAttemptEvent({ domain: "spelling", target: words[i], attemptedValue: typed, correct: typed.toLowerCase() === words[i] });
+  event.target.value = ""; i += 1;
+  if (i < words.length) window.openSpellingItem(words[i], "Word " + (i + 1) + " of " + words.length); else window.sendNodeComplete({ completed: true }); });
+</script></body></html>`;
+
 export function recordedToolReply(lab: RecordedToolLab, request: any): any {
   lab.requests.push(structuredClone(request));
   const names: string[] = (request.tools ?? []).map((tool: any) => tool.name);
@@ -20,7 +34,9 @@ export function recordedToolReply(lab: RecordedToolLab, request: any): any {
     .filter(block => block.type === "tool_result" && !block.is_error).map(block => JSON.parse(typeof block.content === "string" ? block.content : block.content[0].text));
   const message = (calls: Array<{ name: string; input: unknown }>) => ({ id: `recorded-${lab.requests.length}`, type: "message", role: "assistant", model: request.model,
     stop_reason: "tool_use", stop_sequence: null, usage: { input_tokens: 1, output_tokens: 1 },
-    content: calls.map((call, index) => ({ type: "tool_use", id: `tool-${lab.requests.length}-${index}`, name: call.name, input: call.input })) });
+    content: calls.map((call, index) => ({ type: "tool_use", id: `tool-${lab.requests.length}-${index}`, name: call.name, input: withNoEncounter(call) })) });
+  // Like the real Planner, fill the required encounter field with "none" when the tool offers Quest or Boss.
+  const withNoEncounter = (call: { name: string; input: any }) => call.name === "add_step" && properties("add_step")?.encounter && !("encounter" in call.input) ? { ...call.input, encounter: "none" } : call.input;
   const pick = (values: string[], wanted: string) => { const value = values.find(row => row === wanted || row.endsWith(wanted)); if (!value) throw new Error(`recorded_planner_offer_missing:${wanted} offered=${values.join(",")}`); return value; };
 
   // Discovery intake: the assigned words, then the hidden-word radar that finds her starting point.
@@ -43,7 +59,7 @@ export function recordedToolReply(lab: RecordedToolLab, request: any): any {
       { activity: pick(activities, "word-radar:partial_visual_recall"), role: "practice", words: lab.missedWords, title: "Sound Steps" },
       { activity: pick(activities, "word-radar:hidden_word_recall"), role: "fresh_checkpoint", words: lab.words, title: "Recall Checkpoint" },
     ];
-    if (turn === 0) { lab.teachingBoards += 1; return message(rows.map(input => ({ name: "add_activity", input }))); }
+    if (turn === 0) { lab.teachingBoards += 1; return message(rows.map(input => ({ name: "add_activity", input: { ...input, story: `Story: ${input.title}`, picture: `Picture: ${input.title}` } }))); }
     const ids: string[] = results.map(row => row.activity_id).filter(Boolean);
     if (ids.length !== rows.length) throw new Error(`recorded_planner_expected_activity_ids:${JSON.stringify(results)}`);
     const evidence = offered("predict", "evidence_ids").slice(0, 1);
@@ -75,13 +91,33 @@ export function recordedToolReply(lab: RecordedToolLab, request: any): any {
       const step = (title: string) => {
         const node = cycle.nodes.find(row => row.title === title && builtIns.includes(row.nodeId));
         if (!node) throw new Error(`recorded_planner_built_in_missing:${title} offered=${builtIns.join(",")}`);
-        return { name: "add_step", input: { built_in: node.nodeId, words: [], title: `${title} Again`, purpose: "Practice again." } };
+        return { name: "add_step", input: { built_in: node.nodeId, words: [], title: `${title} Again`, purpose: "Practice again.", story: `Story: ${title} Again`, picture: `Picture: ${title} Again` } };
       };
-      return message([decide("revised", "generate_support"), step("Recall Practice"), step("Letter Rush"), step("Recall Checkpoint")]);
+      if (lab.everyBuiltIn) return message([decide("revised", "generate_support"), ...builtIns.map((built_in, index) => ({ name: "add_step", input: { built_in,
+        // A re-run takes all of its own words; a fresh game from the menu practices her missed words.
+        words: cycle.nodes.some(node => node.nodeId === built_in) ? [] : [...new Set(cycle.nodes.flatMap(node => Object.values(node.evidenceContract.spellingItems ?? {})).filter(item => lab.missedWords.includes(item.word)).map(item => item.wordId))],
+        title: `Again ${index + 1}`, purpose: "Practice again.", story: `Story: Again ${index + 1}`, picture: `Picture: Again ${index + 1}` } }))]);
+      if (lab.newExplainer) {
+        const [first, second] = lab.missedWords;
+        const row = (text: string) => ({ text, chunks: [text.slice(0, 2), text.slice(2)], spoken_chunks: [text.slice(0, 2), text.slice(2)], focus_chunk: text.slice(2), tip: `Listen for ${text.slice(2)}.` });
+        return message([decide("revised", "generate_support"), { name: "add_explainer", input: { title: "New Clues", story: "Story: New Clues", picture: "Picture: New Clues", topic: "A new pattern", learning_goal: "Spot the pattern.", misconception: "She spells what she hears.",
+          strategy: { title: "Find the tricky part", steps: ["Say the word.", "Find the tricky part."] }, words: [row(first), row(second)],
+          check: { target_word: first, prompt: "Which part is tricky?", options: [{ label: first.slice(2), correct: true }, { label: first.slice(0, 2), correct: false }] } } }]);
+      }
+      // The first step is a fresh game from the menu, so the robot plays one the board set up new.
+      const missed = [...new Set(cycle.nodes.flatMap(node => Object.values(node.evidenceContract.spellingItems ?? {})).filter(item => lab.missedWords.includes(item.word)).map(item => item.wordId))];
+      const fresh = { name: "add_step", input: { built_in: pick(builtIns, "word-radar:visible_read"), words: missed, title: "Fresh Radar", purpose: "Practice the missed words.", story: "Story: Fresh Radar", picture: "Picture: Fresh Radar" } };
+      return message([decide("revised", "generate_support"), fresh, step("Letter Rush"), step("Recall Checkpoint")]);
     }
+    // The Planner's one look at its board: the recorded Planner is content with what it built.
+    if (results.some(row => row.board_as_served)) return message([{ name: "finish_board", input: { title: "Next Practice", endpoint_label: "Finish", single_path_reason: "One path re-runs what she practiced." } }]);
     const steps: string[] = results.map(row => row.step_id).filter(Boolean);
     return message([{ name: "set_order", input: { opening: steps, closing: [] } },
       { name: "finish_board", input: { title: "Next Practice", endpoint_label: "Finish", single_path_reason: "One path re-runs what she practiced." } }]);
+  }
+  // Sunny's spelling builder asks for one game with no tools: a recorded game that opens every word through the contract.
+  if (!names.length && /^Build one spelling game/.test(String(request.messages?.[0]?.content ?? ""))) {
+    return { id: `recorded-game-${lab.requests.length}`, type: "message", role: "assistant", model: request.model, stop_reason: "end_turn", stop_sequence: null, usage: { input_tokens: 1, output_tokens: 1 }, content: [{ type: "text", text: RECORDED_SPELLING_GAME }] };
   }
   throw new Error(`recorded_planner_unscripted_request:${names.join(",") || "no_tools"}`);
 }

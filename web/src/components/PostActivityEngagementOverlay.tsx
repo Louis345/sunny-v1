@@ -161,6 +161,18 @@ export function PostActivityEngagementOverlay({
         ) : null}
 
         <div className="mt-7 flex flex-wrap justify-center gap-3">
+          {/* Moving on is the main choice; replay stays one tap away. */}
+          {showBackAction ? (
+            <button
+              type="button"
+              data-primary="true"
+              className="bg-amber-400 px-5 py-3 text-lg font-black text-slate-950 shadow-lg"
+              style={{ borderRadius: 8 }}
+              onClick={() => onAction("back_to_map")}
+            >
+              Back to map
+            </button>
+          ) : null}
           {onOpenVideoCall ? (
             <button
               type="button"
@@ -174,7 +186,7 @@ export function PostActivityEngagementOverlay({
           {canReplay ? (
             <button
               type="button"
-              className="bg-amber-400 px-5 py-3 text-lg font-black text-slate-950 shadow-lg"
+              className="border border-white/25 bg-white/10 px-5 py-3 text-lg font-black text-white"
               style={{ borderRadius: 8 }}
               onClick={() => onAction("replay_same")}
             >
@@ -190,16 +202,6 @@ export function PostActivityEngagementOverlay({
               onClick={() => onAction("replay_harder")}
             >
               Try harder
-            </button>
-          ) : null}
-          {showBackAction ? (
-            <button
-              type="button"
-              className="border border-white/25 bg-white/10 px-5 py-3 text-lg font-black text-white"
-              style={{ borderRadius: 8 }}
-              onClick={() => onAction("back_to_map")}
-            >
-              Back to map
             </button>
           ) : null}
         </div>

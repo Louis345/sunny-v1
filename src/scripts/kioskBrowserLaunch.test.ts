@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import fs from "node:fs";
 import path from "node:path";
-import { kioskBrowserCommand, macKioskBrowserPid } from "./kioskBrowserLaunch";
+import { kioskBrowserCommand, kioskBrowserExitAction, macKioskBrowserPid } from "./kioskBrowserLaunch";
 
 const browser = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
 const args = ["--kiosk", "--user-data-dir=/tmp/sunny-profile", "--app=http://localhost:3001/?sunnyKioskToken=owned"];
@@ -65,5 +65,20 @@ describe("a visible kiosk is never shut down over its pid", () => {
     expect(source).toContain("acceptVisibleMacKiosk(");
     expect(source).toContain("macShutdownBrowserTargets(");
     expect(source).not.toContain("if (!macBrowserPid) accepted = false");
+  });
+});
+
+describe("kiosk window closed during a session", () => {
+  // Human-caught: on Nov 2 Ila's kiosk window quit twice (browser-exit:0) and Sunny
+  // shut down with nobody told; Ila sat waiting for Elli. The lab only ever started
+  // kiosks and never quit the browser mid-session, so this exit path was untested.
+  it("reopens the window once, then shuts down if it is closed again", () => {
+    const actions = [0, 1, 2].map(reopens => kioskBrowserExitAction(reopens));
+    expect(actions).toEqual(["reopen", "shutdown", "shutdown"]);
+  });
+  it("routes the visible browser's exit through the reopen rule", () => {
+    const source = fs.readFileSync(path.join(process.cwd(), "src/scripts/launch-kiosk.ts"), "utf8");
+    expect(source).toContain("kioskBrowserExitAction(browserReopens)");
+    expect(source).toContain("[kiosk] [browser-exit] [reopening]");
   });
 });

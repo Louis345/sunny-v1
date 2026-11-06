@@ -50,6 +50,25 @@ function historyText(h: Harness): string {
 describe("newest wins", () => {
   afterEach(() => vi.mocked(runAgent).mockReset());
 
+  it("answers a burst of requests before her reply is heard instead of restarting forever", async () => {
+    // Human catch (Nov 3, Reina): nine requests in 32s, each cancelling Matilda's reply
+    // before it played, so she never answered. Pros cap restarts per turn (LiveKit).
+    vi.mocked(runAgent).mockImplementation(async (opts: any) => {
+      await new Promise<void>((resolve) => opts.signal?.addEventListener("abort", () => resolve()));
+      return "";
+    });
+    const { h } = conversation();
+    void h.handleEndOfTurn("Can you help me with desire?");
+    await vi.waitFor(() => expect(runAgent).toHaveBeenCalledTimes(1));
+    for (const said of ["Matilda.", "Help me.", "Latilda", "Foot tilt is only.", "Look. What's this?", "Yeah."]) {
+      void h.handleEndOfTurn(said);
+      await new Promise((r) => setTimeout(r, 10));
+    }
+    await new Promise((r) => setTimeout(r, 20));
+    expect(runAgent).toHaveBeenCalledTimes(3);
+    expect((h.turnSM as unknown as { pendingTranscript: string | null }).pendingTranscript).toContain("Yeah.");
+  });
+
   it("answers what the child just said instead of queueing it behind Elli's reply", async () => {
     // Human catch (Oct 20, both sessions): "Can you hear me" waited 9-27s in a
     // first-in-first-out queue behind Elli's earlier reply.

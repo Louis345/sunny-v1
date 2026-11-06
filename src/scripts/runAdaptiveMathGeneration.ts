@@ -15,7 +15,7 @@ import {
   persistDirectExperience, buildDirectLearningCycleInput, runDirectBrowserSmokeCheck, mathPlannerCandidateCards, MATH_BROWSER_VERIFIER_VERSION, type DirectPlaywrightReport, type DirectArtifact, type DirectLearningExperiencePlan,
   type DirectArtworkBundle, type MathDesignPacket, type MathLearningProgram,
 } from "../engine/directMathExperience";
-import { getLearningCycle, transitionLearningCycle } from "../engine/learningCycleRepository";
+import { getLearningCycle, savePaintedNodeArtwork, transitionLearningCycle } from "../engine/learningCycleRepository";
 import { isPublishedArtifactNode } from "../engine/learningBoardInstances";
 import { generateCanonicalProgressionArtifact } from "../engine/canonicalProgressionGenerator";
 import { upsertProfileContentCatalog } from "../engine/learningDecisionContext";
@@ -1077,7 +1077,7 @@ async function runSpellingTargetedGeneration(childId: string, homeworkId: string
     };
     if(activeBase.journey && !activeBase.boardDefinition){
       setMathGenerationPhase({...scope,phase:"board_designing"});
-      const designed=await askLearningExperienceDesigner({childId,program:{domain:"spelling",planId:activeBase.planId,journey:activeBase.journey,plan:activeBase},childContext:buildMathCreativeChildContext(chart),priorOutcomes:{discoveryCycle:cycle},previousDesigns:chart.boardDesignHistory,checkpointFile:path.join(draft,"design-checkpoint.json"),rawResponseDir:path.join(draft,"provider-diagnostics")});
+      const designed=await askLearningExperienceDesigner({childId,program:{domain:"spelling",planId:activeBase.planId,journey:activeBase.journey,plan:activeBase},childContext:buildMathCreativeChildContext(chart),priorOutcomes:{discoveryCycle:cycle},previousDesigns:chart.boardDesignHistory,child:chart.childVoice,checkpointFile:path.join(draft,"design-checkpoint.json"),rawResponseDir:path.join(draft,"provider-diagnostics")});
       activeBase={...activeBase,...designed.plan};
     }
     const authoredBoard = result.output.activeSessionPlan.adventureBoard;
@@ -1278,7 +1278,11 @@ async function runSpellingTargetedGeneration(childId: string, homeworkId: string
     // Reconnect the existing best-effort illustration stage after playable
     // content is published. Keep artwork outside frozen academic/provider data.
     process.env.SUNNY_IMAGE_GENERATION_MAX_PER_RUN ||= "8";
-    await generateBoardNodeImages({ ...scope, plan: presentation, onPlanUpdated: plan => { presentation = plan; if (settled()) project(); } });
+    await generateBoardNodeImages({ ...scope, plan: presentation, onPlanUpdated: plan => { presentation = plan; if (settled()) project(); }, onNodePainted: (nodeId, url) => {
+      // A picture never holds back the board: a failed save keeps the game's icon, logged.
+      try { savePaintedNodeArtwork(childId, homeworkId, nodeId, url, { rootDir }); }
+      catch (error) { console.warn(` 🎮 [board-image] [node] [save-failed] node=${nodeId} ${error instanceof Error ? error.message : String(error)}`); }
+    } });
   } catch (error) {
     recordGenerationFailure({draftDir:draft,childId,homeworkId,stage:()=>getMathGenerationStatus(childId,homeworkId,{rootDir})?.phase ?? 'targeted_generation',startedAt:diagnosticStartedAt,error});
     setMathGenerationPhase({ ...scope, phase: "needs_attention", error: error instanceof Error ? error.message : String(error) });

@@ -6,7 +6,7 @@ import os from "os";
 import path from "path";
 import { describe, expect, it, vi } from "vitest";
 import { createLearningCycle, getLearningCycle, projectLearningCycle, transitionLearningCycle, type CreateLearningCycleInput } from "./learningCycleRepository";
-import { advanceCanonicalCycleFromEvidence, authorizeCanonicalPlannerRetry, parseCanonicalProgressionDecision, recordCanonicalNodeCompletion } from "./learningCycleRuntime";
+import { pageTimeFromKiosk, recordExitChoice, advanceCanonicalCycleFromEvidence, authorizeCanonicalPlannerRetry, parseCanonicalProgressionDecision, recordCanonicalNodeCompletion } from "./learningCycleRuntime";
 import {runMathProviderStage} from "./adaptiveMathDiscovery";
 import {authorizePlannerRecoveryFromArgs} from "../scripts/authorizePlannerRecovery";
 
@@ -64,6 +64,38 @@ function input(): CreateLearningCycleInput {
 }
 
 describe("canonical learning cycle runtime", () => {
+  // 2026-11-01 owner: Ila clicks through the explainer. The Planner saw "lesson completed" either way, so it
+  // could credit or blame a page she never read. The human saw it; the logs held only a total time.
+  it("tells the Planner how she moved through an explainer page, as engagement evidence only", () => {
+    const rootDir=root();
+    createLearningCycle({...input(),nodes:[node("facts","baseline")]},{rootDir});
+    const before=recordCanonicalNodeCompletion({childId:"reina",homeworkId:"hw-runtime",nodeId:"facts",sessionId:"plain",result:{completed:true,accuracy:1,timeSpent_ms:1000,targetResults:[{target:"checkpoint-1",correct:true,attemptedValue:"10"}]}},{rootDir})!;
+    expect(before.evidence.engagement.at(-1)!.summary).not.toContain("page:");
+    const after=recordCanonicalNodeCompletion({childId:"reina",homeworkId:"hw-runtime",nodeId:"facts",sessionId:"page",result:{completed:true,accuracy:1,timeSpent_ms:21000,targetResults:[{target:"checkpoint-1",correct:true,attemptedValue:"10"}],
+      pageTime:{words:[{word:"raincoat",shownMs:4200,chunkTaps:0},{word:"daydream",shownMs:4100,chunkTaps:2}],questionMs:900,afterQuestionMs:1200}}},{rootDir})!;
+    const summary=after.evidence.engagement.at(-1)!.summary;
+    expect(summary).toContain("page: raincoat 4s, 0 tiles tapped; daydream 4s, 2 tiles tapped; answered the question in 1s; left 1s after it");
+    expect(JSON.stringify(after.evidence.academic)).not.toContain("tiles tapped");
+    expect(JSON.stringify(after.observations)).not.toContain("tiles tapped");
+  });
+
+  it("keeps her exit choice as engagement evidence, and it never changes the cycle's place", () => {
+    const rootDir=root();
+    const created=createLearningCycle({...input(),nodes:[node("facts","baseline")]},{rootDir});
+    const after=recordExitChoice("reina","hw-runtime","save_for_next_time",{rootDir});
+    expect(after.evidence.engagement.at(-1)!.summary).toBe("On the waiting screen she chose: save for next time.");
+    expect(after.lifecycle).toBe(created.lifecycle);
+    expect(after.observations).toEqual(created.observations);
+    expect(after.evidence.academic).toEqual(created.evidence.academic);
+  });
+
+  it("reads only well-formed page time from the kiosk", () => {
+    expect(pageTimeFromKiosk(undefined)).toBeUndefined();
+    expect(pageTimeFromKiosk({words:"nope"})).toBeUndefined();
+    expect(pageTimeFromKiosk({words:[{word:"x".repeat(200),shownMs:-5,chunkTaps:"a"},{shownMs:3}],questionMs:"soon"})).toEqual({words:[{word:"x".repeat(60),shownMs:0,chunkTaps:0}]});
+    expect(pageTimeFromKiosk({words:Array.from({length:50},(_,index)=>({word:`w${index}`,shownMs:1,chunkTaps:0}))})!.words).toHaveLength(12);
+  });
+
   it.each(["ready", "completed"] as const)("keeps %s Discovery out of generic teaching completion", (state) => {
     const rootDir=root();
     const before=createLearningCycle({...input(),nodes:[{...node("discovery","baseline"),role:"evaluation",state}]},{rootDir});
@@ -1012,7 +1044,8 @@ it('keeps slow correct spelling practice visible as latency evidence, not effort
   const create=vi.fn(async(_payload?:unknown)=>{throw Error('fixture-stop');});
   await expect(advanceCanonicalCycleFromEvidence({childId:'reina',homeworkId:'hw-runtime',client:{messages:{create,stream:(payload:unknown)=>({finalMessage:()=>create(payload)})}} as never},{rootDir})).rejects.toThrow('fixture-stop');
   const plannerRequest=JSON.stringify(create.mock.calls[0]);
-  expect(plannerRequest).toContain('Correct practice after long response time is not effortless recall');
+  // The Planner sees the slow answer as evidence; a sentence warning it is no longer needed (owner rule 2026-10-25).
+  expect(plannerRequest).toContain('tomorrow: response=74000ms');
 });
 
 it.each(['max_tokens','refusal'])('preserves canonical Planner %s as a known completed response',async(reason)=>{
@@ -1223,11 +1256,11 @@ describe('completed-board Planner delivery and explicit recovery', () => {
     } finally {spy.mockRestore();fs.rmSync(f.rootDir,{recursive:true,force:true});}
   },20000);
 
-  it.each(['refusal','uncertain','missing-receipt','wrong-block-id'])('does not authorize replacement for %s', async mode => {
+  // A lost connection may be retried once by an operator (owner, 2026-11-04); see successorThroughTools.test.ts.
+  it.each(['refusal','missing-receipt','wrong-block-id'])('does not authorize replacement for %s', async mode => {
     const f=fixture();
     try {
-      if(mode==='uncertain') f.create.mockRejectedValue(Error('connection lost after sending'));
-      else f.create.mockResolvedValue({stop_reason:mode==='refusal'?'refusal':'max_tokens',content:[]});
+      f.create.mockResolvedValue({stop_reason:mode==='refusal'?'refusal':'max_tokens',content:[]});
       await expect(advanceCanonicalCycleFromEvidence(f.request,{rootDir:f.rootDir})).rejects.toThrow();
       const blocked=getLearningCycle('reina','hw-runtime',{rootDir:f.rootDir})!;
       if(mode==='missing-receipt') for(const file of Object.keys(f.receiptBytes())) fs.unlinkSync(path.join(f.rootDir,'src/context/reina/homework/cycles/.planner/hw-runtime',file));
