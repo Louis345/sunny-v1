@@ -1,5 +1,6 @@
 import { tool } from "ai";
 import { z } from "zod";
+import { COMPANION_ANIMATION_IDS } from "../../shared/companions/companionContract";
 
 export interface CompanionActHost {
   companionAct(args: Record<string, unknown>): Promise<Record<string, unknown>>;
@@ -15,7 +16,13 @@ const companionActInputSchema = z.object({
       "Capability id from [Companion Capabilities] in the session manifest (e.g. camera, animate).",
     ),
   payload: z
-    .record(z.string(), z.unknown())
+    .object({
+      animation: z
+        .enum(COMPANION_ANIMATION_IDS)
+        .optional()
+        .describe("For type animate only: one of these exact animation ids."),
+    })
+    .catchall(z.unknown())
     .describe("Payload object for that capability, matching the manifest."),
   presenceAfterSpeech: z
     .enum(["standby_after_speech", "await_child_response"])
