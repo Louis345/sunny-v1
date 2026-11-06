@@ -110,6 +110,7 @@ import {
 } from "./context/CompanionCareContext";
 import { resolveSunnyRuntimeConfig } from "../../src/shared/runtimeConfig";
 import { BossDropReveal } from "./components/BossDropReveal";
+import { rewardCallHeldReason } from "./utils/rewardCallOffer";
 import type { PostActivityAction } from "../../src/engine/choiceEvents";
 import {
   playAdventureBoardSfx,
@@ -198,6 +199,8 @@ function CompanionEconomyControls(props: {
   tamagotchi: TamagotchiState;
   balance: number;
   homeworkId?: string;
+  /** False while the one reward-call rule holds the call; the saved ticket waits. */
+  callOffered: boolean;
   onOpenVideoCall: (ticket: { homeworkId: string; earnedAt: string; bonusUrl?: string }) => void;
 }) {
   const companionCare = useCompanionCare();
@@ -208,7 +211,7 @@ function CompanionEconomyControls(props: {
   if (!props.visible) return null;
   return (
     <>
-      {earnedTicket ? (
+      {earnedTicket && props.callOffered ? (
         <button
           type="button"
           className="fixed right-5 top-20 z-[90] rounded-lg bg-cyan-400 px-4 py-3 text-sm font-black text-slate-950 shadow-xl"
@@ -792,6 +795,13 @@ function App() {
   useEffect(() => {
     if (boardJustFinished && currentBoardId) setFinishedBoardId(prev => prev ?? currentBoardId);
   }, [boardJustFinished, currentBoardId]);
+  // An earned call waits for a calm moment: never over a pending reveal, a board being built, or a Quest/Boss.
+  const rewardCallHeld = rewardCallHeldReason(
+    plannerBoardPacket?.childChart.learningCycle, finishedBoardId != null,
+  );
+  useEffect(() => {
+    console.log(` 🎮 [reward-loop] [call-offer] [${rewardCallHeld ? `held:${rewardCallHeld}` : "offerable"}]`);
+  }, [rewardCallHeld]);
   const targetedMathGenerationPending = hasPendingLearningGeneration(plannerBoardPacket, effectiveDiscoveryCompletionHandoff === "targeted-planning")
     || targetedBoardHeldForPreparation;
   const preparationSurfaceInput = { packet: plannerBoardPacket, directDiscoveryMode, handoff: effectiveDiscoveryCompletionHandoff, held: targetedBoardHeldForPreparation, preview: parentPreviewActive };
@@ -1572,6 +1582,10 @@ function App() {
     ticket: { homeworkId: string; earnedAt: string; bonusUrl?: string },
   ) => {
     if (!ticket || !adventureChildId) return;
+    if (rewardCallHeld) {
+      console.log(` 🎮 [reward-loop] [call-offer] [held:${rewardCallHeld}] ticket kept for homework=${ticket.homeworkId}`);
+      return;
+    }
     const response = await fetch("/api/learning-cycle/reward/open", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -1591,7 +1605,7 @@ function App() {
       ...(ticket.bonusUrl ? { bonusUrl: ticket.bonusUrl } : {}),
     });
     window.location.assign(`/companions?${query.toString()}`);
-  }, [adventureChildId]);
+  }, [adventureChildId, rewardCallHeld]);
 
   const openEarnedVideoCall = useCallback(() => {
     const ticket = postActivityEngagement?.videoCallTicket;
@@ -2340,6 +2354,7 @@ function App() {
         tamagotchi={profileTamagotchi ?? DEFAULT_TAMAGOTCHI}
         balance={profileCompanionCurrency}
         homeworkId={plannerBoardPacket?.childChart.learningCycle?.homeworkId}
+        callOffered={rewardCallHeld == null}
         onOpenVideoCall={(ticket) => void openVideoCallTicket(ticket)}
       />
       {adventureMapEnabled &&
@@ -2539,7 +2554,7 @@ function App() {
               onFunRating={handlePlannerBoardFunRating}
               coinAward={postActivityEngagement.coinAward}
               onOpenVideoCall={
-                postActivityEngagement.videoCallTicket ? openEarnedVideoCall : null
+                postActivityEngagement.videoCallTicket && !rewardCallHeld ? openEarnedVideoCall : null
               }
             />
           ) : null}
@@ -2628,7 +2643,7 @@ function App() {
               onFunRating={handlePlannerBoardFunRating}
               coinAward={postActivityEngagement.coinAward}
               onOpenVideoCall={
-                postActivityEngagement.videoCallTicket ? openEarnedVideoCall : null
+                postActivityEngagement.videoCallTicket && !rewardCallHeld ? openEarnedVideoCall : null
               }
             />
           ) : null}
