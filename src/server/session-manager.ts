@@ -26,7 +26,7 @@ import {
 } from "./session-triggers";
 import { WsTtsBridge } from "./ws-tts-bridge";
 import { createLoggedVoiceTurnLatency } from "./voiceTurnLatency";
-import { interruptedExchange, isBackchannel, isListeningNoise, isSelfEcho, isVerbatimEchoOfCompanion, preAudioSpeechAction, shouldBargeIn } from "./companionTurnTaking";
+import { interruptedExchange, isBackchannel, isListeningNoise, isSelfEcho, isVerbatimEchoOfCompanion, normalizeUtterance, preAudioSpeechAction, shouldBargeIn } from "./companionTurnTaking";
 
 /** Sunny's own speech (narration or a reply) can come back through the room mic this long after it played. */
 const SELF_ECHO_WINDOW_MS = 15_000;
@@ -243,6 +243,8 @@ export class SessionManager {
   public debugPacketFinalized = false;
 
   private lastTranscript = "";
+  /** Punctuation-free words of the last accepted or replayed utterance (duplicate guard). */
+  private lastTranscriptKey = "";
   private lastTranscriptTime = 0;
   private lastEagerTranscript = "";
   private lastEagerTranscriptTime = 0;
@@ -1607,7 +1609,7 @@ export class SessionManager {
         // Only stamp the dedup token when we actually process the eager transcript.
         // If we stamp it without processing (e.g. during WORD_BUILDER), the
         // subsequent final transcript would be silently dropped.
-        this.lastEagerTranscript = normalized;
+        this.lastEagerTranscript = normalizeUtterance(transcript);
         this.lastEagerTranscriptTime = Date.now();
         this.voiceLatency?.startTurn("eager");
         this.handleEndOfTurn(transcript).catch(console.error);
@@ -1618,9 +1620,10 @@ export class SessionManager {
     this.clearHeldCompanionEagerTranscript("final_received");
 
     if (
-      normalized === this.lastEagerTranscript &&
+      normalizeUtterance(transcript) === this.lastEagerTranscript &&
       Date.now() - this.lastEagerTranscriptTime < 3000
     ) {
+      console.log(" 🎮 [transcript] [duplicate-dropped] reason=final_after_eager");
       return;
     }
 
@@ -1655,7 +1658,7 @@ export class SessionManager {
         console.log("  🎮 [transcript] [eager-dropped] reason=session_ended_or_empty");
         return;
       }
-      this.lastEagerTranscript = held.toLowerCase().trim();
+      this.lastEagerTranscript = normalizeUtterance(held);
       this.lastEagerTranscriptTime = Date.now();
       console.log("  🎮 [transcript] [eager-promoted] reason=final_timeout");
       this.voiceLatency?.startTurn("eager_promoted");
@@ -1701,14 +1704,22 @@ export class SessionManager {
       return;
     }
 
-    if (!isReplay) {
-      const now = Date.now();
+    // One utterance is one turn: the speech service's eager and final copies differ only in
+    // punctuation. A replay is the one delivery of a deferred turn, so it is never dropped
+    // here, but it stamps the guard so a late copy right after it is not answered again.
+    const now = Date.now();
+    const utteranceKey = normalizeUtterance(transcript);
+    if (isReplay) {
+      this.lastTranscriptKey = utteranceKey;
+      this.lastTranscriptTime = now;
+    } else {
       const normalized = transcript.toLowerCase().trim();
       if (
-        normalized === this.lastTranscript &&
+        utteranceKey === this.lastTranscriptKey &&
         now - this.lastTranscriptTime < 3000
       ) {
-        console.log(`  ⚠️  Duplicate transcript suppressed: "${transcript}"`);
+        console.log(` 🎮 [transcript] [duplicate-dropped] ms_since_last=${now - this.lastTranscriptTime} state=${this.turnSM.getState()}`);
+        this.voiceLatency?.discardLatest("ignored");
         auditLog("transcript", {
           action: "duplicate_suppressed",
           turnState: this.turnSM.getState(),
@@ -1724,6 +1735,7 @@ export class SessionManager {
         return;
       }
       this.lastTranscript = normalized;
+      this.lastTranscriptKey = utteranceKey;
       this.lastTranscriptTime = now;
     }
 
