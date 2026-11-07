@@ -76,6 +76,12 @@ function normalizeLoadedPlan(
       bossDrops: Array.isArray(plan.economy?.bossDrops)
         ? plan.economy.bossDrops.map((drop) => ({ ...drop }))
         : [],
+      // Chest receipts keep "one chest per stop" true across restarts; minutes and pity are her balance.
+      nodeChests: Array.isArray(plan.economy?.nodeChests)
+        ? plan.economy.nodeChests.map((chest) => ({ ...chest, ...(chest.bonus ? { bonus: { ...chest.bonus } } : {}) }))
+        : [],
+      callMinutes: Math.max(0, Math.floor(Number(plan.economy?.callMinutes ?? 0) || 0)),
+      chestsSinceBonus: Math.max(0, Math.floor(Number(plan.economy?.chestsSinceBonus ?? 0) || 0)),
     },
     inventory: {
       food: Array.isArray(plan.inventory?.food) ? plan.inventory.food : [],

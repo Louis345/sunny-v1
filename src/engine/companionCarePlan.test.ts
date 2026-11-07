@@ -168,3 +168,31 @@ describe("companionCarePlan IO", () => {
     expect(second.plan.economy.coins).toBe(999);
   });
 });
+
+// AI-caught in the free kiosk demo (2026-11-07): the saved plan had 85 coins but only the second chest's
+// receipt, because loading rebuilt the economy from a fixed field list and dropped the chest receipts,
+// call minutes and pity counter. Without receipts, "one chest per stop" is not guaranteed.
+describe("node chests survive a save and a load", () => {
+  it("keeps every chest receipt, the call minutes and the pity counter", async () => {
+    const { createStarterCompanionCarePlan, grantNodeChest } = await import("./companionCareEngine");
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-chest-roundtrip-"));
+    const chart = { childId: "lab-child", links: { companionCareDir: dir, learningProfile: path.join(dir, "profile.json") }, companion: { presetId: "elli" },
+      learningProfile: minimalProfile(), economy: { coinBalance: 0 } };
+    try {
+      const at = "2026-11-07T12:00:00.000Z";
+      let plan = createStarterCompanionCarePlan({ childId: "lab-child", companionId: "elli" });
+      plan = grantNodeChest(plan, { homeworkId: "hw", nodeId: "warm-up", kind: "common", nowIso: at, roll: () => 0.99 }).plan;
+      saveCompanionCarePlan(chart, plan);
+      plan = grantNodeChest(loadCompanionCarePlanForChart(chart).plan, { homeworkId: "hw", nodeId: "quest", kind: "epic", nowIso: at, roll: () => 0 }).plan;
+      saveCompanionCarePlan(chart, plan);
+      const loaded = loadCompanionCarePlanForChart(chart).plan;
+      expect(loaded.economy.nodeChests?.map(chest => chest.nodeId)).toEqual(["warm-up", "quest"]);
+      expect(loaded.economy.callMinutes).toBe(10);
+      expect(loaded.economy.chestsSinceBonus).toBe(0);
+      const replay = grantNodeChest(loaded, { homeworkId: "hw", nodeId: "warm-up", kind: "common", nowIso: at, roll: () => 0 });
+      expect(replay.granted).toBe(false);
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});
