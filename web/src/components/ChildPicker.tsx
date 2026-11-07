@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { motion } from "framer-motion";
 import {
   normalizeCompanionConfig,
@@ -93,33 +93,107 @@ function useKioskSky(): StartSky {
   return sky;
 }
 
-const SKY_LIGHTS = [
-  { left: "8%", top: "14%", size: 4, delay: 0, duration: 9 },
-  { left: "18%", top: "32%", size: 3, delay: 2.5, duration: 11 },
-  { left: "31%", top: "9%", size: 5, delay: 1, duration: 13 },
-  { left: "47%", top: "22%", size: 3, delay: 4, duration: 10 },
-  { left: "62%", top: "12%", size: 4, delay: 0.5, duration: 12 },
-  { left: "74%", top: "36%", size: 3, delay: 3, duration: 9.5 },
-  { left: "86%", top: "18%", size: 5, delay: 1.8, duration: 14 },
-  { left: "94%", top: "40%", size: 3, delay: 5, duration: 10.5 },
-];
+/** One full turn of the night sky every five minutes: visibly moving, still calm (owner, 2026-11-07). */
+const STARFIELD_TURN_MS = 300_000;
+export function starfieldRotation(elapsedMs: number): number {
+  return ((elapsedMs % STARFIELD_TURN_MS) / STARFIELD_TURN_MS) * Math.PI * 2;
+}
 
-/** A fixed scatter of stars (same every load): mostly tiny and dim, a few bright, denser toward the top. */
-const STARS = Array.from({ length: 150 }, (_, index) => {
+/** A fixed starfield around a pole above the top-right corner (same every load). Radius and angle are unit values. */
+export const STARFIELD = Array.from({ length: 1400 }, (_, index) => {
   const random = (salt: number) => { const x = Math.sin(index * 127.1 + salt * 311.7) * 43758.5453; return x - Math.floor(x); };
-  const bright = random(4) > 0.85;
+  const bright = random(4) > 0.93;
   return {
-    left: `${(random(1) * 100).toFixed(2)}%`,
-    top: `${(Math.pow(random(2), 1.6) * 92).toFixed(2)}%`,
-    size: bright ? 3.5 + random(3) * 2 : 1.6 + random(3) * 1.6,
-    low: 0.35 + random(5) * 0.25,
-    high: bright ? 1 : 0.7 + random(6) * 0.3,
-    duration: 2.5 + random(7) * 4,
-    delay: random(8) * 5,
+    radius: Math.sqrt(random(1)),
+    angle: random(2) * Math.PI * 2,
+    size: bright ? 1.8 + random(3) * 1.2 : 0.6 + random(3) * 0.9,
+    low: 0.3 + random(5) * 0.25,
+    high: bright ? 1 : 0.65 + random(6) * 0.35,
+    twinkleMs: 2500 + random(7) * 4000,
+    phase: random(8) * Math.PI * 2,
+    bright,
+    sparkleOffsetMs: random(9) * 9000,
   };
 });
+const SPARKLE_PERIOD_MS = 9000;
+const SPARKLE_MS = 1100;
+
+function drawStarfield(canvas: HTMLCanvasElement, elapsedMs: number): void {
+  const context = canvas.getContext("2d");
+  if (!context) return;
+  const ratio = window.devicePixelRatio || 1;
+  const width = canvas.clientWidth;
+  const height = canvas.clientHeight;
+  if (canvas.width !== Math.round(width * ratio) || canvas.height !== Math.round(height * ratio)) {
+    canvas.width = Math.round(width * ratio);
+    canvas.height = Math.round(height * ratio);
+  }
+  context.setTransform(ratio, 0, 0, ratio, 0, 0);
+  context.clearRect(0, 0, width, height);
+  const poleX = width * 0.82;
+  const poleY = -height * 0.15;
+  const reach = Math.hypot(poleX, height - poleY) * 1.05;
+  const turn = starfieldRotation(elapsedMs);
+  for (const star of STARFIELD) {
+    const angle = star.angle + turn;
+    const x = poleX + Math.cos(angle) * star.radius * reach;
+    const y = poleY + Math.sin(angle) * star.radius * reach;
+    if (x < -10 || y < -10 || x > width + 10 || y > height + 10) continue;
+    const twinkle = 0.5 + 0.5 * Math.sin((elapsedMs / star.twinkleMs) * Math.PI * 2 + star.phase);
+    context.globalAlpha = star.low + (star.high - star.low) * twinkle;
+    context.fillStyle = "#fff8e6";
+    context.beginPath();
+    context.arc(x, y, star.size, 0, Math.PI * 2);
+    context.fill();
+    if (!star.bright) continue;
+    const inSparkle = (elapsedMs + star.sparkleOffsetMs) % SPARKLE_PERIOD_MS;
+    if (inSparkle > SPARKLE_MS) continue;
+    const glint = Math.sin((inSparkle / SPARKLE_MS) * Math.PI);
+    const arm = 11 * glint;
+    context.globalAlpha = glint;
+    context.strokeStyle = "#fffaeb";
+    context.lineWidth = 1.2;
+    context.save();
+    context.translate(x, y);
+    context.rotate((inSparkle / SPARKLE_MS) * (Math.PI / 2));
+    context.beginPath();
+    context.moveTo(-arm, 0); context.lineTo(arm, 0);
+    context.moveTo(0, -arm); context.lineTo(0, arm);
+    context.stroke();
+    context.restore();
+  }
+  context.globalAlpha = 1;
+}
+
+/** The turning night sky. One canvas, one animation loop that stops when the screen closes; still for reduced motion. */
+function TurningStarfield() {
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const still = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
+    const started = performance.now();
+    let frame = 0;
+    const tick = (now: number) => {
+      drawStarfield(canvas, now - started);
+      frame = window.requestAnimationFrame(tick);
+    };
+    if (still) drawStarfield(canvas, 0);
+    else frame = window.requestAnimationFrame(tick);
+    return () => window.cancelAnimationFrame(frame);
+  }, []);
+  return <canvas ref={canvasRef} data-starfield className="absolute inset-0 h-full w-full" />;
+}
+
+/** Daytime clouds float across the screen and loop around; each starts partway so the sky is never empty. */
+const CLOUD_CROSSING = [
+  { top: "-12%", seconds: 95, startAt: -20 },
+  { top: "18%", seconds: 120, startAt: -75 },
+  { top: "48%", seconds: 140, startAt: -40 },
+];
 
 function StartScreenSky({ sky }: { sky: StartSky }) {
+  const starry = sky.lights === "stars";
   return (
     <div
       data-testid="start-screen-sky"
@@ -128,15 +202,20 @@ function StartScreenSky({ sky }: { sky: StartSky }) {
       className="pointer-events-none absolute inset-0 overflow-hidden"
       style={{ background: sky.gradient, transition: "background 2s ease" }}
     >
+      <style>{`@keyframes sunny-sky-cross { from { transform: translateX(-75vw); } to { transform: translateX(110vw); } }
+        @keyframes sunny-sky-swirl { 0% { transform: translate(0,0) scale(1); } 50% { transform: translate(6vw,4vh) scale(1.15); } 100% { transform: translate(0,0) scale(1); } }
+        @media (prefers-reduced-motion: reduce) { [data-drift-cloud] { animation: none !important; } }`}</style>
       {sky.clouds.map((color, index) => (
-        <motion.div
+        <div
           key={`${sky.name}-cloud-${index}`}
           data-drift-cloud
-          className="absolute rounded-full motion-reduce:!transform-none"
-          style={{ width: "70vmax", height: "50vmax", left: ["-20%", "40%", "5%"][index], top: ["-15%", "10%", "45%"][index],
-            background: `radial-gradient(ellipse at center, ${color} 0%, rgba(0,0,0,0) 65%)` }}
-          animate={{ x: [0, [120, -140, 90][index], 0], y: [0, [60, -40, -70][index], 0], scale: [1, 1.18, 1] }}
-          transition={{ duration: [48, 62, 70][index], repeat: Infinity, ease: "easeInOut" }}
+          className="absolute rounded-full"
+          style={{ width: "70vmax", height: starry ? "50vmax" : "30vmax", left: starry ? ["-20%", "40%", "5%"][index] : 0,
+            top: starry ? ["-15%", "10%", "45%"][index] : CLOUD_CROSSING[index].top,
+            background: `radial-gradient(ellipse at center, ${color} 0%, rgba(0,0,0,0) 65%)`,
+            animation: starry
+              ? `sunny-sky-swirl ${[40, 52, 60][index]}s ease-in-out ${-[5, 20, 35][index]}s infinite`
+              : `sunny-sky-cross ${CLOUD_CROSSING[index].seconds}s linear ${CLOUD_CROSSING[index].startAt}s infinite` }}
         />
       ))}
       {sky.glow && (
@@ -146,66 +225,18 @@ function StartScreenSky({ sky }: { sky: StartSky }) {
             background: `radial-gradient(circle, ${sky.glow} 0%, rgba(0,0,0,0) 70%)` }}
         />
       )}
-      {sky.lights === "stars" ? (
-        <>
-          {[0, 1].map((layer) => (
-            <motion.div
-              key={layer}
-              data-star-layer
-              className="absolute motion-reduce:!transform-none"
-              style={{ inset: "-10% -15%" }}
-              animate={{ x: layer === 0 ? [0, -40, 0] : [0, -90, 0], y: layer === 0 ? [0, 8, 0] : [0, 18, 0] }}
-              transition={{ duration: layer === 0 ? 140 : 90, repeat: Infinity, ease: "easeInOut" }}
-            >
-              {STARS.filter((_, index) => index % 2 === layer).map((star, index) => (
-                <motion.span
-                  key={index}
-                  data-star
-                  className="absolute rounded-full"
-                  style={{ left: star.left, top: star.top, width: star.size * (layer === 0 ? 0.85 : 1.1), height: star.size * (layer === 0 ? 0.85 : 1.1),
-                    background: "rgba(255,248,230,1)", opacity: star.high, boxShadow: star.size > 3 ? "0 0 6px rgba(255,240,210,0.7)" : undefined }}
-                  animate={{ opacity: [star.low, star.high, star.low] }}
-                  transition={{ duration: star.duration, delay: star.delay, repeat: Infinity, ease: "easeInOut" }}
-                />
-              ))}
-              {STARS.filter((star, index) => index % 2 === layer && star.size > 3).map((star, index) => (
-                <motion.span
-                  key={`sparkle-${index}`}
-                  data-sparkle
-                  className="absolute motion-reduce:hidden"
-                  style={{ left: star.left, top: star.top, width: 0, height: 0 }}
-                  initial={{ scale: 0, opacity: 0, rotate: 0 }}
-                  animate={{ scale: [0, 1, 0], opacity: [0, 1, 0], rotate: [0, 45, 90] }}
-                  transition={{ duration: 1.6, delay: star.delay * 2, repeat: Infinity, repeatDelay: 3 + star.duration, ease: "easeInOut" }}
-                >
-                  {[0, 90].map((angle) => (
-                    <span key={angle} className="absolute" style={{ left: -11 + star.size / 2, top: star.size / 2 - 0.75, width: 22, height: 1.5,
-                      borderRadius: 2, transform: `rotate(${angle}deg)`,
-                      background: "linear-gradient(90deg, rgba(255,250,235,0) 0%, rgba(255,250,235,0.95) 50%, rgba(255,250,235,0) 100%)" }} />
-                  ))}
-                </motion.span>
-              ))}
-            </motion.div>
-          ))}
-          <motion.span
-            data-shooting-star
-            className="absolute motion-reduce:hidden"
-            style={{ top: "8%", left: "70%", width: 140, height: 2, borderRadius: 2, rotate: -28, transformOrigin: "right center",
-              background: "linear-gradient(90deg, rgba(255,250,235,0) 0%, rgba(255,250,235,0.95) 100%)" }}
-            initial={{ x: 0, y: 0, opacity: 0 }}
-            animate={{ x: [0, -520], y: [0, 280], opacity: [0, 1, 1, 0] }}
-            transition={{ duration: 1.4, times: [0, 0.15, 0.7, 1], repeat: Infinity, repeatDelay: 9, delay: 3, ease: "easeIn" }}
-          />
-        </>
-      ) : SKY_LIGHTS.map((light) => (
+      {starry && <TurningStarfield />}
+      {starry && (
         <motion.span
-          key={light.left}
-          className="absolute rounded-full motion-reduce:hidden"
-          style={{ left: light.left, bottom: -20, width: light.size * 2, height: light.size * 2, background: "rgba(255,255,255,0.55)" }}
-          animate={{ y: [0, -900], opacity: [0, 0.6, 0.6, 0] }}
-          transition={{ duration: light.duration * 1.5, delay: light.delay, repeat: Infinity, ease: "linear" }}
+          data-shooting-star
+          className="absolute motion-reduce:hidden"
+          style={{ top: "8%", left: "70%", width: 140, height: 2, borderRadius: 2, rotate: -28, transformOrigin: "right center",
+            background: "linear-gradient(90deg, rgba(255,250,235,0) 0%, rgba(255,250,235,0.95) 100%)" }}
+          initial={{ x: 0, y: 0, opacity: 0 }}
+          animate={{ x: [0, -520], y: [0, 280], opacity: [0, 1, 1, 0] }}
+          transition={{ duration: 1.4, times: [0, 0.15, 0.7, 1], repeat: Infinity, repeatDelay: 9, delay: 3, ease: "easeIn" }}
         />
-      ))}
+      )}
     </div>
   );
 }

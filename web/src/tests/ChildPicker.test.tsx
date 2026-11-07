@@ -38,7 +38,7 @@ it("opens on a warm, decorative sky that never takes a tap", async () => {
 });
 
 // Owner, 2026-11-07: the sky follows the real sun where the kiosk is, from its timezone only (no location).
-import { START_SKIES, skyForTime } from "../components/ChildPicker";
+import { START_SKIES, STARFIELD, skyForTime, starfieldRotation } from "../components/ChildPicker";
 const eastern = (iso: string, offsetHours: number) => ({ at: new Date(iso), utcOffsetMinutes: offsetHours * 60, standardOffsetMinutes: -300 });
 it("follows the real sun: dark after an early November sunset, sunrise colors at dawn", () => {
   expect(skyForTime(eastern("2026-11-07T23:00:00Z", -5)).name).toBe("night");    // 6:00 pm, sun set ~4:40
@@ -50,38 +50,40 @@ it("follows the real sun: dark after an early November sunset, sunrise colors at
   expect(skyForTime(eastern("2026-11-07T23:00:00Z", -5)).lights).toBe("stars");
 });
 
-it("fills a night sky with many stars", async () => {
-  vi.useFakeTimers({ toFake: ["Date"] });
-  vi.setSystemTime(new Date(2026, 10, 7, 21, 0));
-  render(<ChildPicker onSelect={vi.fn()} />);
-  await waitFor(() => expect(screen.getByTestId("start-screen-sky").getAttribute("data-sky")).toBe("night"));
-  expect(screen.getByTestId("start-screen-sky").querySelectorAll("[data-star]").length).toBeGreaterThanOrEqual(60);
-  vi.useRealTimers();
-});
 
-it("gives the night sky depth and a shooting star", async () => {
-  vi.useFakeTimers({ toFake: ["Date"] });
-  vi.setSystemTime(new Date(2026, 10, 7, 21, 0));
-  render(<ChildPicker onSelect={vi.fn()} />);
-  await waitFor(() => expect(screen.getByTestId("start-screen-sky").getAttribute("data-sky")).toBe("night"));
-  const sky = screen.getByTestId("start-screen-sky");
-  expect(sky.querySelectorAll("[data-star-layer]").length).toBe(2);
-  expect(sky.querySelector("[data-shooting-star]")).not.toBeNull();
-  vi.useRealTimers();
-});
 
-it("lets the brightest stars sparkle", async () => {
-  vi.useFakeTimers({ toFake: ["Date"] });
-  vi.setSystemTime(new Date(2026, 10, 7, 21, 0));
-  render(<ChildPicker onSelect={vi.fn()} />);
-  await waitFor(() => expect(screen.getByTestId("start-screen-sky").getAttribute("data-sky")).toBe("night"));
-  expect(screen.getByTestId("start-screen-sky").querySelectorAll("[data-sparkle]").length).toBeGreaterThanOrEqual(10);
-  vi.useRealTimers();
-});
 
 it("moves the background itself with slow drifting color in every mood", async () => {
   expect(Object.values(START_SKIES).map(sky => sky.clouds.length)).toEqual([3, 3, 3, 3, 3]);
   render(<ChildPicker onSelect={vi.fn()} />);
   await waitFor(() => expect(screen.getByTestId("start-screen-sky")).toBeTruthy());
   expect(screen.getByTestId("start-screen-sky").querySelectorAll("[data-drift-cloud]").length).toBe(3);
+});
+
+// Owner, 2026-11-07: the night sky should move, not sit still: the whole starfield turns slowly.
+it("turns a full starfield around the sky, with sparkling bright stars and a shooting star", async () => {
+  expect(STARFIELD.length).toBeGreaterThanOrEqual(1000);
+  expect(STARFIELD.filter(star => star.bright).length).toBeGreaterThanOrEqual(60);
+  expect(starfieldRotation(0)).toBe(0);
+  expect(starfieldRotation(30_000)).toBeGreaterThan(starfieldRotation(10_000));
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(new Date(2026, 10, 7, 21, 0));
+  render(<ChildPicker onSelect={vi.fn()} />);
+  await waitFor(() => expect(screen.getByTestId("start-screen-sky").getAttribute("data-sky")).toBe("night"));
+  const sky = screen.getByTestId("start-screen-sky");
+  expect(sky.querySelector("canvas[data-starfield]")).not.toBeNull();
+  expect(sky.querySelector("[data-shooting-star]")).not.toBeNull();
+  vi.useRealTimers();
+});
+
+it("floats daytime clouds across the screen instead of swaying in place", async () => {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(new Date(2026, 10, 7, 12, 0));
+  render(<ChildPicker onSelect={vi.fn()} />);
+  await waitFor(() => expect(screen.getByTestId("start-screen-sky").getAttribute("data-sky")).toBe("day"));
+  const clouds = [...screen.getByTestId("start-screen-sky").querySelectorAll<HTMLElement>("[data-drift-cloud]")];
+  expect(clouds.length).toBe(3);
+  clouds.forEach(cloud => expect(cloud.style.animation).toContain("sunny-sky-cross"));
+  expect(screen.getByTestId("start-screen-sky").querySelector("canvas[data-starfield]")).toBeNull();
+  vi.useRealTimers();
 });
