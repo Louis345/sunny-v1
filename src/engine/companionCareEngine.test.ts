@@ -8,6 +8,8 @@ import {
   markVideoCallTicketOpened,
   createStarterCompanionCarePlan,
   getCompanionReadiness,
+  grantNodeChest,
+  nodeChestKind,
 } from "./companionCareEngine";
 import type { CompanionCarePlan } from "../shared/companionCareTypes";
 
@@ -222,5 +224,49 @@ describe("companionCareEngine", () => {
     expect(replay.awarded).toBe(false);
     expect(replay.amount).toBe(21);
     expect(replay.plan.economy.coins).toBe(121);
+  });
+});
+
+// Owner, 2026-11-06: a treasure chest after every finished node. Its colour shows the rarity; it is rolled
+// once, saved, and pays coins plus a chance of bonus call minutes, with a pity counter raising that chance.
+describe("node treasure chests", () => {
+  const plan = () => createStarterCompanionCarePlan({ childId: "demo-pashley", companionId: "elli" });
+  const at = "2026-11-06T20:00:00.000Z";
+
+  it("picks the chest from the node: practice wooden, check rare, Quest epic, Mystery mystery", () => {
+    expect(nodeChestKind({ role: "baseline" })).toBe("common");
+    expect(nodeChestKind({ role: "evaluation" })).toBe("rare");
+    expect(nodeChestKind({ role: "quest" })).toBe("epic");
+    expect(nodeChestKind({ role: "mystery" })).toBe("mystery");
+  });
+
+  it("pays coins once, saves the chest, and shows the same chest again", () => {
+    const first = grantNodeChest(plan(), { homeworkId: "hw", nodeId: "n1", kind: "common", nowIso: at, roll: () => 0.99 });
+    expect(first.granted).toBe(true);
+    expect(first.chest).toMatchObject({ kind: "common", rarity: "common", coins: 25, bonusChance: 0.1 });
+    expect(first.chest.bonus).toBeUndefined();
+    expect(first.plan.economy.coins).toBe(plan().economy.coins + 25);
+    const again = grantNodeChest(first.plan, { homeworkId: "hw", nodeId: "n1", kind: "common", nowIso: at, roll: () => 0 });
+    expect(again.granted).toBe(false);
+    expect(again.chest).toEqual(first.chest);
+    expect(again.plan.economy.coins).toBe(first.plan.economy.coins);
+  });
+
+  it("adds bonus call minutes on a lucky roll, and the pity counter raises the chance after each miss", () => {
+    let current = plan();
+    current = grantNodeChest(current, { homeworkId: "hw", nodeId: "a", kind: "common", nowIso: at, roll: () => 0.99 }).plan;
+    const second = grantNodeChest(current, { homeworkId: "hw", nodeId: "b", kind: "common", nowIso: at, roll: () => 0.99 });
+    expect(second.chest.bonusChance).toBeCloseTo(0.2);
+    const lucky = grantNodeChest(second.plan, { homeworkId: "hw", nodeId: "c", kind: "common", nowIso: at, roll: () => 0.25 });
+    expect(lucky.chest.bonusChance).toBeCloseTo(0.3);
+    expect(lucky.chest.bonus).toEqual({ kind: "call_minutes", minutes: 5 });
+    expect(lucky.plan.economy.callMinutes).toBe(5);
+    expect(lucky.plan.economy.chestsSinceBonus).toBe(0);
+  });
+
+  it("rolls a mystery chest's rarity and pays that rarity's chest", () => {
+    const rolls = [0.9, 0.99];
+    const mystery = grantNodeChest(plan(), { homeworkId: "hw", nodeId: "m", kind: "mystery", nowIso: at, roll: () => rolls.shift()! });
+    expect(mystery.chest).toMatchObject({ kind: "mystery", rarity: "epic", coins: 60 });
   });
 });

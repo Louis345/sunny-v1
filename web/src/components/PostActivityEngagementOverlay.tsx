@@ -77,7 +77,8 @@ export function PostActivityEngagementOverlay({
   return (
     <div
       data-testid="post-activity-engagement-overlay"
-      className="fixed inset-0 z-[120] flex flex-col items-center justify-center px-6 text-center text-white"
+      // Scrolls when its content is taller than the screen; my-auto centres it when it fits.
+      className="fixed inset-0 z-[120] flex flex-col items-center overflow-y-auto px-6 py-6 text-center text-white"
       style={{
         background: "rgba(5, 7, 12, 0.62)",
         backdropFilter: "blur(10px)",
@@ -86,7 +87,7 @@ export function PostActivityEngagementOverlay({
       }}
     >
       <div
-        className="w-full max-w-3xl border border-white/15 bg-slate-950/80 p-8 shadow-2xl"
+        className="my-auto w-full max-w-3xl border border-white/15 bg-slate-950/80 p-8 shadow-2xl"
         style={{ borderRadius: 8 }}
       >
         <p className="text-xs font-black uppercase text-amber-300">

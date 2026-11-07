@@ -36,8 +36,12 @@ export async function requestPlannerMessage(
   const started = Date.now();
   console.log(` 🎮 [planner-transport] [request] [requested] model=${params.model} streaming=${policy.streaming} timeout_ms=${policy.timeout} max_tokens=${policy.maxTokens} request_chars=${JSON.stringify(request).length}`);
   try {
-    const message = await (policy.streaming ? client.messages.stream(request, requestOptions).finalMessage() : client.messages.create(request, requestOptions));
-    console.log(` 🎮 [planner-transport] [request] [received] id=${message.id} elapsed_ms=${Date.now()-started} stop=${message.stop_reason} input_tokens=${message.usage?.input_tokens} output_tokens=${message.usage?.output_tokens}`);
+    // How long the provider took before its first stream event, apart from writing the answer (issue #56).
+    let firstEventMs: number | undefined;
+    const stream = policy.streaming ? client.messages.stream(request, requestOptions) : undefined;
+    stream?.on?.('streamEvent', () => { firstEventMs ??= Date.now() - started; });
+    const message = await (stream ? stream.finalMessage() : client.messages.create(request, requestOptions));
+    console.log(` 🎮 [planner-transport] [request] [received] id=${message.id} elapsed_ms=${Date.now()-started}${firstEventMs === undefined ? '' : ` first_event_ms=${firstEventMs}`} stop=${message.stop_reason} input_tokens=${message.usage?.input_tokens} output_tokens=${message.usage?.output_tokens}`);
     return message;
   } catch (error) {
     console.error(` 🎮 [planner-transport] [request] [failed] elapsed_ms=${Date.now()-started} error=${error instanceof Error ? error.message : String(error)}`);

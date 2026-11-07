@@ -110,6 +110,7 @@ import {
 } from "./context/CompanionCareContext";
 import { resolveSunnyRuntimeConfig } from "../../src/shared/runtimeConfig";
 import { BossDropReveal } from "./components/BossDropReveal";
+import { NodeTreasureChest, chestFromServer, type ServerNodeChest } from "./components/NodeTreasureChest";
 import { rewardCallHeldReason } from "./utils/rewardCallOffer";
 import type { PostActivityAction } from "../../src/engine/choiceEvents";
 import {
@@ -611,6 +612,7 @@ function App() {
   } | null>(null);
   // Beating the Boss drops loot: the saved server roll, shown once per completion reply.
   const [bossDrop, setBossDrop] = useState<{ tier: "common" | "rare" | "epic" | "legendary"; coins: number } | null>(null);
+  const [nodeChest, setNodeChest] = useState<ServerNodeChest | null>(null);
   const [postActivityEngagement, setPostActivityEngagement] = useState<{
     node: NodeConfig;
     outcome: PostActivityOutcome;
@@ -620,6 +622,8 @@ function App() {
     coinAward?: { amount: number; balance: number };
     videoCallTicket?: { homeworkId: string; earnedAt: string; bonusUrl?: string };
   } | null>(null);
+  // The chest belongs to one finished stop's panel and leaves with it.
+  useEffect(() => { if (!postActivityEngagement) setNodeChest(null); }, [postActivityEngagement]);
   const [locallyCompletedPlannerNodeIds, setLocallyCompletedPlannerNodeIds] = useState<string[]>([]);
   const [generatedMathSoundMuted, setGeneratedMathSoundMuted] = useState(false);
   const plannerBoardIframeCompletionKeyRef = useRef<string | null>(null);
@@ -1656,6 +1660,7 @@ function App() {
       if (completed) setLocallyCompletedPlannerNodeIds(current => current.includes(launch.node.id) ? current : [...current, launch.node.id]);
       if (completion?.coinAward) setProfileCompanionCurrency(completion.coinAward.balance);
       if (completion?.bossDrop) setBossDrop(completion.bossDrop);
+      if (completion?.nodeChest) setNodeChest(completion.nodeChest);
       showPlannerBoardEngagementOverlay(launch.node, completion ? completion.outcome : payload, completion?.coinAward, completion?.videoCallTicket);
       console.log(" 🎮 [AdventureBoard] [canonical-completion] [saved]", { nodeId: launch.node.id, nodeState: completion?.nodeState, completed });
     }).catch((error: unknown) => {
@@ -2552,11 +2557,13 @@ function App() {
               canTryHarder={postActivityEngagement.canTryHarder}
               onAction={handlePlannerBoardPostActivityAction}
               onFunRating={handlePlannerBoardFunRating}
-              coinAward={postActivityEngagement.coinAward}
+              coinAward={nodeChest ? null : postActivityEngagement.coinAward}
               onOpenVideoCall={
                 postActivityEngagement.videoCallTicket && !rewardCallHeld ? openEarnedVideoCall : null
               }
-            />
+            >
+              {nodeChest ? <NodeTreasureChest compact {...chestFromServer(nodeChest)} onCollect={() => undefined} /> : null}
+            </PostActivityEngagementOverlay>
           ) : null}
         </FlowGameOverlay>
       ) : null}
@@ -2641,11 +2648,13 @@ function App() {
               canTryHarder={postActivityEngagement.canTryHarder}
               onAction={handlePlannerBoardPostActivityAction}
               onFunRating={handlePlannerBoardFunRating}
-              coinAward={postActivityEngagement.coinAward}
+              coinAward={nodeChest ? null : postActivityEngagement.coinAward}
               onOpenVideoCall={
                 postActivityEngagement.videoCallTicket && !rewardCallHeld ? openEarnedVideoCall : null
               }
-            />
+            >
+              {nodeChest ? <NodeTreasureChest compact {...chestFromServer(nodeChest)} onCollect={() => undefined} /> : null}
+            </PostActivityEngagementOverlay>
           ) : null}
         </FlowGameOverlay>
       ) : null}

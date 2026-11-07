@@ -1,4 +1,5 @@
 import {isDeepStrictEqual} from "node:util";
+import { plannerDecisionView, plannerObservationView } from "./plannerEvidenceView";
 import { spellingActivityMenu } from "./spellingTeachingTools";
 import { spellingActivityCatalog } from "./assignmentPlanner";
 import {readSuccessorBoardDefinition, assembleAdventureBoardDefinition, BOARD_DEFINITION_TOOL_SCHEMA, BOARD_AUTHORING_INSTRUCTION, type AdventureBoardComposition, type AdventureJourneyDefinition} from "../shared/adventureBoardDefinition";
@@ -788,10 +789,10 @@ async function askPlanner(
       constructs:Object.fromEntries(Object.entries(chart.learningHistory.constructs).filter(([id])=>constructIds.has(id) && !isSynthetic(id)).map(([id,history])=>[id,{
         constructId:id,
         predictions:history.predictions.filter(row=>!excludedReference(row.predictionId) && !inCycle.has(row.predictionId)),
-        observations:history.observations.filter(row=>!excludedReference(row.observationId) && !inCycle.has(row.observationId)),
+        observations:history.observations.filter(row=>!excludedReference(row.observationId) && !inCycle.has(row.observationId)).map(plannerObservationView),
         evaluations:history.evaluations.filter(row=>!excludedReference(row.evaluationId) && !inCycle.has(row.evaluationId)),
       }] as const).filter(([,row])=>row.predictions.length+row.observations.length+row.evaluations.length>0)),
-      decisions:[...decisions.values()],
+      decisions:[...decisions.values()].map(plannerDecisionView),
       pendingInterpretation:chart.learningHistory.pendingInterpretation.filter(row=>![row.sourceId,...row.evaluationIds].some(excludedReference)),
     },
     priorPlan: {
@@ -811,7 +812,7 @@ async function askPlanner(
   };
   const factualObservations = cycle.observations.filter((observation) =>
     !isSynthetic(observation.observationId) && !isSynthetic(observation.sourceId)
-  );
+  ).map(plannerObservationView);
   const baselineEligibility = baselineQuestEvidenceEligibility(cycle);
   const allowedProgressionActions: LearningProgressionAction[] = cycle.lifecycle === "baseline_evaluating" && !baselineEligibility.eligible
     ? ["generate_support", "collect_more_evidence"]

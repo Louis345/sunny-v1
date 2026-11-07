@@ -15,7 +15,10 @@ vi.mock("../engine/learningCycleRuntime", async original => ({
   advanceCanonicalCycleFromEvidence: vi.fn(async () => ({ lifecycle: "baseline_evaluating", revision: 2 })),
 }));
 vi.mock("../engine/canonicalProgressionGenerator", () => ({ generateCanonicalProgressionArtifact: vi.fn(() => { throw new Error("provider_forbidden"); }) }));
-vi.mock("../profiles/childChart", () => ({ getChildChart: vi.fn(() => ({ companionCare: { plan: {} } })) }));
+vi.mock("../profiles/childChart", async () => {
+  const { createStarterCompanionCarePlan } = await import("../engine/companionCareEngine");
+  return { getChildChart: vi.fn(() => ({ companionCare: { plan: createStarterCompanionCarePlan({ childId: "lab-child", companionId: "elli" }) } })) };
+});
 vi.mock("../profiles/companionCarePlan", () => ({ saveCompanionCarePlan: vi.fn(), mirrorCompanionCareToLearningProfile: vi.fn() }));
 vi.mock("../engine/companionCareEngine", async original => ({
   ...await original<typeof import("../engine/companionCareEngine")>(),
@@ -116,13 +119,18 @@ describe("finished native spelling participation", () => {
     expect(reconcileCompanionCareCurrencyAward).not.toHaveBeenCalled();
   });
 
-  it.each(["wordle", "wheel"] as const)("preserves the existing %s win award, once", async game => {
+  // Owner, 2026-11-06: a win opens a wooden treasure chest that pays the stop's coins, once.
+  it.each(["wordle", "wheel"] as const)("opens one treasure chest for a %s win, paying its coins once", async game => {
     const { post } = fixture();
     const result = nativeEnding(game, true);
     expect(result).toMatchObject({ completed: true, ended: true, won: true });
-    expect((await post(result)).body).toMatchObject({ nodeState: "completed", coinAward: { amount: 25, balance: 125 } });
-    expect((await post(result)).body.coinAward).toBeUndefined();
-    expect(reconcileCompanionCareCurrencyAward).toHaveBeenCalledTimes(1);
+    const first = (await post(result)).body;
+    expect(first).toMatchObject({ nodeState: "completed", coinAward: { amount: 25 }, nodeChest: { kind: "common", rarity: "common", coins: 25 } });
+    expect((first.coinAward as { balance: number }).balance).toBeGreaterThanOrEqual(25);
+    const again = (await post(result)).body;
+    expect(again.coinAward).toBeUndefined();
+    expect(again.nodeChest).toBeUndefined();
+    expect(reconcileCompanionCareCurrencyAward).not.toHaveBeenCalled();
   });
 
   it.each([{ completed: false }, { completed: false, ended: true, won: false, earlyExit: true }, { completed: true, ended: true, won: true, earlyExit: true }])("keeps an unfinished/early exit incomplete: %j", async ending => {
