@@ -18,7 +18,13 @@ function requestCompanionRows(): Promise<CompanionThemeResponse[]> {
   });
 }
 
+/** Grown-up tools (the creator profile, diagnostic mode) appear only on the dev address, never for the kids. */
+function devToolsVisible(): boolean {
+  return typeof window !== "undefined" && new URLSearchParams(window.location.search).get("dev") === "1";
+}
+
 export function ChildPicker({ onSelect }: Props) {
+  const showDevTools = devToolsVisible();
   const [companions, setCompanions] = useState<CompanionThemeConfig[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -96,7 +102,7 @@ export function ChildPicker({ onSelect }: Props) {
       </div>
 
       <div className="flex flex-wrap justify-center items-start gap-8 max-w-5xl px-4">
-        {companions.map((c) => {
+        {companions.filter((c) => showDevTools || c.childName.trim().toLowerCase() !== "creator").map((c) => {
           const childId = c.childName.trim().toLowerCase();
           return (
             <motion.button
@@ -152,7 +158,7 @@ export function ChildPicker({ onSelect }: Props) {
           );
         })}
 
-        <motion.button
+        {showDevTools && <motion.button
           type="button"
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
@@ -197,7 +203,7 @@ export function ChildPicker({ onSelect }: Props) {
               Diagnostic mode
             </div>
           </div>
-        </motion.button>
+        </motion.button>}
       </div>
 
       <div className="absolute bottom-3 text-xs text-gray-400">
