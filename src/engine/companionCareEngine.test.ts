@@ -10,8 +10,10 @@ import {
   getCompanionReadiness,
   grantNodeChest,
   nodeChestKind,
+  purchaseWithCoins,
 } from "./companionCareEngine";
 import type { CompanionCarePlan } from "../shared/companionCareTypes";
+import { PRICE_LIST, REWARD_CATALOG } from "../shared/rewardCatalog";
 
 function plan(overrides: Partial<CompanionCarePlan["state"]> = {}): CompanionCarePlan {
   return {
@@ -295,5 +297,49 @@ describe("chests drop collection items", () => {
     expect(new Set(owned).size).toBe(owned.length);
     const last = grantNodeChest(current, { homeworkId: "hw", nodeId: "last", kind: "common", nowIso: at, roll: rolls(0, 0, 0) });
     expect(last.chest.bonus).toEqual({ kind: "call_minutes", minutes: 5 });
+  });
+});
+
+// Owner, 2026-11-07: coins must mean something. Buying refuses when she is short, never goes below zero,
+// and a double tap pays once.
+describe("spending coins", () => {
+  const at = "2026-11-07T21:00:00.000Z";
+  const rich = (coins: number) => { const plan = createStarterCompanionCarePlan({ childId: "demo-pashley", companionId: "elli" }); return { ...plan, economy: { ...plan.economy, coins } }; };
+
+  it("buys call minutes, takes the price, and keeps a receipt", () => {
+    const bought = purchaseWithCoins(rich(100), { receiptId: "r1", offer: { kind: "call_minutes", minutes: 5 }, nowIso: at });
+    expect(bought).toMatchObject({ ok: true, price: PRICE_LIST.callMinutes5 });
+    if (!bought.ok) throw Error("expected purchase");
+    expect(bought.plan.economy.coins).toBe(100 - PRICE_LIST.callMinutes5);
+    expect(bought.plan.economy.callMinutes).toBe(5);
+    expect(bought.plan.economy.coinPurchases?.map(row => row.receiptId)).toEqual(["r1"]);
+  });
+
+  it("refuses when she is short and says how short", () => {
+    const short = purchaseWithCoins(rich(10), { receiptId: "r1", offer: { kind: "game_play", itemId: "game:asteroid", trial: true }, nowIso: at });
+    expect(short).toEqual({ ok: false, reason: "not_enough_coins", price: PRICE_LIST.gamePlay, balance: 10 });
+  });
+
+  it("pays once for a double tap", () => {
+    const first = purchaseWithCoins(rich(100), { receiptId: "r1", offer: { kind: "call_minutes", minutes: 5 }, nowIso: at });
+    if (!first.ok) throw Error("expected purchase");
+    const again = purchaseWithCoins(first.plan, { receiptId: "r1", offer: { kind: "call_minutes", minutes: 5 }, nowIso: at });
+    expect(again).toMatchObject({ ok: true, duplicate: true });
+    if (!again.ok) throw Error("expected purchase");
+    expect(again.plan.economy.coins).toBe(first.plan.economy.coins);
+  });
+
+  it("plays only games she has unlocked, unless it is a trial offer", () => {
+    expect(purchaseWithCoins(rich(100), { receiptId: "r1", offer: { kind: "game_play", itemId: "game:asteroid" }, nowIso: at })).toMatchObject({ ok: false, reason: "not_owned" });
+    expect(purchaseWithCoins(rich(100), { receiptId: "r2", offer: { kind: "game_play", itemId: "game:asteroid", trial: true }, nowIso: at })).toMatchObject({ ok: true });
+  });
+
+  it("buys an outfit into her collection at its catalog price, once", () => {
+    const crown = REWARD_CATALOG.find(item => item.id === "outfit:royal-crown")!;
+    const bought = purchaseWithCoins(rich(100), { receiptId: "r1", offer: { kind: "outfit", itemId: crown.id }, nowIso: at });
+    if (!bought.ok) throw Error("expected purchase");
+    expect(bought.price).toBe(crown.price);
+    expect(bought.plan.inventory.rewards).toEqual([crown.id]);
+    expect(purchaseWithCoins(bought.plan, { receiptId: "r2", offer: { kind: "outfit", itemId: crown.id }, nowIso: at })).toMatchObject({ ok: false, reason: "already_owned" });
   });
 });

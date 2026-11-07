@@ -82,6 +82,13 @@ export interface NodeChest {
   droppedAt: string;
 }
 
+/** Something bought with coins; a receipt id makes a double tap pay once. */
+export type CoinOffer =
+  | { kind: "call_minutes"; minutes: 5 }
+  | { kind: "game_play"; itemId: string; trial?: boolean }
+  | { kind: "outfit"; itemId: string };
+export interface CoinPurchase { receiptId: string; offer: CoinOffer; price: number; purchasedAt: string }
+
 export interface CompanionCarePlan {
   version: 1;
   childId: string;
@@ -117,6 +124,8 @@ export interface CompanionCarePlan {
     callMinutes?: number;
     /** Chests opened since the last bonus; each one raises the next bonus chance. */
     chestsSinceBonus?: number;
+    /** Everything bought with coins, newest last. */
+    coinPurchases?: CoinPurchase[];
   };
   updatedAt: string;
 }

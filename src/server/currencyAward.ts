@@ -1,4 +1,6 @@
 import { getChildChart } from "../profiles/childChart";
+import { purchaseWithCoins } from "../engine/companionCareEngine";
+import type { CoinOffer } from "../shared/companionCareTypes";
 import {
   loadCompanionCarePlanForChart,
   mirrorCompanionCareToLearningProfile,
@@ -106,4 +108,28 @@ export function reconcileCompanionCareCurrencyAward(opts: {
     );
   }
   return { ok: true, balance: next };
+}
+
+export type PurchaseForChildResult =
+  | { ok: true; balance: number; price: number; duplicate: boolean }
+  | { ok: false; reason: string; price?: number; balance?: number };
+
+/** Buy with coins (PR #59, 4.4): charged to the companion plan, mirrored to the profile, a receipt per tap. */
+export function purchaseForChild(
+  childId: string,
+  input: { receiptId: string; offer: CoinOffer },
+  opts: { rootDir?: string; nowIso?: string } = {},
+): PurchaseForChildResult {
+  const chart = getChildChart(childId, opts.rootDir ? { rootDir: opts.rootDir } : {});
+  const result = purchaseWithCoins(chart.companionCare.plan, { ...input, nowIso: opts.nowIso ?? new Date().toISOString() });
+  if (!result.ok) {
+    console.log(` 🎮 [rewards] [purchase] [refused] child=${childId} offer=${input.offer.kind} reason=${result.reason} price=${result.price ?? "n/a"} balance=${result.balance ?? "n/a"}`);
+    return result;
+  }
+  if (!result.duplicate) {
+    saveCompanionCarePlan(chart, result.plan);
+    mirrorCompanionCareToLearningProfile(chart, result.plan);
+  }
+  console.log(` 🎮 [rewards] [purchase] [${result.duplicate ? "repeated" : "paid"}] child=${childId} offer=${input.offer.kind} price=${result.price} balance=${result.plan.economy.coins}`);
+  return { ok: true, balance: result.plan.economy.coins, price: result.price, duplicate: result.duplicate };
 }

@@ -1,4 +1,5 @@
 import { awardBossDropOnCompletion, awardNodeChestOnCompletion } from "./bossDropAward";
+import type { CoinOffer } from "../shared/companionCareTypes";
 import { runOriginalSpellingForecast } from '../chart/spelling/originalForecast';
 import { setupOriginalSpellingParentRoutes } from './originalSpellingParent';
 import {commitOriginalSpellingAttempt} from './originalSpellingCommit';
@@ -299,7 +300,7 @@ import {
 } from "./companionVideoCallTrace";
 import type { SunnyRuntimeOverrides } from "../shared/runtimeConfig";
 import { resolveSunnyRuntimeConfig } from "../shared/runtimeConfig";
-import { reconcileCompanionCareCurrencyAward } from "./currencyAward";
+import { reconcileCompanionCareCurrencyAward, purchaseForChild } from "./currencyAward";
 import { companionPickerIdentity } from "./companionPickerRows";
 import { isSpellingPracticeContinuation } from "../engine/learningCycleRepository";
 import { advanceCanonicalCycleFromEvidence, pageTimeFromKiosk, recordCanonicalNodeCompletion, recordSpellingDiscoveryAttempt } from "../engine/learningCycleRuntime";
@@ -1157,6 +1158,16 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
       console.error(" 🎮 [learning-cycle-route] [completion] [failed]", error);
       return res.status(409).json({ error: error instanceof Error ? error.message : String(error) });
     }
+  });
+
+  // PR #59, 4.4: every coin purchase goes through her companion plan (the one balance), once per receipt.
+  app.post("/api/rewards/purchase", (req: Request, res: Response) => {
+    const childId = String(req.body?.childId ?? "").trim().toLowerCase();
+    const receiptId = typeof req.body?.receiptId === "string" ? req.body.receiptId.trim() : "";
+    const offer = req.body?.offer as CoinOffer | undefined;
+    const known = offer?.kind === "call_minutes" ? offer.minutes === 5 : (offer?.kind === "game_play" || offer?.kind === "outfit") && typeof offer.itemId === "string";
+    if (!childId || !receiptId || !offer || !known) return res.status(400).json({ ok: false, error: "purchase_request_invalid" });
+    return res.json(purchaseForChild(childId, { receiptId, offer }));
   });
 
   app.post("/api/learning-cycle/reward/open", (req: Request, res: Response) => {

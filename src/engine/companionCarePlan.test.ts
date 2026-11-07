@@ -211,3 +211,18 @@ it("keeps the collection items in her inventory across a save and a load", async
     fs.rmSync(dir, { recursive: true, force: true });
   }
 });
+
+it("keeps her purchase receipts across a save and a load, so a double tap after a restart still pays once", async () => {
+  const { createStarterCompanionCarePlan } = await import("./companionCareEngine");
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-purchase-roundtrip-"));
+  const chart = { childId: "lab-child", links: { companionCareDir: dir, learningProfile: path.join(dir, "profile.json") }, companion: { presetId: "elli" },
+    learningProfile: minimalProfile(), economy: { coinBalance: 0 } };
+  try {
+    const plan = createStarterCompanionCarePlan({ childId: "lab-child", companionId: "elli" });
+    const receipt = { receiptId: "r1", offer: { kind: "call_minutes" as const, minutes: 5 as const }, price: 30, purchasedAt: "2026-11-07T00:00:00.000Z" };
+    saveCompanionCarePlan(chart, { ...plan, economy: { ...plan.economy, coinPurchases: [receipt] } });
+    expect(loadCompanionCarePlanForChart(chart).plan.economy.coinPurchases).toEqual([receipt]);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});

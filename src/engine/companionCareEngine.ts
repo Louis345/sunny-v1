@@ -1,5 +1,7 @@
 import type {
   BossDrop,
+  CoinOffer,
+  CoinPurchase,
   NodeChest,
   NodeChestKind,
   CompanionCareAnimationIntent,
@@ -13,7 +15,7 @@ import type {
   CompanionReadiness,
 } from "../shared/companionCareTypes";
 import type { TamagotchiState } from "../shared/vrrTypes";
-import { CHEST_TABLE, ITEM_SHARE, eligibleDrops } from "../shared/rewardCatalog";
+import { CHEST_TABLE, ITEM_SHARE, PRICE_LIST, REWARD_CATALOG, eligibleDrops } from "../shared/rewardCatalog";
 
 type CareEffect = Partial<
   Pick<
@@ -384,6 +386,54 @@ export function grantNodeChest(
         nodeChests: [...chests, chest],
       },
       inventory: { ...plan.inventory, ...(item ? { rewards: [...owned, item.id] } : {}) },
+      updatedAt: input.nowIso,
+    },
+  };
+}
+
+/** Buying with coins (owner, 2026-11-07). The care plan's coins are her one balance: a purchase refuses when
+ * she is short, never goes below zero, and a repeated receipt id pays once. A reward never touches evidence. */
+export type CoinPurchaseResult =
+  | { ok: true; plan: CompanionCarePlan; price: number; duplicate: boolean }
+  | { ok: false; reason: "not_enough_coins" | "not_owned" | "already_owned" | "unknown_offer"; price?: number; balance?: number };
+
+export function purchaseWithCoins(
+  plan: CompanionCarePlan,
+  input: { receiptId: string; offer: CoinOffer; nowIso: string },
+): CoinPurchaseResult {
+  const purchases = plan.economy.coinPurchases ?? [];
+  const prior = purchases.find((row) => row.receiptId === input.receiptId);
+  if (prior) return { ok: true, plan, price: prior.price, duplicate: true };
+  const owned = plan.inventory.rewards ?? [];
+  const offer = input.offer;
+  const item = offer.kind === "call_minutes" ? undefined : REWARD_CATALOG.find((row) => row.id === offer.itemId);
+  let price: number;
+  if (offer.kind === "call_minutes") price = PRICE_LIST.callMinutes5;
+  else if (offer.kind === "game_play") {
+    if (item?.kind !== "game") return { ok: false, reason: "unknown_offer" };
+    if (!offer.trial && !owned.includes(item.id)) return { ok: false, reason: "not_owned" };
+    price = PRICE_LIST.gamePlay;
+  } else {
+    if (item?.kind !== "outfit" || item.price === undefined) return { ok: false, reason: "unknown_offer" };
+    if (owned.includes(item.id)) return { ok: false, reason: "already_owned" };
+    price = item.price;
+  }
+  const balance = Math.max(0, Math.floor(plan.economy.coins));
+  if (balance < price) return { ok: false, reason: "not_enough_coins", price, balance };
+  const receipt: CoinPurchase = { receiptId: input.receiptId, offer, price, purchasedAt: input.nowIso };
+  return {
+    ok: true,
+    price,
+    duplicate: false,
+    plan: {
+      ...plan,
+      economy: {
+        ...plan.economy,
+        coins: balance - price,
+        ...(offer.kind === "call_minutes" ? { callMinutes: (plan.economy.callMinutes ?? 0) + offer.minutes } : {}),
+        coinPurchases: [...purchases, receipt],
+      },
+      inventory: { ...plan.inventory, ...(offer.kind === "outfit" ? { rewards: [...owned, offer.itemId] } : {}) },
       updatedAt: input.nowIso,
     },
   };

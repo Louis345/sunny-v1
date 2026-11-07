@@ -82,6 +82,10 @@ function normalizeLoadedPlan(
         : [],
       callMinutes: Math.max(0, Math.floor(Number(plan.economy?.callMinutes ?? 0) || 0)),
       chestsSinceBonus: Math.max(0, Math.floor(Number(plan.economy?.chestsSinceBonus ?? 0) || 0)),
+      // Purchase receipts keep a double tap after a restart from paying twice.
+      coinPurchases: Array.isArray(plan.economy?.coinPurchases)
+        ? plan.economy.coinPurchases.map((row) => ({ ...row, offer: { ...row.offer } }))
+        : [],
     },
     inventory: {
       food: Array.isArray(plan.inventory?.food) ? plan.inventory.food : [],

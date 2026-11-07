@@ -4,7 +4,7 @@ import path from "path";
 import { describe, expect, it } from "vitest";
 import { getChildChart } from "../profiles/childChart";
 import { loadCompanionCarePlanForChart } from "../profiles/companionCarePlan";
-import { reconcileCompanionCareCurrencyAward } from "./currencyAward";
+import { purchaseForChild, reconcileCompanionCareCurrencyAward } from "./currencyAward";
 
 function writeJson(file: string, value: unknown): void {
   fs.mkdirSync(path.dirname(file), { recursive: true });
@@ -69,5 +69,34 @@ describe("companion care currency", () => {
       ),
     );
     expect(profile.companionCurrency).toBe(35);
+  });
+});
+
+// Owner, 2026-11-07 (PR #59 ticket 3.2): one coin balance. The companion plan's coins are the truth; the chart
+// and the learning profile only read or mirror them, and every purchase charges the plan.
+describe("one coin balance", () => {
+  function planWithCoins(rootDir: string, coins: number) {
+    reconcileCompanionCareCurrencyAward({ childId: "reina", amount: 0, dryRun: false, rootDir, reason: "seed" });
+    const chart = getChildChart("reina", { rootDir });
+    const file = chart.companionCare.filePath;
+    const plan = JSON.parse(fs.readFileSync(file, "utf8"));
+    fs.writeFileSync(file, JSON.stringify({ ...plan, economy: { ...plan.economy, coins } }));
+  }
+
+  it("the chart's balance is the companion plan's, not an older copy", () => {
+    const rootDir = setupRoot();
+    planWithCoins(rootDir, 80);
+    expect(getChildChart("reina", { rootDir }).economy.coinBalance).toBe(80);
+  });
+
+  it("a purchase charges the companion plan and mirrors the new balance, or refuses when she is short", () => {
+    const rootDir = setupRoot();
+    planWithCoins(rootDir, 40);
+    const bought = purchaseForChild("reina", { receiptId: "r1", offer: { kind: "call_minutes", minutes: 5 } }, { rootDir });
+    expect(bought).toMatchObject({ ok: true, balance: 10 });
+    const chart = getChildChart("reina", { rootDir });
+    expect(chart.companionCare.plan.economy.coins).toBe(10);
+    expect(chart.learningProfile.companionCurrency).toBe(10);
+    expect(purchaseForChild("reina", { receiptId: "r2", offer: { kind: "call_minutes", minutes: 5 } }, { rootDir })).toMatchObject({ ok: false, reason: "not_enough_coins", balance: 10 });
   });
 });

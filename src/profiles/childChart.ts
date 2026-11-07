@@ -613,6 +613,8 @@ export function getChildChart(childIdRaw: string, opts: ChildChartOptions | Spel
 
   return {
     ...chartBase,
+    // One coin balance (PR #59, 3.2): the companion plan's coins are the truth every reader sees.
+    economy: { coinBalance: Math.max(0, Math.floor(companionCareLoaded.plan.economy.coins)) },
     companionCare: {
       plan: companionCareLoaded.plan,
       view: companionCareToView(companionCareLoaded.plan, companion.displayName),

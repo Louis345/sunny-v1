@@ -14,21 +14,27 @@ export type RewardItem = {
   gameId?: string;
   /** An item id in the wardrobe store catalog. */
   wardrobeItemId?: string;
+  /** Coins to buy it outright (the wardrobe store's price); absent means it can only be found in chests. */
+  price?: number;
 };
 
 export const REWARD_CATALOG: readonly RewardItem[] = [
   { id: "game:asteroid", kind: "game", name: "Asteroid", icon: "🚀", rarity: "rare", gameId: "asteroid" },
   { id: "game:space-frogger", kind: "game", name: "Space Frogger", icon: "🐸", rarity: "epic", gameId: "space-frogger" },
   { id: "game:space-invaders", kind: "game", name: "Space Invaders", icon: "👾", rarity: "legendary", gameId: "space-invaders" },
-  { id: "outfit:cat-ears", kind: "outfit", name: "Cat Ears", icon: "🐱", rarity: "common", wardrobeItemId: "cat-ears" },
-  { id: "outfit:royal-crown", kind: "outfit", name: "Royal Crown", icon: "👑", rarity: "common", wardrobeItemId: "royal-crown" },
-  { id: "outfit:star-halo", kind: "outfit", name: "Star Halo", icon: "✨", rarity: "rare", wardrobeItemId: "star-halo" },
+  { id: "outfit:cat-ears", kind: "outfit", name: "Cat Ears", icon: "🐱", rarity: "common", wardrobeItemId: "cat-ears", price: 15 },
+  { id: "outfit:royal-crown", kind: "outfit", name: "Royal Crown", icon: "👑", rarity: "common", wardrobeItemId: "royal-crown", price: 20 },
+  { id: "outfit:star-halo", kind: "outfit", name: "Star Halo", icon: "✨", rarity: "rare", wardrobeItemId: "star-halo", price: 25 },
   { id: "outfit:comet-hoodie", kind: "outfit", name: "Comet Hoodie", icon: "🧥", rarity: "rare", wardrobeItemId: "comet-hoodie" },
-  { id: "outfit:navy-ribbon-dress", kind: "outfit", name: "Navy Ribbon Dress", icon: "👗", rarity: "epic", wardrobeItemId: "sleeveless-dress" },
-  { id: "outfit:teal-ribbon-dress", kind: "outfit", name: "Teal Ribbon Dress", icon: "👗", rarity: "epic", wardrobeItemId: "teal-ribbon-dress" },
-  { id: "outfit:plum-ribbon-dress", kind: "outfit", name: "Plum Ribbon Dress", icon: "👗", rarity: "epic", wardrobeItemId: "plum-ribbon-dress" },
-  { id: "outfit:rose-ribbon-dress", kind: "outfit", name: "Rose Ribbon Dress", icon: "👗", rarity: "legendary", wardrobeItemId: "rose-ribbon-dress" },
+  { id: "outfit:navy-ribbon-dress", kind: "outfit", name: "Navy Ribbon Dress", icon: "👗", rarity: "epic", wardrobeItemId: "sleeveless-dress", price: 60 },
+  { id: "outfit:teal-ribbon-dress", kind: "outfit", name: "Teal Ribbon Dress", icon: "👗", rarity: "epic", wardrobeItemId: "teal-ribbon-dress", price: 60 },
+  { id: "outfit:plum-ribbon-dress", kind: "outfit", name: "Plum Ribbon Dress", icon: "👗", rarity: "epic", wardrobeItemId: "plum-ribbon-dress", price: 65 },
+  { id: "outfit:rose-ribbon-dress", kind: "outfit", name: "Rose Ribbon Dress", icon: "👗", rarity: "legendary", wardrobeItemId: "rose-ribbon-dress", price: 65 },
 ];
+
+/** What coins buy (owner, 2026-11-07): coins must be scarce enough to mean something. One board pays about
+ * 100-150 coins, enough for about two treats, so she chooses or saves. Placeholders until tuned from play. */
+export const PRICE_LIST = { gamePlay: 25, callMinutes5: 30, mysteryChest: 60 } as const;
 
 /** What each chest pays: coins always, and a bonus by chance (call minutes or a catalog item). */
 export const CHEST_TABLE: Record<RewardRarity, { coins: number; bonusChance: number; minutes: number }> = {
