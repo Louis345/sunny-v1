@@ -31,18 +31,20 @@ export type StartSky = {
   lights: "motes" | "stars";
   text: string;
   subtext: string;
+  /** Three soft color clouds that drift slowly behind everything, so the background itself moves. */
+  clouds: [string, string, string];
 };
 
-const SKIES: Record<StartSky["name"], StartSky> = {
-  sunrise: { name: "sunrise", lights: "motes", text: "#4a3340", subtext: "#7a5a66",
+export const START_SKIES: Record<StartSky["name"], StartSky> = {
+  sunrise: { name: "sunrise", clouds: ["rgba(255,196,170,0.55)", "rgba(214,180,230,0.5)", "rgba(255,226,180,0.5)"], lights: "motes", text: "#4a3340", subtext: "#7a5a66",
     gradient: "linear-gradient(180deg, #b9b3d6 0%, #e3b9c0 48%, #f1cfae 100%)", glow: "rgba(255,190,140,0.45)" },
-  day: { name: "day", lights: "motes", text: "#33404d", subtext: "#5f6e7c",
+  day: { name: "day", clouds: ["rgba(255,255,255,0.6)", "rgba(206,224,240,0.6)", "rgba(240,234,224,0.55)"], lights: "motes", text: "#33404d", subtext: "#5f6e7c",
     gradient: "linear-gradient(180deg, #cddbe7 0%, #dfe5ea 60%, #e8e4de 100%)", glow: null },
-  golden: { name: "golden", lights: "motes", text: "#45322a", subtext: "#735a4c",
+  golden: { name: "golden", clouds: ["rgba(255,200,140,0.5)", "rgba(220,170,190,0.45)", "rgba(250,220,170,0.45)"], lights: "motes", text: "#45322a", subtext: "#735a4c",
     gradient: "linear-gradient(180deg, #c7c0cf 0%, #e0c2a8 55%, #d9a882 100%)", glow: "rgba(230,160,100,0.35)" },
-  twilight: { name: "twilight", lights: "stars", text: "#f1eaf6", subtext: "#c7bdd6",
+  twilight: { name: "twilight", clouds: ["rgba(150,110,200,0.35)", "rgba(220,120,150,0.3)", "rgba(90,110,200,0.35)"], lights: "stars", text: "#f1eaf6", subtext: "#c7bdd6",
     gradient: "linear-gradient(180deg, #2a2d55 0%, #4a3f6e 60%, #8a5e78 100%)", glow: "rgba(220,130,120,0.25)" },
-  night: { name: "night", lights: "stars", text: "#efe9f7", subtext: "#b9b1cc",
+  night: { name: "night", clouds: ["rgba(90,80,170,0.32)", "rgba(60,110,170,0.28)", "rgba(140,80,150,0.25)"], lights: "stars", text: "#efe9f7", subtext: "#b9b1cc",
     gradient: "linear-gradient(180deg, #161a30 0%, #1f2340 55%, #2b2846 100%)", glow: null },
 };
 
@@ -68,11 +70,11 @@ export function skyForTime(input: { at: Date; utcOffsetMinutes: number; standard
   const local = new Date(input.at.getTime() + input.utcOffsetMinutes * 60_000);
   const minutes = local.getUTCHours() * 60 + local.getUTCMinutes();
   const { sunrise, sunset } = sunTimes(input);
-  if (minutes >= sunrise - 30 && minutes < sunrise + 60) return SKIES.sunrise;
-  if (minutes >= sunset - 60 && minutes < sunset) return SKIES.golden;
-  if (minutes >= sunset && minutes < sunset + 40) return SKIES.twilight;
-  if (minutes >= sunrise + 60 && minutes < sunset - 60) return SKIES.day;
-  return SKIES.night;
+  if (minutes >= sunrise - 30 && minutes < sunrise + 60) return START_SKIES.sunrise;
+  if (minutes >= sunset - 60 && minutes < sunset) return START_SKIES.golden;
+  if (minutes >= sunset && minutes < sunset + 40) return START_SKIES.twilight;
+  if (minutes >= sunrise + 60 && minutes < sunset - 60) return START_SKIES.day;
+  return START_SKIES.night;
 }
 
 /** The kiosk's own clock and timezone, rechecked every ten minutes so a long-open screen follows the sun. */
@@ -126,6 +128,17 @@ function StartScreenSky({ sky }: { sky: StartSky }) {
       className="pointer-events-none absolute inset-0 overflow-hidden"
       style={{ background: sky.gradient, transition: "background 2s ease" }}
     >
+      {sky.clouds.map((color, index) => (
+        <motion.div
+          key={`${sky.name}-cloud-${index}`}
+          data-drift-cloud
+          className="absolute rounded-full motion-reduce:!transform-none"
+          style={{ width: "70vmax", height: "50vmax", left: ["-20%", "40%", "5%"][index], top: ["-15%", "10%", "45%"][index],
+            background: `radial-gradient(ellipse at center, ${color} 0%, rgba(0,0,0,0) 65%)` }}
+          animate={{ x: [0, [120, -140, 90][index], 0], y: [0, [60, -40, -70][index], 0], scale: [1, 1.18, 1] }}
+          transition={{ duration: [48, 62, 70][index], repeat: Infinity, ease: "easeInOut" }}
+        />
+      ))}
       {sky.glow && (
         <div
           className="absolute rounded-full"

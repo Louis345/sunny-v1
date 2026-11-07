@@ -38,7 +38,7 @@ it("opens on a warm, decorative sky that never takes a tap", async () => {
 });
 
 // Owner, 2026-11-07: the sky follows the real sun where the kiosk is, from its timezone only (no location).
-import { skyForTime } from "../components/ChildPicker";
+import { START_SKIES, skyForTime } from "../components/ChildPicker";
 const eastern = (iso: string, offsetHours: number) => ({ at: new Date(iso), utcOffsetMinutes: offsetHours * 60, standardOffsetMinutes: -300 });
 it("follows the real sun: dark after an early November sunset, sunrise colors at dawn", () => {
   expect(skyForTime(eastern("2026-11-07T23:00:00Z", -5)).name).toBe("night");    // 6:00 pm, sun set ~4:40
@@ -77,4 +77,11 @@ it("lets the brightest stars sparkle", async () => {
   await waitFor(() => expect(screen.getByTestId("start-screen-sky").getAttribute("data-sky")).toBe("night"));
   expect(screen.getByTestId("start-screen-sky").querySelectorAll("[data-sparkle]").length).toBeGreaterThanOrEqual(10);
   vi.useRealTimers();
+});
+
+it("moves the background itself with slow drifting color in every mood", async () => {
+  expect(Object.values(START_SKIES).map(sky => sky.clouds.length)).toEqual([3, 3, 3, 3, 3]);
+  render(<ChildPicker onSelect={vi.fn()} />);
+  await waitFor(() => expect(screen.getByTestId("start-screen-sky")).toBeTruthy());
+  expect(screen.getByTestId("start-screen-sky").querySelectorAll("[data-drift-cloud]").length).toBe(3);
 });
