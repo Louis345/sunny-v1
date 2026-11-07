@@ -133,17 +133,41 @@ function StartScreenSky({ sky }: { sky: StartSky }) {
             background: `radial-gradient(circle, ${sky.glow} 0%, rgba(0,0,0,0) 70%)` }}
         />
       )}
-      {sky.lights === "stars" ? STARS.map((star, index) => (
-        <motion.span
-          key={index}
-          data-star
-          className="absolute rounded-full"
-          style={{ left: star.left, top: star.top, width: star.size, height: star.size, background: "rgba(255,248,230,1)",
-            opacity: star.high, boxShadow: star.size > 3 ? "0 0 6px rgba(255,240,210,0.7)" : undefined }}
-          animate={{ opacity: [star.low, star.high, star.low] }}
-          transition={{ duration: star.duration, delay: star.delay, repeat: Infinity, ease: "easeInOut" }}
-        />
-      )) : SKY_LIGHTS.map((light) => (
+      {sky.lights === "stars" ? (
+        <>
+          {[0, 1].map((layer) => (
+            <motion.div
+              key={layer}
+              data-star-layer
+              className="absolute motion-reduce:!transform-none"
+              style={{ inset: "-10% -15%" }}
+              animate={{ x: layer === 0 ? [0, -40, 0] : [0, -90, 0], y: layer === 0 ? [0, 8, 0] : [0, 18, 0] }}
+              transition={{ duration: layer === 0 ? 140 : 90, repeat: Infinity, ease: "easeInOut" }}
+            >
+              {STARS.filter((_, index) => index % 2 === layer).map((star, index) => (
+                <motion.span
+                  key={index}
+                  data-star
+                  className="absolute rounded-full"
+                  style={{ left: star.left, top: star.top, width: star.size * (layer === 0 ? 0.85 : 1.1), height: star.size * (layer === 0 ? 0.85 : 1.1),
+                    background: "rgba(255,248,230,1)", opacity: star.high, boxShadow: star.size > 3 ? "0 0 6px rgba(255,240,210,0.7)" : undefined }}
+                  animate={{ opacity: [star.low, star.high, star.low] }}
+                  transition={{ duration: star.duration, delay: star.delay, repeat: Infinity, ease: "easeInOut" }}
+                />
+              ))}
+            </motion.div>
+          ))}
+          <motion.span
+            data-shooting-star
+            className="absolute motion-reduce:hidden"
+            style={{ top: "8%", left: "70%", width: 140, height: 2, borderRadius: 2, rotate: -28, transformOrigin: "right center",
+              background: "linear-gradient(90deg, rgba(255,250,235,0) 0%, rgba(255,250,235,0.95) 100%)" }}
+            initial={{ x: 0, y: 0, opacity: 0 }}
+            animate={{ x: [0, -520], y: [0, 280], opacity: [0, 1, 1, 0] }}
+            transition={{ duration: 1.4, times: [0, 0.15, 0.7, 1], repeat: Infinity, repeatDelay: 9, delay: 3, ease: "easeIn" }}
+          />
+        </>
+      ) : SKY_LIGHTS.map((light) => (
         <motion.span
           key={light.left}
           className="absolute rounded-full motion-reduce:hidden"

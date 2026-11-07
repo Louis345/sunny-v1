@@ -58,3 +58,14 @@ it("fills a night sky with many stars", async () => {
   expect(screen.getByTestId("start-screen-sky").querySelectorAll("[data-star]").length).toBeGreaterThanOrEqual(60);
   vi.useRealTimers();
 });
+
+it("gives the night sky depth and a shooting star", async () => {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(new Date(2026, 10, 7, 21, 0));
+  render(<ChildPicker onSelect={vi.fn()} />);
+  await waitFor(() => expect(screen.getByTestId("start-screen-sky").getAttribute("data-sky")).toBe("night"));
+  const sky = screen.getByTestId("start-screen-sky");
+  expect(sky.querySelectorAll("[data-star-layer]").length).toBe(2);
+  expect(sky.querySelector("[data-shooting-star]")).not.toBeNull();
+  vi.useRealTimers();
+});
