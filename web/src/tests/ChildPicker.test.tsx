@@ -49,3 +49,12 @@ it("follows the real sun: dark after an early November sunset, sunrise colors at
   expect(skyForTime(eastern("2026-06-21T23:00:00Z", -4)).name).toBe("day");      // 7:00 pm in June, still light
   expect(skyForTime(eastern("2026-11-07T23:00:00Z", -5)).lights).toBe("stars");
 });
+
+it("fills a night sky with many stars", async () => {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(new Date(2026, 10, 7, 21, 0));
+  render(<ChildPicker onSelect={vi.fn()} />);
+  await waitFor(() => expect(screen.getByTestId("start-screen-sky").getAttribute("data-sky")).toBe("night"));
+  expect(screen.getByTestId("start-screen-sky").querySelectorAll("[data-star]").length).toBeGreaterThanOrEqual(60);
+  vi.useRealTimers();
+});

@@ -102,6 +102,21 @@ const SKY_LIGHTS = [
   { left: "94%", top: "40%", size: 3, delay: 5, duration: 10.5 },
 ];
 
+/** A fixed scatter of stars (same every load): mostly tiny and dim, a few bright, denser toward the top. */
+const STARS = Array.from({ length: 150 }, (_, index) => {
+  const random = (salt: number) => { const x = Math.sin(index * 127.1 + salt * 311.7) * 43758.5453; return x - Math.floor(x); };
+  const bright = random(4) > 0.85;
+  return {
+    left: `${(random(1) * 100).toFixed(2)}%`,
+    top: `${(Math.pow(random(2), 1.6) * 92).toFixed(2)}%`,
+    size: bright ? 3.5 + random(3) * 2 : 1.6 + random(3) * 1.6,
+    low: 0.35 + random(5) * 0.25,
+    high: bright ? 1 : 0.7 + random(6) * 0.3,
+    duration: 2.5 + random(7) * 4,
+    delay: random(8) * 5,
+  };
+});
+
 function StartScreenSky({ sky }: { sky: StartSky }) {
   return (
     <div
@@ -118,15 +133,17 @@ function StartScreenSky({ sky }: { sky: StartSky }) {
             background: `radial-gradient(circle, ${sky.glow} 0%, rgba(0,0,0,0) 70%)` }}
         />
       )}
-      {SKY_LIGHTS.map((light) => sky.lights === "stars" ? (
+      {sky.lights === "stars" ? STARS.map((star, index) => (
         <motion.span
-          key={light.left}
-          className="absolute rounded-full motion-reduce:hidden"
-          style={{ left: light.left, top: light.top, width: light.size, height: light.size, background: "rgba(255,248,230,0.9)" }}
-          animate={{ opacity: [0.25, 0.9, 0.25] }}
-          transition={{ duration: light.duration / 3, delay: light.delay, repeat: Infinity, ease: "easeInOut" }}
+          key={index}
+          data-star
+          className="absolute rounded-full"
+          style={{ left: star.left, top: star.top, width: star.size, height: star.size, background: "rgba(255,248,230,1)",
+            opacity: star.high, boxShadow: star.size > 3 ? "0 0 6px rgba(255,240,210,0.7)" : undefined }}
+          animate={{ opacity: [star.low, star.high, star.low] }}
+          transition={{ duration: star.duration, delay: star.delay, repeat: Infinity, ease: "easeInOut" }}
         />
-      ) : (
+      )) : SKY_LIGHTS.map((light) => (
         <motion.span
           key={light.left}
           className="absolute rounded-full motion-reduce:hidden"
