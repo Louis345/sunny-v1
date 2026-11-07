@@ -4,6 +4,8 @@ import { createStarterCompanionCarePlan, grantNodeChest, nodeChestKind } from ".
 import type { CompanionCarePlan, NodeChest } from "../../../src/shared/companionCareTypes";
 import { fn, userEvent, within } from "storybook/test";
 import { NodeTreasureChest, chestFromServer, type ChestKind, type ChestLoot } from "../components/NodeTreasureChest";
+import { RewardCollection } from "../components/RewardCollection";
+import { REWARD_CATALOG } from "../../../src/shared/rewardCatalog";
 
 const meta: Meta<typeof NodeTreasureChest> = {
   title: "Reward Encounters/Node Treasure Chest",
@@ -76,8 +78,9 @@ function PlayABoard() {
       <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 24 }}>
         {STOPS.map(stop => <button key={stop.role} type="button" style={button} onClick={() => finish(stop.role)}>{`Finish ${stop.label}`}</button>)}
       </div>
+      <div style={{ margin: "0 -24px 18px", borderRadius: 16, overflow: "hidden" }}><RewardCollection ownedIds={plan.inventory.rewards ?? []} /></div>
       <ol style={{ opacity: .85, lineHeight: 1.7 }}>
-        {log.map(row => <li key={row.nodeId}>{`${row.kind === "mystery" ? `mystery → ${row.rarity}` : row.rarity} chest: +${row.coins} coins${row.bonus ? `, +${row.bonus.minutes} call minutes` : ""} (bonus chance ${Math.round(row.bonusChance * 100)}%)`}</li>)}
+        {log.map(row => <li key={row.nodeId}>{`${row.kind === "mystery" ? `mystery → ${row.rarity}` : row.rarity} chest: +${row.coins} coins${row.bonus ? (row.bonus.kind === "item" ? `, found ${REWARD_CATALOG.find(item => item.id === (row.bonus as { itemId: string }).itemId)?.name}` : `, +${row.bonus.minutes} call minutes`) : ""} (bonus chance ${Math.round(row.bonusChance * 100)}%)`}</li>)}
       </ol>
       {chest ? (
         // As on the board: the chest sits inside the stop's "Run Complete" panel, and Back to map stays reachable.

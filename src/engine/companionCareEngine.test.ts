@@ -257,7 +257,9 @@ describe("node treasure chests", () => {
     current = grantNodeChest(current, { homeworkId: "hw", nodeId: "a", kind: "common", nowIso: at, roll: () => 0.99 }).plan;
     const second = grantNodeChest(current, { homeworkId: "hw", nodeId: "b", kind: "common", nowIso: at, roll: () => 0.99 });
     expect(second.chest.bonusChance).toBeCloseTo(0.2);
-    const lucky = grantNodeChest(second.plan, { homeworkId: "hw", nodeId: "c", kind: "common", nowIso: at, roll: () => 0.25 });
+    // A lucky roll (0.25 under the 30% chance), then 0.9 picks call minutes over an item.
+    const luckyRolls = [0.25, 0.9];
+    const lucky = grantNodeChest(second.plan, { homeworkId: "hw", nodeId: "c", kind: "common", nowIso: at, roll: () => luckyRolls.shift()! });
     expect(lucky.chest.bonusChance).toBeCloseTo(0.3);
     expect(lucky.chest.bonus).toEqual({ kind: "call_minutes", minutes: 5 });
     expect(lucky.plan.economy.callMinutes).toBe(5);
@@ -268,5 +270,30 @@ describe("node treasure chests", () => {
     const rolls = [0.9, 0.99];
     const mystery = grantNodeChest(plan(), { homeworkId: "hw", nodeId: "m", kind: "mystery", nowIso: at, roll: () => rolls.shift()! });
     expect(mystery.chest).toMatchObject({ kind: "mystery", rarity: "epic", coins: 60 });
+  });
+});
+
+// Owner, 2026-11-07: a chest's bonus can be something from her collection; it goes into her inventory.
+describe("chests drop collection items", () => {
+  const plan = () => createStarterCompanionCarePlan({ childId: "demo-pashley", companionId: "elli" });
+  const at = "2026-11-07T20:00:00.000Z";
+  const rolls = (...values: number[]) => () => values.shift() ?? 0;
+
+  it("drops an item she does not own into her inventory when the bonus is an item", () => {
+    // bonus roll 0 (lucky), item-or-minutes roll 0 (item), pick roll 0 (first eligible item)
+    const opened = grantNodeChest(plan(), { homeworkId: "hw", nodeId: "n1", kind: "rare", nowIso: at, roll: rolls(0, 0, 0) });
+    expect(opened.chest.bonus).toMatchObject({ kind: "item" });
+    const itemId = (opened.chest.bonus as { itemId: string }).itemId;
+    expect(opened.plan.inventory.rewards).toEqual([itemId]);
+    expect(opened.plan.economy.callMinutes ?? 0).toBe(0);
+  });
+
+  it("never drops something she owns, and gives call minutes once a chest has nothing left to find", () => {
+    let current = plan();
+    for (let i = 0; i < 40; i += 1) current = grantNodeChest(current, { homeworkId: "hw", nodeId: `n${i}`, kind: "common", nowIso: at, roll: rolls(0, 0, 0) }).plan;
+    const owned = current.inventory.rewards ?? [];
+    expect(new Set(owned).size).toBe(owned.length);
+    const last = grantNodeChest(current, { homeworkId: "hw", nodeId: "last", kind: "common", nowIso: at, roll: rolls(0, 0, 0) });
+    expect(last.chest.bonus).toEqual({ kind: "call_minutes", minutes: 5 });
   });
 });

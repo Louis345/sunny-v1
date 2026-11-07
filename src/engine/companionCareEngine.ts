@@ -13,7 +13,7 @@ import type {
   CompanionReadiness,
 } from "../shared/companionCareTypes";
 import type { TamagotchiState } from "../shared/vrrTypes";
-import { CHEST_TABLE } from "../shared/rewardCatalog";
+import { CHEST_TABLE, ITEM_SHARE, eligibleDrops } from "../shared/rewardCatalog";
 
 type CareEffect = Partial<
   Pick<
@@ -362,9 +362,14 @@ export function grantNodeChest(
   const misses = plan.economy.chestsSinceBonus ?? 0;
   const bonusChance = Math.min(1, table.bonusChance + PITY_STEP * misses);
   const lucky = roll() < bonusChance;
+  // A bonus is a collection item she does not own yet (no rarer than the chest) or call minutes.
+  const owned = plan.inventory.rewards ?? [];
+  const pool = lucky ? eligibleDrops(rarity, owned) : [];
+  const item = pool.length && roll() < ITEM_SHARE ? pool[Math.min(pool.length - 1, Math.floor(roll() * pool.length))] : undefined;
+  const bonus: NodeChest["bonus"] = !lucky ? undefined : item ? { kind: "item", itemId: item.id } : { kind: "call_minutes", minutes: table.minutes };
   const chest: NodeChest = {
     homeworkId: input.homeworkId, nodeId: input.nodeId, kind: input.kind, rarity, coins: table.coins, bonusChance,
-    ...(lucky ? { bonus: { kind: "call_minutes" as const, minutes: table.minutes } } : {}), droppedAt: input.nowIso,
+    ...(bonus ? { bonus } : {}), droppedAt: input.nowIso,
   };
   return {
     granted: true,
@@ -374,10 +379,11 @@ export function grantNodeChest(
       economy: {
         ...plan.economy,
         coins: Math.max(0, Math.floor(plan.economy.coins)) + chest.coins,
-        callMinutes: (plan.economy.callMinutes ?? 0) + (chest.bonus?.minutes ?? 0),
+        callMinutes: (plan.economy.callMinutes ?? 0) + (bonus?.kind === "call_minutes" ? bonus.minutes : 0),
         chestsSinceBonus: lucky ? 0 : misses + 1,
         nodeChests: [...chests, chest],
       },
+      inventory: { ...plan.inventory, ...(item ? { rewards: [...owned, item.id] } : {}) },
       updatedAt: input.nowIso,
     },
   };

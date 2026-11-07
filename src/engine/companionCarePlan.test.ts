@@ -183,7 +183,8 @@ describe("node chests survive a save and a load", () => {
       let plan = createStarterCompanionCarePlan({ childId: "lab-child", companionId: "elli" });
       plan = grantNodeChest(plan, { homeworkId: "hw", nodeId: "warm-up", kind: "common", nowIso: at, roll: () => 0.99 }).plan;
       saveCompanionCarePlan(chart, plan);
-      plan = grantNodeChest(loadCompanionCarePlanForChart(chart).plan, { homeworkId: "hw", nodeId: "quest", kind: "epic", nowIso: at, roll: () => 0 }).plan;
+      const questRolls = [0, 0.9]; // lucky, then call minutes rather than an item
+      plan = grantNodeChest(loadCompanionCarePlanForChart(chart).plan, { homeworkId: "hw", nodeId: "quest", kind: "epic", nowIso: at, roll: () => questRolls.shift()! }).plan;
       saveCompanionCarePlan(chart, plan);
       const loaded = loadCompanionCarePlanForChart(chart).plan;
       expect(loaded.economy.nodeChests?.map(chest => chest.nodeId)).toEqual(["warm-up", "quest"]);
@@ -195,4 +196,18 @@ describe("node chests survive a save and a load", () => {
       fs.rmSync(dir, { recursive: true, force: true });
     }
   });
+});
+
+it("keeps the collection items in her inventory across a save and a load", async () => {
+  const { createStarterCompanionCarePlan } = await import("./companionCareEngine");
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-inventory-roundtrip-"));
+  const chart = { childId: "lab-child", links: { companionCareDir: dir, learningProfile: path.join(dir, "profile.json") }, companion: { presetId: "elli" },
+    learningProfile: minimalProfile(), economy: { coinBalance: 0 } };
+  try {
+    const plan = createStarterCompanionCarePlan({ childId: "lab-child", companionId: "elli" });
+    saveCompanionCarePlan(chart, { ...plan, inventory: { ...plan.inventory, rewards: ["outfit:cat-ears", "game:asteroid"] } });
+    expect(loadCompanionCarePlanForChart(chart).plan.inventory.rewards).toEqual(["outfit:cat-ears", "game:asteroid"]);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
 });

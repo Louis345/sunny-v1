@@ -1,18 +1,27 @@
 import { useEffect, useRef, useState } from "react";
 import "./NodeTreasureChest.css";
+import { REWARD_CATALOG } from "../../../src/shared/rewardCatalog";
 
 /** The chest's colour says what she earned before she opens it; a mystery chest hides it until the lid lifts. */
 export type ChestRarity = "common" | "rare" | "epic" | "legendary";
 export type ChestKind = ChestRarity | "mystery";
 export type ChestLoot = { coins: number; rarity?: ChestRarity; item?: { name: string; rarity: ChestRarity; icon?: string } };
 /** The chest the server rolled and saved, as the completion route returns it. */
-export type ServerNodeChest = { kind: ChestKind; rarity: ChestRarity; coins: number; bonusChance: number; bonus?: { kind: "call_minutes"; minutes: number } };
+export type ServerNodeChest = { homeworkId?: string; nodeId?: string; kind: ChestKind; rarity: ChestRarity; coins: number; bonusChance: number;
+  bonus?: { kind: "call_minutes"; minutes: number } | { kind: "item"; itemId: string } };
+
+/** A bonus as the chest shows it: a collection item by its catalog entry, or call minutes. */
+function bonusItem(bonus: NonNullable<ServerNodeChest["bonus"]>, rarity: ChestRarity): NonNullable<ChestLoot["item"]> {
+  if (bonus.kind === "call_minutes") return { name: `${bonus.minutes} call minutes`, rarity, icon: "🎥" };
+  const item = REWARD_CATALOG.find(row => row.id === bonus.itemId);
+  return item ? { name: item.name, rarity: item.rarity, icon: item.icon } : { name: "A new treasure", rarity, icon: "✦" };
+}
 
 export function chestFromServer(chest: ServerNodeChest): { rarity: ChestKind; bonusChance: number; loot: ChestLoot } {
   return {
     rarity: chest.kind,
     bonusChance: chest.bonusChance,
-    loot: { coins: chest.coins, rarity: chest.rarity, ...(chest.bonus ? { item: { name: `${chest.bonus.minutes} call minutes`, rarity: chest.rarity, icon: "🎥" } } : {}) },
+    loot: { coins: chest.coins, rarity: chest.rarity, ...(chest.bonus ? { item: bonusItem(chest.bonus, chest.rarity) } : {}) },
   };
 }
 
@@ -34,7 +43,7 @@ function play(name: string, rate = 1, volume = 0.6): void {
 
 /** Storybook prototype of the reward after each finished node (owner, 2026-11-06). It only shows a roll it is
  * given: rolling, saving and paying belong to the server, and nothing here touches learning evidence. */
-export function NodeTreasureChest({ rarity, loot, bonusChance, compact = false, onCollect }: { rarity: ChestKind; loot: ChestLoot; bonusChance?: number; compact?: boolean; onCollect: () => void }) {
+export function NodeTreasureChest({ rarity, loot, bonusChance, compact = false, onOpened, onCollect }: { rarity: ChestKind; loot: ChestLoot; bonusChance?: number; compact?: boolean; onOpened?: () => void; onCollect: () => void }) {
   const [phase, setPhase] = useState<"closed" | "shaking" | "open" | "collected">("closed");
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
   const collected = useRef(false);
@@ -49,6 +58,7 @@ export function NodeTreasureChest({ rarity, loot, bonusChance, compact = false, 
     for (let i = 0; i < 8; i += 1) timers.current.push(setTimeout(() => play("tick", 1 + i * 0.06, 0.45), 120 + i * (150 - i * 8)));
     timers.current.push(setTimeout(() => {
       setPhase("open");
+      onOpened?.();
       play(loot.rarity ?? loot.item?.rarity ?? (rarity === "mystery" ? "common" : rarity));
       console.log(` 🎮 [node-chest] [opened] chest=${rarity} coins=${loot.coins} item=${loot.item?.rarity ?? "none"}`);
     }, CHEST_OPEN_MS));

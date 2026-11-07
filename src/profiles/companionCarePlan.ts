@@ -88,6 +88,10 @@ function normalizeLoadedPlan(
       careItems: Array.isArray(plan.inventory?.careItems)
         ? plan.inventory.careItems
         : [],
+      // Collection items found in chests; dropping them here would erase what she earned.
+      rewards: Array.isArray(plan.inventory?.rewards)
+        ? plan.inventory.rewards.filter((id): id is string => typeof id === "string")
+        : [],
     },
   };
 }

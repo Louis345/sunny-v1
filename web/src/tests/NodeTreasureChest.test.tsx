@@ -66,3 +66,23 @@ it("inside the panel it opens on a tap and needs no Collect: the panel's own but
   expect(screen.getByText("+25 coins")).toBeTruthy();
   expect(screen.queryByRole("button", { name: /collect/i })).toBeNull();
 });
+
+it("shows a dropped collection item with its catalog name, icon and rarity", () => {
+  const props = chestFromServer({ homeworkId: "hw", nodeId: "n1", kind: "rare", rarity: "rare", coins: 35, bonusChance: 0.25, bonus: { kind: "item", itemId: "outfit:comet-hoodie" } });
+  expect(props.loot.item).toEqual({ name: "Comet Hoodie", rarity: "rare", icon: "🧥" });
+});
+
+it("tells the board once when she opens the chest, so her companion can react", () => {
+  const onOpened = vi.fn();
+  render(<NodeTreasureChest rarity="rare" loot={{ coins: 35 }} onOpened={onOpened} onCollect={() => {}} />);
+  fireEvent.click(screen.getByRole("button", { name: /tap to open/i }));
+  act(() => { vi.advanceTimersByTime(CHEST_OPEN_MS); });
+  expect(onOpened).toHaveBeenCalledTimes(1);
+});
+
+it("the board names the opened chest to the server and never what it held", async () => {
+  const { readFileSync } = await import("node:fs");
+  const { resolve } = await import("node:path");
+  const app = readFileSync(resolve(__dirname, "../App.tsx"), "utf8");
+  expect(app).toMatch(/sendMessage\("reward_drop", \{ homeworkId: nodeChest\.homeworkId, nodeId: nodeChest\.nodeId \}\)/);
+});

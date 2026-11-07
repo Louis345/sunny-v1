@@ -1,4 +1,5 @@
 import { canonicalJourneyLaunchable } from '../engine/learningCycleRepository';
+import { reactToRewardDrop } from "./bossDropAward";
 import {presentOriginalSpellingItem,withOriginalSpellingChart,recordPresentedEngagement} from '../chart/spelling/originalResponses';
 import fs from "fs";
 import path from "path";
@@ -879,6 +880,7 @@ export class SessionManager {
   }
 
   private lastJourneyChoiceRequest?:string;
+  private readonly rewardDropsReacted = new Set<string>();
 
   public async requestJourneyChoiceSupport(choiceId:string,requestId:string):Promise<void> {
     if (this.lastJourneyChoiceRequest===requestId) return;
@@ -898,6 +900,8 @@ export class SessionManager {
     await this.runCompanionResponse('[System event: displayed path choice opened] Available options are in the live board snapshot. No option has been selected.', 'system');
   }
 
+  /** A chest she opened held a bonus: the companion reacts to what the server saved (bossDropAward.ts). */
+  public reactToRewardDrop(input: { homeworkId: string; nodeId: string }): Promise<void> { return reactToRewardDrop({ chartChildId: this.chartChildId, reacted: this.rewardDropsReacted, bargeIn: () => this.bargeIn(), respond: text => this.runCompanionResponse(text, "system"), busy: () => this.turnSM.getState() !== "IDLE" || Boolean(this.activeGameNarrationRequestId || this.pendingGameNarrationPlayback) }, input); }
   public async requestInstructionReadAloud(input: {
     nodeId: string;
     activityId: string;

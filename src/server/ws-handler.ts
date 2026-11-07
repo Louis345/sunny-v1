@@ -351,6 +351,16 @@ export function handleWsConnection(
         break;
       }
 
+      case "reward_drop": {
+        // The board names the chest she opened; the session reads what it held from her saved plan.
+        const drop = msg as { homeworkId?: unknown; nodeId?: unknown };
+        if (!session || typeof drop.homeworkId !== "string" || typeof drop.nodeId !== "string") return;
+        session.reactToRewardDrop({ homeworkId: drop.homeworkId, nodeId: drop.nodeId }).catch((error: unknown) => {
+          console.error(" 🎮 [rewards] [drop-reaction] [failed]", error);
+        });
+        break;
+      }
+
       case "companion_care_event": {
         if (!session) {
           console.log("  🎮 [companion-care] live event skipped no active session");

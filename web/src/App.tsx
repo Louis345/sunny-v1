@@ -2562,7 +2562,7 @@ function App() {
                 postActivityEngagement.videoCallTicket && !rewardCallHeld ? openEarnedVideoCall : null
               }
             >
-              {nodeChest ? <NodeTreasureChest compact {...chestFromServer(nodeChest)} onCollect={() => undefined} /> : null}
+              {nodeChest ? <NodeTreasureChest compact {...chestFromServer(nodeChest)} onOpened={() => { if (nodeChest.bonus && nodeChest.homeworkId && nodeChest.nodeId) sendMessage("reward_drop", { homeworkId: nodeChest.homeworkId, nodeId: nodeChest.nodeId }); }} onCollect={() => undefined} /> : null}
             </PostActivityEngagementOverlay>
           ) : null}
         </FlowGameOverlay>
@@ -2653,7 +2653,7 @@ function App() {
                 postActivityEngagement.videoCallTicket && !rewardCallHeld ? openEarnedVideoCall : null
               }
             >
-              {nodeChest ? <NodeTreasureChest compact {...chestFromServer(nodeChest)} onCollect={() => undefined} /> : null}
+              {nodeChest ? <NodeTreasureChest compact {...chestFromServer(nodeChest)} onOpened={() => { if (nodeChest.bonus && nodeChest.homeworkId && nodeChest.nodeId) sendMessage("reward_drop", { homeworkId: nodeChest.homeworkId, nodeId: nodeChest.nodeId }); }} onCollect={() => undefined} /> : null}
             </PostActivityEngagementOverlay>
           ) : null}
         </FlowGameOverlay>

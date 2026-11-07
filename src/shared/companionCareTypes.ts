@@ -78,7 +78,7 @@ export interface NodeChest {
   coins: number;
   /** The chance this chest held a bonus, including the pity counter; shown on the chest before it opens. */
   bonusChance: number;
-  bonus?: { kind: "call_minutes"; minutes: number };
+  bonus?: { kind: "call_minutes"; minutes: number } | { kind: "item"; itemId: string };
   droppedAt: string;
 }
 
@@ -91,6 +91,8 @@ export interface CompanionCarePlan {
   inventory: {
     food: CompanionCareItem[];
     careItems: CompanionCareItem[];
+    /** Reward catalog ids she has found in chests (games, outfits). */
+    rewards?: string[];
   };
   economy: {
     coins: number;
