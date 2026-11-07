@@ -37,14 +37,15 @@ it("opens on a warm, decorative sky that never takes a tap", async () => {
   expect(sky.className).toContain("pointer-events-none");
 });
 
-// Owner, 2026-11-07: the sunrise sky was too bright; the sky follows the kiosk's local time, softly.
-import { skyForHour } from "../components/ChildPicker";
-it("follows the local time of day with a soft sky", () => {
-  expect(skyForHour(8).name).toBe("morning");
-  expect(skyForHour(13).name).toBe("day");
-  expect(skyForHour(17).name).toBe("evening");
-  expect(skyForHour(21).name).toBe("night");
-  expect(skyForHour(3).name).toBe("night");
-  expect(skyForHour(21).lights).toBe("stars");
-  expect(skyForHour(21).text).not.toBe(skyForHour(13).text);
+// Owner, 2026-11-07: the sky follows the real sun where the kiosk is, from its timezone only (no location).
+import { skyForTime } from "../components/ChildPicker";
+const eastern = (iso: string, offsetHours: number) => ({ at: new Date(iso), utcOffsetMinutes: offsetHours * 60, standardOffsetMinutes: -300 });
+it("follows the real sun: dark after an early November sunset, sunrise colors at dawn", () => {
+  expect(skyForTime(eastern("2026-11-07T23:00:00Z", -5)).name).toBe("night");    // 6:00 pm, sun set ~4:40
+  expect(skyForTime(eastern("2026-11-07T21:50:00Z", -5)).name).toBe("twilight"); // 4:50 pm
+  expect(skyForTime(eastern("2026-11-07T21:10:00Z", -5)).name).toBe("golden");   // 4:10 pm
+  expect(skyForTime(eastern("2026-11-07T11:40:00Z", -5)).name).toBe("sunrise");  // 6:40 am
+  expect(skyForTime(eastern("2026-11-07T17:00:00Z", -5)).name).toBe("day");      // noon
+  expect(skyForTime(eastern("2026-06-21T23:00:00Z", -4)).name).toBe("day");      // 7:00 pm in June, still light
+  expect(skyForTime(eastern("2026-11-07T23:00:00Z", -5)).lights).toBe("stars");
 });

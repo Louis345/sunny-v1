@@ -23,9 +23,9 @@ function devToolsVisible(): boolean {
   return typeof window !== "undefined" && new URLSearchParams(window.location.search).get("dev") === "1";
 }
 
-/** The start screen's sky follows the kiosk's local time (owner, 2026-11-07): soft and muted, never bright. */
+/** The start screen's sky follows the real sun where the kiosk is (owner, 2026-11-07): soft, muted moods. */
 export type StartSky = {
-  name: "morning" | "day" | "evening" | "night";
+  name: "sunrise" | "day" | "golden" | "twilight" | "night";
   gradient: string;
   glow: string | null;
   lights: "motes" | "stars";
@@ -33,15 +33,62 @@ export type StartSky = {
   subtext: string;
 };
 
-export function skyForHour(hour: number): StartSky {
-  if (hour >= 6 && hour < 11) return { name: "morning", lights: "motes", text: "#4a3a33", subtext: "#7a645a",
-    gradient: "linear-gradient(180deg, #e9dccf 0%, #e4dde6 55%, #d9e1ea 100%)", glow: "rgba(240,200,160,0.35)" };
-  if (hour >= 11 && hour < 16) return { name: "day", lights: "motes", text: "#33404d", subtext: "#5f6e7c",
-    gradient: "linear-gradient(180deg, #d5e1ea 0%, #e2e7eb 60%, #e8e4de 100%)", glow: null };
-  if (hour >= 16 && hour < 19) return { name: "evening", lights: "motes", text: "#3b2f45", subtext: "#65566f",
-    gradient: "linear-gradient(180deg, #c9b8c9 0%, #d8bfae 55%, #c9a68f 100%)", glow: "rgba(214,150,110,0.3)" };
-  return { name: "night", lights: "stars", text: "#efe9f7", subtext: "#b9b1cc",
-    gradient: "linear-gradient(180deg, #1c2038 0%, #262a48 55%, #34304f 100%)", glow: null };
+const SKIES: Record<StartSky["name"], StartSky> = {
+  sunrise: { name: "sunrise", lights: "motes", text: "#4a3340", subtext: "#7a5a66",
+    gradient: "linear-gradient(180deg, #b9b3d6 0%, #e3b9c0 48%, #f1cfae 100%)", glow: "rgba(255,190,140,0.45)" },
+  day: { name: "day", lights: "motes", text: "#33404d", subtext: "#5f6e7c",
+    gradient: "linear-gradient(180deg, #cddbe7 0%, #dfe5ea 60%, #e8e4de 100%)", glow: null },
+  golden: { name: "golden", lights: "motes", text: "#45322a", subtext: "#735a4c",
+    gradient: "linear-gradient(180deg, #c7c0cf 0%, #e0c2a8 55%, #d9a882 100%)", glow: "rgba(230,160,100,0.35)" },
+  twilight: { name: "twilight", lights: "stars", text: "#f1eaf6", subtext: "#c7bdd6",
+    gradient: "linear-gradient(180deg, #2a2d55 0%, #4a3f6e 60%, #8a5e78 100%)", glow: "rgba(220,130,120,0.25)" },
+  night: { name: "night", lights: "stars", text: "#efe9f7", subtext: "#b9b1cc",
+    gradient: "linear-gradient(180deg, #161a30 0%, #1f2340 55%, #2b2846 100%)", glow: null },
+};
+
+/** No location is stored (public repo): longitude comes from the timezone, latitude is a mid-latitude guess. */
+const SKY_LATITUDE_DEGREES = 41;
+const rad = (degrees: number) => (degrees * Math.PI) / 180;
+
+/** Sunrise and sunset in local clock minutes, within about fifteen minutes; plenty for a mood. */
+export function sunTimes(input: { at: Date; utcOffsetMinutes: number; standardOffsetMinutes: number }): { sunrise: number; sunset: number } {
+  const start = Date.UTC(input.at.getUTCFullYear(), 0, 0);
+  const dayOfYear = Math.floor((input.at.getTime() - start) / 86_400_000);
+  const b = rad((360 / 365) * (dayOfYear - 81));
+  const equationOfTime = 9.87 * Math.sin(2 * b) - 7.53 * Math.cos(b) - 1.5 * Math.sin(b);
+  const declination = rad(23.44 * Math.sin(rad((360 / 365) * (284 + dayOfYear))));
+  const latitude = rad(SKY_LATITUDE_DEGREES);
+  const cosHourAngle = (Math.sin(rad(-0.833)) - Math.sin(latitude) * Math.sin(declination)) / (Math.cos(latitude) * Math.cos(declination));
+  const halfDayMinutes = (Math.acos(Math.min(1, Math.max(-1, cosHourAngle))) * 180 / Math.PI) * 4;
+  const solarNoon = 720 - equationOfTime + (input.utcOffsetMinutes - input.standardOffsetMinutes);
+  return { sunrise: solarNoon - halfDayMinutes, sunset: solarNoon + halfDayMinutes };
+}
+
+export function skyForTime(input: { at: Date; utcOffsetMinutes: number; standardOffsetMinutes: number }): StartSky {
+  const local = new Date(input.at.getTime() + input.utcOffsetMinutes * 60_000);
+  const minutes = local.getUTCHours() * 60 + local.getUTCMinutes();
+  const { sunrise, sunset } = sunTimes(input);
+  if (minutes >= sunrise - 30 && minutes < sunrise + 60) return SKIES.sunrise;
+  if (minutes >= sunset - 60 && minutes < sunset) return SKIES.golden;
+  if (minutes >= sunset && minutes < sunset + 40) return SKIES.twilight;
+  if (minutes >= sunrise + 60 && minutes < sunset - 60) return SKIES.day;
+  return SKIES.night;
+}
+
+/** The kiosk's own clock and timezone, rechecked every ten minutes so a long-open screen follows the sun. */
+function useKioskSky(): StartSky {
+  const read = () => {
+    const at = new Date();
+    const year = at.getFullYear();
+    const standardOffsetMinutes = -Math.max(new Date(year, 0, 1).getTimezoneOffset(), new Date(year, 6, 1).getTimezoneOffset());
+    return skyForTime({ at, utcOffsetMinutes: -at.getTimezoneOffset(), standardOffsetMinutes });
+  };
+  const [sky, setSky] = useState(read);
+  useEffect(() => {
+    const timer = window.setInterval(() => setSky(read()), 10 * 60 * 1000);
+    return () => window.clearInterval(timer);
+  }, []);
+  return sky;
 }
 
 const SKY_LIGHTS = [
@@ -92,19 +139,10 @@ function StartScreenSky({ sky }: { sky: StartSky }) {
   );
 }
 
-/** The local hour, rechecked every ten minutes so a long-open kiosk drifts from day into night. */
-function useLocalHour(): number {
-  const [hour, setHour] = useState(() => new Date().getHours());
-  useEffect(() => {
-    const timer = window.setInterval(() => setHour(new Date().getHours()), 10 * 60 * 1000);
-    return () => window.clearInterval(timer);
-  }, []);
-  return hour;
-}
 
 export function ChildPicker({ onSelect }: Props) {
   const showDevTools = devToolsVisible();
-  const sky = skyForHour(useLocalHour());
+  const sky = useKioskSky();
   const [companions, setCompanions] = useState<CompanionThemeConfig[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
