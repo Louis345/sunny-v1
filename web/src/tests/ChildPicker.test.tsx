@@ -28,3 +28,11 @@ it("keeps the grown-up tools on the dev address", async () => {
   await waitFor(() => expect(screen.getByRole("button", { name: /Creator diagnostic mode/ })).toBeTruthy());
   expect(screen.getByRole("button", { name: /creator with Charlotte/ })).toBeTruthy();
 });
+
+it("opens on a warm, decorative sky that never takes a tap", async () => {
+  render(<ChildPicker onSelect={vi.fn()} />);
+  await waitFor(() => expect(screen.getByRole("button", { name: /Ila with Elli/ })).toBeTruthy());
+  const sky = screen.getByTestId("start-screen-sky");
+  expect(sky.getAttribute("aria-hidden")).toBe("true");
+  expect(sky.className).toContain("pointer-events-none");
+});

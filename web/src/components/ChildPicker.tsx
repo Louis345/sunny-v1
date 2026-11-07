@@ -23,6 +23,45 @@ function devToolsVisible(): boolean {
   return typeof window !== "undefined" && new URLSearchParams(window.location.search).get("dev") === "1";
 }
 
+/** Soft glowing motes drifting up a sunrise sky (owner, 2026-11-07): warm and inviting, decoration only. */
+const SKY_MOTES = [
+  { left: "8%", size: 14, delay: 0, duration: 9 },
+  { left: "18%", size: 8, delay: 2.5, duration: 11 },
+  { left: "31%", size: 18, delay: 1, duration: 13 },
+  { left: "47%", size: 10, delay: 4, duration: 10 },
+  { left: "62%", size: 16, delay: 0.5, duration: 12 },
+  { left: "74%", size: 9, delay: 3, duration: 9.5 },
+  { left: "86%", size: 20, delay: 1.8, duration: 14 },
+  { left: "94%", size: 11, delay: 5, duration: 10.5 },
+];
+
+function StartScreenSky() {
+  return (
+    <div
+      data-testid="start-screen-sky"
+      aria-hidden="true"
+      className="pointer-events-none absolute inset-0 overflow-hidden"
+      style={{ background: "linear-gradient(180deg, #ffe9c7 0%, #ffd9b0 32%, #fbe3d2 62%, #f3ecff 100%)" }}
+    >
+      <div
+        className="absolute rounded-full"
+        style={{ width: 520, height: 520, left: "50%", bottom: -300, transform: "translateX(-50%)",
+          background: "radial-gradient(circle, rgba(255,201,120,0.75) 0%, rgba(255,201,120,0) 70%)" }}
+      />
+      {SKY_MOTES.map((mote) => (
+        <motion.span
+          key={mote.left}
+          className="absolute rounded-full motion-reduce:hidden"
+          style={{ left: mote.left, bottom: -30, width: mote.size, height: mote.size,
+            background: "radial-gradient(circle, rgba(255,255,255,0.95) 0%, rgba(255,226,170,0.6) 55%, rgba(255,226,170,0) 100%)" }}
+          animate={{ y: [0, -900], opacity: [0, 0.9, 0.9, 0] }}
+          transition={{ duration: mote.duration, delay: mote.delay, repeat: Infinity, ease: "linear" }}
+        />
+      ))}
+    </div>
+  );
+}
+
 export function ChildPicker({ onSelect }: Props) {
   const showDevTools = devToolsVisible();
   const [companions, setCompanions] = useState<CompanionThemeConfig[]>([]);
@@ -93,15 +132,16 @@ export function ChildPicker({ onSelect }: Props) {
   }
 
   return (
-    <div className="w-full h-full flex flex-col items-center justify-center gap-8 bg-white relative">
-      <div className="text-center">
-        <h1 className="text-3xl font-medium text-gray-900">
+    <div className="w-full h-full flex flex-col items-center justify-center gap-8 relative overflow-hidden">
+      <StartScreenSky />
+      <div className="text-center relative">
+        <h1 className="text-3xl font-medium" style={{ color: "#5b3a1e" }}>
           Who's learning today?
         </h1>
-        <p className="text-sm text-gray-500 mt-1">Tap your name to start</p>
+        <p className="text-sm mt-1" style={{ color: "#8a5a32" }}>Tap your name to start</p>
       </div>
 
-      <div className="flex flex-wrap justify-center items-start gap-8 max-w-5xl px-4">
+      <div className="relative flex flex-wrap justify-center items-start gap-8 max-w-5xl px-4">
         {companions.filter((c) => showDevTools || c.childName.trim().toLowerCase() !== "creator").map((c) => {
           const childId = c.childName.trim().toLowerCase();
           return (
@@ -206,7 +246,7 @@ export function ChildPicker({ onSelect }: Props) {
         </motion.button>}
       </div>
 
-      <div className="absolute bottom-3 text-xs text-gray-400">
+      <div className="absolute bottom-3 text-xs" style={{ color: "#a77b55" }}>
         Project Sunny
       </div>
     </div>
