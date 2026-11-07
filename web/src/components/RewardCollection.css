@@ -1,0 +1,25 @@
+.reward-collection{--common:#d8c3a5;--rare:#4fa3ff;--epic:#b46bff;--legendary:#ffc93c;
+  display:grid;gap:22px;padding:24px;color:#fff;font-family:Lexend,system-ui,sans-serif;
+  background:radial-gradient(circle at 50% 0%,#2a1a5e,#0b0820 70%);min-height:100%;}
+.reward-collection__header{display:grid;gap:8px;}
+.reward-collection__header h2{margin:0;font-size:30px;font-weight:900;}
+.reward-collection__count{font-weight:800;color:#ffd84d;}
+.reward-collection__bar{height:12px;border-radius:999px;background:#ffffff1f;overflow:hidden;}
+.reward-collection__bar span{display:block;height:100%;border-radius:999px;background:linear-gradient(90deg,#ffd84d,#ff9f1c);}
+.reward-collection__section h3{margin:0 0 10px;font-size:18px;font-weight:900;letter-spacing:.04em;text-transform:uppercase;opacity:.85;}
+.reward-collection__grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:14px;}
+.reward-tile{--tier:var(--common);position:relative;display:grid;justify-items:center;gap:6px;padding:16px 10px 14px;border-radius:18px;text-align:center;
+  background:linear-gradient(180deg,color-mix(in srgb,var(--tier) 22%,#140c30),#140c30);border:3px solid var(--tier);
+  box-shadow:0 0 18px color-mix(in srgb,var(--tier) 45%,transparent);}
+.reward-tile[data-rarity="rare"]{--tier:var(--rare)}.reward-tile[data-rarity="epic"]{--tier:var(--epic)}.reward-tile[data-rarity="legendary"]{--tier:var(--legendary)}
+.reward-tile__icon{font-size:46px;line-height:1.1;}
+.reward-tile__rarity{font-size:11px;font-weight:900;letter-spacing:.18em;text-transform:uppercase;color:var(--tier);}
+.reward-tile__name{font-size:16px;font-weight:900;}
+.reward-tile__use{margin-top:4px;padding:8px 22px;border:0;border-radius:999px;font:900 15px Lexend,system-ui,sans-serif;color:#231400;cursor:pointer;
+  background:linear-gradient(180deg,#ffe680,#ffc21a);box-shadow:0 4px 0 #a8770a;}
+.reward-tile__where{font-size:12px;font-weight:700;opacity:.85;}
+.reward-tile__lock{position:absolute;top:10px;right:12px;font-size:18px;}
+/* Locked: greyed out, but its rarity colour still hints at how special it is. */
+.reward-tile[data-locked="true"]{background:#16122a;box-shadow:none;border-color:color-mix(in srgb,var(--tier) 45%,#3a3550);}
+.reward-tile[data-locked="true"] .reward-tile__icon{filter:grayscale(1) brightness(.55);}
+.reward-tile[data-locked="true"] .reward-tile__name{color:#ffffffa0;}

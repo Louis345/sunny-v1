@@ -13,6 +13,7 @@ import type {
   CompanionReadiness,
 } from "../shared/companionCareTypes";
 import type { TamagotchiState } from "../shared/vrrTypes";
+import { CHEST_TABLE } from "../shared/rewardCatalog";
 
 type CareEffect = Partial<
   Pick<
@@ -335,12 +336,8 @@ export function grantBossDrop(
 /** Node chests (owner, 2026-11-06). Coins always; a bonus of call minutes by chance, and each chest without
  * one raises the next chance (pity). Placeholder amounts until the family economy is tuned. A reward
  * follows the learning; it never selects an educational step or touches learning evidence. */
-const NODE_CHESTS: Record<BossDrop["tier"], { coins: number; bonusChance: number; minutes: number }> = {
-  common: { coins: 25, bonusChance: 0.1, minutes: 5 },
-  rare: { coins: 35, bonusChance: 0.25, minutes: 5 },
-  epic: { coins: 60, bonusChance: 0.5, minutes: 10 },
-  legendary: { coins: 120, bonusChance: 1, minutes: 15 },
-};
+// The chest table lives with the reward catalog, so the roll and the odds she sees come from one place.
+const NODE_CHESTS = CHEST_TABLE;
 const PITY_STEP = 0.1;
 
 export function nodeChestKind(node: { role: string }): NodeChestKind {
