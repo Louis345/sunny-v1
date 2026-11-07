@@ -23,47 +23,88 @@ function devToolsVisible(): boolean {
   return typeof window !== "undefined" && new URLSearchParams(window.location.search).get("dev") === "1";
 }
 
-/** Soft glowing motes drifting up a sunrise sky (owner, 2026-11-07): warm and inviting, decoration only. */
-const SKY_MOTES = [
-  { left: "8%", size: 14, delay: 0, duration: 9 },
-  { left: "18%", size: 8, delay: 2.5, duration: 11 },
-  { left: "31%", size: 18, delay: 1, duration: 13 },
-  { left: "47%", size: 10, delay: 4, duration: 10 },
-  { left: "62%", size: 16, delay: 0.5, duration: 12 },
-  { left: "74%", size: 9, delay: 3, duration: 9.5 },
-  { left: "86%", size: 20, delay: 1.8, duration: 14 },
-  { left: "94%", size: 11, delay: 5, duration: 10.5 },
+/** The start screen's sky follows the kiosk's local time (owner, 2026-11-07): soft and muted, never bright. */
+export type StartSky = {
+  name: "morning" | "day" | "evening" | "night";
+  gradient: string;
+  glow: string | null;
+  lights: "motes" | "stars";
+  text: string;
+  subtext: string;
+};
+
+export function skyForHour(hour: number): StartSky {
+  if (hour >= 6 && hour < 11) return { name: "morning", lights: "motes", text: "#4a3a33", subtext: "#7a645a",
+    gradient: "linear-gradient(180deg, #e9dccf 0%, #e4dde6 55%, #d9e1ea 100%)", glow: "rgba(240,200,160,0.35)" };
+  if (hour >= 11 && hour < 16) return { name: "day", lights: "motes", text: "#33404d", subtext: "#5f6e7c",
+    gradient: "linear-gradient(180deg, #d5e1ea 0%, #e2e7eb 60%, #e8e4de 100%)", glow: null };
+  if (hour >= 16 && hour < 19) return { name: "evening", lights: "motes", text: "#3b2f45", subtext: "#65566f",
+    gradient: "linear-gradient(180deg, #c9b8c9 0%, #d8bfae 55%, #c9a68f 100%)", glow: "rgba(214,150,110,0.3)" };
+  return { name: "night", lights: "stars", text: "#efe9f7", subtext: "#b9b1cc",
+    gradient: "linear-gradient(180deg, #1c2038 0%, #262a48 55%, #34304f 100%)", glow: null };
+}
+
+const SKY_LIGHTS = [
+  { left: "8%", top: "14%", size: 4, delay: 0, duration: 9 },
+  { left: "18%", top: "32%", size: 3, delay: 2.5, duration: 11 },
+  { left: "31%", top: "9%", size: 5, delay: 1, duration: 13 },
+  { left: "47%", top: "22%", size: 3, delay: 4, duration: 10 },
+  { left: "62%", top: "12%", size: 4, delay: 0.5, duration: 12 },
+  { left: "74%", top: "36%", size: 3, delay: 3, duration: 9.5 },
+  { left: "86%", top: "18%", size: 5, delay: 1.8, duration: 14 },
+  { left: "94%", top: "40%", size: 3, delay: 5, duration: 10.5 },
 ];
 
-function StartScreenSky() {
+function StartScreenSky({ sky }: { sky: StartSky }) {
   return (
     <div
       data-testid="start-screen-sky"
+      data-sky={sky.name}
       aria-hidden="true"
       className="pointer-events-none absolute inset-0 overflow-hidden"
-      style={{ background: "linear-gradient(180deg, #ffe9c7 0%, #ffd9b0 32%, #fbe3d2 62%, #f3ecff 100%)" }}
+      style={{ background: sky.gradient, transition: "background 2s ease" }}
     >
-      <div
-        className="absolute rounded-full"
-        style={{ width: 520, height: 520, left: "50%", bottom: -300, transform: "translateX(-50%)",
-          background: "radial-gradient(circle, rgba(255,201,120,0.75) 0%, rgba(255,201,120,0) 70%)" }}
-      />
-      {SKY_MOTES.map((mote) => (
+      {sky.glow && (
+        <div
+          className="absolute rounded-full"
+          style={{ width: 560, height: 560, left: "50%", bottom: -340, transform: "translateX(-50%)",
+            background: `radial-gradient(circle, ${sky.glow} 0%, rgba(0,0,0,0) 70%)` }}
+        />
+      )}
+      {SKY_LIGHTS.map((light) => sky.lights === "stars" ? (
         <motion.span
-          key={mote.left}
+          key={light.left}
           className="absolute rounded-full motion-reduce:hidden"
-          style={{ left: mote.left, bottom: -30, width: mote.size, height: mote.size,
-            background: "radial-gradient(circle, rgba(255,255,255,0.95) 0%, rgba(255,226,170,0.6) 55%, rgba(255,226,170,0) 100%)" }}
-          animate={{ y: [0, -900], opacity: [0, 0.9, 0.9, 0] }}
-          transition={{ duration: mote.duration, delay: mote.delay, repeat: Infinity, ease: "linear" }}
+          style={{ left: light.left, top: light.top, width: light.size, height: light.size, background: "rgba(255,248,230,0.9)" }}
+          animate={{ opacity: [0.25, 0.9, 0.25] }}
+          transition={{ duration: light.duration / 3, delay: light.delay, repeat: Infinity, ease: "easeInOut" }}
+        />
+      ) : (
+        <motion.span
+          key={light.left}
+          className="absolute rounded-full motion-reduce:hidden"
+          style={{ left: light.left, bottom: -20, width: light.size * 2, height: light.size * 2, background: "rgba(255,255,255,0.55)" }}
+          animate={{ y: [0, -900], opacity: [0, 0.6, 0.6, 0] }}
+          transition={{ duration: light.duration * 1.5, delay: light.delay, repeat: Infinity, ease: "linear" }}
         />
       ))}
     </div>
   );
 }
 
+/** The local hour, rechecked every ten minutes so a long-open kiosk drifts from day into night. */
+function useLocalHour(): number {
+  const [hour, setHour] = useState(() => new Date().getHours());
+  useEffect(() => {
+    const timer = window.setInterval(() => setHour(new Date().getHours()), 10 * 60 * 1000);
+    return () => window.clearInterval(timer);
+  }, []);
+  return hour;
+}
+
 export function ChildPicker({ onSelect }: Props) {
   const showDevTools = devToolsVisible();
+  const sky = skyForHour(useLocalHour());
   const [companions, setCompanions] = useState<CompanionThemeConfig[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -133,12 +174,12 @@ export function ChildPicker({ onSelect }: Props) {
 
   return (
     <div className="w-full h-full flex flex-col items-center justify-center gap-8 relative overflow-hidden">
-      <StartScreenSky />
+      <StartScreenSky sky={sky} />
       <div className="text-center relative">
-        <h1 className="text-3xl font-medium" style={{ color: "#5b3a1e" }}>
+        <h1 className="text-3xl font-medium" style={{ color: sky.text }}>
           Who's learning today?
         </h1>
-        <p className="text-sm mt-1" style={{ color: "#8a5a32" }}>Tap your name to start</p>
+        <p className="text-sm mt-1" style={{ color: sky.subtext }}>Tap your name to start</p>
       </div>
 
       <div className="relative flex flex-wrap justify-center items-start gap-8 max-w-5xl px-4">
@@ -246,7 +287,7 @@ export function ChildPicker({ onSelect }: Props) {
         </motion.button>}
       </div>
 
-      <div className="absolute bottom-3 text-xs" style={{ color: "#a77b55" }}>
+      <div className="absolute bottom-3 text-xs" style={{ color: sky.subtext }}>
         Project Sunny
       </div>
     </div>

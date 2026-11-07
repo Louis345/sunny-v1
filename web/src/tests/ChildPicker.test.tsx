@@ -36,3 +36,15 @@ it("opens on a warm, decorative sky that never takes a tap", async () => {
   expect(sky.getAttribute("aria-hidden")).toBe("true");
   expect(sky.className).toContain("pointer-events-none");
 });
+
+// Owner, 2026-11-07: the sunrise sky was too bright; the sky follows the kiosk's local time, softly.
+import { skyForHour } from "../components/ChildPicker";
+it("follows the local time of day with a soft sky", () => {
+  expect(skyForHour(8).name).toBe("morning");
+  expect(skyForHour(13).name).toBe("day");
+  expect(skyForHour(17).name).toBe("evening");
+  expect(skyForHour(21).name).toBe("night");
+  expect(skyForHour(3).name).toBe("night");
+  expect(skyForHour(21).lights).toBe("stars");
+  expect(skyForHour(21).text).not.toBe(skyForHour(13).text);
+});
