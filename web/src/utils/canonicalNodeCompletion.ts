@@ -1,3 +1,4 @@
+import type { ServerNodeChest } from "../components/NodeTreasureChest";
 export type CanonicalNodeCompletionInput = {
   childId: string;
   homeworkId: string;
@@ -154,6 +155,7 @@ export async function postCanonicalNodeCompletion(input: CanonicalNodeCompletion
   coinAward?: { amount: number; balance: number };
   videoCallTicket?: { homeworkId: string; earnedAt: string; bonusUrl?: string };
   bossDrop?: { tier: "common" | "rare" | "epic" | "legendary"; coins: number };
+  nodeChest?: ServerNodeChest;
 }> {
   const { completionId, ...request } = input;
   const response = await fetch("/api/learning-cycle/node-complete", {
@@ -170,6 +172,7 @@ export async function postCanonicalNodeCompletion(input: CanonicalNodeCompletion
     coinAward?: { amount: number; balance: number };
     videoCallTicket?: { homeworkId: string; earnedAt: string; bonusUrl?: string };
     bossDrop?: { tier: "common" | "rare" | "epic" | "legendary"; coins: number };
+  nodeChest?: ServerNodeChest;
   };
   window.dispatchEvent(new CustomEvent("sunny_learning_cycle_progression", { detail: result }));
   return { ...result, outcome: { ...input.result, completed: result.nodeState === "completed", accuracy: result.academicAccuracy ?? undefined } };

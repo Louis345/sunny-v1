@@ -4,7 +4,17 @@ import "./NodeTreasureChest.css";
 /** The chest's colour says what she earned before she opens it; a mystery chest hides it until the lid lifts. */
 export type ChestRarity = "common" | "rare" | "epic" | "legendary";
 export type ChestKind = ChestRarity | "mystery";
-export type ChestLoot = { coins: number; item?: { name: string; rarity: ChestRarity; icon?: string } };
+export type ChestLoot = { coins: number; rarity?: ChestRarity; item?: { name: string; rarity: ChestRarity; icon?: string } };
+/** The chest the server rolled and saved, as the completion route returns it. */
+export type ServerNodeChest = { kind: ChestKind; rarity: ChestRarity; coins: number; bonusChance: number; bonus?: { kind: "call_minutes"; minutes: number } };
+
+export function chestFromServer(chest: ServerNodeChest): { rarity: ChestKind; bonusChance: number; loot: ChestLoot } {
+  return {
+    rarity: chest.kind,
+    bonusChance: chest.bonusChance,
+    loot: { coins: chest.coins, rarity: chest.rarity, ...(chest.bonus ? { item: { name: `${chest.bonus.minutes} call minutes`, rarity: chest.rarity, icon: "🎥" } } : {}) },
+  };
+}
 
 export const CHEST_OPEN_MS = 1600;
 const RARITY_NAME: Record<ChestRarity, string> = { common: "Common", rare: "Rare", epic: "Epic", legendary: "Legendary" };
@@ -24,13 +34,13 @@ function play(name: string, rate = 1, volume = 0.6): void {
 
 /** Storybook prototype of the reward after each finished node (owner, 2026-11-06). It only shows a roll it is
  * given: rolling, saving and paying belong to the server, and nothing here touches learning evidence. */
-export function NodeTreasureChest({ rarity, loot, bonusChance, onCollect }: { rarity: ChestKind; loot: ChestLoot; bonusChance?: number; onCollect: () => void }) {
+export function NodeTreasureChest({ rarity, loot, bonusChance, compact = false, onCollect }: { rarity: ChestKind; loot: ChestLoot; bonusChance?: number; compact?: boolean; onCollect: () => void }) {
   const [phase, setPhase] = useState<"closed" | "shaking" | "open" | "collected">("closed");
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
   const collected = useRef(false);
   useEffect(() => () => { timers.current.forEach(clearTimeout); }, []);
   // A mystery chest takes the colour of what it held once it opens.
-  const shown: ChestKind = rarity === "mystery" && phase !== "closed" && phase !== "shaking" ? (loot.item?.rarity ?? "common") : rarity;
+  const shown: ChestKind = rarity === "mystery" && phase !== "closed" && phase !== "shaking" ? (loot.rarity ?? loot.item?.rarity ?? "common") : rarity;
 
   const open = () => {
     if (phase !== "closed") return;
@@ -39,7 +49,7 @@ export function NodeTreasureChest({ rarity, loot, bonusChance, onCollect }: { ra
     for (let i = 0; i < 8; i += 1) timers.current.push(setTimeout(() => play("tick", 1 + i * 0.06, 0.45), 120 + i * (150 - i * 8)));
     timers.current.push(setTimeout(() => {
       setPhase("open");
-      play(loot.item?.rarity ?? (rarity === "mystery" ? "common" : rarity));
+      play(loot.rarity ?? loot.item?.rarity ?? (rarity === "mystery" ? "common" : rarity));
       console.log(` 🎮 [node-chest] [opened] chest=${rarity} coins=${loot.coins} item=${loot.item?.rarity ?? "none"}`);
     }, CHEST_OPEN_MS));
   };
@@ -53,7 +63,7 @@ export function NodeTreasureChest({ rarity, loot, bonusChance, onCollect }: { ra
   const isOpen = phase === "open" || phase === "collected";
 
   return (
-    <div className="node-chest" data-rarity={shown} data-kind={rarity} data-phase={phase}>
+    <div className={compact ? "node-chest node-chest--compact" : "node-chest"} data-rarity={shown} data-kind={rarity} data-phase={phase}>
       <div className="node-chest__header">
         <span className="node-chest__name">{isOpen && rarity === "mystery" ? `${RARITY_NAME[shown as ChestRarity]} chest` : CHEST_NAME[rarity]}</span>
         {bonusChance !== undefined && !isOpen ? <span className="node-chest__odds">{`${Math.round(bonusChance * 100)}% bonus`}</span> : null}
@@ -81,7 +91,7 @@ export function NodeTreasureChest({ rarity, loot, bonusChance, onCollect }: { ra
       {isOpen ? <div className="node-chest__payout">{`+${loot.coins} coins`}</div> : null}
       {phase === "closed" || phase === "shaking" ? (
         <button type="button" className="node-chest__button" onClick={open} disabled={phase === "shaking"}>{phase === "shaking" ? "Opening…" : "Tap to open"}</button>
-      ) : (
+      ) : compact ? null : (
         <button type="button" className="node-chest__button" onClick={collect} disabled={phase === "collected"}>{phase === "collected" ? "Collected" : "Collect"}</button>
       )}
     </div>

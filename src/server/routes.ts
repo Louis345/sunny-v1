@@ -1,4 +1,4 @@
-import { awardBossDropOnCompletion } from "./bossDropAward";
+import { awardBossDropOnCompletion, awardNodeChestOnCompletion } from "./bossDropAward";
 import { runOriginalSpellingForecast } from '../chart/spelling/originalForecast';
 import { setupOriginalSpellingParentRoutes } from './originalSpellingParent';
 import {commitOriginalSpellingAttempt} from './originalSpellingCommit';
@@ -1132,7 +1132,10 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
             console.error(` 🎮 [learning-cycle-route] [next-session] [deferred] ${error instanceof Error ? error.message : String(error)}`);
           });
       }
-      const award = becameCompleted && body.result.completed === true && body.result.won !== false && body.result.earlyExit !== true
+      const finishedForReward = becameCompleted && body.result.completed === true && body.result.won !== false && body.result.earlyExit !== true;
+      // Every finished stop opens a treasure chest that pays its coins; the Boss keeps its flat coins and loot card.
+      const nodeChest = finishedForReward ? awardNodeChestOnCompletion(finalCycle, nodeId) : undefined;
+      const award = finishedForReward && !nodeChest
         ? reconcileCompanionCareCurrencyAward({
             childId,
             amount: 25,
@@ -1146,6 +1149,7 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
         nodeState,
         academicAccuracy: updated.evidence?.academic.find(item => item.evidenceId === `${sessionId}:${nodeId}:completion`)?.accuracy ?? null,
         ...(award?.ok ? { coinAward: { amount: 25, balance: award.balance } } : {}),
+        ...(nodeChest ? { coinAward: { amount: nodeChest.chest.coins, balance: nodeChest.balance }, nodeChest: nodeChest.chest } : {}),
         ...(videoCallTicket ? { videoCallTicket } : {}),
         ...(bossDrop ? { bossDrop } : {}),
       });

@@ -1,3 +1,8 @@
+/* Inside the "nice work" panel: smaller, no backdrop of its own, never covering the panel's buttons. */
+.node-chest--compact{min-height:0;padding:8px 0 4px;gap:10px;background:none;}
+.node-chest--compact .node-chest__stage{margin:30px 0 -40px;height:170px;scale:.62;}
+.node-chest--compact .node-chest__payout{font-size:26px;}
+.node-chest--compact .node-chest__button{padding:11px 32px;font-size:18px;}
 .node-chest{--body:#7a4a22;--body-light:#b0743c;--trim:#5b6472;--trim-light:#aeb6c2;--glow:#e0b07a;
   position:relative;display:grid;justify-items:center;gap:18px;padding:28px 24px 34px;min-height:520px;
   font-family:Lexend,system-ui,sans-serif;color:#fff;

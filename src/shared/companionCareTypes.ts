@@ -68,6 +68,20 @@ export interface BossDrop {
   droppedAt: string;
 }
 
+/** The chest after a finished node (owner, 2026-11-06): its colour is its rarity; a mystery chest rolls one. */
+export type NodeChestKind = BossDropTier | "mystery";
+export interface NodeChest {
+  homeworkId: string;
+  nodeId: string;
+  kind: NodeChestKind;
+  rarity: BossDropTier;
+  coins: number;
+  /** The chance this chest held a bonus, including the pity counter; shown on the chest before it opens. */
+  bonusChance: number;
+  bonus?: { kind: "call_minutes"; minutes: number };
+  droppedAt: string;
+}
+
 export interface CompanionCarePlan {
   version: 1;
   childId: string;
@@ -95,6 +109,12 @@ export interface CompanionCarePlan {
     }>;
     /** One loot drop per beaten Boss: rolled once, saved, shown again on replay. */
     bossDrops?: BossDrop[];
+    /** One chest per finished node: rolled once, saved, never rolled again. */
+    nodeChests?: NodeChest[];
+    /** Companion call minutes won from chests, spent on calls. */
+    callMinutes?: number;
+    /** Chests opened since the last bonus; each one raises the next bonus chance. */
+    chestsSinceBonus?: number;
   };
   updatedAt: string;
 }
