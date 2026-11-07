@@ -11,9 +11,10 @@ import {
   grantNodeChest,
   nodeChestKind,
   purchaseWithCoins,
+  spendCallMinute,
 } from "./companionCareEngine";
 import type { CompanionCarePlan } from "../shared/companionCareTypes";
-import { PRICE_LIST, REWARD_CATALOG } from "../shared/rewardCatalog";
+import { CALL_RULES, PRICE_LIST, REWARD_CATALOG } from "../shared/rewardCatalog";
 
 function plan(overrides: Partial<CompanionCarePlan["state"]> = {}): CompanionCarePlan {
   return {
@@ -341,5 +342,31 @@ describe("spending coins", () => {
     expect(bought.price).toBe(crown.price);
     expect(bought.plan.inventory.rewards).toEqual([crown.id]);
     expect(purchaseWithCoins(bought.plan, { receiptId: "r2", offer: { kind: "outfit", itemId: crown.id }, nowIso: at })).toMatchObject({ ok: false, reason: "already_owned" });
+  });
+});
+
+// Owner, 2026-11-07: the call is earned at the end of a board and burns time; when time runs out she
+// spends coins for more, so she wants to come back and earn again. The server owns the clock.
+describe("call clock", () => {
+  const at = "2026-11-07T22:00:00.000Z";
+  const earned = () => grantVideoCallTicket(createStarterCompanionCarePlan({ childId: "demo-pashley", companionId: "elli" }), "hw-1", at).plan;
+
+  it("opening an earned call adds the free minutes once", () => {
+    const opened = markVideoCallTicketOpened(earned(), "hw-1", at);
+    expect(opened.plan.economy.callMinutes).toBe(CALL_RULES.freeMinutesPerBoard);
+    const again = markVideoCallTicketOpened(opened.plan, "hw-1", at);
+    expect(again.plan.economy.callMinutes).toBe(CALL_RULES.freeMinutesPerBoard);
+  });
+
+  it("spends one minute per receipt, once, and stops at zero", () => {
+    const start = { ...earned(), economy: { ...earned().economy, callMinutes: 2 } };
+    const first = spendCallMinute(start, { receiptId: "m1", nowIso: at });
+    expect(first).toMatchObject({ ok: true, minutesLeft: 1, duplicate: false });
+    if (!first.ok) throw Error("expected a minute");
+    expect(spendCallMinute(first.plan, { receiptId: "m1", nowIso: at })).toMatchObject({ ok: true, minutesLeft: 1, duplicate: true });
+    const second = spendCallMinute(first.plan, { receiptId: "m2", nowIso: at });
+    if (!second.ok) throw Error("expected a minute");
+    expect(second.minutesLeft).toBe(0);
+    expect(spendCallMinute(second.plan, { receiptId: "m3", nowIso: at })).toEqual({ ok: false, reason: "no_minutes" });
   });
 });

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { rewardCallHeldReason } from "../utils/rewardCallOffer";
+import { isCompanionCallPath, rewardCallHeldReason } from "../utils/rewardCallOffer";
 
 /**
  * A child caught this (Ila, Saori kiosk, 2026-11-05): she finished the last stop of board 8,
@@ -63,4 +63,15 @@ describe("App wiring: one held rule gates every way to open the call", () => {
     expect(src).toMatch(/callOffered=\{rewardCallHeld == null\}/);
     expect(src).toMatch(/earnedTicket && props\.callOffered \?/);
   });
+});
+
+// BUGS.md 2026-11-07 (AI-caught in the demo): the server redirects /companions to /companions/, and the
+// app only opened the call on the exact path, so the earned call landed back on the map.
+it("opens the earned call on either spelling of its address", () => {
+  expect(isCompanionCallPath("/companions")).toBe(true);
+  expect(isCompanionCallPath("/companions/")).toBe(true);
+  expect(isCompanionCallPath("/companions/elli.vrm")).toBe(false);
+  expect(isCompanionCallPath("/")).toBe(false);
+  const app = readFileSync(join(dirname(fileURLToPath(import.meta.url)), "../App.tsx"), "utf8");
+  expect(app).toContain("isCompanionCallPath(window.location.pathname)");
 });

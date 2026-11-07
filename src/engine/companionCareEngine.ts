@@ -15,7 +15,7 @@ import type {
   CompanionReadiness,
 } from "../shared/companionCareTypes";
 import type { TamagotchiState } from "../shared/vrrTypes";
-import { CHEST_TABLE, ITEM_SHARE, PRICE_LIST, REWARD_CATALOG, eligibleDrops } from "../shared/rewardCatalog";
+import { CALL_RULES, CHEST_TABLE, ITEM_SHARE, PRICE_LIST, REWARD_CATALOG, eligibleDrops } from "../shared/rewardCatalog";
 
 type CareEffect = Partial<
   Pick<
@@ -256,6 +256,7 @@ export function markVideoCallTicketOpened(
       ...plan,
       economy: {
         ...plan.economy,
+        callMinutes: (plan.economy.callMinutes ?? 0) + CALL_RULES.freeMinutesPerBoard,
         videoCallTickets: tickets.map((entry) =>
           entry.homeworkId === homeworkId ? { ...entry, openedAt: nowIso } : entry,
         ),
@@ -434,6 +435,30 @@ export function purchaseWithCoins(
         coinPurchases: [...purchases, receipt],
       },
       inventory: { ...plan.inventory, ...(offer.kind === "outfit" ? { rewards: [...owned, offer.itemId] } : {}) },
+      updatedAt: input.nowIso,
+    },
+  };
+}
+
+const CALL_MINUTE_RECEIPTS_KEPT = 200;
+
+/** One minute of the earned call. The server owns the clock: each minute is paid before it is used, a
+ * retried tick (same receipt) is charged once, and with no minutes left the call must end or buy more. */
+export function spendCallMinute(
+  plan: CompanionCarePlan,
+  input: { receiptId: string; nowIso: string },
+): { ok: true; plan: CompanionCarePlan; minutesLeft: number; duplicate: boolean } | { ok: false; reason: "no_minutes" } {
+  const minutes = Math.max(0, Math.floor(plan.economy.callMinutes ?? 0));
+  const receipts = plan.economy.callMinuteReceipts ?? [];
+  if (receipts.includes(input.receiptId)) return { ok: true, plan, minutesLeft: minutes, duplicate: true };
+  if (minutes < 1) return { ok: false, reason: "no_minutes" };
+  return {
+    ok: true,
+    duplicate: false,
+    minutesLeft: minutes - 1,
+    plan: {
+      ...plan,
+      economy: { ...plan.economy, callMinutes: minutes - 1, callMinuteReceipts: [...receipts, input.receiptId].slice(-CALL_MINUTE_RECEIPTS_KEPT) },
       updatedAt: input.nowIso,
     },
   };

@@ -122,6 +122,8 @@ export interface CompanionCarePlan {
     nodeChests?: NodeChest[];
     /** Companion call minutes won from chests, spent on calls. */
     callMinutes?: number;
+    /** Receipts of call minutes already spent, so a retried tick is charged once. */
+    callMinuteReceipts?: string[];
     /** Chests opened since the last bonus; each one raises the next bonus chance. */
     chestsSinceBonus?: number;
     /** Everything bought with coins, newest last. */

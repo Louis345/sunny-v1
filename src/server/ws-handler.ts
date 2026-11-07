@@ -1,4 +1,4 @@
-import type { WebSocket } from "ws";
+import type { RawData, WebSocket } from "ws";
 import type { IncomingMessage } from "http";
 import {
   handleMapSocketIframeCompanionEvent,
@@ -48,7 +48,7 @@ export function handleWsConnection(
   let session: SessionManager | null = null;
   let audioGate: ReturnType<typeof createAudioGate> | null = null;
 
-  ws.on("message", async (raw) => {
+  const onMessage = async (raw: RawData): Promise<void> => {
     let msg: { type?: string; child?: string; data?: string };
     try {
       msg = JSON.parse(raw.toString());
@@ -429,6 +429,19 @@ export function handleWsConnection(
             message: `Unknown type: ${msg.type}`,
           })
         );
+    }
+  };
+
+  // One failed message costs that message, never the kiosk: an async listener's throw is an
+  // unhandled rejection, and Node exits on those (BUGS.md 2026-11-07).
+  ws.on("message", async (raw: RawData) => {
+    try {
+      await onMessage(raw);
+    } catch (error) {
+      let type = "unknown";
+      try { type = String((JSON.parse(raw.toString()) as { type?: unknown }).type ?? "unknown"); } catch { /* already logged as invalid JSON */ }
+      console.error(` 🎮 [ws] [message] [failed] type=${type}`, error);
+      ws.send(JSON.stringify({ type: "error", fatal: false, message: "Something went wrong. Keep going." }));
     }
   });
 

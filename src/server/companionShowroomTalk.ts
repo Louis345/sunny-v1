@@ -163,6 +163,11 @@ export type ShowroomShoppingContext = {
   ownedItemIds: string[];
   savedItemIds: string[];
 };
+/** Call clock moments (owner, 2026-11-07). The screen names the moment; the server supplies the facts. */
+export type ShowroomCallClockEvent = "minute_left" | "time_up" | "minutes_bought";
+const CALL_CLOCK_EVENTS: readonly ShowroomCallClockEvent[] = ["minute_left", "time_up", "minutes_bought"];
+export type ShowroomCallClockFacts = { event: ShowroomCallClockEvent; minutesLeft: number; coins: number; price: number; minutes: number };
+
 export type ShowroomShoppingEvent = {
   type: "item_reviewed" | "try_on_started";
   itemId: string;
@@ -197,6 +202,7 @@ export type ResolvedShowroomTalkRequest = {
   lastVisualSummary?: string;
   shoppingContext?: ShowroomShoppingContext;
   shoppingEvent?: ShowroomShoppingEvent;
+  callClockEvent?: ShowroomCallClockEvent;
 };
 
 export type ShowroomTalkCompletedEvent = {
@@ -791,6 +797,11 @@ export function resolveShowroomTalkRequest(
   if (shoppingEvent === null) {
     return { ok: false, status: 400, error: "invalid_shopping_event" };
   }
+  const callClockEvent = raw.callClockEvent == null ? undefined
+    : CALL_CLOCK_EVENTS.find((event) => event === raw.callClockEvent) ?? null;
+  if (callClockEvent === null) {
+    return { ok: false, status: 400, error: "invalid_call_clock_event" };
+  }
   const callTraceId = resolveTraceIdentifier(raw.callTraceId ?? raw.traceId);
   const turnId = resolveTraceIdentifier(raw.turnId);
 
@@ -810,6 +821,7 @@ export function resolveShowroomTalkRequest(
       ...(mode === "video_call" && conversationIntent && { conversationIntent }),
       ...(mode === "video_call" && shoppingContext && { shoppingContext }),
       ...(mode === "video_call" && shoppingEvent && { shoppingEvent }),
+      ...(mode === "video_call" && callClockEvent && { callClockEvent }),
       ...(mode === "video_call" && callTraceId && { callTraceId }),
       ...(mode === "video_call" && turnId && { turnId }),
       ...(mode === "video_call" && { mode }),
@@ -836,6 +848,7 @@ export function buildShowroomTalkSystemPrompt(input: {
   companionMemory?: string;
   shoppingContext?: ShowroomShoppingContext;
   shoppingEvent?: ShowroomShoppingEvent;
+  callClock?: ShowroomCallClockFacts;
 }): string {
   const callSource = input.callSource ?? "showroom";
   const relationshipState = input.relationshipState ?? "previewing";
@@ -959,6 +972,24 @@ export function buildShowroomTalkSystemPrompt(input: {
       `Live store event: the child just tried on item id=${input.shoppingEvent.itemId}.`,
       "Always include one short spoken reaction grounded in the selected item and code-owned verdict. You may also use one expressive companionAct gesture.",
       "This event came from the store UI, not from words spoken by the child. Do not pretend the child asked a question.",
+    );
+  }
+  if (input.callClock) {
+    const clock = input.callClock;
+    const moment = clock.event === "minute_left"
+      ? "about one minute of call time is left"
+      : clock.event === "time_up"
+        ? "call time is up"
+        : `the child just spent coins on more call time; about ${clock.minutesLeft + 1} minutes are left now`;
+    lines.push(
+      `Live call clock event: ${moment}. The child has ${clock.coins} coins; 5 more minutes cost ${clock.price} coins.`,
+      clock.coins >= clock.price
+        ? "She can afford more time."
+        : `She cannot afford more time yet; she needs ${clock.price - clock.coins} more coins. Do not offer to buy time; finishing another board earns more coins and another call.`,
+      clock.event === "time_up"
+        ? "In one or two short sentences, react in your own voice: she can buy more time or say goodbye for now. Never pressure her to spend, and if she cannot afford it, make finishing another board sound like the way back."
+        : "Mention it in one short sentence in your own voice, then carry on with the conversation.",
+      "This event came from the call clock, not from words spoken by the child. Do not pretend the child asked a question.",
     );
   }
   if (input.activeActivity) {

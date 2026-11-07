@@ -243,6 +243,20 @@ describe("ws handler", () => {
     expect(setCompanionPresenceMock).toHaveBeenCalledWith("summoned", "client");
   });
 
+  // BUGS.md 2026-11-07: any throw inside a message became an unhandled rejection and Node exited the kiosk.
+  it("keeps the kiosk running when one message handler throws", async () => {
+    const ws = new FakeWs();
+    handleWsConnection(ws as never, req() as never);
+    await sendJson(ws, { type: "start_session", child: "Ila" });
+    handleGameEventMock.mockImplementationOnce(() => { throw new Error("chart_assignment_missing"); });
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    const listener = ws.listeners("message")[0] as (raw: Buffer) => Promise<void>;
+    await expect(listener(Buffer.from(JSON.stringify({ type: "game_state_update", phase: "response" })))).resolves.toBeUndefined();
+    expect(error).toHaveBeenCalledWith(expect.stringContaining("[ws] [message] [failed] type=game_state_update"), expect.any(Error));
+    expect(ws.sent).toContainEqual(expect.objectContaining({ type: "error", fatal: false }));
+    error.mockRestore();
+  });
+
   it("reports session start failures without crashing the websocket handler", async () => {
     startMock.mockRejectedValueOnce(new Error("DEEPGRAM_API_KEY not set in .env"));
     const ws = new FakeWs();

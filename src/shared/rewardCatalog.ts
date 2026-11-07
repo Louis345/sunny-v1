@@ -22,26 +22,31 @@ export const REWARD_CATALOG: readonly RewardItem[] = [
   { id: "game:asteroid", kind: "game", name: "Asteroid", icon: "🚀", rarity: "rare", gameId: "asteroid" },
   { id: "game:space-frogger", kind: "game", name: "Space Frogger", icon: "🐸", rarity: "epic", gameId: "space-frogger" },
   { id: "game:space-invaders", kind: "game", name: "Space Invaders", icon: "👾", rarity: "legendary", gameId: "space-invaders" },
-  { id: "outfit:cat-ears", kind: "outfit", name: "Cat Ears", icon: "🐱", rarity: "common", wardrobeItemId: "cat-ears", price: 15 },
-  { id: "outfit:royal-crown", kind: "outfit", name: "Royal Crown", icon: "👑", rarity: "common", wardrobeItemId: "royal-crown", price: 20 },
-  { id: "outfit:star-halo", kind: "outfit", name: "Star Halo", icon: "✨", rarity: "rare", wardrobeItemId: "star-halo", price: 25 },
+  { id: "outfit:cat-ears", kind: "outfit", name: "Cat Ears", icon: "🐱", rarity: "common", wardrobeItemId: "cat-ears", price: 40 },
+  { id: "outfit:royal-crown", kind: "outfit", name: "Royal Crown", icon: "👑", rarity: "common", wardrobeItemId: "royal-crown", price: 50 },
+  { id: "outfit:star-halo", kind: "outfit", name: "Star Halo", icon: "✨", rarity: "rare", wardrobeItemId: "star-halo", price: 60 },
   { id: "outfit:comet-hoodie", kind: "outfit", name: "Comet Hoodie", icon: "🧥", rarity: "rare", wardrobeItemId: "comet-hoodie" },
-  { id: "outfit:navy-ribbon-dress", kind: "outfit", name: "Navy Ribbon Dress", icon: "👗", rarity: "epic", wardrobeItemId: "sleeveless-dress", price: 60 },
-  { id: "outfit:teal-ribbon-dress", kind: "outfit", name: "Teal Ribbon Dress", icon: "👗", rarity: "epic", wardrobeItemId: "teal-ribbon-dress", price: 60 },
-  { id: "outfit:plum-ribbon-dress", kind: "outfit", name: "Plum Ribbon Dress", icon: "👗", rarity: "epic", wardrobeItemId: "plum-ribbon-dress", price: 65 },
-  { id: "outfit:rose-ribbon-dress", kind: "outfit", name: "Rose Ribbon Dress", icon: "👗", rarity: "legendary", wardrobeItemId: "rose-ribbon-dress", price: 65 },
+  { id: "outfit:navy-ribbon-dress", kind: "outfit", name: "Navy Ribbon Dress", icon: "👗", rarity: "epic", wardrobeItemId: "sleeveless-dress", price: 130 },
+  { id: "outfit:teal-ribbon-dress", kind: "outfit", name: "Teal Ribbon Dress", icon: "👗", rarity: "epic", wardrobeItemId: "teal-ribbon-dress", price: 130 },
+  { id: "outfit:plum-ribbon-dress", kind: "outfit", name: "Plum Ribbon Dress", icon: "👗", rarity: "epic", wardrobeItemId: "plum-ribbon-dress", price: 150 },
+  { id: "outfit:rose-ribbon-dress", kind: "outfit", name: "Rose Ribbon Dress", icon: "👗", rarity: "legendary", wardrobeItemId: "rose-ribbon-dress", price: 150 },
 ];
 
 /** What coins buy (owner, 2026-11-07): coins must be scarce enough to mean something. One board pays about
- * 100-150 coins, enough for about two treats, so she chooses or saves. Placeholders until tuned from play. */
+ * 50-70 coins (option B, from the replay), enough for one or two treats, so she chooses or saves. */
 export const PRICE_LIST = { gamePlay: 25, callMinutes5: 30, mysteryChest: 60 } as const;
+/** The earned call (owner, 2026-11-07): finishing a board earns a call with free minutes; after that the
+ * call burns minutes and more cost coins, so she wants to come back and earn again. Placeholder until tuned. */
+export const CALL_RULES = { freeMinutesPerBoard: 5, warnAtSecondsLeft: 60 } as const;
 
 /** What each chest pays: coins always, and a bonus by chance (call minutes or a catalog item). */
+/** Option B (owner, 2026-11-07), tuned on a replay of the girls' real history: about 50-70 coins a session,
+ * so a call top-up or a game is a session's treat and a dress is a week's goal. */
 export const CHEST_TABLE: Record<RewardRarity, { coins: number; bonusChance: number; minutes: number }> = {
-  common: { coins: 25, bonusChance: 0.1, minutes: 5 },
-  rare: { coins: 35, bonusChance: 0.25, minutes: 5 },
-  epic: { coins: 60, bonusChance: 0.5, minutes: 10 },
-  legendary: { coins: 120, bonusChance: 1, minutes: 15 },
+  common: { coins: 10, bonusChance: 0.1, minutes: 2 },
+  rare: { coins: 15, bonusChance: 0.25, minutes: 3 },
+  epic: { coins: 30, bonusChance: 0.5, minutes: 5 },
+  legendary: { coins: 60, bonusChance: 1, minutes: 10 },
 };
 /** Of the bonuses, the share that is a catalog item while she still has items to find; the rest is call minutes. */
 export const ITEM_SHARE = 0.5;

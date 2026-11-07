@@ -30,6 +30,8 @@ import {
   type WardrobeStoreItem,
   type WardrobeStoreState,
 } from "../lib/wardrobeStore";
+import { rewardForWardrobeItem, walletShopItems, withServerWallet, type ServerWallet } from "../lib/wardrobeWallet";
+import { COINS_CHANGED_EVENT, type CoinsChangedDetail } from "./CallClock";
 import "./WardrobeStoreLab.css";
 
 export type WardrobeStoreCompanion = {
@@ -140,6 +142,8 @@ export type WardrobeStoreLabProps = {
   onExit: () => void;
   exitLabel?: string;
   visitSeed?: string;
+  /** The earned call: coins and ownership come from her saved wallet on the server, never demo coins. */
+  wallet?: { childId: string };
 };
 
 function CompanionVoiceButton({
@@ -184,10 +188,15 @@ function renderCompanionPreview(
   return typeof preview === "function" ? preview(view) : preview;
 }
 
-function loadStoreState(): WardrobeStoreState {
+/** In the earned call the shop keeps her look per child; coins and ownership always come from the server. */
+function storeStorageKey(wallet: WardrobeStoreLabProps["wallet"]): string {
+  return wallet ? `${WARDROBE_STORE_STORAGE_KEY}:${wallet.childId}` : WARDROBE_STORE_STORAGE_KEY;
+}
+
+function loadStoreState(key = WARDROBE_STORE_STORAGE_KEY): WardrobeStoreState {
   if (typeof window === "undefined") return createInitialWardrobeStoreState();
   try {
-    const saved = window.localStorage.getItem(WARDROBE_STORE_STORAGE_KEY);
+    const saved = window.localStorage.getItem(key);
     if (!saved) return createInitialWardrobeStoreState();
     const parsed = parseWardrobeStoreState(JSON.parse(saved) as unknown);
     if (parsed) return parsed;
@@ -198,10 +207,10 @@ function loadStoreState(): WardrobeStoreState {
   return createInitialWardrobeStoreState();
 }
 
-function saveStoreState(state: WardrobeStoreState): void {
+function saveStoreState(state: WardrobeStoreState, key = WARDROBE_STORE_STORAGE_KEY): void {
   if (typeof window === "undefined") return;
   try {
-    window.localStorage.setItem(WARDROBE_STORE_STORAGE_KEY, JSON.stringify(state));
+    window.localStorage.setItem(key, JSON.stringify(state));
   } catch (error: unknown) {
     console.error(" 🎮 [wardrobe-store-lab] state_save failed", error);
   }
@@ -235,10 +244,10 @@ function previewSelection(
       };
 }
 
-function Wallet({ balance }: { balance: number }) {
+function Wallet({ balance, real }: { balance: number; real: boolean }) {
   return (
     <div className="wardrobe-store-lab__wallet" aria-live="polite">
-      <span aria-hidden>●</span> {balance} demo coins
+      <span aria-hidden>●</span> {balance} {real ? "coins" : "demo coins"}
     </div>
   );
 }
@@ -332,8 +341,25 @@ export function WardrobeStoreLab({
   onExit,
   exitLabel = "Back to the call",
   visitSeed,
+  wallet,
 }: WardrobeStoreLabProps) {
-  const [storeState, setStoreState] = useState<WardrobeStoreState>(loadStoreState);
+  const storageKey = storeStorageKey(wallet);
+  const [storeState, setStoreState] = useState<WardrobeStoreState>(() => loadStoreState(storageKey));
+  const [buying, setBuying] = useState(false);
+  const walletChildId = wallet?.childId;
+  useEffect(() => {
+    if (!walletChildId) return;
+    let cancelled = false;
+    fetch(`/api/rewards/wallet/${encodeURIComponent(walletChildId)}`)
+      .then((response) => response.json() as Promise<ServerWallet>)
+      .then((loaded) => {
+        if (cancelled) return;
+        setStoreState((prior) => withServerWallet(prior, loaded));
+        console.log(` 🎮 [wardrobe-store] [wallet] [loaded] child=${walletChildId} coins=${loaded.coins} owned=${loaded.ownedRewardIds.length}`);
+      })
+      .catch((error: unknown) => console.error(` 🎮 [wardrobe-store] [wallet] [failed] child=${walletChildId}`, error));
+    return () => { cancelled = true; };
+  }, [walletChildId]);
   const [mode, setMode] = useState<ShopMode>("entrance");
   const [filter, setFilter] = useState<ShopFilter>("all");
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
@@ -362,7 +388,8 @@ export function WardrobeStoreLab({
   );
   const selectedItem =
     compatibleItems.find((item) => item.id === selectedItemId) ?? null;
-  const visibleItems = compatibleItems.filter((item) => {
+  const shelfItems = wallet ? walletShopItems(compatibleItems, storeState.ownedItemIds) : compatibleItems;
+  const visibleItems = shelfItems.filter((item) => {
     if (filter === "all") return true;
     return filter === "accessories"
       ? item.asset.kind === "accessory"
@@ -405,8 +432,8 @@ export function WardrobeStoreLab({
 
   const persist = useCallback((nextState: WardrobeStoreState) => {
     setStoreState(nextState);
-    saveStoreState(nextState);
-  }, []);
+    saveStoreState(nextState, storageKey);
+  }, [storageKey]);
 
   const contextFor = useCallback(
     (
@@ -642,6 +669,54 @@ export function WardrobeStoreLab({
       );
       return;
     }
+    if (wallet) {
+      void buyWithSavedCoins(selectedItem);
+      return;
+    }
+    completePurchase(selectedItem, storeState);
+  };
+
+  /** The earned call's purchase: the server charges her saved coins first, then the closet updates. */
+  const buyWithSavedCoins = async (item: WardrobeStoreItem) => {
+    if (!wallet || buying) return;
+    const reward = rewardForWardrobeItem(item.id);
+    if (reward?.price === undefined) {
+      setStatusMessage(`${item.name} can only be found in treasure chests.`);
+      return;
+    }
+    const short = reward.price - getWardrobeBalance(storeState);
+    if (short > 0) {
+      setStatusMessage(`You need ${short} more coins. Finish a board to earn more.`);
+      console.log(` 🎮 [wardrobe-store] [purchase] [short] child=${wallet.childId} item=${item.id} short=${short}`);
+      return;
+    }
+    setBuying(true);
+    try {
+      const response = await fetch("/api/rewards/purchase", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ childId: wallet.childId, receiptId: `wardrobe:${wallet.childId}:${item.id}`, offer: { kind: "outfit", itemId: reward.id } }),
+      });
+      const result = (await response.json()) as { ok: boolean; reason?: string; balance?: number };
+      if (!result.ok) {
+        setStatusMessage(result.reason === "not_enough_coins" ? "Not enough coins yet. Finish a board to earn more." : `Purchase could not be completed (${result.reason ?? "unknown"}).`);
+        console.error(` 🎮 [wardrobe-store] [purchase] [refused] child=${wallet.childId} item=${item.id} reason=${result.reason}`);
+        return;
+      }
+      console.log(` 🎮 [wardrobe-store] [purchase] [paid] child=${wallet.childId} item=${item.id} balance=${result.balance}`);
+      if (typeof result.balance === "number") {
+        window.dispatchEvent(new CustomEvent<CoinsChangedDetail>(COINS_CHANGED_EVENT, { detail: { childId: wallet.childId, coins: result.balance } }));
+      }
+      completePurchase(item, storeState);
+    } catch (error: unknown) {
+      setStatusMessage("The shop could not reach your coins. Try again.");
+      console.error(` 🎮 [wardrobe-store] [purchase] [failed] child=${wallet.childId} item=${item.id}`, error);
+    } finally {
+      setBuying(false);
+    }
+  };
+
+  const completePurchase = (selectedItem: WardrobeStoreItem, storeState: WardrobeStoreState) => {
     const balanceBefore = getWardrobeBalance(storeState);
     const purchase = purchaseWardrobeItem(storeState, {
       itemId: selectedItem.id,
@@ -764,7 +839,7 @@ export function WardrobeStoreLab({
               )}
             </div>
           )}
-          <Wallet balance={balance} />
+          <Wallet balance={balance} real={Boolean(wallet)} />
           <button type="button" onClick={() => setClosetOpen(true)}>
             {companion.name}’s closet
           </button>
@@ -920,6 +995,13 @@ export function WardrobeStoreLab({
                     >
                       Buy &amp; wear · {selectedItem.price}
                     </button>
+                  ) : null}
+                  {wallet && selectedOpinion?.companionConsentsToWear &&
+                  !storeState.ownedItemIds.includes(selectedItem.id) &&
+                  balance < selectedItem.price ? (
+                    <p className="wardrobe-store-lab__short">
+                      You need {selectedItem.price - balance} more coins. Finish a board to earn more.
+                    </p>
                   ) : null}
                   <button
                     type="button"

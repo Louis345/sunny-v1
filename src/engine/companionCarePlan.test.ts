@@ -192,6 +192,13 @@ describe("node chests survive a save and a load", () => {
       expect(loaded.economy.chestsSinceBonus).toBe(0);
       const replay = grantNodeChest(loaded, { homeworkId: "hw", nodeId: "warm-up", kind: "common", nowIso: at, roll: () => 0 });
       expect(replay.granted).toBe(false);
+      const { spendCallMinute } = await import("./companionCareEngine");
+      const spent = spendCallMinute(loaded, { receiptId: "call:m1", nowIso: at });
+      if (!spent.ok) throw Error("expected a minute");
+      saveCompanionCarePlan(chart, spent.plan);
+      const reloaded = loadCompanionCarePlanForChart(chart).plan;
+      expect(reloaded.economy.callMinutes).toBe(9);
+      expect(spendCallMinute(reloaded, { receiptId: "call:m1", nowIso: at })).toMatchObject({ ok: true, duplicate: true, minutesLeft: 9 });
     } finally {
       fs.rmSync(dir, { recursive: true, force: true });
     }

@@ -18,3 +18,9 @@ export function rewardCallHeldReason(
   if (cycle?.nodes?.some(node => (node.role === "quest" || node.role === "boss") && node.state !== "completed")) return "encounter_on_board";
   return null;
 }
+
+/** The earned call's page. The server redirects /companions to /companions/ because the companion
+ * models live in a folder of that name, so both spellings must open the call (BUGS.md 2026-11-07). */
+export function isCompanionCallPath(pathname: string): boolean {
+  return /^\/companions\/?$/.test(pathname);
+}

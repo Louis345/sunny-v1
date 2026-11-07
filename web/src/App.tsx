@@ -111,7 +111,7 @@ import {
 import { resolveSunnyRuntimeConfig } from "../../src/shared/runtimeConfig";
 import { BossDropReveal } from "./components/BossDropReveal";
 import { NodeTreasureChest, chestFromServer, type ServerNodeChest } from "./components/NodeTreasureChest";
-import { rewardCallHeldReason } from "./utils/rewardCallOffer";
+import { isCompanionCallPath, rewardCallHeldReason } from "./utils/rewardCallOffer";
 import type { PostActivityAction } from "../../src/engine/choiceEvents";
 import {
   playAdventureBoardSfx,
@@ -2003,7 +2003,7 @@ function App() {
     };
   }, [profileApiChildId, profileReloadNonce]);
 
-  if (import.meta.env.VITE_MODE === "intro" || window.location.pathname === "/companions") {
+  if (import.meta.env.VITE_MODE === "intro" || isCompanionCallPath(window.location.pathname)) {
     return <CompanionShowroomPage />;
   }
 

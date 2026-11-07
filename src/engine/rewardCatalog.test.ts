@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { REWARD_CATALOG, eligibleDrops, dropChance, collectionView } from "../shared/rewardCatalog";
+import { CHEST_TABLE, PRICE_LIST, REWARD_CATALOG, eligibleDrops, dropChance, collectionView } from "../shared/rewardCatalog";
 import { REWARD_GAMES } from "../shared/gameRegistry.generated";
 
 // Owner, 2026-11-07: one catalog of everything she can earn, shown greyed out until she finds it in a chest,
@@ -38,4 +38,16 @@ describe("reward catalog", () => {
     expect(locked.bestChest).toBeTruthy();
     expect(locked.bestChance).toBeGreaterThan(0);
   });
+});
+
+// Owner, 2026-11-07 (option B, tuned on a replay of the girls' real history): a typical session earns a
+// treat or two (a call top-up or a game) but never a dress; a dress is a goal she saves for over the week.
+it("a typical session pays for a small treat but not a dress", () => {
+  const typicalSession = 5 * CHEST_TABLE.common.coins + CHEST_TABLE.rare.coins;
+  expect(typicalSession).toBeGreaterThanOrEqual(PRICE_LIST.callMinutes5);
+  expect(typicalSession).toBeGreaterThanOrEqual(PRICE_LIST.gamePlay);
+  const cheapestDress = Math.min(...REWARD_CATALOG.filter(item => item.name.includes("Dress") && item.price).map(item => item.price!));
+  expect(cheapestDress).toBeGreaterThanOrEqual(2 * typicalSession);
+  const outfitTotal = REWARD_CATALOG.reduce((sum, item) => sum + (item.price ?? 0), 0);
+  expect(outfitTotal).toBeGreaterThanOrEqual(10 * typicalSession);
 });

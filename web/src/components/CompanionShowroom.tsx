@@ -74,6 +74,7 @@ import {
   type WardrobeStoreDebugEvent,
 } from "./WardrobeStoreLab";
 import { WardrobeCompatibilityLab } from "./WardrobeCompatibilityLab";
+import { CallClock, type CallClockMoment } from "./CallClock";
 import {
   WARDROBE_STORE_CERTIFICATION_CASES,
   isWardrobeReadyForHumanReview,
@@ -124,6 +125,8 @@ import {
   type CompanionVideoCallLayout,
 } from "./CompanionVideoCallOverlay";
 
+/** After the goodbye line (capped at 3.2 s), the earned call returns to the map. */
+const SHOWROOM_FAREWELL_TO_MAP_MS = 3600;
 export const DEFAULT_SHOWROOM_THEME = "aurora";
 
 export const SHOWROOM_THEMES = [
@@ -1434,6 +1437,7 @@ export function createShowroomTalkPayload(args: {
   lastVisualSummary?: string;
   shoppingContext?: WardrobeShoppingContext;
   shoppingEvent?: ShowroomShoppingEvent;
+  callClockEvent?: CallClockMoment;
 }): {
   childId: string;
   companionId: string;
@@ -1453,6 +1457,7 @@ export function createShowroomTalkPayload(args: {
   lastVisualSummary?: string;
   shoppingContext?: WardrobeShoppingContext;
   shoppingEvent?: ShowroomShoppingEvent;
+  callClockEvent?: CallClockMoment;
 } {
   const { activeActivity, activityReaction, ...payload } = args;
   return {
@@ -3716,6 +3721,11 @@ export function CompanionShowroom({
       ),
     [childName],
   );
+  /** The earned call (owner, 2026-11-07): the outfit shop opens on her saved coins; the lab flag keeps demo coins. */
+  const earnedCallWallet = activeVideoCallContext.callSource === "game_reward" && talkChildId !== "showroom"
+    ? { childId: talkChildId }
+    : undefined;
+  const wardrobeShopEnabled = wardrobeLabEnabled || Boolean(earnedCallWallet);
   useEffect(() => {
     if (!generatedBonusUrl || typeof window === "undefined") return;
     const homeworkId = new URLSearchParams(window.location.search).get("homeworkId")?.trim();
@@ -4934,6 +4944,7 @@ export function CompanionShowroom({
         visualReason?: string;
         turnId?: string;
         shoppingContextOverride?: WardrobeShoppingContext;
+        callClockEvent?: CallClockMoment;
       },
     ) => {
       if (!current || picking || shouldGateShowroomTalkMic(showroomTalkPhaseRef.current)) {
@@ -5037,7 +5048,8 @@ export function CompanionShowroom({
       setShowroomTalkOpen(talkMode !== "video_call");
       setShowroomTalkError(null);
       setShowroomTalkResponse("");
-      setShowroomTalkQuestion(question);
+      // A call clock moment is the app speaking, not the child; never echo it into her text box.
+      if (!options?.callClockEvent) setShowroomTalkQuestion(question);
       setShowroomTalkPhase("thinking");
       setCurrentCompanionCamera("mid-shot", 420);
       applyShowroomThinkingBodyLanguage({
@@ -5068,6 +5080,7 @@ export function CompanionShowroom({
             callSource: activeVideoCallContext.callSource,
             relationshipState: activeVideoCallContext.relationshipState,
           }),
+          ...(talkMode === "video_call" && options?.callClockEvent && { callClockEvent: options.callClockEvent }),
           ...(talkMode === "video_call" &&
             (options?.shoppingContextOverride ?? wardrobeShoppingContext) && {
               shoppingContext:
@@ -6418,7 +6431,7 @@ export function CompanionShowroom({
 
   const openWardrobeStoreFromCall = useCallback(() => {
     if (
-      !wardrobeLabEnabled ||
+      !wardrobeShopEnabled ||
       !current ||
       !wardrobePresentation ||
       !showroomVideoChatOpen
@@ -6432,7 +6445,7 @@ export function CompanionShowroom({
     current,
     disableWardrobeHandsFreeListening,
     showroomVideoChatOpen,
-    wardrobeLabEnabled,
+    wardrobeShopEnabled,
     wardrobePresentation,
   ]);
 
@@ -7425,7 +7438,7 @@ export function CompanionShowroom({
               slot={slot.slot}
               instantAvatarSwitch={showroomAvatarSwitching}
               active={
-                !spotlightOpen && !(wardrobeLabEnabled && wardrobeStoreOpen)
+                !spotlightOpen && !(wardrobeShopEnabled && wardrobeStoreOpen)
               }
               displayScaleOverride={showroomCharacterScaleOverrides[slot.entry.id]}
               soleFlankPair={isPairDuo}
@@ -7433,17 +7446,17 @@ export function CompanionShowroom({
               vfxLevel={slot.slot === "current" ? signatureMoveLevel : "idle"}
               getAnalyser={getSpeechAnalyser}
               wardrobeAccessoryId={
-                wardrobeLabEnabled && slot.slot === "current"
+                wardrobeShopEnabled && slot.slot === "current"
                   ? wardrobeAccessoryId
                   : "none"
               }
               wardrobeOutfitId={
-                wardrobeLabEnabled && slot.slot === "current"
+                wardrobeShopEnabled && slot.slot === "current"
                   ? effectiveWardrobeOutfitId
                   : "none"
               }
               wardrobeOutfitMaterialVariant={
-                wardrobeLabEnabled && slot.slot === "current"
+                wardrobeShopEnabled && slot.slot === "current"
                   ? effectiveWardrobeOutfitMaterialVariant
                   : null
               }
@@ -7452,7 +7465,7 @@ export function CompanionShowroom({
             />
           ))}
         </AnimatePresence>
-        {wardrobeLabEnabled &&
+        {wardrobeShopEnabled &&
           wardrobeStoreOpen &&
           !spotlightOpen &&
           current &&
@@ -7491,6 +7504,7 @@ export function CompanionShowroom({
             }}
             onWardrobeChange={handleWardrobeStoreChange}
             onShoppingContextChange={handleWardrobeShoppingContextChange}
+            wallet={earnedCallWallet}
             onDebugEvent={
               wardrobeDebugEnabled ? handleWardrobeDebugEvent : undefined
             }
@@ -7910,6 +7924,22 @@ export function CompanionShowroom({
 	        )}
 	      </AnimatePresence>
 
+	      {activeVideoCallContext.callSource === "game_reward" && talkChildId !== "showroom" && (
+	        <CallClock
+	          childId={talkChildId}
+	          callId={showroomVideoCallTraceId ?? "earned-call"}
+	          active={showroomVideoChatOpen && (showroomVideoCallPhase === "answered" || showroomVideoCallPhase === "live")}
+	          onMoment={(moment) => {
+	            console.log(` 🎮 [call-clock] [moment] ${moment} child=${talkChildId}`);
+	            void submitShowroomTalkQuestion("(call clock)", { source: "video_call", callClockEvent: moment });
+	          }}
+	          onGoodbye={() => {
+	            console.log(` 🎮 [call-clock] [goodbye] child=${talkChildId}`);
+	            endShowroomVideoChatWithFarewell();
+	            window.setTimeout(() => window.location.assign("/"), SHOWROOM_FAREWELL_TO_MAP_MS);
+	          }}
+	        />
+	      )}
 	      <CompanionVideoCallOverlay
 	        open={showroomVideoChatOpen && !wardrobeStoreOpen}
 	        companionName={current.name}
@@ -7981,7 +8011,7 @@ export function CompanionShowroom({
 	        onLayoutChange={setVideoCallLayout}
 	        onCompanionViewChange={setVideoCallCompanionView}
 	        onCopyTraceLink={copyShowroomVideoTraceLink}
-	        onGoShopping={wardrobeLabEnabled ? openWardrobeStoreFromCall : undefined}
+	        onGoShopping={wardrobeShopEnabled ? openWardrobeStoreFromCall : undefined}
 	        onAskVoice={startShowroomVideoCallListening}
 	        onQuestionChange={(value) => {
 	          setShowroomTalkQuestion(value);

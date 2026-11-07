@@ -1365,3 +1365,41 @@ describe("companion showroom talk contract", () => {
   });
 
 });
+
+// Owner, 2026-11-07: Elli reacts to the call clock in her own words, from facts the server owns.
+describe("call clock events", () => {
+  const voiceOptions = [{ id: "voice_a", label: "Voice A", language: "en", default: true }];
+  const base = { childId: "ila", companionId: "elli", voiceId: "voice_a", showroomTheme: "crystal", question: "(call clock)", mode: "video_call" };
+  const opts = { routeCompanionId: "elli", voiceOptions, fallbackVoiceId: "voice_a" };
+
+  it("accepts only known clock events, and only on a video call", () => {
+    const ok = resolveShowroomTalkRequest({ ...base, callClockEvent: "minute_left" }, opts);
+    expect(ok).toMatchObject({ ok: true, request: { callClockEvent: "minute_left" } });
+    expect(resolveShowroomTalkRequest({ ...base, callClockEvent: "free_coins" }, opts)).toMatchObject({ ok: false, error: "invalid_call_clock_event" });
+    const notCall = resolveShowroomTalkRequest({ ...base, mode: undefined, callClockEvent: "time_up" }, opts);
+    expect(notCall.ok && "callClockEvent" in notCall.request).toBe(false);
+  });
+
+  it("tells her the saved facts and that the clock, not the child, spoke", () => {
+    const prompt = buildShowroomTalkSystemPrompt({ companionId: "elli", companionName: "Elli", showroomTheme: "crystal", personality: "warm", mode: "video_call",
+      callClock: { event: "time_up", minutesLeft: 0, coins: 12, price: 30, minutes: 5 } });
+    expect(prompt).toContain("Live call clock event: call time is up");
+    expect(prompt).toContain("12 coins");
+    expect(prompt).toContain("5 more minutes cost 30 coins");
+    expect(prompt).toContain("not from words spoken by the child");
+  });
+
+  it("counts the minute she is using when she buys more time", () => {
+    const prompt = buildShowroomTalkSystemPrompt({ companionId: "elli", companionName: "Elli", showroomTheme: "crystal", personality: "warm", mode: "video_call",
+      callClock: { event: "minutes_bought", minutesLeft: 4, coins: 10, price: 30, minutes: 5 } });
+    expect(prompt).toContain("about 5 minutes are left now");
+  });
+
+  it("tells her plainly when the child cannot afford more time", () => {
+    const prompt = buildShowroomTalkSystemPrompt({ companionId: "elli", companionName: "Elli", showroomTheme: "crystal", personality: "warm", mode: "video_call",
+      callClock: { event: "time_up", minutesLeft: 0, coins: 12, price: 30, minutes: 5 } });
+    expect(prompt).toContain("She cannot afford more time yet; she needs 18 more coins. Do not offer to buy time");
+    expect(buildShowroomTalkSystemPrompt({ companionId: "elli", companionName: "Elli", showroomTheme: "crystal", personality: "warm", mode: "video_call",
+      callClock: { event: "time_up", minutesLeft: 0, coins: 40, price: 30, minutes: 5 } })).toContain("She can afford more time.");
+  });
+});

@@ -300,7 +300,7 @@ import {
 } from "./companionVideoCallTrace";
 import type { SunnyRuntimeOverrides } from "../shared/runtimeConfig";
 import { resolveSunnyRuntimeConfig } from "../shared/runtimeConfig";
-import { reconcileCompanionCareCurrencyAward, purchaseForChild } from "./currencyAward";
+import { callClockForChild, reconcileCompanionCareCurrencyAward, purchaseForChild, showroomCallClockFacts, spendCallMinuteForChild, walletForChild } from "./currencyAward";
 import { companionPickerIdentity } from "./companionPickerRows";
 import { isSpellingPracticeContinuation } from "../engine/learningCycleRepository";
 import { advanceCanonicalCycleFromEvidence, pageTimeFromKiosk, recordCanonicalNodeCompletion, recordSpellingDiscoveryAttempt } from "../engine/learningCycleRuntime";
@@ -1168,6 +1168,26 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
     const known = offer?.kind === "call_minutes" ? offer.minutes === 5 : (offer?.kind === "game_play" || offer?.kind === "outfit") && typeof offer.itemId === "string";
     if (!childId || !receiptId || !offer || !known) return res.status(400).json({ ok: false, error: "purchase_request_invalid" });
     return res.json(purchaseForChild(childId, { receiptId, offer }));
+  });
+
+  // Owner, 2026-11-07: the earned call burns saved minutes; the server owns the clock.
+  app.get("/api/rewards/call/:childId", (req: Request, res: Response) => {
+    const childId = String(req.params.childId ?? "").trim().toLowerCase();
+    if (!childId) return res.status(400).json({ error: "childId required" });
+    return res.json(callClockForChild(childId));
+  });
+
+  app.get("/api/rewards/wallet/:childId", (req: Request, res: Response) => {
+    const childId = String(req.params.childId ?? "").trim().toLowerCase();
+    if (!childId) return res.status(400).json({ error: "childId required" });
+    return res.json(walletForChild(childId));
+  });
+
+  app.post("/api/rewards/call/minute", (req: Request, res: Response) => {
+    const childId = String(req.body?.childId ?? "").trim().toLowerCase();
+    const receiptId = typeof req.body?.receiptId === "string" ? req.body.receiptId.trim() : "";
+    if (!childId || !receiptId) return res.status(400).json({ ok: false, error: "call_minute_request_invalid" });
+    return res.json(spendCallMinuteForChild(childId, receiptId));
   });
 
   app.post("/api/learning-cycle/reward/open", (req: Request, res: Response) => {
@@ -2105,6 +2125,7 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
         conversationIntent: talk.conversationIntent,
         shoppingContext: talk.shoppingContext,
         shoppingEvent: talk.shoppingEvent,
+        callClock: talk.callClockEvent ? showroomCallClockFacts(talk.childId, talk.callClockEvent) : undefined,
         companionMemory,
       });
       const messages = buildShowroomClaudeMessages({
@@ -2742,6 +2763,7 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
           activeActivity: talk.activeActivity,
           activityReaction: talk.activityReaction,
           conversationIntent: talk.conversationIntent,
+          callClock: talk.callClockEvent ? showroomCallClockFacts(talk.childId, talk.callClockEvent) : undefined,
           companionMemory,
         });
         const messages = buildShowroomClaudeMessages({

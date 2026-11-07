@@ -1,10 +1,10 @@
 import fs from "fs";
 import os from "os";
 import path from "path";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { getChildChart } from "../profiles/childChart";
 import { loadCompanionCarePlanForChart } from "../profiles/companionCarePlan";
-import { purchaseForChild, reconcileCompanionCareCurrencyAward } from "./currencyAward";
+import { callClockForChild, purchaseForChild, reconcileCompanionCareCurrencyAward, showroomCallClockFacts, spendCallMinuteForChild, walletForChild } from "./currencyAward";
 
 function writeJson(file: string, value: unknown): void {
   fs.mkdirSync(path.dirname(file), { recursive: true });
@@ -98,5 +98,34 @@ describe("one coin balance", () => {
     expect(chart.companionCare.plan.economy.coins).toBe(10);
     expect(chart.learningProfile.companionCurrency).toBe(10);
     expect(purchaseForChild("reina", { receiptId: "r2", offer: { kind: "call_minutes", minutes: 5 } }, { rootDir })).toMatchObject({ ok: false, reason: "not_enough_coins", balance: 10 });
+  });
+
+  // Owner, 2026-11-07: the call clock burns saved minutes; bought minutes land in the same saved count.
+  it("the call clock reads and spends her saved minutes, and bought minutes add to them", () => {
+    const rootDir = setupRoot();
+    planWithCoins(rootDir, 40);
+    expect(callClockForChild("reina", { rootDir })).toMatchObject({ minutesLeft: 0, coins: 40, price: 30, minutes: 5 });
+    expect(spendCallMinuteForChild("reina", "call:m1", { rootDir })).toMatchObject({ ok: false, reason: "no_minutes", coins: 40 });
+    expect(purchaseForChild("reina", { receiptId: "r1", offer: { kind: "call_minutes", minutes: 5 } }, { rootDir })).toMatchObject({ ok: true, balance: 10, callMinutes: 5 });
+    expect(spendCallMinuteForChild("reina", "call:m1", { rootDir })).toMatchObject({ ok: true, minutesLeft: 4, coins: 10 });
+    expect(callClockForChild("reina", { rootDir })).toMatchObject({ minutesLeft: 4 });
+  });
+
+  // Owner, 2026-11-07: the outfit shop in the call spends the same coins and shows what she really owns.
+  it("the shop wallet is her saved coins and the rewards she owns", () => {
+    const rootDir = setupRoot();
+    planWithCoins(rootDir, 40);
+    expect(walletForChild("reina", { rootDir })).toEqual({ coins: 40, ownedRewardIds: [] });
+    purchaseForChild("reina", { receiptId: "r1", offer: { kind: "outfit", itemId: "outfit:cat-ears" } }, { rootDir });
+    expect(walletForChild("reina", { rootDir })).toEqual({ coins: 25, ownedRewardIds: ["outfit:cat-ears"] });
+  });
+
+  it("gives Elli the saved clock facts, and nothing when the chart cannot be read", () => {
+    const rootDir = setupRoot();
+    planWithCoins(rootDir, 40);
+    expect(showroomCallClockFacts("reina", "time_up", { rootDir })).toEqual({ event: "time_up", minutesLeft: 0, coins: 40, price: 30, minutes: 5 });
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    expect(showroomCallClockFacts("reina", "time_up", { rootDir: path.join(rootDir, "missing") })).toBeUndefined();
+    error.mockRestore();
   });
 });
