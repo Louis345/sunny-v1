@@ -3,25 +3,14 @@ import { fileURLToPath } from "node:url";
 import { readFile } from "node:fs/promises";
 import type { Plugin, ViteDevServer, PreviewServer } from "vite";
 import fitted from './src/lib/wardrobeFitted.generated.json';
+import { resolveWardrobeAssetFile } from '../src/shared/wardrobeAssetFiles';
 
 const assetRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../.sunny-sandbox/wardrobe");
-const archives: Readonly<Record<string, string>> = {
-  "sleeveless-dress.xwear": "sleeveless-dress/sleeveless_dress_Free.xwear",
-  "comet-hoodie.xwear": "vroid-hoodie/sunny-hoodie-neutral.xwear",
-  "constellation-blazer.xwear": "vroid-blazer/sunny-blazer.xwear",
-  "celtic-sweater.xwear": "celtic-sweater/Celtic_Holiday_V1_Blue.xwear",
-};
-
+const preparedUrls = (fitted as { url: string }[]).map((record) => record.url);
+/** One file map, shared with the kiosk server (src/server/wardrobeAssetRoute.ts). */
 export function resolveLocalWardrobeAsset(url: string): string | undefined {
-  const prefix = "/__wardrobe-assets/";
-  if (!url.startsWith(prefix)) return undefined;
-  const name = url.slice(prefix.length);
-  const prepared = (fitted as {url:string}[]).find(record => record.url === url);
-  if (prepared && /^prepared\/[a-z0-9-]+\.json$/.test(name)) return path.join(assetRoot, name);
-  const relative = Object.hasOwn(archives, name) ? archives[name] : undefined;
-  return relative ? path.join(assetRoot, relative) : undefined;
+  return resolveWardrobeAssetFile(url, { assetRoot, preparedUrls });
 }
-
 // Local development/preview only. Licensed raw archives never enter dist/public.
 export function localWardrobeAssets(): Plugin {
   const configure = (server: ViteDevServer | PreviewServer) => {

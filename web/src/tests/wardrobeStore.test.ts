@@ -196,10 +196,10 @@ describe("wardrobe store domain", () => {
     });
 
     expect(first.status).toBe("purchased");
-    expect(getWardrobeBalance(first.state)).toBe(75);
+    expect(getWardrobeBalance(first.state)).toBe(100 - WARDROBE_STORE_CATALOG.find((item) => item.id === "star-halo")!.price);
     expect(first.state.ownedItemIds).toContain("star-halo");
     expect(retry.status).toBe("duplicate");
-    expect(getWardrobeBalance(retry.state)).toBe(75);
+    expect(getWardrobeBalance(retry.state)).toBe(100 - WARDROBE_STORE_CATALOG.find((item) => item.id === "star-halo")!.price);
     expect(retry.state.ledger).toHaveLength(2);
   });
 

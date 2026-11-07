@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createStarterCompanionCarePlan } from "../engine/companionCareEngine";
+import { CHEST_TABLE } from "../shared/rewardCatalog";
 import { awardBossDropOnCompletion, awardNodeChestOnCompletion, rewardDropSystemEvent } from "./bossDropAward";
 
 const saved: unknown[] = [];
@@ -27,7 +28,7 @@ it("drops nothing for a Quest, an ordinary stop, or an unfinished Boss", () => {
 // Owner, 2026-11-06: every finished stop except the Boss opens a treasure chest; the Boss keeps its loot card.
 it("gives a chest for a finished ordinary stop, once, and none for the Boss or an unfinished stop", () => {
   const first = awardNodeChestOnCompletion(cycle("baseline"), "hw:b9:boss", () => 0.99);
-  expect(first?.chest).toMatchObject({ kind: "common", coins: 25 });
+  expect(first?.chest).toMatchObject({ kind: "common", coins: CHEST_TABLE.common.coins });
   expect(first?.balance).toBe(saved.at(-1) && (saved.at(-1) as { economy: { coins: number } }).economy.coins);
   expect(awardNodeChestOnCompletion(cycle("baseline"), "hw:b9:boss", () => 0)).toEqual(first);
   expect(awardNodeChestOnCompletion(cycle("boss"), "hw:b9:boss")).toBeUndefined();

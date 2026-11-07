@@ -69,8 +69,8 @@ describe("WardrobeStoreLab shopping call", () => {
     expect(screen.queryByRole("textbox", { name: "Talk to Elli" })).toBeNull();
     expect(screen.queryByLabelText("Talk with Elli")).toBeNull();
     expect(screen.getByRole("complementary", { name: "Shop items" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "View Royal Crown, 20 coins" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "View Navy Ribbon Dress, 60 coins" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "View Royal Crown, 50 coins" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "View Navy Ribbon Dress, 130 coins" })).toBeTruthy();
     expect(screen.queryByRole("button", { name: /Blue Celtic Sweater/ })).toBeNull();
     expect(screen.queryByRole("button", { name: /Galaxy Hero Outfit/ })).toBeNull();
     expect(screen.queryByRole("button", { name: /Comet Hoodie/ })).toBeNull();
@@ -124,7 +124,7 @@ describe("WardrobeStoreLab shopping call", () => {
     expect(renderCompanion).toHaveBeenLastCalledWith("full_body");
 
     fireEvent.click(
-      screen.getByRole("button", { name: "View Navy Ribbon Dress, 60 coins" }),
+      screen.getByRole("button", { name: "View Navy Ribbon Dress, 130 coins" }),
     );
     expect(renderCompanion).toHaveBeenLastCalledWith("portrait");
     expect(screen.getByLabelText("Elli live")).toContainElement(
@@ -219,7 +219,7 @@ describe("WardrobeStoreLab shopping call", () => {
     );
 
     fireEvent.click(
-      screen.getByRole("button", { name: "View Navy Ribbon Dress, 60 coins" }),
+      screen.getByRole("button", { name: "View Navy Ribbon Dress, 130 coins" }),
     );
     fireEvent.click(screen.getByRole("button", { name: "Try on Navy Ribbon Dress" }));
 
@@ -242,7 +242,7 @@ describe("WardrobeStoreLab shopping call", () => {
     );
 
     fireEvent.click(
-      screen.getByRole("button", { name: "View Navy Ribbon Dress, 60 coins" }),
+      screen.getByRole("button", { name: "View Navy Ribbon Dress, 130 coins" }),
     );
     fireEvent.click(screen.getByRole("button", { name: "Try on Navy Ribbon Dress" }));
     fireEvent.click(screen.getByRole("button", { name: "Talk to Elli by voice" }));
@@ -266,13 +266,13 @@ describe("WardrobeStoreLab shopping call", () => {
     );
 
     fireEvent.click(
-      screen.getByRole("button", { name: "View Navy Ribbon Dress, 60 coins" }),
+      screen.getByRole("button", { name: "View Navy Ribbon Dress, 130 coins" }),
     );
     fireEvent.click(screen.getByRole("button", { name: "Try on Navy Ribbon Dress" }));
     expect(screen.getByLabelText("Elli try-on stage")).toBeTruthy();
 
     fireEvent.click(
-      screen.getByRole("button", { name: "View Royal Crown, 20 coins" }),
+      screen.getByRole("button", { name: "View Royal Crown, 50 coins" }),
     );
 
     expect(screen.getByLabelText("Elli try-on stage")).toBeTruthy();
@@ -303,11 +303,11 @@ describe("WardrobeStoreLab shopping call", () => {
     );
 
     fireEvent.click(
-      screen.getByRole("button", { name: "View Navy Ribbon Dress, 60 coins" }),
+      screen.getByRole("button", { name: "View Navy Ribbon Dress, 130 coins" }),
     );
     fireEvent.click(screen.getByRole("button", { name: "Try on Navy Ribbon Dress" }));
     fireEvent.click(
-      screen.getByRole("button", { name: "View Rose Ribbon Dress, 65 coins" }),
+      screen.getByRole("button", { name: "View Rose Ribbon Dress, 150 coins" }),
     );
 
     expect(onWardrobeChange).toHaveBeenLastCalledWith({
@@ -335,7 +335,7 @@ describe("WardrobeStoreLab shopping call", () => {
     );
 
     fireEvent.click(
-      screen.getByRole("button", { name: "View Navy Ribbon Dress, 60 coins" }),
+      screen.getByRole("button", { name: "View Navy Ribbon Dress, 130 coins" }),
     );
     fireEvent.click(screen.getByRole("button", { name: "Try on Navy Ribbon Dress" }));
 
@@ -359,7 +359,7 @@ describe("WardrobeStoreLab shopping call", () => {
     );
 
     fireEvent.click(
-      screen.getByRole("button", { name: "View Navy Ribbon Dress, 60 coins" }),
+      screen.getByRole("button", { name: "View Navy Ribbon Dress, 130 coins" }),
     );
     fireEvent.click(screen.getByRole("button", { name: "Try on Navy Ribbon Dress" }));
 
@@ -440,7 +440,7 @@ describe("WardrobeStoreLab shopping call", () => {
     );
 
     expect(screen.queryByRole("button", { name: /Navy Ribbon Dress/ })).toBeNull();
-    expect(screen.getByRole("button", { name: "View Royal Crown, 20 coins" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "View Royal Crown, 50 coins" })).toBeTruthy();
   });
 
   it("publishes exact store truth for the companion conversation", async () => {
@@ -466,7 +466,7 @@ describe("WardrobeStoreLab shopping call", () => {
       ),
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "View Royal Crown, 20 coins" }));
+    fireEvent.click(screen.getByRole("button", { name: "View Royal Crown, 50 coins" }));
 
     await waitFor(() =>
       expect(onShoppingContextChange).toHaveBeenLastCalledWith(
@@ -524,7 +524,7 @@ describe("WardrobeStoreLab shopping call", () => {
     );
 
     fireEvent.click(
-      screen.getByRole("button", { name: "View Navy Ribbon Dress, 60 coins" }),
+      screen.getByRole("button", { name: "View Navy Ribbon Dress, 130 coins" }),
     );
     await waitFor(() =>
       expect(onDebugEvent).toHaveBeenCalledWith(
@@ -585,7 +585,7 @@ describe("WardrobeStoreLab shopping call", () => {
       />,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "View Royal Crown, 20 coins" }));
+    fireEvent.click(screen.getByRole("button", { name: "View Royal Crown, 50 coins" }));
 
     expect(
       screen.getByRole("alert", { name: "Elli is unavailable" }),

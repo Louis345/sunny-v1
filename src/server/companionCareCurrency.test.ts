@@ -2,6 +2,7 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 import { describe, expect, it, vi } from "vitest";
+import { REWARD_CATALOG } from "../shared/rewardCatalog";
 import { getChildChart } from "../profiles/childChart";
 import { loadCompanionCarePlanForChart } from "../profiles/companionCarePlan";
 import { callClockForChild, purchaseForChild, reconcileCompanionCareCurrencyAward, showroomCallClockFacts, spendCallMinuteForChild, walletForChild } from "./currencyAward";
@@ -114,10 +115,10 @@ describe("one coin balance", () => {
   // Owner, 2026-11-07: the outfit shop in the call spends the same coins and shows what she really owns.
   it("the shop wallet is her saved coins and the rewards she owns", () => {
     const rootDir = setupRoot();
-    planWithCoins(rootDir, 40);
-    expect(walletForChild("reina", { rootDir })).toEqual({ coins: 40, ownedRewardIds: [] });
+    planWithCoins(rootDir, 100);
+    expect(walletForChild("reina", { rootDir })).toEqual({ coins: 100, ownedRewardIds: [] });
     purchaseForChild("reina", { receiptId: "r1", offer: { kind: "outfit", itemId: "outfit:cat-ears" } }, { rootDir });
-    expect(walletForChild("reina", { rootDir })).toEqual({ coins: 25, ownedRewardIds: ["outfit:cat-ears"] });
+    expect(walletForChild("reina", { rootDir })).toEqual({ coins: 100 - REWARD_CATALOG.find(item => item.id === "outfit:cat-ears")!.price!, ownedRewardIds: ["outfit:cat-ears"] });
   });
 
   it("gives Elli the saved clock facts, and nothing when the chart cannot be read", () => {

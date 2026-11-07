@@ -1088,7 +1088,7 @@ export function WardrobeStoreLab({
           </div>
 
           <p className="wardrobe-store-lab__truth-note">
-            Demo currency · purchases do not change learning evidence.
+            {wallet ? "Coins earned from chests" : "Demo currency"} · purchases do not change learning evidence.
           </p>
         </aside>
       </div>

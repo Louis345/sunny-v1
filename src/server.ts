@@ -10,6 +10,7 @@ import { setupRoutes } from "./server/routes";
 import { handleWsConnection } from "./server/ws-handler";
 import { openKioskCharts } from "./chart/kioskLifecycle";
 import { endActiveVoiceSessions } from "./server/voice-session-registry";
+import { setupWardrobeAssetRoute } from "./server/wardrobeAssetRoute";
 
 const PORT = parseInt(process.env.PORT || "3001", 10);
 const isKiosk = process.argv.includes("--kiosk");
@@ -30,6 +31,9 @@ if (!serveStatic) {
     res.redirect(302, "/worlds/proof-of-concept.html");
   });
 }
+
+// Outfit files (local, git-ignored) at the address the app requests them; before the SPA fallback.
+setupWardrobeAssetRoute(app);
 
 // Serve built frontend in production (--serve-static flag)
 if (serveStatic) {

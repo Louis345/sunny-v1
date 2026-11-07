@@ -70,7 +70,8 @@ it("shows her real balance and buys through the server", async () => {
   const server = fakeServer({ coins: 100 });
   shop(SEED);
   await waitFor(() => expect(screen.getByText(/100 coins/)).toBeTruthy());
-  expect(screen.queryByText(/demo coins/)).toBeNull();
+  expect(screen.queryByText(/demo coins/i)).toBeNull();
+  expect(screen.queryByText(/demo currency/i)).toBeNull();
   buy(item);
   await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent(`${item.name} added to Elli’s closet · 100 → ${100 - item.price} coins`));
   expect(server.purchases).toEqual([{ childId: "ila", receiptId: `wardrobe:ila:${item.id}`, offer: { kind: "outfit", itemId: reward.id } }]);

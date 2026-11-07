@@ -14,7 +14,7 @@ import {
   spendCallMinute,
 } from "./companionCareEngine";
 import type { CompanionCarePlan } from "../shared/companionCareTypes";
-import { CALL_RULES, PRICE_LIST, REWARD_CATALOG } from "../shared/rewardCatalog";
+import { CALL_RULES, CHEST_TABLE, PRICE_LIST, REWARD_CATALOG } from "../shared/rewardCatalog";
 
 function plan(overrides: Partial<CompanionCarePlan["state"]> = {}): CompanionCarePlan {
   return {
@@ -246,9 +246,9 @@ describe("node treasure chests", () => {
   it("pays coins once, saves the chest, and shows the same chest again", () => {
     const first = grantNodeChest(plan(), { homeworkId: "hw", nodeId: "n1", kind: "common", nowIso: at, roll: () => 0.99 });
     expect(first.granted).toBe(true);
-    expect(first.chest).toMatchObject({ kind: "common", rarity: "common", coins: 25, bonusChance: 0.1 });
+    expect(first.chest).toMatchObject({ kind: "common", rarity: "common", coins: CHEST_TABLE.common.coins, bonusChance: CHEST_TABLE.common.bonusChance });
     expect(first.chest.bonus).toBeUndefined();
-    expect(first.plan.economy.coins).toBe(plan().economy.coins + 25);
+    expect(first.plan.economy.coins).toBe(plan().economy.coins + CHEST_TABLE.common.coins);
     const again = grantNodeChest(first.plan, { homeworkId: "hw", nodeId: "n1", kind: "common", nowIso: at, roll: () => 0 });
     expect(again.granted).toBe(false);
     expect(again.chest).toEqual(first.chest);
@@ -264,15 +264,15 @@ describe("node treasure chests", () => {
     const luckyRolls = [0.25, 0.9];
     const lucky = grantNodeChest(second.plan, { homeworkId: "hw", nodeId: "c", kind: "common", nowIso: at, roll: () => luckyRolls.shift()! });
     expect(lucky.chest.bonusChance).toBeCloseTo(0.3);
-    expect(lucky.chest.bonus).toEqual({ kind: "call_minutes", minutes: 5 });
-    expect(lucky.plan.economy.callMinutes).toBe(5);
+    expect(lucky.chest.bonus).toEqual({ kind: "call_minutes", minutes: CHEST_TABLE.common.minutes });
+    expect(lucky.plan.economy.callMinutes).toBe(CHEST_TABLE.common.minutes);
     expect(lucky.plan.economy.chestsSinceBonus).toBe(0);
   });
 
   it("rolls a mystery chest's rarity and pays that rarity's chest", () => {
     const rolls = [0.9, 0.99];
     const mystery = grantNodeChest(plan(), { homeworkId: "hw", nodeId: "m", kind: "mystery", nowIso: at, roll: () => rolls.shift()! });
-    expect(mystery.chest).toMatchObject({ kind: "mystery", rarity: "epic", coins: 60 });
+    expect(mystery.chest).toMatchObject({ kind: "mystery", rarity: "epic", coins: CHEST_TABLE.epic.coins });
   });
 });
 
@@ -297,7 +297,7 @@ describe("chests drop collection items", () => {
     const owned = current.inventory.rewards ?? [];
     expect(new Set(owned).size).toBe(owned.length);
     const last = grantNodeChest(current, { homeworkId: "hw", nodeId: "last", kind: "common", nowIso: at, roll: rolls(0, 0, 0) });
-    expect(last.chest.bonus).toEqual({ kind: "call_minutes", minutes: 5 });
+    expect(last.chest.bonus).toEqual({ kind: "call_minutes", minutes: CHEST_TABLE.common.minutes });
   });
 });
 
