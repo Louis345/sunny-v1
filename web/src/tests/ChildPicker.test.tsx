@@ -69,3 +69,12 @@ it("gives the night sky depth and a shooting star", async () => {
   expect(sky.querySelector("[data-shooting-star]")).not.toBeNull();
   vi.useRealTimers();
 });
+
+it("lets the brightest stars sparkle", async () => {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(new Date(2026, 10, 7, 21, 0));
+  render(<ChildPicker onSelect={vi.fn()} />);
+  await waitFor(() => expect(screen.getByTestId("start-screen-sky").getAttribute("data-sky")).toBe("night"));
+  expect(screen.getByTestId("start-screen-sky").querySelectorAll("[data-sparkle]").length).toBeGreaterThanOrEqual(10);
+  vi.useRealTimers();
+});

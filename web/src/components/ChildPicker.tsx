@@ -155,6 +155,23 @@ function StartScreenSky({ sky }: { sky: StartSky }) {
                   transition={{ duration: star.duration, delay: star.delay, repeat: Infinity, ease: "easeInOut" }}
                 />
               ))}
+              {STARS.filter((star, index) => index % 2 === layer && star.size > 3).map((star, index) => (
+                <motion.span
+                  key={`sparkle-${index}`}
+                  data-sparkle
+                  className="absolute motion-reduce:hidden"
+                  style={{ left: star.left, top: star.top, width: 0, height: 0 }}
+                  initial={{ scale: 0, opacity: 0, rotate: 0 }}
+                  animate={{ scale: [0, 1, 0], opacity: [0, 1, 0], rotate: [0, 45, 90] }}
+                  transition={{ duration: 1.6, delay: star.delay * 2, repeat: Infinity, repeatDelay: 3 + star.duration, ease: "easeInOut" }}
+                >
+                  {[0, 90].map((angle) => (
+                    <span key={angle} className="absolute" style={{ left: -11 + star.size / 2, top: star.size / 2 - 0.75, width: 22, height: 1.5,
+                      borderRadius: 2, transform: `rotate(${angle}deg)`,
+                      background: "linear-gradient(90deg, rgba(255,250,235,0) 0%, rgba(255,250,235,0.95) 50%, rgba(255,250,235,0) 100%)" }} />
+                  ))}
+                </motion.span>
+              ))}
             </motion.div>
           ))}
           <motion.span
