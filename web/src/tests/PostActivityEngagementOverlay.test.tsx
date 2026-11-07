@@ -174,3 +174,12 @@ describe("PostActivityEngagementOverlay", () => {
     );
   });
 });
+
+// Caught by the browser acceptance runs (2026-11-07): with a treasure chest inside, the centred panel grew
+// taller than a 1280×720 screen and pushed Back to map out of reach. The panel scrolls instead.
+it("keeps its buttons reachable when its content is taller than the screen", () => {
+  render(<PostActivityEngagementOverlay title="Done" outcome={{ completed: true }} onAction={() => {}}><div style={{ height: 2000 }} /></PostActivityEngagementOverlay>);
+  const overlay = screen.getByTestId("post-activity-engagement-overlay");
+  expect(overlay.className).toContain("overflow-y-auto");
+  expect(overlay.className).not.toMatch(/(^|\s)justify-center(\s|$)/);
+});
