@@ -110,3 +110,4 @@ it("tells the call clock her new balance after a purchase", async () => {
   expect((heard.mock.calls[0][0] as CustomEvent).detail).toEqual({ childId: "ila", coins: 100 - item.price });
   window.removeEventListener("sunny:coins-changed", heard);
 });
+

@@ -67,6 +67,7 @@ import {
   type WardrobeOutfitId,
   type WardrobeSelection,
 } from "../lib/wardrobeStore";
+import { savedEquippedLook, type ServerWallet } from "../lib/wardrobeWallet";
 import {
   WardrobeStoreLab,
   type WardrobeShoppingContext,
@@ -125,8 +126,6 @@ import {
   type CompanionVideoCallLayout,
 } from "./CompanionVideoCallOverlay";
 
-/** After the goodbye line (capped at 3.2 s), the earned call returns to the map. */
-const SHOWROOM_FAREWELL_TO_MAP_MS = 3600;
 export const DEFAULT_SHOWROOM_THEME = "aurora";
 
 export const SHOWROOM_THEMES = [
@@ -3896,6 +3895,23 @@ export function CompanionShowroom({
   }, [current, wardrobePresentation]);
   const currentWardrobeModelUrl =
     wardrobePresentation?.bodyModelUrl ?? currentCompanionModelUrl;
+  // A fresh earned call starts in the look she saved, before the shop is ever opened (BUGS.md 2026-11-07).
+  const savedLookAppliedRef = useRef<string | null>(null);
+  useEffect(() => {
+    const childId = earnedCallWallet?.childId;
+    if (!childId || !current || !currentWardrobeModelUrl) return;
+    const key = `${childId}:${current.id}:${currentWardrobeModelUrl}`;
+    if (savedLookAppliedRef.current === key) return;
+    savedLookAppliedRef.current = key;
+    fetch(`/api/rewards/wallet/${encodeURIComponent(childId)}`)
+      .then((response) => (response.ok ? response.json() : Promise.reject(new Error(`status ${response.status}`))))
+      .then((wallet: ServerWallet) => {
+        const look = savedEquippedLook(window.localStorage, childId, wallet, current.id, currentWardrobeModelUrl);
+        console.log(` 🎮 [wardrobe-wallet] [call-start-look] [${look.outfitId}] child=${childId} companion=${current.id} accessory=${look.accessoryId}`);
+        if (look.outfitId !== "none" || look.accessoryId !== "none") handleWardrobeStoreChange(look);
+      })
+      .catch((error: unknown) => console.error(" 🎮 [wardrobe-wallet] [call-start-look] [failed]", error));
+  }, [earnedCallWallet?.childId, current, currentWardrobeModelUrl, handleWardrobeStoreChange]);
   const effectiveWardrobeOutfitId: WardrobeOutfitId =
     current &&
     isWardrobeOutfitCompatible(
@@ -6347,7 +6363,16 @@ export function CompanionShowroom({
     return `Bye! Come find ${name === "your friend" ? "me" : "me"} again soon.`;
   }, [companionRecognition, current]);
 
+  const closeShowroomVideoChatNow = closeShowroomVideoChat;
   const endShowroomVideoChatWithFarewell = useCallback(() => {
+    // An earned call always ends on her own map, however it ends (BUGS.md 2026-11-07).
+    const earnedChildId = earnedCallWallet?.childId;
+    const closeShowroomVideoChat = () => {
+      closeShowroomVideoChatNow();
+      if (!earnedChildId) return;
+      console.log(` 🎮 [call-clock] [return-to-map] child=${earnedChildId}`);
+      window.location.assign(`/?child=${encodeURIComponent(earnedChildId)}`);
+    };
     if (farewellInFlightRef.current) {
       closeShowroomVideoChat();
       return;
@@ -6412,8 +6437,9 @@ export function CompanionShowroom({
       .catch(() => undefined);
   }, [
     buildShowroomFarewellLine,
-    closeShowroomVideoChat,
+    closeShowroomVideoChatNow,
     current,
+    earnedCallWallet?.childId,
     playCurrentCompanionAnimation,
     videoCallStt,
     voiceSelections,
@@ -7936,7 +7962,6 @@ export function CompanionShowroom({
 	          onGoodbye={() => {
 	            console.log(` 🎮 [call-clock] [goodbye] child=${talkChildId}`);
 	            endShowroomVideoChatWithFarewell();
-	            window.setTimeout(() => window.location.assign("/"), SHOWROOM_FAREWELL_TO_MAP_MS);
 	          }}
 	        />
 	      )}
