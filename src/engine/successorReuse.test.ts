@@ -366,3 +366,17 @@ it('marks a re-run built-in as reused in the catalog, from the order itself, wit
  const recorded=getChildChart(childId,opts).contentCatalog.items.find(row=>row.contentId===contentId)!;
  expect(recorded.reuseStatus).toBe('reuse');
 });
+
+// Owner, 2026-11-08: a creature encounter the Planner placed reaches the published stop, with that stop's
+// own questions as the charge items; the server rolls it only when she finishes the stop.
+it('carries the Planner\'s creature encounter mark onto the published stop with its own items',async()=>{
+ const f=fixture(),opts={rootDir:f.rootDir};
+ (f.decision.nextInstruments[0] as any).creatureEncounter={reason:'Both words are close to secure.'};
+ await runtime.advanceCanonicalCycleFromEvidence(f.request,opts);
+ vi.spyOn(canvas,'verifyPreparingBoardCanvas').mockResolvedValue(undefined);
+ const after=await prepareSuccessorBoard({childId,homeworkId,generateHtml:async()=>'<html></html>',generateArtwork:async()=>'/generated/world.jpeg',validate:async()=>({passed:true,failures:[]})},opts);
+ const board=currentBoardInstance(after);
+ const marked=after.nodes.filter(node=>board.nodeIds.includes(node.nodeId)&&node.creatureEncounter);
+ expect(marked).toHaveLength(1);
+ expect(marked[0].creatureEncounter).toEqual({reason:'Both words are close to secure.',itemIds:Object.keys(marked[0].evidenceContract.spellingItems!)});
+});

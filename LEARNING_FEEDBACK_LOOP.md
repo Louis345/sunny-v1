@@ -1,6 +1,6 @@
 # Sunny Learning Feedback Loop
 
-Contract version: 54
+Contract version: 55
 
 This document is the **sole normative** authority for how Sunny forms, tests, and revises learning claims. Product changes that alter this loop must update this contract version before implementation. Other documents may describe infrastructure or history, but they must link here instead of creating another learning doctrine.
 
@@ -27,6 +27,10 @@ How a new list begins is the Planner's decision. It may check every word first, 
 These record-keeping rules stay because they keep the record true, not because they limit choices: every answer is recorded as independent, assisted or practice exactly as it happened and code never upgrades one into another; a word with no independent answer is unknown; a word taught before it was ever checked is marked seen before baseline, so a later correct answer is not counted as learning gain; graded school results remain the final check of every prediction; and each Planner decision records its reasons and cited evidence.
 
 Measured per list against lists started the old way: graded test score, independent accuracy at Quest and Boss, time to the first reward, help requests, sessions that reach the end-of-board call, and the child's rating.
+
+## Creature encounters are rewards the Planner places (contract 55, owner 2026-11-08)
+
+A creature encounter is a reward, not an educational encounter like Quest or Boss. On a next board the Planner may mark at most one step for it and records why (for example, words close to secure); code never places one and caps it at one per board. When she finishes that step, the server rolls which creature appears, from the creature catalog's rules (starter, milestone, weekly try, seasonal try, otherwise a familiar friend she has caught). That randomness picks only the reward, like a chest's contents; it never selects an educational step, and the encounter never authorizes Quest or Boss. To catch it she spells the marked step's own words again: those answers are recorded as practice (assisted when she had help), never as independent, unseen or mastery evidence, because they come right after practice. Throwing, catching, missing, the creature, its bond and the den are engagement and reward records only; they never enter academic evidence. Measured against boards without one: replay, persistence, help requests, time to the end-of-board call, her rating, and later independent accuracy on the same words.
 
 ## Evidence-gated board progression
 
@@ -242,7 +246,7 @@ Adaptive memory carries factual observations, provenance, confidence, and uncert
 - Parallel factsheets, writable mirrors, or competing learning-loop doctrines.
 - Appending, removing, relocking, or repurposing nodes of a published board.
 - Locked, teaser, or placeholder markers for an encounter the Planner has not authorized.
-- Code-level randomness selecting an educational step or encounter.
+- Code-level randomness selecting an educational step or encounter. (Rolling which creature appears in a Planner-placed creature encounter picks a reward, not a step.)
 
 ## Cross-domain contract
 

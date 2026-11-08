@@ -214,4 +214,39 @@ describe("spelling next-board tools", () => {
     const { call } = session(facts({ evaluationIds: [] }));
     expect(call("decide", decision({ prediction_evaluation_ids: [] }))).toMatchObject({ ok: true });
   });
+
+  // Owner, 2026-11-08: the Planner chooses when a creature appears (its reason is recorded); code caps one per board.
+  describe("placing the board's creature encounter", () => {
+    it("is not offered on an older frozen question, so its replay keeps the exact tools", () => {
+      const add = spellingSuccessorToolkit({ ...facts(), creatureEncounters: undefined }).tools.find(row => row.name === "add_step")!;
+      expect(add.schema.safeParse({ ...step("act-3", "Radar Again"), creature_encounter: "why" }).success).toBe(false);
+    });
+
+    it("lets the Planner mark one step with its reason, refuses a second, and carries it into the decision", () => {
+      const { kit, state, call } = session(facts({ creatureEncounters: true }));
+      call("decide", decision());
+      const a = (call("add_step", { ...step("act-3", "Radar Again"), creature_encounter: "Write and gnat are nearly secure; a high-stakes recall will show it." }) as any);
+      expect(a).toMatchObject({ ok: true, result: { creature_encounter: true } });
+      expect(call("add_step", { ...step("act-6", "Final Check"), creature_encounter: "Another one." })).toMatchObject({ ok: false, error: expect.stringContaining("one creature encounter") });
+      const b = (call("add_step", step("act-6", "Final Check")) as any).result.step_id;
+      call("set_order", { opening: [a.result.step_id], closing: [b] });
+      call("finish_board", { title: "Again", endpoint_label: "Done", single_path_reason: "Practice before the check." });
+      call("finish_board", { title: "Again", endpoint_label: "Done", single_path_reason: "Practice before the check." });
+      const { decision: raw, journey } = kit.result(state);
+      const parsed = parseCanonicalProgressionDecision({ ...raw, boardDefinition: assembleAuthoredBoardDefinition(journey!, {}) });
+      expect(parsed.successor!.instruments[0].creatureEncounter).toEqual({ reason: "Write and gnat are nearly secure; a high-stakes recall will show it." });
+      expect(parsed.successor!.instruments[1].creatureEncounter).toBeUndefined();
+    });
+
+    it("places no creature unless the Planner asks for one", () => {
+      const { kit, state, call } = session(facts({ creatureEncounters: true }));
+      call("decide", decision());
+      const a = (call("add_step", step("act-3", "Radar Again")) as any).result.step_id;
+      call("set_order", { opening: [a], closing: [] });
+      call("finish_board", { title: "Again", endpoint_label: "Done", single_path_reason: "One stop." });
+      call("finish_board", { title: "Again", endpoint_label: "Done", single_path_reason: "One stop." });
+      const parsed = parseCanonicalProgressionDecision({ ...kit.result(state).decision, boardDefinition: assembleAuthoredBoardDefinition(kit.result(state).journey!, {}) });
+      expect(parsed.successor!.instruments.every((row) => row.creatureEncounter === undefined)).toBe(true);
+    });
+  });
 });

@@ -517,6 +517,8 @@ export type NextInstrumentPrescription = {
   mathematicalHook?: string;
   /** What the stop's picture on her map shows, written by the Planner. */
   picture?: string;
+  /** The board's one creature encounter, placed by the Planner with its reason (owner, 2026-11-08). */
+  creatureEncounter?: { reason: string };
   /** Marks the one Planner-authorized encounter on a Quest or Boss successor board. */
   encounter?: "quest" | "boss";
 };
@@ -1372,6 +1374,7 @@ function prepareSuccessorBoard(
       theme: prescription.theme,
       ...(design ? { design } : {}),
       openingScreen: { title: prescription.title, purpose: prescription.openingPurpose },
+      ...(prescription.creatureEncounter ? { creatureEncounter: { reason: prescription.creatureEncounter.reason, itemIds: (spellingItems ?? []).map(item => item.id) } } : {}),
       generationPrompt: prompt,
       prediction: {
         claim: `This ${role === "baseline" ? "support instrument" : role} follows the Planner decision: ${input.reason}`,

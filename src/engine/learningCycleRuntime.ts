@@ -504,6 +504,8 @@ function parseNextInstrument(value: unknown): NextInstrumentPrescription | undef
     ...(Array.isArray(row.items) ? { items: row.items.map(parseDirectItem) } : {}),
     ...(row.spelling !== undefined ? { spelling: validateSpellingPrescription(row.spelling) } : {}),
     ...(row.encounter === "quest" || row.encounter === "boss" ? { encounter: row.encounter } : {}),
+    ...(row.creatureEncounter && typeof (row.creatureEncounter as { reason?: unknown }).reason === "string" && String((row.creatureEncounter as { reason: string }).reason).trim()
+      ? { creatureEncounter: { reason: String((row.creatureEncounter as { reason: string }).reason).trim() } } : {}),
     ...Object.fromEntries(keys.map((key) => [key, String(row[key]).trim()])),
     ...Object.fromEntries(designKeys
       .filter((key) => typeof row[key] === "string" && String(row[key]).trim())
@@ -887,6 +889,8 @@ async function askPlanner(
       activities:(()=>{const menu=spellingActivityMenu(spellingActivityCatalog(cycle.childId));return menu.choices.map(id=>({id,checkpoint:menu.roles(id).includes("fresh_checkpoint"),setup:menu.setup(id)}));})(),
       ...(spellingActivityMenu(spellingActivityCatalog(cycle.childId)).offered.has("visual-explainer")?{explainer:{grade:chart.demographics?.grade,words:[...savedSpellingItems.values()].map(item=>({wordId:item.wordId,word:item.word}))}}:{}),
       evaluationIds,allowedActions:actions,idPrefix:`${cycle.homeworkId}-r${checkpointRevision}-step`,
+      // Owner, 2026-11-08: the Planner may place the board's one creature encounter (a reward; recorded as practice).
+      creatureEncounters:true,
       // The same check the re-run step applies, asked while the Planner is still choosing.
       rerunnable:(nodeId:string,wordIds:string[])=>{const source=builtIns.find(node=>node.nodeId===nodeId);return Boolean(source&&repointReusedSetup(source,`${nodeId}-check`,wordIds.map(wordId=>({id:`check:${wordId}`,wordId}))));}};
     const prompt=`You are Sunny's AI Planner, her spelling tutor. The goal: she wants to come back to Sunny, and she knows her words by the school test. Compare your preregistered theory and predictions with what she actually did and said, decide what happens next, and build her next board, using the tools.
