@@ -654,8 +654,11 @@ function App() {
         struggleSignals:struggled ? ['wrong_choice_or_timeout'] : []
       };
     });
+    // A finished run has ended, won or lost, so a loss still completes the stop; only quitting leaves it open (2026-11-08).
     const result={
       completed:won,
+      ended:true,
+      won,
       accuracy:wordsCorrect.current.length/WORDS.length,
       wordsCorrect:wordsCorrect.current,
       wordsStruggled:wordsWrong.current,
@@ -676,6 +679,7 @@ function App() {
       targetResults,
     };
     reportState(won?`Game won! Score: ${score}. ${wordsCorrect.current.length}/${WORDS.length} correct.`:`Game over. Score: ${score}.`,result);
+    console.log(` 🎮 [speed-catcher] [run-ended] [${won?'won':'lost'}]`);
     if(window.GameBridge?.awardCurrency) window.GameBridge.awardCurrency(score,'speed_catcher');
     setTimeout(()=>{ if(window.sendNodeComplete) window.sendNodeComplete(result); },2000);
   },[score]);

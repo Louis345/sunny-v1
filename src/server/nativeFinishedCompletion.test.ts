@@ -72,7 +72,9 @@ function fixture() {
 
 /** Human saw the loss screen but no saved participation. HTTP-success logs and
  * win-only lab paths missed it. Execute the actual endings and identity bridge. */
-function nativeEnding(game: "wordle" | "wheel", won: boolean): Record<string, unknown> {
+type NativeGame = "wordle" | "wheel" | "monster-stampede" | "speed-catcher";
+const GAME_FILES: Record<NativeGame, string> = { wordle: "wordle.html", wheel: "WheelOfFortune.html", "monster-stampede": "monster-stampede.html", "speed-catcher": "speed-catcher.html" };
+function nativeEnding(game: NativeGame, won: boolean): Record<string, unknown> {
   const messages: Array<Record<string, unknown>> = [];
   const params = new URLSearchParams({ nodeId: "native-practice", childId: "lab-child", sessionId: "host-launch", preview: "go-live", spellingItemBindings: JSON.stringify([{ itemId: "frozen-night", word: "night" }]) });
   const sandbox = {
@@ -81,11 +83,21 @@ function nativeEnding(game: "wordle" | "wheel", won: boolean): Record<string, un
     window: { parent: { postMessage: (message: Record<string, unknown>) => messages.push(message) } },
     nodeSent: false, gameOver: false, word: "night", triesUsed: won ? 1 : 6, lastGuess: won ? "night" : "light", startTime: Date.now() - 1000, targetResults: [],
     WORD_RAW: "night", wrongGuesses: won ? 0 : 6, ilaCoins: 110, wofSessionCoinDelta: (coins: number) => coins - 100,
+    // React arcade games (Monster Stampede, Speed Catcher): the real endGame callback with hooks stubbed.
+    WORDS_RAW: ["night"], WORDS: ["night"], score: won ? 30 : 10, completedRef: { current: false },
+    wordsCorrect: { current: won ? ["night"] : [] }, wordsWrong: { current: won ? [] : ["night"] },
+    timerRef: { current: 0 }, compTimerRef: { current: 0 }, SE: { fanfare() {}, gameover() {} },
+    setPhase() {}, setBubbles() {}, setCompMood() {}, setCompSpeech() {}, reportState() {},
+    setTimeout: (fn: () => void) => fn(), clearInterval() {}, clearTimeout() {},
   };
   vm.createContext(sandbox);
   vm.runInContext(fs.readFileSync(path.join(process.cwd(), "web/public/games/_contract.js"), "utf8"), sandbox);
-  const source = fs.readFileSync(path.join(process.cwd(), `web/public/games/${game === "wordle" ? "wordle.html" : "WheelOfFortune.html"}`), "utf8");
-  if (game === "wordle") {
+  const source = fs.readFileSync(path.join(process.cwd(), `web/public/games/${GAME_FILES[game]}`), "utf8");
+  if (game === "monster-stampede" || game === "speed-catcher") {
+    const start = source.indexOf("const endGame = useCallback(") + "const endGame = useCallback(".length;
+    const callback = source.slice(start, source.indexOf("},[score]);", start) + 1);
+    vm.runInContext(`startTime = { current: Date.now() - 1000 }; const endGame = ${callback};\nendGame(${won}); endGame(${won});`, sandbox);
+  } else if (game === "wordle") {
     vm.runInContext(`${source.slice(source.indexOf("function endGame("), source.indexOf("function runFlipThenApply("))}\nendGame(${won}); endGame(${won});`, sandbox);
   } else {
     const region = source.slice(source.indexOf(won ? "if (!isSolved" : "// Game-over detection"));
@@ -98,7 +110,9 @@ function nativeEnding(game: "wordle" | "wheel", won: boolean): Record<string, un
 }
 
 describe("finished native spelling participation", () => {
-  it.each(["wordle", "wheel"] as const)("saves an ended %s loss once, without a win award or invented answer", async game => {
+  // Owner, 2026-11-08: Ila lost Monster Stampede and the stop stayed open, so she replayed until she won.
+  // The arcade games reported a loss as completed:false with no ended flag, which reads as quitting.
+  it.each(["wordle", "wheel", "monster-stampede", "speed-catcher"] as const)("saves an ended %s loss once, without a win award or invented answer", async game => {
     const { post, current } = fixture();
     const result = nativeEnding(game, false);
     expect(result).toMatchObject({ completed: false, ended: true, won: false });
@@ -111,8 +125,10 @@ describe("finished native spelling participation", () => {
     expect(saved.observations).toHaveLength(1);
     expect(saved.observations[0]).toMatchObject({ itemId: "frozen-night", provenance: "practice", exposure: "previously_practiced" });
     expect(saved.observations[0].assistance.status).not.toBe("unassisted");
-    expect(saved.observations[0].result).toEqual(game === "wordle" ? { correct: false, score: 0 } : { observedErrorType: "response_not_captured" });
-    expect(saved.observations[0].childResponse).toBe(game === "wordle" ? "light" : undefined);
+    if (game === "wordle" || game === "wheel") {
+      expect(saved.observations[0].result).toEqual(game === "wordle" ? { correct: false, score: 0 } : { observedErrorType: "response_not_captured" });
+      expect(saved.observations[0].childResponse).toBe(game === "wordle" ? "light" : undefined);
+    }
     expect(saved.evidence.engagement[0].summary).toContain("won=false");
     expect((await post(result)).body.nodeState).toBe("completed");
     expect(current()).toEqual(saved);
@@ -121,7 +137,7 @@ describe("finished native spelling participation", () => {
   });
 
   // Owner, 2026-11-06: a win opens a wooden treasure chest that pays the stop's coins, once.
-  it.each(["wordle", "wheel"] as const)("opens one treasure chest for a %s win, paying its coins once", async game => {
+  it.each(["wordle", "wheel", "monster-stampede", "speed-catcher"] as const)("opens one treasure chest for a %s win, paying its coins once", async game => {
     const { post } = fixture();
     const result = nativeEnding(game, true);
     expect(result).toMatchObject({ completed: true, ended: true, won: true });

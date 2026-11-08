@@ -535,8 +535,11 @@ function App(){
         struggleSignals:struggled ? ['wrong_tile_or_hint_needed'] : []
       };
     });
+    // A finished run has ended, won or lost, so a loss still completes the stop; only quitting leaves it open (2026-11-08).
     const result={
       completed:won,
+      ended:true,
+      won,
       accuracy:wordsCorrect.current.length/WORDS_RAW.length,
       wordsCorrect:wordsCorrect.current,
       wordsStruggled:wordsWrong.current,
@@ -557,6 +560,7 @@ function App(){
       targetResults,
     };
     reportState(won?`Won! ${score} pts, ${wordsCorrect.current.length}/${WORDS_RAW.length} words.`:`Lost. ${score} pts.`,result);
+    console.log(` 🎮 [monster-stampede] [run-ended] [${won?'won':'lost'}]`);
     if(window.GameBridge?.awardCurrency) window.GameBridge.awardCurrency(score,'monster_stampede');
     setTimeout(()=>{ if(window.sendNodeComplete) window.sendNodeComplete(result); },2000);
   },[score]);
