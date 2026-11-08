@@ -411,6 +411,7 @@ export function resolvePlannerBoardLaunchNode(
     wordRadarItems: radarItems,
     spellingAssessment: packet.spellingInstruments?.[planNode?.id ?? boardNode.id]?.assessment,
     spellingItemBindings: packet.spellingInstruments?.[planNode?.id ?? boardNode.id]?.items.map(item => ({ itemId: item.itemId, word: item.display })),
+    itemBindings: packet.itemBindings?.[planNode?.id ?? boardNode.id],
     wordRadarConfig:
       type === "word-radar"
         ? planNode?.wordRadarConfig ?? boardWordRadarConfig(boardNode)
