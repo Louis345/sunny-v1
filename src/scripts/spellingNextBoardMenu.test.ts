@@ -33,7 +33,7 @@ const roots: string[] = [];
 afterEach(() => { vi.restoreAllMocks(); vi.unstubAllEnvs(); vi.unstubAllGlobals(); for (const root of roots.splice(0)) fs.rmSync(root, { recursive: true, force: true }); });
 
 /** Real intake, Discovery and Teaching board at $0, then the next-board decision. */
-async function playToNextBoard() {
+async function playToNextBoard(testDate?: string) {
   Object.assign(lab.planner, { requests: [], decisions: 0, teachingBoards: 0 });
   const childId = "ila", rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-next-board-menu-")); roots.push(rootDir);
   vi.stubEnv("SUNNY_CONTEXT_ROOT", path.join(rootDir, "src/context")); vi.stubEnv("SUNNY_ALLOW_REAL_CHILD_CONTEXT_ROOT", "true");
@@ -75,6 +75,12 @@ async function playToNextBoard() {
       attempt: { attemptId: `${node.nodeId}:${item.id}`, itemId: item.id, attemptedValue: item.word, observedAt: "2026-10-25T10:05:00Z" } }, opts));
     runtime.recordCanonicalNodeCompletion({ childId, homeworkId, nodeId: node.nodeId, sessionId: "lab-session", result: { completed: true, accuracy: 1, timeSpent_ms: 100,
       targetResults: Object.values(node.evidenceContract.spellingItems ?? {}).map(item => ({ target: item.id, correct: true, attemptedValue: item.word })) } }, opts);
+  }
+  // Her school test date as homework/current.json records it (Ila's list: Friday 2026-11-13).
+  if (testDate) {
+    const currentFile = path.join(childDir, "homework", "current.json");
+    const current = JSON.parse(fs.readFileSync(currentFile, "utf8"));
+    fs.writeFileSync(currentFile, JSON.stringify({ ...current, current: { ...current.current, testDate } }));
   }
   // The next board: the recorded Planner orders one step for every built-in the menu offers.
   await runtime.advanceCanonicalCycleFromEvidence({ childId, homeworkId }, opts);
@@ -155,6 +161,25 @@ it("gives every Planner one goal, that she wants to come back, and no do-not lin
     expect(instructions.filter((line: string) => /\b(do not|don't|never|must not)\b/i.test(line)), tool).toEqual([]);
     if (tool !== "submit_board") expect(prompt, tool).toContain("she wants to come back");
   }
+}, 120000);
+
+// 2026-11-08 owner (Ila's session): practice should move toward test conditions as the test nears. The school
+// test is full recall with no letters shown. The next-board Planner was told "by the school test" but never
+// the date: homework/current.json's testDate reached no Planner prompt. Nothing failed, so no log showed it;
+// the lab never asked what the Planner knows about the test. The goal and the facts, never a schedule.
+it("tells the next-board Planner the school test date, days left and test conditions, as facts", async () => {
+  const at = new Date(); at.setDate(at.getDate() + 5);
+  const testDate = `${at.getFullYear()}-${String(at.getMonth() + 1).padStart(2, "0")}-${String(at.getDate()).padStart(2, "0")}`;
+  await playToNextBoard(testDate);
+  const request = lab.planner.requests.find(row => row.tools?.some((item: any) => item.name === "decide"))!;
+  const first = request.messages[0].content;
+  const prompt: string = typeof first === "string" ? first : first.filter((block: any) => block.type === "text").map((block: any) => block.text).join("\n");
+  expect(prompt).toContain("she knows her words by the school test");
+  const weekday = at.toLocaleDateString("en-US", { weekday: "long" });
+  expect(prompt).toContain(`School test: ${weekday} ${testDate}, 5 days from today.`);
+  expect(prompt).toContain("At the school test she writes each word from memory with no letters shown.");
+  const instructions = prompt.split("\n").filter(line => !/^\s*[[{"]/.test(line) && line.length < 2000);
+  expect(instructions.filter(line => /\b(do not|don't|never|must not)\b/i.test(line))).toEqual([]);
 }, 120000);
 
 // 2026-11-08 owner: "gut the rules". The Planner gets the goal, facts about her and the tools, and the

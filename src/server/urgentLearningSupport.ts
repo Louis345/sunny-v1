@@ -22,6 +22,7 @@ import {
   type CurrentBoardSnapshot,
 } from "./currentBoardSnapshot";
 import { shouldPersistSessionData } from "../utils/runtimeMode";
+import { companionSpellingTestObjective } from "../engine/schoolTestObjective";
 
 export type UrgentIntentType =
   | "help_request"
@@ -217,8 +218,8 @@ export function prepareInstructionReadRequest(input: {
   };
 }
 
-function readCompanionCycle(childId: string) {
-  try { return getChildChart(childId).learningCycle; }
+function readCompanionChart(childId: string) {
+  try { return getChildChart(childId); }
   catch (error) {
     console.warn(" 🎮 [companion] [recorded-status] [unavailable]", error instanceof Error ? error.message : String(error));
     return undefined;
@@ -237,7 +238,8 @@ export function buildActivityCompanionContext(input: {
   screenReport?: ScreenReport | null;
 }): string {
   const reported = input.screenReport !== undefined;
-  const cycle = input.snapshot?.nodeId || reported ? readCompanionCycle(input.childId) : undefined;
+  const chart = input.snapshot?.nodeId || reported ? readCompanionChart(input.childId) : undefined;
+  const cycle = chart?.learningCycle;
   const snapshot = input.snapshot ? { ...input.snapshot,
     recordedActivityStatus: cycle?.nodes.find(node => node.nodeId === input.snapshot?.nodeId)?.state } : null;
   const activityState = buildCurrentBoardSnapshotContext(snapshot, { childSpeech: input.childSpeech });
@@ -274,10 +276,13 @@ export function buildActivityCompanionContext(input: {
       ...(assessment.instrument === "practice" ? [] : ["This word measures what she can do alone: let her make her own try before you give any letters, sounds or parts of it. Until her answer for this item is submitted, you may say the word again or encourage her."]),
     ].join("\n");
   }
-  return redactProtectedSpellingText([board, liveBoard, input.speechRate === undefined ? "" : `Configured speech speed: ${input.speechRate} (1=normal; resets on item or launch change).`, memory, helpObjective, spelling].filter(Boolean).join("\n\n"), input.snapshot);
+  // The school test as her goal plus facts (owner, 2026-11-08): Elli judges how much help fits.
+  const testObjective = cycle?.domain === "spelling" ? companionSpellingTestObjective({ cycle, homework: chart?.homework,
+    instrument: spelling ? assessment?.instrument : undefined }) : "";
+  return redactProtectedSpellingText([board, liveBoard, input.speechRate === undefined ? "" : `Configured speech speed: ${input.speechRate} (1=normal; resets on item or launch change).`, memory, helpObjective, testObjective, spelling].filter(Boolean).join("\n\n"), input.snapshot);
 }
 
-type CompanionCycle = NonNullable<ReturnType<typeof readCompanionCycle>>;
+type CompanionCycle = NonNullable<NonNullable<ReturnType<typeof readCompanionChart>>["learningCycle"]>;
 
 /** The current board's path, its saved progress and the next step: the only answer to "where did I leave off". */
 export function describeLiveBoardForCompanion(cycle: CompanionCycle): string {
