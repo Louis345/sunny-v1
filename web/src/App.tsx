@@ -112,6 +112,7 @@ import { resolveSunnyRuntimeConfig } from "../../src/shared/runtimeConfig";
 import { BossDropReveal } from "./components/BossDropReveal";
 import { NodeTreasureChest, chestFromServer, type ServerNodeChest } from "./components/NodeTreasureChest";
 import { isCompanionCallPath, rewardCallHeldReason } from "./utils/rewardCallOffer";
+import { pronunciationBoardCompletion } from "./utils/pronunciationBoardCompletion";
 import type { PostActivityAction } from "../../src/engine/choiceEvents";
 import { CallProgressBadge } from "./components/CallProgressBadge";
 import {
@@ -2609,6 +2610,8 @@ function App() {
                 accuracy: result.accuracy,
                 wordsAttempted: result.wordsAttempted,
               });
+              // The stop counts as done, like every other game (BUGS.md 2026-11-08).
+              completePlannerBoardActivity(pronunciationBoardCompletion(result, plannerBoardLaunch.node.spellingItemBindings ?? []));
             }}
             onPostActivityAction={(action, result) => {
               recordPlannerBoardPostActivityAction(action, plannerBoardLaunch.node, {
