@@ -814,7 +814,10 @@ async function askPlanner(
     !isSynthetic(observation.observationId) && !isSynthetic(observation.sourceId)
   ).map(plannerObservationView);
   const baselineEligibility = baselineQuestEvidenceEligibility(cycle);
-  const allowedProgressionActions: LearningProgressionAction[] = cycle.lifecycle === "baseline_evaluating" && !baselineEligibility.eligible
+  // Contract 54 (owner, 2026-11-07): for spelling the Planner decides when Quest is justified; the eligibility count
+  // is a fact it reads, not a gate. Math keeps its evidence boundary.
+  const encounterGate = cycle.domain !== "spelling";
+  const allowedProgressionActions: LearningProgressionAction[] = encounterGate && cycle.lifecycle === "baseline_evaluating" && !baselineEligibility.eligible
     ? ["generate_support", "collect_more_evidence"]
     : ["generate_support", "generate_quest", "generate_boss", "collect_more_evidence", "await_calibration"];
   const plannerModel = model ?? (cycle.domain === "spelling" ? process.env.SUNNY_EXPERIENCE_PLANNER_MODEL : undefined) ?? process.env.SUNNY_INGEST_MODEL ?? "claude-sonnet-5";
@@ -889,7 +892,7 @@ Saved spelling words:
 ${JSON.stringify([...savedSpellingItems.values()].map(item=>({wordId:item.wordId,word:item.word})))}
 Child chart context:
 ${JSON.stringify(childContext)}
-Baseline Quest eligibility (runtime truth boundary, not a mastery judgment):
+${encounterGate ? "Baseline Quest eligibility (runtime truth boundary, not a mastery judgment):" : "Fresh independent evidence so far (a fact for your decision, not a gate; Quest is your call):"}
 ${JSON.stringify(baselineEligibility)}
 Allowed progression actions: ${actions.join(", ")}
 ${actions.some(action=>action==="generate_quest"||action==="generate_boss")?`Quest and Boss use her own list words in new, fun content. Quest is the primer: a fun check of her words, the way a raid has a warm-up before its boss. Boss is the final check before the school test; it opens from her Quest results and always ends awaiting the graded test. When you choose generate_quest or generate_boss, add exactly one step with that encounter: a hidden-word check or her generated-game, where each word is hidden and she types it without help.
@@ -939,7 +942,7 @@ For spelling, Correct practice after long response time is not effortless recall
 Child chart context:
 ${JSON.stringify(childContext)}
 
-Baseline Quest eligibility (runtime truth boundary, not a mastery judgment):
+${encounterGate ? "Baseline Quest eligibility (runtime truth boundary, not a mastery judgment):" : "Fresh independent evidence so far (a fact for your decision, not a gate; Quest is your call):"}
 ${JSON.stringify(baselineEligibility)}
 Allowed progression actions for this lifecycle: ${allowedProgressionActions.join(", ")}
 
@@ -1086,7 +1089,7 @@ async function decideOnce(
   }
   assertPredictionCitations(decision,cycle);
   const citedEvaluationIds = decision.predictionEvaluationIds ?? [];
-  if (cycle.lifecycle === "baseline_evaluating"
+  if (cycle.domain !== "spelling" && cycle.lifecycle === "baseline_evaluating"
     && decision.progressionAction === "generate_quest"
     && !baselineQuestEvidenceEligibility(cycle).eligible) {
     throw new Error("canonical_progression_quest_requires_eligible_baseline_evidence");
@@ -1094,7 +1097,7 @@ async function decideOnce(
   if (cycle.lifecycle === "quest_evaluating" && !["generate_boss", "generate_support", "await_calibration"].includes(decision.progressionAction)) {
     throw new Error("canonical_progression_quest_action_invalid");
   }
-  if (cycle.lifecycle === "quest_evaluating" && decision.progressionAction === "generate_boss") {
+  if (cycle.domain !== "spelling" && cycle.lifecycle === "quest_evaluating" && decision.progressionAction === "generate_boss") {
     const completedQuests = cycle.nodes.filter((node) => node.role === "quest" && node.state === "completed");
     // Spelling's Quest checks her practiced list words, so its evidence is independent but never unseen.
     const hasUnassistedUnseenQuestEvidence = cycle.observations.some((observation) =>
