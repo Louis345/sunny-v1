@@ -31,6 +31,7 @@ export type ChildExperiencePacket = {
       lifecycle: string;
       revision: number;
       boardKind?: "probe" | "teaching" | "successor" | "legacy";
+      boardPublishedAt?: string | null;
     };
   };
   activeSessionPlan: ChildChart["activeSessionPlan"];
@@ -272,6 +273,8 @@ export function buildChildExperiencePacket(chart: ChildChart): ChildExperiencePa
             lifecycle: chart.learningCycle.lifecycle,
             revision: chart.learningCycle.revision,
             boardKind: chart.learningCycle.boards?.find(board => board.boardId === selectedPlan?.adventureBoard?.boardId)?.kind,
+            // When the board on screen was published: an earned call is offered only for the board just finished.
+            boardPublishedAt: chart.learningCycle.boards?.find(board => board.boardId === selectedPlan?.adventureBoard?.boardId)?.publishedAt ?? null,
           }
         : undefined,
     },

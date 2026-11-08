@@ -56,7 +56,6 @@ import {
 import { RewardDiagOverlay } from "./components/RewardDiagOverlay";
 import { RewardTriggerPanel } from "./components/RewardTriggerPanel";
 import { isRewardDiagEnabled, type RewardDiagEvent } from "./types/rewardDiag";
-import { CompanionShowroomPage } from "./CompanionShowroomPage";
 import { WordRadar } from "./components/WordRadar";
 import { FlowGameOverlay } from "./components/FlowGameOverlay";
 import { DIAG_WORD_RADAR_ITEMS } from "./fixtures/wordRadarDiagItems";
@@ -111,7 +110,8 @@ import {
 import { resolveSunnyRuntimeConfig } from "../../src/shared/runtimeConfig";
 import { BossDropReveal } from "./components/BossDropReveal";
 import { NodeTreasureChest, chestFromServer, type ServerNodeChest } from "./components/NodeTreasureChest";
-import { isCompanionCallPath, rewardCallHeldReason } from "./utils/rewardCallOffer";
+import { rewardCallHeldReason } from "./utils/rewardCallOffer";
+import { offerableCallTicket } from "./utils/callCompanion";
 import { pronunciationBoardCompletion } from "./utils/pronunciationBoardCompletion";
 import type { PostActivityAction } from "../../src/engine/choiceEvents";
 import { CallProgressBadge } from "./components/CallProgressBadge";
@@ -206,13 +206,13 @@ function CompanionEconomyControls(props: {
   callOffered: boolean;
   /** On the next-board screen only the call button shows (owner, 2026-11-08: call Elli while it builds). */
   callOnly?: boolean;
+  boardPublishedAt?: string | null;
   onOpenVideoCall: (ticket: { homeworkId: string; earnedAt: string; bonusUrl?: string }) => void;
 }) {
   const companionCare = useCompanionCare();
   const [shopOpen, setShopOpen] = useState(false);
-  const earnedTicket = companionCare.care?.economy.videoCallTickets?.find(
-    (ticket) => ticket.homeworkId === props.homeworkId && !ticket.openedAt,
-  );
+  // Offered only for the board she just finished; it does not carry over (owner, 2026-11-08).
+  const earnedTicket = offerableCallTicket(companionCare.care?.economy.videoCallTickets, props.homeworkId, props.boardPublishedAt);
   if (!props.visible) return null;
   return (
     <>
@@ -1617,10 +1617,12 @@ function App() {
       rewardId: "video_call_ticket",
       earnedBy: ticket.homeworkId,
       homeworkId: ticket.homeworkId,
+      // Her own companion answers the call (BUGS.md 2026-11-08: Ila's call greeted her as Matilda).
+      companion: plannerBoardPacket?.childChart.companion.id ?? effectiveCompanion?.companionId ?? "elli",
       ...(ticket.bonusUrl ? { bonusUrl: ticket.bonusUrl } : {}),
     });
     window.location.assign(`/companions?${query.toString()}`);
-  }, [adventureChildId, rewardCallHeld]);
+  }, [adventureChildId, rewardCallHeld, plannerBoardPacket?.childChart.companion.id, effectiveCompanion?.companionId]);
 
   const openEarnedVideoCall = useCallback(() => {
     const ticket = postActivityEngagement?.videoCallTicket;
@@ -2014,10 +2016,6 @@ function App() {
     };
   }, [profileApiChildId, profileReloadNonce]);
 
-  if (import.meta.env.VITE_MODE === "intro" || isCompanionCallPath(window.location.pathname)) {
-    return <CompanionShowroomPage />;
-  }
-
   if (kioskResting) {
     return (
       <KioskRestingScreen
@@ -2366,6 +2364,7 @@ function App() {
       <CompanionEconomyControls
         visible={homeworkBoardMode && !homeworkSessionFinished && plannerBoardLaunch == null}
         callOnly={preparationScreenActive}
+        boardPublishedAt={plannerBoardPacket?.childChart.learningCycle?.boardPublishedAt ?? null}
         companionName={
           plannerBoardPacket?.childChart.companion.displayName ??
           (effectiveCompanion?.companionId

@@ -14,11 +14,14 @@ import { ReturnedWorkPage } from "./components/ReturnedWorkPage";
 import { LearningReportPage } from "./components/LearningReportPage";
 import { announceKioskReady } from "./kioskReady";
 import { CompanionShowroomPage } from "./CompanionShowroomPage";
+import { isCompanionCallPath } from "./utils/rewardCallOffer";
 
 const runtimeConfig = resolveSunnyRuntimeConfig(import.meta.env);
 const diagReadingEnabled = import.meta.env.VITE_DIAG_READING === "true";
 const companionDiagEnabled = import.meta.env.VITE_COMPANION_DIAG === "true";
-const companionShowroomEnabled = import.meta.env.VITE_MODE === "intro";
+// The earned call is its own place (owner, 2026-11-08): on the call page the homework app never mounts, so no
+// homework session starts behind the call (BUGS.md 2026-11-08, FaceTime does not cut Elli off).
+const companionShowroomEnabled = import.meta.env.VITE_MODE === "intro" || isCompanionCallPath(window.location.pathname);
 const visualExplainerRenderEnabled = window.location.pathname === "/__render";
 const returnedWorkEnabled = window.location.pathname === "/parent/returned-work";
 const learningReportEnabled = window.location.pathname === "/parent/learning-report";

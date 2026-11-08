@@ -68,6 +68,7 @@ import {
   type WardrobeSelection,
 } from "../lib/wardrobeStore";
 import { savedEquippedLook, type ServerWallet } from "../lib/wardrobeWallet";
+import { callCompanionIndex } from "../utils/callCompanion";
 import {
   WardrobeStoreLab,
   type WardrobeShoppingContext,
@@ -3615,7 +3616,8 @@ export function CompanionShowroom({
   const wardrobeCompatibilityLabEnabled =
     typeof window !== "undefined" &&
     new URLSearchParams(window.location.search).get("wardrobeCompatibilityLab") === "true";
-  const [currentIndex, setCurrentIndex] = useState(0);
+  // An earned call opens on her own companion, named in the call address (BUGS.md 2026-11-08).
+  const [currentIndex, setCurrentIndex] = useState(() => callCompanionIndex(COMPANION_MANIFEST, typeof window === "undefined" ? "" : window.location.search));
   const [showroomAvatarSwitching, setShowroomAvatarSwitching] = useState(false);
   const [wardrobeAccessoryId, setWardrobeAccessoryId] =
     useState<WardrobeAccessoryId>("none");

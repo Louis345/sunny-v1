@@ -68,6 +68,9 @@ it("opens the earned call on either spelling of its address", () => {
   expect(isCompanionCallPath("/companions/")).toBe(true);
   expect(isCompanionCallPath("/companions/elli.vrm")).toBe(false);
   expect(isCompanionCallPath("/")).toBe(false);
+  // The call page is chosen before the homework app mounts, so no homework session starts behind the call.
+  const main = readFileSync(join(dirname(fileURLToPath(import.meta.url)), "../main.tsx"), "utf8");
+  expect(main).toMatch(/companionShowroomEnabled = [^;]*isCompanionCallPath\(window\.location\.pathname\)/);
   const app = readFileSync(join(dirname(fileURLToPath(import.meta.url)), "../App.tsx"), "utf8");
-  expect(app).toContain("isCompanionCallPath(window.location.pathname)");
+  expect(app).not.toContain("<CompanionShowroomPage");
 });
