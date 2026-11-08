@@ -39,8 +39,9 @@ export type StartSky = {
 export const START_SKIES: Record<StartSky["name"], StartSky> = {
   sunrise: { name: "sunrise", clouds: ["rgba(255,196,170,0.55)", "rgba(214,180,230,0.5)", "rgba(255,226,180,0.5)"], lights: "motes", text: "#4a3340", subtext: "#7a5a66",
     gradient: "linear-gradient(180deg, #b9b3d6 0%, #e3b9c0 48%, #f1cfae 100%)", glow: "rgba(255,190,140,0.45)" },
-  day: { name: "day", clouds: ["rgba(255,255,255,0.6)", "rgba(206,224,240,0.6)", "rgba(240,234,224,0.55)"], lights: "motes", text: "#33404d", subtext: "#5f6e7c",
-    gradient: "linear-gradient(180deg, #cddbe7 0%, #dfe5ea 60%, #e8e4de 100%)", glow: null },
+  // Owner 2026-11-08: the afternoon read as overcast; a clear sky warming to the horizon, with the sun's glow.
+  day: { name: "day", clouds: ["rgba(255,255,255,0.75)", "rgba(236,244,252,0.7)", "rgba(255,248,236,0.65)"], lights: "motes", text: "#33404d", subtext: "#5f6e7c",
+    gradient: "linear-gradient(180deg, #7fb6e3 0%, #a9d0ee 45%, #d6e8f2 75%, #f4e6cc 100%)", glow: "rgba(255,230,170,0.45)" },
   golden: { name: "golden", clouds: ["rgba(255,200,140,0.5)", "rgba(220,170,190,0.45)", "rgba(250,220,170,0.45)"], lights: "motes", text: "#45322a", subtext: "#735a4c",
     gradient: "linear-gradient(180deg, #c7c0cf 0%, #e0c2a8 55%, #d9a882 100%)", glow: "rgba(230,160,100,0.35)" },
   twilight: { name: "twilight", clouds: ["rgba(150,110,200,0.35)", "rgba(220,120,150,0.3)", "rgba(90,110,200,0.35)"], lights: "stars", text: "#f1eaf6", subtext: "#c7bdd6",
