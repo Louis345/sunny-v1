@@ -247,6 +247,18 @@ export function journeyFrontier(definition:AdventureJourneyDefinition, chosen:Re
   return {complete:true};
 }
 
+/** Stops left on her path before the board is finished (owner, 2026-11-07: show how close the call is). Follows the
+ * chosen route, or the first compatible route while a choice is open; a not-ready stop is passed over. */
+export function journeyStopsLeft(definition:AdventureJourneyDefinition, chosen:Readonly<Record<string,string>>, completed:readonly string[], notReady:readonly string[]=[]):number {
+  const selections = withCollapsedChoices(definition,chosen,notReady);
+  const execution = journeyExecutions(definition).find(candidate => Object.entries(selections).every(([key,value]) => candidate.selections[key] === undefined || candidate.selections[key] === value));
+  if (!execution) return 0;
+  const done = new Set([...completed,...notReady]);
+  const portals = new Map(definition.portals.map(portal => [portal.id,portal]));
+  const left = new Set(execution.portalIds.map(portalId => portals.get(portalId)?.activityNodeId).filter((id): id is string => Boolean(id) && !done.has(id!)));
+  return left.size;
+}
+
 /** A remembered selection on an unchosen branch remains history, not a visible fork.
  * On a board she may play in any order, a choice on her path is open until the board is done. */
 export function journeyChoiceAvailable(definition:AdventureJourneyDefinition,selections:Record<string,string>,completed:readonly string[],choiceId:string,notReady:readonly string[]=[],anyOrder=false):boolean {

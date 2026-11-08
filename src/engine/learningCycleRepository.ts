@@ -1,7 +1,7 @@
 import {journeyChoiceAvailable,unfinishedActivityClosesChoices} from '../shared/adventureBoardDefinition';
 import { letterRushConfig, spellingExplainerConfig, spellingNativeConfig } from "./spellingNativeSetup";
 import type { BoardCanvasProof } from './adventureBoardCanvas';
-import { renderBoardDefinition, journeyFrontier, type AdventureBoardDefinition } from '../shared/adventureBoardDefinition';
+import { renderBoardDefinition, journeyFrontier, journeyStopsLeft, type AdventureBoardDefinition } from '../shared/adventureBoardDefinition';
 import fs from "fs";
 import path from "path";
 import { createHash } from "crypto";
@@ -811,6 +811,14 @@ const notReadyNodeIds=(cycle:LearningCycleRecordV2)=>cycle.nodes.filter(node=>un
 export function canonicalJourneyFrontier(cycle:LearningCycleRecordV2) {
   const definition = currentBoardInstance(cycle).definition;
   return definition ? journeyFrontier(definition,cycle.routeSelection?.choices ?? {},cycle.nodes.filter(node=>node.state==='completed').map(node=>node.nodeId),notReadyNodeIds(cycle)) : undefined;
+}
+
+/** Stops left before this board ends and the FaceTime call is earned (owner, 2026-11-07). Only teaching and successor
+ * boards earn the call, so a Discovery probe board, a legacy cycle or a finished board reports nothing. */
+export function canonicalStopsLeft(cycle:LearningCycleRecordV2):number|undefined {
+  const board = currentBoardInstance(cycle);
+  if (!board.definition || !['teaching','successor'].includes(board.kind)) return undefined;
+  return journeyStopsLeft(board.definition,cycle.routeSelection?.choices ?? {},cycle.nodes.filter(node=>node.state==='completed').map(node=>node.nodeId),notReadyNodeIds(cycle));
 }
 
 // Prepared spelling practice is selectable; the authored path remains a recommendation.

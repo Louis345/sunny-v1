@@ -309,6 +309,7 @@ import { prepareSuccessorBoard } from "../engine/canonicalProgressionGenerator";
 import { successorPreparationStatus, successorResumeAction } from "../engine/learningBoardInstances";
 import {
   canonicalJourneyFrontier,
+  canonicalStopsLeft,
   assertJourneyChoiceAvailable,
   getLearningCycle,
   transitionLearningCycle,
@@ -1400,7 +1401,11 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
           message: "That assignment is no longer ready. Run homework ingestion before launching the board.",
         });
       }
-      res.json(buildChildExperiencePacket(chart));
+      // How close the FaceTime call is: stops left on this board (owner, 2026-11-07). Display only.
+      let stopsLeft: number | undefined;
+      try { stopsLeft = chart.learningCycle ? canonicalStopsLeft(chart.learningCycle) : undefined; }
+      catch (error) { console.warn(` 🎮 [AdventureBoard] [stops-left] [unavailable] child=${childId}`, error); }
+      res.json({ ...buildChildExperiencePacket(chart), ...(stopsLeft !== undefined ? { boardProgress: { stopsLeft } } : {}) });
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
       res.status(500).json({ error: message });

@@ -113,6 +113,7 @@ import { BossDropReveal } from "./components/BossDropReveal";
 import { NodeTreasureChest, chestFromServer, type ServerNodeChest } from "./components/NodeTreasureChest";
 import { isCompanionCallPath, rewardCallHeldReason } from "./utils/rewardCallOffer";
 import type { PostActivityAction } from "../../src/engine/choiceEvents";
+import { CallProgressBadge } from "./components/CallProgressBadge";
 import {
   playAdventureBoardSfx,
   playUnlockCeremonySfx,
@@ -2155,6 +2156,12 @@ function App() {
         </div>
       ) : (
         <div className="w-screen h-screen overflow-hidden relative bg-zinc-950">
+          {!plannerBoardLaunch && !postActivityEngagement ? (
+            <CallProgressBadge
+              stopsLeft={plannerBoardPacket?.boardProgress?.stopsLeft}
+              companionName={plannerBoardPacket?.childChart.companion.displayName ?? "your friend"}
+            />
+          ) : null}
           <AdventureBoardExperience
             packet={plannerBoardPacket}
             completedNodeIds={locallyCompletedPlannerNodeIds}

@@ -6,6 +6,8 @@ import { isSpellingPracticeContinuation } from "../engine/learningCycleRepositor
 import { readChoiceEvents } from "../engine/choiceEvents";
 
 export type ChildExperiencePacket = {
+  /** Stops left before this board ends and earns the FaceTime call (owner, 2026-11-07). Display only. */
+  boardProgress?: { stopsLeft: number };
   spellingEvaluationResults?: Array<{ display: string; correct?: boolean }>;
   /** Her first try at each word, and her latest try without help; a word with no such try has no `correct`. */
   spellingBoardResults?: Array<{ display: string; firstTry?: boolean; correct?: boolean }>;

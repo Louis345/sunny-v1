@@ -226,3 +226,14 @@ describe('board coordinates stay playable without vetoing the author', () => {
     } finally { log.mockRestore(); }
   });
 });
+
+// Owner, 2026-11-07: she should see how close the FaceTime call is. Stops left counts the unfinished activities on
+// her path (the chosen route, or the first route while a choice is still open); a not-ready stop is passed over.
+it('counts the stops left on her path until the board is finished', async () => {
+  const { journeyStopsLeft } = await import('../shared/adventureBoardDefinition');
+  const definition = authoredJourney();
+  expect(journeyStopsLeft(definition, {}, [])).toBe(3);
+  expect(journeyStopsLeft(definition, {order:'play'}, ['play'])).toBe(2);
+  expect(journeyStopsLeft(definition, {order:'play'}, ['play'], ['learn'])).toBe(1);
+  expect(journeyStopsLeft(definition, {order:'play'}, ['play','learn','check'])).toBe(0);
+});
