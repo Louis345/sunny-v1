@@ -73,9 +73,7 @@ function eventFor(
 }
 
 function rarityLabel(rarity: CapturedMonsterConfig["rarity"]): string {
-  if (rarity === "rare") return "Rare";
-  if (rarity === "uncommon") return "Uncommon";
-  return "Common";
+  return rarity.charAt(0).toUpperCase() + rarity.slice(1);
 }
 
 export function CapturedMonsterCard({

@@ -106,6 +106,8 @@ export interface SparkOrbLearningShellProps {
   companionName?: string;
   phase: SparkOrbEncounterPhase;
   chargeGoal?: number;
+  /** Answers charged so far when the encounter sets its own goal; otherwise read from the phase. */
+  chargeCount?: number;
   domain: string;
   currentTarget: string;
   lastMoment?: OrbLearningLastMoment;
@@ -582,6 +584,7 @@ export function SparkOrbLearningShell({
   companionName = companion.companionId,
   phase,
   chargeGoal = 3,
+  chargeCount: chargeCountProp,
   domain,
   currentTarget,
   lastMoment = "watching",
@@ -644,7 +647,11 @@ export function SparkOrbLearningShell({
   const displayCreatureName = creatureName ?? capturedCreature.speciesName;
   const displayStatLabel = statLabel ?? capturedCreature.statLabel;
   const displayStatValue = statValue ?? capturedCreature.statValue;
-  const phaseChargeCount = Math.min(chargeGoal, chargeCountForPhase(phase));
+  // A ready orb is full whatever the goal; before that, an explicit count wins over the phase's.
+  const phaseChargeCount =
+    phase === "ready" || phase === "launching" || phase === "collected"
+      ? chargeGoal
+      : Math.min(chargeGoal, chargeCountProp ?? chargeCountForPhase(phase));
   const chargeCount = chargeOverride ?? phaseChargeCount;
   const scrubbedCaptureProgress =
     typeof captureProgress === "number" ? clampPercent(captureProgress) : null;
@@ -1346,7 +1353,12 @@ export function SparkOrbLearningShell({
           data-personality-reaction={personalityReaction}
           data-idle-life={idleLifeActive ? "breathing" : undefined}
           data-idle-fidget={idleLifeActive && idleFidget ? idleFidget : undefined}
-          style={creatureCaptureStyle}
+          style={{
+            ...creatureCaptureStyle,
+            ...(capturedCreature.placeholderHue
+              ? ({ "--creature-hue": `${capturedCreature.placeholderHue}deg` } as CSSProperties)
+              : null),
+          }}
           src={capturedCreature.imageSrc}
           alt=""
           aria-hidden="true"
@@ -1525,16 +1537,22 @@ export function SparkOrbLearningShell({
           z-index: 2;
         }
 
-        .spark-orb-learning-shell__orb-stage[data-time-of-day="morning"] .spark-orb-learning-shell__light {
+        .spark-orb-learning-shell__orb-stage[data-time-of-day="sunrise"] .spark-orb-learning-shell__light {
           background:
             radial-gradient(ellipse at 12% 8%, rgba(255, 214, 140, 0.45), transparent 55%),
             linear-gradient(180deg, rgba(255, 230, 190, 0.18), transparent 60%);
         }
 
-        .spark-orb-learning-shell__orb-stage[data-time-of-day="evening"] .spark-orb-learning-shell__light {
+        .spark-orb-learning-shell__orb-stage[data-time-of-day="twilight"] .spark-orb-learning-shell__light {
           background:
             radial-gradient(ellipse at 85% 22%, rgba(255, 170, 90, 0.5), transparent 50%),
             linear-gradient(180deg, rgba(255, 128, 72, 0.38) 0%, rgba(214, 96, 120, 0.3) 45%, rgba(70, 40, 110, 0.45) 100%);
+        }
+
+        .spark-orb-learning-shell__orb-stage[data-time-of-day="golden"] .spark-orb-learning-shell__light {
+          background:
+            radial-gradient(ellipse at 88% 30%, rgba(255, 196, 110, 0.45), transparent 55%),
+            linear-gradient(180deg, rgba(255, 190, 120, 0.22), rgba(230, 140, 90, 0.2));
         }
 
         .spark-orb-learning-shell__orb-stage[data-time-of-day="night"] .spark-orb-learning-shell__light {
@@ -1660,7 +1678,7 @@ export function SparkOrbLearningShell({
         }
 
         .spark-orb-learning-shell__creature {
-          filter: drop-shadow(0 18px 28px rgba(72, 58, 114, 0.28));
+          filter: drop-shadow(0 18px 28px rgba(72, 58, 114, 0.28)) hue-rotate(var(--creature-hue, 0deg));
           left: 50%;
           position: absolute;
           top: 35%;
@@ -2452,7 +2470,7 @@ export function SparkOrbLearningShell({
           overflow: hidden;
         }
 
-        .spark-orb-learning-shell__orb-stage[data-time-of-day="evening"] .spark-orb-learning-shell__companion-anchor[data-portrait-frame="framed"] [data-testid="companion-portrait"],
+        .spark-orb-learning-shell__orb-stage[data-time-of-day="twilight"] .spark-orb-learning-shell__companion-anchor[data-portrait-frame="framed"] [data-testid="companion-portrait"],
         .spark-orb-learning-shell__orb-stage[data-time-of-day="night"] .spark-orb-learning-shell__companion-anchor[data-portrait-frame="framed"] [data-testid="companion-portrait"] {
           background: radial-gradient(circle at 50% 38%, #eef1ff 0%, #b9c0f2 50%, #7466c8 100%);
           box-shadow:

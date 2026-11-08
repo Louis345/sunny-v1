@@ -1,0 +1,298 @@
+/* Creature encounter reveal + creature dex. Rarity colours match the chests and the reward collection. */
+.creature-reveal,
+.creature-dex {
+  --common: #d8c3a5;
+  --rare: #4fa3ff;
+  --epic: #b46bff;
+  --legendary: #ffc93c;
+  --tier: var(--common);
+  color: #fff;
+  font-family: Lexend, system-ui, sans-serif;
+}
+
+.creature-reveal[data-rarity="rare"],
+.creature-tile[data-rarity="rare"] { --tier: var(--rare); }
+.creature-reveal[data-rarity="epic"],
+.creature-tile[data-rarity="epic"] { --tier: var(--epic); }
+.creature-reveal[data-rarity="legendary"],
+.creature-tile[data-rarity="legendary"] { --tier: var(--legendary); }
+
+.creature-reveal {
+  align-items: center;
+  background: radial-gradient(circle at 50% 30%, #2a1a5e, #0b0820 72%);
+  border-radius: 24px;
+  display: grid;
+  justify-items: center;
+  min-height: 560px;
+  overflow: hidden;
+  position: relative;
+}
+
+.creature-reveal__beam {
+  background: linear-gradient(180deg, transparent, color-mix(in srgb, var(--tier) 55%, transparent) 40%, transparent);
+  filter: blur(18px);
+  height: 120%;
+  left: 50%;
+  opacity: 0;
+  position: absolute;
+  top: -10%;
+  transform: translateX(-50%);
+  transition: opacity 600ms ease;
+  width: 200px;
+}
+
+.creature-reveal[data-phase="silhouette"] .creature-reveal__beam,
+.creature-reveal[data-phase="revealed"] .creature-reveal__beam {
+  opacity: 1;
+}
+
+.creature-reveal[data-phase="revealed"] .creature-reveal__beam {
+  animation: creatureBeamPulse 2.4s ease-in-out infinite;
+}
+
+.creature-reveal__bushes {
+  bottom: 18%;
+  display: flex;
+  gap: 4px;
+  left: 50%;
+  position: absolute;
+  transform: translateX(-50%);
+}
+
+.creature-reveal__bushes span {
+  background: radial-gradient(circle at 40% 35%, #4fbf6a, #1f6b3a);
+  border-radius: 50% 50% 40% 40%;
+  height: 90px;
+  width: 110px;
+}
+
+.creature-reveal[data-phase="rustle"] .creature-reveal__bushes span {
+  animation: creatureRustle 0.38s ease-in-out infinite;
+}
+
+.creature-reveal[data-phase="rustle"] .creature-reveal__bushes span:nth-child(2) { animation-delay: 0.12s; }
+.creature-reveal[data-phase="rustle"] .creature-reveal__bushes span:nth-child(3) { animation-delay: 0.24s; }
+
+.creature-reveal[data-phase="revealed"] .creature-reveal__bushes {
+  opacity: 0.35;
+  transition: opacity 400ms ease;
+}
+
+.creature-reveal__art {
+  bottom: 24%;
+  left: 50%;
+  position: absolute;
+  transform: translateX(-50%);
+  width: min(240px, 44%);
+  z-index: 2;
+}
+
+.creature-reveal[data-phase="silhouette"] .creature-reveal__art {
+  animation: creatureSilhouetteRise 1.2s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  filter: brightness(0) drop-shadow(0 0 22px var(--tier)) !important;
+}
+
+.creature-reveal[data-phase="revealed"] .creature-reveal__art {
+  animation: creatureRevealPop 0.7s cubic-bezier(0.2, 1.6, 0.4, 1) both, creatureIdleBob 1.7s ease-in-out 0.7s infinite;
+}
+
+.creature-reveal__whisper {
+  font-size: 22px;
+  font-weight: 800;
+  margin: 0;
+  opacity: 0.92;
+  position: absolute;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.6);
+  top: 14%;
+}
+
+.creature-reveal__card {
+  animation: creatureCardIn 0.5s ease-out 0.3s both;
+  display: grid;
+  gap: 8px;
+  justify-items: center;
+  position: absolute;
+  text-align: center;
+  top: 8%;
+  z-index: 3;
+}
+
+.creature-reveal__tags {
+  display: flex;
+  gap: 8px;
+}
+
+.creature-reveal__tags span {
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0.14em;
+  padding: 4px 10px;
+  text-transform: uppercase;
+}
+
+.creature-reveal__dex { background: #ffffff22; }
+.creature-reveal__rarity { background: color-mix(in srgb, var(--tier) 35%, #140c30); border: 2px solid var(--tier); color: var(--tier); }
+.creature-reveal__new { animation: creatureNewFlash 0.9s ease-in-out infinite; background: #ff4f8b; }
+
+.creature-reveal__name {
+  font-size: 44px;
+  font-weight: 950;
+  text-shadow: 0 0 24px var(--tier), 0 4px 0 rgba(0, 0, 0, 0.35);
+}
+
+.creature-reveal__stakes {
+  font-size: 17px;
+  font-weight: 800;
+  opacity: 0.92;
+}
+
+.creature-reveal__actions {
+  bottom: -330px;
+  display: flex;
+  gap: 12px;
+  position: absolute;
+}
+
+.creature-reveal__catch,
+.creature-reveal__run {
+  border: 0;
+  border-radius: 999px;
+  cursor: pointer;
+  font: 900 18px Lexend, system-ui, sans-serif;
+  padding: 12px 26px;
+}
+
+.creature-reveal__catch {
+  background: linear-gradient(180deg, #ffe680, #ffc21a);
+  box-shadow: 0 5px 0 #a8770a;
+  color: #231400;
+}
+
+.creature-reveal__run {
+  background: #ffffff1c;
+  color: #ffffffcc;
+}
+
+.creature-dex {
+  background: radial-gradient(circle at 50% 0%, #2a1a5e, #0b0820 70%);
+  display: grid;
+  gap: 18px;
+  min-height: 100vh;
+  padding: 24px;
+}
+
+.creature-dex__header {
+  align-items: baseline;
+  display: grid;
+  gap: 6px 14px;
+  grid-template-columns: auto auto 1fr;
+}
+
+.creature-dex__header h2 { font-size: 30px; font-weight: 900; margin: 0; }
+.creature-dex__count { color: #ffd84d; font-weight: 800; }
+.creature-dex__seen { font-weight: 700; opacity: 0.75; }
+
+.creature-dex__bar {
+  background: #ffffff1f;
+  border-radius: 999px;
+  grid-column: 1 / -1;
+  height: 12px;
+  overflow: hidden;
+}
+
+.creature-dex__bar span {
+  background: linear-gradient(90deg, #ffd84d, #ff9f1c);
+  border-radius: 999px;
+  display: block;
+  height: 100%;
+}
+
+.creature-dex__grid {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+}
+
+.creature-tile {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--tier) 22%, #140c30), #140c30);
+  border: 3px solid var(--tier);
+  border-radius: 18px;
+  box-shadow: 0 0 18px color-mix(in srgb, var(--tier) 45%, transparent);
+  display: grid;
+  gap: 4px;
+  justify-items: center;
+  padding: 14px 10px;
+  position: relative;
+  text-align: center;
+}
+
+.creature-tile__dex { font-size: 12px; font-weight: 800; left: 12px; opacity: 0.7; position: absolute; top: 10px; }
+.creature-tile__art { height: 96px; object-fit: contain; width: 96px; }
+.creature-tile__rarity { color: var(--tier); font-size: 11px; font-weight: 900; letter-spacing: 0.18em; text-transform: uppercase; }
+.creature-tile__name { font-size: 17px; font-weight: 900; }
+.creature-tile__caught { background: #3fbf6a; border-radius: 999px; font-size: 12px; font-weight: 900; padding: 3px 12px; }
+.creature-tile__where { font-size: 12px; font-weight: 700; line-height: 1.35; opacity: 0.85; }
+
+.creature-tile__out {
+  animation: creatureNewFlash 1.2s ease-in-out infinite;
+  background: #ff4f8b;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 900;
+  padding: 3px 8px;
+  position: absolute;
+  right: 8px;
+  top: 8px;
+}
+
+/* Seen but not caught: greyed, name known. */
+.creature-tile[data-status="seen"] { background: #16122a; border-color: color-mix(in srgb, var(--tier) 45%, #3a3550); box-shadow: none; }
+.creature-tile[data-status="seen"] .creature-tile__art { filter: grayscale(1) brightness(0.6) !important; }
+
+/* Never seen: a ??? shadow, but the rarity colour and the hint still say what to chase. */
+.creature-tile[data-status="unknown"] { background: #110e22; border-color: color-mix(in srgb, var(--tier) 40%, #2c2840); box-shadow: none; }
+.creature-tile[data-status="unknown"] .creature-tile__art { filter: brightness(0) drop-shadow(0 0 8px color-mix(in srgb, var(--tier) 60%, transparent)) !important; opacity: 0.85; }
+.creature-tile[data-status="unknown"] .creature-tile__name { color: #ffffff80; letter-spacing: 0.2em; }
+
+@keyframes creatureRustle {
+  0%, 100% { transform: rotate(0deg) translateY(0); }
+  25% { transform: rotate(-5deg) translateY(-3px); }
+  75% { transform: rotate(5deg) translateY(-2px); }
+}
+
+@keyframes creatureSilhouetteRise {
+  from { opacity: 0; translate: 0 40px; scale: 0.7; }
+  to { opacity: 1; translate: 0 0; scale: 1; }
+}
+
+@keyframes creatureRevealPop {
+  0% { scale: 0.85; }
+  60% { scale: 1.12; }
+  100% { scale: 1; }
+}
+
+@keyframes creatureIdleBob {
+  0%, 100% { translate: 0 0; }
+  50% { translate: 0 -8px; }
+}
+
+@keyframes creatureCardIn {
+  from { opacity: 0; translate: 0 -12px; }
+  to { opacity: 1; translate: 0 0; }
+}
+
+@keyframes creatureBeamPulse {
+  0%, 100% { opacity: 0.75; }
+  50% { opacity: 1; }
+}
+
+@keyframes creatureNewFlash {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.55; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .creature-reveal *,
+  .creature-tile__out { animation: none !important; }
+}

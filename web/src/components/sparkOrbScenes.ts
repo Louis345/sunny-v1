@@ -1,4 +1,5 @@
 import type { AdventureBoardTheme } from "../../../src/shared/adventureBoardJson";
+import { skyMoodNow, type SkyMood } from "../utils/skyClock";
 
 /**
  * Where a Spark Orb encounter happens. The picture comes from the board's theme when it has one
@@ -6,7 +7,8 @@ import type { AdventureBoardTheme } from "../../../src/shared/adventureBoardJson
  * clock and calendar, so the same picture still feels different in the morning, at night, at
  * Halloween or in the snow. Generated scenes later plug in as the board theme's picture.
  */
-export type SparkOrbTimeOfDay = "morning" | "afternoon" | "evening" | "night";
+/** Light follows the shared sky clock (real sunrise and sunset), the same one the start screen uses. */
+export type SparkOrbTimeOfDay = SkyMood;
 export type SparkOrbSeason = "spring" | "summer" | "autumn" | "halloween" | "holiday" | "winter";
 export type SparkOrbWeather = "snow" | "leaves" | "petals" | "fireflies" | "none";
 
@@ -27,14 +29,6 @@ export interface SparkOrbScene {
 
 export const SPARK_ORB_DEFAULT_BACKGROUND = "/encounters/spark-orb/park-background.png";
 export const SPARK_ORB_MAX_WEATHER_PARTICLES = 18;
-
-export function sparkOrbTimeOfDay(now: Date): SparkOrbTimeOfDay {
-  const hour = now.getHours();
-  if (hour >= 5 && hour < 11) return "morning";
-  if (hour >= 11 && hour < 16) return "afternoon";
-  if (hour >= 16 && hour < 20) return "evening";
-  return "night";
-}
 
 export function sparkOrbSeason(now: Date): SparkOrbSeason {
   const month = now.getMonth() + 1;
@@ -58,7 +52,7 @@ function weatherFor(season: SparkOrbSeason, timeOfDay: SparkOrbTimeOfDay): Spark
     case "spring":
       return "petals";
     case "summer":
-      return timeOfDay === "evening" || timeOfDay === "night" ? "fireflies" : "none";
+      return timeOfDay === "twilight" || timeOfDay === "night" ? "fireflies" : "none";
     default: {
       const exhaustive: never = season;
       return exhaustive;
@@ -71,7 +65,7 @@ export function resolveSparkOrbScene(input: SparkOrbSceneInput = {}): SparkOrbSc
   const themeBackground = input.boardTheme?.background;
   const themePicture =
     themeBackground?.type === "image" && themeBackground.value.trim() ? themeBackground.value.trim() : null;
-  const timeOfDay = input.timeOfDay ?? sparkOrbTimeOfDay(now);
+  const timeOfDay = input.timeOfDay ?? skyMoodNow(now);
   const season = input.season ?? sparkOrbSeason(now);
   return {
     backgroundSrc: themePicture ?? SPARK_ORB_DEFAULT_BACKGROUND,

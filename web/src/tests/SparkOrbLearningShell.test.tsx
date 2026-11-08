@@ -14,6 +14,7 @@ import {
   SPARK_ORB_MAX_WEATHER_PARTICLES,
   resolveSparkOrbScene,
 } from "../components/sparkOrbScenes";
+import { skyMoodNow } from "../utils/skyClock";
 import { DEFAULT_SENSORY_PROFILE } from "../../../src/shared/sensoryProfile";
 import { COMPANION_DEFAULTS, type CompanionConfig } from "../../../src/shared/companionTypes";
 
@@ -1013,15 +1014,12 @@ describe("Spark Orb scenes", () => {
     expect(resolveSparkOrbScene({ now: at("2026-07-04T14:00:00") }).backgroundSrc).toBe(SPARK_ORB_DEFAULT_BACKGROUND);
   });
 
-  it.each([
-    ["2026-07-04T08:00:00", "morning"],
-    ["2026-07-04T14:00:00", "afternoon"],
-    ["2026-07-04T18:00:00", "evening"],
-    ["2026-07-04T22:30:00", "night"],
-    ["2026-07-04T03:00:00", "night"],
-  ])("reads %s as %s", (iso, timeOfDay) => {
-    expect(resolveSparkOrbScene({ now: at(iso) }).timeOfDay).toBe(timeOfDay);
-  });
+  it.each(["2026-07-04T06:10:00", "2026-07-04T14:00:00", "2026-11-07T16:40:00", "2026-11-07T22:30:00"])(
+    "follows the same real-sun sky clock as the start screen at %s",
+    (iso) => {
+      expect(resolveSparkOrbScene({ now: at(iso) }).timeOfDay).toBe(skyMoodNow(at(iso)));
+    },
+  );
 
   it.each([
     ["2026-10-20T12:00:00", "halloween"],
@@ -1037,8 +1035,8 @@ describe("Spark Orb scenes", () => {
 
   it("lets a caller pin the time of day and season", () => {
     expect(
-      resolveSparkOrbScene({ now: at("2026-07-04T14:00:00"), timeOfDay: "night", season: "winter" }),
-    ).toMatchObject({ timeOfDay: "night", season: "winter" });
+      resolveSparkOrbScene({ now: at("2026-07-04T14:00:00"), timeOfDay: "twilight", season: "winter" }),
+    ).toMatchObject({ timeOfDay: "twilight", season: "winter" });
   });
 
   function renderScene(props: Partial<Parameters<typeof SparkOrbLearningShell>[0]>) {
@@ -1061,10 +1059,14 @@ describe("Spark Orb scenes", () => {
 
   it("paints the scene's picture, light and seasonal weather", () => {
     const { container } = renderScene({
-      scene: { now: at("2026-12-10T17:30:00"), boardTheme: { background: { type: "image", value: "/boards/snow.png" } } },
+      scene: {
+        now: at("2026-12-10T17:30:00"),
+        timeOfDay: "twilight",
+        boardTheme: { background: { type: "image", value: "/boards/snow.png" } },
+      },
     });
     const stage = screen.getByTestId("spark-orb-encounter");
-    expect(stage).toHaveAttribute("data-time-of-day", "evening");
+    expect(stage).toHaveAttribute("data-time-of-day", "twilight");
     expect(stage).toHaveAttribute("data-season", "holiday");
     expect(container.querySelector(".spark-orb-learning-shell__backdrop")).toHaveAttribute("src", "/boards/snow.png");
     const flakes = screen.getAllByTestId("spark-orb-weather-particle");
@@ -1085,5 +1087,33 @@ describe("Spark Orb scenes", () => {
     renderScene({});
     expect(screen.queryByLabelText(/Sunny orbs left/)).not.toBeInTheDocument();
     expect(screen.getByTestId("spark-orb-companion-frame")).toBeInTheDocument();
+  });
+});
+
+describe("Spark Orb charge goal", () => {
+  function renderGoal(props: Partial<Parameters<typeof SparkOrbLearningShell>[0]>) {
+    return render(
+      <SparkOrbLearningShell
+        childId="kid"
+        childName="Kid"
+        companion={elliCompanion}
+        phase="charge-2"
+        domain="math"
+        currentTarget="fact:7x8"
+        {...props}
+      >
+        <p>7 x 8</p>
+      </SparkOrbLearningShell>,
+    );
+  }
+
+  it("counts up to any goal the encounter sets, not a fixed three", () => {
+    renderGoal({ chargeGoal: 5, chargeCount: 4 });
+    expect(screen.getByText(/Charge 4 \/ 5/)).toBeInTheDocument();
+  });
+
+  it("a ready orb is full whatever the goal", () => {
+    renderGoal({ phase: "ready", chargeGoal: 6, lastMoment: "orb_ready" });
+    expect(screen.getByText(/Charge 6 \/ 6/)).toBeInTheDocument();
   });
 });

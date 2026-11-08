@@ -22,7 +22,7 @@ describe("Captured monster den", () => {
         id: "lumipuff",
         speciesName: "Lumipuff",
         defaultNickname: "Lumi",
-        rarity: "uncommon",
+        rarity: "common",
         imageSrc: "/encounters/spark-orb/lumipuff.png",
         collectionTitle: "Spark Garden friend",
         statLabel: "SPARK",

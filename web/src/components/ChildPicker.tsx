@@ -5,6 +5,7 @@ import {
   type CompanionThemeConfig,
   type CompanionThemeResponse,
 } from "../../../src/shared/companionTheme";
+import { kioskSkyClockInput, skyMoodForTime, type SkyClockInput, type SkyMood } from "../utils/skyClock";
 
 interface Props {
   /** `diagKiosk` uses child=creator + Charlotte on the server (diagnostic prompt). */
@@ -25,7 +26,7 @@ function devToolsVisible(): boolean {
 
 /** The start screen's sky follows the real sun where the kiosk is (owner, 2026-11-07): soft, muted moods. */
 export type StartSky = {
-  name: "sunrise" | "day" | "golden" | "twilight" | "night";
+  name: SkyMood;
   gradient: string;
   glow: string | null;
   lights: "motes" | "stars";
@@ -48,43 +49,14 @@ export const START_SKIES: Record<StartSky["name"], StartSky> = {
     gradient: "linear-gradient(180deg, #161a30 0%, #1f2340 55%, #2b2846 100%)", glow: null },
 };
 
-/** No location is stored (public repo): longitude comes from the timezone, latitude is a mid-latitude guess. */
-const SKY_LATITUDE_DEGREES = 41;
-const rad = (degrees: number) => (degrees * Math.PI) / 180;
-
-/** Sunrise and sunset in local clock minutes, within about fifteen minutes; plenty for a mood. */
-export function sunTimes(input: { at: Date; utcOffsetMinutes: number; standardOffsetMinutes: number }): { sunrise: number; sunset: number } {
-  const start = Date.UTC(input.at.getUTCFullYear(), 0, 0);
-  const dayOfYear = Math.floor((input.at.getTime() - start) / 86_400_000);
-  const b = rad((360 / 365) * (dayOfYear - 81));
-  const equationOfTime = 9.87 * Math.sin(2 * b) - 7.53 * Math.cos(b) - 1.5 * Math.sin(b);
-  const declination = rad(23.44 * Math.sin(rad((360 / 365) * (284 + dayOfYear))));
-  const latitude = rad(SKY_LATITUDE_DEGREES);
-  const cosHourAngle = (Math.sin(rad(-0.833)) - Math.sin(latitude) * Math.sin(declination)) / (Math.cos(latitude) * Math.cos(declination));
-  const halfDayMinutes = (Math.acos(Math.min(1, Math.max(-1, cosHourAngle))) * 180 / Math.PI) * 4;
-  const solarNoon = 720 - equationOfTime + (input.utcOffsetMinutes - input.standardOffsetMinutes);
-  return { sunrise: solarNoon - halfDayMinutes, sunset: solarNoon + halfDayMinutes };
-}
-
-export function skyForTime(input: { at: Date; utcOffsetMinutes: number; standardOffsetMinutes: number }): StartSky {
-  const local = new Date(input.at.getTime() + input.utcOffsetMinutes * 60_000);
-  const minutes = local.getUTCHours() * 60 + local.getUTCMinutes();
-  const { sunrise, sunset } = sunTimes(input);
-  if (minutes >= sunrise - 30 && minutes < sunrise + 60) return START_SKIES.sunrise;
-  if (minutes >= sunset - 60 && minutes < sunset) return START_SKIES.golden;
-  if (minutes >= sunset && minutes < sunset + 40) return START_SKIES.twilight;
-  if (minutes >= sunrise + 60 && minutes < sunset - 60) return START_SKIES.day;
-  return START_SKIES.night;
+/** The sky mood comes from the shared sky clock; this screen only paints it. */
+export function skyForTime(input: SkyClockInput): StartSky {
+  return START_SKIES[skyMoodForTime(input)];
 }
 
 /** The kiosk's own clock and timezone, rechecked every ten minutes so a long-open screen follows the sun. */
 function useKioskSky(): StartSky {
-  const read = () => {
-    const at = new Date();
-    const year = at.getFullYear();
-    const standardOffsetMinutes = -Math.max(new Date(year, 0, 1).getTimezoneOffset(), new Date(year, 6, 1).getTimezoneOffset());
-    return skyForTime({ at, utcOffsetMinutes: -at.getTimezoneOffset(), standardOffsetMinutes });
-  };
+  const read = () => skyForTime(kioskSkyClockInput());
   const [sky, setSky] = useState(read);
   useEffect(() => {
     const timer = window.setInterval(() => setSky(read()), 10 * 60 * 1000);

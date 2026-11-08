@@ -1,10 +1,9 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import type { ReactElement, ReactNode } from "react";
 import { useEffect, useState } from "react";
-import type { CompanionConfig } from "../../../src/shared/companionTypes";
 import { DEFAULT_SENSORY_PROFILE, type SensoryProfile } from "../../../src/shared/sensoryProfile";
 import type { SparkOrbSeason, SparkOrbTimeOfDay } from "../components/sparkOrbScenes";
-import { COMPANION_MANIFEST } from "../companion/companions.generated";
+import { companionForChild } from "../storybook/companionForChild";
 import {
   SparkOrbLearningShell,
   type OrbCompanionAnchorContext,
@@ -80,7 +79,7 @@ const meta: Meta<SparkOrbLearningShellStoryArgs> = {
     soundVolume: { control: { type: "range", min: 0, max: 1, step: 0.05 } },
     soundBrightness: { control: "select", options: ["soft", "standard", "bright"] },
     motion: { control: "select", options: ["calm", "standard", "lively"] },
-    timeOfDay: { control: "select", options: ["auto", "morning", "afternoon", "evening", "night"] },
+    timeOfDay: { control: "select", options: ["auto", "sunrise", "day", "golden", "twilight", "night"] },
     season: {
       control: "select",
       options: ["auto", "spring", "summer", "autumn", "halloween", "holiday", "winter"],
@@ -103,22 +102,6 @@ const meta: Meta<SparkOrbLearningShellStoryArgs> = {
 
 export default meta;
 type Story = StoryObj<SparkOrbLearningShellStoryArgs>;
-
-function companionForChild(childId: string): { companion: CompanionConfig; companionName: string } {
-  const entry =
-    COMPANION_MANIFEST.find((candidate) => {
-      const defaults = candidate.defaultFor;
-      return Array.isArray(defaults) ? defaults.includes(childId) : defaults === childId;
-    }) ?? COMPANION_MANIFEST.find((candidate) => candidate.id === "elli") ?? COMPANION_MANIFEST[0];
-
-  if (!entry) {
-    throw new Error("spark_orb_learning_shell_missing_companion_manifest");
-  }
-  return {
-    companion: entry.companionConfig,
-    companionName: entry.name,
-  };
-}
 
 function logCompanionAnchor(context: OrbCompanionAnchorContext): void {
   console.info(" 🎮 [storybook:spark-orb-learning] [companion-anchor] [reported]", context);
