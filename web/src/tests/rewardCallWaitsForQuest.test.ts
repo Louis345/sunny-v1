@@ -23,14 +23,13 @@ describe("the earned reward call waits for the Quest", () => {
     }
   });
 
-  it("is held on a Quest or Boss board", () => {
+  // Owner 2026-11-08: FaceTime is earned at the end of every board. A Quest or Boss board no longer holds it;
+  // what the 11/5 rule protects (the reveal, and a board still being built) stays protected.
+  it("is offered on a Quest or Boss board once its reveal has been seen", () => {
     for (const lifecycle of ["quest_ready", "quest_active", "boss_ready", "boss_active"]) {
-      expect(rewardCallHeldReason({ lifecycle, nodes: [] }, false)).toBe("encounter_board");
+      expect(rewardCallHeldReason({ lifecycle, nodes: [] }, false)).toBeNull();
     }
-  });
-
-  it("is held on any board that still has an unfinished Quest or Boss encounter", () => {
-    expect(rewardCallHeldReason({ lifecycle: "baseline_ready", nodes: [{ role: "baseline", state: "completed" }, { role: "quest", state: "locked" }] }, false)).toBe("encounter_on_board");
+    expect(rewardCallHeldReason({ lifecycle: "baseline_ready", nodes: [{ role: "baseline", state: "completed" }, { role: "quest", state: "locked" }] }, false)).toBeNull();
   });
 
   it("is held while a just-published board's reveal is pending", () => {
