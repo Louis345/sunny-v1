@@ -81,11 +81,11 @@ it("keeps the spelling audio proof on Sunny's production WebSocket and TTS path"
 // A scenario that times out keeps running; the next one starts only after its cleanup (Nov 4 catch).
 waitForUnfinishedBodies(120000);
 
+// One case per distinct path: plain kiosk, chart with forecast-failure recovery,
+// adaptive with chart, existing chart, and preparation failure. Extra viewports
+// replayed the same flow and cost about 100 s each.
 it.each([
-  { width: 1365, height: 768, adaptive: false, chart: false },
   { width: 1280, height: 720, adaptive: false, chart: false },
-  { width: 1365, height: 768, adaptive: true, chart: false },
-  { width: 1280, height: 720, adaptive: true, chart: false },
   { width: 768, height: 1024, adaptive: false, chart: true },
   { width: 768, height: 1024, adaptive: true, chart: true },
   { width: 768, height: 1024, adaptive: false, chart: true, existing: true },

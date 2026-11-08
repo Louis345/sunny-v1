@@ -1,4 +1,5 @@
 import { defineConfig } from "vitest/config";
+import { testSelection, tierFromEnv } from "./src/testTiers";
 
 export default defineConfig({
   test: {
@@ -7,7 +8,7 @@ export default defineConfig({
     // Fails the run if any test leaves a change in a real child's src/context folder.
     globalSetup: ["src/tests/realChildContextGuard.ts"],
     environment: "node",
-    include: [
+    ...testSelection(tierFromEnv(), [
       "src/tests/test-six-tools.ts",
       "src/tests/test-canvas-latency.ts",
       "src/tests/test-role-separation.ts",
@@ -118,6 +119,6 @@ export default defineConfig({
       "src/tests/test-quest-node-routing.ts",
       "src/tests/test-speed-catcher-colors.ts",
       ".github/pr-gate/*.test.ts",
-    ],
+    ]),
   },
 });
