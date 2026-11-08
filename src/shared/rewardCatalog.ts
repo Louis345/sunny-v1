@@ -46,9 +46,11 @@ export const ARCADE_RULES = { minutesPerPlay: 3, warnAtSecondsLeft: 60 } as cons
 /** Option B (owner, 2026-11-07), tuned on a replay of the girls' real history: about 50-70 coins a session,
  * so a call top-up or a game is a session's treat and a dress is a week's goal. */
 export const CHEST_TABLE: Record<RewardRarity, { coins: number; coinRange: readonly [number, number]; bonusChance: number; minutes: number }> = {
-  common: { coins: 8, coinRange: [5, 11], bonusChance: 0.1, minutes: 2 },
-  rare: { coins: 16, coinRange: [12, 20], bonusChance: 0.25, minutes: 3 },
-  epic: { coins: 30, coinRange: [24, 36], bonusChance: 0.5, minutes: 5 },
+  // Loot like World of Warcraft (owner, 2026-11-08): with ITEM_SHARE 0.75, an item drops from about 1/3 of
+  // common chests, 1/2 of rare and 3/4 of epic and legendary; the rest of a bonus is call minutes.
+  common: { coins: 8, coinRange: [5, 11], bonusChance: 0.45, minutes: 2 },
+  rare: { coins: 16, coinRange: [12, 20], bonusChance: 0.67, minutes: 3 },
+  epic: { coins: 30, coinRange: [24, 36], bonusChance: 1, minutes: 5 },
   legendary: { coins: 60, coinRange: [50, 70], bonusChance: 1, minutes: 10 },
 };
 
@@ -61,7 +63,7 @@ export const CHEST_RARITY_ODDS: ReadonlyArray<{ rarity: RewardRarity; below: num
   { rarity: "legendary", below: Infinity },
 ];
 /** Of the bonuses, the share that is a catalog item while she still has items to find; the rest is call minutes. */
-export const ITEM_SHARE = 0.5;
+export const ITEM_SHARE = 0.75;
 const RANK: Record<RewardRarity, number> = { common: 0, rare: 1, epic: 2, legendary: 3 };
 const CHESTS: RewardRarity[] = ["common", "rare", "epic", "legendary"];
 

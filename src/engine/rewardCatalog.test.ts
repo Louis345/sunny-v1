@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { CHEST_TABLE, PRICE_LIST, REWARD_CATALOG, eligibleDrops, dropChance, collectionView } from "../shared/rewardCatalog";
+import { CHEST_TABLE, ITEM_SHARE, PRICE_LIST, REWARD_CATALOG, eligibleDrops, dropChance, collectionView } from "../shared/rewardCatalog";
 import { REWARD_GAMES } from "../shared/gameRegistry.generated";
 
 // Owner, 2026-11-07: one catalog of everything she can earn, shown greyed out until she finds it in a chest,
@@ -25,7 +25,7 @@ describe("reward catalog", () => {
     expect(dropChance(legendaryItem, "rare", [])).toBe(0);
     const commonItem = REWARD_CATALOG.find(item => item.rarity === "common")!;
     const pool = eligibleDrops("epic", []).length;
-    expect(dropChance(commonItem, "epic", [])).toBeCloseTo(0.5 * 0.5 / pool);
+    expect(dropChance(commonItem, "epic", [])).toBeCloseTo(CHEST_TABLE.epic.bonusChance * ITEM_SHARE / pool);
     expect(dropChance(commonItem, "epic", [commonItem.id])).toBe(0);
   });
 
@@ -50,4 +50,20 @@ it("a typical session pays for a small treat but not a dress", () => {
   expect(cheapestDress).toBeGreaterThanOrEqual(2 * typicalSession);
   const outfitTotal = REWARD_CATALOG.reduce((sum, item) => sum + (item.price ?? 0), 0);
   expect(outfitTotal).toBeGreaterThanOrEqual(10 * typicalSession);
+});
+
+// Owner 2026-11-08 ("the World of Warcraft model ... to get them hooked"): coins every chest, and an item
+// often enough that opening a chest is a real "what did I get" moment; junk often, great things rarely.
+describe("loot drops often enough to hook her", () => {
+  const itemChance = (chest: "common" | "rare" | "epic") => eligibleDrops(chest, []).reduce((sum, item) => sum + dropChance(item, chest, []), 0);
+  it("drops an item from about a third of common chests, half of rare and three quarters of epic", () => {
+    expect(itemChance("common")).toBeCloseTo(1 / 3, 1);
+    expect(itemChance("rare")).toBeCloseTo(1 / 2, 1);
+    expect(itemChance("epic")).toBeCloseTo(3 / 4, 1);
+  });
+  it("keeps dresses rare: only epic and legendary chests can drop one", () => {
+    const dresses = (chest: "common" | "rare") => eligibleDrops(chest, []).filter(item => item.name.includes("Dress"));
+    expect(dresses("common")).toEqual([]);
+    expect(dresses("rare")).toEqual([]);
+  });
 });

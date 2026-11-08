@@ -264,11 +264,12 @@ describe("node treasure chests", () => {
     const miss = () => { const values = [0.1, 0, 0.99]; return () => values.shift() ?? 0.99; };
     current = grantNodeChest(current, { homeworkId: "hw", nodeId: "a", kind: "common", nowIso: at, roll: miss() }).plan;
     const second = grantNodeChest(current, { homeworkId: "hw", nodeId: "b", kind: "common", nowIso: at, roll: miss() });
-    expect(second.chest.bonusChance).toBeCloseTo(0.2);
-    // A lucky roll (0.25 under the 30% chance), then 0.9 picks call minutes over an item.
+    // The pity counter adds 0.1 per chest without a bonus.
+    expect(second.chest.bonusChance).toBeCloseTo(CHEST_TABLE.common.bonusChance + 0.1);
+    // A lucky roll (0.25, under the chance), then 0.9 picks call minutes over an item.
     const luckyRolls = [0.1, 0, 0.25, 0.9];
     const lucky = grantNodeChest(second.plan, { homeworkId: "hw", nodeId: "c", kind: "common", nowIso: at, roll: () => luckyRolls.shift()! });
-    expect(lucky.chest.bonusChance).toBeCloseTo(0.3);
+    expect(lucky.chest.bonusChance).toBeCloseTo(CHEST_TABLE.common.bonusChance + 0.2);
     expect(lucky.chest.bonus).toEqual({ kind: "call_minutes", minutes: CHEST_TABLE.common.minutes });
     expect(lucky.plan.economy.callMinutes).toBe(CHEST_TABLE.common.minutes);
     expect(lucky.plan.economy.chestsSinceBonus).toBe(0);
