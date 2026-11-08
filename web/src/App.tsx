@@ -204,6 +204,8 @@ function CompanionEconomyControls(props: {
   homeworkId?: string;
   /** False while the one reward-call rule holds the call; the saved ticket waits. */
   callOffered: boolean;
+  /** On the next-board screen only the call button shows (owner, 2026-11-08: call Elli while it builds). */
+  callOnly?: boolean;
   onOpenVideoCall: (ticket: { homeworkId: string; earnedAt: string; bonusUrl?: string }) => void;
 }) {
   const companionCare = useCompanionCare();
@@ -223,6 +225,7 @@ function CompanionEconomyControls(props: {
           Call {props.companionName}
         </button>
       ) : null}
+      {props.callOnly ? null : <>
       <TamagotchiStrip
         tamagotchi={props.tamagotchi}
         companionCare={companionCare.care}
@@ -241,6 +244,7 @@ function CompanionEconomyControls(props: {
         isPurchasing={companionCare.isPurchasing}
         onClose={() => setShopOpen(false)}
       />
+      </>}
     </>
   );
 }
@@ -2360,7 +2364,8 @@ function App() {
         }
       />
       <CompanionEconomyControls
-        visible={homeworkBoardMode && !homeworkSessionFinished && plannerBoardLaunch == null && !preparationScreenActive}
+        visible={homeworkBoardMode && !homeworkSessionFinished && plannerBoardLaunch == null}
+        callOnly={preparationScreenActive}
         companionName={
           plannerBoardPacket?.childChart.companion.displayName ??
           (effectiveCompanion?.companionId

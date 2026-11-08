@@ -17,23 +17,20 @@ import { isCompanionCallPath, rewardCallHeldReason } from "../utils/rewardCallOf
  * taps the bright "Call Elli" button offered right beside "Back to map".
  */
 describe("the earned reward call waits for the Quest", () => {
-  it("is held while the next board is still being decided or built after she finishes a board", () => {
-    for (const lifecycle of ["baseline_evaluating", "baseline_generating", "quest_generating", "boss_generating", "quest_evaluating", "boss_evaluating"]) {
-      expect(rewardCallHeldReason({ lifecycle, nodes: [] }, false)).toBe("next_board_coming");
+  // Owner 2026-11-08, watching Ila finish board 2 and land on the loading screen with no call: FaceTime comes
+  // the moment a board ends. The wait for the next board is when she calls Elli; nothing holds the offer.
+  it("is offered while the next board is being built and before its reveal", () => {
+    for (const lifecycle of ["baseline_evaluating", "baseline_generating", "quest_generating", "boss_evaluating"]) {
+      expect(rewardCallHeldReason({ lifecycle, nodes: [] }, false)).toBeNull();
     }
+    expect(rewardCallHeldReason({ lifecycle: "baseline_ready", nodes: [] }, true)).toBeNull();
   });
 
-  // Owner 2026-11-08: FaceTime is earned at the end of every board. A Quest or Boss board no longer holds it;
-  // what the 11/5 rule protects (the reveal, and a board still being built) stays protected.
   it("is offered on a Quest or Boss board once its reveal has been seen", () => {
     for (const lifecycle of ["quest_ready", "quest_active", "boss_ready", "boss_active"]) {
       expect(rewardCallHeldReason({ lifecycle, nodes: [] }, false)).toBeNull();
     }
     expect(rewardCallHeldReason({ lifecycle: "baseline_ready", nodes: [{ role: "baseline", state: "completed" }, { role: "quest", state: "locked" }] }, false)).toBeNull();
-  });
-
-  it("is held while a just-published board's reveal is pending", () => {
-    expect(rewardCallHeldReason({ lifecycle: "baseline_ready", nodes: [] }, true)).toBe("reveal_pending");
   });
 
   it("is offered at a calm moment: an ordinary board, or when the encounters are done", () => {
