@@ -58,7 +58,7 @@ describe("creature encounter at a finished stop", () => {
     expect(awardCreatureEncounterOnCompletion(cycle(true, "active"), "hw:n1")).toBeUndefined();
     expect(saved).toHaveLength(0);
     const first = awardCreatureEncounterOnCompletion(cycle(true), "hw:n1");
-    expect(first).toMatchObject({ creatureId: "lumipuff", isNew: true, reason: "starter", charges: 3 });
+    expect(first).toMatchObject({ creatureId: "lumipuff", isNew: true, reason: "starter", charges: 1 }); // no answers recorded: one throw
     expect(awardCreatureEncounterOnCompletion(cycle(true), "hw:n1")).toEqual(first);
     expect(saved).toHaveLength(1);
   });
@@ -67,6 +67,27 @@ describe("creature encounter at a finished stop", () => {
     countBoardForCreatures(cycle(false), "hw:n1");
     countBoardForCreatures(cycle(false), "hw:n2");
     expect(creatureHistoryOf(saved.at(-1)!).boardsCompleted).toBe(1);
+  });
+});
+
+describe("charges come from the words she got right on that stop (owner, 2026-11-08)", () => {
+  const scored = (correct: boolean[]) =>
+    ({
+      childId: "demo-pashley",
+      homeworkId: "hw",
+      nodes: [{ nodeId: "hw:n1", role: "baseline", state: "completed", creatureEncounter: { reason: "near secure", itemIds: ["i1", "i2", "i3", "i4"] } }],
+      observations: correct.map((ok, index) => ({ observationId: `o${index}`, sourceId: "activity:hw:n1:recall", itemId: `i${index + 1}`, result: { correct: ok } })),
+    }) as never;
+
+  it("one charge per word right, capped by the creature's rarity", () => {
+    expect(awardCreatureEncounterOnCompletion(scored([true, true, false, false]), "hw:n1")?.charges).toBe(2);
+  });
+
+  it("caps at the rarity's charges and always gives at least one throw", () => {
+    saved.length = 0;
+    expect(awardCreatureEncounterOnCompletion(scored([true, true, true, true]), "hw:n1")?.charges).toBe(3);
+    saved.length = 0;
+    expect(awardCreatureEncounterOnCompletion(scored([false, false, false, false]), "hw:n1")?.charges).toBe(1);
   });
 });
 

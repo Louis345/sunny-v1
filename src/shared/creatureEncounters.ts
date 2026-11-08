@@ -221,3 +221,22 @@ export function creatureDexView(input: {
     total: entries.length,
   };
 }
+
+/**
+ * The shake catch (owner, 2026-11-08), like a claw machine: the result is decided the moment the orb lands,
+ * and the shakes play it out (three shakes and a click, or a break-free after one or two). Rarer creatures
+ * break free more often; a Perfect throw adds a little. Each catch uses fixed odds: no pity. Drafts to tune.
+ */
+export const CATCH_RATE_BY_RARITY: Record<RewardRarity, number> = { common: 0.9, rare: 0.65, epic: 0.45, legendary: 0.25 };
+export const PERFECT_THROW_BONUS = 0.1;
+
+export function decideCatch(input: {
+  rarity: RewardRarity;
+  hitQuality: "direct" | "near" | "wide" | undefined;
+  roll?: () => number;
+}): { caught: boolean; shakes: 1 | 2 | 3; chance: number } {
+  const roll = input.roll ?? Math.random;
+  const chance = Math.min(1, CATCH_RATE_BY_RARITY[input.rarity] + (input.hitQuality === "direct" ? PERFECT_THROW_BONUS : 0));
+  if (roll() < chance) return { caught: true, shakes: 3, chance };
+  return { caught: false, shakes: roll() < 0.5 ? 1 : 2, chance };
+}

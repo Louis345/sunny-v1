@@ -123,6 +123,8 @@ export function rollPlacedCreatureEncounter(
     scene: CreatureScene;
     nowIso: string;
     roll?: () => number;
+    /** Words she got right on this stop: one throw each, capped by the creature's rarity, at least one. */
+    earnedCharges?: number;
   },
 ): { plan: CompanionCarePlan; encounter: PendingCreatureEncounter | null } {
   if (!input.plannerPlaced) return { plan, encounter: null };
@@ -150,7 +152,9 @@ export function rollPlacedCreatureEncounter(
     boardId: input.boardId,
     stopId: input.stopId,
     creatureId: result.creature.id,
-    charges: result.charges ?? 3,
+    charges: input.earnedCharges === undefined
+      ? result.charges ?? 3
+      : Math.max(1, Math.min(result.charges ?? 3, Math.floor(input.earnedCharges))),
     isNew: result.isNew,
     reason: result.reason,
     rolledAt: input.nowIso,

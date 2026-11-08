@@ -32,6 +32,17 @@ export function creatureSceneNow(at: Date = new Date()): CreatureScene {
   return { season: seasonOf(at), timeOfDay: skyMoodForTime(kioskSkyClockInput(at)) };
 }
 
+/** Distinct items of the marked stop she got right in her latest answers: each one is a throw. */
+function correctItemsOnStop(cycle: LearningCycleRecordV2, nodeId: string, itemIds: readonly string[]): number {
+  const latest = new Map<string, boolean>();
+  for (const row of cycle.observations ?? []) {
+    if (!row.sourceId.startsWith(`activity:${nodeId}`)) continue;
+    if (itemIds.length && !itemIds.includes(row.itemId)) continue;
+    latest.set(row.itemId, row.result?.correct === true);
+  }
+  return [...latest.values()].filter(Boolean).length;
+}
+
 function boardIdFor(cycle: LearningCycleRecordV2, nodeId: string): string {
   return cycle.boards?.find((board) => board.nodeIds.includes(nodeId))?.boardId ?? `cycle-board:${cycle.homeworkId}`;
 }
@@ -67,6 +78,7 @@ export function awardCreatureEncounterOnCompletion(
         scene: creatureSceneNow(now),
         nowIso: now.toISOString(),
         roll: opts.roll,
+        earnedCharges: correctItemsOnStop(cycle, nodeId, node.creatureEncounter?.itemIds ?? []),
       });
       encounter = rolled.encounter;
       return rolled.plan;

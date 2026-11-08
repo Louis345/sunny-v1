@@ -1135,3 +1135,54 @@ describe("Lumipuff idle chirps", () => {
     vi.restoreAllMocks();
   });
 });
+
+// Owner, 2026-11-08: the claw-machine catch. The result is decided when the orb lands; shakes play it out.
+describe("Spark Orb shake catch", () => {
+  const throwAndWait = (ms = 9_000) => {
+    flickCleanLaunch();
+    act(() => vi.advanceTimersByTime(ms));
+  };
+  function renderCatch(props: Partial<Parameters<typeof SparkOrbLearningShell>[0]>) {
+    return render(
+      <SparkOrbLearningShell childId="kid" childName="Kid" companion={elliCompanion} phase="ready" chargeGoal={3} chargeCount={3} domain="spelling" currentTarget="word:spark" lastMoment="orb_ready" {...props}>
+        <p>Q</p>
+      </SparkOrbLearningShell>,
+    );
+  }
+
+  it("a decided catch shakes three times, then clicks and completes", () => {
+    vi.useFakeTimers();
+    const onCaptureCompleted = vi.fn();
+    const stages: string[] = [];
+    const onEncounterEvent = vi.fn((event: { type: string }) => stages.push(event.type));
+    renderCatch({ catchRule: { rarity: "rare", roll: () => 0 }, onCaptureCompleted, onEncounterEvent });
+    throwAndWait();
+    expect(stages.filter((type) => type === "catch_shake")).toHaveLength(3);
+    expect(onCaptureCompleted).toHaveBeenCalledTimes(1);
+  });
+
+  it("a decided escape shakes, the creature bursts out, and one throw is used", () => {
+    vi.useFakeTimers();
+    const onCaptureCompleted = vi.fn();
+    const onEscaped = vi.fn();
+    const stages: string[] = [];
+    renderCatch({ catchRule: { rarity: "legendary", roll: () => 0.99 }, onCaptureCompleted, onEscaped, onEncounterEvent: (event) => stages.push(event.type) });
+    throwAndWait();
+    expect(stages.filter((type) => type === "catch_shake")).toHaveLength(2);
+    expect(stages).toContain("creature_broke_free");
+    expect(onCaptureCompleted).not.toHaveBeenCalled();
+    expect(onEscaped).not.toHaveBeenCalled();
+    expect(screen.getByText(/Charge 2 \/ 3/)).toBeInTheDocument();
+    expect(screen.getByTestId("spark-orb-encounter")).toHaveAttribute("data-capture-stage", "free");
+  });
+
+  it("when the last throw breaks free, the creature gets away", () => {
+    vi.useFakeTimers();
+    const onEscaped = vi.fn();
+    const stages: string[] = [];
+    renderCatch({ chargeGoal: 1, chargeCount: 1, catchRule: { rarity: "legendary", roll: () => 0.99 }, onEscaped, onEncounterEvent: (event) => stages.push(event.type) });
+    throwAndWait();
+    expect(stages).toContain("creature_escaped");
+    expect(onEscaped).toHaveBeenCalledTimes(1);
+  });
+});

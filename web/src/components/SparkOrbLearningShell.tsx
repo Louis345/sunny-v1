@@ -10,6 +10,8 @@ import {
 import type { CompanionConfig } from "../../../src/shared/companionTypes";
 import type { CompanionBehavior } from "../context/companionCareBehavior";
 import { resolveSensoryProfile, type SensoryProfile } from "../../../src/shared/sensoryProfile";
+import { decideCatch } from "../../../src/shared/creatureEncounters";
+import type { RewardRarity } from "../../../src/shared/rewardCatalog";
 import {
   playSparkOrbSfx,
   startSparkOrbPullTone,
@@ -86,7 +88,10 @@ export type SparkOrbLearningEncounterEventType =
   | "collectible_revealed"
   | "collection_settled"
   | "collection_reverse_started"
-  | "collection_reverse_complete";
+  | "collection_reverse_complete"
+  | "catch_shake"
+  | "creature_broke_free"
+  | "creature_escaped";
 
 export type SparkOrbLaunchResult = "success" | "miss-early" | "miss-late";
 export type SparkOrbHitQuality = "direct" | "near" | "wide";
@@ -133,6 +138,13 @@ export interface SparkOrbLearningShellProps {
   onCompanionAnchor?: (context: OrbCompanionAnchorContext) => void;
   onEncounterEvent?: (event: SparkOrbLearningEncounterEvent) => void;
   onCaptureCompleted?: (event: OrbCaptureCompletedEvent) => void;
+  /**
+   * The shake catch (owner, 2026-11-08): when set, the result is decided as the orb lands from the
+   * creature's rarity (a Perfect throw helps), and the shakes play it out. Absent, every throw catches.
+   */
+  catchRule?: { rarity: RewardRarity; roll?: () => number };
+  /** The last throw broke free: the creature got away. */
+  onEscaped?: () => void;
 }
 
 const assetBase = "/encounters/spark-orb";
@@ -145,7 +157,9 @@ type LaunchSkillState = "waiting" | "holding" | "success" | "spent";
 type LaunchAimState = "idle" | "aiming" | "clean" | "weak" | "wide";
 type LaunchFlightState = "idle" | "traveling" | "impact" | "reward" | "settled" | "fizzle";
 type CaptureEffectState = "inactive" | "charging" | "active";
-type CaptureStage = "free" | "incoming" | "pulling" | "shrinking" | "locked" | "collection-added";
+type CaptureStage = "free" | "incoming" | "pulling" | "shrinking" | "shaking" | "locked" | "collection-added";
+/** One orb wobble in the shake catch. */
+const SHAKE_MS = 700;
 type CreatureCaptureMotion = "free" | "pulling" | "shrinking" | "hidden";
 
 interface LaunchAimVector {
@@ -604,9 +618,12 @@ export function SparkOrbLearningShell({
   onCompanionAnchor,
   onEncounterEvent,
   onCaptureCompleted,
+  catchRule,
+  onEscaped,
 }: SparkOrbLearningShellProps) {
   const [remainingOrbCount, setRemainingOrbCount] = useState(orbCount);
   const [chargeOverride, setChargeOverride] = useState<number | null>(null);
+  const [shakeIndex, setShakeIndex] = useState(0);
   const resolvedSensory = useMemo(() => resolveSensoryProfile(sensory), [sensory]);
   const resolvedScene = useMemo(() => resolveSparkOrbScene(scene), [scene]);
   const showWeather = resolvedScene.weather !== "none" && resolvedSensory.motion !== "calm";
@@ -722,7 +739,7 @@ export function SparkOrbLearningShell({
       ? "pulling"
       : displayCaptureStage === "shrinking"
         ? "shrinking"
-        : displayCaptureStage === "locked" || displayCaptureStage === "collection-added"
+        : displayCaptureStage === "shaking" || displayCaptureStage === "locked" || displayCaptureStage === "collection-added"
           ? "hidden"
           : "free";
   const idleMotion = resolvedSensory.motion;
@@ -1064,6 +1081,20 @@ export function SparkOrbLearningShell({
         hitQuality: launchScore.hitQuality,
         holdPower: launchScore.power,
       });
+      // The claw-machine catch: decided now, played out by the shakes.
+      const verdict = catchRule
+        ? decideCatch({ rarity: catchRule.rarity, hitQuality: launchScore.hitQuality, roll: catchRule.roll })
+        : { caught: true, shakes: 0 as const, chance: 1 };
+      const shakeMs = verdict.shakes * SHAKE_MS;
+      console.info(` 🎮 [spark-orb-learning-shell] [catch] [decided] caught=${verdict.caught} shakes=${verdict.shakes} chance=${verdict.chance.toFixed(2)}`);
+      const shakeTimers = Array.from({ length: verdict.shakes }, (_, index) =>
+        window.setTimeout(() => {
+          setCaptureStage("shaking");
+          setShakeIndex(index + 1);
+          playSparkOrbSfx("grab", sfxOptions);
+          emitLaunchEvent({ type: "catch_shake", chargeCount, orbCount: remainingOrbCount, result, hitDistance: launchScore.hitDistance, hitQuality: launchScore.hitQuality, holdPower: launchScore.power });
+        }, 1800 + index * SHAKE_MS + landingShiftMs),
+      );
       payoffTimerRefs.current = [
         window.setTimeout(() => {
           setFlightState("impact");
@@ -1104,6 +1135,8 @@ export function SparkOrbLearningShell({
             holdPower: launchScore.power,
           });
         }, 1250 + landingShiftMs),
+        ...shakeTimers,
+        ...(verdict.caught ? [
         window.setTimeout(() => {
           setCaptureStage("locked");
           playSparkOrbSfx("captureLock", sfxOptions);
@@ -1116,7 +1149,7 @@ export function SparkOrbLearningShell({
             hitQuality: launchScore.hitQuality,
             holdPower: launchScore.power,
           });
-        }, 1800 + landingShiftMs),
+        }, 1800 + shakeMs + landingShiftMs),
         window.setTimeout(() => {
           setFlightState("reward");
           setCaptureStage("collection-added");
@@ -1132,7 +1165,7 @@ export function SparkOrbLearningShell({
             hitQuality: launchScore.hitQuality,
             holdPower: launchScore.power,
           });
-        }, 2150 + landingShiftMs),
+        }, 2150 + shakeMs + landingShiftMs),
         window.setTimeout(() => {
           setCollectionCardVisible(false);
           setFlightState("settled");
@@ -1151,59 +1184,54 @@ export function SparkOrbLearningShell({
             holdPower: launchScore.power,
           });
           emitCaptureCompleted(launchScore);
-        }, 3650 + landingShiftMs),
+        }, 3650 + shakeMs + landingShiftMs),
+        ] : [
+          window.setTimeout(() => {
+            // It bursts out: the creature is back, and one throw is used.
+            setFlightState("fizzle");
+            setCaptureEffect("inactive");
+            setCaptureStage("free");
+            setShakeIndex(0);
+            playSparkOrbSfx("chirp", sfxOptions);
+            emitLaunchEvent({ type: "creature_broke_free", chargeCount, orbCount: remainingOrbCount, result, hitDistance: launchScore.hitDistance, hitQuality: launchScore.hitQuality, holdPower: launchScore.power });
+            spendThrow(launchScore, result, "broke_free");
+          }, 1800 + shakeMs + landingShiftMs),
+        ]),
       ];
       return;
     }
 
-    // Each charge is one try: a miss costs one charge, and only the last miss asks for more answers.
-    const nextOrbCount = Math.max(0, remainingOrbCount - 1);
-    const nextChargeCount = Math.max(0, chargeCount - 1);
-    const outOfCharge = nextChargeCount === 0;
     clearPayoffTimers();
-    setLaunchSkill(outOfCharge ? "spent" : "waiting");
     setFlightState("fizzle");
     setCaptureEffect("inactive");
     setCaptureStage("free");
+    playSparkOrbSfx("miss", sfxOptions);
+    spendThrow(launchScore, result, "miss");
+  }
+
+  /** Each charge is one throw: a miss or a break-free uses one; the last one ends the encounter. */
+  function spendThrow(launchScore: SparkOrbLaunchPhysics, result: SparkOrbLaunchResult, reason: "miss" | "broke_free"): void {
+    const nextOrbCount = Math.max(0, remainingOrbCount - 1);
+    const nextChargeCount = Math.max(0, chargeCount - 1);
+    const outOfCharge = nextChargeCount === 0;
+    setLaunchSkill(outOfCharge ? "spent" : "waiting");
     setCollectibleRevealed(false);
     setCollectionCardVisible(false);
     setReverseReplayActive(false);
     setReversePreviewOpen(false);
     setChargeOverride(nextChargeCount);
     setRemainingOrbCount(nextOrbCount);
-    playSparkOrbSfx("miss", sfxOptions);
-    console.info(" 🎮 [spark-orb-learning-shell] [charge] [spent-one]", {
-      chargeCount: nextChargeCount,
-      outOfCharge,
-    });
-    emitLaunchEvent({
-      type: "release_miss",
-      chargeCount: nextChargeCount,
-      orbCount: nextOrbCount,
-      result,
-      hitDistance: launchScore.hitDistance,
-      hitQuality: launchScore.hitQuality,
-      holdPower: launchScore.power,
-    });
-    emitLaunchEvent({
-      type: "orb_spent",
-      chargeCount: nextChargeCount,
-      orbCount: nextOrbCount,
-      result,
-      hitDistance: launchScore.hitDistance,
-      hitQuality: launchScore.hitQuality,
-      holdPower: launchScore.power,
-    });
+    console.info(" 🎮 [spark-orb-learning-shell] [charge] [spent-one]", { reason, chargeCount: nextChargeCount, outOfCharge });
+    const facts = { orbCount: nextOrbCount, result, hitDistance: launchScore.hitDistance, hitQuality: launchScore.hitQuality, holdPower: launchScore.power };
+    if (reason === "miss") emitLaunchEvent({ type: "release_miss", chargeCount: nextChargeCount, ...facts });
+    emitLaunchEvent({ type: "orb_spent", chargeCount: nextChargeCount, ...facts });
     if (!outOfCharge) return;
-    emitLaunchEvent({
-      type: "recharge_needed",
-      chargeCount: 0,
-      orbCount: nextOrbCount,
-      result,
-      hitDistance: launchScore.hitDistance,
-      hitQuality: launchScore.hitQuality,
-      holdPower: launchScore.power,
-    });
+    if (catchRule) {
+      emitLaunchEvent({ type: "creature_escaped", chargeCount: 0, ...facts });
+      onEscaped?.();
+      return;
+    }
+    emitLaunchEvent({ type: "recharge_needed", chargeCount: 0, ...facts });
   }
 
   function handleReverseCollectionReplay(): void {
@@ -1279,6 +1307,7 @@ export function SparkOrbLearningShell({
         data-hit-quality={launchPhysics?.hitQuality ?? "none"}
         data-capture-effect={displayCaptureEffect}
         data-capture-stage={visualCaptureStage}
+        data-shake={visualCaptureStage === "shaking" ? shakeIndex : undefined}
         data-capture-direction={captureDirection}
         data-capture-personality={capturedCreature.capturePersonality}
         data-personality-reaction={personalityReaction}
@@ -2078,6 +2107,30 @@ export function SparkOrbLearningShell({
             translate(var(--orb-impact-x), var(--orb-impact-y))
             rotate(var(--orb-impact-rotation))
             scale(var(--orb-impact-scale));
+        }
+
+        /* The shake catch: the orb wobbles where it landed (rotate layers on the landing transform). */
+        .spark-orb-learning-shell__orb-stage[data-capture-stage="shaking"][data-shake="1"] .spark-orb-learning-shell__orb,
+        .spark-orb-learning-shell__orb-stage[data-capture-stage="shaking"][data-shake="3"] .spark-orb-learning-shell__orb {
+          animation: sparkOrbShakeA 0.7s ease-in-out;
+        }
+
+        .spark-orb-learning-shell__orb-stage[data-capture-stage="shaking"][data-shake="2"] .spark-orb-learning-shell__orb {
+          animation: sparkOrbShakeB 0.7s ease-in-out;
+        }
+
+        @keyframes sparkOrbShakeA {
+          0%, 100% { rotate: 0deg; }
+          20% { rotate: -22deg; }
+          45% { rotate: 18deg; }
+          70% { rotate: -8deg; }
+        }
+
+        @keyframes sparkOrbShakeB {
+          0%, 100% { rotate: 0deg; }
+          20% { rotate: 22deg; }
+          45% { rotate: -18deg; }
+          70% { rotate: 8deg; }
         }
 
         .spark-orb-learning-shell__orb-stage[data-flight="reward"] .spark-orb-learning-shell__orb {

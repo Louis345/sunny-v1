@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { CREATURE_CATALOG, LUMIPUFF_MONSTER } from "../../../src/shared/capturedMonsterCatalog";
 import {
+  CATCH_RATE_BY_RARITY,
   CHARGES_BY_RARITY,
+  PERFECT_THROW_BONUS,
+  decideCatch,
   ENCOUNTERS_PER_BOARD,
   WEEKLY_LOCKOUT_DAYS,
   creatureAppearsNow,
@@ -149,5 +152,19 @@ describe("creatureDexView: every creature is a goal she can measure", () => {
     const day = creatureDexView({ history: history(), scene: { season: "autumn", timeOfDay: "day" }, nowIso: now });
     expect(night.entries.find((entry) => entry.species.id === "glowmoth")!.outNow).toBe(true);
     expect(day.entries.find((entry) => entry.species.id === "glowmoth")!.outNow).toBe(false);
+  });
+});
+
+// Owner, 2026-11-08: like a claw machine, the result is decided when the orb lands; the shakes play it out.
+describe("decideCatch: the shake catch", () => {
+  it("rarer creatures break free more often; a Perfect throw helps a little; no pity", () => {
+    expect(CATCH_RATE_BY_RARITY.common).toBeGreaterThan(CATCH_RATE_BY_RARITY.rare);
+    expect(CATCH_RATE_BY_RARITY.rare).toBeGreaterThan(CATCH_RATE_BY_RARITY.epic);
+    expect(CATCH_RATE_BY_RARITY.epic).toBeGreaterThan(CATCH_RATE_BY_RARITY.legendary);
+    const chance = CATCH_RATE_BY_RARITY.rare;
+    expect(decideCatch({ rarity: "rare", hitQuality: "near", roll: seq(chance - 0.01) })).toMatchObject({ caught: true, shakes: 3 });
+    expect(decideCatch({ rarity: "rare", hitQuality: "near", roll: seq(chance + 0.01, 0.2) })).toMatchObject({ caught: false, shakes: 1 });
+    expect(decideCatch({ rarity: "rare", hitQuality: "near", roll: seq(chance + 0.01, 0.8) })).toMatchObject({ caught: false, shakes: 2 });
+    expect(decideCatch({ rarity: "rare", hitQuality: "direct", roll: seq(chance + PERFECT_THROW_BONUS - 0.01) }).caught).toBe(true);
   });
 });
