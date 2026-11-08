@@ -25,10 +25,13 @@ export function CreatureEncounterReveal({
   charges,
   onCatch,
   onRun,
+  stakes,
 }: {
   creature: CapturedMonsterConfig;
   isNew: boolean;
   charges: number;
+  /** What the stakes line says; defaults to answering to charge the orb. */
+  stakes?: string;
   onCatch: () => void;
   onRun: () => void;
 }) {
@@ -74,7 +77,7 @@ export function CreatureEncounterReveal({
             {isNew ? <span className="creature-reveal__new">NEW!</span> : null}
           </div>
           <strong className="creature-reveal__name">{creature.speciesName}</strong>
-          <span className="creature-reveal__stakes">{`Answer ${charges} to charge the orb, then throw!`}</span>
+          <span className="creature-reveal__stakes">{stakes ?? `Answer ${charges} to charge the orb, then throw!`}</span>
           <div className="creature-reveal__actions">
             <button type="button" className="creature-reveal__catch" onClick={onCatch}>
               Catch it!

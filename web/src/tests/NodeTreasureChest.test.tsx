@@ -55,8 +55,10 @@ it("the board shows the chest the server saved when a stop finishes", async () =
   expect(app).toContain("if (completion?.nodeChest) setNodeChest(completion.nodeChest);");
   // The panel's own treasure stage (owner, 2026-11-07): the chest first, then the summary with Back to map once she
   // collects it. Never a separate overlay that could cover Back to map (caught by the browser acceptance runs, 2026-11-06).
-  expect(app.match(/treasure=\{nodeChest \? \(finish\) =>/g)?.length).toBe(2);
-  expect(app).toContain("onCollect={finish}");
+  // The creature the Planner placed (owner, 2026-11-08) plays in the same stage after the chest, then finish().
+  expect(app.match(/treasure=\{nodeChest \|\| creatureEncounter \? \(finish\) =>/g)?.length).toBe(2);
+  expect(app).toContain("onCollect={collect}");
+  expect(app.match(/onFinish=\{\(\) => \{ setCreatureEncounter\(null\); refreshCreatures\(\); finish\(\); \}\}/g)?.length).toBe(2);
   expect(app).not.toContain("node-chest-overlay");
 });
 

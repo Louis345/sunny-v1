@@ -18,6 +18,7 @@ import {
   type DenState,
 } from "../../../src/shared/creatureDenRules";
 import { useCreatureIdleLife } from "../hooks/useCreatureIdleLife";
+import type { DenAction } from "../utils/creatureApi";
 import { playSparkOrbSfx } from "../utils/sparkOrbSfx";
 
 const RARITY_NAME = { common: "Common", rare: "Rare", epic: "Epic", legendary: "Legendary" } as const;
@@ -103,7 +104,16 @@ function WildCreature({
 
 /** Her creature den (Storybook draft, owner 2026-11-08): everyone she caught roams the park; tapping one opens
  * its den card (bond, food, pet, recall or send home). Changes go out through onChange. */
-export function CreatureDen({ state, onChange }: { state: DenState; onChange: (next: DenState) => void }) {
+export function CreatureDen({
+  state,
+  onChange,
+  onAction,
+}: {
+  state: DenState;
+  onChange: (next: DenState) => void;
+  /** Each change as an action, for a den saved on the server. */
+  onAction?: (action: DenAction) => void;
+}) {
   const roster = denRoster(state);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [reaction, setReaction] = useState<Reaction | null>(null);
@@ -140,7 +150,7 @@ export function CreatureDen({ state, onChange }: { state: DenState; onChange: (n
         {ranAway ? (
           <div className="creature-den__note" role="status">
             <span>{`${ranAway.creature.nickname} missed you and ran home. Feed it to win it back.`}</span>
-            <button type="button" onClick={() => onChange({ ...state, ranAwayId: null })}>
+            <button type="button" onClick={() => { onAction?.({ action: "ack_ran_away" }); onChange({ ...state, ranAwayId: null }); }}>
               Got it
             </button>
           </div>
@@ -184,7 +194,7 @@ export function CreatureDen({ state, onChange }: { state: DenState; onChange: (n
             <button
               type="button"
               disabled={!draftName.trim() || draftName.trim() === selected.creature.nickname}
-              onClick={() => onChange(renameDenCreature(state, selected.species.id, draftName))}
+              onClick={() => { onAction?.({ action: "rename", creatureId: selected.species.id, name: draftName }); onChange(renameDenCreature(state, selected.species.id, draftName)); }}
             >
               Save name
             </button>
@@ -218,6 +228,7 @@ export function CreatureDen({ state, onChange }: { state: DenState; onChange: (n
                     const result = feedDenCreature(state, selected.species.id, food.id);
                     if (!result.ok) return;
                     react(selected.species.id, `+${result.bondGained} bond`);
+                    onAction?.({ action: "feed", creatureId: selected.species.id, foodId: food.id });
                     onChange(result.state);
                   }}
                 >
@@ -234,7 +245,7 @@ export function CreatureDen({ state, onChange }: { state: DenState; onChange: (n
               {`Pet ${selected.creature.nickname}`}
             </button>
             {selected.isSidekick ? (
-              <button type="button" className="creature-den__home" onClick={() => onChange(dismissSidekick(state))}>
+              <button type="button" className="creature-den__home" onClick={() => { onAction?.({ action: "dismiss" }); onChange(dismissSidekick(state)); }}>
                 {`Send ${selected.creature.nickname} home`}
               </button>
             ) : (
@@ -242,7 +253,7 @@ export function CreatureDen({ state, onChange }: { state: DenState; onChange: (n
                 type="button"
                 className="creature-den__recall"
                 disabled={!canRecall(selected.creature)}
-                onClick={() => onChange(recallSidekick(state, selected.species.id))}
+                onClick={() => { onAction?.({ action: "recall", creatureId: selected.species.id }); onChange(recallSidekick(state, selected.species.id)); }}
               >
                 {`Recall ${selected.creature.nickname}`}
               </button>

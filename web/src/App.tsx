@@ -110,6 +110,12 @@ import {
 import { resolveSunnyRuntimeConfig } from "../../src/shared/runtimeConfig";
 import { BossDropReveal } from "./components/BossDropReveal";
 import { NodeTreasureChest, chestFromServer, type ServerNodeChest } from "./components/NodeTreasureChest";
+import { ChestThenCreature } from "./components/LiveCreatureEncounter";
+import { CreatureDenOverlay, DenButton } from "./components/CreatureDenOverlay";
+import { SidekickBuddy } from "./components/SidekickBuddy";
+import { fetchCreatures, sendDenAction, startCreatureSession, type CreatureSnapshot } from "./utils/creatureApi";
+import { CREATURE_CATALOG } from "../../src/shared/capturedMonsterCatalog";
+import type { PendingCreatureEncounter } from "../../src/shared/companionCareTypes";
 import { rewardCallHeldReason } from "./utils/rewardCallOffer";
 import { offerableCallTicket } from "./utils/callCompanion";
 import { pronunciationBoardCompletion } from "./utils/pronunciationBoardCompletion";
@@ -619,6 +625,11 @@ function App() {
   // Beating the Boss drops loot: the saved server roll, shown once per completion reply.
   const [bossDrop, setBossDrop] = useState<{ tier: "common" | "rare" | "epic" | "legendary"; coins: number } | null>(null);
   const [nodeChest, setNodeChest] = useState<ServerNodeChest | null>(null);
+  // Her creatures (owner, 2026-11-08): an encounter the Planner placed, her den, and the sidekick by Elli.
+  const [creatureEncounter, setCreatureEncounter] = useState<PendingCreatureEncounter | null>(null);
+  const [creatureSnapshot, setCreatureSnapshot] = useState<CreatureSnapshot | null>(null);
+  const [creatureDenOpen, setCreatureDenOpen] = useState(false);
+  const [sidekickCheer, setSidekickCheer] = useState(0);
   const [postActivityEngagement, setPostActivityEngagement] = useState<{
     node: NodeConfig;
     outcome: PostActivityOutcome;
@@ -687,6 +698,33 @@ function App() {
     theaterLoadingEnabled && Boolean(adventureChildId);
 
   const effectiveCompanion = activeProfileChildId ? profileCompanion : null;
+
+  // Her creatures: read from the server; the bond fade runs once when her session starts (never mid-homework).
+  const creatureSessionStartedRef = useRef<string | null>(null);
+  const refreshCreatures = useCallback(() => {
+    if (!adventureChildId) return;
+    fetchCreatures(adventureChildId)
+      .then(setCreatureSnapshot)
+      .catch((error: unknown) => console.error(" 🎮 [creatures] [snapshot] [failed]", error));
+  }, [adventureChildId]);
+  useEffect(() => {
+    if (!adventureChildId) return;
+    if (creatureSessionStartedRef.current === adventureChildId) {
+      refreshCreatures();
+      return;
+    }
+    creatureSessionStartedRef.current = adventureChildId;
+    startCreatureSession(adventureChildId)
+      .then((result) => console.log(` 🎮 [creatures] [session-start] [done] ranAway=${result.ranAwayId ?? "none"}`))
+      .catch((error: unknown) => console.error(" 🎮 [creatures] [session-start] [failed]", error))
+      .finally(refreshCreatures);
+  }, [adventureChildId, refreshCreatures]);
+  // The sidekick cheers each time her correct streak grows.
+  const lastCorrectStreakRef = useRef(0);
+  useEffect(() => {
+    if (state.correctStreak > lastCorrectStreakRef.current) setSidekickCheer((count) => count + 1);
+    lastCorrectStreakRef.current = state.correctStreak;
+  }, [state.correctStreak]);
   const activeProfileIdRef = useRef<string | null>(null);
 
   useEffect(() => {
@@ -1674,6 +1712,7 @@ function App() {
       if (completion?.coinAward) setProfileCompanionCurrency(completion.coinAward.balance);
       if (completion?.bossDrop) setBossDrop(completion.bossDrop);
       if (completion?.nodeChest) setNodeChest(completion.nodeChest);
+      if (completion?.creatureEncounter) setCreatureEncounter(completion.creatureEncounter);
       showPlannerBoardEngagementOverlay(launch.node, completion ? completion.outcome : payload, completion?.coinAward, completion?.videoCallTicket);
       console.log(" 🎮 [AdventureBoard] [canonical-completion] [saved]", { nodeId: launch.node.id, nodeState: completion?.nodeState, completed });
     }).catch((error: unknown) => {
@@ -2160,6 +2199,12 @@ function App() {
       ) : (
         <div className="w-screen h-screen overflow-hidden relative bg-zinc-950">
           {!plannerBoardLaunch && !postActivityEngagement ? (
+            <DenButton creatureCount={creatureSnapshot?.den.creatures.length ?? 0} onOpen={() => setCreatureDenOpen(true)} />
+          ) : null}
+          {creatureDenOpen && adventureChildId ? (
+            <CreatureDenOverlay childId={adventureChildId} onClose={() => { setCreatureDenOpen(false); refreshCreatures(); }} />
+          ) : null}
+          {!plannerBoardLaunch && !postActivityEngagement ? (
             <CallProgressBadge
               stopsLeft={plannerBoardPacket?.boardProgress?.stopsLeft}
               companionName={plannerBoardPacket?.childChart.companion.displayName ?? "your friend"}
@@ -2281,6 +2326,13 @@ function App() {
     plannerBoardPacket != null &&
     plannerBoardLaunch == null &&
     !homeworkSessionFinished;
+  const companionSummonedNow = boardMapCompanionCompact
+    ? state.companionPresence === "summoned"
+    : plannerBoardLaunch == null || state.companionPresence === "summoned";
+  const sidekickEntry = creatureSnapshot?.den.sidekickId
+    ? creatureSnapshot.den.creatures.find((creature) => creature.creatureId === creatureSnapshot.den.sidekickId)
+    : undefined;
+  const sidekickSpecies = sidekickEntry ? CREATURE_CATALOG.find((species) => species.id === sidekickEntry.creatureId) : undefined;
   const companionPortraitMode =
     preparationScreenActive ||
     boardMapCompanionCompact ||
@@ -2439,6 +2491,20 @@ function App() {
         }
       />
       </CompanionCareProvider>
+      {sidekickEntry && sidekickSpecies && companionPortraitMode && effectiveCompanion && !homeworkSessionFinished && !creatureDenOpen ? (
+        <SidekickBuddy
+          creature={sidekickSpecies}
+          nickname={sidekickEntry.nickname}
+          cheerKey={sidekickCheer}
+          companionSize={companionSummonedNow ? 188 : 68}
+          onDismiss={() => {
+            if (!adventureChildId) return;
+            void sendDenAction(adventureChildId, { action: "dismiss" })
+              .then(refreshCreatures)
+              .catch((error: unknown) => console.error(" 🎮 [creatures] [sidekick] [dismiss-failed]", error));
+          }}
+        />
+      ) : null}
       {isRewardDiagEnabled() ? (
         <>
           <RewardDiagBridge />
@@ -2578,11 +2644,19 @@ function App() {
               onOpenVideoCall={
                 postActivityEngagement.videoCallTicket && !rewardCallHeld ? openEarnedVideoCall : null
               }
-              treasure={nodeChest ? (finish) => (
-                <NodeTreasureChest
-                  {...chestFromServer(nodeChest)}
-                  onOpened={() => { if (nodeChest.bonus && nodeChest.homeworkId && nodeChest.nodeId) sendMessage("reward_drop", { homeworkId: nodeChest.homeworkId, nodeId: nodeChest.nodeId }); }}
-                  onCollect={finish}
+              treasure={nodeChest || creatureEncounter ? (finish) => (
+                <ChestThenCreature
+                  renderChest={nodeChest ? (collect) => (
+                    <NodeTreasureChest
+                      {...chestFromServer(nodeChest)}
+                      onOpened={() => { if (nodeChest.bonus && nodeChest.homeworkId && nodeChest.nodeId) sendMessage("reward_drop", { homeworkId: nodeChest.homeworkId, nodeId: nodeChest.nodeId }); }}
+                      onCollect={collect}
+                    />
+                  ) : null}
+                  encounter={creatureEncounter}
+                  childId={adventureChildId ?? ""}
+                  companion={effectiveCompanion}
+                  onFinish={() => { setCreatureEncounter(null); refreshCreatures(); finish(); }}
                 />
               ) : null}
             />
@@ -2677,11 +2751,19 @@ function App() {
               onOpenVideoCall={
                 postActivityEngagement.videoCallTicket && !rewardCallHeld ? openEarnedVideoCall : null
               }
-              treasure={nodeChest ? (finish) => (
-                <NodeTreasureChest
-                  {...chestFromServer(nodeChest)}
-                  onOpened={() => { if (nodeChest.bonus && nodeChest.homeworkId && nodeChest.nodeId) sendMessage("reward_drop", { homeworkId: nodeChest.homeworkId, nodeId: nodeChest.nodeId }); }}
-                  onCollect={finish}
+              treasure={nodeChest || creatureEncounter ? (finish) => (
+                <ChestThenCreature
+                  renderChest={nodeChest ? (collect) => (
+                    <NodeTreasureChest
+                      {...chestFromServer(nodeChest)}
+                      onOpened={() => { if (nodeChest.bonus && nodeChest.homeworkId && nodeChest.nodeId) sendMessage("reward_drop", { homeworkId: nodeChest.homeworkId, nodeId: nodeChest.nodeId }); }}
+                      onCollect={collect}
+                    />
+                  ) : null}
+                  encounter={creatureEncounter}
+                  childId={adventureChildId ?? ""}
+                  companion={effectiveCompanion}
+                  onFinish={() => { setCreatureEncounter(null); refreshCreatures(); finish(); }}
                 />
               ) : null}
             />

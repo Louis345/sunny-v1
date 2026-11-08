@@ -19,6 +19,7 @@ export function SidekickBuddy({
   cheerKey,
   onDismiss,
   placement = "beside-companion",
+  companionSize = 188,
 }: {
   creature: CapturedMonsterConfig;
   nickname: string;
@@ -27,6 +28,8 @@ export function SidekickBuddy({
   onDismiss: () => void;
   /** beside-companion pins it just left of Elli's portrait and above it; inline leaves layout to the parent. */
   placement?: "beside-companion" | "inline";
+  /** The companion portrait's size (summoned 188, collapsed 68), so the sidekick stays just beside it. */
+  companionSize?: number;
 }) {
   const [mood, setMood] = useState<SidekickMood>("idle");
   const firstKey = useRef(cheerKey);
@@ -52,6 +55,7 @@ export function SidekickBuddy({
       type="button"
       className={placement === "beside-companion" ? "sidekick-buddy sidekick-buddy--beside-companion" : "sidekick-buddy"}
       data-testid="sidekick-buddy"
+      style={placement === "beside-companion" ? { right: 16 + companionSize + 8, bottom: companionSize > 100 ? 64 : 16 } : undefined}
       data-mood={mood}
       data-idle-life={mood === "idle" ? "breathing" : undefined}
       data-idle-fidget={mood === "idle" && idleFidget ? idleFidget : undefined}

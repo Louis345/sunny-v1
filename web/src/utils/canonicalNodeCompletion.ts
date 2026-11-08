@@ -1,4 +1,5 @@
 import type { ServerNodeChest } from "../components/NodeTreasureChest";
+import type { PendingCreatureEncounter } from "../../../src/shared/companionCareTypes";
 export type CanonicalNodeCompletionInput = {
   childId: string;
   homeworkId: string;
@@ -167,6 +168,7 @@ export async function postCanonicalNodeCompletion(input: CanonicalNodeCompletion
   videoCallTicket?: { homeworkId: string; earnedAt: string; bonusUrl?: string };
   bossDrop?: { tier: "common" | "rare" | "epic" | "legendary"; coins: number };
   nodeChest?: ServerNodeChest;
+  creatureEncounter?: PendingCreatureEncounter;
 }> {
   const { completionId, ...request } = input;
   const response = await fetch("/api/learning-cycle/node-complete", {
@@ -184,6 +186,7 @@ export async function postCanonicalNodeCompletion(input: CanonicalNodeCompletion
     videoCallTicket?: { homeworkId: string; earnedAt: string; bonusUrl?: string };
     bossDrop?: { tier: "common" | "rare" | "epic" | "legendary"; coins: number };
   nodeChest?: ServerNodeChest;
+    creatureEncounter?: PendingCreatureEncounter;
   };
   window.dispatchEvent(new CustomEvent("sunny_learning_cycle_progression", { detail: result }));
   return { ...result, outcome: { ...input.result, completed: result.nodeState === "completed", accuracy: result.academicAccuracy ?? undefined } };

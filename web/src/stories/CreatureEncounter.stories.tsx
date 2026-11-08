@@ -3,6 +3,7 @@ import { useMemo, useState, type ReactElement } from "react";
 import { CREATURE_CATALOG, type CapturedMonsterConfig, type CreatureStopKind } from "../../../src/shared/capturedMonsterCatalog";
 import { CreatureCollection } from "../components/CreatureCollection";
 import { CreatureEncounterReveal } from "../components/CreatureEncounterReveal";
+import { ChestThenCreature } from "../components/LiveCreatureEncounter";
 import {
   CHARGES_BY_RARITY,
   rollCreatureEncounter,
@@ -332,4 +333,38 @@ function FullLoopStory(args: CreatureStoryArgs): ReactElement {
 export const FullLoop: Story = {
   name: "Full loop: stop → chest → creature → orb → dex",
   render: (args) => <FullLoopStory {...args} />,
+};
+
+/* ---------- The live flow after a stop, exactly as the kiosk runs it ---------- */
+
+function AfterStopStory(args: CreatureStoryArgs & { charges: number }): ReactElement {
+  const { companion } = useMemo(() => companionForChild("ila"), []);
+  const [key, setKey] = useState(0);
+  const [done, setDone] = useState(false);
+  if (done) {
+    return (
+      <div style={{ minHeight: "100vh", display: "grid", placeItems: "center", background: "#0b0820", color: "white", fontFamily: "Lexend, system-ui, sans-serif" }}>
+        <button type="button" onClick={() => { setDone(false); setKey((value) => value + 1); }} style={{ padding: "12px 24px", borderRadius: 999, border: 0, fontWeight: 900 }}>
+          Finish another stop
+        </button>
+      </div>
+    );
+  }
+  return (
+    <div key={key} style={{ minHeight: "100vh", background: "#1e293b" }}>
+      <ChestThenCreature
+        renderChest={(collect) => <NodeTreasureChest rarity="rare" bonusChance={0.25} loot={{ coins: 16, rarity: "rare" }} onCollect={collect} />}
+        encounter={{ encounterId: `story:${key}`, creatureId: args.creatureId, charges: args.charges, isNew: args.isNew }}
+        childId="ila"
+        companion={companion}
+        onFinish={() => setDone(true)}
+      />
+    </div>
+  );
+}
+
+export const AfterAStop: Story = {
+  name: "Live: after a stop (chest → creature → shake catch)",
+  args: { creatureId: "glowmoth", isNew: true },
+  render: (args) => <AfterStopStory {...args} charges={2} />,
 };
