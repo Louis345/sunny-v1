@@ -6,6 +6,7 @@ import {
   createStarterCompanionCarePlan,
 } from "../engine/companionCareEngine";
 import type { CompanionCarePlan } from "../shared/companionCareTypes";
+import { normalizeCreatureState } from "../engine/creatureCareEngine";
 
 export type CompanionCareChartInput = {
   childId: string;
@@ -95,6 +96,8 @@ function normalizeLoadedPlan(
         ? plan.economy.coinPurchases.map((row) => ({ ...row, offer: { ...row.offer } }))
         : [],
     },
+    // Her creatures (den, seen, milestones, try lockouts); dropping them here would erase what she caught.
+    ...(plan.creatures ? { creatures: normalizeCreatureState(plan.creatures) } : {}),
     inventory: {
       food: Array.isArray(plan.inventory?.food) ? plan.inventory.food : [],
       careItems: Array.isArray(plan.inventory?.careItems)

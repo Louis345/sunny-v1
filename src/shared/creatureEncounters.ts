@@ -1,10 +1,10 @@
-import type { RewardRarity } from "../../../src/shared/rewardCatalog";
+import type { RewardRarity } from "./rewardCatalog";
 import {
   CREATURE_CATALOG,
   type CapturedMonsterConfig,
   type CreatureStopKind,
 } from "./capturedMonsterCatalog";
-import type { SparkOrbSeason, SparkOrbTimeOfDay } from "./sparkOrbScenes";
+import type { Season as SparkOrbSeason, SkyMood as SparkOrbTimeOfDay } from "./skyClock";
 
 /**
  * When a creature shows up (owner, 2026-11-08), after World of Warcraft. A reward that follows the learning:

@@ -1,6 +1,6 @@
 import { useEffect, useState, type CSSProperties } from "react";
 import "./CreatureEncounter.css";
-import type { CapturedMonsterConfig } from "./capturedMonsterCatalog";
+import type { CapturedMonsterConfig } from "../../../src/shared/capturedMonsterCatalog";
 import { creatureArtStyle, dexLabel } from "./CreatureEncounterReveal";
 import {
   DEN_FOOD_BOND,
@@ -16,7 +16,7 @@ import {
   renameDenCreature,
   type DenCreature,
   type DenState,
-} from "./creatureDenRules";
+} from "../../../src/shared/creatureDenRules";
 import { useCreatureIdleLife } from "../hooks/useCreatureIdleLife";
 import { playSparkOrbSfx } from "../utils/sparkOrbSfx";
 

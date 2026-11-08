@@ -1,8 +1,8 @@
 import type {
   CapturedMonsterConfig,
   CapturedMonsterLifeState,
-} from "./capturedMonsterCatalog";
-import { DEN_STARTING_BOND } from "./creatureDenRules";
+} from "../../../src/shared/capturedMonsterCatalog";
+import { DEN_STARTING_BOND } from "../../../src/shared/creatureDenRules";
 
 export type CapturedCreatureRewardSource = "spark_orb_learning_shell";
 export type CapturedCreatureChartWriteMode = "storybook_only";

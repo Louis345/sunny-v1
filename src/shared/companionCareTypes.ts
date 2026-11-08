@@ -1,3 +1,4 @@
+import type { DenCreature } from "./creatureDenRules";
 import type { TamagotchiState } from "./vrrTypes";
 
 export type CompanionCareRarity = "common" | "uncommon" | "rare";
@@ -89,6 +90,37 @@ export type CoinOffer =
   | { kind: "outfit"; itemId: string };
 export interface CoinPurchase { receiptId: string; offer: CoinOffer; price: number; purchasedAt: string }
 
+/** A creature encounter the server rolled for a Planner-placed stop, waiting for her catch or let-go. */
+export interface PendingCreatureEncounter {
+  encounterId: string;
+  boardId: string;
+  stopId: string;
+  creatureId: string;
+  charges: number;
+  isNew: boolean;
+  reason: string;
+  rolledAt: string;
+}
+
+/**
+ * Her creatures (owner, 2026-11-08): the den (who she caught, bond, sidekick), what she has seen, how many
+ * boards count toward milestones, and the try lockouts. Rewards follow the learning; nothing here is evidence.
+ */
+export interface CreaturePlanState {
+  den: { creatures: DenCreature[]; sidekickId: string | null; lastVisitAt?: string; ranAwayId?: string | null };
+  seenIds: string[];
+  boardsCompleted: number;
+  /** Boards already counted toward milestones (receipts, newest last). */
+  countedBoardIds: string[];
+  /** Boards that already had their one encounter. */
+  encounterBoardIds: string[];
+  /** When each drop or seasonal creature was last tried for. */
+  lastTryAt: Record<string, string>;
+  pending: PendingCreatureEncounter[];
+  /** Encounters already caught or let go (receipts, newest last). */
+  resolvedEncounterIds: string[];
+}
+
 export interface CompanionCarePlan {
   version: 1;
   childId: string;
@@ -135,6 +167,8 @@ export interface CompanionCarePlan {
     /** Everything bought with coins, newest last. */
     coinPurchases?: CoinPurchase[];
   };
+  /** Her creatures; absent until her first encounter. */
+  creatures?: CreaturePlanState;
   updatedAt: string;
 }
 

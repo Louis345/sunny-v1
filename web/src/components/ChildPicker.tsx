@@ -5,7 +5,7 @@ import {
   type CompanionThemeConfig,
   type CompanionThemeResponse,
 } from "../../../src/shared/companionTheme";
-import { kioskSkyClockInput, skyMoodForTime, type SkyClockInput, type SkyMood } from "../utils/skyClock";
+import { kioskSkyClockInput, skyMoodForTime, type SkyClockInput, type SkyMood } from "../../../src/shared/skyClock";
 
 interface Props {
   /** `diagKiosk` uses child=creator + Charlotte on the server (diagnostic prompt). */

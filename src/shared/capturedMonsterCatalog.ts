@@ -1,5 +1,5 @@
-import type { RewardRarity } from "../../../src/shared/rewardCatalog";
-import type { SparkOrbSeason, SparkOrbTimeOfDay } from "./sparkOrbScenes";
+import type { RewardRarity } from "./rewardCatalog";
+import type { Season as SparkOrbSeason, SkyMood as SparkOrbTimeOfDay } from "./skyClock";
 export type CapturedMonsterLifeState =
   | "idle"
   | "curious"

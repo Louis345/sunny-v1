@@ -1,5 +1,5 @@
-import { COMPANION_STORE_ITEMS } from "../../../src/engine/companionCareEngine";
-import type { CompanionStoreItem } from "../../../src/shared/companionCareTypes";
+import type { CompanionStoreItem } from "./companionCareTypes";
+import { COMPANION_STORE_ITEMS } from "./rewardCatalog";
 import { CREATURE_CATALOG, type CapturedMonsterConfig } from "./capturedMonsterCatalog";
 
 /**

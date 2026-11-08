@@ -18,7 +18,7 @@ import {
 import {
   LUMIPUFF_MONSTER,
   type CapturedMonsterCapturePersonality,
-} from "../components/capturedMonsterCatalog";
+} from "../../../src/shared/capturedMonsterCatalog";
 import type { SparkOrbEncounterPhase } from "../components/SparkOrbEncounterPost";
 import { playSparkOrbSfx } from "../utils/sparkOrbSfx";
 

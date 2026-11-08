@@ -1,9 +1,9 @@
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { CreatureDen } from "../components/CreatureDen";
-import type { DenState } from "../components/creatureDenRules";
+import type { DenState } from "../../../src/shared/creatureDenRules";
 import { SIDEKICK_CHEER_MS, SIDEKICK_SLEEP_MS, SidekickBuddy } from "../components/SidekickBuddy";
-import { CREATURE_CATALOG } from "../components/capturedMonsterCatalog";
+import { CREATURE_CATALOG } from "../../../src/shared/capturedMonsterCatalog";
 
 const playSfx = vi.hoisted(() => vi.fn());
 vi.mock("../utils/sparkOrbSfx", () => ({

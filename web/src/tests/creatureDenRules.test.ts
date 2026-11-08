@@ -14,7 +14,7 @@ import {
   feedDenCreature,
   recallSidekick,
   type DenState,
-} from "../components/creatureDenRules";
+} from "../../../src/shared/creatureDenRules";
 
 function den(overrides: Partial<DenState> = {}): DenState {
   return {

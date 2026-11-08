@@ -12,12 +12,11 @@ import type {
   CompanionCareView,
   CompanionFeedResult,
   CompanionPurchaseResult,
-  CompanionStoreItem,
   CompanionReadiness,
 } from "../shared/companionCareTypes";
 import type { TamagotchiState } from "../shared/vrrTypes";
 import { REWARD_GAMES } from "../shared/gameRegistry.generated";
-import { ARCADE_RULES, CALL_RULES, CHEST_RARITY_ODDS, CHEST_TABLE, ITEM_SHARE, PRICE_LIST, REWARD_CATALOG, eligibleDrops } from "../shared/rewardCatalog";
+import { ARCADE_RULES, CALL_RULES, CHEST_RARITY_ODDS, COMPANION_STORE_ITEMS, CHEST_TABLE, ITEM_SHARE, PRICE_LIST, REWARD_CATALOG, eligibleDrops } from "../shared/rewardCatalog";
 
 type CareEffect = Partial<
   Pick<
@@ -78,11 +77,6 @@ const STARTER_FOOD: StarterFood[] = [
   },
 ];
 
-export const COMPANION_STORE_ITEMS: readonly CompanionStoreItem[] = [
-  { id: "apple_bite", label: "Apple Bite", cost: 25, rarity: "common" },
-  { id: "star_candy", label: "Star Candy", cost: 50, rarity: "uncommon" },
-  { id: "mystery_snack", label: "Mystery Snack", cost: 100, rarity: "rare" },
-];
 
 function clamp01(value: number): number {
   if (!Number.isFinite(value)) return 0;
@@ -117,6 +111,8 @@ function applyEffect(state: CompanionCareState, effect: CareEffect): CompanionCa
     thoughtClarity: clamp01(state.thoughtClarity + (effect.thoughtClarity ?? 0)),
   };
 }
+
+export { COMPANION_STORE_ITEMS };
 
 export function createStarterCompanionCarePlan(opts: {
   childId: string;

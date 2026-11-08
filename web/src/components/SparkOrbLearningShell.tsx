@@ -35,7 +35,7 @@ import {
   LUMIPUFF_MONSTER,
   type CapturedMonsterConfig,
   type CapturedMonsterCapturePersonality,
-} from "./capturedMonsterCatalog";
+} from "../../../src/shared/capturedMonsterCatalog";
 import {
   buildCapturedCreatureReward,
   buildOrbCaptureCompletedEvent,

@@ -1,6 +1,7 @@
 /**
  * The one sky clock (owner, 2026-11-07): the mood of the sky follows the real sunrise and sunset where
- * the kiosk is. The start screen and the Spark Orb scenes both read it, so they always agree.
+ * the kiosk is, and the calendar gives the season. The start screen, the Spark Orb scenes and the server's
+ * creature rules all read it, so they always agree.
  */
 export type SkyMood = "sunrise" | "day" | "golden" | "twilight" | "night";
 
@@ -48,4 +49,17 @@ export function kioskSkyClockInput(at: Date = new Date()): SkyClockInput {
 
 export function skyMoodNow(at: Date = new Date()): SkyMood {
   return skyMoodForTime(kioskSkyClockInput(at));
+}
+
+export type Season = "spring" | "summer" | "autumn" | "halloween" | "holiday" | "winter";
+
+export function seasonOf(now: Date): Season {
+  const month = now.getMonth() + 1;
+  const day = now.getDate();
+  if (month === 10 && day >= 15) return "halloween";
+  if (month === 12 && day <= 26) return "holiday";
+  if (month === 12 || month <= 2) return "winter";
+  if (month <= 5) return "spring";
+  if (month <= 8) return "summer";
+  return "autumn";
 }

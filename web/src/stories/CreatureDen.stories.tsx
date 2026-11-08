@@ -1,9 +1,9 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { useMemo, useState, type ReactElement } from "react";
 import { CompanionLayer } from "../components/CompanionLayer";
-import { CREATURE_CATALOG } from "../components/capturedMonsterCatalog";
+import { CREATURE_CATALOG } from "../../../src/shared/capturedMonsterCatalog";
 import { CreatureDen } from "../components/CreatureDen";
-import { dismissSidekick, startDenSession, type DenState } from "../components/creatureDenRules";
+import { dismissSidekick, startDenSession, type DenState } from "../../../src/shared/creatureDenRules";
 import { SidekickBuddy } from "../components/SidekickBuddy";
 import { companionForChild } from "../storybook/companionForChild";
 

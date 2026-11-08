@@ -1,13 +1,13 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { useMemo, useState, type ReactElement } from "react";
-import { CREATURE_CATALOG, type CapturedMonsterConfig, type CreatureStopKind } from "../components/capturedMonsterCatalog";
+import { CREATURE_CATALOG, type CapturedMonsterConfig, type CreatureStopKind } from "../../../src/shared/capturedMonsterCatalog";
 import { CreatureCollection } from "../components/CreatureCollection";
 import { CreatureEncounterReveal } from "../components/CreatureEncounterReveal";
 import {
   CHARGES_BY_RARITY,
   rollCreatureEncounter,
   type CreatureEncounterRoll,
-} from "../components/creatureEncounters";
+} from "../../../src/shared/creatureEncounters";
 import { NodeTreasureChest } from "../components/NodeTreasureChest";
 import { SparkOrbLearningShell } from "../components/SparkOrbLearningShell";
 import { resolveSparkOrbScene, type SparkOrbSeason, type SparkOrbTimeOfDay } from "../components/sparkOrbScenes";

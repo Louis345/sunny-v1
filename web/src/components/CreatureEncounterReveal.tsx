@@ -1,6 +1,6 @@
 import { useEffect, useState, type CSSProperties } from "react";
 import "./CreatureEncounter.css";
-import type { CapturedMonsterConfig } from "./capturedMonsterCatalog";
+import type { CapturedMonsterConfig } from "../../../src/shared/capturedMonsterCatalog";
 import { playSparkOrbSfx } from "../utils/sparkOrbSfx";
 
 /** Suspense first, then the creature: something rustles, a silhouette in its rarity's light, then the reveal. */

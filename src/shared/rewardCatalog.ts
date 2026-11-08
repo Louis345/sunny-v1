@@ -1,4 +1,4 @@
-import type { BossDropTier } from "./companionCareTypes";
+import type { BossDropTier, CompanionStoreItem } from "./companionCareTypes";
 
 /** Everything a child can earn (owner, 2026-11-07). She sees all of it, greyed out until a chest drops it,
  * so new content is one more entry here, never new plumbing. Rewards follow the learning; they never change
@@ -90,3 +90,10 @@ export function collectionView(ownedIds: readonly string[]): CollectionEntry[] {
     return { item, owned: false, bestChest, bestChance };
   }).sort((a, b) => Number(b.owned) - Number(a.owned) || RANK[a.item.rarity] - RANK[b.item.rarity]);
 }
+
+/** Food in the store (Elli and her creatures eat the same food), by price. */
+export const COMPANION_STORE_ITEMS: readonly CompanionStoreItem[] = [
+  { id: "apple_bite", label: "Apple Bite", cost: 25, rarity: "common" },
+  { id: "star_candy", label: "Star Candy", cost: 50, rarity: "uncommon" },
+  { id: "mystery_snack", label: "Mystery Snack", cost: 100, rarity: "rare" },
+];

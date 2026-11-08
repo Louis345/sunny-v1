@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useCreatureIdleLife } from "../hooks/useCreatureIdleLife";
 import "./CreatureEncounter.css";
-import type { CapturedMonsterConfig } from "./capturedMonsterCatalog";
+import type { CapturedMonsterConfig } from "../../../src/shared/capturedMonsterCatalog";
 import { creatureArtStyle } from "./CreatureEncounterReveal";
 import { playSparkOrbSfx } from "../utils/sparkOrbSfx";
 

@@ -1,5 +1,8 @@
 import type { AdventureBoardTheme } from "../../../src/shared/adventureBoardJson";
-import { skyMoodNow, type SkyMood } from "../utils/skyClock";
+import { seasonOf, skyMoodNow, type Season, type SkyMood } from "../../../src/shared/skyClock";
+
+/** The calendar season (shared with the server, which decides which creatures are out). */
+export const sparkOrbSeason = seasonOf;
 
 /**
  * Where a Spark Orb encounter happens. The picture comes from the board's theme when it has one
@@ -9,7 +12,7 @@ import { skyMoodNow, type SkyMood } from "../utils/skyClock";
  */
 /** Light follows the shared sky clock (real sunrise and sunset), the same one the start screen uses. */
 export type SparkOrbTimeOfDay = SkyMood;
-export type SparkOrbSeason = "spring" | "summer" | "autumn" | "halloween" | "holiday" | "winter";
+export type SparkOrbSeason = Season;
 export type SparkOrbWeather = "snow" | "leaves" | "petals" | "fireflies" | "none";
 
 export interface SparkOrbSceneInput {
@@ -30,16 +33,6 @@ export interface SparkOrbScene {
 export const SPARK_ORB_DEFAULT_BACKGROUND = "/encounters/spark-orb/park-background.png";
 export const SPARK_ORB_MAX_WEATHER_PARTICLES = 18;
 
-export function sparkOrbSeason(now: Date): SparkOrbSeason {
-  const month = now.getMonth() + 1;
-  const day = now.getDate();
-  if (month === 10 && day >= 15) return "halloween";
-  if (month === 12 && day <= 26) return "holiday";
-  if (month === 12 || month <= 2) return "winter";
-  if (month <= 5) return "spring";
-  if (month <= 8) return "summer";
-  return "autumn";
-}
 
 function weatherFor(season: SparkOrbSeason, timeOfDay: SparkOrbTimeOfDay): SparkOrbWeather {
   switch (season) {

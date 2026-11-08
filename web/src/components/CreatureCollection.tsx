@@ -1,5 +1,5 @@
 import "./CreatureEncounter.css";
-import { creatureDexView, type CreatureEncounterHistory, type CreatureScene } from "./creatureEncounters";
+import { creatureDexView, type CreatureEncounterHistory, type CreatureScene } from "../../../src/shared/creatureEncounters";
 import { creatureArtStyle, dexLabel } from "./CreatureEncounterReveal";
 
 const RARITY_NAME = { common: "Common", rare: "Rare", epic: "Epic", legendary: "Legendary" } as const;

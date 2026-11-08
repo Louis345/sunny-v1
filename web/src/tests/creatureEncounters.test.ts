@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { CREATURE_CATALOG, LUMIPUFF_MONSTER } from "../components/capturedMonsterCatalog";
+import { CREATURE_CATALOG, LUMIPUFF_MONSTER } from "../../../src/shared/capturedMonsterCatalog";
 import {
   CHARGES_BY_RARITY,
   ENCOUNTERS_PER_BOARD,
@@ -8,7 +8,7 @@ import {
   creatureDexView,
   rollCreatureEncounter,
   type CreatureEncounterHistory,
-} from "../components/creatureEncounters";
+} from "../../../src/shared/creatureEncounters";
 
 const AUTUMN_NIGHT = { season: "autumn" as const, timeOfDay: "night" as const };
 const now = "2026-11-08T21:00:00.000Z";

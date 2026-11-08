@@ -39,7 +39,7 @@ it("opens on a warm, decorative sky that never takes a tap", async () => {
 
 // Owner, 2026-11-07: the sky follows the real sun where the kiosk is, from its timezone only (no location).
 import { START_SKIES, STARFIELD, skyForTime, starfieldRotation } from "../components/ChildPicker";
-import { skyMoodForTime } from "../utils/skyClock";
+import { skyMoodForTime } from "../../../src/shared/skyClock";
 const eastern = (iso: string, offsetHours: number) => ({ at: new Date(iso), utcOffsetMinutes: offsetHours * 60, standardOffsetMinutes: -300 });
 it("follows the real sun: dark after an early November sunset, sunrise colors at dawn", () => {
   expect(skyForTime(eastern("2026-11-07T23:00:00Z", -5)).name).toBe("night");    // 6:00 pm, sun set ~4:40

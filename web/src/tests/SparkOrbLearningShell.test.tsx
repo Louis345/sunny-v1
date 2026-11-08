@@ -8,13 +8,13 @@ import {
   SPARK_ORB_MAX_SIM_STEPS,
   SparkOrbLearningShell,
 } from "../components/SparkOrbLearningShell";
-import { LUMIPUFF_MONSTER } from "../components/capturedMonsterCatalog";
+import { LUMIPUFF_MONSTER } from "../../../src/shared/capturedMonsterCatalog";
 import {
   SPARK_ORB_DEFAULT_BACKGROUND,
   SPARK_ORB_MAX_WEATHER_PARTICLES,
   resolveSparkOrbScene,
 } from "../components/sparkOrbScenes";
-import { skyMoodNow } from "../utils/skyClock";
+import { skyMoodNow } from "../../../src/shared/skyClock";
 import { CREATURE_IDLE_CHIRP_COOLDOWN_MS } from "../hooks/useCreatureIdleLife";
 import { DEFAULT_SENSORY_PROFILE } from "../../../src/shared/sensoryProfile";
 import { COMPANION_DEFAULTS, type CompanionConfig } from "../../../src/shared/companionTypes";

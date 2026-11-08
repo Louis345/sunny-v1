@@ -1,6 +1,6 @@
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { CREATURE_CATALOG } from "../components/capturedMonsterCatalog";
+import { CREATURE_CATALOG } from "../../../src/shared/capturedMonsterCatalog";
 import { CreatureCollection } from "../components/CreatureCollection";
 import { CREATURE_REVEAL_MS, CreatureEncounterReveal } from "../components/CreatureEncounterReveal";
 
