@@ -17,6 +17,22 @@ function makeState(overrides: Partial<AdventureVoiceState> = {}): AdventureVoice
 describe("useAdventureState", () => {
   afterEach(() => {
     cleanup();
+    window.history.replaceState(null, "", "/");
+  });
+
+  // Owner-reported 2026-11-07: saying goodbye on the earned call dropped her on "Who is learning today?"
+  // instead of back on her map. Why: the call sent her to "/", which only knows the picker. Logs showed a clean
+  // goodbye; the lab ended its call test at the goodbye line and never looked at where she landed.
+  it("opens her map directly when the address names her, as the call's goodbye does", () => {
+    window.history.replaceState(null, "", "/?child=Ila");
+    const { result } = renderHook(() => useAdventureState(makeState(), true));
+    expect(result.current.adventureChildId).toBe("ila");
+  });
+
+  it("ignores a malformed child name in the address", () => {
+    window.history.replaceState(null, "", "/?child=%3Cscript%3E");
+    const { result } = renderHook(() => useAdventureState(makeState(), true));
+    expect(result.current.adventureChildId).not.toBe("<script>");
   });
 
   it("karaokeReadingActive is true when phase=active, mode=karaoke, words > 0", () => {

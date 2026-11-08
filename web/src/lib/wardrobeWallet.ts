@@ -1,5 +1,13 @@
 import { REWARD_CATALOG, type RewardItem } from "../../../src/shared/rewardCatalog";
-import type { WardrobeStoreItem, WardrobeStoreState } from "./wardrobeStore";
+import {
+  WARDROBE_STORE_STORAGE_KEY,
+  createInitialWardrobeStoreState,
+  parseWardrobeStoreState,
+  resolveEquippedWardrobeSelection,
+  type WardrobeSelection,
+  type WardrobeStoreItem,
+  type WardrobeStoreState,
+} from "./wardrobeStore";
 
 /** Her saved wallet from the server: coins and every reward she owns (chest drops and purchases). */
 export type ServerWallet = { coins: number; ownedRewardIds: string[] };
@@ -35,4 +43,26 @@ export function withServerWallet(state: WardrobeStoreState, wallet: ServerWallet
 /** Items the wallet shop shows: anything with a coin price, plus anything she already owns. */
 export function walletShopItems(items: readonly WardrobeStoreItem[], ownedWardrobeIds: readonly string[]): WardrobeStoreItem[] {
   return items.filter((item) => ownedWardrobeIds.includes(item.id) || rewardForWardrobeItem(item.id)?.price !== undefined);
+}
+
+/**
+ * The look she saved for her companion, for a call that starts before the shop is opened: her per-child saved
+ * closet, limited to what the server says she owns (BUGS.md 2026-11-07, a bought dress missing at call start).
+ */
+export function savedEquippedLook(
+  storage: Pick<Storage, "getItem"> | undefined,
+  childId: string,
+  wallet: ServerWallet,
+  companionId: string,
+  companionModelUrl: string,
+): WardrobeSelection {
+  let state = createInitialWardrobeStoreState();
+  try {
+    const saved = storage?.getItem(`${WARDROBE_STORE_STORAGE_KEY}:${childId}`);
+    const parsed = saved ? parseWardrobeStoreState(JSON.parse(saved) as unknown) : null;
+    if (parsed) state = parsed;
+  } catch (error: unknown) {
+    console.error(" 🎮 [wardrobe-wallet] [saved-look] [load-failed]", error);
+  }
+  return resolveEquippedWardrobeSelection(withServerWallet(state, wallet), companionId, companionModelUrl);
 }
