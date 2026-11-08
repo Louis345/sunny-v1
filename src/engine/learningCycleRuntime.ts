@@ -1,6 +1,7 @@
 import {isDeepStrictEqual} from "node:util";
 import { plannerDecisionView, plannerObservationView } from "./plannerEvidenceView";
 import { spellingActivityMenu } from "./spellingTeachingTools";
+import { schoolTestFacts, schoolTestLine, SPELLING_TEST_CONDITIONS } from "./schoolTestObjective";
 import { spellingActivityCatalog } from "./assignmentPlanner";
 import {readSuccessorBoardDefinition, assembleAdventureBoardDefinition, BOARD_DEFINITION_TOOL_SCHEMA, BOARD_AUTHORING_INSTRUCTION, type AdventureBoardComposition, type AdventureJourneyDefinition} from "../shared/adventureBoardDefinition";
 import { canonicalJourneyLaunchable, isRetryablePlannerBlock, isSpellingPracticeContinuation, repointReusedSetup } from './learningCycleRepository';
@@ -893,7 +894,11 @@ async function askPlanner(
       creatureEncounters:true,
       // The same check the re-run step applies, asked while the Planner is still choosing.
       rerunnable:(nodeId:string,wordIds:string[])=>{const source=builtIns.find(node=>node.nodeId===nodeId);return Boolean(source&&repointReusedSetup(source,`${nodeId}-check`,wordIds.map(wordId=>({id:`check:${wordId}`,wordId}))));}};
-    const prompt=`You are Sunny's AI Planner, her spelling tutor. The goal: she wants to come back to Sunny, and she knows her words by the school test. Compare your preregistered theory and predictions with what she actually did and said, decide what happens next, and build her next board, using the tools.
+    // The school test as facts beside the goal (owner, 2026-11-08): how practice approaches test conditions is the Planner's call.
+    const schoolTest=schoolTestFacts(chart.homework,cycle.homeworkId);
+    console.log(` 🎮 [canonical-progression] [school-test] [${schoolTest?"included":"not-recorded"}] homework=${cycle.homeworkId} testDate=${schoolTest?.testDate??"none"} daysLeft=${schoolTest?.daysLeft??"unknown"}`);
+    const prompt=`You are Sunny's AI Planner, her spelling tutor. The goal: she wants to come back to Sunny, and she knows her words by the school test. ${schoolTestLine(schoolTest)} ${SPELLING_TEST_CONDITIONS}
+Compare your preregistered theory and predictions with what she actually did and said, decide what happens next, and build her next board, using the tools.
 1. decide: one evidence-grounded decision. Cite the prediction evaluations you judge.
 2. Unless you await calibration, build the next board: add_step for each step, add_explainer for a new lesson page, then set_order and, when she should pick her path, add_choice. Then finish_board.
 Sunny runs each step as you write it. The board she has now stays as it is; yours opens when she chooses it, right away or at a later session. The kiosk screen shows up to 7 stops along any one path, counting the start, the choice and the finish. She sees each step's title. Per-word response time, assistance, exposure and response mode are in the evidence below; Elli talks with her during each activity.
