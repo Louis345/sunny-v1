@@ -27,8 +27,9 @@ it("drops nothing for a Quest, an ordinary stop, or an unfinished Boss", () => {
 
 // Owner, 2026-11-06: every finished stop except the Boss opens a treasure chest; the Boss keeps its loot card.
 it("gives a chest for a finished ordinary stop, once, and none for the Boss or an unfinished stop", () => {
-  const first = awardNodeChestOnCompletion(cycle("baseline"), "hw:b9:boss", () => 0.99);
-  expect(first?.chest).toMatchObject({ kind: "common", coins: CHEST_TABLE.common.coins });
+  const rolls = [0.1, 0, 0.99]; // stays common, low end of the coin range, no bonus
+  const first = awardNodeChestOnCompletion(cycle("baseline"), "hw:b9:boss", () => rolls.shift() ?? 0.99);
+  expect(first?.chest).toMatchObject({ kind: "common", coins: CHEST_TABLE.common.coinRange[0] });
   expect(first?.balance).toBe(saved.at(-1) && (saved.at(-1) as { economy: { coins: number } }).economy.coins);
   expect(awardNodeChestOnCompletion(cycle("baseline"), "hw:b9:boss", () => 0)).toEqual(first);
   expect(awardNodeChestOnCompletion(cycle("boss"), "hw:b9:boss")).toBeUndefined();

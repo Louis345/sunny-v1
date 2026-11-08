@@ -1,5 +1,6 @@
 import type {
   BossDrop,
+  BossDropTier,
   CoinOffer,
   CoinPurchase,
   NodeChest,
@@ -15,7 +16,7 @@ import type {
   CompanionReadiness,
 } from "../shared/companionCareTypes";
 import type { TamagotchiState } from "../shared/vrrTypes";
-import { CALL_RULES, CHEST_TABLE, ITEM_SHARE, PRICE_LIST, REWARD_CATALOG, eligibleDrops } from "../shared/rewardCatalog";
+import { CALL_RULES, CHEST_RARITY_ODDS, CHEST_TABLE, ITEM_SHARE, PRICE_LIST, REWARD_CATALOG, eligibleDrops } from "../shared/rewardCatalog";
 
 type CareEffect = Partial<
   Pick<
@@ -341,6 +342,11 @@ export function grantBossDrop(
  * follows the learning; it never selects an educational step or touches learning evidence. */
 // The chest table lives with the reward catalog, so the roll and the odds she sees come from one place.
 const NODE_CHESTS = CHEST_TABLE;
+const RARITY_ORDER: readonly BossDropTier[] = ["common", "rare", "epic", "legendary"];
+/** A stop's chest kind is a floor: the rolled rarity can only raise it. */
+function higherRarity(floor: BossDropTier, rolled: BossDropTier): BossDropTier {
+  return RARITY_ORDER.indexOf(rolled) > RARITY_ORDER.indexOf(floor) ? rolled : floor;
+}
 const PITY_STEP = 0.1;
 
 export function nodeChestKind(node: { role: string }): NodeChestKind {
@@ -359,9 +365,13 @@ export function grantNodeChest(
   const prior = chests.find((entry) => entry.homeworkId === input.homeworkId && entry.nodeId === input.nodeId);
   if (prior) return { plan, granted: false, chest: { ...prior } };
   const roll = input.roll ?? Math.random;
-  const rarityRoll = input.kind === "mystery" ? roll() : 0;
-  const rarity = input.kind === "mystery" ? BOSS_DROP_TIERS.find((row) => rarityRoll < row.below)!.tier : input.kind;
+  const rarityRoll = roll();
+  const rarity = input.kind === "mystery"
+    ? BOSS_DROP_TIERS.find((row) => rarityRoll < row.below)!.tier
+    : higherRarity(input.kind, CHEST_RARITY_ODDS.find((row) => rarityRoll < row.below)!.rarity);
   const table = NODE_CHESTS[rarity];
+  const [minCoins, maxCoins] = table.coinRange;
+  const coins = Math.min(maxCoins, minCoins + Math.floor(roll() * (maxCoins - minCoins + 1)));
   const misses = plan.economy.chestsSinceBonus ?? 0;
   const bonusChance = Math.min(1, table.bonusChance + PITY_STEP * misses);
   const lucky = roll() < bonusChance;
@@ -371,7 +381,7 @@ export function grantNodeChest(
   const item = pool.length && roll() < ITEM_SHARE ? pool[Math.min(pool.length - 1, Math.floor(roll() * pool.length))] : undefined;
   const bonus: NodeChest["bonus"] = !lucky ? undefined : item ? { kind: "item", itemId: item.id } : { kind: "call_minutes", minutes: table.minutes };
   const chest: NodeChest = {
-    homeworkId: input.homeworkId, nodeId: input.nodeId, kind: input.kind, rarity, coins: table.coins, bonusChance,
+    homeworkId: input.homeworkId, nodeId: input.nodeId, kind: input.kind, rarity, coins, bonusChance,
     ...(bonus ? { bonus } : {}), droppedAt: input.nowIso,
   };
   return {

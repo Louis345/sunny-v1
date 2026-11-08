@@ -42,12 +42,21 @@ export const CALL_RULES = { freeMinutesPerBoard: 5, warnAtSecondsLeft: 60 } as c
 /** What each chest pays: coins always, and a bonus by chance (call minutes or a catalog item). */
 /** Option B (owner, 2026-11-07), tuned on a replay of the girls' real history: about 50-70 coins a session,
  * so a call top-up or a game is a session's treat and a dress is a week's goal. */
-export const CHEST_TABLE: Record<RewardRarity, { coins: number; bonusChance: number; minutes: number }> = {
-  common: { coins: 10, bonusChance: 0.1, minutes: 2 },
-  rare: { coins: 15, bonusChance: 0.25, minutes: 3 },
-  epic: { coins: 30, bonusChance: 0.5, minutes: 5 },
-  legendary: { coins: 60, bonusChance: 1, minutes: 10 },
+export const CHEST_TABLE: Record<RewardRarity, { coins: number; coinRange: readonly [number, number]; bonusChance: number; minutes: number }> = {
+  common: { coins: 8, coinRange: [5, 11], bonusChance: 0.1, minutes: 2 },
+  rare: { coins: 16, coinRange: [12, 20], bonusChance: 0.25, minutes: 3 },
+  epic: { coins: 30, coinRange: [24, 36], bonusChance: 0.5, minutes: 5 },
+  legendary: { coins: 60, coinRange: [50, 70], bonusChance: 1, minutes: 10 },
 };
+
+/** Every chest is a surprise (owner, 2026-11-07, after Ila's session): a stop's kind is only the floor; the chest
+ * rolls its rarity from these odds, then its coins within that rarity's range. Average stays about 11 per stop. */
+export const CHEST_RARITY_ODDS: ReadonlyArray<{ rarity: RewardRarity; below: number }> = [
+  { rarity: "common", below: 0.7 },
+  { rarity: "rare", below: 0.92 },
+  { rarity: "epic", below: 0.99 },
+  { rarity: "legendary", below: Infinity },
+];
 /** Of the bonuses, the share that is a catalog item while she still has items to find; the rest is call minutes. */
 export const ITEM_SHARE = 0.5;
 const RANK: Record<RewardRarity, number> = { common: 0, rare: 1, epic: 2, legendary: 3 };

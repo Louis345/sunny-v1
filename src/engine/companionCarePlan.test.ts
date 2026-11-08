@@ -181,9 +181,10 @@ describe("node chests survive a save and a load", () => {
     try {
       const at = "2026-11-07T12:00:00.000Z";
       let plan = createStarterCompanionCarePlan({ childId: "lab-child", companionId: "elli" });
-      plan = grantNodeChest(plan, { homeworkId: "hw", nodeId: "warm-up", kind: "common", nowIso: at, roll: () => 0.99 }).plan;
+      const warmUpRolls = [0.1, 0, 0.99]; // common, low coins, no bonus
+      plan = grantNodeChest(plan, { homeworkId: "hw", nodeId: "warm-up", kind: "common", nowIso: at, roll: () => warmUpRolls.shift() ?? 0.99 }).plan;
       saveCompanionCarePlan(chart, plan);
-      const questRolls = [0, 0.9]; // lucky, then call minutes rather than an item
+      const questRolls = [0.1, 0, 0, 0.9]; // stays epic, low coins, lucky, then call minutes rather than an item
       plan = grantNodeChest(loadCompanionCarePlanForChart(chart).plan, { homeworkId: "hw", nodeId: "quest", kind: "epic", nowIso: at, roll: () => questRolls.shift()! }).plan;
       saveCompanionCarePlan(chart, plan);
       const loaded = loadCompanionCarePlanForChart(chart).plan;

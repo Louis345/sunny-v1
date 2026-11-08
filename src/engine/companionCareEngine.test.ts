@@ -244,11 +244,13 @@ describe("node treasure chests", () => {
   });
 
   it("pays coins once, saves the chest, and shows the same chest again", () => {
-    const first = grantNodeChest(plan(), { homeworkId: "hw", nodeId: "n1", kind: "common", nowIso: at, roll: () => 0.99 });
+    // Rolls: rarity 0.1 (stays common), coins 0 (low end of the range), bonus 0.99 (no bonus).
+    const noBonus = [0.1, 0, 0.99];
+    const first = grantNodeChest(plan(), { homeworkId: "hw", nodeId: "n1", kind: "common", nowIso: at, roll: () => noBonus.shift() ?? 0.99 });
     expect(first.granted).toBe(true);
-    expect(first.chest).toMatchObject({ kind: "common", rarity: "common", coins: CHEST_TABLE.common.coins, bonusChance: CHEST_TABLE.common.bonusChance });
+    expect(first.chest).toMatchObject({ kind: "common", rarity: "common", coins: CHEST_TABLE.common.coinRange[0], bonusChance: CHEST_TABLE.common.bonusChance });
     expect(first.chest.bonus).toBeUndefined();
-    expect(first.plan.economy.coins).toBe(plan().economy.coins + CHEST_TABLE.common.coins);
+    expect(first.plan.economy.coins).toBe(plan().economy.coins + CHEST_TABLE.common.coinRange[0]);
     const again = grantNodeChest(first.plan, { homeworkId: "hw", nodeId: "n1", kind: "common", nowIso: at, roll: () => 0 });
     expect(again.granted).toBe(false);
     expect(again.chest).toEqual(first.chest);
@@ -257,11 +259,12 @@ describe("node treasure chests", () => {
 
   it("adds bonus call minutes on a lucky roll, and the pity counter raises the chance after each miss", () => {
     let current = plan();
-    current = grantNodeChest(current, { homeworkId: "hw", nodeId: "a", kind: "common", nowIso: at, roll: () => 0.99 }).plan;
-    const second = grantNodeChest(current, { homeworkId: "hw", nodeId: "b", kind: "common", nowIso: at, roll: () => 0.99 });
+    const miss = () => { const values = [0.1, 0, 0.99]; return () => values.shift() ?? 0.99; };
+    current = grantNodeChest(current, { homeworkId: "hw", nodeId: "a", kind: "common", nowIso: at, roll: miss() }).plan;
+    const second = grantNodeChest(current, { homeworkId: "hw", nodeId: "b", kind: "common", nowIso: at, roll: miss() });
     expect(second.chest.bonusChance).toBeCloseTo(0.2);
     // A lucky roll (0.25 under the 30% chance), then 0.9 picks call minutes over an item.
-    const luckyRolls = [0.25, 0.9];
+    const luckyRolls = [0.1, 0, 0.25, 0.9];
     const lucky = grantNodeChest(second.plan, { homeworkId: "hw", nodeId: "c", kind: "common", nowIso: at, roll: () => luckyRolls.shift()! });
     expect(lucky.chest.bonusChance).toBeCloseTo(0.3);
     expect(lucky.chest.bonus).toEqual({ kind: "call_minutes", minutes: CHEST_TABLE.common.minutes });
@@ -270,9 +273,9 @@ describe("node treasure chests", () => {
   });
 
   it("rolls a mystery chest's rarity and pays that rarity's chest", () => {
-    const rolls = [0.9, 0.99];
+    const rolls = [0.9, 0, 0.99];
     const mystery = grantNodeChest(plan(), { homeworkId: "hw", nodeId: "m", kind: "mystery", nowIso: at, roll: () => rolls.shift()! });
-    expect(mystery.chest).toMatchObject({ kind: "mystery", rarity: "epic", coins: CHEST_TABLE.epic.coins });
+    expect(mystery.chest).toMatchObject({ kind: "mystery", rarity: "epic", coins: CHEST_TABLE.epic.coinRange[0] });
   });
 });
 
@@ -368,5 +371,46 @@ describe("call clock", () => {
     if (!second.ok) throw Error("expected a minute");
     expect(second.minutesLeft).toBe(0);
     expect(spendCallMinute(second.plan, { receiptId: "m3", nowIso: at })).toEqual({ ok: false, reason: "no_minutes" });
+  });
+});
+
+// Owner, 2026-11-07, after Ila's session: every chest is a surprise. Each chest rolls its rarity (a stop's kind is
+// only the floor) and its coins within that rarity's range, so no two openings feel the same. Rewards never pick
+// a learning step; they only follow one.
+describe("variable chests", () => {
+  const at2 = "2026-11-08T12:00:00.000Z";
+  const grant = (kind: "common" | "rare" | "epic" | "legendary", values: number[]) =>
+    grantNodeChest(plan(), { homeworkId: "hw", nodeId: `n-${values.join("-")}`, kind, nowIso: at2, roll: () => values.shift() ?? 0.99 }).chest;
+
+  it("rolls a practice chest's rarity from the odds table, with coins inside that rarity's range", () => {
+    expect(grant("common", [0.1, 0, 0.99]).rarity).toBe("common");
+    expect(grant("common", [0.8, 0, 0.99]).rarity).toBe("rare");
+    expect(grant("common", [0.95, 0, 0.99]).rarity).toBe("epic");
+    expect(grant("common", [0.999, 0, 0.99]).rarity).toBe("legendary");
+    for (const rarity of ["common", "rare", "epic", "legendary"] as const) {
+      const [min, max] = CHEST_TABLE[rarity].coinRange;
+      expect(min).toBeLessThan(max);
+    }
+    const low = grant("common", [0.1, 0, 0.99]);
+    const high = grant("common", [0.1, 0.9999, 0.99]);
+    expect(low.coins).toBe(CHEST_TABLE.common.coinRange[0]);
+    expect(high.coins).toBe(CHEST_TABLE.common.coinRange[1]);
+  });
+
+  it("never rolls below a stop's floor", () => {
+    expect(grant("rare", [0.1, 0, 0.99]).rarity).toBe("rare");
+    expect(grant("epic", [0.1, 0, 0.99]).rarity).toBe("epic");
+    expect(grant("epic", [0.999, 0, 0.99]).rarity).toBe("legendary");
+  });
+
+  it("keeps a practice chest worth about the same on average", () => {
+    let total = 0;
+    let seed = 7;
+    const random = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
+    for (let i = 0; i < 4000; i += 1) {
+      total += grantNodeChest(plan(), { homeworkId: "hw", nodeId: `avg-${i}`, kind: "common", nowIso: at2, roll: random }).chest.coins;
+    }
+    expect(total / 4000).toBeGreaterThan(9);
+    expect(total / 4000).toBeLessThan(15);
   });
 });
