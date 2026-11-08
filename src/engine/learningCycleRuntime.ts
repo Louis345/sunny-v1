@@ -311,7 +311,10 @@ function observationsForCompletion(input: {
   const spellingItems = node.evidenceContract.spellingItems;
   if (input.cycle.domain === "spelling" && spellingItems && input.result.captureLaunchId) {
     const captured = input.cycle.observations.filter(row => row.sourceId === `activity:${node.nodeId}:recall` && Boolean(spellingItems[row.itemId]) && row.confounds.includes(`launch_id:${input.result.captureLaunchId}`));
-    if (node.state !== "completed" && !isSpellingPracticeContinuation(input.cycle) && Object.values(spellingItems).every(item => item.lineage.measurementRole === "fresh_checkpoint") && Object.keys(spellingItems).some(itemId => !captured.some(row => row.itemId === itemId))) throw new Error("spelling_checkpoint_coverage_incomplete");
+    // A check may be answered across sittings (the board resumes with the unanswered words); it is complete
+    // when every word has an answer from any launch of this stop (BUGS.md 2026-11-08, Memory Lighthouse).
+    const answeredAnyLaunch = new Set(input.cycle.observations.filter(row => row.sourceId === `activity:${node.nodeId}:recall` && Boolean(spellingItems[row.itemId])).map(row => row.itemId));
+    if (node.state !== "completed" && !isSpellingPracticeContinuation(input.cycle) && Object.values(spellingItems).every(item => item.lineage.measurementRole === "fresh_checkpoint") && Object.keys(spellingItems).some(itemId => !answeredAnyLaunch.has(itemId))) throw new Error("spelling_checkpoint_coverage_incomplete");
     // Completion summarizes the latest captured response per item; earlier attempts remain audit facts.
     return [...new Map(captured.map(row => [row.itemId, row])).values()];
   }
