@@ -86,6 +86,9 @@ window.GameBridge = (function () {
   // Code keeps her first answer per item and the screen when it opened; a game cannot rewrite either.
   var firstAnswers = Object.create(null);
   var screenAtOpen = Object.create(null);
+  // A stop with bound problems finishes once each has a first answer, whatever the game shows next (a made-up
+  // rematch or bonus round is free extra play; BUGS.md 2026-11-08, Reina's Boss Battle). Sent once.
+  var itemCompletionSent = false;
 
   function itemBinding(target) {
     if (typeof target !== "string") return null;
@@ -346,6 +349,10 @@ window.GameBridge = (function () {
         showPreviewBanner(r);
         return;
       }
+      if (GAME_PARAMS.itemBindings.length) {
+        if (itemCompletionSent) return;
+        itemCompletionSent = true;
+      }
       // Letter-selection/aggregate results cannot stand in for typed word answers.
       if (GAME_PARAMS.launchToken && GAME_PARAMS.spellingItemBindings.length &&
           GAME_PARAMS.spellingItemBindings.some(function (item) { return !capturedSpellingTargets[item.itemId]; })) {
@@ -599,6 +606,10 @@ window.GameBridge = (function () {
           timestamp: timestamp,
         }),
       );
+      if (GAME_PARAMS.itemBindings.length && !itemCompletionSent && GAME_PARAMS.itemBindings.every(function (item) { return firstAnswers[item.itemId]; })) {
+        logContract("items", "every problem answered; finishing the stop");
+        this.complete({ completed: true, ended: true });
+      }
     },
   };
 })();

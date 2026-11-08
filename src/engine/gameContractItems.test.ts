@@ -62,3 +62,24 @@ describe("openItem", () => {
     ]);
   });
 });
+
+// Reina's Boss Battle (2026-11-08): the built game offered a made-up "REMATCH" round at victory and reported
+// completion only on "I'm done"; she tried the rematch, got stuck, and her Boss answers were never sent. Code
+// finishes the stop once every bound problem has a first answer, whatever the game shows after.
+describe("a stop finishes when every problem has an answer", () => {
+  it("sends the completion itself once the last problem is answered, and only once", () => {
+    const { window, posted } = loadContract({ text: "Boss" });
+    window.openItem("m1");
+    window.fireAttemptEvent({ target: "m1", attemptedValue: "odd" });
+    expect(posted.filter(row => row.type === "node_complete")).toHaveLength(0);
+    window.openItem("m2");
+    window.fireAttemptEvent({ target: "m2", attemptedValue: "12" });
+    const done = posted.filter(row => row.type === "node_complete");
+    expect(done).toHaveLength(1);
+    expect(done[0]).toMatchObject({ completed: true, ended: true });
+    // The game's own later "I'm done" (or a rematch's answers) does not send a second completion.
+    window.fireAttemptEvent({ target: "m2", attemptedValue: "99" });
+    window.sendNodeComplete({ completed: true });
+    expect(posted.filter(row => row.type === "node_complete")).toHaveLength(1);
+  });
+});
