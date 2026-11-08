@@ -1,3 +1,4 @@
+import { requiredSettingsReport } from "../server/requiredSettings";
 import {openChart, type ChartDatabase} from '../chart/db';
 import {prepareSpellingChartAssignment} from '../chart/spelling/intakeBridge';
 import {spellingPlanner} from '../chart/spelling/provider';
@@ -2751,6 +2752,11 @@ export async function runIngestHomework(argv: string[]): Promise<void> {
   writeIngestReport(summary, diagnostics);
   progress.finish();
   originalLog(`Done — ${summary.status}`);
+  const settings = requiredSettingsReport();
+  if (settings.missing.length > 0) {
+    // A ready board without the chart would lose her answers as evidence; never let that pass quietly.
+    originalLog(`⚠️  Not saved to ${childId}'s chart: ${settings.missing.join(", ")} not set. Add them to .env and run this again.`);
+  }
   originalLog(`Activities: ${summary.launchableActivities} launchable`);
   if (summary.readinessFailures.length > 0) {
     originalLog(`Reason: ${summary.readinessFailures.slice(0, 8).join(", ")}`);
