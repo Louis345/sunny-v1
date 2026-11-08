@@ -72,12 +72,60 @@ How the game must work:
 Reply with only the HTML document.`;
 }
 
+/** The ask for a math game: her chart, the stop, and how Sunny's contract works; the problems never carry answers. */
+export function buildMathGameAsk(input: { cycle: LearningCycleRecordV2; node: LearningCycleNodeContract; rootDir: string }): string {
+  const { node } = input;
+  const lines = gameItemLines(node);
+  const companion = getChildChart(input.cycle.childId, { rootDir: input.rootDir }).companion.displayName || "her companion";
+  return `Build one math game for a child. It runs inside Sunny, her study helper.
+
+About her, from her chart (what she does counts more than what she says, and what she says clearly more than what she is unsure about):
+${JSON.stringify(childFacts(input.cycle, input.rootDir), null, 2)}
+
+Her ${lines.length} problems for this game (id: problem, how she answers):
+${lines.join("\n")}
+This stop on her map, as her tutor wrote it:
+- Title: ${node.title}
+- Story: ${node.theme}
+- What it is for: ${node.openingScreen.purpose}
+
+Make it something she will gasp at and want to play again, and that helps her solve these problems on her own.
+
+How Sunny's game contract works:
+- The game is one self-contained HTML document with inline CSS and JavaScript. The page has no internet, so pictures are CSS, SVG, canvas or emoji. It fills a frame about 900×650 pixels, with mouse or touch.
+- Sunny's contract is already loaded. window.GAME_PARAMS.itemBindings lists each problem as {itemId, display}.
+- window.openItem("<itemId>", "<progress, like Camp 2 of 6>") opens a problem. Sunny keeps what is on screen at that moment; an answer already showing counts as help.
+- window.fireAttemptEvent({target: "<itemId>", attemptedValue: "<her answer: digits, or the option id in brackets>"}) reports her answer. Sunny keeps her first answer per problem and scores it.
+- ${companion} is her companion and speaks for the game: parent.postMessage({type: "narration_request", text: "<what to say>", reason: "<why>"}, "*").
+- window.fireCompanionEvent("<moment>", {itemId: "<itemId>"}) lets ${companion} react at big moments.
+- window.sendNodeComplete({completed: true}) ends the game.
+
+Reply with only the HTML document.`;
+}
+
 /** The HTML document in a model's reply, with or without a code fence. */
 export function extractHtml(text: string): string {
   const fenced = text.match(/```(?:html)?\s*([\s\S]*?)```/i)?.[1]?.trim();
   if (fenced && /<html[\s>]|<!doctype html/i.test(fenced)) return fenced;
   const start = text.search(/<!doctype html|<html[\s>]/i), end = text.toLowerCase().lastIndexOf("</html>");
   return start >= 0 && end > start ? text.slice(start, end + 7) : "";
+}
+
+/** Each math problem as the builder sees it: its id, its text and how she answers, never the answer. */
+export function gameItemLines(node: LearningCycleNodeContract): string[] {
+  return Object.values(node.evidenceContract.itemContracts ?? {}).map(item => {
+    const answers = item.response.mode === "selection"
+      ? `she picks one: ${item.response.options.map(option => `${option.label} [${option.id}]`).join(", ")}`
+      : item.response.mode === "numeric" ? `she gives a number${item.response.unit ? ` in ${item.response.unit}` : ""}` : `she ${item.response.mode === "construction" ? "builds it" : "explains it"}`;
+    return `- ${item.id}: ${item.prompt} (${answers})`;
+  });
+}
+
+/** Problems code can see in a game before she plays it, for any subject. */
+export function gameProblems(html: string, domain: string): string[] {
+  if (domain === "spelling") return spellingGameProblems(html);
+  const problems = spellingGameProblems(html).filter(row => !row.includes("openSpellingItem"));
+  return [...(/openItem\s*\(/.test(html) ? [] : ["it never calls window.openItem before a problem, so no answer can count"]), ...problems];
 }
 
 /** Problems code can see in a game before she plays it: each would break her measurement or her safety. */
@@ -119,14 +167,14 @@ export async function prepareGeneratedSpellingGame(input: {
   const { cycle, node } = input;
   const client = input.client ?? new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY, maxRetries: 0 });
   const started = Date.now();
-  const prompt = buildSpellingGameAsk({ cycle, node, rootDir });
+  const prompt = cycle.domain === "spelling" ? buildSpellingGameAsk({ cycle, node, rootDir }) : buildMathGameAsk({ cycle, node, rootDir });
   const first = await ask(client, input.draftDir, "generated-game-1", [{ role: "user", content: prompt }]);
-  let game = first, problems = spellingGameProblems(first.html);
+  let game = first, problems = gameProblems(first.html, cycle.domain);
   console.log(` 🎮 [spelling-game] [build] [received] node=${node.nodeId} model=${spellingGameModel()} chars=${first.html.length} problems=${problems.length} stop=${first.stop}`);
   if (problems.length) {
     const feedback = `Sunny checked your game. It has these problems:\n${problems.map(row => `- ${row}`).join("\n")}\n\nFix them and keep everything else. Reply with only the whole fixed HTML document.`;
     game = await ask(client, input.draftDir, "generated-game-2", [{ role: "user", content: prompt }, { role: "assistant", content: first.html || first.text || "(no game)" }, { role: "user", content: feedback }]);
-    problems = spellingGameProblems(game.html);
+    problems = gameProblems(game.html, cycle.domain);
     console.log(` 🎮 [spelling-game] [repair] [${problems.length ? "still-broken" : "fixed"}] node=${node.nodeId} problems=${problems.length}`);
   }
   if (problems.length) throw new Error(`generated_game_problems:${problems.join(" | ")}`);

@@ -62,6 +62,8 @@ export type CanonicalCompletionResult = {
     attempts?: number;
     scaffoldLevel?: number;
     evidenceRole?: "assisted_instruction";
+    /** The screen text when the game opened this item (the game contract keeps it, not the game). */
+    screenAtOpen?: string;
   }>;
   frustrationSignals?: string[];
   replay?: boolean;
@@ -345,7 +347,10 @@ function observationsForCompletion(input: {
     const item = node.evidenceContract.itemContracts?.[row.target];
     const measurementRole = item?.lineage.measurementRole ?? itemRoles?.[row.target] ?? "practice";
     const assistedInstruction = serverAssistedInstruction;
-    const scaffolded = assistedInstruction || Number(row.scaffoldLevel ?? 0) > 0 || companionHelp;
+    // An answer already on screen when the item opened is help, whatever the game says (owner, 2026-11-08).
+    const answerShowing = item?.response.mode === "numeric" && typeof row.screenAtOpen === "string"
+      && new RegExp(`=\\s*${String(item.response.expected).replace(".", "\\.")}(?![\\d.])`).test(row.screenAtOpen);
+    const scaffolded = assistedInstruction || Number(row.scaffoldLevel ?? 0) > 0 || companionHelp || answerShowing;
     const repeatedAssessmentItem = node.state === "completed" || previouslyExposedItemIds.has(row.target);
     const spellingItem = spellingItems?.[row.target];
     const responseNotCaptured = !assistedInstruction && isUncapturedResponse(row.attemptedValue, input.cycle.domain === "math" || Boolean(spellingItems));
@@ -376,6 +381,7 @@ function observationsForCompletion(input: {
         scaffolds: [
           ...(Number(row.scaffoldLevel ?? 0) > 0 ? [`scaffold_level_${row.scaffoldLevel}`] : []),
           ...(companionHelp ? ["companion_help"] : []),
+          ...(answerShowing ? ["answer_on_screen"] : []),
         ],
       },
       exposure: eligibleFreshCheckpoint ? "unseen" : "previously_practiced",
@@ -383,6 +389,7 @@ function observationsForCompletion(input: {
       observedAt: input.observedAt,
       confounds: [
         ...(scaffolded ? ["assistance_present"] : []),
+        ...(answerShowing ? ["answer_exposure"] : []),
         ...(repeatedAssessmentItem ? ["item_previously_exposed"] : []),
         ...(result.observedErrorType ? [result.observedErrorType] : []),
         // A letter game's own report on the word, labelled as the game's, so the Planner sees the

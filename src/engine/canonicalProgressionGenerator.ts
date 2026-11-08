@@ -551,7 +551,8 @@ export async function prepareSuccessorBoard(
         // Spelling boards run only tested built-in games: a step with none to launch is Not ready, never built.
         if (cycle.domain === "spelling" && !pending.reusedFrom && !pending.implementationType) throw new Error("spelling_no_reusable_builtin");
         // Her own game is built for her once, from her chart and the Planner's story; a re-run reuses its file.
-        next = cycle.domain === "spelling" && pending.implementationType === "generated-game" && !pending.reusedFrom
+        // Any subject's built-game stop goes to the one builder (owner, 2026-11-08: one pipeline).
+        next = pending.implementationType === "generated-game" && !pending.reusedFrom
           ? await prepareGeneratedSpellingGame({ cycle, node: pending, client: input.spellingGameClient ?? prebuiltGameClient(input.childId, input.homeworkId, pending.nodeId, opts), draftDir: qualityDiagnosticsDir(opts.rootDir ?? process.cwd(), cycle, pending) }, opts)
           : cycle.domain === "spelling"
           ? launchBuiltInActivity(input.childId, input.homeworkId, cycle, pending, opts)

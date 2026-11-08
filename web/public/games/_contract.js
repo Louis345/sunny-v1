@@ -28,6 +28,8 @@ window.GameBridge = (function () {
     return {
       words: csvList(rawWords),
       spellingItemBindings: JSON.parse(p.get("spellingItemBindings") || "[]"),
+      // Any subject's items, [{itemId, display}]: the game shows display, Sunny scores the answer.
+      itemBindings: JSON.parse(p.get("itemBindings") || "[]"),
       knownWords: csvList(p.get("knownWords")),
       weakWords: csvList(p.get("weakWords")),
       childId: p.get("childId") || "unknown",
@@ -81,6 +83,27 @@ window.GameBridge = (function () {
   })();
 
   var capturedSpellingTargets = Object.create(null);
+  // Code keeps her first answer per item and the screen when it opened; a game cannot rewrite either.
+  var firstAnswers = Object.create(null);
+  var screenAtOpen = Object.create(null);
+
+  function itemBinding(target) {
+    if (typeof target !== "string") return null;
+    var wanted = target.normalize("NFC").trim().toLowerCase();
+    var matches = GAME_PARAMS.itemBindings.filter(function (item) {
+      return item.itemId === target || String(item.display).normalize("NFC").trim().toLowerCase() === wanted;
+    });
+    return matches.length === 1 ? matches[0] : null;
+  }
+
+  function bindItemTarget(row) {
+    var binding = row && itemBinding(row.target);
+    return binding ? Object.assign({}, row, { target: binding.itemId }) : row;
+  }
+
+  function currentScreenText() {
+    return String((document.body && document.body.innerText) || "").slice(0, 500);
+  }
 
   function bindSpellingTarget(row) {
     var bindings = GAME_PARAMS.spellingItemBindings;
@@ -339,6 +362,13 @@ window.GameBridge = (function () {
         targetSelectorId: GAME_PARAMS.targetSelectorId,
       });
       if (Array.isArray(r.targetResults)) merged.targetResults = r.targetResults.map(bindSpellingTarget);
+      if (GAME_PARAMS.itemBindings.length) {
+        merged.targetResults = GAME_PARAMS.itemBindings.map(function (item) {
+          var first = firstAnswers[item.itemId];
+          return Object.assign({ target: item.itemId, attemptedValue: first ? first.attemptedValue : "" },
+            first && typeof first.screenAtOpen === "string" ? { screenAtOpen: first.screenAtOpen } : {});
+        });
+      }
       post("game_complete", merged);
       logContract("post", postSummary("node_complete", merged));
       window.parent.postMessage(
@@ -366,6 +396,16 @@ window.GameBridge = (function () {
      * Minimum required: progress string.
      * Structured extras give the companion richer context without screenshots.
      */
+    openItem: function (itemId, progress) {
+      screenAtOpen[itemId] = currentScreenText();
+      this.reportState(typeof progress === "string" && progress.trim() ? progress : "Item ready.", {
+        game: "generated-game",
+        itemOpened: true,
+        itemId: itemId,
+        phase: "playing",
+      });
+    },
+
     reportState: function (progress, extras) {
       if (!progress || typeof progress !== "string") return;
       if (extras && extras.spellingItemOpened === true && GAME_PARAMS.launchToken) {
@@ -525,7 +565,10 @@ window.GameBridge = (function () {
       if (!attempt || typeof attempt !== "object" || Array.isArray(attempt)) {
         return;
       }
-      var payload = Object.assign({}, bindSpellingTarget(attempt));
+      var payload = Object.assign({}, bindItemTarget(bindSpellingTarget(attempt)));
+      if (itemBinding(payload.target) && typeof payload.attemptedValue === "string" && !firstAnswers[payload.target]) {
+        firstAnswers[payload.target] = { attemptedValue: payload.attemptedValue, screenAtOpen: screenAtOpen[payload.target] };
+      }
       if (payload.domain === "spelling" && typeof payload.attemptedValue === "string") capturedSpellingTargets[payload.target] = true;
       if (payload.word == null && payload.target != null) {
         payload.word = String(payload.target);
@@ -592,6 +635,21 @@ window.openSpellingItem = function (word, progress) {
     targetMasked: !shown,
   });
   window.parent.postMessage({ type: "narration_request", activityId: "generated-game", nodeId: window.GAME_PARAMS.nodeId, word: word, reason: "target_word" }, "*");
+};
+
+/**
+ * Any subject's built game opens each item here before she answers it. The contract owns the bookkeeping:
+ * it binds the item, keeps the screen as it was when the item opened, and keeps her first answer.
+ */
+window.openItem = function (itemIdOrDisplay, progress) {
+  var params = window.GAME_PARAMS || {};
+  var bindings = params.itemBindings || [];
+  var wanted = String(itemIdOrDisplay == null ? "" : itemIdOrDisplay).normalize("NFC").trim().toLowerCase();
+  var matches = bindings.filter(function (item) {
+    return item.itemId === itemIdOrDisplay || String(item.display).normalize("NFC").trim().toLowerCase() === wanted;
+  });
+  if (matches.length !== 1) return;
+  window.GameBridge.openItem(matches[0].itemId, progress);
 };
 
 window.SunnyActivity = {

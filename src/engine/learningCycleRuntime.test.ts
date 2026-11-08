@@ -283,6 +283,25 @@ describe("canonical learning cycle runtime", () => {
     ]));
   });
 
+  // One pipeline (owner, 2026-11-08): honesty lives in code. A built game cannot hide that the answer was on
+  // screen when the problem opened; that answer is recorded as helped, never as independent evidence.
+  it("records an answer as helped when the answer was showing when the problem opened", () => {
+    const rootDir = root();
+    const instrument = { ...node("facts", "baseline"), evidenceContract: { academic: true, engagement: true, companionObservations: true,
+      itemContracts: Object.fromEntries(frozenItems().map(item=>[item.id,item])), itemRoles: { "checkpoint-1": "fresh_checkpoint", "2x5": "fresh_checkpoint" } } };
+    createLearningCycle({ ...input(), nodes: [instrument] as never }, { rootDir });
+    const cycle = recordCanonicalNodeCompletion({ childId: "reina", homeworkId: "hw-runtime", sessionId: "shown-session", nodeId: "facts", result: {
+      completed: true, accuracy: 1, timeSpent_ms: 1000, targetResults: [
+        { target: "checkpoint-1", correct: true, attemptedValue: "10", screenAtOpen: "Camp 1. 4 + 6 = 10 ... what is 4 + 6?" },
+        { target: "2x5", correct: true, attemptedValue: "10", screenAtOpen: "Camp 2. 2 groups of 5 = ?" },
+      ] as never } }, { rootDir });
+    expect(cycle?.observations).toEqual(expect.arrayContaining([
+      expect.objectContaining({ itemId: "checkpoint-1", provenance: "practice", assistance: expect.objectContaining({ status: "assisted" }), confounds: expect.arrayContaining(["answer_exposure"]) }),
+      expect.objectContaining({ itemId: "2x5", provenance: "independent_probe" }),
+    ]));
+    fs.rmSync(rootDir, { recursive: true, force: true });
+  });
+
   it("rejects target results that are not in the frozen item contract", () => {
     const rootDir = root();
     createLearningCycle({
