@@ -605,6 +605,11 @@ export function handleGameEventForSession(
           if (typeof correct === "boolean") event = {...event,correct,quality:correct ? 5 : 1};
         }
       }
+      // A built game's answer with no right/wrong is scored by code when the stop completes (BUGS.md 2026-11-08).
+      if (typeof event.correct !== "boolean") {
+        console.log(` 🎮 [attempt_event] [scored-at-completion] target=${String(event.target ?? "")}`);
+        return;
+      }
       const recorded = recordLearningAttempt(event, childId);
       if (recorded.skipped) return;
       s.noteExternalEvent?.({

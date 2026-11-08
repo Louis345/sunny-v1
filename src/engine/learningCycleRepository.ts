@@ -837,8 +837,9 @@ export function canonicalStopsLeft(cycle:LearningCycleRecordV2):number|undefined
   return journeyStopsLeft(board.definition,cycle.routeSelection?.choices ?? {},cycle.nodes.filter(node=>node.state==='completed').map(node=>node.nodeId),notReadyNodeIds(cycle));
 }
 
-// Prepared spelling practice is selectable; the authored path remains a recommendation.
-const allowsReadyActivitySelection = (cycle:LearningCycleRecordV2) => cycle.domain === 'spelling'
+// Prepared practice is selectable on any subject's teaching and successor boards (one pipeline, owner
+// 2026-11-08: Reina's math board showed built stops as locked); the authored path remains a recommendation.
+const allowsReadyActivitySelection = (cycle:LearningCycleRecordV2) => (cycle.domain === 'spelling' || cycle.domain === 'math')
   && ['teaching','successor'].includes(currentBoardInstance(cycle).kind);
 
 /** A finished evidence batch does not end prepared spelling practice. */

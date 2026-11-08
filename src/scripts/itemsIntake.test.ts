@@ -6,7 +6,7 @@ import { seedSpellingLab } from "./fixtures/spellingEvidenceFirst";
 import { plainDraw } from "./fixtures/successorToolConversation";
 import { runItemsIntake } from "./itemsIntake";
 import { buildIngestSummary } from "./ingestHomework";
-import { getLearningCycle } from "../engine/learningCycleRepository";
+import { canonicalJourneyLaunchable, getLearningCycle } from "../engine/learningCycleRepository";
 import { recordCanonicalNodeCompletion } from "../engine/learningCycleRuntime";
 import type { SpellingGameClient } from "../engine/spellingGameBuilder";
 import type { ToolLoopRequest } from "../engine/plannerToolLoop";
@@ -116,6 +116,9 @@ describe("math intake through the one pipeline", () => {
     expect(boardNodeIds).toEqual(expect.arrayContaining([check!.nodeId, practice!.nodeId]));
     // The kiosk launches each stop with its problems to open (display = the problem as she sees it).
     expect(packet.itemBindings?.[check!.nodeId]).toEqual([{ itemId: "p1", display: "7 + 6. Is the sum even or odd?" }, { itemId: "p2", display: "15 - 8 =" }]);
+    // Owner 2026-11-08 (Reina's math board showed locked stops): every built stop is open to choose, as on spelling.
+    const published = getLearningCycle(childId, homeworkId, { rootDir: f.rootDir })!;
+    for (const node of published.nodes) expect(canonicalJourneyLaunchable(published, node.nodeId), node.nodeId).toBe(true);
   });
 
   it("publishes the board with one Not ready stop when that stop's game still cannot bind her answers", async () => {
