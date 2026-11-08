@@ -9,8 +9,20 @@ import {
 } from "react";
 import type { CompanionConfig } from "../../../src/shared/companionTypes";
 import type { CompanionBehavior } from "../context/companionCareBehavior";
-import { playSparkOrbSfx, type SparkOrbSfxOptions } from "../utils/sparkOrbSfx";
+import { resolveSensoryProfile, type SensoryProfile } from "../../../src/shared/sensoryProfile";
+import {
+  playSparkOrbSfx,
+  startSparkOrbPullTone,
+  type SparkOrbPullTone,
+  type SparkOrbSfxOptions,
+} from "../utils/sparkOrbSfx";
 import { CompanionLayer } from "./CompanionLayer";
+import {
+  SPARK_ORB_MAX_WEATHER_PARTICLES,
+  resolveSparkOrbScene,
+  type SparkOrbSceneInput,
+  type SparkOrbWeather,
+} from "./sparkOrbScenes";
 import type { SparkOrbEncounterPhase } from "./SparkOrbEncounterPost";
 import {
   LUMIPUFF_MONSTER,
@@ -105,6 +117,10 @@ export interface SparkOrbLearningShellProps {
   capturedCreature?: CapturedMonsterConfig;
   captureProgress?: number;
   sfx?: SparkOrbSfxOptions;
+  /** The child's sensory sheet from the chart (volume, brightness, motion). Neutral when absent. */
+  sensory?: Partial<SensoryProfile>;
+  /** Where the encounter happens: board theme picture, time of day, season. Park + real clock when absent. */
+  scene?: SparkOrbSceneInput;
   onCompanionAnchor?: (context: OrbCompanionAnchorContext) => void;
   onEncounterEvent?: (event: SparkOrbLearningEncounterEvent) => void;
   onCaptureCompleted?: (event: OrbCaptureCompletedEvent) => void;
@@ -134,7 +150,35 @@ export interface SparkOrbLaunchPhysicsInput {
   pullX: number;
   pullY: number;
   holdPower?: number;
+  /** 0-100 charge built only by holding the orb; steadies sideways aim. */
+  holdCharge?: number;
+  /** Finger speed at release in px/ms, right-positive. */
+  releaseVelocityX?: number;
+  /** Finger speed at release in px/ms, up-positive. */
+  releaseVelocityY?: number;
+  /** Measured px from the orb up to the creature on this screen; defaults to the design layout. */
+  targetDepth?: number;
 }
+
+/** One frame of the simulated throw in screen-space translate px from the orb's rest spot. */
+export interface SparkOrbFlightSample {
+  t: number;
+  x: number;
+  y: number;
+  scale: number;
+  rotation: number;
+}
+
+export const SPARK_ORB_MAX_SIM_STEPS = 240;
+
+/** Little idle moves Lumipuff picks from at random while waiting for a throw. */
+export const SPARK_ORB_IDLE_FIDGETS = ["hop", "tilt", "wiggle", "look"] as const;
+export type SparkOrbIdleFidget = (typeof SPARK_ORB_IDLE_FIDGETS)[number];
+/** Law 2 guard: after this many fidgets in one wait, Lumipuff only breathes. */
+export const SPARK_ORB_MAX_IDLE_FIDGETS = 40;
+const IDLE_FIDGET_MIN_GAP_MS = 2_600;
+const IDLE_FIDGET_GAP_SPREAD_MS = 3_200;
+const IDLE_FIDGET_DURATION_MS = 900;
 
 export interface SparkOrbLaunchPhysics {
   result: SparkOrbLaunchResult;
@@ -153,6 +197,12 @@ export interface SparkOrbLaunchPhysics {
   peakScale: number;
   flightScale: number;
   impactScale: number;
+  /** Flight time until the orb lands on the creature, in ms. */
+  flightMs: number;
+  /** Measured px from the orb up to the creature. */
+  targetDepth: number;
+  path: SparkOrbFlightSample[];
+  landingIndex: number;
 }
 
 function chargeCountForPhase(phase: SparkOrbEncounterPhase): number {
@@ -172,6 +222,22 @@ function chargeCountForPhase(phase: SparkOrbEncounterPhase): number {
       return exhaustive;
     }
   }
+}
+
+/** Finger speed over the last ~90ms before release, px/ms (x right, y up). */
+function releaseVelocityFromSamples(samples: Array<{ t: number; x: number; y: number }>): {
+  x: number;
+  y: number;
+} {
+  const last = samples[samples.length - 1];
+  if (!last) return { x: 0, y: 0 };
+  const first = samples.find((sample) => last.t - sample.t <= 90) ?? last;
+  const elapsed = last.t - first.t;
+  if (elapsed < 8) return { x: 0, y: 0 };
+  return {
+    x: Number(((last.x - first.x) / elapsed).toFixed(2)),
+    y: Number(((first.y - last.y) / elapsed).toFixed(2)),
+  };
 }
 
 function clampPercent(value: number): number {
@@ -244,36 +310,105 @@ function personalityReactionForCaptureStage(
   return "watching";
 }
 
+// Throw model ("don't make me think"): the learning is the challenge, the throw is the reward.
+// Any tap, flick, or pull-back launches the orb on a real gravity arc that homes in on the
+// creature and catches it. A quick, centered flick only changes the feel (faster, higher arc)
+// and earns a "Perfect!" bonus; nothing about the throw can fail.
+const SPARK_ORB_TARGET_DEPTH = 316;
+const SPARK_ORB_SWEET_PULL = 178;
+const SPARK_ORB_PERFECT_FLIGHT_S = 0.56;
+const SPARK_ORB_PERFECT_PEAK_PX = 110;
+const SPARK_ORB_SIM_DT_S = 1 / 60;
+const SPARK_ORB_HEIGHT_GAIN = 1.6;
+
+function clampNumber(value: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, value));
+}
+
+function projectOrbSample(
+  target: number,
+  t: number,
+  side: number,
+  depth: number,
+  height: number,
+  rotation: number,
+): SparkOrbFlightSample {
+  const scale = Math.max(0.3, 1 - (0.6 * Math.min(depth, target)) / target);
+  return {
+    t: Math.round(t * 1000),
+    x: Math.round(side),
+    y: Math.round(-(depth + Math.max(0, height) * SPARK_ORB_HEIGHT_GAIN)),
+    scale: Number(scale.toFixed(3)),
+    rotation: Math.round(rotation),
+  };
+}
+
 export function computeSparkOrbLaunchPhysics({
   pullX,
   pullY,
   holdPower = 0,
+  holdCharge = 0,
+  releaseVelocityX = 0,
+  releaseVelocityY = 0,
+  targetDepth: measuredTargetDepth,
 }: SparkOrbLaunchPhysicsInput): SparkOrbLaunchPhysics {
-  const verticalPull = Math.max(0, Math.min(320, pullY));
-  const horizontalPull = Math.max(-170, Math.min(170, pullX));
-  const power = Math.round(Math.max(holdPower, clampPercent((verticalPull / 220) * 100)));
-  const underpowered = verticalPull < 112;
-  const verticalSweetSpot = 178;
-  const verticalPenalty = Math.abs(verticalPull - verticalSweetSpot) * 0.24;
-  const hitDistance = Math.round(Math.hypot(horizontalPull * 0.82, verticalPenalty));
-  const hitQuality: SparkOrbHitQuality =
-    hitDistance <= 34 ? "direct" : hitDistance <= creatureCaptureRadius ? "near" : "wide";
-  const insideCaptureRadius = hitDistance <= creatureCaptureRadius;
-  const result: SparkOrbLaunchResult =
-    insideCaptureRadius ? "success" : underpowered ? "miss-early" : "miss-late";
-  const impactX = Math.round(horizontalPull * 0.72);
-  const verticalDrift = Math.max(-44, Math.min(52, (verticalSweetSpot - verticalPull) * 0.48));
-  const impactY = Math.round(-316 + verticalDrift);
-  const peakX = Math.round(impactX * 0.42);
-  const peakY = Math.round(-410 - Math.min(54, verticalPull * 0.12));
-  const flightX = Math.round(impactX * 0.58);
-  const flightY = Math.round((peakY + impactY) / 2);
-  const depthScale =
-    hitQuality === "direct"
-      ? { peakScale: 0.72, flightScale: 0.54, impactScale: 0.4 }
-      : hitQuality === "near"
-        ? { peakScale: 0.76, flightScale: 0.6, impactScale: 0.48 }
-        : { peakScale: 0.82, flightScale: 0.68, impactScale: 0.56 };
+  const target =
+    typeof measuredTargetDepth === "number" && measuredTargetDepth >= 120 && measuredTargetDepth <= 640
+      ? Math.round(measuredTargetDepth)
+      : SPARK_ORB_TARGET_DEPTH;
+  // Up-flicks and slingshot pull-backs both count as throw strength.
+  const pullStrength = Math.min(320, Math.abs(pullY));
+  const horizontalPull = clampNumber(pullX, -170, 170);
+  const flickSpeed = clampNumber(Math.abs(releaseVelocityY), 0, 3);
+  const flickSide = clampNumber(releaseVelocityX, -3, 3);
+  const steadiness = 1 - 0.25 * (clampNumber(holdCharge, 0, 100) / 100);
+  const power = Math.round(Math.max(holdPower, clampPercent((pullStrength / 220) * 100)));
+
+  const effectivePull = pullStrength + flickSpeed * 40;
+  const strength = clampNumber(effectivePull / SPARK_ORB_SWEET_PULL, 0, 1.4);
+  // Stronger throws fly faster and arc higher; weak taps make a soft lob.
+  const flightS = SPARK_ORB_PERFECT_FLIGHT_S * (1.25 - 0.25 * strength);
+  const peakHeight = SPARK_ORB_PERFECT_PEAK_PX * (0.65 + 0.35 * strength);
+  const sideAim = (horizontalPull + flickSide * 24) * steadiness;
+  // A sideways throw swings out, then homes back onto the creature.
+  const sideSwing = clampNumber(sideAim * 0.6, -90, 90);
+
+  const weakness = Math.max(0, 120 - effectivePull) * 0.5;
+  const hitDistance = Math.round(Math.min(creatureCaptureRadius, Math.hypot(sideAim * 0.5, weakness)));
+  const hitQuality: SparkOrbHitQuality = hitDistance <= 34 ? "direct" : "near";
+  const result: SparkOrbLaunchResult = "success";
+  const rotation = Math.round(clampNumber(18 + horizontalPull * 0.16 + flickSide * 6, -34, 34));
+
+  // Sample the flight; the loop is bounded by SPARK_ORB_MAX_SIM_STEPS (Law 2).
+  const gravity = (8 * peakHeight) / (flightS * flightS);
+  const verticalSpeed = (gravity * flightS) / 2;
+  const path: SparkOrbFlightSample[] = [projectOrbSample(target, 0, 0, 0, 0, 0)];
+  let step = 1;
+  for (; step < SPARK_ORB_MAX_SIM_STEPS; step += 1) {
+    const t = step * SPARK_ORB_SIM_DT_S;
+    if (t >= flightS) break;
+    const progress = t / flightS;
+    const height = verticalSpeed * t - 0.5 * gravity * t * t;
+    path.push(
+      projectOrbSample(
+        target,
+        t,
+        sideSwing * Math.sin(Math.PI * progress),
+        target * progress,
+        height,
+        rotation * progress,
+      ),
+    );
+  }
+  if (step >= SPARK_ORB_MAX_SIM_STEPS) {
+    console.warn(" 🎮 [spark-orb-learning-shell] [throw-sim] [step-guard-hit]", { step });
+  }
+  path.push(projectOrbSample(target, flightS, 0, target, 0, rotation));
+  const landingIndex = path.length - 1;
+
+  const peak = path.reduce((best, sample) => (sample.y < best.y ? sample : best), path[0]);
+  const lateFlight = path[Math.round(landingIndex * 0.76)];
+  const landing = path[landingIndex];
 
   return {
     result,
@@ -281,15 +416,21 @@ export function computeSparkOrbLaunchPhysics({
     hitDistance,
     hitScore: Math.max(0, Math.round(100 - hitDistance)),
     power,
-    flightX,
-    flightY,
-    peakX,
-    peakY,
-    impactX,
-    impactY,
-    rotation: Math.round(Math.max(-34, Math.min(34, 18 + horizontalPull * 0.16))),
+    flightX: lateFlight.x,
+    flightY: lateFlight.y,
+    peakX: peak.x,
+    peakY: peak.y,
+    impactX: landing.x,
+    impactY: landing.y,
+    rotation,
     launchScale: 1,
-    ...depthScale,
+    peakScale: peak.scale,
+    flightScale: lateFlight.scale,
+    impactScale: landing.scale,
+    flightMs: landing.t,
+    targetDepth: target,
+    path,
+    landingIndex,
   };
 }
 
@@ -402,6 +543,37 @@ function companionLineForMoment(
   return null;
 }
 
+const WEATHER_PARTICLE_COUNT: Record<Exclude<SparkOrbWeather, "none">, number> = {
+  snow: SPARK_ORB_MAX_WEATHER_PARTICLES,
+  leaves: 12,
+  petals: 12,
+  fireflies: 14,
+};
+const LEAF_COLORS = ["#e07b2a", "#c9481f", "#f2b33d", "#9a4a1c"];
+
+/** Seasonal particles; positions come from the index so renders stay stable (no randomness in render). */
+function SparkOrbWeatherLayer({ weather }: { weather: SparkOrbWeather }) {
+  if (weather === "none") return null;
+  const count = Math.min(SPARK_ORB_MAX_WEATHER_PARTICLES, WEATHER_PARTICLE_COUNT[weather]);
+  return (
+    <div className="spark-orb-learning-shell__weather" data-testid="spark-orb-weather" data-weather={weather} aria-hidden="true">
+      {Array.from({ length: count }, (_, index) => {
+        const spread = (index * 37) % 100;
+        const style = {
+          "--x": `${(spread + 3) % 98}%`,
+          "--y": `${45 + ((index * 23) % 45)}%`,
+          "--size": `${4 + ((index * 7) % 6)}px`,
+          "--fall-s": `${6 + ((index * 13) % 7)}s`,
+          "--delay-s": `${-((index * 1.7) % 9).toFixed(1)}s`,
+          "--sway": `${index % 2 === 0 ? 24 : -24}px`,
+          "--leaf": LEAF_COLORS[index % LEAF_COLORS.length],
+        } as CSSProperties;
+        return <span key={index} data-testid="spark-orb-weather-particle" style={style} />;
+      })}
+    </div>
+  );
+}
+
 export function SparkOrbLearningShell({
   children,
   childId,
@@ -421,12 +593,25 @@ export function SparkOrbLearningShell({
   capturedCreature = LUMIPUFF_MONSTER,
   captureProgress,
   sfx,
+  sensory,
+  scene,
   onCompanionAnchor,
   onEncounterEvent,
   onCaptureCompleted,
 }: SparkOrbLearningShellProps) {
   const [remainingOrbCount, setRemainingOrbCount] = useState(orbCount);
   const [chargeOverride, setChargeOverride] = useState<number | null>(null);
+  const [idleFidget, setIdleFidget] = useState<SparkOrbIdleFidget | null>(null);
+  const resolvedSensory = useMemo(() => resolveSensoryProfile(sensory), [sensory]);
+  const resolvedScene = useMemo(() => resolveSparkOrbScene(scene), [scene]);
+  const showWeather = resolvedScene.weather !== "none" && resolvedSensory.motion !== "calm";
+  const sfxOptions = useMemo<SparkOrbSfxOptions>(
+    () => ({ ...sfx, sensory: resolvedSensory }),
+    [sfx, resolvedSensory],
+  );
+  const sfxOptionsRef = useRef(sfxOptions);
+  sfxOptionsRef.current = sfxOptions;
+  const pullToneRef = useRef<SparkOrbPullTone | null>(null);
   const [launchSkill, setLaunchSkill] = useState<LaunchSkillState>("waiting");
   const [launchAim, setLaunchAim] = useState<LaunchAimState>("idle");
   const [flightState, setFlightState] = useState<LaunchFlightState>("idle");
@@ -452,6 +637,9 @@ export function SparkOrbLearningShell({
     pullY: 0,
   });
   const launchTimerRef = useRef<number | null>(null);
+  const pointerSamplesRef = useRef<Array<{ t: number; x: number; y: number }>>([]);
+  const orbRef = useRef<HTMLImageElement | null>(null);
+  const creatureRef = useRef<HTMLImageElement | null>(null);
   const payoffTimerRefs = useRef<number[]>([]);
   const displayCreatureName = creatureName ?? capturedCreature.speciesName;
   const displayStatLabel = statLabel ?? capturedCreature.statLabel;
@@ -528,6 +716,13 @@ export function SparkOrbLearningShell({
         : displayCaptureStage === "locked" || displayCaptureStage === "collection-added"
           ? "hidden"
           : "free";
+  const idleMotion = resolvedSensory.motion;
+  const idleLifeActive =
+    idleMotion !== "calm" &&
+    ready &&
+    !launching &&
+    displayFlightState === "idle" &&
+    creatureCaptureMotion === "free";
   const personalityReaction = personalityReactionForCaptureStage(
     capturedCreature.capturePersonality,
     visualCaptureStage,
@@ -548,7 +743,7 @@ export function SparkOrbLearningShell({
   const companionBehavior = companionBehaviorForMoment(phase, lastMoment);
   const speechBubbleText = rewardFocused ? null : companionLineForMoment(childName, phase, lastMoment);
   const canHoldToLaunch =
-    ready && chargeCount >= chargeGoal && launchSkill !== "success" && launchSkill !== "spent";
+    ready && chargeCount > 0 && launchSkill !== "success" && launchSkill !== "spent";
   const aimGuideX = Math.max(-150, Math.min(150, aimVector.pullX));
   const aimGuideY = -Math.max(0, Math.min(300, aimVector.pullY));
   const aimGuideDistance = Math.min(270, Math.hypot(aimGuideX, aimGuideY));
@@ -562,6 +757,7 @@ export function SparkOrbLearningShell({
     "--launch-aim-distance": `${aimGuideDistance}px`,
     "--launch-aim-angle": `${aimGuideAngle}deg`,
     "--launch-power": `${launchPower}%`,
+    "--orb-flight-ms": `${displayLaunchPhysics.flightMs}ms`,
     "--orb-flight-x": `${displayLaunchPhysics.flightX}px`,
     "--orb-flight-y": `${displayLaunchPhysics.flightY}px`,
     "--orb-peak-x": `${displayLaunchPhysics.peakX}px`,
@@ -612,6 +808,77 @@ export function SparkOrbLearningShell({
   useEffect(() => {
     setRemainingOrbCount(orbCount);
   }, [orbCount]);
+
+  // Idle life: random gaps between small fidgets so Lumipuff never loops on a fixed beat.
+  // Exit: effect cleanup when the throw starts or on unmount; capped at SPARK_ORB_MAX_IDLE_FIDGETS.
+  useEffect(() => {
+    if (!idleLifeActive) return;
+    const gapScale = idleMotion === "lively" ? 0.6 : 1;
+    console.info(" 🎮 [spark-orb-learning-shell] [idle-life] [started]", { motion: idleMotion });
+    let fidgetCount = 0;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const scheduleNext = () => {
+      if (fidgetCount >= SPARK_ORB_MAX_IDLE_FIDGETS) {
+        console.info(" 🎮 [spark-orb-learning-shell] [idle-life] [fidget-cap-reached]");
+        return;
+      }
+      timer = setTimeout(() => {
+        fidgetCount += 1;
+        const index = Math.min(
+          SPARK_ORB_IDLE_FIDGETS.length - 1,
+          Math.floor(Math.random() * SPARK_ORB_IDLE_FIDGETS.length),
+        );
+        setIdleFidget(SPARK_ORB_IDLE_FIDGETS[index]);
+        playSparkOrbSfx("chirp", sfxOptionsRef.current);
+        timer = setTimeout(() => {
+          setIdleFidget(null);
+          scheduleNext();
+        }, IDLE_FIDGET_DURATION_MS);
+      }, (IDLE_FIDGET_MIN_GAP_MS + Math.random() * IDLE_FIDGET_GAP_SPREAD_MS) * gapScale);
+    };
+    scheduleNext();
+    return () => {
+      if (timer) clearTimeout(timer);
+      setIdleFidget(null);
+      console.info(" 🎮 [spark-orb-learning-shell] [idle-life] [stopped]");
+    };
+  }, [idleLifeActive, idleMotion]);
+
+  // Each answer that charges the orb gets a chime; reaching the goal gets the "ready" song.
+  const previousChargeRef = useRef(chargeCount);
+  useEffect(() => {
+    const previous = previousChargeRef.current;
+    previousChargeRef.current = chargeCount;
+    if (chargeCount <= previous) return;
+    playSparkOrbSfx(chargeCount >= chargeGoal ? "ready" : "charge", sfxOptionsRef.current);
+  }, [chargeCount, chargeGoal]);
+
+  useEffect(
+    () => () => {
+      pullToneRef.current?.stop();
+      pullToneRef.current = null;
+    },
+    [],
+  );
+
+  useEffect(() => {
+    const orb = orbRef.current;
+    const flying = displayFlightState === "traveling" || displayFlightState === "fizzle";
+    if (!flying || !launchPhysics || !orb || typeof orb.animate !== "function") return;
+    const samples =
+      displayFlightState === "traveling"
+        ? launchPhysics.path.slice(0, launchPhysics.landingIndex + 1)
+        : launchPhysics.path;
+    const durationMs = Math.max(1, samples[samples.length - 1].t);
+    const animation = orb.animate(
+      samples.map((sample) => ({
+        offset: sample.t / durationMs,
+        transform: `translateX(-50%) translate(${sample.x}px, ${sample.y}px) rotate(${sample.rotation}deg) scale(${sample.scale})`,
+      })),
+      { duration: durationMs, easing: "linear", fill: "forwards" },
+    );
+    return () => animation.cancel();
+  }, [displayFlightState, launchPhysics]);
 
   useEffect(() => {
     if (phase !== "ready") {
@@ -708,11 +975,15 @@ export function SparkOrbLearningShell({
     };
     aimVectorRef.current = nextAimVector;
     setAimVector(nextAimVector);
+    pointerSamplesRef.current = [{ t: event.timeStamp, x: event.clientX, y: event.clientY }];
     launchPowerRef.current = 0;
     setLaunchPower(0);
     setLaunchPhysics(null);
     setLaunchSkill("holding");
     setLaunchAim("aiming");
+    playSparkOrbSfx("grab", sfxOptions);
+    pullToneRef.current?.stop();
+    pullToneRef.current = startSparkOrbPullTone(sfxOptions);
     emitLaunchEvent({
       type: "hold_start",
       chargeCount,
@@ -737,24 +1008,53 @@ export function SparkOrbLearningShell({
       pullX: event.clientX - currentAim.startX,
       pullY: currentAim.startY - event.clientY,
     };
+    pointerSamplesRef.current = [
+      ...pointerSamplesRef.current.slice(-7),
+      { t: event.timeStamp, x: event.clientX, y: event.clientY },
+    ];
     aimVectorRef.current = nextAimVector;
     setAimVector(nextAimVector);
-    setLaunchPower(Math.max(launchPowerRef.current, launchPullPower(nextAimVector)));
+    const pullPower = launchPullPower(nextAimVector);
+    pullToneRef.current?.update(pullPower / 100);
+    setLaunchPower(Math.max(launchPowerRef.current, pullPower));
   }
 
   function handleLaunchRelease(event: PointerEvent<HTMLButtonElement>): void {
     if (launchSkill !== "holding") return;
     handleLaunchAimMove(event);
+    pullToneRef.current?.stop();
+    pullToneRef.current = null;
     stopLaunchTimer();
     const finalAimVector = aimVectorRef.current;
     const pullPower = launchPullPower(finalAimVector);
     const holdPower = Math.round(Math.max(launchPowerRef.current, pullPower));
+    const releaseVelocity = releaseVelocityFromSamples(pointerSamplesRef.current);
+    const orbBox = orbRef.current?.getBoundingClientRect();
+    const creatureBox = creatureRef.current?.getBoundingClientRect();
+    const measuredTargetDepth =
+      orbBox && creatureBox && orbBox.height > 0 && creatureBox.height > 0
+        ? orbBox.top + orbBox.height / 2 - (creatureBox.top + creatureBox.height / 2)
+        : undefined;
     const launchScore = computeSparkOrbLaunchPhysics({
       pullX: finalAimVector.pullX,
       pullY: finalAimVector.pullY,
       holdPower,
+      holdCharge: launchPowerRef.current,
+      releaseVelocityX: releaseVelocity.x,
+      releaseVelocityY: releaseVelocity.y,
+      targetDepth: measuredTargetDepth,
     });
     const result = launchScore.result;
+    console.info(` 🎮 [spark-orb-learning-shell] [throw] [${result}]`, {
+      hitQuality: launchScore.hitQuality,
+      hitDistance: launchScore.hitDistance,
+      targetDepth: launchScore.targetDepth,
+      flightMs: launchScore.flightMs,
+      releaseVelocity,
+      holdCharge: launchPowerRef.current,
+    });
+    // Capture beats follow the moment the orb actually lands, not a fixed clock.
+    const landingShiftMs = launchScore.flightMs - 650;
     const aimResult: LaunchAimState =
       result === "success" ? "clean" : result === "miss-early" ? "weak" : "wide";
     setLaunchPower(launchScore.power);
@@ -771,7 +1071,7 @@ export function SparkOrbLearningShell({
       setCollectionCardVisible(false);
       setReverseReplayActive(false);
       setReversePreviewOpen(false);
-      playSparkOrbSfx("launch", sfx);
+      playSparkOrbSfx("launch", sfxOptions);
       emitLaunchEvent({
         type: "release_success",
         chargeCount,
@@ -786,7 +1086,9 @@ export function SparkOrbLearningShell({
           setFlightState("impact");
           setCaptureEffect("active");
           setCaptureStage("pulling");
-          playSparkOrbSfx("capturePull", sfx);
+          playSparkOrbSfx("impact", sfxOptions);
+          if (launchScore.hitQuality === "direct") playSparkOrbSfx("perfect", sfxOptions);
+          playSparkOrbSfx("capturePull", sfxOptions);
           emitLaunchEvent({
             type: "capture_effect",
             chargeCount,
@@ -805,10 +1107,10 @@ export function SparkOrbLearningShell({
             hitQuality: launchScore.hitQuality,
             holdPower: launchScore.power,
           });
-        }, 650),
+        }, 650 + landingShiftMs),
         window.setTimeout(() => {
           setCaptureStage("shrinking");
-          playSparkOrbSfx("captureShrink", sfx);
+          playSparkOrbSfx("captureShrink", sfxOptions);
           emitLaunchEvent({
             type: "capture_shrink",
             chargeCount,
@@ -818,10 +1120,10 @@ export function SparkOrbLearningShell({
             hitQuality: launchScore.hitQuality,
             holdPower: launchScore.power,
           });
-        }, 1250),
+        }, 1250 + landingShiftMs),
         window.setTimeout(() => {
           setCaptureStage("locked");
-          playSparkOrbSfx("captureLock", sfx);
+          playSparkOrbSfx("captureLock", sfxOptions);
           emitLaunchEvent({
             type: "capture_lock",
             chargeCount,
@@ -831,13 +1133,13 @@ export function SparkOrbLearningShell({
             hitQuality: launchScore.hitQuality,
             holdPower: launchScore.power,
           });
-        }, 1800),
+        }, 1800 + landingShiftMs),
         window.setTimeout(() => {
           setFlightState("reward");
           setCaptureStage("collection-added");
           setCollectibleRevealed(true);
           setCollectionCardVisible(true);
-          playSparkOrbSfx("collected", sfx);
+          playSparkOrbSfx("collected", sfxOptions);
           emitLaunchEvent({
             type: "collectible_revealed",
             chargeCount,
@@ -847,7 +1149,7 @@ export function SparkOrbLearningShell({
             hitQuality: launchScore.hitQuality,
             holdPower: launchScore.power,
           });
-        }, 2150),
+        }, 2150 + landingShiftMs),
         window.setTimeout(() => {
           setCollectionCardVisible(false);
           setFlightState("settled");
@@ -866,14 +1168,17 @@ export function SparkOrbLearningShell({
             holdPower: launchScore.power,
           });
           emitCaptureCompleted(launchScore);
-        }, 3650),
+        }, 3650 + landingShiftMs),
       ];
       return;
     }
 
+    // Each charge is one try: a miss costs one charge, and only the last miss asks for more answers.
     const nextOrbCount = Math.max(0, remainingOrbCount - 1);
+    const nextChargeCount = Math.max(0, chargeCount - 1);
+    const outOfCharge = nextChargeCount === 0;
     clearPayoffTimers();
-    setLaunchSkill("spent");
+    setLaunchSkill(outOfCharge ? "spent" : "waiting");
     setFlightState("fizzle");
     setCaptureEffect("inactive");
     setCaptureStage("free");
@@ -881,12 +1186,16 @@ export function SparkOrbLearningShell({
     setCollectionCardVisible(false);
     setReverseReplayActive(false);
     setReversePreviewOpen(false);
-    setChargeOverride(0);
+    setChargeOverride(nextChargeCount);
     setRemainingOrbCount(nextOrbCount);
-    playSparkOrbSfx("miss", sfx);
+    playSparkOrbSfx("miss", sfxOptions);
+    console.info(" 🎮 [spark-orb-learning-shell] [charge] [spent-one]", {
+      chargeCount: nextChargeCount,
+      outOfCharge,
+    });
     emitLaunchEvent({
       type: "release_miss",
-      chargeCount,
+      chargeCount: nextChargeCount,
       orbCount: nextOrbCount,
       result,
       hitDistance: launchScore.hitDistance,
@@ -895,13 +1204,14 @@ export function SparkOrbLearningShell({
     });
     emitLaunchEvent({
       type: "orb_spent",
-      chargeCount: 0,
+      chargeCount: nextChargeCount,
       orbCount: nextOrbCount,
       result,
       hitDistance: launchScore.hitDistance,
       hitQuality: launchScore.hitQuality,
       holdPower: launchScore.power,
     });
+    if (!outOfCharge) return;
     emitLaunchEvent({
       type: "recharge_needed",
       chargeCount: 0,
@@ -923,7 +1233,7 @@ export function SparkOrbLearningShell({
     setCaptureStage("collection-added");
     setFlightState("settled");
     setLaunchAim("idle");
-    playSparkOrbSfx("capturePull", sfx);
+    playSparkOrbSfx("capturePull", sfxOptions);
     emitLaunchEvent({
       type: "collection_reverse_started",
       chargeCount,
@@ -937,15 +1247,15 @@ export function SparkOrbLearningShell({
     payoffTimerRefs.current = [
       window.setTimeout(() => {
         setCaptureStage("locked");
-        playSparkOrbSfx("captureLock", sfx);
+        playSparkOrbSfx("captureLock", sfxOptions);
       }, 250),
       window.setTimeout(() => {
         setCaptureStage("shrinking");
-        playSparkOrbSfx("captureShrink", sfx);
+        playSparkOrbSfx("captureShrink", sfxOptions);
       }, 650),
       window.setTimeout(() => {
         setCaptureStage("pulling");
-        playSparkOrbSfx("capturePull", sfx);
+        playSparkOrbSfx("capturePull", sfxOptions);
       }, 1050),
       window.setTimeout(() => {
         setReverseReplayActive(false);
@@ -977,6 +1287,9 @@ export function SparkOrbLearningShell({
         aria-label="Sunny Spark Orb encounter"
         data-testid="spark-orb-encounter"
         data-phase={phase}
+        data-time-of-day={resolvedScene.timeOfDay}
+        data-season={resolvedScene.season}
+        data-scene-source={resolvedScene.source}
         data-launch-skill={launchSkill}
         data-launch-aim={visualLaunchAim}
         data-flight={displayFlightState}
@@ -992,11 +1305,13 @@ export function SparkOrbLearningShell({
       >
         <img
           className="spark-orb-learning-shell__backdrop"
-          src={`${assetBase}/park-background.png`}
+          src={resolvedScene.backgroundSrc}
           alt=""
           aria-hidden="true"
         />
         <div className="spark-orb-learning-shell__wash" aria-hidden="true" />
+        <div className="spark-orb-learning-shell__light" aria-hidden="true" />
+        {showWeather ? <SparkOrbWeatherLayer weather={resolvedScene.weather} /> : null}
         <div className="spark-orb-learning-shell__orb-hud">
           <div className="spark-orb-learning-shell__nameplate">
             <strong>{displayCreatureName}</strong>
@@ -1004,14 +1319,16 @@ export function SparkOrbLearningShell({
               {displayStatLabel} {displayStatValue}
             </span>
           </div>
-          <div className="spark-orb-learning-shell__orb-count" aria-label={`${remainingOrbCount} Sunny orbs left`}>
-            <span>ORB</span>
-            <strong>{remainingOrbCount}</strong>
-          </div>
         </div>
 
-        <div className="spark-orb-learning-shell__creature-shadow" aria-hidden="true" />
+        <div
+          className="spark-orb-learning-shell__creature-shadow"
+          data-idle-life={idleLifeActive ? "breathing" : undefined}
+          data-idle-fidget={idleLifeActive && idleFidget ? idleFidget : undefined}
+          aria-hidden="true"
+        />
         <img
+          ref={creatureRef}
           className="spark-orb-learning-shell__creature"
           data-testid="spark-orb-creature"
           data-capture-motion={creatureCaptureMotion}
@@ -1027,6 +1344,8 @@ export function SparkOrbLearningShell({
           }
           data-capture-personality={capturedCreature.capturePersonality}
           data-personality-reaction={personalityReaction}
+          data-idle-life={idleLifeActive ? "breathing" : undefined}
+          data-idle-fidget={idleLifeActive && idleFidget ? idleFidget : undefined}
           style={creatureCaptureStyle}
           src={capturedCreature.imageSrc}
           alt=""
@@ -1050,6 +1369,7 @@ export function SparkOrbLearningShell({
           ))}
         </div>
         <img
+          ref={orbRef}
           className="spark-orb-learning-shell__orb"
           data-testid="spark-orb"
           data-phase={phase}
@@ -1094,7 +1414,11 @@ export function SparkOrbLearningShell({
             </div>
             {launchSkill === "success" || launchSkill === "spent" ? (
               <strong>
-                {launchSkill === "success" ? "Clean launch" : "Answer more to recharge."}
+                {launchSkill === "success"
+                  ? launchPhysics?.hitQuality === "direct"
+                    ? "Perfect!"
+                    : "Nice throw!"
+                  : "Answer more to recharge."}
               </strong>
             ) : null}
           </div>
@@ -1111,7 +1435,12 @@ export function SparkOrbLearningShell({
             </div>
           </div>
         ) : null}
-        <div className="spark-orb-learning-shell__companion-anchor" aria-label="Companion portrait near orb">
+        <div
+          className="spark-orb-learning-shell__companion-anchor"
+          aria-label="Companion portrait near orb"
+          data-testid="spark-orb-companion-frame"
+          data-portrait-frame="framed"
+        >
           <CompanionLayer
             childId={childId}
             companion={companion}
@@ -1187,10 +1516,117 @@ export function SparkOrbLearningShell({
           z-index: 2;
         }
 
+        /* Time-of-day light over the scene picture. */
+        .spark-orb-learning-shell__light {
+          inset: 0;
+          pointer-events: none;
+          position: absolute;
+          transition: background 600ms ease;
+          z-index: 2;
+        }
+
+        .spark-orb-learning-shell__orb-stage[data-time-of-day="morning"] .spark-orb-learning-shell__light {
+          background:
+            radial-gradient(ellipse at 12% 8%, rgba(255, 214, 140, 0.45), transparent 55%),
+            linear-gradient(180deg, rgba(255, 230, 190, 0.18), transparent 60%);
+        }
+
+        .spark-orb-learning-shell__orb-stage[data-time-of-day="evening"] .spark-orb-learning-shell__light {
+          background:
+            radial-gradient(ellipse at 85% 22%, rgba(255, 170, 90, 0.5), transparent 50%),
+            linear-gradient(180deg, rgba(255, 128, 72, 0.38) 0%, rgba(214, 96, 120, 0.3) 45%, rgba(70, 40, 110, 0.45) 100%);
+        }
+
+        .spark-orb-learning-shell__orb-stage[data-time-of-day="night"] .spark-orb-learning-shell__light {
+          background:
+            radial-gradient(1.5px 1.5px at 12% 14%, white, transparent),
+            radial-gradient(1.5px 1.5px at 28% 8%, white, transparent),
+            radial-gradient(2px 2px at 46% 16%, white, transparent),
+            radial-gradient(1.5px 1.5px at 64% 6%, white, transparent),
+            radial-gradient(2px 2px at 82% 12%, white, transparent),
+            radial-gradient(1.5px 1.5px at 92% 22%, white, transparent),
+            linear-gradient(180deg, rgba(20, 24, 80, 0.62), rgba(30, 20, 70, 0.5));
+        }
+
+        .spark-orb-learning-shell__orb-stage[data-season="halloween"] .spark-orb-learning-shell__wash {
+          box-shadow: inset 0 0 120px rgba(255, 120, 20, 0.35), inset 0 0 220px rgba(90, 30, 140, 0.35);
+        }
+
+        .spark-orb-learning-shell__orb-stage[data-season="holiday"] .spark-orb-learning-shell__wash {
+          box-shadow: inset 0 0 140px rgba(255, 210, 150, 0.32);
+        }
+
+        .spark-orb-learning-shell__weather {
+          inset: 0;
+          overflow: hidden;
+          pointer-events: none;
+          position: absolute;
+          z-index: 5;
+        }
+
+        .spark-orb-learning-shell__weather span {
+          animation: sparkLearningWeatherFall var(--fall-s) linear var(--delay-s) infinite;
+          left: var(--x);
+          position: absolute;
+          top: -6%;
+        }
+
+        .spark-orb-learning-shell__weather[data-weather="snow"] span {
+          background: white;
+          border-radius: 50%;
+          box-shadow: 0 0 6px rgba(255, 255, 255, 0.8);
+          height: var(--size);
+          opacity: 0.9;
+          width: var(--size);
+        }
+
+        .spark-orb-learning-shell__weather[data-weather="leaves"] span {
+          background: var(--leaf, #e07b2a);
+          border-radius: 0 80% 0 80%;
+          height: calc(var(--size) * 1.6);
+          width: calc(var(--size) * 1.6);
+        }
+
+        .spark-orb-learning-shell__weather[data-weather="petals"] span {
+          background: #ffc3d8;
+          border-radius: 80% 0 80% 0;
+          height: var(--size);
+          opacity: 0.9;
+          width: calc(var(--size) * 1.3);
+        }
+
+        .spark-orb-learning-shell__weather[data-weather="fireflies"] span {
+          animation: sparkLearningFirefly var(--fall-s) ease-in-out var(--delay-s) infinite;
+          background: #fff59a;
+          border-radius: 50%;
+          box-shadow: 0 0 10px 4px rgba(255, 240, 120, 0.7);
+          height: 5px;
+          top: var(--y);
+          width: 5px;
+        }
+
+        @keyframes sparkLearningWeatherFall {
+          0% { top: -6%; translate: 0 0; rotate: 0deg; }
+          50% { translate: var(--sway) 0; rotate: 160deg; }
+          100% { top: 106%; translate: 0 0; rotate: 320deg; }
+        }
+
+        @keyframes sparkLearningFirefly {
+          0%, 100% { opacity: 0.1; translate: 0 0; }
+          40% { opacity: 1; translate: var(--sway) -14px; }
+          70% { opacity: 0.6; translate: calc(var(--sway) * -0.5) 8px; }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+          .spark-orb-learning-shell__weather {
+            display: none;
+          }
+        }
+
         .spark-orb-learning-shell__orb-hud {
           align-items: start;
           display: grid;
-          grid-template-columns: 1fr 62px;
+          grid-template-columns: 1fr;
           left: 22px;
           position: absolute;
           right: 22px;
@@ -1223,30 +1659,6 @@ export function SparkOrbLearningShell({
           padding: 8px 16px;
         }
 
-        .spark-orb-learning-shell__orb-count {
-          align-items: center;
-          background: rgba(31, 46, 58, 0.86);
-          border-radius: 50%;
-          color: white;
-          display: flex;
-          flex-direction: column;
-          height: 58px;
-          justify-content: center;
-          justify-self: end;
-          line-height: 1;
-          width: 58px;
-        }
-
-        .spark-orb-learning-shell__orb-count span {
-          font-size: 11px;
-          font-weight: 900;
-        }
-
-        .spark-orb-learning-shell__orb-count strong {
-          font-size: 24px;
-          font-weight: 950;
-        }
-
         .spark-orb-learning-shell__creature {
           filter: drop-shadow(0 18px 28px rgba(72, 58, 114, 0.28));
           left: 50%;
@@ -1264,6 +1676,62 @@ export function SparkOrbLearningShell({
         .spark-orb-learning-shell[data-phase="ready"] .spark-orb-learning-shell__creature,
         .spark-orb-learning-shell[data-phase="collected"] .spark-orb-learning-shell__creature {
           animation: sparkLearningCreatureBounce 1.7s ease-in-out infinite;
+        }
+
+        .spark-orb-learning-shell .spark-orb-learning-shell__creature[data-idle-life="breathing"] {
+          animation:
+            sparkLearningCreatureBounce 1.7s ease-in-out infinite,
+            sparkLearningCreatureBreathe 1.7s ease-in-out infinite;
+        }
+
+        .spark-orb-learning-shell .spark-orb-learning-shell__creature[data-idle-life="breathing"][data-idle-fidget="hop"] {
+          animation:
+            sparkLearningCreatureBounce 1.7s ease-in-out infinite,
+            sparkLearningCreatureBreathe 1.7s ease-in-out infinite,
+            sparkLearningCreatureFidgetHop 0.9s cubic-bezier(0.3, 0.7, 0.4, 1);
+        }
+
+        .spark-orb-learning-shell .spark-orb-learning-shell__creature[data-idle-life="breathing"][data-idle-fidget="tilt"] {
+          animation:
+            sparkLearningCreatureBounce 1.7s ease-in-out infinite,
+            sparkLearningCreatureBreathe 1.7s ease-in-out infinite,
+            sparkLearningCreatureFidgetTilt 0.9s ease-in-out;
+        }
+
+        .spark-orb-learning-shell .spark-orb-learning-shell__creature[data-idle-life="breathing"][data-idle-fidget="wiggle"] {
+          animation:
+            sparkLearningCreatureBounce 1.7s ease-in-out infinite,
+            sparkLearningCreatureBreathe 1.7s ease-in-out infinite,
+            sparkLearningCreatureFidgetWiggle 0.9s ease-in-out;
+        }
+
+        .spark-orb-learning-shell .spark-orb-learning-shell__creature[data-idle-life="breathing"][data-idle-fidget="look"] {
+          animation:
+            sparkLearningCreatureBounce 1.7s ease-in-out infinite,
+            sparkLearningCreatureBreathe 1.7s ease-in-out infinite,
+            sparkLearningCreatureFidgetLook 0.9s ease-in-out;
+        }
+
+        .spark-orb-learning-shell__creature-shadow[data-idle-life="breathing"] {
+          animation: sparkLearningShadowBreathe 1.7s ease-in-out infinite;
+        }
+
+        .spark-orb-learning-shell__creature-shadow[data-idle-life="breathing"][data-idle-fidget="hop"] {
+          animation:
+            sparkLearningShadowBreathe 1.7s ease-in-out infinite,
+            sparkLearningShadowHop 0.9s cubic-bezier(0.3, 0.7, 0.4, 1);
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+          .spark-orb-learning-shell .spark-orb-learning-shell__creature[data-idle-life="breathing"],
+          .spark-orb-learning-shell .spark-orb-learning-shell__creature[data-idle-life="breathing"][data-idle-fidget] {
+            animation: sparkLearningCreatureBounce 1.7s ease-in-out infinite;
+          }
+
+          .spark-orb-learning-shell__creature-shadow[data-idle-life="breathing"],
+          .spark-orb-learning-shell__creature-shadow[data-idle-life="breathing"][data-idle-fidget] {
+            animation: none;
+          }
         }
 
         .spark-orb-learning-shell__creature[data-capture-motion="pulling"] {
@@ -1519,6 +1987,11 @@ export function SparkOrbLearningShell({
           opacity: 1;
         }
 
+        .spark-orb-learning-shell__orb-stage[data-hit-quality="direct"][data-capture-effect="active"] .spark-orb-learning-shell__spark-burst {
+          filter: brightness(1.25) saturate(1.3);
+          scale: 1.35;
+        }
+
         .spark-orb-learning-shell__spark-burst i:nth-child(1) { --spark-x: 0px; --spark-y: -130px; }
         .spark-orb-learning-shell__spark-burst i:nth-child(2) { --spark-x: 58px; --spark-y: -112px; }
         .spark-orb-learning-shell__spark-burst i:nth-child(3) { --spark-x: 108px; --spark-y: -70px; }
@@ -1592,7 +2065,7 @@ export function SparkOrbLearningShell({
         }
 
         .spark-orb-learning-shell__orb-stage[data-flight="traveling"] .spark-orb-learning-shell__orb {
-          animation: sparkLearningOrbProjectileFlight 0.66s cubic-bezier(0.18, 0.72, 0.2, 1) both;
+          animation: sparkLearningOrbProjectileFlight var(--orb-flight-ms, 0.66s) linear both;
           bottom: 96px;
           filter:
             drop-shadow(0 24px 22px rgba(8, 51, 68, 0.24))
@@ -1967,18 +2440,24 @@ export function SparkOrbLearningShell({
           text-align: center;
         }
 
-        .spark-orb-learning-shell__companion-anchor::after {
-          background: rgba(16, 32, 45, 0.08);
-          border-radius: 50%;
-          bottom: 0;
-          content: "";
-          filter: blur(6px);
-          height: 26px;
-          left: 54%;
-          position: absolute;
-          transform: translateX(-50%);
-          width: 112px;
-          z-index: 1;
+        /* The companion is a 3D model on a transparent canvas; give its circle a lit backdrop and rim
+           so it reads like a co-op player portrait on any scene. */
+        .spark-orb-learning-shell__companion-anchor[data-portrait-frame="framed"] [data-testid="companion-portrait"] {
+          background: radial-gradient(circle at 50% 38%, #fffaf0 0%, #ffe9c2 48%, #ffc98a 100%);
+          border: 4px solid rgba(255, 255, 255, 0.95);
+          box-shadow:
+            0 0 0 3px rgba(255, 179, 71, 0.85),
+            0 12px 26px rgba(20, 24, 48, 0.4);
+          box-sizing: border-box;
+          overflow: hidden;
+        }
+
+        .spark-orb-learning-shell__orb-stage[data-time-of-day="evening"] .spark-orb-learning-shell__companion-anchor[data-portrait-frame="framed"] [data-testid="companion-portrait"],
+        .spark-orb-learning-shell__orb-stage[data-time-of-day="night"] .spark-orb-learning-shell__companion-anchor[data-portrait-frame="framed"] [data-testid="companion-portrait"] {
+          background: radial-gradient(circle at 50% 38%, #eef1ff 0%, #b9c0f2 50%, #7466c8 100%);
+          box-shadow:
+            0 0 0 3px rgba(160, 170, 255, 0.85),
+            0 12px 26px rgba(8, 10, 30, 0.55);
         }
 
         @keyframes sparkLearningReadyPulse {
@@ -1989,6 +2468,53 @@ export function SparkOrbLearningShell({
         @keyframes sparkLearningCreatureBounce {
           0%, 100% { transform: translate(-50%, -50%); }
           50% { transform: translate(-50%, -53%); }
+        }
+
+        /* Squash at the bottom of the bob, stretch on the way up. Uses the scale property so it
+           layers on top of the transform-based bob and fidgets. */
+        @keyframes sparkLearningCreatureBreathe {
+          0%, 100% { scale: 1.035 0.965; }
+          25% { scale: 0.985 1.02; }
+          50% { scale: 1 1.01; }
+          75% { scale: 1.01 0.99; }
+        }
+
+        @keyframes sparkLearningCreatureFidgetHop {
+          0% { translate: 0 0; rotate: 0deg; }
+          18% { translate: 0 6px; rotate: 0deg; }
+          45% { translate: 0 -34px; rotate: -4deg; }
+          72% { translate: 0 2px; rotate: 2deg; }
+          86% { translate: 0 -5px; rotate: 0deg; }
+          100% { translate: 0 0; rotate: 0deg; }
+        }
+
+        @keyframes sparkLearningCreatureFidgetTilt {
+          0%, 100% { rotate: 0deg; }
+          25%, 70% { rotate: -11deg; }
+        }
+
+        @keyframes sparkLearningCreatureFidgetWiggle {
+          0%, 100% { rotate: 0deg; }
+          15% { rotate: 7deg; }
+          35% { rotate: -7deg; }
+          55% { rotate: 5deg; }
+          75% { rotate: -3deg; }
+        }
+
+        @keyframes sparkLearningCreatureFidgetLook {
+          0%, 100% { translate: 0 0; rotate: 0deg; }
+          25%, 40% { translate: -12px 0; rotate: -5deg; }
+          60%, 78% { translate: 12px 0; rotate: 5deg; }
+        }
+
+        @keyframes sparkLearningShadowBreathe {
+          0%, 100% { scale: 1; opacity: 1; }
+          50% { scale: 0.88; opacity: 0.8; }
+        }
+
+        @keyframes sparkLearningShadowHop {
+          0%, 100% { scale: 1; opacity: 1; }
+          45% { scale: 0.62; opacity: 0.45; }
         }
 
         @keyframes sparkLearningCreaturePull {

@@ -12,6 +12,7 @@ vi.mock("../components/CompanionLayer", () => ({
 
 vi.mock("../utils/sparkOrbSfx", () => ({
   playSparkOrbSfx: playSparkOrbSfxMock,
+  startSparkOrbPullTone: () => null,
 }));
 
 const elliCompanion: CompanionConfig = {

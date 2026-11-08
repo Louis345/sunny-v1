@@ -1,3 +1,7 @@
+## 2026-11-08 — Found while adding Spark Orb sounds (open)
+
+- **Game sound has five owners instead of one (open, AI-caught in an owner-requested audit).** `gameSfx.ts` is meant to be the one sound registry with one shared audio context, but `questUnlockAudio.ts`, `companionActivities/companionActivitySfx.ts`, and `new Audio(...)` calls inside `SlotMachineOverlay`, `NodeTreasureChest`, `BossDropReveal` and `StoryImageFinale` each play sound their own way. Spark Orb opened a new audio context for every sound until this change; it now uses the shared one. Browsers cap open contexts, so a long session can go silent. None of these read the chart's new `sensory` sheet, so a child set to soft or silent still hears them. Fix: route every game sound through `gameSfx.ts` (registry + shared context + sensory volume), then delete the duplicates.
+
 ## 2026-11-07 — Found while running the free Quest/Boss demo (open)
 
 - **The post-activity popup is too busy and scrolls (open, human-caught 2026-11-07, Ila's first economy session).** When a stop ends, the panel stacks the activity summary, buttons and the treasure chest, so it scrolls and the chest is not the focus. The owner caught it watching her; logs only record the chest grant, not what fits on screen; the browser acceptance checks only asserted the buttons were reachable at 1280x720. Wanted: chest first, coins, one Next button, no scroll.

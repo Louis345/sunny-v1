@@ -14,6 +14,7 @@ import { sm2Facts } from "../algorithms/sm2Facts";
 import type { ChildProfileEntry, ChildrenConfigFile } from "./childrenConfig";
 import { companionConfigFromPreset } from "./childrenConfig";
 import type { CompanionConfig } from "../shared/companionTypes";
+import { resolveSensoryProfile, type SensoryProfile } from "../shared/sensoryProfile";
 import { COMPANION_DEFAULTS, mergeCompanionPresetWithLearningProfile } from "../shared/companionTypes";
 import { resolveAttentionModel, type ResolvedAttentionModel } from "../engine/attentionModel";
 import { companionCareToView } from "../engine/companionCareEngine";
@@ -67,6 +68,7 @@ export type ChildProfileManifest = {
   economy?: {
     coinBalance?: number;
   };
+  sensory?: Partial<SensoryProfile>;
   links?: Partial<ChildChartLinks>;
 };
 
@@ -179,6 +181,8 @@ export type ChildChart = {
   economy: {
     coinBalance: number;
   };
+  /** How loud, bright and lively games should be for this child (neutral defaults when unset). */
+  sensory: SensoryProfile;
   childContext: string;
   childMeta?: ChildProfileEntry;
   companion: {
@@ -603,6 +607,7 @@ export function getChildChart(childIdRaw: string, opts: ChildChartOptions | Spel
     economy: {
       coinBalance,
     },
+    sensory: resolveSensoryProfile(manifest.sensory),
     childContext: readChildContext(rootDir, childId),
     childMeta,
     companion,

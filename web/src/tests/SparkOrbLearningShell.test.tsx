@@ -3,9 +3,18 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   buildOrbCompanionAnchorContext,
   computeSparkOrbLaunchPhysics,
+  SPARK_ORB_IDLE_FIDGETS,
+  SPARK_ORB_MAX_IDLE_FIDGETS,
+  SPARK_ORB_MAX_SIM_STEPS,
   SparkOrbLearningShell,
 } from "../components/SparkOrbLearningShell";
 import { LUMIPUFF_MONSTER } from "../components/capturedMonsterCatalog";
+import {
+  SPARK_ORB_DEFAULT_BACKGROUND,
+  SPARK_ORB_MAX_WEATHER_PARTICLES,
+  resolveSparkOrbScene,
+} from "../components/sparkOrbScenes";
+import { DEFAULT_SENSORY_PROFILE } from "../../../src/shared/sensoryProfile";
 import { COMPANION_DEFAULTS, type CompanionConfig } from "../../../src/shared/companionTypes";
 
 const playSparkOrbSfxMock = vi.hoisted(() => vi.fn());
@@ -33,8 +42,12 @@ vi.mock("../components/CompanionLayer", () => ({
   ),
 }));
 
+const pullToneMock = vi.hoisted(() => ({ update: vi.fn(), stop: vi.fn() }));
+const startSparkOrbPullToneMock = vi.hoisted(() => vi.fn());
+
 vi.mock("../utils/sparkOrbSfx", () => ({
   playSparkOrbSfx: playSparkOrbSfxMock,
+  startSparkOrbPullTone: startSparkOrbPullToneMock,
 }));
 
 const elliCompanion: CompanionConfig = {
@@ -71,6 +84,10 @@ const elliCompanion: CompanionConfig = {
 
 afterEach(() => {
   playSparkOrbSfxMock.mockClear();
+  pullToneMock.update.mockClear();
+  pullToneMock.stop.mockClear();
+  startSparkOrbPullToneMock.mockReset();
+  startSparkOrbPullToneMock.mockReturnValue(pullToneMock);
   vi.useRealTimers();
 });
 
@@ -81,33 +98,19 @@ function flickCleanLaunch(): void {
   fireEvent.pointerUp(launchControl, { clientX: 338, clientY: 450 });
 }
 
-function flickWeakLaunch(): void {
-  const launchControl = screen.getByTestId("spark-orb-launch-control");
-  fireEvent.pointerDown(launchControl, { clientX: 320, clientY: 620 });
-  fireEvent.pointerMove(launchControl, { clientX: 520, clientY: 590 });
-  fireEvent.pointerUp(launchControl, { clientX: 520, clientY: 590 });
-}
-
 describe("SparkOrbLearningShell", () => {
-  it("scores launch quality from a deterministic projectile arc", () => {
-    const centeredArc = computeSparkOrbLaunchPhysics({ pullX: 12, pullY: 178 });
-    const closeArc = computeSparkOrbLaunchPhysics({ pullX: 62, pullY: 178 });
-    const wideArc = computeSparkOrbLaunchPhysics({ pullX: 148, pullY: 178 });
+  it("every throw catches, and a good centered flick is Perfect", () => {
+    const goodFlick = computeSparkOrbLaunchPhysics({ pullX: 12, pullY: 178 });
+    const tap = computeSparkOrbLaunchPhysics({ pullX: 0, pullY: 0 });
 
-    expect(centeredArc.result).toBe("success");
-    expect(centeredArc.hitQuality).toBe("direct");
-    expect(centeredArc.hitDistance).toBeLessThan(closeArc.hitDistance);
-    expect(centeredArc.launchScale).toBe(1);
-    expect(centeredArc.peakScale).toBeLessThan(centeredArc.launchScale);
-    expect(centeredArc.flightScale).toBeLessThan(centeredArc.peakScale);
-    expect(centeredArc.impactScale).toBeLessThan(centeredArc.flightScale);
-    expect(closeArc.hitQuality).toBe("near");
-    expect(computeSparkOrbLaunchPhysics({ pullX: 62, pullY: 96 })).toMatchObject({
-      result: "success",
-      hitQuality: "near",
-    });
-    expect(wideArc.result).toBe("miss-late");
-    expect(wideArc.hitQuality).toBe("wide");
+    expect(goodFlick.result).toBe("success");
+    expect(goodFlick.hitQuality).toBe("direct");
+    expect(tap.result).toBe("success");
+    expect(tap.hitQuality).toBe("near");
+    expect(goodFlick.launchScale).toBe(1);
+    expect(goodFlick.peakScale).toBeLessThan(goodFlick.launchScale);
+    expect(goodFlick.flightScale).toBeLessThan(goodFlick.peakScale);
+    expect(goodFlick.impactScale).toBeLessThan(goodFlick.flightScale);
   });
 
   it("renders learning children beside the orb with the companion portrait anchored near the orb", () => {
@@ -324,7 +327,7 @@ describe("SparkOrbLearningShell", () => {
       "data-launch-skill",
       "success",
     );
-    expect(screen.getByText("Clean launch")).toBeInTheDocument();
+    expect(screen.getByText("Perfect!")).toBeInTheDocument();
     expect(onEncounterEvent).toHaveBeenCalledWith(
       expect.objectContaining({
         type: "release_success",
@@ -416,47 +419,6 @@ describe("SparkOrbLearningShell", () => {
     );
     expect(onEncounterEvent).toHaveBeenCalledWith(
       expect.objectContaining({ type: "release_success", result: "success" }),
-    );
-  });
-
-  it("spends the charged orb on a missed release and asks for more answers to recharge", () => {
-    vi.useFakeTimers();
-    const onEncounterEvent = vi.fn();
-
-    render(
-      <SparkOrbLearningShell
-        childId="ila"
-        childName="Ila"
-        companion={elliCompanion}
-        phase="ready"
-        chargeGoal={3}
-        domain="spelling"
-        currentTarget="because"
-        lastMoment="orb_ready"
-        orbCount={7}
-        onEncounterEvent={onEncounterEvent}
-      >
-        <div>Spell the word you hear</div>
-      </SparkOrbLearningShell>,
-    );
-
-    flickWeakLaunch();
-
-    expect(screen.getByTestId("spark-orb-encounter")).toHaveAttribute(
-      "data-launch-skill",
-      "spent",
-    );
-    expect(screen.getByText("Answer more to recharge.")).toBeInTheDocument();
-    expect(screen.getByText("Charge 0 / 3")).toBeInTheDocument();
-    expect(screen.getByLabelText("6 Sunny orbs left")).toBeInTheDocument();
-    expect(onEncounterEvent).toHaveBeenCalledWith(
-      expect.objectContaining({ type: "release_miss", result: "miss-early" }),
-    );
-    expect(onEncounterEvent).toHaveBeenCalledWith(
-      expect.objectContaining({ type: "orb_spent", orbCount: 6 }),
-    );
-    expect(onEncounterEvent).toHaveBeenCalledWith(
-      expect.objectContaining({ type: "recharge_needed", chargeCount: 0 }),
     );
   });
 
@@ -612,7 +574,7 @@ describe("SparkOrbLearningShell", () => {
     });
 
     expect(screen.getByRole("dialog", { name: "Lumipuff added to collection" })).toBeInTheDocument();
-    expect(screen.queryByText("Clean launch")).not.toBeInTheDocument();
+    expect(screen.queryByText("Perfect!")).not.toBeInTheDocument();
     expect(screen.queryByText("Charge 3 / 3")).not.toBeInTheDocument();
     expect(screen.queryByLabelText("Launch aim meter")).not.toBeInTheDocument();
     expect(screen.queryByText("It's glowing.")).not.toBeInTheDocument();
@@ -697,7 +659,7 @@ describe("SparkOrbLearningShell", () => {
       "free",
     );
     expect(screen.getByTestId("spark-orb")).toHaveAttribute("data-on-ground", "true");
-    expect(screen.queryByText("Clean launch")).not.toBeInTheDocument();
+    expect(screen.queryByText("Perfect!")).not.toBeInTheDocument();
     expect(screen.queryByText("Charge 3 / 3")).not.toBeInTheDocument();
     expect(onEncounterEvent).toHaveBeenCalledWith(
       expect.objectContaining({ type: "collection_reverse_complete", result: "success" }),
@@ -754,8 +716,66 @@ describe("SparkOrbLearningShell", () => {
     expect(screen.getByRole("dialog", { name: "Lumipuff added to collection" })).toBeInTheDocument();
   });
 
-  it("plays a miss fizzle flight instead of revealing the collectible", () => {
+
+});
+
+describe("Spark Orb throw physics", () => {
+  it("a plain tap still throws and catches", () => {
+    expect(computeSparkOrbLaunchPhysics({ pullX: 0, pullY: 0 }).result).toBe("success");
+  });
+
+  it("a slingshot pull-back also throws and catches", () => {
+    expect(computeSparkOrbLaunchPhysics({ pullX: 0, pullY: -150 }).result).toBe("success");
+  });
+
+  it("a wild sideways flick curves back and lands on the creature", () => {
+    const wild = computeSparkOrbLaunchPhysics({ pullX: 170, pullY: 178, releaseVelocityX: 3 });
+    const flight = wild.path.slice(0, wild.landingIndex + 1);
+
+    expect(wild.result).toBe("success");
+    expect(wild.hitQuality).toBe("near");
+    expect(Math.max(...flight.map((sample) => sample.x))).toBeGreaterThan(30);
+    expect(wild.impactX).toBe(0);
+    expect(wild.impactY).toBe(-wild.targetDepth);
+  });
+
+  it("lands on where the creature actually stands on this screen", () => {
+    const physics = computeSparkOrbLaunchPhysics({ pullX: 0, pullY: 178, targetDepth: 250 });
+
+    expect(physics.targetDepth).toBe(250);
+    expect(physics.impactX).toBe(0);
+    expect(physics.impactY).toBe(-250);
+  });
+
+  it("a faster flick flies quicker and arcs higher than a slow drag", () => {
+    const slowDrag = computeSparkOrbLaunchPhysics({ pullX: 0, pullY: 60 });
+    const fastFlick = computeSparkOrbLaunchPhysics({ pullX: 0, pullY: 60, releaseVelocityY: 2.5 });
+    const peak = (physics: typeof slowDrag) => Math.min(...physics.path.map((sample) => sample.y));
+
+    expect(fastFlick.flightMs).toBeLessThan(slowDrag.flightMs);
+    expect(peak(fastFlick)).toBeLessThan(peak(slowDrag));
+  });
+
+  it("flies a smooth arc with one peak instead of straight segments", () => {
+    const physics = computeSparkOrbLaunchPhysics({ pullX: 30, pullY: 178 });
+    const flight = physics.path.slice(0, physics.landingIndex + 1);
+    const peakIndex = flight.reduce((best, sample, index) => (sample.y < flight[best].y ? index : best), 0);
+
+    expect(flight.length).toBeGreaterThanOrEqual(20);
+    expect(flight.length).toBeLessThanOrEqual(SPARK_ORB_MAX_SIM_STEPS);
+    expect(peakIndex).toBeGreaterThan(0);
+    expect(peakIndex).toBeLessThan(flight.length - 1);
+    for (let index = 1; index < flight.length; index += 1) {
+      const step = Math.hypot(flight[index].x - flight[index - 1].x, flight[index].y - flight[index - 1].y);
+      expect(step).toBeLessThan(40);
+      if (index <= peakIndex) expect(flight[index].y).toBeLessThanOrEqual(flight[index - 1].y);
+      else expect(flight[index].y).toBeGreaterThanOrEqual(flight[index - 1].y);
+    }
+  });
+
+  it("a tap on the orb catches the creature with a plain Nice throw", () => {
     vi.useFakeTimers();
+    const onEncounterEvent = vi.fn();
 
     render(
       <SparkOrbLearningShell
@@ -767,22 +787,303 @@ describe("SparkOrbLearningShell", () => {
         domain="spelling"
         currentTarget="because"
         lastMoment="orb_ready"
+        onEncounterEvent={onEncounterEvent}
       >
         <div>Spell the word you hear</div>
       </SparkOrbLearningShell>,
     );
 
-    flickWeakLaunch();
+    const launchControl = screen.getByTestId("spark-orb-launch-control");
+    fireEvent.pointerDown(launchControl, { clientX: 320, clientY: 620 });
+    fireEvent.pointerUp(launchControl, { clientX: 320, clientY: 620 });
 
-    const encounter = screen.getByTestId("spark-orb-encounter");
-    expect(encounter).toHaveAttribute("data-launch-skill", "spent");
-    expect(encounter).toHaveAttribute("data-flight", "fizzle");
-    expect(encounter).toHaveAttribute("data-capture-effect", "inactive");
-    expect(screen.getByTestId("spark-orb-creature")).toHaveAttribute(
-      "data-capture-motion",
-      "free",
+    expect(screen.getByTestId("spark-orb-encounter")).toHaveAttribute("data-launch-skill", "success");
+    expect(screen.getByText("Nice throw!")).toBeInTheDocument();
+    expect(onEncounterEvent).toHaveBeenCalledWith(
+      expect.objectContaining({ type: "release_success", hitQuality: "near" }),
     );
-    expect(playSparkOrbSfxMock).toHaveBeenCalledWith("miss", undefined);
-    expect(screen.queryByRole("dialog", { name: "Lumipuff added to collection" })).not.toBeInTheDocument();
+  });
+
+  it("starts the capture pull when the orb actually lands", () => {
+    vi.useFakeTimers();
+    const onEncounterEvent = vi.fn();
+    const expected = computeSparkOrbLaunchPhysics({ pullX: 18, pullY: 170, holdCharge: 0 });
+
+    render(
+      <SparkOrbLearningShell
+        childId="ila"
+        childName="Ila"
+        companion={elliCompanion}
+        phase="ready"
+        chargeGoal={3}
+        domain="spelling"
+        currentTarget="because"
+        lastMoment="orb_ready"
+        onEncounterEvent={onEncounterEvent}
+      >
+        <div>Spell the word you hear</div>
+      </SparkOrbLearningShell>,
+    );
+
+    flickCleanLaunch();
+    const pullCalls = () =>
+      onEncounterEvent.mock.calls.filter(([event]) => event.type === "capture_pull").length;
+
+    act(() => {
+      vi.advanceTimersByTime(expected.flightMs - 1);
+    });
+    expect(pullCalls()).toBe(0);
+    act(() => {
+      vi.advanceTimersByTime(1);
+    });
+    expect(pullCalls()).toBe(1);
+  });
+});
+
+describe("Lumipuff idle life", () => {
+  function renderReady() {
+    return render(
+      <SparkOrbLearningShell
+        childId="ila"
+        childName="Ila"
+        companion={elliCompanion}
+        phase="ready"
+        chargeGoal={3}
+        domain="spelling"
+        currentTarget="because"
+        lastMoment="orb_ready"
+      >
+        <p>Spell because.</p>
+      </SparkOrbLearningShell>,
+    );
+  }
+
+  it("breathes and does an occasional random fidget, not on a fixed rhythm", () => {
+    vi.useFakeTimers();
+    const random = vi.spyOn(Math, "random");
+    random.mockReturnValue(0);
+    renderReady();
+    const creature = screen.getByTestId("spark-orb-creature");
+    expect(creature).toHaveAttribute("data-idle-life", "breathing");
+    expect(creature).not.toHaveAttribute("data-idle-fidget");
+
+    act(() => vi.advanceTimersByTime(2_700));
+    expect(creature).toHaveAttribute("data-idle-fidget", SPARK_ORB_IDLE_FIDGETS[0]);
+    random.mockReturnValue(0.99);
+    act(() => vi.advanceTimersByTime(1_000));
+    expect(creature).not.toHaveAttribute("data-idle-fidget");
+
+    act(() => vi.advanceTimersByTime(2_700));
+    expect(creature).not.toHaveAttribute("data-idle-fidget");
+    act(() => vi.advanceTimersByTime(3_200));
+    expect(creature).toHaveAttribute(
+      "data-idle-fidget",
+      SPARK_ORB_IDLE_FIDGETS[SPARK_ORB_IDLE_FIDGETS.length - 1],
+    );
+    random.mockRestore();
+  });
+
+  it("stops idling once the orb is thrown so the capture reaction plays alone", () => {
+    vi.useFakeTimers();
+    renderReady();
+    flickCleanLaunch();
+    act(() => vi.advanceTimersByTime(30_000));
+    const creature = screen.getByTestId("spark-orb-creature");
+    expect(creature).not.toHaveAttribute("data-idle-life");
+    expect(creature).not.toHaveAttribute("data-idle-fidget");
+  });
+
+  it("stops scheduling fidgets after the guard limit and on unmount", () => {
+    vi.useFakeTimers();
+    const random = vi.spyOn(Math, "random").mockReturnValue(0);
+    const { unmount } = renderReady();
+    let fidgets = 0;
+    let wasFidgeting = false;
+    for (let step = 0; step < (SPARK_ORB_MAX_IDLE_FIDGETS + 5) * 40; step += 1) {
+      act(() => vi.advanceTimersByTime(100));
+      const fidgeting = screen.getByTestId("spark-orb-creature").hasAttribute("data-idle-fidget");
+      if (fidgeting && !wasFidgeting) fidgets += 1;
+      wasFidgeting = fidgeting;
+    }
+    expect(fidgets).toBe(SPARK_ORB_MAX_IDLE_FIDGETS);
+    unmount();
+    expect(vi.getTimerCount()).toBe(0);
+    random.mockRestore();
+  });
+});
+
+describe("Spark Orb sound", () => {
+  const sfxIds = () => playSparkOrbSfxMock.mock.calls.map((call) => call[0]);
+
+  function renderShell(props: Partial<Parameters<typeof SparkOrbLearningShell>[0]> = {}) {
+    return render(
+      <SparkOrbLearningShell
+        childId="kid"
+        childName="Kid"
+        companion={elliCompanion}
+        phase="ready"
+        chargeGoal={3}
+        domain="spelling"
+        currentTarget="because"
+        lastMoment="orb_ready"
+        {...props}
+      >
+        <p>Question</p>
+      </SparkOrbLearningShell>,
+    );
+  }
+
+  it("follows the throw: grab, a pull tone that rises and stops, impact on landing, Perfect sting", () => {
+    vi.useFakeTimers();
+    startSparkOrbPullToneMock.mockReturnValue(pullToneMock);
+    renderShell();
+    const expected = computeSparkOrbLaunchPhysics({ pullX: 18, pullY: 170 });
+    flickCleanLaunch();
+    expect(sfxIds()).toContain("grab");
+    expect(startSparkOrbPullToneMock).toHaveBeenCalledTimes(1);
+    expect(pullToneMock.update).toHaveBeenCalled();
+    expect(pullToneMock.stop).toHaveBeenCalled();
+    expect(sfxIds()).toContain("launch");
+    expect(sfxIds()).not.toContain("impact");
+    act(() => vi.advanceTimersByTime(expected.flightMs + 20));
+    expect(sfxIds()).toContain("impact");
+    expect(sfxIds()).toContain("perfect");
+  });
+
+  it("chimes once per answer that charges the orb and sings when it is full", () => {
+    const { rerender } = renderShell({ phase: "idle", lastMoment: "watching" });
+    expect(sfxIds()).toEqual([]);
+    const next = (phase: "charge-1" | "charge-2" | "ready") =>
+      rerender(
+        <SparkOrbLearningShell
+          childId="kid"
+          childName="Kid"
+          companion={elliCompanion}
+          phase={phase}
+          chargeGoal={3}
+          domain="spelling"
+          currentTarget="because"
+        >
+          <p>Question</p>
+        </SparkOrbLearningShell>,
+      );
+    next("charge-1");
+    next("charge-2");
+    next("ready");
+    expect(sfxIds()).toEqual(["charge", "charge", "ready"]);
+  });
+
+  it("Lumipuff chirps with its fidgets and passes the chart's sensory sheet to every sound", () => {
+    vi.useFakeTimers();
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    const sensory = { ...DEFAULT_SENSORY_PROFILE, soundVolume: 0.3 };
+    renderShell({ sensory });
+    act(() => vi.advanceTimersByTime(2_700));
+    expect(sfxIds()).toContain("chirp");
+    for (const call of playSparkOrbSfxMock.mock.calls) {
+      expect(call[1]).toEqual(expect.objectContaining({ sensory }));
+    }
+    vi.restoreAllMocks();
+  });
+
+  it("a calm motion sheet keeps Lumipuff to a gentle bob with no fidgets", () => {
+    vi.useFakeTimers();
+    renderShell({ sensory: { ...DEFAULT_SENSORY_PROFILE, motion: "calm" } });
+    act(() => vi.advanceTimersByTime(20_000));
+    const creature = screen.getByTestId("spark-orb-creature");
+    expect(creature).not.toHaveAttribute("data-idle-life");
+    expect(sfxIds()).not.toContain("chirp");
+  });
+});
+
+describe("Spark Orb scenes", () => {
+  const at = (iso: string) => new Date(iso);
+
+  it("uses the board theme's picture when the board has one, and the park otherwise", () => {
+    const imageTheme = { background: { type: "image" as const, value: "/boards/ocean.png" } };
+    const gradientTheme = { background: { type: "gradient" as const, value: "linear-gradient(red, blue)" } };
+    expect(resolveSparkOrbScene({ boardTheme: imageTheme, now: at("2026-07-04T14:00:00") })).toMatchObject({
+      backgroundSrc: "/boards/ocean.png",
+      source: "board-theme",
+    });
+    expect(resolveSparkOrbScene({ boardTheme: gradientTheme, now: at("2026-07-04T14:00:00") })).toMatchObject({
+      backgroundSrc: SPARK_ORB_DEFAULT_BACKGROUND,
+      source: "default",
+    });
+    expect(resolveSparkOrbScene({ now: at("2026-07-04T14:00:00") }).backgroundSrc).toBe(SPARK_ORB_DEFAULT_BACKGROUND);
+  });
+
+  it.each([
+    ["2026-07-04T08:00:00", "morning"],
+    ["2026-07-04T14:00:00", "afternoon"],
+    ["2026-07-04T18:00:00", "evening"],
+    ["2026-07-04T22:30:00", "night"],
+    ["2026-07-04T03:00:00", "night"],
+  ])("reads %s as %s", (iso, timeOfDay) => {
+    expect(resolveSparkOrbScene({ now: at(iso) }).timeOfDay).toBe(timeOfDay);
+  });
+
+  it.each([
+    ["2026-10-20T12:00:00", "halloween"],
+    ["2026-12-10T12:00:00", "holiday"],
+    ["2027-01-15T12:00:00", "winter"],
+    ["2026-04-10T12:00:00", "spring"],
+    ["2026-07-10T12:00:00", "summer"],
+    ["2026-09-25T12:00:00", "autumn"],
+    ["2026-11-08T12:00:00", "autumn"],
+  ])("reads %s as the %s season", (iso, season) => {
+    expect(resolveSparkOrbScene({ now: at(iso) }).season).toBe(season);
+  });
+
+  it("lets a caller pin the time of day and season", () => {
+    expect(
+      resolveSparkOrbScene({ now: at("2026-07-04T14:00:00"), timeOfDay: "night", season: "winter" }),
+    ).toMatchObject({ timeOfDay: "night", season: "winter" });
+  });
+
+  function renderScene(props: Partial<Parameters<typeof SparkOrbLearningShell>[0]>) {
+    return render(
+      <SparkOrbLearningShell
+        childId="kid"
+        childName="Kid"
+        companion={elliCompanion}
+        phase="ready"
+        chargeGoal={3}
+        domain="math"
+        currentTarget="fact:7x8"
+        lastMoment="orb_ready"
+        {...props}
+      >
+        <p>7 x 8</p>
+      </SparkOrbLearningShell>,
+    );
+  }
+
+  it("paints the scene's picture, light and seasonal weather", () => {
+    const { container } = renderScene({
+      scene: { now: at("2026-12-10T17:30:00"), boardTheme: { background: { type: "image", value: "/boards/snow.png" } } },
+    });
+    const stage = screen.getByTestId("spark-orb-encounter");
+    expect(stage).toHaveAttribute("data-time-of-day", "evening");
+    expect(stage).toHaveAttribute("data-season", "holiday");
+    expect(container.querySelector(".spark-orb-learning-shell__backdrop")).toHaveAttribute("src", "/boards/snow.png");
+    const flakes = screen.getAllByTestId("spark-orb-weather-particle");
+    expect(flakes.length).toBeGreaterThan(0);
+    expect(flakes.length).toBeLessThanOrEqual(SPARK_ORB_MAX_WEATHER_PARTICLES);
+    expect(screen.getByTestId("spark-orb-weather")).toHaveAttribute("data-weather", "snow");
+  });
+
+  it("drops falling weather for a calm motion sheet", () => {
+    renderScene({
+      scene: { now: at("2026-12-10T17:30:00") },
+      sensory: { ...DEFAULT_SENSORY_PROFILE, motion: "calm" },
+    });
+    expect(screen.queryByTestId("spark-orb-weather")).not.toBeInTheDocument();
+  });
+
+  it("shows no orb counter, and frames the companion portrait", () => {
+    renderScene({});
+    expect(screen.queryByLabelText(/Sunny orbs left/)).not.toBeInTheDocument();
+    expect(screen.getByTestId("spark-orb-companion-frame")).toBeInTheDocument();
   });
 });

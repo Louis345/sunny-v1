@@ -2,6 +2,8 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import type { ReactElement, ReactNode } from "react";
 import { useEffect, useState } from "react";
 import type { CompanionConfig } from "../../../src/shared/companionTypes";
+import { DEFAULT_SENSORY_PROFILE, type SensoryProfile } from "../../../src/shared/sensoryProfile";
+import type { SparkOrbSeason, SparkOrbTimeOfDay } from "../components/sparkOrbScenes";
 import { COMPANION_MANIFEST } from "../companion/companions.generated";
 import {
   SparkOrbLearningShell,
@@ -27,7 +29,9 @@ export type SparkOrbLearningShellStoryArgs = {
   currentTarget: string;
   lastMoment: OrbLearningLastMoment;
   capturePersonality: CapturedMonsterCapturePersonality;
-};
+  timeOfDay?: SparkOrbTimeOfDay | "auto";
+  season?: SparkOrbSeason | "auto";
+} & Partial<SensoryProfile>;
 
 const phases: SparkOrbEncounterPhase[] = [
   "idle",
@@ -72,6 +76,15 @@ const meta: Meta<SparkOrbLearningShellStoryArgs> = {
     currentTarget: { control: "text" },
     lastMoment: { control: "select", options: moments },
     capturePersonality: { control: "select", options: capturePersonalities },
+    soundEnabled: { control: "boolean", description: "Chart sensory sheet: sound on/off" },
+    soundVolume: { control: { type: "range", min: 0, max: 1, step: 0.05 } },
+    soundBrightness: { control: "select", options: ["soft", "standard", "bright"] },
+    motion: { control: "select", options: ["calm", "standard", "lively"] },
+    timeOfDay: { control: "select", options: ["auto", "morning", "afternoon", "evening", "night"] },
+    season: {
+      control: "select",
+      options: ["auto", "spring", "summer", "autumn", "halloween", "holiday", "winter"],
+    },
   },
   args: {
     phase: "idle",
@@ -79,6 +92,12 @@ const meta: Meta<SparkOrbLearningShellStoryArgs> = {
     currentTarget: "word:because",
     lastMoment: "watching",
     capturePersonality: "playful",
+    soundEnabled: DEFAULT_SENSORY_PROFILE.soundEnabled,
+    soundVolume: DEFAULT_SENSORY_PROFILE.soundVolume,
+    soundBrightness: DEFAULT_SENSORY_PROFILE.soundBrightness,
+    motion: DEFAULT_SENSORY_PROFILE.motion,
+    timeOfDay: "auto",
+    season: "auto",
   },
 };
 
@@ -266,6 +285,30 @@ type StoryQuestion = {
   choices: string[];
 };
 
+const mathQuestions: StoryQuestion[] = [
+  {
+    target: "fact:7x8",
+    prompt: "Multiply",
+    stem: "7 × 8 = ?",
+    answer: "56",
+    choices: ["54", "56", "64"],
+  },
+  {
+    target: "fact:36/4",
+    prompt: "Divide",
+    stem: "36 ÷ 4 = ?",
+    answer: "9",
+    choices: ["8", "9", "12"],
+  },
+  {
+    target: "place-value:round-347",
+    prompt: "Round to the nearest ten",
+    stem: "347 → ?",
+    answer: "350",
+    choices: ["340", "350", "300"],
+  },
+];
+
 const spellingQuestions: StoryQuestion[] = [
   {
     target: "word:because",
@@ -326,12 +369,23 @@ function SpellingProblem({ questionIndex = 3 }: { questionIndex?: number }): Rea
   );
 }
 
+function pickSensory(args: SparkOrbLearningShellStoryArgs): Partial<SensoryProfile> {
+  return {
+    soundEnabled: args.soundEnabled,
+    soundVolume: args.soundVolume,
+    soundBrightness: args.soundBrightness,
+    motion: args.motion,
+  };
+}
+
 function AimAndLaunchLearningStory(args: SparkOrbLearningShellStoryArgs): ReactElement {
   const [chargeCount, setChargeCount] = useState(() => chargeCountForStoryPhase(args.phase));
   const [feedback, setFeedback] = useState("Each correct answer lights one spark.");
   const { companion, companionName } = companionForChild("ila");
-  const activeQuestionIndex = Math.min(chargeCount, spellingQuestions.length - 1);
-  const activeQuestion = spellingQuestions[activeQuestionIndex] ?? spellingQuestions[0];
+  const questions = args.domain === "math" ? mathQuestions : spellingQuestions;
+  const domainLabel = args.domain === "math" ? "Math" : "Spelling";
+  const activeQuestionIndex = Math.min(chargeCount, questions.length - 1);
+  const activeQuestion = questions[activeQuestionIndex] ?? questions[0];
   const phase = phaseForChargeCount(chargeCount);
   const lastMoment = lastMomentForChargeCount(chargeCount);
   const ready = chargeCount >= 3;
@@ -344,8 +398,8 @@ function AimAndLaunchLearningStory(args: SparkOrbLearningShellStoryArgs): ReactE
     if (ready || !activeQuestion) return;
     const correct = choice === activeQuestion.answer;
     if (!correct) {
-      setFeedback("Try the other spelling.");
-      playSparkOrbSfx("miss");
+      setFeedback(args.domain === "math" ? "Not quite. Try again." : "Try the other spelling.");
+      playSparkOrbSfx("miss", { sensory: { ...DEFAULT_SENSORY_PROFILE, ...pickSensory(args) } });
       console.info(" 🎮 [storybook:spark-orb-learning] [question-answer] [try-again]", {
         questionIndex: activeQuestionIndex + 1,
         choice,
@@ -361,7 +415,6 @@ function AimAndLaunchLearningStory(args: SparkOrbLearningShellStoryArgs): ReactE
     const nextPhase = phaseForChargeCount(nextCharge);
     setChargeCount(nextCharge);
     setFeedback(nextCharge >= 3 ? "Orb is ready." : "Spark earned.");
-    playSparkOrbSfx(nextCharge >= 3 ? "ready" : "charge");
     console.info(" 🎮 [storybook:spark-orb-learning] [question-answer] [charge-earned]", {
       questionIndex: activeQuestionIndex + 1,
       choice,
@@ -382,16 +435,28 @@ function AimAndLaunchLearningStory(args: SparkOrbLearningShellStoryArgs): ReactE
       domain={args.domain}
       currentTarget={activeQuestion?.target ?? args.currentTarget}
       lastMoment={lastMoment}
+      sensory={pickSensory(args)}
+      scene={{
+        timeOfDay: args.timeOfDay === "auto" ? undefined : args.timeOfDay,
+        season: args.season === "auto" ? undefined : args.season,
+      }}
       capturedCreature={{
         ...LUMIPUFF_MONSTER,
         capturePersonality: args.capturePersonality,
       }}
       onCompanionAnchor={logCompanionAnchor}
-      onEncounterEvent={logEncounterEvent}
+      onEncounterEvent={(event) => {
+        logEncounterEvent(event);
+        // Out of tries: drop back to answering questions so the orb can be refilled.
+        if (event.type === "recharge_needed") {
+          setChargeCount(0);
+          setFeedback("Answer more to recharge.");
+        }
+      }}
       onCaptureCompleted={logCaptureCompleted}
     >
       <ProblemCard
-        label={`Spelling · Question ${activeQuestionIndex + 1} of 3`}
+        label={`${domainLabel} · Question ${activeQuestionIndex + 1} of 3`}
         title={activeQuestion?.prompt ?? "Spell the word you hear"}
         feedback={ready ? "Ready to launch." : feedback}
       >
@@ -497,6 +562,16 @@ export const AimAndLaunchSkill: Story = {
     phase: "idle",
     domain: "spelling",
     currentTarget: "word:because",
+    lastMoment: "watching",
+  },
+  render: (args) => <AimAndLaunchLearningStory {...args} />,
+};
+
+export const AimAndLaunchMath: Story = {
+  args: {
+    phase: "idle",
+    domain: "math",
+    currentTarget: "fact:7x8",
     lastMoment: "watching",
   },
   render: (args) => <AimAndLaunchLearningStory {...args} />,
