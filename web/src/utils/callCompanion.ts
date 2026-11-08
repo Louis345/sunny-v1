@@ -17,3 +17,14 @@ export function offerableCallTicket<T extends { homeworkId: string; earnedAt: st
   const fresh = boardPublishedAt ? open.filter(ticket => Date.parse(ticket.earnedAt) >= Date.parse(boardPublishedAt)) : open;
   return fresh.at(-1);
 }
+
+/**
+ * What the call's portrait draws (BUGS.md 2026-11-08: a bought dress was missing in the call): in an earned
+ * call, the dressable body wearing her outfit and accessory; otherwise the plain companion.
+ */
+export function callPortraitLook<E, V>(input: {
+  shopEnabled: boolean; current: E; dressable: E | null; outfitId: string; accessoryId: string; materialVariant: V | null;
+}): { entry: E; outfitId: string; accessoryId: string; materialVariant: V | null } {
+  if (!input.shopEnabled || !input.dressable) return { entry: input.current, outfitId: "none", accessoryId: "none", materialVariant: null };
+  return { entry: input.dressable, outfitId: input.outfitId, accessoryId: input.accessoryId, materialVariant: input.materialVariant };
+}

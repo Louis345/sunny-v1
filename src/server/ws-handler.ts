@@ -132,7 +132,8 @@ export function handleWsConnection(
           return;
         }
         const runtime = resolveSunnyRuntimeConfig(process.env);
-        if (runtime.subject === "homework" && !diagKiosk) {
+        // The earned call's speech-only connection turns her voice into text; it is not homework (BUGS.md 2026-11-08).
+        if (runtime.subject === "homework" && !diagKiosk && !sttOnly) {
           if (!homeworkId) {
             console.warn(
               ` 🎮 [session-launch] [assignment-validation] [rejected] child=${child} requested=missing`,

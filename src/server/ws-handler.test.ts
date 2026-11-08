@@ -95,6 +95,20 @@ describe("ws handler", () => {
     });
   });
 
+  // Owner 2026-11-08: in Ila's earned FaceTime the companion never heard her. The call's speech-only connection
+  // (sttOnly) carries no homework, and the homework-mode kiosk rejected it. Logs showed
+  // "assignment-validation [rejected] requested=missing"; the lab never ran a call on a homework-mode kiosk.
+  it("lets the call's speech-only connection start without a homework assignment", async () => {
+    vi.stubEnv("SUNNY_RUNTIME_CONFIG", JSON.stringify({
+      subject: "homework", sessionMode: "real", previewMode: "off", voiceMode: "normal", childId: null, homeworkDomain: "spelling",
+    }));
+    const ws = new FakeWs();
+    handleWsConnection(ws as never, req() as never);
+    await sendJson(ws, { type: "start_session", child: "Ila", chartChildId: "ila", silentTts: true, sttOnly: true });
+    expect(ws.sent).not.toContainEqual(expect.objectContaining({ code: "homework_assignment_identity_required" }));
+    expect(startMock).toHaveBeenCalled();
+  });
+
   it("starts homework voice only for the exact chart-backed assignment", async () => {
     vi.stubEnv("SUNNY_RUNTIME_CONFIG", JSON.stringify({
       subject: "homework",

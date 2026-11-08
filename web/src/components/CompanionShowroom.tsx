@@ -68,7 +68,7 @@ import {
   type WardrobeSelection,
 } from "../lib/wardrobeStore";
 import { savedEquippedLook, type ServerWallet } from "../lib/wardrobeWallet";
-import { callCompanionIndex } from "../utils/callCompanion";
+import { callCompanionIndex, callPortraitLook } from "../utils/callCompanion";
 import {
   WardrobeStoreLab,
   type WardrobeShoppingContext,
@@ -3925,6 +3925,9 @@ export function CompanionShowroom({
       : "none";
   const effectiveWardrobeOutfitMaterialVariant =
     effectiveWardrobeOutfitId === "none" ? null : wardrobeOutfitMaterialVariant;
+  // The call's portrait wears what she bought (BUGS.md 2026-11-08).
+  const callLook = callPortraitLook({ shopEnabled: Boolean(earnedCallWallet), current, dressable: wardrobeStoreEntry,
+    outfitId: effectiveWardrobeOutfitId, accessoryId: wardrobeAccessoryId, materialVariant: effectiveWardrobeOutfitMaterialVariant });
   const introText = current ? getText(current.id) : "";
   const showroomVideoTraceLink = useMemo(
     () =>
@@ -7986,11 +7989,14 @@ export function CompanionShowroom({
 	        videoRef={showroomVideoElementRef}
 	        portrait={
 	          <CompanionSlot
-	            entry={current}
+	            entry={callLook.entry}
 	            slot="current"
 	            active={showroomVideoChatOpen}
 	            contained
 	            getAnalyser={getSpeechAnalyser}
+	            wardrobeAccessoryId={callLook.accessoryId as WardrobeAccessoryId}
+	            wardrobeOutfitId={callLook.outfitId as WardrobeOutfitId}
+	            wardrobeOutfitMaterialVariant={callLook.materialVariant}
 	            onMotorReady={handleVideoChatMotorReady}
 	            onLoadSettled={noopShowroomSlotSettled}
 	          />
