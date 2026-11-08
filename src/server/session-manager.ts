@@ -100,7 +100,7 @@ import {
 import { shouldUseAdventureMapVoiceSlimToolkit } from "../utils/adventureMapAgentPolicy";
 import {
   buildCurrentBoardSnapshot,
-  canonicalSpellingPractice, retainSpellingItemState,
+  canonicalSpellingPractice, noteSupportModeChange, retainSpellingItemState,
   companionBoardSnapshot,
   findCompanionTruthContradictions,
   type CurrentBoardSnapshot,
@@ -817,8 +817,8 @@ export class SessionManager {
       return;
     }
     const cycle = getChildChart(this.chartChildId).learningCycle;
-    const snapshot = buildCurrentBoardSnapshot({ childId: this.chartChildId, sessionId: this.sessionId, state, assessment: this.spellingAssessment, canonicalPractice: canonicalSpellingPractice(cycle, this.spellingLaunch, this.spellingAssessment, state), plannerRead: cycle?.academicTheory?.hypothesis });
-    this.currentBoardSnapshot = snapshot;
+    const canonicalPractice = canonicalSpellingPractice(cycle, this.spellingLaunch, this.spellingAssessment, state); const snapshot = buildCurrentBoardSnapshot({ childId: this.chartChildId, sessionId: this.sessionId, state, assessment: this.spellingAssessment, canonicalPractice, plannerRead: cycle?.academicTheory?.hypothesis });
+    this.currentBoardSnapshot = noteSupportModeChange(this.currentBoardSnapshot, snapshot, { canonicalPractice, answerVisibility: state.answerVisibility });
     if (snapshot.nodeId && snapshot.itemId && (snapshot.phase === "question" || snapshot.phase === "response")) {
       this.bindMathDiscoverySupport(snapshot.nodeId, snapshot.itemId);
     }

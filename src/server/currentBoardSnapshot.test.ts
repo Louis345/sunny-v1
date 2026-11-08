@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   buildCurrentBoardSnapshot,
   buildCurrentBoardSnapshotContext,
@@ -398,4 +398,21 @@ it('retains partial spelling identity only with an active server binding, never 
  expect(retainSpellingItemState(state,previous,bound,{launchId:'other'})).toBe(state);
  const changed={...state,game:'different'};
  expect(retainSpellingItemState(changed,previous,bound,launch)).toBe(changed);
+});
+
+// BUGS.md 2026-11-07: Elli coached "carnivore" for several turns, then said "this one's hidden" on the same word, and
+// the log could not say why. Every change of Elli's help mode is logged with its reason.
+it("logs each change of Elli's help mode with the facts that chose it", async () => {
+  const { noteSupportModeChange } = await import("./currentBoardSnapshot");
+  const log = vi.spyOn(console, "log").mockImplementation(() => {});
+  const teach: any = { itemId: "i1", nodeId: "n", spellingSupportMode: "pronunciation_model" };
+  const hidden: any = { itemId: "i1", nodeId: "n", spellingSupportMode: "stimulus_only" };
+  expect(noteSupportModeChange(undefined, teach, { canonicalPractice: true, answerVisibility: "hidden" })).toBe(teach);
+  noteSupportModeChange(teach, teach, { canonicalPractice: true, answerVisibility: "hidden" });
+  noteSupportModeChange(teach, hidden, { canonicalPractice: undefined, answerVisibility: "hidden" });
+  expect(log.mock.calls.map(([line]) => line)).toEqual([
+    " 🎮 [companion] [support-mode] [pronunciation_model] node=n item=i1 canonical=true visibility=hidden",
+    " 🎮 [companion] [support-mode] [stimulus_only] node=n item=i1 canonical=unknown visibility=hidden",
+  ]);
+  log.mockRestore();
 });

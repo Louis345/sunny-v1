@@ -100,6 +100,19 @@ export function canonicalSpellingPractice(
   return ["baseline", "mystery"].includes(node.role) && (role === "practice" || role === "instruction");
 }
 
+/** Log when Elli's help mode changes on a word, with the facts that chose it (BUGS.md 2026-11-07). Returns `next`. */
+export function noteSupportModeChange<T extends { itemId?: string; nodeId?: string; spellingSupportMode?: string }>(
+  previous: { itemId?: string; spellingSupportMode?: string } | null | undefined,
+  next: T,
+  facts: { canonicalPractice: boolean | undefined; answerVisibility?: unknown },
+): T {
+  const changed = next.spellingSupportMode && (next.spellingSupportMode !== previous?.spellingSupportMode || next.itemId !== previous?.itemId);
+  if (changed) {
+    console.log(` 🎮 [companion] [support-mode] [${next.spellingSupportMode}] node=${next.nodeId ?? "none"} item=${next.itemId ?? "none"} canonical=${facts.canonicalPractice ?? "unknown"} visibility=${String(facts.answerVisibility ?? "unknown")}`);
+  }
+  return next;
+}
+
 function asString(value: unknown): string | undefined {
   const text = typeof value === "string" ? value.trim() : "";
   return text ? text : undefined;
