@@ -699,32 +699,6 @@ function App() {
 
   const effectiveCompanion = activeProfileChildId ? profileCompanion : null;
 
-  // Her creatures: read from the server; the bond fade runs once when her session starts (never mid-homework).
-  const creatureSessionStartedRef = useRef<string | null>(null);
-  const refreshCreatures = useCallback(() => {
-    if (!adventureChildId) return;
-    fetchCreatures(adventureChildId)
-      .then(setCreatureSnapshot)
-      .catch((error: unknown) => console.error(" 🎮 [creatures] [snapshot] [failed]", error));
-  }, [adventureChildId]);
-  useEffect(() => {
-    if (!adventureChildId) return;
-    if (creatureSessionStartedRef.current === adventureChildId) {
-      refreshCreatures();
-      return;
-    }
-    creatureSessionStartedRef.current = adventureChildId;
-    startCreatureSession(adventureChildId)
-      .then((result) => console.log(` 🎮 [creatures] [session-start] [done] ranAway=${result.ranAwayId ?? "none"}`))
-      .catch((error: unknown) => console.error(" 🎮 [creatures] [session-start] [failed]", error))
-      .finally(refreshCreatures);
-  }, [adventureChildId, refreshCreatures]);
-  // The sidekick cheers each time her correct streak grows.
-  const lastCorrectStreakRef = useRef(0);
-  useEffect(() => {
-    if (state.correctStreak > lastCorrectStreakRef.current) setSidekickCheer((count) => count + 1);
-    lastCorrectStreakRef.current = state.correctStreak;
-  }, [state.correctStreak]);
   const activeProfileIdRef = useRef<string | null>(null);
 
   useEffect(() => {
@@ -781,6 +755,37 @@ function App() {
     plannerBoardPacketState.packet?.activeSessionPlan?.adventureBoard
       ? plannerBoardPacketState.packet
       : null;
+
+  // Her creatures: read from the server; the bond fade runs once when her session starts (never mid-homework).
+  // Reading needs only her board; the bond check (a write) waits until her session is really running:
+  // choosing a child whose session then fails must write nothing (homeworkEntryBrowser, 2026-11-08).
+  const creatureBoardReady = Boolean(adventureChildId && plannerBoardPacket);
+  const creatureSessionLive = creatureBoardReady && state.phase === "active";
+  const creatureSessionStartedRef = useRef<string | null>(null);
+  const refreshCreatures = useCallback(() => {
+    if (!adventureChildId) return;
+    fetchCreatures(adventureChildId)
+      .then((snapshot) => { if (snapshot) setCreatureSnapshot(snapshot); })
+      .catch((error: unknown) => console.error(" 🎮 [creatures] [snapshot] [failed]", error));
+  }, [adventureChildId]);
+  useEffect(() => {
+    if (!adventureChildId || !creatureBoardReady) return;
+    if (!creatureSessionLive || creatureSessionStartedRef.current === adventureChildId) {
+      refreshCreatures();
+      return;
+    }
+    creatureSessionStartedRef.current = adventureChildId;
+    startCreatureSession(adventureChildId)
+      .then((result) => console.log(` 🎮 [creatures] [session-start] [done] ranAway=${result.ranAwayId ?? "none"}`))
+      .catch((error: unknown) => console.error(" 🎮 [creatures] [session-start] [failed]", error))
+      .finally(refreshCreatures);
+  }, [adventureChildId, creatureBoardReady, creatureSessionLive, refreshCreatures]);
+  // The sidekick cheers each time her correct streak grows.
+  const lastCorrectStreakRef = useRef(0);
+  useEffect(() => {
+    if (state.correctStreak > lastCorrectStreakRef.current) setSidekickCheer((count) => count + 1);
+    lastCorrectStreakRef.current = state.correctStreak;
+  }, [state.correctStreak]);
   const homeworkVoiceStart = useMemo(
     () => resolveHomeworkVoiceSessionStart(
       plannerBoardPacket,

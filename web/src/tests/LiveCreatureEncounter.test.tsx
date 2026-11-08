@@ -25,7 +25,7 @@ beforeEach(() => {
   vi.stubGlobal("fetch", vi.fn(async (url: string, init?: RequestInit) => {
     const body = init?.body ? JSON.parse(String(init.body)) : undefined;
     if (body) posts.push({ url, body });
-    const json = (data: unknown) => ({ ok: true, json: async () => data });
+    const json = (data: unknown) => ({ ok: true, headers: { get: () => "application/json" }, json: async () => data });
     if (url === "/api/creatures/encounter") return json({ ok: true, duplicate: false });
     if (url === "/api/creatures/ila") {
       return json({
@@ -115,6 +115,12 @@ describe("the kiosk wires her creatures in", () => {
     expect(app).toContain("if (completion?.creatureEncounter) setCreatureEncounter(completion.creatureEncounter);");
     expect(app).toContain("startCreatureSession(adventureChildId)");
     expect(app).toContain("creatureSessionStartedRef.current === adventureChildId");
+    // 2026-11-08 (caught by homeworkEntryBrowser): choosing a child whose session then fails must write nothing,
+    // so her creatures start only once her board has loaded.
+    expect(app).toContain("const creatureBoardReady = Boolean(adventureChildId && plannerBoardPacket);");
+    expect(app).toContain("if (!adventureChildId || !creatureBoardReady) return;");
+    expect(app).toContain('const creatureSessionLive = creatureBoardReady && state.phase === "active";');
+    expect(app).toContain("if (!creatureSessionLive || creatureSessionStartedRef.current === adventureChildId) {");
     expect(app).toContain("<DenButton");
     expect(app).toContain("<SidekickBuddy");
   });

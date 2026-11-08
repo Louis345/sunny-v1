@@ -23,8 +23,14 @@ async function postJson<T>(url: string, body: unknown): Promise<T> {
   return (await response.json()) as T;
 }
 
-export async function fetchCreatures(childId: string): Promise<CreatureSnapshot> {
+/** Her creatures, or null when the server has none to give (not ready, or a non-JSON reply). */
+export async function fetchCreatures(childId: string): Promise<CreatureSnapshot | null> {
   const response = await fetch(`/api/creatures/${encodeURIComponent(childId)}`);
+  const type = response.headers?.get?.("content-type") ?? "";
+  if (!response.ok || !type.includes("json")) {
+    console.warn(` 🎮 [creatures] [snapshot] [unavailable] child=${childId} status=${response.status}`);
+    return null;
+  }
   return (await response.json()) as CreatureSnapshot;
 }
 

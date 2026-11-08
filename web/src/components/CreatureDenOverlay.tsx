@@ -27,7 +27,7 @@ export function CreatureDenOverlay({ childId, onClose }: { childId: string; onCl
     let cancelled = false;
     fetchCreatures(childId)
       .then((snapshot) => {
-        if (!cancelled) setDen(snapshot.den);
+        if (!cancelled && snapshot) setDen(snapshot.den);
       })
       .catch((error: unknown) => console.error(` 🎮 [creatures] [den] [load-failed] child=${childId}`, error));
     return () => {
