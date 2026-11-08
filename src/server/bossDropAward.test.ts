@@ -55,3 +55,16 @@ describe("what the companion is told when a chest opens", () => {
     expect(rewardDropSystemEvent({ ...base, bonus: { kind: "call_minutes", minutes: 5 } })).toContain("5 extra call minutes");
   });
 });
+
+// Owner, 2026-11-07, after Ila's session: she spelled 12 Discovery words and got nothing to open. A finished
+// Discovery stop opens a chest too, at least rare, once; an unfinished Discovery gives nothing.
+it("opens a chest, at least rare, for a finished Discovery stop", async () => {
+  const { awardDiscoveryChest } = await import("./bossDropAward");
+  const discovery = (state: string) => ({ childId: "demo-pashley", homeworkId: "hw", nodes: [{ nodeId: "hw:discovery", role: "evaluation", state }] }) as never;
+  expect(awardDiscoveryChest(discovery("active"), "hw:discovery")).toBeUndefined();
+  const rolls = [0.1, 0, 0.99];
+  const opened = awardDiscoveryChest(discovery("completed"), "hw:discovery", () => rolls.shift() ?? 0.99);
+  expect(opened?.chest).toMatchObject({ kind: "rare", rarity: "rare", nodeId: "hw:discovery" });
+  expect(awardDiscoveryChest(discovery("completed"), undefined)?.chest).toEqual(opened?.chest);
+  expect(saved).toHaveLength(1);
+});

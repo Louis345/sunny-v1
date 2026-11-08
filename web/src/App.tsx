@@ -11,7 +11,7 @@ import {
 import { useSession } from "./hooks/useSession";
 import { useAdventureState } from "./hooks/useAdventureState";
 import { ChildPicker } from "./components/ChildPicker";
-import { DiscoveryAcademicCompletionCoordinator, hasCanonicalLearningCycle, postCanonicalNodeCompletion, postDiscoveryAttempt, postDiscoveryComplete } from "./utils/canonicalNodeCompletion";
+import { DiscoveryAcademicCompletionCoordinator, discoveryCompletionRewards, hasCanonicalLearningCycle, postCanonicalNodeCompletion, postDiscoveryAttempt, postDiscoveryComplete } from "./utils/canonicalNodeCompletion";
 import { SessionScreen } from "./components/SessionScreen";
 import { SessionEnd } from "./components/SessionEnd";
 import { SessionLoadingOverlay, sessionVoiceReady } from "./components/SessionLoadingOverlay";
@@ -1454,7 +1454,12 @@ function App() {
         ...(nodeId ? { nodeId } : {}),
       }),
     );
-    void completionPromise.catch((error: unknown) => {
+    void completionPromise.then((result) => {
+      // A finished Discovery stop opens a chest too (owner, 2026-11-07); it shows in the post-activity panel.
+      const rewards = discoveryCompletionRewards(result);
+      if (rewards.nodeChest) setNodeChest(rewards.nodeChest);
+      if (rewards.balance != null) setProfileCompanionCurrency(rewards.balance);
+    }, (error: unknown) => {
       console.error(" 🎮 [adaptive-math] [discovery-complete] [failed]", error);
     });
     return completionPromise;

@@ -45,6 +45,15 @@ export function awardNodeChestOnCompletion(cycle: LearningCycleRecordV2, nodeId:
   }
 }
 
+/** A finished Discovery stop opens a chest too (owner, 2026-11-07): Discovery is an evaluation stop, so the chest is
+ * at least rare. With no node named, the first finished Discovery stop is used. Once per stop, like every chest. */
+export function awardDiscoveryChest(cycle: LearningCycleRecordV2, nodeId: string | undefined, roll?: () => number): { chest: NodeChest; balance: number } | undefined {
+  const node = nodeId
+    ? cycle.nodes.find(row => row.nodeId === nodeId && row.role === "evaluation")
+    : cycle.nodes.find(row => row.role === "evaluation" && row.state === "completed");
+  return node ? awardNodeChestOnCompletion(cycle, node.nodeId, roll) : undefined;
+}
+
 /** The facts the companion gets when a chest she opened held a bonus, or null for coins alone (so she is not
  * chatty after every stop). Facts only: the companion answers in her own words from live context. */
 export function rewardDropSystemEvent(chest: NodeChest): string | null {

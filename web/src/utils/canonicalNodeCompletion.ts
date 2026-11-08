@@ -34,6 +34,17 @@ export function postDiscoveryComplete(input: { childId: string; homeworkId: stri
   );
 }
 
+/** The chest a finished Discovery stop opened, and her new balance, from the completion response (2026-11-07). */
+export function discoveryCompletionRewards(result: Record<string, unknown> | null | undefined): { nodeChest: ServerNodeChest | null; balance: number | null } {
+  const chest = result?.nodeChest as Partial<ServerNodeChest> | undefined;
+  const valid = chest && typeof chest.kind === "string" && typeof chest.rarity === "string" && typeof chest.coins === "number";
+  const award = result?.coinAward as { balance?: unknown } | undefined;
+  return {
+    nodeChest: valid ? (chest as ServerNodeChest) : null,
+    balance: valid && typeof award?.balance === "number" ? award.balance : null,
+  };
+}
+
 export async function flushDiscoveryAttemptWrites(
   writes: ReadonlyArray<Promise<unknown>>,
 ): Promise<void> {

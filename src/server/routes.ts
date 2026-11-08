@@ -1,4 +1,4 @@
-import { awardBossDropOnCompletion, awardNodeChestOnCompletion } from "./bossDropAward";
+import { awardBossDropOnCompletion, awardDiscoveryChest, awardNodeChestOnCompletion } from "./bossDropAward";
 import type { CoinOffer } from "../shared/companionCareTypes";
 import { runOriginalSpellingForecast } from '../chart/spelling/originalForecast';
 import { setupOriginalSpellingParentRoutes } from './originalSpellingParent';
@@ -943,19 +943,21 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
     try {
       const nodeId = typeof req.body?.nodeId === "string" ? req.body.nodeId.trim() : undefined;
       const cycle = completeDiscoveryEvaluation({ childId, homeworkId, ...(nodeId ? { nodeId } : {}), completedAt: new Date().toISOString() });
+      const discoveryChest = awardDiscoveryChest(cycle, nodeId);
+      const chestFields = discoveryChest ? { nodeChest: discoveryChest.chest, coinAward: { amount: discoveryChest.chest.coins, balance: discoveryChest.balance } } : {};
       const evaluationNodes = cycle.nodes?.filter((node) => node.role === "evaluation") ?? [];
       const probeChapterComplete = canonicalJourneyFrontier(cycle)?.complete ?? (evaluationNodes.length > 0
         ? evaluationNodes.every((node) => node.state === "completed")
         : !["evaluation_ready", "evaluation_active"].includes(cycle.lifecycle));
       if (!probeChapterComplete) {
         console.log(` 🎮 [adaptive-math] [probe-node-complete] [chapter-active] child=${childId} homework=${homeworkId} node=${nodeId ?? "legacy"}`);
-        return res.json({ ok: true, lifecycle: cycle.lifecycle, revision: cycle.revision, probeChapterComplete: false, targetedGenerationQueued: false });
+        return res.json({ ok: true, lifecycle: cycle.lifecycle, revision: cycle.revision, probeChapterComplete: false, targetedGenerationQueued: false, ...chestFields });
       }
       const existingJob = getMathGenerationStatus(childId, homeworkId);
       queueTargetedMathGeneration({ childId, homeworkId });
       if (!existingJob || existingJob.phase === "probe_ready") launchTargetedWorker(childId, homeworkId);
       console.log(` 🎮 [adaptive-math] [discovery-complete] [targeted-generation-queued] child=${childId} homework=${homeworkId}`);
-      return res.status(202).json({ ok: true, lifecycle: cycle.lifecycle, revision: cycle.revision, probeChapterComplete: true, targetedGenerationQueued: true, returnNextSession: true });
+      return res.status(202).json({ ok: true, lifecycle: cycle.lifecycle, revision: cycle.revision, probeChapterComplete: true, targetedGenerationQueued: true, returnNextSession: true, ...chestFields });
     } catch (error: unknown) {
       return res.status(409).json({ error: error instanceof Error ? error.message : String(error) });
     }
