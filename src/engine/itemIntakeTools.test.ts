@@ -38,6 +38,16 @@ describe("math intake tools", () => {
     expect(wrongParity.error).toMatch(/p1.*odd/);
   });
 
+  // Seen on Reina's first real run (2026-11-08): "36 + 95 + 115" was checked as 36 + 95 and the Planner was
+  // told its correct 246 was wrong. Code checks the whole chain.
+  it("checks a chain of sums as a whole", () => {
+    const kit = itemIntakeToolkit(packet);
+    const state = kit.initialState();
+    const chain = { id: "p19", problem: "How many shells in total (36 + 95 + 115)?", page_number: 1, answer: { kind: "number", value: 246 } };
+    expect(run(kit, state, "record_items", { items: [chain], source_notes: [] }).ok).toBe(true);
+    expect(run(kit, state, "record_items", { items: [{ ...chain, answer: { kind: "number", value: 131 } }], source_notes: [] }).error).toMatch(/246/);
+  });
+
   it("checks that a stop uses recorded problems and that the board has a stop", () => {
     const kit = itemIntakeToolkit(packet);
     const state = kit.initialState();

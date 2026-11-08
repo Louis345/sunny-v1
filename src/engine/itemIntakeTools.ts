@@ -22,11 +22,11 @@ const answerSchema = z.union([
     correct_option_id: text("The id of the correct option.") }).strict(),
 ]);
 
-/** The result of the first simple sum or difference in a problem, when there is one. */
+/** The result of the first chain of sums and differences in a problem (36 + 95 + 115), when there is one. */
 function arithmeticOf(problem: string): number | null {
-  const match = problem.replace(/−/g, "-").match(/(\d+)\s*([+-])\s*(\d+)/);
-  if (!match) return null;
-  return match[2] === "+" ? Number(match[1]) + Number(match[3]) : Number(match[1]) - Number(match[3]);
+  const chain = problem.replace(/−/g, "-").match(/\d+(?:\s*[+-]\s*\d+)+/)?.[0];
+  if (!chain) return null;
+  return [...chain.matchAll(/([+-]?)\s*(\d+)/g)].reduce((total, [, sign, digits]) => total + (sign === "-" ? -1 : 1) * Number(digits), 0);
 }
 
 function checkAnswer(id: string, problem: string, answer: z.infer<typeof answerSchema>): string | null {
