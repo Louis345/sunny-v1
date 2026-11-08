@@ -95,7 +95,7 @@ How Sunny's game contract works:
 - The game is one self-contained HTML document with inline CSS and JavaScript. The page has no internet, so pictures are CSS, SVG, canvas or emoji. It fills a frame about 900×650 pixels, with mouse or touch.
 - Sunny's contract is already loaded. window.GAME_PARAMS.itemBindings lists each problem as {itemId, display}.
 - window.openItem("<itemId>", "<progress, like Camp 2 of 6>") opens a problem. Sunny keeps what is on screen at that moment; an answer already showing counts as help.
-- window.fireAttemptEvent({target: "<itemId>", attemptedValue: "<her answer: digits, or the option id in brackets>"}) reports her answer. Sunny keeps her first answer per problem and scores it.
+- window.fireAttemptEvent({target: "<itemId>", attemptedValue: "<her answer: digits, or the option id shown in brackets above, like odd>"}) reports her answer. Sunny keeps her first answer per problem and scores it.
 - ${companion} is her companion and speaks for the game: parent.postMessage({type: "narration_request", text: "<what to say>", reason: "<why>"}, "*").
 - window.fireCompanionEvent("<moment>", {itemId: "<itemId>"}) lets ${companion} react at big moments.
 - window.sendNodeComplete({completed: true}) ends the game.
