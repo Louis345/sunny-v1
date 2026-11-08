@@ -1115,6 +1115,15 @@ export function buildIngestSummary(childId: string, today: string, opts: { rootD
     pendingDir,
     reportPath: path.join(pendingDir, "ingest-report.md"),
   };
+  // A math board from the one pipeline is ready when its board is published; the old audit does not apply.
+  if (summary.domain === "math") {
+    const cycle = getLearningCycle(childId, homeworkId, { rootDir });
+    const board = cycle?.boards?.find(row => row.publishedAt);
+    if (cycle && board) {
+      const ready = cycle.nodes.filter(node => board.nodeIds.includes(node.nodeId) && node.artifactBinding && !node.notReadyReason).length;
+      return { ...summary, status: ready > 0 ? "FULL" : "BLOCKED", plannedActivities: board.nodeIds.length, launchableActivities: ready, readinessFailures: [], lifecycle: cycle.lifecycle };
+    }
+  }
   if (summary.domain !== "spelling") return summary;
   try {
     const cycle = getLearningCycle(childId, homeworkId, { rootDir });

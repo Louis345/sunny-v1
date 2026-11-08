@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { seedSpellingLab } from "./fixtures/spellingEvidenceFirst";
 import { plainDraw } from "./fixtures/successorToolConversation";
 import { runItemsIntake } from "./itemsIntake";
+import { buildIngestSummary } from "./ingestHomework";
 import { getLearningCycle } from "../engine/learningCycleRepository";
 import { recordCanonicalNodeCompletion } from "../engine/learningCycleRuntime";
 import type { SpellingGameClient } from "../engine/spellingGameBuilder";
@@ -126,6 +127,10 @@ describe("math intake through the one pipeline", () => {
     expect(cycle.nodes[0]!.notReadyReason).toMatch(/generated_game_problems/);
     expect(cycle.nodes[1]!.artifactBinding?.validationStatus).toBe("passed");
     expect(buildChildExperiencePacket(getChildChart(childId, { rootDir: f.rootDir })).activeSessionPlan?.adventureBoard).toBeTruthy();
+    // Reina's first real run printed "BLOCKED, 0 launchable" for a published, playable board (2026-11-08):
+    // the summary read the old readiness audit. It reads the published board.
+    const summary = buildIngestSummary(childId, new Date().toISOString().slice(0, 10), { rootDir: f.rootDir });
+    expect(summary).toMatchObject({ status: "FULL", launchableActivities: 1, plannedActivities: 2, readinessFailures: [] });
   });
 
   it("scores her first answer per problem by code and ends the board ready for the call", async () => {
