@@ -83,7 +83,9 @@ export function recordedToolReply(lab: RecordedToolLab, request: any): any {
   if (names.includes("decide")) {
     if (turn === 0) lab.decisions += 1;
     const decide = (status: string, action: string) => ({ name: "decide", input: { status, reason: "From her recorded answers.", progression_action: pick(offered("decide", "progression_action"), action),
-      preserve: [], change: [], test_next: [], next_evidence_required: ["Independent recall."], prediction_evaluation_ids: offered("decide", "prediction_evaluation_ids"), revised_hypothesis: "" } });
+      preserve: [], change: [], test_next: [], next_evidence_required: ["Independent recall."], prediction_evaluation_ids: offered("decide", "prediction_evaluation_ids"), revised_hypothesis: "",
+      // Contract 56: a new question asks for the Planner's self-review; a frozen older one does not.
+      ...(properties("decide").self_review ? { self_review: { what_i_tried: "From my journal.", what_happened: "From her track record.", why: "From her answers.", what_i_change_now: "This board." } } : {}) } });
     if (lab.decisions > 1) return message([decide("inconclusive", "await_calibration"), { name: "finish_board", input: { title: "Waiting", endpoint_label: "Finish", single_path_reason: "Awaiting graded work." } }]);
     if (turn === 0) {
       const cycle = getLearningCycle(lab.childId, lab.homeworkId, { rootDir: lab.root })!;

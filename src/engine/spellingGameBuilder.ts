@@ -54,7 +54,7 @@ Her ${words.length} words for this game: ${words.join(", ")}
 This stop on her map, as her tutor wrote it:
 - Title: ${node.title}
 - Story: ${node.theme}
-- What it is for: ${node.openingScreen.purpose}
+- What it is for: ${node.openingScreen.purpose}${node.focus ? `\n- What this game is aimed at: ${node.focus}` : ""}
 
 Make it something she will gasp at and want to play again, and that helps her spell these words without help. Invent a world made for her; avoid the first idea anyone would have.
 

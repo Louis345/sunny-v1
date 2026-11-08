@@ -10,7 +10,8 @@ export async function plainDraw(journey: AdventureJourneyDefinition): Promise<{ 
 }
 
 type Recorded = { progressionAction: string; status: string; reason: string; preserve?: string[]; change?: string[]; testNext?: string[]; nextEvidenceRequired?: string[]; predictionEvaluationIds?: string[]; revisedHypothesis?: string;
-  nextInstruments?: Array<{ nodeId: string; title: string; academicTarget?: string; openingPurpose?: string; encounter?: string; creatureEncounter?: { reason: string }; spelling?: { builtInActivityId?: string; wordIds?: string[] } }>;
+  selfReview?: { whatITried: string; whatHappened: string; why: string; whatIChangeNow: string };
+  nextInstruments?: Array<{ nodeId: string; title: string; academicTarget?: string; openingPurpose?: string; encounter?: string; creatureEncounter?: { reason: string }; focus?: string; spelling?: { builtInActivityId?: string; wordIds?: string[] } }>;
   boardDefinition?: { title?: string; rootPathId: string; portals: Array<{ id: string; kind: string; activityNodeId?: string }>; paths: Array<{ id: string; portalIds: string[] }>; choices: Array<{ portalId: string; purpose: string; options: Array<{ label: string; hypothesis: string; pathId: string }> }> } };
 const last = (id: string) => id.split(":").pop();
 let replies = 0;
@@ -30,7 +31,10 @@ export function successorToolReply(recorded: unknown, request: any): any {
   const cited = (decision.predictionEvaluationIds ?? []).filter(id => offeredEvaluations?.includes(id));
   const decide = { name: "decide", input: { status: decision.status, reason: decision.reason, progression_action: decision.progressionAction, preserve: decision.preserve ?? [], change: decision.change ?? [],
     test_next: decision.testNext ?? [], next_evidence_required: decision.nextEvidenceRequired ?? [],
-    prediction_evaluation_ids: offeredEvaluations ? (cited.length ? cited : offeredEvaluations.slice(0, 1)) : [], revised_hypothesis: decision.revisedHypothesis ?? "" } };
+    prediction_evaluation_ids: offeredEvaluations ? (cited.length ? cited : offeredEvaluations.slice(0, 1)) : [], revised_hypothesis: decision.revisedHypothesis ?? "",
+    // Contract 56: a new question asks for the self-review; a recorded decision without one answers with its reason.
+    ...(schema("decide").self_review ? { self_review: { what_i_tried: decision.selfReview?.whatITried ?? "Recorded decision.", what_happened: decision.selfReview?.whatHappened ?? decision.reason,
+      why: decision.selfReview?.why ?? decision.reason, what_i_change_now: decision.selfReview?.whatIChangeNow ?? (decision.change?.join(" ") || "The recorded board.") } } : {}) } };
   const steps = (decision.nextInstruments ?? []).flatMap(row => {
     const wanted = [row.spelling?.builtInActivityId, row.nodeId].filter((id): id is string => Boolean(id));
     const builtIn = builtIns.find(id => wanted.some(want => id === want || last(id) === last(want)));
@@ -40,7 +44,8 @@ export function successorToolReply(recorded: unknown, request: any): any {
     const encounter = schema("add_step").encounter ? { encounter: row.encounter ?? "none" } : {};
     // A recorded creature encounter is placed the way the Planner places it, when the tool offers it.
     const creature = schema("add_step").creature_encounter && row.creatureEncounter ? { creature_encounter: row.creatureEncounter.reason } : {};
-    return builtIn ? [{ nodeId: row.nodeId, input: { built_in: builtIn, words, title: row.title, purpose: row.academicTarget || row.openingPurpose || "Practice.", story: `Story: ${row.title}`, picture: `Picture: ${row.title}`, ...encounter, ...creature } }] : [];
+    const focus = schema("add_step").focus && row.focus ? { focus: row.focus } : {};
+    return builtIn ? [{ nodeId: row.nodeId, input: { built_in: builtIn, words, title: row.title, purpose: row.academicTarget || row.openingPurpose || "Practice.", story: `Story: ${row.title}`, picture: `Picture: ${row.title}`, ...encounter, ...creature, ...focus } }] : [];
   });
   const assistantTurns = (request.messages ?? []).filter((row: any) => row.role === "assistant").length;
   if (decision.progressionAction === "await_calibration") return message([decide, { name: "finish_board", input: { title: "Waiting", endpoint_label: "Finish", single_path_reason: "Awaiting graded work." } }]);

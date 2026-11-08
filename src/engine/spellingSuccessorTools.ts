@@ -19,13 +19,18 @@ export type SuccessorFacts = {
   evaluationIds: string[]; allowedActions: string[]; idPrefix: string;
   /** Whether a step may carry the board's one creature encounter (owner, 2026-11-08). Older frozen questions lack it. */
   creatureEncounters?: boolean;
+  /** Contract 56: the decision carries the Planner's self-review. Older frozen questions lack it and replay as asked. */
+  selfReview?: boolean;
+  /** Contract 56: a generated-game step can be aimed at one error. Older frozen questions lack it. */
+  aimedGames?: boolean;
   /** Whether the re-run step can really prepare this built-in for these words (the same check it runs). */
   rerunnable: (nodeId: string, wordIds: string[]) => boolean;
 };
 type Fresh = NonNullable<SuccessorFacts["activities"]>[number];
 type Encounter = "quest" | "boss";
-type Step = { id: string; title: string; purpose: string; story: string; picture: string; wordIds: string[]; builtIn?: SuccessorFacts["builtIns"][number]; fresh?: Fresh; page?: Record<string, unknown>; encounter?: Encounter; creatureEncounter?: string };
-type Decision = { status: string; reason: string; progressionAction: string; preserve: string[]; change: string[]; testNext: string[]; nextEvidenceRequired: string[]; predictionEvaluationIds: string[]; revisedHypothesis: string };
+type Step = { id: string; title: string; purpose: string; story: string; picture: string; wordIds: string[]; builtIn?: SuccessorFacts["builtIns"][number]; fresh?: Fresh; page?: Record<string, unknown>; encounter?: Encounter; creatureEncounter?: string; focus?: string };
+type SelfReview = { whatITried: string; whatHappened: string; why: string; whatIChangeNow: string };
+type Decision = { status: string; reason: string; progressionAction: string; preserve: string[]; change: string[]; testNext: string[]; nextEvidenceRequired: string[]; predictionEvaluationIds: string[]; revisedHypothesis: string; selfReview?: SelfReview };
 type Finished = { decision: Record<string, unknown>; journey?: AdventureJourneyDefinition };
 export type SuccessorState = JourneyOrderState & { next: number; steps: Step[]; decision?: Decision; result?: Finished; draft?: Finished; selfChecks?: number };
 
@@ -53,11 +58,19 @@ export function spellingSuccessorToolkit(facts: SuccessorFacts) {
         preserve: strings, change: strings, test_next: strings, next_evidence_required: strings,
         prediction_evaluation_ids: facts.evaluationIds.length ? z.array(enumOf(facts.evaluationIds, "none")).describe("The evaluations of earlier predictions you are judging. At least one.") : z.array(z.string()).max(0).describe("Leave empty: there are no evaluations yet."),
         revised_hypothesis: z.string().describe("Your revised hypothesis, or empty."),
+        ...(facts.selfReview ? { self_review: z.object({
+          what_i_tried: text("What you tried on earlier boards for the words she is still missing, from your journal. On a first decision, say so."),
+          what_happened: text("What happened to those words, from her track record: what she wrote, on her own and with help."),
+          why: text("Why you think it happened."),
+          what_i_change_now: text("What you change now, and why that is a better try than the last."),
+        }).strict().describe("Your review of your own track record before deciding: your journal and her answers on each word, read side by side.") } : {}),
       }).strict(),
       run: (state, input) => {
         if (facts.evaluationIds.length && !input.prediction_evaluation_ids.length) return { ok: false, error: "cite at least one of the offered prediction_evaluation_ids" };
+        const review = (input as { self_review?: Record<"what_i_tried" | "what_happened" | "why" | "what_i_change_now", string> }).self_review;
         state.decision = { status: input.status, reason: input.reason, progressionAction: input.progression_action, preserve: input.preserve, change: input.change, testNext: input.test_next,
-          nextEvidenceRequired: input.next_evidence_required, predictionEvaluationIds: [...new Set(input.prediction_evaluation_ids)], revisedHypothesis: input.revised_hypothesis };
+          nextEvidenceRequired: input.next_evidence_required, predictionEvaluationIds: [...new Set(input.prediction_evaluation_ids)], revisedHypothesis: input.revised_hypothesis,
+          ...(review ? { selfReview: { whatITried: review.what_i_tried, whatHappened: review.what_happened, why: review.why, whatIChangeNow: review.what_i_change_now } } : {}) };
         state.result = undefined;
         return { ok: true, result: { action: input.progression_action } };
       } }),
@@ -67,13 +80,16 @@ export function spellingSuccessorToolkit(facts: SuccessorFacts) {
         title: text("The short name she sees under the portal: 2 to 4 words."), purpose: text("What this step is for, in one sentence."),
         story: text("What this stop is in her world: one or two sentences Elli can tell her as it opens."), picture: text("What this stop's picture on her map shows, for the illustrator."),
         ...(encounters.length ? { encounter: enumOf(["none", ...encounters], "none").describe("quest or boss only on the one step your progression_action authorizes; none for every other step.") } : {}),
-        ...(facts.creatureEncounters ? { creature_encounter: z.string().optional().describe("Leave out for no creature. To place this board's one creature encounter here, say why now. It is a rare, high-stakes reward: when she finishes this step a creature may appear, and she charges the orb to catch it by spelling this step's words again (recorded as practice). Best used sparingly, for example when these words are close to secure.") } : {}) }).strict(),
+        ...(facts.creatureEncounters ? { creature_encounter: z.string().optional().describe("Leave out for no creature. To place this board's one creature encounter here, say why now. It is a rare, high-stakes reward: when she finishes this step a creature may appear, and she charges the orb to catch it by spelling this step's words again (recorded as practice). Best used sparingly, for example when these words are close to secure.") } : {}),
+        ...(facts.aimedGames ? { focus: z.string().optional().describe("generated-game only: the one specific error this game is aimed at, in your words (for example the m before p in import). The game builder reads it. Leave out for no single aim.") } : {}) }).strict(),
       run: (state, input) => {
         if (new Set(input.words).size !== input.words.length) return { ok: false, error: "a word is listed more than once" };
         const creatureReason = typeof input.creature_encounter === "string" ? input.creature_encounter.trim() : "";
         const creatureHolder = state.steps.find(row => row.creatureEncounter);
         if (creatureReason && creatureHolder) return { ok: false, error: `the board already has its one creature encounter, on ${creatureHolder.id}: remove it there first` };
         const creature = creatureReason ? { creatureEncounter: creatureReason } : {};
+        const focus = typeof input.focus === "string" ? input.focus.trim() : "";
+        if (focus && fresh.get(input.built_in)?.setup.type !== "generated-game") return { ok: false, error: `focus aims a generated-game; ${input.built_in} plays as it is` };
         const encounter = input.encounter && input.encounter !== "none" ? input.encounter as Encounter : undefined;
         if (encounter) {
           if (!state.decision || encounterFor(state.decision.progressionAction) !== encounter) return { ok: false, error: `a ${encounter} step needs progression_action generate_${encounter}: decide first` };
@@ -87,7 +103,7 @@ export function spellingSuccessorToolkit(facts: SuccessorFacts) {
           if (!input.words.length) return { ok: false, error: `${input.built_in} needs the words it practices` };
           state.next += 1;
           const id = `${facts.idPrefix}-${state.next}`;
-          state.steps.push({ id, title: input.title, purpose: input.purpose, story: input.story, picture: input.picture, wordIds: [...input.words], fresh: game, ...(encounter ? { encounter } : {}), ...creature });
+          state.steps.push({ id, title: input.title, purpose: input.purpose, story: input.story, picture: input.picture, wordIds: [...input.words], fresh: game, ...(encounter ? { encounter } : {}), ...creature, ...(focus ? { focus } : {}) });
           state.result = undefined;
           return { ok: true, result: { step_id: id, words: input.words.length, role: encounter || game.checkpoint ? "fresh_checkpoint" : "practice", ...(encounter ? { encounter } : {}), ...(creatureReason ? { creature_encounter: true } : {}) } };
         }
@@ -150,6 +166,7 @@ export function spellingSuccessorToolkit(facts: SuccessorFacts) {
           nodeId: row.id, title: row.title, academicTarget: row.purpose, mechanic: row.page ? "visual-explainer" : row.builtIn?.implementationType ?? row.fresh!.setup.type, theme: row.story, picture: row.picture, openingPurpose: row.purpose,
           ...(row.encounter ? { encounter: row.encounter } : {}),
           ...(row.creatureEncounter ? { creatureEncounter: { reason: row.creatureEncounter } } : {}),
+          ...(row.focus ? { focus: row.focus } : {}),
           spelling: row.encounter
             ? { wordIds: [...row.wordIds], measurementRole: "fresh_checkpoint", responseMode: "spelling_letters", ...(row.builtIn ? { builtInActivityId: row.builtIn.nodeId } : { activity: { id: row.fresh!.id, ...structuredClone(row.fresh!.setup) } }) }
             : row.page
@@ -166,7 +183,7 @@ export function spellingSuccessorToolkit(facts: SuccessorFacts) {
           console.log(` 🎮 [planner-tools] [self-check] [shown] steps=${nextInstruments.length}`);
           return { ok: true, result: { accepted: false, your_change_list: state.decision.change,
             board_as_served: state.steps.map(row => ({ step_id: row.id, title: row.title, story: row.story, game: row.page ? "visual-explainer" : row.builtIn?.implementationType ?? row.fresh!.setup.type,
-              words: row.wordIds.map(word), ...(pageOf(row) ? { lesson_page: pageOf(row) } : {}) })),
+              words: row.wordIds.map(word), ...(row.focus ? { aimed_at: row.focus } : {}), ...(pageOf(row) ? { lesson_page: pageOf(row) } : {}) })),
             next: "This is what she will see. Compare it with your change list: does each stop really teach what you said? Fix anything that does not with add_step, add_explainer or remove_step, then call finish_board again. If it is right, call finish_board again now." } };
         }
         state.result = finished;

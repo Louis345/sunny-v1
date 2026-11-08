@@ -129,3 +129,16 @@ it("degrades only her game to Not ready when the repair still cannot bind answer
   await prepareSuccessorBoard({ childId: f.childId, homeworkId: f.homeworkId, spellingGameClient: builder.client }, { rootDir: f.rootDir });
   expect(builder.requests).toHaveLength(2);
 });
+
+// 2026-11-08 owner (Ila's "inport"): her game could only be described by a story, so the Planner had no way to
+// build a game aimed at the m before p it kept seeing. The focus it names now reaches the builder's ask.
+it("aims her game at the one error the Planner names", async () => {
+  const f = fixture();
+  (f.decision.nextInstruments[0] as Record<string, unknown>).focus = "the m before p in import";
+  const planned = await plannedBoard(f);
+  expect(plannerRequests.at(-1).tools.find((tool: any) => tool.name === "add_step").input_schema.properties.focus).toBeTruthy();
+  expect(planned.nodes.find(row => row.implementationType === "generated-game")).toMatchObject({ focus: "the m before p in import" });
+  const builder = recordedBuilder([GOOD]);
+  await prepareSuccessorBoard({ childId: f.childId, homeworkId: f.homeworkId, spellingGameClient: builder.client }, { rootDir: f.rootDir });
+  expect(builder.requests[0].messages[0].content as string).toContain("- What this game is aimed at: the m before p in import");
+});
