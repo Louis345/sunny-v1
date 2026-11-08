@@ -79,8 +79,8 @@ it("builds her game from her chart and the Planner's story, binds every word, an
   const planned = await plannedBoard(f);
   const node = planned.nodes.find(row => preparingBoardInstance(planned)!.nodeIds.includes(row.nodeId))!;
   expect(node.implementationType).toBe("generated-game");
-  // The Planner is told what her game is and that each next board should let her choose it or a hand-made game.
-  expect(plannerRequests[0].messages[0].content[0].text).toMatch(/generated-game[^\n]*choice[^\n]*hand-made/);
+  // The Planner is told what her game is; whether to offer it is its call (owner, 2026-11-08).
+  expect(plannerRequests[0].messages[0].content[0].text).toMatch(/generated-game is a new game Sunny builds for her/);
   const builder = recordedBuilder([GOOD]);
   const ready = await prepareSuccessorBoard({ childId: f.childId, homeworkId: f.homeworkId, spellingGameClient: builder.client }, { rootDir: f.rootDir });
   const built = ready.nodes.find(row => row.nodeId === node.nodeId)!;

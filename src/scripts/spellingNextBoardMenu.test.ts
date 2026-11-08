@@ -157,6 +157,22 @@ it("gives every Planner one goal, that she wants to come back, and no do-not lin
   }
 }, 120000);
 
+// 2026-11-08 owner: "gut the rules". The Planner gets the goal, facts about her and the tools, and the
+// rules that keep the record honest. How to teach, pace, title or offer a choice is its call.
+it("sends the Planner no teaching directives, only the goal, facts, tools and record rules", async () => {
+  await playToNextBoard();
+  const directives = [
+    "small, varied pieces", "best finds her independent starting point", "every line is short",
+    "sneaky letter", "Never explains your reasoning", "Title each step as she should see it",
+    "Her family wants each next board", "the way a raid has a warm-up",
+  ];
+  for (const request of lab.planner.requests) {
+    const sent = JSON.stringify({ system: request.system, messages: request.messages, tools: request.tools });
+    for (const directive of directives) expect(sent, directive).not.toContain(directive);
+  }
+  expect(lab.planner.requests.length).toBeGreaterThan(0);
+}, 120000);
+
 // 2026-10-25 owner review: every stop looked and sounded the same. Code filled each stop's theme with its
 // title and drew its picture from one template; the Planner had no field for either. Nothing failed, so no
 // log or lab noticed. Now the Planner writes each stop's story and picture, and both reach the board.

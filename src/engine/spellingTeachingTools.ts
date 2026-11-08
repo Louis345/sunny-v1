@@ -65,12 +65,12 @@ type ExplainerInput = { title: string; story: string; picture: string };
  * unlocked and its handler checks it. */
 export function explainerPageTool<State>(input: { grade: unknown; word: z.ZodType<string>; look: Record<string, z.ZodType<string>>; returns: string; run: (state: State, page: ExplainerPage, given: ExplainerInput) => Result }): PlannerTool<State> {
   const { word } = input;
-  return { name: "add_explainer", strict: false, description: `Add a Visual Explainer that teaches a spelling pattern with chunked words and one check question at the end. It is always instruction. She is in grade ${input.grade ?? "school"} and Elli reads it with her: every line is short and in her words. Returns its ${input.returns}.`,
+  return { name: "add_explainer", strict: false, description: `Add a Visual Explainer that teaches a spelling pattern with chunked words and one check question at the end. It is always instruction. She is in grade ${input.grade ?? "school"} and Elli reads it with her. Returns its ${input.returns}.`,
     schema: z.object({
       title: text("The short name she sees under the portal."), ...input.look, topic: z.string().min(1).max(120), learning_goal: z.string().min(1).max(220), misconception: text("The mistake this explainer addresses."),
       strategy: z.object({ title: z.string().min(1).max(32).describe("A name for the trick, in her words."), steps: z.array(z.string().min(1).max(60)).min(2).max(3).describe("Two or three short steps she can hear and remember.") }).strict(),
       words: z.array(z.object({ text: word, chunks: z.array(z.string().min(1)).min(2).max(6).describe("Letters split into chunks that join to spell the word exactly."), spoken_chunks: z.array(z.string().min(1).max(100)).min(2).max(6).describe("How each chunk sounds, one per chunk in the same order, spelled the way it is said (lee for ly), never letter names."), focus_chunk: text("One chunk from this word."), tip: z.string().min(1).max(60).describe("One short line Elli reads with this word.") }).strict()).min(1).max(8),
-      check: z.object({ target_word: word, prompt: z.string().min(1).max(90).describe("Asked after the lesson: about the pattern across her words, such as which word has the sneaky letter."), options: z.array(z.object({ label: text("An answer choice."), correct: z.boolean() }).strict()).min(2).max(4).describe("Exactly one option is correct.") }).strict(),
+      check: z.object({ target_word: word, prompt: z.string().min(1).max(90).describe("Asked after the lesson."), options: z.array(z.object({ label: text("An answer choice."), correct: z.boolean() }).strict()).min(2).max(4).describe("Exactly one option is correct.") }).strict(),
     }).strict(),
     run: (state: State, given: any): Result => {
       // She reads letters, not phonetic notation: a sound is written the way it is said.
