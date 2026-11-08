@@ -2,6 +2,7 @@ import {isDeepStrictEqual} from "node:util";
 import { plannerDecisionView, plannerObservationView } from "./plannerEvidenceView";
 import { spellingActivityMenu } from "./spellingTeachingTools";
 import { schoolTestFacts, schoolTestLine, SPELLING_TEST_CONDITIONS } from "./schoolTestObjective";
+import { plannerJournalSection, spellingTrackRecordSection, writePlannerJournalEntry, type PlannerSelfReview } from "./plannerIntrospection";
 import { spellingActivityCatalog } from "./assignmentPlanner";
 import {readSuccessorBoardDefinition, assembleAdventureBoardDefinition, BOARD_DEFINITION_TOOL_SCHEMA, BOARD_AUTHORING_INSTRUCTION, type AdventureBoardComposition, type AdventureJourneyDefinition} from "../shared/adventureBoardDefinition";
 import { canonicalJourneyLaunchable, isRetryablePlannerBlock, isSpellingPracticeContinuation, repointReusedSetup } from './learningCycleRepository';
@@ -109,6 +110,8 @@ export type CanonicalProgressionDecision = {
   predictionEvaluationIds?: string[];
   contentDecisions?: EvidenceBasedContentDecision[];
   revisedHypothesis?: string;
+  /** Its review of its own track record before deciding (contract 56). Decisions saved earlier have none. */
+  selfReview?: PlannerSelfReview;
   /** The one complete successor board program. Absent only for await_calibration. */
   successor?: SuccessorProgram;
 };
@@ -507,6 +510,7 @@ function parseNextInstrument(value: unknown): NextInstrumentPrescription | undef
     ...(row.encounter === "quest" || row.encounter === "boss" ? { encounter: row.encounter } : {}),
     ...(row.creatureEncounter && typeof (row.creatureEncounter as { reason?: unknown }).reason === "string" && String((row.creatureEncounter as { reason: string }).reason).trim()
       ? { creatureEncounter: { reason: String((row.creatureEncounter as { reason: string }).reason).trim() } } : {}),
+    ...(typeof row.focus === "string" && row.focus.trim() ? { focus: row.focus.trim() } : {}),
     ...Object.fromEntries(keys.map((key) => [key, String(row[key]).trim()])),
     ...Object.fromEntries(designKeys
       .filter((key) => typeof row[key] === "string" && String(row[key]).trim())
@@ -590,8 +594,16 @@ export function parseCanonicalProgressionDecision(value: unknown): CanonicalProg
     predictionEvaluationIds: strings(row.predictionEvaluationIds),
     ...(contentDecisions.length > 0 ? { contentDecisions } : {}),
     ...(typeof row.revisedHypothesis === "string" && row.revisedHypothesis.trim() ? { revisedHypothesis: row.revisedHypothesis.trim() } : {}),
+    ...(parseSelfReview(row.selfReview) ? { selfReview: parseSelfReview(row.selfReview) } : {}),
     ...(action !== "await_calibration" ? { successor: { instruments, boardDefinition } } : {}),
   };
+}
+
+/** A saved self-review with all four of its fields; anything else reads as none (decisions before contract 56). */
+function parseSelfReview(value: unknown): PlannerSelfReview | undefined {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
+  const row = value as Record<string, unknown>, keys = ["whatITried", "whatHappened", "why", "whatIChangeNow"] as const;
+  return keys.every(key => typeof row[key] === "string" && String(row[key]).trim()) ? Object.fromEntries(keys.map(key => [key, String(row[key]).trim()])) as PlannerSelfReview : undefined;
 }
 
 function assertPredictionCitations(decision:Pick<CanonicalProgressionDecision,'predictionEvaluationIds'>, cycle:LearningCycleRecordV2):void {
@@ -892,6 +904,8 @@ async function askPlanner(
       evaluationIds,allowedActions:actions,idPrefix:`${cycle.homeworkId}-r${checkpointRevision}-step`,
       // Owner, 2026-11-08: the Planner may place the board's one creature encounter (a reward; recorded as practice).
       creatureEncounters:true,
+      // Contract 56: the decision carries its self-review, and her built-for-her game can be aimed at one error.
+      selfReview:true,aimedGames:true,
       // The same check the re-run step applies, asked while the Planner is still choosing.
       rerunnable:(nodeId:string,wordIds:string[])=>{const source=builtIns.find(node=>node.nodeId===nodeId);return Boolean(source&&repointReusedSetup(source,`${nodeId}-check`,wordIds.map(wordId=>({id:`check:${wordId}`,wordId}))));}};
     // The school test as facts beside the goal (owner, 2026-11-08): how practice approaches test conditions is the Planner's call.
@@ -899,13 +913,15 @@ async function askPlanner(
     console.log(` 🎮 [canonical-progression] [school-test] [${schoolTest?"included":"not-recorded"}] homework=${cycle.homeworkId} testDate=${schoolTest?.testDate??"none"} daysLeft=${schoolTest?.daysLeft??"unknown"}`);
     const prompt=`You are Sunny's AI Planner, her spelling tutor. The goal: she wants to come back to Sunny, and she knows her words by the school test. ${schoolTestLine(schoolTest)} ${SPELLING_TEST_CONDITIONS}
 Compare your preregistered theory and predictions with what she actually did and said, decide what happens next, and build her next board, using the tools.
-1. decide: one evidence-grounded decision. Cite the prediction evaluations you judge.
+1. decide: one evidence-grounded decision, with your self-review of the journal and her track record below. Cite the prediction evaluations you judge.
 2. Unless you await calibration, build the next board: add_step for each step, add_explainer for a new lesson page, then set_order and, when she should pick her path, add_choice. Then finish_board.
 Sunny runs each step as you write it. The board she has now stays as it is; yours opens when she chooses it, right away or at a later session. The kiosk screen shows up to 7 stops along any one path, counting the start, the choice and the finish. She sees each step's title. Per-word response time, assistance, exposure and response mode are in the evidence below; Elli talks with her during each activity.
 Games and modes on the menu (a hidden-word Radar is an independent check; the rest are practice):
 ${JSON.stringify(facts.activities.map(row=>row.id))}
-${facts.activities.some(row=>row.id==="generated-game")?`generated-game is a new game Sunny builds for her from her chart and the story you write for that step. What she picks and replays shows what she enjoys.
-`:""}Tested built-in activities she played, which you may re-run:
+${facts.activities.some(row=>row.id==="generated-game")?`generated-game is a new game Sunny builds for her from her chart and the story you write for that step. It can be aimed at one specific error you name in its focus. What she picks and replays shows what she enjoys.
+`:""}${spellingTrackRecordSection(cycle)}
+${plannerJournalSection(cycle)}
+Tested built-in activities she played, which you may re-run:
 ${JSON.stringify(facts.builtIns.map(row=>({builtIn:row.nodeId,title:row.title,type:row.implementationType,words:row.wordIds.length,checkpoint:row.checkpoint})))}
 Saved spelling words:
 ${JSON.stringify([...savedSpellingItems.values()].map(item=>({wordId:item.wordId,word:item.word})))}
@@ -1152,7 +1168,7 @@ async function decideOnce(
   if (!replay && contentDecisions?.length) {
     applyEvidenceBasedMathContentDecisions(cycle.childId, contentDecisions, decisionEvidenceIds, opts);
   }
-  return transitionLearningCycle(cycle.childId, cycle.homeworkId, latest.revision, {
+  const saved = transitionLearningCycle(cycle.childId, cycle.homeworkId, latest.revision, {
     type: "theory_decided",
     decision: {
       ...decision,
@@ -1162,4 +1178,7 @@ async function decideOnce(
       ...(replay?{replayedResponse:{blockedDecisionId:replay.blockedDecisionId,requestHash:replay.requestHash,receiptHash:replay.receiptHash,reason:replay.reason,...(replay.deferredContentDecisions?{deferredContentDecisions:replay.deferredContentDecisions}:{})}}:{}),
     },
   }, opts);
+  // Her folder keeps a readable journal of each decision; a failed write is logged inside and never blocks the board.
+  if (saved.domain === "spelling") writePlannerJournalEntry(saved, saved.decisionHistory.at(-1)!, opts);
+  return saved;
 }

@@ -169,6 +169,8 @@ export type LearningCycleNodeContract = {
    * at most one per board, never chosen by code. A reward that follows the learning; never evidence.
    */
   creatureEncounter?: { reason: string; itemIds?: string[] };
+  /** The one error the Planner aimed this built-for-her game at (contract 56); the game builder reads it. */
+  focus?: string;
   nodeId: string;
   routeId?: string;
   predictionId?: string;
@@ -365,7 +367,12 @@ export type LearningCycleDecision = {
   predictionEvaluationIds?: string[];
   assumptionAssessments?: AssumptionAssessment[];
   replayedResponse?: {blockedDecisionId:string;requestHash:string;receiptHash:string;reason:string;deferredContentDecisions?:EvidenceBasedContentDecision[]};
+  /** The Planner's review of its own track record, written before this decision (contract 56). Older decisions have none. */
+  selfReview?: PlannerSelfReview;
 };
+
+/** The Planner reviews itself (contract 56, owner 2026-11-08): its words, stored with the decision. */
+export type PlannerSelfReview = { whatITried: string; whatHappened: string; why: string; whatIChangeNow: string };
 
 export type LearningCycleAgencyExperiment = {
   experimentId: string;
@@ -519,6 +526,8 @@ export type NextInstrumentPrescription = {
   picture?: string;
   /** The board's one creature encounter, placed by the Planner with its reason (owner, 2026-11-08). */
   creatureEncounter?: { reason: string };
+  /** The one error a built-for-her game is aimed at, in the Planner's words (contract 56). */
+  focus?: string;
   /** Marks the one Planner-authorized encounter on a Quest or Boss successor board. */
   encounter?: "quest" | "boss";
 };
@@ -688,6 +697,7 @@ export type LearningCycleEvent =
         progressionAction?: LearningProgressionAction;
         successor?: SuccessorProgram;
         replayedResponse?: LearningCycleDecision['replayedResponse'];
+        selfReview?: PlannerSelfReview;
       };
     }
   | { type: "planner_retry_authorized"; blockedDecisionId: string; reason: string }
@@ -1376,6 +1386,7 @@ function prepareSuccessorBoard(
       ...(design ? { design } : {}),
       openingScreen: { title: prescription.title, purpose: prescription.openingPurpose },
       ...(prescription.creatureEncounter ? { creatureEncounter: { reason: prescription.creatureEncounter.reason, itemIds: (spellingItems ?? []).map(item => item.id) } } : {}),
+      ...(prescription.focus ? { focus: prescription.focus } : {}),
       generationPrompt: prompt,
       prediction: {
         claim: `This ${role === "baseline" ? "support instrument" : role} follows the Planner decision: ${input.reason}`,
@@ -1948,6 +1959,7 @@ export function transitionLearningCycle(
       predictionEvaluationIds: event.decision.predictionEvaluationIds,
       assumptionAssessments: event.decision.assumptionAssessments,
       ...(event.decision.replayedResponse?{replayedResponse:structuredClone(event.decision.replayedResponse)}:{}),
+      ...(event.decision.selfReview ? { selfReview: structuredClone(event.decision.selfReview) } : {}),
     } : {}),
   };
   next.decisionHistory.push(decision);

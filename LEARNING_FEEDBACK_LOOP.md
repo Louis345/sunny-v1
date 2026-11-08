@@ -1,6 +1,6 @@
 # Sunny Learning Feedback Loop
 
-Contract version: 55
+Contract version: 56
 
 This document is the **sole normative** authority for how Sunny forms, tests, and revises learning claims. Product changes that alter this loop must update this contract version before implementation. Other documents may describe infrastructure or history, but they must link here instead of creating another learning doctrine.
 
@@ -27,6 +27,10 @@ How a new list begins is the Planner's decision. It may check every word first, 
 These record-keeping rules stay because they keep the record true, not because they limit choices: every answer is recorded as independent, assisted or practice exactly as it happened and code never upgrades one into another; a word with no independent answer is unknown; a word taught before it was ever checked is marked seen before baseline, so a later correct answer is not counted as learning gain; graded school results remain the final check of every prediction; and each Planner decision records its reasons and cited evidence.
 
 Measured per list against lists started the old way: graded test score, independent accuracy at Quest and Boss, time to the first reward, help requests, sessions that reach the end-of-board call, and the child's rating.
+
+## The Planner reviews itself (contract 56, owner 2026-11-08)
+
+Every board should be a better try than the last, for a reason anyone can read; the goal is the child passing the test. Before each next-board decision the Planner reads two records laid out by code as facts: her track record on each word (on her own and with help, right out of total, what she wrote when wrong, which activities and boards she practiced it in, and her latest answer on her own), and its own journal (for each earlier decision on this list: what it said it would change and test, the stops it built, and her answers on those words on her own before and after). It then writes a self-review (what it tried, what happened, why, and what it changes now), stored with the decision and appended to `homework/planner-journal/<homework>.md` in her folder. Nothing in code tells it what to conclude: no thresholds, no required switch of approach. The built-for-her game can be aimed at one error the Planner names; that focus goes to the game builder. Decisions saved before this contract have no self-review and replay as they were. Measured: whether a word missed on more than one board gets a changed approach, and her later independent accuracy on those words.
 
 ## Creature encounters are rewards the Planner places (contract 55, owner 2026-11-08)
 
