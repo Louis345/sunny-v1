@@ -287,4 +287,42 @@ describe("canonical spelling Discovery evidence", () => {
       expect(observed[2].result).toEqual({ observedErrorType: "not_sure" });
     } finally { fs.rmSync(rootDir, { recursive: true, force: true }); }
   });
+
+  // Contract 54 (owner, 2026-11-07): Discovery covers the words the Planner chose to check. Every word stays on the
+  // list for later boards; unchecked words are explicitly unknown, never counted as known.
+  it("checks only the chosen words, keeps every word on the list, and reports the rest as not checked", async () => {
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-spelling-opening-"));
+    try {
+      const items = buildSpellingRecallItems({ homeworkId: "hw-some", words: ["night", "light", "might"], evidenceIds: ["source:one"], measurementRole: "fresh_checkpoint" });
+      const cycle = createSpellingDiscoveryCycle({ childId: "lab-child", homeworkId: "hw-some", title: "School words", contentFingerprint: "fp", items, checkItemIds: [items[1].id], boardDefinition: linearJourneyFixture(["hw-some:discovery"]) }, { rootDir });
+      expect(Object.keys(cycle.nodes[0].evidenceContract.spellingItems!)).toHaveLength(3);
+      expect(cycle.nodes[0].evidenceContract.discoveryItemIds).toEqual([items[1].id]);
+      await publishFixture(cycle, items, rootDir);
+      recordSpellingDiscoveryAttempt({ childId: cycle.childId, homeworkId: cycle.homeworkId, attempt: { attemptId: "a1", itemId: items[1].id, attemptedValue: "light", observedAt: "2026-11-08T12:00:00Z" } }, { rootDir });
+      const summary = buildDiscoveryEvidenceSummary(getLearningCycle(cycle.childId, cycle.homeworkId, { rootDir })!);
+      expect(summary.coverage).toMatchObject({ assigned: 1, attempted: 1, complete: true, notCheckedItemIds: [items[0].id, items[2].id] });
+      expect(completeDiscoveryEvaluation({ rootDir, childId: cycle.childId, homeworkId: cycle.homeworkId, completedAt: "2026-11-08T12:05:00Z" }).lifecycle).not.toBe("evaluation_ready");
+    } finally { fs.rmSync(rootDir, { recursive: true, force: true }); }
+  });
+
+  it("completes a Discovery that checks no words, so teaching can begin at once", async () => {
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-spelling-opening-"));
+    try {
+      const items = buildSpellingRecallItems({ homeworkId: "hw-none", words: ["night", "light"], evidenceIds: ["source:one"], measurementRole: "fresh_checkpoint" });
+      const cycle = createSpellingDiscoveryCycle({ childId: "lab-child", homeworkId: "hw-none", title: "School words", contentFingerprint: "fp", items, checkItemIds: [], boardDefinition: linearJourneyFixture(["hw-none:discovery"]) }, { rootDir });
+      await publishFixture(cycle, items, rootDir);
+      const summary = buildDiscoveryEvidenceSummary(getLearningCycle(cycle.childId, cycle.homeworkId, { rootDir })!);
+      expect(summary.coverage).toMatchObject({ assigned: 0, attempted: 0, complete: true, notCheckedItemIds: items.map(item => item.id) });
+      expect(completeDiscoveryEvaluation({ rootDir, childId: cycle.childId, homeworkId: cycle.homeworkId, completedAt: "2026-11-08T12:05:00Z" }).lifecycle).not.toBe("evaluation_ready");
+    } finally { fs.rmSync(rootDir, { recursive: true, force: true }); }
+  });
+
+  it("shows her only the words the Planner chose to check", async () => {
+    const { presentedSpellingItems } = await import("./learningCycleRepository");
+    const items = buildSpellingRecallItems({ homeworkId: "hw-show", words: ["night", "light", "might"], evidenceIds: ["source:one"], measurementRole: "fresh_checkpoint" });
+    const node = { role: "evaluation", evidenceContract: { spellingItems: Object.fromEntries(items.map(item => [item.id, item])), discoveryItemIds: [items[2].id] } } as never;
+    expect(presentedSpellingItems(node).map(item => item.word)).toEqual(["might"]);
+    const everyWord = { role: "evaluation", evidenceContract: { spellingItems: Object.fromEntries(items.map(item => [item.id, item])) } } as never;
+    expect(presentedSpellingItems(everyWord)).toHaveLength(3);
+  });
 });

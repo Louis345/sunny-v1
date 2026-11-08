@@ -70,7 +70,8 @@ describe("Planner-owned opening spelling diagnostic", () => {
     const first = await runSpellingDiscoveryIntake(input, { plannerTools: recordedIntake(callPlannerModel) });
     const cycle = getLearningCycle(input.childId, first.homeworkId, input)!;
     const selected = cycle.nodes[0].evidenceContract.diagnosticSelection!;
-    expect(selected.decision).toEqual(capture(input.packet).diagnostic);
+    // The recorded Discovery checks every word (contract 54 records which words were chosen).
+    expect(selected.decision).toEqual({ ...capture(input.packet).diagnostic, checkWords: capture(input.packet).words.map((row: { word: string }) => row.word) });
     expect(selected.instrument).toMatchObject({ activityId: "word-radar", modeId: "independent_spelling_discovery", protocol: "spelling-recall-v1" });
     const plan = buildSpellingDiscoveryPlan({ cycle, companion: { id: "elli", name: "Elli" } });
     expect(plan.nodePlan[0]).toMatchObject({ activityId: selected.instrument.activityId, wordRadarConfig: selected.instrument.config });
@@ -154,4 +155,27 @@ it('uses the shared endpoint binding contract in diagnostic authoring and execut
   board.edges = board.edges.filter(edge => edge.to !== 'end');
   const authored = {...draft, boardDefinition:board};
   expect(parseSpellingIntake(authored, packet).boardDefinition).toEqual(board);
+});
+
+// Contract 54 (owner, 2026-11-07): the Planner chooses how a list begins.
+describe("Planner-chosen opening", () => {
+  it("checks only the words the Planner chose, keeping every word on the list", async () => {
+    const input = await fixture();
+    const draft = (packet: AssignmentPlanningPacket) => { const base = capture(packet); return { ...base, diagnostic: { ...base.diagnostic, checkWords: ["light"] } }; };
+    const { homeworkId } = await runSpellingDiscoveryIntake(input, { plannerTools: recordedIntake(async packet => ({ draft: draft(packet) })) });
+    const discovery = getLearningCycle(input.childId, homeworkId, input)!.nodes.find(node => node.role === "evaluation")!;
+    expect(Object.values(discovery.evidenceContract.spellingItems!).map(item => item.word)).toEqual(["night", "light"]);
+    expect(discovery.evidenceContract.discoveryItemIds!.map(id => discovery.evidenceContract.spellingItems![id].word)).toEqual(["light"]);
+  });
+
+  it("opens with teaching: no up-front check, Discovery closes at once and the teaching board is queued", async () => {
+    const input = await fixture();
+    const draft = (packet: AssignmentPlanningPacket) => { const base = capture(packet); const { activityId: _a, modeId: _m, ...reasons } = base.diagnostic; return { ...base, diagnostic: { ...reasons, action: "open_with_teaching", checkWords: [] } }; };
+    const { homeworkId } = await runSpellingDiscoveryIntake(input, { plannerTools: recordedIntake(async packet => ({ draft: draft(packet) })) });
+    const cycle = getLearningCycle(input.childId, homeworkId, input)!;
+    expect(cycle.nodes.find(node => node.role === "evaluation")).toMatchObject({ state: "completed" });
+    expect(["evidence_ready", "targeted_planning"]).toContain(cycle.lifecycle);
+    const { getMathGenerationStatus } = await import("../engine/adaptiveMathDiscovery");
+    expect(getMathGenerationStatus(input.childId, homeworkId, { rootDir: input.rootDir })?.phase).toMatch(/targeted/);
+  });
 });

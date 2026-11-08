@@ -1260,6 +1260,8 @@ export function compactPlannerFacts(packet:AssignmentPlanningPacket) {
       .map(card=>({...Object.fromEntries(PLANNER_CARD_FIELDS.filter(key=>card[key]!==undefined).map(key=>[key,card[key]])),capabilityModes:(card.capabilityModes??[]).map(mode=>({id:mode.id,label:mode.label,purpose:mode.purpose,config:mode.config}))})),
     evaluation:(evidence?.observations??[]).map(row=>({observationId:row.observationId,word:wordByItem.get(row.itemId??"")??null,typed:row.childResponse??null,correct:row.result?.correct??null,assisted:row.assistance?.status!==undefined&&row.assistance.status!=="unassisted"})),
     ...(evidence?.summary?.coverage?{coverage:evidence.summary.coverage}:{}),
+    // Contract 54: words the opening chose not to check are unknown; a later check is how they get a baseline.
+    ...((evidence?.summary?.coverage as {notCheckedItemIds?:string[]}|undefined)?.notCheckedItemIds?.length?{notCheckedYet:(evidence!.summary!.coverage as {notCheckedItemIds:string[]}).notCheckedItemIds.map(id=>wordByItem.get(id)??id)}:{}),
     ...(history.length?{history:Object.fromEntries(history.map(([construct,entry])=>[construct,{observations:(entry.observations??[]).map(row=>({observationId:row.observationId,typed:row.childResponse??null,correct:row.result?.correct??null})),evaluations:(entry.evaluations??[]).map(row=>row.evaluationId)}]))}:{}),
   };
 }

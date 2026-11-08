@@ -42,7 +42,7 @@ export function recordedToolReply(lab: RecordedToolLab, request: any): any {
   // Discovery intake: the assigned words, then the hidden-word radar that finds her starting point.
   if (names.includes("record_words")) return message([
     { name: "record_words", input: { words: lab.words.map(word => ({ word, page_number: 1 })), uncertainty: [], source_notes: [] } },
-    { name: "choose_discovery", input: { action: "select", instrument: pick(offered("choose_discovery", "instrument"), "independent_spelling_discovery"), reason: "Independent recall shows where she starts.",
+    { name: "choose_discovery", input: { action: "select", instrument: pick(offered("choose_discovery", "instrument"), "independent_spelling_discovery"), check_words: [...lab.words], reason: "Independent recall shows where she starts.",
       evidence_ids: offered("choose_discovery", "evidence_ids").slice(0, 1), uncertainty: ["One occasion."], next_evidence_needed: ["Independent recall of each word."] } },
     { name: "finish_intake", input: { title: "School spelling", portal_label: "Word Check", endpoint_label: "Finish" } },
   ]);

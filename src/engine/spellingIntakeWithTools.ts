@@ -9,11 +9,11 @@ import { spellingDiscoveryToolkit } from "./spellingDiscoveryTools";
 import type Anthropic from "@anthropic-ai/sdk";
 
 export function buildSpellingIntakeToolPrompt(packet: AssignmentPlanningPacket): string {
-  return `This is the assignment-capture and Discovery-choice phase of Sunny's Planner. The goal: she wants to come back to Sunny, and she knows her words by the school test. Use the tools.
+  return `This is the assignment-capture and opening-choice phase of Sunny's Planner. The goal: she wants to come back to Sunny, and she knows her words by the school test. How this list begins is your decision; optimize for this child and break the work up so it never feels like a grind. Use the tools.
 1. record_words: every assigned spelling word from the complete school source, spelled exactly as printed, with its page. Notes about headers, OCR and repeated pages go in source_notes and are informational. Use uncertainty for a word you cannot read or an unclear assignment scope.
-2. choose_discovery: you choose the Discovery check: the validated mode that best finds her independent starting point on these words, for this child. Hearing a whole word is stimulus; spelling or letter clues are assistance. If none fits, use action needs_instrument with instrument none.
+2. choose_discovery: choose how the list begins. select checks the words you list in check_words first, with the validated mode that best finds her independent starting point (all of them, or only the ones her history leaves you unsure of). open_with_teaching checks nothing up front and goes straight to the teaching board, where you can place short checks later. Hearing a whole word is stimulus; spelling or letter clues are assistance. Words you do not check stay unknown until a later check; Sunny never counts them as known. If no validated instrument fits a check you want, use needs_instrument with instrument none.
 3. finish_intake: the assignment title and the short names she sees.
-Discovery comes first, before any teaching: Sunny builds this one-stop board from your choice and the map artist draws it.
+Sunny builds the opening stop from your choice and the map artist draws it; with open_with_teaching the teaching board starts building at once.
 SOURCE:
 ${JSON.stringify(packet.sourceDocument)}
 CHILD CHART:

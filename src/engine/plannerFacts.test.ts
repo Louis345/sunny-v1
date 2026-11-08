@@ -26,3 +26,12 @@ it("sends the Planner the compact facts",()=>{
   const prompt=(creator as any).spellingTeachingToolPrompt(packet());
   expect(prompt.endsWith(`Homework and child-chart context:\n${JSON.stringify((creator as any).compactPlannerFacts(packet()))}`)).toBe(true);
 });
+
+// Contract 54: words the opening did not check reach the teaching Planner as not checked yet, never as known.
+it("tells the Planner which words were not checked yet",()=>{
+  const base=packet() as any;
+  base.discoveryEvidence.summary.coverage={assigned:1,attempted:1,untestedItemIds:[],complete:true,notCheckedItemIds:["item-1"]};
+  const facts=(creator as any).compactPlannerFacts(base);
+  expect(facts.notCheckedYet).toEqual(["lucky"]);
+  expect((creator as any).compactPlannerFacts(packet()).notCheckedYet).toBeUndefined();
+});

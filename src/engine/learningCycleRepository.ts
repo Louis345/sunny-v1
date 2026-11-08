@@ -218,6 +218,8 @@ export type LearningCycleNodeContract = {
     itemContracts?: Record<string, LearningCycleMathItem>;
     spellingItems?: Record<string, LearningCycleSpellingItem>;
     diagnosticSelection?: SpellingDiagnosticSelection;
+    /** The words this Discovery checks (contract 54); absent means every word. Every word stays in spellingItems. */
+    discoveryItemIds?: string[];
     nativeConfig?: Record<string, unknown>;
   };
   evidenceIds: string[];
@@ -550,6 +552,13 @@ function adoptBuiltInAnswerForms(source: LearningCycleNodeContract, items: Learn
 }
 
 /** One allowlist shared by the Planner tool and the persisted board contract. */
+/** The words a stop shows her. A Discovery shows only the words the Planner chose to check (contract 54). */
+export function presentedSpellingItems(node: Pick<LearningCycleNodeContract, "role" | "evidenceContract">): LearningCycleSpellingItem[] {
+  const items = Object.values(node.evidenceContract.spellingItems ?? {});
+  const chosen = node.role === "evaluation" ? node.evidenceContract.discoveryItemIds : undefined;
+  return chosen ? items.filter(item => chosen.includes(item.id)) : items;
+}
+
 export function spellingAssignmentItems(cycle: LearningCycleRecordV2): Map<string, LearningCycleSpellingItem> {
   const assigned = new Set(cycle.assignment.targets.map(word => word.normalize("NFC").trim().toLocaleLowerCase("en-US")));
   const items = new Map<string, LearningCycleSpellingItem>();
@@ -1483,7 +1492,9 @@ export function transitionLearningCycle(
       console.log(` 🎮 [learning-cycle] [evaluation-completion] [reused] child=${childId} homework=${homeworkId} evaluation=${event.evaluationId}`);
       return current;
     }
-    if (!next.observations.some((observation) => observation.sourceId === `evaluation:${event.evaluationId}`)) {
+    // Contract 54: a Discovery the Planner chose to check no words on completes with no answers; any other needs one.
+    const checksNone = evaluation.evidenceContract.discoveryItemIds?.length === 0;
+    if (!checksNone && !next.observations.some((observation) => observation.sourceId === `evaluation:${event.evaluationId}`)) {
       throw new Error("learning_cycle_evaluation_evidence_missing");
     }
     evaluation.state = "completed";

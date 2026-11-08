@@ -2,7 +2,7 @@ import type { AdventureMapProfile } from "../context/schemas/learningProfile";
 import type { ChildChart } from "./childChart";
 import type { CompanionConfig } from "../shared/companionTypes";
 import type { AdventureBoardJson } from "../shared/adventureBoardJson";
-import { isSpellingPracticeContinuation } from "../engine/learningCycleRepository";
+import { isSpellingPracticeContinuation, presentedSpellingItems } from "../engine/learningCycleRepository";
 import { readChoiceEvents } from "../engine/choiceEvents";
 
 export type ChildExperiencePacket = {
@@ -221,7 +221,7 @@ export function buildChildExperiencePacket(chart: ChildChart): ChildExperiencePa
     : undefined;
   const answered = new Set(spellingEvaluation ? chart.learningCycle!.observations.map(observation => observation.itemId) : []);
   const spellingInstruments = chart.learningCycle?.domain === "spelling" ? Object.fromEntries(chart.learningCycle.nodes.flatMap(node => {
-    const items = Object.values(node.evidenceContract.spellingItems ?? {});
+    const items = presentedSpellingItems(node);
     if (!items.length) return [];
     const assessment = node.state !== "completed" && !isSpellingPracticeContinuation(chart.learningCycle!) && (node.role === "evaluation" || items.every(item => item.lineage.measurementRole === "fresh_checkpoint"));
     const captured = new Set(chart.learningCycle!.observations.map(row => row.itemId));
@@ -247,7 +247,7 @@ export function buildChildExperiencePacket(chart: ChildChart): ChildExperiencePa
     ...(spellingEvaluationResults?.length ? { spellingEvaluationResults } : {}),
     ...(spellingBoardResults?.length ? { spellingBoardResults } : {}),
     ...(spellingInstruments ? { spellingInstruments } : {}),
-    ...(spellingEvaluation ? { spellingDiscovery: { nodeId: spellingEvaluation.nodeId, items: Object.values(spellingEvaluation.evidenceContract.spellingItems!).filter(item => !answered.has(item.id)).map(item => ({ itemId: item.id, display: item.word, acceptedResponses: item.response.acceptedForms, label: "Spelling", subject: "spelling" })) } } : {}),
+    ...(spellingEvaluation ? { spellingDiscovery: { nodeId: spellingEvaluation.nodeId, items: presentedSpellingItems(spellingEvaluation).filter(item => !answered.has(item.id)).map(item => ({ itemId: item.id, display: item.word, acceptedResponses: item.response.acceptedForms, label: "Spelling", subject: "spelling" })) } } : {}),
     childChart: {
       childId: chart.childId,
       identity: chart.identity,

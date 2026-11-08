@@ -89,7 +89,7 @@ import { validateFullExperienceReadiness } from "../engine/fullExperienceReadine
 import { enrichMathNodeArtwork, localizeMathNodeArtwork } from "../engine/mathNodeArtwork";
 import { persistIngestedLearningCycle, buildSpellingRecallItems, createSpellingDiscoveryCycle, buildSpellingDiscoveryPlan } from "../engine/learningCycleIngest";
 import { planSpellingIntakeWithTools } from "../engine/spellingIntakeWithTools";
-import { acquireMathGenerationLease, releaseMathGenerationLease, resolveAdaptiveMathDraftDir, publishDiscoveryExperience, hashDiscoveryContract, runMathProviderStage, recordGenerationFailure } from "../engine/adaptiveMathDiscovery";
+import { acquireMathGenerationLease, releaseMathGenerationLease, resolveAdaptiveMathDraftDir, publishDiscoveryExperience, hashDiscoveryContract, runMathProviderStage, recordGenerationFailure, completeDiscoveryEvaluation, queueTargetedMathGeneration } from "../engine/adaptiveMathDiscovery";
 import { getLearningCycle, repairLatestHistoricalLearningCycleBeforePlanning } from "../engine/learningCycleRepository";
 import { createIngestProgress, type IngestProgress } from "../utils/ingestOutput";
 import { generateStoryImage } from "../utils/generateStoryImage";
@@ -2136,6 +2136,8 @@ export async function runSpellingDiscoveryIntake(args: {
   /** Answers the intake's tool conversation and draws its map instead of the providers (tests and local fixtures). */
   plannerTools?: (packet: AssignmentPlanningPacket) => Pick<NonNullable<Parameters<typeof planSpellingIntakeWithTools>[1]>, "send" | "draw">;
   confirmCapture?: (capture: SpellingIntake) => Promise<boolean>;
+  /** Starts the teaching-board builder when the Planner opens with teaching (contract 54). */
+  startTargetedWorker?: (childId: string, homeworkId: string) => void | Promise<void>;
   reviewer?: string;
   chart?: {db: ChartDatabase; provider: SpellingProvider};
 } = {}): Promise<{ homeworkId: string }> {
@@ -2212,10 +2214,22 @@ export async function runSpellingDiscoveryIntake(args: {
         await prepareSpellingChartAssignment(database, {assignmentId:homeworkId, words:items.map(item=>item.word.normalize('NFC').toLowerCase()), testDate:validIsoDate(args.testDate) ? args.testDate! : null, sourcePhotoHash:fingerprint}, options.chart?.provider ?? spellingPlanner);
       } finally { if (!options.chart) database.close(); }
     } else console.log(' 🎮 [spelling-chart] [intake] [disabled] chart_directory_not_configured_or_simulation');
-    const cycle = createSpellingDiscoveryCycle({ childId: args.childId, homeworkId, title: capture.title, contentFingerprint: fingerprint, items, diagnosticSelection, boardDefinition: capture.boardDefinition ? {...capture.boardDefinition, portals:capture.boardDefinition.portals.map(portal => portal.activityNodeId === "diagnostic" ? {...portal,activityNodeId:`${homeworkId}:discovery`} : portal)} : undefined }, { rootDir });
+    // Contract 54: the Planner chose which words Discovery checks (all, some or none); every word stays on the list.
+    const chosenWords = capture.diagnostic?.action === "open_with_teaching" ? [] : capture.diagnostic?.action === "select" ? capture.diagnostic.checkWords : undefined;
+    const sameWord = (a: string, b: string) => a.normalize("NFC").trim().toLocaleLowerCase("en-US") === b.normalize("NFC").trim().toLocaleLowerCase("en-US");
+    const checkItemIds = chosenWords ? items.filter(item => chosenWords.some(word => sameWord(word, item.word))).map(item => item.id) : undefined;
+    const cycle = createSpellingDiscoveryCycle({ childId: args.childId, homeworkId, title: capture.title, contentFingerprint: fingerprint, items, diagnosticSelection, ...(checkItemIds ? { checkItemIds } : {}), boardDefinition: capture.boardDefinition ? {...capture.boardDefinition, portals:capture.boardDefinition.portals.map(portal => portal.activityNodeId === "diagnostic" ? {...portal,activityNodeId:`${homeworkId}:discovery`} : portal)} : undefined }, { rootDir });
     const activeSessionPlan = buildSpellingDiscoveryPlan({ cycle, companion: { id: chart.companion.presetId, name: chart.companion.displayName } });
     await publishDiscoveryExperience({ ...scope, spellingItems: items, activeSessionPlan, assignment: cycle.assignment });
-    console.log(` 🎮 [spelling-discovery] [intake] [ready] homework=${homeworkId} words=${items.length} targeted-board=awaiting-evidence`);
+    if (checkItemIds?.length === 0) {
+      // The Planner opened with teaching: Discovery closes with no answers and the teaching board starts building now.
+      const opened = completeDiscoveryEvaluation({ ...scope, completedAt: new Date().toISOString() });
+      queueTargetedMathGeneration({ ...scope });
+      await options.startTargetedWorker?.(args.childId, homeworkId);
+      console.log(` 🎮 [spelling-discovery] [intake] [opened-with-teaching] homework=${homeworkId} words=${items.length} lifecycle=${opened.lifecycle}`);
+      return { homeworkId };
+    }
+    console.log(` 🎮 [spelling-discovery] [intake] [ready] homework=${homeworkId} words=${items.length} checking=${checkItemIds?.length ?? items.length} targeted-board=awaiting-evidence`);
     return { homeworkId };
   } catch (error) {
     recordGenerationFailure({draftDir:draft,childId:args.childId,homeworkId,stage:'spelling_intake',startedAt:diagnosticStartedAt,error});
@@ -2277,6 +2291,7 @@ async function runIngestHomeworkInternal(
     onStage?.(2, "Capturing assigned spelling words");
     await runSpellingDiscoveryIntake({ childId, sourceFile: incomingFile, testDate: cliTestDate }, {
       model: plannerModel,
+      startTargetedWorker: async (child, homework) => (await import("../server/routes")).launchAdaptiveMathWorker(child, homework),
       confirmCapture: capture => reviewSpellingIntake({ capture, sourceFile: incomingFile, interactive }),
     });
     onStage?.(5, "Spelling Discovery ready — teaching waits for answers");

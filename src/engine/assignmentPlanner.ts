@@ -283,8 +283,11 @@ const spellingDiagnosticReasonSchema = z.object({
   reason: z.string().trim().min(1), evidenceIds: z.array(z.string().min(1)).min(1),
   uncertainty: z.array(z.string().trim().min(1)).min(1), nextEvidenceNeeded: z.array(z.string().trim().min(1)).min(1),
 });
+// Contract 54 (owner, 2026-11-07): the Planner chooses how a list begins. `checkWords` are the words Discovery checks
+// (absent on older captures: every word); open_with_teaching checks none and goes straight to the teaching board.
 const spellingDiagnosticDecisionSchema = z.discriminatedUnion("action", [
-  spellingDiagnosticReasonSchema.extend({ action: z.literal("select"), activityId: z.string().min(1), modeId: z.string().min(1) }).strict(),
+  spellingDiagnosticReasonSchema.extend({ action: z.literal("select"), activityId: z.string().min(1), modeId: z.string().min(1), checkWords: z.array(z.string().trim().min(1)).min(1).optional() }).strict(),
+  spellingDiagnosticReasonSchema.extend({ action: z.literal("open_with_teaching"), checkWords: z.array(z.string()).max(0) }).strict(),
   spellingDiagnosticReasonSchema.extend({ action: z.literal("needs_instrument") }).strict(),
 ]);
 const spellingIntakeSchema = z.object({
@@ -318,7 +321,7 @@ export function resolveSpellingDiagnosticSelection(capture: SpellingIntake, pack
   }
   if (!decision) throw new Error("spelling_diagnostic_decision_required");
   if (decision.evidenceIds.some(id => !context.evidenceIds.includes(id))) throw new Error("spelling_diagnostic_evidence_invalid");
-  if (decision.action === "needs_instrument") return undefined;
+  if (decision.action === "needs_instrument" || decision.action === "open_with_teaching") return undefined;
   const instrument = context.instruments.find(row => row.activityId === decision.activityId && row.modeId === decision.modeId);
   if (!instrument) throw new Error("spelling_diagnostic_instrument_unavailable");
   return { decision: structuredClone(decision), instrument: structuredClone(instrument), snapshotHash: hashDiscoveryContract({ decision, instrument }) };

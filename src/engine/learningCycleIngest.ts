@@ -84,6 +84,8 @@ export function createSpellingDiscoveryCycle(input: {
   items: LearningCycleSpellingItem[];
   diagnosticSelection?: SpellingDiagnosticSelection;
   boardDefinition?: AdventureBoardDefinition;
+  /** The words Discovery checks (contract 54): the Planner's choice, from none to all. Absent means every word. */
+  checkItemIds?: string[];
 }, opts: LearningCycleRepositoryOptions = {}): LearningCycleRecordV2 {
   if (!input.items.length) throw new Error("spelling_targets_missing");
   const existing = getLearningCycle(input.childId, input.homeworkId, opts);
@@ -132,6 +134,7 @@ export function createSpellingDiscoveryCycle(input: {
         itemRoles: Object.fromEntries(input.items.map(item => [item.id, item.lineage.measurementRole])),
         nativeConfig: {activityId:"word-radar",wordRadarConfig:spellingDiscoveryRuntimeConfig(selection)},
         ...(selection ? { diagnosticSelection: structuredClone(selection) } : {}),
+        ...(input.checkItemIds ? { discoveryItemIds: input.items.map(item => item.id).filter(id => input.checkItemIds!.includes(id)) } : {}),
       },
       evidenceIds: [],
     }],

@@ -4,7 +4,7 @@ import { plainDraw } from "./successorToolConversation";
 
 /** A recorded Discovery Planner answer, written the way the retired single form held it. */
 export type RecordedIntakeDraft = { title?: string; words?: unknown[]; uncertainty?: unknown[]; sourceNotes?: string[]; boardDefinition?: { portals?: Array<{ kind?: string; label?: string; activityNodeId?: string }> };
-  diagnostic?: { action?: string; activityId?: string; modeId?: string; reason?: string; evidenceIds?: string[]; uncertainty?: string[]; nextEvidenceNeeded?: string[] } };
+  diagnostic?: { action?: string; activityId?: string; modeId?: string; checkWords?: string[]; reason?: string; evidenceIds?: string[]; uncertainty?: string[]; nextEvidenceNeeded?: string[] } };
 export type RecordedIntakePlanner = (packet: AssignmentPlanningPacket, model: string) => Promise<{ draft: unknown }>;
 
 /** Plays a recorded Discovery answer through the real intake tools at $0: each turn asks the recorded
@@ -23,6 +23,8 @@ export function recordedIntake(planner: RecordedIntakePlanner) {
           uncertainty: (draft.uncertainty ?? []).map(row => row && typeof row === "object" ? { kind: (row as { kind?: string }).kind, page_number: (row as { pageNumber?: number }).pageNumber, detail: (row as { detail?: string }).detail } : row),
           source_notes: draft.sourceNotes ?? [] } },
         { name: "choose_discovery", input: { action: diagnostic.action, instrument: diagnostic.action === "select" ? `${diagnostic.activityId}:${diagnostic.modeId}` : "none",
+          // A recorded Discovery checks every word unless it says otherwise (contract 54); other openings check none.
+          check_words: diagnostic.checkWords ?? (diagnostic.action === "select" ? (draft.words ?? []).map(row => row && typeof row === "object" && "word" in row ? (row as { word: string }).word : String(row)) : []),
           reason: diagnostic.reason, evidence_ids: diagnostic.evidenceIds, uncertainty: diagnostic.uncertainty, next_evidence_needed: diagnostic.nextEvidenceNeeded } },
         { name: "finish_intake", input: { title: draft.title, portal_label: portal("activity") ?? "Word Check", endpoint_label: portal("endpoint") ?? "Finish" } },
       ];

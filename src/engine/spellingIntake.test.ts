@@ -38,9 +38,13 @@ describe("spelling intake is the opening phase of the existing Planner", () => {
     const legacy = { title: "School spelling", words: words.map(row => ({ word: row.word, pageNumber: row.page_number })), uncertainty: ["All assigned words are legible."] };
     expect(parseSpellingIntake(legacy, { ...packet, spellingDiagnostics: undefined } as AssignmentPlanningPacket)).toEqual(legacy);
   });
-  it("asks for assignment capture, not a teaching board before current evidence", () => {
+  // Contract 54 (owner, 2026-11-07): how the list begins is the Planner's choice, and unchecked words stay unknown.
+  it("asks for assignment capture and leaves the opening to the Planner", () => {
     const prompt = buildSpellingIntakeToolPrompt(packet);
-    expect(prompt).toContain("Discovery comes first, before any teaching");
+    expect(prompt).toContain("How this list begins is your decision");
+    expect(prompt).toContain("open_with_teaching");
+    expect(prompt).toContain("Words you do not check stay unknown");
+    expect(prompt).not.toContain("Discovery comes first");
     expect(prompt).toContain("every assigned spelling word");
     expect(recordWords({ activeSessionPlan: { nodePlan: [] } }).outcome.ok).toBe(false);
   });
