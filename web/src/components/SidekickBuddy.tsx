@@ -18,12 +18,15 @@ export function SidekickBuddy({
   nickname,
   cheerKey,
   onDismiss,
+  placement = "beside-companion",
 }: {
   creature: CapturedMonsterConfig;
   nickname: string;
   /** Bump this on each right answer to make the sidekick cheer. */
   cheerKey: number;
   onDismiss: () => void;
+  /** beside-companion pins it just left of Elli's portrait and above it; inline leaves layout to the parent. */
+  placement?: "beside-companion" | "inline";
 }) {
   const [mood, setMood] = useState<SidekickMood>("idle");
   const firstKey = useRef(cheerKey);
@@ -47,7 +50,7 @@ export function SidekickBuddy({
   return (
     <button
       type="button"
-      className="sidekick-buddy"
+      className={placement === "beside-companion" ? "sidekick-buddy sidekick-buddy--beside-companion" : "sidekick-buddy"}
       data-testid="sidekick-buddy"
       data-mood={mood}
       data-idle-life={mood === "idle" ? "breathing" : undefined}

@@ -297,111 +297,120 @@
   .creature-tile__out { animation: none !important; }
 }
 
-/* ---------- Creature den ---------- */
+/* ---------- Creature den: her creatures roam the park; tap one for its den card ---------- */
 .creature-den {
   --common: #d8c3a5;
   --rare: #4fa3ff;
   --epic: #b46bff;
   --legendary: #ffc93c;
-  background: radial-gradient(circle at 50% 0%, #2a1a5e, #0b0820 70%);
   color: #fff;
-  display: grid;
   font-family: Lexend, system-ui, sans-serif;
-  gap: 20px;
-  grid-template-columns: minmax(220px, 1fr) minmax(300px, 1.4fr);
   min-height: 100vh;
-  padding: 24px;
-}
-
-@media (max-width: 760px) {
-  .creature-den { grid-template-columns: 1fr; }
-}
-
-.creature-den h2 { font-size: 28px; font-weight: 900; margin: 0 0 12px; }
-.creature-den__grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); }
-
-.creature-den__tile,
-.creature-den__room { --tier: var(--common); }
-.creature-den__tile[data-rarity="rare"],
-.creature-den__room[data-rarity="rare"] { --tier: var(--rare); }
-.creature-den__tile[data-rarity="epic"],
-.creature-den__room[data-rarity="epic"] { --tier: var(--epic); }
-.creature-den__tile[data-rarity="legendary"],
-.creature-den__room[data-rarity="legendary"] { --tier: var(--legendary); }
-
-.creature-den__tile {
-  background: linear-gradient(180deg, color-mix(in srgb, var(--tier) 20%, #140c30), #140c30);
-  border: 3px solid color-mix(in srgb, var(--tier) 60%, #2c2840);
-  border-radius: 16px;
-  color: #fff;
-  cursor: pointer;
-  display: grid;
-  font: inherit;
-  gap: 2px;
-  justify-items: center;
-  padding: 10px 6px;
   position: relative;
 }
 
-.creature-den__tile[data-selected="true"] { border-color: var(--tier); box-shadow: 0 0 16px color-mix(in srgb, var(--tier) 55%, transparent); }
-.creature-den__tile img { height: 70px; object-fit: contain; width: 70px; }
-.creature-den__tile-name { font-weight: 900; }
-.creature-den__tile-dex { font-size: 11px; opacity: 0.6; }
-.creature-den__badge { background: #3fbf6a; border-radius: 999px; font-size: 10px; font-weight: 900; padding: 2px 8px; position: absolute; top: -9px; }
+.creature-den__park {
+  height: 100vh;
+  min-height: 520px;
+  overflow: hidden;
+  position: relative;
+}
 
-.creature-den__room {
-  background: linear-gradient(180deg, color-mix(in srgb, var(--tier) 18%, #1a1238), #120c28);
+.creature-den__backdrop { height: 100%; inset: 0; object-fit: cover; position: absolute; width: 100%; }
+
+.creature-den__title {
+  background: rgba(15, 23, 42, 0.78);
+  border-radius: 18px;
+  left: 20px;
+  padding: 12px 18px;
+  position: absolute;
+  top: 20px;
+  z-index: 40;
+}
+.creature-den__title h2 { font-size: 26px; font-weight: 950; margin: 0; }
+.creature-den__title span { font-size: 14px; font-weight: 700; opacity: 0.85; }
+.creature-den__empty { background: rgba(15, 23, 42, 0.78); border-radius: 14px; font-weight: 800; left: 50%; padding: 12px 18px; position: absolute; top: 50%; transform: translate(-50%, -50%); }
+
+.creature-den__wild,
+.creature-den__card { --tier: var(--common); }
+.creature-den__wild[data-rarity="rare"],
+.creature-den__card[data-rarity="rare"] { --tier: var(--rare); }
+.creature-den__wild[data-rarity="epic"],
+.creature-den__card[data-rarity="epic"] { --tier: var(--epic); }
+.creature-den__wild[data-rarity="legendary"],
+.creature-den__card[data-rarity="legendary"] { --tier: var(--legendary); }
+
+/* Each creature wanders a little left and right on its own slow clock; idle life plays on the picture. */
+.creature-den__wild {
+  animation: denWander var(--wander-s) ease-in-out var(--wander-delay) infinite;
+  background: none;
+  border: 0;
+  cursor: pointer;
+  display: grid;
+  justify-items: center;
+  padding: 0;
+  position: absolute;
+  transform: translateX(-50%) scale(calc(0.62 + var(--depth) * 0.45));
+  transform-origin: bottom center;
+}
+
+.creature-den__art {
+  filter: drop-shadow(0 14px 18px rgba(30, 40, 60, 0.35));
+  height: 170px;
+  object-fit: contain;
+  width: 170px;
+}
+.creature-den__wild[data-selected="true"] .creature-den__art {
+  filter: drop-shadow(0 0 14px var(--tier)) drop-shadow(0 14px 18px rgba(30, 40, 60, 0.35));
+}
+.creature-den__wild-shadow { background: rgba(20, 50, 25, 0.3); border-radius: 50%; filter: blur(4px); height: 16px; margin-top: -18px; width: 110px; }
+.creature-den__wild-name { background: rgba(15, 23, 42, 0.82); border: 2px solid var(--tier); border-radius: 999px; font-size: 13px; font-weight: 900; margin-top: 4px; padding: 2px 12px; }
+.creature-den__badge { background: #3fbf6a; border-radius: 999px; font-size: 11px; font-weight: 900; padding: 2px 10px; position: absolute; top: -6px; z-index: 2; }
+.creature-den__reaction { animation: denFloatUp 1.1s ease-out forwards; color: #ffd84d; font-size: 24px; font-weight: 900; position: absolute; text-shadow: 0 2px 6px rgba(0, 0, 0, 0.5); top: -12px; z-index: 2; }
+.creature-den__art[data-reacting="true"] { animation: creatureRevealPop 0.6s cubic-bezier(0.2, 1.6, 0.4, 1) both; }
+
+/* Den card: the selected creature's details and care, over the right side of the park. */
+.creature-den__card {
+  animation: creatureCardIn 0.3s ease-out both;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--tier) 22%, #171135), #120c28 70%);
   border: 3px solid var(--tier);
   border-radius: 22px;
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.45);
   display: grid;
-  gap: 14px;
-  padding: 18px;
+  gap: 10px;
+  max-width: calc(100% - 40px);
+  padding: 20px;
+  position: absolute;
+  right: 20px;
+  top: 20px;
+  width: 340px;
+  z-index: 50;
 }
-
-.creature-den__stage {
-  background: radial-gradient(ellipse at 50% 90%, #3a7a4a 0 30%, transparent 31%), radial-gradient(circle at 50% 30%, color-mix(in srgb, var(--tier) 30%, transparent), transparent 60%);
-  border-radius: 16px;
-  display: grid;
-  height: 220px;
-  place-items: center;
-  position: relative;
-}
-
-.creature-den__art { animation: creatureIdleBob 1.8s ease-in-out infinite; height: 170px; object-fit: contain; }
-.creature-den__art[data-reacting="true"] { animation: creatureRevealPop 0.6s cubic-bezier(0.2, 1.6, 0.4, 1) both, creatureIdleBob 1.8s ease-in-out 0.6s infinite; }
-.creature-den__reaction { animation: denFloatUp 1.1s ease-out forwards; color: #ffd84d; font-size: 22px; font-weight: 900; position: absolute; top: 18px; }
-
-.creature-den__panel { display: grid; gap: 10px; }
-.creature-den__species { font-size: 13px; font-weight: 800; opacity: 0.75; }
-.creature-den__panel h3 { font-size: 30px; font-weight: 950; margin: 0; }
-.creature-den__bond { align-items: center; display: grid; gap: 10px; grid-template-columns: auto 1fr auto; font-weight: 800; }
+.creature-den__close { background: #ffffff1f; border: 0; border-radius: 50%; color: #fff; cursor: pointer; font-size: 22px; height: 34px; line-height: 1; position: absolute; right: 12px; top: 12px; width: 34px; }
+.creature-den__eyebrow { color: #ffd84d; font-size: 12px; font-weight: 900; letter-spacing: 0.16em; text-transform: uppercase; }
+.creature-den__card h3 { font-size: 32px; font-weight: 950; margin: 0; }
+.creature-den__species { font-size: 13px; font-weight: 800; opacity: 0.8; }
+.creature-den__chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.creature-den__chips span { background: #ffffff1c; border-radius: 999px; font-size: 12px; font-weight: 800; padding: 4px 10px; }
+.creature-den__bond { align-items: center; display: grid; font-weight: 800; gap: 10px; grid-template-columns: auto 1fr auto; }
 .creature-den__bond-bar { background: #ffffff1f; border-radius: 999px; height: 12px; overflow: hidden; }
 .creature-den__bond-bar span { background: linear-gradient(90deg, #ff7eb6, #ff4f8b); border-radius: 999px; display: block; height: 100%; transition: width 400ms ease; }
-
 .creature-den__foods { display: grid; gap: 8px; grid-template-columns: repeat(3, 1fr); }
-.creature-den__food {
-  background: #ffffff14;
-  border: 2px solid #ffffff2a;
-  border-radius: 14px;
-  color: #fff;
-  cursor: pointer;
-  display: grid;
-  font: 800 14px Lexend, system-ui, sans-serif;
-  gap: 2px;
-  justify-items: center;
-  padding: 10px 6px;
-}
-.creature-den__food span:first-child { font-size: 26px; }
+.creature-den__food { background: #ffffff14; border: 2px solid #ffffff2a; border-radius: 14px; color: #fff; cursor: pointer; display: grid; font: 800 13px Lexend, system-ui, sans-serif; gap: 2px; justify-items: center; padding: 10px 4px; }
+.creature-den__food span:first-child { font-size: 24px; }
 .creature-den__food small { font-size: 11px; opacity: 0.75; }
 .creature-den__food:disabled { cursor: not-allowed; filter: grayscale(1); opacity: 0.45; }
 .creature-den__hint { font-size: 13px; font-weight: 700; margin: 0; opacity: 0.8; }
-
 .creature-den__actions { display: flex; flex-wrap: wrap; gap: 10px; }
-.creature-den__actions button { border: 0; border-radius: 999px; cursor: pointer; font: 900 16px Lexend, system-ui, sans-serif; padding: 11px 22px; }
+.creature-den__actions button { border: 0; border-radius: 999px; cursor: pointer; font: 900 15px Lexend, system-ui, sans-serif; padding: 11px 20px; }
 .creature-den__pet { background: #ffffff1f; color: #fff; }
 .creature-den__recall { background: linear-gradient(180deg, #ffe680, #ffc21a); box-shadow: 0 4px 0 #a8770a; color: #231400; }
 .creature-den__home { background: #ff4f8b; color: #fff; }
-.creature-den__empty { font-weight: 800; opacity: 0.8; }
+
+@keyframes denWander {
+  0%, 100% { margin-left: 0; }
+  50% { margin-left: 34px; }
+}
 
 /* ---------- Sidekick riding with Elli ---------- */
 .sidekick-buddy {
@@ -417,12 +426,20 @@
   justify-items: center;
   padding: 0;
   position: relative;
-  width: 96px;
+  width: 124px;
+}
+
+/* Beside Elli: pinned just left of her portrait (fixed, bottom 16, right 16, 188 wide) and above it. */
+.sidekick-buddy--beside-companion {
+  bottom: 64px;
+  position: fixed;
+  right: 212px;
+  z-index: 10000;
 }
 .sidekick-buddy[data-rarity="rare"] { --tier: var(--rare); }
 .sidekick-buddy[data-rarity="epic"] { --tier: var(--epic); }
 .sidekick-buddy[data-rarity="legendary"] { --tier: var(--legendary); }
-.sidekick-buddy__art { animation: creatureIdleBob 1.6s ease-in-out infinite; filter: drop-shadow(0 6px 10px rgba(0, 0, 0, 0.35)); height: 84px; object-fit: contain; width: 84px; }
+.sidekick-buddy__art { animation: creatureIdleBob 1.6s ease-in-out infinite; filter: drop-shadow(0 0 10px rgba(255, 255, 255, 0.7)) drop-shadow(0 8px 12px rgba(0, 0, 0, 0.4)); height: 116px; object-fit: contain; width: 116px; }
 .sidekick-buddy[data-mood="cheer"] .sidekick-buddy__art { animation: sidekickCheer 0.6s ease-out 2; }
 .sidekick-buddy[data-mood="sleep"] .sidekick-buddy__art { animation: sidekickSleep 3s ease-in-out infinite; opacity: 0.85; }
 .sidekick-buddy__name { background: rgba(15, 23, 42, 0.85); border: 2px solid var(--tier); border-radius: 999px; color: #fff; font: 900 12px Lexend, system-ui, sans-serif; margin-top: -6px; padding: 2px 10px; }
@@ -487,11 +504,11 @@
 }
 
 /* Den creature and sidekick use the same idle life as the orb scene. */
-.creature-den__art[data-idle-life="breathing"] { animation: creatureIdleBob 1.8s ease-in-out infinite, creatureBreathe 1.8s ease-in-out infinite; }
-.creature-den__art[data-idle-life="breathing"][data-idle-fidget="hop"] { animation: creatureBreathe 1.8s ease-in-out infinite, creatureFidgetHop 0.9s cubic-bezier(0.3, 0.7, 0.4, 1); }
-.creature-den__art[data-idle-life="breathing"][data-idle-fidget="tilt"] { animation: creatureIdleBob 1.8s ease-in-out infinite, creatureBreathe 1.8s ease-in-out infinite, creatureFidgetTilt 0.9s ease-in-out; }
-.creature-den__art[data-idle-life="breathing"][data-idle-fidget="wiggle"] { animation: creatureIdleBob 1.8s ease-in-out infinite, creatureBreathe 1.8s ease-in-out infinite, creatureFidgetWiggle 0.9s ease-in-out; }
-.creature-den__art[data-idle-life="breathing"][data-idle-fidget="look"] { animation: creatureBreathe 1.8s ease-in-out infinite, creatureFidgetLook 0.9s ease-in-out; }
+.creature-den__wild[data-idle-life="breathing"] .creature-den__art { animation: creatureIdleBob 1.8s ease-in-out infinite, creatureBreathe 1.8s ease-in-out infinite; }
+.creature-den__wild[data-idle-fidget="hop"] .creature-den__art { animation: creatureBreathe 1.8s ease-in-out infinite, creatureFidgetHop 0.9s cubic-bezier(0.3, 0.7, 0.4, 1); }
+.creature-den__wild[data-idle-fidget="tilt"] .creature-den__art { animation: creatureIdleBob 1.8s ease-in-out infinite, creatureBreathe 1.8s ease-in-out infinite, creatureFidgetTilt 0.9s ease-in-out; }
+.creature-den__wild[data-idle-fidget="wiggle"] .creature-den__art { animation: creatureIdleBob 1.8s ease-in-out infinite, creatureBreathe 1.8s ease-in-out infinite, creatureFidgetWiggle 0.9s ease-in-out; }
+.creature-den__wild[data-idle-fidget="look"] .creature-den__art { animation: creatureBreathe 1.8s ease-in-out infinite, creatureFidgetLook 0.9s ease-in-out; }
 
 .sidekick-buddy[data-idle-life="breathing"] .sidekick-buddy__art { animation: creatureIdleBob 1.6s ease-in-out infinite, creatureBreathe 1.6s ease-in-out infinite; }
 .sidekick-buddy[data-idle-fidget="hop"] .sidekick-buddy__art { animation: creatureBreathe 1.6s ease-in-out infinite, creatureFidgetHop 0.9s cubic-bezier(0.3, 0.7, 0.4, 1); }
@@ -500,6 +517,7 @@
 .sidekick-buddy[data-idle-fidget="look"] .sidekick-buddy__art { animation: creatureBreathe 1.6s ease-in-out infinite, creatureFidgetLook 0.9s ease-in-out; }
 
 @media (prefers-reduced-motion: reduce) {
+  .creature-den__wild,
   .creature-den__art,
   .sidekick-buddy__art { animation: none !important; }
 }

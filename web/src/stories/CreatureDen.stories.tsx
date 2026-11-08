@@ -14,7 +14,7 @@ const meta: Meta = {
     docs: {
       description: {
         component:
-          "Draft den (owner, 2026-11-08): every creature she caught, one room each, recall one as her sidekick next to Elli or send it home, and feed with store food she owns (no free treats). Storybook only; nothing is saved yet.",
+          "Draft den (owner, 2026-11-08): every creature she caught roams the park; tap one for its den card (bond, food, pet, recall as her sidekick next to Elli or send home). Food is store food she owns (no free treats). Storybook only; nothing is saved yet.",
       },
     },
   },
@@ -53,7 +53,7 @@ function DenOnlyStory({ initial }: { initial: DenState }): ReactElement {
   );
 }
 
-export const Den: Story = { name: "Den: three creatures", render: () => <DenOnlyStory initial={STARTER} /> };
+export const Den: Story = { name: "Den: three creatures in the park", render: () => <DenOnlyStory initial={STARTER} /> };
 export const DenOutOfFood: Story = {
   name: "Den: out of food",
   render: () => <DenOnlyStory initial={{ ...STARTER, food: { apple_bite: 0, star_candy: 0, mystery_snack: 0 } }} />,
@@ -101,14 +101,10 @@ function DenWithSessionStory(): ReactElement {
         <p style={{ margin: 0, color: "#4a5a68", fontWeight: 700 }}>
           {sidekick ? `${sidekick.nickname} rides with Elli. Tap ${sidekick.nickname} to send it home.` : "Nobody is riding along. Recall a creature from the den."}
         </p>
-        <div style={{ position: "absolute", right: 20, bottom: 64, display: "flex", alignItems: "flex-end", gap: 6 }}>
-          {sidekick && species ? (
-            <SidekickBuddy creature={species} nickname={sidekick.nickname} cheerKey={cheerKey} onDismiss={() => update(dismissSidekick(state))} />
-          ) : null}
-          <div style={{ position: "relative", width: 190, height: 230 }}>
-            <CompanionLayer childId="ila" companion={companion} toggledOff={companion.toggledOff} mode="portrait" />
-          </div>
-        </div>
+        {sidekick && species ? (
+          <SidekickBuddy creature={species} nickname={sidekick.nickname} cheerKey={cheerKey} onDismiss={() => update(dismissSidekick(state))} />
+        ) : null}
+        <CompanionLayer childId="ila" companion={companion} toggledOff={companion.toggledOff} mode="portrait" />
       </section>
     </div>
   );

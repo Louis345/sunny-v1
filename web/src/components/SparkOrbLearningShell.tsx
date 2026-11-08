@@ -822,7 +822,9 @@ export function SparkOrbLearningShell({
     active: idleLifeActive,
     motion: idleMotion,
     label: "spark-orb-learning-shell",
-    onFidget: () => playSparkOrbSfx("chirp", sfxOptionsRef.current),
+    onFidget: (_fidget, sound) => {
+      if (sound.chirp) playSparkOrbSfx("chirp", sfxOptionsRef.current);
+    },
   });
 
   // Each answer that charges the orb gets a chime; reaching the goal gets the "ready" song.

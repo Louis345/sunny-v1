@@ -15,6 +15,7 @@ import {
   resolveSparkOrbScene,
 } from "../components/sparkOrbScenes";
 import { skyMoodNow } from "../utils/skyClock";
+import { CREATURE_IDLE_CHIRP_COOLDOWN_MS } from "../hooks/useCreatureIdleLife";
 import { DEFAULT_SENSORY_PROFILE } from "../../../src/shared/sensoryProfile";
 import { COMPANION_DEFAULTS, type CompanionConfig } from "../../../src/shared/companionTypes";
 
@@ -1115,5 +1116,22 @@ describe("Spark Orb charge goal", () => {
   it("a ready orb is full whatever the goal", () => {
     renderGoal({ phase: "ready", chargeGoal: 6, lastMoment: "orb_ready" });
     expect(screen.getByText(/Charge 6 \/ 6/)).toBeInTheDocument();
+  });
+});
+
+describe("Lumipuff idle chirps", () => {
+  it("chirps now and then, not on every fidget", () => {
+    vi.useFakeTimers();
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    render(
+      <SparkOrbLearningShell childId="kid" childName="Kid" companion={elliCompanion} phase="ready" domain="spelling" currentTarget="word:spark" lastMoment="orb_ready">
+        <p>Q</p>
+      </SparkOrbLearningShell>,
+    );
+    act(() => vi.advanceTimersByTime(60_000));
+    const chirps = playSparkOrbSfxMock.mock.calls.filter((call) => call[0] === "chirp").length;
+    expect(chirps).toBeGreaterThan(0);
+    expect(chirps).toBeLessThanOrEqual(Math.ceil(60_000 / CREATURE_IDLE_CHIRP_COOLDOWN_MS));
+    vi.restoreAllMocks();
   });
 });

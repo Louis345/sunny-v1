@@ -27,33 +27,49 @@ const state: DenState = {
 };
 
 describe("CreatureDen", () => {
-  it("shows every caught creature, opens one, and recalls or sends it home", () => {
+  it("shows her creatures out in the wild; tapping one opens its den card, and it can be recalled or sent home", () => {
     const onChange = vi.fn();
     const { rerender } = render(<CreatureDen state={state} onChange={onChange} />);
-    expect(screen.getByTestId("den-tile-lumipuff")).toBeInTheDocument();
-    expect(screen.getByTestId("den-tile-glowmoth")).toBeInTheDocument();
+    expect(screen.getByTestId("den-wild-lumipuff")).toBeInTheDocument();
+    expect(screen.getByTestId("den-wild-glowmoth")).toBeInTheDocument();
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByTestId("den-tile-glowmoth"));
-    expect(screen.getByRole("heading", { name: "Glow" })).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId("den-wild-glowmoth"));
+    const card = screen.getByRole("dialog", { name: /Glow/ });
+    expect(card).toHaveTextContent("Glowmoth");
+    expect(card).toHaveTextContent("#003");
+    expect(card).toHaveTextContent("Rare");
     fireEvent.click(screen.getByRole("button", { name: /Recall Glow/ }));
     const recalled = onChange.mock.calls.at(-1)![0] as DenState;
     expect(recalled.sidekickId).toBe("glowmoth");
 
     rerender(<CreatureDen state={recalled} onChange={onChange} />);
-    expect(screen.getByTestId("den-tile-glowmoth")).toHaveAttribute("data-sidekick", "true");
+    expect(screen.getByTestId("den-wild-glowmoth")).toHaveAttribute("data-sidekick", "true");
     fireEvent.click(screen.getByRole("button", { name: /Send Glow home/ }));
     expect((onChange.mock.calls.at(-1)![0] as DenState).sidekickId).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: /Close/ }));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
   it("feeds with store food she owns, and points to the store when she has none", () => {
     const onChange = vi.fn();
     render(<CreatureDen state={state} onChange={onChange} />);
-    fireEvent.click(screen.getByTestId("den-tile-lumipuff"));
-    const apple = screen.getByRole("button", { name: /Apple Bite ×2/ });
-    fireEvent.click(apple);
+    fireEvent.click(screen.getByTestId("den-wild-lumipuff"));
+    fireEvent.click(screen.getByRole("button", { name: /Apple Bite ×2/ }));
     expect((onChange.mock.calls.at(-1)![0] as DenState).food.apple_bite).toBe(1);
     expect(screen.getByRole("button", { name: /Star Candy ×0/ })).toBeDisabled();
     expect(screen.getByText(/Buy more food in the store/)).toBeInTheDocument();
+  });
+
+  it("creatures in the wild stay quiet on their own and chirp only when she taps them", () => {
+    vi.useFakeTimers();
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    render(<CreatureDen state={state} onChange={vi.fn()} />);
+    act(() => vi.advanceTimersByTime(60_000));
+    expect(playSfx).not.toHaveBeenCalledWith("chirp", expect.anything());
+    fireEvent.click(screen.getByTestId("den-wild-lumipuff"));
+    expect(playSfx).toHaveBeenCalledWith("chirp", expect.anything());
   });
 });
 
@@ -84,16 +100,14 @@ describe("SidekickBuddy", () => {
 describe("den creatures feel alive (same idle life as Lumipuff in the orb scene)", () => {
   const glowmoth = CREATURE_CATALOG.find((species) => species.id === "glowmoth")!;
 
-  it("the creature in its room breathes, fidgets at random and chirps", () => {
+  it("every creature in the wild breathes and fidgets on its own random clock", () => {
     vi.useFakeTimers();
     vi.spyOn(Math, "random").mockReturnValue(0);
     render(<CreatureDen state={state} onChange={vi.fn()} />);
-    const art = screen.getByTestId("den-creature-art");
-    expect(art).toHaveAttribute("data-idle-life", "breathing");
-    expect(art).not.toHaveAttribute("data-idle-fidget");
+    const lumi = screen.getByTestId("den-wild-lumipuff");
+    expect(lumi).toHaveAttribute("data-idle-life", "breathing");
     act(() => vi.advanceTimersByTime(2_700));
-    expect(art).toHaveAttribute("data-idle-fidget", "hop");
-    expect(playSfx).toHaveBeenCalledWith("chirp", expect.anything());
+    expect(lumi).toHaveAttribute("data-idle-fidget", "hop");
   });
 
   it("the sidekick fidgets while awake and keeps still while it sleeps", () => {
