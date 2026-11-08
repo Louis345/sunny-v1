@@ -85,4 +85,24 @@ describe("Word Radar independent assessment mode", () => {
     expect(attempts.every(([, payload]) => payload.event.payload.target === "i1")).toBe(true);
     expect(sendMessage.mock.calls.some(([type]) => type === "word_radar_complete")).toBe(false);
   });
+  it("assessment check has no clock: no timer ring and showTimer reported false even when timerSeconds=8", () => {
+    const sendMessage = vi.fn();
+    render(<WordRadar items={items} interimTranscript="" sendMessage={sendMessage} personalBests={{}} onComplete={vi.fn()} assessmentMode autoStart timerSeconds={8} />);
+    expect(screen.getByTestId("word-radar-phase").textContent).toBe("response");
+    expect(screen.queryByTestId("word-radar-timer")).not.toBeInTheDocument();
+    act(() => vi.advanceTimersByTime(3000));
+    expect(screen.queryByTestId("word-radar-timer")).not.toBeInTheDocument();
+    const reported = sendMessage.mock.calls.map(([, payload]) => payload?.event?.payload?.visibleState).filter(Boolean);
+    expect(reported.length).toBeGreaterThan(0);
+    expect(reported.some(state => state.showTimer === true)).toBe(false);
+  });
+  it("practice with a timer keeps a counting-down ring", () => {
+    render(<WordRadar items={items} interimTranscript="" sendMessage={vi.fn()} personalBests={{}} onComplete={vi.fn()} autoStart recallMode="visible_read" inputMode="keyboard" timerSeconds={8} />);
+    act(() => vi.advanceTimersByTime(1600));
+    expect(screen.getByTestId("word-radar-phase").textContent).toBe("response");
+    expect(screen.getByTestId("word-radar-timer")).toBeInTheDocument();
+    expect(screen.getByTestId("word-radar-timer-readout")).toHaveTextContent("8s");
+    act(() => vi.advanceTimersByTime(3000));
+    expect(screen.getByTestId("word-radar-timer-readout").textContent).toMatch(/^[45]s/);
+  });
 });
