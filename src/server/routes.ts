@@ -1,4 +1,5 @@
 import { awardBossDropOnCompletion, awardDiscoveryChest, awardNodeChestOnCompletion, boardFinishedForCall } from "./bossDropAward";
+import { awardCreatureEncounterOnCompletion, countBoardForCreatures, registerCreatureRoutes } from "./creatureCare";
 import type { CoinOffer } from "../shared/companionCareTypes";
 import { runOriginalSpellingForecast } from '../chart/spelling/originalForecast';
 import { setupOriginalSpellingParentRoutes } from './originalSpellingParent';
@@ -1143,6 +1144,9 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
       const finishedForReward = becameCompleted && body.result.completed === true && body.result.won !== false && body.result.earlyExit !== true;
       // Every finished stop opens a treasure chest that pays its coins; the Boss keeps its flat coins and loot card.
       const nodeChest = finishedForReward ? awardNodeChestOnCompletion(finalCycle, nodeId) : undefined;
+      // A creature appears only where the Planner placed one (owner, 2026-11-08); boards count toward milestones.
+      if (becameCompleted && !practiceContinuation && boardFinishedForCall(finalCycle.lifecycle)) countBoardForCreatures(finalCycle, nodeId);
+      const creatureEncounter = finishedForReward ? awardCreatureEncounterOnCompletion(finalCycle, nodeId) : undefined;
       const award = finishedForReward && !nodeChest
         ? reconcileCompanionCareCurrencyAward({
             childId,
@@ -1160,6 +1164,7 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
         ...(nodeChest ? { coinAward: { amount: nodeChest.chest.coins, balance: nodeChest.balance }, nodeChest: nodeChest.chest } : {}),
         ...(videoCallTicket ? { videoCallTicket } : {}),
         ...(bossDrop ? { bossDrop } : {}),
+        ...(creatureEncounter ? { creatureEncounter } : {}),
       });
     } catch (error) {
       console.error(" 🎮 [learning-cycle-route] [completion] [failed]", error);
@@ -1176,6 +1181,8 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
     if (!childId || !receiptId || !offer || !known) return res.status(400).json({ ok: false, error: "purchase_request_invalid" });
     return res.json(purchaseForChild(childId, { receiptId, offer }));
   });
+
+  registerCreatureRoutes(app);
 
   // Owner, 2026-11-07: the earned call burns saved minutes; the server owns the clock.
   app.get("/api/rewards/call/:childId", (req: Request, res: Response) => {

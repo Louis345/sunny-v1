@@ -164,6 +164,11 @@ export type LearningCycleNodeContract = {
   implementationType?: ActiveSessionPlan["nodePlan"][number]["type"];
   /** The earlier built-in activity the Planner named; it is re-launched with this node's items instead of rebuilt. */
   reusedFrom?: string;
+  /**
+   * The Planner placed a creature encounter on this stop (owner, 2026-11-08): rolled after she finishes it,
+   * at most one per board, never chosen by code. A reward that follows the learning; never evidence.
+   */
+  creatureEncounter?: { reason: string; itemIds?: string[] };
   nodeId: string;
   routeId?: string;
   predictionId?: string;
