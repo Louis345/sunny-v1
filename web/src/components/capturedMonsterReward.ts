@@ -2,6 +2,7 @@ import type {
   CapturedMonsterConfig,
   CapturedMonsterLifeState,
 } from "./capturedMonsterCatalog";
+import { DEN_STARTING_BOND } from "./creatureDenRules";
 
 export type CapturedCreatureRewardSource = "spark_orb_learning_shell";
 export type CapturedCreatureChartWriteMode = "storybook_only";
@@ -116,7 +117,7 @@ export function buildCapturedCreatureReward({
   capturedAt = new Date().toISOString(),
   nickname = creature.defaultNickname,
   mood = "curious",
-  bond = 18,
+  bond = DEN_STARTING_BOND,
   source,
 }: BuildCapturedCreatureRewardInput): CapturedCreatureReward {
   const inventoryRecord: CapturedCreatureInventoryRecord = {

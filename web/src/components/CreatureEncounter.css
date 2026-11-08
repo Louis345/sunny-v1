@@ -407,6 +407,27 @@
 .creature-den__recall { background: linear-gradient(180deg, #ffe680, #ffc21a); box-shadow: 0 4px 0 #a8770a; color: #231400; }
 .creature-den__home { background: #ff4f8b; color: #fff; }
 
+.creature-den__rename { display: grid; gap: 8px; grid-template-columns: 1fr auto; }
+.creature-den__rename input { background: #ffffff14; border: 2px solid #ffffff2a; border-radius: 12px; color: #fff; font: 800 15px Lexend, system-ui, sans-serif; padding: 8px 12px; }
+.creature-den__rename button { background: #ffffff24; border: 0; border-radius: 999px; color: #fff; cursor: pointer; font: 900 13px Lexend, system-ui, sans-serif; padding: 8px 14px; }
+.creature-den__rename button:disabled { cursor: default; opacity: 0.4; }
+.creature-den__recall:disabled { box-shadow: none; cursor: not-allowed; filter: grayscale(1); opacity: 0.5; }
+.creature-den__note {
+  align-items: center;
+  background: rgba(255, 79, 139, 0.92);
+  border-radius: 16px;
+  bottom: 20px;
+  display: flex;
+  font-weight: 800;
+  gap: 12px;
+  left: 50%;
+  padding: 12px 16px;
+  position: absolute;
+  transform: translateX(-50%);
+  z-index: 45;
+}
+.creature-den__note button { background: #fff; border: 0; border-radius: 999px; color: #c2185b; cursor: pointer; font: 900 14px Lexend, system-ui, sans-serif; padding: 8px 14px; }
+
 @keyframes denWander {
   0%, 100% { margin-left: 0; }
   50% { margin-left: 34px; }

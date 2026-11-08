@@ -6,10 +6,14 @@ import {
   DEN_FOOD_BOND,
   DEN_FOODS,
   MAX_BOND,
+  MAX_NICKNAME_LENGTH,
+  RECALL_BOND,
+  canRecall,
   denRoster,
   dismissSidekick,
   feedDenCreature,
   recallSidekick,
+  renameDenCreature,
   type DenCreature,
   type DenState,
 } from "./creatureDenRules";
@@ -105,6 +109,12 @@ export function CreatureDen({ state, onChange }: { state: DenState; onChange: (n
   const [reaction, setReaction] = useState<Reaction | null>(null);
   const selected = roster.find((entry) => entry.species.id === selectedId);
   const anyFoodOut = DEN_FOODS.some((food) => (state.food[food.id] ?? 0) <= 0);
+  const [draftName, setDraftName] = useState("");
+  const ranAway = roster.find((entry) => entry.species.id === state.ranAwayId);
+
+  useEffect(() => {
+    setDraftName(selected?.creature.nickname ?? "");
+  }, [selected?.species.id, selected?.creature.nickname]);
 
   function react(id: string, text: string): void {
     playSparkOrbSfx("chirp", {});
@@ -127,6 +137,14 @@ export function CreatureDen({ state, onChange }: { state: DenState; onChange: (n
           <span>{roster.length ? `${roster.length} friends · tap one to visit` : "No creatures yet"}</span>
         </header>
         {roster.length === 0 ? <p className="creature-den__empty">Finish stops and watch the grass!</p> : null}
+        {ranAway ? (
+          <div className="creature-den__note" role="status">
+            <span>{`${ranAway.creature.nickname} missed you and ran home. Feed it to win it back.`}</span>
+            <button type="button" onClick={() => onChange({ ...state, ranAwayId: null })}>
+              Got it
+            </button>
+          </div>
+        ) : null}
         {roster.map(({ species, creature, isSidekick }, index) => (
           <WildCreature
             key={species.id}
@@ -156,6 +174,21 @@ export function CreatureDen({ state, onChange }: { state: DenState; onChange: (n
           </button>
           <span className="creature-den__eyebrow">Your Den</span>
           <h3>{selected.creature.nickname}</h3>
+          <div className="creature-den__rename">
+            <input
+              aria-label="Nickname"
+              maxLength={MAX_NICKNAME_LENGTH}
+              value={draftName}
+              onChange={(event) => setDraftName(event.currentTarget.value)}
+            />
+            <button
+              type="button"
+              disabled={!draftName.trim() || draftName.trim() === selected.creature.nickname}
+              onClick={() => onChange(renameDenCreature(state, selected.species.id, draftName))}
+            >
+              Save name
+            </button>
+          </div>
           <span className="creature-den__species">{`${dexLabel(selected.species)} ${selected.species.speciesName} · ${RARITY_NAME[selected.species.rarity]}`}</span>
           <div className="creature-den__chips">
             <span>{`${selected.species.statLabel} ${selected.species.statValue}`}</span>
@@ -208,12 +241,16 @@ export function CreatureDen({ state, onChange }: { state: DenState; onChange: (n
               <button
                 type="button"
                 className="creature-den__recall"
+                disabled={!canRecall(selected.creature)}
                 onClick={() => onChange(recallSidekick(state, selected.species.id))}
               >
                 {`Recall ${selected.creature.nickname}`}
               </button>
             )}
           </div>
+          {!selected.isSidekick && !canRecall(selected.creature) ? (
+            <p className="creature-den__hint">{`${selected.creature.nickname} is shy. Feed ${selected.creature.nickname} to win it back (${RECALL_BOND} bond needed).`}</p>
+          ) : null}
         </section>
       ) : null}
     </div>

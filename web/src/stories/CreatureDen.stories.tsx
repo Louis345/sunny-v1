@@ -2,10 +2,8 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import { useMemo, useState, type ReactElement } from "react";
 import { CompanionLayer } from "../components/CompanionLayer";
 import { CREATURE_CATALOG } from "../components/capturedMonsterCatalog";
-import { MonsterDenPreview } from "../components/CapturedMonsterDen";
-import { LUMIPUFF_MONSTER } from "../components/capturedMonsterCatalog";
 import { CreatureDen } from "../components/CreatureDen";
-import { dismissSidekick, type DenState } from "../components/creatureDenRules";
+import { dismissSidekick, startDenSession, type DenState } from "../components/creatureDenRules";
 import { SidekickBuddy } from "../components/SidekickBuddy";
 import { companionForChild } from "../storybook/companionForChild";
 
@@ -60,6 +58,24 @@ export const DenOutOfFood: Story = {
   name: "Den: out of food",
   render: () => <DenOnlyStory initial={{ ...STARTER, food: { apple_bite: 0, star_candy: 0, mystery_snack: 0 } }} />,
 };
+export const DenSidekickRanHome: Story = {
+  name: "Den: sidekick ran home (low bond)",
+  render: () => (
+    <DenOnlyStory
+      initial={
+        startDenSession(
+          {
+            ...STARTER,
+            sidekickId: "glowmoth",
+            lastVisitAt: "2026-11-01T18:00:00.000Z",
+          },
+          "2026-11-06T18:00:00.000Z",
+        ).state
+      }
+    />
+  ),
+};
+
 export const DenEmpty: Story = {
   name: "Den: nobody yet",
   render: () => <DenOnlyStory initial={{ creatures: [], sidekickId: null, food: { apple_bite: 3 } }} />,
@@ -95,6 +111,16 @@ function DenWithSessionStory(): ReactElement {
         <h2 style={{ margin: 0, fontSize: 28, color: "#13202b" }}>7 × 8 = ?</h2>
         <button
           type="button"
+          onClick={() => {
+            const from = state.lastVisitAt ?? new Date().toISOString();
+            update(startDenSession({ ...state, lastVisitAt: from }, new Date(Date.parse(from) + 5 * 86_400_000).toISOString()).state);
+          }}
+          style={{ justifySelf: "start", padding: "10px 18px", borderRadius: 999, border: "2px solid #13202b", font: "900 14px Lexend, system-ui, sans-serif", background: "white", color: "#13202b", cursor: "pointer" }}
+        >
+          Skip 5 days away (bond fades)
+        </button>
+        <button
+          type="button"
           onClick={() => setCheerKey((key) => key + 1)}
           style={{ justifySelf: "start", padding: "12px 22px", borderRadius: 999, border: 0, font: "900 16px Lexend, system-ui, sans-serif", background: "#3fbf6a", color: "white", cursor: "pointer" }}
         >
@@ -115,40 +141,4 @@ function DenWithSessionStory(): ReactElement {
 export const DenWithSession: Story = {
   name: "Recall and dismiss: den beside a session",
   render: () => <DenWithSessionStory />,
-};
-
-/* ---------- Old prototype vs new den, side by side ---------- */
-
-function CompareStory(): ReactElement {
-  const [state, setState] = useState(STARTER);
-  const label = (text: string) => (
-    <div style={{ padding: "10px 16px", background: "#13202b", color: "#ffd84d", font: "900 14px Lexend, system-ui, sans-serif", letterSpacing: ".08em" }}>
-      {text}
-    </div>
-  );
-  return (
-    <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr)", background: "#0b0820" }}>
-      <div style={{ display: "grid", gridTemplateRows: "auto 1fr", minWidth: 0 }}>
-        {label("OLD PROTOTYPE · one creature in a room")}
-        <div style={{ padding: 16, background: "#eef2f6" }}>
-          <MonsterDenPreview creature={LUMIPUFF_MONSTER} initialNickname="Lumi" />
-        </div>
-      </div>
-      <div style={{ display: "grid", gridTemplateRows: "auto 1fr", minWidth: 0, overflow: "hidden" }}>
-        {label("NEW · all her creatures in the park, tap one for its den card")}
-        <CreatureDen
-          state={state}
-          onChange={(next) => {
-            logDen(next);
-            setState(next);
-          }}
-        />
-      </div>
-    </div>
-  );
-}
-
-export const CompareOldAndNew: Story = {
-  name: "Compare: old prototype vs new den",
-  render: () => <CompareStory />,
 };

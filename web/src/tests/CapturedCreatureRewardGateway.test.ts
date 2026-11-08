@@ -6,6 +6,7 @@ import {
   createStorybookMonsterInventory,
   recordCapturedCreatureReward,
 } from "../components/capturedMonsterReward";
+import { DEN_STARTING_BOND } from "../components/creatureDenRules";
 
 const capturedAt = "2026-05-30T17:00:00.000Z";
 
@@ -83,7 +84,7 @@ describe("captured creature reward gateway", () => {
       creatureId: "lumipuff",
       nickname: "Lumi",
       mood: "curious",
-      bond: 18,
+      bond: DEN_STARTING_BOND,
       sidekickSelected: false,
       capturedAt,
       origin: {

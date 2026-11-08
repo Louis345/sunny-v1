@@ -20,7 +20,7 @@ afterEach(() => {
 const state: DenState = {
   creatures: [
     { creatureId: "lumipuff", nickname: "Lumi", bond: 40, caughtAt: "2026-11-01T18:00:00.000Z" },
-    { creatureId: "glowmoth", nickname: "Glow", bond: 20, caughtAt: "2026-11-08T21:00:00.000Z" },
+    { creatureId: "glowmoth", nickname: "Glow", bond: 34, caughtAt: "2026-11-08T21:00:00.000Z" },
   ],
   sidekickId: null,
   food: { apple_bite: 2, star_candy: 0, mystery_snack: 1 },
@@ -70,6 +70,34 @@ describe("CreatureDen", () => {
     expect(playSfx).not.toHaveBeenCalledWith("chirp", expect.anything());
     fireEvent.click(screen.getByTestId("den-wild-lumipuff"));
     expect(playSfx).toHaveBeenCalledWith("chirp", expect.anything());
+  });
+});
+
+describe("CreatureDen bond stakes and renaming", () => {
+  it("locks recall for a shy creature and says how to win it back", () => {
+    const shy: DenState = { ...state, creatures: [{ creatureId: "glowmoth", nickname: "Glow", bond: 12, caughtAt: "x" }] };
+    render(<CreatureDen state={shy} onChange={vi.fn()} />);
+    fireEvent.click(screen.getByTestId("den-wild-glowmoth"));
+    expect(screen.getByRole("button", { name: /Recall Glow/ })).toBeDisabled();
+    expect(screen.getByText(/Feed Glow to win it back/)).toBeInTheDocument();
+  });
+
+  it("tells her when her sidekick ran home, and the note can be closed", () => {
+    const onChange = vi.fn();
+    render(<CreatureDen state={{ ...state, ranAwayId: "glowmoth" }} onChange={onChange} />);
+    expect(screen.getByRole("status")).toHaveTextContent("Glow missed you and ran home");
+    fireEvent.click(screen.getByRole("button", { name: /Got it/ }));
+    expect((onChange.mock.calls.at(-1)![0] as DenState).ranAwayId).toBeNull();
+  });
+
+  it("renames a creature from its den card", () => {
+    const onChange = vi.fn();
+    render(<CreatureDen state={state} onChange={onChange} />);
+    fireEvent.click(screen.getByTestId("den-wild-lumipuff"));
+    fireEvent.change(screen.getByLabelText("Nickname"), { target: { value: "Bubbles" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save name" }));
+    const renamed = onChange.mock.calls.at(-1)![0] as DenState;
+    expect(renamed.creatures.find((c) => c.creatureId === "lumipuff")!.nickname).toBe("Bubbles");
   });
 });
 
