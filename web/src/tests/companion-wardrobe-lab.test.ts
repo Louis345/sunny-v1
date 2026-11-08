@@ -57,7 +57,9 @@ describe("companion wardrobe feasibility lab", () => {
     expect(source).toContain("handleWardrobeStoreChange");
     expect(source).toContain("wardrobeStoreOpen");
     expect(source).toContain("onGoShopping=");
-    expect(source).toContain("wardrobeLabEnabled && wardrobeStoreOpen");
+    // The shop opens with the lab flag or inside an earned call on her saved coins (owner, 2026-11-07); never otherwise.
+    expect(source).toContain("wardrobeShopEnabled && wardrobeStoreOpen");
+    expect(source).toContain("const wardrobeShopEnabled = wardrobeLabEnabled || Boolean(earnedCallWallet);");
     expect(source).toContain("onExit={closeWardrobeStore}");
   });
 

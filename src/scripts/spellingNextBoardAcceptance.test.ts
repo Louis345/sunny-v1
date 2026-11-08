@@ -19,7 +19,7 @@ import type { RecordedToolLab } from "./fixtures/recordedToolPlanner";
 import { COMPANION_DEFAULTS } from "../shared/companionTypes";
 import { handleWsConnection } from "../server/ws-handler";
 import { getActiveVoiceSessionManagerForChild } from "../server/voice-session-registry";
-import { leaveStopToMap } from "./acceptanceTreasure";
+import { collectTreasureIfShown, leaveStopToMap, skipRatingAfterTreasure } from "./acceptanceTreasure";
 
 // 2026-10-21 human catch: every fix today passed its own tests, yet each real session on the kiosk Mac
 // found the next failure (a rejected canvas, a frozen board, AI rebuilds of reused games, an explainer
@@ -135,7 +135,7 @@ it("plays Discovery, the Teaching board and a reused next board through the real
       await hearAndSpell(index >= 6 ? "zzz" : word);
       if (index < words.length - 1) await page.getByTestId("word-radar-input").waitFor();
     }
-    await page.getByText("Skip", { exact: true }).click();
+    await skipRatingAfterTreasure(page);
     await page.getByRole("button", { name: "Let's go!", exact: true }).or(page.locator(".adventure-board")).first().waitFor({ timeout: 60000 });
     expect(automaticGeneration).toBeDefined();
     await automaticGeneration;
@@ -213,6 +213,7 @@ it("plays Discovery, the Teaching board and a reused next board through the real
     ws.clients.forEach(socket => socket.terminate());
     await elliSeesScreen(/Recall Checkpoint is open/);
     await playRadar(words, true);
+    await collectTreasureIfShown(page);
     await page.getByTestId("post-activity-engagement-overlay").getByRole("button", { name: "Play again", exact: true }).waitFor();
     await noModal();
     // Completing the Teaching board calls the Planner once, and the server builds the next board by itself.
@@ -244,6 +245,7 @@ it("plays Discovery, the Teaching board and a reused next board through the real
     await playLetterRush(label("Letter Rush"), missedWords);
     await page.getByRole("button", { name: label("Recall Checkpoint"), exact: true }).click();
     await playRadar(words, true);
+    await collectTreasureIfShown(page);
     await page.getByTestId("post-activity-engagement-overlay").getByRole("button", { name: "Play again", exact: true }).waitFor();
     await noModal();
     // Every answer lands on the next board's fresh questions, and finishing it hands back to the Planner.

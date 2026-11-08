@@ -9,6 +9,7 @@ import { createLearningCycle, getLearningCycle, type LearningCycleNodeContract }
 import { advanceCanonicalCycleFromEvidence, recordCanonicalNodeCompletion } from "../engine/learningCycleRuntime";
 import { reconcileCompanionCareCurrencyAward } from "./currencyAward";
 import { setupRoutes } from "./routes";
+import { CHEST_TABLE } from "../shared/rewardCatalog";
 
 vi.mock("../engine/learningCycleRuntime", async original => ({
   ...await original<typeof import("../engine/learningCycleRuntime")>(),
@@ -125,8 +126,14 @@ describe("finished native spelling participation", () => {
     const result = nativeEnding(game, true);
     expect(result).toMatchObject({ completed: true, ended: true, won: true });
     const first = (await post(result)).body;
-    expect(first).toMatchObject({ nodeState: "completed", coinAward: { amount: 25 }, nodeChest: { kind: "common", rarity: "common", coins: 25 } });
-    expect((first.coinAward as { balance: number }).balance).toBeGreaterThanOrEqual(25);
+    // Every chest is a surprise (owner, 2026-11-07): a practice stop's chest is at least common and rolls its coins.
+    expect(first).toMatchObject({ nodeState: "completed", nodeChest: { kind: "common" } });
+    const chest = first.nodeChest as { rarity: keyof typeof CHEST_TABLE; coins: number };
+    const [min, max] = CHEST_TABLE[chest.rarity].coinRange;
+    expect(chest.coins).toBeGreaterThanOrEqual(min);
+    expect(chest.coins).toBeLessThanOrEqual(max);
+    expect((first.coinAward as { amount: number }).amount).toBe(chest.coins);
+    expect((first.coinAward as { balance: number }).balance).toBeGreaterThanOrEqual(chest.coins);
     const again = (await post(result)).body;
     expect(again.coinAward).toBeUndefined();
     expect(again.nodeChest).toBeUndefined();

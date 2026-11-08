@@ -31,7 +31,7 @@ import { handleWsConnection } from "../server/ws-handler";
 import { SessionManager } from "../server/session-manager";
 import * as legacyLearning from "../engine/learningEngine";
 import { trackedBody, waitForUnfinishedBodies } from "../tests/unfinishedTestBodies";
-import { leaveStopToMap } from "./acceptanceTreasure";
+import { collectTreasureIfShown, leaveStopToMap, skipRatingAfterTreasure } from "./acceptanceTreasure";
 const lab = vi.hoisted(() => ({ root: "", plannerCalls: 0, adaptive: false, refusePreparation: false, refusalCalls: 0 }));
 vi.mock("../engine/assignmentPlanner", async original => ({ ...await original<typeof import("../engine/assignmentPlanner")>(), planAssignmentFromSourceWithTelemetry: async (packet: any) => { lab.plannerCalls++; return { output: lab.adaptive ? recordedAdaptiveSpellingPlan(packet, lab.root) : recordedSpellingPlan(packet, lab.root), telemetry: { model: "recorded", latencyMs: 1 } }; } }));
 vi.mock("../engine/learningCycleRuntime", async original => { const actual = await original<typeof import("../engine/learningCycleRuntime")>(); return { ...actual, advanceCanonicalCycleFromEvidence: (input: any, opts: any) => actual.advanceCanonicalCycleFromEvidence({ ...input, decide: async cycle => ({ status: "inconclusive", reason: "Immediate recall is not retention", progressionAction: "await_calibration", preserve: [], change: [], testNext: [], nextEvidenceRequired: ["Delayed recall"], predictionEvaluationIds: cycle.predictionEvaluations.map(row => row.evaluationId) }) }, opts) }; });
@@ -317,7 +317,7 @@ it.each([
         expect(await page.getByText(words[2], { exact: true }).count()).toBe(0);
       }
     }
-    await page.getByText("Skip", { exact: true }).click();
+    await skipRatingAfterTreasure(page);
     if (lab.refusePreparation) {
       await expect.poll(() => preparationFailure).toBe("learning_design_provider_refused");
       await page.getByText("Building paused", { exact: true }).waitFor({ timeout: 5000 });
@@ -512,6 +512,7 @@ it.each([
         await answer(word);
         if (index < words.length - 1) await page.getByTestId("word-radar-input").waitFor();
       }
+      await collectTreasureIfShown(page);
       await page.getByTestId("post-activity-engagement-overlay").getByRole("button", { name: "Play again", exact: true }).waitFor();
       await page.screenshot({ path: completionScreenshotPath });
 
@@ -626,10 +627,11 @@ it.each([
     await page.getByText("Word workshop", { exact: true }).first().click();
     await page.getByRole("button", { name: "Ready!", exact: true }).click();
     await page.getByTestId("word-radar-input").fill("light");
-    await page.getByText("Skip", { exact: true }).click();
+    await skipRatingAfterTreasure(page);
     await page.getByText("Recall check", { exact: true }).first().click();
     await page.getByRole("button", { name: "Ready!", exact: true }).click();
     await answer("night"); await page.getByTestId("word-radar-input").waitFor(); await answer("light");
+    await collectTreasureIfShown(page);
     await page.getByRole("button", { name: "Play again", exact: true }).waitFor();
     const after = getLearningCycle(childId, homeworkId, { rootDir })!;
     expect(after.predictionEvaluations).toHaveLength(2);
@@ -645,6 +647,7 @@ it.each([
     await page.getByTestId("word-radar-btn-skip").click();
     await page.getByTestId("word-radar-input").waitFor();
     await page.getByTestId("word-radar-input").fill("light");
+    await collectTreasureIfShown(page);
     await page.getByRole("button", { name: "Play again", exact: true }).waitFor();
     const replayed = getLearningCycle(childId, homeworkId, { rootDir })!;
     expect(replayed.observations.slice(0, after.observations.length)).toEqual(after.observations);
@@ -669,7 +672,7 @@ it.each([
     expect(replayFacts[1].childResponse).toBe("light");
     // Each replay answer now uses the original per-answer endpoint; completion must add no duplicate.
     expect(events.filter(event => event.includes("/discovery/attempt"))).toHaveLength(attemptsBeforeReplay + 2);
-    await page.getByText("Skip", { exact: true }).click();
+    await skipRatingAfterTreasure(page);
     expect(events).toContain("canonical-game:attempt_event");
     expect(legacyAttempt).not.toHaveBeenCalled();
     expect(errors).toEqual([]);

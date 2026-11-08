@@ -229,7 +229,7 @@ async function legacyJourney(frame: Frame): Promise<CreatorManifest> {
 async function dismissCompletion(page: Page): Promise<void> {
   const stage = page.getByTestId("post-activity-treasure-stage");
   if (await stage.isVisible().catch(() => false)) {
-    await stage.getByRole("button", { name: /tap to open/i }).click();
+    await stage.getByRole("button", { name: /tap to open/i }).click({ force: true }); // it pulses to invite a tap
     await stage.getByRole("button", { name: /^collect$/i }).click({ timeout: 6000 });
   }
   for (const name of [/Skip fun rating/i, /Back to map/i]) {
