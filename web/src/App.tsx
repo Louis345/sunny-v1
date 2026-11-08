@@ -2597,6 +2597,7 @@ function App() {
             replayWords={plannerBoardLaunch.node.words ?? []}
             pronunciationConfig={plannerBoardLaunch.node.pronunciationConfig}
             interimTranscript={liveFlowStt}
+            settleTailMs={600}
             sendMessage={sendMessage}
             backgroundImageUrl={state.canvas.backgroundImageUrl}
             accentColor={state.companion?.accentColor}
