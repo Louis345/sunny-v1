@@ -35,3 +35,18 @@ it("tells the Planner which words were not checked yet",()=>{
   expect(facts.notCheckedYet).toEqual(["lucky"]);
   expect((creator as any).compactPlannerFacts(packet()).notCheckedYet).toBeUndefined();
 });
+
+// Owner, 2026-11-07: trim every Planner request. Her teaching-board request was 91k characters, 66k of them the
+// history of every word she ever practiced. The Planner keeps full history for this list's words and one summary
+// line for the rest.
+it("keeps full history only for this list's words and summarizes the rest",()=>{
+  const base=packet() as any;
+  base.discoveryEvidence.summary.spellingTargets=[{word:"shiny",itemId:"item-0",constructId:"spelling.word.0"},{word:"lucky",itemId:"item-1",constructId:"spelling.word.1"}];
+  base.discoveryEvidence.history={constructs:{
+    "spelling.word.0":{observations:[{observationId:"h1",result:{correct:true},childResponse:"shiny"}],evaluations:[]},
+    "spelling.word.old":{observations:[{observationId:"h2",result:{correct:false},childResponse:"bote"},{observationId:"h3",result:{correct:true},childResponse:"boat"}],evaluations:[]},
+  }};
+  const facts=(creator as any).compactPlannerFacts(base);
+  expect(Object.keys(facts.history)).toEqual(["spelling.word.0"]);
+  expect(facts.earlierWords).toEqual({words:1,answers:2,correct:1});
+});

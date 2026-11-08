@@ -1252,7 +1252,12 @@ const PLANNER_CARD_FIELDS=["activityId","label","purposes","skillTargets","bestF
 export function compactPlannerFacts(packet:AssignmentPlanningPacket) {
   const evidence=packet.discoveryEvidence as unknown as {summary?:{coverage?:unknown;spellingTargets?:Array<{word:string;itemId:string}>};observations?:Array<{observationId:string;itemId?:string;childResponse?:string;result?:{correct?:boolean};assistance?:{status?:string}}>;history?:{constructs?:Record<string,{observations?:Array<{observationId:string;result?:{correct?:boolean};childResponse?:string}>;evaluations?:Array<{evaluationId:string}>}>}}|undefined;
   const wordByItem=new Map((evidence?.summary?.spellingTargets??[]).map(target=>[target.itemId,target.word]));
-  const history=Object.entries(evidence?.history?.constructs??{}).filter(([,entry])=>(entry.observations?.length??0)+(entry.evaluations?.length??0)>0);
+  // Trim (owner, 2026-11-07): full history for this list's words only; every earlier word becomes one summary line.
+  const listConstructs=new Set((evidence?.summary?.spellingTargets as Array<{constructId?:string}>|undefined??[]).map(target=>target.constructId).filter(Boolean));
+  const withHistory=Object.entries(evidence?.history?.constructs??{}).filter(([,entry])=>(entry.observations?.length??0)+(entry.evaluations?.length??0)>0);
+  const history=listConstructs.size?withHistory.filter(([construct])=>listConstructs.has(construct)):withHistory;
+  const earlier=listConstructs.size?withHistory.filter(([construct])=>!listConstructs.has(construct)):[];
+  const earlierAnswers=earlier.flatMap(([,entry])=>entry.observations??[]);
   return {
     homework:packet.capturedHomework,childChart:packet.childChart,masteryContext:packet.masteryContext,
     activityCatalog:(packet.activityCatalog as unknown as Array<Record<string,unknown>&{activityId:string;domains?:string[];capabilityModes?:Array<{id:string;label:string;purpose?:string;config?:unknown}>}>)
@@ -1262,6 +1267,7 @@ export function compactPlannerFacts(packet:AssignmentPlanningPacket) {
     ...(evidence?.summary?.coverage?{coverage:evidence.summary.coverage}:{}),
     // Contract 54: words the opening chose not to check are unknown; a later check is how they get a baseline.
     ...((evidence?.summary?.coverage as {notCheckedItemIds?:string[]}|undefined)?.notCheckedItemIds?.length?{notCheckedYet:(evidence!.summary!.coverage as {notCheckedItemIds:string[]}).notCheckedItemIds.map(id=>wordByItem.get(id)??id)}:{}),
+    ...(earlier.length?{earlierWords:{words:earlier.length,answers:earlierAnswers.length,correct:earlierAnswers.filter(row=>row.result?.correct===true).length}}:{}),
     ...(history.length?{history:Object.fromEntries(history.map(([construct,entry])=>[construct,{observations:(entry.observations??[]).map(row=>({observationId:row.observationId,typed:row.childResponse??null,correct:row.result?.correct??null})),evaluations:(entry.evaluations??[]).map(row=>row.evaluationId)}]))}:{}),
   };
 }
