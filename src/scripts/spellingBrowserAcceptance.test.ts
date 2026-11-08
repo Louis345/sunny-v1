@@ -31,6 +31,7 @@ import { handleWsConnection } from "../server/ws-handler";
 import { SessionManager } from "../server/session-manager";
 import * as legacyLearning from "../engine/learningEngine";
 import { trackedBody, waitForUnfinishedBodies } from "../tests/unfinishedTestBodies";
+import { leaveStopToMap } from "./acceptanceTreasure";
 const lab = vi.hoisted(() => ({ root: "", plannerCalls: 0, adaptive: false, refusePreparation: false, refusalCalls: 0 }));
 vi.mock("../engine/assignmentPlanner", async original => ({ ...await original<typeof import("../engine/assignmentPlanner")>(), planAssignmentFromSourceWithTelemetry: async (packet: any) => { lab.plannerCalls++; return { output: lab.adaptive ? recordedAdaptiveSpellingPlan(packet, lab.root) : recordedSpellingPlan(packet, lab.root), telemetry: { model: "recorded", latencyMs: 1 } }; } }));
 vi.mock("../engine/learningCycleRuntime", async original => { const actual = await original<typeof import("../engine/learningCycleRuntime")>(); return { ...actual, advanceCanonicalCycleFromEvidence: (input: any, opts: any) => actual.advanceCanonicalCycleFromEvidence({ ...input, decide: async cycle => ({ status: "inconclusive", reason: "Immediate recall is not retention", progressionAction: "await_calibration", preserve: [], change: [], testNext: [], nextEvidenceRequired: ["Delayed recall"], predictionEvaluationIds: cycle.predictionEvaluations.map(row => row.evaluationId) }) }, opts) }; });
@@ -500,7 +501,7 @@ it.each([
         await next.waitFor();
         await next.click();
       }
-      await page.getByTestId("post-activity-engagement-overlay").getByRole("button", { name: "Back to map", exact: true }).click();
+      await leaveStopToMap(page);
       await expect.poll(() => getLearningCycle(childId, homeworkId, { rootDir })?.nodes.find((node) => node.nodeId === "recall-checkpoint")?.state).toBe("ready");
       await page.getByRole("button", { name: "Recall Checkpoint", exact: true }).click();
       await page.getByRole("button", { name: "Ready!", exact: true }).click();

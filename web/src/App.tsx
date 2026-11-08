@@ -2566,9 +2566,14 @@ function App() {
               onOpenVideoCall={
                 postActivityEngagement.videoCallTicket && !rewardCallHeld ? openEarnedVideoCall : null
               }
-            >
-              {nodeChest ? <NodeTreasureChest compact {...chestFromServer(nodeChest)} onOpened={() => { if (nodeChest.bonus && nodeChest.homeworkId && nodeChest.nodeId) sendMessage("reward_drop", { homeworkId: nodeChest.homeworkId, nodeId: nodeChest.nodeId }); }} onCollect={() => undefined} /> : null}
-            </PostActivityEngagementOverlay>
+              treasure={nodeChest ? (finish) => (
+                <NodeTreasureChest
+                  {...chestFromServer(nodeChest)}
+                  onOpened={() => { if (nodeChest.bonus && nodeChest.homeworkId && nodeChest.nodeId) sendMessage("reward_drop", { homeworkId: nodeChest.homeworkId, nodeId: nodeChest.nodeId }); }}
+                  onCollect={finish}
+                />
+              ) : null}
+            />
           ) : null}
         </FlowGameOverlay>
       ) : null}
@@ -2657,9 +2662,14 @@ function App() {
               onOpenVideoCall={
                 postActivityEngagement.videoCallTicket && !rewardCallHeld ? openEarnedVideoCall : null
               }
-            >
-              {nodeChest ? <NodeTreasureChest compact {...chestFromServer(nodeChest)} onOpened={() => { if (nodeChest.bonus && nodeChest.homeworkId && nodeChest.nodeId) sendMessage("reward_drop", { homeworkId: nodeChest.homeworkId, nodeId: nodeChest.nodeId }); }} onCollect={() => undefined} /> : null}
-            </PostActivityEngagementOverlay>
+              treasure={nodeChest ? (finish) => (
+                <NodeTreasureChest
+                  {...chestFromServer(nodeChest)}
+                  onOpened={() => { if (nodeChest.bonus && nodeChest.homeworkId && nodeChest.nodeId) sendMessage("reward_drop", { homeworkId: nodeChest.homeworkId, nodeId: nodeChest.nodeId }); }}
+                  onCollect={finish}
+                />
+              ) : null}
+            />
           ) : null}
         </FlowGameOverlay>
       ) : null}

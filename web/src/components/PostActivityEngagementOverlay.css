@@ -1,0 +1,9 @@
+/* The treasure moment (owner, 2026-11-07): the whole screen belongs to the chest. */
+.post-activity-treasure-stage{background:radial-gradient(circle at 50% 55%,#2a1d5c 0%,#120c2c 55%,#05030f 100%);}
+.post-activity-treasure-stage .node-chest{background:none;min-height:0;padding-top:0;}
+.post-activity-treasure-stage .node-chest__stage{scale:1.15;}
+.post-activity-treasure-stage__sparkles{position:absolute;inset:0;pointer-events:none;}
+.post-activity-treasure-stage__sparkles span{position:absolute;left:calc(var(--i) * 5.6%);bottom:-20px;width:6px;height:6px;border-radius:50%;
+  background:#fff6d8;box-shadow:0 0 10px #ffd96a;opacity:0;animation:treasure-sparkle calc(5s + var(--i) * .37s) linear calc(var(--i) * -.61s) infinite;}
+@keyframes treasure-sparkle{0%{transform:translateY(0) scale(.6);opacity:0;}15%{opacity:.9;}85%{opacity:.7;}100%{transform:translateY(-105vh) scale(1.2);opacity:0;}}
+@media (prefers-reduced-motion: reduce){.post-activity-treasure-stage__sparkles span{animation:none;opacity:0;}}

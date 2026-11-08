@@ -77,3 +77,5 @@
   .node-chest *,.node-chest *::before{animation:none!important;transition:none!important;}
   .node-chest[data-phase="open"] .node-chest__rays{opacity:.6;}
 }
+
+.node-chest__item-note{display:block;margin-top:4px;font-size:14px;font-weight:700;color:#fff6d8;}

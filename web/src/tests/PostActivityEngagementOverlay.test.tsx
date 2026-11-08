@@ -183,3 +183,33 @@ it("keeps its buttons reachable when its content is taller than the screen", () 
   expect(overlay.className).toContain("overflow-y-auto");
   expect(overlay.className).not.toMatch(/(^|\s)justify-center(\s|$)/);
 });
+
+// Owner, 2026-11-07, after Ila's session: the treasure is the center of attention. When a stop earns a chest, the
+// screen opens on the chest alone; the summary (rating, buttons) comes only after she collects it.
+describe("treasure first", () => {
+  it("shows only the chest until she collects it, then the summary", () => {
+    const onAction = vi.fn();
+    render(
+      <PostActivityEngagementOverlay
+        title="Letter Box Trek"
+        outcome={{ completed: true, accuracy: 0.8 }}
+        onAction={onAction}
+        onFunRating={vi.fn()}
+        treasure={(finish) => <button type="button" onClick={finish}>Collect treasure</button>}
+      />,
+    );
+    expect(screen.getByTestId("post-activity-treasure-stage")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Back to map" })).toBeNull();
+    expect(screen.queryByLabelText("Activity fun rating")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Collect treasure" }));
+    expect(screen.queryByTestId("post-activity-treasure-stage")).toBeNull();
+    expect(screen.getByRole("button", { name: "Back to map" })).toBeTruthy();
+    expect(screen.getByLabelText("Activity fun rating")).toBeTruthy();
+  });
+
+  it("goes straight to the summary when there is no treasure", () => {
+    render(<PostActivityEngagementOverlay title="Letter Box Trek" outcome={{ completed: true }} onAction={vi.fn()} />);
+    expect(screen.queryByTestId("post-activity-treasure-stage")).toBeNull();
+    expect(screen.getByRole("button", { name: "Back to map" })).toBeTruthy();
+  });
+});

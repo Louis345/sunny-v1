@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import type { PostActivityAction } from "../../../src/engine/choiceEvents";
+import "./PostActivityEngagementOverlay.css";
 
 export type PostActivityOutcome = {
   completed: boolean;
@@ -32,6 +33,8 @@ export type PostActivityEngagementOverlayProps = {
   onFunRating?: (rating: 1 | 2 | 3 | 4 | 5 | null) => void;
   coinAward?: { amount: number; balance: number } | null;
   onOpenVideoCall?: (() => void) | null;
+  /** The chest she earned (owner, 2026-11-07): shown alone, center stage, before the summary. `finish` moves on. */
+  treasure?: ((finish: () => void) => ReactNode) | null;
 };
 
 function accuracyLabel(value: number | undefined): string | null {
@@ -57,7 +60,9 @@ export function PostActivityEngagementOverlay({
   onFunRating,
   coinAward,
   onOpenVideoCall,
+  treasure,
 }: PostActivityEngagementOverlayProps) {
+  const [treasureDone, setTreasureDone] = useState(false);
   const [hoveredRating, setHoveredRating] = useState<1 | 2 | 3 | 4 | 5 | null>(null);
   const [selectedRating, setSelectedRating] = useState<1 | 2 | 3 | 4 | 5 | null>(null);
   const ratingTimerRef = useRef<number | null>(null);
@@ -73,6 +78,23 @@ export function PostActivityEngagementOverlay({
       : []),
   ];
   const visibleStats = stats ?? fallbackStats;
+
+  if (treasure && !treasureDone) {
+    return (
+      <div
+        data-testid="post-activity-treasure-stage"
+        className="post-activity-treasure-stage fixed inset-0 z-[120] flex flex-col items-center justify-center overflow-hidden px-6 text-center text-white"
+        style={{ pointerEvents: "auto" }}
+      >
+        <div className="post-activity-treasure-stage__sparkles" aria-hidden="true">
+          {Array.from({ length: 18 }, (_, index) => <span key={index} style={{ ["--i" as string]: index }} />)}
+        </div>
+        <p className="relative text-sm font-black uppercase tracking-widest text-amber-200">{title}</p>
+        <h1 className="relative mt-1 text-4xl font-black">You found a treasure!</h1>
+        <div className="relative mt-6">{treasure(() => setTreasureDone(true))}</div>
+      </div>
+    );
+  }
 
   return (
     <div
