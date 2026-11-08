@@ -71,6 +71,8 @@ type BuildSnapshotInput = {
   canonicalPractice?: boolean;
   /** The Planner's current theory of her learning; reaches the companion on practice only. */
   plannerRead?: string;
+  /** She asked for help on this word and it is recorded as helped (contract 54): the companion may teach it. */
+  helpGranted?: boolean;
 };
 
 /** The Planner's frozen item role grants teaching; a browser visibility flag does not. */
@@ -272,6 +274,8 @@ export function buildCurrentBoardSnapshot(
     snapshot.spellingSupportMode ??= input.canonicalPractice === true && state.assessmentMode !== true
       && state.evidenceTier !== "mastery_candidate" ? "pronunciation_model" : "stimulus_only";
   }
+  // Help she asked for is already on the record as assisted, so the companion may teach this word.
+  if (input.helpGranted && snapshot.spellingTarget) snapshot.spellingSupportMode = "pronunciation_model";
   return snapshot;
 }
 

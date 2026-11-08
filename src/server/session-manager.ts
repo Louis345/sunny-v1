@@ -50,7 +50,7 @@ import {
 import { recordWordRadarAttempts } from "./recordWordRadarAttempts";
 import { recordLearningAttempt } from "./learningAttemptEvents";
 import { type ModelMessage } from "ai";
-import { markCurrentSpellingSupport, recordSpellingAudio, replyGivesSpelling, snapshotOnSpellingItem } from "./spellingSpeechEvidence";
+import { grantSpellingHelpOnRequest, markCurrentSpellingSupport, recordSpellingAudio, replyGivesSpelling, snapshotOnSpellingItem } from "./spellingSpeechEvidence";
 import { createSpeechTools, speechScopeFor } from "./companionSpeechTools";
 import { createReplayWordTools } from "./companionReplayTool";
 import type { HomeworkExtractionResult } from "../agents/psychologist/psychologist";
@@ -817,7 +817,7 @@ export class SessionManager {
       return;
     }
     const cycle = getChildChart(this.chartChildId).learningCycle;
-    const canonicalPractice = canonicalSpellingPractice(cycle, this.spellingLaunch, this.spellingAssessment, state); const snapshot = buildCurrentBoardSnapshot({ childId: this.chartChildId, sessionId: this.sessionId, state, assessment: this.spellingAssessment, canonicalPractice, plannerRead: cycle?.academicTheory?.hypothesis });
+    const canonicalPractice = canonicalSpellingPractice(cycle, this.spellingLaunch, this.spellingAssessment, state); const snapshot = buildCurrentBoardSnapshot({ childId: this.chartChildId, sessionId: this.sessionId, state, assessment: this.spellingAssessment, canonicalPractice, plannerRead: cycle?.academicTheory?.hypothesis, helpGranted: this.spellingAssessment?.helpRequested === true && this.spellingAssessment.itemId === state.itemId });
     this.currentBoardSnapshot = noteSupportModeChange(this.currentBoardSnapshot, snapshot, { canonicalPractice, answerVisibility: state.answerVisibility });
     if (snapshot.nodeId && snapshot.itemId && (snapshot.phase === "question" || snapshot.phase === "response")) {
       this.bindMathDiscoverySupport(snapshot.nodeId, snapshot.itemId);
@@ -1782,7 +1782,7 @@ export class SessionManager {
           currentActivityState: this.currentActivityState,
           currentCanvasState: this.currentCanvasState,
         })
-      : null;
+      : null; if (urgentRoute?.intent.type === "help_request") grantSpellingHelpOnRequest(this.spellingAssessment, this.currentBoardSnapshot); // contract 54
     const companionConversationOpen = this.companionPresence === "summoned"
       && this.companionInteractionMode === "conversation";
     if ((presenceRoute.action === "dismiss" || (!urgentRoute?.intent.shouldInterrupt && !companionConversationOpen)) && handleCompanionPresenceTranscript({
