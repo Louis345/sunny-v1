@@ -13,6 +13,8 @@
 - **Loot needs more cheap common items.** Only 2 common and 2 rare items exist; she has the Royal Crown and Cat Ears already. Add hair colours, stickers, poses, backgrounds; orbs join the loot table later.
 - **Math on the one pipeline: next steps.** The next math board after the check-up still uses the old Planner form (~2 days to move); companion help is per stop, not per problem; answers are lost if she quits mid-game.
 - **No way to switch subjects on the kiosk.** Loading new homework selects that subject; a child with spelling and math cannot choose. Proposed: a "which today?" choice when more than one is active.
+- **Practice should move toward test conditions as the test nears (owner 2026-11-08).** The school test is full recall with no letters available. As the date approaches, games should look more like the test: hidden words, no letter banks, no reveals. Stated as an objective with the test date for the Planner (and Elli), never a coded schedule.
+- **Elli is out of sync with what Ila typed in Monster Stampede (owner observed 2026-11-08).** The game opens a word every 7-10 s; Elli's spoken cue starts ~1.5 s later, and old speech is retired on item change, so a fast typer can be on the next word while Elli still speaks about the last. Exact symptom to confirm with the owner (Elli naming a different word than on screen, or reacting to letters not typed).
 - **Graded test photo → chart database (promised for Monday).** The chart stores school results and compares them with predictions; the photo → AI read → parent confirm → save step is missing. Ila's and Reina's 11/6 tests were never entered.
 
 ## 2026-11-07 — Found while running the free Quest/Boss demo (open)
