@@ -1792,7 +1792,7 @@ export class SessionManager {
       presence: this.companionPresence,
       companionWakeNames: COMPANION_WAKE_NAMES,
       speechCaptureArmed,
-      nodeId: this.currentBoardSnapshot?.nodeId,
+      nodeId: this.currentBoardSnapshot?.nodeId, reportBug: (text) => void this.hostRecordProductIssue({ issueType: "bug_report", severity: "medium", childUtterance: text, evidenceText: `child said a bug phrase while the companion was minimized: "${text}"`, confidence: 0.7, source: "child_utterance", ...(this.currentBoardSnapshot?.nodeId ? { nodeId: this.currentBoardSnapshot.nodeId } : {}) }).catch((error: unknown) => console.error(" 🎮 [product-issue] [heard-while-minimized] [failed]", error)),
       sendFinal: (text) => this.send(/^[a-z]$/i.test(text.trim()) ? "interim" : "final", { text }),
       setPresence: (state, reason) => this.setCompanionPresence(state, reason),
       recordEvent: (component, action, fields) =>

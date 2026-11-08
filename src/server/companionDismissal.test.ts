@@ -78,3 +78,29 @@ describe("companion dismissal", () => {
     expect(presence).toBe("summoned");
   });
 });
+
+// Seen 2026-11-08 in Ila's log: with Elli minimized she said "I found a bug" and nothing was filed, because
+// speech without Elli's name is ignored as room talk. The lab only tested bug reports addressed to Elli.
+// A bug phrase is filed as a ticket even when Elli is minimized; Elli stays quiet and the game goes on.
+describe("a bug report while Elli is minimized", () => {
+  it("files a ticket without waking Elli", () => {
+    const reportBug = vi.fn();
+    const setPresence = vi.fn();
+    const handled = handleCompanionPresenceTranscript({
+      enabled: true, transcript: "c h a r r. I found a bug.", presence: "collapsed", companionWakeNames: COMPANION_WAKE_NAMES,
+      speechCaptureArmed: true, nodeId: "act-3", sendFinal: vi.fn(), setPresence, recordEvent: vi.fn(), reportBug,
+    });
+    expect(handled).toBe(true);
+    expect(reportBug).toHaveBeenCalledWith("c h a r r. I found a bug.");
+    expect(setPresence).not.toHaveBeenCalled();
+  });
+
+  it("files nothing for ordinary room talk", () => {
+    const reportBug = vi.fn();
+    handleCompanionPresenceTranscript({
+      enabled: true, transcript: "Mom, where are my shoes?", presence: "collapsed", companionWakeNames: COMPANION_WAKE_NAMES,
+      speechCaptureArmed: false, sendFinal: vi.fn(), setPresence: vi.fn(), recordEvent: vi.fn(), reportBug,
+    });
+    expect(reportBug).not.toHaveBeenCalled();
+  });
+});

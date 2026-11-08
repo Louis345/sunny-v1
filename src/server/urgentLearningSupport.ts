@@ -387,9 +387,16 @@ export function handleCompanionPresenceTranscript(input: {
   sendFinal: (text: string) => void;
   setPresence: (state: CompanionPresence, reason: CompanionPresenceReason) => void;
   recordEvent: (component: string, action: string, fields: Record<string, unknown>) => void;
+  /** Files a child's bug report heard while the companion is minimized (BUGS.md 2026-11-08). */
+  reportBug?: (transcript: string) => void;
 }): boolean {
   if (!input.enabled) return false;
   const route = routeCompanionPresenceTranscript(input);
+  // A bug report is filed even when the companion is minimized or a game is listening; the companion stays quiet.
+  if ((route.action === "ignore_ambient" || route.action === "route_to_game") && input.reportBug && classifyProductComplaintText(input.transcript, null) === "bug_report") {
+    console.log(` 🎮 [product-issue] [heard-while-minimized] node=${input.nodeId ?? "none"}`);
+    input.reportBug(input.transcript);
+  }
   if (route.action === "route_to_game") {
     input.sendFinal(input.transcript);
     input.recordEvent("transcript", "routed_to_game", {
