@@ -43,7 +43,7 @@ describe("spelling intake is the opening phase of the existing Planner", () => {
     const prompt = buildSpellingIntakeToolPrompt(packet);
     expect(prompt).toContain("How this list begins is your decision");
     expect(prompt).toContain("open_with_teaching");
-    expect(prompt).toContain("Words you do not check stay unknown");
+    expect(prompt).toContain("Words left unchecked stay unknown");
     expect(prompt).not.toContain("Discovery comes first");
     expect(prompt).toContain("every assigned spelling word");
     expect(recordWords({ activeSessionPlan: { nodePlan: [] } }).outcome.ok).toBe(false);

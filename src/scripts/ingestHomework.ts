@@ -2171,7 +2171,9 @@ export async function runSpellingDiscoveryIntake(args: {
     if (saved && (saved.requestHash !== requestHash || saved.outputHash !== hashDiscoveryContract({ output: saved.output, telemetry: saved.telemetry }))) throw new Error("spelling_intake_checkpoint_hash_mismatch");
     const confirmationFile = path.join(draft, "spelling-intake-confirmation.json");
     let confirmation = args.confirmedCapture ?? (fs.existsSync(confirmationFile) ? JSON.parse(fs.readFileSync(confirmationFile, "utf8")) as NonNullable<typeof args.confirmedCapture> : null);
-    if (confirmation && packet.spellingDiagnostics && (!saved || hashDiscoveryContract(parseSpellingIntake(confirmation.capture, packet).diagnostic) !== hashDiscoveryContract(parseSpellingIntake(saved.output, packet).diagnostic))) throw new Error("spelling_diagnostic_confirmation_changed");
+    // The adult confirms words, not the opening: compare the Planner's choice without its word list (contract 54).
+    const choiceOf = (value: unknown) => { const diagnostic = parseSpellingIntake(value, packet).diagnostic; if (!diagnostic || !("checkWords" in diagnostic)) return diagnostic; const { checkWords: _words, ...choice } = diagnostic; return choice; };
+    if (confirmation && packet.spellingDiagnostics && (!saved || hashDiscoveryContract(choiceOf(confirmation.capture)) !== hashDiscoveryContract(choiceOf(saved.output)))) throw new Error("spelling_diagnostic_confirmation_changed");
     // The intake talks to the Planner through small locked tools; the retired single form is never sent.
     const result: CaptureResult = confirmation ? { output: confirmation.capture, telemetry: { model: "human-confirmed", latencyMs: 0 } } : saved
       ?? await planSpellingIntakeWithTools(packet, { model: options.model, draftDir: draft, ...options.plannerTools?.(packet) });
