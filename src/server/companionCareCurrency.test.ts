@@ -5,7 +5,7 @@ import { describe, expect, it, vi } from "vitest";
 import { REWARD_CATALOG } from "../shared/rewardCatalog";
 import { getChildChart } from "../profiles/childChart";
 import { loadCompanionCarePlanForChart } from "../profiles/companionCarePlan";
-import { callClockForChild, purchaseForChild, reconcileCompanionCareCurrencyAward, showroomCallClockFacts, spendCallMinuteForChild, walletForChild } from "./currencyAward";
+import { arcadeClockForChild, callClockForChild, purchaseForChild, spendArcadeMinuteForChild, reconcileCompanionCareCurrencyAward, showroomCallClockFacts, spendCallMinuteForChild, walletForChild } from "./currencyAward";
 
 function writeJson(file: string, value: unknown): void {
   fs.mkdirSync(path.dirname(file), { recursive: true });
@@ -110,6 +110,17 @@ describe("one coin balance", () => {
     expect(purchaseForChild("reina", { receiptId: "r1", offer: { kind: "call_minutes", minutes: 5 } }, { rootDir })).toMatchObject({ ok: true, balance: 10, callMinutes: 5 });
     expect(spendCallMinuteForChild("reina", "call:m1", { rootDir })).toMatchObject({ ok: true, minutesLeft: 4, coins: 10 });
     expect(callClockForChild("reina", { rootDir })).toMatchObject({ minutesLeft: 4 });
+  });
+
+  // Owner, 2026-11-08: reward games run on the same meter; 25 coins buys 3 arcade minutes.
+  it("the arcade clock reads and spends arcade minutes bought with a game play", () => {
+    const rootDir = setupRoot();
+    planWithCoins(rootDir, 40);
+    expect(arcadeClockForChild("reina", { rootDir })).toMatchObject({ minutesLeft: 0, coins: 40, price: 25, minutes: 3 });
+    expect(spendArcadeMinuteForChild("reina", "arcade:g1:1", { rootDir })).toMatchObject({ ok: false, reason: "no_minutes", coins: 40 });
+    expect(purchaseForChild("reina", { receiptId: "g1", offer: { kind: "game_play", itemId: "game:asteroid", trial: true } }, { rootDir })).toMatchObject({ ok: true, balance: 15, arcadeMinutes: 3 });
+    expect(spendArcadeMinuteForChild("reina", "arcade:g1:1", { rootDir })).toMatchObject({ ok: true, minutesLeft: 2, coins: 15 });
+    expect(callClockForChild("reina", { rootDir })).toMatchObject({ minutesLeft: 0 });
   });
 
   // Owner, 2026-11-07: the outfit shop in the call spends the same coins and shows what she really owns.

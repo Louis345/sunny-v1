@@ -12,9 +12,11 @@ import {
   nodeChestKind,
   purchaseWithCoins,
   spendCallMinute,
+  spendArcadeMinute,
 } from "./companionCareEngine";
 import type { CompanionCarePlan } from "../shared/companionCareTypes";
-import { CALL_RULES, CHEST_TABLE, PRICE_LIST, REWARD_CATALOG } from "../shared/rewardCatalog";
+import { REWARD_GAMES } from "../shared/gameRegistry.generated";
+import { ARCADE_RULES, CALL_RULES, CHEST_TABLE, PRICE_LIST, REWARD_CATALOG } from "../shared/rewardCatalog";
 
 function plan(overrides: Partial<CompanionCarePlan["state"]> = {}): CompanionCarePlan {
   return {
@@ -439,5 +441,49 @@ describe("a call after every completed board", () => {
     expect(second.alreadyOpened).toBe(false);
     expect(second.plan.economy.callMinutes).toBe(2 * CALL_RULES.freeMinutesPerBoard);
     expect(markVideoCallTicketOpened(second.plan, "hw-1", at3).alreadyOpened).toBe(true);
+  });
+});
+
+// Owner, 2026-11-08: reward games are timed and cost coins; 25 coins buys 3 minutes, on the call clock's meter.
+describe("arcade clock", () => {
+  const at = "2026-11-08T22:00:00.000Z";
+  const rich = () => {
+    const plan = createStarterCompanionCarePlan({ childId: "demo-pashley", companionId: "elli" });
+    return { ...plan, economy: { ...plan.economy, coins: 100 }, inventory: { ...plan.inventory, rewards: ["game:asteroid"] } };
+  };
+
+  it("a game play costs the play price and adds arcade minutes, not call minutes", () => {
+    const bought = purchaseWithCoins(rich(), { receiptId: "p1", offer: { kind: "game_play", itemId: "game:asteroid" }, nowIso: at });
+    if (!bought.ok) throw Error("expected a purchase");
+    expect(bought.plan.economy.coins).toBe(100 - PRICE_LIST.gamePlay);
+    expect(bought.plan.economy.arcadeMinutes).toBe(ARCADE_RULES.minutesPerPlay);
+    expect(bought.plan.economy.callMinutes ?? 0).toBe(0);
+    const trial = purchaseWithCoins(rich(), { receiptId: "p2", offer: { kind: "game_play", itemId: "game:space-invaders", trial: true }, nowIso: at });
+    expect(trial.ok).toBe(true);
+  });
+
+  it("any registered reward game can be played for coins, even one outside the collection; teaching games never", () => {
+    REWARD_GAMES["test-reward-game"] = { url: "/games/test.html" } as (typeof REWARD_GAMES)[string];
+    try {
+      const outside = purchaseWithCoins(rich(), { receiptId: "p3", offer: { kind: "game_play", itemId: "game:test-reward-game", trial: true }, nowIso: at });
+      expect(outside.ok && outside.plan.economy.arcadeMinutes).toBe(ARCADE_RULES.minutesPerPlay);
+    } finally {
+      delete REWARD_GAMES["test-reward-game"];
+    }
+    expect(purchaseWithCoins(rich(), { receiptId: "p4", offer: { kind: "game_play", itemId: "game:word-builder", trial: true }, nowIso: at })).toMatchObject({ ok: false, reason: "unknown_offer" });
+  });
+
+  it("spends one arcade minute per receipt, once, stops at zero, and leaves call minutes alone", () => {
+    const start = { ...rich(), economy: { ...rich().economy, arcadeMinutes: 2, callMinutes: 4 } };
+    const first = spendArcadeMinute(start, { receiptId: "a1", nowIso: at });
+    if (!first.ok) throw Error("expected a minute");
+    expect(first.minutesLeft).toBe(1);
+    expect(first.plan.economy.callMinutes).toBe(4);
+    expect(spendArcadeMinute(first.plan, { receiptId: "a1", nowIso: at })).toMatchObject({ ok: true, minutesLeft: 1, duplicate: true });
+    const second = spendArcadeMinute(first.plan, { receiptId: "a2", nowIso: at });
+    if (!second.ok) throw Error("expected a minute");
+    expect(spendArcadeMinute(second.plan, { receiptId: "a3", nowIso: at })).toEqual({ ok: false, reason: "no_minutes" });
+    const call = spendCallMinute(second.plan, { receiptId: "c1", nowIso: at });
+    expect(call.ok && call.plan.economy.arcadeMinutes).toBe(0);
   });
 });

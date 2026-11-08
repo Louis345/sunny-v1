@@ -1,6 +1,6 @@
 import { getChildChart } from "../profiles/childChart";
-import { purchaseWithCoins, spendCallMinute } from "../engine/companionCareEngine";
-import { CALL_RULES, PRICE_LIST } from "../shared/rewardCatalog";
+import { purchaseWithCoins, spendPaidMinute, type PaidMinuteKind } from "../engine/companionCareEngine";
+import { ARCADE_RULES, CALL_RULES, PRICE_LIST } from "../shared/rewardCatalog";
 import type { CoinOffer } from "../shared/companionCareTypes";
 import {
   loadCompanionCarePlanForChart,
@@ -112,7 +112,7 @@ export function reconcileCompanionCareCurrencyAward(opts: {
 }
 
 export type PurchaseForChildResult =
-  | { ok: true; balance: number; price: number; duplicate: boolean; callMinutes: number }
+  | { ok: true; balance: number; price: number; duplicate: boolean; callMinutes: number; arcadeMinutes: number }
   | { ok: false; reason: string; price?: number; balance?: number };
 
 /** Buy with coins (PR #59, 4.4): charged to the companion plan, mirrored to the profile, a receipt per tap. */
@@ -132,7 +132,7 @@ export function purchaseForChild(
     mirrorCompanionCareToLearningProfile(chart, result.plan);
   }
   console.log(` 🎮 [rewards] [purchase] [${result.duplicate ? "repeated" : "paid"}] child=${childId} offer=${input.offer.kind} price=${result.price} balance=${result.plan.economy.coins}`);
-  return { ok: true, balance: result.plan.economy.coins, price: result.price, duplicate: result.duplicate, callMinutes: result.plan.economy.callMinutes ?? 0 };
+  return { ok: true, balance: result.plan.economy.coins, price: result.price, duplicate: result.duplicate, callMinutes: result.plan.economy.callMinutes ?? 0, arcadeMinutes: result.plan.economy.arcadeMinutes ?? 0 };
 }
 
 /** The outfit shop's wallet: her saved coins and the rewards she owns (chest drops and purchases). */
@@ -155,18 +155,48 @@ export function spendCallMinuteForChild(
   receiptId: string,
   opts: { rootDir?: string; nowIso?: string } = {},
 ): { ok: true; minutesLeft: number; coins: number } | { ok: false; reason: "no_minutes"; coins: number } {
+  return spendPaidMinuteForChild("call", childId, receiptId, opts);
+}
+
+/** What a reward game's clock needs: saved arcade minutes, her coins, and what one more play costs. */
+export function arcadeClockForChild(childId: string, opts: { rootDir?: string } = {}): CallClock {
+  const plan = getChildChart(childId, opts.rootDir ? { rootDir: opts.rootDir } : {}).companionCare.plan;
+  return {
+    minutesLeft: Math.max(0, Math.floor(plan.economy.arcadeMinutes ?? 0)),
+    coins: plan.economy.coins,
+    price: PRICE_LIST.gamePlay,
+    minutes: ARCADE_RULES.minutesPerPlay,
+    warnAtSecondsLeft: ARCADE_RULES.warnAtSecondsLeft,
+  };
+}
+
+function spendPaidMinuteForChild(
+  kind: PaidMinuteKind,
+  childId: string,
+  receiptId: string,
+  opts: { rootDir?: string; nowIso?: string },
+): { ok: true; minutesLeft: number; coins: number } | { ok: false; reason: "no_minutes"; coins: number } {
   const chart = getChildChart(childId, opts.rootDir ? { rootDir: opts.rootDir } : {});
-  const result = spendCallMinute(chart.companionCare.plan, { receiptId, nowIso: opts.nowIso ?? new Date().toISOString() });
+  const result = spendPaidMinute(chart.companionCare.plan, kind, { receiptId, nowIso: opts.nowIso ?? new Date().toISOString() });
   if (!result.ok) {
-    console.log(` 🎮 [rewards] [call-minute] [out] child=${childId} coins=${chart.companionCare.plan.economy.coins}`);
+    console.log(` 🎮 [rewards] [${kind}-minute] [out] child=${childId} coins=${chart.companionCare.plan.economy.coins}`);
     return { ok: false, reason: result.reason, coins: chart.companionCare.plan.economy.coins };
   }
   if (!result.duplicate) {
     saveCompanionCarePlan(chart, result.plan);
     mirrorCompanionCareToLearningProfile(chart, result.plan);
   }
-  console.log(` 🎮 [rewards] [call-minute] [${result.duplicate ? "repeated" : "spent"}] child=${childId} left=${result.minutesLeft}`);
+  console.log(` 🎮 [rewards] [${kind}-minute] [${result.duplicate ? "repeated" : "spent"}] child=${childId} left=${result.minutesLeft}`);
   return { ok: true, minutesLeft: result.minutesLeft, coins: result.plan.economy.coins };
+}
+
+/** Pay one reward-game minute before it is used; a retried tick with the same receipt is charged once. */
+export function spendArcadeMinuteForChild(
+  childId: string,
+  receiptId: string,
+  opts: { rootDir?: string; nowIso?: string } = {},
+): { ok: true; minutesLeft: number; coins: number } | { ok: false; reason: "no_minutes"; coins: number } {
+  return spendPaidMinuteForChild("arcade", childId, receiptId, opts);
 }
 
 /** Clock facts for Elli's reaction, read from the saved plan, never from the screen. */

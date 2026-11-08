@@ -235,3 +235,22 @@ it("keeps her purchase receipts across a save and a load, so a double tap after 
     fs.rmSync(dir, { recursive: true, force: true });
   }
 });
+
+it("keeps her arcade minutes and their receipts across a save and a load", async () => {
+  const { createStarterCompanionCarePlan, spendArcadeMinute } = await import("./companionCareEngine");
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-arcade-roundtrip-"));
+  const chart = { childId: "lab-child", links: { companionCareDir: dir, learningProfile: path.join(dir, "profile.json") }, companion: { presetId: "elli" },
+    learningProfile: minimalProfile(), economy: { coinBalance: 0 } };
+  try {
+    const at = "2026-11-08T12:00:00.000Z";
+    const base = createStarterCompanionCarePlan({ childId: "lab-child", companionId: "elli" });
+    const spent = spendArcadeMinute({ ...base, economy: { ...base.economy, arcadeMinutes: 3 } }, { receiptId: "arcade:g1:1", nowIso: at });
+    if (!spent.ok) throw Error("expected a minute");
+    saveCompanionCarePlan(chart, spent.plan);
+    const loaded = loadCompanionCarePlanForChart(chart).plan;
+    expect(loaded.economy.arcadeMinutes).toBe(2);
+    expect(spendArcadeMinute(loaded, { receiptId: "arcade:g1:1", nowIso: at })).toMatchObject({ ok: true, duplicate: true, minutesLeft: 2 });
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});

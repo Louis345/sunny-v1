@@ -82,6 +82,11 @@ function normalizeLoadedPlan(
         : [],
       callMinutes: Math.max(0, Math.floor(Number(plan.economy?.callMinutes ?? 0) || 0)),
       chestsSinceBonus: Math.max(0, Math.floor(Number(plan.economy?.chestsSinceBonus ?? 0) || 0)),
+      // Arcade minutes and their receipts are her paid game time; dropping them would steal it.
+      arcadeMinutes: Math.max(0, Math.floor(Number(plan.economy?.arcadeMinutes ?? 0) || 0)),
+      arcadeMinuteReceipts: Array.isArray(plan.economy?.arcadeMinuteReceipts)
+        ? plan.economy.arcadeMinuteReceipts.filter((id): id is string => typeof id === "string")
+        : [],
       callMinuteReceipts: Array.isArray(plan.economy?.callMinuteReceipts)
         ? plan.economy.callMinuteReceipts.filter((id): id is string => typeof id === "string")
         : [],

@@ -38,6 +38,9 @@ export const PRICE_LIST = { gamePlay: 25, callMinutes5: 30, mysteryChest: 60 } a
 /** The earned call (owner, 2026-11-07): finishing a board earns a call with free minutes; after that the
  * call burns minutes and more cost coins, so she wants to come back and earn again. Placeholder until tuned. */
 export const CALL_RULES = { freeMinutesPerBoard: 5, warnAtSecondsLeft: 60 } as const;
+/** Reward games are timed (owner, 2026-11-08): one game play (PRICE_LIST.gamePlay) buys these minutes on the
+ * same paid-minute meter as the call; at time up she inserts another coin or goes back to her map. */
+export const ARCADE_RULES = { minutesPerPlay: 3, warnAtSecondsLeft: 60 } as const;
 
 /** What each chest pays: coins always, and a bonus by chance (call minutes or a catalog item). */
 /** Option B (owner, 2026-11-07), tuned on a replay of the girls' real history: about 50-70 coins a session,

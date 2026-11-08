@@ -126,6 +126,10 @@ export interface CompanionCarePlan {
     callMinutes?: number;
     /** Receipts of call minutes already spent, so a retried tick is charged once. */
     callMinuteReceipts?: string[];
+    /** Reward-game minutes bought with game plays, spent one paid minute at a time like the call. */
+    arcadeMinutes?: number;
+    /** Receipts of arcade minutes already spent, so a retried tick is charged once. */
+    arcadeMinuteReceipts?: string[];
     /** Chests opened since the last bonus; each one raises the next bonus chance. */
     chestsSinceBonus?: number;
     /** Everything bought with coins, newest last. */

@@ -3,6 +3,7 @@ import React, {
   useEffect,
   useRef,
   useCallback,
+  useMemo,
   createRef,
 } from "react";
 import { useForm } from "react-hook-form";
@@ -39,6 +40,7 @@ import {
   type ReadingCanvasPreferences,
 } from "../../../src/shared/readingCanvasPreferences";
 import { BlackboardContent } from "./BlackboardContent";
+import { ArcadeClock, arcadeItemIdForMode } from "./CallClock";
 import {
   KaraokeReadingCanvas as KaraokeReadingCanvasView,
 } from "./KaraokeReadingCanvas";
@@ -310,6 +312,8 @@ interface Props {
   sendMessage?: (type: string, payload?: Record<string, unknown>) => void;
   /** Story-image loading: text avatar (no PNG). */
   storyImageChildId?: string;
+  /** The live session's child: every registered reward game then runs on her paid arcade clock. */
+  arcadeChildId?: string;
   storyImageLoading?: boolean;
   storyImageUrl?: string | null;
   storyImageFailed?: boolean;
@@ -1742,6 +1746,7 @@ export function Canvas({
   interimTranscript = "",
   sendMessage = () => {},
   storyImageChildId = "star",
+  arcadeChildId,
   storyImageLoading = false,
   storyImageUrl = null,
   storyImageFailed = false,
@@ -1764,6 +1769,12 @@ export function Canvas({
   const prevModeRef = useRef<string>(canvas.mode);
   const transitionFromRef = useRef<string>(canvas.mode);
 
+  // One arcade meter per game launch, so each launch has its own receipts.
+  const arcadePlayId = useMemo(
+    () => `${canvas.mode}-${Date.now().toString(36)}`,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [canvas.mode, canvas.gameUrl],
+  );
   const handleCanvasDone = useCallback(() => {
     onCanvasDone();
     requestAnimationFrame(() => {
@@ -2327,6 +2338,16 @@ export function Canvas({
             }}
           />
         )}
+        {arcadeChildId && GAME_MODES.has(canvas.mode) && canvas.gameUrl && arcadeItemIdForMode(canvas.mode) ? (
+          <ArcadeClock
+            key={arcadePlayId}
+            childId={arcadeChildId}
+            playId={arcadePlayId}
+            gameMode={canvas.mode}
+            active
+            onLeave={() => console.log(` 🎮 [canvas] [arcade] [leave] game=${canvas.mode}`)}
+          />
+        ) : null}
         {showBlackboard && (
           <div
             className="absolute inset-0 z-[25] flex items-center justify-center bg-white/95 px-4"

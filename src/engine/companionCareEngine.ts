@@ -16,7 +16,8 @@ import type {
   CompanionReadiness,
 } from "../shared/companionCareTypes";
 import type { TamagotchiState } from "../shared/vrrTypes";
-import { CALL_RULES, CHEST_RARITY_ODDS, CHEST_TABLE, ITEM_SHARE, PRICE_LIST, REWARD_CATALOG, eligibleDrops } from "../shared/rewardCatalog";
+import { REWARD_GAMES } from "../shared/gameRegistry.generated";
+import { ARCADE_RULES, CALL_RULES, CHEST_RARITY_ODDS, CHEST_TABLE, ITEM_SHARE, PRICE_LIST, REWARD_CATALOG, eligibleDrops } from "../shared/rewardCatalog";
 
 type CareEffect = Partial<
   Pick<
@@ -427,8 +428,10 @@ export function purchaseWithCoins(
   let price: number;
   if (offer.kind === "call_minutes") price = PRICE_LIST.callMinutes5;
   else if (offer.kind === "game_play") {
-    if (item?.kind !== "game") return { ok: false, reason: "unknown_offer" };
-    if (!offer.trial && !owned.includes(item.id)) return { ok: false, reason: "not_owned" };
+    // The game registry says what a reward game is; the collection only says whether she owns it.
+    const gameId = offer.itemId.replace(/^game:/, "");
+    if (!Object.prototype.hasOwnProperty.call(REWARD_GAMES, gameId) && item?.kind !== "game") return { ok: false, reason: "unknown_offer" };
+    if (!offer.trial && !owned.includes(offer.itemId)) return { ok: false, reason: "not_owned" };
     price = PRICE_LIST.gamePlay;
   } else {
     if (item?.kind !== "outfit" || item.price === undefined) return { ok: false, reason: "unknown_offer" };
@@ -448,6 +451,9 @@ export function purchaseWithCoins(
         ...plan.economy,
         coins: balance - price,
         ...(offer.kind === "call_minutes" ? { callMinutes: (plan.economy.callMinutes ?? 0) + offer.minutes } : {}),
+        ...(offer.kind === "game_play"
+          ? { arcadeMinutes: Math.max(0, Math.floor(plan.economy.arcadeMinutes ?? 0)) + ARCADE_RULES.minutesPerPlay }
+          : {}),
         coinPurchases: [...purchases, receipt],
       },
       inventory: { ...plan.inventory, ...(offer.kind === "outfit" ? { rewards: [...owned, offer.itemId] } : {}) },
@@ -458,14 +464,28 @@ export function purchaseWithCoins(
 
 const CALL_MINUTE_RECEIPTS_KEPT = 200;
 
-/** One minute of the earned call. The server owns the clock: each minute is paid before it is used, a
- * retried tick (same receipt) is charged once, and with no minutes left the call must end or buy more. */
-export function spendCallMinute(
+/** What a paid minute is spent on: the earned call or a reward game. Both use one meter. */
+export type PaidMinuteKind = "call" | "arcade";
+type PaidMinuteResult =
+  | { ok: true; plan: CompanionCarePlan; minutesLeft: number; duplicate: boolean }
+  | { ok: false; reason: "no_minutes" };
+
+const PAID_MINUTE_FIELDS = {
+  call: { minutes: "callMinutes", receipts: "callMinuteReceipts" },
+  arcade: { minutes: "arcadeMinutes", receipts: "arcadeMinuteReceipts" },
+} as const;
+
+/** The paid-minute meter (owner, 2026-11-07, games added 2026-11-08). The server owns the clock: each minute is
+ * paid before it is used, a retried tick (same receipt) is charged once, and with no minutes left she must
+ * stop or buy more. */
+export function spendPaidMinute(
   plan: CompanionCarePlan,
+  kind: PaidMinuteKind,
   input: { receiptId: string; nowIso: string },
-): { ok: true; plan: CompanionCarePlan; minutesLeft: number; duplicate: boolean } | { ok: false; reason: "no_minutes" } {
-  const minutes = Math.max(0, Math.floor(plan.economy.callMinutes ?? 0));
-  const receipts = plan.economy.callMinuteReceipts ?? [];
+): PaidMinuteResult {
+  const fields = PAID_MINUTE_FIELDS[kind];
+  const minutes = Math.max(0, Math.floor(plan.economy[fields.minutes] ?? 0));
+  const receipts = plan.economy[fields.receipts] ?? [];
   if (receipts.includes(input.receiptId)) return { ok: true, plan, minutesLeft: minutes, duplicate: true };
   if (minutes < 1) return { ok: false, reason: "no_minutes" };
   return {
@@ -474,10 +494,24 @@ export function spendCallMinute(
     minutesLeft: minutes - 1,
     plan: {
       ...plan,
-      economy: { ...plan.economy, callMinutes: minutes - 1, callMinuteReceipts: [...receipts, input.receiptId].slice(-CALL_MINUTE_RECEIPTS_KEPT) },
+      economy: {
+        ...plan.economy,
+        [fields.minutes]: minutes - 1,
+        [fields.receipts]: [...receipts, input.receiptId].slice(-CALL_MINUTE_RECEIPTS_KEPT),
+      },
       updatedAt: input.nowIso,
     },
   };
+}
+
+/** One minute of the earned call. */
+export function spendCallMinute(plan: CompanionCarePlan, input: { receiptId: string; nowIso: string }): PaidMinuteResult {
+  return spendPaidMinute(plan, "call", input);
+}
+
+/** One minute of a reward game. */
+export function spendArcadeMinute(plan: CompanionCarePlan, input: { receiptId: string; nowIso: string }): PaidMinuteResult {
+  return spendPaidMinute(plan, "arcade", input);
 }
 
 export function companionCareToTamagotchi(plan: CompanionCarePlan): TamagotchiState {

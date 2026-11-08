@@ -300,7 +300,7 @@ import {
 } from "./companionVideoCallTrace";
 import type { SunnyRuntimeOverrides } from "../shared/runtimeConfig";
 import { resolveSunnyRuntimeConfig } from "../shared/runtimeConfig";
-import { callClockForChild, reconcileCompanionCareCurrencyAward, purchaseForChild, showroomCallClockFacts, spendCallMinuteForChild, walletForChild } from "./currencyAward";
+import { arcadeClockForChild, callClockForChild, reconcileCompanionCareCurrencyAward, purchaseForChild, showroomCallClockFacts, spendArcadeMinuteForChild, spendCallMinuteForChild, walletForChild } from "./currencyAward";
 import { companionPickerIdentity } from "./companionPickerRows";
 import { isSpellingPracticeContinuation } from "../engine/learningCycleRepository";
 import { advanceCanonicalCycleFromEvidence, pageTimeFromKiosk, recordCanonicalNodeCompletion, recordSpellingDiscoveryAttempt } from "../engine/learningCycleRuntime";
@@ -1188,6 +1188,20 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
     const childId = String(req.params.childId ?? "").trim().toLowerCase();
     if (!childId) return res.status(400).json({ error: "childId required" });
     return res.json(walletForChild(childId));
+  });
+
+  // Owner, 2026-11-08: reward games are timed on the same paid-minute meter as the call.
+  app.get("/api/rewards/arcade/:childId", (req: Request, res: Response) => {
+    const childId = String(req.params.childId ?? "").trim().toLowerCase();
+    if (!childId) return res.status(400).json({ error: "childId required" });
+    return res.json(arcadeClockForChild(childId));
+  });
+
+  app.post("/api/rewards/arcade/minute", (req: Request, res: Response) => {
+    const childId = String(req.body?.childId ?? "").trim().toLowerCase();
+    const receiptId = typeof req.body?.receiptId === "string" ? req.body.receiptId.trim() : "";
+    if (!childId || !receiptId) return res.status(400).json({ ok: false, error: "arcade_minute_request_invalid" });
+    return res.json(spendArcadeMinuteForChild(childId, receiptId));
   });
 
   app.post("/api/rewards/call/minute", (req: Request, res: Response) => {
