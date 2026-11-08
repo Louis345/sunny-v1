@@ -1,6 +1,6 @@
 # Sunny Learning Feedback Loop
 
-Contract version: 53
+Contract version: 54
 
 This document is the **sole normative** authority for how Sunny forms, tests, and revises learning claims. Product changes that alter this loop must update this contract version before implementation. Other documents may describe infrastructure or history, but they must link here instead of creating another learning doctrine.
 
@@ -19,6 +19,14 @@ child chart + prior cycles + returned graded work
 → next intervention or stop
 → delayed or graded calibration
 ```
+
+## Planner-chosen opening (contract 54, owner 2026-11-07)
+
+How a new list begins is the Planner's decision. It may check every word first, check only the words it is unsure of, open with teaching and place short checks inside activities, or any mix, and it may spread checks across stops so no stop feels like a test. No board order is required: the probe board is one option, not a prerequisite for teaching. If the child asks for help on any word, the companion helps, and that answer is recorded as assisted. The rest of this contract describes the probe-first path; where it says a probe or Discovery must come first, read it as the path the Planner chose, not a requirement.
+
+These record-keeping rules stay because they keep the record true, not because they limit choices: every answer is recorded as independent, assisted or practice exactly as it happened and code never upgrades one into another; a word with no independent answer is unknown; a word taught before it was ever checked is marked seen before baseline, so a later correct answer is not counted as learning gain; graded school results remain the final check of every prediction; and each Planner decision records its reasons and cited evidence.
+
+Measured per list against lists started the old way: graded test score, independent accuracy at Quest and Boss, time to the first reward, help requests, sessions that reach the end-of-board call, and the child's rating.
 
 ## Evidence-gated board progression
 
@@ -49,7 +57,7 @@ Prepared, verified activities on spelling Teaching and successor boards are sele
 
 The child completes the selected route frontier, not every cosmetic route merely to satisfy a gate. A route selection is engagement evidence only. When the selected frontier is complete, code records observations, closes that board's evidence batch, and enters an evaluating lifecycle; it never chooses the educational next step. The Planner then makes exactly one evidence-citing choice: prescribe support, generate Quest, generate Boss when Quest evidence exists, collect more evidence, or await calibration. Every choice except `await_calibration` authors one complete successor program, which becomes exactly one new board instance (see *Immutable board instances*).
 
-Before Quest is available as a Planner action, runtime must have target-aligned baseline observations with at least one fresh, correct, unassisted response. Practice, repeated exposure, missing captured responses, all-wrong or assisted-only completion is ineligible for Quest. This is an evidence-availability boundary, not a mastery percentage: when it is unmet, the Planner still owns the choice between targeted Support and collecting more evidence; when it is met, the Planner still decides whether Quest is justified.
+The Planner decides when Quest or Boss is justified (contract 54, owner 2026-11-07); code adds no evidence gate before offering either as an action. The decision cites the evidence it used. Answers inside an encounter are recorded exactly as they happened, so an encounter chosen on thin evidence shows up as such in the record and in later calibration.
 
 Every session is an honest chapter with a visible endpoint. Finishing the selected route does not reveal surprise required work in that same session. The child receives completion feedback and may replay completed nodes of the current board until its successor is published, while Sunny reduces the session into factual scorecards and asks the Planner for exactly one next-step decision in the background.
 
@@ -240,7 +248,7 @@ Adaptive memory carries factual observations, provenance, confidence, and uncert
 
 The cycle records and evidence rules are domain-neutral. Math validates relationships and representations; spelling tracks canonical forms and delayed recall; reading separates passage exposure, decoding, and comprehension; science grounds claims and causal explanations in source evidence. Domain adapters verify truth but do not choose pedagogy.
 
-New spelling cycles offer every assigned spelling target in independent Discovery before targeted practice is planned. Not sure, skipped, and untested targets remain unknown. Exit and resume preserve the original responses. Hearing the whole word is the elicitation stimulus, not spelling assistance; seeing its canonical spelling, hearing its letters, hints, or uncertain speech capture must be recorded separately. Assistance attaches only to the item where that support occurred; an open companion from an earlier item cannot contaminate later responses. The instrument never forces a model-answer round before evaluation.
+How a new spelling cycle opens is the Planner's choice (see *Planner-chosen opening*); when it chooses Discovery, Discovery covers the targets it selects. Not sure, skipped, and untested targets remain unknown. Exit and resume preserve the original responses. Hearing the whole word is the elicitation stimulus, not spelling assistance; seeing its canonical spelling, hearing its letters, hints, or uncertain speech capture must be recorded separately. Assistance attaches only to the item where that support occurred; an open companion from an earlier item cannot contaminate later responses. The instrument never forces a model-answer round before evaluation.
 
 The existing intake Planner selects the opening spelling diagnostic from explicitly validated catalog capabilities, using the source and child-chart evidence. A generic diagnostic label on a practice game is not validation. The decision records rationale, cited evidence, uncertainty, and next evidence needed; a frozen capability snapshot and hash accompany the canonical evaluation. Code validates eligibility and projects this selection, not a preferred game. If no available instrument fits, the Planner records `needs_instrument`; no fallback publishes or additional model call starts automatically. Device context is unknown unless observed. Selection does not establish that an instrument is best, engaging, or effective. Legacy saved intake requests and cycles remain readable as legacy fixed-instrument behavior, never retroactively attributed to the Planner. Raw provider responses are checkpointed before validation and reused on restart.
 
