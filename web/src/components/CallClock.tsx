@@ -223,6 +223,16 @@ export function CallClock({ childId, callId, active, onMoment, onGoodbye }: {
   );
 }
 
+/**
+ * Whether the session canvas times this game (owner, 2026-11-08). Only reward games Elli opens in the live
+ * session cost coins: the canvas must carry the live session's child id. Board stops she must complete (a
+ * mystery stop that opens Space Invaders) run in the App's planner-board frame, never pass a child id here,
+ * and are never timed. Teaching and learning games are never timed.
+ */
+export function shouldTimeArcadeGame(input: { arcadeChildId?: string; mode: string; gameUrl?: string }): boolean {
+  return Boolean(input.arcadeChildId?.trim() && input.gameUrl && arcadeItemIdForMode(input.mode));
+}
+
 /** Every registered reward game is timed (owner, 2026-11-08); teaching and learning games never are. */
 export function arcadeItemIdForMode(mode: string): string | null {
   return Object.prototype.hasOwnProperty.call(REWARD_GAMES, mode) ? `game:${mode}` : null;

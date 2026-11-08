@@ -40,7 +40,7 @@ import {
   type ReadingCanvasPreferences,
 } from "../../../src/shared/readingCanvasPreferences";
 import { BlackboardContent } from "./BlackboardContent";
-import { ArcadeClock, arcadeItemIdForMode } from "./CallClock";
+import { ArcadeClock, shouldTimeArcadeGame } from "./CallClock";
 import {
   KaraokeReadingCanvas as KaraokeReadingCanvasView,
 } from "./KaraokeReadingCanvas";
@@ -2338,10 +2338,10 @@ export function Canvas({
             }}
           />
         )}
-        {arcadeChildId && GAME_MODES.has(canvas.mode) && canvas.gameUrl && arcadeItemIdForMode(canvas.mode) ? (
+        {GAME_MODES.has(canvas.mode) && shouldTimeArcadeGame({ arcadeChildId, mode: canvas.mode, gameUrl: canvas.gameUrl }) ? (
           <ArcadeClock
             key={arcadePlayId}
-            childId={arcadeChildId}
+            childId={arcadeChildId!}
             playId={arcadePlayId}
             gameMode={canvas.mode}
             active

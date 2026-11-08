@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, act } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { ArcadeClock, arcadeItemIdForMode } from "../components/CallClock";
+import { ArcadeClock, arcadeItemIdForMode, shouldTimeArcadeGame } from "../components/CallClock";
 import { REWARD_GAMES, TEACHING_TOOLS } from "../../../src/shared/gameRegistry.generated";
 
 // Owner, 2026-11-08: reward games are timed and cost coins. 25 coins buys 3 minutes on the same paid-minute
@@ -38,6 +38,16 @@ it("times every registered reward game and never a teaching or learning game", (
   for (const mode of [...Object.keys(TEACHING_TOOLS), "word-radar", "pronunciation", "spell-check", "word-builder", "wordle", "idle"]) {
     expect(arcadeItemIdForMode(mode)).toBeNull();
   }
+});
+
+it("times only reward games Elli opens in the live session, never a board stop or a teaching game", () => {
+  const invaders = { mode: "space-invaders", gameUrl: "/games/space-invaders.html" };
+  expect(shouldTimeArcadeGame({ ...invaders, arcadeChildId: "ila" })).toBe(true);
+  // A board stop (e.g. a mystery stop opening Space Invaders) has no live-session child id here.
+  expect(shouldTimeArcadeGame(invaders)).toBe(false);
+  expect(shouldTimeArcadeGame({ ...invaders, arcadeChildId: "  " })).toBe(false);
+  expect(shouldTimeArcadeGame({ mode: "space-invaders", arcadeChildId: "ila" })).toBe(false);
+  expect(shouldTimeArcadeGame({ mode: "word-builder", gameUrl: "/games/word-builder.html", arcadeChildId: "ila" })).toBe(false);
 });
 
 it("blocks the game until she inserts a coin, then pays each minute before it is used", async () => {
