@@ -37,7 +37,7 @@
     "sunny:ingest:homework": "npx tsx src/scripts/ingestHomework.ts",
     "sunny:ingest:spelling": "npm run sunny:ingest:homework -- --domain spelling",
     "sunny:ingest:reading": "npm run sunny:ingest:homework -- --domain reading",
-    "sunny:ingest:math": "npx tsx src/scripts/ingestMathDirect.ts",
+    "sunny:ingest:math": "npx tsx src/scripts/ingestHomework.ts --domain math",
     "sunny:ingest:science": "npm run sunny:ingest:homework -- --domain science",
     "sunny:homework:upload": "npx tsx src/scripts/uploadGradedHomework.ts",
     "sunny:ingest:scan": "npx tsx src/scripts/ingestScanResult.ts --child=ila",

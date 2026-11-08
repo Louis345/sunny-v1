@@ -2258,7 +2258,6 @@ async function runIngestHomeworkInternal(
     homeworkDomain: cliHomeworkDomain,
     interactive,
   });
-  assertLegacyMathIngestAllowed(homeworkDomain);
   const childId = await resolveIngestChildId({
     childId: cliChildId,
     childIds: listIngestChildIds(),
@@ -2297,6 +2296,14 @@ async function runIngestHomeworkInternal(
       confirmCapture: capture => reviewSpellingIntake({ capture, sourceFile: incomingFile, interactive }),
     });
     onStage?.(5, "Spelling Discovery ready — teaching waits for answers");
+    return;
+  }
+  if (homeworkDomain === "math") {
+    // One pipeline for every subject (owner, 2026-11-08): math goes through spelling's intake shape.
+    onStage?.(2, "Recording problems and planning her first board");
+    const { runItemsIntake } = await import("./itemsIntake");
+    const { homeworkId } = await runItemsIntake({ childId, sourceFile: incomingFile, testDate: cliTestDate }, { model: plannerModel });
+    onStage?.(5, `Math board ready — ${homeworkId}`);
     return;
   }
 
