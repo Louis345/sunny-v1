@@ -26,7 +26,7 @@ export function journeyOrderTools<S extends JourneyOrderState>(input: { exists: 
         return { ok: true, result: { opening: given.opening.length, closing: given.closing.length } };
       } }),
     tool({ name: "add_choice", description: `Offer her a choice between 2 to 8 options, each a short sequence of ${input.idName}s, between the opening and the closing. Calling it again replaces the choice.`,
-      schema: z.object({ purpose: text("The question she reads on the choice screen, in a few friendly words. Never explains your reasoning."), label: text("Short name of the choice portal."),
+      schema: z.object({ purpose: text("The question she reads on the choice screen."), label: text("Short name of the choice portal."),
         options: z.array(z.object({ label: text("Short option name she reads."), hypothesis: text("Why this option might work for her."), ids: z.array(text(`A ${input.idName}.`)).min(1) }).strict()).min(2).max(8) }).strict(),
       run: (state, given) => {
         for (const option of given.options) {

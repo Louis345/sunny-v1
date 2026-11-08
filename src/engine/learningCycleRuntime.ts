@@ -882,10 +882,10 @@ async function askPlanner(
     const prompt=`You are Sunny's AI Planner, her spelling tutor. The goal: she wants to come back to Sunny, and she knows her words by the school test. Compare your preregistered theory and predictions with what she actually did and said, decide what happens next, and build her next board, using the tools.
 1. decide: one evidence-grounded decision. Cite the prediction evaluations you judge.
 2. Unless you await calibration, build the next board: add_step for each step, add_explainer for a new lesson page, then set_order and, when she should pick her path, add_choice. Then finish_board.
-Sunny runs each step as you write it. The board she has now stays as it is; yours opens when she chooses it, right away or at a later session. The kiosk screen shows up to 7 stops along any one path, counting the start, the choice and the finish. Title each step as she should see it. Per-word response time, assistance, exposure and response mode are in the evidence below; Elli talks with her during each activity.
+Sunny runs each step as you write it. The board she has now stays as it is; yours opens when she chooses it, right away or at a later session. The kiosk screen shows up to 7 stops along any one path, counting the start, the choice and the finish. She sees each step's title. Per-word response time, assistance, exposure and response mode are in the evidence below; Elli talks with her during each activity.
 Games and modes on the menu (a hidden-word Radar is an independent check; the rest are practice):
 ${JSON.stringify(facts.activities.map(row=>row.id))}
-${facts.activities.some(row=>row.id==="generated-game")?`generated-game is a new game Sunny builds for her from her chart and the story you write for that step. Her family wants each next board to give her a choice where one option is her generated-game and another is a hand-made game, so what she picks and replays tells you what she enjoys.
+${facts.activities.some(row=>row.id==="generated-game")?`generated-game is a new game Sunny builds for her from her chart and the story you write for that step. What she picks and replays shows what she enjoys.
 `:""}Tested built-in activities she played, which you may re-run:
 ${JSON.stringify(facts.builtIns.map(row=>({builtIn:row.nodeId,title:row.title,type:row.implementationType,words:row.wordIds.length,checkpoint:row.checkpoint})))}
 Saved spelling words:
@@ -895,7 +895,7 @@ ${JSON.stringify(childContext)}
 ${encounterGate ? "Baseline Quest eligibility (runtime truth boundary, not a mastery judgment):" : "Fresh independent evidence so far (a fact for your decision, not a gate; Quest is your call):"}
 ${JSON.stringify(baselineEligibility)}
 Allowed progression actions: ${actions.join(", ")}
-${actions.some(action=>action==="generate_quest"||action==="generate_boss")?`Quest and Boss use her own list words in new, fun content. Quest is the primer: a fun check of her words, the way a raid has a warm-up before its boss. Boss is the final check before the school test; it opens from her Quest results and always ends awaiting the graded test. When you choose generate_quest or generate_boss, add exactly one step with that encounter: a hidden-word check or her generated-game, where each word is hidden and she types it without help.
+${actions.some(action=>action==="generate_quest"||action==="generate_boss")?`Quest and Boss check her own list words. Boss opens from her Quest results and always ends awaiting the graded test. When you choose generate_quest or generate_boss, add exactly one step with that encounter: a hidden-word check or her generated-game, where each word is hidden and she types it without help.
 `:""}Cycle:
 ${JSON.stringify({ lifecycle: cycle.lifecycle, assignment: cycle.assignment, theory: cycle.academicTheory, predictions: cycle.academicPredictions, predictionEvaluations: cycle.predictionEvaluations, evidence: factualEvidence, observations: factualObservations, nodes: cycle.nodes.map((node) => ({ nodeId: node.nodeId, role: node.role, title: node.title, state: node.state, routeId: node.routeId, evidenceIds: node.evidenceIds.filter((id) => !isSynthetic(id)) })) })}`;
     // The question is frozen when its evidence batch closes: a restart asks the same question and replays
