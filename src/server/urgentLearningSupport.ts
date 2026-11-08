@@ -22,7 +22,7 @@ import {
   type CurrentBoardSnapshot,
 } from "./currentBoardSnapshot";
 import { shouldPersistSessionData } from "../utils/runtimeMode";
-import { companionSpellingTestObjective } from "../engine/schoolTestObjective";
+import { companionMathTestObjective, companionSpellingTestObjective } from "../engine/schoolTestObjective";
 
 export type UrgentIntentType =
   | "help_request"
@@ -278,7 +278,8 @@ export function buildActivityCompanionContext(input: {
   }
   // The school test as her goal plus facts (owner, 2026-11-08): Elli judges how much help fits.
   const testObjective = cycle?.domain === "spelling" ? companionSpellingTestObjective({ cycle, homework: chart?.homework,
-    instrument: spelling ? assessment?.instrument : undefined }) : "";
+    instrument: spelling ? assessment?.instrument : undefined })
+    : cycle?.domain === "math" ? companionMathTestObjective({ cycle, homework: chart?.homework }) : "";
   return redactProtectedSpellingText([board, liveBoard, input.speechRate === undefined ? "" : `Configured speech speed: ${input.speechRate} (1=normal; resets on item or launch change).`, memory, helpObjective, testObjective, spelling].filter(Boolean).join("\n\n"), input.snapshot);
 }
 

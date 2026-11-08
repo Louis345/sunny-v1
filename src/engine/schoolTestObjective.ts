@@ -62,3 +62,20 @@ export function companionSpellingTestObjective(input: { cycle: LearningCycleReco
   return ["[Her spelling goal]", SPELLING_TEST_GOAL, when, SPELLING_TEST_CONDITIONS, ...role,
     "How each word has gone for her:", ...spellingWordHistoryLines(input.cycle, localDate(now))].join("\n");
 }
+
+export const MATH_TEST_GOAL = "Her goal is to solve problems like these on her own by the school test.";
+
+/** Matilda's (or any math companion's) goal and facts for this assignment: the test and how her problems have gone. */
+export function companionMathTestObjective(input: { cycle: LearningCycleRecordV2; homework?: HomeworkSources; now?: Date }): string {
+  const now = input.now ?? new Date();
+  const facts = schoolTestFacts(input.homework, input.cycle.homeworkId, now);
+  const when = !facts ? "School test date: not recorded."
+    : `School test: ${facts.weekday} ${facts.testDate}. Today is ${facts.today}: ${facts.daysLeft > 0 ? `${facts.daysLeft} day${facts.daysLeft === 1 ? "" : "s"} left` : facts.daysLeft === 0 ? "the test is today" : "the test date has passed"}.`;
+  const rows = (input.cycle.observations ?? []).filter(row => typeof row.result?.correct === "boolean");
+  const own = rows.filter(row => row.assistance.status === "unassisted"), helped = rows.filter(row => row.assistance.status !== "unassisted");
+  const right = (list: typeof rows) => list.filter(row => row.result.correct).length;
+  const so = rows.length
+    ? `Her problems so far: on her own ${right(own)} of ${own.length} right; with help ${right(helped)} of ${helped.length} right.`
+    : "Her problems so far: none answered yet.";
+  return ["[Her math goal]", MATH_TEST_GOAL, when, so].join("\n");
+}
