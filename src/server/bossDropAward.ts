@@ -45,6 +45,12 @@ export function awardNodeChestOnCompletion(cycle: LearningCycleRecordV2, nodeId:
   }
 }
 
+/** A board's frontier just finished (owner, 2026-11-07: "at the end of the board they can use FaceTime"). Teaching
+ * and support boards end in baseline_evaluating, Quest boards in quest_evaluating, the Boss in awaiting_calibration. */
+export function boardFinishedForCall(lifecycle: string): boolean {
+  return lifecycle === "baseline_evaluating" || lifecycle === "quest_evaluating" || lifecycle === "awaiting_calibration";
+}
+
 /** A finished Discovery stop opens a chest too (owner, 2026-11-07): Discovery is an evaluation stop, so the chest is
  * at least rare. With no node named, the first finished Discovery stop is used. Once per stop, like every chest. */
 export function awardDiscoveryChest(cycle: LearningCycleRecordV2, nodeId: string | undefined, roll?: () => number): { chest: NodeChest; balance: number } | undefined {

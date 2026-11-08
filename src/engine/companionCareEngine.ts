@@ -216,13 +216,16 @@ export function grantVideoCallTicket(
   homeworkIdRaw: string,
   nowIso: string,
   bonusUrl?: string,
+  boardId?: string,
 ): { plan: CompanionCarePlan; granted: boolean } {
   const homeworkId = homeworkIdRaw.trim();
   if (!homeworkId) return { plan, granted: false };
   const tickets = plan.economy.videoCallTickets ?? [];
-  if (tickets.some((ticket) => ticket.homeworkId === homeworkId)) {
-    return { plan, granted: false };
-  }
+  // One ticket per completed board; legacy tickets without a board stay one per list.
+  const duplicate = boardId
+    ? tickets.some((ticket) => ticket.boardId === boardId)
+    : tickets.some((ticket) => ticket.homeworkId === homeworkId);
+  if (duplicate) return { plan, granted: false };
   return {
     granted: true,
     plan: {
@@ -231,6 +234,7 @@ export function grantVideoCallTicket(
         ...plan.economy,
         videoCallTickets: [...tickets, {
           homeworkId,
+          ...(boardId ? { boardId } : {}),
           earnedAt: nowIso,
           ...(bonusUrl ? { bonusUrl } : {}),
         }],
@@ -247,9 +251,11 @@ export function markVideoCallTicketOpened(
 ): { plan: CompanionCarePlan; ok: boolean; alreadyOpened: boolean } {
   const homeworkId = homeworkIdRaw.trim();
   const tickets = plan.economy.videoCallTickets ?? [];
-  const ticket = tickets.find((entry) => entry.homeworkId === homeworkId);
-  if (!ticket) return { plan, ok: false, alreadyOpened: false };
-  if (ticket.openedAt) return { plan, ok: true, alreadyOpened: true };
+  const forList = tickets.filter((entry) => entry.homeworkId === homeworkId);
+  if (forList.length === 0) return { plan, ok: false, alreadyOpened: false };
+  // The newest unopened ticket for this list; when every ticket is already open, this call was already counted.
+  const ticket = [...forList].reverse().find((entry) => !entry.openedAt);
+  if (!ticket) return { plan, ok: true, alreadyOpened: true };
   return {
     ok: true,
     alreadyOpened: false,
@@ -259,7 +265,7 @@ export function markVideoCallTicketOpened(
         ...plan.economy,
         callMinutes: (plan.economy.callMinutes ?? 0) + CALL_RULES.freeMinutesPerBoard,
         videoCallTickets: tickets.map((entry) =>
-          entry.homeworkId === homeworkId ? { ...entry, openedAt: nowIso } : entry,
+          entry === ticket ? { ...entry, openedAt: nowIso } : entry,
         ),
       },
       updatedAt: nowIso,

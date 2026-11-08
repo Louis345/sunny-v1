@@ -107,6 +107,8 @@ export interface CompanionCarePlan {
     purchaseReceipts?: string[];
     videoCallTickets?: Array<{
       homeworkId: string;
+      /** The board this call was earned on; every completed board earns one (owner, 2026-11-07). */
+      boardId?: string;
       earnedAt: string;
       openedAt?: string;
       bonusUrl?: string;

@@ -68,3 +68,10 @@ it("opens a chest, at least rare, for a finished Discovery stop", async () => {
   expect(awardDiscoveryChest(discovery("completed"), undefined)?.chest).toEqual(opened?.chest);
   expect(saved).toHaveLength(1);
 });
+
+// Owner, 2026-11-07: every completed board earns the call, including Quest and Boss boards.
+it("earns the call when any board finishes, never mid-board", async () => {
+  const { boardFinishedForCall } = await import("./bossDropAward");
+  expect(["baseline_evaluating", "quest_evaluating", "awaiting_calibration"].map(boardFinishedForCall)).toEqual([true, true, true]);
+  expect(["baseline_active", "board_ready", "quest_ready", "evaluation_active", "targeted_planning"].map(boardFinishedForCall)).toEqual([false, false, false, false, false]);
+});

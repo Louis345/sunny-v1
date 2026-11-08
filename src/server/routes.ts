@@ -1,4 +1,4 @@
-import { awardBossDropOnCompletion, awardDiscoveryChest, awardNodeChestOnCompletion } from "./bossDropAward";
+import { awardBossDropOnCompletion, awardDiscoveryChest, awardNodeChestOnCompletion, boardFinishedForCall } from "./bossDropAward";
 import type { CoinOffer } from "../shared/companionCareTypes";
 import { runOriginalSpellingForecast } from '../chart/spelling/originalForecast';
 import { setupOriginalSpellingParentRoutes } from './originalSpellingParent';
@@ -320,6 +320,7 @@ import {
   listReturnedWorkAssignments,
 } from "../engine/returnedWorkPipeline";
 import type { ConfirmedReturnedWorkItem } from "../engine/longitudinalLearning";
+import { currentBoardInstance } from "../engine/learningBoardInstances";
 
 const companions = {
   Ila: ELLI,
@@ -1081,7 +1082,7 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
         void (runtime.forecastSpelling??runOriginalSpellingForecast)(childId,homeworkId).catch(error=>console.error(' 🎮 [spelling-forecast] [checkpoint] [needs-attention]',error));
       }
       let videoCallTicket: { homeworkId: string; earnedAt: string; bonusUrl?: string } | undefined;
-      if (becameCompleted && !practiceContinuation && finalCycle.lifecycle === "baseline_evaluating") {
+      if (becameCompleted && !practiceContinuation && boardFinishedForCall(finalCycle.lifecycle)) {
         try {
           const chart = getChildChart(childId);
           const earnedAt = new Date().toISOString();
@@ -1099,13 +1100,16 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
           } catch {
             bonusUrl = undefined;
           }
-          const ticket = grantVideoCallTicket(chart.companionCare.plan, homeworkId, earnedAt, bonusUrl);
+          // Legacy cycles without board instances keep one call per list.
+          let boardId: string | undefined;
+          try { boardId = currentBoardInstance(finalCycle).boardId; } catch { boardId = undefined; }
+          const ticket = grantVideoCallTicket(chart.companionCare.plan, homeworkId, earnedAt, bonusUrl, boardId);
           if (ticket.granted) {
             saveCompanionCarePlan(chart, ticket.plan);
             mirrorCompanionCareToLearningProfile(chart, ticket.plan);
           }
           const savedTicket = ticket.plan.economy.videoCallTickets?.find(
-            (entry) => entry.homeworkId === homeworkId,
+            (entry) => (boardId ? entry.boardId === boardId : entry.homeworkId === homeworkId),
           );
           if (savedTicket) {
             videoCallTicket = {

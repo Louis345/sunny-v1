@@ -414,3 +414,30 @@ describe("variable chests", () => {
     expect(total / 4000).toBeLessThan(15);
   });
 });
+
+// Owner, 2026-11-07: "at the end of the board they can use FaceTime." Every completed board earns a call, not only
+// the first board of a list; opening a call uses the newest unopened ticket and adds its free minutes.
+describe("a call after every completed board", () => {
+  const at3 = "2026-11-08T13:00:00.000Z";
+  it("grants one ticket per board, never twice for the same board", () => {
+    let current = createStarterCompanionCarePlan({ childId: "demo-pashley", companionId: "elli" });
+    current = grantVideoCallTicket(current, "hw-1", at3, undefined, "hw-1:board:2").plan;
+    const again = grantVideoCallTicket(current, "hw-1", at3, undefined, "hw-1:board:2");
+    expect(again.granted).toBe(false);
+    const next = grantVideoCallTicket(again.plan, "hw-1", at3, undefined, "hw-1:board:3");
+    expect(next.granted).toBe(true);
+    expect(next.plan.economy.videoCallTickets?.map(ticket => ticket.boardId)).toEqual(["hw-1:board:2", "hw-1:board:3"]);
+  });
+
+  it("opens each board's call once, adding free minutes each time", () => {
+    let current = createStarterCompanionCarePlan({ childId: "demo-pashley", companionId: "elli" });
+    current = grantVideoCallTicket(current, "hw-1", at3, undefined, "hw-1:board:2").plan;
+    current = markVideoCallTicketOpened(current, "hw-1", at3).plan;
+    expect(current.economy.callMinutes).toBe(CALL_RULES.freeMinutesPerBoard);
+    current = grantVideoCallTicket(current, "hw-1", at3, undefined, "hw-1:board:3").plan;
+    const second = markVideoCallTicketOpened(current, "hw-1", at3);
+    expect(second.alreadyOpened).toBe(false);
+    expect(second.plan.economy.callMinutes).toBe(2 * CALL_RULES.freeMinutesPerBoard);
+    expect(markVideoCallTicketOpened(second.plan, "hw-1", at3).alreadyOpened).toBe(true);
+  });
+});
