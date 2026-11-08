@@ -5,13 +5,16 @@ import type { DenState } from "../components/creatureDenRules";
 import { SIDEKICK_CHEER_MS, SIDEKICK_SLEEP_MS, SidekickBuddy } from "../components/SidekickBuddy";
 import { CREATURE_CATALOG } from "../components/capturedMonsterCatalog";
 
+const playSfx = vi.hoisted(() => vi.fn());
 vi.mock("../utils/sparkOrbSfx", () => ({
-  playSparkOrbSfx: vi.fn(),
+  playSparkOrbSfx: playSfx,
   startSparkOrbPullTone: () => null,
 }));
 
 afterEach(() => {
   vi.useRealTimers();
+  vi.restoreAllMocks();
+  playSfx.mockClear();
 });
 
 const state: DenState = {
@@ -75,5 +78,34 @@ describe("SidekickBuddy", () => {
     render(<SidekickBuddy creature={glowmoth} nickname="Glow" cheerKey={0} onDismiss={onDismiss} />);
     fireEvent.click(screen.getByRole("button", { name: /Send Glow home/ }));
     expect(onDismiss).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("den creatures feel alive (same idle life as Lumipuff in the orb scene)", () => {
+  const glowmoth = CREATURE_CATALOG.find((species) => species.id === "glowmoth")!;
+
+  it("the creature in its room breathes, fidgets at random and chirps", () => {
+    vi.useFakeTimers();
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    render(<CreatureDen state={state} onChange={vi.fn()} />);
+    const art = screen.getByTestId("den-creature-art");
+    expect(art).toHaveAttribute("data-idle-life", "breathing");
+    expect(art).not.toHaveAttribute("data-idle-fidget");
+    act(() => vi.advanceTimersByTime(2_700));
+    expect(art).toHaveAttribute("data-idle-fidget", "hop");
+    expect(playSfx).toHaveBeenCalledWith("chirp", expect.anything());
+  });
+
+  it("the sidekick fidgets while awake and keeps still while it sleeps", () => {
+    vi.useFakeTimers();
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    render(<SidekickBuddy creature={glowmoth} nickname="Glow" cheerKey={0} onDismiss={vi.fn()} />);
+    const buddy = screen.getByTestId("sidekick-buddy");
+    act(() => vi.advanceTimersByTime(2_700));
+    expect(buddy).toHaveAttribute("data-idle-fidget", "hop");
+    act(() => vi.advanceTimersByTime(SIDEKICK_SLEEP_MS));
+    expect(buddy).toHaveAttribute("data-mood", "sleep");
+    expect(buddy).not.toHaveAttribute("data-idle-life");
+    expect(buddy).not.toHaveAttribute("data-idle-fidget");
   });
 });

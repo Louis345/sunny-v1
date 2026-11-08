@@ -17,6 +17,13 @@ import {
   type SparkOrbSfxOptions,
 } from "../utils/sparkOrbSfx";
 import { CompanionLayer } from "./CompanionLayer";
+import "./CreatureEncounter.css";
+import {
+  CREATURE_IDLE_FIDGETS,
+  CREATURE_MAX_IDLE_FIDGETS,
+  useCreatureIdleLife,
+  type CreatureIdleFidget,
+} from "../hooks/useCreatureIdleLife";
 import {
   SPARK_ORB_MAX_WEATHER_PARTICLES,
   resolveSparkOrbScene,
@@ -173,14 +180,10 @@ export interface SparkOrbFlightSample {
 
 export const SPARK_ORB_MAX_SIM_STEPS = 240;
 
-/** Little idle moves Lumipuff picks from at random while waiting for a throw. */
-export const SPARK_ORB_IDLE_FIDGETS = ["hop", "tilt", "wiggle", "look"] as const;
-export type SparkOrbIdleFidget = (typeof SPARK_ORB_IDLE_FIDGETS)[number];
-/** Law 2 guard: after this many fidgets in one wait, Lumipuff only breathes. */
-export const SPARK_ORB_MAX_IDLE_FIDGETS = 40;
-const IDLE_FIDGET_MIN_GAP_MS = 2_600;
-const IDLE_FIDGET_GAP_SPREAD_MS = 3_200;
-const IDLE_FIDGET_DURATION_MS = 900;
+/** Lumipuff's idle moves come from the one creature idle-life clock. */
+export const SPARK_ORB_IDLE_FIDGETS = CREATURE_IDLE_FIDGETS;
+export type SparkOrbIdleFidget = CreatureIdleFidget;
+export const SPARK_ORB_MAX_IDLE_FIDGETS = CREATURE_MAX_IDLE_FIDGETS;
 
 export interface SparkOrbLaunchPhysics {
   result: SparkOrbLaunchResult;
@@ -604,7 +607,6 @@ export function SparkOrbLearningShell({
 }: SparkOrbLearningShellProps) {
   const [remainingOrbCount, setRemainingOrbCount] = useState(orbCount);
   const [chargeOverride, setChargeOverride] = useState<number | null>(null);
-  const [idleFidget, setIdleFidget] = useState<SparkOrbIdleFidget | null>(null);
   const resolvedSensory = useMemo(() => resolveSensoryProfile(sensory), [sensory]);
   const resolvedScene = useMemo(() => resolveSparkOrbScene(scene), [scene]);
   const showWeather = resolvedScene.weather !== "none" && resolvedSensory.motion !== "calm";
@@ -816,40 +818,12 @@ export function SparkOrbLearningShell({
     setRemainingOrbCount(orbCount);
   }, [orbCount]);
 
-  // Idle life: random gaps between small fidgets so Lumipuff never loops on a fixed beat.
-  // Exit: effect cleanup when the throw starts or on unmount; capped at SPARK_ORB_MAX_IDLE_FIDGETS.
-  useEffect(() => {
-    if (!idleLifeActive) return;
-    const gapScale = idleMotion === "lively" ? 0.6 : 1;
-    console.info(" 🎮 [spark-orb-learning-shell] [idle-life] [started]", { motion: idleMotion });
-    let fidgetCount = 0;
-    let timer: ReturnType<typeof setTimeout> | null = null;
-    const scheduleNext = () => {
-      if (fidgetCount >= SPARK_ORB_MAX_IDLE_FIDGETS) {
-        console.info(" 🎮 [spark-orb-learning-shell] [idle-life] [fidget-cap-reached]");
-        return;
-      }
-      timer = setTimeout(() => {
-        fidgetCount += 1;
-        const index = Math.min(
-          SPARK_ORB_IDLE_FIDGETS.length - 1,
-          Math.floor(Math.random() * SPARK_ORB_IDLE_FIDGETS.length),
-        );
-        setIdleFidget(SPARK_ORB_IDLE_FIDGETS[index]);
-        playSparkOrbSfx("chirp", sfxOptionsRef.current);
-        timer = setTimeout(() => {
-          setIdleFidget(null);
-          scheduleNext();
-        }, IDLE_FIDGET_DURATION_MS);
-      }, (IDLE_FIDGET_MIN_GAP_MS + Math.random() * IDLE_FIDGET_GAP_SPREAD_MS) * gapScale);
-    };
-    scheduleNext();
-    return () => {
-      if (timer) clearTimeout(timer);
-      setIdleFidget(null);
-      console.info(" 🎮 [spark-orb-learning-shell] [idle-life] [stopped]");
-    };
-  }, [idleLifeActive, idleMotion]);
+  const idleFidget = useCreatureIdleLife({
+    active: idleLifeActive,
+    motion: idleMotion,
+    label: "spark-orb-learning-shell",
+    onFidget: () => playSparkOrbSfx("chirp", sfxOptionsRef.current),
+  });
 
   // Each answer that charges the orb gets a chime; reaching the goal gets the "ready" song.
   const previousChargeRef = useRef(chargeCount);
@@ -1699,35 +1673,35 @@ export function SparkOrbLearningShell({
         .spark-orb-learning-shell .spark-orb-learning-shell__creature[data-idle-life="breathing"] {
           animation:
             sparkLearningCreatureBounce 1.7s ease-in-out infinite,
-            sparkLearningCreatureBreathe 1.7s ease-in-out infinite;
+            creatureBreathe 1.7s ease-in-out infinite;
         }
 
         .spark-orb-learning-shell .spark-orb-learning-shell__creature[data-idle-life="breathing"][data-idle-fidget="hop"] {
           animation:
             sparkLearningCreatureBounce 1.7s ease-in-out infinite,
-            sparkLearningCreatureBreathe 1.7s ease-in-out infinite,
-            sparkLearningCreatureFidgetHop 0.9s cubic-bezier(0.3, 0.7, 0.4, 1);
+            creatureBreathe 1.7s ease-in-out infinite,
+            creatureFidgetHop 0.9s cubic-bezier(0.3, 0.7, 0.4, 1);
         }
 
         .spark-orb-learning-shell .spark-orb-learning-shell__creature[data-idle-life="breathing"][data-idle-fidget="tilt"] {
           animation:
             sparkLearningCreatureBounce 1.7s ease-in-out infinite,
-            sparkLearningCreatureBreathe 1.7s ease-in-out infinite,
-            sparkLearningCreatureFidgetTilt 0.9s ease-in-out;
+            creatureBreathe 1.7s ease-in-out infinite,
+            creatureFidgetTilt 0.9s ease-in-out;
         }
 
         .spark-orb-learning-shell .spark-orb-learning-shell__creature[data-idle-life="breathing"][data-idle-fidget="wiggle"] {
           animation:
             sparkLearningCreatureBounce 1.7s ease-in-out infinite,
-            sparkLearningCreatureBreathe 1.7s ease-in-out infinite,
-            sparkLearningCreatureFidgetWiggle 0.9s ease-in-out;
+            creatureBreathe 1.7s ease-in-out infinite,
+            creatureFidgetWiggle 0.9s ease-in-out;
         }
 
         .spark-orb-learning-shell .spark-orb-learning-shell__creature[data-idle-life="breathing"][data-idle-fidget="look"] {
           animation:
             sparkLearningCreatureBounce 1.7s ease-in-out infinite,
-            sparkLearningCreatureBreathe 1.7s ease-in-out infinite,
-            sparkLearningCreatureFidgetLook 0.9s ease-in-out;
+            creatureBreathe 1.7s ease-in-out infinite,
+            creatureFidgetLook 0.9s ease-in-out;
         }
 
         .spark-orb-learning-shell__creature-shadow[data-idle-life="breathing"] {
@@ -2486,43 +2460,6 @@ export function SparkOrbLearningShell({
         @keyframes sparkLearningCreatureBounce {
           0%, 100% { transform: translate(-50%, -50%); }
           50% { transform: translate(-50%, -53%); }
-        }
-
-        /* Squash at the bottom of the bob, stretch on the way up. Uses the scale property so it
-           layers on top of the transform-based bob and fidgets. */
-        @keyframes sparkLearningCreatureBreathe {
-          0%, 100% { scale: 1.035 0.965; }
-          25% { scale: 0.985 1.02; }
-          50% { scale: 1 1.01; }
-          75% { scale: 1.01 0.99; }
-        }
-
-        @keyframes sparkLearningCreatureFidgetHop {
-          0% { translate: 0 0; rotate: 0deg; }
-          18% { translate: 0 6px; rotate: 0deg; }
-          45% { translate: 0 -34px; rotate: -4deg; }
-          72% { translate: 0 2px; rotate: 2deg; }
-          86% { translate: 0 -5px; rotate: 0deg; }
-          100% { translate: 0 0; rotate: 0deg; }
-        }
-
-        @keyframes sparkLearningCreatureFidgetTilt {
-          0%, 100% { rotate: 0deg; }
-          25%, 70% { rotate: -11deg; }
-        }
-
-        @keyframes sparkLearningCreatureFidgetWiggle {
-          0%, 100% { rotate: 0deg; }
-          15% { rotate: 7deg; }
-          35% { rotate: -7deg; }
-          55% { rotate: 5deg; }
-          75% { rotate: -3deg; }
-        }
-
-        @keyframes sparkLearningCreatureFidgetLook {
-          0%, 100% { translate: 0 0; rotate: 0deg; }
-          25%, 40% { translate: -12px 0; rotate: -5deg; }
-          60%, 78% { translate: 12px 0; rotate: 5deg; }
         }
 
         @keyframes sparkLearningShadowBreathe {

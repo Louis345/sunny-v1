@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useCreatureIdleLife } from "../hooks/useCreatureIdleLife";
 import "./CreatureEncounter.css";
 import type { CapturedMonsterConfig } from "./capturedMonsterCatalog";
 import { creatureArtStyle } from "./CreatureEncounterReveal";
@@ -26,6 +27,8 @@ export function SidekickBuddy({
 }) {
   const [mood, setMood] = useState<SidekickMood>("idle");
   const firstKey = useRef(cheerKey);
+  // Silent fidgets: a chirp every few seconds next to her homework would pull her attention.
+  const idleFidget = useCreatureIdleLife({ active: mood === "idle", label: "sidekick" });
 
   useEffect(() => {
     if (cheerKey === firstKey.current) return;
@@ -47,6 +50,8 @@ export function SidekickBuddy({
       className="sidekick-buddy"
       data-testid="sidekick-buddy"
       data-mood={mood}
+      data-idle-life={mood === "idle" ? "breathing" : undefined}
+      data-idle-fidget={mood === "idle" && idleFidget ? idleFidget : undefined}
       data-rarity={creature.rarity}
       aria-label={`Send ${nickname} home`}
       onClick={() => {

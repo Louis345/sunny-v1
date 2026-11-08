@@ -1,4 +1,6 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useCreatureIdleLife } from "../hooks/useCreatureIdleLife";
+import { playSparkOrbSfx } from "../utils/sparkOrbSfx";
 import "./CreatureEncounter.css";
 import { creatureArtStyle, dexLabel } from "./CreatureEncounterReveal";
 import {
@@ -27,6 +29,19 @@ export function CreatureDen({ state, onChange }: { state: DenState; onChange: (n
   function react(text: string): void {
     setReaction((previous) => ({ key: (previous?.key ?? 0) + 1, text }));
   }
+
+  // A reaction plays once, then the creature goes back to its idle life.
+  useEffect(() => {
+    if (!reaction) return;
+    const timer = window.setTimeout(() => setReaction(null), 1_100);
+    return () => window.clearTimeout(timer);
+  }, [reaction]);
+
+  const idleFidget = useCreatureIdleLife({
+    active: Boolean(selected) && !reaction,
+    label: "creature-den",
+    onFidget: () => playSparkOrbSfx("chirp", {}),
+  });
 
   return (
     <div className="creature-den">
@@ -59,7 +74,10 @@ export function CreatureDen({ state, onChange }: { state: DenState; onChange: (n
             <img
               key={reaction?.key ?? 0}
               className="creature-den__art"
+              data-testid="den-creature-art"
               data-reacting={reaction ? "true" : "false"}
+              data-idle-life={reaction ? undefined : "breathing"}
+              data-idle-fidget={reaction || !idleFidget ? undefined : idleFidget}
               src={selected.species.imageSrc}
               alt=""
               aria-hidden="true"

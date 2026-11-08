@@ -447,3 +447,59 @@
   from { opacity: 1; translate: 0 0; }
   to { opacity: 0; translate: 0 -36px; }
 }
+
+/* ---------- Creature idle life (orb scene, den, sidekick) ---------- */
+/* Squash at the bottom of the bob, stretch on the way up. Uses the scale property so it
+   layers on top of the transform-based bob and fidgets. */
+@keyframes creatureBreathe {
+  0%, 100% { scale: 1.035 0.965; }
+  25% { scale: 0.985 1.02; }
+  50% { scale: 1 1.01; }
+  75% { scale: 1.01 0.99; }
+}
+
+@keyframes creatureFidgetHop {
+  0% { translate: 0 0; rotate: 0deg; }
+  18% { translate: 0 6px; rotate: 0deg; }
+  45% { translate: 0 -34px; rotate: -4deg; }
+  72% { translate: 0 2px; rotate: 2deg; }
+  86% { translate: 0 -5px; rotate: 0deg; }
+  100% { translate: 0 0; rotate: 0deg; }
+}
+
+@keyframes creatureFidgetTilt {
+  0%, 100% { rotate: 0deg; }
+  25%, 70% { rotate: -11deg; }
+}
+
+@keyframes creatureFidgetWiggle {
+  0%, 100% { rotate: 0deg; }
+  15% { rotate: 7deg; }
+  35% { rotate: -7deg; }
+  55% { rotate: 5deg; }
+  75% { rotate: -3deg; }
+}
+
+@keyframes creatureFidgetLook {
+  0%, 100% { translate: 0 0; rotate: 0deg; }
+  25%, 40% { translate: -12px 0; rotate: -5deg; }
+  60%, 78% { translate: 12px 0; rotate: 5deg; }
+}
+
+/* Den creature and sidekick use the same idle life as the orb scene. */
+.creature-den__art[data-idle-life="breathing"] { animation: creatureIdleBob 1.8s ease-in-out infinite, creatureBreathe 1.8s ease-in-out infinite; }
+.creature-den__art[data-idle-life="breathing"][data-idle-fidget="hop"] { animation: creatureBreathe 1.8s ease-in-out infinite, creatureFidgetHop 0.9s cubic-bezier(0.3, 0.7, 0.4, 1); }
+.creature-den__art[data-idle-life="breathing"][data-idle-fidget="tilt"] { animation: creatureIdleBob 1.8s ease-in-out infinite, creatureBreathe 1.8s ease-in-out infinite, creatureFidgetTilt 0.9s ease-in-out; }
+.creature-den__art[data-idle-life="breathing"][data-idle-fidget="wiggle"] { animation: creatureIdleBob 1.8s ease-in-out infinite, creatureBreathe 1.8s ease-in-out infinite, creatureFidgetWiggle 0.9s ease-in-out; }
+.creature-den__art[data-idle-life="breathing"][data-idle-fidget="look"] { animation: creatureBreathe 1.8s ease-in-out infinite, creatureFidgetLook 0.9s ease-in-out; }
+
+.sidekick-buddy[data-idle-life="breathing"] .sidekick-buddy__art { animation: creatureIdleBob 1.6s ease-in-out infinite, creatureBreathe 1.6s ease-in-out infinite; }
+.sidekick-buddy[data-idle-fidget="hop"] .sidekick-buddy__art { animation: creatureBreathe 1.6s ease-in-out infinite, creatureFidgetHop 0.9s cubic-bezier(0.3, 0.7, 0.4, 1); }
+.sidekick-buddy[data-idle-fidget="tilt"] .sidekick-buddy__art { animation: creatureIdleBob 1.6s ease-in-out infinite, creatureBreathe 1.6s ease-in-out infinite, creatureFidgetTilt 0.9s ease-in-out; }
+.sidekick-buddy[data-idle-fidget="wiggle"] .sidekick-buddy__art { animation: creatureIdleBob 1.6s ease-in-out infinite, creatureBreathe 1.6s ease-in-out infinite, creatureFidgetWiggle 0.9s ease-in-out; }
+.sidekick-buddy[data-idle-fidget="look"] .sidekick-buddy__art { animation: creatureBreathe 1.6s ease-in-out infinite, creatureFidgetLook 0.9s ease-in-out; }
+
+@media (prefers-reduced-motion: reduce) {
+  .creature-den__art,
+  .sidekick-buddy__art { animation: none !important; }
+}
