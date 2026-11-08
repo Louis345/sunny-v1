@@ -229,8 +229,8 @@ export function buildChildExperiencePacket(chart: ChildChart): ChildExperiencePa
     const captured = new Set(chart.learningCycle!.observations.map(row => row.itemId));
     return [[node.nodeId, { assessment, items: items.filter(item => !assessment || node.state === "completed" || !captured.has(item.id)).map(item => ({ itemId: item.id, display: item.word, acceptedResponses: item.response.acceptedForms, label: "Spelling", subject: "spelling" })) }]];
   })) : undefined;
-  const itemBindings = chart.learningCycle && chart.learningCycle.domain !== "spelling" ? Object.fromEntries(chart.learningCycle.nodes.flatMap(node => {
-    const items = Object.values(node.evidenceContract.itemContracts ?? {});
+  const itemBindings = chart.learningCycle && chart.learningCycle.domain !== "spelling" ? Object.fromEntries((chart.learningCycle.nodes ?? []).flatMap(node => {
+    const items = Object.values(node.evidenceContract?.itemContracts ?? {});
     return node.implementationType === "generated-game" && items.length ? [[node.nodeId, items.map(item => ({ itemId: item.id, display: item.prompt }))]] : [];
   })) : undefined;
   const spellingEvaluationResults = chart.learningCycle?.domain === "spelling"
