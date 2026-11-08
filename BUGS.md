@@ -2,6 +2,19 @@
 
 - **Game sound has five owners instead of one (open, AI-caught in an owner-requested audit).** `gameSfx.ts` is meant to be the one sound registry with one shared audio context, but `questUnlockAudio.ts`, `companionActivities/companionActivitySfx.ts`, and `new Audio(...)` calls inside `SlotMachineOverlay`, `NodeTreasureChest`, `BossDropReveal` and `StoryImageFinale` each play sound their own way. Spark Orb opened a new audio context for every sound until this change; it now uses the shared one. Browsers cap open contexts, so a long session can go silent. None of these read the chart's new `sensory` sheet, so a child set to soft or silent still hears them. Fix: route every game sound through `gameSfx.ts` (registry + shared context + sensory volume), then delete the duplicates.
 
+## 2026-11-08 — Logged during Ila's session, to fix next session (open)
+
+- **The earned call carries over to the next board (owner decision 2026-11-08).** The call is the dopamine reward for finishing a board: offered only at the end of a completed board (and during the next-board wait), never carried onto the next board. Today an unused ticket stays on her map until used.
+- **Elli does not get the objective and the test date (owner 2026-11-08).** Elli should grow stricter as the test nears, stated as an objective, not code: "her goal is to spell these words on her own by Friday 11/13", plus facts (days left, check vs practice word, how each word has gone). Not yet verified whether her prompt carries the test date.
+- **Elli's praise can misstate what happened.** After chunk-by-chunk help she said "you worked that ornament out all by yourself"; the record says assisted. Praise should match the record.
+- **Ila talks to Elli without her name and is ignored.** "Hello? What are you?" was dropped as room talk while Elli was minimized. Decide how a child addresses a minimized Elli.
+- **She rushes the picture explainer (owner observed).** Check her page times; option: each chunk is said aloud before the next page (design decision).
+- **The Planner did not choose a built-for-her game on board 3, and chose two Word Radar stops.** Not a bug; watch it. It still cannot see which Word Radar mode she enjoys (history is per activity, not per mode; see 11/7).
+- **Loot needs more cheap common items.** Only 2 common and 2 rare items exist; she has the Royal Crown and Cat Ears already. Add hair colours, stickers, poses, backgrounds; orbs join the loot table later.
+- **Math on the one pipeline: next steps.** The next math board after the check-up still uses the old Planner form (~2 days to move); companion help is per stop, not per problem; answers are lost if she quits mid-game.
+- **No way to switch subjects on the kiosk.** Loading new homework selects that subject; a child with spelling and math cannot choose. Proposed: a "which today?" choice when more than one is active.
+- **Graded test photo → chart database (promised for Monday).** The chart stores school results and compares them with predictions; the photo → AI read → parent confirm → save step is missing. Ila's and Reina's 11/6 tests were never entered.
+
 ## 2026-11-07 — Found while running the free Quest/Boss demo (open)
 
 - **Board finished, no FaceTime: straight to the loading screen (fixed 2026-11-08, human-caught).** The 11/5 rule held the call while the next board was built and until its reveal, and the call button was hidden on the loading screen, so Ila finished board 2 and saw only "next board coming". The owner wants the call the moment a board ends, while the next one builds. Nothing holds the offer now; the loading screen shows only the call button. Returning from the call to an unfinished next board shows the loading screen, never an incomplete board.
