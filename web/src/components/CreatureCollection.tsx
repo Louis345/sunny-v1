@@ -1,23 +1,22 @@
 import "./CreatureEncounter.css";
-import { creatureDexView, type CreatureScene } from "./creatureEncounters";
+import { creatureDexView, type CreatureEncounterHistory, type CreatureScene } from "./creatureEncounters";
 import { creatureArtStyle, dexLabel } from "./CreatureEncounterReveal";
 
 const RARITY_NAME = { common: "Common", rare: "Rare", epic: "Epic", legendary: "Legendary" } as const;
-const percent = (chance: number) => `${(Math.round(chance * 1000) / 10).toString()}%`;
 
 /** Her creature dex (owner, 2026-11-08), built like the reward collection: every species is listed, caught in
- * colour, seen in grey, unknown as a ??? shadow, each with where to look and who is out right now, so every
- * creature is a goal she can chase. */
+ * colour, seen in grey, unknown as a ??? shadow, each with where to look, what is left to do (tries this week,
+ * boards to go, its season) and who is out right now, so every creature is a goal she can chase. */
 export function CreatureCollection({
-  seenIds,
-  caughtIds,
+  history,
   scene,
+  nowIso = new Date().toISOString(),
 }: {
-  seenIds: readonly string[];
-  caughtIds: readonly string[];
+  history: CreatureEncounterHistory;
   scene: CreatureScene;
+  nowIso?: string;
 }) {
-  const view = creatureDexView({ seenIds, caughtIds, scene });
+  const view = creatureDexView({ history, scene, nowIso });
   return (
     <div className="creature-dex">
       <header className="creature-dex__header">
@@ -49,7 +48,7 @@ export function CreatureCollection({
               <span className="creature-tile__where">
                 {entry.where}
                 <br />
-                {`About ${percent(entry.bestStopChance)} a stop while out`}
+                <strong className="creature-tile__goal">{entry.goal}</strong>
               </span>
             )}
           </div>

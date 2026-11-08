@@ -54,9 +54,9 @@ describe("CreatureCollection", () => {
   it("shows the whole dex with progress, unknowns as ???, and who is out right now", () => {
     render(
       <CreatureCollection
-        seenIds={["lumipuff", "glowmoth"]}
-        caughtIds={["lumipuff"]}
+        history={{ seenIds: ["lumipuff", "glowmoth"], caughtIds: ["lumipuff"], boardsCompleted: 3, encountersThisBoard: 0, lastTryAt: {} }}
         scene={{ season: "autumn", timeOfDay: "night" }}
+        nowIso="2026-11-08T21:00:00.000Z"
       />,
     );
     expect(screen.getByText(`1 of ${CREATURE_CATALOG.length} caught`)).toBeInTheDocument();
@@ -65,5 +65,7 @@ describe("CreatureCollection", () => {
     expect(screen.getByTestId("creature-tile-frostkit")).toHaveAttribute("data-status", "unknown");
     expect(screen.getAllByText("???").length).toBeGreaterThan(0);
     expect(screen.getByTestId("creature-tile-glowmoth")).toHaveAttribute("data-out-now", "true");
+    expect(screen.getByTestId("creature-tile-dewbun")).toHaveTextContent("3 of 5 boards");
+    expect(screen.getByTestId("creature-tile-starwhal")).toHaveTextContent("1 try this week");
   });
 });

@@ -7,28 +7,21 @@ import {
 import type { SparkOrbSeason, SparkOrbTimeOfDay } from "./sparkOrbScenes";
 
 /**
- * When a creature shows up (draft, owner to tune). A reward that follows the learning: it is rolled after a
- * stop is finished, never chooses an educational step, and never touches learning evidence.
+ * When a creature shows up (owner, 2026-11-08), after World of Warcraft. A reward that follows the learning:
+ * it never chooses an educational step and never touches learning evidence.
  *
- * - Rare stays rare: a stop without a creature does NOT raise the next chance (no pity, unlike chests).
- * - One guaranteed sighting a week, so she is never shut out for long.
- * - At most one creature per board, so it feels like an event.
+ * - The Planner chooses the moment: nothing appears unless it placed an encounter on the stop.
+ * - Code keeps it scarce: at most ENCOUNTERS_PER_BOARD per board.
+ * - New creatures come from their own source: the starter first; a milestone creature is guaranteed once
+ *   earned; a weekly drop gets one try a week; a seasonal creature one try a day in its season. A miss uses
+ *   the try and never raises the next chance (no pity).
+ * - Otherwise she meets a familiar creature she has caught that is out right now.
  * - Rarer creatures need more answers to charge the orb: the stakes.
  */
-export const ENCOUNTER_CHANCE_BY_STOP: Record<CreatureStopKind, number> = {
-  common: 0.05,
-  rare: 0.1,
-  epic: 0.2,
-  legendary: 0.35,
-  mystery: 0.15,
-};
-/** Which rarity shows up, once something does (same shape as the approved unlock odds 60/25/12/3). */
-export const CREATURE_RARITY_WEIGHTS: Record<RewardRarity, number> = { common: 60, rare: 25, epic: 12, legendary: 3 };
+export const ENCOUNTERS_PER_BOARD = 1;
+export const WEEKLY_LOCKOUT_DAYS = 7;
 export const CHARGES_BY_RARITY: Record<RewardRarity, number> = { common: 3, rare: 4, epic: 5, legendary: 6 };
-export const WEEKLY_GUARANTEE_DAYS = 7;
-export const MAX_ENCOUNTERS_PER_BOARD = 1;
 
-const RARITIES: RewardRarity[] = ["common", "rare", "epic", "legendary"];
 const DAY_MS = 86_400_000;
 
 export interface CreatureScene {
@@ -37,15 +30,32 @@ export interface CreatureScene {
 }
 
 export interface CreatureEncounterHistory {
-  lastSightingAt?: string;
-  sightingsThisBoard: number;
+  seenIds: readonly string[];
+  caughtIds: readonly string[];
+  boardsCompleted: number;
+  encountersThisBoard: number;
+  /** When each drop or seasonal creature was last tried for, by species id. */
+  lastTryAt: Readonly<Record<string, string>>;
 }
+
+export type CreatureEncounterReason =
+  | "not_placed"
+  | "board_limit"
+  | "none_out"
+  | "starter"
+  | "milestone"
+  | "drop"
+  | "seasonal"
+  | "familiar";
 
 export interface CreatureEncounterRoll {
   appeared: boolean;
-  reason: "rolled" | "weekly_guarantee" | "no_luck" | "board_limit" | "none_out";
+  reason: CreatureEncounterReason;
   creature?: CapturedMonsterConfig;
   charges?: number;
+  isNew: boolean;
+  /** lastTryAt after this roll: every try spent, hit or miss, so the lockout holds. */
+  tries: Record<string, string>;
 }
 
 export function creatureAppearsNow(
@@ -59,23 +69,36 @@ export function creatureAppearsNow(
   return true;
 }
 
-function pickSpecies(available: readonly CapturedMonsterConfig[], roll: () => number): CapturedMonsterConfig {
-  const present = RARITIES.filter((rarity) => available.some((species) => species.rarity === rarity));
-  const total = present.reduce((sum, rarity) => sum + CREATURE_RARITY_WEIGHTS[rarity], 0);
-  let ticket = roll() * total;
-  let rarity = present[present.length - 1];
-  for (const candidate of present) {
-    ticket -= CREATURE_RARITY_WEIGHTS[candidate];
-    if (ticket < 0) {
-      rarity = candidate;
-      break;
-    }
-  }
-  const pool = available.filter((species) => species.rarity === rarity);
-  return pool[Math.min(pool.length - 1, Math.floor(roll() * pool.length))];
+function sameLocalDay(a: string, b: string): boolean {
+  return new Date(a).toDateString() === new Date(b).toDateString();
+}
+
+/** Whether this drop or seasonal creature has a try available now (its lockout has passed). */
+function tryAvailable(species: CapturedMonsterConfig, lastTryAt: string | undefined, nowIso: string): boolean {
+  if (!lastTryAt) return true;
+  if (species.source.kind === "seasonal") return !sameLocalDay(lastTryAt, nowIso);
+  if (species.source.kind === "weekly_drop") return Date.parse(nowIso) - Date.parse(lastTryAt) >= WEEKLY_LOCKOUT_DAYS * DAY_MS;
+  return false;
+}
+
+function found(
+  creature: CapturedMonsterConfig,
+  reason: CreatureEncounterReason,
+  history: CreatureEncounterHistory,
+  tries: Record<string, string>,
+): CreatureEncounterRoll {
+  return {
+    appeared: true,
+    reason,
+    creature,
+    charges: CHARGES_BY_RARITY[creature.rarity],
+    isNew: !history.caughtIds.includes(creature.id),
+    tries,
+  };
 }
 
 export function rollCreatureEncounter(input: {
+  plannerPlaced: boolean;
   stopKind: CreatureStopKind;
   scene: CreatureScene;
   nowIso: string;
@@ -84,23 +107,40 @@ export function rollCreatureEncounter(input: {
   catalog?: readonly CapturedMonsterConfig[];
 }): CreatureEncounterRoll {
   const roll = input.roll ?? Math.random;
-  if (input.history.sightingsThisBoard >= MAX_ENCOUNTERS_PER_BOARD) return { appeared: false, reason: "board_limit" };
-  const last = input.history.lastSightingAt ? Date.parse(input.history.lastSightingAt) : Number.NaN;
-  const guaranteeDue =
-    !Number.isFinite(last) || Date.parse(input.nowIso) - last >= WEEKLY_GUARANTEE_DAYS * DAY_MS;
-  const lucky = roll() < ENCOUNTER_CHANCE_BY_STOP[input.stopKind];
-  if (!lucky && !guaranteeDue) return { appeared: false, reason: "no_luck" };
-  const available = (input.catalog ?? CREATURE_CATALOG).filter((species) =>
-    creatureAppearsNow(species, { ...input.scene, stopKind: input.stopKind }),
+  const catalog = input.catalog ?? CREATURE_CATALOG;
+  const { history } = input;
+  const tries: Record<string, string> = { ...history.lastTryAt };
+  const nothing = (reason: CreatureEncounterReason): CreatureEncounterRoll => ({ appeared: false, reason, isNew: false, tries });
+  if (!input.plannerPlaced) return nothing("not_placed");
+  if (history.encountersThisBoard >= ENCOUNTERS_PER_BOARD) return nothing("board_limit");
+  const context = { ...input.scene, stopKind: input.stopKind };
+  const uncaught = catalog.filter((species) => !history.caughtIds.includes(species.id));
+
+  const starter = uncaught.find((species) => species.source.kind === "starter");
+  if (starter) return found(starter, "starter", history, tries);
+
+  const earned = uncaught.find(
+    (species) =>
+      species.source.kind === "milestone" &&
+      history.boardsCompleted >= species.source.boards &&
+      creatureAppearsNow(species, context),
   );
-  if (!available.length) return { appeared: false, reason: "none_out" };
-  const creature = pickSpecies(available, roll);
-  return {
-    appeared: true,
-    reason: lucky ? "rolled" : "weekly_guarantee",
-    creature,
-    charges: CHARGES_BY_RARITY[creature.rarity],
-  };
+  if (earned) return found(earned, "milestone", history, tries);
+
+  for (const species of uncaught) {
+    const source = species.source;
+    if (source.kind !== "weekly_drop" && source.kind !== "seasonal") continue;
+    if (!creatureAppearsNow(species, context) || !tryAvailable(species, tries[species.id], input.nowIso)) continue;
+    tries[species.id] = input.nowIso;
+    if (roll() < source.chance) return found(species, source.kind === "seasonal" ? "seasonal" : "drop", history, tries);
+  }
+
+  const familiar = catalog.filter(
+    (species) => history.caughtIds.includes(species.id) && creatureAppearsNow(species, context),
+  );
+  if (!familiar.length) return nothing("none_out");
+  const pick = familiar[Math.min(familiar.length - 1, Math.floor(roll() * familiar.length))];
+  return found(pick, "familiar", history, tries);
 }
 
 export type CreatureDexStatus = "caught" | "seen" | "unknown";
@@ -109,53 +149,69 @@ export interface CreatureDexEntry {
   species: CapturedMonsterConfig;
   status: CreatureDexStatus;
   displayName: string;
+  /** Where and when to look. */
   where: string;
+  /** What is left to do: the measured goal (tries this week, boards to go, season). */
+  goal: string;
   outNow: boolean;
-  /** Rough chance one stop of the best kind brings this creature, while it is out. */
-  bestStopChance: number;
-  bestStop: CreatureStopKind;
 }
 
-const STOP_NAMES: Record<CreatureStopKind, string> = {
-  common: "any stop",
-  rare: "check stops",
-  epic: "Quest stops",
-  legendary: "Boss stops",
-  mystery: "Mystery stops",
+const SEASON_NAME: Record<SparkOrbSeason, string> = {
+  spring: "in spring",
+  summer: "in summer",
+  autumn: "in autumn",
+  halloween: "at Halloween",
+  holiday: "for the holidays",
+  winter: "in winter",
 };
 
+function goalFor(species: CapturedMonsterConfig, history: CreatureEncounterHistory, nowIso: string, scene: CreatureScene): string {
+  if (history.caughtIds.includes(species.id)) return "Caught";
+  const source = species.source;
+  switch (source.kind) {
+    case "starter":
+      return "Your first friend";
+    case "milestone":
+      return `Guaranteed after ${source.boards} boards: ${Math.min(history.boardsCompleted, source.boards)} of ${source.boards} boards`;
+    case "weekly_drop": {
+      const last = history.lastTryAt[species.id];
+      if (!last || tryAvailable(species, last, nowIso)) return "1 try this week";
+      const waitDays = Math.ceil((Date.parse(last) + WEEKLY_LOCKOUT_DAYS * DAY_MS - Date.parse(nowIso)) / DAY_MS);
+      return `Next try in ${waitDays} day${waitDays === 1 ? "" : "s"}`;
+    }
+    case "seasonal": {
+      const seasons = species.habitat.seasons ?? [];
+      if (!seasons.length || seasons.includes(scene.season)) return "In season now · 1 try a day";
+      return `Back ${SEASON_NAME[seasons[seasons.length - 1]]}`;
+    }
+    default: {
+      const exhaustive: never = source;
+      return exhaustive;
+    }
+  }
+}
+
 export function creatureDexView(input: {
-  seenIds: readonly string[];
-  caughtIds: readonly string[];
+  history: CreatureEncounterHistory;
   scene: CreatureScene;
+  nowIso: string;
   catalog?: readonly CapturedMonsterConfig[];
 }): { entries: CreatureDexEntry[]; caught: number; seen: number; total: number } {
   const catalog = input.catalog ?? CREATURE_CATALOG;
+  const { history } = input;
   const entries = catalog.map((species): CreatureDexEntry => {
-    const status: CreatureDexStatus = input.caughtIds.includes(species.id)
+    const status: CreatureDexStatus = history.caughtIds.includes(species.id)
       ? "caught"
-      : input.seenIds.includes(species.id)
+      : history.seenIds.includes(species.id)
         ? "seen"
         : "unknown";
-    const allowedStops = species.habitat.stops?.length
-      ? species.habitat.stops
-      : (Object.keys(ENCOUNTER_CHANCE_BY_STOP) as CreatureStopKind[]);
-    const bestStop = allowedStops.reduce((best, stop) =>
-      ENCOUNTER_CHANCE_BY_STOP[stop] > ENCOUNTER_CHANCE_BY_STOP[best] ? stop : best,
-    );
-    const sameRarity = catalog.filter((other) => other.rarity === species.rarity).length;
-    const bestStopChance =
-      (ENCOUNTER_CHANCE_BY_STOP[bestStop] * CREATURE_RARITY_WEIGHTS[species.rarity]) / 100 / sameRarity;
     return {
       species,
       status,
       displayName: status === "unknown" ? "???" : species.speciesName,
-      where: species.habitat.stops?.length
-        ? species.habitat.hint
-        : `${species.habitat.hint} · best at ${STOP_NAMES[bestStop]}`,
+      where: species.habitat.hint,
+      goal: goalFor(species, history, input.nowIso, input.scene),
       outNow: creatureAppearsNow(species, input.scene),
-      bestStopChance,
-      bestStop,
     };
   });
   return {

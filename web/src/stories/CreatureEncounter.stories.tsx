@@ -18,8 +18,12 @@ type CreatureStoryArgs = {
   stopKind: CreatureStopKind;
   timeOfDay: SparkOrbTimeOfDay | "auto";
   season: SparkOrbSeason | "auto";
-  /** Demo only: skip the dice so the reveal always plays. */
-  forceEncounter: boolean;
+  /** The Planner placed an encounter on this stop (it chooses the moment; code caps 1 per board). */
+  plannerPlaced: boolean;
+  /** Boards she has finished: a milestone creature (Dewbun) is guaranteed at 5. */
+  boardsCompleted: number;
+  /** Demo control for weekly-drop and seasonal tries. */
+  dropLuck: "random" | "always hit" | "always miss";
   creatureId: string;
   isNew: boolean;
 };
@@ -31,7 +35,7 @@ const meta: Meta<CreatureStoryArgs> = {
     docs: {
       description: {
         component:
-          "Draft of the creature loop (owner, 2026-11-08): a finished stop opens its chest, sometimes a creature appears (rare stays rare, one guaranteed a week, one per board), she answers to charge the orb and throws, and her Creature Dex shows every species to chase. Art is a recoloured Lumipuff until each species has its own.",
+          "Creature loop, World of Warcraft model (owner, 2026-11-08): the Planner places an encounter on a stop (code caps it at 1 per board). Lumipuff is the starter; a milestone creature is guaranteed after enough boards; weekly drops get one try a week; seasonal creatures one try a day in season; otherwise a familiar friend appears. She answers to charge the orb and throws, and her Creature Dex shows every creature with what is left to do. Art is a recoloured Lumipuff until each species has its own.",
       },
     },
   },
@@ -39,7 +43,9 @@ const meta: Meta<CreatureStoryArgs> = {
     stopKind: { control: "select", options: ["common", "rare", "epic", "legendary", "mystery"] },
     timeOfDay: { control: "select", options: ["auto", "sunrise", "day", "golden", "twilight", "night"] },
     season: { control: "select", options: ["auto", "spring", "summer", "autumn", "halloween", "holiday", "winter"] },
-    forceEncounter: { control: "boolean" },
+    plannerPlaced: { control: "boolean" },
+    boardsCompleted: { control: { type: "range", min: 0, max: 12, step: 1 } },
+    dropLuck: { control: "select", options: ["random", "always hit", "always miss"] },
     creatureId: { control: "select", options: CREATURE_CATALOG.map((species) => species.id) },
     isNew: { control: "boolean" },
   },
@@ -47,7 +53,9 @@ const meta: Meta<CreatureStoryArgs> = {
     stopKind: "epic",
     timeOfDay: "auto",
     season: "auto",
-    forceEncounter: true,
+    plannerPlaced: true,
+    boardsCompleted: 2,
+    dropLuck: "random",
     creatureId: "glowmoth",
     isNew: true,
   },
@@ -98,9 +106,14 @@ export const RevealCommonSeenBefore: Story = {
 
 /* ---------- The dex on its own ---------- */
 
-function DexStory(args: CreatureStoryArgs & { seenIds: string[]; caughtIds: string[] }): ReactElement {
+function DexStory(args: CreatureStoryArgs & { seenIds: string[]; caughtIds: string[]; lastTryAt?: Record<string, string> }): ReactElement {
   const { creatureScene } = sceneFromArgs(args);
-  return <CreatureCollection seenIds={args.seenIds} caughtIds={args.caughtIds} scene={creatureScene} />;
+  return (
+    <CreatureCollection
+      history={{ seenIds: args.seenIds, caughtIds: args.caughtIds, boardsCompleted: args.boardsCompleted, encountersThisBoard: 0, lastTryAt: args.lastTryAt ?? {} }}
+      scene={creatureScene}
+    />
+  );
 }
 
 export const DexBrandNew: Story = {
@@ -110,7 +123,14 @@ export const DexBrandNew: Story = {
 export const DexAutumnNight: Story = {
   name: "Dex: a few caught, autumn night",
   args: { timeOfDay: "night", season: "autumn" },
-  render: (args) => <DexStory {...args} seenIds={["lumipuff", "dewbun", "glowmoth"]} caughtIds={["lumipuff", "dewbun"]} />,
+  render: (args) => (
+    <DexStory
+      {...args}
+      seenIds={["lumipuff", "dewbun", "glowmoth"]}
+      caughtIds={["lumipuff", "dewbun"]}
+      lastTryAt={{ glowmoth: new Date(Date.now() - 2 * 86_400_000).toISOString() }}
+    />
+  ),
 };
 export const DexWinterHoliday: Story = {
   name: "Dex: holiday week",
@@ -145,6 +165,9 @@ function FullLoopStory(args: CreatureStoryArgs): ReactElement {
   const [encounter, setEncounter] = useState<CreatureEncounterRoll | null>(null);
   const [seenIds, setSeenIds] = useState<string[]>(["lumipuff"]);
   const [caughtIds, setCaughtIds] = useState<string[]>(["lumipuff"]);
+  const [boardsDone, setBoardsDone] = useState(args.boardsCompleted);
+  const [encountersThisBoard, setEncountersThisBoard] = useState(0);
+  const [lastTryAt, setLastTryAt] = useState<Record<string, string>>({});
   const [charged, setCharged] = useState(0);
   const [feedback, setFeedback] = useState("Each right answer charges the orb.");
 
@@ -153,18 +176,18 @@ function FullLoopStory(args: CreatureStoryArgs): ReactElement {
 
   function rollAfterChest(): void {
     const result = rollCreatureEncounter({
+      plannerPlaced: args.plannerPlaced,
       stopKind: args.stopKind,
       scene: creatureScene,
       nowIso: new Date().toISOString(),
-      history: { lastSightingAt: new Date().toISOString(), sightingsThisBoard: 0 },
-      roll: args.forceEncounter ? (() => {
-        let first = true;
-        return () => (first ? ((first = false), 0) : Math.random());
-      })() : Math.random,
+      history: { seenIds, caughtIds, boardsCompleted: boardsDone, encountersThisBoard, lastTryAt },
+      roll: args.dropLuck === "always hit" ? () => 0 : args.dropLuck === "always miss" ? () => 0.999 : Math.random,
     });
-    console.info(" 🎮 [storybook:creature-encounter] [roll] [done]", { stopKind: args.stopKind, ...result, creature: result.creature?.id });
+    console.info(" 🎮 [storybook:creature-encounter] [roll] [done]", { stopKind: args.stopKind, reason: result.reason, creature: result.creature?.id, isNew: result.isNew });
     setEncounter(result);
+    setLastTryAt(result.tries);
     if (result.appeared && result.creature) {
+      setEncountersThisBoard((count) => count + 1);
       setSeenIds((ids) => (ids.includes(result.creature!.id) ? ids : [...ids, result.creature!.id]));
       setStage("reveal");
     } else {
@@ -190,7 +213,7 @@ function FullLoopStory(args: CreatureStoryArgs): ReactElement {
     return (
       <div style={{ ...stageStyle, display: "grid", placeItems: "center", gap: 16 }}>
         <h2 style={{ margin: 0 }}>Stop finished!</h2>
-        <p style={{ margin: 0, opacity: 0.8 }}>{`A ${args.stopKind} stop · ${scene.timeOfDay} · ${scene.season}`}</p>
+        <p style={{ margin: 0, opacity: 0.8 }}>{`A ${args.stopKind} stop · ${scene.timeOfDay} · ${scene.season} · board ${boardsDone + 1} · ${encountersThisBoard} of 1 encounter used`}</p>
         <button type="button" style={button} onClick={() => setStage("chest")}>Open your chest</button>
       </div>
     );
@@ -206,8 +229,21 @@ function FullLoopStory(args: CreatureStoryArgs): ReactElement {
     return (
       <div style={{ ...stageStyle, display: "grid", placeItems: "center", gap: 12 }}>
         <h2 style={{ margin: 0 }}>The grass is quiet…</h2>
-        <p style={{ margin: 0, opacity: 0.8 }}>{`No creature this time (${encounter?.reason}). Rare stays rare.`}</p>
-        <button type="button" style={button} onClick={() => setStage("stop")}>Next stop</button>
+        <p style={{ margin: 0, opacity: 0.8 }}>{`No creature this time (${encounter?.reason}).`}</p>
+        <div style={{ display: "flex", gap: 10 }}>
+          <button type="button" style={button} onClick={() => setStage("stop")}>Next stop</button>
+          <button
+            type="button"
+            style={{ ...button, background: "#ffffff22", color: "white" }}
+            onClick={() => {
+              setBoardsDone((count) => count + 1);
+              setEncountersThisBoard(0);
+              setStage("stop");
+            }}
+          >
+            Start a new board
+          </button>
+        </div>
       </div>
     );
   }
@@ -216,7 +252,7 @@ function FullLoopStory(args: CreatureStoryArgs): ReactElement {
       <div style={stageStyle}>
         <CreatureEncounterReveal
           creature={creature}
-          isNew={!caughtIds.includes(creature.id)}
+          isNew={encounter?.isNew ?? !caughtIds.includes(creature.id)}
           charges={goal}
           onCatch={() => {
             setCharged(0);
@@ -271,17 +307,22 @@ function FullLoopStory(args: CreatureStoryArgs): ReactElement {
   }
   return (
     <div>
-      <CreatureCollection seenIds={seenIds} caughtIds={caughtIds} scene={creatureScene} />
+      <CreatureCollection
+        history={{ seenIds, caughtIds, boardsCompleted: boardsDone, encountersThisBoard, lastTryAt }}
+        scene={creatureScene}
+      />
       <div style={{ padding: 16, background: "#0b0820", textAlign: "center" }}>
         <button
           type="button"
           style={button}
           onClick={() => {
             setEncounter(null);
+            setBoardsDone((count) => count + 1);
+            setEncountersThisBoard(0);
             setStage("stop");
           }}
         >
-          Play another stop
+          Start a new board
         </button>
       </div>
     </div>
