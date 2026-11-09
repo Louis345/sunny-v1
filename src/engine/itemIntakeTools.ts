@@ -9,7 +9,7 @@ import { toolFor, type PlannerTool } from "./plannerToolLoop";
  * spelling's intake (owner, 2026-11-08: one pipeline): the Planner records the worksheet and plans her first
  * board; code checks facts (pages, ids, arithmetic) and answers mistakes in the conversation, never blocks.
  */
-/** One stop on her first board, in the Planner's order. A reward break (Law 15) has no problems and no prediction. */
+/** One stop on her first board, in the Planner's order. A reward break (Law 16) has no problems and no prediction. */
 export type IntakeStop = {
   id: string; title: string; story: string; picture: string; purpose: string; itemIds: string[]; checkFirst: boolean;
   prediction: { min: number; max: number; confidence: number; why: string } | null;
@@ -59,7 +59,7 @@ ${JSON.stringify(packet.childChart)}`;
 
 export function itemIntakeToolkit(packet: AssignmentPlanningPacket) {
   const pages = new Set(packet.sourceDocument.pages.map(page => page.pageNumber));
-  // The one menu (Law 15): the reward break is on every stage's menu. Math's games are its stated exception.
+  // The one menu (Law 16): the reward break is on every stage's menu. Math's games are its stated exception.
   const menu = plannerMenu(packet.activityCatalog ?? []);
   const tool = toolFor<ItemIntakeState>();
   const tools: PlannerTool<ItemIntakeState>[] = [

@@ -17,6 +17,7 @@ There is one source of truth for each fact. New Planner, generator, care-plan an
 - Code fills every code-owned field itself (IDs, configuration, measurement bookkeeping, the expanded journey) and never asks the Planner for them. Free to decide, fixed to write down.
 - A tool that cannot accept an input says why in its tool result, inside the same conversation. No after-the-fact check may buy a correction or patch call, and nothing flows back up to veto a finished order.
 - Tools are sent in strict mode. If the API cannot enforce a form, make the form smaller (split the tool, or let code fill the field); do not loosen the lock. Today only `add_explainer` is unlocked, for size, and its handler checks it.
+- **One menu [Law 16]:** Games and Planner tools are declared once (activityToolCatalog contracts + `plannerMenu`); every Planner stage and subject derives its menu from it; a stage may remove a tool only via `STAGE_EXCEPTIONS` with a child-safety or honest-record reason; `plannerMenuParity.test.ts` enforces it.
 - **Math Prompt Chain Boundary:** Math has one production ingestion path: assignment and child chart → Planner → Experience Creator → runtime verification. The only AI roles are the Planner and Experience Creator. No new math production module, model call, fallback, renderer, or pipeline may be added without explicit human approval.
 
 ## 3. Everyone else is a nurse

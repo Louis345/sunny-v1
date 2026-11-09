@@ -24,7 +24,7 @@ export type SuccessorFacts = {
   selfReview?: boolean;
   /** Contract 56: a generated-game step can be aimed at one error. Older frozen questions lack it. */
   aimedGames?: boolean;
-  /** Law 15: the reward break is on every board's menu. Older frozen questions lack it and replay as asked. */
+  /** Law 16: the reward break is on every board's menu. Older frozen questions lack it and replay as asked. */
   rewardBreak?: boolean;
   /** Whether the re-run step can really prepare this built-in for these words (the same check it runs). */
   rerunnable: (nodeId: string, wordIds: string[]) => boolean;

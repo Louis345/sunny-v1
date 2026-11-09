@@ -2,6 +2,7 @@
 
 ## Key rules (one line each)
 
+- **Planner menu → one registry:** A game the Planner can place starts as its contract in `src/engine/activityToolCatalog.ts`; then run `npx vitest run src/engine/plannerMenuParity.test.ts src/engine/activityListDrift.test.ts`, which name anything else that must change (AGENTS.md Law 16).
 - **Drop HTML → auto-registered:** Put a `.html` file in `web/public/games/` and run `npm run build` so the registry artifact updates; no manual tool list required.
 - **GAME_META → only for rewards or special config:** Edit `src/server/games/registryDiscover.ts` → `GAME_META` when the game is a **reward** (not a teaching tool), needs non-empty `defaultConfig`, a different **public id** than the filename (`key`), or you want to override `voiceEnabled`.
 - **postMessage contract → ready → start → game_complete:** The iframe may send `{ type: "ready" }` when loaded; the parent sends `{ type: "start", childName, config }`; when finished, send `{ type: "game_complete", ...payload }` (see existing games for score/accuracy fields).

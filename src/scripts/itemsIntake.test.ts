@@ -76,7 +76,7 @@ describe("math intake through the one pipeline", () => {
     const { homeworkId } = await runItemsIntake({ childId, sourceFile: f.sourceFile, rootDir: f.rootDir }, { send: plannerSend(requests), draw: plainDraw, gameClient: builder.client });
     expect(homeworkId).toMatch(/^hw-math-[0-9a-f]{8}$/);
     expect(requests).toHaveLength(1);
-    // Law 15: the reward break is on every stage's menu, math included.
+    // Law 16: the reward break is on every stage's menu, math included.
     expect(requests[0]!.tools.map(tool => tool.name)).toEqual(["record_items", "add_stop", "add_reward", "finish_intake"]);
     const cycle = getLearningCycle(childId, homeworkId, { rootDir: f.rootDir })!;
     expect(cycle.domain).toBe("math");

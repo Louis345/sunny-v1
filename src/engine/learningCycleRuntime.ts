@@ -900,7 +900,7 @@ async function askPlanner(
     const facts={builtIns:builtIns.map(node=>{const items=Object.values(node.evidenceContract.spellingItems??{});const roles=Object.values(node.evidenceContract.itemRoles??{});
       const model=(node.evidenceContract.nativeConfig as {spellingModel?:{strategy:{title:string;steps:string[]};words:Array<{text:string;tip:string}>};questions?:Array<{prompt:string}>}|undefined);
       return {...(model?.spellingModel?{page:{trick:model.spellingModel.strategy.title,steps:model.spellingModel.strategy.steps,words:model.spellingModel.words.map(word=>({word:word.text,tip:word.tip})),check:model.questions?.[0]?.prompt??""}}:{}),nodeId:node.nodeId,title:node.title,implementationType:node.implementationType??"word-radar",wordIds:[...new Set(items.map(item=>item.wordId))],responseMode:items[0]?.response.mode??"spelling_letters",checkpoint:roles.length>0&&roles.every(role=>role==="fresh_checkpoint")};}),
-      // The one menu (Law 15): every certified game and mode, set up fresh for the words she is given, the explainer and the reward break.
+      // The one menu (Law 16): every certified game and mode, set up fresh for the words she is given, the explainer and the reward break.
       ...successorMenuFacts(spellingActivityCatalog(cycle.childId),{grade:chart.demographics?.grade,words:[...savedSpellingItems.values()].map(item=>({wordId:item.wordId,word:item.word}))}),
       evaluationIds,allowedActions:actions,idPrefix:`${cycle.homeworkId}-r${checkpointRevision}-step`,
       // Owner, 2026-11-08: the Planner may place the board's one creature encounter (a reward; recorded as practice).

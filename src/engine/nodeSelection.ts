@@ -4,7 +4,7 @@ import { listActivityToolContracts } from "./activityToolCatalog";
 import { selectNodeType } from "./bandit";
 import { planSession } from "./learningEngine";
 
-/** Every reward-only dopamine game, from its contract (Law 15: derived, never copied; space-frogger was missing). */
+/** Every reward-only dopamine game, from its contract (Law 16: derived, never copied; space-frogger was missing). */
 export const DOPAMINE_TYPES: NodeType[] = listActivityToolContracts().filter(contract => contract.nodeType === "dopamine").map(contract => contract.id as NodeType);
 
 const WORD_DRIVEN_MAP_TYPES = new Set<string>([

@@ -24,7 +24,7 @@ import { spellingSuccessorToolkit, type SuccessorFacts } from "./spellingSuccess
 import { spellingTeachingToolkit } from "./spellingTeachingTools";
 import type { SpellingGameClient } from "./spellingGameBuilder";
 
-// Law 15 (owner, 2026-11-08): a doctor gets every instrument. Every Planner stage and subject reads its
+// Law 16 (owner, 2026-11-08): a doctor gets every instrument. Every Planner stage and subject reads its
 // games and tools from one menu; a stage removes a tool only through STAGE_EXCEPTIONS, with its reason.
 // Before this, each stage hand-built its own menu and the next board silently lost the reward break.
 vi.setConfig({ testTimeout: 60_000 });

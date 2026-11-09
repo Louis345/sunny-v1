@@ -25,7 +25,7 @@ type Result = { ok: true; result: unknown } | { ok: false; error: string };
 const text = (description: string) => z.string().min(1).describe(description);
 const enumOf = (values: readonly string[], fallback: string) => z.enum((values.length ? values : [fallback]) as [string, ...string[]]);
 const repeated = (values: readonly string[]) => values.find((value, index) => values.indexOf(value) !== index);
-/** The one menu (Law 15) lives in plannerMenu.ts; the old name stays for its callers. */
+/** The one menu (Law 16) lives in plannerMenu.ts; the old name stays for its callers. */
 export const spellingActivityMenu = plannerMenu;
 
 type ExplainerPage = { words: string[]; activityConfig: Record<string, unknown> };

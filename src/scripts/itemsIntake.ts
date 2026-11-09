@@ -60,7 +60,7 @@ function itemCycleInput(input: { childId: string; homeworkId: string; fingerprin
   const constructId = `math.${intake.title.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "") || "assignment"}`;
   const items = new Map(intake.items.map(item => [item.id, item]));
   const nodes: LearningCycleNodeContract[] = intake.stops.map(stop => {
-    // A reward break is play (Law 15): a built-in Mystery with no problems, no prediction, never learning evidence.
+    // A reward break is play (Law 16): a built-in Mystery with no problems, no prediction, never learning evidence.
     if (stop.reward) return {
       nodeId: stopNodeId(input.homeworkId, stop.id), role: "mystery", title: stop.title, state: "generating", implementationType: "mystery",
       academicTarget: { domain: "math", skill: intake.title, targets: [] }, algorithmOwner: "activity-affinity", theoryId, experimentId: `${input.homeworkId}:${stop.id}`,

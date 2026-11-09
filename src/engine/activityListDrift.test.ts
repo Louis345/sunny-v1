@@ -5,7 +5,7 @@ import { listActivityToolContracts } from "./activityToolCatalog";
 import { DOPAMINE_TYPES } from "./nodeSelection";
 import { SPELLING_CERTIFICATION_GAMES } from "./spellingCertification";
 
-// Law 15: a game is declared once, as its contract in activityToolCatalog.ts. Every other list that should
+// Law 16: a game is declared once, as its contract in activityToolCatalog.ts. Every other list that should
 // cover a kind of game either derives from the contracts or is checked against them here, so adding a game
 // names every other place that must change. A gap that cannot be closed safely today is listed with its
 // BUGS.md entry; closing it makes this test fail until the gap is taken off the list.

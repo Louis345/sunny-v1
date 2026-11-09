@@ -3,7 +3,7 @@ import type { AssignmentPlanningPacket } from "./assignmentPlanner";
 import type { PlannerTool } from "./plannerToolLoop";
 
 /**
- * Law 15, one menu (owner, 2026-11-08: a doctor gets every instrument). The games come from the
+ * Law 16, one menu (owner, 2026-11-08: a doctor gets every instrument). The games come from the
  * activityToolCatalog contracts, through the child's catalog; this file turns them into the one Planner menu
  * every stage and subject reads. A stage removes something only through STAGE_EXCEPTIONS, with its reason.
  */

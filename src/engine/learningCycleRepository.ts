@@ -530,7 +530,7 @@ export type NextInstrumentPrescription = {
   focus?: string;
   /** Marks the one Planner-authorized encounter on a Quest or Boss successor board. */
   encounter?: "quest" | "boss";
-  /** A reward break (Law 15): a Mystery game with no items; recorded as play, never as learning evidence. */
+  /** A reward break (Law 16): a Mystery game with no items; recorded as play, never as learning evidence. */
   reward?: true;
 };
 
