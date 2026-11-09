@@ -854,7 +854,8 @@ async function askPlanner(
   const allowedProgressionActions: LearningProgressionAction[] = encounterGate && cycle.lifecycle === "baseline_evaluating" && !baselineEligibility.eligible
     ? ["generate_support", "collect_more_evidence"]
     : ["generate_support", "generate_quest", "generate_boss", "collect_more_evidence", "await_calibration"];
-  const plannerModel = model ?? (cycle.domain === "spelling" ? process.env.SUNNY_EXPERIENCE_PLANNER_MODEL : undefined) ?? process.env.SUNNY_INGEST_MODEL ?? "claude-sonnet-5";
+  // One setting chooses the next-board Planner for every subject (owner, 2026-11-09).
+  const plannerModel = model ?? process.env.SUNNY_EXPERIENCE_PLANNER_MODEL ?? process.env.SUNNY_INGEST_MODEL ?? "claude-sonnet-5";
   const savedSpellingItems = spellingAssignmentItems(cycle);
   const builtIns = spellingBuiltInActivities(cycle);
   const legacyContentSchema = {type:'array',items:{type:'object',additionalProperties:false,properties:{contentId:{type:'string'},action:{type:'string',enum:['candidate','reuse','revise','retire']},reason:{type:'string'},evidenceIds:{type:'array',items:{type:'string'}}},required:['contentId','action','reason','evidenceIds']}};

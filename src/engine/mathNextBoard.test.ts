@@ -113,6 +113,8 @@ describe("Reina's math next board (one next-board toolkit for both subjects)", (
   it("decides and builds a played math board's next board through the shared tools, never blocking on a missing board", async () => {
     const f = await playedMathCycle();
     expect(f.played.lifecycle).toBe("baseline_evaluating");
+    // Owner 2026-11-09: one setting chooses the next-board Planner for every subject (both girls on the same model).
+    vi.stubEnv("SUNNY_EXPERIENCE_PLANNER_MODEL", "claude-opus-5-5"); vi.stubEnv("SUNNY_INGEST_MODEL", "claude-sonnet-5");
     const robot = nextBoardRobot();
     const decided = await runtime.advanceCanonicalCycleFromEvidence({ childId, homeworkId: f.homeworkId, client: robot.client, draw: plainDraw }, f.opts).catch((error: Error) => error);
     // Seen before the fix: the math decision went to the old single form and the cycle blocked.
@@ -121,6 +123,7 @@ describe("Reina's math next board (one next-board toolkit for both subjects)", (
     expect(decided).not.toBeInstanceOf(Error);
     expect(latest.lifecycle).toBe("baseline_generating");
     // The same tool names as spelling's next board, minus math's stated exception (the spelling lesson page).
+    expect(robot.requests[0].model).toBe("claude-opus-5-5");
     expect(robot.requests[0].tools.map((tool: any) => tool.name)).toEqual(["decide", "add_step", "add_reward", "remove_step", "set_order", "add_choice", "finish_board"]);
     const addStep = robot.requests[0].tools.find((tool: any) => tool.name === "add_step").input_schema;
     expect(addStep.properties.built_in.enum).toEqual(["generated-game"]);

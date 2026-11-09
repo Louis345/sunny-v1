@@ -1025,7 +1025,8 @@ describe("canonical learning cycle runtime", () => {
   });
 });
 
-it('uses the configured spelling Planner for next-step decisions, keeping math configuration separate',async()=>{
+// Owner 2026-11-09: both girls on the same Planner model; one setting chooses it for every subject (was spelling-only).
+it('uses the one configured Planner model for next-step decisions in every subject',async()=>{
  vi.stubEnv('SUNNY_EXPERIENCE_PLANNER_MODEL','claude-opus-5-5');
  vi.stubEnv('SUNNY_INGEST_MODEL','legacy-math-model');
  try {
@@ -1039,7 +1040,7 @@ it('uses the configured spelling Planner for next-step decisions, keeping math c
     const create=vi.fn(async(_payload?:unknown)=>{throw Error('fixture-stop');});
     await expect(advanceCanonicalCycleFromEvidence({childId:'reina',homeworkId:'hw-runtime',client:{messages:{create,stream:(payload:unknown)=>({finalMessage:()=>create(payload)})}} as never},{rootDir})).rejects.toThrow('fixture-stop');
     expect(create).toHaveBeenCalledOnce();
-    expect((create.mock.calls[0] as unknown as [Record<string,unknown>])[0].model).toBe(domain==='spelling'?'claude-opus-5-5':'legacy-math-model');
+    expect((create.mock.calls[0] as unknown as [Record<string,unknown>])[0].model).toBe('claude-opus-5-5');
    }finally{fs.rmSync(rootDir,{recursive:true,force:true});}
   }
  }finally{vi.unstubAllEnvs();}
