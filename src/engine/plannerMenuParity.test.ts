@@ -8,6 +8,7 @@ import { linearJourneyFixture } from "../scripts/fixtures/authoredJourney";
 import { seedSpellingLab } from "../scripts/fixtures/spellingEvidenceFirst";
 import { plainDraw, successorToolReply } from "../scripts/fixtures/successorToolConversation";
 import { runItemsIntake } from "../scripts/itemsIntake";
+import { buildNodeLaunchAction } from "../shared/homeworkNodeRouting";
 import { resolveChildContextDir } from "../utils/contextRoot";
 import * as canvas from "./adventureBoardCanvas";
 import { resolveAdaptiveMathDraftDir } from "./adaptiveMathDiscovery";
@@ -214,6 +215,13 @@ describe("a reward break reaches her published board", () => {
     const projected = projectLearningCycle(after);
     expect(projected.adventureBoard.nodes.some(node => node.id === treat.nodeId || (node as { activityNodeId?: string }).activityNodeId === treat.nodeId)).toBe(true);
     expect(projected.activeSessionPlan.nodePlan.find(node => node.id === treat.nodeId)).toMatchObject({ type: "mystery" });
+    // Invariant: the stop she taps opens a real reward game page, never the native-instrument JSON bound on the node.
+    const planNode = projected.activeSessionPlan.nodePlan.find(node => node.id === treat.nodeId)!;
+    const action = buildNodeLaunchAction({ ...planNode, id: planNode.id, type: planNode.type, difficulty: 1 } as never, { childId, companion: "elli", isDiagMode: false });
+    expect(action.kind).toBe("iframe");
+    const launchPath = action.kind === "iframe" ? action.url.split("?")[0]! : "";
+    expect(launchPath).toMatch(/^\/games\/[^/]+\.html$/);
+    expect(fs.existsSync(path.join(process.cwd(), "web/public", launchPath))).toBe(true);
   });
 
   it("publishes a math board with the Planner's reward break where it placed it", async () => {
