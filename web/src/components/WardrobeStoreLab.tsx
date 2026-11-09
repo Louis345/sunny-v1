@@ -30,8 +30,10 @@ import {
   type WardrobeStoreItem,
   type WardrobeStoreState,
 } from "../lib/wardrobeStore";
+import type { RewardItem } from "../../../src/shared/rewardCatalog";
 import { rewardForWardrobeItem, walletShopItems, withServerWallet, type ServerWallet } from "../lib/wardrobeWallet";
 import { COINS_CHANGED_EVENT, type CoinsChangedDetail } from "./CallClock";
+import { RewardCollection } from "./RewardCollection";
 import "./WardrobeStoreLab.css";
 
 export type WardrobeStoreCompanion = {
@@ -346,6 +348,8 @@ export function WardrobeStoreLab({
   const storageKey = storeStorageKey(wallet);
   const [storeState, setStoreState] = useState<WardrobeStoreState>(() => loadStoreState(storageKey));
   const [buying, setBuying] = useState(false);
+  /** Her owned reward ids from the same server wallet the shop spends; null until it loads. */
+  const [ownedRewardIds, setOwnedRewardIds] = useState<string[] | null>(null);
   const walletChildId = wallet?.childId;
   useEffect(() => {
     if (!walletChildId) return;
@@ -355,6 +359,7 @@ export function WardrobeStoreLab({
       .then((loaded) => {
         if (cancelled) return;
         setStoreState((prior) => withServerWallet(prior, loaded));
+        setOwnedRewardIds(loaded.ownedRewardIds);
         console.log(` 🎮 [wardrobe-store] [wallet] [loaded] child=${walletChildId} coins=${loaded.coins} owned=${loaded.ownedRewardIds.length}`);
       })
       .catch((error: unknown) => console.error(` 🎮 [wardrobe-store] [wallet] [failed] child=${walletChildId}`, error));
@@ -621,6 +626,17 @@ export function WardrobeStoreLab({
     );
   };
 
+  /** Wear from the collection: an owned outfit that fits this companion; games are played from the map. */
+  const wearFromCollection = (reward: RewardItem) => {
+    const item = compatibleItems.find((row) => row.id === reward.wardrobeItemId);
+    if (!item) {
+      setStatusMessage(reward.kind === "game" ? `${reward.name} is played from your map.` : `${reward.name} does not fit ${companion.name}.`);
+      console.log(` 🎮 [wardrobe-store] [collection-use] [unavailable] companion=${companion.id} reward=${reward.id}`);
+      return;
+    }
+    equipOwnedItem(item);
+  };
+
   const equipOwnedItem = (item: WardrobeStoreItem) => {
     const opinion = shoppingVisit.itemOpinions[item.id];
     if (opinion && !opinion.companionConsentsToWear) {
@@ -707,6 +723,7 @@ export function WardrobeStoreLab({
       if (typeof result.balance === "number") {
         window.dispatchEvent(new CustomEvent<CoinsChangedDetail>(COINS_CHANGED_EVENT, { detail: { childId: wallet.childId, coins: result.balance } }));
       }
+      setOwnedRewardIds((prior) => (prior && !prior.includes(reward.id) ? [...prior, reward.id] : prior));
       completePurchase(item, storeState);
     } catch (error: unknown) {
       setStatusMessage("The shop could not reach your coins. Try again.");
@@ -866,6 +883,11 @@ export function WardrobeStoreLab({
                   {companion.name} feels {shoppingVisit.mood.label} today. Pick an
                   item from the shop, then try it on to hear an honest opinion.
                 </p>
+                {wallet && ownedRewardIds && (
+                  <div className="wardrobe-store-lab__collection" data-testid="wardrobe-store-collection">
+                    <RewardCollection ownedIds={ownedRewardIds} onUse={wearFromCollection} />
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -1125,6 +1147,11 @@ export function WardrobeStoreLab({
                 savedItems.map((item) => <span key={item.id}><WardrobeItemThumbnail item={item} /> {item.name}</span>)
               )}
             </div>
+            {wallet && ownedRewardIds && (
+              <div className="wardrobe-store-lab__collection">
+                <RewardCollection ownedIds={ownedRewardIds} onUse={wearFromCollection} />
+              </div>
+            )}
             <button type="button" className="wardrobe-store-lab__original" onClick={wearOriginalLook}>
               Restore original look
             </button>

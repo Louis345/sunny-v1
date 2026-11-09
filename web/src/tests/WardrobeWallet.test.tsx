@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { WardrobeStoreLab } from "../components/WardrobeStoreLab";
 import {
@@ -111,3 +111,28 @@ it("tells the call clock her new balance after a purchase", async () => {
   window.removeEventListener("sunny:coins-changed", heard);
 });
 
+
+// BUGS.md 2026-11-08: the greyed-out collection (her goals) was built but only in Storybook. The call's shop
+// shows it, from the same server wallet the shop spends.
+it("the call's shop shows her collection: owned items in colour, the rest greyed as goals", async () => {
+  fakeServer({ coins: 100, owned: ["outfit:cat-ears", "game:asteroid"] });
+  shop(SEED);
+  await waitFor(() => expect(screen.getByTestId("reward-tile-outfit:cat-ears")).toHaveAttribute("data-locked", "false"));
+  expect(screen.getByTestId("reward-tile-game:asteroid")).toHaveAttribute("data-locked", "false");
+  expect(screen.getByTestId("reward-tile-outfit:rose-ribbon-dress")).toHaveAttribute("data-locked", "true");
+  expect(screen.getByText(/^2 of \d+ found$/)).toBeTruthy();
+});
+
+it("a purchase in the call's shop unlocks its tile in the collection", async () => {
+  const item = acceptedItem();
+  const reward = rewardForWardrobeItem(item.id)!;
+  fakeServer({ coins: 100 });
+  shop(SEED);
+  await waitFor(() => expect(screen.getByTestId(`reward-tile-${reward.id}`)).toHaveAttribute("data-locked", "true"));
+  buy(item);
+  await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent(`${item.name} added to Elli’s closet`));
+  fireEvent.click(screen.getByRole("button", { name: "Elli’s closet" }));
+  const closet = screen.getByRole("dialog", { name: "Elli’s closet" });
+  expect(within(closet).getByTestId(`reward-tile-${reward.id}`)).toHaveAttribute("data-locked", "false");
+  expect(within(closet).getByTestId("reward-tile-outfit:rose-ribbon-dress")).toHaveAttribute("data-locked", "true");
+});

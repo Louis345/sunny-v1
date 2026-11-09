@@ -241,6 +241,14 @@
 .wardrobe-store-lab__entrance-copy {
   display: grid;
   gap: 12px;
+  min-height: 0;
+}
+
+/* Her goals in the call's shop: every outfit and game, greyed until owned (BUGS.md 2026-11-08). */
+.wardrobe-store-lab__collection {
+  max-height: 46vh;
+  overflow-y: auto;
+  border-radius: 18px;
 }
 
 .wardrobe-store-lab__entrance-copy > span {
