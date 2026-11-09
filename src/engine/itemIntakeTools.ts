@@ -65,7 +65,7 @@ export function itemIntakeToolkit(packet: AssignmentPlanningPacket) {
   const tools: PlannerTool<ItemIntakeState>[] = [
     tool({ name: "record_items", description: "Record every problem on the worksheet with its page and answer. Calling it again replaces the list.",
       schema: z.object({
-        items: z.array(z.object({ id: text("A short unique id, like p1."), problem: text("The problem as she will see it."), page_number: z.number().int().min(1), answer: answerSchema }).strict()).min(1),
+        items: z.array(z.object({ id: text("A short unique id, like p1."), problem: text("The problem as she will see it. Each problem is shown alone, one at a time, so include any table, story, picture description or numbers it depends on from elsewhere on the worksheet."), page_number: z.number().int().min(1), answer: answerSchema }).strict()).min(1),
         source_notes: z.array(z.string()).describe("Notes about the worksheet. Informational."),
       }).strict(),
       run: (state, input) => {
