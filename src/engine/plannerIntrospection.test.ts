@@ -14,7 +14,7 @@ import { prepareSuccessorBoard } from "./canonicalProgressionGenerator";
 import { parseCanonicalProgressionDecision } from "./learningCycleRuntime";
 import * as runtime from "./learningCycleRuntime";
 import * as canvas from "./adventureBoardCanvas";
-import { plannerJournalSection, spellingTrackRecordSection, writePlannerJournalEntry } from "./plannerIntrospection";
+import { plannerJournalSection, schoolTestSection, spellingTrackRecordSection, writePlannerJournalEntry } from "./plannerIntrospection";
 import { spellingSuccessorToolkit, type SuccessorFacts } from "./spellingSuccessorTools";
 import { recordProductIssue } from "./productIssues";
 
@@ -244,3 +244,32 @@ it("lets the owner close her current board for one fresh decision, with the reas
   // Only from a ready or active board, and only with a reason.
   expect(() => transitionLatestLearningCycle(childId, homeworkId, { type: "owner_replan_requested", reason: "again" }, f.opts)).toThrow("owner_replan_not_eligible");
 }, 120000);
+
+// 2026-11-09 owner ("let's verify, no more surprises"): confirmed school-test results did reach the Planner's raw
+// data, but its readable track record counted them as "help not recorded", the same words as a practice answer
+// whose help was not captured. The real test is the goal; the Planner must see it named as the school test.
+it("names confirmed school-test results as the school test in her track record", async () => {
+  const f = liveFixture();
+  const { recordConfirmedReturnedWork } = await import("./longitudinalLearning");
+  f.play("radar", new Date(Date.now() - 3_600_000).toISOString());
+  const node = getLearningCycle(childId, homeworkId, f.opts)!.nodes.find(row => row.nodeId === "radar")!;
+  // Real uploads give each school word its own item id, linked to her frozen word by its construct (spellingReturnedWork.test.ts).
+  const item = Object.values(node.evidenceContract.spellingItems!).find(row => row.word === "import")!;
+  recordConfirmedReturnedWork({ childId, homeworkId, items: [{ itemId: "returned-0", prompt: "import", childResponse: "inport", correct: false, extractionConfidence: 0.95, constructLinks: [{ role: "primary", confidence: 1, constructId: item.constructId }] }],
+    source: { sourceId: "returned-work:lab", type: "graded_work", fileFingerprint: "f1", sourceFile: "test.jpg", capturedAt: new Date().toISOString(), provenance: "caregiver",
+      assignmentLink: { homeworkId, method: "explicit_selection", confidence: 1, confirmedBy: "caregiver" }, status: "confirmed" } } as never, f.opts);
+  const section = spellingTrackRecordSection(getLearningCycle(childId, homeworkId, f.opts)!);
+  expect(section).toContain(`- import: on her own 0 of 1 right, wrote "inport" x1; help not recorded 0 of 1 right, wrote "inport" x1; on the school test 0 of 1 right, wrote "inport" x1;`);
+}, 120000);
+
+// Reina's school math test has its own problems, not her homework's, so nothing can be matched to a homework
+// problem. Every returned school test is laid out on its own, item by item, for both subjects.
+it("lists every returned school test item for the Planner, matched to her homework or not", () => {
+  const cycle = { ...ilaLikeIntrospectionCycle(), observations: [...ilaLikeIntrospectionCycle().observations,
+    { observationId: "o-school-1", sourceId: "returned-work:abc", itemId: "item-1", prompt: "Round 47 to the nearest ten.", childResponse: "40", constructLinks: [],
+      result: { correct: false, score: 0 }, assistance: { status: "unknown", scaffolds: [] }, exposure: "unknown", provenance: "graded_work", observedAt: "2026-11-09T18:00:00.000Z", confounds: [] }] } as never;
+  const section = schoolTestSection(cycle);
+  expect(section.split("\n")[0]).toBe("Her returned school tests (each item as a parent confirmed it from the graded paper):");
+  expect(section).toContain(`- 2026-11-09: "Round 47 to the nearest ten." she wrote "40": missed`);
+  expect(schoolTestSection(ilaLikeIntrospectionCycle())).toContain("- No returned school test recorded yet.");
+});

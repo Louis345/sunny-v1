@@ -31,7 +31,13 @@ const targetsOf = (node: LearningCycleNodeContract): string[] => {
 /** Each scored answer on this list with its word (or math problem id), the stop it came from and that stop's board number. */
 function answers(cycle: LearningCycleRecordV2) {
   const wordOf = new Map<string, string>();
-  for (const node of cycle.nodes) for (const item of Object.values(node.evidenceContract?.spellingItems ?? {})) wordOf.set(item.id, item.word);
+  const byConstruct = new Map<string, string>();
+  for (const node of cycle.nodes) for (const item of Object.values(node.evidenceContract?.spellingItems ?? {})) { wordOf.set(item.id, item.word); if (item.constructId) byConstruct.set(item.constructId, item.word); }
+  // A returned school test has its own item ids, linked to her frozen word by its one primary construct.
+  for (const row of cycle.observations ?? []) {
+    const primary = row.constructLinks?.find(link => link.role === "primary")?.constructId;
+    if (!wordOf.has(row.itemId) && primary && byConstruct.has(primary)) wordOf.set(row.itemId, byConstruct.get(primary)!);
+  }
   if (cycle.domain !== "spelling") for (const node of cycle.nodes) for (const id of Object.keys(node.evidenceContract?.itemContracts ?? {})) wordOf.set(id, id);
   const boardOf = boardNumbers(cycle);
   // The most specific node id wins, as in observationNode: `b2-radar` never claims `b2-radar-2`'s answers.
@@ -42,6 +48,9 @@ function answers(cycle: LearningCycleRecordV2) {
     .sort((a, b) => Date.parse(a.row.observedAt) - Date.parse(b.row.observedAt));
 }
 type Answer = ReturnType<typeof answers>[number];
+
+const SCHOOL = new Set(["graded_work", "delayed_reassessment"]);
+const bucketOf = (row: Answer) => SCHOOL.has(String(row.row.provenance)) ? "school" as const : row.row.assistance.status;
 
 const activityOf = (node: LearningCycleNodeContract) => node.implementationType ?? (node.role === "evaluation" ? "discovery-check" : node.mechanic);
 
@@ -63,8 +72,9 @@ export function spellingTrackRecordSection(cycle: LearningCycleRecordV2): string
     if (!rows.length) { untried.push(word); continue; }
     const own = rows.filter(row => row.row.assistance.status === "unassisted");
     if (own.length && own.every(row => row.row.result.correct)) { steady.push(`${word} (${own.length} of ${own.length})`); continue; }
-    const buckets = (["unassisted", "assisted", "unknown"] as const).map(status => [status, rows.filter(row => row.row.assistance.status === status)] as const)
-      .filter(([, list]) => list.length).map(([status, list]) => { const { right, wrote } = tally(list); return `${HELP[status]} ${right}${wrote ? `, wrote ${wrote}` : ""}`; });
+    // Her returned school test is its own fact, never folded into practice whose help was not captured.
+    const buckets = (["unassisted", "assisted", "unknown", "school"] as const).map(status => [status, rows.filter(row => bucketOf(row) === status)] as const)
+      .filter(([, list]) => list.length).map(([status, list]) => { const { right, wrote } = tally(list); return `${status === "school" ? "on the school test" : HELP[status]} ${right}${wrote ? `, wrote ${wrote}` : ""}`; });
     // Every stop she played or answered with this word, including pages that record no answer.
     const answered = new Set(rows.flatMap(row => row.node ? [row.node.nodeId] : []));
     const stops = cycle.nodes.filter(node => (node.state === "completed" || answered.has(node.nodeId)) && Object.values(node.evidenceContract?.spellingItems ?? {}).some(item => item.word === word))
@@ -91,7 +101,7 @@ export function mathTrackRecordSection(cycle: LearningCycleRecordV2): string {
   const all = answers(cycle);
   const problems = new Map<string, string>();
   for (const node of cycle.nodes) for (const item of Object.values(node.evidenceContract?.itemContracts ?? {})) if (!problems.has(item.id)) problems.set(item.id, item.prompt);
-  const answer = (row: Answer) => `"${clip(row.row.childResponse ?? "", 40)}" ${row.row.result.correct ? "right" : "missed"} ${HELP[row.row.assistance.status]}`;
+  const answer = (row: Answer) => `"${clip(row.row.childResponse ?? "", 40)}" ${row.row.result.correct ? "right" : "missed"} ${bucketOf(row) === "school" ? "on the school test" : HELP[row.row.assistance.status]}`;
   const untried: string[] = [], lines: string[] = [];
   for (const [id, prompt] of problems) {
     const rows = all.filter(row => row.word === id);
@@ -146,6 +156,15 @@ export function childFeedbackLines(cycle: LearningCycleRecordV2, opts: LearningC
 export function childFeedbackSection(cycle: LearningCycleRecordV2, opts: LearningCycleRepositoryOptions = {}): string {
   const lines = childFeedbackLines(cycle, opts);
   return ["What she (or a parent) said about Sunny's games, in her own words (recorded by code, most recent last):", ...(lines.length ? lines.map(line => `- ${line}`) : ["- Nothing recorded yet."])].join("\n");
+}
+
+/** Every returned school test item, confirmed by a parent, in the order written: the real test is the goal. */
+export function schoolTestSection(cycle: LearningCycleRecordV2): string {
+  const header = "Her returned school tests (each item as a parent confirmed it from the graded paper):";
+  const rows = (cycle.observations ?? []).filter(row => SCHOOL.has(String(row.provenance)) && !SYNTHETIC.test(`${row.observationId} ${row.sourceId}`))
+    .sort((a, b) => Date.parse(a.observedAt) - Date.parse(b.observedAt));
+  if (!rows.length) return `${header}\n- No returned school test recorded yet.`;
+  return [header, ...rows.map(row => `- ${row.observedAt.slice(0, 10)}: "${clip(row.prompt ?? row.itemId, 80)}"${row.childResponse ? ` she wrote "${clip(row.childResponse, 40)}"` : ""}: ${row.result?.correct === true ? "right" : row.result?.correct === false ? "missed" : "not marked"}${row.result?.teacherNote ? ` (teacher: ${clip(String(row.result.teacherNote), 80)})` : ""}`)].join("\n");
 }
 
 /** When the owner closed her board early for this decision, the reason as a fact (with a trailing newline), else "". */
