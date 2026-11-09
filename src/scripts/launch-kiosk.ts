@@ -1,5 +1,5 @@
 import "dotenv/config";
-import { acceptVisibleMacKiosk, kioskBrowserCommand, kioskBrowserExitAction, macShutdownBrowserTargets } from "./kioskBrowserLaunch";
+import { acceptVisibleMacKiosk, kioskBrowserCommand, kioskBrowserExitAction, macShutdownBrowserTargets, kioskDebugArgs } from "./kioskBrowserLaunch";
 import { writeCanvasCapabilities } from "../utils/generateCanvasCapabilities";
 writeCanvasCapabilities();
 
@@ -256,6 +256,7 @@ async function main() {
         if (shuttingDown) throw new Error("kiosk_startup_cancelled");
         let candidate: ChildProcess;
         const browserArgs = [
+          ...kioskDebugArgs(process.env),
           "--kiosk",
           "--no-first-run",
           "--no-default-browser-check",

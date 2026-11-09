@@ -52,3 +52,11 @@ export function kioskBrowserExitAction(reopensUsed: number): "reopen" | "shutdow
 export function macShutdownBrowserTargets(browserPid: number | undefined, table: string, profileDir: string): number[] {
   return browserPid ? [browserPid] : findStaleSunnyKioskPids(table, profileDir);
 }
+
+/** Opt-in console access for the operator (owner 2026-11-09): a debugging port on this Mac only, never the network. */
+export function kioskDebugArgs(env: Partial<Record<string, string | undefined>>): string[] {
+  const port = env.SUNNY_KIOSK_DEBUG_PORT?.trim();
+  if (!port || !/^\d{2,5}$/.test(port)) return [];
+  console.log(` 🎮 [kiosk] [debug-port] [enabled] port=${port} address=127.0.0.1`);
+  return [`--remote-debugging-port=${port}`, "--remote-debugging-address=127.0.0.1"];
+}

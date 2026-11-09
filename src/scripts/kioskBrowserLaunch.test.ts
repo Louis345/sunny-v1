@@ -82,3 +82,16 @@ describe("kiosk window closed during a session", () => {
     expect(source).toContain("[kiosk] [browser-exit] [reopening]");
   });
 });
+
+// 2026-11-09 owner: Melty's call tile drew nothing on Saori, and the browser's own errors never reach the kiosk log.
+// An opt-in debugging port lets the operator read the kiosk console over SSH; it listens on this Mac only.
+describe("kiosk debugging port", () => {
+  it("adds a local-only debugging port only when SUNNY_KIOSK_DEBUG_PORT is a port number", async () => {
+    const { kioskDebugArgs } = await import("./kioskBrowserLaunch");
+    expect(kioskDebugArgs({ SUNNY_KIOSK_DEBUG_PORT: "9222" })).toEqual(["--remote-debugging-port=9222", "--remote-debugging-address=127.0.0.1"]);
+    expect(kioskDebugArgs({})).toEqual([]);
+    expect(kioskDebugArgs({ SUNNY_KIOSK_DEBUG_PORT: "0.0.0.0:9222" })).toEqual([]);
+    const source = fs.readFileSync(path.join(process.cwd(), "src/scripts/launch-kiosk.ts"), "utf8");
+    expect(source).toContain("...kioskDebugArgs(process.env)");
+  });
+});
