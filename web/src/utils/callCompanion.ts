@@ -18,6 +18,15 @@ export function offerableCallTicket<T extends { homeworkId: string; earnedAt: st
   return fresh.at(-1);
 }
 
+/** The call the map offers: her saved tickets plus the one the server just returned for this board (BUGS.md
+ * 2026-11-09, Reina's map had no Call button because the saved list predates the ticket). Same freshness rule. */
+export function boardCallTicket<T extends { homeworkId: string; earnedAt: string; openedAt?: string | null }>(
+  saved: readonly T[] | undefined, serverTicket: T | undefined, homeworkId: string | undefined, boardPublishedAt: string | null | undefined,
+): T | undefined {
+  const known = (saved ?? []).some(ticket => serverTicket && ticket.homeworkId === serverTicket.homeworkId && ticket.earnedAt === serverTicket.earnedAt);
+  return offerableCallTicket([...(saved ?? []), ...(serverTicket && !known ? [serverTicket] : [])], homeworkId, boardPublishedAt);
+}
+
 /**
  * What the call's portrait draws (BUGS.md 2026-11-08: a bought dress was missing in the call): in an earned
  * call, the dressable body wearing her outfit and accessory; otherwise the plain companion.

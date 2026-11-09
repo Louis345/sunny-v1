@@ -118,7 +118,7 @@ import { fetchCreatures, sendDenAction, startCreatureSession, type CreatureSnaps
 import { CREATURE_CATALOG } from "../../src/shared/capturedMonsterCatalog";
 import type { PendingCreatureEncounter } from "../../src/shared/companionCareTypes";
 import { rewardCallHeldReason } from "./utils/rewardCallOffer";
-import { offerableCallTicket } from "./utils/callCompanion";
+import { boardCallTicket } from "./utils/callCompanion";
 import { pronunciationBoardCompletion } from "./utils/pronunciationBoardCompletion";
 import type { PostActivityAction } from "../../src/engine/choiceEvents";
 import { CallProgressBadge } from "./components/CallProgressBadge";
@@ -214,12 +214,14 @@ function CompanionEconomyControls(props: {
   /** On the next-board screen only the call button shows (owner, 2026-11-08: call Elli while it builds). */
   callOnly?: boolean;
   boardPublishedAt?: string | null;
+  /** The ticket the server returned with this board's last completion (the saved list may predate it). */
+  serverTicket?: { homeworkId: string; earnedAt: string; bonusUrl?: string };
   onOpenVideoCall: (ticket: { homeworkId: string; earnedAt: string; bonusUrl?: string }) => void;
 }) {
   const companionCare = useCompanionCare();
   const [shopOpen, setShopOpen] = useState(false);
   // Offered only for the board she just finished; it does not carry over (owner, 2026-11-08).
-  const earnedTicket = offerableCallTicket(companionCare.care?.economy.videoCallTickets, props.homeworkId, props.boardPublishedAt);
+  const earnedTicket = boardCallTicket(companionCare.care?.economy.videoCallTickets, props.serverTicket, props.homeworkId, props.boardPublishedAt);
   if (!props.visible) return null;
   return (
     <>
@@ -1623,6 +1625,7 @@ function App() {
     ],
   );
 
+  const [lastServerCallTicket, setLastServerCallTicket] = useState<{ homeworkId: string; earnedAt: string; bonusUrl?: string } | undefined>(undefined);
   const showPlannerBoardEngagementOverlay = useCallback(
     (
       node: NodeConfig,
@@ -1631,6 +1634,10 @@ function App() {
       videoCallTicket?: { homeworkId: string; earnedAt: string; bonusUrl?: string },
     ) => {
       const outcome = plannerOutcomeFromResult(result);
+      if (videoCallTicket) {
+        setLastServerCallTicket(videoCallTicket);
+        console.log(` 🎮 [reward-loop] [call-ticket] [received] homework=${videoCallTicket.homeworkId}`);
+      }
       setPostActivityEngagement({
         node,
         outcome: { ...outcome, decisionStartedAtMs: Date.now() },
@@ -2452,6 +2459,7 @@ function App() {
         balance={profileCompanionCurrency}
         homeworkId={plannerBoardPacket?.childChart.learningCycle?.homeworkId}
         callOffered={rewardCallHeld == null}
+        serverTicket={lastServerCallTicket}
         onOpenVideoCall={(ticket) => void openVideoCallTicket(ticket)}
       />
       {adventureMapEnabled &&
