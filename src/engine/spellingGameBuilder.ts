@@ -9,6 +9,7 @@ import { resolveChildContextDir } from "../utils/contextRoot";
 import { runMathProviderStage } from "./adaptiveMathDiscovery";
 import { engagementTheoryEvidenceContext } from "./engagementTheory";
 import { requestForModel } from "./plannerTransport";
+import { childFeedbackLines } from "./plannerIntrospection";
 import { captureGame } from "./prebuiltBoard";
 import {
   transitionLearningCycle,
@@ -32,14 +33,14 @@ const MAX_OUTPUT = 128_000;
 const CONTRACT_TAG = '<script src="/games/_contract.js"></script>';
 const CSP = `<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' data: blob:; font-src 'self' data:; connect-src 'none'">`;
 
-/** What her chart says about her, and how she has played this homework's games so far. */
+/** What her chart says about her, how she has played this homework's games so far, and what she said about Sunny's games. */
 function childFacts(cycle: LearningCycleRecordV2, rootDir: string) {
   const chart = getChildChart(cycle.childId, { rootDir });
   const played = cycle.nodes.filter(node => node.state === "completed").map(node => {
     const answers = cycle.observations.filter(row => row.sourceId.endsWith(`:${node.nodeId}`));
     return { stop: node.title, game: node.implementationType ?? node.mechanic, answers: answers.length, correct: answers.filter(row => row.result.correct === true).length };
   });
-  return { identity: chart.identity, demographics: chart.demographics, childVoice: chart.childVoice, engagementEvidence: engagementTheoryEvidenceContext(chart.engagementTheory), playedThisHomework: played };
+  return { identity: chart.identity, demographics: chart.demographics, childVoice: chart.childVoice, engagementEvidence: engagementTheoryEvidenceContext(chart.engagementTheory), playedThisHomework: played, whatSheSaidAboutSunnysGames: childFeedbackLines(cycle, { rootDir }) };
 }
 
 export function buildSpellingGameAsk(input: { cycle: LearningCycleRecordV2; node: LearningCycleNodeContract; rootDir: string }): string {

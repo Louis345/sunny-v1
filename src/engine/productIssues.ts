@@ -177,3 +177,26 @@ export function recordProductIssue(
   );
   return { record, persisted: true };
 }
+
+/**
+ * What she (or a parent) said about Sunny's games, oldest first, newest `limit` kept: her words, never an
+ * automated audit's summary. Read from the same folder recordProductIssue writes; an unreadable line is logged
+ * and skipped, so one bad line never hides the rest.
+ */
+export function listChildProductIssues(childId: string, opts: Pick<ProductIssueOptions, "rootDir"> & { limit?: number } = {}): ProductIssueRecord[] {
+  const dir = productIssueDir(childId, opts);
+  if (!fs.existsSync(dir)) return [];
+  const rows: ProductIssueRecord[] = [];
+  for (const file of fs.readdirSync(dir).filter(name => name.endsWith(".ndjson")).sort()) {
+    for (const line of fs.readFileSync(path.join(dir, file), "utf8").split("\n")) {
+      if (!line.trim()) continue;
+      try { rows.push(JSON.parse(line) as ProductIssueRecord); }
+      catch { console.warn(`  🎮 [product-issue] [read] [skipped-line] child=${safeChildId(childId)} file=${file}`); }
+    }
+  }
+  const seen = new Set<string>();
+  const heard = rows.filter(row => row.source !== "observed_behavior" && typeof row.childUtterance === "string" && row.childUtterance.trim())
+    .sort((a, b) => Date.parse(a.createdAt) - Date.parse(b.createdAt))
+    .filter(row => { const key = row.childUtterance.trim().toLowerCase(); if (seen.has(key)) return false; seen.add(key); return true; });
+  return heard.slice(-(opts.limit ?? 8));
+}

@@ -2,7 +2,7 @@ import {isDeepStrictEqual} from "node:util";
 import { plannerDecisionView, plannerObservationView } from "./plannerEvidenceView";
 import { successorMenuFacts } from "./plannerMenu";
 import { schoolTestFacts, schoolTestLine, SPELLING_TEST_CONDITIONS } from "./schoolTestObjective";
-import { mathTrackRecordSection, plannerJournalSection, spellingTrackRecordSection, writePlannerJournalEntry, type PlannerSelfReview } from "./plannerIntrospection";
+import { childFeedbackSection, mathTrackRecordSection, plannerJournalSection, spellingTrackRecordSection, writePlannerJournalEntry, type PlannerSelfReview } from "./plannerIntrospection";
 import { spellingActivityCatalog } from "./assignmentPlanner";
 import {readSuccessorBoardDefinition, assembleAdventureBoardDefinition, BOARD_DEFINITION_TOOL_SCHEMA, BOARD_AUTHORING_INSTRUCTION, type AdventureBoardComposition, type AdventureJourneyDefinition} from "../shared/adventureBoardDefinition";
 import { canonicalJourneyLaunchable, isItemIntakeMathCycle, isRetryablePlannerBlock, isSpellingPracticeContinuation, repointReusedSetup } from './learningCycleRepository';
@@ -933,6 +933,7 @@ ${JSON.stringify((facts.activities??[]).map(row=>row.id))}
 generated-game is a new game Sunny builds for her from her chart and the story you write for that step, around the problems you give it. It can be aimed at one specific error you name in its focus. Sunny scores her first answer to each problem against the answer recorded at intake. check_first marks a step that checks what she does on her own; a problem she has answered before is recorded as practice there, never as an unseen check.
 ${mathTrackRecordSection(cycle)}
 ${plannerJournalSection(cycle)}
+${childFeedbackSection(cycle,opts)}
 Her recorded problems (from her worksheet; give their ids):
 ${JSON.stringify(problems.map(item=>({id:item.id,problem:item.prompt})))}
 Child chart context:
@@ -967,6 +968,7 @@ ${JSON.stringify(facts.activities!.map(row=>row.id))}
 ${facts.activities!.some(row=>row.id==="generated-game")?`generated-game is a new game Sunny builds for her from her chart and the story you write for that step. It can be aimed at one specific error you name in its focus. What she picks and replays shows what she enjoys.
 `:""}${spellingTrackRecordSection(cycle)}
 ${plannerJournalSection(cycle)}
+${childFeedbackSection(cycle,opts)}
 Tested built-in activities she played, which you may re-run:
 ${JSON.stringify(facts.builtIns.map(row=>({builtIn:row.nodeId,title:row.title,type:row.implementationType,words:row.wordIds.length,checkpoint:row.checkpoint})))}
 Saved spelling words:

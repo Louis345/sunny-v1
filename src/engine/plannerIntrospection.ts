@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { resolveChildContextDir } from "../utils/contextRoot";
 import { listBoardInstances } from "./learningBoardInstances";
+import { listChildProductIssues } from "./productIssues";
 import type { LearningCycleDecision, LearningCycleNodeContract, LearningCycleRecordV2, LearningCycleRepositoryOptions, LearningObservation } from "./learningCycleRepository";
 export type { PlannerSelfReview } from "./learningCycleRepository";
 
@@ -132,6 +133,19 @@ export function plannerJournalSection(cycle: LearningCycleRecordV2): string {
         ...targeted.map(word => `    - ${word}: before ${result(own(word, -Infinity, at))} -> after ${result(own(word, at, until))}`)] : []),
     ];
   })].join("\n");
+}
+
+/** What she (or a parent) said about Sunny's games, one line each: when, where (the stop's title when known), her words.
+ * Facts only (owner 2026-11-08: "why wouldn't a system naturally infer what is best"): what it means is the reader's. */
+export function childFeedbackLines(cycle: LearningCycleRecordV2, opts: LearningCycleRepositoryOptions = {}): string[] {
+  const titles = new Map(cycle.nodes.map(node => [node.nodeId, node.title]));
+  return listChildProductIssues(cycle.childId, { rootDir: opts.rootDir }).map(row =>
+    `${row.createdAt.slice(0, 10)}, at "${clip((row.nodeId && titles.get(row.nodeId)) || row.activityId, 60)}": "${clip(row.childUtterance)}"`);
+}
+
+export function childFeedbackSection(cycle: LearningCycleRecordV2, opts: LearningCycleRepositoryOptions = {}): string {
+  const lines = childFeedbackLines(cycle, opts);
+  return ["What she (or a parent) said about Sunny's games, in her own words (recorded by code, most recent last):", ...(lines.length ? lines.map(line => `- ${line}`) : ["- Nothing recorded yet."])].join("\n");
 }
 
 /** One readable entry per saved decision in her folder; a failed write is logged and never stops the board. */

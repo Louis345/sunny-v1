@@ -16,6 +16,7 @@ import * as runtime from "./learningCycleRuntime";
 import * as canvas from "./adventureBoardCanvas";
 import { plannerJournalSection, spellingTrackRecordSection, writePlannerJournalEntry } from "./plannerIntrospection";
 import { spellingSuccessorToolkit, type SuccessorFacts } from "./spellingSuccessorTools";
+import { recordProductIssue } from "./productIssues";
 
 // 2026-11-08 owner (Ila's sessions): she wrote "inport" for import again and again. A picture explainer
 // (board 3) and Word Radar practice (boards 3, 4) did not fix it, and the next board re-taught the same way.
@@ -171,3 +172,20 @@ it("logs a journal file it cannot write and never throws into the board flow", (
   expect(() => writePlannerJournalEntry(cycle, cycle.decisionHistory[0], { rootDir })).not.toThrow();
   expect(error.mock.calls.flat().join(" ")).toContain("[planner-journal] [review] [write-failed]");
 });
+
+// 2026-11-08 Reina told Matilda the Boss hints "were too long. They didn't make sense." It was saved as a product
+// issue tied to the stop, yet the Planner's self-review never saw it, so nothing could change because of it.
+// The human heard it; the log line [product-issue] [recorded] fired; the lab never checked who reads it back.
+it("shows the next-board Planner what she said about Sunny's games, in her words, beside her track record", async () => {
+  const f = liveFixture();
+  recordProductIssue({ childId, activityId: "word-radar", nodeId: "radar", issueType: "flow_complaint", severity: "medium", source: "child_utterance", confidence: 0.9,
+    childUtterance: "the hints were too long, they didn't make sense", evidenceText: "Hints too long.", createdAt: "2026-11-08T22:20:00Z" }, f.opts);
+  recordProductIssue({ childId, activityId: "word-radar", issueType: "companion_lag", severity: "medium", source: "observed_behavior", confidence: 0.7,
+    childUtterance: "session transcript contained product complaint", evidenceText: "Audit.", createdAt: "2026-11-08T22:49:00Z" }, f.opts);
+  f.play("radar", new Date(Date.now() - 3_600_000).toISOString());
+  await runtime.advanceCanonicalCycleFromEvidence(f.request, f.opts);
+  const prompt = promptOf(f.requests[0]);
+  expect(prompt).toContain("What she (or a parent) said about Sunny's games, in her own words (recorded by code, most recent last):");
+  expect(prompt).toContain(`- 2026-11-08, at "Radar Run": "the hints were too long, they didn't make sense"`);
+  expect(prompt).not.toContain("session transcript contained product complaint");
+}, 120000);

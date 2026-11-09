@@ -11,6 +11,7 @@ import { advanceCanonicalCycleFromEvidence, recordCanonicalNodeCompletion } from
 import { preparingBoardInstance, publishBoardInstance } from "./learningBoardInstances";
 import { prepareSuccessorBoard } from "./canonicalProgressionGenerator";
 import type { SpellingGameClient } from "./spellingGameBuilder";
+import { recordProductIssue } from "./productIssues";
 import { spellingActivityMenu } from "./spellingTeachingTools";
 import { spellingActivityCatalog } from "./assignmentPlanner";
 import { NODE_REGISTRY } from "../shared/nodeRegistry";
@@ -141,4 +142,22 @@ it("aims her game at the one error the Planner names", async () => {
   const builder = recordedBuilder([GOOD]);
   await prepareSuccessorBoard({ childId: f.childId, homeworkId: f.homeworkId, spellingGameClient: builder.client }, { rootDir: f.rootDir });
   expect(builder.requests[0].messages[0].content as string).toContain("- What this game is aimed at: the m before p in import");
+});
+
+// 2026-11-08 Reina (math Boss, stop 4): "the hints, I tried them all, and they kind of were too long. They didn't
+// make sense." Matilda saved it as a product issue, but no builder ever read it, so her next games were written
+// blind. The human heard it; the logs recorded it ([product-issue] [recorded]); the lab never asked whether what
+// she says about Sunny's games reaches the one who builds them. Facts only: her words, where, when.
+it("shows the builder what she said about Sunny's games, in her own words, and leaves the conclusion to it", async () => {
+  const f = fixture();
+  recordProductIssue({ childId: f.childId, activityId: "generated-game", nodeId: "practice", issueType: "flow_complaint", severity: "medium", source: "child_utterance", confidence: 0.9,
+    childUtterance: "the hints were too long, they didn't make sense", evidenceText: "Hints too long.", createdAt: "2026-11-08T22:20:00Z" }, { rootDir: f.rootDir });
+  recordProductIssue({ childId: f.childId, activityId: "pronunciation", issueType: "companion_lag", severity: "medium", source: "observed_behavior", confidence: 0.7,
+    childUtterance: "session transcript contained product complaint", evidenceText: "Audit.", createdAt: "2026-11-08T22:49:00Z" }, { rootDir: f.rootDir });
+  await plannedBoard(f);
+  const builder = recordedBuilder([GOOD]);
+  await prepareSuccessorBoard({ childId: f.childId, homeworkId: f.homeworkId, spellingGameClient: builder.client }, { rootDir: f.rootDir });
+  const ask = builder.requests[0].messages[0].content as string;
+  expect(ask).toContain(`2026-11-08, at \\"Word workshop\\": \\"the hints were too long, they didn't make sense\\"`);
+  expect(ask).not.toContain("session transcript contained product complaint");
 });
