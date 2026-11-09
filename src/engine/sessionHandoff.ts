@@ -65,7 +65,7 @@ export async function writeSessionHandoff(input: { childId: string; sessionDir: 
     const ask = buildHandoffAsk({ childName: metadata.child || input.childId, companionName: chart.companion?.displayName || "her companion",
       homeworkTitle: cycle.assignment?.title ?? cycle.homeworkId, transcript: transcript.slice(-60_000), answers: answersSince(cycle, metadata.startedAt) });
     const client = input.client ?? (new Anthropic() as unknown as HandoffClient);
-    const message = await client.messages.create(requestForModel({ model: handoffModel(), max_tokens: 1200, messages: [{ role: "user", content: ask }] }));
+    const message = await client.messages.create(requestForModel({ model: handoffModel(), max_tokens: 8000, messages: [{ role: "user", content: ask }] }));
     const text = message.content.flatMap(block => block.type === "text" ? [block.text] : []).join("\n").trim();
     if (!text) throw new Error("empty_handoff");
     const dir = handoffDir(cycle, opts);

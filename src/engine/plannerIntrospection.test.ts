@@ -208,6 +208,8 @@ it("writes a shift handoff from the session conversation and shows it to the nex
   const file = await writeSessionHandoff({ childId, sessionDir, homeworkId, client: client as never }, f.opts);
   expect(asks).toHaveLength(1);
   expect(asks[0].model).toBe(handoffModel());
+  // 2026-11-09 on Saori: claude-haiku-5-5 thinks first; at 1,200 tokens it spent them all thinking and wrote no handoff.
+  expect(asks[0].max_tokens).toBeGreaterThanOrEqual(8000);
   const ask = asks[0].messages[0].content as string;
   expect(ask).toContain("Ellie, can you help me with import?");
   expect(ask).toContain("Sure! i, m, p, o, r, t.");
