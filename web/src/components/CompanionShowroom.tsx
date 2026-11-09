@@ -67,7 +67,8 @@ import {
   type WardrobeOutfitId,
   type WardrobeSelection,
 } from "../lib/wardrobeStore";
-import { savedEquippedLook, type ServerWallet } from "../lib/wardrobeWallet";
+import { type ServerWallet } from "../lib/wardrobeWallet";
+import { fittedCallLook, loadCallStartLook } from "../lib/callStartLook";
 import { callCompanionIndex, callPortraitLook } from "../utils/callCompanion";
 import {
   WardrobeStoreLab,
@@ -3905,14 +3906,16 @@ export function CompanionShowroom({
     const key = `${childId}:${current.id}:${currentWardrobeModelUrl}`;
     if (savedLookAppliedRef.current === key) return;
     savedLookAppliedRef.current = key;
-    fetch(`/api/rewards/wallet/${encodeURIComponent(childId)}`)
-      .then((response) => (response.ok ? response.json() : Promise.reject(new Error(`status ${response.status}`))))
-      .then((wallet: ServerWallet) => {
-        const look = savedEquippedLook(window.localStorage, childId, wallet, current.id, currentWardrobeModelUrl);
-        console.log(` 🎮 [wardrobe-wallet] [call-start-look] [${look.outfitId}] child=${childId} companion=${current.id} accessory=${look.accessoryId}`);
-        if (look.outfitId !== "none" || look.accessoryId !== "none") handleWardrobeStoreChange(look);
-      })
-      .catch((error: unknown) => console.error(" 🎮 [wardrobe-wallet] [call-start-look] [failed]", error));
+    loadCallStartLook({
+      childId,
+      companionId: current.id,
+      modelUrl: currentWardrobeModelUrl,
+      fetchWallet: (id) => fetch(`/api/rewards/wallet/${encodeURIComponent(id)}`)
+        .then((response) => (response.ok ? response.json() as Promise<ServerWallet> : Promise.reject(new Error(`status ${response.status}`)))),
+      storage: window.localStorage,
+      isCurrent: () => savedLookAppliedRef.current === key,
+      apply: handleWardrobeStoreChange,
+    }).catch((error: unknown) => console.error(" 🎮 [wardrobe-wallet] [call-start-look] [failed]", error));
   }, [earnedCallWallet?.childId, current, currentWardrobeModelUrl, handleWardrobeStoreChange]);
   const effectiveWardrobeOutfitId: WardrobeOutfitId =
     current &&
@@ -3925,9 +3928,13 @@ export function CompanionShowroom({
       : "none";
   const effectiveWardrobeOutfitMaterialVariant =
     effectiveWardrobeOutfitId === "none" ? null : wardrobeOutfitMaterialVariant;
+  // The accessory is checked for fit like the outfit (BUGS.md 2026-11-08).
+  const effectiveWardrobeAccessoryId: WardrobeAccessoryId = current
+    ? fittedCallLook({ accessoryId: wardrobeAccessoryId, outfitId: "none" }, currentWardrobeModelUrl, current.id).accessoryId
+    : "none";
   // The call's portrait wears what she bought (BUGS.md 2026-11-08).
   const callLook = callPortraitLook({ shopEnabled: Boolean(earnedCallWallet), current, dressable: wardrobeStoreEntry,
-    outfitId: effectiveWardrobeOutfitId, accessoryId: wardrobeAccessoryId, materialVariant: effectiveWardrobeOutfitMaterialVariant });
+    outfitId: effectiveWardrobeOutfitId, accessoryId: effectiveWardrobeAccessoryId, materialVariant: effectiveWardrobeOutfitMaterialVariant });
   const introText = current ? getText(current.id) : "";
   const showroomVideoTraceLink = useMemo(
     () =>
@@ -7478,7 +7485,7 @@ export function CompanionShowroom({
               getAnalyser={getSpeechAnalyser}
               wardrobeAccessoryId={
                 wardrobeShopEnabled && slot.slot === "current"
-                  ? wardrobeAccessoryId
+                  ? effectiveWardrobeAccessoryId
                   : "none"
               }
               wardrobeOutfitId={
@@ -7518,7 +7525,7 @@ export function CompanionShowroom({
                 displayScaleOverride={4}
                 cameraAngleOverride="full-body"
                 getAnalyser={getSpeechAnalyser}
-                wardrobeAccessoryId={wardrobeAccessoryId}
+                wardrobeAccessoryId={effectiveWardrobeAccessoryId}
                 wardrobeOutfitId={effectiveWardrobeOutfitId}
                 wardrobeOutfitMaterialVariant={effectiveWardrobeOutfitMaterialVariant}
                 onMotorReady={handleVideoChatMotorReady}
