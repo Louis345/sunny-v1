@@ -250,6 +250,7 @@ export function buildActivityCompanionContext(input: {
   const activityOnScreen = !reported || screenShowsActivity(check);
   const board = reported ? describeScreenForCompanion({ ...check, activityContext: activityState }) : activityState;
   const liveBoard = cycle ? describeLiveBoardForCompanion(cycle) : "";
+  const tutorPlan = cycle ? describeTutorPlanForCompanion(cycle, input.snapshot?.nodeId) : "";
   const remembered = buildShowroomTalkMemoryPrompt(
     withoutRememberedPosition(readCompanionCareMemoryForPrompt(input.childId, input.companionId)),
   );
@@ -280,10 +281,25 @@ export function buildActivityCompanionContext(input: {
   const testObjective = cycle?.domain === "spelling" ? companionSpellingTestObjective({ cycle, homework: chart?.homework,
     instrument: spelling ? assessment?.instrument : undefined })
     : cycle?.domain === "math" ? companionMathTestObjective({ cycle, homework: chart?.homework }) : "";
-  return redactProtectedSpellingText([board, liveBoard, input.speechRate === undefined ? "" : `Configured speech speed: ${input.speechRate} (1=normal; resets on item or launch change).`, memory, helpObjective, testObjective, spelling].filter(Boolean).join("\n\n"), input.snapshot);
+  return redactProtectedSpellingText([board, liveBoard, tutorPlan, input.speechRate === undefined ? "" : `Configured speech speed: ${input.speechRate} (1=normal; resets on item or launch change).`, memory, helpObjective, testObjective, spelling].filter(Boolean).join("\n\n"), input.snapshot);
 }
 
 type CompanionCycle = NonNullable<NonNullable<ReturnType<typeof readCompanionChart>>["learningCycle"]>;
+
+/**
+ * The Planner's current plan, in its own words, and what the open stop is for (owner, 2026-11-09: the teacher and
+ * the aide work in sync). Facts for Elli's judgment; how she helps stays hers.
+ */
+export function describeTutorPlanForCompanion(cycle: CompanionCycle, nodeId?: string): string {
+  const decision = [...(cycle.decisionHistory ?? [])].reverse().find(row => row.eventType === "theory_decided");
+  const node = nodeId ? cycle.nodes.find(candidate => candidate.nodeId === nodeId) : undefined;
+  const plan = decision?.selfReview?.whatIChangeNow;
+  const lines = ["[Her tutor's plan (the Planner, in its own words)]",
+    ...(plan ? [`What the tutor changes now: "${plan}"`] : decision?.reason ? [`The tutor's latest reasoning: "${decision.reason.slice(0, 400)}"`] : []),
+    ...(decision?.change?.length ? ["The tutor's changes for this board:", ...decision.change.map(line => `- ${line}`)] : []),
+    ...(node ? [`This stop, "${node.title}", is for: ${node.openingScreen?.purpose ?? "not stated"}.${node.focus ? ` Aimed at: ${node.focus}.` : ""}`] : [])];
+  return lines.length > 1 ? lines.join("\n") : "";
+}
 
 /** The current board's path, its saved progress and the next step: the only answer to "where did I leave off". */
 export function describeLiveBoardForCompanion(cycle: CompanionCycle): string {

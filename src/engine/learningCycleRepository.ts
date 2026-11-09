@@ -711,6 +711,8 @@ export type LearningCycleEvent =
       };
     }
   | { type: "planner_retry_authorized"; blockedDecisionId: string; reason: string }
+  /** Owner 2026-11-09: close her current board early for one fresh Planner decision; her answers stay. */
+  | { type: "owner_replan_requested"; reason: string }
   | { type: "block"; reason: string };
 
 export type LearningCycleRepositoryOptions = {
@@ -1944,6 +1946,12 @@ export function transitionLearningCycle(
     const owner = boardOwningNode(next, node.nodeId)!;
     owner.topologyHash = boardTopologyHash(next, owner);
     reason = `Not ready step ${node.nodeId} re-runs the tested built-in ${source.nodeId}.`;
+  } else if (event.type === "owner_replan_requested") {
+    if (!["board_ready", "baseline_ready", "baseline_active"].includes(current.lifecycle) || !current.boards?.length
+      || preparingBoardInstance(current) || !event.reason.trim()) throw new Error("owner_replan_not_eligible");
+    next.lifecycle = "baseline_evaluating";
+    reason = `The owner closed her current board early for this fresh decision: "${event.reason.trim()}"`;
+    console.log(` 🎮 [canonical-progression] [owner-replan] [requested] homework=${current.homeworkId} from=${current.lifecycle}`);
   } else if (event.type === "planner_retry_authorized") {
     const blocked = [...current.decisionHistory].reverse().find(row => row.fromLifecycle !== row.toLifecycle);
     if (current.lifecycle !== "blocked" || blocked?.eventType !== "block"

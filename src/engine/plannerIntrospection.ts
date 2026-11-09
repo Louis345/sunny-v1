@@ -148,6 +148,12 @@ export function childFeedbackSection(cycle: LearningCycleRecordV2, opts: Learnin
   return ["What she (or a parent) said about Sunny's games, in her own words (recorded by code, most recent last):", ...(lines.length ? lines.map(line => `- ${line}`) : ["- Nothing recorded yet."])].join("\n");
 }
 
+/** When the owner closed her board early for this decision, the reason as a fact (with a trailing newline), else "". */
+export function ownerReplanLine(cycle: LearningCycleRecordV2): string {
+  const last = [...cycle.decisionHistory].reverse().find(row => row.eventType === "theory_decided" || row.eventType === "owner_replan_requested");
+  return last?.eventType === "owner_replan_requested" ? `${last.reason}\n` : "";
+}
+
 /** One readable entry per saved decision in her folder; a failed write is logged and never stops the board. */
 export function writePlannerJournalEntry(cycle: LearningCycleRecordV2, decision: LearningCycleDecision, opts: LearningCycleRepositoryOptions = {}): void {
   try {

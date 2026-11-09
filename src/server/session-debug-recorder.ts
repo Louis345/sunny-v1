@@ -5,6 +5,7 @@ import path from "path";
 import { execSync, spawn } from "child_process";
 import { ttsLogLabel } from "./audit-log";
 import { shouldPersistSessionData } from "../utils/runtimeMode";
+import { writeSessionHandoff } from "../engine/sessionHandoff";
 
 type JsonValue =
   | string
@@ -247,6 +248,15 @@ export function finalizeSessionDebugPacket(
   session.debugPacketFinalized = true;
   console.log(`  🎮 [debug] session packet saved: ${session.debugRecorder.sessionDir}`);
   enqueueSessionLogUpload();
+  startSessionHandoff(session);
+}
+
+/** The shift handoff for the Planner (owner, 2026-11-09): written from the saved packet, never blocking the end. */
+export function startSessionHandoff(session: any, write = writeSessionHandoff): void {
+  if (!shouldPersistSessionData() || !session.chartChildId || !session.debugRecorder?.sessionDir) return;
+  const homeworkId = session.spellingLaunch?.homeworkId ?? session.options?.homeworkId;
+  void write({ childId: session.chartChildId, sessionDir: session.debugRecorder.sessionDir, ...(homeworkId ? { homeworkId } : {}) })
+    .catch(error => console.error(` 🎮 [handoff] [failed] child=${session.chartChildId} reason=${error instanceof Error ? error.message : String(error)}`));
 }
 
 function enqueueSessionLogUpload(): void {

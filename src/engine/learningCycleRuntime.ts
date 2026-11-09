@@ -2,7 +2,8 @@ import {isDeepStrictEqual} from "node:util";
 import { plannerDecisionView, plannerObservationView } from "./plannerEvidenceView";
 import { successorMenuFacts } from "./plannerMenu";
 import { schoolTestFacts, schoolTestLine, SPELLING_TEST_CONDITIONS } from "./schoolTestObjective";
-import { childFeedbackSection, mathTrackRecordSection, plannerJournalSection, spellingTrackRecordSection, writePlannerJournalEntry, type PlannerSelfReview } from "./plannerIntrospection";
+import { handoffSection } from "./sessionHandoff";
+import { childFeedbackSection, ownerReplanLine, mathTrackRecordSection, plannerJournalSection, spellingTrackRecordSection, writePlannerJournalEntry, type PlannerSelfReview } from "./plannerIntrospection";
 import { spellingActivityCatalog } from "./assignmentPlanner";
 import {readSuccessorBoardDefinition, assembleAdventureBoardDefinition, BOARD_DEFINITION_TOOL_SCHEMA, BOARD_AUTHORING_INSTRUCTION, type AdventureBoardComposition, type AdventureJourneyDefinition} from "../shared/adventureBoardDefinition";
 import { canonicalJourneyLaunchable, isItemIntakeMathCycle, isRetryablePlannerBlock, isSpellingPracticeContinuation, repointReusedSetup } from './learningCycleRepository';
@@ -934,7 +935,8 @@ generated-game is a new game Sunny builds for her from her chart and the story y
 ${mathTrackRecordSection(cycle)}
 ${plannerJournalSection(cycle)}
 ${childFeedbackSection(cycle,opts)}
-Her recorded problems (from her worksheet; give their ids):
+${handoffSection(cycle,opts)}
+${ownerReplanLine(cycle)}Her recorded problems (from her worksheet; give their ids):
 ${JSON.stringify(problems.map(item=>({id:item.id,problem:item.prompt})))}
 Child chart context:
 ${JSON.stringify(childContext)}
@@ -969,7 +971,8 @@ ${facts.activities!.some(row=>row.id==="generated-game")?`generated-game is a ne
 `:""}${spellingTrackRecordSection(cycle)}
 ${plannerJournalSection(cycle)}
 ${childFeedbackSection(cycle,opts)}
-Tested built-in activities she played, which you may re-run:
+${handoffSection(cycle,opts)}
+${ownerReplanLine(cycle)}Tested built-in activities she played, which you may re-run:
 ${JSON.stringify(facts.builtIns.map(row=>({builtIn:row.nodeId,title:row.title,type:row.implementationType,words:row.wordIds.length,checkpoint:row.checkpoint})))}
 Saved spelling words:
 ${JSON.stringify([...savedSpellingItems.values()].map(item=>({wordId:item.wordId,word:item.word})))}

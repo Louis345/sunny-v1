@@ -189,3 +189,58 @@ it("shows the next-board Planner what she said about Sunny's games, in her words
   expect(prompt).toContain(`- 2026-11-08, at "Radar Run": "the hints were too long, they didn't make sense"`);
   expect(prompt).not.toContain("session transcript contained product complaint");
 }, 120000);
+
+// 2026-11-09 Ila: the Planner read "carnivore: right with help 5 of 5" as "she knows it when prompted" and stopped
+// teaching; the help was Elli spelling every letter. The owner caught it ("the nurse is the doctor's eyes and is not
+// reporting back"); the session log held Elli's words but nothing carried them to the Planner; the lab only counted
+// assisted answers. After each session a small model writes a shift handoff from the conversation, and the Planner
+// reads the recent ones beside her track record. The handoff is the nurse's report: facts quoted from the session.
+it("writes a shift handoff from the session conversation and shows it to the next-board Planner", async () => {
+  const f = liveFixture();
+  const { writeSessionHandoff, handoffModel } = await import("./sessionHandoff");
+  const sessionDir = path.join(f.rootDir, "logs/sessions/s1"); fs.mkdirSync(sessionDir, { recursive: true });
+  const startedAt = new Date(Date.now() - 7_200_000).toISOString();
+  fs.writeFileSync(path.join(sessionDir, "metadata.json"), JSON.stringify({ sessionId: "s1", child: "Ila", startedAt }));
+  fs.writeFileSync(path.join(sessionDir, "transcript.md"), `### ${startedAt}\n\n**user:** Ellie, can you help me with import?\n\n### ${startedAt}\n\n**assistant:** Sure! i, m, p, o, r, t.\n`);
+  f.play("radar", new Date(Date.now() - 3_600_000).toISOString());
+  const asks: any[] = [];
+  const client = { messages: { create: async (request: any) => { asks.push(request); return { content: [{ type: "text", text: "- import: Elli spelled every letter (\"i, m, p, o, r, t\"); she wrote inport on her own." }], usage: { input_tokens: 1, output_tokens: 1 } }; } } };
+  const file = await writeSessionHandoff({ childId, sessionDir, homeworkId, client: client as never }, f.opts);
+  expect(asks).toHaveLength(1);
+  expect(asks[0].model).toBe(handoffModel());
+  const ask = asks[0].messages[0].content as string;
+  expect(ask).toContain("Ellie, can you help me with import?");
+  expect(ask).toContain("Sure! i, m, p, o, r, t.");
+  expect(ask).toContain(`import: "inport" missed, help not recorded`.replace("help not recorded", "on her own"));
+  expect(fs.readFileSync(file!, "utf8")).toContain("Elli spelled every letter");
+  await runtime.advanceCanonicalCycleFromEvidence(f.request, f.opts);
+  const prompt = promptOf(f.requests[0]);
+  expect(prompt).toContain("Shift handoffs from her sessions (a small model's summary of each session's conversation with her companion; her answers above are counted by code):");
+  expect(prompt).toContain(`- import: Elli spelled every letter ("i, m, p, o, r, t"); she wrote inport on her own.`);
+  // A provider failure is logged and never throws into the session's end.
+  const failing = { messages: { create: async () => { throw Error("provider down"); } } };
+  await expect(writeSessionHandoff({ childId, sessionDir, homeworkId, client: failing as never }, f.opts)).resolves.toBeUndefined();
+}, 120000);
+
+// 2026-11-09 owner: board 5 was built on a misread ("with help" taken for "she knows it"), and a new board is only
+// planned when she finishes the current one. The owner may close the current board for one fresh decision, with
+// a stated reason; her finished stops and answers stay; the Planner sees the reason as a fact.
+it("lets the owner close her current board for one fresh decision, with the reason shown to the Planner", async () => {
+  const f = liveFixture();
+  const { transitionLatestLearningCycle } = await import("./learningCycleRepository");
+  const { successorResumeAction } = await import("./learningBoardInstances");
+  f.play("radar", new Date(Date.now() - 3_600_000).toISOString());
+  await runtime.advanceCanonicalCycleFromEvidence(f.request, f.opts);
+  let cycle = await f.prepare();
+  expect(successorResumeAction(cycle)).toBeNull();
+  const answers = cycle.observations.length;
+  cycle = transitionLatestLearningCycle(childId, homeworkId, { type: "owner_replan_requested", reason: "Board built on a misread of Elli's help." }, f.opts);
+  expect(cycle.lifecycle).toBe("baseline_evaluating");
+  expect(cycle.observations).toHaveLength(answers);
+  expect(successorResumeAction(cycle)).toBe("decide");
+  const asked = f.requests.length;
+  await runtime.advanceCanonicalCycleFromEvidence(f.request, f.opts);
+  expect(promptOf(f.requests[asked])).toContain("The owner closed her current board early for this fresh decision: \"Board built on a misread of Elli's help.\"");
+  // Only from a ready or active board, and only with a reason.
+  expect(() => transitionLatestLearningCycle(childId, homeworkId, { type: "owner_replan_requested", reason: "again" }, f.opts)).toThrow("owner_replan_not_eligible");
+}, 120000);
