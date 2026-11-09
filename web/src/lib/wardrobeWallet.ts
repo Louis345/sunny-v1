@@ -46,6 +46,19 @@ export function walletShopItems(items: readonly WardrobeStoreItem[], ownedWardro
 }
 
 /**
+ * Owner 2026-11-09: the angel Ila dressed was ingested as "matilda" (Reina's homework companion's id); she is now
+ * Hikari. Ila's angel look moves to Hikari once. Only Ila: Reina's Matilda look is hers. Idempotent, and a look
+ * already on Hikari is never overwritten.
+ */
+export function migrateChildWardrobeState(state: WardrobeStoreState, childId: string): WardrobeStoreState {
+  const { matilda, hikari } = state.equippedByCompanion;
+  if (childId !== "ila" || !matilda || hikari) return state;
+  const { matilda: _moved, ...rest } = state.equippedByCompanion;
+  console.log(` 🎮 [wardrobe-wallet] [angel-look-migration] [moved] child=${childId} from=matilda to=hikari outfit=${matilda.outfitItemId ?? "none"} accessory=${matilda.accessoryItemId ?? "none"}`);
+  return { ...state, equippedByCompanion: { ...rest, hikari: matilda } };
+}
+
+/**
  * The look she saved for her companion, for a call that starts before the shop is opened: her per-child saved
  * closet, limited to what the server says she owns (BUGS.md 2026-11-07, a bought dress missing at call start).
  */
@@ -60,7 +73,7 @@ export function savedEquippedLook(
   try {
     const saved = storage?.getItem(`${WARDROBE_STORE_STORAGE_KEY}:${childId}`);
     const parsed = saved ? parseWardrobeStoreState(JSON.parse(saved) as unknown) : null;
-    if (parsed) state = parsed;
+    if (parsed) state = migrateChildWardrobeState(parsed, childId);
   } catch (error: unknown) {
     console.error(" 🎮 [wardrobe-wallet] [saved-look] [load-failed]", error);
   }

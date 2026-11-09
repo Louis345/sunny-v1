@@ -6,16 +6,18 @@ import {
   WARDROBE_COMPATIBILITY_CASES,
   resolvePreparedWardrobePresentation,
   resolveWardrobeBodyProfileId,
+  wardrobeBodyOwnerId,
 } from "../lib/wardrobeBodyProfiles";
+
+// A companion sharing another's model (Hikari is the angel first ingested as Matilda) is classified by that body.
+const BODY_OWNER_IDS = [...new Set(COMPANION_MANIFEST.map((entry) => wardrobeBodyOwnerId(entry.id)))].sort();
 
 describe("wardrobe body profiles", () => {
   it("classifies every showroom companion and both of its model contracts", () => {
-    expect(Object.keys(WARDROBE_COMPANION_BODY_ASSIGNMENTS).sort()).toEqual(
-      COMPANION_MANIFEST.map((entry) => entry.id).sort(),
-    );
+    expect(Object.keys(WARDROBE_COMPANION_BODY_ASSIGNMENTS).sort()).toEqual(BODY_OWNER_IDS);
 
     for (const entry of COMPANION_MANIFEST) {
-      const assignment = WARDROBE_COMPANION_BODY_ASSIGNMENTS[entry.id];
+      const assignment = WARDROBE_COMPANION_BODY_ASSIGNMENTS[wardrobeBodyOwnerId(entry.id)];
       expect(assignment?.activeModelUrl).toBe(
         entry.companionConfig?.vrmUrl ?? entry.vrmUrl,
       );
@@ -26,7 +28,7 @@ describe("wardrobe body profiles", () => {
   });
 
   it("uses each companion complete prepared asset without tint or substituted geometry",()=>{
-    for(const entry of COMPANION_MANIFEST){const presentation=resolvePreparedWardrobePresentation(entry.id);expect(presentation?.bodyModelUrl).toContain("/companions/"+entry.id+"-wardrobe-");expect(presentation).not.toHaveProperty("identityModelUrl");expect(presentation).not.toHaveProperty("bodySkinTint");}
+    for(const entry of COMPANION_MANIFEST){const presentation=resolvePreparedWardrobePresentation(entry.id);expect(presentation?.bodyModelUrl).toContain("/companions/"+wardrobeBodyOwnerId(entry.id)+"-wardrobe-");expect(presentation).not.toHaveProperty("identityModelUrl");expect(presentation).not.toHaveProperty("bodySkinTint");}
     expect(resolvePreparedWardrobePresentation("unknown")).toBeNull();
   });
 
@@ -39,10 +41,10 @@ describe("wardrobe body profiles", () => {
   });
 
   it("pairs every prepared candidate with its own original reference",()=>{
-    expect(WARDROBE_COMPATIBILITY_CASES).toHaveLength(COMPANION_MANIFEST.length*2);
-    for(const entry of COMPANION_MANIFEST){
-      const prepared=WARDROBE_COMPATIBILITY_CASES.find(c=>c.companionId===entry.id&&c.kind==='prepared');
-      const original=WARDROBE_COMPATIBILITY_CASES.find(c=>c.companionId===entry.id&&c.kind==='source');
+    expect(WARDROBE_COMPATIBILITY_CASES).toHaveLength(BODY_OWNER_IDS.length*2);
+    for(const id of BODY_OWNER_IDS){
+      const prepared=WARDROBE_COMPATIBILITY_CASES.find(c=>c.companionId===id&&c.kind==='prepared');
+      const original=WARDROBE_COMPATIBILITY_CASES.find(c=>c.companionId===id&&c.kind==='source');
       expect(prepared?.sourceModelUrl).toBe(original?.modelUrl);expect(prepared?.dressQaStatus).toBe('candidate');
     }
   });
