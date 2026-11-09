@@ -380,7 +380,7 @@ describe("companion wardrobe feasibility lab", () => {
       "attachXwearOutfit(vrm.scene, outfitDefinition, selectedMaterialVariant, showroomCompanionConfig.vrmUrl)",
     );
     expect(source).toContain(
-      "const selectionKey = JSON.stringify([entry.id, entry.companionConfig?.vrmUrl ?? entry.vrmUrl, wardrobeOutfitId, wardrobeOutfitMaterialVariant, wardrobeAccessoryId])",
+      "const selectionKey = JSON.stringify([entry.id, slotModelUrl, wardrobeOutfitId, wardrobeOutfitMaterialVariant, wardrobeAccessoryId])",
     );
     expect(xwearSource).toContain(
       "applyXwearMaterialVariant(materials, materialVariant)",

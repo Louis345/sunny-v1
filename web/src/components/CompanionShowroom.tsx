@@ -677,6 +677,30 @@ export function shouldRevealWardrobeCompanionCanvas(args: {
     (args.presentationState === "ready" && args.requestedKey === args.settledKey);
 }
 
+/**
+ * The outfit a slot actually loads (BUGS.md 2026-11-08, companions vanished while scrolling): only one approved
+ * for the model this slot loads, and none once its dressed load failed, so she sees the companion in its own clothes.
+ */
+export function resolveSlotWardrobeOutfit(args: {
+  outfitId: WardrobeOutfitId;
+  modelUrl: string;
+  qaMode?: "enforced" | "candidate_preview";
+  dressFailed?: boolean;
+}): WardrobeOutfitId {
+  if (args.outfitId === "none" || args.dressFailed) return "none";
+  if (args.qaMode === "candidate_preview") return args.outfitId;
+  const definition = getXwearOutfitDefinition(args.outfitId);
+  return definition && isXwearOutfitApprovedForAvatar(definition, args.modelUrl) ? args.outfitId : "none";
+}
+
+/** A failed dressed load retries once in her own clothes; a failed plain load stays failed (no loop). */
+export function shouldFallBackToPlainLook(args: {
+  presentationState: WardrobePresentationState;
+  loadedOutfitId: WardrobeOutfitId;
+}): boolean {
+  return args.presentationState === "failed" && args.loadedOutfitId !== "none";
+}
+
 export function getShowroomVideoChatLatencyBudget(): ShowroomVideoChatLatencyBudget {
   return {
     noSpeechRetryDelayMs: SHOWROOM_VIDEO_CHAT_NO_SPEECH_RETRY_DELAY_MS,
@@ -2479,7 +2503,7 @@ function CompanionSlot({
   vfxLevel = "idle",
   getAnalyser,
   wardrobeAccessoryId = "none",
-  wardrobeOutfitId = "none",
+  wardrobeOutfitId: requestedWardrobeOutfitId = "none",
   wardrobeOutfitMaterialVariant = null,
   wardrobeQaMode = "enforced",
   wardrobeInspection,
@@ -2532,7 +2556,16 @@ function CompanionSlot({
   const wardrobeAccessoryIdRef = useRef<WardrobeAccessoryId>(wardrobeAccessoryId);
   const wardrobeVrmSceneRef = useRef<THREE.Object3D | null>(null);
   const wardrobeVrmRef = useRef<VRM | null>(null);
-  const selectionKey = JSON.stringify([entry.id, entry.companionConfig?.vrmUrl ?? entry.vrmUrl, wardrobeOutfitId, wardrobeOutfitMaterialVariant, wardrobeAccessoryId]);
+  const slotModelUrl = entry.companionConfig?.vrmUrl ?? entry.vrmUrl;
+  const dressRequestKey = JSON.stringify([entry.id, slotModelUrl, requestedWardrobeOutfitId, wardrobeOutfitMaterialVariant]);
+  const [dressFailedKey, setDressFailedKey] = useState<string | null>(null);
+  const wardrobeOutfitId = resolveSlotWardrobeOutfit({
+    outfitId: requestedWardrobeOutfitId,
+    modelUrl: slotModelUrl,
+    qaMode: wardrobeQaMode,
+    dressFailed: dressFailedKey === dressRequestKey,
+  });
+  const selectionKey = JSON.stringify([entry.id, slotModelUrl, wardrobeOutfitId, wardrobeOutfitMaterialVariant, wardrobeAccessoryId]);
   const [settledSelectionKey, setSettledSelectionKey] = useState<string | null>(null);
   const [presentationState, setPresentationState] =
     useState<WardrobePresentationState>(
@@ -2594,6 +2627,12 @@ function CompanionSlot({
     requestedKey: selectionKey,
     settledKey: settledSelectionKey,
   });
+  useEffect(() => {
+    if (settledSelectionKey !== selectionKey) return;
+    if (!shouldFallBackToPlainLook({ presentationState, loadedOutfitId: wardrobeOutfitId })) return;
+    console.warn(` 🎮 [showroom] [dress-failed] [fallback-plain] companion=${entry.id} outfit=${wardrobeOutfitId} model=${slotModelUrl}`);
+    setDressFailedKey(dressRequestKey);
+  }, [dressRequestKey, entry.id, presentationState, selectionKey, settledSelectionKey, slotModelUrl, wardrobeOutfitId]);
 
   useEffect(() => {
     vfxLayerRef.current?.setLevel(vfxLevel);
