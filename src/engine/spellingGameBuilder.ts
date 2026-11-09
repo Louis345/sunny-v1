@@ -87,7 +87,7 @@ ${lines.join("\n")}
 This stop on her map, as her tutor wrote it:
 - Title: ${node.title}
 - Story: ${node.theme}
-- What it is for: ${node.openingScreen.purpose}
+- What it is for: ${node.openingScreen.purpose}${node.focus ? `\n- What this game is aimed at: ${node.focus}` : ""}
 
 Make it something she will gasp at and want to play again, and that helps her solve these problems on her own.
 

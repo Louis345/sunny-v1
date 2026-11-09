@@ -461,16 +461,24 @@ export type CreateLearningCycleInput = Omit<
   boardDefinition?: AdventureBoardDefinition;
 };
 
-/** Calibration authority requires sufficient evaluations linked to cited external facts. */
-/** Blocks an operator may retry: a truncated answer, a decision blocked by the since-fixed
- * stage-changed bug (a retry collided with its own saved turns; fixed 2026-10-25), or a request
- * whose connection dropped before any answer arrived (2026-11-04). */
-export function isRetryablePlannerBlock(reason: string): boolean {
-  return reason === "planner_decision_invalid:planner_response_max_tokens"
-    || reason.startsWith("planner_decision_invalid:provider_stage_request_changed:")
-    || reason.startsWith("provider_outcome_uncertain:");
+/** A math cycle from the one-pipeline item intake: its stops are games bound to her recorded problems.
+ * Its next board is decided through the shared next-board tools, as spelling's is. */
+export function isItemIntakeMathCycle(cycle: Pick<LearningCycleRecordV2, "domain" | "nodes">): boolean {
+  return cycle.domain === "math" && cycle.nodes.some((node) => node.implementationType === "generated-game" && Object.keys(node.evidenceContract.itemContracts ?? {}).length > 0);
 }
 
+/** Blocks an operator may retry: a truncated answer, a decision blocked by the since-fixed
+ * stage-changed bug (a retry collided with its own saved turns; fixed 2026-10-25), a request
+ * whose connection dropped before any answer arrived (2026-11-04), or an item-intake math cycle whose
+ * decision went to the retired single form and came back with no board (fixed 2026-11-08). */
+export function isRetryablePlannerBlock(reason: string, cycle?: Pick<LearningCycleRecordV2, "domain" | "nodes">): boolean {
+  return reason === "planner_decision_invalid:planner_response_max_tokens"
+    || reason.startsWith("planner_decision_invalid:provider_stage_request_changed:")
+    || reason.startsWith("provider_outcome_uncertain:")
+    || (reason === "planner_decision_invalid:board_definition_missing" && Boolean(cycle && isItemIntakeMathCycle(cycle)));
+}
+
+/** Calibration authority requires sufficient evaluations linked to cited external facts. */
 export function hasSufficientCalibrationEvidence(
   cycle: LearningCycleRecordV2,
   decision: Pick<LearningCycleDecision, "evidenceIds" | "predictionEvaluationIds">,
@@ -1351,6 +1359,12 @@ function prepareSuccessorBoard(
         response: { ...source.response, acceptedForms: [...source.response.acceptedForms], mode: spelling.responseMode },
       };
     });
+    // A math step from the shared tools is a game built for her recorded problems (as at intake); a problem she
+    // has answered before is no longer unseen, so it can never count as an unseen check.
+    const mathItems = next.domain !== "spelling" && !prescription.reward && prescription.items
+      ? prescription.items.map(item => ({ ...structuredClone(item), lineage: { ...item.lineage, exposure: next.observations.some(row => row.itemId === item.id) ? "practiced" as const : item.lineage.exposure } }))
+      : undefined;
+    const builtForHer = Boolean(mathItems && prescription.mechanic === "generated-game");
     const design = prescriptionDesign(prescription);
     // Decisions saved before the Planner named built-ins re-run the activity whose ID they repeated.
     // A game and mode from the menu is set up fresh for this step's words, the way the Teaching board sets it up.
@@ -1379,13 +1393,14 @@ function prepareSuccessorBoard(
       role,
       title: prescription.title,
       state: "generating",
-      academicTarget: { domain: next.domain, skill: prescription.academicTarget, targets: spellingItems?.map(item => item.word) ?? [] },
+      academicTarget: { domain: next.domain, skill: prescription.academicTarget, targets: spellingItems?.map(item => item.word) ?? (builtForHer ? mathItems!.map(item => item.prompt) : []) },
       algorithmOwner: role === "baseline" ? "ai_tutor" : role === "mystery" ? "activity-affinity" : "mastery-gating",
       theoryId: next.academicTheory.theoryId,
       experimentId: `${prefix}:${role}:${slugId(prescription.nodeId)}`,
       mechanic: prescription.mechanic,
       ...(prescription.reward ? { implementationType: "mystery" as LearningCycleNodeContract["implementationType"] }
-        : source ? { implementationType: source.implementationType, reusedFrom: source.nodeId } : fresh && freshReady ? { implementationType: fresh.type as LearningCycleNodeContract["implementationType"] } : {}),
+        : source ? { implementationType: source.implementationType, reusedFrom: source.nodeId } : fresh && freshReady ? { implementationType: fresh.type as LearningCycleNodeContract["implementationType"] }
+        : builtForHer ? { implementationType: "generated-game" as LearningCycleNodeContract["implementationType"] } : {}),
       theme: prescription.theme,
       ...(design ? { design } : {}),
       openingScreen: { title: prescription.title, purpose: prescription.openingPurpose },
@@ -1405,7 +1420,7 @@ function prepareSuccessorBoard(
       companionContract: { events: ["completion", "frustration"] },
       evidenceContract: {
         academic: role !== "mystery", engagement: true, companionObservations: true,
-        ...(prescription.items && role !== "mystery" ? prescriptionEvidence(prescription.items) : {}),
+        ...(mathItems && role !== "mystery" ? prescriptionEvidence(mathItems) : {}),
         ...(spellingItems ? {
           spellingItems: Object.fromEntries(spellingItems.map(item => [item.id, item])),
           itemRoles: Object.fromEntries(spellingItems.map(item => [item.id, item.lineage.measurementRole])),
@@ -1933,7 +1948,7 @@ export function transitionLearningCycle(
     const blocked = [...current.decisionHistory].reverse().find(row => row.fromLifecycle !== row.toLifecycle);
     if (current.lifecycle !== "blocked" || blocked?.eventType !== "block"
       || blocked.decisionId !== event.blockedDecisionId
-      || !isRetryablePlannerBlock(blocked.reason)
+      || !isRetryablePlannerBlock(blocked.reason, current)
       || !["baseline_evaluating", "quest_evaluating", "boss_evaluating"].includes(blocked.fromLifecycle)
       || !event.reason.trim()) throw new Error("planner_retry_not_eligible");
     next.lifecycle = blocked.fromLifecycle;

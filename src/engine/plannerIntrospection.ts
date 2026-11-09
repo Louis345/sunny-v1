@@ -21,10 +21,17 @@ function boardNumbers(cycle: LearningCycleRecordV2) {
   return (nodeId: string) => boards.findIndex(board => board.nodeIds.includes(nodeId)) + 1 || undefined;
 }
 
-/** Each scored answer on this list with its word, the stop it came from and that stop's board number. */
+/** What a stop practiced: its spelling words, or (math) the ids of her recorded problems. */
+const targetsOf = (node: LearningCycleNodeContract): string[] => {
+  const words = Object.values(node.evidenceContract?.spellingItems ?? {}).map(item => item.word);
+  return words.length ? words : Object.keys(node.evidenceContract?.itemContracts ?? {});
+};
+
+/** Each scored answer on this list with its word (or math problem id), the stop it came from and that stop's board number. */
 function answers(cycle: LearningCycleRecordV2) {
   const wordOf = new Map<string, string>();
   for (const node of cycle.nodes) for (const item of Object.values(node.evidenceContract?.spellingItems ?? {})) wordOf.set(item.id, item.word);
+  if (cycle.domain !== "spelling") for (const node of cycle.nodes) for (const id of Object.keys(node.evidenceContract?.itemContracts ?? {})) wordOf.set(id, id);
   const boardOf = boardNumbers(cycle);
   // The most specific node id wins, as in observationNode: `b2-radar` never claims `b2-radar-2`'s answers.
   const nodeOf = (row: LearningObservation) => cycle.nodes.find(node => row.sourceId === `activity:${node.nodeId}:recall`)
@@ -77,6 +84,26 @@ export function spellingTrackRecordSection(cycle: LearningCycleRecordV2): string
     ...(steady.length ? [`- Right every time she answered on her own: ${steady.join(", ")}`] : []), ...(untried.length ? [`- Not answered yet: ${untried.join(", ")}`] : [])].join("\n");
 }
 
+/** Math: her track record on each recorded problem: her first answer on each board (right or not, on her own
+ * or with help) and her latest answer. Counted by code; what it means is the Planner's. */
+export function mathTrackRecordSection(cycle: LearningCycleRecordV2): string {
+  const all = answers(cycle);
+  const problems = new Map<string, string>();
+  for (const node of cycle.nodes) for (const item of Object.values(node.evidenceContract?.itemContracts ?? {})) if (!problems.has(item.id)) problems.set(item.id, item.prompt);
+  const answer = (row: Answer) => `"${clip(row.row.childResponse ?? "", 40)}" ${row.row.result.correct ? "right" : "missed"} ${HELP[row.row.assistance.status]}`;
+  const untried: string[] = [], lines: string[] = [];
+  for (const [id, prompt] of problems) {
+    const rows = all.filter(row => row.word === id);
+    if (!rows.length) { untried.push(`${id} "${clip(prompt, 60)}"`); continue; }
+    const boards = [...new Set(rows.map(row => row.board ?? 0))].sort((a, b) => a - b);
+    const first = boards.map(board => { const row = rows.find(candidate => (candidate.board ?? 0) === board)!; return `${board ? `board ${board}` : "board unknown"}: ${answer(row)}`; });
+    const latest = rows.at(-1)!;
+    lines.push(`- ${id} "${clip(prompt, 60)}": ${first.join("; ")}; latest: ${answer(latest)}${latest.board ? ` (board ${latest.board})` : ""}; ${rows.length} answer${rows.length === 1 ? "" : "s"} in all`);
+  }
+  return ["Her track record on each problem (code counted every recorded answer on this assignment; her first answer at each board; on her own means no help was recorded):", ...lines,
+    ...(untried.length ? [`- Not answered yet: ${untried.join(", ")}`] : [])].join("\n");
+}
+
 /** Your journal: each earlier decision in your words, the board it built, and her results on its words before and after. */
 export function plannerJournalSection(cycle: LearningCycleRecordV2): string {
   const header = "Your journal: what you tried on earlier boards and what happened (your words from each decision; her answers counted by code):";
@@ -90,7 +117,7 @@ export function plannerJournalSection(cycle: LearningCycleRecordV2): string {
     const playedBefore = boards.map((board, i) => ({ board, number: i + 1 })).filter(row => row.board.publishedAt && Date.parse(row.board.publishedAt) <= at && row.board.plannerDecisionId !== decision.decisionId).at(-1);
     const builtIndex = boards.findIndex(board => board.plannerDecisionId === decision.decisionId);
     const stops = builtIndex >= 0 ? boards[builtIndex].nodeIds.map(id => nodes.get(id)).filter((node): node is LearningCycleNodeContract => Boolean(node)) : [];
-    const targeted = [...new Set(stops.flatMap(node => Object.values(node.evidenceContract?.spellingItems ?? {}).map(item => item.word)))];
+    const targeted = [...new Set(stops.flatMap(targetsOf))];
     const own = (word: string, from: number, to: number) => all.filter(row => row.word === word && row.row.assistance.status === "unassisted" && Date.parse(row.row.observedAt) >= from && Date.parse(row.row.observedAt) < to);
     const result = (list: Answer[]) => { if (!list.length) return "not answered on her own"; const { right, wrote } = tally(list); return `${right}${wrote ? ` (wrote ${wrote})` : ""}`; };
     const review = decision.selfReview?.whatIChangeNow;
@@ -100,8 +127,8 @@ export function plannerJournalSection(cycle: LearningCycleRecordV2): string {
       `  You said you would change: ${quoted(decision.change)}`,
       `  You said you would test next: ${quoted(decision.testNext)}`,
       ...(review ? [`  Your self-review then: "${clip(review)}"`] : []),
-      builtIndex >= 0 ? `  You built board ${builtIndex + 1}: ${stops.map(node => `${activityOf(node)} "${clip(node.title, 40)}" (${Object.values(node.evidenceContract?.spellingItems ?? {}).map(item => item.word).join(", ")}${node.focus ? `; aimed at: ${clip(node.focus, 80)}` : ""})`).join("; ")}` : "  No board was built from this decision.",
-      ...(targeted.length ? ["  Her answers on those words, on her own, before this decision -> after it (until your next decision):",
+      builtIndex >= 0 ? `  You built board ${builtIndex + 1}: ${stops.map(node => `${activityOf(node)} "${clip(node.title, 40)}" (${targetsOf(node).join(", ")}${node.focus ? `; aimed at: ${clip(node.focus, 80)}` : ""})`).join("; ")}` : "  No board was built from this decision.",
+      ...(targeted.length ? [`  Her answers on those ${cycle.domain === "spelling" ? "words" : "problems"}, on her own, before this decision -> after it (until your next decision):`,
         ...targeted.map(word => `    - ${word}: before ${result(own(word, -Infinity, at))} -> after ${result(own(word, at, until))}`)] : []),
     ];
   })].join("\n");

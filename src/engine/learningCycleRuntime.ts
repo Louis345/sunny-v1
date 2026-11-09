@@ -2,17 +2,17 @@ import {isDeepStrictEqual} from "node:util";
 import { plannerDecisionView, plannerObservationView } from "./plannerEvidenceView";
 import { successorMenuFacts } from "./plannerMenu";
 import { schoolTestFacts, schoolTestLine, SPELLING_TEST_CONDITIONS } from "./schoolTestObjective";
-import { plannerJournalSection, spellingTrackRecordSection, writePlannerJournalEntry, type PlannerSelfReview } from "./plannerIntrospection";
+import { mathTrackRecordSection, plannerJournalSection, spellingTrackRecordSection, writePlannerJournalEntry, type PlannerSelfReview } from "./plannerIntrospection";
 import { spellingActivityCatalog } from "./assignmentPlanner";
 import {readSuccessorBoardDefinition, assembleAdventureBoardDefinition, BOARD_DEFINITION_TOOL_SCHEMA, BOARD_AUTHORING_INSTRUCTION, type AdventureBoardComposition, type AdventureJourneyDefinition} from "../shared/adventureBoardDefinition";
-import { canonicalJourneyLaunchable, isRetryablePlannerBlock, isSpellingPracticeContinuation, repointReusedSetup } from './learningCycleRepository';
+import { canonicalJourneyLaunchable, isItemIntakeMathCycle, isRetryablePlannerBlock, isSpellingPracticeContinuation, repointReusedSetup } from './learningCycleRepository';
 import {requestPlannerMessage, readPlannerToolReceipt, plannerTransportPolicy} from "./plannerTransport";
 import fs from "node:fs";
 import {randomUUID,createHash} from "node:crypto";
 import { MATH_ITEMS_SCHEMA, drawJourney, parseDirectItem, type DirectItem } from "./directMathExperience";
 import { runPlannerToolLoop } from "./plannerToolLoop";
 import { providerTurnSender } from "./plannerToolProvider";
-import { spellingSuccessorToolkit } from "./spellingSuccessorTools";
+import { spellingSuccessorToolkit, type SuccessorFacts } from "./spellingSuccessorTools";
 import Anthropic from "@anthropic-ai/sdk";
 import path from "path";
 import { getChildChart } from "../profiles/childChart";
@@ -498,9 +498,11 @@ function strings(value: unknown): string[] {
 function parseNextInstrument(value: unknown): NextInstrumentPrescription | undefined {
   if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
   const row = value as Record<string, unknown>;
-  // A spelling step is an order for a built-in, and a reward break is a built-in Mystery: neither carries a creator prompt.
+  // A spelling step is an order for a built-in, a reward break is a built-in Mystery, and a game built for her recorded
+  // problems is written from its story by the game builder: none carries a creator prompt.
   const reward = row.reward === true;
-  const keys = ["nodeId", "title", "academicTarget", "mechanic", "theme", "openingPurpose", ...(row.spelling === undefined && !reward ? ["creatorPrompt"] as const : [])] as const;
+  const builtForProblems = row.mechanic === "generated-game" && Array.isArray(row.items);
+  const keys = ["nodeId", "title", "academicTarget", "mechanic", "theme", "openingPurpose", ...(row.spelling === undefined && !reward && !builtForProblems ? ["creatorPrompt"] as const : [])] as const;
   if (keys.some((key) => typeof row[key] !== "string" || !String(row[key]).trim())) return undefined;
   // Design decisions are optional so an older Planner response still parses,
   // but they are carried through whenever the Planner supplies them.
@@ -663,7 +665,7 @@ export function authorizeCanonicalPlannerRetry(input: {childId:string; homeworkI
   const cycle = getLearningCycle(input.childId,input.homeworkId,opts);
   const blocked = cycle && [...cycle.decisionHistory].reverse().find(row=>row.fromLifecycle!==row.toLifecycle);
   if (!cycle || cycle.lifecycle!=="blocked" || blocked?.eventType!=="block" || blocked.decisionId!==input.blockedDecisionId
-    || !isRetryablePlannerBlock(blocked.reason) || !input.reason.trim()) throw Error("planner_retry_not_eligible");
+    || !isRetryablePlannerBlock(blocked.reason, cycle) || !input.reason.trim()) throw Error("planner_retry_not_eligible");
   const checkpoint = plannerCheckpoint({...cycle,lifecycle:blocked.fromLifecycle,decisionHistory:cycle.decisionHistory.slice(0,cycle.decisionHistory.indexOf(blocked))},opts);
   const receipts = path.join(checkpoint.draftDir,"provider-receipts");
   // The tools Planner keeps one receipt per turn and never the old single-form stage file, so a
@@ -671,7 +673,11 @@ export function authorizeCanonicalPlannerRetry(input: {childId:string; homeworkI
   const toolsRunTruncated = blocked.reason === "planner_decision_invalid:planner_response_max_tokens"
     && !fs.existsSync(path.join(receipts,`${checkpoint.stage}.stage.json`))
     && fs.existsSync(receipts) && fs.readdirSync(receipts).some(name=>name.startsWith(`${checkpoint.stage}-tools-turn-`));
-  if (blocked.reason.startsWith("planner_decision_invalid:provider_stage_request_changed:") || blocked.reason.startsWith("provider_outcome_uncertain:") || toolsRunTruncated) {
+  if (blocked.reason === "planner_decision_invalid:board_definition_missing") {
+    // An item-intake math decision that went to the retired single form (2026-11-08). The retry opens a new
+    // evidence batch, so the Planner decides through the shared tools; the received answer stays on disk as it is.
+    console.log(` 🎮 [canonical-progression] [retry] [math-shared-tools] homework=${cycle.homeworkId} blocked_decision=${input.blockedDecisionId} old_receipt_kept=${checkpoint.draftDir}`);
+  } else if (blocked.reason.startsWith("planner_decision_invalid:provider_stage_request_changed:") || blocked.reason.startsWith("provider_outcome_uncertain:") || toolsRunTruncated) {
     // The collided or cut-off attempt's saved turns and drawing are set aside (never deleted), so the code decides fresh.
     const superseded = path.join(checkpoint.draftDir,"superseded",input.blockedDecisionId.replace(/[^a-zA-Z0-9_-]+/g,"_"));
     fs.mkdirSync(superseded,{recursive:true});
@@ -878,9 +884,11 @@ async function askPlanner(
     observationIds: cycle.observations.filter((observation) => observation.provenance !== "practice").map((observation) => observation.observationId),
     model: plannerModel,
   };
-  // Spelling decides through small locked tools. A decision already received through the retired
-  // single form, and a citation patch received for it, replay read only; that form is never sent again.
-  if(cycle.domain==='spelling'){
+  // Spelling, and math from the one-pipeline item intake (owner, 2026-11-08: one next board for both subjects),
+  // decide through the same small locked tools. A decision already received through the retired single form,
+  // and a citation patch received for it, replay read only; that form is never sent again.
+  const math=cycle.domain!=='spelling';
+  if(!math||isItemIntakeMathCycle(cycle)){
     const savedDecision=readReceivedMathProviderStage(draftDir,decisionStage);
     if(savedDecision!==undefined){
       const patchStage=`progression-citation-patch-r${checkpointRevision}`;
@@ -897,29 +905,66 @@ async function askPlanner(
       :cycle.lifecycle==="boss_evaluating"?["await_calibration"]
       :allowedProgressionActions.filter(action=>action!=="generate_boss"&&action!=="await_calibration");
     console.log(` 🎮 [canonical-progression] [actions-offered] homework=${cycle.homeworkId} lifecycle=${cycle.lifecycle} actions=${actions.join(",")}`);
-    const facts={builtIns:builtIns.map(node=>{const items=Object.values(node.evidenceContract.spellingItems??{});const roles=Object.values(node.evidenceContract.itemRoles??{});
+    // The school test as facts beside the goal (owner, 2026-11-08): how practice approaches test conditions is the Planner's call.
+    const schoolTest=schoolTestFacts(chart.homework,cycle.homeworkId);
+    console.log(` 🎮 [canonical-progression] [school-test] [${schoolTest?"included":"not-recorded"}] homework=${cycle.homeworkId} testDate=${schoolTest?.testDate??"none"} daysLeft=${schoolTest?.daysLeft??"unknown"}`);
+    const idPrefix=`${cycle.homeworkId}-r${checkpointRevision}-step`;
+    const cycleFacts=()=>JSON.stringify({ lifecycle: cycle.lifecycle, assignment: cycle.assignment, theory: cycle.academicTheory, predictions: cycle.academicPredictions, predictionEvaluations: cycle.predictionEvaluations, evidence: factualEvidence, observations: factualObservations, nodes: cycle.nodes.map((node) => ({ nodeId: node.nodeId, role: node.role, title: node.title, state: node.state, routeId: node.routeId, evidenceIds: node.evidenceIds.filter((id) => !isSynthetic(id)) })) });
+    // Math: her recorded problems exactly as saved at intake, never re-authored; the menu is the one menu minus math's stated exceptions.
+    const mathQuestion=math?(()=>{
+      const saved=new Map<string,NonNullable<SuccessorFacts["problems"]>[number]>();
+      for(const item of cycle.nodes.flatMap(node=>Object.values(node.evidenceContract.itemContracts??{})))if(!saved.has(item.id))saved.set(item.id,item);
+      const problems=[...saved.values()];
+      const answeredProblemIds=[...new Set(cycle.observations.map(row=>row.itemId).filter(id=>saved.has(id)))];
+      // Honest record: a math Quest or Boss checks problems she has not seen; with none left it cannot be built.
+      const offered=answeredProblemIds.length<problems.length?actions:actions.filter(action=>action!=="generate_quest"&&action!=="generate_boss");
+      if(offered.length!==actions.length)console.log(` 🎮 [canonical-progression] [actions-offered] [math-no-unseen-problems] homework=${cycle.homeworkId} actions=${offered.join(",")}`);
+      const facts:SuccessorFacts={builtIns:[],
+        // The one game menu is declared on the full catalog (Law 16); STAGE_EXCEPTIONS["math-successor"] removes what cannot bind her problems.
+        ...successorMenuFacts(spellingActivityCatalog(cycle.childId),{grade:chart.demographics?.grade,words:[]},"math-successor"),
+        evaluationIds,allowedActions:offered,idPrefix,selfReview:true,aimedGames:true,problems,answeredProblemIds,rerunnable:()=>false};
+      const prompt=`You are Sunny's AI Planner, her math tutor. The goal: she wants to come back to Sunny, and she solves problems like these on her own by the school test. ${schoolTestLine(schoolTest)}
+Compare your preregistered theory and predictions with what she actually did and said, decide what happens next, and build her next board, using the tools.
+1. decide: one evidence-grounded decision, with your self-review of the journal and her track record below. Cite the prediction evaluations you judge.
+2. Unless you await calibration, build the next board: add_step for each step${facts.rewardBreak?", add_reward for a Mystery reward break (recorded as play, apart from her learning evidence)":""}, then set_order and, when she should pick her path, add_choice. Then finish_board.
+Sunny runs each step as you write it. The board she has now stays as it is; yours opens when she chooses it, right away or at a later session. The kiosk screen shows up to 7 stops along any one path, counting the start, the choice and the finish. She sees each step's title. Per-problem answers, assistance and exposure are in the evidence below; her companion talks with her during each activity.
+Games on the menu:
+${JSON.stringify((facts.activities??[]).map(row=>row.id))}
+generated-game is a new game Sunny builds for her from her chart and the story you write for that step, around the problems you give it. It can be aimed at one specific error you name in its focus. Sunny scores her first answer to each problem against the answer recorded at intake. check_first marks a step that checks what she does on her own; a problem she has answered before is recorded as practice there, never as an unseen check.
+${mathTrackRecordSection(cycle)}
+${plannerJournalSection(cycle)}
+Her recorded problems (from her worksheet; give their ids):
+${JSON.stringify(problems.map(item=>({id:item.id,problem:item.prompt})))}
+Child chart context:
+${JSON.stringify(childContext)}
+${encounterGate ? "Baseline Quest eligibility (runtime truth boundary, not a mastery judgment):" : "Fresh independent evidence so far (a fact for your decision, not a gate; Quest is your call):"}
+${JSON.stringify(baselineEligibility)}
+Allowed progression actions: ${offered.join(", ")}
+${offered.some(action=>action==="generate_quest"||action==="generate_boss")?`Quest and Boss check problems she has not answered yet, on her own. Boss opens from her Quest results and always ends awaiting the graded test. When you choose generate_quest or generate_boss, add exactly one step with that encounter and check_first, using only problems she has not answered.
+`:""}Cycle:
+${cycleFacts()}`;
+      return {facts,prompt};
+    })():undefined;
+    const facts:SuccessorFacts=mathQuestion?.facts??{builtIns:builtIns.map(node=>{const items=Object.values(node.evidenceContract.spellingItems??{});const roles=Object.values(node.evidenceContract.itemRoles??{});
       const model=(node.evidenceContract.nativeConfig as {spellingModel?:{strategy:{title:string;steps:string[]};words:Array<{text:string;tip:string}>};questions?:Array<{prompt:string}>}|undefined);
       return {...(model?.spellingModel?{page:{trick:model.spellingModel.strategy.title,steps:model.spellingModel.strategy.steps,words:model.spellingModel.words.map(word=>({word:word.text,tip:word.tip})),check:model.questions?.[0]?.prompt??""}}:{}),nodeId:node.nodeId,title:node.title,implementationType:node.implementationType??"word-radar",wordIds:[...new Set(items.map(item=>item.wordId))],responseMode:items[0]?.response.mode??"spelling_letters",checkpoint:roles.length>0&&roles.every(role=>role==="fresh_checkpoint")};}),
       // The one menu (Law 16): every certified game and mode, set up fresh for the words she is given, the explainer and the reward break.
       ...successorMenuFacts(spellingActivityCatalog(cycle.childId),{grade:chart.demographics?.grade,words:[...savedSpellingItems.values()].map(item=>({wordId:item.wordId,word:item.word}))}),
-      evaluationIds,allowedActions:actions,idPrefix:`${cycle.homeworkId}-r${checkpointRevision}-step`,
+      evaluationIds,allowedActions:actions,idPrefix,
       // Owner, 2026-11-08: the Planner may place the board's one creature encounter (a reward; recorded as practice).
       creatureEncounters:true,
       // Contract 56: the decision carries its self-review, and her built-for-her game can be aimed at one error.
       selfReview:true,aimedGames:true,
       // The same check the re-run step applies, asked while the Planner is still choosing.
       rerunnable:(nodeId:string,wordIds:string[])=>{const source=builtIns.find(node=>node.nodeId===nodeId);return Boolean(source&&repointReusedSetup(source,`${nodeId}-check`,wordIds.map(wordId=>({id:`check:${wordId}`,wordId}))));}};
-    // The school test as facts beside the goal (owner, 2026-11-08): how practice approaches test conditions is the Planner's call.
-    const schoolTest=schoolTestFacts(chart.homework,cycle.homeworkId);
-    console.log(` 🎮 [canonical-progression] [school-test] [${schoolTest?"included":"not-recorded"}] homework=${cycle.homeworkId} testDate=${schoolTest?.testDate??"none"} daysLeft=${schoolTest?.daysLeft??"unknown"}`);
-    const prompt=`You are Sunny's AI Planner, her spelling tutor. The goal: she wants to come back to Sunny, and she knows her words by the school test. ${schoolTestLine(schoolTest)} ${SPELLING_TEST_CONDITIONS}
+    const prompt=mathQuestion?.prompt??`You are Sunny's AI Planner, her spelling tutor. The goal: she wants to come back to Sunny, and she knows her words by the school test. ${schoolTestLine(schoolTest)} ${SPELLING_TEST_CONDITIONS}
 Compare your preregistered theory and predictions with what she actually did and said, decide what happens next, and build her next board, using the tools.
 1. decide: one evidence-grounded decision, with your self-review of the journal and her track record below. Cite the prediction evaluations you judge.
 2. Unless you await calibration, build the next board: add_step for each step, add_explainer for a new lesson page${facts.rewardBreak?", add_reward for a Mystery reward break (recorded as play, apart from her learning evidence)":""}, then set_order and, when she should pick her path, add_choice. Then finish_board.
 Sunny runs each step as you write it. The board she has now stays as it is; yours opens when she chooses it, right away or at a later session. The kiosk screen shows up to 7 stops along any one path, counting the start, the choice and the finish. She sees each step's title. Per-word response time, assistance, exposure and response mode are in the evidence below; Elli talks with her during each activity.
 Games and modes on the menu (a hidden-word Radar is an independent check; the rest are practice):
-${JSON.stringify(facts.activities.map(row=>row.id))}
-${facts.activities.some(row=>row.id==="generated-game")?`generated-game is a new game Sunny builds for her from her chart and the story you write for that step. It can be aimed at one specific error you name in its focus. What she picks and replays shows what she enjoys.
+${JSON.stringify(facts.activities!.map(row=>row.id))}
+${facts.activities!.some(row=>row.id==="generated-game")?`generated-game is a new game Sunny builds for her from her chart and the story you write for that step. It can be aimed at one specific error you name in its focus. What she picks and replays shows what she enjoys.
 `:""}${spellingTrackRecordSection(cycle)}
 ${plannerJournalSection(cycle)}
 Tested built-in activities she played, which you may re-run:
@@ -933,7 +978,7 @@ ${JSON.stringify(baselineEligibility)}
 Allowed progression actions: ${actions.join(", ")}
 ${actions.some(action=>action==="generate_quest"||action==="generate_boss")?`Quest and Boss check her own list words. Boss opens from her Quest results and always ends awaiting the graded test. When you choose generate_quest or generate_boss, add exactly one step with that encounter: a hidden-word check or her generated-game, where each word is hidden and she types it without help.
 `:""}Cycle:
-${JSON.stringify({ lifecycle: cycle.lifecycle, assignment: cycle.assignment, theory: cycle.academicTheory, predictions: cycle.academicPredictions, predictionEvaluations: cycle.predictionEvaluations, evidence: factualEvidence, observations: factualObservations, nodes: cycle.nodes.map((node) => ({ nodeId: node.nodeId, role: node.role, title: node.title, state: node.state, routeId: node.routeId, evidenceIds: node.evidenceIds.filter((id) => !isSynthetic(id)) })) })}`;
+${cycleFacts()}`;
     // The question is frozen when its evidence batch closes: a restart asks the same question and replays
     // the saved turns at no cost, whatever has been recorded since.
     const frozenFile=path.join(draftDir,`${decisionStage}-tools.question.json`);
@@ -943,8 +988,9 @@ ${JSON.stringify({ lifecycle: cycle.lifecycle, assignment: cycle.assignment, the
     const kit=spellingSuccessorToolkit({...question.facts,rerunnable});
     const state=kit.initialState();
     // The self-check never holds back a board: once one is drafted, a failed provider turn publishes the draft.
-    const stop=await runPlannerToolLoop({label:"spelling-next-board",prompt:question.prompt,model:question.model,maxTokens:16000,tools:kit.tools,state,finished:kit.finished,
-      send:providerTurnSender({label:"spelling-next-board",stagePrefix:`${decisionStage}-tools`,draftDir,client:anthropic})}).then(loop=>loop.stats.stop as string,(error:unknown)=>{
+    const label=math?"math-next-board":"spelling-next-board";
+    const stop=await runPlannerToolLoop({label,prompt:question.prompt,model:question.model,maxTokens:16000,tools:kit.tools,state,finished:kit.finished,
+      send:providerTurnSender({label,stagePrefix:`${decisionStage}-tools`,draftDir,client:anthropic})}).then(loop=>loop.stats.stop as string,(error:unknown)=>{
         if(!kit.drafted(state))throw error;
         return `failed:${error instanceof Error?error.message:String(error)}`;
       });
@@ -1117,7 +1163,8 @@ async function decideOnce(
   const decision = resolveCanonicalProgressionDecisionForLifecycle(cycle.lifecycle, plannerDecision);
   const instruments = decision.successor?.instruments ?? [];
   if (cycle.domain === "math") {
-    for (const instrument of instruments) {
+    // A reward break carries no problems (Law 16): it is play, never measured.
+    for (const instrument of instruments.filter(row => !row.reward)) {
       const items = instrument.items;
       if (!items?.length || new Set(items.map(item => item.id)).size !== items.length) throw new Error("math_instrument_requires_unique_frozen_items");
       instrument.items = items.map(parseDirectItem);
@@ -1180,6 +1227,6 @@ async function decideOnce(
     },
   }, opts);
   // Her folder keeps a readable journal of each decision; a failed write is logged inside and never blocks the board.
-  if (saved.domain === "spelling") writePlannerJournalEntry(saved, saved.decisionHistory.at(-1)!, opts);
+  writePlannerJournalEntry(saved, saved.decisionHistory.at(-1)!, opts);
   return saved;
 }

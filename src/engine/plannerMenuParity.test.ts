@@ -52,6 +52,13 @@ const successorFacts = (overrides: Partial<SuccessorFacts> = {}): SuccessorFacts
   ...successorMenuFacts(catalog, { grade: 3, words: [{ wordId: "w-sign", word: "sign" }] }),
   ...overrides,
 });
+// Math's next board (owner, 2026-11-08: one next board for both subjects), built the way learningCycleRuntime builds it.
+const mathProblem = { id: "p1", prompt: "15 - 8 =", lineage: { sourceEvidenceIds: ["assignment:abc:page:1"], exposure: "unseen" as const, measurementRole: "practice" as const }, response: { mode: "numeric" as const, expected: 7 } };
+const mathSuccessorFacts = (overrides: Partial<SuccessorFacts> = {}): SuccessorFacts => ({
+  builtIns: [], evaluationIds: [], allowedActions: ["generate_support", "collect_more_evidence"], idPrefix: "next", rerunnable: () => false,
+  ...successorMenuFacts(catalog, { grade: 3, words: [] }, "math-successor"), selfReview: true, aimedGames: true, problems: [mathProblem], answeredProblemIds: [],
+  ...overrides,
+});
 const mathPacket = { childId: "lab-child", sourceDocument: { fileHash: "abc", pages: [{ pageNumber: 1 }] }, childChart: {}, activityCatalog: catalog } as never;
 const call = (tools: any[], state: unknown, name: string, input: unknown) => {
   const tool = tools.find(row => row.name === name);
@@ -69,6 +76,7 @@ describe("one Planner menu for every stage and subject", () => {
       teaching: spellingTeachingToolkit(teachingPacket()).tools,
       successor: spellingSuccessorToolkit(successorFacts()).tools,
       "math-intake": itemIntakeToolkit(mathPacket).tools,
+      "math-successor": spellingSuccessorToolkit(mathSuccessorFacts()).tools,
     };
     for (const [stage, tools] of Object.entries(stages)) {
       const rewardTool = tools.find(tool => tool.name === "add_reward");
@@ -103,6 +111,37 @@ describe("one Planner menu for every stage and subject", () => {
       expect((addStep.schema as any).shape.built_in.options, allowedActions.join()).toEqual(stageChoices(menu, "successor"));
       expect(stageChoices(menu, "successor")).toEqual(menu.choices);
     }
+  });
+
+  it("gives math's next board the same tools as spelling's, minus exactly its stated exceptions", () => {
+    const removed = STAGE_EXCEPTIONS["math-successor"].map(row => row.remove);
+    expect(removed).toEqual(["built-in-games", "visual-explainer"]);
+    // The spelling lesson page is the one tool its visual-explainer exception removes; everything else, add_reward included, is the same.
+    const spellingTools = spellingSuccessorToolkit(successorFacts()).tools.map(tool => tool.name);
+    const mathTools = spellingSuccessorToolkit(mathSuccessorFacts()).tools.map(tool => tool.name);
+    expect(mathTools).toEqual(spellingTools.filter(name => name !== "add_explainer"));
+    expect(mathTools).toContain("add_reward");
+    // Its games are the whole menu minus its built-in-games exception: the game built for her problems.
+    const addStep = spellingSuccessorToolkit(mathSuccessorFacts()).tools.find(tool => tool.name === "add_step")!;
+    expect((addStep.schema as any).shape.built_in.options).toEqual(stageChoices(menu, "math-successor"));
+    expect(stageChoices(menu, "math-successor")).toEqual(menu.choices.filter(id => id === "generated-game"));
+    expect(Object.keys((addStep.schema as any).shape)).toEqual(expect.arrayContaining(["problems", "check_first", "focus"]));
+  });
+
+  it("orders a math step with her recorded problem exactly as saved; only its role is code's", () => {
+    const kit = spellingSuccessorToolkit(mathSuccessorFacts({ answeredProblemIds: ["p1"] }));
+    const state = kit.initialState();
+    expect(call(kit.tools, state, "decide", { status: "revised", reason: "Recheck.", progression_action: "generate_support", preserve: [], change: ["Recheck p1."], test_next: [], next_evidence_required: [], prediction_evaluation_ids: [], revised_hypothesis: "",
+      self_review: { what_i_tried: "First board.", what_happened: "Missed p1.", why: "Unsure.", what_i_change_now: "Recheck p1." } }).ok).toBe(true);
+    const step = call(kit.tools, state, "add_step", { built_in: "generated-game", problems: ["p1"], check_first: true, title: "Camp Check", purpose: "Check p1.", story: "s", picture: "p" });
+    expect(step.result).toMatchObject({ role: "fresh_checkpoint", note: expect.stringContaining("recorded as practice") });
+    expect(call(kit.tools, state, "set_order", { opening: [step.result.step_id], closing: [] }).ok).toBe(true);
+    const shown = call(kit.tools, state, "finish_board", { title: "Board", endpoint_label: "Finish", single_path_reason: "One path." });
+    expect(shown.result.board_as_served[0]).toMatchObject({ game: "generated-game", problems: ["p1: 15 - 8 ="], check_first: true });
+    call(kit.tools, state, "finish_board", { title: "Board", endpoint_label: "Finish", single_path_reason: "One path." });
+    const row = (kit.result(state).decision.nextInstruments as any[])[0];
+    expect(row).toMatchObject({ mechanic: "generated-game", items: [{ ...mathProblem, lineage: { ...mathProblem.lineage, measurementRole: "fresh_checkpoint" } }] });
+    expect(row.spelling).toBeUndefined();
   });
 
   it("records a next-board reward break as play: no words, no spelling, mechanic mystery, shown as a reward break", () => {

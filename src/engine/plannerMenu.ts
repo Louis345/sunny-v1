@@ -7,20 +7,24 @@ import type { PlannerTool } from "./plannerToolLoop";
  * activityToolCatalog contracts, through the child's catalog; this file turns them into the one Planner menu
  * every stage and subject reads. A stage removes something only through STAGE_EXCEPTIONS, with its reason.
  */
-export type PlannerStage = "teaching" | "successor" | "math-intake";
+export type PlannerStage = "teaching" | "successor" | "math-intake" | "math-successor";
 type Role = "instruction" | "practice" | "fresh_checkpoint";
 export type StageException = { remove: string; kind: "child-safety" | "honest-record"; reason: string };
 
 /** Every built-in game on the menu: the math intake's stand-in for "all but her own game". */
 export const BUILT_IN_GAMES = "built-in-games";
 
+const MATH_BUILT_IN_GAMES: StageException = { remove: BUILT_IN_GAMES, kind: "honest-record",
+  reason: "A math stop scores her answers against the worksheet problems recorded at intake; today only a game built for those problems binds them, so a built-in game could not record what she did. Built-in math games join when they bind recorded problems." };
+
 /** The one place a Planner stage loses a tool. Nothing else may filter the menu. */
 export const STAGE_EXCEPTIONS: Record<PlannerStage, readonly StageException[]> = {
   teaching: [{ remove: "generated-game", kind: "honest-record",
     reason: "The Teaching board publishes at intake, before any game can be built for her; listing it would promise a stop that does not exist yet. Her own game starts on the next board." }],
   successor: [],
-  "math-intake": [{ remove: BUILT_IN_GAMES, kind: "honest-record",
-    reason: "A math stop scores her answers against the worksheet problems recorded at intake; today only a game built for those problems binds them, so a built-in game could not record what she did. Built-in math games join when they bind recorded problems." }],
+  "math-intake": [MATH_BUILT_IN_GAMES],
+  "math-successor": [MATH_BUILT_IN_GAMES, { remove: "visual-explainer", kind: "honest-record",
+    reason: "The lesson page (add_explainer) is written for her spelling words and binds them; no math page binds her recorded problems yet, so it would teach with nothing recorded. A math page joins when it binds recorded problems." }],
 };
 
 const ROLES: Record<string, ReadonlyArray<Role>> = {
@@ -65,12 +69,14 @@ export function stageChoices(menu: Pick<PlannerMenu, "choices">, stage: PlannerS
   return menu.choices.filter(id => removed.has(BUILT_IN_GAMES) ? id === "generated-game" : !removed.has(id));
 }
 
-/** The next board's menu facts, as the runtime freezes them into the question. */
-export function successorMenuFacts(catalog: AssignmentPlanningPacket["activityCatalog"], explainer: { grade: unknown; words: Array<{ wordId: string; word: string }> }) {
+/** The next board's menu facts, as the runtime freezes them into the question. Math's next board is the same
+ * menu minus its STAGE_EXCEPTIONS. */
+export function successorMenuFacts(catalog: AssignmentPlanningPacket["activityCatalog"], explainer: { grade: unknown; words: Array<{ wordId: string; word: string }> }, stage: "successor" | "math-successor" = "successor") {
   const menu = plannerMenu(catalog);
+  const removed = new Set(STAGE_EXCEPTIONS[stage].map(row => row.remove));
   return {
-    activities: stageChoices(menu, "successor").map(id => ({ id, checkpoint: menu.roles(id).includes("fresh_checkpoint"), setup: menu.setup(id) })),
-    ...(menu.offered.has("visual-explainer") ? { explainer } : {}),
+    activities: stageChoices(menu, stage).map(id => ({ id, checkpoint: menu.roles(id).includes("fresh_checkpoint"), setup: menu.setup(id) })),
+    ...(menu.offered.has("visual-explainer") && !removed.has("visual-explainer") ? { explainer } : {}),
     ...(menu.rewardBreak ? { rewardBreak: true } : {}),
   };
 }

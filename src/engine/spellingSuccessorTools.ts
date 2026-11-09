@@ -5,10 +5,12 @@ import { toolFor, type PlannerTool } from "./plannerToolLoop";
 import { deriveNativeActivity } from "./assignmentPlanner";
 import { explainerPageTool } from "./spellingTeachingTools";
 import { rewardBreakTool } from "./plannerMenu";
+import type { LearningCycleMathItem } from "./learningCycleRepository";
 
-/** The next-board Planner's small locked tools. The Planner makes the theory decision and orders each
- * step: a re-run of a tested built-in she played (its own words or fewer), or any game and mode on the
- * Teaching menu with any of her words. Code fills each step's response mode, role, setup and identity.
+/** The next-board Planner's small locked tools, one toolkit for every subject. The Planner makes the theory
+ * decision and orders each step: a re-run of a tested built-in she played (its own words or fewer), or any
+ * game and mode on the menu with any of her words. For math (facts carry `problems`), a step is a game built
+ * for her recorded problems, never re-authored. Code fills each step's response mode, role, setup and identity.
  * The artist draws the journey afterwards. */
 export type LessonPage = { trick: string; steps: string[]; words: Array<{ word: string; tip: string }>; check: string };
 export type SuccessorFacts = {
@@ -26,12 +28,16 @@ export type SuccessorFacts = {
   aimedGames?: boolean;
   /** Law 16: the reward break is on every board's menu. Older frozen questions lack it and replay as asked. */
   rewardBreak?: boolean;
+  /** Math (owner, 2026-11-08: one next board for both subjects): her recorded problems, as saved at intake,
+   * and the ones she has already answered. Spelling and older frozen questions have none. */
+  problems?: LearningCycleMathItem[];
+  answeredProblemIds?: string[];
   /** Whether the re-run step can really prepare this built-in for these words (the same check it runs). */
   rerunnable: (nodeId: string, wordIds: string[]) => boolean;
 };
 type Fresh = NonNullable<SuccessorFacts["activities"]>[number];
 type Encounter = "quest" | "boss";
-type Step = { id: string; title: string; purpose: string; story: string; picture: string; wordIds: string[]; reward?: true; builtIn?: SuccessorFacts["builtIns"][number]; fresh?: Fresh; page?: Record<string, unknown>; encounter?: Encounter; creatureEncounter?: string; focus?: string };
+type Step = { id: string; title: string; purpose: string; story: string; picture: string; wordIds: string[]; reward?: true; problemIds?: string[]; checkFirst?: boolean; builtIn?: SuccessorFacts["builtIns"][number]; fresh?: Fresh; page?: Record<string, unknown>; encounter?: Encounter; creatureEncounter?: string; focus?: string };
 type SelfReview = { whatITried: string; whatHappened: string; why: string; whatIChangeNow: string };
 type Decision = { status: string; reason: string; progressionAction: string; preserve: string[]; change: string[]; testNext: string[]; nextEvidenceRequired: string[]; predictionEvaluationIds: string[]; revisedHypothesis: string; selfReview?: SelfReview };
 type Finished = { decision: Record<string, unknown>; journey?: AdventureJourneyDefinition };
@@ -53,6 +59,9 @@ export function spellingSuccessorToolkit(facts: SuccessorFacts) {
   // Quest and Boss are offered only when the decision may authorize them, so older frozen questions keep their exact tools.
   const encounters = (["quest", "boss"] as const).filter(name => facts.allowedActions.includes(`generate_${name}`));
   const encounterFor = (action: string): Encounter | undefined => action === "generate_quest" ? "quest" : action === "generate_boss" ? "boss" : undefined;
+  const problems = facts.problems ? new Map(facts.problems.map(item => [item.id, item])) : undefined;
+  const answered = new Set(facts.answeredProblemIds ?? []);
+  const missing = problems ? "problems" : "words";
   const tools: PlannerTool<SuccessorState>[] = [
     tool({ name: "decide", description: "Your one decision about the learning theory, compared with what she actually did. Calling it again replaces it.",
       schema: z.object({
@@ -62,11 +71,11 @@ export function spellingSuccessorToolkit(facts: SuccessorFacts) {
         prediction_evaluation_ids: facts.evaluationIds.length ? z.array(enumOf(facts.evaluationIds, "none")).describe("The evaluations of earlier predictions you are judging. At least one.") : z.array(z.string()).max(0).describe("Leave empty: there are no evaluations yet."),
         revised_hypothesis: z.string().describe("Your revised hypothesis, or empty."),
         ...(facts.selfReview ? { self_review: z.object({
-          what_i_tried: text("What you tried on earlier boards for the words she is still missing, from your journal. On a first decision, say so."),
-          what_happened: text("What happened to those words, from her track record: what she wrote, on her own and with help."),
+          what_i_tried: text(`What you tried on earlier boards for the ${missing} she is still missing, from your journal. On a first decision, say so.`),
+          what_happened: text(`What happened to those ${missing}, from her track record: what she ${problems ? "answered" : "wrote"}, on her own and with help.`),
           why: text("Why you think it happened."),
           what_i_change_now: text("What you change now, and why that is a better try than the last."),
-        }).strict().describe("Your review of your own track record before deciding: your journal and her answers on each word, read side by side.") } : {}),
+        }).strict().describe(`Your review of your own track record before deciding: your journal and her answers on each ${problems ? "problem" : "word"}, read side by side.`) } : {}),
       }).strict(),
       run: (state, input) => {
         if (facts.evaluationIds.length && !input.prediction_evaluation_ids.length) return { ok: false, error: "cite at least one of the offered prediction_evaluation_ids" };
@@ -77,6 +86,36 @@ export function spellingSuccessorToolkit(facts: SuccessorFacts) {
         state.result = undefined;
         return { ok: true, result: { action: input.progression_action } };
       } }),
+    problems ? tool({ name: "add_step", description: "Add one step: a game on the menu, built for her from her chart and this step's story, with any of her recorded problems. Returns its step_id.",
+      schema: z.object({ built_in: enumOf([...fresh.keys()], "none").describe("The game for this step."),
+        problems: z.array(enumOf([...problems.keys()], "none")).describe("Which of her recorded problems this step uses, by id. At least one."),
+        check_first: z.boolean().describe("True when this step checks what she can do on her own before any help; false for practice."),
+        title: text("The short name she sees under the portal: 2 to 4 words."), purpose: text("What this step is for, in one sentence."),
+        story: text("What this stop is in her world: one or two sentences Elli can tell her as it opens."), picture: text("What this stop's picture on her map shows, for the illustrator."),
+        ...(encounters.length ? { encounter: enumOf(["none", ...encounters], "none").describe("quest or boss only on the one step your progression_action authorizes; none for every other step.") } : {}),
+        ...(facts.aimedGames ? { focus: z.string().optional().describe("The one specific error this game is aimed at, in your words (for example odd plus even). The game builder reads it. Leave out for no single aim.") } : {}) }).strict(),
+      run: (state, input) => {
+        const game = fresh.get(input.built_in);
+        if (!game) return { ok: false, error: `no game ${input.built_in}` };
+        if (!input.problems.length) return { ok: false, error: `${input.built_in} needs the problems it uses` };
+        if (new Set(input.problems).size !== input.problems.length) return { ok: false, error: "a problem is listed more than once" };
+        const encounter = input.encounter && input.encounter !== "none" ? input.encounter as Encounter : undefined;
+        if (encounter) {
+          if (!state.decision || encounterFor(state.decision.progressionAction) !== encounter) return { ok: false, error: `a ${encounter} step needs progression_action generate_${encounter}: decide first` };
+          if (state.steps.some(row => row.encounter)) return { ok: false, error: "the board already has its one encounter step" };
+          // A math Quest or Boss checks unseen problems on her own: one she has answered already is no longer unseen.
+          const seen = input.problems.filter(id => answered.has(id));
+          if (!input.check_first || seen.length) return { ok: false, error: `the ${encounter} checks problems she has not seen, on her own: set check_first${seen.length ? ` and leave out ${seen.join(", ")}, which she has answered already` : ""}` };
+        }
+        const focus = typeof input.focus === "string" ? input.focus.trim() : "";
+        state.next += 1;
+        const id = `${facts.idPrefix}-${state.next}`;
+        state.steps.push({ id, title: input.title, purpose: input.purpose, story: input.story, picture: input.picture, wordIds: [], problemIds: [...input.problems], checkFirst: input.check_first, fresh: game, ...(encounter ? { encounter } : {}), ...(focus ? { focus } : {}) });
+        state.result = undefined;
+        const seen = input.check_first ? input.problems.filter(id => answered.has(id)) : [];
+        return { ok: true, result: { step_id: id, problems: input.problems.length, role: input.check_first ? "fresh_checkpoint" : "practice", ...(encounter ? { encounter } : {}),
+          ...(seen.length ? { note: `${seen.join(", ")} she has answered before, so her answer there is recorded as practice, not an unseen check` } : {}) } };
+      } }) :
     tool({ name: "add_step", description: "Add one step: any game and mode on the menu, with any of her words, or a re-run of a built-in she played, for all of its own words or fewer. Returns its step_id.",
       schema: z.object({ built_in: enumOf([...builtIns.keys(), ...fresh.keys()], "none").describe("The game and mode for this step, or the built-in it re-runs."),
         words: z.array(enumOf(allWordIds, "none")).describe("Which of her words this step uses. For a re-run, empty means all of its own words."),
@@ -175,6 +214,11 @@ export function spellingSuccessorToolkit(facts: SuccessorFacts) {
         const nextInstruments = state.steps.map(row => row.reward ? {
           // A reward break is play: no words, no measurement, never learning evidence.
           nodeId: row.id, title: row.title, academicTarget: row.purpose, mechanic: "mystery", theme: row.story, picture: row.picture, openingPurpose: row.purpose, reward: true,
+        } : row.problemIds ? {
+          // Her recorded problems exactly as saved at intake; only this step's measurement role is code's to write.
+          nodeId: row.id, title: row.title, academicTarget: row.purpose, mechanic: row.fresh!.setup.type, theme: row.story, picture: row.picture, openingPurpose: row.purpose,
+          ...(row.encounter ? { encounter: row.encounter } : {}), ...(row.focus ? { focus: row.focus } : {}),
+          items: row.problemIds.map(id => { const item = structuredClone(problems!.get(id)!); return { ...item, lineage: { ...item.lineage, measurementRole: row.checkFirst ? "fresh_checkpoint" : "practice" } }; }),
         } : ({
           nodeId: row.id, title: row.title, academicTarget: row.purpose, mechanic: row.page ? "visual-explainer" : row.builtIn?.implementationType ?? row.fresh!.setup.type, theme: row.story, picture: row.picture, openingPurpose: row.purpose,
           ...(row.encounter ? { encounter: row.encounter } : {}),
@@ -196,8 +240,8 @@ export function spellingSuccessorToolkit(facts: SuccessorFacts) {
           console.log(` 🎮 [planner-tools] [self-check] [shown] steps=${nextInstruments.length}`);
           return { ok: true, result: { accepted: false, your_change_list: state.decision.change,
             board_as_served: state.steps.map(row => ({ step_id: row.id, title: row.title, story: row.story, game: row.reward ? "reward break" : row.page ? "visual-explainer" : row.builtIn?.implementationType ?? row.fresh!.setup.type,
-              words: row.wordIds.map(word), ...(row.focus ? { aimed_at: row.focus } : {}), ...(pageOf(row) ? { lesson_page: pageOf(row) } : {}) })),
-            next: "This is what she will see. Compare it with your change list: does each stop really teach what you said? Fix anything that does not with add_step, add_explainer or remove_step, then call finish_board again. If it is right, call finish_board again now." } };
+              ...(row.problemIds ? { problems: row.problemIds.map(id => `${id}: ${problems!.get(id)!.prompt}`), check_first: row.checkFirst } : { words: row.wordIds.map(word) }), ...(row.focus ? { aimed_at: row.focus } : {}), ...(pageOf(row) ? { lesson_page: pageOf(row) } : {}) })),
+            next: `This is what she will see. Compare it with your change list: does each stop really teach what you said? Fix anything that does not with ${problems ? "add_step" : "add_step, add_explainer"} or remove_step, then call finish_board again. If it is right, call finish_board again now.` } };
         }
         state.result = finished;
         console.log(` 🎮 [planner-tools] [self-check] [${JSON.stringify(state.draft?.decision.nextInstruments) === JSON.stringify(nextInstruments) ? "confirmed" : "revised"}] steps=${nextInstruments.length}`);
