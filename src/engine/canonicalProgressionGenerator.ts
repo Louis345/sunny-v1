@@ -554,7 +554,8 @@ export async function prepareSuccessorBoard(
         // Any subject's built-game stop goes to the one builder (owner, 2026-11-08: one pipeline).
         next = pending.implementationType === "generated-game" && !pending.reusedFrom
           ? await prepareGeneratedSpellingGame({ cycle, node: pending, client: input.spellingGameClient ?? prebuiltGameClient(input.childId, input.homeworkId, pending.nodeId, opts), draftDir: qualityDiagnosticsDir(opts.rootDir ?? process.cwd(), cycle, pending) }, opts)
-          : cycle.domain === "spelling"
+          // A reward break is a built-in Mystery in any subject: bound with no build and no provider (Law 15).
+          : cycle.domain === "spelling" || pending.implementationType === "mystery"
           ? launchBuiltInActivity(input.childId, input.homeworkId, cycle, pending, opts)
           : await generateCanonicalProgressionArtifact({ ...input, nodeId: pending.nodeId }, opts);
         if (next.revision === cycle.revision) failure = latestQualityFailure(opts.rootDir ?? process.cwd(), cycle, pending) ?? "human_review_required";

@@ -1,6 +1,6 @@
 import {isDeepStrictEqual} from "node:util";
 import { plannerDecisionView, plannerObservationView } from "./plannerEvidenceView";
-import { spellingActivityMenu } from "./spellingTeachingTools";
+import { successorMenuFacts } from "./plannerMenu";
 import { schoolTestFacts, schoolTestLine, SPELLING_TEST_CONDITIONS } from "./schoolTestObjective";
 import { plannerJournalSection, spellingTrackRecordSection, writePlannerJournalEntry, type PlannerSelfReview } from "./plannerIntrospection";
 import { spellingActivityCatalog } from "./assignmentPlanner";
@@ -498,15 +498,17 @@ function strings(value: unknown): string[] {
 function parseNextInstrument(value: unknown): NextInstrumentPrescription | undefined {
   if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
   const row = value as Record<string, unknown>;
-  // A spelling step is an order for a built-in, so it carries no creator prompt.
-  const keys = ["nodeId", "title", "academicTarget", "mechanic", "theme", "openingPurpose", ...(row.spelling === undefined ? ["creatorPrompt"] as const : [])] as const;
+  // A spelling step is an order for a built-in, and a reward break is a built-in Mystery: neither carries a creator prompt.
+  const reward = row.reward === true;
+  const keys = ["nodeId", "title", "academicTarget", "mechanic", "theme", "openingPurpose", ...(row.spelling === undefined && !reward ? ["creatorPrompt"] as const : [])] as const;
   if (keys.some((key) => typeof row[key] !== "string" || !String(row[key]).trim())) return undefined;
   // Design decisions are optional so an older Planner response still parses,
   // but they are carried through whenever the Planner supplies them.
   const designKeys = ["creatorPrompt", "stakesDesign", "failureMode", "escalation", "mechanicSpec", "mathematicalHook", "picture"] as const;
   return {
     ...(Array.isArray(row.items) ? { items: row.items.map(parseDirectItem) } : {}),
-    ...(row.spelling !== undefined ? { spelling: validateSpellingPrescription(row.spelling) } : {}),
+    ...(row.spelling !== undefined && !reward ? { spelling: validateSpellingPrescription(row.spelling) } : {}),
+    ...(reward ? { reward: true } : {}),
     ...(row.encounter === "quest" || row.encounter === "boss" ? { encounter: row.encounter } : {}),
     ...(row.creatureEncounter && typeof (row.creatureEncounter as { reason?: unknown }).reason === "string" && String((row.creatureEncounter as { reason: string }).reason).trim()
       ? { creatureEncounter: { reason: String((row.creatureEncounter as { reason: string }).reason).trim() } } : {}),
@@ -898,9 +900,8 @@ async function askPlanner(
     const facts={builtIns:builtIns.map(node=>{const items=Object.values(node.evidenceContract.spellingItems??{});const roles=Object.values(node.evidenceContract.itemRoles??{});
       const model=(node.evidenceContract.nativeConfig as {spellingModel?:{strategy:{title:string;steps:string[]};words:Array<{text:string;tip:string}>};questions?:Array<{prompt:string}>}|undefined);
       return {...(model?.spellingModel?{page:{trick:model.spellingModel.strategy.title,steps:model.spellingModel.strategy.steps,words:model.spellingModel.words.map(word=>({word:word.text,tip:word.tip})),check:model.questions?.[0]?.prompt??""}}:{}),nodeId:node.nodeId,title:node.title,implementationType:node.implementationType??"word-radar",wordIds:[...new Set(items.map(item=>item.wordId))],responseMode:items[0]?.response.mode??"spelling_letters",checkpoint:roles.length>0&&roles.every(role=>role==="fresh_checkpoint")};}),
-      // The Teaching board's own menu: every certified game and mode, set up fresh for the words she is given.
-      activities:(()=>{const menu=spellingActivityMenu(spellingActivityCatalog(cycle.childId));return menu.choices.map(id=>({id,checkpoint:menu.roles(id).includes("fresh_checkpoint"),setup:menu.setup(id)}));})(),
-      ...(spellingActivityMenu(spellingActivityCatalog(cycle.childId)).offered.has("visual-explainer")?{explainer:{grade:chart.demographics?.grade,words:[...savedSpellingItems.values()].map(item=>({wordId:item.wordId,word:item.word}))}}:{}),
+      // The one menu (Law 15): every certified game and mode, set up fresh for the words she is given, the explainer and the reward break.
+      ...successorMenuFacts(spellingActivityCatalog(cycle.childId),{grade:chart.demographics?.grade,words:[...savedSpellingItems.values()].map(item=>({wordId:item.wordId,word:item.word}))}),
       evaluationIds,allowedActions:actions,idPrefix:`${cycle.homeworkId}-r${checkpointRevision}-step`,
       // Owner, 2026-11-08: the Planner may place the board's one creature encounter (a reward; recorded as practice).
       creatureEncounters:true,
@@ -914,7 +915,7 @@ async function askPlanner(
     const prompt=`You are Sunny's AI Planner, her spelling tutor. The goal: she wants to come back to Sunny, and she knows her words by the school test. ${schoolTestLine(schoolTest)} ${SPELLING_TEST_CONDITIONS}
 Compare your preregistered theory and predictions with what she actually did and said, decide what happens next, and build her next board, using the tools.
 1. decide: one evidence-grounded decision, with your self-review of the journal and her track record below. Cite the prediction evaluations you judge.
-2. Unless you await calibration, build the next board: add_step for each step, add_explainer for a new lesson page, then set_order and, when she should pick her path, add_choice. Then finish_board.
+2. Unless you await calibration, build the next board: add_step for each step, add_explainer for a new lesson page${facts.rewardBreak?", add_reward for a Mystery reward break (recorded as play, apart from her learning evidence)":""}, then set_order and, when she should pick her path, add_choice. Then finish_board.
 Sunny runs each step as you write it. The board she has now stays as it is; yours opens when she chooses it, right away or at a later session. The kiosk screen shows up to 7 stops along any one path, counting the start, the choice and the finish. She sees each step's title. Per-word response time, assistance, exposure and response mode are in the evidence below; Elli talks with her during each activity.
 Games and modes on the menu (a hidden-word Radar is an independent check; the rest are practice):
 ${JSON.stringify(facts.activities.map(row=>row.id))}

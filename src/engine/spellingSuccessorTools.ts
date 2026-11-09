@@ -4,6 +4,7 @@ import { finishJourneySequence, journeyOrderTools, removeFromJourney, type Journ
 import { toolFor, type PlannerTool } from "./plannerToolLoop";
 import { deriveNativeActivity } from "./assignmentPlanner";
 import { explainerPageTool } from "./spellingTeachingTools";
+import { rewardBreakTool } from "./plannerMenu";
 
 /** The next-board Planner's small locked tools. The Planner makes the theory decision and orders each
  * step: a re-run of a tested built-in she played (its own words or fewer), or any game and mode on the
@@ -23,12 +24,14 @@ export type SuccessorFacts = {
   selfReview?: boolean;
   /** Contract 56: a generated-game step can be aimed at one error. Older frozen questions lack it. */
   aimedGames?: boolean;
+  /** Law 15: the reward break is on every board's menu. Older frozen questions lack it and replay as asked. */
+  rewardBreak?: boolean;
   /** Whether the re-run step can really prepare this built-in for these words (the same check it runs). */
   rerunnable: (nodeId: string, wordIds: string[]) => boolean;
 };
 type Fresh = NonNullable<SuccessorFacts["activities"]>[number];
 type Encounter = "quest" | "boss";
-type Step = { id: string; title: string; purpose: string; story: string; picture: string; wordIds: string[]; builtIn?: SuccessorFacts["builtIns"][number]; fresh?: Fresh; page?: Record<string, unknown>; encounter?: Encounter; creatureEncounter?: string; focus?: string };
+type Step = { id: string; title: string; purpose: string; story: string; picture: string; wordIds: string[]; reward?: true; builtIn?: SuccessorFacts["builtIns"][number]; fresh?: Fresh; page?: Record<string, unknown>; encounter?: Encounter; creatureEncounter?: string; focus?: string };
 type SelfReview = { whatITried: string; whatHappened: string; why: string; whatIChangeNow: string };
 type Decision = { status: string; reason: string; progressionAction: string; preserve: string[]; change: string[]; testNext: string[]; nextEvidenceRequired: string[]; predictionEvaluationIds: string[]; revisedHypothesis: string; selfReview?: SelfReview };
 type Finished = { decision: Record<string, unknown>; journey?: AdventureJourneyDefinition };
@@ -131,6 +134,13 @@ export function spellingSuccessorToolkit(facts: SuccessorFacts) {
         state.result = undefined;
         return { ok: true, result: { step_id: id, words: wordIds.length, role: "practice" } };
       } })] : []),
+    ...(facts.rewardBreak ? [rewardBreakTool<SuccessorState>({ returns: "step_id", add: (state, input) => {
+      state.next += 1;
+      const id = `${facts.idPrefix}-${state.next}`;
+      state.steps.push({ id, title: input.title, purpose: "A reward break: play time.", story: input.story, picture: input.picture, wordIds: [], reward: true });
+      state.result = undefined;
+      return { ok: true, result: { step_id: id, words: 0, role: "reward" } };
+    } })] : []),
     tool({ name: "remove_step", description: "Remove a step you added, and take it off the order and the choice.",
       schema: z.object({ step_id: text("A step_id you were given.") }).strict(),
       run: (state, input) => {
@@ -162,7 +172,10 @@ export function spellingSuccessorToolkit(facts: SuccessorFacts) {
           const config = row.page as { strategy: { title: string; steps: string[] }; words: Array<{ text: string; tip: string }>; check: { prompt: string } };
           return { trick: config.strategy.title, steps: config.strategy.steps, words: config.words.map(item => ({ word: item.text, tip: item.tip })), check: config.check.prompt };
         };
-        const nextInstruments = state.steps.map(row => ({
+        const nextInstruments = state.steps.map(row => row.reward ? {
+          // A reward break is play: no words, no measurement, never learning evidence.
+          nodeId: row.id, title: row.title, academicTarget: row.purpose, mechanic: "mystery", theme: row.story, picture: row.picture, openingPurpose: row.purpose, reward: true,
+        } : ({
           nodeId: row.id, title: row.title, academicTarget: row.purpose, mechanic: row.page ? "visual-explainer" : row.builtIn?.implementationType ?? row.fresh!.setup.type, theme: row.story, picture: row.picture, openingPurpose: row.purpose,
           ...(row.encounter ? { encounter: row.encounter } : {}),
           ...(row.creatureEncounter ? { creatureEncounter: { reason: row.creatureEncounter } } : {}),
@@ -182,7 +195,7 @@ export function spellingSuccessorToolkit(facts: SuccessorFacts) {
           state.draft = finished;
           console.log(` 🎮 [planner-tools] [self-check] [shown] steps=${nextInstruments.length}`);
           return { ok: true, result: { accepted: false, your_change_list: state.decision.change,
-            board_as_served: state.steps.map(row => ({ step_id: row.id, title: row.title, story: row.story, game: row.page ? "visual-explainer" : row.builtIn?.implementationType ?? row.fresh!.setup.type,
+            board_as_served: state.steps.map(row => ({ step_id: row.id, title: row.title, story: row.story, game: row.reward ? "reward break" : row.page ? "visual-explainer" : row.builtIn?.implementationType ?? row.fresh!.setup.type,
               words: row.wordIds.map(word), ...(row.focus ? { aimed_at: row.focus } : {}), ...(pageOf(row) ? { lesson_page: pageOf(row) } : {}) })),
             next: "This is what she will see. Compare it with your change list: does each stop really teach what you said? Fix anything that does not with add_step, add_explainer or remove_step, then call finish_board again. If it is right, call finish_board again now." } };
         }

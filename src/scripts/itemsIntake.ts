@@ -60,6 +60,16 @@ function itemCycleInput(input: { childId: string; homeworkId: string; fingerprin
   const constructId = `math.${intake.title.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "") || "assignment"}`;
   const items = new Map(intake.items.map(item => [item.id, item]));
   const nodes: LearningCycleNodeContract[] = intake.stops.map(stop => {
+    // A reward break is play (Law 15): a built-in Mystery with no problems, no prediction, never learning evidence.
+    if (stop.reward) return {
+      nodeId: stopNodeId(input.homeworkId, stop.id), role: "mystery", title: stop.title, state: "generating", implementationType: "mystery",
+      academicTarget: { domain: "math", skill: intake.title, targets: [] }, algorithmOwner: "activity-affinity", theoryId, experimentId: `${input.homeworkId}:${stop.id}`,
+      mechanic: "mystery", theme: stop.story, openingScreen: { title: stop.title, purpose: stop.purpose },
+      generationPrompt: { promptId: `${input.homeworkId}:${stop.id}:reward`, createdFromEvidenceIds: [evidenceId], text: stop.story },
+      artifactBinding: null, artwork: { status: "pending", localPath: null, prompt: stop.picture },
+      sfxContract: ["interaction", "progress", "completion"], companionContract: { events: ["completion"] },
+      evidenceContract: { academic: false, engagement: true, companionObservations: true }, evidenceIds: [],
+    };
     const role = stop.checkFirst ? "fresh_checkpoint" as const : "practice" as const;
     const stopItems = stop.itemIds.map(id => { const item = structuredClone(items.get(id)!); return { ...item, lineage: { ...item.lineage, measurementRole: role } }; });
     return {
@@ -68,7 +78,7 @@ function itemCycleInput(input: { childId: string; homeworkId: string; fingerprin
       algorithmOwner: "ai_tutor", theoryId, experimentId: `${input.homeworkId}:${stop.id}`, mechanic: "generated-game", theme: stop.story,
       openingScreen: { title: stop.title, purpose: stop.purpose },
       generationPrompt: { promptId: `${input.homeworkId}:${stop.id}:game`, createdFromEvidenceIds: [evidenceId], text: stop.story },
-      prediction: { claim: stop.prediction.why, createdAt: input.now, evidenceLimit: "practice_only" },
+      prediction: { claim: stop.prediction!.why, createdAt: input.now, evidenceLimit: "practice_only" },
       artifactBinding: null, artwork: { status: "pending", localPath: null, prompt: stop.picture },
       sfxContract: ["interaction", "recovery", "progress", "completion"], companionContract: { events: ["completion", "frustration", "replay"] },
       evidenceContract: { academic: true, engagement: true, companionObservations: true,
@@ -84,12 +94,12 @@ function itemCycleInput(input: { childId: string; homeworkId: string; fingerprin
       supportCriteria: ["Real child evidence and returned work support the prediction."], reviseCriteria: ["Observed performance is mixed or a confound limits the claim."], falsifyCriteria: ["Returned work contradicts the prediction."] },
     engagementTheory: null,
     nodes,
-    academicPredictions: intake.stops.map(stop => ({
+    academicPredictions: intake.stops.flatMap(stop => !stop.prediction ? [] : [{
       predictionId: `${input.homeworkId}:prediction:${stop.id}`, theoryId, constructId, context: stop.purpose, horizon: "Her first answers at this stop on her first board.",
       eligibility: { sources: [stop.checkFirst ? "independent_probe" as const : "practice" as const], maxDelayDays: 14, checkpointItemIds: [...stop.itemIds] },
       expectedMetric: { key: "first_answer_accuracy", min: stop.prediction.min, max: stop.prediction.max }, predictedErrorPatterns: [], confidence: stop.prediction.confidence,
       evidenceIds: [evidenceId], intervention: stop.story, evidenceLimit: "practice_only" as const, createdAt: input.now, lockedAt: input.now,
-    })),
+    }]),
     assumptions: [],
   };
 }

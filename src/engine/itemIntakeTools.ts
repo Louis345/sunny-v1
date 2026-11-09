@@ -1,6 +1,7 @@
 import { z } from "zod";
 import type { AssignmentPlanningPacket } from "./assignmentPlanner";
 import type { LearningCycleMathItem } from "./learningCycleRepository";
+import { plannerMenu, rewardBreakTool } from "./plannerMenu";
 import { toolFor, type PlannerTool } from "./plannerToolLoop";
 
 /**
@@ -8,9 +9,11 @@ import { toolFor, type PlannerTool } from "./plannerToolLoop";
  * spelling's intake (owner, 2026-11-08: one pipeline): the Planner records the worksheet and plans her first
  * board; code checks facts (pages, ids, arithmetic) and answers mistakes in the conversation, never blocks.
  */
+/** One stop on her first board, in the Planner's order. A reward break (Law 15) has no problems and no prediction. */
 export type IntakeStop = {
   id: string; title: string; story: string; picture: string; purpose: string; itemIds: string[]; checkFirst: boolean;
-  prediction: { min: number; max: number; confidence: number; why: string };
+  prediction: { min: number; max: number; confidence: number; why: string } | null;
+  reward?: true;
 };
 export type ItemIntakeState = { items?: LearningCycleMathItem[]; sourceNotes: string[]; stops: IntakeStop[]; finished?: { title: string; theory: string } };
 export type ItemIntakeResult = { title: string; theory: string; items: LearningCycleMathItem[]; stops: IntakeStop[]; sourceNotes: string[] };
@@ -44,7 +47,8 @@ function checkAnswer(id: string, problem: string, answer: z.infer<typeof answerS
 export function buildItemIntakePrompt(packet: AssignmentPlanningPacket): string {
   return `This is the intake for a math assignment in Sunny. The goal: she wants to come back to Sunny, and she can do this work on her own by the time it is due. You have the worksheet, her chart and the tools.
 1. record_items: every problem on the worksheet, with its page and its answer. Sunny checks the arithmetic and tells you about any mismatch.
-2. add_stop: each stop on her first board: its story and picture, the problems it uses, whether it checks what she knows before any teaching (check_first), and your prediction for it. Sunny builds a game for each stop from her chart and your story.
+2. add_stop: each stop on her first board: its story and picture, the problems it uses, whether it checks what she knows before any teaching (check_first), and your prediction for it. Sunny builds a game for each stop from her chart and your story.${plannerMenu(packet.activityCatalog ?? []).rewardBreak ? `
+   add_reward: a Mystery reward break wherever you want one on her board; it has no problems and no prediction, and is recorded as play, apart from her learning evidence. Stops and reward breaks keep the order you add them.` : ""}
 3. finish_intake: the assignment title and your theory of where she is.
 Problems not in any stop stay unknown until a later board.
 SOURCE:
@@ -55,6 +59,8 @@ ${JSON.stringify(packet.childChart)}`;
 
 export function itemIntakeToolkit(packet: AssignmentPlanningPacket) {
   const pages = new Set(packet.sourceDocument.pages.map(page => page.pageNumber));
+  // The one menu (Law 15): the reward break is on every stage's menu. Math's games are its stated exception.
+  const menu = plannerMenu(packet.activityCatalog ?? []);
   const tool = toolFor<ItemIntakeState>();
   const tools: PlannerTool<ItemIntakeState>[] = [
     tool({ name: "record_items", description: "Record every problem on the worksheet with its page and answer. Calling it again replaces the list.",
@@ -101,11 +107,18 @@ export function itemIntakeToolkit(packet: AssignmentPlanningPacket) {
         state.finished = undefined;
         return { ok: true, result: { stop_id: id } };
       } }),
+    ...(menu.rewardBreak ? [rewardBreakTool<ItemIntakeState>({ returns: "stop_id", add: (state, input) => {
+      if (!state.items) return { ok: false, error: "record the problems first with record_items" };
+      const id = `stop-${state.stops.length + 1}`;
+      state.stops.push({ id, title: input.title, story: input.story, picture: input.picture, purpose: "A reward break: play time.", itemIds: [], checkFirst: false, prediction: null, reward: true });
+      state.finished = undefined;
+      return { ok: true, result: { stop_id: id } };
+    } })] : []),
     tool({ name: "finish_intake", description: "Finish when the problems are recorded and her first board has its stops. Sunny replies accepted, or says what to fix.",
       schema: z.object({ title: text("The assignment's title."), theory: text("Your theory of where she is with this work.") }).strict(),
       run: (state, input) => {
         if (!state.items) return { ok: false, error: "record the problems first with record_items" };
-        if (!state.stops.length) return { ok: false, error: "add at least one stop with add_stop" };
+        if (!state.stops.some(stop => !stop.reward)) return { ok: false, error: "add at least one stop with add_stop" };
         state.finished = { title: input.title, theory: input.theory };
         return { ok: true, result: { accepted: true, stops: state.stops.length } };
       } }),

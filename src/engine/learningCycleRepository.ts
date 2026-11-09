@@ -530,6 +530,8 @@ export type NextInstrumentPrescription = {
   focus?: string;
   /** Marks the one Planner-authorized encounter on a Quest or Boss successor board. */
   encounter?: "quest" | "boss";
+  /** A reward break (Law 15): a Mystery game with no items; recorded as play, never as learning evidence. */
+  reward?: true;
 };
 
 export type SpellingInstrumentPrescription = {
@@ -1335,8 +1337,9 @@ function prepareSuccessorBoard(
   // A checkpoint may only reuse a checkpoint activity, so a re-launched check never shows the answer.
   const nodes = program.instruments.map((prescription): LearningCycleNodeContract => {
     const nodeId = idFor.get(prescription.nodeId)!;
-    const role: LearningCycleNodeRole = prescription.encounter ?? "baseline";
-    const spelling = next.domain === "spelling" ? validateSpellingPrescription(prescription.spelling) : undefined;
+    const role: LearningCycleNodeRole = prescription.reward ? "mystery" : prescription.encounter ?? "baseline";
+    // A reward break carries no words or problems: it is play, prepared as a built-in Mystery.
+    const spelling = next.domain === "spelling" && !prescription.reward ? validateSpellingPrescription(prescription.spelling) : undefined;
     const spellingItems = spelling?.wordIds.map(wordId => {
       const source = savedSpellingItems.get(wordId);
       if (!source) throw new Error(`spelling_successor_word_unknown:${wordId}`);
@@ -1377,31 +1380,32 @@ function prepareSuccessorBoard(
       title: prescription.title,
       state: "generating",
       academicTarget: { domain: next.domain, skill: prescription.academicTarget, targets: spellingItems?.map(item => item.word) ?? [] },
-      algorithmOwner: role === "baseline" ? "ai_tutor" : "mastery-gating",
+      algorithmOwner: role === "baseline" ? "ai_tutor" : role === "mystery" ? "activity-affinity" : "mastery-gating",
       theoryId: next.academicTheory.theoryId,
       experimentId: `${prefix}:${role}:${slugId(prescription.nodeId)}`,
       mechanic: prescription.mechanic,
-      ...(source ? { implementationType: source.implementationType, reusedFrom: source.nodeId } : fresh && freshReady ? { implementationType: fresh.type as LearningCycleNodeContract["implementationType"] } : {}),
+      ...(prescription.reward ? { implementationType: "mystery" as LearningCycleNodeContract["implementationType"] }
+        : source ? { implementationType: source.implementationType, reusedFrom: source.nodeId } : fresh && freshReady ? { implementationType: fresh.type as LearningCycleNodeContract["implementationType"] } : {}),
       theme: prescription.theme,
       ...(design ? { design } : {}),
       openingScreen: { title: prescription.title, purpose: prescription.openingPurpose },
       ...(prescription.creatureEncounter ? { creatureEncounter: { reason: prescription.creatureEncounter.reason, itemIds: (spellingItems ?? []).map(item => item.id) } } : {}),
       ...(prescription.focus ? { focus: prescription.focus } : {}),
       generationPrompt: prompt,
-      prediction: {
+      ...(role === "mystery" ? {} : { prediction: {
         claim: `This ${role === "baseline" ? "support instrument" : role} follows the Planner decision: ${input.reason}`,
         createdAt: input.at,
-        evidenceLimit: role === "baseline" ? "practice_only" : "provisional_transfer",
-      },
+        evidenceLimit: role === "baseline" ? "practice_only" as const : "provisional_transfer" as const,
+      } }),
       artifactBinding: null,
-      artwork: role === "baseline" && reference?.artwork.localPath
+      artwork: (role === "baseline" || role === "mystery") && reference?.artwork.localPath
         ? { status: "ready", localPath: reference.artwork.localPath, prompt: prescription.picture ?? null }
         : { status: "placeholder", localPath: `/generated/adventure-board-demo/${role === "boss" ? "boss" : "quest"}.jpeg`, prompt: prescription.picture ?? null },
       sfxContract: ["interaction", "recovery", "progress", "completion"],
       companionContract: { events: ["completion", "frustration"] },
       evidenceContract: {
-        academic: true, engagement: true, companionObservations: true,
-        ...(prescription.items ? prescriptionEvidence(prescription.items) : {}),
+        academic: role !== "mystery", engagement: true, companionObservations: true,
+        ...(prescription.items && role !== "mystery" ? prescriptionEvidence(prescription.items) : {}),
         ...(spellingItems ? {
           spellingItems: Object.fromEntries(spellingItems.map(item => [item.id, item])),
           itemRoles: Object.fromEntries(spellingItems.map(item => [item.id, item.lineage.measurementRole])),
