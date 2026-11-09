@@ -50,6 +50,7 @@ import {
 import { recordWordRadarAttempts } from "./recordWordRadarAttempts";
 import { recordLearningAttempt } from "./learningAttemptEvents";
 import { type ModelMessage } from "ai";
+import { NarrationGate } from "./narrationGate";
 import { grantSpellingHelpOnRequest, markCurrentSpellingSupport, recordSpellingAudio, replyGivesSpelling, snapshotOnSpellingItem } from "./spellingSpeechEvidence";
 import { createSpeechTools, speechScopeFor } from "./companionSpeechTools";
 import { createReplayWordTools } from "./companionReplayTool";
@@ -199,6 +200,7 @@ export class SessionManager {
   private currentActivityState: Record<string, unknown> | null = null;
   private spellingAssessment?: gev.SpellingAssessmentState;
   private spellingLaunch?: {homeworkId:string;nodeId:string;launchId:string;launchToken?:string};
+  private readonly narrationGate = new NarrationGate();
   private spellingAssessmentHistory = new Map<string, NonNullable<SessionManager["spellingAssessment"]>>();
   private mathDiscoverySupport?: MathDiscoverySupportState;
   private mathDiscoverySupportHistory = new Map<string, MathDiscoverySupportState>();
@@ -639,6 +641,8 @@ export class SessionManager {
           this.speakingStartedAt = Date.now();
         } else if (state === "IDLE") {
           this.speakingStartedAt = 0;
+          const held = this.narrationGate?.turnEnded();
+          if (held) void this.speakGameNarration(held.text, held.metadata).catch((error: unknown) => console.error(" 🎮 [game-narration] [released] [failed]", error));
         }
       },
     );
@@ -1126,6 +1130,11 @@ export class SessionManager {
     text: string,
     metadata: Record<string, unknown> = {},
   ): Promise<void> {
+    // Her help answer is not cut off by the game's own word: it waits and plays when the answer ends.
+    if (this.narrationGate?.shouldHold(this.turnSM?.getState?.() ?? "IDLE")) {
+      this.narrationGate?.hold(text, metadata);
+      return;
+    }
     if (this.activeGameNarrationRequestId || this.pendingGameNarrationPlayback) {
       this.debugRecorder.recordEvent("game_narration", "request_suppressed", {
         reason: "playback_in_progress",
@@ -1782,7 +1791,7 @@ export class SessionManager {
           currentActivityState: this.currentActivityState,
           currentCanvasState: this.currentCanvasState,
         })
-      : null; if (urgentRoute?.intent.type === "help_request") grantSpellingHelpOnRequest(this.spellingAssessment, this.currentBoardSnapshot); // contract 54
+      : null; if (urgentRoute?.intent.type === "help_request") { grantSpellingHelpOnRequest(this.spellingAssessment, this.currentBoardSnapshot); this.narrationGate?.helpAnswerStarted(); } // contract 54
     const companionConversationOpen = this.companionPresence === "summoned"
       && this.companionInteractionMode === "conversation";
     if ((presenceRoute.action === "dismiss" || (!urgentRoute?.intent.shouldInterrupt && !companionConversationOpen)) && handleCompanionPresenceTranscript({
