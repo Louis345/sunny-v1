@@ -439,6 +439,9 @@ export function handleCompanionPresenceTranscript(input: {
   return false;
 }
 
+/** A child asking for help, as speech recognition writes it (normalized, no punctuation). */
+const HELP_REQUEST = /\b(?:(?:can|could|will|would) (?:you|i|u) (?:help|get help|have help|get some help)|help me|i need (?:some )?help|i want help|im stuck|i am stuck|i dont get it|i dont understand)\b/;
+
 export function routeCompanionPresenceTranscript(input: {
   transcript: string;
   presence: "collapsed" | "summoned";
@@ -476,6 +479,12 @@ export function routeCompanionPresenceTranscript(input: {
   }
   const wake = new RegExp(`(?:^|\\s)(?:${aliasPattern})(?:\\b|$)`, "i");
   if (wake.test(text)) return { action: "summon_and_respond" };
+  // A request for help is addressed to her companion whatever name was heard, even while a game listens
+  // (Nov 8: Ila asked twice, was ignored, and ended up yelling).
+  if (HELP_REQUEST.test(text)) {
+    console.log(` 🎮 [companion-presence] [help-request] [summoned] armed=${input.speechCaptureArmed === true}`);
+    return { action: "summon_and_respond" };
+  }
   if (input.speechCaptureArmed) return { action: "route_to_game" };
   return input.presence === "summoned"
     ? { action: "respond" }

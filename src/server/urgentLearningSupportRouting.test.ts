@@ -157,7 +157,9 @@ describe("urgent learning support routing", () => {
     expect(ws.send).not.toHaveBeenCalledWith(expect.stringContaining('"type":"interim"'));
   });
 
-  it("does not wake collapsed Elli for an unaddressed help request while preserving game capture", async () => {
+  // Owner rule changed 2026-11-08: a help request always wakes her companion (Ila asked twice, was ignored, and
+  // yelled). The Oct 8 rule kept collapsed Elli quiet for any unaddressed line; it still holds for everything but help.
+  it("wakes collapsed Elli for a help request even while a game captures speech", async () => {
     const ws = mockWs();
     const session = new SessionManager(ws, "Ila");
     session.companionWakeGateEnabled = true;
@@ -166,6 +168,20 @@ describe("urgent learning support routing", () => {
     session.injectGameContext({ game: "word-radar", nodeId: "practice", phase: "response", speechCaptureArmed: true });
 
     session.injectTranscript("Can you help me with this word?");
+
+    await vi.waitFor(() => expect(respond).toHaveBeenCalledWith("Can you help me with this word?"));
+    expect(ws.send).toHaveBeenCalledWith(expect.stringContaining('"state":"summoned"'));
+  });
+
+  it("still keeps collapsed Elli quiet for room talk while a game captures speech", async () => {
+    const ws = mockWs();
+    const session = new SessionManager(ws, "Ila");
+    session.companionWakeGateEnabled = true;
+    const respond = vi.spyOn(session as unknown as { runCompanionResponse: (text: string) => Promise<void> }, "runCompanionResponse")
+      .mockResolvedValue(undefined);
+    session.injectGameContext({ game: "word-radar", nodeId: "practice", phase: "response", speechCaptureArmed: true });
+
+    session.injectTranscript("This word is so long");
 
     await vi.waitFor(() => expect(ws.send).toHaveBeenCalledWith(expect.stringContaining('"type":"final"')));
     expect(respond).not.toHaveBeenCalled();
