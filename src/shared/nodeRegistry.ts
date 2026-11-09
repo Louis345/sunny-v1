@@ -24,6 +24,11 @@ export const NODE_DISPLAY_LABELS: Record<string, string> = {
   "generated-game": "Her Game",
   "clock-game": "Clock Game",
   "coin-counter": "Coin Counter",
+  "speed-catcher": "Speed Catcher",
+  "vault-cracker": "Vault Cracker",
+  "bd-reversal": "b/d Reversal",
+  "wheel-of-fortune": "Wheel of Fortune",
+  "store-game": "Store",
   dopamine: "Game",
 };
 

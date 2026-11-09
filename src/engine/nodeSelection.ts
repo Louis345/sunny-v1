@@ -1,9 +1,11 @@
 import type { ChildProfile } from "../shared/childProfile";
 import type { NodeConfig, NodeType, SessionTheme } from "../shared/adventureTypes";
+import { listActivityToolContracts } from "./activityToolCatalog";
 import { selectNodeType } from "./bandit";
 import { planSession } from "./learningEngine";
 
-const DOPAMINE_TYPES: NodeType[] = ["space-invaders", "asteroid"];
+/** Every reward-only dopamine game, from its contract (Law 15: derived, never copied; space-frogger was missing). */
+export const DOPAMINE_TYPES: NodeType[] = listActivityToolContracts().filter(contract => contract.nodeType === "dopamine").map(contract => contract.id as NodeType);
 
 const WORD_DRIVEN_MAP_TYPES = new Set<string>([
   "word-radar",
@@ -87,7 +89,7 @@ export async function buildNodeList(
   }
 
   const dopamineType =
-    DOPAMINE_TYPES[Math.random() < 0.5 ? 0 : 1] ?? "asteroid";
+    DOPAMINE_TYPES[Math.floor(Math.random() * DOPAMINE_TYPES.length)] ?? "asteroid";
   out.push(baseNode("n-dopamine", dopamineType, { difficulty: 1, words: [] }));
 
   out.push(
