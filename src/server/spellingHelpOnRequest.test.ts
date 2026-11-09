@@ -28,3 +28,30 @@ it("does nothing when the request is not about the word on screen", () => {
   expect(bound.supportIds).toEqual([]);
   expect(grantSpellingHelpOnRequest(undefined, other)).toBe(false);
 });
+
+// 2026-11-09 Ila, Type It Fast (Letter Rush): she asked for help on ornament and carnivore and Elli spelled them for
+// her, but both right answers were saved as "help not recorded". The game names the word once (phase presentation)
+// and then reports "paused"/"playing" with a blank word for the same item; Sunny kept the item only while the phase
+// stayed the same, so the screen lost the word and her help had nowhere to land. The owner did not catch it; the log
+// showed no [spelling-assessment] [support] line in that stop; the lab only replayed Word Radar, which keeps one phase.
+it("keeps the word on screen through Letter Rush's phase changes, so her help request is recorded on it", async () => {
+  vi.spyOn(console, "log").mockImplementation(() => {});
+  const { retainSpellingItemState } = await import("./currentBoardSnapshot");
+  const bound = { ...assessment(), instrument: "practice" as const, nodeId: "hw:rush", itemId: "ornament-item", word: "ornament" };
+  const launch = { launchId: "l1" };
+  const base = { game: "Letter Rush", activityId: "letter-rush", nodeId: "hw:rush", launchToken: "t1", itemIndex: 1, totalItems: 6, mode: "type-and-spell" };
+  const opened = buildCurrentBoardSnapshot({ childId: "lab", sessionId: "s1", assessment: bound, canonicalPractice: true,
+    state: { ...base, phase: "presentation", currentWord: "ornament", itemId: "ornament-item", spellingItemOpened: true, practiceCapture: true, answerVisibility: "unknown" } });
+  let previous = opened;
+  for (const phase of ["paused", "playing"]) {
+    const state = retainSpellingItemState({ ...base, phase, currentWord: "" }, previous, bound, launch);
+    previous = buildCurrentBoardSnapshot({ childId: "lab", sessionId: "s1", state, assessment: bound, canonicalPractice: true });
+    expect(previous.itemId).toBe("ornament-item");
+    expect(previous.phase).toBe(phase);
+  }
+  expect(grantSpellingHelpOnRequest(bound, previous)).toBe(true);
+  expect(bound.supportIds).toEqual(["support:s1:ornament-item"]);
+  // The next word is a new item: its first report without an id never inherits ornament.
+  const next = retainSpellingItemState({ ...base, itemIndex: 2, phase: "paused", currentWord: "" }, previous, bound, launch);
+  expect(next.itemId).toBeUndefined();
+});

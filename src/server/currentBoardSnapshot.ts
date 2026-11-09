@@ -83,7 +83,7 @@ export function retainSpellingItemState(state: Record<string, unknown>, previous
     && launch && bound.launchId === launch.launchId && state.nodeId === previous.nodeId
     && state.launchToken === previous.launchToken && state.itemIndex !== undefined
     && state.itemIndex === previous.itemIndex && (!state.game || state.game === previous.game)
-    && (!state.phase || state.phase === previous.phase)
+    // Same launch, game and item index is the same word, whatever its phase (Letter Rush goes presentation -> paused -> playing).
     ? {itemId:previous.itemId,phase:previous.phase,...state} : state;
 }
 
