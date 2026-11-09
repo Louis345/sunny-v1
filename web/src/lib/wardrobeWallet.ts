@@ -1,9 +1,7 @@
 import { REWARD_CATALOG, type RewardItem } from "../../../src/shared/rewardCatalog";
 import {
-  WARDROBE_STORE_CATALOG,
   WARDROBE_STORE_STORAGE_KEY,
   createInitialWardrobeStoreState,
-  isWardrobeStoreItemCompatible,
   parseWardrobeStoreState,
   resolveEquippedWardrobeSelection,
   type WardrobeSelection,
@@ -67,34 +65,7 @@ export function savedEquippedLook(
     console.error(" 🎮 [wardrobe-wallet] [saved-look] [load-failed]", error);
   }
   const owned = withServerWallet(state, wallet);
-  if (owned.equippedByCompanion[companionId]) return resolveEquippedWardrobeSelection(owned, companionId, companionModelUrl);
-  // Owner rule (2026-11-08): what she bought follows HER. A companion with no saved look borrows her most recently
-  // equipped look; the resolver still keeps only owned items that fit this companion's body.
-  const donor = mostRecentLookCompanion(owned);
-  if (!donor) return resolveEquippedWardrobeSelection(owned, companionId, companionModelUrl);
-  // Each borrowed item is checked for fit on its own, so an accessory that does not fit never drops the outfit.
-  const fits = (itemId: string | undefined) => {
-    const item = itemId ? WARDROBE_STORE_CATALOG.find((row) => row.id === itemId) : undefined;
-    return item && isWardrobeStoreItemCompatible(item, companionModelUrl, companionId) ? itemId : undefined;
-  };
-  const donorLook = owned.equippedByCompanion[donor];
-  const fitted = { ...(fits(donorLook.accessoryItemId) ? { accessoryItemId: donorLook.accessoryItemId } : {}), ...(fits(donorLook.outfitItemId) ? { outfitItemId: donorLook.outfitItemId } : {}) };
-  const borrowed = { ...owned, equippedByCompanion: { ...owned.equippedByCompanion, [companionId]: fitted } };
-  const look = resolveEquippedWardrobeSelection(borrowed, companionId, companionModelUrl);
-  console.log(` 🎮 [wardrobe-wallet] [saved-look] [follows-child] child=${childId} companion=${companionId} from=${donor} outfit=${look.outfitId} accessory=${look.accessoryId}`);
-  return look;
+  // Owner 2026-11-09: each companion wears only what she put on that companion (Elli never borrows another's dress).
+  return resolveEquippedWardrobeSelection(owned, companionId, companionModelUrl);
 }
 
-/** The companion she dressed most recently: the newest equip or purchase event with a look still saved, else the last saved look. */
-function mostRecentLookCompanion(state: WardrobeStoreState): string | null {
-  const hasLook = (id: string) => {
-    const look = state.equippedByCompanion[id];
-    return Boolean(look?.outfitItemId || look?.accessoryItemId);
-  };
-  const events = state.preferenceEvents
-    .filter((event) => (event.action === "equipped" || event.action === "purchased") && hasLook(event.companionId))
-    .sort((a, b) => a.occurredAt.localeCompare(b.occurredAt));
-  if (events.length > 0) return events[events.length - 1].companionId;
-  const saved = Object.keys(state.equippedByCompanion).filter(hasLook);
-  return saved.length > 0 ? saved[saved.length - 1] : null;
-}
