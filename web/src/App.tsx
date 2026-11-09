@@ -27,6 +27,7 @@ import type {
 } from "../../src/shared/adventureBoardJson";
 import type { NodeConfig } from "../../src/shared/adventureTypes";
 import { buildNodeLaunchAction } from "../../src/shared/homeworkNodeRouting";
+import { RewardBreakPicker } from "./components/RewardBreakPicker";
 import { CompanionLayer, type CompanionLayerProps } from "./components/CompanionLayer";
 import { TamagotchiSheet } from "./components/TamagotchiSheet";
 import { TamagotchiStrip } from "./components/TamagotchiStrip";
@@ -1156,9 +1157,16 @@ function App() {
     pendingPlannerBoardLaunchRef.current = null;
   }, [plannerBoardSessionScope]);
 
+  const [rewardBreakPick, setRewardBreakPick] = useState<{ node: NodeConfig; replayNonce: number } | null>(null);
   const launchPlannerBoardNode = useCallback(
     (node: NodeConfig, replayNonce = 0) => {
       if (homeworkSessionFinishedRef.current) return false;
+      // Her reward break: she picks one of the games she owns before it opens (owner, 2026-11-09).
+      if (node.type === "mystery" && !node.gameFile) {
+        console.log(" 🎮 [reward-break] [picker] [shown]", { nodeId: node.id });
+        setRewardBreakPick({ node, replayNonce });
+        return true;
+      }
       if (!mapPreviewMode && !parentPreviewActive && !state.voiceSessionId) {
         pendingPlannerBoardLaunchRef.current = {node,replayNonce};
         console.log(" 🎮 [AdventureBoard] [launch] [waiting-for-session]", {nodeId:node.id});
@@ -2232,6 +2240,16 @@ function App() {
               }
             }}
           />
+          {rewardBreakPick && adventureChildId ? (
+            <RewardBreakPicker
+              childId={adventureChildId}
+              onPick={(game) => {
+                const pick = rewardBreakPick;
+                setRewardBreakPick(null);
+                launchPlannerBoardNode({ ...pick.node, gameFile: game.file }, pick.replayNonce);
+              }}
+            />
+          ) : null}
           {targetedMathGenerationPending && !plannerBoardLaunch && !postActivityEngagement && <div className="absolute left-4 top-4 z-20 max-w-sm"><LearningPreparationStatus {...generationProgress} onCheck={generationProgress.checkNow} onFinish={finishHomeworkSession}/></div>}
         </div>
       );
