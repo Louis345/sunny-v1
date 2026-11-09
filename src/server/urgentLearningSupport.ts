@@ -251,6 +251,10 @@ export function buildActivityCompanionContext(input: {
   const board = reported ? describeScreenForCompanion({ ...check, activityContext: activityState }) : activityState;
   const liveBoard = cycle ? describeLiveBoardForCompanion(cycle) : "";
   const tutorPlan = cycle ? describeTutorPlanForCompanion(cycle, input.snapshot?.nodeId) : "";
+  // The problem she has open, as saved (never its answer), so the companion knows what is really there (BUGS.md 2026-11-09).
+  const openProblem = input.snapshot?.itemId
+    ? cycle?.nodes.find(node => node.nodeId === input.snapshot?.nodeId)?.evidenceContract.itemContracts?.[input.snapshot.itemId]?.prompt : undefined;
+  const problemText = openProblem ? `[The problem she has open, as Sunny saved it]\n"${openProblem}"` : "";
   const remembered = buildShowroomTalkMemoryPrompt(
     withoutRememberedPosition(readCompanionCareMemoryForPrompt(input.childId, input.companionId)),
   );
@@ -281,7 +285,7 @@ export function buildActivityCompanionContext(input: {
   const testObjective = cycle?.domain === "spelling" ? companionSpellingTestObjective({ cycle, homework: chart?.homework,
     instrument: spelling ? assessment?.instrument : undefined })
     : cycle?.domain === "math" ? companionMathTestObjective({ cycle, homework: chart?.homework }) : "";
-  return redactProtectedSpellingText([board, liveBoard, tutorPlan, input.speechRate === undefined ? "" : `Configured speech speed: ${input.speechRate} (1=normal; resets on item or launch change).`, memory, helpObjective, testObjective, spelling].filter(Boolean).join("\n\n"), input.snapshot);
+  return redactProtectedSpellingText([board, liveBoard, tutorPlan, problemText, input.speechRate === undefined ? "" : `Configured speech speed: ${input.speechRate} (1=normal; resets on item or launch change).`, memory, helpObjective, testObjective, spelling].filter(Boolean).join("\n\n"), input.snapshot);
 }
 
 type CompanionCycle = NonNullable<NonNullable<ReturnType<typeof readCompanionChart>>["learningCycle"]>;
