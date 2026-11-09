@@ -272,7 +272,7 @@ it.each([
       const discoveryCompanion = page.locator('[data-testid="companion-layer-stack"], [data-testid="companion-portrait-stack"]');
       await discoveryCompanion.waitFor();
       await expect.poll(() => discoveryCompanion.getAttribute("data-companion-model-status")).toBe("ready");
-      await page.screenshot({ path: path.join(outputDir, `discovery-${viewport.width}x${viewport.height}.png`) });
+      await page.screenshot({ path: path.join(outputDir, `discovery-${viewport.width}x${viewport.height}.png`), timeout: 30000 });
     }
     const answer = async (value: string) => {
       const hear = page.getByRole("button", { name: "Hear the word", exact: true });
@@ -334,7 +334,7 @@ it.each([
       expect(getLearningCycle(childId, homeworkId, { rootDir })!.observations).toEqual(preserved);
       expect(hashFilesUnder(canonicalFamilyPaths)).toBe(canonicalFamilyHashBefore);
       expect(errors).toEqual([]);
-      await page.screenshot({ path: path.join(runDir, "provider-failure.png") });
+      await page.screenshot({ path: path.join(runDir, "provider-failure.png"), timeout: 30000 });
       fs.writeFileSync(path.join(runDir, "provider-failure.json"), JSON.stringify({
         passed: true, injectedFailure: preparationFailure, providerCalls: lab.refusalCalls,
         workerLaunchCount, preservedAnswerCount: preserved.length, restartPreservedFailure: true,
@@ -346,7 +346,7 @@ it.each([
     // It remains hidden until the child explicitly chooses it.
     await page.getByRole("button", {name:"Let's go!",exact:true}).waitFor({ timeout: 30000 });
     expect(await page.locator(".adventure-board__nodes").count()).toBe(0);
-    await page.screenshot({path:path.join(outputDir,"preparation-no-map.png")});
+    await page.screenshot({path:path.join(outputDir,"preparation-no-map.png"), timeout: 30000 });
     const before = getLearningCycle(childId, homeworkId, { rootDir })!;
     expect(before.observations.map(row => row.result.correct)).toEqual(scenario.adaptive
       ? [true, true, true, true, true, true, false, false, false, false]
@@ -362,7 +362,7 @@ it.each([
     const discoveryAudioFrames = assessmentAudioFrames;
     const discoveryPlaybackConfirmations = confirmedAssessmentPlayback;
     expect(before.observations.at(-1)?.result.observedErrorType).toBeUndefined();
-    await page.screenshot({ path: path.join(outputDir, "preparing.png") });
+    await page.screenshot({ path: path.join(outputDir, "preparing.png"), timeout: 30000 });
     expect(workerLaunchCount).toBe(1);
     expect(automaticGeneration).toBeDefined();
     await automaticGeneration;
@@ -438,7 +438,7 @@ it.each([
       const discoveryScreenshotPath = path.join(outputDir, `discovery-${viewport.width}x${viewport.height}.png`);
       const finalCheckScreenshotPath = path.join(outputDir, `final-check-${viewport.width}x${viewport.height}.png`);
       const completionScreenshotPath = path.join(outputDir, `completed-route-${viewport.width}x${viewport.height}.png`);
-      await page.screenshot({ path: boardScreenshotPath });
+      await page.screenshot({ path: boardScreenshotPath, timeout: 30000 });
 
       await page.getByRole("button", { name: "Choose your path", exact: true }).click();
       await page.getByRole("dialog").getByRole("button", { name: /Speed It/ }).click();
@@ -506,7 +506,7 @@ it.each([
       await page.getByRole("button", { name: "Recall Checkpoint", exact: true }).click();
       await page.getByRole("button", { name: "Ready!", exact: true }).click();
       await page.getByTestId("word-radar-input").waitFor();
-      await page.screenshot({ path: finalCheckScreenshotPath });
+      await page.screenshot({ path: finalCheckScreenshotPath, timeout: 30000 });
       for (const [index, word] of words.entries()) {
         await page.getByText(`Word ${index + 1} of ${words.length}`, {exact:true}).waitFor();
         await answer(word);
@@ -514,7 +514,7 @@ it.each([
       }
       await collectTreasureIfShown(page);
       await page.getByTestId("post-activity-engagement-overlay").getByRole("button", { name: "Play again", exact: true }).waitFor();
-      await page.screenshot({ path: completionScreenshotPath });
+      await page.screenshot({ path: completionScreenshotPath, timeout: 30000 });
 
       await expect.poll(() => getLearningCycle(childId, homeworkId, { rootDir })?.lifecycle).toBe("awaiting_calibration");
       const completed = getLearningCycle(childId, homeworkId, { rootDir })!;
@@ -677,7 +677,7 @@ it.each([
     expect(legacyAttempt).not.toHaveBeenCalled();
     expect(errors).toEqual([]);
     fs.writeFileSync(path.join(outputDir, "report.json"), JSON.stringify({ provider: "recorded", viewport, before, after, replayed, events, errors, plannerCalls: lab.plannerCalls, timing: { discoveryReadyMs, firstReadyMs, limitation: "Recorded Planner and native games only; not a live provider latency estimate." } }, null, 2));
-    await page.screenshot({ path: path.join(outputDir, "complete.png") });
+    await page.screenshot({ path: path.join(outputDir, "complete.png"), timeout: 30000 });
     if(chartDb){
       await page.goto(new URL(`/parent/learning-report?child=${childId}`,vite!.resolvedUrls!.local[0]).href);
       await page.getByRole('link',{name:'Spelling chart and school results'}).click();
@@ -704,12 +704,12 @@ it.each([
       expect(school?.sourceKind).toBe('parent_transcription');
       expect(projectAssignment(exportEvents(chartDb),homeworkId).forecast).toMatchObject({scheduledTestDate:null,scheduleFactId:null});
       expect(school?.results.map(r=>r.correct)).toEqual([true,false]);
-      await page.screenshot({path:path.join(outputDir,'parent-report.png')});
+      await page.screenshot({path:path.join(outputDir,'parent-report.png'), timeout: 30000 });
     }
   } finally {
     if (browser) { const page = browser.contexts()[0]?.pages()[0]; if (page) {
       const diagnosticId=`${viewport.width}x${viewport.height}-chart-${scenario.chart}-${path.basename(rootDir)}`;
-      await page.screenshot({ path: path.join(outputDir, "last-state.png") });
+      await page.screenshot({ path: path.join(outputDir, "last-state.png"), timeout: 30000 });
       fs.copyFileSync(path.join(outputDir,"last-state.png"),path.join(outputDir,`${diagnosticId}.png`));
       const diagnostic=JSON.stringify({ events, errors, body: await page.locator("body").innerText(),cycle:getLearningCycle(childId,homeworkId,{rootDir}) });
       fs.writeFileSync(path.join(outputDir,"diagnostic.json"),diagnostic);
