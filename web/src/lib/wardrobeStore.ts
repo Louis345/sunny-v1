@@ -3,6 +3,7 @@ import {
   resolveWardrobeBodyProfileId,
   resolveWardrobeTemplateCertification,
   isWardrobePairApproved,
+  wardrobeBodyOwnerId,
 } from "./wardrobeBodyProfiles";
 import preparedBodies from './wardrobePrepared.generated.json';
 import fittedGarments from './wardrobeFitted.generated.json';
@@ -528,7 +529,8 @@ function getWardrobeStoreItem(itemId: string) {
   return WARDROBE_STORE_CATALOG.find((item) => item.id === itemId);
 }
 
-export function getWardrobePairVersion(companionId:string,modelUrl:string,outfitItemId:string,accessoryItemId:string){
+export function getWardrobePairVersion(requestedCompanionId:string,modelUrl:string,outfitItemId:string,accessoryItemId:string){
+ const companionId=wardrobeBodyOwnerId(requestedCompanionId);
  const body=preparedBodies.find(b=>b.companionId===companionId&&b.modelUrl===modelUrl),outfit=getWardrobeStoreItem(outfitItemId),accessory=getWardrobeStoreItem(accessoryItemId);
  if(!body||outfit?.asset.kind!=='outfit'||accessory?.asset.kind!=='accessory')return '';
  const outfitVersion=(assetVersions as Record<string,string>)[outfit.templateId??''],accessoryVersion=(assetVersions as Record<string,string>)[accessory.templateId??accessory.id];

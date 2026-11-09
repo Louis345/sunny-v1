@@ -3,6 +3,7 @@ import preparedAssets from "./wardrobePrepared.generated.json";
 import assetVersions from "./wardrobeAssetVersions.generated.json";
 import fittedAssets from "./wardrobeFitted.generated.json";
 import { WARDROBE_HUMAN_APPROVAL_BATCH } from "./wardrobeHumanApprovals";
+import { COMPANION_MANIFEST } from "../companion/companions.generated";
 
 export type WardrobeBodyProfileId =
   | "sunny-standard-v1"
@@ -225,6 +226,20 @@ for (const assignment of Object.values(WARDROBE_COMPANION_BODY_ASSIGNMENTS)) {
   );
 }
 
+/**
+ * A companion that shares another companion's model file (Hikari is the angel model that was first ingested as
+ * Matilda) wears that body's prepared asset, human-reviewed fits and pair approvals. Derived from the manifest
+ * model URL so fit data is never copied per name.
+ */
+export function wardrobeBodyOwnerId(companionId: string): string {
+  if (WARDROBE_COMPANION_BODY_ASSIGNMENTS[companionId]) return companionId;
+  const vrmUrl = COMPANION_MANIFEST.find(entry => entry.id === companionId)?.vrmUrl;
+  const owner = vrmUrl
+    ? Object.values(WARDROBE_COMPANION_BODY_ASSIGNMENTS).find(assignment => assignment.sourceModelUrl === vrmUrl)
+    : undefined;
+  return owner?.companionId ?? companionId;
+}
+
 export function resolveWardrobeBodyProfileId(modelUrl: string) {
   return BODY_PROFILE_BY_MODEL_URL.get(modelUrl) ?? null;
 }
@@ -236,7 +251,7 @@ for (const prepared of preparedAssets) {
 export function resolvePreparedWardrobePresentation(
   companionId: string,
 ): PreparedWardrobePresentation | null {
-  const prepared = preparedAssets.find(asset => asset.companionId === companionId);
+  const prepared = preparedAssets.find(asset => asset.companionId === wardrobeBodyOwnerId(companionId));
   if (prepared) return {
     companionId,
     bodyModelUrl: prepared.modelUrl,
@@ -296,7 +311,7 @@ export type WardrobeTemplateCertification = {
 export type WardrobePairCertification={companionId:string;outfitItemId:string;accessoryItemId:string;version:string;status:WardrobeTemplateCertificationStatus;humanReview?:WardrobeTemplateCertification['humanReview']};
 export const WARDROBE_PAIR_CERTIFICATIONS:readonly WardrobePairCertification[]=[];
 export function isWardrobePairApproved(companionId:string,outfitItemId:string,accessoryItemId:string,version:string,records:readonly WardrobePairCertification[]=WARDROBE_PAIR_CERTIFICATIONS){
- return Boolean(version&&records.some(r=>r.companionId===companionId&&r.outfitItemId===outfitItemId&&r.accessoryItemId===accessoryItemId&&r.version===version&&r.status==='approved'&&r.humanReview?.reviewedBy.trim()&&r.humanReview.reviewedAt&&r.humanReview.evidence.length));
+ return Boolean(version&&records.some(r=>r.companionId===wardrobeBodyOwnerId(companionId)&&r.outfitItemId===outfitItemId&&r.accessoryItemId===accessoryItemId&&r.version===version&&r.status==='approved'&&r.humanReview?.reviewedBy.trim()&&r.humanReview.reviewedAt&&r.humanReview.evidence.length));
 }
 
 export function validateWardrobeCertification(
@@ -339,10 +354,11 @@ export const WARDROBE_TEMPLATE_CERTIFICATIONS: readonly WardrobeTemplateCertific
   );
 
 export function resolveWardrobeTemplateCertification(
-  companionId: string,
+  requestedCompanionId: string,
   templateId: string,
   modelUrl?: string,
 ): WardrobeTemplateCertification {
+  const companionId = wardrobeBodyOwnerId(requestedCompanionId);
   const record = WARDROBE_TEMPLATE_CERTIFICATIONS.find(entry => entry.companionId === companionId && entry.templateId === templateId) ?? {
     companionId, templateId, status: "candidate" as const,
     reason: "No human-reviewed fit has been recorded for this companion yet.",
@@ -375,7 +391,8 @@ export type WardrobeEngineeringReview = {
   garments: {outfitId:string;sha256:string;sourceVersion:string;visual:string;evidence:{check:string;path:string}[]}[];
 };
 const REQUIRED_VISUAL_CHECKS=['front:idle','back:idle','side:idle','face:idle','face:speak','face:head-turn','front:arms-up','front:elbows-bent'];
-export function isWardrobeReadyForHumanReview(companionId:string,records:readonly WardrobeEngineeringReview[]=engineeringReviews):boolean {
+export function isWardrobeReadyForHumanReview(requestedCompanionId:string,records:readonly WardrobeEngineeringReview[]=engineeringReviews):boolean {
+  const companionId=wardrobeBodyOwnerId(requestedCompanionId);
   const body=preparedAssets.find(b=>b.companionId===companionId);
   const record=records.find(r=>r.companionId===companionId);
   const presentation=(assetVersions as Record<string,string>).presentation;

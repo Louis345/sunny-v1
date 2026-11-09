@@ -15,10 +15,11 @@ const DRESSED_MATILDA_ONLY = {
 };
 
 describe("call-start look", () => {
+  // Owner 2026-11-09: the angel Ila dressed under the old id "matilda" is now Hikari; her saved look moves to Hikari.
   it("switching from a dressed companion to one with no look clears the outfit", async () => {
     const apply = vi.fn();
     const fetchWallet = vi.fn(async () => ({ coins: 0, ownedRewardIds: ["outfit:navy-ribbon-dress"] }));
-    await loadCallStartLook({ childId: "ila", companionId: "matilda", modelUrl: MATILDA_BODY, fetchWallet, storage: storageWith(DRESSED_MATILDA_ONLY), isCurrent: () => true, apply });
+    await loadCallStartLook({ childId: "ila", companionId: "hikari", modelUrl: MATILDA_BODY, fetchWallet, storage: storageWith(DRESSED_MATILDA_ONLY), isCurrent: () => true, apply });
     expect(apply).toHaveBeenLastCalledWith(expect.objectContaining({ outfitId: "sleeveless-dress" }));
     await loadCallStartLook({ childId: "ila", companionId: "elli", modelUrl: ELLI_BODY, fetchWallet, storage: storageWith(DRESSED_MATILDA_ONLY), isCurrent: () => true, apply });
     expect(apply).toHaveBeenCalledTimes(2);
@@ -27,10 +28,10 @@ describe("call-start look", () => {
 
   it("ignores a stale wallet result for a companion that is no longer current", async () => {
     const apply = vi.fn();
-    let current = "matilda";
+    let current = "hikari";
     let release: (wallet: { coins: number; ownedRewardIds: string[] }) => void = () => {};
     const fetchWallet = () => new Promise<{ coins: number; ownedRewardIds: string[] }>((resolve) => { release = resolve; });
-    const pending = loadCallStartLook({ childId: "ila", companionId: "matilda", modelUrl: MATILDA_BODY, fetchWallet, storage: storageWith(DRESSED_MATILDA_ONLY), isCurrent: () => current === "matilda", apply });
+    const pending = loadCallStartLook({ childId: "ila", companionId: "hikari", modelUrl: MATILDA_BODY, fetchWallet, storage: storageWith(DRESSED_MATILDA_ONLY), isCurrent: () => current === "hikari", apply });
     current = "elli";
     release({ coins: 0, ownedRewardIds: ["outfit:navy-ribbon-dress"] });
     await pending;
