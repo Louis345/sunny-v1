@@ -3,6 +3,18 @@ Every human-caught child-session bug must become a lab invariant: explain why th
 
 Required learning authority: read [`LEARNING_FEEDBACK_LOOP.md`](./LEARNING_FEEDBACK_LOOP.md) before changing learning evidence, prediction, theory, or adaptation behavior. It is the sole normative learning-loop contract [Laws 13, 14]: Sunny is accountable to reality, every activity is a measurement instrument first and a game second, and private game scores or synthetic learning claims are forbidden. Design stance: [`AI_DESIGN_PRINCIPLES.md`](./AI_DESIGN_PRINCIPLES.md).
 
+# The vision (read first)
+
+- **The goal:** each girl passes her real school test, and she wants to come back to Sunny tomorrow. Everything serves those two.
+- **One Planner, one menu, one source of truth:** there is one Planner for every subject and stage. Each subject only fills in its facts. Each fact and each list lives in one place; if you are about to copy one, derive it instead.
+- **The Planner thinks like a tutor:** each board, it writes its theory, checks whether she improved and why, and changes course. Help it by giving it facts and its own track record, not rules.
+- **Full toolbox at every stage:** a doctor gets every instrument. Restrict only for child safety or an honest record, and say why, in one place.
+- **Honest records:** help is help, practice is not a check, and play is play. Code owns truth; the AI owns judgment.
+- **Fun is part of learning:** variable rewards, her companion, choices she makes. Today the Planner owns the boards; the reward economy and a designer agent come next, as separate agents with their own missions.
+- **The children are real:** nothing reaches them untested, and nothing merges until the owner has tested it with them.
+
+When a change fights this vision, stop and ask. Tests catch drift after the fact; this page is what keeps an agent from drifting in the first place.
+
 # Sunny: six rules for AI agents
 
 Sunny is a voice-first learning companion for two girls, Reina and Ila, running as a kiosk on the family Mac (Saori). Elli is their AI companion. Sunny works like a hospital: the chart is the record, the Planner is the doctor, and everyone else is a nurse who carries out the orders. Old law numbers are kept in brackets because other files refer to them; the longer text these rules replaced is in [`docs/PLANNER_CANVAS_RULES.md`](./docs/PLANNER_CANVAS_RULES.md) and [`docs/PRODUCT_RULES.md`](./docs/PRODUCT_RULES.md).
