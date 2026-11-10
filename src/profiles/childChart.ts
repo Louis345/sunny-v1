@@ -1,3 +1,4 @@
+import { currentDemographics } from "./currentDemographics";
 import {createHash} from "node:crypto";
 import type {WordRadarNodeConfig} from "../shared/adventureTypes";
 import { readTypedChildChart } from '../chart/buildChart';
@@ -425,10 +426,11 @@ export function getChildChart(childIdRaw: string, opts: ChildChartOptions | Spel
   const wordBank = readWordBankFromLink(childId, links);
   const factBank = readFactBankFromLink(childId, links);
   const dueFactSummary = sm2Facts(factBank);
-  const demographics: LearningProfile["demographics"] = {
+  // Her facts as of today: age from her birthday, grade from the school year it was confirmed for (2026-11-10).
+  const demographics: LearningProfile["demographics"] = currentDemographics({
     ...learningProfile.demographics,
     ...(manifest.demographics ?? {}),
-  };
+  });
   const adventureMapProfile = resolveAdventureMapProfile(learningProfile.adventureMapProfile);
   const displayName = manifest.identity?.displayName ?? capitalize(childId);
   const ttsName = manifest.identity?.ttsName ?? childMeta?.ttsName ?? displayName;

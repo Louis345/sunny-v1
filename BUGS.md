@@ -1,3 +1,8 @@
+## 2026-11-10 — Backlog (owner: later, not now)
+
+- **Phone alerts.** Parent alerts are recorded on Saori (`sunny_health/parent-alerts.ndjson`) and in `sunny:rate`, but reach no phone. Options: iMessage from Saori's Messages app, an ntfy topic (set `SUNNY_PARENT_ALERT_URL`), or email. The owner chose "not yet" on 11/10.
+- **Ila's diagnoses and IEP, and both girls' birthdays.** Her chart still lists no diagnoses and no IEP; her `soul.md` lists ADHD combined type, dyslexia, and specific learning disorders in reading and written expression (IEE), plus an IEP section. Set them with `npm run sunny:child:facts` once the owner confirms. Birthdays make ages stay current.
+
 ## 2026-11-09 — Found while adding Hikari (open)
 
 - **The companion manifest no longer matches its generator for Matilda (open, AI-caught).** `web/src/companion/companions.generated.ts` says Matilda's `companionConfig.vrmUrl` is the angel (`/companions/673852811403133503.vrm`), but `npx tsx src/scripts/ingestCompanions.ts` writes `/companions/sample.vrm`, because the generator takes it from `children.config.json`'s `matilda` preset (Reina's homework companion). The angel value came in with the wardrobe squash (67fed24e), whose message says the wardrobe branch's children.config model path was left out on purpose. The Hikari change regenerated the manifest and kept Matilda's existing line byte-for-byte so FaceTime Matilda behaves exactly as before. Owner decision needed: should FaceTime Matilda show Reina's homework look (sample.vrm) or keep the angel's dressable body? Until decided, the next regeneration will flip it again, and `wardrobeBodyProfiles.test.ts` (Matilda's assignment is the angel) will fail.
