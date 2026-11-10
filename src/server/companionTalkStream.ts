@@ -1,5 +1,6 @@
 import WebSocket from "ws";
 import { sanitizeForTTS } from "./session-state";
+import { pronounceForTts } from "./ttsPronunciation";
 
 /**
  * Streaming leg of the companion talk pipeline: sentence-buffered text goes to
@@ -29,8 +30,8 @@ export type CreateCompanionTalkSpeaker = (opts: {
 
 function normalizeForTTS(text: string): string {
   let t = text.replace(/-(?=[A-Z])/g, " ");
-  t = t.replace(/\bIla\b/gi, "EYE-lah");
-  return t;
+  // Names from each child's profile and theme words, from one lexicon shared by every speech path.
+  return pronounceForTts(t);
 }
 
 function buildWsUrl(voiceId: string, modelId: string): string {

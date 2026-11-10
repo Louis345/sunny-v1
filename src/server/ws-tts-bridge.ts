@@ -1,6 +1,7 @@
 import WebSocket from "ws";
 import { sanitizeForTTS } from "./session-state";
 import type { VoiceLatencyMark } from "./voiceTurnLatency";
+import { pronounceForTts } from "./ttsPronunciation";
 
 const WS_BASE = "wss://api.elevenlabs.io/v1/text-to-speech";
 const FLUSH_INTERVAL_MS = 50;
@@ -12,8 +13,8 @@ type StreamTerminal = { outcome?: StreamOutcome; done: Promise<StreamOutcome>; s
 
 function normalizeForTTS(text: string): string {
   let t = text.replace(/-(?=[A-Z])/g, " ");
-  t = t.replace(/\bIla\b/gi, "EYE-lah");
-  return t;
+  // Names from each child's profile and theme words, from one lexicon shared by every speech path.
+  return pronounceForTts(t);
 }
 
 function getPronunciationLocators(): object[] | undefined {
