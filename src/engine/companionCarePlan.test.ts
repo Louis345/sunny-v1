@@ -173,7 +173,7 @@ describe("companionCarePlan IO", () => {
 // receipt, because loading rebuilt the economy from a fixed field list and dropped the chest receipts,
 // call minutes and pity counter. Without receipts, "one chest per stop" is not guaranteed.
 describe("node chests survive a save and a load", () => {
-  it("keeps every chest receipt, the call minutes and the pity counter", async () => {
+  it("keeps every chest receipt, the call seconds and the pity counter", async () => {
     const { createStarterCompanionCarePlan, grantNodeChest } = await import("./companionCareEngine");
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-chest-roundtrip-"));
     const chart = { childId: "lab-child", links: { companionCareDir: dir, learningProfile: path.join(dir, "profile.json") }, companion: { presetId: "elli" },
@@ -184,13 +184,14 @@ describe("node chests survive a save and a load", () => {
       const warmUpRolls = [0.1, 0, 0.99]; // common, low coins, no bonus
       plan = grantNodeChest(plan, { homeworkId: "hw", nodeId: "warm-up", kind: "common", nowIso: at, roll: () => warmUpRolls.shift() ?? 0.99 }).plan;
       saveCompanionCarePlan(chart, plan);
-      const questRolls = [0.1, 0, 0, 0.9]; // stays epic, low coins, lucky, then call minutes rather than an item
+      const questRolls = [0.1, 0, 0, 0, 0, 0.9999]; // stays epic, low coins, lucky, an item, the first one, then a full minute of call time
       plan = grantNodeChest(loadCompanionCarePlanForChart(chart).plan, { homeworkId: "hw", nodeId: "quest", kind: "epic", nowIso: at, roll: () => questRolls.shift()! }).plan;
       saveCompanionCarePlan(chart, plan);
       const loaded = loadCompanionCarePlanForChart(chart).plan;
       expect(loaded.economy.nodeChests?.map(chest => chest.nodeId)).toEqual(["warm-up", "quest"]);
-      const { CHEST_TABLE } = await import("../shared/rewardCatalog");
-      expect(loaded.economy.callMinutes).toBe(CHEST_TABLE.epic.minutes);
+      const { CALL_TIME_LOOT } = await import("../shared/rewardCatalog");
+      const earnedSeconds = CALL_TIME_LOOT.at(-1)!.seconds + (loaded.economy.nodeChests?.[0]?.callSeconds ?? 0);
+      expect(loaded.economy.callSeconds).toBe(earnedSeconds);
       expect(loaded.economy.chestsSinceBonus).toBe(0);
       const replay = grantNodeChest(loaded, { homeworkId: "hw", nodeId: "warm-up", kind: "common", nowIso: at, roll: () => 0 });
       expect(replay.granted).toBe(false);
@@ -199,8 +200,8 @@ describe("node chests survive a save and a load", () => {
       if (!spent.ok) throw Error("expected a minute");
       saveCompanionCarePlan(chart, spent.plan);
       const reloaded = loadCompanionCarePlanForChart(chart).plan;
-      expect(reloaded.economy.callMinutes).toBe(CHEST_TABLE.epic.minutes - 1);
-      expect(spendCallMinute(reloaded, { receiptId: "call:m1", nowIso: at })).toMatchObject({ ok: true, duplicate: true, minutesLeft: CHEST_TABLE.epic.minutes - 1 });
+      expect(reloaded.economy.callSeconds).toBe(earnedSeconds - spent.secondsGranted);
+      expect(spendCallMinute(reloaded, { receiptId: "call:m1", nowIso: at })).toMatchObject({ ok: true, duplicate: true, secondsLeft: earnedSeconds - spent.secondsGranted });
     } finally {
       fs.rmSync(dir, { recursive: true, force: true });
     }

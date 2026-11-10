@@ -166,7 +166,7 @@ export type ShowroomShoppingContext = {
 /** Call clock moments (owner, 2026-11-07). The screen names the moment; the server supplies the facts. */
 export type ShowroomCallClockEvent = "minute_left" | "time_up" | "minutes_bought";
 const CALL_CLOCK_EVENTS: readonly ShowroomCallClockEvent[] = ["minute_left", "time_up", "minutes_bought"];
-export type ShowroomCallClockFacts = { event: ShowroomCallClockEvent; minutesLeft: number; coins: number; price: number; minutes: number };
+export type ShowroomCallClockFacts = { event: ShowroomCallClockEvent; minutesLeft: number; secondsLeft?: number; coins: number; price: number; minutes: number };
 
 export type ShowroomShoppingEvent = {
   type: "item_reviewed" | "try_on_started";
@@ -980,7 +980,7 @@ export function buildShowroomTalkSystemPrompt(input: {
       ? "about one minute of call time is left"
       : clock.event === "time_up"
         ? "call time is up"
-        : `the child just spent coins on more call time; about ${clock.minutesLeft + 1} minutes are left now`;
+        : `the child just spent coins on more call time; about ${Math.max(1, Math.round(((clock.secondsLeft ?? clock.minutesLeft * 60) + 60) / 60))} minutes are left now`;
     lines.push(
       `Live call clock event: ${moment}. The child has ${clock.coins} coins; 5 more minutes cost ${clock.price} coins.`,
       clock.coins >= clock.price

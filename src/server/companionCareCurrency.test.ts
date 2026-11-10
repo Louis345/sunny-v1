@@ -107,8 +107,8 @@ describe("one coin balance", () => {
     planWithCoins(rootDir, 40);
     expect(callClockForChild("reina", { rootDir })).toMatchObject({ minutesLeft: 0, coins: 40, price: 30, minutes: 5 });
     expect(spendCallMinuteForChild("reina", "call:m1", { rootDir })).toMatchObject({ ok: false, reason: "no_minutes", coins: 40 });
-    expect(purchaseForChild("reina", { receiptId: "r1", offer: { kind: "call_minutes", minutes: 5 } }, { rootDir })).toMatchObject({ ok: true, balance: 10, callMinutes: 5 });
-    expect(spendCallMinuteForChild("reina", "call:m1", { rootDir })).toMatchObject({ ok: true, minutesLeft: 4, coins: 10 });
+    expect(purchaseForChild("reina", { receiptId: "r1", offer: { kind: "call_minutes", minutes: 5 } }, { rootDir })).toMatchObject({ ok: true, balance: 10, callMinutes: 5, callSeconds: 300 });
+    expect(spendCallMinuteForChild("reina", "call:m1", { rootDir })).toMatchObject({ ok: true, minutesLeft: 4, secondsLeft: 240, secondsGranted: 60, coins: 10 });
     expect(callClockForChild("reina", { rootDir })).toMatchObject({ minutesLeft: 4 });
   });
 
@@ -135,7 +135,7 @@ describe("one coin balance", () => {
   it("gives Elli the saved clock facts, and nothing when the chart cannot be read", () => {
     const rootDir = setupRoot();
     planWithCoins(rootDir, 40);
-    expect(showroomCallClockFacts("reina", "time_up", { rootDir })).toEqual({ event: "time_up", minutesLeft: 0, coins: 40, price: 30, minutes: 5 });
+    expect(showroomCallClockFacts("reina", "time_up", { rootDir })).toEqual({ event: "time_up", minutesLeft: 0, secondsLeft: 0, coins: 40, price: 30, minutes: 5 });
     const error = vi.spyOn(console, "error").mockImplementation(() => {});
     expect(showroomCallClockFacts("reina", "time_up", { rootDir: path.join(rootDir, "missing") })).toBeUndefined();
     error.mockRestore();

@@ -5,10 +5,10 @@ import { REWARD_CATALOG } from "../../../src/shared/rewardCatalog";
 /** The chest's colour says what she earned before she opens it; a mystery chest hides it until the lid lifts. */
 export type ChestRarity = "common" | "rare" | "epic" | "legendary";
 export type ChestKind = ChestRarity | "mystery";
-export type ChestLoot = { coins: number; rarity?: ChestRarity; item?: { name: string; rarity: ChestRarity; icon?: string; kind?: "outfit" | "game" | "minutes" } };
+export type ChestLoot = { coins: number; callSeconds?: number; rarity?: ChestRarity; item?: { name: string; rarity: ChestRarity; icon?: string; kind?: "outfit" | "game" | "minutes" } };
 /** The chest the server rolled and saved, as the completion route returns it. */
 export type ServerNodeChest = { homeworkId?: string; nodeId?: string; kind: ChestKind; rarity: ChestRarity; coins: number; bonusChance: number;
-  bonus?: { kind: "call_minutes"; minutes: number } | { kind: "item"; itemId: string } };
+  bonus?: { kind: "call_minutes"; minutes: number } | { kind: "item"; itemId: string }; callSeconds?: number };
 
 /** A bonus as the chest shows it: a collection item by its catalog entry, or call minutes. */
 function bonusItem(bonus: NonNullable<ServerNodeChest["bonus"]>, rarity: ChestRarity): NonNullable<ChestLoot["item"]> {
@@ -21,11 +21,16 @@ export function chestFromServer(chest: ServerNodeChest): { rarity: ChestKind; bo
   return {
     rarity: chest.kind,
     bonusChance: chest.bonusChance,
-    loot: { coins: chest.coins, rarity: chest.rarity, ...(chest.bonus ? { item: bonusItem(chest.bonus, chest.rarity) } : {}) },
+    loot: { coins: chest.coins, ...(chest.callSeconds ? { callSeconds: chest.callSeconds } : {}), rarity: chest.rarity, ...(chest.bonus ? { item: bonusItem(chest.bonus, chest.rarity) } : {}) },
   };
 }
 
 export const CHEST_OPEN_MS = 1600;
+/** Call time as she reads it: "15 seconds", "1 minute". */
+export function callTimeLabel(seconds: number): string {
+  if (seconds % 60 === 0) return seconds === 60 ? "1 minute" : `${seconds / 60} minutes`;
+  return seconds < 60 ? `${seconds} seconds` : `${Math.floor(seconds / 60)} min ${seconds % 60} s`;
+}
 const RARITY_NAME: Record<ChestRarity, string> = { common: "Common", rare: "Rare", epic: "Epic", legendary: "Legendary" };
 const CHEST_NAME: Record<ChestKind, string> = { common: "Wooden chest", rare: "Rare chest", epic: "Epic chest", legendary: "Legendary chest", mystery: "Mystery chest" };
 const COIN_SPRAY = 10;
@@ -100,6 +105,7 @@ export function NodeTreasureChest({ rarity, loot, bonusChance, compact = false, 
         ) : null}
       </div>
       {isOpen ? <div className="node-chest__payout">{`+${loot.coins} coins`}</div> : null}
+      {isOpen && loot.callSeconds ? <div className="node-chest__payout" data-testid="node-chest-call-time">{`+${callTimeLabel(loot.callSeconds)} of FaceTime`}</div> : null}
       {phase === "closed" || phase === "shaking" ? (
         <button type="button" className="node-chest__button" onClick={open} disabled={phase === "shaking"}>{phase === "shaking" ? "Opening…" : "Tap to open"}</button>
       ) : compact ? null : (

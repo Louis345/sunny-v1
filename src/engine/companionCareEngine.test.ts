@@ -259,19 +259,18 @@ describe("node treasure chests", () => {
     expect(again.plan.economy.coins).toBe(first.plan.economy.coins);
   });
 
-  it("adds bonus call minutes on a lucky roll, and the pity counter raises the chance after each miss", () => {
+  it("drops an item on a lucky roll, and the pity counter raises the chance after each chest without one", () => {
     let current = plan();
     const miss = () => { const values = [0.1, 0, 0.99]; return () => values.shift() ?? 0.99; };
     current = grantNodeChest(current, { homeworkId: "hw", nodeId: "a", kind: "common", nowIso: at, roll: miss() }).plan;
     const second = grantNodeChest(current, { homeworkId: "hw", nodeId: "b", kind: "common", nowIso: at, roll: miss() });
     // The pity counter adds 0.1 per chest without a bonus.
     expect(second.chest.bonusChance).toBeCloseTo(CHEST_TABLE.common.bonusChance + 0.1);
-    // A lucky roll (0.25, under the chance), then 0.9 picks call minutes over an item.
-    const luckyRolls = [0.1, 0, 0.25, 0.9];
+    // A lucky roll (0.25, under the chance), then 0 picks an item, then the first eligible item, then call time.
+    const luckyRolls = [0.1, 0, 0.25, 0, 0, 0];
     const lucky = grantNodeChest(second.plan, { homeworkId: "hw", nodeId: "c", kind: "common", nowIso: at, roll: () => luckyRolls.shift()! });
     expect(lucky.chest.bonusChance).toBeCloseTo(CHEST_TABLE.common.bonusChance + 0.2);
-    expect(lucky.chest.bonus).toEqual({ kind: "call_minutes", minutes: CHEST_TABLE.common.minutes });
-    expect(lucky.plan.economy.callMinutes).toBe(CHEST_TABLE.common.minutes);
+    expect(lucky.chest.bonus).toMatchObject({ kind: "item" });
     expect(lucky.plan.economy.chestsSinceBonus).toBe(0);
   });
 
@@ -297,13 +296,14 @@ describe("chests drop collection items", () => {
     expect(opened.plan.economy.callMinutes ?? 0).toBe(0);
   });
 
-  it("never drops something she owns, and gives call minutes once a chest has nothing left to find", () => {
+  it("never drops something she owns, and drops no bonus once a chest has nothing left to find", () => {
     let current = plan();
     for (let i = 0; i < 40; i += 1) current = grantNodeChest(current, { homeworkId: "hw", nodeId: `n${i}`, kind: "common", nowIso: at, roll: rolls(0, 0, 0) }).plan;
     const owned = current.inventory.rewards ?? [];
     expect(new Set(owned).size).toBe(owned.length);
     const last = grantNodeChest(current, { homeworkId: "hw", nodeId: "last", kind: "common", nowIso: at, roll: rolls(0, 0, 0) });
-    expect(last.chest.bonus).toEqual({ kind: "call_minutes", minutes: CHEST_TABLE.common.minutes });
+    expect(last.chest.bonus).toBeUndefined();
+    expect(last.chest.callSeconds).toBeGreaterThan(0);
   });
 });
 
@@ -318,7 +318,7 @@ describe("spending coins", () => {
     expect(bought).toMatchObject({ ok: true, price: PRICE_LIST.callMinutes5 });
     if (!bought.ok) throw Error("expected purchase");
     expect(bought.plan.economy.coins).toBe(100 - PRICE_LIST.callMinutes5);
-    expect(bought.plan.economy.callMinutes).toBe(5);
+    expect(bought.plan.economy.callSeconds).toBe(300);
     expect(bought.plan.economy.coinPurchases?.map(row => row.receiptId)).toEqual(["r1"]);
   });
 
@@ -357,15 +357,16 @@ describe("call clock", () => {
   const at = "2026-11-07T22:00:00.000Z";
   const earned = () => grantVideoCallTicket(createStarterCompanionCarePlan({ childId: "demo-pashley", companionId: "elli" }), "hw-1", at).plan;
 
-  it("opening an earned call adds the free minutes once", () => {
+  it("opening an earned call marks the ticket once and adds no free minutes", () => {
     const opened = markVideoCallTicketOpened(earned(), "hw-1", at);
-    expect(opened.plan.economy.callMinutes).toBe(CALL_RULES.freeMinutesPerBoard);
+    expect(opened.alreadyOpened).toBe(false);
+    expect(opened.plan.economy.callSeconds ?? 0).toBe(0);
     const again = markVideoCallTicketOpened(opened.plan, "hw-1", at);
-    expect(again.plan.economy.callMinutes).toBe(CALL_RULES.freeMinutesPerBoard);
+    expect(again.alreadyOpened).toBe(true);
   });
 
   it("spends one minute per receipt, once, and stops at zero", () => {
-    const start = { ...earned(), economy: { ...earned().economy, callMinutes: 2 } };
+    const start = { ...earned(), economy: { ...earned().economy, callSeconds: 120 } };
     const first = spendCallMinute(start, { receiptId: "m1", nowIso: at });
     expect(first).toMatchObject({ ok: true, minutesLeft: 1, duplicate: false });
     if (!first.ok) throw Error("expected a minute");
@@ -432,15 +433,15 @@ describe("a call after every completed board", () => {
     expect(next.plan.economy.videoCallTickets?.map(ticket => ticket.boardId)).toEqual(["hw-1:board:2", "hw-1:board:3"]);
   });
 
-  it("opens each board's call once, adding free minutes each time", () => {
+  it("opens each board's call once, and the call time is only what her chests earned", () => {
     let current = createStarterCompanionCarePlan({ childId: "demo-pashley", companionId: "elli" });
     current = grantVideoCallTicket(current, "hw-1", at3, undefined, "hw-1:board:2").plan;
     current = markVideoCallTicketOpened(current, "hw-1", at3).plan;
-    expect(current.economy.callMinutes).toBe(CALL_RULES.freeMinutesPerBoard);
+    expect(current.economy.callSeconds ?? 0).toBe(0);
     current = grantVideoCallTicket(current, "hw-1", at3, undefined, "hw-1:board:3").plan;
     const second = markVideoCallTicketOpened(current, "hw-1", at3);
     expect(second.alreadyOpened).toBe(false);
-    expect(second.plan.economy.callMinutes).toBe(2 * CALL_RULES.freeMinutesPerBoard);
+    expect(second.plan.economy.callSeconds ?? 0).toBe(0);
     expect(markVideoCallTicketOpened(second.plan, "hw-1", at3).alreadyOpened).toBe(true);
   });
 });

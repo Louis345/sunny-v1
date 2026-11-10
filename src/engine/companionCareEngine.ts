@@ -16,7 +16,7 @@ import type {
 } from "../shared/companionCareTypes";
 import type { TamagotchiState } from "../shared/vrrTypes";
 import { REWARD_GAMES } from "../shared/gameRegistry.generated";
-import { ARCADE_RULES, CALL_RULES, CHEST_RARITY_ODDS, COMPANION_STORE_ITEMS, CHEST_TABLE, ITEM_SHARE, PRICE_LIST, REWARD_CATALOG, eligibleDrops } from "../shared/rewardCatalog";
+import { ARCADE_RULES, CALL_TIME_LOOT, CHEST_RARITY_ODDS, COMPANION_STORE_ITEMS, CHEST_TABLE, ITEM_SHARE, PRICE_LIST, REWARD_CATALOG, eligibleDrops } from "../shared/rewardCatalog";
 
 type CareEffect = Partial<
   Pick<
@@ -260,7 +260,7 @@ export function markVideoCallTicketOpened(
       ...plan,
       economy: {
         ...plan.economy,
-        callMinutes: (plan.economy.callMinutes ?? 0) + CALL_RULES.freeMinutesPerBoard,
+        // No free minutes per board (2026-11-10): call time is earned as chest loot, so it cannot pile up.
         videoCallTickets: tickets.map((entry) =>
           entry === ticket ? { ...entry, openedAt: nowIso } : entry,
         ),
@@ -378,14 +378,17 @@ export function grantNodeChest(
   const misses = plan.economy.chestsSinceBonus ?? 0;
   const bonusChance = Math.min(1, table.bonusChance + PITY_STEP * misses);
   const lucky = roll() < bonusChance;
-  // A bonus is a collection item she does not own yet (no rarer than the chest) or call minutes.
+  // A bonus is a collection item she does not own yet (no rarer than the chest); pity counts chests without one.
   const owned = plan.inventory.rewards ?? [];
   const pool = lucky ? eligibleDrops(rarity, owned) : [];
   const item = pool.length && roll() < ITEM_SHARE ? pool[Math.min(pool.length - 1, Math.floor(roll() * pool.length))] : undefined;
-  const bonus: NodeChest["bonus"] = !lucky ? undefined : item ? { kind: "item", itemId: item.id } : { kind: "call_minutes", minutes: table.minutes };
+  const bonus: NodeChest["bonus"] = item ? { kind: "item", itemId: item.id } : undefined;
+  // Call time is small rolled loot on every chest (owner, 2026-11-10), rolled last from its one table.
+  const callRoll = roll();
+  const callSeconds = (CALL_TIME_LOOT.find((row) => callRoll < row.below) ?? CALL_TIME_LOOT[0]!).seconds;
   const chest: NodeChest = {
     homeworkId: input.homeworkId, nodeId: input.nodeId, kind: input.kind, rarity, coins, bonusChance,
-    ...(bonus ? { bonus } : {}), droppedAt: input.nowIso,
+    ...(bonus ? { bonus } : {}), callSeconds, droppedAt: input.nowIso,
   };
   return {
     granted: true,
@@ -393,10 +396,9 @@ export function grantNodeChest(
     plan: {
       ...plan,
       economy: {
-        ...plan.economy,
+        ...withCallSeconds(plan.economy, callSecondsOf(plan.economy) + callSeconds),
         coins: Math.max(0, Math.floor(plan.economy.coins)) + chest.coins,
-        callMinutes: (plan.economy.callMinutes ?? 0) + (bonus?.kind === "call_minutes" ? bonus.minutes : 0),
-        chestsSinceBonus: lucky ? 0 : misses + 1,
+        chestsSinceBonus: bonus ? 0 : misses + 1,
         nodeChests: [...chests, chest],
       },
       inventory: { ...plan.inventory, ...(item ? { rewards: [...owned, item.id] } : {}) },
@@ -444,9 +446,8 @@ export function purchaseWithCoins(
     plan: {
       ...plan,
       economy: {
-        ...plan.economy,
+        ...(offer.kind === "call_minutes" ? withCallSeconds(plan.economy, callSecondsOf(plan.economy) + offer.minutes * 60) : plan.economy),
         coins: balance - price,
-        ...(offer.kind === "call_minutes" ? { callMinutes: (plan.economy.callMinutes ?? 0) + offer.minutes } : {}),
         ...(offer.kind === "game_play"
           ? { arcadeMinutes: Math.max(0, Math.floor(plan.economy.arcadeMinutes ?? 0)) + ARCADE_RULES.minutesPerPlay }
           : {}),
@@ -460,10 +461,26 @@ export function purchaseWithCoins(
 
 const CALL_MINUTE_RECEIPTS_KEPT = 200;
 
+/** Her saved call time in seconds; legacy whole minutes count as 60 seconds each. */
+export function callSecondsOf(economy: Pick<CompanionCarePlan["economy"], "callSeconds" | "callMinutes">): number {
+  const seconds = Math.max(0, Math.floor(Number(economy.callSeconds ?? 0) || 0));
+  const legacyMinutes = Math.max(0, Math.floor(Number(economy.callMinutes ?? 0) || 0));
+  return seconds + legacyMinutes * 60;
+}
+
+/** The economy with her call time saved in seconds; the legacy minutes field is folded in and dropped. */
+function withCallSeconds(economy: CompanionCarePlan["economy"], seconds: number): CompanionCarePlan["economy"] {
+  const { callMinutes: _legacyMinutes, ...rest } = economy;
+  return { ...rest, callSeconds: Math.max(0, Math.floor(seconds)) };
+}
+
+/** The most call time one receipt pays for; the call clock asks again when it runs out. */
+const CALL_SECONDS_PER_RECEIPT = 60;
+
 /** What a paid minute is spent on: the earned call or a reward game. Both use one meter. */
 export type PaidMinuteKind = "call" | "arcade";
 type PaidMinuteResult =
-  | { ok: true; plan: CompanionCarePlan; minutesLeft: number; duplicate: boolean }
+  | { ok: true; plan: CompanionCarePlan; minutesLeft: number; secondsLeft: number; secondsGranted: number; duplicate: boolean }
   | { ok: false; reason: "no_minutes" };
 
 const PAID_MINUTE_FIELDS = {
@@ -479,15 +496,18 @@ export function spendPaidMinute(
   kind: PaidMinuteKind,
   input: { receiptId: string; nowIso: string },
 ): PaidMinuteResult {
+  if (kind === "call") return spendCallSeconds(plan, input);
   const fields = PAID_MINUTE_FIELDS[kind];
   const minutes = Math.max(0, Math.floor(plan.economy[fields.minutes] ?? 0));
   const receipts = plan.economy[fields.receipts] ?? [];
-  if (receipts.includes(input.receiptId)) return { ok: true, plan, minutesLeft: minutes, duplicate: true };
+  if (receipts.includes(input.receiptId)) return { ok: true, plan, minutesLeft: minutes, secondsLeft: minutes * 60, secondsGranted: 60, duplicate: true };
   if (minutes < 1) return { ok: false, reason: "no_minutes" };
   return {
     ok: true,
     duplicate: false,
     minutesLeft: minutes - 1,
+    secondsLeft: (minutes - 1) * 60,
+    secondsGranted: 60,
     plan: {
       ...plan,
       economy: {
@@ -500,7 +520,37 @@ export function spendPaidMinute(
   };
 }
 
-/** One minute of the earned call. */
+/** The call meter counts seconds (2026-11-10): each receipt pays up to a minute of what she has, the last
+ * few seconds exactly. A receipt remembers what it paid (`id@seconds`), so a retried tick is charged once. */
+function spendCallSeconds(plan: CompanionCarePlan, input: { receiptId: string; nowIso: string }): PaidMinuteResult {
+  const left = callSecondsOf(plan.economy);
+  const receipts = plan.economy.callMinuteReceipts ?? [];
+  const prior = receipts.find((entry) => entry === input.receiptId || entry.startsWith(`${input.receiptId}@`));
+  if (prior) {
+    const granted = Number(prior.split("@")[1]) || CALL_SECONDS_PER_RECEIPT;
+    return { ok: true, plan, minutesLeft: Math.floor(left / 60), secondsLeft: left, secondsGranted: granted, duplicate: true };
+  }
+  if (left < 1) return { ok: false, reason: "no_minutes" };
+  const granted = Math.min(CALL_SECONDS_PER_RECEIPT, left);
+  const next = left - granted;
+  return {
+    ok: true,
+    duplicate: false,
+    minutesLeft: Math.floor(next / 60),
+    secondsLeft: next,
+    secondsGranted: granted,
+    plan: {
+      ...plan,
+      economy: {
+        ...withCallSeconds(plan.economy, next),
+        callMinuteReceipts: [...receipts, `${input.receiptId}@${granted}`].slice(-CALL_MINUTE_RECEIPTS_KEPT),
+      },
+      updatedAt: input.nowIso,
+    },
+  };
+}
+
+/** One paid stretch (up to a minute) of the earned call. */
 export function spendCallMinute(plan: CompanionCarePlan, input: { receiptId: string; nowIso: string }): PaidMinuteResult {
   return spendPaidMinute(plan, "call", input);
 }

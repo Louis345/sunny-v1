@@ -79,7 +79,10 @@ export interface NodeChest {
   coins: number;
   /** The chance this chest held a bonus, including the pity counter; shown on the chest before it opens. */
   bonusChance: number;
+  /** A legacy chest's bonus may be call minutes; new chests drop only items as a bonus. */
   bonus?: { kind: "call_minutes"; minutes: number } | { kind: "item"; itemId: string };
+  /** Call time rolled from CALL_TIME_LOOT (2026-11-10); absent on chests saved before. */
+  callSeconds?: number;
   droppedAt: string;
 }
 
@@ -154,7 +157,9 @@ export interface CompanionCarePlan {
     bossDrops?: BossDrop[];
     /** One chest per finished node: rolled once, saved, never rolled again. */
     nodeChests?: NodeChest[];
-    /** Companion call minutes won from chests, spent on calls. */
+    /** Call time in seconds, won from chests (CALL_TIME_LOOT) or bought, spent on calls. */
+    callSeconds?: number;
+    /** Legacy whole call minutes; read as seconds (callSecondsOf) and migrated to callSeconds on save. */
     callMinutes?: number;
     /** Receipts of call minutes already spent, so a retried tick is charged once. */
     callMinuteReceipts?: string[];

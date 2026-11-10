@@ -98,3 +98,11 @@ it("announces an outfit drop as a new look for Elli", () => {
   expect(screen.getByText("Navy Ribbon Dress")).toBeTruthy();
   expect(screen.getByText("A new look for Elli! Try it on in your call.")).toBeTruthy();
 });
+
+// Bug 2026-11-10: call time is rolled chest loot in seconds; the open chest says what it paid so she sees it earned.
+it("shows the call time a chest paid", async () => {
+  const { chestFromServer, callTimeLabel } = await import("../components/NodeTreasureChest");
+  expect(chestFromServer({ kind: "common", rarity: "common", coins: 8, bonusChance: 0.45, callSeconds: 15 }).loot.callSeconds).toBe(15);
+  expect(callTimeLabel(15)).toBe("15 seconds");
+  expect(callTimeLabel(60)).toBe("1 minute");
+});

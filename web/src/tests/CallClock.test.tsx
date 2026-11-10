@@ -102,3 +102,30 @@ it("shows the new balance when the shop spends coins during the call", async () 
   act(() => { window.dispatchEvent(new CustomEvent(COINS_CHANGED_EVENT, { detail: { childId: "reina", coins: 5 } })); });
   expect(screen.getByText("40")).toBeTruthy();
 });
+
+// Bug 2026-11-10: call time is earned in seconds (10-20 s per stop), so the clock counts the seconds the server
+// grants, not whole minutes. Why the human caught it: FaceTime minutes piled up into long calls; why the logs did not:
+// whole-minute spends looked normal; why the lab missed it: the fake server only ever granted whole minutes.
+it("counts down the seconds the server grants and ends when they run out", async () => {
+  let saved = 15;
+  const spent: string[] = [];
+  vi.stubGlobal("fetch", vi.fn(async (url: string, init?: RequestInit) => {
+    const body = init?.body ? JSON.parse(String(init.body)) : {};
+    const json = (data: unknown) => ({ ok: true, json: async () => data });
+    if (url === "/api/rewards/call/ila") return json({ minutesLeft: 0, secondsLeft: saved, coins: 0, price: 30, minutes: 5, warnAtSecondsLeft: 60 });
+    if (url === "/api/rewards/call/minute") {
+      if (saved < 1) return json({ ok: false, reason: "no_minutes", coins: 0 });
+      const granted = Math.min(60, saved); saved -= granted; spent.push(body.receiptId);
+      return json({ ok: true, minutesLeft: 0, secondsLeft: saved, secondsGranted: granted, coins: 0 });
+    }
+    throw new Error(`unexpected ${url}`);
+  }));
+  const onMoment = vi.fn();
+  render(<CallClock childId="ila" callId="s1" active onMoment={onMoment} onGoodbye={() => {}} />);
+  await pass(0);
+  expect(spent).toEqual(["call:s1:1"]);
+  expect(screen.getByText("0:15")).toBeTruthy();
+  await pass(15_000);
+  expect(screen.getByText(/time's up/i)).toBeTruthy();
+  expect(onMoment).toHaveBeenLastCalledWith("time_up");
+});

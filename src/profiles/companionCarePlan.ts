@@ -2,6 +2,7 @@ import fs from "fs";
 import path from "path";
 import type { LearningProfile } from "../context/schemas/learningProfile";
 import {
+  callSecondsOf,
   companionCareToTamagotchi,
   createStarterCompanionCarePlan,
 } from "../engine/companionCareEngine";
@@ -81,7 +82,8 @@ function normalizeLoadedPlan(
       nodeChests: Array.isArray(plan.economy?.nodeChests)
         ? plan.economy.nodeChests.map((chest) => ({ ...chest, ...(chest.bonus ? { bonus: { ...chest.bonus } } : {}) }))
         : [],
-      callMinutes: Math.max(0, Math.floor(Number(plan.economy?.callMinutes ?? 0) || 0)),
+      // Call time is saved in seconds (2026-11-10); legacy whole minutes are folded in here.
+      callSeconds: callSecondsOf(plan.economy ?? {}),
       chestsSinceBonus: Math.max(0, Math.floor(Number(plan.economy?.chestsSinceBonus ?? 0) || 0)),
       // Arcade minutes and their receipts are her paid game time; dropping them would steal it.
       arcadeMinutes: Math.max(0, Math.floor(Number(plan.economy?.arcadeMinutes ?? 0) || 0)),

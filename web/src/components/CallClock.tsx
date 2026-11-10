@@ -9,12 +9,14 @@ export type CoinsChangedDetail = { childId: string; coins: number };
 /** A moment Elli reacts to in her own words; the server supplies the facts. */
 export type CallClockMoment = "minute_left" | "time_up" | "minutes_bought";
 
-type Clock = { minutesLeft: number; coins: number; price: number; minutes: number; warnAtSecondsLeft: number };
+/** secondsLeft is the saved time in seconds (call time is earned in seconds, 2026-11-10); older servers send minutes. */
+type Clock = { minutesLeft: number; secondsLeft?: number; coins: number; price: number; minutes: number; warnAtSecondsLeft: number };
+const savedSeconds = (clock: Clock): number => clock.secondsLeft ?? clock.minutesLeft * 60;
 type Phase = "loading" | "running" | "out" | "buying";
 /** What the paid minutes are spent on; both kinds use one meter on the server (owner, 2026-11-08). */
 export type PaidTimeKind = "call" | "arcade";
 type PurchaseOffer = { kind: "call_minutes"; minutes: 5 } | { kind: "game_play"; itemId: string; trial: boolean };
-type PurchaseResult = { ok: boolean; balance?: number; callMinutes?: number; arcadeMinutes?: number };
+type PurchaseResult = { ok: boolean; balance?: number; callMinutes?: number; callSeconds?: number; arcadeMinutes?: number };
 
 /** A call or a game is a few minutes; this caps the paid minutes one of them can ever request (Law 2). */
 const MAX_PAID_MINUTES: Record<PaidTimeKind, number> = { call: 120, arcade: 30 };
@@ -75,20 +77,21 @@ function usePaidTimeClock({
     minuteIndex.current += 1;
     const receiptId = `${kind}:${meterId}:${minuteIndex.current}`;
     try {
-      const result = await postJson<{ ok: boolean; minutesLeft?: number; coins: number }>(`/api/rewards/${kind}/minute`, { childId, receiptId });
+      const result = await postJson<{ ok: boolean; minutesLeft?: number; secondsLeft?: number; secondsGranted?: number; coins: number }>(`/api/rewards/${kind}/minute`, { childId, receiptId });
       if (!result.ok) {
         minuteIndex.current -= 1;
-        setClock((prior) => prior && { ...prior, minutesLeft: 0, coins: result.coins });
+        setClock((prior) => prior && { ...prior, minutesLeft: 0, secondsLeft: 0, coins: result.coins });
         setPhase("out");
         console.log(` 🎮 [${tag}] [minute] [out] child=${childId}`);
         onMomentRef.current?.("time_up");
         return false;
       }
-      setClock((prior) => prior && { ...prior, minutesLeft: result.minutesLeft ?? 0, coins: result.coins });
-      setSecondsInMinute(60);
+      const minutesLeft = result.minutesLeft ?? 0;
+      setClock((prior) => prior && { ...prior, minutesLeft, secondsLeft: result.secondsLeft ?? minutesLeft * 60, coins: result.coins });
+      setSecondsInMinute(result.secondsGranted ?? 60);
       setPhase("running");
       setEverRan(true);
-      console.log(` 🎮 [${tag}] [minute] [paid] child=${childId} receipt=${receiptId} left=${result.minutesLeft}`);
+      console.log(` 🎮 [${tag}] [minute] [paid] child=${childId} receipt=${receiptId} granted=${result.secondsGranted ?? 60}s left=${result.secondsLeft ?? minutesLeft * 60}s`);
       return true;
     } catch (error) {
       minuteIndex.current -= 1;
@@ -115,7 +118,7 @@ function usePaidTimeClock({
           console.log(` 🎮 [${tag}] [start] [earned] child=${childId} seconds=${Math.floor(freeSeconds)}`);
           return;
         }
-        if (startWithoutMinutes === "wait" && loaded.minutesLeft < 1) {
+        if (startWithoutMinutes === "wait" && savedSeconds(loaded) < 1) {
           setPhase("out");
           console.log(` 🎮 [${tag}] [start] [needs-coin] child=${childId}`);
           return;
@@ -146,7 +149,7 @@ function usePaidTimeClock({
 
   useEffect(() => {
     if (phase !== "running" || !clock) return;
-    const total = secondsInMinute + clock.minutesLeft * 60;
+    const total = secondsInMinute + savedSeconds(clock);
     if (!warned.current && total > 0 && total <= clock.warnAtSecondsLeft) {
       warned.current = true;
       onMomentRef.current?.("minute_left");
@@ -167,7 +170,13 @@ function usePaidTimeClock({
         return;
       }
       const minutes = kind === "call" ? result.callMinutes : result.arcadeMinutes;
-      setClock((prior) => prior && { ...prior, coins: result.balance ?? prior.coins, minutesLeft: minutes ?? prior.minutesLeft });
+      const seconds = kind === "call" && result.callSeconds !== undefined ? result.callSeconds : minutes !== undefined ? minutes * 60 : undefined;
+      setClock((prior) => prior && {
+        ...prior,
+        coins: result.balance ?? prior.coins,
+        minutesLeft: seconds !== undefined ? Math.floor(seconds / 60) : prior.minutesLeft,
+        secondsLeft: seconds ?? savedSeconds(prior),
+      });
       warned.current = false;
       console.log(` 🎮 [${tag}] [buy] [paid] child=${childId} receipt=${receiptId}`);
       if (await payNextMinute()) onMomentRef.current?.("minutes_bought");
@@ -177,7 +186,7 @@ function usePaidTimeClock({
     }
   };
 
-  const total = phase === "running" && clock ? secondsInMinute + clock.minutesLeft * 60 : 0;
+  const total = phase === "running" && clock ? secondsInMinute + savedSeconds(clock) : 0;
   const short = clock ? Math.max(0, clock.price - clock.coins) : 0;
   return { phase, clock, total, short, everRan, buy };
 }
