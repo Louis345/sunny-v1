@@ -39,8 +39,8 @@ describe("call-start look", () => {
   });
 
   it("checks the accessory for fit like the outfit", () => {
-    // Cat ears are not approved on Elli's dressable body; the dress is.
-    expect(fittedCallLook({ accessoryId: "cat-ears", outfitId: "sleeveless-dress" }, ELLI_BODY, "elli")).toEqual({ accessoryId: "none", outfitId: "sleeveless-dress" });
+    // Owner, 2026-11-10: cat ears passed the automated review on Elli's dressable body, so they stay on with the dress.
+    expect(fittedCallLook({ accessoryId: "cat-ears", outfitId: "sleeveless-dress" }, ELLI_BODY, "elli")).toEqual({ accessoryId: "cat-ears", outfitId: "sleeveless-dress" });
     expect(fittedCallLook({ accessoryId: "none", outfitId: "sleeveless-dress" }, "/companions/elli.vrm", "elli").outfitId).toBe("none");
   });
 });

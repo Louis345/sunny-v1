@@ -97,12 +97,12 @@ describe("wardrobe store domain", () => {
       "plum-ribbon-dress",
       "teal-ribbon-dress",
       "rose-ribbon-dress",
+      // Owner, 2026-11-10: an automated visual pass is approval, so garments with a passed review are listed too.
+      "comet-hoodie",
+      "constellation-blazer",
     ]);
-    expect(keflaItems.map((item) => item.id)).toEqual([
-      "royal-crown",
-      "cat-ears",
-      "star-halo",
-    ]);
+    // Kefla's garments passed the automated visual review, so they are hers to wear without a human sign-off.
+    expect(keflaItems.map((item) => item.id)).toEqual(sampleItems.map((item) => item.id));
     expect(matildaItems.map((item) => item.id)).toEqual(
       sampleItems.map((item) => item.id),
     );
@@ -117,11 +117,11 @@ describe("wardrobe store domain", () => {
     );
   });
 
-  it("quarantines an uncertified outfit even when the companion uses the standard body", () => {
+  it("quarantines an outfit with no human or automated evidence even when the companion uses the standard body", () => {
     const initial = createInitialWardrobeStoreState();
     const result = purchaseWardrobeItem(initial, {
       itemId: "sleeveless-dress",
-      companionId: "princess",
+      companionId: "ghost-without-review",
       companionModelUrl: "/companions/sample.vrm",
       transactionId: "uncertified-standard-body",
       occurredAt: "2026-08-08T12:00:00.000Z",
@@ -207,7 +207,7 @@ describe("wardrobe store domain", () => {
     const initial = createInitialWardrobeStoreState({ initialCoins: 30 });
     const incompatible = purchaseWardrobeItem(initial, {
       itemId: "sleeveless-dress",
-      companionId: "kefla",
+      companionId: "ghost-without-review",
       companionModelUrl: "/companions/Kefla.vrm",
       transactionId: "bad-fit",
       occurredAt: "2026-08-08T12:00:00.000Z",

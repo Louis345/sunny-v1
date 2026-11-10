@@ -5,11 +5,12 @@ import bodies from '../lib/wardrobePrepared.generated.json';
 import fits from '../lib/wardrobeFitted.generated.json';
 const model=bodies[0].modelUrl;
 afterEach(()=>vi.restoreAllMocks());
-it('requires a reviewed exact pair even if each item has standalone approval',()=>{
+// Owner, 2026-11-10: no human sign-off on pairs; two items she may wear are worn together (see wardrobePairNoSignoff).
+it('wears an exact pair of individually approved items without a reviewed pair record',()=>{
  vi.spyOn(certification,'resolveWardrobeTemplateCertification').mockReturnValue({companionId:'elli',templateId:'fixture',status:'approved',reason:'TEST ONLY'});
  const state={...createInitialWardrobeStoreState(),ownedItemIds:['sleeveless-dress','royal-crown'],equippedByCompanion:{elli:{outfitItemId:'sleeveless-dress'}}};
- expect(equipWardrobeItem(state,'elli','royal-crown',model).status).toBe('incompatible');
- expect(resolveEquippedWardrobeSelection({...state,equippedByCompanion:{elli:{outfitItemId:'sleeveless-dress',accessoryItemId:'royal-crown'}}},'elli',model)).toEqual({outfitId:'none',accessoryId:'none'});
+ expect(equipWardrobeItem(state,'elli','royal-crown',model).status).toBe('equipped');
+ expect(resolveEquippedWardrobeSelection({...state,equippedByCompanion:{elli:{outfitItemId:'sleeveless-dress',accessoryItemId:'royal-crown'}}},'elli',model)).toMatchObject({outfitId:'sleeveless-dress',accessoryId:'crown'});
 });
 it('invalidates pair approval on garment, variant, companion or fitted-output changes',()=>{
  const version=getWardrobePairVersion('elli',model,'sleeveless-dress','royal-crown');

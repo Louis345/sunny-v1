@@ -4,7 +4,9 @@ import {
   resolveWardrobeTemplateCertification,
   isWardrobePairApproved,
   wardrobeBodyOwnerId,
+  type WardrobeEngineeringReview,
 } from "./wardrobeBodyProfiles";
+import engineeringReviews from "./wardrobeEngineeringReview.json";
 import preparedBodies from './wardrobePrepared.generated.json';
 import fittedGarments from './wardrobeFitted.generated.json';
 import assetVersions from './wardrobeAssetVersions.generated.json';
@@ -503,12 +505,23 @@ export function isWardrobeStoreItemCompatible(
     (bodyProfileId !== null &&
       item.compatibility.bodyProfileIds.includes(bodyProfileId));
   if (!bodyCompatible) return false;
+  // A human review or an automated visual pass is approval (owner, 2026-11-10: no human sign-off required).
+  return wardrobeItemEvidence(item, companionModelUrl, companionId) !== "none";
+}
+
+/** What vouches for one item on this companion: a human-reviewed fit, an automated pass, or nothing yet. */
+export function wardrobeItemEvidence(item: WardrobeStoreItem, companionModelUrl: string, companionId: string, records: readonly WardrobeEngineeringReview[] = engineeringReviews): WardrobePairEvidence {
   const templateId = item.templateId ?? (item.asset.kind === "accessory" ? item.id : null);
-  if (!templateId) return false;
-  return (
-    resolveWardrobeTemplateCertification(companionId, templateId, companionModelUrl).status ===
-    "approved"
-  );
+  if (!templateId) return "none";
+  if (resolveWardrobeTemplateCertification(companionId, templateId, companionModelUrl).status === "approved") return "human";
+  const record = records.find(r => r.companionId === wardrobeBodyOwnerId(companionId));
+  if (record?.automated !== "passed") return "none";
+  if (item.asset.kind === "accessory") {
+    const accessoryId = item.asset.accessoryId;
+    return record.supplemental?.some(e => e.check.endsWith(`:${accessoryId}`) && e.path.trim()) ? "automated" : "none";
+  }
+  const outfitId = item.asset.outfitId;
+  return record.garments.some(g => g.outfitId === outfitId && g.visual === "passed") ? "automated" : "none";
 }
 
 export function getCompatibleWardrobeItems(
@@ -540,9 +553,28 @@ export function getWardrobePairVersion(requestedCompanionId:string,modelUrl:stri
  return JSON.stringify({modelUrl,body:body.preparedSha256,recipe:body.recipeVersion,outfitItemId,accessoryItemId,outfitVersion,fit:fit.sha256,variant:outfit.asset.materialVariant,accessoryVersion});
 }
 
-function isEquippedPairApproved(companionId:string,modelUrl:string,equipped:EquippedWardrobe){
- if(!equipped.outfitItemId||!equipped.accessoryItemId)return true;
- return isWardrobePairApproved(companionId,equipped.outfitItemId,equipped.accessoryItemId,getWardrobePairVersion(companionId,modelUrl,equipped.outfitItemId,equipped.accessoryItemId));
+/** What vouches for an outfit + accessory pair: an automated visual pass in the engineering review, a recorded
+ * human review, or nothing yet. */
+export type WardrobePairEvidence = "automated" | "human" | "none";
+export function wardrobePairEvidence(requestedCompanionId:string,outfitItemId:string,accessoryItemId:string,modelUrl?:string,records:readonly WardrobeEngineeringReview[]=engineeringReviews):WardrobePairEvidence{
+ const outfit=getWardrobeStoreItem(outfitItemId),accessory=getWardrobeStoreItem(accessoryItemId);
+ const outfitAsset=outfit?.asset,accessoryAsset=accessory?.asset;
+ if(outfitAsset?.kind!=='outfit'||accessoryAsset?.kind!=='accessory')return 'none';
+ const outfitId=outfitAsset.outfitId;
+ const record=records.find(r=>r.companionId===wardrobeBodyOwnerId(requestedCompanionId));
+ const garment=record?.garments.find(g=>g.outfitId===outfitId);
+ const pairCheck=`${outfitId}:${accessoryAsset.accessoryId}`;
+ if(record?.automated==='passed'&&garment?.visual==='passed'&&record.supplemental?.some(e=>e.check===pairCheck&&e.path.trim()))return 'automated';
+ if(modelUrl&&isWardrobePairApproved(requestedCompanionId,outfitItemId,accessoryItemId,getWardrobePairVersion(requestedCompanionId,modelUrl,outfitItemId,accessoryItemId)))return 'human';
+ return 'none';
+}
+
+/** Anything she earned she can wear, in any combination (owner, 2026-11-10: no human sign-off). A pair with no
+ * automated evidence is still worn; it is flagged in the log so a broken look can be found, never refused. */
+function flagUnverifiedPair(companionId:string,modelUrl:string,equipped:EquippedWardrobe):void{
+ if(!equipped.outfitItemId||!equipped.accessoryItemId)return;
+ if(wardrobePairEvidence(companionId,equipped.outfitItemId,equipped.accessoryItemId,modelUrl)!=='none')return;
+ console.warn(` 🎮 [wardrobe-store] [pair] [unverified] companion=${companionId} outfit=${equipped.outfitItemId} accessory=${equipped.accessoryItemId}`);
 }
 
 export type WardrobePurchaseStatus =
@@ -654,10 +686,7 @@ export function equipWardrobeItem(
     item.asset.kind === "accessory"
       ? { ...previous, accessoryItemId: item.id }
       : { ...previous, outfitItemId: item.id };
-  if(!isEquippedPairApproved(companionId,companionModelUrl,equipped)){
-    console.warn(` 🎮 [wardrobe-store] equip rejected companion=${companionId} reason=uncertified_pair`);
-    return {state,status:'incompatible'};
-  }
+  flagUnverifiedPair(companionId,companionModelUrl,equipped);
   return {
     status: "equipped",
     state: {
@@ -710,7 +739,6 @@ export function resolveEquippedWardrobeSelection(
   const equipped = state.equippedByCompanion[companionId];
   const empty: WardrobeSelection = { accessoryId: "none", outfitId: "none" };
   if (!equipped) return empty;
-  if(!isEquippedPairApproved(companionId,companionModelUrl,equipped))return empty;
   const accessory = getWardrobeStoreItem(equipped.accessoryItemId ?? "");
   const outfit = getWardrobeStoreItem(equipped.outfitItemId ?? "");
   const compatibleAccessory =

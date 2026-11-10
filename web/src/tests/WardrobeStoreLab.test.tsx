@@ -92,8 +92,9 @@ describe("WardrobeStoreLab shopping call", () => {
     expect(screen.getByRole("button", { name: "View Navy Ribbon Dress, 130 coins" })).toBeTruthy();
     expect(screen.queryByRole("button", { name: /Blue Celtic Sweater/ })).toBeNull();
     expect(screen.queryByRole("button", { name: /Galaxy Hero Outfit/ })).toBeNull();
-    expect(screen.queryByRole("button", { name: /Comet Hoodie/ })).toBeNull();
-    expect(screen.queryByRole("button", { name: /Constellation Blazer/ })).toBeNull();
+    // Owner, 2026-11-10: garments with an automated visual pass are approved; she can preview them locked.
+    expect(screen.getByRole("button", { name: /Comet Hoodie/ }).className).toContain("is-locked");
+    expect(screen.getByRole("button", { name: /Constellation Blazer/ }).className).toContain("is-locked");
     expect(screen.queryByRole("heading", { name: "The Lantern Room" })).toBeNull();
   });
 
@@ -443,7 +444,7 @@ describe("WardrobeStoreLab shopping call", () => {
     expect(onExit).toHaveBeenCalledTimes(1);
   });
 
-  it("keeps unapproved downloaded outfits out of other character stores", () => {
+  it("lists another character's outfits once they passed the automated review (no human sign-off)", () => {
     render(
       <WardrobeStoreLab
         companion={{
@@ -458,7 +459,7 @@ describe("WardrobeStoreLab shopping call", () => {
       />,
     );
 
-    expect(screen.queryByRole("button", { name: /Navy Ribbon Dress/ })).toBeNull();
+    expect(screen.getByRole("button", { name: /Navy Ribbon Dress/ })).toBeTruthy();
     expect(screen.getByRole("button", { name: "View Royal Crown, 50 coins" })).toBeTruthy();
   });
 
