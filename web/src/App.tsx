@@ -203,6 +203,9 @@ function CompanionLayerWithCare(props: CompanionLayerProps) {
   );
 }
 
+/** Owner 2026-11-09: the food/mood strip under the companion is hidden; companion care itself stays. */
+const SHOW_CARE_STRIP = false;
+
 function CompanionEconomyControls(props: {
   visible: boolean;
   companionName: string;
@@ -235,12 +238,13 @@ function CompanionEconomyControls(props: {
         </button>
       ) : null}
       {props.callOnly ? null : <>
+      {SHOW_CARE_STRIP ? (
       <TamagotchiStrip
         tamagotchi={props.tamagotchi}
         companionCare={companionCare.care}
         balance={props.balance}
         onOpenSheet={() => setShopOpen(true)}
-      />
+      />) : null}
       <TamagotchiSheet
         open={shopOpen}
         tamagotchi={props.tamagotchi}
