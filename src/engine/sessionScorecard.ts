@@ -6,6 +6,7 @@ import { listChildProductIssues } from "./productIssues";
 import { sessionGames, type SessionGame } from "./sessionTimeline";
 import { raiseParentAlert } from "./sunnyHealth";
 import { scorePlannerCalls } from "./plannerIntrospection";
+import { minutesByDay, minutesLine, sessionMinutes, type SessionMinutes } from "./sessionTime";
 
 /**
  * One scorecard per session, counted by code (owner, 2026-11-09: "how do we measure we are heading in the right
@@ -19,6 +20,8 @@ export type SessionScorecard = {
   games: Array<Pick<SessionGame, "title" | "answers" | "right" | "finished"> & { minutesToFirstAnswer: number | null }>;
   helpRequests: number; bugsReported: number;
   predictions: { checked: number; inRange: number };
+  /** Where the session's minutes went, from its own records (owner, 2026-11-10). Absent on older cards. */
+  minutes?: SessionMinutes;
 };
 
 const SYNTHETIC = /(^|[:_-])(synthetic|playwright|browser-acceptance|readiness)([:_-]|$)/i;
@@ -60,6 +63,7 @@ export function writeSessionScorecard(input: { childId: string; homeworkId?: str
         const answered = scorePlannerCalls(cycle).filter(call => call.answer && Date.parse(call.answer.observedAt) >= from);
         return { checked: answered.length, inRange: answered.filter(call => call.hit).length };
       })(),
+      ...(() => { const minutes = sessionMinutes(input.sessionDir, cycle); return minutes ? { minutes } : {}; })(),
     };
     // Answers she gave in games against answers saved (2026-11-10: 37 given, 0 saved, and nothing compared them).
     // Every try is saved, retries included, and an answer saved as not scorable is saved, not lost.
@@ -68,7 +72,7 @@ export function writeSessionScorecard(input: { childId: string; homeworkId?: str
     const file = scorecardFile(cycle, opts);
     fs.mkdirSync(path.dirname(file), { recursive: true });
     fs.appendFileSync(file, `${JSON.stringify(card)}\n`, "utf8");
-    console.log(` 🎮 [scorecard] [written] child=${input.childId} homework=${cycle.homeworkId} answers=${card.answers.total} own=${card.answers.onHerOwnRight}/${card.answers.onHerOwn} help=${card.helpRequests}`);
+    console.log(` 🎮 [scorecard] [written] child=${input.childId} homework=${cycle.homeworkId} answers=${card.answers.total} own=${card.answers.onHerOwnRight}/${card.answers.onHerOwn} help=${card.helpRequests} learningMin=${card.minutes?.learning ?? "unknown"} playMin=${card.minutes?.play ?? "unknown"} callMin=${card.minutes?.call ?? "unknown"}`);
     return card;
   } catch (error) {
     console.error(` 🎮 [scorecard] [failed] child=${input.childId} reason=${error instanceof Error ? error.message : String(error)}`);
@@ -76,12 +80,22 @@ export function writeSessionScorecard(input: { childId: string; homeworkId?: str
   }
 }
 
+function readScorecards(cycle: Pick<LearningCycleRecordV2, "childId" | "homeworkId">, opts: LearningCycleRepositoryOptions = {}): SessionScorecard[] {
+  const file = scorecardFile(cycle, opts);
+  return fs.existsSync(file) ? fs.readFileSync(file, "utf8").split("\n").flatMap(line => { try { return line.trim() ? [JSON.parse(line) as SessionScorecard] : []; } catch { return []; } }) : [];
+}
+
+/** Her minutes per session and per day on this homework, for the Planner's read_record (owner, 2026-11-10). */
+export function timeRecord(cycle: Pick<LearningCycleRecordV2, "childId" | "homeworkId">, opts: LearningCycleRepositoryOptions = {}) {
+  const sessions = readScorecards(cycle, opts).flatMap(card => card.minutes ? [{ sessionId: card.sessionId, startedAt: card.startedAt, minutes: card.minutes }] : []);
+  return { sessions, days: minutesByDay(sessions) };
+}
+
 /** The last few scorecards for this homework, oldest first, one line each: the trend the Planner reads. */
 export function scorecardSection(cycle: LearningCycleRecordV2, opts: LearningCycleRepositoryOptions = {}, limit = 6): string {
   const header = "Her session scorecards (counted by code after each session, oldest first):";
-  const file = scorecardFile(cycle, opts);
-  const cards = fs.existsSync(file) ? fs.readFileSync(file, "utf8").split("\n").flatMap(line => { try { return line.trim() ? [JSON.parse(line) as SessionScorecard] : []; } catch { return []; } }).slice(-limit) : [];
+  const cards = readScorecards(cycle, opts).slice(-limit);
   if (!cards.length) return `${header}\n- No scorecard yet.`;
   return [header, ...cards.map(card => `- ${card.startedAt.slice(0, 16).replace("T", " ")}: on her own ${card.answers.onHerOwnRight} of ${card.answers.onHerOwn} right${card.answers.retries ? `; ${card.answers.retries} retries after a first try` : ""}; with help ${card.answers.withHelp}; help asked ${card.helpRequests} times; bugs she reported ${card.bugsReported}; games: ${
-    card.games.map(game => `${game.title} first answer after ${game.minutesToFirstAnswer === null ? "none" : `${game.minutesToFirstAnswer.toFixed(1)} min`}${game.finished ? "" : " (not finished)"}`).join(", ") || "none"}; the Planner's calls checked ${card.predictions.checked}, right ${card.predictions.inRange}`)].join("\n");
+    card.games.map(game => `${game.title} first answer after ${game.minutesToFirstAnswer === null ? "none" : `${game.minutesToFirstAnswer.toFixed(1)} min`}${game.finished ? "" : " (not finished)"}`).join(", ") || "none"}; the Planner's calls checked ${card.predictions.checked}, right ${card.predictions.inRange}${card.minutes ? `; minutes: ${minutesLine(card.minutes)}` : ""}`)].join("\n");
 }

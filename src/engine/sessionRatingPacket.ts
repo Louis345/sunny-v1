@@ -7,6 +7,7 @@ import { listChildProductIssues } from "./productIssues";
 import { measureRecordLines, type SessionPacket } from "./sessionRating";
 import { gameTrackRecord } from "./gameTrackRecord";
 import { observationNode } from "./observationNode";
+import { sessionMinutes } from "./sessionTime";
 
 /** When the 11/10 batch reached Saori: games built after it must report their step. */
 const BATCH_AT = Date.parse("2026-11-10T20:00:00Z");
@@ -70,8 +71,9 @@ export function loadSessionPacket(input: { childId: string; sessionDir: string; 
     newProblems: (cycle?.nodes ?? []).flatMap(node => Object.values(node.evidenceContract.itemContracts ?? {})).filter(item => item.lineage.sourceEvidenceIds.some(id => id.startsWith("planner-written:"))).length,
     trackRecordGames: track.length,
   });
+  const minutes = sessionMinutes(input.sessionDir, cycle);
   return {
-    extra,
+    extra, ...(minutes ? { minutes } : {}),
     childId: input.childId, domain: cycle?.domain ?? "unknown", sessionId: metadata.sessionId ?? path.basename(input.sessionDir), startedAt, endedAt,
     traces, events: lines("events.ndjson"), transcript, observations,
     evidence: [...(cycle?.evidence.academic ?? []), ...(cycle?.evidence.engagement ?? [])].map(row => ({ evidenceId: row.evidenceId, summary: row.summary })),

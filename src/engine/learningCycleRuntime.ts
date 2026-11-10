@@ -3,7 +3,7 @@ import { plannerDecisionView, plannerObservationView } from "./plannerEvidenceVi
 import { successorMenuFacts } from "./plannerMenu";
 import { schoolTestFacts, schoolTestLine, SPELLING_TEST_CONDITIONS } from "./schoolTestObjective";
 import { handoffSection } from "./sessionHandoff";
-import { scorecardSection } from "./sessionScorecard";
+import { scorecardSection, timeRecord } from "./sessionScorecard";
 import { observationNode } from "./observationNode";
 import { gameTrackRecord } from "./gameTrackRecord";
 import { childFeedbackSection, ownerReplanLine, plannerCallsSection, schoolTestSection, mathTrackRecordSection, plannerJournalSection, spellingTrackRecordSection, writePlannerJournalEntry, type PlannerSelfReview } from "./plannerIntrospection";
@@ -942,11 +942,12 @@ async function askPlanner(
     const idPrefix=`${cycle.homeworkId}-r${checkpointRevision}-step`;
     // The newest evidence summaries (per-word response times, frustration, help) stay in the question; older ones are in read_record.
     const recentEvidence=JSON.stringify({academic:factualEvidence.academic.slice(-12),engagement:factualEvidence.engagement.slice(-12),companionObservations:factualEvidence.companionObservations.slice(-12)});
-    const RECORD_LINE=`Her newest evidence summaries (the 12 newest of each kind; per-word response times are here):\n${recentEvidence}\nHer full record is behind read_record, a page at a time: lifecycle, assignment, theory, predictions, prediction_evaluations, evidence (all of it), observations (every answer), stops, learning_history, prior_plan. The summaries above are drawn from it.`;
+    const RECORD_LINE=`Her newest evidence summaries (the 12 newest of each kind; per-word response times are here):\n${recentEvidence}\nHer full record is behind read_record, a page at a time: lifecycle, assignment, theory, predictions, prediction_evaluations, evidence (all of it), observations (every answer), stops, learning_history, prior_plan, time (her minutes per session and per day: learning games, play, call, waiting, map). The summaries above are drawn from it.`;
     const cycleFacts=()=>JSON.stringify({ lifecycle: cycle.lifecycle, assignment: cycle.assignment, theory: cycle.academicTheory, predictions: cycle.academicPredictions, predictionEvaluations: cycle.predictionEvaluations, evidence: factualEvidence, observations: factualObservations, nodes: cycle.nodes.map((node) => ({ nodeId: node.nodeId, role: node.role, title: node.title, state: node.state, routeId: node.routeId, evidenceIds: node.evidenceIds.filter((id) => !isSynthetic(id)) })) });
     // The raw record is a tool, not part of the question (2026-11-10: 431,000 characters drowned the summaries).
     const record:Record<string,unknown>=JSON.parse(cycleFacts());
-    Object.assign(record,{stops:record.nodes,prediction_evaluations:record.predictionEvaluations,learning_history:childContext.learningHistory,prior_plan:(childContext as Record<string,unknown>).priorPlan});
+    // time: her minutes per session and per day (learning games, play, call, waiting, map), to weigh effort against results (owner, 2026-11-10).
+    Object.assign(record,{stops:record.nodes,prediction_evaluations:record.predictionEvaluations,learning_history:childContext.learningHistory,prior_plan:(childContext as Record<string,unknown>).priorPlan,time:timeRecord(cycle,opts)});
     delete record.nodes; delete record.predictionEvaluations;
     const {learningHistory:_history,...chartInline}=childContext as Record<string,unknown>; delete chartInline.priorPlan;
     // Math: her recorded problems exactly as saved at intake, never re-authored; the menu is the one menu minus math's stated exceptions.

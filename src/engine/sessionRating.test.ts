@@ -56,6 +56,12 @@ describe("session rating against the pre-registered success criteria", () => {
     for (const id of ["N1", "N2", "N3", "N4", "G7"]) expect(rating.lines.find(row => row.id === id)!.pass, id).toBe(true);
   });
 
+  // Owner 2026-11-10: the rating should show learning vs play minutes beside the verdict (facts, not a criterion).
+  it("shows where the session's minutes went beside the verdict", () => {
+    const packet = { ...reinaMorning(), minutes: { learning: 14, play: 3, call: 5, waiting: 6, map: 4, other: 3, unmeasured: 0, total: 35 } };
+    expect(rateSession(packet).text).toContain("Time: learning games 14 min, play (Mystery/arcade) 3 min, call 5 min, waiting/loading 6 min, map 4 min");
+  });
+
   it("fails a line it cannot measure yet, never passes it by default", () => {
     const rating = rateSession(reinaMorning());
     expect(rating.lines.find(row => row.id === "G20")).toMatchObject({ pass: false, value: expect.stringContaining("not measurable") });

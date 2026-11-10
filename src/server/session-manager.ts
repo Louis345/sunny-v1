@@ -950,7 +950,7 @@ export class SessionManager {
       console.warn(" 🎮 [screen] [report] [rejected] malformed");
       return;
     }
-    this.screenReport = report;
+    this.screenReport = report; this.debugRecorder?.recordEvent?.("screen", "report", { ...report }); // saved for learning vs play minutes (2026-11-10)
     console.log(` 🎮 [screen] [report] [received] screen=${report.screen} board=${report.boardId ?? "none"} node=${report.nodeId ?? "none"}`);
   }
 

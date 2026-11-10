@@ -14,9 +14,13 @@ export type SessionPacket = {
   productIssues: Array<{ createdAt: string; source?: string; issueType?: string; childUtterance?: string }>;
   handoffWritten: boolean;
   serverLog?: string[];
+  /** Where the session's minutes went (owner, 2026-11-10): shown beside the verdict, never a criterion. */
+  minutes?: SessionMinutes;
   /** Facts read outside the session, each named after its line (G9, G11...). Absent means not measurable yet. */
   extra?: Partial<Record<string, { value: string; pass: boolean }>>;
 };
+
+import { minutesLine, type SessionMinutes } from "./sessionTime";
 
 export type RatingLine = { id: string; what: string; target: string; value: string; pass: boolean };
 
@@ -111,6 +115,7 @@ export function rateSession(packet: SessionPacket): { lines: RatingLine[]; verdi
   const must = lines.filter(line => line.id.startsWith("N")), graded = lines.filter(line => line.id.startsWith("G") && !notApplicable(line));
   const verdict = must.every(line => line.pass) && graded.filter(line => line.pass).length >= Math.ceil(graded.length * 0.8) ? "PASS" : "FAIL";
   const text = [`Rating for ${packet.childId}, session ${packet.sessionId} (${packet.startedAt.slice(0, 16).replace("T", " ")}): ${verdict}`,
+    ...(packet.minutes ? [`Time: ${minutesLine(packet.minutes)}.`] : ["Time: not measured for this session."]),
     `Must-never: ${must.filter(line => line.pass).length} of ${must.length} pass. Graded: ${graded.filter(line => line.pass).length} of ${graded.length} pass (80% needed; ${lines.length - must.length - graded.length} not applicable this session).`,
     "", "| # | What | Target | This session | Result |", "|---|---|---|---|---|",
     ...lines.map(line => `| ${line.id} | ${line.what} | ${line.target} | ${line.value.replace(/\|/g, "/")} | ${notApplicable(line) ? "N/A" : line.pass ? "PASS" : "FAIL"} |`)].join("\n");

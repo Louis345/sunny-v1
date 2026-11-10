@@ -10,7 +10,8 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { createLearningCycle } from "./learningCycleRepository";
 import { recordCanonicalNodeCompletion } from "./learningCycleRuntime";
-import { writeSessionScorecard } from "./sessionScorecard";
+import { scorecardSection, timeRecord, writeSessionScorecard } from "./sessionScorecard";
+import { getLearningCycle } from "./learningCycleRepository";
 
 const item = (id: string) => ({ id, prompt: `What comes next? ${id}`, lineage: { sourceEvidenceIds: ["pdf:1"], exposure: "unseen" as const, measurementRole: "fresh_checkpoint" as const }, response: { mode: "numeric" as const, expected: 17 } });
 
@@ -38,6 +39,11 @@ describe("session scorecard with retries", () => {
       const card = writeSessionScorecard({ childId: "lab-child", homeworkId: "hw-math", sessionDir }, { rootDir })!;
       expect(card.answers).toMatchObject({ given: 5, firstTries: 2, firstTryRight: 1, retries: 3 });
       expect(fs.existsSync(path.join(rootDir, "src/context/lab-child/sunny_health/parent-alerts.ndjson"))).toBe(false);
+      // Owner 2026-11-10: learning vs play minutes, per session and per day, for the Planner to weigh against results.
+      expect(card.minutes).toMatchObject({ learning: expect.any(Number), play: 0, call: 0 });
+      const cycle = getLearningCycle("lab-child", "hw-math", { rootDir })!;
+      expect(scorecardSection(cycle, { rootDir })).toMatch(/minutes: learning games [\d.]+ min, play \(Mystery\/arcade\) 0 min/);
+      expect(timeRecord(cycle, { rootDir })).toEqual({ sessions: [{ sessionId: "s1", startedAt, minutes: card.minutes }], days: [expect.objectContaining({ sessions: 1, minutes: card.minutes })] });
     } finally { fs.rmSync(rootDir, { recursive: true, force: true }); }
   });
 });
