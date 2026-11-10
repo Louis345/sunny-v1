@@ -1743,7 +1743,8 @@ function App() {
       plannerBoardIframeCompletionKeyRef.current = null;
       console.error(" 🎮 [AdventureBoard] canonical_completion_failed", error);
       if (homeworkSessionFinishedRef.current) return;
-      setPostActivityEngagement({ node: launch.node, outcome: { completed: false }, title: "Progress could not be saved", stats: [], canTryHarder: false });
+      const held = error instanceof Error && error.message === "canonical_node_completion_held";
+      setPostActivityEngagement({ node: launch.node, outcome: { completed: false }, title: held ? "Your work is kept safe. A grown-up will finish saving it." : "Progress could not be saved", stats: [], canTryHarder: false });
     });
   }, [adventureChildId, plannerBoardLaunch, plannerBoardPacket, refreshPlannerBoardPacket, showPlannerBoardEngagementOverlay, state.voiceSessionId]);
 

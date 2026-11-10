@@ -4,6 +4,7 @@ import { resolveChildContextDir } from "../utils/contextRoot";
 import { getLearningCycle, type LearningCycleRecordV2, type LearningCycleRepositoryOptions } from "./learningCycleRepository";
 import { listChildProductIssues } from "./productIssues";
 import { sessionGames, type SessionGame } from "./sessionTimeline";
+import { raiseParentAlert } from "./sunnyHealth";
 
 /**
  * One scorecard per session, counted by code (owner, 2026-11-09: "how do we measure we are heading in the right
@@ -12,7 +13,7 @@ import { sessionGames, type SessionGame } from "./sessionTimeline";
  */
 export type SessionScorecard = {
   sessionId: string; startedAt: string; homeworkId: string;
-  answers: { total: number; right: number; onHerOwn: number; onHerOwnRight: number; withHelp: number; helpNotRecorded: number };
+  answers: { total: number; right: number; onHerOwn: number; onHerOwnRight: number; withHelp: number; helpNotRecorded: number; given: number };
   games: Array<Pick<SessionGame, "title" | "answers" | "right" | "finished"> & { minutesToFirstAnswer: number | null }>;
   helpRequests: number; bugsReported: number;
   predictions: { checked: number; inRange: number };
@@ -42,7 +43,8 @@ export function writeSessionScorecard(input: { childId: string; homeworkId?: str
     const card: SessionScorecard = {
       sessionId: metadata.sessionId ?? path.basename(input.sessionDir), startedAt: metadata.startedAt, homeworkId: cycle.homeworkId,
       answers: { total: known.length, right: known.filter(row => row.result.correct).length, onHerOwn: own.length, onHerOwnRight: own.filter(row => row.result.correct).length,
-        withHelp: rows.filter(row => row.assistance.status === "assisted").length, helpNotRecorded: rows.length - known.length },
+        withHelp: rows.filter(row => row.assistance.status === "assisted").length, helpNotRecorded: rows.length - known.length,
+        given: sessionGames(input.sessionDir).reduce((sum, game) => sum + game.answers, 0) },
       games: sessionGames(input.sessionDir).map(game => ({ title: game.title, answers: game.answers, right: game.right, finished: game.finished,
         minutesToFirstAnswer: game.firstAnswerMin === null ? null : round1(game.firstAnswerMin - game.openedMin) })),
       helpRequests: childTurns.filter(text => /\bhelp\b/i.test(text)).length,
@@ -52,6 +54,9 @@ export function writeSessionScorecard(input: { childId: string; homeworkId?: str
         return { checked: checked.length, inRange: checked.filter(row => row.observedMetric! >= row.predictedMetric.min && row.observedMetric! <= row.predictedMetric.max).length };
       })(),
     };
+    // Answers she gave in games against answers saved (2026-11-10: 37 given, 0 saved, and nothing compared them).
+    if (card.answers.given > rows.length) void raiseParentAlert({ childId: input.childId, kind: "answers_not_saved",
+      text: `${card.answers.given} answers given in games but ${rows.length} saved in session ${card.sessionId}.` }, { rootDir: opts.rootDir });
     const file = scorecardFile(cycle, opts);
     fs.mkdirSync(path.dirname(file), { recursive: true });
     fs.appendFileSync(file, `${JSON.stringify(card)}\n`, "utf8");

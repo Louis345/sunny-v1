@@ -1,3 +1,4 @@
+import { holdCompletion, raiseParentAlert } from "../engine/sunnyHealth";
 import { awardBossDropOnCompletion, awardDiscoveryChest, awardNodeChestOnCompletion, boardFinishedForCall } from "./bossDropAward";
 import { awardCreatureEncounterOnCompletion, countBoardForCreatures, registerCreatureRoutes } from "./creatureCare";
 import type { CoinOffer } from "../shared/companionCareTypes";
@@ -1031,6 +1032,8 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
       console.log(` 🎮 [learning-cycle-route] [completion] [preview-skipped] child=${childId} node=${nodeId}`);
       return res.json({ ok: true, skippedPersistence: true });
     }
+    // Her answers as sent: held, never lost, when the record refuses them (2026-11-10).
+    let completionInput: Parameters<typeof recordCanonicalNodeCompletion>[0] | undefined;
     try {
       const beforeCycle = getLearningCycle(childId, homeworkId);
       const beforeNode = beforeCycle?.nodes.find(node => node.nodeId === nodeId);
@@ -1050,7 +1053,7 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
         if(!launch && process.env.SUNNY_CHART_DIR?.trim() && !process.env.SUNNY_CERTIFICATION_RUN_ID)throw new Error('spelling_completion_launch_required');
         if (launch && (beforeNode?.implementationType === 'word-radar' || beforeCycle.observations.some(row => row.sourceId === `activity:${nodeId}:recall` && row.confounds.includes(`launch_id:${launch.launchId}`)))) captureLaunchId = launch.launchId;
       }
-      const updated = recordCanonicalNodeCompletion({
+      completionInput = {
         childId,
         homeworkId,
         nodeId,
@@ -1075,7 +1078,8 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
             : undefined,
           pageTime: pageTimeFromKiosk(body.result.pageTime),
         },
-      });
+      };
+      const updated = recordCanonicalNodeCompletion(completionInput);
       if (!updated) return res.status(404).json({ error: "learning_cycle_not_found" });
       const finalCycle = getLearningCycle(childId, homeworkId) ?? updated;
       const nodeState = finalCycle.nodes.find(node => node.nodeId === nodeId)?.state ?? null;
@@ -1168,7 +1172,14 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
       });
     } catch (error) {
       console.error(" 🎮 [learning-cycle-route] [completion] [failed]", error);
-      return res.status(409).json({ error: error instanceof Error ? error.message : String(error) });
+      const message = error instanceof Error ? error.message : String(error);
+      // A malformed request (an unknown item, a missing launch) would be refused again on replay; only a record refusal is held.
+      const held = Boolean(completionInput) && !/^(learning_cycle_instrument_|spelling_completion_|canonical_completion_)/.test(message);
+      if (held && completionInput) {
+        holdCompletion({ ...completionInput, error: message });
+        void raiseParentAlert({ childId, kind: "save_failed", text: `A finished game could not be saved (${message}). Her answers are held, not lost.` });
+      }
+      return res.status(409).json({ error: message, held });
     }
   });
 

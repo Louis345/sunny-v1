@@ -302,9 +302,14 @@ it("counts a scorecard after each session and shows the recent ones to the next-
   recordProductIssue({ childId, activityId: "word-radar", issueType: "bug_report", severity: "medium", source: "child_utterance", confidence: 0.9,
     childUtterance: "that's a bug", evidenceText: "Bug.", createdAt: at(5) }, f.opts);
   const card = writeSessionScorecard({ childId, homeworkId, sessionDir }, f.opts)!;
-  expect(card).toMatchObject({ sessionId: "s2", answers: { total: 2, right: 1, onHerOwn: 2, onHerOwnRight: 1, withHelp: 0 }, helpRequests: 2, bugsReported: 1 });
+  expect(card).toMatchObject({ sessionId: "s2", answers: { total: 2, right: 1, onHerOwn: 2, onHerOwnRight: 1, withHelp: 0, given: 1 }, helpRequests: 2, bugsReported: 1 });
   expect(card.games).toEqual([expect.objectContaining({ title: "Radar Run", minutesToFirstAnswer: 2, finished: true })]);
   await runtime.advanceCanonicalCycleFromEvidence(f.request, f.opts);
+  // 2026-11-10: Reina's games logged 37 answers while 0 were saved, and nothing compared them. Now the scorecard does.
+  fs.writeFileSync(path.join(sessionDir, "game-traces.ndjson"), Array.from({ length: 5 }, (_, index) => JSON.stringify({ ts: at(1 + index), nodeId: "radar", activityTitle: "Radar Run", type: "attempt_event" })).join("\n"));
+  expect(writeSessionScorecard({ childId, homeworkId, sessionDir }, f.opts)!.answers).toMatchObject({ given: 5, total: 2 });
+  const alerts = fs.readFileSync(path.join(f.rootDir, "src/context", childId, "sunny_health/parent-alerts.ndjson"), "utf8");
+  expect(alerts).toContain("5 answers given in games but 4 saved");
   const prompt = promptOf(f.requests.at(-1));
   expect(prompt).toContain("Her session scorecards (counted by code after each session, oldest first):");
   expect(prompt).toMatch(/on her own 1 of 2 right; with help 0; help asked 2 times; bugs she reported 1; games: Radar Run first answer after 2\.0 min/);

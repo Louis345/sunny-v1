@@ -13,6 +13,15 @@ import {
 } from "../utils/canonicalNodeCompletion";
 
 describe("canonical node completion handoff", () => {
+  // 2026-11-10: Reina saw "Progress could not be saved" ten times. The server now holds refused answers; the
+  // screen must say her work is kept, not lost, so she is not told her work is gone when it is not.
+  it("tells the screen her work was held when the server kept it after a refused save", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => ({ ok: false, status: 409, json: async () => ({ error: "learning_board_topology_changed:hw:board:1", held: true }) })));
+    await expect(postCanonicalNodeCompletion({ childId: "lab", homeworkId: "hw", nodeId: "n", completionId: "c", result: { completed: true } } as never)).rejects.toThrow("canonical_node_completion_held");
+    vi.stubGlobal("fetch", vi.fn(async () => ({ ok: false, status: 409, json: async () => ({ error: "learning_cycle_instrument_unknown_item:x", held: false }) })));
+    await expect(postCanonicalNodeCompletion({ childId: "lab", homeworkId: "hw", nodeId: "n", completionId: "c", result: { completed: true } } as never)).rejects.toThrow("canonical_node_completion_409");
+  });
+
   it("sends native recall attempts with the same required factual envelope as generated activities", async () => {
     const fetch = vi.fn(async (_url: string, _request: RequestInit) => ({ ok: true, json: async () => ({ ok: true }) }));
     vi.stubGlobal("fetch", fetch);

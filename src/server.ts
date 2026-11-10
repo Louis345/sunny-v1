@@ -1,4 +1,6 @@
 import { loadSunnyRuntimeEnvironment } from "./scripts/sunnyMenu";
+import { replayHeldCompletions, runStartupCheck } from "./engine/sunnyHealth";
+import { readChildrenConfig } from "./profiles/childrenConfig";
 loadSunnyRuntimeEnvironment();
 import "./server/server";
 import express from "express";
@@ -59,6 +61,14 @@ wss.on("connection", (ws, req) => {
 
 httpServer.listen(PORT, () => {
   console.log(`\n  🌟 Project Sunny server on http://localhost:${PORT}`);
+  // Before any child sits down: every record can still accept a save, and answers held from a refused save are replayed.
+  try {
+    const childIds = Object.keys(readChildrenConfig().childCompanionIds ?? {});
+    runStartupCheck(childIds);
+    for (const childId of childIds) replayHeldCompletions(childId);
+  } catch (error) {
+    console.error(" 🎮 [startup-check] [failed] reason=", error instanceof Error ? error.message : String(error));
+  }
   console.log(`  📡 WebSocket at ws://localhost:${PORT}/ws\n`);
 
   if (serveStatic) {

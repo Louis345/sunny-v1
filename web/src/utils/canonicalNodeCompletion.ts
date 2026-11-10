@@ -176,7 +176,11 @@ export async function postCanonicalNodeCompletion(input: CanonicalNodeCompletion
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ ...request, result: { ...request.result, sessionId: completionId } }),
   });
-  if (!response.ok) throw new Error(`canonical_node_completion_${response.status}`);
+  if (!response.ok) {
+    // A refused save the server kept (2026-11-10): her answers are held, not lost.
+    const failure = await response.json().catch(() => ({})) as { held?: boolean };
+    throw new Error(failure.held ? "canonical_node_completion_held" : `canonical_node_completion_${response.status}`);
+  }
   const result = await response.json() as {
     lifecycle: string;
     revision: number;

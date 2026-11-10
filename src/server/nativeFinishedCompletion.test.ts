@@ -184,4 +184,16 @@ describe("finished native spelling participation", () => {
     expect(current()).toEqual(before);
     expect(reconcileCompanionCareCurrencyAward).not.toHaveBeenCalled();
   });
+
+  // 2026-11-10, Reina's test morning: her record refused every save (a hand edit broke its seal), the route answered
+  // 409, and her 37 answers were gone. A refused save now keeps her answers, held to replay once the record accepts them.
+  it("holds her answers when the record refuses the save, and says so", async () => {
+    const runtime = await import("../engine/learningCycleRuntime");
+    const { post } = fixture();
+    vi.spyOn(runtime, "recordCanonicalNodeCompletion").mockImplementationOnce(() => { throw new Error("learning_board_topology_changed:hw-finished:board:1"); });
+    const response = await post({ completed: true, sessionId: "host-launch", accuracy: 1, timeSpent_ms: 60_000, targetResults: [{ target: "frozen-night", correct: true, attemptedValue: "night" }] });
+    expect(response).toMatchObject({ status: 409, body: { held: true } });
+    const held = JSON.parse(fs.readFileSync(path.join(process.env.SUNNY_CONTEXT_ROOT!, "lab-child", "sunny_health", "held-completions.json"), "utf8"));
+    expect(held).toEqual([expect.objectContaining({ nodeId: "native-practice", result: expect.objectContaining({ targetResults: [expect.objectContaining({ attemptedValue: "night" })] }) })]);
+  });
 });

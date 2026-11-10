@@ -1,3 +1,4 @@
+import { sunnyHealthFacts } from "../engine/sunnyHealth";
 import { getChildChart } from "../profiles/childChart";
 import type { SpellingAssessmentState } from "./game-event-handler";
 import type {
@@ -285,7 +286,9 @@ export function buildActivityCompanionContext(input: {
   const testObjective = cycle?.domain === "spelling" ? companionSpellingTestObjective({ cycle, homework: chart?.homework,
     instrument: spelling ? assessment?.instrument : undefined })
     : cycle?.domain === "math" ? companionMathTestObjective({ cycle, homework: chart?.homework }) : "";
-  return redactProtectedSpellingText([board, liveBoard, tutorPlan, problemText, input.speechRate === undefined ? "" : `Configured speech speed: ${input.speechRate} (1=normal; resets on item or launch change).`, memory, helpObjective, testObjective, spelling].filter(Boolean).join("\n\n"), input.snapshot);
+  // Sunny's own state as a fact (2026-11-10: Matilda promised "your answers will count" while every save failed).
+  const health = sunnyHealthFacts(input.childId);
+  return redactProtectedSpellingText([health, board, liveBoard, tutorPlan, problemText, input.speechRate === undefined ? "" : `Configured speech speed: ${input.speechRate} (1=normal; resets on item or launch change).`, memory, helpObjective, testObjective, spelling].filter(Boolean).join("\n\n"), input.snapshot);
 }
 
 type CompanionCycle = NonNullable<NonNullable<ReturnType<typeof readCompanionChart>>["learningCycle"]>;
