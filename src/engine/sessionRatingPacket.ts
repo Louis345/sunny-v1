@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { resolveChildContextDir } from "../utils/contextRoot";
 import { getChildChart } from "../profiles/childChart";
-import type { LearningCycleRepositoryOptions } from "./learningCycleRepository";
+import { getLearningCycle, type LearningCycleRecordV2, type LearningCycleRepositoryOptions } from "./learningCycleRepository";
 import { listChildProductIssues } from "./productIssues";
 import { measureRecordLines, type SessionPacket } from "./sessionRating";
 import { gameTrackRecord } from "./gameTrackRecord";
@@ -11,6 +11,28 @@ import { sessionMinutes } from "./sessionTime";
 
 /** When the 11/10 batch reached Saori: games built after it must report their step. */
 const BATCH_AT = Date.parse("2026-11-10T20:00:00Z");
+
+/**
+ * The homework this session played, from its own traces: the cycle holding the most of its game nodes, or its own
+ * answers (2026-11-10: a math session was rated as spelling after Ila's subject was switched). Null when none matches.
+ */
+export function sessionLearningCycle(childId: string, sessionDir: string, opts: LearningCycleRepositoryOptions = {}): LearningCycleRecordV2 | null {
+  const read = (name: string) => { const file = path.join(sessionDir, name); return fs.existsSync(file) ? fs.readFileSync(file, "utf8") : ""; };
+  const sessionId = (() => { try { return String(JSON.parse(read("metadata.json") || "{}").sessionId ?? ""); } catch { return ""; } })();
+  const nodeIds = new Set(read("game-traces.ndjson").split("\n").flatMap(line => { try { const row = line.trim() ? JSON.parse(line) : null; return typeof row?.nodeId === "string" ? [row.nodeId] : []; } catch { return []; } }));
+  const dir = path.join(resolveChildContextDir(childId, { rootDir: opts.rootDir }), "homework", "cycles");
+  const homeworkIds = fs.existsSync(dir) ? fs.readdirSync(dir).filter(name => name.endsWith(".json")).map(name => name.slice(0, -5)) : [];
+  let best: { cycle: LearningCycleRecordV2; score: number } | null = null;
+  for (const homeworkId of homeworkIds) {
+    let cycle: LearningCycleRecordV2 | null = null;
+    try { cycle = getLearningCycle(childId, homeworkId, opts); } catch (error) { console.warn(` 🎮 [rating] [cycle] [unreadable] homework=${homeworkId} reason=${error instanceof Error ? error.message : String(error)}`); }
+    if (!cycle) continue;
+    const score = cycle.nodes.filter(node => nodeIds.has(node.nodeId)).length
+      + (sessionId ? cycle.observations.filter(row => row.observationId.startsWith(`${sessionId}:`) || row.confounds.includes(`session_id:${sessionId}`)).length : 0);
+    if (score > 0 && (!best || score > best.score)) best = { cycle, score };
+  }
+  return best?.cycle ?? null;
+}
 
 /** Reads one saved session and the records it touched into the facts the rating reads. Read-only. */
 export function loadSessionPacket(input: { childId: string; sessionDir: string; serverLogFile?: string }, opts: LearningCycleRepositoryOptions = {}): SessionPacket {
@@ -26,7 +48,10 @@ export function loadSessionPacket(input: { childId: string; sessionDir: string; 
     return user ? [{ ts, role: "child", text: user.split("**assistant:**")[0].trim() }] : assistant ? [{ ts, role: "companion", text: assistant.trim() }] : [];
   });
   const chart = getChildChart(input.childId, { rootDir: opts.rootDir });
-  const cycle = chart.learningCycle;
+  // The homework the session played, not the subject selected now (2026-11-10).
+  const played = sessionLearningCycle(input.childId, input.sessionDir, opts);
+  const cycle = played ?? chart.learningCycle;
+  console.log(` 🎮 [rating] [cycle] [${played ? "from-session" : "from-chart"}] child=${input.childId} homework=${cycle?.homeworkId ?? "none"} domain=${cycle?.domain ?? "unknown"}`);
   const from = Date.parse(startedAt), to = endedAt ? Date.parse(endedAt) + 10 * 60_000 : Infinity;
   const words = new Map(cycle?.nodes.flatMap(node => Object.values(node.evidenceContract.spellingItems ?? {}).map(item => [item.id, item.word] as const)) ?? []);
   const observations = (cycle?.observations ?? []).filter(row => { const t = Date.parse(row.observedAt); return t >= from && t <= to; })
