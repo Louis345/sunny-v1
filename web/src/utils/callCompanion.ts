@@ -33,7 +33,9 @@ export function boardCallTicket<T extends { homeworkId: string; earnedAt: string
  */
 export function callPortraitLook<E, V>(input: {
   shopEnabled: boolean; current: E; dressable: E | null; outfitId: string; accessoryId: string; materialVariant: V | null;
+  /** The dressable body failed to load (2026-11-10, Princess had no face): draw her own model instead. */
+  dressableFailed?: boolean;
 }): { entry: E; outfitId: string; accessoryId: string; materialVariant: V | null } {
-  if (!input.shopEnabled || !input.dressable) return { entry: input.current, outfitId: "none", accessoryId: "none", materialVariant: null };
+  if (!input.shopEnabled || !input.dressable || input.dressableFailed) return { entry: input.current, outfitId: "none", accessoryId: "none", materialVariant: null };
   return { entry: input.dressable, outfitId: input.outfitId, accessoryId: input.accessoryId, materialVariant: input.materialVariant };
 }

@@ -2512,6 +2512,7 @@ function CompanionSlot({
   onMotorReady,
   onLoadSettled,
   onVrmAttached,
+  onModelFailed,
   onHeadScreenAnchorChange,
 }: {
   entry: CompanionManifestEntry;
@@ -2538,8 +2539,12 @@ function CompanionSlot({
   onLoadSettled: (slotKey: string) => void;
   /** Fires once after `attachVrm` succeeds (not called on load failure). */
   onVrmAttached?: () => void;
+  /** The model itself could not load or render; the caller can draw another model (the call portrait's own body). */
+  onModelFailed?: (modelUrl: string) => void;
   onHeadScreenAnchorChange?: (anchor: { x: number; y: number } | null) => void;
 }) {
+  const onModelFailedRef = useRef(onModelFailed);
+  onModelFailedRef.current = onModelFailed;
   const inspectionRef = useRef(wardrobeInspection);
   inspectionRef.current = wardrobeInspection;
   const slotKey = entry.id;
@@ -2984,6 +2989,7 @@ function CompanionSlot({
         .catch((err: unknown) => {
           console.error("CompanionShowroom: failed to load VRM —", err);
           settleLoad("failed");
+          if (!cancelled) onModelFailedRef.current?.(showroomCompanionConfig.vrmUrl);
         });
     };
 
@@ -3040,6 +3046,7 @@ function CompanionSlot({
     })().catch((error: unknown) => {
       console.error(" 🎮 [wardrobe-selection] renderer_setup failed", error);
       settleLoad("failed");
+      if (!cancelled) onModelFailedRef.current?.(showroomCompanionConfig.vrmUrl);
     });
 
     return () => {
@@ -3937,6 +3944,12 @@ export function CompanionShowroom({
         : null,
     [current],
   );
+  // Dressable bodies that failed to load in the call portrait; the portrait then draws her own model (2026-11-10).
+  const [failedPortraitModels, setFailedPortraitModels] = useState<string[]>([]);
+  const handlePortraitModelFailed = useCallback((modelUrl: string) => {
+    console.warn(` 🎮 [showroom] [call-portrait] [model-failed] model=${modelUrl} fallback=own-model`);
+    setFailedPortraitModels(prior => (prior.includes(modelUrl) ? prior : [...prior, modelUrl]));
+  }, []);
   const wardrobeStoreEntry = useMemo<CompanionManifestEntry | null>(() => {
     if (!current || !wardrobePresentation) return null;
     return {
@@ -3986,6 +3999,7 @@ export function CompanionShowroom({
     : "none";
   // The call's portrait wears what she bought (BUGS.md 2026-11-08).
   const callLook = callPortraitLook({ shopEnabled: Boolean(earnedCallWallet), current, dressable: wardrobeStoreEntry,
+    dressableFailed: Boolean(wardrobeStoreEntry && failedPortraitModels.includes(wardrobeStoreEntry.companionConfig?.vrmUrl ?? wardrobeStoreEntry.vrmUrl)),
     outfitId: effectiveWardrobeOutfitId, accessoryId: effectiveWardrobeAccessoryId, materialVariant: effectiveWardrobeOutfitMaterialVariant });
   const introText = current ? getText(current.id) : "";
   const showroomVideoTraceLink = useMemo(
@@ -8057,6 +8071,7 @@ export function CompanionShowroom({
 	            wardrobeOutfitId={callLook.outfitId as WardrobeOutfitId}
 	            wardrobeOutfitMaterialVariant={callLook.materialVariant}
 	            onMotorReady={handleVideoChatMotorReady}
+	            onModelFailed={handlePortraitModelFailed}
 	            onLoadSettled={noopShowroomSlotSettled}
 	          />
 	        }
