@@ -197,7 +197,7 @@ function isUncapturedResponse(value: string | undefined, requireCapture: boolean
   );
 }
 
-function scoreMathResponse(item: DirectItem | undefined, value: string): LearningObservation["result"] {
+export function scoreMathResponse(item: DirectItem | undefined, value: string): LearningObservation["result"] {
   const response = item?.response;
   if (!response) return { observedErrorType: "answer_contract_missing" };
   if (response.mode === "explanation") return { observedErrorType: "explanation_requires_interpretation" };

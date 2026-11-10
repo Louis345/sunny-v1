@@ -1,3 +1,4 @@
+import { childPaceFacts, itemAttemptFacts } from "./itemAttemptFacts";
 import { sunnyHealthFacts } from "../engine/sunnyHealth";
 import { noteCompanionHelpOnItem } from "./companionItemHelp";
 import { gamePaceFacts, noteGamePace } from "./gamePace";
@@ -267,7 +268,9 @@ export function buildActivityCompanionContext(input: {
   const unseenText = unseen ? "[What Sunny can see]\nSunny cannot see which problem is on her screen right now: the game has not said which one is open. You do not know its numbers, its words or its answer." : "";
   // Pace facts in every game, for her companion's judgment (2026-11-10); talking to her companion in a game is help asked.
   if (input.presence === "summoned" && input.snapshot?.nodeId) noteGamePace(input.childId, input.snapshot.nodeId, "help");
-  const pace = activityOnScreen ? gamePaceFacts(input.childId, input.snapshot?.nodeId) : "";
+  // Her tries on the open problem and her pace from her chart (2026-11-10): facts, the companion judges.
+  const pace = activityOnScreen ? [gamePaceFacts(input.childId, input.snapshot?.nodeId), itemAttemptFacts(input.childId, input.snapshot?.nodeId, input.snapshot?.itemId),
+    input.snapshot?.nodeId ? childPaceFacts(chart?.demographics, cycle) : ""].filter(Boolean).join("\n") : "";
   // Her companion answering while a problem is open is help on that problem: saved with its answer (2026-11-10).
   if (openProblem && input.presence === "summoned" && input.snapshot?.nodeId && input.snapshot.itemId) noteCompanionHelpOnItem(input.childId, input.snapshot.nodeId, input.snapshot.itemId);
   const remembered = buildShowroomTalkMemoryPrompt(
