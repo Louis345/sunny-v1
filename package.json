@@ -59,6 +59,7 @@
     "sunny:planner:qa": "npx tsx src/scripts/plannerScenarioLab.ts",
     "sunny:planner:authorize-recovery": "npx tsx src/scripts/authorizePlannerRecovery.ts",
     "sunny:planner:replan": "npx tsx src/scripts/ownerReplan.ts",
+    "sunny:rate": "npx tsx src/scripts/rateSession.ts",
     "sunny:board:repair-not-ready": "npx tsx src/scripts/repairNotReadyActivities.ts",
     "sunny:session:audit": "npx tsx src/scripts/auditSessionDirectory.ts",
     "sunny:spelling:certify": "npx tsx src/scripts/certifySpellingAdaptation.ts",

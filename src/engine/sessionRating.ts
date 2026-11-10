@@ -1,0 +1,113 @@
+/**
+ * The pre-registered rating (owner, 2026-11-10: "I want to know if this is successful or not"). Each line is one
+ * criterion from docs/audits/2026-11-10-success-criteria.md, fixed before any fix was built, and is read from the
+ * session's own facts. A line that cannot be read fails: proving it is part of the goal. Facts in, verdict out; the
+ * packet loader lives in sessionRatingPacket.ts.
+ */
+export type SessionPacket = {
+  childId: string; domain: string; sessionId: string; startedAt: string; endedAt?: string;
+  traces: Array<{ ts?: string; launchToken?: string; nodeId?: string; activityTitle?: string; type?: string; phase?: string; target?: unknown; correct?: unknown }>;
+  events: Array<{ ts?: string; component?: string; action?: string; [key: string]: unknown }>;
+  transcript: Array<{ ts: string; role: "child" | "companion"; text: string }>;
+  observations: Array<{ observedAt: string; itemId: string; childResponse?: string; word?: string; result: { correct: boolean }; assistance: { status: string }; provenance?: string }>;
+  evidence: Array<{ evidenceId: string; summary: string }>;
+  productIssues: Array<{ createdAt: string; source?: string; issueType?: string; childUtterance?: string }>;
+  handoffWritten: boolean;
+  serverLog?: string[];
+  /** Facts read outside the session, each named after its line (G9, G11...). Absent means not measurable yet. */
+  extra?: Partial<Record<string, { value: string; pass: boolean }>>;
+};
+
+export type RatingLine = { id: string; what: string; target: string; value: string; pass: boolean };
+
+const minutes = (from: string, to: string | undefined) => to ? (Date.parse(to) - Date.parse(from)) / 60_000 : NaN;
+const round1 = (value: number) => Math.round(value * 10) / 10;
+const FAILURE = /\[(failed|error)\]|\bError:/;
+const REASSURANCE = /\b(will|'ll|going to) (count|be saved|save)\b|\b(it|that)('s| is| was) saved\b/i;
+const BUG_WORDS = /\bbug\b|\bglitch\b|could not be saved|not working|broken/i;
+const STRETCH_MIN = 3;
+
+/** The 27 lines, in the criteria's order. Lines with no measurement yet read from `extra` or fail. */
+const LINES: Array<{ id: string; what: string; target: string }> = [
+  { id: "N1", what: "Answers given but not saved", target: "given = saved" },
+  { id: "N2", what: "Child reports a bug that was already in the log", target: "0" },
+  { id: "N3", what: "Companion promises what Sunny can't back up", target: "0" },
+  { id: "N4", what: "Start check ran before her name appeared", target: "ran" },
+  { id: "G1", what: "Failure line to parent told", target: "under 1 min" },
+  { id: "G2", what: "Bug tickets per sentence", target: "1" },
+  { id: "G3", what: "Server logs kept across restarts", target: "7 days" },
+  { id: "G4", what: "Files that disagree on the test date", target: "0" },
+  { id: "G5", what: "Answers shown right in the retro vs saved score", target: "equal" },
+  { id: "G6", what: "Helped math answers marked on her own", target: "0" },
+  { id: "G7", what: "Built games recording 0 ms", target: "0" },
+  { id: "G8", what: "Letter-tap fragments saved as misspellings", target: "0" },
+  { id: "G9", what: "Built games shown with 0 answers to the Planner", target: "true counts" },
+  { id: "G10", what: "Lesson retros for sessions with no answers", target: "0" },
+  { id: "G11", what: "Board decisions with their own session's retro", target: "all" },
+  { id: "G12", what: "Planner predictions scored by code", target: "every board (week)" },
+  { id: "G13", what: "Played games with a keep/fix/retire note", target: "all (week)" },
+  { id: "G14", what: "Planner question size", target: "under 120,000 chars" },
+  { id: "G15", what: "Wrong profile facts given to the AIs", target: "0" },
+  { id: "G16", what: "New built games that report their step", target: "all" },
+  { id: "G17", what: "Longest wait to first answer in a game", target: "under 3 min" },
+  { id: "G18", what: "Quiet stretches over 3 min with a companion offer", target: "all" },
+  { id: "G19", what: "Games where the companion gets per-turn facts", target: "all" },
+  { id: "G20", what: "New problems written for her", target: "1+ per board" },
+  { id: "G21", what: "Quest/Boss available after the worksheet", target: "on the menu" },
+  { id: "G22", what: "Builder sees each played game's record", target: "yes" },
+  { id: "G23", what: "A loved game returns with new content", target: "once (week)" },
+];
+
+export function rateSession(packet: SessionPacket): { lines: RatingLine[]; verdict: "PASS" | "FAIL"; text: string } {
+  const given = packet.traces.filter(row => row.type === "attempt_event");
+  const saved = packet.observations.filter(row => row.provenance !== "graded_work" && row.provenance !== "delayed_reassessment");
+  // The server log has no times; it speaks for this session only when it names it (a restart starts a new log).
+  const covering = (packet.serverLog ?? []).some(line => line.includes(packet.sessionId)) ? packet.serverLog ?? [] : [];
+  const serverFailures = covering.filter(line => FAILURE.test(line));
+  // Counts can only be judged honest on answers that were saved.
+  const allSaved = saved.length >= given.length;
+  const tokens = new Set([packet.sessionId, ...packet.traces.flatMap(row => row.launchToken ? [row.launchToken] : [])]);
+  const eventFailures = packet.events.filter(row => /fail|error/i.test(String(row.action ?? "")));
+  const failed = serverFailures.length + eventFailures.length > 0;
+  const childBugReports = packet.transcript.filter(row => row.role === "child" && BUG_WORDS.test(row.text));
+  const promises = packet.transcript.filter(row => row.role === "companion" && REASSURANCE.test(row.text));
+  const games = new Map<string, typeof packet.traces>();
+  for (const row of packet.traces.filter(row => row.nodeId && row.ts)) games.set(row.nodeId!, [...(games.get(row.nodeId!) ?? []), row]);
+  const waits = [...games.values()].flatMap(rows => {
+    const opened = rows.find(row => row.phase === "opening") ?? rows[0];
+    const first = rows.find(row => row.type === "attempt_event");
+    return first ? [{ title: rows.find(row => row.activityTitle)?.activityTitle ?? opened.nodeId ?? "a game", min: round1(minutes(opened.ts!, first.ts)) }] : [];
+  }).sort((a, b) => b.min - a.min);
+  const zeroMs = packet.evidence.filter(row => tokens.has(row.evidenceId.split(":")[0]) && /completed in 0ms/.test(row.summary));
+  const fragments = saved.filter(row => row.word && row.childResponse && row.childResponse.length < row.word.length && row.word.startsWith(row.childResponse) && !row.result.correct);
+  const gameRight = given.filter(row => row.correct === true).length, savedRight = saved.filter(row => row.result.correct).length;
+  // Quiet stretches: over three minutes inside a session with no answer and no child turn; an offer is a companion check-in event.
+  const moments = [packet.startedAt, ...given.map(row => row.ts!), ...packet.transcript.filter(row => row.role === "child").map(row => row.ts), packet.endedAt ?? packet.startedAt].filter(Boolean).sort();
+  const stretches = moments.slice(1).flatMap((to, index) => minutes(moments[index], to) > STRETCH_MIN ? [{ from: moments[index], to }] : []);
+  const offers = packet.events.filter(row => row.component === "companion-checkin" && /offer|raised|asked/.test(String(row.action)));
+  const offered = stretches.filter(stretch => offers.some(row => row.ts! >= stretch.from && row.ts! <= stretch.to));
+
+  const measured: Record<string, { value: string; pass: boolean }> = {
+    N1: { value: `${given.length} given, ${saved.length} saved`, pass: saved.length >= given.length },
+    N2: { value: childBugReports.length && failed ? `${childBugReports.length} child report(s) after ${serverFailures.length + eventFailures.length} logged failure(s)` : `${childBugReports.length} child report(s)`, pass: !(childBugReports.length && failed) },
+    N3: { value: failed && promises.length ? `${promises.length} promise(s) after a failure: "${promises[0].text.slice(0, 60)}"` : "none", pass: !(failed && promises.length) },
+    N4: !covering.length ? { value: packet.serverLog ? "no startup check line" : "no server log to read", pass: false }
+      : (covering.some(line => line.includes("[startup-check]")) ? { value: covering.find(line => line.includes("[startup-check]"))!.trim().slice(0, 80), pass: covering.some(line => line.includes("[startup-check] [passed]")) }
+      : { value: "no startup check line", pass: false }),
+    G2: { value: `${packet.productIssues.length} tickets for ${childBugReports.length || (packet.productIssues.length ? 1 : 0)} sentence${childBugReports.length === 1 || !childBugReports.length ? "" : "s"}`, pass: packet.productIssues.length <= Math.max(childBugReports.length, 0) || packet.productIssues.length === 0 },
+    G5: !allSaved ? { value: "not measurable: answers were not saved", pass: false } : packet.domain === "math" || gameRight !== savedRight ? { value: `retro ${gameRight} right, saved ${savedRight} right`, pass: gameRight === savedRight } : { value: `retro ${gameRight}, saved ${savedRight}`, pass: true },
+    G7: !allSaved && !zeroMs.length ? { value: "not measurable: answers were not saved", pass: false } : { value: `${zeroMs.length} game${zeroMs.length === 1 ? "" : "s"} recorded 0 ms`, pass: zeroMs.length === 0 },
+    G8: !allSaved ? { value: "not measurable: answers were not saved", pass: false } : { value: `${fragments.length} fragment${fragments.length === 1 ? "" : "s"}`, pass: fragments.length === 0 },
+    G10: { value: given.length === 0 && packet.handoffWritten ? "a lesson retro for a session with no answers" : "none", pass: !(given.length === 0 && packet.handoffWritten) },
+    G17: waits.length ? { value: `${waits[0].min} min (${waits[0].title})`, pass: waits[0].min < 3 } : { value: "no game answered", pass: false },
+    G18: { value: `${offered.length} of ${stretches.length} quiet stretches had an offer`, pass: offered.length === stretches.length },
+  };
+  const lines = LINES.map(line => ({ ...line, ...(measured[line.id] ?? packet.extra?.[line.id] ?? { value: "not measurable yet", pass: false }) }));
+  const must = lines.filter(line => line.id.startsWith("N")), graded = lines.filter(line => line.id.startsWith("G"));
+  const verdict = must.every(line => line.pass) && graded.filter(line => line.pass).length >= Math.ceil(graded.length * 0.8) ? "PASS" : "FAIL";
+  const text = [`Rating for ${packet.childId}, session ${packet.sessionId} (${packet.startedAt.slice(0, 16).replace("T", " ")}): ${verdict}`,
+    `Must-never: ${must.filter(line => line.pass).length} of ${must.length} pass. Graded: ${graded.filter(line => line.pass).length} of ${graded.length} pass (80% needed).`,
+    "", "| # | What | Target | This session | Result |", "|---|---|---|---|---|",
+    ...lines.map(line => `| ${line.id} | ${line.what} | ${line.target} | ${line.value.replace(/\|/g, "/")} | ${line.pass ? "PASS" : "FAIL"} |`)].join("\n");
+  return { lines, verdict, text };
+}
