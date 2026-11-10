@@ -38,7 +38,7 @@ export type SuccessorFacts = {
 type Fresh = NonNullable<SuccessorFacts["activities"]>[number];
 type Encounter = "quest" | "boss";
 type Step = { id: string; title: string; purpose: string; story: string; picture: string; wordIds: string[]; reward?: true; problemIds?: string[]; checkFirst?: boolean; builtIn?: SuccessorFacts["builtIns"][number]; fresh?: Fresh; page?: Record<string, unknown>; encounter?: Encounter; creatureEncounter?: string; focus?: string };
-type SelfReview = { whatITried: string; whatHappened: string; why: string; whatIChangeNow: string };
+type SelfReview = { whatITried: string; whatHappened: string; why: string; whatIKeep?: string; whatIChangeNow: string };
 type Decision = { status: string; reason: string; progressionAction: string; preserve: string[]; change: string[]; testNext: string[]; nextEvidenceRequired: string[]; predictionEvaluationIds: string[]; revisedHypothesis: string; selfReview?: SelfReview };
 type Finished = { decision: Record<string, unknown>; journey?: AdventureJourneyDefinition };
 export type SuccessorState = JourneyOrderState & { next: number; steps: Step[]; decision?: Decision; result?: Finished; draft?: Finished; selfChecks?: number };
@@ -74,15 +74,16 @@ export function spellingSuccessorToolkit(facts: SuccessorFacts) {
           what_i_tried: text(`What you tried on earlier boards for the ${missing} she is still missing, from your journal. On a first decision, say so.`),
           what_happened: text(`What happened to those ${missing}, from her track record: what she ${problems ? "answered" : "wrote"}, on her own and with help.`),
           why: text("Why you think it happened."),
+          what_i_keep: text("What worked for her, from her answers and her session retros (what she understood, enjoyed or got right), that you keep."),
           what_i_change_now: text("What you change now, and why that is a better try than the last."),
         }).strict().describe(`Your review of your own track record before deciding: your journal and her answers on each ${problems ? "problem" : "word"}, read side by side.`) } : {}),
       }).strict(),
       run: (state, input) => {
         if (facts.evaluationIds.length && !input.prediction_evaluation_ids.length) return { ok: false, error: "cite at least one of the offered prediction_evaluation_ids" };
-        const review = (input as { self_review?: Record<"what_i_tried" | "what_happened" | "why" | "what_i_change_now", string> }).self_review;
+        const review = (input as { self_review?: Record<"what_i_tried" | "what_happened" | "why" | "what_i_keep" | "what_i_change_now", string> }).self_review;
         state.decision = { status: input.status, reason: input.reason, progressionAction: input.progression_action, preserve: input.preserve, change: input.change, testNext: input.test_next,
           nextEvidenceRequired: input.next_evidence_required, predictionEvaluationIds: [...new Set(input.prediction_evaluation_ids)], revisedHypothesis: input.revised_hypothesis,
-          ...(review ? { selfReview: { whatITried: review.what_i_tried, whatHappened: review.what_happened, why: review.why, whatIChangeNow: review.what_i_change_now } } : {}) };
+          ...(review ? { selfReview: { whatITried: review.what_i_tried, whatHappened: review.what_happened, why: review.why, whatIKeep: review.what_i_keep, whatIChangeNow: review.what_i_change_now } } : {}) };
         state.result = undefined;
         return { ok: true, result: { action: input.progression_action } };
       } }),

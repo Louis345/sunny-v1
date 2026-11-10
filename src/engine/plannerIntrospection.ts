@@ -186,7 +186,7 @@ export function writePlannerJournalEntry(cycle: LearningCycleRecordV2, decision:
       `- Action: ${decision.nextAction ?? "none"} (theory ${decision.status ?? "unstated"})`,
       `- Reason: ${decision.reason}`, "",
       "### Self-review", "",
-      ...(review ? [`- What I tried: ${review.whatITried}`, `- What happened: ${review.whatHappened}`, `- Why: ${review.why}`, `- What I change now: ${review.whatIChangeNow}`] : ["- No self-review was recorded with this decision."]), "",
+      ...(review ? [`- What I tried: ${review.whatITried}`, `- What happened: ${review.whatHappened}`, `- Why: ${review.why}`, ...(review.whatIKeep ? [`- What I keep: ${review.whatIKeep}`] : []), `- What I change now: ${review.whatIChangeNow}`] : ["- No self-review was recorded with this decision."]), "",
       "### Change", "", ...((decision.change ?? []).length ? decision.change!.map(line => `- ${line}`) : ["- (nothing listed)"]), "", "",
     ].join("\n");
     fs.mkdirSync(dir, { recursive: true });

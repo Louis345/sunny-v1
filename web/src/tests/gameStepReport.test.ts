@@ -14,7 +14,7 @@ function loadContract() {
 }
 afterEach(() => { vi.restoreAllMocks(); vi.useRealTimers(); });
 
-it("reports each step and its instruction to Sunny, and reads a stuck step's instruction aloud once", () => {
+it("reports each step and its instruction to Sunny as facts, and never speaks on its own schedule", () => {
   vi.useFakeTimers();
   const post = vi.spyOn(window.parent, "postMessage").mockImplementation(() => {});
   loadContract();
@@ -22,15 +22,7 @@ it("reports each step and its instruction to Sunny, and reads a stuck step's ins
   const state = post.mock.calls.map(([m]) => m as any).find(m => m?.type === "game_state_update");
   expect(state?.payload ?? state).toEqual(expect.objectContaining({ gameStep: "say", currentChallenge: "Go! Say each part. Tap a stone." }));
   expect(typeof (state?.payload ?? state).stepStartedAt).toBe("number");
-  vi.advanceTimersByTime(61_000);
-  const spoken = post.mock.calls.map(([m]) => m as any).filter(m => m?.type === "narration_request" && m.reason === "step_reminder");
-  expect(spoken).toHaveLength(1);
-  expect(spoken[0].text).toBe("Go! Say each part. Tap a stone.");
-  vi.advanceTimersByTime(120_000);
-  expect(post.mock.calls.filter(([m]) => (m as any)?.reason === "step_reminder")).toHaveLength(1);
-  // Moving on to a new step resets the clock; progress within a step does too.
-  (window as any).reportStep("type", "Now type it.");
-  (window as any).fireAttemptEvent({ domain: "spelling", target: "dormant", attemptedValue: "dorm", correct: false });
-  vi.advanceTimersByTime(40_000);
-  expect(post.mock.calls.filter(([m]) => (m as any)?.reason === "step_reminder")).toHaveLength(1);
+  // Owner 2026-11-09: no timer script. Judgment about when to help belongs to the companion and the Planner.
+  vi.advanceTimersByTime(300_000);
+  expect(post.mock.calls.filter(([m]) => (m as any)?.type === "narration_request")).toHaveLength(0);
 });

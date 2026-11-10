@@ -4,6 +4,7 @@ import path from "node:path";
 import { getChildChart } from "../profiles/childChart";
 import { resolveChildContextDir } from "../utils/contextRoot";
 import { requestForModel } from "./plannerTransport";
+import { buildSessionTimeline } from "./sessionTimeline";
 import { getLearningCycle, type LearningCycleRecordV2, type LearningCycleRepositoryOptions } from "./learningCycleRepository";
 
 /**
@@ -34,20 +35,21 @@ function answersSince(cycle: LearningCycleRecordV2, startedAt: string): string[]
     .map(row => `${row.observedAt.slice(11, 19)} ${names.get(row.itemId)}: "${row.childResponse ?? ""}" ${row.result?.correct === true ? "right" : row.result?.correct === false ? "missed" : "unscored"}, ${HELP[row.assistance.status]}`);
 }
 
-export function buildHandoffAsk(input: { childName: string; companionName: string; homeworkTitle: string; transcript: string; answers: string[] }): string {
+export function buildHandoffAsk(input: { childName: string; companionName: string; homeworkTitle: string; transcript: string; answers: string[]; timeline?: string }): string {
   return `You are writing the shift handoff for a tutoring session, like a nurse's report at the end of a shift. ${input.childName} is a child working with her companion ${input.companionName} on "${input.homeworkTitle}". Her tutor reads your report before planning her next lesson.
 
-Her recorded answers this session (counted by the system; "with help" means help was recorded, not what kind):
+${input.timeline ? `${input.timeline}\n\n` : ""}Her recorded answers this session (counted by the system; "with help" means help was recorded, not what kind):
 ${input.answers.length ? input.answers.join("\n") : "(none recorded)"}
 
 The session's conversation (user is the child, assistant is ${input.companionName}):
 ${input.transcript}
 
-Write the handoff in under 250 words, as short bullet lines:
-- For each word or problem she worked on: what she tried, and exactly what the help was when there was help (for example: spelled every letter for her, gave one chunk, asked a question, only said the word again). Quote the companion or the child briefly where it shows this.
-- What she said about how it was going (frustration, confusion, what clicked), quoted.
-- Anything in the room or on screen that got in the way.
-Report only what the conversation and the answers show.`;
+Write the handoff as the session's retro, in under 320 words, as short bullet lines under these headings:
+What went well: what worked for her and when, with the moment things turned (for example when she first understood a game, or what delighted her), quoted, with times from the timeline.
+What went wrong: where she got stuck, frustrated or confused and for how long, quoted, with times from the timeline.
+Words or problems: for each one, what she tried and exactly what the help was when there was help (for example: spelled every letter for her, gave one chunk, asked a question, only said the word again).
+In the room: anything off screen that shaped the session (a parent guiding her, other children, noise).
+Report only what the timeline, the conversation and the answers show; her tutor draws the conclusions.`;
 }
 
 /** Writes this session's handoff into her folder and returns its path; any failure is logged and returns undefined. */
@@ -63,7 +65,8 @@ export async function writeSessionHandoff(input: { childId: string; sessionDir: 
       return undefined;
     }
     const ask = buildHandoffAsk({ childName: metadata.child || input.childId, companionName: chart.companion?.displayName || "her companion",
-      homeworkTitle: cycle.assignment?.title ?? cycle.homeworkId, transcript: transcript.slice(-60_000), answers: answersSince(cycle, metadata.startedAt) });
+      homeworkTitle: cycle.assignment?.title ?? cycle.homeworkId, transcript: transcript.slice(-60_000), answers: answersSince(cycle, metadata.startedAt),
+      timeline: buildSessionTimeline(input.sessionDir).slice(0, 12_000) });
     const client = input.client ?? (new Anthropic() as unknown as HandoffClient);
     const message = await client.messages.create(requestForModel({ model: handoffModel(), max_tokens: 8000, messages: [{ role: "user", content: ask }] }));
     const text = message.content.flatMap(block => block.type === "text" ? [block.text] : []).join("\n").trim();

@@ -300,6 +300,7 @@ export function describeTutorPlanForCompanion(cycle: CompanionCycle, nodeId?: st
   const plan = decision?.selfReview?.whatIChangeNow;
   const lines = ["[Her tutor's plan (the Planner, in its own words)]",
     ...(plan ? [`What the tutor changes now: "${plan}"`] : decision?.reason ? [`The tutor's latest reasoning: "${decision.reason.slice(0, 400)}"`] : []),
+    ...(decision?.selfReview?.whatIKeep ? [`What the tutor keeps because it worked for her: "${decision.selfReview.whatIKeep}"`] : []),
     ...(decision?.change?.length ? ["The tutor's changes for this board:", ...decision.change.map(line => `- ${line}`)] : []),
     ...(node ? [`This stop, "${node.title}", is for: ${node.openingScreen?.purpose ?? "not stated"}.${node.focus ? ` Aimed at: ${node.focus}.` : ""}`] : [])];
   return lines.length > 1 ? lines.join("\n") : "";

@@ -10,7 +10,7 @@ export async function plainDraw(journey: AdventureJourneyDefinition): Promise<{ 
 }
 
 type Recorded = { progressionAction: string; status: string; reason: string; preserve?: string[]; change?: string[]; testNext?: string[]; nextEvidenceRequired?: string[]; predictionEvaluationIds?: string[]; revisedHypothesis?: string;
-  selfReview?: { whatITried: string; whatHappened: string; why: string; whatIChangeNow: string };
+  selfReview?: { whatITried: string; whatHappened: string; why: string; whatIKeep?: string; whatIChangeNow: string };
   nextInstruments?: Array<{ nodeId: string; title: string; academicTarget?: string; openingPurpose?: string; encounter?: string; reward?: boolean; creatureEncounter?: { reason: string }; focus?: string; spelling?: { builtInActivityId?: string; wordIds?: string[] } }>;
   boardDefinition?: { title?: string; rootPathId: string; portals: Array<{ id: string; kind: string; activityNodeId?: string }>; paths: Array<{ id: string; portalIds: string[] }>; choices: Array<{ portalId: string; purpose: string; options: Array<{ label: string; hypothesis: string; pathId: string }> }> } };
 const last = (id: string) => id.split(":").pop();
@@ -34,7 +34,7 @@ export function successorToolReply(recorded: unknown, request: any): any {
     prediction_evaluation_ids: offeredEvaluations ? (cited.length ? cited : offeredEvaluations.slice(0, 1)) : [], revised_hypothesis: decision.revisedHypothesis ?? "",
     // Contract 56: a new question asks for the self-review; a recorded decision without one answers with its reason.
     ...(schema("decide").self_review ? { self_review: { what_i_tried: decision.selfReview?.whatITried ?? "Recorded decision.", what_happened: decision.selfReview?.whatHappened ?? decision.reason,
-      why: decision.selfReview?.why ?? decision.reason, what_i_change_now: decision.selfReview?.whatIChangeNow ?? (decision.change?.join(" ") || "The recorded board.") } } : {}) } };
+      why: decision.selfReview?.why ?? decision.reason, what_i_keep: decision.selfReview?.whatIKeep ?? "What she enjoyed.", what_i_change_now: decision.selfReview?.whatIChangeNow ?? (decision.change?.join(" ") || "The recorded board.") } } : {}) } };
   const steps = (decision.nextInstruments ?? []).flatMap((row): Array<{ nodeId: string; name: string; input: Record<string, unknown> }> => {
     // A recorded reward break is placed with the one reward tool, when the question offers it.
     if (row.reward) return names.includes("add_reward") ? [{ nodeId: row.nodeId, name: "add_reward", input: { title: row.title, story: `Story: ${row.title}`, picture: `Picture: ${row.title}` } }] : [];

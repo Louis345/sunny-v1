@@ -608,7 +608,9 @@ export function parseCanonicalProgressionDecision(value: unknown): CanonicalProg
 function parseSelfReview(value: unknown): PlannerSelfReview | undefined {
   if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
   const row = value as Record<string, unknown>, keys = ["whatITried", "whatHappened", "why", "whatIChangeNow"] as const;
-  return keys.every(key => typeof row[key] === "string" && String(row[key]).trim()) ? Object.fromEntries(keys.map(key => [key, String(row[key]).trim()])) as PlannerSelfReview : undefined;
+  if (!keys.every(key => typeof row[key] === "string" && String(row[key]).trim())) return undefined;
+  const review = Object.fromEntries(keys.map(key => [key, String(row[key]).trim()])) as PlannerSelfReview;
+  return typeof row.whatIKeep === "string" && row.whatIKeep.trim() ? { ...review, whatIKeep: row.whatIKeep.trim() } : review;
 }
 
 function assertPredictionCitations(decision:Pick<CanonicalProgressionDecision,'predictionEvaluationIds'>, cycle:LearningCycleRecordV2):void {

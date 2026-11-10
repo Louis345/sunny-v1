@@ -73,7 +73,7 @@ function nextBoardRobot() {
       if (turn === 0) return message(`next-${requests.length}`, request.model, [
         { name: "decide", input: { status: "revised", reason: "She missed the parity check on her own.", progression_action: "generate_support", preserve: ["Lantern story"], change: ["Aim a game at odd plus even."], test_next: ["p1 on her own"], next_evidence_required: ["p1 on her own"],
           prediction_evaluation_ids: evaluations.slice(0, 1), revised_hypothesis: "",
-          self_review: { what_i_tried: "A first check on p1 and p2.", what_happened: "She wrote even for 7 + 6.", why: "She adds, then guesses parity.", what_i_change_now: "A game aimed at odd plus even." } } },
+          self_review: { what_i_tried: "A first check on p1 and p2.", what_happened: "She wrote even for 7 + 6.", why: "She adds, then guesses parity.", what_i_keep: "She liked the river game.", what_i_change_now: "A game aimed at odd plus even." } } },
         { name: "add_step", input: { built_in: "generated-game", problems: ["p1", "p3"], title: "Parity Raft", purpose: "Practice odd plus even.", story: "A raft that floats only on odd sums.", picture: "A raft on a river", check_first: false, focus: "odd plus even is odd", ...none } },
         { name: "add_reward", input: { title: "Treasure Break", story: "A chest glows at the river bend.", picture: "A glowing chest" } },
         { name: "add_step", input: { built_in: "generated-game", problems: ["p1"], title: "Lantern Check", purpose: "Check p1 on her own.", story: "The last lantern.", picture: "A lantern", check_first: true, ...none } },

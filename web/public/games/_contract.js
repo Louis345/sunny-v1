@@ -623,8 +623,6 @@ window.fireCompanionEvent = function (trigger, payload) {
 };
 
 window.fireAttemptEvent = function (attempt) {
-  // Progress on a step resets its reminder clock.
-  if (stepReminder.step) armStepReminder(stepReminder.step, stepReminder.instruction);
   window.GameBridge.reportAttempt(attempt);
 };
 
@@ -666,26 +664,13 @@ window.openItem = function (itemIdOrDisplay, progress) {
 };
 
 /**
- * Built games report each step she is on and its on-screen instruction (BUGS.md 2026-11-09: a hidden keyboard
- * behind "Tap a stone" cost Ila 13 minutes while Elli could not see the step). After a minute on one step with no
- * progress, the game reads its own instruction aloud once; Elli sees the step and how long she has been on it.
+ * Built games report each step she is on and its on-screen instruction (BUGS.md 2026-11-09: a hidden keyboard behind
+ * "Tap a stone" cost Ila 13 minutes while her companion could not see the step). Facts only: the companion and the
+ * session retro see the step and when she reached it; nothing here decides what to say or when.
  */
-var stepReminder = { timer: null, step: null, instruction: "", spoken: {} };
-function armStepReminder(step, instruction) {
-  if (stepReminder.timer) clearTimeout(stepReminder.timer);
-  stepReminder.timer = setTimeout(function () {
-    if (stepReminder.step !== step || stepReminder.spoken[step]) return;
-    stepReminder.spoken[step] = true;
-    if (window.SUNNY_CONTRACT_LOGS !== false) console.log(" 🎮 [game-contract] [step-reminder] [spoken] step=" + step);
-    window.parent.postMessage({ type: "narration_request", activityId: "generated-game", nodeId: (window.GAME_PARAMS || {}).nodeId, text: instruction, reason: "step_reminder" }, "*");
-  }, 60000);
-}
 window.reportStep = function (step, instruction) {
   if (typeof step !== "string" || !step.trim()) return;
   var text = typeof instruction === "string" ? instruction.trim() : "";
-  stepReminder.step = step;
-  stepReminder.instruction = text || step;
-  armStepReminder(step, stepReminder.instruction);
   window.GameBridge.reportState(text || step, { gameStep: step, currentChallenge: text || step, stepStartedAt: Date.now() });
 };
 

@@ -372,7 +372,7 @@ export type LearningCycleDecision = {
 };
 
 /** The Planner reviews itself (contract 56, owner 2026-11-08): its words, stored with the decision. */
-export type PlannerSelfReview = { whatITried: string; whatHappened: string; why: string; whatIChangeNow: string };
+export type PlannerSelfReview = { whatITried: string; whatHappened: string; why: string; whatIKeep?: string; whatIChangeNow: string };
 
 export type LearningCycleAgencyExperiment = {
   experimentId: string;

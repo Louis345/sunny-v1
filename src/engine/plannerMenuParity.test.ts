@@ -132,7 +132,7 @@ describe("one Planner menu for every stage and subject", () => {
     const kit = spellingSuccessorToolkit(mathSuccessorFacts({ answeredProblemIds: ["p1"] }));
     const state = kit.initialState();
     expect(call(kit.tools, state, "decide", { status: "revised", reason: "Recheck.", progression_action: "generate_support", preserve: [], change: ["Recheck p1."], test_next: [], next_evidence_required: [], prediction_evaluation_ids: [], revised_hypothesis: "",
-      self_review: { what_i_tried: "First board.", what_happened: "Missed p1.", why: "Unsure.", what_i_change_now: "Recheck p1." } }).ok).toBe(true);
+      self_review: { what_i_tried: "First board.", what_happened: "Missed p1.", why: "Unsure.", what_i_keep: "The short game.", what_i_change_now: "Recheck p1." } }).ok).toBe(true);
     const step = call(kit.tools, state, "add_step", { built_in: "generated-game", problems: ["p1"], check_first: true, title: "Camp Check", purpose: "Check p1.", story: "s", picture: "p" });
     expect(step.result).toMatchObject({ role: "fresh_checkpoint", note: expect.stringContaining("recorded as practice") });
     expect(call(kit.tools, state, "set_order", { opening: [step.result.step_id], closing: [] }).ok).toBe(true);

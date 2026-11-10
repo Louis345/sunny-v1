@@ -98,7 +98,7 @@ it("shows the next-board Planner her track record and its journal, requires its 
   expect(first).toContain("- No earlier decisions on this list yet.");
   const decide = f.requests[0].tools.find((tool: any) => tool.name === "decide").input_schema;
   expect(decide.required).toContain("self_review");
-  expect(Object.keys(decide.properties.self_review.properties)).toEqual(["what_i_tried", "what_happened", "why", "what_i_change_now"]);
+  expect(Object.keys(decide.properties.self_review.properties)).toEqual(["what_i_tried", "what_happened", "why", "what_i_keep", "what_i_change_now"]);
   // The self-review is stored with the decision, and readable in her folder.
   let cycle = getLearningCycle(childId, homeworkId, f.opts)!;
   expect(cycle.decisionHistory.at(-1)).toMatchObject({ selfReview: { whatITried: "Radar practice on both words.", whatIChangeNow: "Aim at the m before p." } });
@@ -132,7 +132,7 @@ const facts = (overrides: Partial<SuccessorFacts> = {}): SuccessorFacts => ({
   rerunnable: () => true, evaluationIds: [], allowedActions: ["generate_support"], idPrefix: "next", ...overrides,
 });
 const decideInput = { status: "revised", reason: "import is still inport.", progression_action: "generate_support", preserve: [], change: ["Aim a game at m before p."], test_next: [], next_evidence_required: [], prediction_evaluation_ids: [], revised_hypothesis: "" };
-const review = { what_i_tried: "Radar twice.", what_happened: "inport each time.", why: "Same practice, same error.", what_i_change_now: "A game aimed at m before p." };
+const review = { what_i_tried: "Radar twice.", what_happened: "inport each time.", why: "Same practice, same error.", what_i_keep: "She liked the radar.", what_i_change_now: "A game aimed at m before p." };
 
 it("answers a new decide without a self-review with a tool error, and keeps older questions and saved decisions working", () => {
   const kit = spellingSuccessorToolkit(facts({ selfReview: true, aimedGames: true }));
@@ -142,7 +142,7 @@ it("answers a new decide without a self-review with a tool error, and keeps olde
   const parsed = decide.schema.safeParse({ ...decideInput, self_review: review });
   expect(parsed.success).toBe(true);
   expect(decide.run(state, parsed.data)).toMatchObject({ ok: true });
-  expect(state.decision?.selfReview).toEqual({ whatITried: "Radar twice.", whatHappened: "inport each time.", why: "Same practice, same error.", whatIChangeNow: "A game aimed at m before p." });
+  expect(state.decision?.selfReview).toEqual({ whatITried: "Radar twice.", whatHappened: "inport each time.", why: "Same practice, same error.", whatIKeep: "She liked the radar.", whatIChangeNow: "A game aimed at m before p." });
   // A question frozen before contract 56 replays its saved turns as they were.
   expect(spellingSuccessorToolkit(facts()).tools.find(row => row.name === "decide")!.schema.safeParse(decideInput).success).toBe(true);
   // A decision saved before contract 56 still parses; a new one keeps its review.
@@ -213,6 +213,10 @@ it("writes a shift handoff from the session conversation and shows it to the nex
   const ask = asks[0].messages[0].content as string;
   expect(ask).toContain("Ellie, can you help me with import?");
   expect(ask).toContain("Sure! i, m, p, o, r, t.");
+  // Owner 2026-11-09: the handoff is the session's retro, from a code-built timeline: what went well and what went wrong.
+  expect(ask).toContain("Session timeline (built by code");
+  expect(ask).toMatch(/What went well/);
+  expect(ask).toMatch(/What went wrong/);
   expect(ask).toContain(`import: "inport" missed, help not recorded`.replace("help not recorded", "on her own"));
   expect(fs.readFileSync(file!, "utf8")).toContain("Elli spelled every letter");
   await runtime.advanceCanonicalCycleFromEvidence(f.request, f.opts);
