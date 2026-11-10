@@ -49,6 +49,25 @@ describe("WardrobeStoreLab shopping call", () => {
     );
   });
 
+  // Owner, asked several times (latest 2026-11-10): on the try-on rack, what she does not own yet is dark and says
+  // how to get it; what she owns is lit. The dark/lit collection existed only in the collection view and FaceTime
+  // Games; the rack, where she actually tries things on, showed every item the same.
+  it("shows items she does not own dark with how to get them, and her own items lit", () => {
+    render(
+      <WardrobeStoreLab
+        companion={companion}
+        companionPreview={<div data-testid="companion-vrm">full body VRM</div>}
+        call={createCallProps()}
+        onWardrobeChange={vi.fn()}
+        onExit={vi.fn()}
+      />,
+    );
+    const crown = screen.getByRole("button", { name: "View Royal Crown, 50 coins" });
+    expect(crown.className).toContain("is-locked");
+    expect(crown).toHaveTextContent("🔒");
+    expect(crown).toHaveTextContent("50 coins");
+  });
+
   it("opens at the entrance with the full companion and no selected product", () => {
     render(
       <WardrobeStoreLab

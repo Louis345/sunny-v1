@@ -1098,17 +1098,19 @@ export function WardrobeStoreLab({
               </div>
             ) : visibleItems.map((item) => {
               const itemPriceLabel = priceLabel(item, storeState);
+              // Dark until it is hers, labelled with how to get it; lit once owned (owner, 2026-11-10). Still tappable to try on.
+              const owned = storeState.ownedItemIds.includes(item.id);
               return (
                 <button
                   type="button"
                   key={item.id}
-                  className={selectedItem?.id === item.id ? "is-selected" : ""}
+                  className={[selectedItem?.id === item.id ? "is-selected" : "", owned ? "is-owned" : "is-locked"].filter(Boolean).join(" ")}
                   aria-label={`View ${item.name}, ${itemPriceLabel}`}
                   onClick={() => selectItem(item)}
                 >
                   <WardrobeItemThumbnail item={item} />
-                  <div><strong>{item.name}</strong><small>{item.styleTags.slice(0, 2).join(" · ")}</small></div>
-                  <b>{itemPriceLabel}</b>
+                  <div><strong>{item.name}</strong><small>{owned ? "Yours" : "Not yours yet · try it on"}</small></div>
+                  <b>{owned ? "✓ Owned" : `🔒 ${itemPriceLabel}`}</b>
                 </button>
               );
             })}
