@@ -717,12 +717,25 @@ export function CompanionLayer({
     };
   }, [childId, companion?.companionId, companion?.vrmUrl, mode, startLoop, stopLoop]);
 
+  // The companion's raised hand (2026-11-10): shown until she calls her companion, or for two minutes.
+  const latestRaise = companionCommands.filter(command => command.type === "check_back_in" && (command.payload as { how?: string })?.how === "raise_hand").reduce((latest, command) => Math.max(latest, command.timestamp), 0);
+  const [raisedHandAt, setRaisedHandAt] = useState(0);
+  const answeredRaiseRef = useRef(0);
+  useEffect(() => {
+    if (summoned && raisedHandAt) { answeredRaiseRef.current = raisedHandAt; setRaisedHandAt(0); return; }
+    if (!latestRaise || latestRaise <= answeredRaiseRef.current || Date.now() - latestRaise > 120_000) return;
+    setRaisedHandAt(latestRaise);
+    const timer = window.setTimeout(() => { answeredRaiseRef.current = latestRaise; setRaisedHandAt(0); }, Math.max(0, 120_000 - (Date.now() - latestRaise)));
+    return () => window.clearTimeout(timer);
+  }, [latestRaise, summoned, raisedHandAt]);
+
   if (!childId || !companion) {
     return null;
   }
 
   if (mode === "portrait") {
     const portraitSize = summoned ? 188 : 68;
+    const showRaisedHand = Boolean(raisedHandAt) && !summoned;
     const activatePortrait = () => (summoned ? onDismiss : onSummon)?.();
     return (
       <>
@@ -791,6 +804,12 @@ export function CompanionLayer({
             }}
           >
             <div ref={mountRef} style={{ width: "100%", height: "100%", pointerEvents: "none" }} />
+            {showRaisedHand ? (
+              <div data-testid="companion-raised-hand" aria-label="Your companion raised a hand: tap if you want help"
+                style={{ position: "absolute", top: 2, left: 2, fontSize: 26, lineHeight: 1, pointerEvents: "none", animation: "companionHandWave 1.6s ease-in-out infinite" }}>
+                ✋<style>{"@keyframes companionHandWave{0%,100%{transform:rotate(0)}50%{transform:rotate(-14deg)}}"}</style>
+              </div>
+            ) : null}
             {micMuted ? (
               <div
                 data-testid="companion-muted-overlay"

@@ -28,7 +28,7 @@ describe("the shared game builder", () => {
   });
 
   it("needs a math game to open each problem through openItem so her answers bind", () => {
-    const game = `<html><body><script>window.openItem("m1");window.fireAttemptEvent({target:"m1",attemptedValue:"odd"});window.sendNodeComplete({completed:true});</script></body></html>`;
+    const game = `<html><body><script>window.openItem("m1");window.reportStep("answer","Pick odd or even.");window.fireAttemptEvent({target:"m1",attemptedValue:"odd"});window.sendNodeComplete({completed:true});</script></body></html>`;
     expect(gameProblems(game, "math")).toEqual([]);
     expect(gameProblems(game.replace("window.openItem", "console.log"), "math").join(" ")).toMatch(/openItem/);
     // Spelling keeps its own opener.

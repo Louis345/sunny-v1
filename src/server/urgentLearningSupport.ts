@@ -1,5 +1,6 @@
 import { sunnyHealthFacts } from "../engine/sunnyHealth";
 import { noteCompanionHelpOnItem } from "./companionItemHelp";
+import { gamePaceFacts, noteGamePace } from "./gamePace";
 import { getChildChart } from "../profiles/childChart";
 import type { SpellingAssessmentState } from "./game-event-handler";
 import type {
@@ -118,9 +119,9 @@ export function buildLiveLearningContext(input: BuildContextInput): LiveLearning
   };
 }
 
+/** Any live activity (2026-11-10: a list of five game names kept this from ever seeing built games or math). */
 function isActiveLearningGame(context: LiveLearningContext | null): context is LiveLearningContext {
-  if (!context) return false;
-  return /pronunciation|spell-check|word-radar|monster-stampede|wheel/.test(context.activityId);
+  return Boolean(context);
 }
 
 function escapeRegExp(value: string): string {
@@ -257,6 +258,9 @@ export function buildActivityCompanionContext(input: {
   const openProblem = input.snapshot?.itemId
     ? cycle?.nodes.find(node => node.nodeId === input.snapshot?.nodeId)?.evidenceContract.itemContracts?.[input.snapshot.itemId]?.prompt : undefined;
   const problemText = openProblem ? `[The problem she has open, as Sunny saved it]\n"${openProblem}"` : "";
+  // Pace facts in every game, for her companion's judgment (2026-11-10); talking to her companion in a game is help asked.
+  if (input.presence === "summoned" && input.snapshot?.nodeId) noteGamePace(input.childId, input.snapshot.nodeId, "help");
+  const pace = activityOnScreen ? gamePaceFacts(input.childId, input.snapshot?.nodeId) : "";
   // Her companion answering while a problem is open is help on that problem: saved with its answer (2026-11-10).
   if (openProblem && input.presence === "summoned" && input.snapshot?.nodeId && input.snapshot.itemId) noteCompanionHelpOnItem(input.childId, input.snapshot.nodeId, input.snapshot.itemId);
   const remembered = buildShowroomTalkMemoryPrompt(
@@ -291,7 +295,7 @@ export function buildActivityCompanionContext(input: {
     : cycle?.domain === "math" ? companionMathTestObjective({ cycle, homework: chart?.homework }) : "";
   // Sunny's own state as a fact (2026-11-10: Matilda promised "your answers will count" while every save failed).
   const health = sunnyHealthFacts(input.childId);
-  return redactProtectedSpellingText([health, board, liveBoard, tutorPlan, problemText, input.speechRate === undefined ? "" : `Configured speech speed: ${input.speechRate} (1=normal; resets on item or launch change).`, memory, helpObjective, testObjective, spelling].filter(Boolean).join("\n\n"), input.snapshot);
+  return redactProtectedSpellingText([health, board, pace, liveBoard, tutorPlan, problemText, input.speechRate === undefined ? "" : `Configured speech speed: ${input.speechRate} (1=normal; resets on item or launch change).`, memory, helpObjective, testObjective, spelling].filter(Boolean).join("\n\n"), input.snapshot);
 }
 
 type CompanionCycle = NonNullable<NonNullable<ReturnType<typeof readCompanionChart>>["learningCycle"]>;

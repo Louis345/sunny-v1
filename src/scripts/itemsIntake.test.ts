@@ -57,7 +57,7 @@ const items = window.GAME_PARAMS.itemBindings; let i = 0;
 const open = () => { document.getElementById("q").textContent = items[i].display; window.openItem(items[i].itemId, "Camp " + (i + 1)); };
 open();
 document.getElementById("box").onchange = event => { window.fireAttemptEvent({ target: items[i].itemId, attemptedValue: event.target.value });
-  i += 1; if (i < items.length) open(); else window.sendNodeComplete({ completed: true }); };
+  i += 1; if (i < items.length) open(); else { window.reportStep("done", "All answered."); window.sendNodeComplete({ completed: true }); } };
 </script></body></html>`;
 // Reports answers but never opens a problem through the contract, so no answer could bind to her items.
 const UNBOUND = GOOD.replace(/window\.openItem\(/g, "console.log(");

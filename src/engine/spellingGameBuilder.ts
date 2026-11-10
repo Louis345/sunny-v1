@@ -164,6 +164,8 @@ export function spellingGameProblems(html: string): string[] {
     ...(/openSpellingItem\s*\(/.test(html) ? [] : ["it never calls window.openSpellingItem before a word, so no answer can count"]),
     ...(/fireAttemptEvent\s*\(/.test(html) ? [] : ["it never reports an attempt with window.fireAttemptEvent"]),
     ...(/sendNodeComplete\s*\(/.test(html) ? [] : ["it never says it is done with window.sendNodeComplete"]),
+    // Her companion and her retro see each step only when the game reports it (2026-11-10: 0 of 16 games did).
+    ...(/reportStep\s*\(/.test(html) ? [] : ["it never reports her step with window.reportStep, so her companion cannot see where she is"]),
     ...scripts,
   ];
 }

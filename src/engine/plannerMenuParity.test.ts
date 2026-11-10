@@ -307,7 +307,7 @@ const items = window.GAME_PARAMS.itemBindings; let i = 0;
 const open = () => { document.getElementById("q").textContent = items[i].display; window.openItem(items[i].itemId, "Camp " + (i + 1)); };
 open();
 document.getElementById("box").onchange = event => { window.fireAttemptEvent({ target: items[i].itemId, attemptedValue: event.target.value });
-  i += 1; if (i < items.length) open(); else window.sendNodeComplete({ completed: true }); };
+  i += 1; if (i < items.length) open(); else { window.reportStep("done", "All answered."); window.sendNodeComplete({ completed: true }); } };
 </script></body></html>`;
     const built: any[] = [];
     const gameClient: SpellingGameClient = { messages: { stream: (request: any) => { built.push(request);

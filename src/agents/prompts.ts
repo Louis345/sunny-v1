@@ -525,7 +525,7 @@ function sessionPromptCapabilitiesTail(subject: SessionSubject, options?: BuildS
       "## Your tools\n" +
       generateAdventureMapVoiceToolDocs() +
       "\n\n" +
-      generateCompanionCapabilities(0.5, ["show_level_path"])
+      generateCompanionCapabilities(0.5, ["show_level_path", "check_back_in"])
     );
   }
   return (

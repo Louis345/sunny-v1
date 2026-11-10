@@ -23,7 +23,7 @@ const GOOD = `<!doctype html><html><head><title>Lantern Harbor</title></head><bo
 const words = window.GAME_PARAMS.words; let i = 0;
 window.openSpellingItem(words[i], "Lantern 1");
 document.getElementById("box").onchange = event => { window.fireAttemptEvent({ domain: "spelling", target: words[i], attemptedValue: event.target.value, correct: event.target.value === words[i] });
-  i += 1; if (i < words.length) window.openSpellingItem(words[i], "Lantern " + (i + 1)); else window.sendNodeComplete({ completed: true }); };
+  i += 1; if (i < words.length) window.openSpellingItem(words[i], "Lantern " + (i + 1)); else { window.reportStep("done", "All answered."); window.sendNodeComplete({ completed: true }); } };
 </script></body></html>`;
 
 const childId = "prebuilt-child", homeworkId = "school-words";

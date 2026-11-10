@@ -24,7 +24,7 @@ afterEach(() => { for (const root of roots.splice(0)) fs.rmSync(root, { recursiv
 
 const GOOD = `<!doctype html><html><head><title>Lantern Harbor</title></head><body><p>Spell the word Elli says.</p><input id="box"><script>
 const words = window.GAME_PARAMS.words; let i = 0;
-window.openSpellingItem(words[i], "Lantern 1");
+window.reportStep("listen and type", "Spell the word Elli says."); window.openSpellingItem(words[i], "Lantern 1");
 document.getElementById("box").onchange = event => { window.fireAttemptEvent({ domain: "spelling", target: words[i], attemptedValue: event.target.value, correct: event.target.value === words[i] });
   i += 1; if (i < words.length) window.openSpellingItem(words[i], "Lantern " + (i + 1)); else window.sendNodeComplete({ completed: true }); };
 </script></body></html>`;
@@ -220,5 +220,16 @@ it("gives the Planner and the builder each played game's track record and the Pl
   const ask = builder.requests[0].messages[0].content as string;
   expect(ask).toContain("14.9");
   expect(ask).toContain("She loved the doors once she understood them.");
+});
+
+// 2026-11-10, both audits: the step-report line was added to the builder's ask on 11/9, but no built game had it
+// (0 of 16), because the pre-publish check never asked for it. Ila's 15-minute wall stayed invisible to Elli. A game
+// that never reports its step is now sent back once with that problem, like a game that cannot save her answers.
+it("sends back a built game that never reports its step to her companion", async () => {
+  const { spellingGameProblems, gameProblems } = await import("./spellingGameBuilder");
+  const silent = GOOD.replace(/window\.reportStep\([^)]*\);?/g, "");
+  expect(spellingGameProblems(silent)).toContain("it never reports her step with window.reportStep, so her companion cannot see where she is");
+  expect(spellingGameProblems(GOOD)).toEqual([]);
+  expect(gameProblems(silent.replace(/openSpellingItem/g, "openItem"), "math")).toContain("it never reports her step with window.reportStep, so her companion cannot see where she is");
 });
 

@@ -3,6 +3,7 @@
  * Session state lives on SessionManager; this module holds extracted handlers (no circular imports).
  */
 
+import { noteGamePace } from "./gamePace";
 import { isSpellingPracticeContinuation } from "../engine/learningCycleRepository";
 import { recordClockAttempt } from "../engine/clockTracker";
 import { childIdFromName, recordAttempt } from "../engine/learningEngine";
@@ -293,6 +294,8 @@ export function handleGameEventForSession(
   const type = event.type as string;
 
   if (TRACEABLE_GAME_EVENT_TYPES.has(type)) {
+    // Pace facts for her companion, in every game (2026-11-10).
+    if (typeof event.nodeId === "string" && event.nodeId && (s.chartChildId || s.childName)) noteGamePace(chartChildIdForSession(s), event.nodeId, type === "attempt_event" ? "answer" : "state");
     s.recordDebugEvent?.("flow_game", type, buildFlowGameEventFields(event));
     s.recordGameTrace?.({
       ...event,

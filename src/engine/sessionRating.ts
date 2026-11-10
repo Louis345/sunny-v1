@@ -86,7 +86,8 @@ export function rateSession(packet: SessionPacket): { lines: RatingLine[]; verdi
   // Quiet stretches: over three minutes inside a session with no answer and no child turn; an offer is a companion check-in event.
   const moments = [packet.startedAt, ...given.map(row => row.ts!), ...packet.transcript.filter(row => row.role === "child").map(row => row.ts), packet.endedAt ?? packet.startedAt].filter(Boolean).sort();
   const stretches = moments.slice(1).flatMap((to, index) => minutes(moments[index], to) > STRETCH_MIN ? [{ from: moments[index], to }] : []);
-  const offers = packet.events.filter(row => row.component === "companion-checkin" && /offer|raised|asked/.test(String(row.action)));
+  const offers = [...packet.events.filter(row => row.component === "companion-checkin" && /offer|raised|asked/.test(String(row.action))),
+    ...packet.traces.filter(row => row.type === "companion_checkin" && (row as { action?: string }).action === "offered")];
   const offered = stretches.filter(stretch => offers.some(row => row.ts! >= stretch.from && row.ts! <= stretch.to));
 
   const measured: Record<string, { value: string; pass: boolean }> = {

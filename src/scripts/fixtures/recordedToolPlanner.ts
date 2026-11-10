@@ -21,7 +21,7 @@ window.openSpellingItem(words[i], "Word 1 of " + words.length);
 document.getElementById("box").addEventListener("change", event => { const typed = event.target.value.trim();
   window.fireAttemptEvent({ domain: "spelling", target: words[i], attemptedValue: typed, correct: typed.toLowerCase() === words[i] });
   event.target.value = ""; i += 1;
-  if (i < words.length) window.openSpellingItem(words[i], "Word " + (i + 1) + " of " + words.length); else window.sendNodeComplete({ completed: true }); });
+  if (i < words.length) window.openSpellingItem(words[i], "Word " + (i + 1) + " of " + words.length); else { window.reportStep("done", "All answered."); window.sendNodeComplete({ completed: true }); } });
 </script></body></html>`;
 
 export function recordedToolReply(lab: RecordedToolLab, request: any): any {
