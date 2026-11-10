@@ -5,6 +5,7 @@ import { getLearningCycle, type LearningCycleRecordV2, type LearningCycleReposit
 import { listChildProductIssues } from "./productIssues";
 import { sessionGames, type SessionGame } from "./sessionTimeline";
 import { raiseParentAlert } from "./sunnyHealth";
+import { scorePlannerCalls } from "./plannerIntrospection";
 
 /**
  * One scorecard per session, counted by code (owner, 2026-11-09: "how do we measure we are heading in the right
@@ -49,9 +50,10 @@ export function writeSessionScorecard(input: { childId: string; homeworkId?: str
         minutesToFirstAnswer: game.firstAnswerMin === null ? null : round1(game.firstAnswerMin - game.openedMin) })),
       helpRequests: childTurns.filter(text => /\bhelp\b/i.test(text)).length,
       bugsReported: listChildProductIssues(input.childId, { rootDir: opts.rootDir, limit: 200 }).filter(row => Date.parse(row.createdAt) >= from).length,
+      // The Planner's calls answered in this session, checked by code (2026-11-10).
       predictions: (() => {
-        const checked = (cycle.predictionEvaluations ?? []).filter(row => row.sufficiency === "sufficient" && row.observedMetric !== null && Date.parse(row.evaluatedAt) >= from);
-        return { checked: checked.length, inRange: checked.filter(row => row.observedMetric! >= row.predictedMetric.min && row.observedMetric! <= row.predictedMetric.max).length };
+        const answered = scorePlannerCalls(cycle).filter(call => call.answer && Date.parse(call.answer.observedAt) >= from);
+        return { checked: answered.length, inRange: answered.filter(call => call.hit).length };
       })(),
     };
     // Answers she gave in games against answers saved (2026-11-10: 37 given, 0 saved, and nothing compared them).
@@ -75,5 +77,5 @@ export function scorecardSection(cycle: LearningCycleRecordV2, opts: LearningCyc
   const cards = fs.existsSync(file) ? fs.readFileSync(file, "utf8").split("\n").flatMap(line => { try { return line.trim() ? [JSON.parse(line) as SessionScorecard] : []; } catch { return []; } }).slice(-limit) : [];
   if (!cards.length) return `${header}\n- No scorecard yet.`;
   return [header, ...cards.map(card => `- ${card.startedAt.slice(0, 16).replace("T", " ")}: on her own ${card.answers.onHerOwnRight} of ${card.answers.onHerOwn} right; with help ${card.answers.withHelp}; help asked ${card.helpRequests} times; bugs she reported ${card.bugsReported}; games: ${
-    card.games.map(game => `${game.title} first answer after ${game.minutesToFirstAnswer === null ? "none" : `${game.minutesToFirstAnswer.toFixed(1)} min`}${game.finished ? "" : " (not finished)"}`).join(", ") || "none"}; predictions checked ${card.predictions.checked}, in range ${card.predictions.inRange}`)].join("\n");
+    card.games.map(game => `${game.title} first answer after ${game.minutesToFirstAnswer === null ? "none" : `${game.minutesToFirstAnswer.toFixed(1)} min`}${game.finished ? "" : " (not finished)"}`).join(", ") || "none"}; the Planner's calls checked ${card.predictions.checked}, right ${card.predictions.inRange}`)].join("\n");
 }

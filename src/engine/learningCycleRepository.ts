@@ -371,7 +371,12 @@ export type LearningCycleDecision = {
   replayedResponse?: {blockedDecisionId:string;requestHash:string;receiptHash:string;reason:string;deferredContentDecisions?:EvidenceBasedContentDecision[]};
   /** The Planner's review of its own track record, written before this decision (contract 56). Older decisions have none. */
   selfReview?: PlannerSelfReview;
+  /** The Planner's calls, item by item: right on her own next time? Code checks them (2026-11-10). */
+  expectations?: PlannerExpectation[];
 };
+
+/** One call the Planner made: whether her next answer on her own for this word or problem will be right. */
+export type PlannerExpectation = { itemId: string; onHerOwn: boolean };
 
 /** The Planner reviews itself (contract 56, owner 2026-11-08): its words, stored with the decision. */
 export type PlannerSelfReview = { whatITried: string; whatHappened: string; why: string; whatIKeep?: string; whatIChangeNow: string };
@@ -712,6 +717,7 @@ export type LearningCycleEvent =
         successor?: SuccessorProgram;
         replayedResponse?: LearningCycleDecision['replayedResponse'];
         selfReview?: PlannerSelfReview;
+        expectations?: PlannerExpectation[];
       };
     }
   | { type: "planner_retry_authorized"; blockedDecisionId: string; reason: string }
@@ -1992,6 +1998,7 @@ export function transitionLearningCycle(
       assumptionAssessments: event.decision.assumptionAssessments,
       ...(event.decision.replayedResponse?{replayedResponse:structuredClone(event.decision.replayedResponse)}:{}),
       ...(event.decision.selfReview ? { selfReview: structuredClone(event.decision.selfReview) } : {}),
+      ...(event.decision.expectations?.length ? { expectations: structuredClone(event.decision.expectations) } : {}),
     } : {}),
   };
   next.decisionHistory.push(decision);

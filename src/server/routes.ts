@@ -1,5 +1,7 @@
 import { holdCompletion, raiseParentAlert } from "../engine/sunnyHealth";
 import { takeCompanionHelpItemIds } from "./companionItemHelp";
+import { retroThenDecide } from "../engine/retroBeforeDecision";
+import { writeSessionHandoff } from "../engine/sessionHandoff";
 import { awardBossDropOnCompletion, awardDiscoveryChest, awardNodeChestOnCompletion, boardFinishedForCall } from "./bossDropAward";
 import { awardCreatureEncounterOnCompletion, countBoardForCreatures, registerCreatureRoutes } from "./creatureCare";
 import type { CoinOffer } from "../shared/companionCareTypes";
@@ -307,7 +309,7 @@ import { arcadeClockForChild, callClockForChild, reconcileCompanionCareCurrencyA
 import { companionPickerIdentity } from "./companionPickerRows";
 import { isSpellingPracticeContinuation } from "../engine/learningCycleRepository";
 import { advanceCanonicalCycleFromEvidence, pageTimeFromKiosk, recordCanonicalNodeCompletion, recordSpellingDiscoveryAttempt } from "../engine/learningCycleRuntime";
-import { getVoiceSessionManagerForChildSession } from "./voice-session-registry";
+import { getActiveVoiceSessionManagerForChild, getVoiceSessionManagerForChildSession } from "./voice-session-registry";
 import { prepareSuccessorBoard } from "../engine/canonicalProgressionGenerator";
 import { successorPreparationStatus, successorResumeAction } from "../engine/learningBoardInstances";
 import {
@@ -1133,7 +1135,9 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
       const bossDrop = awardBossDropOnCompletion(finalCycle, nodeId);
       console.log(` 🎮 [learning-cycle-route] [completion] [saved] child=${childId} node=${nodeId} state=${nodeState} transitioned=${becameCompleted} lifecycle=${finalCycle.lifecycle} revision=${finalCycle.revision}`);
       if (becameCompleted && !practiceContinuation && ["baseline_evaluating", "quest_evaluating", "boss_evaluating"].includes(finalCycle.lifecycle)) {
-        void advanceCanonicalCycleFromEvidence({ childId, homeworkId })
+        // The retro of the session so far is written first, so the Planner judges this board with it (2026-11-10).
+        void retroThenDecide({ sessionDir: getActiveVoiceSessionManagerForChild(childId)?.getSessionDir?.(),
+          writeRetro: sessionDir => writeSessionHandoff({ childId, sessionDir, homeworkId }), decide: () => advanceCanonicalCycleFromEvidence({ childId, homeworkId }) })
           .then((decided) => {
             console.log(` 🎮 [learning-cycle-route] [planner-decision] [saved] lifecycle=${decided.lifecycle} revision=${decided.revision}`);
             return ["baseline_generating", "quest_generating", "boss_generating"].includes(decided.lifecycle)

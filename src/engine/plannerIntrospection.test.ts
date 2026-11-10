@@ -83,7 +83,7 @@ function liveFixture() {
   const requests: any[] = [];
   const request = { childId, homeworkId, client: { messages: { stream: (payload: any) => { requests.push(payload); return { finalMessage: async () => successorToolReply(decision, payload) }; } } } as never, draw: plainDraw };
   const prepare = () => prepareSuccessorBoard({ childId, homeworkId, generateHtml: async ({ node }: any) => `<html><body>${node.title}</body></html>`, generateArtwork: async () => "/generated/world.jpeg", validate: async () => ({ passed: true, failures: [] }) } as never, opts);
-  return { rootDir, opts, play, request, requests, prepare };
+  return { rootDir, opts, play, request, requests, prepare, decision: decision as Record<string, unknown> };
 }
 const promptOf = (request: any): string => { const first = request.messages[0].content; return typeof first === "string" ? first : first.filter((block: any) => block.type === "text").map((block: any) => block.text).join("\n"); };
 
@@ -228,6 +228,29 @@ it("writes a shift handoff from the session conversation and shows it to the nex
   // A provider failure is logged and never throws into the session's end.
   const failing = { messages: { create: async () => { throw Error("provider down"); } } };
   await expect(writeSessionHandoff({ childId, sessionDir, homeworkId, client: failing as never }, f.opts)).resolves.toBeUndefined();
+}, 120000);
+
+// 2026-11-10 (Fable audit): the Planner's checkable predictions all date from the first day; on every later board it
+// wrote its own verdict ("my main prediction for board 7 was met") and nothing but the Planner checked. Now it may
+// call, per word, whether she will get it right on her own next time; code checks each call against her next
+// unhelped answer and shows the tally back, so the tutor is scored on its own bets.
+it("scores the Planner's per-word calls against her next answer on her own, and shows the tally back", async () => {
+  const f = liveFixture();
+  f.play("radar", new Date(Date.now() - 3_600_000).toISOString());
+  const node = getLearningCycle(childId, homeworkId, f.opts)!.nodes[0];
+  const wordId = (word: string) => Object.values(node.evidenceContract.spellingItems!).find(item => item.word === word)!.wordId;
+  f.decision.expectations = [{ item: wordId("import"), right: true }, { item: wordId("pardon"), right: true }];
+  await runtime.advanceCanonicalCycleFromEvidence(f.request, f.opts);
+  expect(f.requests[0].tools.find((tool: any) => tool.name === "decide").input_schema.properties.expect_on_her_own).toBeTruthy();
+  expect(getLearningCycle(childId, homeworkId, f.opts)!.decisionHistory.at(-1)).toMatchObject({ expectations: [{ itemId: wordId("import"), onHerOwn: true }, { itemId: wordId("pardon"), onHerOwn: true }] });
+  const cycle = await f.prepare();
+  f.play(currentBoardInstance(cycle).nodeIds[0], new Date().toISOString());
+  const asked = f.requests.length;
+  await runtime.advanceCanonicalCycleFromEvidence(f.request, f.opts);
+  const prompt = promptOf(f.requests[asked]);
+  expect(prompt).toContain("Your calls, checked by code against her next answer on her own:");
+  expect(prompt).toMatch(/1 of 2 calls right/);
+  expect(prompt).toContain(`import: you expected right; she wrote "inport"`);
 }, 120000);
 
 // 2026-11-10, both audits: a FaceTime call with no homework got a lesson retro ("plan the next lesson to start with

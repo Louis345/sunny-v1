@@ -5,7 +5,8 @@ import { schoolTestFacts, schoolTestLine, SPELLING_TEST_CONDITIONS } from "./sch
 import { handoffSection } from "./sessionHandoff";
 import { scorecardSection } from "./sessionScorecard";
 import { observationNode } from "./observationNode";
-import { childFeedbackSection, ownerReplanLine, schoolTestSection, mathTrackRecordSection, plannerJournalSection, spellingTrackRecordSection, writePlannerJournalEntry, type PlannerSelfReview } from "./plannerIntrospection";
+import { childFeedbackSection, ownerReplanLine, plannerCallsSection, schoolTestSection, mathTrackRecordSection, plannerJournalSection, spellingTrackRecordSection, writePlannerJournalEntry, type PlannerSelfReview } from "./plannerIntrospection";
+import type { PlannerExpectation } from "./learningCycleRepository";
 import { spellingActivityCatalog } from "./assignmentPlanner";
 import {readSuccessorBoardDefinition, assembleAdventureBoardDefinition, BOARD_DEFINITION_TOOL_SCHEMA, BOARD_AUTHORING_INSTRUCTION, type AdventureBoardComposition, type AdventureJourneyDefinition} from "../shared/adventureBoardDefinition";
 import { canonicalJourneyLaunchable, isItemIntakeMathCycle, isRetryablePlannerBlock, isSpellingPracticeContinuation, repointReusedSetup } from './learningCycleRepository';
@@ -117,6 +118,7 @@ export type CanonicalProgressionDecision = {
   revisedHypothesis?: string;
   /** Its review of its own track record before deciding (contract 56). Decisions saved earlier have none. */
   selfReview?: PlannerSelfReview;
+  expectations?: PlannerExpectation[];
   /** The one complete successor board program. Absent only for await_calibration. */
   successor?: SuccessorProgram;
 };
@@ -601,6 +603,7 @@ export function parseCanonicalProgressionDecision(value: unknown): CanonicalProg
     ...(contentDecisions.length > 0 ? { contentDecisions } : {}),
     ...(typeof row.revisedHypothesis === "string" && row.revisedHypothesis.trim() ? { revisedHypothesis: row.revisedHypothesis.trim() } : {}),
     ...(parseSelfReview(row.selfReview) ? { selfReview: parseSelfReview(row.selfReview) } : {}),
+    ...(Array.isArray(row.expectations) ? { expectations: (row.expectations as Array<Record<string, unknown>>).filter(call => typeof call?.itemId === "string" && typeof call.onHerOwn === "boolean").map(call => ({ itemId: String(call.itemId), onHerOwn: Boolean(call.onHerOwn) })) } : {}),
     ...(action !== "await_calibration" ? { successor: { instruments, boardDefinition } } : {}),
   };
 }
@@ -940,6 +943,7 @@ ${facts.playedGames?.length?`Games Sunny built for her that she played; a new ge
 ${JSON.stringify(facts.playedGames)}
 `:""}${mathTrackRecordSection(cycle)}
 ${plannerJournalSection(cycle)}
+${plannerCallsSection(cycle)}
 ${childFeedbackSection(cycle,opts)}
 ${schoolTestSection(cycle)}
 ${handoffSection(cycle,opts)}
@@ -980,6 +984,7 @@ ${facts.activities!.some(row=>row.id==="generated-game")?`generated-game is a ne
 ${JSON.stringify(facts.playedGames)}
 `:""}${spellingTrackRecordSection(cycle)}
 ${plannerJournalSection(cycle)}
+${plannerCallsSection(cycle)}
 ${childFeedbackSection(cycle,opts)}
 ${schoolTestSection(cycle)}
 ${handoffSection(cycle,opts)}

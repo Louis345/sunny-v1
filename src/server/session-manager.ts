@@ -1207,7 +1207,7 @@ export class SessionManager {
     return next;
   }
 
-  public getSpellingLaunch() { return this.spellingLaunch ? {...this.spellingLaunch} : undefined; }
+  public getSpellingLaunch() { return this.spellingLaunch ? {...this.spellingLaunch} : undefined; } public getSessionDir(): string | undefined { return this.debugRecorder?.sessionDir; }
 
   public getDiscoveryAttemptContext(homeworkId: string, itemId: string, launchToken?:string): { chartItemId?:string; practice?:boolean; spellingShown?:boolean|null; audioReplays?:number|null; launchId?:string; nodeId: string; support: LearningObservation["assistance"]; instrumentSignals: string[]; artifactHash: string; sessionId: string } | undefined {
     const candidates = [...(this.spellingAssessmentHistory?.values() ?? [])].filter(c => c.homeworkId === homeworkId && c.itemId === itemId && (launchToken === undefined || c.launchToken === launchToken));

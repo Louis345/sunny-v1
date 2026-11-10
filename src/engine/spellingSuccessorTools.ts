@@ -90,13 +90,18 @@ export function spellingSuccessorToolkit(facts: SuccessorFacts) {
           what_i_keep: text("What worked for her, from her answers and her session retros (what she understood, enjoyed or got right), that you keep."),
           what_i_change_now: text("What you change now, and why that is a better try than the last."),
         }).strict().describe(`Your review of your own track record before deciding: your journal and her answers on each ${problems ? "problem" : "word"}, read side by side.`) } : {}),
+        ...(facts.selfReview ? { expect_on_her_own: z.array(z.object({ item: enumOf(problems ? [...problems.keys()] : allWordIds, "none").describe(`One of her ${problems ? "problems" : "words"} this board works on.`),
+          right: z.boolean().describe("true if you expect her next answer on her own to be right; false if not yet.") }).strict()).optional()
+          .describe(`Your calls, ${problems ? "problem" : "word"} by ${problems ? "problem" : "word"}: will she get it right on her own next time? Code checks each call against her next answer on her own and shows you the tally.`) } : {}),
       }).strict(),
       run: (state, input) => {
         if (facts.evaluationIds.length && !input.prediction_evaluation_ids.length) return { ok: false, error: "cite at least one of the offered prediction_evaluation_ids" };
         const review = (input as { self_review?: Record<"what_i_tried" | "what_happened" | "why" | "what_i_keep" | "what_i_change_now", string> }).self_review;
+        const calls = (input as { expect_on_her_own?: Array<{ item: string; right: boolean }> }).expect_on_her_own;
         state.decision = { status: input.status, reason: input.reason, progressionAction: input.progression_action, preserve: input.preserve, change: input.change, testNext: input.test_next,
           nextEvidenceRequired: input.next_evidence_required, predictionEvaluationIds: [...new Set(input.prediction_evaluation_ids)], revisedHypothesis: input.revised_hypothesis,
-          ...(review ? { selfReview: { whatITried: review.what_i_tried, whatHappened: review.what_happened, why: review.why, whatIKeep: review.what_i_keep, whatIChangeNow: review.what_i_change_now } } : {}) };
+          ...(review ? { selfReview: { whatITried: review.what_i_tried, whatHappened: review.what_happened, why: review.why, whatIKeep: review.what_i_keep, whatIChangeNow: review.what_i_change_now } } : {}),
+          ...(calls?.length ? { expectations: calls.map(row => ({ itemId: row.item, onHerOwn: row.right })) } : {}) };
         state.result = undefined;
         return { ok: true, result: { action: input.progression_action } };
       } }),

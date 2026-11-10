@@ -116,6 +116,34 @@ export function mathTrackRecordSection(cycle: LearningCycleRecordV2): string {
 }
 
 /** Your journal: each earlier decision in your words, the board it built, and her results on its words before and after. */
+/** Each of the Planner's calls with her next answer on her own after it, if any (2026-11-10: code checks the tutor). */
+export function scorePlannerCalls(cycle: LearningCycleRecordV2): Array<{ decision: LearningCycleDecision; itemId: string; label: string; onHerOwn: boolean; answer?: LearningObservation; hit?: boolean }> {
+  const wordIdOf = new Map<string, { wordId: string; word: string }>();
+  for (const node of cycle.nodes) for (const item of Object.values(node.evidenceContract?.spellingItems ?? {})) wordIdOf.set(item.id, { wordId: item.wordId, word: item.word });
+  const own = (cycle.observations ?? []).filter(row => row.assistance?.status === "unassisted" && typeof row.result?.correct === "boolean" && !SYNTHETIC.test(`${row.observationId} ${row.sourceId}`))
+    .sort((a, b) => Date.parse(a.observedAt) - Date.parse(b.observedAt));
+  return (cycle.decisionHistory ?? []).filter(row => row.eventType === "theory_decided" && row.expectations?.length).flatMap(decision => decision.expectations!.map(call => {
+    const matches = (row: LearningObservation) => (wordIdOf.get(row.itemId)?.wordId ?? row.itemId) === call.itemId;
+    const answer = own.find(row => Date.parse(row.observedAt) > Date.parse(decision.createdAt) && matches(row));
+    const label = [...wordIdOf.values()].find(row => row.wordId === call.itemId)?.word ?? call.itemId;
+    return { decision, itemId: call.itemId, label, onHerOwn: call.onHerOwn, ...(answer ? { answer, hit: answer.result.correct === call.onHerOwn } : {}) };
+  }));
+}
+
+/** The Planner's calls, checked by code, decision by decision: the tutor's own score, shown back to it. */
+export function plannerCallsSection(cycle: LearningCycleRecordV2): string {
+  const header = "Your calls, checked by code against her next answer on her own:";
+  const calls = scorePlannerCalls(cycle);
+  if (!calls.length) return `${header}\n- No calls yet. With decide, you may call for each ${cycle.domain === "spelling" ? "word" : "problem"} whether her next answer on her own will be right.`;
+  const byDecision = new Map<string, typeof calls>();
+  for (const call of calls) byDecision.set(call.decision.decisionId, [...(byDecision.get(call.decision.decisionId) ?? []), call]);
+  return [header, ...[...byDecision.values()].map(rows => {
+    const checked = rows.filter(row => row.answer), right = checked.filter(row => row.hit).length;
+    return `- Decision of ${rows[0].decision.createdAt.slice(0, 16).replace("T", " ")}: ${right} of ${checked.length} calls right${rows.length > checked.length ? `; ${rows.length - checked.length} not answered on her own yet` : ""}. ${
+      rows.map(row => `${row.label}: you expected ${row.onHerOwn ? "right" : "not yet"}; ${!row.answer ? "no answer on her own yet" : row.answer.result.correct ? "she was right" : `she wrote "${row.answer.childResponse ?? "?"}"`}`).join(". ")}.`;
+  })].join("\n");
+}
+
 export function plannerJournalSection(cycle: LearningCycleRecordV2): string {
   const header = "Your journal: what you tried on earlier boards and what happened (your words from each decision; her answers counted by code):";
   const decisions = cycle.decisionHistory.filter(row => row.eventType === "theory_decided");
