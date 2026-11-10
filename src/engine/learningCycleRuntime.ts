@@ -921,7 +921,9 @@ async function askPlanner(
     const schoolTest=schoolTestFacts(chart.homework,cycle.homeworkId);
     console.log(` 🎮 [canonical-progression] [school-test] [${schoolTest?"included":"not-recorded"}] homework=${cycle.homeworkId} testDate=${schoolTest?.testDate??"none"} daysLeft=${schoolTest?.daysLeft??"unknown"}`);
     const idPrefix=`${cycle.homeworkId}-r${checkpointRevision}-step`;
-    const RECORD_LINE="Her full record is behind read_record, a page at a time: lifecycle, assignment, theory, predictions, prediction_evaluations, evidence, observations (every answer), stops, learning_history, prior_plan. The summaries above are drawn from it.";
+    // The newest evidence summaries (per-word response times, frustration, help) stay in the question; older ones are in read_record.
+    const recentEvidence=JSON.stringify({academic:factualEvidence.academic.slice(-12),engagement:factualEvidence.engagement.slice(-12),companionObservations:factualEvidence.companionObservations.slice(-12)});
+    const RECORD_LINE=`Her newest evidence summaries (the 12 newest of each kind; per-word response times are here):\n${recentEvidence}\nHer full record is behind read_record, a page at a time: lifecycle, assignment, theory, predictions, prediction_evaluations, evidence (all of it), observations (every answer), stops, learning_history, prior_plan. The summaries above are drawn from it.`;
     const cycleFacts=()=>JSON.stringify({ lifecycle: cycle.lifecycle, assignment: cycle.assignment, theory: cycle.academicTheory, predictions: cycle.academicPredictions, predictionEvaluations: cycle.predictionEvaluations, evidence: factualEvidence, observations: factualObservations, nodes: cycle.nodes.map((node) => ({ nodeId: node.nodeId, role: node.role, title: node.title, state: node.state, routeId: node.routeId, evidenceIds: node.evidenceIds.filter((id) => !isSynthetic(id)) })) });
     // The raw record is a tool, not part of the question (2026-11-10: 431,000 characters drowned the summaries).
     const record:Record<string,unknown>=JSON.parse(cycleFacts());

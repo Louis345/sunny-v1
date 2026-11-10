@@ -63,7 +63,7 @@ it('builds the next board through small locked tools, re-running only built-ins,
  // A short conversation of locked tools, never the old single form.
  expect(f.stream).toHaveBeenCalledTimes(3);
  const tools=f.requests[0].tools;
- expect(tools.map((tool:any)=>tool.name)).toEqual(['decide','add_step','add_explainer','add_reward','remove_step','set_order','add_choice','finish_board']);
+ expect(tools.map((tool:any)=>tool.name)).toEqual(['decide','add_step','add_explainer','add_reward','read_record','remove_step','set_order','add_choice','finish_board']);
  expect(tools.filter((tool:any)=>tool.name!=='add_explainer').every((tool:any)=>tool.strict===true)).toBe(true);
  expect(strictBudget(tools.filter((tool:any)=>tool.strict===true)).unsupported).toEqual([]);
  expect(f.requests[0].tool_choice).toEqual({type:'auto'});
@@ -197,7 +197,9 @@ it('sends the Planner each fact once, without padding',async()=>{
  const prompt=typeof content==='string'?content:content.map((block:any)=>block.text??'').join('');
  const observationIds=getLearningCycle(childId,homeworkId,opts)!.observations.map(row=>row.observationId);
  expect(observationIds.length).toBeGreaterThan(0);
- for(const id of observationIds)expect(prompt.match(new RegExp(`"observationId":\\s*"${id}"`,'g'))?.length,id).toBe(1);
+ // 2026-11-10: every answer is in her record, read with read_record, once; the question carries summaries.
+ const record=JSON.stringify(frozenQuestion(f.rootDir).facts.record.observations);
+ for(const id of observationIds){expect(record.match(new RegExp(`"observationId":"${id}"`,'g'))?.length,id).toBe(1);expect(prompt.match(new RegExp(`"observationId":\\s*"${id}"`,'g'))?.length??0,id).toBeLessThanOrEqual(1);}
  expect(prompt).not.toMatch(/\n {2,}"/);
 });
 
@@ -212,7 +214,10 @@ it('leaves operational codes out of the question and keeps them in her chart',as
  const content=f.requests[0].messages[0].content;
  const prompt=typeof content==='string'?content:content.map((block:any)=>block.text??'').join('');
  expect(prompt).not.toMatch(/artifact_hash:|launch_id:/);
- expect(prompt).toContain('first_response');
+ // Her answers are in the record the Planner reads with read_record (2026-11-10): clean there too.
+ const record=JSON.stringify(frozenQuestion(f.rootDir).facts.record.observations);
+ expect(record).not.toMatch(/artifact_hash:|launch_id:/);
+ expect(record).toContain('first_response');
  expect(stored().some(operational)).toBe(true);
 });
 
@@ -254,3 +259,9 @@ it('lets an operator retry a cycle blocked by the fixed stage-changed bug, then 
  expect(decided.decisionHistory.at(-1)?.eventType).toBe('theory_decided');
  expect(f.stream).toHaveBeenCalledTimes(3);
 });
+
+/** The Planner question as Sunny froze it, with the record read_record serves. */
+function frozenQuestion(rootDir:string):{facts:{record:{observations:unknown[]}}}{
+ const file=fs.readdirSync(rootDir,{recursive:true}).map(String).find(name=>name.endsWith('tools.question.json'))!;
+ return JSON.parse(fs.readFileSync(path.join(rootDir,file),'utf8'));
+}
