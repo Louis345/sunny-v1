@@ -43,6 +43,27 @@ function childFacts(cycle: LearningCycleRecordV2, rootDir: string) {
   return { identity: chart.identity, demographics: chart.demographics, childVoice: chart.childVoice, engagementEvidence: engagementTheoryEvidenceContext(chart.engagementTheory), playedThisHomework: played, whatSheSaidAboutSunnysGames: childFeedbackLines(cycle, { rootDir }) };
 }
 
+/**
+ * The game she played that this one starts from, when the Planner named one (owner, 2026-11-09: a game she loved
+ * keeps its mechanic; only what is behind the door changes). Her old words were written into it, so the builder
+ * rewrites its content, never the parts she already learned. Empty when none was named or its file is gone.
+ */
+function buildFromSection(input: { cycle: LearningCycleRecordV2; node: LearningCycleNodeContract; rootDir: string }, content: string): string {
+  const source = input.node.buildFrom ? input.cycle.nodes.find(row => row.nodeId === input.node.buildFrom) : undefined;
+  const local = source?.artifactBinding?.localArtifactPath;
+  const file = local ? path.join(resolveChildContextDir(input.cycle.childId, { rootDir: input.rootDir }), local) : "";
+  if (!source || !file || !fs.existsSync(file)) {
+    if (input.node.buildFrom) console.log(` 🎮 [spelling-game] [build-from] [missing] node=${input.node.nodeId} from=${input.node.buildFrom}`);
+    return "";
+  }
+  const html = fs.readFileSync(file, "utf8").replace(CSP, "").replace(CONTRACT_TAG, "");
+  console.log(` 🎮 [spelling-game] [build-from] [included] node=${input.node.nodeId} from=${source.nodeId} chars=${html.length}`);
+  return `
+
+Start from "${source.title}", a game she already played. She knows how it works, so keep its mechanic, its look and its steps; change what is behind each door and put in ${content}. Its old content was written for other ${content.includes("problem") ? "problems" : "words"}: replace all of it. Her tutor's story and aim for this stop (above) still apply. The game she played:
+${html}`;
+}
+
 export function buildSpellingGameAsk(input: { cycle: LearningCycleRecordV2; node: LearningCycleNodeContract; rootDir: string }): string {
   const { node } = input;
   const words = node.academicTarget.targets;
@@ -55,9 +76,9 @@ Her ${words.length} words for this game: ${words.join(", ")}
 This stop on her map, as her tutor wrote it:
 - Title: ${node.title}
 - Story: ${node.theme}
-- What it is for: ${node.openingScreen.purpose}${node.focus ? `\n- What this game is aimed at: ${node.focus}` : ""}
+- What it is for: ${node.openingScreen.purpose}${node.focus ? `\n- What this game is aimed at: ${node.focus}` : ""}${buildFromSection(input, "her words for this game")}
 
-Make it something she will gasp at and want to play again, and that helps her spell these words without help. Invent a world made for her; avoid the first idea anyone would have.
+Make it something she will gasp at and want to play again, and that helps her spell these words without help.${node.buildFrom ? "" : " Invent a world made for her; avoid the first idea anyone would have."}
 
 How the game must work:
 - One complete, self-contained HTML document: inline CSS and JavaScript only. No external files, no internet, no image URLs; draw with CSS, SVG, canvas or emoji. It fills a frame about 900×650 pixels, with mouse or touch.
@@ -89,7 +110,7 @@ ${lines.join("\n")}
 This stop on her map, as her tutor wrote it:
 - Title: ${node.title}
 - Story: ${node.theme}
-- What it is for: ${node.openingScreen.purpose}${node.focus ? `\n- What this game is aimed at: ${node.focus}` : ""}
+- What it is for: ${node.openingScreen.purpose}${node.focus ? `\n- What this game is aimed at: ${node.focus}` : ""}${buildFromSection(input, "her problems for this game")}
 
 Make it something she will gasp at and want to play again, and that helps her solve these problems on her own.
 

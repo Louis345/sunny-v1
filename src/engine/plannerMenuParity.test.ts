@@ -144,6 +144,25 @@ describe("one Planner menu for every stage and subject", () => {
     expect(row.spelling).toBeUndefined();
   });
 
+  // Owner 2026-11-09: a generated-game can start from a game she played; only a real played game, only for a built game.
+  it("builds from a game she played only for a generated-game, and only from a game she really played", () => {
+    for (const facts of [successorFacts({ builtIns: [{ nodeId: "act-1", title: "Radar", implementationType: "word-radar", wordIds: ["w-sign"], responseMode: "spelling_letters", checkpoint: true }], playedGames: [{ nodeId: "voice-gate", title: "Spelling Voice Gate", answers: 11, right: 5 }] }),
+      mathSuccessorFacts({ playedGames: [{ nodeId: "voice-gate", title: "Spelling Voice Gate", answers: 11, right: 5 }] })]) {
+      const kit = spellingSuccessorToolkit(facts);
+      const state = kit.initialState();
+      call(kit.tools, state, "decide", { status: "revised", reason: "Reuse.", progression_action: "generate_support", preserve: [], change: ["Reuse the gate."], test_next: [], next_evidence_required: [], prediction_evaluation_ids: [], revised_hypothesis: "" });
+      const content = facts.problems ? { problems: ["p1"], check_first: false } : { words: ["w-sign"] };
+      const base = { title: "Gate Again", purpose: "Practice.", story: "s", picture: "p", ...content };
+      const made = call(kit.tools, state, "add_step", { ...base, built_in: "generated-game", build_from: "voice-gate" }); expect(made.error).toBeUndefined();
+      expect(state.steps.at(-1)).toMatchObject({ buildFrom: "voice-gate" });
+      if (!facts.problems) expect(call(kit.tools, state, "add_step", { ...base, built_in: "word-radar:hidden_word_recall", build_from: "voice-gate" })).toMatchObject({ ok: false, error: expect.stringContaining("plays as it is") });
+      const addStep = kit.tools.find(tool => tool.name === "add_step")!;
+      expect((addStep.schema as any).shape.build_from.unwrap().options).toEqual(["voice-gate"]);
+    }
+    // Without played games the field is not offered at all.
+    expect(Object.keys((spellingSuccessorToolkit(successorFacts()).tools.find(tool => tool.name === "add_step")!.schema as any).shape)).not.toContain("build_from");
+  });
+
   it("records a next-board reward break as play: no words, no spelling, mechanic mystery, shown as a reward break", () => {
     const kit = spellingSuccessorToolkit(successorFacts({ builtIns: [{ nodeId: "act-1", title: "Radar", implementationType: "word-radar", wordIds: ["w-sign"], responseMode: "spelling_letters", checkpoint: true }] }));
     const state = kit.initialState();

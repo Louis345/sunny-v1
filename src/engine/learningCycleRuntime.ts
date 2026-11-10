@@ -517,6 +517,7 @@ function parseNextInstrument(value: unknown): NextInstrumentPrescription | undef
     ...(row.creatureEncounter && typeof (row.creatureEncounter as { reason?: unknown }).reason === "string" && String((row.creatureEncounter as { reason: string }).reason).trim()
       ? { creatureEncounter: { reason: String((row.creatureEncounter as { reason: string }).reason).trim() } } : {}),
     ...(typeof row.focus === "string" && row.focus.trim() ? { focus: row.focus.trim() } : {}),
+    ...(typeof row.buildFrom === "string" && row.buildFrom.trim() ? { buildFrom: row.buildFrom.trim() } : {}),
     ...Object.fromEntries(keys.map((key) => [key, String(row[key]).trim()])),
     ...Object.fromEntries(designKeys
       .filter((key) => typeof row[key] === "string" && String(row[key]).trim())
@@ -927,7 +928,7 @@ async function askPlanner(
       const facts:SuccessorFacts={builtIns:[],
         // The one game menu is declared on the full catalog (Law 16); STAGE_EXCEPTIONS["math-successor"] removes what cannot bind her problems.
         ...successorMenuFacts(spellingActivityCatalog(cycle.childId),{grade:chart.demographics?.grade,words:[]},"math-successor"),
-        evaluationIds,allowedActions:offered,idPrefix,selfReview:true,aimedGames:true,problems,answeredProblemIds,rerunnable:()=>false};
+        evaluationIds,allowedActions:offered,idPrefix,selfReview:true,aimedGames:true,problems,answeredProblemIds,playedGames:playedGamesOf(cycle),rerunnable:()=>false};
       const prompt=`You are Sunny's AI Planner, her math tutor. The goal: she wants to come back to Sunny, and she solves problems like these on her own by the school test. ${schoolTestLine(schoolTest)}
 Compare your preregistered theory and predictions with what she actually did and said, decide what happens next, and build her next board, using the tools.
 1. decide: one evidence-grounded decision, with your self-review of the journal and her track record below. Cite the prediction evaluations you judge.
@@ -936,7 +937,9 @@ Sunny runs each step as you write it. The board she has now stays as it is; your
 Games on the menu:
 ${JSON.stringify((facts.activities??[]).map(row=>row.id))}
 generated-game is a new game Sunny builds for her from her chart and the story you write for that step, around the problems you give it. It can be aimed at one specific error you name in its focus. Sunny scores her first answer to each problem against the answer recorded at intake. check_first marks a step that checks what she does on her own; a problem she has answered before is recorded as practice there, never as an unseen check.
-${mathTrackRecordSection(cycle)}
+${facts.playedGames?.length?`Games Sunny built for her that she played; a new generated-game can start from one with build_from, so she keeps what she already learned there and gets this step's content:
+${JSON.stringify(facts.playedGames)}
+`:""}${mathTrackRecordSection(cycle)}
 ${plannerJournalSection(cycle)}
 ${childFeedbackSection(cycle,opts)}
 ${schoolTestSection(cycle)}
@@ -963,7 +966,7 @@ ${cycleFacts()}`;
       // Owner, 2026-11-08: the Planner may place the board's one creature encounter (a reward; recorded as practice).
       creatureEncounters:true,
       // Contract 56: the decision carries its self-review, and her built-for-her game can be aimed at one error.
-      selfReview:true,aimedGames:true,
+      selfReview:true,aimedGames:true,playedGames:playedGamesOf(cycle),
       // The same check the re-run step applies, asked while the Planner is still choosing.
       rerunnable:(nodeId:string,wordIds:string[])=>{const source=builtIns.find(node=>node.nodeId===nodeId);return Boolean(source&&repointReusedSetup(source,`${nodeId}-check`,wordIds.map(wordId=>({id:`check:${wordId}`,wordId}))));}};
     const prompt=mathQuestion?.prompt??`You are Sunny's AI Planner, her spelling tutor. The goal: she wants to come back to Sunny, and she knows her words by the school test. ${schoolTestLine(schoolTest)} ${SPELLING_TEST_CONDITIONS}
@@ -974,6 +977,8 @@ Sunny runs each step as you write it. The board she has now stays as it is; your
 Games and modes on the menu (a hidden-word Radar is an independent check; the rest are practice):
 ${JSON.stringify(facts.activities!.map(row=>row.id))}
 ${facts.activities!.some(row=>row.id==="generated-game")?`generated-game is a new game Sunny builds for her from her chart and the story you write for that step. It can be aimed at one specific error you name in its focus. What she picks and replays shows what she enjoys.
+`:""}${facts.playedGames?.length?`Games Sunny built for her that she played; a new generated-game can start from one with build_from, so she keeps what she already learned there and gets this step's content:
+${JSON.stringify(facts.playedGames)}
 `:""}${spellingTrackRecordSection(cycle)}
 ${plannerJournalSection(cycle)}
 ${childFeedbackSection(cycle,opts)}
@@ -1242,4 +1247,12 @@ async function decideOnce(
   // Her folder keeps a readable journal of each decision; a failed write is logged inside and never blocks the board.
   writePlannerJournalEntry(saved, saved.decisionHistory.at(-1)!, opts);
   return saved;
+}
+
+/** Games Sunny built for her that she played, with her answers in each (owner, 2026-11-09): the Planner may build from one. */
+function playedGamesOf(cycle:LearningCycleRecordV2):Array<{nodeId:string;title:string;answers:number;right:number}>{
+  return cycle.nodes.filter(node=>node.implementationType==="generated-game"&&node.state==="completed"&&node.artifactBinding?.localArtifactPath).map(node=>{
+    const answers=cycle.observations.filter(row=>row.sourceId.endsWith(`:${node.nodeId}`)&&typeof row.result?.correct==="boolean");
+    return {nodeId:node.nodeId,title:node.title,answers:answers.length,right:answers.filter(row=>row.result.correct).length};
+  });
 }

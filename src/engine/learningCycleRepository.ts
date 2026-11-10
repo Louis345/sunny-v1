@@ -171,6 +171,8 @@ export type LearningCycleNodeContract = {
   creatureEncounter?: { reason: string; itemIds?: string[] };
   /** The one error the Planner aimed this built-for-her game at (contract 56); the game builder reads it. */
   focus?: string;
+  /** A built-for-her game she played that this one starts from (owner, 2026-11-09): same mechanic, new content. */
+  buildFrom?: string;
   nodeId: string;
   routeId?: string;
   predictionId?: string;
@@ -536,6 +538,8 @@ export type NextInstrumentPrescription = {
   creatureEncounter?: { reason: string };
   /** The one error a built-for-her game is aimed at, in the Planner's words (contract 56). */
   focus?: string;
+  /** A built-for-her game she played that the builder starts from (owner, 2026-11-09). */
+  buildFrom?: string;
   /** Marks the one Planner-authorized encounter on a Quest or Boss successor board. */
   encounter?: "quest" | "boss";
   /** A reward break (Law 16): a Mystery game with no items; recorded as play, never as learning evidence. */
@@ -1408,6 +1412,7 @@ function prepareSuccessorBoard(
       openingScreen: { title: prescription.title, purpose: prescription.openingPurpose },
       ...(prescription.creatureEncounter ? { creatureEncounter: { reason: prescription.creatureEncounter.reason, itemIds: (spellingItems ?? []).map(item => item.id) } } : {}),
       ...(prescription.focus ? { focus: prescription.focus } : {}),
+      ...(prescription.buildFrom ? { buildFrom: prescription.buildFrom } : {}),
       generationPrompt: prompt,
       ...(role === "mystery" ? {} : { prediction: {
         claim: `This ${role === "baseline" ? "support instrument" : role} follows the Planner decision: ${input.reason}`,

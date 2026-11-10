@@ -31,17 +31,17 @@ document.getElementById("box").onchange = event => { window.fireAttemptEvent({ d
 // Reports answers but never opens a word through the contract, so no answer could bind to her items.
 const UNBOUND = GOOD.replace(/window\.openSpellingItem\(/g, "console.log(");
 
-function fixture() {
+function fixture(played?: { title: string; path: string }) {
   const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-spelling-game-builder-")); roots.push(rootDir);
   const childId = "builder-child", homeworkId = "school-words";
   seedSpellingLab(rootDir, ["night", "light"], "", childId);
   const items = buildSpellingRecallItems({ homeworkId, words: ["night", "light"], evidenceIds: ["school:one"], measurementRole: "practice", exposure: "unseen" });
   const node: LearningCycleNodeContract = {
-    nodeId: "practice", role: "baseline", title: "Word workshop", state: "ready", implementationType: "word-radar",
+    nodeId: "practice", role: "baseline", title: played?.title ?? "Word workshop", state: "ready", implementationType: played ? "generated-game" : "word-radar",
     academicTarget: { domain: "spelling", skill: "school words", targets: items.map(item => item.word) },
     algorithmOwner: "retrieval-practice", theoryId: "theory", experimentId: "practice", mechanic: "guided spelling", theme: "harbor",
     openingScreen: { title: "Word workshop", purpose: "Practice school words" }, generationPrompt: null,
-    artifactBinding: { contentId: "practice", artifactId: "practice", localArtifactPath: "/games/practice.html", localArtworkPath: "/generated/practice.png", contractFingerprint: "recorded", validationStatus: "passed" },
+    artifactBinding: { contentId: "practice", artifactId: "practice", localArtifactPath: played?.path ?? "/games/practice.html", localArtworkPath: "/generated/practice.png", contractFingerprint: "recorded", validationStatus: "passed" },
     artwork: { status: "ready", localPath: "/generated/practice.png", prompt: null }, sfxContract: [], companionContract: { events: ["completion"] },
     evidenceContract: { academic: true, engagement: true, companionObservations: true, spellingItems: Object.fromEntries(items.map(item => [item.id, item])),
       nativeConfig: { activityId: "word-radar", wordRadarConfig: { recallMode: "hidden_word_recall", inputMode: "keyboard" } } }, evidenceIds: [],
@@ -171,4 +171,29 @@ it("asks every built game to report each step and its on-screen instruction", as
   for (const ask of [buildSpellingGameAsk({ cycle, node, rootDir: f.rootDir }), buildMathGameAsk({ cycle, node, rootDir: f.rootDir })]) {
     expect(ask).toContain('window.reportStep("<short step name>", "<the instruction on screen>")');
   }
+});
+
+// 2026-11-09 owner, after Ila's Spelling Voice Gate (the highlight of her day; she wanted to see what was behind the
+// door): a game she loved could only be replayed with its own words, because its words were written into it. The
+// Planner was missing a tool, not a rule: build from a game she played, so she keeps the mechanic she already
+// learned and gets new content behind the door. Whether and when to reuse stays the Planner's call.
+it("builds her next game from a game she played when the Planner names it, keeping what she already learned", async () => {
+  const playedPath = "/homework/games/school-words/voice-gate.html";
+  const f = fixture({ title: "Spelling Voice Gate", path: playedPath });
+  // Her completed game is a built-for-her game with its finished HTML in her folder.
+  fs.mkdirSync(path.join(f.rootDir, "src/context", f.childId, "homework/games/school-words"), { recursive: true });
+  fs.writeFileSync(path.join(f.rootDir, "src/context", f.childId, playedPath), `<!doctype html><html><body><div id="door">Voice Gate door</div></body></html>`);
+  (f.decision.nextInstruments[0] as Record<string, unknown>).buildFrom = "practice";
+  const planned = await plannedBoard(f);
+  const prompt = plannerRequests.at(-1).messages[0].content[0].text as string;
+  expect(prompt).toMatch(/Games Sunny built for her that she played[^\n]*build_from/);
+  expect(prompt).toContain('"title":"Spelling Voice Gate"');
+  expect(plannerRequests.at(-1).tools.find((tool: any) => tool.name === "add_step").input_schema.properties.build_from.enum).toContain("practice");
+  expect(planned.nodes.find(row => row.implementationType === "generated-game" && row.nodeId !== "practice")).toMatchObject({ buildFrom: "practice" });
+  const builder = recordedBuilder([GOOD]);
+  await prepareSuccessorBoard({ childId: f.childId, homeworkId: f.homeworkId, spellingGameClient: builder.client }, { rootDir: f.rootDir });
+  const ask = builder.requests[0].messages[0].content as string;
+  expect(ask).toContain('Start from "Spelling Voice Gate", a game she already played');
+  expect(ask).toContain("Voice Gate door");
+  expect(ask).toContain("night");
 });
