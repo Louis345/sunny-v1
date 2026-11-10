@@ -6,6 +6,8 @@ import { execSync, spawn } from "child_process";
 import { ttsLogLabel } from "./audit-log";
 import { shouldPersistSessionData } from "../utils/runtimeMode";
 import { writeSessionHandoff } from "../engine/sessionHandoff";
+import { writeSessionScorecard } from "../engine/sessionScorecard";
+import { getChildChart } from "../profiles/childChart";
 
 type JsonValue =
   | string
@@ -254,7 +256,8 @@ export function finalizeSessionDebugPacket(
 /** The shift handoff for the Planner (owner, 2026-11-09): written from the saved packet, never blocking the end. */
 export function startSessionHandoff(session: any, write = writeSessionHandoff): void {
   if (!shouldPersistSessionData() || !session.chartChildId || !session.debugRecorder?.sessionDir) return;
-  const homeworkId = session.spellingLaunch?.homeworkId ?? session.options?.homeworkId;
+  const homeworkId = session.spellingLaunch?.homeworkId ?? session.options?.homeworkId ?? readCurrentHomeworkId(session.chartChildId);
+  if (homeworkId) writeSessionScorecard({ childId: session.chartChildId, homeworkId, sessionDir: session.debugRecorder.sessionDir });
   void write({ childId: session.chartChildId, sessionDir: session.debugRecorder.sessionDir, ...(homeworkId ? { homeworkId } : {}) })
     .catch(error => console.error(` 🎮 [handoff] [failed] child=${session.chartChildId} reason=${error instanceof Error ? error.message : String(error)}`));
 }
@@ -526,4 +529,9 @@ ${JSON.stringify(input.artifacts, null, 2)}
 Session saved locally. Upload not configured yet.
 `;
   }
+}
+
+/** The child's current homework, for the scorecard when the session object no longer names it. */
+function readCurrentHomeworkId(childId: string): string | undefined {
+  try { return getChildChart(childId).learningCycle?.homeworkId; } catch { return undefined; }
 }

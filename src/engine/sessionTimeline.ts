@@ -21,6 +21,24 @@ function readLines(file: string): Trace[] {
   });
 }
 
+export type SessionGame = { title: string; openedMin: number; firstAnswerMin: number | null; answers: number; right: number; finished: boolean };
+
+/** Each game in the session, counted from its traces: one source for the timeline and the scorecard. */
+export function sessionGames(sessionDir: string): SessionGame[] {
+  const metadata = JSON.parse(fs.readFileSync(path.join(sessionDir, "metadata.json"), "utf8")) as { startedAt?: string };
+  const start = Date.parse(metadata.startedAt ?? "");
+  if (!Number.isFinite(start)) return [];
+  const games = new Map<string, Trace[]>();
+  for (const row of readLines(path.join(sessionDir, "game-traces.ndjson")).filter(row => row.ts && row.nodeId)) games.set(row.nodeId!, [...(games.get(row.nodeId!) ?? []), row]);
+  return [...games.values()].map(rows => {
+    const opened = rows.find(row => row.phase === "opening") ?? rows[0];
+    const answers = rows.filter(row => row.type === "attempt_event");
+    return { title: rows.find(row => row.activityTitle)?.activityTitle ?? rows[0].game ?? "a game", openedMin: minutes(start, opened.ts),
+      firstAnswerMin: answers[0] ? minutes(start, answers[0].ts) : null, answers: answers.length, right: answers.filter(row => row.correct === true).length,
+      finished: rows.some(row => row.type === "game_complete") };
+  });
+}
+
 export function buildSessionTimeline(sessionDir: string): string {
   const metadata = JSON.parse(fs.readFileSync(path.join(sessionDir, "metadata.json"), "utf8")) as { startedAt?: string };
   const start = Date.parse(metadata.startedAt ?? "");

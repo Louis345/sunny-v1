@@ -281,3 +281,31 @@ it("lists every returned school test item for the Planner, matched to her homewo
   expect(section).toContain(`- 2026-11-09: "Round 47 to the nearest ten." she wrote "40": missed`);
   expect(schoolTestSection(ilaLikeIntrospectionCycle())).toContain("- No returned school test recorded yet.");
 });
+
+// Owner 2026-11-09 ("how do we measure we are heading in the right direction?"): after every session, code counts
+// one scorecard: her answers (on her own, with help), each game's time to first answer, help requests, bugs she
+// reported, and how the Planner's predictions are landing. The Planner reads recent ones as a trend; no judgment here.
+it("counts a scorecard after each session and shows the recent ones to the next-board Planner", async () => {
+  const f = liveFixture();
+  const { writeSessionScorecard } = await import("./sessionScorecard");
+  const sessionDir = path.join(f.rootDir, "logs/sessions/s2"); fs.mkdirSync(sessionDir, { recursive: true });
+  const startedAt = new Date(Date.now() - 7_200_000).toISOString();
+  const at = (min: number) => new Date(Date.parse(startedAt) + min * 60_000).toISOString();
+  fs.writeFileSync(path.join(sessionDir, "metadata.json"), JSON.stringify({ sessionId: "s2", startedAt }));
+  fs.writeFileSync(path.join(sessionDir, "transcript.md"), `### ${at(3)}\n\n**user:** Ellie, can you help me?\n\n### ${at(4)}\n\n**user:** Can you help me again?\n`);
+  fs.writeFileSync(path.join(sessionDir, "game-traces.ndjson"), [
+    JSON.stringify({ ts: at(0.5), nodeId: "radar", activityTitle: "Radar Run", type: "game_state_update", phase: "opening" }),
+    JSON.stringify({ ts: at(2.5), nodeId: "radar", activityTitle: "Radar Run", type: "attempt_event", correct: false }),
+    JSON.stringify({ ts: at(6), nodeId: "radar", activityTitle: "Radar Run", type: "game_complete" }),
+  ].join("\n"));
+  f.play("radar", new Date(Date.now() - 3_600_000).toISOString());
+  recordProductIssue({ childId, activityId: "word-radar", issueType: "bug_report", severity: "medium", source: "child_utterance", confidence: 0.9,
+    childUtterance: "that's a bug", evidenceText: "Bug.", createdAt: at(5) }, f.opts);
+  const card = writeSessionScorecard({ childId, homeworkId, sessionDir }, f.opts)!;
+  expect(card).toMatchObject({ sessionId: "s2", answers: { total: 2, right: 1, onHerOwn: 2, onHerOwnRight: 1, withHelp: 0 }, helpRequests: 2, bugsReported: 1 });
+  expect(card.games).toEqual([expect.objectContaining({ title: "Radar Run", minutesToFirstAnswer: 2, finished: true })]);
+  await runtime.advanceCanonicalCycleFromEvidence(f.request, f.opts);
+  const prompt = promptOf(f.requests.at(-1));
+  expect(prompt).toContain("Her session scorecards (counted by code after each session, oldest first):");
+  expect(prompt).toMatch(/on her own 1 of 2 right; with help 0; help asked 2 times; bugs she reported 1; games: Radar Run first answer after 2\.0 min/);
+}, 120000);

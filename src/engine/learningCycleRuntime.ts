@@ -3,6 +3,7 @@ import { plannerDecisionView, plannerObservationView } from "./plannerEvidenceVi
 import { successorMenuFacts } from "./plannerMenu";
 import { schoolTestFacts, schoolTestLine, SPELLING_TEST_CONDITIONS } from "./schoolTestObjective";
 import { handoffSection } from "./sessionHandoff";
+import { scorecardSection } from "./sessionScorecard";
 import { childFeedbackSection, ownerReplanLine, schoolTestSection, mathTrackRecordSection, plannerJournalSection, spellingTrackRecordSection, writePlannerJournalEntry, type PlannerSelfReview } from "./plannerIntrospection";
 import { spellingActivityCatalog } from "./assignmentPlanner";
 import {readSuccessorBoardDefinition, assembleAdventureBoardDefinition, BOARD_DEFINITION_TOOL_SCHEMA, BOARD_AUTHORING_INSTRUCTION, type AdventureBoardComposition, type AdventureJourneyDefinition} from "../shared/adventureBoardDefinition";
@@ -940,6 +941,7 @@ ${plannerJournalSection(cycle)}
 ${childFeedbackSection(cycle,opts)}
 ${schoolTestSection(cycle)}
 ${handoffSection(cycle,opts)}
+${scorecardSection(cycle,opts)}
 ${ownerReplanLine(cycle)}Her recorded problems (from her worksheet; give their ids):
 ${JSON.stringify(problems.map(item=>({id:item.id,problem:item.prompt})))}
 Child chart context:
@@ -977,6 +979,7 @@ ${plannerJournalSection(cycle)}
 ${childFeedbackSection(cycle,opts)}
 ${schoolTestSection(cycle)}
 ${handoffSection(cycle,opts)}
+${scorecardSection(cycle,opts)}
 ${ownerReplanLine(cycle)}Tested built-in activities she played, which you may re-run:
 ${JSON.stringify(facts.builtIns.map(row=>({builtIn:row.nodeId,title:row.title,type:row.implementationType,words:row.wordIds.length,checkpoint:row.checkpoint})))}
 Saved spelling words:
