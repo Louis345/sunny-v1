@@ -68,6 +68,18 @@ describe("openItem", () => {
     expect(results[1].tries.map(row => row.attemptedValue)).toEqual(["even"]);
   });
 
+  // 2026-11-10 Ila's kappa game: openItem bound the problem, then each reportStep replaced the state with only
+  // "Type where the kappa lands next", so Sunny and Elli lost which problem (and its numbers) was on screen.
+  // Human caught Elli guessing; logs showed the step text with no item; the lab never mixed steps with items.
+  it("keeps the open item and its problem text on every state report until the next item opens", () => {
+    const { window, posted } = loadContract({ text: "Kappa river" });
+    window.openItem("m1");
+    window.reportStep("hop", "Type where the kappa lands next");
+    const states = posted.filter(row => row.type === "game_state_update").map(row => row.payload as Record<string, unknown>);
+    expect(states[0]).toMatchObject({ itemId: "m1", itemPrompt: "7 + 6" });
+    expect(states.at(-1)).toMatchObject({ gameStep: "hop", itemId: "m1", itemPrompt: "7 + 6", currentChallenge: "Type where the kappa lands next" });
+  });
+
   it("marks an item she never answered as not captured instead of dropping it", () => {
     const { window, posted } = loadContract({ text: "Camp 1" });
     window.openItem("m1");

@@ -91,6 +91,9 @@ window.GameBridge = (function () {
   var allAnswers = Object.create(null);
   var MAX_TRIES_PER_ITEM = 20;
   var screenAtOpen = Object.create(null);
+  // The problem open now: every state report carries it, so a step or heartbeat never hides which problem and its
+  // numbers are on screen (2026-11-10: reportStep replaced it with "Type where the kappa lands next").
+  var openItemState = null;
   // A stop with bound problems finishes once each has a first answer, whatever the game shows next (a made-up
   // rematch or bonus round is free extra play; BUGS.md 2026-11-08, Reina's Boss Battle). Sent once.
   var itemCompletionSent = false;
@@ -420,6 +423,8 @@ window.GameBridge = (function () {
      */
     openItem: function (itemId, progress) {
       screenAtOpen[itemId] = currentScreenText();
+      var openBinding = itemBinding(itemId);
+      openItemState = { itemId: itemId, itemPrompt: openBinding ? String(openBinding.display) : undefined };
       this.reportState(typeof progress === "string" && progress.trim() ? progress : "Item ready.", {
         game: "generated-game",
         itemOpened: true,
@@ -435,6 +440,9 @@ window.GameBridge = (function () {
         if (GAME_PARAMS.spellingItemBindings.some(function (item) { return item.itemId === bound.target; })) {
           extras = Object.assign({}, extras, { itemId: bound.target, practiceCapture: true });
         }
+      }
+      if (openItemState && !itemCompletionSent && !(extras && extras.itemId && extras.itemId !== openItemState.itemId)) {
+        extras = Object.assign({ itemId: openItemState.itemId }, openItemState.itemPrompt ? { itemPrompt: openItemState.itemPrompt } : {}, extras || {});
       }
       post(
         "game_state_update",

@@ -1,3 +1,4 @@
+import { liveItemNode } from "./liveItemBinding";
 import { canonicalJourneyLaunchable } from '../engine/learningCycleRepository';
 import { reactToRewardDrop } from "./bossDropAward";
 import {presentOriginalSpellingItem,withOriginalSpellingChart,recordPresentedEngagement} from '../chart/spelling/originalResponses';
@@ -819,9 +820,7 @@ export class SessionManager {
     const cycle = getChildChart(this.chartChildId).learningCycle;
     const canonicalPractice = canonicalSpellingPractice(cycle, this.spellingLaunch, this.spellingAssessment, state); const snapshot = buildCurrentBoardSnapshot({ childId: this.chartChildId, sessionId: this.sessionId, state, assessment: this.spellingAssessment, canonicalPractice, plannerRead: cycle?.academicTheory?.hypothesis, helpGranted: this.spellingAssessment?.helpRequested === true && this.spellingAssessment.itemId === state.itemId });
     this.currentBoardSnapshot = noteSupportModeChange(this.currentBoardSnapshot, snapshot, { canonicalPractice, answerVisibility: state.answerVisibility });
-    if (snapshot.nodeId && snapshot.itemId && (snapshot.phase === "question" || snapshot.phase === "response")) {
-      this.bindMathDiscoverySupport(snapshot.nodeId, snapshot.itemId);
-    }
+    if (snapshot.nodeId && snapshot.itemId && !["complete", "closed", "won", "lost"].includes(String(snapshot.phase))) this.bindMathDiscoverySupport(snapshot.nodeId, snapshot.itemId);
     this.currentActivityState = {
       ...companionBoardSnapshot(snapshot),
       currentWord: snapshot.spellingSupportMode === "stimulus_only" ? undefined : snapshot.currentTarget,
@@ -1187,11 +1186,8 @@ export class SessionManager {
   }
 
   private bindMathDiscoverySupport(nodeId: string, itemId: string): MathDiscoverySupportState | undefined {
-    const cycle = getChildChart(this.chartChildId).learningCycle;
-    const node = cycle?.domain === "math"
-      ? cycle.nodes.find((candidate) => candidate.role === "evaluation" && candidate.nodeId === nodeId)
-      : undefined;
-    if (!cycle || !node?.artifactBinding || !itemId.trim()) return undefined;
+    const cycle = getChildChart(this.chartChildId).learningCycle, node = liveItemNode(cycle, nodeId, itemId); // any node holding the problem (2026-11-10)
+    if (!cycle || !node) return undefined;
     this.mathDiscoverySupportHistory ??= new Map();
     const key = `${nodeId}:${itemId}`;
     const next = this.mathDiscoverySupportHistory.get(key) ?? {
@@ -1203,7 +1199,7 @@ export class SessionManager {
     };
     this.mathDiscoverySupportHistory.set(key, next);
     this.mathDiscoverySupport = next;
-    console.log(`  🎮 [math-discovery] [live-context] [bound] item=${itemId}`);
+    console.log(`  🎮 [live-item] [live-context] [bound] node=${nodeId} role=${node.role} item=${itemId}`);
     return next;
   }
 

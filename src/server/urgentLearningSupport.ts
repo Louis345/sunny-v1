@@ -258,6 +258,13 @@ export function buildActivityCompanionContext(input: {
   const openProblem = input.snapshot?.itemId
     ? cycle?.nodes.find(node => node.nodeId === input.snapshot?.nodeId)?.evidenceContract.itemContracts?.[input.snapshot.itemId]?.prompt : undefined;
   const problemText = openProblem ? `[The problem she has open, as Sunny saved it]\n"${openProblem}"` : "";
+  // A game with problems that has not said which one is open: the companion is told it cannot see it (2026-11-10:
+  // Elli guessed from Ila counting aloud and told her a wrong answer three times). Code-owned fact, no script.
+  const openContract = input.snapshot?.nodeId ? cycle?.nodes.find(node => node.nodeId === input.snapshot?.nodeId)?.evidenceContract : undefined;
+  const unseen = activityOnScreen && !openProblem && Object.keys({ ...openContract?.itemContracts, ...openContract?.spellingItems }).length > 0
+    && !(input.spellingAssessment && input.snapshot?.itemId === input.spellingAssessment.itemId);
+  if (unseen) console.log(` 🎮 [companion-context] [problem-unseen] child=${input.childId} node=${input.snapshot?.nodeId}`);
+  const unseenText = unseen ? "[What Sunny can see]\nSunny cannot see which problem is on her screen right now: the game has not said which one is open. You do not know its numbers, its words or its answer." : "";
   // Pace facts in every game, for her companion's judgment (2026-11-10); talking to her companion in a game is help asked.
   if (input.presence === "summoned" && input.snapshot?.nodeId) noteGamePace(input.childId, input.snapshot.nodeId, "help");
   const pace = activityOnScreen ? gamePaceFacts(input.childId, input.snapshot?.nodeId) : "";
@@ -295,7 +302,7 @@ export function buildActivityCompanionContext(input: {
     : cycle?.domain === "math" ? companionMathTestObjective({ cycle, homework: chart?.homework }) : "";
   // Sunny's own state as a fact (2026-11-10: Matilda promised "your answers will count" while every save failed).
   const health = sunnyHealthFacts(input.childId);
-  return redactProtectedSpellingText([health, board, pace, liveBoard, tutorPlan, problemText, input.speechRate === undefined ? "" : `Configured speech speed: ${input.speechRate} (1=normal; resets on item or launch change).`, memory, helpObjective, testObjective, spelling].filter(Boolean).join("\n\n"), input.snapshot);
+  return redactProtectedSpellingText([health, board, pace, liveBoard, tutorPlan, problemText, unseenText, input.speechRate === undefined ? "" : `Configured speech speed: ${input.speechRate} (1=normal; resets on item or launch change).`, memory, helpObjective, testObjective, spelling].filter(Boolean).join("\n\n"), input.snapshot);
 }
 
 type CompanionCycle = NonNullable<NonNullable<ReturnType<typeof readCompanionChart>>["learningCycle"]>;
