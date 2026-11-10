@@ -72,6 +72,8 @@ export type CanonicalCompletionResult = {
     evidenceRole?: "assisted_instruction";
     /** The screen text when the game opened this item (the game contract keeps it, not the game). */
     screenAtOpen?: string;
+    /** Every try the game contract saw on this item, in order; each is saved as its own observation (2026-11-10). */
+    tries?: Array<{ attemptedValue: string; at?: number }>;
   }>;
   frustrationSignals?: string[];
   replay?: boolean;
@@ -362,7 +364,14 @@ function observationsForCompletion(input: {
     : [{ target: node.nodeId, correct: input.result.accuracy >= 0.5 }];
   const companionHelp = input.cycle.domain !== "spelling" && (input.result.companionInteractions?.length ?? 0) > 0;
   const previouslyExposedItemIds = new Set(input.cycle.observations.map((observation) => observation.itemId));
-  return rows.map((row, index) => {
+  // Each try is its own observation: the first is the measure, later tries are practice (2026-11-10).
+  const triesOf = (row: (typeof rows)[number]): Array<string | undefined> => {
+    const tries = ("tries" in row && Array.isArray(row.tries) ? row.tries : []).flatMap(entry => typeof entry?.attemptedValue === "string" ? [entry.attemptedValue.slice(0, 200)] : []).slice(0, 20);
+    return tries.length ? tries : [row.attemptedValue];
+  };
+  return rows.flatMap((triedRow, index) => triesOf(triedRow).map((attemptedValue, tryIndex, all) => {
+    const row = { ...triedRow, attemptedValue };
+    const tryFacts = all.length > 1 || ("tries" in triedRow && Array.isArray(triedRow.tries)) ? [tryIndex === 0 ? "first_try" : "retry", `attempt:${tryIndex + 1}`] : [];
     const item = node.evidenceContract.itemContracts?.[row.target];
     const measurementRole = item?.lineage.measurementRole ?? itemRoles?.[row.target] ?? "practice";
     const assistedInstruction = serverAssistedInstruction;
@@ -371,7 +380,7 @@ function observationsForCompletion(input: {
       && new RegExp(`=\\s*${String(item.response.expected).replace(".", "\\.")}(?![\\d.])`).test(row.screenAtOpen);
     const helpedOnItem = (input.result.companionHelpItemIds ?? []).includes(row.target);
     const scaffolded = assistedInstruction || Number(row.scaffoldLevel ?? 0) > 0 || companionHelp || answerShowing || helpedOnItem;
-    const repeatedAssessmentItem = node.state === "completed" || previouslyExposedItemIds.has(row.target);
+    const repeatedAssessmentItem = node.state === "completed" || previouslyExposedItemIds.has(row.target) || tryIndex > 0;
     const spellingItem = spellingItems?.[row.target];
     const responseNotCaptured = !assistedInstruction && isUncapturedResponse(row.attemptedValue, input.cycle.domain === "math" || Boolean(spellingItems));
     const result = assistedInstruction
@@ -390,7 +399,7 @@ function observationsForCompletion(input: {
       && !repeatedAssessmentItem
       && !responseNotCaptured;
     return {
-      observationId: `${input.sessionId}:${input.nodeId}:observation:${index + 1}`,
+      observationId: `${input.sessionId}:${input.nodeId}:observation:${index + 1}${tryIndex ? `:try:${tryIndex + 1}` : ""}`,
       sourceId: `activity:${input.sessionId}:${input.nodeId}`,
       itemId: row.target || `${input.nodeId}:item:${index + 1}`,
       ...(!assistedInstruction && row.attemptedValue ? { childResponse: row.attemptedValue } : {}),
@@ -418,9 +427,10 @@ function observationsForCompletion(input: {
         ...(spellingItem && responseNotCaptured && typeof row.correct === "boolean" ? [`game_reported:${row.correct ? "solved" : "not_solved"}`] : []),
         ...(spellingItem && responseNotCaptured && Number.isSafeInteger(row.attempts) && row.attempts! > 0 ? [`game_reported_attempts:${row.attempts}`] : []),
         `measurement_role:${measurementRole}`,
+        ...tryFacts,
       ],
     };
-  });
+  }));
 }
 
 export function recordCanonicalNodeCompletion(

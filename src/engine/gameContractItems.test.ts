@@ -51,6 +51,23 @@ describe("openItem", () => {
     ]);
   });
 
+  // 2026-11-10, Ila's math: 34 answers in the game, 26 saved. Her three fast "34"s on one problem were folded
+  // into one first answer. Human caught it comparing the game's count with the saved count; logs showed both
+  // numbers but nothing explained the gap; the lab's synthetic children never retry a problem.
+  it("hands Sunny every try on an item, in order, beside her first answer", () => {
+    const { window, posted } = loadContract({ text: "29, 26, 23, 20, ?" });
+    window.openItem("m1");
+    window.fireAttemptEvent({ target: "m1", attemptedValue: "34" });
+    window.fireAttemptEvent({ target: "m1", attemptedValue: "34" });
+    window.fireAttemptEvent({ target: "m1", attemptedValue: "17" });
+    window.openItem("m2");
+    window.fireAttemptEvent({ target: "m2", attemptedValue: "even" });
+    const results = completion(posted)?.targetResults as Array<{ target: string; attemptedValue: string; tries: Array<{ attemptedValue: string; at: number }> }>;
+    expect(results[0]).toMatchObject({ target: "m1", attemptedValue: "34" });
+    expect(results[0].tries.map(row => row.attemptedValue)).toEqual(["34", "34", "17"]);
+    expect(results[1].tries.map(row => row.attemptedValue)).toEqual(["even"]);
+  });
+
   it("marks an item she never answered as not captured instead of dropping it", () => {
     const { window, posted } = loadContract({ text: "Camp 1" });
     window.openItem("m1");

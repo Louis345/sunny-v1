@@ -542,6 +542,25 @@ describe("canonical learning cycle runtime", () => {
   // 2026-11-10, both audits: all 47 of Reina's math answers were saved "on her own", including problems Matilda
   // talked her through, because built games never send companion interactions. The server knows which problem
   // was open when her companion helped; that problem's answer is saved as helped.
+  // 2026-11-10, Ila's math session: 34 answers in the game, 26 saved; her repeated "34" guesses on one problem
+  // were lost, so first-try accuracy and her guess count could not be read. Human caught the count gap; the logs
+  // had both counts but no per-try record; the lab never retries. Each try is its own observation now.
+  it("saves every try on a problem: the first try is the measure, later tries are practice", () => {
+    const rootDir = root();
+    createLearningCycle(input(), { rootDir });
+    const tries = ["34", "34", "34", "10"].map((attemptedValue, index) => ({ attemptedValue, at: Date.parse("2026-11-10T15:00:00Z") + index * 4000 }));
+    const cycle = recordCanonicalNodeCompletion({ childId: "reina", homeworkId: "hw-runtime", sessionId: "s1", nodeId: "facts", result: { completed: true, accuracy: 1, timeSpent_ms: 1000,
+      targetResults: [{ target: "2x5", correct: true, attemptedValue: "34", tries }, { target: "groups", correct: true, attemptedValue: "10" }] } }, { rootDir })!;
+    const rows = cycle.observations.filter(row => row.itemId === "2x5");
+    expect(rows.map(row => [row.childResponse, row.result.correct, row.provenance])).toEqual([
+      ["34", false, "independent_probe"], ["34", false, "practice"], ["34", false, "practice"], ["10", true, "practice"]]);
+    expect(rows[0].confounds).toEqual(expect.arrayContaining(["first_try", "attempt:1"]));
+    expect(rows[3].confounds).toEqual(expect.arrayContaining(["retry", "attempt:4"]));
+    expect(new Set(rows.map(row => row.observationId)).size).toBe(4);
+    expect(rows[0].observationId).toBe("s1:facts:observation:1");
+    expect(cycle.observations.filter(row => row.itemId === "groups")).toHaveLength(1);
+  });
+
   it("saves a math answer as helped when her companion helped while that problem was open", () => {
     const rootDir = root();
     createLearningCycle(input(), { rootDir });

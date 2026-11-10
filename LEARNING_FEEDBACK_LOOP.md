@@ -1,6 +1,6 @@
 # Sunny Learning Feedback Loop
 
-Contract version: 57
+Contract version: 58
 
 This document is the **sole normative** authority for how Sunny forms, tests, and revises learning claims. Product changes that alter this loop must update this contract version before implementation. Other documents may describe infrastructure or history, but they must link here instead of creating another learning doctrine.
 
@@ -388,3 +388,7 @@ Original activity limitation facts preserve server launch provenance, captured n
 ## Keyboard input mode is not a spelling answer (contract 57, owner 2026-11-10)
 
 A Japanese-input keyboard turns typed letters into kana ("forgot" arrives as "フォrゴt"). Code reads the kana back to the letters she typed before scoring and keeps the keyboard's raw text as a fact beside the answer. When two keystroke spellings make the same kana and only one is the word (カ is "ka" or "ca"), or the text cannot become plain letters, the answer is not scored: it is neither right nor wrong. The companion is told, as a fact, that her keyboard is in Japanese input mode. Answers saved before this rule may be re-scored only by an explicit operator command that appends an `observation_rescored` record through the repository: each record keeps the old answer and result, names its source and reason, and lists the evaluations and decisions that cited the old result. Those are history and are not recomputed. A re-score never changes a board, a lifecycle or a seal, and refuses when a published board's seal no longer matches. The spelling chart's own response facts are not rewritten by it.
+
+## Every try is saved (contract 58, owner 2026-11-10)
+
+Each answer she gives on an item is its own observation, in order, with its try number. Only the first try can be independent evidence; a retry on the same item is practice and is marked as a retry. The game contract, not the game, hands over every try it saw for each item. First-try accuracy and how many tries she took are read from these records; a retry is never reported as a lost answer.

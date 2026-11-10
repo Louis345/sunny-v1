@@ -14,7 +14,8 @@ import { scorePlannerCalls } from "./plannerIntrospection";
  */
 export type SessionScorecard = {
   sessionId: string; startedAt: string; homeworkId: string;
-  answers: { total: number; right: number; onHerOwn: number; onHerOwnRight: number; withHelp: number; helpNotRecorded: number; given: number };
+  /** firstTries/retries: each try on an item is saved (2026-11-10); the first try is the measure, retries are practice. Absent on older cards. */
+  answers: { total: number; right: number; onHerOwn: number; onHerOwnRight: number; withHelp: number; helpNotRecorded: number; given: number; firstTries?: number; firstTryRight?: number; retries?: number };
   games: Array<Pick<SessionGame, "title" | "answers" | "right" | "finished"> & { minutesToFirstAnswer: number | null }>;
   helpRequests: number; bugsReported: number;
   predictions: { checked: number; inRange: number };
@@ -34,18 +35,22 @@ export function writeSessionScorecard(input: { childId: string; homeworkId?: str
     const cycle = input.homeworkId ? getLearningCycle(input.childId, input.homeworkId, opts) : undefined;
     if (!cycle || !metadata.startedAt) { console.log(` 🎮 [scorecard] [skipped] child=${input.childId} reason=${!cycle ? "no_learning_cycle" : "no_start_time"}`); return undefined; }
     const from = Date.parse(metadata.startedAt);
-    const rows = (cycle.observations ?? []).filter(row => typeof row.result?.correct === "boolean" && Date.parse(row.observedAt) >= from
+    const saved = (cycle.observations ?? []).filter(row => Date.parse(row.observedAt) >= from
       && !SCHOOL.has(String(row.provenance)) && !SYNTHETIC.test(`${row.observationId} ${row.sourceId}`));
+    const rows = saved.filter(row => typeof row.result?.correct === "boolean");
     // A board's completion repeats its answers with help unknown; those are counted apart, never as her own.
     const known = rows.filter(row => row.assistance.status !== "unknown");
-    const own = rows.filter(row => row.assistance.status === "unassisted");
+    const retry = (row: (typeof rows)[number]) => row.confounds.includes("retry");
+    // On her own means her first try without help; a retry is practice (owner, 2026-11-10).
+    const own = rows.filter(row => row.assistance.status === "unassisted" && !retry(row));
     const transcriptFile = path.join(input.sessionDir, "transcript.md");
     const childTurns = fs.existsSync(transcriptFile) ? fs.readFileSync(transcriptFile, "utf8").split(/\n### /).flatMap(block => block.includes("**user:**") ? [block.split("**user:**")[1].split("**assistant:**")[0]] : []) : [];
     const card: SessionScorecard = {
       sessionId: metadata.sessionId ?? path.basename(input.sessionDir), startedAt: metadata.startedAt, homeworkId: cycle.homeworkId,
       answers: { total: known.length, right: known.filter(row => row.result.correct).length, onHerOwn: own.length, onHerOwnRight: own.filter(row => row.result.correct).length,
         withHelp: rows.filter(row => row.assistance.status === "assisted").length, helpNotRecorded: rows.length - known.length,
-        given: sessionGames(input.sessionDir, cycle).reduce((sum, game) => sum + game.answers, 0) },
+        given: sessionGames(input.sessionDir, cycle).reduce((sum, game) => sum + game.answers, 0),
+        firstTries: rows.filter(row => !retry(row)).length, firstTryRight: rows.filter(row => !retry(row) && row.result.correct).length, retries: rows.filter(retry).length },
       games: sessionGames(input.sessionDir, cycle).map(game => ({ title: game.title, answers: game.answers, right: game.right, finished: game.finished,
         minutesToFirstAnswer: game.firstAnswerMin === null ? null : round1(game.firstAnswerMin - game.openedMin) })),
       helpRequests: childTurns.filter(text => /\bhelp\b/i.test(text)).length,
@@ -57,8 +62,9 @@ export function writeSessionScorecard(input: { childId: string; homeworkId?: str
       })(),
     };
     // Answers she gave in games against answers saved (2026-11-10: 37 given, 0 saved, and nothing compared them).
-    if (card.answers.given > rows.length) void raiseParentAlert({ childId: input.childId, kind: "answers_not_saved",
-      text: `${card.answers.given} answers given in games but ${rows.length} saved in session ${card.sessionId}.` }, { rootDir: opts.rootDir });
+    // Every try is saved, retries included, and an answer saved as not scorable is saved, not lost.
+    if (card.answers.given > saved.length) void raiseParentAlert({ childId: input.childId, kind: "answers_not_saved",
+      text: `${card.answers.given} answers given in games but ${saved.length} saved (${card.answers.retries} of them retries) in session ${card.sessionId}.` }, { rootDir: opts.rootDir });
     const file = scorecardFile(cycle, opts);
     fs.mkdirSync(path.dirname(file), { recursive: true });
     fs.appendFileSync(file, `${JSON.stringify(card)}\n`, "utf8");
@@ -76,6 +82,6 @@ export function scorecardSection(cycle: LearningCycleRecordV2, opts: LearningCyc
   const file = scorecardFile(cycle, opts);
   const cards = fs.existsSync(file) ? fs.readFileSync(file, "utf8").split("\n").flatMap(line => { try { return line.trim() ? [JSON.parse(line) as SessionScorecard] : []; } catch { return []; } }).slice(-limit) : [];
   if (!cards.length) return `${header}\n- No scorecard yet.`;
-  return [header, ...cards.map(card => `- ${card.startedAt.slice(0, 16).replace("T", " ")}: on her own ${card.answers.onHerOwnRight} of ${card.answers.onHerOwn} right; with help ${card.answers.withHelp}; help asked ${card.helpRequests} times; bugs she reported ${card.bugsReported}; games: ${
+  return [header, ...cards.map(card => `- ${card.startedAt.slice(0, 16).replace("T", " ")}: on her own ${card.answers.onHerOwnRight} of ${card.answers.onHerOwn} right${card.answers.retries ? `; ${card.answers.retries} retries after a first try` : ""}; with help ${card.answers.withHelp}; help asked ${card.helpRequests} times; bugs she reported ${card.bugsReported}; games: ${
     card.games.map(game => `${game.title} first answer after ${game.minutesToFirstAnswer === null ? "none" : `${game.minutesToFirstAnswer.toFixed(1)} min`}${game.finished ? "" : " (not finished)"}`).join(", ") || "none"}; the Planner's calls checked ${card.predictions.checked}, right ${card.predictions.inRange}`)].join("\n");
 }

@@ -87,6 +87,9 @@ window.GameBridge = (function () {
   var capturedSpellingTargets = Object.create(null);
   // Code keeps her first answer per item and the screen when it opened; a game cannot rewrite either.
   var firstAnswers = Object.create(null);
+  // Every try per item, in order: a retry is her own answer too (2026-11-10: three fast "34"s were folded into one).
+  var allAnswers = Object.create(null);
+  var MAX_TRIES_PER_ITEM = 20;
   var screenAtOpen = Object.create(null);
   // A stop with bound problems finishes once each has a first answer, whatever the game shows next (a made-up
   // rematch or bonus round is free extra play; BUGS.md 2026-11-08, Reina's Boss Battle). Sent once.
@@ -381,6 +384,13 @@ window.GameBridge = (function () {
             first && typeof first.screenAtOpen === "string" ? { screenAtOpen: first.screenAtOpen } : {});
         });
       }
+      // Code, not the game, hands over every try it saw for each reported item.
+      if (Array.isArray(merged.targetResults)) {
+        merged.targetResults = merged.targetResults.map(function (row) {
+          var tries = row && allAnswers[row.target];
+          return tries && tries.length ? Object.assign({}, row, { tries: tries.slice() }) : row;
+        });
+      }
       post("game_complete", merged);
       logContract("post", postSummary("node_complete", merged));
       window.parent.postMessage(
@@ -580,6 +590,10 @@ window.GameBridge = (function () {
       var payload = Object.assign({}, bindItemTarget(bindSpellingTarget(attempt)));
       if (itemBinding(payload.target) && typeof payload.attemptedValue === "string" && !firstAnswers[payload.target]) {
         firstAnswers[payload.target] = { attemptedValue: payload.attemptedValue, screenAtOpen: screenAtOpen[payload.target] };
+      }
+      if (typeof payload.target === "string" && typeof payload.attemptedValue === "string") {
+        var tries = allAnswers[payload.target] || (allAnswers[payload.target] = []);
+        if (tries.length < MAX_TRIES_PER_ITEM) tries.push({ attemptedValue: payload.attemptedValue, at: Date.now() });
       }
       if (payload.domain === "spelling" && typeof payload.attemptedValue === "string") capturedSpellingTargets[payload.target] = true;
       if (payload.word == null && payload.target != null) {
