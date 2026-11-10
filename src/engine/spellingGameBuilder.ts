@@ -11,6 +11,7 @@ import { engagementTheoryEvidenceContext } from "./engagementTheory";
 import { requestForModel } from "./plannerTransport";
 import { childFeedbackLines } from "./plannerIntrospection";
 import { captureGame } from "./prebuiltBoard";
+import { observationNode } from "./observationNode";
 import {
   transitionLearningCycle,
   type LearningCycleNodeContract,
@@ -37,7 +38,7 @@ const CSP = `<meta http-equiv="Content-Security-Policy" content="default-src 'no
 function childFacts(cycle: LearningCycleRecordV2, rootDir: string) {
   const chart = getChildChart(cycle.childId, { rootDir });
   const played = cycle.nodes.filter(node => node.state === "completed").map(node => {
-    const answers = cycle.observations.filter(row => row.sourceId.endsWith(`:${node.nodeId}`));
+    const answers = cycle.observations.filter(row => observationNode(cycle, row)?.nodeId === node.nodeId);
     return { stop: node.title, game: node.implementationType ?? node.mechanic, answers: answers.length, correct: answers.filter(row => row.result.correct === true).length };
   });
   return { identity: chart.identity, demographics: chart.demographics, childVoice: chart.childVoice, engagementEvidence: engagementTheoryEvidenceContext(chart.engagementTheory), playedThisHomework: played, whatSheSaidAboutSunnysGames: childFeedbackLines(cycle, { rootDir }) };

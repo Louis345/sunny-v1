@@ -64,7 +64,7 @@ export async function writeSessionHandoff(input: { childId: string; sessionDir: 
       console.log(` 🎮 [handoff] [skipped] child=${input.childId} reason=${!cycle ? "no_learning_cycle" : !metadata.startedAt ? "no_start_time" : "no_child_turns"}`);
       return undefined;
     }
-    const timeline = buildSessionTimeline(input.sessionDir);
+    const timeline = buildSessionTimeline(input.sessionDir, cycle);
     const gameFacts = timeline.split("\n").filter(line => line.startsWith("Game "));
     const ask = buildHandoffAsk({ childName: metadata.child || input.childId, companionName: chart.companion?.displayName || "her companion",
       homeworkTitle: cycle.assignment?.title ?? cycle.homeworkId, transcript: transcript.slice(-60_000), answers: answersSince(cycle, metadata.startedAt),

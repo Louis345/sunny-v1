@@ -79,7 +79,9 @@ export function rateSession(packet: SessionPacket): { lines: RatingLine[]; verdi
     return first ? [{ title: rows.find(row => row.activityTitle)?.activityTitle ?? opened.nodeId ?? "a game", min: round1(minutes(opened.ts!, first.ts)) }] : [];
   }).sort((a, b) => b.min - a.min);
   const zeroMs = packet.evidence.filter(row => tokens.has(row.evidenceId.split(":")[0]) && /completed in 0ms/.test(row.summary));
-  const fragments = saved.filter(row => row.word && row.childResponse && row.childResponse.length < row.word.length && row.word.startsWith(row.childResponse) && !row.result.correct);
+  // A fragment is a wrong answer shorter than its word whose letters before the last match the word: one tap, not a try.
+  const fragments = saved.filter(row => row.word && row.childResponse && !row.result.correct && row.childResponse.length < row.word.length
+    && row.word.startsWith(row.childResponse.slice(0, -1)));
   const gameRight = given.filter(row => row.correct === true).length, savedRight = saved.filter(row => row.result.correct).length;
   // Quiet stretches: over three minutes inside a session with no answer and no child turn; an offer is a companion check-in event.
   const moments = [packet.startedAt, ...given.map(row => row.ts!), ...packet.transcript.filter(row => row.role === "child").map(row => row.ts), packet.endedAt ?? packet.startedAt].filter(Boolean).sort();

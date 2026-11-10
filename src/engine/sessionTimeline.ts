@@ -1,5 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
+import type { LearningObservation } from "./learningCycleRepository";
+import { observationNode } from "./observationNode";
 
 /**
  * The session's own timeline (owner, 2026-11-09: the system runs a retro on itself). Built by code from the saved
@@ -21,10 +23,13 @@ function readLines(file: string): Trace[] {
   });
 }
 
-export type SessionGame = { title: string; openedMin: number; firstAnswerMin: number | null; answers: number; right: number; finished: boolean };
+export type SessionGame = { nodeId: string; title: string; openedMin: number; firstAnswerMin: number | null; answers: number; right: number; finished: boolean };
 
-/** Each game in the session, counted from its traces: one source for the timeline and the scorecard. */
-export function sessionGames(sessionDir: string): SessionGame[] {
+/** Her saved answers, for counting right answers the way Sunny scored them (math games never log right or wrong). */
+type SavedAnswers = { nodes: Array<{ nodeId: string }>; observations: Array<Pick<LearningObservation, "sourceId" | "observedAt" | "result">> };
+
+/** Each game in the session, counted from its traces; right answers from the saved score when there is one. */
+export function sessionGames(sessionDir: string, saved?: SavedAnswers): SessionGame[] {
   const metadata = JSON.parse(fs.readFileSync(path.join(sessionDir, "metadata.json"), "utf8")) as { startedAt?: string };
   const start = Date.parse(metadata.startedAt ?? "");
   if (!Number.isFinite(start)) return [];
@@ -33,19 +38,23 @@ export function sessionGames(sessionDir: string): SessionGame[] {
   return [...games.values()].map(rows => {
     const opened = rows.find(row => row.phase === "opening") ?? rows[0];
     const answers = rows.filter(row => row.type === "attempt_event");
-    return { title: rows.find(row => row.activityTitle)?.activityTitle ?? rows[0].game ?? "a game", openedMin: minutes(start, opened.ts),
-      firstAnswerMin: answers[0] ? minutes(start, answers[0].ts) : null, answers: answers.length, right: answers.filter(row => row.correct === true).length,
+    const nodeId = rows[0].nodeId!;
+    const scored = (saved?.observations ?? []).filter(row => Date.parse(row.observedAt) >= start && observationNode(saved!, row)?.nodeId === nodeId && typeof row.result?.correct === "boolean");
+    return { nodeId, title: rows.find(row => row.activityTitle)?.activityTitle ?? rows[0].game ?? "a game", openedMin: minutes(start, opened.ts),
+      firstAnswerMin: answers[0] ? minutes(start, answers[0].ts) : null, answers: answers.length,
+      right: scored.length ? scored.filter(row => row.result.correct === true).length : answers.filter(row => row.correct === true).length,
       finished: rows.some(row => row.type === "game_complete") };
   });
 }
 
-export function buildSessionTimeline(sessionDir: string): string {
+export function buildSessionTimeline(sessionDir: string, saved?: SavedAnswers): string {
   const metadata = JSON.parse(fs.readFileSync(path.join(sessionDir, "metadata.json"), "utf8")) as { startedAt?: string };
   const start = Date.parse(metadata.startedAt ?? "");
   if (!Number.isFinite(start)) return "Session timeline: no start time recorded.";
   const traces = readLines(path.join(sessionDir, "game-traces.ndjson")).filter(row => row.ts && row.nodeId);
   const games = new Map<string, Trace[]>();
   for (const row of traces) games.set(row.nodeId!, [...(games.get(row.nodeId!) ?? []), row]);
+  const counted = sessionGames(sessionDir, saved);
   const lines = ["Session timeline (built by code from the session's game traces and conversation; minutes from the session start):"];
   for (const rows of games.values()) {
     const title = rows.find(row => row.activityTitle)?.activityTitle ?? rows[0].game ?? "a game";
@@ -54,7 +63,8 @@ export function buildSessionTimeline(sessionDir: string): string {
     const finished = rows.find(row => row.type === "game_complete");
     const openedAt = minutes(start, opened.ts);
     const first = answers[0] ? minutes(start, answers[0].ts) : NaN;
-    lines.push(`Game "${title}": opened at ${fmt(openedAt)}; ${answers.length ? `first answer at ${fmt(first)} (${fmt(first - openedAt)} after it opened); ${answers.length} answers, ${answers.filter(row => row.correct === true).length} right` : "no answer recorded"}; ${finished ? `finished at ${fmt(minutes(start, finished.ts))}.` : "not finished."}`);
+    const right = counted.find(game => game.nodeId === rows[0].nodeId)?.right ?? 0;
+    lines.push(`Game "${title}": opened at ${fmt(openedAt)}; ${answers.length ? `first answer at ${fmt(first)} (${fmt(first - openedAt)} after it opened); ${answers.length} answers, ${right} right` : "no answer recorded"}; ${finished ? `finished at ${fmt(minutes(start, finished.ts))}.` : "not finished."}`);
     let lastProgress = "", lastStep = "", shown = 0;
     const detail = (text: string) => { shown += 1; if (shown <= 14) lines.push(text); };
     for (const row of rows) {

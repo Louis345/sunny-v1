@@ -4,6 +4,7 @@ import { successorMenuFacts } from "./plannerMenu";
 import { schoolTestFacts, schoolTestLine, SPELLING_TEST_CONDITIONS } from "./schoolTestObjective";
 import { handoffSection } from "./sessionHandoff";
 import { scorecardSection } from "./sessionScorecard";
+import { observationNode } from "./observationNode";
 import { childFeedbackSection, ownerReplanLine, schoolTestSection, mathTrackRecordSection, plannerJournalSection, spellingTrackRecordSection, writePlannerJournalEntry, type PlannerSelfReview } from "./plannerIntrospection";
 import { spellingActivityCatalog } from "./assignmentPlanner";
 import {readSuccessorBoardDefinition, assembleAdventureBoardDefinition, BOARD_DEFINITION_TOOL_SCHEMA, BOARD_AUTHORING_INSTRUCTION, type AdventureBoardComposition, type AdventureJourneyDefinition} from "../shared/adventureBoardDefinition";
@@ -72,6 +73,8 @@ export type CanonicalCompletionResult = {
   frustrationSignals?: string[];
   replay?: boolean;
   companionInteractions?: string[];
+  /** Problems her companion helped with while each was open, noted by the server (2026-11-10). */
+  companionHelpItemIds?: string[];
   /** How she moved through an explainer page. Engagement evidence only; it never scores a word. */
   pageTime?: PageTime;
 };
@@ -125,13 +128,7 @@ export type BaselineQuestEvidenceEligibility = {
   reason: "eligible_independent_correct_evidence" | "no_target_aligned_baseline_evidence" | "no_independent_correct_baseline_evidence";
 };
 
-/** The node an observation came from, for every source form the runtime writes: a node completion
- * (`activity:<session>:<node>`), a typed answer (`activity:<node>:recall`) and Discovery (`evaluation:<node>`). */
-export function observationNode(cycle: LearningCycleRecordV2, observation: LearningObservation) {
-  // The most specific id wins: an earlier `quest` node must not claim `...:b2:quest`'s answers.
-  return cycle.nodes.find(node => observation.sourceId === `activity:${node.nodeId}:recall`)
-    ?? cycle.nodes.filter(node => observation.sourceId.endsWith(`:${node.nodeId}`)).sort((a, b) => b.nodeId.length - a.nodeId.length)[0];
-}
+export { observationNode } from "./observationNode";
 
 export function baselineQuestEvidenceEligibility(
   cycle: LearningCycleRecordV2,
@@ -359,7 +356,8 @@ function observationsForCompletion(input: {
     // An answer already on screen when the item opened is help, whatever the game says (owner, 2026-11-08).
     const answerShowing = item?.response.mode === "numeric" && typeof row.screenAtOpen === "string"
       && new RegExp(`=\\s*${String(item.response.expected).replace(".", "\\.")}(?![\\d.])`).test(row.screenAtOpen);
-    const scaffolded = assistedInstruction || Number(row.scaffoldLevel ?? 0) > 0 || companionHelp || answerShowing;
+    const helpedOnItem = (input.result.companionHelpItemIds ?? []).includes(row.target);
+    const scaffolded = assistedInstruction || Number(row.scaffoldLevel ?? 0) > 0 || companionHelp || answerShowing || helpedOnItem;
     const repeatedAssessmentItem = node.state === "completed" || previouslyExposedItemIds.has(row.target);
     const spellingItem = spellingItems?.[row.target];
     const responseNotCaptured = !assistedInstruction && isUncapturedResponse(row.attemptedValue, input.cycle.domain === "math" || Boolean(spellingItems));
@@ -391,6 +389,7 @@ function observationsForCompletion(input: {
           ...(Number(row.scaffoldLevel ?? 0) > 0 ? [`scaffold_level_${row.scaffoldLevel}`] : []),
           ...(companionHelp ? ["companion_help"] : []),
           ...(answerShowing ? ["answer_on_screen"] : []),
+          ...(helpedOnItem ? ["companion_help_on_item"] : []),
         ],
       },
       exposure: eligibleFreshCheckpoint ? "unseen" : "previously_practiced",
@@ -1250,9 +1249,9 @@ async function decideOnce(
 }
 
 /** Games Sunny built for her that she played, with her answers in each (owner, 2026-11-09): the Planner may build from one. */
-function playedGamesOf(cycle:LearningCycleRecordV2):Array<{nodeId:string;title:string;answers:number;right:number}>{
+export function playedGamesOf(cycle:LearningCycleRecordV2):Array<{nodeId:string;title:string;answers:number;right:number}>{
   return cycle.nodes.filter(node=>node.implementationType==="generated-game"&&node.state==="completed"&&node.artifactBinding?.localArtifactPath).map(node=>{
-    const answers=cycle.observations.filter(row=>row.sourceId.endsWith(`:${node.nodeId}`)&&typeof row.result?.correct==="boolean");
+    const answers=cycle.observations.filter(row=>observationNode(cycle,row)?.nodeId===node.nodeId&&typeof row.result?.correct==="boolean");
     return {nodeId:node.nodeId,title:node.title,answers:answers.length,right:answers.filter(row=>row.result.correct).length};
   });
 }

@@ -1,3 +1,4 @@
+import { observationNode } from "./observationNode";
 import fs from "node:fs";
 import path from "node:path";
 import { resolveChildContextDir } from "../utils/contextRoot";
@@ -41,8 +42,7 @@ function answers(cycle: LearningCycleRecordV2) {
   if (cycle.domain !== "spelling") for (const node of cycle.nodes) for (const id of Object.keys(node.evidenceContract?.itemContracts ?? {})) wordOf.set(id, id);
   const boardOf = boardNumbers(cycle);
   // The most specific node id wins, as in observationNode: `b2-radar` never claims `b2-radar-2`'s answers.
-  const nodeOf = (row: LearningObservation) => cycle.nodes.find(node => row.sourceId === `activity:${node.nodeId}:recall`)
-    ?? cycle.nodes.filter(node => row.sourceId.endsWith(`:${node.nodeId}`)).sort((a, b) => b.nodeId.length - a.nodeId.length)[0];
+  const nodeOf = (row: LearningObservation) => observationNode(cycle, row);
   return (cycle.observations ?? []).filter(row => typeof row.result?.correct === "boolean" && wordOf.has(row.itemId) && !SYNTHETIC.test(`${row.observationId} ${row.sourceId}`))
     .map(row => { const node = nodeOf(row); return { row, word: wordOf.get(row.itemId)!, node, board: node ? boardOf(node.nodeId) : undefined }; })
     .sort((a, b) => Date.parse(a.row.observedAt) - Date.parse(b.row.observedAt));

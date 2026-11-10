@@ -1,4 +1,5 @@
 import { sunnyHealthFacts } from "../engine/sunnyHealth";
+import { noteCompanionHelpOnItem } from "./companionItemHelp";
 import { getChildChart } from "../profiles/childChart";
 import type { SpellingAssessmentState } from "./game-event-handler";
 import type {
@@ -256,6 +257,8 @@ export function buildActivityCompanionContext(input: {
   const openProblem = input.snapshot?.itemId
     ? cycle?.nodes.find(node => node.nodeId === input.snapshot?.nodeId)?.evidenceContract.itemContracts?.[input.snapshot.itemId]?.prompt : undefined;
   const problemText = openProblem ? `[The problem she has open, as Sunny saved it]\n"${openProblem}"` : "";
+  // Her companion answering while a problem is open is help on that problem: saved with its answer (2026-11-10).
+  if (openProblem && input.presence === "summoned" && input.snapshot?.nodeId && input.snapshot.itemId) noteCompanionHelpOnItem(input.childId, input.snapshot.nodeId, input.snapshot.itemId);
   const remembered = buildShowroomTalkMemoryPrompt(
     withoutRememberedPosition(readCompanionCareMemoryForPrompt(input.childId, input.companionId)),
   );

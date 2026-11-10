@@ -1,4 +1,5 @@
 import { holdCompletion, raiseParentAlert } from "../engine/sunnyHealth";
+import { takeCompanionHelpItemIds } from "./companionItemHelp";
 import { awardBossDropOnCompletion, awardDiscoveryChest, awardNodeChestOnCompletion, boardFinishedForCall } from "./bossDropAward";
 import { awardCreatureEncounterOnCompletion, countBoardForCreatures, registerCreatureRoutes } from "./creatureCare";
 import type { CoinOffer } from "../shared/companionCareTypes";
@@ -1077,6 +1078,7 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
             ? body.result.companionInteractions.map(String)
             : undefined,
           pageTime: pageTimeFromKiosk(body.result.pageTime),
+          ...(beforeCycle && beforeCycle.domain !== "spelling" ? { companionHelpItemIds: takeCompanionHelpItemIds(childId, nodeId) } : {}),
         },
       };
       const updated = recordCanonicalNodeCompletion(completionInput);

@@ -1,3 +1,5 @@
+/** When this game opened: the fallback for how long it was played. */
+var CONTRACT_LOADED_AT = Date.now();
 /**
  * Standard iframe game ↔ parent (adventure map / voice canvas) contract.
  * Load: <script src="/games/_contract.js"></script>
@@ -360,7 +362,10 @@ window.GameBridge = (function () {
           attemptId: "completion-limitation:" + GAME_PARAMS.launchToken,
           rawChoice: null, aggregateAccuracy: typeof r.accuracy === "number" ? r.accuracy : null });
       }
+      // A built game that reports no time gets the time it was open (2026-11-10: "0 ms" was saved as fact).
+      var spent = Number(r.timeSpent_ms) > 0 ? Number(r.timeSpent_ms) : Date.now() - CONTRACT_LOADED_AT;
       var merged = Object.assign({}, r, {
+        timeSpent_ms: spent,
         nodeId: GAME_PARAMS.nodeId,
         childId: GAME_PARAMS.childId,
         sessionId: GAME_PARAMS.sessionId,

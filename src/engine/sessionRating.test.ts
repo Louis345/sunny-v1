@@ -71,4 +71,11 @@ describe("session rating against the pre-registered success criteria", () => {
     const played = { ...reinaMorning(), traces: [...reinaMorning().traces.map(row => ({ ...row, launchToken: "play-1" }))], evidence: [{ evidenceId: "play-1:scout:completion:engagement", summary: "Scout completed in 0ms" }] };
     expect(rateSession(played).lines.find(row => row.id === "G7")).toMatchObject({ value: "1 game recorded 0 ms" });
   });
+
+  it("counts a letter-tap fragment like \"ornm\" for ornament", () => {
+    const packet = reinaMorning();
+    packet.traces = [{ ts: at(1), nodeId: "stampede", type: "attempt_event" }];
+    packet.observations = [{ observedAt: at(1), itemId: "w1", word: "ornament", childResponse: "ornm", result: { correct: false }, assistance: { status: "unknown" }, provenance: "practice" }];
+    expect(rateSession(packet).lines.find(row => row.id === "G8")).toMatchObject({ pass: false, value: "1 fragment" });
+  });
 });

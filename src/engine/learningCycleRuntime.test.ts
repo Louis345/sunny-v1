@@ -539,6 +539,17 @@ describe("canonical learning cycle runtime", () => {
       .toThrow("learning_board_batch_closed:puzzle-fact");
   });
 
+  // 2026-11-10, both audits: all 47 of Reina's math answers were saved "on her own", including problems Matilda
+  // talked her through, because built games never send companion interactions. The server knows which problem
+  // was open when her companion helped; that problem's answer is saved as helped.
+  it("saves a math answer as helped when her companion helped while that problem was open", () => {
+    const rootDir = root();
+    createLearningCycle(input(), { rootDir });
+    const cycle = recordCanonicalNodeCompletion({ childId: "reina", homeworkId: "hw-runtime", sessionId: "s1", nodeId: "facts", result: { completed: true, accuracy: 1, timeSpent_ms: 1000,
+      targetResults: [{ target: "2x5", correct: true, attemptedValue: "10" }], companionHelpItemIds: ["2x5"] } }, { rootDir });
+    expect(cycle!.observations.find(row => row.itemId === "2x5")!.assistance).toEqual({ status: "assisted", scaffolds: ["companion_help_on_item"] });
+  });
+
   it("records factual baseline scorecards before one Planner decision generates Quest", async () => {
     const rootDir = root();
     createLearningCycle(input(), { rootDir });
