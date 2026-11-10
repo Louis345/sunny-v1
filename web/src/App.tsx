@@ -10,7 +10,7 @@ import {
 } from "react";
 import { useSession } from "./hooks/useSession";
 import { useAdventureState } from "./hooks/useAdventureState";
-import { ChildPicker } from "./components/ChildPicker";
+import { ChildPicker, StartScreenFrame } from "./components/ChildPicker";
 import { DiscoveryAcademicCompletionCoordinator, discoveryCompletionRewards, hasCanonicalLearningCycle, postCanonicalNodeCompletion, postDiscoveryAttempt, postDiscoveryComplete } from "./utils/canonicalNodeCompletion";
 import { SessionScreen } from "./components/SessionScreen";
 import { SessionEnd } from "./components/SessionEnd";
@@ -2180,7 +2180,7 @@ function App() {
     );
   } else if (state.phase === "picker" && (!homeworkBoardMode || !adventureChildId)) {
     main = (
-      <div className="w-screen h-screen overflow-hidden">
+      <StartScreenFrame>
         {state.error && (
           <div className="absolute top-4 left-1/2 -translate-x-1/2 px-4 py-2 bg-red-100 text-red-800 rounded-lg text-sm z-10">
             {state.error}
@@ -2200,7 +2200,7 @@ function App() {
             startSession(name);
           }}
         />
-      </div>
+      </StartScreenFrame>
     );
   } else if (homeworkBoardMode) {
     if (!adventureChildId) {

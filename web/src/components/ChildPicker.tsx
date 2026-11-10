@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback, useRef, type ReactNode } from "react";
 import { motion } from "framer-motion";
 import {
   normalizeCompanionConfig,
@@ -151,9 +151,16 @@ function TurningStarfield() {
       drawStarfield(canvas, now - started);
       frame = window.requestAnimationFrame(tick);
     };
-    if (still) drawStarfield(canvas, 0);
-    else frame = window.requestAnimationFrame(tick);
-    return () => window.cancelAnimationFrame(frame);
+    // A still sky is drawn once, so it is redrawn when the window changes size (2026-11-10).
+    const redrawStill = () => drawStarfield(canvas, 0);
+    if (still) {
+      redrawStill();
+      window.addEventListener("resize", redrawStill);
+    } else frame = window.requestAnimationFrame(tick);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.removeEventListener("resize", redrawStill);
+    };
   }, []);
   return <canvas ref={canvasRef} data-starfield className="absolute inset-0 h-full w-full" />;
 }
@@ -165,7 +172,19 @@ const CLOUD_CROSSING = [
   { top: "48%", seconds: 140, startAt: -40 },
 ];
 
-function StartScreenSky({ sky }: { sky: StartSky }) {
+/**
+ * The start screen owns the whole kiosk window at any size and after any resize (2026-11-10: expanding the window
+ * left white space). It is fixed to the viewport by its own style, never sized by the document flow or a stylesheet.
+ */
+export function StartScreenFrame({ children }: { children: ReactNode }) {
+  return (
+    <div data-testid="start-screen" style={{ position: "fixed", inset: 0, overflow: "hidden" }}>
+      {children}
+    </div>
+  );
+}
+
+export function StartScreenSky({ sky }: { sky: StartSky }) {
   const starry = sky.lights === "stars";
   return (
     <div
@@ -173,7 +192,7 @@ function StartScreenSky({ sky }: { sky: StartSky }) {
       data-sky={sky.name}
       aria-hidden="true"
       className="pointer-events-none absolute inset-0 overflow-hidden"
-      style={{ background: sky.gradient, transition: "background 2s ease" }}
+      style={{ position: "absolute", inset: 0, background: sky.gradient, transition: "background 2s ease" }}
     >
       <style>{`@keyframes sunny-sky-cross { from { transform: translateX(-75vw); } to { transform: translateX(110vw); } }
         @keyframes sunny-sky-swirl { 0% { transform: translate(0,0) scale(1); } 50% { transform: translate(6vw,4vh) scale(1.15); } 100% { transform: translate(0,0) scale(1); } }
@@ -286,7 +305,7 @@ export function ChildPicker({ onSelect }: Props) {
   }
 
   return (
-    <div className="w-full h-full flex flex-col items-center justify-center gap-8 relative overflow-hidden">
+    <div className="w-full h-full flex flex-col items-center justify-center gap-8 relative overflow-hidden" style={{ position: "absolute", inset: 0 }}>
       <StartScreenSky sky={sky} />
       <div className="text-center relative">
         <h1 className="text-3xl font-medium" style={{ color: sky.text }}>
