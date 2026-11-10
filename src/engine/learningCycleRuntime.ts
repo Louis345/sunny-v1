@@ -50,6 +50,7 @@ import {
 } from "./learningCycleRepository";
 import { areDistinctWordsPronunciationEquivalent } from "../shared/karaokeMatchWord";
 import {currentBoardInstance} from "./learningBoardInstances";
+import { readTypedSpelling } from "./imeTypedSpelling";
 
 export type CanonicalCompletionResult = {
   /** Server-validated launch whose per-answer records already exist. */
@@ -223,6 +224,10 @@ export function scoreSpellingRecall(
   if (!item) return { observedErrorType: "answer_contract_missing" };
   if (disposition.skipped) return { observedErrorType: "not_sure" };
   if (!value.trim()) return { observedErrorType: "response_not_captured" };
+  // A Japanese-input keyboard turns her letters into kana; score the letters she typed, never the kana (2026-11-10).
+  const typed = readTypedSpelling(value, item.response.acceptedForms, item.response.caseSensitive);
+  if (typed.status === "ime_unscorable" || typed.status === "ime_ambiguous") return { observedErrorType: `keyboard_${typed.status}` };
+  value = typed.value;
   const normalize = (text: string): string => item.response.caseSensitive
     ? text.normalize("NFC").trim()
     : text.normalize("NFC").trim().toLocaleLowerCase("en-US");
@@ -254,7 +259,10 @@ export function recordSpellingDiscoveryAttempt(input: {
   const node = cycle.nodes.find(candidate => candidate.evidenceContract.spellingItems?.[input.attempt.itemId]);
   const item = node?.evidenceContract.spellingItems?.[input.attempt.itemId];
   if (!node || !item) throw new Error("spelling_item_not_in_contract");
-  const { attempt } = input;
+  const typed = readTypedSpelling(input.attempt.attemptedValue, item.response.acceptedForms, item.response.caseSensitive);
+  // The saved answer is the letters she typed; the keyboard's raw text stays a fact beside it.
+  const attempt = { ...input.attempt, attemptedValue: typed.status === "ime_normalized" ? typed.value : input.attempt.attemptedValue };
+  if (typed.status !== "plain") console.log(` 🎮 [spelling-input] [ime-${typed.status === "ime_normalized" ? "normalized" : typed.status.slice(4)}] item=${item.id} raw=${JSON.stringify(typed.raw)} read=${JSON.stringify(typed.candidates)}`);
   if (!attempt.attemptId.trim() || !Number.isFinite(Date.parse(attempt.observedAt))) throw new Error("spelling_attempt_identity_invalid");
   const prior = cycle.observations.find(row => row.observationId === attempt.attemptId);
   if (prior) {
@@ -283,6 +291,7 @@ export function recordSpellingDiscoveryAttempt(input: {
     confounds: [...new Set([
       `word_id:${item.wordId}`, `response_mode:${item.response.mode}`, `measurement_role:${item.lineage.measurementRole}`,
       ...(attempt.skipped ? ["response_disposition:not_sure"] : []),
+      ...(typed.status === "plain" ? [] : ["keyboard_ime_input", `ime_raw:${typed.raw}`]),
       ...(repeated ? ["repeated_attempt"] : ["first_response"]), ...(result.observedErrorType ? [result.observedErrorType] : []),
       ...(support.status !== "unassisted" ? [`assistance_${support.status}`] : []), ...signals,
       ...(input.artifactHash ? [`artifact_hash:${input.artifactHash}`] : []),

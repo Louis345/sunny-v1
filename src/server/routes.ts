@@ -1,4 +1,5 @@
 import { holdCompletion, raiseParentAlert } from "../engine/sunnyHealth";
+import { typedSpellingForChart } from "./spellingKeyboardInput";
 import { takeCompanionHelpItemIds } from "./companionItemHelp";
 import { retroThenDecide } from "../engine/retroBeforeDecision";
 import { writeSessionHandoff } from "../engine/sessionHandoff";
@@ -919,12 +920,14 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
         if (attempt.supportEventIds.some(id => !verifiedLive?.support.scaffolds.includes(id))) throw new Error("discovery_support_reference_unknown");
         return { childId, homeworkId, attempt: { ...attempt, skipped: body.skipped === true }, support: verifiedLive?.support, artifactHash: binding?.contractFingerprint, sessionId: verifiedLive?.sessionId, launchId:verifiedLive?.launchId, instrumentSignals: [...attempt.instrumentSignals, ...(verifiedLive?.instrumentSignals ?? ["live_context_unavailable"])] };
       };
+      const keyboard = spellingNode ? typedSpellingForChart(attempt.attemptedValue, spellingNode.evidenceContract.spellingItems?.[attempt.itemId]?.response.acceptedForms) : undefined;
+      if (keyboard?.keyboardFact) getVoiceSessionManagerForChildSession(childId, submittingSessionId)?.noteExternalEvent?.({ source: "keyboard", summary: keyboard.keyboardFact });
       const recorded = existing?.domain === "spelling" ? withOriginalSpellingChart(childId,db=>commitOriginalSpellingAttempt(db,homeworkId,{...attempt,skipped:body.skipped === true,sessionId:submittingSessionId,...(typeof body.launchToken === "string" ? {launchToken:body.launchToken} : {})},()=>{
         const legacy=prepareLegacy();
         if(!verifiedLive?.chartItemId || !verifiedLive.launchId || verifiedLive.audioReplays === undefined)throw new Error('chart_live_presentation_required');
         return {legacy,response:{
           assignmentId:homeworkId,sessionId:verifiedLive.sessionId,itemId:verifiedLive.chartItemId,sourceResponseId:attempt.attemptId,
-          rawResponse:attempt.attemptedValue,status:body.skipped === true ? 'skipped' : [...attempt.instrumentSignals,...verifiedLive.instrumentSignals].length ? 'ambiguous' : 'answered',
+          rawResponse:keyboard?.rawResponse ?? attempt.attemptedValue,status:body.skipped === true ? 'skipped' : [...attempt.instrumentSignals,...verifiedLive.instrumentSignals].length || keyboard?.unreadable ? 'ambiguous' : 'answered',
           support:{audioReplays:verifiedLive.audioReplays,spellingShown:verifiedLive.spellingShown ?? null,hint:verifiedLive.practice ? null : false,companionHelp:verifiedLive.support.status === 'assisted' ? true : verifiedLive.practice ? null : false},
         }};
       },recordSpellingDiscoveryAttempt)) : undefined;

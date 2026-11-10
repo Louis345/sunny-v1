@@ -304,6 +304,14 @@ export type LearningObservation = {
   confounds: string[];
 };
 
+export type ObservationRescore = {
+  rescoreId: string; observationId: string; at: string; reason: string; source: string;
+  from: { childResponse?: string; result: LearningObservation["result"] };
+  to: { childResponse?: string; result: LearningObservation["result"] };
+  /** Evaluations and decisions that cited the old result; they are history and are not recomputed. */
+  citedBy: string[];
+};
+
 export type AcademicPrediction = {
   predictionId: string;
   theoryId: string;
@@ -439,6 +447,8 @@ export type LearningCycleRecordV2 = {
   /** Published immutable board instances (contract 21). Absent on legacy cycles. */
   boards?: LearningBoardInstance[];
   canvasVerifications?: Record<string, BoardCanvasProof>;
+  /** Appended re-scores of saved answers (e.g. Japanese-keyboard kana, 2026-11-10); each keeps the old answer and result. */
+  observationRescores?: ObservationRescore[];
   adaptiveGeneration?: {
     evaluationId: string;
     evaluationCompletedAt?: string;
@@ -665,6 +675,7 @@ export type LearningCycleEvent =
     }
   | { type: "node_artwork_saved"; nodeId: string; localPath: string }
   | { type: "engagement_noted"; evidenceId: string; summary: string }
+  | { type: "observation_rescored"; reason: string; source: string; rescores: Array<{ observationId: string; childResponse?: string; result: LearningObservation["result"]; addConfounds: string[] }> }
   | {
       type: "plan_reconciled";
       boardDefinition?: AdventureBoardDefinition;
@@ -1975,6 +1986,25 @@ export function transitionLearningCycle(
       || !event.reason.trim()) throw new Error("planner_retry_not_eligible");
     next.lifecycle = blocked.fromLifecycle;
     reason = `Replacement authorized for ${event.blockedDecisionId}: ${event.reason.trim()}`;
+  } else if (event.type === "observation_rescored") {
+    // An explicit operator re-score: the old answer and result are kept in the record; lifecycle and boards are unchanged.
+    if (!event.reason.trim() || !event.source.trim() || !event.rescores.length) throw new Error("observation_rescore_reason_required");
+    for (const row of event.rescores) {
+      const observation = next.observations.find((candidate) => candidate.observationId === row.observationId);
+      if (!observation) throw new Error(`observation_rescore_missing:${row.observationId}`);
+      const rescoreId = `${row.observationId}:rescore:r${current.revision + 1}`;
+      const citedBy = [...next.predictionEvaluations.filter((evaluation) => evaluation.observationIds.includes(observation.observationId)).map((evaluation) => evaluation.evaluationId),
+        ...next.decisionHistory.filter((decision) => decision.eventType === "theory_decided" && decision.evidenceIds.includes(observation.observationId)).map((decision) => decision.decisionId)];
+      (next.observationRescores ??= []).push({ rescoreId, observationId: observation.observationId, at, reason: event.reason.trim(), source: event.source.trim(), citedBy,
+        from: { ...(observation.childResponse === undefined ? {} : { childResponse: observation.childResponse }), result: structuredClone(observation.result) },
+        to: { ...(row.childResponse === undefined ? {} : { childResponse: row.childResponse }), result: structuredClone(row.result) } });
+      if (row.childResponse !== undefined) observation.childResponse = row.childResponse;
+      observation.result = structuredClone(row.result);
+      observation.confounds = [...new Set([...observation.confounds.filter((value) => value !== "incorrect" && value !== "correct"), ...row.addConfounds, `rescored:${rescoreId}`])];
+      next.evidence.academic = uniqueEvidence([...next.evidence.academic, { evidenceId: rescoreId, summary: `${observation.itemId}: re-scored ${row.result.observedErrorType ?? (row.result.correct ? "correct" : "incorrect")}; ${event.reason.trim()}` }]);
+      evidenceIds.push(rescoreId);
+    }
+    reason = `Saved answers re-scored by ${event.source.trim()}: ${event.reason.trim()}`;
   } else {
     next.lifecycle = "blocked";
     reason = event.reason;

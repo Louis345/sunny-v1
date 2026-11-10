@@ -223,3 +223,32 @@ it.each([false,true])('completes captured post-check practice without duplicatin
  expect(after.predictionEvaluations).toEqual(cycle.predictionEvaluations);
  }finally{advance.mockRestore();}
 });
+
+/**
+ * 2026-11-10: Ila typed with the kiosk keyboard in Japanese mode; "forgot" arrived as "フォrゴt" and was saved wrong in
+ * both stores. Human caught it reading saved answers; logs showed only ids; lab fixtures only ever type ASCII.
+ * The native game path and the Discovery route must both save her letters and tell the companion the keyboard fact.
+ */
+it('saves her typed letters, not Japanese-keyboard kana, in both stores and tells the companion',async()=>{
+ const {rootDir,items,post}=await fixture();
+ const {openChart}=await import('../chart/db');const {recordAssignment}=await import('../chart/spelling/record');const {presentOriginalSpellingItem}=await import('../chart/spelling/originalResponses');const {exportEvents}=await import('../chart/exportEvents');const {handleGameEventForSession}=await import('./game-event-handler');
+ vi.stubEnv('SUNNY_CHART_DIR',path.join(rootDir,'charts'));const db=openChart('lab-child');
+ try{
+  recordAssignment(db,{assignmentId:'hw-words',words:['night','light'],testDate:null,sourcePhotoHash:'a'.repeat(64)});
+  const nodeId=getLearningCycle('lab-child','hw-words',{rootDir})!.nodes[0].nodeId;
+  const native=presentOriginalSpellingItem(db,{assignmentId:'hw-words',sessionId:'native-voice',nodeId,launchId:'native-launch',sourceItemId:items[0].id,word:'night',instrument:'practice',shown:{lettersVisible:true,hint:null,companionHelp:null}});
+  const facts:string[]=[];
+  const s={chartChildId:'lab-child',getSessionId:()=> 'native-voice',getSpellingLaunch:()=>({homeworkId:'hw-words',nodeId,launchId:'native-launch',launchToken:'token'}),getDiscoveryAttemptContext:()=>({sessionId:'native-voice',nodeId,launchId:'native-launch',chartItemId:String(native.payload.itemId),artifactHash:hashDiscoveryContract(items),practice:true,spellingShown:true,audioReplays:null,support:{status:'unknown',scaffolds:[]},instrumentSignals:[]}),noteExternalEvent:(e:{summary:string})=>facts.push(e.summary)};
+  handleGameEventForSession(s,{type:'attempt_event',activityId:'letter-rush',nodeId,launchToken:'token',attemptId:'kana-answer',target:items[0].id,word:'night',domain:'spelling',attemptedValue:'ニght',timestamp:Date.parse('2026-11-10T15:00:00Z')});
+  expect(exportEvents(db).filter(e=>e.type==='response.observed')[0].payload).toMatchObject({rawResponse:'night',status:'answered'});
+  expect(getLearningCycle('lab-child','hw-words',{rootDir})!.observations[0]).toMatchObject({childResponse:'night',result:{correct:true}});
+  expect(facts.join(' ')).toMatch(/Japanese/);
+  const probe=presentOriginalSpellingItem(db,{assignmentId:'hw-words',sessionId:'s1',nodeId,launchId:'probe-launch',sourceItemId:items[1].id,word:'light',instrument:'discovery',shown:{lettersVisible:false,hint:false,companionHelp:false}});
+  const routeFacts:string[]=[];
+  registerActiveVoiceSessionManager('lab-child',{noteExternalEvent:(e:{summary:string})=>routeFacts.push(e.summary),getSessionId:()=> 's1',getDiscoveryAttemptContext:()=>({nodeId,launchId:'probe-launch',chartItemId:String(probe.payload.itemId),audioReplays:0,support:{status:'unassisted',scaffolds:[]},instrumentSignals:[],artifactHash:hashDiscoveryContract(items),sessionId:'s1'})});
+  expect((await post('attempt',{attemptId:'kana-probe',sessionId:'s1',itemId:items[1].id,attemptedValue:'リghー',observedAt:'2026-11-10T15:01:00Z',supportEventIds:[],instrumentSignals:[]})).status).toBe(200);
+  expect(exportEvents(db).filter(e=>e.type==='response.observed')[1].payload).toMatchObject({rawResponse:'リghー',status:'ambiguous'});
+  expect(getLearningCycle('lab-child','hw-words',{rootDir})!.observations[1].result).toEqual({observedErrorType:'keyboard_ime_unscorable'});
+  expect(routeFacts.join(' ')).toMatch(/Japanese/);
+ }finally{db.close();}
+});

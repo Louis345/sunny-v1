@@ -23,6 +23,7 @@ import { withOriginalSpellingChart } from "../chart/spelling/originalResponses";
 import { schemas } from '../chart/spelling/schemas';
 import { recordFact } from '../chart/spelling/record';
 import { commitOriginalSpellingAttempt } from "./originalSpellingCommit";
+import { typedSpellingForChart } from "./spellingKeyboardInput";
 import {
   recordCompanionVideoCallTraceEvent,
   type CompanionVideoCallTraceEventName,
@@ -597,15 +598,18 @@ export function handleGameEventForSession(
           const node = cycle?.nodes.find(n => n.nodeId === launch.nodeId);
           if (!node?.evidenceContract.spellingItems?.[String(event.target)] || live.launchId !== launch.launchId || live.nodeId !== launch.nodeId || live.artifactHash !== node.artifactBinding?.contractFingerprint) throw new Error("native_spelling_binding_mismatch");
           if (typeof event.attemptId !== "string" || !event.attemptId || typeof event.timestamp !== "number" || !Number.isFinite(event.timestamp)) throw new Error("native_spelling_attempt_identity_required");
+          const keyboard = typedSpellingForChart(event.attemptedValue, node.evidenceContract.spellingItems[String(event.target)].response.acceptedForms);
+          if (keyboard.keyboardFact) s.noteExternalEvent?.({source:"keyboard",summary:keyboard.keyboardFact});
           const request = {attemptId:event.attemptId,itemId:String(event.target),attemptedValue:event.attemptedValue,observedAt:new Date(event.timestamp).toISOString(),supportEventIds:[],instrumentSignals:[],skipped:false,sessionId:live.sessionId,launchToken:launch.launchToken};
           const legacy = {childId,homeworkId:launch.homeworkId,attempt:request,support:live.support,artifactHash:live.artifactHash,sessionId:live.sessionId,launchId:launch.launchId,instrumentSignals:live.instrumentSignals};
           const committed = withOriginalSpellingChart(childId, db => commitOriginalSpellingAttempt(db,launch.homeworkId,request,()=>{
             if (!live.chartItemId) throw new Error("chart_live_presentation_required");
-            return {legacy,response:{assignmentId:launch.homeworkId,sessionId:live.sessionId,itemId:live.chartItemId,sourceResponseId:request.attemptId,rawResponse:request.attemptedValue,status:"answered",support:{spellingShown:live.spellingShown ?? null,hint:null,companionHelp:live.support.status === "assisted" ? true : null,audioReplays:live.audioReplays ?? null}}};
+            return {legacy,response:{assignmentId:launch.homeworkId,sessionId:live.sessionId,itemId:live.chartItemId,sourceResponseId:request.attemptId,rawResponse:keyboard.rawResponse,status:keyboard.unreadable ? "ambiguous" : "answered",support:{spellingShown:live.spellingShown ?? null,hint:null,companionHelp:live.support.status === "assisted" ? true : null,audioReplays:live.audioReplays ?? null}}};
           },recordSpellingDiscoveryAttempt)) ?? recordSpellingDiscoveryAttempt(legacy);
           const correct = committed.observations.find(row => row.observationId === request.attemptId)?.result.correct;
           // The private word bank cannot override the code-scored raw response.
-          if (typeof correct === "boolean") event = {...event,correct,quality:correct ? 5 : 1};
+          // An unscored answer (e.g. unreadable keyboard text) stays out of the word bank too.
+          event = typeof correct === "boolean" ? {...event,correct,quality:correct ? 5 : 1} : {...event,correct:undefined};
         }
       }
       // A built game's answer with no right/wrong is scored by code when the stop completes (BUGS.md 2026-11-08).

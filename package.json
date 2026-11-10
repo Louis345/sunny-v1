@@ -61,6 +61,7 @@
     "sunny:planner:replan": "npx tsx src/scripts/ownerReplan.ts",
     "sunny:rate": "npx tsx src/scripts/rateSession.ts",
     "sunny:board:reseal": "npx tsx src/scripts/resealBoards.ts",
+    "sunny:spelling:rescore-ime": "npx tsx src/scripts/rescoreImeSpelling.ts",
     "sunny:child:facts": "npx tsx src/scripts/setChildFacts.ts",
     "sunny:subject": "npx tsx src/scripts/selectSubject.ts",
     "sunny:board:repair-not-ready": "npx tsx src/scripts/repairNotReadyActivities.ts",

@@ -1,6 +1,6 @@
 # Sunny Learning Feedback Loop
 
-Contract version: 56
+Contract version: 57
 
 This document is the **sole normative** authority for how Sunny forms, tests, and revises learning claims. Product changes that alter this loop must update this contract version before implementation. Other documents may describe infrastructure or history, but they must link here instead of creating another learning doctrine.
 
@@ -384,3 +384,7 @@ new original-kiosk forecasts must cite the fact supporting their scheduled date.
 Schedule changes never rewrite a saved forecast or actual school result date.
 
 Original activity limitation facts preserve server launch provenance, captured non-spelling choices and reported aggregates separately. They explicitly state that per-word spelling responses are unavailable or the response is not a spelling answer. They never create scored word responses or independent evidence. Shown explainer chunks record exposure only when rendered, not when the node launches.
+
+## Keyboard input mode is not a spelling answer (contract 57, owner 2026-11-10)
+
+A Japanese-input keyboard turns typed letters into kana ("forgot" arrives as "フォrゴt"). Code reads the kana back to the letters she typed before scoring and keeps the keyboard's raw text as a fact beside the answer. When two keystroke spellings make the same kana and only one is the word (カ is "ka" or "ca"), or the text cannot become plain letters, the answer is not scored: it is neither right nor wrong. The companion is told, as a fact, that her keyboard is in Japanese input mode. Answers saved before this rule may be re-scored only by an explicit operator command that appends an `observation_rescored` record through the repository: each record keeps the old answer and result, names its source and reason, and lists the evaluations and decisions that cited the old result. Those are history and are not recomputed. A re-score never changes a board, a lifecycle or a seal, and refuses when a published board's seal no longer matches. The spelling chart's own response facts are not rewritten by it.
