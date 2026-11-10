@@ -2459,3 +2459,26 @@ export function projectLearningCyclePlanForWrite(
   if (!cycle) return plan;
   return projectLearningCycle(cycle, { presentationPlan: plan }).activeSessionPlan;
 }
+
+
+/**
+ * Reseals published boards after an approved repair of their saved content (2026-11-10: Reina's sweater table was
+ * fixed by hand on 11/9 and never resealed, so every save after it was refused). Only boards whose seal no longer
+ * matches are resealed; each old and new seal is recorded with the reason. Refuses when nothing needs it.
+ */
+export function resealPublishedBoards(childId: string, homeworkId: string, reason: string, opts: LearningCycleRepositoryOptions = {}): { resealed: Array<{ boardId: string; from: string; to: string }> } {
+  if (!reason.trim()) throw new Error("reseal_reason_required");
+  const cycle = getLearningCycle(childId, homeworkId, opts);
+  if (!cycle) throw new Error(`learning_cycle_not_found:${homeworkId}`);
+  const resealed = (cycle.boards ?? []).flatMap(board => { const to = boardTopologyHash(cycle, board); return to === board.topologyHash ? [] : [{ boardId: board.boardId, from: board.topologyHash, to }]; });
+  if (!resealed.length) throw new Error("reseal_not_needed");
+  const next = structuredClone(cycle);
+  for (const row of resealed) next.boards!.find(board => board.boardId === row.boardId)!.topologyHash = row.to;
+  assertCycle(next);
+  atomicWrite(cyclePath(childId, homeworkId, opts), next);
+  const log = path.join(resolveChildContextDir(childId, { rootDir: opts.rootDir }), "sunny_health", "reseals.ndjson");
+  fs.mkdirSync(path.dirname(log), { recursive: true });
+  fs.appendFileSync(log, `${JSON.stringify({ at: new Date().toISOString(), homeworkId, reason: reason.trim(), resealed })}\n`);
+  console.log(` 🎮 [learning-board] [resealed] child=${childId} homework=${homeworkId} boards=${resealed.map(row => row.boardId).join(",")} reason=${JSON.stringify(reason.trim())}`);
+  return { resealed };
+}

@@ -8,6 +8,7 @@ import { createLearningCycle, getLearningCycle, type LearningCycleNodeContract }
 import { publishBoardInstance } from "./learningBoardInstances";
 import { recordCanonicalNodeCompletion } from "./learningCycleRuntime";
 import { holdCompletion, raiseParentAlert, replayHeldCompletions, runStartupCheck, sunnyHealthFacts } from "./sunnyHealth";
+import { resealPublishedBoards } from "./learningCycleRepository";
 
 // 2026-11-10, Reina's test morning: a hand edit broke her boards' seals, every save after it was refused, and nothing
 // in Sunny noticed. She worked 35 minutes, saw "Progress could not be saved", and reported it four times; Matilda
@@ -79,5 +80,22 @@ it("holds refused answers, tells the parent and the companion, and replays them 
   restore();
   expect(replayHeldCompletions(f.childId, { rootDir: f.rootDir })).toMatchObject({ replayed: 1, stillHeld: 0 });
   expect(getLearningCycle(f.childId, f.homeworkId, { rootDir: f.rootDir })!.observations.filter(row => row.sourceId.includes("practice"))).not.toHaveLength(0);
+  expect(sunnyHealthFacts(f.childId, { rootDir: f.rootDir })).toBe("");
+});
+
+// 2026-11-10, owner approved ("Yes, reseal"): Reina's boards were edited by hand on 11/9 (her sweater table) and
+// never resealed. The edit was wanted; the missing seal was the bug. A reseal goes through Sunny's own record code:
+// it refuses when nothing is broken, records each old and new seal with the reason, and saves work again after it.
+it("reseals boards after an approved repair, records why, and lets her answers save again", () => {
+  const f = fixture();
+  expect(() => resealPublishedBoards(f.childId, f.homeworkId, "nothing broken", { rootDir: f.rootDir })).toThrow("reseal_not_needed");
+  f.handEdit();
+  expect(runStartupCheck([f.childId], { rootDir: f.rootDir })[0].ok).toBe(false);
+  const result = resealPublishedBoards(f.childId, f.homeworkId, "owner-approved sweater table repair, 2026-11-09", { rootDir: f.rootDir });
+  expect(result.resealed).toHaveLength(1);
+  expect(runStartupCheck([f.childId], { rootDir: f.rootDir })[0].ok).toBe(true);
+  expect(() => recordCanonicalNodeCompletion(f.completion, { rootDir: f.rootDir })).not.toThrow();
+  const log = fs.readFileSync(path.join(f.rootDir, "src/context", f.childId, "sunny_health", "reseals.ndjson"), "utf8");
+  expect(log).toContain("owner-approved sweater table repair");
   expect(sunnyHealthFacts(f.childId, { rootDir: f.rootDir })).toBe("");
 });
