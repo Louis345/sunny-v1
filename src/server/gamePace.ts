@@ -16,9 +16,13 @@ export function noteGamePace(childId: string, nodeId: string, kind: "state" | "a
   paces.set(key, pace);
 }
 
+const announced = new Set<string>();
+
 export function gamePaceFacts(childId: string, nodeId: string | undefined, now = Date.now()): string {
   const pace = nodeId ? paces.get(`${childId}\u0000${nodeId}`) : undefined;
   if (!pace) return "";
+  // Once per game, so the rating can see that her companion had the facts in this game.
+  if (!announced.has(`${childId}\u0000${nodeId}`)) { announced.add(`${childId}\u0000${nodeId}`); console.log(` 🎮 [companion-context] [pace] child=${childId} node=${nodeId}`); }
   const min = (ms: number) => { const m = Math.max(0, Math.round(ms / 60_000)); return `${m} minute${m === 1 ? "" : "s"}`; };
   const answers = pace.answers ? `${pace.answers} answer${pace.answers === 1 ? "" : "s"} so far, the last one ${min(now - pace.lastAnswerAt!)} ago` : "no answer yet";
   return `This game: open ${min(now - pace.openedAt)}; ${answers}; help asked ${pace.help} time${pace.help === 1 ? "" : "s"}.`;

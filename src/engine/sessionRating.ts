@@ -106,11 +106,47 @@ export function rateSession(packet: SessionPacket): { lines: RatingLine[]; verdi
     G18: { value: `${offered.length} of ${stretches.length} quiet stretches had an offer`, pass: offered.length === stretches.length },
   };
   const lines = LINES.map(line => ({ ...line, ...(measured[line.id] ?? packet.extra?.[line.id] ?? { value: "not measurable yet", pass: false }) }));
-  const must = lines.filter(line => line.id.startsWith("N")), graded = lines.filter(line => line.id.startsWith("G"));
+  // A line with nothing to judge this session ("no decision this session") is N/A: it neither passes nor fails.
+  const notApplicable = (line: RatingLine) => /^no .+ this session$/.test(line.value);
+  const must = lines.filter(line => line.id.startsWith("N")), graded = lines.filter(line => line.id.startsWith("G") && !notApplicable(line));
   const verdict = must.every(line => line.pass) && graded.filter(line => line.pass).length >= Math.ceil(graded.length * 0.8) ? "PASS" : "FAIL";
   const text = [`Rating for ${packet.childId}, session ${packet.sessionId} (${packet.startedAt.slice(0, 16).replace("T", " ")}): ${verdict}`,
-    `Must-never: ${must.filter(line => line.pass).length} of ${must.length} pass. Graded: ${graded.filter(line => line.pass).length} of ${graded.length} pass (80% needed).`,
+    `Must-never: ${must.filter(line => line.pass).length} of ${must.length} pass. Graded: ${graded.filter(line => line.pass).length} of ${graded.length} pass (80% needed; ${lines.length - must.length - graded.length} not applicable this session).`,
     "", "| # | What | Target | This session | Result |", "|---|---|---|---|---|",
-    ...lines.map(line => `| ${line.id} | ${line.what} | ${line.target} | ${line.value.replace(/\|/g, "/")} | ${line.pass ? "PASS" : "FAIL"} |`)].join("\n");
+    ...lines.map(line => `| ${line.id} | ${line.what} | ${line.target} | ${line.value.replace(/\|/g, "/")} | ${notApplicable(line) ? "N/A" : line.pass ? "PASS" : "FAIL"} |`)].join("\n");
   return { lines, verdict, text };
+}
+
+/** Facts read from Sunny's records for the lines the 11/10 batch fixed (the loader gathers them). */
+export type RecordFacts = {
+  domain: string; serverFailures: number; alertsInSession: number; datedLogForDay: boolean; testDates: string[];
+  helpTurnsInGames: number; helpedSaved: number; playedGames: Array<{ title: string; answers: number; savedAnswers: number }>;
+  decisions: Array<{ hasOwnRetro: boolean; hasCalls: boolean; questionChars: number; tools: string[] }>;
+  gamesWithNotes: number; playedCount: number; diagnoses: number; builtSinceBatch: Array<{ hasStep: boolean }>;
+  gamesOpened: string[]; paceLogged: string[]; newProblems: number; trackRecordGames: number;
+};
+
+/** Each line as PASS or FAIL from the facts; a line with nothing to judge this session passes and says so. */
+export function measureRecordLines(f: RecordFacts): Record<string, { value: string; pass: boolean }> {
+  const none = (what: string) => ({ value: `no ${what} this session`, pass: true });
+  const blind = f.playedGames.filter(game => game.savedAnswers > 0 && game.answers === 0);
+  const paced = f.gamesOpened.filter(node => f.paceLogged.includes(node));
+  const built = f.builtSinceBatch, stepped = built.filter(game => game.hasStep).length;
+  return {
+    G1: f.serverFailures ? { value: `${f.serverFailures} failure(s), ${f.alertsInSession} parent alert(s)`, pass: f.alertsInSession > 0 } : none("failure"),
+    G3: { value: f.datedLogForDay ? "dated server log kept for this day" : "no dated server log for this day", pass: f.datedLogForDay },
+    G4: { value: `${new Set(f.testDates).size} test date(s) recorded: ${[...new Set(f.testDates)].join(", ") || "none"}`, pass: new Set(f.testDates).size <= 1 },
+    G6: f.domain === "spelling" ? none("math answer") : { value: `help asked ${f.helpTurnsInGames} time(s) in games; ${f.helpedSaved} answer(s) saved as helped`, pass: !(f.helpTurnsInGames > 0 && f.helpedSaved === 0) },
+    G9: { value: blind.length ? `shown with 0 answers: ${blind.map(game => game.title).join(", ")}` : `${f.playedGames.length} played game(s) with true counts`, pass: !blind.length },
+    G11: f.decisions.length ? { value: `${f.decisions.filter(row => row.hasOwnRetro).length} of ${f.decisions.length} decision(s) had this session's retro`, pass: f.decisions.every(row => row.hasOwnRetro) } : none("decision"),
+    G12: f.decisions.length ? { value: `${f.decisions.filter(row => row.hasCalls).length} of ${f.decisions.length} decision(s) made calls code can check`, pass: f.decisions.some(row => row.hasCalls) } : none("decision"),
+    G13: { value: `${f.gamesWithNotes} of ${f.playedCount} played game(s) have a keep/fix/retire note (week)`, pass: f.playedCount === 0 || f.gamesWithNotes > 0 },
+    G14: f.decisions.length ? { value: `largest question ${Math.max(...f.decisions.map(row => row.questionChars)).toLocaleString("en-US")} characters`, pass: f.decisions.every(row => row.questionChars < 120_000) } : none("decision"),
+    G15: { value: `${f.diagnoses} diagnosis fact(s) given to the AIs`, pass: f.diagnoses > 0 },
+    G16: built.length ? { value: `${stepped} of ${built.length} game(s) built since the batch report their step`, pass: stepped === built.length } : none("new built game"),
+    G19: f.gamesOpened.length ? { value: `pace facts in ${paced.length} of ${f.gamesOpened.length} games`, pass: paced.length === f.gamesOpened.length } : none("game"),
+    G20: f.domain === "spelling" ? none("math board") : f.decisions.length ? { value: `${f.newProblems} new problem(s) written`, pass: f.newProblems > 0 } : none("decision"),
+    G21: f.domain === "spelling" ? none("math board") : f.decisions.length ? { value: f.decisions.some(row => row.tools.includes("add_problem")) ? "add_problem offered; Quest/Boss stay on the menu" : "no way to write new problems", pass: f.decisions.some(row => row.tools.includes("add_problem")) } : none("decision"),
+    G22: { value: `the builder sees ${f.trackRecordGames} played game(s) with their track record`, pass: f.trackRecordGames > 0 || f.playedCount === 0 },
+  };
 }

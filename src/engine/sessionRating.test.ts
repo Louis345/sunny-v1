@@ -78,4 +78,26 @@ describe("session rating against the pre-registered success criteria", () => {
     packet.observations = [{ observedAt: at(1), itemId: "w1", word: "ornament", childResponse: "ornm", result: { correct: false }, assistance: { status: "unknown" }, provenance: "practice" }];
     expect(rateSession(packet).lines.find(row => row.id === "G8")).toMatchObject({ pass: false, value: "1 fragment" });
   });
+
+  // The lines the batch fixed must be measurable from Sunny's own records, or they fail by default.
+  it("measures the batch's lines from Sunny's records, with vacuous passes named as such", async () => {
+    const { measureRecordLines } = await import("./sessionRating");
+    const lines = measureRecordLines({ domain: "math", serverFailures: 1, alertsInSession: 1, datedLogForDay: true, testDates: ["2026-11-12"], helpTurnsInGames: 2, helpedSaved: 0,
+      playedGames: [{ title: "Gate", answers: 0, savedAnswers: 3 }], decisions: [{ hasOwnRetro: true, hasCalls: true, questionChars: 50_000, tools: ["add_problem"] }],
+      gamesWithNotes: 1, playedCount: 2, diagnoses: 0, builtSinceBatch: [{ hasStep: true }], gamesOpened: ["a", "b"], paceLogged: ["a"], newProblems: 1, trackRecordGames: 2 });
+    expect(lines.G1).toMatchObject({ pass: true });
+    expect(lines.G6).toMatchObject({ pass: false });
+    expect(lines.G9).toMatchObject({ pass: false, value: expect.stringContaining("Gate") });
+    expect(lines.G11).toMatchObject({ pass: true });
+    expect(lines.G14).toMatchObject({ pass: true });
+    expect(lines.G15).toMatchObject({ pass: false });
+    expect(lines.G19).toMatchObject({ pass: false, value: "pace facts in 1 of 2 games" });
+    expect(lines.G20).toMatchObject({ pass: true });
+    expect(lines.G21).toMatchObject({ pass: true });
+    const quiet = measureRecordLines({ domain: "spelling", serverFailures: 0, alertsInSession: 0, datedLogForDay: false, testDates: [], helpTurnsInGames: 0, helpedSaved: 0, playedGames: [], decisions: [],
+      gamesWithNotes: 0, playedCount: 0, diagnoses: 2, builtSinceBatch: [], gamesOpened: [], paceLogged: [], newProblems: 0, trackRecordGames: 0 });
+    expect(quiet.G11).toMatchObject({ pass: true, value: expect.stringContaining("no decision") });
+    expect(quiet.G3).toMatchObject({ pass: false });
+  });
 });
+
