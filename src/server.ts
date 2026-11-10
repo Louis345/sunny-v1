@@ -14,11 +14,14 @@ import { openKioskCharts } from "./chart/kioskLifecycle";
 import { endActiveVoiceSessions } from "./server/voice-session-registry";
 import { setupWardrobeAssetRoute } from "./server/wardrobeAssetRoute";
 import { requiredSettingsReport } from "./server/requiredSettings";
+import { installServerLogFile } from "./server/serverLogFile";
 
 const PORT = parseInt(process.env.PORT || "3001", 10);
 const isKiosk = process.argv.includes("--kiosk");
 const serveStatic = process.argv.includes("--serve-static");
 
+// A dated, timed copy of everything printed, kept seven days: a restart no longer erases the evidence (2026-11-10).
+installServerLogFile({ dir: path.join(process.cwd(), "logs", "server") });
 // Say up front whether every required setting is present, so a missing one is seen before a session starts.
 console.log(requiredSettingsReport().line);
 // Validate/open the declared charts before accepting any HTTP or kiosk traffic.

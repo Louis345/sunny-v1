@@ -4,7 +4,7 @@ import path from "node:path";
 import { getChildChart } from "../profiles/childChart";
 import { resolveChildContextDir } from "../utils/contextRoot";
 import { requestForModel } from "./plannerTransport";
-import { buildSessionTimeline } from "./sessionTimeline";
+import { buildSessionTimeline, sessionGames } from "./sessionTimeline";
 import { getLearningCycle, type LearningCycleRecordV2, type LearningCycleRepositoryOptions } from "./learningCycleRepository";
 
 /**
@@ -64,6 +64,9 @@ export async function writeSessionHandoff(input: { childId: string; sessionDir: 
       console.log(` 🎮 [handoff] [skipped] child=${input.childId} reason=${!cycle ? "no_learning_cycle" : !metadata.startedAt ? "no_start_time" : "no_child_turns"}`);
       return undefined;
     }
+    // A session in which she answered nothing is play (a call, a reward): no lesson retro for it (2026-11-10).
+    const answered = sessionGames(input.sessionDir, cycle).some(game => game.answers > 0) || cycle.observations.some(row => Date.parse(row.observedAt) >= Date.parse(metadata.startedAt!));
+    if (!answered) { console.log(` 🎮 [handoff] [skipped] child=${input.childId} reason=no_answers_play_only`); return undefined; }
     const timeline = buildSessionTimeline(input.sessionDir, cycle);
     const gameFacts = timeline.split("\n").filter(line => line.startsWith("Game "));
     const ask = buildHandoffAsk({ childName: metadata.child || input.childId, companionName: chart.companion?.displayName || "her companion",

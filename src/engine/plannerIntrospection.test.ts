@@ -230,6 +230,22 @@ it("writes a shift handoff from the session conversation and shows it to the nex
   await expect(writeSessionHandoff({ childId, sessionDir, homeworkId, client: failing as never }, f.opts)).resolves.toBeUndefined();
 }, 120000);
 
+// 2026-11-10, both audits: a FaceTime call with no homework got a lesson retro ("plan the next lesson to start with
+// ar/or words before any games"), and it took one of the three retro slots the Planner reads. A session in which she
+// answered nothing is play: no lesson retro is written for it.
+it("writes no lesson retro for a session in which she answered nothing", async () => {
+  const f = liveFixture();
+  const { writeSessionHandoff } = await import("./sessionHandoff");
+  const sessionDir = path.join(f.rootDir, "logs/sessions/call"); fs.mkdirSync(sessionDir, { recursive: true });
+  const startedAt = new Date().toISOString();
+  fs.writeFileSync(path.join(sessionDir, "metadata.json"), JSON.stringify({ sessionId: "call", child: "Ila", startedAt }));
+  fs.writeFileSync(path.join(sessionDir, "transcript.md"), `### ${startedAt}\n\n**user:** Hikari, look at my new hat!\n`);
+  const asks: unknown[] = [];
+  const client = { messages: { create: async (request: unknown) => { asks.push(request); return { content: [{ type: "text", text: "retro" }], usage: {} }; } } };
+  await expect(writeSessionHandoff({ childId, sessionDir, homeworkId, client: client as never }, f.opts)).resolves.toBeUndefined();
+  expect(asks).toHaveLength(0);
+}, 120000);
+
 // 2026-11-09 owner: board 5 was built on a misread ("with help" taken for "she knows it"), and a new board is only
 // planned when she finishes the current one. The owner may close the current board for one fresh decision, with
 // a stated reason; her finished stops and answers stay; the Planner sees the reason as a fact.
