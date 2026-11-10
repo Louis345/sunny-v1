@@ -230,6 +230,27 @@ it("writes a shift handoff from the session conversation and shows it to the nex
   await expect(writeSessionHandoff({ childId, sessionDir, homeworkId, client: failing as never }, f.opts)).resolves.toBeUndefined();
 }, 120000);
 
+// 2026-11-10, both audits: the Planner's question was 431,000 characters, mostly raw record dumps (the cycle 256K,
+// her learning history 90K, the prior plan 34K), with the retro, scorecard and journal it most needs a small slice
+// in the middle. The summaries stay in the question; the raw record is a tool it can read, page by page.
+it("keeps the raw record out of the Planner's question and lets it read any part with read_record", async () => {
+  const f = liveFixture();
+  f.play("radar", new Date(Date.now() - 3_600_000).toISOString());
+  await runtime.advanceCanonicalCycleFromEvidence(f.request, f.opts);
+  const prompt = promptOf(f.requests[0]);
+  expect(prompt).not.toContain("Cycle:\n{");
+  expect(prompt).not.toContain('"learningHistory"');
+  expect(prompt).toContain("read_record");
+  const { spellingSuccessorToolkit } = await import("./spellingSuccessorTools");
+  const question = JSON.parse(fs.readFileSync(fs.readdirSync(f.rootDir, { recursive: true }).map(String).filter(name => name.endsWith("tools.question.json")).map(name => path.join(f.rootDir, name))[0], "utf8"));
+  const kit = spellingSuccessorToolkit({ ...question.facts, rerunnable: () => false });
+  const read = kit.tools.find(tool => tool.name === "read_record")!;
+  const observations = read.run(kit.initialState(), read.schema.parse({ section: "observations", offset: 0, limit: 2 }) as never) as { ok: boolean; result: { total: number; rows: unknown[] } };
+  expect(observations).toMatchObject({ ok: true, result: { total: expect.any(Number), rows: expect.any(Array) } });
+  expect(observations.result.rows.length).toBeLessThanOrEqual(2);
+  expect(read.run(kit.initialState(), read.schema.parse({ section: "learning_history" }) as never)).toMatchObject({ ok: true });
+}, 120000);
+
 // 2026-11-10 (Fable audit): the Planner's checkable predictions all date from the first day; on every later board it
 // wrote its own verdict ("my main prediction for board 7 was met") and nothing but the Planner checked. Now it may
 // call, per word, whether she will get it right on her own next time; code checks each call against her next

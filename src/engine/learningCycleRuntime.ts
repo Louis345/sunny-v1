@@ -917,7 +917,13 @@ async function askPlanner(
     const schoolTest=schoolTestFacts(chart.homework,cycle.homeworkId);
     console.log(` 🎮 [canonical-progression] [school-test] [${schoolTest?"included":"not-recorded"}] homework=${cycle.homeworkId} testDate=${schoolTest?.testDate??"none"} daysLeft=${schoolTest?.daysLeft??"unknown"}`);
     const idPrefix=`${cycle.homeworkId}-r${checkpointRevision}-step`;
+    const RECORD_LINE="Her full record is behind read_record, a page at a time: lifecycle, assignment, theory, predictions, prediction_evaluations, evidence, observations (every answer), stops, learning_history, prior_plan. The summaries above are drawn from it.";
     const cycleFacts=()=>JSON.stringify({ lifecycle: cycle.lifecycle, assignment: cycle.assignment, theory: cycle.academicTheory, predictions: cycle.academicPredictions, predictionEvaluations: cycle.predictionEvaluations, evidence: factualEvidence, observations: factualObservations, nodes: cycle.nodes.map((node) => ({ nodeId: node.nodeId, role: node.role, title: node.title, state: node.state, routeId: node.routeId, evidenceIds: node.evidenceIds.filter((id) => !isSynthetic(id)) })) });
+    // The raw record is a tool, not part of the question (2026-11-10: 431,000 characters drowned the summaries).
+    const record:Record<string,unknown>=JSON.parse(cycleFacts());
+    Object.assign(record,{stops:record.nodes,prediction_evaluations:record.predictionEvaluations,learning_history:childContext.learningHistory,prior_plan:(childContext as Record<string,unknown>).priorPlan});
+    delete record.nodes; delete record.predictionEvaluations;
+    const {learningHistory:_history,...chartInline}=childContext as Record<string,unknown>; delete chartInline.priorPlan;
     // Math: her recorded problems exactly as saved at intake, never re-authored; the menu is the one menu minus math's stated exceptions.
     const mathQuestion=math?(()=>{
       const saved=new Map<string,NonNullable<SuccessorFacts["problems"]>[number]>();
@@ -930,7 +936,7 @@ async function askPlanner(
       const facts:SuccessorFacts={builtIns:[],
         // The one game menu is declared on the full catalog (Law 16); STAGE_EXCEPTIONS["math-successor"] removes what cannot bind her problems.
         ...successorMenuFacts(spellingActivityCatalog(cycle.childId),{grade:chart.demographics?.grade,words:[]},"math-successor"),
-        evaluationIds,allowedActions:offered,idPrefix,selfReview:true,aimedGames:true,problems,answeredProblemIds,playedGames:playedGamesOf(cycle),rerunnable:()=>false};
+        evaluationIds,allowedActions:offered,idPrefix,selfReview:true,aimedGames:true,problems,answeredProblemIds,playedGames:playedGamesOf(cycle),record,rerunnable:()=>false};
       const prompt=`You are Sunny's AI Planner, her math tutor. The goal: she wants to come back to Sunny, and she solves problems like these on her own by the school test. ${schoolTestLine(schoolTest)}
 Compare your preregistered theory and predictions with what she actually did and said, decide what happens next, and build her next board, using the tools.
 1. decide: one evidence-grounded decision, with your self-review of the journal and her track record below. Cite the prediction evaluations you judge.
@@ -950,14 +956,13 @@ ${handoffSection(cycle,opts)}
 ${scorecardSection(cycle,opts)}
 ${ownerReplanLine(cycle)}Her recorded problems (from her worksheet; give their ids):
 ${JSON.stringify(problems.map(item=>({id:item.id,problem:item.prompt})))}
-Child chart context:
-${JSON.stringify(childContext)}
+Child chart context (her learning history and prior plan are in read_record):
+${JSON.stringify(chartInline)}
 ${encounterGate ? "Baseline Quest eligibility (runtime truth boundary, not a mastery judgment):" : "Fresh independent evidence so far (a fact for your decision, not a gate; Quest is your call):"}
 ${JSON.stringify(baselineEligibility)}
 Allowed progression actions: ${offered.join(", ")}
 ${offered.some(action=>action==="generate_quest"||action==="generate_boss")?`Quest and Boss check problems she has not answered yet, on her own. Boss opens from her Quest results and always ends awaiting the graded test. When you choose generate_quest or generate_boss, add exactly one step with that encounter and check_first, using only problems she has not answered.
-`:""}Cycle:
-${cycleFacts()}`;
+`:""}${RECORD_LINE}`;
       return {facts,prompt};
     })():undefined;
     const facts:SuccessorFacts=mathQuestion?.facts??{builtIns:builtIns.map(node=>{const items=Object.values(node.evidenceContract.spellingItems??{});const roles=Object.values(node.evidenceContract.itemRoles??{});
@@ -969,7 +974,7 @@ ${cycleFacts()}`;
       // Owner, 2026-11-08: the Planner may place the board's one creature encounter (a reward; recorded as practice).
       creatureEncounters:true,
       // Contract 56: the decision carries its self-review, and her built-for-her game can be aimed at one error.
-      selfReview:true,aimedGames:true,playedGames:playedGamesOf(cycle),
+      selfReview:true,aimedGames:true,playedGames:playedGamesOf(cycle),record,
       // The same check the re-run step applies, asked while the Planner is still choosing.
       rerunnable:(nodeId:string,wordIds:string[])=>{const source=builtIns.find(node=>node.nodeId===nodeId);return Boolean(source&&repointReusedSetup(source,`${nodeId}-check`,wordIds.map(wordId=>({id:`check:${wordId}`,wordId}))));}};
     const prompt=mathQuestion?.prompt??`You are Sunny's AI Planner, her spelling tutor. The goal: she wants to come back to Sunny, and she knows her words by the school test. ${schoolTestLine(schoolTest)} ${SPELLING_TEST_CONDITIONS}
@@ -993,14 +998,13 @@ ${ownerReplanLine(cycle)}Tested built-in activities she played, which you may re
 ${JSON.stringify(facts.builtIns.map(row=>({builtIn:row.nodeId,title:row.title,type:row.implementationType,words:row.wordIds.length,checkpoint:row.checkpoint})))}
 Saved spelling words:
 ${JSON.stringify([...savedSpellingItems.values()].map(item=>({wordId:item.wordId,word:item.word})))}
-Child chart context:
-${JSON.stringify(childContext)}
+Child chart context (her learning history and prior plan are in read_record):
+${JSON.stringify(chartInline)}
 ${encounterGate ? "Baseline Quest eligibility (runtime truth boundary, not a mastery judgment):" : "Fresh independent evidence so far (a fact for your decision, not a gate; Quest is your call):"}
 ${JSON.stringify(baselineEligibility)}
 Allowed progression actions: ${actions.join(", ")}
 ${actions.some(action=>action==="generate_quest"||action==="generate_boss")?`Quest and Boss check her own list words. Boss opens from her Quest results and always ends awaiting the graded test. When you choose generate_quest or generate_boss, add exactly one step with that encounter: a hidden-word check or her generated-game, where each word is hidden and she types it without help.
-`:""}Cycle:
-${cycleFacts()}`;
+`:""}${RECORD_LINE}`;
     // The question is frozen when its evidence batch closes: a restart asks the same question and replays
     // the saved turns at no cost, whatever has been recorded since.
     const frozenFile=path.join(draftDir,`${decisionStage}-tools.question.json`);

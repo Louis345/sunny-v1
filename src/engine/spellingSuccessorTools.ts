@@ -35,6 +35,8 @@ export type SuccessorFacts = {
   /** Games Sunny built for her that she played (owner, 2026-11-09): a new generated-game can start from one, so she
    * keeps the mechanic she already learned with new content. Older frozen questions have none. */
   playedGames?: Array<{ nodeId: string; title: string; answers: number; right: number }>;
+  /** Her full record by section, read with read_record instead of pasted into the question (2026-11-10). */
+  record?: Record<string, unknown>;
   /** Whether the re-run step can really prepare this built-in for these words (the same check it runs). */
   rerunnable: (nodeId: string, wordIds: string[]) => boolean;
 };
@@ -205,6 +207,14 @@ export function spellingSuccessorToolkit(facts: SuccessorFacts) {
       state.result = undefined;
       return { ok: true, result: { step_id: id, words: 0, role: "reward" } };
     } })] : []),
+    ...(facts.record ? [tool({ name: "read_record", description: "Read any part of her full record, a page at a time. Lists come back in pages: give offset and limit.",
+      schema: z.object({ section: enumOf(Object.keys(facts.record), "none"), offset: z.number().int().min(0).optional(), limit: z.number().int().min(1).max(100).optional() }).strict(),
+      run: (_state, input) => {
+        const value = facts.record![input.section];
+        if (!Array.isArray(value)) return { ok: true, result: { section: input.section, value: value ?? null } };
+        const offset = input.offset ?? 0, limit = input.limit ?? 40;
+        return { ok: true, result: { section: input.section, total: value.length, offset, rows: value.slice(offset, offset + limit) } };
+      } })] : []),
     tool({ name: "remove_step", description: "Remove a step you added, and take it off the order and the choice.",
       schema: z.object({ step_id: text("A step_id you were given.") }).strict(),
       run: (state, input) => {
