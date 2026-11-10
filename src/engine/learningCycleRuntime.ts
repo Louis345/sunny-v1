@@ -5,6 +5,7 @@ import { schoolTestFacts, schoolTestLine, SPELLING_TEST_CONDITIONS } from "./sch
 import { handoffSection } from "./sessionHandoff";
 import { scorecardSection } from "./sessionScorecard";
 import { observationNode } from "./observationNode";
+import { gameTrackRecord } from "./gameTrackRecord";
 import { childFeedbackSection, ownerReplanLine, plannerCallsSection, schoolTestSection, mathTrackRecordSection, plannerJournalSection, spellingTrackRecordSection, writePlannerJournalEntry, type PlannerSelfReview } from "./plannerIntrospection";
 import type { PlannerExpectation } from "./learningCycleRepository";
 import { spellingActivityCatalog } from "./assignmentPlanner";
@@ -119,6 +120,7 @@ export type CanonicalProgressionDecision = {
   /** Its review of its own track record before deciding (contract 56). Decisions saved earlier have none. */
   selfReview?: PlannerSelfReview;
   expectations?: PlannerExpectation[];
+  gameNotes?: Array<{ nodeId: string; verdict: "keep" | "fix" | "retire"; why: string }>;
   /** The one complete successor board program. Absent only for await_calibration. */
   successor?: SuccessorProgram;
 };
@@ -603,6 +605,8 @@ export function parseCanonicalProgressionDecision(value: unknown): CanonicalProg
     ...(contentDecisions.length > 0 ? { contentDecisions } : {}),
     ...(typeof row.revisedHypothesis === "string" && row.revisedHypothesis.trim() ? { revisedHypothesis: row.revisedHypothesis.trim() } : {}),
     ...(parseSelfReview(row.selfReview) ? { selfReview: parseSelfReview(row.selfReview) } : {}),
+    ...(Array.isArray(row.gameNotes) ? { gameNotes: (row.gameNotes as Array<Record<string, unknown>>).filter(note => typeof note?.nodeId === "string" && ["keep", "fix", "retire"].includes(String(note.verdict)) && typeof note.why === "string")
+      .map(note => ({ nodeId: String(note.nodeId), verdict: note.verdict as "keep" | "fix" | "retire", why: String(note.why).trim() })) } : {}),
     ...(Array.isArray(row.expectations) ? { expectations: (row.expectations as Array<Record<string, unknown>>).filter(call => typeof call?.itemId === "string" && typeof call.onHerOwn === "boolean").map(call => ({ itemId: String(call.itemId), onHerOwn: Boolean(call.onHerOwn) })) } : {}),
     ...(action !== "await_calibration" ? { successor: { instruments, boardDefinition } } : {}),
   };
@@ -936,7 +940,7 @@ async function askPlanner(
       const facts:SuccessorFacts={builtIns:[],
         // The one game menu is declared on the full catalog (Law 16); STAGE_EXCEPTIONS["math-successor"] removes what cannot bind her problems.
         ...successorMenuFacts(spellingActivityCatalog(cycle.childId),{grade:chart.demographics?.grade,words:[]},"math-successor"),
-        evaluationIds,allowedActions:offered,idPrefix,selfReview:true,aimedGames:true,problems,answeredProblemIds,playedGames:playedGamesOf(cycle),record,rerunnable:()=>false};
+        evaluationIds,allowedActions:offered,idPrefix,selfReview:true,aimedGames:true,problems,answeredProblemIds,playedGames:playedGamesOf(cycle,opts),record,rerunnable:()=>false};
       const prompt=`You are Sunny's AI Planner, her math tutor. The goal: she wants to come back to Sunny, and she solves problems like these on her own by the school test. ${schoolTestLine(schoolTest)}
 Compare your preregistered theory and predictions with what she actually did and said, decide what happens next, and build her next board, using the tools.
 1. decide: one evidence-grounded decision, with your self-review of the journal and her track record below. Cite the prediction evaluations you judge.
@@ -974,7 +978,7 @@ ${offered.some(action=>action==="generate_quest"||action==="generate_boss")?`Que
       // Owner, 2026-11-08: the Planner may place the board's one creature encounter (a reward; recorded as practice).
       creatureEncounters:true,
       // Contract 56: the decision carries its self-review, and her built-for-her game can be aimed at one error.
-      selfReview:true,aimedGames:true,playedGames:playedGamesOf(cycle),record,
+      selfReview:true,aimedGames:true,playedGames:playedGamesOf(cycle,opts),record,
       // The same check the re-run step applies, asked while the Planner is still choosing.
       rerunnable:(nodeId:string,wordIds:string[])=>{const source=builtIns.find(node=>node.nodeId===nodeId);return Boolean(source&&repointReusedSetup(source,`${nodeId}-check`,wordIds.map(wordId=>({id:`check:${wordId}`,wordId}))));}};
     const prompt=mathQuestion?.prompt??`You are Sunny's AI Planner, her spelling tutor. The goal: she wants to come back to Sunny, and she knows her words by the school test. ${schoolTestLine(schoolTest)} ${SPELLING_TEST_CONDITIONS}
@@ -1258,9 +1262,7 @@ async function decideOnce(
 }
 
 /** Games Sunny built for her that she played, with her answers in each (owner, 2026-11-09): the Planner may build from one. */
-export function playedGamesOf(cycle:LearningCycleRecordV2):Array<{nodeId:string;title:string;answers:number;right:number}>{
-  return cycle.nodes.filter(node=>node.implementationType==="generated-game"&&node.state==="completed"&&node.artifactBinding?.localArtifactPath).map(node=>{
-    const answers=cycle.observations.filter(row=>observationNode(cycle,row)?.nodeId===node.nodeId&&typeof row.result?.correct==="boolean");
-    return {nodeId:node.nodeId,title:node.title,answers:answers.length,right:answers.filter(row=>row.result.correct).length};
-  });
+export function playedGamesOf(cycle:LearningCycleRecordV2,opts:LearningCycleRepositoryOptions={}):Array<{nodeId:string;title:string;answers:number;right:number;minutesToFirstAnswer?:number|null;tutorNote?:string}>{
+  const built=new Set(cycle.nodes.filter(node=>node.implementationType==="generated-game"&&node.artifactBinding?.localArtifactPath).map(node=>node.nodeId));
+  return gameTrackRecord(cycle,opts).filter(row=>built.has(row.nodeId)).map(({game:_game,...row})=>row);
 }

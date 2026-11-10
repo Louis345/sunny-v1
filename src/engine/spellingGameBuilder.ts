@@ -11,7 +11,7 @@ import { engagementTheoryEvidenceContext } from "./engagementTheory";
 import { requestForModel } from "./plannerTransport";
 import { childFeedbackLines } from "./plannerIntrospection";
 import { captureGame } from "./prebuiltBoard";
-import { observationNode } from "./observationNode";
+import { gameTrackRecord } from "./gameTrackRecord";
 import {
   transitionLearningCycle,
   type LearningCycleNodeContract,
@@ -37,10 +37,9 @@ const CSP = `<meta http-equiv="Content-Security-Policy" content="default-src 'no
 /** What her chart says about her, how she has played this homework's games so far, and what she said about Sunny's games. */
 function childFacts(cycle: LearningCycleRecordV2, rootDir: string) {
   const chart = getChildChart(cycle.childId, { rootDir });
-  const played = cycle.nodes.filter(node => node.state === "completed").map(node => {
-    const answers = cycle.observations.filter(row => observationNode(cycle, row)?.nodeId === node.nodeId);
-    return { stop: node.title, game: node.implementationType ?? node.mechanic, answers: answers.length, correct: answers.filter(row => row.result.correct === true).length };
-  });
+  // Each game she played with its track record and her tutor's keep / fix / retire note (2026-11-10).
+  const played = gameTrackRecord(cycle, { rootDir }).map(row => ({ stop: row.title, game: row.game, answers: row.answers, correct: row.right,
+    minutesToFirstAnswer: row.minutesToFirstAnswer, ...(row.tutorNote ? { tutorNote: row.tutorNote } : {}) }));
   return { identity: chart.identity, demographics: chart.demographics, childVoice: chart.childVoice, engagementEvidence: engagementTheoryEvidenceContext(chart.engagementTheory), playedThisHomework: played, whatSheSaidAboutSunnysGames: childFeedbackLines(cycle, { rootDir }) };
 }
 

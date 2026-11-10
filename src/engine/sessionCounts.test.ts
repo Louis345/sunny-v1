@@ -15,10 +15,10 @@ afterEach(() => { for (const root of roots.splice(0)) fs.rmSync(root, { recursiv
 const obs = (sourceId: string, correct: boolean, observedAt = "2026-11-10T12:05:00Z") => ({ observationId: `${sourceId}:${correct}:${Math.random()}`, sourceId, itemId: "p1", observedAt, result: { correct }, assistance: { status: "unassisted", scaffolds: [] }, provenance: "practice" });
 
 it("counts a played spelling game's answers in the Planner's list, whatever form they were saved in", () => {
-  const cycle = { nodes: [{ nodeId: "hw:b7:step-2", title: "Lantern Beat Game", state: "completed", implementationType: "generated-game", artifactBinding: { localArtifactPath: "/x.html" } },
+  const cycle = { childId: "counts-lab", homeworkId: "hw-none", decisionHistory: [], nodes: [{ nodeId: "hw:b7:step-2", title: "Lantern Beat Game", state: "completed", implementationType: "generated-game", artifactBinding: { localArtifactPath: "/x.html" } },
     { nodeId: "hw:b7:step-20", title: "Other", state: "ready", implementationType: "word-radar" }],
     observations: [obs("activity:hw:b7:step-2:recall", true), obs("activity:hw:b7:step-2:recall", false), obs("activity:play-9:hw:b7:step-2", true), obs("activity:hw:b7:step-20:recall", true)] } as never;
-  expect(playedGamesOf(cycle)).toEqual([{ nodeId: "hw:b7:step-2", title: "Lantern Beat Game", answers: 3, right: 2 }]);
+  expect(playedGamesOf(cycle, { rootDir: fs.mkdtempSync(path.join(os.tmpdir(), "sunny-counts-root-")) })).toEqual([{ nodeId: "hw:b7:step-2", title: "Lantern Beat Game", answers: 3, right: 2, minutesToFirstAnswer: null }]);
 });
 
 it("counts each game's right answers from the saved score when the game log has none (math)", () => {

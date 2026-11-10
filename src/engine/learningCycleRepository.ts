@@ -373,6 +373,8 @@ export type LearningCycleDecision = {
   selfReview?: PlannerSelfReview;
   /** The Planner's calls, item by item: right on her own next time? Code checks them (2026-11-10). */
   expectations?: PlannerExpectation[];
+  /** The Planner's keep / fix / retire notes on games she played (2026-11-10). */
+  gameNotes?: Array<{ nodeId: string; verdict: "keep" | "fix" | "retire"; why: string }>;
 };
 
 /** One call the Planner made: whether her next answer on her own for this word or problem will be right. */
@@ -718,6 +720,7 @@ export type LearningCycleEvent =
         replayedResponse?: LearningCycleDecision['replayedResponse'];
         selfReview?: PlannerSelfReview;
         expectations?: PlannerExpectation[];
+        gameNotes?: LearningCycleDecision["gameNotes"];
       };
     }
   | { type: "planner_retry_authorized"; blockedDecisionId: string; reason: string }
@@ -1999,6 +2002,7 @@ export function transitionLearningCycle(
       ...(event.decision.replayedResponse?{replayedResponse:structuredClone(event.decision.replayedResponse)}:{}),
       ...(event.decision.selfReview ? { selfReview: structuredClone(event.decision.selfReview) } : {}),
       ...(event.decision.expectations?.length ? { expectations: structuredClone(event.decision.expectations) } : {}),
+      ...(event.decision.gameNotes?.length ? { gameNotes: structuredClone(event.decision.gameNotes) } : {}),
     } : {}),
   };
   next.decisionHistory.push(decision);

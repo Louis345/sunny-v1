@@ -197,3 +197,28 @@ it("builds her next game from a game she played when the Planner names it, keepi
   expect(ask).toContain("Voice Gate door");
   expect(ask).toContain("night");
 });
+
+// 2026-11-10, both audits: the builder was told to invent a new world every time and never told which games she
+// finished fast, which walled her, or what the Planner concluded about them; lessons about a game went to BUGS.md,
+// which only engineers read. Each played game now carries its track record (answers, right, minutes to her first
+// answer from the scorecards) and the Planner's own keep / fix / retire note, for the Planner and the builder.
+it("gives the Planner and the builder each played game's track record and the Planner's keep, fix or retire note", async () => {
+  const playedPath = "/homework/games/school-words/voice-gate.html";
+  const f = fixture({ title: "Spelling Voice Gate", path: playedPath });
+  fs.mkdirSync(path.join(f.rootDir, "src/context", f.childId, "homework/games/school-words"), { recursive: true });
+  fs.writeFileSync(path.join(f.rootDir, "src/context", f.childId, playedPath), "<!doctype html><html><body>gate</body></html>");
+  fs.mkdirSync(path.join(f.rootDir, "src/context", f.childId, "homework/scorecards"), { recursive: true });
+  fs.writeFileSync(path.join(f.rootDir, "src/context", f.childId, "homework/scorecards/school-words.ndjson"),
+    `${JSON.stringify({ sessionId: "s1", startedAt: "2026-11-10T00:22:00Z", homeworkId: "school-words", answers: {}, games: [{ title: "Spelling Voice Gate", answers: 11, right: 5, finished: true, minutesToFirstAnswer: 14.9 }], helpRequests: 4, bugsReported: 1, predictions: { checked: 0, inRange: 0 } })}\n`);
+  (f.decision as Record<string, unknown>).gameNotes = [{ game: "practice", verdict: "keep", why: "She loved the doors once she understood them." }];
+  await plannedBoard(f);
+  const prompt = plannerRequests.at(-1).messages[0].content[0].text as string;
+  expect(prompt).toContain('"minutesToFirstAnswer":14.9');
+  expect(plannerRequests.at(-1).tools.find((tool: any) => tool.name === "decide").input_schema.properties.game_notes).toBeTruthy();
+  const builder = recordedBuilder([GOOD]);
+  await prepareSuccessorBoard({ childId: f.childId, homeworkId: f.homeworkId, spellingGameClient: builder.client }, { rootDir: f.rootDir });
+  const ask = builder.requests[0].messages[0].content as string;
+  expect(ask).toContain("14.9");
+  expect(ask).toContain("She loved the doors once she understood them.");
+});
+

@@ -34,7 +34,7 @@ export type SuccessorFacts = {
   answeredProblemIds?: string[];
   /** Games Sunny built for her that she played (owner, 2026-11-09): a new generated-game can start from one, so she
    * keeps the mechanic she already learned with new content. Older frozen questions have none. */
-  playedGames?: Array<{ nodeId: string; title: string; answers: number; right: number }>;
+  playedGames?: Array<{ nodeId: string; title: string; answers: number; right: number; minutesToFirstAnswer?: number | null; tutorNote?: string }>;
   /** Her full record by section, read with read_record instead of pasted into the question (2026-11-10). */
   record?: Record<string, unknown>;
   /** Whether the re-run step can really prepare this built-in for these words (the same check it runs). */
@@ -92,6 +92,9 @@ export function spellingSuccessorToolkit(facts: SuccessorFacts) {
           what_i_keep: text("What worked for her, from her answers and her session retros (what she understood, enjoyed or got right), that you keep."),
           what_i_change_now: text("What you change now, and why that is a better try than the last."),
         }).strict().describe(`Your review of your own track record before deciding: your journal and her answers on each ${problems ? "problem" : "word"}, read side by side.`) } : {}),
+        ...(played.length ? { game_notes: z.array(z.object({ game: enumOf(played.map(row => row.nodeId), "none"), verdict: z.enum(["keep", "fix", "retire"]),
+          why: text("Why, from how she played it: her answers, her time to a first answer, what she said.") }).strict()).optional()
+          .describe("Your note on games she played: keep (bring it back, with new content via build_from), fix (what to change), or retire (do not build from it again). The builder reads your latest note.") } : {}),
         ...(facts.selfReview ? { expect_on_her_own: z.array(z.object({ item: enumOf(problems ? [...problems.keys()] : allWordIds, "none").describe(`One of her ${problems ? "problems" : "words"} this board works on.`),
           right: z.boolean().describe("true if you expect her next answer on her own to be right; false if not yet.") }).strict()).optional()
           .describe(`Your calls, ${problems ? "problem" : "word"} by ${problems ? "problem" : "word"}: will she get it right on her own next time? Code checks each call against her next answer on her own and shows you the tally.`) } : {}),
@@ -100,10 +103,12 @@ export function spellingSuccessorToolkit(facts: SuccessorFacts) {
         if (facts.evaluationIds.length && !input.prediction_evaluation_ids.length) return { ok: false, error: "cite at least one of the offered prediction_evaluation_ids" };
         const review = (input as { self_review?: Record<"what_i_tried" | "what_happened" | "why" | "what_i_keep" | "what_i_change_now", string> }).self_review;
         const calls = (input as { expect_on_her_own?: Array<{ item: string; right: boolean }> }).expect_on_her_own;
+        const notes = (input as { game_notes?: Array<{ game: string; verdict: "keep" | "fix" | "retire"; why: string }> }).game_notes;
         state.decision = { status: input.status, reason: input.reason, progressionAction: input.progression_action, preserve: input.preserve, change: input.change, testNext: input.test_next,
           nextEvidenceRequired: input.next_evidence_required, predictionEvaluationIds: [...new Set(input.prediction_evaluation_ids)], revisedHypothesis: input.revised_hypothesis,
           ...(review ? { selfReview: { whatITried: review.what_i_tried, whatHappened: review.what_happened, why: review.why, whatIKeep: review.what_i_keep, whatIChangeNow: review.what_i_change_now } } : {}),
-          ...(calls?.length ? { expectations: calls.map(row => ({ itemId: row.item, onHerOwn: row.right })) } : {}) };
+          ...(calls?.length ? { expectations: calls.map(row => ({ itemId: row.item, onHerOwn: row.right })) } : {}),
+          ...(notes?.length ? { gameNotes: notes.map(row => ({ nodeId: row.game, verdict: row.verdict, why: row.why })) } : {}) };
         state.result = undefined;
         return { ok: true, result: { action: input.progression_action } };
       } }),
