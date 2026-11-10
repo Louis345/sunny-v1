@@ -171,7 +171,28 @@ export function recordProductIssue(
   }
   const dir = productIssueDir(record.childId, opts);
   fs.mkdirSync(dir, { recursive: true });
-  fs.appendFileSync(path.join(dir, `${fileDate(record.createdAt)}.ndjson`), `${JSON.stringify(record)}\n`, "utf8");
+  const file = path.join(dir, `${fileDate(record.createdAt)}.ndjson`);
+  // One sentence, one ticket (2026-11-10: a growing partial transcript made 10): the same sentence, growing, in the
+  // same session, within two minutes, updates its ticket with the longer words.
+  const lines = fs.existsSync(file) ? fs.readFileSync(file, "utf8").split("\n").filter(Boolean) : [];
+  const flat = (text: string) => text.toLowerCase().replace(/[^a-z0-9 ]+/g, "").replace(/\s+/g, " ").trim();
+  const same = lines.findIndex(line => {
+    try {
+      const prior = JSON.parse(line) as ProductIssueRecord;
+      const [a, b] = [flat(prior.childUtterance), flat(record.childUtterance)];
+      return prior.childId === record.childId && prior.sessionId && prior.sessionId === record.sessionId && prior.issueType === record.issueType
+        && prior.source === record.source && Math.abs(Date.parse(record.createdAt) - Date.parse(prior.createdAt)) <= 120_000 && (a.startsWith(b) || b.startsWith(a));
+    } catch { return false; }
+  });
+  if (same >= 0) {
+    const prior = JSON.parse(lines[same]) as ProductIssueRecord;
+    const merged = record.childUtterance.length > prior.childUtterance.length ? { ...prior, childUtterance: record.childUtterance } : prior;
+    lines[same] = JSON.stringify(merged);
+    fs.writeFileSync(file, `${lines.join("\n")}\n`, "utf8");
+    console.log(`  🎮 [product-issue] [same-sentence] child=${record.childId} issue=${record.issueType} kept=${prior.productIssueId}`);
+    return { record: merged, persisted: true };
+  }
+  fs.appendFileSync(file, `${JSON.stringify(record)}\n`, "utf8");
   console.log(
     `  🎮 [product-issue] [recorded] child=${record.childId} activity=${record.activityId} issue=${record.issueType} severity=${record.severity}`,
   );
