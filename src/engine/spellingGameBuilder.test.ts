@@ -161,3 +161,14 @@ it("shows the builder what she said about Sunny's games, in her own words, and l
   expect(ask).toContain(`2026-11-08, at \\"Word workshop\\": \\"the hints were too long, they didn't make sense\\"`);
   expect(ask).not.toContain("session transcript contained product complaint");
 });
+
+// 2026-11-09 Ila: a built game hid its keyboard behind an unexplained step; the companion could not see the step.
+it("asks every built game to report each step and its on-screen instruction", async () => {
+  const { buildSpellingGameAsk, buildMathGameAsk } = await import("./spellingGameBuilder");
+  const f = fixture();
+  const cycle = getLearningCycle(f.childId, f.homeworkId, { rootDir: f.rootDir })!;
+  const node = cycle.nodes[0];
+  for (const ask of [buildSpellingGameAsk({ cycle, node, rootDir: f.rootDir }), buildMathGameAsk({ cycle, node, rootDir: f.rootDir })]) {
+    expect(ask).toContain('window.reportStep("<short step name>", "<the instruction on screen>")');
+  }
+});

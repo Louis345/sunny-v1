@@ -16,6 +16,9 @@ export type CurrentBoardSnapshot = {
   learningFocus?: string;
   mechanic?: string;
   currentChallenge?: string;
+  /** The built game's current step and when she reached it (BUGS.md 2026-11-09). */
+  gameStep?: string;
+  stepStartedAt?: number;
   availableActions?: string[];
   activityIntentId?: string;
   targetSelectorId?: string;
@@ -199,6 +202,7 @@ export function buildCurrentBoardSnapshot(
     ["learningFocus", state.learningFocus],
     ["mechanic", state.mechanic],
     ["currentChallenge", currentChallenge],
+    ["gameStep", state.gameStep],
     ["activityIntentId", state.activityIntentId],
     ["targetSelectorId", state.targetSelectorId],
     ["intentPurpose", state.intentPurpose ?? state.activityIntentPurpose],
@@ -267,6 +271,7 @@ export function buildCurrentBoardSnapshot(
   if (correctWords.length) snapshot.correctWords = correctWords;
   const availableActions = asStringArray(state.availableActions);
   if (availableActions.length) snapshot.availableActions = availableActions;
+  if (typeof state.stepStartedAt === "number" && Number.isFinite(state.stepStartedAt)) snapshot.stepStartedAt = state.stepStartedAt;
 
   const bound = input.assessment;
   if (bound && snapshot.itemId === bound.itemId && (state.assessmentMode === true || state.practiceCapture === true)) {
@@ -317,6 +322,9 @@ export function buildCurrentBoardSnapshotContext(
   if (snapshot.learningFocus) lines.push(`Learning focus: ${snapshot.learningFocus}`);
   if (snapshot.mechanic) lines.push(`Child interaction: ${snapshot.mechanic}`);
   if (snapshot.currentChallenge) lines.push(`Current challenge: ${snapshot.currentChallenge}`);
+  if (snapshot.gameStep && snapshot.stepStartedAt) {
+    lines.push(`Game step: ${snapshot.gameStep}; she has been on this step for ${Math.max(0, Math.round((Date.now() - snapshot.stepStartedAt) / 1000))} seconds.`);
+  }
   if (snapshot.availableActions?.length) {
     lines.push(`Available child actions: ${snapshot.availableActions.join(" | ")}`);
   }

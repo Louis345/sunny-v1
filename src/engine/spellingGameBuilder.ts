@@ -68,6 +68,7 @@ How the game must work:
 - Elli is her companion and speaks for the game. To say anything else aloud, call parent.postMessage({type: "narration_request", text: "<what to say>", reason: "<why>"}, "*"). Do not use speechSynthesis.
 - At big moments (a streak, a miss, a win), call window.fireCompanionEvent("<moment>", {word: "<word>"}) so Elli can react.
 - She spells each word at least once, by typing or tapping letters. A wrong answer never ends the game.
+- Each time she reaches a new step (for example listen, tap, type, check), call window.reportStep("<short step name>", "<the instruction on screen>"). Her companion sees the step, and a step she is stuck on is read aloud.
 - When she finishes, call window.sendNodeComplete({completed: true}).
 
 Reply with only the HTML document.`;
@@ -99,6 +100,7 @@ How Sunny's game contract works:
 - window.fireAttemptEvent({target: "<itemId>", attemptedValue: "<her answer: digits, or the option id shown in brackets above, like odd>"}) reports her answer. Sunny keeps her first answer per problem and scores it.
 - ${companion} is her companion and speaks for the game: parent.postMessage({type: "narration_request", text: "<what to say>", reason: "<why>"}, "*").
 - window.fireCompanionEvent("<moment>", {itemId: "<itemId>"}) lets ${companion} react at big moments.
+- window.reportStep("<short step name>", "<the instruction on screen>") each time she reaches a new step. Her companion sees the step, and a step she is stuck on is read aloud.
 - window.sendNodeComplete({completed: true}) ends the game.
 
 Reply with only the HTML document.`;
