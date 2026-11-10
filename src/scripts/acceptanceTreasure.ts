@@ -1,33 +1,30 @@
 import type { Page } from "playwright";
 
-/** Leave a finished stop the way a child does (owner, 2026-11-07): the treasure stage comes first when a chest was
- * earned, so open and collect it, then press Back to map on the summary. */
+/** Leave a finished stop the way a child does (owner, 2026-11-07; no summary since 2026-11-10): the treasure stage
+ * comes first when a chest was earned, so open and collect it; the stop then returns to the map by itself. A summary
+ * only appears when the stop could not be saved, and then Back to map leaves it. */
 export async function leaveStopToMap(page: Page): Promise<void> {
   await collectTreasureIfShown(page);
-  await page.getByTestId("post-activity-engagement-overlay").getByRole("button", { name: "Back to map", exact: true }).click();
+  const back = page.getByTestId("post-activity-engagement-overlay").getByRole("button", { name: "Back to map", exact: true });
+  if (await back.isVisible().catch(() => false)) await back.click();
 }
 
-/** Rate a finished stop the way a child does: a chest that arrives with the result is opened and collected first
- * (Discovery's chest comes back with the academic commit, a moment after the summary), then Skip on the rating. */
+/** Finish a stop the way a child does: a chest that arrives with the result is opened and collected; there is no
+ * rating any more (2026-11-10), so the stop then finishes by itself. */
 export async function skipRatingAfterTreasure(page: Page): Promise<void> {
   const stage = page.getByTestId("post-activity-treasure-stage");
-  const skip = page.getByRole("button", { name: "Skip fun rating" });
-  await stage.or(skip).first().waitFor({ timeout: 20000 });
-  // The chest can replace the summary just after it renders; give it a moment to arrive.
-  if (!(await stage.isVisible().catch(() => false))) await stage.waitFor({ timeout: 3000 }).catch(() => undefined);
+  // The chest can arrive a moment after the result (Discovery's comes back with the academic commit).
+  await stage.waitFor({ timeout: 5000 }).catch(() => undefined);
   if (await stage.isVisible().catch(() => false)) {
     await stage.getByRole("button", { name: /tap to open/i }).click({ force: true }); // it pulses to invite a tap
     await stage.getByRole("button", { name: /^collect$/i }).click({ timeout: 6000 });
   }
-  await skip.click();
 }
 
-/** After a stop finishes: open and collect the chest when one is shown, so the summary's buttons appear. */
+/** After a stop finishes: open and collect the chest when one is shown. */
 export async function collectTreasureIfShown(page: Page): Promise<void> {
   const stage = page.getByTestId("post-activity-treasure-stage");
-  const summary = page.getByTestId("post-activity-engagement-overlay");
-  await stage.or(summary).first().waitFor({ timeout: 30000 });
-  if (!(await stage.isVisible().catch(() => false))) await stage.waitFor({ timeout: 3000 }).catch(() => undefined);
+  await stage.waitFor({ timeout: 5000 }).catch(() => undefined);
   if (await stage.isVisible().catch(() => false)) {
     await stage.getByRole("button", { name: /tap to open/i }).click({ force: true }); // it pulses to invite a tap
     await stage.getByRole("button", { name: /^collect$/i }).click({ timeout: 6000 });

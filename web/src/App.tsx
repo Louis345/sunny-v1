@@ -1547,8 +1547,10 @@ function App() {
   }, [adventureChildId, directDiscoveryMode, plannerBoardLaunch, plannerBoardPacket?.childChart.learningCycle?.homeworkId, state.voiceSessionId]);
 
 
-  const handlePlannerBoardFunRating = useCallback(
-    (rating: 1 | 2 | 3 | 4 | 5 | null) => {
+  /** A finished stop returns her to the map by itself (owner, 2026-11-10: no stars popup); the back-to-map choice
+   * event still records the outcome, and Discovery / probe boards still run their exit sequence. */
+  const handlePlannerBoardFinished = useCallback(
+    () => {
       const current = postActivityEngagement;
       if (!current) return;
       if (directDiscoveryMode || probeBoardMode) {
@@ -1561,10 +1563,7 @@ function App() {
           plannerBoardPacket,
           current.node,
           "back_to_map",
-          {
-            ...choiceOutcomeFromOverlay(current.outcome),
-            ...(rating != null ? { funRating: rating } : {}),
-          },
+          choiceOutcomeFromOverlay(current.outcome),
         );
         void runDiscoveryExitSequence({
           commitEngagement: () => postAdventureBoardChoiceEvent(event, { preview: mapPreviewMode })
@@ -1573,7 +1572,6 @@ function App() {
             console.log(` 🎮 [adaptive-math] [discovery-engagement] [${delivery}]`, {
               childId: adventureChildId,
               homeworkId,
-              rating,
             });
             return engagement;
           }),
@@ -1612,12 +1610,7 @@ function App() {
           });
         return;
       }
-      recordPlannerBoardPostActivityAction(
-        "back_to_map",
-        current.node,
-        current.outcome,
-        rating ?? undefined,
-      );
+      recordPlannerBoardPostActivityAction("back_to_map", current.node, current.outcome);
       closePlannerBoardLaunch();
     },
     [
@@ -2704,7 +2697,7 @@ function App() {
               showBackAction={!directDiscoveryMode}
               canTryHarder={postActivityEngagement.canTryHarder}
               onAction={handlePlannerBoardPostActivityAction}
-              onFunRating={handlePlannerBoardFunRating}
+              onFinished={handlePlannerBoardFinished}
               coinAward={nodeChest ? null : postActivityEngagement.coinAward}
               onOpenVideoCall={
                 postActivityEngagement.videoCallTicket && !rewardCallHeld ? openEarnedVideoCall : null
@@ -2822,7 +2815,7 @@ function App() {
               showBackAction={!directDiscoveryMode && !probeBoardMode}
               canTryHarder={postActivityEngagement.canTryHarder}
               onAction={handlePlannerBoardPostActivityAction}
-              onFunRating={handlePlannerBoardFunRating}
+              onFinished={handlePlannerBoardFinished}
               coinAward={nodeChest ? null : postActivityEngagement.coinAward}
               onOpenVideoCall={
                 postActivityEngagement.videoCallTicket && !rewardCallHeld ? openEarnedVideoCall : null

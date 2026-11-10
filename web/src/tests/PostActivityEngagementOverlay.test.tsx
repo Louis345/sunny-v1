@@ -82,97 +82,6 @@ describe("PostActivityEngagementOverlay", () => {
     expect(onAction).toHaveBeenCalledWith("replay_harder");
   });
 
-  it("records a one-tap fun rating or skip", () => {
-    vi.useFakeTimers();
-    const onFunRating = vi.fn();
-    const { rerender } = render(
-      <PostActivityEngagementOverlay
-        title="Puzzle Vault"
-        outcome={{ completed: true, accuracy: 1 }}
-        onAction={vi.fn()}
-        onFunRating={onFunRating}
-      />,
-    );
-
-    expect(screen.getByText("How fun was this activity?")).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: "4 stars" }));
-    vi.advanceTimersByTime(300);
-    expect(onFunRating).toHaveBeenCalledWith(4);
-
-    rerender(
-      <PostActivityEngagementOverlay
-        title="Puzzle Vault"
-        outcome={{ completed: true, accuracy: 1 }}
-        onAction={vi.fn()}
-        onFunRating={onFunRating}
-      />,
-    );
-    fireEvent.click(screen.getByRole("button", { name: "Skip fun rating" }));
-    expect(onFunRating).toHaveBeenLastCalledWith(null);
-    vi.useRealTimers();
-  });
-
-  it("can make rating or Skip the only Discovery exit", () => {
-    render(
-      <PostActivityEngagementOverlay
-        title="Discovery"
-        outcome={{ completed: true }}
-        canReplay={false}
-        showBackAction={false}
-        onAction={vi.fn()}
-        onFunRating={vi.fn()}
-      />,
-    );
-
-    expect(screen.getByText("How fun was this activity?")).toBeTruthy();
-    expect(screen.queryByRole("button", { name: "Play again" })).toBeNull();
-    expect(screen.queryByRole("button", { name: "Back to map" })).toBeNull();
-  });
-
-  it("shows cumulative outlined, hovered, and selected star feedback", () => {
-    vi.useFakeTimers();
-    const onFunRating = vi.fn();
-    render(
-      <PostActivityEngagementOverlay
-        title="Puzzle Vault"
-        outcome={{ completed: true }}
-        onAction={vi.fn()}
-        onFunRating={onFunRating}
-      />,
-    );
-
-    const third = screen.getByRole("button", { name: "3 stars" });
-    expect(screen.getAllByText("☆")).toHaveLength(5);
-
-    fireEvent.mouseEnter(third);
-    expect(screen.getAllByText("★")).toHaveLength(3);
-    expect(screen.getAllByText("☆")).toHaveLength(2);
-
-    fireEvent.click(third);
-    expect(screen.getAllByText("★")).toHaveLength(3);
-    expect(third).toHaveAttribute("aria-pressed", "true");
-    vi.advanceTimersByTime(300);
-    expect(onFunRating).toHaveBeenCalledWith(3);
-    vi.useRealTimers();
-  });
-
-  it("shows a confirmed coin award without hover geometry changes", () => {
-    render(
-      <PostActivityEngagementOverlay
-        title="Fraction Run"
-        outcome={{ completed: true }}
-        coinAward={{ amount: 25, balance: 125 }}
-        onAction={vi.fn()}
-        onFunRating={vi.fn()}
-      />,
-    );
-
-    expect(screen.getByText("+25 Sunny Coins")).toBeTruthy();
-    expect(screen.getByText("Balance: 125")).toBeTruthy();
-    expect(screen.getByRole("button", { name: "5 stars" }).className).not.toContain(
-      "scale",
-    );
-  });
 });
 
 // Caught by the browser acceptance runs (2026-11-07): with a treasure chest inside, the centred panel grew
@@ -194,22 +103,61 @@ describe("treasure first", () => {
         title="Letter Box Trek"
         outcome={{ completed: true, accuracy: 0.8 }}
         onAction={onAction}
-        onFunRating={vi.fn()}
         treasure={(finish) => <button type="button" onClick={finish}>Collect treasure</button>}
       />,
     );
     expect(screen.getByTestId("post-activity-treasure-stage")).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Back to map" })).toBeNull();
-    expect(screen.queryByLabelText("Activity fun rating")).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Collect treasure" }));
     expect(screen.queryByTestId("post-activity-treasure-stage")).toBeNull();
     expect(screen.getByRole("button", { name: "Back to map" })).toBeTruthy();
-    expect(screen.getByLabelText("Activity fun rating")).toBeTruthy();
   });
 
   it("goes straight to the summary when there is no treasure", () => {
     render(<PostActivityEngagementOverlay title="Letter Box Trek" outcome={{ completed: true }} onAction={vi.fn()} />);
     expect(screen.queryByTestId("post-activity-treasure-stage")).toBeNull();
     expect(screen.getByRole("button", { name: "Back to map" })).toBeTruthy();
+  });
+});
+
+// Bug 2026-11-10 (owner, Ila's session): the stars popup after every game was an annoyance. Her replay / harder /
+// back-to-map signal comes from her map choices anyway, so a finished stop returns her straight to the map.
+// Why the human caught it: the owner watched her dismiss the same popup after every game.
+// Why the logs did not: each popup produced a valid choice event (often a Skip), which looks like healthy data.
+// Why the lab missed it: overlay tests asserted the rating works, never whether it should be there at all.
+describe("a finished stop goes straight back to the map", () => {
+  it("never asks how fun it was and finishes by itself", () => {
+    const onFinished = vi.fn();
+    render(<PostActivityEngagementOverlay title="Puzzle Vault" outcome={{ completed: true, accuracy: 1 }} onAction={vi.fn()} onFinished={onFinished} />);
+    expect(screen.queryByText("How fun was this activity?")).toBeNull();
+    expect(screen.queryByTestId("post-activity-engagement-overlay")).toBeNull();
+    expect(onFinished).toHaveBeenCalledTimes(1);
+  });
+
+  it("after she collects the chest she is back on the map, with no summary in between", () => {
+    const onFinished = vi.fn();
+    render(
+      <PostActivityEngagementOverlay title="Letter Box Trek" outcome={{ completed: true }} onAction={vi.fn()} onFinished={onFinished}
+        treasure={(finish) => <button type="button" onClick={finish}>Collect treasure</button>} />,
+    );
+    expect(onFinished).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Collect treasure" }));
+    expect(screen.queryByTestId("post-activity-engagement-overlay")).toBeNull();
+    expect(onFinished).toHaveBeenCalledTimes(1);
+  });
+
+  it("a stop that could not be saved still explains itself and offers the map", () => {
+    const onFinished = vi.fn();
+    render(<PostActivityEngagementOverlay title="Progress could not be saved" outcome={{ completed: false }} onAction={vi.fn()} onFinished={onFinished} />);
+    expect(screen.getByRole("button", { name: "Back to map" })).toBeTruthy();
+    expect(onFinished).not.toHaveBeenCalled();
+  });
+
+  it("the App mounts no rating and finishes stops through onFinished", async () => {
+    const fs = await import("node:fs");
+    const path = await import("node:path");
+    const app = fs.readFileSync(path.join(process.cwd(), "src/App.tsx"), "utf8");
+    expect(app).not.toContain("onFunRating");
+    expect(app).toContain("onFinished={handlePlannerBoardFinished}");
   });
 });

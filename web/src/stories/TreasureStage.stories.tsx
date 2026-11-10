@@ -4,12 +4,12 @@ import { PostActivityEngagementOverlay } from "../components/PostActivityEngagem
 import { NodeTreasureChest, chestFromServer, type ServerNodeChest } from "../components/NodeTreasureChest";
 import { CallProgressBadge } from "../components/CallProgressBadge";
 
-/** The end of a stop after Ila's 11/7 session: the chest alone, center stage, then the short summary. */
+/** The end of a stop after Ila's 11/7 session: the chest alone, center stage, then straight back to the map (2026-11-10). */
 const meta: Meta<typeof PostActivityEngagementOverlay> = {
   title: "Reward Encounters/Treasure Stage",
   component: PostActivityEngagementOverlay,
   parameters: { layout: "fullscreen" },
-  args: { title: "Letter Box Trek", outcome: { completed: true, accuracy: 0.75 }, onAction: fn(), onFunRating: fn() },
+  args: { title: "Letter Box Trek", outcome: { completed: true, accuracy: 0.75 }, onAction: fn(), onFinished: fn() },
 };
 export default meta;
 type Story = StoryObj<typeof PostActivityEngagementOverlay>;
