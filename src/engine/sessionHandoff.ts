@@ -64,9 +64,11 @@ export async function writeSessionHandoff(input: { childId: string; sessionDir: 
       console.log(` 🎮 [handoff] [skipped] child=${input.childId} reason=${!cycle ? "no_learning_cycle" : !metadata.startedAt ? "no_start_time" : "no_child_turns"}`);
       return undefined;
     }
+    const timeline = buildSessionTimeline(input.sessionDir);
+    const gameFacts = timeline.split("\n").filter(line => line.startsWith("Game "));
     const ask = buildHandoffAsk({ childName: metadata.child || input.childId, companionName: chart.companion?.displayName || "her companion",
       homeworkTitle: cycle.assignment?.title ?? cycle.homeworkId, transcript: transcript.slice(-60_000), answers: answersSince(cycle, metadata.startedAt),
-      timeline: buildSessionTimeline(input.sessionDir).slice(0, 12_000) });
+      timeline: timeline.slice(0, 12_000) });
     const client = input.client ?? (new Anthropic() as unknown as HandoffClient);
     const message = await client.messages.create(requestForModel({ model: handoffModel(), max_tokens: 8000, messages: [{ role: "user", content: ask }] }));
     const text = message.content.flatMap(block => block.type === "text" ? [block.text] : []).join("\n").trim();
@@ -74,7 +76,8 @@ export async function writeSessionHandoff(input: { childId: string; sessionDir: 
     const dir = handoffDir(cycle, opts);
     fs.mkdirSync(dir, { recursive: true });
     const file = path.join(dir, `${metadata.startedAt.replace(/[:.]/g, "-")}.md`);
-    fs.writeFileSync(file, `# Handoff ${metadata.startedAt.slice(0, 16).replace("T", " ")} (session ${metadata.sessionId ?? "unknown"})\n\n${text}\n`, "utf8");
+    const counted = `\n\n**Games, counted by code:**\n${gameFacts.length ? gameFacts.map(line => `- ${line}`).join("\n") : "- No game recorded."}`;
+    fs.writeFileSync(file, `# Handoff ${metadata.startedAt.slice(0, 16).replace("T", " ")} (session ${metadata.sessionId ?? "unknown"})\n\n${text}${counted}\n`, "utf8");
     console.log(` 🎮 [handoff] [written] child=${input.childId} homework=${cycle.homeworkId} model=${handoffModel()} file=${path.basename(file)} tokens_in=${message.usage?.input_tokens ?? 0} tokens_out=${message.usage?.output_tokens ?? 0}`);
     return file;
   } catch (error) {

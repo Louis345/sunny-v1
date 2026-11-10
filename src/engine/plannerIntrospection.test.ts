@@ -219,6 +219,8 @@ it("writes a shift handoff from the session conversation and shows it to the nex
   expect(ask).toMatch(/What went wrong/);
   expect(ask).toContain(`import: "inport" missed, help not recorded`.replace("help not recorded", "on her own"));
   expect(fs.readFileSync(file!, "utf8")).toContain("Elli spelled every letter");
+  // Each game's one-line facts are kept by code under the retro, whatever the summary chose to repeat.
+  expect(fs.readFileSync(file!, "utf8")).toContain("Games, counted by code:");
   await runtime.advanceCanonicalCycleFromEvidence(f.request, f.opts);
   const prompt = promptOf(f.requests[0]);
   expect(prompt).toContain("Shift handoffs from her sessions (a small model's summary of each session's conversation with her companion; her answers above are counted by code):");
