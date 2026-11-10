@@ -1,7 +1,12 @@
 ## 2026-11-10 — Backlog (owner: later, not now)
 
 - **Phone alerts.** Parent alerts are recorded on Saori (`sunny_health/parent-alerts.ndjson`) and in `sunny:rate`, but reach no phone. Options: iMessage from Saori's Messages app, an ntfy topic (set `SUNNY_PARENT_ALERT_URL`), or email. The owner chose "not yet" on 11/10.
-- **Ila's diagnoses and IEP, and both girls' birthdays.** Her chart still lists no diagnoses and no IEP; her `soul.md` lists ADHD combined type, dyslexia, and specific learning disorders in reading and written expression (IEE), plus an IEP section. Set them with `npm run sunny:child:facts` once the owner confirms. Birthdays make ages stay current.
+- **Ila's diagnoses and IEP.** Her chart still lists no diagnoses and no IEP; her `soul.md` lists ADHD combined type, dyslexia, and specific learning disorders in reading and written expression (IEE), plus an IEP section. Set them with `npm run sunny:child:facts` once the owner confirms. (Birthdays done 11/10: twins, 2017-11-21; Reina grade 3 inferred and set.)
+
+## 2026-11-10 — Found during Ila's evening session (open, fix after the session)
+
+- **The start screen does not resize with the kiosk window (owner observed).** Expanding the kiosk window leaves white space around/below the start screen instead of the screen filling it. Human-caught: the owner resized the window; the logs record no layout, and the canvas check measures only fixed 1280x720 and 768x1024 previews, never a window resized after load. Invariant to add: the start screen fills the viewport at any size and after a resize.
+- **The board's level badge shows "â Level 1" (AI-caught in the math board preview, cosmetic).** A garbled character where the badge's icon should be (likely an emoji decoded with the wrong encoding). Seen in `canvas-verification/hw-math-21cc76a6_board_1/preview-1280x720.png`.
 
 ## 2026-11-09 — Found while adding Hikari (open)
 
