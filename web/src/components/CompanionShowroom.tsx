@@ -94,6 +94,8 @@ import {
   CrystalSpotlight,
 } from "./CrystalAtelierChrome";
 import { COMPANION_ACTIVITY_COMPONENTS } from "./companionActivities/registry";
+import { CallGamesPanel } from "./CallGamesPanel";
+import type { RewardBreakGame } from "../../../src/shared/rewardBreakGames";
 import type {
   CompanionActivityBanter,
   CompanionActivityGameEvent,
@@ -3767,6 +3769,17 @@ export function CompanionShowroom({
     ? { childId: talkChildId }
     : undefined;
   const wardrobeShopEnabled = wardrobeLabEnabled || Boolean(earnedCallWallet);
+  // Games in the call (owner, 2026-11-09): her won games lit, the rest dark; an owned game plays inside the call.
+  const [callGames, setCallGames] = useState<{ open: boolean; owned: string[]; playing: RewardBreakGame | null }>({ open: false, owned: [], playing: null });
+  const openCallGames = useCallback(() => {
+    setCallGames(state => ({ ...state, open: true, playing: null }));
+    setVideoCallLayout("play");
+    fetch(`/api/rewards/wallet/${encodeURIComponent(talkChildId)}`)
+      .then(response => (response.ok ? response.json() as Promise<ServerWallet> : Promise.reject(new Error(`status ${response.status}`))))
+      .then(wallet => setCallGames(state => ({ ...state, owned: [...(wallet.ownedRewardIds ?? [])] })))
+      .catch((error: unknown) => console.error(" 🎮 [call-games] [wallet] [failed]", error));
+  }, [talkChildId]);
+  const closeCallGames = useCallback(() => { setCallGames(state => ({ ...state, open: false, playing: null })); setVideoCallLayout("call"); }, []);
   useEffect(() => {
     if (!generatedBonusUrl || typeof window === "undefined") return;
     const homeworkId = new URLSearchParams(window.location.search).get("homeworkId")?.trim();
@@ -8048,14 +8061,26 @@ export function CompanionShowroom({
 	          />
 	        }
 	        activityTrayWidthPx={
-	          generatedBonusUrl
+	          callGames.open ? 680 : generatedBonusUrl
 	            ? undefined
 	            : activeVideoCallActivity
 	              ? getCompanionActivityDescriptor(activeVideoCallActivity).trayWidthPx
 	              : undefined
 	        }
 	        activitySlot={
-	          generatedBonusUrl ? (
+          callGames.playing ? (
+            <div style={{ position: "relative", width: "100%", height: "100%" }}>
+              <iframe title={callGames.playing.name} src={`/games/${callGames.playing.file}?child=${encodeURIComponent(talkChildId)}`}
+                style={{ width: "100%", height: "100%", border: 0, borderRadius: 12 }} />
+              <button type="button" aria-label="Back to games" onClick={() => setCallGames(state => ({ ...state, playing: null }))}
+                style={{ position: "absolute", top: 8, right: 8, borderRadius: 8, padding: "6px 12px", fontWeight: 900, background: "rgba(255,255,255,0.92)", color: "#27214a" }}>
+                Back to games
+              </button>
+            </div>
+          ) : callGames.open ? (
+            <CallGamesPanel ownedRewardIds={callGames.owned} onClose={closeCallGames}
+              onPlay={(game) => setCallGames(state => ({ ...state, playing: game }))} />
+          ) : generatedBonusUrl ? (
 	            <iframe
 	              ref={generatedBonusFrameRef}
 	              title="Earned assignment challenge"
@@ -8091,6 +8116,7 @@ export function CompanionShowroom({
 	        onCompanionViewChange={setVideoCallCompanionView}
 	        onCopyTraceLink={copyShowroomVideoTraceLink}
 	        onGoShopping={wardrobeShopEnabled ? openWardrobeStoreFromCall : undefined}
+	        onOpenGames={talkChildId !== "showroom" ? openCallGames : undefined}
 	        onAskVoice={startShowroomVideoCallListening}
 	        onQuestionChange={(value) => {
 	          setShowroomTalkQuestion(value);

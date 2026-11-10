@@ -49,6 +49,8 @@ export type CompanionVideoCallOverlayProps = {
   onCompanionViewChange?: (view: CompanionVideoCompanionView) => void;
   onCopyTraceLink?: () => void;
   onGoShopping?: () => void;
+  /** Her games: lit when won, dark until then (owner, 2026-11-09). */
+  onOpenGames?: () => void;
   onAskVoice: () => void;
   onQuestionChange: (value: string) => void;
   onSubmitQuestion: () => void;
@@ -89,6 +91,7 @@ export function CompanionVideoCallOverlay({
   onCompanionViewChange,
   onCopyTraceLink,
   onGoShopping,
+  onOpenGames,
   onAskVoice,
   onQuestionChange,
   onSubmitQuestion,
@@ -393,6 +396,19 @@ export function CompanionVideoCallOverlay({
                 Full body
               </button>
             </div>
+            {onOpenGames && (
+              <button
+                type="button"
+                aria-label="Games"
+                onClick={onOpenGames}
+                style={{ minHeight: 44, borderRadius: 8, border: "1px solid rgba(255,255,255,0.18)", background: "rgba(167,139,250,0.94)", color: "#1e1442",
+                  padding: "0 14px", display: "inline-flex", alignItems: "center", gap: 7, fontFamily: "Lexend, system-ui, sans-serif", fontSize: 12,
+                  fontWeight: 900, whiteSpace: "nowrap", cursor: "pointer", boxShadow: "0 12px 30px rgba(0,0,0,0.18)" }}
+              >
+                <Gamepad2 size={16} aria-hidden />
+                Games
+              </button>
+            )}
             {onGoShopping && (
               <button
                 type="button"

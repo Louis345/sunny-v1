@@ -21,5 +21,8 @@
 .reward-tile__lock{position:absolute;top:10px;right:12px;font-size:18px;}
 /* Locked: greyed out, but its rarity colour still hints at how special it is. */
 .reward-tile[data-locked="true"]{background:#16122a;box-shadow:none;border-color:color-mix(in srgb,var(--tier) 45%,#3a3550);}
-.reward-tile[data-locked="true"] .reward-tile__icon{filter:grayscale(1) brightness(.55);}
 .reward-tile[data-locked="true"] .reward-tile__name{color:#ffffffa0;}
+
+/* Dark until she wins it, lit once she owns it (owner, 2026-11-09). */
+.reward-tile[data-locked="true"] .reward-tile__icon { filter: brightness(0) saturate(0); opacity: 0.55; }
+.reward-tile[data-locked="false"] .reward-tile__icon { filter: drop-shadow(0 0 10px rgba(255, 215, 120, 0.85)); }

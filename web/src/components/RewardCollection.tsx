@@ -1,4 +1,4 @@
-import { collectionView, REWARD_CATALOG, type RewardItem, type RewardRarity } from "../../../src/shared/rewardCatalog";
+import { collectionView, type RewardItem, type RewardRarity } from "../../../src/shared/rewardCatalog";
 import "./RewardCollection.css";
 
 const RARITY_NAME: Record<RewardRarity, string> = { common: "Common", rare: "Rare", epic: "Epic", legendary: "Legendary" };
@@ -10,17 +10,17 @@ const percent = (chance: number) => `${(Math.round(chance * 1000) / 10).toString
 
 /** Everything she can earn (owner, 2026-11-07): owned in colour with Play or Wear, the rest greyed out with the
  * chest most likely to drop it and the real odds, so she knows what she is playing for. */
-export function RewardCollection({ ownedIds, onUse }: { ownedIds: readonly string[]; onUse?: (item: RewardItem) => void }) {
-  const entries = collectionView(ownedIds);
+export function RewardCollection({ ownedIds, onUse, kinds }: { ownedIds: readonly string[]; onUse?: (item: RewardItem) => void; kinds?: ReadonlyArray<RewardItem["kind"]> }) {
+  const entries = collectionView(ownedIds).filter(entry => !kinds || kinds.includes(entry.item.kind));
   const found = entries.filter(entry => entry.owned).length;
   return (
     <div className="reward-collection">
       <header className="reward-collection__header">
         <h2>Your Collection</h2>
-        <span className="reward-collection__count">{`${found} of ${REWARD_CATALOG.length} found`}</span>
-        <div className="reward-collection__bar" aria-hidden="true"><span style={{ width: `${(found / REWARD_CATALOG.length) * 100}%` }} /></div>
+        <span className="reward-collection__count">{`${found} of ${entries.length} found`}</span>
+        <div className="reward-collection__bar" aria-hidden="true"><span style={{ width: `${entries.length ? (found / entries.length) * 100 : 0}%` }} /></div>
       </header>
-      {SECTIONS.map(section => (
+      {SECTIONS.filter(section => !kinds || kinds.includes(section.kind)).map(section => (
         <section key={section.kind} className="reward-collection__section">
           <h3>{section.title}</h3>
           <div className="reward-collection__grid">
