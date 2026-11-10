@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { REWARD_GAMES } from "../../../src/shared/gameRegistry.generated";
+import { ARCADE_RULES } from "../../../src/shared/rewardCatalog";
 
 /** Spending elsewhere in the call (the outfit shop) announces her new saved balance with this event. */
 export const COINS_CHANGED_EVENT = "sunny:coins-changed";
@@ -38,6 +39,7 @@ function usePaidTimeClock({
   meterId,
   active,
   startWithoutMinutes,
+  freeSeconds = 0,
   offer,
   onMoment,
 }: {
@@ -48,6 +50,8 @@ function usePaidTimeClock({
   active: boolean;
   /** "pay" starts paying at once (the call); "wait" shows the insert-coin screen when nothing is saved (games). */
   startWithoutMinutes: "pay" | "wait";
+  /** Earned seconds that run before any paid minute (a reward stop's first play). */
+  freeSeconds?: number;
   offer: () => PurchaseOffer;
   onMoment?: (moment: CallClockMoment) => void;
 }) {
@@ -104,6 +108,13 @@ function usePaidTimeClock({
       .then((loaded) => {
         if (cancelled) return;
         setClock(loaded);
+        if (freeSeconds > 0) {
+          setSecondsInMinute(Math.floor(freeSeconds));
+          setPhase("running");
+          setEverRan(true);
+          console.log(` 🎮 [${tag}] [start] [earned] child=${childId} seconds=${Math.floor(freeSeconds)}`);
+          return;
+        }
         if (startWithoutMinutes === "wait" && loaded.minutesLeft < 1) {
           setPhase("out");
           console.log(` 🎮 [${tag}] [start] [needs-coin] child=${childId}`);
@@ -113,6 +124,8 @@ function usePaidTimeClock({
       })
       .catch((error: unknown) => console.error(` 🎮 [${tag}] [load] [failed] child=${childId}`, error));
     return () => { cancelled = true; };
+    // freeSeconds is read once per meter: the earned time is granted at launch, never re-granted on a rerender.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [active, childId, kind, payNextMinute, startWithoutMinutes, tag]);
 
   useEffect(() => {
@@ -224,13 +237,22 @@ export function CallClock({ childId, callId, active, onMoment, onGoodbye }: {
 }
 
 /**
- * Whether the session canvas times this game (owner, 2026-11-08). Only reward games Elli opens in the live
- * session cost coins: the canvas must carry the live session's child id. Board stops she must complete (a
- * mystery stop that opens Space Invaders) run in the App's planner-board frame, never pass a child id here,
- * and are never timed. Teaching and learning games are never timed.
+ * Whether the session canvas times this game (owner, 2026-11-08). Reward games Elli opens in the live session
+ * cost coins: the canvas must carry the live session's child id. Board reward stops run in the App's
+ * planner-board frame and are timed there (rewardBreakArcadeTerms). Teaching and learning games are never timed.
  */
 export function shouldTimeArcadeGame(input: { arcadeChildId?: string; mode: string; gameUrl?: string }): boolean {
   return Boolean(input.arcadeChildId?.trim() && input.gameUrl && arcadeItemIdForMode(input.mode));
+}
+
+/**
+ * A board stop's arcade terms (2026-11-10, after Ila replayed a finished mystery stop for free, without end): the
+ * first play of a reward stop is earned by the stops before it and runs ARCADE_RULES.earnedMinutesFirstPlay free;
+ * replaying a finished reward stop is paid on the arcade meter. Learning stops are not arcade time: null.
+ */
+export function rewardBreakArcadeTerms(node: { type: string; isCompleted?: boolean }): { freeSeconds: number } | null {
+  if (node.type !== "mystery") return null;
+  return { freeSeconds: node.isCompleted ? 0 : ARCADE_RULES.earnedMinutesFirstPlay * 60 };
 }
 
 /** Every registered reward game is timed (owner, 2026-11-08); teaching and learning games never are. */
@@ -243,8 +265,10 @@ export function arcadeItemIdForMode(mode: string): string | null {
  * is blocked until she inserts a coin, warns at a minute left, and at time up asks for another coin or sends her
  * back to her map (the same game_complete the games send, so the session ends the reward game the normal way).
  */
-export function ArcadeClock({ childId, playId, gameMode, active, onLeave }: {
+export function ArcadeClock({ childId, playId, gameMode, active, freeSeconds = 0, onLeave }: {
   childId: string;
+  /** Earned seconds before the paid meter starts (a reward stop's first play); 0 waits for a coin. */
+  freeSeconds?: number;
   /** One game launch; receipts are arcade:${playId}:${n}. */
   playId: string;
   gameMode: string;
@@ -272,6 +296,7 @@ export function ArcadeClock({ childId, playId, gameMode, active, onLeave }: {
     meterId: playId,
     active,
     startWithoutMinutes: "wait",
+    freeSeconds,
     offer: () => ({ kind: "game_play", itemId, trial: !owned }),
   });
 
@@ -286,13 +311,21 @@ export function ArcadeClock({ childId, playId, gameMode, active, onLeave }: {
   return (
     <>
       {clock && phase === "running" ? (
-        <div className="pointer-events-none absolute right-3 top-3 z-[60] flex items-center gap-3 rounded-full bg-black/70 px-4 py-2 text-white shadow-lg" data-testid="arcade-clock">
-          <span aria-label="Game time left" className={`font-mono text-lg ${total > 0 && total <= clock.warnAtSecondsLeft ? "text-amber-300" : ""}`}>
-            {formatClock(total)}
-          </span>
-          <span aria-label="Coins" className="flex items-center gap-1 text-amber-200">
-            <span aria-hidden>🪙</span><span>{clock.coins}</span>
-          </span>
+        <div className="pointer-events-none absolute right-3 top-3 z-[60] flex flex-col items-end gap-2" data-testid="arcade-clock">
+          <div className="flex items-center gap-3 rounded-full bg-black/70 px-4 py-2 text-white shadow-lg">
+            <span aria-label="Game time left" className={`font-mono text-lg ${total > 0 && total <= clock.warnAtSecondsLeft ? "text-amber-300" : ""}`}>
+              {formatClock(total)}
+            </span>
+            <span aria-label="Coins" className="flex items-center gap-1 text-amber-200">
+              <span aria-hidden>🪙</span><span>{clock.coins}</span>
+            </span>
+          </div>
+          {/* Never cut off without warning: the last stretch is announced on screen before time is up. */}
+          {total > 0 && total <= clock.warnAtSecondsLeft ? (
+            <div role="status" className="rounded-full bg-amber-400 px-3 py-1 text-sm font-black text-slate-950 shadow-lg">
+              {total > 60 ? `${Math.ceil(total / 60)} minutes left` : "1 minute left"}
+            </div>
+          ) : null}
         </div>
       ) : null}
       {blocked ? (

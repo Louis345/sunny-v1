@@ -28,6 +28,7 @@ import type {
 import type { NodeConfig } from "../../src/shared/adventureTypes";
 import { buildNodeLaunchAction } from "../../src/shared/homeworkNodeRouting";
 import { RewardBreakPicker } from "./components/RewardBreakPicker";
+import { ArcadeClock, rewardBreakArcadeTerms } from "./components/CallClock";
 import { CompanionLayer, type CompanionLayerProps } from "./components/CompanionLayer";
 import { TamagotchiSheet } from "./components/TamagotchiSheet";
 import { TamagotchiStrip } from "./components/TamagotchiStrip";
@@ -652,6 +653,9 @@ function App() {
   const [generatedMathSoundMuted, setGeneratedMathSoundMuted] = useState(false);
   const plannerBoardIframeCompletionKeyRef = useRef<string | null>(null);
   const pendingPlannerBoardLaunchRef = useRef<{node:NodeConfig;replayNonce:number}|null>(null);
+  // A reward break (2026-11-10): a round ending restarts the game; the arcade clock owns the end of the break.
+  const [rewardBreakRound, setRewardBreakRound] = useState(0);
+  const rewardBreakLastRoundRef = useRef<Record<string, unknown> | null>(null);
   const [sessionReady, setSessionReady] = useState(false);
   const [homeworkFinishedForNow, setHomeworkFinishedForNow] = useState(false);
   const homeworkSessionFinished = homeworkFinishedForNow || state.phase === "ended";
@@ -1237,6 +1241,7 @@ function App() {
       plannerBoardIframeCompletionKeyRef.current = null;
       discoveryCompletionCoordinatorRef.current = new DiscoveryAcademicCompletionCoordinator();
       setCompanionPresence("collapsed");
+      rewardBreakLastRoundRef.current = null;
       setPlannerBoardLaunch({
         node,
         iframeUrl: action.kind === "iframe" ? `${action.url}${action.url.includes("?") ? "&" : "?"}launchToken=${encodeURIComponent(completionId)}` : null,
@@ -1748,6 +1753,18 @@ function App() {
     });
   }, [adventureChildId, plannerBoardLaunch, plannerBoardPacket, refreshPlannerBoardPacket, showPlannerBoardEngagementOverlay, state.voiceSessionId]);
 
+  /** Her reward break ends when she leaves (time up or the back button): the stop is finished, once. */
+  const finishRewardBreak = useCallback(() => {
+    const last = rewardBreakLastRoundRef.current;
+    rewardBreakLastRoundRef.current = null;
+    console.log(" 🎮 [reward-break] [finish] [back-to-map]", { nodeId: plannerBoardLaunch?.node.id, rounds: rewardBreakRound });
+    completePlannerBoardActivity({
+      completed: true,
+      rewardBreak: "finished",
+      ...(typeof last?.score === "number" ? { score: last.score, xpEarned: last.score } : {}),
+    });
+  }, [completePlannerBoardActivity, plannerBoardLaunch?.node.id, rewardBreakRound]);
+
   const handlePlannerBoardPostActivityAction = useCallback(
     (action: PostActivityAction) => {
       const current = postActivityEngagement;
@@ -1783,6 +1800,10 @@ function App() {
       return;
     }
     const current = postActivityEngagement;
+    if (!current && plannerBoardLaunch && rewardBreakArcadeTerms(plannerBoardLaunch.node)) {
+      finishRewardBreak();
+      return;
+    }
     if (current) {
       recordPlannerBoardPostActivityAction("back_to_map", current.node, current.outcome);
     } else if (plannerBoardLaunch) {
@@ -1796,6 +1817,7 @@ function App() {
     closePlannerBoardLaunch,
     directDiscoveryMode,
     endSession,
+    finishRewardBreak,
     plannerBoardLaunch,
     postActivityEngagement,
     probeBoardMode,
@@ -1916,6 +1938,13 @@ function App() {
         data.payload && typeof data.payload === "object" && !Array.isArray(data.payload)
           ? data.payload as Record<string, unknown>
           : data as Record<string, unknown>;
+      if (rewardBreakArcadeTerms(launch.node)) {
+        // A round ending (game over, a win) never ends her break: the next round starts and the clock owns the end.
+        rewardBreakLastRoundRef.current = payload;
+        console.log(" 🎮 [reward-break] [round] [restarted]", { nodeId: launch.node.id, eventType: data.type });
+        window.setTimeout(() => setRewardBreakRound((round) => round + 1), 2500);
+        return;
+      }
       console.log(" 🎮 [AdventureBoard] iframe_activity_complete", {
         childId: adventureChildId,
         nodeId: launch.node.id,
@@ -2764,7 +2793,7 @@ function App() {
               }}
             >
               <iframe
-                key={`${plannerBoardLaunch.node.id}:${plannerBoardLaunch.replayNonce}`}
+                key={`${plannerBoardLaunch.node.id}:${plannerBoardLaunch.replayNonce}:${rewardBreakRound}`}
                 ref={adventureGameIframeRef}
                 title={plannerBoardLaunch.node.type}
                 src={plannerBoardLaunch.iframeUrl}
@@ -2773,6 +2802,17 @@ function App() {
               />
             </div>
           </div>
+          {!postActivityEngagement && adventureChildId && rewardBreakArcadeTerms(plannerBoardLaunch.node) ? (
+            <ArcadeClock
+              key={plannerBoardLaunch.completionId}
+              childId={adventureChildId}
+              playId={plannerBoardLaunch.completionId}
+              gameMode={(plannerBoardLaunch.node.gameFile ?? "space-invaders.html").replace(/\.html$/, "")}
+              active
+              freeSeconds={rewardBreakArcadeTerms(plannerBoardLaunch.node)!.freeSeconds}
+              onLeave={finishRewardBreak}
+            />
+          ) : null}
           {postActivityEngagement ? (
             <PostActivityEngagementOverlay
               title={postActivityEngagement.title}

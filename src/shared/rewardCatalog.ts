@@ -39,8 +39,10 @@ export const PRICE_LIST = { gamePlay: 25, callMinutes5: 30, mysteryChest: 60 } a
  * call burns minutes and more cost coins, so she wants to come back and earn again. Placeholder until tuned. */
 export const CALL_RULES = { freeMinutesPerBoard: 5, warnAtSecondsLeft: 60 } as const;
 /** Reward games are timed (owner, 2026-11-08): one game play (PRICE_LIST.gamePlay) buys these minutes on the
- * same paid-minute meter as the call; at time up she inserts another coin or goes back to her map. */
-export const ARCADE_RULES = { minutesPerPlay: 3, warnAtSecondsLeft: 60 } as const;
+ * same paid-minute meter as the call; at time up she inserts another coin or goes back to her map.
+ * A reward stop's first play is earned by the stops before it (2026-11-10): earnedMinutesFirstPlay are free;
+ * replaying a finished reward stop is paid on the same meter. */
+export const ARCADE_RULES = { minutesPerPlay: 3, earnedMinutesFirstPlay: 3, warnAtSecondsLeft: 60 } as const;
 
 /** What each chest pays: coins always, and a bonus by chance (call minutes or a catalog item). */
 /** Option B (owner, 2026-11-07), tuned on a replay of the girls' real history: about 50-70 coins a session,
