@@ -124,10 +124,12 @@ describe("Reina's math next board (one next-board toolkit for both subjects)", (
     expect(latest.lifecycle).toBe("baseline_generating");
     // The same tool names as spelling's next board, minus math's stated exception (the spelling lesson page).
     expect(robot.requests[0].model).toBe("claude-opus-5-5");
-    expect(robot.requests[0].tools.map((tool: any) => tool.name)).toEqual(["decide", "add_step", "add_reward", "read_record", "remove_step", "set_order", "add_choice", "finish_board"]);
+    expect(robot.requests[0].tools.map((tool: any) => tool.name)).toEqual(["decide", "add_step", "add_reward", "read_record", "add_problem", "remove_step", "set_order", "add_choice", "finish_board"]);
     const addStep = robot.requests[0].tools.find((tool: any) => tool.name === "add_step").input_schema;
     expect(addStep.properties.built_in.enum).toEqual(["generated-game"]);
-    expect(addStep.properties.problems.items.enum).toEqual(["p1", "p2", "p3"]);
+    // Her worksheet problems, then the ids of up to six problems the Planner may write with add_problem (2026-11-10).
+    expect(addStep.properties.problems.items.enum.slice(0, 3)).toEqual(["p1", "p2", "p3"]);
+    expect(addStep.properties.problems.items.enum.slice(3)).toHaveLength(6);
     // Her goal, her school test and her own record per problem, beside the Planner's journal.
     const content = robot.requests[0].messages[0].content;
     const prompt: string = typeof content === "string" ? content : content.map((block: any) => block.text ?? "").join("");

@@ -934,13 +934,14 @@ async function askPlanner(
       for(const item of cycle.nodes.flatMap(node=>Object.values(node.evidenceContract.itemContracts??{})))if(!saved.has(item.id))saved.set(item.id,item);
       const problems=[...saved.values()];
       const answeredProblemIds=[...new Set(cycle.observations.map(row=>row.itemId).filter(id=>saved.has(id)))];
-      // Honest record: a math Quest or Boss checks problems she has not seen; with none left it cannot be built.
-      const offered=answeredProblemIds.length<problems.length?actions:actions.filter(action=>action!=="generate_quest"&&action!=="generate_boss");
-      if(offered.length!==actions.length)console.log(` 🎮 [canonical-progression] [actions-offered] [math-no-unseen-problems] homework=${cycle.homeworkId} actions=${offered.join(",")}`);
+      // Honest record: a math Quest or Boss checks problems she has not seen. When her worksheet is used up, the Planner
+      // writes new ones with add_problem (2026-11-10), so Quest and Boss stay on the menu.
+      const offered=actions;
+      if(answeredProblemIds.length>=problems.length)console.log(` 🎮 [canonical-progression] [worksheet-answered] homework=${cycle.homeworkId} unseen=0 add_problem=offered`);
       const facts:SuccessorFacts={builtIns:[],
         // The one game menu is declared on the full catalog (Law 16); STAGE_EXCEPTIONS["math-successor"] removes what cannot bind her problems.
         ...successorMenuFacts(spellingActivityCatalog(cycle.childId),{grade:chart.demographics?.grade,words:[]},"math-successor"),
-        evaluationIds,allowedActions:offered,idPrefix,selfReview:true,aimedGames:true,problems,answeredProblemIds,playedGames:playedGamesOf(cycle,opts),record,rerunnable:()=>false};
+        evaluationIds,allowedActions:offered,idPrefix,selfReview:true,aimedGames:true,problems,answeredProblemIds,writeProblems:true,playedGames:playedGamesOf(cycle,opts),record,rerunnable:()=>false};
       const prompt=`You are Sunny's AI Planner, her math tutor. The goal: she wants to come back to Sunny, and she solves problems like these on her own by the school test. ${schoolTestLine(schoolTest)}
 Compare your preregistered theory and predictions with what she actually did and said, decide what happens next, and build her next board, using the tools.
 1. decide: one evidence-grounded decision, with your self-review of the journal and her track record below. Cite the prediction evaluations you judge.
@@ -948,7 +949,7 @@ Compare your preregistered theory and predictions with what she actually did and
 Sunny runs each step as you write it. The board she has now stays as it is; yours opens when she chooses it, right away or at a later session. The kiosk screen shows up to 7 stops along any one path, counting the start, the choice and the finish. She sees each step's title. Per-problem answers, assistance and exposure are in the evidence below; her companion talks with her during each activity.
 Games on the menu:
 ${JSON.stringify((facts.activities??[]).map(row=>row.id))}
-generated-game is a new game Sunny builds for her from her chart and the story you write for that step, around the problems you give it. It can be aimed at one specific error you name in its focus. Sunny scores her first answer to each problem against the answer recorded at intake. check_first marks a step that checks what she does on her own; a problem she has answered before is recorded as practice there, never as an unseen check.
+generated-game is a new game Sunny builds for her from her chart and the story you write for that step, around the problems you give it. It can be aimed at one specific error you name in its focus. Sunny scores her first answer to each problem against the answer recorded at intake. add_problem writes a new problem for her (harder, or a step past her worksheet); Sunny computes its answer from the arithmetic you give, and it counts as unseen. check_first marks a step that checks what she does on her own; a problem she has answered before is recorded as practice there, never as an unseen check.
 ${facts.playedGames?.length?`Games Sunny built for her that she played; a new generated-game can start from one with build_from, so she keeps what she already learned there and gets this step's content:
 ${JSON.stringify(facts.playedGames)}
 `:""}${mathTrackRecordSection(cycle)}

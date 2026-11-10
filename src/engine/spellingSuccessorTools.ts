@@ -35,6 +35,8 @@ export type SuccessorFacts = {
   /** Games Sunny built for her that she played (owner, 2026-11-09): a new generated-game can start from one, so she
    * keeps the mechanic she already learned with new content. Older frozen questions have none. */
   playedGames?: Array<{ nodeId: string; title: string; answers: number; right: number; minutesToFirstAnswer?: number | null; tutorNote?: string }>;
+  /** Math: the Planner may write new problems; code computes each answer (2026-11-10). Older frozen questions lack it. */
+  writeProblems?: boolean;
   /** Her full record by section, read with read_record instead of pasted into the question (2026-11-10). */
   record?: Record<string, unknown>;
   /** Whether the re-run step can really prepare this built-in for these words (the same check it runs). */
@@ -46,7 +48,9 @@ type Step = { buildFrom?: string; id: string; title: string; purpose: string; st
 type SelfReview = { whatITried: string; whatHappened: string; why: string; whatIKeep?: string; whatIChangeNow: string };
 type Decision = { status: string; reason: string; progressionAction: string; preserve: string[]; change: string[]; testNext: string[]; nextEvidenceRequired: string[]; predictionEvaluationIds: string[]; revisedHypothesis: string; selfReview?: SelfReview };
 type Finished = { decision: Record<string, unknown>; journey?: AdventureJourneyDefinition };
-export type SuccessorState = JourneyOrderState & { next: number; steps: Step[]; decision?: Decision; result?: Finished; draft?: Finished; selfChecks?: number };
+export type SuccessorState = JourneyOrderState & { next: number; steps: Step[]; decision?: Decision; result?: Finished; draft?: Finished; selfChecks?: number;
+  /** Problems the Planner wrote on this board (2026-11-10), by id. */
+  written?: Record<string, LearningCycleMathItem> };
 
 /** The Planner gets one look at the board as served before it is accepted; it can never loop on it. */
 const MAX_SELF_CHECKS = 1;
@@ -76,6 +80,9 @@ export function spellingSuccessorToolkit(facts: SuccessorFacts) {
   const encounterFor = (action: string): Encounter | undefined => action === "generate_quest" ? "quest" : action === "generate_boss" ? "boss" : undefined;
   const problems = facts.problems ? new Map(facts.problems.map(item => [item.id, item])) : undefined;
   const answered = new Set(facts.answeredProblemIds ?? []);
+  // New problems the Planner may write, by placeholder id; each exists once add_problem writes it (2026-11-10).
+  const newProblemIds = problems && facts.writeProblems ? Array.from({ length: 6 }, (_, index) => `${facts.idPrefix}-problem-${index + 1}`) : [];
+  const problemOf = (state: SuccessorState, id: string) => problems?.get(id) ?? state.written?.[id];
   const missing = problems ? "problems" : "words";
   const tools: PlannerTool<SuccessorState>[] = [
     tool({ name: "decide", description: "Your one decision about the learning theory, compared with what she actually did. Calling it again replaces it.",
@@ -114,7 +121,7 @@ export function spellingSuccessorToolkit(facts: SuccessorFacts) {
       } }),
     problems ? tool({ name: "add_step", description: "Add one step: a game on the menu, built for her from her chart and this step's story, with any of her recorded problems. Returns its step_id.",
       schema: z.object({ built_in: enumOf([...fresh.keys()], "none").describe("The game for this step."),
-        problems: z.array(enumOf([...problems.keys()], "none")).describe("Which of her recorded problems this step uses, by id. At least one."),
+        problems: z.array(enumOf([...problems.keys(), ...newProblemIds], "none")).describe(`Which of her recorded problems this step uses, by id. At least one.${newProblemIds.length ? " A problem you wrote with add_problem uses the id it returned." : ""}`),
         check_first: z.boolean().describe("True when this step checks what she can do on her own before any help; false for practice."),
         title: text("The short name she sees under the portal: 2 to 4 words."), purpose: text("What this step is for, in one sentence."),
         story: text("What this stop is in her world: one or two sentences Elli can tell her as it opens."), picture: text("What this stop's picture on her map shows, for the illustrator."),
@@ -126,6 +133,8 @@ export function spellingSuccessorToolkit(facts: SuccessorFacts) {
         if (!game) return { ok: false, error: `no game ${input.built_in}` };
         if (!input.problems.length) return { ok: false, error: `${input.built_in} needs the problems it uses` };
         if (new Set(input.problems).size !== input.problems.length) return { ok: false, error: "a problem is listed more than once" };
+        const unwritten = input.problems.find(id => !problemOf(state, id));
+        if (unwritten) return { ok: false, error: `${unwritten} is not written yet: write it first with add_problem` };
         const encounter = input.encounter && input.encounter !== "none" ? input.encounter as Encounter : undefined;
         if (encounter) {
           if (!state.decision || encounterFor(state.decision.progressionAction) !== encounter) return { ok: false, error: `a ${encounter} step needs progression_action generate_${encounter}: decide first` };
@@ -220,6 +229,26 @@ export function spellingSuccessorToolkit(facts: SuccessorFacts) {
         const offset = input.offset ?? 0, limit = input.limit ?? 40;
         return { ok: true, result: { section: input.section, total: value.length, offset, rows: value.slice(offset, offset + limit) } };
       } })] : []),
+    ...(newProblemIds.length ? [tool({ name: "add_problem", description: "Write a new problem for her, harder or different from her worksheet, to push her past what she has done. Give the arithmetic that produces its answer: Sunny computes the answer from it and scores her against that, so a wrong key can never mark her wrong. Returns the problem's id for add_step; it counts as unseen.",
+      schema: z.object({ based_on: enumOf([...problems!.keys()], "none").describe("The worksheet problem this one grows from."), prompt: text("The problem exactly as she will see it, with every number she needs."),
+        answer_expression: z.string().min(1).max(200).describe("Numbers and + - * / ( ) only, giving the answer, for example 298 + 171 - 402."),
+        unit: z.string().max(30).optional(), why: text("Why this problem, for her, now.") }).strict(),
+      run: (state, input) => {
+        const id = newProblemIds.find(candidate => !state.written?.[candidate]);
+        if (!id) return { ok: false, error: `at most ${newProblemIds.length} new problems on one board` };
+        const expression = input.answer_expression.trim();
+        if (!/^[\d\s+\-*/().]+$/.test(expression)) return { ok: false, error: "answer_expression may hold only numbers and + - * / ( )" };
+        let answer: number;
+        try { answer = Number(Function(`"use strict"; return (${expression});`)()); } catch { return { ok: false, error: "answer_expression does not compute" }; }
+        if (!Number.isFinite(answer)) return { ok: false, error: "answer_expression does not give a number" };
+        answer = Math.round(answer * 1e9) / 1e9;
+        const base = problems!.get(input.based_on)!;
+        state.written = { ...(state.written ?? {}), [id]: { id, prompt: input.prompt.trim(), lineage: { sourceEvidenceIds: [...base.lineage.sourceEvidenceIds, `planner-written:${id}`], exposure: "unseen", measurementRole: "practice" },
+          response: { mode: "numeric", expected: answer, ...(input.unit?.trim() ? { unit: input.unit.trim() } : {}) } } as LearningCycleMathItem };
+        state.result = undefined;
+        console.log(` 🎮 [planner-tools] [problem-written] id=${id} based_on=${input.based_on} answer=${answer}`);
+        return { ok: true, result: { problem_id: id, answer } };
+      } })] : []),
     tool({ name: "remove_step", description: "Remove a step you added, and take it off the order and the choice.",
       schema: z.object({ step_id: text("A step_id you were given.") }).strict(),
       run: (state, input) => {
@@ -258,7 +287,7 @@ export function spellingSuccessorToolkit(facts: SuccessorFacts) {
           // Her recorded problems exactly as saved at intake; only this step's measurement role is code's to write.
           nodeId: row.id, title: row.title, academicTarget: row.purpose, mechanic: row.fresh!.setup.type, theme: row.story, picture: row.picture, openingPurpose: row.purpose,
           ...(row.encounter ? { encounter: row.encounter } : {}), ...(row.focus ? { focus: row.focus } : {}), ...(row.buildFrom ? { buildFrom: row.buildFrom } : {}),
-          items: row.problemIds.map(id => { const item = structuredClone(problems!.get(id)!); return { ...item, lineage: { ...item.lineage, measurementRole: row.checkFirst ? "fresh_checkpoint" : "practice" } }; }),
+          items: row.problemIds.map(id => { const item = structuredClone(problemOf(state, id)!); return { ...item, lineage: { ...item.lineage, measurementRole: row.checkFirst ? "fresh_checkpoint" : "practice" } }; }),
         } : ({
           nodeId: row.id, title: row.title, academicTarget: row.purpose, mechanic: row.page ? "visual-explainer" : row.builtIn?.implementationType ?? row.fresh!.setup.type, theme: row.story, picture: row.picture, openingPurpose: row.purpose,
           ...(row.encounter ? { encounter: row.encounter } : {}),
@@ -281,7 +310,7 @@ export function spellingSuccessorToolkit(facts: SuccessorFacts) {
           console.log(` 🎮 [planner-tools] [self-check] [shown] steps=${nextInstruments.length}`);
           return { ok: true, result: { accepted: false, your_change_list: state.decision.change,
             board_as_served: state.steps.map(row => ({ step_id: row.id, title: row.title, story: row.story, game: row.reward ? "reward break" : row.page ? "visual-explainer" : row.builtIn?.implementationType ?? row.fresh!.setup.type,
-              ...(row.problemIds ? { problems: row.problemIds.map(id => `${id}: ${problems!.get(id)!.prompt}`), check_first: row.checkFirst } : { words: row.wordIds.map(word) }), ...(row.focus ? { aimed_at: row.focus } : {}), ...(row.buildFrom ? { built_from: played.find(game => game.nodeId === row.buildFrom)?.title } : {}), ...(pageOf(row) ? { lesson_page: pageOf(row) } : {}) })),
+              ...(row.problemIds ? { problems: row.problemIds.map(id => `${id}: ${problemOf(state, id)!.prompt}`), check_first: row.checkFirst } : { words: row.wordIds.map(word) }), ...(row.focus ? { aimed_at: row.focus } : {}), ...(row.buildFrom ? { built_from: played.find(game => game.nodeId === row.buildFrom)?.title } : {}), ...(pageOf(row) ? { lesson_page: pageOf(row) } : {}) })),
             next: `This is what she will see. Compare it with your change list: does each stop really teach what you said? Fix anything that does not with ${problems ? "add_step" : "add_step, add_explainer"} or remove_step, then call finish_board again. If it is right, call finish_board again now.` } };
         }
         state.result = finished;

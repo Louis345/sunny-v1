@@ -163,6 +163,27 @@ describe("one Planner menu for every stage and subject", () => {
     expect(Object.keys((spellingSuccessorToolkit(successorFacts()).tools.find(tool => tool.name === "add_step")!.schema as any).shape)).not.toContain("build_from");
   });
 
+  // 2026-11-10, both audits: Reina had answered every worksheet problem, so Quest and Boss vanished and Sunny had
+  // nothing harder to give a child who loves a challenge. The Planner now writes a new problem with the arithmetic
+  // that gives its answer; code computes the answer (a wrong key can never mark her wrong) and saves it as unseen.
+  it("lets the math Planner write a new problem whose answer code computes, and check it as her Quest", () => {
+    const kit = spellingSuccessorToolkit(mathSuccessorFacts({ answeredProblemIds: ["p1"], allowedActions: ["generate_quest", "generate_support"], writeProblems: true }));
+    const state = kit.initialState();
+    call(kit.tools, state, "decide", { status: "supported", reason: "She has every worksheet problem.", progression_action: "generate_quest", preserve: [], change: ["Harder."], test_next: [], next_evidence_required: [], prediction_evaluation_ids: [], revised_hypothesis: "",
+      self_review: { what_i_tried: "a", what_happened: "b", why: "c", what_i_keep: "d", what_i_change_now: "e" } });
+    expect(call(kit.tools, state, "add_problem", { based_on: "p1", prompt: "Feb and Mar sweaters together, minus Jan: 298, 171, 402.", answer_expression: "298 + 171 - x", why: "Push" })).toMatchObject({ ok: false });
+    const written = call(kit.tools, state, "add_problem", { based_on: "p1", prompt: "Feb and Mar sweaters together, minus Jan: 298, 171, 402.", answer_expression: "298 + 171 - 402", why: "Two steps, a step past p1." });
+    expect(written).toMatchObject({ ok: true, result: { problem_id: "next-problem-1", answer: 67 } });
+    const step = call(kit.tools, state, "add_step", { built_in: "generated-game", problems: ["next-problem-1"], check_first: true, encounter: "quest", title: "Sweater Quest", purpose: "Check.", story: "s", picture: "p" });
+    expect(step).toMatchObject({ ok: true, result: { encounter: "quest" } });
+    call(kit.tools, state, "set_order", { opening: [step.result.step_id], closing: [] });
+    call(kit.tools, state, "finish_board", { title: "Board", endpoint_label: "Finish", single_path_reason: "One path." });
+    call(kit.tools, state, "finish_board", { title: "Board", endpoint_label: "Finish", single_path_reason: "One path." });
+    const row = (kit.result(state).decision.nextInstruments as any[])[0];
+    expect(row.items[0]).toMatchObject({ id: "next-problem-1", response: { mode: "numeric", expected: 67 },
+      lineage: { exposure: "unseen", measurementRole: "fresh_checkpoint", sourceEvidenceIds: expect.arrayContaining(["planner-written:next-problem-1"]) } });
+  });
+
   it("records a next-board reward break as play: no words, no spelling, mechanic mystery, shown as a reward break", () => {
     const kit = spellingSuccessorToolkit(successorFacts({ builtIns: [{ nodeId: "act-1", title: "Radar", implementationType: "word-radar", wordIds: ["w-sign"], responseMode: "spelling_letters", checkpoint: true }] }));
     const state = kit.initialState();
