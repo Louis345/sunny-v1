@@ -1509,6 +1509,8 @@ function App() {
     [adventureChildId, mapPreviewMode, plannerBoardPacket],
   );
 
+  // A Discovery / probe chest comes back with the academic commit; the stop's screen waits for it (2026-11-10).
+  const [discoveryRewardsPending, setDiscoveryRewardsPending] = useState(false);
   const startDiscoveryAcademicCompletion = useCallback((nodeId?: string): Promise<Record<string, unknown>> => {
     const homeworkId = plannerBoardPacket?.childChart.learningCycle?.homeworkId;
     if (!adventureChildId || !homeworkId) {
@@ -1522,12 +1524,16 @@ function App() {
         ...(nodeId ? { nodeId } : {}),
       }),
     );
+    setDiscoveryRewardsPending(true);
     void completionPromise.then((result) => {
       // A finished Discovery stop opens a chest too (owner, 2026-11-07); it shows in the post-activity panel.
       const rewards = discoveryCompletionRewards(result);
       if (rewards.nodeChest) setNodeChest(rewards.nodeChest);
       if (rewards.balance != null) setProfileCompanionCurrency(rewards.balance);
+      // Released with the chest in the same update, so the stop never finishes between the two.
+      setDiscoveryRewardsPending(false);
     }, (error: unknown) => {
+      setDiscoveryRewardsPending(false);
       console.error(" 🎮 [adaptive-math] [discovery-complete] [failed]", error);
     });
     return completionPromise;
@@ -2698,6 +2704,7 @@ function App() {
               canTryHarder={postActivityEngagement.canTryHarder}
               onAction={handlePlannerBoardPostActivityAction}
               onFinished={handlePlannerBoardFinished}
+              holdFinish={discoveryRewardsPending}
               coinAward={nodeChest ? null : postActivityEngagement.coinAward}
               onOpenVideoCall={
                 postActivityEngagement.videoCallTicket && !rewardCallHeld ? openEarnedVideoCall : null
@@ -2816,6 +2823,7 @@ function App() {
               canTryHarder={postActivityEngagement.canTryHarder}
               onAction={handlePlannerBoardPostActivityAction}
               onFinished={handlePlannerBoardFinished}
+              holdFinish={discoveryRewardsPending}
               coinAward={nodeChest ? null : postActivityEngagement.coinAward}
               onOpenVideoCall={
                 postActivityEngagement.videoCallTicket && !rewardCallHeld ? openEarnedVideoCall : null

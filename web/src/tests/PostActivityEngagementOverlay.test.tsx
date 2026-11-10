@@ -161,3 +161,37 @@ describe("a finished stop goes straight back to the map", () => {
     expect(app).toContain("onFinished={handlePlannerBoardFinished}");
   });
 });
+
+// Bug 2026-11-10 (Ila's session): a treasure chest appeared as a session started or closed and could not be
+// finished. Discovery and probe stops (the session's first and last stops) get their chest from the academic
+// commit, a moment after the stop's result; the stop's exit could close the screen while that chest was arriving.
+// Why the human caught it: she saw a chest she could not open or collect.
+// Why the logs did not: `[node-chest] [granted]` was logged on the server; nothing logged that the screen holding it closed.
+// Why the lab missed it: overlay tests passed the chest in at mount; none delivered it after the result.
+describe("a chest that arrives after the result is shown before the stop closes", () => {
+  it("waits while the reward is still being saved, then shows the chest, then finishes", () => {
+    const onFinished = vi.fn();
+    const { rerender } = render(<PostActivityEngagementOverlay title="Discovery" outcome={{ completed: true }} onAction={vi.fn()} onFinished={onFinished} holdFinish />);
+    expect(onFinished).not.toHaveBeenCalled();
+    expect(screen.getByTestId("post-activity-saving")).toBeTruthy();
+    rerender(<PostActivityEngagementOverlay title="Discovery" outcome={{ completed: true }} onAction={vi.fn()} onFinished={onFinished} holdFinish={false}
+      treasure={(finish) => <button type="button" onClick={finish}>Collect treasure</button>} />);
+    expect(onFinished).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Collect treasure" }));
+    expect(onFinished).toHaveBeenCalledTimes(1);
+  });
+
+  it("finishes once the save settles with no chest", () => {
+    const onFinished = vi.fn();
+    const { rerender } = render(<PostActivityEngagementOverlay title="Discovery" outcome={{ completed: true }} onAction={vi.fn()} onFinished={onFinished} holdFinish />);
+    rerender(<PostActivityEngagementOverlay title="Discovery" outcome={{ completed: true }} onAction={vi.fn()} onFinished={onFinished} holdFinish={false} />);
+    expect(onFinished).toHaveBeenCalledTimes(1);
+  });
+
+  it("the App holds Discovery and probe stops until their reward is saved", async () => {
+    const fs = await import("node:fs");
+    const path = await import("node:path");
+    const app = fs.readFileSync(path.join(process.cwd(), "src/App.tsx"), "utf8");
+    expect(app).toContain("holdFinish={discoveryRewardsPending}");
+  });
+});

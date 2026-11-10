@@ -33,6 +33,9 @@ export type PostActivityEngagementOverlayProps = {
   /** A finished stop needs no summary (owner, 2026-11-10: no stars popup): after any treasure, she goes straight
    * back to her map. Called once; without it the summary panel is shown. */
   onFinished?: () => void;
+  /** The stop's reward is still being saved (a Discovery or probe chest comes back after the result): wait for it,
+   * so a chest never arrives on a screen that is already closing. */
+  holdFinish?: boolean;
   coinAward?: { amount: number; balance: number } | null;
   onOpenVideoCall?: (() => void) | null;
   /** The chest she earned (owner, 2026-11-07): shown alone, center stage, before the summary. `finish` moves on. */
@@ -60,6 +63,7 @@ export function PostActivityEngagementOverlay({
   children,
   onAction,
   onFinished,
+  holdFinish = false,
   coinAward,
   onOpenVideoCall,
   treasure,
@@ -69,11 +73,11 @@ export function PostActivityEngagementOverlay({
   const finishesByItself = Boolean(outcome.completed && onFinished);
   const treasureShowing = Boolean(treasure && !treasureDone);
   useEffect(() => {
-    if (!finishesByItself || treasureShowing || finishedRef.current) return;
+    if (!finishesByItself || holdFinish || treasureShowing || finishedRef.current) return;
     finishedRef.current = true;
     console.log(` 🎮 [post-activity] [finished] [back-to-map] title=${title}`);
     onFinished?.();
-  }, [finishesByItself, onFinished, title, treasureShowing]);
+  }, [finishesByItself, holdFinish, onFinished, title, treasureShowing]);
   const fallbackStats: PostActivityStat[] = [
     ...(accuracyLabel(outcome.accuracy)
       ? [{ label: "accuracy", value: accuracyLabel(outcome.accuracy)! }]
@@ -101,6 +105,14 @@ export function PostActivityEngagementOverlay({
     );
   }
 
+  if (finishesByItself && holdFinish) {
+    return (
+      <div data-testid="post-activity-saving" className="post-activity-treasure-stage fixed inset-0 z-[120] flex flex-col items-center justify-center px-6 text-center text-white" style={{ pointerEvents: "auto" }}>
+        <p className="text-sm font-black uppercase tracking-widest text-amber-200">{title}</p>
+        <h1 className="mt-1 text-3xl font-black">Saving your treasure…</h1>
+      </div>
+    );
+  }
   if (finishesByItself) return null;
 
   return (
