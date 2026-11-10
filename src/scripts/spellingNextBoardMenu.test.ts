@@ -3,6 +3,7 @@ import { getChildChart } from "../profiles/childChart";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, expect, it, vi } from "vitest";
+import { offeredValues } from "../engine/plannerTransport";
 import { runSpellingDiscoveryIntake } from "./ingestHomework";
 import { runAdaptiveMathGeneration } from "./runAdaptiveMathGeneration";
 import { seedSpellingLab, writeSpellingPdfFixture } from "./fixtures/spellingEvidenceFirst";
@@ -91,8 +92,8 @@ async function playToNextBoard(testDate?: string) {
 // offers every game and mode the Teaching board offers, plus re-runs; every entry must still prepare.
 it("prepares everything the next-board menu offers: re-runs, Discovery included, and every game and mode", async () => {
   const { childId, homeworkId, opts, discovery } = await playToNextBoard();
-  const menu: string[] = lab.planner.requests.find(request => request.tools?.some((tool: any) => tool.name === "add_step"))!
-    .tools.find((tool: any) => tool.name === "add_step").input_schema.properties.built_in.enum;
+  const menu: string[] = offeredValues(lab.planner.requests.find(request => request.tools?.some((tool: any) => tool.name === "add_step"))!
+    .tools.find((tool: any) => tool.name === "add_step").input_schema.properties.built_in)!;
   expect(menu).toContain(discovery.nodeId);
   for (const fresh of ["word-radar:visible_read", "word-radar:partial_visual_recall", "word-radar:hidden_word_recall", "letter-rush:read-and-race", "letter-rush:hear-and-spell", "letter-rush:type-and-spell"]) expect(menu).toContain(fresh);
   const after = await prepareSuccessorBoard({ childId, homeworkId }, opts);

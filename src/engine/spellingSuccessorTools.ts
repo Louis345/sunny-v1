@@ -2,6 +2,7 @@ import { z } from "zod";
 import { expandJourneySequence, type AdventureJourneyDefinition } from "../shared/adventureBoardDefinition";
 import { finishJourneySequence, journeyOrderTools, removeFromJourney, type JourneyOrderState } from "./journeyTools";
 import { toolFor, type PlannerTool } from "./plannerToolLoop";
+import { VALID_VALUES } from "./plannerTransport";
 import { deriveNativeActivity } from "./assignmentPlanner";
 import { explainerPageTool } from "./spellingTeachingTools";
 import { rewardBreakTool } from "./plannerMenu";
@@ -57,14 +58,23 @@ const MAX_SELF_CHECKS = 1;
 
 const text = (description: string) => z.string().min(1).describe(description);
 const enumOf = (values: readonly string[], fallback: string) => z.enum((values.length ? values : [fallback]) as [string, ...string[]]);
-
+/** A pick from her history: played games, built-ins, words, problems, evaluations. These lists grow with every board, so
+ * they never go into the strict grammar (Ila, 2026-11-10: 8 boards of them outgrew what the provider compiles). The field
+ * is text; its description lists the valid values, and code accepts exactly those, answering anything else so the
+ * Planner can fix it. Small fixed vocabularies (status, verdict, actions, the game menu) stay enums. */
+const pickFrom = (values: readonly string[], fallback: string, what: string, description: string) => {
+  const valid = values.length ? [...values] : [fallback], accepted = new Set(valid);
+  const shown = valid.length <= 40 ? valid.join(", ") : `${valid.slice(0, 40).join(", ")} and ${valid.length - 40} more, all listed in this field's description`;
+  return z.string().refine(value => accepted.has(value), { error: issue => `${String(issue.input)} is not one of ${what}; valid: ${shown}` })
+    .describe(`${description} ${VALID_VALUES} ${JSON.stringify(valid)}`);
+};
 export function spellingSuccessorToolkit(facts: SuccessorFacts) {
   const tool = toolFor<SuccessorState>();
   // Only what the re-run step can prepare is on the menu: a built-in it cannot re-run at all never appears.
   const builtIns = new Map(facts.builtIns.filter(row => facts.rerunnable(row.nodeId, row.wordIds)).map(row => [row.nodeId, row]));
   const fresh = new Map((facts.activities ?? []).filter(row => !builtIns.has(row.id)).map(row => [row.id, row]));
   const played = facts.playedGames ?? [];
-  const buildFromField = played.length ? { build_from: enumOf(played.map(row => row.nodeId), "none").optional().describe("generated-game only: a game Sunny built for her that she played. The builder starts from that game, so she keeps what she already learned there, and puts this step's content in it. Leave out to build a new game.") } : {};
+  const buildFromField = played.length ? { build_from: pickFrom(played.map(row => row.nodeId), "none", "the games Sunny built for her that she played", "generated-game only: a game Sunny built for her that she played (the nodeId from that list in the question). The builder starts from that game, so she keeps what she already learned there, and puts this step's content in it. Leave out to build a new game.").optional() } : {};
   /** The game to build from, when the Planner named one: only a generated-game can start from a game she played. */
   const buildFromOf = (input: { built_in: string; build_from?: string }): { ok: true; value: { buildFrom?: string } } | { ok: false; error: string } => {
     const from = typeof input.build_from === "string" && input.build_from !== "none" ? input.build_from : "";
@@ -90,7 +100,7 @@ export function spellingSuccessorToolkit(facts: SuccessorFacts) {
         status: z.enum(["supported", "revised", "falsified", "inconclusive", "awaiting_calibration"]), reason: text("Why, from the evidence."),
         progression_action: enumOf(facts.allowedActions, "collect_more_evidence"),
         preserve: strings, change: strings, test_next: strings, next_evidence_required: strings,
-        prediction_evaluation_ids: facts.evaluationIds.length ? z.array(enumOf(facts.evaluationIds, "none")).describe("The evaluations of earlier predictions you are judging. At least one.") : z.array(z.string()).max(0).describe("Leave empty: there are no evaluations yet."),
+        prediction_evaluation_ids: facts.evaluationIds.length ? z.array(pickFrom(facts.evaluationIds, "none", "the offered prediction evaluations", "One prediction evaluation id (read_record prediction_evaluations has each one in full).")).describe("The evaluations of earlier predictions you are judging. At least one.") : z.array(z.string()).max(0).describe("Leave empty: there are no evaluations yet."),
         revised_hypothesis: z.string().describe("Your revised hypothesis, or empty."),
         ...(facts.selfReview ? { self_review: z.object({
           what_i_tried: text(`What you tried on earlier boards for the ${missing} she is still missing, from your journal. On a first decision, say so.`),
@@ -99,10 +109,10 @@ export function spellingSuccessorToolkit(facts: SuccessorFacts) {
           what_i_keep: text("What worked for her, from her answers and her session retros (what she understood, enjoyed or got right), that you keep."),
           what_i_change_now: text("What you change now, and why that is a better try than the last."),
         }).strict().describe(`Your review of your own track record before deciding: your journal and her answers on each ${problems ? "problem" : "word"}, read side by side.`) } : {}),
-        ...(played.length ? { game_notes: z.array(z.object({ game: enumOf(played.map(row => row.nodeId), "none"), verdict: z.enum(["keep", "fix", "retire"]),
+        ...(played.length ? { game_notes: z.array(z.object({ game: pickFrom(played.map(row => row.nodeId), "none", "the games Sunny built for her that she played", "A game she played: its nodeId from that list in the question."), verdict: z.enum(["keep", "fix", "retire"]),
           why: text("Why, from how she played it: her answers, her time to a first answer, what she said.") }).strict()).optional()
           .describe("Your note on games she played: keep (bring it back, with new content via build_from), fix (what to change), or retire (do not build from it again). The builder reads your latest note.") } : {}),
-        ...(facts.selfReview ? { expect_on_her_own: z.array(z.object({ item: enumOf(problems ? [...problems.keys()] : allWordIds, "none").describe(`One of her ${problems ? "problems" : "words"} this board works on.`),
+        ...(facts.selfReview ? { expect_on_her_own: z.array(z.object({ item: pickFrom(problems ? [...problems.keys()] : allWordIds, "none", `her ${problems ? "recorded problems" : "words"}`, `One of her ${problems ? "problems" : "words"} this board works on, by id.`),
           right: z.boolean().describe("true if you expect her next answer on her own to be right; false if not yet.") }).strict()).optional()
           .describe(`Your calls, ${problems ? "problem" : "word"} by ${problems ? "problem" : "word"}: will she get it right on her own next time? Code checks each call against her next answer on her own and shows you the tally.`) } : {}),
       }).strict(),
@@ -121,7 +131,7 @@ export function spellingSuccessorToolkit(facts: SuccessorFacts) {
       } }),
     problems ? tool({ name: "add_step", description: "Add one step: a game on the menu, built for her from her chart and this step's story, with any of her recorded problems. Returns its step_id.",
       schema: z.object({ built_in: enumOf([...fresh.keys()], "none").describe("The game for this step."),
-        problems: z.array(enumOf([...problems.keys(), ...newProblemIds], "none")).describe(`Which of her recorded problems this step uses, by id. At least one.${newProblemIds.length ? " A problem you wrote with add_problem uses the id it returned." : ""}`),
+        problems: z.array(pickFrom([...problems.keys(), ...newProblemIds], "none", "her recorded problems or the ids add_problem gives", "A problem id: one of her recorded problems in the question, or one add_problem returned.")).describe(`Which of her recorded problems this step uses, by id. At least one.${newProblemIds.length ? " A problem you wrote with add_problem uses the id it returned." : ""}`),
         check_first: z.boolean().describe("True when this step checks what she can do on her own before any help; false for practice."),
         title: text("The short name she sees under the portal: 2 to 4 words."), purpose: text("What this step is for, in one sentence."),
         story: text("What this stop is in her world: one or two sentences Elli can tell her as it opens."), picture: text("What this stop's picture on her map shows, for the illustrator."),
@@ -155,8 +165,8 @@ export function spellingSuccessorToolkit(facts: SuccessorFacts) {
           ...(seen.length ? { note: `${seen.join(", ")} she has answered before, so her answer there is recorded as practice, not an unseen check` } : {}) } };
       } }) :
     tool({ name: "add_step", description: "Add one step: any game and mode on the menu, with any of her words, or a re-run of a built-in she played, for all of its own words or fewer. Returns its step_id.",
-      schema: z.object({ built_in: enumOf([...builtIns.keys(), ...fresh.keys()], "none").describe("The game and mode for this step, or the built-in it re-runs."),
-        words: z.array(enumOf(allWordIds, "none")).describe("Which of her words this step uses. For a re-run, empty means all of its own words."),
+      schema: z.object({ built_in: pickFrom([...builtIns.keys(), ...fresh.keys()], "none", "the games and modes on the menu or the built-ins she played", "The game and mode for this step (the menu in the question), or the built-in it re-runs (its builtIn id in the question)."),
+        words: z.array(pickFrom(allWordIds, "none", "her words", "One of her words, by wordId (her saved spelling words in the question).")).describe("Which of her words this step uses. For a re-run, empty means all of its own words."),
         title: text("The short name she sees under the portal: 2 to 4 words."), purpose: text("What this step is for, in one sentence."),
         story: text("What this stop is in her world: one or two sentences Elli can tell her as it opens."), picture: text("What this stop's picture on her map shows, for the illustrator."),
         ...(encounters.length ? { encounter: enumOf(["none", ...encounters], "none").describe("quest or boss only on the one step your progression_action authorizes; none for every other step.") } : {}),
@@ -230,7 +240,7 @@ export function spellingSuccessorToolkit(facts: SuccessorFacts) {
         return { ok: true, result: { section: input.section, total: value.length, offset, rows: value.slice(offset, offset + limit) } };
       } })] : []),
     ...(newProblemIds.length ? [tool({ name: "add_problem", description: "Write a new problem for her, harder or different from her worksheet, to push her past what she has done. Give the arithmetic that produces its answer: Sunny computes the answer from it and scores her against that, so a wrong key can never mark her wrong. Returns the problem's id for add_step; it counts as unseen.",
-      schema: z.object({ based_on: enumOf([...problems!.keys()], "none").describe("The worksheet problem this one grows from."), prompt: text("The problem exactly as she will see it, with every number she needs."),
+      schema: z.object({ based_on: pickFrom([...problems!.keys()], "none", "her recorded problems", "The worksheet problem this one grows from, by id."), prompt: text("The problem exactly as she will see it, with every number she needs."),
         answer_expression: z.string().min(1).max(200).describe("Numbers and + - * / ( ) only, giving the answer, for example 298 + 171 - 402."),
         unit: z.string().max(30).optional(), why: text("Why this problem, for her, now.") }).strict(),
       run: (state, input) => {

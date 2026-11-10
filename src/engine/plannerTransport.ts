@@ -195,3 +195,11 @@ export function strictBudget(tools: Array<{ input_schema: unknown; strict?: bool
   for (const tool of tools) if (tool.strict !== false) walk(tool.input_schema, '$');
   return { optional, unions, unsupported };
 }
+/** A pick-list too long for the strict grammar lists its values in its description after this label (2026-11-10). */
+export const VALID_VALUES = 'Valid values:';
+/** The values a pick-list field offers: its enum, or the values its description lists. Fixtures read offers with it. */
+export function offeredValues(field: { enum?: unknown; description?: unknown } | undefined): string[] | undefined {
+  if (Array.isArray(field?.enum)) return field.enum as string[];
+  const at = typeof field?.description === 'string' ? field.description.lastIndexOf(VALID_VALUES) : -1;
+  return at < 0 ? undefined : JSON.parse((field!.description as string).slice(at + VALID_VALUES.length)) as string[];
+}

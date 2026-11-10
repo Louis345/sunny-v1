@@ -5,6 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import {createHash} from 'node:crypto';
 import {afterEach,expect,it,vi} from 'vitest';
+import {offeredValues} from './plannerTransport';
 import {linearJourneyFixture} from '../scripts/fixtures/authoredJourney';
 import {seedSpellingLab} from '../scripts/fixtures/spellingEvidenceFirst';
 import {oldFormDecisionStage,plainDraw,saveOldFormDecision,successorToolReply} from '../scripts/fixtures/successorToolConversation';
@@ -68,7 +69,7 @@ it('builds the next board through small locked tools, re-running only built-ins,
  expect(strictBudget(tools.filter((tool:any)=>tool.strict===true)).unsupported).toEqual([]);
  expect(f.requests[0].tool_choice).toEqual({type:'auto'});
  // On offer: the proven radar to re-run and the certified games and modes; a brand-new game cannot be ordered at all.
- expect(tools.find((tool:any)=>tool.name==='add_step').input_schema.properties.built_in.enum).toEqual(['radar-check',...spellingActivityMenu(spellingActivityCatalog(childId)).choices]);
+ expect(offeredValues(tools.find((tool:any)=>tool.name==='add_step').input_schema.properties.built_in)).toEqual(['radar-check',...spellingActivityMenu(spellingActivityCatalog(childId)).choices]);
  vi.spyOn(canvas,'verifyPreparingBoardCanvas').mockResolvedValue(undefined);
  const generateHtml=vi.fn(async()=>'<html></html>');
  const after=await prepareSuccessorBoard({childId,homeworkId,generateHtml,generateArtwork:async()=>'/generated/world.jpeg',validate:async()=>({passed:true,failures:[]})},opts);

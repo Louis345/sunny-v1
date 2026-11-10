@@ -21,6 +21,8 @@ import { createLearningCycle, getLearningCycle, projectLearningCycle } from "./l
 import * as runtime from "./learningCycleRuntime";
 import { plannerMenu, STAGE_EXCEPTIONS, stageChoices, successorMenuFacts } from "./plannerMenu";
 import type { ToolLoopRequest } from "./plannerToolLoop";
+import { plannerToolDefinitions } from "./plannerToolLoop";
+import { offeredValues } from "./plannerTransport";
 import { spellingSuccessorToolkit, type SuccessorFacts } from "./spellingSuccessorTools";
 import { spellingTeachingToolkit } from "./spellingTeachingTools";
 import type { SpellingGameClient } from "./spellingGameBuilder";
@@ -108,7 +110,7 @@ describe("one Planner menu for every stage and subject", () => {
   it("gives the next board (support, Quest, Boss) the whole menu, with nothing removed", () => {
     for (const allowedActions of [["generate_support"], ["generate_quest", "generate_support"], ["generate_boss", "await_calibration"]]) {
       const addStep = spellingSuccessorToolkit(successorFacts({ allowedActions })).tools.find(tool => tool.name === "add_step")!;
-      expect((addStep.schema as any).shape.built_in.options, allowedActions.join()).toEqual(stageChoices(menu, "successor"));
+      expect(offeredValues((plannerToolDefinitions([addStep])[0].input_schema as any).properties.built_in), allowedActions.join()).toEqual(stageChoices(menu, "successor"));
       expect(stageChoices(menu, "successor")).toEqual(menu.choices);
     }
   });
@@ -157,7 +159,8 @@ describe("one Planner menu for every stage and subject", () => {
       expect(state.steps.at(-1)).toMatchObject({ buildFrom: "voice-gate" });
       if (!facts.problems) expect(call(kit.tools, state, "add_step", { ...base, built_in: "word-radar:hidden_word_recall", build_from: "voice-gate" })).toMatchObject({ ok: false, error: expect.stringContaining("plays as it is") });
       const addStep = kit.tools.find(tool => tool.name === "add_step")!;
-      expect((addStep.schema as any).shape.build_from.unwrap().options).toEqual(["voice-gate"]);
+      expect(offeredValues((plannerToolDefinitions([addStep])[0].input_schema as any).properties.build_from)).toEqual(["voice-gate"]);
+      expect(call(kit.tools, state, "add_step", { ...base, built_in: "generated-game", build_from: "not-played" })).toMatchObject({ ok: false, error: expect.stringContaining("not-played is not one of") });
     }
     // Without played games the field is not offered at all.
     expect(Object.keys((spellingSuccessorToolkit(successorFacts()).tools.find(tool => tool.name === "add_step")!.schema as any).shape)).not.toContain("build_from");

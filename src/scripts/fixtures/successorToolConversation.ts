@@ -1,6 +1,7 @@
 import path from "node:path";
 import type { AdventureBoardComposition, AdventureJourneyDefinition } from "../../shared/adventureBoardDefinition";
 import { DEFAULT_THEME_PRESET, layoutJourney } from "../../shared/boardLayout";
+import { offeredValues } from "../../engine/plannerTransport";
 
 /** Tests draw the next board on the plain layout; the map artist has its own tests. */
 export async function plainDraw(journey: AdventureJourneyDefinition): Promise<{ composition: AdventureBoardComposition }> {
@@ -26,8 +27,8 @@ export function successorToolReply(recorded: unknown, request: any): any {
   const names: string[] = (request.tools ?? []).map((tool: any) => tool.name);
   if (!names.includes("decide")) return message([{ name: "decide_learning_cycle_progression", input: decision }]);
   const schema = (name: string) => request.tools.find((tool: any) => tool.name === name).input_schema.properties;
-  const builtIns: string[] = schema("add_step").built_in.enum ?? [];
-  const offeredEvaluations: string[] | undefined = schema("decide").prediction_evaluation_ids.items?.enum;
+  const builtIns: string[] = offeredValues(schema("add_step").built_in) ?? [];
+  const offeredEvaluations: string[] | undefined = offeredValues(schema("decide").prediction_evaluation_ids.items);
   const cited = (decision.predictionEvaluationIds ?? []).filter(id => offeredEvaluations?.includes(id));
   const decide = { name: "decide", input: { status: decision.status, reason: decision.reason, progression_action: decision.progressionAction, preserve: decision.preserve ?? [], change: decision.change ?? [],
     test_next: decision.testNext ?? [], next_evidence_required: decision.nextEvidenceRequired ?? [],
@@ -42,7 +43,7 @@ export function successorToolReply(recorded: unknown, request: any): any {
     if (row.reward) return names.includes("add_reward") ? [{ nodeId: row.nodeId, name: "add_reward", input: { title: row.title, story: `Story: ${row.title}`, picture: `Picture: ${row.title}` } }] : [];
     const wanted = [row.spelling?.builtInActivityId, row.nodeId].filter((id): id is string => Boolean(id));
     const builtIn = builtIns.find(id => wanted.some(want => id === want || last(id) === last(want)));
-    const offeredWords: string[] = schema("add_step").words.items?.enum ?? [];
+    const offeredWords: string[] = offeredValues(schema("add_step").words.items) ?? [];
     const words = (row.spelling?.wordIds ?? []).filter(word => offeredWords.includes(word));
     // When Quest/Boss are offered, every step says whether it is the encounter.
     const encounter = schema("add_step").encounter ? { encounter: row.encounter ?? "none" } : {};

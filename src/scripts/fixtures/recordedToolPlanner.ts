@@ -1,4 +1,5 @@
 import { getLearningCycle } from "../../engine/learningCycleRepository";
+import { offeredValues } from "../../engine/plannerTransport";
 
 /** What the robot knows about its run, and what it saw at the provider boundary. */
 export type RecordedToolLab = {
@@ -12,7 +13,7 @@ export type RecordedToolLab = {
 
 /** One recorded Planner, artist and next-board Planner at the Anthropic client boundary. It answers
  * each real tool conversation the way the model would, using only what the request offers (its tool
- * names, enums and Sunny's own tool results), so the real handlers, checks and receipts all run at $0.
+ * names, pick-lists and Sunny's own tool results), so the real handlers, checks and receipts all run at $0.
  * A request it does not recognise fails the run: no paid call can hide behind the robot. */
 /** A small game the builder could have made: one word at a time, opened through the contract, typed and reported. */
 export const RECORDED_SPELLING_GAME = `<!doctype html><html><head><title>Recorded game</title></head><body><p id="clue">Spell the word Elli says.</p><input id="box" data-testid="generated-game-input" aria-label="Spell it"><script>
@@ -29,7 +30,7 @@ export function recordedToolReply(lab: RecordedToolLab, request: any): any {
   const names: string[] = (request.tools ?? []).map((tool: any) => tool.name);
   const turn = (request.messages ?? []).filter((row: any) => row.role === "assistant").length;
   const properties = (name: string) => request.tools.find((tool: any) => tool.name === name).input_schema.properties;
-  const offered = (name: string, field: string): string[] => { const schema = properties(name)[field]; return schema.enum ?? schema.items?.enum ?? []; };
+  const offered = (name: string, field: string): string[] => { const schema = properties(name)[field]; return offeredValues(schema) ?? offeredValues(schema.items) ?? []; };
   const results: any[] = turn === 0 ? [] : (request.messages.at(-1).content as any[])
     .filter(block => block.type === "tool_result" && !block.is_error).map(block => JSON.parse(typeof block.content === "string" ? block.content : block.content[0].text));
   const message = (calls: Array<{ name: string; input: unknown }>) => ({ id: `recorded-${lab.requests.length}`, type: "message", role: "assistant", model: request.model,

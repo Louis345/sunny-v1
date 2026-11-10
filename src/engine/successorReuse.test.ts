@@ -5,6 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import {createHash} from 'node:crypto';
 import {afterEach,expect,it,vi} from 'vitest';
+import {offeredValues} from './plannerTransport';
 import {linearJourneyFixture} from '../scripts/fixtures/authoredJourney';
 import {seedSpellingLab} from '../scripts/fixtures/spellingEvidenceFirst';
 import {plainDraw,saveOldFormDecision,successorToolReply} from '../scripts/fixtures/successorToolConversation';
@@ -236,8 +237,8 @@ it('offers the Planner the built-ins she played and every certified game and mod
  await runtime.advanceCanonicalCycleFromEvidence(f.request,opts);
  const addStep=(f.create.mock.calls[0][0] as any).tools.find((tool:any)=>tool.name==='add_step').input_schema;
  expect(addStep.required).toContain('built_in');
- expect(addStep.properties.built_in.enum).toEqual(['radar-check',...spellingActivityMenu(spellingActivityCatalog(childId)).choices]);
- expect(addStep.properties.built_in.enum).not.toContain('generated-baseline');
+ expect(offeredValues(addStep.properties.built_in)).toEqual(['radar-check',...spellingActivityMenu(spellingActivityCatalog(childId)).choices]);
+ expect(offeredValues(addStep.properties.built_in)).not.toContain('generated-baseline');
 });
 // 2026-10-23: the deepest cause of AI-built spelling games was the request itself. It told the Planner
 // "You are the artist ... choose a game" and required a creator prompt and game-design fields for every

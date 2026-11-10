@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { parseCanonicalProgressionDecision } from "./learningCycleRuntime";
 import { assembleAuthoredBoardDefinition } from "../shared/adventureBoardDefinition";
 import { plannerToolDefinitions } from "./plannerToolLoop";
-import { strictBudget } from "./plannerTransport";
+import { offeredValues, strictBudget } from "./plannerTransport";
 import { spellingSuccessorToolkit, type SuccessorFacts } from "./spellingSuccessorTools";
 
 const facts = (overrides: Partial<SuccessorFacts> = {}): SuccessorFacts => ({
@@ -145,7 +145,11 @@ describe("spelling next-board tools", () => {
     expect(definitions.every(tool => (tool as { strict?: boolean }).strict)).toBe(true);
     expect(strictBudget(definitions).unsupported).toEqual([]);
     const text = JSON.stringify(definitions);
-    for (const value of ["act-1", "act-6", "eval-2", "await_calibration"]) expect(text).toContain(`"${value}"`);
+    const fields = (name: string) => (definitions.find(tool => tool.name === name)!.input_schema as any).properties;
+    // Her built-ins and evaluations are offered by name, and checked by code rather than the strict grammar (2026-11-10).
+    expect(offeredValues(fields("add_step").built_in)).toEqual(expect.arrayContaining(["act-1", "act-6"]));
+    expect(offeredValues(fields("decide").prediction_evaluation_ids.items)).toEqual(["eval-1", "eval-2"]);
+    expect(fields("decide").progression_action.enum).toContain("await_calibration");
     expect(text).not.toContain("generate_quest");
     for (const bookkeeping of ["boardDefinition", "nodeId", "wordIds", "responseMode", "measurementRole", "portals", "edges", "position"]) expect(text).not.toContain(`"${bookkeeping}"`);
   });
@@ -184,9 +188,11 @@ describe("spelling next-board tools", () => {
   // re-run step then refused both and the child saw Not ready. The tool now asks the same question first.
   it("never offers a built-in that cannot be re-run, and refuses a word set it cannot be re-run for", () => {
     const { kit, call } = session();
-    const builtIns = (plannerToolDefinitions(kit.tools).find(tool => tool.name === "add_step")!.input_schema as any).properties.built_in.enum;
+    const builtIns = offeredValues((plannerToolDefinitions(kit.tools).find(tool => tool.name === "add_step")!.input_schema as any).properties.built_in);
+    expect(builtIns).toContain("act-3");
     expect(builtIns).not.toContain("act-5");
     call("decide", decision());
+    expect(call("add_step", step("act-5", "Puzzle Again"))).toMatchObject({ ok: false, error: expect.stringContaining("act-5 is not one of") });
     expect(call("add_step", step("act-1", "Gnat Review", ["w-sign"]))).toMatchObject({ ok: false, error: expect.stringContaining("all of its words") });
     expect(call("add_step", step("act-1", "Letters Review", []))).toMatchObject({ ok: true });
   });

@@ -2,6 +2,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, expect, it } from "vitest";
+import { offeredValues } from "./plannerTransport";
 import { linearJourneyFixture } from "../scripts/fixtures/authoredJourney";
 import { seedSpellingLab } from "../scripts/fixtures/spellingEvidenceFirst";
 import { plainDraw, successorToolReply } from "../scripts/fixtures/successorToolConversation";
@@ -188,7 +189,7 @@ it("builds her next game from a game she played when the Planner names it, keepi
   const prompt = plannerRequests.at(-1).messages[0].content[0].text as string;
   expect(prompt).toMatch(/Games Sunny built for her that she played[^\n]*build_from/);
   expect(prompt).toContain('"title":"Spelling Voice Gate"');
-  expect(plannerRequests.at(-1).tools.find((tool: any) => tool.name === "add_step").input_schema.properties.build_from.enum).toContain("practice");
+  expect(offeredValues(plannerRequests.at(-1).tools.find((tool: any) => tool.name === "add_step").input_schema.properties.build_from)).toContain("practice");
   expect(planned.nodes.find(row => row.implementationType === "generated-game" && row.nodeId !== "practice")).toMatchObject({ buildFrom: "practice" });
   const builder = recordedBuilder([GOOD]);
   await prepareSuccessorBoard({ childId: f.childId, homeworkId: f.homeworkId, spellingGameClient: builder.client }, { rootDir: f.rootDir });
