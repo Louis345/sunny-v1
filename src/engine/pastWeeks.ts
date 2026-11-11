@@ -42,7 +42,7 @@ export type PastWeek = {
   journal: { file: string; lines: string[] } | null;
 };
 /** claims: her cross-week claims as code scored them when the question was asked, and the week being planned. */
-export type PastWeeksArchive = { version: 1; childId: string; weeks: PastWeek[]; claims?: { planning: string; rows: LearnerHypothesisView[] } };
+export type PastWeeksArchive = { version: 1; childId: string; weeks: PastWeek[]; claims?: { planning: string; rows: LearnerHypothesisView[]; asOfSequence?: number } };
 
 const SCHOOL = new Set(["graded_work", "delayed_reassessment"]);
 const HELP: Record<string, Help> = { unassisted: "on her own", assisted: "with help", unknown: "help not recorded" };
@@ -133,7 +133,8 @@ function readClaims(childId: string, planning: string): PastWeeksArchive["claims
   let db: ReturnType<typeof openChart> | undefined;
   try {
     db = openChart(childId, { readonly: true });
-    return { planning, rows: projectLearnerHypotheses(exportEvents(db)) };
+    const events = exportEvents(db);
+    return { planning, rows: projectLearnerHypotheses(events), asOfSequence: events.reduce((max, e) => Math.max(max, e.sequence), 0) };
   } catch (error) {
     console.error(` 🎮 [past-weeks] [claims] [unavailable] child=${childId} reason=${error instanceof Error ? error.message : String(error)}`);
     return undefined;

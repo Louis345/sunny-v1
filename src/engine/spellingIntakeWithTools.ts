@@ -1,3 +1,4 @@
+import { queryRecordTool } from "./recordQuery";
 import path from "path";
 import { assembleAdventureBoardDefinition, type AdventureBoardComposition, type AdventureJourneyDefinition } from "../shared/adventureBoardDefinition";
 import { ASSIGNMENT_PLANNER_PERSONA, resolveAssignmentPlannerModel, type AssignmentPlannerTelemetry, type AssignmentPlanningPacket, type SpellingIntake } from "./assignmentPlanner";
@@ -39,7 +40,7 @@ export async function planSpellingIntakeWithTools(packet: AssignmentPlanningPack
   const loop = await runPlannerToolLoop({
     label: "spelling-intake", prompt: `${buildSpellingIntakeToolPrompt(packet)}${past ? `\n${pastWeeksLine(past)}` : ""}`, system: ASSIGNMENT_PLANNER_PERSONA,
     content: prompt => assignmentPlannerContent(packet.sourceDocument, prompt),
-    model, maxTokens: 16000, tools: past ? [...kit.tools, pastWeeksTool(past)] : kit.tools, state: kit.initialState(), finished: kit.finished,
+    model, maxTokens: 16000, tools: past ? [...kit.tools, pastWeeksTool(past), ...(past.claims?.asOfSequence !== undefined ? [queryRecordTool(past.childId, past.claims.asOfSequence)] : [])] : kit.tools, state: kit.initialState(), finished: kit.finished,
     send: opts.send ?? providerTurnSender({ label: "spelling-intake", stagePrefix: "spelling-intake-tools", draftDir: opts.draftDir }),
   });
   // Without a capture there is nothing to publish; the intake stays unpublished and says why.

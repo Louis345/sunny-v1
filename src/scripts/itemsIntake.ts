@@ -1,3 +1,4 @@
+import { queryRecordTool } from "../engine/recordQuery";
 import fs from "fs";
 import path from "path";
 import type Anthropic from "@anthropic-ai/sdk";
@@ -42,7 +43,7 @@ async function planItemIntake(packet: AssignmentPlanningPacket, homeworkId: stri
   const loop = await runPlannerToolLoop({
     label: "math-intake", prompt: `${buildItemIntakePrompt(packet)}${past ? `\n${pastWeeksLine(past)}` : ""}`, system: ASSIGNMENT_PLANNER_PERSONA,
     content: prompt => assignmentPlannerContent(packet.sourceDocument, prompt),
-    model, maxTokens: 16000, tools: past ? [...kit.tools, pastWeeksTool(past)] : kit.tools, state: kit.initialState(), finished: kit.finished,
+    model, maxTokens: 16000, tools: past ? [...kit.tools, pastWeeksTool(past), ...(past.claims?.asOfSequence !== undefined ? [queryRecordTool(past.childId, past.claims.asOfSequence)] : [])] : kit.tools, state: kit.initialState(), finished: kit.finished,
     send: options.send ?? providerTurnSender({ label: "math-intake", stagePrefix: "math-intake-tools", draftDir }),
   });
   // Without recorded problems there is nothing to build; the intake stays unpublished and says why.
