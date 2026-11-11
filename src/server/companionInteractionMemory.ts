@@ -2,7 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import crypto from "crypto";
 import fs from "fs";
 import path from "path";
-import type { CompanionCareMemory, CompanionCarePlan } from "../shared/companionCareTypes";
+import type { CompanionCareMemory, CompanionCarePlan, CompanionChildGivenName } from "../shared/companionCareTypes";
 import type {
   CompanionCallSource,
   CompanionRelationshipState,
@@ -324,6 +324,40 @@ export function recordCompanionGameResult(
   return { recorded: true };
 }
 
+const MAX_CHILD_GIVEN_NAMES = 5;
+
+/**
+ * Keeps a nickname or role the child gave her companion. The companion decides when she has given one (its own tool
+ * call); code only stores it, newest last, without duplicates.
+ */
+export function recordChildGivenCompanionName(
+  input: { childId: string; companionId: string; name: unknown; kind: unknown; childWords?: unknown; at?: string },
+  opts: CompanionInteractionMemoryOptions = {},
+): { recorded: true; entry: CompanionChildGivenName } | { recorded: false; reason: string } {
+  const name = typeof input.name === "string" ? normalizeText(input.name, 60) : "";
+  if (!name) return { recorded: false, reason: "empty_name" };
+  const kind = input.kind === "role" ? "role" : "nickname";
+  const childWords = typeof input.childWords === "string" ? normalizeText(input.childWords, 200) : "";
+  const entry: CompanionChildGivenName = {
+    name,
+    kind,
+    ...(childWords && { childWords }),
+    givenAt: normalizeIso(input.at),
+  };
+  const relationship = ensureCompanionRelationship(input.childId, input.companionId, opts);
+  const kept = (relationship.memory.childGivenNames ?? []).filter(
+    (row) => row.name.toLowerCase() !== name.toLowerCase(),
+  );
+  relationship.save({
+    ...relationship.memory,
+    childGivenNames: [...kept, entry].slice(-MAX_CHILD_GIVEN_NAMES),
+  });
+  console.log(
+    ` 🎮 [companion-memory] [child_given_name] [ok] child=${input.childId} companion=${input.companionId} kind=${kind} name="${name}"`,
+  );
+  return { recorded: true, entry };
+}
+
 function sanitizeMemoryList(value: unknown): string[] | undefined {
   if (!Array.isArray(value)) return undefined;
   const items = value
@@ -353,8 +387,8 @@ function sanitizeMemoryPatch(patch: CompanionMemorySummaryPatch): CompanionMemor
     ...(sanitizeMemoryList(patch.companionSelfNotes) && {
       companionSelfNotes: sanitizeMemoryList(patch.companionSelfNotes)?.slice(0, 3),
     }),
-    // gameRecord is deliberately absent: the model may read it but never write
-    // it, so a summarizer can never rewrite a child's win/loss history.
+    // gameRecord and childGivenNames are deliberately absent: the model may read them but never write them, so a
+    // summarizer can never rewrite a child's win/loss history or the names she gave her companion.
   };
 }
 

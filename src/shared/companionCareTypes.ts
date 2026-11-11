@@ -39,6 +39,14 @@ export interface CompanionGameRecordEntry {
   currentStreak: number;
 }
 
+export interface CompanionChildGivenName {
+  name: string;
+  kind: "nickname" | "role";
+  /** Her words when she gave it, as heard. */
+  childWords?: string;
+  givenAt: string;
+}
+
 export interface CompanionCareMemory {
   firstMetAt: string;
   previousSeenAt?: string;
@@ -55,6 +63,11 @@ export interface CompanionCareMemory {
   rivalryNote?: string;
   /** Up to 3 short traits the companion has earned through real interaction. */
   companionSelfNotes?: string[];
+  /**
+   * Names and roles the child gave this companion ("aerospace princess"), recorded by the companion's own tool call.
+   * Her choice, so code keeps it: a summary may read it but never rewrites it.
+   */
+  childGivenNames?: CompanionChildGivenName[];
   lastCompanionInteractionCompactedAt?: string;
   lastCompanionInteractionId?: string;
   interactionSummaryRevision?: number;

@@ -269,6 +269,29 @@ export function getShowroomCompanionActTools() {
   ];
 }
 
+export const REMEMBER_CHILD_GIVEN_NAME_TOOL = "rememberWhatChildCallsMe";
+
+/** The companion's own way to keep a name or role the child gives it; code stores it, the companion decides. */
+export function getShowroomRelationshipTools() {
+  return [
+    {
+      name: REMEMBER_CHILD_GIVEN_NAME_TOOL,
+      description:
+        "Remember a nickname or a role the child just gave you, so you keep it in this call and every later call. Use it when she names you or casts you as someone; do not use it for names she gives to other things.",
+      input_schema: {
+        type: "object" as const,
+        properties: {
+          name: { type: "string", description: "The nickname or role, in her words." },
+          kind: { type: "string", enum: ["nickname", "role"] },
+          childWords: { type: "string", description: "What she said when she gave it." },
+        },
+        required: ["name", "kind"],
+        additionalProperties: false,
+      },
+    },
+  ];
+}
+
 export function getShowroomCompanionActivityTools() {
   return [
     {
@@ -866,6 +889,7 @@ export function buildShowroomTalkSystemPrompt(input: {
     "Never tutor unless the child explicitly asks for learning help; follow the child's conversational lead.",
     "The child may be playing, chatting, joking, testing the call, or asking for help; be fun and relationship-first.",
     "Do not repeat your previous greeting, opener, or last sentence; continue from the child's newest turn.",
+    `If the child gives you a nickname or a role, it is her game: play along, and call ${REMEMBER_CHILD_GIVEN_NAME_TOOL} so you keep it. You can still know your own name, but never correct her or argue about what she calls you.`,
     "If you want emotion, show emotion through movement with companionAct rather than describing stage directions in words.",
     `If the child asks to play ${describeCompanionActivityChoices()}, use openCompanionActivity with the matching activityId (${COMPANION_ACTIVITY_IDS.join(", ")}) and surface=video_call_overlay.`,
     "Do not say stage directions. Do not say things like 'I wave', '*waves*', or 'I smile'; call companionAct for that motion and keep spoken text natural.",
@@ -1096,6 +1120,12 @@ export function shouldRequireShowroomActivityReactionSpeech(
   );
 }
 
+function formatChildGivenNames(names: CompanionCareMemory["childGivenNames"]): string | null {
+  if (!names?.length) return null;
+  const list = names.map((row) => `"${row.name}" (${row.kind === "role" ? "a role she gave you" : "her nickname for you"})`);
+  return `What she calls you: ${list.join("; ")}. Answer to it and play along; never correct her.`;
+}
+
 function formatMemoryList(label: string, values: string[] | undefined): string | null {
   const clean = Array.isArray(values)
     ? values.map((value) => value.trim()).filter(Boolean).slice(0, 5)
@@ -1114,6 +1144,7 @@ export function buildShowroomTalkMemoryPrompt(
     formatMemoryList("Relationship facts", memory.relationshipFacts),
     formatMemoryList("Favorite moments", memory.favoriteMoments),
     formatMemoryList("Things you have shown about yourself", memory.companionSelfNotes),
+    formatChildGivenNames(memory.childGivenNames),
     formatCompanionGameRecord(memory.gameRecord),
     memory.rivalryNote && `Rivalry note: ${memory.rivalryNote}`,
   ].filter((line): line is string => Boolean(line));
@@ -1203,9 +1234,11 @@ export function shouldRunShowroomToolFollowup(input: {
   rawText: string;
   companionActToolUseCount: number;
   activityToolUseCount: number;
+  relationshipToolUseCount?: number;
   activityReactionEventType?: ShowroomActivityReactionEventType;
 }): boolean {
-  const toolUseCount = input.companionActToolUseCount + input.activityToolUseCount;
+  const toolUseCount =
+    input.companionActToolUseCount + input.activityToolUseCount + (input.relationshipToolUseCount ?? 0);
   if (toolUseCount === 0) return false;
   if (input.rawText.trim().length > 0) return false;
   if (!input.isActivityReaction) return true;

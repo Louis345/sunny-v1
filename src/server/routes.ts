@@ -256,6 +256,7 @@ import {
   evaluateShoppingSpeech,
   getShowroomCompanionActivityTools,
   getShowroomCompanionActTools,
+  getShowroomRelationshipTools,
   resolveShowroomSpokenText,
   resolveShowroomTalkRequest,
   shouldSynthesizeShowroomSpeech,
@@ -298,7 +299,7 @@ import {
   recordCompanionInteractionEvent,
   recordCompanionGameResult,
 } from "./companionInteractionMemory";
-import { buildCompanionCallContext } from "./companionChildFacts";
+import { applyCompanionRelationshipToolUses, buildCompanionCallContext } from "./companionChildFacts";
 import {
   readCompanionVideoCallTracePacket,
   recordCompanionVideoCallTraceEvent,
@@ -2207,6 +2208,7 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
       const showroomTools = [
         ...getShowroomCompanionActTools(),
         ...getShowroomCompanionActivityTools(),
+        ...getShowroomRelationshipTools(),
       ];
       // The system prompt is static across a call (persona + room + memory);
       // caching it cuts Claude's time-to-first-token on every later turn.
@@ -2300,12 +2302,18 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
       );
       const requireGeneratedSpeech =
         talk.shoppingEvent?.type === "try_on_started";
+      const relationshipToolResults = applyCompanionRelationshipToolUses({
+        childId: talk.childId,
+        companionId: talk.companionId,
+        content: msg.content,
+      });
       let text = extractAnthropicText(msg);
       const shouldRunToolFollowup = shouldRunShowroomToolFollowup({
         isActivityReaction: Boolean(talk.activityReaction),
         rawText: text,
         companionActToolUseCount: companionActToolUseBlocks.length,
         activityToolUseCount: activityToolUseBlocks.length,
+        relationshipToolUseCount: relationshipToolResults.length,
         activityReactionEventType: talk.activityReaction?.eventType,
       });
       if (shouldRunToolFollowup) {
@@ -2346,7 +2354,7 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
               }),
             };
           });
-        const toolResults = [...companionToolResults, ...activityToolResults];
+        const toolResults = [...companionToolResults, ...activityToolResults, ...relationshipToolResults];
         const toolFollowupStartedAt = Date.now();
         const afterTool = await client.messages.create({
           model: talkModel,
@@ -2843,6 +2851,7 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
         const showroomTools = [
           ...getShowroomCompanionActTools(),
           ...getShowroomCompanionActivityTools(),
+          ...getShowroomRelationshipTools(),
         ];
         // Static per call; caching cuts time-to-first-token on later turns.
         const cachedSystem: Anthropic.TextBlockParam[] = [
@@ -2933,28 +2942,34 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
           )
           .filter((request): request is NonNullable<typeof request> => Boolean(request));
 
+        const relationshipToolResults = applyCompanionRelationshipToolUses({
+          childId: talk.childId,
+          companionId: talk.companionId,
+          content: msg.content,
+        });
         let text = extractAnthropicText(msg) || streamedText.trim();
         const shouldRunToolFollowup = shouldRunShowroomToolFollowup({
           isActivityReaction: Boolean(talk.activityReaction),
           rawText: text,
           companionActToolUseCount: companionActToolUseBlocks.length,
           activityToolUseCount: activityToolUseBlocks.length,
+          relationshipToolUseCount: relationshipToolResults.length,
           activityReactionEventType: talk.activityReaction?.eventType,
         });
         if (shouldRunToolFollowup && !aborted) {
           const toolResults: Anthropic.ToolResultBlockParam[] = [
-            ...companionActToolUseBlocks,
-            ...activityToolUseBlocks,
-          ].map((block) => ({
-            type: "tool_result" as const,
-            tool_use_id: block.id,
-            content: JSON.stringify({
-              type: "showroom_companion_tool_result",
-              accepted: true,
-              instruction:
-                "Answer with the exact short words the companion should say aloud. Do not include stage directions.",
-            }),
-          }));
+            ...[...companionActToolUseBlocks, ...activityToolUseBlocks].map((block) => ({
+              type: "tool_result" as const,
+              tool_use_id: block.id,
+              content: JSON.stringify({
+                type: "showroom_companion_tool_result",
+                accepted: true,
+                instruction:
+                  "Answer with the exact short words the companion should say aloud. Do not include stage directions.",
+              }),
+            })),
+            ...relationshipToolResults,
+          ];
           const toolFollowupStartedAt = Date.now();
           const afterTool = await client.messages.create({
             model: talkModel,

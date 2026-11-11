@@ -1,6 +1,7 @@
 import { getChildChart } from "../profiles/childChart";
 import { buildShowroomTalkMemoryPrompt } from "./companionShowroomTalk";
-import { ensureCompanionRelationship } from "./companionInteractionMemory";
+import { ensureCompanionRelationship, recordChildGivenCompanionName } from "./companionInteractionMemory";
+import { REMEMBER_CHILD_GIVEN_NAME_TOOL } from "./companionShowroomTalk";
 
 /** Facts any companion gets about the child, read from her chart (Law 12). No clinical notes. */
 export type CompanionChildFacts = {
@@ -82,4 +83,45 @@ export function buildCompanionCallContext(
     buildShowroomTalkMemoryPrompt(memory),
   ].filter((part): part is string => Boolean(part));
   return parts.length ? parts.join("\n") : undefined;
+}
+
+type ToolUseBlockLike = { type: string; id?: string; name?: string; input?: unknown };
+
+/**
+ * Stores every nickname or role the companion chose to remember this turn, and answers each tool call so a
+ * follow-up request stays valid. A failed save is reported to the companion and logged, never thrown into the call.
+ */
+export function applyCompanionRelationshipToolUses(
+  input: { childId: string; companionId: string; content: ReadonlyArray<ToolUseBlockLike> },
+  opts: { rootDir?: string } = {},
+): Array<{ type: "tool_result"; tool_use_id: string; is_error: boolean; content: string }> {
+  return input.content
+    .filter((block) => block.type === "tool_use" && block.name === REMEMBER_CHILD_GIVEN_NAME_TOOL && block.id)
+    .slice(0, 2)
+    .map((block) => {
+      const raw = (block.input && typeof block.input === "object" ? block.input : {}) as Record<string, unknown>;
+      let result: ReturnType<typeof recordChildGivenCompanionName>;
+      try {
+        result = recordChildGivenCompanionName(
+          { childId: input.childId, companionId: input.companionId, name: raw.name, kind: raw.kind, childWords: raw.childWords },
+          opts,
+        );
+      } catch (err: unknown) {
+        console.error(
+          ` 🔴 [companion-memory] [child_given_name] [error] child=${input.childId} companion=${input.companionId}`,
+          err instanceof Error ? err.message : String(err),
+        );
+        result = { recorded: false, reason: "save_failed" };
+      }
+      return {
+        type: "tool_result" as const,
+        tool_use_id: block.id as string,
+        is_error: !result.recorded,
+        content: JSON.stringify({
+          type: "remember_child_given_name_result",
+          remembered: result.recorded,
+          instruction: "Answer with the exact short words you say aloud, playing along with what she calls you.",
+        }),
+      };
+    });
 }
