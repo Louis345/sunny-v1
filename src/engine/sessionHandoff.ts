@@ -4,7 +4,7 @@ import path from "node:path";
 import { getChildChart } from "../profiles/childChart";
 import { resolveChildContextDir } from "../utils/contextRoot";
 import { requestForModel } from "./plannerTransport";
-import { buildSessionTimeline, sessionGames } from "./sessionTimeline";
+import { buildSessionTimeline, isFirstTryOnHerOwn, RIGHT_ON_HER_OWN, sessionGames } from "./sessionTimeline";
 import { getLearningCycle, type LearningCycleRecordV2, type LearningCycleRepositoryOptions } from "./learningCycleRepository";
 
 /**
@@ -17,6 +17,7 @@ export const handoffModel = () => process.env.SUNNY_HANDOFF_MODEL?.trim() || "cl
 type HandoffClient = { messages: { create: (request: Anthropic.Messages.MessageCreateParamsNonStreaming) => Promise<Anthropic.Messages.Message> } };
 const SYNTHETIC = /(^|[:_-])(synthetic|playwright|browser-acceptance|readiness)([:_-]|$)/i;
 const HELP = { unassisted: "on her own", assisted: "with help", unknown: "help not recorded" } as const;
+const SCHOOL = new Set(["graded_work", "delayed_reassessment"]);
 
 function handoffDir(cycle: Pick<LearningCycleRecordV2, "childId" | "homeworkId">, opts: LearningCycleRepositoryOptions = {}): string {
   return path.join(resolveChildContextDir(cycle.childId, { rootDir: opts.rootDir }), "homework", "handoffs", cycle.homeworkId.replace(/[^a-zA-Z0-9_.-]+/g, "_"));
@@ -32,7 +33,19 @@ function answersSince(cycle: LearningCycleRecordV2, startedAt: string): string[]
   const from = Date.parse(startedAt);
   return (cycle.observations ?? []).filter(row => names.has(row.itemId) && Date.parse(row.observedAt) >= from && !SYNTHETIC.test(`${row.observationId} ${row.sourceId}`))
     .sort((a, b) => Date.parse(a.observedAt) - Date.parse(b.observedAt))
-    .map(row => `${row.observedAt.slice(11, 19)} ${names.get(row.itemId)}: "${row.childResponse ?? ""}" ${row.result?.correct === true ? "right" : row.result?.correct === false ? "missed" : "unscored"}, ${HELP[row.assistance.status]}`);
+    .map(row => `${row.observedAt.slice(11, 19)} ${names.get(row.itemId)}: "${row.childResponse ?? ""}" ${row.result?.correct === true ? "right" : row.result?.correct === false ? "missed" : "unscored"}, ${HELP[row.assistance.status]}${row.confounds?.includes("retry") ? " (retry)" : ""}`);
+}
+
+/**
+ * The retro's one stated right count (2026-11-10: the retro and the saved score disagreed): right on her first try on
+ * her own, out of her first tries on her own, from her saved answers since the session started. The rating reads it back.
+ */
+export function retroCountsLine(cycle: Pick<LearningCycleRecordV2, "observations">, startedAt: string): string {
+  const from = Date.parse(startedAt);
+  const rows = (cycle.observations ?? []).filter(row => Date.parse(row.observedAt) >= from && typeof row.result?.correct === "boolean"
+    && !SCHOOL.has(String(row.provenance)) && !SYNTHETIC.test(`${row.observationId} ${row.sourceId}`));
+  const own = rows.filter(isFirstTryOnHerOwn);
+  return `- ${RIGHT_ON_HER_OWN}: ${own.filter(row => row.result.correct).length} of ${own.length} first tries on her own; ${rows.filter(row => row.result.correct).length} right counting retries and help.`;
 }
 
 export function buildHandoffAsk(input: { childName: string; companionName: string; homeworkTitle: string; transcript: string; answers: string[]; timeline?: string }): string {
@@ -79,7 +92,7 @@ export async function writeSessionHandoff(input: { childId: string; sessionDir: 
     const dir = handoffDir(cycle, opts);
     fs.mkdirSync(dir, { recursive: true });
     const file = path.join(dir, `${metadata.startedAt.replace(/[:.]/g, "-")}.md`);
-    const counted = `\n\n**Games, counted by code:**\n${gameFacts.length ? gameFacts.map(line => `- ${line}`).join("\n") : "- No game recorded."}`;
+    const counted = `\n\n**Games, counted by code:**\n${gameFacts.length ? gameFacts.map(line => `- ${line}`).join("\n") : "- No game recorded."}\n${retroCountsLine(cycle, metadata.startedAt)}`;
     fs.writeFileSync(file, `# Handoff ${metadata.startedAt.slice(0, 16).replace("T", " ")} (session ${metadata.sessionId ?? "unknown"})\n\n${text}${counted}\n`, "utf8");
     console.log(` 🎮 [handoff] [written] child=${input.childId} homework=${cycle.homeworkId} model=${handoffModel()} file=${path.basename(file)} tokens_in=${message.usage?.input_tokens ?? 0} tokens_out=${message.usage?.output_tokens ?? 0}`);
     return file;
