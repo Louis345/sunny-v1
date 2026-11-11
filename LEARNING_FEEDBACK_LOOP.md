@@ -1,6 +1,6 @@
 # Sunny Learning Feedback Loop
 
-Contract version: 58
+Contract version: 59
 
 This document is the **sole normative** authority for how Sunny forms, tests, and revises learning claims. Product changes that alter this loop must update this contract version before implementation. Other documents may describe infrastructure or history, but they must link here instead of creating another learning doctrine.
 
@@ -392,3 +392,7 @@ A Japanese-input keyboard turns typed letters into kana ("forgot" arrives as "ãƒ
 ## Every try is saved (contract 58, owner 2026-11-10)
 
 Each answer she gives on an item is its own observation, in order, with its try number. Only the first try can be independent evidence; a retry on the same item is practice and is marked as a retry. The game contract, not the game, hands over every try it saw for each item. First-try accuracy and how many tries she took are read from these records; a retry is never reported as a lost answer.
+
+## The Planner remembers earlier weeks (contract 59, owner 2026-11-10)
+
+A tutor remembers the student week to week, and so does the Planner. Every Planner question that plans a board (the first board of a new list in spelling and math intake, the Teaching board, and every next board) carries one short line naming her earlier weeks, and a `read_past_weeks` tool that pulls them from her records: an index of every earlier homework cycle (any subject, any status), one week in full a page at a time, a search across weeks by word, ending (`-ant`) or text, and every self-review the Planner wrote. Code reads the canonical cycles, the planner-journal files and the session scorecards; nothing is summarized by an AI and nothing ranks or recommends. For each week it lists her words or problems, her first tries on her own over time (a retry, help and the school test kept apart), the boards and stops, the Planner's decisions with their self-reviews and her first tries on that board's targets before and after each decision, the Planner's checked calls, preregistered predictions inside or outside their range, learning and play minutes when recorded, and the graded school test for that homework id or that none was uploaded. The week being planned is left out. The archive a question reads is frozen with that question so a restart asks the same question; questions started before this contract replay without it. The tool's schema is the same for every history: week ids are free text checked by code. A reader failure leaves the question without past weeks and is logged; it never stops a board. Her own conclusions here are the Planner's earlier words, labelled by week and date, beside counted results: history to weigh, never an instruction. Measured: whether a new list's first board cites an earlier week, and her first-try accuracy on targets that share a pattern with an earlier week.
