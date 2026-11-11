@@ -122,8 +122,8 @@ export const ELLI = loadCompanion(
   },
 );
 
-export const MATILDA = loadCompanion(
-  "companions/matilda.md",
+export const HIKARI = loadCompanion(
+  "companions/hikari.md",
   "ELEVENLABS_VOICE_ID_REINA",
   // Default: Gigi (premade) — bubbly/animation; override with ELEVENLABS_VOICE_ID_REINA
   "jBpfuIE2acCO8z3wKNLl",
@@ -144,11 +144,11 @@ export const CHARLOTTE_CREATOR: CompanionConfig = {
 
 export const COMPANIONS_BY_CHILD: Record<ChildName, CompanionConfig> = {
   Ila: ELLI,
-  Reina: MATILDA,
+  Reina: HIKARI,
   creator: CHARLOTTE_CREATOR,
 };
 
-/** The children call companions by each other's names (Reina has said "Ellie" to Matilda), so any companion name wakes the active one. */
+/** The children call companions by each other's names (Reina has said "Ellie" to Hikari, and still calls her Matilda), so any companion name wakes the active one. */
 export const COMPANION_WAKE_NAMES: readonly string[] = [
   ...new Set(Object.values(COMPANIONS_BY_CHILD).flatMap((companion) => companion.wakeNames)),
 ];

@@ -621,6 +621,7 @@ export function looksLikeSessionEndRequest(
     companionName,
     "elli",
     "ellie",
+    "hikari",
     "matilda",
     "sunny",
     "charlotte",

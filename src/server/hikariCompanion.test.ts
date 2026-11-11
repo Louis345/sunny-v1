@@ -14,7 +14,7 @@ const HIKARI_VOICE = "d8WcCpplp8meHt10UhL8";
 const ANGEL_MODEL = "/companions/673852811403133503.vrm";
 
 describe("Hikari, the angel companion", () => {
-  it("is her own companion with her own name, voice and the angel model, and is nobody's default", () => {
+  it("is her own companion with her own name, voice and the angel model", () => {
     const hikari = CompanionRegistry.getById("hikari");
     expect(hikari.name).toBe("Hikari");
     expect(hikari.voiceId).toBe(HIKARI_VOICE);
@@ -22,23 +22,19 @@ describe("Hikari, the angel companion", () => {
     expect(hikari.ttsName).toBeTruthy();
     expect(hikari.unlockCost).toBe(0);
     expect(hikari.showInShowroom).toBe(true);
-    expect(hikari.defaultFor).toBeUndefined();
     expect(hikari.personalityMarkdown).toContain("Hikari");
     expect(hikari.personalityMarkdown).not.toMatch(/Matilda|Reina/);
     expect(hikari.getGrowthModifier(1)).toBeTruthy();
   });
 
-  it("leaves Reina's Matilda exactly as she was", () => {
-    const matilda = CompanionRegistry.getById("matilda");
-    expect(matilda.name).toBe("Matilda");
-    expect(matilda.voiceId).toBe("XrExE9yKIg1WjnnlVkGX");
-    expect(matilda.ttsName).toBe("mah-TILL-dah");
-    expect(matilda.defaultFor).toBe("reina");
-    expect(CompanionRegistry.getAll().filter(c => c.defaultFor === "reina").map(c => c.id)).toEqual(["matilda"]);
+  // Owner decision 2026-11-10: Matilda is Hikari (matildaIsHikari.test.ts). Reina's companion is Hikari now.
+  it("is Reina's companion, and the old id matilda reaches her", () => {
+    expect(CompanionRegistry.getById("matilda").id).toBe("hikari");
+    expect(CompanionRegistry.getAll().filter(c => c.defaultFor === "reina").map(c => c.id)).toEqual(["hikari"]);
     const config = JSON.parse(fs.readFileSync(path.join(process.cwd(), "children.config.json"), "utf8")) as {
       childCompanionIds: Record<string, string>;
     };
-    expect(config.childCompanionIds.reina).toBe("matilda");
+    expect(config.childCompanionIds.reina).toBe("hikari");
   });
 
   it("offers Hikari's chosen voice as her default FaceTime voice", () => {

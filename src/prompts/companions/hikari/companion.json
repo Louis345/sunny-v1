@@ -5,5 +5,6 @@
   "ttsName": "hee-KAH-ree",
   "unlockCost": 0,
   "vrmPath": "/companions/673852811403133503.vrm",
-  "showInShowroom": true
+  "showInShowroom": true,
+  "defaultFor": "reina"
 }

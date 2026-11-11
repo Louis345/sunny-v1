@@ -1,3 +1,4 @@
+import { canonicalCompanionId, legacyCompanionIds } from "../shared/companionAliases";
 import { currentDemographics } from "./currentDemographics";
 import {createHash} from "node:crypto";
 import type {WordRadarNodeConfig} from "../shared/adventureTypes";
@@ -439,14 +440,17 @@ export function getChildChart(childIdRaw: string, opts: ChildChartOptions | Spel
     Math.floor(Number(manifest.economy?.coinBalance ?? learningProfile.companionCurrency ?? 0)),
   );
   const requestedCompanion = process.env.SUNNY_COMPANION_ID?.trim().toLowerCase();
-  const presetId =
+  // Old ids in her saved files (Reina's "matilda") name the companion they became (owner, 2026-11-10).
+  const presetId = canonicalCompanionId(
     (requestedCompanion === "elli" ? "elli" : undefined) ??
     manifest.companion?.companionId ??
     learningProfile.companion?.companionId ??
     cfg?.childCompanionIds?.[childId] ??
     cfg?.defaultCompanionId ??
-    "elli";
-  const presetBlock = cfg?.companions?.[presetId];
+    "elli");
+  const presetBlock =
+    cfg?.companions?.[presetId] ??
+    legacyCompanionIds(presetId).map((legacyId) => cfg?.companions?.[legacyId]).find(Boolean);
   if (cfg && !presetBlock) {
     throw new Error(
       `children.config.json: unknown companion preset "${presetId}" for child "${childId}"`,

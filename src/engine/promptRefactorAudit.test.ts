@@ -47,7 +47,7 @@ describe("prompt refactor audit", () => {
     );
     write(
       root,
-      "src/companions/matilda.md",
+      "src/companions/hikari.md",
       [
         "VOICE RULE: NEVER use Japanese, emoji, or any non-English characters.",
         "## Goodbye",

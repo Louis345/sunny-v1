@@ -14,7 +14,7 @@ describe("profile companionCare view", () => {
     if (!profile.companionCare) return;
     expect(profile.companionCare).toMatchObject({
       childId: "reina",
-      companionId: "matilda",
+      companionId: "hikari",
       vitals: expect.objectContaining({
         hunger: expect.any(Number),
         mood: expect.any(Number),

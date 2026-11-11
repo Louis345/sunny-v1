@@ -5,7 +5,7 @@ import {
 } from "../stream-speak";
 import { runAgent } from "../agents/elli/run";
 import { connectFlux, FluxHandle } from "../deepgram-turn";
-import { MATILDA } from "../companions/loader";
+import { HIKARI } from "../companions/loader";
 import { type ModelMessage } from "ai";
 import {
   State,
@@ -44,7 +44,7 @@ async function streamAndSpeak(
   setState(State.PROCESSING);
   resetConsecutiveHits();
 
-  // Pass last 3 Matilda utterances so ElevenLabs adapts prosody to conversation flow
+  // Pass last 3 Hikari utterances so ElevenLabs adapts prosody to conversation flow
   const previousText = history
     .filter((m) => m.role === "assistant")
     .slice(-3)
@@ -81,7 +81,7 @@ async function streamAndSpeak(
     response = await runAgent({
       history,
       userMessage: userText,
-      profile: MATILDA,
+      profile: HIKARI,
       onToken: (token) => tts.sendText(token),
       signal: abort.signal,
     });
@@ -97,11 +97,11 @@ async function streamAndSpeak(
 
   const claudeMs = Date.now() - claudeStart;
   console.log(`  ⏱️  [${ts()}] Claude done streaming (${claudeMs}ms)`);
-  console.log(`\n  📚 Matilda: ${response}\n`);
+  console.log(`\n  📚 Hikari: ${response}\n`);
 
   tts.done.then(async () => {
     if (getState() !== State.SPEAKING) return;
-    console.log(`\n  💬 Matilda finished. Your turn, Reina!\n`);
+    console.log(`\n  💬 Hikari finished. Your turn, Reina!\n`);
     setState(State.LISTENING);
 
     if (sessionEnding) {
@@ -133,7 +133,7 @@ function handleEndOfTurn(transcript: string): void {
 
   roundNumber++;
   console.log(`  ── Round ${roundNumber} ──────────────────────────────`);
-  console.log(`  📚 Matilda is thinking + speaking...`);
+  console.log(`  📚 Hikari is thinking + speaking...`);
 
   const claudeStart = Date.now();
   streamAndSpeak(transcript, claudeStart).catch(console.error);
@@ -142,21 +142,21 @@ function handleEndOfTurn(transcript: string): void {
 async function main(): Promise<void> {
   console.log("\n╔══════════════════════════════════════════════════╗");
   console.log("║                                                  ║");
-  console.log("║  📚  MATILDA — Reina's Companion (Flux)  📚     ║");
+  console.log("║  📚  HIKARI — Reina's Companion (Flux)  📚      ║");
   console.log("║                                                  ║");
   console.log("║  Deepgram Flux + RMS barge-in (hybrid)            ║");
-  console.log("║  Matilda will talk. Interrupt anytime!            ║");
+  console.log("║  Hikari will talk.  Interrupt anytime!            ║");
   console.log("║  Real conversation — no walkie-talkie.           ║");
   console.log("║                                                  ║");
   console.log("║  Press Ctrl+C to exit.                           ║");
   console.log("║                                                  ║");
   console.log("╚══════════════════════════════════════════════════╝\n");
 
-  setStreamVoiceId(MATILDA.voiceId);
-  console.log(`  Voice: ${MATILDA.voiceId}`);
+  setStreamVoiceId(HIKARI.voiceId);
+  console.log(`  Voice: ${HIKARI.voiceId}`);
   console.log(`  Turn detection: Deepgram Flux (listening) + RMS barge-in (speaking)\n`);
 
-  setSessionLabels({ companionName: "Matilda", childName: "Reina" });
+  setSessionLabels({ companionName: "Hikari", childName: "Reina" });
 
   await recordSessionStart("Reina");
 
@@ -209,7 +209,7 @@ async function main(): Promise<void> {
 
   process.on("SIGINT", () => {
     console.log(
-      "\n\n  📚 Matilda: That was a championship round, Reina! やった! See you next time, champ!\n"
+      "\n\n  📚 Hikari: That was a championship round, Reina! やった! See you next time, champ!\n"
     );
     cleanupPlayback();
     flux.close();
@@ -217,9 +217,9 @@ async function main(): Promise<void> {
     process.exit(0);
   });
 
-  console.log("  📚 Matilda is thinking + speaking...");
+  console.log("  📚 Hikari is thinking + speaking...");
   const claudeStart = Date.now();
-  await streamAndSpeak(MATILDA.openingLine, claudeStart);
+  await streamAndSpeak(HIKARI.openingLine, claudeStart);
 }
 
 main().catch((err) => {

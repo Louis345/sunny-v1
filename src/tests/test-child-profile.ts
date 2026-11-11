@@ -88,12 +88,12 @@ describe("buildProfile (TASK-004)", () => {
     expect(profile.companionContext).toContain("Elli");
   });
 
-  it("buildProfile reina returns Matilda context", async () => {
+  it("buildProfile reina returns Hikari context (Matilda is Hikari, 2026-11-10)", async () => {
     const profile = await buildProfile("reina");
     expect(profile).not.toBeNull();
     if (!profile) return;
     expect(profile.ttsName).toBe("Ray-nah");
-    expect(profile.companionContext).toContain("Matilda");
+    expect(profile.companionContext).toContain("Hikari");
   });
 
   it("Friday spelling-test profile config has no generated boss enabled", async () => {
@@ -127,14 +127,14 @@ describe("buildProfile (TASK-004)", () => {
     const profile = await buildProfile("ila");
     expect(profile).not.toBeNull();
     if (!profile) return;
-    const registry = CompanionRegistry.getById("matilda");
+    const registry = CompanionRegistry.getById("hikari");
     const overrideContext = [
       `## Companion: ${registry.name}`,
       registry.personalityMarkdown,
       `## Growth context (level ${profile.level ?? 1})`,
       registry.getGrowthModifier(profile.level ?? 1),
     ].join("\n\n");
-    expect(overrideContext).toContain("Matilda");
+    expect(overrideContext).toContain("Hikari");
   });
 
   it('buildProfile("ila") returns games namespace with all required keys', async () => {

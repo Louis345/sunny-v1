@@ -18,7 +18,7 @@ import express, { type Express, type Request, type Response } from "express";
 import fs from "fs";
 import path from "path";
 import { spawn } from "child_process";
-import { ELLI, MATILDA } from "../companions/loader";
+import { ELLI, HIKARI } from "../companions/loader";
 import { generateStoryImage } from "../utils/generateStoryImage";
 import { generateStoryVideo } from "../utils/generateStoryVideo";
 import { buildProfile } from "../profiles/buildProfile";
@@ -331,7 +331,7 @@ import { currentBoardInstance } from "../engine/learningBoardInstances";
 
 const companions = {
   Ila: ELLI,
-  Reina: MATILDA,
+  Reina: HIKARI,
 } as const;
 
 type ChildName = keyof typeof companions;
@@ -1904,8 +1904,8 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
         });
         const companionMetadata = identity.companionId === "elli"
           ? ELLI
-          : identity.companionId === "matilda"
-            ? MATILDA
+          : identity.companionId === "hikari"
+            ? HIKARI
             : config;
         return {
           childName,

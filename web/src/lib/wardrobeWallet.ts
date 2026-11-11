@@ -46,15 +46,15 @@ export function walletShopItems(items: readonly WardrobeStoreItem[], ownedWardro
 }
 
 /**
- * Owner 2026-11-09: the angel Ila dressed was ingested as "matilda" (Reina's homework companion's id); she is now
- * Hikari. Ila's angel look moves to Hikari once. Only Ila: Reina's Matilda look is hers. Idempotent, and a look
- * already on Hikari is never overwritten.
+ * Owner 2026-11-10: Matilda is Hikari. A look saved under the old id "matilda" (Ila's angel dress, Reina's
+ * homework companion's closet) moves to Hikari once, for every child. Idempotent, and a look already on Hikari is
+ * never overwritten.
  */
 export function migrateChildWardrobeState(state: WardrobeStoreState, childId: string): WardrobeStoreState {
   const { matilda, hikari } = state.equippedByCompanion;
-  if (childId !== "ila" || !matilda || hikari) return state;
+  if (!matilda || hikari) return state;
   const { matilda: _moved, ...rest } = state.equippedByCompanion;
-  console.log(` 🎮 [wardrobe-wallet] [angel-look-migration] [moved] child=${childId} from=matilda to=hikari outfit=${matilda.outfitItemId ?? "none"} accessory=${matilda.accessoryItemId ?? "none"}`);
+  console.log(` 🎮 [wardrobe-wallet] [matilda-look-migration] [moved] child=${childId} from=matilda to=hikari outfit=${matilda.outfitItemId ?? "none"} accessory=${matilda.accessoryItemId ?? "none"}`);
   return { ...state, equippedByCompanion: { ...rest, hikari: matilda } };
 }
 

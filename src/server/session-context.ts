@@ -231,7 +231,7 @@ export function createSessionContext(opts: {
         ? "Elli"
         : opts.childName === "creator"
           ? "Charlotte"
-          : "Matilda"),
+          : "Hikari"),
     sessionType: opts.sessionType,
     canvas,
     correctStreak: 0,

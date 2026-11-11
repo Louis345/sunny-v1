@@ -186,17 +186,17 @@ const COMPANION_STORE_PROFILES: Readonly<Record<string, CompanionStoreProfile>> 
       },
     ],
   },
-  matilda: {
+  hikari: {
     favoriteStyleTags: ["classic", "elegant", "blue", "magical"],
     desires: [
       {
-        id: "matilda-elegant-outfit",
+        id: "hikari-elegant-outfit",
         label: "a clever, classic outfit",
         styleTags: ["classic", "elegant"],
         matchingItemIds: ["sleeveless-dress"],
       },
       {
-        id: "matilda-magical-accessory",
+        id: "hikari-magical-accessory",
         label: "one magical finishing touch",
         styleTags: ["magical"],
         matchingItemIds: ["star-halo", "cat-ears"],

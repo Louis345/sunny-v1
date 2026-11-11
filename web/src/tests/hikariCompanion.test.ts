@@ -19,24 +19,25 @@ import { migrateChildWardrobeState, savedEquippedLook } from "../lib/wardrobeWal
 // Owner-reported 2026-11-09: the FaceTime angel was labelled "Matilda", Reina's homework companion's name. The angel
 // is now Hikari. Why the human caught it: Ila sees the name; logs said companion=matilda, which looked right; the lab
 // never checked that a showroom character is not another child's homework companion.
+// Owner decision 2026-11-10: Matilda is Hikari. The 11/09 split left two picker entries with one angel look; both
+// girls saw it on screen, while every log line carried a valid id. One companion now, Reina's default; "matilda" is
+// only an alias for saved data.
 const ANGEL_MODEL = "/companions/673852811403133503.vrm";
 const HIKARI_VOICE = "d8WcCpplp8meHt10UhL8";
 
 describe("Hikari in the FaceTime picker", () => {
-  it("lists Hikari with the angel model and her own default voice, nobody's default companion", () => {
+  it("lists Hikari with the angel model and her own default voice, as Reina's companion", () => {
     const hikari = COMPANION_MANIFEST.find(entry => entry.id === "hikari");
     expect(hikari?.name).toBe("Hikari");
     expect(hikari?.vrmUrl).toBe(ANGEL_MODEL);
     expect(hikari?.voices.filter(v => v.default).map(v => v.id)).toEqual([HIKARI_VOICE]);
-    expect(hikari?.defaultFor).toBeUndefined();
+    expect(hikari?.defaultFor).toBe("reina");
     expect(hikari?.showroom?.scripts.en.intro).toMatch(/^Hi! I'm Hikari/);
   });
 
-  it("keeps Matilda's entry as Reina's Matilda", () => {
-    const matilda = COMPANION_MANIFEST.find(entry => entry.id === "matilda");
-    expect(matilda?.name).toBe("Matilda");
-    expect(matilda?.defaultFor).toBe("reina");
-    expect(matilda?.voices.filter(v => v.default).map(v => v.id)).toEqual(["XrExE9yKIg1WjnnlVkGX"]);
+  it("has no separate Matilda entry: one angel, one name", () => {
+    expect(COMPANION_MANIFEST.find(entry => entry.id === "matilda")).toBeUndefined();
+    expect(COMPANION_MANIFEST.filter(entry => entry.vrmUrl === ANGEL_MODEL).map(entry => entry.id)).toEqual(["hikari"]);
   });
 
   it("greets as Hikari when the call picks up", () => {
@@ -87,8 +88,9 @@ describe("Hikari's wardrobe is the angel body's wardrobe", () => {
   });
 });
 
-// Ila bought the navy dress for the angel while the angel's id was "matilda" (kiosk localStorage 2026-11-08).
-describe("Ila's angel look moves from matilda to hikari once", () => {
+// Ila bought the navy dress for the angel while the angel's id was "matilda" (kiosk localStorage 2026-11-08); Reina's
+// homework companion's closet is keyed "matilda" too. Both move to Hikari once.
+describe("a look saved under matilda moves to hikari once", () => {
   const kioskState = (): WardrobeStoreState => ({
     version: 1,
     ledger: [],
@@ -105,9 +107,9 @@ describe("Ila's angel look moves from matilda to hikari once", () => {
     expect(migrateChildWardrobeState(once, "ila")).toEqual(once);
   });
 
-  it("never touches another child's Matilda look", () => {
-    const reina = kioskState();
-    expect(migrateChildWardrobeState(reina, "reina")).toEqual(reina);
+  it("moves Reina's Matilda look to Hikari too", () => {
+    const moved = migrateChildWardrobeState(kioskState(), "reina");
+    expect(moved.equippedByCompanion).toEqual({ hikari: { outfitItemId: "sleeveless-dress" } });
   });
 
   it("does not overwrite a look Ila already put on Hikari", () => {

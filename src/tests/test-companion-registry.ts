@@ -3,8 +3,9 @@ import { CompanionRegistry } from "../prompts/companions/registry";
 import { tryLoadIntroOnlyShowroomCompanion } from "../server/introOnlyShowroomCompanion";
 
 describe("CompanionRegistry", () => {
-  it("discovers all prompt companions (elli, matilda, hikari, showroom chars)", () => {
-    expect(CompanionRegistry.getAll().length).toBe(8);
+  // Matilda is Hikari (owner, 2026-11-10): one companion, "matilda" is an alias.
+  it("discovers all prompt companions (elli, hikari, showroom chars)", () => {
+    expect(CompanionRegistry.getAll().length).toBe(7);
   });
 
   it("getById returns elli", () => {
@@ -15,10 +16,10 @@ describe("CompanionRegistry", () => {
     expect(elli.unlockCost).toBe(0);
   });
 
-  it("getById returns matilda", () => {
-    const matilda = CompanionRegistry.getById("matilda");
-    expect(matilda.id).toBe("matilda");
-    expect(matilda.defaultFor).toBe("reina");
+  it("getById resolves the old id matilda to hikari, Reina's companion", () => {
+    const hikari = CompanionRegistry.getById("matilda");
+    expect(hikari.id).toBe("hikari");
+    expect(hikari.defaultFor).toBe("reina");
   });
 
   it("getById returns yukari with configured voice", () => {
@@ -64,12 +65,8 @@ describe("CompanionRegistry", () => {
   it("keeps Elli child-neutral while preserving explicitly paired companions", () => {
     expect(CompanionRegistry.getById("elli").personalityMarkdown).not.toMatch(/\bIla\b|\bReina\b/);
     expect(CompanionRegistry.getById("elli").personalityMarkdown).toContain("active child");
-    expect(CompanionRegistry.getById("matilda").personalityMarkdown).toMatch(
-      /\bReina\b/,
-    );
-    expect(CompanionRegistry.getById("matilda").personalityMarkdown).not.toMatch(
-      /\bIla\b/,
-    );
+    // Hikari is called by both girls on FaceTime, so her persona names neither child.
+    expect(CompanionRegistry.getById("hikari").personalityMarkdown).not.toMatch(/\bIla\b|\bReina\b/);
   });
 
   it("getGrowthModifier returns different strings across tiers", () => {

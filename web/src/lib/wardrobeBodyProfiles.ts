@@ -46,7 +46,7 @@ export const WARDROBE_BODY_PROFILES: Readonly<
   "vroid-slim-v1": {
     id: "vroid-slim-v1",
     label: "VRoid Slim v1",
-    classificationBasis: "Elli and Matilda source models share near-identical bind proportions.",
+    classificationBasis: "Elli and Hikari (angel) source models share near-identical bind proportions.",
     bindPoseMetrics: {
       headToFoot: 1.2603,
       shoulderBoneSpan: 0.0441,
@@ -164,9 +164,12 @@ export const WARDROBE_COMPANION_BODY_ASSIGNMENTS: Readonly<
     sourceModelUrl: "/companions/Kefla.vrm",
     sourceBodyProfileId: "kefla-v1",
   },
+  // Keyed "matilda" because the angel body's prepared assets, fitted garments and human approvals carry that asset id
+  // (gitignored VRMs on the kiosk). The companion is Hikari (owner, 2026-11-10); renaming the asset id needs a kiosk
+  // run of scripts/prepareWardrobe.ts and prepareWardrobeGarments.ts.
   matilda: {
     companionId: "matilda",
-    companionName: "Matilda",
+    companionName: "Hikari",
     activeModelUrl: "/companions/673852811403133503.vrm",
     activeBodyProfileId: "vroid-slim-v1",
     sourceModelUrl: "/companions/673852811403133503.vrm",
@@ -227,8 +230,8 @@ for (const assignment of Object.values(WARDROBE_COMPANION_BODY_ASSIGNMENTS)) {
 }
 
 /**
- * A companion that shares another companion's model file (Hikari is the angel model that was first ingested as
- * Matilda) wears that body's prepared asset, human-reviewed fits and pair approvals. Derived from the manifest
+ * A companion that shares another companion's model file (Hikari wears the angel body whose assets were prepared
+ * under the old id "matilda") wears that body's prepared asset, human-reviewed fits and pair approvals. Derived from the manifest
  * model URL so fit data is never copied per name.
  */
 export function wardrobeBodyOwnerId(companionId: string): string {
