@@ -318,12 +318,41 @@ export function describeTutorPlanForCompanion(cycle: CompanionCycle, nodeId?: st
   const decision = [...(cycle.decisionHistory ?? [])].reverse().find(row => row.eventType === "theory_decided");
   const node = nodeId ? cycle.nodes.find(candidate => candidate.nodeId === nodeId) : undefined;
   const plan = decision?.selfReview?.whatIChangeNow;
+  const said = tutorPlanLinesFor(cycle.childId, decision?.decisionId, [plan, decision?.selfReview?.whatIKeep, ...(decision?.change ?? [])]);
   const lines = ["[Her tutor's plan (the Planner, in its own words)]",
-    ...(plan ? [`What the tutor changes now: "${plan}"`] : decision?.reason ? [`The tutor's latest reasoning: "${decision.reason.slice(0, 400)}"`] : []),
-    ...(decision?.selfReview?.whatIKeep ? [`What the tutor keeps because it worked for her: "${decision.selfReview.whatIKeep}"`] : []),
-    ...(decision?.change?.length ? ["The tutor's changes for this board:", ...decision.change.map(line => `- ${line}`)] : []),
+    ...(plan ? [`What the tutor changes now: "${plan}"${said(plan)}`] : decision?.reason ? [`The tutor's latest reasoning: "${decision.reason.slice(0, 400)}"`] : []),
+    ...(decision?.selfReview?.whatIKeep ? [`What the tutor keeps because it worked for her: "${decision.selfReview.whatIKeep}"${said(decision.selfReview.whatIKeep)}`] : []),
+    ...(decision?.change?.length ? ["The tutor's changes for this board:", ...decision.change.map(line => `- ${line}${said(line)}`)] : []),
     ...(node ? [`This stop, "${node.title}", is for: ${node.openingScreen?.purpose ?? "not stated"}.${node.focus ? ` Aimed at: ${node.focus}.` : ""}`] : [])];
   return lines.length > 1 ? lines.join("\n") : "";
+}
+
+/**
+ * Which plan lines Elli has already said to her (BUGS.md 2026-11-10 evening: she asked one keyboard check four times).
+ * Per child and Planner decision, in memory: a reply "carries" a line when it shares most of the line's own words.
+ */
+const tutorPlanDelivery = new Map<string, { decisionId: string; pending: string[]; said: Map<string, string> }>();
+const FUNCTION_WORDS = new Set(["the", "and", "her", "she", "you", "your", "not", "for", "with", "this", "that", "are", "was", "has", "have", "his", "him"]);
+const planWords = (text: string) => new Set((text.toLowerCase().match(/[\p{L}\p{N}]{3,}/gu) ?? []).filter(word => !FUNCTION_WORDS.has(word)).map(word => word.replace(/s$/, "")));
+function tutorPlanLinesFor(childId: string, decisionId: string | undefined, lines: Array<string | undefined>) {
+  let entry = tutorPlanDelivery.get(childId);
+  if (!entry || entry.decisionId !== (decisionId ?? "")) tutorPlanDelivery.set(childId, entry = { decisionId: decisionId ?? "", pending: [], said: new Map() });
+  entry.pending = lines.filter((line): line is string => Boolean(line?.trim()));
+  const said = entry.said;
+  return (line: string) => said.has(line) ? ` (You already said this to her: "${said.get(line)}")` : "";
+}
+
+export function noteCompanionReplyForTutorPlan(childId: string, reply: string): void {
+  const entry = tutorPlanDelivery.get(childId);
+  if (!entry || !reply.trim()) return;
+  const replyWords = planWords(reply);
+  for (const line of entry.pending) {
+    if (entry.said.has(line)) continue;
+    const words = [...planWords(line)], shared = words.filter(word => replyWords.has(word)).length;
+    if (!words.length || shared < Math.min(words.length, Math.max(2, Math.min(3, Math.ceil(words.length / 2))))) continue;
+    entry.said.set(line, reply.trim().slice(0, 160));
+    console.log(` 🎮 [companion] [tutor-plan] [delivered] child=${childId} decision=${entry.decisionId} shared=${shared}/${words.length}`);
+  }
 }
 
 /** The current board's path, its saved progress and the next step: the only answer to "where did I leave off". */
