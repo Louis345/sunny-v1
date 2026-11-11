@@ -148,6 +148,11 @@ export function evaluateAcademicPredictions(
   });
 }
 
+/** When she did the work: the test day when the parent gave one, otherwise the upload time. */
+function takenAt(source: ConfirmedReturnedWork["source"]): string {
+  return source.testDate && /^\d{4}-\d{2}-\d{2}$/.test(source.testDate) ? `${source.testDate}T12:00:00.000Z` : source.capturedAt;
+}
+
 function observationsFromReturnedWork(input: ConfirmedReturnedWork): LearningObservation[] {
   return input.items.map((item) => ({
     observationId: `observation:${stableId({ sourceId: input.source.sourceId, itemId: item.itemId })}`,
@@ -164,7 +169,7 @@ function observationsFromReturnedWork(input: ConfirmedReturnedWork): LearningObs
     assistance: { status: "unknown", scaffolds: [] },
     exposure: "unknown",
     provenance: input.source.type === "delayed_reassessment" ? "delayed_reassessment" : "graded_work",
-    observedAt: input.source.capturedAt,
+    observedAt: takenAt(input.source),
     confounds: item.extractionConfidence < 0.8 ? ["low_extraction_confidence"] : [],
   }));
 }
@@ -186,7 +191,7 @@ export function recordConfirmedReturnedWork(
     if (!target || row.constructLinks.length !== 1 || row.constructLinks[0].role !== "primary" || row.constructLinks[0].constructId !== target.constructId) throw new Error(`returned_spelling_mapping_invalid:${row.itemId}`);
   }
   const observations = observationsFromReturnedWork(input);
-  const evaluations = evaluateAcademicPredictions(cycle.academicPredictions, observations, input.source.capturedAt);
+  const evaluations = evaluateAcademicPredictions(cycle.academicPredictions, observations, takenAt(input.source));
   const score = input.score && input.score.possible > 0 ? round(input.score.earned / input.score.possible) : null;
   return transitionLearningCycle(input.childId, input.homeworkId, cycle.revision, {
     type: "returned_work_confirmed",
@@ -195,7 +200,7 @@ export function recordConfirmedReturnedWork(
     evaluations,
     calibration: {
       calibrationId: `calibration:${stableId({ sourceId: input.source.sourceId, homeworkId: input.homeworkId })}`,
-      gradedAt: input.source.capturedAt,
+      gradedAt: takenAt(input.source),
       score,
       status: "inconclusive",
       gradedItems: input.items.map((item) => ({

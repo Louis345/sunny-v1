@@ -274,6 +274,8 @@ export type LearningEvidenceSourceRef = {
   sourceFile: string;
   provenance: "real_child" | "caregiver" | "teacher" | "school" | "system";
   capturedAt: string;
+  /** The day she took the test (family calendar, YYYY-MM-DD); capturedAt is when the parent uploaded it. */
+  testDate?: string;
   assignmentLink: {
     homeworkId: string;
     method: "explicit_selection" | "return_tag" | "fingerprint" | "content_match";
