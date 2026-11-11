@@ -13,6 +13,7 @@ import { childFeedbackLines } from "./plannerIntrospection";
 import { captureGame } from "./prebuiltBoard";
 import { gameTrackRecord } from "./gameTrackRecord";
 import {
+  getLearningCycle,
   transitionLearningCycle,
   type LearningCycleNodeContract,
   type LearningCycleRecordV2,
@@ -212,8 +213,16 @@ export async function prepareGeneratedSpellingGame(input: {
   fs.mkdirSync(path.dirname(file), { recursive: true });
   fs.writeFileSync(`${file}.${process.pid}.tmp`, html); fs.renameSync(`${file}.${process.pid}.tmp`, file);
   const hash = (value: unknown) => createHash("sha256").update(typeof value === "string" ? value : JSON.stringify(value)).digest("hex");
+  // A build takes minutes; her session keeps writing to the cycle meanwhile (Ila, 2026-11-11: a call moved it from
+  // revision 588 to 589 and a finished game was thrown away). Bind against the latest cycle when this stop is unchanged.
+  const latest = getLearningCycle(cycle.childId, cycle.homeworkId, opts);
+  const now = latest?.nodes.find(candidate => candidate.nodeId === node.nodeId);
+  if (!latest || !now || now.artifactBinding || JSON.stringify(now.evidenceContract) !== JSON.stringify(node.evidenceContract)) {
+    throw new Error(`spelling_game_stop_changed:${node.nodeId}`);
+  }
+  if (latest.revision !== cycle.revision) console.log(` 🎮 [spelling-game] [build] [rebased] node=${node.nodeId} from=${cycle.revision} to=${latest.revision}`);
   console.log(` 🎮 [spelling-game] [build] [bound] node=${node.nodeId} file=${filename} seconds=${Math.round((Date.now() - started) / 1000)}`);
-  return transitionLearningCycle(cycle.childId, cycle.homeworkId, cycle.revision, { type: "artifact_bound", nodeId: node.nodeId, artifact: {
+  return transitionLearningCycle(cycle.childId, cycle.homeworkId, latest.revision, { type: "artifact_bound", nodeId: node.nodeId, artifact: {
     contentId: `${cycle.homeworkId}:${node.nodeId}`, artifactId: `${cycle.homeworkId}:${node.nodeId}:generated`,
     localArtifactPath: `/homework/games/${cycle.homeworkId}/${filename}`,
     localArtworkPath: node.artwork.localPath ?? thumbnailUrlForActivity("generated-game"),
