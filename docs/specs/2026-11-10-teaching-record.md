@@ -217,3 +217,16 @@ The independent review checked this spec against the code. These changes overrid
 | 3 | Child data out of the repo, then indexed conversation ledger with FTS, speaker attribution, cited facts, living profile |
 | 4 | Event store as the single record (contract bump, owner-run import) |
 | 5 | Multi-family readiness |
+
+## 14. Owner's vision, in one picture (2026-11-11)
+
+"When a child logs in, Sunny knows that child."
+
+- **Planner:** one database tool. "Show me 11/4", "other weeks with silent-e", "what I tried and how it went." It pulls,
+  uses, and lets go; nothing is held in context.
+- **Companions: shared knowledge, own personality.** Every companion reads the same `read_about_her` (likes, dislikes,
+  school life, what is going on this week), so Elli and Hikari both know her. Each companion keeps only its own
+  personality, quirks, and its own relationship with her (what she calls it, their in-jokes) in its own memory.
+- **Companions write back.** After a call, a small model (Haiku) reads the turns, writes `companion.fact_learned`
+  with the exact quote, and code checks the quote exists before the fact enters the shared profile. The Planner
+  reads the same profile.
