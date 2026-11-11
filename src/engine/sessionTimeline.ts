@@ -25,6 +25,14 @@ function readLines(file: string): Trace[] {
 
 export type SessionGame = { nodeId: string; title: string; openedMin: number; firstAnswerMin: number | null; answers: number; right: number; finished: boolean };
 
+/**
+ * The learning measure (owner, 2026-11-10): an answer right on her first try with no help recorded. Every try is saved
+ * (retries are practice) and helped answers are saved; the retro, the scorecard and the rating count this one thing.
+ */
+export const RIGHT_ON_HER_OWN = "Right on her first try on her own (the learning measure)";
+export const isFirstTryOnHerOwn = (row: { assistance?: { status?: string }; confounds?: string[] }) =>
+  row.assistance?.status === "unassisted" && !(row.confounds ?? []).includes("retry");
+
 /** Her saved answers, for counting right answers the way Sunny scored them (math games never log right or wrong). */
 type SavedAnswers = { nodes: Array<{ nodeId: string }>; observations: Array<Pick<LearningObservation, "sourceId" | "observedAt" | "result">> };
 

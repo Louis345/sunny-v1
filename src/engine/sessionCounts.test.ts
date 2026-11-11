@@ -35,3 +35,21 @@ it("counts each game's right answers from the saved score when the game log has 
   expect(sessionGames(dir, cycle)[0]).toMatchObject({ answers: 2, right: 1 });
   expect(buildSessionTimeline(dir, cycle)).toContain("2 answers, 1 right");
 });
+
+// 2026-11-10, rating Ila's 16 sessions: G5 read "retro 14 right, saved 23" and "retro 6, saved 12". Why the human
+// caught it: the retro and the saved score disagreed on the same session. Why logs did not: each side logged its own
+// count with no definition beside it; the rating's "retro" was the game log's right flags (first answers), while
+// "saved" counted every saved row, retries (saved since bab8b619) and helped answers included. Why the lab missed
+// it: lab sessions had one try per item and no help. Invariant: the retro states one defined number, right on her
+// first try on her own (the learning measure), and the rating reads that number back from the written retro.
+it("states right first tries on her own in the retro, and the rating reads the same number back", async () => {
+  const { retroCountsLine } = await import("./sessionHandoff");
+  const { retroRightOnHerOwn } = await import("./sessionRatingPacket");
+  const row = (correct: boolean, status: string, confounds: string[] = []) => ({ ...obs("activity:play-1:scout", correct), assistance: { status, scaffolds: [] }, confounds });
+  const cycle = { nodes: [{ nodeId: "scout" }], observations: [row(true, "unassisted", ["first_try"]), row(false, "unassisted", ["first_try"]), row(true, "unassisted", ["retry", "attempt:2"]),
+    row(true, "assisted"), row(true, "unknown"), { ...row(true, "unassisted"), provenance: "graded_work" }, { ...row(true, "unassisted"), observedAt: "2026-11-09T12:00:00Z" }] } as never;
+  const line = retroCountsLine(cycle, "2026-11-10T12:00:00Z");
+  expect(line).toBe("- Right on her first try on her own (the learning measure): 1 of 2 first tries on her own; 4 right counting retries and help.");
+  expect(retroRightOnHerOwn(`# Handoff\n\n**Games, counted by code:**\n${line}\n`)).toBe(1);
+  expect(retroRightOnHerOwn("# Handoff written before 11/10\n- Game: 3 answers, 2 right")).toBeUndefined();
+});

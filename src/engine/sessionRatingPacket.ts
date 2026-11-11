@@ -8,6 +8,7 @@ import { measureRecordLines, type SessionPacket } from "./sessionRating";
 import { gameTrackRecord } from "./gameTrackRecord";
 import { observationNode } from "./observationNode";
 import { sessionMinutes } from "./sessionTime";
+import { RIGHT_ON_HER_OWN } from "./sessionTimeline";
 
 /** When the 11/10 batch reached Saori: games built after it must report their step. */
 const BATCH_AT = Date.parse("2026-11-10T20:00:00Z");
@@ -46,6 +47,12 @@ export function earlierStartupLines(serverLogFile: string): string[] {
     .flatMap(name => fs.readFileSync(path.join(dir, name), "utf8").split("\n").filter(line => line.includes("[startup-check]")));
 }
 
+/** The right count a written retro states (the learning measure); undefined when it states none (older retros). */
+export function retroRightOnHerOwn(text: string): number | undefined {
+  const found = text.split("\n").find(line => line.startsWith(`- ${RIGHT_ON_HER_OWN}: `))?.slice(RIGHT_ON_HER_OWN.length + 4).match(/^(\d+) of /)?.[1];
+  return found === undefined ? undefined : Number(found);
+}
+
 /** Reads one saved session and the records it touched into the facts the rating reads. Read-only. */
 export function loadSessionPacket(input: { childId: string; sessionDir: string; serverLogFile?: string }, opts: LearningCycleRepositoryOptions = {}): SessionPacket {
   const read = (name: string) => { const file = path.join(input.sessionDir, name); return fs.existsSync(file) ? fs.readFileSync(file, "utf8") : ""; };
@@ -68,7 +75,7 @@ export function loadSessionPacket(input: { childId: string; sessionDir: string; 
   const words = new Map(cycle?.nodes.flatMap(node => Object.values(node.evidenceContract.spellingItems ?? {}).map(item => [item.id, item.word] as const)) ?? []);
   const observations = (cycle?.observations ?? []).filter(row => { const t = Date.parse(row.observedAt); return t >= from && t <= to; })
     .map(row => ({ observedAt: row.observedAt, itemId: row.itemId, childResponse: typeof row.childResponse === "string" ? row.childResponse : undefined, word: words.get(row.itemId),
-      result: { correct: row.result?.correct === true }, assistance: { status: row.assistance?.status ?? "unknown" }, provenance: String(row.provenance ?? "") }));
+      result: { correct: row.result?.correct === true }, assistance: { status: row.assistance?.status ?? "unknown" }, provenance: String(row.provenance ?? ""), retry: (row.confounds ?? []).includes("retry") }));
   const handoffDir = cycle ? path.join(resolveChildContextDir(input.childId, { rootDir: opts.rootDir }), "homework", "handoffs", cycle.homeworkId) : "";
   const stamp = startedAt.replace(/[:.]/g, "-");
   const traces = lines("game-traces.ndjson");
@@ -110,13 +117,15 @@ export function loadSessionPacket(input: { childId: string; sessionDir: string; 
     trackRecordGames: track.length,
   });
   const minutes = sessionMinutes(input.sessionDir, cycle);
+  const retroFile = handoffDir && fs.existsSync(handoffDir) ? fs.readdirSync(handoffDir).find(name => name.startsWith(stamp.slice(0, 19))) : undefined;
   return {
     extra, ...(minutes ? { minutes } : {}),
     childId: input.childId, domain: cycle?.domain ?? "unknown", sessionId: metadata.sessionId ?? path.basename(input.sessionDir), startedAt, endedAt,
     traces, events: lines("events.ndjson"), transcript, observations,
     evidence: [...(cycle?.evidence.academic ?? []), ...(cycle?.evidence.engagement ?? [])].map(row => ({ evidenceId: row.evidenceId, summary: row.summary })),
     productIssues: listChildProductIssues(input.childId, { rootDir: opts.rootDir, limit: 500 }).filter(row => { const t = Date.parse(row.createdAt); return t >= from && t <= to; }),
-    handoffWritten: Boolean(handoffDir && fs.existsSync(handoffDir) && fs.readdirSync(handoffDir).some(name => name.startsWith(stamp.slice(0, 19)))),
+    handoffWritten: Boolean(retroFile),
+    ...(retroFile ? { retroRight: retroRightOnHerOwn(fs.readFileSync(path.join(handoffDir, retroFile), "utf8")) } : {}),
     ...(serverLog ? { serverLog } : {}),
     ...(startupLog.length ? { startupLog } : {}),
   };

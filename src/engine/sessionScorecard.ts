@@ -3,7 +3,7 @@ import path from "node:path";
 import { resolveChildContextDir } from "../utils/contextRoot";
 import { getLearningCycle, type LearningCycleRecordV2, type LearningCycleRepositoryOptions } from "./learningCycleRepository";
 import { listChildProductIssues } from "./productIssues";
-import { sessionGames, type SessionGame } from "./sessionTimeline";
+import { isFirstTryOnHerOwn, sessionGames, type SessionGame } from "./sessionTimeline";
 import { raiseParentAlert } from "./sunnyHealth";
 import { scorePlannerCalls } from "./plannerIntrospection";
 import { minutesByDay, minutesLine, sessionMinutes, type SessionMinutes } from "./sessionTime";
@@ -45,7 +45,7 @@ export function writeSessionScorecard(input: { childId: string; homeworkId?: str
     const known = rows.filter(row => row.assistance.status !== "unknown");
     const retry = (row: (typeof rows)[number]) => row.confounds.includes("retry");
     // On her own means her first try without help; a retry is practice (owner, 2026-11-10).
-    const own = rows.filter(row => row.assistance.status === "unassisted" && !retry(row));
+    const own = rows.filter(isFirstTryOnHerOwn);
     const transcriptFile = path.join(input.sessionDir, "transcript.md");
     const childTurns = fs.existsSync(transcriptFile) ? fs.readFileSync(transcriptFile, "utf8").split(/\n### /).flatMap(block => block.includes("**user:**") ? [block.split("**user:**")[1].split("**assistant:**")[0]] : []) : [];
     const card: SessionScorecard = {

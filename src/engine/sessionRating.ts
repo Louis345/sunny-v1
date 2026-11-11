@@ -9,10 +9,12 @@ export type SessionPacket = {
   traces: Array<{ ts?: string; launchToken?: string; nodeId?: string; activityTitle?: string; type?: string; phase?: string; target?: unknown; correct?: unknown }>;
   events: Array<{ ts?: string; component?: string; action?: string; [key: string]: unknown }>;
   transcript: Array<{ ts: string; role: "child" | "companion"; text: string }>;
-  observations: Array<{ observedAt: string; itemId: string; childResponse?: string; word?: string; result: { correct: boolean }; assistance: { status: string }; provenance?: string }>;
+  observations: Array<{ observedAt: string; itemId: string; childResponse?: string; word?: string; result: { correct: boolean }; assistance: { status: string }; provenance?: string; retry?: boolean }>;
   evidence: Array<{ evidenceId: string; summary: string }>;
   productIssues: Array<{ createdAt: string; source?: string; issueType?: string; childUtterance?: string }>;
   handoffWritten: boolean;
+  /** The right count the session's written retro states: right on her first try on her own. Absent when none does. */
+  retroRight?: number;
   serverLog?: string[];
   /** Startup check lines from earlier days' dated server logs: the kiosk keeps running overnight (2026-11-10). */
   startupLog?: string[];
@@ -23,6 +25,7 @@ export type SessionPacket = {
 };
 
 import { minutesLine, type SessionMinutes } from "./sessionTime";
+import { isFirstTryOnHerOwn } from "./sessionTimeline";
 
 export type RatingLine = { id: string; what: string; target: string; value: string; pass: boolean };
 
@@ -60,7 +63,7 @@ const LINES: Array<{ id: string; what: string; target: string }> = [
   { id: "G2", what: "Bug tickets per sentence", target: "1" },
   { id: "G3", what: "Server logs kept across restarts", target: "7 days" },
   { id: "G4", what: "Files that disagree on the test date", target: "0" },
-  { id: "G5", what: "Answers shown right in the retro vs saved score", target: "equal" },
+  { id: "G5", what: "Right on her first try on her own (the learning measure): retro vs saved score", target: "equal" },
   { id: "G6", what: "Helped math answers marked on her own", target: "0" },
   { id: "G7", what: "Built games recording 0 ms", target: "0" },
   { id: "G8", what: "Letter-tap fragments saved as misspellings", target: "0" },
@@ -105,7 +108,8 @@ export function rateSession(packet: SessionPacket): { lines: RatingLine[]; verdi
   // A fragment is a wrong answer shorter than its word whose letters before the last match the word: one tap, not a try.
   const fragments = saved.filter(row => row.word && row.childResponse && !row.result.correct && row.childResponse.length < row.word.length
     && row.word.startsWith(row.childResponse.slice(0, -1)));
-  const gameRight = given.filter(row => row.correct === true).length, savedRight = saved.filter(row => row.result.correct).length;
+  // G5 (2026-11-10): one defined thing on both sides, right on her first try on her own (retries and help apart).
+  const savedOwnRight = saved.filter(row => row.result.correct && isFirstTryOnHerOwn({ assistance: row.assistance, confounds: row.retry ? ["retry"] : [] })).length;
   // Quiet stretches: over three minutes inside a session with no answer and no child turn; an offer is a companion check-in event.
   const moments = [packet.startedAt, ...given.map(row => row.ts!), ...packet.transcript.filter(row => row.role === "child").map(row => row.ts), packet.endedAt ?? packet.startedAt].filter(Boolean).sort();
   const stretches = moments.slice(1).flatMap((to, index) => minutes(moments[index], to) > STRETCH_MIN ? [{ from: moments[index], to }] : []);
@@ -123,7 +127,10 @@ export function rateSession(packet: SessionPacket): { lines: RatingLine[]; verdi
       return { value: packet.serverLog || packet.startupLog ? `no startup check for ${packet.childId} before the session` : "no server log to read", pass: false };
     })(),
     G2: { value: `${packet.productIssues.length} tickets for ${childBugReports.length || (packet.productIssues.length ? 1 : 0)} sentence${childBugReports.length === 1 || !childBugReports.length ? "" : "s"}`, pass: packet.productIssues.length <= Math.max(childBugReports.length, 0) || packet.productIssues.length === 0 },
-    G5: !allSaved ? { value: "not measurable: answers were not saved", pass: false } : packet.domain === "math" || gameRight !== savedRight ? { value: `retro ${gameRight} right, saved ${savedRight} right`, pass: gameRight === savedRight } : { value: `retro ${gameRight}, saved ${savedRight}`, pass: true },
+    G5: !given.length && !saved.length ? { value: "no answer this session", pass: true }
+      : !allSaved ? { value: "not measurable: answers were not saved", pass: false }
+      : packet.retroRight === undefined ? { value: "not measurable: no retro states her right first tries on her own", pass: false }
+      : { value: `retro ${packet.retroRight}, saved ${savedOwnRight} right on her first try on her own (the learning measure)`, pass: packet.retroRight === savedOwnRight },
     G7: !allSaved && !zeroMs.length ? { value: "not measurable: answers were not saved", pass: false } : { value: `${zeroMs.length} game${zeroMs.length === 1 ? "" : "s"} recorded 0 ms`, pass: zeroMs.length === 0 },
     G8: !allSaved ? { value: "not measurable: answers were not saved", pass: false } : { value: `${fragments.length} fragment${fragments.length === 1 ? "" : "s"}`, pass: fragments.length === 0 },
     G10: { value: given.length === 0 && packet.handoffWritten ? "a lesson retro for a session with no answers" : "none", pass: !(given.length === 0 && packet.handoffWritten) },

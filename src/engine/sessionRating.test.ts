@@ -139,3 +139,22 @@ describe("sessions where she never played", () => {
     expect(opened.lines.find(row => row.id === "G17")).toMatchObject({ pass: false, value: "1 game opened, none answered (Word Radar)" });
   });
 });
+
+// 2026-11-10 G5 (see sessionCounts.test.ts): the rating compared the game log's right flags with every saved row.
+// Both sides now count right first tries on her own: the retro's stated number against the saved answers.
+describe("G5 counts one defined thing on both sides", () => {
+  const saved = (correct: boolean, status: string, retry = false) => ({ observedAt: at(13), itemId: "p", childResponse: "1", result: { correct }, assistance: { status }, provenance: "practice", retry });
+  const packet = (retroRight: number | undefined): SessionPacket => ({ ...reinaMorning(), retroRight,
+    observations: [saved(true, "unassisted"), saved(true, "unassisted"), saved(true, "unassisted", true), saved(true, "assisted")] });
+  const g5 = (p: SessionPacket) => rateSession(p).lines.find(row => row.id === "G5")!;
+
+  it("passes when the retro's right first tries on her own equal the saved ones, retries and help apart", () => {
+    expect(g5(packet(2))).toMatchObject({ pass: true, value: "retro 2, saved 2 right on her first try on her own (the learning measure)" });
+    expect(g5(packet(3))).toMatchObject({ pass: false, value: "retro 3, saved 2 right on her first try on her own (the learning measure)" });
+  });
+
+  it("fails when the retro states no such number, and is N/A when she answered nothing", () => {
+    expect(g5(packet(undefined))).toMatchObject({ pass: false, value: "not measurable: no retro states her right first tries on her own" });
+    expect(g5({ ...reinaMorning(), traces: [], observations: [] })).toMatchObject({ value: "no answer this session" });
+  });
+});
