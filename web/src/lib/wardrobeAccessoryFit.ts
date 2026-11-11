@@ -7,14 +7,21 @@ export function isPreparedAccessoryAvailable(modelUrl:string,accessoryId:string)
  return Boolean(body&&(Object.values(body.intrinsicAccessoryMaterials??{}).includes(accessoryId)||Object.hasOwn(body.accessoryFits??{},accessoryId)));
 }
 
+// Every accessory occupies one slot; a newly chosen item replaces whatever the body
+// already wears in that slot, including a native (intrinsic) piece like a halo.
+const ACCESSORY_SLOTS:Record<string,'head'>={crown:'head','cat-ears':'head',halo:'head'};
+
 export function retainIntrinsicAccessories(scene:THREE.Object3D,selectedAccessoryId:string){
- let restored=0,provided=false;
+ let restored=0,hidden=0,provided=false;
+ const selectedSlot=ACCESSORY_SLOTS[selectedAccessoryId];
  scene.traverse(object=>{if(!(object instanceof THREE.Mesh))return;for(const material of Array.isArray(object.material)?object.material:[object.material]){
   const intrinsic=material.userData.sunnyIntrinsicAccessory;if(!intrinsic)continue;
-  if(!material.visible){material.visible=true;restored++;}
+  const replaced=intrinsic!==selectedAccessoryId&&selectedSlot!==undefined&&ACCESSORY_SLOTS[intrinsic]===selectedSlot;
+  if(replaced&&material.visible){material.visible=false;hidden++;}
+  if(!replaced&&!material.visible){material.visible=true;restored++;}
   if(intrinsic===selectedAccessoryId)provided=true;
  }});
- if(restored||provided)console.log(` 🎮 [wardrobe-accessory] intrinsic retained=${restored} reused=${provided} selection=${selectedAccessoryId}`);
+ if(restored||hidden||provided)console.log(` 🎮 [wardrobe-accessory] intrinsic retained=${restored} replaced=${hidden} reused=${provided} selection=${selectedAccessoryId}`);
  return provided;
 }
 

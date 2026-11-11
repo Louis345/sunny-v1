@@ -13,7 +13,7 @@ it('separates Matilda’s native halo without changing hair geometry, expression
  for(const index of [23,24])expect(output.json.materials[index].extras?.sunnyIntrinsicAccessory).toBeUndefined();
  const scene=new THREE.Group();const halo=new THREE.MeshBasicMaterial(),hair=new THREE.MeshBasicMaterial();halo.userData=output.json.materials[25].extras;
  scene.add(new THREE.Mesh(new THREE.BufferGeometry(),[halo,hair]));
- for(const selection of ['none','crown','cat-ears','halo']){expect(retainIntrinsicAccessories(scene,selection)).toBe(selection==='halo');expect(halo.visible).toBe(true);expect(hair.visible).toBe(true);}
+ for(const selection of ['none','crown','cat-ears','halo']){expect(retainIntrinsicAccessories(scene,selection)).toBe(selection==='halo');expect(halo.visible).toBe(['none','halo'].includes(selection));expect(hair.visible).toBe(true);}
 });
 
 it.each(bodies.filter(body=>['elli','matilda'].includes(body.companionId)))('places $companionId cat ears against the measured ear-base scalp surface and follows head movement',body=>{
@@ -41,7 +41,7 @@ it('reuses Yukari native cat ears without hiding them or adding substitute ears'
  const r=WARDROBE_RECIPES.find(r=>r.id==='yukari')!,a=readVrm(prepareWardrobeVrm(readFileSync(`public${r.sourceUrl}`),r).bytes);
  expect(a.json.materials[11].extras.sunnyIntrinsicAccessory).toBe('cat-ears');
  const scene=new THREE.Group(),ears=new THREE.MeshBasicMaterial();ears.userData=a.json.materials[11].extras;scene.add(new THREE.Mesh(new THREE.BufferGeometry(),ears));
- expect(retainIntrinsicAccessories(scene,'cat-ears')).toBe(true);expect(retainIntrinsicAccessories(scene,'halo')).toBe(false);expect(ears.visible).toBe(true);
+ expect(retainIntrinsicAccessories(scene,'cat-ears')).toBe(true);expect(ears.visible).toBe(true);
 });
 it('applies versioned lateral component tilt before seating an accessory',()=>{
  const fit=bodies[0].accessoryFits!['cat-ears'] as {lateralTilt?:number};const previous=fit.lateralTilt;fit.lateralTilt=.6;
