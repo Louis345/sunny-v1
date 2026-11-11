@@ -1,3 +1,4 @@
+import { readLivingProfile, recordLivingFactsFromCall, type ProposedChildFact } from "./livingProfileFacts";
 import Anthropic from "@anthropic-ai/sdk";
 import crypto from "crypto";
 import fs from "fs";
@@ -87,7 +88,7 @@ export type CompanionInteractionSummarizer = (input: {
   companionId: string;
   events: CompanionInteractionEventRecord[];
   existingMemory: CompanionCareMemory;
-}) => Promise<CompanionMemorySummaryPatch>;
+}) => Promise<CompanionMemorySummaryPatch & { childFacts?: ProposedChildFact[] }>;
 
 type CompanionInteractionMemoryOptions = {
   rootDir?: string;
@@ -538,7 +539,7 @@ async function summarizeCompanionInteractionsWithHaiku(input: {
   companionId: string;
   events: CompanionInteractionEventRecord[];
   existingMemory: CompanionCareMemory;
-}): Promise<CompanionMemorySummaryPatch> {
+}): Promise<CompanionMemorySummaryPatch & { childFacts?: ProposedChildFact[] }> {
   const client = new Anthropic();
   const message = await client.messages.create(requestForModel({
     model: COMPANION_MEMORY_HAIKU_MODEL,
@@ -547,6 +548,7 @@ async function summarizeCompanionInteractionsWithHaiku(input: {
       "You compact child-companion interaction logs into stable companion relationship memory. Do not invent facts. Do not include raw screenshots, base64, or private implementation details. " +
       "Events with an activityContext are game beats: the child did not speak those words, so never attribute them to the child. " +
       "gameRecord is the authoritative win/loss history, counted by the app: never state, imply, or recompute a tally that disagrees with it, and never guess a record when it is absent. " +
+      "childFacts: things the child said about herself in questionText (likes, dislikes, school, friends, family, feelings, health, things that happened). quote must be her exact words copied from one questionText. Set speaker to someone_else when the words were clearly said by someone else (an adult, her sister, talking about her). Reuse a topic name from knownTopics when it is the same subject. Leave childFacts empty when she said nothing about herself. " +
       `Call ${COMPANION_MEMORY_SUMMARY_TOOL} exactly once.`,
     messages: [
       {
@@ -556,6 +558,7 @@ async function summarizeCompanionInteractionsWithHaiku(input: {
           companionId: input.companionId,
           existingMemory: input.existingMemory,
           gameRecord: input.existingMemory.gameRecord ?? {},
+          knownTopics: (readLivingProfile(input.childId)?.current ?? []).map((fact) => fact.topic),
           events: compactEventsForPrompt(input.events),
           outputShape: {
             lastSessionSummary: "one concise summary",
@@ -584,6 +587,10 @@ async function summarizeCompanionInteractionsWithHaiku(input: {
           companionSelfNotes: { type: "array", maxItems: 3, items: { type: "string" } },
           relationshipFacts: { type: "array", maxItems: 8, items: { type: "string" } },
           favoriteMoments: { type: "array", maxItems: 8, items: { type: "string" } },
+          childFacts: { type: "array", maxItems: 6, items: { type: "object", additionalProperties: false,
+            properties: { topic: { type: "string" }, kind: { type: "string", enum: ["like", "dislike", "life_event", "school", "friends", "family", "feeling", "health", "other"] },
+              statement: { type: "string" }, quote: { type: "string" }, speaker: { type: "string", enum: ["child", "someone_else"] } },
+            required: ["topic", "kind", "statement", "quote", "speaker"] } },
         },
         required: [
           "lastSessionSummary",
@@ -633,14 +640,13 @@ export async function maybeCompactCompanionInteractionMemory(
   const summarize = opts.summarize ?? summarizeCompanionInteractionsWithHaiku;
   // Old records remain intact; prospective dialogue is not evidence for a new summary.
   const { reunionLineSeed: _seed, emotionalTone: _tone, ...existingMemory } = relationship.memory;
-  const patch = sanitizeMemoryPatch(
-    await summarize({
-      childId,
-      companionId,
-      events,
-      existingMemory,
-    }),
-  );
+  const summary = await summarize({
+    childId,
+    companionId,
+    events,
+    existingMemory,
+  });
+  const patch = sanitizeMemoryPatch(summary);
   const latestEvent = events[events.length - 1];
   const nextMemory: CompanionCareMemory = {
     ...relationship.memory,
@@ -650,6 +656,8 @@ export async function maybeCompactCompanionInteractionMemory(
     interactionSummaryRevision: (relationship.memory.interactionSummaryRevision ?? 0) + 1,
   };
   relationship.save(nextMemory);
+  // Her living profile: facts she shared, kept only when her own words in this call carry them.
+  recordLivingFactsFromCall({ childId, companionId, events, proposed: summary.childFacts });
   console.log(
     ` 🎮 [companion-memory] [compact] [ok] child=${childId} companion=${companionId} events=${events.length}`,
   );

@@ -1,3 +1,4 @@
+import { livingProfileLines, readLivingProfile } from "./livingProfileFacts";
 import { getChildChart } from "../profiles/childChart";
 import { buildShowroomTalkMemoryPrompt } from "./companionShowroomTalk";
 import { ensureCompanionRelationship, recordChildGivenCompanionName } from "./companionInteractionMemory";
@@ -80,6 +81,8 @@ export function buildCompanionCallContext(
   }
   const parts = [
     formatCompanionChildFacts(readCompanionChildFacts(input.childId, opts)),
+    // Shared by every companion: what she told any of them. Each companion's own memory follows.
+    livingProfileLines(readLivingProfile(input.childId)),
     buildShowroomTalkMemoryPrompt(memory),
   ].filter((part): part is string => Boolean(part));
   return parts.length ? parts.join("\n") : undefined;
