@@ -23,7 +23,7 @@ export function validateRelations(db: ChartDatabase, e: EventInput): void {
             fail('correction_target');
         if (target.type === 'activity.limited' || target.type === 'plan.decided' || target.type === 'test_schedule.set')
             fail('correction_immutable_decision');
-        if (target.type === 'readiness.forecast' || target.type === 'learner.hypothesis')
+        if (target.type === 'readiness.forecast' || target.type === 'learner.hypothesis' || target.type === 'child.fact_learned' || target.type === 'child.fact_retracted')
             fail('correction_immutable_prediction');
         validatePayload(target.type, p.replacement_payload);
         const replacement = p.replacement_payload as Record<string, unknown>;
@@ -58,6 +58,11 @@ export function validateRelations(db: ChartDatabase, e: EventInput): void {
     }
     if (e.type === 'child.profile_set' || e.type === 'assignment.ingested' || (e.type === 'test_schedule.set' && e.payload.kind === 'weekday'))
         return;
+    if (e.type === 'child.fact_learned') return;
+    if (e.type === 'child.fact_retracted') {
+        if (!get(factId('child.fact_learned', { factId: p.factId }))) fail('fact_missing');
+        return;
+    }
     if (e.type === 'learner.hypothesis') {
         if (!get(factId('assignment.ingested', { assignmentId: p.formedInAssignmentId }))) fail('assignment_missing');
         return;

@@ -7,7 +7,7 @@ export const EVENT_TYPES = [
   'prediction.evaluated', 'plan.decided', 'board.published', 'node.started', 'node.completed',
   'engagement.observed', 'engagement.prediction', 'engagement.evaluated',
   'learner.hypothesis', 'learner.hypothesis_evaluated', 'readiness.forecast',
-  'school_test.recorded', 'forecast.evaluated', 'correction.recorded',
+  'school_test.recorded', 'forecast.evaluated', 'correction.recorded', 'child.fact_learned', 'child.fact_retracted',
 ] as const;
 export type EventType = typeof EVENT_TYPES[number];
 export type Actor = 'child' | 'parent' | 'planner' | 'creator' | 'system' | 'room';

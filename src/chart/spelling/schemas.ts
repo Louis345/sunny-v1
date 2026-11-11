@@ -31,6 +31,12 @@ export const schemas = {
         metric: z.enum(['first_try_unassisted', 'school_test']),
         expected: z.strictObject({ min: probability, max: probability }).refine(e => e.min <= e.max, 'expected min <= max'),
         falsifier: text, horizonDays: z.number().int().min(7).max(365) }),
+    // Her living profile (2026-11-11): something she said about herself in a call she opened, with her exact words.
+    // The newest fact on a topic is what companions and the Planner read; a parent can retract a wrong one.
+    'child.fact_learned': z.strictObject({ factId: text, topic: z.string().trim().min(1).max(80), statement: text,
+        kind: z.enum(['like', 'dislike', 'life_event', 'school', 'friends', 'family', 'feeling', 'health', 'other']),
+        quote: z.string().trim().min(1).max(600), speaker: z.literal('caller_child'), sessionId: text, companionId: text, sourceEventIds: strings.min(1) }),
+    'child.fact_retracted': z.strictObject({ factId: text, reason: text }),
     'school_test.recorded': z.strictObject({ ...aid, testDate: date, photoHash: hash, sourceKind: z.enum(['image','parent_transcription']).optional(), results: z.array(z.strictObject({ word, correct: z.boolean(), writtenResponse: z.string().max(4096).nullable() })).min(1).max(1000) }),
     // Replacement schema is validated against the target type inside the transaction.
     'correction.recorded': z.strictObject({ target_event_id: text, reason: text, replacement_payload: z.record(z.string(), z.unknown()) }),
@@ -48,6 +54,7 @@ export const actors: Record<FactType, readonly string[]> = {
     'prediction.prior': ['planner'], 'item.presented': ['system'], 'response.observed': ['system'],
     'plan.decided': ['planner'], 'readiness.forecast': ['planner'], 'school_test.recorded': ['parent'],
     'learner.hypothesis': ['planner'],
+    'child.fact_learned': ['system'], 'child.fact_retracted': ['parent'],
     'correction.recorded': ['parent', 'system'],
 };
 /** Profiles retain caller IDs so a parent can record multiple distinct profile revisions. */
@@ -83,6 +90,10 @@ export function factId(type: FactType, p: Record<string, unknown>): string {
             break;
         case 'learner.hypothesis':
             key = p.hypothesisId;
+            break;
+        case 'child.fact_learned':
+        case 'child.fact_retracted':
+            key = p.factId;
             break;
         case 'child.profile_set':
             key = p;
