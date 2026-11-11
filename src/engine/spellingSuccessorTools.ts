@@ -97,8 +97,15 @@ export function spellingSuccessorToolkit(facts: SuccessorFacts) {
   const encounterFor = (action: string): Encounter | undefined => action === "generate_quest" ? "quest" : action === "generate_boss" ? "boss" : undefined;
   const problems = facts.problems ? new Map(facts.problems.map(item => [item.id, item])) : undefined;
   const answered = new Set(facts.answeredProblemIds ?? []);
-  // New problems the Planner may write, by placeholder id; each exists once add_problem writes it (2026-11-10).
-  const newProblemIds = problems && facts.writeProblems ? Array.from({ length: 6 }, (_, index) => `${facts.idPrefix}-problem-${index + 1}`) : [];
+  // The Planner writes as many new problems as it wants (owner, 2026-11-11); only the tool loop's call bound limits it.
+  // Ids keep the shape ${idPrefix}-problem-N in writing order, so saved turns of an older frozen question replay to the same ids.
+  const writeProblems = Boolean(problems && facts.writeProblems);
+  const nextProblemId = (state: SuccessorState) => {
+    for (let n = Object.keys(state.written ?? {}).length + 1; ; n++) {
+      const id = `${facts.idPrefix}-problem-${n}`;
+      if (!state.written?.[id] && !problems?.has(id)) return id;
+    }
+  };
   const problemOf = (state: SuccessorState, id: string) => problems?.get(id) ?? state.written?.[id];
   const missing = problems ? "problems" : "words";
   // The owner's library games, offered only for an encounter this question can authorize (owner, 2026-11-11).
@@ -151,7 +158,10 @@ export function spellingSuccessorToolkit(facts: SuccessorFacts) {
       } }),
     problems ? tool({ name: "add_step", description: "Add one step: a game on the menu, built for her from her chart and this step's story, with any of her recorded problems. Returns its step_id.",
       schema: z.object({ built_in: enumOf([...fresh.keys()], "none").describe("The game for this step."),
-        problems: z.array(pickFrom([...problems.keys(), ...newProblemIds], "none", "her recorded problems or the ids add_problem gives", "A problem id: one of her recorded problems in the question, or one add_problem returned.")).describe(`Which of her recorded problems this step uses, by id. At least one.${newProblemIds.length ? " A problem you wrote with add_problem uses the id it returned." : ""}`),
+        problems: z.array(writeProblems
+          // Written ids exist only once add_problem returns them, so the field is text and run checks each id against the board.
+          ? z.string().min(1).describe(`A problem id: one of her recorded problems, or one add_problem returned on this board. Her recorded problems: ${JSON.stringify([...problems.keys()])}`)
+          : pickFrom([...problems.keys()], "none", "her recorded problems", "A problem id: one of her recorded problems in the question.")).describe(`Which of her recorded problems this step uses, by id. At least one.${writeProblems ? " A problem you wrote with add_problem uses the id it returned." : ""}`),
         check_first: z.boolean().describe("True when this step checks what she can do on her own before any help; false for practice."),
         title: text("The short name she sees under the portal: 2 to 4 words."), purpose: text("What this step is for, in one sentence."),
         story: text("What this stop is in her world: one or two sentences Elli can tell her as it opens."), picture: text("What this stop's picture on her map shows, for the illustrator."),
@@ -164,7 +174,7 @@ export function spellingSuccessorToolkit(facts: SuccessorFacts) {
         if (!input.problems.length) return { ok: false, error: `${input.built_in} needs the problems it uses` };
         if (new Set(input.problems).size !== input.problems.length) return { ok: false, error: "a problem is listed more than once" };
         const unwritten = input.problems.find(id => !problemOf(state, id));
-        if (unwritten) return { ok: false, error: `${unwritten} is not written yet: write it first with add_problem` };
+        if (unwritten) return { ok: false, error: `${unwritten} is not one of her recorded problems or the problems add_problem returned on this board; valid: ${JSON.stringify([...problems.keys(), ...Object.keys(state.written ?? {})])}. A new problem needs add_problem first.` };
         const encounter = input.encounter && input.encounter !== "none" ? input.encounter as Encounter : undefined;
         if (encounter) {
           if (!state.decision || encounterFor(state.decision.progressionAction) !== encounter) return { ok: false, error: `a ${encounter} step needs progression_action generate_${encounter}: decide first` };
@@ -266,20 +276,18 @@ export function spellingSuccessorToolkit(facts: SuccessorFacts) {
     ...(facts.pastWeeks?.weeks.length ? [pastWeeksTool<SuccessorState>(facts.pastWeeks)] : []),
     ...(facts.pastWeeks?.claims ? [claimHowSheLearnsTool<SuccessorState>(facts.pastWeeks)!] : []),
     ...(facts.pastWeeks?.claims?.asOfSequence !== undefined ? [queryRecordTool<SuccessorState>(facts.pastWeeks.childId, facts.pastWeeks.claims.asOfSequence)] : []),
-    ...(newProblemIds.length ? [tool({ name: "add_problem", description: "Write a new problem for her, harder or different from her worksheet, to push her past what she has done. Give the arithmetic that produces its answer: Sunny computes the answer from it and scores her against that, so a wrong key can never mark her wrong. Returns the problem's id for add_step; it counts as unseen.",
+    ...(writeProblems ? [tool({ name: "add_problem", description: "Write a new problem for her, harder or different from her worksheet, to push her past what she has done. Give the arithmetic that produces its answer: Sunny computes the answer from it and scores her against that, so a wrong key can never mark her wrong. Returns the problem's id for add_step; it counts as unseen.",
       schema: z.object({ based_on: pickFrom([...problems!.keys()], "none", "her recorded problems", "The worksheet problem this one grows from, by id."), prompt: text("The problem exactly as she will see it, with every number she needs."),
         answer_expression: z.string().min(1).max(200).describe("Numbers and + - * / ( ) only, giving the answer, for example 298 + 171 - 402."),
         unit: z.string().max(30).optional(), why: text("Why this problem, for her, now.") }).strict(),
       run: (state, input) => {
-        const id = newProblemIds.find(candidate => !state.written?.[candidate]);
-        if (!id) return { ok: false, error: `at most ${newProblemIds.length} new problems on one board` };
         const expression = input.answer_expression.trim();
         if (!/^[\d\s+\-*/().]+$/.test(expression)) return { ok: false, error: "answer_expression may hold only numbers and + - * / ( )" };
         let answer: number;
         try { answer = Number(Function(`"use strict"; return (${expression});`)()); } catch { return { ok: false, error: "answer_expression does not compute" }; }
         if (!Number.isFinite(answer)) return { ok: false, error: "answer_expression does not give a number" };
         answer = Math.round(answer * 1e9) / 1e9;
-        const base = problems!.get(input.based_on)!;
+        const base = problems!.get(input.based_on)!, id = nextProblemId(state);
         state.written = { ...(state.written ?? {}), [id]: { id, prompt: input.prompt.trim(), lineage: { sourceEvidenceIds: [...base.lineage.sourceEvidenceIds, `planner-written:${id}`], exposure: "unseen", measurementRole: "practice" },
           response: { mode: "numeric", expected: answer, ...(input.unit?.trim() ? { unit: input.unit.trim() } : {}) } } as LearningCycleMathItem };
         state.result = undefined;
