@@ -16,6 +16,9 @@ import {
   type TheoryDecisionContent,
 } from "../engine/longitudinalLearning";
 import { resolveChildContextDir } from "../utils/contextRoot";
+import { familyDay } from "../utils/familyCalendar";
+import { openChart } from "../chart/db";
+import { recordSchoolTest } from "../chart/spelling/record";
 
 type HomeworkCycleCandidateRecord = HomeworkCycle | LearningCycleRecordV2;
 
@@ -420,10 +423,41 @@ async function recordCanonicalUpload(input: {
     now: input.now,
     interpret: input.interpret,
   });
+  if (spelling) recordSpellingSchoolTestInChart({ childId: input.upload.childId, homeworkId: input.candidate.homeworkId, testDate: testDate ?? familyDay(input.now), fileFingerprint, items: input.upload.gradedItems });
   return {
     status: result.reason === "already_interpreted" ? "already_interpreted" : cycle.calibrations?.at(-1)?.status ?? "inconclusive",
     calibrationId: cycle.calibrations?.at(-1)?.calibrationId ?? sourceId,
   };
+}
+
+/**
+ * The same graded test, word by word, in her chart database (where cross-week claims are scored). The week's record
+ * above is already saved; a chart that is not set up, or a test that doesn't cover every word, is logged and skipped.
+ */
+function recordSpellingSchoolTestInChart(input: { childId: string; homeworkId: string; testDate: string; fileFingerprint: string; items: GradedHomeworkUpload["gradedItems"] }): void {
+  if (!process.env.SUNNY_CHART_DIR?.trim()) {
+    console.log(` 🎮 [homework-upload] [chart-school-test] [skipped] reason=no_chart_dir homework=${input.homeworkId}`);
+    return;
+  }
+  let db: ReturnType<typeof openChart> | undefined;
+  try {
+    db = openChart(input.childId);
+    recordSchoolTest(db, {
+      assignmentId: input.homeworkId,
+      testDate: input.testDate,
+      photoHash: input.fileFingerprint,
+      sourceKind: "parent_transcription",
+      results: input.items.map((item) => {
+        const word = item.target.normalize("NFC").trim().toLowerCase();
+        return { word, correct: item.correct, writtenResponse: item.wrote ?? (item.correct ? word : null) };
+      }),
+    }, { actor: "parent", occurred_at: `${input.testDate}T12:00:00.000Z` });
+    console.log(` 🎮 [homework-upload] [chart-school-test] [recorded] homework=${input.homeworkId} words=${input.items.length}`);
+  } catch (error) {
+    console.error(` 🎮 [homework-upload] [chart-school-test] [skipped] homework=${input.homeworkId} reason=${error instanceof Error ? error.message : String(error)}`);
+  } finally {
+    db?.close();
+  }
 }
 
 async function confirmCandidate(

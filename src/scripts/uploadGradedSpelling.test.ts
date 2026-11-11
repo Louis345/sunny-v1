@@ -7,8 +7,12 @@ import { buildSpellingRecallItems, createSpellingDiscoveryCycle } from "../engin
 import { getLearningCycle } from "../engine/learningCycleRepository";
 import { readPastWeeks } from "../engine/pastWeeks";
 import { parseTickedSpellingTest, runUploadGradedHomework } from "./uploadGradedHomework";
+import { openChart } from "../chart/db";
+import { exportEvents } from "../chart/exportEvents";
+import { recordAssignment } from "../chart/spelling/record";
 
 const roots: string[] = [];
+afterEach(() => vi.unstubAllEnvs());
 afterEach(() => roots.splice(0).forEach(root => fs.rmSync(root, { recursive: true, force: true })));
 
 function spellingWeek() {
@@ -70,6 +74,29 @@ describe("parent uploads a graded spelling test as ticks", () => {
 
     expect(getLearningCycle(childId, homeworkId, { rootDir })!.evidenceSources).toHaveLength(0);
     expect(lines.join("\n")).toContain("Not on this week's list: lite");
+  });
+
+  it("also records the school test in her chart database, so cross-week claims can be scored against it", async () => {
+    const { rootDir, childId, homeworkId } = spellingWeek();
+    vi.stubEnv("SUNNY_CHART_DIR", path.join(rootDir, "charts"));
+    const db = openChart(childId);
+    recordAssignment(db, { assignmentId: homeworkId, words: ["night", "light", "right"], testDate: null, sourcePhotoHash: "a".repeat(64) });
+    db.close();
+    const file = path.join(rootDir, "test.txt");
+    fs.writeFileSync(file, "date: 2026-11-12\nnight ✓\nlight ✗ lite\nright ✓\n", "utf8");
+
+    await runUploadGradedHomework([`--child=${childId}`, `--pdf=${file}`, `--homework=${homeworkId}`, "--yes"], {
+      rootDir, logger: { log: () => undefined }, interpret,
+    });
+
+    const reopened = openChart(childId, { readonly: true });
+    const school = exportEvents(reopened).find(event => event.type === "school_test.recorded");
+    reopened.close();
+    expect(school).toMatchObject({ actor: "parent", payload: { assignmentId: homeworkId, testDate: "2026-11-12", sourceKind: "parent_transcription", results: [
+      { word: "night", correct: true, writtenResponse: "night" },
+      { word: "light", correct: false, writtenResponse: "lite" },
+      { word: "right", correct: true, writtenResponse: "right" },
+    ] } });
   });
 
   it("does not read a JSON score of 1 as 100% when the ticks say otherwise", async () => {
