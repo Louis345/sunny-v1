@@ -6,7 +6,7 @@
  */
 export type SessionPacket = {
   childId: string; domain: string; sessionId: string; startedAt: string; endedAt?: string;
-  traces: Array<{ ts?: string; launchToken?: string; nodeId?: string; activityTitle?: string; type?: string; phase?: string; target?: unknown; correct?: unknown }>;
+  traces: Array<{ ts?: string; launchToken?: string; nodeId?: string; activityTitle?: string; type?: string; phase?: string; target?: unknown; correct?: unknown; itemId?: string; attemptedValue?: unknown }>;
   events: Array<{ ts?: string; component?: string; action?: string; [key: string]: unknown }>;
   transcript: Array<{ ts: string; role: "child" | "companion"; text: string }>;
   observations: Array<{ observedAt: string; itemId: string; childResponse?: string; word?: string; result: { correct: boolean }; assistance: { status: string }; provenance?: string; retry?: boolean }>;
@@ -20,6 +20,8 @@ export type SessionPacket = {
   startupLog?: string[];
   /** Where the session's minutes went (owner, 2026-11-10): shown beside the verdict, never a criterion. */
   minutes?: SessionMinutes;
+  /** Each problem's answer and each spelling word of the homework the session played, by item id (G24). */
+  itemAnswers?: Record<string, string>;
   /** Facts read outside the session, each named after its line (G9, G11...). Absent means not measurable yet. */
   extra?: Partial<Record<string, { value: string; pass: boolean }>>;
 };
@@ -53,7 +55,37 @@ function startupCheckFor(packet: SessionPacket): string | undefined {
   }).at(-1);
 }
 
-/** The 27 lines, in the criteria's order. Lines with no measurement yet read from `extra` or fail. */
+// A value the companion tells her to enter, or says is the answer (G24); a number followed by an operator is a step.
+const VALUE_STATED = /\b(?:type|enter|put in|put|write|press|the answer is|the answer's|answer is|it should be|should be)\s+(-?\d+(?:\.\d+)?)(?![\d.]|\s*(?:[-+x×÷*/=]|minus|plus|times|divided))/gi;
+const LETTERS_STATED = /\b[a-z](?:-[a-z]){2,}\b/gi;
+
+/**
+ * Values the companion stated for the problem open on screen, checked against its answer (2026-11-10: Elli told Ila
+ * "type 34" three times; the answer was 17). The open problem is the one the game last reported, else the one she
+ * answered next in that game. Spelled-out letters are wrong when they are not part of the word (a chunk is help).
+ */
+function statedAnswers(packet: SessionPacket): { stated: number; wrong: Array<{ text: string; answer: string }>; unknown: number } {
+  const traces = packet.traces.filter(row => row.ts && row.nodeId).sort((a, b) => a.ts!.localeCompare(b.ts!));
+  const result = { stated: 0, wrong: [] as Array<{ text: string; answer: string }>, unknown: 0 };
+  for (const said of packet.transcript.filter(row => row.role === "companion")) {
+    const numbers = [...said.text.matchAll(VALUE_STATED)].map(match => match[1]), letters = [...said.text.matchAll(LETTERS_STATED)].map(match => match[0].replace(/-/g, "").toLowerCase());
+    const last = traces.filter(row => row.ts! <= said.ts).at(-1);
+    if (!(numbers.length || letters.length) || !last || last.phase === "closed" || last.type === "game_complete") continue;
+    const shown = traces.filter(row => row.ts! <= said.ts && row.nodeId === last.nodeId && row.itemId).at(-1)?.itemId;
+    const next = traces.find(row => row.ts! > said.ts && row.nodeId === last.nodeId && row.type === "attempt_event" && typeof row.target === "string")?.target as string | undefined;
+    const answer = packet.itemAnswers?.[shown ?? next ?? ""];
+    const numeric = answer !== undefined && Number.isFinite(Number(answer));
+    const values = answer === undefined ? [...numbers, ...letters] : numeric ? numbers : letters;
+    if (!values.length) continue;
+    result.stated += values.length;
+    if (answer === undefined) { result.unknown += values.length; continue; }
+    const wrong = values.filter(value => numeric ? Number(value) !== Number(answer) : !answer.toLowerCase().includes(value));
+    if (wrong.length) result.wrong.push(...wrong.map(() => ({ text: said.text, answer })));
+  }
+  return result;
+}
+
+/** The 28 lines, in the criteria's order (G24 added 2026-11-10). Lines with no measurement yet read from `extra` or fail. */
 const LINES: Array<{ id: string; what: string; target: string }> = [
   { id: "N1", what: "Answers given but not saved", target: "given = saved" },
   { id: "N2", what: "Child reports a bug that was already in the log", target: "0" },
@@ -82,6 +114,7 @@ const LINES: Array<{ id: string; what: string; target: string }> = [
   { id: "G21", what: "Quest/Boss available after the worksheet", target: "on the menu" },
   { id: "G22", what: "Builder sees each played game's record", target: "yes" },
   { id: "G23", what: "A loved game returns with new content", target: "once (week)" },
+  { id: "G24", what: "Companion stated a wrong answer", target: "0" },
 ];
 
 export function rateSession(packet: SessionPacket): { lines: RatingLine[]; verdict: "PASS" | "FAIL"; text: string } {
@@ -117,6 +150,7 @@ export function rateSession(packet: SessionPacket): { lines: RatingLine[]; verdi
     ...packet.traces.filter(row => row.type === "companion_checkin" && (row as { action?: string }).action === "offered")];
   const offered = stretches.filter(stretch => offers.some(row => row.ts! >= stretch.from && row.ts! <= stretch.to));
 
+  const told = statedAnswers(packet);
   const measured: Record<string, { value: string; pass: boolean }> = {
     N1: { value: `${given.length} given, ${saved.length} saved`, pass: saved.length >= given.length },
     N2: { value: childBugReports.length && failed ? `${childBugReports.length} child report(s) after ${serverFailures.length + eventFailures.length} logged failure(s)` : `${childBugReports.length} child report(s)`, pass: !(childBugReports.length && failed) },
@@ -138,6 +172,10 @@ export function rateSession(packet: SessionPacket): { lines: RatingLine[]; verdi
     G17: waits.length ? { value: `${waits[0].min} min (${waits[0].title})`, pass: waits[0].min < 3 }
       : games.size ? { value: `${games.size} game${games.size === 1 ? "" : "s"} opened, none answered (${[...games.values()].map(rows => rows.find(row => row.activityTitle)?.activityTitle ?? rows[0].nodeId).join(", ")})`, pass: false }
       : { value: "no game this session", pass: true },
+    G24: !games.size ? { value: "no game this session", pass: true }
+      : told.wrong.length ? { value: `stated ${told.wrong.length} wrong of ${told.stated}: "${told.wrong[0].text.slice(0, 60)}" (answer ${told.wrong[0].answer})`, pass: false }
+      : told.unknown ? { value: `not measurable: ${told.unknown} stated value(s) with no known problem or answer`, pass: false }
+      : { value: told.stated ? `${told.stated} stated, 0 wrong` : "no value stated for an open problem", pass: true },
     G18: { value: `${offered.length} of ${stretches.length} quiet stretches had an offer`, pass: offered.length === stretches.length },
   };
   const lines = LINES.map(line => ({ ...line, ...(measured[line.id] ?? packet.extra?.[line.id] ?? { value: "not measurable yet", pass: false }) }));

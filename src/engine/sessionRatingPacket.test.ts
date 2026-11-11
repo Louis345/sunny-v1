@@ -73,3 +73,9 @@ describe("the session's own time window", () => {
     } finally { fs.rmSync(root, { recursive: true, force: true }); }
   });
 });
+
+// G24 (2026-11-10, Elli's "type 34" for 17): the rating needs each problem's answer from the homework it played.
+it("reads each problem's answer and each spelling word from the played homework", async () => {
+  const { itemAnswersOf } = await import("./sessionRatingPacket");
+  expect(itemAnswersOf({ nodes: [{ evidenceContract: { itemContracts: { p1: { response: { expected: 17 } } }, spellingItems: { w1: { id: "w1", word: "ornament" } } } }] } as never)).toEqual({ p1: "17", w1: "ornament" });
+});
