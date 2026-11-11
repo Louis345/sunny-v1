@@ -1,3 +1,5 @@
+import { COMPANION_EMOTES } from "../shared/companionEmotes";
+import { ANIMATION_IDS } from "../shared/companions/animations.generated";
 import {
   type CompanionCommand,
   type AnimationName,
@@ -258,7 +260,7 @@ export function getShowroomCompanionActTools() {
           payload: {
             type: "object",
             description:
-              "Payload for the capability. Examples: {\"animation\":\"wave\",\"loop\":false}, {\"animation\":\"think\",\"loop\":true}, {\"emote\":\"happy\",\"intensity\":0.8}, {\"angle\":\"close-up\",\"transition_ms\":400}.",
+              `Payload for the capability. Examples: {"animation":"wave","loop":false}, {"animation":"think","loop":true}, {"emote":"happy","intensity":0.8}, {"angle":"close-up","transition_ms":400}. The only emotes: ${COMPANION_EMOTES.join(", ")}. The only animations: ${ANIMATION_IDS.join(", ")}. Any other name is ignored (2026-11-11: "curious" and "celebrate" were guessed and dropped).`,
             additionalProperties: true,
           },
         },
