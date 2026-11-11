@@ -55,6 +55,7 @@ import {
 } from "../engine/learningCycleRepository";
 import { buildLongitudinalLearningHistory, readBoardDesignHistory, type LongitudinalLearningHistory } from "../engine/longitudinalLearning";
 import { readChildSignals } from "../engine/childSignals";
+import { currentFactsBlock } from "./soulCurrentFacts";
 
 export type ChildProfileManifest = {
   childId: string;
@@ -240,7 +241,8 @@ function readChildVoice(childId: string, rootDir: string, profile: LearningProfi
   try {
     const soul = fs.readFileSync(path.join(contextDir(rootDir, childId), "soul.md"), "utf8");
     const kept = soul.split(/^(?=## )/m).filter(section => ABOUT_HER_SECTIONS.test(section.match(/^## (.+)$/m)?.[1]?.trim() ?? ""));
-    aboutHer = kept.join("\n").trim().slice(0, 6000) || null;
+    const about = kept.join("\n").trim().slice(0, 6000);
+    aboutHer = about ? [currentFactsBlock(childId, { rootDir }), about].filter(Boolean).join("\n\n") : null;
   } catch {
     // A child without a soul file is planned from her chart alone.
   }
