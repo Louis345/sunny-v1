@@ -3,6 +3,17 @@
 - **Phone alerts.** Parent alerts are recorded on Saori (`sunny_health/parent-alerts.ndjson`) and in `sunny:rate`, but reach no phone. Options: iMessage from Saori's Messages app, an ntfy topic (set `SUNNY_PARENT_ALERT_URL`), or email. The owner chose "not yet" on 11/10.
 - **Ila's diagnoses and IEP.** Her chart still lists no diagnoses and no IEP; her `soul.md` lists ADHD combined type, dyslexia, and specific learning disorders in reading and written expression (IEE), plus an IEP section. Set them with `npm run sunny:child:facts` once the owner confirms. (Birthdays done 11/10: twins, 2017-11-21; Reina grade 3 inferred and set.)
 
+## 2026-11-10 evening — open after the 18-fix deploy (ba42e817)
+
+- **Matilda and Hikari show as the same character in FaceTime (owner).** Two entries, one look. Owner: remove Matilda (scope pending: FaceTime lineup only, or entirely — Reina's homework companion is also Matilda).
+- **Head accessories stack (Ila).** Adding bunny ears did not take off the halo. A new item in the same slot should replace the old one.
+- **FaceTime companions don't know the child.** Hikari asked Ila her name; `[companion-memory] [compact_skip] [missing_care_plan] companion=hikari`. Every call companion needs the child's facts and a relationship memory.
+- **The child can't name or shape her companion.** Ila called Hikari "aerospace princess"; Hikari corrected her three times. A child-given nickname or role should be kept as a fact.
+- **A parent's voice is treated as the child's.** Hikari repeated the owner's coaching ("Ask her what her name… What's your name?") as if Ila said it; Elli did the same earlier.
+- **Elli repeats one check in a loop.** It asked about the keyboard 4 times while Ila talked about other things; one unanswered check should be let go.
+- **Retries on the last problem of a game are lost** (fix/1110-learning caveat): a stop finishes once each problem has a first answer.
+- **Kappa Pond screen numbers read like "1.9" / "negative" to the owner** (unconfirmed; needs a screenshot of that step).
+
 ## 2026-11-10 — Found during Ila's evening session (open, fix after the session)
 
 - **The start screen does not resize with the kiosk window (owner observed).** Expanding the kiosk window leaves white space around/below the start screen instead of the screen filling it. Human-caught: the owner resized the window; the logs record no layout, and the canvas check measures only fixed 1280x720 and 768x1024 previews, never a window resized after load. Invariant to add: the start screen fills the viewport at any size and after a resize.
