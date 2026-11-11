@@ -1,0 +1,68 @@
+{
+  "url": "http://localhost:6133/entries/opus-reina/index.html",
+  "checks": {
+    "title h1": {
+      "pass": true,
+      "detail": "SQUAD GYM"
+    },
+    "#start shown": {
+      "pass": true
+    },
+    "#start on top": {
+      "pass": true,
+      "detail": ""
+    },
+    "activityStarted after tap": {
+      "pass": true
+    },
+    "targetPresented within 15s": {
+      "pass": true,
+      "detail": "908 ms"
+    },
+    "smooth 55+ fps": {
+      "pass": true,
+      "detail": "60 fps, median 16.7 ms"
+    },
+    "no frame over 100 ms": {
+      "pass": true,
+      "detail": "worst 66 ms, 1 frames over 50 ms"
+    },
+    "no page errors": {
+      "pass": true,
+      "detail": ""
+    }
+  },
+  "errors": [],
+  "console": [
+    "warning: THREE.THREE.Clock: This module has been deprecated. Please use THREE.Timer instead.",
+    "warning: THREE.WebGLShadowMap: PCFSoftShadowMap has been deprecated. Using PCFShadowMap instead.",
+    "warning: THREE.FBXLoader: %s map is not supported in three.js, skipping texture. ShininessExponent",
+    "warning: THREE.FBXLoader: Vertex has more than 4 skinning weights assigned to vertex. Deleting additional weights."
+  ],
+  "evidence": [
+    {
+      "t": 5917,
+      "eventName": "activity_started"
+    },
+    {
+      "t": 6825,
+      "eventName": "target_presented",
+      "target": "16÷4"
+    }
+  ],
+  "shots": [
+    "1-title.png",
+    "3-play-10s.png"
+  ],
+  "perf": {
+    "fps": 60,
+    "median": 16.7,
+    "worst": 66,
+    "over50": 1,
+    "canvas": [
+      1890,
+      1075
+    ]
+  },
+  "pass": true
+}

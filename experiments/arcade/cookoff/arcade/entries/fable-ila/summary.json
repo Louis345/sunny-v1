@@ -1,0 +1,50 @@
+{
+  "entryId": "fable-ila",
+  "child": "ila",
+  "model": "claude-fable-5-2",
+  "rounds": 3,
+  "spent": 10.11,
+  "pass": true,
+  "checks": {
+    "title h1": {
+      "pass": true,
+      "detail": "Midnight Spirit Toast"
+    },
+    "#start shown": {
+      "pass": true
+    },
+    "#start on top": {
+      "pass": true,
+      "detail": ""
+    },
+    "activityStarted after tap": {
+      "pass": true
+    },
+    "targetPresented within 15s": {
+      "pass": true,
+      "detail": "3640 ms"
+    },
+    "smooth 55+ fps": {
+      "pass": true,
+      "detail": "56 fps, median 16.7 ms"
+    },
+    "no frame over 100 ms": {
+      "pass": true,
+      "detail": "worst 34 ms, 0 frames over 50 ms"
+    },
+    "no page errors": {
+      "pass": true,
+      "detail": ""
+    }
+  },
+  "perf": {
+    "fps": 56,
+    "median": 16.7,
+    "worst": 34,
+    "over50": 0,
+    "canvas": [
+      1890,
+      1075
+    ]
+  }
+}

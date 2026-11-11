@@ -1,0 +1,39 @@
+ 🎮 [cookoff-chef] [fable-reina] [call] in=11336 out=100000 stop=max_tokens $4.09 total=$4.09 1061s
+ 🎮 [cookoff-chef] [fable-reina] [no-html] <!-- DESIGN CARD
+title: Split Second
+genre / core loop (one sentence): A wrestling-mat division battler where she deals little wrestlers out of a gym bag onto squad mats (or skips the dealing and does it in her head), types how many are in each squad, and every right answer is a takedown on a grumpy
+ 🎮 [cookoff-chef] [fable-reina] [call] in=111384 out=38829 stop=end_turn $2.44 total=$6.53 278s
+ 🎮 [cookoff-chef] [fable-reina] [saved] round=1 chars=73041
+ 🎮 [cookoff-assets] [rendered] fable-reina voice=30/40 sfx=8/8 errors=10
+ 🎮 [cookoff-assets] [error] voice g-3 429 {"detail":{"type":"rate_limit_error","code":"concurrent_limit_exceeded","message":"Too many concurrent requests. Your cu
+ 🎮 [cookoff-assets] [error] voice g-4 429 {"detail":{"type":"rate_limit_error","code":"concurrent_limit_exceeded","message":"Too many concurrent requests. Your cu
+ 🎮 [cookoff-assets] [error] voice g-6 429 {"detail":{"type":"rate_limit_error","code":"concurrent_limit_exceeded","message":"Too many concurrent requests. Your cu
+ 🎮 [cookoff-assets] [error] voice how-deal 429 {"detail":{"type":"rate_limit_error","code":"concurrent_limit_exceeded","message":"Too many concurrent requests. Your cu
+ 🎮 [cookoff-assets] [error] voice hint1 429 {"detail":{"type":"rate_limit_error","code":"concurrent_limit_exceeded","message":"Too many concurrent requests. Your cu
+ 🎮 [cookoff-assets] [error] voice hint2 429 {"detail":{"type":"rate_limit_error","code":"concurrent_limit_exceeded","message":"Too many concurrent requests. Your cu
+ 🎮 [cookoff-assets] [error] voice hint3 429 {"detail":{"type":"rate_limit_error","code":"concurrent_limit_exceeded","message":"Too many concurrent requests. Your cu
+ 🎮 [cookoff-assets] [error] voice champ-g2 429 {"detail":{"type":"rate_limit_error","code":"concurrent_limit_exceeded","message":"Too many concurrent requests. Your cu
+ 🎮 [cookoff-assets] [error] voice champ-e2 429 {"detail":{"type":"rate_limit_error","code":"concurrent_limit_exceeded","message":"Too many concurrent requests. Your cu
+ 🎮 [cookoff-assets] [error] voice best 429 {"detail":{"type":"rate_limit_error","code":"concurrent_limit_exceeded","message":"Too many concurrent requests. Your cu
+ 🎮 [cookoff-gate] [pass] title h1 SPLIT SECOND
+ 🎮 [cookoff-gate] [pass] #start shown 
+ 🎮 [cookoff-gate] [pass] #start on top 
+ 🎮 [cookoff-gate] [pass] activityStarted after tap 
+ 🎮 [cookoff-gate] [pass] targetPresented within 15s 1169 ms
+ 🎮 [cookoff-gate] [FAIL] smooth 55+ fps 27 fps, median 16.8 ms
+ 🎮 [cookoff-gate] [FAIL] no frame over 100 ms worst 834 ms, 18 frames over 50 ms
+ 🎮 [cookoff-gate] [pass] no page errors 
+ 🎮 [cookoff-gate] [FAIL] http://localhost:6133/entries/fable-reina/index.html
+ 🎮 [cookoff-chef] [fable-reina] [call] in=162085 out=51860 stop=end_turn $3.37 total=$9.91 430s
+ 🎮 [cookoff-chef] [fable-reina] [saved] round=2 chars=73762
+ 🎮 [cookoff-assets] [rendered] fable-reina voice=40/40 sfx=8/8 errors=0
+ 🎮 [cookoff-gate] [pass] title h1 SPLIT SECOND
+ 🎮 [cookoff-gate] [pass] #start shown 
+ 🎮 [cookoff-gate] [pass] #start on top 
+ 🎮 [cookoff-gate] [pass] activityStarted after tap 
+ 🎮 [cookoff-gate] [pass] targetPresented within 15s 1178 ms
+ 🎮 [cookoff-gate] [pass] smooth 55+ fps 57 fps, median 16.7 ms
+ 🎮 [cookoff-gate] [pass] no frame over 100 ms worst 34 ms, 0 frames over 50 ms
+ 🎮 [cookoff-gate] [pass] no page errors 
+ 🎮 [cookoff-gate] [PASS] http://localhost:6133/entries/fable-reina/index.html
+ 🎮 [cookoff-chef] [fable-reina] [done] spent=$9.91

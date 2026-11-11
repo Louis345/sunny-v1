@@ -1,0 +1,87 @@
+{
+  "url": "http://localhost:6133/entries/fable-reina/index.html",
+  "checks": {
+    "title h1": {
+      "pass": true,
+      "detail": "SPLIT SECOND"
+    },
+    "#start shown": {
+      "pass": true
+    },
+    "#start on top": {
+      "pass": true,
+      "detail": ""
+    },
+    "activityStarted after tap": {
+      "pass": true
+    },
+    "targetPresented within 15s": {
+      "pass": true,
+      "detail": "1169 ms"
+    },
+    "smooth 55+ fps": {
+      "pass": false,
+      "detail": "27 fps, median 16.8 ms"
+    },
+    "no frame over 100 ms": {
+      "pass": false,
+      "detail": "worst 834 ms, 18 frames over 50 ms"
+    },
+    "no page errors": {
+      "pass": true,
+      "detail": ""
+    }
+  },
+  "errors": [],
+  "console": [
+    "HTTP 404: http://localhost:6133/entries/fable-reina/assets/voice/g-3.mp3",
+    "error: Failed to load resource: the server responded with a status of 404 (File not found)",
+    "HTTP 404: http://localhost:6133/entries/fable-reina/assets/voice/g-4.mp3",
+    "error: Failed to load resource: the server responded with a status of 404 (File not found)",
+    "HTTP 404: http://localhost:6133/entries/fable-reina/assets/voice/g-6.mp3",
+    "error: Failed to load resource: the server responded with a status of 404 (File not found)",
+    "HTTP 404: http://localhost:6133/entries/fable-reina/assets/voice/how-deal.mp3",
+    "error: Failed to load resource: the server responded with a status of 404 (File not found)",
+    "HTTP 404: http://localhost:6133/entries/fable-reina/assets/voice/hint1.mp3",
+    "error: Failed to load resource: the server responded with a status of 404 (File not found)",
+    "HTTP 404: http://localhost:6133/entries/fable-reina/assets/voice/hint2.mp3",
+    "error: Failed to load resource: the server responded with a status of 404 (File not found)",
+    "HTTP 404: http://localhost:6133/entries/fable-reina/assets/voice/hint3.mp3",
+    "error: Failed to load resource: the server responded with a status of 404 (File not found)",
+    "HTTP 404: http://localhost:6133/entries/fable-reina/assets/voice/champ-g2.mp3",
+    "error: Failed to load resource: the server responded with a status of 404 (File not found)",
+    "HTTP 404: http://localhost:6133/entries/fable-reina/assets/voice/champ-e2.mp3",
+    "error: Failed to load resource: the server responded with a status of 404 (File not found)",
+    "HTTP 404: http://localhost:6133/entries/fable-reina/assets/voice/best.mp3",
+    "error: Failed to load resource: the server responded with a status of 404 (File not found)",
+    "warning: THREE.FBXLoader: %s map is not supported in three.js, skipping texture. ShininessExponent",
+    "warning: THREE.FBXLoader: Vertex has more than 4 skinning weights assigned to vertex. Deleting additional weights.",
+    "warning: THREE.WebGLShadowMap: PCFSoftShadowMap has been deprecated. Using PCFShadowMap instead."
+  ],
+  "evidence": [
+    {
+      "t": 11475,
+      "eventName": "activity_started"
+    },
+    {
+      "t": 12646,
+      "eventName": "target_presented",
+      "target": "16 ÷ 4 equal groups: how many in each group"
+    }
+  ],
+  "shots": [
+    "1-title.png",
+    "3-play-10s.png"
+  ],
+  "perf": {
+    "fps": 27,
+    "median": 16.8,
+    "worst": 834,
+    "over50": 18,
+    "canvas": [
+      1890,
+      1075
+    ]
+  },
+  "pass": false
+}

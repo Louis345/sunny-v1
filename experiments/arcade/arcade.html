@@ -1,0 +1,406 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Sunny Arcade</title>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+<style>html,body{margin:0;height:100%;background:#0a0a12;overflow:hidden}#game{width:100%;height:100%}</style>
+<script src="/games/_contract.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/phaser@3.80.1/dist/phaser.min.js"></script>
+</head><body><div id="game"></div>
+<script>
+// ======================= CONTENT (the Planner/Creator would supply this) =======================
+const CHILD = (new URLSearchParams(location.search).get('child') || 'reina').toLowerCase();
+const FONT = '"Press Start 2P", sans-serif';
+const W = 384, H = 216, GROUND = 184;
+
+function divisionTasks() {
+  const facts = [[16,4],[24,3],[18,3],[28,4],[30,5],[36,4],[42,6],[48,6]];
+  return facts.map(([n,g], i) => {
+    const a = n / g;
+    const opts = new Set([a]); [a+1, a-1, g, a+2].forEach(v => { if (v > 0 && opts.size < 3) opts.add(v); });
+    return { kind: 'div', n, g, answer: a, mode: i < 2 ? 'deal' : i < 4 ? 'div' : 'times',
+             steps: [{ correct: String(a), choices: [...opts].map(String) }] };
+  });
+}
+function spellingTasks() {
+  const words = [
+    { w: 'dormant',   pic: '🌋💤', say: 'The sleepy volcano is dormant.', traps: { 5: 'e' } },
+    { w: 'charge',    pic: '🔋⚡', say: 'Plug it in to charge it.',       traps: { 4: 'j' } },
+    { w: 'carnivore', pic: '🦁🍖', say: 'A lion is a carnivore.',          traps: {} },
+    { w: 'pardon',    pic: '🙇‍♀️👋', say: 'Pardon me, may I get by?',       traps: { 4: 't' } },
+  ];
+  const near = { a:'o', o:'a', d:'b', b:'d', n:'m', m:'n', r:'w', c:'k', e:'i', i:'e', g:'j', v:'f', h:'n', t:'d', p:'q' };
+  return words.map(o => ({ kind: 'spell', word: o.w, pic: o.pic, say: o.say,
+    steps: o.w.split('').map((ch, k) => {
+      const opts = new Set([ch]);
+      if (o.traps[k]) opts.add(o.traps[k]);
+      const later = o.w.slice(k + 1).split('').find(x => x !== ch); if (later) opts.add(later);
+      if (near[ch]) opts.add(near[ch]);
+      'aeiorstn'.split('').forEach(x => { if (opts.size < 3) opts.add(x); });
+      return { correct: ch, choices: [...opts].slice(0, 3) };
+    }) }));
+}
+const CFG = CHILD === 'ila' ? {
+  name: 'ILA', title: 'LANTERN WOODS', goal: 'LANTERNS', night: true, companion: 'Elli',
+  tasks: spellingTasks(), bossTasks: 1, bossName: 'BUZZ MOTH',
+  cheers: ['Yes!', 'You lit it!', 'Beautiful!', 'Keep going!'], win: 'ALL LANTERNS LIT!',
+  hero: { h: '#4a2010', s: '#d8a070', p: '#8a3ad0', P: '#b070f0', l: '#2a2a50', b: '#f0f0f0' },
+} : {
+  name: 'REINA', title: 'SQUAD GYM', goal: 'TAKEDOWNS', night: false, companion: 'Matilda',
+  tasks: divisionTasks(), bossTasks: 2, bossName: 'COACH CRUSHER',
+  cheers: ['すごい!', 'やった!', 'Takedown!', 'Pin it!'], win: 'CHAMPION! すごい!',
+  hero: { h: '#3a2010', s: '#f0b888', p: '#d8203c', P: '#ff8090', l: '#202040', b: '#202040', k: '#c81e3a' },
+};
+
+// ======================= SOUND (tiny chiptune synth) =======================
+let AC;
+const HD = new URLSearchParams(location.search).has('hd');            // ?hd uses the generated ElevenLabs/Grok sample assets
+const HD_SFX = { jump: 'sample/jump.mp3', right: 'sample/correct.mp3', boss: 'sample/boss-roar.mp3' };
+const HD_VOICE = { dormant: 'sample/ila-dormant.mp3' };
+function playFile(src, vol) { const a = new Audio(src); a.volume = vol; a.play().catch(e => console.warn(' 🎮 [arcade] [audio] [blocked]', src, e.message)); }
+function sfx(kind) {
+  if (HD && HD_SFX[kind]) { playFile(HD_SFX[kind], kind === 'jump' ? .35 : .7); return; }
+  try {
+    AC = AC || new (window.AudioContext || window.webkitAudioContext)();
+    const notes = { jump: [[520, .08, 'square', 880]], coin: [[988, .06, 'square'], [1319, .12, 'square', 0, .06]],
+      right: [[523, .08, 'square'], [659, .08, 'square', 0, .08], [784, .08, 'square', 0, .16], [1047, .2, 'square', 0, .24]],
+      miss: [[300, .12, 'triangle', 220]], stomp: [[200, .1, 'square', 90]], hurt: [[180, .25, 'sawtooth', 80]],
+      bump: [[160, .06, 'square', 120]], gate: [[220, .3, 'triangle', 440]], boss: [[110, .3, 'sawtooth', 60]],
+      win: [[523, .12, 'square'], [659, .12, 'square', 0, .12], [784, .12, 'square', 0, .24], [1047, .4, 'square', 0, .36], [1319, .5, 'triangle', 0, .5]] }[kind] || [];
+    notes.forEach(([f, d, type, slide, at]) => {
+      const t = AC.currentTime + (at || 0), o = AC.createOscillator(), g = AC.createGain();
+      o.type = type; o.frequency.setValueAtTime(f, t); if (slide) o.frequency.exponentialRampToValueAtTime(slide, t + d);
+      g.gain.setValueAtTime(.06, t); g.gain.exponentialRampToValueAtTime(.0001, t + d);
+      o.connect(g).connect(AC.destination); o.start(t); o.stop(t + d + .02);
+    });
+  } catch (e) { console.warn(' 🎮 [arcade] [sfx] [failed]', e); }
+}
+function speak(text) {
+  const key = Object.keys(HD_VOICE).find(k => text.toLowerCase().startsWith(k));
+  if (HD && key) { playFile(HD_VOICE[key], 1); return; }
+  try { if (!window.speechSynthesis) return; speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(text); u.rate = .9; speechSynthesis.speak(u); }
+  catch (e) { console.warn(' 🎮 [arcade] [speak] [failed]', e); }
+}
+const EV = (name, payload) => { try { window.SunnyEvidence && window.SunnyEvidence[name](Object.assign({ activityId: 'sunny-arcade-' + CHILD }, payload)); } catch (e) { console.warn(' 🎮 [arcade] [evidence] [failed]', e); } };
+
+// ======================= PIXEL ART (all original, drawn in code) =======================
+const hash = (x, y) => { let h = (x * 374761393 + y * 668265263) ^ 0x5bd1e995; h = Math.imul(h ^ (h >>> 13), 1274126177); return ((h ^ (h >>> 16)) >>> 0) / 4294967296; };
+function tex(scene, key, w, h, draw) { const t = scene.textures.createCanvas(key, w, h); const c = t.getContext(); draw(c, (x, y, ww, hh, col) => { c.fillStyle = col; c.fillRect(x, y, ww, hh); }); t.refresh(); }
+function pix(scene, key, rows, pal) { tex(scene, key, rows[0].length, rows.length, (c, P) => rows.forEach((r, j) => [...r].forEach((ch, i) => { if (ch !== '.' && pal[ch]) P(i, j, 1, 1, pal[ch]); }))); }
+const HEAD = CHILD === 'ila' ? ['....hhhhhh......', '...hhhhhhhh.....', '..hhhhhhhhhh....', '..hhssssssh.....', '..hssessessh....', '..hssssssssh....', '...hssmmssh.....', '..ppssssss.h....']
+  : ['....kkkkkk......', '...kKKKKKKk.....', '..kKhhhhhhKk....', '..kKhssssshk....', '..kssessessk....', '..KssssssssK....', '...kssmmssk.....', '....ssssss......'];
+const BODY = ['..pppppppppp....', '.spppPPPPpppsh..', 'sspppppppppps...', 's.pppppppppp.s..', '...pppppppp.....'];
+const LEGS = { idle: ['...ll....ll.....', '..bbbb..bbbb....', '..bbbb..bbbb....'], run1: ['..ll.....ll.....', '.bbb......bbb...', '.bbb......bbb...'],
+  run2: ['....ll..ll......', '...bbbbbbbb.....', '...bbbbbbbb.....'], jump: ['..ll......ll....', '.bbb.......bbb..', '................'] };
+
+function makeArt(scene) {
+  const pal = Object.assign({ e: '#000', m: '#a04040', K: '#c81e3a', k: '#5a0c18' }, CFG.hero);
+  Object.entries(LEGS).forEach(([k, legs]) => pix(scene, 'hero_' + k, [...HEAD, ...BODY, ...legs], pal));
+  const N = CFG.night;
+  const G = N ? ['#5ac878', '#2e9a52', '#5a3a50', '#46283c', '#7a5070'] : ['#9ae850', '#58c030', '#b8743a', '#985a28', '#d8955a'];
+  tex(scene, 'grass', 16, 16, (c, P) => { for (let j = 0; j < 16; j++) for (let i = 0; i < 16; i++) { const n = hash(i, j); P(i, j, 1, 1, j < 2 ? G[0] : j < 4 ? G[1] : n > .9 ? G[4] : n > .62 ? G[3] : G[2]); } });
+  tex(scene, 'dirt', 16, 16, (c, P) => { for (let j = 0; j < 16; j++) for (let i = 0; i < 16; i++) { const n = hash(i + 7, j + 3); P(i, j, 1, 1, n > .9 ? G[4] : n > .62 ? G[3] : G[2]); } });
+  const S = N ? ['#9aa8d8', '#6878b0', '#38407a'] : ['#d0d0e0', '#9a9ab0', '#5a5a70'];
+  tex(scene, 'stone', 16, 16, (c, P) => { P(0, 0, 16, 16, S[1]); P(0, 0, 16, 1, S[0]); P(0, 0, 1, 16, S[0]); P(15, 0, 1, 16, S[2]); P(0, 15, 16, 1, S[2]); P(3, 4, 3, 2, S[0]); P(9, 9, 4, 2, S[2]); });
+  tex(scene, 'gate', 16, 16, (c, P) => { P(0, 0, 16, 16, '#3a2030'); P(1, 1, 14, 14, '#5a3048'); P(2, 2, 12, 2, '#7a4a64'); P(7, 0, 2, 16, '#2a1420'); });
+  [['cr_blue', ['#000', '#4a8cf0', '#9ad0ff', '#2a50a0']], ['cr_gold', ['#000', '#ffc020', '#fff090', '#b07000']], ['cr_grey', ['#000', '#7a7a8a', '#a8a8b8', '#4a4a5a']]]
+    .forEach(([k, [o, m, l, d]]) => tex(scene, k, 18, 18, (c, P) => { P(0, 0, 18, 18, o); P(1, 1, 16, 16, m); P(1, 1, 16, 2, l); P(1, 1, 2, 16, l); P(15, 3, 2, 14, d); P(3, 15, 14, 2, d); P(2, 2, 1, 1, '#fff'); P(14, 2, 1, 1, '#fff'); }));
+  pix(scene, 'gem', ['..yy..', '.ywwy.', 'yyyyyy', 'yyyyyy', '.yooy.', '..oo..'], { y: '#ffd84a', w: '#fff7c0', o: '#d08a10' });
+  pix(scene, 'heart', ['.rr.rr.', 'rwrrrrr', 'rrrrrrr', '.rrrrr.', '..rrr..', '...r...'], { r: '#ff3d5a', w: '#ffc0c8' });
+  pix(scene, 'heart_off', ['.rr.rr.', 'rrrrrrr', 'rrrrrrr', '.rrrrr.', '..rrr..', '...r...'], { r: '#3a2030' });
+  const EN = N ? ['w..........w', 'ww..yyyy..ww', 'wwwyyyyyywww', '.wwykyykyww.', '..wyyyyyyw..', '..ww.yy.ww..', '...w....w...'] :
+    ['....gggggg....', '..gggggggggg..', '.ggLLggggggggg.', '.gLLgggggggggg.', 'ggggwwgggwwgggg', 'ggggwkgggwkgggg', 'ggggggggggggggg', '.dgggggggggggd.', '..ddddddddddd..'];
+  pix(scene, 'enemy', EN, N ? { w: '#e0d890', y: '#c8a830', k: '#000' } : { g: '#8a48d0', L: '#c8a0ff', w: '#fff', k: '#000', d: '#5a2a90' });
+  const BOSS = N ? ['ww..............ww', 'www....yyyy....www', 'wwww.yyyyyyyy.wwww', '.wwwyyyyyyyyyywww.', '..wyykkyyyykkyyw..', '..wyykryyyykryyw..', '...yyyyyyyyyyyy...', '...yyyymmmmyyyy...', '....yyyyyyyyyy....', '.....ww....ww.....', '....ww......ww....']
+    : ['.....kkkkkkkk.....', '....kKKKKKKKKk....', '...kKhhhhhhhhKk...', '...KhssssssssK....', '...ssbbssssbbss...', '...ssssssssssss...', '....sssmmmmsss....', '..rrrrrrrrrrrrrr..', '.srrrrwwwwwwrrrrs.', 'ssrrrrrrrrrrrrrrss', 'ss.rrrrrrrrrrrr.ss', '...rrrrrrrrrrrr...', '...ddd......ddd...', '..dddd......dddd..'];
+  pix(scene, 'boss', BOSS, N ? { w: '#e0d890', y: '#c8a830', k: '#000', r: '#ff3050', m: '#8a6a10' } : { k: '#1a1a1a', K: '#333', h: '#222', s: '#c88a60', b: '#000', m: '#7a2a2a', r: '#2a2a6a', w: '#ffe040', d: '#111' });
+  pix(scene, 'buddy', ['..yyyy..', '.yyyyyy.', 'yykyykyy', 'yyyyyyyy', 'yyrmmryy', '.yyyyyy.', '..yyyy..'], CHILD === 'ila' ? { y: '#ffd84a', k: '#000', m: '#c05030', r: '#ff9a9a' } : { y: '#ff9ac8', k: '#000', m: '#a03060', r: '#ff5a9a' });
+  tex(scene, 'spark', 3, 3, (c, P) => { P(1, 0, 1, 3, '#fff'); P(0, 1, 3, 1, '#fff'); });
+  tex(scene, 'dot', 2, 2, (c, P) => P(0, 0, 2, 2, '#ffffff'));
+  tex(scene, 'counter', 3, 3, (c, P) => P(0, 0, 3, 3, '#ffd23f'));
+  // parallax layers
+  tex(scene, 'mount', W, 120, (c, P) => { const cols = N ? ['#26306a', '#1c2650', '#123a32'] : ['#4a7ac8', '#3a62a8', '#2f8f60'];
+    cols.forEach((col, k) => { for (let x = 0; x < W; x++) { const t = Math.sin((x + k * 37) / (22 - k * 5)) * .5 + Math.sin((x + k * 91) / 9) * .18; const top = 30 + k * 26 - Math.round(t * (16 - k * 4)); P(x, top, 1, 120 - top, col); } }); });
+  tex(scene, 'sky', W, 140, (c, P) => { if (N) { for (let k = 0; k < 80; k++) P(Math.floor(hash(k, 1) * W), Math.floor(hash(k, 2) * 120), 1, 1, hash(k, 3) > .8 ? '#fff' : '#8ea0e0'); }
+    else { const cl = (x, y) => { [[0, 4, 6], [8, 0, 8], [18, 3, 7], [26, 6, 5]].forEach(([dx, dy, r]) => { for (let yy = -r; yy <= r; yy++) { const w2 = Math.floor(Math.sqrt(r * r - yy * yy)); P(x + dx - w2, y + dy + 6 + yy, w2 * 2 + 1, 1, '#fff'); } }); }; cl(20, 20); cl(150, 8); cl(280, 34); } });
+}
+
+// ======================= GAME SCENE =======================
+class Play extends Phaser.Scene {
+  constructor() { super('play'); }
+  preload() { if (HD) this.load.image('paint', `sample/bg-${CHILD}.jpg`); }
+  create() {
+    makeArt(this);
+    this.cameras.main.setBackgroundColor(CFG.night ? '#141c48' : '#68b8f8');
+    if (HD) {
+      this.paint = this.add.image(0, 0, 'paint').setOrigin(0).setScrollFactor(0);
+      this.paint.setScale((H + 8) / this.paint.height);
+      this.mount = { tilePositionX: 0 }; this.sky2 = { tilePositionX: 0 };
+    } else {
+      this.add.image(0, 0, 'sky').setOrigin(0).setScrollFactor(0);
+      if (CFG.night) { const moon = this.add.circle(320, 36, 12, 0xf8f0c0).setScrollFactor(0); }
+      this.mount = this.add.tileSprite(0, H - 132, W, 120, 'mount').setOrigin(0).setScrollFactor(0);
+      this.sky2 = this.add.tileSprite(0, 0, W, 140, 'sky').setOrigin(0).setScrollFactor(0).setAlpha(.6);
+    }
+
+    this.tasks = CFG.tasks.slice(); this.nNormal = this.tasks.length - CFG.bossTasks;
+    this.coins = 0; this.hearts = 3; this.done = 0; this.misses = 0; this.startTime = this.time.now;
+    this.ground = this.physics.add.staticGroup(); this.crystals = this.physics.add.staticGroup();
+    this.enemies = this.physics.add.group({ allowGravity: true }); this.gems = this.physics.add.staticGroup();
+    this.sections = [];
+    const SEC = 300; let x = 0;
+    this.floor(0, 220);                                    // start area
+    x = 220;
+    for (let i = 0; i < this.nNormal; i++) { this.buildSection(x, i, SEC); x += SEC; }
+    this.arenaX = x; this.floor(x, 420); this.buildArena(x); x += 420;
+    this.worldW = x;
+    this.physics.world.setBounds(0, -100, this.worldW, H + 200);
+    this.physics.world.setBoundsCollision(true, true, false, false);
+
+    this.player = this.physics.add.sprite(40, GROUND - 20, 'hero_idle');
+    this.player.body.setSize(10, 15).setOffset(3, 1); this.player.setDepth(5);
+    this.checkpoint = { x: 40, y: GROUND - 20 };
+    this.physics.add.collider(this.player, this.ground);
+    this.physics.add.collider(this.enemies, this.ground);
+    this.physics.add.collider(this.player, this.crystals, (p, c) => this.bumpCrystal(p, c));
+    this.physics.add.overlap(this.player, this.enemies, (p, e) => this.touchEnemy(p, e));
+    this.physics.add.overlap(this.player, this.gems, (p, g) => { g.destroy(); this.coins++; sfx('coin'); this.burst(g.x, g.y, 6, 0xffd84a); this.refreshHud(); });
+
+    const cam = this.cameras.main; cam.setBounds(0, 0, this.worldW, H); cam.startFollow(this.player, true, .12, .12); cam.setDeadzone(40, 30);
+    this.spark = this.add.particles(0, 0, 'spark', { speed: { min: 40, max: 120 }, lifespan: 500, scale: { start: 1.2, end: 0 }, gravityY: 120, emitting: false }).setDepth(8);
+    this.dust = this.add.particles(0, 0, 'dot', { speed: { min: 10, max: 30 }, angle: { min: 200, max: 340 }, lifespan: 300, alpha: { start: .7, end: 0 }, emitting: false, tint: 0xe8f0ff }).setDepth(4);
+
+    this.keys = this.input.keyboard.createCursorKeys(); this.keyW = this.input.keyboard.addKeys('W,A,D,SPACE');
+    this.input.addPointer(2); this.touch = { left: false, right: false, jump: false };
+    this.buildHud(); this.buildPad();
+    this.coyote = 0; this.jumpBuf = 0; this.wasGround = true; this.inv = 0;
+    this.activeSection = -1;
+    window.__scene = this;          // test handle for automated play-throughs
+    EV('activityStarted', {});
+    this.banner(CFG.title, 1400); this.time.delayedCall(1200, () => this.banner('READY... GO!', 900));
+    console.log(` 🎮 [arcade] [start] child=${CHILD} tasks=${this.tasks.length}`);
+  }
+
+  floor(x, w, pitAt, pitW) {
+    const parts = pitAt == null ? [[x, w]] : [[x, pitAt], [x + pitAt + pitW, w - pitAt - pitW]];
+    parts.forEach(([px, pw]) => { if (pw <= 0) return;
+      this.add.tileSprite(px, GROUND, pw, 16, 'grass').setOrigin(0); this.add.tileSprite(px, GROUND + 16, pw, 32, 'dirt').setOrigin(0);
+      const r = this.add.rectangle(px + pw / 2, GROUND + 8, pw, 16); this.ground.add(r); });
+    if (pitAt != null) { const g = this.add.graphics(); g.fillStyle(CFG.night ? 0x0a0a20 : 0x1a3a6a); g.fillRect(x + pitAt, GROUND, pitW, 40); }
+  }
+  platform(x, y, n) { for (let i = 0; i < n; i++) { const s = this.ground.create(x + i * 16 + 8, y + 8, 'stone'); s.refreshBody(); } }
+  buildSection(x, i, w) {
+    const pit = i % 2 === 1; this.floor(x, w, pit ? 70 : null, 40);
+    if (pit) this.platform(x + 66, GROUND - 40, 3);
+    else this.platform(x + 50, GROUND - 44, 4);
+    for (let g = 0; g < 3; g++) { const gm = this.gems.create(x + 60 + g * 14 + (pit ? 6 : 0), GROUND - (pit ? 52 : 58), 'gem'); this.tweens.add({ targets: gm, scaleX: .2, yoyo: true, repeat: -1, duration: 500 + g * 60 }); }
+    const e = this.enemies.create(x + 150, GROUND - 12, 'enemy'); e.minX = x + 120; e.maxX = x + 175; e.setVelocityX(-24); e.body.setSize(e.width - 2, e.height - 2);
+    const cx = x + 196; const cr = []; for (let k = 0; k < 3; k++) cr.push(this.makeCrystal(cx + k * 26, GROUND - 74, i));
+    const gate = []; for (let k = 0; k < 7; k++) { const g = this.ground.create(x + w - 16, GROUND - 8 - k * 16, 'gate'); g.refreshBody(); gate.push(g); }
+    this.sections.push({ x, w, task: i, crystals: cr, gate, step: 0, started: false });
+    if (CFG.night) [x + 20, x + w - 40].forEach((lx, k) => { if (k === 1) { const p = this.add.rectangle(lx, GROUND - 16, 1, 32, 0x2a2a3a); const l = this.add.rectangle(lx, GROUND - 34, 7, 10, 0x3a3a4a); this.sections[i].lantern = l; } });
+  }
+  buildArena(x) {
+    this.add.rectangle(x + 210, GROUND - 90, 420, 180, CFG.night ? 0x1a1040 : 0x7a1020, .18);
+    const label = this.add.text(x + 340, 96, CFG.bossName, { fontFamily: FONT, fontSize: '8px', color: '#ff5a70', stroke: '#000', strokeThickness: 3 }).setOrigin(.5);
+    this.platform(x + 300, GROUND - 40, 5);
+    this.boss = this.physics.add.staticImage(x + 340, GROUND - 40 - 16, 'boss').setScale(2).setDepth(3);
+    this.boss.refreshBody(); this.bossHp = this.tasks.slice(this.nNormal).reduce((s, t) => s + t.steps.length, 0); this.bossMax = this.bossHp;
+    this.tweens.add({ targets: this.boss, y: this.boss.y - 6, yoyo: true, repeat: -1, duration: 700, ease: 'Sine.inOut' });
+    const cr = []; for (let k = 0; k < 3; k++) cr.push(this.makeCrystal(x + 150 + k * 26, GROUND - 74, -1));
+    this.arena = { x, crystals: cr, taskIdx: this.nNormal, step: 0, started: false };
+    this.bossBar = this.add.graphics().setDepth(9);
+  }
+  makeCrystal(x, y) {
+    const c = this.crystals.create(x, y, 'cr_blue'); c.refreshBody();
+    c.label = this.add.text(x, y, '', { fontFamily: FONT, fontSize: '8px', color: '#fff', stroke: '#1a2a5a', strokeThickness: 3 }).setOrigin(.5).setDepth(6);
+    c.baseY = y; c.setVisible(false); c.label.setVisible(false); c.body.enable = false; return c;
+  }
+
+  // ---------------- tasks ----------------
+  currentTask(sec) { return this.tasks[sec === this.arena ? this.arena.taskIdx : sec.task]; }
+  showStep(sec) {
+    const task = this.currentTask(sec); if (!task) return; const step = task.steps[sec.step];
+    const choices = Phaser.Utils.Array.Shuffle(step.choices.slice());
+    sec.crystals.forEach((c, k) => { c.value = choices[k]; c.used = false; c.setTexture('cr_blue'); c.label.setText(choices[k]).setVisible(true); c.setVisible(true); c.body.enable = true;
+      c.setScale(0); c.label.setScale(0); this.tweens.add({ targets: [c, c.label], scale: 1, duration: 260, delay: k * 70, ease: 'Back.out' }); });
+    sec.hintLevel = 0; sec.stepStart = this.time.now;
+    this.setPrompt(task, sec.step);
+    EV('targetPresented', { target: task.kind === 'div' ? `${task.n}÷${task.g}` : task.word, itemIndex: sec === this.arena ? this.arena.taskIdx : sec.task, visibleState: { choices, step: sec.step } });
+  }
+  startSection(sec) {
+    if (sec.started) return; sec.started = true; this.checkpoint = { x: sec.x + 20, y: GROUND - 20 };
+    const task = this.currentTask(sec);
+    if (task.kind === 'spell') { this.time.delayedCall(300, () => speak(`${task.word}. ${task.say} ${task.word}.`)); }
+    this.showStep(sec);
+    if (sec === this.arena) { this.banner('BOSS!', 900); sfx('boss'); const cam = this.cameras.main; cam.stopFollow(); cam.pan(this.arenaX + 210, H / 2, 600, 'Sine.easeInOut'); cam.shake(300, .006); }
+  }
+  bumpCrystal(p, c) {
+    if (!c.visible || c.used || !(p.body.blocked.up || p.body.touching.up) || p.y < c.y) return;
+    if (this.time.now - (c.lastHit || 0) < 300) return; c.lastHit = this.time.now;
+    const sec = this.sections.find(s => s.crystals.includes(c)) || this.arena; if (!sec.started) return;
+    const task = this.currentTask(sec); const step = task.steps[sec.step];
+    sfx('bump'); this.tweens.add({ targets: [c, c.label], y: '-=5', yoyo: true, duration: 70 });
+    const ok = c.value === step.correct; const ms = Math.round(this.time.now - sec.stepStart);
+    EV('attemptRecorded', { target: task.kind === 'div' ? `${task.n}÷${task.g}` : task.word, attemptNumber: (sec.tries = (sec.tries || 0) + 1), childAction: { chose: c.value }, result: { correct: ok, hintLevel: sec.hintLevel, ms } });
+    if (ok) this.correct(sec, c, task); else this.wrong(sec, c, task, step);
+  }
+  correct(sec, c, task) {
+    sfx('right'); c.setTexture('cr_gold'); c.used = true; this.burst(c.x, c.y, 16, 0xfff090); this.coins += 2;
+    this.floatText(c.x, c.y - 14, '+2', '#fff');
+    if (task.kind === 'spell') this.fillTray(task, sec.step);
+    sec.step++; sec.tries = 0;
+    if (sec === this.arena) this.hitBoss();
+    this.time.delayedCall(450, () => { sec.crystals.forEach(k => { this.tweens.add({ targets: [k, k.label], scale: 0, duration: 160, onComplete: () => { k.setVisible(false); k.label.setVisible(false); k.body.enable = false; } }); }); });
+    if (sec.step < task.steps.length) { this.time.delayedCall(700, () => this.showStep(sec)); return; }
+    // task complete
+    this.done++; this.say(Phaser.Utils.Array.GetRandom(CFG.cheers));
+    EV('targetCompleted', { target: task.kind === 'div' ? `${task.n}÷${task.g}` : task.word, result: { correct: true } });
+    if (task.kind === 'spell') this.time.delayedCall(300, () => speak(task.word + '!'));
+    this.refreshHud();
+    if (sec === this.arena) {
+      this.arena.taskIdx++; this.arena.step = 0;
+      if (this.arena.taskIdx < this.tasks.length) { sec.step = 0; this.time.delayedCall(1100, () => { const t = this.currentTask(sec); if (t.kind === 'spell') speak(`${t.word}. ${t.say}`); this.showStep(sec); }); }
+      return;
+    }
+    if (sec.lantern) { sec.lantern.setFillStyle(0xffd040); const glow = this.add.circle(sec.lantern.x, sec.lantern.y, 14, 0xffd040, .18); this.tweens.add({ targets: glow, alpha: .05, yoyo: true, repeat: -1, duration: 800 }); }
+    this.time.delayedCall(500, () => { sfx('gate'); sec.gate.forEach((g, k) => this.tweens.add({ targets: g, y: g.y - 140, alpha: 0, duration: 500, delay: k * 40, onComplete: () => g.destroy() })); this.cameras.main.shake(200, .004); });
+    this.time.delayedCall(560, () => sec.gate.forEach(g => g.body && (g.body.enable = false)));
+  }
+  wrong(sec, c, task, step) {
+    sfx('miss'); this.misses++; c.used = true; c.setTexture('cr_grey');
+    this.tweens.add({ targets: [c, c.label], x: '+=3', yoyo: true, repeat: 3, duration: 40 });
+    this.player.setVelocityY(60);
+    sec.hintLevel = Math.min(2, (sec.hintLevel || 0) + 1);
+    if (task.kind === 'spell') { this.say('Almost! Listen…'); speak(task.word); }
+    else this.say(sec.hintLevel === 1 ? 'Deal them out!' : `${task.g} × ? = ${task.n}`);
+    if (sec.hintLevel >= 2) { const right = sec.crystals.find(k => k.value === step.correct); if (right) this.tweens.add({ targets: right.label, alpha: .3, yoyo: true, repeat: 3, duration: 200 }); }
+    if (task.kind === 'div') this.setPrompt(task, 0, true);
+  }
+  hitBoss() {
+    this.bossHp--; sfx('boss'); this.boss.setTintFill(0xffffff); this.time.delayedCall(90, () => this.boss.clearTint());
+    this.cameras.main.shake(250, .01); this.burst(this.boss.x, this.boss.y, 20, 0xff5a70); this.floatText(this.boss.x, this.boss.y - 30, 'HIT!', '#ff5a70');
+    if (this.bossHp <= 0) this.time.delayedCall(600, () => this.win());
+  }
+  win() {
+    sfx('win'); this.boss.body.enable = false; this.tweens.killTweensOf(this.boss);
+    this.tweens.add({ targets: this.boss, angle: 360, y: H + 60, duration: 900, ease: 'Quad.in' });
+    for (let i = 0; i < 6; i++) this.time.delayedCall(i * 150, () => this.burst(this.boss.x + Phaser.Math.Between(-30, 30), 80 + Phaser.Math.Between(-20, 20), 24, Phaser.Display.Color.RandomRGB().color));
+    this.coins += 10; this.refreshHud(); this.finished = true;
+    EV('activityCompleted', { result: { coinsEarned: this.coins, misses: this.misses, seconds: Math.round((this.time.now - this.startTime) / 1000) } });
+    console.log(` 🎮 [arcade] [complete] child=${CHILD} coins=${this.coins} misses=${this.misses}`);
+    this.time.delayedCall(1100, () => {
+      [this.panel, this.promptTxt, this.subG, this.trayG, this.hear, ...this.trayTxt].forEach(o => o.setVisible(false));
+      const ov = this.add.rectangle(W / 2, H / 2, W, H, 0x000000, .6).setScrollFactor(0).setDepth(20);
+      const t = this.add.text(W / 2, 70, CFG.win, { fontFamily: FONT, fontSize: '12px', color: '#ffd84a', stroke: '#000', strokeThickness: 4 }).setOrigin(.5).setScrollFactor(0).setDepth(21);
+      this.tweens.add({ targets: t, scale: 1.15, yoyo: true, repeat: -1, duration: 400 });
+      this.add.text(W / 2, 104, `GEMS +${this.coins}`, { fontFamily: FONT, fontSize: '8px', color: '#fff' }).setOrigin(.5).setScrollFactor(0).setDepth(21);
+      const b = this.add.text(W / 2, 146, ' PLAY AGAIN ', { fontFamily: FONT, fontSize: '8px', color: '#000', backgroundColor: '#ffd84a', padding: { x: 6, y: 6 } }).setOrigin(.5).setScrollFactor(0).setDepth(21).setInteractive();
+      b.on('pointerdown', () => this.scene.restart());
+      this.confetti = this.add.particles(0, 0, 'dot', { x: { min: 0, max: W }, y: -4, speedY: { min: 40, max: 90 }, speedX: { min: -20, max: 20 }, lifespan: 3000, tint: [0xff5a70, 0xffd84a, 0x5ac8ff, 0x8aff8a, 0xc890ff], frequency: 30 }).setScrollFactor(0).setDepth(22);
+    });
+  }
+
+  // ---------------- player ----------------
+  touchEnemy(p, e) {
+    if (e.dead) return;
+    if (p.body.velocity.y > 0 && p.y < e.y - 4) { e.dead = true; sfx('stomp'); p.setVelocityY(-220); this.burst(e.x, e.y, 10, 0xc8a0ff); this.coins++; this.refreshHud();
+      e.body.enable = false; this.tweens.add({ targets: e, scaleY: .2, y: e.y + 5, alpha: 0, duration: 260, onComplete: () => e.destroy() }); return; }
+    this.hurt(e.x < p.x ? 1 : -1);
+  }
+  hurt(dir) {
+    if (this.inv > this.time.now || this.finished) return; this.inv = this.time.now + 1200; sfx('hurt');
+    this.hearts--; this.player.setVelocity(dir * 140, -160); this.cameras.main.shake(150, .006);
+    this.tweens.add({ targets: this.player, alpha: .2, yoyo: true, repeat: 5, duration: 100, onComplete: () => this.player.setAlpha(1) });
+    if (this.hearts <= 0) { this.hearts = 3; this.say("Let's try that again!"); this.time.delayedCall(300, () => this.player.setPosition(this.checkpoint.x, this.checkpoint.y).setVelocity(0)); }
+    this.refreshHud();
+  }
+  update(t, dt) {
+    if (this.finished) { this.player.setVelocityX(0); return; }
+    const p = this.player, b = p.body, onGround = b.blocked.down;
+    const L = this.keys.left.isDown || this.keyW.A.isDown || this.touch.left, R = this.keys.right.isDown || this.keyW.D.isDown || this.touch.right;
+    const J = this.keys.up.isDown || this.keyW.W.isDown || this.keyW.SPACE.isDown || this.touch.jump;
+    const ACC = onGround ? 900 : 600, MAX = 110;
+    if (L) b.setAccelerationX(-ACC); else if (R) b.setAccelerationX(ACC); else { b.setAccelerationX(0); b.setVelocityX(b.velocity.x * (onGround ? .8 : .95)); }
+    b.setVelocityX(Phaser.Math.Clamp(b.velocity.x, -MAX, MAX));
+    if (L) p.setFlipX(true); else if (R) p.setFlipX(false);
+    if (onGround) this.coyote = t + 90; if (J && !this.jHeld) this.jumpBuf = t + 110; this.jHeld = J;
+    if (this.jumpBuf > t && this.coyote > t) { b.setVelocityY(-305); this.jumpBuf = 0; this.coyote = 0; sfx('jump'); this.dust.explode(5, p.x, p.y + 8);
+      this.tweens.add({ targets: p, scaleX: .8, scaleY: 1.2, yoyo: true, duration: 90 }); }
+    if (!J && b.velocity.y < -120) b.setVelocityY(b.velocity.y * .85);            // variable jump height
+    if (onGround && !this.wasGround) { this.dust.explode(6, p.x, p.y + 8); this.tweens.add({ targets: p, scaleX: 1.25, scaleY: .8, yoyo: true, duration: 80 }); }
+    this.wasGround = onGround;
+    p.setTexture(!onGround ? 'hero_jump' : Math.abs(b.velocity.x) > 15 ? (Math.floor(t / 110) % 2 ? 'hero_run1' : 'hero_run2') : 'hero_idle');
+    if (p.y > H + 30) { this.hurt(0); p.setPosition(this.checkpoint.x, this.checkpoint.y).setVelocity(0); }
+    this.enemies.children.iterate(e => { if (!e || e.dead) return; if (e.x < e.minX) e.setVelocityX(24); if (e.x > e.maxX) e.setVelocityX(-24); e.setFlipX(e.body.velocity.x > 0); });
+    const cam = this.cameras.main; this.mount.tilePositionX = cam.scrollX * .3; this.sky2.tilePositionX = cam.scrollX * .1 + t * .004;
+    if (this.paint) this.paint.x = -(this.paint.displayWidth - W) * Phaser.Math.Clamp(cam.scrollX / Math.max(1, this.worldW - W), 0, 1);
+    for (const s of this.sections) if (!s.started && p.x > s.x + 100) this.startSection(s);
+    if (!this.arena.started && p.x > this.arenaX + 60 && this.done >= this.nNormal) this.startSection(this.arena);
+    this.buddy.y = 84 + Math.sin(t / 300) * 3;
+    if (this.boss && this.bossBar) { const bx = this.boss.x - 24, by = this.boss.y - 40; this.bossBar.clear(); if (this.arena.started && this.bossHp > 0) { this.bossBar.fillStyle(0x000000).fillRect(bx - 1, by - 1, 50, 6).fillStyle(0xff3050).fillRect(bx, by, 48 * this.bossHp / this.bossMax, 4); } }
+  }
+
+  // ---------------- HUD ----------------
+  buildHud() {
+    const st = (s, size = 8, col = '#fff') => this.add.text(0, 0, s, { fontFamily: FONT, fontSize: size + 'px', color: col, stroke: '#000', strokeThickness: 3 }).setScrollFactor(0).setDepth(15);
+    this.add.rectangle(W / 2, 13, W, 26, 0x000000, .4).setScrollFactor(0).setDepth(14);
+    st(CFG.name).setPosition(6, 4); this.heartsImg = [0, 1, 2].map(i => this.add.image(10 + i * 10, 18, 'heart').setScrollFactor(0).setDepth(15));
+    this.goalTxt = st('').setPosition(W / 2, 4).setOrigin(.5, 0);
+    this.add.image(W - 70, 9, 'gem').setScrollFactor(0).setDepth(15); this.coinTxt = st('', 8, '#ffd84a').setPosition(W - 62, 4);
+    // prompt panel
+    this.panel = this.add.rectangle(W / 2, 46, 230, 34, 0x0a0a1e, .85).setStrokeStyle(1, 0xffd23f).setScrollFactor(0).setDepth(14).setVisible(false);
+    this.promptTxt = st('', 8).setPosition(W / 2, 34).setOrigin(.5, 0); this.subG = this.add.graphics().setScrollFactor(0).setDepth(15);
+    this.trayG = this.add.graphics().setScrollFactor(0).setDepth(15); this.trayTxt = [];
+    this.hear = st('🔊', 10).setPosition(W / 2 + 104, 36).setOrigin(.5, 0).setInteractive().setVisible(false);
+    this.hear.on('pointerdown', () => { const s = this.sections.find(x => x.started && x.step < this.currentTask(x).steps.length) || this.arena; const tk = this.currentTask(s); if (tk && tk.kind === 'spell') { speak(`${tk.word}. ${tk.say}`); EV('audioRequested', { target: tk.word }); } });
+    this.buddy = this.add.image(18, 84, 'buddy').setScale(2).setScrollFactor(0).setDepth(15);
+    this.bubble = st('', 8).setPosition(32, 80).setVisible(false);
+    this.refreshHud();
+  }
+  refreshHud() {
+    this.heartsImg.forEach((h, i) => h.setTexture(i < this.hearts ? 'heart' : 'heart_off'));
+    this.goalTxt.setText(`${CFG.goal} ${this.done}/${this.tasks.length}`); this.coinTxt.setText('x' + this.coins);
+  }
+  setPrompt(task, stepIdx, emphasize) {
+    this.panel.setVisible(true); this.subG.clear(); this.trayG.clear(); this.trayTxt.forEach(t => t.destroy()); this.trayTxt = [];
+    if (task.kind === 'div') {
+      this.hear.setVisible(false);
+      const txt = task.mode === 'times' ? `${task.g} × ? = ${task.n}` : `${task.n} ÷ ${task.g} = ?`;
+      this.promptTxt.setText(txt).setY(32);
+      const mats = task.g, mw = Math.min(40, 200 / mats - 4), x0 = W / 2 - (mats * (mw + 4)) / 2;
+      for (let m = 0; m < mats; m++) { this.subG.fillStyle(0xc0392b).fillRect(x0 + m * (mw + 4), 46, mw, 12); }
+      if (task.mode === 'deal' || emphasize) {          // deal the counters out one at a time, like the worksheet
+        if (this.dealEv) this.dealEv.remove(false); let k = 0; const per = task.n / task.g;
+        this.dealEv = this.time.addEvent({ delay: 60, repeat: task.n - 1, callback: () => { const m = k % mats, j = Math.floor(k / mats);
+          this.subG.fillStyle(0xffd23f).fillRect(x0 + m * (mw + 4) + 2 + (j % 8) * 4.5, 48 + Math.floor(j / 8) * 4, 3, 3); if (k % 3 === 0) sfx('bump'); k++; } });
+      }
+    } else {
+      this.hear.setVisible(true);
+      this.promptTxt.setText(task.pic).setY(30);
+      const n = task.word.length, bw = 14, x0 = W / 2 - (n * (bw + 2)) / 2;
+      for (let k = 0; k < n; k++) { const got = k < stepIdx; this.trayG.fillStyle(got ? 0xffd040 : 0x2a3060).fillRect(x0 + k * (bw + 2), 46, bw, 12);
+        if (got) this.trayTxt.push(this.add.text(x0 + k * (bw + 2) + bw / 2, 48, task.word[k].toUpperCase(), { fontFamily: FONT, fontSize: '8px', color: '#5a3000' }).setOrigin(.5, 0).setScrollFactor(0).setDepth(16));
+        else this.trayG.fillStyle(0x6a78b8).fillRect(x0 + k * (bw + 2) + 3, 55, bw - 6, 1); }
+    }
+  }
+  fillTray(task, stepIdx) { this.setPrompt(task, stepIdx + 1); }
+  say(s) { this.bubble.setText(s).setVisible(true); this.tweens.add({ targets: this.buddy, scale: 2.5, yoyo: true, duration: 120 }); if (this.bubbleT) this.bubbleT.remove(false); this.bubbleT = this.time.delayedCall(1600, () => this.bubble.setVisible(false)); }
+  banner(s, ms) { const t = this.add.text(W / 2, H / 2 - 10, s, { fontFamily: FONT, fontSize: '14px', color: '#ffd84a', stroke: '#000', strokeThickness: 5 }).setOrigin(.5).setScrollFactor(0).setDepth(18).setScale(0);
+    this.tweens.add({ targets: t, scale: 1, duration: 250, ease: 'Back.out', yoyo: true, hold: ms, onComplete: () => t.destroy() }); }
+  floatText(x, y, s, col) { const t = this.add.text(x, y, s, { fontFamily: FONT, fontSize: '8px', color: col, stroke: '#000', strokeThickness: 3 }).setOrigin(.5).setDepth(9); this.tweens.add({ targets: t, y: y - 20, alpha: 0, duration: 700, onComplete: () => t.destroy() }); }
+  burst(x, y, n, tint) { this.spark.setParticleTint(tint); this.spark.explode(n, x, y); }
+  buildPad() {
+    const mk = (x, label, key) => { const b = this.add.circle(x, H - 22, 15, 0x000000, .35).setScrollFactor(0).setDepth(16).setInteractive();
+      this.add.text(x, H - 22, label, { fontFamily: FONT, fontSize: '10px', color: '#fff' }).setOrigin(.5).setScrollFactor(0).setDepth(17);
+      b.on('pointerdown', () => this.touch[key] = true); b.on('pointerup', () => this.touch[key] = false); b.on('pointerout', () => this.touch[key] = false); };
+    mk(26, '◀', 'left'); mk(62, '▶', 'right'); mk(W - 28, 'A', 'jump');
+  }
+}
+
+document.fonts.load('8px "Press Start 2P"').catch(e => console.warn(' 🎮 [arcade] [font] [failed]', e)).finally(() => {
+  new Phaser.Game({ type: Phaser.AUTO, parent: 'game', width: W, height: H, pixelArt: true, roundPixels: true,
+    scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH },
+    fps: { forceSetTimeOut: new URLSearchParams(location.search).has('test'), target: 60 },   // ?test keeps running in a hidden tab
+    physics: { default: 'arcade', arcade: { gravity: { y: 760 }, debug: false } }, scene: [Play] });
+});
+</script></body></html>

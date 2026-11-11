@@ -1,0 +1,66 @@
+{
+  "url": "http://localhost:6133/entries/fable-ila/index.html",
+  "checks": {
+    "title h1": {
+      "pass": true,
+      "detail": "Midnight Spirit Toast"
+    },
+    "#start shown": {
+      "pass": true
+    },
+    "#start on top": {
+      "pass": true,
+      "detail": ""
+    },
+    "activityStarted after tap": {
+      "pass": true
+    },
+    "targetPresented within 15s": {
+      "pass": true,
+      "detail": "3640 ms"
+    },
+    "smooth 55+ fps": {
+      "pass": true,
+      "detail": "56 fps, median 16.7 ms"
+    },
+    "no frame over 100 ms": {
+      "pass": true,
+      "detail": "worst 34 ms, 0 frames over 50 ms"
+    },
+    "no page errors": {
+      "pass": true,
+      "detail": ""
+    }
+  },
+  "errors": [],
+  "console": [
+    "warning: THREE.FBXLoader: %s map is not supported in three.js, skipping texture. ShininessExponent",
+    "warning: THREE.FBXLoader: Vertex has more than 4 skinning weights assigned to vertex. Deleting additional weights."
+  ],
+  "evidence": [
+    {
+      "t": 11267,
+      "eventName": "activity_started"
+    },
+    {
+      "t": 14908,
+      "eventName": "target_presented",
+      "target": "charge"
+    }
+  ],
+  "shots": [
+    "1-title.png",
+    "3-play-10s.png"
+  ],
+  "perf": {
+    "fps": 56,
+    "median": 16.7,
+    "worst": 34,
+    "over50": 0,
+    "canvas": [
+      1890,
+      1075
+    ]
+  },
+  "pass": true
+}

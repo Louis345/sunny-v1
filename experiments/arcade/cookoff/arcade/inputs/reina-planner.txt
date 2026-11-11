@@ -1,0 +1,6 @@
+Assignment: Chapter 5, represent division and find the size of equal groups (worksheet: 16 counters into 4 equal groups; 24 counters into 3 equal groups). Her current board's stops, as the Planner wrote them. This game is the board's Boss/Quest node: it should cover the Team Split Takedown skill and finish with a Championship Match.
+
+- Weigh-In (baseline): Before the tournament, every wrestler steps on the scale. Matilda wants to see how fast Reina can split counters into equal teams, with no coaching. Three quick bouts, all on the clock. Can she go 3-for-3?
+- Team Split Takedown (baseline): The coach needs equal squads for practice. Reina deals counters onto the mats one at a time, like dealing cards, until none are left, then counts each squad. Each clean split is a takedown on the scoreboard. Bigger numbers, faster rounds.
+- Locker Room Mystery (mystery): The locker room door is glowing. Something is waiting behind it before the championship match. すごい!
+- Championship Match (baseline): The final match has two rounds. In Round 1, José's CDs have to be packed in boxes of 9: how many boxes? In Round 2, Mary's library books, like Matilda's favorite place, have to be shared equally across 4 shelves. Reina has to read each move: is she finding how many groups, or how many in each group? Win both rounds for the pin. やった!

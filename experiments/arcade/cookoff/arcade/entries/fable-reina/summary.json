@@ -1,0 +1,50 @@
+{
+  "entryId": "fable-reina",
+  "child": "reina",
+  "model": "claude-fable-5-2",
+  "rounds": 3,
+  "spent": 9.91,
+  "pass": true,
+  "checks": {
+    "title h1": {
+      "pass": true,
+      "detail": "SPLIT SECOND"
+    },
+    "#start shown": {
+      "pass": true
+    },
+    "#start on top": {
+      "pass": true,
+      "detail": ""
+    },
+    "activityStarted after tap": {
+      "pass": true
+    },
+    "targetPresented within 15s": {
+      "pass": true,
+      "detail": "1178 ms"
+    },
+    "smooth 55+ fps": {
+      "pass": true,
+      "detail": "57 fps, median 16.7 ms"
+    },
+    "no frame over 100 ms": {
+      "pass": true,
+      "detail": "worst 34 ms, 0 frames over 50 ms"
+    },
+    "no page errors": {
+      "pass": true,
+      "detail": ""
+    }
+  },
+  "perf": {
+    "fps": 57,
+    "median": 16.7,
+    "worst": 34,
+    "over50": 0,
+    "canvas": [
+      1890,
+      1075
+    ]
+  }
+}
