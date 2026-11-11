@@ -20,7 +20,7 @@ import {
 
 const repoRoot = path.resolve(__dirname, "../..");
 const companionIla = path.join(repoRoot, "src/companions/elli.md");
-const companionReina = path.join(repoRoot, "src/companions/hikari.md");
+const companionReina = path.join(repoRoot, "src/companions/matilda.md");
 
 const samplePlan: PsychologistStructuredOutput = {
   todaysPlan: [

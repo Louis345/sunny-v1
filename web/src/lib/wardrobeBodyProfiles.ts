@@ -46,7 +46,7 @@ export const WARDROBE_BODY_PROFILES: Readonly<
   "vroid-slim-v1": {
     id: "vroid-slim-v1",
     label: "VRoid Slim v1",
-    classificationBasis: "Elli and Hikari (angel) source models share near-identical bind proportions.",
+    classificationBasis: "Elli's original source model and the pink-jacket (Hikari) model share near-identical bind proportions.",
     bindPoseMetrics: {
       headToFoot: 1.2603,
       shoulderBoneSpan: 0.0441,
@@ -164,12 +164,11 @@ export const WARDROBE_COMPANION_BODY_ASSIGNMENTS: Readonly<
     sourceModelUrl: "/companions/Kefla.vrm",
     sourceBodyProfileId: "kefla-v1",
   },
-  // Keyed "matilda" because the angel body's prepared assets, fitted garments and human approvals carry that asset id
-  // (gitignored VRMs on the kiosk). The companion is Hikari (owner, 2026-11-10); renaming the asset id needs a kiosk
-  // run of scripts/prepareWardrobe.ts and prepareWardrobeGarments.ts.
+  // Asset id "matilda" is the pink-jacket body (prepared VRMs, fits and approvals on the kiosk carry this id).
+  // Hikari wears it now; Matilda the companion wears the starter body (see wardrobeBodyOwnerId).
   matilda: {
     companionId: "matilda",
-    companionName: "Hikari",
+    companionName: "Pink body (Hikari)",
     activeModelUrl: "/companions/673852811403133503.vrm",
     activeBodyProfileId: "vroid-slim-v1",
     sourceModelUrl: "/companions/673852811403133503.vrm",
@@ -230,17 +229,25 @@ for (const assignment of Object.values(WARDROBE_COMPANION_BODY_ASSIGNMENTS)) {
 }
 
 /**
- * A companion that shares another companion's model file (Hikari wears the angel body whose assets were prepared
- * under the old id "matilda") wears that body's prepared asset, human-reviewed fits and pair approvals. Derived from the manifest
- * model URL so fit data is never copied per name.
+ * Fitted garments, prepared bodies and pair approvals belong to a BODY, not to a name. A companion wears whichever
+ * body asset matches her manifest model file (owner 2026-11-11, "copy by value, not by reference"):
+ * - Elli and Matilda both wear the starter /companions/sample.vrm, so both use the "elli" starter body's fits
+ *   (equipped looks stay per companion in the wardrobe state; only fit data is shared).
+ * - Hikari wears the pink-jacket model whose prepared assets carry the historical asset id "matilda".
+ * Derived from the manifest model URL so fit data is never copied per name.
  */
 export function wardrobeBodyOwnerId(companionId: string): string {
-  if (WARDROBE_COMPANION_BODY_ASSIGNMENTS[companionId]) return companionId;
   const vrmUrl = COMPANION_MANIFEST.find(entry => entry.id === companionId)?.vrmUrl;
-  const owner = vrmUrl
-    ? Object.values(WARDROBE_COMPANION_BODY_ASSIGNMENTS).find(assignment => assignment.sourceModelUrl === vrmUrl)
-    : undefined;
-  return owner?.companionId ?? companionId;
+  if (vrmUrl) {
+    const assignments = Object.values(WARDROBE_COMPANION_BODY_ASSIGNMENTS);
+    const own = WARDROBE_COMPANION_BODY_ASSIGNMENTS[companionId];
+    if (own && (own.activeModelUrl === vrmUrl || own.sourceModelUrl === vrmUrl)) return companionId;
+    const owner =
+      assignments.find(assignment => assignment.activeModelUrl === vrmUrl) ??
+      assignments.find(assignment => assignment.sourceModelUrl === vrmUrl);
+    if (owner) return owner.companionId;
+  }
+  return companionId;
 }
 
 export function resolveWardrobeBodyProfileId(modelUrl: string) {

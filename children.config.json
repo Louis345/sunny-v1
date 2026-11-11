@@ -2,7 +2,7 @@
   "defaultCompanionId": "elli",
   "childCompanionIds": {
     "ila": "elli",
-    "reina": "hikari",
+    "reina": "matilda",
     "creator": "creator"
   },
   "childProfiles": {
@@ -90,9 +90,9 @@
       },
       "dopamineGames": ["space-invaders", "asteroid", "space-frogger"]
     },
-    "hikari": {
-      "id": "hikari",
-      "vrmUrl": "/companions/673852811403133503.vrm",
+    "matilda": {
+      "id": "matilda",
+      "vrmUrl": "/companions/sample.vrm",
       "expressions": {
         "idle": "neutral",
         "happy": "happy",

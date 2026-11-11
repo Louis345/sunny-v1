@@ -9,7 +9,7 @@ import { shouldUseAdventureMapVoiceSlimToolkit } from "../utils/adventureMapAgen
 
 const repoRoot = path.resolve(__dirname, "../..");
 const companionIla = path.join(repoRoot, "src/companions/elli.md");
-const companionReina = path.join(repoRoot, "src/companions/hikari.md");
+const companionReina = path.join(repoRoot, "src/companions/matilda.md");
 const promptBanned =
   "Wilson|transitionToWork|Stay in voice|narrate, encourage|Cheer, encourage|React to their performance AFTER|remind them naturally|Never replace speech with only an emote|champion|crush|unstoppable|flawless".split("|");
 const profileBanned =

@@ -8,7 +8,6 @@ import {
 } from "../engine/companionCareEngine";
 import type { CompanionCarePlan } from "../shared/companionCareTypes";
 import { normalizeCreatureState } from "../engine/creatureCareEngine";
-import { legacyCompanionIds } from "../shared/companionAliases";
 
 export type CompanionCareChartInput = {
   childId: string;
@@ -119,13 +118,7 @@ export function loadCompanionCarePlanForChart(
   opts: { nowIso?: string; persistOnCreate?: boolean } = {},
 ): LoadedCompanionCarePlan {
   const filePath = carePlanPath(chart);
-  // A plan saved under an old id (Reina's matilda.json) is read as this companion's; the next save writes the new file.
-  const existing =
-    readJson<CompanionCarePlan>(filePath) ??
-    legacyCompanionIds(chart.companion.presetId)
-      .map((legacyId) => readJson<CompanionCarePlan>(path.join(chart.links.companionCareDir, `${legacyId}.json`)))
-      .find((plan): plan is CompanionCarePlan => Boolean(plan)) ??
-    null;
+  const existing = readJson<CompanionCarePlan>(filePath);
   if (existing) {
     return {
       plan: normalizeLoadedPlan(existing, chart),

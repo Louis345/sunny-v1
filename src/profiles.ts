@@ -3,7 +3,7 @@ import * as fs from "fs";
 import * as path from "path";
 import * as readline from "readline";
 import { runVoicePicker, ilaVoices, reinaVoices } from "./pick-voice";
-import { ELLI, HIKARI } from "./companions/loader";
+import { ELLI, MATILDA } from "./companions/loader";
 import type { CompanionConfig } from "./companions/loader";
 
 const ENV_PATH = path.resolve(__dirname, "..", ".env");
@@ -89,5 +89,5 @@ export async function selectProfile(): Promise<CompanionConfig> {
   } else {
     console.log(`\n  👑 Welcome back, Reina! Your voice is all set.\n`);
   }
-  return { ...HIKARI, voiceId };
+  return { ...MATILDA, voiceId };
 }

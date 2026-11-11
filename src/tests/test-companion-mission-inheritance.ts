@@ -43,7 +43,7 @@ describe("companion mission inheritance", () => {
     expect(sections.filter((section) => !IDENTITY_SECTIONS.includes(section))).toEqual([]);
   });
 
-  it.each(["elli.md", "hikari.md"])("assembles the mission once with %s's own personality", async (file) => {
+  it.each(["elli.md", "matilda.md"])("assembles the mission once with %s's own personality", async (file) => {
     vi.stubEnv("ADVENTURE_MAP", "true");
     try {
       const { buildSessionPrompt } = await import("../agents/prompts");

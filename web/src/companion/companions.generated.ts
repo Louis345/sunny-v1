@@ -68,7 +68,7 @@ export const COMPANION_MANIFEST: CompanionManifestEntry[] = [
   {
     "id": "elli",
     "name": "Elli",
-    "vrmUrl": "/companions/2878599730723533962.vrm",
+    "vrmUrl": "/companions/sample.vrm",
     "personality": [
       "sparkly",
       "funny",
@@ -253,6 +253,7 @@ export const COMPANION_MANIFEST: CompanionManifestEntry[] = [
           0
         ]
       },
+      "displayScale": 1,
       "dopamineGames": [
         "space-invaders",
         "asteroid",
@@ -271,7 +272,6 @@ export const COMPANION_MANIFEST: CompanionManifestEntry[] = [
       "randomMomentProbability": 0.3,
       "toggledOff": false
     },
-    "defaultFor": "reina",
     "showroom": {
       "modelName": "Sunny companion Hikari (angel)",
       "recommendedNames": [
@@ -481,6 +481,134 @@ export const COMPANION_MANIFEST: CompanionManifestEntry[] = [
         "en": {
           "intro": "I'm Kefla. I turn spelling and math into training — big energy, zero meanness, all heart.",
           "plead": "Pick me and we'll treat every lesson like leveling up: hard work, loud cheers, real progress."
+        }
+      }
+    }
+  },
+  {
+    "id": "matilda",
+    "name": "Matilda",
+    "vrmUrl": "/companions/sample.vrm",
+    "personality": [
+      "clever",
+      "patient",
+      "loves books"
+    ],
+    "unlockCost": 0,
+    "voiceAvailable": true,
+    "voices": [
+      {
+        "id": "XrExE9yKIg1WjnnlVkGX",
+        "label": "Matilda Voice",
+        "language": "en",
+        "default": true
+      },
+      {
+        "id": "piI8Kku0DcvcL6TTSeQt",
+        "label": "Fairy",
+        "language": "en"
+      },
+      {
+        "id": "n7Wi4g1bhpw4Bs8HK5ph",
+        "label": "Gigi - Energetic",
+        "language": "en"
+      },
+      {
+        "id": "Nggzl2QAXh3OijoXD116",
+        "label": "Candy - Young and Sweet",
+        "language": "en"
+      }
+    ],
+    "companionConfig": {
+      "companionId": "matilda",
+      "vrmUrl": "/companions/sample.vrm",
+      "expressions": {
+        "idle": "neutral",
+        "happy": "happy",
+        "thinking": "lookDown",
+        "celebrating": "happy",
+        "concerned": "sad",
+        "winking": "blinkLeft",
+        "surprised": "surprised",
+        "angry": "angry",
+        "blink": "blink"
+      },
+      "faceCamera": {
+        "position": [
+          0,
+          1.4,
+          0.8
+        ],
+        "target": [
+          0,
+          1.4,
+          0
+        ]
+      },
+      "dopamineGames": [
+        "space-invaders",
+        "asteroid",
+        "space-frogger"
+      ],
+      "sensitivity": {
+        "session_start": 0.8,
+        "correct_answer": 0.9,
+        "wrong_answer": 0.6,
+        "mastery_unlock": 1,
+        "session_complete": 0.85,
+        "session_end": 0.7,
+        "idle_too_long": 0.5
+      },
+      "idleFrequency_ms": 8000,
+      "randomMomentProbability": 0.3,
+      "toggledOff": false
+    },
+    "defaultFor": "reina",
+    "showroom": {
+      "modelName": "Sunny companion Matilda",
+      "recommendedNames": [
+        "Matilda"
+      ],
+      "ageImage": "Clever best-friend companion",
+      "personality": "Clever, patient, competitive in a fun way, and warm",
+      "likes": [
+        "books",
+        "patterns",
+        "smart challenges",
+        "catching tiny mistakes"
+      ],
+      "dislikes": [
+        "giving up too fast",
+        "being underestimated",
+        "boring explanations"
+      ],
+      "catchphrases": [
+        "Smart is a superpower.",
+        "Let's catch the pattern."
+      ],
+      "specialSkills": [
+        "Spotting patterns",
+        "making challenges feel exciting",
+        "helping kids feel capable"
+      ],
+      "role": "Reina's sharp, affectionate learning partner",
+      "outfitChangeEffect": "Bookish outfit -> extra clever challenge energy",
+      "gestureProfile": {
+        "meet": "wave",
+        "intro": [
+          "wave",
+          "think"
+        ],
+        "plead": [
+          "dance_victory",
+          "wave"
+        ],
+        "specialDance": "dance_victory"
+      },
+      "scripts": {
+        "en": {
+          "intro": "Hi! I'm Matilda. I love books, patterns, and challenges that make your brain feel powerful.",
+          "plead": "Pick me and I'll keep things exciting, tricky, and always fun. We'll solve the hard stuff together."
         }
       }
     }

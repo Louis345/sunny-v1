@@ -279,7 +279,15 @@ describe("CompanionShowroom talk mode", () => {
         relationshipState: "previewing",
       }).text,
     ).toBe("You called? Good. I was ready for a challenge.");
-    // Matilda is Hikari (owner, 2026-11-10): no separate Matilda pickup line.
+    expect(
+      resolveVideoCallPickupGreeting({
+        companionId: "matilda",
+        companionName: "Matilda",
+        childName: "Ila",
+        callSource: "showroom",
+        relationshipState: "previewing",
+      }).text,
+    ).toBe("Hi Ila. I saved a calm little spot for us.");
     expect(
       resolveVideoCallPickupGreeting({
         companionId: "princess",

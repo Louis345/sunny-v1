@@ -31,7 +31,7 @@ import {
   type WardrobeStoreState,
 } from "../lib/wardrobeStore";
 import type { RewardItem } from "../../../src/shared/rewardCatalog";
-import { migrateChildWardrobeState, rewardForWardrobeItem, walletShopItems, withServerWallet, type ServerWallet } from "../lib/wardrobeWallet";
+import { rewardForWardrobeItem, walletShopItems, withServerWallet, type ServerWallet } from "../lib/wardrobeWallet";
 import { COINS_CHANGED_EVENT, type CoinsChangedDetail } from "./CallClock";
 import { RewardCollection } from "./RewardCollection";
 import "./WardrobeStoreLab.css";
@@ -195,17 +195,13 @@ function storeStorageKey(wallet: WardrobeStoreLabProps["wallet"]): string {
   return wallet ? `${WARDROBE_STORE_STORAGE_KEY}:${wallet.childId}` : WARDROBE_STORE_STORAGE_KEY;
 }
 
-function loadStoreState(key = WARDROBE_STORE_STORAGE_KEY, childId?: string): WardrobeStoreState {
+function loadStoreState(key = WARDROBE_STORE_STORAGE_KEY): WardrobeStoreState {
   if (typeof window === "undefined") return createInitialWardrobeStoreState();
   try {
     const saved = window.localStorage.getItem(key);
     if (!saved) return createInitialWardrobeStoreState();
     const parsed = parseWardrobeStoreState(JSON.parse(saved) as unknown);
-    if (parsed && childId) {
-      const migrated = migrateChildWardrobeState(parsed, childId);
-      if (migrated !== parsed) saveStoreState(migrated, key);
-      return migrated;
-    }
+    // Owner 2026-11-11: no look migration between companions; a look saved under "matilda" stays Matilda's.
     if (parsed) return parsed;
     console.error(" 🎮 [wardrobe-store-lab] state_load rejected reason=invalid_schema");
   } catch (error: unknown) {
@@ -351,7 +347,7 @@ export function WardrobeStoreLab({
   wallet,
 }: WardrobeStoreLabProps) {
   const storageKey = storeStorageKey(wallet);
-  const [storeState, setStoreState] = useState<WardrobeStoreState>(() => loadStoreState(storageKey, wallet?.childId));
+  const [storeState, setStoreState] = useState<WardrobeStoreState>(() => loadStoreState(storageKey));
   const [buying, setBuying] = useState(false);
   /** Her owned reward ids from the same server wallet the shop spends; null until it loads. */
   const [ownedRewardIds, setOwnedRewardIds] = useState<string[] | null>(null);

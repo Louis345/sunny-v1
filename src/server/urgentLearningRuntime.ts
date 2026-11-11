@@ -59,11 +59,11 @@ export function shouldSuppressTranscriptDuringActiveLearningGame(input: {
   const text = input.transcript.trim();
   const commandLike =
     looksLikeSessionEndRequest(text) ||
-    /^(hey\s+)?(hikari|matilda|elli|sunny|charlotte)\b/i.test(text) ||
+    /^(hey\s+)?(matilda|elli|sunny|charlotte)\b/i.test(text) ||
     /^(stop|pause|help|end session|quit|back to map)\b/i.test(text) ||
     /\b(what word|which word|say the word|say it|didn'?t say|did not say|that'?s wrong|not right|game skipped|it skipped)\b/i.test(text) ||
     /\b(worse than before|wrong words?|same words?|not high frequency|more words only|make some more words|fix this|this is bad)\b/i.test(text) ||
-      /\b(hikari|matilda|elli|sunny|charlotte)\b/i.test(text);
+      /\b(matilda|elli|sunny|charlotte)\b/i.test(text);
   if (commandLike) return false;
 
   console.log(`  🎮 [${activeGame}] transcript suppressed during active game`);

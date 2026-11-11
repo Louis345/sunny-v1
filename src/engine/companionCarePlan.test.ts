@@ -47,13 +47,13 @@ describe("companionCarePlan IO", () => {
   it("getChildChart exposes companion care without creating a live care file", () => {
     const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-care-chart-"));
     writeJson(path.join(rootDir, "children.config.json"), {
-      defaultCompanionId: "hikari",
-      childCompanionIds: { reina: "hikari" },
+      defaultCompanionId: "matilda",
+      childCompanionIds: { reina: "matilda" },
       childProfiles: {},
       companions: {
-        hikari: {
-          name: "Hikari",
-          vrmUrl: "/companions/hikari.vrm",
+        matilda: {
+          name: "Matilda",
+          vrmUrl: "/companions/matilda.vrm",
           expressions: {},
           faceCamera: { position: [0, 1.4, 0.8], target: [0, 1.4, 0] },
           dopamineGames: ["wheel-of-fortune"],
@@ -66,14 +66,14 @@ describe("companionCarePlan IO", () => {
     );
 
     const chart = getChildChart("reina", { rootDir });
-    const careFile = path.join(rootDir, "src/context/reina/companion_care/hikari.json");
+    const careFile = path.join(rootDir, "src/context/reina/companion_care/matilda.json");
 
     expect(chart.companionCare).toMatchObject({
       filePath: careFile,
       existed: false,
       plan: {
         childId: "reina",
-        companionId: "hikari",
+        companionId: "matilda",
         state: expect.objectContaining({
           hunger: 0.44,
           mood: 0.55,
@@ -83,8 +83,8 @@ describe("companionCarePlan IO", () => {
       },
       view: expect.objectContaining({
         childId: "reina",
-        companionId: "hikari",
-        displayName: "Hikari",
+        companionId: "matilda",
+        displayName: "Matilda",
       }),
     });
     expect(fs.existsSync(careFile)).toBe(false);
@@ -93,13 +93,13 @@ describe("companionCarePlan IO", () => {
   it("lazy-creates a named companion care plan from child chart and legacy mirrors", () => {
     const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-care-"));
     writeJson(path.join(rootDir, "children.config.json"), {
-      defaultCompanionId: "hikari",
-      childCompanionIds: { reina: "hikari" },
+      defaultCompanionId: "matilda",
+      childCompanionIds: { reina: "matilda" },
       childProfiles: {},
       companions: {
-        hikari: {
-          name: "Hikari",
-          vrmUrl: "/companions/hikari.vrm",
+        matilda: {
+          name: "Matilda",
+          vrmUrl: "/companions/matilda.vrm",
           expressions: {},
           faceCamera: { position: [0, 1.4, 0.8], target: [0, 1.4, 0] },
           dopamineGames: ["wheel-of-fortune"],
@@ -117,7 +117,7 @@ describe("companionCarePlan IO", () => {
     });
 
     expect(loaded.plan.childId).toBe("reina");
-    expect(loaded.plan.companionId).toBe("hikari");
+    expect(loaded.plan.companionId).toBe("matilda");
     expect(loaded.plan.state.hunger).toBe(0.44);
     expect(loaded.plan.state.mood).toBe(0.55);
     expect(loaded.plan.state.bond).toBe(0.66);
@@ -125,7 +125,7 @@ describe("companionCarePlan IO", () => {
     expect(loaded.plan.economy.coins).toBe(321);
     expect(
       fs.existsSync(
-        path.join(rootDir, "src/context/reina/companion_care/hikari.json"),
+        path.join(rootDir, "src/context/reina/companion_care/matilda.json"),
       ),
     ).toBe(true);
   });
@@ -133,13 +133,13 @@ describe("companionCarePlan IO", () => {
   it("treats companion care plan as truth when legacy mirrors disagree", () => {
     const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-care-"));
     writeJson(path.join(rootDir, "children.config.json"), {
-      defaultCompanionId: "hikari",
-      childCompanionIds: { reina: "hikari" },
+      defaultCompanionId: "matilda",
+      childCompanionIds: { reina: "matilda" },
       childProfiles: {},
       companions: {
-        hikari: {
-          name: "Hikari",
-          vrmUrl: "/companions/hikari.vrm",
+        matilda: {
+          name: "Matilda",
+          vrmUrl: "/companions/matilda.vrm",
           expressions: {},
           faceCamera: { position: [0, 1.4, 0.8], target: [0, 1.4, 0] },
           dopamineGames: [],

@@ -24,7 +24,7 @@ export interface CompanionFaceCamera {
 }
 
 export interface CompanionConfig {
-  /** Preset key from children.config.json (elli | hikari | creator | …). */
+  /** Preset key from children.config.json (elli | matilda | creator | …). */
   companionId: string;
   vrmUrl: string;
   /** Semantic expression id → VRM blend shape name (see children.config.json). */

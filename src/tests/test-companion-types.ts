@@ -1,6 +1,6 @@
 import { beforeEach, describe, it, expect } from "vitest";
 import { useSyntheticProfileContext } from "./fixtures/syntheticProfileContext";
-import { ELLI, HIKARI } from "../companions/loader";
+import { ELLI, MATILDA } from "../companions/loader";
 import { buildProfile } from "../profiles/buildProfile";
 import { clearChildrenConfigCache } from "../profiles/childrenConfig";
 import { isCompanionEmote } from "../shared/companionEmotes";
@@ -101,7 +101,7 @@ describe("companion types (COMPANION-001)", () => {
 
   it("child companions do not auto-greet before the session has context", () => {
     expect(ELLI.openingLine).toBe("");
-    expect(HIKARI.openingLine).toBe("");
+    expect(MATILDA.openingLine).toBe("");
   });
 
   it("isCompanionEmote accepts expressCompanion enum and rejects unknown", () => {
@@ -139,9 +139,8 @@ describe("companion types (COMPANION-001)", () => {
     expect(p).not.toBeNull();
     if (!p) return;
     assertCompanionConfigShape(p.companion);
-    // Matilda is Hikari (owner, 2026-11-10): Reina's saved "matilda" resolves to hikari, wearing the angel.
-    expect(p.companion.vrmUrl).toBe("/companions/673852811403133503.vrm");
-    expect(p.companion.companionId).toBe("hikari");
+    expect(p.companion.vrmUrl).toBe("/companions/sample.vrm");
+    expect(p.companion.companionId).toBe("matilda");
     expect(p.ttsName).toBe("Ray-nah");
     expect(p.avatarImagePath).toBe("/characters/reina.png");
   });

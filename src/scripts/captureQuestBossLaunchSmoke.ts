@@ -890,8 +890,8 @@ function activePlan(): ActiveSessionPlan {
       previousCompletedNodeCount: 1,
     },
     companionPolicy: {
-      companionId: "hikari",
-      displayName: "Hikari",
+      companionId: "matilda",
+      displayName: "Matilda",
       openingLinePolicy: "silent",
       verbosity: "low",
       maxMicroProbes: 0,

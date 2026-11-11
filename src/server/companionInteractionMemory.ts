@@ -12,7 +12,6 @@ import type {
 } from "./companionShowroomTalk";
 import { resolveChildContextDir } from "../utils/contextRoot";
 import { requestForModel } from "../engine/plannerTransport";
-import { canonicalCompanionId, legacyCompanionIds } from "../shared/companionAliases";
 
 const COMPANION_MEMORY_HAIKU_MODEL = "claude-haiku-4-5-20251001";
 const DEFAULT_COMPACT_EVENT_THRESHOLD = 3;
@@ -183,26 +182,13 @@ function writeJsonFile(filePath: string, value: unknown): void {
   fs.writeFileSync(filePath, JSON.stringify(value, null, 2), "utf8");
 }
 
-/**
- * Only memory is replaced, against the file as it is now: a slow summary never rolls back coins earned meanwhile.
- * A plan read from an old id's file (matilda.json) is saved under the companion's id; the old file is left as it was.
- */
-function saveMemoryInto(
-  readPath: string,
-  memory: CompanionCareMemory,
-  write: { filePath: string; companionId: string } = { filePath: readPath, companionId: "" },
-): void {
-  const current = fs.existsSync(write.filePath) ? write.filePath : readPath;
-  const saved = fs.existsSync(current)
-    ? safeJsonParse<Record<string, unknown>>(fs.readFileSync(current, "utf8"))
+/** Only memory is replaced, against the file as it is now: a slow summary never rolls back coins earned meanwhile. */
+function saveMemoryInto(filePath: string, memory: CompanionCareMemory): void {
+  const current = fs.existsSync(filePath)
+    ? safeJsonParse<Record<string, unknown>>(fs.readFileSync(filePath, "utf8"))
     : null;
-  if (!saved) throw new Error(`companion_memory_file_unreadable:${current}`);
-  writeJsonFile(write.filePath, {
-    ...saved,
-    ...(write.companionId && { companionId: write.companionId }),
-    memory,
-    updatedAt: new Date().toISOString(),
-  });
+  if (!current) throw new Error(`companion_memory_file_unreadable:${filePath}`);
+  writeJsonFile(filePath, { ...current, memory, updatedAt: new Date().toISOString() });
 }
 
 function readRelationship(
@@ -211,14 +197,14 @@ function readRelationship(
   opts: CompanionInteractionMemoryOptions = {},
 ): CompanionRelationship | null {
   const carePath = companionCarePath(childId, companionId, opts);
-  const readPath = [carePath, ...legacyCompanionIds(companionId).map((id) => companionCarePath(childId, id, opts))]
-    .find((candidate) => fs.existsSync(candidate));
-  const plan = readPath ? safeJsonParse<CompanionCarePlan>(fs.readFileSync(readPath, "utf8")) : null;
-  if (plan && readPath) {
+  const plan = fs.existsSync(carePath)
+    ? safeJsonParse<CompanionCarePlan>(fs.readFileSync(carePath, "utf8"))
+    : null;
+  if (plan) {
     return {
       memory: plan.memory,
       filePath: carePath,
-      save: (memory) => saveMemoryInto(readPath, memory, { filePath: carePath, companionId }),
+      save: (memory) => saveMemoryInto(carePath, memory),
     };
   }
   const relationPath = companionRelationshipPath(childId, companionId, opts);
@@ -240,7 +226,7 @@ export function ensureCompanionRelationship(
   opts: CompanionInteractionMemoryOptions & { nowIso?: string } = {},
 ): CompanionRelationship & { created: boolean } {
   const childId = normalizeId(childIdInput, "showroom");
-  const companionId = normalizeId(canonicalCompanionId(companionIdInput), "companion");
+  const companionId = normalizeId(companionIdInput, "companion");
   const existing = readRelationship(childId, companionId, opts);
   if (existing) return { ...existing, created: false };
   const nowIso = normalizeIso(opts.nowIso);
@@ -314,7 +300,7 @@ export function recordCompanionGameResult(
   opts: CompanionInteractionMemoryOptions = {},
 ): { recorded: boolean; reason?: string } {
   const childId = normalizeId(input.childId, "showroom");
-  const companionId = normalizeId(canonicalCompanionId(input.companionId), "companion");
+  const companionId = normalizeId(input.companionId, "companion");
   const relationship = ensureCompanionRelationship(childId, companionId, opts);
   const gameRecord = applyCompanionGameResult(relationship.memory.gameRecord, {
     activityId: input.activityId,
@@ -398,7 +384,7 @@ export function recordCompanionInteractionEvent(
   opts: CompanionInteractionMemoryOptions = {},
 ): { persisted: true; filePath: string; record: CompanionInteractionEventRecord } {
   const childId = normalizeId(input.childId, "showroom");
-  const companionId = normalizeId(canonicalCompanionId(input.companionId), "companion");
+  const companionId = normalizeId(input.companionId, "companion");
   const createdAt = normalizeIso(input.createdAt);
   const record: CompanionInteractionEventRecord = {
     type: "companion_interaction_event",
@@ -455,7 +441,7 @@ export function readCompanionInteractionEvents(
 ): CompanionInteractionEventRecord[] {
   const childId = normalizeId(childIdInput, "showroom");
   // null: every companion's calls with her (shared recall).
-  const companionId = companionIdInput === null ? null : normalizeId(canonicalCompanionId(companionIdInput), "companion");
+  const companionId = companionIdInput === null ? null : normalizeId(companionIdInput, "companion");
   const dir = interactionDir(childId, opts);
   if (!fs.existsSync(dir)) return [];
   return fs
@@ -470,7 +456,7 @@ export function readCompanionInteractionEvents(
         .filter(Boolean)
         .map((line) => safeJsonParse<CompanionInteractionEventRecord>(line))
         .filter((record): record is CompanionInteractionEventRecord =>
-          Boolean(record && (companionId === null || canonicalCompanionId(record.companionId) === companionId)),
+          Boolean(record && (companionId === null || record.companionId === companionId)),
         ),
     )
     .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
@@ -482,7 +468,7 @@ export function readCompanionCareMemoryForPrompt(
   opts: CompanionInteractionMemoryOptions = {},
 ): CompanionCareMemory | undefined {
   const childId = normalizeId(childIdInput, "showroom");
-  const companionId = normalizeId(canonicalCompanionId(companionIdInput), "companion");
+  const companionId = normalizeId(companionIdInput, "companion");
   return readRelationship(childId, companionId, opts)?.memory;
 }
 
@@ -622,7 +608,7 @@ export async function maybeCompactCompanionInteractionMemory(
   | { compacted: false; reason: string; eventCount: number }
 > {
   const childId = normalizeId(input.childId, "showroom");
-  const companionId = normalizeId(canonicalCompanionId(input.companionId), "companion");
+  const companionId = normalizeId(input.companionId, "companion");
   const relationship = ensureCompanionRelationship(childId, companionId, opts);
   const events = eventsAfterLastCompaction(
     readCompanionInteractionEvents(childId, companionId, opts),

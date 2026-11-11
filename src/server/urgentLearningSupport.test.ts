@@ -6,7 +6,7 @@ import {
   recordCompanionInteractionEvent,
 } from "./companionInteractionMemory";
 import { shouldPersistSessionData } from "../utils/runtimeMode";
-import { CHARLOTTE_CREATOR, COMPANION_WAKE_NAMES, ELLI, HIKARI } from "../companions/loader";
+import { CHARLOTTE_CREATOR, COMPANION_WAKE_NAMES, ELLI, MATILDA } from "../companions/loader";
 
 vi.mock("./companionInteractionMemory", async (importOriginal) => {
   const actual = await importOriginal<typeof import("./companionInteractionMemory")>();
@@ -97,10 +97,9 @@ describe("urgent learning support", () => {
     // gate, so only Elli had misheard spellings and Charlotte could not be
     // called by name. Reina has said "Ellie" to Matilda, so names stay shared.
     expect(ELLI.wakeNames).toEqual(["Elli", "Ellie", "Ellen", "Elliot", "Belly"]);
-    // Matilda is Hikari (2026-11-10); Reina may still call her Matilda.
-    expect(HIKARI.wakeNames).toEqual(["Hikari", "Matilda"]);
+    expect(MATILDA.wakeNames).toEqual(["Matilda"]);
     expect(CHARLOTTE_CREATOR.wakeNames).toEqual(["Charlotte"]);
-    expect([...COMPANION_WAKE_NAMES].sort()).toEqual(["Belly", "Charlotte", "Ellen", "Elli", "Ellie", "Elliot", "Hikari", "Matilda"]);
+    expect([...COMPANION_WAKE_NAMES].sort()).toEqual(["Belly", "Charlotte", "Ellen", "Elli", "Ellie", "Elliot", "Matilda"]);
     const collapsed = (transcript: string) =>
       routeCompanionPresenceTranscript({ transcript, presence: "collapsed", companionWakeNames: COMPANION_WAKE_NAMES }).action;
     expect(collapsed("Hey Matilda, help me")).toBe("summon_and_respond");

@@ -1936,9 +1936,11 @@ export function resolveVideoCallPickupGreeting(args: {
       text:
         companionId === "kefla"
           ? `${child}, you earned this call. I was ready for a challenge.`
-          : companionId === "princess"
-            ? `${child}, you earned this call. The quest can begin.`
-            : `${child}! You earned this call. I was hoping we'd get a minute together.`,
+          : companionId === "matilda"
+            ? `Hi ${child}. You earned this call, so I saved a calm little spot for us.`
+            : companionId === "princess"
+              ? `${child}, you earned this call. The quest can begin.`
+              : `${child}! You earned this call. I was hoping we'd get a minute together.`,
       usedMemorySeed: false,
     };
   }
@@ -1946,6 +1948,12 @@ export function resolveVideoCallPickupGreeting(args: {
   if (companionId === "kefla") {
     return {
       text: "You called? Good. I was ready for a challenge.",
+      usedMemorySeed: false,
+    };
+  }
+  if (companionId === "matilda") {
+    return {
+      text: `Hi ${child}. I saved a calm little spot for us.`,
       usedMemorySeed: false,
     };
   }

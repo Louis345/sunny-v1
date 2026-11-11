@@ -8,7 +8,7 @@ export async function runTranslator(
   childName: "Ila" | "Reina",
   psychologistReport: string
 ): Promise<void> {
-  const companionName = childName === "Ila" ? "Elli" : "Hikari";
+  const companionName = childName === "Ila" ? "Elli" : "Matilda";
   const outputPath = resolveProbeTargetsPath(childName);
 
   const response = await client.messages.create({

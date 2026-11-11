@@ -1,6 +1,5 @@
 import fs from "fs";
 import path from "path";
-import { canonicalCompanionId } from "../../shared/companionAliases";
 
 // Register tsx so require() can load .ts growth modules in dev/test environments
 try { require("tsx/cjs"); } catch { /* in compiled production .js files are used */ }
@@ -56,8 +55,7 @@ const _cache = discover();
 export const CompanionRegistry = {
   getAll: (): CompanionDefinition[] => _cache,
   getById: (id: string): CompanionDefinition => {
-    const canonical = canonicalCompanionId(id);
-    const found = _cache.find(c => c.id === canonical);
+    const found = _cache.find(c => c.id === id);
     if (!found) throw new Error(`CompanionRegistry: unknown companion "${id}"`);
     return found;
   },

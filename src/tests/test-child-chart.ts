@@ -82,7 +82,7 @@ describe("getChildChart", () => {
     writeJson(root, `src/context/${childId}/child_profile.json`, {
       childId,
       identity: { displayName: "Practice Learner", ttsName: "Practice" },
-      companion: { companionId: "hikari" },
+      companion: { companionId: "matilda" },
     });
     const chart = getChildChart(childId, { rootDir: root });
 
@@ -90,7 +90,7 @@ describe("getChildChart", () => {
     expect(chart.manifestSource).toBe("manifest");
     expect(chart.identity.displayName).toBe("Practice Learner");
     expect(chart.identity.ttsName).toBe("Practice");
-    expect(chart.companion.presetId).toBe("hikari");
+    expect(chart.companion.presetId).toBe("matilda");
     expect(chart.learningProfile.childId).toBe(childId);
     expect(chart.wordBankSummary.totalWords).toBeGreaterThanOrEqual(0);
     expect(chart.attention.currentWindow_ms).toBeGreaterThan(0);
@@ -183,12 +183,12 @@ describe("getChildChart", () => {
     writeJson(root, `src/context/${childId}/learning_profile.json`, profile);
     writeJson(root, `src/context/${childId}/word_bank.json`, createEmptyWordBank(childId));
     writeJson(root, "children.config.json", {
-      defaultCompanionId: "hikari",
+      defaultCompanionId: "matilda",
       childCompanionIds: {},
       companions: {
-        hikari: {
-          id: "hikari",
-          vrmUrl: "/companions/hikari.vrm",
+        matilda: {
+          id: "matilda",
+          vrmUrl: "/companions/matilda.vrm",
           expressions: {
             idle: "neutral",
             happy: "happy",
@@ -211,7 +211,7 @@ describe("getChildChart", () => {
 
     const chart = getChildChart(childId, { rootDir: root });
 
-    expect(chart.companion.presetId).toBe("hikari");
+    expect(chart.companion.presetId).toBe("matilda");
   });
 
   it("falls back to a neutral default companion when no child config exists", () => {
@@ -505,7 +505,7 @@ describe("getChildChart", () => {
       learningGoals: [],
     });
     profile.companion = {
-      companionId: "hikari",
+      companionId: "matilda",
       idleFrequency_ms: 12_345,
     };
     profile.companionCurrency = 77;
@@ -554,8 +554,8 @@ describe("getChildChart", () => {
         previousCompletedNodeCount: 0,
       },
       companionPolicy: {
-        companionId: "hikari",
-        displayName: "Hikari",
+        companionId: "matilda",
+        displayName: "Matilda",
         openingLinePolicy: "silent",
         verbosity: "low",
         maxMicroProbes: 0,
@@ -565,7 +565,7 @@ describe("getChildChart", () => {
     };
     writeJson(root, "children.config.json", {
       defaultCompanionId: "elli",
-      childCompanionIds: { reina: "hikari" },
+      childCompanionIds: { reina: "matilda" },
       childProfiles: {
         reina: {
           ttsName: "Ray-nah",
@@ -573,9 +573,9 @@ describe("getChildChart", () => {
         },
       },
       companions: {
-        hikari: {
-          name: "Hikari",
-          vrmUrl: "/companions/hikari.vrm",
+        matilda: {
+          name: "Matilda",
+          vrmUrl: "/companions/matilda.vrm",
           expressions: {},
           faceCamera: { position: [0, 1.4, 0.8], target: [0, 1.4, 0] },
           dopamineGames: ["wheel-of-fortune"],
@@ -595,18 +595,18 @@ describe("getChildChart", () => {
       avatarImagePath: "/avatars/reina.png",
     });
     expect(packet.childChart.companion).toMatchObject({
-      id: "hikari",
-      displayName: "Hikari",
+      id: "matilda",
+      displayName: "Matilda",
       config: {
-        companionId: "hikari",
-        vrmUrl: "/companions/hikari.vrm",
+        companionId: "matilda",
+        vrmUrl: "/companions/matilda.vrm",
         idleFrequency_ms: 12_345,
       },
     });
     expect(packet.childChart.companionCare.view).toMatchObject({
       childId: "reina",
-      companionId: "hikari",
-      displayName: "Hikari",
+      companionId: "matilda",
+      displayName: "Matilda",
     });
     expect(packet.childChart.economy.coinBalance).toBe(77);
     expect(packet.childChart.adventureMapProfile.companionSlot).toBe("left");
