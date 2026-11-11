@@ -134,6 +134,11 @@ export function loadCompanionCarePlanForChart(
     seed: chart.learningProfile.tamagotchi,
     coinBalance: chart.economy.coinBalance,
   });
+  // A companion she already called keeps what it remembers when it becomes her own (relationship file, 2026-11-10).
+  const relationship = readJson<{ memory?: CompanionCarePlan["memory"] }>(
+    path.join(path.dirname(chart.links.companionCareDir), "companion_relationships", `${chart.companion.presetId}.json`),
+  );
+  if (relationship?.memory) plan.memory = { ...plan.memory, ...relationship.memory };
   if (opts.persistOnCreate !== false) {
     writeJson(filePath, plan);
   }

@@ -248,7 +248,6 @@ import {
 } from "./companionShowroomVoice";
 import {
   buildShowroomClaudeMessages,
-  buildShowroomTalkMemoryPrompt,
   buildShowroomTalkSystemPrompt,
   createShowroomCompanionActivityRequest,
   createShowroomCompanionActCommand,
@@ -299,6 +298,7 @@ import {
   recordCompanionInteractionEvent,
   recordCompanionGameResult,
 } from "./companionInteractionMemory";
+import { buildCompanionCallContext } from "./companionChildFacts";
 import {
   readCompanionVideoCallTracePacket,
   recordCompanionVideoCallTraceEvent,
@@ -2178,9 +2178,7 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
               showroomPersonality,
             ].join("\n")
           : showroomPersonality;
-      const companionMemory = buildShowroomTalkMemoryPrompt(
-        readCompanionCareMemoryForPrompt(talk.childId, talk.companionId),
-      );
+      const companionMemory = buildCompanionCallContext(talk);
       const system = buildShowroomTalkSystemPrompt({
         companionId: companion.id,
         companionName: companion.name,
@@ -2818,9 +2816,7 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
                 showroomPersonality,
               ].join("\n")
             : showroomPersonality;
-        const companionMemory = buildShowroomTalkMemoryPrompt(
-          readCompanionCareMemoryForPrompt(talk.childId, talk.companionId),
-        );
+        const companionMemory = buildCompanionCallContext(talk);
         const system = buildShowroomTalkSystemPrompt({
           companionId: companion.id,
           companionName: companion.name,

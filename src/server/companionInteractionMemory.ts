@@ -145,20 +145,105 @@ function safeJsonParse<T>(raw: string): T | null {
   }
 }
 
-function readCarePlan(
+/**
+ * Where a companion's memory of a child lives (2026-11-10). The child's own companion keeps it inside her care plan;
+ * any other companion she calls (Hikari on FaceTime) keeps it in a relationship file that holds memory only — never
+ * coins or vitals, so a second companion can never fork her one coin balance.
+ */
+type CompanionRelationship = {
+  memory: CompanionCareMemory;
+  filePath: string;
+  save: (memory: CompanionCareMemory) => void;
+};
+
+export function companionRelationshipPath(
   childId: string,
   companionId: string,
   opts: CompanionInteractionMemoryOptions = {},
-): { plan: CompanionCarePlan; filePath: string } | null {
-  const filePath = companionCarePath(childId, companionId, opts);
-  if (!fs.existsSync(filePath)) return null;
-  const plan = safeJsonParse<CompanionCarePlan>(fs.readFileSync(filePath, "utf8"));
-  return plan ? { plan, filePath } : null;
+): string {
+  return path.join(
+    resolveChildContextDir(childId, { rootDir: opts.rootDir }),
+    "companion_relationships",
+    `${companionId}.json`,
+  );
 }
 
-function writeCarePlan(filePath: string, plan: CompanionCarePlan): void {
+type CompanionRelationshipFile = {
+  version: 1;
+  childId: string;
+  companionId: string;
+  memory: CompanionCareMemory;
+  updatedAt: string;
+};
+
+function writeJsonFile(filePath: string, value: unknown): void {
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
-  fs.writeFileSync(filePath, JSON.stringify(plan, null, 2), "utf8");
+  fs.writeFileSync(filePath, JSON.stringify(value, null, 2), "utf8");
+}
+
+/** Only memory is replaced, against the file as it is now: a slow summary never rolls back coins earned meanwhile. */
+function saveMemoryInto(filePath: string, memory: CompanionCareMemory): void {
+  const current = fs.existsSync(filePath)
+    ? safeJsonParse<Record<string, unknown>>(fs.readFileSync(filePath, "utf8"))
+    : null;
+  if (!current) throw new Error(`companion_memory_file_unreadable:${filePath}`);
+  writeJsonFile(filePath, { ...current, memory, updatedAt: new Date().toISOString() });
+}
+
+function readRelationship(
+  childId: string,
+  companionId: string,
+  opts: CompanionInteractionMemoryOptions = {},
+): CompanionRelationship | null {
+  const carePath = companionCarePath(childId, companionId, opts);
+  const plan = fs.existsSync(carePath)
+    ? safeJsonParse<CompanionCarePlan>(fs.readFileSync(carePath, "utf8"))
+    : null;
+  if (plan) {
+    return {
+      memory: plan.memory,
+      filePath: carePath,
+      save: (memory) => saveMemoryInto(carePath, memory),
+    };
+  }
+  const relationPath = companionRelationshipPath(childId, companionId, opts);
+  const file = fs.existsSync(relationPath)
+    ? safeJsonParse<CompanionRelationshipFile>(fs.readFileSync(relationPath, "utf8"))
+    : null;
+  if (!file?.memory) return null;
+  return {
+    memory: file.memory,
+    filePath: relationPath,
+    save: (memory) => saveMemoryInto(relationPath, memory),
+  };
+}
+
+/** First contact creates the relationship; a companion never meets a child without remembering it. */
+export function ensureCompanionRelationship(
+  childIdInput: string,
+  companionIdInput: string,
+  opts: CompanionInteractionMemoryOptions & { nowIso?: string } = {},
+): CompanionRelationship & { created: boolean } {
+  const childId = normalizeId(childIdInput, "showroom");
+  const companionId = normalizeId(companionIdInput, "companion");
+  const existing = readRelationship(childId, companionId, opts);
+  if (existing) return { ...existing, created: false };
+  const nowIso = normalizeIso(opts.nowIso);
+  const file: CompanionRelationshipFile = {
+    version: 1,
+    childId,
+    companionId,
+    memory: { firstMetAt: nowIso },
+    updatedAt: nowIso,
+  };
+  const filePath = companionRelationshipPath(childId, companionId, opts);
+  writeJsonFile(filePath, file);
+  console.log(
+    ` 🎮 [companion-memory] [relationship_created] [ok] child=${childId} companion=${companionId}`,
+  );
+  const created = readRelationship(childId, companionId, opts);
+  if (!created) throw new Error(`companion_relationship_unreadable:${filePath}`);
+  return { ...created, created: true };
 }
 
 function sanitizeMemoryField(value: unknown): string | undefined {
@@ -215,18 +300,13 @@ export function recordCompanionGameResult(
 ): { recorded: boolean; reason?: string } {
   const childId = normalizeId(input.childId, "showroom");
   const companionId = normalizeId(input.companionId, "companion");
-  const care = readCarePlan(childId, companionId, opts);
-  if (!care) return { recorded: false, reason: "missing_care_plan" };
-  const gameRecord = applyCompanionGameResult(care.plan.memory.gameRecord, {
+  const relationship = ensureCompanionRelationship(childId, companionId, opts);
+  const gameRecord = applyCompanionGameResult(relationship.memory.gameRecord, {
     activityId: input.activityId,
     result: input.result,
     at: input.at,
   });
-  writeCarePlan(care.filePath, {
-    ...care.plan,
-    memory: { ...care.plan.memory, gameRecord },
-    updatedAt: new Date().toISOString(),
-  });
+  relationship.save({ ...relationship.memory, gameRecord });
   return { recorded: true };
 }
 
@@ -353,7 +433,7 @@ export function readCompanionCareMemoryForPrompt(
 ): CompanionCareMemory | undefined {
   const childId = normalizeId(childIdInput, "showroom");
   const companionId = normalizeId(companionIdInput, "companion");
-  return readCarePlan(childId, companionId, opts)?.plan.memory;
+  return readRelationship(childId, companionId, opts)?.memory;
 }
 
 function eventsAfterLastCompaction(
@@ -487,16 +567,10 @@ export async function maybeCompactCompanionInteractionMemory(
 > {
   const childId = normalizeId(input.childId, "showroom");
   const companionId = normalizeId(input.companionId, "companion");
-  const care = readCarePlan(childId, companionId, opts);
-  if (!care) {
-    console.log(
-      ` 🎮 [companion-memory] [compact_skip] [missing_care_plan] child=${childId} companion=${companionId}`,
-    );
-    return { compacted: false, reason: "missing_companion_care", eventCount: 0 };
-  }
+  const relationship = ensureCompanionRelationship(childId, companionId, opts);
   const events = eventsAfterLastCompaction(
     readCompanionInteractionEvents(childId, companionId, opts),
-    care.plan.memory,
+    relationship.memory,
   );
   const minEvents = opts.minEvents ?? DEFAULT_COMPACT_EVENT_THRESHOLD;
   const minCharacters = opts.minCharacters ?? DEFAULT_COMPACT_CHARACTER_THRESHOLD;
@@ -510,7 +584,7 @@ export async function maybeCompactCompanionInteractionMemory(
 
   const summarize = opts.summarize ?? summarizeCompanionInteractionsWithHaiku;
   // Old records remain intact; prospective dialogue is not evidence for a new summary.
-  const { reunionLineSeed: _seed, emotionalTone: _tone, ...existingMemory } = care.plan.memory;
+  const { reunionLineSeed: _seed, emotionalTone: _tone, ...existingMemory } = relationship.memory;
   const patch = sanitizeMemoryPatch(
     await summarize({
       childId,
@@ -521,25 +595,20 @@ export async function maybeCompactCompanionInteractionMemory(
   );
   const latestEvent = events[events.length - 1];
   const nextMemory: CompanionCareMemory = {
-    ...care.plan.memory,
+    ...relationship.memory,
     ...patch,
     lastCompanionInteractionCompactedAt: latestEvent.createdAt,
     lastCompanionInteractionId: latestEvent.id,
-    interactionSummaryRevision: (care.plan.memory.interactionSummaryRevision ?? 0) + 1,
+    interactionSummaryRevision: (relationship.memory.interactionSummaryRevision ?? 0) + 1,
   };
-  const nextPlan: CompanionCarePlan = {
-    ...care.plan,
-    memory: nextMemory,
-    updatedAt: new Date().toISOString(),
-  };
-  writeCarePlan(care.filePath, nextPlan);
+  relationship.save(nextMemory);
   console.log(
     ` 🎮 [companion-memory] [compact] [ok] child=${childId} companion=${companionId} events=${events.length}`,
   );
   return {
     compacted: true,
     eventCount: events.length,
-    filePath: care.filePath,
+    filePath: relationship.filePath,
     memory: nextMemory,
   };
 }

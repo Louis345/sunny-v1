@@ -133,7 +133,9 @@ describe("companion game memory", () => {
     });
   });
 
-  it("reports a missing care plan instead of failing silently", () => {
+  // 2026-11-10: a missing care plan used to drop the round ("missing_care_plan"); that is how Hikari forgot Ila.
+  // First contact now creates the relationship, so a round with a new companion is counted, not lost.
+  it("counts a round with a companion that has no care plan yet", () => {
     const root = makeRoot();
     expect(
       recordCompanionGameResult(
@@ -145,7 +147,12 @@ describe("companion game memory", () => {
         },
         { rootDir: root },
       ),
-    ).toEqual({ recorded: false, reason: "missing_care_plan" });
+    ).toEqual({ recorded: true });
+    const saved = JSON.parse(
+      fs.readFileSync(path.join(root, "src/context/ila/companion_relationships/elli.json"), "utf8"),
+    );
+    expect(saved.memory.gameRecord.connect_four).toMatchObject({ played: 1, draws: 1 });
+    expect(saved.economy).toBeUndefined();
   });
 
   it("never files a machine-authored game prompt as something the child said", () => {
