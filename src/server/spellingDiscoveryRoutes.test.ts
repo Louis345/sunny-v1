@@ -136,6 +136,28 @@ it.each(['letter-rush','word-radar'])('records native answers once while preserv
  }finally{db.close();}
 });
 
+// G8, 2026-11-10 rating: letters caught mid-word ("ornm") were saved as misspellings. The rating caught it comparing
+// each saved wrong answer with its word; the logs said "recorded" because the attempt was well formed; the lab never sent
+// a game's incomplete try. The game contract now marks letters left when a word ends as incomplete; the server must keep
+// them as an incomplete try, with no right/wrong, never as a misspelling.
+it('saves a built game\'s incomplete try as incomplete, never as a misspelling',async()=>{
+ const {rootDir,items}=await fixture();
+ const {openChart}=await import('../chart/db');const {recordAssignment}=await import('../chart/spelling/record');const {presentOriginalSpellingItem}=await import('../chart/spelling/originalResponses');const {exportEvents}=await import('../chart/exportEvents');const {handleGameEventForSession}=await import('./game-event-handler');
+ vi.stubEnv('SUNNY_CHART_DIR',path.join(rootDir,'charts'));const db=openChart('lab-child');
+ try{
+ recordAssignment(db,{assignmentId:'hw-words',words:['night','light'],testDate:null,sourcePhotoHash:'a'.repeat(64)});
+ const nodeId=getLearningCycle('lab-child','hw-words',{rootDir})!.nodes[0].nodeId;
+ const p=presentOriginalSpellingItem(db,{assignmentId:'hw-words',sessionId:'native-voice',nodeId,launchId:'native-launch',sourceItemId:items[0].id,word:'night',instrument:'practice',shown:{lettersVisible:false,hint:null,companionHelp:null}});
+ const s={chartChildId:'lab-child',getSessionId:()=> 'native-voice',getSpellingLaunch:()=>({homeworkId:'hw-words',nodeId,launchId:'native-launch',launchToken:'token'}),getDiscoveryAttemptContext:()=>({sessionId:'native-voice',nodeId,launchId:'native-launch',chartItemId:String(p.payload.itemId),artifactHash:hashDiscoveryContract(items),practice:true,spellingShown:false,audioReplays:null,support:{status:'unknown',scaffolds:[]},instrumentSignals:[]}),noteExternalEvent:vi.fn()};
+ handleGameEventForSession(s,{type:'attempt_event',activityId:'generated-game',nodeId,launchToken:'token',attemptId:'gave-up',target:items[0].id,word:'night',domain:'spelling',attemptedValue:'nik',incomplete:true,timestamp:Date.parse('2026-11-10T19:40:00Z')});
+ const [observation]=getLearningCycle('lab-child','hw-words',{rootDir})!.observations;
+ expect(observation).toMatchObject({childResponse:'nik',result:{observedErrorType:'incomplete_response'}});
+ expect(observation.result.correct).toBeUndefined();
+ expect(observation.confounds).toContain('response_disposition:incomplete');
+ expect(exportEvents(db).filter(e=>e.type==='response.observed')[0].payload).toMatchObject({rawResponse:'nik',status:'unknown'});
+ }finally{db.close();}
+},20_000);
+
 it('uses captured native answers at completion instead of adding the client summary again',async()=>{
  const {rootDir,items,origin}=await fixture();
  const {createLearningCycle}=await import('../engine/learningCycleRepository');const {recordSpellingDiscoveryAttempt}=await import('../engine/learningCycleRuntime');

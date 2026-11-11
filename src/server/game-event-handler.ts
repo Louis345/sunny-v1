@@ -609,10 +609,13 @@ export function handleGameEventForSession(
           const keyboard = typedSpellingForChart(event.attemptedValue, node.evidenceContract.spellingItems[String(event.target)].response.acceptedForms);
           if (keyboard.keyboardFact) s.noteExternalEvent?.({source:"keyboard",summary:keyboard.keyboardFact});
           const request = {attemptId:event.attemptId,itemId:String(event.target),attemptedValue:event.attemptedValue,observedAt:new Date(event.timestamp).toISOString(),supportEventIds:[],instrumentSignals:[],skipped:false,sessionId:live.sessionId,launchToken:launch.launchToken};
-          const legacy = {childId,homeworkId:launch.homeworkId,attempt:request,support:live.support,artifactHash:live.artifactHash,sessionId:live.sessionId,launchId:launch.launchId,instrumentSignals:live.instrumentSignals};
+          // Letters left when a built game's word ended are an incomplete try, never a misspelling (G8, 2026-11-10).
+          const incomplete = event.incomplete === true;
+          if (incomplete) console.log(` 🎮 [spelling] [incomplete-try] [recorded] item=${request.itemId}`);
+          const legacy = {childId,homeworkId:launch.homeworkId,attempt:{...request,...(incomplete ? {incomplete} : {})},support:live.support,artifactHash:live.artifactHash,sessionId:live.sessionId,launchId:launch.launchId,instrumentSignals:live.instrumentSignals};
           const committed = withOriginalSpellingChart(childId, db => commitOriginalSpellingAttempt(db,launch.homeworkId,request,()=>{
             if (!live.chartItemId) throw new Error("chart_live_presentation_required");
-            return {legacy,response:{assignmentId:launch.homeworkId,sessionId:live.sessionId,itemId:live.chartItemId,sourceResponseId:request.attemptId,rawResponse:keyboard.rawResponse,status:keyboard.unreadable ? "ambiguous" : "answered",support:{spellingShown:live.spellingShown ?? null,hint:null,companionHelp:live.support.status === "assisted" ? true : null,audioReplays:live.audioReplays ?? null}}};
+            return {legacy,response:{assignmentId:launch.homeworkId,sessionId:live.sessionId,itemId:live.chartItemId,sourceResponseId:request.attemptId,rawResponse:keyboard.rawResponse,status:incomplete ? "unknown" : keyboard.unreadable ? "ambiguous" : "answered",support:{spellingShown:live.spellingShown ?? null,hint:null,companionHelp:live.support.status === "assisted" ? true : null,audioReplays:live.audioReplays ?? null}}};
           },recordSpellingDiscoveryAttempt)) ?? recordSpellingDiscoveryAttempt(legacy);
           const correct = committed.observations.find(row => row.observationId === request.attemptId)?.result.correct;
           // The private word bank cannot override the code-scored raw response.

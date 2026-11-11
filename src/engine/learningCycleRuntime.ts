@@ -221,10 +221,12 @@ export function scoreMathResponse(item: DirectItem | undefined, value: string): 
 export function scoreSpellingRecall(
   item: LearningCycleSpellingItem | undefined,
   value: string,
-  disposition: { skipped?: boolean } = {},
+  disposition: { skipped?: boolean; incomplete?: boolean } = {},
 ): LearningObservation["result"] {
   if (!item) return { observedErrorType: "answer_contract_missing" };
   if (disposition.skipped) return { observedErrorType: "not_sure" };
+  // Letters left when a word ended (G8, 2026-11-10): an incomplete try, never right or wrong.
+  if (disposition.incomplete) return { observedErrorType: "incomplete_response" };
   if (!value.trim()) return { observedErrorType: "response_not_captured" };
   // A Japanese-input keyboard turns her letters into kana; score the letters she typed, never the kana (2026-11-10).
   const typed = readTypedSpelling(value, item.response.acceptedForms, item.response.caseSensitive);
@@ -249,7 +251,7 @@ export function scoreSpellingRecall(
 export function recordSpellingDiscoveryAttempt(input: {
   childId: string;
   homeworkId: string;
-  attempt: { attemptId: string; itemId: string; attemptedValue: string; observedAt: string; skipped?: boolean };
+  attempt: { attemptId: string; itemId: string; attemptedValue: string; observedAt: string; skipped?: boolean; incomplete?: boolean };
   support?: LearningObservation["assistance"];
   instrumentSignals?: string[];
   artifactHash?: string;
@@ -293,6 +295,7 @@ export function recordSpellingDiscoveryAttempt(input: {
     confounds: [...new Set([
       `word_id:${item.wordId}`, `response_mode:${item.response.mode}`, `measurement_role:${item.lineage.measurementRole}`,
       ...(attempt.skipped ? ["response_disposition:not_sure"] : []),
+      ...(attempt.incomplete ? ["response_disposition:incomplete"] : []),
       ...(typed.status === "plain" ? [] : ["keyboard_ime_input", `ime_raw:${typed.raw}`]),
       ...(repeated ? ["repeated_attempt"] : ["first_response"]), ...(result.observedErrorType ? [result.observedErrorType] : []),
       ...(support.status !== "unassisted" ? [`assistance_${support.status}`] : []), ...signals,
