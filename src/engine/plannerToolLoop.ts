@@ -32,6 +32,10 @@ export function plannerToolDefinitions(tools: ReadonlyArray<PlannerTool<any>>, o
   });
 }
 
+/** Stages whose strict grammar the provider rejected as too large since this server started: they start unlocked,
+ * so every later board does not pay for one rejected request first (Reina, 2026-11-11). */
+const GRAMMAR_TOO_LARGE = new Set<string>();
+
 /** The Planner talks to Sunny through small strict tools until the board is finished.
  * Every call in a turn runs in order and all answers return together. Bounded by caps
  * (Law 2): a stuck conversation stops; it never loops or buys a correction. */
@@ -50,7 +54,9 @@ export async function runPlannerToolLoop<S>(input: {
   const blocks: Anthropic.Messages.ContentBlockParam[] = typeof opening === "string" ? [{ type: "text", text: opening }] : [...opening];
   blocks[blocks.length - 1] = { ...blocks[blocks.length - 1], cache_control: { type: "ephemeral" } } as Anthropic.Messages.ContentBlockParam;
   const messages: Anthropic.Messages.MessageParam[] = [{ role: "user", content: blocks }];
-  let tools = plannerToolDefinitions(input.tools), unlocked = false;
+  let unlocked = GRAMMAR_TOO_LARGE.has(input.label);
+  let tools = plannerToolDefinitions(input.tools, { unlocked });
+  if (unlocked) console.log(` 🎮 [planner-tools] [${input.label}] [strict-grammar-too-large] [start-unlocked] tools=${tools.length}`);
   let turns = 0, calls = 0, errors = 0;
   const done = (stop: ToolLoopStop) => {
     console.log(` 🎮 [planner-tools] [${input.label}] [${stop}] turns=${turns} calls=${calls} errors=${errors}`);
@@ -64,7 +70,7 @@ export async function runPlannerToolLoop<S>(input: {
     // as allowed values). Degrade once to the same tools unlocked; code still checks every answer below.
     const response = await ask().catch(async (error: unknown) => {
       if (unlocked || !/compiled grammar is too large/i.test(error instanceof Error ? error.message : String(error))) throw error;
-      unlocked = true; tools = plannerToolDefinitions(input.tools, { unlocked });
+      unlocked = true; GRAMMAR_TOO_LARGE.add(input.label); tools = plannerToolDefinitions(input.tools, { unlocked });
       console.warn(` 🎮 [planner-tools] [${input.label}] [strict-grammar-too-large] [retry-unlocked] turn=${turns} tools=${tools.length}`);
       return ask();
     });
