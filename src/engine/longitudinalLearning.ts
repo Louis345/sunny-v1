@@ -211,7 +211,7 @@ export function recordConfirmedReturnedWork(
   }, opts);
 }
 
-function readCanonicalCycles(childId: string, rootDir = process.cwd()): LearningCycleRecordV2[] {
+export function readCanonicalCycles(childId: string, rootDir = process.cwd()): LearningCycleRecordV2[] {
   const dir = path.join(resolveChildContextDir(childId, { rootDir }), "homework", "cycles");
   if (!fs.existsSync(dir)) return [];
   return fs.readdirSync(dir)
