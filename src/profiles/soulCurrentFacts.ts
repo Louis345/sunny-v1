@@ -1,3 +1,4 @@
+import { livingProfileLines, readLivingProfile } from "../chart/livingProfile";
 import { familyDay } from "../utils/familyCalendar";
 import fs from "node:fs";
 import path from "node:path";
@@ -35,5 +36,7 @@ export function readSoulWithCurrentFacts(childId: string, opts: { rootDir?: stri
   const id = childId.trim().toLowerCase();
   const soul = fs.readFileSync(path.join(resolveChildContextDir(id, { rootDir: opts.rootDir }), "soul.md"), "utf-8");
   const block = currentFactsBlock(id, opts);
-  return block ? `${block}\n\n${soul}` : soul;
+  // Her living profile (2026-11-11): what she told her companions lately, newer than everything below it.
+  const living = livingProfileLines(readLivingProfile(id));
+  return [block, living && `## What she has told her companions lately\n${living}`, soul].filter(Boolean).join("\n\n");
 }

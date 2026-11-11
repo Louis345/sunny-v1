@@ -40,6 +40,7 @@
     "sunny:ingest:math": "npx tsx src/scripts/ingestHomework.ts --domain math",
     "sunny:ingest:science": "npm run sunny:ingest:homework -- --domain science",
     "sunny:homework:upload": "npx tsx src/scripts/uploadGradedHomework.ts",
+    "sunny:child:forget": "npx tsx src/scripts/forgetChildFact.ts",
     "sunny:ingest:scan": "npx tsx src/scripts/ingestScanResult.ts --child=ila",
     "sunny:ingest:tutoring": "npx tsx src/scripts/ingestTutoring.ts",
     "sunny:run": "npx tsx src/scripts/sunnyRun.ts",

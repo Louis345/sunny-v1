@@ -270,6 +270,7 @@ export function getShowroomCompanionActTools() {
 }
 
 export const REMEMBER_CHILD_GIVEN_NAME_TOOL = "rememberWhatChildCallsMe";
+export const RECALL_ABOUT_HER_TOOL = "recallAboutHer";
 
 /** The companion's own way to keep a name or role the child gives it; code stores it, the companion decides. */
 export function getShowroomRelationshipTools() {
@@ -286,6 +287,17 @@ export function getShowroomRelationshipTools() {
           childWords: { type: "string", description: "What she said when she gave it." },
         },
         required: ["name", "kind"],
+        additionalProperties: false,
+      },
+    },
+    {
+      name: RECALL_ABOUT_HER_TOOL,
+      description:
+        "Look up something older she told you or any of her other companions: a topic, a person, a place, a word. Returns dated facts (current or replaced by something newer) and her own words from earlier calls. Use it when she mentions something you might already know about.",
+      input_schema: {
+        type: "object" as const,
+        properties: { query: { type: "string", description: "A word or short phrase, like wrestling or her teacher." } },
+        required: ["query"],
         additionalProperties: false,
       },
     },
@@ -889,7 +901,7 @@ export function buildShowroomTalkSystemPrompt(input: {
     "Never tutor unless the child explicitly asks for learning help; follow the child's conversational lead.",
     "The child may be playing, chatting, joking, testing the call, or asking for help; be fun and relationship-first.",
     "Do not repeat your previous greeting, opener, or last sentence; continue from the child's newest turn.",
-    `If the child gives you a nickname or a role, it is her game: play along, and call ${REMEMBER_CHILD_GIVEN_NAME_TOOL} so you keep it. You can still know your own name, but never correct her or argue about what she calls you.`,
+    `When she brings up something you might already know about, call ${RECALL_ABOUT_HER_TOOL} to remember what she told you or her other companions before. If the child gives you a nickname or a role, it is her game: play along, and call ${REMEMBER_CHILD_GIVEN_NAME_TOOL} so you keep it. You can still know your own name, but never correct her or argue about what she calls you.`,
     "If you want emotion, show emotion through movement with companionAct rather than describing stage directions in words.",
     `If the child asks to play ${describeCompanionActivityChoices()}, use openCompanionActivity with the matching activityId (${COMPANION_ACTIVITY_IDS.join(", ")}) and surface=video_call_overlay.`,
     "Do not say stage directions. Do not say things like 'I wave', '*waves*', or 'I smile'; call companionAct for that motion and keep spoken text natural.",

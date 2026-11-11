@@ -450,11 +450,12 @@ export function recordCompanionInteractionEvent(
 
 export function readCompanionInteractionEvents(
   childIdInput: string,
-  companionIdInput: string,
+  companionIdInput: string | null,
   opts: CompanionInteractionMemoryOptions = {},
 ): CompanionInteractionEventRecord[] {
   const childId = normalizeId(childIdInput, "showroom");
-  const companionId = normalizeId(canonicalCompanionId(companionIdInput), "companion");
+  // null: every companion's calls with her (shared recall).
+  const companionId = companionIdInput === null ? null : normalizeId(canonicalCompanionId(companionIdInput), "companion");
   const dir = interactionDir(childId, opts);
   if (!fs.existsSync(dir)) return [];
   return fs
@@ -469,7 +470,7 @@ export function readCompanionInteractionEvents(
         .filter(Boolean)
         .map((line) => safeJsonParse<CompanionInteractionEventRecord>(line))
         .filter((record): record is CompanionInteractionEventRecord =>
-          Boolean(record && canonicalCompanionId(record.companionId) === companionId),
+          Boolean(record && (companionId === null || canonicalCompanionId(record.companionId) === companionId)),
         ),
     )
     .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
