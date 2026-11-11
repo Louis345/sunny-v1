@@ -396,8 +396,11 @@ async function recordCanonicalUpload(input: {
       },
       status: "confirmed",
     },
-    // The score is counted from the ticks; a bare number like 1 can't say "1 right" from "100%".
-    score: { earned: right, possible: input.upload.gradedItems.length },
+    // The teacher's score when it is readable (0.8 is a fraction, 95 a percent). A bare 1 can mean "1 right" or
+    // "100%", so then, and when no score is given, the score is counted from the ticks.
+    score: typeof input.upload.score === "number" && input.upload.score >= 0 && input.upload.score !== 1 && input.upload.score <= 100
+      ? { earned: input.upload.score, possible: input.upload.score < 1 ? 1 : 100 }
+      : { earned: right, possible: input.upload.gradedItems.length },
     items: input.upload.gradedItems.map((item, index) => ({
       itemId: `item-${index + 1}`,
       prompt: item.target,

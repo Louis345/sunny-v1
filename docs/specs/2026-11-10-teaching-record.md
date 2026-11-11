@@ -230,3 +230,17 @@ The independent review checked this spec against the code. These changes overrid
 - **Companions write back.** After a call, a small model (Haiku) reads the turns, writes `companion.fact_learned`
   with the exact quote, and code checks the quote exists before the fact enters the shared profile. The Planner
   reads the same profile.
+
+## 15. Phase 1 results (2026-11-11)
+
+- **Graded upload fixed** (9cc49eb4). Words map to their frozen `spelling.word.<sha>` IDs, the score is counted from the ticks, and the grade is dated by the test day (`testDate` on the evidence source). A word not on the week's list records nothing and is named. Parent format, a plain text file:
+  ```
+  date: 2026-11-12
+  dormant ✓
+  carnivore ✗ carnivor
+  ```
+  `npm run sunny:homework:upload -- --child=ila --pdf=<file>.txt --homework=<homeworkId> --yes`
+- **School results in `read_past_weeks`:** already there; the upload test now checks right/total and the test day there.
+- **Revision 10 was a false alarm.** The next-board path saves the whole question, past weeks included, in `<stage>-tools.question.json` and replays it on restart (pastWeeksPlanner.test.ts already proves it). The extra `readPastWeeks` call on restart is unused, not a different question.
+- **One family calendar** (8f5bb0e1): `src/utils/familyCalendar.ts`. Past weeks, minutes per day, "as of" facts and her age use the family's day. This also fixed her age turning over on the evening before her birthday.
+- Not changed: the parent photo-upload route (AI reads the photo) still has no test-day field.
