@@ -5,6 +5,8 @@ export type CanonicalNodeCompletionInput = {
   homeworkId: string;
   nodeId: string;
   completionId: string;
+  /** When the kiosk opened this stop (Date.now()); her time is measured from it, never taken from the game. */
+  launchedAt: number;
   result: Record<string, unknown> & {
     completed?: boolean;
     accuracy?: number;
@@ -170,11 +172,14 @@ export async function postCanonicalNodeCompletion(input: CanonicalNodeCompletion
   nodeChest?: ServerNodeChest;
   creatureEncounter?: PendingCreatureEncounter;
 }> {
-  const { completionId, ...request } = input;
+  const { completionId, launchedAt, ...request } = input;
+  // G7 (2026-11-10): games and built-ins sent 0 or nothing, saved as "completed in 0ms". The kiosk's own clock owns it.
+  const timeSpent_ms = Number.isFinite(launchedAt) ? Math.max(0, Date.now() - launchedAt) : request.result.timeSpent_ms;
+  console.log(" 🎮 [AdventureBoard] [completion-time] [measured]", { nodeId: input.nodeId, timeSpent_ms, gameReported: request.result.timeSpent_ms ?? null });
   const response = await fetch("/api/learning-cycle/node-complete", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ ...request, result: { ...request.result, sessionId: completionId } }),
+    body: JSON.stringify({ ...request, result: { ...request.result, timeSpent_ms, sessionId: completionId } }),
   });
   if (!response.ok) {
     // A refused save the server kept (2026-11-10): her answers are held, not lost.
@@ -193,7 +198,7 @@ export async function postCanonicalNodeCompletion(input: CanonicalNodeCompletion
     creatureEncounter?: PendingCreatureEncounter;
   };
   window.dispatchEvent(new CustomEvent("sunny_learning_cycle_progression", { detail: result }));
-  return { ...result, outcome: { ...input.result, completed: result.nodeState === "completed", accuracy: result.academicAccuracy ?? undefined } };
+  return { ...result, outcome: { ...input.result, ...(timeSpent_ms === undefined ? {} : { timeSpent_ms }), completed: result.nodeState === "completed", accuracy: result.academicAccuracy ?? undefined } };
 }
 
 /** Her tries on a finished stop after its completion was saved (BUGS.md 2026-11-10 evening); the server adds only new ones. */
