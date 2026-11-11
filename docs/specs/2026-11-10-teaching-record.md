@@ -244,3 +244,23 @@ The independent review checked this spec against the code. These changes overrid
 - **Revision 10 was a false alarm.** The next-board path saves the whole question, past weeks included, in `<stage>-tools.question.json` and replays it on restart (pastWeeksPlanner.test.ts already proves it). The extra `readPastWeeks` call on restart is unused, not a different question.
 - **One family calendar** (8f5bb0e1): `src/utils/familyCalendar.ts`. Past weeks, minutes per day, "as of" facts and her age use the family's day. This also fixed her age turning over on the evening before her birthday.
 - Not changed: the parent photo-upload route (AI reads the photo) still has no test-day field.
+
+## 16. Phase 2 results (2026-11-11)
+
+- **The graded upload writes to her chart database too** (8b8989a3): a `school_test.recorded` fact per word, so claims can be scored against the school test.
+- **`learner.hypothesis`** (25960eb2): a claim names words and/or frozen pattern tags (the existing 12-pattern taxonomy the Planner tags at intake), a metric (`first_try_unassisted` or `school_test`), an expected range, a falsifier and a horizon. Claims are immutable. `projectLearnerHypotheses` scores each claim on read, using only weeks other than its own and only facts recorded after it:
+  - `proposed` until 2 later weeks have evidence;
+  - then `supported` or `contradicted` (contradicted claims stay listed);
+  - `expired` past the horizon.
+  - Every status comes with counts per week. No status gates anything.
+- **Planner tools** (eb68589a):
+  - `read_past_weeks` gains a `claims` view, frozen with the archive.
+  - The next-board Planner can write `claim_how_she_learns`.
+  - Without a chart database, the tools keep their exact earlier schema.
+- **Not done yet:**
+  - `learner.hypothesis_evaluated` is not written; the score is computed on every read instead.
+  - The four 11/10 seeds are left for the Planner to write as its own claims.
+  - Claims cover spelling only; math has no chart database yet.
+  - Intake doesn't offer the claim tool, because the week's list isn't in the chart until after intake.
+  - The done measurement (share of first boards that cite a prior week) isn't built.
+- **On Saori:** claims need `SUNNY_CHART_DIR` in Saori's `.env` (the kiosk already uses it for the chart database). Check it on deploy.
