@@ -34,3 +34,20 @@ describe("the rating reads the homework the session played", () => {
     } finally { fs.rmSync(rootDir, { recursive: true, force: true }); }
   });
 });
+
+// 2026-11-10: the kiosk runs for days, so the startup check of a session's kiosk run can sit in an earlier day's
+// dated log. Why the human caught it: Ila's sessions failed N4 on a kiosk that had checked itself. Why logs did not: the
+// check is written once, in the log of the day the kiosk started. Why the lab missed it: lab logs never span a day.
+describe("the startup check of the session's kiosk run", () => {
+  it("reads startup check lines from earlier dated server logs, never later ones", async () => {
+    const { earlierStartupLines } = await import("./sessionRatingPacket");
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-rate-startup-"));
+    try {
+      fs.writeFileSync(path.join(dir, "2026-11-08.log"), "2026-11-08T07:00:00.000Z  🎮 [startup-check] [passed] child=ila boards=1\n2026-11-08T07:00:01.000Z other line\n");
+      fs.writeFileSync(path.join(dir, "2026-11-10.log"), "2026-11-10T07:00:00.000Z  🎮 [session] [started]\n");
+      fs.writeFileSync(path.join(dir, "2026-11-11.log"), "2026-11-11T07:00:00.000Z  🎮 [startup-check] [failed] child=ila\n");
+      expect(earlierStartupLines(path.join(dir, "2026-11-10.log"))).toEqual(["2026-11-08T07:00:00.000Z  🎮 [startup-check] [passed] child=ila boards=1"]);
+      expect(earlierStartupLines(path.join(dir, "kiosk-run.log"))).toEqual([]);
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+});

@@ -37,7 +37,7 @@ describe("session rating against the pre-registered success criteria", () => {
     expect(line("N1")).toMatchObject({ pass: false, value: "3 given, 0 saved" });
     expect(line("N2")).toMatchObject({ pass: false });
     expect(line("N3")).toMatchObject({ pass: false });
-    expect(line("N4")).toMatchObject({ pass: false, value: "no startup check line" });
+    expect(line("N4")).toMatchObject({ pass: false, value: "no startup check for reina before the session" });
     expect(line("G2")).toMatchObject({ pass: false, value: "10 tickets for 1 sentence" });
     expect(line("G7")).toMatchObject({ pass: false, value: "1 game recorded 0 ms" });
     expect(line("G17")).toMatchObject({ pass: false, value: "12.2 min (Sweater Table Scout)" });
@@ -107,3 +107,35 @@ describe("session rating against the pre-registered success criteria", () => {
   });
 });
 
+
+// 2026-11-10, rating all 16 of Ila's sessions: every short session where she never played (a reopened screen, a
+// FaceTime-only call) failed N4 "no startup check line" and G17 "no game answered". Why the human caught it: the
+// must-never verdict said the kiosk opened unchecked on a day it had checked itself once at start. Why logs did not:
+// the startup check is logged once per kiosk start, before any session exists, so it never names a session. Why the
+// lab missed it: lab packets put the check line and the session id in the same small log, and always played a game.
+describe("sessions where she never played", () => {
+  const quiet = (serverLog: string[]): SessionPacket => ({ ...reinaMorning(), childId: "ila", sessionId: "ila-quiet", traces: [], observations: [], evidence: [], productIssues: [],
+    transcript: [{ ts: at(1), role: "child", text: "Hi Elli!" }], handoffWritten: false, serverLog });
+
+  it("finds the startup check of the kiosk run the session belongs to, even when it does not name the session", () => {
+    const log = ["2026-11-10T08:00:00.000Z  🎮 [startup-check] [passed] child=ila homework=hw boards=2", "2026-11-10T08:00:00.000Z  🎮 [startup-check] [passed] child=reina homework=hw boards=1",
+      "2026-11-10T11:00:00.000Z  🎮 [session] [started] id=an-earlier-session"];
+    expect(rateSession(quiet(log)).lines.find(row => row.id === "N4")).toMatchObject({ pass: true, value: expect.stringContaining("[startup-check] [passed] child=ila") });
+    // The latest check for her before the session start decides: a later failed restart before her session fails it.
+    const restarted = [...log, "2026-11-10T12:05:00.000Z  🎮 [startup-check] [failed] child=ila problem=board_broken"];
+    expect(rateSession(quiet(restarted)).lines.find(row => row.id === "N4")).toMatchObject({ pass: false, value: expect.stringContaining("[failed]") });
+    // A check after her session started, or only for her sister, is not hers.
+    const after = ["2026-11-10T08:00:00.000Z  🎮 [startup-check] [passed] child=reina boards=1", "2026-11-10T12:30:00.000Z  🎮 [startup-check] [passed] child=ila boards=2"];
+    expect(rateSession(quiet(after)).lines.find(row => row.id === "N4")).toMatchObject({ pass: false, value: "no startup check for ila before the session" });
+    // Earlier kiosk days count: the kiosk keeps running overnight.
+    expect(rateSession({ ...quiet([]), startupLog: ["2026-11-09T07:00:00.000Z  🎮 [startup-check] [passed] child=ila boards=2"] }).lines.find(row => row.id === "N4")).toMatchObject({ pass: true });
+  });
+
+  it("marks G17 N/A when no game was opened, and still fails a game opened but never answered", () => {
+    const none = rateSession(quiet([]));
+    expect(none.lines.find(row => row.id === "G17")).toMatchObject({ value: "no game this session" });
+    expect(none.text).toMatch(/\| G17 \|.*\| N\/A \|/);
+    const opened = rateSession({ ...quiet([]), traces: [{ ts: at(2), nodeId: "radar", activityTitle: "Word Radar", type: "game_state_update", phase: "opening" }] });
+    expect(opened.lines.find(row => row.id === "G17")).toMatchObject({ pass: false, value: "1 game opened, none answered (Word Radar)" });
+  });
+});

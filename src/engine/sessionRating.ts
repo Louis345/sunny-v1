@@ -14,6 +14,8 @@ export type SessionPacket = {
   productIssues: Array<{ createdAt: string; source?: string; issueType?: string; childUtterance?: string }>;
   handoffWritten: boolean;
   serverLog?: string[];
+  /** Startup check lines from earlier days' dated server logs: the kiosk keeps running overnight (2026-11-10). */
+  startupLog?: string[];
   /** Where the session's minutes went (owner, 2026-11-10): shown beside the verdict, never a criterion. */
   minutes?: SessionMinutes;
   /** Facts read outside the session, each named after its line (G9, G11...). Absent means not measurable yet. */
@@ -30,6 +32,23 @@ const FAILURE = /\[(failed|error)\]|\bError:/;
 const REASSURANCE = /\b(will|'ll|going to) (count|be saved|save)\b|\b(it|that)('s| is| was) saved\b/i;
 const BUG_WORDS = /\bbug\b|\bglitch\b|could not be saved|not working|broken/i;
 const STRETCH_MIN = 3;
+const STAMP = /^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z)\s/;
+
+/**
+ * The startup check of the kiosk run this session belongs to (2026-11-10): it runs once per kiosk start and never names
+ * a session, so it is the latest `[startup-check]` for this child (or for every child) before the session started.
+ * Dated log lines are compared by time; an undated log counts only lines above its first mention of the session.
+ */
+function startupCheckFor(packet: SessionPacket): string | undefined {
+  const log = [...(packet.startupLog ?? []), ...(packet.serverLog ?? [])];
+  const named = log.findIndex(line => line.includes(packet.sessionId));
+  const mine = (line: string) => line.includes("[startup-check]") && (!/\bchild=/.test(line) || new RegExp(`\\bchild=${packet.childId}\\b`).test(line));
+  return log.filter((line, index) => {
+    if (!mine(line)) return false;
+    const stamp = STAMP.exec(line)?.[1];
+    return stamp ? Date.parse(stamp) <= Date.parse(packet.startedAt) : named >= 0 && index < named;
+  }).at(-1);
+}
 
 /** The 27 lines, in the criteria's order. Lines with no measurement yet read from `extra` or fail. */
 const LINES: Array<{ id: string; what: string; target: string }> = [
@@ -98,15 +117,20 @@ export function rateSession(packet: SessionPacket): { lines: RatingLine[]; verdi
     N1: { value: `${given.length} given, ${saved.length} saved`, pass: saved.length >= given.length },
     N2: { value: childBugReports.length && failed ? `${childBugReports.length} child report(s) after ${serverFailures.length + eventFailures.length} logged failure(s)` : `${childBugReports.length} child report(s)`, pass: !(childBugReports.length && failed) },
     N3: { value: failed && promises.length ? `${promises.length} promise(s) after a failure: "${promises[0].text.slice(0, 60)}"` : "none", pass: !(failed && promises.length) },
-    N4: !covering.length ? { value: packet.serverLog ? "no startup check line" : "no server log to read", pass: false }
-      : (covering.some(line => line.includes("[startup-check]")) ? { value: covering.find(line => line.includes("[startup-check]"))!.trim().slice(0, 80), pass: covering.some(line => line.includes("[startup-check] [passed]")) }
-      : { value: "no startup check line", pass: false }),
+    N4: (() => {
+      const check = startupCheckFor(packet);
+      if (check) return { value: check.trim().slice(0, 100), pass: check.includes("[startup-check] [passed]") };
+      return { value: packet.serverLog || packet.startupLog ? `no startup check for ${packet.childId} before the session` : "no server log to read", pass: false };
+    })(),
     G2: { value: `${packet.productIssues.length} tickets for ${childBugReports.length || (packet.productIssues.length ? 1 : 0)} sentence${childBugReports.length === 1 || !childBugReports.length ? "" : "s"}`, pass: packet.productIssues.length <= Math.max(childBugReports.length, 0) || packet.productIssues.length === 0 },
     G5: !allSaved ? { value: "not measurable: answers were not saved", pass: false } : packet.domain === "math" || gameRight !== savedRight ? { value: `retro ${gameRight} right, saved ${savedRight} right`, pass: gameRight === savedRight } : { value: `retro ${gameRight}, saved ${savedRight}`, pass: true },
     G7: !allSaved && !zeroMs.length ? { value: "not measurable: answers were not saved", pass: false } : { value: `${zeroMs.length} game${zeroMs.length === 1 ? "" : "s"} recorded 0 ms`, pass: zeroMs.length === 0 },
     G8: !allSaved ? { value: "not measurable: answers were not saved", pass: false } : { value: `${fragments.length} fragment${fragments.length === 1 ? "" : "s"}`, pass: fragments.length === 0 },
     G10: { value: given.length === 0 && packet.handoffWritten ? "a lesson retro for a session with no answers" : "none", pass: !(given.length === 0 && packet.handoffWritten) },
-    G17: waits.length ? { value: `${waits[0].min} min (${waits[0].title})`, pass: waits[0].min < 3 } : { value: "no game answered", pass: false },
+    // No game opened: nothing to wait for (a reopened screen, a FaceTime-only call). Opened but never answered fails.
+    G17: waits.length ? { value: `${waits[0].min} min (${waits[0].title})`, pass: waits[0].min < 3 }
+      : games.size ? { value: `${games.size} game${games.size === 1 ? "" : "s"} opened, none answered (${[...games.values()].map(rows => rows.find(row => row.activityTitle)?.activityTitle ?? rows[0].nodeId).join(", ")})`, pass: false }
+      : { value: "no game this session", pass: true },
     G18: { value: `${offered.length} of ${stretches.length} quiet stretches had an offer`, pass: offered.length === stretches.length },
   };
   const lines = LINES.map(line => ({ ...line, ...(measured[line.id] ?? packet.extra?.[line.id] ?? { value: "not measurable yet", pass: false }) }));

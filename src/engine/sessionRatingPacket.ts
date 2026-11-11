@@ -34,6 +34,18 @@ export function sessionLearningCycle(childId: string, sessionDir: string, opts: 
   return best?.cycle ?? null;
 }
 
+/**
+ * Startup check lines from the dated server logs of days before this one (2026-11-10): the kiosk keeps running
+ * overnight, so a session's startup check can sit in the log of the day the kiosk started. Empty for an undated log.
+ */
+export function earlierStartupLines(serverLogFile: string): string[] {
+  const day = /^(\d{4}-\d{2}-\d{2})\.log$/.exec(path.basename(serverLogFile))?.[1];
+  const dir = path.dirname(serverLogFile);
+  if (!day || !fs.existsSync(dir)) return [];
+  return fs.readdirSync(dir).filter(name => /^\d{4}-\d{2}-\d{2}\.log$/.test(name) && name.slice(0, 10) < day).sort()
+    .flatMap(name => fs.readFileSync(path.join(dir, name), "utf8").split("\n").filter(line => line.includes("[startup-check]")));
+}
+
 /** Reads one saved session and the records it touched into the facts the rating reads. Read-only. */
 export function loadSessionPacket(input: { childId: string; sessionDir: string; serverLogFile?: string }, opts: LearningCycleRepositoryOptions = {}): SessionPacket {
   const read = (name: string) => { const file = path.join(input.sessionDir, name); return fs.existsSync(file) ? fs.readFileSync(file, "utf8") : ""; };
@@ -62,6 +74,7 @@ export function loadSessionPacket(input: { childId: string; sessionDir: string; 
   const traces = lines("game-traces.ndjson");
   const sessionId = metadata.sessionId ?? path.basename(input.sessionDir);
   const serverLog = input.serverLogFile && fs.existsSync(input.serverLogFile) ? fs.readFileSync(input.serverLogFile, "utf8").split("\n") : undefined;
+  const startupLog = input.serverLogFile ? earlierStartupLines(input.serverLogFile) : [];
   const covering = serverLog?.some(line => line.includes(sessionId)) ? serverLog : [];
   const childDir = resolveChildContextDir(input.childId, { rootDir: opts.rootDir });
   const readRows = (file: string) => fs.existsSync(file) ? fs.readFileSync(file, "utf8").split("\n").flatMap(line => { try { return line.trim() ? [JSON.parse(line)] : []; } catch { return []; } }) : [];
@@ -105,5 +118,6 @@ export function loadSessionPacket(input: { childId: string; sessionDir: string; 
     productIssues: listChildProductIssues(input.childId, { rootDir: opts.rootDir, limit: 500 }).filter(row => { const t = Date.parse(row.createdAt); return t >= from && t <= to; }),
     handoffWritten: Boolean(handoffDir && fs.existsSync(handoffDir) && fs.readdirSync(handoffDir).some(name => name.startsWith(stamp.slice(0, 19)))),
     ...(serverLog ? { serverLog } : {}),
+    ...(startupLog.length ? { startupLog } : {}),
   };
 }
