@@ -157,7 +157,7 @@ export function rateSession(packet: SessionPacket): { lines: RatingLine[]; verdi
 export type RecordFacts = {
   domain: string; serverFailures: number; alertsInSession: number; datedLogForDay: boolean; testDates: string[];
   helpTurnsInGames: number; helpedSaved: number; playedGames: Array<{ title: string; answers: number; savedAnswers: number }>;
-  decisions: Array<{ hasOwnRetro: boolean; hasCalls: boolean; questionChars: number; tools: string[] }>;
+  decisions: Array<{ hasOwnRetro: boolean; noRetroPlayOnly?: boolean; hasCalls: boolean; questionChars: number; tools: string[] }>;
   gamesWithNotes: number; playedCount: number; diagnoses: number; builtSinceBatch: Array<{ hasStep: boolean }>;
   gamesOpened: string[]; paceLogged: string[]; newProblems: number; trackRecordGames: number;
 };
@@ -174,7 +174,12 @@ export function measureRecordLines(f: RecordFacts): Record<string, { value: stri
     G4: { value: `${new Set(f.testDates).size} test date(s) recorded: ${[...new Set(f.testDates)].join(", ") || "none"}`, pass: new Set(f.testDates).size <= 1 },
     G6: f.domain === "spelling" ? none("math answer") : { value: `help asked ${f.helpTurnsInGames} time(s) in games; ${f.helpedSaved} answer(s) saved as helped`, pass: !(f.helpTurnsInGames > 0 && f.helpedSaved === 0) },
     G9: { value: blind.length ? `shown with 0 answers: ${blind.map(game => game.title).join(", ")}` : `${f.playedGames.length} played game(s) with true counts`, pass: !blind.length },
-    G11: f.decisions.length ? { value: `${f.decisions.filter(row => row.hasOwnRetro).length} of ${f.decisions.length} decision(s) had this session's retro`, pass: f.decisions.every(row => row.hasOwnRetro) } : none("decision"),
+    // A decision after a session with no answers gets a factual "no retro" note: nothing to retro, N/A (2026-11-10).
+    G11: !f.decisions.length ? none("decision") : (() => {
+      const needing = f.decisions.filter(row => !row.noRetroPlayOnly), playOnly = f.decisions.length - needing.length;
+      if (!needing.length) return { value: "no decision needing a retro this session", pass: true };
+      return { value: `${needing.filter(row => row.hasOwnRetro).length} of ${needing.length} decision(s) had this session's retro${playOnly ? ` (${playOnly} more had nothing to retro: no answers)` : ""}`, pass: needing.every(row => row.hasOwnRetro) };
+    })(),
     G12: f.decisions.length ? { value: `${f.decisions.filter(row => row.hasCalls).length} of ${f.decisions.length} decision(s) made calls code can check`, pass: f.decisions.some(row => row.hasCalls) } : none("decision"),
     G13: { value: `${f.gamesWithNotes} of ${f.playedCount} played game(s) have a keep/fix/retire note (week)`, pass: f.playedCount === 0 || f.gamesWithNotes > 0 },
     G14: f.decisions.length ? { value: `largest question ${Math.max(...f.decisions.map(row => row.questionChars)).toLocaleString("en-US")} characters`, pass: f.decisions.every(row => row.questionChars < 120_000) } : none("decision"),

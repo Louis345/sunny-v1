@@ -8,6 +8,7 @@ import { measureRecordLines, type SessionPacket } from "./sessionRating";
 import { gameTrackRecord } from "./gameTrackRecord";
 import { observationNode } from "./observationNode";
 import { sessionMinutes } from "./sessionTime";
+import { noRetroPlayOnlyIn } from "./sessionHandoff";
 import { RIGHT_ON_HER_OWN } from "./sessionTimeline";
 
 /** When the 11/10 batch reached Saori: games built after it must report their step. */
@@ -119,7 +120,7 @@ export function loadSessionPacket(input: { childId: string; sessionDir: string; 
     helpTurnsInGames: covering.filter(line => line.includes("[companion-help] [noted]")).length,
     helpedSaved: (cycle?.observations ?? []).filter(row => inWindow(row.observedAt) && row.assistance?.scaffolds?.includes("companion_help_on_item")).length,
     playedGames: track.map(row => ({ title: row.title, answers: row.answers, savedAnswers: cycle ? cycle.observations.filter(obs => observationNode(cycle, obs)?.nodeId === row.nodeId && typeof obs.result?.correct === "boolean").length : 0 })),
-    decisions: questions.map(question => ({ hasOwnRetro: question.prompt.includes(sessionId), hasCalls: decided.some(row => row.expectations?.length), questionChars: question.prompt.length, tools: question.facts?.writeProblems ? ["add_problem"] : [] })),
+    decisions: questions.map(question => ({ hasOwnRetro: question.prompt.includes(`(session ${sessionId})`), noRetroPlayOnly: noRetroPlayOnlyIn(question.prompt, sessionId), hasCalls: decided.some(row => row.expectations?.length), questionChars: question.prompt.length, tools: question.facts?.writeProblems ? ["add_problem"] : [] })),
     gamesWithNotes: track.filter(row => row.tutorNote).length, playedCount: track.length,
     diagnoses: ((chart.demographics as { diagnoses?: unknown[] } | undefined)?.diagnoses ?? []).length,
     builtSinceBatch: built.map(file => ({ hasStep: /reportStep\s*\(/.test(fs.readFileSync(file, "utf8")) })),
