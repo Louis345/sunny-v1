@@ -9,7 +9,7 @@ export type SessionPacket = {
   traces: Array<{ ts?: string; launchToken?: string; nodeId?: string; activityTitle?: string; type?: string; phase?: string; target?: unknown; correct?: unknown; itemId?: string; attemptedValue?: unknown }>;
   events: Array<{ ts?: string; component?: string; action?: string; [key: string]: unknown }>;
   transcript: Array<{ ts: string; role: "child" | "companion"; text: string }>;
-  observations: Array<{ observedAt: string; itemId: string; childResponse?: string; word?: string; result: { correct: boolean }; assistance: { status: string }; provenance?: string; retry?: boolean }>;
+  observations: Array<{ observedAt: string; itemId: string; childResponse?: string; word?: string; result: { correct: boolean }; scored?: boolean; assistance: { status: string }; provenance?: string; retry?: boolean }>;
   evidence: Array<{ evidenceId: string; summary: string }>;
   productIssues: Array<{ createdAt: string; source?: string; issueType?: string; childUtterance?: string }>;
   handoffWritten: boolean;
@@ -139,7 +139,7 @@ export function rateSession(packet: SessionPacket): { lines: RatingLine[]; verdi
   }).sort((a, b) => b.min - a.min);
   const zeroMs = packet.evidence.filter(row => tokens.has(row.evidenceId.split(":")[0]) && /completed in 0ms/.test(row.summary));
   // A fragment is a wrong answer shorter than its word whose letters before the last match the word: one tap, not a try.
-  const fragments = saved.filter(row => row.word && row.childResponse && !row.result.correct && row.childResponse.length < row.word.length
+  const fragments = saved.filter(row => row.scored !== false && row.word && row.childResponse && !row.result.correct && row.childResponse.length < row.word.length
     && row.word.startsWith(row.childResponse.slice(0, -1)));
   // G5 (2026-11-10): one defined thing on both sides, right on her first try on her own (retries and help apart).
   const savedOwnRight = saved.filter(row => row.result.correct && isFirstTryOnHerOwn({ assistance: row.assistance, confounds: row.retry ? ["retry"] : [] })).length;

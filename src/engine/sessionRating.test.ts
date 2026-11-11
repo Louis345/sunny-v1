@@ -78,6 +78,16 @@ describe("session rating against the pre-registered success criteria", () => {
     expect(rateSession(played).lines.find(row => row.id === "G7")).toMatchObject({ value: "1 game recorded 0 ms" });
   });
 
+  // 2026-11-10: the data fix saves letters left when a word ended as an incomplete try (no right/wrong), and the
+  // Japanese-keyboard reader leaves unreadable answers unscored. The rating read every answer without `correct: true`
+  // as wrong, so those still counted as fragments. Only a scored wrong answer can be a fragment.
+  it("never counts an unscored answer (incomplete or unreadable) as a fragment", () => {
+    const packet = reinaMorning();
+    packet.traces = [{ ts: at(1), nodeId: "stampede", type: "attempt_event" }];
+    packet.observations = [{ observedAt: at(1), itemId: "w1", word: "ornament", childResponse: "ornm", result: { correct: false }, scored: false, assistance: { status: "unknown" }, provenance: "practice" }];
+    expect(rateSession(packet).lines.find(row => row.id === "G8")).toMatchObject({ pass: true, value: "0 fragments" });
+  });
+
   it("counts a letter-tap fragment like \"ornm\" for ornament", () => {
     const packet = reinaMorning();
     packet.traces = [{ ts: at(1), nodeId: "stampede", type: "attempt_event" }];
