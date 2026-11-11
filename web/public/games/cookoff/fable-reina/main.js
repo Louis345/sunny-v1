@@ -359,7 +359,8 @@ const CFG = (() => {
   if (!SL.hasItems) return null;
   const its = SL.items.filter(it => { const ok = /^\d{1,2}$/.test(String(it.answer).trim()); if (!ok) console.warn(' 🎮 [library-game] [content] [skipped] item=' + it.itemId + ' reason=answer_not_a_1_or_2_digit_number'); return ok; });
   const champN = its.length >= 4 ? 2 : 0, body = its.slice(0, its.length - champN), half = Math.ceil(body.length / 2);
-  return { 1: body.slice(0, half).map(it => cfgItem(it, 'deal', 'anchor')), 2: body.slice(half).map(it => cfgItem(it, 'head', 'tier')), champ: its.slice(its.length - champN).map(it => cfgItem(it, 'head', 'champ')) };
+  // Board problems stay in equal-groups dealing (owner 2026-11-11: Reina is learning division as equal groups, not symbols).
+  return { 1: body.slice(0, half).map(it => cfgItem(it, 'deal', 'anchor')), 2: body.slice(half).map(it => cfgItem(it, 'deal', 'tier')), champ: its.slice(its.length - champN).map(it => cfgItem(it, 'deal', 'champ')) };
 })();
 console.log(' 🎮 [split-second] [content] [' + (CFG ? `items=${SL.items.length} raw=${[...CFG[1], ...CFG[2], ...CFG.champ].filter(i => i.raw).length}` : 'built-in') + ']');
 function slotsBout1() {
@@ -394,7 +395,7 @@ function renderCard(c) {
   let pic = `<b class="n dg">${it.total}</b><span class="ic">${it.ico}</span><span class="ar">➜</span><span class="ms">`;
   pic += it.kind === 'each' ? '<i class="mt">?</i>'.repeat(it.by) : `<i class="tr">${it.by}</i><i class="tr">${it.by}</i><i class="tr">…</i>`;
   $('pic').innerHTML = pic + '</span>'; const box = '<span class="box"></span>';
-  $('eq1').innerHTML = `${it.total} ÷ ${it.by} = ${box}`;
+  $('eq1').innerHTML = it.prompt ? `${it.total} into ${it.by} groups = ${box}` : `${it.total} ÷ ${it.by} = ${box}`;
   $('eq2').innerHTML = it.kind === 'each' ? `${it.by} × ${box} = ${it.total}` : `${box} × ${it.by} = ${it.total}`;
   $('eq2').classList.toggle('off', it.mode === 'deal'); $('card').classList.remove('won'); renderBoxes(c);
 }
@@ -488,7 +489,7 @@ async function bout(n) {
   while (q.length) {
     const s = q.shift(), item = typeof s === 'function' ? s() : s; setPips(q.length + 1);
     const r = await playItem(item, { voice: first ? cfg.voice : null }); first = false;
-    if (r.missed && item.tag !== 'rematch' && item.tag !== 'comeback' && elapsed() < 270) { const rm = Object.assign({}, item, { tag: 'rematch', mode: 'head' }); if (q.length) q.splice(Math.min(q.length, 2), 0, rm); else if (n === 1) G.carry.push(rm); }
+    if (r.missed && item.tag !== 'rematch' && item.tag !== 'comeback' && elapsed() < 270) { const rm = Object.assign({}, item, { tag: 'rematch', mode: item.prompt ? 'deal' : 'head' }); if (q.length) q.splice(Math.min(q.length, 2), 0, rm); else if (n === 1) G.carry.push(rm); }
     if (elapsed() > 285) q.length = 0;
     if (q.length) { vv('oppUp'); await wait(250); }
   }

@@ -26,7 +26,8 @@ function parseDivision(item) {
 const BUILT_IN = [[16,4],[24,3],[18,3],[28,4],[30,5],[36,4],[42,6],[48,6]].map(([n, g]) => ({ n, g, a: n / g, target: `${n}÷${g}` }));
 const SOURCE = LIB.hasItems ? LIB.items.filter(it => { const ok = Number.isFinite(Number(String(it.answer).trim())) && Number(it.answer) > 0; if (!ok) console.warn(' 🎮 [library-game] [content] [skipped] item=' + it.itemId + ' reason=answer_not_a_positive_number'); return ok; }).map(it => ({ ...parseDivision(it), target: it.prompt || it.answer, text: it.prompt })) : BUILT_IN;
 const BOSS_FROM = SOURCE.length >= 4 ? SOURCE.length - 2 : SOURCE.length;   // the last two are the boss when there are enough
-const TASKS = SOURCE.map((f, i) => ({ ...f, mode: f.raw ? 'raw' : i < 2 ? 'deal' : i < 4 ? 'div' : 'times', boss: i >= BOSS_FROM }));
+// Board problems stay in equal-groups dealing (owner 2026-11-11: Reina is learning division as equal groups, not symbols).
+const TASKS = SOURCE.map((f, i) => ({ ...f, mode: f.raw ? 'raw' : LIB.hasItems ? 'deal' : i < 2 ? 'deal' : i < 4 ? 'div' : 'times', boss: i >= BOSS_FROM }));
 log('[content]', LIB.hasItems ? `items=${TASKS.length} raw=${TASKS.filter(t => t.raw).length}` : 'built-in');
 
 // ---------------- audio ----------------
@@ -262,12 +263,12 @@ let shake = 0; let hitstop = 0;
 // ---------------- game flow ----------------
 const G = { state: 'loading', round: 0, takedowns: 0, gems: 0, misses: 0, hint: 0, tries: 0, t0: 0, talk: '', talkHelped: false };
 window.__g = G; window.__chest = () => chest; window.__crystals = crystals; window.__player = player; window.__tasks = TASKS;
-function questionText(t) { if (t.raw) return t.text; return t.mode === 'times' ? `${t.g} × ? = ${t.n}` : `${t.n} ÷ ${t.g} = ?`; }
+function questionText(t) { if (t.raw) return t.text; if (LIB.hasItems) return `${t.n} into ${t.g} equal groups: ? in each`; return t.mode === 'times' ? `${t.g} × ? = ${t.n}` : `${t.n} ÷ ${t.g} = ?`; }
 function startRound() {
   const t = TASKS[G.round]; G.hint = 0; G.talkHelped = false; G.tries = 0; G.stepStart = performance.now(); t.hinted = false;
   $('card').textContent = questionText(t); $('card').classList.add('show'); setJumbo(questionText(t));
   t.tried = new Set(); const ch = spawnChoices(t); dealCoins(t);
-  if (t.raw) { say(t.text, 3600); LIB.speak?.(t.text, { reason: 'library_game_problem' }); } else if (t.mode === 'deal') say(`Deal ${t.n} into ${t.g} squads. How many in each?`, 2600); else if (t.mode === 'times') say('In your head this time!', 1600);
+  if (t.raw) { say(t.text, 3600); LIB.speak?.(t.text, { reason: 'library_game_problem' }); } else if (t.mode === 'deal') { say(`Deal ${t.n} into ${t.g} squads. How many in each?`, 2600); if (t.text) LIB.speak?.(t.text, { reason: 'library_game_problem' }); } else if (t.mode === 'times') say('In your head this time!', 1600);
   EV('targetPresented', { target: t.target, itemIndex: G.round, visibleState: { choices: ch, mode: t.mode } });
 }
 function choiceSet(t) { const pool = [t.a + 1, t.a - 1, t.a + 2, t.a - 2, t.g, t.a + 3, t.n - t.g, t.a + 4, t.a * 2].filter(v => v > 0 && v !== t.a && !t.tried.has(v));
