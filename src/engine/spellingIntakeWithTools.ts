@@ -6,6 +6,7 @@ import { drawJourney } from "./directMathExperience";
 import { runPlannerToolLoop, type ToolLoopRequest } from "./plannerToolLoop";
 import { providerTurnSender } from "./plannerToolProvider";
 import { spellingDiscoveryToolkit } from "./spellingDiscoveryTools";
+import { pastWeeksLine, pastWeeksTool, type PastWeeksArchive } from "./pastWeeks";
 import type Anthropic from "@anthropic-ai/sdk";
 
 export function buildSpellingIntakeToolPrompt(packet: AssignmentPlanningPacket): string {
@@ -28,14 +29,17 @@ export async function planSpellingIntakeWithTools(packet: AssignmentPlanningPack
   model?: string; draftDir?: string;
   send?: (request: ToolLoopRequest, turn: number) => Promise<Anthropic.Messages.Message>;
   draw?: (journey: AdventureJourneyDefinition) => Promise<{ composition: AdventureBoardComposition; pattern?: string }>;
+  /** Her earlier weeks (owner, 2026-11-10): one line in the question, the rest behind read_past_weeks. */
+  pastWeeks?: PastWeeksArchive;
 } = {}): Promise<{ output: SpellingIntake; telemetry: AssignmentPlannerTelemetry }> {
   const model = resolveAssignmentPlannerModel({ model: opts.model });
   const started = Date.now();
   const kit = spellingDiscoveryToolkit(packet);
+  const past = opts.pastWeeks?.weeks.length ? opts.pastWeeks : undefined;
   const loop = await runPlannerToolLoop({
-    label: "spelling-intake", prompt: buildSpellingIntakeToolPrompt(packet), system: ASSIGNMENT_PLANNER_PERSONA,
+    label: "spelling-intake", prompt: `${buildSpellingIntakeToolPrompt(packet)}${past ? `\n${pastWeeksLine(past)}` : ""}`, system: ASSIGNMENT_PLANNER_PERSONA,
     content: prompt => assignmentPlannerContent(packet.sourceDocument, prompt),
-    model, maxTokens: 16000, tools: kit.tools, state: kit.initialState(), finished: kit.finished,
+    model, maxTokens: 16000, tools: past ? [...kit.tools, pastWeeksTool(past)] : kit.tools, state: kit.initialState(), finished: kit.finished,
     send: opts.send ?? providerTurnSender({ label: "spelling-intake", stagePrefix: "spelling-intake-tools", draftDir: opts.draftDir }),
   });
   // Without a capture there is nothing to publish; the intake stays unpublished and says why.

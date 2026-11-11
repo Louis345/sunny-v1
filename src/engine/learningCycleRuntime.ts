@@ -1,7 +1,8 @@
 import {isDeepStrictEqual} from "node:util";
 import { plannerDecisionView, plannerObservationView } from "./plannerEvidenceView";
 import { successorMenuFacts } from "./plannerMenu";
-import { schoolTestFacts, schoolTestLine, SPELLING_TEST_CONDITIONS } from "./schoolTestObjective";
+import { schoolTestFacts, schoolTestLine, SPELLING_TEST_CONDITIONS, type HomeworkSources } from "./schoolTestObjective";
+import { pastWeeksLine, readPastWeeks } from "./pastWeeks";
 import { handoffSection } from "./sessionHandoff";
 import { scorecardSection, timeRecord } from "./sessionScorecard";
 import { observationNode } from "./observationNode";
@@ -974,7 +975,10 @@ async function askPlanner(
     const idPrefix=`${cycle.homeworkId}-r${checkpointRevision}-step`;
     // The newest evidence summaries (per-word response times, frustration, help) stay in the question; older ones are in read_record.
     const recentEvidence=JSON.stringify({academic:factualEvidence.academic.slice(-12),engagement:factualEvidence.engagement.slice(-12),companionObservations:factualEvidence.companionObservations.slice(-12)});
-    const RECORD_LINE=`Her newest evidence summaries (the 12 newest of each kind; per-word response times are here):\n${recentEvidence}\nHer full record is behind read_record, a page at a time: lifecycle, assignment, theory, predictions, prediction_evaluations, evidence (all of it), observations (every answer), stops, learning_history, prior_plan, time (her minutes per session and per day: learning games, play, call, waiting, map). The summaries above are drawn from it.`;
+    // Her earlier weeks (owner, 2026-11-10): one line here, every week behind read_past_weeks. Frozen with the question.
+    const pastWeeks=(()=>{try{return readPastWeeks(cycle.childId,{rootDir:opts.rootDir,homework:chart.homework as HomeworkSources,excludeHomeworkIds:[cycle.homeworkId]});}
+      catch(error){console.error(` 🎮 [past-weeks] [read] [failed] homework=${cycle.homeworkId} reason=${error instanceof Error?error.message:String(error)}`);return undefined;}})();
+    const RECORD_LINE=`Her newest evidence summaries (the 12 newest of each kind; per-word response times are here):\n${recentEvidence}\nHer full record is behind read_record, a page at a time: lifecycle, assignment, theory, predictions, prediction_evaluations, evidence (all of it), observations (every answer), stops, learning_history, prior_plan, time (her minutes per session and per day: learning games, play, call, waiting, map). The summaries above are drawn from it.${pastWeeksLine(pastWeeks)?`\n${pastWeeksLine(pastWeeks)}`:""}`;
     const cycleFacts=()=>JSON.stringify({ lifecycle: cycle.lifecycle, assignment: cycle.assignment, theory: cycle.academicTheory, predictions: cycle.academicPredictions, predictionEvaluations: cycle.predictionEvaluations, evidence: factualEvidence, observations: factualObservations, nodes: cycle.nodes.map((node) => ({ nodeId: node.nodeId, role: node.role, title: node.title, state: node.state, routeId: node.routeId, evidenceIds: node.evidenceIds.filter((id) => !isSynthetic(id)) })) });
     // The raw record is a tool, not part of the question (2026-11-10: 431,000 characters drowned the summaries).
     const record:Record<string,unknown>=JSON.parse(cycleFacts());
@@ -995,7 +999,7 @@ async function askPlanner(
       const facts:SuccessorFacts={builtIns:[],
         // The one game menu is declared on the full catalog (Law 16); STAGE_EXCEPTIONS["math-successor"] removes what cannot bind her problems.
         ...successorMenuFacts(spellingActivityCatalog(cycle.childId),{grade:chart.demographics?.grade,words:[]},"math-successor"),
-        evaluationIds,allowedActions:offered,idPrefix,selfReview:true,aimedGames:true,problems,answeredProblemIds,writeProblems:true,playedGames:playedGamesOf(cycle,opts),record,rerunnable:()=>false};
+        evaluationIds,allowedActions:offered,idPrefix,selfReview:true,aimedGames:true,problems,answeredProblemIds,writeProblems:true,playedGames:playedGamesOf(cycle,opts),record,...(pastWeeks?.weeks.length?{pastWeeks}:{}),rerunnable:()=>false};
       const prompt=`You are Sunny's AI Planner, her math tutor. The goal: she wants to come back to Sunny, and she solves problems like these on her own by the school test. ${schoolTestLine(schoolTest)}
 Compare your preregistered theory and predictions with what she actually did and said, decide what happens next, and build her next board, using the tools.
 1. decide: one evidence-grounded decision, with your self-review of the journal and her track record below. Cite the prediction evaluations you judge.
@@ -1033,7 +1037,7 @@ ${offered.some(action=>action==="generate_quest"||action==="generate_boss")?`Que
       // Owner, 2026-11-08: the Planner may place the board's one creature encounter (a reward; recorded as practice).
       creatureEncounters:true,
       // Contract 56: the decision carries its self-review, and her built-for-her game can be aimed at one error.
-      selfReview:true,aimedGames:true,playedGames:playedGamesOf(cycle,opts),record,
+      selfReview:true,aimedGames:true,playedGames:playedGamesOf(cycle,opts),record,...(pastWeeks?.weeks.length?{pastWeeks}:{}),
       // The same check the re-run step applies, asked while the Planner is still choosing.
       rerunnable:(nodeId:string,wordIds:string[])=>{const source=builtIns.find(node=>node.nodeId===nodeId);return Boolean(source&&repointReusedSetup(source,`${nodeId}-check`,wordIds.map(wordId=>({id:`check:${wordId}`,wordId}))));}};
     const prompt=mathQuestion?.prompt??`You are Sunny's AI Planner, her spelling tutor. The goal: she wants to come back to Sunny, and she knows her words by the school test. ${schoolTestLine(schoolTest)} ${SPELLING_TEST_CONDITIONS}
