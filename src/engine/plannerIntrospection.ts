@@ -24,13 +24,13 @@ function boardNumbers(cycle: LearningCycleRecordV2) {
 }
 
 /** What a stop practiced: its spelling words, or (math) the ids of her recorded problems. */
-const targetsOf = (node: LearningCycleNodeContract): string[] => {
+export const targetsOf = (node: LearningCycleNodeContract): string[] => {
   const words = Object.values(node.evidenceContract?.spellingItems ?? {}).map(item => item.word);
   return words.length ? words : Object.keys(node.evidenceContract?.itemContracts ?? {});
 };
 
 /** Each scored answer on this list with its word (or math problem id), the stop it came from and that stop's board number. */
-function answers(cycle: LearningCycleRecordV2) {
+export function answers(cycle: LearningCycleRecordV2) {
   const wordOf = new Map<string, string>();
   const byConstruct = new Map<string, string>();
   for (const node of cycle.nodes) for (const item of Object.values(node.evidenceContract?.spellingItems ?? {})) { wordOf.set(item.id, item.word); if (item.constructId) byConstruct.set(item.constructId, item.word); }
@@ -52,7 +52,7 @@ type Answer = ReturnType<typeof answers>[number];
 const SCHOOL = new Set(["graded_work", "delayed_reassessment"]);
 const bucketOf = (row: Answer) => SCHOOL.has(String(row.row.provenance)) ? "school" as const : row.row.assistance.status;
 
-const activityOf = (node: LearningCycleNodeContract) => node.implementationType ?? (node.role === "evaluation" ? "discovery-check" : node.mechanic);
+export const activityOf = (node: LearningCycleNodeContract) => node.implementationType ?? (node.role === "evaluation" ? "discovery-check" : node.mechanic);
 
 /** How many right, and her distinct misspellings with counts, most frequent first ("inport" x3, "impot" x1). */
 function tally(list: Answer[]): { right: string; wrote: string } {
@@ -201,12 +201,16 @@ export function ownerReplanLine(cycle: LearningCycleRecordV2): string {
   return last?.eventType === "owner_replan_requested" ? `${last.reason}\n` : "";
 }
 
+/** Her folder's journal file for one homework: `homework/planner-journal/<homework>.md`. */
+export function plannerJournalFile(cycle: Pick<LearningCycleRecordV2, "childId" | "homeworkId">, opts: LearningCycleRepositoryOptions = {}): string {
+  return path.join(resolveChildContextDir(cycle.childId, { rootDir: opts.rootDir }), "homework", "planner-journal", `${cycle.homeworkId.replace(/[^a-zA-Z0-9_.-]+/g, "_")}.md`);
+}
+
 /** One readable entry per saved decision in her folder; a failed write is logged and never stops the board. */
 export function writePlannerJournalEntry(cycle: LearningCycleRecordV2, decision: LearningCycleDecision, opts: LearningCycleRepositoryOptions = {}): void {
   try {
     const review = decision.selfReview;
-    const dir = path.join(resolveChildContextDir(cycle.childId, { rootDir: opts.rootDir }), "homework", "planner-journal");
-    const file = path.join(dir, `${cycle.homeworkId.replace(/[^a-zA-Z0-9_.-]+/g, "_")}.md`);
+    const file = plannerJournalFile(cycle, opts), dir = path.dirname(file);
     const entry = [
       `## ${decision.decisionId}`, "",
       `- Date: ${decision.createdAt}`,
