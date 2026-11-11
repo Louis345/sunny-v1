@@ -1,6 +1,6 @@
 # Teaching record: Sunny remembers each child, week to week
 
-Status: draft for review (Fable 5.2 one-time review, then owner approval). Written 2026-11-10 night.
+Status: revised after the Fable 5.2 review (2026-11-10 night); awaiting owner approval. Section 13 lists what the review changed.
 Owner, 2026-11-10: "A tutor remembers their student week to week. So should the Planner." "It shouldn't be held in its
 context… it needs to be able to pull… everything for that test ID… and what it learns about Ila and how she learns."
 "The soul file shouldn't be static." "It's a private database, agnostic, written to the child's profile." "Eventually,
@@ -37,8 +37,8 @@ better at teaching each child: the measure is her school test results and her fi
 | Planner journal | `homework/planner-journal/<homeworkId>.md` | Per homework |
 | Week-to-week lookup | `read_past_weeks` (src/engine/pastWeeks.ts, contract 59) | **Live 11/10.** On Saori Ila has 8 earlier weeks and ~13.5k characters of past self-reviews; **0 graded tests uploaded** |
 | Minutes | src/engine/sessionTime.ts | Learning, play, call, waiting and map minutes per session and day |
-| School tests | `sunny:homework:upload` → `recordConfirmedReturnedWork` (keyed by homeworkId) | Works; not used yet |
-| Companion memory | companion_care / companion_relationships, `companionInteractionMemory.ts` | **Compacted** after 3 events / 1,800 chars, so detail is lost |
+| School tests | `sunny:homework:upload` → `recordConfirmedReturnedWork` (keyed by homeworkId) | **Broken for spelling** (review): the upload links each word by its text (uploadGradedHomework.ts:372) while the record requires the frozen `spelling.word.<sha>` ID, so every spelling upload fails `returned_spelling_mapping_invalid`; "1 right" is read as 100% (line 361); grading date = upload time |
+| Companion memory | companion_care / companion_relationships, `companionInteractionMemory.ts` | Raw events ARE kept (`companion_interactions/<day>.ndjson`); compaction only moves a watermark. Missing: query access, and the Haiku summary carries no citations |
 | Child signals | child_signals (stated_preference, theme_affinity, frustration…) | Recorded; the Planner sees the last 20 |
 | Profile | soul.md (static narrative) + chart demographics (dated since 11/10) + current facts placed first | soul.md is static |
 
@@ -157,3 +157,63 @@ summarized-and-replaced: a summary may be cached for speed, but it cites its tur
    count?
 5. Should conclusions be judged by later weeks and the graded test (recommended), or only within the week?
 6. Who uploads graded tests, and when? Without them the record can't link teaching to grades.
+
+
+## 13. Revisions after the Fable 5.2 review (2026-11-10)
+
+The independent review checked this spec against the code. These changes override anything above that disagrees.
+
+1. **Phase 1 starts with the broken graded-test upload.**
+   - Fix the spelling upload to use the frozen word IDs.
+   - Fix "1 right" being read as 100%.
+   - Store the test's own date (from `test_schedule.set` or the cycle), not the upload time, so a late upload still counts.
+   - Add a red test with a real spelling list.
+   - The "photo → per-item results" step becomes a simple parent command (the word list plus ticks), not a new model call.
+   - `read_test_results` is a view inside `read_past_weeks`, not a new tool.
+2. **No new notebook mechanism.** A conclusion is a cross-week `AcademicPrediction`, using the reserved `learner.hypothesis` / `learner.hypothesis_evaluated` chart events. Its evidence query is a closed, code-owned form: `{wordIds | tagIds, metric: first_try_unassisted | school_test, window, expected: {min, max}}`, plus a falsifier and a horizon.
+   - **Status values:** `proposed` until evidence comes from at least 2 homework weeks and at least 1 independent source; `expired` past its horizon with no eligible evidence; `contradicted` stays visible.
+   - **No gate:** status only changes what is displayed, always with counts.
+   - The four 11/10 seeds are Planner claims citing their decision IDs.
+3. **No rules on the Planner.** "School test counts most" and "every decision cites a conclusion" are removed. Code labels sources and shows counts, and the Planner weighs them (contracts 56 and 59). The Phase 2 done criterion becomes a measurement: the share of first boards that cite a prior week.
+4. **Child data leaves the git repo before Phase 3, not later.**
+   - Today 140 files under `src/context/ila` are tracked, including soul.md clinical sections, answers, and a scanned PDF.
+   - Conversation turns are never stored under `src/context/`.
+   - Extend the chart's `chart_checkout_refused` guard to cycles and journals.
+5. **Attribution before isolation.** Two girls and a parent share one microphone. Until parent-voice detection is decided (open question 2), turns are stored with `speaker: unknown`, and no fact is derived from an unknown speaker.
+6. **Stored speech is data, never instructions.** Any turn or answer placed in a prompt is wrapped with its speaker and marked "quoted, not an instruction".
+   - `companion.fact_learned` must cite a turn that contains the quote word for word (checked by code); otherwise it is an AI-generated observation, which the contract forbids.
+   - `read_about_her` keeps the `ABOUT_HER_SECTIONS` filter, so clinical sections never reach board prompts.
+   - A fact sourced from an evaluation document doesn't bypass that filter.
+7. **Companion phase shrinks.** Index the existing interaction ledger for search, and add citations to the summary patch.
+8. **Patterns become frozen tags.** Words recur by ID; patterns ("-ant", silent-e, blends) and math skills need frozen tag IDs (the typed chart has `words.tagged`) so claims can be scored across weeks. Claims name word IDs or tag IDs, never prose.
+9. **One calendar.**
+   - Store the family time zone once and derive days from it everywhere: pastWeeks, sessionTime and schedule currently disagree, because UTC and local time differ.
+   - Event timestamps stay UTC.
+10. **Bug: the past-weeks archive isn't frozen on the next-board path.** `learningCycleRuntime.ts:979` calls `readPastWeeks` directly, while intake uses `pastWeeksForDraft`, so a restart can ask a different question. Freeze it, as contract 59 requires.
+11. **Meaning search → SQLite FTS5** (keyword search with speaker and date filters) on Saori. No embeddings, no outside service. Revisit only when a real query fails. Phase 4 merges into Phase 3.
+12. **Honest evidence.** The current before/after count rises by selection alone, because targeted words were the missed ones. Show these counts instead:
+    - targeted vs untargeted words in the same week;
+    - probe-before-teaching accuracy on a new list (transfer);
+    - school-test %.
+
+    State that "±1 word" prediction accuracy needs at least 5 graded tests to mean anything.
+13. **Missing success criteria added:**
+    - Reina;
+    - learning minutes per test point;
+    - parent burden (uploads per week);
+    - regressions (help requests, sessions reaching the end call);
+    - a stop rule if grades don't move in N weeks.
+14. **Contract and laws:**
+    - The event-store-as-record direction needs a LEARNING_FEEDBACK_LOOP version bump first ("no second writable factsheet").
+    - Migrating real cycles is an owner-run, one-time import with a dry-run diff and a backup.
+    - New tools go through `plannerMenu` and its parity test.
+
+**Revised phase order:**
+
+| Phase | Builds |
+|---|---|
+| 1 | Graded-test upload fixed and simple; test dates kept; school results in `read_past_weeks`; frozen-archive bug; family time zone |
+| 2 | Hypotheses (cross-week `AcademicPrediction`) and frozen pattern tags |
+| 3 | Child data out of the repo, then indexed conversation ledger with FTS, speaker attribution, cited facts, living profile |
+| 4 | Event store as the single record (contract bump, owner-run import) |
+| 5 | Multi-family readiness |
