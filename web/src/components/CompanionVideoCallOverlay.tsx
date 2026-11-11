@@ -1,5 +1,6 @@
 import { type ReactNode, type RefObject } from "react";
 import { AnimatePresence, motion } from "framer-motion";
+import { CALL_SCREEN_CONTROLS } from "../../../src/shared/companions/callScreenControls";
 import {
   Eye,
   Gamepad2,
@@ -306,7 +307,7 @@ export function CompanionVideoCallOverlay({
                 }}
               >
                 <Video size={15} aria-hidden />
-                Call
+                {CALL_SCREEN_CONTROLS.call.label}
               </button>
               <button
                 type="button"
@@ -333,7 +334,7 @@ export function CompanionVideoCallOverlay({
                 }}
               >
                 <Gamepad2 size={15} aria-hidden />
-                Play
+                {CALL_SCREEN_CONTROLS.play.label}
               </button>
             </div>
             <div
@@ -370,7 +371,7 @@ export function CompanionVideoCallOverlay({
                   cursor: "pointer",
                 }}
               >
-                Portrait
+                {CALL_SCREEN_CONTROLS.portrait.label}
               </button>
               <button
                 type="button"
@@ -393,7 +394,7 @@ export function CompanionVideoCallOverlay({
                   cursor: "pointer",
                 }}
               >
-                Full body
+                {CALL_SCREEN_CONTROLS.fullBody.label}
               </button>
             </div>
             {onOpenGames && (
@@ -406,7 +407,7 @@ export function CompanionVideoCallOverlay({
                   fontWeight: 900, whiteSpace: "nowrap", cursor: "pointer", boxShadow: "0 12px 30px rgba(0,0,0,0.18)" }}
               >
                 <Gamepad2 size={16} aria-hidden />
-                Games
+                {CALL_SCREEN_CONTROLS.games.label}
               </button>
             )}
             {onGoShopping && (
@@ -433,7 +434,7 @@ export function CompanionVideoCallOverlay({
                 }}
               >
                 <ShoppingBag size={16} aria-hidden />
-                Go Shopping
+                {CALL_SCREEN_CONTROLS.shop.label}
               </button>
             )}
             <button
@@ -665,7 +666,7 @@ export function CompanionVideoCallOverlay({
                   whiteSpace: "nowrap",
                 }}
               >
-                <span>Hands-free</span>
+                <span>{CALL_SCREEN_CONTROLS.handsFree.label}</span>
                 <span style={{ color: "rgba(248,250,252,0.68)", fontSize: 10 }}>
                   {phaseLabel(talkPhase, companionName)}
                 </span>

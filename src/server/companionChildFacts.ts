@@ -6,6 +6,7 @@ import { RECALL_ABOUT_HER_TOOL, REMEMBER_CHILD_GIVEN_NAME_TOOL } from "./compani
 import { readCompanionInteractionEvents } from "./companionInteractionMemory";
 import { familyDay } from "../utils/familyCalendar";
 import { todaysPlayLines } from "./todaysPlayFacts";
+import { callScreenControlsBlock } from "../shared/companions/callScreenControls";
 
 /** Facts any companion gets about the child, read from her chart (Law 12). No clinical notes. */
 export type CompanionChildFacts = {
@@ -70,7 +71,7 @@ export function formatCompanionChildFacts(facts: CompanionChildFacts | null): st
  * creates the relationship, so a companion she has never called still starts remembering from this turn.
  */
 export function buildCompanionCallContext(
-  input: { childId: string; companionId: string },
+  input: { childId: string; companionId: string; mode?: string; callSource?: string },
   opts: { rootDir?: string } = {},
 ): string | undefined {
   let memory;
@@ -89,8 +90,18 @@ export function buildCompanionCallContext(
     // Shared by every companion: today's board play from her learning record (nothing when she did not play today).
     todaysPlayLines(input.childId, opts),
     buildShowroomTalkMemoryPrompt(memory),
+    callScreenLines(input),
   ].filter((part): part is string => Boolean(part));
   return parts.length ? parts.join("\n") : undefined;
+}
+
+/** In a video call, the controls really on her screen, from the same constant the call overlay draws (2026-11-11). */
+function callScreenLines(input: { childId: string; mode?: string; callSource?: string }): string | undefined {
+  if (input.mode !== "video_call") return undefined;
+  const own = input.childId !== "showroom";
+  const block = callScreenControlsBlock({ games: own, shop: own && input.callSource === "game_reward" });
+  console.log(` 🎮 [companion-context] [screen-controls] [included] count=${block.count}`);
+  return block.text;
 }
 
 type ToolUseBlockLike = { type: string; id?: string; name?: string; input?: unknown };

@@ -955,6 +955,9 @@ export function buildShowroomTalkSystemPrompt(input: {
   if (input.companionMemory) {
     lines.push(input.companionMemory);
   }
+  if (isVideoCall) {
+    lines.push("When you tell her to tap or press something, name only a control from What is on her screen right now. If she asks for something the screen cannot do, say so plainly and offer what you can do.");
+  }
   if (input.shoppingContext) {
     const shopping = input.shoppingContext;
     lines.push(
