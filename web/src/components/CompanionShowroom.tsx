@@ -3937,12 +3937,34 @@ export function CompanionShowroom({
   const currentCompanionModelUrl = current
     ? current.companionConfig?.vrmUrl ?? current.vrmUrl
     : "";
+  // A prepared dressing-room body that is not on this machine (Towa's, 2026-11-11: the server answers it with the app
+  // page) leaves the dressing room on her own model instead of an empty preview.
+  const [missingBodyModels, setMissingBodyModels] = useState<string[]>([]);
+  const preparedPresentation = useMemo(
+    () => (current ? resolvePreparedWardrobePresentation(current.id) : null),
+    [current],
+  );
+  useEffect(() => {
+    const url = preparedPresentation?.bodyModelUrl;
+    if (!url || missingBodyModels.includes(url)) return;
+    let live = true;
+    fetch(resolveModelUrl(url), { method: "HEAD" })
+      .then((response) => {
+        const isPage = (response.headers.get("content-type") ?? "").includes("text/html");
+        if (live && (!response.ok || isPage)) {
+          console.warn(` 🎮 [wardrobe] [prepared-body] [missing] model=${url} fallback=own-model`);
+          setMissingBodyModels((prior) => (prior.includes(url) ? prior : [...prior, url]));
+        }
+      })
+      .catch((error: unknown) => console.error(" 🎮 [wardrobe] [prepared-body] [check-failed]", error));
+    return () => { live = false; };
+  }, [preparedPresentation?.bodyModelUrl, missingBodyModels]);
   const wardrobePresentation = useMemo(
     () =>
-      current
-        ? resolvePreparedWardrobePresentation(current.id)
+      preparedPresentation && !missingBodyModels.includes(preparedPresentation.bodyModelUrl)
+        ? preparedPresentation
         : null,
-    [current],
+    [preparedPresentation, missingBodyModels],
   );
   // Dressable bodies that failed to load in the call portrait; the portrait then draws her own model (2026-11-10).
   const [failedPortraitModels, setFailedPortraitModels] = useState<string[]>([]);
@@ -3951,7 +3973,9 @@ export function CompanionShowroom({
     setFailedPortraitModels(prior => (prior.includes(modelUrl) ? prior : [...prior, modelUrl]));
   }, []);
   const wardrobeStoreEntry = useMemo<CompanionManifestEntry | null>(() => {
-    if (!current || !wardrobePresentation) return null;
+    if (!current) return null;
+    // No prepared body here: the dressing room shows her own model (nothing fits until her body is prepared).
+    if (!wardrobePresentation) return current;
     return {
       ...current,
       companionConfig: {
@@ -6537,13 +6561,12 @@ export function CompanionShowroom({
     if (
       !wardrobeShopEnabled ||
       !current ||
-      !wardrobePresentation ||
       !showroomVideoChatOpen
     ) return;
     disableWardrobeHandsFreeListening();
     setWardrobeStoreReturnTarget("call");
     console.log(
-      ` 🎮 [wardrobe-store-lab] launched_from_call companion=${current.id} body=${wardrobePresentation.bodyModelUrl} profile=${wardrobePresentation.bodyProfileId}`,
+      ` 🎮 [wardrobe-store-lab] launched_from_call companion=${current.id} body=${currentWardrobeModelUrl} profile=${wardrobePresentation?.bodyProfileId ?? "own-model"}`,
     );
   }, [
     current,
@@ -6551,16 +6574,17 @@ export function CompanionShowroom({
     showroomVideoChatOpen,
     wardrobeShopEnabled,
     wardrobePresentation,
+    currentWardrobeModelUrl,
   ]);
 
   const openWardrobeStoreFromShowroom = useCallback(() => {
-    if (!wardrobeLabEnabled || !current || !wardrobePresentation) return;
+    if (!wardrobeLabEnabled || !current) return;
     openShowroomVideoChat({ handsFree: false });
     setWardrobeStoreReturnTarget("showroom");
     console.log(
-      ` 🎮 [wardrobe-store-lab] launched_from_showroom companion=${current.id} body=${wardrobePresentation.bodyModelUrl} profile=${wardrobePresentation.bodyProfileId}`,
+      ` 🎮 [wardrobe-store-lab] launched_from_showroom companion=${current.id} body=${currentWardrobeModelUrl} profile=${wardrobePresentation?.bodyProfileId ?? "own-model"}`,
     );
-  }, [current, openShowroomVideoChat, wardrobeLabEnabled, wardrobePresentation]);
+  }, [current, openShowroomVideoChat, wardrobeLabEnabled, wardrobePresentation, currentWardrobeModelUrl]);
 
   const closeWardrobeStore = useCallback(() => {
     const shouldEndShoppingCall = wardrobeStoreReturnTarget === "showroom";
@@ -7573,13 +7597,12 @@ export function CompanionShowroom({
           wardrobeStoreOpen &&
           !spotlightOpen &&
           current &&
-          wardrobePresentation &&
           wardrobeStoreEntry && (
           <WardrobeStoreLab
             companion={{
               id: current.id,
               name: current.name,
-              modelUrl: wardrobePresentation.bodyModelUrl,
+              modelUrl: currentWardrobeModelUrl,
             }}
             companionPreview={(view) => (
               <CompanionSlot
