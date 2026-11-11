@@ -13,7 +13,7 @@ import http from "node:http";
 import path from "node:path";
 import os from "node:os";
 import { resolveChildContextDir, resolveContextRoot } from "../utils/contextRoot";
-import { DISCOVERY_VERIFIER_VERSION, DISCOVERY_RELEASE_VIEWPORTS, MATH_JOURNEY_CONTRACT, MATH_IMPLEMENTATION_REPAIR_CONTRACT, verifyMathControlJourney, recordJourneyCapture, assertMathControlsVisible, type JourneyCapture, type MathJourney, type MathJourneyStep, freezeEngineeringLessonSnapshot, engineeringFeatures, engineeringLessonContext, recordEngineeringRepairEvidence } from "./discoveryVisualReview";
+import { DISCOVERY_VERIFIER_VERSION, DISCOVERY_RELEASE_VIEWPORTS, MATH_JOURNEY_CONTRACT, MATH_IMPLEMENTATION_REPAIR_CONTRACT, verifyMathControlJourney, recordJourneyCapture, assertMathControlsVisible, findMathLabelCollisions, MATH_LABEL_CANVAS_PROBE, type MathLabelCollision, type JourneyCapture, type MathJourney, type MathJourneyStep, freezeEngineeringLessonSnapshot, engineeringFeatures, engineeringLessonContext, recordEngineeringRepairEvidence } from "./discoveryVisualReview";
 import type { ChildChart } from "../profiles/childChart";
 import { assignmentPlannerContent, type AssignmentSourceExtraction } from "./assignmentSourceExtraction";
 import type { ActiveSessionPlan, AIContentCatalogItem } from "../context/schemas/learningProfile";
@@ -3235,6 +3235,7 @@ async function openDirectArtifactPage(input: {
   port: number;
 }): Promise<void> {
   await input.page.addInitScript(`window.__sunnyMessages=[];window.addEventListener("message",event=>window.__sunnyMessages.push(event.data));`);
+  await input.page.addInitScript(MATH_LABEL_CANVAS_PROBE);
   const launchPath = NODE_REGISTRY["generated-baseline"]?.getUrl?.({
     id: input.artifact.nodeId,
     type: "generated-baseline",
@@ -3439,10 +3440,14 @@ export async function runDirectBrowserSmokeCheck(input: {
       const page = await browser.newPage({ viewport });
       const viewportCaptures: JourneyCapture[] = [];
       const errors: string[] = [];
+      // Numbers and operator labels must not touch (BUGS.md 2026-11-10 evening); measured on each problem's screen.
+      const labelCollisions = new Map<string, MathLabelCollision>();
+      const checkLabels = async () => { for (const row of await findMathLabelCollisions(page)) labelCollisions.set(`${row.a}|${row.b}|${JSON.stringify(row.boxA)}`, row); };
       page.on("pageerror", error => errors.push(error.message));
       try {
         await openDirectArtifactPage({ page, artifact, port: address.port });
         await assertMathControlsVisible(page);
+        await checkLabels();
         await verifyMathControlJourney(page, {
           completionType: "node_complete",
           itemIds: artifact.itemIds,
@@ -3453,6 +3458,7 @@ export async function runDirectBrowserSmokeCheck(input: {
             .map(item => [item.itemId, item.word])),
           journey: creatorManifest?.journey.map((item) => ({ itemId: item.itemId, steps: item.steps })),
           captureState: async (request) => {
+            await checkLabels();
             const recorded = await recordJourneyCapture(page, {
               outputDir: screenshotDir,
               filePrefix: `${artifact.nodeId.replace(/[^a-z0-9_-]/gi, "_")}-${viewport.name}`,
@@ -3483,6 +3489,7 @@ export async function runDirectBrowserSmokeCheck(input: {
       } catch (error) {
         failures.push(`${artifact.nodeId}:${viewport.name}:${error instanceof Error ? error.message : String(error)}`);
       } finally {
+        if (labelCollisions.size) failures.push(`${artifact.nodeId}:${viewport.name}:math_labels_touching:these numbers or operator labels touch or overlap, so they read as one number; give each its own space: ${JSON.stringify([...labelCollisions.values()].slice(0, 5))}`);
         failures.push(...errors.map(error => `${artifact.nodeId}:${viewport.name}:browser_error:${error}`));
         if (failures.some(failure => failure.startsWith(`${artifact.nodeId}:${viewport.name}:`))) {
           const target = path.join(screenshotDir, `${artifact.nodeId.replace(/[^a-z0-9_-]/gi,"_")}-${viewport.name}-failure.png`);
