@@ -74,6 +74,14 @@ These are fixed **before** any code changes. After Ila's and Reina's next sessio
 | G22 | The builder sees each played game's track record | no | yes, in every build ask | builder ask |
 | G23 | A loved game comes back with new content (`build_from` used) | 0 | at least once in the week, and her time to first answer on it is lower than on its first play | boards and timeline |
 
+**Added 2026-11-10, after rating Ila's 16 sessions** (added after the lines above were fixed; it does not change them)
+
+| # | What | Before | Target | Read from |
+|---|---|---|---|---|
+| G24 | The companion stated a wrong answer for the problem on screen | Ila 11/10: Elli said "type 34" three times; the answer was 17 | 0; a stated value whose problem or answer Sunny cannot tell fails | transcript vs the open problem's answer (item contracts, spelling words) |
+
+Why: N3 only catches promises Sunny can't back up after a failure. A confident wrong answer is worse than none for Ila, and nothing compared Elli's words with the answer Sunny already held.
+
 **Tracked, not graded:** Ila right on her own (11/9: 0 of 13, all with help); Reina right on her own; the girls' own words about the session; how many times you had to step in.
 
 ## Not in this batch

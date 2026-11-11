@@ -158,3 +158,34 @@ describe("G5 counts one defined thing on both sides", () => {
     expect(g5({ ...reinaMorning(), traces: [], observations: [] })).toMatchObject({ value: "no answer this session" });
   });
 });
+
+// 2026-11-10, Ila's kappa game ("subtract 3": 29, 26, 23, 20 -> 17): Elli told her "type 34" three times. Why the
+// human caught it: he heard a confident wrong answer. Why logs did not: the transcript held Elli's words and the item
+// contract held the answer, but nothing compared them; N3 only reads promises after a failure. Why the lab missed it:
+// lab companions never state a value. G24 compares each value the companion states for the open problem with its
+// answer; a stated value whose problem or answer is unknown cannot be checked, and fails.
+describe("G24: the companion stated a wrong answer", () => {
+  const kappa = (said: string, opts: { itemAnswers?: Record<string, string>; explicit?: boolean } = {}): SessionPacket => ({ ...reinaMorning(), childId: "ila", sessionId: "ila-kappa",
+    traces: [{ ts: at(1), nodeId: "kappa", activityTitle: "Kappa Hop", type: "game_state_update", phase: "opening" },
+      { ts: at(2), nodeId: "kappa", type: "game_state_update", ...(opts.explicit ? { itemId: "p1" } : {}) },
+      { ts: at(4), nodeId: "kappa", type: "attempt_event", target: "p1", attemptedValue: "34" }],
+    transcript: [{ ts: at(3), role: "companion", text: said }], ...("itemAnswers" in opts ? { itemAnswers: opts.itemAnswers } : { itemAnswers: { p1: "17" } }) });
+  const g24 = (p: SessionPacket) => rateSession(p).lines.find(row => row.id === "G24")!;
+
+  it("fails Elli's \"type 34\" when the answer was 17, and passes a right value", () => {
+    expect(g24(kappa("Ooh, you're so close! Type 34!"))).toMatchObject({ pass: false, value: 'stated 1 wrong of 1: "Ooh, you\'re so close! Type 34!" (answer 17)' });
+    expect(g24(kappa("Type 17 and see where the kappa lands.", { explicit: true }))).toMatchObject({ pass: true, value: "1 stated, 0 wrong" });
+    expect(g24(kappa("Start at 29 and count back by 3."))).toMatchObject({ pass: true, value: "no value stated for an open problem" });
+  });
+
+  it("fails as not measurable when the problem's answer is unknown, and is N/A with no game", () => {
+    expect(g24(kappa("Type 34!", { itemAnswers: undefined }))).toMatchObject({ pass: false, value: "not measurable: 1 stated value(s) with no known problem or answer" });
+    expect(g24({ ...kappa("Type 34!"), traces: [] })).toMatchObject({ value: "no game this session" });
+  });
+
+  it("checks spelled-out letters against the word: a chunk is help, a different spelling is wrong", () => {
+    const spell = (said: string) => ({ ...kappa(said), itemAnswers: { p1: "ornament" } });
+    expect(g24(spell("Try the first chunk: o-r-n."))).toMatchObject({ pass: true });
+    expect(g24(spell("It's o-r-n-i-m-e-n-t."))).toMatchObject({ pass: false });
+  });
+});

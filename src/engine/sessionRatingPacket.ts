@@ -60,6 +60,14 @@ export function sessionWindowEnd(sessionDir: string, endedAt: string | undefined
   return Math.min(endedAt ? Date.parse(endedAt) + 10 * 60_000 : Infinity, ...next);
 }
 
+/** Each problem's answer and each spelling word, by item id, for checking what the companion stated (G24, 2026-11-10). */
+export function itemAnswersOf(cycle: Pick<LearningCycleRecordV2, "nodes">): Record<string, string> {
+  return Object.fromEntries(cycle.nodes.flatMap(node => [
+    ...Object.entries(node.evidenceContract?.itemContracts ?? {}).flatMap(([id, item]) => item?.response && "expected" in item.response && item.response.expected !== undefined ? [[id, String(item.response.expected)] as const] : []),
+    ...Object.values(node.evidenceContract?.spellingItems ?? {}).flatMap(item => item?.id && item.word ? [[item.id, item.word] as const] : []),
+  ]));
+}
+
 /** The right count a written retro states (the learning measure); undefined when it states none (older retros). */
 export function retroRightOnHerOwn(text: string): number | undefined {
   const found = text.split("\n").find(line => line.startsWith(`- ${RIGHT_ON_HER_OWN}: `))?.slice(RIGHT_ON_HER_OWN.length + 4).match(/^(\d+) of /)?.[1];
@@ -134,7 +142,7 @@ export function loadSessionPacket(input: { childId: string; sessionDir: string; 
   return {
     extra, ...(minutes ? { minutes } : {}),
     childId: input.childId, domain: cycle?.domain ?? "unknown", sessionId: metadata.sessionId ?? path.basename(input.sessionDir), startedAt, endedAt,
-    traces, events: lines("events.ndjson"), transcript, observations,
+    traces, events: lines("events.ndjson"), transcript, observations, ...(cycle ? { itemAnswers: itemAnswersOf(cycle) } : {}),
     evidence: [...(cycle?.evidence.academic ?? []), ...(cycle?.evidence.engagement ?? [])].map(row => ({ evidenceId: row.evidenceId, summary: row.summary })),
     productIssues: listChildProductIssues(input.childId, { rootDir: opts.rootDir, limit: 500 }).filter(row => { const t = Date.parse(row.createdAt); return t >= from && t <= to; }),
     handoffWritten: Boolean(retroFile),
