@@ -232,3 +232,33 @@ export async function prepareGeneratedSpellingGame(input: {
       inputTokens: first.inputTokens + (game === first ? 0 : game.inputTokens), outputTokens: first.outputTokens + (game === first ? 0 : game.outputTokens) },
   } }, opts);
 }
+
+/**
+ * Bind a game this builder already finished and wrote, whose bind lost the race to her own session (Ila, 2026-11-11:
+ * board 13 stop 1). No provider call: the file is the builder's own checked output, and its saved request names it.
+ */
+export function bindSavedSpellingGame(input: { cycle: LearningCycleRecordV2; node: LearningCycleNodeContract; draftDir: string }, opts: LearningCycleRepositoryOptions = {}): LearningCycleRecordV2 {
+  const { cycle, node } = input;
+  const rootDir = opts.rootDir ?? process.cwd();
+  const filename = `${node.nodeId.replace(/[^a-zA-Z0-9_-]/g, "_")}.html`;
+  const file = path.join(resolveChildContextDir(cycle.childId, { rootDir }), "homework/games", cycle.homeworkId, filename);
+  if (!fs.existsSync(file)) throw new Error(`saved_game_missing:${file}`);
+  const html = fs.readFileSync(file, "utf8");
+  if (!html.includes("</html>")) throw new Error(`saved_game_incomplete:${file}`);
+  const stageFile = path.join(input.draftDir, "provider-receipts", "generated-game-1.stage.json");
+  const requestHash = fs.existsSync(stageFile) ? String((JSON.parse(fs.readFileSync(stageFile, "utf8")) as { requestHash?: string }).requestHash ?? "") : "";
+  if (!/^[a-f0-9]{64}$/.test(requestHash)) throw new Error(`saved_game_request_unknown:${stageFile}`);
+  const hash = (value: unknown) => createHash("sha256").update(typeof value === "string" ? value : JSON.stringify(value)).digest("hex");
+  const latest = getLearningCycle(cycle.childId, cycle.homeworkId, opts);
+  const now = latest?.nodes.find(candidate => candidate.nodeId === node.nodeId);
+  if (!latest || !now || now.artifactBinding || JSON.stringify(now.evidenceContract) !== JSON.stringify(node.evidenceContract)) throw new Error(`spelling_game_stop_changed:${node.nodeId}`);
+  console.log(` 🎮 [spelling-game] [saved-build] [bound] node=${node.nodeId} file=${filename} provider_calls=0`);
+  return transitionLearningCycle(cycle.childId, cycle.homeworkId, latest.revision, { type: "artifact_bound", nodeId: node.nodeId, artifact: {
+    contentId: `${cycle.homeworkId}:${node.nodeId}`, artifactId: `${cycle.homeworkId}:${node.nodeId}:generated`,
+    localArtifactPath: `/homework/games/${cycle.homeworkId}/${filename}`,
+    localArtworkPath: node.artwork.localPath ?? thumbnailUrlForActivity("generated-game"),
+    contractFingerprint: hash({ evidenceContract: node.evidenceContract, html }), validationStatus: "passed",
+    creativeProvenance: { rationale: node.openingScreen.purpose, qualityPrediction: node.theme, creatorPromptHash: requestHash, artworkPromptHash: hash(node.artwork.prompt ?? ""),
+      builderProvider: "anthropic", builderModel: spellingGameModel(), generatedHtmlHash: hash(html), generationElapsedMs: 0, inputTokens: 0, outputTokens: 0 },
+  } }, opts);
+}

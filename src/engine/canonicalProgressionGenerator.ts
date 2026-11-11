@@ -20,6 +20,7 @@ import {
 import { engagementTheoryEvidenceContext } from "./engagementTheory";
 import {
   CUT_OFF_STOP_REASON,
+  LOST_BIND_STOP_REASON,
   getLearningCycle,
   transitionLearningCycle,
   type LearningCycleNodeContract,
@@ -27,7 +28,7 @@ import {
   type LearningCycleRepositoryOptions,
 } from "./learningCycleRepository";
 import { currentBoardInstance, preparingBoardInstance } from "./learningBoardInstances";
-import { gameProblems, prepareGeneratedSpellingGame, type SpellingGameClient } from "./spellingGameBuilder";
+import { bindSavedSpellingGame, gameProblems, prepareGeneratedSpellingGame, type SpellingGameClient } from "./spellingGameBuilder";
 import { LIBRARY_GAMES, libraryGameHtml } from "./libraryGames";
 
 export type CanonicalProgressionGeneratorInput = {
@@ -531,12 +532,14 @@ export async function retryCutOffStop(
   const receiptName = node?.notReadyReason?.startsWith(CUT_OFF_STOP_REASON) ? /provider-receipts\/([a-f0-9]{64}\.json)/.exec(node.notReadyReason)?.[1] : undefined;
   const cutOffReceipt = receiptName ? path.join(receipts, receiptName) : "";
   const cutOffStatus = cutOffReceipt && fs.existsSync(cutOffReceipt) ? (JSON.parse(fs.readFileSync(cutOffReceipt, "utf8")) as { status?: string }).status : undefined;
+  // A finished game that lost the bind race keeps its saved build: the builder replays it, with no new purchase.
+  const lostBind = Boolean(node?.notReadyReason?.startsWith(LOST_BIND_STOP_REASON));
   const refusal = !node ? "no_such_node"
     : !cycle.boards || !currentBoardInstance(cycle).nodeIds.includes(node.nodeId) ? "not_on_current_board"
-    : !node.notReadyReason?.startsWith(CUT_OFF_STOP_REASON) ? `not_ready_reason_is_not_provider_outcome_uncertain:${node.notReadyReason ?? "ready"}`
+    : !node.notReadyReason?.startsWith(CUT_OFF_STOP_REASON) && !lostBind ? `not_ready_reason_is_not_provider_outcome_uncertain:${node.notReadyReason ?? "ready"}`
     : node.artifactBinding ? "already_bound"
     : node.implementationType !== "generated-game" || node.reusedFrom || node.libraryGame || !node.generationPrompt ? `not_a_built_game:${node.implementationType ?? "none"}`
-    : !["in_flight", "outcome_uncertain"].includes(cutOffStatus ?? "") ? `cut_off_receipt_not_uncertain:${cutOffStatus ?? "missing"}:${cutOffReceipt}`
+    : !lostBind && !["in_flight", "outcome_uncertain"].includes(cutOffStatus ?? "") ? `cut_off_receipt_not_uncertain:${cutOffStatus ?? "missing"}:${cutOffReceipt}`
     : !input.reason.trim() ? "reason_required" : "";
   if (refusal) {
     log("retry-cut-off-stop", "refused", `reason=${refusal}`);
@@ -554,7 +557,7 @@ export async function retryCutOffStop(
     // The cut-off build's receipts and request diagnostics are set aside, never deleted, so the builder starts fresh.
     const setAsideDir = path.join(draftDir, "superseded", `paid-retry-r${current.revision}`);
     const setAside: string[] = [];
-    for (const folder of ["provider-receipts", "provider-diagnostics"]) {
+    for (const folder of lostBind ? [] : ["provider-receipts", "provider-diagnostics"]) {
       const from = path.join(draftDir, folder);
       if (!fs.existsSync(from)) continue;
       fs.mkdirSync(path.join(setAsideDir, folder), { recursive: true });
@@ -568,8 +571,9 @@ export async function retryCutOffStop(
     const pending = current.nodes.find(candidate => candidate.nodeId === input.nodeId)!;
     let failure = "";
     try {
-      log("retry-cut-off-stop", "building", "attempts=1 paid=true");
-      const next = await prepareGeneratedSpellingGame({ cycle: current, node: pending, client: input.client ?? prebuiltGameClient(input.childId, input.homeworkId, pending.nodeId, opts), draftDir }, opts);
+      log("retry-cut-off-stop", "building", lostBind ? "attempts=1 paid=false binds=saved-build" : "attempts=1 paid=true");
+      const next = lostBind ? bindSavedSpellingGame({ cycle: current, node: pending, draftDir }, opts)
+        : await prepareGeneratedSpellingGame({ cycle: current, node: pending, client: input.client ?? prebuiltGameClient(input.childId, input.homeworkId, pending.nodeId, opts), draftDir }, opts);
       if (next.revision === current.revision) failure = latestQualityFailure(rootDir, current, pending) ?? "human_review_required";
       else current = next;
     } catch (error) {
