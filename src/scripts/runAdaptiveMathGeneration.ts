@@ -1,4 +1,6 @@
 import {renderBoardDefinition} from "../shared/adventureBoardDefinition";
+import { pastWeeksForDraft, readPastWeeks } from "../engine/pastWeeks";
+import type { HomeworkSources } from "../engine/schoolTestObjective";
 import { verifyPreparingBoardCanvas } from '../engine/adventureBoardCanvas';
 import { loadSunnyRuntimeEnvironment } from "./sunnyMenu";
 loadSunnyRuntimeEnvironment();
@@ -1053,7 +1055,9 @@ async function runSpellingTargetedGeneration(childId: string, homeworkId: string
     const legacyReceipt=fs.existsSync(path.join(draft,"provider-receipts","spelling-targeted-planner.stage.json"));
     const result = saved?.result ?? (legacyReceipt
       ? await planAssignmentFromSourceWithTelemetry(packet,{providerReceipt:{draftDir:draft,stage:"spelling-targeted-planner",readOnlyReplay:true}})
-      : (await askLearningPlanner({domain:"spelling",childId,packet,chart,extraction:readAssignmentSourceExtraction(path.join(draft,"assignment-extraction.json")),rawResponseFile:path.join(draft,"provider-diagnostics","targeted-planner-response.json")})).planningResult);
+      : (await askLearningPlanner({domain:"spelling",childId,packet,chart,extraction:readAssignmentSourceExtraction(path.join(draft,"assignment-extraction.json")),rawResponseFile:path.join(draft,"provider-diagnostics","targeted-planner-response.json"),
+        // Her earlier weeks (owner, 2026-11-10), frozen beside the Teaching board's turns.
+        pastWeeks:pastWeeksForDraft({draftDir:path.join(draft,"provider-diagnostics"),stagePrefix:"targeted-planner-tools",build:()=>readPastWeeks(childId,{rootDir,homework:chart.homework as HomeworkSources,excludeHomeworkIds:[homeworkId]})})})).planningResult);
     const createdAt = saved?.createdAt ?? result.receivedAt ?? new Date().toISOString();
     // Preserve the accepted educational output before any visual/provider work.
     if (!saved) write(responseFile, { result, requestHash: hashDiscoveryContract(packet), outputHash: hashDiscoveryContract(result), createdAt });

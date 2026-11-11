@@ -16,6 +16,8 @@ import { providerTurnSender } from "../engine/plannerToolProvider";
 import { writeActiveSessionPlan } from "../engine/sessionPlanFromChart";
 import type { SpellingGameClient } from "../engine/spellingGameBuilder";
 import { getChildChart } from "../profiles/childChart";
+import { pastWeeksForDraft, pastWeeksLine, pastWeeksTool, readPastWeeks, type PastWeeksArchive } from "../engine/pastWeeks";
+import type { HomeworkSources } from "../engine/schoolTestObjective";
 
 /**
  * Math intake in spelling's shape (owner, 2026-11-08: one pipeline for every subject). The Planner records
@@ -32,13 +34,15 @@ type IntakeOutput = { intake: ItemIntakeResult; boardDefinition: AdventureBoardD
 
 const stopNodeId = (homeworkId: string, stopId: string) => `${homeworkId}:${stopId}`;
 
-async function planItemIntake(packet: AssignmentPlanningPacket, homeworkId: string, draftDir: string, options: ItemsIntakeOptions): Promise<IntakeOutput> {
+async function planItemIntake(packet: AssignmentPlanningPacket, homeworkId: string, draftDir: string, options: ItemsIntakeOptions, pastWeeks?: PastWeeksArchive): Promise<IntakeOutput> {
   const model = resolveAssignmentPlannerModel({ model: options.model });
   const kit = itemIntakeToolkit(packet);
+  // Her earlier weeks (owner, 2026-11-10): one line in the question, the rest behind read_past_weeks.
+  const past = pastWeeks?.weeks.length ? pastWeeks : undefined;
   const loop = await runPlannerToolLoop({
-    label: "math-intake", prompt: buildItemIntakePrompt(packet), system: ASSIGNMENT_PLANNER_PERSONA,
+    label: "math-intake", prompt: `${buildItemIntakePrompt(packet)}${past ? `\n${pastWeeksLine(past)}` : ""}`, system: ASSIGNMENT_PLANNER_PERSONA,
     content: prompt => assignmentPlannerContent(packet.sourceDocument, prompt),
-    model, maxTokens: 16000, tools: kit.tools, state: kit.initialState(), finished: kit.finished,
+    model, maxTokens: 16000, tools: past ? [...kit.tools, pastWeeksTool(past)] : kit.tools, state: kit.initialState(), finished: kit.finished,
     send: options.send ?? providerTurnSender({ label: "math-intake", stagePrefix: "math-intake-tools", draftDir }),
   });
   // Without recorded problems there is nothing to build; the intake stays unpublished and says why.
@@ -132,7 +136,8 @@ export async function runItemsIntake(args: { childId: string; sourceFile: string
     const saved = fs.existsSync(responseFile) ? JSON.parse(fs.readFileSync(responseFile, "utf8")) as { output: IntakeOutput; requestHash: string; outputHash: string } : null;
     const requestHash = hashDiscoveryContract(packet);
     if (saved && (saved.requestHash !== requestHash || saved.outputHash !== hashDiscoveryContract(saved.output))) throw new Error("math_intake_checkpoint_hash_mismatch");
-    const output = saved?.output ?? await planItemIntake(packet, homeworkId, draft, options);
+    const output = saved?.output ?? await planItemIntake(packet, homeworkId, draft, options,
+      pastWeeksForDraft({ draftDir: draft, stagePrefix: "math-intake-tools", build: () => readPastWeeks(args.childId, { rootDir, homework: chart.homework as HomeworkSources, excludeHomeworkIds: [homeworkId] }) }));
     if (!saved) save("math-intake-response.json", { output, requestHash, outputHash: hashDiscoveryContract(output) });
     console.log(` 🎮 [math-intake] [assignment-capture] [${saved ? "reused" : "saved"}] problems=${output.intake.items.length} stops=${output.intake.stops.length}`);
     if (!getLearningCycle(args.childId, homeworkId, { rootDir })) {

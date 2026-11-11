@@ -89,6 +89,8 @@ import { validateFullExperienceReadiness } from "../engine/fullExperienceReadine
 import { enrichMathNodeArtwork, localizeMathNodeArtwork } from "../engine/mathNodeArtwork";
 import { persistIngestedLearningCycle, buildSpellingRecallItems, createSpellingDiscoveryCycle, buildSpellingDiscoveryPlan } from "../engine/learningCycleIngest";
 import { planSpellingIntakeWithTools } from "../engine/spellingIntakeWithTools";
+import { pastWeeksForDraft, readPastWeeks } from "../engine/pastWeeks";
+import type { HomeworkSources } from "../engine/schoolTestObjective";
 import { acquireMathGenerationLease, releaseMathGenerationLease, resolveAdaptiveMathDraftDir, publishDiscoveryExperience, hashDiscoveryContract, runMathProviderStage, recordGenerationFailure, completeDiscoveryEvaluation, queueTargetedMathGeneration } from "../engine/adaptiveMathDiscovery";
 import { getLearningCycle, repairLatestHistoricalLearningCycleBeforePlanning } from "../engine/learningCycleRepository";
 import { createIngestProgress, type IngestProgress } from "../utils/ingestOutput";
@@ -2185,7 +2187,8 @@ export async function runSpellingDiscoveryIntake(args: {
     if (confirmation && packet.spellingDiagnostics && (!saved || hashDiscoveryContract(choiceOf(confirmation.capture)) !== hashDiscoveryContract(choiceOf(saved.output)))) throw new Error("spelling_diagnostic_confirmation_changed");
     // The intake talks to the Planner through small locked tools; the retired single form is never sent.
     const result: CaptureResult = confirmation ? { output: confirmation.capture, telemetry: { model: "human-confirmed", latencyMs: 0 } } : saved
-      ?? await planSpellingIntakeWithTools(packet, { model: options.model, draftDir: draft, ...options.plannerTools?.(packet) });
+      ?? await planSpellingIntakeWithTools(packet, { model: options.model, draftDir: draft, ...options.plannerTools?.(packet),
+        pastWeeks: pastWeeksForDraft({ draftDir: draft, stagePrefix: "spelling-intake-tools", build: () => readPastWeeks(args.childId, { rootDir, homework: chart.homework as HomeworkSources, excludeHomeworkIds: [homeworkId] }) }) });
     if (!saved && !confirmation) save("spelling-intake-response.json", { ...result, requestHash, outputHash: hashDiscoveryContract(result) });
     parseSpellingIntake(result.output, packet);
     console.log(` 🎮 [spelling-discovery] [assignment-capture] [${saved ? "reused" : "saved"}] hash=${hashDiscoveryContract(result.output)}`);

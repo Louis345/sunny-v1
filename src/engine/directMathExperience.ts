@@ -44,6 +44,7 @@ import { withInitialBoard } from "./learningBoardInstances";
 import { runPlannerToolLoop } from "./plannerToolLoop";
 import { providerTurnSender } from "./plannerToolProvider";
 import { spellingTeachingToolkit } from "./spellingTeachingTools";
+import { pastWeeksLine, pastWeeksTool, type PastWeeksArchive } from "./pastWeeks";
 
 export type DirectActivity = {
   id: string;
@@ -2047,6 +2048,8 @@ type LearningPlannerInput = {
   /** Concept ids already on record for this child, so the Planner reuses instead of rephrasing. */
   priorConceptIds?: string[];
   rawResponseFile?: string;
+  /** Her earlier weeks, for the Teaching board (owner, 2026-11-10): one line in the question, the rest behind read_past_weeks. */
+  pastWeeks?: PastWeeksArchive;
   maxTokens?: number;
 };
 export function askLearningPlanner(input:LearningPlannerInput & {domain:"spelling";packet:AssignmentPlanningPacket}):Promise<NativePlannedProgram>;
@@ -2064,7 +2067,7 @@ export async function askLearningPlanner(input:LearningPlannerInput):Promise<Mat
   if(native){
     const directory=input.rawResponseFile?path.dirname(input.rawResponseFile):undefined;
     const saved=directory?readReceivedMathProviderStage(directory,'targeted-planner') as Anthropic.Messages.Message|undefined:undefined;
-    if(!directory||saved===undefined)return askSpellingTeachingThroughTools({client,model,packet:packet!,rawResponseFile:input.rawResponseFile,started});
+    if(!directory||saved===undefined)return askSpellingTeachingThroughTools({client,model,packet:packet!,rawResponseFile:input.rawResponseFile,started,pastWeeks:input.pastWeeks});
     const {requestHash}=JSON.parse(fs.readFileSync(path.join(directory,'provider-receipts','targeted-planner.stage.json'),'utf8'));
     const receipt=JSON.parse(fs.readFileSync(path.join(directory,'provider-receipts',`${requestHash}.json`),'utf8'));
     const frozen=JSON.parse(fs.readFileSync(path.join(directory,'provider-diagnostics',`${requestHash}.attempt-${receipt.attempts?.length??1}.request.json`),'utf8')).context as {model:string;messages:Array<{content:unknown}>};
@@ -2199,11 +2202,12 @@ Homework and child-chart context:
 ${JSON.stringify(compactPlannerFacts(packet))}`;
 }
 /** Teaching board through the small locked tools; the finished order is saved beside its turns. */
-async function askSpellingTeachingThroughTools(input:{client:Anthropic;model:string;packet:AssignmentPlanningPacket;rawResponseFile?:string;started:number}):Promise<NativePlannedProgram> {
+async function askSpellingTeachingThroughTools(input:{client:Anthropic;model:string;packet:AssignmentPlanningPacket;rawResponseFile?:string;started:number;pastWeeks?:PastWeeksArchive}):Promise<NativePlannedProgram> {
   const kit=spellingTeachingToolkit(input.packet);
   const directory=input.rawResponseFile?path.dirname(input.rawResponseFile):undefined;
-  const loop=await runPlannerToolLoop({label:"spelling-teaching",prompt:spellingTeachingToolPrompt(input.packet),model:input.model,maxTokens:16000,
-    tools:kit.tools,state:kit.initialState(),finished:kit.finished,
+  const past=input.pastWeeks?.weeks.length?input.pastWeeks:undefined;
+  const loop=await runPlannerToolLoop({label:"spelling-teaching",prompt:`${spellingTeachingToolPrompt(input.packet)}${past?`\n${pastWeeksLine(past)}`:""}`,model:input.model,maxTokens:16000,
+    tools:past?[...kit.tools,pastWeeksTool<Parameters<typeof kit.finished>[0]>(past)]:kit.tools,state:kit.initialState(),finished:kit.finished,
     send:providerTurnSender({label:"spelling-teaching",stagePrefix:"targeted-planner-tools",draftDir:directory,client:input.client})});
   // No finished board means nothing to publish: generation stays paused with this reason.
   if(!kit.finished(loop.state))throw new Error(`learning_planner_tools_unfinished:${loop.stats.stop}`);
