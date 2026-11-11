@@ -47,6 +47,18 @@ export function earlierStartupLines(serverLogFile: string): string[] {
     .flatMap(name => fs.readFileSync(path.join(dir, name), "utf8").split("\n").filter(line => line.includes("[startup-check]")));
 }
 
+/**
+ * When a session's records end (2026-11-10): ten minutes after its end, for answers saved late, but never past the
+ * start of her next session in the same folder, whose decisions and answers are its own. Infinity with no end.
+ */
+export function sessionWindowEnd(sessionDir: string, endedAt: string | undefined): number {
+  const meta = (dir: string) => { try { return JSON.parse(fs.readFileSync(path.join(dir, "metadata.json"), "utf8")) as { child?: string; startedAt?: string }; } catch { return {}; } };
+  const own = meta(sessionDir), parent = path.dirname(sessionDir), from = Date.parse(own.startedAt ?? "");
+  const next = fs.readdirSync(parent).map(name => meta(path.join(parent, name))).filter(row => row.child === own.child && Date.parse(row.startedAt ?? "") > from)
+    .map(row => Date.parse(row.startedAt!));
+  return Math.min(endedAt ? Date.parse(endedAt) + 10 * 60_000 : Infinity, ...next);
+}
+
 /** The right count a written retro states (the learning measure); undefined when it states none (older retros). */
 export function retroRightOnHerOwn(text: string): number | undefined {
   const found = text.split("\n").find(line => line.startsWith(`- ${RIGHT_ON_HER_OWN}: `))?.slice(RIGHT_ON_HER_OWN.length + 4).match(/^(\d+) of /)?.[1];
@@ -71,7 +83,7 @@ export function loadSessionPacket(input: { childId: string; sessionDir: string; 
   const played = sessionLearningCycle(input.childId, input.sessionDir, opts);
   const cycle = played ?? chart.learningCycle;
   console.log(` 🎮 [rating] [cycle] [${played ? "from-session" : "from-chart"}] child=${input.childId} homework=${cycle?.homeworkId ?? "none"} domain=${cycle?.domain ?? "unknown"}`);
-  const from = Date.parse(startedAt), to = endedAt ? Date.parse(endedAt) + 10 * 60_000 : Infinity;
+  const from = Date.parse(startedAt), to = sessionWindowEnd(input.sessionDir, endedAt);
   const words = new Map(cycle?.nodes.flatMap(node => Object.values(node.evidenceContract.spellingItems ?? {}).map(item => [item.id, item.word] as const)) ?? []);
   const observations = (cycle?.observations ?? []).filter(row => { const t = Date.parse(row.observedAt); return t >= from && t <= to; })
     .map(row => ({ observedAt: row.observedAt, itemId: row.itemId, childResponse: typeof row.childResponse === "string" ? row.childResponse : undefined, word: words.get(row.itemId),

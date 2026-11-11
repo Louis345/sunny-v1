@@ -51,3 +51,25 @@ describe("the startup check of the session's kiosk run", () => {
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
 });
+
+// 2026-11-10 G11, rating Ila's 16 sessions: "0 of 1 decision(s) had this session's retro" on short sessions where
+// she never played. Why the human caught it: a session with no board finished was charged with a board decision.
+// Why logs did not: each Planner question names the session that triggered it, but nothing compared that with the
+// session being rated. Why the lab missed it: lab sessions are never followed by another within ten minutes. A
+// session's records end when her next session starts: the ten-minute grace after its end never reaches into it.
+describe("the session's own time window", () => {
+  it("ends at her next session's start when that comes before the ten-minute grace", async () => {
+    const { sessionWindowEnd } = await import("./sessionRatingPacket");
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-rate-window-"));
+    try {
+      const write = (name: string, child: string, startedAt: string) => { const dir = path.join(root, name); fs.mkdirSync(dir); fs.writeFileSync(path.join(dir, "metadata.json"), JSON.stringify({ child, startedAt })); return dir; };
+      const quiet = write("a_ila", "Ila", "2026-11-10T15:00:00.000Z");
+      write("b_reina", "Reina", "2026-11-10T15:03:00.000Z");
+      write("c_ila", "Ila", "2026-11-10T15:05:00.000Z");
+      expect(sessionWindowEnd(quiet, "2026-11-10T15:02:00.000Z")).toBe(Date.parse("2026-11-10T15:05:00.000Z"));
+      const last = write("d_ila", "Ila", "2026-11-10T16:00:00.000Z");
+      expect(sessionWindowEnd(last, "2026-11-10T16:20:00.000Z")).toBe(Date.parse("2026-11-10T16:30:00.000Z"));
+      expect(sessionWindowEnd(last, undefined)).toBe(Infinity);
+    } finally { fs.rmSync(root, { recursive: true, force: true }); }
+  });
+});
