@@ -1751,8 +1751,8 @@ export function transitionLearningCycle(
     appendObservations(next, practiceContinuation ? event.observations.map(observation => ({...observation, provenance:"practice" as const,
       confounds:[...observation.confounds.filter(value=>!value.startsWith("measurement_role:") && value!=="post_board_practice"),"measurement_role:practice","post_board_practice"]})) : event.observations);
     if (event.completed === false) {
-      if (!(replay && next.domain === "spelling")) node.state = "active";
-      reason = replay && next.domain === "spelling" ? "Replay item captured as practice; completed instrument remains closed." : "Factual item response captured; instrument remains incomplete.";
+      if (!replay) node.state = "active";
+      reason = replay ? "Replay item captured as practice; completed instrument remains closed." : "Factual item response captured; instrument remains incomplete.";
     } else {
     node.state = "completed";
     node.evidenceIds = uniqueEvidence([

@@ -98,6 +98,23 @@ window.GameBridge = (function () {
   // rematch or bonus round is free extra play; BUGS.md 2026-11-08, Reina's Boss Battle). Sent once.
   var itemCompletionSent = false;
 
+  // Code, not the game, hands over every try it saw for each reported item.
+  function withTries(rows) {
+    return rows.map(function (row) {
+      var tries = row && allAnswers[row.target];
+      return tries && tries.length ? Object.assign({}, row, { tries: tries.slice() }) : row;
+    });
+  }
+
+  // Bound problems in binding order: her first answer, the screen when it opened, and every try.
+  function boundItemResults() {
+    return withTries(GAME_PARAMS.itemBindings.map(function (item) {
+      var first = firstAnswers[item.itemId];
+      return Object.assign({ target: item.itemId, attemptedValue: first ? first.attemptedValue : "" },
+        first && typeof first.screenAtOpen === "string" ? { screenAtOpen: first.screenAtOpen } : {});
+    }));
+  }
+
   function itemBinding(target) {
     if (typeof target !== "string") return null;
     var wanted = target.normalize("NFC").trim().toLowerCase();
@@ -379,21 +396,8 @@ window.GameBridge = (function () {
         activityIntentId: GAME_PARAMS.activityIntentId,
         targetSelectorId: GAME_PARAMS.targetSelectorId,
       });
-      if (Array.isArray(r.targetResults)) merged.targetResults = r.targetResults.map(bindSpellingTarget);
-      if (GAME_PARAMS.itemBindings.length) {
-        merged.targetResults = GAME_PARAMS.itemBindings.map(function (item) {
-          var first = firstAnswers[item.itemId];
-          return Object.assign({ target: item.itemId, attemptedValue: first ? first.attemptedValue : "" },
-            first && typeof first.screenAtOpen === "string" ? { screenAtOpen: first.screenAtOpen } : {});
-        });
-      }
-      // Code, not the game, hands over every try it saw for each reported item.
-      if (Array.isArray(merged.targetResults)) {
-        merged.targetResults = merged.targetResults.map(function (row) {
-          var tries = row && allAnswers[row.target];
-          return tries && tries.length ? Object.assign({}, row, { tries: tries.slice() }) : row;
-        });
-      }
+      if (Array.isArray(r.targetResults)) merged.targetResults = withTries(r.targetResults.map(bindSpellingTarget));
+      if (GAME_PARAMS.itemBindings.length) merged.targetResults = boundItemResults();
       post("game_complete", merged);
       logContract("post", postSummary("node_complete", merged));
       window.parent.postMessage(
@@ -599,9 +603,19 @@ window.GameBridge = (function () {
       if (itemBinding(payload.target) && typeof payload.attemptedValue === "string" && !firstAnswers[payload.target]) {
         firstAnswers[payload.target] = { attemptedValue: payload.attemptedValue, screenAtOpen: screenAtOpen[payload.target] };
       }
+      var lateTry = false;
       if (typeof payload.target === "string" && typeof payload.attemptedValue === "string") {
         var tries = allAnswers[payload.target] || (allAnswers[payload.target] = []);
-        if (tries.length < MAX_TRIES_PER_ITEM) tries.push({ attemptedValue: payload.attemptedValue, at: Date.now() });
+        if (tries.length < MAX_TRIES_PER_ITEM) {
+          tries.push({ attemptedValue: payload.attemptedValue, at: Date.now() });
+          lateTry = itemCompletionSent && Boolean(itemBinding(payload.target));
+        }
+      }
+      // A try after the stop finished (BUGS.md 2026-11-10 evening): a follow-up record with every try so far; Sunny
+      // saves only the tries it does not have yet. Bounded by MAX_TRIES_PER_ITEM per problem.
+      if (lateTry) {
+        logContract("items", "try after the stop finished; sending a follow-up record");
+        post("late_tries", { nodeId: GAME_PARAMS.nodeId, sessionId: GAME_PARAMS.sessionId, launchToken: GAME_PARAMS.launchToken, targetResults: boundItemResults() });
       }
       if (payload.domain === "spelling" && typeof payload.attemptedValue === "string") capturedSpellingTargets[payload.target] = true;
       if (payload.word == null && payload.target != null) {

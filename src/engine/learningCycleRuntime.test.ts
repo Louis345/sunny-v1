@@ -6,7 +6,7 @@ import os from "os";
 import path from "path";
 import { describe, expect, it, vi } from "vitest";
 import { createLearningCycle, getLearningCycle, projectLearningCycle, transitionLearningCycle, type CreateLearningCycleInput } from "./learningCycleRepository";
-import { pageTimeFromKiosk, recordExitChoice, advanceCanonicalCycleFromEvidence, authorizeCanonicalPlannerRetry, parseCanonicalProgressionDecision, recordCanonicalNodeCompletion } from "./learningCycleRuntime";
+import { pageTimeFromKiosk, recordExitChoice, advanceCanonicalCycleFromEvidence, authorizeCanonicalPlannerRetry, parseCanonicalProgressionDecision, recordCanonicalNodeCompletion, recordCanonicalLateTries } from "./learningCycleRuntime";
 import {runMathProviderStage} from "./adaptiveMathDiscovery";
 import {authorizePlannerRecoveryFromArgs} from "../scripts/authorizePlannerRecovery";
 
@@ -559,6 +559,35 @@ describe("canonical learning cycle runtime", () => {
     expect(new Set(rows.map(row => row.observationId)).size).toBe(4);
     expect(rows[0].observationId).toBe("s1:facts:observation:1");
     expect(cycle.observations.filter(row => row.itemId === "groups")).toHaveLength(1);
+  });
+
+  // BUGS.md 2026-11-10 evening: a stop finishes once each problem has a first answer, so her retries on the last
+  // problem after that were never saved. Human caught it (fix/1110-learning caveat) reading the game's count against
+  // the saved count; logs showed the finish but not the tries made after it; the lab's retries all came before the
+  // last first answer. A follow-up record after the completion adds only the tries not yet saved.
+  it("adds her later tries on a finished stop as retries, once, without reopening the stop", () => {
+    const rootDir = root();
+    createLearningCycle(input(), { rootDir });
+    const at = Date.parse("2026-11-10T15:00:00Z");
+    recordCanonicalNodeCompletion({ childId: "reina", homeworkId: "hw-runtime", sessionId: "s1", nodeId: "facts", result: { completed: true, ended: true, accuracy: 0, timeSpent_ms: 1000,
+      targetResults: [{ target: "2x5", correct: false, attemptedValue: "34", tries: [{ attemptedValue: "34", at }] }, { target: "groups", correct: false, attemptedValue: "9", tries: [{ attemptedValue: "9", at }] }] } }, { rootDir });
+    const late = { childId: "reina", homeworkId: "hw-runtime", sessionId: "s1", nodeId: "facts",
+      targetResults: [{ target: "2x5", attemptedValue: "34", tries: [{ attemptedValue: "34", at }] }, { target: "groups", attemptedValue: "9", tries: [{ attemptedValue: "9", at }, { attemptedValue: "10", at: at + 4000 }] }] };
+    recordCanonicalLateTries(late, { rootDir });
+    const cycle = recordCanonicalLateTries(late, { rootDir })!;
+    const rows = cycle.observations.filter(row => row.itemId === "groups");
+    expect(rows.map(row => [row.childResponse, row.result.correct, row.provenance])).toEqual([["9", false, "independent_probe"], ["10", true, "practice"]]);
+    expect(rows[1].observationId).toBe("s1:facts:observation:2:try:2");
+    expect(rows[1].confounds).toEqual(expect.arrayContaining(["retry", "attempt:2"]));
+    expect(cycle.observations.filter(row => row.itemId === "2x5")).toHaveLength(1);
+    expect(cycle.nodes.find(node => node.nodeId === "facts")?.state).toBe("completed");
+  });
+
+  it("refuses later tries for a stop whose completion is not saved yet", () => {
+    const rootDir = root();
+    createLearningCycle(input(), { rootDir });
+    expect(() => recordCanonicalLateTries({ childId: "reina", homeworkId: "hw-runtime", sessionId: "s1", nodeId: "facts",
+      targetResults: [{ target: "2x5", attemptedValue: "34", tries: [{ attemptedValue: "34" }, { attemptedValue: "10" }] }] }, { rootDir })).toThrow(/late_tries_completion_missing/);
   });
 
   it("saves a math answer as helped when her companion helped while that problem was open", () => {

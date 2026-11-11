@@ -433,6 +433,35 @@ function observationsForCompletion(input: {
   }));
 }
 
+/**
+ * Tries she made on a finished stop after its completion was sent (BUGS.md 2026-11-10 evening). The game contract
+ * resends every try per bound problem in the completion's order, so observation ids match the completion's; only
+ * tries not yet saved are added, as retries, and the stop's state and evidence summary stay as they are.
+ */
+export function recordCanonicalLateTries(
+  input: { childId: string; homeworkId: string; sessionId: string; nodeId: string;
+    targetResults: Array<Omit<NonNullable<CanonicalCompletionResult["targetResults"]>[number], "correct"> & { correct?: boolean }> },
+  opts: LearningCycleRepositoryOptions = {},
+): LearningCycleRecordV2 | null {
+  const cycle = getLearningCycle(input.childId, input.homeworkId, opts);
+  if (!cycle) return null;
+  if (!cycle.evidence.academic.some((item) => item.evidenceId === `${input.sessionId}:${input.nodeId}:completion`)) {
+    throw new Error(`late_tries_completion_missing:${input.nodeId}`);
+  }
+  const known = new Set(cycle.observations.map((observation) => observation.observationId));
+  const observations = observationsForCompletion({ cycle, sessionId: input.sessionId, nodeId: input.nodeId,
+    // Bound problems carry no game-claimed result: code scores each try, as at completion.
+    result: { completed: true, ended: true, accuracy: 0, timeSpent_ms: 0, targetResults: input.targetResults as NonNullable<CanonicalCompletionResult["targetResults"]> },
+    observedAt: (opts.now ?? new Date()).toISOString() })
+    .filter((observation) => /:try:\d+$/.test(observation.observationId) && !known.has(observation.observationId));
+  console.log(` 🎮 [learning-cycle] [late-tries] [${observations.length ? "saved" : "none-new"}] node=${input.nodeId} added=${observations.length}`);
+  if (!observations.length) return cycle;
+  return transitionLearningCycle(input.childId, input.homeworkId, cycle.revision, {
+    type: "instrument_observed", completed: false, nodeId: input.nodeId, observations,
+    academicEvidence: [], engagementEvidence: [], companionObservations: [],
+  }, opts);
+}
+
 export function recordCanonicalNodeCompletion(
   input: {
     childId: string;

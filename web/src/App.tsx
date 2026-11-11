@@ -11,7 +11,7 @@ import {
 import { useSession } from "./hooks/useSession";
 import { useAdventureState } from "./hooks/useAdventureState";
 import { ChildPicker, StartScreenFrame } from "./components/ChildPicker";
-import { DiscoveryAcademicCompletionCoordinator, discoveryCompletionRewards, hasCanonicalLearningCycle, postCanonicalNodeCompletion, postDiscoveryAttempt, postDiscoveryComplete } from "./utils/canonicalNodeCompletion";
+import { DiscoveryAcademicCompletionCoordinator, discoveryCompletionRewards, hasCanonicalLearningCycle, postCanonicalLateTries, postCanonicalNodeCompletion, postDiscoveryAttempt, postDiscoveryComplete } from "./utils/canonicalNodeCompletion";
 import { SessionScreen } from "./components/SessionScreen";
 import { SessionEnd } from "./components/SessionEnd";
 import { SessionLoadingOverlay, sessionVoiceReady } from "./components/SessionLoadingOverlay";
@@ -652,6 +652,8 @@ function App() {
   const [locallyCompletedPlannerNodeIds, setLocallyCompletedPlannerNodeIds] = useState<string[]>([]);
   const [generatedMathSoundMuted, setGeneratedMathSoundMuted] = useState(false);
   const plannerBoardIframeCompletionKeyRef = useRef<string | null>(null);
+  // The saved completion per launch; her later tries are saved only after it (BUGS.md 2026-11-10 evening).
+  const plannerBoardCompletionWriteRef = useRef<{ key: string; written: Promise<unknown> } | null>(null);
   const pendingPlannerBoardLaunchRef = useRef<{node:NodeConfig;replayNonce:number}|null>(null);
   // A reward break (2026-11-10): a round ending restarts the game; the arcade clock owns the end of the break.
   const [rewardBreakRound, setRewardBreakRound] = useState(0);
@@ -1727,7 +1729,9 @@ function App() {
         ? postCanonicalNodeCompletion({ childId: adventureChildId, homeworkId, nodeId: launch.node.id, completionId: launch.completionId, result: {...payload,launchToken:launch.completionId,voiceSessionId:state.voiceSessionId} })
         : null;
     };
-    void write().then(async completion => {
+    const written = write();
+    plannerBoardCompletionWriteRef.current = { key, written };
+    void written.then(async completion => {
       try {
         await refreshPlannerBoardPacket();
       } catch (error) {
@@ -1930,6 +1934,20 @@ function App() {
           console.error(" 🎮 [discovery] [academic-completion] [retry-needed]", error);
         });
         showPlannerBoardEngagementOverlay(launch.node, { completed: true });
+        return;
+      }
+      if (data.type === "late_tries") {
+        const tries = data.payload as { targetResults?: unknown } | undefined;
+        const homeworkId = plannerBoardPacket?.childChart.learningCycle?.homeworkId;
+        const saved = plannerBoardCompletionWriteRef.current;
+        if (!saved || saved.key !== `${launch.node.id}:${launch.replayNonce}` || !adventureChildId || !homeworkId || !Array.isArray(tries?.targetResults)) {
+          console.warn(" 🎮 [AdventureBoard] [late-tries] [no-saved-completion]", { nodeId: launch.node.id });
+          return;
+        }
+        const targetResults = tries.targetResults;
+        saved.written = saved.written.catch(() => undefined)
+          .then(() => postCanonicalLateTries({ childId: adventureChildId, homeworkId, nodeId: launch.node.id, completionId: launch.completionId, targetResults }))
+          .catch(error => console.error(" 🎮 [AdventureBoard] [late-tries] [failed]", error));
         return;
       }
       if (data.type !== "node_complete" && data.type !== "game_complete") return;

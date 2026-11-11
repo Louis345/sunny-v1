@@ -111,4 +111,22 @@ describe("a stop finishes when every problem has an answer", () => {
     window.sendNodeComplete({ completed: true });
     expect(posted.filter(row => row.type === "node_complete")).toHaveLength(1);
   });
+
+  // BUGS.md 2026-11-10 evening: tries on the last problem after the stop finished were dropped. Human caught it
+  // (fix/1110-learning caveat); logs showed one completion and nothing after it; the lab never retried after the
+  // last first answer. Each later try sends a follow-up record with every try on each problem; Sunny saves the new ones.
+  it("sends a follow-up record with every try when she keeps trying after the stop finished", () => {
+    const { window, posted } = loadContract({ text: "Boss" });
+    window.openItem("m1");
+    window.fireAttemptEvent({ target: "m1", attemptedValue: "odd" });
+    window.openItem("m2");
+    window.fireAttemptEvent({ target: "m2", attemptedValue: "11" });
+    expect(posted.filter(row => row.type === "late_tries")).toHaveLength(0);
+    window.fireAttemptEvent({ target: "m2", attemptedValue: "12" });
+    const late = posted.filter(row => row.type === "late_tries").map(row => row.payload as { nodeId: string; targetResults: Array<{ target: string; attemptedValue: string; tries: Array<{ attemptedValue: string }> }> });
+    expect(late).toHaveLength(1);
+    expect(late[0].nodeId).toBe("check-1");
+    expect(late[0].targetResults.map(row => [row.target, row.attemptedValue, row.tries.map(t => t.attemptedValue)])).toEqual([["m1", "odd", ["odd"]], ["m2", "11", ["11", "12"]]]);
+    expect(posted.filter(row => row.type === "node_complete")).toHaveLength(1);
+  });
 });

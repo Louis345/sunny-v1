@@ -309,7 +309,7 @@ import { resolveSunnyRuntimeConfig } from "../shared/runtimeConfig";
 import { arcadeClockForChild, callClockForChild, reconcileCompanionCareCurrencyAward, purchaseForChild, showroomCallClockFacts, spendArcadeMinuteForChild, spendCallMinuteForChild, walletForChild } from "./currencyAward";
 import { companionPickerIdentity } from "./companionPickerRows";
 import { isSpellingPracticeContinuation } from "../engine/learningCycleRepository";
-import { advanceCanonicalCycleFromEvidence, pageTimeFromKiosk, recordCanonicalNodeCompletion, recordSpellingDiscoveryAttempt } from "../engine/learningCycleRuntime";
+import { advanceCanonicalCycleFromEvidence, pageTimeFromKiosk, recordCanonicalLateTries, recordCanonicalNodeCompletion, recordSpellingDiscoveryAttempt } from "../engine/learningCycleRuntime";
 import { getActiveVoiceSessionManagerForChild, getVoiceSessionManagerForChildSession } from "./voice-session-registry";
 import { prepareSuccessorBoard } from "../engine/canonicalProgressionGenerator";
 import { successorPreparationStatus, successorResumeAction } from "../engine/learningBoardInstances";
@@ -1018,6 +1018,26 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
     } catch (error) {
       console.error(" 🎮 [returned-work] [confirm] [failed]", error);
       return res.status(422).json({ error: error instanceof Error ? error.message : String(error) });
+    }
+  });
+
+  // Her tries on a finished stop after its completion was sent (BUGS.md 2026-11-10 evening): saved as retries.
+  app.post("/api/learning-cycle/node-late-tries", (req: Request, res: Response) => {
+    const body = req.body as { childId?: unknown; homeworkId?: unknown; nodeId?: unknown; sessionId?: unknown; targetResults?: unknown };
+    const childId = String(body.childId ?? "").trim().toLowerCase(), homeworkId = String(body.homeworkId ?? "").trim();
+    const nodeId = String(body.nodeId ?? "").trim(), sessionId = String(body.sessionId ?? "").trim();
+    if (!childId || !homeworkId || !nodeId || !sessionId || !Array.isArray(body.targetResults)) {
+      return res.status(400).json({ error: "childId, homeworkId, nodeId, sessionId, and targetResults are required" });
+    }
+    if (!learningRouteShouldPersist()) return res.json({ ok: true, skippedPersistence: true });
+    try {
+      const updated = recordCanonicalLateTries({ childId, homeworkId, nodeId, sessionId,
+        targetResults: body.targetResults as Parameters<typeof recordCanonicalLateTries>[0]["targetResults"] });
+      if (!updated) return res.status(404).json({ error: "learning_cycle_not_found" });
+      return res.json({ ok: true, revision: updated.revision });
+    } catch (error) {
+      console.error(` 🎮 [learning-cycle-route] [late-tries] [failed] child=${childId} node=${nodeId}`, error);
+      return res.status(409).json({ error: error instanceof Error ? error.message : String(error) });
     }
   });
 

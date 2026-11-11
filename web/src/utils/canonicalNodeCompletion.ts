@@ -195,3 +195,15 @@ export async function postCanonicalNodeCompletion(input: CanonicalNodeCompletion
   window.dispatchEvent(new CustomEvent("sunny_learning_cycle_progression", { detail: result }));
   return { ...result, outcome: { ...input.result, completed: result.nodeState === "completed", accuracy: result.academicAccuracy ?? undefined } };
 }
+
+/** Her tries on a finished stop after its completion was saved (BUGS.md 2026-11-10 evening); the server adds only new ones. */
+export async function postCanonicalLateTries(input: { childId: string; homeworkId: string; nodeId: string; completionId: string; targetResults: unknown[] }): Promise<void> {
+  const { completionId, ...request } = input;
+  const response = await fetch("/api/learning-cycle/node-late-tries", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ ...request, sessionId: completionId }),
+  });
+  if (!response.ok) throw new Error(`canonical_late_tries_${response.status}`);
+  console.log(" 🎮 [AdventureBoard] [late-tries] [saved]", { nodeId: input.nodeId });
+}
