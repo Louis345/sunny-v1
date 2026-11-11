@@ -64,6 +64,7 @@ canvas{display:block}
 .stars{letter-spacing:2px;color:var(--gold)}
 #panel{position:absolute;left:0;right:0;bottom:0;padding:10px 0 18px;display:flex;flex-direction:column;align-items:center;gap:12px;background:linear-gradient(#0000,#07051ad9 30%);transform:translateY(105%);transition:transform .45s cubic-bezier(.2,.9,.3,1.2);pointer-events:auto}
 #panel.show{transform:none}
+#panel.show.talking{transform:translateY(105%)}
 #slots{display:flex;gap:8px;min-height:84px}
 .slot{width:64px;height:78px;border-radius:14px;background:#ffffff14;border:3px solid #ffffff40;display:grid;place-items:center;font:700 52px 'Andika',sans-serif;color:#fff;transition:transform .15s,background .2s,border-color .2s}
 .slot.fill{background:#ffffff26;border-color:#fff9;transform:scale(1.04)}
@@ -93,6 +94,9 @@ canvas{display:block}
 @keyframes pulse{50%{transform:scale(1.06)}}
 .hidden{opacity:0;pointer-events:none}.hidden *{pointer-events:none!important}
 .gone{display:none}
+#ear{position:fixed;z-index:6;pointer-events:none;font-size:54px;opacity:0;transform:translate(-50%,-100%) scale(.6);transition:opacity .25s,transform .25s;filter:drop-shadow(0 0 14px #ffd77a)}
+#ear.on{opacity:1;transform:translate(-50%,-100%) scale(1);animation:earPulse 1s ease-in-out infinite}
+@keyframes earPulse{50%{transform:translate(-50%,-100%) scale(1.15)}}
 #winStars{font-size:64px;color:var(--gold);letter-spacing:6px}
 </style>
 <script type="importmap">{"imports":{
@@ -100,7 +104,9 @@ canvas{display:block}
   "three/addons/":"https://cdn.jsdelivr.net/npm/three@0.183.2/examples/jsm/",
   "@pixiv/three-vrm":"https://cdn.jsdelivr.net/npm/@pixiv/three-vrm@3.5.1/lib/three-vrm.module.min.js"}}</script>
 <script src="/games/_contract.js"></script>
+<script src="/talk/talk-client.js"></script>
 </head><body>
+<div id="ear">👂</div>
 <div class="hud">
   <div class="top"><div class="pill">ILA</div><div class="pill"><span id="friends">✦ 0</span><span class="stars" id="best"></span></div><div class="pill" id="coins">● 0</div></div>
   <div id="bossbar"></div>
@@ -145,10 +151,18 @@ async function loadBuf(key, url) { try { const r = await fetch(url); if (!r.ok) 
 const audioReady = Promise.all([...Object.entries(LIB).map(([k, f]) => loadBuf(k, '/a3d/sfx/' + f)), ...MINE.map(k => loadBuf(k, `assets/sfx/${k}.mp3`)), ...VOICES.map(k => loadBuf('v:' + k, `assets/voice/${k}.mp3`))]);
 function sfx(key, vol = .7, rate = 1) { const b = BUF[key]; if (!b) return; const s = AC.createBufferSource(); s.buffer = b; s.playbackRate.value = rate; const g = AC.createGain(); g.gain.value = vol; s.connect(g).connect(master); s.start(); }
 let voiceSrc = null, speaking = false;
-function say(id) {
+let talkIdle = Promise.resolve();   // the game's own lines wait while Elli is answering Ila
+async function say(id) {
+  await talkIdle;
   return new Promise(res => {
     try { voiceSrc?.stop(); } catch { /* already stopped */ }
     const b = BUF['v:' + id]; if (!b) { console.warn(' 🎮 [spirit-night] [voice] [missing]', id); setTimeout(res, 500); return; }
+    playVoice(b).then(res);
+  });
+}
+function playVoice(b) {
+  return new Promise(res => {
+    try { voiceSrc?.stop(); } catch { /* already stopped */ }
     const s = AC.createBufferSource(); s.buffer = b; s.connect(voiceGain); voiceSrc = s; speaking = true; musicGain.gain.setTargetAtTime(.1, AC.currentTime, .1);
     s.onended = () => { if (voiceSrc === s) { speaking = false; musicGain.gain.setTargetAtTime(G.calm ? .14 : .32, AC.currentTime, .3); } res(); };
     s.start();
@@ -296,7 +310,7 @@ function move(name) { const a = acts[name]; if (!a || !mixer) return; Object.val
 function expr(name, v) { try { vrm?.expressionManager?.setValue(name, v); } catch { /* model without that expression */ } }
 
 // ---------------- game state ----------------
-const G = { state: 'loading', calm: false, coins: 0, onOwn: 0, streak: 0, presented: 0, friends: [], current: null, bossHp: 4, typed: '', given: '', hint: 0, attempt: 0, t0: 0, ready: false };
+const G = { state: 'loading', calm: false, coins: 0, onOwn: 0, streak: 0, presented: 0, friends: [], current: null, bossHp: 4, typed: '', given: '', hint: 0, attempt: 0, t0: 0, ready: false, talk: '', talkHelped: false };
 const BEST_KEY = 'spirit-night-best'; let best = 0; try { best = +localStorage.getItem(BEST_KEY) || 0; } catch { /* storage blocked */ }
 const queue = []; const state = {};   // per word: { solved:bool, needsReturn:bool, seen:n }
 Object.keys(WORDS).forEach(w => state[w] = { solved: false, seen: 0 });
@@ -332,7 +346,7 @@ function nextItem() {
   if (G.presented > 26) { log('[guard] [stop] too many presentations'); return finish(); }   // hard exit guard
   const item = queue.shift();
   if (!item) { return Object.values(state).every(s => s.solved) && !boss ? startBoss() : finish(); }
-  G.current = item; G.presented++; G.hint = 0; G.attempt = 0; G.typed = ''; G.given = ''; G.ready = false; state[item.word].seen++;
+  G.current = item; G.presented++; G.hint = 0; G.talkHelped = false; G.attempt = 0; G.typed = ''; G.given = ''; G.ready = false; state[item.word].seen++;
   item.clip = (item.phase === 'boss' || state[item.word].seen > 1 ? 's2-' : 's1-') + item.word;
   if (item.phase !== 'boss') spawnSpirit(item); else boss.userData.mumble = 1;
   setTimeout(async () => {
@@ -353,13 +367,13 @@ function submit() {
   if (G.state !== 'type' || !G.ready) return; const w = G.current.word; const typed = G.typed;
   if (typed.length < w.length) { renderSlots(typed.length); sfx('soft', .35); return; }   // not an attempt yet: show the empty slot
   G.attempt++; const correct = typed === w; const ms = Math.round(performance.now() - G.t0);
-  EV('attemptRecorded', { target: w, itemIndex: G.presented - 1, attemptNumber: G.attempt, childAction: { typed }, result: { correct, hintLevel: G.hint, ms, phase: G.current.phase } });
+  EV('attemptRecorded', { target: w, itemIndex: G.presented - 1, attemptNumber: G.attempt, childAction: { typed }, result: { correct, hintLevel: G.hint, companionHelp: G.talkHelped, ms, phase: G.current.phase } });
   log('[attempt]', w, typed, correct ? 'correct' : 'miss', 'hint=' + G.hint);
   if (correct) return success();
   miss(typed);
 }
 async function success() {
-  const w = G.current.word, independent = G.hint === 0; G.ready = false; G.state = 'feedback';
+  const w = G.current.word, independent = G.hint === 0 && !G.talkHelped;   // help from Elli's voice counts as help, like a hint G.ready = false; G.state = 'feedback';
   EV('targetCompleted', { target: w, itemIndex: G.presented - 1, result: { correct: true, independent, hintLevel: G.hint, attempts: G.attempt, phase: G.current.phase } });
   $('keys').classList.add('off'); G.streak = independent ? G.streak + 1 : 0; G.coins += independent ? 5 : 2; if (independent) G.onOwn++; refresh();
   if (G.streak >= 2) { sfx('combo', .6, 1 + G.streak * .05); big(`${G.streak} in a row!`, 900); }
@@ -449,10 +463,13 @@ function frame() {
   stageRing.material.opacity = .35 + Math.sin(t * 2) * .2; stageRing.visible = !!spirit;
   // camera: wide for play, closer on Elli while she talks, shifted up while the keyboard is open
   const z = THREE.MathUtils.clamp(3.6 / (Math.tan(THREE.MathUtils.degToRad(20)) * camera.aspect), 6.2, 10);
-  if (G.state === 'type') { camPos.set(-.05, 1.4, z - 1.15); camLook.set(-.05, .85, 0); }
+  if (G.talk) { camPos.set(-.35, 1.8, 4.6); camLook.set(-.3, 1.5, 0); elli.rotation.y += (.22 - elli.rotation.y) * Math.min(1, dt * 4); }   // she turns to Ila and the camera comes to her face
+  else if (G.state === 'type') { camPos.set(-.05, 1.4, z - 1.15); camLook.set(-.05, .85, 0); }
   else if (G.state === 'intro') { camPos.set(-.7, 1.95, z - 1.4); camLook.set(-.6, 1.45, 0); }
   else if (G.state === 'win') { camPos.set(-1.2, 2, z - 1); camLook.set(-1.4, 1.5, 0); }
   else { camPos.set(.1, 2.1, z); camLook.set(.1, 1.3, 0); }
+  if (!G.talk) elli.rotation.y += (.38 - elli.rotation.y) * Math.min(1, dt * 3);
+  if (G.talk === 'listening' && vrm) { const hp = vrm.humanoid.getNormalizedBoneNode('head').getWorldPosition(v3).project(camera); ear.style.left = ((hp.x + 1) / 2 * innerWidth + 60) + 'px'; ear.style.top = ((1 - hp.y) / 2 * innerHeight) + 'px'; }
   camera.position.lerp(camPos, Math.min(1, dt * 2.2)); curLook.lerp(camLook, Math.min(1, dt * 2.2)); camera.lookAt(curLook);
   if (!LITE || (window.__frames ?? 0) % 60 === 0) composer.render(); window.__frames = (window.__frames ?? 0) + 1;
 }
@@ -475,7 +492,41 @@ $('start').addEventListener('click', async () => {
   if (G.state !== 'title') return; G.state = 'intro'; $('title').classList.add('hidden');
   try { await AC.resume(); } catch (e) { console.warn(' 🎮 [spirit-night] [audio] [resume-failed]', e); }
   startMusic(); EV('activityStarted', { visibleState: { words: Object.keys(WORDS).length } }); log('[start]');
-  move('wave'); await say('intro'); nextItem();
+  startTalk(); move('wave'); await say('intro'); nextItem();
+});
+// ---------------- "Hey Elli": Ila talks to Elli (trial 11/11) ----------------
+const ear = $('ear'); let talk = null, endTalk = null;
+function hold() { if (!endTalk) talkIdle = new Promise(r => endTalk = r); }
+function release() { const r = endTalk; endTalk = null; r?.(); }
+function setTalk(v) { G.talk = v; ear.classList.toggle('on', v === 'listening'); $('panel').classList.toggle('talking', !!v); }   // keyboard steps aside so Ila sees Elli's face
+function startTalk() {
+  if (!window.CompanionTalk) { console.warn(' 🎮 [spirit-night] [talk] [client-missing]'); return; }
+  talk = CompanionTalk.start({
+    child: 'ila', childName: 'Ila', companion: 'elli', names: ['Elli', 'Ellie', 'Ely', 'Ally', 'Eli'],
+    isSpeaking: () => speaking,
+    getContext: () => ({
+      game: 'Spirit Night: a night festival. Sleepy spirits float in holding a picture card; Ila wakes each one by typing the word it shows. Then the Mumble Cloud boss.',
+      screen: G.state, spiritsFreed: G.friends.length, coins: G.coins,
+      word: G.current && { answer: G.current.word, pictureClue: WORDS[G.current.word].pics, lettersTypedSoFar: G.typed, lettersGiven: G.given, hintLevel: G.hint, triesOnThisWord: G.attempt, phase: G.current.phase },
+      bossHp: G.current?.phase === 'boss' ? G.bossHp : undefined,
+    }),
+    onWake() { setTalk('listening'); sfx('pop', .6); expr('happy', .6); setTimeout(() => expr('happy', 0), 900); hold(); },
+    onSleep() { setTalk(''); release(); },
+    onThinking() { hold(); setTalk('thinking'); move('ponder_moment'); },
+    async onReply({ audio }) {
+      setTalk('speaking'); if (G.state === 'type' || G.state === 'listen') G.talkHelped = true;
+      const b = await AC.decodeAudioData(audio); await playVoice(b); setTalk('listening'); release();   // the game carries on; a follow-up still works for a few seconds
+    },
+    onFollowUp() { setTimeout(() => { if (G.talk === 'listening' && !talk.awake && !talk.busy) setTalk(''); }, 7200); },
+    onError() { setTalk(''); release(); },
+  });
+  window.__talk = talk;
+}
+// tap Elli to talk (works without a microphone)
+const ray = new THREE.Raycaster(), ndc = new THREE.Vector2();
+renderer.domElement.addEventListener('pointerdown', e => {
+  if (!talk || !vrm) return; ndc.set(e.clientX / innerWidth * 2 - 1, -(e.clientY / innerHeight) * 2 + 1); ray.setFromCamera(ndc, camera);
+  if (ray.intersectObject(elli, true).length) { log('[talk] [tap]'); talk.wake(); }
 });
 $('again').addEventListener('click', () => location.reload());
 window.__g = G;

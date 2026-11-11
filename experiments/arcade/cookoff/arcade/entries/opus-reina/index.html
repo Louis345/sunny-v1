@@ -30,13 +30,18 @@ canvas{display:block}
 .btn{pointer-events:auto;font:inherit;font-size:36px;background:linear-gradient(#ffe066,#ffb300);color:#5a2a00;border:0;border-radius:18px;padding:16px 46px;box-shadow:0 8px 0 #a3410d;cursor:pointer;animation:pulse 1.2s infinite}
 @keyframes pulse{50%{transform:scale(1.06)}}
 .hidden{opacity:0;pointer-events:none}.hidden *{pointer-events:none!important}
+#ear{position:fixed;z-index:6;pointer-events:none;font-size:54px;opacity:0;transform:translate(-50%,-100%) scale(.6);transition:opacity .25s,transform .25s;filter:drop-shadow(0 0 14px #ffd77a)}
+#ear.on{opacity:1;transform:translate(-50%,-100%) scale(1);animation:earPulse 1s ease-in-out infinite}
+@keyframes earPulse{50%{transform:translate(-50%,-100%) scale(1.15)}}
 </style>
 <script type="importmap">{"imports":{
   "three":"https://cdn.jsdelivr.net/npm/three@0.183.2/build/three.module.js",
   "three/addons/":"https://cdn.jsdelivr.net/npm/three@0.183.2/examples/jsm/",
   "@pixiv/three-vrm":"https://cdn.jsdelivr.net/npm/@pixiv/three-vrm@3.5.1/lib/three-vrm.module.min.js"}}</script>
 <script src="/games/_contract.js"></script>
+<script src="/talk/talk-client.js"></script>
 </head><body>
+<div id="ear">👂</div>
 <div class="hud">
   <div class="top"><span class="pill">REINA</span><span class="pill" id="score">TAKEDOWNS 0/8</span><span class="pill gem" id="gems">◆ 0</span></div>
   <div class="card" id="card"></div>
@@ -72,10 +77,10 @@ const TASKS = [[16,4],[24,3],[18,3],[28,4],[30,5],[36,4],[42,6],[48,6]].map(([n,
 
 // ---------------- audio ----------------
 const SFX = {}; ['jump','correct','boss-roar','boom','boss','fanfare','rumble','riser','coin','hit_pop','combo','miss_thunk','on_fire','complete_fanfare','crowd-cheer','takedown','legendary','epic','tick']
-  .forEach(n => SFX[n] = `a3d/sfx/${n}.${['hit_pop','combo','miss_thunk','on_fire','complete_fanfare'].includes(n) ? 'wav' : 'mp3'}`);
+  .forEach(n => SFX[n] = `/a3d/sfx/${n}.${['hit_pop','combo','miss_thunk','on_fire','complete_fanfare'].includes(n) ? 'wav' : 'mp3'}`);
 function play(n, v = .7, rate = 1) { const a = new Audio(SFX[n]); a.volume = v; a.playbackRate = rate; a.play().catch(e => console.warn(' 🎮 [arena3d] [audio] [blocked]', n, e.message)); }
-const music = new Audio('a3d/sfx/music-loop.mp3'); music.loop = true; music.volume = .28;
-const crowdLoop = new Audio('a3d/sfx/crowd-loop.mp3'); crowdLoop.loop = true; crowdLoop.volume = .35;
+const music = new Audio('/a3d/sfx/music-loop.mp3'); music.loop = true; music.volume = .28;
+const crowdLoop = new Audio('/a3d/sfx/crowd-loop.mp3'); crowdLoop.loop = true; crowdLoop.volume = .35;
 
 // ---------------- renderer / scene ----------------
 const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
@@ -155,7 +160,7 @@ let vrm = null; const pivot = new THREE.Group(); const player = { x: -4, y: 0, v
 const bones = {};
 async function loadMatilda() {
   const loader = new GLTFLoader(); loader.register(p => new VRMLoaderPlugin(p));
-  const gltf = await loader.loadAsync('a3d/models/matilda.vrm', e => { if (e.total) $('loadTxt').textContent = `Loading Matilda… ${Math.round(e.loaded / e.total * 100)}%`; });
+  const gltf = await loader.loadAsync('/a3d/models/matilda.vrm', e => { if (e.total) $('loadTxt').textContent = `Loading Matilda… ${Math.round(e.loaded / e.total * 100)}%`; });
   vrm = gltf.userData.vrm; VRMUtils.removeUnnecessaryVertices(gltf.scene); VRMUtils.combineSkeletons?.(gltf.scene); VRMUtils.rotateVRM0(vrm);
   // MToon toon shading treats the arena's physical spotlights as overexposure; scale her lit/shade response to the arena's light level.
   const TOON = +(new URLSearchParams(location.search).get('toon') || .3); let toonCount = 0;
@@ -194,8 +199,8 @@ function retarget(clip, root) {
 let mixer = null; const acts = {}; let oneShot = null;
 async function loadClips() {
   const fbx = new FBXLoader(); const mx = new THREE.AnimationMixer(vrm.scene);
-  await Promise.all(['idle_stand', 'dance_victory', 'fireball', 'shrug'].map(async n => { const root = await fbx.loadAsync(`a3d/anim/${n}.fbx`); const raw = root.animations.find(c => c.tracks.length > 0); if (!raw) throw new Error(`no_tracks:${n}`); const clip = retarget(raw, root); acts[n] = mx.clipAction(clip); }));
-  acts.idle_stand.play(); ['dance_victory', 'fireball', 'shrug'].forEach(n => { acts[n].setLoop(THREE.LoopOnce); acts[n].clampWhenFinished = true; });
+  await Promise.all(['idle_stand', 'dance_victory', 'fireball', 'shrug', 'ponder_moment'].map(async n => { const root = await fbx.loadAsync(`/a3d/anim/${n}.fbx`); const raw = root.animations.find(c => c.tracks.length > 0); if (!raw) throw new Error(`no_tracks:${n}`); const clip = retarget(raw, root); acts[n] = mx.clipAction(clip); }));
+  acts.idle_stand.play(); ['dance_victory', 'fireball', 'shrug', 'ponder_moment'].forEach(n => { acts[n].setLoop(THREE.LoopOnce); acts[n].clampWhenFinished = true; });
   mixer = mx;   // only switch to motion capture once every clip is ready (a half-loaded mixer froze the loop)
   mixer.addEventListener('finished', e => { if (oneShot && e.action === acts[oneShot.name]) { e.action.fadeOut(.2); acts.idle_stand.reset().fadeIn(.2).play(); oneShot = null; } });
   log('[anim] [loaded]', Object.keys(acts).join(','));
@@ -206,7 +211,7 @@ function poseMatilda(dt, t) {
   const speed = Math.abs(p.vx); p.anim += dt * (4 + speed * 2.2);
   const mocap = mixer && (oneShot || (p.ground && speed < .6 && p.celebrate <= 0));
   if (mocap) { if (!oneShot && !acts.idle_stand.isRunning()) acts.idle_stand.reset().fadeIn(.2).play(); mixer.update(dt);
-    const targetRot = oneShot ? 0 : p.face * .5; pivot.rotation.y += (targetRot - pivot.rotation.y) * Math.min(1, dt * 10);
+    const targetRot = oneShot || G.talk ? 0 : p.face * .5;   // she faces Reina while they talk pivot.rotation.y += (targetRot - pivot.rotation.y) * Math.min(1, dt * 10);
     pivot.position.set(p.x, p.y, 0); const sq = p.squash || 0; pivot.scale.set(1.25 * (1 + sq * .12), 1.25 * (1 - sq * .12), 1.25 * (1 + sq * .12)); p.squash = Math.max(0, sq - dt * 6);
     const em = vrm.expressionManager; if (em) { em.setValue('happy', p.celebrate > 0 ? 1 : .25); em.setValue('surprised', p.hurt > 0 ? .8 : 0); em.setValue('blink', (t % 3.7) < .12 ? 1 : 0); }
     vrm.update(dt); return; }
@@ -300,11 +305,11 @@ let bigT; function big(s, ms = 900) { $('big').textContent = s; $('big').classLi
 let shake = 0; let hitstop = 0;
 
 // ---------------- game flow ----------------
-const G = { state: 'loading', round: 0, takedowns: 0, gems: 0, misses: 0, hint: 0, tries: 0, t0: 0 };
+const G = { state: 'loading', round: 0, takedowns: 0, gems: 0, misses: 0, hint: 0, tries: 0, t0: 0, talk: '', talkHelped: false };
 window.__g = G; window.__chest = () => chest; window.__crystals = crystals; window.__player = player; window.__tasks = TASKS;
 function questionText(t) { return t.mode === 'times' ? `${t.g} × ? = ${t.n}` : `${t.n} ÷ ${t.g} = ?`; }
 function startRound() {
-  const t = TASKS[G.round]; G.hint = 0; G.tries = 0; G.stepStart = performance.now(); t.hinted = false;
+  const t = TASKS[G.round]; G.hint = 0; G.talkHelped = false; G.tries = 0; G.stepStart = performance.now(); t.hinted = false;
   $('card').textContent = questionText(t); $('card').classList.add('show'); setJumbo(questionText(t));
   t.tried = new Set(); const ch = spawnChoices(t); dealCoins(t);
   if (t.mode === 'deal') say(`Deal ${t.n} into ${t.g} squads. How many in each?`, 2600); else if (t.mode === 'times') say('In your head this time!', 1600);
@@ -315,7 +320,7 @@ function choiceSet(t) { const pool = [t.a + 1, t.a - 1, t.a + 2, t.a - 2, t.g, t
 function spawnChoices(t) { clearCrystals(); const xs = [-4.4, -2.2, 0, 2.2]; const ch = choiceSet(t); ch.forEach((v, k) => makeCrystal(v, xs[k])); return ch; }
 function judge(c) {
   if (c.used || G.state !== 'play') return; const t = TASKS[G.round]; const ok = c.value === t.a; G.tries++;
-  EV('attemptRecorded', { target: `${t.n}÷${t.g}`, attemptNumber: G.tries, childAction: { chose: c.value }, result: { correct: ok, hintLevel: G.hint, ms: Math.round(performance.now() - G.stepStart) } });
+  EV('attemptRecorded', { target: `${t.n}÷${t.g}`, attemptNumber: G.tries, childAction: { chose: c.value }, result: { correct: ok, hintLevel: G.hint, companionHelp: G.talkHelped, ms: Math.round(performance.now() - G.stepStart) } });
   if (ok) correct(c, t); else wrong(c, t);
 }
 function correct(c, t) {
@@ -327,10 +332,10 @@ function correct(c, t) {
 function hitFoe(t) {
   const u = foe.userData; play('takedown', .9); play('crowd-cheer', .7); shake = .5; ring(foe.position.x, 0xff5a70); confettiBurst(t.boss ? 60 : 30, foe.position.x, 8, 4);
   if (u.kind === 'boss' && --u.hp > 0) { u.vx = 2.2; u.vy = 3; u.vr = -1.5; u.stagger = 1; $('bossfill').style.width = (u.hp / 2 * 100) + '%'; big('HIT!'); play('boss', .7);
-    G.takedowns++; refresh(); EV('targetCompleted', { target: `${t.n}÷${t.g}`, result: { correct: true } }); next(1600); return; }
+    G.takedowns++; refresh(); EV('targetCompleted', { target: `${t.n}÷${t.g}`, result: { correct: true, companionHelp: G.talkHelped } }); next(1600); return; }
   if (u.kind === 'boss') { $('bossfill').style.width = '0%'; }
   u.down = true; u.vx = 7; u.vy = 6; u.vr = -9; big(['TAKEDOWN!', 'すごい!', 'PINNED!', 'やった!'][G.round % 4]);
-  G.takedowns++; refresh(); EV('targetCompleted', { target: `${t.n}÷${t.g}`, result: { correct: true } });
+  G.takedowns++; refresh(); EV('targetCompleted', { target: `${t.n}÷${t.g}`, result: { correct: true, companionHelp: G.talkHelped } });
   say(['Takedown!', 'すごい! Next opponent!', 'Too fast for them!', 'やった!'][G.round % 4]);
   if (G.round >= TASKS.length - 1) { G.state = 'chest'; setTimeout(dropChest, 1300); return; }
   next(1700);
@@ -438,6 +443,7 @@ function frame() { window.__frames++;
   camera.lookAt(camera.position.x, 1.9 + p.y * .1, 0);
   if (chest?.landed) { const k = Math.min(1, dt * 2.5); camera.position.x += (chest.g.position.x - 1 - camera.position.x) * k; camera.position.z += (8.5 - camera.position.z) * k; camera.position.y += (2.6 - camera.position.y) * k; camera.lookAt(camera.position.x + .6, 1.3, 0); }
   if (window.__camOverride) { const o = window.__camOverride; camera.position.set(o[0], o[1], o[2]); camera.lookAt(o[3], o[4], o[5]); }
+  talkFrame(dt);
   poseMatilda(dt, t);
   if (!LITE || window.__frames % 60 === 0) composer.render();   // lite lab runs: full game logic, occasional draws
 }
@@ -459,5 +465,54 @@ loadMatilda().then(warmUp).then(() => { $('loadTxt').textContent = 'Reina vs. th
 function begin() { if (G.state !== 'title') return; $('title').classList.add('hidden'); G.state = 'play'; G.t0 = performance.now(); music.play().catch(e => console.warn(' 🎮 [arena3d] [music] [blocked]', e.message)); crowdLoop.play().catch(e => console.warn(' 🎮 [arena3d] [crowd] [blocked]', e.message));
   play('riser', .6); big('READY… WRESTLE!', 1200); EV('activityStarted', {}); log('[start]'); setTimeout(startRound, 900); }
 $('start').addEventListener('click', begin); window.__begin = begin;
+// ---------------- "Hey Matilda": Reina talks to Matilda (trial 11/11) ----------------
+const ear = $('ear'); let talk = null, AC = null, analyser = null, talkSpeaking = false; const lipBuf = new Float32Array(1024); const talkV = new THREE.Vector3();
+function setTalk(v) { G.talk = v; ear.classList.toggle('on', v === 'listening'); }
+let talkBlend = 0; const talkCam = new THREE.Vector3(), talkLook = new THREE.Vector3(), baseLook = new THREE.Vector3();
+function talkFrame(dt) {   // the arena camera is rebuilt every frame; blend from it toward Matilda's face while she and Reina talk
+  talkBlend += ((G.talk ? 1 : 0) - talkBlend) * Math.min(1, dt * 3);
+  let mouth = 0; if (talkSpeaking && analyser) { analyser.getFloatTimeDomainData(lipBuf); let s2 = 0; for (let i = 0; i < lipBuf.length; i += 4) s2 += lipBuf[i] * lipBuf[i]; mouth = Math.min(1, Math.sqrt(s2 / (lipBuf.length / 4)) * 9); }
+  try { vrm?.expressionManager?.setValue('aa', mouth); } catch { /* model without aa */ }
+  if (talkBlend > .002) { const p = player; baseLook.set(camera.position.x, 1.9 + p.y * .1, 0);
+    talkCam.set(p.x + .9, 2.35 + p.y, 5.4); talkLook.set(p.x + .35, 1.95 + p.y, 0);
+    camera.position.lerp(talkCam, talkBlend); camera.lookAt(baseLook.lerp(talkLook, talkBlend)); }
+  if (G.talk === 'listening' && vrm) { const hp = vrm.humanoid.getNormalizedBoneNode('head').getWorldPosition(talkV).project(camera); ear.style.left = ((hp.x + 1) / 2 * innerWidth + 60) + 'px'; ear.style.top = ((1 - hp.y) / 2 * innerHeight) + 'px'; }
+}
+async function playReply(bytes) {
+  try {
+    const b = await AC.decodeAudioData(bytes); const src = AC.createBufferSource(); src.buffer = b; src.connect(analyser);
+    music.volume = .08; crowdLoop.volume = .1; talkSpeaking = true;
+    await new Promise(res => { src.onended = res; src.start(); });
+  } catch (e) { console.error(' 🎮 [arena3d] [talk] [play-failed]', e); }
+  finally { talkSpeaking = false; music.volume = .28; crowdLoop.volume = .35; }
+}
+function startTalk() {
+  if (!window.CompanionTalk) { console.warn(' 🎮 [arena3d] [talk] [client-missing]'); return; }
+  try { AC = new AudioContext(); analyser = AC.createAnalyser(); analyser.fftSize = 1024; analyser.connect(AC.destination); AC.resume().catch(e => console.warn(' 🎮 [arena3d] [talk] [resume-failed]', e)); }
+  catch (e) { console.error(' 🎮 [arena3d] [talk] [audio-failed]', e); return; }
+  talk = CompanionTalk.start({
+    child: 'reina', childName: 'Reina', companion: 'matilda', names: ['Matilda', 'Mathilda', 'Tilda'],
+    isSpeaking: () => talkSpeaking,
+    getContext: () => { const t = TASKS[G.round]; return {
+      game: 'Squad Gym: a wrestling arena. Reina moves Matilda and jumps to punch the crystal with the right answer; a right answer is a takedown on the foe. 8 takedowns, a boss, then a chest.',
+      screen: G.state, takedowns: G.takedowns, misses: G.misses,
+      problem: t && { shown: questionText(t), answer: t.a, mode: t.mode === 'deal' ? 'share equally: deal the total into squads' : t.mode === 'times' ? 'missing factor, in her head' : t.mode,
+        crystalsOnScreen: crystals.filter(c => !c.used).map(c => c.value), alreadyTriedWrong: t.tried ? [...t.tried] : [], hintLevel: G.hint, triesThisProblem: G.tries, boss: !!t.boss } }; },
+    onWake() { setTalk('listening'); play('hit_pop', .5, 1.4); },
+    onSleep() { setTalk(''); },
+    onThinking() { setTalk('thinking'); playOnce('ponder_moment', 1.6); },
+    async onReply({ text, audio }) { setTalk('speaking'); if (G.state === 'play') G.talkHelped = true; say(text, 6000); await playReply(audio); setTalk('listening'); },
+    onFollowUp() { setTimeout(() => { if (G.talk === 'listening' && !talk.awake && !talk.busy) setTalk(''); }, 7200); },
+    onError() { setTalk(''); },
+  });
+  window.__talk = talk;
+}
+// tap Matilda to talk (works without a microphone)
+const ray = new THREE.Raycaster(), ndc = new THREE.Vector2();
+renderer.domElement.addEventListener('pointerdown', e => {
+  if (!talk || !vrm) return; ndc.set(e.clientX / innerWidth * 2 - 1, -(e.clientY / innerHeight) * 2 + 1); ray.setFromCamera(ndc, camera);
+  if (ray.intersectObject(pivot, true).length) { log('[talk] [tap]'); talk.wake(); }
+});
+$('start').addEventListener('click', () => { if (!talk) startTalk(); });
 $('again').addEventListener('click', () => location.reload());
 </script></body></html>
