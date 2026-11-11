@@ -1722,16 +1722,16 @@ function App() {
     if (plannerBoardIframeCompletionKeyRef.current === key) return;
     plannerBoardIframeCompletionKeyRef.current = key;
     const homeworkId = plannerBoardPacket?.childChart.learningCycle?.homeworkId;
-    const write = async () => {
+    const written = (async () => {
       if (!adventureChildId) throw new Error("canonical_completion_missing_child");
       await discoveryCompletionCoordinatorRef.current.flushForExit();
       return hasCanonicalLearningCycle(plannerBoardPacket) && homeworkId
         ? postCanonicalNodeCompletion({ childId: adventureChildId, homeworkId, nodeId: launch.node.id, completionId: launch.completionId, result: {...payload,launchToken:launch.completionId,voiceSessionId:state.voiceSessionId} })
         : null;
-    };
-    const written = write();
+    })();
+    const write = () => written;
     plannerBoardCompletionWriteRef.current = { key, written };
-    void written.then(async completion => {
+    void write().then(async completion => {
       try {
         await refreshPlannerBoardPacket();
       } catch (error) {
