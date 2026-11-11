@@ -629,6 +629,7 @@ function App() {
     iframeUrl: string | null;
     replayNonce: number;
     completionId: string;
+    launchedAt: number;
   } | null>(null);
   // Beating the Boss drops loot: the saved server roll, shown once per completion reply.
   const [bossDrop, setBossDrop] = useState<{ tier: "common" | "rare" | "epic" | "legendary"; coins: number } | null>(null);
@@ -1249,6 +1250,7 @@ function App() {
         iframeUrl: action.kind === "iframe" ? `${action.url}${action.url.includes("?") ? "&" : "?"}launchToken=${encodeURIComponent(completionId)}` : null,
         replayNonce,
         completionId,
+        launchedAt: Date.now(),
       });
       return true;
     },
@@ -1726,7 +1728,7 @@ function App() {
       if (!adventureChildId) throw new Error("canonical_completion_missing_child");
       await discoveryCompletionCoordinatorRef.current.flushForExit();
       return hasCanonicalLearningCycle(plannerBoardPacket) && homeworkId
-        ? postCanonicalNodeCompletion({ childId: adventureChildId, homeworkId, nodeId: launch.node.id, completionId: launch.completionId, result: {...payload,launchToken:launch.completionId,voiceSessionId:state.voiceSessionId} })
+        ? postCanonicalNodeCompletion({ childId: adventureChildId, homeworkId, nodeId: launch.node.id, completionId: launch.completionId, launchedAt: launch.launchedAt, result: {...payload,launchToken:launch.completionId,voiceSessionId:state.voiceSessionId} })
         : null;
     })();
     const write = () => written;
