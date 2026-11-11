@@ -121,7 +121,7 @@ async function loadMatilda() {
   const TOON = +(new URLSearchParams(location.search).get('toon') || .3); let toonCount = 0;
   vrm.scene.traverse(o => { if (o.isMesh) { o.castShadow = true; o.frustumCulled = false;
     (Array.isArray(o.material) ? o.material : [o.material]).forEach(m => { if (m.isMToonMaterial) { m.color?.multiplyScalar(TOON); m.shadeColorFactor?.multiplyScalar(TOON); toonCount++; } }); } });
-  log('[vrm] [toon-scaled]', toonCount); vrm.scene.rotation.y = Math.PI; pivot.add(vrm.scene); scene.add(pivot); window.__vrm = vrm; window.__cam = camera;
+  log('[vrm] [toon-scaled]', toonCount); vrm.scene.rotation.y = String(vrm.meta?.metaVersion ?? "").startsWith("0") ? Math.PI : 0; pivot.add(vrm.scene); scene.add(pivot); window.__vrm = vrm; window.__cam = camera;
   ['hips','spine','chest','neck','head','leftUpperArm','rightUpperArm','leftLowerArm','rightLowerArm','leftUpperLeg','rightUpperLeg','leftLowerLeg','rightLowerLeg']
     .forEach(n => bones[n] = vrm.humanoid.getNormalizedBoneNode(n));
   log('[vrm] [loaded]', vrm.meta?.name || vrm.meta?.title || 'matilda');

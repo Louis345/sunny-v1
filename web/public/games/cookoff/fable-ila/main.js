@@ -388,7 +388,7 @@ async function init3D(hook){
     VRMUtils.removeUnnecessaryVertices(gltf.scene);VRMUtils.combineSkeletons?.(gltf.scene);VRMUtils.rotateVRM0(v);
     v.scene.traverse(o=>{if(o.isMesh){o.castShadow=true;o.frustumCulled=false;
       [].concat(o.material).forEach(m=>{if(m.isMToonMaterial){m.color?.multiplyScalar(.3);m.shadeColorFactor?.multiplyScalar(.3);}});}});
-    const pivot=new THREE.Group();v.scene.rotation.y=Math.PI;pivot.add(v.scene);pivot.position.set(EX,0,EZ);pivot.rotation.y=.28;scene.add(pivot);
+    const pivot=new THREE.Group();v.scene.rotation.y=String(v.meta?.metaVersion??"").startsWith("0")?Math.PI:0;pivot.add(v.scene);pivot.position.set(EX,0,EZ);pivot.rotation.y=.28;scene.add(pivot);
     vrm=v;armsDown(v);
     const names={idle:'idle_stand',wave:'wave',think:'think',fireball:'fireball',jump:'surprise_jump',dance:'dance_victory',talk:'talking'};
     const fbx=new FBXLoader(),loaded={};

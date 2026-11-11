@@ -306,7 +306,7 @@ async function loadMatilda() {
   VRMUtils.removeUnnecessaryVertices(gltf.scene); VRMUtils.combineSkeletons?.(gltf.scene); VRMUtils.rotateVRM0(vrm);
   vrm.scene.traverse(o => { if (o.isMesh) { o.castShadow = true; o.frustumCulled = false;
     [].concat(o.material).forEach(m => { if (m.isMToonMaterial) { m.color?.multiplyScalar(.3); m.shadeColorFactor?.multiplyScalar(.3); } }); } });
-  const pivot = new THREE.Group(); vrm.scene.rotation.y = Math.PI; pivot.add(vrm.scene);
+  const pivot = new THREE.Group(); vrm.scene.rotation.y = String(vrm.meta?.metaVersion ?? "").startsWith("0") ? Math.PI : 0; pivot.add(vrm.scene);
   pivot.position.set(-2, 2.18, 5.59); pivot.scale.setScalar(1.7); pivot.rotation.y = .45;
   const names = { idle: 'idle_stand', fireball: 'fireball', dance: 'dance_victory', wave: 'wave', jump: 'surprise_jump', think: 'thinking_2' }, clips = {}, fbx = new FBXLoader();
   await Promise.all(Object.entries(names).map(async ([k, f]) => { try { const root = await fbx.loadAsync('/animations/' + f + '.fbx'); const raw = root.animations.find(c => c.tracks.length > 0); if (raw) clips[k] = retarget(vrm, raw, root); } catch (e) { console.warn('anim', f, e); } }));

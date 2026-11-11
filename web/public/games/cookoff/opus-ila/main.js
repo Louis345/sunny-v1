@@ -197,7 +197,7 @@ async function loadElli() {
   const gltf = await SL.loadCompanion(loader, e => { if (e.total) $('loadTxt').textContent = `${companionName || 'Your friend'} is coming… ${Math.round(e.loaded / e.total * 100)}%`; });
   vrm = gltf.userData.vrm; VRMUtils.removeUnnecessaryVertices(gltf.scene); VRMUtils.combineSkeletons?.(gltf.scene); VRMUtils.rotateVRM0(vrm);
   vrm.scene.traverse(o => { if (o.isMesh) { o.castShadow = true; o.frustumCulled = false; [].concat(o.material).forEach(m => { if (m.isMToonMaterial) { m.color?.multiplyScalar(.36); m.shadeColorFactor?.multiplyScalar(.36); } }); } });
-  vrm.scene.rotation.y = Math.PI; vrm.scene.scale.setScalar(1.3); elli.add(vrm.scene); elli.rotation.y = .38;
+  vrm.scene.rotation.y = String(vrm.meta?.metaVersion ?? "").startsWith("0") ? Math.PI : 0; vrm.scene.scale.setScalar(1.3); elli.add(vrm.scene); elli.rotation.y = .38;
   if (vrm.lookAt) vrm.lookAt.target = camera;
   const fbx = new FBXLoader(); const mx = new THREE.AnimationMixer(vrm.scene);
   await Promise.all(CLIPS.map(async n => { const root = await fbx.loadAsync(`/animations/${n}.fbx`); const raw = root.animations.find(c => c.tracks.length > 0); if (!raw) throw new Error('no_tracks:' + n); acts[n] = mx.clipAction(retarget(raw, root)); }));
