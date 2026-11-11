@@ -40,6 +40,8 @@ export type CompanionVideoCallOverlayProps = {
   activitySlot?: ReactNode;
   /** Width the mounted activity asks for; falls back to the compact default. */
   activityTrayWidthPx?: number;
+  /** A game is playing in the tray: give it most of the screen (a game in a 150px-high frame was clipped, 2026-11-11). */
+  activityTrayGame?: boolean;
   layout?: CompanionVideoCallLayout;
   companionView?: CompanionVideoCompanionView;
   handsFree?: boolean;
@@ -82,6 +84,7 @@ export function CompanionVideoCallOverlay({
   portrait,
   activitySlot,
   activityTrayWidthPx,
+  activityTrayGame = false,
   layout,
   companionView,
   handsFree = false,
@@ -596,9 +599,10 @@ export function CompanionVideoCallOverlay({
                   transform: "none",
                   transformOrigin: "center center",
                   zIndex: 4,
-                  width: `min(46vw, ${activityTrayWidthPx ?? 300}px)`,
+                  width: activityTrayGame ? "min(64vw, 1100px)" : `min(46vw, ${activityTrayWidthPx ?? 300}px)`,
                   minWidth: 250,
-                  maxWidth: activityTrayWidthPx ?? 300,
+                  maxWidth: activityTrayGame ? 1100 : activityTrayWidthPx ?? 300,
+                  ...(activityTrayGame ? { height: "min(calc(100vh - 230px), 760px)", gridTemplateRows: "100%", gridTemplateColumns: "100%" } : {}),
                   maxHeight: "calc(100vh - 190px)",
                   display: "grid",
                   placeItems: "center",

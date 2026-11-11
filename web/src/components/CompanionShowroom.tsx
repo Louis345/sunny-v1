@@ -8098,6 +8098,7 @@ export function CompanionShowroom({
 	            onLoadSettled={noopShowroomSlotSettled}
 	          />
 	        }
+	        activityTrayGame={Boolean(callGames.playing)}
 	        activityTrayWidthPx={
 	          callGames.open ? 680 : generatedBonusUrl
 	            ? undefined
@@ -8107,7 +8108,7 @@ export function CompanionShowroom({
 	        }
 	        activitySlot={
           callGames.playing ? (
-            <div style={{ position: "relative", width: "100%", height: "100%" }}>
+            <div style={{ position: "relative", width: "100%", height: "100%", alignSelf: "stretch", justifySelf: "stretch" }}>
               <iframe title={callGames.playing.name} src={`/games/${callGames.playing.file}?child=${encodeURIComponent(talkChildId)}`}
                 style={{ width: "100%", height: "100%", border: 0, borderRadius: 12 }} />
               <button type="button" aria-label="Back to games" onClick={() => setCallGames(state => ({ ...state, playing: null }))}
