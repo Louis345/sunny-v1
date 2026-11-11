@@ -15,6 +15,7 @@ const samples: Record<FactType, Record<string, unknown>> = {
     'plan.decided': { assignmentId: 'a', decisionIndex: 1, action: 'collect_evidence', evaluationIds: ['eval'], responseIds: ['response'] },
     'readiness.forecast': { assignmentId: 'a', probabilities: [{ word: 'able', pCorrect: 0.5 }], uncertainty: 'unknown', missingEvidence: [], responseIds: ['response'] },
     'school_test.recorded': { assignmentId: 'a', testDate: '2026-10-09', photoHash: 'a'.repeat(64), results: [{ word: 'able', correct: true, writtenResponse: null }] },
+    'learner.hypothesis': { hypothesisId: 'h', claim: 'She drops silent letters on a new list.', decisionIds: [], formedInAssignmentId: 'a', scope: { patterns: ['spelling.silent_letters'], words: [] }, metric: 'first_try_unassisted', expected: { min: 0, max: 0.5 }, falsifier: 'Most right on two new lists.', horizonDays: 42 },
     'correction.recorded': { target_event_id: 'target', reason: 'typo', replacement_payload: { displayName: 'New' } },
 };
 describe.each(Object.entries(samples) as [

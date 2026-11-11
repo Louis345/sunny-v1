@@ -23,6 +23,14 @@ export const schemas = {
     'response.observed': z.strictObject({ ...aid, sourceResponseId:text.optional(), sessionId: text, itemId: text, attempt: z.number().int().min(1), rawResponse: z.string().max(4096).nullable(), status: z.enum(['answered', 'unknown', 'skipped', 'ambiguous']), support: z.strictObject({ audioReplays: z.number().int().min(0).nullable(), spellingShown: z.boolean().nullable(), hint: z.boolean().nullable(), companionHelp: z.boolean().nullable() }) }).refine(p => p.status !== 'answered' || p.rawResponse !== null, 'answered response requires captured text'),
     'plan.decided': z.strictObject({ ...aid, decisionIndex: z.number().int().min(1), action: z.enum(['targeted_practice', 'collect_evidence', 'await_calibration']), evaluationIds: strings.min(1), responseIds: strings.min(1), program: teachingProgram.optional() }),
     'readiness.forecast': z.strictObject({ ...aid, scheduledTestDate:date.nullable().optional(), scheduleFactId:text.nullable().optional(), probabilities: z.array(z.strictObject({ word, pCorrect: probability })).min(1).max(1000), uncertainty: text, missingEvidence: strings, responseIds: strings.min(1) }),
+    // A cross-week claim about how she learns (teaching-record spec, Phase 2). The evidence query is closed and
+    // code-owned: words and/or frozen pattern tags, one metric, an expected range. Code scores it; the claim never changes.
+    'learner.hypothesis': z.strictObject({ hypothesisId: text, claim: text, decisionIds: strings, formedInAssignmentId: text,
+        scope: z.strictObject({ patterns: z.array(z.enum(PATTERN_IDS)).max(PATTERN_IDS.length).refine(a => new Set(a).size === a.length), words: z.array(word).max(200).refine(a => new Set(a).size === a.length) })
+            .refine(s => s.patterns.length + s.words.length > 0, 'a claim names words or patterns'),
+        metric: z.enum(['first_try_unassisted', 'school_test']),
+        expected: z.strictObject({ min: probability, max: probability }).refine(e => e.min <= e.max, 'expected min <= max'),
+        falsifier: text, horizonDays: z.number().int().min(7).max(365) }),
     'school_test.recorded': z.strictObject({ ...aid, testDate: date, photoHash: hash, sourceKind: z.enum(['image','parent_transcription']).optional(), results: z.array(z.strictObject({ word, correct: z.boolean(), writtenResponse: z.string().max(4096).nullable() })).min(1).max(1000) }),
     // Replacement schema is validated against the target type inside the transaction.
     'correction.recorded': z.strictObject({ target_event_id: text, reason: text, replacement_payload: z.record(z.string(), z.unknown()) }),
@@ -39,6 +47,7 @@ export const actors: Record<FactType, readonly string[]> = {
     'child.profile_set': ['parent'], 'assignment.ingested': ['system'], 'words.tagged': ['planner'],
     'prediction.prior': ['planner'], 'item.presented': ['system'], 'response.observed': ['system'],
     'plan.decided': ['planner'], 'readiness.forecast': ['planner'], 'school_test.recorded': ['parent'],
+    'learner.hypothesis': ['planner'],
     'correction.recorded': ['parent', 'system'],
 };
 /** Profiles retain caller IDs so a parent can record multiple distinct profile revisions. */
@@ -71,6 +80,9 @@ export function factId(type: FactType, p: Record<string, unknown>): string {
             break;
         case 'correction.recorded':
             key = [p.target_event_id, p.replacement_payload];
+            break;
+        case 'learner.hypothesis':
+            key = p.hypothesisId;
             break;
         case 'child.profile_set':
             key = p;
