@@ -491,6 +491,10 @@ export function isItemIntakeMathCycle(cycle: Pick<LearningCycleRecordV2, "domain
   return cycle.domain === "math" && cycle.nodes.some((node) => node.implementationType === "generated-game" && Object.keys(node.evidenceContract.itemContracts ?? {}).length > 0);
 }
 
+/** A stop whose build was cut off before any answer arrived (the kiosk restarted mid-build). */
+export const CUT_OFF_STOP_REASON = "successor_node_failed:provider_outcome_uncertain:";
+const paidRetryReasonPrefix = (nodeId: string) => `One paid rebuild approved for cut-off stop ${nodeId}:`;
+
 /** Blocks an operator may retry: a truncated answer, a decision blocked by the since-fixed
  * stage-changed bug (a retry collided with its own saved turns; fixed 2026-10-25), a request
  * whose connection dropped before any answer arrived (2026-11-04), or an item-intake math cycle whose
@@ -710,6 +714,8 @@ export type LearningCycleEvent =
   | { type: "artifact_rejected"; nodeId: string; reason: string }
   | { type: "artifact_generation_attention_required"; nodeId: string; reason: string; notReady?: boolean }
   | { type: "not_ready_rerun_builtin"; nodeId: string; builtInActivityId: string }
+  | { type: "not_ready_paid_retry_authorized"; nodeId: string; reason: string }
+  | { type: "not_ready_paid_retry_failed"; nodeId: string; reason: string }
   | { type: "engagement_theory_updated"; theory: EngagementTheory; reason: string }
   | { type: "graded_work_received"; calibration: LearningCycleCalibration }
   | {
@@ -1982,6 +1988,22 @@ export function transitionLearningCycle(
     const owner = boardOwningNode(next, node.nodeId)!;
     owner.topologyHash = boardTopologyHash(next, owner);
     reason = `Not ready step ${node.nodeId} re-runs the tested built-in ${source.nodeId}.`;
+  } else if (event.type === "not_ready_paid_retry_authorized") {
+    // A person approves one paid rebuild of a stop whose build was cut off (owner, 2026-11-11). The approval is
+    // recorded before any purchase; the stop stays Not ready until the rebuild binds, and it can never be approved twice.
+    const node = nodeOrThrow(next, event.nodeId);
+    if (!node.notReadyReason?.startsWith(CUT_OFF_STOP_REASON) || node.artifactBinding || !next.boards
+      || !currentBoardInstance(next).nodeIds.includes(node.nodeId) || !event.reason.trim()
+      || current.decisionHistory.some(row => row.eventType === "not_ready_paid_retry_authorized" && row.reason.startsWith(paidRetryReasonPrefix(node.nodeId)))) {
+      throw new Error(`cut_off_stop_retry_not_eligible:${node.nodeId}`);
+    }
+    node.notReadyReason = `paid_retry_in_progress:r${current.revision + 1}`;
+    reason = `${paidRetryReasonPrefix(node.nodeId)} ${event.reason.trim()}`;
+  } else if (event.type === "not_ready_paid_retry_failed") {
+    const node = nodeOrThrow(next, event.nodeId);
+    if (!node.notReadyReason?.startsWith("paid_retry_in_progress:") || node.artifactBinding) throw new Error(`cut_off_stop_retry_not_in_progress:${node.nodeId}`);
+    node.notReadyReason = `successor_node_failed:${event.reason}`;
+    reason = `The one approved rebuild of node=${node.nodeId} failed; it stays Not ready.`;
   } else if (event.type === "owner_replan_requested") {
     if (!["board_ready", "baseline_ready", "baseline_active"].includes(current.lifecycle) || !current.boards?.length
       || preparingBoardInstance(current) || !event.reason.trim()) throw new Error("owner_replan_not_eligible");

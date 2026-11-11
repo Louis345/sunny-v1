@@ -19,6 +19,7 @@ import {
 } from "./directMathExperience";
 import { engagementTheoryEvidenceContext } from "./engagementTheory";
 import {
+  CUT_OFF_STOP_REASON,
   getLearningCycle,
   transitionLearningCycle,
   type LearningCycleNodeContract,
@@ -508,6 +509,83 @@ export function repairNotReadyActivities(
       return { nodeId, repaired: false, reason: error instanceof Error ? error.message : String(error) };
     }
   });
+}
+
+/**
+ * One person-approved paid rebuild of a built-game stop whose build was cut off (owner, 2026-11-11), like the
+ * next-board question retry of 2026-11-04. The approval is recorded first, the cut-off receipts are set aside
+ * (never deleted), and the stop is rebuilt once through the board's own builder. A failure keeps it Not ready.
+ */
+export async function retryCutOffStop(
+  input: { childId: string; homeworkId: string; nodeId: string; reason: string; client?: SpellingGameClient },
+  opts: LearningCycleRepositoryOptions = {},
+): Promise<{ cycle: LearningCycleRecordV2; rebuilt: boolean; failure?: string; setAside: string[]; setAsideDir?: string }> {
+  const rootDir = opts.rootDir ?? process.cwd();
+  const log = (action: string, result: string, detail: string) => console.log(` 🎮 [board] [${action}] [${result}] child=${input.childId} homework=${input.homeworkId} node=${input.nodeId}${detail ? ` ${detail}` : ""}`);
+  const cycle = getLearningCycle(input.childId, input.homeworkId, opts);
+  if (!cycle) throw new Error(`learning_cycle_missing:${input.homeworkId}`);
+  const node = cycle.nodes.find(candidate => candidate.nodeId === input.nodeId);
+  const draftDir = node ? qualityDiagnosticsDir(rootDir, cycle, node) : "";
+  const receipts = path.join(draftDir, "provider-receipts");
+  // The reason names the cut-off receipt by its absolute path (node IDs hold colons), so only its file name is read.
+  const receiptName = node?.notReadyReason?.startsWith(CUT_OFF_STOP_REASON) ? /provider-receipts\/([a-f0-9]{64}\.json)/.exec(node.notReadyReason)?.[1] : undefined;
+  const cutOffReceipt = receiptName ? path.join(receipts, receiptName) : "";
+  const cutOffStatus = cutOffReceipt && fs.existsSync(cutOffReceipt) ? (JSON.parse(fs.readFileSync(cutOffReceipt, "utf8")) as { status?: string }).status : undefined;
+  const refusal = !node ? "no_such_node"
+    : !cycle.boards || !currentBoardInstance(cycle).nodeIds.includes(node.nodeId) ? "not_on_current_board"
+    : !node.notReadyReason?.startsWith(CUT_OFF_STOP_REASON) ? `not_ready_reason_is_not_provider_outcome_uncertain:${node.notReadyReason ?? "ready"}`
+    : node.artifactBinding ? "already_bound"
+    : node.implementationType !== "generated-game" || node.reusedFrom || node.libraryGame || !node.generationPrompt ? `not_a_built_game:${node.implementationType ?? "none"}`
+    : !["in_flight", "outcome_uncertain"].includes(cutOffStatus ?? "") ? `cut_off_receipt_not_uncertain:${cutOffStatus ?? "missing"}:${cutOffReceipt}`
+    : !input.reason.trim() ? "reason_required" : "";
+  if (refusal) {
+    log("retry-cut-off-stop", "refused", `reason=${refusal}`);
+    throw new Error(`cut_off_stop_retry_not_eligible:${input.nodeId}:${refusal}`);
+  }
+  const lease = acquireMathGenerationLease({ rootDir: opts.rootDir, childId: input.childId, homeworkId: input.homeworkId });
+  if (!lease.acquired || !lease.token) {
+    log("retry-cut-off-stop", "refused", "reason=another_build_is_running");
+    throw new Error(`cut_off_stop_retry_not_eligible:${input.nodeId}:another_build_is_running`);
+  }
+  try {
+    // The approval is durable before any purchase: a crash from here on leaves the stop Not ready and never re-approvable.
+    let current = transitionLearningCycle(input.childId, input.homeworkId, cycle.revision, { type: "not_ready_paid_retry_authorized", nodeId: input.nodeId, reason: input.reason }, opts);
+    log("retry-cut-off-stop", "approved", `revision=${current.revision} cut_off_receipt=${cutOffReceipt}`);
+    // The cut-off build's receipts and request diagnostics are set aside, never deleted, so the builder starts fresh.
+    const setAsideDir = path.join(draftDir, "superseded", `paid-retry-r${current.revision}`);
+    const setAside: string[] = [];
+    for (const folder of ["provider-receipts", "provider-diagnostics"]) {
+      const from = path.join(draftDir, folder);
+      if (!fs.existsSync(from)) continue;
+      fs.mkdirSync(path.join(setAsideDir, folder), { recursive: true });
+      for (const name of fs.readdirSync(from)) {
+        const to = path.join(setAsideDir, folder, name);
+        fs.renameSync(path.join(from, name), to);
+        setAside.push(to);
+        log("retry-cut-off-stop", "set-aside", `from=${path.join(from, name)} to=${to}`);
+      }
+    }
+    const pending = current.nodes.find(candidate => candidate.nodeId === input.nodeId)!;
+    let failure = "";
+    try {
+      log("retry-cut-off-stop", "building", "attempts=1 paid=true");
+      const next = await prepareGeneratedSpellingGame({ cycle: current, node: pending, client: input.client ?? prebuiltGameClient(input.childId, input.homeworkId, pending.nodeId, opts), draftDir }, opts);
+      if (next.revision === current.revision) failure = latestQualityFailure(rootDir, current, pending) ?? "human_review_required";
+      else current = next;
+    } catch (error) {
+      failure = error instanceof Error ? error.message : String(error);
+      current = getLearningCycle(input.childId, input.homeworkId, opts)!;
+    }
+    if (failure) {
+      current = transitionLearningCycle(input.childId, input.homeworkId, current.revision, { type: "not_ready_paid_retry_failed", nodeId: input.nodeId, reason: failure }, opts);
+      log("retry-cut-off-stop", "still-not-ready", `reason=${failure}`);
+      return { cycle: current, rebuilt: false, failure, setAside, setAsideDir };
+    }
+    log("retry-cut-off-stop", "rebuilt", `revision=${current.revision} artifact=${current.nodes.find(candidate => candidate.nodeId === input.nodeId)?.artifactBinding?.localArtifactPath}`);
+    return { cycle: current, rebuilt: true, setAside, setAsideDir };
+  } finally {
+    releaseMathGenerationLease({ rootDir: opts.rootDir, childId: input.childId, homeworkId: input.homeworkId, token: lease.token });
+  }
 }
 
 /**

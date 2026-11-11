@@ -66,6 +66,7 @@
     "sunny:child:facts": "npx tsx src/scripts/setChildFacts.ts",
     "sunny:subject": "npx tsx src/scripts/selectSubject.ts",
     "sunny:board:repair-not-ready": "npx tsx src/scripts/repairNotReadyActivities.ts",
+    "sunny:board:retry-cut-off-stop": "npx tsx src/scripts/retryCutOffStop.ts",
     "sunny:session:audit": "npx tsx src/scripts/auditSessionDirectory.ts",
     "sunny:spelling:certify": "npx tsx src/scripts/certifySpellingAdaptation.ts",
     "sunny:lab:spelling": "npx tsx src/scripts/runSyntheticChildLab.ts",
