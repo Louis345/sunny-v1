@@ -1,0 +1,119 @@
+<!-- DESIGN CARD
+title: Spirit Night
+genre / core loop (one sentence): At a Japanese night festival, Ila and Elli free sleepy word-spirits: Elli says the word in a fresh sentence, Ila spells it from memory, and each freed spirit becomes a glowing friend that orbits Elli, ending in a co-op boss where every word she spells powers their shared beam.
+why this child (3 facts from her files this design uses): (1) 100% with pictures vs 37.5% without, so every spirit carries a picture card of its word's meaning; (2) "wait until I say Go" works and rushing is her biggest enemy, so the keys light up only after Elli's "Ready… go!" and everything calms while she types; (3) she loves spooky-friendly spirits (the Kitarō feeling), silliness and teaching Elli Japanese, so the world is friendly yokai at a matsuri, and Elli cheers in Japanese.
+learning: each item is heard (word, then a fresh sentence, then the word) and typed from memory, with the answer never on screen. A miss lights the exact slot that went wrong. Hint 1 is a felt cue for her real error (pardon: the throat buzz for d; carnivore: three beats, in order; charge: check the last letter slowly; dormant: two sleepy beats). Hint 2 reveals the first beat. Hint 3 shows the word to copy, and that word returns later for unaided retrieval after a gap. The boss round re-retrieves all 4 words after a gap.
+replayability bet: every run's spirits get new colors and accessories and join a collection orbiting Elli; a personal-best "on my own" star count to beat; the boss has a different word order each run.
+dopamine bet: a spirit pops awake with a squash, sparkles and a giggle and flies into her orbit; a combo chime grows with streaks; the co-op beam blast hits the boss with a screen flash; the finale bursts the cloud into a shower of tiny spirits.
+intuitive bet (first 10 seconds, no reading): Elli waves and talks (lip-synced); a spirit floats in holding a picture; Elli says the word; the keys light up on "go"; one green check button.
+algorithm targets: retrieval practice, error-pattern remediation (felt cue at the exact error), spaced return after a gap, desirable difficulty (hints only after real attempts), variable reward (spirit looks), mastery gating (the boss only after every word is freed on her own).
+how we will know it worked: on-her-own spellings of pardon, carnivore, charge and dormant on the next Memory Check and the spelling test days later; in-game, attemptRecorded hintLevel 0 on the boss returns.
+-->
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+<title>Spirit Night</title>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;700&family=Andika:wght@700&display=swap" rel="stylesheet">
+<script type="application/json" id="sunny-assets">{
+  "voice": [
+    { "id": "w-pardon", "text": "Pardon." },
+    { "id": "w-carnivore", "text": "Carnivore." },
+    { "id": "w-charge", "text": "Charge." },
+    { "id": "w-dormant", "text": "Dormant." },
+    { "id": "s1-pardon", "text": "Pardon. The kind queen will pardon the little dragon for eating her cake. Pardon." },
+    { "id": "s1-carnivore", "text": "Carnivore. A lion is a carnivore, so it only wants meat for dinner. Carnivore." },
+    { "id": "s1-charge", "text": "Charge. Plug in the robot so its battery can charge. Charge." },
+    { "id": "s1-dormant", "text": "Dormant. The sleepy volcano has been dormant for a hundred years. Dormant." },
+    { "id": "s2-pardon", "text": "Pardon. Pardon me, may I squeeze past your umbrella? Pardon." },
+    { "id": "s2-carnivore", "text": "Carnivore. The T. rex was a giant carnivore with sharp teeth. Carnivore." },
+    { "id": "s2-charge", "text": "Charge. Watch out, the bull is about to charge! Charge." },
+    { "id": "s2-dormant", "text": "Dormant. The seed stays dormant under the snow until spring. Dormant." },
+    { "id": "h-pardon", "text": "Pardon. Put your hand on your throat. Feel the buzz in the middle? A buzzy sound needs a buzzy letter." },
+    { "id": "h-carnivore", "text": "Car. Ni. Vore. Three beats. Keep every letter in its own beat, in order." },
+    { "id": "h-charge", "text": "Charge. Say it slowly, and check the very last letter." },
+    { "id": "h-dormant", "text": "Dor. Mant. A sleepy door. Two beats." },
+    { "id": "intro", "text": "Ila! The sleepy spirits grabbed our words. Let's wake them up together!" },
+    { "id": "go", "text": "Ready… go!" },
+    { "id": "yes1", "text": "Yes! You woke it up!" },
+    { "id": "yes2", "text": "Sugoi! That's it, Ila!" },
+    { "id": "yes3", "text": "Perfect! A new friend!" },
+    { "id": "yes4", "text": "Yatta! All by yourself!" },
+    { "id": "close", "text": "So close! Look at the glowing spot." },
+    { "id": "together", "text": "Let's do it together. This one comes back later." },
+    { "id": "back", "text": "This one is back! You've got it." },
+    { "id": "boss", "text": "Uh oh, the Mumble Cloud! It blurs our words. Spell them from memory to power our beam!" },
+    { "id": "bosshit", "text": "Beam power!" },
+    { "id": "win", "text": "We did it! The spirits are free! Arigatou, Ila!" }
+  ],
+  "sfx": [
+    { "id": "giggle", "prompt": "tiny cute ghost spirit giggle, playful high-pitched magical chirp, kids cartoon", "seconds": 1.2 },
+    { "id": "awake", "prompt": "bright magical sparkle burst with a soft pop and twinkling bells, something coming to life, cute and rewarding", "seconds": 1.5 },
+    { "id": "beam", "prompt": "powerful magical energy beam blast, rising charge then shimmering zap, anime style but friendly", "seconds": 2 },
+    { "id": "music", "prompt": "playful spooky-cute Japanese night festival music loop, taiko drums soft, shamisen and kalimba, bells, cozy and bouncy, for kids", "seconds": 22, "loop": true },
+    { "id": "whoosh", "prompt": "soft airy magical whoosh of a little spirit floating past, gentle", "seconds": 0.8 },
+    { "id": "mumble", "prompt": "big grumpy cartoon cloud monster mumbling and grumbling, muffled silly growl, not scary", "seconds": 2 },
+    { "id": "tap", "prompt": "soft wooden key tap, short gentle click, cozy", "seconds": 0.5 }
+  ]
+}</script>
+<style>
+:root{--ink:#1a1240;--gold:#ffd86b;--pink:#ff8fc7;--mint:#7af0c8;--glass:#170f3acc}
+html,body{margin:0;height:100%;overflow:hidden;background:#07051a;font-family:'Fredoka',system-ui,sans-serif;color:#fff;user-select:none;-webkit-user-select:none;touch-action:none}
+canvas{display:block}
+.hud{position:fixed;inset:0;pointer-events:none}
+.top{position:absolute;top:0;left:0;right:0;display:flex;justify-content:space-between;align-items:center;padding:14px 22px;font-size:26px;font-weight:700}
+.pill{background:#0009;border:2px solid #fff3;border-radius:999px;padding:6px 18px;display:flex;gap:10px;align-items:center}
+.stars{letter-spacing:2px;color:var(--gold)}
+#panel{position:absolute;left:0;right:0;bottom:0;padding:10px 0 18px;display:flex;flex-direction:column;align-items:center;gap:12px;background:linear-gradient(#0000,#07051ad9 30%);transform:translateY(105%);transition:transform .45s cubic-bezier(.2,.9,.3,1.2);pointer-events:auto}
+#panel.show{transform:none}
+#panel.show.talking{transform:translateY(105%)}
+#slots{display:flex;gap:8px;min-height:84px}
+.slot{width:64px;height:78px;border-radius:14px;background:#ffffff14;border:3px solid #ffffff40;display:grid;place-items:center;font:700 52px 'Andika',sans-serif;color:#fff;transition:transform .15s,background .2s,border-color .2s}
+.slot.fill{background:#ffffff26;border-color:#fff9;transform:scale(1.04)}
+.slot.given{color:var(--mint);border-color:var(--mint)}
+.slot.ghost{color:#ffffff55}
+.slot.glow{animation:glow 1s ease-in-out infinite;border-color:var(--gold);background:#ffd86b33}
+.slot.gap{margin-left:22px}
+@keyframes glow{50%{box-shadow:0 0 28px var(--gold);transform:scale(1.1)}}
+#keys{display:flex;flex-direction:column;gap:8px;align-items:center;transition:opacity .3s}
+#keys.off{opacity:.25;pointer-events:none}
+.row{display:flex;gap:8px}
+.k{width:74px;height:70px;border-radius:16px;border:none;background:linear-gradient(#fff,#e6defc);color:var(--ink);font:700 36px 'Andika',sans-serif;box-shadow:0 5px 0 #8f7fd0;cursor:pointer;touch-action:manipulation}
+.k:active{transform:translateY(4px);box-shadow:0 1px 0 #8f7fd0}
+.k.wide{width:120px;font-size:30px}
+.k.go{background:linear-gradient(#7af0a0,#2fcf73);box-shadow:0 5px 0 #198a4a;color:#073d1f;width:150px}
+.k.hear{background:linear-gradient(#ffe7a0,#ffc93d);box-shadow:0 5px 0 #b8861a}
+.big{position:absolute;left:50%;top:30%;transform:translate(-50%,-50%) scale(.6);font-size:92px;font-weight:700;color:var(--gold);text-shadow:0 6px 0 #6a3c00,0 0 40px #ffb30088;opacity:0;transition:all .25s cubic-bezier(.2,1.6,.4,1)}
+.big.show{opacity:1;transform:translate(-50%,-50%) scale(1)}
+#bossbar{position:absolute;top:70px;left:50%;transform:translateX(-50%);display:none;gap:10px}
+#bossbar.show{display:flex}
+.hp{width:36px;height:36px;border-radius:50%;background:radial-gradient(#d9c8ff,#7b5cff);box-shadow:0 0 14px #9b7cff}
+.hp.gone{background:#ffffff1a;box-shadow:none}
+.overlay{position:fixed;inset:0;display:grid;place-items:center;background:radial-gradient(#1b1150cc,#05031acc);text-align:center;transition:opacity .4s}
+.overlay h1{font-size:100px;margin:0;color:#fff;text-shadow:0 6px 0 #6b3fd6,0 0 40px #b38cff}
+.overlay p{font-size:26px;opacity:.85;margin:10px 0 26px}
+.btn{font:700 40px 'Fredoka';padding:18px 54px;border-radius:999px;border:none;background:linear-gradient(#ffe27a,#ffb627);color:#4a2500;box-shadow:0 7px 0 #b06d00,0 0 40px #ffcf4d88;cursor:pointer;animation:pulse 1.4s ease-in-out infinite}
+@keyframes pulse{50%{transform:scale(1.06)}}
+.hidden{opacity:0;pointer-events:none}.hidden *{pointer-events:none!important}
+.gone{display:none}
+#ear{position:fixed;z-index:6;pointer-events:none;font-size:54px;opacity:0;transform:translate(-50%,-100%) scale(.6);transition:opacity .25s,transform .25s;filter:drop-shadow(0 0 14px #ffd77a)}
+#ear.on{opacity:1;transform:translate(-50%,-100%) scale(1);animation:earPulse 1s ease-in-out infinite}
+@keyframes earPulse{50%{transform:translate(-50%,-100%) scale(1.15)}}
+#winStars{font-size:64px;color:var(--gold);letter-spacing:6px}
+</style>
+<script type="importmap">{"imports":{
+  "three":"https://cdn.jsdelivr.net/npm/three@0.183.2/build/three.module.js",
+  "three/addons/":"https://cdn.jsdelivr.net/npm/three@0.183.2/examples/jsm/",
+  "@pixiv/three-vrm":"https://cdn.jsdelivr.net/npm/@pixiv/three-vrm@3.5.1/lib/three-vrm.module.min.js"}}</script>
+<script src="/games/_contract.js"></script>
+<script src="/games/cookoff/_library.js"></script>
+<script src="/talk/talk-client.js"></script>
+</head><body>
+<div id="ear">👂</div>
+<div class="hud">
+  <div class="top"><div class="pill">ILA</div><div class="pill"><span id="friends">✦ 0</span><span class="stars" id="best"></span></div><div class="pill" id="coins">● 0</div></div>
+  <div id="bossbar"></div>
+  <div class="big" id="big"></div>
+  <div id="panel"><div id="slots"></div><div id="keys" class="off"></div></div>
+</div>
+<div class="overlay" id="title"><div><h1>Spirit Night</h1><p id="loadTxt">Waking up the festival…</p><button class="btn hidden" id="start">▶ PLAY</button></div></div>
+<div class="overlay hidden" id="win"><div><h1>Spirits Free!</h1><div id="winStars"></div><p id="winTxt"></p><button class="btn" id="again">↻ AGAIN</button></div></div>
+<script type="module" src="main.js"></script></body></html>

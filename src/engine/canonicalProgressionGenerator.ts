@@ -26,7 +26,8 @@ import {
   type LearningCycleRepositoryOptions,
 } from "./learningCycleRepository";
 import { currentBoardInstance, preparingBoardInstance } from "./learningBoardInstances";
-import { prepareGeneratedSpellingGame, type SpellingGameClient } from "./spellingGameBuilder";
+import { gameProblems, prepareGeneratedSpellingGame, type SpellingGameClient } from "./spellingGameBuilder";
+import { LIBRARY_GAMES, libraryGameHtml } from "./libraryGames";
 
 export type CanonicalProgressionGeneratorInput = {
   childId: string;
@@ -251,6 +252,7 @@ export async function generateCanonicalProgressionArtifact(
   if (!cycle) throw new Error(`learning_cycle_missing:${input.homeworkId}`);
   const node = cycle.nodes.find((candidate) => (!input.nodeId || candidate.nodeId === input.nodeId) && candidate.state === "generating" && candidate.generationPrompt);
   if (!node?.generationPrompt) return cycle;
+  if (node.libraryGame) return bindLibraryGame(cycle, node, opts);
   const stage = node.role === "quest" ? "quest" : node.role === "boss" ? "boss" : "baseline";
   // Every generated activity gets one bounded repair from validator evidence.
   // Frozen-request and provider-outcome uncertainty still stop immediately.
@@ -361,11 +363,33 @@ Correct only the implementation while preserving the Planner's academic target, 
   return bindGeneratedHtml({ cycle: latest, node, html, artworkPath, validation }, opts);
 }
 
+/**
+ * The owner's one approved reveal path (owner, 2026-11-11; approved under the Math Prompt Chain Boundary, Reina's
+ * math included): a Quest/Boss stop the Planner put a library game on is the hand-built game, filled with the node's
+ * frozen items. No model call; binding, lifecycle and serving are the same as a Creator-built stop.
+ */
+function bindLibraryGame(cycle: LearningCycleRecordV2, node: LearningCycleNodeContract, opts: LearningCycleRepositoryOptions): LearningCycleRecordV2 {
+  const id = node.libraryGame!;
+  const answerOf = (item: NonNullable<LearningCycleNodeContract["evidenceContract"]["itemContracts"]>[string]) =>
+    item.response.mode === "numeric" ? String(item.response.expected) : item.response.mode === "selection" ? item.response.options.find(option => option.correct)?.label : undefined;
+  const items = cycle.domain === "spelling"
+    ? Object.values(node.evidenceContract.spellingItems ?? {}).map(item => ({ itemId: item.wordId, prompt: item.word, answer: item.word }))
+    : Object.values(node.evidenceContract.itemContracts ?? {}).flatMap(item => { const answer = answerOf(item); return answer === undefined ? [] : [{ itemId: item.id, prompt: item.prompt, answer }]; });
+  const { html, matchedItemIds, unmatchedTargets } = libraryGameHtml({ id, childId: cycle.childId, nodeId: node.nodeId, items, rootDir: opts.rootDir });
+  const problems = gameProblems(html, cycle.domain);
+  console.log(` 🎮 [library-game] [filled] node=${node.nodeId} game=${id} items=${items.length} matched=${matchedItemIds.length} unmatched=${unmatchedTargets.length} checks=${problems.length ? problems.join("|") : "clean"}`);
+  // A game none of her items reach would record nothing: that stop degrades to Not ready instead.
+  if (!matchedItemIds.length) throw new Error(`library_game_no_items_matched:${id}`);
+  return bindGeneratedHtml({ cycle, node, html, artworkPath: node.artwork.localPath, libraryGame: id }, opts);
+}
+
 /** Write an accepted activity where the kiosk serves it and bind it to its node. */
 function bindGeneratedHtml(input: {
   cycle: LearningCycleRecordV2; node: LearningCycleNodeContract; html: string; artworkPath?: string | null; validation?: ProgressionValidationResult;
+  /** Set when the html is the owner's library game, so provenance says so rather than claiming the Creator. */
+  libraryGame?: keyof typeof LIBRARY_GAMES;
 }, opts: LearningCycleRepositoryOptions): LearningCycleRecordV2 {
-  const { cycle, node, html, artworkPath, validation } = input;
+  const { cycle, node, html, artworkPath, validation, libraryGame } = input;
   const rootDir = opts.rootDir ?? process.cwd();
   const stage = node.role === "quest" ? "quest" : node.role === "boss" ? "boss" : "baseline";
   const filename = `${slug(cycle.homeworkId)}-${stage}-${slug(node.experimentId)}.html`;
@@ -388,7 +412,16 @@ function bindGeneratedHtml(input: {
       localArtworkPath: artworkPath ?? (stage === "boss" ? "/generated/adventure-board-demo/boss.jpeg" : "/generated/adventure-board-demo/quest.jpeg"),
       contractFingerprint,
       validationStatus: "passed",
-      ...((node.role === "quest" || node.role === "boss") ? {
+      ...(libraryGame ? {
+        creativeProvenance: {
+          rationale: `Owner-chosen library game ${libraryGame} (${LIBRARY_GAMES[libraryGame].title}), hand-built and placed on this stop by the Planner; not Creator-generated.`,
+          qualityPrediction: "No numeric quality score is inferred.",
+          creatorPromptHash: createHash("sha256").update(`library-game:${libraryGame}`).digest("hex"),
+          artworkPromptHash: createHash("sha256").update(node.artwork.prompt ?? "").digest("hex"),
+          builderModel: `library-game:${libraryGame}`,
+          generatedHtmlHash: createHash("sha256").update(html).digest("hex"),
+        },
+      } : (node.role === "quest" || node.role === "boss") ? {
         creativeProvenance: {
           rationale: "Publication requires the text check only; the child playing it is the review.",
           qualityPrediction: "No numeric quality score is inferred.",
@@ -549,10 +582,12 @@ export async function prepareSuccessorBoard(
       let failure = "";
       try {
         // Spelling boards run only tested built-in games: a step with none to launch is Not ready, never built.
-        if (cycle.domain === "spelling" && !pending.reusedFrom && !pending.implementationType) throw new Error("spelling_no_reusable_builtin");
+        if (cycle.domain === "spelling" && !pending.reusedFrom && !pending.implementationType && !pending.libraryGame) throw new Error("spelling_no_reusable_builtin");
         // Her own game is built for her once, from her chart and the Planner's story; a re-run reuses its file.
         // Any subject's built-game stop goes to the one builder (owner, 2026-11-08: one pipeline).
-        next = pending.implementationType === "generated-game" && !pending.reusedFrom
+        // The owner's library game is served, not built (owner, 2026-11-11).
+        next = pending.libraryGame ? bindLibraryGame(cycle, pending, opts)
+          : pending.implementationType === "generated-game" && !pending.reusedFrom
           ? await prepareGeneratedSpellingGame({ cycle, node: pending, client: input.spellingGameClient ?? prebuiltGameClient(input.childId, input.homeworkId, pending.nodeId, opts), draftDir: qualityDiagnosticsDir(opts.rootDir ?? process.cwd(), cycle, pending) }, opts)
           // A reward break is a built-in Mystery in any subject: bound with no build and no provider (Law 16).
           : cycle.domain === "spelling" || pending.implementationType === "mystery"

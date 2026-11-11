@@ -1938,6 +1938,38 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
     res.json(configs);
   });
 
+  // Games never choose a character: they ask whose companion this child has (her chart's preset, same as sessions).
+  app.get("/api/companion/current/:childId", (req: Request, res: Response) => {
+    const childId = String(req.params.childId ?? "").trim().toLowerCase();
+    if (!/^[a-z0-9_-]{1,64}$/.test(childId)) {
+      console.warn(` 🎮 [companion] [current] [rejected] reason=bad_child_id`);
+      return res.status(400).json({ error: "bad_child_id" });
+    }
+    try {
+      const chart = getChildChart(childId);
+      const companionId = chart.companion.config.companionId;
+      let voiceId = "";
+      let name = chart.companion.displayName;
+      try {
+        const definition = CompanionRegistry.getById(companionId);
+        voiceId = definition.voiceId;
+        name = name || definition.name;
+      } catch (error: unknown) {
+        console.warn(
+          ` 🎮 [companion] [current] [no-registry-voice] child=${childId} companion=${companionId} reason=${error instanceof Error ? error.message : String(error)}`,
+        );
+      }
+      const body = { companionId, name, vrmUrl: chart.companion.config.vrmUrl, voiceId };
+      console.log(` 🎮 [companion] [current] [ok] child=${childId} companion=${companionId} vrm=${body.vrmUrl}`);
+      return res.json(body);
+    } catch (error: unknown) {
+      console.warn(
+        ` 🎮 [companion] [current] [unknown-child] child=${childId} reason=${error instanceof Error ? error.message : String(error)}`,
+      );
+      return res.status(404).json({ error: "unknown_child" });
+    }
+  });
+
   app.post("/api/companions/:companionId/speak", async (req: Request, res: Response) => {
     const companionId =
       typeof req.params.companionId === "string"

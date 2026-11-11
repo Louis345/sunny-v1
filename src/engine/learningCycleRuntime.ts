@@ -52,6 +52,8 @@ import {
 import { areDistinctWordsPronunciationEquivalent } from "../shared/karaokeMatchWord";
 import {currentBoardInstance} from "./learningBoardInstances";
 import { readTypedSpelling } from "./imeTypedSpelling";
+import { activeOwnerNote } from "./ownerNotes";
+import { LIBRARY_GAMES, type LibraryGameId } from "./libraryGames";
 
 export type CanonicalCompletionResult = {
   /** Server-validated launch whose per-answer records already exist. */
@@ -573,6 +575,7 @@ function parseNextInstrument(value: unknown): NextInstrumentPrescription | undef
       ? { creatureEncounter: { reason: String((row.creatureEncounter as { reason: string }).reason).trim() } } : {}),
     ...(typeof row.focus === "string" && row.focus.trim() ? { focus: row.focus.trim() } : {}),
     ...(typeof row.buildFrom === "string" && row.buildFrom.trim() ? { buildFrom: row.buildFrom.trim() } : {}),
+    ...(typeof row.libraryGame === "string" && row.libraryGame in LIBRARY_GAMES ? { libraryGame: row.libraryGame as LibraryGameId } : {}),
     ...Object.fromEntries(keys.map((key) => [key, String(row[key]).trim()])),
     ...Object.fromEntries(designKeys
       .filter((key) => typeof row[key] === "string" && String(row[key]).trim())
@@ -969,6 +972,14 @@ async function askPlanner(
       :cycle.lifecycle==="boss_evaluating"?["await_calibration"]
       :allowedProgressionActions.filter(action=>action!=="generate_boss"&&action!=="await_calibration");
     console.log(` 🎮 [canonical-progression] [actions-offered] homework=${cycle.homeworkId} lifecycle=${cycle.lifecycle} actions=${actions.join(",")}`);
+    // A dated owner note (owner, 2026-11-11): a fact in the question while it lasts, never a forced step. The Planner decides.
+    const ownerNote=activeOwnerNote({childId:cycle.childId,subject:cycle.domain});
+    const encounterOffered=actions.some(action=>action==="generate_quest"||action==="generate_boss");
+    if(ownerNote&&!encounterOffered)console.log(` 🎮 [owner-note] [no-encounter-offered] homework=${cycle.homeworkId} lifecycle=${cycle.lifecycle} actions=${actions.join(",")} library_game=not-offered`);
+    const libraryFacts=ownerNote?{libraryGames:ownerNote}:{};
+    const ownerNoteLine=ownerNote?`A note from her parent for this week: ${ownerNote.note}
+${encounterOffered?`These hand-built games are ready: ${ownerNote.games.map(game=>`${game.id} = ${game.title} (${game.role})`).join("; ")}. Whether and when is still your call from her evidence; to use one, put library_game on your quest or boss step and Sunny serves it with that step's ${math?"problems":"words"}.
+`:""}`:"";
     // The school test as facts beside the goal (owner, 2026-11-08): how practice approaches test conditions is the Planner's call.
     const schoolTest=schoolTestFacts(chart.homework,cycle.homeworkId);
     console.log(` 🎮 [canonical-progression] [school-test] [${schoolTest?"included":"not-recorded"}] homework=${cycle.homeworkId} testDate=${schoolTest?.testDate??"none"} daysLeft=${schoolTest?.daysLeft??"unknown"}`);
@@ -999,7 +1010,7 @@ async function askPlanner(
       const facts:SuccessorFacts={builtIns:[],
         // The one game menu is declared on the full catalog (Law 16); STAGE_EXCEPTIONS["math-successor"] removes what cannot bind her problems.
         ...successorMenuFacts(spellingActivityCatalog(cycle.childId),{grade:chart.demographics?.grade,words:[]},"math-successor"),
-        evaluationIds,allowedActions:offered,idPrefix,selfReview:true,aimedGames:true,problems,answeredProblemIds,writeProblems:true,playedGames:playedGamesOf(cycle,opts),record,...(pastWeeks?.weeks.length?{pastWeeks}:{}),rerunnable:()=>false};
+        evaluationIds,allowedActions:offered,idPrefix,selfReview:true,aimedGames:true,problems,answeredProblemIds,writeProblems:true,playedGames:playedGamesOf(cycle,opts),record,...(pastWeeks?.weeks.length?{pastWeeks}:{}),...libraryFacts,rerunnable:()=>false};
       const prompt=`You are Sunny's AI Planner, her math tutor. The goal: she wants to come back to Sunny, and she solves problems like these on her own by the school test. ${schoolTestLine(schoolTest)}
 Compare your preregistered theory and predictions with what she actually did and said, decide what happens next, and build her next board, using the tools.
 1. decide: one evidence-grounded decision, with your self-review of the journal and her track record below. Cite the prediction evaluations you judge.
@@ -1025,7 +1036,7 @@ ${encounterGate ? "Baseline Quest eligibility (runtime truth boundary, not a mas
 ${JSON.stringify(baselineEligibility)}
 Allowed progression actions: ${offered.join(", ")}
 ${offered.some(action=>action==="generate_quest"||action==="generate_boss")?`Quest and Boss check problems she has not answered yet, on her own. Boss opens from her Quest results and always ends awaiting the graded test. When you choose generate_quest or generate_boss, add exactly one step with that encounter and check_first, using only problems she has not answered.
-`:""}${RECORD_LINE}`;
+`:""}${ownerNoteLine}${RECORD_LINE}`;
       return {facts,prompt};
     })():undefined;
     const facts:SuccessorFacts=mathQuestion?.facts??{builtIns:builtIns.map(node=>{const items=Object.values(node.evidenceContract.spellingItems??{});const roles=Object.values(node.evidenceContract.itemRoles??{});
@@ -1037,7 +1048,7 @@ ${offered.some(action=>action==="generate_quest"||action==="generate_boss")?`Que
       // Owner, 2026-11-08: the Planner may place the board's one creature encounter (a reward; recorded as practice).
       creatureEncounters:true,
       // Contract 56: the decision carries its self-review, and her built-for-her game can be aimed at one error.
-      selfReview:true,aimedGames:true,playedGames:playedGamesOf(cycle,opts),record,...(pastWeeks?.weeks.length?{pastWeeks}:{}),
+      selfReview:true,aimedGames:true,playedGames:playedGamesOf(cycle,opts),record,...(pastWeeks?.weeks.length?{pastWeeks}:{}),...libraryFacts,
       // The same check the re-run step applies, asked while the Planner is still choosing.
       rerunnable:(nodeId:string,wordIds:string[])=>{const source=builtIns.find(node=>node.nodeId===nodeId);return Boolean(source&&repointReusedSetup(source,`${nodeId}-check`,wordIds.map(wordId=>({id:`check:${wordId}`,wordId}))));}};
     const prompt=mathQuestion?.prompt??`You are Sunny's AI Planner, her spelling tutor. The goal: she wants to come back to Sunny, and she knows her words by the school test. ${schoolTestLine(schoolTest)} ${SPELLING_TEST_CONDITIONS}
@@ -1067,7 +1078,7 @@ ${encounterGate ? "Baseline Quest eligibility (runtime truth boundary, not a mas
 ${JSON.stringify(baselineEligibility)}
 Allowed progression actions: ${actions.join(", ")}
 ${actions.some(action=>action==="generate_quest"||action==="generate_boss")?`Quest and Boss check her own list words. Boss opens from her Quest results and always ends awaiting the graded test. When you choose generate_quest or generate_boss, add exactly one step with that encounter: a hidden-word check or her generated-game, where each word is hidden and she types it without help.
-`:""}${RECORD_LINE}`;
+`:""}${ownerNoteLine}${RECORD_LINE}`;
     // The question is frozen when its evidence batch closes: a restart asks the same question and replays
     // the saved turns at no cost, whatever has been recorded since.
     const frozenFile=path.join(draftDir,`${decisionStage}-tools.question.json`);

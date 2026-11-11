@@ -8,6 +8,7 @@ import {
 } from "../engine/companionCareEngine";
 import type { CompanionCarePlan } from "../shared/companionCareTypes";
 import { normalizeCreatureState } from "../engine/creatureCareEngine";
+import { resolveMatildaReadPath } from "./legacyHikariRead";
 
 export type CompanionCareChartInput = {
   childId: string;
@@ -118,7 +119,10 @@ export function loadCompanionCarePlanForChart(
   opts: { nowIso?: string; persistOnCreate?: boolean } = {},
 ): LoadedCompanionCarePlan {
   const filePath = carePlanPath(chart);
-  const existing = readJson<CompanionCarePlan>(filePath);
+  // Matilda's plan saved as hikari.json during the 11/10 merge is read as hers; saves go to matilda.json.
+  const existing = readJson<CompanionCarePlan>(
+    resolveMatildaReadPath(chart.childId, chart.companion.presetId, filePath),
+  );
   if (existing) {
     return {
       plan: normalizeLoadedPlan(existing, chart),

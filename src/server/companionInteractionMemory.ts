@@ -12,6 +12,7 @@ import type {
 } from "./companionShowroomTalk";
 import { resolveChildContextDir } from "../utils/contextRoot";
 import { requestForModel } from "../engine/plannerTransport";
+import { inLegacyHikariWindow, readsLegacyHikariData, resolveMatildaReadPath } from "../profiles/legacyHikariRead";
 
 const COMPANION_MEMORY_HAIKU_MODEL = "claude-haiku-4-5-20251001";
 const DEFAULT_COMPACT_EVENT_THRESHOLD = 3;
@@ -182,13 +183,21 @@ function writeJsonFile(filePath: string, value: unknown): void {
   fs.writeFileSync(filePath, JSON.stringify(value, null, 2), "utf8");
 }
 
-/** Only memory is replaced, against the file as it is now: a slow summary never rolls back coins earned meanwhile. */
-function saveMemoryInto(filePath: string, memory: CompanionCareMemory): void {
-  const current = fs.existsSync(filePath)
-    ? safeJsonParse<Record<string, unknown>>(fs.readFileSync(filePath, "utf8"))
+/**
+ * Only memory is replaced, against the file as it is now: a slow summary never rolls back coins earned meanwhile.
+ * `readFrom` differs from `filePath` only for Matilda's 11/10 hikari.json (legacyHikariRead); the old file is kept.
+ */
+function saveMemoryInto(filePath: string, memory: CompanionCareMemory, readFrom: string = filePath): void {
+  const current = fs.existsSync(readFrom)
+    ? safeJsonParse<Record<string, unknown>>(fs.readFileSync(readFrom, "utf8"))
     : null;
-  if (!current) throw new Error(`companion_memory_file_unreadable:${filePath}`);
-  writeJsonFile(filePath, { ...current, memory, updatedAt: new Date().toISOString() });
+  if (!current) throw new Error(`companion_memory_file_unreadable:${readFrom}`);
+  writeJsonFile(filePath, {
+    ...current,
+    ...(readFrom !== filePath && { companionId: path.basename(filePath, ".json") }),
+    memory,
+    updatedAt: new Date().toISOString(),
+  });
 }
 
 function readRelationship(
@@ -197,14 +206,16 @@ function readRelationship(
   opts: CompanionInteractionMemoryOptions = {},
 ): CompanionRelationship | null {
   const carePath = companionCarePath(childId, companionId, opts);
-  const plan = fs.existsSync(carePath)
-    ? safeJsonParse<CompanionCarePlan>(fs.readFileSync(carePath, "utf8"))
+  const readPath = resolveMatildaReadPath(childId, companionId, carePath);
+  const plan = fs.existsSync(readPath)
+    ? safeJsonParse<CompanionCarePlan>(fs.readFileSync(readPath, "utf8"))
     : null;
   if (plan) {
     return {
       memory: plan.memory,
       filePath: carePath,
-      save: (memory) => saveMemoryInto(carePath, memory),
+      // Re-resolved at save time so a coin save to matilda.json in between is never rolled back.
+      save: (memory) => saveMemoryInto(carePath, memory, resolveMatildaReadPath(childId, companionId, carePath)),
     };
   }
   const relationPath = companionRelationshipPath(childId, companionId, opts);
@@ -444,7 +455,9 @@ export function readCompanionInteractionEvents(
   const companionId = companionIdInput === null ? null : normalizeId(companionIdInput, "companion");
   const dir = interactionDir(childId, opts);
   if (!fs.existsSync(dir)) return [];
-  return fs
+  // Matilda's calls were logged as "hikari" during the 11/10 merge; she reads them as hers (legacyHikariRead).
+  const legacyHikariLedger = companionId !== null && readsLegacyHikariData(childId, companionId);
+  const records = fs
     .readdirSync(dir)
     .filter((file) => file.endsWith(".ndjson"))
     .sort()
@@ -456,10 +469,20 @@ export function readCompanionInteractionEvents(
         .filter(Boolean)
         .map((line) => safeJsonParse<CompanionInteractionEventRecord>(line))
         .filter((record): record is CompanionInteractionEventRecord =>
-          Boolean(record && (companionId === null || record.companionId === companionId)),
+          Boolean(
+            record &&
+              (companionId === null ||
+                record.companionId === companionId ||
+                (legacyHikariLedger && record.companionId === "hikari" && inLegacyHikariWindow(record.createdAt))),
+          ),
         ),
     )
     .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+  const legacyCount = legacyHikariLedger ? records.filter((record) => record.companionId === "hikari").length : 0;
+  if (legacyCount > 0) {
+    console.log(` 🎮 [companion] [legacy-hikari-read] [ledger] child=${childId} companion=${companionId} hikari_records=${legacyCount}`);
+  }
+  return records;
 }
 
 export function readCompanionCareMemoryForPrompt(

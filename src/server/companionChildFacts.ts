@@ -5,6 +5,7 @@ import { ensureCompanionRelationship, recordChildGivenCompanionName } from "./co
 import { RECALL_ABOUT_HER_TOOL, REMEMBER_CHILD_GIVEN_NAME_TOOL } from "./companionShowroomTalk";
 import { readCompanionInteractionEvents } from "./companionInteractionMemory";
 import { familyDay } from "../utils/familyCalendar";
+import { todaysPlayLines } from "./todaysPlayFacts";
 
 /** Facts any companion gets about the child, read from her chart (Law 12). No clinical notes. */
 export type CompanionChildFacts = {
@@ -85,6 +86,8 @@ export function buildCompanionCallContext(
     formatCompanionChildFacts(readCompanionChildFacts(input.childId, opts)),
     // Shared by every companion: what she told any of them. Each companion's own memory follows.
     livingProfileLines(readLivingProfile(input.childId)),
+    // Shared by every companion: today's board play from her learning record (nothing when she did not play today).
+    todaysPlayLines(input.childId, opts),
     buildShowroomTalkMemoryPrompt(memory),
   ].filter((part): part is string => Boolean(part));
   return parts.length ? parts.join("\n") : undefined;

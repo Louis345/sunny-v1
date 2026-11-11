@@ -19,6 +19,7 @@ import {
 import { resolveChildContextDir } from "../utils/contextRoot";
 import { validateVisualLearnerArtifactConfig } from "../shared/visualLearnerArtifactConfig";
 import { validateActivityEngineConfig, validateLetterRushConfig } from "./activityEngineConfig";
+import type { LibraryGameId } from "./libraryGames";
 import {
   assertPublishedBoardsImmutable,
   boardOwningNode,
@@ -173,6 +174,8 @@ export type LearningCycleNodeContract = {
   focus?: string;
   /** A built-for-her game she played that this one starts from (owner, 2026-11-09): same mechanic, new content. */
   buildFrom?: string;
+  /** The owner's hand-built library game the Planner put on this Quest/Boss stop (owner, 2026-11-11); served, not built. */
+  libraryGame?: LibraryGameId;
   nodeId: string;
   routeId?: string;
   predictionId?: string;
@@ -559,6 +562,8 @@ export type NextInstrumentPrescription = {
   focus?: string;
   /** A built-for-her game she played that the builder starts from (owner, 2026-11-09). */
   buildFrom?: string;
+  /** The owner's library game the Planner chose for its Quest/Boss step (owner, 2026-11-11). */
+  libraryGame?: LibraryGameId;
   /** Marks the one Planner-authorized encounter on a Quest or Boss successor board. */
   encounter?: "quest" | "boss";
   /** A reward break (Law 16): a Mystery game with no items; recorded as play, never as learning evidence. */
@@ -1396,7 +1401,9 @@ function prepareSuccessorBoard(
     const design = prescriptionDesign(prescription);
     // Decisions saved before the Planner named built-ins re-run the activity whose ID they repeated.
     // A game and mode from the menu is set up fresh for this step's words, the way the Teaching board sets it up.
-    const fresh = spelling?.activity;
+    // A library game is served as it is: no menu setup and no built-in re-run behind it (owner, 2026-11-11).
+    const libraryGame = prescription.libraryGame && (role === "quest" || role === "boss") ? prescription.libraryGame : undefined;
+    const fresh = libraryGame ? undefined : spelling?.activity;
     let freshSetup: Record<string, unknown> | undefined, freshReady = Boolean(fresh);
     if (fresh) {
       try {
@@ -1409,7 +1416,7 @@ function prepareSuccessorBoard(
         console.warn(` 🎮 [learning-board] [successor-fresh] [not-ready] node=${nodeId} activity=${fresh.id} reason=${error instanceof Error ? error.message : String(error)}`);
       }
     }
-    const candidate = next.domain === "spelling" && !fresh ? findReusableBuiltIn(next, spelling?.builtInActivityId ?? prescription.nodeId, spelling?.measurementRole) : undefined;
+    const candidate = next.domain === "spelling" && !fresh && !libraryGame ? findReusableBuiltIn(next, spelling?.builtInActivityId ?? prescription.nodeId, spelling?.measurementRole) : undefined;
     const reusedSetup = candidate?.evidenceContract.nativeConfig ? repointReusedSetup(candidate, nodeId, spellingItems ?? []) : undefined;
     const source = candidate && (candidate.evidenceContract.nativeConfig ? reusedSetup : sameWordSet(candidate, spellingItems ?? [])) ? candidate : undefined;
     if (candidate && !source) console.warn(` 🎮 [learning-board] [successor-reuse] [not-reusable] node=${nodeId} from=${candidate.nodeId} reason=setup_cannot_be_repointed`);
@@ -1427,6 +1434,8 @@ function prepareSuccessorBoard(
       experimentId: `${prefix}:${role}:${slugId(prescription.nodeId)}`,
       mechanic: prescription.mechanic,
       ...(prescription.reward ? { implementationType: "mystery" as LearningCycleNodeContract["implementationType"] }
+        // No implementationType: the stop launches as its Quest/Boss role, served from where bindGeneratedHtml writes it.
+        : libraryGame ? { libraryGame }
         : source ? { implementationType: source.implementationType, reusedFrom: source.nodeId } : fresh && freshReady ? { implementationType: fresh.type as LearningCycleNodeContract["implementationType"] }
         : builtForHer ? { implementationType: "generated-game" as LearningCycleNodeContract["implementationType"] } : {}),
       theme: prescription.theme,
