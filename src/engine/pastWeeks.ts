@@ -1,3 +1,4 @@
+import { familyDay } from "../utils/familyCalendar";
 import fs from "node:fs";
 import path from "node:path";
 import { z } from "zod";
@@ -38,7 +39,7 @@ export type PastWeeksArchive = { version: 1; childId: string; weeks: PastWeek[] 
 
 const SCHOOL = new Set(["graded_work", "delayed_reassessment"]);
 const HELP: Record<string, Help> = { unassisted: "on her own", assisted: "with help", unknown: "help not recorded" };
-const day = (iso: string | undefined) => (iso ?? "").slice(0, 10);
+const day = (iso: string | undefined) => familyDay(iso);
 const count = (list: PastWeekAnswer[]): Count => ({ right: list.filter(row => row.right).length, total: list.length });
 const firstTry = (row: PastWeekAnswer) => row.help === "on her own" && !row.retry && !row.school;
 const ofTotal = (c: Count) => c.total ? `${c.right} of ${c.total} right` : "not answered on her own";

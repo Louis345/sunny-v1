@@ -1,3 +1,4 @@
+import { familyDay } from "../utils/familyCalendar";
 import fs from "node:fs";
 import path from "node:path";
 import type { LearningProfile } from "../context/schemas/learningProfile";
@@ -26,7 +27,7 @@ export function currentFactsBlock(childId: string, opts: { rootDir?: string; tod
     facts.school ? `- School: ${facts.school}` : "",
   ].filter(Boolean);
   if (!lines.length) return "";
-  return [`## Current facts (as of ${today.toISOString().slice(0, 10)}; these replace any age, grade, school or teacher written in the profile below, which was written earlier)`, ...lines].join("\n");
+  return [`## Current facts (as of ${familyDay(today)}; these replace any age, grade, school or teacher written in the profile below, which was written earlier)`, ...lines].join("\n");
 }
 
 /** Her soul.md for an AI, with her current dated facts first. */

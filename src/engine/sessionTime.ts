@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import type { LearningCycleRecordV2 } from "./learningCycleRepository";
+import { familyDay } from "../utils/familyCalendar";
 
 /**
  * Where a session's minutes went, from its own saved records (owner, 2026-11-10: "how much time she spent studying,
@@ -73,7 +74,7 @@ export function minutesByDay(sessions: Array<{ startedAt: string; minutes?: Sess
   const days = new Map<string, { sessions: number; minutes: SessionMinutes }>();
   for (const session of sessions) {
     if (!session.minutes) continue;
-    const day = new Date(session.startedAt).toLocaleDateString("en-CA");
+    const day = familyDay(session.startedAt);
     const sum = days.get(day) ?? { sessions: 0, minutes: { learning: 0, play: 0, call: 0, waiting: 0, map: 0, other: 0, unmeasured: 0, total: 0 } };
     sum.sessions += 1;
     for (const key of Object.keys(sum.minutes) as Array<keyof SessionMinutes>) sum.minutes[key] = round1(sum.minutes[key] + (session.minutes[key] ?? 0));

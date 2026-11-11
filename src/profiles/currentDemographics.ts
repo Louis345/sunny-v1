@@ -1,3 +1,4 @@
+import { familyDay } from "../utils/familyCalendar";
 import type { LearningProfile } from "../context/schemas/learningProfile";
 
 type Demographics = LearningProfile["demographics"];
@@ -14,9 +15,12 @@ export function currentDemographics(facts: Demographics, today = new Date()): De
   const undated: string[] = [];
   let age = facts.age;
   const birth = facts.birthDate && /^\d{4}-\d{2}-\d{2}$/.test(facts.birthDate) ? new Date(`${facts.birthDate}T12:00:00Z`) : undefined;
-  if (birth) {
-    age = today.getUTCFullYear() - birth.getUTCFullYear();
-    if (today.getUTCMonth() < birth.getUTCMonth() || (today.getUTCMonth() === birth.getUTCMonth() && today.getUTCDate() < birth.getUTCDate())) age -= 1;
+  if (birth && facts.birthDate) {
+    // Her birthday is a family calendar day: the evening before is still the day before (one family time zone).
+    const [year, month, day] = familyDay(today).split("-").map(Number);
+    const [bornYear, bornMonth, bornDay] = facts.birthDate.split("-").map(Number);
+    age = year - bornYear;
+    if (month < bornMonth || (month === bornMonth && day < bornDay)) age -= 1;
   } else undated.push("age");
   let grade = facts.grade;
   if (typeof facts.gradeSchoolYear === "number") grade = facts.grade + Math.max(0, schoolYearOf(today) - facts.gradeSchoolYear);
