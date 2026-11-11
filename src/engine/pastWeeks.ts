@@ -1,4 +1,5 @@
 import { familyDay } from "../utils/familyCalendar";
+import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { z } from "zod";
@@ -9,6 +10,11 @@ import { activityOf, answers, plannerJournalFile, scorePlannerCalls, targetsOf }
 import { toolFor, type PlannerTool } from "./plannerToolLoop";
 import type { HomeworkSources } from "./schoolTestObjective";
 import { timeRecord } from "./sessionScorecard";
+import { openChart } from "../chart/db";
+import { exportEvents } from "../chart/exportEvents";
+import { projectLearnerHypotheses, type LearnerHypothesisView } from "../chart/spelling/hypotheses";
+import { PATTERN_IDS } from "../chart/spelling/patterns";
+import { recordFact } from "../chart/spelling/record";
 
 /**
  * Week-to-week memory (owner, 2026-11-10: "The tutor remembers their student week to week. So should the planner.").
@@ -35,7 +41,8 @@ export type PastWeek = {
   schoolTest: { gradedAt: string; right: number; total: number; score: number | null; missed: Array<{ target: string; wrote?: string }> } | null;
   journal: { file: string; lines: string[] } | null;
 };
-export type PastWeeksArchive = { version: 1; childId: string; weeks: PastWeek[] };
+/** claims: her cross-week claims as code scored them when the question was asked, and the week being planned. */
+export type PastWeeksArchive = { version: 1; childId: string; weeks: PastWeek[]; claims?: { planning: string; rows: LearnerHypothesisView[] } };
 
 const SCHOOL = new Set(["graded_work", "delayed_reassessment"]);
 const HELP: Record<string, Help> = { unassisted: "on her own", assisted: "with help", unknown: "help not recorded" };
@@ -115,9 +122,29 @@ export function readPastWeeks(childId: string, opts: { rootDir?: string; homewor
   const id = childId.trim().toLowerCase(), skip = new Set(opts.excludeHomeworkIds ?? []);
   const weeks = readCanonicalCycles(id, opts.rootDir).filter(cycle => !skip.has(cycle.homeworkId)).map(cycle => pastWeekOf(cycle, opts))
     .sort((a, b) => b.started.localeCompare(a.started) || a.homeworkId.localeCompare(b.homeworkId));
-  console.log(` 🎮 [past-weeks] [read] [ok] child=${id} weeks=${weeks.length} excluded=${[...skip].join(",") || "none"}`);
-  return { version: 1, childId: id, weeks };
+  const claims = skip.size === 1 ? readClaims(id, [...skip][0]) : undefined;
+  console.log(` 🎮 [past-weeks] [read] [ok] child=${id} weeks=${weeks.length} excluded=${[...skip].join(",") || "none"} claims=${claims ? claims.rows.length : "unavailable"}`);
+  return { version: 1, childId: id, weeks, ...(claims ? { claims } : {}) };
 }
+
+/** Her claims from her chart database, scored by code now. No chart, no claims: the tools stay as they were. */
+function readClaims(childId: string, planning: string): PastWeeksArchive["claims"] {
+  if (!process.env.SUNNY_CHART_DIR?.trim()) return undefined;
+  let db: ReturnType<typeof openChart> | undefined;
+  try {
+    db = openChart(childId, { readonly: true });
+    return { planning, rows: projectLearnerHypotheses(exportEvents(db)) };
+  } catch (error) {
+    console.error(` 🎮 [past-weeks] [claims] [unavailable] child=${childId} reason=${error instanceof Error ? error.message : String(error)}`);
+    return undefined;
+  } finally {
+    db?.close();
+  }
+}
+
+const claimRow = (row: LearnerHypothesisView) => ({ hypothesisId: row.hypothesisId, claim: row.claim, madeOn: day(row.madeAt), formedInWeek: row.formedInAssignmentId,
+  scope: row.scope, metric: row.metric, expected: row.expected, falsifier: row.falsifier, horizonDays: row.horizonDays, cites: row.decisionIds,
+  status: row.status, evidence: row.evidence });
 
 const tryText = (row: PastWeekAnswer) => `board ${row.board ?? "unknown"} ${row.right ? "right" : `missed${row.wrote ? ` "${row.wrote}"` : ""}`} (${day(row.at)})`;
 function targetFacts(week: PastWeek, target: string) {
@@ -205,17 +232,21 @@ export function pastWeeksLine(archive: PastWeeksArchive | undefined): string {
   const weeks = archive?.weeks ?? [];
   if (!weeks.length) return "";
   const shown = weeks.slice(0, 3).map(week => `${week.homeworkId} "${week.title}" (${week.domain}, from ${day(week.started)}; ${week.schoolTest ? `school test ${schoolLine(week)}` : schoolLine(week)})`);
-  return `Her earlier weeks (${weeks.length} on record, newest first): ${shown.join("; ")}${weeks.length > 3 ? `; and ${weeks.length - 3} earlier` : ""}. Every week's words, results, your decisions and self-reviews are behind read_past_weeks: index, week, search (a word, an ending like -ant, or any text), conclusions.`;
+  return `Her earlier weeks (${weeks.length} on record, newest first): ${shown.join("; ")}${weeks.length > 3 ? `; and ${weeks.length - 3} earlier` : ""}. Every week's words, results, your decisions and self-reviews are behind read_past_weeks: index, week, search (a word, an ending like -ant, or any text), conclusions${archive?.claims ? `, claims (${archive.claims.rows.length} cross-week claims about how she learns, each scored by code)` : ""}.`;
 }
+
+const PAST_WEEKS_VIEWS = ["index", "week", "search", "conclusions", "claims"] as const;
 
 /** read_past_weeks. Its schema is the same for every child and every history: week ids are free text checked here. */
 export function pastWeeksTool<S>(archive: PastWeeksArchive): PlannerTool<S> {
+  const claims = archive.claims;
   const ids = archive.weeks.map(week => week.homeworkId);
   const page = <T>(list: T[], offset: number, limit: number) => list.slice(offset, offset + limit);
   return toolFor<S>()({ name: "read_past_weeks",
-    description: "Her earlier weeks (every earlier homework list, any subject), from her records. index: one row per week. week: one week in full, a page of lines at a time (her words or problems, first tries on her own over time, your decisions and self-reviews with her results before and after, your calls, minutes, the school test, the journal, every answer). search: a word, an ending like -ant, or any text, across weeks. conclusions: every self-review you wrote (what you kept and changed), with her counted results after it.",
+    description: `Her earlier weeks (every earlier homework list, any subject), from her records. index: one row per week. week: one week in full, a page of lines at a time (her words or problems, first tries on her own over time, your decisions and self-reviews with her results before and after, your calls, minutes, the school test, the journal, every answer). search: a word, an ending like -ant, or any text, across weeks. conclusions: every self-review you wrote (what you kept and changed), with her counted results after it.${claims ? " claims: your cross-week claims about how she learns, each with code's score from later weeks (proposed until 2 later weeks have evidence; then supported or contradicted; expired past its horizon)." : ""}`,
     schema: z.object({
-      view: z.enum(["index", "week", "search", "conclusions"]),
+      // An archive without claims keeps its exact earlier schema, so a frozen older question replays unchanged.
+      view: z.enum((claims ? PAST_WEEKS_VIEWS : PAST_WEEKS_VIEWS.slice(0, 4)) as unknown as typeof PAST_WEEKS_VIEWS),
       week: z.string().describe("For week: a week id from the index. Otherwise empty."),
       query: z.string().describe("For search: a word, an ending like -ant, or any text. Otherwise empty."),
       offset: z.number().int().min(0).describe("First row or line to return; 0 for the start."),
@@ -223,6 +254,10 @@ export function pastWeeksTool<S>(archive: PastWeeksArchive): PlannerTool<S> {
     }).strict(),
     run: (_state, input) => {
       if (input.view === "index") return { ok: true, result: { view: "index", total: ids.length, offset: input.offset, rows: page(pastWeekIndex(archive), input.offset, input.limit) } };
+      if (input.view === "claims") {
+        if (!claims) return { ok: false, error: "claims are not available in this question" };
+        return { ok: true, result: { view: "claims", total: claims.rows.length, offset: input.offset, rows: page(claims.rows.map(claimRow), input.offset, input.limit) } };
+      }
       if (input.view === "conclusions") { const rows = pastConclusions(archive); return { ok: true, result: { view: "conclusions", total: rows.length, offset: input.offset, rows: page(rows, input.offset, input.limit) } }; }
       if (input.view === "week") {
         const week = archive.weeks.find(row => row.homeworkId === input.week.trim());
@@ -234,6 +269,47 @@ export function pastWeeksTool<S>(archive: PastWeeksArchive): PlannerTool<S> {
       const found = searchPastWeeks(archive, input.query);
       return { ok: true, result: { view: "search", query: input.query.trim(), targetsTotal: found.targets.length, notesTotal: found.notes.length, offset: input.offset,
         targets: page(found.targets, input.offset, input.limit), notes: page(found.notes, input.offset, input.limit) } };
+    } });
+}
+
+/**
+ * claim_how_she_learns: a cross-week claim, recorded in her chart as the Planner's own. Code scores it against later
+ * weeks; it is never edited. Offered only when her claims were read into this question.
+ */
+export function claimHowSheLearnsTool<S>(archive: PastWeeksArchive): PlannerTool<S> | undefined {
+  const claims = archive.claims;
+  if (!claims) return undefined;
+  const text = (describe: string) => z.string().trim().min(1).max(1000).describe(describe);
+  return toolFor<S>()({ name: "claim_how_she_learns",
+    description: `Record a claim about how she learns that later weeks can test. Name the words or spelling patterns it covers, the measure (her first try on her own on a new list, or the school test) and the range you expect. Code scores it against weeks after this one (${claims.planning}), never this week. It reads as proposed until 2 later weeks have evidence, then supported or contradicted, with counts. A claim cannot be edited; write a new one if you change your mind.`,
+    schema: z.object({
+      claim: text("The claim in one sentence."),
+      decision_ids: z.array(z.string().trim().min(1).max(200)).max(20).describe("Earlier decisions this rests on, by id; empty if none."),
+      patterns: z.array(z.enum(PATTERN_IDS)).max(PATTERN_IDS.length).describe("Spelling patterns it covers, from the fixed list; empty if you name words."),
+      words: z.array(z.string().trim().min(1).max(60)).max(200).describe("Words it covers, lowercase; empty if you name patterns."),
+      metric: z.enum(["first_try_unassisted", "school_test"]),
+      expected_min: z.number().min(0).max(1), expected_max: z.number().min(0).max(1),
+      falsifier: text("What result would show the claim wrong."),
+      horizon_days: z.number().int().min(7).max(365).describe("How long to wait for evidence before it expires."),
+    }).strict(),
+    run: (_state, input) => {
+      const hypothesisId = `${claims.planning}:${crypto.createHash("sha256").update(input.claim).digest("hex").slice(0, 12)}`;
+      let db: ReturnType<typeof openChart> | undefined;
+      try {
+        db = openChart(archive.childId);
+        recordFact(db, "learner.hypothesis", { hypothesisId, claim: input.claim, decisionIds: [...new Set(input.decision_ids)], formedInAssignmentId: claims.planning,
+          scope: { patterns: [...new Set(input.patterns)], words: [...new Set(input.words.map(word => word.normalize("NFC").toLowerCase()))] },
+          metric: input.metric, expected: { min: input.expected_min, max: input.expected_max }, falsifier: input.falsifier, horizonDays: input.horizon_days }, { actor: "planner" });
+        const row = projectLearnerHypotheses(exportEvents(db)).find(view => view.hypothesisId === hypothesisId)!;
+        console.log(` 🎮 [past-weeks] [claim] [recorded] child=${archive.childId} id=${hypothesisId}`);
+        return { ok: true, result: { recorded: true, ...claimRow(row) } };
+      } catch (error) {
+        const reason = error instanceof Error ? error.message : String(error);
+        console.error(` 🎮 [past-weeks] [claim] [refused] child=${archive.childId} reason=${reason}`);
+        return { ok: false, error: `not recorded: ${reason}` };
+      } finally {
+        db?.close();
+      }
     } });
 }
 

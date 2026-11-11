@@ -7,7 +7,7 @@ import { deriveNativeActivity } from "./assignmentPlanner";
 import { explainerPageTool } from "./spellingTeachingTools";
 import { rewardBreakTool } from "./plannerMenu";
 import type { LearningCycleMathItem } from "./learningCycleRepository";
-import { pastWeeksTool, type PastWeeksArchive } from "./pastWeeks";
+import { claimHowSheLearnsTool, pastWeeksTool, type PastWeeksArchive } from "./pastWeeks";
 
 /** The next-board Planner's small locked tools, one toolkit for every subject. The Planner makes the theory
  * decision and orders each step: a re-run of a tested built-in she played (its own words or fewer), or any
@@ -243,6 +243,7 @@ export function spellingSuccessorToolkit(facts: SuccessorFacts) {
         return { ok: true, result: { section: input.section, total: value.length, offset, rows: value.slice(offset, offset + limit) } };
       } })] : []),
     ...(facts.pastWeeks?.weeks.length ? [pastWeeksTool<SuccessorState>(facts.pastWeeks)] : []),
+    ...(facts.pastWeeks?.claims ? [claimHowSheLearnsTool<SuccessorState>(facts.pastWeeks)!] : []),
     ...(newProblemIds.length ? [tool({ name: "add_problem", description: "Write a new problem for her, harder or different from her worksheet, to push her past what she has done. Give the arithmetic that produces its answer: Sunny computes the answer from it and scores her against that, so a wrong key can never mark her wrong. Returns the problem's id for add_step; it counts as unseen.",
       schema: z.object({ based_on: pickFrom([...problems!.keys()], "none", "her recorded problems", "The worksheet problem this one grows from, by id."), prompt: text("The problem exactly as she will see it, with every number she needs."),
         answer_expression: z.string().min(1).max(200).describe("Numbers and + - * / ( ) only, giving the answer, for example 298 + 171 - 402."),
