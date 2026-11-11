@@ -141,6 +141,36 @@ window.GameBridge = (function () {
     return Object.assign({}, row, { target: matches[0].itemId });
   }
 
+  // G8 (2026-11-10): letter-tap games reported the letters so far ("ornm" for ornament) after a wrong tap, saved as a
+  // misspelling. Letters so far are a word's beginning plus one more letter, shorter than the word; they are held until
+  // she answers the word (then dropped) or the word ends (then saved as an incomplete try, never right or wrong).
+  var heldLettersSoFar = null;
+  function spellingWordFor(target) {
+    var match = GAME_PARAMS.spellingItemBindings.filter(function (item) { return item.itemId === target; })[0];
+    return match ? String(match.word) : null;
+  }
+  function isLettersSoFar(value, word) {
+    var typed = String(value).normalize("NFC").trim().toLowerCase();
+    var whole = String(word).normalize("NFC").trim().toLowerCase();
+    return typed.length > 0 && typed.length < whole.length && whole.indexOf(typed.slice(0, -1)) === 0;
+  }
+  function asIncompleteTry(payload) {
+    var row = Object.assign({}, payload, { incomplete: true });
+    delete row.correct;
+    delete row.quality;
+    delete row.gaveUp;
+    delete row.itemEnded;
+    return row;
+  }
+  // The word ended with letters still held: save them once as an incomplete try. Clears the hold first, so it runs once.
+  function releaseHeldLetters(bridge) {
+    var held = heldLettersSoFar;
+    heldLettersSoFar = null;
+    if (!held) return;
+    logContract("spelling", "word ended with letters so far; saved as an incomplete try");
+    bridge.reportAttempt(Object.assign({}, held, { itemEnded: true }));
+  }
+
   function showPreviewBanner(payload) {
     payload = payload || {};
     var acc = payload.accuracy != null ? payload.accuracy : 0;
@@ -378,6 +408,7 @@ window.GameBridge = (function () {
         if (itemCompletionSent) return;
         itemCompletionSent = true;
       }
+      releaseHeldLetters(this);
       // Letter-selection/aggregate results cannot stand in for typed word answers.
       if (GAME_PARAMS.launchToken && GAME_PARAMS.spellingItemBindings.length &&
           GAME_PARAMS.spellingItemBindings.some(function (item) { return !capturedSpellingTargets[item.itemId]; })) {
@@ -594,17 +625,39 @@ window.GameBridge = (function () {
      * This is separate from companion events: companion_event drives feedback;
      * attempt_event drives SM-2, diagnostics, and future assignment selection.
      */
+    /** A new word opened: letters still held for a different word are saved as that word's incomplete try. */
+    openingSpellingWord: function (word) {
+      var opened = bindSpellingTarget({ target: String(word) }).target;
+      if (heldLettersSoFar && heldLettersSoFar.target !== opened) releaseHeldLetters(this);
+    },
+
     reportAttempt: function (attempt) {
       if (GAME_PARAMS.previewDryRun) return;
       if (!attempt || typeof attempt !== "object" || Array.isArray(attempt)) {
         return;
       }
       var payload = Object.assign({}, bindItemTarget(bindSpellingTarget(attempt)));
-      if (itemBinding(payload.target) && typeof payload.attemptedValue === "string" && !firstAnswers[payload.target]) {
+      var spellingWord = payload.domain === "spelling" && typeof payload.attemptedValue === "string" ? spellingWordFor(payload.target) : null;
+      if (spellingWord) {
+        var wordEnded = payload.itemEnded === true || payload.gaveUp === true;
+        if (heldLettersSoFar && (heldLettersSoFar.target !== payload.target)) releaseHeldLetters(this);
+        if (isLettersSoFar(payload.attemptedValue, spellingWord) && !wordEnded) {
+          heldLettersSoFar = payload;
+          logContract("spelling", "letters so far held until she answers or the word ends");
+          return;
+        }
+        if (heldLettersSoFar && heldLettersSoFar.target === payload.target) {
+          heldLettersSoFar = null;
+          logContract("spelling", "letters so far dropped: she went on to answer the word");
+        }
+        if (wordEnded && isLettersSoFar(payload.attemptedValue, spellingWord)) payload = asIncompleteTry(payload);
+      }
+      var answered = payload.incomplete !== true;
+      if (answered && itemBinding(payload.target) && typeof payload.attemptedValue === "string" && !firstAnswers[payload.target]) {
         firstAnswers[payload.target] = { attemptedValue: payload.attemptedValue, screenAtOpen: screenAtOpen[payload.target] };
       }
       var lateTry = false;
-      if (typeof payload.target === "string" && typeof payload.attemptedValue === "string") {
+      if (answered && typeof payload.target === "string" && typeof payload.attemptedValue === "string") {
         var tries = allAnswers[payload.target] || (allAnswers[payload.target] = []);
         if (tries.length < MAX_TRIES_PER_ITEM) {
           tries.push({ attemptedValue: payload.attemptedValue, at: Date.now() });
@@ -617,7 +670,7 @@ window.GameBridge = (function () {
         logContract("items", "try after the stop finished; sending a follow-up record");
         post("late_tries", { nodeId: GAME_PARAMS.nodeId, sessionId: GAME_PARAMS.sessionId, launchToken: GAME_PARAMS.launchToken, targetResults: boundItemResults() });
       }
-      if (payload.domain === "spelling" && typeof payload.attemptedValue === "string") capturedSpellingTargets[payload.target] = true;
+      if (answered && payload.domain === "spelling" && typeof payload.attemptedValue === "string") capturedSpellingTargets[payload.target] = true;
       if (payload.word == null && payload.target != null) {
         payload.word = String(payload.target);
       }
@@ -675,6 +728,7 @@ window.fireAttemptEvent = function (attempt) {
  */
 window.openSpellingItem = function (word, progress) {
   if (typeof word !== "string" || !word.trim()) return;
+  window.GameBridge.openingSpellingWord(word);
   var screen = (document.body && document.body.innerText) || "";
   var escaped = word.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   var shown = new RegExp("(^|[^\\p{L}])" + escaped + "($|[^\\p{L}])", "iu").test(screen);
