@@ -9,6 +9,8 @@ export function RewardBreakPicker(props: {
   childId: string;
   fetchWallet?: (childId: string) => Promise<{ ownedRewardIds?: string[] }>;
   onPick: (game: RewardBreakGame) => void;
+  /** She can always leave without picking (owner, 2026-11-11: the picker trapped her on the board). */
+  onClose?: () => void;
 }) {
   const [games, setGames] = useState<RewardBreakGame[]>(() => rewardBreakGameChoices(undefined));
   useEffect(() => {
@@ -25,7 +27,12 @@ export function RewardBreakPicker(props: {
     return () => { current = false; };
   }, [props.childId, props.fetchWallet]);
   return (
-    <div role="dialog" aria-label="Pick your reward game" className="absolute inset-0 z-40 flex flex-col items-center justify-center gap-6 bg-slate-950/80 p-6">
+    <div role="dialog" aria-modal="true" aria-label="Pick your reward game" className="absolute inset-0 z-[60] flex flex-col items-center justify-center gap-6 bg-slate-950/80 p-6"
+      onClick={event => { if (event.target === event.currentTarget) { console.log(` 🎮 [reward-break] [closed] child=${props.childId} by=backdrop`); props.onClose?.(); } }}>
+      {props.onClose ? (
+        <button type="button" aria-label="Close" onClick={() => { console.log(` 🎮 [reward-break] [closed] child=${props.childId} by=button`); props.onClose?.(); }}
+          className="absolute right-6 top-6 flex h-14 w-14 items-center justify-center rounded-full bg-white/90 text-3xl font-black text-slate-900 shadow-xl hover:scale-105">✕</button>
+      ) : null}
       <h2 className="text-3xl font-black text-white">Pick your reward game!</h2>
       <div className="flex flex-wrap justify-center gap-4">
         {games.map(game => (

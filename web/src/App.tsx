@@ -2303,6 +2303,7 @@ function App() {
           {rewardBreakPick && adventureChildId ? (
             <RewardBreakPicker
               childId={adventureChildId}
+              onClose={() => setRewardBreakPick(null)}
               onPick={(game) => {
                 const pick = rewardBreakPick;
                 setRewardBreakPick(null);
