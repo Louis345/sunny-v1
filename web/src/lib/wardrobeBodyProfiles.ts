@@ -368,7 +368,15 @@ export function resolveWardrobeTemplateCertification(
   templateId: string,
   modelUrl?: string,
 ): WardrobeTemplateCertification {
-  const companionId = wardrobeBodyOwnerId(requestedCompanionId);
+  return resolveWardrobeBodyCertification(wardrobeBodyOwnerId(requestedCompanionId), templateId, modelUrl);
+}
+
+/** Certification by body asset id (a prepared body's companionId), with no companion-name lookup. */
+export function resolveWardrobeBodyCertification(
+  companionId: string,
+  templateId: string,
+  modelUrl?: string,
+): WardrobeTemplateCertification {
   const record = WARDROBE_TEMPLATE_CERTIFICATIONS.find(entry => entry.companionId === companionId && entry.templateId === templateId) ?? {
     companionId, templateId, status: "candidate" as const,
     reason: "No human-reviewed fit has been recorded for this companion yet.",

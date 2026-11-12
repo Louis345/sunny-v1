@@ -2,7 +2,7 @@ import * as THREE from "three";
 // Reuse the ZIP reader Three bundles for its own loaders.
 import { unzipSync } from "three/examples/jsm/libs/fflate.module.js";
 import { parseXwearMesh } from "./xwearMesh";
-import { resolveWardrobeBodyProfileId, resolveWardrobeTemplateCertification } from "./wardrobeBodyProfiles";
+import { resolveWardrobeBodyProfileId, resolveWardrobeBodyCertification } from "./wardrobeBodyProfiles";
 import preparedBodies from './wardrobePrepared.generated.json';
 import { resolvePreparedGarment, loadPreparedGarment } from "./wardrobePreparedGarment";
 
@@ -96,7 +96,7 @@ export function isXwearOutfitApprovedForAvatar(
   avatarUrl: string,
 ) {
   const prepared=preparedBodies.find(body=>body.modelUrl===avatarUrl);
-  if(prepared)return resolveWardrobeTemplateCertification(prepared.companionId,outfit.id==='sleeveless-dress'?'ribbon-dress':outfit.id,avatarUrl).status==='approved';
+  if(prepared)return resolveWardrobeBodyCertification(prepared.companionId,outfit.id==='sleeveless-dress'?'ribbon-dress':outfit.id,avatarUrl).status==='approved';
   const bodyProfileId = resolveWardrobeBodyProfileId(avatarUrl);
   return (
     outfit.qa.status === "approved" &&

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { resolveWardrobeTemplateCertification, validateWardrobeCertification } from '../lib/wardrobeBodyProfiles';
+import { resolveWardrobeBodyCertification, resolveWardrobeTemplateCertification, validateWardrobeCertification } from '../lib/wardrobeBodyProfiles';
 import { WARDROBE_STORE_CATALOG, getCompatibleWardrobeItems } from '../lib/wardrobeStore';
 
 describe('versioned wardrobe certification', () => {
@@ -7,7 +7,7 @@ describe('versioned wardrobe certification', () => {
     for (const body of bodies) {
       for (const templateId of ['ribbon-dress', 'comet-hoodie', 'constellation-blazer']) {
         expect(
-          resolveWardrobeTemplateCertification(body.companionId, templateId, body.modelUrl),
+          resolveWardrobeBodyCertification(body.companionId, templateId, body.modelUrl),
         ).toMatchObject({
           status: 'approved',
           humanReview: {

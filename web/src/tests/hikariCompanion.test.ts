@@ -4,8 +4,10 @@ import { resolveVideoCallPickupGreeting } from "../components/CompanionShowroom"
 import {
   isWardrobeReadyForHumanReview,
   resolvePreparedWardrobePresentation,
+  resolveWardrobeBodyCertification,
   resolveWardrobeTemplateCertification,
 } from "../lib/wardrobeBodyProfiles";
+import { getXwearOutfitDefinition, isXwearOutfitApprovedForAvatar } from "../lib/xwearDress";
 import {
   WARDROBE_STORE_CATALOG,
   createInitialWardrobeStoreState,
@@ -70,14 +72,23 @@ describe("Hikari's wardrobe is the angel body's wardrobe", () => {
     const forMatilda = getCompatibleWardrobeItems(WARDROBE_STORE_CATALOG, model, "matilda").map(i => i.id);
     expect(forMatilda.length).toBeGreaterThan(0);
     expect(forHikari).toEqual(forMatilda);
+    // "matilda" here is the body asset id, not Matilda the companion (who now wears the starter body).
     for (const templateId of ["ribbon-dress", "comet-hoodie", "constellation-blazer", "royal-crown", "cat-ears", "star-halo"]) {
       expect(resolveWardrobeTemplateCertification("hikari", templateId, model).status).toBe(
-        resolveWardrobeTemplateCertification("matilda", templateId, model).status,
+        resolveWardrobeBodyCertification("matilda", templateId, model).status,
       );
     }
-    expect(getWardrobePairVersion("hikari", model, "sleeveless-dress", "star-halo")).toBe(
-      getWardrobePairVersion("matilda", model, "sleeveless-dress", "star-halo"),
-    );
+    expect(getWardrobePairVersion("hikari", model, "sleeveless-dress", "star-halo")).toContain(model);
+  });
+
+  // Owner 2026-11-12: "sometimes when you click wearables, they don't show everything." Hikari's dress was sold
+  // (coins spent) but never rendered: the renderer's check looked the pink body's asset id "matilda" up as Matilda
+  // the companion, who now wears the starter body, so every garment was refused on Hikari's model.
+  it("renders every approved garment the store lets her wear", () => {
+    const model = presentation!.bodyModelUrl;
+    const sellable = getCompatibleWardrobeItems(WARDROBE_STORE_CATALOG, model, "hikari").filter(i => getXwearOutfitDefinition(i.id));
+    expect(sellable.map(i => i.id)).toContain("sleeveless-dress");
+    for (const item of sellable) expect(isXwearOutfitApprovedForAvatar(getXwearOutfitDefinition(item.id)!, model), item.id).toBe(true);
   });
 
   it("can be dressed and keeps her look", () => {
