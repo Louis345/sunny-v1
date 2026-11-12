@@ -11,6 +11,7 @@ import { decideCatch } from "../../../src/shared/creatureEncounters";
 import type { Season, SkyMood } from "../../../src/shared/skyClock";
 import { loadMixamoFbxRoot, retargetMixamoClipToVrm } from "../utils/mixamoRetarget";
 import { playSparkOrbSfx } from "../utils/sparkOrbSfx";
+import { SKY, buildMeadow } from "./orbMeadowScenery";
 
 /**
  * Storybook prototype (owner, 2026-11-11): the orb catcher as a real 3D scene in Three.js, the engine the
@@ -21,21 +22,6 @@ import { playSparkOrbSfx } from "../utils/sparkOrbSfx";
 
 type Phase = "aim" | "flying" | "absorb" | "drop" | "shaking" | "caught" | "escape" | "away";
 
-const SKY: Record<SkyMood, { top: string; bottom: string; sun: string; sunIntensity: number; hemi: number }> = {
-  sunrise: { top: "#8fa8e8", bottom: "#ffc9a8", sun: "#ffb27a", sunIntensity: 1.6, hemi: 0.75 },
-  day: { top: "#5fa7f2", bottom: "#cfe9ff", sun: "#fff6e0", sunIntensity: 2.4, hemi: 1 },
-  golden: { top: "#7d8fd6", bottom: "#ffcf8a", sun: "#ffbf6b", sunIntensity: 1.9, hemi: 0.8 },
-  twilight: { top: "#2b2d63", bottom: "#c56f8f", sun: "#ff9a8a", sunIntensity: 0.9, hemi: 0.5 },
-  night: { top: "#070b22", bottom: "#24275a", sun: "#9fb2ff", sunIntensity: 0.55, hemi: 0.35 },
-};
-const GRASS: Record<Season, string> = {
-  spring: "#6fbf5a", summer: "#5aae48", autumn: "#a7a24a", halloween: "#7f8a3f", holiday: "#e9eef5", winter: "#e3e9f2",
-};
-const LEAVES: Record<Season, string[]> = {
-  spring: ["#ff9ec7", "#7ccf6a", "#5fbf5a"], summer: ["#3f9e3c", "#58b04a", "#2f8a3a"],
-  autumn: ["#e07b2a", "#c9481f", "#f2b33d"], halloween: ["#e0662a", "#8a3fb0", "#c9481f"],
-  holiday: ["#2f7a4a", "#e9eef5", "#2f6a40"], winter: ["#dfe8f2", "#c8d6e6", "#2f6a40"],
-};
 const FLIGHT_S = 0.85;
 const SHAKE_S = 0.7;
 const MAX_TRAIL = 22;
@@ -120,34 +106,13 @@ export function OrbCatcher3D({ creature, throws, timeOfDay, season, companionVrm
     renderer.domElement.style.touchAction = "none";
 
     const scene = new THREE.Scene();
-    scene.fog = new THREE.Fog(new THREE.Color(sky.bottom), 18, 60);
     const camera = new THREE.PerspectiveCamera(48, 1, 0.1, 200);
     const cameraHome = new THREE.Vector3(0, 2.1, 7.4);
     camera.position.copy(cameraHome);
     camera.lookAt(0, 1.1, 0);
 
-    // Sky dome: a gradient that follows the shared sky clock.
-    const skyMaterial = new THREE.ShaderMaterial({
-      side: THREE.BackSide,
-      depthWrite: false,
-      uniforms: { top: { value: new THREE.Color(sky.top) }, bottom: { value: new THREE.Color(sky.bottom) } },
-      vertexShader: "varying vec3 vPos; void main(){ vPos = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }",
-      fragmentShader: "uniform vec3 top; uniform vec3 bottom; varying vec3 vPos; void main(){ float h = clamp(normalize(vPos).y * 1.4 + 0.2, 0.0, 1.0); gl_FragColor = vec4(mix(bottom, top, h), 1.0); }",
-    });
-    scene.add(new THREE.Mesh(new THREE.SphereGeometry(90, 32, 16), skyMaterial));
-    if (night) {
-      const starGeometry = new THREE.BufferGeometry();
-      const starPositions = new Float32Array(600 * 3);
-      for (let index = 0; index < 600; index += 1) {
-        const theta = Math.random() * Math.PI * 2;
-        const phi = Math.random() * Math.PI * 0.45;
-        starPositions.set([80 * Math.sin(phi) * Math.cos(theta), 80 * Math.cos(phi), 80 * Math.sin(phi) * Math.sin(theta)], index * 3);
-      }
-      starGeometry.setAttribute("position", new THREE.BufferAttribute(starPositions, 3));
-      scene.add(new THREE.Points(starGeometry, new THREE.PointsMaterial({ color: "#ffffff", size: 0.35, fog: false })));
-    }
-
-    scene.add(new THREE.HemisphereLight(new THREE.Color(sky.top), new THREE.Color(GRASS[season]), sky.hemi));
+    const meadow = buildMeadow(scene, { timeOfDay, season });
+    scene.add(new THREE.HemisphereLight(new THREE.Color(sky.top), new THREE.Color("#4f7a3a"), sky.hemi));
     const sun = new THREE.DirectionalLight(new THREE.Color(sky.sun), sky.sunIntensity);
     sun.position.set(-6, 10, 6);
     sun.castShadow = true;
@@ -157,55 +122,6 @@ export function OrbCatcher3D({ creature, throws, timeOfDay, season, companionVrm
     sun.shadow.camera.top = 8;
     sun.shadow.camera.bottom = -8;
     scene.add(sun);
-
-    // Meadow: ground, soft hills, trees in the season's colours, flowers.
-    const ground = new THREE.Mesh(new THREE.CircleGeometry(70, 48), new THREE.MeshStandardMaterial({ color: GRASS[season], roughness: 0.95 }));
-    ground.rotation.x = -Math.PI / 2;
-    ground.receiveShadow = true;
-    scene.add(ground);
-    const hillMaterial = new THREE.MeshStandardMaterial({ color: new THREE.Color(GRASS[season]).offsetHSL(0, 0, -0.06), roughness: 1 });
-    [[-14, -22, 9], [10, -26, 12], [26, -18, 8], [-28, -16, 7]].forEach(([x, z, r]) => {
-      const hill = new THREE.Mesh(new THREE.SphereGeometry(r, 24, 12), hillMaterial);
-      hill.scale.y = 0.35;
-      hill.position.set(x, 0, z);
-      scene.add(hill);
-    });
-    const trunkMaterial = new THREE.MeshStandardMaterial({ color: "#6b4a2f", roughness: 1 });
-    const leafMaterials = LEAVES[season].map((color) => new THREE.MeshStandardMaterial({ color, roughness: 0.8, flatShading: true }));
-    for (let index = 0; index < 18; index += 1) {
-      const angle = (index / 18) * Math.PI * 1.3 - Math.PI * 1.15;
-      const radius = 9 + (index % 4) * 3.5;
-      const tree = new THREE.Group();
-      const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.26, 1.4, 8), trunkMaterial);
-      trunk.position.y = 0.7;
-      trunk.castShadow = true;
-      const crown = new THREE.Mesh(
-        index % 3 === 0 ? new THREE.ConeGeometry(1.2, 2.8, 8) : new THREE.IcosahedronGeometry(1.25, 0),
-        leafMaterials[index % leafMaterials.length],
-      );
-      crown.position.y = index % 3 === 0 ? 2.6 : 2.2;
-      crown.castShadow = true;
-      tree.add(trunk, crown);
-      tree.position.set(Math.cos(angle) * radius, 0, Math.sin(angle) * radius - 3);
-      tree.scale.setScalar(0.8 + (index % 5) * 0.12);
-      scene.add(tree);
-    }
-    const flowerColors = ["#ff8fb8", "#ffd84d", "#ffffff", "#b58cff"];
-    for (let index = 0; index < 60; index += 1) {
-      const flower = new THREE.Mesh(new THREE.SphereGeometry(0.06, 6, 6), new THREE.MeshStandardMaterial({ color: flowerColors[index % 4], emissive: night ? flowerColors[index % 4] : "#000000", emissiveIntensity: night ? 0.4 : 0 }));
-      flower.position.set((Math.random() - 0.5) * 16, 0.06, (Math.random() - 0.5) * 10 - 1);
-      scene.add(flower);
-    }
-
-    // Weather that matches the season (and fireflies on summer nights).
-    const weatherCount = season === "summer" && !night ? 0 : 140;
-    const weatherGeometry = new THREE.BufferGeometry();
-    const weatherPositions = new Float32Array(weatherCount * 3);
-    for (let index = 0; index < weatherCount; index += 1) weatherPositions.set([(Math.random() - 0.5) * 20, Math.random() * 9, (Math.random() - 0.5) * 12 - 1], index * 3);
-    weatherGeometry.setAttribute("position", new THREE.BufferAttribute(weatherPositions, 3));
-    const weatherColor = season === "winter" || season === "holiday" ? "#ffffff" : season === "spring" ? "#ffc3d8" : season === "summer" ? "#fff59a" : "#e07b2a";
-    const weather = new THREE.Points(weatherGeometry, new THREE.PointsMaterial({ color: weatherColor, size: season === "summer" ? 0.14 : 0.1, transparent: true, opacity: 0.9, map: radialTexture("rgba(255,255,255,1)", "rgba(255,255,255,0)"), depthWrite: false, blending: season === "summer" ? THREE.AdditiveBlending : THREE.NormalBlending }));
-    scene.add(weather);
 
     // The creature: her art as a lit billboard (until each species has a 3D model).
     const creatureHome = new THREE.Vector3(0.4, 1.25, -1.2);
@@ -424,13 +340,7 @@ export function OrbCatcher3D({ creature, throws, timeOfDay, season, companionVrm
       mixer?.update(dt);
       vrm?.update(dt);
 
-      // Weather drifts down (fireflies wander).
-      for (let index = 0; index < weatherCount; index += 1) {
-        const y = weatherPositions[index * 3 + 1] - dt * (season === "summer" ? 0.05 : 0.6);
-        weatherPositions[index * 3] += Math.sin(time + index) * dt * 0.25;
-        weatherPositions[index * 3 + 1] = y < 0 ? 9 : y;
-      }
-      weatherGeometry.attributes.position.needsUpdate = true;
+      meadow.update(dt, time);
 
       // Creature idle life: bob and breathe while she is out.
       if (phase === "aim" || phase === "flying") {
@@ -599,6 +509,7 @@ export function OrbCatcher3D({ creature, throws, timeOfDay, season, companionVrm
       renderer.domElement.removeEventListener("pointermove", onMove);
       renderer.domElement.removeEventListener("pointerup", onUp);
       renderer.domElement.removeEventListener("pointercancel", onUp);
+      meadow.dispose();
       composer.dispose();
       renderer.dispose();
       mount.removeChild(renderer.domElement);
