@@ -15,6 +15,7 @@ import { exportEvents } from "../chart/exportEvents";
 import { projectLearnerHypotheses, type LearnerHypothesisView } from "../chart/spelling/hypotheses";
 import { PATTERN_IDS } from "../chart/spelling/patterns";
 import { recordFact } from "../chart/spelling/record";
+import { predictionHistoryLines } from "../chart/spelling/predictionBond";
 
 /**
  * Week-to-week memory (owner, 2026-11-10: "The tutor remembers their student week to week. So should the planner.").
@@ -42,6 +43,8 @@ export type PastWeek = {
   minutes: { learning: number; play: number; call: number; sessions: number } | null;
   schoolTest: { gradedAt: string; right: number; total: number; score: number | null; missed: Array<{ target: string; wrote?: string }> } | null;
   journal: { file: string; lines: string[] } | null;
+  /** Her chart's bond of your locked predictions to the graded test (owner 2026-11-12); absent without a chart. */
+  bonded?: string[];
 };
 /** claims: her cross-week claims as code scored them when the question was asked, and the week being planned. */
 export type PastWeeksArchive = { version: 1; childId: string; weeks: PastWeek[]; claims?: { planning: string; rows: LearnerHypothesisView[]; asOfSequence?: number } };
@@ -128,6 +131,8 @@ export function readPastWeeks(childId: string, opts: { rootDir?: string; homewor
   const weeks = readCanonicalCycles(id, opts.rootDir).filter(cycle => !skip.has(cycle.homeworkId)).map(cycle => pastWeekOf(cycle, opts))
     .sort((a, b) => b.started.localeCompare(a.started) || a.homeworkId.localeCompare(b.homeworkId));
   const claims = skip.size === 1 ? readClaims(id, [...skip][0]) : undefined;
+  const bonded = readBonds(id);
+  if (bonded) for (const week of weeks) { const lines = predictionHistoryLines(bonded, week.homeworkId); if (lines.length) week.bonded = lines; }
   console.log(` 🎮 [past-weeks] [read] [ok] child=${id} weeks=${weeks.length} excluded=${[...skip].join(",") || "none"} claims=${claims ? claims.rows.length : "unavailable"}`);
   return { version: 1, childId: id, weeks, ...(claims ? { claims } : {}) };
 }
@@ -142,6 +147,21 @@ function readClaims(childId: string, planning: string): PastWeeksArchive["claims
     return { planning, rows: projectLearnerHypotheses(events), asOfSequence: events.reduce((max, e) => Math.max(max, e.sequence), 0) };
   } catch (error) {
     console.error(` 🎮 [past-weeks] [claims] [unavailable] child=${childId} reason=${error instanceof Error ? error.message : String(error)}`);
+    return undefined;
+  } finally {
+    db?.close();
+  }
+}
+
+/** Her chart's events for the prediction bond; no chart, no bond lines. */
+function readBonds(childId: string) {
+  if (!process.env.SUNNY_CHART_DIR?.trim()) return undefined;
+  let db: ReturnType<typeof openChart> | undefined;
+  try {
+    db = openChart(childId, { readonly: true });
+    return exportEvents(db);
+  } catch (error) {
+    console.error(` 🎮 [past-weeks] [bonds] [unavailable] child=${childId} reason=${error instanceof Error ? error.message : String(error)}`);
     return undefined;
   } finally {
     db?.close();
@@ -197,6 +217,7 @@ export function pastWeekLines(week: PastWeek): string[] {
       week.calls.map(call => `${call.label}: expected ${call.expected ? "right" : "not yet"}, ${!call.answered ? "no answer on her own yet" : call.answered.right ? "she was right" : `she wrote "${call.answered.wrote ?? "?"}"`}`).join("; ")})` : "Your calls that week: none made",
     week.predictions.evaluated ? `Preregistered predictions: ${week.predictions.evaluated} evaluated, ${week.predictions.inRange} inside the predicted range` : "Preregistered predictions: none evaluated",
     week.minutes ? `Minutes: learning games ${week.minutes.learning}, play (Mystery/arcade) ${week.minutes.play}, call ${week.minutes.call}, over ${week.minutes.sessions} session${week.minutes.sessions === 1 ? "" : "s"}` : "Minutes: not recorded",
+    ...(week.bonded ? ["Your locked predictions against the graded school test (bonded in her chart by code; the latest lock per word shown):", ...week.bonded] : []),
     week.schoolTest ? `School test: graded ${day(week.schoolTest.gradedAt)}: ${week.schoolTest.right} of ${week.schoolTest.total} right (${percent(week.schoolTest)}%)${week.schoolTest.missed.length ? `; missed: ${week.schoolTest.missed.map(row => `${label.get(row.target) ?? row.target}${row.wrote ? ` (wrote "${row.wrote}")` : ""}`).join(", ")}` : ""}` : "School test: no graded test uploaded",
     ...(week.journal ? [`Journal file: ${week.journal.file}`, ...week.journal.lines] : ["Journal file: none"]),
     "Every recorded answer (oldest first):",

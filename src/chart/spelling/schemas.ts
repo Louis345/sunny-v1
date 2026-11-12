@@ -6,6 +6,8 @@ const word = text.refine(s => s === s.trim() && s === s.toLowerCase(), 'canonica
 const date = z.iso.date();
 const hash = z.string().regex(/^[a-f0-9]{64}$/);
 const probability = z.number().min(0).max(1);
+const instant = z.string().regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/);
+const range = z.strictObject({ min: probability, max: probability }).refine(e => e.min <= e.max, 'expected min <= max');
 const strings = z.array(text).max(1000).refine(a => new Set(a).size === a.length);
 const uniqueWords = z.array(word).min(1).max(1000).refine(a => new Set(a).size === a.length);
 const aid = { assignmentId: text };
@@ -38,6 +40,16 @@ export const schemas = {
         quote: z.string().trim().min(1).max(600), speaker: z.literal('caller_child'), sessionId: text, companionId: text, sourceEventIds: strings.min(1) }),
     'child.fact_retracted': z.strictObject({ factId: text, reason: text }),
     'school_test.recorded': z.strictObject({ ...aid, testDate: date, photoHash: hash, sourceKind: z.enum(['image','parent_transcription']).optional(), results: z.array(z.strictObject({ word, correct: z.boolean(), writtenResponse: z.string().max(4096).nullable() })).min(1).max(1000) }),
+    // Owner 2026-11-12: the Planner's locked predictions and the graded test, bonded in her chart so any model can read
+    // months later what was predicted, by which model, when, and what she actually wrote. A lock after the test is refused.
+    'prediction.locked': z.strictObject({ ...aid, predictionId: text, word, metric: text, expected: range, confidence: probability.nullable(),
+        predictedErrors: z.array(text).max(50), rationale: text.nullable(), horizon: text.nullable(), modelId: text.nullable(), lockedAt: instant }),
+    // Written by code from the school test and the locks before it; the relation check recomputes it and refuses any difference.
+    'prediction.scored': z.strictObject({ ...aid, version: z.literal(1), schoolTestEventId: text, testDate: date,
+        rows: z.array(z.strictObject({ word, correct: z.boolean(), writtenResponse: z.string().max(4096).nullable(),
+            predictions: z.array(z.strictObject({ predictionEventId: text, predictionId: text, metric: text, expected: range, confidence: probability.nullable(), modelId: text.nullable(), lockedAt: instant })).max(100) })).min(1).max(1000),
+        summary: z.strictObject({ words: z.number().int().min(1), right: z.number().int().min(0),
+            predictedRight: z.strictObject({ min: z.number().min(0), max: z.number().min(0) }).nullable(), inRange: z.boolean().nullable() }) }),
     // Replacement schema is validated against the target type inside the transaction.
     'correction.recorded': z.strictObject({ target_event_id: text, reason: text, replacement_payload: z.record(z.string(), z.unknown()) }),
 } as const;
@@ -54,6 +66,7 @@ export const actors: Record<FactType, readonly string[]> = {
     'prediction.prior': ['planner'], 'item.presented': ['system'], 'response.observed': ['system'],
     'plan.decided': ['planner'], 'readiness.forecast': ['planner'], 'school_test.recorded': ['parent'],
     'learner.hypothesis': ['planner'],
+    'prediction.locked': ['planner'], 'prediction.scored': ['system'],
     'child.fact_learned': ['system'], 'child.fact_retracted': ['parent'],
     'correction.recorded': ['parent', 'system'],
 };
@@ -87,6 +100,12 @@ export function factId(type: FactType, p: Record<string, unknown>): string {
             break;
         case 'correction.recorded':
             key = [p.target_event_id, p.replacement_payload];
+            break;
+        case 'prediction.locked':
+            key = [p.assignmentId, p.predictionId];
+            break;
+        case 'prediction.scored':
+            key = [p.assignmentId, p.schoolTestEventId];
             break;
         case 'learner.hypothesis':
             key = p.hypothesisId;

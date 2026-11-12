@@ -30,4 +30,6 @@ export const recordResponse = (db: ChartDatabase, p: Payloads['response.observed
 export const recordPlan = (db: ChartDatabase, p: Payloads['plan.decided'], o?: RecordOptions) => recordFact(db, 'plan.decided', p, o);
 export const recordForecast = (db: ChartDatabase, p: Payloads['readiness.forecast'], o?: RecordOptions) => recordFact(db, 'readiness.forecast', p, o);
 export const recordSchoolTest = (db: ChartDatabase, p: Payloads['school_test.recorded'], o?: RecordOptions) => recordFact(db, 'school_test.recorded', p, o);
+export const recordPredictionLock = (db: ChartDatabase, p: Payloads['prediction.locked'], o?: RecordOptions) => recordFact(db, 'prediction.locked', p, o);
+export const recordPredictionScore = (db: ChartDatabase, p: Payloads['prediction.scored'], o?: RecordOptions) => recordFact(db, 'prediction.scored', p, o);
 export const recordCorrection = (db: ChartDatabase, p: Payloads['correction.recorded'], o?: RecordOptions) => recordFact(db, 'correction.recorded', p, o);

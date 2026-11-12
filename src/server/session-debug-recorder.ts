@@ -7,6 +7,7 @@ import { ttsLogLabel } from "./audit-log";
 import { shouldPersistSessionData } from "../utils/runtimeMode";
 import { writeSessionHandoff } from "../engine/sessionHandoff";
 import { writeSessionScorecard } from "../engine/sessionScorecard";
+import { bondWeekPredictionsAtSessionEnd } from "../engine/predictionBond";
 import { getChildChart } from "../profiles/childChart";
 
 type JsonValue =
@@ -258,6 +259,8 @@ export function startSessionHandoff(session: any, write = writeSessionHandoff): 
   if (!shouldPersistSessionData() || !session.chartChildId || !session.debugRecorder?.sessionDir) return;
   const homeworkId = session.spellingLaunch?.homeworkId ?? session.options?.homeworkId ?? readCurrentHomeworkId(session.chartChildId);
   if (homeworkId) writeSessionScorecard({ childId: session.chartChildId, homeworkId, sessionDir: session.debugRecorder.sessionDir });
+  // Owner 2026-11-12: the week's locked predictions on record in her chart before any graded test.
+  if (homeworkId) bondWeekPredictionsAtSessionEnd(session.chartChildId, homeworkId);
   void write({ childId: session.chartChildId, sessionDir: session.debugRecorder.sessionDir, ...(homeworkId ? { homeworkId } : {}) })
     .catch(error => console.error(` 🎮 [handoff] [failed] child=${session.chartChildId} reason=${error instanceof Error ? error.message : String(error)}`));
 }

@@ -20,6 +20,11 @@ function spellingWeek() {
   const childId = "lab", homeworkId = "words";
   const items = buildSpellingRecallItems({ homeworkId, words: ["night", "light", "right"], evidenceIds: ["source"], measurementRole: "fresh_checkpoint" });
   createSpellingDiscoveryCycle({ childId, homeworkId, title: "Words", contentFingerprint: "f", items, boardDefinition: linearJourneyFixture([`${homeworkId}:discovery`]) }, { rootDir });
+  // Her chart database, as on the kiosk: a graded test is bonded there first or not recorded at all.
+  vi.stubEnv("SUNNY_CHART_DIR", path.join(rootDir, "charts"));
+  const db = openChart(childId);
+  recordAssignment(db, { assignmentId: homeworkId, words: ["night", "light", "right"], testDate: null, sourcePhotoHash: "a".repeat(64) });
+  db.close();
   return { rootDir, childId, homeworkId, items };
 }
 
@@ -78,10 +83,6 @@ describe("parent uploads a graded spelling test as ticks", () => {
 
   it("also records the school test in her chart database, so cross-week claims can be scored against it", async () => {
     const { rootDir, childId, homeworkId } = spellingWeek();
-    vi.stubEnv("SUNNY_CHART_DIR", path.join(rootDir, "charts"));
-    const db = openChart(childId);
-    recordAssignment(db, { assignmentId: homeworkId, words: ["night", "light", "right"], testDate: null, sourcePhotoHash: "a".repeat(64) });
-    db.close();
     const file = path.join(rootDir, "test.txt");
     fs.writeFileSync(file, "date: 2026-11-12\nnight ✓\nlight ✗ lite\nright ✓\n", "utf8");
 
@@ -91,12 +92,39 @@ describe("parent uploads a graded spelling test as ticks", () => {
 
     const reopened = openChart(childId, { readonly: true });
     const school = exportEvents(reopened).find(event => event.type === "school_test.recorded");
+    const bonded = exportEvents(reopened).find(event => event.type === "prediction.scored");
     reopened.close();
     expect(school).toMatchObject({ actor: "parent", payload: { assignmentId: homeworkId, testDate: "2026-11-12", sourceKind: "parent_transcription", results: [
       { word: "night", correct: true, writtenResponse: "night" },
       { word: "light", correct: false, writtenResponse: "lite" },
       { word: "right", correct: true, writtenResponse: "right" },
     ] } });
+    expect(bonded).toMatchObject({ actor: "system", cites: [school!.event_id], payload: { assignmentId: homeworkId, schoolTestEventId: school!.event_id, testDate: "2026-11-12",
+      summary: { words: 3, right: 2, predictedRight: null, inRange: null } } });
+  });
+
+  // Owner 2026-11-12: a graded test that cannot be bonded in her chart is not half-recorded and not silently skipped.
+  it("stops loudly and records nothing when her chart database is not set up", async () => {
+    const { rootDir, childId, homeworkId } = spellingWeek();
+    vi.stubEnv("SUNNY_CHART_DIR", "");
+    const file = path.join(rootDir, "test.txt");
+    fs.writeFileSync(file, "date: 2026-11-12\nnight ✓\nlight ✗ lite\nright ✓\n", "utf8");
+    const lines: string[] = [];
+    await expect(runUploadGradedHomework([`--child=${childId}`, `--pdf=${file}`, `--homework=${homeworkId}`, "--yes"], {
+      rootDir, logger: { log: (line: string) => lines.push(line) }, interpret,
+    })).rejects.toThrow(/chart_bond_failed:no_chart_dir/);
+    expect(lines.join("\n")).toContain("NOT RECORDED");
+    expect(getLearningCycle(childId, homeworkId, { rootDir })!.evidenceSources).toHaveLength(0);
+  });
+
+  it("stops loudly and records nothing when her chart refuses the test (a word missing from the graded list)", async () => {
+    const { rootDir, childId, homeworkId } = spellingWeek();
+    const file = path.join(rootDir, "test.txt");
+    fs.writeFileSync(file, "date: 2026-11-12\nnight ✓\nlight ✗ lite\n", "utf8");
+    await expect(runUploadGradedHomework([`--child=${childId}`, `--pdf=${file}`, `--homework=${homeworkId}`, "--yes"], {
+      rootDir, logger: { log: () => undefined }, interpret,
+    })).rejects.toThrow(/chart_bond_failed:chart_school_coverage/);
+    expect(getLearningCycle(childId, homeworkId, { rootDir })!.evidenceSources).toHaveLength(0);
   });
 
   it("does not read a JSON score of 1 as 100% when the ticks say otherwise", async () => {

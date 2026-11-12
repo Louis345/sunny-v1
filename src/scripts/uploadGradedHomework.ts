@@ -18,7 +18,7 @@ import {
 import { resolveChildContextDir } from "../utils/contextRoot";
 import { familyDay } from "../utils/familyCalendar";
 import { openChart } from "../chart/db";
-import { recordSchoolTest } from "../chart/spelling/record";
+import { recordGradedTestBond } from "../engine/predictionBond";
 
 type HomeworkCycleCandidateRecord = HomeworkCycle | LearningCycleRecordV2;
 
@@ -375,6 +375,9 @@ async function recordCanonicalUpload(input: {
   const right = input.upload.gradedItems.filter((item) => item.correct).length;
   const bytes = fs.readFileSync(input.upload.sourceFile);
   const fileFingerprint = crypto.createHash("sha256").update(bytes).digest("hex");
+  // Her chart database first (owner 2026-11-12): the graded test bonded to the predictions locked before it. If the
+  // chart refuses, nothing is written anywhere and the upload stops loudly; rerunning the same file is safe.
+  if (spelling) bondSpellingSchoolTestInChart({ cycle: input.candidate.cycle, testDate: testDate ?? familyDay(input.now), fileFingerprint, items: input.upload.gradedItems });
   const sourceId = `returned-work:${crypto.createHash("sha256").update(`${input.upload.childId}:${input.candidate.homeworkId}:${fileFingerprint}`).digest("hex").slice(0, 20)}`;
   const sourceDir = path.join(resolveChildContextDir(input.upload.childId, { rootDir: input.rootDir }), "homework", "returned-work", "sources", sourceId.replace(/:/g, "-"));
   fs.mkdirSync(sourceDir, { recursive: true });
@@ -423,7 +426,6 @@ async function recordCanonicalUpload(input: {
     now: input.now,
     interpret: input.interpret,
   });
-  if (spelling) recordSpellingSchoolTestInChart({ childId: input.upload.childId, homeworkId: input.candidate.homeworkId, testDate: testDate ?? familyDay(input.now), fileFingerprint, items: input.upload.gradedItems });
   return {
     status: result.reason === "already_interpreted" ? "already_interpreted" : cycle.calibrations?.at(-1)?.status ?? "inconclusive",
     calibrationId: cycle.calibrations?.at(-1)?.calibrationId ?? sourceId,
@@ -431,30 +433,26 @@ async function recordCanonicalUpload(input: {
 }
 
 /**
- * The same graded test, word by word, in her chart database (where cross-week claims are scored). The week's record
- * above is already saved; a chart that is not set up, or a test that doesn't cover every word, is logged and skipped.
+ * The same graded test, word by word, in her chart database, bonded to every prediction locked before it. A missing
+ * chart or any refusal throws chart_bond_failed: a graded test that cannot be bonded is not half-recorded.
  */
-function recordSpellingSchoolTestInChart(input: { childId: string; homeworkId: string; testDate: string; fileFingerprint: string; items: GradedHomeworkUpload["gradedItems"] }): void {
-  if (!process.env.SUNNY_CHART_DIR?.trim()) {
-    console.log(` 🎮 [homework-upload] [chart-school-test] [skipped] reason=no_chart_dir homework=${input.homeworkId}`);
-    return;
-  }
+function bondSpellingSchoolTestInChart(input: { cycle: LearningCycleRecordV2; testDate: string; fileFingerprint: string; items: GradedHomeworkUpload["gradedItems"] }): void {
   let db: ReturnType<typeof openChart> | undefined;
   try {
-    db = openChart(input.childId);
-    recordSchoolTest(db, {
-      assignmentId: input.homeworkId,
-      testDate: input.testDate,
-      photoHash: input.fileFingerprint,
-      sourceKind: "parent_transcription",
+    if (!process.env.SUNNY_CHART_DIR?.trim()) throw new Error("no_chart_dir: set SUNNY_CHART_DIR to her chart folder");
+    db = openChart(input.cycle.childId);
+    const scored = recordGradedTestBond(db, { cycle: input.cycle, occurredAt: `${input.testDate}T12:00:00.000Z`, schoolTest: {
+      assignmentId: input.cycle.homeworkId, testDate: input.testDate, photoHash: input.fileFingerprint, sourceKind: "parent_transcription",
       results: input.items.map((item) => {
         const word = item.target.normalize("NFC").trim().toLowerCase();
         return { word, correct: item.correct, writtenResponse: item.wrote ?? (item.correct ? word : null) };
       }),
-    }, { actor: "parent", occurred_at: `${input.testDate}T12:00:00.000Z` });
-    console.log(` 🎮 [homework-upload] [chart-school-test] [recorded] homework=${input.homeworkId} words=${input.items.length}`);
+    } });
+    console.log(` 🎮 [homework-upload] [chart-school-test] [bonded] homework=${input.cycle.homeworkId} words=${input.items.length} right=${scored.summary.right} inRange=${scored.summary.inRange}`);
   } catch (error) {
-    console.error(` 🎮 [homework-upload] [chart-school-test] [skipped] homework=${input.homeworkId} reason=${error instanceof Error ? error.message : String(error)}`);
+    const reason = error instanceof Error ? error.message : String(error);
+    console.error(` 🎮 [homework-upload] [chart-school-test] [refused] homework=${input.cycle.homeworkId} reason=${reason}`);
+    throw new Error(`chart_bond_failed:${reason}`);
   } finally {
     db?.close();
   }
@@ -535,6 +533,10 @@ export async function runUploadGradedHomework(
           fs.writeFileSync(unmatchedPath(rootDir, args.childId, now), JSON.stringify(upload, null, 2), "utf8");
           logger.log(`⚠️  Not on this week's list: ${error.message.split(":")[1]}. Check the spelling of those words; nothing was recorded.`);
           return;
+        }
+        if (error instanceof Error && error.message.startsWith("chart_bond_failed:")) {
+          logger.log(`❌ NOT RECORDED: her chart database refused this graded test (${error.message.slice("chart_bond_failed:".length)}). Nothing was saved; fix that and run the same upload again.`);
+          throw error;
         }
         if (error instanceof Error && error.message === "returned_work_item_review_required") {
           fs.writeFileSync(unmatchedPath(rootDir, args.childId, now), JSON.stringify(upload, null, 2), "utf8");

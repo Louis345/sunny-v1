@@ -16,6 +16,8 @@ const samples: Record<FactType, Record<string, unknown>> = {
     'readiness.forecast': { assignmentId: 'a', probabilities: [{ word: 'able', pCorrect: 0.5 }], uncertainty: 'unknown', missingEvidence: [], responseIds: ['response'] },
     'school_test.recorded': { assignmentId: 'a', testDate: '2026-10-09', photoHash: 'a'.repeat(64), results: [{ word: 'able', correct: true, writtenResponse: null }] },
     'learner.hypothesis': { hypothesisId: 'h', claim: 'She drops silent letters on a new list.', decisionIds: [], formedInAssignmentId: 'a', scope: { patterns: ['spelling.silent_letters'], words: [] }, metric: 'first_try_unassisted', expected: { min: 0, max: 0.5 }, falsifier: 'Most right on two new lists.', horizonDays: 42 },
+    'prediction.locked': { assignmentId: 'a', predictionId: 'p', word: 'able', metric: 'unassisted_recall_accuracy', expected: { min: 0.5, max: 0.75 }, confidence: 0.45, predictedErrors: ['drops the e'], rationale: 'checkpoint', horizon: 'immediate', modelId: null, lockedAt: '2026-10-03T12:00:00.000Z' },
+    'prediction.scored': { assignmentId: 'a', version: 1, schoolTestEventId: 'school', testDate: '2026-10-09', rows: [{ word: 'able', correct: true, writtenResponse: 'able', predictions: [] }], summary: { words: 1, right: 1, predictedRight: null, inRange: null } },
     'child.fact_learned': { factId: 'f', topic: 'wrestling', statement: 'She does not like wrestling now.', kind: 'dislike', quote: 'I got hurt', speaker: 'caller_child', sessionId: 'call', companionId: 'hikari', sourceEventIds: ['e'] },
     'child.fact_retracted': { factId: 'f', reason: 'her sister said it' },
     'correction.recorded': { target_event_id: 'target', reason: 'typo', replacement_payload: { displayName: 'New' } },
