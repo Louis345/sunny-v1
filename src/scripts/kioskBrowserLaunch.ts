@@ -1,3 +1,4 @@
+import { execFile } from "child_process";
 import { findStaleSunnyKioskPids } from "../server/certificationRuntime";
 
 /** LaunchServices makes Chrome the responsible application for macOS TCC.
@@ -47,6 +48,37 @@ export function acceptVisibleMacKiosk(visible: boolean, table: string, browser: 
 export const KIOSK_BROWSER_REOPEN_LIMIT = 1;
 export function kioskBrowserExitAction(reopensUsed: number): "reopen" | "shutdown" {
   return reopensUsed < KIOSK_BROWSER_REOPEN_LIMIT ? "reopen" : "shutdown";
+}
+
+/** Owner 2026-11-12: on macOS, closing the kiosk window leaves Chrome running with no window, so the quit
+ * rule above never fired and Ila's test morning had no Sunny on screen. Two empty checks in a row count as
+ * the window closing; a failed count (null) never does, so a slow check can't close a working kiosk.
+ */
+export const KIOSK_EMPTY_WINDOW_CHECKS = 2;
+export function kioskWindowWatchAction(emptyChecksInARow: number): "wait" | "close-browser" {
+  return emptyChecksInARow >= KIOSK_EMPTY_WINDOW_CHECKS ? "close-browser" : "wait";
+}
+export function nextEmptyWindowChecks(previous: number, windows: number | null): number {
+  if (windows === null) return previous;
+  return windows === 0 ? previous + 1 : 0;
+}
+const MAC_WINDOW_COUNT_JXA = `ObjC.import("CoreGraphics");
+function run(argv) { const pid = parseInt(argv[0]); let n = 0;
+  const list = ObjC.deepUnwrap(ObjC.castRefToObject($.CGWindowListCopyWindowInfo(1 | 16, 0)));
+  for (const w of list) if (w.kCGWindowOwnerPID === pid && w.kCGWindowLayer === 0 && w.kCGWindowBounds.Height > 200) n++;
+  return String(n); }`;
+/** Counts a process's real on-screen windows (no permission prompt needed); null when the count fails. */
+export function countMacWindows(pid: number): Promise<number | null> {
+  return new Promise((resolve) => {
+    execFile("/usr/bin/osascript", ["-l", "JavaScript", "-e", MAC_WINDOW_COUNT_JXA, String(pid)], { timeout: 4000 }, (error, stdout) => {
+      if (error) {
+        console.warn(` 🎮 [kiosk] [window-count] [failed] pid=${pid} ${error.message}`);
+        return resolve(null);
+      }
+      const count = Number.parseInt(stdout.trim(), 10);
+      resolve(Number.isFinite(count) ? count : null);
+    });
+  });
 }
 
 export function macShutdownBrowserTargets(browserPid: number | undefined, table: string, profileDir: string): number[] {

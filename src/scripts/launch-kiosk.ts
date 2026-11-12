@@ -1,5 +1,5 @@
 import "dotenv/config";
-import { acceptVisibleMacKiosk, kioskBrowserCommand, kioskBrowserExitAction, macShutdownBrowserTargets, kioskDebugArgs } from "./kioskBrowserLaunch";
+import { acceptVisibleMacKiosk, countMacWindows, kioskBrowserCommand, kioskBrowserExitAction, kioskWindowWatchAction, macShutdownBrowserTargets, kioskDebugArgs, nextEmptyWindowChecks } from "./kioskBrowserLaunch";
 import { writeCanvasCapabilities } from "../utils/generateCanvasCapabilities";
 writeCanvasCapabilities();
 
@@ -335,6 +335,28 @@ async function main() {
           await shutdown("browser-reopen-failed", 1);
         });
       });
+      if (process.platform === "darwin" && macBrowserPid) watchMacKioskWindow(macBrowserPid, visibleBrowser);
+    };
+    // A closed window on macOS leaves Chrome running windowless; close that Chrome so the exit rule above
+    // reopens the kiosk once (or shuts Sunny down on a second close, as a grown-up stopping it).
+    const watchMacKioskWindow = (browserPid: number, browser: ChildProcess) => {
+      let emptyChecks = 0;
+      let counting = false;
+      const timer = setInterval(() => {
+        if (shuttingDown || browser.exitCode !== null || browser.signalCode !== null) return void clearInterval(timer);
+        if (counting) return;
+        counting = true;
+        countMacWindows(browserPid).then(async (windows) => {
+          emptyChecks = nextEmptyWindowChecks(emptyChecks, windows);
+          if (kioskWindowWatchAction(emptyChecks) === "wait") return;
+          clearInterval(timer);
+          console.warn(` 🎮 [kiosk] [window-closed] [detected] browserPid=${browserPid} closing windowless Chrome so the kiosk reopens`);
+          await terminateProcessTargets([browserPid], processTargetOps);
+        }).catch((error) => {
+          console.error(" 🎮 [kiosk] [window-closed] [close-failed]", error);
+        }).finally(() => { counting = false; });
+      }, 5000);
+      timer.unref();
     };
     await openVisibleBrowser();
   } catch (error) {
