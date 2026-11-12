@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import { CREATURE_CATALOG, LUMIPUFF_MONSTER } from "../../../src/shared/capturedMonsterCatalog";
 import {
   CATCH_RATE_BY_RARITY,
+  MAX_DRILL_ROUNDS,
+  decideDrillCatch,
   CHARGES_BY_RARITY,
   PERFECT_THROW_BONUS,
   decideCatch,
@@ -166,5 +168,24 @@ describe("decideCatch: the shake catch", () => {
     expect(decideCatch({ rarity: "rare", hitQuality: "near", roll: seq(chance + 0.01, 0.2) })).toMatchObject({ caught: false, shakes: 1 });
     expect(decideCatch({ rarity: "rare", hitQuality: "near", roll: seq(chance + 0.01, 0.8) })).toMatchObject({ caught: false, shakes: 2 });
     expect(decideCatch({ rarity: "rare", hitQuality: "direct", roll: seq(chance + PERFECT_THROW_BONUS - 0.01) }).caught).toBe(true);
+  });
+});
+
+// Owner, 2026-11-11: the Planner can make an encounter a drill. It sets how many answered questions the
+// catch should take; break-frees before that are scheduled (a claw machine), so practice feels like a game.
+describe("decideDrillCatch: a Planner-calibrated drill", () => {
+  it("breaks free before the planned round, with the shakes building toward it", () => {
+    expect(decideDrillCatch({ round: 1, plannedRounds: 4, rarity: "common", hitQuality: "direct", roll: () => 0 })).toMatchObject({ caught: false, shakes: 1, scheduled: true });
+    expect(decideDrillCatch({ round: 3, plannedRounds: 4, rarity: "common", hitQuality: "direct", roll: () => 0 })).toMatchObject({ caught: false, shakes: 2, scheduled: true });
+  });
+
+  it("from the planned round the creature's normal odds apply", () => {
+    expect(decideDrillCatch({ round: 4, plannedRounds: 4, rarity: "legendary", hitQuality: "near", roll: () => 0 })).toMatchObject({ caught: true, scheduled: false });
+    expect(decideDrillCatch({ round: 4, plannedRounds: 4, rarity: "legendary", hitQuality: "near", roll: () => 0.99 }).caught).toBe(false);
+  });
+
+  it("never runs forever: two rounds past the plan it is always caught, and the plan is capped", () => {
+    expect(decideDrillCatch({ round: 6, plannedRounds: 4, rarity: "legendary", hitQuality: "near", roll: () => 0.999 })).toMatchObject({ caught: true, shakes: 3 });
+    expect(decideDrillCatch({ round: MAX_DRILL_ROUNDS + 2, plannedRounds: 99, rarity: "legendary", hitQuality: "near", roll: () => 0.999 }).caught).toBe(true);
   });
 });

@@ -7,11 +7,12 @@ import { UnrealBloomPass } from "three/examples/jsm/postprocessing/UnrealBloomPa
 import { OutputPass } from "three/examples/jsm/postprocessing/OutputPass.js";
 import { VRMLoaderPlugin, VRMUtils, type VRM } from "@pixiv/three-vrm";
 import type { CapturedMonsterConfig } from "../../../src/shared/capturedMonsterCatalog";
-import { decideCatch } from "../../../src/shared/creatureEncounters";
+import { decideCatch, decideDrillCatch } from "../../../src/shared/creatureEncounters";
 import type { Season, SkyMood } from "../../../src/shared/skyClock";
 import { loadMixamoFbxRoot, retargetMixamoClipToVrm } from "../utils/mixamoRetarget";
-import { playSparkOrbSfx } from "../utils/sparkOrbSfx";
 import { SKY, buildMeadow } from "./orbMeadowScenery";
+import { OrbAudio } from "./orbAudio";
+import { MEADOW_PACK, type OrbThemePack } from "./orbThemePacks";
 
 /**
  * Storybook prototype (owner, 2026-11-11): the orb catcher as a real 3D scene in Three.js, the engine the
@@ -57,9 +58,26 @@ function orbTexture(): THREE.CanvasTexture {
   return texture;
 }
 
+/** A question in a drill: answering it right loads one orb. */
+export interface OrbQuestion {
+  id: string;
+  kind: "spelling" | "math";
+  /** Spelling: the word she hears and types. Math: the problem she sees. */
+  prompt: string;
+  answer: string;
+  choices?: string[];
+}
+
 export interface OrbCatcher3DProps {
   creature: CapturedMonsterConfig;
   throws: number;
+  /** The child's theme pack (chosen from her chart); the plain meadow when absent. */
+  theme?: OrbThemePack;
+  /**
+   * A drill the Planner calibrated: each right answer loads one orb, and the catch is scheduled for the
+   * planned round, so the encounter repeats the concept as many times as the Planner wants.
+   */
+  drill?: { plannedRounds: number; questions: OrbQuestion[] };
   timeOfDay: SkyMood;
   season: Season;
   companionVrmUrl?: string;
@@ -68,16 +86,65 @@ export interface OrbCatcher3DProps {
   onResult?: (outcome: "caught" | "escaped") => void;
 }
 
-export function OrbCatcher3D({ creature, throws, timeOfDay, season, companionVrmUrl, roll, onResult }: OrbCatcher3DProps) {
+export function OrbCatcher3D({ creature, throws, theme = MEADOW_PACK, drill, timeOfDay, season, companionVrmUrl, roll, onResult }: OrbCatcher3DProps) {
   const mountRef = useRef<HTMLDivElement | null>(null);
   const [throwsLeft, setThrowsLeft] = useState(throws);
-  const [banner, setBanner] = useState<string | null>("Pull the orb back and let go!");
+  const [banner, setBanner] = useState<string | null>(drill ? "Answer to load your orb!" : "Pull the orb back and let go!");
   const [webgl, setWebgl] = useState(true);
   const throwsRef = useRef(throws);
   const onResultRef = useRef(onResult);
   onResultRef.current = onResult;
   const rollRef = useRef(roll);
   rollRef.current = roll;
+  const audioRef = useRef<OrbAudio | null>(null);
+  const drillRef = useRef(drill);
+  drillRef.current = drill;
+  const roundRef = useRef(0);
+  const loadedRef = useRef(!drill);
+  const [needQuestion, setNeedQuestion] = useState(Boolean(drill));
+  const [round, setRound] = useState(0);
+  const [shakeLabel, setShakeLabel] = useState<string | null>(null);
+  // The drill's questions cycle: a right answer moves on, a wrong one comes back later in the round.
+  const [queue, setQueue] = useState<OrbQuestion[]>(drill?.questions ?? []);
+  const [feedback, setFeedback] = useState<string | null>(null);
+  // Music can be switched off; remembered on this device (a per-viewer convenience).
+  const [musicOn, setMusicOn] = useState(() => {
+    try {
+      return window.localStorage.getItem("sunny.orb.music") !== "off";
+    } catch {
+      return true;
+    }
+  });
+  const musicOnRef = useRef(musicOn);
+  musicOnRef.current = musicOn;
+  const toggleMusic = () => {
+    const next = !musicOn;
+    setMusicOn(next);
+    audioRef.current?.setMusic(next);
+    try {
+      window.localStorage.setItem("sunny.orb.music", next ? "on" : "off");
+    } catch {
+      // storage unavailable: the choice lasts for this visit
+    }
+  };
+
+  const answer = (question: OrbQuestion, given: string) => {
+    const audio = audioRef.current;
+    const right = given.trim().toLowerCase() === question.answer.trim().toLowerCase();
+    console.log(` 🎮 [orb-3d] [question] [${right ? "right" : "try-again"}] id=${question.id} round=${roundRef.current + 1}`);
+    setQueue((current) => [...current.slice(1), current[0]]);
+    if (!right) {
+      audio?.say(theme.wrongLine.text, theme.wrongLine.lang);
+      setFeedback(theme.wrongLine.text);
+      return;
+    }
+    audio?.play(theme.cues.correct, { volume: 0.7 });
+    audio?.say(theme.cues.ready.text, theme.cues.ready.lang);
+    setFeedback(null);
+    loadedRef.current = true;
+    setNeedQuestion(false);
+    setBanner("Ready? Go! Pull the orb back and let go!");
+  };
 
   useEffect(() => {
     throwsRef.current = throws;
@@ -106,6 +173,11 @@ export function OrbCatcher3D({ creature, throws, timeOfDay, season, companionVrm
     renderer.domElement.style.touchAction = "none";
 
     const scene = new THREE.Scene();
+    const audio = new OrbAudio(theme.sounds);
+    audioRef.current = audio;
+    audio.setMusic(musicOnRef.current);
+    void audio.load().then(() => theme.beds.forEach((bed) => audio.loop(bed.key, bed.volume)));
+    const say = (line: { text: string; lang?: "en" | "ja" }) => audio.say(line.text, line.lang);
     const camera = new THREE.PerspectiveCamera(48, 1, 0.1, 200);
     const cameraHome = new THREE.Vector3(0, 2.1, 7.4);
     camera.position.copy(cameraHome);
@@ -146,6 +218,7 @@ export function OrbCatcher3D({ creature, throws, timeOfDay, season, companionVrm
     aura.position.copy(creatureHome).add(new THREE.Vector3(0, 0, -0.3));
     aura.scale.set(3.4, 3.4, 1);
     scene.add(aura);
+    const decorUpdate = theme.decorate(scene, creatureHome);
 
     // The orb: a glowing two-tone ball with its own light and a trail.
     const orbRest = new THREE.Vector3(0, 0.9, 3.9);
@@ -293,7 +366,8 @@ export function OrbCatcher3D({ creature, throws, timeOfDay, season, companionVrm
       out.copy(plan.start).lerp(plan.end, u).add(new THREE.Vector3(plan.swing * Math.sin(Math.PI * u), plan.peak * 4 * u * (1 - u), 0));
 
     const onDown = (event: PointerEvent) => {
-      if (phase !== "aim") return;
+      audio.resume();
+      if (phase !== "aim" || !loadedRef.current) return;
       const orbScreen = toScreen(orb.position);
       if (Math.hypot(event.clientX - orbScreen.x, event.clientY - orbScreen.y) > 110) return;
       aiming = true;
@@ -304,7 +378,7 @@ export function OrbCatcher3D({ creature, throws, timeOfDay, season, companionVrm
       } catch {
         // A pointer the browser no longer tracks cannot be captured; aiming still works.
       }
-      playSparkOrbSfx("grab");
+      audio.play("pop", { volume: 0.4, rate: 1.3 });
     };
     const onMove = (event: PointerEvent) => {
       if (!aiming) return;
@@ -318,11 +392,19 @@ export function OrbCatcher3D({ creature, throws, timeOfDay, season, companionVrm
       const strength = Math.max(0.35, Math.abs(pull.y) / 180);
       const side = -pull.x / 260;
       flight = flightFor(strength, side);
-      verdict = decideCatch({ rarity: creature.rarity, hitQuality: flight.direct ? "direct" : "near", roll: rollRef.current });
-      console.log(` 🎮 [orb-3d] [throw] [released] strength=${strength.toFixed(2)} direct=${flight.direct} caught=${verdict.caught} shakes=${verdict.shakes}`);
+      roundRef.current += 1;
+      setRound(roundRef.current);
+      const plan = drillRef.current;
+      const hitQuality = flight.direct ? "direct" : "near";
+      verdict = plan
+        ? decideDrillCatch({ round: roundRef.current, plannedRounds: plan.plannedRounds, rarity: creature.rarity, hitQuality, roll: rollRef.current })
+        : decideCatch({ rarity: creature.rarity, hitQuality, roll: rollRef.current });
+      if (plan) loadedRef.current = false;
+      console.log(` 🎮 [orb-3d] [throw] [released] round=${roundRef.current} strength=${strength.toFixed(2)} direct=${flight.direct} caught=${verdict.caught} shakes=${verdict.shakes}`);
       trailPoints.length = 0;
-      playSparkOrbSfx("launch");
+      audio.play(theme.cues.throw, { volume: 0.7 });
       setBanner(null);
+      orb.visible = true;
       setPhase("flying");
     };
     renderer.domElement.addEventListener("pointerdown", onDown);
@@ -341,6 +423,7 @@ export function OrbCatcher3D({ creature, throws, timeOfDay, season, companionVrm
       vrm?.update(dt);
 
       meadow.update(dt, time);
+      decorUpdate(time);
 
       // Creature idle life: bob and breathe while she is out.
       if (phase === "aim" || phase === "flying") {
@@ -351,6 +434,8 @@ export function OrbCatcher3D({ creature, throws, timeOfDay, season, companionVrm
       }
 
       if (phase === "aim") {
+        // In a drill the orb appears only once she has answered right ("Ready? Go!").
+        orb.visible = loadedRef.current;
         orb.position.copy(orbRest).add(new THREE.Vector3(Math.sin(time * 1.8) * 0.02, Math.sin(time * 2.6) * 0.04, 0));
         if (aiming) {
           orb.position.add(new THREE.Vector3(Math.max(-0.6, Math.min(0.6, pull.x / 300)), Math.max(-0.4, Math.min(0.4, -pull.y / 400)), Math.min(0.6, Math.abs(pull.y) / 300)));
@@ -376,9 +461,9 @@ export function OrbCatcher3D({ creature, throws, timeOfDay, season, companionVrm
           flash.intensity = 40;
           cameraKick = 0.35;
           burst(orb.position, "#fff3b0", 3.2);
-          playSparkOrbSfx("impact");
+          theme.cues.impact.forEach((key) => audio.play(key, { volume: 0.8 }));
           if (flight.direct) {
-            playSparkOrbSfx("perfect");
+            audio.play("combo", { volume: 0.6 });
             setBanner("Perfect!");
           }
           setPhase("absorb");
@@ -392,7 +477,7 @@ export function OrbCatcher3D({ creature, throws, timeOfDay, season, companionVrm
         orbGlow.scale.setScalar(1.3 + k * 1.2);
         if (k >= 1) {
           creatureSprite.visible = false;
-          playSparkOrbSfx("captureShrink");
+          audio.play("coin", { volume: 0.4, rate: 1.4 });
           setPhase("drop");
         }
       } else if (phase === "drop") {
@@ -412,8 +497,9 @@ export function OrbCatcher3D({ creature, throws, timeOfDay, season, companionVrm
           if (verdict.caught) {
             burst(orb.position, auraColor, 2.4);
             flash.intensity = 25;
-            playSparkOrbSfx("captureLock");
-            playSparkOrbSfx("collected");
+            theme.cues.caught.forEach((key, index) => window.setTimeout(() => audio.play(key, { volume: 0.8, jitter: 0 }), index * 250));
+            theme.caughtLine.forEach((line, index) => window.setTimeout(() => say(line), 500 + index * 1100));
+            setShakeLabel(null);
             setBanner(`Gotcha! ${creature.speciesName} joined your den!`);
             playAction("dance_victory", false);
             setPhase("caught");
@@ -423,14 +509,19 @@ export function OrbCatcher3D({ creature, throws, timeOfDay, season, companionVrm
             burst(orb.position, "#ffffff", 3.6);
             flash.intensity = 12;
             cameraKick = 0.25;
-            playSparkOrbSfx("chirp");
+            audio.play(theme.cues.breakFree, { volume: 0.7 });
+            say(theme.breakFreeLine(roundRef.current));
+            setShakeLabel(null);
             playAction("shrug", false);
             setPhase("escape");
           }
         } else {
           if (shakeIndex >= shakeDone) {
             shakeDone = shakeIndex + 1;
-            playSparkOrbSfx("grab");
+            // Each shake is a beat she counts along to: a referee's count, spirit bells...
+            audio.play(theme.cues.shake, { volume: 0.7, rate: 1 + shakeIndex * 0.18, jitter: 0 });
+            if (theme.id === "championship") audio.play("pop", { volume: 0.6, rate: 0.7 });
+            setShakeLabel(theme.shakeLabels[Math.min(2, shakeIndex)]);
           }
           orb.rotation.z = Math.sin(within * Math.PI * 2) * 0.45 * (1 - within);
           orbLight.intensity = 2 + Math.sin(within * Math.PI) * 3;
@@ -442,15 +533,18 @@ export function OrbCatcher3D({ creature, throws, timeOfDay, season, companionVrm
         creatureSprite.scale.set(creatureSize * pop, creatureSize * pop, 1);
         orb.scale.setScalar(Math.max(0.01, 0.65 * (1 - k)));
         if (k >= 1) {
-          throwsRef.current -= 1;
-          setThrowsLeft(throwsRef.current);
-          if (throwsRef.current <= 0) {
+          if (!drillRef.current) {
+            throwsRef.current -= 1;
+            setThrowsLeft(throwsRef.current);
+          }
+          if (!drillRef.current && throwsRef.current <= 0) {
             setBanner(`${creature.speciesName} got away!`);
-            playSparkOrbSfx("miss");
+            audio.play("pop", { volume: 0.5, rate: 0.6 });
             playAction("defeated", false);
             setPhase("away");
           } else {
-            setBanner("It broke free! Try again!");
+            setBanner(drillRef.current ? "Answer to load your next orb!" : "It broke free! Try again!");
+            if (drillRef.current) setNeedQuestion(true);
             orb.scale.setScalar(1);
             orb.rotation.set(0, 0, 0);
             orb.position.copy(orbRest);
@@ -510,12 +604,14 @@ export function OrbCatcher3D({ creature, throws, timeOfDay, season, companionVrm
       renderer.domElement.removeEventListener("pointerup", onUp);
       renderer.domElement.removeEventListener("pointercancel", onUp);
       meadow.dispose();
+      audio.dispose();
+      audioRef.current = null;
       composer.dispose();
       renderer.dispose();
       mount.removeChild(renderer.domElement);
       console.log(" 🎮 [orb-3d] [scene] [disposed]");
     };
-  }, [creature, timeOfDay, season, companionVrmUrl]);
+  }, [creature, timeOfDay, season, companionVrmUrl, theme]);
 
   const rarityName = { common: "Common", rare: "Rare", epic: "Epic", legendary: "Legendary" }[creature.rarity];
   return (
@@ -526,7 +622,30 @@ export function OrbCatcher3D({ creature, throws, timeOfDay, season, companionVrm
         <div style={{ fontSize: 32, fontWeight: 950 }}>{creature.speciesName}</div>
         <div style={{ fontSize: 12, fontWeight: 900, letterSpacing: ".18em" }}>{rarityName.toUpperCase()}</div>
       </div>
-      <div data-testid="orb-3d-throws" style={{ position: "absolute", bottom: 18, left: 18, display: "flex", gap: 6, pointerEvents: "none" }}>
+      <button
+        type="button"
+        data-testid="orb-3d-music"
+        aria-pressed={musicOn}
+        aria-label={musicOn ? "Music on" : "Music off"}
+        onClick={toggleMusic}
+        style={{ position: "absolute", top: 16, left: 16, zIndex: 3, border: 0, borderRadius: 999, padding: "8px 14px", background: "rgba(15,23,42,.7)", color: "white", font: "900 15px Lexend, system-ui, sans-serif", cursor: "pointer" }}
+      >
+        {musicOn ? "🎵 Music on" : "🔇 Music off"}
+      </button>
+      {shakeLabel ? (
+        <div data-testid="orb-3d-shake" style={{ position: "absolute", top: "38%", left: "50%", transform: "translate(-50%,-50%)", color: "white", fontSize: 64, fontWeight: 950, textShadow: "0 4px 20px rgba(0,0,0,.6)", pointerEvents: "none" }}>
+          {shakeLabel}
+        </div>
+      ) : null}
+      {drill && needQuestion && queue[0] ? (
+        <QuestionCard key={`${queue[0].id}:${round}:${feedback ?? ""}`} question={queue[0]} feedback={feedback} audio={audioRef.current} onAnswer={answer} />
+      ) : null}
+      {drill ? (
+        <div data-testid="orb-3d-round" style={{ position: "absolute", bottom: 18, left: 18, color: "white", fontWeight: 900, pointerEvents: "none" }}>
+          {round ? `Round ${round}` : "Answer to load your orb!"}
+        </div>
+      ) : null}
+      <div data-testid="orb-3d-throws" style={{ position: "absolute", bottom: 18, left: 18, display: drill ? "none" : "flex", gap: 6, pointerEvents: "none" }}>
         {Array.from({ length: throws }, (_, index) => (
           <span key={index} style={{ width: 18, height: 18, borderRadius: "50%", background: index < throwsLeft ? "radial-gradient(circle at 35% 35%, #ffd2a8, #ff3d6e)" : "rgba(255,255,255,.2)", boxShadow: index < throwsLeft ? "0 0 10px #ff7a6b" : "none" }} />
         ))}
@@ -536,6 +655,62 @@ export function OrbCatcher3D({ creature, throws, timeOfDay, season, companionVrm
           {banner}
         </div>
       ) : null}
+    </div>
+  );
+}
+
+/** The partial overlay: one question at a time; a right answer loads one orb. */
+function QuestionCard({
+  question,
+  feedback,
+  audio,
+  onAnswer,
+}: {
+  question: OrbQuestion;
+  feedback: string | null;
+  audio: OrbAudio | null;
+  onAnswer: (question: OrbQuestion, given: string) => void;
+}) {
+  const [typed, setTyped] = useState("");
+  const hear = () => audio?.say(question.prompt);
+  useEffect(() => {
+    if (question.kind === "spelling") hear();
+    // Say the word once when the card opens; she can tap to hear it again.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [question.id]);
+  const button = { border: 0, borderRadius: 14, padding: "12px 18px", font: "900 20px Lexend, system-ui, sans-serif", cursor: "pointer" } as const;
+  return (
+    <div
+      data-testid="orb-3d-question"
+      style={{ position: "absolute", right: 18, top: 90, width: "min(340px, calc(100% - 36px))", padding: 18, borderRadius: 22, background: "rgba(15,23,42,.82)", color: "white", boxShadow: "0 18px 40px rgba(0,0,0,.4)", display: "grid", gap: 12, backdropFilter: "blur(6px)" }}
+    >
+      <strong style={{ fontSize: 13, letterSpacing: ".14em", color: "#ffe680" }}>LOAD YOUR ORB</strong>
+      {question.kind === "spelling" ? (
+        <>
+          <button type="button" onClick={hear} style={{ ...button, background: "#ffffff22", color: "white" }}>🔊 Hear the word</button>
+          <form
+            onSubmit={(event) => {
+              event.preventDefault();
+              if (typed.trim()) onAnswer(question, typed);
+            }}
+            style={{ display: "grid", gap: 8 }}
+          >
+            <input aria-label="Spell the word" autoFocus value={typed} onChange={(event) => setTyped(event.currentTarget.value)} autoComplete="off" autoCapitalize="off" spellCheck={false}
+              style={{ padding: "12px 14px", borderRadius: 14, border: "2px solid #ffffff44", background: "#ffffff14", color: "white", font: "800 24px Lexend, system-ui, sans-serif", letterSpacing: ".06em" }} />
+            <button type="submit" style={{ ...button, background: "linear-gradient(180deg,#ffe680,#ffc21a)", color: "#231400" }}>Load it!</button>
+          </form>
+        </>
+      ) : (
+        <>
+          <div style={{ fontSize: 34, fontWeight: 950, textAlign: "center" }}>{question.prompt}</div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}>
+            {(question.choices ?? [question.answer]).map((choice) => (
+              <button key={choice} type="button" aria-label={choice} onClick={() => onAnswer(question, choice)} style={{ ...button, background: "#ffffff1f", color: "white" }}>{choice}</button>
+            ))}
+          </div>
+        </>
+      )}
+      {feedback ? <p style={{ margin: 0, fontWeight: 800, color: "#ffd1e1" }}>{feedback}</p> : null}
     </div>
   );
 }

@@ -240,3 +240,25 @@ export function decideCatch(input: {
   if (roll() < chance) return { caught: true, shakes: 3, chance };
   return { caught: false, shakes: roll() < 0.5 ? 1 : 2, chance };
 }
+
+/**
+ * A drill (owner, 2026-11-11): the Planner may set how many answered questions a catch should take, so an
+ * encounter becomes repeated practice masked as a game. Before that round the break-free is scheduled (the
+ * shakes build: one early, two on the round just before); from it the creature's own odds apply; two rounds
+ * past it the catch is certain, and the plan is capped, so a drill never runs forever (Law 2).
+ */
+export const MAX_DRILL_ROUNDS = 12;
+export const DRILL_GRACE_ROUNDS = 2;
+
+export function decideDrillCatch(input: {
+  round: number;
+  plannedRounds: number;
+  rarity: RewardRarity;
+  hitQuality: "direct" | "near" | "wide" | undefined;
+  roll?: () => number;
+}): { caught: boolean; shakes: 1 | 2 | 3; chance: number; scheduled: boolean } {
+  const planned = Math.max(1, Math.min(MAX_DRILL_ROUNDS, Math.floor(input.plannedRounds)));
+  if (input.round < planned) return { caught: false, shakes: input.round >= planned - 1 ? 2 : 1, chance: 0, scheduled: true };
+  if (input.round >= planned + DRILL_GRACE_ROUNDS) return { caught: true, shakes: 3, chance: 1, scheduled: false };
+  return { ...decideCatch({ rarity: input.rarity, hitQuality: input.hitQuality, roll: input.roll }), scheduled: false };
+}
