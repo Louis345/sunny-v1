@@ -507,22 +507,37 @@ export function WardrobeStoreLab({
     onDebugEvent({ type: "wardrobe_store_mounted", context: shoppingContext });
   }, [onDebugEvent, shoppingContext, shoppingVisit.id]);
 
+  /** Her shop signal to the server (owner, 2026-11-12), only in her real-coin shop; never learning evidence. */
+  const sendWardrobeSignal = useCallback(
+    (itemId: string, action: "previewed" | "purchased" | "equipped" | "left_try_on" | "saved") => {
+      if (!walletChildId) return;
+      fetch(`/api/child/${encodeURIComponent(walletChildId)}/wardrobe-signal`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ companionId: companion.id, itemId, action, verdict: shoppingVisit.itemOpinions[itemId]?.verdict }),
+      }).catch((error) => console.warn(` 🎮 [wardrobe-signal] [send] [failed] item=${itemId} action=${action}`, error));
+    },
+    [walletChildId, companion.id, shoppingVisit],
+  );
+
   const recordInteraction = useCallback(
     (
       state: WardrobeStoreState,
       itemId: string,
       action: "previewed" | "purchased" | "equipped" | "left_try_on",
       evidenceStream: "engagement" | "companion",
-    ) =>
-      recordWardrobeInteraction(state, {
+    ) => {
+      sendWardrobeSignal(itemId, action);
+      return recordWardrobeInteraction(state, {
         id: createEventId(`wardrobe-${action}`),
         companionId: companion.id,
         itemId,
         action,
         evidenceStream,
         occurredAt: new Date().toISOString(),
-      }),
-    [companion.id],
+      });
+    },
+    [companion.id, sendWardrobeSignal],
   );
 
   const previewItemInTryOn = (
@@ -620,6 +635,7 @@ export function WardrobeStoreLab({
       return;
     }
     persist(saved.state);
+    sendWardrobeSignal(item.id, "saved");
     restoreEquippedLook(saved.state);
     setMode("review");
     setConfirmation(null);

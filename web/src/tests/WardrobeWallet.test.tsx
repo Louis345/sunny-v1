@@ -13,12 +13,13 @@ import { rewardForWardrobeItem, walletShopItems, withServerWallet } from "../lib
 // fill), shows what she really owns, and never runs on browser-only demo coins.
 const companion = { id: "elli", name: "Elli", modelUrl: "/companions/sample.vrm" };
 const call = { talkPhase: "idle" as const, responseText: "", error: null, onAskVoice: vi.fn() };
-type Server = { coins: number; owned: string[]; purchases: unknown[] };
+type Server = { coins: number; owned: string[]; purchases: unknown[]; signals: Array<{ itemId: string; action: string; companionId: string }> };
 function fakeServer(start: { coins: number; owned?: string[] }): Server {
-  const server: Server = { coins: start.coins, owned: start.owned ?? [], purchases: [] };
+  const server: Server = { coins: start.coins, owned: start.owned ?? [], purchases: [], signals: [] };
   vi.stubGlobal("fetch", vi.fn(async (url: string, init?: RequestInit) => {
     const json = (data: unknown) => ({ ok: true, json: async () => data });
     if (url === "/api/rewards/wallet/ila") return json({ coins: server.coins, ownedRewardIds: server.owned });
+    if (url === "/api/child/ila/wardrobe-signal") { server.signals.push(JSON.parse(String(init?.body))); return json({ ok: true }); }
     if (url === "/api/rewards/purchase") {
       const body = JSON.parse(String(init?.body));
       server.purchases.push(body);
@@ -152,4 +153,15 @@ it("leaves each child's saved looks where they were when the shop loads", async 
   expect(saved.equippedByCompanion).toEqual({ matilda: { outfitItemId: "sleeveless-dress" } });
   expect(JSON.parse(window.localStorage.getItem("sunny:wardrobe-store-lab:v1:reina")!)).toEqual(angelLook);
   await waitFor(() => expect(screen.getAllByText(/0 coins/).length).toBeGreaterThan(0));
+});
+
+// Owner 2026-11-12: what she tries on and buys reaches the server as shop signals, so rewards can follow her taste.
+it("sends each try-on and purchase in her real-coin shop to the server as a wardrobe signal", async () => {
+  const server = fakeServer({ coins: 1000 });
+  const item = acceptedItem();
+  shop(SEED);
+  await waitFor(() => expect(screen.getByText(/1000 coins/)).toBeTruthy());
+  buy(item);
+  await waitFor(() => expect(server.signals.map(signal => signal.action)).toEqual(expect.arrayContaining(["previewed", "purchased"])));
+  expect(server.signals.every(signal => signal.itemId === item.id && signal.companionId === "elli")).toBe(true);
 });

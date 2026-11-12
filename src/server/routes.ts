@@ -1,4 +1,5 @@
 import { holdCompletion, raiseParentAlert } from "../engine/sunnyHealth";
+import { recordWardrobeSignal } from "./wardrobeSignals";
 import { typedSpellingForChart } from "./spellingKeyboardInput";
 import { takeCompanionHelpItemIds } from "./companionItemHelp";
 import { retroThenDecide } from "../engine/retroBeforeDecision";
@@ -1210,6 +1211,20 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
         void raiseParentAlert({ childId, kind: "save_failed", text: `A finished game could not be saved (${message}). Her answers are held, not lost.` });
       }
       return res.status(409).json({ error: message, held });
+    }
+  });
+
+  // Her shop signals (owner, 2026-11-12): what she looks at, tries on, saves and buys, for rewards that follow her taste.
+  app.post("/api/child/:childId/wardrobe-signal", (req: Request, res: Response) => {
+    const childId = String(req.params.childId ?? "").trim().toLowerCase();
+    if (!learningRouteShouldPersist()) return res.json({ ok: true, skippedPersistence: true });
+    try {
+      recordWardrobeSignal(childId, req.body ?? {});
+      return res.json({ ok: true });
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error);
+      console.warn(` 🎮 [wardrobe-signal] [refused] child=${childId} reason=${reason}`);
+      return res.status(400).json({ ok: false, error: reason });
     }
   });
 
