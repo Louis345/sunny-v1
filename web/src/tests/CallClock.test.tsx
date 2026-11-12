@@ -129,3 +129,21 @@ it("counts down the seconds the server grants and ends when they run out", async
   expect(screen.getByText(/time's up/i)).toBeTruthy();
   expect(onMoment).toHaveBeenLastCalledWith("time_up");
 });
+
+// Owner 2026-11-12: "FaceTime is still extremely buggy." The clock was pinned top-right over the call's X and the
+// shop's "Back to the call", and the time's-up card covered Games and Go Shopping. Why the human caught it: the
+// buttons under it could not be pressed. Why logs missed it: layout is not logged. Why the lab missed it: no test
+// looked at where the clock sits. Rule: the time pill sits bottom-left; the time's-up card is centered on screen.
+it("keeps out of the top-right corner, where the call's own buttons are", async () => {
+  fakeServer({ minutes: 1, coins: 0 });
+  render(<CallClock childId="ila" callId="c1" active onMoment={() => {}} onGoodbye={() => {}} />);
+  await pass(0);
+  const clock = screen.getByTestId("call-clock");
+  expect(clock.className).toMatch(/\bbottom-4\b/);
+  expect(clock.className).toMatch(/\bleft-4\b/);
+  expect(clock.className).not.toMatch(/\b(top|right)-4\b/);
+  await pass(60_000);
+  const card = screen.getByRole("dialog", { name: "Call time is up" });
+  expect(card.parentElement?.className).toMatch(/\binset-0\b/);
+  expect(card.parentElement?.className).toMatch(/\bitems-center\b/);
+});

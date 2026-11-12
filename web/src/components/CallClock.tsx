@@ -215,7 +215,9 @@ export function CallClock({ childId, callId, active, onMoment, onGoodbye }: {
 
   if (!active || !clock) return null;
   return (
-    <div className="pointer-events-auto fixed right-4 top-4 z-[1000] flex flex-col items-end gap-2" data-testid="call-clock">
+    // Bottom-left: the call's X, "Back to the call", Games and Go Shopping all live top-right (owner 2026-11-12).
+    <>
+    <div className="pointer-events-auto fixed bottom-4 left-4 z-[1000]" data-testid="call-clock">
       <div className="flex items-center gap-3 rounded-full bg-black/60 px-4 py-2 text-white shadow-lg">
         <span aria-label="Call time left" className={`font-mono text-lg ${total > 0 && total <= clock.warnAtSecondsLeft ? "text-amber-300" : ""}`}>
           {formatClock(total)}
@@ -224,8 +226,10 @@ export function CallClock({ childId, callId, active, onMoment, onGoodbye }: {
           <span aria-hidden>🪙</span><span>{clock.coins}</span>
         </span>
       </div>
+    </div>
       {(phase === "out" || phase === "buying") && (
-        <div role="dialog" aria-label="Call time is up" className="w-72 rounded-2xl bg-white/95 p-4 text-slate-900 shadow-xl">
+        <div className="pointer-events-auto fixed inset-0 z-[1000] flex items-center justify-center bg-black/30">
+        <div role="dialog" aria-label="Call time is up" className="w-80 rounded-2xl bg-white/95 p-5 text-slate-900 shadow-xl">
           <p className="text-lg font-bold">Time's up!</p>
           <button
             type="button"
@@ -240,8 +244,9 @@ export function CallClock({ childId, callId, active, onMoment, onGoodbye }: {
             Say goodbye
           </button>
         </div>
+        </div>
       )}
-    </div>
+    </>
   );
 }
 
