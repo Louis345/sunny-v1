@@ -94,6 +94,7 @@ import {
   CrystalSpotlight,
 } from "./CrystalAtelierChrome";
 import { COMPANION_ACTIVITY_COMPONENTS } from "./companionActivities/registry";
+import { CallGamePlayer } from "./CallGamePlayer";
 import { CallGamesPanel } from "./CallGamesPanel";
 import type { RewardBreakGame } from "../../../src/shared/rewardBreakGames";
 import type {
@@ -8108,14 +8109,9 @@ export function CompanionShowroom({
 	        }
 	        activitySlot={
           callGames.playing ? (
-            <div style={{ position: "relative", width: "100%", height: "100%", alignSelf: "stretch", justifySelf: "stretch" }}>
-              <iframe title={callGames.playing.name} src={`/games/${callGames.playing.file}?child=${encodeURIComponent(talkChildId)}`}
-                style={{ width: "100%", height: "100%", border: 0, borderRadius: 12 }} />
-              <button type="button" aria-label="Back to games" onClick={() => setCallGames(state => ({ ...state, playing: null }))}
-                style={{ position: "absolute", top: 8, right: 8, borderRadius: 8, padding: "6px 12px", fontWeight: 900, background: "rgba(255,255,255,0.92)", color: "#27214a" }}>
-                Back to games
-              </button>
-            </div>
+            <CallGamePlayer game={callGames.playing} childId={talkChildId} companionName={current?.name ?? "Sunny"}
+              childName={resolveShowroomChildDisplayName(childName, talkChildId) ?? "friend"}
+              onBack={() => setCallGames(state => ({ ...state, playing: null }))} />
           ) : callGames.open ? (
             <CallGamesPanel ownedRewardIds={callGames.owned} onClose={closeCallGames}
               onPlay={(game) => setCallGames(state => ({ ...state, playing: game }))} />
