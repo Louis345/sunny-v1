@@ -1097,7 +1097,8 @@
 /* Dark until it is hers, lit once owned (owner, 2026-11-10). */
 .wardrobe-store-lab__items button.is-locked img,
 .wardrobe-store-lab__items button.is-locked svg,
-.wardrobe-store-lab__items button.is-locked .wardrobe-item-thumbnail { filter: brightness(0.22) grayscale(0.6); }
+/* Dimmed until hers, but each color still shows so four dresses are not one dark shape (owner 2026-11-12). */
+.wardrobe-store-lab__items button.is-locked .wardrobe-item-thumbnail { filter: brightness(0.6) saturate(0.85); }
 .wardrobe-store-lab__items button.is-locked { opacity: 0.85; }
 .wardrobe-store-lab__items button.is-locked b { color: #f8d36a; }
 .wardrobe-store-lab__items button.is-owned { box-shadow: 0 0 0 2px rgba(250, 204, 21, 0.9), 0 0 18px rgba(250, 204, 21, 0.35); }

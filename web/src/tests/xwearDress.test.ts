@@ -38,6 +38,24 @@ describe("XWear avatar-space binding", () => {
     expect(shared.color.getHexString()).toBe("ffffff");
   });
 
+  // Owner 2026-11-12 (dressing-room audit): Plum, Teal and Rose looked navy. The tint multiplied the navy fabric
+  // texture, so every color came out dark blue. Why the human caught it: the dresses looked the same. Why logs missed
+  // it: color is not logged. Why the lab missed it: it checked the material color, never the drawn color.
+  // Rule: a colored variant dyes the fabric's light and shade, not its navy hue; Navy (white tint) is untouched.
+  it("dyes the fabric's light and shade with the variant color instead of tinting the navy", () => {
+    const fabric = new THREE.MeshBasicMaterial({ color: "#ffffff" });
+    const [plum] = applyXwearMaterialVariant([fabric], { id: "plum-ribbon-dress", tint: "#c878ff" });
+    const shader = { fragmentShader: "#include <map_fragment>", vertexShader: "", uniforms: {} };
+    plum!.onBeforeCompile(shader as never, undefined as never);
+    expect(shader.fragmentShader).toContain("sunnyDyeLuma");
+    expect(shader.fragmentShader).not.toContain("#include <map_fragment>");
+    expect(plum!.customProgramCacheKey()).toContain("sunny-dye");
+    const [navy] = applyXwearMaterialVariant([fabric], { id: "sleeveless-dress", tint: "#ffffff" });
+    const plain = { fragmentShader: "#include <map_fragment>", vertexShader: "", uniforms: {} };
+    navy!.onBeforeCompile(plain as never, undefined as never);
+    expect(plain.fragmentShader).toBe("#include <map_fragment>");
+  });
+
   it("resolves every sellable outfit through the skinned XWear catalog", () => {
     expect(getXwearOutfitDefinition("sleeveless-dress")).toBe(
       SLEEVELESS_DRESS_OUTFIT,

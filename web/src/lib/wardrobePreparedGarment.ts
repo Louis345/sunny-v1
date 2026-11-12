@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import bodies from './wardrobePrepared.generated.json';
 import versions from './wardrobeAssetVersions.generated.json';
 import fitted from './wardrobeFitted.generated.json';
+import { dyeWardrobeMaterial } from './wardrobeDye';
 
 export type PreparedGarmentReference={companionId:string;bodySha256:string;outfitId:string;sourceVersion:string;url:string;sha256:string};
 export type PreparedGarmentData={schema:1;bodySha256:string;outfitId:string;sourceVersion:string;positions:number[];normals:number[];uv:number[];skinIndices:number[];skinWeights:number[];indices:number[];groups:{start:number;count:number;materialIndex:number}[];bones:{name:string;bindMatrix:number[]}[];textures:string[]};
@@ -51,7 +52,7 @@ export async function bindPreparedGarment(scene:THREE.Object3D,data:PreparedGarm
  try{
   geometry.setAttribute('position',new THREE.Float32BufferAttribute(data.positions,3));geometry.setAttribute('normal',new THREE.Float32BufferAttribute(data.normals,3));geometry.setAttribute('uv',new THREE.Float32BufferAttribute(data.uv,2));geometry.setAttribute('skinIndex',new THREE.Uint16BufferAttribute(data.skinIndices,4));geometry.setAttribute('skinWeight',new THREE.Float32BufferAttribute(data.skinWeights,4));geometry.setIndex(data.indices);
   for(const g of data.groups)geometry.addGroup(g.start,g.count,g.materialIndex);geometry.computeBoundingSphere();
-  materials=textures.map(map=>{map.colorSpace=THREE.SRGBColorSpace;map.anisotropy=4;return new THREE.MeshBasicMaterial({map,alphaTest:.5,side:THREE.DoubleSide,color:variant?.tint??'#ffffff'});});
+  materials=textures.map(map=>{map.colorSpace=THREE.SRGBColorSpace;map.anisotropy=4;return dyeWardrobeMaterial(new THREE.MeshBasicMaterial({map,alphaTest:.5,side:THREE.DoubleSide}),variant?.tint??'#ffffff');});
   scene.updateMatrixWorld(true);skeleton=new THREE.Skeleton(bones,data.bones.map(b=>scene.matrixWorld.clone().multiply(new THREE.Matrix4().fromArray(b.bindMatrix)).invert()));
   const mesh=new THREE.SkinnedMesh(geometry,materials);mesh.name=`sunny-wardrobe-downloaded-${reference.outfitId}`;mesh.frustumCulled=false;scene.add(mesh);scene.updateMatrixWorld(true);mesh.bind(skeleton,mesh.matrixWorld.clone());
   console.log(` 🎮 [wardrobe-prepared] attached companion=${reference.companionId} outfit=${reference.outfitId} sha256=${reference.sha256}`);

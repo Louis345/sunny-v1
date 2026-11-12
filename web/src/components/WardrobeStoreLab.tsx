@@ -261,7 +261,9 @@ function WardrobeItemThumbnail({ item }: { item: WardrobeStoreItem }) {
   }
 
   const silhouette = "dress";
-  const color = item.asset.materialVariant.tint;
+  // White tint means "the fabric as is"; the ribbon dress fabric is navy, so its picture is navy.
+  const tint = item.asset.materialVariant.tint;
+  const color = item.templateId === "ribbon-dress" && tint.toLowerCase() === "#ffffff" ? "#26315e" : tint;
   const style = { "--wardrobe-thumbnail-color": color } as CSSProperties;
 
   return (

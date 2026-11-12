@@ -2,6 +2,7 @@ import * as THREE from "three";
 // Reuse the ZIP reader Three bundles for its own loaders.
 import { unzipSync } from "three/examples/jsm/libs/fflate.module.js";
 import { parseXwearMesh } from "./xwearMesh";
+import { dyeWardrobeMaterial } from "./wardrobeDye";
 import { resolveWardrobeBodyProfileId, resolveWardrobeBodyCertification } from "./wardrobeBodyProfiles";
 import preparedBodies from './wardrobePrepared.generated.json';
 import { resolvePreparedGarment, loadPreparedGarment } from "./wardrobePreparedGarment";
@@ -81,10 +82,8 @@ export function applyXwearMaterialVariant(
   materials: readonly THREE.MeshBasicMaterial[],
   variant: XwearMaterialVariant,
 ) {
-  const tint = new THREE.Color(variant.tint);
   return materials.map((material) => {
-    const variedMaterial = material.clone();
-    variedMaterial.color.multiply(tint);
+    const variedMaterial = dyeWardrobeMaterial(material.clone(), variant.tint);
     variedMaterial.name = `${material.name || "xwear-material"}:${variant.id}`;
     variedMaterial.needsUpdate = true;
     return variedMaterial;

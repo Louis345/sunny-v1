@@ -118,6 +118,11 @@ describe("WardrobeStoreLab shopping call", () => {
       "data-thumbnail-color",
       "#c878ff",
     );
+    // The navy dress draws its fabric as is (white tint); its picture is navy, not white (owner audit 2026-11-12).
+    expect(screen.getByTestId("wardrobe-thumbnail-sleeveless-dress")).toHaveAttribute(
+      "data-thumbnail-color",
+      "#26315e",
+    );
     expect(screen.getByTestId("wardrobe-thumbnail-teal-ribbon-dress")).toHaveAttribute(
       "data-thumbnail-silhouette",
       "dress",
