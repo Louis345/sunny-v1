@@ -21,7 +21,8 @@ describe("wardrobe body profiles", () => {
       expect(assignment?.activeModelUrl).toBe(
         entry.companionConfig?.vrmUrl ?? entry.vrmUrl,
       );
-      expect(assignment?.sourceModelUrl).toBe(entry.vrmUrl);
+      // Elli and Matilda share the starter model as their active body (owner 2026-11-11).
+      expect([assignment?.activeModelUrl, assignment?.sourceModelUrl]).toContain(entry.vrmUrl);
       expect(WARDROBE_BODY_PROFILES[assignment!.activeBodyProfileId]).toBeTruthy();
       expect(WARDROBE_BODY_PROFILES[assignment!.sourceBodyProfileId]).toBeTruthy();
     }

@@ -33,12 +33,13 @@ import { setVrmBaseClothingVisible } from '../lib/xwearDress';
 import { resolvePreparedWardrobePresentation } from '../lib/wardrobeBodyProfiles';
 
 it('routes migrated companions to their complete prepared identity without an overlay', () => {
-  for (const id of ['elli', 'matilda']) {
-    const presentation = resolvePreparedWardrobePresentation(id);
+  // The pink "matilda" body is worn by Hikari; Matilda the companion wears the starter body (owner 2026-11-11).
+  for (const [wearer, id] of [['elli', 'elli'], ['hikari', 'matilda']]) {
+    const presentation = resolvePreparedWardrobePresentation(wearer);
     expect(presentation?.bodyModelUrl).toBe(`/companions/${id}-wardrobe-${WARDROBE_RECIPES.find(r=>r.id===id)!.version}.vrm`);
     expect(presentation).not.toHaveProperty("identityModelUrl");
   }
-  expect(resolvePreparedWardrobePresentation('matilda')?.bodyProfileId).toBe('vroid-slim-v1');
+  expect(resolvePreparedWardrobePresentation('hikari')?.bodyProfileId).toBe('vroid-slim-v1');
 });
 
 it('uses explicit prepared clothing roles, including ties, without hiding identity surfaces', () => {

@@ -49,7 +49,7 @@ it("elli never wears the dress Ila put on another companion; that companion keep
   const { savedEquippedLook } = await import("../lib/wardrobeWallet");
   const elli = savedEquippedLook(storageWith(KIOSK_STATE), "ila", KIOSK_WALLET, "elli", "/companions/elli-wardrobe-identity-preserved-v1.vrm");
   expect(elli).toMatchObject({ outfitId: "none", accessoryId: "none" });
-  // Owner 2026-11-09: that companion is the angel, now Hikari; Ila's angel look moved from "matilda" to her.
-  const hikari = savedEquippedLook(storageWith(KIOSK_STATE), "ila", KIOSK_WALLET, "hikari", "/companions/matilda-wardrobe-native-identity-v1.vrm");
-  expect(hikari.outfitId).toBe("sleeveless-dress");
+  // Owner 2026-11-11: looks stay per companion with no migration; Matilda keeps what Ila put on Matilda.
+  const matilda = savedEquippedLook(storageWith(KIOSK_STATE), "ila", KIOSK_WALLET, "matilda", "/companions/sample.vrm");
+  expect(matilda.outfitId).toBe("sleeveless-dress");
 });

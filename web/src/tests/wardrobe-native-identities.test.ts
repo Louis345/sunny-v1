@@ -87,7 +87,9 @@ it.each(['kefla','melty','tene','towa','matilda'])('preserves %s native identity
  for(const key of ['humanoid','blendShapeMaster','secondaryAnimation','firstPerson'])expect(output.json.extensions.VRM[key]).toEqual(source.json.extensions.VRM[key]);
  expect(output.binary.subarray(8,source.binary.length).equals(source.binary.subarray(8))).toBe(true);
  const face=source.json.meshes.findIndex((m:any)=>m.name.toLowerCase().includes('face'));if(face>=0)expect(output.json.meshes[face]).toEqual(source.json.meshes[face]);
- expect(resolvePreparedWardrobePresentation(id)).not.toHaveProperty("identityModelUrl");expect(resolvePreparedWardrobePresentation(id)?.bodyModelUrl).toContain(`${id}-wardrobe-`);
+ // The pink "matilda" body is worn by Hikari; Matilda the companion wears the starter body (owner 2026-11-11).
+ const wearer=id==='matilda'?'hikari':id;
+ expect(resolvePreparedWardrobePresentation(wearer)).not.toHaveProperty("identityModelUrl");expect(resolvePreparedWardrobePresentation(wearer)?.bodyModelUrl).toContain(`${id}-wardrobe-`);
 });
 it('keeps Kefla tail geometry even though it shares the clothing material',()=>{
  const r=WARDROBE_RECIPES.find(r=>r.id==='kefla')!,a=readVrm(readFileSync(`public${r.sourceUrl}`)),p=a.json.meshes[1].primitives[2],skin=a.json.skins[a.json.nodes.find((n:any)=>n.mesh===1).skin];

@@ -9,13 +9,13 @@ import { fittedCallLook, loadCallStartLook } from "../lib/callStartLook";
 const ELLI_BODY = "/companions/elli-wardrobe-identity-preserved-v1.vrm";
 const MATILDA_BODY = "/companions/matilda-wardrobe-native-identity-v1.vrm";
 const storageWith = (state: unknown) => ({ getItem: () => JSON.stringify(state) });
+// The pink body (asset id "matilda") is Hikari's; looks are saved per companion with no migration (owner 2026-11-11).
 const DRESSED_MATILDA_ONLY = {
   version: 1, ledger: [], ownedItemIds: ["sleeveless-dress"], savedItemIds: [], preferenceEvents: [],
-  equippedByCompanion: { matilda: { outfitItemId: "sleeveless-dress" }, elli: {} },
+  equippedByCompanion: { hikari: { outfitItemId: "sleeveless-dress" }, elli: {} },
 };
 
 describe("call-start look", () => {
-  // Owner 2026-11-09: the angel Ila dressed under the old id "matilda" is now Hikari; her saved look moves to Hikari.
   it("switching from a dressed companion to one with no look clears the outfit", async () => {
     const apply = vi.fn();
     const fetchWallet = vi.fn(async () => ({ coins: 0, ownedRewardIds: ["outfit:navy-ribbon-dress"] }));

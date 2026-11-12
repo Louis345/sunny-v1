@@ -137,16 +137,16 @@ it("a purchase in the call's shop unlocks its tile in the collection", async () 
   expect(within(closet).getByTestId("reward-tile-outfit:rose-ribbon-dress")).toHaveAttribute("data-locked", "true");
 });
 
-// Owner 2026-11-09: the angel Ila dressed as "matilda" is now Hikari. Opening her shop saves the moved look once,
-// so the kiosk's closet stops carrying the angel's dress on Reina's companion id. Reina's closet is never touched.
-it("saves Ila's angel look under Hikari the first time her shop loads, and leaves Reina's alone", async () => {
+// Owner 2026-11-11: Matilda is Reina's companion again and looks never migrate between companions, so opening a
+// shop leaves every saved closet exactly as it was.
+it("leaves each child's saved looks where they were when the shop loads", async () => {
   fakeServer({ coins: 0 });
   const angelLook = { ...createInitialWardrobeStoreState(), ownedItemIds: ["sleeveless-dress"], equippedByCompanion: { matilda: { outfitItemId: "sleeveless-dress" } } };
   window.localStorage.setItem("sunny:wardrobe-store-lab:v1:ila", JSON.stringify(angelLook));
   window.localStorage.setItem("sunny:wardrobe-store-lab:v1:reina", JSON.stringify(angelLook));
   shop(SEED);
   const saved = JSON.parse(window.localStorage.getItem("sunny:wardrobe-store-lab:v1:ila")!);
-  expect(saved.equippedByCompanion).toEqual({ hikari: { outfitItemId: "sleeveless-dress" } });
+  expect(saved.equippedByCompanion).toEqual({ matilda: { outfitItemId: "sleeveless-dress" } });
   expect(JSON.parse(window.localStorage.getItem("sunny:wardrobe-store-lab:v1:reina")!)).toEqual(angelLook);
   await waitFor(() => expect(screen.getAllByText(/0 coins/).length).toBeGreaterThan(0));
 });
