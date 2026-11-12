@@ -619,7 +619,7 @@ describe("WardrobeStoreLab shopping call", () => {
     expect(screen.queryByText(/provider billing response/)).toBeNull();
   });
 
-  it("enforces a code-owned refusal without spending coins", () => {
+  it("shows her refusal as an opinion and still offers Buy", () => {
     const visitSeed = "strong-refusal";
     const state = createInitialWardrobeStoreState();
     const items = getCompatibleWardrobeItems(
@@ -661,12 +661,13 @@ describe("WardrobeStoreLab shopping call", () => {
     expect(screen.getByText("Not for me today")).toBeTruthy();
     expect(screen.queryByText("Elli would rather keep looking.")).toBeNull();
     expect(screen.queryByText("Saving it does not spend any coins.")).toBeNull();
-    expect(screen.queryByRole("button", { name: /Buy and wear/ })).toBeNull();
+    // Owner 2026-11-12: her opinion never removes the child's choice.
+    expect(screen.getByRole("button", { name: /Buy and wear/ })).toBeTruthy();
     expect(screen.getByText("100 demo coins")).toBeTruthy();
     expect(screen.getByRole("button", { name: /Save .* for later/ })).toBeTruthy();
   });
 
-  it("blocks a rejected owned item from being equipped from the closet", () => {
+  it("wears an owned item the companion is not keen on today, showing her opinion", () => {
     const visitSeed = "owned-refusal";
     const items = getCompatibleWardrobeItems(
       WARDROBE_STORE_CATALOG,
@@ -684,7 +685,7 @@ describe("WardrobeStoreLab shopping call", () => {
       visitSeed,
     });
     const rejectedItem = items.find(
-      (item) => !visit.itemOpinions[item.id]?.companionConsentsToWear,
+      (item) => visit.itemOpinions[item.id]?.verdict === "reject",
     );
     expect(rejectedItem).toBeTruthy();
     window.localStorage.setItem(WARDROBE_STORE_STORAGE_KEY, JSON.stringify(state));
@@ -705,9 +706,10 @@ describe("WardrobeStoreLab shopping call", () => {
     fireEvent.click(screen.getByRole("button", { name: "Elli’s closet" }));
     fireEvent.click(screen.getByRole("button", { name: rejectedItem?.name }));
 
-    expect(screen.getByText(`Elli does not want to wear ${rejectedItem?.name} today.`)).toBeTruthy();
-    expect(screen.getByText("100 demo coins")).toBeTruthy();
-    expect(onWardrobeChange).not.toHaveBeenCalled();
+    // Owner 2026-11-12: her opinion is shown, but the child still wears it.
+    expect(screen.queryByText(`Elli does not want to wear ${rejectedItem?.name} today.`)).toBeNull();
+    expect(screen.getByText("Not for me today")).toBeTruthy();
+    expect(onWardrobeChange).toHaveBeenCalled();
   });
 });
 

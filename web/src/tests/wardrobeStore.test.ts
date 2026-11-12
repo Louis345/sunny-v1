@@ -43,12 +43,9 @@ describe("wardrobe store domain", () => {
     ).length;
     expect(rejectionCount).toBeGreaterThanOrEqual(Math.floor(opinions.length * 0.4));
     expect(rejectionCount).toBeLessThanOrEqual(Math.ceil(opinions.length * 0.5));
-    expect(opinions.some((opinion) => opinion.companionConsentsToWear)).toBe(true);
-    expect(
-      opinions
-        .filter((opinion) => opinion.verdict === "reject")
-        .every((opinion) => !opinion.companionConsentsToWear),
-    ).toBe(true);
+    // Owner 2026-11-12: a "not for me today" is her opinion, never a lock. Refused items had no Buy or Wear
+    // button, a different 40% each visit, which looked broken to the kids. The child always decides.
+    expect(opinions.every((opinion) => opinion.companionConsentsToWear)).toBe(true);
   });
 
   it("can choose a different mood on a later visit without changing within one visit", () => {

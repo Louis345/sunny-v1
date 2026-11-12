@@ -523,8 +523,7 @@ function resolveShoppingContext(
       typeof selected.owned !== "boolean" ||
       typeof selected.saved !== "boolean" ||
       typeof selected.preferenceMatch !== "boolean" ||
-      typeof selected.companionConsentsToWear !== "boolean" ||
-      (opinionVerdict === "reject") === selected.companionConsentsToWear
+      typeof selected.companionConsentsToWear !== "boolean"
     ) {
       return null;
     }
@@ -983,6 +982,10 @@ export function buildShowroomTalkSystemPrompt(input: {
         "A like verdict is not love or obsession; keep the strength of the spoken opinion equal to the code-owned verdict.",
         "The selected item is for you, the companion, to try on. Do not imply that the child is wearing it or that you and the child need matching copies.",
       );
+      if (item.opinionVerdict === "reject" && item.companionConsentsToWear) {
+        // Owner 2026-11-12: her opinion never locks an item; the child decides.
+        lines.push("Not your favourite today, but it is the child's choice: say so lightly once, then go along cheerfully if the child picks it, without claiming to like or love it.");
+      }
       if (!item.companionConsentsToWear) {
         lines.push(
           "This item cannot be bought-and-worn or equipped during this visit. The child may save it or keep looking. Be honest without shaming the child's taste or pressuring them.",

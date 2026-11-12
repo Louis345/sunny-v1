@@ -641,14 +641,6 @@ export function WardrobeStoreLab({
   };
 
   const equipOwnedItem = (item: WardrobeStoreItem) => {
-    const opinion = shoppingVisit.itemOpinions[item.id];
-    if (opinion && !opinion.companionConsentsToWear) {
-      setStatusMessage(`${companion.name} does not want to wear ${item.name} today.`);
-      console.log(
-        ` 🎮 [wardrobe-store-lab] equip blocked companion=${companion.id} item=${item.id} reason=companion_refused mood=${shoppingVisit.mood.id}`,
-      );
-      return;
-    }
     const equipped = equipWardrobeItem(
       storeState,
       companion.id,
@@ -681,13 +673,6 @@ export function WardrobeStoreLab({
 
   const buyAndWear = () => {
     if (!selectedItem) return;
-    if (selectedOpinion && !selectedOpinion.companionConsentsToWear) {
-      setStatusMessage(`${companion.name} does not want to wear ${selectedItem.name} today.`);
-      console.log(
-        ` 🎮 [wardrobe-store-lab] purchase blocked companion=${companion.id} item=${selectedItem.id} reason=companion_refused mood=${shoppingVisit.mood.id}`,
-      );
-      return;
-    }
     if (wallet) {
       void buyWithSavedCoins(selectedItem);
       return;
@@ -996,8 +981,7 @@ export function WardrobeStoreLab({
                     companionName={companion.name}
                     onVoiceRequested={requestCompanionVoice}
                   />
-                  {selectedOpinion?.companionConsentsToWear &&
-                  storeState.ownedItemIds.includes(selectedItem.id) ? (
+                  {storeState.ownedItemIds.includes(selectedItem.id) ? (
                     <button
                       type="button"
                       className="is-primary"
@@ -1005,7 +989,7 @@ export function WardrobeStoreLab({
                     >
                       Wear from closet
                     </button>
-                  ) : selectedOpinion?.companionConsentsToWear ? (
+                  ) : (
                     <button
                       type="button"
                       className="is-primary"
@@ -1015,8 +999,8 @@ export function WardrobeStoreLab({
                     >
                       Buy &amp; wear · {selectedItem.price}
                     </button>
-                  ) : null}
-                  {wallet && selectedOpinion?.companionConsentsToWear &&
+                  )}
+                  {wallet &&
                   !storeState.ownedItemIds.includes(selectedItem.id) &&
                   balance < selectedItem.price ? (
                     <p className="wardrobe-store-lab__short">

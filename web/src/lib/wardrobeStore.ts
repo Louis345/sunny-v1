@@ -380,8 +380,8 @@ function matchingTags(
 /**
  * Creates code-owned companion opinions for one store visit. The seed makes
  * the mood and verdicts stable during that visit while allowing a later visit
- * to feel different. The lowest-ranked 40% are genuine refusals, with at
- * least one compatible choice always left available.
+ * to feel different. The lowest-ranked 40% get a "not for me today" opinion, which she says but which never
+ * blocks the child (owner, 2026-11-12: locked items looked broken to the kids).
  */
 export function createCompanionShoppingVisit(input: {
   companionId: string;
@@ -455,7 +455,7 @@ export function createCompanionShoppingVisit(input: {
     itemOpinions[entry.item.id] = {
       verdict,
       reasons,
-      companionConsentsToWear: !rejected,
+      companionConsentsToWear: true,
     };
   }
 

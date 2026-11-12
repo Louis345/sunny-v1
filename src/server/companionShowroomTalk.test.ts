@@ -1403,3 +1403,26 @@ describe("call clock events", () => {
       callClock: { event: "time_up", minutesLeft: 0, coins: 40, price: 30, minutes: 5 } })).toContain("She can afford more time.");
   });
 });
+
+// Owner 2026-11-12: "not for me today" is the companion's opinion, never a lock. The talk server refused any
+// shopping context where a rejected item could still be worn, so her voice would have broken on those items.
+describe("a companion's rejection is an opinion the child can overrule", () => {
+  const shoppingContext = {
+    mode: "try_on", visitId: "visit-elli", walletBalance: 80, companionWish: "a celestial headpiece",
+    companionMood: { id: "dreamy", label: "dreamy and cosmic" },
+    selectedItem: { id: "royal-crown", name: "Royal Crown", price: 50, category: "accessory", styleTags: ["gold", "royal"],
+      owned: false, saved: false, preferenceMatch: false, opinionVerdict: "reject", opinionReasons: ["not feeling royal today"], companionConsentsToWear: true },
+    ownedItemIds: [], savedItemIds: [],
+  };
+  it("accepts the context and tells her the child decides", () => {
+    const resolved = resolveShowroomTalkRequest(
+      { companionId: "elli", question: "Do you like it?", voiceId: "voice_a", mode: "video_call", shoppingContext },
+      { routeCompanionId: "elli", voiceOptions: [{ id: "voice_a", label: "A", language: "en", default: true }] },
+    );
+    expect(resolved.ok).toBe(true);
+    if (!resolved.ok) return;
+    const prompt = buildShowroomTalkSystemPrompt({ companionId: "elli", companionName: "Elli", showroomTheme: "aurora", personality: "warm", mode: "video_call", shoppingContext: resolved.request.shoppingContext });
+    expect(prompt).toContain("Not your favourite today, but it is the child's choice");
+    expect(prompt).not.toContain("cannot be bought-and-worn");
+  });
+});
