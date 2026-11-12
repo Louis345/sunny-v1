@@ -107,10 +107,24 @@ describe("a finished board", () => {
     expect(resolvePreparationSurface({ ...input, published: true })).toBeNull();
     expect(resolvePreparationSurface({ ...input, preview: true })).toBeNull();
   });
-  it("is known from the cycle deciding what comes next, on spelling only", () => {
-    for (const lifecycle of ["baseline_evaluating", "quest_evaluating", "boss_evaluating"]) expect(isBoardFinishedPacket(packet(lifecycle))).toBe(true);
-    expect(isBoardFinishedPacket(packet("board_ready"))).toBe(false);
-    expect(isBoardFinishedPacket(packet("baseline_evaluating", "math"))).toBe(false);
+  // Owner 2026-11-12: Reina finished math board 3, came back from FaceTime while board 4 was being built, and saw the
+  // finished board 3 as if it were current. Why the human caught it: an old, done board on screen. Why logs missed
+  // it: the page reloaded into the board with no screen report. Why the lab missed it: this test pinned math to
+  // "no waiting screen", and no case covered a page opened while the next board is generated.
+  // Rule: one waiting screen for every subject, from the moment a board is finished until the next one is published.
+  it("is known from the cycle deciding or building what comes next, for spelling and math", () => {
+    for (const domain of ["spelling", "math"]) {
+      for (const lifecycle of ["baseline_evaluating", "quest_evaluating", "boss_evaluating", "quest_generating", "boss_generating"]) {
+        expect(isBoardFinishedPacket(packet(lifecycle, domain)), `${domain} ${lifecycle}`).toBe(true);
+      }
+      expect(isBoardFinishedPacket(packet("board_ready", domain))).toBe(false);
+      expect(isBoardFinishedPacket(packet("baseline_generating", domain))).toBe(false);
+    }
     expect(isBoardFinishedPacket(null)).toBe(false);
+  });
+  it("opens for a finished math board until the next one is published", () => {
+    const input = { packet: packet("quest_generating", "math"), directDiscoveryMode: false, handoff: null, held: false, preview: false, boardFinished: true };
+    expect(resolvePreparationSurface(input)).toBe("chapter");
+    expect(resolvePreparationSurface({ ...input, published: true })).toBeNull();
   });
 });

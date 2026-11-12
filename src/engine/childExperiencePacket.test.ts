@@ -57,6 +57,27 @@ describe("buildChildExperiencePacket", () => {
       { display: "sunfish", firstTry: true },
     ]);
   });
+  // Owner 2026-11-12: the waiting screen shows math too, "their progress, what they worked on". Per board: each
+  // problem she answered, shown as her answer, read aloud as the problem; a helped answer is never counted right.
+  it("lists each math board's problems as her answers, first try against her latest try without help", () => {
+    const problem = (id: string, prompt: string) => ({ id, prompt, response: { mode: "numeric", expected: 7 } });
+    const cycle = { homeworkId: "hw", revision: 44, lifecycle: "quest_generating", domain: "math",
+      boards: [{ boardId: "hw:board:3", kind: "teaching", nodeIds: ["n1"] }],
+      nodes: [{ nodeId: "n1", role: "baseline", implementationType: "generated-game", evidenceContract: { itemContracts: {
+        p1: problem("p1", "42 stickers, 6 on each sheet. How many sheets?"), p2: problem("p2", "56 apples in 8 bags."), p3: problem("p3", "Not reached.") } } }],
+      observations: [
+        { itemId: "p1", sourceId: "activity:s1:n1", childResponse: "6", result: { correct: false }, assistance: { status: "unassisted" } },
+        { itemId: "p1", sourceId: "activity:s1:n1", childResponse: "7", result: { correct: true }, assistance: { status: "unassisted" } },
+        { itemId: "p2", sourceId: "activity:s1:n1", childResponse: "7", result: { correct: true }, assistance: { status: "unassisted" } },
+        { itemId: "p2", sourceId: "activity:s1:n1", childResponse: "8", result: { correct: false }, assistance: { status: "unassisted" } },
+        { itemId: "p2", sourceId: "activity:s1:n1", childResponse: "7", result: { correct: true }, assistance: { status: "assisted" } },
+      ] };
+    const packet = buildChildExperiencePacket({ childId: "lab", companion: {}, homework: {}, learningCycle: cycle, activeSessionPlan: { planId: "p", nodePlan: [], adventureBoard: { nodes: [] } } } as never);
+    expect(packet.mathBoardResults).toEqual({ "hw:board:3": [
+      { display: "7", spoken: "42 stickers, 6 on each sheet. How many sheets?", firstTry: false, correct: true },
+      { display: "8", spoken: "56 apples in 8 bags.", firstTry: true, correct: false },
+    ] });
+  });
   it("projects the displayed canonical board kind independent of the plan ID", () => {
     const packet=buildChildExperiencePacket({childId:"lab", companion:{}, homework:{},
       learningCycle:{homeworkId:"hw", revision:2, lifecycle:"evaluation_ready", nodes:[], observations:[], boards:[{boardId:"hw:board:1",kind:"probe"}]},

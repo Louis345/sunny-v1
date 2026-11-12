@@ -34,6 +34,27 @@ describe("useAppAdventurePreparation", () => {
     expect(screen.getByRole("button", { name: "Hear word9 — To practise" })).toHaveTextContent("✕");
   });
 
+  // Owner 2026-11-12: "it just shows spelling, but we should just show math... their progress, what they worked on."
+  // The same waiting screen shows a finished math board: each problem as her answer with a check or a cross, the
+  // problem read aloud on tap, and "New!" where she fixed a first miss.
+  it("shows a finished math board's problems as her answers", () => {
+    const math = { activeSessionPlan: { domain: "math" }, mathBoardResults: { "hw:board:3": [
+      { display: "7", spoken: "42 stickers, 6 on each sheet. How many sheets?", firstTry: false, correct: true },
+      { display: "8", spoken: "56 apples in 8 bags. How many in each bag?", firstTry: true, correct: false },
+    ] } };
+    const sendMessage = vi.fn();
+    const { result } = renderHook(() => useAppAdventurePreparation({
+      surface: "chapter", packet: math as never, childId: "lab", homeworkId: "hw", finishedBoardId: "hw:board:3",
+      status: status("successor_preparing", []), finished: false, checkNow: vi.fn(), onFinish: vi.fn(), sendMessage,
+    }));
+    render(<>{result.current.screen}</>);
+    expect(screen.getByRole("button", { name: "Hear 7 — Correct" })).toHaveTextContent("New!");
+    expect(screen.getByRole("button", { name: "Hear 8 — To practise" })).toHaveTextContent("✕");
+    expect(result.current.waiting?.step).toBe("You did it! Let me look at all your answers.");
+    fireEvent.click(screen.getByRole("button", { name: "Hear 7 — Correct" }));
+    expect(JSON.stringify(sendMessage.mock.calls)).toContain("42 stickers, 6 on each sheet. How many sheets?");
+  });
+
   // 2026-11-01 Ila finished her board and nothing happened: the next board was ready but her screen still said done.
   describe("when she finishes a board", () => {
     const finished = { activeSessionPlan: { domain: "spelling", nodePlan: [{ targets: ["mailbox", "moonlight"] }] },

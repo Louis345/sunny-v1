@@ -12,7 +12,7 @@ export type PreparationSurface = "chapter" | "held" | null;
 /** The waiting screen's own words and real progress, as reported to Elli. */
 export type PreparationWaitingReport = { step: string; detail: string; ready: number; total: number };
 
-/** Spelling only: right after Discovery or a next-session map still building. */
+/** Right after spelling Discovery, after a finished board (spelling or math), or a next-session map still building. */
 export function resolvePreparationSurface(input: {
   packet: ChildExperiencePacket | null;
   directDiscoveryMode: boolean;
@@ -24,8 +24,10 @@ export function resolvePreparationSurface(input: {
   boardFinished?: boolean;
   preview: boolean;
 }): PreparationSurface {
-  if (input.preview || input.packet?.activeSessionPlan?.domain !== "spelling") return null;
+  const domain = input.packet?.activeSessionPlan?.domain;
+  if (input.preview || (domain !== "spelling" && domain !== "math")) return null;
   if (input.boardFinished) return input.published ? null : "chapter";
+  if (domain !== "spelling") return input.held && !input.published ? "held" : null;
   if (input.directDiscoveryMode) return input.handoff === "targeted-planning" ? "chapter" : null;
   return input.held && !input.published ? "held" : null;
 }
@@ -69,16 +71,21 @@ export function useAppAdventurePreparation(input: {
   }, [input.surface, input.finishedBoardId, scope]);
   const mode = modeByScope?.scope === scope ? modeByScope.mode : null;
 
+  // One screen for every subject: spelling shows her words; math shows each problem as her answer, read aloud on tap.
+  const subject = input.packet?.activeSessionPlan?.domain === "math" ? "math" : "spelling";
+  const mathResults = subject === "math" && input.finishedBoardId ? input.packet?.mathBoardResults?.[input.finishedBoardId] : undefined;
   const wordsRef = useRef<{ scope: string; words: string[] }>({ scope: "", words: [] });
-  const words = preparationWords(input.packet);
+  const words = subject === "math" ? [] : preparationWords(input.packet);
   if (words.length && wordsRef.current.scope !== scope) wordsRef.current = { scope, words };
   const results: Array<{ display: string; firstTry?: boolean; correct?: boolean }> | undefined = mode !== "chapter" ? undefined
     : input.finishedBoardId ? input.packet?.spellingBoardResults : input.packet?.spellingEvaluationResults;
-  const resultsKey = JSON.stringify(results);
-  const items = useMemo(() => (wordsRef.current.scope === scope ? wordsRef.current.words : words).map(face => {
-    const result = results?.find(item => item.display === face);
-    return { face, spoken: face, correct: result?.correct, improved: result?.firstTry === false && result.correct === true };
-  }), [scope, words.join("|"), resultsKey]); // eslint-disable-line react-hooks/exhaustive-deps
+  const resultsKey = JSON.stringify(subject === "math" ? mathResults : results);
+  const items = useMemo(() => subject === "math"
+    ? (mathResults ?? []).map(result => ({ face: result.display, spoken: result.spoken, correct: result.correct, improved: result.firstTry === false && result.correct === true }))
+    : (wordsRef.current.scope === scope ? wordsRef.current.words : words).map(face => {
+      const result = results?.find(item => item.display === face);
+      return { face, spoken: face, correct: result?.correct, improved: result?.firstTry === false && result.correct === true };
+    }), [scope, subject, words.join("|"), resultsKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const activityTypes = useMemo(() => new Map(
     (input.packet?.activeSessionPlan?.adventureBoard?.nodes ?? []).map(node => [node.id, node.activityId ?? node.kind] as [string, string]),
@@ -98,7 +105,7 @@ export function useAppAdventurePreparation(input: {
   // A resume waits for the first real status so it opens on the true step.
   const active = Boolean(mode) && !input.finished && (mode === "chapter" || input.status !== null);
   const { snapshot, send } = useAdventurePreparation({
-    active, scopeKey: `${scope}:${mode}`, mode: mode ?? "live", subject: "spelling", say: () => undefined,
+    active, scopeKey: `${scope}:${mode}`, mode: mode ?? "live", subject, say: () => undefined,
     initialStops: initialPlan?.type === "PLAN_DONE" ? initialPlan.stops : undefined,
     initialReady: initialReady?.type === "ACTIVITY_READY" ? initialReady.n : undefined,
   });
