@@ -551,7 +551,8 @@ type ShowroomActivityMovePacketOptions = {
 type ShowroomActivityReactionRequestOptions = {
   movePacket?: ShowroomActivityMovePacketOptions;
 };
-const SHOWROOM_ACTIVITY_MOVE_PACKET_TIMEOUT_MS = 4000;
+// Her spoken lines took 3.4-4.9 s in Ila's 11/10 call; at 4 s the line was dropped 22 times (owner 2026-11-12).
+export const SHOWROOM_ACTIVITY_MOVE_PACKET_TIMEOUT_MS = 6500;
 const SHOWROOM_VIDEO_CALL_ACTIVITY_LOG_TYPES = new Set([
   "companion_activity_started",
   "companion_activity_child_move",
