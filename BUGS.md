@@ -1,3 +1,21 @@
+## Merge gate for PR #59 (owner, 2026-11-12)
+
+PR #59 (`weekend/economy-and-faster-planner`) merges only when all of these hold:
+1. Every open entry in this file is fixed or explicitly parked by the owner.
+2. The daily session checklists pass.
+3. Graded school tests are back and recorded.
+4. Sessions are stable on Saori.
+All bug fixes for these entries go on this branch.
+
+## 2026-11-12 — Found in the dressing room and FaceTime triage (open)
+
+- **8 cook-off contract tests fail** (AI-caught). `src/tests/test-game-contracts.ts`: the fable-ila, fable-reina, opus-ila and opus-reina cook-off games in `web/public/games/cookoff/` fail "sends contract payload fields" and "uses sendNodeComplete for completion". These failures predate today's changes. Fix the games or retire the cook-off copies; the suite must be green before merge.
+- **"Back to games" covers the game's score** (AI-caught in a browser check). The button in `CallGamePlayer` sits over the top-left score area of in-call games.
+- **About 40% of shop items show no Buy or Wear button, different ones each visit** (AI-caught; needs an owner decision). This is deliberate: the companion's "taste" turns items down. To a kid it looks broken. Options: keep the taste but always allow try-on, or drop the refusals.
+- **The hoodie and blazer are hidden from the shop** (AI-caught). They exist but have no price, so the shop leaves them out. That is lost reward variety.
+- **Six companions have no prepared bodies on Saori** (AI-caught). Towa, Kefla, Melty, Princess, Tene and Yukari have no fitted body, so the shop now hides their outfits rather than selling ones that can't be seen. They need prepared bodies before they can wear anything.
+- **Rewards need ongoing variety** (owner, 2026-11-12). The kids get excited by new things, and a fixed catalog goes bland. Planned: the studio designer agent (Opus 5.5) proposes new accessories, pets and outfits from the kids' talk and play. Every item is checked to fit, priced into the economy, and retired when unused. Parked by the feature freeze until after the merge.
+
 ## 2026-11-10 — Backlog (owner: later, not now)
 
 - **Phone alerts.** Parent alerts are recorded on Saori (`sunny_health/parent-alerts.ndjson`) and in `sunny:rate`, but reach no phone. Options: iMessage from Saori's Messages app, an ntfy topic (set `SUNNY_PARENT_ALERT_URL`), or email. The owner chose "not yet" on 11/10.
