@@ -240,15 +240,30 @@
 
 .wardrobe-store-lab__entrance-copy {
   display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
   gap: 12px;
+  height: 100%;
+  min-width: 0;
   min-height: 0;
 }
 
-/* Her goals in the call's shop: every outfit and game, greyed until owned (BUGS.md 2026-11-08). */
+/* Her goals in the call's shop: every outfit and game, greyed until owned (BUGS.md 2026-11-08).
+   It fills the column at any screen size; tiles flow into as many columns as fit (owner 2026-11-12). */
 .wardrobe-store-lab__collection {
-  max-height: 46vh;
+  min-width: 0;
+  min-height: 0;
+  overflow-x: hidden;
   overflow-y: auto;
   border-radius: 18px;
+}
+
+.wardrobe-store-lab__collection .reward-collection__header h2 {
+  font-size: clamp(18px, 2vw, 26px);
+}
+
+.wardrobe-store-lab__collection .reward-collection__grid {
+  grid-template-columns: repeat(auto-fill, minmax(min(110px, 100%), 1fr));
+  gap: 10px;
 }
 
 .wardrobe-store-lab__entrance-copy > span {
@@ -262,8 +277,8 @@
 .wardrobe-store-lab__entrance-copy h2 {
   margin: 0;
   font-family: "Playfair Display", Georgia, serif;
-  font-size: clamp(38px, 5vw, 70px);
-  line-height: 0.96;
+  font-size: clamp(22px, 2.6vw, 36px);
+  line-height: 1.05;
 }
 
 .wardrobe-store-lab__entrance-copy p {
@@ -771,13 +786,15 @@
   box-shadow: 0 5px 14px rgba(55, 41, 60, 0.1);
 }
 
+/* Picture tiles, as many columns as fit at any screen size (owner 2026-11-12: the list scrolled, items hidden). */
 .wardrobe-store-lab__items {
   min-height: 0;
   display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(88px, 1fr));
   align-content: start;
   gap: 8px;
   overflow-y: auto;
-  padding-right: 3px;
+  padding: 2px 3px 2px 2px;
 }
 
 .wardrobe-store-lab__empty-items {
@@ -794,17 +811,17 @@
 
 .wardrobe-store-lab__items > button {
   width: 100%;
-  min-height: 70px;
+  min-width: 0;
   display: grid;
-  grid-template-columns: 48px minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 11px;
-  padding: 10px;
+  justify-items: center;
+  align-content: start;
+  gap: 4px;
+  padding: 8px 6px;
   border: 1px solid rgba(75, 58, 82, 0.1);
   border-radius: 15px;
   background: #fffefa;
   color: #352c41;
-  text-align: left;
+  text-align: center;
   cursor: pointer;
 }
 
@@ -814,8 +831,8 @@
 }
 
 .wardrobe-store-lab__items > button > span {
-  width: 48px;
-  height: 48px;
+  width: 52px;
+  height: 52px;
   display: grid;
   place-items: center;
   border-radius: 12px;
@@ -823,25 +840,10 @@
   font-size: 28px;
 }
 
-.wardrobe-store-lab__items > button > div {
-  min-width: 0;
-  display: grid;
-  gap: 4px;
-}
-
 .wardrobe-store-lab__items strong {
-  overflow: hidden;
-  font-size: 13px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.wardrobe-store-lab__items small {
-  overflow: hidden;
-  color: #877e8d;
-  font-size: 10px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  max-width: 100%;
+  font-size: 11px;
+  line-height: 1.2;
 }
 
 .wardrobe-store-lab__items b {
@@ -1019,7 +1021,8 @@
       "stage"
       "shop";
     grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: minmax(560px, 1fr) minmax(210px, 34vh);
+    /* The shop grows to show every item; the page scrolls instead (owner 2026-11-12). */
+    grid-template-rows: minmax(560px, 1fr) auto;
   }
 
   .wardrobe-store-lab__shop {
@@ -1070,11 +1073,11 @@
     display: none;
   }
 
+  /* The page scrolls on a phone; the item grid grows with it instead of scrolling inside a short box. */
   .wardrobe-store-lab__items {
-    grid-auto-flow: column;
-    grid-auto-columns: minmax(190px, 74vw);
-    overflow-x: auto;
+    overflow: visible;
   }
+
 
   .wardrobe-store-lab__product,
   .wardrobe-store-lab__try-on-layout {

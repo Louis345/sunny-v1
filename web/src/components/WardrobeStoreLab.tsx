@@ -878,12 +878,7 @@ export function WardrobeStoreLab({
                 )}
               </div>
               <div className="wardrobe-store-lab__entrance-copy">
-                <span>Shopping together</span>
                 <h2>What should we look at?</h2>
-                <p>
-                  {companion.name} feels {shoppingVisit.mood.label} today. Pick an
-                  item from the shop, then try it on to hear an honest opinion.
-                </p>
                 {wallet && ownedRewardIds && (
                   <div className="wardrobe-store-lab__collection" data-testid="wardrobe-store-collection">
                     <RewardCollection ownedIds={ownedRewardIds} onUse={wearFromCollection} />
@@ -1105,7 +1100,7 @@ export function WardrobeStoreLab({
                   onClick={() => selectItem(item)}
                 >
                   <WardrobeItemThumbnail item={item} />
-                  <div><strong>{item.name}</strong><small>{owned ? "Yours" : "Not yours yet · try it on"}</small></div>
+                  <strong>{item.name}</strong>
                   <b>{owned ? "✓ Owned" : `🔒 ${itemPriceLabel}`}</b>
                 </button>
               );
