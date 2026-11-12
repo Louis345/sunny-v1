@@ -52,10 +52,13 @@ it("replaces demo coins with her saved coins and her saved closet", () => {
 });
 
 it("offers only items with a coin price, plus what she already owns", () => {
-  const ids = walletShopItems(WARDROBE_STORE_CATALOG, ["comet-hoodie"]).map(item => item.id);
+  // Every real item is priced since 2026-11-12, so an unpriced one is synthetic here.
+  const unpriced = { ...WARDROBE_STORE_CATALOG[0], id: "unpriced-test-item" };
+  const ids = walletShopItems([...WARDROBE_STORE_CATALOG, unpriced], ["unpriced-test-item-owned"]).map(item => item.id);
   expect(ids).toContain("cat-ears");
-  expect(ids).toContain("comet-hoodie");
-  expect(ids).not.toContain("constellation-blazer");
+  expect(ids).not.toContain("unpriced-test-item");
+  const owned = { ...WARDROBE_STORE_CATALOG[0], id: "unpriced-test-item-owned" };
+  expect(walletShopItems([owned], ["unpriced-test-item-owned"]).map(item => item.id)).toEqual(["unpriced-test-item-owned"]);
 });
 
 function buy(item: { name: string; price: number }) {

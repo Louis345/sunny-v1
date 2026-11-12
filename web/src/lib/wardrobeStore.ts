@@ -111,6 +111,34 @@ const RIBBON_DRESS_VARIANTS = createWardrobeVariantCatalog({
       material: { tint: "#ff8fb2" },
       qa: { status: "approved" },
     },
+    // More colours of the same fitted dress (owner, 2026-11-12: "the rewards are never bland").
+    {
+      id: "sky-ribbon-dress",
+      templateId: "ribbon-dress",
+      name: "Sky Ribbon Dress",
+      price: 130,
+      styleTags: ["classic", "blue", "bright", "ribbon"],
+      material: { tint: "#7cc8ff" },
+      qa: { status: "approved" },
+    },
+    {
+      id: "sunflower-ribbon-dress",
+      templateId: "ribbon-dress",
+      name: "Sunflower Ribbon Dress",
+      price: 140,
+      styleTags: ["bold", "gold", "royal", "ribbon"],
+      material: { tint: "#ffd24a" },
+      qa: { status: "approved" },
+    },
+    {
+      id: "sunset-ribbon-dress",
+      templateId: "ribbon-dress",
+      name: "Sunset Ribbon Dress",
+      price: 140,
+      styleTags: ["playful", "heroic", "bright", "ribbon"],
+      material: { tint: "#ff8a4c" },
+      qa: { status: "approved" },
+    },
   ],
 });
 
@@ -143,14 +171,13 @@ export const WARDROBE_STORE_CATALOG: readonly WardrobeStoreItem[] = [
     compatibility: { kind: "universal" },
   },
   ...RIBBON_DRESS_VARIANTS,
+  // Fitted and approved on the prepared bodies; priced 2026-11-12 so the shop shows them.
   ...([
-    {id: "comet-hoodie", name: "Comet Hoodie", icon: "🧥"},
-    {id: "constellation-blazer", name: "Constellation Blazer", icon: "🧥"},
+    {id: "comet-hoodie", name: "Comet Hoodie", icon: "🧥", price: 110, styleTags: ["playful", "celestial", "bold", "cozy"]},
+    {id: "constellation-blazer", name: "Constellation Blazer", icon: "🧥", price: 120, styleTags: ["classic", "elegant", "celestial", "blue"]},
   ] as const).map(candidate => ({
     ...candidate,
     templateId: candidate.id,
-    price: 0, // Diagnostic candidate; pricing and store entry require review.
-    styleTags: ["candidate"],
     asset: {kind: "outfit" as const, outfitId: candidate.id, fit: "skinned_xwear" as const,
       materialVariant: {id:candidate.id,tint:"#ffffff"}},
     compatibility: {kind: "approved_body_profiles" as const,bodyProfileIds:preparedBodies.map(body => body.bodyProfileId)},

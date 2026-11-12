@@ -25,11 +25,15 @@ export const REWARD_CATALOG: readonly RewardItem[] = [
   { id: "outfit:cat-ears", kind: "outfit", name: "Cat Ears", icon: "🐱", rarity: "common", wardrobeItemId: "cat-ears", price: 40 },
   { id: "outfit:royal-crown", kind: "outfit", name: "Royal Crown", icon: "👑", rarity: "common", wardrobeItemId: "royal-crown", price: 50 },
   { id: "outfit:star-halo", kind: "outfit", name: "Star Halo", icon: "✨", rarity: "rare", wardrobeItemId: "star-halo", price: 60 },
-  { id: "outfit:comet-hoodie", kind: "outfit", name: "Comet Hoodie", icon: "🧥", rarity: "rare", wardrobeItemId: "comet-hoodie" },
+  { id: "outfit:comet-hoodie", kind: "outfit", name: "Comet Hoodie", icon: "🧥", rarity: "rare", wardrobeItemId: "comet-hoodie", price: 110 },
+  { id: "outfit:constellation-blazer", kind: "outfit", name: "Constellation Blazer", icon: "🧥", rarity: "epic", wardrobeItemId: "constellation-blazer", price: 120 },
   { id: "outfit:navy-ribbon-dress", kind: "outfit", name: "Navy Ribbon Dress", icon: "👗", rarity: "epic", wardrobeItemId: "sleeveless-dress", price: 130 },
   { id: "outfit:teal-ribbon-dress", kind: "outfit", name: "Teal Ribbon Dress", icon: "👗", rarity: "epic", wardrobeItemId: "teal-ribbon-dress", price: 130 },
   { id: "outfit:plum-ribbon-dress", kind: "outfit", name: "Plum Ribbon Dress", icon: "👗", rarity: "epic", wardrobeItemId: "plum-ribbon-dress", price: 150 },
   { id: "outfit:rose-ribbon-dress", kind: "outfit", name: "Rose Ribbon Dress", icon: "👗", rarity: "legendary", wardrobeItemId: "rose-ribbon-dress", price: 150 },
+  { id: "outfit:sky-ribbon-dress", kind: "outfit", name: "Sky Ribbon Dress", icon: "👗", rarity: "epic", wardrobeItemId: "sky-ribbon-dress", price: 130 },
+  { id: "outfit:sunflower-ribbon-dress", kind: "outfit", name: "Sunflower Ribbon Dress", icon: "👗", rarity: "epic", wardrobeItemId: "sunflower-ribbon-dress", price: 140 },
+  { id: "outfit:sunset-ribbon-dress", kind: "outfit", name: "Sunset Ribbon Dress", icon: "👗", rarity: "epic", wardrobeItemId: "sunset-ribbon-dress", price: 140 },
 ];
 
 /** What coins buy (owner, 2026-11-07): coins must be scarce enough to mean something. One board pays about
