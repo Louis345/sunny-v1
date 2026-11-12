@@ -12,7 +12,7 @@ import {
 const companion = {
   id: "elli",
   name: "Elli",
-  modelUrl: "/companions/sample.vrm",
+  modelUrl: "/companions/elli-wardrobe-identity-preserved-v1.vrm",
 };
 
 function createCallProps() {
@@ -450,7 +450,7 @@ describe("WardrobeStoreLab shopping call", () => {
         companion={{
           id: "kefla",
           name: "Kefla",
-          modelUrl: "/companions/Kefla.vrm",
+          modelUrl: "/companions/kefla-wardrobe-native-identity-v1.vrm",
         }}
         companionPreview={<div data-testid="companion-vrm">full body VRM</div>}
         call={createCallProps()}

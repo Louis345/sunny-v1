@@ -9,6 +9,7 @@ import {
 import engineeringReviews from "./wardrobeEngineeringReview.json";
 import preparedBodies from './wardrobePrepared.generated.json';
 import fittedGarments from './wardrobeFitted.generated.json';
+import { getXwearOutfitDefinition, isXwearOutfitApprovedForAvatar } from "./xwearDress";
 import assetVersions from './wardrobeAssetVersions.generated.json';
 
 export type WardrobeAccessoryId = "none" | "crown" | "cat-ears" | "halo";
@@ -505,6 +506,11 @@ export function isWardrobeStoreItemCompatible(
     (bodyProfileId !== null &&
       item.compatibility.bodyProfileIds.includes(bodyProfileId));
   if (!bodyCompatible) return false;
+  // Offer a garment only where the renderer will draw it (owner 2026-11-12: Towa's shop sold dresses that never showed).
+  if (item.asset.kind === "outfit") {
+    const outfit = getXwearOutfitDefinition(item.asset.outfitId);
+    if (!outfit || !isXwearOutfitApprovedForAvatar(outfit, companionModelUrl)) return false;
+  }
   // A human review or an automated visual pass is approval (owner, 2026-11-10: no human sign-off required).
   return wardrobeItemEvidence(item, companionModelUrl, companionId) !== "none";
 }

@@ -73,21 +73,25 @@ describe("wardrobe store domain", () => {
   });
 
   it("filters shopping fixtures by their supplied companion approval", () => {
+    // The dressing room shows each companion on her prepared body; garments are offered only where they render.
     const sampleItems = getCompatibleWardrobeItems(
       WARDROBE_STORE_CATALOG,
-      "/companions/sample.vrm",
+      "/companions/elli-wardrobe-identity-preserved-v1.vrm",
       "elli",
     );
     const keflaItems = getCompatibleWardrobeItems(
       WARDROBE_STORE_CATALOG,
-      "/companions/sample.vrm",
+      "/companions/kefla-wardrobe-native-identity-v1.vrm",
       "kefla",
     );
     const matildaItems = getCompatibleWardrobeItems(
       WARDROBE_STORE_CATALOG,
-      "/companions/sample.vrm",
+      "/companions/elli-wardrobe-identity-preserved-v1.vrm",
       "matilda",
     );
+    // On the raw starter model (prepared body missing) the hoodie and blazer would not render, so they are not offered.
+    expect(getCompatibleWardrobeItems(WARDROBE_STORE_CATALOG, "/companions/sample.vrm", "elli").map(item => item.id))
+      .not.toContain("comet-hoodie");
 
     expect(sampleItems.map((item) => item.id)).toEqual([
       "royal-crown",
