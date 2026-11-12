@@ -375,7 +375,7 @@ function bindLibraryGame(cycle: LearningCycleRecordV2, node: LearningCycleNodeCo
   const answerOf = (item: NonNullable<LearningCycleNodeContract["evidenceContract"]["itemContracts"]>[string]) =>
     item.response.mode === "numeric" ? String(item.response.expected) : item.response.mode === "selection" ? item.response.options.find(option => option.correct)?.label : undefined;
   const items = cycle.domain === "spelling"
-    ? Object.values(node.evidenceContract.spellingItems ?? {}).map(item => ({ itemId: item.wordId, prompt: item.word, answer: item.word }))
+    ? Object.values(node.evidenceContract.spellingItems ?? {}).map(item => ({ itemId: item.id, prompt: item.word, answer: item.word }))
     : Object.values(node.evidenceContract.itemContracts ?? {}).flatMap(item => { const answer = answerOf(item); return answer === undefined ? [] : [{ itemId: item.id, prompt: item.prompt, answer }]; });
   const { html, matchedItemIds, unmatchedTargets } = libraryGameHtml({ id, childId: cycle.childId, nodeId: node.nodeId, items, rootDir: opts.rootDir });
   const problems = gameProblems(html, cycle.domain);

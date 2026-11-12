@@ -600,6 +600,16 @@ export function handleGameEventForSession(
         return; // A chunk/selection score never enters spelling scoring or the word bank.
       }
       if (event.domain === "spelling" && launch && matchesLaunch && event.activityId !== "word-radar" && event.game !== "word-radar") {
+        // A library 3D game bound before 2026-11-11 names a word by its word id; the stop files it as `${nodeId}:${wordId}`
+        // (Ila's Boss: every answer went unsaved). Read the short form as the stop's own item when that item exists.
+        const shortTarget = String(event.target ?? "");
+        if (shortTarget && !shortTarget.startsWith(`${launch.nodeId}:`)) {
+          const full = `${launch.nodeId}:${shortTarget}`;
+          if (getLearningCycle(childId, launch.homeworkId)?.nodes.find(n => n.nodeId === launch.nodeId)?.evidenceContract.spellingItems?.[full]) {
+            console.log(` 🎮 [spelling] [target] [stop-item] node=${launch.nodeId} from=${shortTarget}`);
+            event = { ...event, target: full };
+          }
+        }
         const live = s.getDiscoveryAttemptContext?.(launch.homeworkId, String(event.target ?? ""), event.launchToken);
         if (live?.practice && typeof event.attemptedValue === "string") {
           const cycle = getLearningCycle(childId, launch.homeworkId);
