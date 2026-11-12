@@ -50,7 +50,7 @@ import {
   type SuccessorProgram,
 } from "./learningCycleRepository";
 import { areDistinctWordsPronunciationEquivalent } from "../shared/karaokeMatchWord";
-import {currentBoardInstance} from "./learningBoardInstances";
+import {boardDeliveries, currentBoardInstance, systemBlockedSection} from "./learningBoardInstances";
 import { readTypedSpelling } from "./imeTypedSpelling";
 import { activeOwnerNote } from "./ownerNotes";
 import { LIBRARY_GAMES, type LibraryGameId } from "./libraryGames";
@@ -984,6 +984,11 @@ ${encounterOffered?`These hand-built games are ready: ${ownerNote.games.map(game
     const schoolTest=schoolTestFacts(chart.homework,cycle.homeworkId);
     console.log(` 🎮 [canonical-progression] [school-test] [${schoolTest?"included":"not-recorded"}] homework=${cycle.homeworkId} testDate=${schoolTest?.testDate??"none"} daysLeft=${schoolTest?.daysLeft??"unknown"}`);
     const idPrefix=`${cycle.homeworkId}-r${checkpointRevision}-step`;
+    // Stops Sunny planned and failed to deliver (owner, 2026-11-11): a system failure, said so, never left for the Planner to read as hers.
+    // A frozen question keeps its saved prompt, so only questions asked from now on carry this block.
+    const systemBlocked=systemBlockedSection(cycle);
+    const blockedStops=boardDeliveries(cycle).flatMap(board=>board.stops);
+    console.log(` 🎮 [canonical-progression] [system-blocked-stops] [${systemBlocked?"found":"none"}] homework=${cycle.homeworkId} blocked=${blockedStops.filter(stop=>!stop.repaired).length} repaired=${blockedStops.filter(stop=>stop.repaired).length}`);
     // The newest evidence summaries (per-word response times, frustration, help) stay in the question; older ones are in read_record.
     const recentEvidence=JSON.stringify({academic:factualEvidence.academic.slice(-12),engagement:factualEvidence.engagement.slice(-12),companionObservations:factualEvidence.companionObservations.slice(-12)});
     // Her earlier weeks (owner, 2026-11-10): one line here, every week behind read_past_weeks. Frozen with the question.
@@ -1028,7 +1033,7 @@ ${childFeedbackSection(cycle,opts)}
 ${schoolTestSection(cycle)}
 ${handoffSection(cycle,opts)}
 ${scorecardSection(cycle,opts)}
-${ownerReplanLine(cycle)}Her recorded problems (from her worksheet; give their ids):
+${systemBlocked}${ownerReplanLine(cycle)}Her recorded problems (from her worksheet; give their ids):
 ${JSON.stringify(problems.map(item=>({id:item.id,problem:item.prompt})))}
 Child chart context (her learning history and prior plan are in read_record):
 ${JSON.stringify(chartInline)}
@@ -1068,7 +1073,7 @@ ${childFeedbackSection(cycle,opts)}
 ${schoolTestSection(cycle)}
 ${handoffSection(cycle,opts)}
 ${scorecardSection(cycle,opts)}
-${ownerReplanLine(cycle)}Tested built-in activities she played, which you may re-run:
+${systemBlocked}${ownerReplanLine(cycle)}Tested built-in activities she played, which you may re-run:
 ${JSON.stringify(facts.builtIns.map(row=>({builtIn:row.nodeId,title:row.title,type:row.implementationType,words:row.wordIds.length,checkpoint:row.checkpoint})))}
 Saved spelling words:
 ${JSON.stringify([...savedSpellingItems.values()].map(item=>({wordId:item.wordId,word:item.word})))}

@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { resolveChildContextDir } from "../utils/contextRoot";
 import { getLearningCycle, type LearningCycleRecordV2, type LearningCycleRepositoryOptions } from "./learningCycleRepository";
+import { boardDeliveries, currentBoardInstance } from "./learningBoardInstances";
 import { listChildProductIssues } from "./productIssues";
 import { isFirstTryOnHerOwn, sessionGames, type SessionGame } from "./sessionTimeline";
 import { raiseParentAlert } from "./sunnyHealth";
@@ -72,7 +73,10 @@ export function writeSessionScorecard(input: { childId: string; homeworkId?: str
     const file = scorecardFile(cycle, opts);
     fs.mkdirSync(path.dirname(file), { recursive: true });
     fs.appendFileSync(file, `${JSON.stringify(card)}\n`, "utf8");
-    console.log(` 🎮 [scorecard] [written] child=${input.childId} homework=${cycle.homeworkId} answers=${card.answers.total} own=${card.answers.onHerOwnRight}/${card.answers.onHerOwn} help=${card.helpRequests} learningMin=${card.minutes?.learning ?? "unknown"} playMin=${card.minutes?.play ?? "unknown"} callMin=${card.minutes?.call ?? "unknown"}`);
+    // The current board's stops as planned, playable now, and kept from her by a system failure (owner, 2026-11-11).
+    const board = cycle.boards ? boardDeliveries(cycle).find(row => row.boardId === currentBoardInstance(cycle).boardId) : undefined;
+    const delivery = board ? `planned=${board.planned} delivered=${board.delivered} system_blocked=${board.systemBlocked}` : "planned=unknown delivered=unknown system_blocked=unknown";
+    console.log(` 🎮 [scorecard] [written] child=${input.childId} homework=${cycle.homeworkId} ${delivery} answers=${card.answers.total} own=${card.answers.onHerOwnRight}/${card.answers.onHerOwn} help=${card.helpRequests} learningMin=${card.minutes?.learning ?? "unknown"} playMin=${card.minutes?.play ?? "unknown"} callMin=${card.minutes?.call ?? "unknown"}`);
     return card;
   } catch (error) {
     console.error(` 🎮 [scorecard] [failed] child=${input.childId} reason=${error instanceof Error ? error.message : String(error)}`);

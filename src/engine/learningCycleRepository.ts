@@ -388,6 +388,10 @@ export type LearningCycleDecision = {
   expectations?: PlannerExpectation[];
   /** The Planner's keep / fix / retire notes on games she played (2026-11-10). */
   gameNotes?: Array<{ nodeId: string; verdict: "keep" | "fix" | "retire"; why: string }>;
+  /** The stop this event changed and its Not ready reason after it (owner, 2026-11-11): a repair deletes the node's
+   * reason, so the decision keeps which stop a system failure blocked. Older decisions have neither. */
+  nodeId?: string;
+  notReadyReason?: string;
 };
 
 /** One call the Planner made: whether her next answer on her own for this word or problem will be right. */
@@ -2057,6 +2061,10 @@ export function transitionLearningCycle(
     fromLifecycle,
     toLifecycle: next.lifecycle,
     createdAt: at,
+    ...(() => {
+      const stop = "nodeId" in event && typeof event.nodeId === "string" ? next.nodes.find(node => node.nodeId === event.nodeId) : undefined;
+      return stop ? { nodeId: stop.nodeId, ...(stop.notReadyReason ? { notReadyReason: stop.notReadyReason } : {}) } : {};
+    })(),
     ...(event.type === "theory_decided" ? {
       preserve: event.decision.preserve,
       change: event.decision.change,

@@ -3,7 +3,7 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { z } from "zod";
-import { listBoardInstances } from "./learningBoardInstances";
+import { boardDeliveries, boardDeliveryLines, listBoardInstances, type BoardDelivery } from "./learningBoardInstances";
 import type { LearningCycleNodeContract, LearningCycleRecordV2, PlannerSelfReview } from "./learningCycleRepository";
 import { readCanonicalCycles } from "./longitudinalLearning";
 import { activityOf, answers, plannerJournalFile, scorePlannerCalls, targetsOf } from "./plannerIntrospection";
@@ -32,7 +32,9 @@ export type PastWeek = {
   homeworkId: string; domain: string; title: string; lifecycle: string; started: string; lastAnswer?: string; testDate: string | null;
   /** Her words (id = the word) or problems (id = the problem id, text = its prompt), in the order first planned. */
   targets: Array<{ id: string; label: string; text: string }>;
-  boards: Array<{ number: number; kind: string; publishedAt?: string; played: boolean; stops: Array<PastWeekStop & { nodeIds: string[] }> }>;
+  /** delivery: planned vs playable stops and each stop a system failure kept from her (2026-11-11); absent when none, and on older archives. */
+  boards: Array<{ number: number; kind: string; publishedAt?: string; played: boolean; stops: Array<PastWeekStop & { nodeIds: string[] }>;
+    delivery?: Pick<BoardDelivery, "planned" | "delivered" | "systemBlocked" | "stops"> }>;
   answers: PastWeekAnswer[];
   decisions: PastWeekDecision[];
   calls: Array<{ label: string; expected: boolean; answered?: { right: boolean; wrote?: string } }>;
@@ -76,9 +78,12 @@ export function pastWeekOf(cycle: LearningCycleRecordV2, opts: { rootDir?: strin
     retry: (row.confounds ?? []).includes("retry"), school: SCHOOL.has(String(row.provenance)) }));
   const answered = new Set(answers(cycle).flatMap(row => row.node ? [row.node.nodeId] : []));
   const stopOf = (node: LearningCycleNodeContract) => ({ title: node.title, game: activityOf(node) ?? "activity", targets: targetsOf(node), ...(node.focus ? { focus: node.focus } : {}) });
+  const delivery = new Map(boardDeliveries(cycle).filter(row => row.stops.length).map(row => [row.boardId, row]));
   const boards = listBoardInstances(cycle).map((board, index) => {
     const stops = board.nodeIds.flatMap(id => nodes.get(id) ? [{ ...stopOf(nodes.get(id)!), nodeIds: [id] }] : []);
+    const delivered = delivery.get(board.boardId);
     return { number: index + 1, kind: board.kind, ...(board.publishedAt ? { publishedAt: board.publishedAt } : {}), stops,
+      ...(delivered ? { delivery: { planned: delivered.planned, delivered: delivered.delivered, systemBlocked: delivered.systemBlocked, stops: delivered.stops } } : {}),
       played: board.nodeIds.some(id => nodes.get(id)?.state === "completed" || answered.has(id)) };
   });
   const decided = cycle.decisionHistory.filter(row => row.eventType === "theory_decided");
@@ -174,6 +179,8 @@ export function pastWeekLines(week: PastWeek): string[] {
     `Test date: ${week.testDate ?? "not recorded"}`,
     `${week.domain === "spelling" ? "Words" : "Problems"}: ${week.targets.map(row => row.label).join(", ") || "none recorded"}`,
     `Boards: ${week.boards.map(board => `board ${board.number} (${board.kind}${board.publishedAt ? `, ${day(board.publishedAt)}` : ""}${board.played ? "" : ", not played"}): ${board.stops.map(stop => `${stop.game} "${stop.title}"`).join(", ") || "no stops"}`).join("; ") || "none"}`,
+    ...(week.boards.some(board => board.delivery) ? [`Stops you planned that Sunny failed to deliver that week (system failures, counted by code; not her choice and not your plan):`,
+      ...week.boards.flatMap(board => board.delivery && board.publishedAt ? boardDeliveryLines({ number: board.number, kind: board.kind, publishedAt: board.publishedAt, ...board.delivery }) : [])] : []),
     `Her first tries on her own by ${ownWord} (retries, help and the school test apart; counted by code):`,
     ...week.targets.map(target => { const f = targetFacts(week, target.id);
       return `- ${target.label}: first tries on her own: ${f.firstTries}${f.withHelp ? `; with help ${f.withHelp}` : ""}${f.helpNotRecorded ? `; help not recorded ${f.helpNotRecorded}` : ""}${f.retries ? `; ${f.retries} retr${f.retries === 1 ? "y" : "ies"} after a first try` : ""}; school test ${f.schoolTest}${f.practicedIn.length ? `; practiced in: ${f.practicedIn.join(", ")}` : ""}`; }),
