@@ -76,7 +76,7 @@ export function writeSessionScorecard(input: { childId: string; homeworkId?: str
     // The current board's stops as planned, playable now, and kept from her by a system failure (owner, 2026-11-11).
     const board = cycle.boards ? boardDeliveries(cycle).find(row => row.boardId === currentBoardInstance(cycle).boardId) : undefined;
     const delivery = board ? `planned=${board.planned} delivered=${board.delivered} system_blocked=${board.systemBlocked}` : "planned=unknown delivered=unknown system_blocked=unknown";
-    console.log(` 🎮 [scorecard] [written] child=${input.childId} homework=${cycle.homeworkId} ${delivery} answers=${card.answers.total} own=${card.answers.onHerOwnRight}/${card.answers.onHerOwn} help=${card.helpRequests} learningMin=${card.minutes?.learning ?? "unknown"} playMin=${card.minutes?.play ?? "unknown"} callMin=${card.minutes?.call ?? "unknown"}`);
+    console.log(` 🎮 [scorecard] [written] child=${input.childId} homework=${cycle.homeworkId} ${delivery} answers=${rows.length} helpKnown=${card.answers.total} helpUnknown=${card.answers.helpNotRecorded} right=${rows.filter(row => row.result.correct).length} own=${card.answers.onHerOwnRight}/${card.answers.onHerOwn} help=${card.helpRequests} learningMin=${card.minutes?.learning ?? "unknown"} playMin=${card.minutes?.play ?? "unknown"} callMin=${card.minutes?.call ?? "unknown"}`);
     return card;
   } catch (error) {
     console.error(` 🎮 [scorecard] [failed] child=${input.childId} reason=${error instanceof Error ? error.message : String(error)}`);
