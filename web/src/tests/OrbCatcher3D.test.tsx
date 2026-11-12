@@ -77,3 +77,25 @@ it("a drill question invites a tap on Elli for help, with no hint shown until sh
   expect(screen.getByText(/Tap Elli/)).toBeInTheDocument();
   expect(screen.queryByTestId("orb-3d-hint")).not.toBeInTheDocument();
 });
+
+it("practice shows the word's chunks (look, cover, write); the egg's mastery check never does", () => {
+  const questions = [{ id: "s:carnival", kind: "spelling" as const, prompt: "carnival", answer: "carnival" }];
+  const { unmount } = render(<OrbCatcher3D creature={LUMIPUFF_MONSTER} throws={3} drill={{ plannedRounds: 2, questions }} timeOfDay="day" season="autumn" />);
+  expect(screen.getByTestId("orb-3d-chunks")).toBeInTheDocument();
+  unmount();
+  render(<EggHatch3D creature={LUMIPUFF_MONSTER} items={questions} drilledOn="2026-11-11" today="2026-11-12" timeOfDay="day" season="autumn" />);
+  fireEvent.click(screen.getByTestId("egg-check"));
+  expect(screen.getByLabelText("Spell the word")).toBeInTheDocument();
+  expect(screen.queryByTestId("orb-3d-chunks")).not.toBeInTheDocument();
+});
+
+it("a right answer closes the card and loads the orb (Ready? Go!)", () => {
+  const questions = [
+    { id: "m:a", kind: "math" as const, prompt: "2 + 2", answer: "4", choices: ["3", "4", "5"] },
+    { id: "m:b", kind: "math" as const, prompt: "3 + 3", answer: "6", choices: ["5", "6", "7"] },
+  ];
+  render(<OrbCatcher3D creature={LUMIPUFF_MONSTER} throws={3} drill={{ plannedRounds: 6, questions }} timeOfDay="day" season="autumn" />);
+  fireEvent.click(screen.getByRole("button", { name: "4" }));
+  expect(screen.queryByTestId("orb-3d-question")).not.toBeInTheDocument();
+  expect(screen.getByText(/Ready\? Go!/)).toBeInTheDocument();
+});

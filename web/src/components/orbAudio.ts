@@ -7,6 +7,14 @@
 
 export type OrbSoundMap = Record<string, string>;
 
+/** Where the beat is in a music bed: measured from the file (tempo and the first downbeat). */
+export interface OrbBeat {
+  bed: string;
+  bpm: number;
+  /** Seconds from the start of the loop to the first beat. */
+  offset: number;
+}
+
 /** The shared library every theme can use. */
 export const ORB_SOUND_LIBRARY: OrbSoundMap = {
   riser: "/a3d/sfx/riser.mp3",
@@ -31,6 +39,10 @@ export class OrbAudio {
   private effects: GainNode | null = null;
   private buffers = new Map<string, AudioBuffer>();
   private loops: AudioBufferSourceNode[] = [];
+  private loopStarts = new Map<string, { start: number; duration: number }>();
+  private bedGains = new Map<string, { gain: GainNode; base: number }>();
+  private filter: BiquadFilterNode | null = null;
+  private beatSpec: OrbBeat | null = null;
   private disposed = false;
   private musicOn = true;
 
@@ -48,8 +60,13 @@ export class OrbAudio {
       if (!Context) return;
       this.context = new Context();
       this.music = this.context.createGain();
-      this.music.gain.value = 0.28 * this.volume;
-      this.music.connect(this.context.destination);
+      this.music.gain.value = (this.musicOn ? 0.28 : 0) * this.volume;
+      // The music runs through a filter: closed it is a muffled heartbeat (the build), open it is the drop.
+      this.filter = this.context.createBiquadFilter();
+      this.filter.type = "lowpass";
+      this.filter.frequency.value = 20000;
+      this.filter.Q.value = 1.2;
+      this.music.connect(this.filter).connect(this.context.destination);
       this.effects = this.context.createGain();
       this.effects.gain.value = 0.8 * this.volume;
       this.effects.connect(this.context.destination);
@@ -107,6 +124,8 @@ export class OrbAudio {
       source.connect(gain).connect(this.music);
       source.start();
       this.loops.push(source);
+      this.loopStarts.set(key, { start: this.context.currentTime, duration: buffer.duration });
+      this.bedGains.set(key, { gain, base: volume });
     } catch (error) {
       console.warn(` 🎮 [orb-audio] [loop] [failed] key=${key}`, error);
     }
@@ -125,6 +144,66 @@ export class OrbAudio {
     console.log(` 🎮 [orb-audio] [music] [${on ? "on" : "off"}]`);
     if (!this.context || !this.music) return;
     this.music.gain.setTargetAtTime(on ? 0.28 * this.volume : 0, this.context.currentTime, 0.15);
+  }
+
+  /** The build: muffle the music to its low end while a question is open. Open it again for the drop. */
+  muffle(on: boolean): void {
+    if (!this.context || !this.filter) return;
+    const now = this.context.currentTime;
+    this.filter.frequency.cancelScheduledValues(now);
+    this.filter.frequency.setValueAtTime(this.filter.frequency.value, now);
+    if (on) this.filter.frequency.exponentialRampToValueAtTime(420, now + 0.6);
+    else this.filter.frequency.exponentialRampToValueAtTime(20000, now + 0.05);
+    console.log(` 🎮 [orb-audio] [music] [${on ? "muffled" : "drop"}]`);
+  }
+
+  /** A record-scratch stop when the creature breaks free, then the beat comes back. */
+  tapeStop(): void {
+    if (!this.context) return;
+    const now = this.context.currentTime;
+    this.loops.forEach((source) => {
+      source.playbackRate.cancelScheduledValues(now);
+      source.playbackRate.setValueAtTime(1, now);
+      source.playbackRate.linearRampToValueAtTime(0.25, now + 0.35);
+      source.playbackRate.linearRampToValueAtTime(1, now + 0.6);
+    });
+    // The slowed music fell behind the clock by the time it lost: 0.35·0.375 + 0.25·0.375 seconds.
+    this.loopStarts.forEach((loop) => (loop.start += 0.225));
+  }
+
+  /** A streak makes the beds bigger (louder crowd, fuller music), up to three levels. */
+  setStreak(level: number): void {
+    if (!this.context) return;
+    const lift = 1 + Math.min(3, Math.max(0, level)) * 0.18;
+    this.bedGains.forEach(({ gain, base }) => gain.gain.setTargetAtTime(base * lift, this.context!.currentTime, 0.3));
+  }
+
+  setBeat(beat: OrbBeat | null): void {
+    this.beatSpec = beat;
+  }
+
+  /** The beat right now: a running count and where inside the beat we are (0 = on it). Null until the bed plays. */
+  beat(): { count: number; phase: number; seconds: number } | null {
+    const spec = this.beatSpec;
+    const loop = spec ? this.loopStarts.get(spec.bed) : undefined;
+    if (!spec || !loop || !this.context) return null;
+    const position = (this.context.currentTime - loop.start) % loop.duration;
+    const beats = ((position - spec.offset) * spec.bpm) / 60;
+    const count = Math.floor(beats);
+    return { count, phase: beats - count, seconds: 60 / spec.bpm };
+  }
+
+  /** How far (in seconds) the moment is from the nearest beat; null without a beat. */
+  offBeat(): number | null {
+    const beat = this.beat();
+    if (!beat) return null;
+    return Math.min(beat.phase, 1 - beat.phase) * beat.seconds;
+  }
+
+  /** Milliseconds until the next beat (0 when there is no beat to wait for). */
+  msToNextBeat(): number {
+    const beat = this.beat();
+    return beat ? (1 - beat.phase) * beat.seconds * 1000 : 0;
   }
 
   /** Prototype voice: the browser speaks the line (Japanese lines in a Japanese voice when there is one). */

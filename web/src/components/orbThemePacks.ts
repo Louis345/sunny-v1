@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { ORB_SOUND_LIBRARY, type OrbSoundMap } from "./orbAudio";
+import { ORB_SOUND_LIBRARY, type OrbBeat, type OrbSoundMap } from "./orbAudio";
 
 /**
  * Theme packs (owner, 2026-11-11): the orb game is the same for every child (throw, shakes, odds); a pack
@@ -16,6 +16,8 @@ export interface OrbThemePack {
   sounds: OrbSoundMap;
   /** Looping beds under the scene. */
   beds: Array<{ key: string; volume: number }>;
+  /** The beat of the main bed (measured from the file), so words and orbs land on it. */
+  beat: OrbBeat;
   cues: {
     ready: OrbLine;
     throw: string;
@@ -24,6 +26,10 @@ export interface OrbThemePack {
     caught: string[];
     breakFree: string;
     correct: string;
+    /** One hit per syllable as the word lands on the beat. */
+    syllable: string;
+    /** An on-beat answer: the golden orb. */
+    perfect: string;
   };
   /** What she sees and hears on each shake (a referee's count, spirit bells...). */
   shakeLabels: [string, string, string];
@@ -51,9 +57,16 @@ export const CHAMPIONSHIP_PACK: OrbThemePack = {
   id: "championship",
   name: "Championship",
   from: "Wrestler on a girls team; thrives on competition, streaks and personal bests; すごい and やった when she succeeds.",
-  sounds: { ...ORB_SOUND_LIBRARY },
+  sounds: {
+    ...ORB_SOUND_LIBRARY,
+    taiko: "/games/cookoff/fable-reina/assets/sfx/taiko-hit.mp3",
+    ringBell: "/games/cookoff/fable-reina/assets/sfx/ring-bell.mp3",
+    levelUp: "/games/cookoff/fable-reina/assets/sfx/level-up.mp3",
+  },
   beds: [{ key: "crowdLoop", volume: 0.5 }, { key: "music", volume: 0.6 }],
-  cues: { ready: { text: "Ready? Go!" }, throw: "riser", impact: ["takedown", "boom"], shake: "tick", caught: ["crowdCheer", "legendary"], breakFree: "pop", correct: "correct" },
+  // music-loop.mp3: about 95 beats a minute, first beat half a second in (measured 2026-11-11).
+  beat: { bed: "music", bpm: 95, offset: 0.496 },
+  cues: { ready: { text: "Ready? Go!" }, throw: "riser", impact: ["takedown", "boom"], shake: "tick", caught: ["ringBell", "crowdCheer", "legendary"], breakFree: "pop", correct: "correct", syllable: "taiko", perfect: "levelUp" },
   shakeLabels: ["One!", "Two!", "Three!"],
   caughtLine: [{ text: "Pin!" }, { text: "すごい!", lang: "ja" }],
   breakFreeLine: (round) => ({ text: round === 1 ? "Reversal! Get back in there!" : "So close! Next round!" }),
@@ -120,9 +133,12 @@ export const YOKAI_NIGHT_PACK: OrbThemePack = {
     giggle: "/games/cookoff/opus-ila/assets/sfx/giggle.mp3",
     beam: "/games/cookoff/opus-ila/assets/sfx/beam.mp3",
     nightMusic: "/games/cookoff/opus-ila/assets/sfx/music.mp3",
+    tap: "/games/cookoff/opus-ila/assets/sfx/tap.mp3",
   },
   beds: [{ key: "nightMusic", volume: 0.7 }],
-  cues: { ready: { text: "Ready? Go!" }, throw: "whoosh", impact: ["beam"], shake: "tick", caught: ["moonWake", "giggle"], breakFree: "softOops", correct: "arrive" },
+  // opus-ila music.mp3: 120 beats a minute, loops cleanly on 44 beats (measured 2026-11-11).
+  beat: { bed: "nightMusic", bpm: 120, offset: 0.044 },
+  cues: { ready: { text: "Ready? Go!" }, throw: "whoosh", impact: ["beam"], shake: "tick", caught: ["moonWake", "giggle"], breakFree: "softOops", correct: "arrive", syllable: "tap", perfect: "legendary" },
   shakeLabels: ["✨", "✨✨", "✨✨✨"],
   caughtLine: [{ text: "You did it!" }, { text: "やった!", lang: "ja" }],
   breakFreeLine: (round) => ({ text: round === 1 ? "Oh! It wiggled out. That's okay!" : "So close! Ready? Go!" }),
@@ -178,6 +194,7 @@ export const MEADOW_PACK: OrbThemePack = {
   name: "Meadow",
   from: "Default: no pack chosen from her chart yet.",
   beds: [{ key: "music", volume: 0.6 }],
+  beat: { bed: "music", bpm: 95, offset: 0.496 },
   shakeLabels: ["Shake...", "Shake...", "Click!"],
   decorate: () => () => undefined,
 };

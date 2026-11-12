@@ -190,6 +190,7 @@ export function EggHatch3D({ creature, items, drilledOn, proven = [], today, the
     const audio = new OrbAudio(theme.sounds);
     audioRef.current = audio;
     audio.setMusic(musicOnRef.current);
+    audio.setBeat(theme.beat);
     void audio.load().then(() => theme.beds.forEach((bed) => audio.loop(bed.key, bed.volume * 0.8)));
     const camera = new THREE.PerspectiveCamera(46, 1, 0.1, 200);
     const cameraHome = new THREE.Vector3(0, 2.1, 6.4);
@@ -524,7 +525,7 @@ export function EggHatch3D({ creature, items, drilledOn, proven = [], today, the
 
   const total = egg.itemIds.length;
   return (
-    <div data-testid="egg-hatch-3d" style={{ position: "relative", width: "100%", height: "100%", minHeight: 520, overflow: "hidden", background: "#0b0820", fontFamily: "Lexend, system-ui, sans-serif" }}>
+    <div data-testid="egg-hatch-3d" onPointerDownCapture={() => audioRef.current?.resume()} style={{ position: "relative", width: "100%", height: "100%", minHeight: 520, overflow: "hidden", background: "#0b0820", fontFamily: "Lexend, system-ui, sans-serif" }}>
       <div ref={mountRef} style={{ position: "absolute", inset: 0 }} />
       {!webgl ? <p style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center", color: "white", fontWeight: 800 }}>3D is not available on this screen.</p> : null}
       <MusicButton audioRef={audioRef} musicOnRef={musicOnRef} />
@@ -549,7 +550,7 @@ export function EggHatch3D({ creature, items, drilledOn, proven = [], today, the
         </button>
       ) : null}
       {checking && checking[0] ? (
-        <QuestionCard key={checking[0].id} question={checking[0]} feedback={feedback} hinted={false} hintable={false} title="CRACK THE EGG" submitLabel="Crack it!" audio={audioRef.current} onAnswer={answerCheck} />
+        <QuestionCard key={checking[0].id} question={checking[0]} feedback={feedback} hinted={false} hintable={false} beatChunks={false} title="CRACK THE EGG" submitLabel="Crack it!" audio={audioRef.current} onAnswer={answerCheck} />
       ) : null}
       {banner ? (
         <div data-testid="egg-banner" style={{ position: "absolute", bottom: 40, left: "50%", transform: "translateX(-50%)", padding: "10px 20px", borderRadius: 999, background: "rgba(15,23,42,.72)", color: "#ffe680", fontWeight: 900, fontSize: 18, pointerEvents: "none", whiteSpace: "nowrap" }}>
