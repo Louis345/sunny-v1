@@ -128,12 +128,12 @@ export class OrbAudio {
   }
 
   /** Prototype voice: the browser speaks the line (Japanese lines in a Japanese voice when there is one). */
-  say(text: string, lang: "en" | "ja" = "en"): void {
+  say(text: string, lang: "en" | "ja" = "en", rate?: number): void {
     if (typeof window === "undefined" || !("speechSynthesis" in window)) return;
     try {
       const line = new SpeechSynthesisUtterance(text);
       line.lang = lang === "ja" ? "ja-JP" : "en-US";
-      line.rate = lang === "ja" ? 1 : 1.05;
+      line.rate = rate ?? (lang === "ja" ? 1 : 1.05);
       line.pitch = 1.15;
       const voice = window.speechSynthesis.getVoices().find((candidate) => candidate.lang.startsWith(line.lang.slice(0, 2)));
       if (voice) line.voice = voice;

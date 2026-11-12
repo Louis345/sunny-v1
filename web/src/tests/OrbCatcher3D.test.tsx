@@ -1,6 +1,7 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { LUMIPUFF_MONSTER } from "../../../src/shared/capturedMonsterCatalog";
+import { EggHatch3D } from "../components/EggHatch3D";
 import { OrbCatcher3D } from "../components/OrbCatcher3D";
 import { CHAMPIONSHIP_PACK, YOKAI_NIGHT_PACK } from "../components/orbThemePacks";
 
@@ -52,4 +53,27 @@ it("music can be switched off and the choice is remembered on this device", () =
   unmount();
   render(<OrbCatcher3D creature={LUMIPUFF_MONSTER} throws={3} timeOfDay="day" season="autumn" />);
   expect(screen.getByRole("button", { name: "Music off" })).toBeInTheDocument();
+});
+
+it("the egg: a later-day unassisted right answer lights a pip, a miss leaves the egg as it is", () => {
+  const items = [
+    { id: "s:carnival", kind: "spelling" as const, prompt: "carnival", answer: "carnival" },
+    { id: "s:pardon", kind: "spelling" as const, prompt: "pardon", answer: "pardon" },
+  ];
+  render(<EggHatch3D creature={LUMIPUFF_MONSTER} items={items} drilledOn="2026-11-11" today="2026-11-12" timeOfDay="day" season="autumn" />);
+  expect(screen.getByTestId("egg-pips")).toHaveAttribute("aria-label", "0 of 2 proven");
+  fireEvent.click(screen.getByTestId("egg-check"));
+  expect(screen.queryByText(/Tap Elli/)).not.toBeInTheDocument();
+  fireEvent.change(screen.getByLabelText("Spell the word"), { target: { value: "carnival" } });
+  fireEvent.click(screen.getByRole("button", { name: "Crack it!" }));
+  fireEvent.change(screen.getByLabelText("Spell the word"), { target: { value: "pardun" } });
+  fireEvent.click(screen.getByRole("button", { name: "Crack it!" }));
+  expect(screen.getByTestId("egg-pips")).toHaveAttribute("aria-label", "1 of 2 proven");
+});
+
+it("a drill question invites a tap on Elli for help, with no hint shown until she asks", () => {
+  const questions = [{ id: "s:pardon", kind: "spelling" as const, prompt: "pardon", answer: "pardon" }];
+  render(<OrbCatcher3D creature={LUMIPUFF_MONSTER} throws={3} drill={{ plannedRounds: 2, questions }} timeOfDay="day" season="autumn" />);
+  expect(screen.getByText(/Tap Elli/)).toBeInTheDocument();
+  expect(screen.queryByTestId("orb-3d-hint")).not.toBeInTheDocument();
 });

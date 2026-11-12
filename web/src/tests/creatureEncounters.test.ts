@@ -4,6 +4,8 @@ import {
   CATCH_RATE_BY_RARITY,
   MAX_DRILL_ROUNDS,
   decideDrillCatch,
+  eggReadyToHatch,
+  proveEggItem,
   CHARGES_BY_RARITY,
   PERFECT_THROW_BONUS,
   decideCatch,
@@ -187,5 +189,27 @@ describe("decideDrillCatch: a Planner-calibrated drill", () => {
   it("never runs forever: two rounds past the plan it is always caught, and the plan is capped", () => {
     expect(decideDrillCatch({ round: 6, plannedRounds: 4, rarity: "legendary", hitQuality: "near", roll: () => 0.999 })).toMatchObject({ caught: true, shakes: 3 });
     expect(decideDrillCatch({ round: MAX_DRILL_ROUNDS + 2, plannedRounds: 99, rarity: "legendary", hitQuality: "near", roll: () => 0.999 }).caught).toBe(true);
+  });
+});
+
+describe("creature egg: mastery hatches it", () => {
+  const egg = { itemIds: ["s:carnival", "s:pardon"], drilledOn: "2026-11-11", proven: [] as string[] };
+
+  it("counts only an unassisted right answer on a later day", () => {
+    expect(proveEggItem(egg, { itemId: "s:carnival", right: true, hinted: false, on: "2026-11-11" }).reason).toBe("same-day");
+    expect(proveEggItem(egg, { itemId: "s:carnival", right: true, hinted: true, on: "2026-11-12" }).reason).toBe("hinted");
+    expect(proveEggItem(egg, { itemId: "s:carnival", right: false, hinted: false, on: "2026-11-12" }).reason).toBe("not-yet");
+    expect(proveEggItem(egg, { itemId: "s:other", right: true, hinted: false, on: "2026-11-12" }).reason).toBe("not-an-egg-item");
+    const first = proveEggItem(egg, { itemId: "s:carnival", right: true, hinted: false, on: "2026-11-12" });
+    expect(first.counted).toBe(true);
+    expect(proveEggItem(first.egg, { itemId: "s:carnival", right: true, hinted: false, on: "2026-11-13" }).reason).toBe("already");
+  });
+
+  it("hatches only when every drilled item is proven", () => {
+    const one = proveEggItem(egg, { itemId: "s:carnival", right: true, hinted: false, on: "2026-11-12" }).egg;
+    expect(eggReadyToHatch(one)).toBe(false);
+    const both = proveEggItem(one, { itemId: "s:pardon", right: true, hinted: false, on: "2026-11-12" }).egg;
+    expect(eggReadyToHatch(both)).toBe(true);
+    expect(eggReadyToHatch({ ...egg, itemIds: [] })).toBe(false);
   });
 });

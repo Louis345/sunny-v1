@@ -1,17 +1,15 @@
 import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
-import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { EffectComposer } from "three/examples/jsm/postprocessing/EffectComposer.js";
 import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass.js";
 import { UnrealBloomPass } from "three/examples/jsm/postprocessing/UnrealBloomPass.js";
 import { OutputPass } from "three/examples/jsm/postprocessing/OutputPass.js";
-import { VRMLoaderPlugin, VRMUtils, type VRM } from "@pixiv/three-vrm";
 import type { CapturedMonsterConfig } from "../../../src/shared/capturedMonsterCatalog";
 import { decideCatch, decideDrillCatch } from "../../../src/shared/creatureEncounters";
 import type { Season, SkyMood } from "../../../src/shared/skyClock";
-import { loadMixamoFbxRoot, retargetMixamoClipToVrm } from "../utils/mixamoRetarget";
 import { SKY, buildMeadow } from "./orbMeadowScenery";
 import { OrbAudio } from "./orbAudio";
+import { loadCompanion } from "./orbCompanion";
 import { MEADOW_PACK, type OrbThemePack } from "./orbThemePacks";
 
 /**
@@ -107,32 +105,23 @@ export function OrbCatcher3D({ creature, throws, theme = MEADOW_PACK, drill, tim
   // The drill's questions cycle: a right answer moves on, a wrong one comes back later in the round.
   const [queue, setQueue] = useState<OrbQuestion[]>(drill?.questions ?? []);
   const [feedback, setFeedback] = useState<string | null>(null);
-  // Music can be switched off; remembered on this device (a per-viewer convenience).
-  const [musicOn, setMusicOn] = useState(() => {
-    try {
-      return window.localStorage.getItem("sunny.orb.music") !== "off";
-    } catch {
-      return true;
-    }
-  });
-  const musicOnRef = useRef(musicOn);
-  musicOnRef.current = musicOn;
-  const toggleMusic = () => {
-    const next = !musicOn;
-    setMusicOn(next);
-    audioRef.current?.setMusic(next);
-    try {
-      window.localStorage.setItem("sunny.orb.music", next ? "on" : "off");
-    } catch {
-      // storage unavailable: the choice lasts for this visit
-    }
-  };
+  // Elli is the hint button: tap her while a question is open. A hinted answer is logged as hinted.
+  const [hintFor, setHintFor] = useState<string | null>(null);
+  const needQuestionRef = useRef(needQuestion);
+  needQuestionRef.current = needQuestion;
+  const queueRef = useRef(queue);
+  queueRef.current = queue;
+  const hintRef = useRef(hintFor);
+  hintRef.current = hintFor;
+  const musicOnRef = useRef(readMusicPref());
 
   const answer = (question: OrbQuestion, given: string) => {
     const audio = audioRef.current;
     const right = given.trim().toLowerCase() === question.answer.trim().toLowerCase();
-    console.log(` 🎮 [orb-3d] [question] [${right ? "right" : "try-again"}] id=${question.id} round=${roundRef.current + 1}`);
+    const hinted = hintFor === question.id;
+    console.log(` 🎮 [orb-3d] [question] [${right ? "right" : "try-again"}] id=${question.id} round=${roundRef.current + 1} hinted=${hinted}`);
     setQueue((current) => [...current.slice(1), current[0]]);
+    setHintFor(null);
     if (!right) {
       audio?.say(theme.wrongLine.text, theme.wrongLine.lang);
       setFeedback(theme.wrongLine.text);
@@ -265,51 +254,34 @@ export function OrbCatcher3D({ creature, throws, theme = MEADOW_PACK, drill, tim
     const flash = new THREE.PointLight("#ffffff", 0, 9);
     scene.add(flash);
 
-    // Her companion standing in the meadow, with her real idle, cheer and groan.
-    let vrm: VRM | null = null;
-    let mixer: THREE.AnimationMixer | null = null;
-    const actions: Record<string, THREE.AnimationAction> = {};
-    const playAction = (name: string, loop = true) => {
-      const next = actions[name];
-      if (!next || !mixer) return;
-      Object.values(actions).forEach((action) => action !== next && action.fadeOut(0.3));
-      next.reset().setLoop(loop ? THREE.LoopRepeat : THREE.LoopOnce, Infinity).fadeIn(0.3).play();
-      next.clampWhenFinished = !loop;
+    // Her companion: alive (blinks, watches the orb, shows how she feels) and she answers a tap.
+    const elli = loadCompanion(scene, companionVrmUrl, { position: new THREE.Vector3(-2.3, 0, 0.9), rotationY: 0.45 });
+    const playAction = (name: string, loop = false) => elli.play(name, loop);
+    const raycaster = new THREE.Raycaster();
+    let creatureSquish = 0;
+    // A tap on Elli: a hint while a question is open, otherwise a hello.
+    const tapElli = () => {
+      const open = drillRef.current && needQuestionRef.current ? queueRef.current[0] : undefined;
+      if (open) {
+        elli.play("think");
+        elli.feel("relaxed");
+        if (open.kind === "spelling") {
+          audio.say("Listen.", "en");
+          audio.say(open.prompt, "en", 0.6);
+        } else {
+          audio.say("Let's knock one out.", "en");
+        }
+        setHintFor(open.id);
+        console.log(` 🎮 [orb-3d] [hint] [given] id=${open.id}`);
+        return;
+      }
+      if (elli.react()) audio.play("giggle" in theme.sounds ? "giggle" : "pop", { volume: 0.5 });
     };
-    let disposed = false;
-    if (companionVrmUrl) {
-      const loader = new GLTFLoader();
-      loader.register((parser) => new VRMLoaderPlugin(parser));
-      loader
-        .loadAsync(companionVrmUrl)
-        .then(async (gltf) => {
-          if (disposed) return;
-          const loaded = gltf.userData.vrm as VRM | undefined;
-          if (!loaded) return;
-          VRMUtils.rotateVRM0(loaded);
-          vrm = loaded;
-          loaded.scene.position.set(-2.3, 0, 0.9);
-          loaded.scene.rotation.y = 0.45; // faces her, turned toward the creature
-          loaded.scene.traverse((child) => {
-            if ((child as THREE.Mesh).isMesh) child.castShadow = true;
-          });
-          scene.add(loaded.scene);
-          mixer = new THREE.AnimationMixer(loaded.scene);
-          for (const name of ["idle", "dance_victory", "defeated", "shrug"]) {
-            try {
-              const root = await loadMixamoFbxRoot(`/animations/${name}.fbx`);
-              const raw = root.animations.find((clip) => clip.tracks.length > 0);
-              const clip = raw ? retargetMixamoClipToVrm(raw, root, loaded) : null;
-              if (clip && mixer) actions[name] = mixer.clipAction(clip);
-            } catch (error) {
-              console.warn(` 🎮 [orb-3d] [companion-animation] [skipped] name=${name}`, error);
-            }
-          }
-          playAction("idle");
-          console.log(" 🎮 [orb-3d] [companion] [ready]");
-        })
-        .catch((error: unknown) => console.warn(" 🎮 [orb-3d] [companion] [unavailable]", error));
-    }
+    const tapCreature = () => {
+      creatureSquish = 1;
+      audio.play("jump", { volume: 0.5, rate: 1.4 });
+      elli.feel("happy", 0.7);
+    };
 
     const composer = new EffectComposer(renderer);
     composer.addPass(new RenderPass(scene, camera));
@@ -367,9 +339,16 @@ export function OrbCatcher3D({ creature, throws, theme = MEADOW_PACK, drill, tim
 
     const onDown = (event: PointerEvent) => {
       audio.resume();
-      if (phase !== "aim" || !loadedRef.current) return;
       const orbScreen = toScreen(orb.position);
-      if (Math.hypot(event.clientX - orbScreen.x, event.clientY - orbScreen.y) > 110) return;
+      const onOrb = Math.hypot(event.clientX - orbScreen.x, event.clientY - orbScreen.y) <= 110;
+      if (!onOrb || !loadedRef.current) {
+        const rect = renderer.domElement.getBoundingClientRect();
+        raycaster.setFromCamera(new THREE.Vector2(((event.clientX - rect.left) / rect.width) * 2 - 1, -((event.clientY - rect.top) / rect.height) * 2 + 1), camera);
+        if (elli.hit(raycaster)) tapElli();
+        else if (creatureSprite.visible && raycaster.intersectObject(creatureSprite).length > 0 && (phase === "aim" || phase === "escape")) tapCreature();
+        return;
+      }
+      if (phase !== "aim") return;
       aiming = true;
       pointerStart = new THREE.Vector2(event.clientX, event.clientY);
       pull.set(0, 0);
@@ -419,8 +398,11 @@ export function OrbCatcher3D({ creature, throws, theme = MEADOW_PACK, drill, tim
       const dt = Math.min(0.05, clock.getDelta());
       const time = clock.elapsedTime;
       phaseTime += dt;
-      mixer?.update(dt);
-      vrm?.update(dt);
+      // Elli watches what matters: the orb in her hand or in the air, the shaking orb, otherwise the creature.
+      if (phase === "aim") elli.watch(aiming ? orb.position : needQuestionRef.current ? camera.position : creatureSprite.position);
+      else if (phase === "flying" || phase === "shaking" || phase === "drop") elli.watch(orb.position);
+      else elli.watch(creatureSprite.visible ? creatureSprite.position : orb.position);
+      elli.update(dt, time);
 
       meadow.update(dt, time);
       decorUpdate(time);
@@ -429,7 +411,11 @@ export function OrbCatcher3D({ creature, throws, theme = MEADOW_PACK, drill, tim
       if (phase === "aim" || phase === "flying") {
         const bob = Math.sin(time * 2.2) * 0.08;
         creatureSprite.position.set(creatureHome.x, creatureHome.y + bob, creatureHome.z);
-        creatureSprite.scale.set(creatureSize * (1 + Math.sin(time * 2.2 + 1.6) * 0.03), creatureSize * (1 - Math.sin(time * 2.2 + 1.6) * 0.03), 1);
+        // A tap makes it squish and hop.
+        creatureSquish = Math.max(0, creatureSquish - dt * 2.2);
+        const squish = Math.sin(creatureSquish * Math.PI * 3) * creatureSquish * 0.18;
+        creatureSprite.position.y += Math.sin(creatureSquish * Math.PI) * 0.5;
+        creatureSprite.scale.set(creatureSize * (1 + Math.sin(time * 2.2 + 1.6) * 0.03 + squish), creatureSize * (1 - Math.sin(time * 2.2 + 1.6) * 0.03 - squish), 1);
         aura.material.opacity = 0.22 + Math.sin(time * 1.6) * 0.08;
       }
 
@@ -501,7 +487,7 @@ export function OrbCatcher3D({ creature, throws, theme = MEADOW_PACK, drill, tim
             theme.caughtLine.forEach((line, index) => window.setTimeout(() => say(line), 500 + index * 1100));
             setShakeLabel(null);
             setBanner(`Gotcha! ${creature.speciesName} joined your den!`);
-            playAction("dance_victory", false);
+            elli.dance();
             setPhase("caught");
           } else {
             creatureSprite.visible = true;
@@ -513,6 +499,7 @@ export function OrbCatcher3D({ creature, throws, theme = MEADOW_PACK, drill, tim
             say(theme.breakFreeLine(roundRef.current));
             setShakeLabel(null);
             playAction("shrug", false);
+            elli.feel("surprised");
             setPhase("escape");
           }
         } else {
@@ -520,6 +507,7 @@ export function OrbCatcher3D({ creature, throws, theme = MEADOW_PACK, drill, tim
             shakeDone = shakeIndex + 1;
             // Each shake is a beat she counts along to: a referee's count, spirit bells...
             audio.play(theme.cues.shake, { volume: 0.7, rate: 1 + shakeIndex * 0.18, jitter: 0 });
+            elli.feel("surprised", 0.4 + shakeIndex * 0.25);
             if (theme.id === "championship") audio.play("pop", { volume: 0.6, rate: 0.7 });
             setShakeLabel(theme.shakeLabels[Math.min(2, shakeIndex)]);
           }
@@ -541,6 +529,7 @@ export function OrbCatcher3D({ creature, throws, theme = MEADOW_PACK, drill, tim
             setBanner(`${creature.speciesName} got away!`);
             audio.play("pop", { volume: 0.5, rate: 0.6 });
             playAction("defeated", false);
+            elli.feel("sad", 0.6);
             setPhase("away");
           } else {
             setBanner(drillRef.current ? "Answer to load your next orb!" : "It broke free! Try again!");
@@ -550,7 +539,7 @@ export function OrbCatcher3D({ creature, throws, theme = MEADOW_PACK, drill, tim
             orb.position.copy(orbRest);
             orbGlow.scale.setScalar(1.3);
             trailPoints.length = 0;
-            playAction("idle");
+            playAction("idle", true);
             setPhase("aim");
           }
         }
@@ -596,8 +585,8 @@ export function OrbCatcher3D({ creature, throws, theme = MEADOW_PACK, drill, tim
     console.log(` 🎮 [orb-3d] [scene] [ready] creature=${creature.id} sky=${timeOfDay} season=${season}`);
 
     return () => {
-      disposed = true;
       cancelAnimationFrame(raf);
+      elli.dispose();
       observer.disconnect();
       renderer.domElement.removeEventListener("pointerdown", onDown);
       renderer.domElement.removeEventListener("pointermove", onMove);
@@ -622,23 +611,14 @@ export function OrbCatcher3D({ creature, throws, theme = MEADOW_PACK, drill, tim
         <div style={{ fontSize: 32, fontWeight: 950 }}>{creature.speciesName}</div>
         <div style={{ fontSize: 12, fontWeight: 900, letterSpacing: ".18em" }}>{rarityName.toUpperCase()}</div>
       </div>
-      <button
-        type="button"
-        data-testid="orb-3d-music"
-        aria-pressed={musicOn}
-        aria-label={musicOn ? "Music on" : "Music off"}
-        onClick={toggleMusic}
-        style={{ position: "absolute", top: 16, left: 16, zIndex: 3, border: 0, borderRadius: 999, padding: "8px 14px", background: "rgba(15,23,42,.7)", color: "white", font: "900 15px Lexend, system-ui, sans-serif", cursor: "pointer" }}
-      >
-        {musicOn ? "🎵 Music on" : "🔇 Music off"}
-      </button>
+      <MusicButton audioRef={audioRef} musicOnRef={musicOnRef} />
       {shakeLabel ? (
         <div data-testid="orb-3d-shake" style={{ position: "absolute", top: "38%", left: "50%", transform: "translate(-50%,-50%)", color: "white", fontSize: 64, fontWeight: 950, textShadow: "0 4px 20px rgba(0,0,0,.6)", pointerEvents: "none" }}>
           {shakeLabel}
         </div>
       ) : null}
       {drill && needQuestion && queue[0] ? (
-        <QuestionCard key={`${queue[0].id}:${round}:${feedback ?? ""}`} question={queue[0]} feedback={feedback} audio={audioRef.current} onAnswer={answer} />
+        <QuestionCard key={`${queue[0].id}:${round}:${feedback ?? ""}`} question={queue[0]} feedback={feedback} hinted={hintFor === queue[0].id} audio={audioRef.current} onAnswer={answer} />
       ) : null}
       {drill ? (
         <div data-testid="orb-3d-round" style={{ position: "absolute", bottom: 18, left: 18, color: "white", fontWeight: 900, pointerEvents: "none" }}>
@@ -659,15 +639,59 @@ export function OrbCatcher3D({ creature, throws, theme = MEADOW_PACK, drill, tim
   );
 }
 
-/** The partial overlay: one question at a time; a right answer loads one orb. */
-function QuestionCard({
+/** Music on or off, remembered on this device (a per-viewer convenience). */
+export function readMusicPref(): boolean {
+  try {
+    return window.localStorage.getItem("sunny.orb.music") !== "off";
+  } catch {
+    return true;
+  }
+}
+
+export function MusicButton({ audioRef, musicOnRef }: { audioRef: { current: OrbAudio | null }; musicOnRef: { current: boolean } }) {
+  const [musicOn, setMusicOn] = useState(musicOnRef.current);
+  const toggle = () => {
+    const next = !musicOn;
+    setMusicOn(next);
+    musicOnRef.current = next;
+    audioRef.current?.setMusic(next);
+    try {
+      window.localStorage.setItem("sunny.orb.music", next ? "on" : "off");
+    } catch {
+      // storage unavailable: the choice lasts for this visit
+    }
+  };
+  return (
+    <button
+      type="button"
+      data-testid="orb-3d-music"
+      aria-pressed={musicOn}
+      aria-label={musicOn ? "Music on" : "Music off"}
+      onClick={toggle}
+      style={{ position: "absolute", top: 16, left: 16, zIndex: 3, border: 0, borderRadius: 999, padding: "8px 14px", background: "rgba(15,23,42,.7)", color: "white", font: "900 15px Lexend, system-ui, sans-serif", cursor: "pointer" }}
+    >
+      {musicOn ? "🎵 Music on" : "🔇 Music off"}
+    </button>
+  );
+}
+
+/** The partial overlay: one question at a time; a right answer loads one orb (or, in a check, proves it). */
+export function QuestionCard({
   question,
   feedback,
+  hinted,
+  hintable = true,
+  title = "LOAD YOUR ORB",
+  submitLabel = "Load it!",
   audio,
   onAnswer,
 }: {
   question: OrbQuestion;
   feedback: string | null;
+  hinted: boolean;
+  hintable?: boolean;
+  title?: string;
+  submitLabel?: string;
   audio: OrbAudio | null;
   onAnswer: (question: OrbQuestion, given: string) => void;
 }) {
@@ -684,10 +708,16 @@ function QuestionCard({
       data-testid="orb-3d-question"
       style={{ position: "absolute", right: 18, top: 90, width: "min(340px, calc(100% - 36px))", padding: 18, borderRadius: 22, background: "rgba(15,23,42,.82)", color: "white", boxShadow: "0 18px 40px rgba(0,0,0,.4)", display: "grid", gap: 12, backdropFilter: "blur(6px)" }}
     >
-      <strong style={{ fontSize: 13, letterSpacing: ".14em", color: "#ffe680" }}>LOAD YOUR ORB</strong>
+      <strong style={{ fontSize: 13, letterSpacing: ".14em", color: "#ffe680" }}>{title}</strong>
+      {hintable && !hinted ? <span style={{ fontSize: 13, opacity: 0.75 }}>Stuck? Tap Elli 👈</span> : null}
       {question.kind === "spelling" ? (
         <>
           <button type="button" onClick={hear} style={{ ...button, background: "#ffffff22", color: "white" }}>🔊 Hear the word</button>
+          {hinted ? (
+            <div data-testid="orb-3d-hint" aria-label="Hint" style={{ textAlign: "center", font: "900 26px Lexend, system-ui, sans-serif", letterSpacing: ".3em", color: "#ffe680" }}>
+              {question.answer[0]}{" _".repeat(Math.max(0, question.answer.length - 1))}
+            </div>
+          ) : null}
           <form
             onSubmit={(event) => {
               event.preventDefault();
@@ -697,14 +727,14 @@ function QuestionCard({
           >
             <input aria-label="Spell the word" autoFocus value={typed} onChange={(event) => setTyped(event.currentTarget.value)} autoComplete="off" autoCapitalize="off" spellCheck={false}
               style={{ padding: "12px 14px", borderRadius: 14, border: "2px solid #ffffff44", background: "#ffffff14", color: "white", font: "800 24px Lexend, system-ui, sans-serif", letterSpacing: ".06em" }} />
-            <button type="submit" style={{ ...button, background: "linear-gradient(180deg,#ffe680,#ffc21a)", color: "#231400" }}>Load it!</button>
+            <button type="submit" style={{ ...button, background: "linear-gradient(180deg,#ffe680,#ffc21a)", color: "#231400" }}>{submitLabel}</button>
           </form>
         </>
       ) : (
         <>
           <div style={{ fontSize: 34, fontWeight: 950, textAlign: "center" }}>{question.prompt}</div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}>
-            {(question.choices ?? [question.answer]).map((choice) => (
+            {(question.choices ?? [question.answer]).filter((choice) => !hinted || choice !== (question.choices ?? []).find((option) => option !== question.answer)).map((choice) => (
               <button key={choice} type="button" aria-label={choice} onClick={() => onAnswer(question, choice)} style={{ ...button, background: "#ffffff1f", color: "white" }}>{choice}</button>
             ))}
           </div>

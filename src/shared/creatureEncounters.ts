@@ -262,3 +262,30 @@ export function decideDrillCatch(input: {
   if (input.round >= planned + DRILL_GRACE_ROUNDS) return { caught: true, shakes: 3, chance: 1, scheduled: false };
   return { ...decideCatch({ rarity: input.rarity, hitQuality: input.hitQuality, roll: input.roll }), scheduled: false };
 }
+
+/**
+ * The egg (owner, 2026-11-11): practice catches the creature, mastery hatches it. A caught creature arrives
+ * as an egg holding the items she drilled; each item is proven only by an unassisted right answer on a later
+ * day than the drill, so the hatch means she kept it, not that she just saw it.
+ */
+export interface CreatureEgg {
+  itemIds: string[];
+  drilledOn: string;
+  proven: string[];
+}
+
+export function proveEggItem(
+  egg: CreatureEgg,
+  check: { itemId: string; right: boolean; hinted: boolean; on: string },
+): { egg: CreatureEgg; counted: boolean; reason: "proven" | "already" | "not-an-egg-item" | "same-day" | "hinted" | "not-yet" } {
+  if (!egg.itemIds.includes(check.itemId)) return { egg, counted: false, reason: "not-an-egg-item" };
+  if (egg.proven.includes(check.itemId)) return { egg, counted: false, reason: "already" };
+  if (check.on <= egg.drilledOn) return { egg, counted: false, reason: "same-day" };
+  if (check.hinted) return { egg, counted: false, reason: "hinted" };
+  if (!check.right) return { egg, counted: false, reason: "not-yet" };
+  return { egg: { ...egg, proven: [...egg.proven, check.itemId] }, counted: true, reason: "proven" };
+}
+
+export function eggReadyToHatch(egg: CreatureEgg): boolean {
+  return egg.itemIds.length > 0 && egg.itemIds.every((id) => egg.proven.includes(id));
+}
