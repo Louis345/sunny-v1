@@ -1,4 +1,5 @@
 import { holdCompletion, raiseParentAlert } from "../engine/sunnyHealth";
+import { takeServerTries, withServerTries } from "./itemAttemptFacts";
 import { recordWardrobeSignal } from "./wardrobeSignals";
 import { typedSpellingForChart } from "./spellingKeyboardInput";
 import { takeCompanionHelpItemIds } from "./companionItemHelp";
@@ -1094,8 +1095,11 @@ export function setupRoutes(app: Express, runtime: SunnyRouteRuntime = {}): void
           earlyExit: body.result.earlyExit === true,
           accuracy: Number.isFinite(accuracy) ? accuracy : 0,
           timeSpent_ms: Math.max(0, Number(body.result.timeSpent_ms ?? 0) || 0),
+          // Code's own record of every try wins over a built game's summary (BUGS.md 2026-11-13, answers lost).
           targetResults: Array.isArray(body.result.targetResults)
-            ? body.result.targetResults as Array<{ target: string; correct: boolean; attemptedValue?: string; responseTime_ms?: number; scaffoldLevel?: number }>
+            ? (beforeCycle && beforeCycle.domain !== "spelling"
+              ? withServerTries(body.result.targetResults as Array<{ target: string; correct: boolean; attemptedValue?: string; responseTime_ms?: number; scaffoldLevel?: number }>, takeServerTries(childId, nodeId))
+              : body.result.targetResults as Array<{ target: string; correct: boolean; attemptedValue?: string; responseTime_ms?: number; scaffoldLevel?: number }>)
             : undefined,
           frustrationSignals: Array.isArray(body.result.frustrationSignals)
             ? body.result.frustrationSignals.map(String)

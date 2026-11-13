@@ -4,7 +4,7 @@
  */
 
 import { noteGamePace } from "./gamePace";
-import { clearItemAttempts, noteItemAnswer, noteItemOpened } from "./itemAttemptFacts";
+import { finishItemAttempts, noteItemAnswer, noteItemOpened } from "./itemAttemptFacts";
 import { isSpellingPracticeContinuation } from "../engine/learningCycleRepository";
 import { recordClockAttempt } from "../engine/clockTracker";
 import { childIdFromName, recordAttempt } from "../engine/learningEngine";
@@ -303,7 +303,8 @@ export function handleGameEventForSession(
       // Her tries on the open problem, scored by code as they arrive, for her companion (2026-11-10).
       if (type === "game_state_update" && typeof event.itemId === "string" && event.itemId) noteItemOpened(childId, event.nodeId, event.itemId);
       if (type === "attempt_event" && typeof event.target === "string" && typeof event.attemptedValue === "string" && shouldPersistSessionData()) noteItemAnswer(childId, event.nodeId, event.target, event.attemptedValue, () => getChildChart(childId).learningCycle);
-      if (type === "node_complete" || type === "game_complete") clearItemAttempts(childId, event.nodeId);
+      // The ended game's tries are held for the completion that saves them (BUGS.md 2026-11-13: clearing raced it).
+      if (type === "node_complete" || type === "game_complete") finishItemAttempts(childId, event.nodeId);
     }
     s.recordDebugEvent?.("flow_game", type, buildFlowGameEventFields(event));
     s.recordGameTrace?.({

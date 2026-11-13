@@ -35,4 +35,28 @@ describe("attempt facts for the open problem", () => {
     expect(context).toContain("Her chart: diagnoses ADHD; attention span short");
     expect(context).toContain("first tries 2, right 1; she tried again after her first try on 1 problem; the same wrong answer twice in a row on 1 problem");
   });
+
+  // 2026-11-13 Reina (AI-caught: 22 answers given, 18 saved): on problem 2 she typed 6, 6, then 8. Code logged
+  // not-right, not-right, right, but her built game's summary at completion listed only one try, so she was saved as
+  // right on her first try and two tries were lost. Why the logs did not stop it: the alert fired after the fact.
+  // Why the lab missed it: its games summarize every try honestly. Code's own record of her tries now wins.
+  it("saves every try code saw, in order, even when the game's summary lists fewer", async () => {
+    const { finishItemAttempts, noteItemOpened, noteItemAnswer, takeServerTries, withServerTries } = await import("./itemAttemptFacts");
+    noteItemOpened("lab-kid", "duel", "p2");
+    for (const value of ["6", "6", "8"]) noteItemAnswer("lab-kid", "duel", "p2", value, cycle as never);
+    noteItemAnswer("lab-kid", "duel", "p5", "9", cycle as never);
+    finishItemAttempts("lab-kid", "duel"); // game_complete can arrive before the completion that saves the tries
+    const tries = takeServerTries("lab-kid", "duel");
+    expect(withServerTries([{ target: "p2", correct: true, attemptedValue: "8" }, { target: "p5", correct: true, attemptedValue: "9" }], tries)).toEqual([
+      { target: "p2", correct: true, attemptedValue: "8", tries: [{ attemptedValue: "6" }, { attemptedValue: "6" }, { attemptedValue: "8" }] },
+      { target: "p5", correct: true, attemptedValue: "9" },
+    ]);
+    expect(takeServerTries("lab-kid", "duel").size).toBe(0);
+  });
+
+  it("keeps the game's tries when the game saw more than code did", async () => {
+    const { withServerTries } = await import("./itemAttemptFacts");
+    const row = { target: "p3", correct: true, attemptedValue: "8", tries: [{ attemptedValue: "7" }, { attemptedValue: "8" }] };
+    expect(withServerTries([row], new Map([["p3", ["8"]]]))).toEqual([row]);
+  });
 });

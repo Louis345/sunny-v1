@@ -41,7 +41,42 @@ export function noteItemAnswer(childId: string, nodeId: string, itemId: string, 
   console.log(` 🎮 [item-attempts] [answer] child=${childId} node=${nodeId} item=${itemId} try=${state.answers.length} result=${correct === undefined ? "not-scored" : correct ? "right" : "not-right"}`);
 }
 
-export function clearItemAttempts(childId: string, nodeId: string): void { items.delete(gameKey(childId, nodeId)); }
+
+// A finished game's tries wait here for its completion to save them; the companion's live view starts clean.
+const finished = new Map<string, Map<string, ItemState>>();
+
+/** The game ended: its tries are held for saving, not dropped (clearing raced the completion, BUGS.md 2026-11-13). */
+export function finishItemAttempts(childId: string, nodeId: string): void {
+  const key = gameKey(childId, nodeId), game = items.get(key);
+  items.delete(key);
+  if (!game) return;
+  if (finished.size >= MAX_GAMES) finished.delete(finished.keys().next().value!);
+  finished.set(key, game);
+}
+
+/** Every try code saw on this game, per problem in order, taken once at completion (BUGS.md 2026-11-13). */
+export function takeServerTries(childId: string, nodeId: string): Map<string, string[]> {
+  const key = gameKey(childId, nodeId);
+  const game = items.get(key) ?? finished.get(key);
+  items.delete(key);
+  finished.delete(key);
+  return new Map([...(game ?? new Map<string, ItemState>()).entries()].filter(([, state]) => state.answers.length).map(([itemId, state]) => [itemId, state.answers.map(answer => answer.value)]));
+}
+
+type TriedRow = { target: string; tries?: Array<{ attemptedValue?: string }> } & Record<string, unknown>;
+/**
+ * A built game's summary can list fewer tries than she made (Reina 2026-11-13: 6, 6, 8 saved as one right first try).
+ * Code's own record wins when it saw more tries; the game's wins only when it saw more than code did.
+ */
+export function withServerTries<T extends TriedRow>(rows: T[], serverTries: ReadonlyMap<string, string[]>): T[] {
+  return rows.map(row => {
+    const seen = serverTries.get(row.target);
+    const reported = Array.isArray(row.tries) ? row.tries.length : 1;
+    if (!seen || seen.length <= reported) return row;
+    console.log(` 🎮 [item-attempts] [tries-restored] item=${row.target} game_reported=${reported} code_saw=${seen.length}`);
+    return { ...row, tries: seen.map(attemptedValue => ({ attemptedValue })) };
+  });
+}
 
 const span = (ms: number) => { const s = Math.max(0, Math.round(ms / 1000)); return s < 120 ? `${s} second${s === 1 ? "" : "s"}` : `${Math.round(s / 60)} minutes`; };
 
