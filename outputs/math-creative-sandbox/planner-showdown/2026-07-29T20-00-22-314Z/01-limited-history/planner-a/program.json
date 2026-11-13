@@ -1,0 +1,300 @@
+{
+  "programId": "program:reina:mult-x2x5x10:v1",
+  "assignmentAnalysis": {
+    "constructs": [
+      "math.multiplication.skip_counting (by 2s, 5s, 10s as the counting basis for the x2/x5/x10 fact families)",
+      "math.multiplication.equal_groups (interpreting 'n groups of m' and mapping it to a multiplication expression)",
+      "math.multiplication.arrays (interpreting 'r rows of c' and mapping it to a multiplication expression)",
+      "math.multiplication.word_problem_interpretation (extracting group size and group count from one-step prose, then computing)",
+      "math.multiplication.fact_retrieval_x2_x5_x10 (producing products for the three target fact families in symbolic form)"
+    ],
+    "prerequisites": [
+      "Counts forward by 2s, 5s, and 10s from a stated start without prompting",
+      "Repeated addition of equal addends (e.g., 5+5+5+5) with sums to 100",
+      "Reads and writes numerals to 100",
+      "Interprets the multiplication symbol and the equals sign in a horizontal equation",
+      "Extracts quantities from one-sentence prose containing the cues 'each', 'rows of', 'in all'"
+    ],
+    "difficultyBoundaries": {
+      "included": [
+        "Products where at least one factor is 2, 5, or 10",
+        "Other factor restricted to 1-10; products at or below 100",
+        "Both factor orders (e.g., 2 x 7 and 7 x 2; 10 x 4 and 4 x 10) treated as answerable, without requiring the child to name commutativity",
+        "One-step equal-groups word problems with the group size and group count stated explicitly",
+        "One-step array word problems phrased as 'r rows of c'",
+        "Horizontal equations with the unknown in the product position"
+      ],
+      "excluded": [
+        "Fact families x3, x4, x6, x7, x8, x9",
+        "Missing-factor equations (e.g., 5 x __ = 35)",
+        "Two-step or multi-operation word problems",
+        "Word problems containing extraneous numbers",
+        "Division, sharing, or remainder language",
+        "Multi-digit multiplication or products above 100",
+        "Area/perimeter formulas, fractions, or measurement conversion",
+        "Formal statement or naming of the commutative property",
+        "Timed-fluency scoring (rate-based claims); accuracy only at this stage"
+      ]
+    }
+  },
+  "assumptions": [
+    {
+      "assumptionId": "asm-grade-placement",
+      "claim": "The x2/x5/x10 fact families and one-step equal-groups/array word problems are the correct instructional target level for Reina, based solely on the assigned unit and her confirmed age of 9.",
+      "evidenceIds": [
+        "profile:reina:age",
+        "assignment:pashley-math-2-multiplication"
+      ],
+      "confidence": 0.5,
+      "uncertainty": "Assignment level indicates what was assigned, not what Reina can do. No academic evidence of any kind exists for this child, so the target may be too hard (prerequisite skip-counting not yet secure) or too easy (facts already retrieved fluently).",
+      "falsifyingEvidence": "A baseline probe in which Reina scores at or above 0.90 on unsupported x2/x5/x10 items and both word-problem types (target too easy), or at or below 0.30 with skip-counting errors (prerequisite gap below target)."
+    },
+    {
+      "assumptionId": "asm-no-math-baseline",
+      "claim": "There is currently no evidence, in any stream, about Reina's mathematics performance; all mathematics claims must be treated as unestablished until a first independent probe is collected.",
+      "evidenceIds": [
+        "profile:reina:age",
+        "engagement:wheel:like",
+        "engagement:pronunciation:like"
+      ],
+      "confidence": 0.95,
+      "uncertainty": "The historical evidence array is empty. It is unknown whether prior math work exists but was never logged, or genuinely does not exist.",
+      "falsifyingEvidence": "Any retrieved academic-stream or returned-work record showing prior graded mathematics performance for Reina."
+    },
+    {
+      "assumptionId": "asm-engagement-domain-bounded",
+      "claim": "The recorded likes are spelling-activity engagement records and carry no information about mathematics constructs, difficulty tolerance, or attainment.",
+      "evidenceIds": [
+        "engagement:wheel:like",
+        "engagement:pronunciation:like"
+      ],
+      "confidence": 0.8,
+      "uncertainty": "Both engagement records are logged at confidence 0.45 and come from a different subject area. Cross-domain transfer of engagement is not established by this packet and is not assumed.",
+      "falsifyingEvidence": "Paired engagement and academic records within mathematics showing that a like/dislike rating predicts accuracy or persistence on math items."
+    },
+    {
+      "assumptionId": "asm-session-length-unknown",
+      "claim": "Sustained independent working time is unknown, so the first probe should be short (8-12 items) rather than a full worksheet.",
+      "evidenceIds": [
+        "engagement:wheel:like"
+      ],
+      "confidence": 0.35,
+      "uncertainty": "Two of four logged initiations recorded a completion; this is an engagement-stream count with no recorded reason for non-completion (could be logging gaps, interruption, difficulty, or session end). It cannot support any inference about attention, persistence, or ability.",
+      "falsifyingEvidence": "A logged mathematics session in which Reina completes 20 or more items independently in one sitting, or repeated abandonment of probes at fewer than 5 items."
+    }
+  ],
+  "academicPredictions": [
+    {
+      "predictionId": "pred-skipcount-prereq",
+      "construct": "math.multiplication.skip_counting",
+      "expectedOutcome": "On an unsupported baseline probe of 6 oral/written skip-counting continuations (two each by 2s, 5s, 10s, starting from a stated multiple, four terms required), Reina produces correct sequences on the majority of items, with 10s stronger than 5s and 5s stronger than 2s.",
+      "expectedRange": {
+        "metric": "proportion of skip-counting items fully correct (unsupported baseline)",
+        "minimum": 0.4,
+        "maximum": 1
+      },
+      "predictedErrorPatterns": [
+        "Correct by 10s but loses the sequence by 2s past 12",
+        "Restarts the count from 0 instead of continuing from the stated start value",
+        "Off-by-one-term sequences (produces three terms where four are required)"
+      ],
+      "confidence": 0.3,
+      "evidenceIds": [
+        "profile:reina:age",
+        "assignment:pashley-math-2-multiplication"
+      ],
+      "horizon": "baseline",
+      "maximumClaim": "Baseline placement estimate only; establishes a starting point, not mastery of skip counting."
+    },
+    {
+      "predictionId": "pred-fact-symbolic",
+      "construct": "math.multiplication.fact_retrieval_x2_x5_x10",
+      "expectedOutcome": "On 9 unsupported horizontal fact items (three each x2, x5, x10; both factor orders represented; other factor 1-10), accuracy is moderate and lower for items where the 2, 5, or 10 appears in the second factor position than in the first.",
+      "expectedRange": {
+        "metric": "proportion of fact items correct (unsupported baseline)",
+        "minimum": 0.3,
+        "maximum": 0.95
+      },
+      "predictedErrorPatterns": [
+        "Adds the factors instead of multiplying (e.g., 2 x 7 answered 9)",
+        "Answers x10 items by appending a zero correctly but cannot do the matching x5 item",
+        "Skip-counts the wrong number of times, landing one group high or low (e.g., 5 x 5 answered 20 or 30)",
+        "Treats 7 x 2 as unrelated to 2 x 7 and leaves it blank"
+      ],
+      "confidence": 0.25,
+      "evidenceIds": [
+        "profile:reina:age",
+        "assignment:pashley-math-2-multiplication"
+      ],
+      "horizon": "baseline",
+      "maximumClaim": "Baseline placement estimate only; no fluency or mastery claim, and no rate-based claim."
+    },
+    {
+      "predictionId": "pred-wordproblem-gap",
+      "construct": "math.multiplication.word_problem_interpretation",
+      "expectedOutcome": "On 4 unsupported one-step word problems (two equal-groups with 'each', two arrays with 'rows of'), accuracy is at least 0.10 lower in proportion terms than accuracy on the matched symbolic fact items from the same probe.",
+      "expectedRange": {
+        "metric": "proportion of word-problem items with correct multiplication set-up AND correct product (unsupported baseline)",
+        "minimum": 0.15,
+        "maximum": 0.85
+      },
+      "predictedErrorPatterns": [
+        "Adds the two stated numbers (e.g., 5 pencils in 4 boxes answered 9)",
+        "Reports one of the stated numbers as the answer without operating",
+        "Correct multiplication set-up with a skip-counting slip in the product",
+        "Array item ('rows of 10') answered by counting rows only"
+      ],
+      "confidence": 0.3,
+      "evidenceIds": [
+        "assignment:pashley-math-2-multiplication"
+      ],
+      "horizon": "baseline",
+      "maximumClaim": "Baseline placement estimate only; identifies whether the bottleneck is interpretation or computation, not attainment."
+    },
+    {
+      "predictionId": "pred-delayed-retention",
+      "construct": "math.multiplication.equal_groups + math.multiplication.arrays",
+      "expectedOutcome": "On a delayed independent probe administered at least 48 hours after the guided-practice node, using new items within the same boundaries, accuracy is within 0.20 (either direction) of the immediate post-guided-practice independent probe.",
+      "expectedRange": {
+        "metric": "absolute difference in proportion correct between immediate independent probe and delayed independent probe",
+        "minimum": 0,
+        "maximum": 0.2
+      },
+      "predictedErrorPatterns": [
+        "Retention of the x10 and x5 items with loss on x2 items",
+        "Return of the additive error on word problems after the delay",
+        "Correct products with the set-up equation omitted"
+      ],
+      "confidence": 0.2,
+      "evidenceIds": [
+        "assignment:pashley-math-2-multiplication"
+      ],
+      "horizon": "delayed",
+      "maximumClaim": "If confirmed, supports a retention claim for the boundaried item set only; mastery language requires returned graded work."
+    },
+    {
+      "predictionId": "pred-returned-work-calibration",
+      "construct": "math.multiplication.fact_retrieval_x2_x5_x10 + math.multiplication.word_problem_interpretation",
+      "expectedOutcome": "When the teacher-graded Unit 3 work is returned, the graded proportion correct falls within 0.20 of this program's delayed independent probe accuracy on the same constructs.",
+      "expectedRange": {
+        "metric": "absolute difference between returned graded proportion correct and delayed independent probe proportion correct",
+        "minimum": 0,
+        "maximum": 0.2
+      },
+      "predictedErrorPatterns": [
+        "Program probes overestimate because probe items were shorter than the assigned worksheet",
+        "Returned work shows word-problem errors absent from probes due to unfamiliar phrasing",
+        "Returned work marked down for missing equations rather than wrong products"
+      ],
+      "confidence": 0.15,
+      "evidenceIds": [
+        "assignment:pashley-math-2-multiplication"
+      ],
+      "horizon": "returned_work",
+      "maximumClaim": "This is the only prediction whose confirmation can license a calibrated attainment statement; until returned work arrives, all estimates remain provisional."
+    }
+  ],
+  "learningSequence": [
+    {
+      "nodeId": "node-1-baseline-probe",
+      "responsibility": "probe",
+      "constructs": [
+        "math.multiplication.skip_counting",
+        "math.multiplication.fact_retrieval_x2_x5_x10",
+        "math.multiplication.word_problem_interpretation"
+      ],
+      "startingSupport": "None beyond reading the word problems aloud on request. No worked example, no hint, no correction during the probe. 12 items maximum, ordered skip-counting then facts then word problems, stop-early rule after 4 consecutive blanks or refusals.",
+      "expectedIndependence": "Fully independent responding; read-aloud accommodation is logged but does not reduce the independence of the mathematical response.",
+      "evidenceRequired": [
+        "Item-level correct/incorrect record for each of the 12 items, tagged by construct and fact family",
+        "Verbatim wrong answers (needed to distinguish additive errors from skip-counting slips)",
+        "Record of whether read-aloud was requested per word problem",
+        "Number of items attempted before any stop-early trigger"
+      ],
+      "nextDecisionEnabled": "Determines whether instruction starts at skip-counting (prerequisite repair), at equal-groups/array mapping (interpretation), or at fact consolidation; also tests asm-grade-placement and pred-skipcount-prereq."
+    },
+    {
+      "nodeId": "node-2-teach-groups-to-symbols",
+      "responsibility": "teach",
+      "constructs": [
+        "math.multiplication.equal_groups",
+        "math.multiplication.arrays",
+        "math.multiplication.skip_counting"
+      ],
+      "startingSupport": "Full explicit instruction: adult states the group count and group size, models the skip count, and writes the matching equation. Entry point set by node-1 results. Only x2, x5, x10 families used.",
+      "expectedIndependence": "None expected. Correct responses here are teacher-scaffolded and are recorded as practice evidence only.",
+      "evidenceRequired": [
+        "Which entry point was used and why (cited to node-1 item-level record)",
+        "Count of prompts, models, and corrections delivered",
+        "Whether Reina restated the group count and group size in her own words for at least two items"
+      ],
+      "nextDecisionEnabled": "Determines whether the equal-groups-to-equation mapping can be attempted with reduced support, or whether skip-counting needs a further teaching pass before guided practice."
+    },
+    {
+      "nodeId": "node-3-guided-practice-fading",
+      "responsibility": "guided_practice",
+      "constructs": [
+        "math.multiplication.equal_groups",
+        "math.multiplication.arrays",
+        "math.multiplication.fact_retrieval_x2_x5_x10",
+        "math.multiplication.word_problem_interpretation"
+      ],
+      "startingSupport": "Begins with a visible worked exemplar and a sentence frame for identifying group count and group size; support is faded item by item until the last three items carry no prompt. Items stay inside the stated difficulty boundaries.",
+      "expectedIndependence": "Prompt-free correct responding on the final three faded items is the target signal; anything earlier in the sequence remains supported.",
+      "evidenceRequired": [
+        "Support level recorded per item (exemplar / frame / prompt-on-request / none)",
+        "Accuracy on the unprompted final items reported separately from prompted items",
+        "Error type for each incorrect item (interpretation vs computation)"
+      ],
+      "nextDecisionEnabled": "Determines readiness for an independent probe; if unprompted items are not correct, returns to node-2 rather than advancing. No mastery claim may be drawn from this node."
+    },
+    {
+      "nodeId": "node-4-independent-and-delayed-probe",
+      "responsibility": "independent_probe",
+      "constructs": [
+        "math.multiplication.equal_groups",
+        "math.multiplication.arrays",
+        "math.multiplication.fact_retrieval_x2_x5_x10",
+        "math.multiplication.word_problem_interpretation"
+      ],
+      "startingSupport": "None. New items generated inside the boundaries, not the assignment's own questions. Administered twice: immediately after node-3 and again at least 48 hours later with a fresh item set matched by construct and fact family.",
+      "expectedIndependence": "Full independence on both administrations, with no feedback between items and no feedback between the two administrations.",
+      "evidenceRequired": [
+        "Item-level accuracy for the immediate administration, by construct and fact family",
+        "Item-level accuracy for the 48-hour-delayed administration, by construct and fact family",
+        "Verbatim wrong answers from both administrations",
+        "Confirmation that no prompts, hints, or corrections were given"
+      ],
+      "nextDecisionEnabled": "Tests pred-delayed-retention and produces the only in-program evidence eligible for an independent attainment estimate; sets the comparison value for calibration against returned teacher-graded work."
+    }
+  ],
+  "evidenceSeparation": {
+    "practiceClaims": [
+      "node-2-teach-groups-to-symbols yields practice evidence only: any correct response there reflects modelled instruction, not attainment.",
+      "node-3-guided-practice-fading yields practice evidence for all prompted items; the unprompted final items are a readiness signal for probing, not a mastery result.",
+      "engagement:wheel:like and engagement:pronunciation:like are engagement-stream, spelling-domain records; they may never be cited as evidence about multiplication performance.",
+      "Completion counts (two of four logged initiations) describe activity flow only and cannot support claims about ability, persistence, or preference."
+    ],
+    "independentClaims": [
+      "node-1-baseline-probe supports a provisional placement estimate for skip counting, x2/x5/x10 fact retrieval, and word-problem interpretation.",
+      "node-4 immediate administration supports an unsupported-accuracy estimate for the boundaried item set at a single time point.",
+      "node-4 delayed administration supports a retention statement for the boundaried item set, still short of a mastery claim.",
+      "No independent claim may extend beyond the included difficulty boundaries; nothing may be claimed about x3, x4, x6-x9, missing-factor items, or multi-step problems."
+    ],
+    "calibrationRequirements": [
+      "Returned teacher-graded Unit 3 work (or any teacher-graded multiplication work) is required before any attainment statement is used for planning beyond this program.",
+      "The delayed administration must occur at least 48 hours after node-3 and use fresh items, or pred-delayed-retention is untestable.",
+      "Baseline (node-1) and post-instruction (node-4) item sets must be matched by construct and fact family so the difference is interpretable.",
+      "Teacher-stream comment evidence, if it arrives, must be logged separately from returned-work scores and separately from program probe results."
+    ]
+  },
+  "nextEvidenceRequired": [
+    "Item-level results from node-1-baseline-probe, including verbatim wrong answers and per-item read-aloud requests, tagged by construct and fact family.",
+    "A retrieval check for any pre-existing mathematics academic-stream or returned-work records for Reina; the packet's historical evidence array is empty and it is unknown whether this reflects absence or a logging gap.",
+    "Support-level-per-item log from node-3 so prompted and unprompted accuracy can be reported separately.",
+    "Node-4 immediate and 48-hour-delayed independent probe results on matched fresh items.",
+    "Returned teacher-graded multiplication work with item-level or section-level marks, for calibration against node-4.",
+    "Observed independent working time and item count per session, to replace the currently unsupported short-probe assumption (asm-session-length-unknown)."
+  ],
+  "planningRationale": "This packet contains no academic evidence and no historical evidence at all. The only confirmed facts are Reina's age (profile:reina:age) and the assignment's stated unit and constructs (assignment:pashley-math-2-multiplication); the two engagement records are spelling-domain and logged at confidence 0.45, so they inform neither difficulty nor attainment. The dominant uncertainty is therefore placement, not method: it is unknown whether the bottleneck sits below the target (skip counting), at the mapping from equal-groups/array language to an equation, or at fact retrieval, and it is unknown whether the target is already easy. The smallest sequence that resolves this is one unsupported baseline probe, one instructional pass whose entry point is set by that probe, one fading guided-practice pass, and one independent probe administered twice to separate immediate performance from retention. Predictions are deliberately wide-ranged and low-confidence because they rest on assignment level and age alone; they are preregistered with named error patterns so that a narrow, boundaried placement decision becomes possible from a single probe. Instruction and probes stay inside x2/x5/x10 with products to 100 and one-step problems, and use fresh items rather than the assignment's own questions so the worksheet remains a valid returned-work calibration source. No mastery language is licensed anywhere in this program until teacher-graded returned work is compared against the delayed probe."
+}

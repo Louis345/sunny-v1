@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Skyglider Skip-Count Run</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; font-family: 'Comic Sans MS', 'Trebuchet MS', sans-serif;
+    height: 100vh; overflow: hidden; position: relative;
+    background: linear-gradient(180deg,#ff9a56 0%,#ff6f91 35%,#6a5acd 75%,#2b1d5c 100%);
+  }
+  #world {
+    position: absolute; inset: 0; background-size: cover; background-position: center;
+    opacity: 0.55; animation: drift 40s linear infinite;
+  }
+  @keyframes drift { 0%{background-position:0% 50%;} 100%{background-position:100% 50%;} }
+  .cloud {
+    position: absolute; background: rgba(255,255,255,0.7); border-radius: 50%;
+    filter: blur(2px); animation: floatY linear infinite;
+  }
+  @keyframes floatY {
+    from { transform: translateX(120vw); }
+    to { transform: translateX(-30vw); }
+  }
+  header {
+    position: relative; z-index: 5; text-align: center; padding: 10px 6px 4px;
+  }
+  #title {
+    font-size: clamp(22px,4vw,34px); color: #fff; text-shadow: 2px 2px 6px #3a2a6b;
+    margin: 4px 0;
+  }
+  #primary-instruction {
+    background: rgba(0,0,0,0.35); color: #fffbe0; display: inline-block;
+    padding: 6px 16px; border-radius: 20px; font-size: clamp(14px,2.4vw,18px);
+  }
+  #topControls {
+    position: absolute; top: 8px; right: 10px; z-index: 20; display: flex; gap: 8px;
+  }
+  #topControlsLeft {
+    position: absolute; top: 8px; left: 10px; z-index: 20; display: flex; gap: 8px;
+  }
+  .ctrl-btn {
+    background: #fff8dc; border: 3px solid #7a4de8; border-radius: 14px;
+    padding: 6px 10px; font-weight: bold; font-size: 13px; cursor: pointer;
+    box-shadow: 0 3px 0 #4b2b9c;
+  }
+  .ctrl-btn.active { background: #ffd166; }
+  #stage {
+    position: relative; z-index: 5; height: calc(100vh - 90px);
+    display: flex; flex-direction: column; justify-content: flex-end; align-items: center;
+  }
+  #progress-indicator {
+    display: flex; gap: 6px; margin-bottom: 10px; z-index: 6;
+  }
+  .lantern {
+    width: 26px; height: 34px; border-radius: 50% 50% 40% 40%;
+    background: #4a3a7a; border: 2px solid #2a1d5c; opacity: 0.5;
+    transition: all 0.4s;
+  }
+  .lantern.lit { background: radial-gradient(circle,#ffe066,#ff9f1c); opacity:1; box-shadow: 0 0 14px #ffcc33; }
+  #track {
+    position: relative; width: 100%; max-width: 900px; height: 220px;
+    display: flex; align-items: center; justify-content: center; gap: 4%;
+    padding: 0 20px;
+  }
+  #glider {
+    position: absolute; left: 6%; bottom: 40px; font-size: 60px; z-index: 10;
+    transition: transform 0.5s ease;
+    filter: drop-shadow(2px 4px 3px rgba(0,0,0,0.4));
+  }
+  #glider.hop { animation: hop 0.5s ease; }
+  @keyframes hop {
+    0% { transform: translateY(0) scale(1); }
+    40% { transform: translateY(-40px) scale(1.1); }
+    100% { transform: translateY(0) scale(1); }
+  }
+  #glider.loop { animation: loopdeloop 1.2s ease; }
+  @keyframes loopdeloop {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
+  #promptBox {
+    position: absolute; top: 8px; left: 50%; transform: translateX(-50%);
+    background: rgba(255,255,255,0.9); border-radius: 16px; padding: 8px 20px;
+    font-size: clamp(16px,2.6vw,22px); font-weight: bold; color: #4b2b9c;
+    box-shadow: 0 3px 10px rgba(0,0,0,0.3); z-index: 8; white-space: nowrap;
+  }
+  .platform-wrap {
+    display: flex; flex-direction: column; align-items: center; z-index: 9;
+  }
+  .lily {
+    width: 130px; height: 90px; border-radius: 50%;
+    background: radial-gradient(circle at 40% 30%, #7fdc8a, #2f9e44);
+    border: 4px solid #1b6b30; display: flex; align-items: center; justify-content: center;
+    cursor: pointer; position: relative; transition: transform 0.15s, filter 0.3s, opacity 0.3s;
+  }
+  .lily:hover { transform: scale(1.05); }
+  .lily .glow { position:absolute; inset:-6px; border-radius:50%; box-shadow: 0 0 20px 4px #ffe066; opacity:0.7; animation: pulse 1.6s infinite; }
+  @keyframes pulse { 0%,100%{opacity:0.4;} 50%{opacity:0.9;} }
+  .lantern-num {
+    background: radial-gradient(circle,#fff2b3,#ffcf40);
+    border-radius: 50%; width: 62px; height: 62px; display:flex; align-items:center; justify-content:center;
+    font-size: 26px; font-weight: bold; color: #7a3e00; box-shadow: 0 0 10px #ffdd7a inset;
+  }
+  .lily.dim { filter: grayscale(0.6) brightness(0.7); }
+  .lily.shake { animation: shake 0.4s; }
+  @keyframes shake {
+    0%,100% { transform: translateX(0); }
+    25% { transform: translateX(-8px); }
+    75% { transform: translateX(8px); }
+  }
+  #recovery-feedback {
+    position: absolute; bottom: 100px; left: 50%; transform: translateX(-50%);
+    background: #fff3cd; color: #9c6500; padding: 8px 18px; border-radius: 14px;
+    font-weight: bold; display: none; z-index: 15; box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+  }
+  #completion-badge {
+    display: none; position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
+    background: linear-gradient(135deg,#fff6cc,#ffd166); border: 4px solid #d68a00;
+    border-radius: 20px; padding: 20px 30px; text-align: center; z-index: 30;
+    box-shadow: 0 8px 30px rgba(0,0,0,0.5);
+  }
+  #completion-badge h2 { margin: 4px 0; color: #7a3e00; }
+  #completion-badge .icon { font-size: 50px; }
+  .firework {
+    position: absolute; font-size: 30px; animation: burst 1s ease-out forwards; z-index: 25;
+  }
+  @keyframes burst {
+    0% { transform: translate(0,0) scale(0.3); opacity: 1; }
+    100% { transform: translate(var(--dx),var(--dy)) scale(1.4); opacity: 0; }
+  }
+  #demoBanner {
+    position: absolute; top: 60px; left: 50%; transform: translateX(-50%);
+    background: rgba(75,43,156,0.9); color: #fff; padding: 6px 14px; border-radius: 12px;
+    font-size: 13px; z-index: 20; display: none;
+  }
+  #sunny-companion { position: absolute; bottom: 4px; right: 6px; z-index: 15; }
+</style>
+</head>
+<body>
+<div id="world" style="background-image:url('/generated/direct-math/hw-math-a179d2a0-skip-count-glider.jpeg');"></div>
+<div class="cloud" style="width:120px;height:50px;top:8%;animation-duration:26s;"></div>
+<div class="cloud" style="width:80px;height:36px;top:18%;animation-duration:34s;animation-delay:-8s;"></div>
+<div class="cloud" style="width:150px;height:60px;top:5%;animation-duration:44s;animation-delay:-20s;"></div>
+
+<header>
+  <h1 id="title" data-testid="activity-title">Skyglider Skip-Count Run</h1>
+  <div id="primary-instruction" data-testid="primary-instruction">Tap the lantern that continues the count!</div>
+</header>
+
+<div id="topControlsLeft">
+  <button class="ctrl-btn" id="showMeBtn" data-testid="show-me-toggle">▶ Show me</button>
+  <button class="ctrl-btn" id="letMeTryBtn" data-testid="let-me-try-toggle">✋ Let me try</button>
+</div>
+<div id="topControls">
+  <button class="ctrl-btn" id="soundBtn" data-testid="sound-toggle">🔊 Sound</button>
+</div>
+<div id="demoBanner">Watch the example glider hop: 1, 2, 3, __</div>
+
+<div id="stage">
+  <div id="promptBox" data-testid="question-prompt"></div>
+  <div id="track">
+    <div id="glider">🚀</div>
+  </div>
+  <div id="progress-indicator" data-testid="progress-indicator"></div>
+</div>
+
+<div id="recovery-feedback" data-testid="recovery-feedback">Try again! You can do it 🌟</div>
+<div id="completion-badge" data-testid="completion-badge">
+  <div class="icon">🏅</div>
+  <h2>Skip-Count Pilot</h2>
+  <div>Great flying, Reina!</div>
+</div>
+
+<div id="sunny-companion"></div>
+
+<script>
+(function(){
+  const questions = [
+    { id:"q1", prompt:"Skip count by 5s: 5, 10, 15, __?", options:[{label:"20",correct:true},{label:"16",correct:false},{label:"25",correct:false}] },
+    { id:"q2", prompt:"Skip count by 2s: 2, 4, 6, __?", options:[{label:"7",correct:false},{label:"8",correct:true},{label:"10",correct:false}] },
+    { id:"q3", prompt:"Skip count by 10s: 10, 20, 30, __?", options:[{label:"35",correct:false},{label:"40",correct:true},{label:"31",correct:false}] }
+  ];
+
+  let currentIndex = 0;
+  let completedItems = 0;
+  const totalItems = questions.length;
+  let soundMuted = false;
+  let audioCtx = null;
+  let firstGestureDone = false;
+
+  let startTime = performance.now();
+  let timeToFirstValidActionMs = null;
+  let invalidActionCount = 0;
+  let demoRequested = false;
+  let demoReplayCount = 0;
+  const attemptResults = [];
+
+  function postMsg(type, payload){
+    window.parent.postMessage({type, payload}, "*");
+  }
+
+  postMsg("activity_ready", {nodeId:"skip-count-glider"});
+
+  function initAudio(){
+    if (firstGestureDone) return;
+    firstGestureDone = true;
+    try {
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    } catch(e) { audioCtx = null; }
+  }
+
+  function tone(freq, dur, type, vol){
+    if (soundMuted || !audioCtx) return;
+    const o = audioCtx.createOscillator();
+    const g = audioCtx.createGain();
+    o.type = type || 'sine';
+    o.frequency.value = freq;
+    g.gain.value = vol || 0.15;
+    o.connect(g); g.connect(audioCtx.destination);
+    o.start();
+    g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + dur);
+    o.stop(audioCtx.currentTime + dur);
+  }
+
+  function playInteraction(){ tone(440,0.15,'triangle',0.12); }
+  function playRecovery(){ tone(300,0.25,'sine',0.14); setTimeout(()=>tone(260,0.2,'sine',0.1),120); }
+  function playWhoosh(){ tone(600,0.18,'sawtooth',0.1); setTimeout(()=>tone(800,0.15,'sine',0.1),100); }
+  function playProgress(){ tone(700,0.12,'square',0.1); }
+  function playFanfare(){
+    [523,659,784,1046].forEach((f,i)=> setTimeout(()=>tone(f,0.35,'triangle',0.15), i*150));
+  }
+
+  const soundBtn = document.getElementById('soundBtn');
+  soundBtn.addEventListener('click', ()=>{
+    initAudio();
+    soundMuted = !soundMuted;
+    soundBtn.textContent = soundMuted ? '🔇 Sound' : '🔊 Sound';
+    soundBtn.classList.toggle('active', !soundMuted);
+  });
+  soundBtn.classList.add('active');
+
+  const promptBox = document.getElementById('promptBox');
+  const track = document.getElementById('track');
+  const glider = document.getElementById('glider');
+  const progressWrap = document.getElementById('progress-indicator');
+  const recoveryEl = document.getElementById('recovery-feedback');
+  const completionBadge = document.getElementById('completion-badge');
+  const demoBanner = document.getElementById('demoBanner');
+
+  for (let i=0;i<totalItems;i++){
+    const l = document.createElement('div');
+    l.className = 'lantern';
+    l.dataset.idx = i;
+    progressWrap.appendChild(l);
+  }
+
+  function lightLantern(idx){
+    const lanterns = progressWrap.querySelectorAll('.lantern');
+    if (lanterns[idx]) lanterns[idx].classList.add('lit');
+  }
+
+  let platformEls = [];
+
+  function renderQuestion(idx){
+    // clear old platforms (keep glider)
+    platformEls.forEach(p=>p.remove());
+    platformEls = [];
+    const q = questions[idx];
+    promptBox.textContent = q.prompt;
+
+    // shuffle-stable order but keep as authored (test expects labels in order fine either way)
+    q.options.forEach((opt) => {
+      const wrap = document.createElement('div');
+      wrap.className = 'platform-wrap';
+      const lily = document.createElement('button');
+      lily.className = 'lily';
+      lily.setAttribute('data-testid','answer-option');
+      lily.dataset.correct = opt.correct ? 'true' : 'false';
+      lily.dataset.label = opt.label;
+
+      const glow = document.createElement('div');
+      glow.className = 'glow';
+      lily.appendChild(glow);
+
+      const num = document.createElement('div');
+      num.className = 'lantern-num';
+      num.textContent = opt.label;
+      lily.appendChild(num);
+
+      lily.addEventListener('click', onOptionClick);
+
+      wrap.appendChild(lily);
+      track.appendChild(wrap);
+      platformEls.push(wrap);
+    });
+  }
+
+  function onOptionClick(e){
+    if (demoPlaying) return;
+    initAudio();
+    const btn = e.currentTarget;
+    if (btn.disabled) return;
+    const correct = btn.dataset.correct === 'true';
+    const label = btn.dataset.label;
+    const rt = Math.round(performance.now() - startTime);
+
+    if (timeToFirstValidActionMs === null){
+      timeToFirstValidActionMs = rt;
+    }
+
+    postMsg("attempt_event", {
+      domain: "math",
+      targetId: questions[currentIndex].id,
+      correct: correct,
+      responseTimeMs: rt
+    });
+
+    attemptResults.push({ questionId: questions[currentIndex].id, label, correct, responseTimeMs: rt });
+
+    if (!correct){
+      invalidActionCount++;
+      btn.classList.add('dim','shake');
+      playRecovery();
+      recoveryEl.style.display = 'block';
+      setTimeout(()=>{
+        btn.classList.remove('shake');
+      }, 400);
+      setTimeout(()=>{
+        recoveryEl.style.display = 'none';
+      }, 1600);
+      return;
+    }
+
+    // correct path
+    recoveryEl.style.display = 'none';
+    // disable all options for this question to prevent double-advance
+    platformEls.forEach(p=>{
+      const b = p.querySelector('.lily');
+      b.disabled = true;
+    });
+
+    postMsg("progress_event", {
+      nodeId: "skip-count-glider",
+      completedItems: completedItems,
+      totalItems: totalItems,
+      phase: "answer-locked"
+    });
+
+    playWhoosh();
+    glider.classList.remove('hop');
+    void glider.offsetWidth;
+    glider.classList.add('hop');
+
+    completedItems++;
+    lightLantern(currentIndex);
+    playProgress();
+
+    postMsg("progress_event", {
+      nodeId: "skip-count-glider",
+      completedItems: completedItems,
+      totalItems: totalItems
+    });
+
+    currentIndex++;
+
+    if (currentIndex >= totalItems){
+      showCompletion();
+    } else {
+      renderQuestion(currentIndex);
+    }
+  }
+
+  function showCompletion(){
+    glider.classList.remove('hop');
+    void glider.offsetWidth;
+    glider.classList.add('loop');
+    playFanfare();
+    spawnFireworks();
+    promptBox.textContent = "Run complete!";
+    platformEls.forEach(p=>p.remove());
+    platformEls = [];
+    completionBadge.style.display = 'block';
+    completionBadge.style.visibility = 'visible';
+    completionBadge.style.opacity = '1';
+    completionBadge.setAttribute('aria-hidden','false');
+
+    postMsg("node_complete", {
+      nodeId: "skip-count-glider",
+      completed: true,
+      attempts: attemptResults,
+      interaction: {
+        timeToFirstValidActionMs: timeToFirstValidActionMs,
+        invalidActionCount: invalidActionCount,
+        demoRequested: demoRequested,
+        demoReplayCount: demoReplayCount,
+        soundMuted: soundMuted
+      }
+    });
+  }
+
+  function spawnFireworks(){
+    const colors = ['🎆','🎇','✨','🏮'];
+    for (let i=0;i<10;i++){
+      setTimeout(()=>{
+        const fw = document.createElement('div');
+        fw.className = 'firework';
+        fw.textContent = colors[i % colors.length];
+        const x = 40 + Math.random()*20;
+        const y = 30 + Math.random()*30;
+        fw.style.left = x+'%';
+        fw.style.top = y+'%';
+        fw.style.setProperty('--dx', (Math.random()*160-80)+'px');
+        fw.style.setProperty('--dy', (Math.random()*160-80)+'px');
+        document.body.appendChild(fw);
+        setTimeout(()=>fw.remove(), 1000);
+      }, i*80);
+    }
+  }
+
+  // Show me / Let me try demo logic
+  let demoPlaying = false;
+  const showMeBtn = document.getElementById('showMeBtn');
+  const letMeTryBtn = document.getElementById('letMeTryBtn');
+
+  function runDemo(){
+    initAudio();
+    demoRequested = true;
+    if (demoPlaying) return;
+    demoPlaying = true;
+    demoReplayCount++;
+    showMeBtn.classList.add('active');
+    demoBanner.style.display = 'block';
+
+    // temporarily disable real options visual (but do not remove/hide layout)
+    platformEls.forEach(p=>{
+      const b = p.querySelector('.lily');
+      if (b) b.disabled = true;
+    });
+
+    let step = 0;
+    glider.classList.remove('loop');
+    const demoHop = setInterval(()=>{
+      glider.classList.remove('hop');
+      void glider.offsetWidth;
+      glider.classList.add('hop');
+      playWhoosh();
+      step++;
+      if (step >= 2){
+        clearInterval(demoHop);
+        setTimeout(()=>{
+          demoBanner.style.display = 'none';
+          showMeBtn.classList.remove('active');
+          demoPlaying = false;
+          platformEls.forEach(p=>{
+            const b = p.querySelector('.lily');
+            if (b) b.disabled = false;
+          });
+        }, 500);
+      }
+    }, 700);
+  }
+
+  showMeBtn.addEventListener('click', runDemo);
+  letMeTryBtn.addEventListener('click', ()=>{
+    initAudio();
+    demoPlaying = false;
+    demoBanner.style.display = 'none';
+    showMeBtn.classList.remove('active');
+    platformEls.forEach(p=>{
+      const b = p.querySelector('.lily');
+      if (b) b.disabled = false;
+    });
+  });
+
+  document.body.addEventListener('click', initAudio, {once:true});
+
+  renderQuestion(0);
+})();
+</script>
+</body>
+</html>

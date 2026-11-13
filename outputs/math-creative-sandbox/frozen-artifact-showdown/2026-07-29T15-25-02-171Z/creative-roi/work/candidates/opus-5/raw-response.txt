@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=1365,height=768">
+<title>Lanternlift: Raise the Sky Town</title>
+<style>
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;width:1365px;height:768px;overflow:hidden;background:#0a1230;font-family:"Trebuchet MS",Verdana,sans-serif;color:#ffe9c4;user-select:none}
+#stage{position:relative;width:1365px;height:768px}
+canvas{position:absolute;inset:0}
+.ui{position:absolute}
+#sky{top:0;left:0;width:1365px;height:132px;pointer-events:none}
+#townlbl{position:absolute;top:6px;left:14px;font-size:13px;letter-spacing:2px;color:#9fb4e6}
+#order{top:146px;left:18px;width:330px;min-height:190px;background:linear-gradient(#f6e2b8,#e8cd97);color:#3a2a12;border-radius:14px;padding:16px 18px;box-shadow:0 8px 24px #0008;border:3px solid #8a6a3a}
+#order h3{margin:0 0 8px;font-size:15px;letter-spacing:2px;color:#7a5622}
+#otext{font-size:20px;line-height:1.45}
+#otext b{background:#ffd66b;padding:0 4px;border-radius:4px}
+#hint{margin-top:10px;font-size:15px;color:#6b4d20;font-style:italic;min-height:20px}
+#rigwrap{top:146px;left:364px;width:600px;height:392px;background:rgba(12,22,54,.55);border:2px solid #2f4478;border-radius:14px;padding:8px}
+#nets{width:100%;height:340px;overflow:hidden;position:relative}
+.net{display:flex;align-items:center;height:44px;margin:4px 0;background:rgba(255,220,150,.07);border-radius:22px;padding:0 6px;cursor:pointer;border:2px dashed #4a6099}
+.net:active{background:rgba(255,220,150,.18)}
+.netlbl{width:34px;font-size:13px;color:#9fb4e6;text-align:center}
+.lan{width:26px;height:32px;margin:0 2px;border-radius:50% 50% 45% 45%;background:radial-gradient(circle at 40% 35%,#fff3c0,#ffb43c 60%,#e07a1a);box-shadow:0 0 12px #ffb43caa;animation:pop .25s ease}
+@keyframes pop{from{transform:scale(0)}to{transform:scale(1)}}
+.rmv{margin-left:auto;width:34px;height:34px;border-radius:8px;background:#3a2c4e;color:#ffbfa0;font-size:18px;line-height:32px;text-align:center;border:1px solid #6a5080}
+#rigbtns{display:flex;gap:10px;margin-top:2px}
+.bt{min-width:56px;height:52px;padding:0 16px;border-radius:12px;border:2px solid #8a6a3a;background:linear-gradient(#f0d49b,#cfa964);color:#33240c;font-size:17px;font-weight:bold;cursor:pointer;box-shadow:0 4px 0 #7a5a2a}
+.bt:active{transform:translateY(3px);box-shadow:none}
+.bt.dark{background:linear-gradient(#3a4d86,#26355e);color:#dfe8ff;border-color:#5b74b8;box-shadow:0 4px 0 #1b2745}
+#mastwrap{top:146px;left:980px;width:170px;height:560px}
+#gauge{top:552px;left:18px;width:946px;height:196px;background:linear-gradient(#2a3766,#1a2447);border:3px solid #6f89c9;border-radius:16px;padding:10px 14px;display:flex;gap:14px;align-items:center}
+#eq{font-size:34px;letter-spacing:1px;display:flex;align-items:center;gap:8px;min-width:300px}
+.slot{display:inline-block;min-width:66px;height:60px;line-height:56px;text-align:center;background:#101a3a;border:3px solid #7f98d6;border-radius:10px;font-size:32px;cursor:pointer}
+.slot.sel{border-color:#ffcf5a;box-shadow:0 0 14px #ffcf5a}
+#pad{display:grid;grid-template-columns:repeat(6,60px);gap:6px}
+.k{height:52px;border-radius:10px;background:#3d4f8a;border:2px solid #7f98d6;color:#fff;font-size:22px;cursor:pointer}
+.k:active{background:#5b74b8}
+#lever{width:150px;height:150px;border-radius:20px;background:radial-gradient(circle at 40% 30%,#ffd98a,#c0761f 70%,#7e4712);border:4px solid #ffe6b0;color:#3a1f04;font-size:22px;font-weight:bold;cursor:pointer;box-shadow:0 6px 0 #5e3608}
+#lever:active{transform:translateY(4px);box-shadow:none}
+#lever.off{filter:grayscale(.7) brightness(.7);cursor:not-allowed}
+#judge{position:absolute;top:552px;left:980px;width:370px;display:none;gap:10px}
+#msg{position:absolute;top:500px;left:364px;width:600px;text-align:center;font-size:22px;color:#ffd98a;min-height:30px;text-shadow:0 2px 6px #000}
+.ov{position:absolute;inset:0;background:rgba(6,10,26,.94);display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:40px;z-index:20}
+.ov h1{font-size:52px;margin:0 0 10px;color:#ffd98a;text-shadow:0 4px 20px #ff9d2e66}
+.ov p{font-size:21px;max-width:820px;line-height:1.5;color:#e6ddc6}
+#actbanner{position:absolute;top:0;left:0;width:1365px;height:768px;display:none;align-items:center;justify-content:center;background:rgba(6,10,26,.8);z-index:15;font-size:44px;color:#ffd98a;flex-direction:column}
+#pen{position:absolute;top:6px;right:16px;font-size:16px;color:#ffd98a}
+#consky{position:absolute;inset:0;display:none;z-index:19}
+</style>
+</head>
+<body>
+<div id="stage">
+<canvas id="sky" width="1365" height="132"></canvas>
+<div id="townlbl">SKY TOWN — DISTRICTS DOCKED <span id="dcount">0 / 13</span></div>
+<div id="pen">★ Gold pennants: <span id="pc">0</span></div>
+
+<div class="ui" id="order"><h3>LIFT ORDER <span id="onum"></span></h3><div id="otext"></div><div id="hint"></div></div>
+
+<div class="ui" id="rigwrap">
+  <div id="nets"></div>
+  <div id="rigbtns">
+    <button class="bt" id="addnet">+ Net (row)</button>
+    <button class="bt dark" id="delnet">– Net</button>
+    <span style="font-size:15px;color:#9fb4e6;align-self:center">Tap a net to add a lantern · tap ✕ to empty it</span>
+  </div>
+</div>
+
+<canvas id="mast" class="ui" width="170" height="560" style="top:146px;left:980px"></canvas>
+
+<div id="msg"></div>
+
+<div class="ui" id="gauge">
+  <div>
+    <div style="font-size:13px;letter-spacing:2px;color:#9fb4e6">BRASS LIFT GAUGE</div>
+    <div id="eq"></div>
+  </div>
+  <div id="pad"></div>
+  <button id="lever">PULL<br>LEVER</button>
+</div>
+<div id="judge"><button class="bt" id="approve" style="flex:1;height:70px">✓ APPROVE</button><button class="bt dark" id="reject" style="flex:1;height:70px">✗ REJECT</button></div>
+
+<canvas id="consky" width="1365" height="768"></canvas>
+
+<div class="ov" id="intro">
+  <h1>Lanternlift</h1>
+  <p><b>Raise the Sky Town.</b> The floating town fell into the fog and its districts are stranded. Every paper lantern gives exactly one meter of lift, so you string lanterns onto balloon nets in equal rows.</p>
+  <p>Build the rows, declare the equation on the brass gauge, and pull the lever — if your math is true, the whole district climbs out of the fog and docks back into the sky.</p>
+  <button class="bt" id="startb" style="margin-top:26px;height:74px;font-size:26px">START RIGGING</button>
+</div>
+<div id="actbanner"></div>
+</div>
+
+<script>
+const $=id=>document.getElementById(id);
+let AC=null;
+function snd(f,d,type,vol){try{if(!AC)AC=new(window.AudioContext||window.webkitAudioContext)();const o=AC.createOscillator(),g=AC.createGain();o.type=type||'sine';o.frequency.value=f;g.gain.value=0;o.connect(g);g.connect(AC.destination);const t=AC.currentTime;g.gain.linearRampToValueAtTime(vol||.18,t+.01);g.gain.exponentialRampToValueAtTime(.0008,t+d);o.start(t);o.stop(t+d+.05);}catch(e){}}
+const KAL=[523,587,659,740,784,880,988,1047,1175];
+function kal(n){snd(KAL[Math.min(n,8)],.5,'triangle',.2)}
+function creak(){snd(90,.35,'sawtooth',.09);snd(130,.25,'square',.05)}
+function chord(){[392,494,587,784].forEach((f,i)=>setTimeout(()=>snd(f,1.1,'sine',.14),i*70))}
+function miss(){[440,392,330].forEach((f,i)=>setTimeout(()=>snd(f,.4,'sine',.13),i*130))}
+function tick(){snd(660,.08,'square',.05)}
+
+/* ---------- ORDER GENERATION ---------- */
+const NAMES=["Kettle Row","Foghorn Yard","Bellrope Lane","Tin Roof Walk","Wind Terrace","Lark Steps","Cloud Cistern","Gullwing Pier","Spire Base","Lamplight Arch","High Spire","Star Dock","Festival Green"];
+function ri(a,b){return a+Math.floor(Math.random()*(b-a+1))}
+function build(){
+  const O=[];
+  // ACT 1: explicit, product<=25
+  const a1=[[3,5],[4,4],[2,6],[5,5],[3,7],[4,6],[2,8],[5,4]];
+  shuffle(a1).slice(0,4).forEach(p=>{
+    O.push({act:1,type:'build',rows:p[0],per:p[1],
+      text:`Rig <b>${p[0]}</b> nets with <b>${p[1]}</b> lanterns in each net.`});
+  });
+  // ACT 2: reversed / distractors / prebuilt-read
+  const pool=[];for(let r=2;r<=9;r++)for(let c=2;c<=9;c++)if(r*c<=63)pool.push([r,c]);
+  const a2=shuffle(pool).slice(0,4);
+  a2.forEach((p,i)=>{
+    const r=p[0],c=p[1];
+    if(i%2===1){
+      O.push({act:2,type:'read',rows:r,per:c,text:`Load already rigged at Bay ${ri(10,40)}. Read the nets and write the true equation.`});
+    }else{
+      const w=[`The rigger, age ${ri(28,52)}, hangs <b>${c}</b> lanterns in every net across <b>${r}</b> nets.`,
+               `Put <b>${c}</b> lanterns in each of <b>${r}</b> nets. (Dock gate ${ri(3,9)} is closed.)`,
+               `<b>${c}</b> lanterns per net — and there are <b>${r}</b> nets on the rail.`][i%3];
+      O.push({act:2,type:'build',rows:r,per:c,text:w});
+    }
+  });
+  // ACT 3: missing factor x2, manifest x2
+  const m1=[[6,4],[7,3],[8,5],[9,4],[6,7]];const mm=shuffle(m1).slice(0,2);
+  mm.forEach(p=>{
+    O.push({act:3,type:'missing',rows:p[0],per:p[1],
+      text:`We need <b>${p[0]*p[1]}</b> lift, and each net holds <b>${p[1]}</b> lanterns. How many nets?`});
+  });
+  const mf=shuffle(pool.filter(p=>p[0]>=3&&p[1]>=3)).slice(0,2);
+  mf.forEach((p,i)=>{
+    const truth=p[0]*p[1];const lie=Math.random()<0.55;
+    let claim=truth;
+    if(lie){let d=Math.max(1,Math.round(truth*(ri(6,20)/100)));if(Math.random()<.5)d=-d;claim=truth+d;if(claim===truth)claim=truth+2;if(claim<1)claim=truth+3;}
+    O.push({act:3,type:'manifest',rows:p[0],per:p[1],claim:claim,true_:!lie,
+      text:`Foreman Moro's manifest: "<b>${p[0]}</b> nets × <b>${p[1]}</b> each = <b>${claim}</b> lift. Sign here."<br>Rig the real array as evidence, then approve or reject.`});
+  });
+  O.splice(9,0,O.splice(10,1)[0]); // interleave a bit
+  // FINALE
+  const tgt=[36,24,48,30][ri(0,3)];
+  O.push({act:4,type:'free',target:tgt,
+    text:`FESTIVAL LOAD: reach <b>exactly ${tgt}</b> lift. Choose any nets and any equal lanterns per net that work.`});
+  return O;
+}
+function shuffle(a){a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
+
+/* ---------- STATE ---------- */
+let ORDERS=[],idx=0,rig=[],eqA=null,eqB=null,eqP=null,sel=0,tries=0,pennants=0,docked=0,busy=false,solved=[],ACT=0;
+const cur=()=>ORDERS[idx];
+
+/* ---------- SKY TOWN ---------- */
+const sctx=$('sky').getContext('2d');
+function drawSky(){
+  const c=sctx;c.clearRect(0,0,1365,132);
+  const g=c.createLinearGradient(0,0,0,132);
+  const t=docked/13;
+  g.addColorStop(0,`rgb(${10+t*40},${18+t*20},${48+t*30})`);g.addColorStop(1,`rgb(${30+t*70},${40+t*40},${80+t*30})`);
+  c.fillStyle=g;c.fillRect(0,0,1365,132);
+  for(let i=0;i<13;i++){
+    const x=40+i*100,h=40+((i*37)%38);
+    c.globalAlpha=i<docked?1:.16;
+    c.fillStyle=i<docked?'#2b2038':'#1a2340';
+    c.beginPath();c.moveTo(x,124);c.lineTo(x,124-h);c.lineTo(x+30,124-h-16);c.lineTo(x+60,124-h);c.lineTo(x+60,124);c.closePath();c.fill();
+    if(i<docked){c.fillStyle='#ffd177';for(let w=0;w<6;w++)c.fillRect(x+8+(w%3)*18,124-h+10+Math.floor(w/3)*16,8,9);
+      c.fillStyle='#ffe9c4';c.font='10px Verdana';c.fillText(NAMES[i].slice(0,11),x-2,131);}
+    c.globalAlpha=1;
+  }
+  $('dcount').textContent=docked+' / 13';
+  $('pc').textContent=pennants;
+}
+
+/* ---------- MAST ---------- */
+const mctx=$('mast').getContext('2d');
+let mastReached=0,mastTarget=0,pulseLabels=[];
+function drawMast(){
+  const c=mctx;c.clearRect(0,0,170,560);
+  c.fillStyle='rgba(10,16,40,.55)';c.fillRect(0,0,170,560);
+  const top=30,bot=530,MAX=81;
+  c.strokeStyle='#6f89c9';c.lineWidth=3;c.beginPath();c.moveTo(58,top);c.lineTo(58,bot);c.stroke();
+  c.font='11px Verdana';c.fillStyle='#9fb4e6';
+  for(let m=0;m<=MAX;m+=6){const y=bot-(m/MAX)*(bot-top);c.fillRect(50,y,16,1.5);c.fillText(m,20,y+4);}
+  c.fillStyle='#ffe9c4';c.font='bold 13px Verdana';c.fillText('LIFT MAST',44,18);
+  if(mastTarget>0){const y=bot-(mastTarget/MAX)*(bot-top);
+    c.strokeStyle='#66ffbb';c.setLineDash([6,4]);c.beginPath();c.moveTo(40,y);c.lineTo(166,y);c.stroke();c.setLineDash([]);
+    c.fillStyle='#66ffbb';c.font='bold 13px Verdana';c.fillText('dock '+mastTarget,86,y-6);}
+  const y=bot-(mastReached/MAX)*(bot-top);
+  c.fillStyle='#ffb43c';c.beginPath();c.arc(58,y-16,15,0,7);c.fill();
+  c.fillStyle='#e8cd97';c.fillRect(50,y-4,16,8);
+  c.fillStyle='#fff3c0';c.font='bold 20px Verdana';c.fillText(mastReached+'m',78,y+8);
+  let ly=bot+24;c.font='13px Verdana';c.fillStyle='#ffd98a';
+  pulseLabels.slice(-2).forEach(s=>{c.fillText(s,8,ly);ly+=17});
+}
+
+/* ---------- RIG UI ---------- */
+function renderRig(){
+  const box=$('nets');box.innerHTML='';
+  rig.forEach((n,i)=>{
+    const d=document.createElement('div');d.className='net';
+    d.innerHTML=`<span class="netlbl">${i+1}</span>`;
+    for(let k=0;k<n;k++){const l=document.createElement('div');l.className='lan';d.appendChild(l)}
+    const x=document.createElement('div');x.className='rmv';x.textContent='✕';
+    x.onclick=e=>{e.stopPropagation();if(busy)return;rig[i]=0;renderRig();tick()};
+    d.appendChild(x);
+    d.onclick=()=>{if(busy)return;if(rig[i]>=9)return;rig[i]++;kal(rig[i]-1);renderRig()};
+    box.appendChild(d);
+  });
+  if(!rig.length){box.innerHTML='<div style="color:#7b8ec4;font-size:18px;padding:20px 8px">Tap <b>+ Net</b> to hang your first net row.</div>'}
+  autoEq();
+}
+function uniform(){return rig.length>0&&rig.every(v=>v===rig[0])&&rig[0]>0}
+function total(){return rig.reduce((a,b)=>a+b,0)}
+function autoEq(){
+  const o=cur();
+  if(o&&(o.type==='build'||o.type==='read'||o.type==='missing'||o.type==='free'||o.type==='manifest')){
+    if(uniform()){/* child still types product */}
+  }
+  renderEq();
+}
+$('addnet').onclick=()=>{if(busy)return;if(rig.length>=9)return;rig.push(0);tick();renderRig()};
+$('delnet').onclick=()=>{if(busy)return;rig.pop();tick();renderRig()};
+
+/* ---------- EQUATION GAUGE ---------- */
+function renderEq(){
+  const s=(v,i)=>`<span class="slot ${sel===i?'sel':''}" data-s="${i}">${v===null?'&nbsp;':v}</span>`;
+  $('eq').innerHTML=s(eqA,0)+'<span>×</span>'+s(eqB,1)+'<span>=</span>'+s(eqP,2);
+  [...$('eq').querySelectorAll('.slot')].forEach(el=>el.onclick=()=>{sel=+el.dataset.s;renderEq()});
+  const o=cur();
+  const need=(o&&o.type==='manifest')?false:true;
+  $('lever').className=(eqA!==null&&eqB!==null&&eqP!==null&&need)?'':'off';
+}
+const pad=$('pad');
+for(let i=1;i<=9;i++){const b=document.createElement('button');b.className='k';b.textContent=i;b.onclick=()=>key(i);pad.appendChild(b)}
+['0','⌫','↵'].forEach(t=>{const b=document.createElement('button');b.className='k';b.textContent=t;b.onclick=()=>{if(t==='0')key(0);else if(t==='⌫')key(-1);else{sel=(sel+1)%3;renderEq()}};pad.appendChild(b)});
+function key(d){
+  if(busy)return;tick();
+  const g=[eqA,eqB,eqP];
+  if(d===-1){g[sel]=null}
+  else{
+    let v=g[sel];
+    if(sel===2){v=(v===null?0:v)*10+d;if(v>99)v=d;}
+    else{v=d;}
+    g[sel]=v;
+  }
+  eqA=g[0];eqB=g[1];eqP=g[2];
+  if(d>=0&&sel<2)sel++;
+  renderEq();
+}
+
+/* ---------- FLOW ---------- */
+function actOf(i){return ORDERS[i].act}
+function startOrder(){
+  busy=false;tries=0;rig=[];eqA=eqB=eqP=null;sel=0;pulseLabels=[];mastReached=0;
+  const o=cur();
+  mastTarget=(o.type==='free')?o.target:(o.rows*o.per);
+  $('onum').textContent='#'+(idx+1)+' — '+NAMES[idx];
+  $('otext').innerHTML=(o.act===1)?o.text:o.text.replace(/<\/?b>/g,'');
+  $('hint').textContent=hintFor(o);
+  $('judge').style.display=(o.type==='manifest')?'flex':'none';
+  $('gauge').style.width=(o.type==='manifest')?'946px':'946px';
+  $('msg').textContent='';
+  if(o.type==='read'){rig=Array(o.rows).fill(o.per);}
+  renderRig();drawMast();drawSky();
+  if(o.act!==ACT){ACT=o.act;banner(o.act)}
+}
+function hintFor(o){
+  if(o.type==='build')return'Build the rows, then type nets × lanterns = total.';
+  if(o.type==='read')return'The nets are already rigged. Count rows and lanterns per row, then write the equation.';
+  if(o.type==='missing')return'Rig nets of that size until the total lift is exactly right.';
+  if(o.type==='manifest')return'Build the true array, fill the gauge with the REAL total, then judge the manifest.';
+  return'Any equal-row load that reaches the target exactly will dock.';
+}
+function banner(a){
+  const names={1:'ACT I — The Low Docks',2:'ACT II — The Wind Terraces',3:'ACT III — The High Spire',4:'FINALE — The Festival Load'};
+  const subs={1:'Equal groups of lanterns. Build, declare, lift.',2:'Read the order carefully — the words shift, and not every number matters.',3:'Missing nets, and Foreman Moro\'s slippery manifests.',4:'Design your own load. Hit the target exactly.'};
+  const b=$('actbanner');b.style.display='flex';b.innerHTML=`<div>${names[a]}</div><div style="font-size:20px;color:#cfe0ff;margin-top:12px;max-width:700px;text-align:center">${subs[a]}</div>`;
+  chord();setTimeout(()=>b.style.display='none',2100);
+}
+
+/* ---------- VALIDATE + LIFT ---------- */
+$('lever').onclick=()=>{
+  if(busy||$('lever').classList.contains('off'))return;
+  const o=cur();
+  if(!rig.length||total()===0){$('msg').textContent='Hang some nets and lanterns first.';miss();return}
+  if(!uniform()){$('msg').textContent='Nets must be EQUAL groups — same lanterns in every net.';miss();return}
+  const R=rig.length,P=rig[0];
+  // equation must match the array as built
+  if(!((eqA===R&&eqB===P)||(eqA===P&&eqB===R))){
+    $('msg').textContent=`Your gauge says ${eqA} × ${eqB}, but you rigged ${R} nets of ${P}.`;miss();return}
+  if(eqP!==R*P){$('msg').textContent=`Check the product: ${R} × ${P} is not ${eqP}.`;miss();return}
+  creak();busy=true;$('msg').textContent='Releasing…';
+  lift(R,P,()=>{
+    const t=R*P;
+    if(o.type==='manifest'){$('msg').textContent=`Evidence rigged: ${R} × ${P} = ${t}. Now judge Moro's manifest (${o.claim}).`;busy=false;return}
+    let ok;
+    if(o.type==='free')ok=(t===o.target);
+    else ok=(R===o.rows&&P===o.per)||(R===o.per&&P===o.rows)?t===o.rows*o.per:false;
+    if(o.type==='missing')ok=(t===o.rows*o.per&&P===o.per);
+    if(o.type==='free')ok=(t===o.target);
+    if(ok)succeed(R,P,t);else fail(t);
+  });
+};
+function lift(R,P,done){
+  let i=0,run=0;pulseLabels=[];
+  const step=()=>{
+    if(i>=R){setTimeout(done,300);return}
+    run+=P;i++;mastReached=run;
+    pulseLabels.push(`+${P}  →  ${run}   (net ${i})`);
+    kal(Math.min(i-1,8));drawMast();i<R?setTimeout(step,420):setTimeout(step,420);
+  };
+  drawMast();setTimeout(step,250);
+}
+function succeed(R,P,t){
+  const gold=(tries===0);
+  if(gold)pennants++;
+  docked++;solved.push(`${R} × ${P} = ${t}`);
+  chord();drawSky();
+  $('msg').innerHTML=`<b>DOCKED!</b> ${R} nets × ${P} lanterns = ${t} m of lift. ${gold?'★ Gold pennant!':'District is home.'}`;
+  setTimeout(next,1700);
+}
+function fail(t){
+  tries++;miss();
+  const need=cur().type==='free'?cur().target:cur().rows*cur().per;
+  const d=need-t;
+  $('msg').textContent=(d>0?`Short by ${d} — check your rows.`:`Over by ${-d} — too much lift.`)+' Adjust and pull again.';
+  busy=false;
+  if(tries>=2&&rig.length)unspool();
+}
+function unspool(){
+  busy=true;$('msg').textContent='Unspooling one net — count with me…';
+  const per=rig[0];const box=$('nets').children[0];
+  if(!box){busy=false;return}
+  const lans=[...box.querySelectorAll('.lan')];lans.forEach(l=>l.style.opacity=.15);
+  let k=0;const go=()=>{
+    if(k>=lans.length){setTimeout(()=>{lans.forEach(l=>l.style.opacity=1);$('msg').textContent=`One net holds ${per}. So each net adds ${per} of lift.`;busy=false},500);return}
+    lans[k].style.opacity=1;lans[k].style.transform='scale(1.35)';kal(k);
+    setTimeout(()=>lans[k].style.transform='scale(1)',200);k++;setTimeout(go,430);
+  };setTimeout(go,400);
+}
+$('approve').onclick=()=>judge(true);
+$('reject').onclick=()=>judge(false);
+function judge(approve){
+  if(busy)return;const o=cur();
+  if(!uniform()||rig.length!==o.rows||rig[0]!==o.per||eqP!==o.rows*o.per){
+    $('msg').textContent='Rig the true array first and pull the lever — evidence before judgement.';miss();return}
+  const right=(approve===o.true_);
+  if(right){
+    docked++;solved.push(`${o.rows} × ${o.per} = ${o.rows*o.per}`);chord();drawSky();
+    $('msg').innerHTML=o.true_?`<b>Manifest APPROVED.</b> ${o.rows} × ${o.per} really is ${o.rows*o.per}. District docked.`:`<b>REJECTED!</b> ${o.rows} × ${o.per} = ${o.rows*o.per}, not ${o.claim}. Moro tears up the paper — the crowd laughs.`;
+    if(tries===0)pennants++;drawSky();setTimeout(next,2200);
+  }else{
+    tries++;miss();
+    $('msg').textContent=`Look at your evidence: ${o.rows} × ${o.per} = ${o.rows*o.per}. The manifest claims ${o.claim}. Judge again.`;
+  }
+}
+function next(){idx++;if(idx>=ORDERS.length)finish();else startOrder()}
+
+/* ---------- PAYOFF ---------- */
+function finish(){
+  const c=$('consky');c.style.display='block';const x=c.getContext('2d');
+  const lst=solved.map((s,i)=>({s,x:80+(i%5)*250,y:820+Math.floor(i/5)*150,v:.5+Math.random()*.4}));
+  const ov=document.createElement('div');ov.className='ov';ov.style.background='rgba(6,10,26,.55)';
+  ov.innerHTML=`<h1>The Lantern Festival</h1><p>Every district is docked. The sky town is whole — and every lift you reasoned out rises again as a lantern.</p>
+  <div style="margin:18px 0;font-size:22px;color:#fff3c0">RIGGER'S LICENSE — ★ ${pennants} gold pennants · ${solved.length} lifts completed · hardest lift: ${Math.max(...solved.map(s=>+s.split('= ')[1]))} m</div>
+  <button class="bt" id="again" style="height:70px;font-size:22px">RIG A NEW RUN — MASTER RIGGER</button>`;
+  $('stage').appendChild(ov);
+  $('again').onclick=()=>location.reload();
+  chord();setTimeout(chord,700);
+  (function loop(){
+    x.clearRect(0,0,1365,768);
+    lst.forEach(l=>{l.y-=l.v;
+      x.fillStyle='#ffb43c';x.globalAlpha=.9;x.beginPath();x.ellipse(l.x,l.y,11,15,0,0,7);x.fill();
+      x.shadowColor='#ffb43c';x.shadowBlur=22;x.fill();x.shadowBlur=0;
+      x.globalAlpha=1;x.fillStyle='#fff3c0';x.font='bold 17px Verdana';x.fillText(l.s,l.x+20,l.y+6);
+      if(l.y<-60)l.y=800;});
+    requestAnimationFrame(loop);
+  })();
+}
+
+/* ---------- INIT ---------- */
+$('startb').onclick=()=>{if(!AC){try{AC=new(window.AudioContext||window.webkitAudioContext)()}catch(e){}}
+  $('intro').style.display='none';ORDERS=build();idx=0;docked=0;pennants=0;solved=[];startOrder()};
+drawSky();drawMast();renderEq();
+</script>
+</body>
+</html>

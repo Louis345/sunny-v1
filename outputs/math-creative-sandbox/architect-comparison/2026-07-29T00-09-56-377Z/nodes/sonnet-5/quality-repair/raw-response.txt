@@ -1,0 +1,456 @@
+```html
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Fair Slice Bakery</title>
+<style>
+  * { box-sizing: border-box; user-select: none; -webkit-user-select: none; touch-action: none; }
+  body {
+    margin: 0; width: 1365px; height: 768px; overflow: hidden;
+    background: linear-gradient(180deg, #fff3e2 0%, #ffe4c4 100%);
+    font-family: 'Segoe UI', Arial, sans-serif;
+    position: relative;
+  }
+  #header {
+    position: absolute; top: 0; left: 0; right: 0; height: 90px;
+    background: #e8956b; display: flex; align-items: center; justify-content: space-between;
+    padding: 0 40px; box-shadow: 0 4px 10px rgba(0,0,0,0.15); z-index: 5;
+  }
+  #title { color: #fff; font-size: 28px; font-weight: 800; text-shadow: 1px 1px 2px rgba(0,0,0,0.2); }
+  #ticket {
+    background: #fff8ef; border: 3px solid #d97a4a; border-radius: 14px;
+    padding: 8px 22px; font-size: 20px; font-weight: 700; color: #7a4a2a;
+  }
+  #coins {
+    background: #ffd97a; border: 3px solid #d99a2b; border-radius: 20px;
+    padding: 8px 20px; font-size: 20px; font-weight: 800; color: #7a4a10;
+  }
+  #stage {
+    position: absolute; top: 90px; left: 0; width: 1365px; height: 678px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  #layout { display: flex; align-items: center; gap: 20px; }
+  #customer {
+    width: 160px; text-align: center; flex-shrink: 0;
+  }
+  #customerFace { font-size: 80px; transition: transform 0.2s; }
+  #patienceLabel { font-size: 14px; color: #7a4a2a; font-weight: 700; margin-top: 4px; }
+  #patienceBarWrap {
+    width: 130px; height: 14px; background: #eee; border-radius: 8px; margin: 6px auto 0;
+    border: 2px solid #cc8; overflow: hidden;
+  }
+  #patienceBar { height: 100%; width: 100%; background: #6cd66c; transition: width 0.4s, background 0.4s; }
+  #customerCard {
+    background: #fff8ef; border: 2px solid #e0b080; border-radius: 12px; padding: 10px; margin-top: 14px;
+  }
+  #board {
+    width: 620px; height: 600px; background: #fbe4c0; border-radius: 24px;
+    border: 6px solid #c98a4b; position: relative; box-shadow: inset 0 0 30px rgba(160,100,40,0.2);
+    display: flex; flex-direction: column; align-items: center; justify-content: flex-start;
+    padding-top: 14px; flex-shrink: 0;
+  }
+  #instructionBanner {
+    background: #ffffffdd; border: 2px solid #d97a4a; border-radius: 12px;
+    padding: 6px 18px; font-size: 16px; color: #7a4a2a; font-weight: 600; text-align: center;
+    max-width: 90%;
+  }
+  #watchBadge {
+    position: absolute; top: 10px; right: 10px; background: #d97a4a; color: #fff;
+    font-size: 13px; font-weight: 700; padding: 5px 12px; border-radius: 20px;
+    display: none; z-index: 6;
+  }
+  svg { overflow: visible; margin-top: 8px; }
+  .cookie { fill: #e8b878; stroke: #7a4a2a; stroke-width: 5; }
+  .shapefill { fill: #e8b878; stroke: #7a4a2a; stroke-width: 5; }
+  .piece-good { fill: #f6cd8e; stroke: #3a9a3a; stroke-width: 4; }
+  .piece-bad { fill: #f2a4a4; stroke: #b23a3a; stroke-width: 4; }
+  .cutline { stroke: #7a4a2a; stroke-width: 5; stroke-linecap: round; opacity: 0.9; }
+  .ghostline { stroke: #b28a5a; stroke-width: 3; stroke-dasharray: 8 6; opacity: 0.55; }
+  #feedback {
+    width: 320px; font-size: 20px; color: #7a4a2a; font-weight: 700; text-align: center;
+    min-height: 30px; background: #fff8ef; border: 2px solid #e0b080; border-radius: 12px;
+    padding: 8px 10px; margin-top: 4px;
+  }
+  #meterWrap {
+    width: 300px; text-align: center; font-size: 15px; color: #7a4a2a; font-weight: 600; margin-top: 6px;
+  }
+  #meterBarWrap { width: 260px; height: 12px; background: #eee; border-radius: 6px; margin: 4px auto; border: 2px solid #ccc; overflow: hidden; display:flex;}
+  .meterSeg { height: 100%; transition: all 0.15s; }
+  #controlsRow { display: flex; gap: 12px; margin-top: 8px; align-items: center; }
+  #retryBtn {
+    background: #d97a4a; color: white; border: none; padding: 9px 22px; border-radius: 10px;
+    font-size: 15px; font-weight: 700; cursor: pointer; display: none;
+  }
+  #judgeButtons { display: none; gap: 20px; margin-top: 8px; }
+  .judgeBtn {
+    width: 64px; height: 64px; border-radius: 50%; border: none; font-size: 28px; cursor: pointer;
+    box-shadow: 0 3px 6px rgba(0,0,0,0.2);
+  }
+  #checkBtn { background: #6cd66c; color: #fff; }
+  #xBtn { background: #e05a5a; color: #fff; }
+  #demoHand {
+    position: absolute; font-size: 40px; pointer-events: none; z-index: 20; display: none;
+  }
+  @keyframes wobble {
+    0%,100% { transform: rotate(0deg); }
+    25% { transform: rotate(-4deg); }
+    75% { transform: rotate(4deg); }
+  }
+  .wobble { animation: wobble 0.4s ease-in-out 2; }
+  @keyframes popIn {
+    from { transform: scale(0.7); opacity: 0; }
+    to { transform: scale(1); opacity: 1; }
+  }
+  .popIn { animation: popIn 0.3s ease-out; }
+</style>
+</head>
+<body>
+
+<div id="header">
+  <div id="title">🍪 Fair Slice Bakery</div>
+  <div id="ticket"><span id="ticketLabel">Order: Cut into 2 equal pieces</span></div>
+  <div id="coins">🪙 <span id="coinCount">0</span></div>
+</div>
+
+<div id="stage">
+  <div id="layout">
+    <div id="customer">
+      <div id="customerFace">😐</div>
+      <div id="patienceLabel">Line Patience</div>
+      <div id="patienceBarWrap"><div id="patienceBar"></div></div>
+      <div id="customerCard">Cut fair shares<br>to keep customers happy!</div>
+    </div>
+
+    <div id="board">
+      <div id="watchBadge">👀 Watch</div>
+      <div id="instructionBanner">Drag a straight line across the cookie to cut it!</div>
+
+      <svg width="380" height="360" id="svgArea">
+        <g id="shapeG"></g>
+        <g id="pieces"></g>
+        <line id="dragLine" class="cutline" x1="0" y1="0" x2="0" y2="0" visibility="hidden"></line>
+        <line id="ghostLine" class="ghostline" x1="0" y1="0" x2="0" y2="0" visibility="hidden"></line>
+      </svg>
+
+      <div id="feedback"></div>
+      <div id="meterWrap">
+        <div>Piece Size Match</div>
+        <div id="meterBarWrap">
+          <div class="meterSeg" id="segA" style="background:#f6cd8e; width:50%;"></div>
+          <div class="meterSeg" id="segB" style="background:#e8b878; width:50%;"></div>
+        </div>
+      </div>
+      <div id="controlsRow">
+        <button id="retryBtn" onclick="resetRound(true)">Try Again</button>
+      </div>
+      <div id="judgeButtons">
+        <button class="judgeBtn" id="checkBtn" onclick="judge(true)">✓</button>
+        <button class="judgeBtn" id="xBtn" onclick="judge(false)">✗</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="demoHand">👆</div>
+
+<script>
+const svg = document.getElementById('svgArea');
+const shapeG = document.getElementById('shapeG');
+const dragLine = document.getElementById('dragLine');
+const ghostLine = document.getElementById('ghostLine');
+const piecesG = document.getElementById('pieces');
+const feedback = document.getElementById('feedback');
+const face = document.getElementById('customerFace');
+const patienceBar = document.getElementById('patienceBar');
+const retryBtn = document.getElementById('retryBtn');
+const judgeButtons = document.getElementById('judgeButtons');
+const segA = document.getElementById('segA');
+const segB = document.getElementById('segB');
+const banner = document.getElementById('instructionBanner');
+const watchBadge = document.getElementById('watchBadge');
+const ticketLabel = document.getElementById('ticketLabel');
+
+let coins = 0;
+let patience = 100;
+let dragging = false;
+let center = {x:190, y:180}, radius = 150;
+let demoPlaying = true;
+let mode = 'cut'; // 'cut' or 'judge'
+let judgeEqual = false;
+
+function setCoins(v){ coins = v; document.getElementById('coinCount').textContent = coins; }
+
+function pt(str){ const [x,y] = str.split(',').map(Number); return {x,y}; }
+function polyArea(pts){
+  let a = 0;
+  for(let i=0;i<pts.length;i++){
+    const j = (i+1)%pts.length;
+    a += pts[i].x*pts[j].y - pts[j].x*pts[i].y;
+  }
+  return a/2;
+}
+
+// ---- demo animation ----
+function runDemo(){
+  watchBadge.style.display = 'block';
+  const hand = document.getElementById('demoHand');
+  const boardRect = document.getElementById('board').getBoundingClientRect();
+  hand.style.display = 'block';
+
+  function placeHand(x, y){
+    hand.style.left = (boardRect.left + x - 20) + 'px';
+    hand.style.top = (boardRect.top + 30 + y - 20) + 'px';
+  }
+
+  placeHand(150, 60);
+  drawStaticCut(150,60,230,320, false);
+  setTimeout(()=>{
+    face.textContent = "😟"; feedback.textContent = "Unequal! Customer unhappy.";
+  }, 300);
+
+  setTimeout(()=>{
+    piecesG.innerHTML = '';
+    dragLine.setAttribute('visibility','hidden');
+    face.textContent = "😐"; feedback.textContent = "";
+    placeHand(190, 30);
+    drawStaticCut(190,30,190,330, true);
+    setTimeout(()=>{
+      face.textContent = "😄"; feedback.textContent = "Equal! Fair cut!";
+    },300);
+  }, 1600);
+
+  setTimeout(()=> endDemo(), 3200);
+}
+
+function endDemo(){
+  if(!demoPlaying) return;
+  document.getElementById('demoHand').style.display = 'none';
+  watchBadge.style.display = 'none';
+  piecesG.innerHTML = '';
+  dragLine.setAttribute('visibility','hidden');
+  face.textContent = "😐";
+  feedback.textContent = "";
+  demoPlaying = false;
+  banner.textContent = "Your turn! Drag across the cookie to cut it fairly.";
+}
+
+function drawStaticCut(x1,y1,x2,y2, equal){
+  dragLine.setAttribute('x1',x1); dragLine.setAttribute('y1',y1);
+  dragLine.setAttribute('x2',x2); dragLine.setAttribute('y2',y2);
+  dragLine.setAttribute('visibility','visible');
+  renderPieces(x1,y1,x2,y2,equal);
+}
+
+function renderPieces(x1,y1,x2,y2, forcedEqual){
+  piecesG.innerHTML = '';
+  const dx = x2-x1, dy = y2-y1;
+  const len = Math.sqrt(dx*dx+dy*dy) || 1;
+  const nx = -dy/len, ny = dx/len;
+  const far = 400;
+  const p1 = `${x1+nx*far},${y1+ny*far}`;
+  const p2 = `${x2+nx*far},${y2+ny*far}`;
+  const p3 = `${x2-nx*far},${y2-ny*far}`;
+  const p4 = `${x1-nx*far},${y1-ny*far}`;
+  const cls = forcedEqual ? 'piece-good' : 'piece-bad';
+
+  const clipA = document.createElementNS("http://www.w3.org/2000/svg","clipPath");
+  clipA.setAttribute("id","clipA");
+  const polyA = document.createElementNS("http://www.w3.org/2000/svg","polygon");
+  polyA.setAttribute("points", `${x1},${y1} ${p1} ${p2} ${x2},${y2}`);
+  clipA.appendChild(polyA);
+
+  const clipB = document.createElementNS("http://www.w3.org/2000/svg","clipPath");
+  clipB.setAttribute("id","clipB");
+  const polyB = document.createElementNS("http://www.w3.org/2000/svg","polygon");
+  polyB.setAttribute("points", `${x1},${y1} ${p4} ${p3} ${x2},${y2}`);
+  clipB.appendChild(polyB);
+
+  piecesG.appendChild(clipA);
+  piecesG.appendChild(clipB);
+
+  const circA = document.createElementNS("http://www.w3.org/2000/svg","circle");
+  circA.setAttribute("cx",center.x); circA.setAttribute("cy",center.y); circA.setAttribute("r",radius);
+  circA.setAttribute("clip-path","url(#clipA)");
+  circA.setAttribute("class", cls);
+
+  const circB = document.createElementNS("http://www.w3.org/2000/svg","circle");
+  circB.setAttribute("cx",center.x); circB.setAttribute("cy",center.y); circB.setAttribute("r",radius);
+  circB.setAttribute("clip-path","url(#clipB)");
+  circB.setAttribute("class", cls);
+
+  piecesG.appendChild(circA);
+  piecesG.appendChild(circB);
+
+  const pctA = computeAreaRatio(x1,y1,x2,y2);
+  segA.style.width = pctA + '%';
+  segB.style.width = (100-pctA) + '%';
+
+  if(!forcedEqual){
+    circA.classList.add('wobble');
+    circB.classList.add('wobble');
+  } else {
+    circA.classList.add('popIn');
+    circB.classList.add('popIn');
+  }
+}
+
+// deterministic geometric area ratio using circle-chord area formula
+function computeAreaRatio(x1,y1,x2,y2){
+  const dx = x2-x1, dy = y2-y1;
+  const len = Math.sqrt(dx*dx+dy*dy) || 1;
+  // distance from center to the infinite line through (x1,y1)-(x2,y2)
+  const cross = (center.x-x1)*dy - (center.y-y1)*dx;
+  const d = Math.abs(cross)/len;
+  const dClamped = Math.min(d, radius);
+  const theta = 2*Math.acos(Math.max(-1,Math.min(1,dClamped/radius)));
+  const segmentArea = 0.5*radius*radius*(theta - Math.sin(theta));
+  const circleArea = Math.PI*radius*radius;
+  let smallPct = (segmentArea/circleArea)*100;
+  smallPct = Math.max(0, Math.min(50, smallPct));
+  return 50 - smallPct <= 50 ? 50 - (50-smallPct) : smallPct; // keep near center logic simple below
+}
+
+function areaRatioPct(x1,y1,x2,y2){
+  const dx = x2-x1, dy = y2-y1;
+  const len = Math.sqrt(dx*dx+dy*dy) || 1;
+  const cross = (center.x-x1)*dy - (center.y-y1)*dx;
+  const d = Math.abs(cross)/len;
+  const dClamped = Math.min(d, radius);
+  const theta = 2*Math.acos(Math.max(-1,Math.min(1,dClamped/radius)));
+  const segmentArea = 0.5*radius*radius*(theta - Math.sin(theta));
+  const circleArea = Math.PI*radius*radius;
+  const smallPct = (segmentArea/circleArea)*100;
+  return 50 - smallPct; // pctA relative to 50 baseline, smallPct is how far off from equal
+}
+
+// ---- interactive cut ----
+function getPos(evt){
+  const rect = svg.getBoundingClientRect();
+  const clientX = evt.touches ? evt.touches[0].clientX : evt.clientX;
+  const clientY = evt.touches ? evt.touches[0].clientY : evt.clientY;
+  return { x: clientX - rect.left, y: clientY - rect.top };
+}
+
+function onDown(e){
+  if(mode !== 'cut') return;
+  if(demoPlaying){ endDemo(); return; }
+  e.preventDefault();
+  dragging = true;
+  const start = getPos(e);
+  dragLine.setAttribute('x1', start.x);
+  dragLine.setAttribute('y1', start.y);
+  dragLine.setAttribute('x2', start.x);
+  dragLine.setAttribute('y2', start.y);
+  dragLine.setAttribute('visibility','visible');
+  ghostLine.setAttribute('visibility','hidden');
+  piecesG.innerHTML = '';
+  feedback.textContent = '';
+  retryBtn.style.display = 'none';
+}
+function onMove(e){
+  if(!dragging) return;
+  e.preventDefault();
+  const p = getPos(e);
+  dragLine.setAttribute('x2', p.x);
+  dragLine.setAttribute('y2', p.y);
+  const x1 = parseFloat(dragLine.getAttribute('x1'));
+  const y1 = parseFloat(dragLine.getAttribute('y1'));
+  const diffFromEqual = areaRatioPct(x1,y1,p.x,p.y); // 0 = equal, larger = more unequal
+  const pctA = Math.max(5, Math.min(95, 50 + diffFromEqual));
+  segA.style.width = pctA + '%';
+  segB.style.width = (100-pctA) + '%';
+}
+function onUp(e){
+  if(!dragging) return;
+  dragging = false;
+  const p = getPos(e);
+  const x1 = parseFloat(dragLine.getAttribute('x1'));
+  const y1 = parseFloat(dragLine.getAttribute('y1'));
+  const x2 = p.x, y2 = p.y;
+  const lineLen = Math.sqrt((x2-x1)**2+(y2-y1)**2);
+
+  if(lineLen < 40){
+    dragLine.setAttribute('visibility','hidden');
+    return;
+  }
+
+  const diffFromEqual = Math.abs(areaRatioPct(x1,y1,x2,y2));
+  const isEqual = diffFromEqual <= 8; // tolerance in % area
+
+  renderPieces(x1,y1,x2,y2, isEqual);
+
+  if(isEqual){
+    face.textContent = "😄";
+    feedback.textContent = "Perfectly equal! Fair cut! 🎉";
+    setCoins(coins + 10);
+    patience = Math.min(100, patience + 10);
+    banner.textContent = "Great! Next order coming up...";
+    setTimeout(()=> nextRound(), 1400);
+  } else {
+    face.textContent = "😟";
+    feedback.textContent = "Not equal — one piece is bigger!";
+    patience = Math.max(0, patience - 20);
+    retryBtn.style.display = 'inline-block';
+    banner.textContent = "Oops! Try cutting through the center.";
+    showGhostGuide();
+  }
+  updatePatience();
+}
+
+function showGhostGuide(){
+  ghostLine.setAttribute('x1', center.x);
+  ghostLine.setAttribute('y1', center.y - radius);
+  ghostLine.setAttribute('x2', center.x);
+  ghostLine.setAttribute('y2', center.y + radius);
+  ghostLine.setAttribute('visibility','visible');
+}
+
+function updatePatience(){
+  patienceBar.style.width = patience + '%';
+  if(patience > 60) patienceBar.style.background = '#6cd66c';
+  else if(patience > 30) patienceBar.style.background = '#e8c94a';
+  else patienceBar.style.background = '#e05a5a';
+}
+
+function resetRound(keepGhost){
+  piecesG.innerHTML = '';
+  dragLine.setAttribute('visibility','hidden');
+  if(!keepGhost) ghostLine.setAttribute('visibility','hidden');
+  retryBtn.style.display = 'none';
+  segA.style.width = '50%';
+  segB.style.width = '50%';
+  face.textContent = "😐";
+  feedback.textContent = '';
+  banner.textContent = mode === 'cut'
+    ? "Drag a straight line across the cookie to cut it!"
+    : "Look at the cut. Is it fair?";
+}
+
+function nextRound(){
+  ghostLine.setAttribute('visibility','hidden');
+  // toggle between a cut round and a judge round for variety
+  if(Math.random() < 0.4){
+    startJudgeRound();
+  } else {
+    mode = 'cut';
+    judgeButtons.style.display = 'none';
+    retryBtn.style.display = 'none';
+    resetRound(false);
+  }
+}
+
+// ---- judge tickets ----
+function startJudgeRound(){
+  mode = 'judge';
+  judgeButtons.style.display = 'flex';
+  retryBtn.style.display = 'none';
+  piecesG.innerHTML = '';
+  ticketLabel.textContent = "Is this cut fair?";
+  judgeEqual = Math.random() < 0.5;
+  const x1 = center.x, y1 = center.y - radius, x2 = center.x, y2 = center.y + radius;
+  if(judgeEqual){
+    drawStaticCut(x1,y1,x2,y2,true);
+  } else {
+    const offsetX = 60 + Math.random()*30;
+    drawStaticCut(x1 - off

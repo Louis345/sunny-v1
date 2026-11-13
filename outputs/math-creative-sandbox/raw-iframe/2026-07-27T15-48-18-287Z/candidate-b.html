@@ -1,0 +1,575 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Groups & Arrays: The Multiplication Bakery</title>
+<style>
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none; }
+  html, body {
+    margin: 0; padding: 0; width: 1365px; height: 768px; overflow: hidden;
+    font-family: 'Segoe UI', Verdana, sans-serif;
+    background: linear-gradient(180deg, #fff3e0 0%, #ffe0b2 100%);
+  }
+  #app { width: 1365px; height: 768px; position: relative; display:flex; flex-direction:column; }
+
+  /* HEADER */
+  header {
+    height: 78px; background: #8d5524; color: #fff; display:flex; align-items:center;
+    justify-content: space-between; padding: 0 30px; flex-shrink:0;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+  }
+  header h1 { font-size: 26px; margin:0; }
+  #navBtns { display:flex; gap:10px; }
+  .navBtn {
+    padding: 10px 18px; border-radius: 20px; border: 2px solid #fff;
+    background: #a9704f; color:#fff; font-size:16px; cursor:pointer; font-weight:bold;
+    transition: 0.15s;
+  }
+  .navBtn.active { background:#ffb74d; color:#4e342e; border-color:#ffb74d; }
+  .navBtn:disabled { opacity:0.4; cursor:not-allowed; }
+  #badges { display:flex; gap:8px; font-size:22px; }
+
+  /* MAIN */
+  main { flex:1; position:relative; overflow:hidden; }
+  .screen {
+    position:absolute; top:0; left:0; width:100%; height:100%;
+    display:none; padding: 20px 40px; flex-direction:column; align-items:center;
+  }
+  .screen.active { display:flex; }
+
+  h2 { color:#5d4037; margin: 6px 0 4px 0; }
+  p.instr { color:#6d4c41; font-size:17px; margin: 2px 0 10px 0; text-align:center; max-width:900px; }
+
+  /* CONTROLS */
+  .controlsRow { display:flex; gap:40px; margin: 10px 0 10px 0; }
+  .controlGroup { display:flex; flex-direction:column; align-items:center; gap:6px; }
+  .controlGroup label { font-weight:bold; color:#4e342e; font-size:15px; }
+  .stepper { display:flex; align-items:center; gap:10px; }
+  .stepBtn {
+    width:42px; height:42px; border-radius:50%; border:none; background:#ff8a65;
+    color:#fff; font-size:24px; cursor:pointer; box-shadow:0 3px 5px rgba(0,0,0,0.2);
+  }
+  .stepBtn:active { transform: scale(0.9); }
+  .stepVal { font-size:26px; font-weight:bold; color:#4e342e; width:40px; text-align:center; }
+
+  /* STAGE1 baskets */
+  #basketArea { display:flex; gap:18px; justify-content:center; align-items:flex-end; min-height:150px; margin:8px 0; flex-wrap:wrap; max-width:1100px; }
+  .basket {
+    background:#d7ccc8; border-radius: 10px 10px 30px 30px; padding:10px;
+    display:flex; flex-wrap:wrap; gap:4px; width:120px; min-height:100px;
+    align-content:flex-start; justify-content:center; border:3px solid #8d6e63;
+    animation: pop 0.3s ease;
+  }
+  @keyframes pop { from{ transform:scale(0.7); opacity:0;} to{transform:scale(1); opacity:1;} }
+  .muffin { font-size: 26px; animation: drop 0.25s ease; }
+  @keyframes drop { from{ transform: translateY(-20px); opacity:0;} to{ transform:translateY(0); opacity:1;} }
+
+  #skipLine { display:flex; gap:10px; align-items:center; margin:10px 0; flex-wrap:wrap; justify-content:center; max-width:1100px;}
+  .skipNum {
+    background:#fff; border:3px solid #ffa726; border-radius:10px; padding:6px 14px;
+    font-size:20px; font-weight:bold; color:#e65100; animation: pop 0.25s ease;
+  }
+  #equationBox {
+    font-size:30px; font-weight:bold; color:#4e342e; margin:8px 0;
+    background:#fff8e1; padding:10px 24px; border-radius:14px; border:3px dashed #ffb300;
+  }
+
+  /* STAGE2 array */
+  #arrayWrap { display:flex; gap:20px; align-items:flex-start; margin-top: 6px;}
+  #rowLabels { display:flex; flex-direction:column; gap:6px; align-items:flex-end; padding-top: 30px;}
+  .rowLabel { font-size:16px; color:#e65100; font-weight:bold; height:36px; display:flex; align-items:center; }
+  #colLabels { display:flex; gap:6px; padding-left: 0; }
+  .colLabel { width:36px; text-align:center; font-size:14px; color:#5d4037; font-weight:bold;}
+  #gridArea { display:flex; flex-direction:column; gap:6px; }
+  .gridRow { display:flex; gap:6px; }
+  .cell {
+    width:36px; height:36px; background:#4fc3f7; border-radius:6px; border:2px solid #0288d1;
+    animation: pop 0.2s ease;
+  }
+
+  /* CHECK BUTTON */
+  .actionBtn {
+    margin-top:14px; padding: 12px 28px; font-size:18px; font-weight:bold; color:#fff;
+    background: #43a047; border:none; border-radius: 26px; cursor:pointer;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.25);
+  }
+  .actionBtn:active{ transform:scale(0.95); }
+  .actionBtn.secondary { background:#8d6e63; }
+
+  #feedback { font-size:22px; font-weight:bold; margin-top:10px; min-height: 30px; }
+  .good { color:#2e7d32; }
+  .bad { color:#c62828; }
+
+  /* WORD PROBLEM */
+  #storyCard {
+    background:#fffde7; border:3px solid #fbc02d; border-radius:16px; padding:18px 26px;
+    font-size:19px; color:#4e342e; max-width:900px; text-align:center; margin-bottom: 10px;
+  }
+  #answerOptions { display:flex; gap:16px; margin-top:12px; flex-wrap: wrap; justify-content:center; }
+  .answerBtn {
+    padding: 14px 22px; font-size:20px; border-radius:12px; border:3px solid #7e57c2;
+    background:#fff; color:#4527a0; font-weight:bold; cursor:pointer;
+  }
+  .answerBtn:active { transform:scale(0.95); }
+  .answerBtn.correctFlash { background:#c8e6c9; border-color:#2e7d32; }
+  .answerBtn.wrongFlash { background:#ffcdd2; border-color:#c62828; }
+
+  #progressDots { display:flex; gap:8px; margin: 6px 0; }
+  .pdot { width:14px; height:14px; border-radius:50%; background:#d7ccc8; }
+  .pdot.done { background:#43a047; }
+
+  /* Intro & final */
+  #introScreen, #finalScreen { justify-content:center; text-align:center; }
+  #introScreen h2, #finalScreen h2 { font-size:34px; }
+  .bigStart {
+    margin-top: 24px; padding:16px 40px; font-size:22px; background:#ef6c00; color:#fff;
+    border:none; border-radius:30px; cursor:pointer; box-shadow:0 5px 8px rgba(0,0,0,0.3);
+  }
+  #confettiCanvas { position:absolute; top:0; left:0; width:100%; height:100%; pointer-events:none; }
+  .factCol { display:flex; gap:30px; margin-top: 20px; flex-wrap:wrap; justify-content:center;}
+  .factCard { background:#fff; border-radius:14px; padding:16px; width:220px; border:3px solid #ffb74d; }
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <h1>🍩 Groups &amp; Arrays Bakery</h1>
+    <div id="navBtns">
+      <button class="navBtn" id="navIntro">Home</button>
+      <button class="navBtn" id="nav1">1. Equal Groups</button>
+      <button class="navBtn" id="nav2" disabled>2. Arrays</button>
+      <button class="navBtn" id="nav3" disabled>3. Story Problems</button>
+    </div>
+    <div id="badges"></div>
+  </header>
+
+  <main>
+    <!-- INTRO -->
+    <div class="screen active" id="introScreen">
+      <h2>Welcome to the Bakery!</h2>
+      <p class="instr">Multiplication is a fast way to count <b>equal groups</b>. Today you'll build baskets of muffins,
+      bake trays in neat rows &amp; columns, and solve real bakery story problems — all using skip-counting!</p>
+      <button class="bigStart" id="startBtn">Start Baking! 🧁</button>
+    </div>
+
+    <!-- STAGE 1 -->
+    <div class="screen" id="stage1">
+      <h2>Equal Groups of Muffins</h2>
+      <p class="instr">Every basket has the <b>same number</b> of muffins. Change the baskets and muffins-per-basket,
+      and watch the skip-count and the multiplication sentence build!</p>
+
+      <div class="controlsRow">
+        <div class="controlGroup">
+          <label>Number of Baskets</label>
+          <div class="stepper">
+            <button class="stepBtn" id="s1_grpMinus">-</button>
+            <div class="stepVal" id="s1_grpVal">3</div>
+            <button class="stepBtn" id="s1_grpPlus">+</button>
+          </div>
+        </div>
+        <div class="controlGroup">
+          <label>Muffins per Basket</label>
+          <div class="stepper">
+            <button class="stepBtn" id="s1_itemMinus">-</button>
+            <div class="stepVal" id="s1_itemVal">4</div>
+            <button class="stepBtn" id="s1_itemPlus">+</button>
+          </div>
+        </div>
+      </div>
+
+      <div id="basketArea"></div>
+      <div id="skipLine"></div>
+      <div id="equationBox">3 baskets × 4 = 12</div>
+
+      <p class="instr" id="s1_challengeText" style="margin-top:6px;">🎯 Challenge: Build <b>4 baskets of 5 muffins</b> to unlock Arrays!</p>
+      <button class="actionBtn" id="s1_check">Check My Baskets</button>
+      <div id="s1_feedback" class="feedback"></div>
+    </div>
+
+    <!-- STAGE 2 -->
+    <div class="screen" id="stage2">
+      <h2>Trays as Arrays</h2>
+      <p class="instr">An <b>array</b> is rows and columns of equal size — like a tray of cookies! Rows × Columns = Total.</p>
+
+      <div class="controlsRow">
+        <div class="controlGroup">
+          <label>Rows</label>
+          <div class="stepper">
+            <button class="stepBtn" id="s2_rowMinus">-</button>
+            <div class="stepVal" id="s2_rowVal">3</div>
+            <button class="stepBtn" id="s2_rowPlus">+</button>
+          </div>
+        </div>
+        <div class="controlGroup">
+          <label>Columns</label>
+          <div class="stepper">
+            <button class="stepBtn" id="s2_colMinus">-</button>
+            <div class="stepVal" id="s2_colVal">4</div>
+            <button class="stepBtn" id="s2_colPlus">+</button>
+          </div>
+        </div>
+      </div>
+
+      <div id="arrayWrap">
+        <div id="rowLabels"></div>
+        <div>
+          <div id="colLabels"></div>
+          <div id="gridArea"></div>
+        </div>
+      </div>
+      <div id="equationBox2">3 rows × 4 = 12</div>
+
+      <p class="instr" id="s2_challengeText">🎯 Challenge: Build a tray with <b>5 rows and 3 columns</b> to unlock Story Problems!</p>
+      <button class="actionBtn" id="s2_check">Check My Tray</button>
+      <div id="s2_feedback" class="feedback"></div>
+    </div>
+
+    <!-- STAGE 3 -->
+    <div class="screen" id="stage3">
+      <h2>Bakery Story Problems</h2>
+      <div id="progressDots"></div>
+      <div id="storyCard">Loading story...</div>
+      <div id="storyVisual" style="min-height:130px; display:flex; align-items:center; justify-content:center;"></div>
+      <div id="answerOptions"></div>
+      <div id="s3_feedback" class="feedback"></div>
+    </div>
+
+    <!-- FINAL -->
+    <div class="screen" id="finalScreen">
+      <canvas id="confettiCanvas" width="1365" height="768"></canvas>
+      <h2>🎉 You're a Multiplication Baker! 🎉</h2>
+      <p class="instr">You learned that multiplication means equal groups, that arrays are neat rows &amp; columns,
+      and that skip-counting helps you find the total fast.</p>
+      <div class="factCol">
+        <div class="factCard"><b>Equal Groups</b><br>3 groups of 4 = 4+4+4 = 12<br>written as 3 × 4 = 12</div>
+        <div class="factCard"><b>Arrays</b><br>3 rows, 4 columns<br>= 3 × 4 = 12</div>
+        <div class="factCard"><b>Skip Counting</b><br>4, 8, 12<br>counting by 4s, 3 times</div>
+      </div>
+      <button class="bigStart" id="restartBtn">Bake Again 🔁</button>
+    </div>
+  </main>
+</div>
+
+<script>
+/* ---------------- AUDIO ---------------- */
+let actx;
+function tone(freq, dur, type='sine', vol=0.15){
+  try{
+    if(!actx) actx = new (window.AudioContext||window.webkitAudioContext)();
+    const o = actx.createOscillator();
+    const g = actx.createGain();
+    o.type = type; o.frequency.value = freq;
+    g.gain.value = vol;
+    o.connect(g); g.connect(actx.destination);
+    o.start();
+    g.gain.exponentialRampToValueAtTime(0.001, actx.currentTime + dur);
+    o.stop(actx.currentTime + dur + 0.02);
+  }catch(e){}
+}
+function playGood(){ tone(523,0.12); setTimeout(()=>tone(659,0.15),100); setTimeout(()=>tone(784,0.18),200); }
+function playBad(){ tone(180,0.25,'sawtooth',0.1); }
+function playClick(){ tone(400,0.06,'square',0.08); }
+function playUnlock(){ tone(392,0.1); setTimeout(()=>tone(523,0.1),90); setTimeout(()=>tone(659,0.1),180); setTimeout(()=>tone(880,0.22),270); }
+
+/* ---------------- NAV ---------------- */
+const screens = ['introScreen','stage1','stage2','stage3','finalScreen'];
+function showScreen(id){
+  screens.forEach(s=>document.getElementById(s).classList.toggle('active', s===id));
+  document.querySelectorAll('.navBtn').forEach(b=>b.classList.remove('active'));
+  if(id==='stage1') document.getElementById('nav1').classList.add('active');
+  if(id==='stage2') document.getElementById('nav2').classList.add('active');
+  if(id==='stage3') document.getElementById('nav3').classList.add('active');
+  if(id==='introScreen') document.getElementById('navIntro').classList.add('active');
+}
+document.getElementById('navIntro').onclick = ()=>{playClick(); showScreen('introScreen');};
+document.getElementById('nav1').onclick = ()=>{playClick(); showScreen('stage1');};
+document.getElementById('nav2').onclick = ()=>{ if(!document.getElementById('nav2').disabled){playClick(); showScreen('stage2');} };
+document.getElementById('nav3').onclick = ()=>{ if(!document.getElementById('nav3').disabled){playClick(); showScreen('stage3');} };
+document.getElementById('startBtn').onclick = ()=>{playClick(); showScreen('stage1');};
+document.getElementById('restartBtn').onclick = ()=>{ location.reload(); };
+
+const badgesDiv = document.getElementById('badges');
+function addBadge(emoji){ const s=document.createElement('span'); s.textContent=emoji; badgesDiv.appendChild(s); }
+
+/* =========================================================
+   STAGE 1: EQUAL GROUPS
+   ========================================================= */
+let s1_groups = 3, s1_items = 4;
+const MUF = ['🧁','🍪','🍩'];
+function renderStage1(){
+  document.getElementById('s1_grpVal').textContent = s1_groups;
+  document.getElementById('s1_itemVal').textContent = s1_items;
+
+  const area = document.getElementById('basketArea');
+  area.innerHTML = '';
+  const emoji = MUF[0];
+  for(let g=0; g<s1_groups; g++){
+    const b = document.createElement('div');
+    b.className = 'basket';
+    for(let i=0; i<s1_items; i++){
+      const m = document.createElement('div');
+      m.className='muffin'; m.textContent = emoji;
+      m.style.animationDelay = (i*0.02)+'s';
+      b.appendChild(m);
+    }
+    area.appendChild(b);
+  }
+
+  const skip = document.getElementById('skipLine');
+  skip.innerHTML = '';
+  let total = 0;
+  for(let g=1; g<=s1_groups; g++){
+    total += s1_items;
+    const d = document.createElement('div');
+    d.className = 'skipNum';
+    d.textContent = total;
+    d.style.animationDelay = (g*0.05)+'s';
+    skip.appendChild(d);
+    if(g<s1_groups){
+      const arrow = document.createElement('div');
+      arrow.textContent='→'; arrow.style.color='#bf360c'; arrow.style.fontSize='20px';
+      skip.appendChild(arrow);
+    }
+  }
+  document.getElementById('equationBox').textContent =
+    `${s1_groups} basket${s1_groups>1?'s':''} × ${s1_items} = ${s1_groups*s1_items}`;
+}
+document.getElementById('s1_grpPlus').onclick = ()=>{ if(s1_groups<6){s1_groups++; playClick(); renderStage1();} };
+document.getElementById('s1_grpMinus').onclick = ()=>{ if(s1_groups>1){s1_groups--; playClick(); renderStage1();} };
+document.getElementById('s1_itemPlus').onclick = ()=>{ if(s1_items<8){s1_items++; playClick(); renderStage1();} };
+document.getElementById('s1_itemMinus').onclick = ()=>{ if(s1_items>1){s1_items--; playClick(); renderStage1();} };
+
+document.getElementById('s1_check').onclick = ()=>{
+  const fb = document.getElementById('s1_feedback');
+  if(s1_groups===4 && s1_items===5){
+    fb.innerHTML = '<span class="good">🎉 Perfect! 4 baskets of 5 = 20! Arrays unlocked!</span>';
+    playGood(); addBadge('🧁');
+    document.getElementById('nav2').disabled = false;
+    setTimeout(()=>{ playUnlock(); showScreen('stage2'); }, 900);
+  } else {
+    fb.innerHTML = `<span class="bad">Not quite — you have ${s1_groups} baskets of ${s1_items}. Try 4 baskets of 5!</span>`;
+    playBad();
+  }
+};
+renderStage1();
+
+/* =========================================================
+   STAGE 2: ARRAYS
+   ========================================================= */
+let s2_rows = 3, s2_cols = 4;
+function renderStage2(){
+  document.getElementById('s2_rowVal').textContent = s2_rows;
+  document.getElementById('s2_colVal').textContent = s2_cols;
+
+  const colLabels = document.getElementById('colLabels');
+  colLabels.innerHTML = '';
+  for(let c=0;c<s2_cols;c++){
+    const l = document.createElement('div'); l.className='colLabel'; l.textContent = c+1;
+    colLabels.appendChild(l);
+  }
+
+  const rowLabels = document.getElementById('rowLabels');
+  rowLabels.innerHTML = '';
+  const grid = document.getElementById('gridArea');
+  grid.innerHTML = '';
+  let running = 0;
+  for(let r=0;r<s2_rows;r++){
+    running += s2_cols;
+    const rl = document.createElement('div');
+    rl.className='rowLabel'; rl.textContent = 'row '+(r+1)+' → '+running;
+    rowLabels.appendChild(rl);
+
+    const rowDiv = document.createElement('div');
+    rowDiv.className='gridRow';
+    for(let c=0;c<s2_cols;c++){
+      const cell = document.createElement('div');
+      cell.className='cell';
+      cell.style.animationDelay = ((r*s2_cols+c)*0.01)+'s';
+      rowDiv.appendChild(cell);
+    }
+    grid.appendChild(rowDiv);
+  }
+  document.getElementById('equationBox2').textContent =
+    `${s2_rows} rows × ${s2_cols} = ${s2_rows*s2_cols}`;
+}
+document.getElementById('s2_rowPlus').onclick=()=>{ if(s2_rows<7){s2_rows++;playClick();renderStage2();} };
+document.getElementById('s2_rowMinus').onclick=()=>{ if(s2_rows>1){s2_rows--;playClick();renderStage2();} };
+document.getElementById('s2_colPlus').onclick=()=>{ if(s2_cols<8){s2_cols++;playClick();renderStage2();} };
+document.getElementById('s2_colMinus').onclick=()=>{ if(s2_cols>1){s2_cols--;playClick();renderStage2();} };
+
+document.getElementById('s2_check').onclick = ()=>{
+  const fb = document.getElementById('s2_feedback');
+  if(s2_rows===5 && s2_cols===3){
+    fb.innerHTML = '<span class="good">🎉 Yes! 5 rows × 3 = 15! Story Problems unlocked!</span>';
+    playGood(); addBadge('🍪');
+    document.getElementById('nav3').disabled = false;
+    setTimeout(()=>{ playUnlock(); showScreen('stage3'); buildStory(); }, 900);
+  } else {
+    fb.innerHTML = `<span class="bad">You built ${s2_rows} rows × ${s2_cols}. Try 5 rows and 3 columns!</span>`;
+    playBad();
+  }
+};
+renderStage2();
+
+/* =========================================================
+   STAGE 3: WORD PROBLEMS
+   ========================================================= */
+const stories = [
+  {
+    text: "The baker puts muffins into 3 trays. Each tray holds 6 muffins. How many muffins in total?",
+    groups: 3, items: 6, mode: 'groups', emoji:'🧁'
+  },
+  {
+    text: "A cookie sheet has 4 rows and 5 columns of cookies. How many cookies are on the sheet?",
+    groups: 4, items: 5, mode: 'array', emoji:'🍪'
+  },
+  {
+    text: "There are 6 boxes of donuts. Each box has 3 donuts. How many donuts altogether?",
+    groups: 6, items: 3, mode: 'groups', emoji:'🍩'
+  },
+  {
+    text: "A tray of brownies is arranged in 3 rows and 7 columns. How many brownies is that?",
+    groups: 3, items: 7, mode: 'array', emoji:'🟫'
+  }
+];
+let storyIndex = 0;
+
+function buildProgressDots(){
+  const pd = document.getElementById('progressDots');
+  pd.innerHTML='';
+  stories.forEach((_,i)=>{
+    const d = document.createElement('div');
+    d.className='pdot' + (i<storyIndex?' done':'');
+    pd.appendChild(d);
+  });
+}
+
+function buildStory(){
+  if(storyIndex >= stories.length){
+    finishAll();
+    return;
+  }
+  buildProgressDots();
+  const s = stories[storyIndex];
+  document.getElementById('storyCard').textContent = s.text;
+  const vis = document.getElementById('storyVisual');
+  vis.innerHTML='';
+
+  if(s.mode==='groups'){
+    for(let g=0; g<s.groups; g++){
+      const b = document.createElement('div');
+      b.className='basket'; b.style.width='90px'; b.style.minHeight='70px';
+      for(let i=0;i<s.items;i++){
+        const m=document.createElement('div'); m.className='muffin'; m.style.fontSize='18px';
+        m.textContent=s.emoji; b.appendChild(m);
+      }
+      vis.appendChild(b);
+    }
+  } else {
+    const grid = document.createElement('div'); grid.style.display='flex'; grid.style.flexDirection='column'; grid.style.gap='4px';
+    for(let r=0;r<s.groups;r++){
+      const row = document.createElement('div'); row.style.display='flex'; row.style.gap='4px';
+      for(let c=0;c<s.items;c++){
+        const cell = document.createElement('div');
+        cell.style.width='28px'; cell.style.height='28px'; cell.style.background='#4fc3f7';
+        cell.style.border='2px solid #0288d1'; cell.style.borderRadius='5px';
+        row.appendChild(cell);
+      }
+      grid.appendChild(row);
+    }
+    vis.appendChild(grid);
+  }
+
+  // Build answer options
+  const correct = s.groups * s.items;
+  const opts = new Set([correct]);
+  while(opts.size < 4){
+    const delta = Math.floor(Math.random()*6)-3;
+    let candidate = correct + delta*( s.items>1?1:2 );
+    if(candidate>0 && candidate!==correct) opts.add(candidate);
+  }
+  const arr = Array.from(opts);
+  for(let i=arr.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [arr[i],arr[j]]=[arr[j],arr[i]]; }
+
+  const optDiv = document.getElementById('answerOptions');
+  optDiv.innerHTML = '';
+  document.getElementById('s3_feedback').innerHTML = '';
+  arr.forEach(val=>{
+    const btn = document.createElement('button');
+    btn.className='answerBtn';
+    btn.textContent = val;
+    btn.onclick = ()=> checkStoryAnswer(val, correct, btn, s);
+    optDiv.appendChild(btn);
+  });
+}
+
+function checkStoryAnswer(val, correct, btn, s){
+  const fb = document.getElementById('s3_feedback');
+  const allBtns = document.querySelectorAll('.answerBtn');
+  allBtns.forEach(b=>b.onclick=null);
+  if(val===correct){
+    btn.classList.add('correctFlash');
+    fb.innerHTML = `<span class="good">🎉 Correct! ${s.groups} ${s.mode==='array'?'rows':'groups'} of ${s.items} = ${correct}.
+      Skip count: ${skipCountString(s.groups,s.items)}</span>`;
+    playGood();
+    storyIndex++;
+    setTimeout(()=> buildStory(), 1700);
+  } else {
+    btn.classList.add('wrongFlash');
+    fb.innerHTML = `<span class="bad">Not quite. Count the groups again — try skip-counting by ${s.items}!</span>`;
+    playBad();
+    setTimeout(()=>{
+      btn.classList.remove('wrongFlash');
+      allBtns.forEach(b=>{ b.onclick = ()=>checkStoryAnswer(parseInt(b.textContent), correct, b, s); });
+    }, 900);
+  }
+}
+
+function skipCountString(groups, items){
+  let arr=[]; let t=0;
+  for(let i=0;i<groups;i++){ t+=items; arr.push(t); }
+  return arr.join(', ');
+}
+
+function finishAll(){
+  addBadge('🍩');
+  showScreen('finalScreen');
+  launchConfetti();
+}
+
+/* ---------------- CONFETTI ---------------- */
+function launchConfetti(){
+  const canvas = document.getElementById('confettiCanvas');
+  const ctx = canvas.getContext('2d');
+  const pieces = [];
+  const colors = ['#ff8a65','#4fc3f7','#ffd54f','#81c784','#ba68c8'];
+  for(let i=0;i<120;i++){
+    pieces.push({
+      x: Math.random()*1365, y: -20 - Math.random()*400,
+      r: 4+Math.random()*5, c: colors[Math.floor(Math.random()*colors.length)],
+      vy: 2+Math.random()*3, vx: -1+Math.random()*2, rot: Math.random()*360
+    });
+  }
+  let frame = 0;
+  function draw(){
+    ctx.clearRect(0,0,1365,768);
+    pieces.forEach(p=>{
+      p.y += p.vy; p.x += p.vx; p.rot += 4;
+      ctx.save();
+      ctx.translate(p.x,p.y); ctx.rotate(p.rot*Math.PI/180);
+      ctx.fillStyle = p.c;
+      ctx.fillRect(-p.r/2,-p.r/2,p.r,p.r*1.6);
+      ctx.restore();
+    });
+    frame++;
+    if(frame < 260 && document.getElementById('finalScreen').classList.contains('active')){
+      requestAnimationFrame(draw);
+    } else {
+      ctx.clearRect(0,0,1365,768);
+    }
+  }
+  draw();
+}
+</script>
+</body>
+</html>

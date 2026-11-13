@@ -1,0 +1,44 @@
+[
+  {
+    "call": 2,
+    "stage": "persona-architect",
+    "model": "claude-fable-5",
+    "status": "complete",
+    "inputTokens": 11499,
+    "outputTokens": 9707,
+    "elapsedMs": 149726,
+    "costUsd": 0.60034,
+    "stopReason": "tool_use"
+  },
+  {
+    "call": 1,
+    "stage": "neutral-architect",
+    "model": "claude-fable-5",
+    "status": "complete",
+    "inputTokens": 11384,
+    "outputTokens": 13189,
+    "elapsedMs": 193156,
+    "costUsd": 0.77329,
+    "stopReason": "tool_use"
+  },
+  {
+    "call": 4,
+    "stage": "persona-builder",
+    "model": "claude-opus-5",
+    "status": "failed",
+    "inputTokens": 0,
+    "outputTokens": 0,
+    "elapsedMs": 29671,
+    "error": "{\"type\":\"error\",\"error\":{\"details\":null,\"type\":\"invalid_request_error\",\"message\":\"Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.\"},\"request_id\":\"req_011Ce9AECwwGLBHr2mKCp548\"     }"
+  },
+  {
+    "call": 3,
+    "stage": "neutral-builder",
+    "model": "claude-opus-5",
+    "status": "failed",
+    "inputTokens": 0,
+    "outputTokens": 0,
+    "elapsedMs": 29991,
+    "error": "{\"type\":\"error\",\"error\":{\"details\":null,\"type\":\"invalid_request_error\",\"message\":\"Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.\"},\"request_id\":\"req_011Ce9AECpzD7qYShNHCPGT8\"         }"
+  }
+]

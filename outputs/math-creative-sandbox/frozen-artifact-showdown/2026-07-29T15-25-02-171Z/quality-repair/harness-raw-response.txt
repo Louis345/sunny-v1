@@ -1,0 +1,111 @@
+```json
+{
+  "reviews": [
+    {
+      "candidateId": "sonnet-5",
+      "strongestQuality": "Cleanest single-focus first action: exactly one pulsing dial button at a time, color-coded message phrases, and a live thunk-per-crate array that honors the message → dials → array loop.",
+      "functionalIssues": [
+        "The equation code bar never updates: eqDisplay stays '? × ?' forever because dial handlers never write into it, and newRound() destroys/recreates the product input via innerHTML — the child must hold both factors in memory, contradicting equation assembly.",
+        "When Vex steals a shipment, vexSteal() just resets progress to 40 and advances — no map marker and no Reclaim Run is ever queued, so the promised recovery path is dead code."
+      ],
+      "usabilityIssues": [
+        "Product entry is a small native number spinbutton with no on-screen keypad — weak touch affordance for a nine-year-old on a tablet.",
+        "RECOUNT shows a text banner instead of unpacking a crate row visually, so the scaffold reads as a hint label, not a concrete count."
+      ],
+      "visualIssues": [
+        "Fixed 1365px stage with overflow:hidden clips the right dial panel and top rail at the actual 1280px viewport (both screenshots show the panel cut at the right edge)."
+      ],
+      "artifactFidelityIssues": [
+        "No demonstration moment: no crate slides in by itself and the CRATES dial never auto-nudges 0→1, so the frozen 'interface demonstrates before she touches' beat is missing.",
+        "Harbor-map museum of stamped equations is absent during play; stamps only appear at the end Case File."
+      ],
+      "repairBrief": "Make the stage scale to viewport (transform: scale(min(vw/1365, vh/768))) so the dial panel is never clipped. Bind dial changes into the code bar so it reads '3 × 5 = [input]' live, and stop rebuilding the input with innerHTML. Add the opening demo: one crate slides in, CRATES auto-nudges to 1. Implement vexSteal() to push a marked Reclaim Run copy of the current problem back into the queue with color hints on, and add a small persistent stamp strip so seized equations accumulate visibly during the run. Give RECOUNT a real unpacked-row animation instead of a banner.",
+      "candidateComment": ""
+    },
+    {
+      "candidateId": "opus-5",
+      "strongestQuality": "Highest artifact coverage in one screen: tally strip, touch keypad, live harbor-map stamps, act-specific hint lines, Act-1 demo auto-setting CRATES to 1, and structure-aware failure messages that distinguish wrong dials from wrong product.",
+      "functionalIssues": [
+        "Act 1 theft pacing is far too fast: 12 ticks × 2.2s ≈ 26 seconds per shipment, and the first-play trace shows two 'STOLEN' stamps plus a theft toast before any player input — violating 'Vex moves slowly' in Act 1.",
+        "Reclaim Runs are inserted with r.reclaim=true, but load() never reads that flag, so the promised hint layer on reclaimed shipments never activates."
+      ],
+      "usabilityIssues": [
+        "The keypad's third column (3, 6, 9, ⌫) is clipped offscreen at the 1280px viewport, forcing keyboard-only product entry.",
+        "RECOUNT's hint text states the full answer ('Groups = g'), overshooting the dignity-preserving one-row unpack and short-circuiting interpretation."
+      ],
+      "visualIssues": [
+        "Fixed 1365px body clips the right edge at 1280px: the SEIZED/BUSTED score truncates and the harbor map and keypad are partially cut."
+      ],
+      "artifactFidelityIssues": [
+        "Act-1 boat speed contradicts the frozen 'slow, no pressure yet' teaching act.",
+        "RECOUNT reveals both factors outright rather than concretely unpacking one row."
+      ],
+      "repairBrief": "Scale the stage to the viewport so the keypad, map, and score are fully visible at 1280px. Slow Act 1 dramatically (e.g., 60–90s per shipment or pause Vex until first dial input) so a first read cannot end in theft. In load(), honor q.reclaim: re-enable color-coded phrases and slower Vex for Reclaim Runs. Rewrite RECOUNT to show only the unpacked row and its per-group count without printing the groups value. Remove the dead verdict comparison block in verdict() for clarity.",
+      "candidateComment": ""
+    },
+    {
+      "candidateId": "gpt-5-5",
+      "strongestQuality": "Smart guided-attention chain: the pulse always moves to the next needed control (groups dial → in-each dial → product → lock/verdict), and mismatch feedback distinguishes dial errors from product errors with the tally strip as evidence.",
+      "functionalIssues": [
+        "No start gate: reset(0) and setInterval(tick,50) run at page load, so Vex stole the opening shipments before any input — first play opens on a 'Reclaim Run • SECOND CHANCE' with 3–4 red markers instead of the frozen 3×5 demo opening.",
+        "Stolen-marker duplication: the trace shows '3×5 stolen' and '4×2 stolen' each listed twice; steal() pushes to stolen[] per theft and reclaim copies share uids, inflating red markers."
+      ],
+      "usabilityIssues": [
+        "RECOUNT and No Mercy sit in the header, far from the dials and equation where the child's attention lives.",
+        "The scripted demo (start:[1,5] on problem 1) is unreachable in practice because round 1 is consumed before the player arrives."
+      ],
+      "visualIssues": [
+        "The rail's boat glyph overlaps the distance text at low progress ('CLAW◆VEX' collision visible in the header track)."
+      ],
+      "artifactFidelityIssues": [
+        "The green 'aligned' outline confirms correct dials before locking, leaking the answer and bypassing the tally-comparison reasoning the artifact specifies.",
+        "Problems are a fixed 13-item list, not template-generated across contexts × structures × ranges, so replay repeats identical problems."
+      ],
+      "repairBrief": "Add a start overlay that shows the frozen opening (note, demo crate, pulsing dial) and only begin tick() plus problem 1's [1,5] demo after the child taps start. Deduplicate the stolen list (key by uid, remove on reclaim, never double-push). Remove the pre-lock 'aligned' green outline — keep only the post-lock mismatch flash against the tally. Fix the rail so the boat and distance label never overlap. Optionally randomize numbers within each template on load so replays vary without changing the round structure.",
+      "candidateComment": ""
+    },
+    {
+      "candidateId": "gpt-5-6-sol",
+      "strongestQuality": "Best visual hierarchy and interface economy: message, dock, dials/seizure code, and a persistent 13-slot Case File footer read instantly; reverse-crack orientation buttons and the reclaim/no-mercy systems are genuinely implemented.",
+      "functionalIssues": [
+        "No start gate: init() runs on load with a live Vex timer, so the opening screenshot is already at Act 2 and the first-play trace shows six 'VEX STOLE IT' slots before any input — the frozen first-three-seconds and Act 1 teaching loop are consumed unseen.",
+        "tone() constructs a new AudioContext on every sound; browsers cap live contexts, so audio (the covert counting scaffold) degrades or dies mid-session."
+      ],
+      "usabilityIssues": [
+        "The opening demo auto-sets IN EACH to 5 for the child, doing half her first task instead of the artifact's crates-only auto-nudge.",
+        "On Reclaim Runs the boat renders at 100% of the track while text says Vex is frozen — a mixed threat signal."
+      ],
+      "visualIssues": [
+        "The 'CLAW◆' racer marker is tiny low-contrast text easily lost against the track, weakening the race framing's visibility."
+      ],
+      "artifactFidelityIssues": [
+        "Because play auto-starts, the promised dark-harbor first frame with the half-built demo array never reliably occurs.",
+        "Fixed 13-round playlist limits the template-crossed replay variation the artifact promises (rematch reshuffles only some numbers)."
+      ],
+      "repairBrief": "Gate everything behind a start overlay: construct state but do not start the tick interval or round clock until tapped; on start, play the frozen demo (crate slides in, CRATES nudges to 1, IN EACH left at 0 or demonstrated visually rather than pre-set). Create one shared AudioContext lazily on first pointer event and reuse it in tone(). On reclaim rounds, park the frozen boat mid-track or badge it 'FROZEN' so position and message agree. Increase the CLAW marker's size/contrast so the race reads at a glance.",
+      "candidateComment": ""
+    },
+    {
+      "candidateId": "fable-5",
+      "strongestQuality": "Best first-action onboarding among gated candidates: start overlay, then the CRATES dial auto-nudges to 1 with a plain-language toast, dial pulse, and per-crate rising tones — the frozen demonstration beat lands.",
+      "functionalIssues": [
+        "Fixed 1365px stage with overflow:hidden at a 1280px viewport clips the right control column: dial +/− buttons and the keypad's fourth column are partially cut and the page cannot scroll, making core controls hard or impossible to hit (both screenshots confirm)."
+      ],
+      "usabilityIssues": [
+        "The tally strip pre-reveals 'one crate opened: N in each' on every round, including Act-2 distractor and groups-stated-second rounds, so the interpretation challenge (which number is per-group?) is answered before she reads.",
+        "With IN EACH at 0, a full-width empty brown bar renders per crate row, which reads as a solid plank rather than an empty group awaiting items."
+      ],
+      "visualIssues": [
+        "Crate rows stretch to full dock width regardless of 'in each,' and item emoji scale by font size, so items never align into columns — the array reads as a list of decorated bars, not a rows × columns structure."
+      ],
+      "artifactFidelityIssues": [
+        "Act 3 omits Reverse Cracks and the No Mercy toggle specified in the frozen progression; the finale is bluffs only.",
+        "The always-open tally strip contradicts the artifact's design where the tally exposes a mismatch after a wrong build, inviting re-reading, rather than disclosing the per-group amount upfront."
+      ],
+      "repairBrief": "Scale the stage to fit the viewport so all dial buttons and keypad keys are reachable at 1280px. Change the tally strip to appear only after a wrong lock (or via RECOUNT), showing the opened crate as mismatch evidence instead of an upfront answer — this restores the Act-2 distractor and order challenges. Render crates as fixed-size cells in a grid (columns = IN EACH) so rows and columns are visually countable, and show a dashed empty cell state when IN EACH is 0. Add the specified Reverse Crack round and a No Mercy toggle to Act 3 using existing controls.",
+      "candidateComment": ""
+    }
+  ],
+  "crossCandidateObservation": "Two systemic failure patterns split the field. First, hard-coded 1365×768 stages with overflow:hidden (sonnet-5, opus-5, fable-5) clip primary controls — dials, keypads, score — at the real 1280px viewport, an interface-decoding tax the frozen artifact explicitly forbids. Second, gateless auto-starting Vex timers (gpt-5-5, gpt-5-6-sol) consumed multiple rounds before first input, so first contact shows stolen shipments and mid-act state instead of the frozen dark-harbor demo; both also convert the choreographed 'interface demonstrates first' beat into either an unreachable script or an over-helpful auto-fill. Every candidate independently kept the two-dial + live-array + equation continuity, confirming the core loop is robust to implementation variance — the defects cluster in framing, pacing, and viewport engineering, not in the mathematics."
+}
+```

@@ -1,0 +1,61 @@
+Create three materially different experience designs for a nine-year-old learning:
+
+Multiplication as equal groups and arrays, connected to skip-counting and word-problem interpretation.
+
+Teach the concept rather than reproducing worksheet questions.
+
+Factual observations about Reina:
+- She has repeatedly requested difficult challenges.
+- She has sustained engagement with fast-paced riddles and multi-step logic.
+- She notices errors and questions faulty reasoning.
+- Applied store-based math produced substantially stronger performance than mechanical worksheet-style practice.
+- She has requested action stories involving adversaries.
+- Competitive framing has coincided with high engagement.
+- These observations come from a limited set of sessions and do not prove permanent preferences.
+
+Do not implement code. Do not assume the evidence proves what Reina will like. Each design must make a testable prediction and explain what child behavior would falsify it.
+
+The three designs must differ in premise, primary interaction, visual language, stakes, progression, and payoff. Do not make all three futuristic, competitive, dark, cute, or conventionally game-like.
+
+For each design provide:
+- title;
+- openingPromise;
+- mission;
+- firstAction;
+- childAction;
+- mathAsPower;
+- stakes;
+- recovery;
+- progression;
+- worldReaction;
+- payoff;
+- replayVariation;
+- profileEvidenceUsed;
+- engagementPrediction;
+- falsifyingEvidence;
+- prototypeScope.
+
+Return JSON only:
+{
+  "designs": [
+    {
+      "id": "A",
+      "title": "",
+      "openingPromise": "",
+      "mission": "",
+      "firstAction": "",
+      "childAction": "",
+      "mathAsPower": "",
+      "stakes": "",
+      "recovery": "",
+      "progression": [],
+      "worldReaction": "",
+      "payoff": "",
+      "replayVariation": "",
+      "profileEvidenceUsed": [],
+      "engagementPrediction": "",
+      "falsifyingEvidence": "",
+      "prototypeScope": ""
+    }
+  ]
+}

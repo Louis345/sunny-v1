@@ -1,0 +1,303 @@
+```html
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Potion Split Showdown</title>
+<style>
+  * { box-sizing: border-box; margin:0; padding:0; }
+  body {
+    width: 1365px; height: 768px; overflow: hidden;
+    background: radial-gradient(ellipse at center, #2a1a3d 0%, #150c22 70%);
+    font-family: 'Georgia', serif; color: #f0e6ff; position: relative;
+  }
+  #title {
+    position: absolute; top: 18px; width: 100%; text-align: center;
+    font-size: 30px; color: #d9b3ff; text-shadow: 0 0 12px #a352ff;
+    letter-spacing: 2px;
+  }
+  #promptBanner {
+    position: absolute; top: 66px; width: 100%; text-align: center;
+    font-size: 18px; color: #ffe08a; opacity: 0.9;
+  }
+  #wheel {
+    position: absolute; top: 100px; left: 50%; transform: translateX(-50%);
+    width: 90px; height: 90px; border-radius: 50%;
+    background: radial-gradient(circle at 35% 35%, #ffcf6b, #a3651a);
+    border: 6px solid #7a4a12;
+    box-shadow: 0 0 25px rgba(255,190,80,0.6);
+    display:flex; align-items:center; justify-content:center;
+    font-size: 12px; font-weight:bold; color:#3a1f00;
+  }
+  .arena {
+    position: absolute; top: 220px; width: 100%; height: 420px;
+    display: flex; justify-content: center; align-items: center; gap: 140px;
+  }
+  .bottleWrap { text-align: center; }
+  .fracLabel {
+    font-size: 26px; color: #ffe9b0; margin-bottom: 10px; font-weight: bold;
+    text-shadow: 0 0 8px #ff9d2f;
+  }
+  .bottle {
+    width: 130px; height: 300px; border: 4px solid #d4af37;
+    border-radius: 20px 20px 30px 30px; position: relative; overflow: hidden;
+    background: rgba(255,255,255,0.03); cursor: pointer;
+    box-shadow: 0 0 20px rgba(212,175,55,0.4);
+    transition: transform 0.15s;
+  }
+  .bottle:hover { transform: scale(1.03); }
+  .bottle.chosen { border-color: #7CFC00; box-shadow: 0 0 35px #7CFC00; }
+  .bottle.wrongPick { border-color: #ff4d4d; box-shadow: 0 0 35px #ff4d4d; }
+  .segment {
+    position: absolute; left: 0; width: 100%; border-top: 1px solid rgba(255,255,255,0.25);
+  }
+  .dose {
+    position: absolute; left: 2px; width: calc(100% - 4px);
+    background: linear-gradient(180deg,#7a4fff,#4b2a99);
+  }
+  .dose.glow {
+    background: linear-gradient(180deg,#ffd85e,#ff9d2f);
+    box-shadow: 0 0 20px 4px #ffcf6b inset;
+    animation: pulse 1.4s infinite;
+  }
+  @keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:0.65;} }
+
+  #vsCenter {
+    display:flex; flex-direction:column; align-items:center; gap:14px;
+  }
+  #symbolSlot {
+    width: 70px; height: 70px; border: 3px dashed #b088ff; border-radius: 12px;
+    display:flex; align-items:center; justify-content:center; font-size: 34px;
+    color:#fff; background: rgba(255,255,255,0.05);
+  }
+  .symBtn {
+    width: 44px; height: 44px; margin: 3px; font-size: 22px; border-radius: 8px;
+    border: 2px solid #b088ff; background:#2a1a4d; color:#fff; cursor:pointer;
+  }
+  .symBtn:hover { background:#442878; }
+
+  #reasoningRow {
+    position: absolute; bottom: 130px; width: 100%; text-align:center;
+  }
+  .reasonTile {
+    display:inline-block; margin: 4px 8px; padding: 10px 16px; border-radius: 10px;
+    background: #3a2060; border: 2px solid #8a5fd1; cursor: pointer; font-size: 15px;
+    transition: 0.15s;
+  }
+  .reasonTile:hover { background:#523088; }
+  .reasonTile.correct { background:#2f6b2f; border-color:#7CFC00; }
+  .reasonTile.wrong { background:#6b2f2f; border-color:#ff4d4d; opacity:0.6; }
+
+  #meterWrap {
+    position: absolute; bottom: 15px; left: 30px; width: 320px;
+  }
+  #meterLabel { font-size:14px; color:#ffd85e; margin-bottom:4px; }
+  #meterBar { width:100%; height:22px; background:#241638; border:2px solid #ffd85e; border-radius:12px; overflow:hidden; }
+  #meterFill { height:100%; width:0%; background:linear-gradient(90deg,#7a4fff,#ff9d2f); transition: width 0.6s cubic-bezier(.2,1.5,.5,1); }
+
+  #cauldron {
+    position: absolute; bottom: 10px; right: 40px; width: 160px; height: 130px;
+    text-align:center;
+  }
+  #cauldronBody {
+    width: 130px; height: 90px; margin: 0 auto; border-radius: 0 0 60px 60px;
+    background: radial-gradient(circle at 40% 30%, #6b3fa0, #2a1650);
+    border: 4px solid #b088ff; position: relative; overflow: hidden;
+  }
+  #brewLiquid {
+    position:absolute; bottom:0; left:0; width:100%; height:10%;
+    background: linear-gradient(180deg,#9d5eff,#5a2ba0); transition: height 0.7s ease;
+  }
+  #cauldronLabel { font-size: 12px; color:#d9b3ff; margin-top:4px; }
+
+  #hint {
+    position: absolute; bottom: 65px; width:100%; text-align:center;
+    font-size: 15px; color:#ffb0b0; height: 20px;
+  }
+  #whisper {
+    position: absolute; top: 190px; width:100%; text-align:center;
+    font-size: 15px; color: #cbb2ff; font-style: italic; opacity:0.85;
+  }
+</style>
+</head>
+<body>
+
+<div id="title">🧪 Potion Split Showdown</div>
+<div id="promptBanner">Bigger sip wins. Tap it, then set the sign.</div>
+<div id="whisper">"Bigger sip wins. Tap it."</div>
+<div id="wheel">SPIN</div>
+
+<div class="arena">
+  <div class="bottleWrap">
+    <div class="fracLabel" id="labelA">1/3</div>
+    <div class="bottle" id="bottleA"></div>
+  </div>
+  <div id="vsCenter">
+    <div id="symbolSlot">?</div>
+    <div>
+      <button class="symBtn" data-sym=">">&gt;</button>
+      <button class="symBtn" data-sym="<">&lt;</button>
+      <button class="symBtn" data-sym="=">=</button>
+    </div>
+  </div>
+  <div class="bottleWrap">
+    <div class="fracLabel" id="labelB">1/6</div>
+    <div class="bottle" id="bottleB"></div>
+  </div>
+</div>
+
+<div id="reasoningRow"></div>
+<div id="hint"></div>
+
+<div id="meterWrap">
+  <div id="meterLabel">Brew Meter</div>
+  <div id="meterBar"><div id="meterFill"></div></div>
+</div>
+
+<div id="cauldron">
+  <div id="cauldronBody"><div id="brewLiquid"></div></div>
+  <div id="cauldronLabel">Reina's Cauldron</div>
+</div>
+
+<script>
+let pairs = [[3,6],[2,8],[3,7],[5,6],[4,4]];
+let pairIdx = 0;
+let denomA, denomB, chosenBigger = null, symbolPlaced = null, correctSym = null;
+let brewPct = 0;
+let stage = 0; // 0 pick bottle, 1 pick symbol, 2 pick reasoning
+
+const bottleA = document.getElementById('bottleA');
+const bottleB = document.getElementById('bottleB');
+const labelA = document.getElementById('labelA');
+const labelB = document.getElementById('labelB');
+const symbolSlot = document.getElementById('symbolSlot');
+const hint = document.getElementById('hint');
+const reasoningRow = document.getElementById('reasoningRow');
+const wheel = document.getElementById('wheel');
+const whisper = document.getElementById('whisper');
+const meterFill = document.getElementById('meterFill');
+const brewLiquid = document.getElementById('brewLiquid');
+
+function buildBottle(el, denom, biggerIsThis) {
+  el.innerHTML = '';
+  const segHeight = 100 / denom;
+  for (let i=0;i<denom;i++){
+    const seg = document.createElement('div');
+    seg.className = 'segment';
+    seg.style.top = (i*segHeight)+'%';
+    seg.style.height = segHeight+'%';
+    el.appendChild(seg);
+  }
+  const dose = document.createElement('div');
+  dose.className = 'dose glow';
+  dose.style.bottom = '0%';
+  dose.style.height = segHeight+'%';
+  el.appendChild(dose);
+}
+
+function newRound(){
+  stage = 0;
+  chosenBigger = null; symbolPlaced = null;
+  bottleA.classList.remove('chosen','wrongPick');
+  bottleB.classList.remove('chosen','wrongPick');
+  symbolSlot.textContent = '?';
+  hint.textContent = '';
+  reasoningRow.innerHTML = '';
+
+  const p = pairs[pairIdx % pairs.length];
+  pairIdx++;
+  denomA = p[0]; denomB = p[1];
+  labelA.textContent = '1/' + denomA;
+  labelB.textContent = '1/' + denomB;
+  buildBottle(bottleA, denomA);
+  buildBottle(bottleB, denomB);
+
+  if (denomA < denomB) correctSym = '>';
+  else if (denomA > denomB) correctSym = '<';
+  else correctSym = '=';
+
+  whisper.textContent = 'Bigger sip wins. Tap it.';
+
+  // spin animation
+  wheel.style.transition = 'transform 1.1s cubic-bezier(.2,.8,.2,1)';
+  wheel.style.transform = 'rotate(' + (720 + Math.random()*360) + 'deg)';
+  setTimeout(()=>{ wheel.textContent = '1/'+denomA+' vs 1/'+denomB; }, 900);
+}
+
+function pourCauldron(amount){
+  brewPct = Math.min(100, brewPct + amount);
+  meterFill.style.width = brewPct + '%';
+  brewLiquid.style.height = Math.min(90, 10 + brewPct*0.8) + '%';
+}
+
+function chooseBottle(which){
+  if (stage !== 0) return;
+  const isBigger = (which === 'A' && correctSym === '>') ||
+                    (which === 'B' && correctSym === '<') ||
+                    (correctSym === '=' );
+  if (isBigger) {
+    (which==='A'?bottleA:bottleB).classList.add('chosen');
+    chosenBigger = which;
+    hint.textContent = '';
+    stage = 1;
+    whisper.textContent = 'Now drag the correct sign into the slot.';
+  } else {
+    (which==='A'?bottleA:bottleB).classList.add('wrongPick');
+    hint.textContent = 'Tink! Count the parts — which bottle has fewer cuts?';
+  }
+}
+
+bottleA.addEventListener('click', ()=>chooseBottle('A'));
+bottleB.addEventListener('click', ()=>chooseBottle('B'));
+
+document.querySelectorAll('.symBtn').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    if (stage !== 1) return;
+    const sym = btn.getAttribute('data-sym');
+    symbolSlot.textContent = sym;
+    if (sym === correctSym) {
+      symbolSlot.style.borderColor = '#7CFC00';
+      pourCauldron(10);
+      stage = 2;
+      showReasoning();
+      whisper.textContent = 'Splash! Now say why.';
+    } else {
+      symbolSlot.style.borderColor = '#ff4d4d';
+      hint.textContent = 'Not quite — compare the number of cuts again.';
+    }
+  });
+});
+
+function showReasoning(){
+  reasoningRow.innerHTML = '';
+  const tiles = [
+    {text:'Fewer equal parts means each part is bigger.', correct:true},
+    {text:'More equal parts means each part is bigger.', correct:false},
+    {text:'The bottle color decides the size.', correct:false}
+  ];
+  tiles.sort(()=>Math.random()-0.5);
+  tiles.forEach(t=>{
+    const d = document.createElement('div');
+    d.className = 'reasonTile';
+    d.textContent = t.text;
+    d.addEventListener('click', ()=>{
+      if (t.correct){
+        d.classList.add('correct');
+        pourCauldron(10);
+        hint.textContent = '';
+        whisper.textContent = '"Fewer cuts, bigger sip!" — the imps cheer!';
+        setTimeout(newRound, 1400);
+      } else {
+        d.classList.add('wrong');
+        hint.textContent = 'Count the parts — which bottle has fewer cuts?';
+      }
+    });
+    reasoningRow.appendChild(d);
+  });
+}
+
+newRound();
+</script>
+</body>
+</html>
+```

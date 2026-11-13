@@ -1,0 +1,68 @@
+{
+  "candidateId": "scenario-0-control",
+  "screenshots": [
+    "/Users/jamaltaylor/Development/sunny-math-creative-sandbox/outputs/math-creative-sandbox/2026-07-27T02-56-08-227Z-reina/scenario-0-control/00-opening.png",
+    "/Users/jamaltaylor/Development/sunny-math-creative-sandbox/outputs/math-creative-sandbox/2026-07-27T02-56-08-227Z-reina/scenario-0-control/01-first-action.png",
+    "/Users/jamaltaylor/Development/sunny-math-creative-sandbox/outputs/math-creative-sandbox/2026-07-27T02-56-08-227Z-reina/scenario-0-control/02-progress.png",
+    "/Users/jamaltaylor/Development/sunny-math-creative-sandbox/outputs/math-creative-sandbox/2026-07-27T02-56-08-227Z-reina/scenario-0-control/03-progress.png",
+    "/Users/jamaltaylor/Development/sunny-math-creative-sandbox/outputs/math-creative-sandbox/2026-07-27T02-56-08-227Z-reina/scenario-0-control/04-incorrect-recovery.png",
+    "/Users/jamaltaylor/Development/sunny-math-creative-sandbox/outputs/math-creative-sandbox/2026-07-27T02-56-08-227Z-reina/scenario-0-control/05-incorrect-recovery.png",
+    "/Users/jamaltaylor/Development/sunny-math-creative-sandbox/outputs/math-creative-sandbox/2026-07-27T02-56-08-227Z-reina/scenario-0-control/06-completion.png",
+    "/Users/jamaltaylor/Development/sunny-math-creative-sandbox/outputs/math-creative-sandbox/2026-07-27T02-56-08-227Z-reina/scenario-0-control/07-completion.png"
+  ],
+  "actions": [
+    {
+      "kind": "click_text",
+      "text": "▶ Show me",
+      "captureLabel": "first-action",
+      "reason": "See what the demo/tutorial shows before attempting the problem myself",
+      "ok": true
+    },
+    {
+      "kind": "wait",
+      "ms": 1500,
+      "captureLabel": "progress",
+      "reason": "Allow demo animation to play out",
+      "ok": true
+    },
+    {
+      "kind": "click_text",
+      "text": "✋ Let me try",
+      "captureLabel": "progress",
+      "reason": "Switch to interactive mode to attempt the problem",
+      "ok": true
+    },
+    {
+      "kind": "click_text",
+      "text": "16",
+      "captureLabel": "incorrect-recovery",
+      "reason": "Deliberately pick an incorrect answer (16 breaks the skip-count-by-5 pattern) to see how the app handles wrong answers",
+      "ok": true
+    },
+    {
+      "kind": "wait",
+      "ms": 1000,
+      "captureLabel": "incorrect-recovery",
+      "reason": "Wait for any feedback animation or message after wrong answer",
+      "ok": true
+    },
+    {
+      "kind": "click_text",
+      "text": "20",
+      "captureLabel": "completion",
+      "reason": "Select the correct answer (20 continues the skip count by 5s) to test successful completion",
+      "ok": true
+    },
+    {
+      "kind": "wait",
+      "ms": 1500,
+      "captureLabel": "completion",
+      "reason": "Allow success animation/feedback to fully render",
+      "ok": true
+    }
+  ],
+  "visibleText": "Skyglider Skip-Count Run\nTap the lantern that continues the count!\n▶ Show me\n✋ Let me try\n🔊 Sound\nSkip count by 2s: 2, 4, 6, __?\n🚀\n7\n8\n10",
+  "consoleMessages": [
+    "error: Failed to load resource: the server responded with a status of 404 (Not Found)"
+  ]
+}

@@ -1,0 +1,49 @@
+{
+  "assignment": {
+    "assignmentId": "LAB-MATH-GEOMETRY-FACES-5-11",
+    "grade": 3,
+    "domain": "math",
+    "concepts": [
+      "distinguish flat faces from curved surfaces on solid figures",
+      "identify plane figures that form faces of common solid figures",
+      "reason about cubes, rectangular prisms, cylinders, cones, square pyramids, and spheres",
+      "avoid confusing a solid's outline or curved surface with a flat face"
+    ],
+    "sourceEvidenceIds": [
+      "assignment:5-11-math:page-1"
+    ],
+    "sourceQuestionTexts": [
+      "The source asks the learner to match plane figures to flat faces of pictured solid figures.",
+      "The source includes a sphere, which has no flat face, alongside solids with circular, rectangular, square, or triangular faces."
+    ],
+    "academicContract": "Independently measure whether a Grade 3 child can distinguish flat faces from curved surfaces and identify which plane figures form the flat faces of common solid figures. Use fresh figures and arrangements rather than copying the worksheet. Include evidence that can distinguish genuine face-shape understanding from silhouette matching, vocabulary confusion, or guessing. A sphere has no flat faces; a cylinder has two circular flat faces and one curved surface; a cone has one circular flat face and one curved surface; prisms and pyramids must be described according to their actual faces. The opening evaluation is independent evidence, not instruction and not proof of mastery."
+  },
+  "childEvidence": [
+    {
+      "evidenceId": "reina:age:2026-07",
+      "fact": "The child is currently nine years old."
+    },
+    {
+      "evidenceId": "reina:riddles:harder",
+      "fact": "She asked to continue difficult riddles and later requested harder riddles."
+    },
+    {
+      "evidenceId": "reina:riddles:logic",
+      "fact": "She noticed repeated riddles and questioned faulty riddle logic."
+    },
+    {
+      "evidenceId": "reina:riddles:scaffold",
+      "fact": "When stuck on a multi-step logic problem, she requested hints and continued after scaffolding."
+    },
+    {
+      "evidenceId": "reina:activity-feedback:small-sample",
+      "fact": "Small-sample child feedback favored clear examples, visible color, and an available hint."
+    }
+  ],
+  "viewport": {
+    "width": 1365,
+    "height": 768
+  },
+  "frozenHash": "89a4acb6874f0adaa294ce498801466881112929caa42734707e6ae6dab380a5",
+  "sourcePdf": "/Users/jamaltaylor/Downloads/5_11 math.pdf"
+}

@@ -1,0 +1,356 @@
+```html
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>The Lantern Keeper's Naming Glass</title>
+<style>
+  html,body{margin:0;padding:0;overflow:hidden;background:#0b1230;font-family:Georgia,'Times New Roman',serif;}
+  #stage{width:1365px;height:768px;position:relative;background:radial-gradient(ellipse at 50% 20%,#1a2550 0%,#0b1230 60%,#050a1a 100%);}
+  #water{position:absolute;bottom:0;left:0;width:100%;height:220px;background:linear-gradient(180deg,#0d1840,#050a1c);}
+  .ripple{position:absolute;bottom:0;width:100%;height:220px;background:repeating-linear-gradient(90deg,rgba(255,255,255,0.02) 0px,transparent 40px);}
+  #promise{position:absolute;top:22px;left:0;width:100%;text-align:center;color:#e9d9a8;font-size:22px;letter-spacing:0.5px;text-shadow:0 0 12px rgba(230,180,90,0.4);transition:opacity 1.2s;}
+  #harborLabel{position:absolute;top:64px;left:0;width:100%;text-align:center;color:#8f9fc9;font-size:14px;font-style:italic;opacity:0.8;}
+
+  svg#panes{position:absolute;left:50%;top:230px;transform:translateX(-50%);overflow:visible;}
+  .pane{stroke:#0b1230;stroke-width:5;fill:#25305c;cursor:pointer;transition:fill 0.4s;}
+  .pane.glow{fill:#f4b942;filter:drop-shadow(0 0 20px #f4b942);}
+  .pane.lit{fill:#ffd873;filter:drop-shadow(0 0 30px #ffd873);}
+
+  #glassRing{
+    position:absolute;width:90px;height:90px;border-radius:50%;
+    border:8px solid #b6822f;background:radial-gradient(circle,rgba(255,220,140,0.15),rgba(0,0,0,0.05));
+    box-shadow:0 0 25px rgba(255,200,100,0.5), inset 0 0 15px rgba(255,220,150,0.4);
+    pointer-events:none; transform:translate(-50%,-50%); z-index:10;
+    transition:box-shadow 0.3s;
+  }
+  #glassRing::after{
+    content:'';position:absolute;inset:8px;border-radius:50%;border:1px dashed rgba(255,230,180,0.6);
+  }
+
+  #counterHud{
+    position:absolute; top:-38px; left:50%; transform:translateX(-50%);
+    color:#ffe9b8; font-size:16px; letter-spacing:2px; white-space:nowrap;
+    text-shadow:0 0 8px #000;
+  }
+
+  #dragHint{
+    position:absolute; color:#cdd8f5; font-size:15px; text-align:center; width:280px;
+    left:50%; transform:translateX(-50%); top:0; opacity:0.85;
+  }
+
+  #nameplate{
+    position:absolute; left:50%; transform:translateX(-50%); bottom:150px;
+    display:none; flex-direction:column; align-items:center;
+    background:linear-gradient(180deg,#9a6a34,#6e4a22);
+    border:3px solid #4b3016; border-radius:10px; padding:14px 22px;
+    box-shadow:0 8px 20px rgba(0,0,0,0.6), inset 0 0 10px rgba(255,220,160,0.2);
+  }
+  .slot{
+    width:60px;height:50px;background:#1a1206; border:2px solid #d9b878; border-radius:6px;
+    display:flex;align-items:center;justify-content:center; font-size:30px; color:#ffe9b8;
+    margin:4px 0; cursor:pointer; user-select:none;
+  }
+  .slot.locked{background:#3a2a10;color:#c9a95f;cursor:default;}
+  .bar{width:70px;height:4px;background:#2a1a08;margin:2px 0;}
+  #plateLabel{color:#f4e3ba;font-size:13px;margin-top:8px;letter-spacing:1px;}
+
+  #keypad{
+    position:absolute; left:50%; transform:translateX(-50%); bottom:20px;
+    display:none; gap:8px; background:rgba(10,15,35,0.85); padding:10px 14px; border-radius:10px;
+    border:1px solid rgba(255,220,160,0.3);
+  }
+  .key{
+    width:42px;height:42px;background:#2a355e;border:1px solid #4a5a90;border-radius:6px;
+    color:#e9d9a8;font-size:20px;display:flex;align-items:center;justify-content:center;cursor:pointer;
+  }
+  .key:hover{background:#3a4a80;}
+
+  #feedback{
+    position:absolute; left:50%; transform:translateX(-50%); bottom:315px;
+    color:#ffe9b8; font-size:16px; opacity:0; transition:opacity 0.5s; text-align:center; width:400px;
+  }
+
+  #ferryWrap{position:absolute; bottom:40px; left:0; width:100%; height:40px;}
+  #ferry{position:absolute; bottom:0; left:5%; font-size:30px; transition:left 3s linear;}
+  #channel{position:absolute; bottom:-6px; left:0; width:0%; height:6px; background:linear-gradient(90deg,#ffd873,#f4b942); box-shadow:0 0 10px #ffd873; transition:width 1.2s;}
+
+  #missionCard{
+    position:absolute; z-index:50; left:50%; top:50%; transform:translate(-50%,-50%);
+    background:rgba(15,20,45,0.95); border:1px solid rgba(255,220,160,0.4); border-radius:14px;
+    padding:30px 40px; max-width:560px; text-align:center; color:#e9d9a8;
+    box-shadow:0 0 40px rgba(0,0,0,0.6);
+  }
+  #missionCard h1{font-size:22px; margin-bottom:12px; color:#ffd873;}
+  #missionCard p{font-size:15px; line-height:1.5; color:#cfd8f0;}
+  #missionCard button{
+    margin-top:18px; background:#b6822f; border:none; color:#1a1206; font-size:16px;
+    padding:10px 24px; border-radius:8px; cursor:pointer; font-family:Georgia,serif;
+  }
+  #missionCard button:hover{background:#d9a24f;}
+</style>
+</head>
+<body>
+<div id="stage">
+  <div id="water"><div class="ripple"></div></div>
+  <div id="channel"></div>
+
+  <div id="promise">Every lantern in the harbor has forgotten its name.</div>
+  <div id="harborLabel">You hold the only glass that can read them — write the names back on by hand.</div>
+
+  <svg id="panes" width="360" height="320"></svg>
+  <div id="dragHint">Drag the brass glass over the glowing pane</div>
+  <div id="glassRing"><div id="counterHud"></div></div>
+
+  <div id="nameplate">
+    <div class="slot locked" id="slotTop">1</div>
+    <div class="bar"></div>
+    <div class="slot" id="slotBottom">?</div>
+    <div id="plateLabel">how many equal parts?</div>
+  </div>
+
+  <div id="keypad"></div>
+  <div id="feedback"></div>
+
+  <div id="ferryWrap">
+    <div id="ferry">⛴</div>
+  </div>
+
+  <div id="missionCard">
+    <h1>The Lantern Keeper's Naming Glass</h1>
+    <p>Every lantern in the harbor has forgotten its name. You hold the only glass that can read them — and you write the names back on by hand. Sweep the glass across the glowing pane. Count the parts. Name the lantern.</p>
+    <button id="startBtn">Take up the Glass</button>
+  </div>
+</div>
+
+<script>
+const svgNS = "http://www.w3.org/2000/svg";
+const panesSvg = document.getElementById('panes');
+const glass = document.getElementById('glassRing');
+const counterHud = document.getElementById('counterHud');
+const nameplate = document.getElementById('nameplate');
+const slotBottom = document.getElementById('slotBottom');
+const plateLabel = document.getElementById('plateLabel');
+const feedback = document.getElementById('feedback');
+const dragHint = document.getElementById('dragHint');
+const keypad = document.getElementById('keypad');
+const channel = document.getElementById('channel');
+
+let paneEls = [];
+let sweepCount = 0;
+let sweeping = false;
+let locked = false;
+let totalParts = 3;
+let glowIndex = 0;
+
+// Build a triangle divided into 3 equal panes (fresh context)
+function buildTriangleThirds(){
+  panesSvg.innerHTML = '';
+  paneEls = [];
+  const cx = 180, cy = 250, r = 150;
+  // apex up triangle points
+  const top = [cx, cy - r];
+  const left = [cx - r*0.9, cy + r*0.55];
+  const right = [cx + r*0.9, cy + r*0.55];
+  const centroid = [(top[0]+left[0]+right[0])/3, (top[1]+left[1]+right[1])/3];
+
+  const tris = [
+    [top, left, centroid],
+    [left, right, centroid],
+    [right, top, centroid]
+  ];
+  glowIndex = 1; // middle bottom pane glows
+  tris.forEach((pts,i)=>{
+    const poly = document.createElementNS(svgNS,'polygon');
+    poly.setAttribute('points', pts.map(p=>p.join(',')).join(' '));
+    poly.classList.add('pane');
+    if(i===glowIndex) poly.classList.add('glow');
+    panesSvg.appendChild(poly);
+    paneEls.push(poly);
+  });
+  totalParts = 3;
+}
+
+buildTriangleThirds();
+
+// position glass initially
+let glassPos = {x: 500, y: 400};
+function placeGlass(x,y){
+  glassPos.x = x; glassPos.y = y;
+  glass.style.left = x+'px';
+  glass.style.top = y+'px';
+}
+placeGlass(500,400);
+
+let dragging = false;
+glass.style.pointerEvents = 'auto';
+glass.style.cursor = 'grab';
+
+function within(px,py, poly){
+  // point in polygon test
+  const pts = poly.getAttribute('points').split(' ').map(s=>s.split(',').map(Number));
+  let inside = false;
+  for(let i=0,j=pts.length-1;i<pts.length;j=i++){
+    const xi=pts[i][0], yi=pts[i][1], xj=pts[j][0], yj=pts[j][1];
+    const intersect = ((yi>py)!=(yj>py)) && (px < (xj-xi)*(py-yi)/(yj-yi)+xi);
+    if(intersect) inside=!inside;
+  }
+  return inside;
+}
+
+function svgLocalPoint(clientX, clientY){
+  const rect = panesSvg.getBoundingClientRect();
+  return {x: clientX-rect.left, y: clientY-rect.top};
+}
+
+function startDrag(e){
+  if(locked) return;
+  dragging = true;
+  glass.style.cursor='grabbing';
+}
+function moveDrag(clientX, clientY){
+  if(!dragging || locked) return;
+  const stageRect = document.getElementById('stage').getBoundingClientRect();
+  const x = clientX - stageRect.left;
+  const y = clientY - stageRect.top;
+  placeGlass(x,y);
+  checkHover(clientX, clientY);
+}
+function endDrag(){
+  dragging = false;
+  glass.style.cursor='grab';
+}
+
+glass.addEventListener('mousedown', startDrag);
+window.addEventListener('mousemove', e=>moveDrag(e.clientX, e.clientY));
+window.addEventListener('mouseup', endDrag);
+
+glass.addEventListener('touchstart', e=>{startDrag(e); e.preventDefault();}, {passive:false});
+window.addEventListener('touchmove', e=>{
+  if(e.touches[0]) moveDrag(e.touches[0].clientX, e.touches[0].clientY);
+  e.preventDefault();
+}, {passive:false});
+window.addEventListener('touchend', endDrag);
+
+let hoveredGlow = false;
+function checkHover(clientX, clientY){
+  const local = svgLocalPoint(clientX, clientY);
+  let overGlow = false;
+  paneEls.forEach(p=>{
+    if(within(local.x, local.y, p) && p.classList.contains('glow')){
+      overGlow = true;
+    }
+  });
+  if(overGlow && !locked){
+    glass.style.boxShadow = '0 0 45px rgba(255,220,120,0.9), inset 0 0 20px rgba(255,230,170,0.6)';
+    if(!hoveredGlow){
+      hoveredGlow = true;
+      snapAndCount();
+    }
+  } else {
+    glass.style.boxShadow = '0 0 25px rgba(255,200,100,0.5), inset 0 0 15px rgba(255,220,150,0.4)';
+    hoveredGlow = false;
+  }
+}
+
+function snapAndCount(){
+  if(locked || sweeping) return;
+  sweeping = true;
+  locked = true;
+  dragHint.style.opacity = '0';
+
+  // snap glass to glow pane center
+  const glowPane = paneEls[glowIndex];
+  const bbox = glowPane.getBBox();
+  const rect = panesSvg.getBoundingClientRect();
+  const cx = rect.left + bbox.x + bbox.width/2 - document.getElementById('stage').getBoundingClientRect().left;
+  const cy = rect.top + bbox.y + bbox.height/2 - document.getElementById('stage').getBoundingClientRect().top;
+  placeGlass(cx, cy);
+  glowPane.classList.add('lit');
+
+  // outline whole lantern - pulse all panes briefly
+  paneEls.forEach(p=>{ p.style.stroke = '#ffd873'; });
+
+  // count sequence
+  let count = 0;
+  counterHud.textContent = 'parts:';
+  const tick = setInterval(()=>{
+    count++;
+    counterHud.textContent = 'parts: ' + Array.from({length:count},(_,i)=>i+1).join(' … ');
+    if(count>=totalParts){
+      clearInterval(tick);
+      setTimeout(()=>{
+        revealNameplate();
+      }, 500);
+    }
+  }, 550);
+}
+
+function revealNameplate(){
+  nameplate.style.display = 'flex';
+  buildKeypad();
+  plateLabel.textContent = 'how many equal parts in the whole?';
+}
+
+function buildKeypad(){
+  keypad.innerHTML = '';
+  keypad.style.display = 'flex';
+  [2,3,4,5].forEach(n=>{
+    const k = document.createElement('div');
+    k.className = 'key';
+    k.textContent = n;
+    k.addEventListener('click', ()=>submitAnswer(n));
+    keypad.appendChild(k);
+  });
+}
+
+function submitAnswer(n){
+  if(n === totalParts){
+    slotBottom.textContent = n;
+    slotBottom.style.color = '#9effb0';
+    showFeedback('✓ "one third" — the glass reads it true.', true);
+    setTimeout(()=>{
+      lightLantern();
+    }, 700);
+  } else {
+    slotBottom.textContent = n;
+    slotBottom.style.color = '#ff9e9e';
+    showFeedback('The lantern flickers... "I counted ' + totalParts + '."', false);
+    paneEls.forEach(p=>{ p.classList.add('flicker'); });
+    setTimeout(()=>{
+      slotBottom.textContent = '?';
+      slotBottom.style.color = '#ffe9b8';
+    }, 1200);
+  }
+}
+
+function showFeedback(msg, ok){
+  feedback.textContent = msg;
+  feedback.style.color = ok ? '#bdf5c8' : '#f5c8c8';
+  feedback.style.opacity = '1';
+  setTimeout(()=>{ feedback.style.opacity = '0'; }, 2200);
+}
+
+function lightLantern(){
+  paneEls.forEach(p=>p.classList.add('lit'));
+  plateLabel.textContent = 'one third — 1/3';
+  keypad.style.display = 'none';
+  counterHud.textContent = '1 / 3 — one third';
+  channel.style.width = '30%';
+  document.getElementById('ferry').style.left = '35%';
+
+  // gentle glow pulse on whole stage
+  document.getElementById('stage').style.transition = 'filter 1s';
+  document.getElementById('stage').style.filter = 'brightness(1.08)';
+  setTimeout(()=>{document.getElementById('stage').style.filter='brightness(1)';}, 900);
+
+  showFeedback('Lit: one third of the lantern is now named and glowing.', true);
+}
+
+document.getElementById('startBtn').addEventListener('click', ()=>{
+  document.getElementById('missionCard').style.display = 'none';
+});
+</script>
+</body>
+</html>
+```

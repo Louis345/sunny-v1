@@ -1,0 +1,28 @@
+Build the following approved experience design as one complete interactive child learning experience.
+
+The mathematical concept is multiplication as equal groups and arrays, connected to skip-counting and word-problem interpretation. Teach the concept rather than reproducing worksheet questions.
+
+Approved design:
+{
+  "title": "The Fractured Arena",
+  "mission": "Restore three arena shields before the rival reaches the core.",
+  "childAction": "Arrange energy cells into equal formations.",
+  "mathAsPower": "Valid arrays charge shields; multiplication predicts their strength.",
+  "stakes": "Incorrect formations let the rival advance one position.",
+  "recovery": "The damaged shield reveals the mismatch between rows and groups.",
+  "progression": [
+    "Build equal groups",
+    "Recognize arrays",
+    "Infer a missing factor",
+    "Apply multiplication during the finale"
+  ],
+  "worldReaction": "Cells snap together, shields illuminate, and the rival changes position.",
+  "payoff": "The completed array activates the arena and reveals the final victory sequence.",
+  "replayVariation": "Different arena layouts and rival strategies require new arrays."
+}
+
+Implement the approved design faithfully. The mission, stakes, mathematical action, world reactions, progression, recovery, payoff, and replay variation must be genuinely present and connected—not replaced with a lesson menu, decorative quiz, or sequence of multiple-choice questions.
+
+You have full authority over visual direction, interaction details, pacing, audio, animation, effects, and implementation. You are encouraged to use a capable browser library when it materially improves the experience. You may use public HTTPS libraries and assets such as Three.js, PixiJS, Phaser, Matter.js, GSAP, Tone.js, Canvas, WebGL, SVG, or CSS animation.
+
+Return one complete HTML document that works with touch or mouse inside a 1365×768 iframe. Do not explain your choices. Return HTML only.

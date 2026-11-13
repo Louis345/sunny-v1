@@ -1,0 +1,720 @@
+Create one complete standalone HTML learning experience.
+
+Mathematical concept:
+multiplication as equal groups and arrays, connected to skip-counting and interpreted in word problems
+
+The prior result received this skeptical quality critique:
+This is competent, pleasant-looking content, but it reads as an equal-groups-and-arrays quiz wearing a gardening costume rather than a mechanic where multiplication is the central active gesture. The 'tap pots in order' interaction in the first stage is just sequential clicking to reveal pre-set totals (4, then 4,8) — there is no moment where the child actually constructs a group, drags a flower, or makes a choice with consequence; it's the same generic reveal-button pattern the harbor and tidepool activities were rejected for, just re-skinned with sunflowers. The transition to arrays is visually tidy (rows and columns are genuinely laid out as a grid, which is good), but the final captured screenshot shows a static grid with no evidence that tapping rows produces any distinct running-count feedback like the pots did — so it's unclear whether this stage's interaction differs meaningfully from stage one, or whether the world 'disappears' during play as in the harbor quest critique. The 'Build my own' stage's '+' control for Number of Groups appears unresponsive across two clicks in the trace, which is a functionality red flag — if the core lever of an equal-groups builder doesn't visibly respond, the promised hands-on construction of arrays becomes just a label, echoing the previous harbor failure where mechanics were nominal rather than tangible. The math concept (equal groups → skip-counting → arrays) is pedagogically sound and sequenced logically, and the sunflower/garden art is charming and legible, but nothing here reaches the emotional or visual payoff of Skyglider or Comet Trail: there's no dynamic build-up, no consequence for wrong taps, and no visible celebratory or corrective feedback loop. Replay appeal is low since the sequence is fixed and mostly passive-reveal; a child could likely tap through in order without deeply engaging with the underlying multiplication logic, similar to the 'answer-button quiz in a costume' pattern flagged before. Given the possible broken +/- control and the passive click-to-reveal core loop, this sits at polished-but-shallow territory rather than genuinely inventive.
+
+The objective is not checklist compliance. Produce work that is genuinely coherent,
+original, crafted, usable, mathematically integrated, and worth replaying.
+Return raw complete HTML only.
+
+REFINE. Preserve the strongest idea while materially repairing the cited weakness.
+This must improve the experience itself, not merely colors or wording.
+
+Original request:
+Create one original, complete, standalone HTML learning experience.
+
+Mathematical concept:
+multiplication as equal groups and arrays, connected to skip-counting and interpreted in word problems
+
+Experimental condition:
+Scenario 1 — concept only
+
+Available factual context:
+{}
+
+Teach and challenge the concept rather than reproducing worksheet questions.
+You own the pedagogy, questions, experience form, mechanics, stakes,
+consequences, progression, payoff, replay structure, and visual identity.
+The experience may be a game, simulation, construction, demonstration, mystery,
+story, or another form you judge stronger.
+
+Create an experience a child can use with touch or mouse. Everything must live
+inside one HTML document using inline CSS, JavaScript, SVG, or Canvas. Do not use
+external libraries, network assets, Sunny runtime contracts, test hooks, or
+parent-window messaging.
+
+Return raw complete HTML only.
+
+Existing HTML:
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Pip's Patch: Multiply the Garden!</title>
+<style>
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none; }
+  html, body {
+    margin: 0; padding: 0; height: 100%;
+    font-family: 'Trebuchet MS', 'Segoe UI', sans-serif;
+    background: linear-gradient(180deg, #a7e0ff 0%, #cdeeff 35%, #eafaf0 60%, #d6f0c8 100%);
+    overflow-x: hidden;
+    touch-action: manipulation;
+  }
+  #sun {
+    position: fixed; top: -40px; right: -20px; width: 140px; height: 140px;
+    background: radial-gradient(circle, #fff6b0 0%, #ffe08a 60%, #ffd25b 100%);
+    border-radius: 50%; box-shadow: 0 0 60px 20px rgba(255,214,90,0.5); z-index: 0;
+  }
+  #cloud1, #cloud2 {
+    position: fixed; background: white; border-radius: 50px; opacity: 0.8; z-index: 0;
+  }
+  #cloud1 { width: 90px; height: 34px; top: 60px; left: 8%; }
+  #cloud2 { width: 60px; height: 24px; top: 120px; left: 60%; }
+
+  #app {
+    position: relative; z-index: 1;
+    max-width: 720px; margin: 0 auto; min-height: 100vh;
+    padding: 14px 14px 30px;
+    display: flex; flex-direction: column; align-items: stretch;
+  }
+
+  .progress-bar {
+    display: flex; justify-content: center; gap: 6px; margin: 6px 0 10px;
+  }
+  .progress-dot {
+    width: 10px; height: 10px; border-radius: 50%; background: #ffffff90; border: 2px solid #6bb04a;
+  }
+  .progress-dot.active { background: #ff9a3d; border-color: #ff9a3d; }
+  .progress-dot.done { background: #6bb04a; }
+
+  .screen { display: none; flex-direction: column; gap: 12px; animation: fadein 0.35s ease; }
+  .screen.active { display: flex; }
+  @keyframes fadein { from { opacity:0; transform: translateY(8px);} to {opacity:1; transform:none;} }
+
+  .card {
+    background: rgba(255,255,255,0.92);
+    border-radius: 20px;
+    padding: 18px 18px;
+    box-shadow: 0 6px 16px rgba(0,60,20,0.15);
+  }
+
+  h1 { font-size: 1.5em; color: #2f6b1f; margin: 4px 0; text-align:center;}
+  h2 { font-size: 1.25em; color: #2f6b1f; margin: 2px 0 6px; }
+  p { font-size: 1.05em; color: #3a3a3a; line-height: 1.4; margin: 4px 0;}
+  .story { text-align: center; }
+
+  .btn {
+    background: linear-gradient(180deg, #ffb84d, #ff9a3d);
+    border: none; color: white; font-weight: bold; font-size: 1.1em;
+    padding: 14px 22px; border-radius: 16px; cursor: pointer;
+    box-shadow: 0 4px 0 #d97a1f; transition: transform 0.08s;
+  }
+  .btn:active { transform: translateY(3px); box-shadow: 0 1px 0 #d97a1f; }
+  .btn:disabled { background: #ccc; box-shadow: 0 4px 0 #999; cursor: default; }
+  .btn.secondary { background: linear-gradient(180deg, #7bc96f, #52a942); box-shadow: 0 4px 0 #3a7d2d; }
+  .btn.secondary:active { box-shadow: 0 1px 0 #3a7d2d; }
+  .btn-row { display:flex; gap:10px; justify-content:center; flex-wrap: wrap; }
+
+  .stepper { display:flex; flex-direction:column; align-items:center; gap:4px; }
+  .stepper-label { font-size: 0.9em; color:#2f6b1f; font-weight:bold; }
+  .stepper-row { display:flex; align-items:center; gap:8px; }
+  .step-btn {
+    width: 40px; height: 40px; border-radius: 50%; border:none;
+    background:#eaf7e0; color:#2f6b1f; font-size:1.4em; font-weight:bold; cursor:pointer;
+    box-shadow: 0 3px 0 #b7d9a5;
+  }
+  .step-btn:active { box-shadow:none; transform: translateY(2px); }
+  .stepper-value {
+    min-width: 40px; text-align:center; font-size: 1.5em; font-weight:bold; color:#a35a12;
+  }
+  .steppers-wrap { display:flex; justify-content:center; gap: 24px; margin: 6px 0; flex-wrap: wrap; }
+
+  .groups-area {
+    display:flex; flex-wrap:wrap; justify-content:center; gap: 14px; min-height: 90px; align-items:flex-start;
+  }
+  .group-box {
+    background: #f4e3c9; border: 3px solid #c99a52; border-radius: 12px;
+    padding: 8px 10px; text-align:center; min-width: 60px;
+    transition: transform 0.15s;
+  }
+  .group-box.dim { opacity: 0.35; }
+  .group-box.active-tap { transform: scale(1.08); border-color: #ff9a3d; }
+  .group-items span { font-size: 1.5em; margin: 1px; }
+  .cum-label {
+    margin-top: 4px; font-weight:bold; color:#a35a12; font-size:1.1em;
+  }
+
+  .array-area-rows { display:flex; flex-direction:column; gap:4px; align-items:center; }
+  .array-row { display:flex; gap:4px; padding: 3px 6px; border-radius:8px; }
+  .array-row.highlight { background:#fff2cc; }
+  .array-cell2 { font-size:1.5em; width:34px; height:34px; display:flex; align-items:center; justify-content:center; }
+
+  .array-area { display:grid; gap: 4px; justify-content:center; }
+  .array-cell { font-size:1.5em; width:34px; height:34px; display:flex; align-items:center; justify-content:center;
+    background:#f4e3c9; border-radius: 6px; }
+
+  .count-seq { text-align:center; font-size: 1.3em; font-weight:bold; color:#1f7a3d; min-height: 1.6em; }
+  .equation { text-align:center; font-size:1.3em; font-weight:bold; color:#a35a12; min-height:1.6em; }
+
+  .target-box {
+    background:#eaf7e0; border-radius:14px; padding: 10px 16px; text-align:center;
+    font-size:1.2em; font-weight:bold; color:#2f6b1f; border: 2px dashed #6bb04a;
+  }
+
+  .feedback { text-align:center; font-size:1.15em; font-weight:bold; min-height: 1.5em; }
+  .feedback.good { color:#2f8f2f; }
+  .feedback.bad { color:#c94f4f; }
+
+  .mode-toggle { display:flex; justify-content:center; gap:10px; margin-bottom:4px;}
+  .mode-btn {
+    padding: 8px 14px; border-radius: 12px; border: 2px solid #6bb04a; background:white;
+    color:#2f6b1f; font-weight:bold; cursor:pointer;
+  }
+  .mode-btn.selected { background:#6bb04a; color:white; }
+
+  .stars-row { text-align:center; font-size:1.6em; letter-spacing:4px; }
+
+  .badge {
+    text-align:center; font-size:1.4em; font-weight:bold; color:#a35a12; margin-top:6px;
+  }
+
+  .word-context { font-size:2.4em; text-align:center; }
+
+  .small-note { text-align:center; font-size:0.85em; color:#5c5c5c; }
+
+  @media (max-width:420px){
+    .array-cell, .array-cell2 { width:26px; height:26px; font-size:1.2em; }
+  }
+</style>
+</head>
+<body>
+<div id="sun"></div>
+<div id="cloud1"></div>
+<div id="cloud2"></div>
+
+<div id="app">
+  <div class="progress-bar" id="progressBar"></div>
+
+  <!-- INTRO -->
+  <section class="screen active" id="screen-intro">
+    <div class="card story">
+      <h1>🌻 Pip's Patch 🌻</h1>
+      <p>Pip the gardener is planting the garden for spring! Pip loves to plant things in <b>equal groups</b> and neat <b>rows and columns</b>.</p>
+      <p>Help Pip count everything super fast — using <b>multiplication</b>!</p>
+      <div class="btn-row"><button class="btn" onclick="goTo('screen-teach1')">🌱 Start Growing</button></div>
+    </div>
+  </section>
+
+  <!-- TEACH 1: Equal Groups -->
+  <section class="screen" id="screen-teach1">
+    <div class="card">
+      <h2>Equal Groups</h2>
+      <p>Pip planted flower pots in <b>equal groups</b> — the same number of flowers in each pot.</p>
+      <p>Tap each pot <b>in order</b> to skip-count the flowers!</p>
+      <div class="groups-area" id="t1-groups"></div>
+      <div class="count-seq" id="t1-seq"></div>
+      <div class="equation" id="t1-eq">&nbsp;</div>
+      <div class="btn-row">
+        <button class="btn" id="t1-next" disabled onclick="goTo('screen-build1')">Next: Build my own! →</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- BUILD 1: Groups builder -->
+  <section class="screen" id="screen-build1">
+    <div class="card">
+      <h2>Build Equal Groups</h2>
+      <p>Choose how many groups, and how many flowers in each group.</p>
+      <div class="steppers-wrap" id="b1-steppers"></div>
+      <div class="groups-area" id="b1-groups"></div>
+      <div class="count-seq" id="b1-seq"></div>
+      <div class="equation" id="b1-eq"></div>
+      <div class="btn-row">
+        <button class="btn secondary" onclick="toArrayFromBuild1()">See it as an Array! →</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- TEACH 2: Arrays -->
+  <section class="screen" id="screen-teach2">
+    <div class="card">
+      <h2>Same Flowers, New Shape: Arrays!</h2>
+      <p>Look — the very same flowers, now lined up in neat <b>rows</b> and <b>columns</b>. This is called an <b>array</b>.</p>
+      <p>Tap each row <b>in order</b> to skip-count again!</p>
+      <div class="array-area-rows" id="t2-array"></div>
+      <div class="count-seq" id="t2-seq"></div>
+      <div class="equation" id="t2-eq">&nbsp;</div>
+      <p class="small-note" id="t2-connect"></p>
+      <div class="btn-row">
+        <button class="btn" id="t2-next" disabled onclick="startArrayChallenge()">Next: Array Challenge! →</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- BUILD 2: Array Challenge -->
+  <section class="screen" id="screen-build2">
+    <div class="card">
+      <h2>Array Challenge <span id="b2-round-label"></span></h2>
+      <div class="target-box" id="b2-target"></div>
+      <div class="steppers-wrap" id="b2-steppers"></div>
+      <div class="array-area-rows" id="b2-array"></div>
+      <div class="equation" id="b2-eq"></div>
+      <div class="feedback" id="b2-feedback">&nbsp;</div>
+      <div class="btn-row">
+        <button class="btn" id="b2-check" onclick="checkArrayChallenge()">✓ Check My Array</button>
+        <button class="btn secondary" id="b2-continue" style="display:none;" onclick="nextArrayRound()">Next →</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- WORD PROBLEMS -->
+  <section class="screen" id="screen-word">
+    <div class="card">
+      <h2>Garden Story Problems <span id="w-round-label"></span></h2>
+      <div class="word-context" id="w-emoji">🌼</div>
+      <p id="w-text"></p>
+      <div class="mode-toggle" id="w-mode-toggle"></div>
+      <div class="steppers-wrap" id="w-steppers"></div>
+      <div id="w-visual"></div>
+      <div class="equation" id="w-eq"></div>
+      <div class="feedback" id="w-feedback">&nbsp;</div>
+      <div class="btn-row">
+        <button class="btn" id="w-check" onclick="checkWordProblem()">✓ Check My Answer</button>
+        <button class="btn secondary" id="w-continue" style="display:none;" onclick="nextWordProblem()">Next Story →</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- END -->
+  <section class="screen" id="screen-end">
+    <div class="card story">
+      <h1>🎉 Harvest Time! 🎉</h1>
+      <p>You helped Pip plant and count the whole garden using multiplication!</p>
+      <div class="stars-row" id="end-stars"></div>
+      <div class="badge" id="end-badge"></div>
+      <div class="btn-row"><button class="btn" onclick="restartAll()">🔁 Play Again</button></div>
+    </div>
+  </section>
+
+</div>
+
+<script>
+/* ---------------- Global state ---------------- */
+const SCREEN_ORDER = ['screen-intro','screen-teach1','screen-build1','screen-teach2','screen-build2','screen-word','screen-end'];
+let totalStars = 0;
+let carryN1 = 3, carryN2 = 4; // from groups builder to array teach
+
+/* ---------------- Navigation ---------------- */
+function goTo(id){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  renderProgress(id);
+  window.scrollTo(0,0);
+}
+
+function renderProgress(currentId){
+  const bar = document.getElementById('progressBar');
+  bar.innerHTML = '';
+  const idx = SCREEN_ORDER.indexOf(currentId);
+  SCREEN_ORDER.forEach((id,i)=>{
+    const dot = document.createElement('div');
+    dot.className = 'progress-dot' + (i===idx ? ' active' : (i<idx ? ' done' : ''));
+    bar.appendChild(dot);
+  });
+}
+renderProgress('screen-intro');
+
+/* ---------------- Helpers ---------------- */
+function makeStepper(label, min, max, value, onChange){
+  const wrap = document.createElement('div');
+  wrap.className = 'stepper';
+  const lbl = document.createElement('div');
+  lbl.className = 'stepper-label';
+  lbl.textContent = label;
+  const row = document.createElement('div');
+  row.className = 'stepper-row';
+  const minus = document.createElement('button');
+  minus.className = 'step-btn'; minus.textContent = '−';
+  const val = document.createElement('div');
+  val.className = 'stepper-value'; val.textContent = value;
+  const plus = document.createElement('button');
+  plus.className = 'step-btn'; plus.textContent = '+';
+  minus.onclick = () => { if(value > min){ value--; val.textContent = value; onChange(value); } };
+  plus.onclick = () => { if(value < max){ value++; val.textContent = value; onChange(value); } };
+  row.append(minus, val, plus);
+  wrap.append(lbl, row);
+  return { el: wrap, get: () => value, set: (v) => { value = v; val.textContent = v; } };
+}
+
+function renderGroupsVisual(container, groups, size, emoji){
+  container.innerHTML = '';
+  let cum = 0;
+  for(let g=0; g<groups; g++){
+    const box = document.createElement('div');
+    box.className = 'group-box';
+    const items = document.createElement('div');
+    items.className = 'group-items';
+    for(let i=0;i<size;i++){
+      const span = document.createElement('span');
+      span.textContent = emoji;
+      items.appendChild(span);
+    }
+    box.appendChild(items);
+    cum += size;
+    const cLabel = document.createElement('div');
+    cLabel.className = 'cum-label';
+    cLabel.textContent = cum;
+    box.appendChild(cLabel);
+    container.appendChild(box);
+  }
+}
+
+function renderArrayRows(container, rows, cols, emoji){
+  container.innerHTML = '';
+  const rowEls = [];
+  for(let r=0; r<rows; r++){
+    const rowDiv = document.createElement('div');
+    rowDiv.className = 'array-row';
+    for(let c=0;c<cols;c++){
+      const cell = document.createElement('div');
+      cell.className = 'array-cell2';
+      cell.textContent = emoji;
+      rowDiv.appendChild(cell);
+    }
+    container.appendChild(rowDiv);
+    rowEls.push(rowDiv);
+  }
+  return rowEls;
+}
+
+function skipList(n1, n2){
+  let arr = [];
+  for(let i=1;i<=n1;i++) arr.push(i*n2);
+  return arr;
+}
+
+function randInt(min,max){ return Math.floor(Math.random()*(max-min+1))+min; }
+
+function starsDisplay(count, max){
+  let s = '';
+  for(let i=0;i<max;i++) s += (i<count ? '⭐' : '✩');
+  return s;
+}
+
+/* ================= TEACH 1: Equal Groups (fixed 3 groups of 4) ================= */
+function setupTeach1(){
+  const container = document.getElementById('t1-groups');
+  container.innerHTML = '';
+  const groups = 3, size = 4;
+  let currentIndex = 0;
+  const revealedSeq = [];
+  document.getElementById('t1-seq').textContent = '';
+  document.getElementById('t1-eq').textContent = '';
+  document.getElementById('t1-next').disabled = true;
+
+  for(let g=0; g<groups; g++){
+    const box = document.createElement('div');
+    box.className = 'group-box dim';
+    const items = document.createElement('div');
+    items.className = 'group-items';
+    for(let i=0;i<size;i++){
+      const span = document.createElement('span');
+      span.textContent = '🌼';
+      items.appendChild(span);
+    }
+    box.appendChild(items);
+    const cLabel = document.createElement('div');
+    cLabel.className = 'cum-label';
+    cLabel.textContent = '?';
+    box.appendChild(cLabel);
+    box.dataset.index = g;
+
+    box.onclick = () => {
+      const gi = parseInt(box.dataset.index);
+      if(gi !== currentIndex) return;
+      box.classList.remove('dim');
+      box.classList.add('active-tap');
+      const cum = (currentIndex+1) * size;
+      cLabel.textContent = cum;
+      revealedSeq.push(cum);
+      document.getElementById('t1-seq').textContent = revealedSeq.join(', ');
+      currentIndex++;
+      if(currentIndex === groups){
+        document.getElementById('t1-eq').textContent = `${groups} groups of ${size} = ${groups} × ${size} = ${groups*size}`;
+        document.getElementById('t1-next').disabled = false;
+      }
+    };
+    container.appendChild(box);
+  }
+}
+setupTeach1();
+
+/* ================= BUILD 1: Groups builder ================= */
+let b1n1 = 3, b1n2 = 4;
+function setupBuild1(){
+  const stepWrap = document.getElementById('b1-steppers');
+  stepWrap.innerHTML = '';
+  const s1 = makeStepper('Number of Groups', 1, 6, b1n1, (v)=>{ b1n1=v; refreshBuild1(); });
+  const s2 = makeStepper('Flowers in Each', 1, 6, b1n2, (v)=>{ b1n2=v; refreshBuild1(); });
+  stepWrap.append(s1.el, s2.el);
+  refreshBuild1();
+}
+function refreshBuild1(){
+  renderGroupsVisual(document.getElementById('b1-groups'), b1n1, b1n2, '🌼');
+  document.getElementById('b1-seq').textContent = 'Skip counting: ' + skipList(b1n1,b1n2).join(', ');
+  document.getElementById('b1-eq').textContent = `${b1n1} groups of ${b1n2} = ${b1n1} × ${b1n2} = ${b1n1*b1n2}`;
+}
+setupBuild1();
+
+function toArrayFromBuild1(){
+  carryN1 = b1n1; carryN2 = b1n2;
+  setupTeach2();
+  goTo('screen-teach2');
+}
+
+/* ================= TEACH 2: Array intro (derived from build1 numbers) ================= */
+function setupTeach2(){
+  const rows = carryN1, cols = carryN2;
+  const container = document.getElementById('t2-array');
+  const rowEls = renderArrayRows(container, rows, cols, '🌼');
+  document.getElementById('t2-seq').textContent = '';
+  document.getElementById('t2-eq').textContent = '';
+  document.getElementById('t2-connect').textContent = '';
+  document.getElementById('t2-next').disabled = true;
+
+  let currentIndex = 0;
+  const revealedSeq = [];
+  rowEls.forEach((rowEl, idx) => {
+    rowEl.style.opacity = 0.4;
+    rowEl.onclick = () => {
+      if(idx !== currentIndex) return;
+      rowEl.style.opacity = 1;
+      rowEl.classList.add('highlight');
+      const cum = (currentIndex+1) * cols;
+      revealedSeq.push(cum);
+      document.getElementById('t2-seq').textContent = revealedSeq.join(', ');
+      currentIndex++;
+      if(currentIndex === rows){
+        document.getElementById('t2-eq').textContent = `${rows} rows × ${cols} columns = ${rows} × ${cols} = ${rows*cols}`;
+        document.getElementById('t2-connect').textContent =
+          `See? ${rows} groups of ${cols} and a ${rows}-by-${cols} array both equal ${rows*cols}! Multiplication works both ways.`;
+        document.getElementById('t2-next').disabled = false;
+      }
+    };
+  });
+}
+
+/* ================= BUILD 2: Array Challenge (2 rounds) ================= */
+let arrayRoundIndex = 0;
+let arrayTargets = [];
+let b2r = 2, b2c = 2;
+let arrayStars = 0;
+
+function startArrayChallenge(){
+  arrayRoundIndex = 0;
+  arrayStars = 0;
+  arrayTargets = [
+    { rows: randInt(2,5), cols: randInt(2,5) },
+    { rows: randInt(2,5), cols: randInt(2,5) }
+  ];
+  goTo('screen-build2');
+  setupArrayRound();
+}
+
+function setupArrayRound(){
+  document.getElementById('b2-round-label').textContent = `(${arrayRoundIndex+1} of 2)`;
+  const target = arrayTargets[arrayRoundIndex];
+  document.getElementById('b2-target').textContent =
+    `Build an array that shows ${target.rows} × ${target.cols}`;
+  document.getElementById('b2-feedback').textContent = '';
+  document.getElementById('b2-feedback').className = 'feedback';
+  document.getElementById('b2-check').style.display = 'inline-block';
+  document.getElementById('b2-continue').style.display = 'none';
+
+  b2r = 2; b2c = 2;
+  const stepWrap = document.getElementById('b2-steppers');
+  stepWrap.innerHTML = '';
+  const s1 = makeStepper('Rows', 1, 6, b2r, (v)=>{ b2r=v; refreshArrayRound(); });
+  const s2 = makeStepper('Columns', 1, 6, b2c, (v)=>{ b2c=v; refreshArrayRound(); });
+  stepWrap.append(s1.el, s2.el);
+  refreshArrayRound();
+}
+
+function refreshArrayRound(){
+  renderArrayRows(document.getElementById('b2-array'), b2r, b2c, '🐞');
+  document.getElementById('b2-eq').textContent = `${b2r} × ${b2c} = ${b2r*b2c}`;
+}
+
+function checkArrayChallenge(){
+  const target = arrayTargets[arrayRoundIndex];
+  const wantTotal = target.rows * target.cols;
+  const gotTotal = b2r * b2c;
+  const fb = document.getElementById('b2-feedback');
+  if(gotTotal === wantTotal){
+    arrayStars++;
+    totalStars++;
+    let extra = '';
+    if((b2r===target.rows && b2c===target.cols) || (b2r===target.cols && b2c===target.rows)){
+      extra = ' You matched the exact array shape too! ⭐';
+    }
+    fb.textContent = `🎉 Yes! ${b2r} × ${b2c} = ${gotTotal}.${extra}`;
+    fb.className = 'feedback good';
+    document.getElementById('b2-check').style.display = 'none';
+    document.getElementById('b2-continue').style.display = 'inline-block';
+  } else {
+    fb.textContent = `Not quite — your array shows ${gotTotal}. Try adjusting rows or columns to reach ${wantTotal}.`;
+    fb.className = 'feedback bad';
+  }
+}
+
+function nextArrayRound(){
+  arrayRoundIndex++;
+  if(arrayRoundIndex < arrayTargets.length){
+    setupArrayRound();
+  } else {
+    startWordProblems();
+  }
+}
+
+/* ================= WORD PROBLEMS ================= */
+const problemTemplates = [
+  { text:(a,b)=>`Pip lines up ${a} baskets in the shed. Each basket holds ${b} shiny apples. How many apples in all?`, emoji:'🍎', hintMode:'groups' },
+  { text:(a,b)=>`Pip sets out ${a} flower pots. Each pot has ${b} tulips. How many tulips in total?`, emoji:'🌷', hintMode:'groups' },
+  { text:(a,b)=>`Pip plants seeds in ${a} neat rows, with ${b} seeds in each row. How many seeds did Pip plant?`, emoji:'🌱', hintMode:'array' },
+  { text:(a,b)=>`There are ${a} spiderwebs in the garden. Each web has ${b} sparkly dew drops. How many dew drops in all?`, emoji:'💧', hintMode:'groups' },
+  { text:(a,b)=>`The garden has ${a} rows of pumpkins with ${b} pumpkins in each row. How many pumpkins are there?`, emoji:'🎃', hintMode:'array' },
+  { text:(a,b)=>`Pip bakes ${a} trays of cookies. Each tray has ${b} cookies. How many cookies did Pip bake?`, emoji:'🍪', hintMode:'groups' },
+  { text:(a,b)=>`Ladybugs line up in ${a} rows and ${b} columns on a big leaf. How many ladybugs are there?`, emoji:'🐞', hintMode:'array' },
+  { text:(a,b)=>`Pip has ${a} jars on the shelf. Each jar has ${b} fireflies. How many fireflies in all?`, emoji:'✨', hintMode:'groups' }
+];
+
+let wordProblems = [];
+let wordIndex = 0;
+let wordStars = 0;
+let wMode = 'groups';
+let wN1 = 2, wN2 = 2;
+
+function pickWordProblems(){
+  const shuffled = [...problemTemplates].sort(()=>Math.random()-0.5);
+  const chosen = shuffled.slice(0,5);
+  return chosen.map(t => {
+    const a = randInt(2,5);
+    const b = randInt(2,6);
+    return { text: t.text(a,b), emoji: t.emoji, a, b, hintMode: t.hintMode };
+  });
+}
+
+function startWordProblems(){
+  wordProblems = pickWordProblems();
+  wordIndex = 0;
+  wordStars = 0;
+  goTo('screen-word');
+  setupWordProblem();
+}
+
+function setupWordProblem(){
+  const p = wordProblems[wordIndex];
+  document.getElementById('w-round-label').textContent = `(${wordIndex+1} of ${wordProblems.length})`;
+  document.getElementById('w-emoji').textContent = p.emoji;
+  document.getElementById('w-text').textContent = p.text;
+  document.getElementById('w-feedback').textContent = '';
+  document.getElementById('w-feedback').className = 'feedback';
+  document.getElementById('w-check').style.display = 'inline-block';
+  document.getElementById('w-continue').style.display = 'none';
+
+  wMode = p.hintMode;
+  wN1 = 2; wN2 = 2;
+
+  const toggle = document.getElementById('w-mode-toggle');
+  toggle.innerHTML = '';
+  const btnGroups = document.createElement('button');
+  btnGroups.className = 'mode-btn' + (wMode==='groups' ? ' selected' : '');
+  btnGroups.textContent = 'Equal Groups';
+  btnGroups.onclick = () => { wMode='groups'; refreshWordProblem(); updateModeButtons(); };
+  const btnArray = document.createElement('button');
+  btnArray.className = 'mode-btn' + (wMode==='array' ? ' selected' : '');
+  btnArray.textContent = 'Array (Rows × Cols)';
+  btnArray.onclick = () => { wMode='array'; refreshWordProblem(); updateModeButtons(); };
+  toggle.append(btnGroups, btnArray);
+
+  function updateModeButtons(){
+    btnGroups.classList.toggle('selected', wMode==='groups');
+    btnArray.classList.toggle('selected', wMode==='array');
+  }
+
+  buildWordSteppers();
+  refreshWordProblem();
+}
+
+function buildWordSteppers(){
+  const wrap = document.getElementById('w-steppers');
+  wrap.innerHTML = '';
+  const label1 = wMode === 'groups' ? 'Number of Groups' : 'Rows';
+  const label2 = wMode === 'groups' ? 'Size of Each Group' : 'Columns';
+  const s1 = makeStepper(label1, 1, 8, wN1, (v)=>{ wN1=v; refreshWordProblem(); });
+  const s2 = makeStepper(label2, 1, 8, wN2, (v)=>{ wN2=v; refreshWordProblem(); });
+  wrap.append(s1.el, s2.el);
+}
+
+function refreshWordProblem(){
+  buildWordSteppers();
+  const p = wordProblems[wordIndex];
+  const visual = document.getElementById('w-visual');
+  if(wMode === 'groups'){
+    visual.className = '';
+    visual.innerHTML = '';
+    renderGroupsVisual(visual, wN1, wN2, p.emoji);
+    document.getElementById('w-eq').textContent = `${wN1} groups of ${wN2} = ${wN1} × ${wN2} = ${wN1*wN2}`;
+  } else {
+    visual.innerHTML = '';
+    const holder = document.createElement('div');
+    holder.className = 'array-area-rows';
+    visual.appendChild(holder);
+    renderArrayRows(holder, wN1, wN2, p.emoji);
+    document.getElementById('w-eq').textContent = `${wN1} rows × ${wN2} columns = ${wN1} × ${wN2} = ${wN1*wN2}`;
+  }
+}
+
+function checkWordProblem(){
+  const p = wordProblems[wordIndex];
+  const wantTotal = p.a * p.b;
+  const gotTotal = wN1 * wN2;
+  const fb = document.getElementById('w-feedback');
+  if(gotTotal === wantTotal){
+    wordStars++;
+    totalStars++;
+    fb.textContent = `🎉 That's right! ${wN1} × ${wN2} = ${gotTotal}.`;
+    fb.className = 'feedback good';
+    document.getElementById('w-check').style.display = 'none';
+    document.getElementById('w-continue').style.display = 'inline-block';
+  } else {
+    fb.textContent = `Your total is ${gotTotal}. The story needs ${wantTotal}. Try changing the numbers!`;
+    fb.className = 'feedback bad';
+  }
+}
+
+function nextWordProblem(){
+  wordIndex++;
+  if(wordIndex < wordProblems.length){
+    setupWordProblem();
+  } else {
+    showEnd();
+  }
+}
+
+/* ================= END ================= */
+function showEnd(){
+  goTo('screen-end');
+  const maxStars = 7; // 2 array + 5 word
+  document.getElementById('end-stars').textContent = starsDisplay(totalStars, maxStars) + `  (${totalStars}/${maxStars})`;
+  let badge = 'Garden Rookie 🌱';
+  if(totalStars >= 5) badge = 'Skip-Counting Star ⭐';
+  if(totalStars >= 7) badge = 'Multiplication Master 🏆';
+  document.getElementById('end-badge').textContent = badge;
+}
+
+/* ================= RESTART ================= */
+function restartAll(){
+  totalStars = 0;
+  b1n1 = 3; b1n2 = 4;
+  setupTeach1();
+  setupBuild1();
+  goTo('screen-intro');
+}
+</script>
+</body>
+</html>

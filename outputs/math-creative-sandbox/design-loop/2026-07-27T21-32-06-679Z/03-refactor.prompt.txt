@@ -1,0 +1,84 @@
+Refactor this selected experience design once. Do not write code.
+
+Learning concept:
+Multiplication as equal groups and arrays, connected to skip-counting and word-problem interpretation.
+
+Factual child evidence:
+Factual observations about Reina:
+- She has repeatedly requested difficult challenges.
+- She has sustained engagement with fast-paced riddles and multi-step logic.
+- She notices errors and questions faulty reasoning.
+- Applied store-based math produced substantially stronger performance than mechanical worksheet-style practice.
+- She has requested action stories involving adversaries.
+- Competitive framing has coincided with high engagement.
+- These observations come from a limited set of sessions and do not prove permanent preferences.
+
+Selected design:
+{
+  "id": "A",
+  "title": "The Last Honest Courier",
+  "openingPromise": "You're the only courier who still checks the math — everyone else just guesses and hopes.",
+  "mission": "Beat a rival courier company to fulfill delivery contracts by correctly building crate shipments before they can fake their way to the same clients.",
+  "firstAction": "A dispatcher radios in a garbled order — '6 crates, 7 gears each, GO' — and a countdown-style buzzer image appears (no real timer pressure, just narrative urgency) as the rival's cart is heard leaving.",
+  "childAction": "She sorts loose gear icons into equal-sized crates (equal groups), stacks crates onto a pallet arranged in rows and columns (array), and calls out the skip-count sequence as each row loads before radioing the total back to dispatch.",
+  "mathAsPower": "Correct grouping and fast, accurate skip-counting are the only way to out-deliver the rival — sloppy math literally loses the contract on-screen, while precise math is dramatized as the thing that makes her faster than someone who's just eyeballing it.",
+  "stakes": "Contracts and route reputation, not survival — losing a delivery means the rival's smug voiceover mocks her and takes the client, but she can immediately re-attempt with a new manifest.",
+  "recovery": "A wrong array causes crates to visibly topple in the loading dock; the dispatcher flags exactly which row was miscounted, and she rebuilds only that section rather than starting over.",
+  "progression": [
+    "Tier 1: equal groups only, small numbers, single crates",
+    "Tier 2: arrays introduced, rows vs. columns swapped to build commutativity",
+    "Tier 3: skip-counting under a mock 'rival is catching up' narration",
+    "Tier 4: two-step riddles ('4 pallets of 6 rows of 3') tied to word-problem phrasing",
+    "Finale: catching the rival's rigged manifest live"
+  ],
+  "worldReaction": "The dispatcher upgrades her route tier after clean deliveries; the rival's dialogue shifts from mockery to grudging respect as she starts winning contracts.",
+  "payoff": "In the final run she catches the rival fabricating a delivery total mid-broadcast, publicly corrects his array, and becomes the depot's lead courier.",
+  "replayVariation": "New adversary archetypes (a trickster negotiator, a sloppy new hire) with reshuffled number ranges and new manifest phrasing, so the puzzles aren't memorized.",
+  "profileEvidenceUsed": [
+    "Repeated requests for difficult challenges",
+    "Sustained engagement with fast-paced riddles and multi-step logic",
+    "Requested action stories involving adversaries",
+    "Competitive framing coincided with high engagement"
+  ],
+  "engagementPrediction": "Reina will ask to replay rounds unprompted, narrate skip-counts aloud without being told to, and request harder manifests before the game offers them.",
+  "falsifyingEvidence": "If she stops verbalizing her group/skip-count reasoning and just guesses totals, disengages after a single loss instead of retrying, or shows no reaction to the rival's taunts/wins, the adversarial-competitive frame is not the driver it appeared to be.",
+  "prototypeScope": "One 15–20 minute session: four order tiers (times tables through 6), one scripted rival encounter, no real-time clock — pacing implied through dialogue only."
+}
+
+Critic feedback:
+{
+  "selectedDesignId": "A",
+  "comparativeObservations": {
+    "A": [
+      "Clearest embodiment of equal groups, arrays, and skip-counting tied directly to a visible fail/succeed state (toppled crates)",
+      "Recovery mechanic is granular (rebuild only the miscounted row) rather than punitive, which is a genuine strength",
+      "Competitive frame risks overclaiming engagement given only correlational profile evidence",
+      "Progression is explicit and well-sequenced from equal groups to two-step riddles",
+      "Feasible as a compact slice: one dispatcher, one rival, four tiers, no real timer to build"
+    ],
+    "B": [
+      "Strongest grounding in profile evidence (applied/store-based math outperforming mechanical drills) without needing to invent new motivational claims",
+      "Math-as-power is verification-based rather than speed-based, which is a more defensible model of 'meaningful action' than winning a race",
+      "Misleading-but-true vendor claim is a genuinely strong conceptual-flexibility beat not matched in A or C",
+      "Stakes (wrongly accusing an honest vendor) add moral texture but risk diluting clarity for a young child",
+      "Slightly more narratively complex to prototype cleanly than A, though still feasible"
+    ],
+    "C": [
+      "Calmest, least evidenced design — explicitly framed as a test of an unproven hypothesis (no adversary/competition needed)",
+      "Aesthetic payoff (hidden picture from above) is charming but is a weaker 'consequence' loop since failure states are nearly consequence-free",
+      "Recovery is the gentlest of the three, arguably to a fault — little tension between right/wrong answers",
+      "Distributive/two-plant-type mechanic is mathematically sound and matches B's decomposition idea, reducing its originality",
+      "Most feasible to build minimally (static grid, no timer) but the thin stakes make the vertical slice least revealing of whether math itself is compelling"
+    ]
+  },
+  "selectionReason": "A pairs the clearest, most legible math mechanic (equal groups → arrays → skip-counting → two-step) with a consequence structure that is visible, immediate, and non-punitive (topple + targeted rebuild), and its profile grounding, while competitive, is the most directly evidenced of the three (repeated requests for difficult, adversarial, fast-paced challenges). B is a close second and arguably better grounded in evidence, but its moral-stakes subplot (wrongly accusing a vendor) adds narrative complexity that risks muddying the core math loop in a compact slice. C is the weakest bet: it is explicitly an experiment against evidence rather than grounded in it, and its low-stakes recovery undercuts 'meaningful consequence.'",
+  "strongestQuality": "A's recovery mechanic — a partial, legible failure (one toppled row) paired with a partial, targeted fix — makes the math error and its correction the same visible object, which is rare across all three designs.",
+  "largestClarityRisk": "In A, the rival's mockery and the countdown imagery could be read by a child as real time pressure despite the design notes saying otherwise, muddying whether the lesson is 'be accurate' or 'be fast.'",
+  "largestEngagementRisk": "The entire competitive frame in A rests on inferred motivation (profile evidence is about difficulty/adversary preference in general, not this specific mechanic), so if Reina doesn't personalize the rival as a stake, the whole scaffold collapses with no secondary hook to fall back on.",
+  "mathIntegrationRisk": "The verbal skip-count call-out could become a rote performance disconnected from the underlying array — a child could learn to chant the count without the placement of crates actually driving comprehension, especially under any perceived time pressure.",
+  "refactorBrief": "Keep A's structure but strip any ambiguous time-pressure signaling (remove the countdown-buzzer image entirely; keep urgency purely in dispatcher dialogue). Make the rival's 'rigged manifest' finale hinge explicitly on catching a misleading-but-true grouping (borrowed conceptually from B) rather than just a wrong total, to test conceptual flexibility, not just speed. Add one non-competitive fallback beat mid-session (an audit-style vendor moment) so the design can reveal, within the same slice, whether Reina's engagement is driven by rivalry specifically or by the math-checking itself — directly testing the design's own falsifying evidence without needing a separate prototype."
+}
+
+Preserve the strongest quality and resolve the critic's largest risks. Keep claims about the child uncertain and testable.
+
+Return one complete design artifact as JSON using the same fields as the selected design. Return JSON only.

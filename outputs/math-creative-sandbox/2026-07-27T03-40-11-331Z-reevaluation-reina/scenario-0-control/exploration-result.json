@@ -1,0 +1,62 @@
+{
+  "candidateId": "scenario-0-control",
+  "screenshots": [
+    "/Users/jamaltaylor/Development/sunny-math-creative-sandbox/outputs/math-creative-sandbox/2026-07-27T03-40-11-331Z-reevaluation-reina/scenario-0-control/00-opening.png",
+    "/Users/jamaltaylor/Development/sunny-math-creative-sandbox/outputs/math-creative-sandbox/2026-07-27T03-40-11-331Z-reevaluation-reina/scenario-0-control/01-first-action.png",
+    "/Users/jamaltaylor/Development/sunny-math-creative-sandbox/outputs/math-creative-sandbox/2026-07-27T03-40-11-331Z-reevaluation-reina/scenario-0-control/02-incorrect-recovery.png",
+    "/Users/jamaltaylor/Development/sunny-math-creative-sandbox/outputs/math-creative-sandbox/2026-07-27T03-40-11-331Z-reevaluation-reina/scenario-0-control/03-progress.png",
+    "/Users/jamaltaylor/Development/sunny-math-creative-sandbox/outputs/math-creative-sandbox/2026-07-27T03-40-11-331Z-reevaluation-reina/scenario-0-control/04-progress.png",
+    "/Users/jamaltaylor/Development/sunny-math-creative-sandbox/outputs/math-creative-sandbox/2026-07-27T03-40-11-331Z-reevaluation-reina/scenario-0-control/05-progress.png",
+    "/Users/jamaltaylor/Development/sunny-math-creative-sandbox/outputs/math-creative-sandbox/2026-07-27T03-40-11-331Z-reevaluation-reina/scenario-0-control/06-progress.png"
+  ],
+  "actions": [
+    {
+      "kind": "click_text",
+      "text": "▶ Show me",
+      "captureLabel": "first-action",
+      "reason": "Check the demo/tutorial mode to see how the game explains skip counting before trying interactively.",
+      "ok": true
+    },
+    {
+      "kind": "click_text",
+      "text": "16",
+      "captureLabel": "incorrect-recovery",
+      "reason": "Click the incorrect answer option (16) to observe how the game responds to a wrong choice and whether it provides corrective feedback.",
+      "ok": true
+    },
+    {
+      "kind": "click_text",
+      "text": "20",
+      "captureLabel": "progress",
+      "reason": "Click the correct answer (20) to observe positive reinforcement and progression after selecting the right skip-count value.",
+      "ok": true
+    },
+    {
+      "kind": "click_text",
+      "text": "10",
+      "captureLabel": "progress",
+      "reason": "Select the correct next number in the skip-counting sequence (2,4,6,8,10) to confirm the game advances properly and gives positive feedback again.",
+      "ok": true
+    },
+    {
+      "kind": "click_text",
+      "text": "8",
+      "captureLabel": "progress",
+      "reason": "Select the correct next number (8) in the sequence 2,4,6,8 to verify the game accepts the correct answer and provides positive feedback/progression after the previous incorrect attempt.",
+      "ok": true
+    },
+    {
+      "kind": "click_text",
+      "text": "40",
+      "captureLabel": "progress",
+      "reason": "Select the correct next number (40) in the sequence 10,20,30 to verify continued progression through a new round and check for payoff/completion feedback.",
+      "x": 683,
+      "y": 630,
+      "ok": true
+    }
+  ],
+  "visibleText": "Skyglider Skip-Count Run\nTap the lantern that continues the count!\n▶ Show me\n✋ Let me try\n🔊 Sound\nRun complete!\n🚀\n🏅\nSkip-Count Pilot\nGreat flying, Reina!",
+  "consoleMessages": [
+    "error: Failed to load resource: the server responded with a status of 404 (Not Found)"
+  ]
+}

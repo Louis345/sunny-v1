@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Sunny Math Creative Sandbox</title>
+  <style>
+    :root { color-scheme: dark; font-family: Inter, system-ui, sans-serif; }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: #090b14; color: #f8f4e9; }
+    main { width: min(1600px, 96vw); margin: auto; padding: 40px 0 80px; }
+    h1 { font-size: clamp(42px, 7vw, 92px); line-height: .95; margin: 8px 0 20px; }
+    .lede { max-width: 900px; color: #c6c8d6; font-size: 19px; }
+    .finding, article { border: 1px solid #343850; border-radius: 22px; background: #121522; padding: 22px; margin: 26px 0; }
+    .finding { border-color: #9c6433; background: #21170f; }
+    .eyebrow { color: #86ead0; letter-spacing: .14em; text-transform: uppercase; font-weight: 800; font-size: 12px; }
+    header { display: flex; justify-content: space-between; align-items: start; gap: 18px; }
+    h2 { margin: 3px 0 6px; font-size: 30px; }
+    .links a { display: inline-block; color: #08120f; background: #86ead0; padding: 9px 13px; border-radius: 999px; text-decoration: none; font-weight: 800; margin: 4px; }
+    .screens { display: grid; grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); gap: 14px; margin: 20px 0; }
+    figure { margin: 0; border-radius: 14px; overflow: hidden; background: #070910; }
+    img { display: block; width: 100%; aspect-ratio: 1365/768; object-fit: cover; }
+    figcaption { padding: 8px 10px; color: #aeb1c0; }
+    .score { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; }
+    label { color: #c6c8d6; }
+    select, textarea { width: 100%; display: block; margin-top: 6px; background: #080a12; color: white; border: 1px solid #3c415a; border-radius: 9px; padding: 10px; }
+    textarea { min-height: 90px; }
+    details { color: #c6c8d6; }
+  </style>
+</head>
+<body><main>
+  <p class="eyebrow">Measured scenario experiment</p>
+  <h1>You choose the winner.</h1>
+  <p class="lede">The same multiplication concept, model, token budget, and viewport were used. Context was the changing variable. Scores below are yours; evaluator files are available only as supporting evidence.</p>
+  <div class="finding"><strong>Scenario 4 result:</strong> the single evaluator-guided refactor exhausted its 32k output budget and returned incomplete HTML. It produced no valid candidate and was not retried. This counts against the harness.</div>
+
+  <article>
+    <header><div><p class="eyebrow">Scenario 0 · Control</p><h2>Current Sunny: Skyglider</h2></div><div class="links"><a href="scenario-0-control.html">Play</a><a href="scenario-0-control/quality-review.json">Evaluator</a></div></header>
+    <div class="screens">
+      <figure><img src="scenario-0-control/01-first-action.png"><figcaption>First action</figcaption></figure>
+      <figure><img src="scenario-0-control/02-incorrect-recovery.png"><figcaption>Recovery</figcaption></figure>
+      <figure><img src="scenario-0-control/05-progress.png"><figcaption>Progress</figcaption></figure>
+      <figure><img src="scenario-0-control/07-completion.png"><figcaption>Completion</figcaption></figure>
+    </div>
+    <div class="score"></div>
+  </article>
+
+  <article>
+    <header><div><p class="eyebrow">Scenario 1 · Concept only</p><h2>Pip's Patch</h2></div><div class="links"><a href="scenario-1-concept-only.html">Play</a><a href="scenario-1-concept-only.prompt.txt">Prompt</a><a href="scenario-1-concept-only/quality-review.json">Evaluator</a></div></header>
+    <div class="screens">
+      <figure><img src="scenario-1-concept-only/00-opening.png"><figcaption>Opening</figcaption></figure>
+      <figure><img src="scenario-1-concept-only/01-first-action.png"><figcaption>First action</figcaption></figure>
+      <figure><img src="scenario-1-concept-only/04-progress.png"><figcaption>Progress</figcaption></figure>
+      <figure><img src="scenario-1-concept-only/08-progress.png"><figcaption>Array stage</figcaption></figure>
+    </div>
+    <div class="score"></div>
+  </article>
+
+  <article>
+    <header><div><p class="eyebrow">Scenario 2 · Factual profile</p><h2>Reina's Multiplication Dojo</h2></div><div class="links"><a href="scenario-2-profile.html">Play</a><a href="scenario-2-profile.prompt.txt">Prompt</a><a href="scenario-2-profile/quality-review.json">Evaluator</a></div></header>
+    <div class="screens">
+      <figure><img src="scenario-2-profile/00-opening.png"><figcaption>Opening</figcaption></figure>
+      <figure><img src="scenario-2-profile/01-first-action.png"><figcaption>First action</figcaption></figure>
+      <figure><img src="scenario-2-profile/03-progress.png"><figcaption>Array construction</figcaption></figure>
+      <figure><img src="scenario-2-profile/05-incorrect-recovery.png"><figcaption>Recovery</figcaption></figure>
+    </div>
+    <div class="score"></div>
+  </article>
+
+  <article>
+    <header><div><p class="eyebrow">Scenario 3 · Profile + spelling outcomes</p><h2>Multiplication Arena</h2></div><div class="links"><a href="scenario-3-profile-and-spelling.html">Play</a><a href="scenario-3-profile-and-spelling.prompt.txt">Prompt</a><a href="scenario-3-profile-and-spelling/quality-review.json">Evaluator</a></div></header>
+    <div class="screens">
+      <figure><img src="scenario-3-profile-and-spelling/00-opening.png"><figcaption>Opening</figcaption></figure>
+      <figure><img src="scenario-3-profile-and-spelling/01-first-action.png"><figcaption>First action</figcaption></figure>
+      <figure><img src="scenario-3-profile-and-spelling/02-progress.png"><figcaption>Group builder</figcaption></figure>
+      <figure><img src="scenario-3-profile-and-spelling/03-incorrect-recovery.png"><figcaption>Input/recovery state</figcaption></figure>
+    </div>
+    <div class="score"></div>
+  </article>
+
+  <script>
+    const dimensions = ["overall", "design", "originality", "craft", "functionality", "learning integration", "replay appeal"];
+    document.querySelectorAll("article").forEach((article, index) => {
+      const score = article.querySelector(".score");
+      dimensions.forEach(dimension => {
+        const label = document.createElement("label");
+        label.textContent = dimension;
+        const select = document.createElement("select");
+        select.innerHTML = '<option value="">Score 1–5</option>' + [1,2,3,4,5].map(value => `<option>${value}</option>`).join("");
+        const key = `sunny-sandbox:${index}:${dimension}`;
+        select.value = localStorage.getItem(key) || "";
+        select.addEventListener("change", () => localStorage.setItem(key, select.value));
+        label.append(select);
+        score.append(label);
+      });
+      const notes = document.createElement("label");
+      notes.textContent = "Notes";
+      notes.style.gridColumn = "1/-1";
+      const textarea = document.createElement("textarea");
+      const key = `sunny-sandbox:${index}:notes`;
+      textarea.value = localStorage.getItem(key) || "";
+      textarea.addEventListener("input", () => localStorage.setItem(key, textarea.value));
+      notes.append(textarea);
+      score.append(notes);
+    });
+  </script>
+</main></body></html>

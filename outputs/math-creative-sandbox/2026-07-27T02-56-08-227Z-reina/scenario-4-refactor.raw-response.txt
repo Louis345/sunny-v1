@@ -1,0 +1,669 @@
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no">
+<title>Sunny Meadow Multiplication Farm</title>
+<style>
+  :root{
+    --brown:#8a5a2b;
+    --brown-dark:#6b4423;
+    --cream:#fff8e7;
+    --green:#4c9a4a;
+    --green-dark:#2e6b2c;
+    --sun:#ffcc33;
+    --red:#e0574a;
+    --blue:#4a90c9;
+  }
+  *{box-sizing:border-box;}
+  html,body{
+    margin:0;padding:0;height:100%;
+    font-family:'Trebuchet MS','Segoe UI',sans-serif;
+    background:linear-gradient(180deg,#aee2ff 0%,#d7f2c9 45%,#eafccb 100%);
+    overflow-x:hidden;
+    touch-action:manipulation;
+  }
+  #app{
+    min-height:100vh;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    padding:14px 10px 40px;
+  }
+  .sun-decor{
+    position:fixed;top:-40px;right:-40px;width:140px;height:140px;
+    background:radial-gradient(circle,var(--sun) 60%,transparent 62%);
+    border-radius:50%;
+    box-shadow:0 0 0 12px rgba(255,204,51,0.25);
+    z-index:0;
+  }
+  #progressDots{
+    display:flex;gap:8px;margin:6px 0 10px;z-index:2;
+  }
+  #progressDots span{
+    width:12px;height:12px;border-radius:50%;
+    background:rgba(255,255,255,0.6);
+    border:2px solid var(--brown);
+    transition:background .3s;
+  }
+  #progressDots span.done{background:var(--green);}
+  #progressDots span.current{background:var(--sun);}
+
+  .screen{
+    display:none;
+    width:100%;
+    max-width:560px;
+    background:var(--cream);
+    border:4px solid var(--brown);
+    border-radius:22px;
+    padding:18px 18px 22px;
+    box-shadow:0 10px 0 rgba(139,90,43,0.3), 0 14px 24px rgba(0,0,0,0.15);
+    z-index:1;
+    position:relative;
+    animation:fadeIn .4s ease;
+  }
+  .screen.active{display:block;}
+  @keyframes fadeIn{from{opacity:0;transform:translateY(12px);}to{opacity:1;transform:translateY(0);}}
+
+  h1{
+    text-align:center;color:var(--brown-dark);font-size:1.7em;margin:6px 0 4px;
+    text-shadow:1px 1px 0 #fff;
+  }
+  h2{
+    text-align:center;color:var(--green-dark);font-size:1.25em;margin:2px 0 12px;
+  }
+  p.sub{text-align:center;color:#555;font-size:0.95em;margin:4px 0 16px;}
+
+  .bigBtn{
+    display:block;margin:14px auto 4px;
+    padding:14px 28px;
+    font-size:1.1em;font-weight:bold;
+    background:var(--green);color:#fff;
+    border:none;border-radius:40px;
+    box-shadow:0 5px 0 var(--green-dark);
+    cursor:pointer;
+    transition:transform .1s;
+  }
+  .bigBtn:active{transform:translateY(4px);box-shadow:0 1px 0 var(--green-dark);}
+  .bigBtn:disabled{background:#bbb;box-shadow:0 5px 0 #888;cursor:not-allowed;opacity:.7;}
+  .bigBtn.secondary{background:var(--blue);box-shadow:0 5px 0 #33628c;}
+  .bigBtn.secondary:active{box-shadow:0 1px 0 #33628c;}
+
+  /* GROUPS SCREEN */
+  #basketsRow{
+    display:flex;flex-wrap:wrap;gap:10px;justify-content:center;
+    min-height:90px;margin-bottom:10px;
+  }
+  .basket{
+    width:64px;height:56px;
+    background:linear-gradient(180deg,#c98a3f,#a5672a);
+    clip-path:polygon(10% 0%,90% 0%,100% 100%,0% 100%);
+    display:flex;flex-wrap:wrap;align-items:center;justify-content:center;
+    gap:1px;padding:6px 4px 2px;
+    animation:pop .35s ease;
+    box-shadow:inset 0 -4px 6px rgba(0,0,0,0.2);
+  }
+  @keyframes pop{from{transform:scale(0);}to{transform:scale(1);}}
+  .basket span{font-size:14px;line-height:1;}
+
+  #skipCountStrip{
+    display:flex;flex-wrap:wrap;gap:6px;justify-content:center;
+    min-height:34px;margin-bottom:8px;
+  }
+  .chip{
+    background:var(--sun);border:2px solid var(--brown);
+    border-radius:16px;padding:4px 10px;font-weight:bold;color:var(--brown-dark);
+    animation:pop .3s ease;
+  }
+
+  #addBasketBtn.spent{background:#bbb;box-shadow:0 5px 0 #888;}
+
+  .quizArea{
+    margin-top:14px;background:#fff;border:3px dashed var(--brown);
+    border-radius:16px;padding:12px;text-align:center;display:none;
+  }
+  .quizArea.show{display:block;}
+  .eqText{font-size:1.3em;font-weight:bold;color:var(--brown-dark);margin-bottom:8px;}
+  .answerDisplay{
+    display:inline-block;min-width:70px;padding:6px 14px;
+    background:#f1f1f1;border:2px solid #999;border-radius:8px;
+    font-size:1.4em;font-weight:bold;margin:6px 0 10px;
+  }
+  .keypad{
+    display:grid;grid-template-columns:repeat(3,60px);gap:8px;justify-content:center;margin-bottom:10px;
+  }
+  .keypad button{
+    padding:12px 0;font-size:1.2em;font-weight:bold;
+    background:#e8e8e8;border:2px solid #bbb;border-radius:10px;
+    cursor:pointer;
+  }
+  .keypad button:active{background:#ccc;}
+  .keypad button.act{background:var(--red);color:#fff;border-color:#a33;}
+  .keypad button.submit{background:var(--green);color:#fff;border-color:var(--green-dark);grid-column:span 1;}
+
+  .feedback{min-height:26px;font-weight:bold;margin-top:6px;}
+  .feedback.good{color:var(--green-dark);}
+  .feedback.bad{color:var(--red);}
+  .shake{animation:shake .4s;}
+  @keyframes shake{0%,100%{transform:translateX(0);}25%{transform:translateX(-8px);}75%{transform:translateX(8px);}}
+
+  /* ARRAY SCREEN */
+  .controlsRow{
+    display:flex;justify-content:center;gap:26px;margin-bottom:12px;flex-wrap:wrap;
+  }
+  .ctrl{text-align:center;}
+  .ctrl label{display:block;font-weight:bold;color:var(--brown-dark);margin-bottom:4px;}
+  .ctrl .row{display:flex;align-items:center;gap:8px;}
+  .stepBtn{
+    width:36px;height:36px;border-radius:50%;border:none;
+    background:var(--green);color:#fff;font-size:1.3em;font-weight:bold;
+    cursor:pointer;box-shadow:0 3px 0 var(--green-dark);
+  }
+  .stepBtn:active{transform:translateY(3px);box-shadow:none;}
+  .valBox{
+    min-width:34px;text-align:center;font-size:1.3em;font-weight:bold;color:var(--brown-dark);
+  }
+  #arrayGrid{
+    display:grid;gap:5px;justify-content:center;margin:14px auto;
+    padding:10px;background:#eafccb;border-radius:12px;border:2px solid var(--green);
+    min-height:60px;
+  }
+  .flowerDot{font-size:22px;line-height:1;text-align:center;}
+  #arraySkipCount{text-align:center;font-weight:bold;color:var(--brown-dark);min-height:24px;margin-bottom:6px;}
+
+  /* WORD SCREEN */
+  #wordRoundLabel{text-align:center;color:var(--brown-dark);font-weight:bold;margin-bottom:4px;}
+  #wordText{
+    font-size:1.15em;text-align:center;color:#333;background:#fff;
+    border-radius:14px;padding:14px;border:2px solid var(--green);margin-bottom:10px;
+  }
+  #wordHelperViz{
+    display:none;flex-wrap:wrap;gap:14px;justify-content:center;
+    background:#f5fce0;border-radius:12px;padding:10px;margin-bottom:10px;
+  }
+  #wordHelperViz.show{display:flex;}
+  .bugGroup{
+    display:flex;flex-wrap:wrap;gap:2px;max-width:90px;
+    background:#fff;border:2px solid var(--green);border-radius:10px;padding:6px;
+  }
+  #wordChoices{
+    display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:8px;
+  }
+  .choiceBtn{
+    padding:14px 6px;font-size:1.2em;font-weight:bold;
+    background:#fff;border:3px solid var(--blue);border-radius:14px;color:var(--blue);
+    cursor:pointer;
+  }
+  .choiceBtn.correct{background:var(--green);border-color:var(--green-dark);color:#fff;}
+  .choiceBtn.wrong{background:var(--red);border-color:#a33;color:#fff;}
+  .choiceBtn:disabled{opacity:.6;cursor:default;}
+
+  /* FINAL */
+  #starsDisplay{text-align:center;font-size:2.4em;margin:10px 0;}
+  #finalSummary{text-align:center;font-size:1.05em;color:#444;margin-bottom:14px;}
+
+  footer.hint{
+    text-align:center;color:#3a5f2a;font-size:.85em;margin-top:10px;
+  }
+</style>
+</head>
+<body>
+<div class="sun-decor"></div>
+<div id="app">
+  <div id="progressDots">
+    <span data-dot="0"></span><span data-dot="1"></span><span data-dot="2"></span><span data-dot="3"></span><span data-dot="4"></span>
+  </div>
+
+  <!-- TITLE -->
+  <div class="screen active" id="screen-title">
+    <h1>🌻 Sunny Meadow Multiplication Farm 🧺</h1>
+    <p class="sub">Pack baskets, plant flower rows, and solve farm mysteries — all with the power of equal groups!</p>
+    <p class="sub">Multiplication means counting <b>equal groups</b> quickly, by skip-counting instead of one-by-one.</p>
+    <button class="bigBtn" id="startBtn">Start the Day →</button>
+  </div>
+
+  <!-- GROUPS SCREEN -->
+  <div class="screen" id="screen-groups">
+    <h2 id="groupsInstruction">Loading...</h2>
+    <div id="basketsRow"></div>
+    <button class="bigBtn" id="addBasketBtn" style="margin:0 auto 10px;display:block;">🧺 Add Basket</button>
+    <div id="skipCountStrip"></div>
+    <div class="quizArea" id="groupsQuizArea">
+      <div class="eqText" id="groupsEquationText"></div>
+      <div class="answerDisplay" id="groupsAnswerDisplay">?</div>
+      <div class="keypad" id="groupsKeypad">
+        <button data-d="1">1</button><button data-d="2">2</button><button data-d="3">3</button>
+        <button data-d="4">4</button><button data-d="5">5</button><button data-d="6">6</button>
+        <button data-d="7">7</button><button data-d="8">8</button><button data-d="9">9</button>
+        <button class="act" data-d="back">⌫</button><button data-d="0">0</button>
+        <button class="submit" data-d="go">✔</button>
+      </div>
+      <div class="feedback" id="groupsFeedback"></div>
+    </div>
+    <button class="bigBtn secondary" id="groupsContinueBtn" style="display:none;">Continue to Flower Field →</button>
+  </div>
+
+  <!-- ARRAY SCREEN -->
+  <div class="screen" id="screen-array">
+    <h2 id="arrayInstruction">Loading...</h2>
+    <div class="controlsRow">
+      <div class="ctrl">
+        <label>Rows</label>
+        <div class="row">
+          <button class="stepBtn" id="rowMinus">−</button>
+          <span class="valBox" id="rowsVal">1</span>
+          <button class="stepBtn" id="rowPlus">+</button>
+        </div>
+      </div>
+      <div class="ctrl">
+        <label>Columns</label>
+        <div class="row">
+          <button class="stepBtn" id="colMinus">−</button>
+          <span class="valBox" id="colsVal">1</span>
+          <button class="stepBtn" id="colPlus">+</button>
+        </div>
+      </div>
+    </div>
+    <div id="arrayGrid"></div>
+    <div id="arraySkipCount"></div>
+    <button class="bigBtn" id="checkArrayBtn" style="margin:0 auto 10px;display:block;">🔍 Check My Array</button>
+    <div class="feedback" id="arrayFeedback" style="text-align:center;"></div>
+    <div class="quizArea" id="arrayQuizArea">
+      <div class="eqText" id="arrayEquationText"></div>
+      <div class="answerDisplay" id="arrayAnswerDisplay">?</div>
+      <div class="keypad" id="arrayKeypad">
+        <button data-d="1">1</button><button data-d="2">2</button><button data-d="3">3</button>
+        <button data-d="4">4</button><button data-d="5">5</button><button data-d="6">6</button>
+        <button data-d="7">7</button><button data-d="8">8</button><button data-d="9">9</button>
+        <button class="act" data-d="back">⌫</button><button data-d="0">0</button>
+        <button class="submit" data-d="go">✔</button>
+      </div>
+      <div class="feedback" id="arrayFeedback2"></div>
+    </div>
+    <button class="bigBtn secondary" id="arrayContinueBtn" style="display:none;">Continue to Story Problems →</button>
+  </div>
+
+  <!-- WORD SCREEN -->
+  <div class="screen" id="screen-word">
+    <h2 id="wordRoundLabel">Story Problem 1 of 3</h2>
+    <div id="wordText"></div>
+    <button class="bigBtn secondary" id="toggleHelperBtn" style="margin:0 auto 10px;display:block;">🐞 Show me the groups</button>
+    <div id="wordHelperViz"></div>
+    <div id="wordChoices"></div>
+    <div class="feedback" id="wordFeedback" style="text-align:center;"></div>
+    <button class="bigBtn" id="wordNextBtn" style="display:none;">Next Problem →</button>
+  </div>
+
+  <!-- FINAL -->
+  <div class="screen" id="screen-final">
+    <h1>🎉 Farm Day Complete! 🎉</h1>
+    <div id="starsDisplay"></div>
+    <div id="finalSummary"></div>
+    <button class="bigBtn" id="playAgainBtn">Play Again with New Numbers 🔄</button>
+    <footer class="hint">Every round uses new random numbers — replay to practice more!</footer>
+  </div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  const screens = ['screen-groups','screen-array','screen-word','screen-word2','screen-word3','screen-final'];
+  // We map dots to 5 meaningful stages: groups, array, word1, word2, word3
+  const dotStages = ['groups','array','w1','w2','w3'];
+  let currentDotIndex = -1;
+
+  function randInt(min,max){ return Math.floor(Math.random()*(max-min+1))+min; }
+  function shuffle(arr){
+    for(let i=arr.length-1;i>0;i--){
+      const j = Math.floor(Math.random()*(i+1));
+      [arr[i],arr[j]]=[arr[j],arr[i]];
+    }
+    return arr;
+  }
+
+  function showScreen(id){
+    document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+    document.getElementById(id).classList.add('active');
+  }
+
+  function updateDots(stageKey){
+    const idx = dotStages.indexOf(stageKey);
+    currentDotIndex = idx;
+    document.querySelectorAll('#progressDots span').forEach((el,i)=>{
+      el.classList.remove('done','current');
+      if(idx<0) return;
+      if(i<idx) el.classList.add('done');
+      else if(i===idx) el.classList.add('current');
+    });
+  }
+
+  /* ---------------- KEYPAD HELPER ---------------- */
+  function wireKeypad(keypadEl, displayEl, onSubmit){
+    let value = "";
+    displayEl.textContent = "?";
+    keypadEl.querySelectorAll('button').forEach(btn=>{
+      btn.onclick = () => {
+        const d = btn.getAttribute('data-d');
+        if(d === 'back'){
+          value = value.slice(0,-1);
+        } else if(d === 'go'){
+          onSubmit(value);
+          return;
+        } else {
+          if(value.length < 3) value += d;
+        }
+        displayEl.textContent = value.length ? value : "?";
+      };
+    });
+    return {
+      reset(){ value=""; displayEl.textContent="?"; },
+    };
+  }
+
+  /* ================= GROUPS SCREEN ================= */
+  let groupsState = {};
+  function initGroups(){
+    const groupSize = randInt(2,5);
+    const targetGroups = randInt(3,6);
+    groupsState = { groupSize, targetGroups, count:0, total:0, solved:false };
+
+    document.getElementById('groupsInstruction').textContent =
+      `Pack ${targetGroups} baskets. Put ${groupSize} apples in EVERY basket. Tap "Add Basket"!`;
+    document.getElementById('basketsRow').innerHTML = '';
+    document.getElementById('skipCountStrip').innerHTML = '';
+    document.getElementById('groupsQuizArea').classList.remove('show');
+    document.getElementById('groupsContinueBtn').style.display = 'none';
+    document.getElementById('groupsFeedback').textContent = '';
+    document.getElementById('groupsFeedback').className = 'feedback';
+
+    const addBtn = document.getElementById('addBasketBtn');
+    addBtn.classList.remove('spent');
+    addBtn.textContent = '🧺 Add Basket';
+    addBtn.onclick = () => {
+      if(groupsState.count >= groupsState.targetGroups) return;
+      groupsState.count++;
+      groupsState.total += groupSize;
+
+      const basket = document.createElement('div');
+      basket.className = 'basket';
+      for(let i=0;i<groupSize;i++){
+        const s = document.createElement('span');
+        s.textContent = '🍎';
+        basket.appendChild(s);
+      }
+      document.getElementById('basketsRow').appendChild(basket);
+
+      const chip = document.createElement('div');
+      chip.className = 'chip';
+      chip.textContent = groupsState.total;
+      document.getElementById('skipCountStrip').appendChild(chip);
+
+      if(groupsState.count === groupsState.targetGroups){
+        addBtn.classList.add('spent');
+        addBtn.textContent = "That's all the baskets!";
+        const qa = document.getElementById('groupsQuizArea');
+        qa.classList.add('show');
+        document.getElementById('groupsEquationText').textContent =
+          `${targetGroups} baskets × ${groupSize} apples = ?`;
+        const disp = document.getElementById('groupsAnswerDisplay');
+        const pad = wireKeypad(document.getElementById('groupsKeypad'), disp, (val)=>{
+          const fb = document.getElementById('groupsFeedback');
+          if(val === '' ) { fb.textContent='Type a number first!'; fb.className='feedback bad'; return; }
+          const num = parseInt(val,10);
+          if(num === groupsState.total){
+            fb.textContent = `Yes! Skip-counting by ${groupSize}s gives ${groupsState.total}. Great counting!`;
+            fb.className = 'feedback good';
+            groupsState.solved = true;
+            document.getElementById('groupsContinueBtn').style.display = 'block';
+          } else {
+            fb.textContent = 'Not quite — try counting the chips above again!';
+            fb.className = 'feedback bad shake';
+            qa.classList.add('shake');
+            setTimeout(()=>qa.classList.remove('shake'),400);
+          }
+        });
+      }
+    };
+
+    document.getElementById('groupsContinueBtn').onclick = () => {
+      initArray();
+      showScreen('screen-array');
+      updateDots('array');
+    };
+  }
+
+  /* ================= ARRAY SCREEN ================= */
+  let arrayState = {};
+  function renderArrayGrid(){
+    const grid = document.getElementById('arrayGrid');
+    grid.style.gridTemplateColumns = `repeat(${arrayState.cols}, 28px)`;
+    grid.innerHTML = '';
+    for(let r=0;r<arrayState.rows;r++){
+      for(let c=0;c<arrayState.cols;c++){
+        const d = document.createElement('div');
+        d.className = 'flowerDot';
+        d.textContent = '🌻';
+        grid.appendChild(d);
+      }
+    }
+    document.getElementById('rowsVal').textContent = arrayState.rows;
+    document.getElementById('colsVal').textContent = arrayState.cols;
+
+    // skip count text: counting by columns, once per row
+    let running = 0, parts = [];
+    for(let r=0;r<arrayState.rows;r++){
+      running += arrayState.cols;
+      parts.push(running);
+    }
+    document.getElementById('arraySkipCount').textContent =
+      arrayState.rows>0 ? `Skip-count by ${arrayState.cols}s: ${parts.join(', ')}` : '';
+  }
+
+  function initArray(){
+    const targetRows = randInt(2,5);
+    const targetCols = randInt(2,5);
+    arrayState = { rows:1, cols:1, targetRows, targetCols, matched:false, solved:false };
+
+    document.getElementById('arrayInstruction').textContent =
+      `Plant a flower field with ${targetRows} rows and ${targetCols} columns.`;
+    document.getElementById('arrayFeedback').textContent = '';
+    document.getElementById('arrayQuizArea').classList.remove('show');
+    document.getElementById('arrayContinueBtn').style.display = 'none';
+    renderArrayGrid();
+
+    document.getElementById('rowPlus').onclick = () => { if(arrayState.rows<6){arrayState.rows++; renderArrayGrid();} };
+    document.getElementById('rowMinus').onclick = () => { if(arrayState.rows>1){arrayState.rows--; renderArrayGrid();} };
+    document.getElementById('colPlus').onclick = () => { if(arrayState.cols<6){arrayState.cols++; renderArrayGrid();} };
+    document.getElementById('colMinus').onclick = () => { if(arrayState.cols>1){arrayState.cols--; renderArrayGrid();} };
+
+    document.getElementById('checkArrayBtn').onclick = () => {
+      const fb = document.getElementById('arrayFeedback');
+      if(arrayState.rows === targetRows && arrayState.cols === targetCols){
+        fb.textContent = '🌼 Perfect field! Now find the total.';
+        fb.className = 'feedback good';
+        arrayState.matched = true;
+        const qa = document.getElementById('arrayQuizArea');
+        qa.classList.add('show');
+        document.getElementById('arrayEquationText').textContent =
+          `${targetRows} rows × ${targetCols} columns = ?`;
+        const disp = document.getElementById('arrayAnswerDisplay');
+        wireKeypad(document.getElementById('arrayKeypad'), disp, (val)=>{
+          const fb2 = document.getElementById('arrayFeedback2');
+          if(val===''){ fb2.textContent='Type a number first!'; fb2.className='feedback bad'; return; }
+          const num = parseInt(val,10);
+          const total = targetRows*targetCols;
+          if(num === total){
+            fb2.textContent = `Right! ${targetRows} rows of ${targetCols} sunflowers = ${total} flowers.`;
+            fb2.className = 'feedback good';
+            arrayState.solved = true;
+            document.getElementById('arrayContinueBtn').style.display = 'block';
+          } else {
+            fb2.textContent = 'Hmm, count the sunflowers row by row and try again!';
+            fb2.className = 'feedback bad shake';
+            setTimeout(()=>{fb2.classList.remove('shake');},400);
+          }
+        });
+      } else {
+        let msg = 'Not yet — ';
+        if(arrayState.rows !== targetRows) msg += arrayState.rows<targetRows? 'add more rows. ' : 'remove some rows. ';
+        if(arrayState.cols !== targetCols) msg += arrayState.cols<targetCols? 'add more columns.' : 'remove some columns.';
+        fb.textContent = msg;
+        fb.className = 'feedback bad shake';
+        setTimeout(()=>fb.classList.remove('shake'),400);
+      }
+    };
+
+    document.getElementById('arrayContinueBtn').onclick = () => {
+      initWordRound(1);
+      showScreen('screen-word');
+      updateDots('w1');
+    };
+  }
+
+  /* ================= WORD PROBLEM SCREEN ================= */
+  const templates = [
+    (a,b)=>({text:`Each spider has ${a} legs. There are ${b} spiders in the garden. How many legs are there in all?`, groupWord:'spider', itemWord:'leg'}),
+    (a,b)=>({text:`A baker arranges ${b} trays with ${a} muffins on each tray. How many muffins in all?`, groupWord:'tray', itemWord:'muffin'}),
+    (a,b)=>({text:`There are ${b} rows of sunflowers with ${a} sunflowers in each row. How many sunflowers in all?`, groupWord:'row', itemWord:'sunflower'}),
+    (a,b)=>({text:`${b} ladybugs each have ${a} spots on their backs. How many spots are there altogether?`, groupWord:'ladybug', itemWord:'spot'}),
+    (a,b)=>({text:`A farmer packs ${b} baskets with ${a} apples in each basket. How many apples in all?`, groupWord:'basket', itemWord:'apple'}),
+    (a,b)=>({text:`A hen house has ${b} nests with ${a} eggs in each nest. How many eggs in all?`, groupWord:'nest', itemWord:'egg'})
+  ];
+
+  let wordRoundScore = {1:false, 2:false, 3:false};
+  let lastTemplateIdx = -1;
+
+  function buildProblem(){
+    let idx;
+    do { idx = randInt(0, templates.length-1); } while(idx === lastTemplateIdx);
+    lastTemplateIdx = idx;
+    const a = randInt(2,9); // per group
+    const b = randInt(2,9); // number of groups
+    const t = templates[idx](a,b);
+    const correct = a*b;
+    let wrongsPool = new Set([a+b, a*b+a, Math.max(1,a*b-b), (a+1)*b, a*(b+1), a*b+1, Math.max(1,a*b-1)]);
+    wrongsPool.delete(correct);
+    let wrongs = shuffle([...wrongsPool]).slice(0,3);
+    while(wrongs.length<3){ // fallback filler
+      const filler = correct + randInt(1,5);
+      if(!wrongs.includes(filler) && filler!==correct) wrongs.push(filler);
+    }
+    const choices = shuffle([correct, ...wrongs]);
+    return { text:t.text, groupWord:t.groupWord, itemWord:t.itemWord, a, b, correct, choices };
+  }
+
+  let currentWordProblem = null;
+  let currentRound = 1;
+
+  function initWordRound(round){
+    currentRound = round;
+    document.getElementById('wordRoundLabel').textContent = `Story Problem ${round} of 3`;
+    currentWordProblem = buildProblem();
+    document.getElementById('wordText').textContent = currentWordProblem.text;
+    document.getElementById('wordFeedback').textContent = '';
+    document.getElementById('wordFeedback').className = 'feedback';
+    document.getElementById('wordNextBtn').style.display = 'none';
+
+    const viz = document.getElementById('wordHelperViz');
+    viz.classList.remove('show');
+    viz.innerHTML = '';
+    for(let g=0; g<currentWordProblem.b; g++){
+      const grp = document.createElement('div');
+      grp.className = 'bugGroup';
+      for(let i=0;i<currentWordProblem.a;i++){
+        const bug = document.createElement('span');
+        bug.textContent = '🐞';
+        bug.style.fontSize='16px';
+        grp.appendChild(bug);
+      }
+      viz.appendChild(grp);
+    }
+    const toggleBtn = document.getElementById('toggleHelperBtn');
+    toggleBtn.textContent = '🐞 Show me the groups';
+    toggleBtn.onclick = () => {
+      viz.classList.toggle('show');
+      toggleBtn.textContent = viz.classList.contains('show') ? '🙈 Hide groups' : '🐞 Show me the groups';
+    };
+
+    const choicesEl = document.getElementById('wordChoices');
+    choicesEl.innerHTML = '';
+    let answered = false;
+    currentWordProblem.choices.forEach(choice=>{
+      const btn = document.createElement('button');
+      btn.className = 'choiceBtn';
+      btn.textContent = choice;
+      btn.onclick = () => {
+        if(answered) return;
+        const fb = document.getElementById('wordFeedback');
+        if(choice === currentWordProblem.correct){
+          answered = true;
+          btn.classList.add('correct');
+          choicesEl.querySelectorAll('button').forEach(b=>b.disabled=true);
+          fb.textContent = `Correct! ${currentWordProblem.b} ${currentWordProblem.groupWord}s × ${currentWordProblem.a} ${currentWordProblem.itemWord}s each = ${currentWordProblem.correct}.`;
+          fb.className = 'feedback good';
+          wordRoundScore[round] = true;
+          document.getElementById('wordNextBtn').style.display = 'block';
+        } else {
+          btn.classList.add('wrong');
+          btn.disabled = true;
+          fb.textContent = 'Not quite — try skip-counting the groups again!';
+          fb.className = 'feedback bad';
+        }
+      };
+      choicesEl.appendChild(btn);
+    });
+
+    document.getElementById('wordNextBtn').onclick = () => {
+      if(round < 3){
+        initWordRound(round+1);
+        updateDots(round+1===2?'w2':'w3');
+      } else {
+        goFinal();
+      }
+    };
+  }
+
+  /* ================= FINAL SCREEN ================= */
+  function goFinal(){
+    showScreen('screen-final');
+    updateDots('w3'); // keep last dot filled visually
+    document.querySelectorAll('#progressDots span').forEach(el=>{el.classList.add('done');el.classList.remove('current');});
+
+    let stars = 0;
+    if(groupsState.solved) stars++;
+    if(arrayState.solved) stars++;
+    stars += (wordRoundScore[1]?1:0)+(wordRoundScore[2]?1:0)+(wordRoundScore[3]?1:0);
+    // stars out of 5
+    let starStr = '';
+    for(let i=0;i<5;i++) starStr += (i<stars) ? '⭐' : '☆';
+    document.getElementById('starsDisplay').textContent = starStr;
+
+    let msg;
+    if(stars===5) msg = "Perfect harvest! You mastered equal groups, arrays, AND story problems!";
+    else if(stars>=3) msg = "Great work! You're really getting the hang of multiplication as equal groups.";
+    else msg = "Nice try! Play again to practice skip-counting your groups.";
+    document.getElementById('finalSummary').textContent = msg;
+  }
+
+  document.getElementById('playAgainBtn').onclick = () => {
+    wordRoundScore = {1:false,2:false,3:false};
+    lastTemplateIdx = -1;
+    initGroups();
+    showScreen('screen-groups');
+    updateDots('groups');
+  };
+
+  document.getElementById('startBtn').onclick = () => {
+    initGroups();
+    showScreen('screen-groups');
+    updateDots('groups');
+  };
+
+  updateDots(null);
+})();
+</script>
+</body>
+</html>
+```

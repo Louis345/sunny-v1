@@ -1,0 +1,26 @@
+Create one complete interactive learning experience that helps a child understand:
+
+Multiplication as equal groups and arrays, connected to skip-counting and word-problem interpretation.
+
+Teach the mathematical concept rather than reproducing worksheet questions.
+
+You have full creative authority over:
+
+- pedagogy and content;
+- experience form;
+- interaction;
+- visual world;
+- mission and purpose;
+- consequences and recovery;
+- progression and payoff;
+- animation, audio, and effects;
+- replay behavior;
+- whether this is a game, simulation, story, manipulative, challenge, or another format.
+
+You may use third-party browser libraries and public HTTPS assets. You may use technologies such as Three.js, PixiJS, Phaser, Matter.js, GSAP, Tone.js, Canvas, WebGL, SVG, CSS animation, or another suitable tool. Choose tools because they strengthen the experience, not merely to demonstrate them.
+
+The mathematical reasoning should meaningfully affect what happens in the experience. Do not reproduce the original worksheet questions.
+
+Return one complete HTML document that runs inside a 1365×768 iframe with touch or mouse.
+
+Do not explain your choices. Return HTML only.

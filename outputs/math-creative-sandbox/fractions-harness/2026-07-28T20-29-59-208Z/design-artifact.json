@@ -1,0 +1,66 @@
+{
+  "title": "Slice Bazaar: The Fair Share Festival",
+  "academicSourceSummary": [
+    "Grade 3 unit fractions: naming and shading one equal part of a whole (1/3 of a rectangle, 1/4 of a circle)",
+    "Understanding that a fraction requires equal-sized parts, not just any division",
+    "Comparing unit fractions with different denominators (1/3 vs 1/4) to determine which represents a larger portion",
+    "Core concept target: as the denominator increases, each individual part gets smaller — a relationship that is visually counterintuitive and needs concrete modeling"
+  ],
+  "audienceRationale": "Reina is 9 and has two activities with strong, high-volume evidence: word-radar (112 plays, 65.5% accuracy, engagement 0.859, moderate frustration 0.271) showing she persists through visual search/scan tasks even without mastery, and spell-check (167 plays, 100% accuracy, engagement 0.992, very low frustration 0.1) showing she thrives with fast, unambiguous right/wrong feedback loops and will repeat a mechanic happily once it clicks. Wheel-of-fortune and pronunciation are marked low-confidence (only 2-4 plays) so they are treated as noise, not preference. The design leans on tap-to-select and instant-feedback mechanics (her proven strengths) while treating any open-ended freeform construction task as an untested hypothesis to monitor.",
+  "openingPromise": "You're the newest Slice Apprentice at the Slice Bazaar — cut fair, perfect shares for every hungry festival guest, and your stall becomes the most famous one in town.",
+  "firstThreeSeconds": "A round fruit tart glows on a wooden counter, already divided by four thin dashed lines into equal wedges. A cheerful fox customer says 'One slice for me, please!' and taps the tart — one wedge pulses gold, inviting the child to tap it.",
+  "firstAction": "Tap the single glowing wedge of the pre-gridded tart to shade it and serve the fox.",
+  "interactionDemonstration": "The moment the correct wedge is tapped, it fills with warm orange color, a soft chime plays, and the fox happily takes the slice while a small banner reads '1 out of 4 equal parts — that's one fourth!' A wrong wedge tap causes a gentle wobble and the wedge un-fills, inviting another try with no penalty.",
+  "coreInteraction": "Tap-to-shade equal-part shapes (circles, rectangles, hexagon cookies) to fulfill a customer's fraction order, then in 'Fair or Foul' rounds, compare two shaded unit-fraction pieces side by side and tap the larger one before the customer's patience bar runs out.",
+  "mathAsPower": "Knowing unit fractions makes Reina the only apprentice who can spot when a 'big-sounding' fraction (like 1/8) is actually a tiny sliver, so she never shortchanges — or over-serves — a guest. This 'Fair Slicer's Eye' becomes her signature bakery superpower, displayed as a glowing magnifier icon on her apron.",
+  "stakes": "Each shift has a Festival Happiness Meter that fills as guests are served correctly. A full meter unlocks new bazaar decorations and customer types; an empty meter simply means a quieter, plainer stall — never a game over or lost progress.",
+  "consequences": "Correct shading/comparisons brighten the stall, add new lantern decorations, and grow a visible crowd of waiting customers (positive escalation). Incorrect attempts cause the shape to gently un-shade and the customer to tilt their head with a curious (not angry) expression, prompting a retry — mistakes cost a few seconds of patience-bar time, never progress or stars already earned.",
+  "recovery": "After two misses on the same order, a 'Slice Helper' fairy appears and redraws the equal-part gridlines in bright dashed lines, or, in comparison rounds, shrinks the two pieces onto a shared measuring mat so sizes are directly stackable — always optional, always dismissible.",
+  "progression": [
+    {
+      "stage": "1. Warm-Up Wedges",
+      "mathematicalDemand": "Shade one unit fraction (1/2, 1/3, or 1/4) of a shape with gridlines already drawn",
+      "experienceBeat": "Friendly single customers arrive one at a time; simple tap-to-shade with instant chime feedback",
+      "supportAvailable": "Gridlines always visible; wedge to tap glows faintly; unlimited retries"
+    },
+    {
+      "stage": "2. Cut Your Own",
+      "mathematicalDemand": "Divide an ungridded shape into equal parts (denominators 3–6) using a drag tool, then shade one part",
+      "experienceBeat": "Customers now request the exact number of pieces ('cut it into 5!'); a satisfying knife-swipe animation appears with each cut",
+      "supportAvailable": "Snap-to-equal-parts guide can be toggled on/off; a 'Slice Helper' fairy demonstrates one cut if two attempts fail"
+    },
+    {
+      "stage": "3. Fair or Foul",
+      "mathematicalDemand": "Compare two unit fractions with different denominators (e.g., 1/3 vs 1/5) and choose the larger piece",
+      "experienceBeat": "Two customers each hold up their slice, playfully arguing about who got more; child taps the bigger portion to settle it",
+      "supportAvailable": "Optional overlay stacks both pieces on a shared mat to make size differences visually obvious"
+    },
+    {
+      "stage": "4. Trickster Stall",
+      "mathematicalDemand": "Compare unit fractions shown on differently-sized shapes (visual size illusion) to reinforce that denominator, not shape size, determines the fraction's meaning",
+      "experienceBeat": "A mischievous raccoon vendor sets up shapes of unequal overall size to try to fool the customers; child must reason past the visual trick",
+      "supportAvailable": "A 'same-size checker' tool can resize both shapes to equal outlines on request"
+    },
+    {
+      "stage": "5. Festival Rush",
+      "mathematicalDemand": "Rapidly serve mixed orders (shade, cut, and compare) across denominators 2–10 under a gentle timer",
+      "experienceBeat": "A full bustling crowd appears; successful streaks trigger confetti and stall upgrades in real time",
+      "supportAvailable": "Timer is generous and pausable; all prior helper tools remain available on demand"
+    }
+  ],
+  "worldReaction": "Successful serves make customers cheer, spin happily, and toss flower petals; the stall's banners brighten, string lights turn on one by one, and background market chatter grows livelier as her fame spreads. Mistakes are met with a curious head-tilt and patient waiting — never scolding.",
+  "payoff": "At festival's end, Reina's stall is crowned 'Fairest Slice in the Bazaar' with fireworks, a personalized apron badge ('Grand Fraction Chef'), and a keepsake gallery of every pastry design she served, viewable anytime.",
+  "replayVariation": "Each replay shuffles customer requests, shape types (tarts, flatbreads, star cookies, hexagon pies), and denominator ranges; a 'Mystery Customer' bonus occasionally requests an unusual unit fraction (like 1/9) to stretch reasoning, and an optional untimed 'Calm Bazaar' mode removes the patience timer entirely.",
+  "visualDirection": "Warm, sunlit market palette (terracotta, gold, soft green) with rounded cartoon characters and food-textured shapes; equal-part gridlines rendered as friendly dashed strokes; clean flat-design UI with soft drop shadows for depth.",
+  "motionDirection": "Slicing shows a quick, satisfying knife-swipe arc; correctly shaded pieces pop and settle with a small bounce; incorrect attempts trigger a soft wobble-and-reset rather than a harsh snap; customers idle with small looping bob animations to keep the world feeling alive.",
+  "soundDirection": "Bright marimba chime on correct actions, a gentle low 'boop' (not a buzzer) on misses, cheerful ambient market murmur and distant festival music underneath, with a short triumphant fanfare and crowd cheer at stage completions.",
+  "usefulLibraries": [
+    "Phaser 3 (2D scene/animation engine)",
+    "Konva.js (draggable cut-line/shape interactions)",
+    "GSAP (tweened pop/wobble/slice animations)",
+    "Howler.js (layered sound effects and ambient audio)",
+    "React (UI overlays, progress meters, customer dialogue)"
+  ],
+  "engagementPrediction": "High initial engagement is likely: the tap-to-shade and compare mechanics closely mirror the fast, binary-feedback structure of spell-check (100% accuracy, 0.992 engagement) and the visual-scan persistence shown in word-radar, suggesting Reina will move through Stages 1 and 3 with low frustration and strong repeat-play behavior.",
+  "falsifyingEvidence": "If Reina shows elevated frustration or drop-off specifically at Stage 2 (freeform cutting/dragging to create equal parts), this would falsify the assumption that her tap-based confidence transfers to open-ended construction tasks, since no prior data exists on her tolerance for freeform drawing interactions — all strong evidence so far comes from selection/tap-style mechanics, not construction ones."
+}

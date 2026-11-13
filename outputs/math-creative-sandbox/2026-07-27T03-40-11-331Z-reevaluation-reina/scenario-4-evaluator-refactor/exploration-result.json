@@ -1,0 +1,81 @@
+{
+  "candidateId": "scenario-4-evaluator-refactor",
+  "screenshots": [
+    "/Users/jamaltaylor/Development/sunny-math-creative-sandbox/outputs/math-creative-sandbox/2026-07-27T03-40-11-331Z-reevaluation-reina/scenario-4-evaluator-refactor/00-opening.png",
+    "/Users/jamaltaylor/Development/sunny-math-creative-sandbox/outputs/math-creative-sandbox/2026-07-27T03-40-11-331Z-reevaluation-reina/scenario-4-evaluator-refactor/01-first-action.png",
+    "/Users/jamaltaylor/Development/sunny-math-creative-sandbox/outputs/math-creative-sandbox/2026-07-27T03-40-11-331Z-reevaluation-reina/scenario-4-evaluator-refactor/02-first-action.png",
+    "/Users/jamaltaylor/Development/sunny-math-creative-sandbox/outputs/math-creative-sandbox/2026-07-27T03-40-11-331Z-reevaluation-reina/scenario-4-evaluator-refactor/03-progress.png",
+    "/Users/jamaltaylor/Development/sunny-math-creative-sandbox/outputs/math-creative-sandbox/2026-07-27T03-40-11-331Z-reevaluation-reina/scenario-4-evaluator-refactor/04-progress.png",
+    "/Users/jamaltaylor/Development/sunny-math-creative-sandbox/outputs/math-creative-sandbox/2026-07-27T03-40-11-331Z-reevaluation-reina/scenario-4-evaluator-refactor/05-progress.png",
+    "/Users/jamaltaylor/Development/sunny-math-creative-sandbox/outputs/math-creative-sandbox/2026-07-27T03-40-11-331Z-reevaluation-reina/scenario-4-evaluator-refactor/06-progress.png",
+    "/Users/jamaltaylor/Development/sunny-math-creative-sandbox/outputs/math-creative-sandbox/2026-07-27T03-40-11-331Z-reevaluation-reina/scenario-4-evaluator-refactor/07-progress.png",
+    "/Users/jamaltaylor/Development/sunny-math-creative-sandbox/outputs/math-creative-sandbox/2026-07-27T03-40-11-331Z-reevaluation-reina/scenario-4-evaluator-refactor/08-progress.png"
+  ],
+  "actions": [
+    {
+      "kind": "click_text",
+      "captureLabel": "first-action",
+      "text": "🌱 Start Growing",
+      "reason": "Begin the activity from the intro screen to see the first interactive gameplay step.",
+      "ok": true
+    },
+    {
+      "kind": "click_at",
+      "x": 682,
+      "y": 296,
+      "captureLabel": "first-action",
+      "reason": "Tap the pot to add a flower as instructed by the on-screen prompt, to see how the interaction responds.",
+      "ok": true
+    },
+    {
+      "kind": "click_at",
+      "x": 733,
+      "y": 241,
+      "captureLabel": "progress",
+      "reason": "Click the + button to add another pot, since the current pot is full (1/3) but we need 2 pots total for 6 flowers at 3 per pot.",
+      "ok": true
+    },
+    {
+      "kind": "click_at",
+      "x": 626,
+      "y": 296,
+      "captureLabel": "progress",
+      "reason": "Tap the first pot again to add more flowers, moving toward the 3/3 target for this pot.",
+      "ok": true
+    },
+    {
+      "kind": "click_at",
+      "x": 626,
+      "y": 296,
+      "captureLabel": "progress",
+      "reason": "Tap the first pot once more to bring it to 3/3, completing the first equal group before working on the second pot.",
+      "ok": true
+    },
+    {
+      "kind": "click_at",
+      "x": 738,
+      "y": 296,
+      "captureLabel": "progress",
+      "reason": "Tap the second pot to start adding flowers to it, working toward its 3/3 target.",
+      "ok": true
+    },
+    {
+      "kind": "click_at",
+      "x": 738,
+      "y": 296,
+      "captureLabel": "progress",
+      "reason": "Tap the second pot again to add more flowers, moving toward its 3/3 target to complete both equal groups.",
+      "ok": true
+    },
+    {
+      "kind": "click_at",
+      "x": 738,
+      "y": 296,
+      "captureLabel": "progress",
+      "reason": "Tap the second pot again to bring it to 3/3, completing both equal groups so the total matches the target of 6 flowers, 3 per pot.",
+      "ok": true
+    }
+  ],
+  "visibleText": "Plant Equal Groups (1 of 2)\n\nPip needs 6 flowers total, planted with exactly 3 in every pot. How many pots will you need?\n\n🎯 Target: 6 flowers, 3 per pot\nNumber of Pots\n−\n2\n+\n🌼🌼🌼\n3/3\n🌼🌼🌼\n3/3\nSkip-counting: 3, 6\n2 × 3 = 6\n\nTap a pot to add a flower. Tap a full pot to take one back out.\n\n✓ Check My Garden",
+  "consoleMessages": []
+}

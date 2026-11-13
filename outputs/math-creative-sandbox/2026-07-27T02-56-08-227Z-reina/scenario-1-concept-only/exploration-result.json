@@ -1,0 +1,97 @@
+{
+  "candidateId": "scenario-1-concept-only",
+  "screenshots": [
+    "/Users/jamaltaylor/Development/sunny-math-creative-sandbox/outputs/math-creative-sandbox/2026-07-27T02-56-08-227Z-reina/scenario-1-concept-only/00-opening.png",
+    "/Users/jamaltaylor/Development/sunny-math-creative-sandbox/outputs/math-creative-sandbox/2026-07-27T02-56-08-227Z-reina/scenario-1-concept-only/01-first-action.png",
+    "/Users/jamaltaylor/Development/sunny-math-creative-sandbox/outputs/math-creative-sandbox/2026-07-27T02-56-08-227Z-reina/scenario-1-concept-only/02-progress.png",
+    "/Users/jamaltaylor/Development/sunny-math-creative-sandbox/outputs/math-creative-sandbox/2026-07-27T02-56-08-227Z-reina/scenario-1-concept-only/03-exploration.png",
+    "/Users/jamaltaylor/Development/sunny-math-creative-sandbox/outputs/math-creative-sandbox/2026-07-27T02-56-08-227Z-reina/scenario-1-concept-only/04-incorrect-recovery.png",
+    "/Users/jamaltaylor/Development/sunny-math-creative-sandbox/outputs/math-creative-sandbox/2026-07-27T02-56-08-227Z-reina/scenario-1-concept-only/05-progress.png",
+    "/Users/jamaltaylor/Development/sunny-math-creative-sandbox/outputs/math-creative-sandbox/2026-07-27T02-56-08-227Z-reina/scenario-1-concept-only/06-progress.png",
+    "/Users/jamaltaylor/Development/sunny-math-creative-sandbox/outputs/math-creative-sandbox/2026-07-27T02-56-08-227Z-reina/scenario-1-concept-only/07-progress.png",
+    "/Users/jamaltaylor/Development/sunny-math-creative-sandbox/outputs/math-creative-sandbox/2026-07-27T02-56-08-227Z-reina/scenario-1-concept-only/08-progress.png",
+    "/Users/jamaltaylor/Development/sunny-math-creative-sandbox/outputs/math-creative-sandbox/2026-07-27T02-56-08-227Z-reina/scenario-1-concept-only/09-progress.png",
+    "/Users/jamaltaylor/Development/sunny-math-creative-sandbox/outputs/math-creative-sandbox/2026-07-27T02-56-08-227Z-reina/scenario-1-concept-only/10-completion.png"
+  ],
+  "actions": [
+    {
+      "kind": "click_text",
+      "text": "🌱 Start Growing",
+      "captureLabel": "first-action",
+      "reason": "Begin the activity to see the first interactive screen (likely group builder).",
+      "ok": true
+    },
+    {
+      "kind": "wait",
+      "ms": 500,
+      "captureLabel": "progress",
+      "reason": "Allow screen transition to render.",
+      "ok": true
+    },
+    {
+      "kind": "click_at",
+      "x": 683,
+      "y": 205,
+      "captureLabel": "exploration",
+      "reason": "Click '+' or increment button repeatedly to see if there's a limit or odd behavior (testing edge case) before checking answer.",
+      "ok": true
+    },
+    {
+      "kind": "click_text",
+      "text": "✓ Check My Array",
+      "captureLabel": "incorrect-recovery",
+      "reason": "Attempt to check the array/answer before properly setting values, to see how the activity handles an incorrect or incomplete attempt.",
+      "ok": false,
+      "error": "locator.click: Timeout 4000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByText('✓ Check My Array').first()\u001b[22m\n\u001b[2m    - locator resolved to <button class=\"btn\" id=\"b2-check\" onclick=\"checkArrayChallenge()\">✓ Check My Array</button>\u001b[22m\n\u001b[2m  - attempting click action\u001b[22m\n\u001b[2m    2 × waiting for element to be visible, enabled and stable\u001b[22m\n\u001b[2m      - element is not visible\u001b[22m\n\u001b[2m    - retrying click action\u001b[22m\n\u001b[2m    - waiting 20ms\u001b[22m\n\u001b[2m    2 × waiting for element to be visible, enabled and stable\u001b[22m\n\u001b[2m      - element is not visible\u001b[22m\n\u001b[2m    - retrying click action\u001b[22m\n\u001b[2m      - waiting 100ms\u001b[22m\n\u001b[2m    8 × waiting for element to be visible, enabled and stable\u001b[22m\n\u001b[2m      - element is not visible\u001b[22m\n\u001b[2m    - retrying click action\u001b[22m\n\u001b[2m      - waiting 500ms\u001b[22m\n"
+    },
+    {
+      "kind": "wait",
+      "ms": 500,
+      "captureLabel": "progress",
+      "reason": "Observe feedback after incorrect check.",
+      "ok": true
+    },
+    {
+      "kind": "click_text",
+      "text": "+",
+      "captureLabel": "progress",
+      "reason": "Increment a counter to try to build correct number of groups/rows.",
+      "ok": false,
+      "error": "locator.click: Timeout 4000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByText('+').first()\u001b[22m\n\u001b[2m    - locator resolved to <button class=\"step-btn\">+</button>\u001b[22m\n\u001b[2m  - attempting click action\u001b[22m\n\u001b[2m    2 × waiting for element to be visible, enabled and stable\u001b[22m\n\u001b[2m      - element is not visible\u001b[22m\n\u001b[2m    - retrying click action\u001b[22m\n\u001b[2m    - waiting 20ms\u001b[22m\n\u001b[2m    2 × waiting for element to be visible, enabled and stable\u001b[22m\n\u001b[2m      - element is not visible\u001b[22m\n\u001b[2m    - retrying click action\u001b[22m\n\u001b[2m      - waiting 100ms\u001b[22m\n\u001b[2m    8 × waiting for element to be visible, enabled and stable\u001b[22m\n\u001b[2m      - element is not visible\u001b[22m\n\u001b[2m    - retrying click action\u001b[22m\n\u001b[2m      - waiting 500ms\u001b[22m\n"
+    },
+    {
+      "kind": "click_text",
+      "text": "+",
+      "captureLabel": "progress",
+      "reason": "Increment second counter to try to build correct columns.",
+      "ok": false,
+      "error": "locator.click: Timeout 4000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByText('+').first()\u001b[22m\n\u001b[2m    - locator resolved to <button class=\"step-btn\">+</button>\u001b[22m\n\u001b[2m  - attempting click action\u001b[22m\n\u001b[2m    2 × waiting for element to be visible, enabled and stable\u001b[22m\n\u001b[2m      - element is not visible\u001b[22m\n\u001b[2m    - retrying click action\u001b[22m\n\u001b[2m    - waiting 20ms\u001b[22m\n\u001b[2m    2 × waiting for element to be visible, enabled and stable\u001b[22m\n\u001b[2m      - element is not visible\u001b[22m\n\u001b[2m    - retrying click action\u001b[22m\n\u001b[2m      - waiting 100ms\u001b[22m\n\u001b[2m    8 × waiting for element to be visible, enabled and stable\u001b[22m\n\u001b[2m      - element is not visible\u001b[22m\n\u001b[2m    - retrying click action\u001b[22m\n\u001b[2m      - waiting 500ms\u001b[22m\n"
+    },
+    {
+      "kind": "click_text",
+      "text": "✓ Check My Array",
+      "captureLabel": "progress",
+      "reason": "Check array again after adjusting values, hoping for correct feedback this time.",
+      "ok": false,
+      "error": "locator.click: Timeout 4000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByText('✓ Check My Array').first()\u001b[22m\n\u001b[2m    - locator resolved to <button class=\"btn\" id=\"b2-check\" onclick=\"checkArrayChallenge()\">✓ Check My Array</button>\u001b[22m\n\u001b[2m  - attempting click action\u001b[22m\n\u001b[2m    2 × waiting for element to be visible, enabled and stable\u001b[22m\n\u001b[2m      - element is not visible\u001b[22m\n\u001b[2m    - retrying click action\u001b[22m\n\u001b[2m    - waiting 20ms\u001b[22m\n\u001b[2m    2 × waiting for element to be visible, enabled and stable\u001b[22m\n\u001b[2m      - element is not visible\u001b[22m\n\u001b[2m    - retrying click action\u001b[22m\n\u001b[2m      - waiting 100ms\u001b[22m\n\u001b[2m    8 × waiting for element to be visible, enabled and stable\u001b[22m\n\u001b[2m      - element is not visible\u001b[22m\n\u001b[2m    - retrying click action\u001b[22m\n\u001b[2m      - waiting 500ms\u001b[22m\n"
+    },
+    {
+      "kind": "click_text",
+      "text": "See it as an Array! →",
+      "captureLabel": "progress",
+      "reason": "Progress forward if allowed, to see array visualization step.",
+      "ok": false,
+      "error": "locator.click: Timeout 4000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByText('See it as an Array! →').first()\u001b[22m\n\u001b[2m    - locator resolved to <button class=\"btn secondary\" onclick=\"toArrayFromBuild1()\">See it as an Array! →</button>\u001b[22m\n\u001b[2m  - attempting click action\u001b[22m\n\u001b[2m    2 × waiting for element to be visible, enabled and stable\u001b[22m\n\u001b[2m      - element is not visible\u001b[22m\n\u001b[2m    - retrying click action\u001b[22m\n\u001b[2m    - waiting 20ms\u001b[22m\n\u001b[2m    2 × waiting for element to be visible, enabled and stable\u001b[22m\n\u001b[2m      - element is not visible\u001b[22m\n\u001b[2m    - retrying click action\u001b[22m\n\u001b[2m      - waiting 100ms\u001b[22m\n\u001b[2m    8 × waiting for element to be visible, enabled and stable\u001b[22m\n\u001b[2m      - element is not visible\u001b[22m\n\u001b[2m    - retrying click action\u001b[22m\n\u001b[2m      - waiting 500ms\u001b[22m\n"
+    },
+    {
+      "kind": "click_text",
+      "text": "Next: Array Challenge! →",
+      "captureLabel": "completion",
+      "reason": "Advance to the next challenge stage to test overall progression and completion flow.",
+      "ok": false,
+      "error": "locator.click: Timeout 4000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByText('Next: Array Challenge! →').first()\u001b[22m\n\u001b[2m    - locator resolved to <button disabled class=\"btn\" id=\"t2-next\" onclick=\"startArrayChallenge()\">Next: Array Challenge! →</button>\u001b[22m\n\u001b[2m  - attempting click action\u001b[22m\n\u001b[2m    2 × waiting for element to be visible, enabled and stable\u001b[22m\n\u001b[2m      - element is not visible\u001b[22m\n\u001b[2m    - retrying click action\u001b[22m\n\u001b[2m    - waiting 20ms\u001b[22m\n\u001b[2m    2 × waiting for element to be visible, enabled and stable\u001b[22m\n\u001b[2m      - element is not visible\u001b[22m\n\u001b[2m    - retrying click action\u001b[22m\n\u001b[2m      - waiting 100ms\u001b[22m\n\u001b[2m    8 × waiting for element to be visible, enabled and stable\u001b[22m\n\u001b[2m      - element is not visible\u001b[22m\n\u001b[2m    - retrying click action\u001b[22m\n\u001b[2m      - waiting 500ms\u001b[22m\n"
+    }
+  ],
+  "visibleText": "Equal Groups\n\nPip planted flower pots in equal groups — the same number of flowers in each pot.\n\nTap each pot in order to skip-count the flowers!\n\n🌼🌼🌼🌼\n?\n🌼🌼🌼🌼\n?\n🌼🌼🌼🌼\n?\nNext: Build my own! →",
+  "consoleMessages": []
+}

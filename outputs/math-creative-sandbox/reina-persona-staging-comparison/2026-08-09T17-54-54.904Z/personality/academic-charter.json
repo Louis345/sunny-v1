@@ -1,0 +1,245 @@
+{
+  "charterId": "charter:reina-g3-multiplication:academic-lead:v1",
+  "upstreamHash": "d8947c3d5c33d730559d5acf67b477eb4b19011e04126dacdc9ea960f50c5365",
+  "scope": [
+    "Interpret a multiplicative situation by identifying two distinct quantities: the number of equal groups and the amount in each group (unit rate), including distinguishing them when they are swapped.",
+    "Construct or complete an equal-groups representation from a stated situation, and read an already-built equal-groups representation back into 'groups of' language.",
+    "Construct or complete a rectangular array representation, and read rows and columns from a given array without recounting every element one by one.",
+    "Translate between representation and symbolic form in both directions: representation -> equation a x b = p, and equation -> a matching representation.",
+    "Determine the product from the representation, with skip-counting or repeated addition permitted as an intermediate strategy and named as such rather than treated as the goal.",
+    "Recognise that the total is unchanged when the two factors swap roles while the situation described is not the same (commutativity of product, non-equivalence of context), limited to observation, not formal statement.",
+    "Move across the experience from supported interpretation to independent construction of representation plus equation for a novel situation.",
+    "Total factor range restricted to whole-number factors 1-10 with products at or below 100, using fresh contexts not previously seen by this learner."
+  ],
+  "boundaries": {
+    "outOfScope": [
+      "Division, missing-factor equations, or inverse-operation framing.",
+      "Multi-digit multiplication, standard algorithm, partial products, or place-value decomposition strategies.",
+      "Formal naming or symbolic proof of the commutative, associative, or distributive properties.",
+      "Fact fluency, timed recall, memorised times-table drilling, or speed as a success criterion.",
+      "Fractions, area measurement in square units, perimeter, scaling, or multiplicative comparison ('3 times as many').",
+      "Word-problem reading load beyond short, plainly-worded situations; the assessed construct is multiplicative structure, not reading comprehension.",
+      "Assessment of prior knowledge of specific multiplication facts as a gate to entry."
+    ],
+    "nonNegotiables": [
+      "Every representation, equation, and product shown must be mathematically correct; no near-miss or 'close enough' feedback.",
+      "Groups and amount-per-group must be visually and verbally distinguishable at all times; an array's rows and columns must be unambiguous.",
+      "Equal groups must actually be equal in every representation presented as an equal-groups model.",
+      "Correctness feedback must be tied to the mathematics, never to the child's identity, speed, or perceived ability.",
+      "Hints must be available on request and must scaffold toward the structure (groups / amount in each group), never reveal the product outright on first hint.",
+      "All interaction must be completable with touch or mouse alone inside 1365x768 with no scrolling required to see the active task and no keyboard dependency.",
+      "The experience must reach a definite mathematical payoff, not end mid-task.",
+      "No claim about the child's interests, history, or identity may be asserted as fact inside the child-facing material."
+    ],
+    "toneBoundaries": [
+      "Address a nine-year-old as a capable mathematician; no baby talk, no cutesy diminutives.",
+      "Do not praise effort in ways that imply the task was expected to be too hard for her.",
+      "Difficulty must be presented as available and real, not as a reward for compliance."
+    ]
+  },
+  "assumptions": [
+    {
+      "decisionId": "dec-01-entry-level",
+      "decision": "Enter at interpretation of equal-group situations with representation support present from the first task, rather than beginning with a diagnostic or with bare symbolic notation.",
+      "evidenceIds": [
+        "reina:age:2026-07"
+      ],
+      "confidence": 0.62,
+      "uncertainty": "Age alone does not establish current multiplication placement; she may already interpret equal groups fluently and find the opening trivially easy, or she may have no prior exposure at all.",
+      "falsifyingEvidence": "First two interpretation tasks answered correctly and unaided within a short latency, or conversely the first task abandoned or answered with additive-only reasoning after a hint.",
+      "measurementKeys": [
+        "opening_task_accuracy",
+        "opening_task_latency_ms",
+        "opening_hint_requests",
+        "additive_only_response_flag"
+      ]
+    },
+    {
+      "decisionId": "dec-02-difficulty-ramp",
+      "decision": "Ramp difficulty across the experience and expose an explicit learner-initiated route to harder items rather than capping at a fixed ceiling.",
+      "evidenceIds": [
+        "reina:riddles:harder",
+        "reina:age:2026-07"
+      ],
+      "confidence": 0.55,
+      "uncertainty": "Requesting harder riddles is domain-specific evidence about a puzzle context and a positive social exchange; it does not establish that she will seek greater challenge in a mathematics task where failure feels evaluative rather than playful.",
+      "falsifyingEvidence": "Harder route offered and declined or ignored on two or more occasions, or accuracy collapsing immediately after opting up with no hint request following.",
+      "measurementKeys": [
+        "challenge_optin_rate",
+        "accuracy_by_difficulty_tier",
+        "post_optin_hint_requests",
+        "post_optin_abandon_flag"
+      ]
+    },
+    {
+      "decisionId": "dec-03-hints-on-request",
+      "decision": "Provide structural hints only when the learner requests them, in a graduated sequence (restate situation -> identify number of groups -> identify amount in each group -> partial representation), never auto-triggered by a single wrong answer.",
+      "evidenceIds": [
+        "reina:riddles:scaffold"
+      ],
+      "confidence": 0.68,
+      "uncertainty": "One observed instance of requesting hints on a logic problem does not establish that she will request hints in mathematics, nor that unsolicited hints would actually be unwelcome; silent struggle may go undetected under a request-only policy.",
+      "falsifyingEvidence": "Two or more consecutive incorrect attempts on the same item with zero hint requests, or a long idle period followed by abandonment.",
+      "measurementKeys": [
+        "hint_request_count_by_item",
+        "consecutive_incorrect_without_hint",
+        "post_hint_recovery_rate",
+        "idle_before_abandon_ms"
+      ]
+    },
+    {
+      "decisionId": "dec-04-mathematical-integrity-visible",
+      "decision": "Make the mathematics auditable to the learner: every product is verifiable by inspecting the representation, and no item depends on an unstated rule, trick, or ambiguous wording.",
+      "evidenceIds": [
+        "reina:riddles:logic"
+      ],
+      "confidence": 0.74,
+      "uncertainty": "The evidence shows she detected a flawed riddle and repeated content once; it does not quantify how she reacts to a genuinely ambiguous mathematics item, and this may be a general design requirement rather than a child-specific one.",
+      "falsifyingEvidence": "A correctly-specified item challenged or rejected by the learner, or an item passing internal review that she identifies as ambiguous or contradictory.",
+      "measurementKeys": [
+        "item_ambiguity_challenge_count",
+        "reviewer_math_error_count",
+        "repeated_item_detection_flag"
+      ]
+    },
+    {
+      "decisionId": "dec-05-no-repeated-content",
+      "decision": "Require every situation, representation, and number pair to be fresh within the session, with no reused item stems and no recycled surface contexts.",
+      "evidenceIds": [
+        "reina:riddles:logic",
+        "reina:riddles:harder"
+      ],
+      "confidence": 0.7,
+      "uncertainty": "Noticing repetition in riddles indicates attentiveness; whether repetition would reduce engagement or learning in a multiplication task is not established, and some deliberate structural repetition is pedagogically useful for noticing patterns.",
+      "falsifyingEvidence": "Learner comment or behaviour indicating a task felt repetitive, or conversely improved performance on structurally parallel repeated formats.",
+      "measurementKeys": [
+        "unique_item_stem_count",
+        "repeat_detection_comment_flag",
+        "accuracy_on_structurally_parallel_items"
+      ]
+    },
+    {
+      "decisionId": "dec-06-representation-order",
+      "decision": "Sequence equal-groups representation before rectangular array, then require the learner to connect the two, rather than introducing arrays first or in parallel.",
+      "evidenceIds": [
+        "reina:age:2026-07"
+      ],
+      "confidence": 0.58,
+      "uncertainty": "This ordering reflects common Grade 3 sequencing, not evidence about this learner; she may find arrays more immediately legible than grouped objects, especially at 1365x768 where arrays are visually cleaner.",
+      "falsifyingEvidence": "Higher accuracy or lower latency on array items than on equal-groups items at matched factor sizes.",
+      "measurementKeys": [
+        "accuracy_equal_groups_vs_array",
+        "latency_equal_groups_vs_array",
+        "representation_switch_error_count"
+      ]
+    },
+    {
+      "decisionId": "dec-07-independence-transfer",
+      "decision": "Close with an unscaffolded transfer task in which the learner independently produces both a representation and the matching equation for a novel situation, and treat this as the primary evidence of the contract's independence goal.",
+      "evidenceIds": [
+        "reina:riddles:harder",
+        "reina:riddles:scaffold"
+      ],
+      "confidence": 0.6,
+      "uncertainty": "Independence at the end of a single session may reflect within-session pattern-following rather than durable understanding; a single transfer item is a thin measure and one failure would be weakly diagnostic.",
+      "falsifyingEvidence": "Correct equations produced throughout the scaffolded phase but failure to construct a valid representation unaided at transfer, or success achieved only after maximal hinting.",
+      "measurementKeys": [
+        "transfer_task_unaided_success",
+        "transfer_hint_depth_used",
+        "factor_role_assignment_correct",
+        "representation_equation_consistency"
+      ]
+    },
+    {
+      "decisionId": "dec-08-no-interest-personalisation",
+      "decision": "Do not build the academic framing around wrestling or any inferred interest; treat surface context as creatively mutable downstream but academically neutral, and forbid asserting the child's interests as fact in child-facing material.",
+      "evidenceIds": [
+        "reina:conversation:wrestling"
+      ],
+      "confidence": 0.66,
+      "uncertainty": "One self-chosen conversation topic, including a competitive loss, is not a durable preference and may carry negative affect; equally, a well-handled familiar context could increase engagement and I may be leaving that value unclaimed.",
+      "falsifyingEvidence": "Engagement or persistence measurably lower in neutral contexts than in a comparable interest-linked context, or explicit learner request for a themed context.",
+      "measurementKeys": [
+        "engagement_duration_neutral_context",
+        "learner_theme_request_flag",
+        "affect_signal_on_context_items"
+      ]
+    },
+    {
+      "decisionId": "dec-09-feedback-evidence-weight",
+      "decision": "Treat prior positive activity feedback as insufficient to license design confidence; require this experience to carry its own instrumentation rather than inheriting assumed success.",
+      "evidenceIds": [
+        "reina:activity-feedback:small-sample"
+      ],
+      "confidence": 0.8,
+      "uncertainty": "Small-sample positive feedback on spelling and pronunciation activities has unknown transfer to a mathematics task with a correctness-heavy construct; positive affect there may have come from mechanics that do not survive translation to multiplication.",
+      "falsifyingEvidence": "Instrumented outcomes in this experience closely matching the prior activities' outcome profile across engagement and completion, suggesting transfer was in fact reliable.",
+      "measurementKeys": [
+        "completion_rate",
+        "session_engagement_duration",
+        "learning_objective_hit_rate",
+        "cross_activity_outcome_delta"
+      ]
+    },
+    {
+      "decisionId": "dec-10-input-modality",
+      "decision": "Constrain all mathematical input to selection, drag, tap, or discrete construction actions; require no typed numeric entry and no keyboard for any assessed step.",
+      "evidenceIds": [
+        "reina:age:2026-07"
+      ],
+      "confidence": 0.72,
+      "uncertainty": "Device and input modality for this session are unknown; typed entry could be a lower-friction and more honest measure of independent product recall than selection from options, which permits elimination strategies.",
+      "falsifyingEvidence": "Evidence that the session runs on a keyboard-equipped device and that selection-based answering allows correct responses without valid multiplicative reasoning.",
+      "measurementKeys": [
+        "input_modality_observed",
+        "selection_vs_construction_accuracy_gap",
+        "guess_pattern_flag"
+      ]
+    }
+  ],
+  "representativeLearningResponsibility": {
+    "statement": "I own the academic outcome of this experience, including every assumption above that turns out to be wrong. The child is nine; she is not responsible for compensating for my misplacement of difficulty, my sequencing choice, or my read of thin evidence. If she struggles, the first hypothesis is that this charter mis-specified the task, not that she lacks ability.",
+    "representativeOf": "A nine-year-old Grade 3 learner with unknown prior multiplication exposure, inferred from six discrete observations, none of which are mathematics-domain performance data.",
+    "evidenceStrength": "Weak to moderate. Zero direct evidence of this learner's multiplication ability, number-sense, or representation fluency exists in the supplied set. Five of six evidence items concern verbal, logical, or literacy contexts; one concerns age. All academic placement decisions here are inference across domains.",
+    "knownGaps": [
+      "No baseline for known multiplication facts, skip-counting fluency, or additive reasoning.",
+      "No evidence about her response to being incorrect in a mathematics context, as distinct from a riddle context.",
+      "No evidence about visual-spatial handling of arrays or grouped object displays.",
+      "No device, input modality, session length, or supervision context.",
+      "No evidence of durable preferences; all interest signals are single-instance."
+    ],
+    "accountabilityCommitments": [
+      "Every assumption carries a stated falsifier and measurement keys; none may be quietly retired without contrary data.",
+      "Confidence values are deliberately capped below 0.85 because no mathematics-domain evidence exists for this learner.",
+      "If the transfer task fails, the recorded conclusion is 'sequencing or entry level mis-set', pending evidence, not 'learner did not understand'.",
+      "Uncertainty recorded here must not be transmitted into child-facing language as hedging, apology, or lowered expectation."
+    ],
+    "dignityProtections": [
+      "No child-facing text may reference difficulty relative to age, grade, or other children.",
+      "No loss, defeat, or failure framing may be imported from her conversational history.",
+      "Errors are described as information about the mathematics, and the path forward is always stated."
+    ]
+  },
+  "progression": [
+    "Phase 0 - Orientation: a single worked multiplicative situation is presented with the two quantities explicitly named as number of groups and amount in each group. No answer is required. Purpose is to establish shared language, not to assess.",
+    "Phase 1 - Guided interpretation: given a short situation and a matching equal-groups representation, the learner identifies the number of groups and the amount in each group. Factors 2-5. Full representation visible. Hints available on request.",
+    "Phase 2 - Representation to equation: given a complete equal-groups representation, the learner selects or assembles the equation a x b = p and states the product, with skip-counting available as a visible intermediate. Factors 2-6.",
+    "Phase 3 - Equation to representation: given an equation, the learner constructs or completes an equal-groups representation that matches it, including at least one item where a distractor representation has unequal groups. Factors 2-6.",
+    "Phase 4 - Array introduction and connection: the same quantity is shown as equal groups and as a rectangular array; the learner reads rows and columns and confirms both yield the same product. Factors 3-7.",
+    "Phase 5 - Array construction and factor-role reasoning: the learner builds an array from a situation, then encounters a swapped-factor pair (for example 4 groups of 7 versus 7 groups of 4) and observes that the product is unchanged while the situation described differs. No formal property naming.",
+    "Phase 6 - Challenge branch, learner-initiated: an explicitly offered harder tier with factors up to 10, larger products at or below 100, and reduced representational support. Declining carries no penalty and does not close the transfer task.",
+    "Phase 7 - Independent transfer and payoff: a novel situation with no pre-built representation. The learner constructs a representation, writes or assembles the matching equation, and states the product unaided. The payoff explicitly names what she can now do in mathematical terms - interpret, represent, and equate - rather than awarding a generic reward."
+  ],
+  "evidenceRequiredNext": [
+    "Baseline probe data on entry: accuracy, latency, and hint use on the first two Phase 1 items, to test dec-01 entry-level placement before any downstream difficulty tuning is trusted.",
+    "Per-item accuracy, latency, hint depth, and attempt count keyed to phase and factor size, to test dec-02 ramp and dec-06 representation ordering.",
+    "Explicit record of hint requests versus consecutive incorrect attempts without a request, to test whether the request-only hint policy in dec-03 leaves silent struggle undetected.",
+    "Count and content of any learner challenge to item wording or logic, plus an independent mathematical review confirming zero incorrect products, unequal 'equal' groups, or ambiguous stems, to test dec-04.",
+    "Unaided success, hint depth, and representation-equation consistency on the Phase 7 transfer task, as the primary outcome measure for the contract's independence goal and the falsifier for dec-07.",
+    "Observed device and input modality, plus evidence on whether selection-based responding permits correct answers without valid multiplicative reasoning, to test dec-10.",
+    "Uptake rate and post-uptake performance on the Phase 6 challenge branch, to test whether cross-domain transfer of challenge-seeking from riddles to mathematics is real (dec-02).",
+    "Any spontaneous learner request for a themed or familiar context, and engagement duration in the neutral framing, to test dec-08 before any future personalisation is considered.",
+    "Completion rate and session engagement duration measured natively for this experience rather than inherited from prior activity feedback, per dec-09.",
+    "A short post-session retention or re-presentation check on at least one structurally novel item, since a single session cannot distinguish durable understanding from within-session pattern-following."
+  ]
+}

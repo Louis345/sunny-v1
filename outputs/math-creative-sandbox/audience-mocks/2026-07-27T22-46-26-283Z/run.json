@@ -1,0 +1,25 @@
+{
+  "model": "claude-sonnet-5",
+  "calls": 3,
+  "wallClockStrategy": "one design call, then three parallel mock calls",
+  "aggregateModelElapsedMs": 521674,
+  "inputTokens": 8204,
+  "outputTokens": 50930,
+  "files": [
+    {
+      "id": "A",
+      "title": "Caravan Rush: The Broker's Wager",
+      "file": "A-mock.html"
+    },
+    {
+      "id": "B",
+      "title": "Fortress of Ranks",
+      "file": "B-mock.html"
+    },
+    {
+      "id": "C",
+      "title": "The Forger's Ledger",
+      "file": "C-mock.html"
+    }
+  ]
+}

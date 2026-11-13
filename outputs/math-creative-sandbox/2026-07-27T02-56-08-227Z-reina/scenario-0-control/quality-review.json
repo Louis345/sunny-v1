@@ -1,0 +1,21 @@
+{
+  "candidateId": "scenario-0-control",
+  "verdict": "mediocre",
+  "scores": {
+    "designQuality": 2,
+    "originality": 2,
+    "craft": 2,
+    "functionality": 2,
+    "learningIntegration": 2,
+    "replayAppeal": 2
+  },
+  "evidence": [
+    "Across all screenshots the rocket, clouds, and gradient sky remain static decoration; the only interactive elements are three green oval 'lantern' buttons with plain numbers (20, 16, 25 then later 7, 8, 10) sitting in empty space below the prompt text — this is the same answer-button-in-a-costume pattern called out negatively in Moonlit Cargo/harbor Quest.",
+    "The trace shows clicking the wrong answer (16) and then the correct answer (20) produced no visible feedback difference in the supplied screenshots — no color change, no animation, no rocket movement, no lantern glow change; the only thing that changed afterward was the question itself advancing to a new skip-count prompt (2s: 2,4,6,__), suggesting right/wrong may not be meaningfully differentiated visually.",
+    "The 'Show me' demo only changed a tooltip line ('Watch the example glider hop: 1,2,3,__') without any visible glider, hop animation, or rocket movement in the captured frame — the rocket sprite is stationary in the same bottom-left position in every single screenshot including 'first-action' and 'completion', meaning the promised glider mechanic is not tangibly demonstrated.",
+    "Console log shows a 404 resource load failure, indicating a missing asset (likely an image, sound, or animation file) that could explain the static rocket and lack of feedback animation — a functionality defect visible in the trace.",
+    "The three answer options are floating ovals unconnected to any skip-count visualization (no number line, no visual grouping of lanterns per interval, no hopping path) — the math concept of skip-counting is stated only in text at the top, not embodied in the interactive layer, matching the 'labels not tangible interactions' criticism from the harbor Quest rejection."
+  ],
+  "critique": "This looks like the same title and cosmetic dressing as the calibration-positive 'Skyglider Skip-Count Run,' but the actual captured screenshots tell a different story than the praised version: the rocket never moves, the lanterns are just labeled ovals in empty space, and neither the wrong-answer click (16) nor the right-answer click (20) produced any visible on-screen change in feedback, animation, or rocket progress across the trace. The 'Show me' demo merely swapped a line of tooltip text instead of visually showing a glider hopping between numbers, despite explicitly promising 'Watch the example glider hop: 1,2,3,__.' A 404 console error further suggests a missing asset is silently breaking whatever animation was supposed to sell the glider metaphor. Structurally this is three answer buttons with a skip-count word problem printed above them — the world is decorative, not participatory, echoing the harbor Quest verdict of 'labels rather than tangible interactions.' The prompt correctly advancing to a new question (2s: 2,4,6,__) after selecting 20 shows the quiz logic functions, but functioning quiz logic is not the same as genuine mathematical-visual integration. Without evidence of the lantern/rocket actually encoding the skip-count structure (e.g., lanterns positioned along a path spaced by the count interval, or the rocket physically hopping distance equal to the skip amount), this reads as competent but shallow multiple-choice content wearing the Skyglider name and color palette, not the emotionally payoff-delivering version referenced in calibration.",
+  "nextMove": "pivot"
+}

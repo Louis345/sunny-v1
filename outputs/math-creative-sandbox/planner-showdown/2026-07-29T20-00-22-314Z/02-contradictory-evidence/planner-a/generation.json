@@ -1,0 +1,26 @@
+{
+  "scenarioId": "02-contradictory-evidence",
+  "blindId": "Planner A",
+  "status": "complete",
+  "model": "claude-opus-5",
+  "provider": "anthropic",
+  "promptHash": "9cbc659be946ef4f136fea38642db0a190d5677b699d7611bdeab4026fc69cb2",
+  "packetHash": "0ee030886dcfb72e20032bd06683f61c1b61a7f9ff36ba0acde03f07a6a6072a",
+  "inputTokens": 2133,
+  "outputTokens": 7712,
+  "estimatedCostUsd": 0.203465,
+  "elapsedMs": 91326,
+  "inspection": {
+    "hardFailures": [],
+    "metrics": {
+      "factualClaimCount": 12,
+      "evidenceReferencedClaimCount": 10,
+      "evidenceGroundingRatio": 0.8333333333333334,
+      "fabricatedEvidenceReferenceCount": 0,
+      "unsupportedHighConfidenceCount": 0,
+      "predictionCount": 6,
+      "nodeCount": 6
+    }
+  },
+  "error": null
+}

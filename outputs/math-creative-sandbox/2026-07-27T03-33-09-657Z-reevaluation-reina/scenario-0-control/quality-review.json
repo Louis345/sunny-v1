@@ -1,0 +1,18 @@
+{
+  "candidateId": "scenario-0-control",
+  "verdict": "reject",
+  "scores": {
+    "designQuality": 2,
+    "originality": 1,
+    "craft": 2,
+    "functionality": 2,
+    "learningIntegration": 2,
+    "replayAppeal": 1
+  },
+  "evidence": [
+    "Across all five screenshots the only interactive elements are three identical green lantern ovals with plain numbers (20/16/25, then 7/8/10) sitting on an empty gradient background — the rocket and title text are static decoration that never move or react to answers.",
+    "The 'incorrect-recovery' screenshot shows the only feedback for a wrong tap is a generic text bubble 'Try again! You can do it' overlapping the buttons, with no visual distinction (color, shake, sound cue shown) on the wrong lantern itself — this is a bare answer-quiz pattern, the same one criticized in Moonlit Cargo/Tidepool/Rope-and-Peg."
+  ],
+  "critique": "This candidate reuses the 'Skyglider Skip-Count Run' title and rocket/lantern art that was previously praised, but the actual screenshots here show none of the qualities that earned that praise. The rocket sprite never visibly advances, flies, or animates in response to correct answers — it sits static in the bottom-left corner in every single frame, including the final 'Run complete!' screen where it appears identical in size and position to the start. The lanterns are just three ovals with numbers; there is no skip-counting motion, no visual path, no glide, no sense that the child's tap is driving movement through a sequence of positions. The task reduces to 'pick the number that continues the pattern from a static row of three choices,' which is indistinguishable from a plain multiple-choice quiz with lantern-shaped buttons layered on top. The end screen ('Skip-Count Pilot — Great flying, Reina!') asserts a flying accomplishment that the trace and screenshots never depict — no flight animation, no distance traveled, no visual arc — so the payoff is unearned self-congratulation rather than something the child watched happen. The 'Show me' demo only changes a tooltip line of text ('Watch the example glider hop: 1,2,3,__') without showing any glider hopping in the screenshot. A console error (404) also suggests a missing asset, possibly the very glider animation that would have made this feel alive. This is functional content wearing the label of the previously-approved concept without replicating its actual visual mechanic — the group/array/multiplication connection promised in the concept description is entirely absent; every round is skip-counting only, with no equal-groups or array visualization anywhere in the five captures. Random tapping among three options has a 1/3 chance of succeeding, and there's no structural barrier (no ordering, no dragging, no building) preventing guess-based completion of the whole run in the same way the harbor Quest was criticized for token-only mechanics.\"",
+  "nextMove": "pivot"
+}

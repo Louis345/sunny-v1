@@ -1,0 +1,59 @@
+Build a lightweight interactive mock of this design artifact.
+
+Show only the opening state and first meaningful interaction. The mock should make the mission, first action, mathematical action, and immediate world reaction visible. It is not a complete activity.
+
+Use one self-contained HTML document with inline CSS and JavaScript. External HTTPS libraries and assets are allowed. It must work with touch or mouse inside a 1365x768 iframe. Keep the complete HTML under 14,000 characters.
+
+Do not reinterpret the artifact or replace it with a generic quiz. Return raw HTML only.
+
+BOARD CONTEXT:
+{
+  "boardTitle": "Unit Fractions: Partitioning, Naming, and Comparing",
+  "boardAcademicGoal": "Students will understand that unit fractions represent one equal part of a whole divided into a given number of equal parts, and will use this understanding to compare unit fractions with different denominators.",
+  "coherence": "Each node builds on the prior: students first establish that fractional parts must be equal in size, then apply this to identify and represent unit fractions (1/b) as one part of b equal parts, and finally reason about how the number of equal parts (denominator) affects the size of a single part, enabling comparison of unit fractions."
+}
+
+NODE CONTRACT:
+{
+  "nodeId": "node_3_comparing_unit_fractions",
+  "responsibility": "Compare two unit fractions with different denominators (e.g., 1/5 vs. 1/2) and justify which is larger based on the number of equal parts the whole is divided into.",
+  "academicBoundary": "Limit to unit fraction comparisons only, using denominators 2 through 8, with same-size wholes. Do not introduce non-unit fraction comparisons, addition/subtraction of fractions, or equivalent fractions.",
+  "evidenceGoal": "Student correctly compares at least 4 new pairs of unit fractions (using >, <, or =) and provides a correct reasoning statement (e.g., 'fewer equal parts means each part is bigger') for at least 3 of the comparisons."
+}
+
+DESIGN ARTIFACT:
+{
+  "artifactId": "artifact_reina_node3_potion_duel",
+  "nodeId": "node_3_comparing_unit_fractions",
+  "title": "Potion Split Showdown",
+  "audienceRationale": "Reina's history shows huge engagement with rapid, high-repetition mastery loops (167 completions at perfect accuracy in a checking-style activity) plus enjoyment of chance-reveal spinners. Potion Split Showdown pairs a fast compare-and-verify loop with a spin-to-reveal challenge generator, feeding her love of precision streaks without copying any prior activity.",
+  "openingPromise": "Two rival potion bottles, one gulp each — pick the bigger sip and out-brew the Shadow Alchemist.",
+  "firstThreeSeconds": "A glowing cauldron room fades in. A brass reveal-wheel spins on its own and clunks to a stop, stamping two fraction cards onto the table: 1/3 and 1/6. A voice whispers: 'Bigger sip wins. Tap it.'",
+  "firstAction": "Tap one of two identical-size potion bottles, each divided into a different number of equal doses (e.g., 3 doses vs. 6 doses) with exactly one dose glowing. The child taps the bottle whose single glowing dose looks bigger.",
+  "interactionDemonstration": "A ghostly hand demos round zero: it taps 1/2 vs 1/8, the two bottles slide together and overlap transparently so the halves and eighths line up, showing the half-dose towering over the eighth-dose. A caption reads: 'Fewer parts → bigger parts.' No penalty on the demo.",
+  "coreInteraction": "Each round: the reveal-wheel spins and lands on a fraction pair (denominators 2–8, same-size bottles). The child (1) taps the bigger sip or a 'same size' scale icon, (2) drags the correct symbol >, <, or = into the comparison slot between the fraction cards, and (3) picks or speaks a reasoning tile such as 'The whole is cut into fewer parts, so each part is bigger.' Bottles then overlay to visually verify the answer.",
+  "mathAsPower": "Correct comparisons pour the bigger sip into Reina's cauldron, charging a Brew Meter. Correct reasoning statements add a 'Certainty Seal' that doubles the pour. The mathematics — knowing more parts means smaller parts — is literally the fuel that out-brews the rival.",
+  "stakes": "The Shadow Alchemist's cauldron auto-fills slowly each round. If Reina's Brew Meter falls behind for three straight rounds, the Alchemist steals a Certainty Seal.",
+  "consequences": "A wrong tap or wrong symbol triggers the overlay: bottles fuse and the parts align so the size difference is undeniable; the round scores no pour, but nothing is lost except tempo. Wrong reasoning tiles gray out with a one-line hint ('Count the parts — which bottle has fewer cuts?').",
+  "recovery": "After any miss, a 'Re-Brew' round appears with the same denominators but the bottles pre-overlaid, letting Reina answer with visual support and reclaim half the pour. Stolen Seals are recoverable by winning two consecutive full rounds.",
+  "progression": [
+    "Round set 1: far-apart denominators (1/2 vs 1/8, 1/3 vs 1/7) with bottles always visible and partitioned.",
+    "Round set 2: closer denominators (1/5 vs 1/6, 1/6 vs 1/8) plus occasional equal pairs (1/4 vs 1/4) to earn the '=' scale.",
+    "Round set 3: fraction cards shown first, bottles hidden until after the symbol is placed — compare from the numbers alone, then verify visually.",
+    "Boss Brew: five rapid comparisons with reasoning required on at least three to seal the Alchemist's cauldron shut."
+  ],
+  "worldReaction": "The cauldron bubbles higher and changes color with each correct pour; potion imps cheer and chant the reasoning back ('Fewer cuts, bigger sip!'); the Shadow Alchemist visibly sweats as the meter gap grows.",
+  "payoff": "Winning the Boss Brew crowns Reina 'Master of the Bigger Sip' and unlocks a trophy shelf showing her fastest correct streak and best reasoning statements — evidence of at least 4 correct comparisons and 3 justifications, satisfying the node goal.",
+  "replayVariation": "The reveal-wheel reshuffles pairs each run; new potion themes (fire brew, moon brew) reskin bottles as bars or circles; a Speed Brew mode leans into streak-chasing; a Judge mode flips roles so Reina grades the imps' comparisons and fixes wrong symbols.",
+  "visualDirection": "Cozy alchemist workshop: deep purples and teals, warm candlelight, glass bottles with luminous liquid doses, chunky rounded UI cards. Equal-size bottles are visually emphasized with matching gold rims.",
+  "motionDirection": "Wheel spins with satisfying deceleration and clunk; bottle overlay is a smooth slide-and-fade alignment; correct pours arc liquid into the cauldron with a splash; Brew Meter rises with elastic easing.",
+  "soundDirection": "Bubbling ambience, ratchet ticks on the wheel, a rich glug on correct pours, a soft glass 'tink' plus whispered hint on misses, rising choral shimmer as the Brew Meter nears full.",
+  "usefulLibraries": [
+    "PixiJS",
+    "GSAP",
+    "Howler.js",
+    "matter-js (liquid pour feel, optional)"
+  ],
+  "engagementPrediction": "High: the loop mirrors her demonstrated appetite for fast, repeatable verification tasks with visible streaks, and the spinner reveal taps her wheel-of-fortune enjoyment. Expect long sessions chasing perfect Boss Brews.",
+  "falsifyingEvidence": "If Reina answers by tapping visuals but repeatedly fails hidden-bottle rounds or skips/randomizes reasoning tiles (reasoning accuracy under ~60% across 10+ rounds), the design is masking guessing with visuals; if frustration events (rapid re-taps, quits after Seal theft) exceed her historical ~0.27 baseline, the stakes system is misfiring."
+}

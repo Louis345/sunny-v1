@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Caravan Rush: The Broker's Wager</title>
+<style>
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;padding:0;height:100%;background:#1a1008;overflow:hidden;font-family:"Trebuchet MS","Segoe UI",sans-serif}
+  #fitter{position:fixed;inset:0;display:flex;align-items:center;justify-content:center}
+  #app{width:1365px;height:768px;position:relative;transform-origin:center center;
+    background:linear-gradient(#f6e0b0,#e9c88b 40%,#d9ad६9 100%);overflow:hidden;color:#3b2415;user-select:none}
+  #app{background:linear-gradient(#fbe9c4,#eccb92 45%,#dbae70 100%)}
+  #app.n1{background:linear-gradient(#f7dfb2,#e8c184 45%,#d2a165 100%)}
+  #app.n2{background:linear-gradient(#4b2f4e,#8a4b3e 38%,#c07a3f 70%,#8d5b2e 100%);color:#3b2415}
+
+  /* ===== HUD ===== */
+  #hud{height:62px;display:flex;align-items:center;justify-content:space-between;padding:0 16px;
+    background:linear-gradient(#40261a,#2b1810);border-bottom:4px solid #d9a441;color:#f3e2c0;box-shadow:0 4px 14px rgba(0,0,0,.35);position:relative;z-index:20}
+  .brand{font-size:23px;font-weight:bold;letter-spacing:2px;color:#f0c069;text-shadow:0 2px 0 #1b0f08}
+  .brand span{display:block;font-size:11px;letter-spacing:4px;color:#b79367;font-weight:normal}
+  .chips{display:flex;gap:9px}
+  .chip{background:#f3e2c0;color:#3b2415;border-radius:5px;padding:4px 12px;min-width:74px;text-align:center;
+    box-shadow:inset 0 -3px 0 rgba(0,0,0,.12)}
+  .chip b{display:block;font-size:17px;line-height:1.05}
+  .chip i{font-style:normal;font-size:9px;letter-spacing:1.4px;text-transform:uppercase;color:#8a6b41}
+
+  /* ===== TRACK ===== */
+  #track{height:150px;position:relative;overflow:hidden;border-bottom:5px solid #7a4d24;z-index:10}
+  #skyband{position:absolute;inset:0;background:linear-gradient(#cfe7e0,#e8dcbd 55%,#c69a63 56%,#b9884f)}
+  .n1 #skyband{background:linear-gradient(#c9e2dd,#ecdcb8 55%,#c1935c 56%,#ab7c46)}
+  .n2 #skyband{background:linear-gradient(#5b3a5e,#c4713f 50%,#8a5a2c 56%,#6d4522)}
+  .stall{position:absolute;bottom:96px;width:78px}
+  .stall .awn{height:20px;border-radius:4px 4px 0 0;background:repeating-linear-gradient(90deg,#2f7d78 0 9px,#f3e2c0 9px 18px);
+    box-shadow:0 3px 0 rgba(0,0,0,.15)}
+  .stall .post{height:24px;background:linear-gradient(#a5713c,#7a4d24);margin:0 6px;border-radius:0 0 3px 3px}
+  .road{position:absolute;left:0;right:0;bottom:0;height:96px;background:linear-gradient(#c39257,#a5743f);}
+  .n2 .road{background:linear-gradient(#7e5330,#5c3a20)}
+  .lane{position:absolute;left:0;right:0;height:48px}
+  #laneP{bottom:48px}
+  #laneR{bottom:0}
+  .lane:after{content:"";position:absolute;left:0;right:0;bottom:2px;height:2px;background:repeating-linear-gradient(90deg,rgba(255,255,255,.35) 0 16px,transparent 16px 32px)}
+  .caravan{position:absolute;left:6px;bottom:2px;width:104px;height:46px;transition:none}
+  .lbl{position:absolute;top:-13px;left:6px;font-size:10px;letter-spacing:1.5px;font-weight:bold;color:#4a2c14;background:#f3e2c0aa;padding:1px 6px;border-radius:3px}
+  #gate{position:absolute;right:26px;bottom:0;width:76px;height:120px;overflow:hidden;z-index:5}
+  #gateFrame{position:absolute;inset:0;border-left:7px solid #6b4321;border-right:7px solid #6b4321}
+  #portc{position:absolute;left:0;right:0;top:-84px;height:96px;
+    background:repeating-linear-gradient(90deg,#5c4020 0 6px,transparent 6px 16px),repeating-linear-gradient(0deg,#5c4020 0 6px,transparent 6px 20px);
+    border-bottom:6px solid #3c2812}
+  #bannerP{position:absolute;top:-6px;font-size:12px;font-weight:bold;letter-spacing:2px;color:#3b2415;background:linear-gradient(#ffd777,#d9a441);
+    padding:2px 10px;border-radius:4px;border:2px solid #8a5a1e;display:none;white-space:nowrap;box-shadow:0 3px 8px rgba(0,0,0,.3)}
+  .bubble{position:absolute;bottom:34px;background:#fff8e6;border:2px solid #6b4321;border-radius:10px;padding:5px 10px;font-size:13px;
+    max-width:260px;opacity:0;transition:opacity .25s, transform .25s;transform:translateY(6px);pointer-events:none;font-style:italic;z-index:9;box-shadow:0 3px 10px rgba(0,0,0,.25)}
+  .bubble.show{opacity:1;transform:translateY(0)}
+
+  /* ===== STAGE ===== */
+  #stage{height:430px;display:flex;gap:12px;padding:10px 14px 0}
+  /* order panel */
+  #orderPanel{width:300px;flex:none;background:repeating-linear-gradient(#fffaf0 0 26px,#f6ecd6 26px 27px);
+    border-radius:6px;padding:12px 14px;position:relative;box-shadow:0 6px 16px rgba(0,0,0,.22);
+    -webkit-mask-image:radial-gradient(circle at 6px 6px,transparent 5px,#000 5.5px);display:flex;flex-direction:column}
+  #orderPanel:before,#orderPanel:after{content:"";position:absolute;left:0;right:0;height:8px;
+    background:radial-gradient(circle at 6px 0,transparent 5px,#fffaf0 5.5px) 0 0/12px 8px repeat-x}
+  #orderPanel:before{top:-1px;transform:scaleY(-1)}
+  #orderPanel:after{bottom:-7px}
+  .ordHead{font-size:11px;letter-spacing:2.6px;color:#a8804a;border-bottom:2px dashed #cbb289;padding-bottom:6px;display:flex;justify-content:space-between}
+  .ordBody{flex:1;overflow:auto;padding-top:8px}
+  .ordCard{margin-bottom:10px}
+  .ordTag{display:inline-block;font-size:10px;letter-spacing:2px;background:#2f7d78;color:#fff;padding:1px 7px;border-radius:3px;margin-bottom:5px}
+  .ordText{font-size:19px;line-height:1.32;font-weight:bold;color:#4a2c14}
+  .ordText .ic{font-size:23px;vertical-align:-3px}
+  .ordNote{margin-top:7px;font-size:14px;color:#8a3b1f;font-style:italic;border-left:4px solid #c46a35;padding-left:7px}
+  .ordBtns{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+  .mini{font:bold 12px/1 "Trebuchet MS";padding:8px 10px;border-radius:5px;border:2px solid #8a5a1e;background:#f0c069;color:#3b2415;cursor:pointer;letter-spacing:.6px}
+  .mini:active{transform:translateY(2px)}
+  .mini.flag{background:#e2705a;color:#fff8e6;border-color:#8b3520}
+  .mini:disabled{opacity:.35;cursor:default}
+  .mini.pulse{animation:pulseBtn 1s infinite}
+  @keyframes pulseBtn{0%,100%{box-shadow:0 0 0 0 #f0c06999}50%{box-shadow:0 0 0 8px #f0c06900}}
+
+  /* pads */
+  #padWrap{flex:1;display:flex;gap:18px;justify-content:center;align-items:flex-start;padding-top:2px}
+  .pad{background:rgba(60,35,16,.16);border:3px solid #8a5a1e;border-radius:9px;padding:9px 10px 6px;position:relative}
+  .padTag{position:absolute;top:-13px;left:10px;font-size:10px;font-weight:bold;letter-spacing:2px;background:#8a5a1e;color:#f3e2c0;padding:2px 8px;border-radius:4px}
+  .prow{display:flex;align-items:center;gap:6px;margin-bottom:6px}
+  .cell{border-radius:7px;border:2px dashed rgba(80,50,20,.45);background:rgba(255,246,222,.28);display:flex;align-items:center;justify-content:center;
+    transition:transform .12s, background .2s;position:relative}
+  .cell.pulse{animation:cellPulse 1.6s infinite}
+  @keyframes cellPulse{0%,100%{border-color:rgba(80,50,20,.35)}50%{border-color:rgba(217,164,65,.95);background:rgba(255,238,190,.5)}}
+  .cell.next{border-style:solid;border-color:#2f7d78;background:rgba(47,125,120,.22);animation:nextPulse .9s infinite}
+  @keyframes nextPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.08)}}
+  .cell.ghost{background:rgba(47,125,120,.3);border-color:#2f7d78}
+  .cell.full{border-style:solid;border-color:#8a5a1e;background:linear-gradient(#e0ac63,#c1873f);box-shadow:inset 0 -4px 0 rgba(0,0,0,.18),0 2px 4px rgba(0,0,0,.2);cursor:pointer}
+  .cell.drop{background:rgba(240,192,105,.6)}
+  .cell b{font-size:.62em;filter:drop-shadow(0 1px 1px rgba(0,0,0,.3))}
+  @keyframes bounceIn{0%{transform:scale(.3) translateY(-30px)}60%{transform:scale(1.14) translateY(0)}100%{transform:scale(1)}}
+  .cell.pop{animation:bounceIn .32s cubic-bezier(.2,1.4,.4,1)}
+  .tick{min-width:44px;height:26px;padding:0 6px;border-radius:13px;font:bold 15px/26px "Trebuchet MS";text-align:center;
+    background:rgba(255,250,236,.55);color:#a08050;border:2px solid rgba(138,90,30,.3)}
+  .tick.on{background:#2f7d78;color:#fff8e6;border-color:#1d5450}
+  @keyframes tickPop{0%{transform:scale(.4)}70%{transform:scale(1.25)}100%{transform:scale(1)}}
+  .tick.pop{animation:tickPop .34s}
+  .seq{margin-top:4px;font:bold 15px/1 "Trebuchet MS";color:#5c3a17;letter-spacing:1px;text-align:center;min-height:17px}
+  .padShake{animation:shk .45s}
+  @keyframes shk{0%,100%{transform:translateX(0)}20%{transform:translateX(-9px) rotate(-1deg)}40%{transform:translateX(9px) rotate(1deg)}60%{transform:translateX(-6px)}80%{transform:translateX(6px)}}
+
+  /* side panel */
+  #sidePanel{width:246px;flex:none;display:flex;flex-direction:column;gap:9px}
+  .box{background:#fffaf0;border:3px solid #8a5a1e;border-radius:8px;padding:9px;box-shadow:0 5px 14px rgba(0,0,0,.2)}
+  .boxT{font-size:10px;letter-spacing:2.4px;color:#a8804a;text-align:center}
+  .totRow{display:flex;justify-content:space-around;align-items:baseline}
+  .totBig{font-size:44px;font-weight:bold;color:#2f7d78;line-height:1}
+  .totBig small{font-size:13px;color:#a8804a;display:block;text-align:center;letter-spacing:2px}
+  .big{width:100%;padding:15px 0;font:bold 20px/1 "Trebuchet MS";letter-spacing:2px;border-radius:9px;border:none;cursor:pointer;
+    background:linear-gradient(#f5c86e,#d9a441);color:#3b2415;border-bottom:6px solid #8a5a1e;text-shadow:0 1px 0 #ffe9b8}
+  .big:active{transform:translateY(3px);border-bottom-width:3px}
+  #swBtn{background:linear-gradient(#8fd6cf,#2f7d78);color:#fff8e6;border-bottom-color:#194f4b;text-shadow:0 1px 0 #14403d;font-size:15px;padding:11px 0}
+  #swBtn:disabled{background:#cbbba0;border-bottom-color:#8f8271;color:#7c6b53;cursor:default;transform:none}
+  #swBtn.ready{animation:swGlow 1s infinite}
+  @keyframes swGlow{0%,100%{box-shadow:0 0 0 0 rgba(47,125,120,.6)}50%{box-shadow:0 0 0 10px rgba(47,125,120,0)}}
+  .link{background:none;border:none;color:#8a5a1e;font:bold 12px "Trebuchet MS";text-decoration:underline;cursor:pointer;letter-spacing:1px}
+
+  /* tray */
+  #tray{height:126px;margin:8px 14px 0;background:linear-gradient(#8a5a1e,#6b4321);border-radius:10px 10px 0 0;border:4px solid #4d2f13;border-bottom:none;
+    display:flex;align-items:center;justify-content:center;gap:14px;position:relative;box-shadow:inset 0 6px 14px rgba(0,0,0,.3)}
+  #tray .hint{position:absolute;right:14px;bottom:6px;font-size:11px;letter-spacing:1.6px;color:#e0c391}
+  .trayCrate{width:74px;height:74px;border-radius:9px;background:linear-gradient(#e6b76d,#c1873f);border:3px solid #4d2f13;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:grab;position:relative;
+    box-shadow:inset 0 -6px 0 rgba(0,0,0,.16),0 5px 0 #4d2f13,0 8px 12px rgba(0,0,0,.3);transition:transform .15s,filter .2s}
+  .trayCrate .ic{font-size:30px;line-height:1}
+  .trayCrate .nm{font-size:9px;letter-spacing:.5px;color:#4d2f13;font-weight:bold;margin-top:2px;max-width:70px;text-align:center}
+  .trayCrate.dim{filter:grayscale(.7) brightness(.8);opacity:.55}
+  .trayCrate.want{transform:translateY(-6px);box-shadow:inset 0 -6px 0 rgba(0,0,0,.16),0 8px 0 #4d2f13,0 0 0 3px #f0c069,0 10px 16px rgba(0,0,0,.35)}
+  .trayCrate.wob{animation:shk .4s}
+
+  /* floating */
+  #ghost{position:absolute;width:56px;height:56px;border-radius:8px;background:linear-gradient(#e6b76d,#c1873f);border:3px solid #4d2f13;
+    display:none;align-items:center;justify-content:center;font-size:26px;pointer-events:none;z-index:60;transform:translate(-50%,-50%) rotate(-6deg);box-shadow:0 10px 18px rgba(0,0,0,.4)}
+  #flyLayer{position:absolute;inset:0;pointer-events:none;z-index:55}
+  .fly{position:absolute;border-radius:8px;background:linear-gradient(#e6b76d,#c1873f);border:3px solid #4d2f13;display:flex;align-items:center;justify-content:center;font-size:24px}
+  #toast{position:absolute;left:50%;top:250px;transform:translateX(-50%);background:#2b1810ee;color:#f3e2c0;padding:11px 22px;border-radius:8px;
+    font-size:17px;font-weight:bold;letter-spacing:1px;z-index:58;opacity:0;transition:opacity .2s,top .25s;pointer-events:none;border:2px solid #d9a441;max-width:700px;text-align:center}
+  #toast.show{opacity:1;top:236px}
+
+  /* overlay */
+  #overlay{position:absolute;inset:0;background:rgba(30,17,8,.82);z-index:70;display:flex;align-items:center;justify-content:center;transition:opacity .3s}
+  #overlay.hidden{opacity:0;pointer-events:none}
+  #card{width:760px;max-height:660px;overflow:auto;background:repeating-linear-gradient(#fffaf0 0 28px,#f6ecd6 28px 29px);border:5px solid #d9a441;border-radius:12px;
+    padding:24px 30px;box-shadow:0 20px 50px rgba(0,0,0,.6);text-align:center}
+  #card h1{margin:2px 0 4px;font-size:38px;letter-spacing:3px;color:#8a3b1f}
+  #card h2{margin:0 0 10px;font-size:20px;color:#2f7d78;letter-spacing:2px}
+  #card p{font-size:17px;line-height:1.45;margin:8px 0;color:#4a2c14}
+  #card .quote{font-style:italic;color:#8a3b1f;font-size:17px;border-left:5px solid #c46a35;padding-left:12px;text-align:left;display:inline-block;margin:10px auto}
+  #card .btns{margin-top:16px;display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
+  table.ledger{width:100%;border-collapse:collapse;font-size:14px;margin-top:10px}
+  table.ledger th{font-size:10px;letter-spacing:2px;color:#a8804a;border-bottom:2px solid #cbb289;padding:4px}
+  table.ledger td{padding:3px 4px;border-bottom:1px dashed #ddcaa8}
+  .ok{color:#1d6b3f;font-weight:bold}.bad{color:#a33018;font-weight:bold}
+  .toggle{display:inline-flex;align-items:center;gap:8px;font-size:13px;font-weight:bold;color:#4a2c14;background:#f0c06955;padding:8px 12px;border-radius:6px;border:2px dashed #8a5a1e;cursor:pointer}
+  .sparkle{position:absolute;width:10px;height:10px;border-radius:50%;background:#ffe08a;pointer-events:none;z-index:56}
+</style>
+</head>
+<body>
+<div id="fitter">
+<div id="app" class="n0">
+  <header id="hud">
+    <div class="brand">CARAVAN RUSH<span>THE BROKER'S WAGER</span></div>
+    <div class="chips">
+      <div class="chip"><b id="hudNode">—</b><i>market day</i></div>
+      <div class="chip"><b id="hudOrder">—</b><i>order</i></div>
+      <div class="chip"><b id="hudBonus">0</b><i>bonus goods</i></div>
+      <div class="chip"><b id="hudStreak">0</b><i>perfect run</i></div>
+      <div class="chip"><b id="hudSpills">0</b><i>spills</i></div>
+    </div>
+  </header>
+
+  <div id="track">
+    <div id="skyband"></div>
+    <div id="stalls"></div>
+    <div class="road"></div>
+    <div class="lane" id="laneP"><div class="caravan" id="carP"></div><div id="bannerP">★ MASTER TRADER ★</div></div>
+    <div class="lane" id="laneR"><div class="caravan" id="carR"></div></div>
+    <div class="bubble" id="taunt"></div>
+    <div id="gate"><div id="gateFrame"></div><div id="portc"></div></div>
+  </div>
+
+  <div id="stage">
+    <aside id="orderPanel">
+      <div class="ordHead"><span>ORDER BOOK</span><span id="ordNo">#001</span></div>
+      <div class="ordBody" id="ordBody"></div>
+      <div class="ordBtns" id="ordBtns"></div>
+    </aside>
+    <div id="padWrap"></div>
+    <aside id="sidePanel">
+      <div class="box">
+        <div class="boxT">SKIP-COUNT TALLY</div>
+        <div class="totRow" id="totRow"></div>
+      </div>
+      <button class="big" id="loadBtn">LOAD CARAVAN</button>
+      <button class="big" id="swBtn" disabled>SECOND WIND</button>
+      <div style="text-align:center"><button class="link" id="clearBtn">shake out the cart</button></div>
+    </aside>
+  </div>
+
+  <div id="tray"><div class="hint">DRAG CRATES UP INTO THE ROWS</div></div>
+
+  <div id="ghost"></div>
+  <div id="flyLayer"></div>
+  <div id="toast"></div>
+  <div id="overlay"><div id="card"></div></div>
+</div>
+</div>
+
+<script>
+/* ============================ setup ============================ */
+const app=document.getElementById('app');
+function fit(){const s=Math.min(innerWidth/1365,innerHeight/768);app.style.transform='scale('+s+')';}
+addEventListener('resize',fit);fit();
+const $=id=>document.getElementById(id);
+const rnd=(a,b)=>a+Math.floor(Math.random()*(b-a+1));
+const pick=a=>a[Math.floor(Math.random()*a.length)];
+
+/* ---------- audio ---------- */
+let AC=null;
+function ac(){if(!AC){try{AC=new (window.AudioContext||window.webkitAudioContext)();}catch(e){}}return AC;}
+function tone(f,d,type='sine',g=.14,slide=0){const c=ac();if(!c)return;const o=c.createOscillator(),v=c.createGain();
+ o.type=type;o.frequency.setValueAtTime(f,c.currentTime);if(slide)o.frequency.linearRampToValueAtTime(Math.max(40,f+slide),c.currentTime+d);
+ v.gain.setValueAtTime(g,c.currentTime);v.gain.exponentialRampToValueAtTime(.0008,c.currentTime+d);o.connect(v);v.connect(c.destination);o.start();o.stop(c.currentTime+d+.02);}
+function noise(d,g=.12){const c=ac();if(!c)return;const b=c.createBuffer(1,c.sampleRate*d,c.sampleRate),ch=b.getChannelData(0);
+ for(let i=0;i<ch.length;i++)ch[i]=(Math.random()*2-1)*(1-i/ch.length);const s=c.createBufferSource();s.buffer=b;const v=c.createGain();v.gain.value=g;
+ const f=c.createBiquadFilter();f.type='lowpass';f.frequency.value=1400;s.connect(f);f.connect(v);v.connect(c.destination);s.start();}
+const sfx={
+ thud(){tone(140,.11,'square',.16,-60);noise(.09,.09);},
+ pop(i){tone(430+i*90,.13,'triangle',.13);},
+ pick(){tone(660,.06,'sine',.08);},
+ spill(){noise(.55,.18);tone(260,.5,'sawtooth',.1,-160);},
+ win(){[523,659,784,1047].forEach((f,i)=>setTimeout(()=>tone(f,.28,'triangle',.13),i*105));},
+ bad(){tone(180,.35,'square',.12,-90);},
+ surge(){[392,523,659].forEach((f,i)=>setTimeout(()=>tone(f,.2,'sine',.12),i*70));noise(.3,.06);},
+ gate(){tone(90,.7,'sawtooth',.16,-40);noise(.7,.14);}
+};
+
+/* ---------- content ---------- */
+const ITEMS=[
+ {n:'apples',u:'crate',ic:'🍎'},
+ {n:'lemons',u:'sack',ic:'🍋'},
+ {n:'potions',u:'barrel',ic:'🧪'},
+ {n:'grapes',u:'basket',ic:'🍇'},
+ {n:'cheese wheels',u:'shelf',ic:'🧀'},
+ {n:'honey pots',u:'chest',ic:'🍯'}
+];
+const TPL=[
+ "The tavern needs {R} {U}s, {C} {N} in each.",
+ "{R} traders each order {C} {N}.",
+ "Fill {R} {U}s with {C} {N} apiece.",
+ "Every {U} holds {C} {N} — the buyer wants {R} {U}s.",
+ "The dockmaster wants {R} {U}s of {N}, {C} to a {U}."
+];
+const TAUNT_SPILL=["Ha! Crates all over my boots.","Slow hands, slow coin.","My mules pack tighter than that.","That is not an array, that is a puddle.","Keep spilling — I keep rolling.","Count again, trader. Slowly."];
+const TAUNT_AHEAD=["Dust in your teeth yet?","The gate knows my name.","I'll save you a bad stall.","Wave when I pass!"];
+const TAUNT_BEHIND=["Lucky rows.","Don't get comfortable.","Bah. My wheel slipped."];
+const NODES=[
+ {name:'QUIET STALL',role:'TEACH',orders:2,rival:0,hints:'always',word:false,garble:false,stalls:1},
+ {name:'MARKET STREET',role:'GUIDED',orders:0,rival:1.15,hints:'request',word:true,garble:false,stalls:5},
+ {name:'GRAND MARKET RUN',role:'RUN',orders:0,rival:1.42,hints:'none',word:true,garble:true,stalls:9}
+];
+
+/* ---------- state ---------- */
+let S={};
+function resetRun(doubleMode){
+ S={node:0,orderNo:0,tasks:[],playerPos:0,playerTarget:0,rivalPos:0,rivalSpeed:0,racing:false,
+    streak:0,swReady:false,bonus:0,spills:0,perfect:0,ledger:[],doubleMode:!!doubleMode,locked:true,
+    garbleCount:0,ordersDone:0,legWins:0,lastMove:performance.now(),wheelP:0,wheelR:0};
+}
+resetRun(false);
+
+/* ---------- caravan art ---------- */
+function caravanSVG(body,canopy,accent){return `
+<svg viewBox="0 0 104 46" width="104" height="46">
+ <g>
+  <rect x="12" y="16" width="72" height="18" rx="3" fill="${body}" stroke="#3c2812" stroke-width="2"/>
+  <path d="M14 17 q36 -22 72 0 z" fill="${canopy}" stroke="#3c2812" stroke-width="2"/>
+  <path d="M26 8 v10 M38 4 v14 M50 3 v15 M62 4 v14 M74 8 v10" stroke="#3c281255" stroke-width="1.6"/>
+  <rect x="84" y="20" width="14" height="10" rx="2" fill="${accent}" stroke="#3c2812" stroke-width="2"/>
+  <rect x="16" y="20" width="10" height="8" rx="1.5" fill="${accent}" opacity=".85"/>
+ </g>
+ <g class="w1" style="transform-origin:30px 36px"><circle cx="30" cy="36" r="9" fill="#5c3a17" stroke="#3c2812" stroke-width="2.5"/>
+   <path d="M30 28 v16 M22 36 h16 M24.5 30.5 l11 11 M35.5 30.5 l-11 11" stroke="#d9a441" stroke-width="1.7"/></g>
+ <g class="w2" style="transform-origin:70px 36px"><circle cx="70" cy="36" r="9" fill="#5c3a17" stroke="#3c2812" stroke-width="2.5"/>
+   <path d="M70 28 v16 M62 36 h16 M64.5 30.5 l11 11 M75.5 30.5 l-11 11" stroke="#d9a441" stroke-width="1.7"/></g>
+</svg>`;}
+$('carP').innerHTML='<div class="lbl">YOU</div>'+caravanSVG('#c1873f','#2f7d78','#f0c069');
+$('carR').innerHTML='<div class="lbl" style="color:#6b2a1a">VEX THE BROKER</div>'+caravanSVG('#8a5a1e','#8b3520','#e2b06a');
+
+function buildStalls(n){const w=$('stalls');w.innerHTML='';
+ for(let i=0;i<n;i++){const d=document.createElement('div');d.className='stall';
+  d.style.left=(20+i*(1080/Math.max(1,n))+rnd(-10,10))+'px';d.style.bottom=(96+rnd(-2,10))+'px';
+  d.style.transform='scale('+(0.75+Math.random()*0.5)+')';
+  d.innerHTML='<div class="awn" style="background:repeating-linear-gradient(90deg,'+pick(['#2f7d78','#8b3520','#3f5f8a','#6b7d2f'])+' 0 9px,#f3e2c0 9px 18px)"></div><div class="post"></div>';
+  w.appendChild(d);} }
+
+/* ---------- coordinate helper ---------- */
+function toApp(x,y){const r=app.getBoundingClientRect();const s=r.width/1365;return{x:(x-r.left)/s,y:(y-r.top)/s,s:s};}
+
+/* ============================ orders ============================ */
+function makeOrder(){
+ const node=S.node,cfg=NODES[node],item=pick(ITEMS);let R,C;
+ if(node===0){R=rnd(2,4);C=rnd(2,5);}
+ else if(node===1){R=rnd(2,5);C=rnd(2,5);}
+ else{R=rnd(2,6);C=rnd(2,6);}
+ const o={R,C,item,id:++S.orderNo,garbled:false};
+ if(!cfg.word){o.text=`Pack <span class="ic">${item.ic}</span> ${R} rows of ${C} ${item.n}.`;o.say=`Pack ${R} rows of ${C} ${item.n}.`;}
+ else{
+   let t=pick(TPL).replace(/{R}/g,R).replace(/{C}/g,C).replace(/{U}/g,item.u).replace(/{N}/g,item.n);
+   o.text=`<span class="ic">${item.ic}</span> `+t;o.say=t;
+ }
+ if(cfg.garble){
+   const canGarble=S.ordersDone>0&&S.garbleCount<2&&Math.random()<.4;
+   if(canGarble){o.garbled=true;S.garbleCount++;
+     let wrong=R*C;const opts=[R*C+C,R*C-C,R*C+R,(R+1)*C,R*(C+1)];while(wrong===R*C)wrong=pick(opts);
+     o.stated=Math.max(2,wrong);}
+   else o.stated=R*C;
+   o.say+=` The note claims ${o.stated} in all.`;
+ }
+ return o;
+}
+function emptyGrid(){return Array.from({length:6},()=>Array(6).fill(null));}
+
+function newTasks(){
+ let dual=false;
+ if(S.node===2){ if(S.doubleMode&&S.ordersDone>=1)dual=true; else if(S.playerPos>48&&Math.random()<.3)dual=true; }
+ S.tasks=[{o:makeOrder(),g:emptyGrid()}];
+ if(dual){const b={o:makeOrder(),g:emptyGrid()};b.o.garbled=false;if(b.o.stated!==undefined)b.o.stated=b.o.R*b.o.C;S.tasks.push(b);}
+ S.hintUsed=false;S.lastMove=performance.now();
+ buildPads();renderOrder();updateAll();
+}
+
+/* ============================ pads ============================ */
+function buildPads(){
+ const w=$('padWrap');w.innerHTML='';
+ const dual=S.tasks.length>1;const cs=dual?38:54,gap=6;
+ S.tasks.forEach((t,ti)=>{
+  const pad=document.createElement('div');pad.className='pad';pad.dataset.task=ti;
+  pad.innerHTML='<div class="padTag">'+(dual?('ORDER '+(ti?'B':'A')):('ORDER #'+String(t.o.id).padStart(3,'0')))+'</div>';
+  for(let r=0;r<6;r++){
+    const row=document.createElement('div');row.className='prow';row.dataset.task=ti;row.dataset.r=r;
+    for(let c=0;c<6;c++){const cell=document.createElement('div');cell.className='cell pulse';
+      cell.style.width=cs+'px';cell.style.height=cs+'px';cell.style.fontSize=cs+'px';
+      cell.dataset.task=ti;cell.dataset.r=r;cell.dataset.c=c;row.appendChild(cell);}
+    const tk=document.createElement('div');tk.className='tick';tk.dataset.task=ti;tk.dataset.r=r;tk.textContent='·';
+    if(dual){tk.style.minWidth='34px';tk.style.fontSize='13px';}
+    row.appendChild(tk);pad.appendChild(row);
+  }
+  const seq=document.createElement('div');seq.className='seq';seq.dataset.task=ti;pad.appendChild(seq);
+  w.appendChild(pad);
+ });
+}
+function shapeOf(g){
+ const counts=g.map(r=>r.filter(Boolean).length);
+ const total=counts.reduce((a,b)=>a+b,0);
+ let R=0;for(let i=0;i<6;i++){if(counts[i]>0)R=i+1;}
+ let contiguous=true;for(let i=0;i<R;i++)if(counts[i]===0)contiguous=false;
+ const C=counts[0]||0;
+ let uniform=contiguous&&R>0;for(let i=0;i<R;i++)if(counts[i]!==C)uniform=false;
+ return{R,C,total,uniform,counts};
+}
+function updatePads(){
+ const dual=S.tasks.length>1;
+ S.tasks.forEach((t,ti)=>{
+  const sh=shapeOf(t.g);let cum=0;let seq=[];
+  for(let r=0;r<6;r++){
+    for(let c=0;c<6;c++){
+      const cell=document.querySelector(`.cell[data-task="${ti}"][data-r="${r}"][data-c="${c}"]`);
+      const v=t.g[r][c];
+      const wasFull=cell.classList.contains('full');
+      cell.classList.toggle('full',!!v);cell.classList.toggle('pulse',!v);
+      cell.classList.remove('next','ghost');
+      cell.innerHTML=v?('<b>'+v+'</b>'):'';
+      if(v&&!wasFull){cell.classList.add('pop');setTimeout(()=>cell.classList.remove('pop'),330);}
+    }
+    const tk=document.querySelector(`.tick[data-task="${ti}"][data-r="${r}"]`);
+    const okRow=sh.C>0&&sh.counts[r]===sh.C&&r<sh.R&&sh.counts.slice(0,r+1).every(n=>n===sh.C);
+    if(okRow){cum+=sh.C;seq.push(cum);
+      if(tk.textContent!==String(cum)){tk.classList.add('pop');setTimeout(()=>tk.classList.remove('pop'),340);}
+      tk.textContent=cum;tk.classList.add('on');}
+    else{tk.textContent=sh.counts[r]>0?sh.counts[r]:'·';tk.classList.remove('on');}
+  }
+  document.querySelector(`.seq[data-task="${ti}"]`).textContent=seq.length>1?seq.join('  ·  '):'';
+  // teach-mode next slot
+  if(NODES[S.node].hints==='always'){
+    const o=t.o;
+    outer: for(let r=0;r<o.R;r++){const cnt=t.g[r].filter(Boolean).length;
+      if(cnt<o.C){const cell=document.querySelector(`.cell[data-task="${ti}"][data-r="${r}"][data-c="${cnt}"]`);if(cell)cell.classList.add('next');break outer;}}
+  }
+ });
+ // totals
+ const tr=$('totRow');tr.innerHTML='';
+ S.tasks.forEach((t,ti)=>{const sh=shapeOf(t.g);
+  const d=document.createElement('div');d.className='totBig';
+  d.innerHTML=sh.total+'<small>'+(dual?('ORDER '+(ti?'B':'A')):'PACKED')+'</small>';tr.appendChild(d);});
+}
+function renderOrder(){
+ const b=$('ordBody');b.innerHTML='';
+ const dual=S.tasks.length>1;
+ $('ordNo').textContent='#'+String(S.tasks[0].o.id).padStart(3,'0');
+ S.tasks.forEach((t,ti)=>{
+  const o=t.o;const d=document.createElement('div');d.className='ordCard';
+  d.innerHTML=(dual?'<div class="ordTag">ORDER '+(ti?'B':'A')+'</div>':'')+'<div class="ordText">'+o.text+'</div>'+
+    (o.stated!==undefined?'<div class="ordNote">The note claims <b>'+o.stated+'</b> '+o.item.n+' in all.</div>':'');
+  b.appendChild(d);
+ });
+ const btns=$('ordBtns');btns.innerHTML='';
+ const cfg=NODES[S.node];
+ if(cfg.word){const bell=document.createElement('button');bell.className='mini';bell.textContent='🔔 READ AGAIN';
+   bell.onclick=()=>{sfx.pick();try{speechSynthesis.cancel();S.tasks.forEach(t=>speechSynthesis.speak(new SpeechSynthesisUtterance(t.o.say)));}catch(e){}};btns.appendChild(bell);}
+ if(cfg.hints==='request'){const h=document.createElement('button');h.className='mini';h.id='hintBtn';h.textContent='👁 SHOW SHAPE';
+   h.onclick=()=>{showGhostShape();h.disabled=true;};btns.appendChild(h);}
+ if(cfg.garble){const f=document.createElement('button');f.className='mini flag';f.textContent='🚩 REPORT GARBLED ORDER';
+   f.onclick=reportGarbled;btns.appendChild(f);}
+ // tray highlight
+ renderTray();
+}
+function showGhostShape(){
+ S.tasks.forEach((t,ti)=>{const o=t.o;
+  for(let r=0;r<o.R;r++)for(let c=0;c<o.C;c++){
+    const cell=document.querySelector(`.cell[data-task="${ti}"][data-r="${r}"][data-c="${c}"]`);
+    if(cell&&!cell.classList.contains('full')){cell.classList.add('ghost');setTimeout(()=>cell.classList.remove('ghost'),2600);}}});
+ toast('Ghost shape: '+S.tasks.map(t=>t.o.R+' rows × '+t.o.C).join('  |  '),1800);
+}
+
+/* ---------- tray ---------- */
+function renderTray(){
+ const tr=$('tray');tr.querySelectorAll('.trayCrate').forEach(e=>e.remove());
+ const wanted=S.tasks.map(t=>t.o.item.n);
+ ITEMS.forEach(it=>{
+  const d=document.createElement('div');d.className='trayCrate'+(wanted.includes(it.n)?' want':' dim');
+  d.innerHTML='<div class="ic">'+it.ic+'</div><div class="nm">'+it.n.toUpperCase()+'</div>';
+  d.dataset.item=it.ic;d.dataset.name=it.n;
+  d.addEventListener('pointerdown',e=>{if(S.locked)return;ac();startDrag(e,it.ic,it.n,null);});
+  tr.insertBefore(d,tr.firstChild);
+ });
+}
+
+/* ============================ drag & drop ============================ */
+let drag=null;const ghost=$('ghost');
+function startDrag(e,icon,name,from){
+ e.preventDefault();drag={icon,name,from};ghost.textContent=icon;ghost.style.display='flex';
+ moveGhost(e.clientX,e.clientY);sfx.pick();
+ window.addEventListener('pointermove',onMove);window.addEventListener('pointerup',onUp);
+}
+function moveGhost(x,y){const p=toApp(x,y);ghost.style.left=p.x+'px';ghost.style.top=p.y+'px';}
+function onM

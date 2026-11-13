@@ -1,0 +1,40 @@
+- generic: VEX
+- generic: 📦
+- generic: ACT 1 — HARBOR DOCKS
+- generic: SEIZED 0 · BUSTED 0
+- heading "INTERCEPTED MESSAGE" [level=4]
+- generic: Vex loaded 4 pouches. Each one holds 4 gems.
+- heading "TALLY STRIP (true count)" [level=5]
+- generic: CRATES
+- generic: "1"
+- button "–"
+- button "+"
+- generic: IN EACH
+- generic: "0"
+- button "–"
+- button "+"
+- heading "DOCK GRID — rows are crates" [level=5]
+- generic: "1"
+- generic: ×
+- generic: "?"
+- generic: =
+- textbox "?"
+- button "1"
+- button "2"
+- button "3"
+- button "4"
+- button "5"
+- button "6"
+- button "7"
+- button "8"
+- button "9"
+- button "C"
+- button "0"
+- button "⌫"
+- heading "HARBOR MAP" [level=5]
+- generic: "STOLEN: 2×4"
+- generic: "STOLEN: 4×4"
+- button "🔒 LOCK LOAD"
+- button "🔍 RECOUNT"
+- generic: Turn the CRATES dial to match the message.
+- generic: VEX STOLE IT! "Better luck, rookie."

@@ -1,0 +1,38 @@
+```json
+{
+  "artifactId": "fairsplit-guild-node1-v1",
+  "nodeId": "node_1_equal_partitioning",
+  "title": "The Fair-Split Guild",
+  "audienceRationale": "Reina's data shows near-perfect completion and very high engagement (0.99) on precise, self-checking, high-repetition tasks (spell-check) and strong tolerance for grinding through many trials even at moderate accuracy (word-radar: 112 plays, 0.66 accuracy, engagement 0.86 despite frustration 0.27). She likes performance-flavored formats (wheel-of-fortune, pronunciation) but with low confidence/low volume, suggesting she prefers items she can practice repeatedly and master rather than one-shot spectacle. This node is built as a high-volume, instantly-checkable 'inspection and fixing' loop: many quick rounds, crisp right/wrong feedback, no reading-heavy notation yet, and a satisfying visual 'snap to equal' correction — mirroring the precision-and-repetition pattern she already thrives on, while keeping frustration low with forgiving retry mechanics.",
+  "openingPromise": "You'll become the Guild's Fair-Split Inspector — the only judge who can tell a truly equal split from a sneaky uneven one, and fix the bad ones with your own hands.",
+  "firstThreeSeconds": "A hexagon-shaped cookie tray appears on a workbench, already sliced into 6 pieces — two of them obviously bigger than the rest. A stamp icon glows over it, inviting a tap: 'FAIR' or 'UNFAIR'.",
+  "firstAction": "Tap the stamp that matches what you see: FAIR (all pieces same size) or UNFAIR (pieces are different sizes) — no reading required, just looking and tapping.",
+  "interactionDemonstration": "The first tray is deliberately obvious: two huge slices and four tiny slivers. As soon as Reina taps 'UNFAIR', the unequal lines pulse red, then a helper hand redraws them into 6 identical wedges while a chime plays, showing exactly what 'fair' looks like before she's asked to judge anything harder.",
+  "coreInteraction": "Across many quick rounds, Reina inspects a whole (hexagon tray, number-line ribbon, or a scattered set of counters split into groups) and (1) stamps it FAIR or UNFAIR, then (2) if UNFAIR, drags slice-boundaries or regroups counters until a live 'equalness meter' locks green at perfectly equal — and separately, on 'Build' rounds, she's given a whole and a target part-count (2, 3, 4, or 6) and must partition it herself from scratch until the meter locks green. Every action gets instant visual feedback with no penalty for retrying.",
+  "mathAsPower": "Being able to instantly spot 'equal vs. not equal' is the secret power that makes fraction language possible at all — Reina becomes the one person in the Guild who can certify any split as fair, which is the exact gatekeeping skill needed before anyone can even say 'a third' or 'a sixth' truthfully.",
+  "stakes": "Guild customers (a baker, a ribbon-maker, a marble-collector) are waiting for their orders to be certified. An uncorrected unequal split gets shipped out with a wobbly, sad customer reaction; a properly fixed one gets a happy stamp of approval and the order ships with a cheer.",
+  "consequences": "Misjudging FAIR/UNFAIR causes the tray to visibly wobble and tip over (pieces sliding off), giving immediate honest feedback without harsh punishment — she simply gets to look again and re-stamp. Successfully corrected splits get sealed with a wax Guild stamp and added to a growing 'certified orders' shelf.",
+  "recovery": "No lives, no timers. Wrong stamps or clumsy drags just trigger a gentle 'wobble and reset' animation with a soft sound, and the piece returns to its editable state so she can keep adjusting the equalness meter until it locks green — unlimited attempts, always forward progress once corrected.",
+  "progression": [
+    "Warm-up: obvious FAIR vs UNFAIR judgments on hexagons and strips (2 and 4 parts), heavy visual contrast",
+    "Judge + Fix: subtler unequal splits (near-equal but not quite) requiring drag-to-adjust corrections, introducing 3 and 6 parts",
+    "Sets of objects: counters grouped unevenly (e.g., 7 marbles in groups of 4 and 3) vs evenly (6 marbles in groups of 3 and 3), extending 'equal' beyond shapes to quantities",
+    "Build-from-scratch: given a blank whole and a target number of parts (2, 3, 4, or 6), partition it herself with no starting shape to judge, only the equalness meter as a guide",
+    "Mixed mastery round: a rapid shuffle of judge, fix, and build tasks across strips, number lines, hexagons, and counter sets, timed only as an optional personal-best challenge"
+  ],
+  "worldReaction": "The workbench fills up with a shelf of stamped, certified orders; customer characters visibly cheer, do a little dance, or offer thank-you notes when their split is fixed, while the Guildmaster's portrait in the background nods approvingly and adds new tools (a laser-straight ruler, a counter-sorting tray) to Reina's bench as she progresses.",
+  "payoff": "Reina earns the title 'Certified Fair-Split Inspector' and unlocks a golden stamp tool plus a display case showing every whole she's successfully equalized, from hexagons to ribbon number-lines to marble jars — visible proof of a skill fully mastered before any fraction names are even introduced.",
+  "replayVariation": "Randomized whole-shapes (hexagon, strip, circle-of-counters, number line, irregular blob), randomized part-counts (2, 3, 4, 6), randomized near-miss unequal splits of varying subtlety, and an optional speed-run mode for repeat play once accuracy is consistently high.",
+  "visualDirection": "Warm, tactile workshop aesthetic — wood-grain workbench, chalky stamps, hand-drawn-style trays and ribbons; equal parts glow soft green, unequal parts pulse warm red/orange; the 'equalness meter' is a simple horizontal gauge that fills and locks with a golden glow.",
+  "motionDirection": "Snappy, satisfying micro-animations: slices slide and snap into place with slight overshoot-and-settle physics; unequal pieces visibly wobble/tilt to show imbalance; the wax stamp comes down with a quick squash-and-bounce.",
+  "soundDirection": "Light, tactile sound design — soft wood-clink for taps, a rising chime as the equalness meter fills, a satisfying 'thunk' wax-stamp sound on certification, gentle low 'wobble' thud for mistakes, upbeat short jingle on level completion.",
+  "usefulLibraries": [
+    "Phaser (2D interaction, drag physics, tweening for snap/wobble effects)",
+    "GSAP (smooth meter-fill and stamp-squash animations)",
+    "Howler.js (layered sound feedback)",
+    "Matter.js or Phaser Arcade Physics (optional wobble/tip physics on unequal trays)"
+  ],
+  "engagementPrediction": "High: matches Reina's demonstrated preference for high-repetition, instantly-checkable tasks with clear visual right/wrong feedback and low reading load; forgiving retry loop should keep frustration low (similar to her low-frustration spell-check pattern) while volume of quick rounds mirrors her word-radar stamina.",
+  "falsifyingEvidence": "If Reina's completion rate drops sharply on Build-from-scratch rounds (self-directed partitioning) compared to Judge/Fix rounds, or if she disengages after few plays despite instant feedback, it would suggest she needs more structured scaffolding before open-ended partitioning, contradicting the assumption that she can transfer inspection skill directly into construction skill."
+}
+```

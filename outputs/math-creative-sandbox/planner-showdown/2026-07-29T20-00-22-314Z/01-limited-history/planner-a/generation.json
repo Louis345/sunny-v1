@@ -1,0 +1,26 @@
+{
+  "scenarioId": "01-limited-history",
+  "blindId": "Planner A",
+  "status": "complete",
+  "model": "claude-opus-5",
+  "provider": "anthropic",
+  "promptHash": "82fab7d97faaac826e25ecc2a943f567730dd17e2c6fb29fc65fb53241c7d32a",
+  "packetHash": "4fd2cae8ab4c65ca29f2d518093e5d0ebf44674592dc13601e67cdd67e4abc93",
+  "inputTokens": 1708,
+  "outputTokens": 8388,
+  "estimatedCostUsd": 0.21824,
+  "elapsedMs": 110550,
+  "inspection": {
+    "hardFailures": [],
+    "metrics": {
+      "factualClaimCount": 9,
+      "evidenceReferencedClaimCount": 9,
+      "evidenceGroundingRatio": 1,
+      "fabricatedEvidenceReferenceCount": 0,
+      "unsupportedHighConfidenceCount": 0,
+      "predictionCount": 5,
+      "nodeCount": 4
+    }
+  },
+  "error": null
+}

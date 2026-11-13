@@ -1,0 +1,146 @@
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Fortress of Ranks — Review Mock</title>
+<link href="https://fonts.googleapis.com/css2?family=MedievalSharp&family=Merriweather:wght@700&family=Nunito:wght@600;800&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<style>
+  *{box-sizing:border-box; user-select:none; -webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;padding:0;background:#0a0e17;font-family:'Nunito',sans-serif;}
+  .stage{
+    width:1365px;height:768px;position:relative;overflow:hidden;
+    background:linear-gradient(to bottom,#1b2a4a 0%,#2c4270 28%,#3d5a3c 55%,#4a6b45 68%,#5a7a4f 100%);
+  }
+  /* ===== TOP BAR ===== */
+  .topbar{
+    position:absolute;top:0;left:0;width:100%;height:52px;
+    background:linear-gradient(#1a1410,#241a12);
+    border-bottom:3px solid #7a5327;
+    display:flex;align-items:center;justify-content:space-between;
+    padding:0 16px;z-index:50;
+  }
+  .title{font-family:'MedievalSharp',cursive;color:#f1d98a;font-size:24px;letter-spacing:1px;text-shadow:0 2px 3px #000;}
+  .ledgerBtn{
+    font-family:'Nunito',sans-serif;font-weight:800;font-size:14px;color:#3a2a10;
+    background:linear-gradient(#f3e6c4,#d9bd82);border:2px solid #7a5327;border-radius:8px;
+    padding:8px 14px;cursor:pointer;box-shadow:0 3px 0 #52381a;transition:transform .15s;
+  }
+  .ledgerBtn:hover{transform:translateY(-2px);}
+  .ledgerBtn.attn{animation:bob 1s infinite;}
+  @keyframes bob{0%,100%{transform:translateY(0);}50%{transform:translateY(-5px);}}
+
+  /* ===== SIEGE MAP ===== */
+  .siegeMap{
+    position:absolute;top:52px;left:0;width:100%;height:158px;
+    display:flex;align-items:center;padding:8px 18px;gap:10px;z-index:10;
+    background:linear-gradient(rgba(0,0,0,.15),rgba(0,0,0,0));
+  }
+  .campLeft{width:130px;display:flex;flex-direction:column;align-items:center;gap:4px;flex-shrink:0;}
+  .flagpole{width:4px;height:70px;background:#8a6a3a;position:relative;border-radius:2px;}
+  .flagBlue{
+    position:absolute;top:0;left:4px;width:52px;height:36px;
+    background:linear-gradient(135deg,#2f5bd0,#173a8c);
+    clip-path:polygon(0 0,100% 12%,100% 88%,0 100%);
+    border:2px solid #d4af37;box-shadow:0 2px 6px rgba(0,0,0,.4);
+    animation:wave 2.4s ease-in-out infinite;
+  }
+  @keyframes wave{0%,100%{transform:skewY(0deg);}50%{transform:skewY(3deg);}}
+  .campLabel{font-weight:800;color:#eaf0ff;font-size:13px;text-shadow:0 1px 2px #000;}
+
+  .track{flex:1;position:relative;height:34px;background:linear-gradient(#5c4a30,#3c2f1e);
+    border-radius:17px;border:2px solid #2a1f12;overflow:visible;box-shadow:inset 0 2px 6px rgba(0,0,0,.5);}
+  .progressFill{position:absolute;top:0;left:0;height:100%;width:0%;border-radius:17px;
+    background:linear-gradient(90deg,#1e3a8a,#3a6bd6,#8fb2ff);box-shadow:0 0 10px rgba(90,140,255,.6);}
+  .milestone{position:absolute;top:-8px;width:4px;height:50px;background:rgba(255,255,255,.25);}
+  .msFlag{position:absolute;top:-26px;width:22px;height:16px;background:#d4af37;opacity:0;
+    clip-path:polygon(0 0,100% 50%,0 100%);transform:scale(.3);transform-origin:left center;}
+  .armyIcon{
+    position:absolute;top:50%;left:0%;transform:translate(-50%,-50%);
+    width:30px;height:30px;display:flex;align-items:center;justify-content:center;
+    font-size:20px;filter:drop-shadow(0 2px 3px #000);z-index:5;
+  }
+
+  .fortress{width:230px;flex-shrink:0;position:relative;display:flex;flex-direction:column;align-items:center;}
+  .fortressWalls{display:flex;gap:2px;}
+  .crenel{width:14px;height:16px;background:#5a5450;border:1px solid #2a2622;}
+  .keep{width:210px;height:78px;background:linear-gradient(#6b6560,#443f3a);
+    border:2px solid #2a2622;position:relative;display:flex;align-items:flex-end;justify-content:center;overflow:hidden;}
+  .gateFrame{width:70px;height:66px;background:#241a10;border:3px solid #120c06;position:relative;overflow:hidden;border-radius:4px 4px 0 0;}
+  .gateDoor{position:absolute;top:0;width:50%;height:100%;background:linear-gradient(#6b4423,#3d2712);
+    border-right:1px solid #1a1006;}
+  .gateDoor.left{left:0;transform-origin:left center;}
+  .gateDoor.right{left:50%;transform-origin:right center;border-right:none;border-left:1px solid #1a1006;}
+  .crackSvg{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;}
+  .flagRed{position:absolute;top:-30px;left:50%;transform:translateX(-50%);width:44px;height:30px;
+    background:linear-gradient(135deg,#a52020,#5a0f0f);clip-path:polygon(0 0,100% 12%,100% 88%,0 100%);
+    border:2px solid #1a1414;animation:wave 2.2s ease-in-out infinite reverse;}
+  .reinfRow{display:flex;gap:3px;margin-top:4px;height:16px;}
+  .reinfTok{width:12px;height:14px;background:#8a1f1f;border:1px solid #2a0c0c;border-radius:2px;}
+  .reinfLabel{font-size:11px;color:#ffd7d7;font-weight:800;margin-top:2px;text-shadow:0 1px 2px #000;}
+
+  /* ===== PLAY AREA ===== */
+  .playArea{
+    position:absolute;top:222px;left:0;width:100%;height:472px;
+    display:flex;flex-direction:column;align-items:center;gap:10px;padding-top:10px;z-index:10;
+  }
+  .parchment{
+    background:linear-gradient(#f6ecc9,#e4cd96);border:4px solid #7a5327;border-radius:10px;
+    box-shadow:0 8px 18px rgba(0,0,0,.4), inset 0 0 22px rgba(122,83,39,.25);color:#42280f;
+  }
+  .scrollPanel{width:620px;padding:12px 20px;text-align:center;position:relative;}
+  .scrollTag{font-family:'MedievalSharp',cursive;font-size:14px;color:#8a5a1f;letter-spacing:1px;}
+  .scrollText{font-size:18px;font-weight:800;margin:4px 0 2px;line-height:1.3;}
+  .scrollTotal{display:inline-block;margin-top:4px;background:#7a5327;color:#f6ecc9;font-weight:800;
+    padding:3px 12px;border-radius:14px;font-size:14px;}
+  .dispatchNum{position:absolute;top:8px;right:14px;font-size:12px;font-weight:800;color:#8a5a1f;}
+
+  .gridWrap{position:relative;display:flex;align-items:center;justify-content:center;min-height:290px;}
+  #gridStage{position:relative;}
+  .slot{position:absolute;border-radius:6px;border:2px dashed rgba(122,83,39,.5);}
+  .slot.dark{background:rgba(122,83,39,.10);}
+  .slot.light{background:rgba(255,255,255,.10);}
+  .slot.next{border-color:#ffd54a;box-shadow:0 0 14px 4px rgba(255,213,74,.7);animation:pulseGlow 1s infinite;}
+  @keyframes pulseGlow{0%,100%{box-shadow:0 0 8px 2px rgba(255,213,74,.5);}50%{box-shadow:0 0 20px 8px rgba(255,213,74,.9);}}
+  .soldier{
+    position:absolute;width:52px;height:52px;border-radius:50% 50% 10px 10px/62% 62% 12px 12px;
+    background:linear-gradient(#4a78e0,#1c3a80);border:2px solid #d4af37;
+    box-shadow:0 3px 6px rgba(0,0,0,.5), inset 0 -4px 6px rgba(0,0,0,.25);
+  }
+  .soldier::after{content:'';position:absolute;top:8px;left:50%;transform:translateX(-50%);
+    width:10px;height:10px;background:#ffe9b0;border-radius:50%;}
+  .soldier.rowflash{animation:rowFlash .6s ease;}
+  @keyframes rowFlash{0%{filter:brightness(1);}50%{filter:brightness(1.8) drop-shadow(0 0 8px gold);}100%{filter:brightness(1);}}
+
+  .statusRow{display:flex;align-items:center;gap:16px;height:30px;}
+  .mentorBubble{
+    background:#fff8e6;border:2px solid #d4af37;border-radius:14px;padding:6px 14px;font-size:13px;font-weight:700;
+    color:#5a3c10;opacity:0;transform:translateY(6px);max-width:520px;text-align:center;
+  }
+  .streak{display:flex;gap:3px;font-size:16px;}
+
+  .trayWrap{display:flex;align-items:center;gap:26px;margin-top:4px;}
+  .trayStack{
+    position:relative;width:110px;height:80px;cursor:pointer;display:flex;align-items:center;justify-content:center;
+  }
+  .trayStack .soldier{position:absolute;}
+  .trayStack .soldier:nth-child(1){left:26px;top:14px;}
+  .trayStack .soldier:nth-child(2){left:14px;top:20px;opacity:.85;}
+  .trayStack .soldier:nth-child(3){left:38px;top:22px;opacity:.7;}
+  .trayHint{position:absolute;bottom:-20px;left:50%;transform:translateX(-50%);font-size:11px;font-weight:800;
+    color:#ffe9a8;text-shadow:0 1px 2px #000;white-space:nowrap;}
+  .trayStack{animation:trayBounce 1.4s ease-in-out infinite;}
+  @keyframes trayBounce{0%,100%{transform:translateY(0) scale(1);}50%{transform:translateY(-6px) scale(1.04);}}
+  .sendBtn{
+    font-family:'Nunito',sans-serif;font-weight:800;font-size:16px;color:#2a1a06;
+    background:linear-gradient(#f6ecc9,#d9bd82);border:3px solid #7a5327;border-radius:12px;
+    padding:12px 24px;cursor:pointer;box-shadow:0 4px 0 #52381a;transition:all .15s;
+  }
+  .sendBtn:hover{transform:translateY(-2px);}
+  .sendBtn.ready{background:linear-gradient(#bff2c4,#5fbf6f);border-color:#2f6b36;color:#0f2e12;animation:readyPulse 1s infinite;}
+  @keyframes readyPulse{0%,100%{box-shadow:0 4px 0 #2f6b36,0 0 0 rgba(95,191,111,0);}50%{box-shadow:0 4px 0 #2f6b36,0 0 18px rgba(95,191,111,.8);}}
+
+  /* ===== TAUNT BANNER ===== */
+  .taunt{
+    position:absolute;top:70px;left:50%;trans

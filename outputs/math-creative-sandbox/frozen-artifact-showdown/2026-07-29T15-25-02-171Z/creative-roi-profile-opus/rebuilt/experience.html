@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>STARWRIGHT: Weave the Night</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{width:1365px;height:768px;overflow:hidden;background:#0a0716;font-family:"Trebuchet MS",sans-serif;user-select:none}
+#stage{position:relative;width:1365px;height:768px}
+#sky{position:absolute;left:0;top:0;width:1365px;height:232px;background:linear-gradient(#0d0a24,#241543 70%,#3a1f4d);overflow:hidden;border-bottom:2px solid #6b4a1e}
+#skyc{position:absolute;left:0;top:0}
+#trees{position:absolute;left:0;bottom:0;width:1365px;height:36px}
+#mute{position:absolute;right:10px;top:8px;z-index:6;background:rgba(0,0,0,.35);border:1px solid #8a6a2e;color:#e8d6a8;border-radius:8px;padding:7px 11px;font-size:14px;cursor:pointer}
+#warden{position:absolute;left:24px;top:12px;width:900px;color:#f4e3b8;font-family:Georgia,serif;font-size:20px;text-shadow:0 0 12px #000;line-height:1.35}
+.card{position:absolute;background:linear-gradient(#f6ecd2,#e8d9b4);border-radius:14px;box-shadow:0 6px 20px #0008;color:#3b2a12}
+#order{left:24px;top:252px;width:368px;height:220px;padding:16px 18px;font-size:22px;line-height:1.32;font-family:Georgia,serif}
+#order .lbl{font-size:13px;letter-spacing:2px;color:#8a6a2e;font-family:"Trebuchet MS";margin-bottom:8px}
+.g{color:#1d5f7a;font-weight:bold}.e{color:#a55a09;font-weight:bold}
+#ledger{left:24px;top:486px;width:368px;height:258px;padding:12px 16px;overflow:hidden}
+#ledger .lbl{font-size:13px;letter-spacing:2px;color:#8a6a2e;margin-bottom:6px}
+#ledlist div{font-size:15px;padding:2px 0;border-bottom:1px dotted #c9b686}
+.gd{color:#8a7a5a;font-size:12px}
+#loom{position:absolute;left:412px;top:252px;width:588px;height:368px;background:linear-gradient(#3c2a17,#241606);border:8px solid #6b4a1e;border-radius:16px;box-shadow:inset 0 0 40px #000,0 6px 18px #0007;overflow:hidden}
+#tray{position:absolute;left:0;top:0;width:100%;height:112px;border-bottom:1px dashed #6b4a1e55;padding:8px;display:flex;flex-wrap:wrap;align-content:flex-start;gap:8px}
+#lat{position:absolute;left:0;top:112px;width:100%;height:240px}
+.nest{width:52px;height:52px;border-radius:50%;background:radial-gradient(circle at 35% 32%,#ffe9a8,#c9911f 60%,#7a5510);box-shadow:0 0 16px #f0c05a88;display:flex;align-items:center;justify-content:center;color:#3b2a12;font-weight:bold;font-size:20px;animation:pop .3s}
+@keyframes pop{from{transform:scale(0)}to{transform:scale(1)}}
+#lat canvas{position:absolute;left:0;top:0}
+#msg{position:absolute;left:0;bottom:4px;width:100%;text-align:center;color:#ffd98a;font-size:17px;font-family:Georgia,serif}
+#eq{position:absolute;left:412px;top:636px;width:588px;height:108px;background:linear-gradient(#2b1d33,#1a1024);border:3px solid #6b4a1e;border-radius:14px;display:flex;align-items:center;padding:0 14px;gap:8px}
+.slot{min-width:74px;height:62px;border-radius:10px;background:#0e0a18;border:2px solid #6b4a1e;color:#ffe6a8;font-size:36px;display:flex;align-items:center;justify-content:center;font-family:"Trebuchet MS"}
+.op{color:#e8c987;font-size:34px}
+#pin{border-color:#f0c05a;box-shadow:0 0 12px #f0c05a66}
+#seal{margin-left:auto;height:64px;min-width:118px;font-size:22px}
+#ctrl{position:absolute;left:1016px;top:252px;width:325px;height:492px}
+.btn{background:linear-gradient(#8a6321,#5a3d12);border:2px solid #c79a3e;color:#ffeec4;border-radius:12px;cursor:pointer;font-family:"Trebuchet MS";font-weight:bold;box-shadow:0 3px 0 #2a1c07}
+.btn:active{transform:translateY(2px);box-shadow:none}
+.btn:disabled{opacity:.4;cursor:default}
+#loader{background:#1a1024;border:2px solid #6b4a1e;border-radius:12px;padding:6px;text-align:center;color:#e8c987}
+#loader .t{font-size:12px;letter-spacing:1.5px}
+#lrow{display:flex;align-items:center;justify-content:center;gap:10px;margin-top:2px}
+#lrow button{width:56px;height:56px;font-size:30px}
+#lnum{font-size:40px;color:#ffe6a8;width:66px;font-weight:bold}
+#pad{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:8px}
+#pad button{height:56px;font-size:24px}
+.row2{display:flex;gap:8px;margin-top:8px}
+.row2 .btn{flex:1;height:56px;font-size:17px}
+#ask{width:100%;height:52px;margin-top:8px;font-size:16px;background:linear-gradient(#2c4a5a,#16303c);border-color:#63a7c4;color:#d5f0ff}
+#lever{width:100%;height:62px;margin-top:8px;font-size:21px}
+#overlay{position:absolute;left:0;top:0;width:1365px;height:768px;background:#07060fee;display:none;z-index:20;color:#f4e3b8;font-family:Georgia,serif}
+#ovin{position:absolute;left:0;bottom:40px;width:100%;text-align:center}
+#ovin input{font-size:26px;padding:10px 14px;border-radius:10px;border:2px solid #c79a3e;background:#1a1024;color:#ffe6a8;text-align:center;width:280px}
+#sum{position:absolute;left:50%;top:64%;transform:translateX(-50%);text-align:center;font-size:21px;line-height:1.7}
+#stg{position:absolute;left:412px;top:224px;width:588px;text-align:center;color:#c79a3e;font-size:14px;letter-spacing:3px}
+#prog{position:absolute;right:24px;top:224px;color:#c79a3e;font-size:14px;letter-spacing:2px}
+.mk{color:#c48bff;font-weight:bold}
+</style>
+</head>
+<body>
+<div id="stage">
+  <div id="sky"><canvas id="skyc" width="1365" height="232"></canvas><svg id="trees" viewBox="0 0 1365 36"><path fill="#07050e" d="M0,36 L0,22 L30,10 L52,24 L80,6 L104,24 L140,14 L168,26 L200,8 L232,26 L268,16 L300,28 L340,10 L372,26 L410,18 L444,28 L480,8 L516,26 L556,16 L590,28 L630,12 L666,26 L706,18 L742,28 L780,8 L816,26 L856,16 L890,28 L930,12 L966,26 L1006,16 L1042,28 L1080,8 L1116,26 L1156,16 L1190,28 L1230,12 L1266,26 L1306,16 L1340,28 L1365,20 L1365,36 Z"/></svg>
+  <div id="warden">A single spark drifts into your loom.</div><button id="mute">♪ on</button></div>
+  <div id="stg"></div><div id="prog"></div>
+  <div class="card" id="order"><div class="lbl">SKY ORDER</div><div id="otext"></div></div>
+  <div class="card" id="ledger"><div class="lbl">THE LEDGER</div><div id="ledlist"></div></div>
+  <div id="loom"><div id="tray"></div><div id="lat"><canvas id="latc" width="588" height="240"></canvas></div><div id="msg"></div></div>
+  <div id="eq"><div class="slot" id="sr">?</div><div class="op">×</div><div class="slot" id="se">?</div><div class="op">=</div><div class="slot" id="pin">_</div><button class="btn" id="seal">SEAL</button></div>
+  <div id="ctrl">
+    <div id="loader"><div class="t">SPARKS IN EACH NEST</div><div id="lrow"><button class="btn" id="lm">−</button><div id="lnum">1</div><button class="btn" id="lp">+</button></div></div>
+    <button class="btn" id="addnest" style="width:100%;height:58px;margin-top:8px;font-size:19px">ADD NEST</button>
+    <button class="btn" id="lever">PULL LOOM</button>
+    <div class="row2" id="judge" style="display:none"><button class="btn" id="btrue">TRUE</button><button class="btn" id="bfalse">FALSE</button></div>
+    <button class="btn" id="ask">ASK THE LOOM</button>
+    <div id="pad"></div>
+  </div>
+  <div id="overlay"></div>
+</div>
+<script>
+// ---------- audio ----------
+let AC=null,muted=false;
+function ac(){try{if(!AC)AC=new(window.AudioContext||window.webkitAudioContext)();if(AC.state=='suspended')AC.resume();}catch(e){}return AC}
+function tone(f,t0,d,g,type){try{const a=ac();if(!a||muted)return;const o=a.createOscillator(),v=a.createGain();o.type=type||'triangle';o.frequency.value=f;v.gain.value=0;o.connect(v);v.connect(a.destination);const s=a.currentTime+t0;v.gain.linearRampToValueAtTime(g||.15,s+.01);v.gain.exponentialRampToValueAtTime(.0008,s+d);o.start(s);o.stop(s+d+.05);}catch(e){}}
+const SC=[261.6,293.7,329.6,392,440,523.3,587.3,659.3,784,880,1046.5,1174.7];
+function pluck(i){tone(SC[Math.min(i,SC.length-1)],0,.5,.14)}
+function runUp(n){for(let i=0;i<n;i++)tone(SC[i%SC.length]*(i>=SC.length?2:1),i*.11,.4,.12)}
+function chord(){[392,493.9,587.3].forEach((f,i)=>tone(f,i*.05,1.2,.13));tone(784,.1,1.4,.07,'sine')}
+function thud(){tone(90,0,.5,.18,'sine');tone(140,.05,.4,.1,'sawtooth')}
+function mkSting(){tone(160,0,.35,.16,'sawtooth');tone(120,.12,.3,.12,'sawtooth')}
+
+// ---------- sky ----------
+const skyc=document.getElementById('skyc'),sx=skyc.getContext('2d');
+let stars=[],cons=[],haze=[],tw=0,cloudArr=null;
+for(let i=0;i<150;i++)stars.push({x:Math.random()*1365,y:Math.random()*196,r:Math.random()*1.2+.3,p:Math.random()*6.3});
+function drawSky(){tw+=.03;sx.clearRect(0,0,1365,232);
+ haze.forEach(h=>{const g=sx.createRadialGradient(h.x,h.y,4,h.x,h.y,h.r);g.addColorStop(0,'rgba(160,90,255,'+(.34*h.a)+')');g.addColorStop(1,'rgba(120,60,220,0)');sx.fillStyle=g;sx.beginPath();sx.arc(h.x,h.y,h.r,0,6.3);sx.fill();});
+ stars.forEach(s=>{sx.globalAlpha=.35+.35*Math.sin(tw+s.p);sx.fillStyle='#cfd8ff';sx.beginPath();sx.arc(s.x,s.y,s.r,0,6.3);sx.fill();});
+ sx.globalAlpha=1;
+ cons.forEach(c=>{const a=c.a;sx.strokeStyle='rgba(255,225,150,'+(.30*a)+')';sx.lineWidth=1;sx.beginPath();c.pts.forEach((p,i)=>i?sx.lineTo(c.x+p[0],c.y+p[1]):sx.moveTo(c.x+p[0],c.y+p[1]));sx.stroke();
+  c.pts.forEach((p,i)=>{const tk=.6+.4*Math.sin(tw*1.4+i);sx.globalAlpha=a*tk;sx.fillStyle='#fff8e0';sx.beginPath();sx.arc(c.x+p[0],c.y+p[1],2.2,0,6.3);sx.fill();sx.globalAlpha=a*.25;sx.beginPath();sx.arc(c.x+p[0],c.y+p[1],6,0,6.3);sx.fill();});
+  sx.globalAlpha=a;sx.fillStyle='#f0c778';sx.font='13px Trebuchet MS';sx.textAlign='center';sx.fillText(c.cap,c.x,c.y+c.h+16);sx.globalAlpha=1;
+  if(c.a<1)c.a=Math.min(1,c.a+.02);});
+ if(cloudArr)drawReadArray();
+ requestAnimationFrame(drawSky);}
+function drawReadArray(){const A=cloudArr,sp=17,ox=A.x,oy=A.y;
+ for(let r=0;r<A.rows;r++)for(let c=0;c<A.cols;c++){const px=ox+c*sp,py=oy+r*sp;sx.globalAlpha=.9;sx.fillStyle='#fff6d8';sx.beginPath();sx.arc(px,py,2.6,0,6.3);sx.fill();sx.globalAlpha=.22;sx.beginPath();sx.arc(px,py,7,0,6.3);sx.fill();}
+ sx.globalAlpha=1;
+ if(A.cover){const x0=ox+sp*.9,y0=oy+sp*.6,w=sp*(A.cols-2)+6,h=sp*(A.rows-1.4);const g=sx.createLinearGradient(x0,y0,x0,y0+h);g.addColorStop(0,'rgba(60,50,95,.99)');g.addColorStop(1,'rgba(40,32,70,.99)');sx.fillStyle=g;sx.beginPath();sx.roundRect(x0,y0,w,h,14);sx.fill();sx.fillStyle='#9c93c4';sx.font='13px Trebuchet MS';sx.textAlign='center';sx.fillText('cloud',x0+w/2,y0+h/2+4);}
+}
+drawSky();
+function silhouette(n){const pts=[];const N=Math.max(4,Math.min(8,n));for(let i=0;i<N;i++){const a=i/N*6.3+Math.random();pts.push([Math.cos(a)*(14+Math.random()*16),Math.sin(a)*(9+Math.random()*11)]);}return pts;}
+
+// ---------- content pools ----------
+const used=new Set();
+function key(a,b){return a+'x'+b}
+function pick(list){return list[Math.floor(Math.random()*list.length)]}
+function pairFor(lo,hi,tries){for(let i=0;i<200;i++){const a=lo+Math.floor(Math.random()*(hi-lo+1)),b=lo+Math.floor(Math.random()*(hi-lo+1));if(a*b>60)continue;if(!used.has(key(a,b))&&!used.has(key(b,a))){used.add(key(a,b));return[a,b]}}return[lo,hi]}
+const NAMES=["Heron","Lynx","Kite","Otter","Fox Cub","Lantern","Bramble","Owl","Salmon","Willow","Beetle","Crane","Hare","Anvil","Wren","Ferry","Moth"];
+let nameBag=NAMES.slice();
+function nextName(){if(!nameBag.length)nameBag=NAMES.slice();return nameBag.splice(Math.floor(Math.random()*nameBag.length),1)[0]}
+
+function buildTasks(){
+ const T=[];
+ // Stage 1
+ for(let i=0;i<3;i++){const[g,e]=pairFor(2,5);T.push({t:'build',stage:1,g,e,name:nextName(),txt:(n,g,e)=>`The <b>${n}</b> needs <span class="g">${g} nests</span>, with <span class="e">${e} sparks</span> in each nest.`});}
+ // Stage 2
+ const s2=[];for(let i=0;i<2;i++){const[g,e]=pairFor(3,7);s2.push({t:'build',stage:2,g,e,name:nextName(),rev:true,txt:(n,g,e)=>`There are <span class="e">${e} sparks</span> in every nest. The <b>${n}</b> needs <span class="g">${g} nests</span>.`});}
+ const[rg,re]=pairFor(3,7);s2.push({t:'read',stage:2,g:rg,e:re,name:nextName(),txt:(n,g,e)=>`An old array drifts overhead — the <b>${n}</b>. A cloud hides its middle. Read <span class="g">rows</span> × <span class="e">in each row</span> from the edges you can see, then key the product.`});
+ s2.sort(()=>Math.random()-.5);T.push(...s2);
+ // Stage 3
+ const totals=[[12,[2,3,4,6]],[18,[2,3,6,9]],[24,[3,4,6,8]],[36,[4,6,9]],[20,[4,5]],[30,[5,6]]].sort(()=>Math.random()-.5).slice(0,3);
+ totals.forEach(([tot])=>T.push({t:'choose',stage:3,total:tot,name:nextName(),txt:n=>`The <b>${n}</b> needs <span class="g">${tot} stars</span>, woven in <b>equal nests</b>. You choose how many nests, and how many sparks live in each.`}));
+ // Stage 4
+ const cl=[];const trueIdx=Math.floor(Math.random()*3);
+ for(let i=0;i<3;i++){const[g,e]=pairFor(3,9);const real=g*e;let claim=real;
+  if(i!==trueIdx){const mode=Math.floor(Math.random()*2);claim=mode?real-e:real+g;if(claim<=0||claim===real)claim=real+1;}
+  cl.push({t:'judge',stage:4,g,e,claim,truth:claim===real,name:nextName(),txt:(n,g,e)=>`<span class="mk">MIRRIK:</span> "The <b>${n}</b>? Mine. <span class="g">${g} nests</span> of <span class="e">${e} sparks</span> — that's <b>${claim} stars</b>."`});}
+ T.push(...cl);
+ // Stage 5
+ const nests=[[4,3,5],[2,4,6],[3,3,4],[5,2,5]].sort(()=>Math.random()-.5).slice(0,2);
+ nests.forEach(([a,b,c])=>T.push({t:'nested',stage:5,a,b,c,name:nextName(),txt:n=>`The <b>${n}</b> is built from towers. <span class="g">${a} towers</span>, each tower holds <span class="g">${b} nests</span>, and each nest holds <span class="e">${c} sparks</span>.`}));
+ // Stage 6
+ const[fg,fe]=pairFor(6,9);
+ T.push({t:'build',stage:6,g:fg,e:fe,name:nextName(),final:1,txt:(n,g,e)=>`GREAT CONSTELLATION, panel one. <span class="g">${g} nests</span>, <span class="e">${e} sparks</span> each. No spark counts shown. Weave it true.`});
+ const[jg,je]=pairFor(6,9);const jr=jg*je;
+ T.push({t:'judge',stage:6,g:jg,e:je,claim:jr-je,truth:false,name:nextName(),final:2,txt:(n,g,e)=>`Panel two. <span class="mk">MIRRIK:</span> "<span class="g">${jg} nests</span> of <span class="e">${je}</span> — that's <b>${jr-je}</b>. The sky is mine."`});
+ T.push({t:'choose',stage:6,total:48,name:nextName(),final:3,txt:n=>`Panel three. <span class="g">48 stars</span>, equal nests — the grouping is yours alone.`});
+ return T;
+}
+let TASKS=buildTasks(),ti=0,task=null;
+
+// ---------- loom state ----------
+const tray=document.getElementById('tray'),latc=document.getElementById('latc'),lx=latc.getContext('2d');
+let each=1,nests=0,aligned=false,prod='',frays=0,hintStep=0,guided=false,twinPairs={},sealedOK=false,copied=false,glow=0;
+let stat={lit:0,busted:0,hardest:'—',hardestP:0,reclaims:0};
+const E=id=>document.getElementById(id);
+function setMsg(t){E('msg').innerHTML=t}
+function showLoader(v){E('loader').style.display=v?'block':'none';E('addnest').style.display=v?'block':'none'}
+
+function renderTray(){tray.innerHTML='';const showCount=task&&task.stage===1;
+ for(let i=0;i<nests;i++){const d=document.createElement('div');d.className='nest';if(showCount)d.textContent=each;tray.appendChild(d);}
+ if(!nests&&!aligned)tray.innerHTML='<div style="color:#8a6a2e;font-size:16px;padding:14px 8px;font-family:Georgia,serif">The gather tray is empty. Set the sparks in each nest, then add nests.</div>';}
+function drawLat(hl){lx.clearRect(0,0,588,240);
+ if(task&&task.stage===1&&task.g&&!aligned){lx.strokeStyle='rgba(200,160,80,.22)';for(let r=0;r<task.g;r++)for(let c=0;c<task.e;c++){const[px,py]=cell(r,c,task.g,task.e);lx.beginPath();lx.arc(px,py,5,0,6.3);lx.stroke();}}
+ if(!aligned)return;
+ const R=nests,C=each;
+ for(let r=0;r<R;r++)for(let c=0;c<C;c++){const[px,py]=cell(r,c,R,C);const on=hl===undefined||r<hl;lx.globalAlpha=on?1:.25;lx.fillStyle='#fff3cf';lx.beginPath();lx.arc(px,py,5.4,0,6.3);lx.fill();lx.globalAlpha=(on?.3:.08);lx.beginPath();lx.arc(px,py,12,0,6.3);lx.fill();}
+ lx.globalAlpha=1;
+ for(let r=0;r<R;r++){const[ax,ay]=cell(r,0,R,C),[bx,by]=cell(r,C-1,R,C);lx.strokeStyle='rgba(240,200,110,.28)';lx.beginPath();lx.moveTo(ax-9,ay);lx.lineTo(bx+9,by);lx.stroke();}
+ if(glow>0){lx.fillStyle='rgba(255,235,170,'+glow+')';lx.fillRect(0,0,588,240);}
+}
+function cell(r,c,R,C){const sp=Math.min(40,Math.min(210/Math.max(R,1),520/Math.max(C,1)));const w=(C-1)*sp,h=(R-1)*sp;return[294-w/2+c*sp,120-h/2+r*sp]}
+
+// ---------- task flow ----------
+function loadTask(){
+ task=TASKS[ti];each=1;nests=0;aligned=false;prod='';frays=0;hintStep=0;guided=false;copied=false;glow=0;cloudArr=null;
+ E('lnum').textContent=1;E('pin').textContent='_';E('sr').textContent='?';E('se').textContent='?';
+ E('judge').style.display='none';E('lever').style.display='block';E('lever').disabled=false;E('lever').textContent='PULL LOOM';
+ E('seal').disabled=false;showLoader(true);
+ E('otext').innerHTML=task.txt(task.name,task.g,task.e);
+ E('stg').textContent='STAGE '+task.stage+(task.final?' · GREAT CONSTELLATION panel '+task.final:'');
+ E('prog').textContent='WEAVE '+(ti+1)+' / '+TASKS.length;
+ setMsg('');
+ if(task.stage===1){E('sr').textContent=task.g;E('se').textContent=task.e;}
+ if(task.t==='read'){showLoader(false);E('lever').style.display='none';cloudArr={rows:task.g,cols:task.e,x:900,y:60,cover:true};setMsg('Read the drifting array above. Then key the product.');say('Rows and row-length are readable at the edges. The middle is hidden — walk the rows.');}
+ else if(task.t==='judge'){E('lever').textContent='PULL LOOM';say('Mirrik has staked a claim. Build the proof first — then judge it.');}
+ else if(task.t==='choose'){say('Only the total is given. Equal nests, or the lever will not pull.');}
+ else if(task.t==='nested'){say('Weave one tower, then copy it. Decide what to multiply first.');setMsg('Weave ONE tower: '+task.b+' nests of '+task.c+'.');}
+ else say(task.stage===1?'Nests are groups. Sparks in each nest is the amount. Weave true.':'Which number is the nests? Which is the sparks inside?');
+ renderTray();drawLat();
+}
+function say(t){E('warden').innerHTML=t}
+
+E('lm').onclick=()=>{if(each>1&&!aligned){each--;E('lnum').textContent=each;renderTray();tone(300,0,.2,.1)}};
+E('lp').onclick=()=>{if(each<10&&!aligned){each++;E('lnum').textContent=each;renderTray();tone(420,0,.2,.1)}};
+E('addnest').onclick=()=>{if(aligned||nests>=10)return;nests++;pluck(nests-1);renderTray();drawLat();
+ if(task.t==='choose'){const tot=each*nests;setMsg(nests+' nests of '+each+' sparks in each.');}
+ else setMsg(nests+' nest'+(nests>1?'s':'')+' gathered.');};
+
+E('lever').onclick=()=>{
+ if(aligned)return;
+ if(nests<1){setMsg('No nests yet.');return}
+ if(task.t==='choose'&&each*nests!==task.total){shake();thud();setMsg('The nests are not even — '+nests+' nests of '+each+' is not '+task.total+'.');return}
+ if(task.t==='nested'&&!copied){if(nests!==task.b||each!==task.c){shake();thud();setMsg('One tower is '+task.b+' nests of '+task.c+'. Set that first.');return}}
+ aligned=true;showLoader(false);runUp(each);setMsg('Rows: '+nests+' · in each row: '+each);
+ E('sr').textContent=nests;E('se').textContent=each;
+ if(task.stage>=3&&task.stage<6){}
+ E('lever').disabled=true;
+ if(task.t==='nested'&&!copied){E('lever').textContent='COPY TOWER × '+task.a;E('lever').disabled=false;aligned=true;drawLat();
+   E('lever').onclick=()=>{copied=true;const first=nests*each;nests=task.a*task.b;E('sr').textContent=nests;E('se').textContent=each;E('lever').disabled=true;E('lever').textContent='COPIED';runUp(Math.min(task.a*2,8));
+     setMsg('One tower = '+task.b+' × '+task.c+' = '+first+'.  All towers: '+task.a+' × '+first+'  =  '+nests+' × '+each+' rows·each — both agree.');drawLat();};
+   return}
+ if(task.t==='judge'){const ok=(nests===task.g&&each===task.e);E('judge').style.display='flex';E('btrue').disabled=!ok;E('bfalse').disabled=!ok;
+  if(ok)setMsg('Proof built. Your frame holds '+nests+' rows of '+each+'. Now judge his number.');else setMsg('That frame does not match his situation.');}
+ drawLat();
+}
+function shake(){const l=E('loom');l.style.transition='transform .06s';let n=0;const iv=setInterval(()=>{l.style.transform='translateX('+(n%2?-7:7)+'px)';if(++n>6){clearInterval(iv);l.style.transform=''}},55)}
+
+// keypad
+const pad=E('pad');['1','2','3','4','5','6','7','8','9','⌫','0','↵'].forEach(k=>{const b=document.createElement('button');b.className='btn';b.textContent=k;b.onclick=()=>keyp(k);pad.appendChild(b)});
+function keyp(k){if(sealedOK)return;
+ if(k==='⌫')prod=prod.slice(0,-1);
+ else if(k==='↵'){doSeal();return}
+ else if(prod.length<3)prod+=k;
+ E('pin').textContent=prod||'_';tone(520,0,.12,.08)}
+E('seal').onclick=doSeal;
+document.addEventListener('keydown',e=>{if(/^[0-9]$/.test(e.key))keyp(e.key);else if(e.key==='Backspace')keyp('⌫');else if(e.key==='Enter')doSeal()});
+
+E('ask').onclick=()=>{guided=true;hintStep++;
+ if(task.t==='read'){say(hintStep<2?'Count the rows down one visible edge; count the sparks along the top row. Rows × in-each.':'Rows: '+task.g+'. In each row: '+task.e+'. Now skip-count '+task.e+', '+(task.e*2)+', …');if(hintStep>1)runUp(task.e);return}
+ if(task.t==='choose'){say(hintStep<2?'Find two numbers that multiply to '+task.total+'. Try nests first, then fill each nest equally.':'Try nests = 2 and see what each nest must hold to reach '+task.total+'.');return}
+ if(task.t==='nested'){say(hintStep<2?'The nests-per-tower and sparks-per-nest make ONE tower. Then the towers multiply that.':'One tower = '+task.b+' × '+task.c+'. Then multiply by '+task.a+' towers.');return}
+ if(hintStep<2)say('The number of <b>nests</b> is how many equal groups. The <b>sparks in each nest</b> is the amount inside every group.');
+ else{say('One row holds '+ (aligned?each:task.e) +' sparks. Listen — skip-count it.');runUp(aligned?each:task.e);}
+}
+E('btrue').onclick=()=>judge(true);E('bfalse').onclick=()=>judge(false);
+let ruling=null;
+function judge(v){ruling=v;E('btrue').style.opacity=v?1:.4;E('bfalse').style.opacity=v?.4:1;setMsg('Ruling: '+(v?'TRUE':'FALSE')+'. Now key the true product and SEAL.');tone(v?660:330,0,.3,.12)}
+
+function doSeal(){
+ if(!task)return;
+ const p=parseInt(prod,10);
+ if(isNaN(p)){setMsg('Key a product first.');return}
+ let R,C,truth;
+ if(task.t==='read'){R=task.g;C=task.e;truth=(p===R*C);}
+ else if(task.t==='nested'){if(!copied){setMsg('Copy the tower first.');return}R=nests;C=each;truth=(p===task.a*task.b*task.c);}
+ else{if(!aligned){setMsg('Pull the loom first — turn the nests into rows.');return}R=nests;C=each;truth=(p===R*C);}
+ if(task.t==='judge'){if(ruling===null){setMsg('Rule TRUE or FALSE first.');return}
+   if(ruling!==task.truth){fray('Your frame holds '+R+' rows of '+C+'. Look again at his number before you rule.');return}
+   if(p!==task.g*task.e){fray('The true product of '+task.g+' rows of '+task.e+' is not '+p+' — walk the rows again.');return}
+   if(!task.truth){stat.busted++;mkSting();peelHaze();}
+ }
+ if(!truth){fray('Your frame holds '+R+' rows of '+C+'; you sealed '+p+' — walk the rows again.');return}
+ success(R,C,p);
+}
+function fray(m){frays++;thud();tone(210,.1,.6,.1,'sawtooth');shake();
+ setMsg('<span style="color:#ffb3a0">'+m+'</span>');
+ if(task.stage===1||frays>=1){/* crack one nest open */}
+ if(frays>=2){
+   const hx=200+Math.random()*900,hy=50+Math.random()*120;haze.push({x:hx,y:hy,r:70,a:1,task:JSON.parse(JSON.stringify({t:task.t,stage:task.stage,g:task.g,e:task.e,total:task.total,name:task.name}))});
+   say('<span class="mk">MIRRIK:</span> "Frayed! That patch is mine now." — it will return as a RECLAIM order.');
+   scheduleReclaim(task);nextTask(true);
+ } else say('The weave slackens. One nest cracks open: '+ (task.t==='read'?task.e:each) +' sparks inside. Adjust and seal again — nothing is lost.');
+}
+function scheduleReclaim(t){
+ const r={t:t.t==='judge'?'build':t.t,stage:t.stage,g:t.g||3,e:t.e||3,total:t.total,name:t.name,reclaim:true,
+   txt:(n,g,e)=>`<b>RECLAIM.</b> Mirrik shaded the <b>${n}</b>. Weave it back: <span class="g">${g} nests</span> — <span class="e">${e} sparks</span> in each nest.`};
+ if(r.t==='choose')r.txt=n=>`<b>RECLAIM.</b> The <b>${n}</b> needs <span class="g">${r.total} stars</span> in equal nests. Any equal grouping wins it back.`;
+ if(r.t==='read'){r.t='build';}
+ const pos=Math.min(TASKS.length,ti+3);TASKS.splice(pos,0,r);
+}
+function peelHaze(){if(haze.length){const h=haze[0];const iv=setInterval(()=>{h.a-=.06;if(h.a<=0){haze.shift();clearInterval(iv)}},30);say('<span class="mk">MIRRIK</span> goes quiet. His haze peels back off the sky.');if(task.reclaim)stat.reclaims++;}}
+
+function success(R,C,p){
+ sealedOK=true;chord();E('seal').disabled=true;
+ // light travel
+ let g=0;const iv=setInterval(()=>{glow=Math.sin(g/12*Math.PI)*.55;drawLat();if(++g>12){clearInterval(iv);glow=0;drawLat();lift()}},50);
+ stat.lit++;if(p>stat.hardestP&&!guided){stat.hardestP=p;stat.hardest=R+' × '+C+' = '+p+' · The '+task.name}
+ if(task.reclaim)peelHaze();
+ const cap=(task.t==='nested')?(task.a+' × '+task.b+' × '+task.c+' = '+p):(R+' × '+C+' = '+p);
+ say('<b>'+R+' nests of '+C+' — '+p+' lights, and they stay.</b> The '+task.name+' is yours.');
+ const li=document.createElement('div');li.innerHTML=cap+' · '+task.name+(guided?' <span class="gd">guided</span>':'');
+ E('ledlist').insertBefore(li,E('ledlist').firstChild);if(E('ledlist').children.length>11)E('ledlist').lastChild.remove();
+ // twin star bonus
+ if(task.t==='choose'){const kk='t'+task.total;const pr=R+'x'+C;twinPairs[kk]=twinPairs[kk]||[];if(twinPairs[kk].length&&!twinPairs[kk].includes(pr)){say('Two true weaves, same sky — a twin star.');}twinPairs[kk].push(pr)}
+ setTimeout(()=>{sealedOK=false;nextTask()},1500);
+ function lift(){const c={x:120+((cons.length*137)%1130),y:40+((cons.length*53)%120),pts:silhouette(R),cap:cap,a:0,h:16};cons.push(c);cloudArr=null;}
+}
+function nextTask(skip){ti++;if(ti>=TASKS.length){finale();return}sealedOK=false;E('seal').disabled=false;loadTask();}
+
+E('mute').onclick=()=>{muted=!muted;E('mute').textContent=muted?'♪ off':'♪ on'};
+document.body.addEventListener('touchstart',()=>ac(),{once:true});
+document.body.addEventListener('mousedown',()=>ac(),{once:true});
+
+// ---------- finale ----------
+function finale(){
+ const ov=E('overlay');ov.style.display='block';
+ ['loom','eq','ctrl','order','ledger','stg','prog'].forEach(id=>E(id).style.transition='opacity 1.2s');
+ setTimeout(()=>{['loom','eq','ctrl','order','ledger','stg','prog'].forEach(id=>E(id).style.opacity=0)},10);
+ ov.innerHTML='<div style="position:absolute;left:0;top:250px;width:100%;text-align:center;font-size:30px;color:#f4e3b8" id="fh">The loom goes dark. Look up.</div>';
+ haze.forEach(h=>{const iv=setInterval(()=>{h.a-=.02;if(h.a<=0)clearInterval(iv)},40)});
+ const sk=E('sky');sk.style.transition='transform 2.4s, height 2.4s';
+ setTimeout(()=>{sk.style.transform='scale(1.9) translateY(120px)';},600);
+ // replay ignitions
+ cons.forEach(c=>c.a=0);
+ let i=0;
+ setTimeout(()=>{const iv=setInterval(()=>{if(i>=cons.length){clearInterval(iv);setTimeout(summary,1400);return}
+   const c=cons[i];c.a=.05;chord();const m=c.cap.match(/(\d+) × (\d+)/);if(m)runUp(Math.min(+m[2],10));
+   E('fh').innerHTML='<span style="color:#ffe9b0">'+c.cap+'</span>';i++;},1000)},2600);
+}
+function summary(){
+ const ov=E('overlay');
+ ov.innerHTML='<div style="position:absolute;left:0;top:290px;width:100%;text-align:center"><div style="font-size:30px;color:#f4e3b8">The biggest constellation has no name.</div>'+
+ '<div id="ovin" style="margin-top:22px"><input id="nm" maxlength="16" placeholder="name the sky"> <button class="btn" id="stitch" style="height:56px;font-size:20px;padding:0 22px">STITCH IT</button></div></div>'+
+ '<div id="sum"></div>';
+ E('nm').focus();
+ E('stitch').onclick=()=>{
+  let n=(E('nm').value||'Starwright').replace(/[^A-Za-z0-9 '\-]/g,'').trim().slice(0,16)||'Starwright';
+  chord();
+  const c={x:682,y:100,pts:silhouette(9),cap:'Woven by '+n+', Starwright',a:0,h:20};cons.push(c);
+  ov.innerHTML='<div style="position:absolute;left:0;top:300px;width:100%;text-align:center">'+
+   '<div style="font-size:34px;color:#ffe9b0">Woven by '+n+', Starwright</div>'+
+   '<div id="sum" style="position:static;transform:none;margin-top:26px;font-size:22px;line-height:1.8;color:#e8d6a8">'+
+   'Constellations lit: <b>'+stat.lit+'</b><br>Mirrik\'s false claims overturned: <b>'+stat.busted+'</b><br>Hardest weave with no hint: <b>'+stat.hardest+'</b>'+(stat.reclaims?'<br>Sky reclaimed: <b>'+stat.reclaims+'</b> patch(es)':'')+'</div>'+
+   '<div style="margin-top:26px"><button class="btn" id="nn" style="height:58px;font-size:20px;padding:0 26px">NEXT NIGHT</button> <button class="btn" id="mm" style="height:58px;font-size:20px;padding:0 26px;background:linear-gradient(#4a2a6a,#2c1440);border-color:#c48bff">MIRROR MATCH</button></div></div>';
+  E('nn').onclick=()=>restart(false);E('mm').onclick=()=>restart(true);
+ };
+}
+function restart(hard){
+ E('sky').style.transform='';
+ ['loom','eq','ctrl','order','ledger','stg','prog'].forEach(id=>E(id).style.opacity=1);
+ E('overlay').style.display='none';E('overlay').innerHTML='';
+ TASKS=buildTasks();
+ if(hard){
+  TASKS=TASKS.filter(t=>t.stage>1);
+  const[a,b]=pairFor(6,10),[c,d]=pairFor(6,10);
+  TASKS.push({t:'build',stage:6,g:a,e:b,name:nextName(),txt:(n,g,e)=>`<b>PROVE IT TWO WAYS.</b> The <b>${n}</b> holds <span class="g">${g} nests</span> of <span class="e">${e}</span>. Weave it — then remember ${e} nests of ${g} lights the same total.`});
+  TASKS.push({t:'judge',stage:6,g:c,e:d,claim:c*d-d,truth:false,name:nextName(),txt:n=>`<b>SABOTAGED WEAVE.</b> <span class="mk">MIRRIK:</span> "The <b>${n}</b> shows <span class="g">${c} nests</span> of <span class="e">${d}</span> — ${c*d-d} stars." One row is short of his claim.`});
+  stars.forEach(s=>s.r*=1);say('MIRROR MATCH. Scaffolds off. Factors to ten.');
+ }
+ ti=0;stat={lit:stat.lit,busted:stat.busted,hardest:'—',hardestP:0,reclaims:0};
+ E('ledlist').innerHTML='';loadTask();
+}
+
+// ---------- opening ----------
+loadTask();
+say('The sky is empty. <b>Stars are not found — they are woven.</b> Set the sparks in each nest, add that many nests, pull the loom, and seal the true product. Whatever you light stays lit.');
+</script>
+</body>
+</html>

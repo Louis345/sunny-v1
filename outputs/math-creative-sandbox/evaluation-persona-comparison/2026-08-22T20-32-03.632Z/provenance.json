@@ -1,0 +1,83 @@
+{
+  "candidates": [
+    {
+      "label": "Candidate A",
+      "arm": "persona",
+      "designHash": "64b12c9861174fd4073ac239615ec5c02c19b96190130a27dc62d98eb71a4211",
+      "htmlHash": "249a683412f186528fabb5a75c6db6f1af2fe2f14802d47311d4b7135da7a76c"
+    },
+    {
+      "label": "Candidate B",
+      "arm": "neutral",
+      "designHash": "648f77489c08a8b28fde13520ceb0833f5d4196c52f898b035f36d955cb7fac7",
+      "htmlHash": "cfb3667d07ae4d536a7b5425ffb23891b6af8fbdf48d20be480dcb45194afc5d"
+    }
+  ],
+  "promptHashes": {
+    "shared": "9b66313b1f1de1f51bcfa51d03de969a4c399958451997667dbeb755f06129f1",
+    "neutralVariant": "001f2e9939a0dcdff4ee0d8e35ac4eb62f543329b7304920ec433653a7ef2f78",
+    "personaVariant": "13fb219b60f7ce7e50e61377e1855db2fb7c76849246dae8ab797acaccd72bba",
+    "neutralFull": "017af167ecd06bbdb572a3c8ba996ec002176e17ec2ba336eaafe727797702fd",
+    "personaFull": "ad44359d510129c8050b64a14030ca63fadccdc3ae6f32fa4b7ae70e96b83ffa",
+    "builderInstruction": "af60abedd7f81b26c5dd704d6bb49056026bd4a6482f00e4c8633a104cd4cf7a",
+    "harness": "64934c5ceb175f45ed514bb99909aac5eaecd7eaf9e015200ec151b13fb15d5d"
+  },
+  "evaluationHash": "357e7ae9a9243586a072d9bb454180bf3f7fb63793f6cec1128c39b2781cffb0",
+  "usage": [
+    {
+      "call": 1,
+      "stage": "neutral-architect",
+      "model": "claude-fable-5",
+      "status": "complete",
+      "inputTokens": 9295,
+      "outputTokens": 8192,
+      "elapsedMs": 126245,
+      "costUsd": 0.50255,
+      "stopReason": "tool_use"
+    },
+    {
+      "call": 2,
+      "stage": "persona-architect",
+      "model": "claude-fable-5",
+      "status": "complete",
+      "inputTokens": 9410,
+      "outputTokens": 8302,
+      "elapsedMs": 135457,
+      "costUsd": 0.5092,
+      "stopReason": "tool_use"
+    },
+    {
+      "call": 3,
+      "stage": "neutral-builder",
+      "model": "claude-opus-5",
+      "status": "complete",
+      "inputTokens": 15198,
+      "outputTokens": 39217,
+      "elapsedMs": 428815,
+      "costUsd": 1.056415,
+      "stopReason": "end_turn"
+    },
+    {
+      "call": 4,
+      "stage": "persona-builder",
+      "model": "claude-opus-5",
+      "status": "complete",
+      "inputTokens": 15300,
+      "outputTokens": 49057,
+      "elapsedMs": 547055,
+      "costUsd": 1.302925,
+      "stopReason": "end_turn"
+    },
+    {
+      "call": 5,
+      "stage": "review-harness",
+      "model": "claude-fable-5",
+      "status": "complete",
+      "inputTokens": 4877,
+      "outputTokens": 3427,
+      "elapsedMs": 51912,
+      "costUsd": 0.22012,
+      "stopReason": "tool_use"
+    }
+  ]
+}

@@ -1,0 +1,142 @@
+{
+  "model": "claude-fable-5",
+  "id": "msg_011Ce9449g1XzEZpFH9ujZip",
+  "type": "message",
+  "role": "assistant",
+  "content": [
+    {
+      "type": "tool_use",
+      "id": "toolu_01Rhx2m2YdHebHNYP7AW5QDa",
+      "name": "submit_evaluation_architect",
+      "input": {
+        "artifactId": "EXP-LAB-MATH-C-OPEN-01-JUNIPER",
+        "upstreamHash": "274c49ed00318c3c5e7eb4fae53bfbbea61645b4488f4b88780ba9cb431b7361",
+        "title": "The Signal Lantern Workshop: Four Lanterns to Light",
+        "experiencePersona": {
+          "name": "Pip the Lanternkeeper",
+          "role": "A small, curious workshop keeper who genuinely does not know the answers and is waiting to see what Reina notices. Pip never teaches, never hints, never reacts to correctness during the four lanterns; Pip only receives what Reina reports and hangs the lantern.",
+          "voice": "Short, warm, matter-of-fact. One sentence at a time. Pip speaks like a fellow investigator, not a teacher: 'I see bunches. You tell me what they are.'",
+          "whyThisPersona": "Reina's riddle history shows she likes being the one who spots the logic, not being led. A non-omniscient companion preserves independent measurement by design: Pip cannot leak answers because Pip does not have them. This also makes 'not sure' socially safe — Pip is unsure about everything.",
+          "neutralityGuarantee": "Pip's face, posture, and dialogue are identical after correct, incorrect, and not-sure responses inside the evaluation window. Pip's only in-window behavior is acknowledgment: 'Recorded. Next lantern.'"
+        },
+        "audienceRationale": {
+          "childFactsUsedAsHypotheses": [
+            "Age nine with a taste for harder riddles → frame the four items as 'four sealed lanterns' with rising structural sharpness, not as a quiz; the ITEM-4 referent swap is presented as the 'trickiest lantern' to invite her logic-spotting instinct rather than apologize for it.",
+            "She questioned faulty riddle logic → ITEM-4's same/different contrast is exactly her sport; the design gives it a place of honor (the final, biggest lantern) instead of burying it.",
+            "She requested hints when stuck → an always-visible 'I'm not sure yet' lantern-tag makes stalling a legitimate, dignified move that records missing evidence; no hint exists during the window and none is implied to exist.",
+            "Small-sample feedback favored clear examples, visible color, available hint → color is used for parsing warmth only (all groups share one hue per screen so color never signals the answer); examples and hints are structurally withheld until all four outcomes are recorded, then a 'Lantern Talk' hint room unlocks."
+          ],
+          "readingLoadPolicy": "Every screen carries at most one stimulus sentence and one prompt line, both under twelve words where the contract allows, set in large type. ITEM-4's two statements are visually staged as two labeled tags (A, B) rather than a paragraph.",
+          "uncertaintyRespected": "No prior math evidence exists for this child; the experience makes no difficulty assumptions, brags about nothing, and treats all four outcomes as equally interesting to Pip."
+        },
+        "firstAction": "Screen one shows the four dot-bunches (ITEM-1 stimulus) already lit at center, with two large empty number tiles beneath, labeled with an icon-plus-word pair: 'bunches' (a cluster icon) and 'dots in each bunch' (a single-cluster zoom icon). Reina taps a tile, a 1–10 number strip appears, she taps a number. No menu, no tutorial, no paragraph — the first understandable action is: tap the empty tile under the picture.",
+        "coreInteraction": {
+          "loop": "See one stimulus → fill the required fields by tapping numbers on a 1–10 strip or tapping one option card → press the single 'Light it' button to commit → the lantern rises to a shelf, unlit and unlabeled (no correctness shown) → next lantern slides in.",
+          "mathControlsTheInteraction": "The lantern's glass face is the stimulus itself: the 4×6 dot clusters, the 3×7 array, the 5×3 groups, the A/B statements. Reina's numeric entries appear inside the lantern's two brass windows in their labeled roles (groups window vs. per-group window), so the mathematics — the (groups, amount-per-group) pair — is literally the object she is assembling. Nothing decorative accepts input; only the mathematical fields do.",
+          "commitSemantics": "'Light it' is disabled until every required field holds a value or an explicit 'not sure' tag. Before committing, any field can be changed freely by tapping it again. After commit, the response is final (retriesAllowed: 0) and the next item appears — no confirmation nag, no trap.",
+          "notSureAffordance": "Each field has a small gray 'not sure yet' tag beside the number strip, equal in size and reachability to the numbers. Choosing it fills the field with a question-mark tile and still allows commit. Pip's reaction is identical.",
+          "inputErgonomics": "All targets are ≥ 72px at 1365×768, tap-only, no drag, no draw, no typing. Numeric entry is single-tap selection from a fixed 1–10 strip, satisfying the contract's selection-or-small-entry constraint and keeping pointer precision out of the evidence.",
+          "itemFidelity": "Item order ITEM-1 → ITEM-2 → ITEM-3 → ITEM-4 exactly as contracted. ITEM-3's four equation options render as four identical option cards in the contract's fixed wording with randomized-once vertical order per session logged for position-bias analysis; 'not sure' sits below them, visually distinct and recorded separately. ITEM-4 renders sameSituation as three equal cards (same / different / not sure) plus the basketsInA number strip."
+        },
+        "modality": {
+          "primary": "Touch/click tap-selection web experience, single stimulus per full screen, landscape 1365×768.",
+          "text": "Contract sentences and prompts only, verbatim where specified, large type (≥ 28px), high contrast. Optional tap-to-hear speaker icon reads the sentence aloud in a neutral voice — this mitigates the reading confound the contract flags without adding instruction; use of the speaker is logged for confound analysis, never scored.",
+          "noKeyboardRequired": true,
+          "noTimer": "No visible clock, no countdown, no time pressure of any kind; latency is logged silently per contract keys."
+        },
+        "stakes": {
+          "fiction": "The workshop has four dark lanterns. Each one Reina reports on gets hung on the shelf. When all four have a recorded outcome — whatever the outcome — the workshop's big window opens to dusk and the shelf glows softly as a set. The glow is completion light, not correctness light: it is identical whether answers were right, wrong, or 'not sure'.",
+          "noPerformancePressure": "No points, no streaks, no stars, no lives, no leaderboard, no correctness feedback inside the window. The only stake is narrative closure: four lanterns hung.",
+          "childControl": "A small door icon labeled 'done for now' is always visible; tapping it ends the session gracefully, Pip says 'The lanterns will wait,' and unreached items record as missing evidence exactly as the completion rule requires."
+        },
+        "recovery": {
+          "neverTrapped": "There is no failure state that blocks progress. Any committed response — correct, incorrect, ambiguous, or 'not sure' — advances to the next lantern identically.",
+          "preCommitEditing": "All fields are freely editable before 'Light it'; mistapped numbers are fixed with one tap.",
+          "inputSlipGuard": "If 'Light it' is tapped within 400ms of the last field change, a single gentle 'Ready?' confirm appears once (to catch accidental double-taps, logged as an input-mechanics event, not scored). It never appears otherwise, preserving latency measurement integrity.",
+          "stallPath": "If no interaction occurs for 90 seconds, Pip stretches and says 'Take your time — or tag it not sure and we move on.' This names the exit without hinting at content; the message is identical on every item.",
+          "ambiguityHandling": "ITEM-4 'same' responses commit and advance normally with zero visible difference; the ambiguity flag and follow-up requirement live entirely in the evidence record, never in the child's experience."
+        },
+        "progression": [
+          "Arrival (≤ 15 seconds): the workshop fades in, four dark lanterns on a bench, Pip says one line: 'Four lanterns. You look, you tell me, I hang them.' No tutorial.",
+          "Lantern 1 — ITEM-1 (C1): dot-clusters lantern, two brass number windows (bunches / dots in each bunch), 1–10 strip, not-sure tags, commit via 'Light it'. Lantern rises to shelf, unlit.",
+          "Lantern 2 — ITEM-2 (C3): the squares-grid lantern slides in; same two-window mechanic relabeled (rows / squares in each row). Familiar interaction, fresh mathematics.",
+          "Lantern 3 — ITEM-3 (C2): the equation lantern; the 5×3 groups sit in the glass and four equation cards fan out beneath, plus the separate not-sure card. Single tap selects, tap again deselects, 'Light it' commits.",
+          "Lantern 4 — ITEM-4 (C4): the biggest lantern, framed by Pip as 'the one I truly can't figure out.' Two hags — tag A and tag B with the contract's exact statements — hang on the lantern. Reina picks same/different, then fills basketsInA on the strip, then commits.",
+          "Closing: all four hung lanterns glow uniform amber, window opens to dusk, Pip says 'Four lanterns, four answers recorded. That's the whole job.' Completion is declared on recorded outcomes only, per the completion rule, including early-stop and not-sure paths.",
+          "After-window room (strictly post-recording): a small door labeled 'Lantern Talk' unlocks only after all four outcomes exist; inside, the hint affordance the small-sample feedback favored becomes available, logged separately from opening evidence per contract."
+        ],
+        "worldReaction": {
+          "duringWindow": "The world is measurement-silent. Lanterns rise identically. Pip's line after every commit is the same six syllables: 'Recorded. Next lantern.' Shelf lanterns stay uniformly unlit until completion so no differential state leaks correctness.",
+          "noDifferentialFeedback": "No color change, sound change, animation length change, or facial change correlates with response quality. This is verified in design QA by diffing the post-commit sequence across all outcome branches — they must be byte-identical.",
+          "atCompletion": "All lanterns glow the same amber together, regardless of content of answers. The glow celebrates 'evidence gathered', which Pip states plainly: 'You looked carefully. That's what lights them.'",
+          "afterWindow": "Only in the post-recording Lantern Talk room may any discussion, hint, or example ever occur, and this artifact schedules none of the contract's answer content there — follow-up probes are a separate instrument per evidenceRequiredNext."
+        },
+        "payoff": {
+          "emotional": "Reina finishes as the workshop's trusted observer: she looked, she reported, the room lit. The payoff honors care and honesty (including 'not sure') rather than being right.",
+          "narrative": "Four hung, glowing lanterns and an opened dusk window — a complete, quiet scene she caused.",
+          "explicitNonClaims": "No score screen, no mastery language, no 'great job on multiplication!'. The closing line references only that answers were recorded. The per-construct evidence map is produced backstage for adults and never shown to the child in evaluative form."
+        },
+        "visualDirection": {
+          "palette": "Warm workshop neutrals (walnut, brass, cream) with a single accent hue per stimulus: all dot clusters one identical teal, all array squares one identical coral, all equation cards one identical parchment. One hue per screen means color aids parsing warmth but cannot encode groups differently or signal an answer, satisfying the contract's color constraint.",
+          "stimulusRendering": "Countable shapes are large (≥ 40px each), evenly spaced, high contrast on cream glass; the 4 clusters of ITEM-1 have generous inter-cluster gaps; the 3×7 array is rendered with rows visibly horizontal and a subtle uniform row baseline; nothing is numbered or labeled.",
+          "layout": "Stimulus occupies the upper 55% of the 1365×768 frame, response fields the lower 35%, Pip small in a corner. One stimulus per screen, zero peripheral clutter, no navigation chrome beyond 'done for now'.",
+          "typography": "Rounded humanist sans, ≥ 28px prompts, ≥ 36px numbers on the strip."
+        },
+        "motionDirection": {
+          "transitions": "Lanterns slide in/out over 600ms with soft ease; the rise-to-shelf animation is fixed-length and identical across all outcome branches.",
+          "stimulusStillness": "Stimuli are fully static once settled — no idle animation on dots, squares, or cards, so counting is never disturbed and latency reflects inspection, not waiting out motion.",
+          "microFeedback": "Tapped tiles get a 120ms press dimple; selected cards get a steady brass outline. All micro-motion is input acknowledgment only, never evaluative.",
+          "pipMotion": "Pip has one idle blink loop and one identical acknowledgment nod; no reactive animation exists in the window."
+        },
+        "soundDirection": {
+          "ambient": "Optional very low workshop room tone (soft wood creaks), off by default, toggle visible to the adult, absent from any evidence pathway.",
+          "interaction": "One uniform soft 'tick' on any tap, one uniform 'clink' on commit — identical for all responses and all items so audio cannot leak correctness.",
+          "speech": "Tap-to-hear speaker icon reads the stimulus sentence and prompt in a neutral voice; usage logged as a reading-confound covariate, never scored.",
+          "prohibited": "No fanfares, no error buzzes, no reward jingles, no music stingers tied to outcomes; the completion glow is accompanied by the same room tone, slightly warmer, not a victory cue."
+        },
+        "instrumentRisks": [
+          "The lantern fiction, though minimal, adds narrative wrapper the contract's prohibitions list forbade in the raw evaluation artifact; this experience layer must be reviewed to confirm the wrapper adds zero mathematical information and zero differential feedback, or stripped to bare screens if reviewers judge otherwise.",
+          "Framing ITEM-4 as 'the one Pip can't figure out' could nudge Reina toward 'different' by implying trickiness; mitigation is that Pip uses the identical 'I can't figure this one' framing verbally on ALL four lanterns, and QA must verify the line is uniform.",
+          "The tap-to-hear speaker mitigates the reading confound but its presence/absence of use complicates cross-item comparison; log per-item speaker use as a covariate.",
+          "The 90-second stall message names the not-sure tag and could inflate not-sure rates versus a silent design; the delay and identical wording across items keep it construct-neutral but the rate must be interpreted with this prompt in mind.",
+          "The 1–10 number strip's fixed left-to-right order could produce position habits (e.g., repeated small numbers); strip order stays fixed for usability, so entry-position analysis should check for perseveration.",
+          "ITEM-3 card order is randomized once per session; the single randomization must actually be logged or position-bias gating in the scoring policy cannot run.",
+          "Uniform completion glow could still be read by the child as 'I got them all right'; Pip's closing line explicitly attributes the glow to recording, and adult-facing reporting must never let the child overhear outcome language.",
+          "Icon labels ('bunches' cluster icon vs. 'dots in each bunch' zoom icon) risk teaching the group/per-group distinction pictorially; icons depict the field's referent only as the prompt already does verbally, but reviewers should confirm the zoom icon does not reveal per-group count (it shows a generic 3-dot glyph unrelated to any item's answer)."
+        ],
+        "falsifyingEvidence": [
+          "If session logs show any post-commit animation, sound, or Pip dialogue differing between correct and incorrect branches, the neutrality guarantee is falsified and the window's evidence is contaminated.",
+          "If Reina taps 'not sure' on nearly every field but engages readily in the post-window Lantern Talk room, the hypothesis that the workshop frame makes independent responding feel safe is falsified — the wrapper suppressed evidence rather than enabling it.",
+          "If speaker-icon usage is high AND incorrect responses cluster on the text-heaviest item (ITEM-4), the claim that this design removed the reading gate is falsified; the read-aloud follow-up in evidenceRequiredNext becomes mandatory.",
+          "If commit latencies on ITEM-3 fall below the inspection threshold at elevated rates, the four-card fan layout is falsified as an inspection-encouraging design and should be re-laid-out vertically with the stimulus persistently visible.",
+          "If Reina abandons at the 90-second stall message on the first lantern, the hypothesis that Pip's non-teaching stance is comfortable rather than cold is falsified — the persona may read as unhelpful to this child.",
+          "If input-mechanics events (400ms double-tap guard firings, corrected mistaps) exceed a handful per session, the tap-strip ergonomics claim is falsified and recorded errors may be mechanical, requiring the contract's input-mode confound downgrade.",
+          "If she asks aloud (or the adult reports) that she expected the icon glyphs to tell her the answer, the icon-label design is falsified as answer-adjacent and must be replaced with words only.",
+          "If completion-glow moments are followed by the child asserting 'I got them all right', the completion-vs-correctness separation is falsified in her reading of the scene and the closing script needs revision."
+        ],
+        "openingPromise": "Within fifteen seconds Reina sees a warm workshop, four dark lanterns, and one line from Pip: 'Four lanterns. You look, you tell me, I hang them.' The promise is investigator status — her eyes and her report are what light this room — with zero threat of being graded and a visible 'not sure yet' and 'done for now' from the very first screen."
+      },
+      "caller": {
+        "type": "direct"
+      }
+    }
+  ],
+  "stop_reason": "tool_use",
+  "stop_sequence": null,
+  "stop_details": null,
+  "usage": {
+    "input_tokens": 11332,
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 0,
+    "cache_creation": {
+      "ephemeral_5m_input_tokens": 0,
+      "ephemeral_1h_input_tokens": 0
+    },
+    "output_tokens": 6613,
+    "output_tokens_details": {
+      "thinking_tokens": 0
+    },
+    "service_tier": "standard",
+    "inference_geo": "global"
+  }
+}

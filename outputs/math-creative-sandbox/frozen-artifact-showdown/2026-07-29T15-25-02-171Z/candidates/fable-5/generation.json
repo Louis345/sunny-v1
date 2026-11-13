@@ -1,0 +1,18 @@
+{
+  "id": "fable-5",
+  "label": "Claude Fable 5",
+  "provider": "anthropic",
+  "model": "claude-fable-5",
+  "status": "complete",
+  "elapsedMs": 126744,
+  "inputTokens": 4565,
+  "outputTokens": 10304,
+  "estimatedCostUsd": 0.56085,
+  "artifactHash": "90cc771e3f564f81b2431710cf60089476340e223cf2eef81eb54b13471dc190",
+  "promptHash": "c9fa1c1f791c38d2d5aed3d3345ac4e04f7306e72475dcfcf0ab4a2f05c048b5",
+  "apiResponseHash": "2eb10ae20861d6a10e3cb083ecd2ab4e1375943fedd3086a07c1c07a5f48f15c",
+  "savedHtmlHash": "2eb10ae20861d6a10e3cb083ecd2ab4e1375943fedd3086a07c1c07a5f48f15c",
+  "iframeSrcDocHash": "2eb10ae20861d6a10e3cb083ecd2ab4e1375943fedd3086a07c1c07a5f48f15c",
+  "extractionMode": "raw_html",
+  "error": null
+}

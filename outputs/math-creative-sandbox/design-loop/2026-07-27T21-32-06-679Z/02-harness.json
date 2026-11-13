@@ -1,0 +1,32 @@
+{
+  "selectedDesignId": "A",
+  "comparativeObservations": {
+    "A": [
+      "Clearest embodiment of equal groups, arrays, and skip-counting tied directly to a visible fail/succeed state (toppled crates)",
+      "Recovery mechanic is granular (rebuild only the miscounted row) rather than punitive, which is a genuine strength",
+      "Competitive frame risks overclaiming engagement given only correlational profile evidence",
+      "Progression is explicit and well-sequenced from equal groups to two-step riddles",
+      "Feasible as a compact slice: one dispatcher, one rival, four tiers, no real timer to build"
+    ],
+    "B": [
+      "Strongest grounding in profile evidence (applied/store-based math outperforming mechanical drills) without needing to invent new motivational claims",
+      "Math-as-power is verification-based rather than speed-based, which is a more defensible model of 'meaningful action' than winning a race",
+      "Misleading-but-true vendor claim is a genuinely strong conceptual-flexibility beat not matched in A or C",
+      "Stakes (wrongly accusing an honest vendor) add moral texture but risk diluting clarity for a young child",
+      "Slightly more narratively complex to prototype cleanly than A, though still feasible"
+    ],
+    "C": [
+      "Calmest, least evidenced design — explicitly framed as a test of an unproven hypothesis (no adversary/competition needed)",
+      "Aesthetic payoff (hidden picture from above) is charming but is a weaker 'consequence' loop since failure states are nearly consequence-free",
+      "Recovery is the gentlest of the three, arguably to a fault — little tension between right/wrong answers",
+      "Distributive/two-plant-type mechanic is mathematically sound and matches B's decomposition idea, reducing its originality",
+      "Most feasible to build minimally (static grid, no timer) but the thin stakes make the vertical slice least revealing of whether math itself is compelling"
+    ]
+  },
+  "selectionReason": "A pairs the clearest, most legible math mechanic (equal groups → arrays → skip-counting → two-step) with a consequence structure that is visible, immediate, and non-punitive (topple + targeted rebuild), and its profile grounding, while competitive, is the most directly evidenced of the three (repeated requests for difficult, adversarial, fast-paced challenges). B is a close second and arguably better grounded in evidence, but its moral-stakes subplot (wrongly accusing a vendor) adds narrative complexity that risks muddying the core math loop in a compact slice. C is the weakest bet: it is explicitly an experiment against evidence rather than grounded in it, and its low-stakes recovery undercuts 'meaningful consequence.'",
+  "strongestQuality": "A's recovery mechanic — a partial, legible failure (one toppled row) paired with a partial, targeted fix — makes the math error and its correction the same visible object, which is rare across all three designs.",
+  "largestClarityRisk": "In A, the rival's mockery and the countdown imagery could be read by a child as real time pressure despite the design notes saying otherwise, muddying whether the lesson is 'be accurate' or 'be fast.'",
+  "largestEngagementRisk": "The entire competitive frame in A rests on inferred motivation (profile evidence is about difficulty/adversary preference in general, not this specific mechanic), so if Reina doesn't personalize the rival as a stake, the whole scaffold collapses with no secondary hook to fall back on.",
+  "mathIntegrationRisk": "The verbal skip-count call-out could become a rote performance disconnected from the underlying array — a child could learn to chant the count without the placement of crates actually driving comprehension, especially under any perceived time pressure.",
+  "refactorBrief": "Keep A's structure but strip any ambiguous time-pressure signaling (remove the countdown-buzzer image entirely; keep urgency purely in dispatcher dialogue). Make the rival's 'rigged manifest' finale hinge explicitly on catching a misleading-but-true grouping (borrowed conceptually from B) rather than just a wrong total, to test conceptual flexibility, not just speed. Add one non-competitive fallback beat mid-session (an audit-style vendor moment) so the design can reveal, within the same slice, whether Reina's engagement is driven by rivalry specifically or by the math-checking itself — directly testing the design's own falsifying evidence without needing a separate prototype."
+}

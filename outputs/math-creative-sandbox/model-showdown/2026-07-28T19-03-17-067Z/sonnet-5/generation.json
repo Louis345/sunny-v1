@@ -1,0 +1,18 @@
+{
+  "id": "sonnet-5",
+  "label": "Claude Sonnet 5",
+  "provider": "anthropic",
+  "model": "claude-sonnet-5",
+  "status": "complete",
+  "elapsedMs": 121939,
+  "inputTokens": 2373,
+  "outputTokens": 15344,
+  "estimatedCostUsd": 0.158186,
+  "artifactHash": "7c0c422005f81dc7b9909442f0e567ab64334acb8cf303b477f6b3b0467774e1",
+  "promptHash": "50b395d171466ba5962a2ed6ee3983eff8ce0781a53420b17e5c8ee4352a4a76",
+  "apiResponseHash": "91c1c1991748bda3852cbec752c6454943a8f433ab0b22f601980d214d999529",
+  "savedHtmlHash": "dde9475d605c89b53965afe3fa1a6dffab38d2cc824a9017fb0bd1485b8dcebf",
+  "iframeSrcDocHash": "dde9475d605c89b53965afe3fa1a6dffab38d2cc824a9017fb0bd1485b8dcebf",
+  "extractionMode": "code_fence_removed",
+  "error": null
+}

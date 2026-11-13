@@ -1,0 +1,35 @@
+{
+  "artifactId": "fairslice_bakery_v1",
+  "nodeId": "node_1_equal_partitioning",
+  "title": "Fair Slice Bakery",
+  "audienceRationale": "Reina's data shows sustained, low-frustration engagement with high-volume, fast-cycle precision tasks (spell-check: 167 plays, 100% accuracy, 0.99 engagement, 0.10 frustration; word-radar: 112 plays, 0.86 engagement) rather than novelty-driven spinners she tried briefly. She thrives on rapid rounds where she can self-check correctness immediately and rack up reps. This node design leans into that pattern: short, snappy rounds with instant visual feedback on a physical-feeling cutting task, letting her build volume and mastery the way she already prefers, while the drag-to-cut mechanic adds tactile novelty absent from her prior word-based activities.",
+  "openingPromise": "Every customer at your bakery wants a fair share — cut wrong, and someone gets cheated. Cut right, and the whole town lines up for your pastries.",
+  "firstThreeSeconds": "A single round cookie sits on a cutting board with one knife-drag line already shown as a demo, splitting it into two obviously unequal pieces — a customer's face frowns and a red X flashes over the cut.",
+  "firstAction": "Reina drags her finger across the cookie to make a straight cut; the moment she releases, the two resulting pieces are outlined and she sees instantly whether they match in size.",
+  "interactionDemonstration": "Before the first real order, a 2-second animated hand drags a bad cut (uneven halves, customer frowns) then a good cut (even halves, customer smiles), showing the exact same gesture she'll use.",
+  "coreInteraction": "Each order ticket shows a shape (square, rectangle, circle, or bar) and a number of pieces needed (2, 3, 4, or 6). Reina drags cut lines onto the shape to divide it. An overlay meter shows live piece-size comparison as she drags. On release, pieces are shaded in matched colors if equal, mismatched colors with a wobble if not. She also gets quick 'Yes/No' judgment tickets: a pre-cut shape appears and she taps a green checkmark or red X to judge if the cuts are fair before any customer is served.",
+  "mathAsPower": "Precise cutting is the only way to keep the bakery's reputation alive — she is using equal partitioning as a real tool to satisfy customers, not an abstract exercise. Fraction notation is deliberately absent; the power is purely visual-spatial: seeing and creating true equality.",
+  "stakes": "A rotating cast of customers wait in line with a patience bar. A fair cut earns coins and a happy customer sprite; an unfair cut makes the customer huffy and the patience bar for the whole line drops slightly.",
+  "consequences": "Three unfair cuts in a row temporarily 'closes' the bakery for a short cooldown (10 seconds) where she watches the line grumble and shrink — low-stakes but visually clear feedback, no failure state that blocks progress.",
+  "recovery": "After any wrong cut, the shape resets instantly with a faint ghost outline showing where the equal cut lines should have gone, and she can immediately re-attempt the same order for full coins, so mistakes cost time, not standing.",
+  "progression": [
+    "Level 1: Judge-only tickets — tap check or X on pre-made cuts into halves and thirds (equal vs unequal recognition).",
+    "Level 2: Guided cutting — cut simple bars and rectangles into 2 or 4 equal parts with snap-guides faintly visible.",
+    "Level 3: Free cutting — cut squares and circles into 2, 3, 4, or 6 equal parts with no guides, judged by the live size meter.",
+    "Level 4: Mixed rush hour — alternating judge tickets and free-cut orders across all shapes and part-counts, timed for bakery 'rush' with bonus coins for streaks."
+  ],
+  "worldReaction": "The bakery's storefront visually fills with more customers, string lights, and new pastry displays as her fair-cut streak grows; a grumpy line and dim lights appear if her accuracy dips, giving constant ambient feedback beyond just per-round scoring.",
+  "payoff": "At the end of a rush-hour session, the bakery is shown fully lit and packed with satisfied customer sprites holding perfectly even slices, and she unlocks a new pastry skin (cake, pie, baguette) to cut in the next session.",
+  "replayVariation": "Each replay randomizes shape type, required piece count (2, 3, 4, or 6), and orientation of the shape (rotated bars, off-center circles) so identical cuts don't repeat, plus occasional 'trickster' pre-cut tickets with subtly unequal pieces to sharpen discrimination.",
+  "visualDirection": "Warm, clean bakery palette (cream, pastel pink, caramel) with bold high-contrast outlines on shapes so cut lines and piece boundaries are unambiguous; customer sprites are simple and expressive (round, Duolingo-owl-adjacent but original) to keep focus on the shape itself.",
+  "motionDirection": "Cut lines animate as a smooth, slightly elastic knife-drag with a satisfying snap when a cut is confirmed; equal pieces gently separate and settle with a soft bounce, unequal pieces jitter/wobble briefly to signal imbalance without harsh shake.",
+  "soundDirection": "Soft chime on correct equal cut, a low thud/buzz (non-punitive) on unequal cut, ambient bakery sounds (light chatter, oven ding) that swell as the streak grows, quiet during cooldown to signal a pause rather than punishment.",
+  "usefulLibraries": [
+    "Konva.js or Fabric.js for draggable cut-line rendering and shape geometry",
+    "Matter.js (lightweight) for piece separation/bounce physics on cut confirmation",
+    "GSAP for smooth cut-line, wobble, and customer-reaction animations",
+    "Howler.js for layered ambient/feedback sound management"
+  ],
+  "engagementPrediction": "High: the fast-cycle, self-checking, low-verbal-load format mirrors the exact conditions (spell-check, word-radar) where Reina showed her highest engagement and lowest frustration, while the drag-to-cut mechanic offers fresh tactile novelty distinct from her word-based history.",
+  "falsifyingEvidence": "If Reina's completion rate drops sharply on free-cutting levels (Level 3+) or frustrationScore-equivalent behaviors (rapid retries without progress, early exits) appear specifically when guides are removed, this would indicate the spatial precision demand exceeds her current comfort zone and guided-cut support should be extended longer before full free-cutting is introduced."
+}

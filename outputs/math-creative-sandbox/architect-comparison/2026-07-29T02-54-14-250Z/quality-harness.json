@@ -1,0 +1,55 @@
+{
+  "reviews": [
+    {
+      "nodeId": "node_1_equal_partitioning",
+      "strongestQuality": "The FAIR/UNFAIR stamp pair is instantly readable as the first action, with satisfying press physics and a clearly unequal opening split.",
+      "usabilityIssues": [
+        "The same wobble animation plays for both correct and incorrect stamps, so the tray's reaction alone does not distinguish right from wrong.",
+        "The empty 'Equalness Meter' is visible from the opening frame with no role during the judging phase, inviting confusion about what it is for.",
+        "After the fix completes, both stamps stay disabled and no next tray arrives, leaving the mock at a dead end with no visible continue affordance."
+      ],
+      "visualIssues": [
+        "The tray renders as a plain circle rather than the artifact's hexagon, and a circle is exactly the shape the node boundary excludes.",
+        "All slices share one tan fill at rest, so unequal pieces are distinguished only by wedge size with no color or texture reinforcement.",
+        "The page is hard-coded to 1365×768 with overflow hidden, so smaller viewports clip the shelf and stamps with no scaling."
+      ],
+      "repairBrief": "Render the tray as a true hexagon outline (clip the wedge SVG to a hexagon path) so the whole matches the artifact and boundary. Differentiate feedback: keep wobble only for wrong stamps and add a brief green flash plus chime cue on correct ones. Hide the Equalness Meter until the fix phase begins, then fade it in labeled 'Watch it lock green.' After certification, re-enable a single 'Next Tray' button that reloads the same round with reshuffled bad angles. Wrap the scene in a transform-scale container so the 1365×768 stage fits any viewport."
+    },
+    {
+      "nodeId": "node_2_recognizing_unit_fractions",
+      "strongestQuality": "The sweep-to-count loop is faithfully implemented — the glass snaps to the glowing pane, counts parts aloud in text, and flows cleanly into the nameplate and keypad.",
+      "usabilityIssues": [
+        "The 'Drag the brass glass over the glowing pane' hint is visible behind the mission card before the player can act, instructing an unavailable action.",
+        "Wrong keypad answers reference a 'flicker' CSS class that is never defined, so incorrect panes give no visible world reaction beyond text.",
+        "The brass glass drop point uses the cursor position, and its 90px ring makes it unclear whether the ring center or the pointer must touch the pane."
+      ],
+      "visualIssues": [
+        "The drag hint text collides directly with the opening headline at the top of the screen, overlapping the word 'harbor'.",
+        "The lantern's glowing pane and the half-hidden glass ring bleed out from under the mission card, creating a messy z-order in the opening frame.",
+        "The ferry emoji renders as a tiny near-black glyph on dark water and is effectively invisible."
+      ],
+      "repairBrief": "Hide the drag hint until the mission card is dismissed, then position it just below the lantern so it never touches the headline. While the card is open, dim or blur the scene behind it (backdrop overlay) so the lantern glow and glass do not poke through. Define the missing .flicker keyframes (two soft opacity dips on panes) so wrong denominators produce the promised gentle flicker. Restyle the ferry as a light amber silhouette or larger emoji with a glow so channel progress reads at a glance. Keep all copy and mechanics unchanged."
+    },
+    {
+      "nodeId": "node_3_comparing_1_3_and_1_4",
+      "strongestQuality": "The predict–verify–justify structure is fully wired, with a working custom drag, justification stamps, seal counter, and owl echo of the reasoning.",
+      "usabilityIssues": [
+        "The comparison tray is positioned at top:470 inside a 380px-tall table, pushing the instructed drop target below the visible page so drags can never land.",
+        "Only the first piece of each bar is draggable, but nothing communicates this, so taps on the other pieces silently do nothing.",
+        "The ghost-hand demo animates toward the off-screen tray and is clipped at the bottom edge, demonstrating a gesture the player cannot complete."
+      ],
+      "visualIssues": [
+        "Piece seams are nearly invisible against the chocolate fill, so the badger bar reads as an unsplit whole rather than four equal parts.",
+        "A large empty band between the speech bubble and the table leaves the top half of the screen dead and weakens hierarchy.",
+        "Tray pieces are placed with staggered left offsets (10 + idx*10), breaking the promised left-edge alignment that makes the size comparison honest."
+      ],
+      "repairBrief": "Move the tray fully on-screen (e.g., top:170 within the table, between the two bars) and re-target the ghost-hand path to it. Snap both dropped pieces flush to the yellow guide line at identical left positions, stacked vertically, so the length difference is the only visible variable. Strengthen partition seams with a 4px light-cream gap so 3 vs 4 parts read instantly. Add a pulsing glow on the two pickable pieces and a one-line caption 'Take one piece from each bar.' Raise the bars slightly to close the dead space under the speech bubble."
+    }
+  ],
+  "boardLevelObservations": [
+    "All three mocks hard-code a 1365×768 canvas with overflow hidden and no scaling wrapper, so any smaller or larger viewport clips or letterboxes content.",
+    "All three mocks dead-end after one completed round with no visible next-round affordance, undercutting each artifact's promised high-repetition loop even at mock scale.",
+    "Node 1's circle whole drifts from its own artifact (hexagon) and touches a shape the node's academic boundary explicitly excludes; the fix is purely a rendering change.",
+    "Feedback clarity is the shared weak point: node 1 reuses one animation for both outcomes, node 2's error animation class is undefined, and node 3's verification target is off-screen."
+  ]
+}

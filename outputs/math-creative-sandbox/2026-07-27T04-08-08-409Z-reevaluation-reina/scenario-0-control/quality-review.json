@@ -1,0 +1,18 @@
+{
+  "candidateId": "scenario-0-control",
+  "verdict": "mediocre",
+  "scores": {
+    "designQuality": 2,
+    "originality": 2,
+    "craft": 2,
+    "functionality": 2,
+    "learningIntegration": 2,
+    "replayAppeal": 2
+  },
+  "evidence": [
+    "static rocket position identical in screenshot 1 and screenshot 5",
+    "three interchangeable number-oval buttons with no array/group visuals despite equal-groups concept"
+  ],
+  "critique": "This reuses the same title/character as the calibration example judged 'beautiful and understandable,' but the actual captured trace shows none of the qualities that made that judgment: the rocket/glider never advances, hops, or visibly responds to correct answers across three full rounds - it is static in the very first screenshot and static in the final 'Run complete' screenshot in the same position. The stated concept (multiplication as equal groups and arrays, connected to skip-counting) is reduced to three plain number ovals per round with no groups, dots, or array imagery ever rendered - it is arithmetic recall disguised with a pretty gradient and lantern-shaped buttons, i.e. exactly the 'attractive scenery around ordinary answer buttons' pattern called out as bland in Moonlit Cargo/Tidepool/Rope-and-Peg. The error state is a plain dimmed button and a floating encouragement string, not a meaningful in-world consequence. The ending badge is generic congratulatory copy that could be swapped onto any quiz. Nothing here demonstrates the world 'participating in play' - a child could ignore the lantern/glider fiction entirely and simply hunt for the biggest/next number, defeating the intended skip-count reasoning through pattern-matching on button position rather than genuine engagement with equal-groups thinking. This reads as functional AI content dressed in the successful title from a previous prompt rather than an independently crafted, worthy successor.",
+  "nextMove": "pivot"
+}

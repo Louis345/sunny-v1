@@ -1,0 +1,50 @@
+{
+  "status": "READY_FOR_HUMAN_EVALUATION_REVIEW",
+  "assignmentId": "LAB-MATH-C",
+  "calls": 3,
+  "models": {
+    "evaluation-planner": "claude-opus-5",
+    "evaluation-architect": "claude-fable-5",
+    "evaluation-engineer": "claude-opus-5"
+  },
+  "usage": [
+    {
+      "call": 1,
+      "stage": "evaluation-planner",
+      "model": "claude-opus-5",
+      "status": "complete",
+      "inputTokens": 1943,
+      "outputTokens": 8429,
+      "elapsedMs": 104926,
+      "stopReason": "tool_use"
+    },
+    {
+      "call": 2,
+      "stage": "evaluation-architect",
+      "model": "claude-fable-5",
+      "status": "complete",
+      "inputTokens": 11332,
+      "outputTokens": 6613,
+      "elapsedMs": 104241,
+      "stopReason": "tool_use"
+    },
+    {
+      "call": 3,
+      "stage": "evaluation-engineer",
+      "model": "claude-opus-5",
+      "status": "complete",
+      "inputTokens": 16226,
+      "outputTokens": 33734,
+      "elapsedMs": 387615,
+      "stopReason": "end_turn"
+    }
+  ],
+  "estimatedCostUsd": null,
+  "note": "Token usage is authoritative. Dollar cost is left unavailable because no current model-rate configuration was supplied.",
+  "frozenInputHash": "e2eb68e06274b1814b1fac57606dae0227e72ba71b89c1e87cfad79726c293af",
+  "evaluationHash": "274c49ed00318c3c5e7eb4fae53bfbbea61645b4488f4b88780ba9cb431b7361",
+  "designHash": "2047bb79075b2989442d671b6e2c96c5954f20fd9f5e77afeb2a18cc283cbeb5",
+  "htmlHash": "03f35e863f9db66a971fc29cff34b887e30d51f0f08564a5a786e1331feb6a7a",
+  "writesToChildState": false,
+  "acceptanceQuestion": "Did this instrument produce trustworthy evidence about what the child independently knows?"
+}

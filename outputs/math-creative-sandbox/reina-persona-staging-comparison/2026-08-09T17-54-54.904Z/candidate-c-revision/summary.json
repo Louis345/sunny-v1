@@ -1,0 +1,25 @@
+{
+  "status": "READY_FOR_PARENT_PREVIEW",
+  "model": "claude-opus-5",
+  "calls": 1,
+  "inputTokens": 56012,
+  "outputTokens": 55706,
+  "costUsd": 1.67271,
+  "elapsedMs": 533966,
+  "stopReason": "end_turn",
+  "frozenHashes": {
+    "curriculumHash": "1abf43bb4311ce5e99ba491302ef7016ea99314b450467cef12bd7cb1c36f69b",
+    "designHash": "4e6d900e38800b8120f752e8598ede46c3fca09f0dab4a44b6ab64eaa200ec4e",
+    "originalHash": "f126c844d7349ca57e3950d8d79c33e742a28ea911e701d7f1212c38198af301"
+  },
+  "revisedHash": "04a5b33dd368bb28c6b2de5008a9063f47fe9e9d5bb282ff0d7f5480cca1a2b7",
+  "feedback": {
+    "score": 10,
+    "childFeedback": [
+      "It had an example so she could see what to do.",
+      "The colors were decent."
+    ],
+    "adultObservation": "Candidate C had the most detail and was the strongest overall, but its drag-and-drop interaction was clunky."
+  },
+  "interpretation": "This proves implementation adaptation to factual feedback; it does not prove learning or establish a universal interaction preference."
+}

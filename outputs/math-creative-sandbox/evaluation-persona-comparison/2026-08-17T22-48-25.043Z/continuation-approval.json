@@ -1,0 +1,12 @@
+{
+  "approvedAt": "2026-08-17T23:32:30.434Z",
+  "approvedBy": "human_in_thread_after_funding",
+  "reason": "Resume from two frozen successful Fable artifacts; run only two builders and one review harness.",
+  "recoveredDesignHashes": {
+    "neutral": "3d9a4fff9402586b87ccad9ea28ce0ca1265a9740d2a47da342873e3bdd4b4c0",
+    "persona": "260734920207b96bc327a76e22028556f7bf84ce5155ef0f0acff0dba1164929"
+  },
+  "newCallCeiling": 3,
+  "retryPolicy": "none_within_continuation",
+  "continuationDir": "/Users/jamaltaylor/Development/sunny-math-creative-sandbox/outputs/math-creative-sandbox/evaluation-persona-comparison/2026-08-17T22-48-25.043Z/continuations/2026-08-17T23-32-30.432Z"
+}

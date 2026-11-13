@@ -1,0 +1,135 @@
+```json
+{
+  "designs": [
+    {
+      "id": "A",
+      "title": "Caravan Rush: The Broker's Wager",
+      "audienceRationale": "Reina's strongest measured performance came from applied store-based math, so the core loop is a market transaction. Her requests for difficult challenges and her sustained engagement with fast-paced tasks justify a race-against-a-rival structure with rising time pressure. Her preference for competitive framing justifies a visible rival who can overtake her. Because these patterns come from limited sessions, the design keeps failure cheap and reversible rather than assuming she wants permanent stakes.",
+      "openingPromise": "Out-pack a rival trader before the caravan gate closes, using nothing but crates and math.",
+      "firstThreeSeconds": "A market lane with two caravans side by side, hers and the rival's, a crate tray at the bottom, and an empty grid glowing with pulsing outlines — no text, just a rival caravan already inching forward.",
+      "firstAction": "Drag one crate from the tray into a glowing grid slot.",
+      "interactionDemonstration": "The instant a crate is dropped, it snaps into place with a satisfying click, the row visually fills left to right, and a running number ticks upward beside the row — showing skip-counting as a direct consequence of the action rather than an instruction.",
+      "coreInteraction": "Drag equal-quantity crates into a rows-by-columns grid to fulfill an order card; completing rows advances a skip-count tally and launches the caravan forward on the race track relative to the rival.",
+      "mathAsPower": "The size of the correctly built array (rows x columns) is converted directly into caravan speed; an order interpreted correctly moves her further per turn than the rival's default pace, so faster and more accurate multiplicative reasoning literally outruns the adversary.",
+      "stakes": "Each market day is a race leg; if the rival's caravan reaches the gate first on a leg, that leg's bonus goods are lost, but the campaign continues — there is no permanent loss condition, only lost bragging rights and bonus loot.",
+      "consequences": "An incorrect array causes crates to visibly spill off the cart with a stumble animation and a smug line from the rival; the caravan does not move that turn, giving the rival a temporary lead.",
+      "recovery": "Spilled crates return to the tray immediately, only the failed row resets its skip-count, and a 'second wind' bonus is available after two consecutive perfect rows, letting her close a gap fast rather than grinding back slowly.",
+      "nodeSequence": [
+        {
+          "role": "teach",
+          "mathematicalDemand": "Build a single array (e.g., 3 rows of 4) matching a simple crate order with no rival pressure.",
+          "experienceBeat": "First solo packing at a quiet stall; the rival caravan is visible but stationary, establishing the world before pressure begins.",
+          "supportAvailable": "Grid slots pulse for the next placement; skip-count ticker is always visible; unlimited retries with no clock."
+        },
+        {
+          "role": "guided_application",
+          "mathematicalDemand": "Read a short customer request written as a word problem ('The tavern needs 5 barrels, 3 potions each') and translate it into the correct array before the rival finishes their own order.",
+          "experienceBeat": "The rival caravan begins moving at a fixed pace per correct order she completes on time, introducing light competitive tension.",
+          "supportAvailable": "An optional 'read again' bell replays the order aloud; a faint grid-shape ghost appears if she stalls more than a few seconds, but only on request."
+        },
+        {
+          "role": "independent_quest",
+          "mathematicalDemand": "Complete a chain of escalating orders including one deliberately garbled order planted by the rival with a wrong quantity, which she must catch before building, then race a full multi-leg market route with no hints.",
+          "experienceBeat": "The Grand Market Run: a full day of back-to-back orders against a rival who now adapts pace to her performance, ending in a gate-closing sprint.",
+          "supportAvailable": "No visual scaffolding remains; only the same skip-count ticker and spill-recovery mechanic from node one, now serving as her only safety net."
+        }
+      ],
+      "interactionContinuity": "Drag-to-grid packing and the skip-count ticker persist unchanged across all three nodes; only the source of the order (simple label to word problem to adversarial garbled order) and the presence of the rival's pace change.",
+      "worldProgression": "The market lane visually grows from a single quiet stall to a bustling multi-stall street to a full route with a closing gate at dusk, mirroring rising stakes without changing the core packing gesture.",
+      "payoff": "Winning the Grand Market Run unlocks a 'Master Trader' banner over her caravan and a boastful concession dialogue from the rival, plus a summary ledger showing every array she built that day.",
+      "replayVariation": "Order quantities, garbled-order placement, and rival pace are randomized per run, and a 'double order' mode later requires packing two simultaneous arrays under one clock.",
+      "visualDirection": "Warm bustling marketplace palette (ochre, teal awnings, brass), crates with distinct fruit/potion icon sets, a ledger-style HUD reminiscent of receipt paper.",
+      "motionDirection": "Snappy crate-drop with bounce-settle, sequential pop-in of skip-count numbers per row, caravan wheels visibly rolling forward in proportion to array size completed.",
+      "usefulLibraries": ["GSAP for snap/drag physics and caravan movement", "Howler.js for crate-thud and market ambience", "PixiJS for sprite-based crate and caravan rendering"],
+      "engagementPrediction": "Session length and voluntary replay count will exceed her worksheet-style baseline within the first three sessions, since the loop matches her demonstrated store-math strength and competitive preference.",
+      "falsifyingEvidence": "If she disengages or asks to stop when the rival takes a strong lead (rather than intensifying effort), or if she begins guessing crate counts without attending to the skip-count ticker while still winning, the competitive/store framing is not producing conceptual engagement."
+    },
+    {
+      "id": "B",
+      "title": "Fortress of Ranks",
+      "audienceRationale": "Reina has requested action stories involving adversaries, so the premise casts her as a commander opposing a rival general. Her sustained engagement with fast-paced riddles and multi-step logic justifies dispatch scrolls as compact word-problem riddles rather than long text. Her tendency to notice errors and question faulty reasoning is used directly as a scoring mechanic (spotting the general's miscounted scrolls), rather than treated as a side trait.",
+      "openingPromise": "Read the enemy's troop scrolls faster and more accurately than their general reads yours, and break the gate.",
+      "firstThreeSeconds": "A siege map with her blue banner on one side, a red banner fortress on the other, an empty rank-and-file grid glowing at the center, and a tray of soldier tokens — the enemy gate is already visibly closed and defended.",
+      "firstAction": "Tap a soldier token in the tray.",
+      "interactionDemonstration": "Tapping places the token into the next open grid slot in reading order (left to right, top to bottom); as each row fills, a drum-beat sound plays once per completed row, visually and audibly teaching 'rows' as a countable unit without any written rule.",
+      "coreInteraction": "Fill a rows-by-columns grid to match a dispatch scroll's requirement, using the drum-beat pulse per completed row as a skip-counting cue, then send the formation forward to advance on the siege map.",
+      "mathAsPower": "A correctly sized formation advances her army a distance on the siege map proportional to its total; catching one of the general's deliberately miscounted decoy scrolls before acting on it grants a bonus advance and exposes a 'spy' animation, converting error-spotting into forward progress.",
+      "stakes": "Every turn she misforms a rank or acts on a decoy scroll without flagging it, the fortress gains a reinforcement token; enough reinforcements extend the siege (more turns needed) but never end the campaign outright.",
+      "consequences": "A wrong formation causes the ranks to visibly step back into the tray with a low horn sound and a brief taunting banner from the enemy general; no soldiers or progress are permanently lost.",
+      "recovery": "A mentor officer offers one targeted riddle-hint per failed formation ('count the wagons, not the horses'), and three consecutive correct formations grant an 'elite guard' bonus advance to recover lost ground quickly.",
+      "nodeSequence": [
+        {
+          "role": "teach",
+          "mathematicalDemand": "Build a simple equal-rows formation (e.g., 3 rows of 4) matching a plain scroll, no adversary pressure.",
+          "experienceBeat": "A quiet training yard before the siege begins; the fortress is visible but distant.",
+          "supportAvailable": "Grid slots glow for next placement; drum-beat plays per row; unlimited time and retries."
+        },
+        {
+          "role": "guided_application",
+          "mathematicalDemand": "Interpret a short dispatch word problem ('5 wagons, 6 soldiers each') into the correct formation, then compare it against a second scroll from the enemy general to decide which of the two is miscounted before advancing.",
+          "experienceBeat": "First contact with the enemy general, who begins sending paired scrolls, one true and one a decoy, introducing the audit mechanic.",
+          "supportAvailable": "A 'recount' bell replays the scroll text; the grid shows a faint ghost outline if she pauses, only on request."
+        },
+        {
+          "role": "independent_quest",
+          "mathematicalDemand": "Break the Iron Gate: a chained multi-stage siege where each stage requires building a formation from a word problem and then auditing a rapid sequence of enemy scrolls under a countdown, mixing true and decoy claims with no visible ghost hints.",
+          "experienceBeat": "A full siege sequence with escalating scroll complexity and a visibly shrinking countdown clock as the enemy general taunts her progress.",
+          "supportAvailable": "Only the drum-beat cue and the mentor's post-failure hint remain; all scaffolding ghosts are removed."
+        }
+      ],
+      "interactionContinuity": "Tap-to-place-in-grid and the per-row drum-beat cue remain identical across all nodes; only scroll complexity, presence of decoys, and time pressure change.",
+      "worldProgression": "The siege map visibly changes from a quiet training yard to a besieged fortress with rising walls and reinforcement banners, to a cracking gate in the final quest, giving continuous visual evidence of multiplicative progress.",
+      "payoff": "Breaking the gate triggers a banner-raising cutscene and a 'Commander's Ledger' showing every formation and every decoy she correctly exposed, with the general's scroll revealed as forged in a final reveal beat.",
+      "replayVariation": "Scroll numbers, decoy placement, and countdown length randomize per siege; a harder mode later requires building two simultaneous formations for a two-flank assault.",
+      "visualDirection": "Stylized chess-like grid, parchment scroll UI, blue-and-gold versus red-and-black army palette, banner and gate iconography.",
+      "motionDirection": "March-step animation per completed row, camera pans across the siege map as ranks advance, banners unfurl at milestones, gate visibly cracks in the finale.",
+      "usefulLibraries": ["PixiJS for sprite-based army and siege map rendering", "GSAP for camera pans and march-step timing", "Howler.js for drum-beat and horn audio cues"],
+      "engagementPrediction": "Accuracy on decoy-scroll audits will improve session over session faster than accuracy on plain formation-building, since the adversarial framing directly engages her stated tendency to question faulty reasoning.",
+      "falsifyingEvidence": "If she treats decoy scrolls as a distraction and skips auditing to rush formation-building, or if animation pacing between rows feels slow enough to reduce riddle throughput, the siege framing is not amplifying the targeted trait."
+    },
+    {
+      "id": "C",
+      "title": "The Forger's Ledger",
+      "audienceRationale": "Reina notices errors and questions faulty reasoning, so this design makes error-detection the primary mechanic rather than a bonus. Her requests for action stories with adversaries justify a fleeing Forger as the antagonist with a ticking escape clock. Her sustained engagement with fast-paced, multi-step logic justifies compact 'case' riddles rather than long narrative text, and competitive framing is preserved through a rival detective pace comparison.",
+      "openingPromise": "Catch the Forger by finding the one claim in the Ledger where the story and the grouping don't match — before the last train leaves.",
+      "firstThreeSeconds": "A split card: a short claim on the left, a rendered array of counters on the right, and two large stamps — APPROVE and FLAG — hovering with the FLAG stamp gently pulsing over an obviously mismatched cell.",
+      "firstAction": "Drag the FLAG stamp onto the mismatched case card.",
+      "interactionDemonstration": "The first case is deliberately obvious (an array with one extra row visibly sticking out); stamping FLAG produces an ink-splatter animation and a satisfying thud, immediately confirming the action was correct and showing what 'mismatch' looks like without any written rule.",
+      "coreInteraction": "Read a short claim (a compact word problem), compare it to a rendered array, decide APPROVE or FLAG, and for flagged cases, drag counters to repair the array into the version the story actually describes.",
+      "mathAsPower": "Correctly flagged and repaired cases fill an evidence meter that reveals a piece of the Forger's location; each correct repair converts her multiplication reasoning directly into narrative progress toward the case's solution.",
+      "stakes": "A visible clock counts down to 'sundown,' when the Forger boards a departing train; a rival detective NPC solves the same cases at a fixed pace, so slow or wrong calls let the rival close the case first for that day, though the overall campaign continues.",
+      "consequences": "A wrong stamp does not end the case; it produces a soft 'the trail cools' animation and costs one clock tick, keeping pressure without dead ends.",
+      "recovery": "A wrong stamp reveals a magnifying-glass highlight over the actual mismatch, and she may re-submit once per case; a 'hot streak' of correct calls banks an extra clock tick as a buffer.",
+      "nodeSequence": [
+        {
+          "role": "teach",
+          "mathematicalDemand": "Approve or flag single, visually obvious mismatches between a small array and a simple claim (e.g., claim says 3 rows of 3, array shows 4 rows).",
+          "experienceBeat": "First case at the archive desk, no clock, mentor detective narrating the method by demonstration rather than instruction.",
+          "supportAvailable": "Mismatched cells glow faintly; unlimited time; immediate stamp feedback."
+        },
+        {
+          "role": "guided_application",
+          "mathematicalDemand": "Compute the expected product from a short word problem herself before comparing to the rendered array, including decoys with the same total but a different row/column shape, forcing attention to array structure rather than just total count.",
+          "experienceBeat": "The Forger's decoys grow subtler; a rival detective's pace bar appears alongside her own for the first time.",
+          "supportAvailable": "A 'recount' bell rereads the claim; the glow hint is removed and replaced by the post-mistake magnifying-glass reveal only."
+        },
+        {
+          "role": "independent_quest",
+          "mathematicalDemand": "Close the Ledger: a rapid six-case gauntlet under the sundown clock, mixing cases with no rendered array at all (she must build the correct array from the story alone) with mismatch-detection cases, then combine the resulting products into a numeric code that reveals the Forger's hideout address.",
+          "experienceBeat": "A fast, high-pressure finale where solved multiplication facts double as clue digits, culminating in naming the hideout before the train departs.",
+          "supportAvailable": "No hint glow remains; only the single re-examine allowance and hot-streak buffer from earlier nodes."
+        }
+      ],
+      "interactionContinuity": "The stamp-decide-repair gesture is identical across all nodes; only the presence of a pre-rendered array, the subtlety of the decoy, and the clock pressure change.",
+      "worldProgression": "The archive desk setting expands into a corkboard case wall with red string connecting solved clues, then into a train station backdrop for the finale, visually tracking her accumulating solved cases.",
+      "payoff": "Naming the correct hideout address triggers a Forger-caught cutscene and a case-file summary showing every claim she correctly audited, with her name stamped as lead detective.",
+      "replayVariation": "Claim numbers, decoy shape-vs-total mismatches, and the final address code randomize per playthrough; a harder mode later removes rendered arrays from every case, requiring full construction from text alone.",
+      "visualDirection": "Noir-detective palette (sepia, ink, deep red string), corkboard and typewriter-card UI, stamp and magnifying-glass iconography.",
+      "motionDirection": "Stamp-thud with ink-splatter, pins and string animating onto the corkboard as clues resolve, a visible clock hand sweeping toward sundown, train silhouette departing in the finale.",
+      "usefulLibraries": ["Framer Motion or GSAP for stamp, pin, and string animations", "Rive for a lightweight animated Forger silhouette", "Howler.js for stamp, tick, and station ambience audio"],
+      "engagementPrediction": "Because this design channels her demonstrated error-spotting behavior directly into the scoring mechanic, predict the fastest week-over-week accuracy improvement of the three designs and unprompted requests for 'harder cases,' consistent with her general pattern of requesting difficulty.",
+      "falsifyingEvidence": "If she shows lower engagement with auditing/repairing existing arrays than with generating her own from scratch (i.e., prefers building over checking), or if the noir aesthetic reads as slow/moody rather than as an adversarial action story, this direction underperforms relative to A or B despite matching the error-spotting trait on paper."
+    }
+  ]
+}
+```

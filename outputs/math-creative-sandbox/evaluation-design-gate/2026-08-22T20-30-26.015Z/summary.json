@@ -1,0 +1,13 @@
+{
+  "status": "CONTRACT_READY_FOR_PERSONA_COMPARISON",
+  "assignmentId": "LAB-MATH-GEOMETRY-FACES-5-11",
+  "calls": 1,
+  "model": "claude-opus-5",
+  "inputTokens": 2086,
+  "outputTokens": 5711,
+  "estimatedCostUsd": 0.153205,
+  "elapsedMs": 73717,
+  "frozenInputHash": "89a4acb6874f0adaa294ce498801466881112929caa42734707e6ae6dab380a5",
+  "evaluationHash": "357e7ae9a9243586a072d9bb454180bf3f7fb63793f6cec1128c39b2781cffb0",
+  "sourcePdf": "/Users/jamaltaylor/Downloads/5_11 math.pdf"
+}

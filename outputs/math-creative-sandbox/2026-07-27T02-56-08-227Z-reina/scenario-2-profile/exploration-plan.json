@@ -1,0 +1,17 @@
+{
+  "summary": "Begin exploring Buggy's Garden Market activity: start the adventure and observe the first interactive screen.",
+  "actions": [
+    {
+      "kind": "click_text",
+      "text": "Start Adventure 🌻",
+      "captureLabel": "first-action",
+      "reason": "This is the only visible interactive element; tapping it should launch the first activity screen to reveal the actual learning task."
+    },
+    {
+      "kind": "wait",
+      "ms": 500,
+      "captureLabel": "progress",
+      "reason": "Allow time for any transition/animation to complete before capturing the new screen state."
+    }
+  ]
+}

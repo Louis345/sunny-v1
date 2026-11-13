@@ -1,0 +1,11 @@
+{
+  "title": "The Shape Museum: Vault of Five Doors",
+  "visibleText": "NIGHT\nINSPECTOR\nThe Shape Museum\n\nThe Shape Museum needs a Night Inspector. Five vault doors are sealed.\nOnly your five inspection reports can open them. Nobody has seen what's inside.\n\nThe museum files reports without judging them — the archive is opened later. Every filed report turns a lock, so all five doors open no matter what you write. If you are not sure about an exhibit, you may file it as Unresolved. That is normal inspector work.\n\nSTART INSPECTION",
+  "visibleControlCount": 1,
+  "documentWidth": 1365,
+  "documentHeight": 768,
+  "viewportWidth": 1365,
+  "viewportHeight": 768,
+  "consoleErrors": [],
+  "pageErrors": []
+}

@@ -1,0 +1,49 @@
+{
+  "reviewedAt": "2026-08-09",
+  "reviewer": {
+    "role": "target child",
+    "name": "Reina",
+    "context": "Reina reviewed all three blinded candidates after returning from Japan. An adult was available to help her begin each experience."
+  },
+  "scale": "1-10",
+  "candidates": [
+    {
+      "candidate": "A",
+      "pipeline": "fresh staged neutral roles",
+      "score": 1,
+      "childFeedback": [
+        "She did not understand what she was supposed to do.",
+        "It was too wordy.",
+        "It was unclear what the assignment was asking."
+      ],
+      "adultObservation": "The adult did not like Candidate A."
+    },
+    {
+      "candidate": "B",
+      "pipeline": "historical Reina-backed ARRAY ARENA",
+      "score": 9,
+      "childFeedback": [
+        "She liked the colors a lot.",
+        "It had a hint button.",
+        "It was more intuitive."
+      ],
+      "adultObservation": "The adult found Candidate B pretty, well done, and impressive."
+    },
+    {
+      "candidate": "C",
+      "pipeline": "fresh staged personalities: Mira to Theo to Juniper to Rowan",
+      "score": 10,
+      "childFeedback": [
+        "It had an example so she could see what to do.",
+        "The colors were decent."
+      ],
+      "adultObservation": "Candidate C had the most detail and was the strongest overall, but its drag-and-drop interaction was clunky."
+    }
+  ],
+  "crossCandidateObservations": [
+    "The adult walked Reina through the experiences before or during evaluation.",
+    "Candidate C was the most expensive and received the highest score.",
+    "Candidate B was only one point behind Candidate C at substantially lower historical generation cost.",
+    "This is one target-child review and should be treated as strong product evidence, not a universal preference conclusion."
+  ]
+}

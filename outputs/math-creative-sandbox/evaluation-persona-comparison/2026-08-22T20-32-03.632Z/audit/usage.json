@@ -1,0 +1,57 @@
+[
+  {
+    "call": 1,
+    "stage": "neutral-architect",
+    "model": "claude-fable-5",
+    "status": "complete",
+    "inputTokens": 9295,
+    "outputTokens": 8192,
+    "elapsedMs": 126245,
+    "costUsd": 0.50255,
+    "stopReason": "tool_use"
+  },
+  {
+    "call": 2,
+    "stage": "persona-architect",
+    "model": "claude-fable-5",
+    "status": "complete",
+    "inputTokens": 9410,
+    "outputTokens": 8302,
+    "elapsedMs": 135457,
+    "costUsd": 0.5092,
+    "stopReason": "tool_use"
+  },
+  {
+    "call": 3,
+    "stage": "neutral-builder",
+    "model": "claude-opus-5",
+    "status": "complete",
+    "inputTokens": 15198,
+    "outputTokens": 39217,
+    "elapsedMs": 428815,
+    "costUsd": 1.056415,
+    "stopReason": "end_turn"
+  },
+  {
+    "call": 4,
+    "stage": "persona-builder",
+    "model": "claude-opus-5",
+    "status": "complete",
+    "inputTokens": 15300,
+    "outputTokens": 49057,
+    "elapsedMs": 547055,
+    "costUsd": 1.302925,
+    "stopReason": "end_turn"
+  },
+  {
+    "call": 5,
+    "stage": "review-harness",
+    "model": "claude-fable-5",
+    "status": "complete",
+    "inputTokens": 4877,
+    "outputTokens": 3427,
+    "elapsedMs": 51912,
+    "costUsd": 0.22012,
+    "stopReason": "tool_use"
+  }
+]

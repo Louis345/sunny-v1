@@ -1,0 +1,65 @@
+{
+  "summary": "Start the activity, attempt an incorrect basket-packing entry, recover with correct answer, and progress toward the array/story stages.",
+  "actions": [
+    {
+      "kind": "click_text",
+      "text": "Start the Day →",
+      "captureLabel": "first-action",
+      "reason": "Begin the activity from the intro screen"
+    },
+    {
+      "kind": "wait",
+      "ms": 500,
+      "captureLabel": "progress",
+      "reason": "Allow first task screen to render"
+    },
+    {
+      "kind": "click_text",
+      "text": "🧺 Add Basket",
+      "captureLabel": "exploration",
+      "reason": "Try the apparent first interactive action of adding a basket"
+    },
+    {
+      "kind": "click_text",
+      "text": "3",
+      "captureLabel": "incorrect-recovery",
+      "reason": "Enter a plausible but possibly incorrect numeric answer to see error handling"
+    },
+    {
+      "kind": "click_text",
+      "text": "✔",
+      "captureLabel": "incorrect-recovery",
+      "reason": "Submit the answer to check validation/feedback"
+    },
+    {
+      "kind": "click_text",
+      "text": "⌫",
+      "captureLabel": "incorrect-recovery",
+      "reason": "Correct the entry if it was wrong"
+    },
+    {
+      "kind": "click_text",
+      "text": "✔",
+      "captureLabel": "progress",
+      "reason": "Resubmit corrected answer"
+    },
+    {
+      "kind": "click_text",
+      "text": "Continue to Flower Field →",
+      "captureLabel": "progress",
+      "reason": "Advance to next stage of the activity"
+    },
+    {
+      "kind": "click_text",
+      "text": "Continue to Story Problems →",
+      "captureLabel": "progress",
+      "reason": "Advance further into story problem stage"
+    },
+    {
+      "kind": "click_text",
+      "text": "Next Problem →",
+      "captureLabel": "completion",
+      "reason": "Attempt to progress toward completion of the activity"
+    }
+  ]
+}

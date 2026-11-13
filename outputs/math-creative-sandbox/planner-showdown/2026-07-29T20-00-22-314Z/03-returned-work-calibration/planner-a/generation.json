@@ -1,0 +1,26 @@
+{
+  "scenarioId": "03-returned-work-calibration",
+  "blindId": "Planner A",
+  "status": "complete",
+  "model": "claude-opus-5",
+  "provider": "anthropic",
+  "promptHash": "dc3654bceb840b06ea0bee2e99293a9aa64284fbef37853689c31cf6bcba4b57",
+  "packetHash": "f8386585317d2913fac72fcd70c470d1e030e4197f22133442b6893a49cbf310",
+  "inputTokens": 2658,
+  "outputTokens": 8633,
+  "estimatedCostUsd": 0.229115,
+  "elapsedMs": 107945,
+  "inspection": {
+    "hardFailures": [],
+    "metrics": {
+      "factualClaimCount": 10,
+      "evidenceReferencedClaimCount": 10,
+      "evidenceGroundingRatio": 1,
+      "fabricatedEvidenceReferenceCount": 0,
+      "unsupportedHighConfidenceCount": 0,
+      "predictionCount": 4,
+      "nodeCount": 5
+    }
+  },
+  "error": null
+}

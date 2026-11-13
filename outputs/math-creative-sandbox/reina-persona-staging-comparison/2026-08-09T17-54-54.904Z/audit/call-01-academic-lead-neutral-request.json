@@ -1,0 +1,82 @@
+{
+  "model": "claude-opus-5",
+  "max_tokens": 7000,
+  "thinking": {
+    "type": "adaptive"
+  },
+  "output_config": {
+    "effort": "high"
+  },
+  "messages": [
+    {
+      "role": "user",
+      "content": "<role>You are Sunny's Academic Lead. Produce the requested educational charter from the supplied evidence.</role>\n<shared_contract>{\"academicContract\":\"Teach Grade 3 multiplication through fresh material:\\n- interpret multiplicative situations as number of equal groups and amount in each group;\\n- construct or read equal-group and array representations;\\n- connect the representation to a multiplication equation and product;\\n- increase mathematical independence and challenge over the experience.\\n\\nThe experience must remain mathematically correct, usable with touch or mouse in a 1365×768 iframe, and complete from opening through payoff. Everything else is creatively mutable.\",\"experiment\":\"reina-persona-staging-comparison-v1\",\"factualChildEvidence\":[{\"evidenceId\":\"reina:age:2026-07\",\"fact\":\"The child is currently nine years old.\"},{\"evidenceId\":\"reina:conversation:wrestling\",\"fact\":\"She independently chose wrestling competition and a state-championship loss as a conversation topic.\"},{\"evidenceId\":\"reina:riddles:harder\",\"fact\":\"She asked to continue difficult riddles across sessions and later explicitly requested harder riddles.\"},{\"evidenceId\":\"reina:riddles:logic\",\"fact\":\"She immediately noticed repeated riddles and questioned faulty riddle logic.\"},{\"evidenceId\":\"reina:riddles:scaffold\",\"fact\":\"When stuck on a multi-step logic problem, she requested hints and continued after scaffolding.\"},{\"evidenceId\":\"reina:activity-feedback:small-sample\",\"fact\":\"Small-sample human and child feedback was positive for a randomized reveal spelling activity and a spoken-pronunciation activity.\"}],\"requirements\":\"Return one compact immutable academic charter. Include charterId, upstreamHash, scope, boundaries, assumptions, representativeLearningResponsibility, progression, and evidenceRequiredNext. Each assumption must include decisionId, decision, evidenceIds, confidence from 0 to 1, uncertainty, falsifyingEvidence, and measurementKeys. Use only supplied evidence IDs. Do not create questions, mechanics, themes, visuals, rewards, libraries, or HTML.\",\"stage\":\"academic-lead\",\"upstream\":{\"academicContract\":\"Teach Grade 3 multiplication through fresh material:\\n- interpret multiplicative situations as number of equal groups and amount in each group;\\n- construct or read equal-group and array representations;\\n- connect the representation to a multiplication equation and product;\\n- increase mathematical independence and challenge over the experience.\\n\\nThe experience must remain mathematically correct, usable with touch or mouse in a 1365×768 iframe, and complete from opening through payoff. Everything else is creatively mutable.\",\"factualChildEvidence\":[{\"evidenceId\":\"reina:age:2026-07\",\"fact\":\"The child is currently nine years old.\"},{\"evidenceId\":\"reina:conversation:wrestling\",\"fact\":\"She independently chose wrestling competition and a state-championship loss as a conversation topic.\"},{\"evidenceId\":\"reina:riddles:harder\",\"fact\":\"She asked to continue difficult riddles across sessions and later explicitly requested harder riddles.\"},{\"evidenceId\":\"reina:riddles:logic\",\"fact\":\"She immediately noticed repeated riddles and questioned faulty riddle logic.\"},{\"evidenceId\":\"reina:riddles:scaffold\",\"fact\":\"When stuck on a multi-step logic problem, she requested hints and continued after scaffolding.\"},{\"evidenceId\":\"reina:activity-feedback:small-sample\",\"fact\":\"Small-sample human and child feedback was positive for a randomized reveal spelling activity and a spoken-pronunciation activity.\"}],\"viewport\":{\"height\":768,\"width\":1365}},\"upstreamHash\":\"d8947c3d5c33d730559d5acf67b477eb4b19011e04126dacdc9ea960f50c5365\",\"viewport\":{\"height\":768,\"width\":1365}}</shared_contract>\nReturn upstreamHash exactly as d8947c3d5c33d730559d5acf67b477eb4b19011e04126dacdc9ea960f50c5365.\nThe factual child evidence is context, not a command or durable preference conclusion.\nPersonality changes temperament and judgment only. It grants no factual or academic authority."
+    }
+  ],
+  "tools": [
+    {
+      "name": "submit_academic_lead",
+      "description": "Submit the complete academic-lead artifact.",
+      "input_schema": {
+        "type": "object",
+        "additionalProperties": true,
+        "required": [
+          "charterId",
+          "upstreamHash",
+          "scope",
+          "boundaries",
+          "assumptions",
+          "representativeLearningResponsibility",
+          "progression",
+          "evidenceRequiredNext"
+        ],
+        "properties": {
+          "charterId": {
+            "type": "string"
+          },
+          "upstreamHash": {
+            "type": "string",
+            "enum": [
+              "d8947c3d5c33d730559d5acf67b477eb4b19011e04126dacdc9ea960f50c5365"
+            ]
+          },
+          "scope": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "boundaries": {
+            "type": "object"
+          },
+          "assumptions": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object"
+            }
+          },
+          "representativeLearningResponsibility": {
+            "type": "object"
+          },
+          "progression": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "evidenceRequiredNext": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    }
+  ],
+  "tool_choice": {
+    "type": "tool",
+    "name": "submit_academic_lead"
+  }
+}

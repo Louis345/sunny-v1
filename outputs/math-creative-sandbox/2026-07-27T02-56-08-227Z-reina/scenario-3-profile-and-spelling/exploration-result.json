@@ -1,0 +1,43 @@
+{
+  "candidateId": "scenario-3-profile-and-spelling",
+  "screenshots": [
+    "/Users/jamaltaylor/Development/sunny-math-creative-sandbox/outputs/math-creative-sandbox/2026-07-27T02-56-08-227Z-reina/scenario-3-profile-and-spelling/00-opening.png",
+    "/Users/jamaltaylor/Development/sunny-math-creative-sandbox/outputs/math-creative-sandbox/2026-07-27T02-56-08-227Z-reina/scenario-3-profile-and-spelling/01-first-action.png",
+    "/Users/jamaltaylor/Development/sunny-math-creative-sandbox/outputs/math-creative-sandbox/2026-07-27T02-56-08-227Z-reina/scenario-3-profile-and-spelling/02-progress.png",
+    "/Users/jamaltaylor/Development/sunny-math-creative-sandbox/outputs/math-creative-sandbox/2026-07-27T02-56-08-227Z-reina/scenario-3-profile-and-spelling/03-exploration.png",
+    "/Users/jamaltaylor/Development/sunny-math-creative-sandbox/outputs/math-creative-sandbox/2026-07-27T02-56-08-227Z-reina/scenario-3-profile-and-spelling/04-exploration.png"
+  ],
+  "actions": [
+    {
+      "kind": "click_text",
+      "text": "Start Growing! 🌻",
+      "captureLabel": "first-action",
+      "reason": "Begin the activity to see the first multiplication question interface.",
+      "ok": true
+    },
+    {
+      "kind": "wait",
+      "ms": 1000,
+      "captureLabel": "progress",
+      "reason": "Allow the next screen or question to load after starting.",
+      "ok": true
+    },
+    {
+      "kind": "click_at",
+      "x": 682,
+      "y": 500,
+      "captureLabel": "exploration",
+      "reason": "Probe for any answer options or interactive elements that may have appeared lower on the screen.",
+      "ok": true
+    },
+    {
+      "kind": "wait",
+      "ms": 500,
+      "captureLabel": "exploration",
+      "reason": "Check for any tooltip or feedback after probing click.",
+      "ok": true
+    }
+  ],
+  "visibleText": "⭐ x0\nLevel 1 of 4\n🌼 Garden Groups\n\nEqual groups of things — count them all!\n\nLet's Go!\nLevel 1: Garden Groups! Equal groups of things — count them all!",
+  "consoleMessages": []
+}

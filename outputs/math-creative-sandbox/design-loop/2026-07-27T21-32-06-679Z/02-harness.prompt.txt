@@ -1,0 +1,123 @@
+You are a skeptical design critic comparing three proposed child learning experiences.
+
+Rate them against:
+- concept clarity;
+- mathematics embodied in the interaction;
+- meaningful action and consequence;
+- perceptible progression;
+- payoff worth reaching;
+- useful recovery;
+- factual profile grounding without overclaiming;
+- originality relative to the other candidates;
+- feasibility as one compact playable vertical slice.
+
+Do not predict dopamine or claim the child will enjoy something as fact. Select one design even if all are imperfect. Produce one bounded refactor brief.
+
+Return JSON only:
+{
+  "selectedDesignId": "A, B, or C",
+  "comparativeObservations": {
+    "A": [],
+    "B": [],
+    "C": []
+  },
+  "selectionReason": "",
+  "strongestQuality": "",
+  "largestClarityRisk": "",
+  "largestEngagementRisk": "",
+  "mathIntegrationRisk": "",
+  "refactorBrief": ""
+}
+
+Design candidates:
+{
+  "designs": [
+    {
+      "id": "A",
+      "title": "The Last Honest Courier",
+      "openingPromise": "You're the only courier who still checks the math — everyone else just guesses and hopes.",
+      "mission": "Beat a rival courier company to fulfill delivery contracts by correctly building crate shipments before they can fake their way to the same clients.",
+      "firstAction": "A dispatcher radios in a garbled order — '6 crates, 7 gears each, GO' — and a countdown-style buzzer image appears (no real timer pressure, just narrative urgency) as the rival's cart is heard leaving.",
+      "childAction": "She sorts loose gear icons into equal-sized crates (equal groups), stacks crates onto a pallet arranged in rows and columns (array), and calls out the skip-count sequence as each row loads before radioing the total back to dispatch.",
+      "mathAsPower": "Correct grouping and fast, accurate skip-counting are the only way to out-deliver the rival — sloppy math literally loses the contract on-screen, while precise math is dramatized as the thing that makes her faster than someone who's just eyeballing it.",
+      "stakes": "Contracts and route reputation, not survival — losing a delivery means the rival's smug voiceover mocks her and takes the client, but she can immediately re-attempt with a new manifest.",
+      "recovery": "A wrong array causes crates to visibly topple in the loading dock; the dispatcher flags exactly which row was miscounted, and she rebuilds only that section rather than starting over.",
+      "progression": [
+        "Tier 1: equal groups only, small numbers, single crates",
+        "Tier 2: arrays introduced, rows vs. columns swapped to build commutativity",
+        "Tier 3: skip-counting under a mock 'rival is catching up' narration",
+        "Tier 4: two-step riddles ('4 pallets of 6 rows of 3') tied to word-problem phrasing",
+        "Finale: catching the rival's rigged manifest live"
+      ],
+      "worldReaction": "The dispatcher upgrades her route tier after clean deliveries; the rival's dialogue shifts from mockery to grudging respect as she starts winning contracts.",
+      "payoff": "In the final run she catches the rival fabricating a delivery total mid-broadcast, publicly corrects his array, and becomes the depot's lead courier.",
+      "replayVariation": "New adversary archetypes (a trickster negotiator, a sloppy new hire) with reshuffled number ranges and new manifest phrasing, so the puzzles aren't memorized.",
+      "profileEvidenceUsed": [
+        "Repeated requests for difficult challenges",
+        "Sustained engagement with fast-paced riddles and multi-step logic",
+        "Requested action stories involving adversaries",
+        "Competitive framing coincided with high engagement"
+      ],
+      "engagementPrediction": "Reina will ask to replay rounds unprompted, narrate skip-counts aloud without being told to, and request harder manifests before the game offers them.",
+      "falsifyingEvidence": "If she stops verbalizing her group/skip-count reasoning and just guesses totals, disengages after a single loss instead of retrying, or shows no reaction to the rival's taunts/wins, the adversarial-competitive frame is not the driver it appeared to be.",
+      "prototypeScope": "One 15–20 minute session: four order tiers (times tables through 6), one scripted rival encounter, no real-time clock — pacing implied through dialogue only."
+    },
+    {
+      "id": "B",
+      "title": "The Market Auditor",
+      "openingPromise": "Something's wrong with the numbers at the market, and only someone who checks carefully will find it.",
+      "mission": "Investigate mismatched inventory claims from market vendors, using arrays and skip-counting to find exactly where the counts went wrong.",
+      "firstAction": "A melon vendor insists she has '8 baskets, 4 melons each' but the guild ledger shows a shortage — Reina is handed a ledger board and the vendor's claim to check.",
+      "childAction": "She drags melon tiles into rows and columns on a ledger board to model the vendor's claim as an array, skip-counts aloud to verify the total, and compares it against the guild's actual count, writing the corrected multiplication sentence when they don't match.",
+      "mathAsPower": "Her ability to translate a spoken claim into an array and check it by skip-counting is the entire mechanism of the mystery — she doesn't win by speed, she wins by being the only one who verifies instead of assuming.",
+      "stakes": "Community trust and a vendor's livelihood — if she misses an error, a vendor's stall stays under suspicion; if she wrongly accuses an honest vendor, she has to apologize and re-audit, which costs her standing with the guild.",
+      "recovery": "When her array doesn't match the real count, the vendor politely pushes back ('that's not what I have'), prompting her to try a different grouping (e.g., regroup by 4s instead of 8s) until the true count surfaces.",
+      "progression": [
+        "Single-vendor, single array claims",
+        "Two-vendor chains requiring combining two arrays (introducing multi-step word problems)",
+        "A vendor's claim that's technically true but misleadingly grouped (testing conceptual flexibility, not just calculation)",
+        "A multi-stall supply chain fraud requiring distributive-style reasoning",
+        "The big case: a guild-wide miscount"
+      ],
+      "worldReaction": "Vendors go from wary to welcoming as her corrections prove out; the guild master starts sending her the harder cases unprompted.",
+      "payoff": "She uncovers a season-long fraud built on a merchant deliberately mis-grouping goods to hide theft, presents the corrected math to the guild council, and is named the market's official auditor.",
+      "replayVariation": "A new market season with new goods, vendors, and number ranges, plus an optional 'smuggler' case with larger numbers for when she asks for something harder.",
+      "profileEvidenceUsed": [
+        "Applied store-based math produced substantially stronger performance than mechanical practice",
+        "She notices errors and questions faulty reasoning",
+        "Repeated requests for difficult challenges (addressed via optional harder cases, not competition)"
+      ],
+      "engagementPrediction": "Reina will engage at least as long as with store-based practice previously, spontaneously double-checking claims and pointing out inconsistencies before the game flags them, even without competitive scoring.",
+      "falsifyingEvidence": "If she rushes through audits without verifying, asks when she gets to 'win' or 'beat' something, or disengages specifically because there's no opponent or score, that would indicate the earlier store-based success depended on stakes/competition this design doesn't provide.",
+      "prototypeScope": "One session: three vendor cases (single array, combined array, one misleading-but-true claim), ledger-board interaction only, no time pressure."
+    },
+    {
+      "id": "C",
+      "title": "The Memory Garden",
+      "openingPromise": "An old journal holds planting instructions written in riddles — get them right, and you'll uncover what the garden used to mean to someone.",
+      "mission": "Restore a forgotten estate garden by planting in rows and columns exactly as an elderly patron's journal describes, revealing hidden memories as each section blooms correctly.",
+      "firstAction": "She finds the journal's first faded page: 'Plant them so that counting by 5s gets you exactly to 40' beside a bare garden grid.",
+      "childAction": "She places plant tiles into rows and columns on a garden grid to match the journal's clue, skip-counting as she places each row to check the total before the season turns, and later combines two plant types in one bed (e.g., 3 rows of roses plus 2 rows of tulips) to match a more complex instruction.",
+      "mathAsPower": "Correct row-and-column arrangement is literally what makes the garden grow; skip-counting is how she predicts the outcome before committing, framed as gardening skill rather than calculation.",
+      "stakes": "Emotional and aesthetic, not competitive or survival-based — a wrong arrangement means a bald, uneven patch and a page of the journal that won't reveal its next memory, not failure or loss.",
+      "recovery": "An uneven bed is shown gently (a few empty tiles, no wilting or damage); she can replant that section anytime before the season changes, with no penalty for taking a second or third attempt.",
+      "progression": [
+        "Single plant type, simple rows and columns",
+        "Journal riddles requiring skip-counting to find an unknown row or column size",
+        "Two plant types in one bed (introducing decomposition/distributive thinking)",
+        "A full season plan requiring several beds to reach an exact total bloom count",
+        "The final overgrown plot, revealed only from above"
+      ],
+      "worldReaction": "As sections bloom correctly, more of the journal's handwriting becomes legible, and small details appear (a bench, a birdbath, a path) that hint at the patron's past.",
+      "payoff": "From above, the fully bloomed garden forms a hidden picture or message the patron once described — visible only because every array in it was planted correctly.",
+      "replayVariation": "A new location and motif (an orchard, a quilt-patterned garden) with a different hidden image and new number ranges, for when she wants another one.",
+      "profileEvidenceUsed": [
+        "Limited evidence noted as not proving permanent preference — this design deliberately withholds adversary, competition, and speed pressure to test whether those are truly necessary",
+        "She notices errors and questions faulty reasoning (used minimally, via journal riddles that must be checked for consistency)"
+      ],
+      "engagementPrediction": "If calm mastery and delayed aesthetic payoff can hold her attention, she will voluntarily replant sections to get them exactly right even without any prompt, score, or rival.",
+      "falsifyingEvidence": "If she disengages quickly, asks repeatedly when something harder/competitive/action-oriented will happen, or shows boredom (fidgeting, requesting to skip ahead, doing the minimum to advance) despite unlimited time and full difficulty available, that would indicate calm/non-competitive framing does not sustain her engagement even at low pressure.",
+      "prototypeScope": "One session: three garden beds (single-type array, skip-count riddle, one two-type combined bed), static grid interaction, no timer, ending at the first partial journal reveal rather than the full finale."
+    }
+  ]
+}

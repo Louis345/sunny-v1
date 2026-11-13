@@ -1,0 +1,21 @@
+{
+  "candidateId": "scenario-0-control",
+  "verdict": "mediocre",
+  "scores": {
+    "designQuality": 3,
+    "originality": 2,
+    "craft": 2,
+    "functionality": 2,
+    "learningIntegration": 2,
+    "replayAppeal": 2
+  },
+  "evidence": [
+    "Screenshots show three static green 'lantern' ovals with numbers floating above a gradient sky background - the rocket and clouds are pure decoration that never move or react to answers during the trace",
+    "Console log shows a 404 resource failure, indicating a broken asset (likely sound or an animation) that never loaded",
+    "The 'Show me' demo overlay just shows a text tooltip ('Watch the example glider hop: 1,2,3,__') overlapping the existing UI rather than an actual animated demonstration of skip-counting motion",
+    "Wrong answer (16) only triggers a generic 'Try again! You can do it' tooltip popup identical in style to any generic quiz - no visual consequence tied to the skip-count concept (e.g. no visual grouping, no lantern sequence lighting up)",
+    "Across 6 trace steps the rocket sprite at bottom-left never moves position at all, despite the game being framed as a 'run' - the reward screen just swaps in a medal card with no visible flight/travel payoff shown in the trace"
+  ],
+  "critique": "On its surface this looks like the calibration-positive 'Skyglider Skip-Count Run,' but the actual trace reveals it is functionally identical to the rejected harbor quiz: three answer bubbles with numbers, a skip-count question in a text box, and a static decorative background that does not participate in the mechanic. The rocket that should visually 'run' or 'glide' along the sequence never moves across any of the five captured screenshots - it sits in the same bottom-left position from the first click through 'Run complete!' The only feedback for wrong/right answers is a floating text tooltip ('Try again!' / presumably a success toast), which is the same generic answer-button pattern seen in Moonlit Cargo and Rope-and-Peg. There is no array or equal-groups visual representation despite the concept description promising 'multiplication as equal groups and arrays' - the entire experience is skip-counting number selection, with no connection to arrays, groups, or word problems ever surfacing in the screenshots. The 'Show me' demo mode is just an overlapping text bubble, not an actual animated walkthrough, which suggests the tutorial mode is a stub. A 404 console error further suggests a missing asset (perhaps the promised glider animation or a sound file) that never loads, meaning part of the intended experience is silently broken. The completion badge ('Skip-Count Pilot... Great flying, Reina!') is unearned praise text pasted onto a static scene with no visual flight or dynamic culmination shown. This is polished-looking chrome with the same shallow structure the rubric explicitly warns against: decorative world, generic buttons, unearned payoff copy that outstrips what was actually demonstrated on screen.",
+  "nextMove": "pivot"
+}

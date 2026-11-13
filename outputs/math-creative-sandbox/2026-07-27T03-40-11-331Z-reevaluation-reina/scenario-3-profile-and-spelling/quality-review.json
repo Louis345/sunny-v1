@@ -1,0 +1,20 @@
+{
+  "candidateId": "scenario-3-profile-and-spelling",
+  "verdict": "reject",
+  "scores": {
+    "designQuality": 2,
+    "originality": 1,
+    "craft": 2,
+    "functionality": 2,
+    "learningIntegration": 2,
+    "replayAppeal": 1
+  },
+  "evidence": [
+    "Every question screenshot shows the identical structure: a sentence problem, a static row of emoji-in-boxes (strawberries, shells, sunflowers), a restated equation line ('X groups of Y → X × Y = ?'), and four generic answer buttons in a 2x2 grid — this is a plain multiple-choice quiz with a rotating emoji skin, not an interactive array/group builder.",
+    "The emoji groupings are decorative rather than participatory: nothing suggests a child can tap groups, build the array, or skip-count through it — clicking one of four static buttons is the entire interaction, meaning random guessing across 4 choices can defeat each question.",
+    "Feedback is generic and even buggy: after correctly answering the 4x4 sunflower question, the ladybug's dialogue still reads 'That's exactly right! 3 groups of 5 makes 3 x 5 = 15' — leftover text from the previous question, showing sloppy state management/craft rather than polish.",
+    "Progression is just a star counter (x2) and a thin progress bar filling by fixed increments; there is no visible payoff, animation, or garden-building feedback tying the 'Ladybug's Multiplication Garden' theme to the actual math being solved — the garden framing evaporates during play exactly like the harbor-quest precedent."
+  ],
+  "critique": "This is polished-looking but structurally identical to the previously rejected 'answer-button quiz wearing a costume' pattern. The opening screen promises a 'Multiplication Garden' with groups, arrays, hops, and stories, but once play begins, every level reduces to the same format: a static image of pre-counted emoji groups, a restated equation, and four button choices. The garden imagery is inert — it does not respond to taps, doesn't build as the child answers, and offers no tactile connection between counting groups and multiplying (e.g., no drag counting, no building the array by clicking cells, no skip-count trail). The core promise of connecting multiplication to skip-counting is never demonstrated in the trace; the 'groups of' language appears only as static text under a picture. Worse, the recycled/incorrect feedback line ('3 groups of 5' shown after correctly answering the 4x4 question) is a functional bug indicating shallow state tracking, undermining trust that the app is truly evaluating each answer contextually. There's no visible penalty or nuance to wrong answers beyond a red flash — a child could rapid-fire through all four options and eventually stumble into credit, since nothing prevents guess-and-check. Given the calibration against Moonlit Cargo/Tidepool/Harbor-quest precedents — attractive scenery around ordinary answer buttons, world disappearing during play, labels rather than tangible mechanics — this candidate fits squarely in that negative bucket rather than the Skyglider/Comet Trail positive bucket, which delivered genuine visual centrality of the math action and emotional payoff.\",\"This is generic, not exceptional; it should be substantially reworked so that group-building or skip-counting is an actual manipulable mechanic, and the feedback text bug must be fixed.\"",
+  "nextMove": "pivot"
+}

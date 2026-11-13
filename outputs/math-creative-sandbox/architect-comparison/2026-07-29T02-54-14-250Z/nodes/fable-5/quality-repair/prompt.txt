@@ -1,0 +1,521 @@
+Repair this lightweight interactive mock exactly once.
+
+The academic contract and design artifact are immutable. Apply only the usability, visual, CSS/layout, responsive, affordance, and implementation-fidelity corrections in the review. Preserve the theme, mission, stakes, core interaction, and mathematical responsibility. Keep this as an opening-state and first-interaction mock, not a complete activity.
+
+Return one complete standalone HTML document under 14,000 characters with inline CSS and JavaScript. External HTTPS libraries and assets are allowed. It must work with touch or mouse inside a 1365x768 iframe. Return raw HTML only.
+
+NODE CONTRACT:
+{
+  "nodeId": "node_3_comparing_1_3_and_1_4",
+  "responsibility": "Reason about and justify which unit fraction is larger when comparing 1/3 and 1/4, using the principle that dividing a whole into more equal parts produces smaller individual parts.",
+  "academicBoundary": "Restrict comparison strictly to the pair 1/3 and 1/4 (and may extend briefly to comparing 1/2 vs 1/5 as a parallel fresh example for reinforcement) using new whole representations (e.g., two identical bars of the same length divided differently, or two identical sets of counters) distinct from the worksheet's rectangle/circle. Do not require comparing unit fractions with unlike wholes of different sizes, and do not introduce non-unit fraction comparisons.",
+  "evidenceGoal": "Student can correctly identify that 1/3 is larger than 1/4 and provide a valid justification (e.g., referencing that three equal parts are each larger than four equal parts of the same whole), and can apply the same reasoning to a parallel unfamiliar unit fraction pair."
+}
+
+FROZEN DESIGN ARTIFACT:
+{
+  "artifactId": "chocolate-caravan-comparison",
+  "nodeId": "node_3_comparing_1_3_and_1_4",
+  "title": "The Chocolate Caravan: Biggest Piece Wins",
+  "audienceRationale": "Reina's evidence shows high engagement with high-repetition, fast-feedback verification games (spell-check: 167 plays, 99% engagement, perfect accuracy) and tolerance for scanning/judgment tasks (word-radar). She thrives on quick, confident yes/no style decisions with instant confirmation. This design gives her rapid-fire 'which piece is bigger?' judgments with immediate visual proof, plus a justification step that keeps the math honest, wrapped in a low-frustration loop she can repeat many times.",
+  "openingPromise": "You are the Fairness Judge of a traveling chocolate caravan. Two hungry travelers each claim their share is bigger. Only you can slide the pieces together, see the truth, and declare the winner.",
+  "firstThreeSeconds": "Two identical golden chocolate bars appear side by side on a wooden caravan table. One snaps into 3 equal pieces, the other into 4, with a satisfying crack. A fox traveler holds up one piece from the 3-bar, a badger holds one piece from the 4-bar. A speech bubble asks: 'Whose piece is BIGGER? Drag them together to find out!'",
+  "firstAction": "Drag the fox's 1/3 piece down onto a comparison tray; the badger's 1/4 piece slides in beside it automatically, aligned at the left edge. The size difference is instantly, visibly obvious.",
+  "interactionDemonstration": "A ghost hand demonstrates once: it drags a piece to the tray, the two pieces align, a measuring ruler-glow highlights the length difference, and a stamp icon pulses over the larger piece saying 'Tap the bigger piece to judge!'",
+  "coreInteraction": "Each round: two identical wholes (bars, licorice ropes, or rows of counters) are split live in front of Reina into 3 vs 4 equal parts. She (1) predicts which single piece is bigger by tapping a traveler, (2) drags the pieces onto the aligned comparison tray to verify, then (3) stamps a justification card choosing between statements like 'More pieces means each piece is SMALLER' vs 'More pieces means each piece is BIGGER' vs 'They are the same.' Correct prediction + correct justification = a gold Fairness Seal.",
+  "mathAsPower": "The insight 'cutting the same whole into more parts makes each part smaller' becomes Reina's judicial superpower: after a few verified rounds, a 'Swift Judgment' mode lets her rule correctly BEFORE the pieces are compared, earning double seals for predicting from denominators alone (3 vs 4). The math replaces the need to measure.",
+  "stakes": "Each correct verdict feeds the caravan travelers fairly and adds a wagon to the caravan. Wrong verdicts leave a traveler grumbling with the smaller piece and stall the caravan at the crossroads.",
+  "consequences": "A wrong prediction isn't punished harshly: the tray comparison plays out anyway, visibly showing the 1/4 piece is smaller, and the narrator says 'Look, four cuts made skinnier pieces!' The round replays with a fresh whole so Reina re-judges with the evidence in mind.",
+  "recovery": "After any miss, an 'Overlay Lens' tool appears: it stacks the 1/3 piece directly on top of the 1/4 piece with the difference striped in red. Reina then re-stamps the justification card. Two assisted successes restore full seal value.",
+  "progression": [
+    "Round 1-3: Bars split into 3 vs 4; drag-and-compare with full visual verification before judging.",
+    "Round 4-6: Predict first, verify second; justification card required each time.",
+    "Round 7-8: Swift Judgment mode: rule from the numbers 1/3 vs 1/4 alone, verification shown only after the verdict.",
+    "Final Bonus Crossing: a parallel fresh dispute, 1/2 vs 1/5 over a licorice rope, judged with reasoning only, cementing 'more parts, smaller parts.'"
+  ],
+  "worldReaction": "Travelers cheer or grumble expressively; the caravan grows longer with each seal; a wise owl notary reads back Reina's chosen justification aloud ('More equal parts make smaller pieces, so one third is bigger!') so her reasoning is echoed by the world.",
+  "payoff": "The caravan reaches Festival Town where a banner unfurls: 'Reina, Fairness Judge, ruled 1/3 > 1/4 and proved it!' Her collected seals form a badge showing two bars with the principle written beneath.",
+  "replayVariation": "New whole types each playthrough (chocolate bars, licorice ropes, rows of gem counters), shuffled traveler characters, and randomized which side holds which fraction; Swift Judgment adds a timer-optional streak mode for Reina's love of rapid confident loops.",
+  "visualDirection": "Warm storybook caravan palette: amber wood, chocolate browns, festival reds; flat 2D vector characters with big expressive eyes; fraction pieces rendered chunky and glossy with clear equal-partition seams; comparison tray has bold left-alignment guide line.",
+  "motionDirection": "Snappy break-apart animation when wholes split; pieces glide with slight ease-out onto the tray; the larger piece gets a gentle scale-pulse when stamped; caravan wagons roll in with springy bounce on each seal earned.",
+  "soundDirection": "Satisfying chocolate-snap on partitioning, soft slide-whoosh on drag, a warm stamp-thunk for verdicts, celebratory tambourine jingle for correct reasoning, gentle 'hmm?' owl hoot on misses; light folk-guitar caravan loop underneath.",
+  "usefulLibraries": [
+    "PixiJS for performant 2D sprite rendering",
+    "GSAP for snap/slide/stamp animations",
+    "Howler.js for layered audio",
+    "interact.js for drag-and-drop"
+  ],
+  "engagementPrediction": "High: the loop mirrors the short, verifiable, mastery-oriented cycles Reina replays obsessively (spell-check), with visual comparison scanning akin to word-radar but lower frustration since verification is always available.",
+  "falsifyingEvidence": "If Reina passes the drag-compare rounds but fails Swift Judgment or picks correct verdicts with wrong justification cards more than ~30% of the time, she is reading piece sizes visually without internalizing the more-parts-smaller-pieces principle, falsifying the design's claim of conceptual mastery."
+}
+
+
+QUALITY REVIEW:
+{
+  "nodeId": "node_3_comparing_1_3_and_1_4",
+  "strongestQuality": "The predict–verify–justify structure is fully wired, with a working custom drag, justification stamps, seal counter, and owl echo of the reasoning.",
+  "usabilityIssues": [
+    "The comparison tray is positioned at top:470 inside a 380px-tall table, pushing the instructed drop target below the visible page so drags can never land.",
+    "Only the first piece of each bar is draggable, but nothing communicates this, so taps on the other pieces silently do nothing.",
+    "The ghost-hand demo animates toward the off-screen tray and is clipped at the bottom edge, demonstrating a gesture the player cannot complete."
+  ],
+  "visualIssues": [
+    "Piece seams are nearly invisible against the chocolate fill, so the badger bar reads as an unsplit whole rather than four equal parts.",
+    "A large empty band between the speech bubble and the table leaves the top half of the screen dead and weakens hierarchy.",
+    "Tray pieces are placed with staggered left offsets (10 + idx*10), breaking the promised left-edge alignment that makes the size comparison honest."
+  ],
+  "repairBrief": "Move the tray fully on-screen (e.g., top:170 within the table, between the two bars) and re-target the ghost-hand path to it. Snap both dropped pieces flush to the yellow guide line at identical left positions, stacked vertically, so the length difference is the only visible variable. Strengthen partition seams with a 4px light-cream gap so 3 vs 4 parts read instantly. Add a pulsing glow on the two pickable pieces and a one-line caption 'Take one piece from each bar.' Raise the bars slightly to close the dead space under the speech bubble."
+}
+
+EXISTING MOCK HTML:
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>The Chocolate Caravan: Biggest Piece Wins</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 0; overflow: hidden;
+    width: 1365px; height: 768px;
+    background: linear-gradient(180deg, #f4d9a0 0%, #e6b877 40%, #c98a4b 100%);
+    font-family: 'Trebuchet MS', Arial, sans-serif;
+    position: relative;
+    user-select: none;
+  }
+  #title {
+    text-align: center;
+    color: #5a3311;
+    font-size: 30px;
+    font-weight: bold;
+    text-shadow: 1px 1px 0 #fff4d6;
+    margin: 12px 0 0 0;
+  }
+  #speech {
+    position: absolute;
+    top: 60px; left: 50%; transform: translateX(-50%);
+    background: #fff8ec;
+    border: 3px solid #8a5a2b;
+    border-radius: 20px;
+    padding: 10px 24px;
+    font-size: 20px;
+    color: #4a2e10;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+    max-width: 600px;
+    text-align: center;
+  }
+  #table {
+    position: absolute;
+    bottom: 0; left: 0; width: 1365px; height: 380px;
+    background: repeating-linear-gradient(90deg, #a9702f, #a9702f 40px, #96601f 40px, #96601f 80px);
+    border-top: 6px solid #6b430f;
+  }
+  .traveler {
+    position: absolute;
+    top: 130px;
+    width: 140px; text-align: center;
+    font-size: 60px;
+  }
+  .traveler .label {
+    font-size: 16px;
+    color: #4a2e10;
+    font-weight: bold;
+    background: #fff8ec;
+    border-radius: 8px;
+    padding: 2px 6px;
+    margin-top: 4px;
+    display: inline-block;
+  }
+  #fox { left: 260px; }
+  #badger { left: 900px; }
+
+  .bar-zone {
+    position: absolute;
+    top: 260px;
+    width: 300px; height: 90px;
+  }
+  #fox-bar-zone { left: 130px; }
+  #badger-bar-zone { left: 770px; }
+
+  .bar {
+    position: relative;
+    width: 300px; height: 70px;
+    background: linear-gradient(180deg,#8a5223,#4a2a10);
+    border-radius: 10px;
+    box-shadow: inset 0 3px 6px rgba(255,255,255,0.3), 0 3px 6px rgba(0,0,0,0.4);
+    display: flex;
+  }
+  .piece {
+    height: 100%;
+    border-right: 2px solid rgba(0,0,0,0.4);
+    background: linear-gradient(180deg,#a8672e,#6b3c15);
+    position: relative;
+    cursor: grab;
+    box-shadow: inset 0 2px 4px rgba(255,255,255,0.4);
+  }
+  .piece:last-child { border-right: none; }
+  .piece.pickable {
+    outline: 3px dashed #ffd93b;
+    outline-offset: -3px;
+  }
+  .piece.dragging {
+    z-index: 50;
+    opacity: 0.9;
+  }
+
+  #tray {
+    position: absolute;
+    left: 480px; top: 470px;
+    width: 400px; height: 130px;
+    background: rgba(255,255,255,0.15);
+    border: 4px dashed #6b430f;
+    border-radius: 12px;
+  }
+  #tray-guide {
+    position: absolute;
+    left: 6px; top: 0; bottom: 0;
+    width: 3px;
+    background: #ffd93b;
+  }
+  #tray-label {
+    position: absolute;
+    top: -28px; left: 0; width: 100%;
+    text-align: center;
+    color: #4a2e10;
+    font-weight: bold;
+    font-size: 15px;
+  }
+  .tray-piece {
+    position: absolute;
+    top: 20px; left: 10px;
+    height: 60px;
+    background: linear-gradient(180deg,#a8672e,#6b3c15);
+    border-radius: 6px;
+    box-shadow: 0 3px 8px rgba(0,0,0,0.4);
+  }
+
+  #ghost-hand {
+    position: absolute;
+    font-size: 40px;
+    left: 300px; top: 320px;
+    pointer-events: none;
+    z-index: 100;
+    filter: drop-shadow(0 3px 4px rgba(0,0,0,0.4));
+  }
+
+  #stamp-area {
+    position: absolute;
+    top: 630px; left: 50%; transform: translateX(-50%);
+    display: none;
+    gap: 14px;
+    flex-direction: row;
+  }
+  .stamp-btn {
+    background: #fff8ec;
+    border: 3px solid #8a5a2b;
+    border-radius: 10px;
+    padding: 10px 18px;
+    font-size: 16px;
+    font-weight: bold;
+    color: #4a2e10;
+    cursor: pointer;
+    box-shadow: 0 3px 5px rgba(0,0,0,0.3);
+  }
+  .stamp-btn:hover { background: #ffe9c2; }
+
+  #result-banner {
+    position: absolute;
+    top: 300px; left: 50%; transform: translateX(-50%) scale(0.5);
+    opacity: 0;
+    background: #ffd93b;
+    border: 4px solid #a8671e;
+    border-radius: 16px;
+    padding: 18px 30px;
+    font-size: 26px;
+    font-weight: bold;
+    color: #4a2e10;
+    text-align: center;
+    box-shadow: 0 6px 14px rgba(0,0,0,0.4);
+    z-index: 200;
+  }
+
+  #owl {
+    position: absolute;
+    top: 20px; right: 30px;
+    font-size: 50px;
+  }
+  #owl-text {
+    position: absolute;
+    top: 25px; right: 100px;
+    max-width: 260px;
+    background: #fff8ec;
+    border: 2px solid #8a5a2b;
+    border-radius: 12px;
+    padding: 6px 10px;
+    font-size: 13px;
+    color: #4a2e10;
+    display: none;
+  }
+
+  #seal {
+    position: absolute;
+    top: 20px; left: 30px;
+    font-size: 20px;
+    color: #4a2e10;
+    font-weight: bold;
+  }
+</style>
+</head>
+<body>
+
+<div id="title">🍫 The Chocolate Caravan: Biggest Piece Wins</div>
+<div id="seal">🏅 Seals: <span id="seal-count">0</span></div>
+<div id="speech">You are the Fairness Judge! The fox cut a bar into 3 pieces, the badger into 4. Whose piece is BIGGER? Drag a piece down to the tray to find out!</div>
+
+<div id="owl">🦉</div>
+<div id="owl-text" id="owl-msg"></div>
+
+<div id="table">
+  <div class="traveler" id="fox">🦊<div class="label">3 pieces</div></div>
+  <div class="traveler" id="badger">🦡<div class="label">4 pieces</div></div>
+
+  <div class="bar-zone" id="fox-bar-zone">
+    <div class="bar" id="fox-bar"></div>
+  </div>
+  <div class="bar-zone" id="badger-bar-zone">
+    <div class="bar" id="badger-bar"></div>
+  </div>
+
+  <div id="tray">
+    <div id="tray-label">Comparison Tray</div>
+    <div id="tray-guide"></div>
+  </div>
+
+  <div id="ghost-hand">👆</div>
+</div>
+
+<div id="stamp-area">
+  <button class="stamp-btn" data-choice="smaller">More pieces = SMALLER piece</button>
+  <button class="stamp-btn" data-choice="bigger">More pieces = BIGGER piece</button>
+  <button class="stamp-btn" data-choice="same">They are the SAME</button>
+</div>
+
+<div id="result-banner"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+<script>
+const foxBar = document.getElementById('fox-bar');
+const badgerBar = document.getElementById('badger-bar');
+const tray = document.getElementById('tray');
+const ghostHand = document.getElementById('ghost-hand');
+const stampArea = document.getElementById('stamp-area');
+const resultBanner = document.getElementById('result-banner');
+const owlText = document.getElementById('owl-msg');
+const sealCountEl = document.getElementById('seal-count');
+let sealCount = 0;
+let trayPieces = []; // track which pieces placed
+let draggedFrom = null;
+let roundLocked = false;
+
+// Build pieces
+function buildBar(bar, count, isFox) {
+  bar.innerHTML = '';
+  const widthPercent = 100 / count;
+  for (let i = 0; i < count; i++) {
+    const p = document.createElement('div');
+    p.className = 'piece';
+    p.style.width = widthPercent + '%';
+    p.dataset.index = i;
+    p.dataset.owner = isFox ? 'fox' : 'badger';
+    p.dataset.denom = count;
+    bar.appendChild(p);
+  }
+}
+buildBar(foxBar, 3, true);
+buildBar(badgerBar, 4, false);
+
+// snap animation on load
+gsap.from('#fox-bar .piece', {scale: 0.3, opacity:0, stagger:0.08, duration:0.4, ease:'back.out(2)'});
+gsap.from('#badger-bar .piece', {scale: 0.3, opacity:0, stagger:0.08, duration:0.4, ease:'back.out(2)', delay:0.3});
+
+// Mark one pickable piece on each bar (first piece)
+function markPickable() {
+  document.querySelectorAll('.piece').forEach(p => p.classList.remove('pickable'));
+  foxBar.children[0].classList.add('pickable');
+  badgerBar.children[0].classList.add('pickable');
+}
+markPickable();
+
+// Ghost hand demo animation
+function playGhostDemo() {
+  const foxPiece = foxBar.children[0];
+  const rect = foxPiece.getBoundingClientRect();
+  gsap.set(ghostHand, {x: rect.left - 260, y: rect.top - 280, opacity:1});
+  gsap.to(ghostHand, {
+    x: rect.left - 260 + 220, y: rect.top - 280 + 210,
+    duration: 1.4, delay: 0.6, ease:'power1.inOut',
+    onComplete: () => {
+      gsap.to(ghostHand, {opacity:0, duration:0.4, delay:0.3});
+    }
+  });
+}
+setTimeout(playGhostDemo, 900);
+
+// Drag setup (mouse + touch, simplified custom drag)
+let dragEl = null;
+let offsetX=0, offsetY=0;
+
+function startDrag(e, piece) {
+  if (roundLocked) return;
+  if (trayPieces.find(tp => tp.owner === piece.dataset.owner)) return; // already placed
+  e.preventDefault();
+  dragEl = piece.cloneNode(true);
+  dragEl.classList.add('dragging');
+  dragEl.style.position = 'fixed';
+  dragEl.style.width = piece.offsetWidth + 'px';
+  dragEl.style.height = piece.offsetHeight + 'px';
+  document.body.appendChild(dragEl);
+  const rect = piece.getBoundingClientRect();
+  offsetX = (e.touches ? e.touches[0].clientX : e.clientX) - rect.left;
+  offsetY = (e.touches ? e.touches[0].clientY : e.clientY) - rect.top;
+  dragEl.style.left = rect.left + 'px';
+  dragEl.style.top = rect.top + 'px';
+  dragEl.dataset.owner = piece.dataset.owner;
+  dragEl.dataset.denom = piece.dataset.denom;
+
+  function move(ev) {
+    const cx = ev.touches ? ev.touches[0].clientX : ev.clientX;
+    const cy = ev.touches ? ev.touches[0].clientY : ev.clientY;
+    dragEl.style.left = (cx - offsetX) + 'px';
+    dragEl.style.top = (cy - offsetY) + 'px';
+  }
+  function up(ev) {
+    document.removeEventListener('mousemove', move);
+    document.removeEventListener('touchmove', move);
+    document.removeEventListener('mouseup', up);
+    document.removeEventListener('touchend', up);
+    handleDrop(dragEl);
+  }
+  document.addEventListener('mousemove', move);
+  document.addEventListener('touchmove', move, {passive:false});
+  document.addEventListener('mouseup', up);
+  document.addEventListener('touchend', up);
+}
+
+foxBar.addEventListener('mousedown', e => { if(e.target.classList.contains('pickable')) startDrag(e, e.target); });
+foxBar.addEventListener('touchstart', e => { if(e.target.classList.contains('pickable')) startDrag(e, e.target); }, {passive:false});
+badgerBar.addEventListener('mousedown', e => { if(e.target.classList.contains('pickable')) startDrag(e, e.target); });
+badgerBar.addEventListener('touchstart', e => { if(e.target.classList.contains('pickable')) startDrag(e, e.target); }, {passive:false});
+
+function handleDrop(el) {
+  const trayRect = tray.getBoundingClientRect();
+  const elRect = el.getBoundingClientRect();
+  const overlap = !(elRect.right < trayRect.left || elRect.left > trayRect.right ||
+                     elRect.bottom < trayRect.top || elRect.top > trayRect.bottom);
+  if (overlap) {
+    placeOnTray(el.dataset.owner, parseInt(el.dataset.denom));
+  }
+  el.remove();
+}
+
+function placeOnTray(owner, denom) {
+  if (trayPieces.find(tp => tp.owner === owner)) return;
+  // full-length reference: fraction of tray width (scaled up for visibility)
+  const trayWidth = 360;
+  const fullPieceWidth = trayWidth / denom * 1.4; // scale up relative to actual 1/denom of a bar of length trayWidth*denom/... simplified proportional
+  const pieceWidth = (trayWidth) / denom + 40; // visually proportional to 1/denom
+  const tp = document.createElement('div');
+  tp.className = 'tray-piece';
+  const idx = trayPieces.length;
+  tp.style.width = (300/denom) + 'px';
+  tp.style.left = (10 + idx*10) + 'px';
+  tp.style.top = idx === 0 ? '20px' : '55px';
+  tp.dataset.owner = owner;
+  tp.dataset.denom = denom;
+  tray.appendChild(tp);
+  trayPieces.push({owner, denom, el: tp});
+  gsap.from(tp, {x: owner==='fox' ? -150: 150, duration:0.6, ease:'power2.out'});
+
+  // mark corresponding remaining piece un-pickable
+  document.querySelector(`.piece[data-owner="${owner}"].pickable`)?.classList.remove('pickable');
+
+  if (trayPieces.length === 2) {
+    setTimeout(showTapPrompt, 500);
+  }
+}
+
+function showTapPrompt() {
+  document.getElementById('speech').textContent = "Now tap the piece you think is BIGGER!";
+  trayPieces.forEach(tp => {
+    tp.el.style.cursor = 'pointer';
+    tp.el.addEventListener('click', () => onJudgeTap(tp.owner));
+  });
+}
+
+let judgedOwner = null;
+function onJudgeTap(owner) {
+  if (roundLocked) return;
+  roundLocked = true;
+  judgedOwner = owner;
+  trayPieces.forEach(tp => {
+    if (tp.owner === owner) {
+      gsap.to(tp.el, {scale:1.2, duration:0.3, yoyo:true, repeat:1, ease:'power1.inOut'});
+    }
+  });
+  document.getElementById('speech').textContent = "Now stamp your justification!";
+  stampArea.style.display = 'flex';
+}
+
+stampArea.addEventListener('click', (e) => {
+  if (!e.target.classList.contains('stamp-btn')) return;
+  const choice = e.target.dataset.choice;
+  evaluateRound(choice);
+});
+
+function evaluateRound(choice) {
+  stampArea.style.display = 'none';
+  const correctOwner = 'fox'; // 1/3 > 1/4
+  const predictedCorrect = judgedOwner === correctOwner;
+  const justificationCorrect = choice === 'smaller';
+
+  if (predictedCorrect && justificationCorrect) {
+    sealCount++;
+    sealCountEl.textContent = sealCount;
+    showBanner("✅ Gold Fairness Seal!\n1/3 > 1/4 — more pieces means smaller pieces!", '#ffd93b');
+    owlSay("More equal parts make smaller pieces, so one third is bigger!");
+  } else {
+    showBanner("🦉 Hmm... let's look closer!", '#f2b6b6');
+    owlSay("Look — four cuts made skinnier pieces! Three pieces are each bigger.");
+  }
+
+  setTimeout(() => resetRound(), 2600);
+}
+
+function showBanner(text, color) {
+  resultBanner.style.background = color;
+  resultBanner.textContent = text;
+  gsap.fromTo(resultBanner, {opacity:0, scale:0.5}, {opacity:1, scale:1, duration:0.4, ease:'back.out(2)'});
+  gsap.to(resultBanner, {opacity:0, scale:0.5, duration:0.4, delay:2.0});
+}
+
+function owlSay(msg) {
+  owlText.textContent = msg;
+  owlText.style.display = 'block';
+  setTimeout(() => owlText.style.display = 'none', 3200);
+}
+
+function resetRound() {
+  roundLocked = false;
+  trayPieces.forEach(tp => tp.el.remove());
+  trayPieces = [];
+  judgedOwner = null;
+  buildBar(foxBar, 3, true);
+  buildBar(badgerBar, 4, false);
+  gsap.from('#fox-bar .piece', {scale: 0.3, opacity:0, stagger:0.08, duration:0.4, ease:'back.out(2)'});
+  gsap.from('#badger-bar .piece', {scale: 0.3, opacity:0, stagger:0.08, duration:0.4, ease:'back.out(2)', delay:0.2});
+  markPickable();
+  document.getElementById('speech').textContent = "Drag a piece from each traveler to the Comparison Tray!";
+}
+</script>
+</body>
+</html>

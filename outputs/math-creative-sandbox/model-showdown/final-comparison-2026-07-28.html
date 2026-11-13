@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Caravan Rush — Four Model Comparison</title>
+  <style>
+    *{box-sizing:border-box}body{margin:0;padding:24px;background:#0c1020;color:#f5f0df;font:16px system-ui}
+    h1{margin:0 0 6px}.summary{margin:0 0 24px;color:#aeb9d3}
+    .grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px}
+    article,section{background:#171d31;border:1px solid #35405d;border-radius:18px;overflow:hidden}
+    header{padding:15px 18px}h2{margin:0 0 5px}header p{margin:0 0 8px;color:#aeb9d3;font-size:13px}
+    a{color:#80d8ff}iframe{display:block;width:100%;aspect-ratio:1365/768;border:0;background:white}
+    section{margin-top:26px;padding:20px;overflow:auto}table{width:100%;border-collapse:collapse}
+    th,td{border:1px solid #45506b;padding:9px;text-align:left}textarea{width:100%;min-height:130px;background:#0c1020;color:white;border:1px solid #45506b;border-radius:10px;padding:12px}
+    @media(max-width:1000px){.grid{grid-template-columns:1fr}}
+  </style>
+</head>
+<body>
+  <h1>Frozen Caravan Rush Artifact — Model Showdown</h1>
+  <p class="summary">The same artifact and prompt produced all four experiences. There was no quality harness, repair, or automatic ranking.</p>
+  <main class="grid">
+    <article>
+      <header><h2>Claude Sonnet 5</h2><p>121.9s · 15,344 output tokens · $0.158</p><a href="./2026-07-28T19-03-17-067Z/sonnet-5/experience.html" target="_blank">Open alone</a></header>
+      <iframe title="Claude Sonnet 5" src="./2026-07-28T19-03-17-067Z/sonnet-5/experience.html" sandbox="allow-scripts allow-same-origin" allow="autoplay; fullscreen"></iframe>
+    </article>
+    <article>
+      <header><h2>Claude Opus 5</h2><p>237.6s · 22,545 output tokens · $0.575</p><a href="./2026-07-28T19-03-17-067Z/opus-5/experience.html" target="_blank">Open alone</a></header>
+      <iframe title="Claude Opus 5" src="./2026-07-28T19-03-17-067Z/opus-5/experience.html" sandbox="allow-scripts allow-same-origin" allow="autoplay; fullscreen"></iframe>
+    </article>
+    <article>
+      <header><h2>GPT-5.6 Sol</h2><p>291.5s · 19,895 output tokens · $0.604</p><a href="./2026-07-28T18-05-10-185Z/gpt-5-6-sol/experience.html" target="_blank">Open alone</a></header>
+      <iframe title="GPT-5.6 Sol" src="./2026-07-28T18-05-10-185Z/gpt-5-6-sol/experience.html" sandbox="allow-scripts allow-same-origin" allow="autoplay; fullscreen"></iframe>
+    </article>
+    <article>
+      <header><h2>Claude Fable 5</h2><p>129.1s · 11,286 output tokens · $0.588</p><a href="./2026-07-28T19-14-12-574Z/fable-5/experience.html" target="_blank">Open alone</a></header>
+      <iframe title="Claude Fable 5" src="./2026-07-28T19-14-12-574Z/fable-5/experience.html" sandbox="allow-scripts allow-same-origin" allow="autoplay; fullscreen"></iframe>
+    </article>
+  </main>
+  <section>
+    <h2>Human scorecard</h2>
+    <table>
+      <thead><tr><th>Dimension</th><th>Sonnet</th><th>Opus</th><th>GPT-5.6</th><th>Fable</th></tr></thead>
+      <tbody>
+        <tr><th>First-action clarity</th><td></td><td></td><td></td><td></td></tr>
+        <tr><th>Visual quality</th><td></td><td></td><td></td><td></td></tr>
+        <tr><th>Interaction quality</th><td></td><td></td><td></td><td></td></tr>
+        <tr><th>Math integration</th><td></td><td></td><td></td><td></td></tr>
+        <tr><th>Progression and payoff</th><td></td><td></td><td></td><td></td></tr>
+        <tr><th>Functionality</th><td></td><td></td><td></td><td></td></tr>
+        <tr><th>Desire to replay</th><td></td><td></td><td></td><td></td></tr>
+        <tr><th>Overall</th><td></td><td></td><td></td><td></td></tr>
+      </tbody>
+    </table>
+    <h3>Final ranking and notes</h3>
+    <textarea placeholder="1. ...&#10;2. ...&#10;3. ...&#10;4. ..."></textarea>
+  </section>
+</body>
+</html>

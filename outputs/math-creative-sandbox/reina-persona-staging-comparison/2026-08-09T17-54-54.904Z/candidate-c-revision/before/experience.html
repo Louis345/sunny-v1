@@ -1,0 +1,1179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=1365, height=768, initial-scale=1">
+<meta name="upstream-hash" content="d92f1d990c53245675adb83d1ab739b3b659c0a116902b736340201349b89302">
+<meta name="artifact" content="experience:reina-g3-multiplication:experience-engineer:v1">
+<title>The Signal Tower — Seven Rooms of the Grid Machine</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;background:#04090d;overflow:hidden;font-family:"Trebuchet MS","Segoe UI",system-ui,sans-serif;color:#eee2cc;user-select:none}
+#fit{position:absolute;inset:0;display:grid;place-items:center}
+#stage{width:1365px;height:768px;position:relative;overflow:hidden;transform-origin:center center;
+  background:radial-gradient(120% 90% at 20% 20%,#12303c 0%,#0a1a22 55%,#050d12 100%)}
+#stage.dawn{background:radial-gradient(120% 90% at 20% 20%,#2b2436 0%,#14202c 55%,#070d14 100%)}
+#stage.storm{background:radial-gradient(120% 90% at 20% 20%,#16323a 0%,#0d1a1e 55%,#04090c 100%)}
+button{font-family:inherit;color:inherit;background:none;border:none;cursor:pointer}
+.hidden{display:none !important}
+
+/* ---------- LEFT PANEL ---------- */
+#left{position:absolute;left:0;top:0;width:819px;height:768px;padding:16px 18px;display:flex;flex-direction:column;gap:9px}
+#hdr{display:flex;align-items:baseline;gap:14px;height:34px;flex:0 0 auto}
+#phase{font-size:14px;letter-spacing:3px;color:#c9922e;text-transform:uppercase;font-weight:700}
+#roomTitle{font-size:20px;color:#f4e9d2;font-weight:700}
+#prompt{flex:0 0 auto;min-height:58px;font-size:19px;line-height:1.32;color:#f2e7d1;border-left:4px solid #c9922e;padding:4px 0 4px 12px}
+#prompt b{color:#ffcd7a}
+#work{flex:1 1 auto;position:relative;background:rgba(255,255,255,.028);border:1px solid rgba(201,146,46,.22);border-radius:14px;padding:12px 14px;overflow:hidden}
+#footer{flex:0 0 auto;height:128px;display:grid;grid-template-columns:168px 1fr 208px;gap:12px}
+
+#intercomBtn{width:100%;height:100%;border:2px solid rgba(201,146,46,.45);border-radius:12px;background:linear-gradient(#13272f,#0d1d24);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;font-size:14px;letter-spacing:2px;color:#d9c393;transition:.15s}
+#intercomBtn:hover{border-color:#ffb545;color:#ffd79a}
+#intercomBtn small{font-size:12px;letter-spacing:0;color:#9db0b8;text-transform:none}
+.speaker{width:44px;height:26px;border-radius:5px;background:repeating-linear-gradient(90deg,#2a3d45 0 3px,#16262d 3px 6px);border:1px solid #3d545e}
+#intercomBtn.pulse{animation:softpulse 2s ease-in-out 3}
+@keyframes softpulse{0%,100%{box-shadow:0 0 0 rgba(255,181,69,0)}50%{box-shadow:0 0 20px rgba(255,181,69,.45)}}
+
+#plate{border-radius:12px;padding:11px 14px;font-size:17px;line-height:1.3;overflow:hidden;
+  background:linear-gradient(160deg,#3a3020,#241d12);border:2px solid #6b5527;color:#d9c9a5;display:flex;align-items:center}
+#plate.good{background:linear-gradient(160deg,#c9922e,#8a6218);border-color:#ffd79a;color:#1c1305;font-weight:600;box-shadow:0 0 24px rgba(255,181,69,.35)}
+#plate.fault{background:linear-gradient(160deg,#2c3238,#1b2126);border-color:#5d6e78;color:#d4dde2}
+#plate.nudge{border-color:#c9922e;color:#f0dfb6}
+
+#send{width:100%;height:100%;border-radius:14px;border:2px solid #8a6a26;background:linear-gradient(#c9922e,#8a5f18);
+  color:#1a1208;font-size:25px;font-weight:800;letter-spacing:2px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;transition:.12s}
+#send .knob{width:54px;height:12px;border-radius:6px;background:#4a3714;box-shadow:inset 0 2px 0 rgba(255,255,255,.25)}
+#send.ready{box-shadow:0 0 26px rgba(255,181,69,.55)}
+#send:active{transform:translateY(3px)}
+#send.next{background:linear-gradient(#8fd07f,#3f8a48);border-color:#2f6b36;color:#06210c;font-size:20px}
+
+/* hint panel */
+#hintPanel{position:absolute;left:18px;bottom:150px;width:430px;max-height:330px;z-index:40;
+  background:linear-gradient(#132a33,#0c1b22);border:2px solid #c9922e;border-radius:14px;padding:12px;box-shadow:0 12px 40px rgba(0,0,0,.6);display:flex;flex-direction:column;gap:8px}
+.hp-head{display:flex;justify-content:space-between;align-items:center;font-size:13px;letter-spacing:2px;color:#c9922e}
+#hintClose{font-size:13px;color:#9db0b8;border:1px solid #3d545e;border-radius:6px;padding:4px 9px}
+#hintList{overflow:auto;display:flex;flex-direction:column;gap:7px;max-height:190px}
+.hintItem{font-size:16px;line-height:1.28;background:rgba(255,255,255,.05);border-left:3px solid #ffb545;padding:7px 9px;border-radius:6px}
+.hintItem .hn{font-size:11px;letter-spacing:2px;color:#c9922e;display:block;margin-bottom:2px}
+#hintMore{min-height:52px;border-radius:10px;border:2px solid #c9922e;background:rgba(201,146,46,.16);font-size:16px;color:#ffd79a}
+#hintMore[disabled]{opacity:.45;border-color:#5d6e78;color:#9db0b8;cursor:default}
+
+/* ---------- RIGHT PANEL / TOWER ---------- */
+#right{position:absolute;left:819px;top:0;width:546px;height:768px;padding:14px 16px;display:flex;flex-direction:column;gap:8px}
+#deck{height:52px;border-radius:12px 12px 4px 4px;border:2px solid rgba(201,146,46,.35);background:linear-gradient(#122a33,#0b1c23);
+  display:flex;align-items:center;justify-content:center;gap:12px;font-size:13px;letter-spacing:4px;color:#7d9099;position:relative;overflow:hidden}
+#deck.armed{color:#ffd79a;border-color:#ffb545;box-shadow:0 0 30px rgba(255,181,69,.4)}
+#towerBody{flex:1 1 auto;display:flex;gap:8px;min-height:0}
+#voltWrap{width:18px;border-radius:9px;border:1px solid rgba(201,146,46,.35);background:#0a1a20;position:relative;overflow:hidden;display:flex;align-items:flex-end}
+#voltFill{width:100%;height:0;background:linear-gradient(#ffd79a,#c9922e);transition:height .7s ease}
+#roomsCol{flex:1 1 auto;display:flex;flex-direction:column-reverse;gap:7px;min-height:0}
+.room{flex:1 1 0;min-height:0;border:2px solid rgba(201,146,46,.22);border-radius:10px;background:linear-gradient(#0c1d24,#091820);
+  display:grid;grid-template-columns:1fr 82px;grid-template-rows:auto 1fr;column-gap:6px;padding:5px 8px;position:relative;transition:border-color .3s,box-shadow .4s,background .4s}
+.room .pilot{position:absolute;left:-1px;top:50%;transform:translateY(-50%);width:6px;height:22px;border-radius:3px;background:#243740}
+.room.active .pilot{background:#ffb545;animation:blink 1.15s ease-in-out infinite}
+@keyframes blink{0%,100%{opacity:.25}50%{opacity:1}}
+.rname{font-size:12.5px;letter-spacing:1.5px;color:#7d9099;text-transform:uppercase}
+.room.lit .rname{color:#ffd79a}
+.rstruct{font-size:13px;color:#b9a679;min-height:15px}
+.machinery{grid-column:1;grid-row:2;display:flex;gap:4px;align-items:center;flex-wrap:wrap;align-content:center}
+.unit{width:21px;height:21px;border-radius:50%;border:2px dashed #6b7f88;color:#a9bcc4;font-size:10px;display:grid;place-items:center;background:#0f2129}
+.room.running .unit{animation:spin 1.1s linear infinite;border-color:#ffb545;color:#ffd79a}
+.room.lit .unit{animation:spin 3.4s linear infinite;border-color:#c9922e;color:#ffd79a;background:#25190a}
+.room.stall .unit{animation:none;border-style:solid;border-color:#5d6e78;color:#7d9099}
+@keyframes spin{to{transform:rotate(360deg)}}
+.dialbox{grid-column:2;grid-row:1/3;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px}
+.dnum{font-size:13px;color:#b9a679;letter-spacing:1px}
+.room.lit .dnum{color:#ffd79a;font-weight:700}
+.needle{transform-origin:35px 38px;transition:transform .75s cubic-bezier(.2,1.5,.4,1)}
+.room.lit{border-color:#c9922e;background:linear-gradient(#241a09,#14100a);box-shadow:0 0 26px rgba(255,181,69,.22) inset,0 0 14px rgba(255,181,69,.14)}
+.room.stall{animation:shake .5s}
+@keyframes shake{0%,100%{transform:translateX(0)}20%{transform:translateX(-5px)}40%{transform:translateX(5px)}60%{transform:translateX(-3px)}80%{transform:translateX(3px)}}
+.room.surge{box-shadow:0 0 40px rgba(255,220,150,.85);border-color:#fff0cf}
+#base{height:34px;border-radius:4px 4px 12px 12px;border:2px solid rgba(201,146,46,.3);background:linear-gradient(#0f232b,#0a181e);
+  display:flex;align-items:center;justify-content:center;font-size:12px;letter-spacing:4px;color:#7d9099}
+#base.on{color:#ffd79a;border-color:#c9922e;box-shadow:0 0 20px rgba(255,181,69,.3)}
+#cableLayer{position:absolute;inset:0;pointer-events:none;z-index:25}
+
+/* ---------- SHARED WORKSPACE PIECES ---------- */
+.wsplit{display:flex;gap:14px;height:100%}
+.col{display:flex;flex-direction:column;gap:9px;min-width:0}
+.stitle{font-size:13.5px;letter-spacing:2px;color:#c9922e;text-transform:uppercase}
+.cap{font-size:15px;color:#bccad0}
+.groupsView{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-start}
+.gbox{border:2px solid rgba(201,146,46,.6);border-radius:12px;background:rgba(201,146,46,.07);padding:8px 8px 17px;position:relative;
+  display:flex;flex-wrap:wrap;gap:5px;align-content:flex-start;justify-content:center}
+.gbox.hl{border-color:#ffb545;background:rgba(255,181,69,.2);box-shadow:0 0 18px rgba(255,181,69,.4)}
+.glab{position:absolute;bottom:2px;left:0;right:0;text-align:center;font-size:11px;color:#c9a86a;letter-spacing:.5px}
+.token{border-radius:50%;background:#e0563f;flex:0 0 auto}
+.t-apple{background:linear-gradient(#ffe08a,#e5a53f);border:1px solid #a9701f;border-radius:52% 52% 44% 44%}
+.t-button{background:#6fc7d8;box-shadow:inset 0 0 0 3px rgba(0,0,0,.22)}
+.t-plain{background:#e8934a}
+.t-seed{background:#7ecf6d;border-radius:50% 50% 50% 2px}
+.t-mug{background:#efe9d8;border-radius:4px}
+.t-bolt{background:#cfd6d9;border-radius:3px;box-shadow:inset 0 0 0 2px rgba(0,0,0,.2)}
+.t-bead{background:#d982e0}
+.arrView{display:inline-flex;flex-direction:column;gap:3px;background:rgba(255,255,255,.03);padding:6px;border-radius:10px}
+.arow{display:flex;gap:3px;padding:2px;border-radius:5px}
+.arow:nth-child(odd){background:rgba(201,146,46,.14)}
+.arow:nth-child(even){background:rgba(201,146,46,.05)}
+.arow.hl{background:rgba(255,181,69,.4)}
+.cell{display:grid;place-items:center}
+.cell.hl{background:rgba(255,181,69,.4);border-radius:4px}
+.labwrap{display:inline-grid;grid-template-columns:auto auto;gap:4px;align-items:start}
+.collabs{grid-column:2;display:flex;gap:3px;padding:0 6px;visibility:hidden}
+.collabs span{text-align:center;font-size:11px;color:#c9a86a}
+.rowlabs{grid-column:1;display:flex;flex-direction:column;gap:3px;padding:6px 0;visibility:hidden}
+.rowlabs span{display:flex;align-items:center;justify-content:flex-end;font-size:11px;color:#c9a86a}
+.labwrap.on .collabs,.labwrap.on .rowlabs{visibility:visible}
+
+.optRow{display:flex;gap:10px;flex-wrap:wrap}
+.opt{flex:1 1 0;min-width:168px;min-height:92px;border:2px solid rgba(201,146,46,.45);border-radius:12px;
+  background:linear-gradient(#15303a,#0f242e);padding:11px;font-size:16.5px;line-height:1.25;text-align:left;transition:.14s;position:relative}
+.opt:hover{border-color:#ffb545}
+.opt.sel{background:linear-gradient(#4a3413,#2b1f0c);border-color:#ffb545;box-shadow:0 0 20px rgba(255,181,69,.4)}
+.opt .cno{position:absolute;top:5px;right:9px;font-size:11px;color:#c9922e;letter-spacing:1px}
+.btn{min-height:48px;border:2px solid rgba(201,146,46,.5);border-radius:10px;background:rgba(201,146,46,.13);padding:8px 14px;font-size:16px;color:#f2e2c0;transition:.14s}
+.btn:hover{border-color:#ffb545;background:rgba(255,181,69,.2)}
+.btn.small{min-height:38px;font-size:14px;padding:5px 10px}
+
+/* tiles + slots */
+.bank{display:flex;gap:8px;flex-wrap:wrap}
+.tile{min-width:56px;height:56px;padding:0 12px;border-radius:10px;border:2px solid #8a6a26;background:linear-gradient(#e2b25c,#b8862a);
+  color:#201606;font-size:25px;font-weight:800;display:grid;place-items:center;touch-action:none;transition:.12s}
+.tile.picked{box-shadow:0 0 20px rgba(255,181,69,.8);transform:translateY(-3px)}
+.tile.small{min-width:46px;height:46px;font-size:21px}
+.eqframe{display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+.slot{min-width:78px;height:74px;border-radius:10px;border:2px dashed rgba(201,146,46,.6);background:rgba(255,255,255,.04);
+  display:grid;place-items:center;font-size:27px;font-weight:800;color:#ffd79a;position:relative;padding-top:8px}
+.slot .slab{position:absolute;top:3px;left:0;right:0;text-align:center;font-size:10px;letter-spacing:.5px;color:#a08a5c}
+.slot.filled{border-style:solid;border-color:#c9922e;background:linear-gradient(#e2b25c,#b8862a);color:#201606}
+.slot.filled .slab{color:#5c4515}
+.slot.over{border-color:#ffb545;background:rgba(255,181,69,.25)}
+.slot.bad{animation:shake .4s}
+.eqfixed{font-size:29px;font-weight:800;color:#c9922e}
+.ghostTile{position:absolute;z-index:60;pointer-events:none;opacity:.92}
+.pbank{border:2px solid rgba(201,146,46,.4);border-radius:12px;padding:9px;display:flex;flex-direction:column;gap:7px;background:rgba(255,255,255,.03)}
+.pbank.locked{opacity:.55;border-style:dashed}
+.pbank .plabel{font-size:12.5px;letter-spacing:1.5px;color:#c9922e;display:flex;align-items:center;gap:7px}
+.plug{width:26px;height:12px;border-radius:3px;border:2px solid #6b7f88;position:relative}
+.pbank.unlocked .plug{border-color:#ffb545;background:#ffb545}
+.pbank.locked .pnote{font-size:13px;color:#9db0b8}
+.pbank .prow{display:flex;gap:8px;flex-wrap:wrap}
+.ptile{min-width:74px;height:64px;border-radius:10px;border:2px solid #8a6a26;background:linear-gradient(#15303a,#0f242e);color:#ffd79a;font-size:24px;font-weight:800;display:grid;place-items:center}
+.pbank.locked .ptile{cursor:default;border-color:#4a5a63;color:#7d9099;background:#0d1a20}
+.ptile.sel{background:linear-gradient(#e2b25c,#b8862a);color:#201606;border-color:#ffd79a;box-shadow:0 0 18px rgba(255,181,69,.5)}
+
+/* group builder */
+.builder{display:flex;flex-wrap:wrap;gap:8px;align-content:flex-start}
+.gcard{width:96px;border:2px solid rgba(201,146,46,.55);border-radius:11px;background:rgba(201,146,46,.07);position:relative;overflow:hidden}
+.gcard.sel{border-color:#ffb545;box-shadow:0 0 16px rgba(255,181,69,.35)}
+.gcard .ghead{height:22px;display:flex;align-items:center;justify-content:space-between;padding:0 5px;background:rgba(201,146,46,.2);font-size:11.5px;color:#f0dcae}
+.gcard .gcount{font-weight:800;color:#fff0cf}
+.gcard .gbody{min-height:58px;display:flex;flex-wrap:wrap;gap:4px;justify-content:center;align-content:center;padding:6px 4px}
+.gminus{position:absolute;right:2px;bottom:2px;width:26px;height:22px;border-radius:6px;background:rgba(0,0,0,.35);color:#e9d6a8;font-size:16px;display:grid;place-items:center}
+.gx{position:absolute;left:2px;bottom:2px;width:26px;height:22px;border-radius:6px;background:rgba(0,0,0,.35);color:#c0b191;font-size:13px;display:grid;place-items:center}
+.addcard{width:96px;min-height:86px;border:2px dashed rgba(201,146,46,.6);border-radius:11px;display:grid;place-items:center;font-size:14px;color:#d5bf8d;text-align:center;line-height:1.2}
+.addcard:hover{border-color:#ffb545;background:rgba(255,181,69,.1)}
+
+/* array builder */
+.abWrap{position:relative;display:inline-block;padding:4px}
+.abGrid{display:grid;position:relative;background:rgba(255,255,255,.03);border-radius:8px;touch-action:none}
+.abCell{border:1px dashed rgba(201,146,46,.18);display:grid;place-items:center}
+.abCell.on{background:rgba(201,146,46,.16);border-color:rgba(201,146,46,.5)}
+.abCell.ghost .token{opacity:.28}
+.abHandle{position:absolute;width:34px;height:34px;border-radius:50%;background:linear-gradient(#ffd79a,#c9922e);border:2px solid #8a6a26;
+  display:grid;place-items:center;color:#2a1c06;font-size:16px;font-weight:800;touch-action:none;transform:translate(-50%,-50%);box-shadow:0 0 16px rgba(255,181,69,.5);z-index:5}
+.readout{font-size:19px;color:#ffd79a;font-weight:700;letter-spacing:.5px}
+.readout small{color:#a9bcc4;font-weight:400;font-size:14px}
+.stepper{display:flex;gap:6px;align-items:center;font-size:14px;color:#bccad0}
+.stepper button{width:40px;height:40px;border-radius:8px;border:2px solid rgba(201,146,46,.5);font-size:19px;color:#f0dcae;background:rgba(201,146,46,.12)}
+.strip{display:flex;gap:7px;flex-wrap:wrap;align-items:center}
+.strip .sc{min-width:52px;height:40px;border-radius:8px;background:rgba(255,181,69,.16);border:1px solid #c9922e;display:grid;place-items:center;font-size:17px;color:#ffd79a}
+.strip .sc.in{animation:pop .3s}
+@keyframes pop{from{transform:scale(.6);opacity:0}to{transform:scale(1);opacity:1}}
+.twinbox{display:flex;gap:14px;align-items:flex-start}
+.twin{border:2px solid rgba(201,146,46,.4);border-radius:12px;padding:9px;background:rgba(255,255,255,.03);display:flex;flex-direction:column;gap:6px;align-items:center}
+.twin .tlab{font-size:14px;color:#d9c393;text-align:center}
+.twin .tdial{font-size:22px;font-weight:800;color:#ffd79a}
+
+/* orientation */
+.orient{height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px}
+#breakerBtn{width:330px;height:150px;border-radius:16px;border:3px solid #c9922e;background:linear-gradient(#15303a,#0d222b);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;font-size:19px;letter-spacing:2px;color:#ffd79a}
+#breakerBtn .bk{width:70px;height:34px;border-radius:8px;background:#3d545e;position:relative;transition:.25s}
+#breakerBtn .bk::after{content:"";position:absolute;left:4px;top:4px;width:26px;height:26px;border-radius:6px;background:#c9c2b0;transition:.25s}
+#breakerBtn.on .bk{background:#c9922e}
+#breakerBtn.on .bk::after{left:38px;background:#fff0cf}
+.ocap{font-size:19px;line-height:1.35;max-width:640px;text-align:center;color:#f2e7d1;min-height:56px}
+.ocap b{color:#ffcd7a}
+.demoRow{display:flex;gap:14px;justify-content:center}
+.demo{width:206px;height:132px;border:1px dashed rgba(201,146,46,.4);border-radius:12px;position:relative;overflow:hidden;background:rgba(255,255,255,.03)}
+.demo .dlab{position:absolute;bottom:6px;left:0;right:0;text-align:center;font-size:13px;color:#c9922e;letter-spacing:1px}
+.ghosth{position:absolute;width:24px;height:24px;border-radius:50%;background:rgba(255,255,255,.9);box-shadow:0 0 14px #fff}
+.dcard{position:absolute;left:24px;top:24px;width:100px;height:46px;border:2px solid rgba(201,146,46,.5);border-radius:8px;background:#16303a}
+.dslot{position:absolute;right:22px;top:26px;width:52px;height:44px;border:2px dashed rgba(201,146,46,.6);border-radius:8px}
+.dtile{position:absolute;left:22px;top:26px;width:44px;height:44px;border-radius:8px;background:linear-gradient(#e2b25c,#b8862a)}
+.dgrid{position:absolute;left:30px;top:20px;width:60px;height:44px;background:rgba(201,146,46,.25);border:2px solid #c9922e;border-radius:4px}
+@keyframes gh1{0%{transform:translate(20px,96px);opacity:0}15%{opacity:1}45%,60%{transform:translate(64px,40px)}100%{transform:translate(64px,40px);opacity:0}}
+@keyframes gh2{0%{transform:translate(34px,42px);opacity:0}12%{opacity:1}60%,75%{transform:translate(150px,42px)}100%{transform:translate(150px,42px);opacity:0}}
+@keyframes gh3{0%{transform:translate(88px,60px);opacity:0}12%{opacity:1}60%,75%{transform:translate(140px,86px)}100%{transform:translate(140px,86px);opacity:0}}
+@keyframes dc{0%,40%{background:#16303a}55%,80%{background:#4a3413;border-color:#ffb545}100%{background:#16303a}}
+@keyframes dt{0%,10%{transform:translate(0,0)}60%,80%{transform:translate(116px,0)}100%{transform:translate(116px,0)}}
+@keyframes dg{0%,10%{width:60px;height:44px}60%,85%{width:112px;height:70px}100%{width:112px;height:70px}}
+.demo1 .ghosth{animation:gh1 3.2s infinite}.demo1 .dcard{animation:dc 3.2s infinite}
+.demo2 .ghosth{animation:gh2 3.2s infinite}.demo2 .dtile{animation:dt 3.2s infinite}
+.demo3 .ghosth{animation:gh3 3.2s infinite}.demo3 .dgrid{animation:dg 3.2s infinite}
+
+/* tier / mode choice */
+.choiceRow{display:flex;gap:16px;height:100%;align-items:center;justify-content:center}
+.choice{width:330px;min-height:210px;border:2px solid rgba(201,146,46,.5);border-radius:16px;background:linear-gradient(#15303a,#0e232c);
+  padding:16px;display:flex;flex-direction:column;gap:9px;text-align:left;transition:.15s}
+.choice:hover{border-color:#ffb545;transform:translateY(-3px)}
+.choice h3{font-size:21px;color:#ffd79a}
+.choice p{font-size:16px;line-height:1.3;color:#cfd8dc}
+
+/* payoff */
+#overlay{position:absolute;inset:0;z-index:70;background:radial-gradient(120% 100% at 50% 110%,#123344 0%,#050e16 60%,#02060a 100%);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:20px}
+#beam{position:absolute;left:50%;bottom:0;width:8px;height:0;background:linear-gradient(to top,rgba(255,215,154,.95),rgba(255,215,154,0));
+  transform:translateX(-50%);animation:beam 1.1s ease-out forwards}
+@keyframes beam{to{height:768px;width:26px}}
+#poTitle{font-size:30px;color:#ffd79a;letter-spacing:1px;text-align:center;z-index:2}
+#poLine{font-size:21px;color:#f2e7d1;text-align:center;max-width:1000px;z-index:2;line-height:1.35}
+#constRow{display:flex;gap:11px;z-index:2}
+.cst{width:176px;border:1px solid rgba(201,146,46,.35);border-radius:12px;background:rgba(255,255,255,.035);padding:8px;display:flex;flex-direction:column;align-items:center;gap:5px;
+  opacity:0;animation:fadeIn .5s forwards}
+.cst .ceq{font-size:17px;font-weight:800;color:#ffd79a}
+.cst .cnm{font-size:11.5px;letter-spacing:1px;color:#8fa3ab;text-align:center}
+@keyframes fadeIn{to{opacity:1}}
+#poBtns{display:flex;gap:14px;z-index:2}
+.star{fill:#ffe6b0}
+.starline{stroke:rgba(255,215,154,.4);stroke-width:1}
+@media (prefers-reduced-motion: reduce){*{animation-duration:.001s !important;transition-duration:.001s !important}}
+</style>
+</head>
+<body>
+<div id="fit"><div id="stage">
+  <div id="left">
+    <div id="hdr"><span id="phase">Room 0 · Breaker</span><span id="roomTitle">Master breaker</span></div>
+    <div id="prompt"></div>
+    <div id="work"></div>
+    <div id="footer">
+      <button id="intercomBtn" type="button"><span class="speaker"></span>INTERCOM<small>ask for a hint</small></button>
+      <div id="plate"><div id="plateText"></div></div>
+      <button id="send" type="button"><span class="knob"></span><span id="sendLabel">SEND</span></button>
+    </div>
+    <div id="hintPanel" class="hidden">
+      <div class="hp-head"><span>INTERCOM — one hint per tap</span><button id="hintClose" type="button">close</button></div>
+      <div id="hintList"></div>
+      <button id="hintMore" type="button">ask for the next hint</button>
+    </div>
+  </div>
+  <div id="right">
+    <div id="deck">SIGNAL DECK · WAITING</div>
+    <div id="towerBody">
+      <div id="voltWrap"><div id="voltFill"></div></div>
+      <div id="roomsCol"></div>
+    </div>
+    <div id="base">MASTER BREAKER</div>
+  </div>
+  <svg id="cableLayer" viewBox="0 0 1365 768" preserveAspectRatio="none">
+    <path id="cablePath" d="" fill="none" stroke="rgba(201,146,46,.45)" stroke-width="3" stroke-linecap="round"/>
+    <circle id="pulseDot" r="6" fill="#ffd79a" opacity="0"/>
+  </svg>
+</div></div>
+
+<script>
+"use strict";
+(function(){
+const UPSTREAM_HASH="d92f1d990c53245675adb83d1ab739b3b659c0a116902b736340201349b89302";
+const RM = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+const stage=document.getElementById('stage'), work=document.getElementById('work'),
+      promptEl=document.getElementById('prompt'), phaseEl=document.getElementById('phase'),
+      titleEl=document.getElementById('roomTitle'), plateEl=document.getElementById('plate'),
+      plateText=document.getElementById('plateText'), sendBtn=document.getElementById('send'),
+      sendLabel=document.getElementById('sendLabel'), roomsCol=document.getElementById('roomsCol'),
+      voltFill=document.getElementById('voltFill'), deck=document.getElementById('deck'),
+      base=document.getElementById('base'), cablePath=document.getElementById('cablePath'),
+      pulseDot=document.getElementById('pulseDot'), hintPanel=document.getElementById('hintPanel'),
+      hintList=document.getElementById('hintList'), hintMore=document.getElementById('hintMore'),
+      intercomBtn=document.getElementById('intercomBtn');
+
+/* ---------- fit ---------- */
+function fit(){const k=Math.min(window.innerWidth/1365, window.innerHeight/768);stage.style.transform='scale('+k+')';}
+window.addEventListener('resize',fit);fit();
+
+/* ---------- utils ---------- */
+function el(t,c,x){const e=document.createElement(t);if(c)e.className=c;if(x!=null)e.textContent=x;return e;}
+function sleep(ms){return new Promise(r=>setTimeout(r,RM?0:ms));}
+function clamp(v,a,b){return Math.max(a,Math.min(b,v));}
+function stageRect(node){const s=stage.getBoundingClientRect(),r=node.getBoundingClientRect(),k=s.width/1365;
+  return {x:(r.left-s.left)/k,y:(r.top-s.top)/k,w:r.width/k,h:r.height/k};}
+function skipList(step,n){const a=[];for(let i=1;i<=n;i++)a.push(step*i);return a;}
+
+/* ---------- telemetry ---------- */
+const T={buf:[],lastAct:performance.now(),
+ log(name,data){const rec=Object.assign({ms:Math.round(performance.now()),room:(window.R?R.n:null),name:name},data||{});
+   T.buf.push(rec);try{console.log('[telemetry]',JSON.stringify(rec));}catch(e){}},
+ flush(){try{console.log('[telemetry:flush]',JSON.stringify({hash:UPSTREAM_HASH,events:T.buf}));}catch(e){}}};
+document.addEventListener('pointerdown',()=>{T.lastAct=performance.now();},true);
+setInterval(()=>{if(!window.R)return;const idle=performance.now()-T.lastAct;
+  if(idle>45000 && !R.idleLogged){R.idleLogged=true;T.log('silent_struggle_idle',{item:R.item,idle_ms:Math.round(idle),misses_since_hint:R.missesSinceHint,hints:R.hintLevel});}},5000);
+
+/* ---------- tower ---------- */
+const ROOM_NAMES=['','Gear Floor','Piston Floor','Foundry','Twin Panel Floor','Turbine Floor','Auxiliary Floor','Signal Deck'];
+const Tower={rooms:{},lit:new Set()};
+(function buildTower(){
+ for(let n=1;n<=7;n++){
+   const r=el('div','room');r.id='room'+n;
+   r.innerHTML='<span class="pilot"></span>'+
+     '<div class="rmeta"><div class="rname">'+n+' · '+ROOM_NAMES[n]+'</div><div class="rstruct"></div></div>'+
+     '<div class="machinery"></div>'+
+     '<div class="dialbox"><svg viewBox="0 0 70 42" width="70" height="40">'+
+     '<path d="M8 38 A27 27 0 0 1 62 38" fill="none" stroke="#31434b" stroke-width="4"/>'+
+     '<line class="needle" x1="35" y1="38" x2="35" y2="13" stroke="#ffb545" stroke-width="3" stroke-linecap="round" style="transform:rotate(-90deg)"/>'+
+     '<circle cx="35" cy="38" r="3" fill="#c9922e"/></svg><div class="dnum">0 W</div></div>';
+   roomsCol.appendChild(r);Tower.rooms[n]=r;
+ }
+})();
+function setDial(n,v){const r=Tower.rooms[n];const a=-90+180*clamp(v,0,100)/100;
+  r.querySelector('.needle').style.transform='rotate('+a+'deg)';r.querySelector('.dnum').textContent=v+' W';}
+function setActiveRoom(n){for(let i=1;i<=7;i++)Tower.rooms[i].classList.toggle('active',i===n);}
+function updateVolt(){voltFill.style.height=(Tower.lit.size/7*100)+'%';
+  deck.textContent = Tower.lit.size===7?'SIGNAL DECK · ARMED':'SIGNAL DECK · '+Tower.lit.size+' OF 7 ROOMS POWERED';
+  deck.classList.toggle('armed',Tower.lit.size===7);}
+function drawCable(){
+  const target = (R && R.n>0)?Tower.rooms[R.n]:base;
+  const a=stageRect(sendBtn), b=stageRect(target);
+  const x1=a.x+a.w/2,y1=a.y+6,x2=b.x-4,y2=b.y+b.h/2;
+  cablePath.setAttribute('d','M'+x1+' '+y1+' C '+(x1)+' '+(y1-90)+', '+(x2-140)+' '+y2+', '+x2+' '+y2);
+}
+function pulseCable(){return new Promise(res=>{
+  if(RM){res();return;}
+  const len=cablePath.getTotalLength();const t0=performance.now();pulseDot.setAttribute('opacity','1');
+  (function step(t){const p=clamp((t-t0)/430,0,1);const pt=cablePath.getPointAtLength(len*p);
+   pulseDot.setAttribute('cx',pt.x);pulseDot.setAttribute('cy',pt.y);
+   if(p<1)requestAnimationFrame(step);else{pulseDot.setAttribute('opacity','0');res();}})(t0);});}
+async function runRoom(n,o){
+  const room=Tower.rooms[n],mach=room.querySelector('.machinery'),struct=room.querySelector('.rstruct');
+  mach.innerHTML='';
+  const g=clamp(o.groups||0,0,12);
+  for(let i=0;i<g;i++){const u=el('div','unit',(o.per!=null?String(o.per):''));mach.appendChild(u);}
+  struct.textContent = (o.groups!=null&&o.per!=null)? (o.groups+' units × '+o.per) : '';
+  drawCable();await pulseCable();
+  room.classList.add('running');await sleep(620);room.classList.remove('running');
+  if(o.ok){room.classList.add('lit');setDial(n,o.product);Tower.lit.add(n);updateVolt();await sleep(500);}
+  else{room.classList.add('stall');setDial(n,0);await sleep(600);room.classList.remove('stall');}
+}
+
+/* ---------- plate + send ---------- */
+function plate(msg,kind){plateEl.className='';if(kind)plateEl.classList.add(kind);plateText.textContent=msg;}
+function nudge(msg){plate(msg,'nudge');}
+function setSend(label,ready,mode){sendLabel.textContent=label;sendBtn.classList.toggle('ready',!!ready);
+  sendBtn.classList.toggle('next',mode==='next');sendBtn.dataset.mode=mode||'send';}
+
+/* ---------- drag / tap tile system ---------- */
+let picked=null,ghost=null,dragging=null,moved=false,startPt=null;
+function bindTile(tile,payload){
+  tile.dataset.kind=payload.kind;tile.dataset.value=payload.value;
+  tile.addEventListener('pointerdown',e=>{
+    e.preventDefault();dragging=tile;moved=false;startPt={x:e.clientX,y:e.clientY};
+    tile.setPointerCapture(e.pointerId);
+    ghost=tile.cloneNode(true);ghost.classList.add('ghostTile');ghost.style.position='absolute';
+    stage.appendChild(ghost);moveGhost(e.clientX,e.clientY);ghost.style.display='none';
+  });
+  tile.addEventListener('pointermove',e=>{
+    if(dragging!==tile)return;
+    if(!moved && (Math.abs(e.clientX-startPt.x)>7||Math.abs(e.clientY-startPt.y)>7)){moved=true;if(ghost)ghost.style.display='';}
+    if(moved){moveGhost(e.clientX,e.clientY);highlightSlot(e.clientX,e.clientY);}
+  });
+  tile.addEventListener('pointerup',e=>{
+    if(dragging!==tile)return;
+    if(ghost){ghost.remove();ghost=null;}
+    clearSlotHl();
+    if(moved){const slot=slotAt(e.clientX,e.clientY);if(slot)tryPlace(slot,payload,tile);}
+    else{ // tap-to-pick
+      if(picked && picked.el===tile){picked.el.classList.remove('picked');picked=null;}
+      else{if(picked)picked.el.classList.remove('picked');picked={el:tile,payload:payload};tile.classList.add('picked');
+        nudge('Tile picked up. Now tap a slot to place it.');}
+    }
+    dragging=null;moved=false;
+  });
+  tile.addEventListener('pointercancel',()=>{if(ghost){ghost.remove();ghost=null;}clearSlotHl();dragging=null;});
+}
+function moveGhost(cx,cy){const s=stage.getBoundingClientRect(),k=s.width/1365;
+  ghost.style.left=((cx-s.left)/k-30)+'px';ghost.style.top=((cy-s.top)/k-30)+'px';}
+function slotAt(cx,cy){const n=document.elementFromPoint(cx,cy);return n?n.closest('.slot'):null;}
+function highlightSlot(cx,cy){clearSlotHl();const s=slotAt(cx,cy);if(s)s.classList.add('over');}
+function clearSlotHl(){document.querySelectorAll('.slot.over').forEach(s=>s.classList.remove('over'));}
+function tryPlace(slot,payload,tileEl){
+  if(slot.dataset.accept && slot.dataset.accept!==payload.kind){
+    slot.classList.add('bad');setTimeout(()=>slot.classList.remove('bad'),420);
+    nudge(slot.dataset.accept==='num'?'That slot takes a number.':'That slot takes a sign (× or +).');
+    T.log('slot_reject',{item:R.item,accept:slot.dataset.accept,kind:payload.kind});return;}
+  slot.dataset.value=payload.value;slot.classList.add('filled');
+  slot.querySelector('.sval').textContent=payload.value;
+  if(picked){picked.el.classList.remove('picked');picked=null;}
+  if(slot._onChange)slot._onChange();
+  plate('');
+}
+function makeSlot(label,accept,onChange){
+  const s=el('div','slot');s.dataset.accept=accept;
+  s.appendChild(el('span','slab',label));s.appendChild(el('span','sval',''));
+  s._onChange=onChange;
+  s.addEventListener('click',()=>{
+    if(picked){tryPlace(s,picked.payload,picked.el);return;}
+    if(s.classList.contains('filled')){delete s.dataset.value;s.classList.remove('filled');s.querySelector('.sval').textContent='';
+      nudge('Slot cleared.');if(onChange)onChange();}
+  });
+  return s;
+}
+function bankOf(items,cls){const b=el('div','bank');items.forEach(it=>{const t=el('div','tile'+(cls?' '+cls:''),String(it.value));
+  bindTile(t,it);b.appendChild(t);});return b;}
+
+/* ---------- views ---------- */
+function groupsView(n,k,cls,o){o=o||{};const size=o.size||18,perRow=o.perRow||3;
+  const w=el('div','groupsView');
+  for(let i=0;i<n;i++){const b=el('div','gbox');b.style.width=(perRow*(size+5)+18)+'px';
+    for(let j=0;j<k;j++){const t=el('div','token '+cls);t.style.width=size+'px';t.style.height=size+'px';b.appendChild(t);}
+    b.appendChild(el('div','glab',o.label?o.label(i):String(k)));w.appendChild(b);}
+  return w;}
+function arrayView(rows,cols,cls,size){const w=el('div','arrView');
+  for(let r=0;r<rows;r++){const rw=el('div','arow');
+    for(let c=0;c<cols;c++){const cell=el('div','cell');cell.style.width=(size+5)+'px';cell.style.height=(size+5)+'px';
+      const t=el('div','token '+cls);t.style.width=size+'px';t.style.height=size+'px';cell.appendChild(t);rw.appendChild(cell);}
+    w.appendChild(rw);}return w;}
+
+/* ---------- group builder ---------- */
+function groupBuilder(host,o){
+  o=o||{};const maxG=o.maxGroups||9,maxT=o.maxTokens||9,size=o.size||14,cls=o.tokenClass||'t-plain';
+  const st={groups:[]};const wrap=el('div','builder');host.appendChild(wrap);
+  function render(){
+    wrap.innerHTML='';
+    st.groups.forEach((cnt,i)=>{
+      const c=el('div','gcard');
+      const h=el('div','ghead');h.appendChild(el('span',null,'group '+(i+1)));h.appendChild(el('span','gcount',String(cnt)));
+      const body=el('div','gbody');
+      for(let j=0;j<cnt;j++){const t=el('div','token '+cls);t.style.width=size+'px';t.style.height=size+'px';body.appendChild(t);}
+      body.addEventListener('click',()=>{if(st.groups[i]<maxT){st.groups[i]++;T.lastAct=performance.now();render();change('add token');}
+        else nudge('That group already holds '+maxT+'.');});
+      const m=el('button','gminus','−');m.type='button';
+      m.addEventListener('click',ev=>{ev.stopPropagation();if(st.groups[i]>0){st.groups[i]--;render();change('remove token');}});
+      const x=el('button','gx','✕');x.type='button';
+      x.addEventListener('click',ev=>{ev.stopPropagation();st.groups.splice(i,1);render();change('remove group');});
+      c.appendChild(h);c.appendChild(body);c.appendChild(m);c.appendChild(x);wrap.appendChild(c);
+    });
+    if(st.groups.length<maxG){
+      const a=el('div','addcard','+ add\ngroup');a.addEventListener('click',()=>{st.groups.push(0);render();change('add group');});
+      wrap.appendChild(a);}
+  }
+  function change(what){if(o.onChange)o.onChange(st,what);}
+  render();
+  return {state:st,render:render,set(counts){st.groups=counts.slice();render();change('set');}};
+}
+
+/* ---------- array builder ---------- */
+function arrayBuilder(host,o){
+  o=o||{};const maxR=o.maxR||10,maxC=o.maxC||10,cell=o.cell||30,size=o.size||16,cls=o.tokenClass||'t-plain';
+  const st={rows:o.rows||1,cols:o.cols||1};
+  const holder=el('div','col');
+  const readout=el('div','readout');
+  const wrap=el('div','abWrap');const grid=el('div','abGrid');
+  grid.style.gridTemplateColumns='repeat('+maxC+','+cell+'px)';
+  grid.style.gridTemplateRows='repeat('+maxR+','+cell+'px)';
+  const cells=[];
+  for(let r=0;r<maxR;r++){for(let c=0;c<maxC;c++){
+    const cl=el('div','abCell');cl.dataset.r=r;cl.dataset.c=c;
+    const t=el('div','token '+cls);t.style.width=size+'px';t.style.height=size+'px';t.style.visibility='hidden';cl.appendChild(t);
+    cl.addEventListener('click',()=>{st.rows=r+1;st.cols=c+1;paint();change();});
+    grid.appendChild(cl);cells.push(cl);}}
+  const handle=el('div','abHandle','⇲');
+  wrap.appendChild(grid);wrap.appendChild(handle);
+  const steps=el('div','stepper');
+  function stepBtn(txt,fn){const b=el('button',null,txt);b.type='button';b.addEventListener('click',()=>{fn();paint();change();});return b;}
+  steps.appendChild(el('span',null,'rows'));
+  steps.appendChild(stepBtn('−',()=>{st.rows=clamp(st.rows-1,1,maxR);}));
+  steps.appendChild(stepBtn('+',()=>{st.rows=clamp(st.rows+1,1,maxR);}));
+  steps.appendChild(el('span',null,'in each row'));
+  steps.appendChild(stepBtn('−',()=>{st.cols=clamp(st.cols-1,1,maxC);}));
+  steps.appendChild(stepBtn('+',()=>{st.cols=clamp(st.cols+1,1,maxC);}));
+  holder.appendChild(readout);holder.appendChild(wrap);holder.appendChild(steps);host.appendChild(holder);
+  function paint(){
+    cells.forEach(cl=>{const r=+cl.dataset.r,c=+cl.dataset.c;const on=(r<st.rows&&c<st.cols);
+      cl.classList.toggle('on',on);cl.classList.remove('ghost');
+      cl.firstChild.style.visibility=on?'visible':'hidden';
+      if(!on&&o.ghost&&r<o.ghost.rows&&c<o.ghost.cols){cl.classList.add('ghost');cl.firstChild.style.visibility='visible';}});
+    handle.style.left=(st.cols*cell)+'px';handle.style.top=(st.rows*cell)+'px';
+    readout.innerHTML='rows: <b>'+st.rows+'</b> &nbsp;·&nbsp; in each row: <b>'+st.cols+'</b> <small>(drag the round handle, tap a cell, or use − +)</small>';
+  }
+  function change(){T.lastAct=performance.now();if(o.onChange)o.onChange(st);}
+  let drag=false;
+  handle.addEventListener('pointerdown',e=>{e.preventDefault();drag=true;handle.setPointerCapture(e.pointerId);});
+  handle.addEventListener('pointermove',e=>{if(!drag)return;
+    const g=grid.getBoundingClientRect();
+    st.cols=clamp(Math.ceil((e.clientX-g.left)/(g.width/maxC)),1,maxC);
+    st.rows=clamp(Math.ceil((e.clientY-g.top)/(g.height/maxR)),1,maxR);paint();change();});
+  handle.addEventListener('pointerup',()=>{drag=false;});
+  handle.addEventListener('pointercancel',()=>{drag=false;});
+  paint();
+  return {state:st,paint:paint,set(r,c){st.rows=r;st.cols=c;paint();change();}};
+}
+
+/* ---------- product bank ---------- */
+function productBank(host,values,label){
+  const b=el('div','pbank locked');
+  const lab=el('div','plabel');lab.appendChild(el('span','plug'));lab.appendChild(el('span',null,label||'PRODUCT BANK'));
+  const note=el('div','pnote','Cable unplugged — the bank connects when your build checks out.');
+  const row=el('div','prow');const api={value:null};
+  values.forEach(v=>{const t=el('div','ptile',String(v));
+    t.addEventListener('click',()=>{if(b.classList.contains('locked')){nudge('The product bank is not plugged in yet. Send your build first.');return;}
+      row.querySelectorAll('.ptile').forEach(x=>x.classList.remove('sel'));t.classList.add('sel');api.value=v;
+      T.log('product_tap',{item:R.item,value:v});plate('');});
+    row.appendChild(t);});
+  b.appendChild(lab);b.appendChild(note);b.appendChild(row);host.appendChild(b);
+  api.unlock=function(){b.classList.remove('locked');b.classList.add('unlocked');note.textContent='Connected. Tap the product this build sends to the dial.';};
+  api.el=b;return api;}
+
+/* ---------- option tiles ---------- */
+function optionRow(labels,onSel){
+  const row=el('div','optRow');
+  labels.forEach((tx,i)=>{const b=el('button','opt');b.type='button';
+    b.appendChild(el('span','cno','CARTRIDGE '+String.fromCharCode(65+i)));
+    b.appendChild(el('span',null,tx));
+    b.addEventListener('click',()=>{row.querySelectorAll('.opt').forEach(o=>o.classList.remove('sel'));b.classList.add('sel');onSel(i);plate('');});
+    row.appendChild(b);});
+  return row;}
+
+/* ---------- session record ---------- */
+const record=[];
+let R=null;window.R=null;let busy=false;
+
+/* ---------- shell ---------- */
+function mountRoom(n){
+  R={n:n,stage:1,sel:null,hintLevel:0,misses:0,missesSinceHint:0,taps:[],t0:performance.now(),idleLogged:false,item:'item-0'+n};
+  window.R=R;
+  work.innerHTML='';hintList.innerHTML='';hintPanel.classList.add('hidden');
+  hintMore.disabled=false;hintMore.textContent='ask for the next hint';
+  plate('');setActiveRoom(n);setSend('SEND',false,'send');
+  const def=ROOMS[n];phaseEl.textContent=def.phase;titleEl.textContent=def.title;
+  typePrompt(def.prompt);
+  R.hints=[];def.mount();
+  drawCable();
+  T.log('room_open',{item:R.item,phase:def.phase});
+}
+let typeTimer=null;
+function typePrompt(html){
+  clearInterval(typeTimer);
+  if(RM){promptEl.innerHTML=html;return;}
+  const tmp=el('div');tmp.innerHTML=html;const plain=tmp.textContent;
+  promptEl.textContent='';let i=0;
+  typeTimer=setInterval(()=>{i+=3;promptEl.textContent=plain.slice(0,i);
+    if(i>=plain.length){clearInterval(typeTimer);promptEl.innerHTML=html;}},12);
+}
+async function succeed(o){
+  T.log('answer_correct',{item:R.item,attempts:R.misses,hints_used:R.hintLevel,latency_ms:Math.round(performance.now()-R.t0)});
+  record.push(o.record);
+  await runRoom(R.n,{groups:o.groups,per:o.per,product:o.product,ok:true});
+  plate(o.msg,'good');
+  setSend(R.n<7?('OPEN ROOM '+(R.n+1)+' →'):'SEND THE SIGNAL →',true,'next');
+}
+async function fail(msg,o){
+  o=o||{};R.misses++;R.missesSinceHint++;
+  T.log('answer_incorrect',{item:R.item,detail:o.detail||null,attempt:o.attempt||null,misses_since_hint:R.missesSinceHint,hints_used:R.hintLevel});
+  await runRoom(R.n,{groups:o.groups,per:o.per,product:0,ok:false});
+  plate(msg,'fault');
+  if(R.missesSinceHint>=2 && R.hintLevel===0){intercomBtn.classList.add('pulse');setTimeout(()=>intercomBtn.classList.remove('pulse'),6500);}
+}
+sendBtn.addEventListener('click',async()=>{
+  if(busy)return;
+  if(sendBtn.dataset.mode==='next'){if(R.n<7)mountRoom(R.n+1);else finale();return;}
+  busy=true;try{await ROOMS[R.n].send();}catch(e){console.error(e);}finally{busy=false;}
+});
+intercomBtn.addEventListener('click',()=>{hintPanel.classList.toggle('hidden');
+  if(!hintPanel.classList.contains('hidden'))T.log('intercom_open',{item:R.item});});
+document.getElementById('hintClose').addEventListener('click',()=>hintPanel.classList.add('hidden'));
+hintMore.addEventListener('click',()=>{
+  const h=R.hints[R.hintLevel];
+  if(!h){hintMore.disabled=true;hintMore.textContent='that is every hint for this room';return;}
+  R.hintLevel++;R.missesSinceHint=0;
+  const item=el('div','hintItem');item.appendChild(el('span','hn','HINT '+R.hintLevel+' OF '+R.hints.length));
+  item.appendChild(el('span',null,h.text));hintList.appendChild(item);hintList.scrollTop=hintList.scrollHeight;
+  if(h.act)h.act();
+  T.log('hint_request',{item:R.item,depth:R.hintLevel});
+  if(R.hintLevel>=R.hints.length){hintMore.disabled=true;hintMore.textContent='that is every hint for this room';}
+});
+
+/* ============================================================
+   ROOMS
+   ============================================================ */
+const ROOMS=[];
+
+/* ---------- Room 0: breaker + orientation ---------- */
+ROOMS[0]={phase:'Room 0 · Breaker',title:'Shared words',
+ prompt:'This tower runs on <b>equal groups</b>. Nothing in it moves until the groups are right. Power it, room by room, and the top will send the signal.',
+ mount(){
+   setSend('SEND',false,'send');sendBtn.style.opacity='.35';
+   const wrap=el('div','orient');
+   const b=el('button','','');b.id='breakerBtn';b.type='button';
+   b.appendChild(el('span','bk'));b.appendChild(el('span',null,'FLIP THE MASTER BREAKER'));
+   const sub=el('div','cap','Nothing here is scored. This part is only so we use the same words.');
+   wrap.appendChild(b);wrap.appendChild(sub);work.appendChild(wrap);
+   b.addEventListener('click',()=>{b.classList.add('on');base.classList.add('on');T.log('breaker_flip',{});setTimeout(orientation,380);});
+ },
+ send(){nudge('Flip the breaker first.');return Promise.resolve();}
+};
+function orientation(){
+  work.innerHTML='';
+  const wrap=el('div','orient');
+  const stageBox=el('div','col');stageBox.style.alignItems='center';
+  const disp=groupsView(3,2,'t-apple',{size:22,perRow:2,label:i=>'basket '+(i+1)});
+  const cap=el('div','ocap');
+  const eq=el('div','readout','');eq.style.fontSize='26px';
+  const next=el('button','btn','NEXT →');next.type='button';
+  const demos=el('div','demoRow');demos.classList.add('hidden');
+  demos.innerHTML=
+   '<div class="demo demo1"><div class="dcard"></div><div class="ghosth"></div><div class="dlab">TAP TO CHOOSE</div></div>'+
+   '<div class="demo demo2"><div class="dslot"></div><div class="dtile"></div><div class="ghosth"></div><div class="dlab">DRAG TO BUILD</div></div>'+
+   '<div class="demo demo3"><div class="dgrid"></div><div class="ghosth"></div><div class="dlab">STRETCH TO SIZE</div></div>';
+  stageBox.appendChild(disp);stageBox.appendChild(eq);
+  wrap.appendChild(cap);wrap.appendChild(stageBox);wrap.appendChild(demos);wrap.appendChild(next);
+  work.appendChild(wrap);
+  const boxes=disp.querySelectorAll('.gbox');
+  const steps=[
+    ()=>{cap.innerHTML='Here is one situation: <b>3 baskets</b> on the bench, and each basket holds <b>2 pears</b>.';},
+    ()=>{boxes.forEach(b=>b.classList.add('hl'));
+         cap.innerHTML='The <b>number of groups</b> is how many baskets there are: <b>3</b>.';},
+    ()=>{boxes.forEach(b=>b.classList.remove('hl'));boxes[0].classList.add('hl');
+         cap.innerHTML='The <b>amount in each group</b> is how many pears are inside <b>one</b> basket: <b>2</b>.';},
+    ()=>{boxes[0].classList.remove('hl');eq.textContent='3 × 2 = 6';
+         cap.innerHTML='3 groups of 2 makes <b>6</b> in all. We write it <b>3 × 2 = 6</b>. First factor: how many groups. Second factor: how many in each group.';},
+    ()=>{eq.textContent='';disp.classList.add('hidden');demos.classList.remove('hidden');
+         cap.innerHTML='Three moves you will use in every room. Watch once — then Room 1 is yours.';
+         next.textContent='OPEN ROOM 1 →';}
+  ];
+  let i=0;steps[0]();
+  next.addEventListener('click',()=>{i++;if(i<steps.length){steps[i]();}else{sendBtn.style.opacity='1';mountRoom(1);}});
+}
+
+/* ---------- Room 1 ---------- */
+ROOMS[1]={phase:'Room 1 · Gear Floor',title:'Lunch trays',
+ prompt:'Four lunch trays are on the counter. Each tray holds 3 apple slices. Which two numbers describe this situation?',
+ mount(){
+   const wrap=el('div','col');wrap.style.height='100%';
+   wrap.appendChild(el('div','stitle','The display: 4 trays, apple slices inside'));
+   const disp=groupsView(4,3,'t-apple',{size:24,perRow:3,label:i=>'tray '+(i+1)});
+   wrap.appendChild(disp);
+   wrap.appendChild(el('div','stitle','Choose the fuse cartridge that describes it'));
+   wrap.appendChild(optionRow(['4 groups, 3 in each group','3 groups, 4 in each group','4 groups, 4 in each group','7 groups, 1 in each group'],
+     i=>{R.sel=i;R.taps.push(i);T.log('option_tap',{item:'item-01',choice:i,sequence:R.taps.slice()});setSend('SEND',true,'send');}));
+   work.appendChild(wrap);
+   const boxes=disp.querySelectorAll('.gbox');
+   R.hints=[
+     {text:'The situation says: some trays, and the same number of apple slices in every tray.'},
+     {text:'How many trays are drawn on the counter? That number is the number of groups.'},
+     {text:'Look inside one tray only. How many slices are in there? That is the amount in each group.'},
+     {text:'One tray is lit up. It holds 3 slices, and there are 4 trays exactly like it.',act:()=>{boxes[0].classList.add('hl');}}
+   ];
+ },
+ async send(){
+   if(R.sel==null){nudge('Tap a cartridge first, then pull SEND.');return;}
+   if(R.sel===0){await succeed({groups:4,per:3,product:12,
+     record:{room:1,name:'Gear Floor',mode:'groups',g:4,k:3,p:12,eq:'4 × 3 = 12'},
+     msg:'4 trays is the number of groups. 3 slices inside one tray is the amount in each group. 4 × 3 = 12, and the dial reads 12 W.'});return;}
+   if(R.sel===1){await fail('The display shows 4 trays, not 3. Count the trays: that number is the number of groups.',{groups:3,per:4,detail:'swapped'});}
+   else if(R.sel===2){await fail('There are 4 trays, so the group count is right. But one tray holds 3 slices, not 4 — the gears only grew 4 teeth each and would not mesh.',{groups:4,per:4,detail:'per-group'});}
+   else{T.log('additive_only_response_flag',{item:'item-01',value:true});
+     await fail('7 is 4 and 3 added together. Here the trays are groups of 3 slices, not 7 single things — this is a groups-of situation.',{groups:7,per:1,detail:'additive'});}
+ }};
+
+/* ---------- Room 2 ---------- */
+ROOMS[2]={phase:'Room 2 · Piston Floor',title:'Jars of buttons',
+ prompt:'This display shows 5 jars. Each jar holds 6 buttons. Assemble the equation that matches the display, then send the product.',
+ mount(){
+   const split=el('div','wsplit');
+   const left=el('div','col');left.style.flex='0 0 300px';
+   left.appendChild(el('div','stitle','The display'));
+   left.appendChild(groupsView(5,6,'t-button',{size:15,perRow:3,label:i=>'jar '+(i+1)}));
+   const chainBtn=el('button','btn small','pull the chain: skip-count');chainBtn.type='button';
+   const strip=el('div','strip');
+   chainBtn.addEventListener('click',()=>{
+     if(R.stripUsed)return;R.stripUsed=true;T.log('skip_count_strip_used_flag',{item:'item-02',value:true});
+     chainBtn.disabled=true;chainBtn.textContent='counting by 6…';
+     skipList(6,5).forEach((v,i)=>setTimeout(()=>{const c=el('div','sc in',String(v));strip.appendChild(c);
+       if(i===4)chainBtn.textContent='counted by 6';},RM?0:i*280));
+   });
+   left.appendChild(chainBtn);left.appendChild(strip);
+   const right=el('div','col');right.style.flex='1';
+   right.appendChild(el('div','stitle','Build the equation'));
+   const frame=el('div','eqframe');
+   const upd=()=>{const done=s1.dataset.value&&s2.dataset.value&&s3.dataset.value;
+     if(done&&!bank.el.classList.contains('unlocked')){bank.unlock();plate('Equation frame full — the product bank just plugged in.','nudge');}
+     setSend('SEND',!!(done&&bank.value!=null),'send');};
+   const s1=makeSlot('how many jars','num',upd),s2=makeSlot('sign','sym',upd),s3=makeSlot('in each jar','num',upd);
+   frame.appendChild(s1);frame.appendChild(s2);frame.appendChild(s3);
+   frame.appendChild(el('span','eqfixed','='));
+   const prodShow=el('div','slot');prodShow.appendChild(el('span','slab','product'));prodShow.appendChild(el('span','sval','?'));
+   frame.appendChild(prodShow);
+   right.appendChild(frame);
+   right.appendChild(el('div','stitle','Tile bank — drag a tile, or tap it then tap a slot'));
+   right.appendChild(bankOf([{value:4,kind:'num'},{value:5,kind:'num'},{value:6,kind:'num'},{value:'×',kind:'sym'},{value:'+',kind:'sym'}]));
+   const bank=productBank(right,[11,25,30,36],'PRODUCT BANK');
+   const oldPick=bank.unlock;
+   right.appendChild(el('div','cap','The product you pick shows in the frame when you send.'));
+   split.appendChild(left);split.appendChild(right);work.appendChild(split);
+   R.slots={s1:s1,s2:s2,s3:s3};R.bank=bank;R.prodShow=prodShow;
+   bank.el.addEventListener('click',()=>{if(bank.value!=null){prodShow.querySelector('.sval').textContent=bank.value;prodShow.classList.add('filled');upd();}});
+   R.hints=[
+     {text:'The display shows jars, and every jar holds the same number of buttons.'},
+     {text:'How many jars are there? That number goes in the first slot.'},
+     {text:'How many buttons are inside one jar? That number goes in the last factor slot.'},
+     {text:'The first slot is filled with 5, the number of jars, and the chain counts by 6: 6, 12, 18, 24, 30.',
+      act:()=>{s1.dataset.value='5';s1.classList.add('filled');s1.querySelector('.sval').textContent='5';upd();
+        if(!R.stripUsed)chainBtn.click();}}
+   ];
+ },
+ async send(){
+   const f1=R.slots.s1.dataset.value,op=R.slots.s2.dataset.value,f2=R.slots.s3.dataset.value,p=R.bank.value;
+   if(!f1||!op||!f2){nudge('Fill all three slots in the equation frame, then send.');return;}
+   if(p==null){nudge('The bank is connected — tap the product this build sends to the dial.');return;}
+   T.log('equation_attempt',{item:'item-02',f1:f1,op:op,f2:f2,product:p});
+   if(f1==='5'&&op==='×'&&f2==='6'&&p===30){
+     await succeed({groups:5,per:6,product:30,
+       record:{room:2,name:'Piston Floor',mode:'groups',g:5,k:6,p:30,eq:'5 × 6 = 30'},
+       msg:'The first factor names how many jars: 5. The second names how many buttons in one jar: 6. Five pistons fired six strokes each — 30 W.'});return;}
+   if(op==='+'){await fail('A plus sign joins two numbers one time. This display has 5 equal jars of 6, which is 5 × 6 — the pistons need a stroke count, not a sum.',{groups:5,per:6,detail:'additive'});return;}
+   if(f1==='6'&&f2==='5'){await fail('The first factor names how many jars; the second names how many buttons in one jar. This display has 5 jars, each holding 6 — so the factors are the other way round.',{groups:6,per:5,detail:'swapped'});return;}
+   if(f1==='5'&&f2==='6'&&p!==30){await fail('The frame reads 5 × 6, which matches the jars. But 5 jars of 6 counts 6, 12, 18, 24, 30 — the dial cannot reach '+p+'.',{groups:5,per:6,detail:'product'});return;}
+   await fail('The frame reads '+f1+' '+op+' '+f2+'. The display shows 5 jars with 6 buttons in each, so the machine stalled.',{groups:+f1||0,per:+f2||0,detail:'other'});
+ }};
+
+/* ---------- Room 3 ---------- */
+ROOMS[3]={phase:'Room 3 · Foundry',title:'Build it from the equation',
+ prompt:'The equation is 4 × 6 = 24. Build a display that matches it — make the groups, then place the same amount inside every group. One ready-made display does not show equal groups: do not choose it.',
+ mount(){
+   const split=el('div','wsplit');
+   const left=el('div','col');left.style.flex='1';
+   left.appendChild(el('div','stitle','Your construction workspace'));
+   const echo=el('div','readout','no groups yet');
+   left.appendChild(echo);
+   const holder=el('div');holder.style.flex='1';left.appendChild(holder);
+   const gb=groupBuilder(holder,{tokenClass:'t-plain',size:13,maxGroups:8,maxTokens:9,onChange:(st)=>{
+     R.readyPick=null;document.querySelectorAll('.readyCard').forEach(c=>c.classList.remove('sel'));
+     echo.innerHTML= st.groups.length? ('intake gauge: <b>'+st.groups.length+'</b> containers · '+st.groups.join(', ')) : 'no groups yet';
+     setSend('SEND',st.groups.length>0,'send');}});
+   const clear=el('button','btn small','clear the workspace');clear.type='button';
+   clear.addEventListener('click',()=>{gb.set([]);});
+   left.appendChild(clear);
+   const right=el('div','col');right.style.flex='0 0 296px';
+   right.appendChild(el('div','stitle','Or route a ready-made display'));
+   const readys=[
+     {k:'A',label:'Ready display A',structure:[6,6,6,6]},
+     {k:'B',label:'Ready display B',structure:[6,6,5,7]},
+     {k:'C',label:'Ready display C',structure:[4,4,4,4,4,4]}
+   ];
+   readys.forEach(rd=>{
+     const c=el('button','opt readyCard');c.type='button';c.style.minHeight='0';c.style.padding='8px';
+     c.appendChild(el('span','cno',rd.k));
+     const mini=el('div','groupsView');mini.style.gap='5px';
+     rd.structure.forEach(cnt=>{const b=el('div','gbox');b.style.padding='4px 4px 12px';b.style.width='52px';
+       for(let j=0;j<cnt;j++){const t=el('div','token t-plain');t.style.width='8px';t.style.height='8px';b.appendChild(t);}
+       b.appendChild(el('div','glab',String(cnt)));mini.appendChild(b);});
+     c.appendChild(mini);
+     c.addEventListener('click',()=>{document.querySelectorAll('.readyCard').forEach(x=>x.classList.remove('sel'));
+       c.classList.add('sel');R.readyPick=rd.k;gb.set([]);T.log('ready_display_tap',{item:'item-03',choice:rd.k});setSend('SEND',true,'send');});
+     right.appendChild(c);});
+   split.appendChild(left);split.appendChild(right);work.appendChild(split);
+   R.gb=gb;R.readyPick=null;
+   R.hints=[
+     {text:'In 4 × 6, one factor tells how many groups and the other tells how many go inside each group.'},
+     {text:'The first factor is 4. Make 4 empty containers first.'},
+     {text:'The second factor is 6. Put 6 tokens in every container — the same amount in each one.'},
+     {text:'One container is filled to 6 as a model. Three more like it are needed.',act:()=>{const g=R.gb.state.groups.slice();g[0]=6;if(!g.length)g.push(6);R.gb.set(g);}}
+   ];
+ },
+ async send(){
+   if(R.readyPick==='A'){
+     await succeed({groups:4,per:6,product:24,record:{room:3,name:'Foundry',mode:'groups',g:4,k:6,p:24,eq:'4 × 6 = 24'},
+       msg:'Display A is 4 containers holding 6, 6, 6, 6 — equal groups, matching 4 × 6 = 24. The foundry meshed and holds 24 W.'});return;}
+   if(R.readyPick==='B'){T.log('unequal_group_distractor_selection_flag',{item:'item-03',value:true});
+     await fail('Display B holds 6, 6, 5, 7. These groups are not equal, so this cannot be an equal-groups model — the 5-tooth and 7-tooth gears ground against the 6s.',{groups:4,per:6,detail:'unequal'});return;}
+   if(R.readyPick==='C'){
+     await fail('Display C shows 6 groups of 4. Its total is also 24, but the equation asks for 4 groups of 6 — that is a different situation.',{groups:6,per:4,detail:'swapped'});return;}
+   const g=R.gb.state.groups;
+   if(!g.length){nudge('Build some groups, or tap a ready display, then pull SEND.');return;}
+   const counts=g.join(', ');
+   const allSix=g.every(c=>c===6);
+   T.log('construction_attempt',{item:'item-03',containers:g.length,counts:g.slice()});
+   if(g.length===4&&allSix){
+     await succeed({groups:4,per:6,product:24,record:{room:3,name:'Foundry',mode:'groups',g:4,k:6,p:24,eq:'4 × 6 = 24'},
+       msg:'Intake gauge: 4 containers holding 6, 6, 6, 6. That is 4 groups of 6, so 4 × 6 = 24 and the dial reads 24 W.'});return;}
+   if(g.length===4&&!allSix){
+     const unequal=new Set(g).size>1;
+     await fail(unequal
+       ? ('Your build holds '+counts+'. These groups are not equal, so this cannot be an equal-groups model.')
+       : ('Your build has 4 containers holding '+counts+'. The equation asks for 6 in each group.'),{groups:4,per:g[0],detail:'counts'});return;}
+   await fail('Intake gauge: '+g.length+' containers holding '+counts+'. The equation 4 × 6 asks for 4 containers with 6 in every one.',{groups:g.length,per:g[0]||0,detail:'containers'});
+ }};
+
+/* ---------- Room 4 ---------- */
+ROOMS[4]={phase:'Room 4 · Twin Panel Floor',title:'Groups and array, same seedlings',
+ prompt:'A garden bed has 4 rows of seedlings with 7 in each row. Left: the seedlings as 4 separate groups. Right: the same seedlings lined up as a rectangle. Read the rectangle.',
+ mount(){
+   const wrap=el('div','col');wrap.style.height='100%';
+   const panels=el('div','wsplit');
+   const l=el('div','col');l.style.flex='0 0 330px';
+   l.appendChild(el('div','stitle','Equal groups'));
+   l.appendChild(groupsView(4,7,'t-seed',{size:13,perRow:4,label:i=>'group '+(i+1)}));
+   const r=el('div','col');r.style.flex='1';
+   r.appendChild(el('div','stitle','The same seedlings as an array — tap it for row and column labels'));
+   const lw=el('div','labwrap');
+   const collabs=el('div','collabs');for(let c=1;c<=7;c++){const s=el('span',null,String(c));s.style.width='21px';collabs.appendChild(s);}
+   const rowlabs=el('div','rowlabs');for(let i=1;i<=4;i++){const s=el('span',null,'row '+i);s.style.height='25px';rowlabs.appendChild(s);}
+   const arr=arrayView(4,7,'t-seed',16);
+   lw.appendChild(collabs);lw.appendChild(rowlabs);lw.appendChild(arr);
+   lw.addEventListener('click',()=>{lw.classList.toggle('on');T.log('array_labels_toggle',{item:'item-04'});});
+   r.appendChild(lw);
+   panels.appendChild(l);panels.appendChild(r);
+   wrap.appendChild(panels);
+   wrap.appendChild(el('div','stitle','How many rows, how many in each row, and what is the total?'));
+   wrap.appendChild(optionRow(['4 rows, 7 in each row, total 28','7 rows, 4 in each row, total 28','4 rows, 7 in each row, total 11','4 rows, 4 in each row, total 16'],
+     i=>{R.sel=i;R.taps.push(i);T.log('option_tap',{item:'item-04',choice:i,sequence:R.taps.slice()});setSend('SEND',true,'send');}));
+   work.appendChild(wrap);
+   const rows=arr.querySelectorAll('.arow');
+   R.hints=[
+     {text:'A row runs across the rectangle, from left to right.'},
+     {text:'Count the rows down the left-hand side of the rectangle.'},
+     {text:'Count one row across: how many seedlings sit in that single row?'},
+     {text:'The top row and the left column are lit. The rectangle has 4 rows, and the top row holds 7.',
+      act:()=>{lw.classList.add('on');rows[0].classList.add('hl');rows.forEach(rw=>rw.children[0].classList.add('hl'));}}
+   ];
+ },
+ async send(){
+   if(R.sel==null){nudge('Tap a cartridge first, then pull SEND.');return;}
+   if(R.sel===0){await succeed({groups:4,per:7,product:28,record:{room:4,name:'Twin Panel Floor',mode:'array',g:4,k:7,p:28,eq:'4 × 7 = 28'},
+     msg:'The group panel and the array hold the same 28 seedlings — the array\u2019s rows are the groups. 4 rows of 7 is 4 × 7 = 28 W.'});return;}
+   if(R.sel===1){T.log('representation_switch_error_count',{item:'item-04',value:1});
+     await fail('Count down the side of the rectangle: there are 4 rows. Count across one row: 7. The total matches, but the rows and the amount in each row are swapped.',{groups:7,per:4,detail:'swapped'});return;}
+   if(R.sel===2){await fail('11 is 4 and 7 added once. The rectangle holds 4 rows of 7 seedlings — count them: 28.',{groups:4,per:7,detail:'additive'});return;}
+   await fail('The rows are right at 4, but one row holds 7 seedlings, not 4 — the array is 4 by 7.',{groups:4,per:4,detail:'per-group'});
+ }};
+
+/* ---------- Room 5 ---------- */
+ROOMS[5]={phase:'Room 5 · Turbine Floor',title:'Shelves of mugs',
+ prompt:'Situation A: 3 shelves, 8 mugs on each shelf. Build the array for Situation A. Situation B says 8 shelves with 3 mugs on each. Build first, then judge the two situations.',
+ mount(){
+   const split=el('div','wsplit');
+   const l=el('div','col');l.style.flex='1';
+   l.appendChild(el('div','stitle','Situation A — size the array: shelves are rows'));
+   R.ab=arrayBuilder(l,{maxR:10,maxC:10,cell:29,size:15,tokenClass:'t-mug',rows:1,cols:1,onChange:()=>{if(R.stage===1)setSend('SEND BUILD',true,'send');}});
+   const r=el('div','col');r.style.flex='0 0 320px';
+   r.appendChild(el('div','stitle','Statement panel'));
+   const lockNote=el('div','pbank locked');
+   lockNote.appendChild((function(){const d=el('div','plabel');d.appendChild(el('span','plug'));d.appendChild(el('span',null,'STATEMENT PANEL'));return d;})());
+   lockNote.appendChild(el('div','pnote','Cable unplugged — the statements connect once your array for Situation A checks out.'));
+   r.appendChild(lockNote);
+   R.statementHost=r;R.lockNote=lockNote;
+   split.appendChild(l);split.appendChild(r);work.appendChild(split);
+   setSend('SEND BUILD',false,'send');
+   R.hints=[
+     {text:'Situation A says 3 shelves, with 8 mugs on each shelf.'},
+     {text:'Shelves are rows. Which number tells how many shelves?'},
+     {text:'Set the rows first, then stretch across until each row holds 8.'},
+     {text:'The frame now has 3 rows. Stretch it across so every row holds 8 mugs.',act:()=>{R.ab.set(3,1);}}
+   ];
+ },
+ async send(){
+   if(R.stage===1){
+     const st=R.ab.state;
+     T.log('construction_attempt',{item:'item-05',rows:st.rows,cols:st.cols});
+     if(st.rows===3&&st.cols===8){
+       T.log('factor_role_assignment_correct',{item:'item-05',value:true});
+       R.stage=2;
+       await runRoom(5,{groups:3,per:8,product:0,ok:false});
+       Tower.rooms[5].classList.remove('stall');
+       plate('Your frame reads 3 rows with 8 in each row — that is Situation A. Statement panel connected.','nudge');
+       R.lockNote.remove();
+       const r=R.statementHost;
+       const twin=el('div','twinbox');
+       [{lab:'Situation A · 3 shelves of 8',rr:3,cc:8},{lab:'Situation B · 8 shelves of 3',rr:8,cc:3}].forEach(t=>{
+         const box=el('div','twin');box.appendChild(el('div','tlab',t.lab));
+         box.appendChild(arrayView(t.rr,t.cc,'t-mug',9));box.appendChild(el('div','tdial','24 W'));twin.appendChild(box);});
+       r.appendChild(twin);
+       r.appendChild(el('div','stitle','Which statement is true?'));
+       const opts=optionRow(['Both totals are 24, and the two situations describe different arrangements.',
+         'Both totals are 24, so the two situations describe the same arrangement.',
+         'The totals are different: 24 and 38.',
+         'Situation B has a larger total because 8 is larger than 3.'],
+         i=>{R.sel=i;R.taps.push(i);T.log('option_tap',{item:'item-05',choice:i,sequence:R.taps.slice()});setSend('SEND ANSWER',true,'send');});
+       opts.style.flexDirection='column';
+       r.querySelectorAll('.opt').forEach(o=>{});
+       r.appendChild(opts);
+       opts.querySelectorAll('.opt').forEach(o=>{o.style.minHeight='62px';o.style.fontSize='15px';});
+       setSend('SEND ANSWER',false,'send');
+       return;
+     }
+     await fail('Your frame reads '+st.rows+' rows with '+st.cols+' in each row. Situation A has 3 shelves with 8 mugs on each, so it needs 3 rows of 8.',
+       {groups:st.rows,per:st.cols,detail:'build'});
+     return;
+   }
+   if(R.sel==null){nudge('Tap a statement, then pull SEND.');return;}
+   if(R.sel===0){await succeed({groups:3,per:8,product:24,record:{room:5,name:'Turbine Floor',mode:'array',g:3,k:8,p:24,eq:'3 × 8 = 24'},
+     msg:'Both dials read 24 W: the totals match. But 3 long shelves of 8 and 8 short shelves of 3 are different arrangements of the same 24 mugs.'});return;}
+   if(R.sel===1){await fail('Both dials do read 24, so the totals match. But look at the two arrays: 3 rows of 8 is not shaped like 8 rows of 3 — the arrangements differ.',{groups:3,per:8,detail:'same-arrangement'});return;}
+   if(R.sel===2){await fail('Count either array: both hold 24 mugs. Neither turbine reaches 38.',{groups:3,per:8,detail:'total'});return;}
+   await fail('Situation B has more shelves but fewer mugs on each one. Count it: 8 rows of 3 is also 24.',{groups:8,per:3,detail:'bigger-factor'});
+ }};
+
+/* ---------- Room 6 ---------- */
+ROOMS[6]={phase:'Room 6 · Auxiliary Floor',title:'Your call',
+ prompt:'This room takes either load. Harder tier, available if you want it: 9 crates with 8 bolts in each, no picture, empty grid. Choosing the standard tier instead keeps everything ahead of you open.',
+ mount(){
+   setSend('SEND',false,'send');
+   const row=el('div','choiceRow');
+   const std=el('button','choice');std.type='button';
+   std.innerHTML='<h3>Standard tier</h3><p>6 crates are loaded, with 7 bolts in each crate. A partly drawn array stays on the grid to help you.</p><p style="color:#8fa3ab">6 × 7</p>';
+   const hard=el('button','choice');hard.type='button';
+   hard.innerHTML='<h3>Harder tier</h3><p>9 crates are loaded, with 8 bolts in each crate. No picture, empty grid, no counting strip unless you ask the intercom for it.</p><p style="color:#8fa3ab">9 × 8</p>';
+   std.addEventListener('click',()=>startTier('standard',6,7,42,[36,42,48,49]));
+   hard.addEventListener('click',()=>startTier('harder',9,8,72,[64,72,81,89]));
+   row.appendChild(std);row.appendChild(hard);work.appendChild(row);
+   R.hints=[{text:'Pick either tier. Both power this room the same way.'}];
+   function startTier(tier,rows,cols,prod,bankVals){
+     T.log('challenge_optin_rate',{item:'item-06',tier:tier,optin:tier==='harder'});
+     R.tier=tier;R.target={rows:rows,cols:cols,product:prod};R.stage=1;R.t0=performance.now();
+     work.innerHTML='';
+     titleEl.textContent = tier==='harder'?'Harder tier · 9 crates of 8':'Standard tier · 6 crates of 7';
+     typePrompt(tier==='harder'
+       ? '9 crates are loaded, with 8 bolts in each crate. Set the rows and columns of the empty grid to match, then send the build and choose the product.'
+       : '6 crates are loaded, with 7 bolts in each crate. Set the rows and columns to match the partly drawn array, then send the build and choose the product.');
+     plate(tier==='harder'?'Harder tier selected. The auxiliary floor takes the heavier load.':'Standard tier selected. The room lights the same way either way.','nudge');
+     const split=el('div','wsplit');
+     const l=el('div','col');l.style.flex='1';
+     l.appendChild(el('div','stitle','Crates are rows. Bolts in a crate are the amount in each row.'));
+     R.ab=arrayBuilder(l,{maxR:10,maxC:10,cell:29,size:15,tokenClass:'t-bolt',rows:1,cols:1,
+       ghost: tier==='standard'?{rows:2,cols:7}:null,
+       onChange:()=>{if(R.stage===1)setSend('SEND BUILD',true,'send');}});
+     const r=el('div','col');r.style.flex='0 0 300px';
+     R.strip=el('div','strip');
+     R.bank=productBank(r,bankVals,'PRODUCT BANK');
+     r.appendChild(R.strip);
+     split.appendChild(l);split.appendChild(r);work.appendChild(split);
+     setSend('SEND BUILD',false,'send');
+     R.hints=[
+       {text:'The crates are the groups in this situation.'},
+       {text:'Crates are rows: set that many rows on the grid first.'},
+       {text:'Here is the counting strip: '+skipList(cols,rows).join(', ')+'.',
+        act:()=>{skipList(cols,rows).forEach((v,i)=>setTimeout(()=>R.strip.appendChild(el('div','sc in',String(v))),RM?0:i*220));
+          T.log('skip_count_strip_used_flag',{item:'item-06',value:true});}},
+       {text:'The grid now has '+rows+' rows. Each row still needs '+cols+'.',act:()=>{R.ab.set(rows,1);}}
+     ];
+     hintList.innerHTML='';R.hintLevel=0;hintMore.disabled=false;hintMore.textContent='ask for the next hint';
+   }
+ },
+ async send(){
+   if(!R.target){nudge('Choose a tier first — either one powers this room.');return;}
+   if(R.stage===1){
+     const st=R.ab.state,t=R.target;
+     T.log('construction_attempt',{item:'item-06',tier:R.tier,rows:st.rows,cols:st.cols});
+     if(st.rows===t.rows&&st.cols===t.cols){
+       R.stage=2;R.bank.unlock();
+       await runRoom(6,{groups:t.rows,per:t.cols,product:0,ok:false});
+       Tower.rooms[6].classList.remove('stall');
+       plate('Your grid reads '+t.rows+' rows with '+t.cols+' in each row — that matches the crates. Product bank connected.','nudge');
+       setSend('SEND ANSWER',false,'send');
+       return;}
+     await fail('Your grid reads '+st.rows+' rows with '+st.cols+' in each row. The situation loads '+t.rows+' crates with '+t.cols+' bolts in each, so the grid needs '+t.rows+' rows of '+t.cols+'.',
+       {groups:st.rows,per:st.cols,detail:'build'});
+     return;}
+   const p=R.bank.value,t=R.target;
+   if(p==null){nudge('Tap the product this grid sends to the dial.');return;}
+   T.log('product_attempt',{item:'item-06',tier:R.tier,value:p});
+   if(p===t.product){
+     await succeed({groups:t.rows,per:t.cols,product:t.product,
+       record:{room:6,name:'Auxiliary Floor ('+R.tier+' tier)',mode:'array',g:t.rows,k:t.cols,p:t.product,eq:t.rows+' × '+t.cols+' = '+t.product},
+       msg:'Checked row by row against the grid you built: '+skipList(t.cols,t.rows).join(', ')+'. '+t.rows+' × '+t.cols+' = '+t.product+', and the dial reads '+t.product+' W.'});
+     return;}
+   await fail('Your grid is right: '+t.rows+' rows of '+t.cols+'. Count it row by row — '+skipList(t.cols,t.rows).join(', ')+'. The dial cannot reach '+p+'.',
+     {groups:t.rows,per:t.cols,detail:'product'});
+ }};
+
+/* ---------- Room 7 ---------- */
+ROOMS[7]={phase:'Room 7 · Signal Deck',title:'The weaving frame',
+ prompt:'No picture for this one. A weaving frame is threaded in 7 bands, and each band carries 5 beads. Build a representation your way, then assemble the equation and the product. (As in every room, the first factor names how many groups.)',
+ mount(){
+   setSend('SEND',false,'send');
+   const row=el('div','choiceRow');
+   const g=el('button','choice');g.type='button';
+   g.innerHTML='<h3>Equal-groups builder</h3><p>Make containers, then put beads inside each one — the way you built in the Foundry.</p>';
+   const a=el('button','choice');a.type='button';
+   a.innerHTML='<h3>Array builder</h3><p>Stretch a grid to set rows and how many go in each row — the way you built on the Turbine Floor.</p>';
+   g.addEventListener('click',()=>startMode('groups'));a.addEventListener('click',()=>startMode('array'));
+   row.appendChild(g);row.appendChild(a);work.appendChild(row);
+   R.hints=[{text:'Either builder can show 7 bands with 5 beads on each. Pick whichever you can see more clearly.'}];
+   function startMode(mode){
+     R.mode=mode;R.stage=1;R.t0=performance.now();T.log('representation_mode_choice',{item:'item-07',mode:mode});
+     work.innerHTML='';
+     const split=el('div','wsplit');
+     const l=el('div','col');l.style.flex='1';
+     l.appendChild(el('div','stitle',mode==='groups'?'Your equal-groups build':'Your array build'));
+     if(mode==='groups'){
+       const echo=el('div','readout','no groups yet');l.appendChild(echo);
+       const holder=el('div');l.appendChild(holder);
+       R.gb=groupBuilder(holder,{tokenClass:'t-bead',size:12,maxGroups:9,maxTokens:9,onChange:st=>{
+         echo.innerHTML= st.groups.length? ('intake gauge: <b>'+st.groups.length+'</b> bands · '+st.groups.join(', ')):'no groups yet';
+         if(R.stage===1)setSend('SEND BUILD',st.groups.length>0,'send');}});
+     } else {
+       R.ab=arrayBuilder(l,{maxR:10,maxC:10,cell:27,size:14,tokenClass:'t-bead',rows:1,cols:1,
+         onChange:()=>{if(R.stage===1)setSend('SEND BUILD',true,'send');}});
+     }
+     const r=el('div','col');r.style.flex='0 0 342px';
+     r.appendChild(el('div','stitle','Equation frame'));
+     const frame=el('div','eqframe');
+     const upd=()=>{if(R.stage<2)return;const done=s1.dataset.value&&s2.dataset.value&&s3.dataset.value;
+       setSend('SEND ANSWER',!!(done&&R.bank.value!=null),'send');};
+     const s1=makeSlot('first factor','num',upd),s2=makeSlot('sign','sym',upd),s3=makeSlot('second factor','num',upd);
+     [s1,s2,s3].forEach(s=>{s.style.minWidth='68px';s.style.height='66px';});
+     frame.appendChild(s1);frame.appendChild(s2);frame.appendChild(s3);frame.appendChild(el('span','eqfixed','='));
+     const ps=el('div','slot');ps.style.minWidth='68px';ps.style.height='66px';
+     ps.appendChild(el('span','slab','product'));ps.appendChild(el('span','sval','?'));frame.appendChild(ps);
+     r.appendChild(frame);
+     const tiles=[];for(let i=1;i<=10;i++)tiles.push({value:i,kind:'num'});
+     tiles.push({value:'×',kind:'sym'});tiles.push({value:'+',kind:'sym'});
+     const tb=bankOf(tiles,'small');r.appendChild(tb);
+     R.bank=productBank(r,[12,30,35,40,45],'PRODUCT BANK');
+     R.slots={s1:s1,s2:s2,s3:s3};R.ps=ps;R.tb=tb;
+     tb.style.opacity='.45';tb.style.pointerEvents='none';
+     R.bank.el.addEventListener('click',()=>{if(R.bank.value!=null){ps.querySelector('.sval').textContent=R.bank.value;ps.classList.add('filled');upd();}});
+     split.appendChild(l);split.appendChild(r);work.appendChild(split);
+     setSend('SEND BUILD',false,'send');
+     R.hints=[
+       {text:'The weaving frame is threaded in 7 bands, and every band carries 5 beads.'},
+       {text:'How many bands are there? That is the number of groups — the rows, if you are using the array builder.'},
+       {text:'How many beads sit on one band? That is the amount in each group.'},
+       {text:'Two bands are built for you, 5 beads each. Five more bands to go.',
+        act:()=>{if(R.mode==='groups'){const cur=R.gb.state.groups.slice();const nw=[5,5];for(let i=2;i<cur.length;i++)nw.push(cur[i]);R.gb.set(nw);}
+          else R.ab.set(2,5);}}
+     ];
+     hintList.innerHTML='';R.hintLevel=0;hintMore.disabled=false;hintMore.textContent='ask for the next hint';
+   }
+ },
+ async send(){
+   if(!R.mode){nudge('Choose a builder first — either one can show this situation.');return;}
+   if(R.stage===1){
+     let g,k,ok,desc;
+     if(R.mode==='groups'){
+       const arr=R.gb.state.groups;
+       if(!arr.length){nudge('Build your representation, then send it.');return;}
+       g=arr.length;const eq=arr.every(c=>c===arr[0]);k=eq?arr[0]:null;
+       desc=g+' bands holding '+arr.join(', ');
+       T.log('construction_attempt',{item:'item-07',mode:'groups',counts:arr.slice()});
+       if(!eq){await fail('Your build holds '+arr.join(', ')+'. These groups are not equal, so this cannot be an equal-groups model of the frame.',{groups:g,per:arr[0],detail:'unequal'});return;}
+       ok=(g===7&&k===5);
+     } else {
+       const st=R.ab.state;g=st.rows;k=st.cols;desc=g+' rows with '+k+' in each row';
+       T.log('construction_attempt',{item:'item-07',mode:'array',rows:g,cols:k});
+       ok=(g===7&&k===5);
+     }
+     if(ok){
+       R.stage=2;R.rep={g:g,k:k};R.bank.unlock();R.tb.style.opacity='1';R.tb.style.pointerEvents='auto';
+       await runRoom(7,{groups:7,per:5,product:0,ok:false});
+       Tower.rooms[7].classList.remove('stall');
+       plate('Your representation reads '+desc+'. That matches the frame. Equation tiles and product bank connected.','nudge');
+       setSend('SEND ANSWER',false,'send');return;}
+     await fail('Your representation reads '+desc+'. The frame is threaded in 7 bands with 5 beads on each, so it needs 7 groups of 5.',{groups:g,per:k||0,detail:'build'});
+     return;}
+   const f1=R.slots.s1.dataset.value,op=R.slots.s2.dataset.value,f2=R.slots.s3.dataset.value,p=R.bank.value;
+   if(!f1||!op||!f2){nudge('Fill the three slots in the equation frame.');return;}
+   if(p==null){nudge('Tap the product from the bank.');return;}
+   T.log('equation_attempt',{item:'item-07',f1:f1,op:op,f2:f2,product:p,rep:R.rep});
+   if(op==='+'){await fail('A plus sign joins two numbers one time. Your representation shows 7 equal bands of 5, which the machine reads as multiplication.',{groups:7,per:5,detail:'additive'});return;}
+   if(f1==='5'&&f2==='7'){T.log('representation_equation_consistency',{item:'item-07',consistent:false});
+     await fail('Mismatch: your representation shows 7 bands of 5 beads, but your equation reads 5 × 7. The first factor names how many bands.',{groups:5,per:7,detail:'swapped'});return;}
+   if(!(f1==='7'&&f2==='5')){T.log('representation_equation_consistency',{item:'item-07',consistent:false});
+     await fail('Mismatch: your representation shows 7 bands of 5 beads, but your equation reads '+f1+' '+op+' '+f2+'.',{groups:+f1||0,per:+f2||0,detail:'mismatch'});return;}
+   if(p!==35){await fail('Your equation matches your build: 7 × 5. Count the bands — 5, 10, 15, 20, 25, 30, 35. The dial cannot reach '+p+'.',{groups:7,per:5,detail:'product'});return;}
+   T.log('representation_equation_consistency',{item:'item-07',consistent:true});
+   T.log('transfer_task_unaided_success',{item:'item-07',unaided:R.hintLevel===0,hint_depth:R.hintLevel,attempts:R.misses});
+   await succeed({groups:7,per:5,product:35,record:{room:7,name:'Signal Deck',mode:R.mode,g:7,k:5,p:35,eq:'7 × 5 = 35'},
+     msg:'Your representation, your equation and your product all say the same thing: 7 bands of 5 beads, 7 × 5 = 35. The deck is armed.'});
+ }};
+
+/* ---------- finale ---------- */
+async function finale(){
+  T.log('completion_rate',{value:1,rooms:record.length});
+  sendBtn.classList.add('hidden');
+  for(let i=1;i<=7;i++){const r=Tower.rooms[i];r.classList.add('surge');
+    const rec=record.find(x=>x.room===i);if(rec)setDial(i,rec.p);
+    await sleep(190);r.classList.remove('surge');}
+  await sleep(260);showPayoff();
+}
+function constellationSVG(rec){
+  const W=158,H=132;const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');
+  svg.setAttribute('viewBox','0 0 '+W+' '+H);svg.setAttribute('width',W);svg.setAttribute('height',H);
+  const pts=[];const lines=[];
+  if(rec.mode==='array'){
+    const sx=Math.min(13,(W-24)/rec.k),sy=Math.min(12,(H-24)/rec.g);
+    const ox=(W-(rec.k-1)*sx)/2, oy=(H-(rec.g-1)*sy)/2;
+    for(let r=0;r<rec.g;r++){const rowPts=[];
+      for(let c=0;c<rec.k;c++){const p={x:ox+c*sx,y:oy+r*sy};pts.push(p);rowPts.push(p);}
+      for(let i=1;i<rowPts.length;i++)lines.push([rowPts[i-1],rowPts[i]]);}
+  } else {
+    const perRow=Math.min(3,rec.k);const gRows=Math.ceil(rec.k/perRow);
+    const cols=Math.ceil(Math.sqrt(rec.g));const rows=Math.ceil(rec.g/cols);
+    const cw=(W-16)/cols, ch=(H-16)/rows;
+    for(let g=0;g<rec.g;g++){
+      const gx=8+(g%cols)*cw, gy=8+Math.floor(g/cols)*ch;
+      const dx=Math.min(9,(cw-6)/Math.max(1,perRow)), dy=Math.min(9,(ch-6)/Math.max(1,gRows));
+      const cluster=[];
+      for(let t=0;t<rec.k;t++){const p={x:gx+cw/2-((perRow-1)*dx)/2+(t%perRow)*dx, y:gy+ch/2-((gRows-1)*dy)/2+Math.floor(t/perRow)*dy};
+        pts.push(p);cluster.push(p);}
+      for(let i=1;i<cluster.length;i++)lines.push([cluster[i-1],cluster[i]]);
+    }
+  }
+  lines.forEach(L=>{const l=document.createElementNS('http://www.w3.org/2000/svg','line');
+    l.setAttribute('x1',L[0].x);l.setAttribute('y1',L[0].y);l.setAttribute('x2',L[1].x);l.setAttribute('y2',L[1].y);
+    l.setAttribute('class','starline');svg.appendChild(l);});
+  pts.forEach((p,i)=>{const c=document.createElementNS('http://www.w3.org/2000/svg','circle');
+    c.setAttribute('cx',p.x);c.setAttribute('cy',p.y);c.setAttribute('r',2.3);c.setAttribute('class','star');
+    c.style.opacity='0';c.style.animation='fadeIn .3s forwards';c.style.animationDelay=(i*8)+'ms';svg.appendChild(c);});
+  return svg;
+}
+function showPayoff(){
+  const ov=el('div');ov.id='overlay';
+  ov.appendChild(el('div','','')).id='beam';
+  ov.appendChild(el('div',null,'')).outerHTML='';
+  const t=el('div');t.id='poTitle';t.textContent='THE SIGNAL IS SENT';
+  const line=el('div');line.id='poLine';
+  line.textContent='You interpreted a situation, represented it, and matched it to an equation and its product.';
+  const row=el('div');row.id='constRow';
+  record.sort((a,b)=>a.room-b.room).forEach((rec,i)=>{
+    const c=el('div','cst');c.style.animationDelay=(i*130)+'ms';
+    c.appendChild(constellationSVG(rec));
+    c.appendChild(el('div','ceq',rec.eq));
+    c.appendChild(el('div','cnm','ROOM '+rec.room+' · '+rec.name.toUpperCase()));
+    row.appendChild(c);});
+  const btns=el('div');btns.id='poBtns';
+  const again=el('button','btn','RUN THE TOWER AGAIN');again.type='button';
+  again.addEventListener('click',()=>{
+    ov.remove();record.length=0;Tower.lit.clear();updateVolt();
+    for(let i=1;i<=7;i++){const r=Tower.rooms[i];r.classList.remove('lit');r.querySelector('.machinery').innerHTML='';
+      r.querySelector('.rstruct').textContent='';setDial(i,0);}
+    base.classList.remove('on');sendBtn.classList.remove('hidden');
+    const pal=['','dawn','storm'];stage.className=pal[Math.floor(Math.random()*3)];
+    T.log('replay_start',{});mountRoom(0);});
+  btns.appendChild(again);
+  ov.appendChild(t);ov.appendChild(line);ov.appendChild(row);ov.appendChild(btns);
+  const beam=el('div');beam.id='beam';ov.insertBefore(beam,ov.firstChild);
+  stage.appendChild(ov);
+  T.flush();
+}
+
+/* ---------- go ---------- */
+updateVolt();
+mountRoom(0);
+window.addEventListener('beforeunload',()=>T.flush());
+})();
+</script>
+</body>
+</html>

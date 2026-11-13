@@ -1,0 +1,12 @@
+{
+  "status": "READY_FOR_BLINDED_HUMAN_REVIEW",
+  "originalSuccessfulArchitectCalls": 2,
+  "originalRejectedBuilderRequests": 2,
+  "continuationCalls": 3,
+  "totalSuccessfulPaidCalls": 5,
+  "originalCostUsd": 1.37363,
+  "continuationCostUsd": 2.533355,
+  "totalCostUsd": 3.906985,
+  "report": "/Users/jamaltaylor/Development/sunny-math-creative-sandbox/outputs/math-creative-sandbox/evaluation-persona-comparison/2026-08-17T22-48-25.043Z/report.html",
+  "claim": "This compares generated evaluation quality and first-pass reliability; it does not establish learning, mastery, or causation."
+}

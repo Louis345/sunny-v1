@@ -1,0 +1,77 @@
+- banner:
+  - generic: HARBOR CODE DIVISION
+  - text: "CARGO CODE:"
+  - emphasis: OUTSMART VEX
+  - generic: ACT 3 · NIGHT CONVOY
+  - generic: SHIPMENT
+  - generic: CLAW◆
+  - generic: ⛵VEX
+  - text: 📦
+  - text: 0 DISTANCE
+  - generic: 0 SEIZED · 0 BLUFFS BUSTED
+- main:
+  - generic: ⚡ INTERCEPTED MESSAGE
+  - generic: 7 / 13
+  - generic: Each truck carries 4 crates. Each crate holds 6 lanterns. There are 3 trucks. Crack the lantern load.
+  - button "⏱ RECOUNT SCANNER"
+  - 'button "☠ NO MERCY: OFF"'
+  - generic: "Radio: Build the groups, stamp the product, seize the load."
+  - generic: CRANE MK III
+  - generic: READ · BUILD · PROVE
+  - text: · · · EMPTY DOCK GRID · · ·
+  - text: Rows are groups. Each row holds the amount in each.
+  - generic: 🪝
+  - generic: CRATES / GROUPS
+  - generic: "0"
+  - generic: ROWS
+  - button "−"
+  - button "+"
+  - generic: IN EACH
+  - generic: "0"
+  - generic: ITEMS PER ROW
+  - button "−"
+  - button "+"
+  - generic: MULTIPLICATION SEIZURE CODE
+  - generic: "?"
+  - generic: ×
+  - generic: "?"
+  - generic: =
+  - textbox "product"
+  - button "1"
+  - button "2"
+  - button "3"
+  - button "4"
+  - button "5"
+  - button "6"
+  - button "7"
+  - button "8"
+  - button "9"
+  - button "⌫"
+  - button "0"
+  - button "C"
+  - button "LOCK & SEIZE":
+    - text: LOCK &
+    - text: SEIZE
+  - generic: Vex grabbed this one—but your tracker marked it for a Reclaim Run.
+- contentinfo:
+  - text: HARBOR CASE FILE
+  - text: Stamped loads
+  - text: VEX
+  - text: STOLE IT
+  - text: VEX
+  - text: STOLE IT
+  - text: VEX
+  - text: STOLE IT
+  - text: VEX
+  - text: STOLE IT
+  - text: VEX
+  - text: STOLE IT
+  - text: VEX
+  - text: STOLE IT
+  - generic: LOAD 7
+  - generic: LOAD 8
+  - generic: LOAD 9
+  - generic: LOAD 10
+  - generic: LOAD 11
+  - generic: LOAD 12
+  - generic: LOAD 13

@@ -1,0 +1,953 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Caravan Rush: The Broker's Wager</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{width:1365px;height:768px;overflow:hidden;background:#2a1a10;font-family:'Georgia','Times New Roman',serif;user-select:none;}
+  #stage{position:relative;width:1365px;height:768px;overflow:hidden;background:linear-gradient(#f3d9a4,#e8c184 40%,#d9a86a 70%,#b98450);}
+  canvas.layer{position:absolute;left:0;top:0;width:1365px;height:768px;pointer-events:none;}
+  .ui{position:absolute;}
+  /* ---------- Race track ---------- */
+  #track{position:absolute;left:0;top:0;width:1365px;height:190px;pointer-events:none;}
+  /* ---------- Order card ---------- */
+  #orderCard{
+    left:24px;top:206px;width:330px;min-height:210px;
+    background:repeating-linear-gradient(#fffaf0,#fffaf0 26px,#f6ecd8 27px);
+    border:2px solid #b08b52;border-radius:4px;
+    box-shadow:0 6px 18px rgba(60,30,10,.35);
+    padding:14px 16px 16px;color:#4a3218;
+  }
+  #orderCard:before{content:"";position:absolute;left:0;right:0;top:-9px;height:10px;
+    background:repeating-linear-gradient(90deg,#fffaf0 0 12px,transparent 12px 20px);}
+  .cardTitle{font-size:14px;letter-spacing:3px;text-transform:uppercase;color:#9a6a2c;border-bottom:1px dashed #c9a463;padding-bottom:6px;margin-bottom:10px;}
+  #orderText{font-size:19px;line-height:26px;min-height:78px;}
+  #orderText b{color:#a4442a;}
+  #orderMeta{margin-top:10px;font-size:15px;color:#7a5a2e;}
+  .btnRow{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;}
+  button.mk{
+    font-family:inherit;font-size:14px;padding:8px 12px;border-radius:5px;cursor:pointer;
+    background:linear-gradient(#e8c98a,#c9a15c);border:2px solid #8d6428;color:#3d2a10;
+    box-shadow:0 3px 0 #7a5620;transition:transform .08s;
+  }
+  button.mk:active{transform:translateY(3px);box-shadow:0 0 0 #7a5620;}
+  button.mk[disabled]{opacity:.35;cursor:default;box-shadow:0 3px 0 #7a5620;}
+  button.danger{background:linear-gradient(#e59b7a,#c2603c);border-color:#7d3a1e;box-shadow:0 3px 0 #6d3018;color:#2b120a;}
+  button.good{background:linear-gradient(#a8d68a,#6fae52);border-color:#3f6b2b;box-shadow:0 3px 0 #38601f;}
+  /* ---------- Grid ---------- */
+  #gridWrap{left:376px;top:206px;width:600px;height:400px;}
+  #gridPanel{position:absolute;left:0;top:0;background:rgba(78,48,24,.28);border:3px solid #8d6428;border-radius:10px;}
+  .slot{position:absolute;border:2px dashed rgba(255,245,215,.55);border-radius:8px;background:rgba(255,240,200,.10);}
+  .slot.pulse{animation:pulse 1.1s infinite;}
+  @keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(255,232,150,.0);background:rgba(255,240,200,.10);}
+    50%{box-shadow:0 0 16px 4px rgba(255,226,120,.75);background:rgba(255,238,170,.30);}}
+  .crate{position:absolute;border-radius:7px;display:flex;align-items:center;justify-content:center;
+    font-size:26px;cursor:grab;touch-action:none;
+    background:linear-gradient(#c98f4e,#a26a33);border:2px solid #6f4519;
+    box-shadow:inset 0 3px 0 rgba(255,225,180,.45),inset 0 -4px 0 rgba(0,0,0,.25),0 3px 6px rgba(0,0,0,.3);}
+  .crate.dragging{cursor:grabbing;z-index:999;transform:scale(1.12) rotate(-3deg);box-shadow:0 12px 22px rgba(0,0,0,.45);}
+  .crate.placed{cursor:default;}
+  .rowTally{position:absolute;font-size:22px;color:#5b3c16;font-weight:bold;text-shadow:0 1px 0 #ffeec2;}
+  .rowTally .num{display:inline-block;opacity:0;transform:scale(.3);}
+  .rowTally .num.show{animation:popn .32s forwards;}
+  @keyframes popn{to{opacity:1;transform:scale(1);}}
+  .colLbl{position:absolute;font-size:13px;color:#6b4a1e;}
+  /* ---------- Tray ---------- */
+  #tray{left:376px;top:622px;width:600px;height:124px;background:linear-gradient(#8b5f2c,#6d4720);
+    border:3px solid #4d3013;border-radius:10px;box-shadow:inset 0 4px 10px rgba(0,0,0,.35);}
+  #trayLabel{position:absolute;left:10px;top:6px;font-size:12px;letter-spacing:2px;color:#f0d7a8;text-transform:uppercase;}
+  /* ---------- Right HUD ---------- */
+  #hud{left:996px;top:206px;width:345px;}
+  .ledger{background:repeating-linear-gradient(#fffaf0,#fffaf0 24px,#f4e9d3 25px);
+    border:2px solid #b08b52;border-radius:4px;padding:12px 14px;color:#4a3218;
+    box-shadow:0 6px 16px rgba(60,30,10,.3);margin-bottom:12px;}
+  .ledger h3{font-size:13px;letter-spacing:3px;text-transform:uppercase;color:#9a6a2c;margin-bottom:8px;border-bottom:1px dashed #c9a463;padding-bottom:5px;}
+  .row2{display:flex;justify-content:space-between;font-size:16px;line-height:24px;}
+  #tickerBig{font-size:34px;text-align:center;color:#a4442a;letter-spacing:2px;min-height:44px;line-height:44px;}
+  #ledgerList{max-height:150px;overflow-y:auto;font-size:15px;line-height:23px;}
+  #ledgerList div{border-bottom:1px dotted #d9c49a;}
+  #streak{font-size:15px;color:#2d6b2d;}
+  /* ---------- Rival taunt ---------- */
+  #taunt{position:absolute;left:0;top:0;max-width:300px;padding:10px 14px;background:#fff6e2;border:2px solid #8d3a1e;
+    border-radius:12px;color:#7a2a12;font-size:16px;opacity:0;pointer-events:none;box-shadow:0 6px 14px rgba(0,0,0,.3);z-index:50;}
+  #taunt:after{content:"";position:absolute;left:30px;bottom:-12px;border:6px solid transparent;border-top-color:#8d3a1e;}
+  /* ---------- Overlays ---------- */
+  .overlay{position:absolute;inset:0;background:rgba(38,22,10,.82);display:flex;align-items:center;justify-content:center;z-index:200;}
+  .panel{width:760px;background:repeating-linear-gradient(#fffaf0,#fffaf0 28px,#f5ead4 29px);
+    border:4px solid #a97e3f;border-radius:8px;padding:26px 32px;color:#4a3218;box-shadow:0 18px 50px rgba(0,0,0,.6);}
+  .panel h1{font-size:36px;color:#8d3a1e;letter-spacing:2px;margin-bottom:8px;}
+  .panel h2{font-size:22px;color:#9a6a2c;margin:14px 0 6px;letter-spacing:1px;}
+  .panel p{font-size:18px;line-height:27px;margin-bottom:8px;}
+  .panel ul{margin:6px 0 8px 22px;font-size:17px;line-height:26px;}
+  .center{text-align:center;}
+  #ledgerFinal{columns:2;font-size:16px;line-height:24px;max-height:210px;}
+  #timerBar{position:absolute;left:376px;top:606px;width:600px;height:12px;background:#5c3d1a;border-radius:6px;overflow:hidden;border:2px solid #3d2810;}
+  #timerFill{height:100%;width:100%;background:linear-gradient(90deg,#7fc45a,#e0c34a);}
+  #legTag{position:absolute;left:24px;top:12px;font-size:15px;letter-spacing:3px;color:#5b3c16;text-transform:uppercase;text-shadow:0 1px 0 #ffe9bd;}
+  #spillLayer{position:absolute;inset:0;pointer-events:none;z-index:120;}
+  .spill{position:absolute;font-size:28px;}
+  .flash{position:absolute;left:376px;top:206px;width:600px;height:400px;border-radius:10px;pointer-events:none;opacity:0;}
+  #doubleTag{position:absolute;right:14px;top:8px;font-size:13px;color:#8d3a1e;letter-spacing:2px;}
+</style>
+</head>
+<body>
+<div id="stage">
+  <canvas class="layer" id="bg" width="1365" height="768"></canvas>
+  <canvas class="layer" id="race" width="1365" height="768"></canvas>
+  <div id="legTag" class="ui"></div>
+
+  <div id="orderCard" class="ui">
+    <div class="cardTitle">Order Slip <span id="doubleTag"></span></div>
+    <div id="orderText"></div>
+    <div id="orderMeta"></div>
+    <div class="btnRow">
+      <button class="mk" id="btnBell">🔔 Read Again</button>
+      <button class="mk" id="btnGhost">👁 Show Shape</button>
+      <button class="mk good" id="btnShip">🚚 Ship It</button>
+      <button class="mk danger" id="btnReject">⚠ Order Is Wrong</button>
+    </div>
+  </div>
+
+  <div id="gridWrap" class="ui">
+    <div id="gridPanel"></div>
+  </div>
+  <div class="flash" id="flash"></div>
+  <div id="timerBar" class="ui"><div id="timerFill"></div></div>
+
+  <div id="tray" class="ui"><div id="trayLabel">Crate Tray — drag crates into the cart grid</div></div>
+
+  <div id="hud" class="ui">
+    <div class="ledger">
+      <h3>Skip Count</h3>
+      <div id="tickerBig">—</div>
+      <div class="row2"><span>Packed</span><span id="packedTxt">0 / 0</span></div>
+      <div class="row2"><span>Perfect streak</span><span id="streak">0</span></div>
+    </div>
+    <div class="ledger">
+      <h3>Day Ledger</h3>
+      <div id="ledgerList"></div>
+    </div>
+  </div>
+
+  <div id="taunt"></div>
+  <div id="spillLayer"></div>
+  <div id="overlayHost"></div>
+</div>
+
+<script>
+/* ============================================================
+   Caravan Rush: The Broker's Wager
+   ============================================================ */
+const S = {
+  stage: document.getElementById('stage'),
+  bg: document.getElementById('bg').getContext('2d'),
+  race: document.getElementById('race').getContext('2d'),
+};
+const W=1365,H=768;
+
+/* ---------------- Audio (WebAudio, no external deps) --------------- */
+const AC = window.AudioContext||window.webkitAudioContext;
+let actx=null;
+function ac(){ if(!actx) actx=new AC(); if(actx.state==='suspended') actx.resume(); return actx; }
+function tone(f,dur,type='sine',gain=.12,slide=0){
+  try{const c=ac();const o=c.createOscillator(),g=c.createGain();
+  o.type=type;o.frequency.setValueAtTime(f,c.currentTime);
+  if(slide)o.frequency.exponentialRampToValueAtTime(Math.max(40,f+slide),c.currentTime+dur);
+  g.gain.setValueAtTime(0.0001,c.currentTime);
+  g.gain.exponentialRampToValueAtTime(gain,c.currentTime+0.012);
+  g.gain.exponentialRampToValueAtTime(0.0001,c.currentTime+dur);
+  o.connect(g);g.connect(c.destination);o.start();o.stop(c.currentTime+dur+.02);}catch(e){}
+}
+function thud(){ tone(150,.14,'square',.10,-70); tone(80,.18,'sine',.13,-30); }
+function clickSnap(){ tone(880,.06,'triangle',.07); tone(1320,.05,'sine',.05); }
+function chime(n){ [523,659,784,1047][n%4] && tone([523,659,784,1047][n%4],.28,'sine',.10); }
+function fanfare(){ [523,659,784,1047,1319].forEach((f,i)=>setTimeout(()=>tone(f,.35,'triangle',.10),i*110)); }
+function spillSfx(){ [420,340,260,200].forEach((f,i)=>setTimeout(()=>tone(f,.16,'sawtooth',.07,-60),i*70)); }
+function speak(t){
+  try{ if(!window.speechSynthesis) return; speechSynthesis.cancel();
+  const u=new SpeechSynthesisUtterance(t); u.rate=.95; u.pitch=1.05; speechSynthesis.speak(u);}catch(e){}
+}
+
+/* ---------------- Utility --------------- */
+const rnd=(a,b)=>a+Math.floor(Math.random()*(b-a+1));
+const pick=a=>a[Math.floor(Math.random()*a.length)];
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+function ease(t){return t<.5?2*t*t:1-Math.pow(-2*t+2,2)/2;}
+
+/* ---------------- Goods --------------- */
+const GOODS=[
+  {n:'apples',i:'🍎',u:'apples'},{n:'melons',i:'🍈',u:'melons'},
+  {n:'potions',i:'🧪',u:'potions'},{n:'lanterns',i:'🏮',u:'lanterns'},
+  {n:'bread loaves',i:'🍞',u:'loaves'},{n:'grapes',i:'🍇',u:'bunches'},
+  {n:'spice jars',i:'🫙',u:'jars'},{n:'fish',i:'🐟',u:'fish'},
+  {n:'cheese wheels',i:'🧀',u:'wheels'},{n:'gems',i:'💎',u:'gems'}
+];
+const CUSTOMERS=['The tavern','The temple','The dye-works','Captain Suri','The caravan cook','The night market','The healer','The stonemason','The spice guild','The ferry crew'];
+
+/* ---------------- Game state --------------- */
+const G={
+  node:0,            // 0 teach, 1 guided, 2 grand run
+  legIndex:0,
+  orders:[],         // current node order list
+  order:null,
+  placed:[],         // [row][col] bool
+  gridEls:[],
+  crateEls:[],
+  trayCrates:[],
+  playerX:0.06, rivalX:0.06,   // 0..1 along track
+  streak:0,
+  secondWind:false,
+  ledger:[],
+  bonusWon:0, legsWon:0, legsLost:0,
+  timeLeft:1, timeMax:1, timing:false,
+  ghostShown:false,
+  doubleMode:false,
+  sub:0,             // for double order: which of 2 arrays
+  locked:false,
+  runSeed:0,
+  wheelSpin:0,
+  rivalSpeedPerTick:0,
+  taunted:0
+};
+
+/* ============================================================
+   BACKGROUND (market lane) — drawn per node richness
+   ============================================================ */
+let bgPhase=0;
+function drawBG(){
+  const c=S.bg; c.clearRect(0,0,W,H);
+  const dusk = G.node===2;
+  // sky
+  let g=c.createLinearGradient(0,0,0,200);
+  if(dusk){g.addColorStop(0,'#5b2f4a');g.addColorStop(.5,'#a8543f');g.addColorStop(1,'#e0a05a');}
+  else {g.addColorStop(0,'#8fd0d8');g.addColorStop(1,'#f6e3b0');}
+  c.fillStyle=g;c.fillRect(0,0,W,205);
+  // distant town
+  c.fillStyle=dusk?'rgba(60,32,40,.55)':'rgba(150,120,80,.35)';
+  for(let i=0;i<26;i++){const x=i*54+((i*37)%20), h=28+((i*53)%50);
+    c.fillRect(x,168-h,44,h); c.beginPath();c.moveTo(x-4,168-h);c.lineTo(x+22,168-h-16);c.lineTo(x+48,168-h);c.fill();}
+  // ground
+  let gg=c.createLinearGradient(0,190,0,H);
+  gg.addColorStop(0,dusk?'#8a5a35':'#d9a86a'); gg.addColorStop(.35,dusk?'#a3703f':'#e6bd81'); gg.addColorStop(1,dusk?'#6d4525':'#c1904f');
+  c.fillStyle=gg;c.fillRect(0,190,W,H-190);
+  // cobbles
+  c.globalAlpha=.13;
+  for(let y=210;y<H;y+=26){for(let x=(y%52?0:13);x<W;x+=26){
+    c.fillStyle='#4a2f14';c.beginPath();c.ellipse(x+13,y+8,11,6,0,0,7);c.fill();}}
+  c.globalAlpha=1;
+  // stalls: count grows with node
+  const stalls = G.node===0?1:(G.node===1?4:7);
+  for(let i=0;i<stalls;i++) stall(c, 60+i*185, 196, i, dusk);
+  // gate at dusk (node 2)
+  if(dusk) drawGate(c);
+  // warm vignette
+  const v=c.createRadialGradient(W/2,H/2,300,W/2,H/2,830);
+  v.addColorStop(0,'rgba(0,0,0,0)');v.addColorStop(1,'rgba(50,25,5,.42)');
+  c.fillStyle=v;c.fillRect(0,0,W,H);
+}
+function stall(c,x,y,i,dusk){
+  const teal=['#2f8f8a','#3fa39a','#276e77','#c2683c','#2f8f8a','#b4562f','#37918d'][i%7];
+  c.fillStyle='#7a5228';c.fillRect(x,y-6,10,58);c.fillRect(x+120,y-6,10,58);
+  c.fillStyle=teal;
+  c.beginPath();c.moveTo(x-12,y-6);
+  for(let k=0;k<7;k++){c.lineTo(x-12+k*22+11,y+8);c.lineTo(x-12+(k+1)*22,y-6);}
+  c.lineTo(x+142,y-30);c.lineTo(x-12,y-30);c.closePath();c.fill();
+  c.fillStyle='rgba(255,255,255,.16)';
+  for(let k=0;k<7;k+=2){c.fillRect(x-12+k*22,y-30,22,26);}
+  c.fillStyle=dusk?'#4b3018':'#8b6234';c.fillRect(x-6,y+18,136,26);
+  // goods dots
+  for(let k=0;k<6;k++){c.fillStyle=['#c94f3a','#d99a2b','#6ba34a','#8a4fb5','#d4623f','#3f8fb5'][k];
+    c.beginPath();c.arc(x+8+k*22,y+16,6,0,7);c.fill();}
+  if(dusk){c.fillStyle='rgba(255,196,90,.5)';c.beginPath();c.arc(x+64,y-2,22,0,7);c.fill();}
+}
+function drawGate(c){
+  const gx=W-150;
+  c.fillStyle='#4a2f16';c.fillRect(gx,120,26,300);c.fillRect(gx+130,120,26,300);
+  c.fillStyle='#6b4423';c.fillRect(gx-10,96,186,30);
+  c.fillStyle='#3b2411';
+  const closed = clamp(Math.max(G.playerX,G.rivalX),0,1);
+  const gh = 40+closed*150;
+  c.fillRect(gx+26,120,104,gh);
+  c.strokeStyle='#8a6a3a';c.lineWidth=3;
+  for(let y=130;y<120+gh;y+=22){c.beginPath();c.moveTo(gx+26,y);c.lineTo(gx+130,y);c.stroke();}
+  c.fillStyle='#f4dfae';c.font='bold 15px Georgia';c.textAlign='center';
+  c.fillText('CARAVAN GATE',gx+78,116);c.textAlign='left';
+}
+
+/* ============================================================
+   RACE TRACK (canvas) — caravans
+   ============================================================ */
+const TRACK={y:150, x0:70, x1:W-210};
+function drawRace(){
+  const c=S.race;c.clearRect(0,0,W,H);
+  // road band
+  c.fillStyle='rgba(90,58,26,.30)';c.fillRect(TRACK.x0-40,TRACK.y-52,TRACK.x1-TRACK.x0+250,104);
+  c.strokeStyle='rgba(255,240,200,.45)';c.setLineDash([16,14]);c.lineWidth=3;
+  c.beginPath();c.moveTo(TRACK.x0-40,TRACK.y);c.lineTo(TRACK.x1+210,TRACK.y);c.stroke();c.setLineDash([]);
+  // milestones
+  c.fillStyle='rgba(70,44,18,.5)';c.font='12px Georgia';
+  for(let i=0;i<=4;i++){const x=TRACK.x0+(TRACK.x1-TRACK.x0)*i/4;
+    c.fillRect(x,TRACK.y+34,3,14); c.fillText((i*25)+'%',x-9,TRACK.y+62);}
+  // finish
+  const fx=TRACK.x1+14;
+  for(let r=0;r<6;r++)for(let q=0;q<2;q++){c.fillStyle=((r+q)%2)?'#2b1a0c':'#f6e6c0';c.fillRect(fx+q*11,TRACK.y-56+r*17,11,17);}
+  caravan(c, TRACK.x0+(TRACK.x1-TRACK.x0)*G.rivalX, TRACK.y-30, '#8d3a1e','#c2603c', true);
+  caravan(c, TRACK.x0+(TRACK.x1-TRACK.x0)*G.playerX, TRACK.y+22, '#2f6f8f','#3fa39a', false);
+}
+function caravan(c,x,y,dark,light,isRival){
+  c.save();c.translate(x,y);
+  // shadow
+  c.fillStyle='rgba(0,0,0,.22)';c.beginPath();c.ellipse(0,24,52,9,0,0,7);c.fill();
+  // wheels
+  const spin=G.wheelSpin*(isRival?1:1.15);
+  [-26,24].forEach(wx=>{
+    c.save();c.translate(wx,16);c.rotate(spin);
+    c.strokeStyle='#4a2f14';c.lineWidth=4;c.beginPath();c.arc(0,0,13,0,7);c.stroke();
+    c.lineWidth=2.5;for(let k=0;k<6;k++){c.beginPath();c.moveTo(0,0);c.lineTo(Math.cos(k*1.047)*12,Math.sin(k*1.047)*12);c.stroke();}
+    c.restore();});
+  // body
+  c.fillStyle='#7a5228';c.fillRect(-44,-2,88,20);
+  c.fillStyle=dark;c.beginPath();c.moveTo(-46,-2);c.quadraticCurveTo(0,-52,46,-2);c.closePath();c.fill();
+  c.fillStyle=light;
+  for(let k=-3;k<=3;k++){c.save();c.beginPath();c.moveTo(-46,-2);c.quadraticCurveTo(0,-52,46,-2);c.closePath();c.clip();
+    c.fillRect(k*13,-56,6,56);c.restore();}
+  // ox
+  c.fillStyle='#6b4a25';c.fillRect(48,-4,30,18);c.beginPath();c.arc(80,-2,10,0,7);c.fill();
+  c.strokeStyle='#f0e0bb';c.lineWidth=3;c.beginPath();c.moveTo(76,-10);c.lineTo(84,-18);c.moveTo(86,-10);c.lineTo(92,-18);c.stroke();
+  // banner
+  if(!isRival && G.masterBanner){
+    c.fillStyle='#e3b23c';c.fillRect(-40,-74,80,20);
+    c.fillStyle='#4a2f14';c.font='bold 11px Georgia';c.textAlign='center';c.fillText('MASTER TRADER',0,-60);c.textAlign='left';
+    c.strokeStyle='#8d6428';c.lineWidth=2;c.beginPath();c.moveTo(0,-54);c.lineTo(0,-40);c.stroke();
+  }
+  c.fillStyle='#fff4d8';c.font='bold 13px Georgia';c.textAlign='center';
+  c.fillText(isRival?'VOSK':'YOU',0,10);c.textAlign='left';
+  c.restore();
+}
+
+/* ============================================================
+   TAUNTS
+   ============================================================ */
+const TAUNT_SPILL=[ "Crates all over the cobbles? Amateur.",
+  "I'll count that as a donation to the street dogs.",
+  "Rows, kid. Equal rows. Try again.",
+  "My ox packs better than that.",
+  "Careful — the gate won't wait for your mess."];
+const TAUNT_LEAD=["Dust in your teeth yet?","Wave when I pass!","Gate's mine today.","Still counting? I'm still rolling."];
+const TAUNT_BEHIND=["Lucky order.","Don't get comfortable.","Hmph. Fine load.","...you counted that fast."];
+function taunt(txt,ms=2600){
+  const t=document.getElementById('taunt');
+  const rx=TRACK.x0+(TRACK.x1-TRACK.x0)*G.rivalX;
+  t.style.left=clamp(rx-40,10,W-330)+'px'; t.style.top=(TRACK.y-150)+'px';
+  t.textContent='Vosk: “'+txt+'”';
+  t.style.transition='none';t.style.opacity=0;t.style.transform='translateY(10px)';
+  requestAnimationFrame(()=>{t.style.transition='opacity .25s, transform .25s';t.style.opacity=1;t.style.transform='translateY(0)';});
+  clearTimeout(t._t);t._t=setTimeout(()=>{t.style.opacity=0;},ms);
+}
+
+/* ============================================================
+   ORDER GENERATION
+   ============================================================ */
+function makeOrder(node, idx){
+  let rows,cols;
+  if(node===0){ const set=[[3,4],[2,5],[4,3],[3,3],[2,6],[5,2]]; [rows,cols]=pick(set); }
+  else if(node===1){ rows=rnd(2,6); cols=rnd(2,6); if(rows*cols<6){rows=3;cols=3;} }
+  else { rows=rnd(3,7); cols=rnd(3,7); if(rows*cols>36){cols=clamp(cols,3,5);} }
+  const good=pick(GOODS);
+  const cust=pick(CUSTOMERS);
+  const o={rows,cols,good,cust,total:rows*cols,garbled:false,mode:'plain'};
+  if(node===0){
+    o.text=`Pack <b>${rows} rows</b> of <b>${cols} ${good.u}</b>.`;
+    o.spoken=`Pack ${rows} rows of ${cols} ${good.u}.`;
+  } else {
+    const forms=[
+      ()=>{o.text=`${cust} needs <b>${rows} crates</b>, <b>${cols} ${good.u}</b> in each.`;o.spoken=`${cust} needs ${rows} crates, ${cols} ${good.u} in each.`;},
+      ()=>{o.text=`Load <b>${rows} shelves</b> — every shelf holds <b>${cols} ${good.u}</b>.`;o.spoken=`Load ${rows} shelves. Every shelf holds ${cols} ${good.u}.`;},
+      ()=>{o.text=`${cust} orders <b>${cols} ${good.u}</b> per crate for <b>${rows} crates</b>.`;o.spoken=`${cust} orders ${cols} ${good.u} per crate, for ${rows} crates.`;}
+    ];
+    pick(forms)();
+  }
+  return o;
+}
+function garble(o){
+  // Rival tampers: stated total contradicts rows×cols
+  const wrong = o.total + pick([-o.cols, o.cols, -1, 1, o.rows, -o.rows]).valueOf();
+  const bad = (wrong===o.total|| wrong<1) ? o.total+o.cols : wrong;
+  o.garbled=true; o.claimedTotal=bad;
+  o.text=`${o.cust} needs <b>${o.rows} crates</b>, <b>${o.cols} ${o.good.u}</b> each — <b>total ${bad} ${o.good.u}</b>. <i>(stamped by V.)</i>`;
+  o.spoken=`${o.cust} needs ${o.rows} crates, ${o.cols} ${o.good.u} each. Total ${bad} ${o.good.u}. Stamped by V.`;
+  return o;
+}
+function buildNodeOrders(node){
+  const list=[];
+  if(node===0){ for(let i=0;i<3;i++) list.push(makeOrder(0,i)); }
+  else if(node===1){ for(let i=0;i<4;i++) list.push(makeOrder(1,i)); }
+  else {
+    const n=6;
+    for(let i=0;i<n;i++) list.push(makeOrder(2,i));
+    // 1-2 garbled orders placed randomly (not first)
+    const gcount = Math.random()<.45?2:1;
+    const idxs=[]; while(idxs.length<gcount){const k=rnd(1,n-1); if(!idxs.includes(k))idxs.push(k);}
+    idxs.forEach(k=>garble(list[k]));
+    // one double-order leg
+    const dbl=rnd(2,n-1);
+    if(!list[dbl].garbled){
+      list[dbl].mode='double';
+      const b=makeOrder(2,dbl); b.rows=clamp(b.rows,2,4); b.cols=clamp(b.cols,2,4);
+      list[dbl].second={rows:b.rows,cols:b.cols,good:b.good};
+      list[dbl].text=`DOUBLE ORDER — pack <b>${list[dbl].rows}×${list[dbl].cols} ${list[dbl].good.u}</b>, then <b>${b.rows}×${b.cols} ${b.good.u}</b>, both before the gate.`;
+      list[dbl].spoken=`Double order. Pack ${list[dbl].rows} rows of ${list[dbl].cols} ${list[dbl].good.u}, then ${b.rows} rows of ${b.cols} ${b.good.u}. Both before the gate.`;
+    }
+  }
+  return list;
+}
+
+/* ============================================================
+   GRID BUILD
+   ============================================================ */
+const GW=document.getElementById('gridWrap');
+const GP=document.getElementById('gridPanel');
+const TRAY=document.getElementById('tray');
+let CELL=56, GAP=8, ORIGIN={x:0,y:0};
+
+function currentSpec(){
+  const o=G.order;
+  if(o.mode==='double' && G.sub===1) return {rows:o.second.rows,cols:o.second.cols,good:o.second.good};
+  return {rows:o.rows,cols:o.cols,good:o.good};
+}
+function buildGrid(){
+  GP.innerHTML=''; G.gridEls=[]; G.crateEls.forEach(e=>e.remove()); G.crateEls=[];
+  const sp=currentSpec();
+  const maxW=520, maxH=300;
+  CELL=Math.floor(Math.min((maxW-(sp.cols-1)*GAP)/sp.cols,(maxH-(sp.rows-1)*GAP)/sp.rows,72));
+  CELL=Math.max(30,CELL);
+  const gw=sp.cols*CELL+(sp.cols-1)*GAP, gh=sp.rows*CELL+(sp.rows-1)*GAP;
+  const px=(600-gw)/2+ (sp.cols>0?0:0), py=(400-gh)/2+14;
+  GP.style.left=(px-16)+'px';GP.style.top=(py-16)+'px';
+  GP.style.width=(gw+32)+'px';GP.style.height=(gh+32)+'px';
+  ORIGIN={x:px,y:py};
+  G.placed=[];
+  for(let r=0;r<sp.rows;r++){
+    G.placed.push(new Array(sp.cols).fill(false));
+    G.gridEls.push([]);
+    for(let cI=0;cI<sp.cols;cI++){
+      const d=document.createElement('div');
+      d.className='slot';
+      d.style.left=(px+cI*(CELL+GAP))+'px';d.style.top=(py+r*(CELL+GAP))+'px';
+      d.style.width=CELL+'px';d.style.height=CELL+'px';
+      d.dataset.r=r;d.dataset.c=cI;
+      GW.appendChild(d);G.gridEls[r].push(d);
+    }
+    // tally
+    const t=document.createElement('div');
+    t.className='rowTally'; t.id='tal'+r;
+    t.style.left=(px+gw+24)+'px'; t.style.top=(py+r*(CELL+GAP)+CELL/2-14)+'px';
+    t.style.fontSize=Math.max(14,Math.min(22,CELL*0.36))+'px';
+    GW.appendChild(t);G.gridEls[r].tally=t;
+  }
+  // column header labels
+  const hdr=document.createElement('div');hdr.className='colLbl';
+  hdr.style.left=px+'px';hdr.style.top=(py-22)+'px';hdr.style.width=gw+'px';hdr.style.textAlign='center';
+  hdr.textContent=`cart grid: ${sp.rows} rows × ${sp.cols} columns`;
+  GW.appendChild(hdr);G.headerEl=hdr;
+  refreshPulse();
+  buildTray(sp);
+  updateHUD();
+}
+function clearBoardDom(){
+  [...GW.querySelectorAll('.slot,.rowTally,.colLbl')].forEach(e=>e.remove());
+  [...document.querySelectorAll('.crate')].forEach(e=>e.remove());
+  G.crateEls=[];G.trayCrates=[];
+}
+function buildTray(sp){
+  G.trayCrates=[];
+  const need=sp.rows*sp.cols;
+  const extra = G.node===0?2:(G.node===1?4:6);
+  const count=need+extra;
+  const tw=580, size=Math.min(46, Math.max(30, Math.floor(tw/Math.ceil(count/2))-6));
+  const perRow=Math.ceil(count/2);
+  for(let i=0;i<count;i++){
+    const r=Math.floor(i/perRow), cI=i%perRow;
+    const el=document.createElement('div');
+    el.className='crate';
+    el.style.width=size+'px';el.style.height=size+'px';el.style.fontSize=Math.floor(size*.55)+'px';
+    el.textContent=sp.good.i;
+    const x=386+10+cI*(size+5), y=622+34+r*(size+6);
+    el.style.left=x+'px';el.style.top=y+'px';
+    el.dataset.home=x+','+y;
+    S.stage.appendChild(el);
+    attachDrag(el);
+    G.trayCrates.push(el);
+  }
+}
+function refreshPulse(){
+  const sp=currentSpec();
+  let done=true, tr=-1,tc=-1;
+  outer: for(let r=0;r<sp.rows;r++)for(let cI=0;cI<sp.cols;cI++){
+    if(!G.placed[r][cI]){tr=r;tc=cI;done=false;break outer;}
+  }
+  for(let r=0;r<sp.rows;r++)for(let cI=0;cI<sp.cols;cI++){
+    G.gridEls[r][cI].classList.toggle('pulse', G.node===0 && r===tr && cI===tc);
+  }
+}
+
+/* ============================================================
+   DRAG
+   ============================================================ */
+let drag=null;
+function attachDrag(el){
+  el.addEventListener('pointerdown',e=>{
+    if(G.locked||el.classList.contains('placed'))return;
+    ac();
+    el.setPointerCapture(e.pointerId);
+    const r=el.getBoundingClientRect(), sr=S.stage.getBoundingClientRect();
+    drag={el,dx:e.clientX-r.left,dy:e.clientY-r.top,sr};
+    el.classList.add('dragging');
+    tone(660,.04,'sine',.05);
+  });
+  el.addEventListener('pointermove',e=>{
+    if(!drag||drag.el!==el)return;
+    el.style.left=(e.clientX-drag.sr.left-drag.dx)+'px';
+    el.style.top=(e.clientY-drag.sr.top-drag.dy)+'px';
+  });
+  const end=e=>{
+    if(!drag||drag.el!==el)return;
+    el.classList.remove('dragging');
+    dropCrate(el, e.clientX-drag.sr.left, e.clientY-drag.sr.top);
+    drag=null;
+  };
+  el.addEventListener('pointerup',end);
+  el.addEventListener('pointercancel',end);
+}
+function dropCrate(el,px,py){
+  const sp=currentSpec();
+  // find slot under center
+  const cx=px+el.offsetWidth/2 - 0, cy=py+el.offsetHeight/2;
+  let best=null,bd=1e9;
+  for(let r=0;r<sp.rows;r++)for(let c=0;c<sp.cols;c++){
+    if(G.placed[r][c])continue;
+    const s=G.gridEls[r][c];
+    const sx=376+parseFloat(s.style.left)+CELL/2, sy=206+parseFloat(s.style.top)+CELL/2;
+    const d=Math.hypot(sx-cx,sy-cy);
+    if(d<bd){bd=d;best={r,c,sx,sy};}
+  }
+  if(best && bd<CELL*0.95){
+    snapIn(el,best,sp);
+  } else {
+    const [hx,hy]=el.dataset.home.split(',').map(Number);
+    animTo(el,hx,hy,180);
+    if(el.dataset.slot){ // was placed then removed
+      const [r,c]=el.dataset.slot.split(',').map(Number);
+      G.placed[r][c]=false; delete el.dataset.slot; el.classList.remove('placed');
+      updateTallies();refreshPulse();updateHUD();
+    }
+  }
+}
+function snapIn(el,best,sp){
+  if(el.dataset.slot){const [pr,pc]=el.dataset.slot.split(',').map(Number);G.placed[pr][pc]=false;}
+  G.placed[best.r][best.c]=true;
+  el.dataset.slot=best.r+','+best.c;
+  el.classList.add('placed');
+  const tx=376+parseFloat(G.gridEls[best.r][best.c].style.left)+(CELL-el.offsetWidth)/2;
+  const ty=206+parseFloat(G.gridEls[best.r][best.c].style.top)+(CELL-el.offsetHeight)/2;
+  animTo(el,tx,ty,140,true);
+  clickSnap();
+  el.addEventListener('pointerdown',function once(e){ /* allow re-drag handled by attachDrag */ },{once:true});
+  updateTallies();refreshPulse();updateHUD();
+  // auto-complete detection
+  const sp2=currentSpec();
+  let full=true;for(let r=0;r<sp2.rows;r++)for(let c=0;c<sp2.cols;c++)if(!G.placed[r][c])full=false;
+  if(full){ setTimeout(()=>{ if(!G.locked) flashReady(); },220); }
+}
+function flashReady(){
+  const b=document.getElementById('btnShip');
+  b.style.transition='transform .12s';b.style.transform='scale(1.12)';
+  setTimeout(()=>b.style.transform='scale(1)',180);
+  tone(1046,.12,'sine',.08);
+}
+function animTo(el,x,y,ms,bounce){
+  const sx=parseFloat(el.style.left),sy=parseFloat(el.style.top),t0=performance.now();
+  function step(t){
+    let k=clamp((t-t0)/ms,0,1); let e=ease(k);
+    let ox=sx+(x-sx)*e, oy=sy+(y-sy)*e;
+    if(bounce&&k>0.7){ oy += Math.sin((k-0.7)/0.3*Math.PI)* -7; }
+    el.style.left=ox+'px';el.style.top=oy+'px';
+    if(k<1)requestAnimationFrame(step);
+  }
+  requestAnimationFrame(step);
+}
+
+/* ============================================================
+   TALLIES / HUD
+   ============================================================ */
+function updateTallies(){
+  const sp=currentSpec();
+  let running=0, lastFull=0;
+  for(let r=0;r<sp.rows;r++){
+    const filled=G.placed[r].filter(Boolean).length;
+    const t=G.gridEls[r].tally;
+    if(filled===sp.cols){
+      running+=sp.cols; lastFull=r+1;
+      const val=running;
+      if(t.dataset.val!=String(val)){
+        t.dataset.val=String(val);
+        t.innerHTML=`<span class="num show">${val}</span>`;
+        chime(r);
+      }
+    } else {
+      if(t.dataset.val){ t.dataset.val=''; t.innerHTML=filled? `<span style="opacity:.45">${filled}/${sp.cols}</span>`:''; }
+      else t.innerHTML= filled? `<span style="opacity:.45">${filled}/${sp.cols}</span>`:'';
+    }
+  }
+  const seq=[];let acc=0;
+  for(let r=0;r<lastFull;r++){acc+=sp.cols;seq.push(acc);}
+  document.getElementById('tickerBig').textContent = seq.length? seq.join(', ') : '—';
+}
+function totalPlaced(){let n=0;G.placed.forEach(r=>r.forEach(v=>{if(v)n++;}));return n;}
+function updateHUD(){
+  const sp=currentSpec();
+  document.getElementById('packedTxt').textContent=`${totalPlaced()} / ${sp.rows*sp.cols}`;
+  document.getElementById('streak').textContent=G.streak + (G.secondWind?'  ⚡ SECOND WIND READY':'');
+  const ll=document.getElementById('ledgerList');
+  ll.innerHTML=G.ledger.slice(-8).map(x=>`<div>${x}</div>`).join('');
+  ll.scrollTop=ll.scrollHeight;
+}
+
+/* ============================================================
+   SHIP / VALIDATE
+   ============================================================ */
+function shipIt(){
+  if(G.locked)return;
+  const o=G.order, sp=currentSpec();
+  if(o.garbled){
+    // shipping a garbled order = failure
+    fail("You shipped Vosk's tampered slip. The buyer counted "+ (sp.rows*sp.cols) +", the slip said "+o.claimedTotal+".", true);
+    return;
+  }
+  const n=totalPlaced();
+  const need=sp.rows*sp.cols;
+  // check every row equal & full
+  let ok = (n===need);
+  if(ok){for(let r=0;r<sp.rows;r++)if(G.placed[r].filter(Boolean).length!==sp.cols)ok=false;}
+  if(!ok){
+    const rowsDone=G.placed.filter(r=>r.filter(Boolean).length===sp.cols).length;
+    fail(`The cart holds ${n}. The order needs ${sp.rows} × ${sp.cols} = ${need}.`,false,rowsDone);
+    return;
+  }
+  succeed();
+}
+function rejectOrder(){
+  if(G.locked)return;
+  const o=G.order;
+  if(o.garbled){
+    G.locked=true;
+    G.ledger.push(`⚠ Caught bad slip: ${o.rows}×${o.cols}=${o.rows*o.cols}, not ${o.claimedTotal}`);
+    G.streak++; if(G.streak>=2)G.secondWind=true;
+    taunt("Tsk. You actually checked the total.",2400);
+    fanfare();
+    bigBanner(`SLIP REJECTED — ${o.rows} × ${o.cols} = ${o.rows*o.cols}, not ${o.claimedTotal}`, '#2d6b2d');
+    advancePlayer((o.rows*o.cols)*1.15, true);
+    setTimeout(()=>{G.locked=false;nextOrder();},1500);
+  } else {
+    G.locked=true;
+    taunt("That slip was honest, trader. You just wasted a turn.",2600);
+    tone(180,.4,'sawtooth',.1,-80);
+    G.streak=0;G.secondWind=false;
+    G.ledger.push(`✗ Rejected a good order (${o.rows}×${o.cols})`);
+    flashRect('rgba(180,60,30,.35)');
+    advanceRival(1.3);
+    setTimeout(()=>{G.locked=false;updateHUD();},1100);
+  }
+  updateHUD();
+}
+function fail(msg, garbledShip, rowsDone=0){
+  G.locked=true; spillSfx();
+  flashRect('rgba(180,60,30,.4)');
+  // spill animation
+  const sl=document.getElementById('spillLayer');
+  document.querySelectorAll('.crate.placed').forEach(el=>{
+    const sp2=document.createElement('div');
+    sp2.className='spill';sp2.textContent=el.textContent;
+    sp2.style.left=el.style.left;sp2.style.top=el.style.top;
+    sp2.style.fontSize=el.style.fontSize;
+    sl.appendChild(sp2);
+    const vx=(Math.random()-.5)*420, vy=-180-Math.random()*220;
+    const x0=parseFloat(el.style.left),y0=parseFloat(el.style.top),t0=performance.now();
+    (function fall(t){const k=(t-t0)/1000;
+      const x=x0+vx*k, y=y0+vy*k+900*k*k;
+      sp2.style.left=x+'px';sp2.style.top=y+'px';sp2.style.transform=`rotate(${k*420}deg)`;
+      if(y<820&&k<1.6)requestAnimationFrame(fall);else sp2.remove();
+    })(t0);
+    el.style.opacity=0;
+  });
+  // return crates to tray
+  setTimeout(()=>{
+    document.querySelectorAll('.crate').forEach(el=>{
+      el.style.opacity=1;el.classList.remove('placed');delete el.dataset.slot;
+      const [hx,hy]=el.dataset.home.split(',').map(Number);animTo(el,hx,hy,300);
+    });
+    const sp=currentSpec();
+    G.placed=G.placed.map(r=>r.map(()=>false));
+    updateTallies();refreshPulse();updateHUD();
+    G.locked=false;
+  },620);
+  G.streak=0;G.secondWind=false;
+  G.ledger.push(`✗ Spill — ${msg.slice(0,40)}`);
+  taunt(pick(TAUNT_SPILL));
+  bigBanner(msg,'#a4442a');
+  if(G.node>0) advanceRival(garbledShip?2.2:1.6);
+  updateHUD();
+}
+function succeed(){
+  const o=G.order, sp=currentSpec();
+  const val=sp.rows*sp.cols;
+  clickSnap();fanfare();
+  flashRect('rgba(120,200,90,.32)');
+  if(o.mode==='double' && G.sub===0){
+    G.ledger.push(`✓ ${sp.rows} × ${sp.cols} = ${val} ${sp.good.u} (1 of 2)`);
+    G.locked=true;
+    bigBanner(`${sp.rows} × ${sp.cols} = ${val} — now the second load!`,'#2d6b2d');
+    setTimeout(()=>{G.sub=1;clearBoardDom();buildGrid();G.locked=false;},1200);
+    advancePlayer(val*0.6,false);
+    updateHUD();return;
+  }
+  G.ledger.push(`✓ ${sp.rows} × ${sp.cols} = ${val} ${sp.good.u}`);
+  G.streak++;
+  let mult=1;
+  if(G.secondWind){mult=1.8;G.secondWind=false;G.streak=0;bigBanner(`SECOND WIND! ${sp.rows} × ${sp.cols} = ${val}  ×1.8 speed`,'#1d6ea8');}
+  else { if(G.streak>=2){G.secondWind=true;} bigBanner(`${sp.rows} × ${sp.cols} = ${val} — caravan rolls ${val} lengths!`,'#2d6b2d'); }
+  advancePlayer(val*mult,true);
+  if(G.node>0 && G.playerX>G.rivalX && Math.random()<.5) taunt(pick(TAUNT_BEHIND),2000);
+  G.locked=true;
+  updateHUD();
+  setTimeout(()=>{G.locked=false;nextOrder();},1450);
+}
+
+/* ============================================================
+   MOVEMENT
+   ============================================================ */
+function advancePlayer(units, roll){
+  const gain = units/ (G.node===0?60:(G.node===1?70:95));
+  const target=clamp(G.playerX+gain,0,1);
+  tweenCaravan('playerX',target,900);
+  if(roll) spinWheels(900);
+}
+function advanceRival(units){
+  if(G.node===0)return;
+  const base=G.node===1?0.055:0.075;
+  const target=clamp(G.rivalX+base*units,0,1);
+  tweenCaravan('rivalX',target,900);
+}
+function tweenCaravan(key,to,ms){
+  const from=G[key],t0=performance.now();
+  (function st(t){const k=clamp((t-t0)/ms,0,1);G[key]=from+(to-from)*ease(k);
+    if(k<1)requestAnimationFrame(st);else checkGate();})(t0);
+}
+let spinUntil=0;
+function spinWheels(ms){spinUntil=performance.now()+ms;}
+
+function checkGate(){
+  if(G.finished)return;
+  if(G.playerX>=1||G.rivalX>=1){ G.finished=true; setTimeout(endNode,600); }
+}
+
+/* ============================================================
+   TIMER (pressure in nodes 1 & 2)
+   ============================================================ */
+function startTimer(sec){
+  G.timeMax=sec;G.timeLeft=sec;G.timing=sec>0;
+  document.getElementById('timerBar').style.display=sec>0?'block':'none';
+}
+let lastT=performance.now();
+function tickTimer(dt){
+  if(!G.timing||G.locked)return;
+  G.timeLeft-=dt;
+  const f=clamp(G.timeLeft/G.timeMax,0,1);
+  const fill=document.getElementById('timerFill');
+  fill.style.width=(f*100)+'%';
+  fill.style.background = f>.5?'linear-gradient(90deg,#7fc45a,#e0c34a)':(f>.22?'linear-gradient(90deg,#e0c34a,#d98b3a)':'linear-gradient(90deg,#d0472c,#8d3a1e)');
+  if(G.timeLeft<=0){
+    G.timing=false;
+    G.locked=true;
+    taunt(pick(TAUNT_LEAD));
+    bigBanner('Too slow — Vosk pulls ahead!','#a4442a');
+    G.streak=0;G.secondWind=false;
+    G.ledger.push('✗ Ran out of daylight');
+    advanceRival(2.4);
+    setTimeout(()=>{G.locked=false;nextOrder();},1500);
+    updateHUD();
+  }
+}
+
+/* ============================================================
+   RIVAL AUTOPACE (node 2 adaptive drip)
+   ============================================================ */
+let rivalDrip=0;
+function rivalTick(dt){
+  if(G.node<2||G.locked||G.finished)return;
+  // adaptive: if player leads, rival speeds up slightly; if behind, eases
+  const lead=G.playerX-G.rivalX;
+  const rate=0.0085 + clamp(lead,0,.4)*0.02 - clamp(-lead,0,.3)*0.012;
+  G.rivalX=clamp(G.rivalX+rate*dt,0,1);
+  rivalDrip+=dt;
+  if(rivalDrip>9){rivalDrip=0; if(G.rivalX>G.playerX && Math.random()<.6) taunt(pick(TAUNT_LEAD),2000);}
+  checkGate();
+}
+
+/* ============================================================
+   BANNERS / FLASH
+   ============================================================ */
+function flashRect(col){
+  const f=document.getElementById('flash');
+  f.style.background=col;f.style.transition='none';f.style.opacity=.9;
+  requestAnimationFrame(()=>{f.style.transition='opacity .6s';f.style.opacity=0;});
+}
+function bigBanner(txt,col){
+  const d=document.createElement('div');
+  d.style.cssText=`position:absolute;left:376px;top:300px;width:600px;text-align:center;font-size:26px;
+    color:#fff6e2;background:${col};padding:14px 10px;border-radius:8px;border:3px solid rgba(255,255,255,.4);
+    z-index:150;box-shadow:0 10px 26px rgba(0,0,0,.45);opacity:0;transform:translateY(14px) scale(.94);`;
+  d.innerHTML=txt;
+  S.stage.appendChild(d);
+  requestAnimationFrame(()=>{d.style.transition='opacity .25s,transform .25s';d.style.opacity=1;d.style.transform='translateY(0) scale(1)';});
+  setTimeout(()=>{d.style.opacity=0;d.style.transform='translateY(-14px)';setTimeout(()=>d.remove(),350);},1450);
+}
+
+/* ============================================================
+   FLOW
+   ============================================================ */
+function setNodeChrome(){
+  const legNames=['MARKET DAY 1 — THE QUIET STALL','MARKET DAY 2 — THE BUSTLING LANE','THE GRAND MARKET RUN — GATE CLOSES AT DUSK'];
+  document.getElementById('legTag').textContent=legNames[G.node];
+  document.getElementById('btnBell').style.display=G.node>=1?'inline-block':'none';
+  document.getElementById('btnGhost').style.display=G.node===1?'inline-block':'none';
+  document.getElementById('btnReject').style.display=G.node===2?'inline-block':'none';
+  drawBG();
+}
+function startNode(n){
+  G.node=n;G.finished=false;G.sub=0;G.ghostShown=false;
+  G.playerX=0.06;G.rivalX= n===0?0.06:0.06;
+  G.orders=buildNodeOrders(n);G.legIndex=0;
+  G.streak=0;G.secondWind=false;
+  setNodeChrome();
+  nextOrder(true);
+}
+function nextOrder(first){
+  if(G.finished)return;
+  if(G.legIndex>=G.orders.length){ G.finished=true; setTimeout(endNode,400); return; }
+  G.order=G.orders[G.legIndex++];
+  G.sub=0;
+  clearBoardDom();
+  buildGrid();
+  const ot=document.getElementById('orderText');
+  ot.innerHTML=G.order.text;
+  document.getElementById('doubleTag').textContent = G.order.mode==='double'?'DOUBLE':'';
+  const meta=document.getElementById('orderMeta');
+  meta.innerHTML = G.node===0
+    ? `Order ${G.legIndex} of ${G.orders.length} · take your time — no clock yet.`
+    : `Order ${G.legIndex} of ${G.orders.length} · Vosk is packing too.`;
+  document.getElementById('tickerBig').textContent='—';
+  if(G.node>=1) speak(G.order.spoken);
+  const t=G.node===0?0:(G.node===1?46:34 - Math.min(8,G.legIndex*1.2));
+  startTimer(t);
+  updateHUD();
+}
+function showGhost(){
+  if(G.node!==1)return;
+  const sp=currentSpec();
+  for(let r=0;r<sp.rows;r++)for(let c=0;c<sp.cols;c++){
+    const s=G.gridEls[r][c];
+    s.style.transition='background .3s';
+    s.style.background='rgba(255,230,150,.42)';
+    setTimeout(()=>{s.style.background='';},1800);
+  }
+  bigBanner(`Ghost: ${sp.rows} rows × ${sp.cols} in each row`,'#1d6ea8');
+  tone(700,.2,'sine',.07);
+}
+
+/* ============================================================
+   END OF NODE
+   ============================================================ */
+function endNode(){
+  const won = G.playerX>=G.rivalX;
+  if(won)G.legsWon++;else G.legsLost++;
+  if(G.node<2){
+    const bonus= won? '+1 crate of bonus goods' : 'bonus goods lost this leg';
+    overlay(`
+      <h1>${won?'Leg Won — Gate reached first!':'Vosk reached the gate first.'}</h1>
+      <p>${won?'Your caravan rolls through with room to spare. '+bonus+'.':'Vosk claims the leg bonus. Your caravan still rolls on — the campaign continues.'}</p>
+      <h2>What you packed</h2>
+      <ul>${G.ledger.slice(-6).map(x=>'<li>'+x+'</li>').join('')}</ul>
+      <p class="center"><button class="mk good" id="nx" style="font-size:19px;padding:12px 26px;">Next Market Day →</button></p>
+    `,()=>{document.getElementById('nx').onclick=()=>{closeOverlay();startNode(G.node+1);};});
+  } else {
+    G.masterBanner = won;
+    if(won)fanfare();
+    const arrays=G.ledger.filter(x=>x.startsWith('✓'));
+    overlay(`
+      <h1>${won?'MASTER TRADER':'The Gate Closes'}</h1>
+      <p>${won
+        ? 'Vosk hauls his reins and calls out: <i>“Fine. Fine! You out-counted me, trader. Rows and columns — I underestimated the arithmetic in your cart. The banner is yours.”</i>'
+        : 'Vosk slides through the gate first: <i>“Bragging rights, mine. Bonus goods, mine. Come back tomorrow — I like a rematch.”</i> Nothing is lost but pride.'}</p>
+      <h2>Day Ledger — every array you built</h2>
+      <div id="ledgerFinal">${G.ledger.map(x=>'<div>'+x+'</div>').join('')}</div>
+      <p style="margin-top:10px;">Legs won: <b>${G.legsWon}</b> · Perfect arrays: <b>${arrays.length}</b></p>
+      <p class="center">
+        <button class="mk good" id="again" style="font-size:19px;padding:12px 26px;">Run the Route Again (new orders)</button>
+        <button class="mk" id="fromStart" style="font-size:19px;padding:12px 26px;">Back to Day 1</button>
+      </p>
+    `,()=>{
+      document.getElementById('again').onclick=()=>{closeOverlay();G.ledger=[];G.masterBanner=won;startNode(2);};
+      document.getElementById('fromStart').onclick=()=>{closeOverlay();G.ledger=[];G.masterBanner=false;G.legsWon=0;G.legsLost=0;startNode(0);};
+    });
+  }
+}
+function overlay(html,after){
+  const o=document.createElement('div');o.className='overlay';o.id='ovl';
+  o.innerHTML=`<div class="panel">${html}</div>`;
+  document.getElementById('overlayHost').appendChild(o);
+  after&&after();
+}
+function closeOverlay(){const o=document.getElementById('ovl');o&&o.remove();}
+
+/* ============================================================
+   BUTTONS
+   ============================================================ */
+document.getElementById('btnShip').onclick=()=>{ac();shipIt();};
+document.getElementById('btnReject').onclick=()=>{ac();rejectOrder();};
+document.getElementById('btnBell').onclick=()=>{ac();tone(1200,.2,'sine',.07);speak(G.order.spoken);};
+document.getElementById('btnGhost').onclick=()=>{ac();showGhost();};
+
+/* ============================================================
+   LOOP
+   ============================================================ */
+function loop(t){
+  const dt=Math.min(.05,(t-lastT)/1000);lastT=t;
+  if(performance.now()<spinUntil) G.wheelSpin+=dt*7; else G.wheelSpin+=dt*0.6;
+  tickTimer(dt); rivalTick(dt);
+  drawRace();
+  if(G.node===2) drawBG();
+  requestAnimationFrame(loop);
+}
+
+/* ============================================================
+   INTRO
+   ============================================================ */
+drawBG();drawRace();
+overlay(`
+  <h1>Caravan Rush: The Broker's Wager</h1>
+  <p>Vosk the broker says you can't fill a cart faster than he can. Out-pack him before the caravan gate closes — using nothing but crates and math.</p>
+  <ul>
+    <li><b>Drag crates</b> from the tray into the glowing cart grid.</li>
+    <li>Each finished <b>row</b> ticks the skip-count: 4, 8, 12…</li>
+    <li>The bigger the correct array, the further your caravan rolls.</li>
+    <li>Spill? Crates come right back. Two perfect orders in a row earns a <b>Second Wind</b> speed burst.</li>
+  </ul>
+  <p class="center"><button class="mk good" id="go" style="font-size:22px;padding:14px 34px;">Open the Stall →</button></p>
+`,()=>{document.getElementById('go').onclick=()=>{ac();closeOverlay();startNode(0);};});
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>

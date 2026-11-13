@@ -1,0 +1,18 @@
+{
+  "id": "gpt-5-5",
+  "label": "GPT-5.5",
+  "provider": "openai",
+  "model": "gpt-5.5",
+  "status": "complete",
+  "elapsedMs": 270706,
+  "inputTokens": 2869,
+  "outputTokens": 17104,
+  "estimatedCostUsd": 0.527465,
+  "artifactHash": "90cc771e3f564f81b2431710cf60089476340e223cf2eef81eb54b13471dc190",
+  "promptHash": "c9fa1c1f791c38d2d5aed3d3345ac4e04f7306e72475dcfcf0ab4a2f05c048b5",
+  "apiResponseHash": "f784400a4408dfeefb62605ebd88217c9882fa39f185c818397fbe09a706e3fe",
+  "savedHtmlHash": "f784400a4408dfeefb62605ebd88217c9882fa39f185c818397fbe09a706e3fe",
+  "iframeSrcDocHash": "f784400a4408dfeefb62605ebd88217c9882fa39f185c818397fbe09a706e3fe",
+  "extractionMode": "raw_html",
+  "error": null
+}

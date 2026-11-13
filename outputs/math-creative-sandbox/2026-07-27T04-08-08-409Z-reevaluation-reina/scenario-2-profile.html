@@ -1,0 +1,646 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Reina's Multiplication Dojo</title>
+<style>
+  :root{
+    --bg:#f0f9ff;
+    --accent:#2563eb;
+    --accentBg:#dbeafe;
+    --ring-red:#dc2626;
+    --gold:#f59e0b;
+    --ink:#1e293b;
+  }
+  *{box-sizing:border-box;}
+  html,body{
+    margin:0;padding:0;height:100%;
+    background:linear-gradient(180deg,#e0f2fe 0%,var(--bg) 60%);
+    font-family:system-ui,-apple-system,sans-serif;
+    color:var(--ink);
+    -webkit-tap-highlight-color:transparent;
+    user-select:none;
+    overflow-x:hidden;
+  }
+  #app{
+    max-width:720px;margin:0 auto;padding:10px 14px 40px;
+    display:flex;flex-direction:column;min-height:100vh;
+  }
+  header{
+    text-align:center;padding:6px 0 4px;
+  }
+  h1{
+    font-size:1.5rem;margin:4px 0;color:var(--accent);
+    letter-spacing:0.5px;
+  }
+  #progressWrap{
+    background:#fff;border-radius:20px;height:22px;
+    border:3px solid var(--accent);overflow:hidden;
+    box-shadow:0 2px 4px rgba(0,0,0,.1);
+    margin:6px 0;
+  }
+  #progressBar{
+    height:100%;width:0%;background:linear-gradient(90deg,var(--gold),#fbbf24);
+    transition:width .6s ease;
+  }
+  #hud{
+    display:flex;justify-content:space-between;font-size:.95rem;font-weight:600;
+    color:var(--accent);
+  }
+  /* Companion */
+  #companionRow{
+    display:flex;align-items:center;gap:10px;margin:10px 0;
+  }
+  #companionAvatar{width:70px;height:70px;flex-shrink:0;}
+  #speechBubble{
+    background:#fff;border:3px solid var(--accent);border-radius:16px;
+    padding:10px 14px;font-size:1.05rem;line-height:1.4;position:relative;flex:1;
+    min-height:24px;
+  }
+  #speechBubble:before{
+    content:"";position:absolute;left:-14px;top:22px;
+    border:8px solid transparent;border-right-color:var(--accent);
+  }
+  /* Main stage */
+  main{
+    background:#fff;border-radius:22px;padding:16px;
+    box-shadow:0 4px 14px rgba(30,64,175,.15);
+    flex:1;display:flex;flex-direction:column;gap:14px;
+    border:4px dashed var(--ring-red);
+  }
+  #scenarioText{
+    font-size:1.15rem;font-weight:600;background:var(--accentBg);
+    border-radius:14px;padding:12px;text-align:center;
+  }
+  #arrayContainer{
+    display:flex;flex-direction:column;gap:8px;align-items:center;
+  }
+  .arrayRow{
+    display:flex;align-items:center;gap:6px;padding:4px;border-radius:12px;
+    transition:background .3s;
+  }
+  .arrayRow.next{background:#fef9c3;box-shadow:0 0 0 3px var(--gold);}
+  .rowLabel{font-size:.8rem;font-weight:700;width:64px;text-align:right;color:#475569;}
+  .cell{
+    width:40px;height:40px;border-radius:10px;
+    background:#e2e8f0;border:2px solid #cbd5e1;
+    display:flex;align-items:center;justify-content:center;
+    font-size:1.4rem;cursor:pointer;
+    transition:transform .15s, background .2s;
+  }
+  .cell.filled{
+    background:var(--accentBg);border-color:var(--accent);
+    animation:pop .3s ease;
+  }
+  @keyframes pop{0%{transform:scale(0.3);}70%{transform:scale(1.2);}100%{transform:scale(1);}}
+  #skipStrip{
+    display:flex;gap:8px;flex-wrap:wrap;justify-content:center;
+    min-height:36px;
+  }
+  .skipNum{
+    background:var(--accent);color:#fff;font-weight:700;
+    padding:6px 12px;border-radius:20px;font-size:1.05rem;
+    animation:slideIn .4s ease;
+  }
+  @keyframes slideIn{from{opacity:0;transform:translateY(-8px);}to{opacity:1;transform:none;}}
+  #sentence{
+    text-align:center;font-size:1.1rem;font-weight:700;color:var(--accent);
+    min-height:26px;
+  }
+  #questionText{
+    text-align:center;font-weight:700;font-size:1.1rem;min-height:22px;
+  }
+  #choices{
+    display:grid;grid-template-columns:1fr 1fr;gap:10px;
+  }
+  .choiceBtn{
+    font-size:1.3rem;font-weight:700;padding:14px;border-radius:14px;
+    border:3px solid var(--accent);background:#fff;color:var(--accent);
+    cursor:pointer;transition:transform .1s, background .2s;
+  }
+  .choiceBtn:active{transform:scale(0.95);}
+  .choiceBtn.correct{background:#bbf7d0;border-color:#16a34a;color:#166534;}
+  .choiceBtn.wrong{background:#fecaca;border-color:#dc2626;color:#7f1d1d;}
+  #nextBtn, #playAgainBtn, #startBtn{
+    display:block;margin:10px auto 0;padding:14px 28px;
+    font-size:1.1rem;font-weight:700;border:none;border-radius:16px;
+    background:var(--accent);color:#fff;cursor:pointer;
+    box-shadow:0 4px 0 #1e40af;
+  }
+  #nextBtn:active,#playAgainBtn:active,#startBtn:active{transform:translateY(3px);box-shadow:none;}
+  .hidden{display:none !important;}
+  #streakBadge{
+    font-size:.85rem;background:var(--gold);color:#fff;padding:3px 10px;
+    border-radius:12px;font-weight:700;
+  }
+  #confettiCanvas{
+    position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:50;
+  }
+  #startScreen, #finaleScreen{
+    text-align:center;padding:20px 10px;
+  }
+  #startScreen p, #finaleScreen p{font-size:1.05rem;line-height:1.6;}
+  .beltSvgWrap{margin:14px auto;}
+  .statLine{font-size:1.1rem;margin:4px 0;font-weight:600;}
+  .timerBar{height:10px;background:#e2e8f0;border-radius:6px;overflow:hidden;margin-bottom:6px;}
+  .timerFill{height:100%;background:var(--ring-red);width:100%;transition:width linear;}
+</style>
+</head>
+<body>
+<canvas id="confettiCanvas"></canvas>
+<div id="app">
+  <header>
+    <h1>🤼 Reina's Multiplication Dojo 🏆</h1>
+    <div id="progressWrap"><div id="progressBar"></div></div>
+    <div id="hud">
+      <span id="roundLabel">Ready to train</span>
+      <span id="streakBadge">🔥 Streak: 0</span>
+      <span id="scoreLabel">⭐ 0</span>
+    </div>
+  </header>
+
+  <div id="companionRow">
+    <svg id="companionAvatar" viewBox="0 0 100 100">
+      <circle cx="50" cy="50" r="46" fill="#fde68a" stroke="#f59e0b" stroke-width="4"/>
+      <circle cx="34" cy="42" r="6" fill="#1e293b"/>
+      <circle cx="66" cy="42" r="6" fill="#1e293b"/>
+      <path id="mouthPath" d="M35 62 Q50 74 65 62" stroke="#1e293b" stroke-width="4" fill="none" stroke-linecap="round"/>
+      <path d="M20 26 Q30 10 40 24" stroke="#f59e0b" stroke-width="3" fill="none"/>
+      <path d="M80 26 Q70 10 60 24" stroke="#f59e0b" stroke-width="3" fill="none"/>
+    </svg>
+    <div id="speechBubble">Loading dojo...</div>
+  </div>
+
+  <main>
+    <div id="startScreen">
+      <p><strong>Welcome, Champion Reina!</strong><br>
+      Coach Kuma needs your help scouting the tournament. Every opponent gives you a group challenge.
+      Build the array, skip-count your way to the total, and pick the right answer to win the round!</p>
+      <p>5 matches + 1 Strategy Bonus Round stand between you and the Championship Belt.</p>
+      <button id="startBtn">Enter the Ring 🥋</button>
+    </div>
+
+    <div id="gameScreen" class="hidden">
+      <div id="scenarioText"></div>
+      <div id="arrayContainer"></div>
+      <div id="skipStrip"></div>
+      <div id="sentence"></div>
+      <div id="questionText"></div>
+      <div id="choices"></div>
+      <div id="timerBarWrap" class="hidden"><div class="timerBar"><div class="timerFill" id="timerFill"></div></div></div>
+      <button id="nextBtn" class="hidden">Next Opponent ➡️</button>
+    </div>
+
+    <div id="finaleScreen" class="hidden">
+      <div class="beltSvgWrap">
+        <svg width="180" height="90" viewBox="0 0 180 90">
+          <rect x="10" y="30" width="160" height="30" rx="10" fill="#78350f"/>
+          <circle cx="90" cy="45" r="34" fill="#fbbf24" stroke="#b45309" stroke-width="5"/>
+          <text x="90" y="53" font-size="22" text-anchor="middle" fill="#78350f" font-weight="bold">★</text>
+        </svg>
+      </div>
+      <p><strong id="finaleTitle">Champion!</strong></p>
+      <div class="statLine">⭐ Final Score: <span id="finalScore"></span></div>
+      <div class="statLine">🔥 Best Streak: <span id="finalStreak"></span></div>
+      <div class="statLine" id="finalMsg"></div>
+      <button id="playAgainBtn">Rematch! (New Challenges) 🔁</button>
+    </div>
+  </main>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  // ---------- Audio (tiny beeps, no assets) ----------
+  let actx;
+  function beep(freq, dur, type){
+    try{
+      actx = actx || new (window.AudioContext||window.webkitAudioContext)();
+      const o = actx.createOscillator();
+      const g = actx.createGain();
+      o.type = type||'sine';
+      o.frequency.value = freq;
+      g.gain.value = 0.08;
+      o.connect(g); g.connect(actx.destination);
+      o.start();
+      g.gain.exponentialRampToValueAtTime(0.001, actx.currentTime + dur);
+      o.stop(actx.currentTime + dur);
+    }catch(e){}
+  }
+  function playCorrect(){ beep(660,0.15); setTimeout(()=>beep(880,0.2),120); }
+  function playWrong(){ beep(200,0.25,'sawtooth'); }
+  function playClick(){ beep(440,0.06); }
+
+  // ---------- Companion ----------
+  const speechBubble = document.getElementById('speechBubble');
+  const mouthPath = document.getElementById('mouthPath');
+  const MOUTHS = {
+    happy: "M35 60 Q50 78 65 60",
+    excited: "M32 58 Q50 82 68 58",
+    neutral: "M35 64 Q50 68 65 64",
+    sad: "M35 68 Q50 56 65 68",
+    idle: "M38 64 Q50 66 62 64"
+  };
+  function setMood(mood){ mouthPath.setAttribute('d', MOUTHS[mood]||MOUTHS.neutral); }
+  function say(text, mood){
+    speechBubble.textContent = text;
+    setMood(mood||'neutral');
+  }
+
+  // idle detection
+  let idleTimer;
+  const IDLE_MS = 45000;
+  function resetIdle(){
+    clearTimeout(idleTimer);
+    idleTimer = setTimeout(()=>{
+      say("Still with me, champ? Take your time — tap when ready! 🤔", "idle");
+    }, IDLE_MS);
+  }
+  document.addEventListener('pointerdown', resetIdle);
+  resetIdle();
+
+  // ---------- Confetti ----------
+  const canvas = document.getElementById('confettiCanvas');
+  const ctx = canvas.getContext('2d');
+  function resizeCanvas(){canvas.width = innerWidth; canvas.height = innerHeight;}
+  resizeCanvas();
+  window.addEventListener('resize', resizeCanvas);
+  let confettiParticles = [];
+  function launchConfetti(){
+    confettiParticles = [];
+    const colors = ['#2563eb','#f59e0b','#dc2626','#16a34a','#a855f7'];
+    for(let i=0;i<130;i++){
+      confettiParticles.push({
+        x: Math.random()*canvas.width,
+        y: -20 - Math.random()*canvas.height*0.5,
+        vy: 2+Math.random()*3,
+        vx: -1+Math.random()*2,
+        size: 4+Math.random()*6,
+        color: colors[i%colors.length],
+        rot: Math.random()*360
+      });
+    }
+    requestAnimationFrame(animateConfetti);
+  }
+  let confettiRunning=false;
+  function animateConfetti(){
+    confettiRunning = true;
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    let alive=false;
+    confettiParticles.forEach(p=>{
+      p.y += p.vy; p.x += p.vx; p.rot += 6;
+      if(p.y < canvas.height+20) alive=true;
+      ctx.save();
+      ctx.translate(p.x,p.y);
+      ctx.rotate(p.rot*Math.PI/180);
+      ctx.fillStyle = p.color;
+      ctx.fillRect(-p.size/2,-p.size/2,p.size,p.size);
+      ctx.restore();
+    });
+    if(alive) requestAnimationFrame(animateConfetti);
+    else { ctx.clearRect(0,0,canvas.width,canvas.height); confettiRunning=false; }
+  }
+
+  // ---------- Game data ----------
+  const TEMPLATES = [
+    {emoji:'🤼', group:'Team', text:(r,c)=>`Coach Kuma lines up ${r} tag-teams with ${c} wrestlers on each team. How many wrestlers are ready to battle?`},
+    {emoji:'♟️', group:'Row', text:(r,c)=>`The dojo sets out ${r} rows of chess pieces with ${c} pieces in each row. How many pieces are on the board?`},
+    {emoji:'🥇', group:'Box', text:(r,c)=>`The trophy shelf has ${r} boxes with ${c} medals in each box. How many medals are there?`},
+    {emoji:'🎟️', group:'Section', text:(r,c)=>`The arena has ${r} sections with ${c} fans cheering in each section. How many fans came to watch?`},
+    {emoji:'🍫', group:'Tray', text:(r,c)=>`${r} snack trays each hold ${c} energy bars for the wrestlers. How many energy bars in all?`},
+    {emoji:'🥋', group:'Group', text:(r,c)=>`${r} practice groups train together, ${c} wrestlers in each group. How many wrestlers are training?`}
+  ];
+  const TIERS = [
+    {minR:2,maxR:3,minC:2,maxC:4},
+    {minR:3,maxR:4,minC:3,maxC:5},
+    {minR:3,maxR:5,minC:3,maxC:5},
+    {minR:4,maxR:5,minC:4,maxC:6},
+    {minR:4,maxR:6,minC:3,maxC:6}
+  ];
+  const TOTAL_MATCHES = TIERS.length;
+
+  function randInt(a,b){ return a + Math.floor(Math.random()*(b-a+1)); }
+  function pick(arr){ return arr[randInt(0,arr.length-1)]; }
+
+  function createRound(tier){
+    const rows = randInt(tier.minR, tier.maxR);
+    const cols = randInt(tier.minC, tier.maxC);
+    const tpl = pick(TEMPLATES);
+    const answer = rows*cols;
+    const distractSet = new Set([answer]);
+    const distractors = [];
+    const tries = [rows*(cols+1), rows*(cols-1), (rows+1)*cols, (rows-1)*cols, answer+cols, answer-cols, answer+rows];
+    tries.forEach(v=>{
+      if(v>0 && !distractSet.has(v) && distractors.length<3){ distractSet.add(v); distractors.push(v); }
+    });
+    while(distractors.length<3){
+      const v = answer + randInt(-6,6);
+      if(v>0 && !distractSet.has(v)){ distractSet.add(v); distractors.push(v); }
+    }
+    const choices = [answer, ...distractors.slice(0,3)];
+    // shuffle
+    for(let i=choices.length-1;i>0;i--){ const j=randInt(0,i); [choices[i],choices[j]]=[choices[j],choices[i]]; }
+    return {rows, cols, tpl, answer, choices, text: tpl.text(rows,cols)};
+  }
+
+  function buildMatches(){
+    return TIERS.map(createRound);
+  }
+
+  // ---------- Game state ----------
+  let matches = [];
+  let currentIndex = 0;
+  let filledRows = 0;
+  let score = 0;
+  let streak = 0;
+  let bestStreak = 0;
+  let answered = false;
+  let bonusActive = false;
+  let bonusIndex = 0;
+  let bonusQuestions = [];
+  let bonusTimerHandle = null;
+
+  const scenarioText = document.getElementById('scenarioText');
+  const arrayContainer = document.getElementById('arrayContainer');
+  const skipStrip = document.getElementById('skipStrip');
+  const sentenceEl = document.getElementById('sentence');
+  const questionText = document.getElementById('questionText');
+  const choicesEl = document.getElementById('choices');
+  const nextBtn = document.getElementById('nextBtn');
+  const roundLabel = document.getElementById('roundLabel');
+  const streakBadge = document.getElementById('streakBadge');
+  const scoreLabel = document.getElementById('scoreLabel');
+  const progressBar = document.getElementById('progressBar');
+  const timerBarWrap = document.getElementById('timerBarWrap');
+  const timerFill = document.getElementById('timerFill');
+
+  const startScreen = document.getElementById('startScreen');
+  const gameScreen = document.getElementById('gameScreen');
+  const finaleScreen = document.getElementById('finaleScreen');
+
+  function updateHud(){
+    scoreLabel.textContent = '⭐ ' + score;
+    streakBadge.textContent = '🔥 Streak: ' + streak;
+    const pct = bonusActive
+      ? 100
+      : Math.round((currentIndex/(TOTAL_MATCHES+1))*100);
+    progressBar.style.width = pct + '%';
+  }
+
+  function renderRound(){
+    const m = matches[currentIndex];
+    filledRows = 0;
+    answered = false;
+    roundLabel.textContent = `Match ${currentIndex+1} of ${TOTAL_MATCHES}`;
+    scenarioText.textContent = m.text;
+    skipStrip.innerHTML = '';
+    sentenceEl.textContent = `Tap Group 1 to begin building the array!`;
+    questionText.textContent = '';
+    choicesEl.innerHTML = '';
+    nextBtn.classList.add('hidden');
+    arrayContainer.innerHTML = '';
+
+    for(let r=0;r<m.rows;r++){
+      const rowDiv = document.createElement('div');
+      rowDiv.className = 'arrayRow' + (r===0 ? ' next' : '');
+      rowDiv.dataset.row = r;
+
+      const label = document.createElement('div');
+      label.className = 'rowLabel';
+      label.textContent = `${m.tpl.group} ${r+1}`;
+      rowDiv.appendChild(label);
+
+      for(let c=0;c<m.cols;c++){
+        const cell = document.createElement('div');
+        cell.className = 'cell';
+        cell.dataset.row = r;
+        cell.textContent = '';
+        cell.addEventListener('click', onCellClick);
+        rowDiv.appendChild(cell);
+      }
+      arrayContainer.appendChild(rowDiv);
+    }
+    updateHud();
+  }
+
+  function onCellClick(e){
+    const m = matches[currentIndex];
+    const row = parseInt(e.currentTarget.dataset.row,10);
+    if(row !== filledRows) return; // must fill in order
+    playClick();
+    const cells = arrayContainer.querySelectorAll(`.cell[data-row="${row}"]`);
+    cells.forEach(c=>{ c.classList.add('filled'); c.textContent = m.tpl.emoji; });
+    filledRows++;
+
+    // update next-row highlight
+    arrayContainer.querySelectorAll('.arrayRow').forEach(rw=>{
+      rw.classList.toggle('next', parseInt(rw.dataset.row,10)===filledRows);
+    });
+
+    const running = filledRows * m.cols;
+    const num = document.createElement('div');
+    num.className = 'skipNum';
+    num.textContent = running;
+    skipStrip.appendChild(num);
+
+    sentenceEl.textContent = `${filledRows} ${m.tpl.group.toLowerCase()}${filledRows>1?'s':''} of ${m.cols} = ${running}`;
+
+    if(filledRows === m.rows){
+      questionText.textContent = `So altogether, how many ${m.tpl.text(m.rows,m.cols).match(/how many (.*)\?/i) ? m.tpl.text(m.rows,m.cols).match(/how many (.*)\?/i)[1] : 'in all'}?`;
+      showChoices(m);
+    }
+  }
+
+  function showChoices(m){
+    choicesEl.innerHTML = '';
+    m.choices.forEach(val=>{
+      const btn = document.createElement('button');
+      btn.className = 'choiceBtn';
+      btn.textContent = val;
+      btn.addEventListener('click', ()=>onChoice(btn, val, m));
+      choicesEl.appendChild(btn);
+    });
+  }
+
+  function onChoice(btn, val, m){
+    if(answered) return;
+    resetIdle();
+    if(val === m.answer){
+      answered = true;
+      btn.classList.add('correct');
+      score += 10 + streak*2;
+      streak++;
+      bestStreak = Math.max(bestStreak, streak);
+      playCorrect();
+      const specialLine = Math.random() < 0.3;
+      const lines = ["Ippon! You pinned that problem!", "Strong counting, champion!", "That's the power of arrays!", "You out-strategized that one!"];
+      say(specialLine ? "🏆 Incredible! Championship-level thinking!" : pick(lines), 'excited');
+      document.querySelectorAll('.choiceBtn').forEach(b=>b.disabled=true);
+      nextBtn.classList.remove('hidden');
+    } else {
+      streak = 0;
+      btn.classList.add('wrong');
+      btn.disabled = true;
+      playWrong();
+      say("Not quite — check the skip-count trail above and try again!", 'sad');
+    }
+    updateHud();
+  }
+
+  nextBtn.addEventListener('click', ()=>{
+    resetIdle();
+    currentIndex++;
+    if(currentIndex < TOTAL_MATCHES){
+      renderRound();
+      say("New challenger approaches! Build your array!", 'happy');
+    } else {
+      startBonusRound();
+    }
+  });
+
+  // ---------- Bonus Round ----------
+  function startBonusRound(){
+    bonusActive = true;
+    bonusIndex = 0;
+    bonusQuestions = [createRound({minR:2,maxR:6,minC:2,maxC:6}),
+                      createRound({minR:2,maxR:6,minC:2,maxC:6}),
+                      createRound({minR:2,maxR:6,minC:2,maxC:6})];
+    roundLabel.textContent = "⚡ Strategy Bonus Round!";
+    say("Bonus Round! Quick strategy thinking — beat the clock for extra points!", 'excited');
+    renderBonusQuestion();
+  }
+
+  function renderBonusQuestion(){
+    if(bonusIndex >= bonusQuestions.length){
+      finishGame();
+      return;
+    }
+    const m = bonusQuestions[bonusIndex];
+    filledRows = m.rows; // pre-filled for speed round; show full array immediately
+    answered = false;
+    scenarioText.textContent = "⏱ " + m.text;
+    skipStrip.innerHTML = '';
+    for(let i=1;i<=m.rows;i++){
+      const n = document.createElement('div');
+      n.className='skipNum';
+      n.textContent = i*m.cols;
+      skipStrip.appendChild(n);
+    }
+    sentenceEl.textContent = `${m.rows} groups of ${m.cols}`;
+    questionText.textContent = "What's the total?";
+    arrayContainer.innerHTML = '';
+    for(let r=0;r<m.rows;r++){
+      const rowDiv = document.createElement('div');
+      rowDiv.className = 'arrayRow';
+      const label = document.createElement('div');
+      label.className='rowLabel';
+      label.textContent = `${m.tpl.group} ${r+1}`;
+      rowDiv.appendChild(label);
+      for(let c=0;c<m.cols;c++){
+        const cell = document.createElement('div');
+        cell.className='cell filled';
+        cell.textContent = m.tpl.emoji;
+        rowDiv.appendChild(cell);
+      }
+      arrayContainer.appendChild(rowDiv);
+    }
+    showChoices(m);
+    nextBtn.classList.add('hidden');
+
+    timerBarWrap.classList.remove('hidden');
+    let timeLeft = 100;
+    timerFill.style.width = '100%';
+    clearInterval(bonusTimerHandle);
+    bonusTimerHandle = setInterval(()=>{
+      timeLeft -= 2;
+      timerFill.style.width = Math.max(timeLeft,0) + '%';
+      if(timeLeft<=0){
+        clearInterval(bonusTimerHandle);
+        if(!answered){
+          say("Time's up! Keep that chin up, champion!", 'sad');
+          document.querySelectorAll('.choiceBtn').forEach(b=>b.disabled=true);
+          setTimeout(()=>{ bonusIndex++; renderBonusQuestion(); }, 1400);
+        }
+      }
+    }, 200);
+
+    // override choice handler for bonus scoring/timing
+    document.querySelectorAll('.choiceBtn').forEach(b=>{
+      b.onclick = ()=>{
+        if(answered) return;
+        answered = true;
+        clearInterval(bonusTimerHandle);
+        resetIdle();
+        if(parseInt(b.textContent,10) === m.answer){
+          b.classList.add('correct');
+          const bonusPts = 15 + Math.round(timeLeft/5);
+          score += bonusPts;
+          streak++; bestStreak=Math.max(bestStreak,streak);
+          playCorrect();
+          say(`Bonus points! +${bonusPts} ⭐`, 'excited');
+        } else {
+          b.classList.add('wrong');
+          streak = 0;
+          playWrong();
+          say("Close! Speed comes with practice.", 'sad');
+        }
+        updateHud();
+        document.querySelectorAll('.choiceBtn').forEach(bb=>bb.disabled=true);
+        setTimeout(()=>{ bonusIndex++; renderBonusQuestion(); }, 1200);
+      };
+    });
+  }
+
+  // ---------- Finale ----------
+  function finishGame(){
+    timerBarWrap.classList.add('hidden');
+    gameScreen.classList.add('hidden');
+    finaleScreen.classList.remove('hidden');
+    document.getElementById('finalScore').textContent = score;
+    document.getElementById('finalStreak').textContent = bestStreak;
+    let title, msg;
+    if(score >= 140){ title = "🏆 Grand Champion Belt!"; msg = "Your array skills and skip-counting are tournament ready!"; }
+    else if(score >= 90){ title = "🥈 Silver Rank Achieved!"; msg = "Strong work — a little more training and gold is yours."; }
+    else { title = "🥉 Rising Contender!"; msg = "Every champion started with practice. Rematch to sharpen your skills!"; }
+    document.getElementById('finaleTitle').textContent = title;
+    document.getElementById('finalMsg').textContent = msg;
+    say("You trained hard today. So proud of you, champion! 🥋", 'excited');
+    launchConfetti();
+    updateHud();
+    progressBar.style.width = '100%';
+    bonusActive = false;
+  }
+
+  document.getElementById('playAgainBtn').addEventListener('click', ()=>{
+    resetIdle();
+    finaleScreen.classList.add('hidden');
+    gameScreen.classList.remove('hidden');
+    initGame();
+  });
+
+  document.getElementById('startBtn').addEventListener('click', ()=>{
+    resetIdle();
+    startScreen.classList.add('hidden');
+    gameScreen.classList.remove('hidden');
+    initGame();
+    say("Let's go! Build your first array, champion!", 'happy');
+  });
+
+  function initGame(){
+    matches = buildMatches();
+    currentIndex = 0;
+    score = 0;
+    streak = 0;
+    bestStreak = 0;
+    bonusActive = false;
+    renderRound();
+    updateHud();
+  }
+
+  say("Welcome to the Dojo! Ready to train your multiplication moves?", 'happy');
+})();
+</script>
+</body>
+</html>

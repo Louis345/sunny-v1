@@ -1,0 +1,33 @@
+```json
+{
+  "id": "A-refactor",
+  "title": "The Last Honest Courier",
+  "openingPromise": "You're the only courier who still checks the math — everyone else just guesses and hopes.",
+  "mission": "Fulfill delivery contracts by correctly building crate shipments, checking every manifest carefully enough to catch mistakes — yours, a rival's, or a vendor's — before goods go out wrong.",
+  "firstAction": "A dispatcher radios in an order — '6 crates, 7 gears each' — using urgent, narrative-only language ('the client's waiting, let's move') with no countdown, buzzer, or clock imagery of any kind.",
+  "childAction": "She sorts loose gear icons into equal-sized crates (equal groups), stacks crates onto a pallet arranged in rows and columns (array), and calls out the skip-count sequence as each row loads before radioing the total back to dispatch. The count is only accepted if the crates on screen actually match it, so chanting a number without the matching array doesn't advance the delivery.",
+  "mathAsPower": "Correct grouping and accurate skip-counting are what let her fulfill contracts and catch errors — sloppy math visibly topples a shipment or lets a bad load go out wrong, while careful checking is dramatized as the thing that makes her trustworthy, not merely fast.",
+  "stakes": "Contracts and route reputation, not survival — a wrong shipment means a client complaint or a rival's smug remark, but she can immediately re-attempt with a new manifest. No in-fiction clock ever penalizes slowness.",
+  "recovery": "A wrong array causes crates to visibly topple in the loading dock; the dispatcher flags exactly which row was miscounted, and she rebuilds only that section rather than starting over.",
+  "progression": [
+    "Tier 1: equal groups only, small numbers, single crates",
+    "Tier 2: arrays introduced, rows vs. columns swapped to build commutativity",
+    "Tier 3 (new mid-session beat): an 'audit' delivery with no rival present — a vendor's manifest looks off and she has to verify it group-by-group purely to see if she can, testing whether checking-the-math itself holds her attention without competition",
+    "Tier 4: two-step riddles ('4 pallets of 6 rows of 3') tied to word-problem phrasing, still narrated without any rival framing",
+    "Finale: the rival presents a manifest whose total is technically correct but is grouped in a misleading way (e.g., claims '5 groups of 8' when the crates are actually arranged as 8 groups of 5, or pads counts by mixing crate sizes) — she must show the grouping is deceptive, not just recompute a wrong sum"
+  ],
+  "worldReaction": "The dispatcher upgrades her route tier after clean, verified deliveries; the rival's dialogue shifts from mockery to grudging respect only if/when she starts out-verifying him — this reaction is presented as earned by accuracy, not speed.",
+  "payoff": "In the final run she catches the rival presenting a true-total-but-misleading-grouping manifest live, publicly explains why the grouping doesn't match what was promised, and becomes the depot's lead courier for her checking, not her speed.",
+  "replayVariation": "New adversary archetypes (a trickster negotiator, a sloppy new hire) and new non-adversarial audit scenarios, with reshuffled number ranges and new manifest phrasing, so the puzzles aren't memorized and both hooks (rivalry vs. verification) can be re-tested.",
+  "profileEvidenceUsed": [
+    "Repeated requests for difficult challenges",
+    "Sustained engagement with fast-paced riddles and multi-step logic",
+    "Requested action stories involving adversaries",
+    "Competitive framing coincided with high engagement",
+    "Noted tendency to notice errors and question faulty reasoning (used to justify the audit beat and the misleading-grouping finale)"
+  ],
+  "engagementPrediction": "Reina may ask to replay rounds unprompted, narrate skip-counts aloud without prompting, and request harder manifests before offered. It is uncertain whether this engagement will hold during the non-competitive audit beat as strongly as during rival encounters — this is treated as an open question, not an assumption.",
+  "falsifyingEvidence": "If she stops verbalizing her group/skip-count reasoning and just guesses totals, disengages after a single loss instead of retrying, shows no reaction to the rival's taunts/wins, or engages equally (or more) during the non-competitive audit beat than during rival encounters, this would indicate the adversarial-competitive frame is not the specific driver it appeared to be, and that math-checking itself may be the more durable hook.",
+  "prototypeScope": "One 15–20 minute session: four order tiers (times tables through 6), one scripted rival encounter, one scripted non-adversarial audit encounter, no real-time clock or countdown imagery — urgency implied through dispatcher dialogue only."
+}
+```

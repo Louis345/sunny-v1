@@ -1,0 +1,18 @@
+{
+  "candidateId": "scenario-2-profile",
+  "verdict": "mediocre",
+  "scores": {
+    "designQuality": 2,
+    "originality": 2,
+    "craft": 3,
+    "functionality": 3,
+    "learningIntegration": 3,
+    "replayAppeal": 2
+  },
+  "evidence": [
+    "Theming is cosmetic: 'arena sections', 'trophy boxes', 'medals' are just relabeled generic array-grid cells; the underlying mechanic (tap cell, cell fills, running total appears, pick answer from choice buttons) is identical across matches 1 and 2 with only nouns/emoji swapped.",
+    "The wrestling/dojo framing (title, streak flame, belt promise) never appears anywhere in the actual play area during challenges — the same pattern flagged in the harbor Quest rejection where 'the world disappeared during play.' Here the ring, coach Kuma, and championship belt exist only in the intro screen text, not as interactive elements."
+  ],
+  "critique": "The array-building interaction (tap cell-by-cell, see skip-count running total like '2 sections of 3 = 6') is a reasonable skip-counting scaffold, and it does connect array building to skip-counting narration, which is the one genuine piece of learning integration worth crediting. But once the array is filled, the round collapses into a bare multiple-choice answer bank (6 / 9 style buttons) with no visible connection between the array just built and the answer options — a child could ignore the array construction entirely and still guess from 3-4 numeric choices, exactly the 'random clicking can defeat it' pattern called out in calibration. The 'opponent', 'ring', 'medals', 'trophy shelf' skin is not doing narrative or mechanical work; it is a reskinned worksheet. Progression is linear and shallow: 5 near-identical matches distinguished only by cosmetic props (fans, medals) and slightly different factors, with no escalating complexity, twist, or strategic decision noted in the trace (the 'Strategy Bonus Round' is only promised, never observed). Visual craft is clean and readable (consistent card layout, orange streak badge, star counter) but generic — it reads as a competent template, not a distinctive crafted world like the comet/glider examples. There is no evidence of failure states with meaningful feedback beyond presumably a red flash on wrong pick, and no sign the array width/mistakes visually persist to reinforce the multiplication fact afterward. This is functional, correctly wired content with a decent skip-count device, but it is decorative-scenery-over-quiz-buttons in the same family as Moonlit Cargo/Tidepool: pleasant coat of paint, thin pedagogical distinctiveness, low replay pull since every match plays out identically.",
+  "nextMove": "pivot"
+}

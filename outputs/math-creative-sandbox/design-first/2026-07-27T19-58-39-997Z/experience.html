@@ -1,0 +1,449 @@
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>The Fractured Arena</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/tone@14.8.49/build/Tone.js"></script>
+<style>
+  * { box-sizing: border-box; }
+  html,body{margin:0;padding:0;width:1365px;height:768px;background:#000;overflow:hidden;
+    font-family:'Segoe UI', Verdana, sans-serif; user-select:none; -webkit-user-select:none;}
+  #gameContainer{
+    position:relative;width:1365px;height:768px;overflow:hidden;touch-action:none;
+    background:
+      radial-gradient(ellipse at 50% 0%, #1a2a55 0%, #0a1030 45%, #04040c 100%);
+    color:#dff5ff;
+  }
+  #bgFx{position:absolute;inset:0;overflow:hidden;pointer-events:none;}
+  .star{position:absolute;background:#bfe8ff;border-radius:50%;opacity:.6;
+    animation:twinkle 3s infinite ease-in-out;}
+  @keyframes twinkle{0%,100%{opacity:.15;}50%{opacity:.9;}}
+  #floorGrid{position:absolute;left:0;right:0;bottom:0;height:260px;
+    background-image:
+      linear-gradient(rgba(80,180,255,.18) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(80,180,255,.18) 1px, transparent 1px);
+    background-size:44px 44px;
+    transform:perspective(300px) rotateX(55deg);
+    transform-origin:bottom;
+    opacity:.5;
+  }
+
+  /* HEADER */
+  #hud{position:relative;z-index:5;height:84px;display:flex;align-items:center;
+    justify-content:space-between;padding:8px 24px;
+    background:linear-gradient(180deg, rgba(10,20,50,.85), rgba(10,20,50,.2));
+    border-bottom:1px solid rgba(120,200,255,.25);}
+  .titleBlock h1{margin:0;font-size:22px;letter-spacing:1px;color:#8fe9ff;
+    text-shadow:0 0 12px rgba(90,200,255,.7);}
+  .titleBlock p{margin:2px 0 0;font-size:13px;color:#a9c7e8;max-width:560px;}
+  .shieldRow{display:flex;align-items:center;gap:16px;}
+  .shieldWrap{display:flex;flex-direction:column;align-items:center;gap:4px;}
+  .shieldWrap span{font-size:11px;color:#9fd9ff;letter-spacing:.5px;}
+  .hex-shield{position:relative;width:52px;height:46px;
+    clip-path:polygon(25% 0%,75% 0%,100% 50%,75% 100%,25% 100%,0% 50%);
+    background:rgba(30,50,90,.7);border:1px solid rgba(140,210,255,.4);}
+  .hex-shield .fill{position:absolute;inset:0;
+    background:linear-gradient(0deg,#00e5ff,#7b5bff 90%);
+    transform:scaleY(0);transform-origin:bottom;transition:transform .9s cubic-bezier(.2,1.4,.4,1);}
+  .hex-shield.charged .fill{transform:scaleY(1);}
+  .hex-shield.charged{box-shadow:0 0 22px rgba(90,220,255,.9);}
+  .hex-shield.flash{animation:flashRed .5s ease;}
+  @keyframes flashRed{0%,100%{filter:none;}40%{filter:brightness(2) saturate(2) hue-rotate(-40deg);}}
+  #coreHex{width:64px;height:56px;}
+
+  /* RIVAL TRACK */
+  #rivalTrackWrap{position:relative;z-index:5;padding:6px 24px;height:56px;display:flex;align-items:center;gap:14px;}
+  #rivalLabel{font-size:13px;color:#ffd3d3;white-space:nowrap;min-width:210px;}
+  #rivalName{font-weight:bold;}
+  #rivalTrack{position:relative;flex:1;height:14px;border-radius:8px;
+    background:linear-gradient(90deg, rgba(255,255,255,.06), rgba(255,255,255,.12));
+    border:1px solid rgba(255,255,255,.15);}
+  .trackNode{position:absolute;top:50%;width:8px;height:8px;margin-top:-4px;border-radius:50%;
+    background:rgba(255,255,255,.25);}
+  #rivalIcon{position:absolute;top:50%;width:30px;height:30px;margin-top:-15px;margin-left:-15px;
+    clip-path:polygon(50% 0%,100% 100%,0% 100%);
+    box-shadow:0 0 14px currentColor;transition:left .1s;}
+  #coreIcon{position:absolute;right:-6px;top:50%;width:26px;height:26px;margin-top:-13px;
+    background:radial-gradient(circle,#fff2b3,#ffb347 70%);border-radius:50%;
+    box-shadow:0 0 18px #ffcc55;}
+
+  /* STORY */
+  #storyPanel{position:relative;z-index:5;padding:6px 24px;min-height:60px;}
+  #storyText{margin:0;font-size:16px;color:#eaf7ff;line-height:1.35;text-shadow:0 0 6px rgba(0,0,0,.6);}
+  #liveCounter{margin-top:4px;font-family:'Consolas',monospace;font-size:14px;color:#7be0a0;min-height:18px;}
+
+  /* FORMATION AREA */
+  #formationArea{position:relative;z-index:5;flex:1;margin:0 24px;display:flex;flex-direction:column;gap:8px;min-height:0;}
+  #supplyTray{height:96px;overflow-y:auto;background:rgba(255,255,255,.04);border:1px solid rgba(140,200,255,.25);
+    border-radius:12px;padding:8px;display:flex;flex-wrap:wrap;align-content:flex-start;gap:8px;}
+  #supplyLabel{font-size:11px;color:#9fd9ff;margin-bottom:2px;}
+  #lanesArea{flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:8px;padding-right:4px;}
+  .lane{display:flex;align-items:center;gap:10px;background:rgba(255,255,255,.035);
+    border:2px dashed rgba(140,210,255,.35);border-radius:10px;padding:6px 10px;min-height:48px;position:relative;}
+  .lane.mismatch{border-color:#ff5f6d;box-shadow:0 0 14px rgba(255,95,109,.6);}
+  .lane-label{width:78px;flex-shrink:0;font-size:13px;font-weight:bold;color:#9fe0ff;}
+  .lane-holder{flex:1;display:flex;flex-wrap:wrap;gap:6px;min-height:34px;}
+  .lane-badge{position:absolute;right:8px;top:6px;font-size:11px;background:rgba(0,0,0,.4);
+    padding:1px 7px;border-radius:8px;color:#cdefff;border:1px solid rgba(255,255,255,.2);}
+  .lane.mismatch .lane-badge{color:#ffd0d0;border-color:#ff5f6d;}
+
+  .cell{width:38px;height:38px;border-radius:50%;flex-shrink:0;
+    background:radial-gradient(circle at 35% 30%,#daffff,#33c7ff 55%,#0a6fb0);
+    box-shadow:0 0 10px #4fd9ff,inset 0 0 6px rgba(255,255,255,.6);
+    cursor:grab;touch-action:none;}
+  .cell.dragging{position:fixed;z-index:999;pointer-events:none;cursor:grabbing;
+    box-shadow:0 0 22px #7fe9ff,inset 0 0 8px #fff;}
+
+  @keyframes shake{0%,100%{transform:translateX(0);}25%{transform:translateX(-6px);}75%{transform:translateX(6px);}}
+  .lane.shakeMe{animation:shake .4s ease;}
+
+  /* CONTROLS */
+  #controlsBar{position:relative;z-index:5;display:flex;align-items:center;justify-content:space-between;
+    padding:8px 24px 14px;gap:16px;}
+  #feedbackMsg{flex:1;font-size:15px;color:#ffe9a8;min-height:20px;text-shadow:0 0 6px rgba(0,0,0,.6);}
+  .btn{background:linear-gradient(135deg,#3ad1ff,#7b5bff);border:none;color:#fff;font-weight:bold;
+    padding:13px 26px;border-radius:12px;cursor:pointer;font-size:16px;
+    box-shadow:0 4px 16px rgba(90,150,255,.55);white-space:nowrap;}
+  .btn:active{transform:scale(.95);}
+  .btn.secondary{background:linear-gradient(135deg,#666,#333);}
+
+  /* OVERLAYS */
+  .overlay{position:absolute;inset:0;background:rgba(3,6,20,.92);z-index:50;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;text-align:center;padding:40px;}
+  .overlay.hidden{display:none;}
+  .overlay h2{font-size:34px;margin:0;color:#8fe9ff;text-shadow:0 0 18px rgba(90,200,255,.8);}
+  .overlay p{font-size:17px;max-width:640px;color:#d9ecff;line-height:1.5;}
+  .confetti{position:absolute;width:10px;height:14px;top:-20px;border-radius:2px;pointer-events:none;z-index:60;}
+</style>
+</head>
+<body>
+<div id="gameContainer">
+  <div id="bgFx"></div>
+  <div id="floorGrid"></div>
+
+  <header id="hud">
+    <div class="titleBlock">
+      <h1>⚔ THE FRACTURED ARENA</h1>
+      <p>Restore three arena shields before the rival reaches the core.</p>
+    </div>
+    <div class="shieldRow" id="shieldRow">
+      <div class="shieldWrap"><div class="hex-shield" id="hex0"><div class="fill"></div></div><span>ALPHA</span></div>
+      <div class="shieldWrap"><div class="hex-shield" id="hex1"><div class="fill"></div></div><span>BETA</span></div>
+      <div class="shieldWrap"><div class="hex-shield" id="hex2"><div class="fill"></div></div><span>GAMMA</span></div>
+      <div class="shieldWrap"><div class="hex-shield" id="coreHex"><div class="fill"></div></div><span>CORE</span></div>
+    </div>
+  </header>
+
+  <div id="rivalTrackWrap">
+    <div id="rivalLabel">Rival: <span id="rivalName">???</span></div>
+    <div id="rivalTrack">
+      <div id="rivalIcon"></div>
+      <div id="coreIcon"></div>
+    </div>
+  </div>
+
+  <div id="storyPanel">
+    <p id="storyText">Loading arena...</p>
+    <div id="liveCounter"></div>
+  </div>
+
+  <div id="formationArea">
+    <div>
+      <div id="supplyLabel">⚡ Energy Cell Supply — drag cells into the formation below</div>
+      <div id="supplyTray"></div>
+    </div>
+    <div id="lanesArea"></div>
+  </div>
+
+  <div id="controlsBar">
+    <div id="feedbackMsg"></div>
+    <button class="btn" id="chargeBtn">⚡ Charge Shield</button>
+  </div>
+
+  <div class="overlay" id="startOverlay">
+    <h2>THE FRACTURED ARENA</h2>
+    <p>The arena's shields have gone dark. A rival is advancing through the outer wall.
+    Arrange energy cells into equal formations — rows and groups — to charge each shield with
+    the power of multiplication. Every mistake lets the rival advance. Every valid array pushes it back.</p>
+    <button class="btn" id="startBtn">▶ Begin Mission</button>
+  </div>
+
+  <div class="overlay hidden" id="breachOverlay">
+    <h2 style="color:#ff5f6d;text-shadow:0 0 18px rgba(255,90,90,.8);">ARENA BREACHED</h2>
+    <p id="breachText">The rival reached the core before the shields were restored.</p>
+    <button class="btn" id="retryBtn">↺ Try Again</button>
+  </div>
+
+  <div class="overlay hidden" id="victoryOverlay">
+    <h2>🏆 ARENA RESTORED</h2>
+    <p id="victoryText">The grand array activated the core. Every shield blazes with light — the rival's advance is broken!</p>
+    <button class="btn" id="playAgainBtn">↻ Play Again — New Arena</button>
+  </div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  // ---------- AUDIO ----------
+  let audioReady = false;
+  let successSynth, errorSynth, chordSynth;
+  function initAudio(){
+    if(audioReady || typeof Tone === 'undefined') return;
+    try{
+      Tone.start();
+      successSynth = new Tone.Synth({oscillator:{type:'triangle'}, envelope:{attack:0.005,decay:0.15,sustain:0.05,release:0.2}}).toDestination();
+      errorSynth = new Tone.MembraneSynth({pitchDecay:0.03, octaves:3}).toDestination();
+      chordSynth = new Tone.PolySynth(Tone.Synth).toDestination();
+      audioReady = true;
+    }catch(e){ audioReady=false; }
+  }
+  function playNote(freq, time){
+    if(!audioReady) return;
+    try{ successSynth.triggerAttackRelease(freq, '8n', time); }catch(e){}
+  }
+  function playError(){
+    if(!audioReady) return;
+    try{ errorSynth.triggerAttackRelease('C2','8n'); }catch(e){}
+  }
+  function playVictoryChord(){
+    if(!audioReady) return;
+    try{
+      chordSynth.triggerAttackRelease(['C4','E4','G4','C5'],'2n');
+    }catch(e){}
+  }
+
+  // ---------- RIVAL PERSONAS ----------
+  const PERSONAS = [
+    {name:'Vex the Breaker', color:'#ff5f6d'},
+    {name:'Nyx the Shade', color:'#b266ff'},
+    {name:'Torque', color:'#ff9d3b'},
+  ];
+  const ADVANCE_LINES = ["The rival surges forward!","A crack forms in the wall!","The rival pushes closer!"];
+  const RETREAT_LINES = ["The rival recalculates.","Systems interference pushes it back!","The rival falls back, confused."];
+
+  // ---------- STATE ----------
+  const state = {
+    levels: [], levelIndex:0, shieldsRestored:0,
+    rivalPos:0, rivalMax:5, persona:null, attempted:false
+  };
+
+  function rand(min,max){ return Math.floor(Math.random()*(max-min+1))+min; }
+
+  function generateLevels(){
+    const l1 = {type:'groups', bins: rand(3,4), per: rand(3,5)};
+    const l2 = {type:'array',  bins: rand(3,5), per: rand(4,6)};
+    const l3 = {type:'missing',bins: rand(3,5), per: rand(4,7)};
+    const l4 = {type:'finale', bins: rand(4,6), per: rand(5,7)};
+    return [l1,l2,l3,l4].map(l => ({...l, total: l.bins*l.per}));
+  }
+
+  function storyFor(level){
+    switch(level.type){
+      case 'groups': return `Scout Alert! Split the energy cells into ${level.bins} equal groups of ${level.per} to charge Shield Alpha.`;
+      case 'array':  return `Array Sequence! Build ${level.bins} rows with ${level.per} cells in every row — a perfect rectangle — to charge Shield Beta.`;
+      case 'missing':return `Power Puzzle! Shield Gamma needs exactly ${level.total} energy cells spread EVENLY across ${level.bins} rows. Figure out how many belong in each row!`;
+      case 'finale': return `Core Ignition! Form the grand array — ${level.bins} rows with ${level.per} cells in each — to fully activate the Arena Core and win!`;
+    }
+  }
+
+  function revealSentence(level, required){
+    if(level.type==='missing'){
+      return `${level.bins} × ${required} = ${level.total} — you found the missing factor!`;
+    }
+    if(level.type==='finale'){
+      return `${level.bins} × ${level.per} = ${level.total}. THE CORE IS ACTIVE!`;
+    }
+    return `${level.bins} × ${level.per} = ${level.total}. Shield charged!`;
+  }
+
+  // ---------- DOM refs ----------
+  const el = id => document.getElementById(id);
+  const supplyTray = () => el('supplyTray');
+  const lanesArea = () => el('lanesArea');
+
+  // ---------- BACKGROUND DECOR ----------
+  function buildStars(){
+    const bg = el('bgFx');
+    for(let i=0;i<70;i++){
+      const s = document.createElement('div');
+      s.className='star';
+      const size = Math.random()*2+1;
+      s.style.width=size+'px'; s.style.height=size+'px';
+      s.style.left=Math.random()*100+'%';
+      s.style.top=Math.random()*70+'%';
+      s.style.animationDelay=(Math.random()*3)+'s';
+      bg.appendChild(s);
+    }
+  }
+
+  // ---------- RIVAL TRACK ----------
+  function buildTrackNodes(){
+    const track = el('rivalTrack');
+    [...track.querySelectorAll('.trackNode')].forEach(n=>n.remove());
+    for(let i=0;i<=state.rivalMax;i++){
+      const n = document.createElement('div');
+      n.className='trackNode';
+      n.style.left = (i/state.rivalMax*100)+'%';
+      track.appendChild(n);
+    }
+  }
+  function renderRivalPosition(instant){
+    const pct = (state.rivalPos/state.rivalMax*100);
+    const icon = el('rivalIcon');
+    if(instant){ icon.style.left = pct+'%'; }
+    else if(window.gsap){ gsap.to(icon, {left: pct+'%', duration:0.6, ease:'power2.out'}); }
+    else icon.style.left = pct+'%';
+  }
+  function setPersona(p){
+    state.persona = p;
+    el('rivalName').textContent = p.name;
+    el('rivalIcon').style.background = `radial-gradient(circle,${p.color},#3a0000 80%)`;
+    el('rivalIcon').style.color = p.color;
+  }
+
+  function advanceRival(delta){
+    state.rivalPos = Math.max(0, Math.min(state.rivalMax, state.rivalPos+delta));
+    renderRivalPosition(false);
+    const msg = delta>0 ? ADVANCE_LINES[rand(0,ADVANCE_LINES.length-1)] : RETREAT_LINES[rand(0,RETREAT_LINES.length-1)];
+    el('rivalLabel').lastChild; // noop
+    flashRivalLine(msg);
+    if(state.rivalPos>=state.rivalMax){
+      setTimeout(triggerBreach, 500);
+    }
+  }
+  let rivalLineTimeout;
+  function flashRivalLine(text){
+    clearTimeout(rivalLineTimeout);
+    el('rivalLabel').innerHTML = `Rival: <span id="rivalName" style="color:${state.persona.color}">${state.persona.name}</span> — <em style="color:#ffd">${text}</em>`;
+    rivalLineTimeout = setTimeout(()=>{
+      el('rivalLabel').innerHTML = `Rival: <span id="rivalName" style="color:${state.persona.color}">${state.persona.name}</span>`;
+    }, 2200);
+  }
+
+  // ---------- CELL CREATION & DRAG ----------
+  function createCell(){
+    const c = document.createElement('div');
+    c.className='cell';
+    return c;
+  }
+
+  function onPointerDown(e){
+    const cell = e.target.closest('.cell');
+    if(!cell) return;
+    e.preventDefault();
+    const rect = cell.getBoundingClientRect();
+    const offsetX = e.clientX - rect.left;
+    const offsetY = e.clientY - rect.top;
+    cell.classList.add('dragging');
+    cell.style.left = rect.left+'px';
+    cell.style.top = rect.top+'px';
+    cell.style.width = rect.width+'px';
+    cell.style.height = rect.height+'px';
+    document.body.appendChild(cell);
+
+    function move(ev){
+      cell.style.left = (ev.clientX - offsetX)+'px';
+      cell.style.top = (ev.clientY - offsetY)+'px';
+    }
+    function up(ev){
+      document.removeEventListener('pointermove', move);
+      document.removeEventListener('pointerup', up);
+      cell.classList.remove('dragging');
+      cell.style.left=''; cell.style.top=''; cell.style.width=''; cell.style.height='';
+      const target = document.elementFromPoint(ev.clientX, ev.clientY);
+      const laneHolder = target && target.closest('.lane-holder');
+      const tray = target && target.closest('#supplyTray');
+      if(laneHolder){ laneHolder.appendChild(cell); pulseCell(cell); }
+      else if(tray){ tray.appendChild(cell); }
+      else { supplyTray().appendChild(cell); }
+      updateLiveCounter();
+    }
+    document.addEventListener('pointermove', move);
+    document.addEventListener('pointerup', up);
+  }
+  el2Listen();
+  function el2Listen(){
+    document.getElementById('gameContainer').addEventListener('pointerdown', onPointerDown);
+  }
+
+  function pulseCell(cell){
+    if(window.gsap){
+      gsap.fromTo(cell, {scale:1.35}, {scale:1, duration:0.28, ease:'back.out(3)'});
+    }
+  }
+
+  // ---------- LEVEL RENDERING ----------
+  function renderLevel(idx){
+    state.levelIndex = idx;
+    state.attempted = false;
+    const level = state.levels[idx];
+    supplyTray().innerHTML='';
+    lanesArea().innerHTML='';
+    el('feedbackMsg').textContent='';
+    el('storyText').textContent = storyFor(level);
+    el('liveCounter').textContent='';
+
+    for(let i=0;i<level.bins;i++){
+      const lane = document.createElement('div');
+      lane.className='lane';
+      lane.dataset.index = i;
+      const label = document.createElement('div');
+      label.className='lane-label';
+      label.textContent = (level.type==='groups' ? 'Group ' : 'Row ') + (i+1);
+      const holder = document.createElement('div');
+      holder.className='lane-holder';
+      const badge = document.createElement('div');
+      badge.className='lane-badge';
+      badge.textContent='0';
+      lane.appendChild(label);
+      lane.appendChild(holder);
+      lane.appendChild(badge);
+      lanesArea().appendChild(lane);
+    }
+    for(let i=0;i<level.total;i++){
+      supplyTray().appendChild(createCell());
+    }
+    el('chargeBtn').textContent = level.type==='finale' ? '🔆 Activate Core' : '⚡ Charge Shield';
+    updateLiveCounter();
+  }
+
+  function updateLiveCounter(){
+    const level = state.levels[state.levelIndex];
+    if(!level) return;
+    const lanes = [...lanesArea().querySelectorAll('.lane')];
+    const counts = lanes.map(l => l.querySelector('.lane-holder').children.length);
+    const required = level.total / level.bins;
+    lanes.forEach((l,i)=>{
+      l.querySelector('.lane-badge').textContent = counts[i];
+      if(state.attempted){
+        l.classList.toggle('mismatch', counts[i] !== required);
+      }
+    });
+    const filled = counts.filter(c=>c>0).length;
+    const allEqualNonZero = counts.every(c=>c===counts[0]) && counts[0]>0;
+    let txt = '';
+    if(allEqualNonZero){
+      const seq = [];
+      for(let i=1;i<=filled;i++) seq.push(counts[0]*i);
+      txt = 'Skip counting: ' + seq.join(' → ');
+    }
+    el('liveCounter').textContent = txt;
+  }
+
+  // ---------- VALIDATION ----------
+  function onCharge(){
+    initAudio();
+    const level = state.levels[state.levelIndex];
+    const lanes = [...lanesArea().querySelectorAll('.lane')];
+    const counts = lanes.map(l => l.querySelector('.lane-holder').children.length);
+    const supplyLeft = supplyTray().children.length;
+    const required = level.total / level.bins;
+    const allEqual = counts.every(c => c === counts[0]) && counts[0] > 0;
+    const isValid = supplyLeft === 0 && allEqual && counts[0] === required;
+
+    if(isValid){
+      handleSuccess(level, lanes, counts, required);
+    } else {

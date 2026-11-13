@@ -1,0 +1,374 @@
+Repair your implementation exactly once using the bounded review below.
+
+The frozen artifact is authoritative. Preserve its academic responsibility, premise, core interaction, math-as-power relationship, stakes, recovery, progression, and payoff. Correct only the cited functionality, usability, visual/layout, touch-affordance, and artifact-fidelity defects. Do not copy another candidate, add a new mechanic, or redesign the experience.
+
+Return one complete standalone HTML document with inline CSS and JavaScript that works with touch or mouse inside a 1365×768 iframe. Keep the complete HTML under 24,000 characters. Return raw HTML only.
+
+FROZEN ARTIFACT:
+{
+  "id": "array-heist-vex-01",
+  "title": "Cargo Code: Outsmart Vex",
+  "audience_rationale": "Grounded only in the supplied observations: Reina is nine and has repeatedly requested difficult challenges, so the design front-loads real mathematical decision-making rather than warm-up filler. Her strongest performance came from applied, store-like math, so every problem is embedded in concrete cargo and supply situations with countable stuff, not abstract number strings. She has requested action stories with adversaries and shows high engagement under competitive framing, so the experience is a race against a named rival, Vex. She notices errors and questions faulty reasoning, so the design gives her an explicit power to catch and disprove Vex's false claims. She sustains engagement with fast-paced riddles and multi-step logic, so rounds are short, escalating, and end in a visible payoff. Because these observations come from a limited set of sessions, the competitive pressure is tunable and losing to Vex is never terminal — the adversary framing is a wrapper the experience can soften without breaking if it turns out not to suit her.",
+  "opening_promise": "A rival smuggler named Vex is stealing shipments across the harbor. Every intercepted message hides the secret of a cargo load — how many crates, and how much is packed inside each one. Crack the load, build it as an array, lock it with a multiplication equation, and you seize the shipment before Vex does.",
+  "first_three_seconds_visual": "A dark harbor at night fills the screen. Center: a glowing intercepted message on a torn note — 'Vex loaded 3 crates. Each crate holds 5 signal lamps.' Below it: an empty dock grid with faint dotted cells and two large dials labeled CRATES and IN EACH. One crate is already sliding onto the dock by itself, popping open to reveal 5 lamps in a row, then the CRATES dial pulses and points at Reina. Top corner: Vex's boat inching along a progress rail toward the shipment. No menus, no text instructions — the half-built array and the pulsing dial say 'finish this' without a single word of manual.",
+  "first_child_action": "Reina turns the pulsing CRATES dial to 3. The interface demonstrates the action before she touches anything: the dial already auto-nudged from 0 to 1 as the demo crate slid in, showing that dial = rows of crates. As she turns it, crates thunk onto the dock one row at a time in real time — turn to 2, a second crate row slams down with 5 lamps; turn to 3, the third lands. The word 'crates' in the intercepted message glows the same color as the dial the moment she grabs it, physically linking the sentence to the control. There is exactly one interactive thing pulsing at any moment, so the correct first move is unmissable.",
+  "core_interaction": "Every round is a Cargo Crack with one consistent loop: (1) An intercepted message appears describing a real situation — crates of lamps, sacks of coins, tanks of fuel cells, cages of messenger birds. (2) Reina reads it and turns two dials: CRATES (number of groups) and IN EACH (amount per group). The dock grid builds the array live as she turns — rows are groups, items in each row are the per-group amount — so the array is never drawn for her; it is the direct consequence of her interpretation. (3) She locks the load by assembling the equation on a code bar: [groups] × [in each] = [?], typing or tapping the product. (4) A correct lock fires a grappling claw that seizes the shipment; the equation stamps onto the crate stack like a customs seal. If her dials contradict the message (e.g., she swaps groups and per-group when the sentence structure matters, or grabs a distractor number), the array visibly mismatches the message's illustrated tally strip, inviting her to re-read rather than punishing blindly. Interspersed every few rounds: a Vex Broadcast — Vex flashes his own claimed equation for a load ('4 crates of 7 = 24!'). Reina builds the true array and either CONFIRMS or CALLS THE BLUFF, proving him wrong by pointing at her array. Catching a bluff steals distance from Vex's boat.",
+  "multiplication_as_power": "Multiplication is literally the seizure mechanism. A shipment cannot be grabbed by counting one item at a time — the claw only fires when a complete, correct equation is stamped. Interpreting the word problem (which number is groups, which is per-group) is the codebreaking; the array is the physical proof; the equation is the key. Larger and trickier loads are worth more distance against Vex, so the incentive to attempt harder multiplication is built into the race itself. Bluff-catching adds a second use of the same power: multiplication as a truth-test against a lying adversary, which turns her error-spotting instinct into a weapon.",
+  "stakes_consequences_recovery": "Stakes: Vex's boat moves steadily along the rail toward each shipment; Reina races him load by load across a harbor map. Consequences: a wrong equation lock costs a few seconds while the claw retracts and the mismatched array flashes against the message's tally strip — Vex gains a boat-length, but nothing is erased and no lives are lost. If Vex reaches a shipment first, he steals it and taunts, but the harbor map simply marks it stolen; stolen shipments reappear later as 'Reclaim Runs' with a hint layer on, so failure converts into a scaffolded second chance instead of a dead end. Recovery tool: at any moment Reina can hit RECOUNT, which freezes Vex briefly and unpacks one crate row so she can see the per-group amount concretely — a dignity-preserving scaffold she summons herself, framed as a spy tool rather than a help button. There is no fail state that ends the session; the worst outcome is a slower, more contested run.",
+  "progression": {
+    "act_1_approachable_teaching": "Harbor Docks (loads up to 5 × 5). The intercepted messages color-code the group phrase and the per-group phrase to match the two dials. Only the two relevant numbers appear in the message. Vex moves slowly and never broadcasts bluffs yet. Goal: cement the loop message → dials → live array → equation with zero interface friction.",
+    "act_2_guided_application": "Warehouse Row (up to 9 × 9). Color-coding disappears; Reina must decide from the sentence itself which quantity is the groups. Messages now include a distractor number ('Vex, who is 42 years old, packed 6 sacks with 8 coins each') that the dials will accept but the tally strip will expose. Vex Broadcasts begin, including bluffs with the right numbers but wrong product, and bluffs with a swapped interpretation whose product is coincidentally the same — forcing her to argue from the array's structure, not just the answer. RECOUNT remains available but Vex's freeze gets shorter.",
+    "act_3_ambitious_independent_challenge": "The Night Convoy. Timed convoy of shipments with multi-sentence intercepts requiring two-step reasoning ('Each truck carries 4 crates. Each crate holds 6 lanterns. There are 3 trucks — crack the lantern total'), messages where the groups are stated second ('There are 7 gems in every pouch, and Vex grabbed 8 pouches'), and Reverse Cracks where Vex's manifest shows only the array and Reina must write the situation's equation and identify aloud (by tapping labels) which dimension was the groups. Final showdown: a rapid bluff-storm where Vex fires five claimed equations and Reina must confirm or bust each one before his boat docks. No color hints, RECOUNT costs boat-distance, and Reina can toggle a 'No Mercy' modifier because she has repeatedly requested harder challenges."
+  },
+  "interaction_continuity": "The two dials, the live-building dock array, and the equation code bar are the only core controls from the first second to the final showdown. Nothing new is ever added to the interface as difficulty rises — only the messages get trickier, the numbers bigger, the hints fewer, and Vex faster. Bluff-catching reuses the identical dial-and-array flow with a CONFIRM/BUST verdict at the end. This guarantees that by Act 3, every ounce of difficulty is mathematical interpretation, never interface decoding, honoring the boundary that challenge must come from thinking, not from learning new controls.",
+  "visible_world_progression": "The harbor map fills with Reina's seized shipments, each stamped with the equation that cracked it — a growing visible museum of her multiplication facts. Her dockside crane upgrades cosmetically as she advances (faster claw, brighter searchlight). Vex's boat gets visibly battered and his taunts get more desperate as she out-scores him; when she busts a bluff, his broadcast screen cracks. Stolen shipments sit on the map as red markers until reclaimed, turning past stumbles into a visible to-do list she chooses to clear. The world reacts within one second to every action: crates thunk, tally strips light up, the boat rail shifts, so cause and effect are never ambiguous.",
+  "payoff_and_replay": "Payoff: the final convoy showdown ends with Vex's boat dead in the water and Reina's full harbor map of stamped equations displayed as her 'Case File' — a shareable trophy of every load she cracked and every bluff she busted, with her three fastest cracks highlighted. Replay variation: intercepted messages are generated from templates crossing contexts (harbor, market caravan, sky-freight) × sentence structures (groups-first, per-group-first, distractor-laden, two-step) × number ranges, so no run repeats problems. A 'Rival Rematch' mode lets her replay against a faster Vex or with the No Mercy modifier, and a 'Ghost Run' lets her race her own previous best times — competitive framing pointed at herself when Vex has been beaten.",
+  "visual_motion_sound_direction": "Visual: moody but warm night-harbor palette — deep navy water, amber lamplight, wooden crates with hand-stenciled labels; the array grid glows soft cyan so it always reads as 'the math space.' Vex is a stylized silhouette with glowing goggles — menacing but cartoon-safe. Text is large, high-contrast, minimal. Motion: crates land with weighty squash-and-stretch thunks as dials turn; the equation stamps with a satisfying slam; the grappling claw fires in a fast whip-arc; wrong locks retract with a comic sproing, never a harsh fail animation. Vex's boat glides with visible urgency. Sound: low ambient harbor lap-and-creak; each crate landing plays a rising wooden note so building a row of 6 is audibly six ascending taps (a covert counting scaffold); correct lock = triumphant brass sting; bluff-bust = glass-crack plus Vex's frustrated grumble; RECOUNT = time-slow whoosh. All effects short and non-looping to keep pace fast.",
+  "optional_browser_libraries": [
+    "PixiJS — fast 2D WebGL rendering for the live-building crate arrays, claw animation, and boat rail at 60fps",
+    "GSAP — squash-and-stretch crate landings, dial easing, and equation stamp animations with precise timing",
+    "Howler.js — layered ambient harbor audio plus the rising per-crate counting notes with reliable low-latency playback",
+    "Zustand (or a tiny state store) — clean tracking of run state, Vex distance, and problem-template generation without framework weight"
+  ],
+  "falsifiable_engagement_prediction": "Within her first session, Reina will voluntarily complete at least 10 Cargo Cracks, and by Act 2 she will correctly bust at least 2 of the first 3 Vex bluffs by referencing the array structure (correct dial settings before her verdict), not by guessing. She will use RECOUNT fewer than 3 times across Act 2. Falsified if: she abandons the session before 10 cracks, busts fewer than 2 of the first 3 bluffs with correct dials, leans on RECOUNT 3+ times in Act 2, or her wrong-lock rate on interpretation (swapped groups/per-group) exceeds 40% in Act 2 — any of which would indicate the adversary framing or interpretation load is misjudged and the difficulty curve or competitive pressure needs retuning."
+}
+
+
+FABLE QUALITY REVIEW:
+{
+  "candidateId": "opus-5",
+  "strongestQuality": "Highest artifact coverage in one screen: tally strip, touch keypad, live harbor-map stamps, act-specific hint lines, Act-1 demo auto-setting CRATES to 1, and structure-aware failure messages that distinguish wrong dials from wrong product.",
+  "functionalIssues": [
+    "Act 1 theft pacing is far too fast: 12 ticks × 2.2s ≈ 26 seconds per shipment, and the first-play trace shows two 'STOLEN' stamps plus a theft toast before any player input — violating 'Vex moves slowly' in Act 1.",
+    "Reclaim Runs are inserted with r.reclaim=true, but load() never reads that flag, so the promised hint layer on reclaimed shipments never activates."
+  ],
+  "usabilityIssues": [
+    "The keypad's third column (3, 6, 9, ⌫) is clipped offscreen at the 1280px viewport, forcing keyboard-only product entry.",
+    "RECOUNT's hint text states the full answer ('Groups = g'), overshooting the dignity-preserving one-row unpack and short-circuiting interpretation."
+  ],
+  "visualIssues": [
+    "Fixed 1365px body clips the right edge at 1280px: the SEIZED/BUSTED score truncates and the harbor map and keypad are partially cut."
+  ],
+  "artifactFidelityIssues": [
+    "Act-1 boat speed contradicts the frozen 'slow, no pressure yet' teaching act.",
+    "RECOUNT reveals both factors outright rather than concretely unpacking one row."
+  ],
+  "repairBrief": "Scale the stage to the viewport so the keypad, map, and score are fully visible at 1280px. Slow Act 1 dramatically (e.g., 60–90s per shipment or pause Vex until first dial input) so a first read cannot end in theft. In load(), honor q.reclaim: re-enable color-coded phrases and slower Vex for Reclaim Runs. Rewrite RECOUNT to show only the unpacked row and its per-group count without printing the groups value. Remove the dead verdict comparison block in verdict() for clarity.",
+  "candidateComment": ""
+}
+
+YOUR ORIGINAL HTML:
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Cargo Code: Outsmart Vex</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+body{width:1365px;height:768px;overflow:hidden;background:#060d18;font-family:"Trebuchet MS",Verdana,sans-serif;color:#ffeccf;user-select:none}
+#app{position:relative;width:1365px;height:768px;background:
+radial-gradient(ellipse at 50% 15%,#12304d 0%,#08172a 55%,#050a13 100%)}
+.water{position:absolute;left:0;right:0;bottom:0;height:230px;background:linear-gradient(#0a2138,#061525);opacity:.9}
+.water:after{content:"";position:absolute;inset:0;background:repeating-linear-gradient(transparent 0 12px,rgba(120,200,255,.06) 12px 14px)}
+/* HUD */
+#rail{position:absolute;top:10px;left:14px;width:1337px;height:64px;background:rgba(8,22,38,.85);border:2px solid #23516f;border-radius:12px}
+#railtrack{position:absolute;left:120px;right:150px;top:30px;height:6px;background:#123047;border-radius:3px}
+#vex{position:absolute;top:6px;width:74px;height:52px;transition:left .5s cubic-bezier(.4,1.4,.6,1)}
+#vex svg{width:74px;height:52px}
+.raillbl{position:absolute;top:20px;font-size:14px;letter-spacing:1px;color:#8fc4e8}
+#shipIcon{position:absolute;right:16px;top:12px;font-size:34px}
+#actlbl{position:absolute;top:82px;left:20px;font-size:15px;color:#7fd7e8;letter-spacing:2px}
+#score{position:absolute;top:82px;right:20px;font-size:15px;color:#ffcf7a;letter-spacing:1px}
+/* message */
+#note{position:absolute;top:112px;left:24px;width:470px;min-height:150px;padding:18px 20px;
+background:linear-gradient(#f6e6c4,#e6d0a4);color:#2a1d0c;border-radius:6px;
+box-shadow:0 10px 26px #000a;transform:rotate(-1.2deg);font-size:22px;line-height:1.32;font-weight:bold}
+#note .g{color:#0b6b8a;background:#bdf0ff;padding:0 4px;border-radius:3px}
+#note .e{color:#8a4a06;background:#ffd9a8;padding:0 4px;border-radius:3px}
+#note h4{font-size:13px;letter-spacing:2px;color:#7a6540;margin-bottom:8px}
+#tallywrap{position:absolute;top:280px;left:24px;width:470px}
+#tallywrap h5{font-size:12px;letter-spacing:2px;color:#8fc4e8;margin-bottom:6px}
+#tally{display:flex;flex-wrap:wrap;gap:4px;min-height:26px}
+.tk{width:14px;height:20px;background:#ffd27a;border-radius:2px;box-shadow:0 0 6px #ffb84a88}
+/* dials */
+#dials{position:absolute;top:360px;left:24px;display:flex;gap:26px}
+.dial{width:212px;background:rgba(10,28,46,.9);border:2px solid #2c6285;border-radius:14px;padding:10px;text-align:center}
+.dial.hot{border-color:#ffd27a;box-shadow:0 0 22px #ffb84a99;animation:pulse 1s infinite}
+@keyframes pulse{50%{box-shadow:0 0 34px #ffd27acc}}
+.dial .nm{font-size:15px;letter-spacing:2px}
+.dial.crates .nm{color:#7fe6ff}.dial.each .nm{color:#ffc078}
+.dial .val{font-size:52px;font-weight:bold;line-height:1}
+.btnrow{display:flex;gap:8px;justify-content:center;margin-top:6px}
+.btnrow button{width:60px;height:44px;font-size:26px;font-weight:bold;background:#1d4a68;color:#ffeccf;border:2px solid #3d7b9f;border-radius:10px;cursor:pointer}
+.btnrow button:active{transform:scale(.92)}
+/* dock */
+#dockPanel{position:absolute;top:112px;left:520px;width:590px;height:330px;background:rgba(6,26,40,.7);border:2px solid #1d5d7a;border-radius:14px}
+#dockPanel h5{position:absolute;top:8px;left:14px;font-size:12px;letter-spacing:2px;color:#6fd0e8}
+#grid{position:absolute;top:34px;left:14px;right:14px;bottom:12px}
+.row{display:flex;gap:6px;margin-bottom:6px}
+.cell{width:40px;height:34px;border-radius:5px;background:#8a5a2b;border:2px solid #c98b44;display:flex;align-items:center;justify-content:center;font-size:18px;
+animation:drop .28s cubic-bezier(.2,1.6,.4,1)}
+@keyframes drop{0%{transform:translateY(-42px) scaleY(1.4);opacity:0}70%{transform:translateY(0) scaleY(.75)}100%{transform:none}}
+/* equation bar */
+#code{position:absolute;top:462px;left:520px;width:590px;height:120px;background:rgba(10,30,48,.92);border:2px solid #2c6285;border-radius:14px;display:flex;align-items:center;justify-content:center;gap:12px;font-size:44px;font-weight:bold}
+#code .slot{min-width:78px;height:74px;border-radius:10px;background:#0d2b42;border:2px dashed #3d7b9f;display:flex;align-items:center;justify-content:center}
+#code .slot.f{border-style:solid;color:#7fe6ff}
+#ans{width:132px;height:74px;font-size:44px;text-align:center;background:#123a56;color:#ffd27a;border:3px solid #ffb84a;border-radius:10px;font-family:inherit;font-weight:bold}
+#keys{position:absolute;top:462px;left:1130px;width:216px;display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+#keys button{height:46px;font-size:22px;font-weight:bold;background:#1d4a68;color:#ffeccf;border:2px solid #3d7b9f;border-radius:8px;cursor:pointer}
+#keys button:active{transform:scale(.92)}
+#actions{position:absolute;top:600px;left:24px;width:1320px;display:flex;gap:14px;align-items:center}
+.big{padding:16px 26px;font-size:24px;font-weight:bold;border-radius:12px;cursor:pointer;border:3px solid;font-family:inherit}
+#lock{background:#1c7a4a;border-color:#4be08c;color:#eafff2}
+#recount{background:#43346b;border-color:#a48ce0;color:#f0e8ff}
+#confirmB{background:#1a5f84;border-color:#6fd0e8;color:#eafaff}
+#bustB{background:#8a2233;border-color:#ff7a8a;color:#ffeef0}
+.big:active{transform:scale(.95)}
+#hint{font-size:19px;color:#ffd27a;flex:1;min-height:28px}
+/* map */
+#map{position:absolute;top:112px;left:1130px;width:216px;height:330px;background:rgba(6,26,40,.7);border:2px solid #1d5d7a;border-radius:14px;padding:10px;overflow:hidden}
+#map h5{font-size:12px;letter-spacing:2px;color:#6fd0e8;margin-bottom:6px}
+.stamp{font-size:16px;padding:3px 6px;margin-bottom:4px;border-radius:5px;background:#12463a;border:1px solid #4be08c;color:#c9ffe2}
+.stamp.st{background:#4a1420;border-color:#ff7a8a;color:#ffd0d6}
+/* overlays */
+.ov{position:absolute;inset:0;background:rgba(3,8,16,.93);display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;z-index:20;padding:40px}
+.ov h1{font-size:52px;color:#ffd27a;margin-bottom:14px;letter-spacing:2px}
+.ov p{font-size:22px;max-width:900px;line-height:1.5;margin-bottom:18px}
+.hide{display:none!important}
+#vexbox{position:absolute;top:112px;left:520px;width:590px;height:330px;background:#120a1c;border:3px solid #a065ff;border-radius:14px;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:8}
+#vexbox .claim{font-size:56px;font-weight:bold;color:#ff9ce8;margin-top:10px}
+#vexbox .say{font-size:20px;color:#d9b8ff;padding:0 20px}
+#vexbox.crack{background:#2a0d14;border-color:#ff7a8a}
+#flash{position:absolute;inset:0;pointer-events:none;background:#fff;opacity:0;z-index:15}
+#claw{position:absolute;top:0;left:800px;width:8px;height:0;background:linear-gradient(#ccd,#889);z-index:12}
+#toast{position:absolute;top:300px;left:0;width:1365px;text-align:center;font-size:46px;font-weight:bold;z-index:16;opacity:0;pointer-events:none;text-shadow:0 4px 14px #000}
+</style>
+</head>
+<body>
+<div id="app">
+<div class="water"></div>
+<div id="rail">
+  <div class="raillbl" style="left:14px">VEX</div>
+  <div id="railtrack"></div>
+  <div id="vex" style="left:120px"><svg viewBox="0 0 74 52"><ellipse cx="37" cy="42" rx="34" ry="9" fill="#2a1030"/><path d="M6 40 L68 40 L60 30 L14 30 Z" fill="#4a1c58"/><circle cx="30" cy="22" r="9" fill="#1a0a22"/><circle cx="27" cy="21" r="3" fill="#ff5ad0"/><circle cx="34" cy="21" r="3" fill="#ff5ad0"/><rect x="44" y="12" width="5" height="20" fill="#6a2c7a"/></svg></div>
+  <div id="shipIcon">📦</div>
+</div>
+<div id="actlbl">ACT 1 — HARBOR DOCKS</div>
+<div id="score">SEIZED 0 · BUSTED 0</div>
+
+<div id="note"><h4>INTERCEPTED MESSAGE</h4><div id="msg"></div></div>
+<div id="tallywrap"><h5>TALLY STRIP (true count)</h5><div id="tally"></div></div>
+
+<div id="dials">
+  <div class="dial crates" id="dCr"><div class="nm">CRATES</div><div class="val" id="vCr">0</div><div class="btnrow"><button data-d="c" data-s="-1">–</button><button data-d="c" data-s="1">+</button></div></div>
+  <div class="dial each" id="dEa"><div class="nm">IN EACH</div><div class="val" id="vEa">0</div><div class="btnrow"><button data-d="e" data-s="-1">–</button><button data-d="e" data-s="1">+</button></div></div>
+</div>
+
+<div id="dockPanel"><h5>DOCK GRID — rows are crates</h5><div id="grid"></div></div>
+<div id="vexbox" class="hide"><div class="say" id="vexsay"></div><div class="claim" id="vexclaim"></div><div class="say">Build the TRUE array with your dials, then decide.</div></div>
+
+<div id="code">
+  <div class="slot" id="s1">?</div><div>×</div><div class="slot" id="s2">?</div><div>=</div><input id="ans" inputmode="numeric" placeholder="?">
+</div>
+<div id="keys"></div>
+<div id="map"><h5>HARBOR MAP</h5><div id="stamps"></div></div>
+
+<div id="actions">
+  <button class="big" id="lock">🔒 LOCK LOAD</button>
+  <button class="big" id="confirmB">✅ CONFIRM</button>
+  <button class="big" id="bustB">💥 CALL THE BLUFF</button>
+  <button class="big" id="recount">🔍 RECOUNT</button>
+  <div id="hint"></div>
+</div>
+
+<div id="claw"></div><div id="flash"></div><div id="toast"></div>
+
+<div class="ov" id="intro">
+  <h1>CARGO CODE: OUTSMART VEX</h1>
+  <p>A rival smuggler named <b>Vex</b> is stealing shipments across the harbor. Every intercepted message hides a cargo load — <b>how many crates</b>, and <b>how much is packed inside each one</b>.</p>
+  <p>Turn the two dials, watch the array build on the dock, then lock it with a multiplication equation. The claw only fires when the equation is right — beat Vex's boat to every shipment.</p>
+  <button class="big" id="go" style="background:#1c7a4a;border-color:#4be08c;color:#eafff2">START THE RUN ▶</button>
+</div>
+<div class="ov hide" id="endov"><h1>CASE FILE</h1><p id="endtxt"></p><div id="endlist" style="font-size:20px;line-height:1.7;max-width:1000px"></div><button class="big" id="again" style="margin-top:18px;background:#1c7a4a;border-color:#4be08c;color:#eafff2">RIVAL REMATCH ▶</button></div>
+</div>
+<script>
+const $=i=>document.getElementById(i);
+let AC;function beep(f,d,t,v){try{AC=AC||new(window.AudioContext||window.webkitAudioContext);const o=AC.createOscillator(),g=AC.createGain();o.type=t||'triangle';o.frequency.value=f;g.gain.value=v||.16;o.connect(g);g.connect(AC.destination);o.start();g.gain.exponentialRampToValueAtTime(.001,AC.currentTime+d);o.stop(AC.currentTime+d);}catch(e){}}
+const ITEM=["🔆","🪙","🔋","🐦","💎","🏮","🍎","🔧"];
+// ---- problem generation ----
+function R(a,b){return a+Math.floor(Math.random()*(b-a+1));}
+const CTX=[["crates","signal lamps","🔆"],["sacks","coins","🪙"],["tanks","fuel cells","🔋"],["cages","messenger birds","🐦"],["pouches","gems","💎"],["carts","lanterns","🏮"]];
+function makeCrack(act){
+ const c=CTX[R(0,CTX.length-1)];let g,e,txt,two=false,ans;
+ if(act===1){g=R(2,5);e=R(2,5);txt=`Vex loaded <span class="g">${g} ${c[0]}</span>. Each one holds <span class="e">${e} ${c[1]}</span>.`;}
+ else if(act===2){g=R(3,9);e=R(3,9);const d=R(21,58);
+   const k=R(0,2);
+   if(k===0)txt=`Vex, who is ${d} years old, packed ${g} ${c[0]} with ${e} ${c[1]} each.`;
+   else if(k===1)txt=`There are ${e} ${c[1]} in every ${c[0].slice(0,-1)}, and Vex grabbed ${g} ${c[0]}.`;
+   else txt=`Dock ${d}: Vex filled ${g} ${c[0]}. Each ${c[0].slice(0,-1)} holds ${e} ${c[1]}.`;
+ } else {
+   if(Math.random()<.5){const t=R(2,4),cr=R(2,4),it=R(3,6);g=t*cr;e=it;two=true;
+     txt=`Each truck carries ${cr} ${c[0]}. Each ${c[0].slice(0,-1)} holds ${it} ${c[1]}. There are ${t} trucks — crack the ${c[1]} total.`;}
+   else{g=R(4,9);e=R(4,9);txt=`There are ${e} ${c[1]} in every ${c[0].slice(0,-1)}, and Vex grabbed ${g} ${c[0]}.`;}
+ }
+ return{type:'crack',g:g,e:e,icon:c[2],txt:txt,two:two,unit:c[1]};
+}
+function makeBluff(act){
+ const c=CTX[R(0,CTX.length-1)];const g=R(3,act===3?9:8),e=R(3,9);const p=g*e;
+ let lie=Math.random()<.55, claim=p;
+ if(lie){claim=p+(Math.random()<.5?-1:1)*R(1,Math.max(2,Math.round(p*.2)));if(claim<1)claim=p+3;}
+ return{type:'bluff',g:g,e:e,icon:c[2],claim:claim,lie:lie,
+  txt:`Vex broadcasts about ${g} ${c[0]}, each holding ${e} ${c[1]}.`,
+  say:`"Too slow! That load is mine —"`,unit:c[1]};
+}
+// ---- state ----
+let S;
+function newRun(){
+ S={i:0,cr:0,ea:0,seized:0,busted:0,vex:0,stamps:[],q:null,phase:'run',times:[]};
+ const list=[];
+ for(let k=0;k<4;k++)list.push(makeCrack(1));
+ for(let k=0;k<3;k++){list.push(makeCrack(2));if(k<2)list.push(makeBluff(2));}
+ list.push(makeCrack(2));
+ for(let k=0;k<3;k++)list.push(makeCrack(3));
+ for(let k=0;k<3;k++)list.push(makeBluff(3));
+ S.list=list;
+ $('stamps').innerHTML='';renderScore();load();
+}
+function actOf(i){return i<4?1:(i<11?2:3);}
+function load(){
+ if(S.i>=S.list.length){return end();}
+ const q=S.list[S.i];S.q=q;S.cr=0;S.ea=0;S.used=false;S.start=Date.now();
+ const a=actOf(S.i);
+ $('actlbl').textContent=a===1?'ACT 1 — HARBOR DOCKS':a===2?'ACT 2 — WAREHOUSE ROW':'ACT 3 — THE NIGHT CONVOY';
+ $('msg').innerHTML=q.txt;
+ $('vexbox').classList.toggle('hide',q.type!=='bluff');
+ $('vexbox').classList.remove('crack');
+ $('dockPanel').classList.toggle('hide',q.type==='bluff');
+ if(q.type==='bluff'){$('vexsay').textContent=q.say;$('vexclaim').textContent=`${q.g} × ${q.e} = ${q.claim}`;}
+ $('lock').classList.toggle('hide',q.type==='bluff');
+ $('confirmB').classList.toggle('hide',q.type!=='bluff');
+ $('bustB').classList.toggle('hide',q.type!=='bluff');
+ $('ans').value='';$('ans').disabled=q.type==='bluff';
+ $('hint').textContent=a===1?'Turn the CRATES dial to match the message.':(q.type==='bluff'?'Build the true array first — then judge his claim.':'Read carefully. Which number is the groups?');
+ // vex position for this shipment
+ S.vex=0;placeVex();
+ draw();buildTally();
+ if(a===1&&q.type==='crack'){S.cr=1;draw();$('dCr').classList.add('hot');} else $('dCr').classList.remove('hot');
+ startVexTimer();
+}
+function buildTally(){
+ const q=S.q;let n=q.g*q.e,h='';
+ if(actOf(S.i)===3&&q.type==='crack'){$('tally').innerHTML='<span style="color:#7f9;font-size:15px">Tally strip encrypted — trust your reasoning.</span>';return;}
+ for(let k=0;k<n;k++)h+='<div class="tk"></div>';
+ $('tally').innerHTML=h;
+}
+function draw(){
+ $('vCr').textContent=S.cr;$('vEa').textContent=S.ea;
+ $('s1').textContent=S.cr||'?';$('s2').textContent=S.ea||'?';
+ $('s1').className='slot'+(S.cr?' f':'');$('s2').className='slot'+(S.ea?' f':'');
+ const g=$('grid');g.innerHTML='';
+ const ic=S.q?S.q.icon:'📦';
+ for(let r=0;r<S.cr;r++){const d=document.createElement('div');d.className='row';
+  for(let c=0;c<S.ea;c++){const x=document.createElement('div');x.className='cell';x.textContent=ic;x.style.animationDelay=(c*.03)+'s';d.appendChild(x);}
+  g.appendChild(d);}
+ const need=S.cr&&S.ea;
+ $('dEa').classList.toggle('hot',actOf(S.i)===1&&S.cr>0&&S.ea===0);
+ if(actOf(S.i)===1&&S.cr>0)$('dCr').classList.remove('hot');
+}
+function bump(which,s){
+ const q=S.q;if(!q)return;
+ if(which==='c')S.cr=Math.max(0,Math.min(12,S.cr+s));else S.ea=Math.max(0,Math.min(12,S.ea+s));
+ draw();
+ if(s>0){const n=(which==='c'?S.cr:S.ea);beep(300+n*45,.13,'triangle',.2);}else beep(180,.08,'sine',.12);
+}
+document.querySelectorAll('.btnrow button').forEach(b=>b.addEventListener('click',()=>bump(b.dataset.d,+b.dataset.s)));
+// keypad
+const kp=$('keys');[1,2,3,4,5,6,7,8,9,'C',0,'⌫'].forEach(k=>{const b=document.createElement('button');b.textContent=k;b.onclick=()=>{
+ const a=$('ans');if(k==='C')a.value='';else if(k==='⌫')a.value=a.value.slice(0,-1);else if(a.value.length<3)a.value+=k;beep(520,.05,'square',.08);};kp.appendChild(b);});
+// vex movement
+let vt;
+function startVexTimer(){clearInterval(vt);const a=actOf(S.i);const per=a===1?2200:a===2?1500:1000;
+ vt=setInterval(()=>{if(S.freeze)return;S.vex+=1;placeVex();if(S.vex>=12)steal();},per);}
+function placeVex(){const t=$('railtrack');const w=t.offsetWidth;$('vex').style.left=(120+Math.min(1,S.vex/12)*(w-20))+'px';}
+function toast(t,c){const e=$('toast');e.textContent=t;e.style.color=c;e.style.opacity=1;e.style.transition='none';setTimeout(()=>{e.style.transition='opacity .8s';e.style.opacity=0;},700);}
+function flash(c){const f=$('flash');f.style.background=c;f.style.opacity=.55;f.style.transition='none';setTimeout(()=>{f.style.transition='opacity .5s';f.style.opacity=0;},30);}
+function claw(){const c=$('claw');c.style.height='0px';c.style.transition='none';setTimeout(()=>{c.style.transition='height .25s ease-in';c.style.height='300px';},20);setTimeout(()=>{c.style.transition='height .3s';c.style.height='0px';},400);}
+function stamp(txt,stolen){const d=document.createElement('div');d.className='stamp'+(stolen?' st':'');d.textContent=txt;$('stamps').prepend(d);S.stamps.push(txt);}
+function renderScore(){$('score').textContent=`SEIZED ${S.seized} · BUSTED ${S.busted}`;}
+function next(){S.i++;setTimeout(load,850);}
+function steal(){
+ clearInterval(vt);const q=S.q;
+ stamp('STOLEN: '+q.g+'×'+q.e,true);toast('VEX STOLE IT! "Better luck, rookie."','#ff7a8a');
+ beep(120,.5,'sawtooth',.2);
+ // reclaim run with hints appended
+ const r=Object.assign({},q);r.reclaim=true;S.list.splice(S.i+2,0,r);
+ next();
+}
+$('lock').onclick=()=>{
+ const q=S.q;if(q.type!=='crack')return;
+ const ans=parseInt($('ans').value);
+ if(!S.cr||!S.ea||isNaN(ans)){$('hint').textContent='Set both dials and type the product.';beep(200,.15,'square',.1);return;}
+ const dialsOK=(S.cr===q.g&&S.ea===q.e);
+ if(dialsOK&&ans===q.g*q.e){
+   clearInterval(vt);flash('#7fffd4');claw();beep(523,.12,'triangle',.22);setTimeout(()=>beep(659,.12),110);setTimeout(()=>beep(880,.3),220);
+   S.seized++;S.times.push((Date.now()-S.start)/1000);renderScore();
+   stamp(`${q.g} × ${q.e} = ${q.g*q.e}`);
+   toast('SHIPMENT SEIZED!','#7fffd4');$('hint').textContent=`${q.g} groups of ${q.e} = ${q.g*q.e} ${q.unit}. Claw fired!`;
+   next();
+ } else {
+   S.vex+=1;placeVex();beep(300,.25,'sawtooth',.14);setTimeout(()=>beep(180,.3,'sawtooth',.12),120);
+   $('grid').animate([{transform:'translateX(0)'},{transform:'translateX(-10px)'},{transform:'translateX(10px)'},{transform:'translateX(0)'}],220);
+   document.querySelectorAll('.tk').forEach(t=>t.animate([{opacity:1},{opacity:.2},{opacity:1}],400));
+   $('hint').textContent = !dialsOK
+    ? `Your array holds ${S.cr*S.ea} — the tally strip shows ${q.g*q.e}. Re-read: which number is the groups?`
+    : `Array is right (${q.g} rows of ${q.e}) but ${ans} isn't the product. Count the rows again.`;
+   toast('CLAW RETRACTS','#ffb84a');
+ }
+};
+function verdict(said){
+ const q=S.q;if(q.type!=='bluff')return;
+ const dialsOK=(S.cr===q.g&&S.ea===q.e);
+ const truthIsLie=q.lie;
+ if(said===!truthIsLie){ // confirmed a true claim OR busted a lie -> said===true means CONFIRM
+ }
+ const right=(said==='confirm'&&!truthIsLie)||(said==='bust'&&truthIsLie);
+ if(right){
+  clearInterval(vt);
+  if(said==='bust'){$('vexbox').classList.add('crack');beep(1200,.08,'square',.2);setTimeout(()=>beep(300,.4,'sawtooth',.16),90);
+    S.busted++;S.vex=Math.max(0,S.vex-4);placeVex();toast('BLUFF BUSTED! Vex loses ground.','#ff9ce8');
+    $('hint').textContent=`${q.g} rows of ${q.e} is ${q.g*q.e}, not ${q.claim}. Your array proves it.`+(dialsOK?'':' (Set the dials next time to show your proof!)');
+    stamp(`BUSTED ${q.g}×${q.e}≠${q.claim}`);}
+  else{beep(659,.12);setTimeout(()=>beep(880,.25),110);toast('CONFIRMED — and seized.','#7fffd4');
+    S.seized++;stamp(`${q.g} × ${q.e} = ${q.g*q.e}`);$('hint').textContent=`He told the truth this once. ${q.g} × ${q.e} = ${q.g*q.e}.`;}
+  renderScore();next();
+ } else {
+  S.vex+=2;placeVex();beep(200,.3,'sawtooth',.14);toast('WRONG CALL — Vex surges ahead','#ffb84a');
+  $('hint').textContent=`Build ${q.g} rows of ${q.e} on your dials and count. Truth: ${q.g} × ${q.e} = ${q.g*q.e}.`;
+  $('dockPanel').classList.remove('hide');$('vexbox').classList.add('hide');
+ }
+}
+$('confirmB').onclick=()=>verdict('confirm');
+$('bustB').onclick=()=>verdict('bust');
+$('recount').onclick=()=>{
+ const q=S.q;if(!q)return;S.freeze=true;beep(700,.5,'sine',.12);
+ const a=actOf(S.i);if(a===3){S.vex+=1;placeVex();}
+ $('hint').textContent=`RECOUNT: unpack one ${q.icon} row → the message packs ${q.e} in each. Groups = ${q.g}.`;
+ $('dockPanel').classList.remove('hide');
+ const g=$('grid');const row=document.createElement('div');row.className='row';
+ for(let c=0;c<q.e;c++){const x=document.createElement('div');x.className='cell';x.style.background='#3d6a8a';x.style.borderColor='#7fe6ff';x.textContent=q.icon;row.appendChild(x);}
+ g.prepend(row);
+ setTimeout(()=>{S.freeze=false;draw();if(q.type==='bluff'){$('vexbox').classList.remove('hide');}},2600);
+};
+$('ans').addEventListener('keydown',e=>{if(e.key==='Enter')$('lock').click();});
+function end(){
+ clearInterval(vt);$('endov').classList.remove('hide');
+ const fast=S.times.slice().sort((a,b)=>a-b).slice(0,3).map(t=>t.toFixed(1)+'s').join(' · ');
+ $('endtxt').innerHTML=`Vex's boat is dead in the water. You seized <b>${S.seized}</b> shipments and busted <b>${S.busted}</b> bluffs.<br>Fastest cracks: ${fast||'—'}`;
+ $('endlist').innerHTML=S.stamps.map(s=>'🗂 '+s).join('<br>');
+ beep(523,.15);setTimeout(()=>beep(659,.15),150);setTimeout(()=>beep(784,.15),300);setTimeout(()=>beep(1046,.5),450);
+}
+$('go').onclick=()=>{$('intro').classList.add('hide');newRun();};
+$('again').onclick=()=>{$('endov').classList.add('hide');newRun();};
+</script>
+</body>
+</html>

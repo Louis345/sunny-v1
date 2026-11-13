@@ -1,0 +1,38 @@
+Create one complete standalone interactive learning experience that helps a child understand:
+
+Multiplication as equal groups and arrays, connected to skip-counting and word-problem interpretation.
+
+The following are factual observations from this child's prior learning experiences. They are evidence, not instructions or conclusions.
+
+Experience A:
+- The child initiated a randomized reveal interaction.
+- The experience visibly accelerated and slowed before revealing an unknown result.
+- The revealed result changed an incomplete word puzzle.
+- Correct progress accumulated a visible currency.
+- Actions produced immediate animation and sound.
+- Restarting restored uncertainty.
+- Human review recorded a positive reaction.
+- The child explicitly selected “like.”
+- Evidence confidence is low because the number of confirmed sessions is small.
+
+Experience B:
+- The child spoke a visible target aloud.
+- The target moved through a timed rhythm.
+- Speech recognition evaluated the response.
+- Successful responses produced immediate audiovisual feedback.
+- Streak, pace, time, and currency visibly changed.
+- Retry was available.
+- The pace could ease after difficulty.
+- Human review recorded a positive reaction.
+- The child explicitly selected “like.”
+- Evidence confidence is low because the number of confirmed sessions is small.
+
+Do not assume these observations prove a general preference. Decide independently whether any of them are relevant. Do not recreate or name the previous activities merely because they appear here.
+
+Teach the mathematical concept rather than reproducing worksheet questions.
+
+You decide the pedagogy, content, experience form, interaction, visual world, progression, feedback, and conclusion. The experience does not have to be a game.
+
+Return one complete self-contained HTML document with inline CSS and JavaScript. It must work with touch or mouse inside a 1365×768 iframe. Do not use external libraries, network resources, or external assets.
+
+Return raw HTML only.

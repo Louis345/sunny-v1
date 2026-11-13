@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=1365,height=768">
+<title>ARRAY ARENA: The Formation Championship</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{width:1365px;height:768px;overflow:hidden;background:#150a22;font-family:"Trebuchet MS",Verdana,sans-serif;color:#f6e7d0;user-select:none}
+#stage{position:relative;width:1365px;height:768px;background:radial-gradient(ellipse at 50% 38%,#3c1c4a 0%,#20102e 46%,#100716 100%)}
+.crowd{position:absolute;left:0;right:0;top:0;height:150px;background:repeating-linear-gradient(90deg,#2a1533 0 7px,#361b40 7px 14px);opacity:.75}
+.glow{position:absolute;left:50%;top:120px;width:1000px;height:520px;margin-left:-500px;border-radius:50%;background:radial-gradient(ellipse,rgba(255,150,60,.20),transparent 65%);pointer-events:none;transition:opacity .4s;opacity:.5}
+.screen{position:absolute;inset:0;display:none;flex-direction:column;align-items:center}
+.screen.on{display:flex}
+h1{font-size:52px;letter-spacing:3px;margin-top:44px;color:#ffd08a;text-shadow:0 0 26px #ff8a2b}
+.sub{margin-top:10px;font-size:19px;color:#e5c8a8;max-width:900px;text-align:center;line-height:1.5}
+.btn{cursor:pointer;border:none;border-radius:14px;padding:16px 34px;font-size:22px;font-weight:bold;background:linear-gradient(#ff9c33,#d1541a);color:#2a0f04;box-shadow:0 6px 0 #7d2f0c;letter-spacing:1px}
+.btn:active{transform:translateY(4px);box-shadow:0 2px 0 #7d2f0c}
+.btn.ghost{background:linear-gradient(#5b3b78,#3a2350);color:#ffe6c4;box-shadow:0 6px 0 #241436}
+.btn.small{padding:10px 18px;font-size:16px}
+.btn[disabled]{opacity:.35;cursor:default}
+/* bracket */
+#bracket{margin-top:22px;width:900px;display:flex;flex-direction:column;align-items:center;gap:8px}
+.brow{display:flex;align-items:center;gap:12px;width:100%;justify-content:center}
+.node{background:#2b1740;border:2px solid #6b4590;border-radius:10px;padding:8px 16px;font-size:16px;min-width:230px;text-align:center;transition:.3s}
+.node.champ{border-color:#ffcf7a;color:#ffd79a;font-weight:bold;box-shadow:0 0 18px rgba(255,180,80,.4)}
+.node.done{background:#1d4a2c;border-color:#61d08c;color:#c9ffdc}
+.node.cur{background:#5b2a17;border-color:#ff9c33;box-shadow:0 0 20px rgba(255,150,50,.6)}
+.node.me{border-color:#7ad4ff;color:#cdefff}
+/* arena */
+#hud{width:1300px;display:flex;justify-content:space-between;align-items:center;margin-top:14px;font-size:16px}
+.tag{background:#2a1640;border:1px solid #6b4590;border-radius:20px;padding:6px 16px}
+.meterbox{width:330px;height:20px;background:#241238;border:2px solid #6b4590;border-radius:12px;overflow:hidden}
+.meterfill{height:100%;width:0;background:linear-gradient(90deg,#ffd166,#ff6b2b);transition:width .25s}
+#scroll{margin-top:12px;width:1040px;min-height:74px;background:linear-gradient(#f4e2c0,#e2c99c);color:#3a2210;border-radius:12px;border:3px solid #b98a4e;padding:14px 22px;font-size:22px;line-height:1.35;text-align:center;display:flex;align-items:center;justify-content:center;box-shadow:0 8px 24px rgba(0,0,0,.5)}
+#scroll .who{font-weight:bold;color:#7a2c0e}
+#scroll mark{background:#ffd76a;padding:0 4px;border-radius:4px}
+#floorWrap{position:relative;margin-top:12px;width:1000px;height:300px;display:flex;align-items:center;justify-content:center}
+#floor{position:relative;border-radius:16px;background:radial-gradient(ellipse at 50% 50%,rgba(255,160,70,.16),rgba(60,25,80,.35));box-shadow:inset 0 0 40px rgba(255,150,60,.18),0 0 40px rgba(0,0,0,.45);padding:12px;display:flex;flex-direction:column;gap:8px;min-width:180px;min-height:120px;justify-content:center;align-items:center}
+.rowline{display:flex;gap:8px}
+.tile{width:34px;height:34px;border-radius:8px;background:linear-gradient(#ffb15a,#d96a1e);box-shadow:inset 0 -3px 0 rgba(0,0,0,.28),0 0 0 rgba(255,200,120,0);position:relative;animation:march .32s ease-out both}
+.tile.foe{background:linear-gradient(#9ec6ff,#4a72c9)}
+.tile:after{content:"";position:absolute;left:8px;top:9px;width:5px;height:5px;border-radius:50%;background:rgba(0,0,0,.4);box-shadow:12px 0 0 rgba(0,0,0,.4)}
+@keyframes march{from{opacity:0;transform:translateY(-18px) scale(.6)}to{opacity:1;transform:none}}
+.tile.lit{background:linear-gradient(#fff3c4,#ffb03a);box-shadow:0 0 16px #ffd06a}
+.rowline.flick{animation:flick .5s ease-in-out 3}
+@keyframes flick{0%,100%{opacity:1}50%{opacity:.18}}
+.tile.shatter{animation:shat .4s ease-in forwards}
+@keyframes shat{to{opacity:0;transform:scale(.2) rotate(35deg)}}
+.rowlabel{position:absolute;left:-64px;font-size:13px;color:#ffc98a}
+#ctrl{margin-top:6px;display:flex;align-items:center;gap:20px}
+.stepper{background:#26143a;border:2px solid #6b4590;border-radius:14px;padding:8px 12px;display:flex;align-items:center;gap:10px}
+.stepper .lab{font-size:13px;color:#c9a9e6;width:76px;text-align:center;line-height:1.1}
+.sb{width:44px;height:44px;border-radius:10px;border:none;background:#5b3b78;color:#ffe6c4;font-size:26px;cursor:pointer;font-weight:bold}
+.sb:active{background:#8358ad}
+.val{font-size:34px;width:52px;text-align:center;color:#ffd79a;font-weight:bold}
+#eqbar{display:flex;align-items:center;gap:10px;font-size:32px;color:#ffd79a;background:#20112f;border:2px solid #6b4590;border-radius:14px;padding:8px 18px}
+#prodIn{width:96px;height:48px;font-size:30px;text-align:center;border-radius:10px;border:2px solid #ff9c33;background:#331a12;color:#ffe6b0;font-family:inherit}
+#coach{margin-top:8px;min-height:26px;font-size:19px;color:#9fe6ff;text-align:center}
+#verdict{display:flex;gap:16px;margin-top:4px}
+#pips{display:flex;gap:8px}
+.pip{width:16px;height:16px;border-radius:50%;background:#3d2354;border:2px solid #6b4590}
+.pip.win{background:#5fe08a;border-color:#a9ffc9}.pip.loss{background:#e0575f;border-color:#ffb0b4}
+.pulse{position:absolute;width:12px;height:12px;border-radius:50%;background:#ffe9a8;box-shadow:0 0 12px #ffce6a;pointer-events:none}
+#mask{width:130px;height:130px;border-radius:16px;background:linear-gradient(#c9b3ff,#6a49b5);position:relative;overflow:hidden;font-size:11px;color:#2a1150;padding:6px;line-height:1.4}
+.crack{position:absolute;background:#150a22;height:3px;transform-origin:left center}
+#hall{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;width:1200px;max-height:420px;overflow:hidden;margin-top:14px}
+.hcard{background:#241239;border:2px solid #6b4590;border-radius:10px;padding:8px;text-align:center;animation:march .4s both}
+.hcard.star{border-color:#ffd06a;box-shadow:0 0 20px rgba(255,190,90,.5)}
+.hgrid{display:flex;flex-direction:column;gap:2px;align-items:center;margin-bottom:5px}
+.hrow{display:flex;gap:2px}
+.hdot{width:7px;height:7px;border-radius:2px;background:#ffab4d}
+.heq{font-size:13px;color:#ffd79a}
+.center{display:flex;flex-direction:column;align-items:center}
+</style>
+</head>
+<body>
+<div id="stage">
+<div class="crowd"></div><div class="glow" id="glow"></div>
+
+<!-- TITLE -->
+<div class="screen on" id="scTitle">
+  <h1>ARRAY ARENA</h1>
+  <div class="sub" style="font-size:22px">Champions here don't win with muscle — they win with <b>formations</b>.<br>Build the true formation, prove the product, take the belt.</div>
+  <div id="bracket"></div>
+  <button class="btn" id="startBtn" style="margin-top:18px">FIRST MATCH</button>
+</div>
+
+<!-- ARENA -->
+<div class="screen" id="scArena">
+  <div id="hud">
+    <div class="tag" id="roundTag">ROUND 1</div>
+    <div class="center"><div id="pips"></div><div style="font-size:12px;color:#c9a9e6;margin-top:4px">EXCHANGES</div></div>
+    <div class="center"><div class="meterbox"><div class="meterfill" id="meter"></div></div><div style="font-size:12px;margin-top:4px" id="meterLbl">CLASH ENERGY</div></div>
+    <div class="tag" id="foeTag">OPPONENT</div>
+  </div>
+  <div id="scroll"></div>
+  <div id="floorWrap"><div id="floor"></div></div>
+  <div id="ctrl">
+    <div class="stepper"><button class="sb" data-d="-1" data-k="r">−</button><div class="center"><div class="lab">ROWS<br>(squads)</div><div class="val" id="vRows">1</div></div><button class="sb" data-d="1" data-k="r">+</button></div>
+    <div class="stepper"><button class="sb" data-d="-1" data-k="c">−</button><div class="center"><div class="lab">PER ROW<br>(in each)</div><div class="val" id="vCols">1</div></div><button class="sb" data-d="1" data-k="c">+</button></div>
+    <div id="eqbar"><span id="eqR">1</span><span>×</span><span id="eqC">1</span><span>=</span><input id="prodIn" inputmode="numeric" maxlength="3"></div>
+    <button class="btn" id="lockBtn">LOCK</button>
+    <button class="btn ghost small" id="hintBtn">HINT</button>
+  </div>
+  <div id="verdict" style="display:none">
+    <button class="btn ghost" id="confirmBtn">CONFIRM</button>
+    <button class="btn" id="bustBtn">CALL THE BLUFF</button>
+  </div>
+  <div id="coach"></div>
+</div>
+
+<!-- INTERSTITIAL -->
+<div class="screen" id="scInter">
+  <h1 id="interTitle" style="font-size:44px"></h1>
+  <div class="sub" id="interText"></div>
+  <div id="interExtra" style="margin-top:16px"></div>
+  <button class="btn" id="interBtn" style="margin-top:26px">CONTINUE</button>
+</div>
+
+<!-- PAYOFF -->
+<div class="screen" id="scHall">
+  <h1 style="font-size:40px;margin-top:26px">HALL OF FORMATIONS</h1>
+  <div class="sub" id="hallLine"></div>
+  <div id="hall"></div>
+  <div style="display:flex;gap:16px;margin-top:14px"><button class="btn" id="seasonBtn">REMATCH SEASON</button></div>
+</div>
+</div>
+
+<script>
+/* ===== AUDIO ===== */
+let AC=null;
+function ac(){if(!AC)AC=new (window.AudioContext||window.webkitAudioContext)();return AC}
+function tone(f,t,d,type,g){const a=ac(),o=a.createOscillator(),v=a.createGain();o.type=type||'sine';o.frequency.value=f;v.gain.value=0;o.connect(v);v.connect(a.destination);const s=a.currentTime+t;v.gain.setValueAtTime(0,s);v.gain.linearRampToValueAtTime(g||.14,s+.012);v.gain.exponentialRampToValueAtTime(.0008,s+d);o.start(s);o.stop(s+d+.05)}
+function noise(t,d,g){const a=ac(),b=a.createBuffer(1,a.sampleRate*d,a.sampleRate),ch=b.getChannelData(0);for(let i=0;i<ch.length;i++)ch[i]=(Math.random()*2-1)*(1-i/ch.length);const s=a.createBufferSource();s.buffer=b;const f=a.createBiquadFilter();f.type='highpass';f.frequency.value=1400;const v=a.createGain();v.gain.value=g||.12;s.connect(f);f.connect(v);v.connect(a.destination);s.start(a.currentTime+t)}
+function gong(){tone(110,0,1.6,'sine',.22);tone(165,0,1.4,'triangle',.12);tone(220,.02,1.1,'sine',.08)}
+function crowd(){for(let i=0;i<14;i++)noise(i*.04,.5,.05)}
+function buzz(){tone(150,0,.18,'square',.1);tone(110,.14,.3,'square',.1)}
+
+/* ===== DATA ===== */
+const FLAVORS=[['lantern-golem','squad'],['ember-hound','pack'],['ice-golem','column'],['stone-sentinel','rank'],['spark-imp','cluster'],['tide-golem','wave']];
+let season=0,hall=[],usedPairs=new Set(),state={};
+const $=id=>document.getElementById(id);
+function ri(a,b){return a+Math.floor(Math.random()*(b-a+1))}
+function pair(lo,hi){let g,e,n=0;do{g=ri(lo,hi);e=ri(lo,hi);n++}while(usedPairs.has(g+'x'+e)&&n<80);usedPairs.add(g+'x'+e);return[g,e]}
+
+/* ===== BRACKET ===== */
+const ROUNDS=[
+ {n:1,name:'QUALIFIER',foe:'BRIX the Novice',best:3,lo:2,hi:5,hint:true,hl:true},
+ {n:2,name:'QUARTERFINAL',foe:'MARA Twin-Blade',best:3,lo:3,hi:8,hint:true,hl:false},
+ {n:3,name:'SEMIFINAL',foe:'GRUL the Boaster',best:3,lo:3,hi:9,hint:false,hl:false},
+ {n:4,name:'CHAMPIONSHIP',foe:'SOLVA',best:5,lo:3,hi:9,hint:false,hl:false}
+];
+function drawBracket(){
+  const b=$('bracket');b.innerHTML='';
+  const champ=document.createElement('div');champ.className='brow';
+  champ.innerHTML='<div class="node champ">👑 SOLVA — reigning champion</div>';b.appendChild(champ);
+  for(let i=ROUNDS.length-1;i>=0;i--){
+    const r=ROUNDS[i],row=document.createElement('div');row.className='brow';
+    let cls='node';
+    if(state.roundIdx>i)cls+=' done';else if(state.roundIdx===i)cls+=' cur';
+    row.innerHTML='<div class="'+cls+'">R'+r.n+' '+r.name+' — vs '+r.foe+(state.roundIdx>i?' ✔':'')+'</div>';
+    b.appendChild(row);
+  }
+  const me=document.createElement('div');me.className='brow';
+  me.innerHTML='<div class="node me">🏳️ YOUR BANNER'+(state.roundIdx?' (climbing)':'')+'</div>';b.appendChild(me);
+}
+function show(id){document.querySelectorAll('.screen').forEach(s=>s.classList.remove('on'));$(id).classList.add('on')}
+
+/* ===== FLOOR RENDER ===== */
+function renderFloor(rows,cols,foe,labels){
+  const f=$('floor');f.innerHTML='';
+  if(rows<1||cols<1)return;
+  for(let r=0;r<rows;r++){
+    const line=document.createElement('div');line.className='rowline';
+    if(labels){const l=document.createElement('div');l.className='rowlabel';l.textContent='squad '+(r+1);line.appendChild(l);}
+    for(let c=0;c<cols;c++){
+      const t=document.createElement('div');t.className='tile'+(foe?' foe':'');
+      t.style.animationDelay=(r*0.07+c*0.015)+'s';line.appendChild(t);
+    }
+    f.appendChild(line);
+  }
+}
+function tiles(){return Array.from($('floor').querySelectorAll('.tile'))}
+function rowlines(){return Array.from($('floor').querySelectorAll('.rowline'))}
+
+/* ===== PROBLEM GENERATION ===== */
+function makeExchange(rIdx,idx){
+  const R=ROUNDS[rIdx];const fl=FLAVORS[(idx+season)%FLAVORS.length];const unit=fl[0],grp=fl[1];
+  let type='build';
+  if(rIdx===1&&idx===1)type='read';
+  if(rIdx===2)type=(idx%2===1)?'boast':'build';
+  if(rIdx===3){type=(idx===0)?'missing':(idx===1?'boast':(idx===2?'two':(idx===3?'missing':'build')))}
+  let[g,e]=pair(R.lo,R.hi);
+  const ex={type,g,e,p:g*e,unit,grp,round:R};
+  if(type==='build'){
+    let s;
+    if(R.hl)s='I send <mark>'+g+' '+grp+'s</mark>, with '+e+' '+unit+'s in each '+grp+'. Match my force or fall.';
+    else if(rIdx===1)s='In each '+grp+' march '+e+' '+unit+'s — and I command '+g+' '+grp+'s. I am '+ri(19,44)+' years unbeaten in arena '+ri(3,9)+'. Match me.';
+    else s='My force: '+g+' '+grp+'s, each holding '+e+' '+unit+'s. Build its equal.';
+    ex.scroll=s;
+  } else if(type==='read'){
+    ex.scroll='My formation already stands on the floor. <b>Read it</b> — how many '+grp+'s, how many in each, and the total?';
+  } else if(type==='boast'){
+    const honest=Math.random()<.45;
+    let claim=g*e;
+    if(!honest){const off=Math.max(1,Math.round(g*e*(ri(6,20)/100)));claim=Math.random()<.5?g*e-off:g*e+off;if(claim<1)claim=g*e+off}
+    ex.claim=claim;ex.honest=(claim===g*e);
+    ex.scroll='I boast: <b>'+g+' '+grp+'s of '+e+' '+unit+'s makes '+claim+'!</b> Build the truth, then rule.';
+  } else if(type==='missing'){
+    ex.given='cols';ex.scroll='My total is <b>'+ex.p+'</b> '+unit+'s in <b>'+g+' '+grp+'s</b>. How large is each '+grp+'? Build it.';
+  } else if(type==='two'){
+    const t=ri(2,3),c=ri(2,3),m=ri(3,5);ex.t=t;ex.c=c;ex.m=m;ex.g=t*c;ex.e=m;ex.p=t*c*m;
+    ex.scroll='I field <b>'+t+' platoons</b>, each of <b>'+c+' '+grp+'s</b>, each '+grp+' holding <b>'+m+' '+unit+'s</b>. How many '+grp+'s in all — and the total force? Build every '+grp+' as a row.';
+  }
+  return ex;
+}
+
+/* ===== MATCH FLOW ===== */
+function startMatch(rIdx,redemption){
+  state.roundIdx=rIdx;state.redemption=!!redemption;
+  const R=ROUNDS[rIdx];
+  state.need=Math.ceil(R.best/2);state.win=0;state.loss=0;state.exIdx=0;state.cracks=0;
+  $('roundTag').textContent=(redemption?'REDEMPTION · ':'')+'ROUND '+R.n+' — '+R.name;
+  $('foeTag').textContent='vs '+(redemption?'REMATCH '+R.foe:R.foe);
+  show('scArena');nextExchange();
+}
+function pips(){
+  const p=$('pips');p.innerHTML='';
+  for(let i=0;i<ROUNDS[state.roundIdx].best;i++){
+    const d=document.createElement('div');d.className='pip'+(i<state.win?' win':(i<state.win+state.loss?' loss':''));p.appendChild(d);
+  }
+}
+let ex,rows,cols,attempts,hintUsed,verdictPhase;
+function nextExchange(){
+  ex=makeExchange(state.roundIdx,state.exIdx);attempts=0;hintUsed=false;verdictPhase=false;
+  rows=1;cols=1;
+  $('scroll').innerHTML='<span class="who">'+(state.redemption?'REMATCH ':'')+ROUNDS[state.roundIdx].foe+':</span>&nbsp;'+ex.scroll;
+  $('coach').textContent='';
+  $('meter').style.width='0%';$('meterLbl').textContent='CLASH ENERGY';
+  $('verdict').style.display='none';
+  $('hintBtn').style.display=ROUNDS[state.roundIdx].hint?'inline-block':'none';
+  $('prodIn').value='';$('prodIn').disabled=false;
+  $('lockBtn').disabled=false;$('lockBtn').textContent='LOCK';
+  pips();
+  if(ex.type==='read'){
+    rows=ex.g;cols=ex.e;renderFloor(ex.g,ex.e,true);
+    // child must type factors: use steppers reset to 1
+    rows=1;cols=1;syncCtrl();
+    $('coach').textContent='Count the rows, then count one row.';
+  } else if(ex.type==='missing'){
+    rows=ex.g;cols=1;syncCtrl();
+    $('prodIn').value=ex.p;$('prodIn').disabled=true;
+    $('coach').textContent='The total is given. Set PER ROW until the rows fill it exactly.';
+  } else {
+    syncCtrl();
+  }
+  if(ex.type==='boast'){$('verdict').style.display='flex';$('confirmBtn').disabled=true;$('bustBtn').disabled=true;$('lockBtn').textContent='BUILD PROOF';}
+}
+function syncCtrl(){
+  $('vRows').textContent=rows;$('vCols').textContent=cols;
+  $('eqR').textContent=rows;$('eqC').textContent=cols;
+  if(ex.type!=='read')renderFloor(rows,cols,false,rows<=6&&cols<=9);
+  $('glow').style.opacity=Math.min(.9,.35+rows*cols/120);
+  if(ex.type==='boast'){
+    const ok=(rows===ex.g&&cols===ex.e);
+    $('confirmBtn').disabled=!ok;$('bustBtn').disabled=!ok;
+    if(ok&&!verdictPhase){verdictPhase=true;$('coach').textContent='Your proof stands. Now count it and rule.';}
+  }
+  if(ex.type==='missing'){$('prodIn').value=ex.p}
+  tone(320+cols*12,0,.05,'triangle',.05);
+}
+document.querySelectorAll('.sb').forEach(b=>b.onclick=()=>{
+  if(ex.type==='read'&&false)return;
+  const d=+b.dataset.d;
+  if(b.dataset.k==='r'){if(ex.type==='missing')return;rows=Math.max(1,Math.min(12,rows+d))}
+  else cols=Math.max(1,Math.min(12,cols+d));
+  syncCtrl();
+});
+
+/* ===== PULSES ===== */
+function firePulses(n,then){
+  const ts=tiles(),fw=$('floorWrap').getBoundingClientRect(),m=$('meter');
+  let done=0;
+  ts.forEach((t,i)=>{
+    setTimeout(()=>{
+      t.classList.add('lit');
+      const r=t.getBoundingClientRect();
+      const p=document.createElement('div');p.className='pulse';
+      p.style.left=(r.left-fw.left+11)+'px';p.style.top=(r.top-fw.top+11)+'px';
+      $('floorWrap').appendChild(p);
+      p.animate([{transform:'translate(0,0)',opacity:1},{transform:'translate('+(200-(r.left-fw.left))+'px,'+(-260-(r.top-fw.top))+'px)',opacity:0}],{duration:520,easing:'ease-out'});
+      setTimeout(()=>p.remove(),540);
+      tone(300+i*14,0,.09,'square',.07);
+      done++;m.style.width=Math.round(done/n*100)+'%';
+      $('meterLbl').textContent='ENERGY '+done+' / '+n;
+      if(done===n){crowd();setTimeout(then,520)}
+    },70+i*Math.max(28,Math.min(90,700/n)));
+  });
+}
+
+/* ===== JUDGE ===== */
+$('lockBtn').onclick=()=>{
+  const typed=parseInt($('prodIn').value,10);
+  if(ex.type==='boast'){
+    if(rows!==ex.g||cols!==ex.e){$('coach').textContent='Build exactly '+ex.g+' rows of '+ex.e+' first — proof before verdict.';buzz();return}
+    if(isNaN(typed)){$('coach').textContent='Type the true product of your proof.';return}
+    if(typed!==ex.p){wrongProduct(typed);return}
+    $('coach').textContent='Proof counted: '+ex.g+' × '+ex.e+' = '+ex.p+'. Now CONFIRM or CALL THE BLUFF.';
+    tone(660,0,.2,'sine',.12);return;
+  }
+  if(ex.type==='read'){
+    if(isNaN(typed)){$('coach').textContent='Fill the product too.';return}
+    if(rows!==ex.g||cols!==ex.e){$('coach').textContent='Look again: how many rows stand? How many in one row?';buzz();attempts++;flick();if(attempts>=2)loseExchange();return}
+    if(typed!==ex.p){wrongProduct(typed);return}
+    winExchange();return;
+  }
+  if(ex.type==='missing'){
+    if(rows*cols!==ex.p){$('coach').textContent='Your '+rows+' rows of '+cols+' make '+(rows*cols)+'. The total must be '+ex.p+'. Adjust PER ROW.';buzz();attempts++;flick();if(attempts>=3)loseExchange();return}
+    winExchange();return;
+  }
+  if(ex.type==='two'){
+    if(isNaN(typed)){$('coach').textContent='Type the total force.';return}
+    if(rows!==ex.t*ex.c||cols!==ex.m){$('coach').textContent=(attempts?'Each of the '+ex.t+' platoons holds '+ex.c+' squads → '+ex.t+' × '+ex.c+' rows, each of '+ex.m+'.':'How many squads in ALL? Platoons times squads-per-platoon. Then each row holds the members.');buzz();attempts++;flick();if(attempts>=2)loseExchange();return}
+    if(typed!==ex.p){wrongProduct(typed);return}
+    winExchange();return;
+  }
+  // build
+  if(isNaN(typed)){$('coach').textContent='Type your product to arm the formation.';return}
+  if(rows!==ex.g||cols!==ex.e){
+    $('coach').textContent='The '+ex.grp+'s are the ROWS ('+(attempts?ex.g:'how many groups?')+'), the '+ex.unit+'s in each are PER ROW.';
+    buzz();flick();attempts++;if(attempts>=3)loseExchange();return;
+  }
+  if(typed!==ex.p){wrongProduct(typed);return}
+  winExchange();
+};
+function flick(){rowlines().forEach((l,i)=>{l.classList.remove('flick');setTimeout(()=>l.classList.add('flick'),i*90)})}
+function wrongProduct(typed){
+  attempts++;buzz();flick();
+  if(attempts>=2){$('coach').textContent='Sparks fizzle again. The true count: '+rows+' × '+cols+' = '+(rows*cols)+'.';setTimeout(loseExchange,900);return}
+  $('coach').textContent='Sparks but fizzles. Your floor shows '+rows+' rows. Count ONE row, then add that many, '+rows+' times.';
+  $('prodIn').value='';
+}
+$('hintBtn').onclick=()=>{
+  if(!ROUNDS[state.roundIdx].hint)return;
+  hintUsed=true;
+  if(ex.type==='read'){$('coach').textContent='Count down the left edge for rows; count across the top row for per row.';return}
+  const g=ex.type==='two'?ex.t*ex.c:ex.g;
+  $('coach').textContent='Unpack one '+ex.grp+': it holds '+(ex.type==='missing'?'?':ex.e)+' '+ex.unit+'s. There are '+g+' of those '+ex.grp+'s.';
+  const ls=rowlines();if(ls[0]){ls[0].classList.add('flick')}
+  if(state.roundIdx===1)$('coach').textContent+=' (Hint used — no advantage this exchange.)';
+};
+$('confirmBtn').onclick=()=>rule(true);
+$('bustBtn').onclick=()=>rule(false);
+function rule(confirmed){
+  const typed=parseInt($('prodIn').value,10);
+  if(typed!==ex.p){$('coach').textContent='Lock your proof product first.';return}
+  const right=(confirmed===ex.honest);
+  $('confirmBtn').disabled=true;$('bustBtn').disabled=true;
+  if(right&&!ex.honest){
+    $('coach').textContent='BUSTED! '+ex.g+' × '+ex.e+' = '+ex.p+', not '+ex.claim+'.';
+    rowlines().forEach((l,i)=>setTimeout(()=>{l.querySelectorAll('.tile').forEach(t=>t.classList.add('shatter'));noise(0,.3,.16);tone(900-i*40,0,.25,'triangle',.09)},i*220));
+    setTimeout(()=>winExchange(true),rowlines().length*220+400);
+  } else if(right){
+    $('coach').textContent='Confirmed — the boast was honest. '+ex.g+' × '+ex.e+' = '+ex.p+'.';
+    setTimeout(()=>winExchange(),400);
+  } else {
+    $('coach').textContent='Wrong ruling. Truth: '+ex.g+' × '+ex.e+' = '+ex.p+' (claim was '+ex.claim+').';
+    setTimeout(loseExchange,1000);
+  }
+}
+function winExchange(skipPulse){
+  $('lockBtn').disabled=true;
+  hall.push({g:rows,c:cols,p:rows*cols,label:rows+' × '+cols+' = '+(rows*cols),hard:(ex.type==='two'||ex.type==='missing'),season:season});
+  const finish=()=>{
+    gong();state.win++;pips();
+    if(state.roundIdx===3){state.cracks++;}
+    if(state.win>=state.need)setTimeout(matchWon,900);
+    else{state.exIdx++;$('coach').textContent='Exchange won! '+rows+' × '+cols+' = '+rows*cols+'.';setTimeout(nextExchange,1200)}
+  };
+  if(skipPulse){finish()}else{firePulses(rows*cols,finish)}
+}
+function loseExchange(){
+  state.loss++;pips();$('lockBtn').disabled=true;
+  const g=ex.type==='two'?ex.t*ex.c:ex.g,e=ex.type==='two'?ex.m:ex.e;
+  renderFloor(g,e,true,true);
+  $('coach').textContent='Exchange lost. The true formation: '+g+' × '+e+' = '+(g*e)+'.';
+  buzz();
+  if(state.loss>state.need-1||state.loss>=Math.ceil(ROUNDS[state.roundIdx].best/2))setTimeout(matchLost,1700);
+  else{state.exIdx++;setTimeout(nextExchange,1800)}
+}
+
+/* ===== MATCH RESULT ===== */
+function matchWon(){
+  const R=ROUNDS[state.roundIdx];
+  if(state.redemption){
+    inter('COMEBACK!','You fought out of the Redemption Bracket. Your banner climbs back into the main bracket.','Continue',()=>{state.redemption=false;startMatch(state.roundIdx,false)});
+    return;
+  }
+  if(state.roundIdx===3){payoff();return}
+  state.roundIdx++;
+  inter('MATCH WON — R'+R.n+' '+R.name,'Your banner climbs the bracket. Next: R'+ROUNDS[state.roundIdx].n+' '+ROUNDS[state.roundIdx].name+' vs '+ROUNDS[state.roundIdx].foe+'.',
+    'NEXT MATCH',()=>startMatch(state.roundIdx,false),bracketPreview());
+}
+function matchLost(){
+  if(state.redemption){
+    inter('STILL STANDING','A championship where you can fight your way back. Another comeback match — fresh numbers, same round.','TRY AGAIN',()=>startMatch(state.roundIdx,true));
+    return;
+  }
+  inter('REDEMPTION BRACKET','Losing costs time and pride — never progress. One comeback match at Round '+ROUNDS[state.roundIdx].n+' difficulty with fresh numbers returns you to the main bracket.','COMEBACK MATCH',()=>startMatch(state.roundIdx,true));
+}
+function bracketPreview(){
+  let h='<div style="display:flex;flex-direction:column;gap:6px;align-items:center">';
+  for(let i=ROUNDS.length-1;i>=0;i--){
+    const c=state.roundIdx>i?'done':(state.roundIdx===i?'cur':'');
+    h+='<div class="node '+c+'">R'+ROUNDS[i].n+' '+ROUNDS[i].name+'</div>';
+  }
+  return h+'<div class="node me">🏳️ YOUR BANNER</div></div>';
+}
+function inter(t,txt,btn,fn,extra){
+  $('interTitle').textContent=t;$('interText').innerHTML=txt;$('interBtn').textContent=btn;
+  $('interExtra').innerHTML=extra||'';
+  $('interBtn').onclick=fn;show('scInter');crowd();
+}
+
+/* ===== PAYOFF ===== */
+function payoff(){
+  show('scHall');
+  const clean=hall.filter(h=>h.season===season);
+  const hard=clean.filter(h=>h.hard).pop()||clean[clean.length-1];
+  $('hallLine').innerHTML='SOLVA\'s mask falls. <b>"The championship was never against me — the equations on my mask were your own past solutions."</b><br>Belt engraved: <b>'+(hard?hard.label:'—')+'</b>';
+  const H=$('hall');H.innerHTML='';
+  hall.forEach((h,i)=>{
+    setTimeout(()=>{
+      const c=document.createElement('div');c.className='hcard'+(h===hard?' star':'');
+      let g='<div class="hgrid">';
+      for(let r=0;r<h.g;r++){g+='<div class="hrow">';for(let k=0;k<h.c;k++)g+='<div class="hdot"></div>';g+='</div>'}
+      c.innerHTML=g+'</div><div class="heq">'+h.label+'</div>';
+      H.appendChild(c);
+      tone(440+ (i%8)*70,0,.18,'sine',.1);
+    },i*140);
+  });
+  setTimeout(()=>{gong();[0,.25,.5,.8].forEach((t,i)=>tone([523,659,784,1047][i],t,.9,'triangle',.14))},hall.length*140+300);
+}
+$('seasonBtn').onclick=()=>{
+  season++;usedPairs.clear();
+  const twists=['ALL BOASTS ROUND — trust nothing.','ICE SEASON — colder golems, sharper factors.','EMBER SEASON — hounds run in packs.'];
+  state.roundIdx=0;
+  inter('REMATCH SEASON '+(season+1),'New opponents, new formation flavors, fresh factor draws.<br>Season twist: <b>'+twists[season%3]+'</b><br>Your Hall of Formations keeps growing.','FIRST MATCH',()=>startMatch(0,false),bracketPreview());
+};
+
+/* ===== BOOT ===== */
+state.roundIdx=0;drawBracket();
+$('startBtn').onclick=()=>{ac();startMatch(0,false)};
+$('prodIn').addEventListener('keydown',e=>{if(e.key==='Enter')$('lockBtn').click()});
+</script>
+</body>
+</html>

@@ -1,0 +1,41 @@
+{
+  "childId": "reina",
+  "age": 9,
+  "observations": [
+    {
+      "activity": "wheel-of-fortune",
+      "plays": 4,
+      "completions": 2,
+      "likedCount": 4,
+      "dislikedCount": 0,
+      "lastRating": "like",
+      "confidence": "low"
+    },
+    {
+      "activity": "pronunciation",
+      "plays": 2,
+      "completions": 2,
+      "accuracy": 0.955,
+      "likedCount": 2,
+      "dislikedCount": 0,
+      "lastRating": "like",
+      "confidence": "low"
+    },
+    {
+      "activity": "word-radar",
+      "plays": 112,
+      "completions": 112,
+      "accuracy": 0.655,
+      "engagementScore": 0.859,
+      "frustrationScore": 0.271
+    },
+    {
+      "activity": "spell-check",
+      "plays": 167,
+      "completions": 167,
+      "accuracy": 1,
+      "engagementScore": 0.992,
+      "frustrationScore": 0.1
+    }
+  ]
+}

@@ -1,0 +1,32 @@
+```json
+{
+  "reviews": [
+    {
+      "nodeId": "node_1_equal_partitioning",
+      "strongestQuality": "The obviously-unequal split plus two large, high-contrast stamp buttons makes the intended first action (judge FAIR/UNFAIR) nearly self-evident with zero reading required.",
+      "usabilityIssues": [
+        "The empty 'Equalness Meter' is visible from the opening frame but plays no role in the judging phase, suggesting a first action that doesn't exist yet.",
+        "After a correct UNFAIR stamp both buttons stay permanently disabled and the mock dead-ends with no visible next-tray affordance.",
+        "The dashed 'Certified Orders' slots already contain item emojis at half opacity, reading as tappable content rather than empty reward slots."
+      ],
+      "visualIssues": [
+        "The 'hexagon cookie tray' renders as a plain circle (pie arcs at full radius), contradicting the artifact and drifting toward the worksheet's forbidden circle representation.",
+        "All slices share one fill color, so the unequal split reads only through angle, weakening the intended instant size contrast.",
+        "The guildmaster's incorrect-answer mouth flip shifts its bottom offset but never resets, so the face geometry breaks after the first frown."
+      ],
+      "repairBrief": "Clip the pie slices to a true hexagon outline (six straight edges) so the tray matches the artifact and avoids the worksheet circle. Hide or dim the Equalness Meter until the fix animation begins, then reveal it as it fills. Tint the two oversized slices a slightly different shade to amplify the 'obviously unequal' contrast. After certification, re-enable a single 'Next Tray' affordance (even if it just resets the same tray) so the loop doesn't dead-end. Empty the shelf slots at start and drop the item emoji in only when filled. Fix the guildmaster mouth reset."
+    },
+    {
+      "nodeId": "node_2_recognizing_unit_fractions",
+      "strongestQuality": "The mission card cleanly frames the fantasy and the sweep-then-name sequence before play, and the snap-and-count beat gives a genuinely earned denominator.",
+      "usabilityIssues": [
+        "The 'Drag the brass glass over the glowing pane' hint is visible behind the mission card before play begins, giving two competing instructions at once.",
+        "The brass glass starts at (500,400), hidden behind the mission card, so after dismissal the child must locate a tool they never saw introduced.",
+        "The wrong-answer path adds a 'flicker' class that has no CSS definition, so the promised pane flicker feedback never visibly happens."
+      ],
+      "visualIssues": [
+        "The drag hint text wraps and overlaps the opening promise headline ('pane' collides with 'harbor'), breaking legibility of both lines.",
+        "The dark ⛴ ferry glyph is nearly invisible against the indigo water, so the stakes/progress element reads as a smudge.",
+        "The glowing bottom pane sits behind/below the mission card at open, reading as ambient lantern glow rather than one of three equal panes."
+      ],
+      "repairBrief": "Hide the drag hint (and the glass ring) until the mission card is dismissed, then fade both in with the hint repositioned directly beneath the lantern, unwrapped on one line. Start the glass at a clear position beside the triangle so it's discoverable immediately. Dim the scene behind the modal so the lantern doesn't half-peek through it. Define a .flicker keyframe (two soft opacity dips) so wrong denominators produce the designed pane feedback. Restyle the ferry as a light amber silhouette or add a glow so channel progress

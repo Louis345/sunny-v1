@@ -1,0 +1,16 @@
+{
+  "approvedAt": "2026-08-22T20:33:40.474Z",
+  "approvedBy": "human_in_thread",
+  "manifestHash": "4e57798ef4dd8f674bb28fe7d762036691fe25487cb97f24a0785bb4b29de9fd",
+  "promptHashes": {
+    "shared": "9b66313b1f1de1f51bcfa51d03de969a4c399958451997667dbeb755f06129f1",
+    "neutralVariant": "001f2e9939a0dcdff4ee0d8e35ac4eb62f543329b7304920ec433653a7ef2f78",
+    "personaVariant": "13fb219b60f7ce7e50e61377e1855db2fb7c76849246dae8ab797acaccd72bba",
+    "neutralFull": "017af167ecd06bbdb572a3c8ba996ec002176e17ec2ba336eaafe727797702fd",
+    "personaFull": "ad44359d510129c8050b64a14030ca63fadccdc3ae6f32fa4b7ae70e96b83ffa",
+    "builderInstruction": "af60abedd7f81b26c5dd704d6bb49056026bd4a6482f00e4c8633a104cd4cf7a",
+    "harness": "64934c5ceb175f45ed514bb99909aac5eaecd7eaf9e015200ec151b13fb15d5d"
+  },
+  "callCeiling": 5,
+  "retryPolicy": "none"
+}

@@ -1,0 +1,35 @@
+{
+  "candidateId": "scenario-2-profile",
+  "screenshots": [
+    "/Users/jamaltaylor/Development/sunny-math-creative-sandbox/outputs/math-creative-sandbox/2026-07-27T03-40-11-331Z-reevaluation-reina/scenario-2-profile/00-opening.png",
+    "/Users/jamaltaylor/Development/sunny-math-creative-sandbox/outputs/math-creative-sandbox/2026-07-27T03-40-11-331Z-reevaluation-reina/scenario-2-profile/01-first-action.png",
+    "/Users/jamaltaylor/Development/sunny-math-creative-sandbox/outputs/math-creative-sandbox/2026-07-27T03-40-11-331Z-reevaluation-reina/scenario-2-profile/02-progress.png",
+    "/Users/jamaltaylor/Development/sunny-math-creative-sandbox/outputs/math-creative-sandbox/2026-07-27T03-40-11-331Z-reevaluation-reina/scenario-2-profile/03-incorrect-recovery.png"
+  ],
+  "actions": [
+    {
+      "kind": "click_text",
+      "text": "Start Adventure 🌻",
+      "captureLabel": "first-action",
+      "reason": "Begin the adventure to see how the app introduces the multiplication concept and first task.",
+      "ok": true
+    },
+    {
+      "kind": "click_text",
+      "text": "Start Adventure 🌻",
+      "captureLabel": "progress",
+      "reason": "The previous click on Start Adventure doesn't appear to have progressed the app past the intro screen; retry clicking to see if it navigates to the first task.",
+      "ok": true
+    },
+    {
+      "kind": "click_at",
+      "x": 682,
+      "y": 409,
+      "captureLabel": "incorrect-recovery",
+      "reason": "Click precisely at the center of the Start Adventure button coordinates to rule out any mis-targeted click causing failure to progress.",
+      "ok": true
+    }
+  ],
+  "visibleText": "🐞 Buggy's Garden Market\n\nMarket day is coming! Buggy needs help sorting bugs and flowers into equal groups, building arrays, and skip-counting super fast.\n\nTap the button to begin the adventure!\n\nStart Adventure 🌻\n🐞\nHi! I'm Buggy! Ready to count with me?",
+  "consoleMessages": []
+}

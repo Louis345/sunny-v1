@@ -1,0 +1,22 @@
+{
+  "status": "human_review",
+  "academicContractHash": "f94609438eb4bd807dfef4d8f002bf6165d135f1ea01cdfa3a1f15c6de089e2c",
+  "currentDesignHash": "d78cbcb9c9dc536ac0df3d9978fef515602b601ca220d0611a9fb20ab982eb26",
+  "revisedDesignHash": "5558324b0556bb293508ec791c458c6690dcbb0ab9a1bd3551223f7f673d16ad",
+  "controlHtmlHash": "4889f6679313c048d3765af73f376c60dfaeb084aab758c67cf8a32e7df98cd9",
+  "candidateHtmlHash": "b26ef861b8d0960308d4bff3eb248e6da54157fb4372d8830519760baca6ecea",
+  "fable": {
+    "inputTokens": 0,
+    "outputTokens": 0,
+    "elapsedMs": 0,
+    "estimatedCostUsd": 0
+  },
+  "opus": {
+    "inputTokens": 8922,
+    "outputTokens": 21675,
+    "elapsedMs": 225096,
+    "estimatedCostUsd": 0.586485
+  },
+  "totalEstimatedCostUsd": null,
+  "costNote": "Opus replacement implementation cost $0.586485. The successful Fable design call preceded a truncated Opus response, and its usage metadata was not retained; total cost is therefore unknown."
+}

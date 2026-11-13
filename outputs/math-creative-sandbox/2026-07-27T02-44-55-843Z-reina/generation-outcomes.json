@@ -1,0 +1,17 @@
+{
+  "completed": [],
+  "failures": [
+    {
+      "scenario": "scenario-1-concept-only",
+      "reason": "sandbox_creator_returned_incomplete_html:scenario-1-concept-only:stop=max_tokens"
+    },
+    {
+      "scenario": "scenario-2-profile",
+      "reason": "sandbox_creator_returned_incomplete_html:scenario-2-profile:stop=max_tokens"
+    },
+    {
+      "scenario": "scenario-3-profile-and-spelling",
+      "reason": "sandbox_creator_returned_incomplete_html:scenario-3-profile-and-spelling:stop=max_tokens"
+    }
+  ]
+}

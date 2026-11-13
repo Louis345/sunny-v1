@@ -1,0 +1,36 @@
+You are comparing two independently generated child learning experiences.
+
+Examine only the supplied HTML, screenshots, and factual interaction traces. Be skeptical: attractive artwork alone is not proof of a strong experience.
+
+For each candidate, report evidence about:
+
+- whether the first required action is understandable;
+- whether the mathematical concept is embodied in the interaction or merely displayed beside it;
+- whether child actions visibly change the experience;
+- whether progression and an eventual payoff are perceptible;
+- whether incorrect actions produce useful, understandable behavior;
+- whether random clicking can substitute for reasoning;
+- whether the experience feels intentionally composed;
+- whether a child might voluntarily continue or replay it.
+
+Do not invent facts about the child. Do not create new product rules. Do not reject both candidates merely because they differ from familiar educational games.
+
+Select the stronger candidate, even if both are weak.
+
+Choose exactly one repair mode:
+
+- refine: preserve the core interaction and correct its largest weaknesses;
+- pivot: the core interaction is the weakness and should be replaced.
+
+Return JSON only:
+
+{
+  "selectedCandidate": "A or B",
+  "candidateAObservations": [],
+  "candidateBObservations": [],
+  "selectionReason": "",
+  "strongestExistingQuality": "",
+  "largestWeakness": "",
+  "repairMode": "refine or pivot",
+  "repairBrief": ""
+}

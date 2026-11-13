@@ -1,0 +1,112 @@
+You are the creative architect for one node in a coherent Grade 3 fractions chapter.
+
+The complete academic program is supplied for context. Your assigned node contract is immutable. Do not change its responsibility, mathematical boundary, or evidence goal.
+
+You independently own the experience design: title, world, mission, experience form, first action, demonstration, core interaction, mathematics-as-power, stakes, consequences, recovery, progression, world reactions, payoff, replay variation, visual identity, motion, sound, and useful libraries. The experience may be a game or another interactive form. Make the first action immediately understandable while allowing the mathematics to remain challenging.
+
+The following child information is factual evidence, not creative instructions or conclusions:
+{
+  "childId": "reina",
+  "age": 9,
+  "observations": [
+    {
+      "activity": "wheel-of-fortune",
+      "plays": 4,
+      "completions": 2,
+      "likedCount": 4,
+      "dislikedCount": 0,
+      "lastRating": "like",
+      "confidence": "low"
+    },
+    {
+      "activity": "pronunciation",
+      "plays": 2,
+      "completions": 2,
+      "accuracy": 0.955,
+      "likedCount": 2,
+      "dislikedCount": 0,
+      "lastRating": "like",
+      "confidence": "low"
+    },
+    {
+      "activity": "word-radar",
+      "plays": 112,
+      "completions": 112,
+      "accuracy": 0.655,
+      "engagementScore": 0.859,
+      "frustrationScore": 0.271
+    },
+    {
+      "activity": "spell-check",
+      "plays": 167,
+      "completions": 167,
+      "accuracy": 1,
+      "engagementScore": 0.992,
+      "frustrationScore": 0.1
+    }
+  ]
+}
+
+Do not copy or name prior activities merely because they appear in the evidence.
+
+COMPLETE BOARD PROGRAM:
+{
+  "boardTitle": "Understanding Unit Fractions: Partitioning, Naming, and Comparing",
+  "boardAcademicGoal": "Students will demonstrate that fractions represent equal-sized parts of a whole, correctly identify and name unit fractions, and compare unit fractions with different denominators by reasoning about the size of the parts.",
+  "coherence": "The sequence builds conceptually: students first establish that a whole must be divided into equal parts before a fraction name has meaning; they then apply this understanding to identify and represent specific unit fractions (1/2, 1/3, 1/4, 1/5); finally, they use their grasp of part-size relative to the number of partitions to reason about and compare unit fractions, culminating in the understanding that more partitions yield smaller parts.",
+  "nodes": [
+    {
+      "nodeId": "node_1_equal_partitioning",
+      "responsibility": "Establish that a whole (e.g., a strip, square, or set of objects) must be divided into parts of equal size or quantity for fraction language to apply, and distinguish equal partitions from unequal ones.",
+      "academicBoundary": "Limit to visual and physical partitioning of a single whole into 2, 3, 4, or 6 equal parts using shapes such as strips, squares, or circles distinct from the worksheet's rectangle/circle examples (e.g., a hexagon, a number line segment, or a set of counters). Do not yet introduce fraction notation or naming; focus only on the concept of 'equal-sized parts.' No comparison across wholes.",
+      "evidenceGoal": "Student can correctly identify which of several partitioned shapes/sets show equal parts versus unequal parts, and can partition a new whole into a specified number of equal parts."
+    },
+    {
+      "nodeId": "node_2_recognizing_unit_fractions",
+      "responsibility": "Connect equally partitioned wholes to unit fraction names and notation (1/2, 1/3, 1/4, 1/5), recognizing that a unit fraction represents one equal part out of the total number of equal parts.",
+      "academicBoundary": "Use fresh contexts (e.g., a triangle divided into thirds, a set of 8 apples divided into fourths, a number line marked in halves) rather than the worksheet's rectangle and circle. Restrict to unit fractions only (numerator of 1); do not introduce non-unit fractions (e.g., 2/3) or fraction comparison.",
+      "evidenceGoal": "Student can correctly name the unit fraction represented by a shaded equal part, correctly shade a specified unit fraction of a new whole, and correctly match unit fraction notation to its verbal name (e.g., '1/5' to 'one fifth')."
+    },
+    {
+      "nodeId": "node_3_comparing_1_3_and_1_4",
+      "responsibility": "Reason about and justify which unit fraction is larger when comparing 1/3 and 1/4, using the principle that dividing a whole into more equal parts produces smaller individual parts.",
+      "academicBoundary": "Restrict comparison strictly to the pair 1/3 and 1/4 (and may extend briefly to comparing 1/2 vs 1/5 as a parallel fresh example for reinforcement) using new whole representations (e.g., two identical bars of the same length divided differently, or two identical sets of counters) distinct from the worksheet's rectangle/circle. Do not require comparing unit fractions with unlike wholes of different sizes, and do not introduce non-unit fraction comparisons.",
+      "evidenceGoal": "Student can correctly identify that 1/3 is larger than 1/4 and provide a valid justification (e.g., referencing that three equal parts are each larger than four equal parts of the same whole), and can apply the same reasoning to a parallel unfamiliar unit fraction pair."
+    }
+  ]
+}
+
+YOUR IMMUTABLE NODE:
+{
+  "nodeId": "node_1_equal_partitioning",
+  "responsibility": "Establish that a whole (e.g., a strip, square, or set of objects) must be divided into parts of equal size or quantity for fraction language to apply, and distinguish equal partitions from unequal ones.",
+  "academicBoundary": "Limit to visual and physical partitioning of a single whole into 2, 3, 4, or 6 equal parts using shapes such as strips, squares, or circles distinct from the worksheet's rectangle/circle examples (e.g., a hexagon, a number line segment, or a set of counters). Do not yet introduce fraction notation or naming; focus only on the concept of 'equal-sized parts.' No comparison across wholes.",
+  "evidenceGoal": "Student can correctly identify which of several partitioned shapes/sets show equal parts versus unequal parts, and can partition a new whole into a specified number of equal parts."
+}
+
+Return JSON only:
+{
+  "artifactId": "",
+  "nodeId": "node_1_equal_partitioning",
+  "title": "",
+  "audienceRationale": "",
+  "openingPromise": "",
+  "firstThreeSeconds": "",
+  "firstAction": "",
+  "interactionDemonstration": "",
+  "coreInteraction": "",
+  "mathAsPower": "",
+  "stakes": "",
+  "consequences": "",
+  "recovery": "",
+  "progression": [],
+  "worldReaction": "",
+  "payoff": "",
+  "replayVariation": "",
+  "visualDirection": "",
+  "motionDirection": "",
+  "soundDirection": "",
+  "usefulLibraries": [],
+  "engagementPrediction": "",
+  "falsifyingEvidence": ""
+}

@@ -1,0 +1,35 @@
+{
+  "artifactId": "chocolate-caravan-comparison",
+  "nodeId": "node_3_comparing_1_3_and_1_4",
+  "title": "The Chocolate Caravan: Biggest Piece Wins",
+  "audienceRationale": "Reina's evidence shows high engagement with high-repetition, fast-feedback verification games (spell-check: 167 plays, 99% engagement, perfect accuracy) and tolerance for scanning/judgment tasks (word-radar). She thrives on quick, confident yes/no style decisions with instant confirmation. This design gives her rapid-fire 'which piece is bigger?' judgments with immediate visual proof, plus a justification step that keeps the math honest, wrapped in a low-frustration loop she can repeat many times.",
+  "openingPromise": "You are the Fairness Judge of a traveling chocolate caravan. Two hungry travelers each claim their share is bigger. Only you can slide the pieces together, see the truth, and declare the winner.",
+  "firstThreeSeconds": "Two identical golden chocolate bars appear side by side on a wooden caravan table. One snaps into 3 equal pieces, the other into 4, with a satisfying crack. A fox traveler holds up one piece from the 3-bar, a badger holds one piece from the 4-bar. A speech bubble asks: 'Whose piece is BIGGER? Drag them together to find out!'",
+  "firstAction": "Drag the fox's 1/3 piece down onto a comparison tray; the badger's 1/4 piece slides in beside it automatically, aligned at the left edge. The size difference is instantly, visibly obvious.",
+  "interactionDemonstration": "A ghost hand demonstrates once: it drags a piece to the tray, the two pieces align, a measuring ruler-glow highlights the length difference, and a stamp icon pulses over the larger piece saying 'Tap the bigger piece to judge!'",
+  "coreInteraction": "Each round: two identical wholes (bars, licorice ropes, or rows of counters) are split live in front of Reina into 3 vs 4 equal parts. She (1) predicts which single piece is bigger by tapping a traveler, (2) drags the pieces onto the aligned comparison tray to verify, then (3) stamps a justification card choosing between statements like 'More pieces means each piece is SMALLER' vs 'More pieces means each piece is BIGGER' vs 'They are the same.' Correct prediction + correct justification = a gold Fairness Seal.",
+  "mathAsPower": "The insight 'cutting the same whole into more parts makes each part smaller' becomes Reina's judicial superpower: after a few verified rounds, a 'Swift Judgment' mode lets her rule correctly BEFORE the pieces are compared, earning double seals for predicting from denominators alone (3 vs 4). The math replaces the need to measure.",
+  "stakes": "Each correct verdict feeds the caravan travelers fairly and adds a wagon to the caravan. Wrong verdicts leave a traveler grumbling with the smaller piece and stall the caravan at the crossroads.",
+  "consequences": "A wrong prediction isn't punished harshly: the tray comparison plays out anyway, visibly showing the 1/4 piece is smaller, and the narrator says 'Look, four cuts made skinnier pieces!' The round replays with a fresh whole so Reina re-judges with the evidence in mind.",
+  "recovery": "After any miss, an 'Overlay Lens' tool appears: it stacks the 1/3 piece directly on top of the 1/4 piece with the difference striped in red. Reina then re-stamps the justification card. Two assisted successes restore full seal value.",
+  "progression": [
+    "Round 1-3: Bars split into 3 vs 4; drag-and-compare with full visual verification before judging.",
+    "Round 4-6: Predict first, verify second; justification card required each time.",
+    "Round 7-8: Swift Judgment mode: rule from the numbers 1/3 vs 1/4 alone, verification shown only after the verdict.",
+    "Final Bonus Crossing: a parallel fresh dispute, 1/2 vs 1/5 over a licorice rope, judged with reasoning only, cementing 'more parts, smaller parts.'"
+  ],
+  "worldReaction": "Travelers cheer or grumble expressively; the caravan grows longer with each seal; a wise owl notary reads back Reina's chosen justification aloud ('More equal parts make smaller pieces, so one third is bigger!') so her reasoning is echoed by the world.",
+  "payoff": "The caravan reaches Festival Town where a banner unfurls: 'Reina, Fairness Judge, ruled 1/3 > 1/4 and proved it!' Her collected seals form a badge showing two bars with the principle written beneath.",
+  "replayVariation": "New whole types each playthrough (chocolate bars, licorice ropes, rows of gem counters), shuffled traveler characters, and randomized which side holds which fraction; Swift Judgment adds a timer-optional streak mode for Reina's love of rapid confident loops.",
+  "visualDirection": "Warm storybook caravan palette: amber wood, chocolate browns, festival reds; flat 2D vector characters with big expressive eyes; fraction pieces rendered chunky and glossy with clear equal-partition seams; comparison tray has bold left-alignment guide line.",
+  "motionDirection": "Snappy break-apart animation when wholes split; pieces glide with slight ease-out onto the tray; the larger piece gets a gentle scale-pulse when stamped; caravan wagons roll in with springy bounce on each seal earned.",
+  "soundDirection": "Satisfying chocolate-snap on partitioning, soft slide-whoosh on drag, a warm stamp-thunk for verdicts, celebratory tambourine jingle for correct reasoning, gentle 'hmm?' owl hoot on misses; light folk-guitar caravan loop underneath.",
+  "usefulLibraries": [
+    "PixiJS for performant 2D sprite rendering",
+    "GSAP for snap/slide/stamp animations",
+    "Howler.js for layered audio",
+    "interact.js for drag-and-drop"
+  ],
+  "engagementPrediction": "High: the loop mirrors the short, verifiable, mastery-oriented cycles Reina replays obsessively (spell-check), with visual comparison scanning akin to word-radar but lower frustration since verification is always available.",
+  "falsifyingEvidence": "If Reina passes the drag-compare rounds but fails Swift Judgment or picks correct verdicts with wrong justification cards more than ~30% of the time, she is reading piece sizes visually without internalizing the more-parts-smaller-pieces principle, falsifying the design's claim of conceptual mastery."
+}

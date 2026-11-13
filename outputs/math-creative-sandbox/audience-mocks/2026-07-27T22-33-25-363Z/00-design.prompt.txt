@@ -1,0 +1,83 @@
+Act as an exceptional children's experience designer and learning designer.
+
+Create three materially different design artifacts for a sequence of interactive experiences that teaches:
+
+Multiplication as equal groups and arrays, connected to skip-counting and word-problem interpretation.
+
+Teach the concept, not copied worksheet questions.
+
+Factual observations about Reina:
+- She is nine years old.
+- She has repeatedly requested difficult challenges.
+- She has sustained engagement with fast-paced riddles and multi-step logic.
+- She notices errors and questions faulty reasoning.
+- Applied store-based math produced substantially stronger performance than mechanical worksheet-style practice.
+- She has requested action stories involving adversaries.
+- Competitive framing has coincided with high engagement.
+- These observations come from a limited set of sessions and do not prove permanent preferences.
+
+Audience and learning-position boundary:
+- The child should understand what to do in the first few seconds without reading a manual.
+- Interaction literacy should remain coherent as mathematical independence increases.
+- Difficulty should come from mathematical thinking, not decoding an unfamiliar interface.
+
+This is not an instruction to make a particular genre, game, mood, consequence system, visual style, or mechanic. You own those decisions. You may choose a game, simulation, construction experience, story, puzzle, or another form.
+
+Design three distinct directions. Each direction must describe a progression from an approachable teaching node through guided application and an ambitious independent Quest. The directions must differ in premise, interaction, visual language, stakes, progression, and payoff.
+
+For every direction return:
+- id and title;
+- audience rationale grounded only in supplied facts;
+- opening promise;
+- what is visually obvious in the first three seconds;
+- first child action;
+- how the interface teaches that action without explanation;
+- core interaction;
+- how multiplication is the power used to advance;
+- stakes and consequences selected by you;
+- recovery selected by you;
+- node sequence with rising mathematical independence;
+- interaction continuity across nodes;
+- visible world progression;
+- payoff;
+- replay variation;
+- visual and motion direction;
+- optional browser libraries that would materially help;
+- a falsifiable engagement prediction.
+
+Return JSON only:
+{
+  "designs": [
+    {
+      "id": "A",
+      "title": "",
+      "audienceRationale": "",
+      "openingPromise": "",
+      "firstThreeSeconds": "",
+      "firstAction": "",
+      "interactionDemonstration": "",
+      "coreInteraction": "",
+      "mathAsPower": "",
+      "stakes": "",
+      "consequences": "",
+      "recovery": "",
+      "nodeSequence": [
+        {
+          "role": "teach | guided_application | independent_quest",
+          "mathematicalDemand": "",
+          "experienceBeat": "",
+          "supportAvailable": ""
+        }
+      ],
+      "interactionContinuity": "",
+      "worldProgression": "",
+      "payoff": "",
+      "replayVariation": "",
+      "visualDirection": "",
+      "motionDirection": "",
+      "usefulLibraries": [],
+      "engagementPrediction": "",
+      "falsifyingEvidence": ""
+    }
+  ]
+}

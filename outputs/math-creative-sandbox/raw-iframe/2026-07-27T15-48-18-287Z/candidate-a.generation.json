@@ -1,0 +1,17 @@
+{
+  "candidate": "A",
+  "model": "claude-sonnet-5",
+  "elapsedMs": 113929,
+  "stopReason": "end_turn",
+  "usage": {
+    "inputTokens": 215,
+    "outputTokens": 13510,
+    "estimatedCostUsd": 0
+  },
+  "promptHash": "eddba99de77bc9568705c98ab0bf8d8ab85fa338f00673caee1fa16635a518b4",
+  "apiResponseHash": "3d1a2ab1161bb788312874dff5b14f05cf6b4138470ec9bc5bf89de5c213e76a",
+  "savedHtmlHash": "bcc3de9b5e3ede711111dd54ef546fad5c9e86d71a98bd3bc74bee5a063ca5dc",
+  "iframeSrcDocHash": "bcc3de9b5e3ede711111dd54ef546fad5c9e86d71a98bd3bc74bee5a063ca5dc",
+  "exactRawMatch": false,
+  "normalizationApplied": "markdown_code_fence_removed"
+}

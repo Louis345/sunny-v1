@@ -1,0 +1,439 @@
+```html
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>The Fair-Split Guild</title>
+<style>
+  * { box-sizing: border-box; user-select: none; -webkit-user-select: none; }
+  html, body {
+    margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden;
+    background: linear-gradient(180deg, #5b3a24 0%, #7a5238 100%);
+    font-family: 'Trebuchet MS', 'Segoe UI', sans-serif;
+  }
+  #stageOuter { width: 100vw; height: 100vh; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+  #scene { position: relative; width: 1365px; height: 768px; flex: 0 0 auto; transform-origin: center center; }
+
+  #bench {
+    position: absolute; top: 0; left: 0; width: 1365px; height: 768px;
+    background: repeating-linear-gradient(90deg, #8a5c3a 0px, #96633f 40px, #8a5c3a 80px);
+  }
+  #bench::after {
+    content: ""; position: absolute; inset: 0;
+    background: radial-gradient(ellipse at center, rgba(0,0,0,0) 40%, rgba(0,0,0,0.35) 100%);
+  }
+
+  #title {
+    position: absolute; top: 18px; left: 0; width: 100%; text-align: center;
+    color: #ffe9c7; font-size: 30px; font-weight: bold; letter-spacing: 1px;
+    text-shadow: 2px 2px 3px #3a2312;
+  }
+  #subtitle {
+    position: absolute; top: 58px; left: 0; width: 100%; text-align: center;
+    color: #f0d3a8; font-size: 16px; text-shadow: 1px 1px 2px #3a2312;
+  }
+
+  #shelf {
+    position: absolute; top: 100px; right: 30px; width: 230px; height: 560px;
+    background: #6b4326; border: 4px solid #4a2e18; border-radius: 8px;
+    padding: 10px; color: #ffe9c7; font-size: 14px; text-align: center;
+  }
+  #shelf h3 { margin: 4px 0 10px 0; font-size: 16px; color: #ffd98a; }
+  .cert-slot {
+    width: 90px; height: 90px; margin: 6px auto; border-radius: 8px;
+    background: #543018; border: 2px dashed #8a6440;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 30px; opacity: 0.5;
+  }
+  .cert-slot.filled { opacity: 1; background: #6d4a24; border: 2px solid #ffd98a; }
+
+  #guildmaster {
+    position: absolute; top: 100px; left: 30px; width: 190px; text-align: center;
+    color: #ffe9c7;
+  }
+  #gm-portrait {
+    width: 140px; height: 140px; border-radius: 50%; margin: 0 auto 8px auto;
+    background: radial-gradient(circle at 35% 30%, #c9975a, #7a5230);
+    border: 5px solid #4a2e18; position: relative;
+  }
+  #gm-portrait .eye { position: absolute; width: 10px; height: 10px; background: #2a1a0e; border-radius: 50%; top: 55px; }
+  #gm-portrait .eye.l { left: 40px; } #gm-portrait .eye.r { right: 40px; }
+  #gm-portrait .mouth {
+    position: absolute; width: 40px; height: 15px; border: 4px solid #2a1a0e; border-top: none;
+    border-radius: 0 0 20px 20px; bottom: 30px; left: 50px; transition: all 0.4s;
+  }
+  #gm-note { font-size: 13px; color: #f0d3a8; min-height: 40px; }
+
+  #trayArea {
+    position: absolute; top: 140px; left: 260px; width: 840px; height: 400px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  #hexWrap { position: relative; width: 420px; height: 420px; }
+  svg#hex { width: 420px; height: 420px; overflow: visible; }
+  .hexClipShape { fill: none; }
+  .slice {
+    stroke: #4a2e18; stroke-width: 3; transition: fill 0.3s;
+    filter: drop-shadow(0 2px 3px rgba(0,0,0,0.4));
+  }
+  .slice.unequal { fill: #d8985a; }
+  .slice.pulse-wrong { animation: pulseRed 0.6s ease-in-out 2; }
+  @keyframes pulseRed {
+    0%, 100% { fill: #d8985a; }
+    50% { fill: #ff6b4a; }
+  }
+  .slice.flash-correct { animation: pulseGreen 0.5s ease-in-out 1; }
+  @keyframes pulseGreen {
+    0%, 100% { fill: #d8985a; }
+    50% { fill: #8fe86a; }
+  }
+  .slice.fixed { fill: #7fd88f; animation: none; }
+
+  #hexWrap.wobble-bad { animation: wobbleTrayBad 0.6s ease-in-out; }
+  @keyframes wobbleTrayBad {
+    0%, 100% { transform: rotate(0deg) translateY(0); }
+    20% { transform: rotate(-6deg) translateY(6px); }
+    40% { transform: rotate(5deg) translateY(4px); }
+    60% { transform: rotate(-4deg) translateY(4px); }
+    80% { transform: rotate(2deg) translateY(2px); }
+  }
+  #hexWrap.flash-good { animation: flashGoodTray 0.4s ease-in-out; }
+  @keyframes flashGoodTray {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.04); }
+  }
+
+  #stampRow {
+    position: absolute; bottom: 26px; left: 260px; width: 840px;
+    display: flex; justify-content: center; gap: 60px;
+  }
+  .stampBtn {
+    width: 200px; height: 90px; border-radius: 14px; border: 4px solid #3a2312;
+    font-size: 26px; font-weight: bold; cursor: pointer; letter-spacing: 2px;
+    box-shadow: 0 6px 0 #2a1a0c, 0 8px 10px rgba(0,0,0,0.4);
+    transition: transform 0.08s, opacity 0.3s;
+    font-family: 'Trebuchet MS', sans-serif;
+  }
+  .stampBtn:active:not(:disabled) { transform: translateY(6px); box-shadow: 0 0px 0 #2a1a0c; }
+  #fairBtn { background: #8fe0a0; color: #244d2f; }
+  #unfairBtn { background: #f2a06a; color: #5c2c10; }
+  .stampBtn:disabled { opacity: 0.35; cursor: default; }
+
+  #nextBtn {
+    width: 200px; height: 90px; border-radius: 14px; border: 4px solid #3a2312;
+    font-size: 22px; font-weight: bold; cursor: pointer; letter-spacing: 1px;
+    box-shadow: 0 6px 0 #2a1a0c, 0 8px 10px rgba(0,0,0,0.4);
+    background: #ffd23a; color: #4a2e18; font-family: 'Trebuchet MS', sans-serif;
+    display: none; transition: transform 0.08s;
+  }
+  #nextBtn:active { transform: translateY(6px); box-shadow: 0 0px 0 #2a1a0c; }
+
+  #meterWrap {
+    position: absolute; top: 596px; left: 260px; width: 840px;
+    text-align: center; color: #ffe9c7;
+    opacity: 0; transition: opacity 0.5s ease;
+  }
+  #meterWrap.visible { opacity: 1; }
+  #meterLabel { font-size: 15px; margin-bottom: 6px; }
+  #meterBar {
+    width: 500px; height: 26px; margin: 0 auto; background: #3a2312;
+    border-radius: 13px; border: 2px solid #1e1208; overflow: hidden;
+    position: relative;
+  }
+  #meterFill {
+    height: 100%; width: 0%; background: linear-gradient(90deg, #ffd98a, #ffb347);
+    transition: width 0.4s ease;
+  }
+  #meterFill.locked { background: linear-gradient(90deg, #ffe89a, #ffd23a); box-shadow: 0 0 20px #ffd23a inset; }
+
+  #feedbackText {
+    position: absolute; top: 90px; left: 260px; width: 840px; text-align: center;
+    font-size: 20px; color: #fff4de; font-weight: bold; text-shadow: 1px 1px 2px #000;
+    min-height: 30px;
+  }
+
+  .customer {
+    position: absolute; bottom: 130px; left: 50%; transform: translateX(-50%);
+    font-size: 60px; opacity: 0; transition: opacity 0.4s, transform 0.4s;
+  }
+  .customer.show { opacity: 1; transform: translateX(-50%) translateY(-10px); }
+</style>
+</head>
+<body>
+<div id="stageOuter">
+<div id="scene">
+  <div id="bench"></div>
+  <div id="title">The Fair-Split Guild</div>
+  <div id="subtitle">You'll become the Fair-Split Inspector — spot the sneaky uneven split, then fix it.</div>
+
+  <div id="guildmaster">
+    <div id="gm-portrait">
+      <div class="eye l"></div><div class="eye r"></div>
+      <div class="mouth" id="gm-mouth"></div>
+    </div>
+    <div id="gm-note">A tray just came in... is it fair?</div>
+  </div>
+
+  <div id="shelf">
+    <h3>Certified Orders</h3>
+    <div class="cert-slot" id="slot0">🍪</div>
+    <div class="cert-slot" id="slot1">🎀</div>
+    <div class="cert-slot" id="slot2">🔵</div>
+  </div>
+
+  <div id="feedbackText"></div>
+
+  <div id="trayArea">
+    <div id="hexWrap">
+      <svg id="hex" viewBox="0 0 420 420">
+        <defs>
+          <clipPath id="hexClip">
+            <polygon id="hexClipPoly" points=""></polygon>
+          </clipPath>
+        </defs>
+        <g id="hexGroup" clip-path="url(#hexClip)"></g>
+        <polygon id="hexOutline" points="" fill="none" stroke="#3a2312" stroke-width="5"></polygon>
+      </svg>
+      <div class="customer" id="customer">😟</div>
+    </div>
+  </div>
+
+  <div id="stampRow">
+    <button class="stampBtn" id="fairBtn" onclick="judge('fair')">FAIR ✅</button>
+    <button class="stampBtn" id="unfairBtn" onclick="judge('unfair')">UNFAIR ❌</button>
+    <button id="nextBtn" onclick="nextTray()">Next Tray ▶</button>
+  </div>
+
+  <div id="meterWrap">
+    <div id="meterLabel">Equalness Meter — Watch it lock green</div>
+    <div id="meterBar"><div id="meterFill"></div></div>
+  </div>
+</div>
+</div>
+
+<script>
+const svgNS = "http://www.w3.org/2000/svg";
+const cx = 210, cy = 210, R = 190;
+let state = "await_judge";
+let sliceEls = [];
+let equalness = 0;
+
+const goodAngles = [60,60,60,60,60,60];
+let currentAngles = [];
+
+function hexPoints(radius) {
+  let pts = [];
+  for (let i=0; i<6; i++) {
+    const ang = (i*60 - 90) * Math.PI/180;
+    pts.push([cx + radius*Math.cos(ang), cy + radius*Math.sin(ang)]);
+  }
+  return pts.map(p => p.join(",")).join(" ");
+}
+
+function setupHexClip() {
+  const pts = hexPoints(R);
+  document.getElementById('hexClipPoly').setAttribute('points', pts);
+  document.getElementById('hexOutline').setAttribute('points', pts);
+}
+setupHexClip();
+
+function polarPoint(angleDeg, radius) {
+  const rad = (angleDeg - 90) * Math.PI / 180;
+  return [cx + radius * Math.cos(rad), cy + radius * Math.sin(rad)];
+}
+
+function drawHex(angles, equalize=false) {
+  const group = document.getElementById('hexGroup');
+  group.innerHTML = "";
+  sliceEls = [];
+  let start = 0;
+  angles.forEach((a) => {
+    const [x1,y1] = polarPoint(start, R*1.5);
+    const [x2,y2] = polarPoint(start+a, R*1.5);
+    const path = document.createElementNS(svgNS, "path");
+    const d = `M${cx},${cy} L${x1},${y1} A${R*1.5},${R*1.5} 0 ${a>180?1:0} 1 ${x2},${y2} Z`;
+    path.setAttribute("d", d);
+    path.classList.add("slice");
+    if (!equalize) path.classList.add("unequal");
+    else path.classList.add("fixed");
+    group.appendChild(path);
+    sliceEls.push(path);
+    start += a;
+  });
+}
+
+function randomBadAngles() {
+  // generate 6 angles summing to 360, with clear inequality, randomized each round
+  const bigCount = 2;
+  const bigAngle = 90 + Math.random()*20; // 90-110
+  const remaining = 360 - bigAngle*bigCount;
+  const smallBase = remaining/4;
+  let angles = [bigAngle, smallBase, smallBase, bigAngle, smallBase, smallBase];
+  // shuffle order slightly for variety
+  const shift = Math.floor(Math.random()*6);
+  angles = angles.slice(shift).concat(angles.slice(0, shift));
+  return angles;
+}
+
+function resetRound() {
+  state = "await_judge";
+  currentAngles = randomBadAngles();
+  drawHex(currentAngles, false);
+  equalness = 0;
+  updateMeter();
+  document.getElementById('meterWrap').classList.remove('visible');
+  document.getElementById('meterFill').classList.remove('locked');
+  document.getElementById('fairBtn').disabled = false;
+  document.getElementById('unfairBtn').disabled = false;
+  document.getElementById('nextBtn').style.display = "none";
+  document.getElementById('customer').classList.remove('show');
+  document.getElementById('customer').textContent = "😟";
+  setFeedback("Inspect the tray. Are all 6 pieces the same size?", "#fff4de");
+  document.getElementById('gm-note').textContent = "A tray just came in... is it fair?";
+  setGmMouth(false);
+  const stamp = document.getElementById('stampMarkEl');
+  if (stamp) stamp.remove();
+}
+
+function setGmMouth(happy) {
+  const m = document.getElementById('gm-mouth');
+  if (happy) {
+    m.style.borderRadius = "0 0 20px 20px";
+    m.style.borderColor = "#2a6b2a";
+    m.style.bottom = "30px";
+  } else {
+    m.style.borderRadius = "20px 20px 0 0";
+    m.style.borderColor = "#2a1a0e";
+    m.style.bottom = "38px";
+  }
+}
+
+function setFeedback(text, color) {
+  const f = document.getElementById('feedbackText');
+  f.textContent = text;
+  f.style.color = color || "#fff4de";
+}
+
+function judge(choice) {
+  if (state !== "await_judge") return;
+  document.getElementById('fairBtn').disabled = true;
+  document.getElementById('unfairBtn').disabled = true;
+
+  if (choice === "unfair") {
+    setFeedback("Correct! That split is UNFAIR — pieces are not the same size.", "#c8ffcf");
+    document.getElementById('gm-note').textContent = "Good eye! Now fix it, Inspector.";
+    setGmMouth(true);
+    sliceEls.forEach(s => s.classList.add('flash-correct'));
+    document.getElementById('hexWrap').classList.add('flash-good');
+    setTimeout(()=> document.getElementById('hexWrap').classList.remove('flash-good'), 400);
+    document.getElementById('customer').classList.add('show');
+
+    document.getElementById('meterWrap').classList.add('visible');
+
+    setTimeout(() => {
+      sliceEls.forEach(s => s.classList.remove('flash-correct'));
+      animateFix();
+    }, 900);
+  } else {
+    setFeedback("Hmm, look again — are all 6 pieces really the same size?", "#ffd9c2");
+    sliceEls.forEach(s => s.classList.add('pulse-wrong'));
+    document.getElementById('hexWrap').classList.add('wobble-bad');
+    setTimeout(() => {
+      document.getElementById('hexWrap').classList.remove('wobble-bad');
+      sliceEls.forEach(s => s.classList.remove('pulse-wrong'));
+      document.getElementById('fairBtn').disabled = false;
+      document.getElementById('unfairBtn').disabled = false;
+    }, 600);
+  }
+}
+
+function animateFix() {
+  state = "fixing";
+  setFeedback("Watch the helper hand snap every slice to equal...", "#ffe9c7");
+  let steps = 24;
+  let frame = 0;
+  const startAngles = currentAngles.slice();
+  const target = goodAngles;
+
+  function step() {
+    frame++;
+    let t = frame / steps;
+    let eased = t < 1 ? 1 - Math.pow(1-t, 3) : 1;
+    let interp = startAngles.map((a,i) => a + (target[i]-a)*eased);
+    drawHex(interp, false);
+    equalness = Math.min(100, Math.round(t*100));
+    updateMeter();
+
+    if (frame < steps) {
+      requestAnimationFrame(step);
+    } else {
+      drawHex(target, true);
+      equalness = 100;
+      updateMeter(true);
+      onFixedComplete();
+    }
+  }
+  requestAnimationFrame(step);
+}
+
+function updateMeter(locked) {
+  const fill = document.getElementById('meterFill');
+  fill.style.width = equalness + "%";
+  if (locked) fill.classList.add('locked');
+}
+
+let certIndex = 0;
+function onFixedComplete() {
+  state = "done";
+  setFeedback("Certified! 6 equal pieces — perfectly fair. 🎉", "#c8ffcf");
+  document.getElementById('gm-note').textContent = "Certified Fair-Split! Well done, Inspector.";
+  document.getElementById('customer').textContent = "😃";
+
+  const hexWrap = document.getElementById('hexWrap');
+  const stamp = document.createElement('div');
+  stamp.id = "stampMarkEl";
+  stamp.textContent = "✅ FAIR";
+  stamp.style.position = "absolute";
+  stamp.style.top = "170px";
+  stamp.style.left = "110px";
+  stamp.style.fontSize = "42px";
+  stamp.style.fontWeight = "bold";
+  stamp.style.color = "#ffd23a";
+  stamp.style.textShadow = "2px 2px 3px #000";
+  stamp.style.transform = "scale(2) rotate(-15deg)";
+  stamp.style.opacity = "0";
+  stamp.style.transition = "all 0.35s cubic-bezier(.4,1.6,.6,1)";
+  stamp.style.pointerEvents = "none";
+  hexWrap.appendChild(stamp);
+  requestAnimationFrame(() => {
+    stamp.style.opacity = "1";
+    stamp.style.transform = "scale(1) rotate(-15deg)";
+  });
+
+  if (certIndex < 3) {
+    document.getElementById('slot' + certIndex).classList.add('filled');
+    certIndex++;
+  }
+
+  setTimeout(() => {
+    document.getElementById('subtitle').textContent =
+      "You certified this split. Tap Next Tray for another one, Inspector.";
+    document.getElementById('nextBtn').style.display = "inline-block";
+  }, 700);
+}
+
+function nextTray() {
+  resetRound();
+}
+
+function fitStage() {
+  const scale = Math.min(window.innerWidth / 1365, window.innerHeight / 768);
+  document.getElementById('scene').style.transform = `scale(${scale})`;
+}
+window.addEventListener('resize', fitStage);
+fitStage();
+
+resetRound();
+</script>
+</body>
+</html>
+```

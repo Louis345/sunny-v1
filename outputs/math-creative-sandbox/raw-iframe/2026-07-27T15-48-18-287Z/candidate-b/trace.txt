@@ -1,0 +1,14 @@
+What I clicked or entered
+- Started the bakery, made an intentionally incorrect basket check, configured 4 baskets of 5 muffins, built a 5 by 3 tray, and answered four bakery word problems.
+
+What visibly changed
+- Basket and muffin counts changed; skip-count totals and equations updated; additional sections unlocked; the tray array changed; progress dots advanced; small bakery icons accumulated; a completion summary appeared.
+
+What was initially unclear
+- The experience was understandable after entering the first section, but the opening is passive and the bakery world mostly functions as labels and emoji decoration around standard controls.
+
+Whether random clicking advanced the experience
+- Plus and minus controls could be clicked until they matched the explicitly stated target. Multiple-choice story problems could be guessed. Incorrect answers did not create a substantial world reaction.
+
+Whether I wanted to continue
+- It was coherent and slightly more unified than Candidate A, but still felt like a reskinned lesson rather than an experience with meaningful anticipation or stakes.

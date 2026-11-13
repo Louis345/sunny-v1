@@ -1,0 +1,13 @@
+{
+  "model": "claude-sonnet-5",
+  "calls": 4,
+  "elapsedMs": 265168,
+  "inputTokens": 9676,
+  "outputTokens": 23092,
+  "stopReasons": [
+    "end_turn",
+    "end_turn",
+    "end_turn",
+    "end_turn"
+  ]
+}

@@ -1,0 +1,79 @@
+{
+  "candidateId": "scenario-1-concept-only",
+  "screenshots": [
+    "/Users/jamaltaylor/Development/sunny-math-creative-sandbox/outputs/math-creative-sandbox/2026-07-27T04-08-08-409Z-reevaluation-reina/scenario-1-concept-only/00-opening.png",
+    "/Users/jamaltaylor/Development/sunny-math-creative-sandbox/outputs/math-creative-sandbox/2026-07-27T04-08-08-409Z-reevaluation-reina/scenario-1-concept-only/01-first-action.png",
+    "/Users/jamaltaylor/Development/sunny-math-creative-sandbox/outputs/math-creative-sandbox/2026-07-27T04-08-08-409Z-reevaluation-reina/scenario-1-concept-only/02-progress.png",
+    "/Users/jamaltaylor/Development/sunny-math-creative-sandbox/outputs/math-creative-sandbox/2026-07-27T04-08-08-409Z-reevaluation-reina/scenario-1-concept-only/03-progress.png",
+    "/Users/jamaltaylor/Development/sunny-math-creative-sandbox/outputs/math-creative-sandbox/2026-07-27T04-08-08-409Z-reevaluation-reina/scenario-1-concept-only/04-progress.png",
+    "/Users/jamaltaylor/Development/sunny-math-creative-sandbox/outputs/math-creative-sandbox/2026-07-27T04-08-08-409Z-reevaluation-reina/scenario-1-concept-only/05-progress.png",
+    "/Users/jamaltaylor/Development/sunny-math-creative-sandbox/outputs/math-creative-sandbox/2026-07-27T04-08-08-409Z-reevaluation-reina/scenario-1-concept-only/06-progress.png",
+    "/Users/jamaltaylor/Development/sunny-math-creative-sandbox/outputs/math-creative-sandbox/2026-07-27T04-08-08-409Z-reevaluation-reina/scenario-1-concept-only/07-progress.png",
+    "/Users/jamaltaylor/Development/sunny-math-creative-sandbox/outputs/math-creative-sandbox/2026-07-27T04-08-08-409Z-reevaluation-reina/scenario-1-concept-only/08-progress.png"
+  ],
+  "actions": [
+    {
+      "kind": "click_text",
+      "text": "🌱 Start Growing",
+      "captureLabel": "first-action",
+      "reason": "Begin the activity by clicking the primary call-to-action button to see the first interactive screen.",
+      "ok": true
+    },
+    {
+      "kind": "click_at",
+      "x": 538,
+      "y": 184,
+      "captureLabel": "progress",
+      "reason": "Tap the first flower pot to begin skip-counting as instructed by the activity.",
+      "ok": true
+    },
+    {
+      "kind": "click_at",
+      "x": 682,
+      "y": 184,
+      "captureLabel": "progress",
+      "reason": "Tap the second flower pot to continue the skip-counting sequence in order, as instructed.",
+      "ok": true
+    },
+    {
+      "kind": "click_at",
+      "x": 826,
+      "y": 184,
+      "captureLabel": "progress",
+      "reason": "Tap the third flower pot to complete the skip-counting sequence and reveal the final count, testing progression logic.",
+      "ok": true
+    },
+    {
+      "kind": "click_text",
+      "text": "Next: Build my own! →",
+      "captureLabel": "progress",
+      "reason": "Progress to the next stage of the activity to see the array-building interaction and test further concept coverage.",
+      "ok": true
+    },
+    {
+      "kind": "click_at",
+      "x": 651,
+      "y": 160,
+      "captureLabel": "progress",
+      "reason": "Test the '+' button for 'Flowers in Each' to see if the interactive controls correctly update the group count, flower array, skip-counting sequence, and multiplication equation.",
+      "ok": true
+    },
+    {
+      "kind": "click_text",
+      "text": "See it as an Array! →",
+      "captureLabel": "progress",
+      "reason": "Progress to the array view to verify that the equal-groups concept correctly transitions into an array representation, testing connected concept coverage.",
+      "ok": true
+    },
+    {
+      "kind": "click_at",
+      "x": 626,
+      "y": 187,
+      "captureLabel": "progress",
+      "reason": "Tap the first row of flowers to test the row-based skip-counting interaction on this array screen.",
+      "ok": true
+    }
+  ],
+  "visibleText": "Same Flowers, New Shape: Arrays!\n\nLook — the very same flowers, now lined up in neat rows and columns. This is called an array.\n\nTap each row in order to skip-count again!\n\n🌼\n🌼\n🌼\n🌼\n🌼\n🌼\n🌼\n🌼\n🌼\n🌼\n🌼\n🌼\n🌼\n🌼\n🌼\n🌼\n4\n\nNext: Array Challenge! →",
+  "consoleMessages": []
+}

@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Cargo Code: Outsmart Vex</title>
+<style>
+*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#061426;color:#f6f1dc;font-family:Arial,sans-serif}button,input{font:inherit}button{touch-action:manipulation}
+#game{height:100%;display:grid;grid-template-rows:78px 1fr 82px;background:radial-gradient(circle at 54% 32%,#173954 0,#081b31 42%,#04101f 100%);position:relative}
+header{display:grid;grid-template-columns:320px 1fr 235px;align-items:center;padding:10px 20px;border-bottom:1px solid #315168;background:#071423e8;box-shadow:0 5px 20px #0008;z-index:5}
+.brand small,.eyebrow{display:block;color:#72ddf1;font-size:11px;letter-spacing:2px;font-weight:900}.brand b{font-size:22px}.brand em{color:#ffbf54;font-style:normal}
+.racebox{padding:0 20px}.racelabel{display:flex;justify-content:space-between;font-size:11px;font-weight:bold;color:#9db5c6;margin-bottom:4px}.track{height:31px;border-radius:18px;background:linear-gradient(#0a304b,#0b2439);border:1px solid #55778d;position:relative;overflow:hidden}.track:after{content:"📦";position:absolute;right:6px;top:3px;font-size:19px}.wake{position:absolute;left:0;top:15px;height:3px;background:#65d9ee99;width:var(--v,8%);transition:.3s}.boat,.reina{position:absolute;z-index:2;transition:left .35s;white-space:nowrap}.boat{left:calc(var(--v,8%) - 27px);top:5px;font-size:16px;filter:drop-shadow(0 0 5px #f45)}.reina{left:calc(var(--r,8%) - 28px);top:3px;padding:4px 8px;border-radius:12px;background:#ffd063;color:#071625;border:1px solid #fff2af;font-size:13px;font-weight:900;box-shadow:0 0 10px #ffca5c;text-shadow:none}.frozen{display:none;position:absolute;z-index:3;left:50%;top:4px;transform:translateX(-50%);padding:3px 8px;border-radius:10px;background:#a8efff;color:#082338;font-size:11px;font-weight:900;box-shadow:0 0 10px #7eeaff}
+.stats{text-align:right}.stats b{color:#ffca60;font-size:21px}.stats div{font-size:12px;color:#a9becb;margin-top:3px}
+main{min-height:0;display:grid;grid-template-columns:350px minmax(500px,1fr) 345px;gap:12px;padding:12px 18px 8px}.card{border:1px solid #32536b;border-radius:15px;background:#0b2033dc;box-shadow:0 12px 25px #0006;min-height:0}
+.note{padding:17px;display:flex;flex-direction:column;position:relative;overflow:hidden}.note:before{content:"";position:absolute;inset:0;background:linear-gradient(125deg,#ffc7590c,transparent 45%);pointer-events:none}.notehead{display:flex;justify-content:space-between;color:#68dcf2;font-weight:900;font-size:12px;letter-spacing:1.5px}.notehead span:last-child{color:#9eb4c1}
+#message{font-family:Georgia,serif;font-size:23px;line-height:1.34;margin:18px 0 12px;color:#fff7dc;min-height:132px}.G{color:#6ee7ff;text-shadow:0 0 8px #39bcd9}.E{color:#ffca62;text-shadow:0 0 8px #dc9b2e}
+#claim{display:none;background:#210f23;border:1px solid #e45672;border-radius:9px;padding:10px 12px;margin-bottom:11px;box-shadow:0 0 15px #c33a}.vexname{color:#ff6681;font-size:11px;font-weight:900;letter-spacing:2px}.claimmath{font-size:20px;font-weight:900;margin-top:4px}
+#tally{display:none;border:1px dashed #64d8ee;border-radius:9px;padding:9px;color:#bcecf4;font-size:13px;line-height:1.5;background:#071c2c}.ticks{color:#ffca62;letter-spacing:3px;word-break:break-all}
+#reverse{display:none;margin-top:3px}.choose{font-size:12px;color:#b7d1de;font-weight:bold;margin-bottom:6px}.orient{display:flex;gap:7px}.orient button{flex:1;min-height:40px;border-radius:8px;border:1px solid #52758a;background:#102c41;color:white;font-weight:bold}.orient button.sel{background:#1689a4;border-color:#7eeaff}
+.tools{display:flex;gap:8px;margin-top:auto;padding-top:10px}.tool{flex:1;border:1px solid #4b7085;background:#102c42;color:#d9f5fb;border-radius:9px;min-height:42px;font-size:12px;font-weight:900}#mercy{display:none;color:#ffcd65;border-color:#8d682e}#radio{height:26px;font-size:12px;color:#ffcf6f;margin-top:8px;font-weight:bold}
+.dock{position:relative;overflow:hidden;display:flex;flex-direction:column;background:linear-gradient(#0b2940cc 0 64%,#12314a 64%,#082138);border-color:#3a657c}.sky{height:52px;flex:none;position:relative;border-bottom:2px solid #4a6975}.crane{position:absolute;left:16px;top:7px;color:#d39145;font-weight:900;font-size:12px}.crane:after{content:"";display:inline-block;margin-left:8px;width:130px;height:4px;background:#b47639;box-shadow:100px 9px 0 -1px #b47639;transform:skewY(-5deg)}.search{position:absolute;right:10px;top:0;width:160px;height:70px;background:linear-gradient(145deg,#92f1ff33,transparent 64%);clip-path:polygon(82% 0,100% 0,60% 100%,0 100%)}#actflash{position:absolute;left:50%;top:19px;transform:translateX(-50%);font-size:12px;color:#ffcf65;letter-spacing:2px;font-weight:900;white-space:nowrap}
+.gridFloor{flex:1;min-height:0;padding:12px 20px 24px;background-image:radial-gradient(#6ddcf255 1.3px,transparent 1.3px);background-size:30px 30px;position:relative;display:flex;align-items:center;justify-content:center}#array{width:100%;max-height:100%;display:flex;flex-direction:column;gap:5px;align-items:center;justify-content:center}.empty{color:#8fb2bf;font-weight:bold;text-align:center;line-height:1.6}
+.crateRow{min-height:33px;padding:4px 9px;display:grid;grid-template-columns:repeat(var(--n),minmax(16px,34px));gap:5px;align-items:center;justify-content:center;border:2px solid #a96e36;border-radius:7px;background:linear-gradient(#986131,#684020);box-shadow:0 4px 0 #34200f,0 0 12px #5ae5ff33;animation:thunk .22s ease-out}.dense .crateRow{min-height:25px;padding:2px 8px;gap:3px}.item{height:22px;border-radius:50%;display:grid;place-items:center;background:#b9f4ff;color:#092237;font-size:13px;box-shadow:0 0 8px #70eaff}.dense .item{height:17px;font-size:10px}.recountRow{animation:scan .65s 2;border-color:#f7d064}
+@keyframes thunk{0%{transform:translateY(-35px) scale(1.08);opacity:0}70%{transform:translateY(3px) scale(.98)}100%{transform:none;opacity:1}}@keyframes scan{50%{transform:scale(1.04);filter:brightness(1.7)}}#claw{position:absolute;top:-55px;left:48%;font-size:45px;z-index:4;opacity:0}.fire #claw{animation:claw .9s ease-in-out}@keyframes claw{0%{opacity:1}55%{opacity:1;transform:translateY(330px) rotate(-12deg)}100%{opacity:0;transform:translateY(40px)}}#stamp{position:absolute;z-index:5;left:50%;top:48%;transform:translate(-50%,-50%) rotate(-8deg) scale(0);border:5px double #ffce62;color:#ffda7c;padding:12px;font-size:26px;font-weight:900;background:#173047e8}.slam #stamp{animation:slam .8s}@keyframes slam{45%,85%{transform:translate(-50%,-50%) rotate(-8deg) scale(1)}100%{transform:translate(-50%,-50%) rotate(-8deg) scale(1);opacity:0}}
+.panel{padding:13px;display:flex;flex-direction:column}.dialwrap{display:grid;grid-template-columns:1fr 1fr;gap:9px}.dial{border:2px solid #3f657b;border-radius:14px;background:#071a2a;padding:7px;text-align:center;position:relative}.dial small{display:block;font-size:10px;color:#a8c3d0;font-weight:900;letter-spacing:.8px}.dial b{display:block;font-size:35px}.dial .sub{font-size:10px;color:#7de3f1}.dialBtns{display:flex;justify-content:space-between;margin-top:4px}.dial button{width:46%;height:38px;border:0;border-radius:7px;background:#214760;color:white;font-size:22px;font-weight:bold}.pulse{animation:pulse 1s infinite;box-shadow:0 0 0 2px #ffcd5c,0 0 22px #ffb52f!important}@keyframes pulse{50%{filter:brightness(1.35);transform:scale(1.015)}}
+.codeTitle{font-size:11px;color:#66ddf2;font-weight:900;letter-spacing:2px;margin:11px 0 5px}.equation{height:62px;border:2px solid #547286;border-radius:11px;display:flex;align-items:center;justify-content:center;gap:9px;background:#061826;font-size:27px;font-weight:900}.equation input{width:83px;height:45px;text-align:center;border:2px solid #ffca5c;border-radius:8px;background:#152b3b;color:#fff;font-size:27px;font-weight:900}
+.keyarea{display:grid;grid-template-columns:1fr 112px;gap:10px;margin-top:9px;min-height:0}.keys{display:grid;grid-template-columns:repeat(3,1fr);gap:5px}.keys button{height:38px;border:1px solid #41657b;border-radius:7px;background:#15364c;color:#fff;font-weight:bold}.keys button:active{transform:scale(.95)}.actions{display:flex;flex-direction:column;gap:7px}.lock,.verdict{flex:1;border:0;border-radius:9px;color:#082035;font-weight:900}.lock{background:#ffc85c}.verdict.confirm{background:#77e1ab}.verdict.bust{background:#ff6680}.verdicts{display:none;flex-direction:column;gap:7px;height:100%}#feedback{font-size:12px;line-height:1.35;min-height:34px;margin-top:8px;color:#bcd2dd;font-weight:bold}.bad{animation:shake .35s}@keyframes shake{25%{transform:translateX(-5px)}50%{transform:translateX(5px)}75%{transform:translateX(-3px)}}.cracked{animation:crack .5s}@keyframes crack{50%{transform:rotate(-2deg) scale(1.05);filter:brightness(2)}}
+footer{display:flex;align-items:center;gap:8px;padding:9px 18px;background:#061321;border-top:1px solid #315168;overflow:hidden}.maptitle{width:110px;color:#6edcf0;font-size:11px;font-weight:900;letter-spacing:1px}.slots{display:flex;gap:7px;flex:1}.slot{height:60px;flex:1;min-width:57px;border:1px dashed #3e6176;border-radius:7px;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#638091;font-size:10px;text-align:center}.slot strong{font-size:12px;color:#ffcf6c}.slot.done{border:2px solid #72dded;background:#12364a}.slot.red{border-color:#f05d70;background:#371624;color:#ff8292}.slot.bust{box-shadow:inset 0 0 13px #d94468}
+#ending,#startGate{display:none;position:absolute;inset:0;z-index:20;place-items:center;background:#03101bea}.case{width:850px;border:2px solid #75deef;border-radius:18px;background:linear-gradient(145deg,#102d43,#081827);padding:28px;text-align:center;box-shadow:0 0 50px #40d6ee55}.case h1{font-size:38px;margin:5px;color:#ffd06b}.deadboat{font-size:55px;filter:grayscale(1);transform:rotate(-8deg)}#summary{display:flex;flex-wrap:wrap;justify-content:center;gap:7px;margin:18px}.seal{border:2px solid #5ed7e9;border-radius:8px;padding:8px 10px;background:#123b50;color:#ffdc7f;font-weight:900}.case button{padding:12px 22px;border:0;border-radius:9px;margin:5px;background:#ffcb61;color:#102236;font-weight:900}.case button:last-child{background:#65d8ed}
+#startGate{display:grid;z-index:30;background:radial-gradient(circle,#123b55e8,#020b15f5)}.gate{text-align:center;border:2px solid #68d9ed;border-radius:18px;background:#081b2ceF;padding:25px 44px;box-shadow:0 0 55px #54d9ef55}.gate small{display:block;color:#72ddf1;font-weight:900;letter-spacing:3px}.gate h1{margin:9px 0;color:#ffd16b;font-size:34px}.gate button{min-width:230px;min-height:58px;margin-top:8px;border:0;border-radius:12px;background:#ffcb60;color:#092035;font-size:18px;font-weight:900;box-shadow:0 0 20px #ffbf4b55}
+@media(max-width:1050px){main{grid-template-columns:300px 1fr 310px}#message{font-size:19px}}
+</style>
+</head>
+<body>
+<div id="game">
+<header>
+ <div class="brand"><small>HARBOR CODE DIVISION</small><b>CARGO CODE: <em>OUTSMART VEX</em></b></div>
+ <div class="racebox"><div class="racelabel"><span id="act">ACT 1 · HARBOR DOCKS</span><span>SHIPMENT</span></div><div class="track" id="track"><div class="wake"></div><div class="reina">🪝 CLAW</div><div class="boat">⛵VEX</div><div class="frozen" id="frozen">❄ VEX FROZEN</div></div></div>
+ <div class="stats"><b id="score">0</b> DISTANCE<div id="statline">0 SEIZED · 0 BLUFFS BUSTED</div></div>
+</header>
+<main>
+ <section class="card note">
+  <div class="notehead"><span id="kind">⚡ INTERCEPTED MESSAGE</span><span id="count">1 / 13</span></div><div id="message"></div>
+  <div id="claim"><div class="vexname">VEX BROADCAST</div><div class="claimmath" id="claimmath"></div></div>
+  <div id="reverse"><div class="choose">WHICH DIMENSION NAMES THE GROUPS?</div><div class="orient"><button data-o="rows">ROWS</button><button data-o="columns">COLUMNS</button></div></div>
+  <div id="tally"></div><div class="tools"><button class="tool" id="recount">⏱ RECOUNT SCANNER</button><button class="tool" id="mercy">☠ NO MERCY: OFF</button></div><div id="radio">Radio: Crack the load before Vex reaches it.</div>
+ </section>
+ <section class="card dock" id="dock"><div class="sky"><div class="crane" id="crane">CRANE MK I</div><div class="search"></div><div id="actflash">FINISH THE ARRAY</div></div><div class="gridFloor"><div id="array"></div><div id="claw">🪝</div><div id="stamp"></div></div></section>
+ <section class="card panel" id="panel">
+  <div class="dialwrap">
+   <div class="dial" id="gd"><small>CRATES / GROUPS</small><b id="gv">0</b><div class="sub">ROWS</div><div class="dialBtns"><button data-d="g" data-n="-1">−</button><button data-d="g" data-n="1">+</button></div></div>
+   <div class="dial" id="ed"><small>IN EACH</small><b id="ev">0</b><div class="sub">ITEMS PER ROW</div><div class="dialBtns"><button data-d="e" data-n="-1">−</button><button data-d="e" data-n="1">+</button></div></div>
+  </div>
+  <div class="codeTitle">MULTIPLICATION SEIZURE CODE</div><div class="equation"><span id="eg">0</span><span>×</span><span id="ee">0</span><span>=</span><input id="answer" inputmode="numeric" maxlength="3" aria-label="product"></div>
+  <div class="keyarea"><div class="keys" id="keys"></div><div class="actions"><button class="lock" id="lock">LOCK &amp;<br>SEIZE</button><div class="verdicts" id="verdicts"><button class="verdict confirm" data-v="confirm">CONFIRM</button><button class="verdict bust" data-v="bust">CALL BLUFF</button></div></div></div><div id="feedback">Set the glowing control from the intercepted message.</div>
+ </section>
+</main>
+<footer><div class="maptitle">HARBOR CASE FILE<br><span id="mapnote">Stamped loads</span></div><div class="slots" id="slots"></div></footer>
+<div id="ending"><div class="case"><div class="deadboat">⛵⚡</div><small>VEX'S BOAT: DEAD IN THE WATER</small><h1>HARBOR SECURED</h1><p id="result"></p><div id="summary"></div><button id="rematch">RIVAL REMATCH</button><button id="ghost">GHOST RUN</button></div></div>
+<div id="startGate"><div class="gate"><small>INCOMING HARBOR INTERCEPT</small><h1>CARGO CODE</h1><button id="start">TAP TO INTERCEPT</button></div></div>
+</div>
+<script>
+const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
+let run=0,speedMod=1,playlist=[],p=0,cur,g=0,e=0,ans="",orient="",vex=8,freeze=0,busy=false,score=0,busts=0,seized=0,stamps=[],times=[],started=0,roundStart=0,noMercy=false,playing=false,ticker,demo=false,AC;
+const ri=(a,b)=>Math.floor(Math.random()*(b-a+1))+a;
+function audio(){try{if(!AC)AC=new(window.AudioContext||webkitAudioContext);if(AC.state==="suspended")AC.resume()}catch(x){}}
+document.addEventListener("pointerdown",audio,{passive:true});
+function tone(f=300,d=.08,type="sine"){if(!AC)return;try{let o=AC.createOscillator(),q=AC.createGain();o.type=type;o.frequency.value=f;o.connect(q);q.connect(AC.destination);q.gain.setValueAtTime(.07,AC.currentTime);q.gain.exponentialRampToValueAtTime(.001,AC.currentTime+d);o.start();o.stop(AC.currentTime+d)}catch(x){}}
+function rounds(replay){
+ if(!replay)return[
+ {act:1,g:3,e:5,icon:"💡",msg:`Vex loaded <span class="G">3 crates</span>. <span class="E">Each crate holds 5 signal lamps.</span>`},
+ {act:1,g:4,e:3,icon:"●",msg:`A trader tied <span class="G">4 sacks</span>. <span class="E">Each sack holds 3 silver coins.</span>`},
+ {act:1,g:5,e:4,icon:"◆",msg:`The dock received <span class="G">5 tanks</span>. <span class="E">Each tank carries 4 fuel cells.</span>`},
+ {act:2,g:6,e:8,icon:"●",msg:`Vex, who is 42 years old, packed 6 sacks with 8 coins in each sack.`},
+ {act:2,g:4,e:7,icon:"⚡",claim:[4,7,24],msg:`Four power tanks arrived. Every tank contains 7 charged cells.`},
+ {act:2,g:3,e:8,icon:"🕊",claim:[8,3,24],msg:`Vex locked 3 cages. Each cage holds 8 messenger birds.`},
+ {act:3,g:12,e:6,icon:"✦",msg:`Each truck carries 4 crates. Each crate holds 6 lanterns. There are 3 trucks. Crack the lantern load.`},
+ {act:3,g:4,e:7,icon:"◆",reverse:true,msg:`REVERSE CRACK: The manifest shows 4 cargo rows with 7 gems in every row.`},
+ {act:3,final:true,g:3,e:6,icon:"🕊",claim:[3,6,18],msg:`Three cages carry 6 messenger birds in each cage.`},
+ {act:3,final:true,g:4,e:7,icon:"⚡",claim:[4,7,24],msg:`Four tanks carry 7 fuel cells in every tank.`},
+ {act:3,final:true,g:5,e:8,icon:"💡",claim:[8,5,40],msg:`Five crates hold 8 lamps in each crate.`},
+ {act:3,final:true,g:3,e:9,icon:"◆",claim:[3,9,27],msg:`There are 9 gems in every pouch, and Vex grabbed 3 pouches.`},
+ {act:3,final:true,g:8,e:3,icon:"✦",claim:[8,3,21],msg:`Two trucks carry 4 boxes each. Every box holds 3 beacons. Crack the beacon load.`}
+ ].map((x,i)=>({...x,slot:i}));
+ let used=new Set(),pair=(lo=2,hi=9)=>{let a,b,k;do{a=ri(lo,hi);b=ri(2,hi);k=a+"x"+b}while(used.has(k));used.add(k);return[a,b]},R=[];
+ let basics=[["crates","signal lamps","💡"],["sacks","silver coins","●"],["tanks","fuel cells","⚡"]];
+ basics.forEach((x,i)=>{let[a,b]=pair(2,5);R.push({act:1,g:a,e:b,icon:x[2],msg:`${i?"Sky-freight sent":"Vex loaded"} <span class="G">${a} ${x[0]}</span>. <span class="E">Each holds ${b} ${x[1]}.</span>`})});
+ let[a,b]=pair(3,9);R.push({act:2,g:a,e:b,icon:"●",msg:`Vex, who claims to own ${ri(31,58)} boats, packed ${a} sacks with ${b} coins in each sack.`});
+ [0,1].forEach(sw=>{let[a,b]=pair(3,9);if(sw&&a===b)b=b===9?8:b+1;let claim=sw?[b,a,a*b]:[a,b,a*b+ri(2,6)];R.push({act:2,g:a,e:b,icon:sw?"🕊":"⚡",claim,msg:`${a} cargo ${sw?"cages":"tanks"} arrived. Every one contains ${b} ${sw?"birds":"charged cells"}.`})});
+ let t=ri(2,3),c=ri(2,4);a=t*c;b=ri(3,8);R.push({act:3,g:a,e:b,icon:"✦",msg:`Each truck carries ${c} crates. Each crate holds ${b} lanterns. There are ${t} trucks. Crack the lantern load.`});
+ [a,b]=pair(3,9);R.push({act:3,g:a,e:b,icon:"◆",reverse:true,msg:`REVERSE CRACK: The manifest shows ${a} cargo rows with ${b} gems in every row.`});
+ let names=[["cages","birds","🕊"],["tanks","cells","⚡"],["crates","lamps","💡"],["pouches","gems","◆"],["boxes","beacons","✦"]];
+ names.forEach((x,i)=>{let[a,b]=pair(3,9),claim=i%3===0?[a,b,a*b]:i%3===1?[a,b,a*b-ri(1,4)]:[b,a,a*b];R.push({act:3,final:true,g:a,e:b,icon:x[2],claim,msg:i===3?`There are ${b} ${x[1]} in every ${x[0].slice(0,-2)}, and Vex grabbed ${a} ${x[0]}.`:`${a} ${x[0]} carry ${b} ${x[1]} in each.`})});
+ return R.map((x,i)=>({...x,slot:i}));
+}
+function init(){
+ clearInterval(ticker);playing=false;playlist=rounds(run>0);p=0;score=busts=seized=0;stamps=Array(13);times=[];noMercy=busy=demo=false;
+ $("#ending").style.display="none";$("#startGate").style.display="grid";$("#start").textContent=run?"START NEW RIVAL RUN":"TAP TO INTERCEPT";$("#mercy").textContent="☠ NO MERCY: OFF";renderMap();load()
+}
+function startRun(){
+ audio();$("#startGate").style.display="none";playing=true;started=roundStart=Date.now();freeze=Date.now()+900;ticker=setInterval(tick,200);
+ if(run===0&&p===0){demo=true;setTimeout(()=>{if(playing&&p===0&&g===0){g=1;update(true)}},220)}
+}
+$("#start").onclick=startRun;
+function load(){
+ if(p>=playlist.length)return finish();cur=playlist[p];g=e=0;ans=orient="";vex=cur.reclaim?48:8;busy=demo=false;roundStart=playing?Date.now():0;freeze=playing?Date.now()+900:0;
+ $("#message").innerHTML=cur.msg;$("#kind").textContent=cur.claim?"📡 VEX BROADCAST":"⚡ INTERCEPTED MESSAGE";$("#claim").style.display=cur.claim?"block":"none";$("#claimmath").textContent=cur.claim?`${cur.claim[0]} × ${cur.claim[1]} = ${cur.claim[2]}!`:"";
+ $("#reverse").style.display=cur.reverse?"block":"none";$$(".orient button").forEach(x=>x.classList.remove("sel"));$("#verdicts").style.display=cur.claim?"flex":"none";$("#lock").style.display=cur.claim?"none":"block";$("#answer").value="";$("#tally").style.display=cur.act===1||cur.reclaim?"block":"none";$("#mercy").style.display=cur.act===3?"block":"none";$("#frozen").style.display=cur.reclaim?"block":"none";
+ $("#act").textContent=cur.final?"FINAL · VEX BLUFF-STORM":cur.act===1?"ACT 1 · HARBOR DOCKS":cur.act===2?"ACT 2 · WAREHOUSE ROW":"ACT 3 · NIGHT CONVOY";$("#actflash").textContent=cur.reclaim?"RECLAIM RUN · SCANNER ACTIVE":cur.final?"FINAL BLUFF-STORM":cur.act===1?"BUILD THE LOAD":"READ · BUILD · PROVE";$("#crane").textContent=cur.act===1?"CRANE MK I":cur.act===2?"CRANE MK II":"CRANE MK III";$("#count").textContent=`${Math.min(p+1,13)} / 13${cur.reclaim?" · RECLAIM":""}`;$("#radio").textContent=cur.reclaim?"Tracker found the stolen load. Vex is frozen—take it back.":cur.final?"Vex is firing claims fast. Test his order and product.":"Radio: Build the groups, stamp the product, seize the load.";makeTally();update()
+}
+function makeTally(){$("#tally").innerHTML=`<b>MESSAGE TALLY</b><br>GROUPS: <span class="ticks">${"▮".repeat(cur.g)}</span><br>ONE GROUP: <span class="ticks">${"●".repeat(cur.e)}</span>`}
+function update(sound=false){
+ $("#gv").textContent=g;$("#ev").textContent=e;$("#eg").textContent=g||"?";$("#ee").textContent=e||"?";$("#answer").value=ans;
+ let A=$("#array"),shown=e||(demo&&p===0?cur.e:0);A.className=g>9?"dense":"";A.innerHTML="";
+ if(!g||!shown)A.innerHTML=`<div class="empty">· · · EMPTY DOCK GRID · · ·<br><small>Rows are groups. Each row holds the amount in each.</small></div>`;
+ else for(let r=0;r<g;r++){let row=document.createElement("div");row.className="crateRow";row.style.setProperty("--n",shown);for(let j=0;j<shown;j++){let z=document.createElement("span");z.className="item";z.textContent=cur.icon;row.append(z)}A.append(row)}
+ $$(".dial,#answer,.lock").forEach(x=>x.classList.remove("pulse"));if(g!==cur.g)$("#gd").classList.add("pulse");else if(e!==cur.e)$("#ed").classList.add("pulse");else if(!ans)$("#answer").classList.add("pulse");
+ let rp=8+(g===cur.g?26:0)+(e===cur.e?26:0)+(Number(ans)===cur.g*cur.e?30:0);$("#track").style.setProperty("--r",rp+"%");$("#track").style.setProperty("--v",vex+"%");$("#score").textContent=score;$("#statline").textContent=`${seized} SEIZED · ${busts} BLUFFS BUSTED`;if(sound)tone(190+Math.min(g+e,15)*25,.07,"triangle")
+}
+$$("[data-d]").forEach(b=>b.onclick=()=>{if(busy||!playing)return;let k=b.dataset.d,n=+b.dataset.n;if(k==="g")g=Math.max(0,Math.min(12,g+n));else e=Math.max(0,Math.min(12,e+n));update(true)});
+$("#answer").oninput=x=>{if(!playing)return;ans=x.target.value.replace(/\D/g,"").slice(0,3);update()};
+["1","2","3","4","5","6","7","8","9","⌫","0","C"].forEach(k=>{let b=document.createElement("button");b.textContent=k;b.onclick=()=>{if(busy||!playing)return;if(k==="⌫")ans=ans.slice(0,-1);else if(k==="C")ans="";else if(ans.length<3)ans+=k;update();tone(420,.04)};$("#keys").append(b)});
+$$(".orient button").forEach(b=>b.onclick=()=>{if(!playing)return;orient=b.dataset.o;$$(".orient button").forEach(x=>x.classList.toggle("sel",x===b));tone(380,.06)});
+function proof(){if(g!==cur.g||e!==cur.e)return fail("The built array contradicts the message. Compare it with the tally strip.",15);if(cur.reverse&&orient!=="rows")return fail("The trays run across as rows. Which dimension counts the groups?",10);if(Number(ans)!==cur.g*cur.e)return fail("Claw rejected the product. Use groups × amount in each.",12);return true}
+$("#lock").onclick=()=>{if(playing&&proof())success(false)};
+$$("[data-v]").forEach(b=>b.onclick=()=>{if(!playing||!proof())return;let truth=cur.claim[0]===cur.g&&cur.claim[1]===cur.e&&cur.claim[2]===cur.g*cur.e,should=truth?"confirm":"bust";if(b.dataset.v!==should)return fail("Vex grins. Test the group order and the product—not just the total.",16);success(should==="bust")});
+function fail(msg,cost){$("#feedback").textContent=msg;$("#feedback").style.color="#ff8697";$("#panel").classList.remove("bad");void $("#panel").offsetWidth;$("#panel").classList.add("bad");$("#tally").style.display="block";vex=Math.min(99,vex+cost);update();tone(130,.22,"sawtooth")}
+function success(bust){
+ busy=true;let product=cur.g*cur.e,eq=`${cur.g}×${cur.e}=${product}`,elapsed=(Date.now()-roundStart)/1000;times.push({eq,t:elapsed});score+=product+(bust?30:10);seized++;if(bust){busts++;vex=Math.max(0,vex-25);$("#claim").classList.add("cracked");setTimeout(()=>$("#claim").classList.remove("cracked"),600)}stamps[cur.slot]={eq,bust,reclaimed:cur.reclaim};renderMap();update();$("#stamp").textContent=bust?`BLUFF BUSTED · ${eq}`:eq;$("#dock").classList.add("fire","slam");$("#feedback").style.color="#80efb5";$("#feedback").textContent=bust?"Claim disproved by the array. Vex loses distance!":cur.reclaim?"Shipment reclaimed and sealed!":"Equation locked. Grappling claw fired!";tone(540,.1,"square");setTimeout(()=>tone(760,.18,"triangle"),100);setTimeout(()=>{$("#dock").classList.remove("fire","slam");p++;load()},1050)
+}
+$("#recount").onclick=()=>{if(busy||!playing)return;$("#tally").style.display="block";freeze=Date.now()+(cur.act===3?2200:5000);if(cur.act===3)vex=Math.min(99,vex+8);let row=$("#array .crateRow");if(row){row.classList.add("recountRow");setTimeout(()=>row.classList.remove("recountRow"),1400)}$("#feedback").style.color="#8ceafb";$("#feedback").textContent=`Spy scan: one group contains exactly ${cur.e} items. Vex's engine slows briefly.`;tone(250,.3);update()};
+$("#mercy").onclick=()=>{if(!playing)return;noMercy=!noMercy;$("#mercy").textContent=`☠ NO MERCY: ${noMercy?"ON":"OFF"}`;$("#mercy").style.background=noMercy?"#6e2030":"#102c42";tone(noMercy?170:300,.12)};
+function tick(){if(!playing||!cur||busy||cur.reclaim||Date.now()<freeze)return;let s=cur.act===1?.5:cur.act===2?.7:cur.final?1.05:.85;vex+=s*speedMod*(noMercy?1.55:1);if(vex>=100){vex=100;theft()}update()}
+function theft(){if(busy)return;busy=true;stamps[cur.slot]={red:true};renderMap();$("#feedback").textContent="Vex grabbed this one—but your tracker marked it for a Reclaim Run.";$("#feedback").style.color="#ff7188";playlist.push({...cur,reclaim:true});tone(110,.35,"sawtooth");setTimeout(()=>{p++;load()},1100)}
+function renderMap(){let S=$("#slots");S.innerHTML="";for(let i=0;i<13;i++){let d=document.createElement("div"),x=stamps[i];d.className="slot"+(x?.red?" red":x?" done":"")+(x?.bust?" bust":"");d.innerHTML=x?.red?`VEX<br>STOLE IT`:x?`<strong>${x.eq}</strong>${x.bust?"BLUFF BUST":x.reclaimed?"RECLAIMED":"SEALED"}`:`LOAD ${i+1}`;S.append(d)}}
+function finish(){
+ busy=true;playing=false;clearInterval(ticker);let total=(Date.now()-started)/1000,fast=[...times].sort((a,b)=>a.t-b.t).slice(0,3);try{let old=+localStorage.cargoBest||99999;if(total<old)localStorage.cargoBest=total}catch(x){}
+ $("#result").innerHTML=`<b>${seized} loads secured</b> · ${busts} bluffs busted · Run time ${Math.floor(total/60)}:${String(Math.floor(total%60)).padStart(2,"0")}<br>Fastest cracks glow in the Case File.`;$("#summary").innerHTML=stamps.map(x=>`<div class="seal">${x.eq}${x.bust?" · BUST":""}${fast.some(f=>f.eq===x.eq)?" ⚡":""}</div>`).join("");$("#ending").style.display="grid";tone(440,.15,"square");setTimeout(()=>tone(660,.22,"square"),170)
+}
+$("#rematch").onclick=()=>{run++;speedMod=1.28;init()};$("#ghost").onclick=()=>{run++;speedMod=1;init();let best;try{best=+localStorage.cargoBest}catch(x){}$("#mapnote").textContent=best?`Ghost best: ${Math.floor(best/60)}:${String(Math.floor(best%60)).padStart(2,"0")}`:"Race your last run"};
+init();
+</script>
+</body>
+</html>

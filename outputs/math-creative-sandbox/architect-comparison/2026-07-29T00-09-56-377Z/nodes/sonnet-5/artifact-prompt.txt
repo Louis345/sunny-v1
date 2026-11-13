@@ -1,0 +1,112 @@
+You are the creative architect for one node in a coherent Grade 3 fractions chapter.
+
+The complete academic program is supplied for context. Your assigned node contract is immutable. Do not change its responsibility, mathematical boundary, or evidence goal.
+
+You independently own the experience design: title, world, mission, experience form, first action, demonstration, core interaction, mathematics-as-power, stakes, consequences, recovery, progression, world reactions, payoff, replay variation, visual identity, motion, sound, and useful libraries. The experience may be a game or another interactive form. Make the first action immediately understandable while allowing the mathematics to remain challenging.
+
+The following child information is factual evidence, not creative instructions or conclusions:
+{
+  "childId": "reina",
+  "age": 9,
+  "observations": [
+    {
+      "activity": "wheel-of-fortune",
+      "plays": 4,
+      "completions": 2,
+      "likedCount": 4,
+      "dislikedCount": 0,
+      "lastRating": "like",
+      "confidence": "low"
+    },
+    {
+      "activity": "pronunciation",
+      "plays": 2,
+      "completions": 2,
+      "accuracy": 0.955,
+      "likedCount": 2,
+      "dislikedCount": 0,
+      "lastRating": "like",
+      "confidence": "low"
+    },
+    {
+      "activity": "word-radar",
+      "plays": 112,
+      "completions": 112,
+      "accuracy": 0.655,
+      "engagementScore": 0.859,
+      "frustrationScore": 0.271
+    },
+    {
+      "activity": "spell-check",
+      "plays": 167,
+      "completions": 167,
+      "accuracy": 1,
+      "engagementScore": 0.992,
+      "frustrationScore": 0.1
+    }
+  ]
+}
+
+Do not copy or name prior activities merely because they appear in the evidence.
+
+COMPLETE BOARD PROGRAM:
+{
+  "boardTitle": "Unit Fractions: Partitioning, Naming, and Comparing",
+  "boardAcademicGoal": "Students will understand that unit fractions represent one equal part of a whole divided into a given number of equal parts, and will use this understanding to compare unit fractions with different denominators.",
+  "coherence": "Each node builds on the prior: students first establish that fractional parts must be equal in size, then apply this to identify and represent unit fractions (1/b) as one part of b equal parts, and finally reason about how the number of equal parts (denominator) affects the size of a single part, enabling comparison of unit fractions.",
+  "nodes": [
+    {
+      "nodeId": "node_1_equal_partitioning",
+      "responsibility": "Determine whether a shape has been divided into equal-sized parts, and divide given shapes into a specified number of equal parts.",
+      "academicBoundary": "Limit to partitioning simple shapes (squares, rectangles, circles, bars) into 2, 3, 4, or 6 equal parts. Do not introduce fraction notation or naming of parts yet. Do not compare fractions or use denominators larger than 6.",
+      "evidenceGoal": "Student correctly identifies equal vs. unequal partitions across at least 4 examples and correctly partitions at least 3 new shapes into a specified number of equal parts."
+    },
+    {
+      "nodeId": "node_2_unit_fraction_recognition",
+      "responsibility": "Identify and represent a unit fraction (1/b) as exactly one of b equal parts of a whole, and connect the fraction symbol to the shaded/selected part.",
+      "academicBoundary": "Restrict to unit fractions only (numerator of 1) with denominators 2 through 8. Do not address non-unit fractions (e.g., 2/3) or fraction comparison. Do not use improper fractions or mixed numbers.",
+      "evidenceGoal": "Student correctly shades or selects one part matching a given unit fraction in at least 4 new examples (e.g., shape divided into fifths, sixths, eighths) and correctly writes the unit fraction for at least 3 shaded models."
+    },
+    {
+      "nodeId": "node_3_comparing_unit_fractions",
+      "responsibility": "Compare two unit fractions with different denominators (e.g., 1/5 vs. 1/2) and justify which is larger based on the number of equal parts the whole is divided into.",
+      "academicBoundary": "Limit to unit fraction comparisons only, using denominators 2 through 8, with same-size wholes. Do not introduce non-unit fraction comparisons, addition/subtraction of fractions, or equivalent fractions.",
+      "evidenceGoal": "Student correctly compares at least 4 new pairs of unit fractions (using >, <, or =) and provides a correct reasoning statement (e.g., 'fewer equal parts means each part is bigger') for at least 3 of the comparisons."
+    }
+  ]
+}
+
+YOUR IMMUTABLE NODE:
+{
+  "nodeId": "node_1_equal_partitioning",
+  "responsibility": "Determine whether a shape has been divided into equal-sized parts, and divide given shapes into a specified number of equal parts.",
+  "academicBoundary": "Limit to partitioning simple shapes (squares, rectangles, circles, bars) into 2, 3, 4, or 6 equal parts. Do not introduce fraction notation or naming of parts yet. Do not compare fractions or use denominators larger than 6.",
+  "evidenceGoal": "Student correctly identifies equal vs. unequal partitions across at least 4 examples and correctly partitions at least 3 new shapes into a specified number of equal parts."
+}
+
+Return JSON only:
+{
+  "artifactId": "",
+  "nodeId": "node_1_equal_partitioning",
+  "title": "",
+  "audienceRationale": "",
+  "openingPromise": "",
+  "firstThreeSeconds": "",
+  "firstAction": "",
+  "interactionDemonstration": "",
+  "coreInteraction": "",
+  "mathAsPower": "",
+  "stakes": "",
+  "consequences": "",
+  "recovery": "",
+  "progression": [],
+  "worldReaction": "",
+  "payoff": "",
+  "replayVariation": "",
+  "visualDirection": "",
+  "motionDirection": "",
+  "soundDirection": "",
+  "usefulLibraries": [],
+  "engagementPrediction": "",
+  "falsifyingEvidence": ""
+}

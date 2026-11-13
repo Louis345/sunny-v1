@@ -1,0 +1,18 @@
+{
+  "id": "gpt-5-6-sol",
+  "label": "GPT-5.6 Sol",
+  "provider": "openai",
+  "model": "gpt-5.6-sol",
+  "status": "complete",
+  "elapsedMs": 284493,
+  "inputTokens": 2869,
+  "outputTokens": 13990,
+  "estimatedCostUsd": 0.434045,
+  "artifactHash": "90cc771e3f564f81b2431710cf60089476340e223cf2eef81eb54b13471dc190",
+  "promptHash": "c9fa1c1f791c38d2d5aed3d3345ac4e04f7306e72475dcfcf0ab4a2f05c048b5",
+  "apiResponseHash": "287918406c84cd8bf27cbaf57894f0361f35ebbb3fd1bde4f3955f759ec06d70",
+  "savedHtmlHash": "287918406c84cd8bf27cbaf57894f0361f35ebbb3fd1bde4f3955f759ec06d70",
+  "iframeSrcDocHash": "287918406c84cd8bf27cbaf57894f0361f35ebbb3fd1bde4f3955f759ec06d70",
+  "extractionMode": "raw_html",
+  "error": null
+}

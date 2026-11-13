@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=1365,initial-scale=1">
+<title>Slice Bazaar: The Fair Share Festival</title>
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;700;800&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;padding:0;background:#2b1a12;overflow:hidden;font-family:'Baloo 2',"Trebuchet MS",system-ui,sans-serif}
+#app{position:relative;width:1365px;height:768px;overflow:hidden;background:#ffe4b0;user-select:none}
+/* ---------- HUD ---------- */
+#hud{position:absolute;left:0;top:0;width:1365px;height:56px;display:flex;align-items:center;gap:14px;padding:0 14px;
+  background:linear-gradient(180deg,#b5502e,#8f3b21);color:#fff5e2;box-shadow:0 4px 12px rgba(60,25,10,.35);z-index:40}
+#hud .logo{font-weight:800;font-size:20px;letter-spacing:.3px;text-shadow:0 2px 0 #6d2b16;white-space:nowrap}
+#hud .logo span{color:#ffd166}
+.pill{background:rgba(255,255,255,.16);border-radius:14px;padding:4px 12px;font-weight:700;font-size:14px;white-space:nowrap}
+.meterWrap{display:flex;align-items:center;gap:7px}
+.meterBox{width:190px;height:18px;background:rgba(50,20,10,.35);border-radius:10px;overflow:hidden;box-shadow:inset 0 2px 4px rgba(0,0,0,.3)}
+.meterFill{height:100%;width:0%;border-radius:10px;background:linear-gradient(90deg,#ffd166,#f5813b);transition:width .5s ease}
+.patBox{width:150px;height:14px;background:rgba(50,20,10,.35);border-radius:8px;overflow:hidden}
+.patFill{height:100%;width:100%;background:linear-gradient(90deg,#8fd06a,#e8d24a)}
+.dots{display:flex;gap:5px}
+.dot{width:12px;height:12px;border-radius:50%;background:rgba(255,255,255,.28);box-shadow:inset 0 1px 2px rgba(0,0,0,.2)}
+.dot.done{background:#ffd166}
+.btn{cursor:pointer;border:none;font-family:inherit;font-weight:700;font-size:14px;color:#5a2a15;background:#ffd79a;
+  border-radius:12px;padding:7px 12px;box-shadow:0 3px 0 #c9884f;transition:transform .08s,background .2s}
+.btn:active{transform:translateY(2px);box-shadow:0 1px 0 #c9884f}
+.btn.on{background:#8fd06a;box-shadow:0 3px 0 #5e9741}
+.btn.ghost{background:rgba(255,255,255,.2);color:#fff3dc;box-shadow:0 3px 0 rgba(0,0,0,.2)}
+#badgeEye{font-size:22px;filter:grayscale(1) opacity(.45);transition:.4s}
+#badgeEye.lit{filter:none;text-shadow:0 0 12px #ffd166}
+/* ---------- stage ---------- */
+#stage{position:absolute;left:0;top:56px;width:1365px;height:712px;overflow:hidden}
+#backdrop,#board{position:absolute;left:0;top:0;width:1365px;height:712px}
+#board{z-index:12}
+#customers{position:absolute;left:0;top:0;width:1365px;height:712px;z-index:14;pointer-events:none}
+#crowd{position:absolute;left:0;top:0;width:1365px;height:712px;z-index:10;pointer-events:none}
+#fx{position:absolute;left:0;top:0;width:1365px;height:712px;z-index:30;pointer-events:none;overflow:hidden}
+.customer{position:absolute;width:132px;height:186px;transform-origin:50% 100%;animation:bob 2.6s ease-in-out infinite}
+.customer .critterSvg{width:132px;height:186px;display:block}
+.customer.cheer{animation:cheer .7s ease-out 2}
+.customer.tilt{animation:tilt .6s ease-in-out}
+.customer.leave{animation:leaveOut .8s ease-in forwards}
+.nameTag{position:absolute;bottom:-4px;left:50%;transform:translateX(-50%);background:#fff3dc;border-radius:10px;padding:1px 9px;
+  font-size:13px;font-weight:700;color:#7a3c1e;box-shadow:0 2px 4px rgba(60,30,10,.25);white-space:nowrap}
+.crowdC{position:absolute;transform-origin:50% 100%;opacity:.85;animation:bob 3.4s ease-in-out infinite}
+.crowdC .critterSvg{display:block}
+@keyframes bob{0%,100%{transform:translateY(0) rotate(0)}50%{transform:translateY(-7px) rotate(1.5deg)}}
+@keyframes cheer{0%{transform:translateY(0) rotate(0)}25%{transform:translateY(-22px) rotate(-12deg)}50%{transform:translateY(0) rotate(10deg)}75%{transform:translateY(-14px) rotate(-6deg)}100%{transform:translateY(0) rotate(0)}}
+@keyframes tilt{0%,100%{transform:rotate(0)}40%{transform:rotate(11deg)}70%{transform:rotate(7deg)}}
+@keyframes leaveOut{to{transform:translate(120px,10px) scale(.8);opacity:0}}
+.bubble{position:absolute;max-width:330px;background:#fff8e7;border-radius:18px;padding:11px 15px;font-size:17px;font-weight:700;
+  color:#6b3417;box-shadow:0 6px 16px rgba(70,35,15,.28);z-index:16;animation:popIn .35s cubic-bezier(.2,1.6,.4,1)}
+.bubble .frac{color:#c9522a}
+.bubble:after{content:"";position:absolute;bottom:-12px;left:var(--tail,40px);width:0;height:0;border:10px solid transparent;border-top-color:#fff8e7;border-bottom:0}
+.bubble.small{font-size:15px;padding:8px 12px;max-width:220px}
+.bubble.mystery{background:linear-gradient(140deg,#fff8e7,#ffe3f4);box-shadow:0 0 22px #e78ad0}
+@keyframes popIn{from{transform:scale(.6) translateY(14px);opacity:0}to{transform:scale(1) translateY(0);opacity:1}}
+#banner{position:absolute;left:50%;bottom:14px;transform:translateX(-50%);z-index:22;max-width:1020px;text-align:center;
+  background:rgba(255,246,226,.96);border-radius:16px;padding:10px 22px;font-size:19px;font-weight:700;color:#7c3a18;
+  box-shadow:0 6px 18px rgba(60,25,10,.3)}
+#banner.good{background:#e9f8d8;color:#3f6c22}
+#banner.bad{background:#fde7d4;color:#a1522a}
+#banner.pulse{animation:bpulse .4s ease}
+@keyframes bpulse{0%{transform:translateX(-50%) scale(.94)}60%{transform:translateX(-50%) scale(1.04)}100%{transform:translateX(-50%) scale(1)}}
+#tools{position:absolute;left:14px;bottom:14px;z-index:24;display:flex;gap:9px;align-items:center;flex-wrap:wrap;max-width:430px}
+#counterInfo{position:absolute;right:14px;bottom:14px;z-index:24;display:flex;gap:9px;align-items:center}
+.streakTag{background:#ffd166;color:#7a3c15;border-radius:12px;padding:6px 12px;font-weight:800;box-shadow:0 3px 0 #c9884f}
+/* SVG bits */
+.part{cursor:pointer;transition:filter .15s}
+.part:hover{filter:brightness(1.06)}
+.part.shaded{animation:popPart .45s cubic-bezier(.2,1.7,.4,1)}
+.plateInner{transform-box:fill-box;transform-origin:center}
+@keyframes popPart{0%{transform:scale(.82)}60%{transform:scale(1.06)}100%{transform:scale(1)}}
+.wobble{animation:wob .5s ease}
+@keyframes wob{0%,100%{transform:rotate(0)}20%{transform:rotate(-4deg)}45%{transform:rotate(4deg)}70%{transform:rotate(-2deg)}}
+.glowPlate{animation:glowP 1.2s ease-in-out infinite}
+@keyframes glowP{0%,100%{filter:drop-shadow(0 0 0 rgba(255,209,102,0))}50%{filter:drop-shadow(0 0 16px rgba(255,196,60,.95))}}
+.hintWedge{animation:hintW 1s ease-in-out infinite}
+@keyframes hintW{0%,100%{opacity:.25}50%{opacity:.75}}
+/* overlays */
+#overlay{position:absolute;inset:0;z-index:60;display:none;align-items:center;justify-content:center;background:rgba(50,24,12,.62);backdrop-filter:blur(2px)}
+#overlay.show{display:flex}
+.card{background:linear-gradient(180deg,#fff8e7,#ffe9c6);border-radius:26px;padding:26px 34px;max-width:900px;text-align:center;
+  box-shadow:0 18px 48px rgba(30,12,4,.5);color:#6b3417;animation:popIn .4s cubic-bezier(.2,1.5,.4,1)}
+.card h1{margin:0 0 6px;font-size:38px;color:#b5502e}
+.card h2{margin:0 0 10px;font-size:28px;color:#b5502e}
+.card p{margin:6px 0;font-size:19px;line-height:1.35}
+.card .big{font-size:23px;font-weight:800;color:#3f6c22}
+.row{display:flex;gap:12px;justify-content:center;margin-top:16px;flex-wrap:wrap}
+.gal{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;max-width:860px;max-height:300px;overflow-y:auto;padding:8px;
+  background:rgba(255,255,255,.5);border-radius:16px;margin-top:10px}
+.galItem{width:104px;text-align:center;font-size:14px;font-weight:800;color:#8b4a20}
+.galItem svg{display:block;width:104px;height:104px}
+.petal,.confetti{position:absolute;pointer-events:none}
+.petal{width:14px;height:14px;border-radius:60% 10% 60% 10%;animation:petalFall linear forwards}
+@keyframes petalFall{to{transform:translate(var(--dx),var(--dy)) rotate(var(--rot));opacity:0}}
+.confetti{width:10px;height:14px;border-radius:3px;animation:petalFall linear forwards}
+.spark{position:absolute;font-size:22px;animation:sparkUp 1s ease-out forwards;pointer-events:none}
+@keyframes sparkUp{to{transform:translateY(-60px) scale(1.4);opacity:0}}
+#fwCanvas{position:absolute;inset:0;width:1365px;height:768px;z-index:55;pointer-events:none;display:none}
+.tip{font-size:15px;opacity:.85}
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="hud">
+    <div class="logo">🥧 Slice <span>Bazaar</span></div>
+    <div class="pill" id="stagePill">Stage 1/5 · Warm-Up Wedges</div>
+    <div class="dots" id="dots"></div>
+    <div class="meterWrap"><span style="font-size:13px;font-weight:700">Festival Happiness</span>
+      <div class="meterBox"><div class="meterFill" id="meterFill"></div></div></div>
+    <div class="meterWrap" id="patWrap"><span style="font-size:13px;font-weight:700">Patience</span>
+      <div class="patBox"><div class="patFill" id="patFill"></div></div></div>
+    <div id="badgeEye" title="Fair Slicer's Eye">🔍</div>
+    <div style="flex:1"></div>
+    <button class="btn ghost" id="btnCalm">🌙 Calm Bazaar: OFF</button>
+    <button class="btn ghost" id="btnPause">⏸</button>
+    <button class="btn ghost" id="btnGal">🖼 Gallery</button>
+    <button class="btn ghost" id="btnSound">🔊</button>
+  </div>
+
+  <div id="stage">
+    <svg id="backdrop" viewBox="0 0 1365 712"></svg>
+    <svg id="board" viewBox="0 0 1365 712"></svg>
+    <div id="crowd"></div>
+    <div id="customers"></div>
+    <div id="fx"></div>
+    <div id="banner">Welcome to the Slice Bazaar!</div>
+    <div id="tools"></div>
+    <div id="counterInfo"></div>
+  </div>
+
+  <canvas id="fwCanvas" width="1365" height="768"></canvas>
+  <div id="overlay"><div class="card" id="card"></div></div>
+</div>
+
+<script>
+/* ============================ AUDIO ============================ */
+const AK={ctx:null,master:null,muted:false,noise:null,amb:null,ambTimer:null,
+ init(){if(this.ctx)return;const C=window.AudioContext||window.webkitAudioContext;if(!C)return;this.ctx=new C();
+   this.master=this.ctx.createGain();this.master.gain.value=.85;this.master.connect(this.ctx.destination);this.startAmbient();},
+ ok(){return this.ctx&&!this.muted},
+ now(){return this.ctx?this.ctx.currentTime:0},
+ buf(){if(this.noise)return this.noise;const n=this.ctx.sampleRate*2,b=this.ctx.createBuffer(1,n,this.ctx.sampleRate),d=b.getChannelData(0);
+   let last=0;for(let i=0;i<n;i++){const w=Math.random()*2-1;last=(last+.02*w)/1.02;d[i]=last*3.2;}this.noise=b;return b;},
+ tone(f,t,d,type,vol,glide){if(!this.ok())return;const o=this.ctx.createOscillator(),g=this.ctx.createGain();
+   o.type=type||'triangle';o.frequency.setValueAtTime(f,t);if(glide)o.frequency.exponentialRampToValueAtTime(glide,t+d);
+   g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(vol==null?.2:vol,t+.012);g.gain.exponentialRampToValueAtTime(.0008,t+d);
+   o.connect(g);g.connect(this.master);o.start(t);o.stop(t+d+.06);},
+ chime(step){if(!this.ok())return;const t=this.now(),sc=[523.25,587.33,659.25,783.99,880,1046.5];
+   const i=(step||0)%sc.length;this.tone(sc[i],t,.55,'triangle',.22);this.tone(sc[i]*2,t+.06,.45,'sine',.09);this.tone(sc[(i+2)%sc.length],t+.11,.5,'triangle',.14);},
+ boop(){if(!this.ok())return;const t=this.now();this.tone(220,t,.24,'sine',.18,150);},
+ swipe(){if(!this.ok())return;const t=this.now(),s=this.ctx.createBufferSource();s.buffer=this.buf();
+   const f=this.ctx.createBiquadFilter();f.type='bandpass';f.frequency.setValueAtTime(700,t);f.frequency.exponentialRampToVal

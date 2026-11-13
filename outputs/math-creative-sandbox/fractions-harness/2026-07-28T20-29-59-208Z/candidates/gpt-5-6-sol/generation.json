@@ -1,0 +1,18 @@
+{
+  "id": "gpt-5-6-sol",
+  "label": "GPT-5.6 Sol",
+  "provider": "openai",
+  "model": "gpt-5.6-sol",
+  "status": "failed",
+  "elapsedMs": 1443,
+  "inputTokens": 0,
+  "outputTokens": 0,
+  "estimatedCostUsd": 0,
+  "artifactHash": "c1561c4e6bf87caa387196a471374e1d557a0fdefb992b499cc3bfed7144f4bb",
+  "promptHash": "8f79796d59b91d849634c1411fda0f4ce323461ee79ba79a5f3b399405e3fcf0",
+  "apiResponseHash": null,
+  "savedHtmlHash": null,
+  "iframeSrcDocHash": null,
+  "extractionMode": null,
+  "error": "openai_429:insufficient_quota"
+}

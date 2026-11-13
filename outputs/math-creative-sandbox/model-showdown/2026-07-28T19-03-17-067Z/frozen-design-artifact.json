@@ -1,0 +1,47 @@
+{
+  "id": "A",
+  "title": "Caravan Rush: The Broker's Wager",
+  "audienceRationale": "Reina's strongest measured performance came from applied store-based math, so the core loop is a market transaction. Her requests for difficult challenges and her sustained engagement with fast-paced tasks justify a race-against-a-rival structure with rising time pressure. Her preference for competitive framing justifies a visible rival who can overtake her. Because these patterns come from limited sessions, the design keeps failure cheap and reversible rather than assuming she wants permanent stakes.",
+  "openingPromise": "Out-pack a rival trader before the caravan gate closes, using nothing but crates and math.",
+  "firstThreeSeconds": "A market lane with two caravans side by side, hers and the rival's, a crate tray at the bottom, and an empty grid glowing with pulsing outlines — no text, just a rival caravan already inching forward.",
+  "firstAction": "Drag one crate from the tray into a glowing grid slot.",
+  "interactionDemonstration": "The instant a crate is dropped, it snaps into place with a satisfying click, the row visually fills left to right, and a running number ticks upward beside the row — showing skip-counting as a direct consequence of the action rather than an instruction.",
+  "coreInteraction": "Drag equal-quantity crates into a rows-by-columns grid to fulfill an order card; completing rows advances a skip-count tally and launches the caravan forward on the race track relative to the rival.",
+  "mathAsPower": "The size of the correctly built array (rows x columns) is converted directly into caravan speed; an order interpreted correctly moves her further per turn than the rival's default pace, so faster and more accurate multiplicative reasoning literally outruns the adversary.",
+  "stakes": "Each market day is a race leg; if the rival's caravan reaches the gate first on a leg, that leg's bonus goods are lost, but the campaign continues — there is no permanent loss condition, only lost bragging rights and bonus loot.",
+  "consequences": "An incorrect array causes crates to visibly spill off the cart with a stumble animation and a smug line from the rival; the caravan does not move that turn, giving the rival a temporary lead.",
+  "recovery": "Spilled crates return to the tray immediately, only the failed row resets its skip-count, and a 'second wind' bonus is available after two consecutive perfect rows, letting her close a gap fast rather than grinding back slowly.",
+  "nodeSequence": [
+    {
+      "role": "teach",
+      "mathematicalDemand": "Build a single array (e.g., 3 rows of 4) matching a simple crate order with no rival pressure.",
+      "experienceBeat": "First solo packing at a quiet stall; the rival caravan is visible but stationary, establishing the world before pressure begins.",
+      "supportAvailable": "Grid slots pulse for the next placement; skip-count ticker is always visible; unlimited retries with no clock."
+    },
+    {
+      "role": "guided_application",
+      "mathematicalDemand": "Read a short customer request written as a word problem ('The tavern needs 5 barrels, 3 potions each') and translate it into the correct array before the rival finishes their own order.",
+      "experienceBeat": "The rival caravan begins moving at a fixed pace per correct order she completes on time, introducing light competitive tension.",
+      "supportAvailable": "An optional 'read again' bell replays the order aloud; a faint grid-shape ghost appears if she stalls more than a few seconds, but only on request."
+    },
+    {
+      "role": "independent_quest",
+      "mathematicalDemand": "Complete a chain of escalating orders including one deliberately garbled order planted by the rival with a wrong quantity, which she must catch before building, then race a full multi-leg market route with no hints.",
+      "experienceBeat": "The Grand Market Run: a full day of back-to-back orders against a rival who now adapts pace to her performance, ending in a gate-closing sprint.",
+      "supportAvailable": "No visual scaffolding remains; only the same skip-count ticker and spill-recovery mechanic from node one, now serving as her only safety net."
+    }
+  ],
+  "interactionContinuity": "Drag-to-grid packing and the skip-count ticker persist unchanged across all three nodes; only the source of the order (simple label to word problem to adversarial garbled order) and the presence of the rival's pace change.",
+  "worldProgression": "The market lane visually grows from a single quiet stall to a bustling multi-stall street to a full route with a closing gate at dusk, mirroring rising stakes without changing the core packing gesture.",
+  "payoff": "Winning the Grand Market Run unlocks a 'Master Trader' banner over her caravan and a boastful concession dialogue from the rival, plus a summary ledger showing every array she built that day.",
+  "replayVariation": "Order quantities, garbled-order placement, and rival pace are randomized per run, and a 'double order' mode later requires packing two simultaneous arrays under one clock.",
+  "visualDirection": "Warm bustling marketplace palette (ochre, teal awnings, brass), crates with distinct fruit/potion icon sets, a ledger-style HUD reminiscent of receipt paper.",
+  "motionDirection": "Snappy crate-drop with bounce-settle, sequential pop-in of skip-count numbers per row, caravan wheels visibly rolling forward in proportion to array size completed.",
+  "usefulLibraries": [
+    "GSAP for snap/drag physics and caravan movement",
+    "Howler.js for crate-thud and market ambience",
+    "PixiJS for sprite-based crate and caravan rendering"
+  ],
+  "engagementPrediction": "Session length and voluntary replay count will exceed her worksheet-style baseline within the first three sessions, since the loop matches her demonstrated store-math strength and competitive preference.",
+  "falsifyingEvidence": "If she disengages or asks to stop when the rival takes a strong lead (rather than intensifying effort), or if she begins guessing crate counts without attending to the skip-count ticker while still winning, the competitive/store framing is not producing conceptual engagement."
+}

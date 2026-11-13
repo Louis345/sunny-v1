@@ -1,0 +1,18 @@
+{
+  "id": "opus-5",
+  "label": "Claude Opus 5",
+  "provider": "anthropic",
+  "model": "claude-opus-5",
+  "status": "complete",
+  "elapsedMs": 124575,
+  "inputTokens": 3604,
+  "outputTokens": 11427,
+  "estimatedCostUsd": 0.303695,
+  "artifactHash": "025824a5af5fda49a7adaa787633848390e51162de76fc990a0292edd5cc58d0",
+  "promptHash": "ac6b0be6cac3b5373ef62c716481ff15d9b9ca8da6a7ae78f14c61072011d54f",
+  "apiResponseHash": "5fcb402ada9f4ee98309761eb0c00b87886d92991ba5137bda9a406f3b97160e",
+  "savedHtmlHash": "5fcb402ada9f4ee98309761eb0c00b87886d92991ba5137bda9a406f3b97160e",
+  "iframeSrcDocHash": "5fcb402ada9f4ee98309761eb0c00b87886d92991ba5137bda9a406f3b97160e",
+  "extractionMode": "raw_html",
+  "error": null
+}

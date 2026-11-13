@@ -1,0 +1,643 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Multiplication Explorer</title>
+<style>
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none; }
+  html, body {
+    margin: 0; padding: 0; width: 1365px; height: 768px; overflow: hidden;
+    font-family: 'Trebuchet MS', 'Segoe UI', Verdana, sans-serif;
+    background: linear-gradient(135deg,#fef6e4,#e0f7fa);
+    touch-action: manipulation;
+  }
+  #app { width: 1365px; height: 768px; display: flex; flex-direction: column; }
+
+  /* HEADER */
+  header {
+    height: 90px; background: #4a3f8c; color: white; display: flex;
+    align-items: center; justify-content: space-between; padding: 0 30px;
+    box-shadow: 0 3px 8px rgba(0,0,0,0.2); flex-shrink: 0;
+  }
+  header h1 { font-size: 28px; margin: 0; }
+  header h1 span { color: #ffd166; }
+  #progress { display: flex; gap: 10px; }
+  .dot {
+    width: 20px; height: 20px; border-radius: 50%; background: #7568c9;
+    border: 2px solid white; cursor: pointer; transition: all .2s;
+  }
+  .dot.active { background: #ffd166; transform: scale(1.3); }
+  .dot.done { background: #6fcf97; }
+
+  /* MAIN */
+  main {
+    flex: 1; position: relative; overflow: hidden;
+    display: flex; align-items: stretch; justify-content: center;
+  }
+  .stage {
+    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+    display: flex; flex-direction: column; align-items: center; justify-content: flex-start;
+    padding: 20px 60px; opacity: 0; pointer-events: none; transition: opacity .4s ease;
+    overflow: hidden;
+  }
+  .stage.visible { opacity: 1; pointer-events: auto; }
+
+  h2.stageTitle { color: #4a3f8c; font-size: 30px; margin: 6px 0 4px; text-align:center; }
+  p.instructions { font-size: 19px; color: #555; text-align: center; max-width: 1000px; margin: 4px 0 14px; }
+
+  .panel {
+    background: white; border-radius: 20px; box-shadow: 0 6px 18px rgba(0,0,0,0.12);
+    padding: 20px 30px; display: flex; gap: 30px; align-items: center; flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .btn {
+    background: #6c5ce7; color: white; border: none; border-radius: 14px;
+    padding: 12px 22px; font-size: 18px; cursor: pointer; box-shadow: 0 4px 0 #4d3fb8;
+    transition: transform .1s;
+  }
+  .btn:active { transform: translateY(3px); box-shadow: 0 1px 0 #4d3fb8; }
+  .btn.small { padding: 8px 14px; font-size: 16px; }
+  .btn:disabled { background: #b3aee0; box-shadow: 0 4px 0 #9a94c9; cursor: not-allowed; }
+  .btn.secondary { background: #00b894; box-shadow: 0 4px 0 #05795c; }
+  .btn.warn { background: #ff7675; box-shadow: 0 4px 0 #c94b4a; }
+
+  .stepper { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+  .stepper .row { display: flex; align-items: center; gap: 10px; }
+  .stepper .value { font-size: 30px; font-weight: bold; width: 60px; text-align: center; color: #4a3f8c; }
+  .stepBtn {
+    width: 44px; height: 44px; border-radius: 50%; border: none; background: #ffd166;
+    font-size: 24px; font-weight: bold; cursor: pointer; box-shadow: 0 3px 0 #c99f2f;
+  }
+  .stepBtn:active { transform: translateY(2px); box-shadow: none; }
+
+  .equationBox {
+    font-size: 34px; font-weight: bold; color: #2d3436; background: #fff3cd;
+    padding: 10px 26px; border-radius: 14px; border: 3px dashed #ffb703;
+    margin-top: 10px; text-align: center;
+  }
+  .equationBox .hl { color: #e17055; }
+
+  #groupsVisual, #arrayVisual {
+    display: flex; gap: 18px; flex-wrap: wrap; justify-content: center;
+    max-width: 1050px; min-height: 160px; align-items: center;
+  }
+  .groupBox {
+    background: #eaf7ff; border: 3px solid #74b9ff; border-radius: 16px;
+    padding: 10px 14px; display: flex; flex-wrap: wrap; gap: 6px; max-width: 160px;
+    justify-content: center; align-items: center;
+  }
+  .item { font-size: 30px; }
+
+  .arrayGrid { display: inline-grid; gap: 6px; }
+  .arrayCell {
+    width: 42px; height: 42px; background: #ffeaa7; border-radius: 8px;
+    display: flex; align-items: center; justify-content: center; font-size: 24px;
+    border: 2px solid #fdcb6e;
+  }
+
+  #numberLine {
+    position: relative; width: 1050px; height: 90px; margin: 20px 0;
+  }
+  .lineTrack { position: absolute; top: 45px; left: 0; right: 0; height: 4px; background: #999; }
+  .tick { position: absolute; top: 34px; width: 2px; height: 24px; background: #999; }
+  .tickLabel { position: absolute; top: 60px; font-size: 13px; color: #555; transform: translateX(-50%); }
+  .jumper { position: absolute; top: 4px; font-size: 32px; transition: left .5s ease; transform: translateX(-50%); }
+  .landing { position: absolute; top: 40px; width: 12px; height: 12px; border-radius: 50%; background: #ff7675; transform: translate(-50%,-50%); }
+
+  #feedback {
+    min-height: 30px; font-size: 20px; font-weight: bold; margin-top: 10px; text-align:center;
+  }
+  #feedback.good { color: #00895c; }
+  #feedback.bad { color: #d63031; }
+
+  .choiceRow { display: flex; gap: 16px; flex-wrap: wrap; justify-content: center; margin-top: 12px; }
+  .choiceBtn {
+    background: #fff; border: 3px solid #a29bfe; border-radius: 12px; padding: 12px 20px;
+    font-size: 20px; cursor: pointer; color: #4a3f8c; font-weight: bold;
+  }
+  .choiceBtn.correct { background: #6fcf97; border-color: #2fa869; color: white; }
+  .choiceBtn.wrong { background: #ff7675; border-color: #d63031; color: white; }
+
+  .wordCard {
+    background: #fff; border-radius: 18px; box-shadow: 0 6px 16px rgba(0,0,0,0.12);
+    padding: 20px 30px; max-width: 950px; text-align: center;
+  }
+  .wordCard .story { font-size: 21px; color: #333; margin-bottom: 10px; }
+  .wordCard .emoji-story { font-size: 40px; margin-bottom: 6px;}
+
+  footer {
+    height: 78px; background: #fff; border-top: 2px solid #eee; display: flex;
+    align-items: center; justify-content: space-between; padding: 0 40px; flex-shrink: 0;
+  }
+  footer .navBtns { display: flex; gap: 14px; }
+  #stageLabel { color: #888; font-size: 16px; }
+
+  .badge {
+    font-size: 90px; text-align: center; margin: 10px 0;
+    animation: pop 0.6s ease;
+  }
+  @keyframes pop { 0%{transform:scale(0);} 70%{transform:scale(1.2);} 100%{transform:scale(1);} }
+
+  .fadeGrow { animation: fadeGrow .4s ease; }
+  @keyframes fadeGrow { from{opacity:0; transform:scale(.8);} to{opacity:1; transform:scale(1);} }
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <h1>✖️ Multiplication <span>Explorer</span></h1>
+    <div id="progress"></div>
+  </header>
+  <main id="main"></main>
+  <footer>
+    <div id="stageLabel">Step 1 of 6</div>
+    <div class="navBtns">
+      <button class="btn secondary" id="backBtn">⬅ Back</button>
+      <button class="btn" id="nextBtn">Next ➡</button>
+    </div>
+  </footer>
+</div>
+
+<script>
+const STAGE_TITLES = [
+  "Welcome to Multiplication!",
+  "Equal Groups",
+  "Skip Counting on the Number Line",
+  "Arrays: Rows and Columns",
+  "Word Problems",
+  "You're a Multiplication Star!"
+];
+
+let stage = 0;
+let achieved = [true,false,false,false,false,true]; // whether stage requirement met (welcome/conclusion always true)
+
+const main = document.getElementById('main');
+const progressEl = document.getElementById('progress');
+const backBtn = document.getElementById('backBtn');
+const nextBtn = document.getElementById('nextBtn');
+const stageLabel = document.getElementById('stageLabel');
+
+function buildProgressDots(){
+  progressEl.innerHTML = '';
+  for(let i=0;i<6;i++){
+    const d = document.createElement('div');
+    d.className = 'dot' + (i===stage?' active':'') + (achieved[i] && i!==stage ? ' done':'');
+    d.addEventListener('click', ()=>{ if(i<=stage || achieved[i-1]) goTo(i); });
+    progressEl.appendChild(d);
+  }
+}
+
+function updateNav(){
+  backBtn.disabled = stage===0;
+  nextBtn.disabled = !achieved[stage] || stage===5;
+  nextBtn.textContent = stage===5 ? "🎉 Done" : "Next ➡";
+  stageLabel.textContent = "Step " + (stage+1) + " of 6";
+}
+
+function goTo(i){
+  stage = i;
+  render();
+}
+
+backBtn.addEventListener('click', ()=>{ if(stage>0) goTo(stage-1); });
+nextBtn.addEventListener('click', ()=>{ if(stage<5 && achieved[stage]) goTo(stage+1); });
+
+function render(){
+  buildProgressDots();
+  updateNav();
+  main.innerHTML = '';
+  const div = document.createElement('div');
+  div.className = 'stage visible fadeGrow';
+  main.appendChild(div);
+  RENDERERS[stage](div);
+}
+
+/* ===================== STAGE 0: WELCOME ===================== */
+function renderWelcome(container){
+  container.innerHTML = `
+    <h2 class="stageTitle">${STAGE_TITLES[0]}</h2>
+    <p class="instructions">Multiplication is a fast way to add the <b>same number</b> over and over.<br>
+    Instead of counting one apple at a time, we count whole <b>equal groups</b> at once!</p>
+    <div class="panel" id="welcomeGroups"></div>
+    <div class="equationBox" id="welcomeEq">Watch the groups grow...</div>
+  `;
+  const gWrap = container.querySelector('#welcomeGroups');
+  const eq = container.querySelector('#welcomeEq');
+  let groups = 1;
+  const perGroup = 3;
+  function draw(){
+    gWrap.innerHTML = '';
+    for(let g=0; g<groups; g++){
+      const box = document.createElement('div');
+      box.className = 'groupBox';
+      for(let i=0;i<perGroup;i++){
+        const it = document.createElement('span');
+        it.className = 'item';
+        it.textContent = '🍎';
+        box.appendChild(it);
+      }
+      gWrap.appendChild(box);
+    }
+    eq.innerHTML = `<span class="hl">${groups}</span> group${groups>1?'s':''} of <span class="hl">${perGroup}</span> = <span class="hl">${groups*perGroup}</span> apples`;
+  }
+  draw();
+  const timer = setInterval(()=>{
+    groups++;
+    if(groups>5){ groups=1; }
+    draw();
+  }, 1400);
+  // stop timer if we leave stage (cleanup on next render via garbage collection is fine since element removed)
+}
+
+/* ===================== STAGE 1: EQUAL GROUPS ===================== */
+function renderGroups(container){
+  const target = {groups:4, items:3};
+  container.innerHTML = `
+    <h2 class="stageTitle">${STAGE_TITLES[1]}</h2>
+    <p class="instructions">Use the buttons to build <b>${target.groups} groups</b> with <b>${target.items} stars</b> in each group.
+    Watch how skip-counting matches the multiplication fact!</p>
+    <div class="panel">
+      <div class="stepper">
+        <div>Number of Groups</div>
+        <div class="row">
+          <button class="stepBtn" id="gMinus">−</button>
+          <div class="value" id="gVal">1</div>
+          <button class="stepBtn" id="gPlus">+</button>
+        </div>
+      </div>
+      <div class="stepper">
+        <div>Items per Group</div>
+        <div class="row">
+          <button class="stepBtn" id="iMinus">−</button>
+          <div class="value" id="iVal">1</div>
+          <button class="stepBtn" id="iPlus">+</button>
+        </div>
+      </div>
+    </div>
+    <div id="groupsVisual"></div>
+    <div class="equationBox" id="groupsEq"></div>
+    <div id="feedback"></div>
+    <button class="btn" id="checkGroups">✅ Check My Groups</button>
+  `;
+  let groups = 2, items = 2;
+  const gVal = container.querySelector('#gVal');
+  const iVal = container.querySelector('#iVal');
+  const visual = container.querySelector('#groupsVisual');
+  const eq = container.querySelector('#groupsEq');
+  const feedback = container.querySelector('#feedback');
+
+  function draw(){
+    gVal.textContent = groups;
+    iVal.textContent = items;
+    visual.innerHTML = '';
+    for(let g=0; g<groups; g++){
+      const box = document.createElement('div');
+      box.className = 'groupBox';
+      for(let i=0;i<items;i++){
+        const it = document.createElement('span');
+        it.className = 'item';
+        it.textContent = '⭐';
+        box.appendChild(it);
+      }
+      visual.appendChild(box);
+    }
+    let skip = [];
+    for(let g=1; g<=groups; g++) skip.push(g*items);
+    eq.innerHTML = `${groups} × ${items} = <span class="hl">${groups*items}</span><br>
+      <span style="font-size:18px;color:#555;">Skip-count: ${skip.join(', ')}</span>`;
+  }
+  draw();
+
+  container.querySelector('#gPlus').onclick = ()=>{ if(groups<6) groups++; draw(); };
+  container.querySelector('#gMinus').onclick = ()=>{ if(groups>1) groups--; draw(); };
+  container.querySelector('#iPlus').onclick = ()=>{ if(items<6) items++; draw(); };
+  container.querySelector('#iMinus').onclick = ()=>{ if(items>1) items--; draw(); };
+
+  container.querySelector('#checkGroups').onclick = ()=>{
+    if(groups===target.groups && items===target.items){
+      feedback.textContent = "🎉 Perfect! " + target.groups + " × " + target.items + " = " + (target.groups*target.items) + ". You built equal groups!";
+      feedback.className = 'good';
+      achieved[1] = true;
+      updateNav();
+      buildProgressDots();
+    } else {
+      feedback.textContent = "Not quite yet — try to make exactly " + target.groups + " groups of " + target.items + ".";
+      feedback.className = 'bad';
+    }
+  };
+}
+
+/* ===================== STAGE 2: SKIP COUNTING ===================== */
+function renderSkip(container){
+  const step = 4, targetJumps = 5, targetTotal = step*targetJumps;
+  container.innerHTML = `
+    <h2 class="stageTitle">${STAGE_TITLES[2]}</h2>
+    <p class="instructions">Each jump on the number line is worth <b>${step}</b>. Keep jumping until you reach <b>${targetTotal}</b>,
+    then tell us how many jumps it took — that's the same as ${step} × <i>jumps</i>!</p>
+    <div id="numberLine"></div>
+    <div class="equationBox" id="skipEq">Jumps: 0 &nbsp;|&nbsp; Total: 0</div>
+    <button class="btn" id="jumpBtn">🐇 Jump +${step}</button>
+    <button class="btn secondary small" id="resetJump" style="margin-top:10px;">↺ Reset</button>
+    <div id="skipQuestion" style="margin-top:14px;"></div>
+    <div id="feedback"></div>
+  `;
+  const lineDiv = container.querySelector('#numberLine');
+  const eq = container.querySelector('#skipEq');
+  const feedback = container.querySelector('#feedback');
+  const qDiv = container.querySelector('#skipQuestion');
+  let jumps = 0;
+  const maxVal = 50;
+  const width = 1050;
+
+  function posFor(val){ return (val/maxVal)*width; }
+
+  function buildLine(){
+    lineDiv.innerHTML = '<div class="lineTrack"></div>';
+    for(let v=0; v<=maxVal; v+=5){
+      const t = document.createElement('div');
+      t.className='tick'; t.style.left = posFor(v)+'px';
+      lineDiv.appendChild(t);
+      const l = document.createElement('div');
+      l.className='tickLabel'; l.style.left = posFor(v)+'px'; l.textContent = v;
+      lineDiv.appendChild(l);
+    }
+    const jp = document.createElement('div');
+    jp.className='jumper'; jp.id='jumperIcon'; jp.style.left = posFor(0)+'px';
+    jp.textContent='🐇';
+    lineDiv.appendChild(jp);
+  }
+  buildLine();
+
+  function updateEq(){
+    const total = jumps*step;
+    eq.innerHTML = `Jumps: <span class="hl">${jumps}</span> &nbsp;|&nbsp; Total: <span class="hl">${total}</span>` +
+      (jumps>0 ? `<br><span style="font-size:18px;color:#555;">${step} × ${jumps} = ${total}</span>` : '');
+    document.getElementById('jumperIcon').style.left = posFor(Math.min(total,maxVal))+'px';
+  }
+
+  container.querySelector('#jumpBtn').onclick = ()=>{
+    const total = jumps*step;
+    if(total + step <= maxVal){
+      jumps++;
+      const landing = document.createElement('div');
+      landing.className='landing';
+      landing.style.left = posFor(jumps*step)+'px';
+      lineDiv.appendChild(landing);
+      updateEq();
+      if(jumps*step === targetTotal){
+        askQuestion();
+      }
+    }
+  };
+  container.querySelector('#resetJump').onclick = ()=>{
+    jumps = 0;
+    buildLine();
+    updateEq();
+    qDiv.innerHTML='';
+    feedback.textContent='';
+  };
+
+  function askQuestion(){
+    qDiv.innerHTML = `<p style="font-size:19px;">You reached ${targetTotal}! How many jumps of ${step} did that take?</p>
+      <div class="choiceRow" id="skipChoices"></div>`;
+    const options = [3,4,5,6].sort(()=>Math.random()-0.5);
+    const row = qDiv.querySelector('#skipChoices');
+    options.forEach(opt=>{
+      const b = document.createElement('button');
+      b.className='choiceBtn';
+      b.textContent = opt;
+      b.onclick = ()=>{
+        Array.from(row.children).forEach(c=>c.disabled=true);
+        if(opt===targetJumps){
+          b.classList.add('correct');
+          feedback.textContent = `🎉 Yes! ${step} × ${targetJumps} = ${targetTotal}. Skip-counting IS multiplication!`;
+          feedback.className='good';
+          achieved[2]=true;
+          updateNav(); buildProgressDots();
+        } else {
+          b.classList.add('wrong');
+          feedback.textContent = "Try counting the landing dots again!";
+          feedback.className='bad';
+        }
+      };
+      row.appendChild(b);
+    });
+  }
+  updateEq();
+}
+
+/* ===================== STAGE 3: ARRAYS ===================== */
+function renderArray(container){
+  const target = {rows:3, cols:5};
+  container.innerHTML = `
+    <h2 class="stageTitle">${STAGE_TITLES[3]}</h2>
+    <p class="instructions">An <b>array</b> lines items up in neat rows and columns. Build an array with
+    <b>${target.rows} rows</b> and <b>${target.cols} columns</b>.</p>
+    <div class="panel">
+      <div class="stepper">
+        <div>Rows</div>
+        <div class="row">
+          <button class="stepBtn" id="rMinus">−</button>
+          <div class="value" id="rVal">1</div>
+          <button class="stepBtn" id="rPlus">+</button>
+        </div>
+      </div>
+      <div class="stepper">
+        <div>Columns</div>
+        <div class="row">
+          <button class="stepBtn" id="cMinus">−</button>
+          <div class="value" id="cVal">1</div>
+          <button class="stepBtn" id="cPlus">+</button>
+        </div>
+      </div>
+    </div>
+    <div id="arrayVisual"></div>
+    <div class="equationBox" id="arrayEq"></div>
+    <div id="feedback"></div>
+    <button class="btn" id="checkArray">✅ Check My Array</button>
+  `;
+  let rows=2, cols=2;
+  const rVal = container.querySelector('#rVal');
+  const cVal = container.querySelector('#cVal');
+  const visual = container.querySelector('#arrayVisual');
+  const eq = container.querySelector('#arrayEq');
+  const feedback = container.querySelector('#feedback');
+
+  function draw(){
+    rVal.textContent = rows; cVal.textContent = cols;
+    visual.innerHTML = '';
+    const grid = document.createElement('div');
+    grid.className = 'arrayGrid';
+    grid.style.gridTemplateColumns = `repeat(${cols}, 42px)`;
+    for(let r=0;r<rows;r++){
+      for(let c=0;c<cols;c++){
+        const cell = document.createElement('div');
+        cell.className='arrayCell';
+        cell.textContent='🔵';
+        grid.appendChild(cell);
+      }
+    }
+    visual.appendChild(grid);
+    let rowTotals = [];
+    for(let r=1;r<=rows;r++) rowTotals.push(r*cols);
+    eq.innerHTML = `${rows} × ${cols} = <span class="hl">${rows*cols}</span><br>
+      <span style="font-size:18px;color:#555;">Row totals (skip-count by ${cols}): ${rowTotals.join(', ')}</span>`;
+  }
+  draw();
+  container.querySelector('#rPlus').onclick=()=>{ if(rows<6) rows++; draw(); };
+  container.querySelector('#rMinus').onclick=()=>{ if(rows>1) rows--; draw(); };
+  container.querySelector('#cPlus').onclick=()=>{ if(cols<8) cols++; draw(); };
+  container.querySelector('#cMinus').onclick=()=>{ if(cols>1) cols--; draw(); };
+
+  container.querySelector('#checkArray').onclick = ()=>{
+    if(rows===target.rows && cols===target.cols){
+      feedback.textContent = `🎉 Great array! ${target.rows} rows × ${target.cols} columns = ${target.rows*target.cols}.`;
+      feedback.className='good';
+      achieved[3]=true;
+      updateNav(); buildProgressDots();
+    } else {
+      feedback.textContent = `Keep adjusting — you need ${target.rows} rows and ${target.cols} columns.`;
+      feedback.className='bad';
+    }
+  };
+}
+
+/* ===================== STAGE 4: WORD PROBLEMS ===================== */
+const wordProblems = [
+  {
+    story: "A baker puts cupcakes on trays. There are 4 trays, and each tray holds 6 cupcakes.",
+    emoji: "🧁🧁🧁🧁🧁🧁 (x4 trays)",
+    correct: "4 × 6",
+    options: ["4 × 6", "4 + 6", "6 − 4", "4 ÷ 6"],
+    groups:4, items:6
+  },
+  {
+    story: "In the garden, there are 3 rows of flowers. Each row has 5 flowers.",
+    emoji: "🌼🌼🌼🌼🌼 (x3 rows)",
+    correct: "3 × 5",
+    options: ["3 × 5", "3 − 5", "3 + 5", "5 ÷ 3"],
+    groups:3, items:5
+  },
+  {
+    story: "A parking lot has 5 rows of cars, with 4 cars parked in each row.",
+    emoji: "🚗🚗🚗🚗 (x5 rows)",
+    correct: "5 × 4",
+    options: ["5 + 4", "5 × 4", "5 − 4", "4 × 4"],
+    groups:5, items:4
+  }
+];
+let wpIndex = 0;
+let wpSolvedCount = 0;
+
+function renderWord(container){
+  wpIndex = 0;
+  wpSolvedCount = 0;
+  drawWordProblem(container);
+}
+
+function drawWordProblem(container){
+  const p = wordProblems[wpIndex];
+  container.innerHTML = `
+    <h2 class="stageTitle">${STAGE_TITLES[4]}</h2>
+    <p class="instructions">Read the story. Pick the multiplication expression that matches it.</p>
+    <div class="wordCard">
+      <div class="emoji-story">${p.emoji}</div>
+      <div class="story">${p.story}</div>
+      <div class="choiceRow" id="wordChoices"></div>
+      <div id="wordVisual" style="margin-top:14px;"></div>
+    </div>
+    <div id="feedback"></div>
+    <div style="margin-top:10px; color:#888;">Problem ${wpIndex+1} of ${wordProblems.length}</div>
+  `;
+  const row = container.querySelector('#wordChoices');
+  const feedback = container.querySelector('#feedback');
+  const visualDiv = container.querySelector('#wordVisual');
+
+  p.options.forEach(opt=>{
+    const b = document.createElement('button');
+    b.className='choiceBtn';
+    b.textContent = opt;
+    b.onclick = ()=>{
+      Array.from(row.children).forEach(c=>c.disabled=true);
+      if(opt===p.correct){
+        b.classList.add('correct');
+        feedback.textContent = "🎉 Correct! Let's see the groups:";
+        feedback.className='good';
+        showGroupsVisual(visualDiv, p.groups, p.items);
+        wpSolvedCount++;
+        setTimeout(()=>{
+          if(wpIndex < wordProblems.length-1){
+            wpIndex++;
+            drawWordProblem(container);
+          } else {
+            achieved[4] = true;
+            updateNav(); buildProgressDots();
+            feedback.textContent = "🌟 You solved all the word problems!";
+          }
+        }, 1800);
+      } else {
+        b.classList.add('wrong');
+        feedback.textContent = "Not quite — think about equal groups and how many groups there are.";
+        feedback.className='bad';
+        setTimeout(()=>{ Array.from(row.children).forEach(c=>c.disabled=false); b.classList.remove('wrong'); }, 900);
+      }
+    };
+    row.appendChild(b);
+  });
+}
+
+function showGroupsVisual(container, groups, items){
+  container.innerHTML='';
+  const wrap = document.createElement('div');
+  wrap.style.display='flex'; wrap.style.gap='10px'; wrap.style.flexWrap='wrap'; wrap.style.justifyContent='center';
+  for(let g=0; g<groups; g++){
+    const box = document.createElement('div');
+    box.className='groupBox';
+    box.style.padding='6px 8px';
+    for(let i=0;i<items;i++){
+      const it = document.createElement('span');
+      it.className='item'; it.style.fontSize='20px';
+      it.textContent='🔸';
+      box.appendChild(it);
+    }
+    wrap.appendChild(box);
+  }
+  container.appendChild(wrap);
+  const eq = document.createElement('div');
+  eq.className='equationBox';
+  eq.style.marginTop='10px';
+  eq.innerHTML = `${groups} × ${items} = <span class="hl">${groups*items}</span>`;
+  container.appendChild(eq);
+}
+
+/* ===================== STAGE 5: CONCLUSION ===================== */
+function renderConclusion(container){
+  container.innerHTML = `
+    <h2 class="stageTitle">${STAGE_TITLES[5]}</h2>
+    <div class="badge">🏆</div>
+    <p class="instructions" style="font-size:22px;">
+      You learned that multiplication means <b>equal groups</b> added together — and you can
+      show it with <b>groups</b>, <b>arrays</b>, or by <b>skip-counting</b> on a number line!
+    </p>
+    <div class="panel" style="flex-direction:column; align-items:center;">
+      <div class="equationBox">4 × 6 = 24</div>
+      <p style="max-width:800px; text-align:center; font-size:18px; color:#555;">
+        Remember: whenever you see a story about equal groups, rows and columns,
+        or repeated jumps — that's multiplication in action!
+      </p>
+      <button class="btn secondary" id="restartBtn" style="margin-top:16px;">🔁 Explore Again</button>
+    </div>
+  `;
+  container.querySelector('#restartBtn').onclick = ()=>{
+    achieved = [true,false,false,false,false,true];
+    goTo(0);
+  };
+}
+
+const RENDERERS = [renderWelcome, renderGroups, renderSkip, renderArray, renderWord, renderConclusion];
+
+render();
+</script>
+</body>
+</html>

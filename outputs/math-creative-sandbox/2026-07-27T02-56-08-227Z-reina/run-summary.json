@@ -1,0 +1,15 @@
+{
+  "checkpoint": "f172e1b",
+  "childId": "reina",
+  "concept": "multiplication as equal groups and arrays, connected to skip-counting and interpreted in word problems",
+  "model": "claude-sonnet-5",
+  "evaluatorModel": "claude-sonnet-5",
+  "selectedCandidateId": "scenario-1-concept-only",
+  "selectionReason": "All three candidates are rejects with fundamentally broken core interactions, but scenario-1-concept-only demonstrates marginally more substantive experience than the alternatives. Critically, scenario-1 at least renders the actual activity screen with its intended UI elements present (three flower pots, '?' placeholders, step buttons, a 'Check My Array' button, progress dots, and a disabled 'Next' gate) — the scaffolding of the equal-groups → array → challenge progression is visible and structurally laid out, even though the taps never register and later stages throw 'not visible' errors. This is a failure of wiring/interactivity on top of an otherwise-built multi-stage interface.\n\nBy contrast, scenario-2-profile and scenario-3-profile-and-spelling both dead-end at a splash/intro screen with zero progression at all — clicking 'Start Adventure' or 'Let's Go!' produces a pixel-identical screen every single time across all captures, meaning no part of the actual learning activity (bugs, flowers, arrays, strawberries, skip-counting) is ever rendered or reachable. These are strictly worse failures: they don't even expose the intended mechanic's DOM/UI, let alone attempt it. Scenario-1's evidence trace at least shows an attempt to reach 'Array Challenge' and 'See it as an Array' — implying a designed multi-step arc existed in the build, even if broken - versus scenario-2 and 3 which only ever show a title card and greeting bubble or a level badge with no gameplay layer instantiated whatsoever.\n\nGiven the instruction to select the most promising substantive experience rather than the prettiest opening screen, scenario-1 is the only one where any part of the actual pedagogical interaction (skip-count pots, per-step '+' controls, array-building stage) is visibly instantiated in the DOM, making it the strongest (least-bad) candidate for diagnostic follow-up despite its severe functionality failure.</reason>\n</invoke>\n",
+  "allGeneratedCandidatesRejected": true,
+  "refactorMove": "pivot",
+  "totalInputTokens": 74507,
+  "totalOutputTokens": 81219,
+  "estimatedCostUsd": 0,
+  "costNote": "Calculated from SUNNY_SANDBOX_*_COST_PER_MTOK."
+}

@@ -1,0 +1,808 @@
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no">
+<title>Multiplication Arena: Champion's Challenge</title>
+<style>
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none; }
+  html, body {
+    margin: 0; padding: 0; height: 100%;
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    background: linear-gradient(180deg,#1a0f2e 0%,#3a1650 40%,#5c1a3d 100%);
+    color: #fff8ec;
+    overflow-x: hidden;
+  }
+  #app { max-width: 640px; margin: 0 auto; min-height: 100vh; display:flex; flex-direction:column; }
+
+  .screen { display:none; flex-direction:column; align-items:center; padding: 18px 16px 120px; flex:1; animation: fadeIn 0.4s ease; }
+  .screen.active { display:flex; }
+  @keyframes fadeIn { from{opacity:0; transform:translateY(8px);} to{opacity:1; transform:translateY(0);} }
+
+  h1 { font-size: 1.5em; text-align:center; margin: 6px 0; color:#ffd166; text-shadow: 0 2px 0 #7a3b00; }
+  h2 { font-size: 1.2em; color:#ffd166; margin: 4px 0 10px; text-align:center; }
+  p.lead { text-align:center; font-size:1.05em; line-height:1.5; max-width: 520px; }
+
+  .beltbar { display:flex; gap:6px; justify-content:center; padding:8px; }
+  .belt-seg { width:34px; height:10px; border-radius:6px; background:#3a2350; border:1px solid #ffd166aa; }
+  .belt-seg.filled { background: linear-gradient(90deg,#ffd166,#ff8c42); }
+
+  .card {
+    background: rgba(255,255,255,0.08);
+    border: 2px solid #ffd16655;
+    border-radius: 18px;
+    padding: 16px;
+    margin: 10px 0;
+    width: 100%;
+    max-width: 520px;
+    box-shadow: 0 6px 18px rgba(0,0,0,0.3);
+  }
+
+  .btn {
+    background: linear-gradient(180deg,#ff8c42,#e6531f);
+    color:#fff; border:none; border-radius: 14px;
+    padding: 14px 22px; font-size: 1.05em; font-weight:700;
+    cursor:pointer; box-shadow: 0 4px 0 #a53812, 0 8px 14px rgba(0,0,0,0.3);
+    margin: 8px; touch-action: manipulation;
+    transition: transform 0.1s;
+  }
+  .btn:active { transform: translateY(3px); box-shadow: 0 1px 0 #a53812; }
+  .btn.secondary { background: linear-gradient(180deg,#3a6ea5,#284b73); box-shadow: 0 4px 0 #16324d, 0 8px 14px rgba(0,0,0,0.3); }
+  .btn.gold { background: linear-gradient(180deg,#ffd166,#e6a900); color:#3a1650; box-shadow: 0 4px 0 #a37300; }
+  .btn:disabled { opacity:0.4; cursor:default; }
+
+  .row-center { display:flex; flex-wrap:wrap; justify-content:center; align-items:center; gap:8px; }
+
+  .stepper { display:flex; align-items:center; gap:10px; justify-content:center; margin: 8px 0; }
+  .stepper button {
+    width:44px; height:44px; border-radius:50%; border:none; font-size:1.4em; font-weight:800;
+    background:#ffd166; color:#3a1650; cursor:pointer;
+  }
+  .stepper .val { font-size:1.6em; font-weight:800; min-width:50px; text-align:center; color:#ffd166; }
+
+  .grid-wrap { display:flex; justify-content:center; margin:10px 0; overflow:auto; max-width:100%; }
+  .seat-grid { display:grid; gap:4px; }
+  .seat { width:22px; height:22px; font-size:18px; display:flex; align-items:center; justify-content:center; }
+
+  .sentence {
+    text-align:center; font-size:1.4em; font-weight:800; color:#ffd166;
+    background:rgba(0,0,0,0.25); border-radius:12px; padding:10px; margin:10px 0;
+  }
+
+  .groups-area { display:flex; flex-wrap:wrap; gap:10px; justify-content:center; min-height: 60px; margin: 10px 0; }
+  .group-box {
+    background: rgba(255,255,255,0.1); border:2px dashed #ffd166aa; border-radius:12px;
+    padding: 6px 8px; display:flex; gap:2px; flex-wrap:wrap; max-width: 150px;
+  }
+  .group-box span { font-size: 20px; }
+
+  input[type="number"], input[type="text"] {
+    font-size: 1.3em; padding: 10px; border-radius: 10px; border:2px solid #ffd166; width: 110px;
+    text-align:center; background:#fff8ec; color:#3a1650; font-weight:700;
+  }
+
+  .choice-grid { display:grid; grid-template-columns: 1fr 1fr; gap:10px; width:100%; max-width:420px; }
+  .choice-btn {
+    background: rgba(255,255,255,0.1); border:2px solid #ffd16688; border-radius:14px;
+    padding: 14px; font-size:1.2em; font-weight:800; color:#fff8ec; cursor:pointer;
+  }
+  .choice-btn.correct { background:#3ba55c !important; border-color:#3ba55c; }
+  .choice-btn.wrong { background:#c0392b !important; border-color:#c0392b; }
+
+  .feedback { min-height: 30px; text-align:center; font-weight:700; font-size:1.1em; }
+  .feedback.good { color:#8fffb0; }
+  .feedback.bad { color:#ff9a9a; }
+
+  #companion-wrap {
+    position: fixed; bottom:0; left:0; right:0;
+    display:flex; align-items:flex-end; gap:8px; padding: 8px 10px;
+    background: linear-gradient(180deg, transparent, rgba(10,5,20,0.85) 40%);
+    pointer-events:none; z-index: 50;
+  }
+  #companion-svg { width:64px; height:64px; flex-shrink:0; filter: drop-shadow(0 3px 4px rgba(0,0,0,0.4)); }
+  #bubble {
+    background:#fff8ec; color:#3a1650; border-radius:16px; padding:8px 12px;
+    font-size:0.95em; font-weight:700; max-width: 340px; position:relative;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+  }
+
+  .number-line { width:100%; overflow-x:auto; padding: 10px 0; }
+  .nl-svg { display:block; margin:0 auto; }
+
+  .score-pill {
+    position:fixed; top:8px; right:10px; background:rgba(0,0,0,0.4); border:1px solid #ffd16688;
+    border-radius:20px; padding:4px 12px; font-weight:800; color:#ffd166; z-index:40;
+  }
+
+  .health-wrap { width:100%; max-width:420px; margin: 6px 0; }
+  .health-label { display:flex; justify-content:space-between; font-size:0.85em; margin-bottom:2px; }
+  .health-bar { width:100%; height:16px; background:#3a2350; border-radius:8px; overflow:hidden; border:2px solid #ffd16655;}
+  .health-fill { height:100%; transition: width 0.3s ease; }
+  .health-fill.player { background: linear-gradient(90deg,#3ba55c,#5be27a); }
+  .health-fill.boss { background: linear-gradient(90deg,#c0392b,#e6531f); }
+
+  .timerbar { width:100%; max-width:420px; height:10px; background:#3a2350; border-radius:6px; overflow:hidden; margin: 4px 0 10px; }
+  .timerfill { height:100%; background:#ffd166; transition: width 0.1s linear; }
+
+  #confetti-canvas { position:fixed; top:0; left:0; width:100%; height:100%; pointer-events:none; z-index:60; }
+
+  .small-note { font-size:0.85em; opacity:0.8; text-align:center; }
+  .badge { display:inline-block; background:#ffd166; color:#3a1650; border-radius:8px; padding:2px 8px; font-weight:800; font-size:0.8em; margin-left:6px;}
+</style>
+</head>
+<body>
+<canvas id="confetti-canvas"></canvas>
+<div id="app">
+
+  <div class="beltbar" id="beltbar"></div>
+  <div class="score-pill" id="scorePill">⭐ 0</div>
+
+  <!-- TITLE -->
+  <div class="screen active" id="screen-title">
+    <svg width="140" height="140" viewBox="0 0 140 140">
+      <circle cx="70" cy="70" r="66" fill="#ffd166" stroke="#e6531f" stroke-width="5"/>
+      <circle cx="70" cy="70" r="50" fill="#e6531f"/>
+      <text x="70" y="82" font-size="42" text-anchor="middle" fill="#fff">🤼</text>
+    </svg>
+    <h1>Multiplication Arena</h1>
+    <p class="lead">Coach Rex's gym is the reigning champion. To win the Golden Belt, you must master <b>equal groups</b>, <b>arrays</b>, and <b>skip-counting</b> — then beat Rex in the final match!</p>
+    <button class="btn gold" onclick="goTo('screen-groups')">Start Training 🥋</button>
+  </div>
+
+  <!-- GROUPS -->
+  <div class="screen" id="screen-groups">
+    <h2>Round 1: Equal Groups</h2>
+    <p class="lead">Wrestling teams train in <b>equal groups</b>. Tap a team size, then add teams to the mat!</p>
+    <div class="card">
+      <div class="row-center" id="groupSizeButtons"></div>
+      <div class="groups-area" id="groupsArea"></div>
+      <div class="sentence" id="groupSentence">Add a team to begin!</div>
+      <div class="row-center">
+        <button class="btn secondary" onclick="undoGroup()">Undo</button>
+        <button class="btn" onclick="resetGroups()">Clear Mat</button>
+      </div>
+    </div>
+    <div class="card" id="groupQuizCard" style="display:none;">
+      <h2 id="groupQTitle">Question</h2>
+      <p class="lead" id="groupQText"></p>
+      <div class="row-center">
+        <input type="number" id="groupAnswerInput" placeholder="?">
+        <button class="btn gold" onclick="checkGroupAnswer()">Check</button>
+      </div>
+      <div class="feedback" id="groupFeedback"></div>
+    </div>
+    <button class="btn" id="groupsNextBtn" style="display:none;" onclick="goTo('screen-arrays')">Next: Arrays ➡️</button>
+  </div>
+
+  <!-- ARRAYS -->
+  <div class="screen" id="screen-arrays">
+    <h2>Round 2: Seat the Arena</h2>
+    <p class="lead">The arena has <b>rows</b> and <b>columns</b> of seats — that's an <b>array</b>! Build the seats and see the total.</p>
+    <div class="card">
+      <div class="stepper">
+        <span>Rows</span>
+        <button onclick="changeRows(-1)">−</button>
+        <span class="val" id="rowsVal">3</span>
+        <button onclick="changeRows(1)">+</button>
+      </div>
+      <div class="stepper">
+        <span>Seats per row</span>
+        <button onclick="changeCols(-1)">−</button>
+        <span class="val" id="colsVal">4</span>
+        <button onclick="changeCols(1)">+</button>
+      </div>
+      <div class="grid-wrap"><div class="seat-grid" id="seatGrid"></div></div>
+      <div class="sentence" id="arraySentence"></div>
+    </div>
+    <div class="card" id="arrayQuizCard" style="display:none;">
+      <h2>Match the Arena!</h2>
+      <p class="lead" id="arrayQText"></p>
+      <div class="feedback" id="arrayFeedback"></div>
+      <div class="row-center"><button class="btn gold" onclick="checkArrayAnswer()">Check My Build</button></div>
+    </div>
+    <button class="btn" id="arraysNextBtn" style="display:none;" onclick="goTo('screen-skip')">Next: Skip-Counting ➡️</button>
+  </div>
+
+  <!-- SKIP COUNTING -->
+  <div class="screen" id="screen-skip">
+    <h2>Round 3: Scoreboard Jumps</h2>
+    <p class="lead" id="skipPrompt">The scoreboard climbs by equal jumps. Tap "Jump!" to skip-count and solve it.</p>
+    <div class="card">
+      <div class="number-line"><svg id="numberLineSvg" class="nl-svg" height="90"></svg></div>
+      <div class="sentence" id="skipSentence"></div>
+      <div class="row-center">
+        <button class="btn" onclick="doJump()">Jump! 🐾</button>
+        <button class="btn secondary" onclick="resetSkip()">Reset</button>
+      </div>
+      <div class="feedback" id="skipFeedback"></div>
+    </div>
+    <button class="btn" id="skipNextBtn" style="display:none;" onclick="goTo('screen-word')">Next: Tournament Word Problems ➡️</button>
+  </div>
+
+  <!-- WORD PROBLEMS -->
+  <div class="screen" id="screen-word">
+    <h2>Round 4: Tournament Day</h2>
+    <p class="lead" id="wordProblemText">Loading...</p>
+    <div class="card">
+      <div class="choice-grid" id="wordChoices"></div>
+      <div class="feedback" id="wordFeedback"></div>
+    </div>
+    <div class="small-note" id="wordProgress"></div>
+    <button class="btn" id="wordNextBtn" style="display:none;" onclick="nextWordOrBoss()">Continue ➡️</button>
+  </div>
+
+  <!-- BOSS -->
+  <div class="screen" id="screen-boss">
+    <h2>🏆 FINAL MATCH vs Coach Rex 🏆</h2>
+    <div class="health-wrap">
+      <div class="health-label"><span>You</span><span id="playerHpText">5/5</span></div>
+      <div class="health-bar"><div class="health-fill player" id="playerHp" style="width:100%"></div></div>
+    </div>
+    <div class="health-wrap">
+      <div class="health-label"><span>Coach Rex</span><span id="bossHpText">5/5</span></div>
+      <div class="health-bar"><div class="health-fill boss" id="bossHp" style="width:100%"></div></div>
+    </div>
+    <div class="timerbar"><div class="timerfill" id="timerFill" style="width:100%"></div></div>
+    <div class="card">
+      <p class="lead" id="bossQuestion" style="font-size:1.3em;font-weight:800;"></p>
+      <div class="choice-grid" id="bossChoices"></div>
+      <div class="feedback" id="bossFeedback"></div>
+    </div>
+  </div>
+
+  <!-- VICTORY -->
+  <div class="screen" id="screen-victory">
+    <h1 id="victoryTitle">🏆 CHAMPION! 🏆</h1>
+    <svg width="160" height="120" viewBox="0 0 160 120">
+      <ellipse cx="80" cy="60" rx="70" ry="45" fill="#ffd166" stroke="#e6531f" stroke-width="4"/>
+      <text x="80" y="72" font-size="46" text-anchor="middle">🥇</text>
+    </svg>
+    <p class="lead" id="victoryText"></p>
+    <div class="card">
+      <p class="lead"><b>Stats:</b></p>
+      <p class="lead" id="statsText"></p>
+    </div>
+    <button class="btn gold" onclick="restartAll()">Train Again 🔁</button>
+  </div>
+
+</div>
+
+<div id="companion-wrap">
+  <svg id="companion-svg" viewBox="0 0 100 100">
+    <circle cx="50" cy="50" r="46" fill="#ff8c42" stroke="#e6531f" stroke-width="4"/>
+    <circle cx="35" cy="42" r="7" fill="#fff"/><circle cx="65" cy="42" r="7" fill="#fff"/>
+    <circle cx="35" cy="42" r="3.5" fill="#3a1650" id="eyeL"/><circle cx="65" cy="42" r="3.5" fill="#3a1650" id="eyeR"/>
+    <path id="mouth" d="M35 62 Q50 75 65 62" stroke="#3a1650" stroke-width="4" fill="none" stroke-linecap="round"/>
+  </svg>
+  <div id="bubble">Ready to train, Champ? 🥋</div>
+</div>
+
+<script>
+/* ============ GLOBAL STATE ============ */
+const state = {
+  stars: 0,
+  screenOrder: ['screen-title','screen-groups','screen-arrays','screen-skip','screen-word','screen-boss','screen-victory'],
+  currentIndex: 0,
+  wordIndex: 0,
+  wordCorrect: 0,
+  wordTotal: 0,
+  bossHp: 5, playerHp: 5,
+  bossTimer: null, bossTimeLeft: 10,
+  bossActive: false,
+  bossCorrect: 0, bossTotal: 0
+};
+
+function rand(min,max){ return Math.floor(Math.random()*(max-min+1))+min; }
+function shuffle(arr){ for(let i=arr.length-1;i>0;i--){const j=rand(0,i);[arr[i],arr[j]]=[arr[j],arr[i]];} return arr; }
+
+function updateScorePill(){ document.getElementById('scorePill').textContent = '⭐ ' + state.stars; }
+function addStar(n=1){ state.stars += n; updateScorePill(); }
+
+function updateBeltbar(){
+  const bar = document.getElementById('beltbar');
+  bar.innerHTML='';
+  const total = state.screenOrder.length - 1; // exclude title in count logic, but keep simple
+  for(let i=1;i<state.screenOrder.length;i++){
+    const seg = document.createElement('div');
+    seg.className = 'belt-seg' + (i <= state.currentIndex ? ' filled':'');
+    bar.appendChild(seg);
+  }
+}
+
+function goTo(id){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  state.currentIndex = state.screenOrder.indexOf(id);
+  updateBeltbar();
+  window.scrollTo(0,0);
+  if(id==='screen-groups') initGroups();
+  if(id==='screen-arrays') initArrays();
+  if(id==='screen-skip') initSkip();
+  if(id==='screen-word') { state.wordIndex=0; state.wordCorrect=0; state.wordTotal=0; loadWordProblem(); }
+  if(id==='screen-boss') initBoss();
+}
+
+/* ============ COMPANION ============ */
+const companionLines = {
+  intro: ["Ready to train, Champ? 🥋","Let's build some muscle memory... math muscle! 💪"],
+  correct: ["Yes! Solid takedown on that problem! 🤼","That's the move! Keep going!","Champion form right there! 🔥","You nailed it — like a pin!"],
+  wrong: ["No pin yet — try again, you got this!","Close! Reset your stance and try once more.","Shake it off, Champ. One more try!"],
+  levelup: ["New belt earned! You're leveling up! 🥋⭐","Look at that progress — unstoppable!"],
+  boss: ["This is it — the final match! Stay focused!","Rex is tough, but you're tougher!"],
+  win: ["CHAMPION! You out-trained Coach Rex! 🏆","That's the Golden Belt, Champ! Incredible work!"],
+  lose: ["So close! Rex barely held on — run it back?","Great fight! One more round and that belt is yours."]
+};
+function speak(category){
+  const arr = companionLines[category] || ["..."];
+  const msg = arr[rand(0,arr.length-1)];
+  document.getElementById('bubble').textContent = msg;
+  const mouth = document.getElementById('mouth');
+  if(category==='correct'||category==='win'||category==='levelup'){
+    mouth.setAttribute('d','M35 60 Q50 80 65 60');
+  } else if(category==='wrong'||category==='lose'){
+    mouth.setAttribute('d','M35 68 Q50 58 65 68');
+  } else {
+    mouth.setAttribute('d','M35 62 Q50 75 65 62');
+  }
+}
+speak('intro');
+
+/* ============ ROUND 1: GROUPS ============ */
+let groupState = { size:0, groups:[], targetSize:0, targetCount:0, targetTotal:0, round:0 };
+
+function initGroups(){
+  groupState = { size:0, groups:[], targetSize:0, targetCount:0, targetTotal:0, round:0 };
+  document.getElementById('groupQuizCard').style.display='none';
+  document.getElementById('groupsNextBtn').style.display='none';
+  const sizes = [2,3,4,5];
+  const wrap = document.getElementById('groupSizeButtons');
+  wrap.innerHTML='';
+  sizes.forEach(s=>{
+    const b = document.createElement('button');
+    b.className='btn secondary';
+    b.textContent = 'Team of ' + s;
+    b.onclick = ()=>selectGroupSize(s);
+    wrap.appendChild(b);
+  });
+  renderGroups();
+  startGroupRound();
+}
+function selectGroupSize(s){ groupState.size = s; addGroup(); }
+function addGroup(){
+  if(!groupState.size){ speak('wrong'); document.getElementById('bubble').textContent='Pick a team size first!'; return; }
+  groupState.groups.push(groupState.size);
+  renderGroups();
+}
+function undoGroup(){ groupState.groups.pop(); renderGroups(); }
+function resetGroups(){ groupState.groups = []; renderGroups(); }
+function renderGroups(){
+  const area = document.getElementById('groupsArea');
+  area.innerHTML='';
+  groupState.groups.forEach(sz=>{
+    const box = document.createElement('div');
+    box.className='group-box';
+    for(let i=0;i<sz;i++){ const s=document.createElement('span'); s.textContent='🤼'; box.appendChild(s); }
+    area.appendChild(box);
+  });
+  const n = groupState.groups.length;
+  const size = groupState.groups[0] || 0;
+  const total = groupState.groups.reduce((a,b)=>a+b,0);
+  if(n===0){
+    document.getElementById('groupSentence').textContent = 'Add a team to begin!';
+  } else {
+    const skip = [];
+    for(let i=1;i<=n;i++) skip.push(size*i);
+    document.getElementById('groupSentence').textContent =
+      `${n} × ${size} = ${total}   (skip count: ${skip.join(', ')})`;
+  }
+}
+function startGroupRound(){
+  groupState.round++;
+  if(groupState.round > 3){
+    document.getElementById('groupQuizCard').style.display='none';
+    document.getElementById('groupsNextBtn').style.display='inline-block';
+    speak('levelup');
+    return;
+  }
+  const size = rand(2,6);
+  const count = rand(2,5);
+  groupState.targetSize = size; groupState.targetCount = count; groupState.targetTotal = size*count;
+  document.getElementById('groupQuizCard').style.display='block';
+  document.getElementById('groupQTitle').textContent = `Challenge ${groupState.round} of 3`;
+  const scenarios = [
+    `Coach Rex lines up ${count} wrestling teams with ${size} wrestlers on each team. How many wrestlers in all?`,
+    `There are ${count} training mats, and ${size} wrestlers practice on each mat. How many wrestlers total?`,
+    `${count} gyms send ${size} athletes each to the tournament. How many athletes come altogether?`
+  ];
+  document.getElementById('groupQText').textContent = scenarios[rand(0,scenarios.length-1)];
+  document.getElementById('groupAnswerInput').value='';
+  document.getElementById('groupFeedback').textContent='';
+  document.getElementById('groupFeedback').className='feedback';
+}
+function checkGroupAnswer(){
+  const v = parseInt(document.getElementById('groupAnswerInput').value,10);
+  const fb = document.getElementById('groupFeedback');
+  if(v === groupState.targetTotal){
+    fb.textContent = `Correct! ${groupState.targetCount} × ${groupState.targetSize} = ${groupState.targetTotal} 🎉`;
+    fb.className='feedback good';
+    addStar(1);
+    speak('correct');
+    setTimeout(startGroupRound, 1300);
+  } else {
+    fb.textContent = `Not quite — try skip counting by ${groupState.targetSize}, ${groupState.targetCount} times.`;
+    fb.className='feedback bad';
+    speak('wrong');
+  }
+}
+
+/* ============ ROUND 2: ARRAYS ============ */
+let arrayState = { rows:3, cols:4, round:0, targetRows:0, targetCols:0 };
+function initArrays(){
+  arrayState = { rows:3, cols:4, round:0, targetRows:0, targetCols:0 };
+  document.getElementById('arrayQuizCard').style.display='none';
+  document.getElementById('arraysNextBtn').style.display='none';
+  renderArray();
+  startArrayRound();
+}
+function changeRows(d){ arrayState.rows = Math.min(9, Math.max(1, arrayState.rows+d)); renderArray(); }
+function changeCols(d){ arrayState.cols = Math.min(9, Math.max(1, arrayState.cols+d)); renderArray(); }
+function renderArray(){
+  document.getElementById('rowsVal').textContent = arrayState.rows;
+  document.getElementById('colsVal').textContent = arrayState.cols;
+  const grid = document.getElementById('seatGrid');
+  grid.style.gridTemplateColumns = `repeat(${arrayState.cols}, 24px)`;
+  grid.innerHTML='';
+  for(let i=0;i<arrayState.rows*arrayState.cols;i++){
+    const d = document.createElement('div');
+    d.className='seat'; d.textContent='💺';
+    grid.appendChild(d);
+  }
+  document.getElementById('arraySentence').textContent =
+    `${arrayState.rows} rows × ${arrayState.cols} seats = ${arrayState.rows*arrayState.cols} seats`;
+}
+function startArrayRound(){
+  arrayState.round++;
+  if(arrayState.round > 3){
+    document.getElementById('arrayQuizCard').style.display='none';
+    document.getElementById('arraysNextBtn').style.display='inline-block';
+    speak('levelup');
+    return;
+  }
+  const r = rand(2,7), c = rand(2,7);
+  arrayState.targetRows = r; arrayState.targetCols = c;
+  document.getElementById('arrayQuizCard').style.display='block';
+  document.getElementById('arrayQText').textContent =
+    `Build an arena section with ${r} rows and ${c} seats in each row. Set the steppers to match, then check!`;
+  document.getElementById('arrayFeedback').textContent='';
+  document.getElementById('arrayFeedback').className='feedback';
+}
+function checkArrayAnswer(){
+  const fb = document.getElementById('arrayFeedback');
+  if(arrayState.rows === arrayState.targetRows && arrayState.cols === arrayState.targetCols){
+    fb.textContent = `Perfect array! ${arrayState.rows} × ${arrayState.cols} = ${arrayState.rows*arrayState.cols} seats! 🎉`;
+    fb.className='feedback good';
+    addStar(1);
+    speak('correct');
+    setTimeout(startArrayRound, 1300);
+  } else {
+    fb.textContent = `Adjust the steppers: you need ${arrayState.targetRows} rows and ${arrayState.targetCols} seats per row.`;
+    fb.className='feedback bad';
+    speak('wrong');
+  }
+}
+
+/* ============ ROUND 3: SKIP COUNTING ============ */
+let skipState = { step:0, jumps:0, targetJumps:0, position:0, max:60 };
+function initSkip(){
+  const step = rand(2,6);
+  const targetJumps = rand(3,6);
+  skipState = { step, jumps:0, targetJumps, position:0, max: step*targetJumps + step };
+  document.getElementById('skipPrompt').textContent =
+    `Coach Rex's scoreboard jumps by ${step} for every round won. Jump ${targetJumps} times to find the tournament score!`;
+  document.getElementById('skipFeedback').textContent='';
+  document.getElementById('skipNextBtn').style.display='none';
+  drawNumberLine();
+  updateSkipSentence();
+}
+function drawNumberLine(){
+  const svg = document.getElementById('numberLineSvg');
+  const max = skipState.max;
+  const width = Math.max(360, max*16);
+  svg.setAttribute('width', width);
+  svg.setAttribute('viewBox', `0 0 ${width} 90`);
+  svg.innerHTML='';
+  const scale = (width-30) / max;
+  const y = 50;
+  svg.innerHTML += `<line x1="15" y1="${y}" x2="${width-15}" y2="${y}" stroke="#ffd166" stroke-width="3"/>`;
+  for(let i=0;i<=max;i+=1){
+    const x = 15 + i*scale;
+    const isMultiple = i % skipState.step === 0;
+    svg.innerHTML += `<line x1="${x}" y1="${y-5}" x2="${x}" y2="${y+5}" stroke="${isMultiple?'#ffd166':'#ffffff55'}" stroke-width="${isMultiple?3:1}"/>`;
+    if(isMultiple){
+      svg.innerHTML += `<text x="${x}" y="${y+22}" font-size="11" fill="#ffd166" text-anchor="middle">${i}</text>`;
+    }
+  }
+  const px = 15 + skipState.position*scale;
+  svg.innerHTML += `<circle cx="${px}" cy="${y}" r="9" fill="#ff8c42" stroke="#fff" stroke-width="2"/>`;
+  svg.innerHTML += `<text x="${px}" y="${y-14}" font-size="16" text-anchor="middle">🐾</text>`;
+}
+function updateSkipSentence(){
+  document.getElementById('skipSentence').textContent =
+    `Jumps: ${skipState.jumps} of ${skipState.targetJumps}  |  Score so far: ${skipState.position}`;
+}
+function doJump(){
+  if(skipState.jumps >= skipState.targetJumps){
+    checkSkipAnswer();
+    return;
+  }
+  skipState.jumps++;
+  skipState.position += skipState.step;
+  drawNumberLine();
+  updateSkipSentence();
+  if(skipState.jumps === skipState.targetJumps) checkSkipAnswer();
+}
+function resetSkip(){
+  skipState.jumps=0; skipState.position=0;
+  drawNumberLine(); updateSkipSentence();
+  document.getElementById('skipFeedback').textContent='';
+}
+function checkSkipAnswer(){
+  const fb = document.getElementById('skipFeedback');
+  fb.textContent = `${skipState.targetJumps} × ${skipState.step} = ${skipState.position}. Rex's team scored ${skipState.position} points! 🏆`;
+  fb.className='feedback good';
+  addStar(1);
+  speak('correct');
+  document.getElementById('skipNextBtn').style.display='inline-block';
+}
+
+/* ============ ROUND 4: WORD PROBLEMS ============ */
+const wordProblems = [
+  ()=>{
+    const rows = rand(3,6), cols = rand(3,6);
+    const total = rows*cols;
+    return {
+      text: `The tournament arena has ${rows} rows of chairs with ${cols} chairs in each row. How many chairs are set up in all?`,
+      answer: total,
+      wrong: [total+cols, total-rows, total+rows]
+    };
+  },
+  ()=>{
+    const teams = rand(3,6), members = rand(2,5);
+    const total = teams*members;
+    return {
+      text: `${teams} wrestling teams each have ${members} athletes. How many athletes are competing altogether?`,
+      answer: total,
+      wrong: [teams+members, total+members, total-teams]
+    };
+  },
+  ()=>{
+    const matches = rand(2,5), pointsEach = rand(2,6);
+    const total = matches*pointsEach;
+    return {
+      text: `Reina wins ${matches} matches and scores ${pointsEach} points in each match. What is her total score?`,
+      answer: total,
+      wrong: [matches+pointsEach, total+pointsEach, total-2]
+    };
+  },
+  ()=>{
+    const boxes = rand(3,6), medalsEach = rand(2,5);
+    const total = boxes*medalsEach;
+    return {
+      text: `The trophy shelf has ${boxes} boxes with ${medalsEach} medals packed in each box. How many medals in total?`,
+      answer: total,
+      wrong: [boxes*medalsEach + 1, boxes+medalsEach, total-medalsEach]
+    };
+  },
+  ()=>{
+    const rows = rand(2,5), perRow = rand(3,6);
+    const total = rows*perRow;
+    return {
+      text: `Warm-up drills: wrestlers line up in ${rows} equal rows with ${perRow} in each row. How many wrestlers are warming up?`,
+      answer: total,
+      wrong: [rows+perRow, total+2, total-perRow]
+    };
+  }
+];
+function loadWordProblem(){
+  if(state.wordIndex >= 4){
+    document.getElementById('wordProblemText').textContent = `Word Problem Round complete! You solved ${state.wordCorrect} of ${state.wordTotal} correctly. Time for the FINAL MATCH!`;
+    document.getElementById('wordChoices').innerHTML='';
+    document.getElementById('wordProgress').textContent='';
+    document.getElementById('wordFeedback').textContent='';
+    document.getElementById('wordNextBtn').textContent = '⚔️ Enter the Final Match';
+    document.getElementById('wordNextBtn').style.display='inline-block';
+    return;
+  }
+  const gen = wordProblems[rand(0,wordProblems.length-1)]();
+  state.currentWord = gen;
+  document.getElementById('wordProblemText').textContent = gen.text;
+  const choices = shuffle([gen.answer, ...gen.wrong]);
+  const wrap = document.getElementById('wordChoices');
+  wrap.innerHTML='';
+  choices.forEach(c=>{
+    const b = document.createElement('button');
+    b.className='choice-btn';
+    b.textContent = c;
+    b.onclick = ()=>checkWordAnswer(b, c, gen.answer);
+    wrap.appendChild(b);
+  });
+  document.getElementById('wordFeedback').textContent='';
+  document.getElementById('wordProgress').textContent = `Problem ${state.wordIndex+1} of 4`;
+  document.getElementById('wordNextBtn').style.display='none';
+}
+function checkWordAnswer(btn, chosen, correct){
+  document.querySelectorAll('#wordChoices .choice-btn').forEach(b=>b.onclick=null);
+  state.wordTotal++;
+  const fb = document.getElementById('wordFeedback');
+  if(chosen === correct){
+    btn.classList.add('correct');
+    fb.textContent = 'Correct! 🎉'; fb.className='feedback good';
+    state.wordCorrect++; addStar(1);
+    speak('correct');
+  } else {
+    btn.classList.add('wrong');
+    document.querySelectorAll('#wordChoices .choice-btn').forEach(b=>{
+      if(parseInt(b.textContent,10)===correct) b.classList.add('correct');
+    });
+    fb.textContent = `The answer was ${correct}.`; fb.className='feedback bad';
+    speak('wrong');
+  }
+  state.wordIndex++;
+  document.getElementById('wordNextBtn').style.display='inline-block';
+}
+function nextWordOrBoss(){
+  if(state.wordIndex >= 4 && document.getElementById('wordNextBtn').textContent.includes('Final')){
+    goTo('screen-boss');
+  } else {
+    loadWordProblem();
+  }
+}
+
+/* ============ BOSS BATTLE ============ */
+function initBoss(){
+  state.bossHp = 5; state.playerHp = 5;
+  state.bossCorrect = 0; state.bossTotal = 0;
+  updateHealthUI();
+  speak('boss');
+  nextBossQuestion();
+}
+function updateHealthUI(){
+  document.getElementById('playerHp').style.width = (state.playerHp/5*100)+'%';
+  document.getElementById('bossHp').style.width = (state.bossHp/5*100)+'%';
+  document.getElementById('playerHpText').textContent = state.playerHp+'/5';
+  document.getElementById('bossHpText').textContent = state.bossHp+'/5';
+}
+function genBossQuestion(){
+  const type = rand(0,2);
+  if(type===0){
+    const a = rand(2,9), b = rand(2,9);
+    return { text: `${a} × ${b} = ?`, answer: a*b, wrong:[a*b+a, a*b-b, a*b+ b===0?1:1] };
+  } else if(type===1){
+    const rows = rand(2,8), cols = rand(2,8);
+    return { text: `An array has ${rows} rows and ${cols} columns. How many total?`, answer: rows*cols, wrong:[rows+cols, rows*cols+rows, rows*cols-cols] };
+  } else {
+    const g = rand(2,8), n = rand(2,8);
+    return { text: `${n} teams of ${g} wrestlers each. Total wrestlers?`, answer: n*g, wrong:[n+g, n*g+n, n*g-g] };
+  }
+}
+function nextBossQuestion(){
+  if(state.bossHp<=0 || state.playerHp<=0) return;
+  clearInterval(state.bossTimer);
+  const q = genBossQuestion();
+  state.currentBossQ = q;
+  document.getElementById('bossQuestion').textContent = q.text;
+  let choices = shuffle([q.answer, ...q.wrong.filter(w=>w!==q.answer).slice(0,3)]);
+  while(choices.length<4) choices.push(q.answer + rand(1,4));
+  choices = shuffle([...new Set(choices)]);
+  while(choices.length<4) choices.push(q.answer + rand(5,9));
+  const wrap = document.getElementById('bossChoices');
+  wrap.innerHTML='';
+  choices.slice(0,4).forEach(c=>{
+    const b = document.createElement('button');
+    b.className='choice-btn'; b.textContent=c;
+    b.onclick = ()=>answerBoss(b, c, q.answer);
+    wrap.appendChild(b);
+  });
+  document.getElementById('bossFeedback').textContent='';
+  state.bossTimeLeft = 10;
+  document.getElementById('timerFill').style.width='100%';
+  state.bossTimer = setInterval(()=>{
+    state.bossTimeLeft -= 0.1;
+    const pct = Math.max(0, state.bossTimeLeft/10*100);
+    document.getElementById('timerFill').style.width = pct+'%';
+    if(state.bossTimeLeft<=0){
+      clearInterval(state.bossTimer);
+      answerBoss(null, null, q.answer);
+    }
+  }, 100);
+}
+function answerBoss(btn, chosen, correct){
+  clearInterval(state.bossTimer);
+  document.querySelectorAll('#bossChoices .choice-btn').forEach(b=>b.onclick=null);
+  state.bossTotal++;
+  const fb = document.getElementById('bossFeedback');
+  if(chosen === correct){
+    if(btn) btn.classList.add('correct');
+    fb.textContent = 'Direct hit! 🥊'; fb.className='feedback good';
+    state.bossHp--; state.bossCorrect++; addStar(2);
+    speak('correct');
+  } else {
+    if(btn) btn.classList.add('wrong');
+    document.querySelectorAll('#bossChoices .choice-btn').forEach(b=>{
+      if(parseInt(b.textContent,10)===correct) b.classList.add('correct');
+    });
+    fb.textContent = chosen===null ? `Time's up! Answer was ${correct}.` : `Rex blocks it! Answer was ${correct}.`;
+    fb.className='feedback bad';
+    state.playerHp--;
+    speak('wrong');
+  }
+  updateHealthUI();
+  setTimeout(()=>{
+    if(state.bossHp<=0){ endBoss(true); }
+    else if(state.playerHp<=0){ endBoss(false); }
+    else nextBossQuestion();
+  }, 1100);
+}
+function endBoss(won){
+  document.getElementById('victoryTitle').textContent = won ? '🏆 CHAMPION! 🏆' : '💪 Great Fight!';
+  document.getElementById('victoryText').textContent = won
+    ? "You out-trained Coach Rex and won the Golden Belt! Your equal groups, arrays, and skip-counting skills are championship level!"
+    : "Coach Rex held on this time — but you fought hard! Train again and you'll take that belt for sure.";
+  document.getElementById('statsText').textContent =
+    `⭐ Stars earned: ${state.stars}  |  Final match accuracy: ${state.bossCorrect}/${state.bossTotal}  |  Word problems: ${state.wordCorrect}/${state.wordTotal}`;
+  speak(won ? 'win' : 'lose');
+  goTo('screen-victory');
+  if(won) launchConfetti();
+}
+
+/* ============ CONFETTI ============ */
+function launchConfetti(){
+  const canvas = document.getElementById('confetti-canvas');
+  canvas.width = window.innerWidth; canvas.height = window.innerHeight;
+  const ctx = canvas.getContext('2d');
+  const colors = ['#ffd166','#ff8c42','#e6531f','#3ba55c','#3a6ea5'];
+  const pieces = Array.from({length:120}, ()=>({
+    x: Math.random()*canvas.width, y: -20 - Math.random()*canvas.height,
+    r: 4+Math.random()*6, c: colors[rand(0,colors.length-1)],
+    vy: 2+Math.random()*3, vx: -2+Math.random()*4, rot: Math.random()*360, vr: -6+Math.random()*12
+  }));
+  let frame = 0;
+  function anim(){
+    frame++;
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    pieces.forEach(p=>{
+      p.x += p.vx; p.y += p.vy; p.rot += p.vr;
+      ctx.save();
+      ctx.translate(p.x,p.y); ctx.rotate(p.rot*Math.PI/180);
+      ctx.fillStyle = p.c;
+      ctx.fillRect(-p.r/2,-p.r/2,p.r,p.r*1.6);
+      ctx.restore();
+    });
+    if(frame < 220) requestAnimationFrame(anim);
+    else ctx.clearRect(0,0,canvas.width,canvas.height);
+  }
+  anim();
+}
+
+/* ============ RESTART ============ */
+function restartAll(){
+  state.stars = 0;
+  updateScorePill();
+  goTo('screen-title');
+}
+
+/* init */
+updateBeltbar();
+updateScorePill();
+
+/* companion idle chatter */
+setInterval(()=>{
+  if(Math.random() < 0.3 && document.getElementById('screen-title').classList.contains('active')){
+    speak('intro');
+  }
+}, 45000);
+</script>
+</body>
+</html>
+```

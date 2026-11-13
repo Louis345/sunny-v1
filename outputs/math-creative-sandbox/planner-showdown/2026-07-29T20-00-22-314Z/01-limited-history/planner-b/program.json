@@ -1,0 +1,254 @@
+{
+  "programId": "reina-multiplication-2-5-10-minimum-01",
+  "assignmentAnalysis": {
+    "constructs": [
+      "Accurate multiplication facts with one factor of 2, 5, or 10",
+      "Skip-counting by 2, 5, and 10 and connecting a sequence to a multiplication fact",
+      "Representing multiplication as equal groups",
+      "Interpreting rows and columns as multiplication arrays",
+      "Translating one-step equal-groups and array situations into multiplication and finding the total"
+    ],
+    "prerequisites": [
+      "Counting and numeral recognition through 100",
+      "Adding equal quantities or continuing simple number sequences",
+      "Understanding the terms group, each, row, and total",
+      "Reading or orally understanding a short one-step situation",
+      "Recognizing multiplication notation"
+    ],
+    "difficultyBoundaries": {
+      "included": [
+        "Facts in either factor order when one factor is 2, 5, or 10 and the other factor is from 1 through 10",
+        "Products no greater than 100",
+        "Skip-count sequences by 2, 5, and 10",
+        "Equal-groups and array representations within the targeted fact families",
+        "One-step situations in which the number of groups and amount in each group are given and the total is unknown",
+        "Untimed accuracy, strategy selection, and representation-to-equation translation"
+      ],
+      "excluded": [
+        "Systematic instruction on multiplication families other than 2, 5, and 10",
+        "Division, missing-factor, multi-step, or irrelevant-information problems",
+        "Products greater than 100 or multidigit multiplication",
+        "Timed automaticity claims because no speed criterion is supplied",
+        "Reuse of the assignment's exact questions as teaching or probe items"
+      ]
+    }
+  },
+  "assumptions": [
+    {
+      "assumptionId": "A1",
+      "claim": "Reina's current independent mastery of the targeted multiplication concepts is unknown because the packet contains no academic performance evidence.",
+      "evidenceIds": [],
+      "confidence": 0.99,
+      "uncertainty": "Relevant completed work, teacher observations, or prior independent assessments may exist outside the packet.",
+      "falsifyingEvidence": "Dated independent work or returned graded work showing construct-level performance on x2, x5, and x10 multiplication."
+    },
+    {
+      "assumptionId": "A2",
+      "claim": "The initial multiplication probe can proceed on the provisional assumption that the listed counting, language, and notation prerequisites are sufficiently accessible.",
+      "evidenceIds": [],
+      "confidence": 0.4,
+      "uncertainty": "Age and engagement records do not establish these academic prerequisites.",
+      "falsifyingEvidence": "Probe responses showing numeral, counting, vocabulary, or notation errors that prevent Reina from demonstrating multiplication reasoning."
+    },
+    {
+      "assumptionId": "A3",
+      "claim": "Neutral oral reading of word problems, without mathematical hints, will reduce decoding as a confound while preserving the multiplication-interpretation construct.",
+      "evidenceIds": [],
+      "confidence": 0.6,
+      "uncertainty": "No reading or language-access evidence is available.",
+      "falsifyingEvidence": "A material difference between independently read and neutrally read matched problems, or evidence that oral presentation changes the mathematical interpretation."
+    }
+  ],
+  "academicPredictions": [
+    {
+      "predictionId": "P1",
+      "construct": "Multiplication facts and skip-counting by 2, 5, and 10",
+      "expectedOutcome": "On six novel, untimed, independent items balanced across the three families, Reina will answer between one and five correctly.",
+      "expectedRange": {
+        "metric": "Proportion correct on six baseline fact and skip-count items",
+        "minimum": 0.16,
+        "maximum": 0.84
+      },
+      "predictedErrorPatterns": [
+        "No directional weakness among x2, x5, and x10 is predicted because no academic history is available.",
+        "If errors occur, correct sequences paired with incorrect isolated facts will be classified as a sequence-to-fact transfer gap rather than fact-family mastery."
+      ],
+      "confidence": 0.15,
+      "evidenceIds": [],
+      "horizon": "baseline",
+      "maximumClaim": "The result can describe current performance on the sampled independent items; it cannot establish durable mastery."
+    },
+    {
+      "predictionId": "P2",
+      "construct": "Equal groups, arrays, and one-step multiplication interpretation",
+      "expectedOutcome": "On six novel, independent representation and word-problem items, Reina will answer between one and five correctly.",
+      "expectedRange": {
+        "metric": "Proportion correct on six baseline equal-groups, array, and word-problem items",
+        "minimum": 0.16,
+        "maximum": 0.84
+      },
+      "predictedErrorPatterns": [
+        "Representation or word-problem accuracy may be lower than symbolic fact accuracy.",
+        "A correct product paired with an equation that reverses the stated group meaning will be recorded as a representation error, not fully correct interpretation.",
+        "Adding the two stated numbers instead of forming equal groups will be recorded separately from calculation errors."
+      ],
+      "confidence": 0.15,
+      "evidenceIds": [],
+      "horizon": "baseline",
+      "maximumClaim": "The result can identify a candidate translation or representation gap but cannot establish generalized word-problem mastery."
+    },
+    {
+      "predictionId": "P3",
+      "construct": "Retention and transfer across the targeted x2, x5, and x10 constructs",
+      "expectedOutcome": "After instruction limited to demonstrated gaps, Reina will independently answer at least nine of twelve novel delayed-probe items correctly after three to seven days.",
+      "expectedRange": {
+        "metric": "Proportion correct on a twelve-item delayed independent probe",
+        "minimum": 0.75,
+        "maximum": 1
+      },
+      "predictedErrorPatterns": [
+        "Residual errors are more likely on translation between situations, models, and equations than on matched-format fact items.",
+        "A family-specific cluster of delayed errors will be treated as incomplete retention for that family."
+      ],
+      "confidence": 0.35,
+      "evidenceIds": [],
+      "horizon": "delayed",
+      "maximumClaim": "Meeting the range supports provisional retention only for untimed x2, x5, and x10 tasks within the included boundaries."
+    },
+    {
+      "predictionId": "P4",
+      "construct": "Calibration between the delayed probe and returned graded work",
+      "expectedOutcome": "For overlapping constructs, the delayed independent score and returned-work score will differ by no more than 0.25 when administration and assistance conditions are documented.",
+      "expectedRange": {
+        "metric": "Absolute difference between proportions correct on overlapping delayed-probe and returned-work items",
+        "minimum": 0,
+        "maximum": 0.25
+      },
+      "predictedErrorPatterns": [
+        "A larger discrepancy will trigger review of assistance, grading, timing, item composition, and delay rather than averaging the scores."
+      ],
+      "confidence": 0.25,
+      "evidenceIds": [],
+      "horizon": "returned_work",
+      "maximumClaim": "Agreement can calibrate the local estimate; disagreement cannot by itself identify its cause."
+    }
+  ],
+  "learningSequence": [
+    {
+      "nodeId": "N1",
+      "responsibility": "probe",
+      "constructs": [
+        "Facts and skip-counting by 2, 5, and 10",
+        "Equal groups",
+        "Arrays",
+        "One-step multiplication interpretation"
+      ],
+      "startingSupport": "Administer a twelve-item untimed core probe using novel items: three symbolic facts, three skip-count items, two equal-groups items, two array items, and two word problems. Mix factor order. Give neutral directions and neutrally read word problems if needed, but provide no mathematical hints, feedback, manipulatives, or correction. Add at most one novel confirmation item for a construct with an ambiguous error.",
+      "expectedIndependence": "All scored mathematical decisions and answers are Reina's own. Record any reading, repetition, or procedural support separately.",
+      "evidenceRequired": [
+        "Item-level responses and correctness",
+        "Fact family and representation used by each item",
+        "Observable strategy, including counting, repeated addition, retrieval, or model use",
+        "Error classification separating calculation, representation, interpretation, and prerequisite errors",
+        "Exact support and administration conditions"
+      ],
+      "nextDecisionEnabled": "If performance is at least 80% overall with no repeated construct-level error, omit immediate teaching and proceed to delayed verification. Otherwise, teach only the confirmed deficient construct. If prerequisite errors block interpretation, pause multiplication instruction and test the specific prerequisite."
+    },
+    {
+      "nodeId": "N2",
+      "responsibility": "teach",
+      "constructs": [
+        "Only constructs identified as deficient in N1"
+      ],
+      "startingSupport": "Explicitly connect equal groups, arrays, skip-count sequences, multiplication equations, and products using new examples within x2, x5, and x10. Model one example for each confirmed gap and contrast the observed error with a correct interpretation.",
+      "expectedIndependence": "No independence claim is expected during modeling. Learner explanations may inform the next prompt but count only as teaching evidence.",
+      "evidenceRequired": [
+        "Construct taught and reason it was selected from N1",
+        "Examples modeled without copying assignment questions",
+        "Learner explanation or response during teaching",
+        "Any prerequisite or language issue observed"
+      ],
+      "nextDecisionEnabled": "Determine whether Reina can begin guided practice on the targeted construct or whether a prerequisite requires brief direct instruction first."
+    },
+    {
+      "nodeId": "N3",
+      "responsibility": "guided_practice",
+      "constructs": [
+        "Only constructs taught in N2"
+      ],
+      "startingSupport": "Use three to six novel items per targeted construct. Begin with a prompt to identify groups, amount in each group, rows, or skip-count unit, then fade prompts across items.",
+      "expectedIndependence": "Prompts must decrease to no mathematical prompting on the final practice item. All performance remains practice evidence because feedback and guidance occur within the node.",
+      "evidenceRequired": [
+        "Response accuracy before and after each prompt",
+        "Prompt type and amount of assistance",
+        "Whether the strategy transfers across symbolic, model, and situation formats",
+        "Final unprompted practice response"
+      ],
+      "nextDecisionEnabled": "Proceed to an independent probe when Reina completes the final practice item without a mathematical prompt; otherwise revise instruction only for the unresolved error."
+    },
+    {
+      "nodeId": "N4",
+      "responsibility": "independent_probe",
+      "constructs": [
+        "Constructs taught in N2 and N3"
+      ],
+      "startingSupport": "Give two to three novel, untimed items per taught construct with no feedback, cues, or mathematical assistance. Use at least two formats when the target is representation or interpretation.",
+      "expectedIndependence": "Reina selects the operation, strategy, and answer independently. Neutral reading or direction repetition must be logged and must not disclose mathematical structure.",
+      "evidenceRequired": [
+        "Item-level independent responses",
+        "Accuracy by taught construct and format",
+        "Error classifications",
+        "Administration conditions and any nonmathematical support"
+      ],
+      "nextDecisionEnabled": "A score of at least 80% without a repeated conceptual error permits delayed verification. Lower performance returns only the unresolved construct to N2; immediate success alone does not establish mastery."
+    },
+    {
+      "nodeId": "N5",
+      "responsibility": "independent_probe",
+      "constructs": [
+        "Facts and skip-counting by 2, 5, and 10",
+        "Equal groups",
+        "Arrays",
+        "One-step multiplication interpretation"
+      ],
+      "startingSupport": "After three to seven days, administer twelve new untimed items matching the N1 blueprint and difficulty boundaries. Do not rehearse the items immediately beforehand and do not provide feedback until scoring is complete.",
+      "expectedIndependence": "All mathematical work is independent, with any neutral access support documented separately.",
+      "evidenceRequired": [
+        "Delay interval",
+        "Item-level responses and construct labels",
+        "Overall and construct-level accuracy",
+        "Strategy and error-pattern comparison with N1 and N4",
+        "Any assistance or unusual administration condition"
+      ],
+      "nextDecisionEnabled": "At least 80% overall with no repeated construct-level misconception supports provisional retained performance within scope. Otherwise, reteach only the recurring gap. Compare the result with returned graded work when available."
+    }
+  ],
+  "evidenceSeparation": {
+    "practiceClaims": [
+      "N2 and N3 can establish only exposure, prompted strategy use, and improvement during practice.",
+      "Completion, correct answers after prompts, or enjoyment cannot establish mastery.",
+      "engagement:wheel:like and engagement:pronunciation:like are engagement evidence only and do not support a mathematics claim.",
+      "profile:reina:age is support-profile evidence only and does not establish multiplication ability or prerequisites."
+    ],
+    "independentClaims": [
+      "The packet contains no prior independent academic evidence.",
+      "N1 can support only a current baseline description on sampled items.",
+      "N4 can support immediate independent performance after instruction but not retention.",
+      "N5 can support a bounded retention claim only when the delay and absence of mathematical assistance are documented."
+    ],
+    "calibrationRequirements": [
+      "A delayed independent probe or returned graded work is required before calibrating the instructional estimate.",
+      "Teacher observations, teacher scoring, and returned-work results must be stored separately from learner practice and engagement records.",
+      "Returned work must include item markings, date, score, teacher comments if any, and known assistance conditions.",
+      "If independence of returned work is unknown, use it for comparison and error analysis but not as sole mastery evidence."
+    ]
+  },
+  "nextEvidenceRequired": [
+    "A twelve-item novel baseline with item-level answers, strategies, errors, and support conditions",
+    "A record of which constructs, if any, receive teaching and guided practice",
+    "An immediate independent probe for each taught construct",
+    "A twelve-item delayed independent probe administered three to seven days later",
+    "The returned graded assignment, when available, with item markings, date, teacher comments, and assistance conditions"
+  ],
+  "planningRationale": "No academic history is available, so neither mastery nor deficiency should be inferred from age or engagement records. The smallest defensible sequence is a broad but short independent probe, conditional instruction only for confirmed gaps, a brief independent check, and delayed verification. The next educational question is whether Reina can independently connect x2, x5, and x10 facts with skip-counting, equal groups, arrays, and one-step situations, or whether a specific representation, interpretation, calculation, or prerequisite gap limits performance."
+}

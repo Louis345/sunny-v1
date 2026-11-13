@@ -1,0 +1,47 @@
+{
+  "assignment": {
+    "assignmentId": "LAB-MATH-C",
+    "grade": 3,
+    "domain": "math",
+    "concepts": [
+      "multiplication as equal groups",
+      "number of groups and amount in each group",
+      "arrays and multiplication equations",
+      "factor meaning"
+    ],
+    "sourceEvidenceIds": [
+      "assignment:LAB-MATH-C:scope"
+    ],
+    "sourceQuestionTexts": [
+      "The source assignment asks the learner to explain what each factor counts."
+    ],
+    "academicContract": "Teach and measure Grade 3 multiplication through fresh material:\n- interpret multiplicative situations as number of equal groups and amount in each group;\n- construct or read equal-group and array representations;\n- connect the representation to a multiplication equation and product;\n- distinguish what each factor counts;\n- do not assess reading, spelling, typing speed, or pointer precision as mathematics.\n\nUse factors from 1 to 10 and products at or below 100. The opening evaluation is independent evidence, not instruction and not proof of mastery."
+  },
+  "childEvidence": [
+    {
+      "evidenceId": "reina:age:2026-07",
+      "fact": "The child is currently nine years old."
+    },
+    {
+      "evidenceId": "reina:riddles:harder",
+      "fact": "She asked to continue difficult riddles and later requested harder riddles."
+    },
+    {
+      "evidenceId": "reina:riddles:logic",
+      "fact": "She noticed repeated riddles and questioned faulty riddle logic."
+    },
+    {
+      "evidenceId": "reina:riddles:scaffold",
+      "fact": "When stuck on a multi-step logic problem, she requested hints and continued after scaffolding."
+    },
+    {
+      "evidenceId": "reina:activity-feedback:small-sample",
+      "fact": "Small-sample child feedback favored clear examples, visible color, and an available hint."
+    }
+  ],
+  "viewport": {
+    "width": 1365,
+    "height": 768
+  },
+  "frozenHash": "e2eb68e06274b1814b1fac57606dae0227e72ba71b89c1e87cfad79726c293af"
+}

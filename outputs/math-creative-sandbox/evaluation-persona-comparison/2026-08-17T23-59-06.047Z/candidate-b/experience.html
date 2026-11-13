@@ -1,0 +1,1512 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=1365, initial-scale=1">
+<title>The Signal Tower: Four Lights to Wake</title>
+<style>
+  :root{
+    --night:#0b1725;
+    --deep:#0e2136;
+    --panel:#16293f;
+    --panel2:#1d3committee;
+    --line:#3a5a78;
+    --text:#eaf2fa;
+    --dim:#a9c0d6;
+    --amber:#ffb347;
+    --coral:#ff8168;
+    --standby:#6fc3ff;
+    --warm:#ffcb6b;
+    --fog-alpha:0.30;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;padding:0;height:100%;background:#050b13;overflow:hidden;
+    font-family:"Trebuchet MS","Verdana","Segoe UI",sans-serif;color:var(--text);
+    touch-action:manipulation;user-select:none;-webkit-user-select:none;}
+  #viewport{position:fixed;inset:0;display:grid;place-items:center;overflow:hidden;}
+  #stage{width:1365px;height:768px;position:relative;overflow:hidden;
+    background:radial-gradient(1200px 700px at 60% 10%, #16304a 0%, var(--deep) 45%, var(--night) 100%);
+    transform-origin:center center;}
+  .hidden{display:none !important;}
+
+  /* fog */
+  #fog{position:absolute;inset:0;pointer-events:none;overflow:hidden;transition:opacity 1.2s ease;}
+  .fogband{position:absolute;height:240px;width:1900px;border-radius:50%;
+    background:radial-gradient(closest-side, rgba(160,190,215,0.55), rgba(160,190,215,0));
+    opacity:var(--fog-alpha);filter:blur(6px);}
+  .f1{top:520px;left:-300px;animation:drift1 64s linear infinite;}
+  .f2{top:610px;left:-600px;height:180px;animation:drift2 88s linear infinite;}
+  .f3{top:40px;left:-500px;height:200px;opacity:calc(var(--fog-alpha)*0.6);animation:drift1 104s linear infinite;}
+  @keyframes drift1{from{transform:translateX(0)}to{transform:translateX(560px)}}
+  @keyframes drift2{from{transform:translateX(400px)}to{transform:translateX(-200px)}}
+
+  /* tower status column */
+  #tower{position:absolute;left:0;top:0;width:120px;height:768px;
+    background:linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01));
+    border-right:1px solid rgba(120,160,190,0.18);
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:26px;z-index:6;}
+  .lampwrap{width:92px;height:104px;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    border-radius:16px;background:rgba(255,255,255,0.02);}
+  .lamp{width:56px;height:56px;border-radius:50%;border:3px solid #4f6f8d;background:#132437;
+    display:block;transition:background .6s ease, box-shadow .6s ease, border-color .6s ease;}
+  .lampbase{width:34px;height:12px;background:#2b4763;border-radius:0 0 6px 6px;margin-top:4px;}
+  .lamp.active{animation:lamppulse 2s ease-in-out infinite;border-color:#7fa6c6;}
+  @keyframes lamppulse{0%,100%{box-shadow:0 0 0 0 rgba(160,200,230,0.10);}50%{box-shadow:0 0 22px 6px rgba(160,200,230,0.30);}}
+  .lamp.warm{background:radial-gradient(circle at 40% 35%, #fff0c8, var(--warm));border-color:#ffd98a;
+    box-shadow:0 0 26px 8px rgba(255,190,100,0.45);}
+  .lamp.standby{background:radial-gradient(circle at 40% 35%, #d8f1ff, var(--standby));border-color:#9adcff;
+    box-shadow:0 0 26px 8px rgba(110,195,255,0.40);}
+  #towerLabel{position:absolute;bottom:14px;width:120px;text-align:center;font-size:15px;color:#7f9ab2;letter-spacing:.5px;}
+
+  /* stop door */
+  #stopBtn{position:absolute;top:12px;right:20px;width:186px;height:76px;z-index:8;
+    background:rgba(23,42,63,0.9);border:2px solid #43678a;color:var(--dim);border-radius:16px;
+    font-size:19px;font-family:inherit;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;}
+  #stopBtn:active{transform:scale(.98);}
+
+  /* screens */
+  #screens{position:absolute;left:120px;top:0;width:1245px;height:768px;z-index:4;}
+  .screen{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;
+    padding:84px 24px 18px;opacity:1;transition:opacity .4s ease;}
+  .screen.fadeout{opacity:0;}
+
+  /* opening */
+  .center-col{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:18px;}
+  .big-line{font-size:34px;line-height:1.35;text-align:center;max-width:900px;}
+  .sub-line{font-size:24px;color:var(--dim);text-align:center;max-width:860px;}
+  .primary-btn{min-width:280px;height:104px;padding:0 40px;font-size:34px;font-family:inherit;color:#22160a;
+    background:linear-gradient(180deg,#ffdb95,#ffb347);border:none;border-radius:24px;cursor:pointer;
+    box-shadow:0 0 34px 6px rgba(255,180,90,0.30);}
+  .primary-btn:active{transform:scale(.98);}
+  .ghost-btn{min-width:220px;height:96px;padding:0 28px;font-size:26px;font-family:inherit;color:var(--text);
+    background:rgba(255,255,255,0.05);border:2px solid var(--line);border-radius:20px;cursor:pointer;}
+  .ghost-btn:active{transform:scale(.98);}
+
+  /* item screen */
+  #stimulus{display:flex;align-items:center;justify-content:center;min-height:150px;}
+  #sentence{font-size:30px;margin:14px 0 0;text-align:center;color:var(--text);}
+  #promptLine{font-size:30px;margin:14px 0 6px;text-align:center;color:#ffe9c4;max-width:1100px;line-height:1.3;}
+  #responseArea{display:flex;flex-direction:column;align-items:center;gap:16px;margin-top:6px;}
+  .row{display:flex;align-items:center;justify-content:center;gap:24px;flex-wrap:nowrap;}
+
+  .slot{width:300px;height:112px;border-radius:20px;background:rgba(255,255,255,0.05);
+    border:3px solid var(--line);display:flex;align-items:center;gap:12px;padding:0 14px;cursor:pointer;}
+  .slot.focused{border-color:var(--amber);animation:slotpulse 2s ease-in-out infinite;}
+  @keyframes slotpulse{0%,100%{box-shadow:0 0 0 0 rgba(255,179,71,0.0);}50%{box-shadow:0 0 20px 4px rgba(255,179,71,0.35);}}
+  .slot-icon{width:56px;height:56px;flex:0 0 56px;display:grid;place-items:center;}
+  .slot-label{font-size:20px;color:var(--dim);line-height:1.15;flex:1;}
+  .slot-value{width:86px;height:80px;border-radius:14px;background:rgba(0,0,0,0.28);display:grid;place-items:center;
+    font-size:42px;color:#fff;flex:0 0 86px;}
+  .slot-value.standby{font-size:18px;color:var(--standby);}
+
+  .tile{width:96px;height:96px;border-radius:20px;border:3px solid var(--line);background:rgba(255,255,255,0.05);
+    color:var(--text);font-size:40px;font-family:inherit;cursor:pointer;display:grid;place-items:center;}
+  .tile:active{transform:scale(.96);}
+  .tile.chosen{border-color:var(--amber);background:rgba(255,179,71,0.18);}
+  .standbycard{width:268px;height:112px;border-radius:20px;border:3px solid #4c7fa5;background:rgba(111,195,255,0.10);
+    color:#d6efff;font-size:24px;font-family:inherit;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:12px;}
+  .standbycard.chosen{border-color:var(--standby);background:rgba(111,195,255,0.24);}
+  .standbycard:active{transform:scale(.98);}
+
+  .optcard{width:228px;height:124px;border-radius:20px;border:3px solid var(--line);background:rgba(255,255,255,0.05);
+    color:var(--text);font-size:34px;font-family:inherit;cursor:pointer;display:grid;place-items:center;text-align:center;padding:6px;}
+  .optcard.chosen{border-color:var(--amber);background:rgba(255,179,71,0.18);}
+  .optcard:active{transform:scale(.98);}
+  .choicecard{width:236px;height:104px;border-radius:20px;border:3px solid var(--line);background:rgba(255,255,255,0.05);
+    color:var(--text);font-size:30px;font-family:inherit;cursor:pointer;display:grid;place-items:center;}
+  .choicecard.chosen{border-color:var(--amber);background:rgba(255,179,71,0.18);}
+  .choicecard.sb{border-color:#4c7fa5;background:rgba(111,195,255,0.10);color:#d6efff;}
+  .choicecard.sb.chosen{border-color:var(--standby);background:rgba(111,195,255,0.24);}
+
+  #sendBar{margin-top:14px;display:flex;align-items:center;justify-content:center;}
+  #sendBtn{min-width:330px;height:88px;padding:0 30px;font-size:30px;font-family:inherit;border-radius:22px;cursor:pointer;
+    background:linear-gradient(180deg,#ffdb95,#ffb347);color:#22160a;border:none;}
+  #sendBtn.disabled{background:rgba(255,255,255,0.07);color:#7f97ad;border:2px solid var(--line);cursor:default;}
+  #sendBtn.armed{background:linear-gradient(180deg,#fff3d2,#ffc463);box-shadow:0 0 30px 8px rgba(255,190,100,0.45);}
+
+  /* stimulus pieces */
+  .clusterrow{display:flex;gap:92px;align-items:center;justify-content:center;}
+  .cluster{position:relative;width:154px;height:154px;border-radius:50%;
+    background:radial-gradient(closest-side, rgba(255,179,71,0.10), rgba(255,179,71,0));
+    border:2px dashed rgba(255,200,130,0.28);}
+  .dot{position:absolute;width:32px;height:32px;border-radius:50%;background:var(--amber);
+    box-shadow:0 0 10px rgba(255,179,71,0.35);}
+  .arrayblock{display:flex;flex-direction:column;gap:16px;padding:14px;border-radius:14px;background:rgba(255,255,255,0.03);}
+  .arrayrow{display:flex;gap:12px;padding:6px;border-radius:10px;background:rgba(255,129,104,0.07);}
+  .sq{width:56px;height:56px;border-radius:8px;background:var(--coral);box-shadow:0 0 8px rgba(255,129,104,0.30);}
+  .grouprow{display:flex;gap:40px;align-items:center;justify-content:center;}
+  .grp{position:relative;width:150px;height:130px;border-radius:22px;border:2px dashed rgba(255,200,130,0.30);
+    background:rgba(255,179,71,0.07);}
+  .item3piece{position:absolute;width:36px;height:36px;border-radius:9px;background:var(--amber);
+    box-shadow:0 0 9px rgba(255,179,71,0.35);}
+  .stmt-row{display:flex;gap:34px;align-items:stretch;justify-content:center;}
+  .stmt{width:500px;min-height:164px;border-radius:20px;border:2px solid var(--line);background:rgba(255,255,255,0.045);
+    padding:16px 20px;display:flex;gap:16px;align-items:center;}
+  .stmt-name{font-size:20px;color:var(--dim);margin-bottom:8px;letter-spacing:.5px;}
+  .stmt-text{font-size:29px;line-height:1.3;}
+
+  /* modals */
+  .modal{position:absolute;inset:0;z-index:20;background:rgba(5,12,20,0.78);display:flex;align-items:center;justify-content:center;}
+  .modal-box{width:840px;border-radius:26px;background:var(--panel);border:2px solid var(--line);padding:34px;
+    display:flex;flex-direction:column;align-items:center;gap:24px;}
+  .modal-title{font-size:32px;text-align:center;}
+  .modal-row{display:flex;gap:24px;flex-wrap:wrap;justify-content:center;}
+
+  #blocker{position:absolute;inset:0;z-index:18;background:transparent;}
+  #pill{position:absolute;z-index:19;padding:14px 22px;border-radius:18px;font-size:22px;
+    background:rgba(255,222,160,0.95);color:#22160a;box-shadow:0 0 26px 8px rgba(255,190,100,0.5);
+    transition:transform 1.3s cubic-bezier(.3,.7,.3,1), opacity 1.3s ease;pointer-events:none;}
+
+  /* payoff */
+  .logcard{width:1080px;border-radius:22px;background:rgba(255,255,255,0.05);border:2px solid var(--line);padding:18px 24px;}
+  .logline{display:flex;align-items:center;gap:16px;font-size:22px;padding:9px 0;color:var(--text);}
+  .loglamp{width:34px;height:34px;border-radius:50%;flex:0 0 34px;border:2px solid #4f6f8d;background:#132437;}
+  .loglamp.warm{background:var(--warm);border-color:#ffd98a;}
+  .loglamp.standby{background:var(--standby);border-color:#9adcff;}
+  .loglamp.dark{background:#132437;}
+  .note{font-size:19px;color:var(--dim);text-align:center;max-width:1000px;line-height:1.4;}
+  #reviewArea{min-height:220px;display:flex;align-items:center;justify-content:center;}
+</style>
+</head>
+<body>
+<div id="viewport">
+  <div id="stage">
+
+    <div id="fog">
+      <span class="fogband f1"></span>
+      <span class="fogband f2"></span>
+      <span class="fogband f3"></span>
+    </div>
+
+    <aside id="tower">
+      <div class="lampwrap"><div class="lamp" id="lamp0"></div><div class="lampbase"></div></div>
+      <div class="lampwrap"><div class="lamp" id="lamp1"></div><div class="lampbase"></div></div>
+      <div class="lampwrap"><div class="lamp" id="lamp2"></div><div class="lampbase"></div></div>
+      <div class="lampwrap"><div class="lamp" id="lamp3"></div><div class="lampbase"></div></div>
+      <div id="towerLabel">the tower</div>
+    </aside>
+
+    <button id="stopBtn" type="button">
+      <svg width="30" height="34" viewBox="0 0 30 34" aria-hidden="true"><rect x="3" y="2" width="24" height="30" rx="4" fill="none" stroke="#8fb0cb" stroke-width="2.5"/><circle cx="21" cy="18" r="2.4" fill="#8fb0cb"/></svg>
+      Stop for tonight
+    </button>
+
+    <main id="screens">
+
+      <section id="screenOpen" class="screen">
+        <div class="center-col">
+          <div id="openArt"></div>
+          <p class="big-line">The tower sleeps. Four lamps wait for your messages.<br>What you send is what they keep.</p>
+          <button id="beginBtn" class="primary-btn" type="button">Begin</button>
+        </div>
+      </section>
+
+      <section id="screenNotice" class="screen hidden">
+        <div class="center-col">
+          <div id="noticeArt"></div>
+          <p class="big-line">A lamp keeps one message.<br>When you send it, the lamp seals.</p>
+          <p class="sub-line">You can change your answer as many times as you like <b>before</b> you send it.</p>
+          <button id="readyBtn" class="primary-btn" type="button">I am ready</button>
+        </div>
+      </section>
+
+      <section id="screenItem" class="screen hidden">
+        <div id="stimulus"></div>
+        <p id="sentence"></p>
+        <p id="promptLine"></p>
+        <div id="responseArea"></div>
+        <div id="sendBar"><button id="sendBtn" class="disabled" type="button">Send to the lamp</button></div>
+      </section>
+
+      <section id="screenPayoff" class="screen hidden">
+        <div class="center-col">
+          <div id="payoffArt"></div>
+          <p class="big-line" id="payoffLine">The tower wakes.</p>
+          <div class="logcard" id="logCard"></div>
+          <div class="modal-row">
+            <button id="lanternBtn" class="ghost-btn" type="button">Lantern of second looks</button>
+            <button id="goodnightBtn" class="ghost-btn" type="button">Goodnight</button>
+          </div>
+          <p class="note" id="payoffNote"></p>
+        </div>
+      </section>
+
+      <section id="screenLantern" class="screen hidden">
+        <div class="center-col">
+          <p class="big-line">The messages you sent are kept here.</p>
+          <div class="modal-row" id="lanternPicker"></div>
+          <div id="reviewArea"></div>
+          <p class="note" id="lanternMsg">This is a second look at the pictures. The lamps stay sealed.</p>
+          <button id="lanternBackBtn" class="ghost-btn" type="button">Back to the tower</button>
+        </div>
+      </section>
+
+      <section id="screenEnd" class="screen hidden">
+        <div class="center-col">
+          <div id="endArt"></div>
+          <p class="big-line" id="endLine">The keeper's night is over.</p>
+          <p class="note" id="endNote"></p>
+        </div>
+      </section>
+
+    </main>
+
+    <div id="pill" class="hidden"></div>
+    <div id="blocker" class="hidden"></div>
+
+    <div id="idleModal" class="modal hidden">
+      <div class="modal-box">
+        <p class="modal-title">Still looking?</p>
+        <div class="modal-row">
+          <button id="idleKeep" class="ghost-btn" type="button">Keep looking</button>
+          <button id="idleStandby" class="ghost-btn" type="button">Set this lamp to standby</button>
+          <button id="idleStop" class="ghost-btn" type="button">Stop for tonight</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="stopModal" class="modal hidden">
+      <div class="modal-box">
+        <p class="modal-title">Stop for tonight?<br><span style="font-size:22px;color:#a9c0d6">The lamps you have not sent to will stay dark.</span></p>
+        <div class="modal-row">
+          <button id="stopYes" class="ghost-btn" type="button">Yes, stop</button>
+          <button id="stopNo" class="ghost-btn" type="button">Keep going</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  /* ---------------- constants from the immutable contract ---------------- */
+  var EVAL_ID = "EVAL-LAB-MATH-C-OPEN-01";
+  var EVAL_HASH = "274c49ed00318c3c5e7eb4fae53bfbbea61645b4488f4b88780ba9cb431b7361";
+  var UPSTREAM_HASH = "e2eb68e06274b1814b1fac57606dae0227e72ba71b89c1e87cfad79726c293af";
+  var DESIGN_ID = "EVAL-LAB-MATH-C-OPEN-01__design-juniper-v1";
+  var DESIGN_HASH = "28e4a3e5edca14f43ba0fd9565520afe0d1c10e39b5852ad396c96bd761bf44e";
+
+  var LATENCY_DEFINITION =
+    "Latency keys are measured from stimulus-render-complete (after the 400ms crossfade settles) to the first meaningful response-control input; transitions and seal ceremonies are excluded.";
+  var INSPECTION_THRESHOLDS = { "ITEM-1":2000, "ITEM-2":2000, "ITEM-3":2500, "ITEM-4":3000 };
+
+  var ITEMS = [
+    {
+      itemId:"ITEM-1", constructId:"C1", lamp:0,
+      responseMode:"tap_numeric_tiles_two_fields_plus_not_sure",
+      sentence:"Each bunch has the same number of dots.",
+      prompt:"How many bunches are there, and how many dots are in each bunch?",
+      fields:[
+        {name:"numberOfGroups", label:"bunches", icon:"cluster"},
+        {name:"amountInEachGroup", label:"dots in each bunch", icon:"dot"}
+      ],
+      exposure:{exposureId:"EX-EQGROUPS-DOTS-4x6", structure:"separated equal clusters",
+        contextFamily:"dot clusters", factorPair:"4 x 6"},
+      confounds:[
+        "Child may count all 24 dots and infer group size by division rather than reading equal-group structure.",
+        "Reading of the single sentence could gate the response (excluded construct).",
+        "Visual clutter or cluster spacing could cause miscounting of clusters rather than a structural error.",
+        "Numeric-entry mechanics could produce an input error unrelated to mathematics."
+      ]
+    },
+    {
+      itemId:"ITEM-2", constructId:"C3", lamp:1,
+      responseMode:"tap_numeric_tiles_two_fields_plus_not_sure",
+      sentence:"Here is one rectangle of squares.",
+      prompt:"How many rows are there, and how many squares are in each row?",
+      fields:[
+        {name:"rows", label:"rows", icon:"row"},
+        {name:"squaresPerRow", label:"squares in each row", icon:"square"}
+      ],
+      exposure:{exposureId:"EX-ARRAY-GRID-3x7", structure:"contiguous rectangular array",
+        contextFamily:"squares grid", factorPair:"3 x 7"},
+      confounds:[
+        "Row/column vocabulary may be the barrier rather than array structure (language, not mathematics).",
+        "Child may count all 21 squares one by one and still answer correctly, masking whether structure was read.",
+        "Visual scanning at the given viewport width could cause an off-by-one count.",
+        "Orientation preference may lead the child to read columns as rows."
+      ]
+    },
+    {
+      itemId:"ITEM-3", constructId:"C2", lamp:2,
+      responseMode:"tap_option_cards_single_selection_plus_not_sure",
+      sentence:"Every group holds the same amount.",
+      prompt:"Choose the multiplication equation that matches what is shown.",
+      options:["5 x 3 = 15","5 + 3 = 8","5 x 5 = 25","3 x 10 = 30"],
+      exposure:{exposureId:"EX-EQUATION-MATCH-5x3", structure:"separated equal groups mapped to symbolic equation",
+        contextFamily:"equation selection", factorPair:"5 x 3"},
+      confounds:[
+        "Selection format permits guessing; a single correct choice is weak evidence (1 in 4 baseline).",
+        "Child may select by recognizing the product 15 without reading the group structure.",
+        "Option order could induce position bias.",
+        "Symbol reading (x versus +) may be the discriminating factor rather than multiplicative reasoning."
+      ]
+    },
+    {
+      itemId:"ITEM-4", constructId:"C4", lamp:3,
+      responseMode:"tap_option_card_plus_numeric_tile",
+      sentence:"",
+      prompt:"Do these two statements describe the same situation? Then say how many baskets Statement A describes.",
+      fields:[{name:"basketsInA", label:"baskets in Statement A", icon:"basket"}],
+      exposure:{exposureId:"EX-REFERENT-SWAP-2x8", structure:"verbal referent swap with constant product",
+        contextFamily:"containers and contents", factorPair:"2 x 8"},
+      confounds:[
+        "The word 'same' is ambiguous between same total and same situation; a 'same' response may reflect interpretation of the question rather than factor-referent confusion.",
+        "Reading load is highest in this item and could gate the response (excluded construct).",
+        "Child may already know commutativity and answer 'same' for a mathematically defensible product-based reason.",
+        "Order of Statement A and B could bias which referent is anchored."
+      ]
+    }
+  ];
+
+  var ASSISTANCE_NONE = {
+    level:"none", hintsOffered:0, hintsUsed:0, examplesShown:0,
+    feedbackGiven:false, correctAnswerShown:false, scaffolds:[],
+    note:"No hints, examples, feedback, or answer exposure are available inside the evaluation window."
+  };
+
+  /* ---------------- element handles (all exist in markup) ---------------- */
+  var $ = function(id){ return document.getElementById(id); };
+  var stage=$("stage"), fog=$("fog"),
+      screenOpen=$("screenOpen"), screenNotice=$("screenNotice"), screenItem=$("screenItem"),
+      screenPayoff=$("screenPayoff"), screenLantern=$("screenLantern"), screenEnd=$("screenEnd"),
+      stimulus=$("stimulus"), sentenceEl=$("sentence"), promptEl=$("promptLine"),
+      responseArea=$("responseArea"), sendBtn=$("sendBtn"), sendBar=$("sendBar"),
+      beginBtn=$("beginBtn"), readyBtn=$("readyBtn"), stopBtn=$("stopBtn"),
+      pill=$("pill"), blocker=$("blocker"),
+      idleModal=$("idleModal"), idleKeep=$("idleKeep"), idleStandby=$("idleStandby"), idleStop=$("idleStop"),
+      stopModal=$("stopModal"), stopYes=$("stopYes"), stopNo=$("stopNo"),
+      logCard=$("logCard"), payoffLine=$("payoffLine"), payoffNote=$("payoffNote"),
+      lanternBtn=$("lanternBtn"), goodnightBtn=$("goodnightBtn"),
+      lanternPicker=$("lanternPicker"), reviewArea=$("reviewArea"), lanternBackBtn=$("lanternBackBtn"),
+      openArt=$("openArt"), noticeArt=$("noticeArt"), payoffArt=$("payoffArt"), endArt=$("endArt"),
+      endNote=$("endNote"), endLine=$("endLine"),
+      lamps=[$("lamp0"),$("lamp1"),$("lamp2"),$("lamp3")];
+
+  if(!stage){ return; }
+
+  /* ---------------- messaging ---------------- */
+  function post(payload){
+    var msg = {};
+    msg.evaluationId = EVAL_ID;
+    msg.evaluationHash = EVAL_HASH;
+    msg.designArtifactId = DESIGN_ID;
+    msg.timestamp = new Date().toISOString();
+    for(var k in payload){ if(Object.prototype.hasOwnProperty.call(payload,k)) msg[k]=payload[k]; }
+    try{ if(window.parent){ window.parent.postMessage(msg, "*"); } }catch(e){}
+  }
+  var frictionLog = [];
+  function friction(type, detail, itemId){
+    var rec = {frictionType:type, detail:detail, itemId:itemId||currentItemId(), atMs:Math.round(now()-T0)};
+    frictionLog.push(rec);
+    post({type:"evaluation_friction", itemId:rec.itemId, frictionType:type, detail:detail,
+          elapsedMs:rec.atMs, phase: state.phase});
+  }
+  function now(){ return (window.performance && performance.now) ? performance.now() : Date.now(); }
+  var T0 = now();
+
+  /* ---------------- state ---------------- */
+  var state = {
+    phase:"opening",      /* opening | notice | item | ceremony | payoff | ended */
+    index:-1,
+    records:[],
+    item3Order:[],
+    completed:false,
+    lanternOpened:false,
+    fogAlpha:0.30
+  };
+  var cur = null;
+
+  function currentItemId(){ return (state.index>=0 && state.index<ITEMS.length) ? ITEMS[state.index].itemId : null; }
+
+  /* ---------------- stage fit ---------------- */
+  var scaleWarned = false;
+  function fit(){
+    var s = Math.min(window.innerWidth/1365, window.innerHeight/768);
+    if(!isFinite(s) || s<=0) s = 1;
+    stage.style.transform = "scale("+s+")";
+    if(s < 0.999 && !scaleWarned){
+      scaleWarned = true;
+      friction("viewport_below_target_size",
+        "Rendered smaller than 1365x768 (scale "+s.toFixed(3)+"); target sizes shrink proportionally.", null);
+    }
+  }
+  window.addEventListener("resize", fit);
+  fit();
+
+  /* ---------------- small DOM helpers ---------------- */
+  function el(tag, cls, text){
+    var n = document.createElement(tag);
+    if(cls) n.className = cls;
+    if(text !== undefined && text !== null) n.textContent = text;
+    return n;
+  }
+  function svgNode(markup){
+    var wrap = document.createElement("div");
+    wrap.innerHTML = markup;
+    return wrap.firstChild;
+  }
+  function clear(node){ while(node.firstChild) node.removeChild(node.firstChild); }
+
+  /* ---------------- role icons (never depict stimulus counts) ---------------- */
+  function icon(kind){
+    if(kind==="cluster"){
+      return svgNode('<svg width="52" height="52" viewBox="0 0 52 52"><circle cx="26" cy="26" r="22" fill="none" stroke="#ffcf8a" stroke-width="3" stroke-dasharray="6 6"/><path d="M18 27c-2-6 4-11 9-9 6 2 9 6 7 11-2 6-14 5-16-2z" fill="#ffb347"/></svg>');
+    }
+    if(kind==="dot"){
+      return svgNode('<svg width="52" height="52" viewBox="0 0 52 52"><circle cx="26" cy="26" r="11" fill="#ffb347"/></svg>');
+    }
+    if(kind==="row"){
+      return svgNode('<svg width="56" height="52" viewBox="0 0 56 52"><rect x="3" y="17" width="50" height="18" rx="4" fill="rgba(255,129,104,0.25)" stroke="#ff8168" stroke-width="2"/><rect x="7" y="21" width="12" height="10" rx="2" fill="#ff8168"/><rect x="22" y="21" width="12" height="10" rx="2" fill="#ff8168"/><rect x="37" y="21" width="12" height="10" rx="2" fill="#ff8168"/></svg>');
+    }
+    if(kind==="square"){
+      return svgNode('<svg width="52" height="52" viewBox="0 0 52 52"><rect x="16" y="16" width="20" height="20" rx="4" fill="#ff8168"/></svg>');
+    }
+    if(kind==="basket"){
+      return svgNode('<svg width="54" height="52" viewBox="0 0 54 52"><path d="M8 20h38l-5 22H13z" fill="none" stroke="#ffcf8a" stroke-width="3"/><path d="M16 20c3-8 19-8 22 0" fill="none" stroke="#ffcf8a" stroke-width="3"/></svg>');
+    }
+    if(kind==="lantern"){
+      return svgNode('<svg width="40" height="46" viewBox="0 0 40 46"><rect x="10" y="10" width="20" height="24" rx="4" fill="rgba(111,195,255,0.35)" stroke="#9adcff" stroke-width="2.5"/><rect x="14" y="4" width="12" height="6" rx="2" fill="#9adcff"/><rect x="12" y="34" width="16" height="6" rx="2" fill="#9adcff"/></svg>');
+    }
+    return el("span");
+  }
+
+  /* ---------------- decorative art ---------------- */
+  function towerArt(opts){
+    opts = opts || {};
+    var rays = opts.rays||0, harbor = opts.harbor||0, lit = opts.lit||false;
+    var s = '<svg width="620" height="270" viewBox="0 0 620 270">';
+    s += '<rect x="0" y="228" width="620" height="42" fill="#0a1626"/>';
+    if(lit){
+      for(var i=0;i<rays;i++){
+        var a = -32 + i*22;
+        s += '<g transform="translate(310,86) rotate('+a+')"><polygon points="0,0 300,-40 300,40" fill="rgba(255,203,107,0.14)"/></g>';
+      }
+    }
+    s += '<polygon points="270,228 350,228 336,96 284,96" fill="#12253a" stroke="#2c4a67" stroke-width="2"/>';
+    s += '<rect x="278" y="66" width="64" height="34" rx="6" fill="'+(lit?"#ffcb6b":"#16293f")+'" stroke="#3a5a78" stroke-width="2"/>';
+    s += '<polygon points="270,66 350,66 310,40" fill="#1b3550"/>';
+    for(var h=0;h<harbor;h++){
+      s += '<circle cx="'+(80+h*130)+'" cy="'+(214-((h%2)*8))+'" r="7" fill="rgba(111,195,255,0.85)"/>';
+      s += '<path d="M'+(64+h*130)+' 226 q16 12 32 0z" fill="#16293f" stroke="#33556f" stroke-width="2"/>';
+    }
+    s += '</svg>';
+    return svgNode(s);
+  }
+  function lampNoticeArt(){
+    return svgNode('<svg width="360" height="200" viewBox="0 0 360 200">'+
+      '<rect x="130" y="40" width="100" height="110" rx="14" fill="rgba(255,203,107,0.18)" stroke="#ffcb6b" stroke-width="3"/>'+
+      '<circle cx="180" cy="95" r="30" fill="#ffcb6b" opacity="0.85"/>'+
+      '<rect x="150" y="14" width="60" height="20" rx="7" fill="#ffcb6b"/>'+
+      '<rect x="120" y="150" width="120" height="22" rx="8" fill="#2c4a67"/>'+
+      '<path d="M60 120 q40 -30 66 -22" fill="none" stroke="#9adcff" stroke-width="4" stroke-linecap="round"/>'+
+      '<rect x="22" y="104" width="44" height="30" rx="6" fill="rgba(111,195,255,0.35)" stroke="#9adcff" stroke-width="3"/>'+
+      '</svg>');
+  }
+
+  /* ---------------- stimulus builders ---------------- */
+  function buildStim1(){
+    var row = el("div","clusterrow");
+    var pos = [[61,10],[112,44],[112,100],[61,134],[10,100],[10,44]];
+    for(var c=0;c<4;c++){
+      var cl = el("div","cluster");
+      for(var d=0;d<6;d++){
+        var dot = el("div","dot");
+        dot.style.left = pos[d][0]+"px";
+        dot.style.top = pos[d][1]+"px";
+        cl.appendChild(dot);
+      }
+      row.appendChild(cl);
+    }
+    return row;
+  }
+  function buildStim2(){
+    var block = el("div","arrayblock");
+    for(var r=0;r<3;r++){
+      var rw = el("div","arrayrow");
+      for(var s=0;s<7;s++){ rw.appendChild(el("div","sq")); }
+      block.appendChild(rw);
+    }
+    return block;
+  }
+  function buildStim3(){
+    var row = el("div","grouprow");
+    var pos = [[57,16],[24,72],[90,72]];
+    for(var g=0;g<5;g++){
+      var grp = el("div","grp");
+      for(var i=0;i<3;i++){
+        var p = el("div","item3piece");
+        p.style.left = pos[i][0]+"px";
+        p.style.top = pos[i][1]+"px";
+        grp.appendChild(p);
+      }
+      row.appendChild(grp);
+    }
+    return row;
+  }
+  function buildStim4(){
+    var row = el("div","stmt-row");
+    var A = el("div","stmt");
+    A.appendChild(icon("basket"));
+    var aTxt = el("div");
+    aTxt.appendChild(el("div","stmt-name","Statement A"));
+    aTxt.appendChild(el("div","stmt-text","2 baskets, and each basket holds 8 balls."));
+    A.appendChild(aTxt);
+    var B = el("div","stmt");
+    B.appendChild(icon("basket"));
+    var bTxt = el("div");
+    bTxt.appendChild(el("div","stmt-name","Statement B"));
+    bTxt.appendChild(el("div","stmt-text","8 baskets, and each basket holds 2 balls."));
+    B.appendChild(bTxt);
+    row.appendChild(A); row.appendChild(B);
+    return row;
+  }
+  var STIM_BUILDERS = [buildStim1, buildStim2, buildStim3, buildStim4];
+
+  /* ---------------- lamps / fog ---------------- */
+  function setLamp(i, cls){
+    var l = lamps[i];
+    if(!l) return;
+    l.className = "lamp" + (cls ? " "+cls : "");
+  }
+  function thinFog(){
+    state.fogAlpha = Math.max(0.08, state.fogAlpha - 0.055);
+    stage.style.setProperty("--fog-alpha", String(state.fogAlpha));
+  }
+
+  /* ---------------- idle handling ---------------- */
+  var idleTimer1=null, idleTimer2=null, idlePromptShown=false;
+  function clearIdle(){
+    if(idleTimer1){ clearTimeout(idleTimer1); idleTimer1=null; }
+    if(idleTimer2){ clearTimeout(idleTimer2); idleTimer2=null; }
+  }
+  function resetIdle(){
+    clearIdle();
+    if(state.phase!=="item") return;
+    idleTimer1 = setTimeout(function(){
+      var f = responseArea.querySelector(".slot.focused");
+      if(f){ f.style.animationDuration = "1.2s"; }
+    }, 45000);
+    idleTimer2 = setTimeout(function(){
+      if(state.phase!=="item") return;
+      idlePromptShown = true;
+      if(cur) cur.idlePrompt = true;
+      idleModal.classList.remove("hidden");
+      friction("idle_prompt_shown","No response-control interaction for 90s; honourable exits offered (keep looking / standby / stop).");
+    }, 90000);
+  }
+  stage.addEventListener("pointerdown", function(ev){
+    resetIdle();
+    if(cur && cur.armed){
+      var t = ev.target;
+      var onSend = false;
+      while(t && t!==stage){ if(t===sendBtn){ onSend=true; break; } t=t.parentNode; }
+      if(!onSend){ disarm(true); }
+    }
+  }, true);
+
+  /* ---------------- response construction ---------------- */
+  function makeSlot(field, idx){
+    var s = el("div","slot");
+    s.setAttribute("data-field", field.name);
+    s.appendChild(icon(field.icon));
+    s.appendChild(el("div","slot-label", field.label));
+    var v = el("div","slot-value","–");
+    v.setAttribute("data-role","value");
+    s.appendChild(v);
+    s.addEventListener("click", function(){
+      cur.focus = idx;
+      markInput("slot_focus");
+      refresh();
+    });
+    return s;
+  }
+  function makeStandbyCard(onTap, label){
+    var c = el("button","standbycard");
+    c.type = "button";
+    c.appendChild(icon("lantern"));
+    c.appendChild(el("span", null, label || "Not sure"));
+    c.addEventListener("click", function(){ onTap(); });
+    return c;
+  }
+  function makePalette(onPick){
+    var row = el("div","row");
+    for(var n=1;n<=10;n++){
+      (function(n){
+        var t = el("button","tile", String(n));
+        t.type="button";
+        t.setAttribute("data-val", String(n));
+        t.addEventListener("click", function(){ onPick(n); });
+        row.appendChild(t);
+      })(n);
+    }
+    return row;
+  }
+
+  function buildNumericResponse(item){
+    clear(responseArea);
+    var slotRow = el("div","row");
+    for(var i=0;i<item.fields.length;i++){
+      slotRow.appendChild(makeSlot(item.fields[i], i));
+    }
+    slotRow.appendChild(makeStandbyCard(function(){
+      setValue(item.fields[cur.focus].name, "not_sure");
+    }));
+    responseArea.appendChild(slotRow);
+    responseArea.appendChild(makePalette(function(n){
+      setValue(item.fields[cur.focus].name, n);
+    }));
+  }
+
+  function buildOptionResponse(item){
+    clear(responseArea);
+    var row = el("div","row");
+    var order = state.item3Order;
+    for(var i=0;i<order.length;i++){
+      (function(optText, position){
+        var c = el("button","optcard", optText.replace(" x "," × "));
+        c.type="button";
+        c.setAttribute("data-opt", optText);
+        c.addEventListener("click", function(){
+          cur.optionPosition = position;
+          setValue("selectedOption", optText);
+        });
+        row.appendChild(c);
+      })(order[i], i+1);
+    }
+    var ns = el("button","optcard", "Not sure");
+    ns.type="button";
+    ns.style.borderColor = "#4c7fa5";
+    ns.style.background = "rgba(111,195,255,0.10)";
+    ns.style.color = "#d6efff";
+    ns.setAttribute("data-opt","not_sure");
+    ns.addEventListener("click", function(){
+      cur.optionPosition = null;
+      setValue("selectedOption","not_sure");
+    });
+    row.appendChild(ns);
+    responseArea.appendChild(row);
+  }
+
+  function buildItem4Response(item){
+    clear(responseArea);
+    var choiceRow = el("div","row");
+    var choices = [["same","Same"],["different","Different"],["not_sure","Not sure"]];
+    for(var i=0;i<choices.length;i++){
+      (function(val,label){
+        var c = el("button","choicecard"+(val==="not_sure"?" sb":""), label);
+        c.type="button";
+        c.setAttribute("data-choice", val);
+        c.addEventListener("click", function(){ setValue("sameSituation", val); });
+        choiceRow.appendChild(c);
+      })(choices[i][0], choices[i][1]);
+    }
+    responseArea.appendChild(choiceRow);
+
+    var slotRow = el("div","row");
+    slotRow.appendChild(makeSlot(item.fields[0], 0));
+    slotRow.appendChild(makeStandbyCard(function(){ setValue("basketsInA","not_sure"); }));
+    responseArea.appendChild(slotRow);
+
+    responseArea.appendChild(makePalette(function(n){ setValue("basketsInA", n); }));
+  }
+
+  /* ---------------- value handling ---------------- */
+  function markInput(kind){
+    if(!cur) return;
+    if(cur.firstInputMs === null && cur.renderedAt !== null){
+      cur.firstInputMs = Math.round(now() - cur.renderedAt);
+      cur.firstInputKind = kind;
+    }
+    cur.taps++;
+    resetIdle();
+  }
+  function setValue(field, val){
+    if(!cur || state.phase!=="item") return;
+    markInput("value_tap");
+    var prev = cur.values[field];
+    if(prev !== undefined && prev !== null && prev !== val){
+      cur.revisions++;
+    }
+    cur.values[field] = val;
+    var item = ITEMS[state.index];
+    if(item.fields && item.fields.length>1){
+      var other = (cur.focus===0)?1:0;
+      var otherName = item.fields[other].name;
+      if(cur.values[otherName] === undefined || cur.values[otherName] === null){
+        cur.focus = other;
+      }
+    }
+    if(cur.armed) disarm(true);
+    refresh();
+  }
+  function allFilled(){
+    var item = ITEMS[state.index];
+    var needed = [];
+    if(item.itemId==="ITEM-3"){ needed = ["selectedOption"]; }
+    else if(item.itemId==="ITEM-4"){ needed = ["sameSituation","basketsInA"]; }
+    else { needed = [item.fields[0].name, item.fields[1].name]; }
+    for(var i=0;i<needed.length;i++){
+      var v = cur.values[needed[i]];
+      if(v===undefined || v===null) return false;
+    }
+    return true;
+  }
+  function refresh(){
+    var item = ITEMS[state.index];
+    var slots = responseArea.querySelectorAll(".slot");
+    for(var i=0;i<slots.length;i++){
+      var f = slots[i].getAttribute("data-field");
+      var vBox = slots[i].querySelector('[data-role="value"]');
+      var v = cur.values[f];
+      if(v===undefined||v===null){ vBox.textContent="–"; vBox.className="slot-value"; }
+      else if(v==="not_sure"){ vBox.textContent="standby"; vBox.className="slot-value standby"; }
+      else { vBox.textContent=String(v); vBox.className="slot-value"; }
+      var focusedName = (item.fields && item.fields[cur.focus]) ? item.fields[cur.focus].name : null;
+      if(f === focusedName && item.itemId!=="ITEM-3"){ slots[i].classList.add("focused"); }
+      else { slots[i].classList.remove("focused"); }
+    }
+    var focusedField = (item.fields && item.fields[cur.focus]) ? item.fields[cur.focus].name : null;
+    var focusedVal = focusedField ? cur.values[focusedField] : null;
+    var tiles = responseArea.querySelectorAll(".tile");
+    for(var t=0;t<tiles.length;t++){
+      var tv = parseInt(tiles[t].getAttribute("data-val"),10);
+      if(focusedVal === tv) tiles[t].classList.add("chosen"); else tiles[t].classList.remove("chosen");
+    }
+    var sbs = responseArea.querySelectorAll(".standbycard");
+    for(var s2=0;s2<sbs.length;s2++){
+      if(focusedVal === "not_sure") sbs[s2].classList.add("chosen"); else sbs[s2].classList.remove("chosen");
+    }
+    var opts = responseArea.querySelectorAll(".optcard");
+    for(var o=0;o<opts.length;o++){
+      if(cur.values.selectedOption === opts[o].getAttribute("data-opt")) opts[o].classList.add("chosen");
+      else opts[o].classList.remove("chosen");
+    }
+    var chs = responseArea.querySelectorAll(".choicecard");
+    for(var c=0;c<chs.length;c++){
+      if(cur.values.sameSituation === chs[c].getAttribute("data-choice")) chs[c].classList.add("chosen");
+      else chs[c].classList.remove("chosen");
+    }
+    if(allFilled()){
+      sendBtn.classList.remove("disabled");
+      if(!cur.armed){ sendBtn.textContent = "Send to the lamp"; }
+    } else {
+      sendBtn.classList.add("disabled");
+      sendBtn.classList.remove("armed");
+      sendBtn.textContent = "Send to the lamp";
+    }
+  }
+  function disarm(logIt){
+    if(!cur) return;
+    cur.armed = false;
+    cur.armedAt = null;
+    sendBtn.classList.remove("armed");
+    sendBtn.textContent = "Send to the lamp";
+    if(logIt) friction("arm_cancelled","Send was armed and then cancelled before the second tap; nothing was recorded.");
+  }
+
+  sendBtn.addEventListener("click", function(){
+    if(state.phase!=="item" || !cur) return;
+    if(!allFilled()) return;
+    if(!cur.armed){
+      cur.armed = true;
+      cur.armedAt = now();
+      sendBtn.classList.add("armed");
+      sendBtn.textContent = "Tap again to send";
+      resetIdle();
+      return;
+    }
+    if(now() - cur.armedAt < 350){
+      friction("multi_tap_absorbed","Second send tap arrived under 350ms after arming; absorbed by the arm-then-send gate, not recorded as a commit.");
+      return;
+    }
+    commit("send_button");
+  });
+
+  /* ---------------- scoring ---------------- */
+  function isNS(v){ return v==="not_sure"; }
+
+  function scoreItem(item, values){
+    var out = { result:"incorrect", diagnostics:{}, keys:{} };
+    if(item.itemId==="ITEM-1"){
+      var g = values.numberOfGroups, p = values.amountInEachGroup;
+      if(isNS(g)||isNS(p)){
+        out.result = "not_sure";
+      } else if(g===4 && p===6){
+        out.result = "correct";
+      } else {
+        out.result = "incorrect";
+      }
+      out.diagnostics.rolesReversed = (g===6 && p===4);
+      out.keys = {
+        c1_group_pair_correct: out.result==="correct",
+        c1_roles_reversed: out.diagnostics.rolesReversed === true,
+        c1_reported_total_instead_of_pair: false,
+        c1_not_sure: out.result==="not_sure"
+      };
+      out.keyLimitations = ["c1_reported_total_instead_of_pair cannot be directly observed: the 1-10 tap palette makes entry of 24 impossible, so total-seeking is not detectable from committed values in this input mode."];
+    } else if(item.itemId==="ITEM-2"){
+      var r = values.rows, s = values.squaresPerRow;
+      if(isNS(r)||isNS(s)){ out.result="not_sure"; }
+      else if(r===3 && s===7){ out.result="correct"; }
+      else { out.result="incorrect"; }
+      out.diagnostics.rolesReversed = (r===7 && s===3);
+      var offByOne = false;
+      if(typeof r==="number" && typeof s==="number" && out.result!=="correct"){
+        offByOne = ((r===3 && (s===6||s===8)) || (s===7 && (r===2||r===4)));
+      }
+      out.diagnostics.offByOne = offByOne;
+      out.keys = {
+        c3_array_dimensions_correct: out.result==="correct",
+        c3_roles_reversed: out.diagnostics.rolesReversed === true,
+        c3_reported_total_instead_of_dimensions: false,
+        c3_off_by_one_count: offByOne,
+        c3_not_sure: out.result==="not_sure"
+      };
+      out.keyLimitations = ["c3_reported_total_instead_of_dimensions cannot be directly observed: 21 is not enterable on a 1-10 palette."];
+    } else if(item.itemId==="ITEM-3"){
+      var o = values.selectedOption;
+      if(isNS(o)){ out.result="not_sure"; }
+      else if(o==="5 x 3 = 15"){ out.result="correct"; }
+      else { out.result="incorrect"; }
+      out.diagnostics.selectedOption = o;
+      out.keys = {
+        c2_equation_match_correct: out.result==="correct",
+        c2_additive_distractor_selected: (o==="5 + 3 = 8"),
+        c2_duplicated_factor_distractor_selected: (o==="5 x 5 = 25"),
+        c2_mismatched_structure_distractor_selected: (o==="3 x 10 = 30"),
+        c2_product_only_recognition_flag: null,
+        c2_not_sure: out.result==="not_sure"
+      };
+      out.keyLimitations = ["c2_product_only_recognition_flag is resolved at completion using the contract's cross-item consistency check."];
+    } else {
+      var ss = values.sameSituation, b = values.basketsInA;
+      if(isNS(ss)||isNS(b)){ out.result="not_sure"; }
+      else if(ss==="different" && b===2){ out.result="correct"; }
+      else { out.result="incorrect"; }
+      out.diagnostics.sameSelected = (ss==="same");
+      out.diagnostics.referentCountCorrect = (b===2);
+      out.keys = {
+        c4_referent_discrimination_correct: out.result==="correct",
+        c4_same_selected_product_equality_confusion: (ss==="same"),
+        c4_referent_count_correct: (b===2),
+        c4_ambiguity_flag_requires_followup: (ss==="same"),
+        c4_not_sure: out.result==="not_sure"
+      };
+    }
+    return out;
+  }
+
+  /* ---------------- commit ---------------- */
+  function commit(source){
+    if(state.phase!=="item" || !cur) return;
+    var item = ITEMS[state.index];
+    var committedAt = now();
+    var values = {};
+    for(var k in cur.values){ if(Object.prototype.hasOwnProperty.call(cur.values,k)) values[k]=cur.values[k]; }
+    if(source==="idle_standby"){
+      if(item.itemId==="ITEM-3"){ values = {selectedOption:"not_sure"}; }
+      else if(item.itemId==="ITEM-4"){ values = {sameSituation:"not_sure", basketsInA:"not_sure"}; }
+      else { values = {}; values[item.fields[0].name]="not_sure"; values[item.fields[1].name]="not_sure"; }
+    }
+    var scored = scoreItem(item, values);
+    var latency = cur.firstInputMs;
+    var threshold = INSPECTION_THRESHOLDS[item.itemId];
+    var belowThreshold = (latency !== null && latency < threshold);
+
+    var confoundFlags = [];
+    if(scored.result==="correct" && belowThreshold){
+      confoundFlags.push("latency_below_inspection_threshold");
+    }
+    if(cur.idlePrompt){ confoundFlags.push("committed_after_idle_prompt"); }
+    if(source==="idle_standby"){ confoundFlags.push("standby_committed_via_idle_prompt"); }
+    if(cur.frictionCountAtStart !== frictionLog.length){
+      var interfering = false;
+      for(var fi=cur.frictionCountAtStart; fi<frictionLog.length; fi++){
+        var ft = frictionLog[fi].frictionType;
+        if(ft==="multi_tap_absorbed" || ft==="viewport_below_target_size" || ft==="sealed_lamp_tapped"){
+          interfering = true;
+        }
+      }
+      if(interfering) confoundFlags.push("input_or_display_interference_logged_during_item");
+    }
+    if(item.itemId==="ITEM-4" && values.sameSituation==="same"){
+      confoundFlags.push("item4_same_response_ambiguous_pending_followup_probe");
+    }
+
+    var record = {
+      itemId:item.itemId,
+      constructId:item.constructId,
+      result:scored.result,
+      diagnostics:scored.diagnostics,
+      measurementKeys:scored.keys,
+      keyLimitations:scored.keyLimitations||[],
+      attemptedValue:values,
+      confoundFlags:confoundFlags,
+      latencyMs:latency,
+      commitLatencyMs: cur.renderedAt!==null ? Math.round(committedAt-cur.renderedAt) : null,
+      revisions:cur.revisions,
+      taps:cur.taps,
+      commitSource:source,
+      optionOrderShown: item.itemId==="ITEM-3" ? state.item3Order.slice() : null,
+      optionPositionChosen: item.itemId==="ITEM-3" ? cur.optionPosition : null
+    };
+    state.records.push(record);
+    postAttempt(record, item);
+
+    var anyNS = false;
+    for(var vk in values){ if(values[vk]==="not_sure") anyNS = true; }
+    clearIdle();
+    idleModal.classList.add("hidden");
+    disarm(false);
+    seal(item.lamp, anyNS ? "standby" : "warm", summarize(item, values));
+  }
+
+  function postAttempt(record, item){
+    post({
+      type:"evaluation_attempt",
+      itemId:record.itemId,
+      constructId:record.constructId,
+      result:record.result,
+      assistance:ASSISTANCE_NONE,
+      exposure:{
+        exposureId:item.exposure.exposureId,
+        structure:item.exposure.structure,
+        contextFamily:item.exposure.contextFamily,
+        factorPair:item.exposure.factorPair,
+        instructionalExposure:"none: no example, no hint, no feedback, no correct answer shown",
+        answerExposedBeforeResponse:false,
+        priorExposureInSession:false,
+        singleUseExposureRespected:true
+      },
+      responseMode:item.responseMode,
+      possibleConfounds:item.confounds,
+      attemptedValue:record.attemptedValue,
+      diagnostics:record.diagnostics,
+      measurementKeys:record.measurementKeys,
+      keyLimitations:record.keyLimitations,
+      confoundFlags:record.confoundFlags,
+      latency:{
+        timeToFirstMeaningfulInputMs:record.latencyMs,
+        timeToCommitMs:record.commitLatencyMs,
+        inspectionThresholdMs:INSPECTION_THRESHOLDS[record.itemId],
+        belowInspectionThreshold: record.latencyMs!==null && record.latencyMs < INSPECTION_THRESHOLDS[record.itemId],
+        definition:LATENCY_DEFINITION
+      },
+      revisionsBeforeCommit:record.revisions,
+      responseTapCount:record.taps,
+      commitSource:record.commitSource,
+      optionOrderShown:record.optionOrderShown,
+      optionPositionChosen:record.optionPositionChosen,
+      excludedFromScoring:["reading_time","reading_fluency","spelling","typing_speed","keystroke_count","pointer_precision","pointer_path_length"],
+      retriesAllowed:0
+    });
+  }
+
+  function summarize(item, values){
+    if(item.itemId==="ITEM-1"){
+      return fmt(values.numberOfGroups)+" bunches · "+fmt(values.amountInEachGroup)+" in each";
+    }
+    if(item.itemId==="ITEM-2"){
+      return fmt(values.rows)+" rows · "+fmt(values.squaresPerRow)+" in each row";
+    }
+    if(item.itemId==="ITEM-3"){
+      return values.selectedOption==="not_sure" ? "standby" : values.selectedOption.replace(" x "," × ");
+    }
+    return (values.sameSituation==="not_sure" ? "standby" : (values.sameSituation==="same"?"Same":"Different"))
+      + " · " + fmt(values.basketsInA) + " baskets in A";
+  }
+  function fmt(v){
+    if(v===undefined||v===null) return "—";
+    if(v==="not_sure") return "standby";
+    return String(v);
+  }
+
+  /* ---------------- seal ceremony ---------------- */
+  function offsetIn(node, ancestor){
+    var x=0,y=0,n=node;
+    while(n && n!==ancestor){ x+=n.offsetLeft; y+=n.offsetTop; n=n.offsetParent; }
+    return {x:x,y:y};
+  }
+  function seal(lampIndex, kind, text){
+    state.phase = "ceremony";
+    blocker.classList.remove("hidden");
+    pill.textContent = text;
+    pill.classList.remove("hidden");
+    pill.style.transition = "none";
+    pill.style.opacity = "1";
+    pill.style.transform = "translate(0,0) scale(1)";
+    var start = offsetIn(sendBar, stage);
+    pill.style.left = Math.max(160, start.x + 340) + "px";
+    pill.style.top = (start.y + 6) + "px";
+    if(kind==="standby"){
+      pill.style.background = "rgba(180,232,255,0.95)";
+      pill.style.boxShadow = "0 0 26px 8px rgba(110,195,255,0.5)";
+    } else {
+      pill.style.background = "rgba(255,222,160,0.95)";
+      pill.style.boxShadow = "0 0 26px 8px rgba(255,190,100,0.5)";
+    }
+    var target = offsetIn(lamps[lampIndex], stage);
+    var pr = pill.getBoundingClientRect();
+    var scale = Math.min(window.innerWidth/1365, window.innerHeight/768) || 1;
+    var pw = pr.width/scale, ph = pr.height/scale;
+    var dx = (target.x + 28) - (parseFloat(pill.style.left) + pw/2);
+    var dy = (target.y + 28) - (parseFloat(pill.style.top) + ph/2);
+
+    setTimeout(function(){
+      pill.style.transition = "transform 1.3s cubic-bezier(.3,.7,.3,1), opacity 1.3s ease";
+      pill.style.transform = "translate("+dx+"px,"+dy+"px) scale(0.35)";
+      pill.style.opacity = "0.15";
+    }, 60);
+
+    setTimeout(function(){
+      setLamp(lampIndex, kind);
+      thinFog();
+      pill.classList.add("hidden");
+    }, 1450);
+
+    setTimeout(function(){
+      blocker.classList.add("hidden");
+      advance();
+    }, 2500);
+  }
+
+  /* ---------------- flow ---------------- */
+  function showScreen(node){
+    var all = [screenOpen, screenNotice, screenItem, screenPayoff, screenLantern, screenEnd];
+    for(var i=0;i<all.length;i++){
+      if(all[i]===node){ all[i].classList.remove("hidden"); }
+      else { all[i].classList.add("hidden"); }
+    }
+  }
+
+  function advance(){
+    if(state.index+1 < ITEMS.length){
+      startItem(state.index+1);
+    } else {
+      finish("all_items_resolved");
+    }
+  }
+
+  function startItem(idx){
+    state.index = idx;
+    state.phase = "item";
+    var item = ITEMS[idx];
+    cur = {
+      values:{}, focus:0, revisions:0, taps:0, armed:false, armedAt:null,
+      firstInputMs:null, firstInputKind:null, renderedAt:null, idlePrompt:false,
+      optionPosition:null, frictionCountAtStart: frictionLog.length
+    };
+    idlePromptShown = false;
+
+    for(var i=0;i<ITEMS.length;i++){
+      if(i<idx){ /* leave sealed state as-is */ }
+      else if(i===idx){ setLamp(i,"active"); }
+      else { setLamp(i,""); }
+    }
+
+    clear(stimulus);
+    stimulus.appendChild(STIM_BUILDERS[idx]());
+    sentenceEl.textContent = item.sentence || "";
+    sentenceEl.style.display = item.sentence ? "block" : "none";
+    promptEl.textContent = item.prompt;
+
+    if(item.itemId==="ITEM-3"){ buildOptionResponse(item); }
+    else if(item.itemId==="ITEM-4"){ buildItem4Response(item); }
+    else { buildNumericResponse(item); }
+
+    sendBtn.className = "disabled";
+    sendBtn.textContent = "Send to the lamp";
+
+    showScreen(screenItem);
+    screenItem.classList.add("fadeout");
+    refresh();
+    requestAnimationFrame(function(){
+      requestAnimationFrame(function(){
+        screenItem.classList.remove("fadeout");
+        setTimeout(function(){
+          cur.renderedAt = now();
+          resetIdle();
+        }, 400);
+      });
+    });
+  }
+
+  /* ---------------- stop / omit ---------------- */
+  function recordUnreached(reason){
+    var startIdx = state.index;
+    if(startIdx < 0) startIdx = 0;
+    for(var i=startIdx;i<ITEMS.length;i++){
+      var item = ITEMS[i];
+      var already = false;
+      for(var r=0;r<state.records.length;r++){ if(state.records[r].itemId===item.itemId) already = true; }
+      if(already) continue;
+      var partial = null, res = "omitted";
+      if(i===state.index && cur){
+        var hasAny = false;
+        for(var k in cur.values){ if(cur.values[k]!==undefined && cur.values[k]!==null) hasAny=true; }
+        if(hasAny || cur.firstInputMs!==null){ res = "abandoned"; partial = cur.values; }
+      }
+      var rec = {
+        itemId:item.itemId, constructId:item.constructId, result:res,
+        diagnostics:{}, measurementKeys:{}, keyLimitations:[],
+        attemptedValue: partial ? {partialUncommitted:partial} : null,
+        confoundFlags:["item_not_resolved:"+reason],
+        latencyMs:null, commitLatencyMs:null, revisions: (i===state.index && cur)?cur.revisions:0,
+        taps:(i===state.index && cur)?cur.taps:0, commitSource:reason,
+        optionOrderShown: item.itemId==="ITEM-3" ? state.item3Order.slice() : null,
+        optionPositionChosen:null
+      };
+      state.records.push(rec);
+      postAttempt(rec, item);
+      setLamp(item.lamp,"");
+    }
+  }
+
+  stopBtn.addEventListener("click", function(){
+    if(state.phase==="ceremony") return;
+    if(state.completed){ showScreen(screenEnd); state.phase="ended"; return; }
+    stopModal.classList.remove("hidden");
+    clearIdle();
+  });
+  stopNo.addEventListener("click", function(){
+    stopModal.classList.add("hidden");
+    resetIdle();
+  });
+  stopYes.addEventListener("click", function(){
+    stopModal.classList.add("hidden");
+    friction("child_stopped_early","Child used the 'Stop for tonight' door; remaining lamps recorded as missing evidence.");
+    recordUnreached("stopped_early");
+    finish("stopped_early");
+  });
+  idleKeep.addEventListener("click", function(){
+    idleModal.classList.add("hidden");
+    resetIdle();
+  });
+  idleStandby.addEventListener("click", function(){
+    idleModal.classList.add("hidden");
+    commit("idle_standby");
+  });
+  idleStop.addEventListener("click", function(){
+    idleModal.classList.add("hidden");
+    friction("child_stopped_early_from_idle_prompt","Child chose to stop from the idle prompt.");
+    recordUnreached("stopped_early_from_idle_prompt");
+    finish("stopped_early");
+  });
+  for(var li=0; li<lamps.length; li++){
+    (function(idx){
+      lamps[idx].addEventListener("click", function(){
+        var sealedAlready = lamps[idx].className.indexOf("warm")>-1 || lamps[idx].className.indexOf("standby")>-1;
+        if(sealedAlready){
+          friction("sealed_lamp_tapped","A sealed lamp was tapped (lamp "+(idx+1)+"); sealed lamps hold one message and do not reopen.");
+        }
+      });
+    })(li);
+  }
+
+  /* ---------------- evidence map + completion ---------------- */
+  function byItem(id){
+    for(var i=0;i<state.records.length;i++){ if(state.records[i].itemId===id) return state.records[i]; }
+    return null;
+  }
+  function statusFor(rec){
+    if(!rec) return "evidence_missing";
+    if(rec.result==="not_sure" || rec.result==="omitted" || rec.result==="abandoned") return "evidence_missing";
+    var interference = false, latencyFlag = false, ambiguityFlag = false;
+    for(var i=0;i<rec.confoundFlags.length;i++){
+      var f = rec.confoundFlags[i];
+      if(f==="latency_below_inspection_threshold") latencyFlag = true;
+      else if(f==="item4_same_response_ambiguous_pending_followup_probe") ambiguityFlag = true;
+      else interference = true;
+    }
+    if(ambiguityFlag) return "evidence_ambiguous";
+    if(rec.result==="correct"){
+      if(latencyFlag || interference) return "evidence_ambiguous";
+      return "evidence_supports_construct_provisionally";
+    }
+    if(interference) return "evidence_ambiguous";
+    return "evidence_contradicts_construct";
+  }
+
+  function buildEvidenceMap(){
+    var r1=byItem("ITEM-1"), r2=byItem("ITEM-2"), r3=byItem("ITEM-3"), r4=byItem("ITEM-4");
+    var flags = [];
+    var map = {
+      C1:{ constructName:"Equal-group structure recognition", itemId:"ITEM-1",
+           status:statusFor(r1), confoundFlags:r1?r1.confoundFlags:["item_not_resolved"], observations:1 },
+      C3:{ constructName:"Array row-column reading", itemId:"ITEM-2",
+           status:statusFor(r2), confoundFlags:r2?r2.confoundFlags:["item_not_resolved"], observations:1 },
+      C2:{ constructName:"Representation to equation mapping", itemId:"ITEM-3",
+           status:statusFor(r3), confoundFlags:r3?r3.confoundFlags:["item_not_resolved"], observations:1 },
+      C4:{ constructName:"Factor referent discrimination", itemId:"ITEM-4",
+           status:statusFor(r4), confoundFlags:r4?r4.confoundFlags:["item_not_resolved"], observations:1 }
+    };
+
+    var rev1 = r1 && r1.diagnostics && r1.diagnostics.rolesReversed === true;
+    var rev2 = r2 && r2.diagnostics && r2.diagnostics.rolesReversed === true;
+    if(rev1 && rev2){
+      flags.push("role_reversal_in_ITEM-1_and_ITEM-2: candidate referent-assignment gap; ITEM-4 must corroborate or contradict.");
+    }
+    var productOnly = (r3 && r3.result==="correct") && (r1 && r1.result==="incorrect") && (r2 && r2.result==="incorrect");
+    if(productOnly){
+      flags.push("c2_product_only_recognition_flag: correct ITEM-3 with incorrect ITEM-1 and ITEM-2 indicates probable product recognition rather than structural mapping.");
+      map.C2.status = "evidence_ambiguous";
+      map.C2.confoundFlags = map.C2.confoundFlags.concat(["c2_product_only_recognition_flag"]);
+      if(r3) r3.measurementKeys.c2_product_only_recognition_flag = true;
+    } else if(r3 && r3.measurementKeys && Object.prototype.hasOwnProperty.call(r3.measurementKeys,"c2_product_only_recognition_flag")){
+      r3.measurementKeys.c2_product_only_recognition_flag = false;
+    }
+    if(r4 && r4.result==="correct" && (rev1 || rev2)){
+      flags.push("c4_claim_confined_to_verbal_context: correct ITEM-4 alongside role reversal in ITEM-1 or ITEM-2.");
+      map.C4.confoundFlags = map.C4.confoundFlags.concat(["c4_claim_confined_to_verbal_context"]);
+    }
+    if(r4 && r4.diagnostics && r4.diagnostics.sameSelected){
+      flags.push("c4_ambiguity_flag_requires_followup: 'same' response is ambiguous between same total and same situation.");
+    }
+    var nsCount = 0;
+    for(var i=0;i<state.records.length;i++){ if(state.records[i].result==="not_sure") nsCount++; }
+    if(nsCount>=3){
+      flags.push("possible_instrument_induced_caution: 'not sure' committed on "+nsCount+" of 4 lamps; reported as pattern, not as ability absence.");
+    }
+    for(var f2=0; f2<frictionLog.length; f2++){
+      flags.push("friction:"+frictionLog[f2].frictionType);
+    }
+    return {map:map, flags:flags, notSureCount:nsCount};
+  }
+
+  function finish(reason){
+    if(state.completed){ return; }
+    state.completed = true;
+    state.phase = "payoff";
+    clearIdle();
+    idleModal.classList.add("hidden");
+    stopModal.classList.add("hidden");
+
+    var built = buildEvidenceMap();
+    var outcomes = [];
+    for(var i=0;i<ITEMS.length;i++){
+      var rec = byItem(ITEMS[i].itemId);
+      outcomes.push({
+        itemId:ITEMS[i].itemId,
+        constructId:ITEMS[i].constructId,
+        result: rec ? rec.result : "omitted",
+        attemptedValue: rec ? rec.attemptedValue : null,
+        confoundFlags: rec ? rec.confoundFlags : ["item_not_reached"],
+        measurementKeys: rec ? rec.measurementKeys : {},
+        latencyMs: rec ? rec.latencyMs : null,
+        revisionsBeforeCommit: rec ? rec.revisions : 0
+      });
+    }
+
+    post({
+      type:"evaluation_complete",
+      messageRole:"primary_evidence_record",
+      upstreamHash:UPSTREAM_HASH,
+      designArtifactHash:DESIGN_HASH,
+      completionReason:reason,
+      itemOutcomes:outcomes,
+      constructEvidenceMap:built.map,
+      confoundFlagsRaised:built.flags,
+      frictionLog:frictionLog,
+      sessionMeta:{
+        itemSequence:["ITEM-1","ITEM-2","ITEM-3","ITEM-4"],
+        item3OptionOrderShown:state.item3Order.slice(),
+        latencyDefinition:LATENCY_DEFINITION,
+        inspectionThresholdsMs:INSPECTION_THRESHOLDS,
+        retriesAllowed:0,
+        feedbackDuringEvaluation:false,
+        hintsDuringEvaluation:false,
+        answerExposureDuringEvaluation:false,
+        totalSessionMs:Math.round(now()-T0),
+        notSureCount:built.notSureCount
+      },
+      assistance:ASSISTANCE_NONE,
+      exposureLedger:[
+        {exposureId:"EX-EQGROUPS-DOTS-4x6", used:true, reused:false},
+        {exposureId:"EX-ARRAY-GRID-3x7", used:true, reused:false},
+        {exposureId:"EX-EQUATION-MATCH-5x3", used:true, reused:false},
+        {exposureId:"EX-REFERENT-SWAP-2x8", used:true, reused:false}
+      ],
+      excludedFromScoring:["reading_fluency","reading_time","spelling","typing_speed","keystroke_count","pointer_precision","pointer_path_length","computation beyond the stated factor range"],
+      noMasteryDeclaration:"No outcome combination, including four correct responses, is reported as mastery, proficiency, or a settled skill claim. One item per construct is a single observation sample.",
+      evidenceRequiredNext:[
+        "Disambiguation probe for ITEM-4 when 'same' is selected.",
+        "A second, structurally different observation per construct.",
+        "A no-picture equal-group item for C1.",
+        "An unknown-factor probe for C2 bidirectionality.",
+        "A column-reading array probe for C3 orientation dependence.",
+        "Confound-isolation checks for reading load.",
+        "Input-mode check on tap entry and selection mechanics.",
+        "Latency baselines on a non-mathematical selection task.",
+        "Repeat observation on a separate occasion."
+      ]
+    });
+
+    renderPayoff(reason);
+  }
+
+  function renderPayoff(reason){
+    var warm=0, standby=0, dark=0;
+    for(var i=0;i<ITEMS.length;i++){
+      var rec = byItem(ITEMS[i].itemId);
+      if(!rec || rec.result==="omitted" || rec.result==="abandoned"){ dark++; }
+      else if(rec.result==="not_sure"){ standby++; }
+      else { warm++; }
+    }
+    clear(payoffArt);
+    payoffArt.appendChild(towerArt({rays:warm, harbor:standby, lit:(warm+standby)>0}));
+
+    if(reason==="stopped_early"){
+      payoffLine.textContent = "The night ended early. The tower keeps what you sent.";
+    } else {
+      payoffLine.textContent = warm+standby>0 ? "The tower wakes. The beam sweeps the coast." : "The tower waits for another night.";
+    }
+
+    clear(logCard);
+    logCard.appendChild(el("div","stmt-name","Keeper's log — the messages you sent"));
+    for(var j=0;j<ITEMS.length;j++){
+      var r = byItem(ITEMS[j].itemId);
+      var line = el("div","logline");
+      var bulb = el("div","loglamp");
+      var text;
+      if(!r || r.result==="omitted" || r.result==="abandoned"){
+        bulb.classList.add("dark");
+        text = "Lamp "+(j+1)+" — dark. No message was sent tonight.";
+      } else if(r.result==="not_sure"){
+        bulb.classList.add("standby");
+        text = "Lamp "+(j+1)+" — standby. You chose to hold this one.";
+      } else {
+        bulb.classList.add("warm");
+        text = "Lamp "+(j+1)+" — lit. You sent: "+summarize(ITEMS[j], r.attemptedValue);
+      }
+      line.appendChild(bulb);
+      line.appendChild(el("span",null,text));
+      logCard.appendChild(line);
+    }
+    payoffNote.textContent = "The lamps keep messages. They do not say right or wrong. The tower reads them at dawn.";
+    showScreen(screenPayoff);
+    state.phase = "payoff";
+  }
+
+  /* ---------------- post-window lantern of second looks ---------------- */
+  lanternBtn.addEventListener("click", function(){
+    if(!state.completed) return;
+    if(!state.lanternOpened){
+      state.lanternOpened = true;
+      post({
+        type:"evaluation_complete",
+        messageRole:"post_window_addendum",
+        addendum:"post_window_lantern_opened",
+        altersRecordedEvidence:false,
+        supersedesPrimaryRecord:false,
+        postWindowExposure:{
+          affordance:"lantern of second looks",
+          contents:"the child's own committed messages and a second look at the four pictures",
+          answersRevealed:false,
+          teachingProvided:false,
+          feedbackProvided:false,
+          openedAtMsFromStart:Math.round(now()-T0)
+        }
+      });
+    }
+    buildLantern();
+    showScreen(screenLantern);
+  });
+  goodnightBtn.addEventListener("click", function(){
+    clear(endArt);
+    endArt.appendChild(towerArt({rays:0, harbor:1, lit:true}));
+    endNote.textContent = "The lamps are sealed. Nothing more is needed tonight.";
+    showScreen(screenEnd);
+    state.phase = "ended";
+  });
+  lanternBackBtn.addEventListener("click", function(){ showScreen(screenPayoff); });
+
+  function buildLantern(){
+    clear(lanternPicker);
+    clear(reviewArea);
+    for(var i=0;i<ITEMS.length;i++){
+      (function(idx){
+        var b = el("button","ghost-btn","Lamp "+(idx+1));
+        b.type="button";
+        b.style.minWidth="180px";
+        b.addEventListener("click", function(){
+          clear(reviewArea);
+          var box = el("div");
+          box.style.textAlign="center";
+          var holder = el("div");
+          holder.style.transform="scale(0.72)";
+          holder.style.transformOrigin="top center";
+          holder.appendChild(STIM_BUILDERS[idx]());
+          box.appendChild(holder);
+          var r = byItem(ITEMS[idx].itemId);
+          var msg = (!r || r.result==="omitted" || r.result==="abandoned") ? "No message was sent to this lamp."
+            : (r.result==="not_sure" ? "You set this lamp to standby." : "You sent: "+summarize(ITEMS[idx], r.attemptedValue));
+          var t = el("p","note", msg);
+          t.style.marginTop = "0";
+          box.appendChild(t);
+          reviewArea.appendChild(box);
+        });
+        lanternPicker.appendChild(b);
+      })(i);
+    }
+  }
+
+  /* ---------------- opening ---------------- */
+  function shuffle(arr){
+    var a = arr.slice();
+    for(var i=a.length-1;i>0;i--){
+      var j = Math.floor(Math.random()*(i+1));
+      var tmp=a[i]; a[i]=a[j]; a[j]=tmp;
+    }
+    return a;
+  }
+
+  clear(openArt);
+  openArt.appendChild(towerArt({rays:0, harbor:1, lit:false}));
+  clear(noticeArt);
+  noticeArt.appendChild(lampNoticeArt());
+  setLamp(0,"active");
+  stage.style.setProperty("--fog-alpha", String(state.fogAlpha));
+
+  beginBtn.addEventListener("click", function(){
+    state.phase = "notice";
+    showScreen(screenNotice);
+  });
+  readyBtn.addEventListener("click", function(){
+    startItem(0);
+  });
+
+  state.item3Order = shuffle(ITEMS[2].options);
+
+  post({
+    type:"evaluation_ready",
+    upstreamHash:UPSTREAM_HASH,
+    designArtifactHash:DESIGN_HASH,
+    title:"The Signal Tower: Four Lights to Wake",
+    targetViewport:{width:1365, height:768},
+    inputModes:["touch","mouse"],
+    keyboardRequired:false,
+    itemSequence:["ITEM-1","ITEM-2","ITEM-3","ITEM-4"],
+    constructs:["C1","C2","C3","C4"],
+    administration:{
+      noFeedbackDuringEvaluation:true,
+      noHintsDuringEvaluation:true,
+      retriesAllowed:0,
+      notSureIsValidResponse:true,
+      childMayStop:true,
+      oneStimulusPerScreen:true,
+      noTimeLimit:true,
+      hintAffordanceAllowedAfter:"all four item responses are recorded"
+    },
+    item3OptionOrderShown:state.item3Order.slice(),
+    latencyDefinition:LATENCY_DEFINITION,
+    inspectionThresholdsMs:INSPECTION_THRESHOLDS
+  });
+
+})();
+</script>
+</body>
+</html>

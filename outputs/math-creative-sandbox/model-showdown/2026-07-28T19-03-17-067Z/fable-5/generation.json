@@ -1,0 +1,18 @@
+{
+  "id": "fable-5",
+  "label": "Claude Fable 5",
+  "provider": "anthropic",
+  "model": "claude-fable-5",
+  "status": "failed",
+  "elapsedMs": 398,
+  "inputTokens": 0,
+  "outputTokens": 0,
+  "estimatedCostUsd": 0,
+  "artifactHash": "7c0c422005f81dc7b9909442f0e567ab64334acb8cf303b477f6b3b0467774e1",
+  "promptHash": "50b395d171466ba5962a2ed6ee3983eff8ce0781a53420b17e5c8ee4352a4a76",
+  "apiResponseHash": null,
+  "savedHtmlHash": null,
+  "iframeSrcDocHash": null,
+  "extractionMode": null,
+  "error": "400 {\"type\":\"error\",\"error\":{\"type\":\"invalid_request_error\",\"message\":\"\\\"thinking.type.disabled\\\" is not supported for this model. Thinking defaults to adaptive mode when not specified; use \\\"thinking.type.enabled\\\" with \\\"budget_tokens\\\" for extended thinking.\"},\"request_id\":\"req_011CdUyVD5ceDWLaPtWG7xVY\"}"
+}

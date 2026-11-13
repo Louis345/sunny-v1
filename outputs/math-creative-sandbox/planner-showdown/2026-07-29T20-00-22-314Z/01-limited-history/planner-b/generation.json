@@ -1,0 +1,28 @@
+{
+  "scenarioId": "01-limited-history",
+  "blindId": "Planner B",
+  "status": "complete",
+  "model": "gpt-5.6-sol",
+  "provider": "openai",
+  "promptHash": "82fab7d97faaac826e25ecc2a943f567730dd17e2c6fb29fc65fb53241c7d32a",
+  "packetHash": "4fd2cae8ab4c65ca29f2d518093e5d0ebf44674592dc13601e67cdd67e4abc93",
+  "inputTokens": 1085,
+  "outputTokens": 8410,
+  "estimatedCostUsd": 0.257725,
+  "elapsedMs": 169163,
+  "inspection": {
+    "hardFailures": [
+      "unsupported_high_confidence_claim"
+    ],
+    "metrics": {
+      "factualClaimCount": 7,
+      "evidenceReferencedClaimCount": 0,
+      "evidenceGroundingRatio": 0,
+      "fabricatedEvidenceReferenceCount": 0,
+      "unsupportedHighConfidenceCount": 1,
+      "predictionCount": 4,
+      "nodeCount": 5
+    }
+  },
+  "error": null
+}

@@ -1,0 +1,111 @@
+[
+  {
+    "call": 1,
+    "arm": "neutral",
+    "stage": "academic-lead",
+    "model": "claude-opus-5",
+    "status": "complete",
+    "inputTokens": 2247,
+    "outputTokens": 5196,
+    "costUsd": 0.141135,
+    "elapsedMs": 71888,
+    "stopReason": "tool_use"
+  },
+  {
+    "call": 2,
+    "arm": "personality",
+    "stage": "academic-lead",
+    "model": "claude-opus-5",
+    "status": "complete",
+    "inputTokens": 2303,
+    "outputTokens": 6135,
+    "costUsd": 0.16488999999999998,
+    "elapsedMs": 96438,
+    "stopReason": "tool_use"
+  },
+  {
+    "call": 3,
+    "arm": "neutral",
+    "stage": "curriculum-writer",
+    "model": "claude-opus-5",
+    "status": "complete",
+    "inputTokens": 6654,
+    "outputTokens": 8551,
+    "costUsd": 0.247045,
+    "elapsedMs": 106284,
+    "stopReason": "tool_use"
+  },
+  {
+    "call": 4,
+    "arm": "personality",
+    "stage": "curriculum-writer",
+    "model": "claude-opus-5",
+    "status": "complete",
+    "inputTokens": 7660,
+    "outputTokens": 7462,
+    "costUsd": 0.22485,
+    "elapsedMs": 93178,
+    "stopReason": "tool_use"
+  },
+  {
+    "call": 5,
+    "arm": "neutral",
+    "stage": "experience-architect",
+    "model": "claude-fable-5",
+    "status": "complete",
+    "inputTokens": 10299,
+    "outputTokens": 10317,
+    "costUsd": 0.371304,
+    "elapsedMs": 157295,
+    "stopReason": "tool_use"
+  },
+  {
+    "call": 6,
+    "arm": "personality",
+    "stage": "experience-architect",
+    "model": "claude-fable-5",
+    "status": "complete",
+    "inputTokens": 9270,
+    "outputTokens": 8345,
+    "costUsd": 0.30597,
+    "elapsedMs": 131705,
+    "stopReason": "tool_use"
+  },
+  {
+    "call": 7,
+    "arm": "neutral",
+    "stage": "experience-engineer",
+    "model": "claude-opus-5",
+    "status": "complete",
+    "inputTokens": 19262,
+    "outputTokens": 35243,
+    "costUsd": 0.977385,
+    "elapsedMs": 405296,
+    "stopReason": "end_turn"
+  },
+  {
+    "call": 8,
+    "arm": "personality",
+    "stage": "experience-engineer",
+    "model": "claude-opus-5",
+    "status": "complete",
+    "inputTokens": 16316,
+    "outputTokens": 52000,
+    "costUsd": 1.38158,
+    "elapsedMs": 630441,
+    "stopReason": "max_tokens"
+  },
+  {
+    "call": 9,
+    "arm": "personality",
+    "stage": "experience-engineer",
+    "model": "claude-opus-5",
+    "status": "complete",
+    "inputTokens": 16316,
+    "outputTokens": 66436,
+    "costUsd": 1.7424799999999998,
+    "elapsedMs": 767521,
+    "stopReason": "end_turn",
+    "note": "Fresh same-prompt recovery at 78k after the personality arm exhausted the shared 52k ceiling. The failed first attempt remains in cost and reliability totals."
+  }
+]

@@ -1,0 +1,26 @@
+{
+  "scenarioId": "02-contradictory-evidence",
+  "blindId": "Planner B",
+  "status": "complete",
+  "model": "gpt-5.6-sol",
+  "provider": "openai",
+  "promptHash": "9cbc659be946ef4f136fea38642db0a190d5677b699d7611bdeab4026fc69cb2",
+  "packetHash": "0ee030886dcfb72e20032bd06683f61c1b61a7f9ff36ba0acde03f07a6a6072a",
+  "inputTokens": 1384,
+  "outputTokens": 9576,
+  "estimatedCostUsd": 0.2942,
+  "elapsedMs": 179021,
+  "inspection": {
+    "hardFailures": [],
+    "metrics": {
+      "factualClaimCount": 11,
+      "evidenceReferencedClaimCount": 6,
+      "evidenceGroundingRatio": 0.5454545454545454,
+      "fabricatedEvidenceReferenceCount": 0,
+      "unsupportedHighConfidenceCount": 0,
+      "predictionCount": 6,
+      "nodeCount": 6
+    }
+  },
+  "error": null
+}

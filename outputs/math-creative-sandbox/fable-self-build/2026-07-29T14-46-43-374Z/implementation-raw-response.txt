@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Cargo Code: Outsmart Vex</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none}
+html,body{width:100%;height:100%;overflow:hidden;background:#04070d;font-family:"Trebuchet MS","Segoe UI",Verdana,sans-serif}
+#stage{position:absolute;width:1365px;height:768px;left:0;top:0;transform-origin:0 0;overflow:hidden;touch-action:none;
+ background:radial-gradient(1200px 600px at 50% -10%, #12233d 0%, #0a1526 45%, #060b14 100%);color:#dfeaf5}
+/* ---------- TOP BAR ---------- */
+#topbar{position:absolute;left:0;top:0;width:1365px;height:86px;display:flex;align-items:center;gap:14px;padding:0 14px;
+ background:linear-gradient(#0d1a2e,#0a1424);border-bottom:2px solid #1e3a5c;z-index:20}
+#vexHud{display:flex;align-items:center;gap:10px;width:330px;flex:0 0 auto}
+#vexFace{width:58px;height:58px;border-radius:50%;background:radial-gradient(circle at 50% 40%,#1c2433,#0a0f18);border:2px solid #2c3c55;position:relative;flex:0 0 auto}
+#vexFace::before,#vexFace::after{content:"";position:absolute;top:20px;width:14px;height:14px;border-radius:50%;
+ background:radial-gradient(circle,#ffde63 0 40%,#c98700 100%);box-shadow:0 0 12px #ffd75e}
+#vexFace::before{left:10px}#vexFace::after{right:10px}
+#vexFace.hurt{filter:saturate(.6) brightness(.85)}
+#taunt{background:#141f31;border:1px solid #33507a;border-radius:10px;padding:7px 10px;font-size:14px;line-height:1.25;max-width:250px;min-height:34px;color:#ffd9a0;position:relative}
+#taunt::before{content:"";position:absolute;left:-8px;top:14px;border:5px solid transparent;border-right-color:#33507a}
+#railWrap{flex:1 1 auto;min-width:280px}
+#railCap{font-size:11px;letter-spacing:2px;color:#7fa5cc;margin-bottom:4px}
+#rail{position:relative;height:30px;background:linear-gradient(#0a1a30,#0d2340);border:1px solid #24476e;border-radius:15px;overflow:visible}
+#railWater{position:absolute;inset:3px;border-radius:12px;overflow:hidden;background:repeating-linear-gradient(90deg,#0e2c4d 0 26px,#123a63 26px 52px);opacity:.5;animation:waterSlide 5s linear infinite}
+@keyframes waterSlide{to{background-position:52px 0}}
+#vexBoat{position:absolute;top:-9px;left:0;width:64px;height:44px;transition:left .25s linear;z-index:3;filter:drop-shadow(0 2px 4px #000)}
+.hull{position:absolute;bottom:4px;left:4px;width:56px;height:16px;background:linear-gradient(#232c3c,#10151f);border-radius:2px 14px 8px 6px}
+.cabin{position:absolute;bottom:18px;left:22px;width:22px;height:14px;background:#1a2334;border-radius:3px 3px 0 0}
+.gog{position:absolute;bottom:24px;left:26px;width:6px;height:6px;border-radius:50%;background:#ffd75e;box-shadow:0 0 8px #ffd75e,10px 0 0 #ffd75e,10px 0 8px #ffd75e}
+#vexBoat .smoke{position:absolute;top:-8px;left:30px;font-size:15px;opacity:0;transition:opacity .5s}
+#vexBoat.dmg1 .smoke{opacity:.55}#vexBoat.dead .smoke{opacity:1}
+#vexBoat.dead{transform:rotate(9deg);filter:grayscale(.6) drop-shadow(0 2px 4px #000)}
+#ghostBoat{position:absolute;top:2px;left:0;width:26px;height:26px;font-size:20px;opacity:.55;display:none;z-index:2}
+#shipTarget{position:absolute;right:-4px;top:-4px;font-size:26px;filter:drop-shadow(0 0 8px #ffcf6b)}
+#actLabel{flex:0 0 auto;font-size:13px;letter-spacing:2px;color:#9cc4ee;text-align:center;line-height:1.35;width:158px}
+#mapStrip{flex:0 0 auto;width:300px;height:70px;background:#0a1626;border:1px solid #1f3c60;border-radius:10px;padding:5px;display:flex;flex-wrap:wrap;gap:4px;align-content:flex-start;overflow:hidden}
+#mapStrip .cap{width:100%;font-size:9px;letter-spacing:2px;color:#6f95bd}
+.miniSeal{font-size:10px;font-weight:bold;border-radius:5px;padding:2px 5px;line-height:1;border:1px solid}
+.miniSeal.seized{color:#ffd98c;border-color:#b98a2e;background:#2a2110;box-shadow:0 0 6px #b9832055}
+.miniSeal.busted{color:#ff9d9d;border-color:#a33;background:#2a1010;text-decoration:line-through}
+.miniSeal.confirmed{color:#a5e8ff;border-color:#3a7fa3;background:#0d2531}
+.miniSeal.stolen{color:#ff7d7d;border-color:#c33;background:#330d0d;animation:stolenPulse 1.4s infinite}
+.miniSeal.reclaimed{color:#b8ffc4;border-color:#3f9b53;background:#0e2a15}
+@keyframes stolenPulse{50%{box-shadow:0 0 10px #f33}}
+/* ---------- MAIN ---------- */
+#main{position:absolute;top:86px;left:0;width:1365px;height:682px;display:flex}
+#leftPanel{width:344px;flex:0 0 auto;padding:12px 10px 12px 14px;display:flex;flex-direction:column;gap:10px;overflow:hidden}
+#msgCard{background:linear-gradient(#f4e9c9,#e8d9ae);color:#2b2314;border-radius:4px;padding:12px 14px 14px;position:relative;
+ box-shadow:0 6px 18px #000a;transform:rotate(-.6deg);
+ clip-path:polygon(0 3%,4% 0,96% 1%,100% 5%,99% 96%,94% 100%,3% 99%,0 94%)}
+#msgTag{font-size:11px;letter-spacing:2px;font-weight:bold;color:#7a5b16;border-bottom:1px dashed #a98c3f;padding-bottom:5px;margin-bottom:8px}
+#msgText{font-size:19px;line-height:1.45;font-family:Georgia,serif}
+#msgText

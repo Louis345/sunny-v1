@@ -1,0 +1,294 @@
+{
+  "programId": "program:reina:multiplication-2-5-10:returned-calibration-v1",
+  "assignmentAnalysis": {
+    "constructs": [
+      "Represent equal groups as number of groups, items per group, and total.",
+      "Interpret rows and items per row in arrays.",
+      "Translate equal groups, arrays, and one-step contexts into multiplication equations.",
+      "Select multiplication rather than unrelated addition for equal-group situations.",
+      "Accurately produce multiplication facts when one factor is 2, 5, or 10.",
+      "Use skip counting or repeated addition to derive x2, x5, and x10 products."
+    ],
+    "prerequisites": [
+      "Count objects and determine a total reliably.",
+      "Recognize equal versus unequal groups.",
+      "Add equal addends and count forward by 2s, 5s, and 10s.",
+      "Identify rows, groups, and group boundaries.",
+      "Read or neutrally hear a simple one-step problem and identify its stated quantities."
+    ],
+    "difficultyBoundaries": {
+      "included": [
+        "Whole-number multiplication with at least one factor equal to 2, 5, or 10 and products no greater than 100.",
+        "Visible equal groups and rectangular arrays.",
+        "One-step word problems that explicitly provide the number of groups and the number in each group.",
+        "Translation among a representation, multiplication equation, repeated addition, and total.",
+        "Untimed accuracy on fresh items, with strategy recorded descriptively."
+      ],
+      "excluded": [
+        "Fact families in which neither factor is 2, 5, or 10.",
+        "Division, missing-factor problems, multi-step problems, multiplicative comparison, area formulas, fractions, or decimals.",
+        "Word problems with irrelevant information or unusually complex language.",
+        "Timed automaticity or speed claims because no fluency-time criterion is supplied.",
+        "Reuse of the assignment's exact questions."
+      ]
+    }
+  },
+  "assumptions": [
+    {
+      "assumptionId": "assumption:support-transfer-gap",
+      "claim": "Performance with group outlines and a demonstration is stronger than current independent interpretation of multiplication representations.",
+      "evidenceIds": [
+        "academic:guided-groups",
+        "academic:independent-array"
+      ],
+      "confidence": 0.93,
+      "uncertainty": "The two observations used different representations, item counts, and support conditions, so the size of the support effect is not isolated.",
+      "falsifyingEvidence": "Matched fresh equal-group and array probes showing at least 80% independent accuracy and no meaningful difference from guided performance."
+    },
+    {
+      "assumptionId": "assumption:representation-operation-bottleneck",
+      "claim": "The currently evidenced bottleneck is likely identifying factor roles and selecting the operation when moving from a representation or context to multiplication.",
+      "evidenceIds": [
+        "academic:independent-array",
+        "returned:error-pattern"
+      ],
+      "confidence": 0.85,
+      "uncertainty": "The returned work does not provide item-by-item separation of interpretation errors from fact-calculation errors, and its assistance condition is unknown.",
+      "falsifyingEvidence": "A fresh independent probe with at least 7 of 8 role-and-operation interpretations correct while most remaining errors are isolated product-calculation errors."
+    },
+    {
+      "assumptionId": "assumption:fact-fluency-unknown",
+      "claim": "Current evidence does not establish independent accuracy or automaticity for isolated x2, x5, and x10 facts.",
+      "evidenceIds": [
+        "academic:guided-groups",
+        "academic:independent-array",
+        "returned:score",
+        "returned:error-pattern"
+      ],
+      "confidence": 0.95,
+      "uncertainty": "No evidence reports a separately scored, unseen, no-help sample of isolated facts or a defined speed criterion.",
+      "falsifyingEvidence": "A sufficiently sampled independent probe that separately reports accuracy for x2, x5, and x10 facts and records whether answers were recalled or derived."
+    }
+  ],
+  "academicPredictions": [
+    {
+      "predictionId": "prediction:baseline-representation",
+      "construct": "math.multiplication.word_problem_interpretation",
+      "expectedOutcome": "Before new teaching, Reina will independently complete all role identification, operation selection, and calculation components correctly on 2 to 4 of 6 fresh equal-group, array, and one-step context items.",
+      "expectedRange": {
+        "metric": "proportion_of_representation_items_fully_correct",
+        "minimum": 0.333333,
+        "maximum": 0.666667
+      },
+      "predictedErrorPatterns": [
+        "Reverses the stated number of groups and items per group when labeling or writing the equation.",
+        "Uses addition that does not repeat the equal group shown or described."
+      ],
+      "confidence": 0.78,
+      "evidenceIds": [
+        "academic:independent-array",
+        "returned:score",
+        "returned:error-pattern"
+      ],
+      "horizon": "baseline",
+      "maximumClaim": "Independent baseline performance on six fresh items within the stated boundary; not general multiplication mastery."
+    },
+    {
+      "predictionId": "prediction:baseline-isolated-facts",
+      "construct": "math.multiplication.skip_counting",
+      "expectedOutcome": "On six fresh, untimed isolated facts, with two items from each of x2, x5, and x10, Reina will independently answer 2 to 5 correctly.",
+      "expectedRange": {
+        "metric": "proportion_of_isolated_facts_correct",
+        "minimum": 0.333333,
+        "maximum": 0.833334
+      },
+      "predictedErrorPatterns": [],
+      "confidence": 0.3,
+      "evidenceIds": [],
+      "horizon": "baseline",
+      "maximumClaim": "Exploratory baseline accuracy only; the packet contains no isolated-fact evidence and no speed benchmark."
+    },
+    {
+      "predictionId": "prediction:delayed-representation",
+      "construct": "math.multiplication.equal_groups",
+      "expectedOutcome": "If the immediate independent probe reaches at least 6 of 8 representation items correct, then 7 to 14 days later without reteaching Reina will independently answer 5 to 7 of 8 fresh representation items correctly.",
+      "expectedRange": {
+        "metric": "proportion_of_delayed_representation_items_fully_correct",
+        "minimum": 0.625,
+        "maximum": 0.875
+      },
+      "predictedErrorPatterns": [
+        "Occasional confusion between number of rows or groups and items in each row or group.",
+        "Occasional selection of addition without matching the repeated equal group."
+      ],
+      "confidence": 0.55,
+      "evidenceIds": [
+        "academic:guided-groups",
+        "academic:independent-array",
+        "returned:error-pattern"
+      ],
+      "horizon": "delayed",
+      "maximumClaim": "Delayed independent retention within the x2, x5, and x10 representation boundary; not external classroom calibration."
+    },
+    {
+      "predictionId": "prediction:delayed-facts",
+      "construct": "math.multiplication.skip_counting",
+      "expectedOutcome": "If an immediate independent fact probe reaches at least 5 of 6 correct, then 7 to 14 days later without reteaching Reina will independently answer 4 to 6 of 6 fresh x2, x5, and x10 facts correctly.",
+      "expectedRange": {
+        "metric": "proportion_of_delayed_isolated_facts_correct",
+        "minimum": 0.666667,
+        "maximum": 1.0
+      },
+      "predictedErrorPatterns": [],
+      "confidence": 0.35,
+      "evidenceIds": [],
+      "horizon": "delayed",
+      "maximumClaim": "Delayed accuracy on six bounded, untimed facts; not automaticity or general fact mastery."
+    },
+    {
+      "predictionId": "prediction:next-returned-work",
+      "construct": "math.multiplication.word_problem_interpretation",
+      "expectedOutcome": "After successful immediate and delayed probes, the next comparable 10-item graded assignment dominated by x2, x5, and x10 facts and one-step representations will contain 6 to 8 correct responses.",
+      "expectedRange": {
+        "metric": "returned_work_accuracy",
+        "minimum": 0.6,
+        "maximum": 0.8
+      },
+      "predictedErrorPatterns": [
+        "At most two residual reversals of groups and items per group.",
+        "At most one residual use of addition unrelated to the represented equal groups."
+      ],
+      "confidence": 0.45,
+      "evidenceIds": [
+        "academic:guided-groups",
+        "academic:independent-array",
+        "returned:score",
+        "returned:error-pattern"
+      ],
+      "horizon": "returned_work",
+      "maximumClaim": "External calibration for one comparable returned-work sample; if assistance remains unknown, the result is descriptive and cannot establish independent mastery."
+    }
+  ],
+  "learningSequence": [
+    {
+      "nodeId": "node:1-independent-baseline",
+      "responsibility": "probe",
+      "constructs": [
+        "math.multiplication.equal_groups",
+        "math.multiplication.arrays",
+        "math.multiplication.skip_counting",
+        "math.multiplication.word_problem_interpretation"
+      ],
+      "startingSupport": "Use fresh items with no examples, hints, corrective feedback, or mathematical paraphrasing. Neutral oral reading may be provided only if needed and must be recorded. Include six isolated facts, two from each target family, and six representations balanced across equal groups, arrays, and one-step contexts.",
+      "expectedIndependence": "Reina identifies factor roles, chooses an operation, writes or selects an equation, and calculates without mathematical assistance.",
+      "evidenceRequired": [
+        "Separate accuracy for x2, x5, and x10 isolated facts.",
+        "For every representation item, separate scoring of number of groups, items per group, operation or equation, and product.",
+        "Item-level error codes for role reversal, unrelated addition, counting error, and fact error.",
+        "Confirmation of no mathematical assistance and documentation of any neutral reading support."
+      ],
+      "nextDecisionEnabled": "Determine whether instruction should focus only on representation and operation selection or should also include fact derivation through skip counting."
+    },
+    {
+      "nodeId": "node:2-explicit-translation-teaching",
+      "responsibility": "teach",
+      "constructs": [
+        "math.multiplication.equal_groups",
+        "math.multiplication.arrays",
+        "math.multiplication.word_problem_interpretation"
+      ],
+      "startingSupport": "Model fresh examples using the sequence: identify the groups or rows, identify how many are in each, state that the second quantity is repeated once per group, write number of groups multiplied by items per group, and find the total. Explicitly distinguish role order from the fact that reversing factors preserves the product. If baseline isolated-fact accuracy is below 4 of 6, also model deriving target products by counting in 2s, 5s, or 10s.",
+      "expectedIndependence": "Independent performance is not expected during initial teaching; Reina explains each modeled step with prompts.",
+      "evidenceRequired": [
+        "Record which modeled steps Reina can explain or reproduce.",
+        "Record prompt level separately for role identification, operation selection, and calculation.",
+        "Treat all outcomes from this node as practice evidence only."
+      ],
+      "nextDecisionEnabled": "Identify which translation step requires guided practice and whether fact derivation must be included."
+    },
+    {
+      "nodeId": "node:3-faded-guided-practice",
+      "responsibility": "guided_practice",
+      "constructs": [
+        "math.multiplication.equal_groups",
+        "math.multiplication.arrays",
+        "math.multiplication.skip_counting",
+        "math.multiplication.word_problem_interpretation"
+      ],
+      "startingSupport": "Use six fresh mixed representation items. Begin with prompts to label groups and items per group, then remove prompts. Include separate fact derivation practice only if the baseline fact probe was below 4 of 6.",
+      "expectedIndependence": "Complete at least 5 of 6 accurately during the faded sequence, with the final two completed without prompts. This remains guided-practice evidence because support was available earlier in the sequence.",
+      "evidenceRequired": [
+        "Accuracy and prompt level for every item and component.",
+        "Whether the final two items were completed without prompts.",
+        "Separate fact-practice results if that conditional branch was used.",
+        "No mastery or retention claim from this node."
+      ],
+      "nextDecisionEnabled": "Proceed to an independent probe if the final two items are unprompted and correct; otherwise reteach only the unresolved translation step."
+    },
+    {
+      "nodeId": "node:4-immediate-independent-probe",
+      "responsibility": "independent_probe",
+      "constructs": [
+        "math.multiplication.equal_groups",
+        "math.multiplication.arrays",
+        "math.multiplication.skip_counting",
+        "math.multiplication.word_problem_interpretation"
+      ],
+      "startingSupport": "Use eight fresh representation items and six fresh isolated facts. Provide no examples, prompts, hints, correction, or mathematical paraphrasing.",
+      "expectedIndependence": "At least 6 of 8 representation items and 5 of 6 isolated facts correct without mathematical assistance.",
+      "evidenceRequired": [
+        "Separate representation and isolated-fact accuracy.",
+        "Component scoring and error codes matching the baseline.",
+        "Confirmation that all items were unseen and completed without mathematical assistance.",
+        "Strategy notes distinguishing recalled facts from skip-counted or repeated-addition derivations."
+      ],
+      "nextDecisionEnabled": "Schedule delayed testing if both thresholds are met; otherwise return only to the component responsible for the errors."
+    },
+    {
+      "nodeId": "node:5-delayed-independent-calibration",
+      "responsibility": "independent_probe",
+      "constructs": [
+        "math.multiplication.equal_groups",
+        "math.multiplication.arrays",
+        "math.multiplication.skip_counting",
+        "math.multiplication.word_problem_interpretation"
+      ],
+      "startingSupport": "Seven to fourteen days after the immediate probe, use eight new representation items and six new isolated facts without intervening reteaching, hints, examples, correction, or mathematical paraphrasing.",
+      "expectedIndependence": "Complete the delayed probe without mathematical assistance; target at least 5 of 8 representation items and 4 of 6 isolated facts correct.",
+      "evidenceRequired": [
+        "Exact delay and confirmation that no reteaching occurred during the interval.",
+        "Separate delayed accuracy and item-level error codes.",
+        "Comparison with baseline and immediate independent results.",
+        "A future comparable returned graded assignment, when available, with item extraction and assistance condition documented."
+      ],
+      "nextDecisionEnabled": "Decide whether the learning retained, whether support-dependent performance persists, and whether returned schoolwork confirms or contradicts the delayed probe."
+    }
+  ],
+  "evidenceSeparation": {
+    "practiceClaims": [
+      "academic:guided-groups establishes 90% accuracy only during supported equal-groups practice with outlines and a demonstration available.",
+      "Teaching and faded guided-practice results may establish use of a strategy under practice conditions but cannot establish mastery, retention, or independent transfer.",
+      "Engagement records are not used as evidence of mathematics performance or as a basis for instructional assumptions."
+    ],
+    "independentClaims": [
+      "academic:independent-array establishes 40% accuracy only for five unseen independent array-interpretation items.",
+      "The immediate independent probe may establish bounded performance on its fresh item set but cannot establish delayed retention.",
+      "A no-help delayed probe may establish retention within the included x2, x5, and x10 boundary, not broader multiplication mastery."
+    ],
+    "calibrationRequirements": [
+      "returned:score falsified the prior 60% to 80% returned-work forecast because the observed score was 50%.",
+      "returned:error-pattern calibrates the anticipated error types separately from the total score.",
+      "Because assistance on the existing returned work is unconfirmed, it cannot establish independent mastery or identify the effect of instruction.",
+      "Further calibration requires either delayed no-reteaching evidence or comparable returned graded work; future returned work should include item-level scoring, date, content comparability, and confirmed assistance conditions."
+    ]
+  },
+  "nextEvidenceRequired": [
+    "A fresh independent baseline separating isolated x2, x5, and x10 fact accuracy from representation and word-problem interpretation.",
+    "Item-level separation of factor-role identification, operation selection, and product calculation.",
+    "Immediate independent results after teaching, with no-help conditions documented.",
+    "Delayed independent results after 7 to 14 days without reteaching.",
+    "The next comparable returned graded assignment with item extraction and a confirmed assistance condition.",
+    "If timed fluency is later required, a teacher- or curriculum-supplied speed criterion before making any automaticity claim."
+  ],
+  "planningRationale": "The prior returned-work prediction was too high: returned:score showed 50%, while returned:error-pattern confirmed the predicted role reversal and also revealed unrelated-addition errors. Supported equal-groups practice cannot resolve the transfer question, and the independent array result indicates that representation remains difficult without help. The smallest responsive sequence therefore begins by separating fact calculation from interpretation, teaches only the evidenced translation and operation-selection gap plus fact derivation if the probe requires it, fades support, and then tests immediate and delayed independence on fresh items. Academic observations and returned-work calibration are interpreted separately. Engagement evidence is not used to infer mathematics mastery or instructional preference, the support profile is not treated as academic evidence, and no teacher-stream evidence was supplied."
+}

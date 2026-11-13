@@ -1,0 +1,89 @@
+{
+  "candidates": {
+    "sonnet-5": {
+      "screenshots": {
+        "opening": "candidates/sonnet-5/screenshots/opening.png",
+        "firstAction": "candidates/sonnet-5/screenshots/first-action.png",
+        "attemptedProgress": "candidates/sonnet-5/screenshots/mid-progress.png",
+        "recovery": "candidates/sonnet-5/screenshots/recovery.png",
+        "completionUnreachable": "candidates/sonnet-5/screenshots/completion-unreachable.png"
+      },
+      "trace": {
+        "actions": [
+          "Opened the activity.",
+          "Clicked Practice Slice.",
+          "Tapped the left third of the displayed rectangle."
+        ],
+        "visibleResults": [
+          "The opening screen showed the order and controls but left the central work area blank.",
+          "Practice Slice revealed a rectangle divided into three equal parts.",
+          "Tapping the visible segment produced no visible state change."
+        ],
+        "initiallyUnclear": "The opening screen does not show the object the child is expected to manipulate. After the rectangle appears, there is no visible affordance explaining that a segment is tappable.",
+        "randomClickingAdvanced": false,
+        "mathControlledSuccess": "Not demonstrated because the primary interaction did not visibly respond.",
+        "functional": false,
+        "completionReached": false
+      }
+    },
+    "fable-5": {
+      "screenshots": {
+        "opening": "candidates/fable-5/screenshots/opening.png",
+        "firstAction": "candidates/fable-5/screenshots/first-action.png",
+        "demoProgress": "candidates/fable-5/screenshots/mid-progress.png",
+        "incorrectRecovery": "candidates/fable-5/screenshots/incorrect-recovery.png",
+        "successfulProgress": "candidates/fable-5/screenshots/success-progress.png"
+      },
+      "trace": {
+        "actions": [
+          "Clicked Start Baking.",
+          "Tapped a cake segment during the demonstration.",
+          "Tapped Serve without selecting a slice in the first real order.",
+          "Selected one half and tapped Serve."
+        ],
+        "visibleResults": [
+          "The modal closed and a three-part cake appeared with a direct demonstration prompt.",
+          "Cake segments filled pink and the demonstration advanced.",
+          "The incorrect submission produced a clear recovery message explaining that one piece was required.",
+          "The selected half filled pink, Golden Crumbs increased from 0 to 1, and positive feedback appeared."
+        ],
+        "initiallyUnclear": "The demonstration says to tap two glowing slices, but the visual glow and exact remaining action are subtle.",
+        "randomClickingAdvanced": "A child must select a segment before serving, but the first one-half order does not distinguish reasoning from arbitrary segment selection because either half is valid.",
+        "mathControlledSuccess": "Partially demonstrated: the number of selected equal pieces controls whether the order succeeds.",
+        "functional": true,
+        "completionReached": false,
+        "completionNote": "The full multi-stage completion path was not reached during the bounded manual capture."
+      }
+    }
+  },
+  "repaired": {
+    "screenshots": {
+      "opening": "repaired/screenshots/opening.png",
+      "firstAction": "repaired/screenshots/first-action.png",
+      "demoProgress": "repaired/screenshots/demo-progress.png",
+      "incorrectRecovery": "repaired/screenshots/incorrect-recovery.png",
+      "successfulProgress": "repaired/screenshots/success-progress.png"
+    },
+    "trace": {
+      "actions": [
+        "Clicked Start Baking.",
+        "Tapped the demonstrated cake segments.",
+        "Selected only one piece for an order requesting 2/4 and submitted it.",
+        "Selected two pieces and submitted the corrected response."
+      ],
+      "visibleResults": [
+        "The demonstration added a dashed outline and pointing hand, making the requested tap more visible.",
+        "The first real order requested 2/4, expanding beyond the frozen unit-fraction contract.",
+        "The incorrect submission explicitly compared one selected piece with the required two pieces.",
+        "The correct submission increased Golden Crumbs and advanced to a denominator-choice interaction for one third."
+      ],
+      "initiallyUnclear": "The opening remains text-heavy, but the first manipulation is clearer than the original Fable candidate.",
+      "randomClickingAdvanced": "Reduced: the child must sometimes select multiple pieces and later choose a denominator before the shape is partitioned.",
+      "mathControlledSuccess": "Yes for counting selected pieces and identifying the denominator, but the added 2/4 content violates the artifact's unit-fraction boundary.",
+      "functional": true,
+      "completionReached": false,
+      "completionNote": "The bounded manual capture confirmed recovery and advancement but did not finish the full activity.",
+      "harnessScopeViolation": "The repair introduced non-unit fractions such as 2/4 even though the frozen artifact and PDF source focused on unit fractions."
+    }
+  }
+}

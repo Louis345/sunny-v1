@@ -1,0 +1,33 @@
+{
+  "academicContract": "Teach Grade 3 multiplication through fresh material:\n- interpret multiplicative situations as number of equal groups and amount in each group;\n- construct or read equal-group and array representations;\n- connect the representation to a multiplication equation and product;\n- increase mathematical independence and challenge over the experience.\n\nThe experience must remain mathematically correct, usable with touch or mouse in a 1365×768 iframe, and complete from opening through payoff. Everything else is creatively mutable.",
+  "factualChildEvidence": [
+    {
+      "evidenceId": "reina:age:2026-07",
+      "fact": "The child is currently nine years old."
+    },
+    {
+      "evidenceId": "reina:conversation:wrestling",
+      "fact": "She independently chose wrestling competition and a state-championship loss as a conversation topic."
+    },
+    {
+      "evidenceId": "reina:riddles:harder",
+      "fact": "She asked to continue difficult riddles across sessions and later explicitly requested harder riddles."
+    },
+    {
+      "evidenceId": "reina:riddles:logic",
+      "fact": "She immediately noticed repeated riddles and questioned faulty riddle logic."
+    },
+    {
+      "evidenceId": "reina:riddles:scaffold",
+      "fact": "When stuck on a multi-step logic problem, she requested hints and continued after scaffolding."
+    },
+    {
+      "evidenceId": "reina:activity-feedback:small-sample",
+      "fact": "Small-sample human and child feedback was positive for a randomized reveal spelling activity and a spoken-pronunciation activity."
+    }
+  ],
+  "viewport": {
+    "width": 1365,
+    "height": 768
+  }
+}

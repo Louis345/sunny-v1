@@ -1,0 +1,10 @@
+{
+  "model": "claude-sonnet-5",
+  "elapsedMs": 187125,
+  "stopReason": "end_turn",
+  "usage": {
+    "inputTokens": 314,
+    "outputTokens": 20423,
+    "estimatedCostUsd": 0
+  }
+}

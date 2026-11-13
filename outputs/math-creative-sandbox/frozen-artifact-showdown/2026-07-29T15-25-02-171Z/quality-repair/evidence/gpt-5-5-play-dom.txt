@@ -1,0 +1,36 @@
+- banner:
+  - heading "Cargo Code" [level=1]
+  - generic: Outsmart Vex with arrays and multiplication
+  - generic: 🛥️
+  - generic: 13m to shipment
+  - generic: SHIPMENT
+  - button "RECOUNT spy-lens"
+  - button "No Mercy"
+- main:
+  - generic: Reclaim Run • SECOND CHANCE
+  - generic: RECLAIM RUN — hint layer on. Vex loaded 3 crates. Each crate holds 5 signal lamps.
+  - paragraph: "Manifest tally strip: your dock array must match this shape."
+  - generic: 🔦 Crane Mk 1
+  - generic: ⚓
+  - generic: Empty dock grid
+  - generic: Intercept cracked. Set groups and amount-in-each; the array is your proof.
+  - generic: 0 × 0 =
+  - spinbutton "product"
+  - button "LOCK CLAW"
+  - generic: CRATES / GROUPS
+  - button "−"
+  - generic: "0"
+  - button "+"
+  - slider: "0"
+  - generic: IN EACH
+  - button "−"
+  - generic: "0"
+  - button "+"
+  - slider: "0"
+  - generic: Seized 0 • Bluffs busted 0 • Red markers 4
+  - heading "Harbor Case Map" [level=3]
+  - generic: 3×5 stolen
+  - generic: 4×2 stolen
+  - generic: 3×5 stolen
+  - generic: 4×2 stolen
+  - paragraph: Rows are groups. Items across one row are “in each.” The claw fires only for a true equation.

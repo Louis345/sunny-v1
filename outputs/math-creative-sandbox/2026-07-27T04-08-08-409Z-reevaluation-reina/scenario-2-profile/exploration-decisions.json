@@ -1,0 +1,86 @@
+[
+  {
+    "done": false,
+    "summary": "Starting exploration by clicking the 'Enter the Ring' button to begin the first challenge round.",
+    "action": {
+      "kind": "click_text",
+      "text": "Enter the Ring 🥋",
+      "captureLabel": "first-action",
+      "reason": "This is the primary call-to-action to begin the multiplication game, must click to proceed to first challenge."
+    }
+  },
+  {
+    "action": {
+      "kind": "click_at",
+      "x": 671,
+      "y": 319,
+      "captureLabel": "progress",
+      "reason": "Tap the first cell of Section 1 to begin building the array as instructed by the on-screen prompt."
+    },
+    "done": false,
+    "summary": "Clicked 'Enter the Ring' to start the game; now attempting to tap the first group/cell in Section 1 to test array-building interaction."
+  },
+  {
+    "done": false,
+    "summary": "First action clicked Section 1's first ticket cell but the screenshot shows Section 1 already fully filled with 3 tickets (possibly pre-filled or the click completed it), while Section 2 and 3 remain empty. Need to continue building the array by clicking Section 2 cells to test progression logic.",
+    "action": {
+      "kind": "click_at",
+      "x": 671,
+      "y": 375,
+      "captureLabel": "progress",
+      "reason": "Click the first empty cell in Section 2 to continue building the array as the game expects, testing whether the app registers sequential clicks correctly."
+    }
+  },
+  {
+    "done": false,
+    "summary": "Continuing to build the array by clicking Section 3 cells to complete the 3x3 grid and see if the game validates the answer as 9.",
+    "action": {
+      "kind": "click_at",
+      "x": 671,
+      "y": 431,
+      "captureLabel": "progress",
+      "reason": "Click first empty cell in Section 3 to continue filling out the array as prompted, testing whether the game correctly tracks progress toward completing the 3x3 array."
+    }
+  },
+  {
+    "action": {
+      "kind": "click_text",
+      "text": "6",
+      "captureLabel": "incorrect-recovery",
+      "reason": "Deliberately select a wrong answer (6) to observe how the app responds to an incorrect choice before testing the correct one."
+    },
+    "done": false,
+    "summary": "Selecting an intentionally wrong answer (6) to check the app's incorrect-answer feedback and recovery behavior before confirming the correct path."
+  },
+  {
+    "done": false,
+    "summary": "The game correctly showed an incorrect-answer state (red highlight on '6' with a feedback message 'Not quite — check the skip-count trail above and try again!'). Now I will click the correct answer '9' to verify the success/progression path works as expected.",
+    "action": {
+      "kind": "click_text",
+      "text": "9",
+      "captureLabel": "progress",
+      "reason": "Select the correct answer (9) to verify the app properly recognizes correct responses and advances the streak/progress state."
+    }
+  },
+  {
+    "action": {
+      "kind": "click_text",
+      "text": "Next Opponent ➡️",
+      "captureLabel": "progress",
+      "reason": "Advance to the next match to observe how the game progresses through multiple questions and whether streak/star counts update correctly."
+    },
+    "done": false,
+    "summary": "Confirmed correct-answer flow: selecting wrong answer (6) showed feedback, then selecting correct answer (9) updated streak to 1, showed positive reinforcement message 'Incredible! Championship-level thinking!', and revealed 'Next Opponent' button. Proceeding to test progression to match 2 of 5."
+  },
+  {
+    "action": {
+      "kind": "click_at",
+      "x": 649,
+      "y": 319,
+      "captureLabel": "progress",
+      "reason": "Tap first empty cell in Box 1 to begin building the new array for the second word problem, testing whether the array-building interaction resets correctly for a new match."
+    },
+    "done": false,
+    "summary": "Continuing exploration into match 2 of 5, testing array building interaction for the new word problem about trophy shelf medals."
+  }
+]

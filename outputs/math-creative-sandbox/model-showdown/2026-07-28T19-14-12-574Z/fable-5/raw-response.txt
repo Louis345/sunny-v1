@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Caravan Rush: The Broker's Wager</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;user-select:none;-webkit-user-select:none;touch-action:none}
+html,body{width:100%;height:100%;overflow:hidden;font-family:Georgia,serif;background:#3b2a1a}
+#stage{width:1365px;height:768px;position:relative;margin:0 auto;background:linear-gradient(#f7d9a0 0 40%,#e8b96f 40% 60%,#caa066 60%);overflow:hidden}
+/* TRACK */
+#track{position:absolute;top:0;left:0;width:100%;height:190px;background:linear-gradient(#8fd3e8,#f6e2b3);border-bottom:6px solid #7a5a2e}
+.lane{position:absolute;left:0;width:100%;height:70px;border-bottom:2px dashed rgba(120,80,30,.4)}
+#laneP{top:36px}#laneR{top:110px}
+.cart{position:absolute;top:2px;font-size:44px;transition:left .8s cubic-bezier(.3,1.4,.5,1);filter:drop-shadow(0 3px 2px rgba(0,0,0,.3))}
+.cart .lbl{font-size:13px;font-family:sans-serif;background:rgba(255,255,255,.8);border-radius:6px;padding:0 5px;position:absolute;top:-14px;left:0;white-space:nowrap}
+#gate{position:absolute;right:20px;top:20px;font-size:60px}
+#banner{position:absolute;font-size:15px;background:#c9a227;color:#3b2a1a;padding:2px 8px;border-radius:8px;top:-36px;left:-10px;display:none;font-weight:bold;box-shadow:0 2px 4px rgba(0,0,0,.4)}
+#legInfo{position:absolute;top:6px;left:12px;font-size:16px;color:#4a3010;background:rgba(255,248,225,.85);padding:3px 10px;border-radius:8px}
+/* ORDER CARD */
+#order{position:absolute;left:22px;top:210px;width:300px;min-height:190px;background:#fff8e6;border:3px solid #b5813a;border-radius:10px;padding:14px;box-shadow:4px 4px 0 rgba(0,0,0,.15)}
+#order h3{color:#7a4a12;font-size:17px;margin-bottom:8px}
+#orderText{font-size:19px;color:#3b2a1a;line-height:1.35;min-height:78px}
+#order button{margin-top:8px;margin-right:6px;font-size:15px;padding:6px 10px;border-radius:8px;border:2px solid #7a4a12;background:#f3c96b;cursor:pointer;font-family:inherit}
+#order button:active{transform:translateY(2px)}
+#challengeBox{display:none;margin-top:8px;font-size:15px}
+/* GRID */
+#boardWrap{position:absolute;left:350px;top:205px;width:640px}
+#board{display:grid;gap:8px;background:#a97b42;padding:14px;border-radius:12px;border:4px solid #7a5326;width:fit-content;margin:0 auto;position:relative}
+.slot{width:72px;height:72px;background:#c79a5e;border:2px dashed #8a6432;border-radius:8px;position:relative}
+.slot.pulse{animation:pl 1s infinite}
+@keyframes pl{50%{box-shadow:0 0 0 5px rgba(255,240,150,.8);border-color:#ffe28a}}
+.slot.ghost{background:#e8d29a;border-color:#f0b429;border-style:solid}
+.crate{width:66px;height:66px;font-size:42px;line-height:66px;text-align:center;background:linear-gradient(#e8b268,#c68a3e);border:3px solid #8a5a1e;border-radius:8px;box-shadow:0 3px 0 #6e4614;cursor:grab}
+.slot .crate{position:absolute;left:1px;top:1px}
+#shipBtn{display:block;margin:14px auto 0;font-size:24px;padding:10px 34px;border-radius:12px;border:3px solid #145a4a;background:#2aa07f;color:#fff;cursor:pointer;font-family:inherit;box-shadow:0 4px 0 #0c3c30}
+#shipBtn:active{transform:translateY(3px);box-shadow:none}
+/* TICKER + LEDGER */
+#side{position:absolute;right:18px;top:210px;width:300px}
+#ticker{background:#fdf6e3;border:3px solid #b5813a;border-radius:10px;padding:10px;min-height:86px}
+#ticker h3{font-size:15px;color:#7a4a12}
+#tickNums{font-size:26px;color:#1a6b4a;min-height:36px;font-weight:bold}
+.tick{display:inline-block;margin-right:10px;animation:pop .35s}
+@keyframes pop{0%{transform:scale(0)}70%{transform:scale(1.4)}100%{transform:scale(1)}}
+#ledger{margin-top:10px;background:repeating-linear-gradient(#fffdf5,#fffdf5 26px,#f0e6cc 27px);border:3px solid #b5813a;border-radius:10px;padding:8px 12px;height:230px;overflow-y:auto;font-size:16px;color:#3b2a1a}
+#ledger div{line-height:27px}
+#wind{margin-top:8px;text-align:center;font-size:16px;color:#a35b00;height:22px;font-weight:bold}
+/* TRAY */
+#tray{position:absolute;bottom:0;left:0;width:100%;height:110px;background:#6e4a22;border-top:6px solid #4c3013;display:flex;align-items:center;justify-content:center;gap:20px}
+#tray .crate{cursor:grab}
+#trayLabel{color:#f0d9a8;font-size:17px;margin-right:14px}
+/* MISC */
+#drag{position:absolute;pointer-events:none;z-index:50;display:none}
+#speech{position:absolute;left:340px;top:110px;max-width:420px;background:#fff;border:3px solid #333;border-radius:14px;padding:10px 16px;font-size:18px;display:none;z-index:40}
+#speech:after{content:"";position:absolute;top:-14px;left:40px;border:8px solid transparent;border-bottom-color:#333}
+#overlay{position:absolute;inset:0;background:rgba(30,18,5,.82);z-index:100;display:flex;align-items:center;justify-content:center;flex-direction:column;color:#ffe9bd;text-align:center;padding:40px}
+#overlay h1{font-size:44px;color:#f3c96b;margin-bottom:14px}
+#overlay p{font-size:21px;max-width:760px;line-height:1.5;margin-bottom:10px}
+#overlay button{font-size:26px;padding:12px 40px;border-radius:14px;border:3px solid #7a4a12;background:#f3c96b;cursor:pointer;margin-top:18px;font-family:inherit}
+#ovLedger{max-height:230px;overflow-y:auto;background:#fffdf5;color:#3b2a1a;border-radius:8px;padding:8px 20px;font-size:17px;margin-top:8px;text-align:left}
+.spill{position:absolute;z-index:60;transition:transform .8s cubic-bezier(.4,-.2,.7,1),opacity .8s;pointer-events:none}
+#dusk{position:absolute;inset:0;background:radial-gradient(circle at 50% 30%,transparent 30%,rgba(60,20,60,.45));pointer-events:none;opacity:0;transition:opacity 2s;z-index:5}
+</style>
+</head>
+<body>
+<div id="stage">
+ <div id="dusk"></div>
+ <div id="track">
+  <div id="legInfo"></div>
+  <div class="lane" id="laneP"><div class="cart" id="cartP" style="left:10px"><span id="banner">👑 MASTER TRADER</span><span class="lbl">YOU</span>🐫🛒</div></div>
+  <div class="lane" id="laneR"><div class="cart" id="cartR" style="left:10px"><span class="lbl">Rival Broker</span>🐴🛒</div></div>
+  <div id="gate">⛩️</div>
+ </div>
+ <div id="order">
+  <h3>📜 ORDER CARD</h3>
+  <div id="orderText"></div>
+  <button id="readBtn" style="display:none">🔔 Read again</button>
+  <button id="flagBtn" style="display:none">⚠️ Challenge order</button>
+  <div id="challengeBox"></div>
+ </div>
+ <div id="boardWrap"><div id="board"></div><button id="shipBtn">🚚 SHIP IT!</button></div>
+ <div id="side">
+  <div id="ticker"><h3>SKIP-COUNT TALLY</h3><div id="tickNums"></div></div>
+  <div id="wind"></div>
+  <div id="ledger"><b>— Day Ledger —</b></div>
+ </div>
+ <div id="tray"><span id="trayLabel">CRATE SUPPLY →</span></div>
+ <div id="speech"></div>
+ <div id="drag"></div>
+ <div id="overlay">
+  <h1>Caravan Rush</h1>
+  <p><b>The Broker's Wager.</b> Pack crates into rows and columns to fill each order. Every correct array launches your caravan forward — the bigger the array, the faster you go. Beat the rival broker to the gate!</p>
+  <p>Drag crates from the tray into the grid. Tap a placed crate to return it. When your array matches the order, hit <b>SHIP IT!</b></p>
+  <button id="startBtn">Begin Market Day</button>
+ </div>
+</div>
+<script>
+const $=id=>document.getElementById(id);
+const rand=(a,b)=>a+Math.floor(Math.random()*(b-a+1));
+const ICONS=["🍎","🧪","🍯","🍇","🥖","🫖","🍊"];
+const TRACKW=1240;
+let AC;
+function beep(f,d=.1,t="square",v=.15){try{AC=AC||new (window.AudioContext||webkitAudioContext)();const o=AC.createOscillator(),g=AC.createGain();o.type=t;o.frequency.value=f;g.gain.setValueAtTime(v,AC.currentTime);g.gain.exponentialRampToValueAtTime(.001,AC.currentTime+d);o.connect(g);g.connect(AC.destination);o.start();o.stop(AC.currentTime+d)}catch(e){}}
+function thud(){beep(140,.12,"triangle",.3);beep(90,.15,"sine",.25)}
+function fanfare(){[523,659,784,1046].forEach((f,i)=>setTimeout(()=>beep(f,.25,"triangle",.2),i*120))}
+
+let node=0, order=null, grid=[], gRows=5,gCols=6, playerX=0,rivalX=0, rivalTimer=null;
+let ordersLeft=0, garbledIdx=-1, orderIdx=0, streak=0, secondWind=false, hintTimer=null, ghostOn=false;
+let legWon=[], bonusGoods=0;
+
+function buildBoard(){
+ const b=$("board");b.innerHTML="";b.style.gridTemplateColumns=`repeat(${gCols},72px)`;grid=[];
+ for(let r=0;r<gRows;r++){grid.push([]);for(let c=0;c<gCols;c++){const s=document.createElement("div");s.className="slot";s.dataset.r=r;s.dataset.c=c;b.appendChild(s);grid[r].push(null);}}
+}
+function slotEl(r,c){return $("board").children[r*gCols+c]}
+function crateEl(icon){const d=document.createElement("div");d.className="crate";d.textContent=icon;return d}
+
+function setTray(icon){
+ const t=$("tray");t.innerHTML='<span id="trayLabel">CRATE SUPPLY →</span>';
+ for(let i=0;i<5;i++){const c=crateEl(icon);t.appendChild(c);}
+}
+
+/* DRAG */
+let dragging=null;
+document.addEventListener("pointerdown",e=>{
+ const c=e.target.closest(".crate");if(!c)return;
+ if(c.parentElement.classList.contains("slot")){ // remove
+   const s=c.parentElement;grid[s.dataset.r][s.dataset.c]=null;c.remove();updateTicker();return;
+ }
+ if(c.closest("#tray")){
+  dragging=$("drag");dragging.innerHTML="";const cl=crateEl(order.icon);dragging.appendChild(cl);dragging.style.display="block";moveDrag(e);beep(600,.05,"sine",.1);
+ }
+});
+function moveDrag(e){const st=$("stage").getBoundingClientRect();dragging.style.left=(e.clientX-st.left-33)+"px";dragging.style.top=(e.clientY-st.top-33)+"px";}
+document.addEventListener("pointermove",e=>{if(dragging)moveDrag(e)});
+document.addEventListener("pointerup",e=>{
+ if(!dragging)return;dragging.style.display="none";dragging=null;
+ const el=document.elementFromPoint(e.clientX,e.clientY);const s=el&&el.closest(".slot");
+ if(s&&!grid[s.dataset.r][s.dataset.c]){
+   const c=crateEl(order.icon);s.appendChild(c);grid[s.dataset.r][s.dataset.c]=1;thud();
+   c.animate([{transform:"scale(1.3) translateY(-8px)"},{transform:"scale(1)"}],{duration:220,easing:"cubic-bezier(.3,1.6,.5,1)"});
+   userActed();updateTicker();
+ }
+});
+
+/* TICKER */
+function rowCounts(){return grid.map(r=>r.reduce((a,v)=>a+(v?1:0),0))}
+function updateTicker(){
+ const tgt=order?order.cols:0;let tot=0;const el=$("tickNums");el.innerHTML="";
+ rowCounts().forEach(c=>{if(c===tgt&&tgt>0){tot+=tgt;const s=document.createElement("span");s.className="tick";s.textContent=tot;el.appendChild(s);}});
+ if(order&&hintNext)pulseNext();
+}
+let hintNext=false;
+function pulseNext(){
+ document.querySelectorAll(".slot.pulse").forEach(s=>s.classList.remove("pulse"));
+ for(let r=0;r<order.rows;r++)for(let c=0;c<order.cols;c++)if(!grid[r][c]){slotEl(r,c).classList.add("pulse");return;}
+}
+function showGhost(){for(let r=0;r<order.rows;r++)for(let c=0;c<order.cols;c++)slotEl(r,c).classList.add("ghost");ghostOn=true;}
+function clearGhost(){document.querySelectorAll(".ghost").forEach(s=>s.classList.remove("ghost"));ghostOn=false;}
+
+/* SPEECH */
+function say(txt,ms=2600){const s=$("speech");s.textContent=txt;s.style.display="block";clearTimeout(s._t);s._t=setTimeout(()=>s.style.display="none",ms);}
+function speak(t){try{const u=new SpeechSynthesisUtterance(t);u.rate=.95;speechSynthesis.cancel();speechSynthesis.speak(u)}catch(e){}}
+
+/* CARTS */
+function setCarts(){$("cartP").style.left=(10+Math.min(playerX,1)*TRACKW*0)+"px";}
+function drawCarts(){
+ $("cartP").style.left=(10+Math.min(playerX/100,1)*(TRACKW-90))+"px";
+ $("cartR").style.left=(10+Math.min(rivalX/100,1)*(TRACKW-90))+"px";
+}
+function resetLeg(){playerX=0;rivalX=0;drawCarts();}
+
+/* ORDERS */
+function makeOrder(rows,cols,text,garbled){return{rows,cols,text,garbled,icon:ICONS[rand(0,ICONS.length-1)],fixed:false}}
+function wordProblem(rows,cols,icon){
+ const shops=["The tavern","The apothecary","The baker","A merchant lord","The stable master","The tea house"];
+ const goods={"🍎":"apples","🧪":"potions","🍯":"honey jars","🍇":"grapes","🥖":"loaves","🫖":"teapots","🍊":"oranges"};
+ return `${shops[rand(0,shops.length-1)]} needs <b>${rows} rows</b> with <b>${cols} ${goods[icon]||"crates"}</b> in each row.`;
+}
+function nextOrder(){
+ buildBoard();$("challengeBox").style.display="none";$("flagBtn").style.display="none";clearGhost();clearTimeout(hintTimer);
+ if(node===1){
+   order=makeOrder(rand(2,4),rand(3,5));order.text=`Pack <b>${order.rows} rows of ${order.cols}</b> crates.`;
+   hintNext=true;
+ }else if(node===2){
+   order=makeOrder(rand(2,5),rand(3,6));order.text=wordProblem(order.rows,order.cols,order.icon=ICONS[rand(0,6)]);
+   hintNext=false;$("readBtn").style.display="inline-block";
+   hintTimer=setTimeout(showGhost,9000);
+ }else{
+   const rows=rand(2,5),cols=rand(3,6);order=makeOrder(rows,cols);order.icon=ICONS[rand(0,6)];
+   if(orderIdx===garbledIdx){
+     const wrong=cols+rand(1,2);
+     order.garbled=true;order.shownCols=wrong;
+     order.text=`⚠️ Rival's scribbled note: "<b>${rows} rows of ${wrong}</b>… total <b>${rows*cols}</b> crates."<br><i>Something doesn't add up…</i>`;
+     $("flagBtn").style.display="inline-block";
+   }else order.text=wordProblem(rows,cols,order.icon);
+   hintNext=false;$("readBtn").style.display=node===3?"none":"inline-block";
+ }
+ $("orderText").innerHTML=order.text;setTray(order.icon);updateTicker();
+ $("legInfo").textContent=legLabel();
+}
+function legLabel(){
+ const names=["","Quiet Stall — Practice","Market Street — Race Leg","GRAND MARKET RUN"];
+ return `${names[node]}  •  Order ${orderIdx+1}/${ordersLeft}`;
+}
+function userActed(){if(node===2&&!ghostOn){clearTimeout(hintTimer);hintTimer=setTimeout(showGhost,9000);}}
+
+/* CHALLENGE garbled */
+$("flagBtn").onclick=()=>{
+ const box=$("challengeBox");box.style.display="block";
+ const correct=order.cols,r=order.rows;
+ const opts=[correct,order.shownCols,correct+1].sort(()=>Math.random()-.5);
+ box.innerHTML=`If the total is <b>${r*correct}</b> in <b>${r}</b> rows, each row needs:`+
+  opts.map(o=>`<button data-v="${o}">${o}</button>`).join("");
+ box.querySelectorAll("button").forEach(b=>b.onclick=()=>{
+   if(+b.dataset.v===correct){
+     order.garbled=false;order.fixed=true;
+     order.text=`✅ Order corrected: <b>${r} rows of ${correct}</b>.`;$("orderText").innerHTML=order.text;
+     box.style.display="none";$("flagBtn").style.display="none";
+     say("Rival: \"Hmph. Sharp eyes...\"");fanfare();
+   }else{say("Rival: \"Heh, guess again, broker!\"");beep(180,.2);}
+ });
+};
+
+$("readBtn").onclick=()=>{const t=$("orderText").textContent.replace(/⚠️|✅/g,"");speak(t);beep(880,.1,"sine",.1)};
+
+/* SHIP */
+$("shipBtn").onclick=()=>{
+ if(!order)return;
+ const counts=rowCounts();
+ // contiguous check
+ let ok=true;
+ for(let r=0;r<gRows;r++){let seen=false;for(let c=gCols-1;c>=0;c--){if(grid[r][c])seen=true;else if(seen){ok=false}}}
+ const filledRows=counts.filter(c=>c>0).length;
+ const target=order.garbled?{rows:order.rows,cols:order.cols}:{rows:order.rows,cols:order.cols};
+ if(ok&&filledRows===target.rows&&counts.slice(0,target.rows).every(c=>c===target.cols)&&counts.slice(target.rows).every(c=>c===0)&&!(order.garbled)){
+   shipSuccess();
+ }else if(order.garbled){
+   // built the wrong (garbled) array or any array without fixing
+   spill(true);
+ }else spill(false);
+};
+
+function shipSuccess(){
+ const n=order.rows*order.cols;streak++;
+ let dist=n*(node===3?1.15:1.6);
+ if(secondWind){dist*=1.5;secondWind=false;$("wind").textContent="";say("💨 SECOND WIND! Bonus speed!");}
+ else if(streak>=2){secondWind=true;$("wind").textContent="💨 Second Wind ready!";}
+ playerX+=dist;drawCarts();fanfare();
+ const led=document.createElement("div");led.textContent=`✓ ${order.rows} × ${order.cols} = ${n} ${order.icon}${order.fixed?" (caught the trick!)":""}`;
+ $("ledger").appendChild(led);$("ledger").scrollTop=9999;
+ say(["Nice packing!","The caravan surges forward!","Customer delighted!","Wheels rolling!"][rand(0,3)]);
+ orderIdx++;
+ setTimeout(checkLeg,700);
+}
+function checkLeg(){
+ if(playerX>=100){endLeg(true);return;}
+ if(orderIdx>=ordersLeft){ if(playerX>rivalX)endLeg(true);else endLeg(false);return;}
+ nextOrder();
+}
+function spill(garbledFail){
+ streak=0;secondWind=false;$("wind").textContent="";
+ beep(160,.3,"sawtooth",.2);
+ // animate crates flying off wrong rows
+ const counts=rowCounts();
+ for(let r=0;r<gRows;r++)for(let c=0;c<gCols;c++){
+   if(grid[r][c]){
+     const s=slotEl(r,c),cr=s.querySelector(".crate");
+     const rect=cr.getBoundingClientRect(),st=$("stage").getBoundingClientRect();
+     const f=cr.cloneNode(true);f.className="crate spill";f.style.left=(rect.left-st.left)+"px";f.style.top=(rect.top-st.top)+"px";$("stage").appendChild(f);
+     requestAnimationFrame(()=>{f.style.transform=`translate(${rand(-200,200)}px,${rand(120,300)}px) rotate(${rand(-360,360)}deg)`;f.style.opacity=0});
+     setTimeout(()=>f.remove(),900);
+     cr.remove();grid[r][c]=null;
+   }
+ }
+ updateTicker();
+ if(node>=2){rivalX+=6;drawCarts();}
+ say(garbledFail? 'Rival: "HA! You packed my fake order! Read carefully next time!"':
+   ["Rival: \"Sloppy stacking, broker!\"","Rival: \"That's not the order! Ha!\"","Rival: \"My grandmother packs better!\""][rand(0,2)],3200);
+ if(node>=2&&rivalX>=100)endLeg(false);
+}
+
+/* RIVAL PACE */
+function startRival(){
+ stopRival();
+ rivalTimer=setInterval(()=>{
+   if(node===2)rivalX+=0.55;
+   else if(node===3){const gap=playerX-rivalX;rivalX+=0.75+(gap>15?0.35:gap<-10?-0.15:0);}
+   drawCarts();
+   if(rivalX>=100){endLeg(false);}
+ },400);
+}
+function stopRival(){clearInterval(rivalTimer);rivalTimer=null}
+
+/* NODES / LEGS */
+function startNode(n){
+ node=n;resetLeg();orderIdx=0;streak=0;secondWind=false;$("wind").textContent="";
+ $("readBtn").style.display="none";
+ if(n===1){ordersLeft=2;garbledIdx=-1;}
+ if(n===2){ordersLeft=3;garbledIdx=-1;startRival();}
+ if(n===3){ordersLeft=5;garbledIdx=rand(1,3);startRival();$("dusk").style.opacity=1;}
+ nextOrder();
+}
+function endLeg(won){
+ stopRival();order=null;legWon.push(won);
+ if(won)bonusGoods+=node*3;
+ const ov=$("overlay");ov.style.display="flex";
+ if(node===3){
+   const grand=won;
+   ov.innerHTML=`<h1>${grand?"🏆 GRAND MARKET RUN — WON!":"Gate Closed…"}</h1>
+   <p>${grand?'Rival: "Fine, FINE! You\'re the sharpest packer on this route. This time."':'Rival: "Better luck tomorrow, broker! The bonus goods are MINE."'}</p>
+   <p>Bonus goods earned today: <b>${bonusGoods} 💰</b></p>
+   <div id="ovLedger">${$("ledger").innerHTML}</div>
+   <button id="replayBtn">🔄 New Market Day (new orders!)</button>`;
+   if(grand){$("banner").style.display="block";fanfare();setTimeout(fanfare,500);}
+   $("replayBtn").onclick=()=>{$("ledger").innerHTML="<b>— Day Ledger —</b>";bonusGoods=0;legWon=[];$("dusk").style.opacity=0;ov.style.display="none";startNode(1)};
+ }else{
+   ov.innerHTML=`<h1>${won?"Leg Won! ✨":"Rival took this leg…"}</h1>
+   <p>${won?`Bonus goods secured! (+${node*3} 💰) The market street grows busier ahead.`:"The bonus goods slip away — but the campaign rolls on. Nothing is lost for good."}</p>
+   <p>${node===1?"Next: real customers with word-problem orders — and the rival starts moving!":"Next: the GRAND MARKET RUN. Back-to-back orders, an adapting rival, a closing gate at dusk… and one order the rival has tampered with. Stay sharp."}</p>
+   <button id="nextBtn">${node===1?"Enter Market Street →":"Begin the Grand Run →"}</button>`;
+   $("nextBtn").onclick=()=>{ov.style.display="none";startNode(node+1)};
+ }
+}
+$("startBtn").onclick=()=>{$("overlay").style.display="none";startNode(1);beep(660,.15,"triangle",.15);};
+buildBoard();
+</script>
+</body>
+</html>

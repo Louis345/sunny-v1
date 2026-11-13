@@ -1,0 +1,1119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Four Quiet Questions</title>
+<style>
+  :root{
+    --bg:#F7F5F0;
+    --ink:#2B3440;
+    --stim:#EBF0F4;
+    --shape:#3A6EA5;
+    --line:#C3CCD4;
+    --nstint:#F1EEE7;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;padding:0;height:100%;background:var(--bg);color:var(--ink);
+    font-family:"Nunito","Trebuchet MS","Segoe UI",Verdana,system-ui,sans-serif;
+    user-select:none;-webkit-user-select:none;touch-action:manipulation;overflow:hidden;}
+  button{font-family:inherit;color:inherit;cursor:pointer;}
+  #app{position:absolute;inset:0;display:flex;flex-direction:column;}
+  /* ---------- top bar : position dots ---------- */
+  #topbar{height:52px;flex:0 0 52px;display:flex;align-items:center;justify-content:center;}
+  #dots{display:flex;gap:16px;}
+  .pdot{width:16px;height:16px;border-radius:50%;border:2px solid var(--line);background:transparent;transition:background-color .15s ease,border-color .15s ease;}
+  .pdot.filled{background:var(--shape);border-color:var(--shape);}
+  /* ---------- stage ---------- */
+  #stage{flex:1 1 auto;position:relative;padding:0 32px;transition:opacity .2s ease;}
+  #stage.busy{pointer-events:none;}
+  .screen{display:none;position:absolute;inset:0;padding:0 32px;}
+  .screen.active{display:flex;}
+  /* ---------- footer ---------- */
+  #footer{height:56px;flex:0 0 56px;display:flex;align-items:center;padding:0 32px;}
+  #stopBtn{background:transparent;border:none;font-size:20px;text-decoration:underline;padding:10px 8px;min-height:44px;opacity:.8;}
+  #stopBtn.hidden{visibility:hidden;}
+  /* ---------- opening / closing ---------- */
+  .center{flex-direction:column;align-items:center;justify-content:center;gap:36px;text-align:center;}
+  .bigline{font-size:40px;line-height:1.35;max-width:900px;}
+  .startBtn{font-size:34px;padding:22px 72px;border-radius:18px;border:2px solid var(--shape);background:var(--shape);color:#fff;min-height:88px;}
+  .quietBtn{font-size:24px;padding:16px 34px;border-radius:14px;border:2px solid var(--line);background:#fff;min-height:64px;}
+  .quietBtn.on{background:var(--shape);color:#fff;border-color:var(--shape);}
+  .closeRow{display:flex;gap:22px;align-items:center;flex-wrap:wrap;justify-content:center;}
+  .closingDots{display:flex;gap:18px;}
+  .closingDots .pdot{width:22px;height:22px;}
+  /* ---------- item layout ---------- */
+  .stimPanel{flex:0 0 58%;background:var(--stim);border-radius:22px;padding:22px 24px;display:flex;flex-direction:column;gap:14px;}
+  .respPanel{flex:1 1 auto;display:flex;flex-direction:column;gap:14px;padding-left:28px;overflow-y:auto;}
+  .sentRow{display:flex;align-items:center;gap:12px;}
+  .sent{font-size:28px;line-height:1.3;}
+  .rsBtn{flex:0 0 auto;width:52px;height:52px;border-radius:14px;border:2px solid var(--line);background:#fff;font-size:22px;font-weight:700;line-height:1;}
+  .art{flex:1 1 auto;display:flex;align-items:center;justify-content:center;}
+  .prompt{font-size:28px;line-height:1.3;margin:0;display:flex;align-items:flex-start;gap:12px;}
+  .prompt .ptxt{flex:1 1 auto;}
+  .field{display:flex;flex-direction:column;gap:8px;}
+  .fieldLabel{font-size:24px;}
+  .chipRow{display:grid;grid-template-columns:repeat(5,64px);gap:12px;}
+  .chip{width:64px;height:64px;border-radius:14px;border:2px solid var(--line);background:#fff;font-size:32px;font-weight:700;display:grid;place-items:center;transition:background-color .12s ease-out,color .12s ease-out;}
+  .chip.sel{background:var(--shape);color:#fff;border-color:var(--shape);outline:3px solid var(--ink);outline-offset:2px;}
+  .chip.muted{opacity:.35;}
+  .nsChip{grid-column:span 2;width:auto;font-size:22px;font-weight:600;background:var(--nstint);}
+  .card{min-height:88px;width:100%;border-radius:18px;border:2px solid var(--line);background:#fff;font-size:27px;padding:14px 20px;text-align:left;display:flex;align-items:center;gap:12px;transition:background-color .12s ease-out,color .12s ease-out;}
+  .card.sel{background:var(--shape);color:#fff;border-color:var(--shape);outline:3px solid var(--ink);outline-offset:2px;}
+  .card.ns{background:var(--nstint);}
+  .card.ns.sel{background:var(--shape);}
+  .cardRow{display:flex;gap:14px;}
+  .cardRow .card{font-size:23px;text-align:center;justify-content:center;padding:10px 8px;}
+  .doneBtn{margin-top:2px;width:100%;min-height:60px;font-size:30px;font-weight:700;border-radius:16px;border:2px solid var(--shape);background:var(--shape);color:#fff;transition:transform .08s ease;}
+  .doneBtn.off{background:#DDE3E8;border-color:var(--line);color:#8B97A3;}
+  .doneBtn:active{transform:translateY(2px);}
+  /* ---------- shapes ---------- */
+  .cluster{display:grid;grid-template-columns:repeat(3,30px);gap:12px;}
+  .dot{width:30px;height:30px;border-radius:50%;background:var(--shape);}
+  #art1 .clusterWrap{display:grid;grid-template-columns:auto auto;gap:88px;}
+  #art2 .grid{display:flex;flex-direction:column;gap:2px;}
+  .arrRow{display:flex;gap:2px;}
+  .sq{width:56px;height:56px;background:var(--shape);}
+  #art3 .groups{display:flex;gap:86px;align-items:center;}
+  .grp{display:flex;flex-direction:column;gap:14px;}
+  .itm{width:34px;height:34px;border-radius:50%;background:var(--shape);}
+  /* ---------- statements (ITEM-4) ---------- */
+  .stmtWrap{flex:1 1 auto;display:flex;flex-direction:column;justify-content:center;gap:26px;}
+  .stmt{background:#fff;border:2px solid var(--line);border-radius:18px;padding:20px;display:flex;align-items:center;gap:16px;}
+  .badge{flex:0 0 auto;width:46px;height:46px;border-radius:12px;background:var(--shape);color:#fff;display:grid;place-items:center;font-size:24px;font-weight:700;}
+  .stmtTxt{font-size:27px;line-height:1.3;flex:1 1 auto;}
+  /* ---------- overlays ---------- */
+  .overlay{position:absolute;inset:0;background:rgba(43,52,64,.55);display:none;align-items:center;justify-content:center;z-index:20;padding:40px;}
+  .overlay.active{display:flex;}
+  .sheet{background:#fff;border-radius:22px;padding:34px;max-width:900px;width:100%;display:flex;flex-direction:column;gap:26px;}
+  .sheetTxt{font-size:44px;line-height:1.35;}
+  .sheetRow{display:flex;gap:18px;justify-content:flex-end;flex-wrap:wrap;}
+  @media (prefers-reduced-motion: reduce){
+    #stage,.chip,.card,.doneBtn,.pdot{transition:none !important;}
+  }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <div id="topbar">
+    <div id="dots">
+      <div class="pdot" id="pdot-1"></div>
+      <div class="pdot" id="pdot-2"></div>
+      <div class="pdot" id="pdot-3"></div>
+      <div class="pdot" id="pdot-4"></div>
+    </div>
+  </div>
+
+  <div id="stage">
+
+    <!-- ================= OPENING ================= -->
+    <section class="screen center active" id="screen-open">
+      <div class="bigline">Four questions about groups.<br>Look, then tap your answer.</div>
+      <button type="button" class="startBtn" id="startBtn">Start</button>
+    </section>
+
+    <!-- ================= ITEM 1 ================= -->
+    <section class="screen" id="screen-ITEM-1">
+      <div class="stimPanel">
+        <div class="sentRow">
+          <div class="sent" id="sent-1">Each bunch has the same number of dots.</div>
+          <button type="button" class="rsBtn" data-read="sent-1" data-item="ITEM-1" aria-label="Show this sentence bigger">Aa</button>
+        </div>
+        <div class="art" id="art1">
+          <div class="clusterWrap">
+            <div class="cluster"><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
+            <div class="cluster"><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
+            <div class="cluster"><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
+            <div class="cluster"><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
+          </div>
+        </div>
+      </div>
+      <div class="respPanel">
+        <p class="prompt"><span class="ptxt" id="prompt-1">How many bunches are there, and how many dots are in each bunch?</span>
+          <button type="button" class="rsBtn" data-read="prompt-1" data-item="ITEM-1" aria-label="Show this question bigger">Aa</button>
+        </p>
+        <div class="field">
+          <div class="fieldLabel">How many bunches?</div>
+          <div class="chipRow" id="chips-ITEM-1-groups"></div>
+        </div>
+        <div class="field">
+          <div class="fieldLabel">How many dots in each bunch?</div>
+          <div class="chipRow" id="chips-ITEM-1-per"></div>
+        </div>
+        <button type="button" class="card ns" id="ns-ITEM-1"><span>&#191;</span> Not sure</button>
+        <button type="button" class="doneBtn off" id="done-ITEM-1">Done</button>
+      </div>
+    </section>
+
+    <!-- ================= ITEM 2 ================= -->
+    <section class="screen" id="screen-ITEM-2">
+      <div class="stimPanel">
+        <div class="sentRow">
+          <div class="sent" id="sent-2">Here is one rectangle of squares.</div>
+          <button type="button" class="rsBtn" data-read="sent-2" data-item="ITEM-2" aria-label="Show this sentence bigger">Aa</button>
+        </div>
+        <div class="art" id="art2">
+          <div class="grid">
+            <div class="arrRow"><div class="sq"></div><div class="sq"></div><div class="sq"></div><div class="sq"></div><div class="sq"></div><div class="sq"></div><div class="sq"></div></div>
+            <div class="arrRow"><div class="sq"></div><div class="sq"></div><div class="sq"></div><div class="sq"></div><div class="sq"></div><div class="sq"></div><div class="sq"></div></div>
+            <div class="arrRow"><div class="sq"></div><div class="sq"></div><div class="sq"></div><div class="sq"></div><div class="sq"></div><div class="sq"></div><div class="sq"></div></div>
+          </div>
+        </div>
+      </div>
+      <div class="respPanel">
+        <p class="prompt"><span class="ptxt" id="prompt-2">How many rows are there, and how many squares are in each row?</span>
+          <button type="button" class="rsBtn" data-read="prompt-2" data-item="ITEM-2" aria-label="Show this question bigger">Aa</button>
+        </p>
+        <div class="field">
+          <div class="fieldLabel">How many rows?</div>
+          <div class="chipRow" id="chips-ITEM-2-rows"></div>
+        </div>
+        <div class="field">
+          <div class="fieldLabel">How many squares in each row?</div>
+          <div class="chipRow" id="chips-ITEM-2-per"></div>
+        </div>
+        <button type="button" class="card ns" id="ns-ITEM-2"><span>&#191;</span> Not sure</button>
+        <button type="button" class="doneBtn off" id="done-ITEM-2">Done</button>
+      </div>
+    </section>
+
+    <!-- ================= ITEM 3 ================= -->
+    <section class="screen" id="screen-ITEM-3">
+      <div class="stimPanel">
+        <div class="sentRow">
+          <div class="sent" id="sent-3">Every group holds the same amount.</div>
+          <button type="button" class="rsBtn" data-read="sent-3" data-item="ITEM-3" aria-label="Show this sentence bigger">Aa</button>
+        </div>
+        <div class="art" id="art3">
+          <div class="groups">
+            <div class="grp"><div class="itm"></div><div class="itm"></div><div class="itm"></div></div>
+            <div class="grp"><div class="itm"></div><div class="itm"></div><div class="itm"></div></div>
+            <div class="grp"><div class="itm"></div><div class="itm"></div><div class="itm"></div></div>
+            <div class="grp"><div class="itm"></div><div class="itm"></div><div class="itm"></div></div>
+            <div class="grp"><div class="itm"></div><div class="itm"></div><div class="itm"></div></div>
+          </div>
+        </div>
+      </div>
+      <div class="respPanel">
+        <p class="prompt"><span class="ptxt" id="prompt-3">Choose the multiplication equation that matches what is shown.</span>
+          <button type="button" class="rsBtn" data-read="prompt-3" data-item="ITEM-3" aria-label="Show this question bigger">Aa</button>
+        </p>
+        <div class="field" id="opts-ITEM-3" style="gap:12px"></div>
+        <button type="button" class="card ns" id="ns-ITEM-3"><span>&#191;</span> Not sure</button>
+        <button type="button" class="doneBtn off" id="done-ITEM-3">Done</button>
+      </div>
+    </section>
+
+    <!-- ================= ITEM 4 ================= -->
+    <section class="screen" id="screen-ITEM-4">
+      <div class="stimPanel">
+        <div class="stmtWrap">
+          <div class="stmt">
+            <div class="badge">A</div>
+            <div class="stmtTxt" id="sent-4a">2 baskets, and each basket holds 8 balls.</div>
+            <button type="button" class="rsBtn" data-read="sent-4a" data-item="ITEM-4" aria-label="Show Statement A bigger">Aa</button>
+          </div>
+          <div class="stmt">
+            <div class="badge">B</div>
+            <div class="stmtTxt" id="sent-4b">8 baskets, and each basket holds 2 balls.</div>
+            <button type="button" class="rsBtn" data-read="sent-4b" data-item="ITEM-4" aria-label="Show Statement B bigger">Aa</button>
+          </div>
+        </div>
+      </div>
+      <div class="respPanel">
+        <p class="prompt"><span class="ptxt" id="prompt-4">Do these two statements describe the same situation? Then say how many baskets Statement A describes.</span>
+          <button type="button" class="rsBtn" data-read="prompt-4" data-item="ITEM-4" aria-label="Show this question bigger">Aa</button>
+        </p>
+        <div class="field">
+          <div class="fieldLabel">Same situation?</div>
+          <div class="cardRow" id="same-ITEM-4">
+            <button type="button" class="card" data-val="same">Same situation</button>
+            <button type="button" class="card" data-val="different">Different situations</button>
+            <button type="button" class="card ns" data-val="not_sure">Not sure</button>
+          </div>
+        </div>
+        <div class="field">
+          <div class="fieldLabel">How many baskets in Statement A?</div>
+          <div class="chipRow" id="chips-ITEM-4-baskets"></div>
+        </div>
+        <button type="button" class="doneBtn off" id="done-ITEM-4">Done</button>
+      </div>
+    </section>
+
+    <!-- ================= CLOSING ================= -->
+    <section class="screen center" id="screen-close">
+      <div class="closingDots" id="closingDots">
+        <div class="pdot" id="cdot-1"></div>
+        <div class="pdot" id="cdot-2"></div>
+        <div class="pdot" id="cdot-3"></div>
+        <div class="pdot" id="cdot-4"></div>
+      </div>
+      <div class="bigline" id="closeLine">You answered these four questions. That&#8217;s all for now.</div>
+      <div class="closeRow">
+        <button type="button" class="quietBtn" id="hintToggle">Want a hint about any of these later?</button>
+        <button type="button" class="startBtn" id="allDoneBtn">All done</button>
+      </div>
+      <div class="bigline" id="closeAfter" style="font-size:26px;visibility:hidden">Thanks. You can close this now.</div>
+    </section>
+
+    <!-- ================= OVERLAYS ================= -->
+    <div class="overlay" id="readOverlay">
+      <div class="sheet">
+        <div class="sheetTxt" id="readText">&nbsp;</div>
+        <div class="sheetRow">
+          <button type="button" class="quietBtn" id="readClose">Close</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="overlay" id="stopOverlay">
+      <div class="sheet">
+        <div class="sheetTxt">Do you want to stop?</div>
+        <div class="sheetRow">
+          <button type="button" class="quietBtn" id="keepGoing">Keep going</button>
+          <button type="button" class="startBtn" id="stopNow" style="padding:18px 44px;font-size:28px">Stop now</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <div id="footer"><button type="button" id="stopBtn">Stop</button></div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  /* ============================================================
+     Constants from the immutable artifacts
+     ============================================================ */
+  var EVAL_ID   = "EVAL-LAB-MATH-C-OPEN-01";
+  var EVAL_HASH = "274c49ed00318c3c5e7eb4fae53bfbbea61645b4488f4b88780ba9cb431b7361";
+  var UP_HASH   = "e2eb68e06274b1814b1fac57606dae0227e72ba71b89c1e87cfad79726c293af";
+  var DESIGN_ID = "DESIGN-EVAL-LAB-MATH-C-OPEN-01-juniper-v1";
+  var DESIGN_HASH = "260734920207b96bc327a76e22028556f7bf84ce5155ef0f0acff0dba1164929";
+
+  var INSPECTION_THRESHOLD_MS = 2500; /* provisional; no child-specific latency baseline exists */
+  var IDLE_THRESHOLD_MS = 15000;
+  var LONG_IDLE_MS = 30000;
+
+  var SESSION_ID = "S" + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+
+  var SEQUENCE = ["ITEM-1", "ITEM-2", "ITEM-3", "ITEM-4"];
+
+  var ASSISTANCE_NONE = {
+    level: "none",
+    hintsShown: 0,
+    examplesShown: 0,
+    feedbackShown: 0,
+    correctAnswerShown: false,
+    retriesAllowed: 0,
+    note: "no hints, worked examples, feedback, or answer exposure inside the evidence window"
+  };
+
+  var META = {
+    "ITEM-1": {
+      constructId: "C1",
+      exposure: { exposureId: "EX-EQGROUPS-DOTS-4x6", structure: "separated equal clusters",
+        contextFamily: "dot clusters", factorPair: "4 x 6", singleUse: true,
+        instructionalExposure: "none: no example, no hint, no feedback, no correct answer shown" },
+      responseMode: "selection_only: two labeled number-chip rows (integers 1-10) plus an equal-weight 'Not sure' card; no text entry, no drag, no keyboard",
+      confounds: [
+        "Child may count all 24 dots and infer group size by division rather than reading equal-group structure.",
+        "Reading of the single sentence could gate the response (excluded construct).",
+        "Visual clutter or cluster spacing could cause miscounting of clusters rather than a structural error.",
+        "Numeric-entry mechanics could produce an input error unrelated to mathematics."
+      ],
+      latencyKey: "c1_time_to_first_entry_ms",
+      excluded: ["reading_time", "keystroke_count", "pointer_path_length"]
+    },
+    "ITEM-2": {
+      constructId: "C3",
+      exposure: { exposureId: "EX-ARRAY-GRID-3x7", structure: "contiguous rectangular array",
+        contextFamily: "squares grid", factorPair: "3 x 7", singleUse: true,
+        instructionalExposure: "none: no example, no hint, no feedback, no correct answer shown" },
+      responseMode: "selection_only: two labeled number-chip rows (integers 1-10) plus an equal-weight 'Not sure' card; no text entry, no drag, no keyboard",
+      confounds: [
+        "Row/column vocabulary may be the barrier rather than array structure (language, not mathematics).",
+        "Child may count all 21 squares one by one and still answer correctly, masking whether structure was read.",
+        "Visual scanning at the given viewport width could cause an off-by-one count.",
+        "Orientation preference may lead the child to read columns as rows."
+      ],
+      latencyKey: "c3_time_to_first_entry_ms",
+      excluded: ["reading_time", "pointer_precision", "typing_speed"]
+    },
+    "ITEM-3": {
+      constructId: "C2",
+      exposure: { exposureId: "EX-EQUATION-MATCH-5x3", structure: "separated equal groups mapped to symbolic equation",
+        contextFamily: "equation selection", factorPair: "5 x 3", singleUse: true,
+        instructionalExposure: "none: no example, no hint, no feedback, no correct answer shown" },
+      responseMode: "selection_only: one of four equation cards in session-randomized order, plus a separately recorded 'Not sure' card; no text entry",
+      confounds: [
+        "Selection format permits guessing; a single correct choice is weak evidence (1 in 4 baseline).",
+        "Child may select by recognizing the product 15 without reading the group structure.",
+        "Option order could induce position bias.",
+        "Symbol reading (x versus +) may be the discriminating factor rather than multiplicative reasoning."
+      ],
+      latencyKey: "c2_time_to_selection_ms",
+      excluded: ["reading_time", "pointer_precision"]
+    },
+    "ITEM-4": {
+      constructId: "C4",
+      exposure: { exposureId: "EX-REFERENT-SWAP-2x8", structure: "verbal referent swap with constant product",
+        contextFamily: "containers and contents", factorPair: "2 x 8", singleUse: true,
+        instructionalExposure: "none: no example, no hint, no feedback, no correct answer shown" },
+      responseMode: "selection_only: one of three cards (same / different / not sure) plus one number chip 1-10 with its own 'Not sure' chip; no text entry",
+      confounds: [
+        "The word 'same' is ambiguous between same total and same situation; a 'same' response may reflect interpretation of the question rather than factor-referent confusion.",
+        "Reading load is highest in this item and could gate the response (excluded construct).",
+        "Child may already know commutativity and answer 'same' for a mathematically defensible product-based reason.",
+        "Order of Statement A and B could bias which referent is anchored."
+      ],
+      latencyKey: "c4_time_to_first_response_ms",
+      excluded: ["reading_time", "spelling", "typing_speed", "pointer_precision"]
+    }
+  };
+
+  var DOWNGRADE_FLAGS = [
+    "input_precision_friction",
+    "correct_response_below_inspection_threshold",
+    "item4_same_selected_requires_disambiguation_probe",
+    "c2_product_only_recognition_flag"
+  ];
+
+  /* ============================================================
+     Messaging
+     ============================================================ */
+  function post(type, payload) {
+    var msg = {
+      type: type,
+      evaluationId: EVAL_ID,
+      evaluationHash: EVAL_HASH,
+      sessionId: SESSION_ID,
+      timestamp: new Date().toISOString(),
+      tMs: Math.round(performance.now())
+    };
+    for (var k in payload) { if (Object.prototype.hasOwnProperty.call(payload, k)) { msg[k] = payload[k]; } }
+    try { window.parent.postMessage(msg, "*"); } catch (e) { /* no-op */ }
+  }
+  function friction(kind, detail) {
+    var d = { kind: kind, phase: windowClosed ? "post_evidence_window" : "evidence_window" };
+    for (var k in detail) { if (Object.prototype.hasOwnProperty.call(detail, k)) { d[k] = detail[k]; } }
+    post("evaluation_friction", d);
+  }
+
+  /* ============================================================
+     State
+     ============================================================ */
+  var reduced = false;
+  try { reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches; } catch (e) { reduced = false; }
+
+  var resp = {
+    "ITEM-1": { groups: null, per: null, notSure: false },
+    "ITEM-2": { rows: null, per: null, notSure: false },
+    "ITEM-3": { option: null },
+    "ITEM-4": { same: null, baskets: null }
+  };
+  var tel = {};
+  SEQUENCE.forEach(function (id) {
+    tel[id] = { shownAt: 0, firstAt: 0, lastAct: 0, changes: 0, adjacent: 0, idles: [], reading: 0, readingTargets: [], touched: false };
+  });
+
+  var records = {};        /* itemId -> record */
+  var idx = -1;            /* index in SEQUENCE, -1 = opening */
+  var currentScreen = "screen-open";
+  var confirming = false;
+  var transitioning = false;
+  var windowClosed = false;
+  var completePosted = false;
+  var hintInterest = false;
+  var sessionFlags = [];
+
+  /* ITEM-3 randomization */
+  var OPTIONS = [
+    { key: "5 x 3 = 15", label: "5 \u00D7 3 = 15" },
+    { key: "5 + 3 = 8",  label: "5 + 3 = 8" },
+    { key: "5 x 5 = 25", label: "5 \u00D7 5 = 25" },
+    { key: "3 x 10 = 30", label: "3 \u00D7 10 = 30" }
+  ];
+  var OPTION_SEED = Math.floor(Math.random() * 2147483647);
+  function mulberry32(a) {
+    return function () {
+      a |= 0; a = a + 0x6D2B79F5 | 0;
+      var t = Math.imul(a ^ a >>> 15, 1 | a);
+      t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+      return ((t ^ t >>> 14) >>> 0) / 4294967296;
+    };
+  }
+  function shuffled(list, seed) {
+    var rnd = mulberry32(seed), out = list.slice(), i, j, tmp;
+    for (i = out.length - 1; i > 0; i--) { j = Math.floor(rnd() * (i + 1)); tmp = out[i]; out[i] = out[j]; out[j] = tmp; }
+    return out;
+  }
+  var OPTION_ORDER = shuffled(OPTIONS, OPTION_SEED);
+
+  /* ============================================================
+     DOM references (all target nodes exist in markup above)
+     ============================================================ */
+  var stage = document.getElementById("stage");
+  var stopBtn = document.getElementById("stopBtn");
+  var startBtn = document.getElementById("startBtn");
+  var readOverlay = document.getElementById("readOverlay");
+  var readText = document.getElementById("readText");
+  var readClose = document.getElementById("readClose");
+  var stopOverlay = document.getElementById("stopOverlay");
+  var keepGoing = document.getElementById("keepGoing");
+  var stopNow = document.getElementById("stopNow");
+  var closeLine = document.getElementById("closeLine");
+  var hintToggle = document.getElementById("hintToggle");
+  var allDoneBtn = document.getElementById("allDoneBtn");
+  var closeAfter = document.getElementById("closeAfter");
+
+  var chipRefs = {};   /* "ITEM|field" -> [buttons] */
+  var optRefs = [];    /* item3 option cards */
+
+  /* ---------- build number chip rows ---------- */
+  function buildChips(containerId, itemId, field, withNotSureChip) {
+    var host = document.getElementById(containerId);
+    var arr = [], n, b;
+    for (n = 1; n <= 10; n++) {
+      b = document.createElement("button");
+      b.type = "button";
+      b.className = "chip";
+      b.textContent = String(n);
+      b.setAttribute("data-value", String(n));
+      b.addEventListener("click", makeChipHandler(itemId, field, n, b));
+      host.appendChild(b);
+      arr.push(b);
+    }
+    if (withNotSureChip) {
+      b = document.createElement("button");
+      b.type = "button";
+      b.className = "chip nsChip";
+      b.textContent = "Not sure";
+      b.setAttribute("data-value", "not_sure");
+      b.addEventListener("click", makeChipHandler(itemId, field, "not_sure", b));
+      host.appendChild(b);
+      arr.push(b);
+    }
+    chipRefs[itemId + "|" + field] = arr;
+  }
+
+  function makeChipHandler(itemId, field, value, btn) {
+    return function () { onChip(itemId, field, value); };
+  }
+
+  buildChips("chips-ITEM-1-groups", "ITEM-1", "groups", false);
+  buildChips("chips-ITEM-1-per", "ITEM-1", "per", false);
+  buildChips("chips-ITEM-2-rows", "ITEM-2", "rows", false);
+  buildChips("chips-ITEM-2-per", "ITEM-2", "per", false);
+  buildChips("chips-ITEM-4-baskets", "ITEM-4", "baskets", true);
+
+  /* ---------- build ITEM-3 option cards ---------- */
+  (function () {
+    var host = document.getElementById("opts-ITEM-3");
+    OPTION_ORDER.forEach(function (o, i) {
+      var b = document.createElement("button");
+      b.type = "button";
+      b.className = "card";
+      b.textContent = o.label;
+      b.setAttribute("data-key", o.key);
+      b.addEventListener("click", function () { onOption(o.key); });
+      host.appendChild(b);
+      optRefs.push(b);
+    });
+  })();
+
+  /* ---------- 'Not sure' whole-item cards ---------- */
+  document.getElementById("ns-ITEM-1").addEventListener("click", function () { onWholeNotSure("ITEM-1"); });
+  document.getElementById("ns-ITEM-2").addEventListener("click", function () { onWholeNotSure("ITEM-2"); });
+  document.getElementById("ns-ITEM-3").addEventListener("click", function () { onOption("not_sure"); });
+
+  /* ---------- ITEM-4 same/different/not sure cards ---------- */
+  (function () {
+    var host = document.getElementById("same-ITEM-4");
+    var kids = host.getElementsByClassName("card");
+    var i;
+    for (i = 0; i < kids.length; i++) {
+      (function (b) {
+        b.addEventListener("click", function () { onSameCard(b.getAttribute("data-val")); });
+      })(kids[i]);
+    }
+  })();
+
+  /* ---------- Done buttons ---------- */
+  SEQUENCE.forEach(function (id) {
+    document.getElementById("done-" + id).addEventListener("click", function () { onDone(id); });
+  });
+
+  /* ---------- reading-support buttons ----------
+     No audio channel is available to this document (recorded voice assets absent;
+     speech synthesis and generated audio are forbidden), so the contract's
+     reading-load control is delivered as a literal enlargement of exactly the
+     printed text. It voices/paraphrases nothing and adds no content. */
+  (function () {
+    var btns = document.getElementsByClassName("rsBtn");
+    var i;
+    for (i = 0; i < btns.length; i++) {
+      (function (b) {
+        b.addEventListener("click", function () {
+          var srcId = b.getAttribute("data-read");
+          var itemId = b.getAttribute("data-item");
+          var node = document.getElementById(srcId);
+          readText.textContent = node ? node.textContent : "";
+          readOverlay.classList.add("active");
+          if (tel[itemId]) {
+            tel[itemId].reading += 1;
+            tel[itemId].readingTargets.push(srcId);
+            noteInteraction(itemId, false);
+          }
+          friction("reading_support_text_enlarged", {
+            itemId: itemId, targetTextId: srcId, targetText: node ? node.textContent : "",
+            supportType: "literal_printed_text_enlarged", teaching: false, answerContent: false
+          });
+        });
+      })(btns[i]);
+    }
+    readClose.addEventListener("click", function () { readOverlay.classList.remove("active"); });
+  })();
+
+  /* ============================================================
+     Interaction bookkeeping
+     ============================================================ */
+  function noteInteraction(itemId, countsAsResponse) {
+    var t = tel[itemId];
+    if (!t) { return; }
+    var now = performance.now();
+    if (t.lastAct && (now - t.lastAct) > IDLE_THRESHOLD_MS) {
+      var span = Math.round(now - t.lastAct);
+      t.idles.push(span);
+      friction("idle_span", { itemId: itemId, idleMs: span, scored: false, note: "stall data only" });
+    }
+    t.lastAct = now;
+    if (countsAsResponse) {
+      t.touched = true;
+      if (!t.firstAt) {
+        t.firstAt = now;
+        friction("first_response_affordance_touched", { itemId: itemId, latencyMs: Math.round(now - t.shownAt) });
+      }
+    }
+  }
+
+  /* ============================================================
+     Response handlers
+     ============================================================ */
+  function onChip(itemId, field, value) {
+    if (transitioning || records[itemId]) { return; }
+    var r = resp[itemId];
+    if ((itemId === "ITEM-1" || itemId === "ITEM-2") && r.notSure) {
+      friction("tap_on_inactive_field", { itemId: itemId, field: field, note: "'Not sure' is currently selected" });
+      return;
+    }
+    noteInteraction(itemId, true);
+    var prev = r[field];
+    if (prev === value) {
+      r[field] = null;
+      friction("pre_confirm_deselect", { itemId: itemId, field: field, from: prev, scored: false });
+    } else {
+      r[field] = value;
+      if (prev !== null && prev !== undefined) {
+        tel[itemId].changes += 1;
+        var adjacent = (typeof prev === "number" && typeof value === "number" && Math.abs(prev - value) === 1);
+        if (adjacent) { tel[itemId].adjacent += 1; }
+        friction("pre_confirm_change", { itemId: itemId, field: field, from: prev, to: value, adjacentValue: adjacent, scored: false });
+      }
+    }
+    render(itemId);
+  }
+
+  function onWholeNotSure(itemId) {
+    if (transitioning || records[itemId]) { return; }
+    noteInteraction(itemId, true);
+    var r = resp[itemId];
+    r.notSure = !r.notSure;
+    if (r.notSure) {
+      if (itemId === "ITEM-1") { r.groups = null; r.per = null; }
+      if (itemId === "ITEM-2") { r.rows = null; r.per = null; }
+    }
+    friction("not_sure_toggled", { itemId: itemId, selected: r.notSure, scored: false });
+    render(itemId);
+  }
+
+  function onOption(key) {
+    if (transitioning || records["ITEM-3"]) { return; }
+    noteInteraction("ITEM-3", true);
+    var r = resp["ITEM-3"];
+    var prev = r.option;
+    r.option = (prev === key) ? null : key;
+    if (prev !== null && r.option !== null) {
+      tel["ITEM-3"].changes += 1;
+      friction("pre_confirm_change", { itemId: "ITEM-3", field: "option", from: prev, to: r.option, scored: false });
+    } else if (r.option === null) {
+      friction("pre_confirm_deselect", { itemId: "ITEM-3", field: "option", from: prev, scored: false });
+    }
+    render("ITEM-3");
+  }
+
+  function onSameCard(val) {
+    if (transitioning || records["ITEM-4"]) { return; }
+    noteInteraction("ITEM-4", true);
+    var r = resp["ITEM-4"];
+    var prev = r.same;
+    r.same = (prev === val) ? null : val;
+    if (prev !== null && r.same !== null) {
+      tel["ITEM-4"].changes += 1;
+      friction("pre_confirm_change", { itemId: "ITEM-4", field: "sameSituation", from: prev, to: r.same, scored: false });
+    } else if (r.same === null) {
+      friction("pre_confirm_deselect", { itemId: "ITEM-4", field: "sameSituation", from: prev, scored: false });
+    }
+    render("ITEM-4");
+  }
+
+  /* ============================================================
+     Rendering
+     ============================================================ */
+  function setChipStates(itemId, field, selected, muted) {
+    var arr = chipRefs[itemId + "|" + field], i, b, raw, val;
+    for (i = 0; i < arr.length; i++) {
+      b = arr[i];
+      raw = b.getAttribute("data-value");
+      val = (raw === "not_sure") ? "not_sure" : parseInt(raw, 10);
+      if (val === selected) { b.classList.add("sel"); } else { b.classList.remove("sel"); }
+      if (muted) { b.classList.add("muted"); } else { b.classList.remove("muted"); }
+    }
+  }
+
+  function isComplete(itemId) {
+    var r = resp[itemId];
+    if (itemId === "ITEM-1") { return r.notSure || (r.groups !== null && r.per !== null); }
+    if (itemId === "ITEM-2") { return r.notSure || (r.rows !== null && r.per !== null); }
+    if (itemId === "ITEM-3") { return r.option !== null; }
+    if (itemId === "ITEM-4") { return r.same !== null && r.baskets !== null; }
+    return false;
+  }
+
+  function render(itemId) {
+    var r = resp[itemId], i;
+    if (itemId === "ITEM-1") {
+      setChipStates("ITEM-1", "groups", r.groups, r.notSure);
+      setChipStates("ITEM-1", "per", r.per, r.notSure);
+      toggle(document.getElementById("ns-ITEM-1"), "sel", r.notSure);
+    } else if (itemId === "ITEM-2") {
+      setChipStates("ITEM-2", "rows", r.rows, r.notSure);
+      setChipStates("ITEM-2", "per", r.per, r.notSure);
+      toggle(document.getElementById("ns-ITEM-2"), "sel", r.notSure);
+    } else if (itemId === "ITEM-3") {
+      for (i = 0; i < optRefs.length; i++) {
+        toggle(optRefs[i], "sel", optRefs[i].getAttribute("data-key") === r.option);
+      }
+      toggle(document.getElementById("ns-ITEM-3"), "sel", r.option === "not_sure");
+    } else if (itemId === "ITEM-4") {
+      var cards = document.getElementById("same-ITEM-4").getElementsByClassName("card");
+      for (i = 0; i < cards.length; i++) {
+        toggle(cards[i], "sel", cards[i].getAttribute("data-val") === r.same);
+      }
+      setChipStates("ITEM-4", "baskets", r.baskets, false);
+    }
+    var d = document.getElementById("done-" + itemId);
+    if (isComplete(itemId)) { d.classList.remove("off"); } else { d.classList.add("off"); }
+  }
+  function toggle(el, cls, on) { if (on) { el.classList.add(cls); } else { el.classList.remove(cls); } }
+
+  /* ============================================================
+     Screen flow
+     ============================================================ */
+  function showScreen(id, after) {
+    if (transitioning) { return; }
+    transitioning = true;
+    stage.classList.add("busy");
+    var swap = function () {
+      var prev = document.getElementById(currentScreen);
+      if (prev) { prev.classList.remove("active"); }
+      var next = document.getElementById(id);
+      next.classList.add("active");
+      currentScreen = id;
+      if (id === "screen-close") { stopBtn.classList.add("hidden"); } else { stopBtn.classList.remove("hidden"); }
+    };
+    if (reduced) {
+      swap(); stage.style.opacity = "1"; transitioning = false; stage.classList.remove("busy");
+      if (after) { after(); }
+    } else {
+      stage.style.opacity = "0";
+      window.setTimeout(function () {
+        swap();
+        stage.style.opacity = "1";
+        window.setTimeout(function () {
+          transitioning = false; stage.classList.remove("busy");
+          if (after) { after(); }
+        }, 200);
+      }, 200);
+    }
+  }
+
+  function showItem(i) {
+    idx = i;
+    var itemId = SEQUENCE[i];
+    showScreen("screen-" + itemId, function () {
+      var now = performance.now();
+      tel[itemId].shownAt = now;
+      tel[itemId].lastAct = now;
+      confirming = false;
+      render(itemId);
+    });
+  }
+
+  startBtn.addEventListener("click", function () {
+    if (transitioning) { return; }
+    friction("session_started", { openingScreen: true });
+    showItem(0);
+  });
+
+  /* ============================================================
+     Scoring (against the immutable correct-answer contracts)
+     ============================================================ */
+  function baseFlags(itemId, result) {
+    var t = tel[itemId], flags = [];
+    if (t.adjacent >= 2) { flags.push("input_precision_friction"); }
+    var lat = t.firstAt ? Math.round(t.firstAt - t.shownAt) : null;
+    if (lat !== null && lat < INSPECTION_THRESHOLD_MS) {
+      flags.push(result === "correct" ? "correct_response_below_inspection_threshold" : "fast_response_below_inspection_threshold");
+    }
+    if (t.reading > 0) { flags.push("reading_support_used"); }
+    var i;
+    for (i = 0; i < t.idles.length; i++) { if (t.idles[i] >= LONG_IDLE_MS) { flags.push("long_idle_observed"); break; } }
+    return flags;
+  }
+
+  function scoreItem(itemId, mode) {
+    var r = resp[itemId], keys = {}, result, flags, attempted;
+
+    if (itemId === "ITEM-1") {
+      if (mode !== "confirmed") {
+        result = tel[itemId].touched ? "abandoned" : "omitted";
+      } else if (r.notSure) { result = "not_sure"; }
+      else { result = (r.groups === 4 && r.per === 6) ? "correct" : "incorrect"; }
+      keys.c1_group_pair_correct = (result === "correct");
+      keys.c1_roles_reversed = (r.groups === 6 && r.per === 4);
+      keys.c1_reported_total_instead_of_pair = false;
+      keys.c1_reported_total_capture_note = "not directly capturable: chips are limited to 1-10 (design-disclosed compromise)";
+      keys.c1_total_first_strategy_inferred = ((tel[itemId].firstAt ? (tel[itemId].firstAt - tel[itemId].shownAt) : 0) > 20000) &&
+        (result === "not_sure" || tel[itemId].changes >= 4);
+      keys.c1_not_sure_rate = (result === "not_sure") ? 1 : 0;
+      attempted = { numberOfGroups: r.notSure ? null : r.groups, amountInEachGroup: r.notSure ? null : r.per, notSure: !!r.notSure };
+    } else if (itemId === "ITEM-2") {
+      if (mode !== "confirmed") {
+        result = tel[itemId].touched ? "abandoned" : "omitted";
+      } else if (r.notSure) { result = "not_sure"; }
+      else { result = (r.rows === 3 && r.per === 7) ? "correct" : "incorrect"; }
+      keys.c3_array_dimensions_correct = (result === "correct");
+      keys.c3_roles_reversed = (r.rows === 7 && r.per === 3);
+      keys.c3_reported_total_instead_of_dimensions = false;
+      keys.c3_reported_total_capture_note = "not directly capturable: chips are limited to 1-10 (design-disclosed compromise)";
+      keys.c3_off_by_one_count = (r.rows !== null && r.per !== null) &&
+        (Math.abs(r.rows - 3) + Math.abs(r.per - 7) === 1);
+      keys.c3_not_sure_rate = (result === "not_sure") ? 1 : 0;
+      attempted = { rows: r.notSure ? null : r.rows, squaresPerRow: r.notSure ? null : r.per, notSure: !!r.notSure };
+    } else if (itemId === "ITEM-3") {
+      if (mode !== "confirmed") {
+        result = tel[itemId].touched ? "abandoned" : "omitted";
+      } else if (r.option === "not_sure") { result = "not_sure"; }
+      else { result = (r.option === "5 x 3 = 15") ? "correct" : "incorrect"; }
+      var i1 = records["ITEM-1"], i2 = records["ITEM-2"];
+      keys.c2_equation_match_correct = (result === "correct");
+      keys.c2_additive_distractor_selected = (r.option === "5 + 3 = 8");
+      keys.c2_duplicated_factor_distractor_selected = (r.option === "5 x 5 = 25");
+      keys.c2_product_only_recognition_flag = (result === "correct") &&
+        !!i1 && !!i2 && i1.result !== "correct" && i2.result !== "correct";
+      keys.c2_not_sure_rate = (result === "not_sure") ? 1 : 0;
+      var lat3 = tel[itemId].firstAt ? Math.round(tel[itemId].firstAt - tel[itemId].shownAt) : null;
+      keys.c2_selection_latency_below_inspection_threshold = (lat3 !== null && lat3 < INSPECTION_THRESHOLD_MS);
+      attempted = { selectedOption: (r.option === "not_sure") ? null : r.option, notSure: (r.option === "not_sure"),
+        optionOrderPresented: OPTION_ORDER.map(function (o) { return o.key; }), optionOrderSeed: OPTION_SEED };
+    } else {
+      if (mode !== "confirmed") {
+        result = tel[itemId].touched ? "abandoned" : "omitted";
+      } else if (r.same === "not_sure" || r.baskets === "not_sure") { result = "not_sure"; }
+      else { result = (r.same === "different" && r.baskets === 2) ? "correct" : "incorrect"; }
+      keys.c4_referent_discrimination_correct = (result === "correct");
+      keys.c4_same_selected_product_equality_confusion = (r.same === "same");
+      keys.c4_referent_count_correct = (r.baskets === 2);
+      keys.c4_ambiguity_flag_requires_followup = (r.same === "same");
+      keys.c4_not_sure_rate = (result === "not_sure") ? 1 : 0;
+      keys.c4_possible_anchor_swap_to_statement_b = (r.baskets === 8);
+      attempted = { sameSituation: r.same, basketsInA: r.baskets, notSure: (r.same === "not_sure" || r.baskets === "not_sure") };
+    }
+
+    flags = baseFlags(itemId, result);
+    if (itemId === "ITEM-1" && keys.c1_roles_reversed) { flags.push("role_reversal_observed"); }
+    if (itemId === "ITEM-2" && keys.c3_roles_reversed) { flags.push("role_reversal_observed"); flags.push("possible_orientation_confusion"); }
+    if (itemId === "ITEM-2" && keys.c3_off_by_one_count) { flags.push("off_by_one_count_observed"); }
+    if (itemId === "ITEM-3" && keys.c2_product_only_recognition_flag) { flags.push("c2_product_only_recognition_flag"); }
+    if (itemId === "ITEM-4" && keys.c4_ambiguity_flag_requires_followup) { flags.push("item4_same_selected_requires_disambiguation_probe"); }
+    if (itemId === "ITEM-4" && keys.c4_possible_anchor_swap_to_statement_b) { flags.push("possible_anchor_swap_statement_b"); }
+    if (itemId === "ITEM-1" && keys.c1_total_first_strategy_inferred) { flags.push("possible_total_first_strategy_inferred"); }
+
+    return { result: result, keys: keys, flags: flags, attempted: attempted };
+  }
+
+  function recordItem(itemId, mode) {
+    if (records[itemId]) { return; }
+    var t = tel[itemId];
+    var s = scoreItem(itemId, mode);
+    var m = META[itemId];
+    var now = performance.now();
+    var latency = {};
+    latency[m.latencyKey] = t.firstAt ? Math.round(t.firstAt - t.shownAt) : null;
+    latency.timeOnItemMs = t.shownAt ? Math.round(now - t.shownAt) : null;
+
+    var rec = {
+      itemId: itemId,
+      constructId: m.constructId,
+      result: s.result,
+      keys: s.keys,
+      flags: s.flags,
+      attempted: s.attempted,
+      latency: latency,
+      terminationMode: mode
+    };
+    records[itemId] = rec;
+
+    post("evaluation_attempt", {
+      itemId: itemId,
+      constructId: m.constructId,
+      result: s.result,
+      assistance: ASSISTANCE_NONE,
+      exposure: m.exposure,
+      responseMode: m.responseMode,
+      possibleConfounds: m.confounds,
+      attemptedValue: s.attempted,
+      attemptNumber: 1,
+      retriesAllowed: 0,
+      measurementKeys: s.keys,
+      latency: latency,
+      inspectionThresholdMs: INSPECTION_THRESHOLD_MS,
+      inspectionThresholdBasis: "provisional default; no child-specific latency baseline exists yet",
+      confoundFlagsRaised: s.flags,
+      excludedFromScoring: m.excluded,
+      frictionCounts: { preConfirmChanges: t.changes, adjacentValueChanges: t.adjacent,
+        idleSpansMs: t.idles.slice(), readingSupportInvocations: t.reading, readingSupportTargets: t.readingTargets.slice() },
+      terminationMode: mode
+    });
+
+    var d = document.getElementById("pdot-" + (SEQUENCE.indexOf(itemId) + 1));
+    if (d) { d.classList.add("filled"); }
+  }
+
+  function onDone(itemId) {
+    if (transitioning || confirming || records[itemId]) { return; }
+    noteInteraction(itemId, false);
+    if (!isComplete(itemId)) {
+      friction("confirm_pressed_while_incomplete", { itemId: itemId, note: "no error state shown to child" });
+      return;
+    }
+    confirming = true;
+    recordItem(itemId, "confirmed");
+    var next = SEQUENCE.indexOf(itemId) + 1;
+    if (next < SEQUENCE.length) {
+      showItem(next);
+    } else {
+      closeWindowAndFinish("completed_all_items");
+    }
+  }
+
+  /* ============================================================
+     Stop flow
+     ============================================================ */
+  stopBtn.addEventListener("click", function () {
+    if (transitioning) { return; }
+    stopOverlay.classList.add("active");
+    friction("stop_dialog_opened", { atScreen: currentScreen });
+  });
+  keepGoing.addEventListener("click", function () {
+    stopOverlay.classList.remove("active");
+    friction("stop_dialog_cancelled", { atScreen: currentScreen });
+  });
+  stopNow.addEventListener("click", function () {
+    stopOverlay.classList.remove("active");
+    friction("stop_confirmed", { atScreen: currentScreen });
+    var i;
+    if (idx >= 0 && idx < SEQUENCE.length) {
+      recordItem(SEQUENCE[idx], "stopped_on_this_item");
+    }
+    for (i = 0; i < SEQUENCE.length; i++) {
+      if (!records[SEQUENCE[i]]) { recordItem(SEQUENCE[i], "not_reached"); }
+    }
+    closeWindowAndFinish("stopped_early");
+  });
+
+  /* ============================================================
+     Evidence map + completion
+     ============================================================ */
+  function evidenceLabel(rec) {
+    if (!rec) { return "evidence_missing"; }
+    if (rec.result === "not_sure" || rec.result === "omitted" || rec.result === "abandoned") { return "evidence_missing"; }
+    var amb = false, i;
+    for (i = 0; i < rec.flags.length; i++) {
+      if (DOWNGRADE_FLAGS.indexOf(rec.flags[i]) !== -1) { amb = true; }
+    }
+    if (rec.result === "correct") { return amb ? "evidence_ambiguous" : "evidence_supports_construct_provisionally"; }
+    return amb ? "evidence_ambiguous" : "evidence_contradicts_construct";
+  }
+
+  function closeWindowAndFinish(status) {
+    if (windowClosed) { return; }
+    windowClosed = true;
+
+    var r1 = records["ITEM-1"], r2 = records["ITEM-2"], r3 = records["ITEM-3"], r4 = records["ITEM-4"];
+
+    var dualReversal = !!(r1 && r2 && r1.keys.c1_roles_reversed && r2.keys.c3_roles_reversed);
+    var productRecognition = !!(r3 && r3.keys.c2_product_only_recognition_flag);
+    if (dualReversal) { sessionFlags.push("dual_role_reversal_item1_item2_candidate_referent_assignment_gap"); }
+    if (productRecognition) { sessionFlags.push("item3_correct_with_item1_item2_incorrect_probable_product_recognition"); }
+
+    var evidenceMap = {
+      C1: evidenceLabel(r1),
+      C3: evidenceLabel(r2),
+      C2: evidenceLabel(r3),
+      C4: evidenceLabel(r4)
+    };
+
+    var allFlags = sessionFlags.slice();
+    SEQUENCE.forEach(function (id) {
+      var rec = records[id];
+      if (rec) { rec.flags.forEach(function (f) { allFlags.push(id + ":" + f); }); }
+    });
+
+    var outcomes = {}, anySoftened = false, resolvedCount = 0;
+    SEQUENCE.forEach(function (id) {
+      var rec = records[id];
+      outcomes[id] = rec ? rec.result : "omitted";
+      if (rec && (rec.result === "correct" || rec.result === "incorrect")) { resolvedCount += 1; }
+      else { anySoftened = true; }
+    });
+
+    /* child-facing closing surface: factual, no correctness, no counts, no judgement */
+    closeLine.textContent = anySoftened
+      ? "You looked at these four questions. That\u2019s all for now."
+      : "You answered these four questions. That\u2019s all for now.";
+    SEQUENCE.forEach(function (id, i) {
+      var cd = document.getElementById("cdot-" + (i + 1));
+      if (records[id] && records[id].terminationMode === "confirmed") { cd.classList.add("filled"); }
+      else if (records[id] && records[id].result !== "omitted") { cd.classList.add("filled"); }
+    });
+
+    if (!completePosted) {
+      completePosted = true;
+      post("evaluation_complete", {
+        completionStatus: status,
+        itemsSequence: SEQUENCE,
+        itemsRecorded: SEQUENCE.filter(function (id) { return !!records[id]; }),
+        outcomes: outcomes,
+        itemsResolvedWithSubstantiveResponse: resolvedCount,
+        evidenceMap: evidenceMap,
+        evidenceMapLegend: [
+          "evidence_supports_construct_provisionally",
+          "evidence_contradicts_construct",
+          "evidence_ambiguous",
+          "evidence_missing"
+        ],
+        confoundFlags: allFlags,
+        crossItemConsistencyChecks: {
+          dual_role_reversal_item1_item2: dualReversal,
+          item3_correct_with_item1_item2_incorrect: productRecognition
+        },
+        assistance: ASSISTANCE_NONE,
+        assistanceDuringEvidenceWindow: "none",
+        exposuresConsumed: SEQUENCE.map(function (id) { return META[id].exposure.exposureId; }),
+        exposureRetired: true,
+        responseModesUsed: SEQUENCE.map(function (id) { return { itemId: id, responseMode: META[id].responseMode }; }),
+        perItemRecords: SEQUENCE.map(function (id) {
+          var rec = records[id];
+          return rec ? {
+            itemId: id, constructId: rec.constructId, result: rec.result,
+            attemptedValue: rec.attempted, measurementKeys: rec.keys,
+            latency: rec.latency, confoundFlagsRaised: rec.flags, terminationMode: rec.terminationMode
+          } : { itemId: id, constructId: META[id].constructId, result: "omitted", attemptedValue: null };
+        }),
+        excludedFromScoring: ["reading_fluency", "spelling", "typing_speed", "pointer_precision", "reading_time", "keystroke_count", "pointer_path_length", "computation beyond factors 1-10"],
+        notMeasuredHere: ["reading fluency", "spelling", "typing speed", "pointer precision", "motivation", "mastery"],
+        inspectionThresholdMs: INSPECTION_THRESHOLD_MS,
+        optionOrderSeedItem3: OPTION_SEED,
+        noMasteryDeclaration: "Single observation per construct. No mastery, proficiency, grade-level, or settled-skill claim is produced by this instrument under any outcome combination.",
+        evidenceRequiredNext: [
+          "Disambiguation probe for ITEM-4 when 'same' is selected: a non-teaching follow-up that separates 'same total' from 'same situation' without revealing the correct answer.",
+          "A second, structurally different observation per construct before any construct may move beyond provisional status; one item is an insufficient sample.",
+          "A no-picture equal-group item to test whether C1 depends on visual separation of groups.",
+          "An unknown-factor probe (total and one factor given, other factor requested) to test whether C2 mapping is bidirectional or only representation-to-equation.",
+          "A column-reading array probe to test whether C3 is orientation-dependent rather than structural.",
+          "Confound-isolation checks: a read-aloud or reduced-text version of the same construct to determine whether any incorrect response was gated by reading load rather than mathematics.",
+          "Input-mode check: confirmation that numeric entry and selection mechanics did not produce recorded errors unrelated to mathematics.",
+          "Latency baselines for this child on a non-mathematical selection task, to calibrate the inspection threshold used in guessing control.",
+          "Repeat observation on a separate occasion to distinguish stable evidence from single-session variation.",
+          "Post-evaluation-only: whether an available hint changes performance, recorded strictly after independent evidence is closed and reported separately from opening evidence."
+        ],
+        instrumentNotes: [
+          "Reading support was delivered as literal enlargement of already-printed text only; no audio channel exists in this document and no paraphrase or hint content was ever presented.",
+          "Numeric chips span 1-10 exactly (contract factor range), so a total-instead-of-pair response cannot be entered directly; that measurement key is inferred, not captured."
+        ],
+        postWindowHintInterest: hintInterest
+      });
+    }
+
+    showScreen("screen-close");
+  }
+
+  /* ============================================================
+     Post-window affordances (closing screen only, no hint content)
+     ============================================================ */
+  hintToggle.addEventListener("click", function () {
+    hintInterest = !hintInterest;
+    toggle(hintToggle, "on", hintInterest);
+    friction("post_window_hint_interest", {
+      interested: hintInterest,
+      hintContentDelivered: false,
+      note: "interest recorded for the follow-up phase; no hint, example, or answer shown in this instrument"
+    });
+  });
+  allDoneBtn.addEventListener("click", function () {
+    closeAfter.style.visibility = "visible";
+    friction("post_window_session_closed_by_child", { hintInterest: hintInterest });
+  });
+
+  /* ============================================================
+     Ready
+     ============================================================ */
+  post("evaluation_ready", {
+    upstreamHash: UP_HASH,
+    designArtifactId: DESIGN_ID,
+    designArtifactHash: DESIGN_HASH,
+    viewport: { width: 1365, height: 768 },
+    inputModes: ["touch", "mouse"],
+    keyboardRequired: false,
+    itemsPlanned: SEQUENCE.map(function (id) {
+      return { itemId: id, constructId: META[id].constructId, exposureId: META[id].exposure.exposureId, responseMode: META[id].responseMode };
+    }),
+    constructs: ["C1", "C2", "C3", "C4"],
+    administration: {
+      noFeedbackDuringEvaluation: true,
+      noHintsDuringEvaluation: true,
+      retriesAllowed: 0,
+      notSureIsValidResponse: true,
+      oneStimulusPerScreen: true,
+      noTimeLimit: true,
+      childMayStop: true,
+      answerExposure: "none"
+    },
+    assistance: ASSISTANCE_NONE,
+    optionOrderSeedItem3: OPTION_SEED,
+    reducedMotion: reduced
+  });
+
+  /* initial paint of all response states so no stale visuals exist */
+  SEQUENCE.forEach(function (id) { render(id); });
+
+})();
+</script>
+</body>
+</html>

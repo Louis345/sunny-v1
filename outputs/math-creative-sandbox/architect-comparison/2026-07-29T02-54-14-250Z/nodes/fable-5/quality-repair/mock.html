@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>The Chocolate Caravan: Biggest Piece Wins</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 0; overflow: hidden;
+    width: 1365px; height: 768px;
+    background: linear-gradient(180deg, #f4d9a0 0%, #e6b877 40%, #c98a4b 100%);
+    font-family: 'Trebuchet MS', Arial, sans-serif;
+    position: relative;
+    user-select: none;
+  }
+  #title {
+    text-align: center;
+    color: #5a3311;
+    font-size: 26px;
+    font-weight: bold;
+    text-shadow: 1px 1px 0 #fff4d6;
+    margin: 8px 0 0 0;
+  }
+  #speech {
+    position: absolute;
+    top: 44px; left: 50%; transform: translateX(-50%);
+    background: #fff8ec;
+    border: 3px solid #8a5a2b;
+    border-radius: 18px;
+    padding: 8px 22px;
+    font-size: 18px;
+    color: #4a2e10;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+    max-width: 640px;
+    text-align: center;
+    z-index: 5;
+  }
+  #caption {
+    position: absolute;
+    top: 98px; left: 50%; transform: translateX(-50%);
+    color: #5a3311;
+    font-size: 14px;
+    font-weight: bold;
+    font-style: italic;
+    z-index: 5;
+  }
+  #table {
+    position: absolute;
+    bottom: 0; left: 0; width: 1365px; height: 620px;
+    background: repeating-linear-gradient(90deg, #a9702f, #a9702f 40px, #96601f 40px, #96601f 80px);
+    border-top: 6px solid #6b430f;
+  }
+  .traveler {
+    position: absolute;
+    top: 30px;
+    width: 140px; text-align: center;
+    font-size: 56px;
+  }
+  .traveler .label {
+    font-size: 15px;
+    color: #4a2e10;
+    font-weight: bold;
+    background: #fff8ec;
+    border-radius: 8px;
+    padding: 2px 6px;
+    margin-top: 2px;
+    display: inline-block;
+  }
+  #fox { left: 260px; }
+  #badger { left: 900px; }
+
+  .bar-zone {
+    position: absolute;
+    top: 145px;
+    width: 300px; height: 90px;
+  }
+  #fox-bar-zone { left: 130px; }
+  #badger-bar-zone { left: 770px; }
+
+  .bar {
+    position: relative;
+    width: 300px; height: 74px;
+    background: #4a2a10;
+    border-radius: 10px;
+    box-shadow: inset 0 3px 6px rgba(255,255,255,0.3), 0 3px 6px rgba(0,0,0,0.4);
+    display: flex;
+    gap: 4px;
+    padding: 0 2px;
+  }
+  .piece {
+    height: 100%;
+    background: linear-gradient(180deg,#a8672e,#6b3c15);
+    border-radius: 6px;
+    position: relative;
+    cursor: grab;
+    box-shadow: inset 0 2px 4px rgba(255,255,255,0.4);
+  }
+  .piece.pickable {
+    outline: 3px dashed #ffd93b;
+    outline-offset: -3px;
+    animation: pulseGlow 1.1s ease-in-out infinite;
+  }
+  @keyframes pulseGlow {
+    0%,100% { box-shadow: inset 0 2px 4px rgba(255,255,255,0.4), 0 0 6px 2px rgba(255,217,59,0.5); }
+    50% { box-shadow: inset 0 2px 4px rgba(255,255,255,0.4), 0 0 16px 6px rgba(255,217,59,0.9); }
+  }
+  .piece.dragging {
+    z-index: 50;
+    opacity: 0.9;
+  }
+
+  #tray {
+    position: absolute;
+    left: 482px; top: 260px;
+    width: 400px; height: 175px;
+    background: rgba(255,255,255,0.15);
+    border: 4px dashed #6b430f;
+    border-radius: 12px;
+    z-index: 3;
+  }
+  #tray-guide {
+    position: absolute;
+    left: 16px; top: 0; bottom: 0;
+    width: 3px;
+    background: #ffd93b;
+  }
+  #tray-label {
+    position: absolute;
+    top: -30px; left: 0; width: 100%;
+    text-align: center;
+    color: #4a2e10;
+    font-weight: bold;
+    font-size: 15px;
+  }
+  .tray-piece {
+    position: absolute;
+    left: 20px;
+    height: 60px;
+    background: linear-gradient(180deg,#a8672e,#6b3c15);
+    border-radius: 6px;
+    box-shadow: 0 3px 8px rgba(0,0,0,0.4);
+  }
+
+  #ghost-hand {
+    position: absolute;
+    font-size: 40px;
+    left: 300px; top: 200px;
+    pointer-events: none;
+    z-index: 100;
+    filter: drop-shadow(0 3px 4px rgba(0,0,0,0.4));
+    opacity: 0;
+  }
+
+  #stamp-area {
+    position: absolute;
+    top: 480px; left: 50%; transform: translateX(-50%);
+    display: none;
+    gap: 14px;
+    flex-direction: row;
+    z-index: 10;
+  }
+  .stamp-btn {
+    background: #fff8ec;
+    border: 3px solid #8a5a2b;
+    border-radius: 10px;
+    padding: 10px 18px;
+    font-size: 16px;
+    font-weight: bold;
+    color: #4a2e10;
+    cursor: pointer;
+    box-shadow: 0 3px 5px rgba(0,0,0,0.3);
+  }
+  .stamp-btn:hover { background: #ffe9c2; }
+
+  #result-banner {
+    position: absolute;
+    top: 300px; left: 50%; transform: translateX(-50%) scale(0.5);
+    opacity: 0;
+    background: #ffd93b;
+    border: 4px solid #a8671e;
+    border-radius: 16px;
+    padding: 18px 30px;
+    font-size: 24px;
+    font-weight: bold;
+    color: #4a2e10;
+    text-align: center;
+    box-shadow: 0 6px 14px rgba(0,0,0,0.4);
+    z-index: 200;
+    white-space: pre-line;
+  }
+
+  #owl {
+    position: absolute;
+    top: 14px; right: 30px;
+    font-size: 44px;
+  }
+  #owl-text {
+    position: absolute;
+    top: 18px; right: 100px;
+    max-width: 260px;
+    background: #fff8ec;
+    border: 2px solid #8a5a2b;
+    border-radius: 12px;
+    padding: 6px 10px;
+    font-size: 13px;
+    color: #4a2e10;
+    display: none;
+    z-index: 6;
+  }
+
+  #seal {
+    position: absolute;
+    top: 14px; left: 30px;
+    font-size: 20px;
+    color: #4a2e10;
+    font-weight: bold;
+  }
+</style>
+</head>
+<body>
+
+<div id="title">🍫 The Chocolate Caravan: Biggest Piece Wins</div>
+<div id="seal">🏅 Seals: <span id="seal-count">0</span></div>
+<div id="speech">You are the Fairness Judge! The fox cut a bar into 3 pieces, the badger into 4. Drag a piece from each traveler to the tray!</div>
+<div id="caption">Take one piece from each bar.</div>
+
+<div id="owl">🦉</div>
+<div id="owl-text" id="owl-msg"></div>
+
+<div id="table">
+  <div class="traveler" id="fox">🦊<div class="label">3 pieces</div></div>
+  <div class="traveler" id="badger">🦡<div class="label">4 pieces</div></div>
+
+  <div class="bar-zone" id="fox-bar-zone">
+    <div class="bar" id="fox-bar"></div>
+  </div>
+  <div class="bar-zone" id="badger-bar-zone">
+    <div class="bar" id="badger-bar"></div>
+  </div>
+
+  <div id="tray">
+    <div id="tray-label">Comparison Tray</div>
+    <div id="tray-guide"></div>
+  </div>
+
+  <div id="ghost-hand">👆</div>
+</div>
+
+<div id="stamp-area">
+  <button class="stamp-btn" data-choice="smaller">More pieces = SMALLER piece</button>
+  <button class="stamp-btn" data-choice="bigger">More pieces = BIGGER piece</button>
+  <button class="stamp-btn" data-choice="same">They are the SAME</button>
+</div>
+
+<div id="result-banner"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+<script>
+const foxBar = document.getElementById('fox-bar');
+const badgerBar = document.getElementById('badger-bar');
+const tray = document.getElementById('tray');
+const ghostHand = document.getElementById('ghost-hand');
+const stampArea = document.getElementById('stamp-area');
+const resultBanner = document.getElementById('result-banner');
+const owlText = document.getElementById('owl-msg');
+const sealCountEl = document.getElementById('seal-count');
+let sealCount = 0;
+let trayPieces = [];
+let roundLocked = false;
+
+function buildBar(bar, count, isFox) {
+  bar.innerHTML = '';
+  for (let i = 0; i < count; i++) {
+    const p = document.createElement('div');
+    p.className = 'piece';
+    p.style.flex = '1 1 0';
+    p.dataset.index = i;
+    p.dataset.owner = isFox ? 'fox' : 'badger';
+    p.dataset.denom = count;
+    bar.appendChild(p);
+  }
+}
+buildBar(foxBar, 3, true);
+buildBar(badgerBar, 4, false);
+
+gsap.from('#fox-bar .piece', {scale: 0.3, opacity:0, stagger:0.08, duration:0.4, ease:'back.out(2)'});
+gsap.from('#badger-bar .piece', {scale: 0.3, opacity:0, stagger:0.08, duration:0.4, ease:'back.out(2)', delay:0.3});
+
+function markPickable() {
+  document.querySelectorAll('.piece').forEach(p => p.classList.remove('pickable'));
+  foxBar.children[0].classList.add('pickable');
+  badgerBar.children[0].classList.add('pickable');
+}
+markPickable();
+
+function playGhostDemo() {
+  const foxPiece = foxBar.children[0];
+  const rect = foxPiece.getBoundingClientRect();
+  const trayRect = tray.getBoundingClientRect();
+  gsap.set(ghostHand, {x: rect.left - 260, y: rect.top - 240, opacity:1});
+  gsap.to(ghostHand, {
+    x: trayRect.left - 260 + 40, y: trayRect.top - 240 + 30,
+    duration: 1.3, delay: 0.6, ease:'power1.inOut',
+    onComplete: () => {
+      gsap.to(ghostHand, {opacity:0, duration:0.4, delay:0.3});
+    }
+  });
+}
+setTimeout(playGhostDemo, 900);
+
+let dragEl = null;
+let offsetX=0, offsetY=0;
+
+function startDrag(e, piece) {
+  if (roundLocked) return;
+  if (trayPieces.find(tp => tp.owner === piece.dataset.owner)) return;
+  e.preventDefault();
+  dragEl = piece.cloneNode(true);
+  dragEl.classList.remove('pickable');
+  dragEl.classList.add('dragging');
+  dragEl.style.position = 'fixed';
+  dragEl.style.width = piece.offsetWidth + 'px';
+  dragEl.style.height = piece.offsetHeight + 'px';
+  document.body.appendChild(dragEl);
+  const rect = piece.getBoundingClientRect();
+  offsetX = (e.touches ? e.touches[0].clientX : e.clientX) - rect.left;
+  offsetY = (e.touches ? e.touches[0].clientY : e.clientY) - rect.top;
+  dragEl.style.left = rect.left + 'px';
+  dragEl.style.top = rect.top + 'px';
+  dragEl.dataset.owner = piece.dataset.owner;
+  dragEl.dataset.denom = piece.dataset.denom;
+
+  function move(ev) {
+    const cx = ev.touches ? ev.touches[0].clientX : ev.clientX;
+    const cy = ev.touches ? ev.touches[0].clientY : ev.clientY;
+    dragEl.style.left = (cx - offsetX) + 'px';
+    dragEl.style.top = (cy - offsetY) + 'px';
+  }
+  function up(ev) {
+    document.removeEventListener('mousemove', move);
+    document.removeEventListener('touchmove', move);
+    document.removeEventListener('mouseup', up);
+    document.removeEventListener('touchend', up);
+    handleDrop(dragEl);
+  }
+  document.addEventListener('mousemove', move);
+  document.addEventListener('touchmove', move, {passive:false});
+  document.addEventListener('mouseup', up);
+  document.addEventListener('touchend', up);
+}
+
+foxBar.addEventListener('mousedown', e => { if(e.target.classList.contains('pickable')) startDrag(e, e.target); });
+foxBar.addEventListener('touchstart', e => { if(e.target.classList.contains('pickable')) startDrag(e, e.target); }, {passive:false});
+badgerBar.addEventListener('mousedown', e => { if(e.target.classList.contains('pickable')) startDrag(e, e.target); });
+badgerBar.addEventListener('touchstart', e => { if(e.target.classList.contains('pickable')) startDrag(e, e.target); }, {passive:false});
+
+function handleDrop(el) {
+  const trayRect = tray.getBoundingClientRect();
+  const elRect = el.getBoundingClientRect();
+  const overlap = !(elRect.right < trayRect.left || elRect.left > trayRect.right ||
+                     elRect.bottom < trayRect.top || elRect.top > trayRect.bottom);
+  if (overlap) {
+    placeOnTray(el.dataset.owner, parseInt(el.dataset.denom));
+  }
+  el.remove();
+}
+
+function placeOnTray(owner, denom) {
+  if (trayPieces.find(tp => tp.owner === owner)) return;
+  const trayUsableWidth = 340;
+  const tp = document.createElement('div');
+  tp.className = 'tray-piece';
+  const idx = trayPieces.length;
+  tp.style.width = (trayUsableWidth/denom) + 'px';
+  tp.style.left = '20px';
+  tp.style.top = idx === 0 ? '25px' : '95px';
+  tp.dataset.owner = owner;
+  tp.dataset.denom = denom;
+  tray.appendChild(tp);
+  trayPieces.push({owner, denom, el: tp});
+  gsap.from(tp, {x: owner==='fox' ? -150: 150, duration:0.6, ease:'power2.out'});
+
+  document.querySelector(`.piece[data-owner="${owner}"].pickable`)?.classList.remove('pickable');
+
+  if (trayPieces.length === 2) {
+    setTimeout(showTapPrompt, 500);
+  }
+}
+
+function showTapPrompt() {
+  document.getElementById('speech').textContent = "Now tap the piece you think is BIGGER!";
+  trayPieces.forEach(tp => {
+    tp.el.style.cursor = 'pointer';
+    tp.el.addEventListener('click', () => onJudgeTap(tp.owner));
+  });
+}
+
+let judgedOwner = null;
+function onJudgeTap(owner) {
+  if (roundLocked) return;
+  roundLocked = true;
+  judgedOwner = owner;
+  trayPieces.forEach(tp => {
+    if (tp.owner === owner) {
+      gsap.to(tp.el, {scale:1.2, duration:0.3, yoyo:true, repeat:1, ease:'power1.inOut'});
+    }
+  });
+  document.getElementById('speech').textContent = "Now stamp your justification!";
+  stampArea.style.display = 'flex';
+}
+
+stampArea.addEventListener('click', (e) => {
+  if (!e.target.classList.contains('stamp-btn')) return;
+  const choice = e.target.dataset.choice;
+  evaluateRound(choice);
+});
+
+function evaluateRound(choice) {
+  stampArea.style.display = 'none';
+  const correctOwner = 'fox';
+  const predictedCorrect = judgedOwner === correctOwner;
+  const justificationCorrect = choice === 'smaller';
+
+  if (predictedCorrect && justificationCorrect) {
+    sealCount++;
+    sealCountEl.textContent = sealCount;
+    showBanner("✅ Gold Fairness Seal!\n1/3 > 1/4 — more pieces means smaller pieces!", '#ffd93b');
+    owlSay("More equal parts make smaller pieces, so one third is bigger!");
+  } else {
+    showBanner("🦉 Hmm... let's look closer!", '#f2b6b6');
+    owlSay("Look — four cuts made skinnier pieces! Three pieces are each bigger.");
+  }
+
+  setTimeout(() => resetRound(), 2600);
+}
+
+function showBanner(text, color) {
+  resultBanner.style.background = color;
+  resultBanner.textContent = text;
+  gsap.fromTo(resultBanner, {opacity:0, scale:0.5}, {opacity:1, scale:1, duration:0.4, ease:'back.out(2)'});
+  gsap.to(resultBanner, {opacity:0, scale:0.5, duration:0.4, delay:2.0});
+}
+
+function owlSay(msg) {
+  owlText.textContent = msg;
+  owlText.style.display = 'block';
+  setTimeout(() => owlText.style.display = 'none', 3200);
+}
+
+function resetRound() {
+  roundLocked = false;
+  trayPieces.forEach(tp => tp.el.remove());
+  trayPieces = [];
+  judgedOwner = null;
+  buildBar(foxBar, 3, true);
+  buildBar(badgerBar, 4, false);
+  gsap.from('#fox-bar .piece', {scale: 0.3, opacity:0, stagger:0.08, duration:0.4, ease:'back.out(2)'});
+  gsap.from('#badger-bar .piece', {scale: 0.3, opacity:0, stagger:0.08, duration:0.4, ease:'back.out(2)', delay:0.2});
+  markPickable();
+  document.getElementById('speech').textContent = "Drag a piece from each traveler to the Comparison Tray!";
+}
+</script>
+</body>
+</html>

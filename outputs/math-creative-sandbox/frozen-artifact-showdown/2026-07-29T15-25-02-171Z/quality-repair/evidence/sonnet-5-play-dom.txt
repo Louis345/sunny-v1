@@ -1,0 +1,17 @@
+- generic: ACT 1 · HARBOR DOCKS
+- generic: "Seized: 0"
+- generic: 🚤
+- generic: 🏴‍☠️
+- generic: Vex loaded 2 tanks. Each tank holds 3 fuel cells.
+- generic: CRATES (groups)
+- generic: "0"
+- generic: −
+- generic: +
+- generic: IN EACH (per group)
+- generic: "0"
+- generic: −
+- generic: +
+- text: "? × ? ="
+- spinbutton
+- button "🔒 LOCK LOAD"
+- button "🔍 RECOUNT"

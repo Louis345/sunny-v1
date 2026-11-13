@@ -1,0 +1,455 @@
+{
+  "model": "claude-opus-5",
+  "id": "msg_011CeJRMZsk3JZLrsMB972XX",
+  "type": "message",
+  "role": "assistant",
+  "content": [
+    {
+      "type": "tool_use",
+      "id": "toolu_01YAVrNoC4SQ9a4NscyFi4Z5",
+      "name": "submit_evaluation_planner",
+      "input": {
+        "evaluationId": "eval:LAB-MATH-GEOMETRY-FACES-5-11:opening:v1",
+        "upstreamHash": "89a4acb6874f0adaa294ce498801466881112929caa42734707e6ae6dab380a5",
+        "assignmentScope": [
+          "Distinguish flat faces from curved surfaces on common solid figures (cube, rectangular prism, cylinder, cone, square pyramid, sphere)",
+          "Identify which plane figures (circle, square, rectangle, triangle) form the flat faces of a given solid",
+          "Recognize that a sphere has no flat faces and that cylinders/cones have both flat faces and a curved surface",
+          "Reason about face composition of a solid rather than its outline/silhouette or its name-vocabulary",
+          "Out of scope: counting edges and vertices, surface area, nets construction, volume, naming solids the child has never been shown, drawing tasks"
+        ],
+        "constructs": [
+          {
+            "constructId": "C1",
+            "label": "Flat vs curved surface discrimination",
+            "statement": "Child can decide whether a named/pictured solid has any flat face at all, and can separate a curved surface from a flat face.",
+            "prerequisiteOf": [
+              "C2",
+              "C3"
+            ],
+            "prerequisites": [
+              "Recognizes solid figures as three-dimensional objects",
+              "Has a working sense of 'flat' as a surface property"
+            ],
+            "evidenceStatus": "unknown"
+          },
+          {
+            "constructId": "C2",
+            "label": "Face-shape identification",
+            "statement": "Child can name which plane figure (circle, square, rectangle, triangle) matches a specified flat face of a solid.",
+            "prerequisiteOf": [
+              "C4"
+            ],
+            "prerequisites": [
+              "C1",
+              "Names plane figures circle, square, rectangle, triangle reliably"
+            ],
+            "evidenceStatus": "unknown"
+          },
+          {
+            "constructId": "C3",
+            "label": "Sphere/no-flat-face special case",
+            "statement": "Child treats 'no flat faces' as a legitimate answer rather than forcing a shape match.",
+            "prerequisiteOf": [
+              "C4"
+            ],
+            "prerequisites": [
+              "C1"
+            ],
+            "evidenceStatus": "unknown"
+          },
+          {
+            "constructId": "C4",
+            "label": "Face-set reasoning over silhouette matching",
+            "statement": "Child reasons from the actual set of faces of a solid rather than from its two-dimensional outline or from a shape that merely appears in the picture.",
+            "prerequisiteOf": [],
+            "prerequisites": [
+              "C2",
+              "C3"
+            ],
+            "evidenceStatus": "unknown"
+          }
+        ],
+        "instrumentHypothesis": {
+          "presentationBurdenHypothesis": "Child evidence suggests tolerance for difficulty and preference for clear examples, visible color, and an available hint; treated only as a presentation hypothesis, not as an ability estimate.",
+          "appliedAs": [
+            "Keep reading load per item under roughly 25 words with concrete, everyday wording",
+            "Use clearly labeled, unambiguous solid pictures with distinguishable color/contrast for the surface being asked about",
+            "Lowest-friction response mode: single selection or multi-select from a short fixed option list; no free drawing, no typed sentences",
+            "One optional non-teaching clarification is allowed (restating what 'flat face' means was NOT used, because that would teach the target construct); instead only navigation/format restatement is permitted before response"
+          ],
+          "hintPolicy": "No content hints, worked examples, feedback, or answer exposure at any point during the opening evaluation. Any hint request is logged as a measurement key (hintRequested) and the item is scored as-is.",
+          "engagementHypothesisIsNotEvidence": true,
+          "uncertaintyNote": "No prior data exists on this child's geometry vocabulary or 3D reasoning; all constructs begin at evidenceStatus unknown and a single evaluation cannot resolve them."
+        },
+        "items": [
+          {
+            "itemId": "I1",
+            "construct": "C1",
+            "prompt": "Here are four solid figures shown as pictures: a can-shaped cylinder, a ball-shaped sphere, a box-shaped rectangular prism, and a party-hat-shaped cone. Which of these solids has NO flat face anywhere on it?",
+            "responseContract": {
+              "mode": "single-select",
+              "options": [
+                "the cylinder",
+                "the sphere",
+                "the rectangular prism",
+                "the cone"
+              ],
+              "noTypedText": true,
+              "timeLimit": "none"
+            },
+            "correctAnswerContract": {
+              "correct": [
+                "the sphere"
+              ],
+              "scoring": "binary",
+              "rationaleNotShownToChild": "A sphere's entire surface is curved; the other three each have at least one flat face."
+            },
+            "difficultyBoundary": {
+              "floor": "Requires only flat/curved discrimination, no face-shape naming",
+              "ceiling": "Does not require counting faces or handling a solid with both flat and curved surfaces",
+              "excludes": [
+                "face counting",
+                "plane-figure naming"
+              ]
+            },
+            "exposureIdentity": {
+              "solidsShown": [
+                "cylinder",
+                "sphere",
+                "rectangular prism",
+                "cone"
+              ],
+              "orientation": "upright, standard view",
+              "freshness": "Fresh set and question stem; source asked for plane-figure-to-face matching, this asks for a no-flat-face identification",
+              "doesNotRevealAnswersTo": [
+                "I2",
+                "I3",
+                "I4",
+                "I5"
+              ]
+            },
+            "possibleConfounds": [
+              "Child may pick the sphere by 'ball' association rather than by surface reasoning",
+              "Word 'flat' may be read as 'thin' or 'lying down'",
+              "Only one option is curved-only, so elimination could succeed without understanding",
+              "Picture shading could make the cylinder look curved-only"
+            ],
+            "falsifyingEvidence": [
+              "Selecting cylinder or cone indicates curved surface is being conflated with 'no flat face'",
+              "Selecting the rectangular prism indicates flat/curved discrimination is absent",
+              "Correct here but failure on I3 falsifies a general C1 competence claim"
+            ],
+            "measurementKeys": [
+              "selectedOption",
+              "correct",
+              "latencyMs",
+              "optionChangeCount",
+              "hintRequested"
+            ]
+          },
+          {
+            "itemId": "I2",
+            "construct": "C2",
+            "prompt": "A cylinder is shown standing upright, like a soup can. Its top flat face is highlighted. What plane figure is that flat face?",
+            "responseContract": {
+              "mode": "single-select",
+              "options": [
+                "circle",
+                "square",
+                "rectangle",
+                "triangle"
+              ],
+              "noTypedText": true,
+              "timeLimit": "none"
+            },
+            "correctAnswerContract": {
+              "correct": [
+                "circle"
+              ],
+              "scoring": "binary",
+              "rationaleNotShownToChild": "The two flat faces of a cylinder are circles; the rectangle answer would come from the unrolled curved surface or from the side silhouette."
+            },
+            "difficultyBoundary": {
+              "floor": "Single highlighted face, direct shape naming",
+              "ceiling": "No counting, no reasoning about the curved surface",
+              "excludes": [
+                "how many faces",
+                "curved surface classification"
+              ]
+            },
+            "exposureIdentity": {
+              "solidsShown": [
+                "cylinder"
+              ],
+              "highlight": "top face only",
+              "freshness": "Fresh highlighted-face framing rather than worksheet matching columns",
+              "doesNotRevealAnswersTo": [
+                "I1",
+                "I3",
+                "I4",
+                "I5"
+              ]
+            },
+            "possibleConfounds": [
+              "Selecting 'rectangle' may reflect silhouette matching of the side view rather than a misconception about the top",
+              "Perspective drawing renders the top face as an ellipse, which may block the 'circle' label",
+              "Child may know the answer from can/lid life experience without geometric reasoning"
+            ],
+            "falsifyingEvidence": [
+              "Selecting 'rectangle' falsifies C4 face-set reasoning and suggests silhouette matching",
+              "Correct here with failure on I4 falsifies a claim that face-shape identification generalizes across solids",
+              "A correct answer with an ellipse-shaped drawing still leaves circle-vs-ellipse labeling unresolved"
+            ],
+            "measurementKeys": [
+              "selectedOption",
+              "correct",
+              "latencyMs",
+              "optionChangeCount",
+              "hintRequested"
+            ]
+          },
+          {
+            "itemId": "I3",
+            "construct": "C1",
+            "prompt": "A cone is shown, point up, sitting on a table. Choose every statement that is true about the cone's surfaces.",
+            "responseContract": {
+              "mode": "multi-select",
+              "options": [
+                "It has one flat face.",
+                "It has two flat faces.",
+                "It has a curved surface.",
+                "It has no curved surface."
+              ],
+              "selectionRule": "select all that apply; at least one selection required",
+              "noTypedText": true,
+              "timeLimit": "none"
+            },
+            "correctAnswerContract": {
+              "correct": [
+                "It has one flat face.",
+                "It has a curved surface."
+              ],
+              "scoring": "exact-set match scored binary; partial-credit pattern recorded separately",
+              "rationaleNotShownToChild": "A cone has exactly one circular flat face and one curved surface."
+            },
+            "difficultyBoundary": {
+              "floor": "Options are stated in plain language; no counting beyond one versus two",
+              "ceiling": "Does not require naming the face shape or reasoning about the apex/vertex",
+              "excludes": [
+                "vertex naming",
+                "face shape naming",
+                "edge counting"
+              ]
+            },
+            "exposureIdentity": {
+              "solidsShown": [
+                "cone"
+              ],
+              "orientation": "point up on a flat surface",
+              "freshness": "Fresh coexistence-of-surface-types framing not present in the source",
+              "doesNotRevealAnswersTo": [
+                "I1",
+                "I2",
+                "I4",
+                "I5"
+              ]
+            },
+            "possibleConfounds": [
+              "Multi-select format burden may cause under-selection independent of understanding",
+              "Child may treat the two statements as mutually exclusive and select only one",
+              "'Two flat faces' may be chosen by transferring a cylinder schema to the cone",
+              "Reading load is the highest of the item set"
+            ],
+            "falsifyingEvidence": [
+              "Selecting 'It has no curved surface.' falsifies C1",
+              "Selecting only one true statement leaves C1 undetermined rather than confirmed, because format burden is a live alternative explanation",
+              "Contradictory pair selections indicate the option list was not parsed and the item yields no construct evidence"
+            ],
+            "measurementKeys": [
+              "selectedOptionSet",
+              "exactSetCorrect",
+              "partialCreditPattern",
+              "latencyMs",
+              "optionChangeCount",
+              "hintRequested"
+            ]
+          },
+          {
+            "itemId": "I4",
+            "construct": "C4",
+            "prompt": "A square pyramid is shown resting on its square base. Which set of plane figures makes up ALL of its flat faces?",
+            "responseContract": {
+              "mode": "single-select",
+              "options": [
+                "one square and four triangles",
+                "four triangles only",
+                "one square and four rectangles",
+                "one triangle and four squares"
+              ],
+              "noTypedText": true,
+              "timeLimit": "none"
+            },
+            "correctAnswerContract": {
+              "correct": [
+                "one square and four triangles"
+              ],
+              "scoring": "binary",
+              "rationaleNotShownToChild": "A square pyramid has a square base plus four triangular lateral faces; the front-view silhouette is a triangle, which is the silhouette distractor."
+            },
+            "difficultyBoundary": {
+              "floor": "Options are pre-composed sets so no enumeration by the child is required",
+              "ceiling": "Does not require the child to count faces unaided or to handle a non-square base",
+              "excludes": [
+                "net drawing",
+                "triangular prism",
+                "open-ended counting"
+              ]
+            },
+            "exposureIdentity": {
+              "solidsShown": [
+                "square pyramid"
+              ],
+              "orientation": "resting on square base, three-quarter view showing base edge and two lateral faces",
+              "freshness": "Fresh whole-face-set question; source matched individual plane figures to faces",
+              "doesNotRevealAnswersTo": [
+                "I1",
+                "I2",
+                "I3",
+                "I5"
+              ]
+            },
+            "possibleConfounds": [
+              "'Four triangles only' is the silhouette/visible-faces distractor and may be picked because the base is hidden from view",
+              "Child may not know the term 'square pyramid' and answer from the picture alone, or vice versa",
+              "Distinguishing square from rectangle may fail for vocabulary reasons rather than face reasoning",
+              "Option reading load may favor guessing"
+            ],
+            "falsifyingEvidence": [
+              "Selecting 'four triangles only' falsifies C4 and indicates outline or visible-surface reasoning",
+              "Selecting a rectangle-containing set falsifies C2 square/rectangle discrimination",
+              "Correct here but incorrect on I2 falsifies a unified face-shape competence claim"
+            ],
+            "measurementKeys": [
+              "selectedOption",
+              "correct",
+              "latencyMs",
+              "optionChangeCount",
+              "hintRequested"
+            ]
+          },
+          {
+            "itemId": "I5",
+            "construct": "C3",
+            "prompt": "Four solids are shown: a cube, a sphere, a cylinder, and a square pyramid. Which of them have at least one flat face that is a circle?",
+            "responseContract": {
+              "mode": "multi-select",
+              "options": [
+                "the cube",
+                "the sphere",
+                "the cylinder",
+                "the square pyramid",
+                "none of them"
+              ],
+              "selectionRule": "select all that apply; 'none of them' cannot be combined with any other selection",
+              "noTypedText": true,
+              "timeLimit": "none"
+            },
+            "correctAnswerContract": {
+              "correct": [
+                "the cylinder"
+              ],
+              "scoring": "exact-set match scored binary; over-selection and under-selection recorded separately",
+              "rationaleNotShownToChild": "Only the cylinder has circular flat faces here; the sphere is round but has no flat face at all, which is the key discriminator."
+            },
+            "difficultyBoundary": {
+              "floor": "Only four familiar solids, all previously pictured in this evaluation",
+              "ceiling": "Does not include a cone, so cylinder-versus-cone circular-face discrimination is deliberately left unmeasured",
+              "excludes": [
+                "cone",
+                "counting how many circular faces",
+                "hemispheres"
+              ]
+            },
+            "exposureIdentity": {
+              "solidsShown": [
+                "cube",
+                "sphere",
+                "cylinder",
+                "square pyramid"
+              ],
+              "orientation": "standard upright views",
+              "freshness": "Fresh cross-solid property search; deliberately omits the cone used in I1 and I3 to avoid answer carryover",
+              "doesNotRevealAnswersTo": [
+                "I1",
+                "I2",
+                "I3",
+                "I4"
+              ],
+              "carryoverRisk": "Cylinder appeared in I1 and I2; if I2 was answered correctly this item is partly dependent, so I5 is scored as conditional evidence for C3 rather than independent evidence for C2"
+            },
+            "possibleConfounds": [
+              "Selecting the sphere conflates 'round shape' with 'circular flat face' and is the target error, but could also arise from careless reading of 'flat'",
+              "Multi-select burden may cause under-selection",
+              "Child may select the cylinder from I2 memory rather than fresh reasoning",
+              "'None of them' may attract a child who over-applies the sphere rule from I1"
+            ],
+            "falsifyingEvidence": [
+              "Selecting the sphere falsifies C3 and indicates round-versus-flat conflation persists",
+              "Selecting 'none of them' falsifies C2 circular-face identification",
+              "A correct answer preceded by a correct I2 does not confirm C3 independently and requires a fresh no-flat-face probe later"
+            ],
+            "measurementKeys": [
+              "selectedOptionSet",
+              "exactSetCorrect",
+              "overSelectionCount",
+              "underSelectionCount",
+              "sphereSelected",
+              "latencyMs",
+              "optionChangeCount",
+              "hintRequested"
+            ]
+          }
+        ],
+        "completionRule": {
+          "administration": "All five items are presented once, in fixed order I1 through I5, before any teaching, example, feedback, or answer exposure.",
+          "perItem": "An item is complete when a response satisfying its response contract is submitted, or when the child declines/skips. Skips are recorded as noResponse and are not scored as incorrect.",
+          "noFeedback": "No correctness signal, no corrective wording, and no answer reveal during or between items.",
+          "evaluationComplete": "The evaluation is complete when all five items reach a terminal state (responded or skipped). Early exit is permitted after any item; items not reached are recorded as notAdministered.",
+          "interpretationLimit": "Results are a single opening sample. No construct may be marked established from this evaluation alone, no mastery may be declared, and constructs remain 'unknown' or 'provisional-signal' pending a second independent probe.",
+          "scoringOutput": "Per-item binary score plus recorded measurement keys, and a per-construct status of provisional-support, provisional-gap, or indeterminate."
+        },
+        "evidenceRequiredNext": [
+          "A fresh no-flat-face probe that does not use a sphere (for example a solid the child must reject for a different reason) to separate C3 reasoning from a memorized 'sphere' rule",
+          "A cylinder-versus-cone circular-face contrast item, deliberately omitted from I5, to test whether circular-face identification generalizes",
+          "An item using a non-square-based pyramid or a triangular prism to test whether C4 face-set reasoning transfers beyond the square pyramid",
+          "A vocabulary-isolation check that asks the child to identify circle, square, rectangle, and triangle as plane figures alone, to determine whether any C2 error was geometric or lexical",
+          "A silhouette-control item where the correct face set conflicts with the outline in the opposite direction from I4, to confirm that a correct I4 was not option-elimination",
+          "A format-burden control: one of the multi-select constructs re-asked as single-select, to test whether I3/I5 under-selection was response-mode burden rather than understanding",
+          "Latency and option-change patterns compared across items to estimate guessing, since several items admit above-chance performance by elimination"
+        ]
+      },
+      "caller": {
+        "type": "direct"
+      }
+    }
+  ],
+  "stop_reason": "tool_use",
+  "stop_sequence": null,
+  "stop_details": null,
+  "usage": {
+    "input_tokens": 2086,
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 0,
+    "cache_creation": {
+      "ephemeral_5m_input_tokens": 0,
+      "ephemeral_1h_input_tokens": 0
+    },
+    "output_tokens": 5711,
+    "output_tokens_details": {
+      "thinking_tokens": 0
+    },
+    "service_tier": "standard",
+    "inference_geo": "global"
+  }
+}

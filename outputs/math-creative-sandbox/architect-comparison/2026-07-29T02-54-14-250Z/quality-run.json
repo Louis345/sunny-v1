@@ -1,0 +1,44 @@
+{
+  "status": "human_review",
+  "modelCalls": 4,
+  "review": {
+    "model": "claude-fable-5",
+    "elapsedMs": 123134,
+    "inputTokens": 34940,
+    "outputTokens": 4648,
+    "costUsd": 0.5818
+  },
+  "repairs": [
+    {
+      "id": "sonnet-5",
+      "status": "complete",
+      "error": null,
+      "costUsd": 0.091342,
+      "elapsedMs": 52234,
+      "inputTokens": 9666,
+      "outputTokens": 7201,
+      "htmlHash": "0f4928685fd66bc097379c8cad4f22da209cf4ab657a3b00bfeeb59c7d3bb9f2"
+    },
+    {
+      "id": "opus-5",
+      "status": "complete",
+      "error": null,
+      "costUsd": 0.09075,
+      "elapsedMs": 49292,
+      "inputTokens": 11600,
+      "outputTokens": 6755,
+      "htmlHash": "37def3fd1e5acc08fe915f10ae2c57e3cb0165e02766122103acbba5786e50bf"
+    },
+    {
+      "id": "fable-5",
+      "status": "complete",
+      "error": null,
+      "costUsd": 0.086784,
+      "elapsedMs": 45656,
+      "inputTokens": 10182,
+      "outputTokens": 6642,
+      "htmlHash": "b5c5bb3182aa35e9241e68c364484f862a1090bf3f297b55a717f4919112bcf6"
+    }
+  ],
+  "totalEstimatedCostUsd": 0.850676
+}

@@ -1,0 +1,136 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Sunny Planner Showdown</title><style>
+*{box-sizing:border-box}body{margin:0;padding:28px;background:#0d1222;color:#eef2ff;font:16px system-ui}h1{margin:0}.sub{color:#9eabc9}section{margin:28px 0;padding:20px;background:#161d32;border:1px solid #34415f;border-radius:18px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:18px}article{padding:18px;background:#0e1528;border:1px solid #3b496d;border-radius:14px}article h3{margin-top:0}.links{display:flex;gap:12px;margin:12px 0}a{color:#73d8ff}label{display:flex;justify-content:space-between;gap:20px;margin:8px 0;color:#c9d2e8}input{width:60px;background:#151e36;color:white;border:1px solid #53658f;border-radius:7px;padding:5px}textarea{width:100%;min-height:80px;margin-top:10px;background:#151e36;color:white;border:1px solid #53658f;border-radius:8px;padding:8px}.failure{color:#ff9ea8}.reveal{padding:18px;background:#241d36;border:1px solid #705b91;border-radius:14px}code{color:#ffd76b}@media(max-width:900px){.grid{grid-template-columns:1fr}}
+</style></head><body><h1>Sunny Planner Model Showdown</h1><p class="sub">Score the blinded programs before revealing model identity. Prediction accuracy remains pending until real returned work.</p><section><h2>01-limited-history</h2><div class="grid"><article>
+        <h3>Planner A</h3>
+        <p>0 hard failures · 5 predictions · 4 nodes</p>
+        <div class="links">
+          <a href="./01-limited-history/planner-a/program.json" target="_blank">Program JSON</a><a href="./01-limited-history/planner-a/inspection.json" target="_blank">Inspection</a>
+        </div>
+        <label>Evidence grounding <input type="number" min="1" max="5"></label>
+        <label>Assumption quality <input type="number" min="1" max="5"></label>
+        <label>Prediction quality <input type="number" min="1" max="5"></label>
+        <label>Mathematical scope <input type="number" min="1" max="5"></label>
+        <label>Sequence/difficulty <input type="number" min="1" max="5"></label>
+        <label>Uncertainty calibration <input type="number" min="1" max="5"></label>
+        <label>Practice/mastery separation <input type="number" min="1" max="5"></label>
+        <label>Next-evidence quality <input type="number" min="1" max="5"></label>
+        <textarea placeholder="Notes"></textarea>
+      </article><article>
+        <h3>Planner B</h3>
+        <p>1 hard failures · 4 predictions · 5 nodes</p>
+        <div class="links">
+          <a href="./01-limited-history/planner-b/program.json" target="_blank">Program JSON</a><a href="./01-limited-history/planner-b/inspection.json" target="_blank">Inspection</a>
+        </div>
+        <label>Evidence grounding <input type="number" min="1" max="5"></label>
+        <label>Assumption quality <input type="number" min="1" max="5"></label>
+        <label>Prediction quality <input type="number" min="1" max="5"></label>
+        <label>Mathematical scope <input type="number" min="1" max="5"></label>
+        <label>Sequence/difficulty <input type="number" min="1" max="5"></label>
+        <label>Uncertainty calibration <input type="number" min="1" max="5"></label>
+        <label>Practice/mastery separation <input type="number" min="1" max="5"></label>
+        <label>Next-evidence quality <input type="number" min="1" max="5"></label>
+        <textarea placeholder="Notes"></textarea>
+      </article></div></section><section><h2>02-contradictory-evidence</h2><div class="grid"><article>
+        <h3>Planner A</h3>
+        <p>0 hard failures · 6 predictions · 6 nodes</p>
+        <div class="links">
+          <a href="./02-contradictory-evidence/planner-a/program.json" target="_blank">Program JSON</a><a href="./02-contradictory-evidence/planner-a/inspection.json" target="_blank">Inspection</a>
+        </div>
+        <label>Evidence grounding <input type="number" min="1" max="5"></label>
+        <label>Assumption quality <input type="number" min="1" max="5"></label>
+        <label>Prediction quality <input type="number" min="1" max="5"></label>
+        <label>Mathematical scope <input type="number" min="1" max="5"></label>
+        <label>Sequence/difficulty <input type="number" min="1" max="5"></label>
+        <label>Uncertainty calibration <input type="number" min="1" max="5"></label>
+        <label>Practice/mastery separation <input type="number" min="1" max="5"></label>
+        <label>Next-evidence quality <input type="number" min="1" max="5"></label>
+        <textarea placeholder="Notes"></textarea>
+      </article><article>
+        <h3>Planner B</h3>
+        <p>0 hard failures · 6 predictions · 6 nodes</p>
+        <div class="links">
+          <a href="./02-contradictory-evidence/planner-b/program.json" target="_blank">Program JSON</a><a href="./02-contradictory-evidence/planner-b/inspection.json" target="_blank">Inspection</a>
+        </div>
+        <label>Evidence grounding <input type="number" min="1" max="5"></label>
+        <label>Assumption quality <input type="number" min="1" max="5"></label>
+        <label>Prediction quality <input type="number" min="1" max="5"></label>
+        <label>Mathematical scope <input type="number" min="1" max="5"></label>
+        <label>Sequence/difficulty <input type="number" min="1" max="5"></label>
+        <label>Uncertainty calibration <input type="number" min="1" max="5"></label>
+        <label>Practice/mastery separation <input type="number" min="1" max="5"></label>
+        <label>Next-evidence quality <input type="number" min="1" max="5"></label>
+        <textarea placeholder="Notes"></textarea>
+      </article></div></section><section><h2>03-returned-work-calibration</h2><div class="grid"><article>
+        <h3>Planner A</h3>
+        <p>0 hard failures · 4 predictions · 5 nodes</p>
+        <div class="links">
+          <a href="./03-returned-work-calibration/planner-a/program.json" target="_blank">Program JSON</a><a href="./03-returned-work-calibration/planner-a/inspection.json" target="_blank">Inspection</a>
+        </div>
+        <label>Evidence grounding <input type="number" min="1" max="5"></label>
+        <label>Assumption quality <input type="number" min="1" max="5"></label>
+        <label>Prediction quality <input type="number" min="1" max="5"></label>
+        <label>Mathematical scope <input type="number" min="1" max="5"></label>
+        <label>Sequence/difficulty <input type="number" min="1" max="5"></label>
+        <label>Uncertainty calibration <input type="number" min="1" max="5"></label>
+        <label>Practice/mastery separation <input type="number" min="1" max="5"></label>
+        <label>Next-evidence quality <input type="number" min="1" max="5"></label>
+        <textarea placeholder="Notes"></textarea>
+      </article><article>
+        <h3>Planner B</h3>
+        <p>0 hard failures · 5 predictions · 5 nodes</p>
+        <div class="links">
+          <a href="./03-returned-work-calibration/planner-b/program.json" target="_blank">Program JSON</a><a href="./03-returned-work-calibration/planner-b/inspection.json" target="_blank">Inspection</a>
+        </div>
+        <label>Evidence grounding <input type="number" min="1" max="5"></label>
+        <label>Assumption quality <input type="number" min="1" max="5"></label>
+        <label>Prediction quality <input type="number" min="1" max="5"></label>
+        <label>Mathematical scope <input type="number" min="1" max="5"></label>
+        <label>Sequence/difficulty <input type="number" min="1" max="5"></label>
+        <label>Uncertainty calibration <input type="number" min="1" max="5"></label>
+        <label>Practice/mastery separation <input type="number" min="1" max="5"></label>
+        <label>Next-evidence quality <input type="number" min="1" max="5"></label>
+        <textarea placeholder="Notes"></textarea>
+      </article></div></section><div class="reveal"><details><summary>Reveal model identities and operating cost</summary><pre>[
+  {
+    &quot;scenarioId&quot;: &quot;01-limited-history&quot;,
+    &quot;blindId&quot;: &quot;Planner A&quot;,
+    &quot;model&quot;: &quot;claude-opus-5&quot;,
+    &quot;estimatedCostUsd&quot;: 0.21824,
+    &quot;elapsedMs&quot;: 110550
+  },
+  {
+    &quot;scenarioId&quot;: &quot;01-limited-history&quot;,
+    &quot;blindId&quot;: &quot;Planner B&quot;,
+    &quot;model&quot;: &quot;gpt-5.6-sol&quot;,
+    &quot;estimatedCostUsd&quot;: 0.257725,
+    &quot;elapsedMs&quot;: 169163
+  },
+  {
+    &quot;scenarioId&quot;: &quot;02-contradictory-evidence&quot;,
+    &quot;blindId&quot;: &quot;Planner A&quot;,
+    &quot;model&quot;: &quot;claude-opus-5&quot;,
+    &quot;estimatedCostUsd&quot;: 0.203465,
+    &quot;elapsedMs&quot;: 91326
+  },
+  {
+    &quot;scenarioId&quot;: &quot;02-contradictory-evidence&quot;,
+    &quot;blindId&quot;: &quot;Planner B&quot;,
+    &quot;model&quot;: &quot;gpt-5.6-sol&quot;,
+    &quot;estimatedCostUsd&quot;: 0.2942,
+    &quot;elapsedMs&quot;: 179021
+  },
+  {
+    &quot;scenarioId&quot;: &quot;03-returned-work-calibration&quot;,
+    &quot;blindId&quot;: &quot;Planner A&quot;,
+    &quot;model&quot;: &quot;claude-opus-5&quot;,
+    &quot;estimatedCostUsd&quot;: 0.229115,
+    &quot;elapsedMs&quot;: 107945
+  },
+  {
+    &quot;scenarioId&quot;: &quot;03-returned-work-calibration&quot;,
+    &quot;blindId&quot;: &quot;Planner B&quot;,
+    &quot;model&quot;: &quot;gpt-5.6-sol&quot;,
+    &quot;estimatedCostUsd&quot;: 0.29046,
+    &quot;elapsedMs&quot;: 190201
+  }
+]</pre></details></div></body></html>

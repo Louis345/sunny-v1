@@ -1,0 +1,570 @@
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Ladybug's Multiplication Garden</title>
+<style>
+  :root{
+    --bg: #f0f9ff;
+    --accent: #2563eb;
+    --accent-light: #dbeafe;
+    --good: #22c55e;
+    --warm: #f59e0b;
+    --oops: #ef4444;
+    --card: #ffffff;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{
+    margin:0;padding:0;height:100%;
+    font-family:system-ui,-apple-system,'Segoe UI',sans-serif;
+    background:linear-gradient(160deg,var(--bg),#e0f2ff 60%,#fef9c3 100%);
+    overflow-x:hidden;
+    user-select:none;
+  }
+  #app{
+    max-width:720px;margin:0 auto;
+    min-height:100vh;
+    display:flex;flex-direction:column;
+    padding:10px 14px 20px;
+    position:relative;
+  }
+  #topbar{
+    display:flex;align-items:center;gap:10px;
+    padding:8px 4px;
+  }
+  #progressBarOuter{
+    flex:1;height:16px;background:#fff;border-radius:10px;
+    border:2px solid var(--accent);overflow:hidden;
+  }
+  #progressBarInner{
+    height:100%;width:0%;
+    background:linear-gradient(90deg,#60a5fa,#2563eb);
+    transition:width .5s ease;
+  }
+  #starsDisplay{
+    font-weight:800;color:#b45309;font-size:18px;white-space:nowrap;
+    background:#fff7ed;border:2px solid #f59e0b;border-radius:20px;padding:4px 12px;
+  }
+  #stage{
+    flex:1;
+    background:var(--card);
+    border-radius:24px;
+    box-shadow:0 8px 24px rgba(0,0,0,.08);
+    padding:22px 18px;
+    margin-top:12px;
+    display:flex;flex-direction:column;
+    gap:16px;
+    min-height:420px;
+    position:relative;
+  }
+  h1.title{
+    text-align:center;font-size:26px;color:var(--accent);margin:4px 0 0;
+  }
+  p.sub{
+    text-align:center;color:#475569;font-size:17px;margin:0 0 6px;
+  }
+  .prompt{
+    font-size:21px;font-weight:700;color:#1e293b;text-align:center;
+    background:var(--accent-light);border-radius:16px;padding:14px;
+    line-height:1.4;
+  }
+  .visualArea{
+    display:flex;justify-content:center;align-items:center;flex-wrap:wrap;
+    gap:14px;padding:10px;min-height:120px;
+  }
+  .groupBox{
+    background:#fef3c7;border:3px solid #f59e0b;border-radius:16px;
+    padding:10px 12px;display:flex;flex-wrap:wrap;gap:4px;
+    max-width:140px;justify-content:center;align-items:center;
+    animation:pop .4s ease;
+  }
+  .groupBox span{font-size:26px;}
+  @keyframes pop{from{transform:scale(.6);opacity:0;}to{transform:scale(1);opacity:1;}}
+  .arrayGrid{
+    display:inline-grid;gap:6px;background:#dcfce7;border:3px solid #22c55e;
+    border-radius:16px;padding:14px;
+  }
+  .arrayGrid span{font-size:24px;text-align:center;}
+  .pathTrack{
+    display:flex;flex-wrap:wrap;gap:10px;justify-content:center;align-items:center;
+  }
+  .stone{
+    width:56px;height:56px;border-radius:50%;
+    background:#e0f2fe;border:3px solid #38bdf8;
+    display:flex;align-items:center;justify-content:center;
+    font-weight:800;font-size:20px;color:#0369a1;
+  }
+  .stone.blank{background:#fff7ed;border-color:#f59e0b;color:#b45309;}
+  .options{
+    display:grid;grid-template-columns:1fr 1fr;gap:12px;
+  }
+  .optionBtn{
+    font-size:22px;font-weight:800;padding:16px 8px;border-radius:16px;
+    border:3px solid var(--accent);background:#fff;color:var(--accent);
+    cursor:pointer;transition:transform .15s ease, background .2s;
+  }
+  .optionBtn:active{transform:scale(.95);}
+  .optionBtn.correct{background:var(--good);border-color:var(--good);color:#fff;}
+  .optionBtn.wrong{background:var(--oops);border-color:var(--oops);color:#fff;}
+  .optionBtn:disabled{opacity:.6;cursor:default;}
+  .bigBtn{
+    display:block;margin:10px auto 0;
+    font-size:20px;font-weight:800;padding:14px 30px;border-radius:20px;
+    border:none;background:var(--accent);color:#fff;cursor:pointer;
+    box-shadow:0 4px 0 #1d4ed8;
+  }
+  .bigBtn:active{transform:translateY(3px);box-shadow:0 1px 0 #1d4ed8;}
+  #companionWrap{
+    display:flex;align-items:flex-end;gap:10px;margin-top:14px;
+  }
+  #companionSvg{width:74px;height:74px;flex-shrink:0;transition:transform .3s;}
+  .bounce{animation:bounce .6s ease;}
+  @keyframes bounce{0%{transform:translateY(0);}30%{transform:translateY(-14px);}60%{transform:translateY(0);}80%{transform:translateY(-6px);}100%{transform:translateY(0);}}
+  .shake{animation:shake .5s ease;}
+  @keyframes shake{0%,100%{transform:translateX(0);}25%{transform:translateX(-8px);}75%{transform:translateX(8px);}}
+  .mouth{transition:all .25s;}
+  .comp-excited .mouth{transform:scaleY(1.6);}
+  .comp-sad .mouth{transform:scaleY(.4) translateY(2px);}
+  .comp-idle .mouth{transform:scaleY(.8);}
+  #speechBubble{
+    position:relative;background:#fff;border:3px solid var(--accent);
+    border-radius:18px;padding:10px 14px;font-size:16px;font-weight:600;color:#1e293b;
+    flex:1;min-height:20px;
+  }
+  #speechBubble::before{
+    content:"";position:absolute;left:-14px;bottom:14px;
+    border:9px solid transparent;border-right-color:var(--accent);
+  }
+  #speechBubble::after{
+    content:"";position:absolute;left:-9px;bottom:15px;
+    border:8px solid transparent;border-right-color:#fff;
+  }
+  .confetti{
+    position:fixed;top:-20px;font-size:22px;pointer-events:none;
+    animation:fall linear forwards;
+  }
+  @keyframes fall{
+    to{transform:translateY(110vh) rotate(360deg);opacity:.2;}
+  }
+  .badge{
+    width:130px;height:130px;border-radius:50%;
+    background:radial-gradient(circle at 35% 30%, #fde68a, #f59e0b);
+    border:6px solid #b45309;margin:10px auto;
+    display:flex;align-items:center;justify-content:center;font-size:52px;
+    box-shadow:0 6px 16px rgba(0,0,0,.2);
+  }
+  .starRow{text-align:center;font-size:30px;letter-spacing:4px;}
+  .homeCard{text-align:center;}
+  .factLine{color:#475569;font-size:15px;text-align:center;margin-top:-6px;}
+  .lvl-pill{
+    display:inline-block;background:var(--accent-light);color:var(--accent);
+    font-weight:800;border-radius:20px;padding:4px 14px;font-size:14px;margin-bottom:4px;
+  }
+  @media (max-width:420px){
+    .prompt{font-size:18px;}
+    .optionBtn{font-size:19px;}
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="topbar">
+    <div id="progressBarOuter"><div id="progressBarInner"></div></div>
+    <div id="starsDisplay">⭐ x<span id="starCount">0</span></div>
+  </div>
+
+  <div id="stage"></div>
+
+  <div id="companionWrap">
+    <svg id="companionSvg" viewBox="0 0 100 100">
+      <ellipse cx="50" cy="58" rx="38" ry="32" fill="#ef4444"/>
+      <path d="M12 58 A38 32 0 0 1 88 58" fill="none" stroke="#111827" stroke-width="3"/>
+      <circle cx="34" cy="46" r="6" fill="#111827"/>
+      <circle cx="66" cy="46" r="6" fill="#111827"/>
+      <circle cx="60" cy="60" r="4" fill="#111827"/>
+      <circle cx="30" cy="65" r="4" fill="#111827"/>
+      <circle cx="70" cy="72" r="4" fill="#111827"/>
+      <ellipse cx="50" cy="24" rx="16" ry="13" fill="#111827"/>
+      <circle class="eye" cx="42" cy="24" r="4.5" fill="#fff"/>
+      <circle class="eye" cx="58" cy="24" r="4.5" fill="#fff"/>
+      <circle cx="42" cy="24" r="2" fill="#111827"/>
+      <circle cx="58" cy="24" r="2" fill="#111827"/>
+      <path class="mouth" d="M43 32 Q50 38 57 32" stroke="#fff" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+    </svg>
+    <div id="speechBubble">Hi! I'm Ladybug! Let's play with multiplication! 🐞</div>
+  </div>
+</div>
+
+<script>
+/* ===================== UTIL ===================== */
+function rand(min,max){return Math.floor(Math.random()*(max-min+1))+min;}
+function choice(arr){return arr[rand(0,arr.length-1)];}
+function shuffle(arr){const a=[...arr];for(let i=a.length-1;i>0;i--){const j=rand(0,i);[a[i],a[j]]=[a[j],a[i]];}return a;}
+
+/* ===================== AUDIO (no external files) ===================== */
+let actx;
+function tone(freq,dur,type='sine',vol=0.15){
+  try{
+    actx = actx || new (window.AudioContext||window.webkitAudioContext)();
+    const o = actx.createOscillator(); const g = actx.createGain();
+    o.type=type; o.frequency.value=freq;
+    g.gain.value=vol;
+    o.connect(g); g.connect(actx.destination);
+    o.start();
+    g.gain.exponentialRampToValueAtTime(0.001, actx.currentTime+dur);
+    o.stop(actx.currentTime+dur);
+  }catch(e){}
+}
+function playCorrect(){tone(523,0.12);setTimeout(()=>tone(784,0.18),110);}
+function playWrong(){tone(180,0.25,'sawtooth',0.12);}
+function playLevelUp(){[523,659,784,1046].forEach((f,i)=>setTimeout(()=>tone(f,0.15),i*110));}
+
+/* ===================== COMPANION ===================== */
+const compSvg = document.getElementById('companionSvg');
+const bubble = document.getElementById('speechBubble');
+let lastInteraction = Date.now();
+let idleTimerNudged = false;
+
+const RANDOM_CHEERS = [
+  "Did you know a ladybug can eat 5,000 aphids in its life? That's a LOT of skip counting!",
+  "Groups + groups = a whole garden of math!",
+  "You're growing your multiplication superpowers! 🌱",
+  "Arrays are just neat rows and columns — like a garden bed!",
+  "Skip counting is like hopping down a path — hop, hop, hop!"
+];
+const CORRECT_LINES = ["Yes! Buzzing brilliant!","You got it!","That's exactly right!","Multiplication master!","Woohoo, correct!"];
+const WRONG_LINES = ["Not quite — let's try again!","Close! Look at the groups again.","Oops, take another peek!","Let's count together!"];
+
+function setCompanionMood(mood){
+  compSvg.classList.remove('comp-excited','comp-sad','comp-idle','comp-neutral');
+  compSvg.classList.add('comp-'+mood);
+}
+function companionSay(text, mood='neutral', animate='bounce'){
+  bubble.textContent = text;
+  setCompanionMood(mood);
+  compSvg.classList.remove('bounce','shake');
+  void compSvg.offsetWidth;
+  compSvg.classList.add(animate);
+}
+function touchInteraction(){ lastInteraction = Date.now(); idleTimerNudged=false; }
+
+setInterval(()=>{
+  if(Date.now()-lastInteraction > 26000 && !idleTimerNudged && gameState.screen!=='finale'){
+    idleTimerNudged = true;
+    companionSay("Still there? Tap an answer whenever you're ready! 🐞", 'idle','bounce');
+  }
+}, 4000);
+
+/* ===================== GAME STATE ===================== */
+const QUESTIONS_PER_LEVEL = 5;
+const gameState = {
+  screen:'intro',
+  level:1,
+  qIndex:0,
+  stars:0,
+  currentQuestion:null,
+  wrongTries:0,
+  totalCorrect:0
+};
+const TOTAL_QUESTIONS = QUESTIONS_PER_LEVEL*4;
+
+function updateTopbar(){
+  const doneSoFar = (gameState.level-1)*QUESTIONS_PER_LEVEL + gameState.qIndex;
+  const pct = Math.min(100, Math.round((doneSoFar/TOTAL_QUESTIONS)*100));
+  document.getElementById('progressBarInner').style.width = pct+'%';
+  document.getElementById('starCount').textContent = gameState.stars;
+}
+
+const stage = document.getElementById('stage');
+
+/* ===================== INTRO ===================== */
+function showIntro(){
+  gameState.screen='intro';
+  updateTopbar();
+  stage.innerHTML = `
+    <div class="homeCard">
+      <h1 class="title">🐞 Ladybug's Multiplication Garden</h1>
+      <p class="sub">Groups, arrays, hops, and stories — let's discover what multiplication really means!</p>
+      <div class="visualArea">
+        <div class="groupBox"><span>🍓</span><span>🍓</span><span>🍓</span></div>
+        <div class="groupBox"><span>🍓</span><span>🍓</span><span>🍓</span></div>
+        <div class="groupBox"><span>🍓</span><span>🍓</span><span>🍓</span></div>
+      </div>
+      <p class="factLine">3 groups of 3 strawberries... how many in all?</p>
+      <button class="bigBtn" onclick="beginGame()">Start Growing! 🌻</button>
+    </div>
+  `;
+  companionSay("Hi! I'm Ladybug! Let's play with multiplication! 🐞", 'neutral');
+}
+
+function beginGame(){
+  touchInteraction();
+  startLevel(1);
+}
+
+/* ===================== LEVEL DEFS ===================== */
+const LEVELS = [
+  {id:1, name:"Garden Groups", emoji:"🌼", desc:"Equal groups of things — count them all!"},
+  {id:2, name:"Array Beds", emoji:"🟩", desc:"Neat rows and columns show multiplication too!"},
+  {id:3, name:"Skip-Count Path", emoji:"🐸", desc:"Hop your way to the total by skip counting!"},
+  {id:4, name:"Garden Missions", emoji:"📖", desc:"Solve real multiplication stories!"}
+];
+
+function startLevel(n){
+  gameState.level = n;
+  gameState.qIndex = 0;
+  gameState.currentQuestion = null;
+  showLevelIntro(n);
+}
+
+function showLevelIntro(n){
+  gameState.screen='levelintro';
+  const lvl = LEVELS[n-1];
+  updateTopbar();
+  stage.innerHTML = `
+    <div class="homeCard">
+      <span class="lvl-pill">Level ${n} of 4</span>
+      <h1 class="title">${lvl.emoji} ${lvl.name}</h1>
+      <p class="sub">${lvl.desc}</p>
+      <button class="bigBtn" onclick="nextQuestion()">Let's Go!</button>
+    </div>
+  `;
+  companionSay(`Level ${n}: ${lvl.name}! ${lvl.desc}`, 'excited');
+}
+
+/* ===================== QUESTION GENERATORS ===================== */
+const THEME_EMOJI = ['🍓','🍎','🌻','🍄','⭐','🐚','🍊','🧁'];
+
+function makeGroupsQuestion(){
+  const groups = rand(2,5);
+  const per = rand(2,6);
+  const total = groups*per;
+  const emoji = choice(THEME_EMOJI);
+  const noun = {'🍓':'strawberries','🍎':'apples','🌻':'sunflowers','🍄':'mushrooms','⭐':'stars','🐚':'shells','🍊':'oranges','🧁':'cupcakes'}[emoji];
+  const prompt = `There are ${groups} baskets. Each basket has ${per} ${noun}. How many ${noun} in all?`;
+  const visual = `<div class="visualArea">` +
+    Array.from({length:groups}).map(()=>`<div class="groupBox">${Array.from({length:per}).map(()=>`<span>${emoji}</span>`).join('')}</div>`).join('') +
+    `</div><p class="factLine">${groups} groups of ${per} &nbsp;→&nbsp; ${groups} × ${per} = ?</p>`;
+  const distractors = new Set([total+per, total-per, groups+per, groups*per+groups]);
+  distractors.delete(total);
+  const opts = shuffle([total, ...[...distractors].filter(d=>d>0).slice(0,3)]);
+  while(opts.length<4) opts.push(total+rand(1,4));
+  return {prompt, visual, options:opts.slice(0,4).map(String), correct:String(total),
+    explain:`${groups} groups of ${per} makes ${groups} × ${per} = ${total}.`};
+}
+
+function makeArrayQuestion(){
+  const rows = rand(2,4);
+  const cols = rand(2,5);
+  const total = rows*cols;
+  const emoji = choice(THEME_EMOJI);
+  const prompt = `Look at the array below. It has ${rows} rows and ${cols} in each row. How many in all?`;
+  const visual = `<div class="visualArea"><div class="arrayGrid" style="grid-template-columns:repeat(${cols},1fr)">` +
+    Array.from({length:rows*cols}).map(()=>`<span>${emoji}</span>`).join('') +
+    `</div></div><p class="factLine">${rows} rows × ${cols} columns = ?</p>`;
+  const distractors = new Set([total+cols, total-rows, rows+cols, total+1]);
+  distractors.delete(total);
+  const opts = shuffle([total, ...[...distractors].filter(d=>d>0).slice(0,3)]);
+  while(opts.length<4) opts.push(total+rand(1,3));
+  return {prompt, visual, options:opts.slice(0,4).map(String), correct:String(total),
+    explain:`${rows} rows of ${cols} = ${rows} × ${cols} = ${total}. It's the same as ${cols} groups of ${rows}!`};
+}
+
+function makeSkipCountQuestion(){
+  const step = choice([2,3,4,5]);
+  const hops = rand(3,5);
+  const seq = Array.from({length:hops+1}).map((_,i)=>i*step);
+  const total = seq[hops];
+  const prompt = `Hop by ${step}s! What number comes next?`;
+  const shown = seq.slice(0,-1);
+  const visual = `<div class="visualArea"><div class="pathTrack">` +
+    shown.map(n=>`<div class="stone">${n}</div>`).join('') +
+    `<div class="stone blank">?</div>` +
+    `</div></div><p class="factLine">Skip counting by ${step}, ${hops} times: ${step} × ${hops} = ?</p>`;
+  const distractors = new Set([total+step, total-step, total+1, total-1]);
+  distractors.delete(total);
+  const opts = shuffle([total, ...[...distractors].filter(d=>d>0).slice(0,3)]);
+  while(opts.length<4) opts.push(total+rand(1,3));
+  return {prompt, visual, options:opts.slice(0,4).map(String), correct:String(total),
+    explain:`${step}, ${Array.from({length:hops-1}).map((_,i)=>step*(i+2)).join(', ')}... that's ${step} × ${hops} = ${total}!`};
+}
+
+const STORY_TEMPLATES = [
+  (g,p)=>({text:`Each spider has 8 legs. There are ${g} spiders. How many legs in all?`, groups:g, per:8}),
+  (g,p)=>({text:`A crayon box holds ${p} crayons. There are ${g} boxes. How many crayons altogether?`, groups:g, per:p}),
+  (g,p)=>({text:`Each bike has 2 wheels. There are ${g} bikes in the yard. How many wheels total?`, groups:g, per:2}),
+  (g,p)=>({text:`A flower has ${p} petals. There are ${g} flowers. How many petals in all?`, groups:g, per:p}),
+  (g,p)=>({text:`The bakery makes ${p} cupcakes in each tray. There are ${g} trays. How many cupcakes?`, groups:g, per:p})
+];
+
+function makeWordProblem(){
+  const groups = rand(2,6);
+  const per = rand(2,6);
+  const template = choice(STORY_TEMPLATES);
+  const built = template(groups, per);
+  const total = built.groups * built.per;
+  const emoji = choice(THEME_EMOJI);
+  const visual = `<div class="visualArea">` +
+    Array.from({length:built.groups}).map(()=>`<div class="groupBox">${Array.from({length:Math.min(built.per,8)}).map(()=>`<span>${emoji}</span>`).join('')}${built.per>8?'<span>…</span>':''}</div>`).join('') +
+    `</div><p class="factLine">${built.groups} groups of ${built.per}</p>`;
+  const distractors = new Set([total+built.per, total-built.per, built.groups+built.per, total+built.groups]);
+  distractors.delete(total);
+  const opts = shuffle([total, ...[...distractors].filter(d=>d>0).slice(0,3)]);
+  while(opts.length<4) opts.push(total+rand(1,4));
+  return {prompt:built.text, visual, options:opts.slice(0,4).map(String), correct:String(total),
+    explain:`${built.groups} × ${built.per} = ${total}.`};
+}
+
+function generateQuestion(level){
+  if(level===1) return makeGroupsQuestion();
+  if(level===2) return makeArrayQuestion();
+  if(level===3) return makeSkipCountQuestion();
+  return makeWordProblem();
+}
+
+/* ===================== QUESTION FLOW ===================== */
+function nextQuestion(){
+  touchInteraction();
+  if(gameState.qIndex >= QUESTIONS_PER_LEVEL){
+    levelComplete();
+    return;
+  }
+  gameState.screen='question';
+  gameState.wrongTries = 0;
+  const q = generateQuestion(gameState.level);
+  gameState.currentQuestion = q;
+  renderQuestion(q);
+  updateTopbar();
+}
+
+function renderQuestion(q){
+  const lvl = LEVELS[gameState.level-1];
+  stage.innerHTML = `
+    <span class="lvl-pill">${lvl.emoji} ${lvl.name} — Q${gameState.qIndex+1}/${QUESTIONS_PER_LEVEL}</span>
+    <div class="prompt">${q.prompt}</div>
+    ${q.visual}
+    <div class="options" id="optionsWrap">
+      ${q.options.map((opt,i)=>`<button class="optionBtn" data-val="${opt}" onclick="checkAnswer(this)">${opt}</button>`).join('')}
+    </div>
+  `;
+}
+
+function checkAnswer(btn){
+  touchInteraction();
+  if(gameState.screen!=='question') return;
+  const val = btn.getAttribute('data-val');
+  const q = gameState.currentQuestion;
+  const allBtns = document.querySelectorAll('#optionsWrap .optionBtn');
+
+  if(val === q.correct){
+    btn.classList.add('correct');
+    allBtns.forEach(b=>b.disabled=true);
+    gameState.stars++;
+    gameState.totalCorrect++;
+    gameState.qIndex++;
+    updateTopbar();
+    playCorrect();
+    spawnConfetti();
+    const useRandom = Math.random() < 0.3;
+    const line = useRandom ? choice(RANDOM_CHEERS) : choice(CORRECT_LINES);
+    companionSay(line + " " + q.explain, 'excited','bounce');
+    gameState.screen='feedback';
+    setTimeout(()=>{
+      renderFeedbackContinue(true, q);
+    }, 300);
+  } else {
+    btn.classList.add('wrong');
+    btn.disabled = true;
+    gameState.wrongTries++;
+    playWrong();
+    companionSay(choice(WRONG_LINES), 'sad','shake');
+    if(gameState.wrongTries >= 2){
+      allBtns.forEach(b=>{
+        if(b.getAttribute('data-val')===q.correct){ b.classList.add('correct'); }
+        b.disabled = true;
+      });
+      gameState.qIndex++;
+      updateTopbar();
+      setTimeout(()=>{
+        companionSay("Here's the answer — " + q.explain + " You'll get the next one!", 'neutral');
+        renderFeedbackContinue(false, q);
+      }, 600);
+    }
+  }
+}
+
+function renderFeedbackContinue(){
+  const wrap = document.createElement('div');
+  wrap.innerHTML = `<button class="bigBtn" onclick="nextQuestion()">Continue →</button>`;
+  stage.appendChild(wrap.firstElementChild);
+}
+
+/* ===================== LEVEL COMPLETE ===================== */
+function levelComplete(){
+  touchInteraction();
+  gameState.screen='levelcomplete';
+  const lvl = LEVELS[gameState.level-1];
+  const isLast = gameState.level===4;
+  stage.innerHTML = `
+    <div class="homeCard">
+      <h1 class="title">🎉 ${lvl.name} Complete!</h1>
+      <div class="badge">${lvl.emoji}</div>
+      <p class="starRow">${'⭐'.repeat(Math.min(5,gameState.stars))}</p>
+      <p class="sub">You earned ${gameState.stars} stars so far!</p>
+      <button class="bigBtn" onclick="${isLast? 'showFinale()' : 'startLevel('+(gameState.level+1)+')'}">
+        ${isLast? 'See Your Garden! 🌸' : 'Next Level →'}
+      </button>
+    </div>
+  `;
+  playLevelUp();
+  companionSay(isLast ? "You finished every garden bed! Incredible!" : "Level complete! On to the next adventure!", 'excited');
+}
+
+/* ===================== FINALE ===================== */
+function showFinale(){
+  gameState.screen='finale';
+  updateTopbar();
+  stage.innerHTML = `
+    <div class="homeCard">
+      <h1 class="title">🌸 Multiplication Master! 🌸</h1>
+      <div class="badge">🏆</div>
+      <p class="starRow">${'⭐'.repeat(Math.min(10,gameState.stars))}</p>
+      <p class="sub">You explored equal groups, arrays, skip counting, and word problems — you now know multiplication means "groups of equal size"!</p>
+      <p class="factLine">Total stars earned: ${gameState.stars}</p>
+      <button class="bigBtn" onclick="playAgain()">Play Again 🔁</button>
+    </div>
+  `;
+  spawnConfetti(40);
+  playLevelUp();
+  companionSay("You did it! I'm SO proud of you, math gardener! 🐞🌻", 'excited');
+}
+
+function playAgain(){
+  touchInteraction();
+  gameState.stars = 0;
+  gameState.totalCorrect = 0;
+  startLevel(1);
+}
+
+/* ===================== CONFETTI ===================== */
+function spawnConfetti(count=18){
+  const emojis = ['🌸','⭐','🍓','🎉','🐞','🌻'];
+  for(let i=0;i<count;i++){
+    const el = document.createElement('div');
+    el.className='confetti';
+    el.textContent = choice(emojis);
+    el.style.left = rand(0,100)+'vw';
+    el.style.animationDuration = (rand(18,32)/10)+'s';
+    document.body.appendChild(el);
+    setTimeout(()=>el.remove(), 3500);
+  }
+}
+
+/* ===================== INIT ===================== */
+showIntro();
+</script>
+</body>
+</html>
+```

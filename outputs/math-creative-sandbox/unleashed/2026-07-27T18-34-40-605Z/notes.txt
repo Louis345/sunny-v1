@@ -1,0 +1,16 @@
+Scenario D result
+
+- Generation completed in 122,990 ms with one model call.
+- The model chose plain HTML/CSS/JavaScript and did not use a third-party library despite having permission.
+- The opening action is understandable.
+- Equal groups and word problems use working interactive steppers.
+- Mathematical changes are visible and correct.
+- Progress is represented by stars and solved counts.
+- The honey-market theme is mostly presentation around a conventional multi-section lesson.
+- The world does not materially evolve as the child succeeds.
+- The final feedback is a small star increase and confirmation message, not a strong payoff.
+- Allowing libraries alone did not produce a significant creative or experiential improvement.
+
+Conclusion
+
+The library restriction was not the immediate bottleneck in this run: the model voluntarily chose not to use one. The remaining bottleneck is experience conception—turning mathematical reasoning into an evolving purpose—rather than access to Three.js by itself.

@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1.0" />
+<title>The Slice Sprint Dock: Beat the Gull!</title>
+<style>
+:root{--sky:#30c7ee;--sea:#158fc8;--dock:#d8a965;--dark:#234;--coral:#ff6f61;--cream:#fff7d9;--brass:#dba83c;--line:#28435a}
+*{box-sizing:border-box}
+html,body{margin:0;width:100%;height:100%;overflow:hidden;font-family:Verdana,Arial,sans-serif;color:var(--dark)}
+body{background:linear-gradient(#23c5f3 0 56%,#0f9bd0 56% 100%)}
+#app{height:100vh;display:flex;flex-direction:column;position:relative}
+header{height:76px;display:flex;align-items:center;justify-content:space-between;padding:8px 18px;background:linear-gradient(90deg,#fff8cf,#dff9ff);box-shadow:0 4px 0 rgba(0,0,0,.12);z-index:5}
+h1{font-size:28px;margin:0;line-height:1;color:#0c5670;text-shadow:1px 1px #fff}
+.subtitle{font-size:14px;font-weight:bold;color:#7a4d10;margin-top:3px}
+.topBtns{display:flex;gap:10px;align-items:center}
+button{font-family:inherit;font-weight:bold}
+.smallBtn{border:3px solid #0b6980;background:#fffaf0;color:#0b5366;border-radius:14px;padding:9px 12px;cursor:pointer;box-shadow:0 3px 0 #86b7c5}
+.smallBtn:active{transform:translateY(2px);box-shadow:0 1px 0 #86b7c5}
+#progressWrap{height:28px;background:#0d708c;padding:5px 16px;display:flex;gap:10px;align-items:center;color:white;font-size:13px;font-weight:bold;z-index:4}
+#bar{height:12px;flex:1;background:#9fe8f8;border-radius:999px;overflow:hidden;border:2px solid #fff}
+#fill{height:100%;width:0;background:linear-gradient(90deg,#ffcf4b,#ff796c);transition:.35s}
+#world{flex:1;position:relative;overflow:hidden}
+.sun{position:absolute;right:70px;top:22px;width:72px;height:72px;border-radius:50%;background:#ffd75b;box-shadow:0 0 0 12px rgba(255,215,91,.23)}
+.cloud{position:absolute;background:white;border-radius:40px;opacity:.8}.cloud:before,.cloud:after{content:"";position:absolute;background:white;border-radius:50%}.c1{left:80px;top:40px;width:120px;height:38px}.c1:before{width:48px;height:48px;left:22px;top:-24px}.c1:after{width:60px;height:60px;left:58px;top:-30px}.c2{right:230px;top:86px;width:95px;height:30px}.c2:before{width:38px;height:38px;left:15px;top:-18px}.c2:after{width:48px;height:48px;left:45px;top:-24px}
+.bunting{position:absolute;left:0;right:0;top:8px;height:34px;background:repeating-linear-gradient(135deg,transparent 0 28px,rgba(255,255,255,.65) 29px 31px,transparent 32px 58px)}
+.flag{display:inline-block;width:0;height:0;border-left:10px solid transparent;border-right:10px solid transparent;border-top:18px solid #ffcf4b;margin-left:34px;filter:drop-shadow(0 2px 0 rgba(0,0,0,.18))}
+.flag:nth-child(2n){border-top-color:#ff6f61}.flag:nth-child(3n){border-top-color:#7be37b}
+#stage{position:absolute;inset:18px 24px 18px 24px;display:flex;flex-direction:column;align-items:center;z-index:2}
+.prompt{width:min(1120px,96%);min-height:74px;background:rgba(255,255,255,.92);border:4px solid #0b6980;border-radius:18px;padding:10px 16px;text-align:center;box-shadow:0 5px 0 rgba(0,0,0,.15);font-size:18px;font-weight:bold;display:flex;align-items:center;justify-content:center}
+.prompt .pip{color:#9b5600}
+#arena{position:relative;width:100%;flex:1;display:flex;align-items:center;justify-content:center;padding:8px 0 42px}
+.dock{position:absolute;left:-40px;right:-40px;bottom:0;height:148px;background:repeating-linear-gradient(90deg,#d69d58 0 92px,#c88e4a 93px 98px);border-top:8px solid #9a6230;box-shadow:0 -6px 0 rgba(0,0,0,.12)}
+.crowd{position:absolute;bottom:112px;left:35px;font-size:26px;letter-spacing:10px}.crowd.r{left:auto;right:45px}
+.crates{position:relative;z-index:2;display:flex;gap:34px;align-items:flex-end;justify-content:center;width:100%}
+.crate{width:min(430px,42vw);min-height:300px;background:linear-gradient(#d58b42,#b96d30);border:6px solid #6d421d;border-radius:18px;padding:12px 14px 16px;cursor:pointer;box-shadow:0 12px 0 rgba(72,37,10,.35);transition:.15s transform,.2s filter,.2s outline;text-align:center;color:#26180a}
+.crate:hover:not(:disabled),.crate:focus{transform:translateY(-5px);outline:5px solid #fff6a8}
+.crate:disabled{cursor:default}
+.crate.chosen{outline:7px solid #ffef7a}
+.crate.truth{box-shadow:0 0 0 9px rgba(255,217,62,.75),0 12px 0 rgba(72,37,10,.35)}
+.tag{display:inline-block;background:#fff8d6;border:3px solid #4e351e;border-radius:10px;padding:5px 16px;font-size:26px;margin-bottom:8px;box-shadow:0 4px 0 rgba(0,0,0,.13)}
+.wholeSvg{width:100%;height:150px;display:block;background:#f4c57e;border-radius:12px;padding:6px}
+.crateText{font-size:15px;background:rgba(255,248,214,.8);border-radius:10px;padding:7px;margin-top:9px}
+#feedback{position:absolute;left:50%;bottom:12px;transform:translateX(-50%);z-index:7;background:#fff8d6;border:4px solid #8b5b22;border-radius:18px;padding:10px 14px;min-width:min(760px,90vw);text-align:center;font-size:17px;font-weight:bold;box-shadow:0 5px 0 rgba(0,0,0,.18)}
+.nextBtn,.plate{margin-left:12px;border:4px solid #7b4a0b;border-radius:15px;background:linear-gradient(#ffd65b,#c9871e);padding:12px 20px;color:#392200;cursor:pointer;font-size:18px;box-shadow:0 5px 0 #7b4a0b}
+.nextBtn:active,.plate:active{transform:translateY(3px);box-shadow:0 2px 0 #7b4a0b}
+.plate:disabled{opacity:.45;filter:grayscale(.4);cursor:not-allowed}
+.gully{position:absolute;top:76px;left:50%;width:82px;height:58px;z-index:6;transform:translateX(-50%);animation:hover 1.2s infinite ease-in-out}
+.gully:before{content:"";position:absolute;left:18px;top:20px;width:46px;height:27px;border-radius:50%;background:white;border:3px solid #8b99a5}
+.gully:after{content:"";position:absolute;left:0;top:18px;width:38px;height:18px;border-radius:80% 10% 80% 10%;background:#d8e2e8;border:3px solid #8b99a5;transform:rotate(-18deg)}
+.eye{position:absolute;left:50px;top:25px;width:5px;height:5px;background:#111;border-radius:50%;z-index:2}.brow{position:absolute;left:47px;top:19px;width:17px;height:4px;background:#777;transform:rotate(-12deg);z-index:2}.beak{position:absolute;left:63px;top:29px;width:0;height:0;border-left:15px solid #f4a12c;border-top:6px solid transparent;border-bottom:6px solid transparent;z-index:2}.glabel{position:absolute;top:0;left:18px;font-size:12px;background:#fff8d6;border-radius:8px;padding:1px 5px;border:1px solid #777}
+@keyframes hover{50%{transform:translate(-50%,10px)}}
+.gully.landL{animation:landL .75s forwards}.gully.landR{animation:landR .75s forwards}
+@keyframes landL{to{left:31%;top:315px;transform:translateX(-50%) rotate(-8deg)}}@keyframes landR{to{left:69%;top:315px;transform:translateX(-50%) rotate(8deg)}}
+.tools{position:absolute;top:92px;right:8px;z-index:8;display:flex;flex-direction:column;gap:8px}
+.ghost{border:3px solid #0b6980;border-radius:13px;background:#e8fcff;padding:8px 10px;font-size:13px;cursor:pointer;font-weight:bold;color:#0b5366}
+.ghost:disabled{opacity:.45;cursor:not-allowed}.pulse{animation:pulse 1s infinite}@keyframes pulse{50%{box-shadow:0 0 0 8px rgba(255,230,70,.5)}}
+.glassNote{position:absolute;top:152px;right:16px;z-index:9;background:rgba(230,252,255,.96);border:4px solid #34b7d0;border-radius:18px;padding:12px;font-weight:bold;text-align:center;max-width:250px}
+.compassBox{position:relative;z-index:2;background:rgba(255,248,214,.92);border:6px solid #7b4a0b;border-radius:24px;padding:18px 26px;text-align:center;box-shadow:0 8px 0 rgba(0,0,0,.18);min-width:min(820px,94vw)}
+#sectorSvg{width:min(360px,52vh);height:min(360px,52vh);display:block;margin:4px auto 12px;filter:drop-shadow(0 7px 0 rgba(0,0,0,.18))}
+.sector{cursor:pointer;transition:.1s}.sector:hover{filter:brightness(1.07)}
+.remind{color:#9b5600;font-weight:bold;min-height:24px}
+.rulebook{position:relative;z-index:2;width:min(920px,94vw);background:#fff1bf;border:7px solid #8a541e;border-radius:26px;padding:18px;box-shadow:0 10px 0 rgba(0,0,0,.2);display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.bookTitle{grid-column:1/3;font-size:24px;font-weight:bold;text-align:center;color:#6d3c12}
+textarea{width:100%;height:145px;border:4px solid #c28a37;border-radius:16px;padding:12px;font-size:18px;font-family:inherit;resize:none;background:#fffaf0}
+.conch{border:4px solid #8b5b22;border-radius:18px;background:#fffdf1;padding:12px;font-size:16px;cursor:pointer}
+.tiles{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+.tile{border:3px solid #0b6980;background:#eaffff;border-radius:999px;padding:9px 12px;cursor:pointer;font-size:14px}.tile.sel{background:#ffcfbf;border-color:#b84538}
+.inkLine{min-height:45px;background:#fff8d6;border:3px dashed #b47b2f;border-radius:14px;padding:8px;font-weight:bold}
+.modalLayer{position:absolute;inset:0;background:rgba(0,70,100,.35);display:none;align-items:center;justify-content:center;z-index:20}
+.modalLayer.show{display:flex}
+.modal{width:min(900px,92vw);max-height:84vh;background:#fff8d6;border:7px solid #0b6980;border-radius:26px;padding:18px;text-align:center;box-shadow:0 12px 0 rgba(0,0,0,.25)}
+.modal h2{margin:0 0 6px;font-size:26px;color:#0c5670}.modal p{font-weight:bold;margin:8px 0}
+.demoRow{display:flex;gap:18px;justify-content:center;align-items:center;margin:10px 0}.demoWhole{width:300px;max-width:40%;background:#f6c781;border:5px solid #70431e;border-radius:15px;padding:9px}.demoWhole svg{width:100%;height:105px}.demoTag{font-size:24px;font-weight:bold;background:white;border:3px solid #70431e;border-radius:10px;display:inline-block;padding:3px 14px;margin-bottom:6px}
+.demoGull{font-size:44px;animation:swoop 2.2s infinite}@keyframes swoop{0%,100%{transform:translateY(-8px)}50%{transform:translateY(15px) translateX(-22px)}}
+.final{position:relative;z-index:2;background:#fff8d6;border:7px solid #8a541e;border-radius:28px;padding:22px;text-align:center;width:min(860px,92vw);box-shadow:0 10px 0 rgba(0,0,0,.2)}
+.rose{width:190px;height:190px;margin:8px auto;border-radius:50%;background:conic-gradient(#ffd447 0 12.5%,#ff9b72 0 25%,#ffd447 0 37.5%,#ff9b72 0 50%,#ffd447 0 62.5%,#ff9b72 0 75%,#ffd447 0 87.5%,#ff9b72 0);border:8px solid #8a541e;position:relative}
+.rose:after{content:"";position:absolute;left:88px;top:18px;width:14px;height:154px;background:#0b6980;clip-path:polygon(50% 0,100% 50%,50% 100%,0 50%)}
+.spin{animation:spin 1.5s ease-out 1}.wobble{animation:wobble 1.5s ease-out 1}@keyframes spin{to{transform:rotate(1080deg)}}@keyframes wobble{20%{transform:rotate(35deg)}45%{transform:rotate(-25deg)}70%{transform:rotate(12deg)}}
+#sunny-companion{position:absolute;right:0;bottom:0;z-index:30}
+@media(max-width:850px){h1{font-size:20px}.subtitle{display:none}.prompt{font-size:15px}.crates{gap:12px}.crate{min-height:250px;width:45vw}.wholeSvg{height:120px}.rulebook{grid-template-columns:1fr}.bookTitle{grid-column:1}.tools{top:84px}.gully{top:70px}}
+</style>
+</head>
+<body>
+<div id="app">
+<header>
+  <div><h1>The Slice Sprint Dock: Beat the Gull!</h1><div class="subtitle">Fast eyes OR sure eyes, Captain Reina — Gully respects both.</div></div>
+  <div class="topBtns">
+    <button id="demoBtn" class="smallBtn" type="button">📣 Replay Pip's demo</button>
+    <button id="soundBtn" class="smallBtn" type="button">🔊 Sound on</button>
+  </div>
+</header>
+<div id="progressWrap"><span id="progText">0/4 dock steps</span><div id="bar"><div id="fill"></div></div></div>
+<div id="world">
+  <div class="sun"></div><div class="cloud c1"></div><div class="cloud c2"></div>
+  <div class="bunting"><span class="flag"></span><span class="flag"></span><span class="flag"></span><span class="flag"></span><span class="flag"></span><span class="flag"></span><span class="flag"></span><span class="flag"></span></div>
+  <main id="stage"></main>
+  <div id="modalLayer" class="modalLayer"></div>
+</div>
+<div id="sunny-companion"></div>
+</div>
+<script>
+(function(){
+const NODE="N3B", TITLE="The Slice Sprint Dock: Beat the Gull!";
+const mechanic="Rounds with honest pressure: once the crates lock, ALL stimuli freeze — Gully's descent is pure theater that starts only around Reina's decision and never converts to a timeout; a slow answer just means Gully hovers, wings flapping impatiently, forever if needed. Round 1 (N3B-I1): 1/3 vs 1/4 rectangles, tap the larger shaded part. Round 2 (N3B-I2): 1/2 vs 1/4 circles, same gesture. Then Pip's whistle changes pitch — 'Compass slice!' (N3B-I3): a pre-cut 4-sector circle rises on a pedestal; tapping one sector shades it coral, tapping a different sector moves the shading (always exactly-one-or-zero shaded, the partition itself is untouchable), then stamp the brass submit plate. Finale (N3B-I4): pace drops completely, bunting stills, Pip opens the Dockmaster's Rulebook: 'Say your deciding rule for the harbor crew' — talk-or-type conch. A replayable worked demonstration of one same-whole comparison plays before round 1; the fairness-glass equality check is available once on request.";
+const items=[
+ {id:"N3B-I1",kind:"compare",shape:"rect",prompt:"Quick round: two rectangles are exactly the same size. One shows 1 of 3 equal parts shaded, the other shows 1 of 4 equal parts shaded. Tap the larger shaded part.",opts:[
+  {id:"N3B-I1-A",frac:"1/3",parts:3,text:"rectangle cut into 3 equal parts",correct:true,side:"L"},
+  {id:"N3B-I1-B",frac:"1/4",parts:4,text:"rectangle cut into 4 equal parts",correct:false,side:"R"}]},
+ {id:"N3B-I2",kind:"compare",shape:"circle",prompt:"Quick round: two circles are exactly the same size. One shows 1 of 2 equal parts shaded, the other shows 1 of 4 equal parts shaded. Tap the larger shaded part.",opts:[
+  {id:"N3B-I2-A",frac:"1/2",parts:2,text:"circle cut into 2 equal parts",correct:true,side:"L"},
+  {id:"N3B-I2-B",frac:"1/4",parts:4,text:"circle cut into 4 equal parts",correct:false,side:"R"}]},
+ {id:"N3B-I3",kind:"shade",prompt:"This circle is one whole already cut into 4 equal parts. Shade one fourth of the circle."},
+ {id:"N3B-I4",kind:"rule",prompt:"You answered fast. Now explain your rule: when both wholes are the same size, how do you decide whether 1/3 or 1/4 is larger?"}
+];
+let idx=-1,mode="demo",muted=false,completedItems=0,targetResults=[],activityStart=performance.now(),itemStart=0;
+let fairnessUsed=false,selectedSector=null,answered=false,done=false,modalOpen=false;
+let nudgePending=false,lookFirstPending=false,pendingDemo=0,stallTimer=null;
+let support={demoReplay:0,fairness:0,ghostNudge:0,stall:0,tiles:0,elli:0};
+const stage=document.getElementById("stage"),modal=document.getElementById("modalLayer");
+function emit(type,payload){try{window.parent.postMessage({type,payload},"*")}catch(e){}}
+function sfx(cue){if(!muted)emit("sunny_sfx",{cue})}
+function challenge(){
+ if(mode==="demo")return "Pip and Gully are showing one worked same-size comparison before the sprint starts.";
+ if(mode==="complete")return "Compass tuned and Harbor Law stamped.";
+ if(idx<0)return "Dock sprint is loading.";
+ const it=items[idx];
+ if(it.kind==="compare")return "Same-size "+(it.shape==="rect"?"rectangles":"circles")+" are locked on identical crates. Reina taps the crate with the larger coral shaded part.";
+ if(it.kind==="shade")return "A pre-cut four-sector circle is on the pedestal. Reina taps exactly one sector, then stamps the brass plate.";
+ return "Dockmaster Pip's Rulebook is open. Reina explains her deciding rule with typed words or phrase tiles.";
+}
+function actions(){
+ if(mode==="demo")return ["watch the worked comparison","start round 1 when the whistle glows"];
+ if(mode==="complete")return ["view the tuned Compass payoff"];
+ if(answered)return ["continue to the next dock moment"];
+ const it=items[idx];
+ if(it.kind==="compare"){let a=["tap the left crate","tap the right crate","replay Pip's demo"]; if(!fairnessUsed)a.push("use the one fairness-glass equality check"); return a}
+ if(it.kind==="shade")return selectedSector===null?["tap one sector to shade one fourth","the brass plate waits until one sector is shaded"]:["move the coral shade to another sector","stamp the brass submit plate"];
+ return ["type a rule in the conch box","ask Elli to listen first","open phrase tiles if needed","stamp the rulebook"];
+}
+function updateState(){
+ emit("game_state_update",{game:"generated-math",activityId:NODE,nodeId:NODE,phase:"question",activityTitle:TITLE,learningFocus:"Independently choose the larger unit fraction across repeated same-size-whole rounds, shade exactly one fourth of a pre-cut circle, and justify the comparison by the size of one part rather than by the size of the denominator.",mechanic,currentChallenge:challenge(),availableActions:actions(),itemIndex:idx<0?0:idx+1,totalItems:items.length,answerVisibility:"hidden"});
+}
+function ready(){emit("activity_ready",{nodeId:NODE})}
+function updateProgress(){document.getElementById("progText").textContent=completedItems+"/4 dock steps";document.getElementById("fill").style.width=(completedItems/4*100)+"%"}
+function elapsed(){return Math.round(performance.now()-itemStart)}
+function scaffold(){return (idx<2?1:0)+support.demoReplay+support.fairness+support.ghostNudge+support.stall+support.tiles+support.elli}
+function record(target,correct,attemptedValue,rt,scaf){
+ const row={target,correct,attemptedValue,responseTimeMs:rt,scaffoldLevel:scaf};
+ targetResults.push(row);
+ emit("attempt_event",{domain:"math",target,correct,attemptedValue,responseTimeMs:rt,scaffoldLevel:scaf});
+ completedItems=targetResults.length; updateProgress();
+ emit("progress_event",{nodeId:NODE,completedItems,totalItems:items.length});
+}
+function svgRect(parts){let w=300,h=116,p=w/parts,lines="";for(let i=1;i<parts;i++)lines+=`<line x1="${i*p}" y1="0" x2="${i*p}" y2="${h}" stroke="#28435a" stroke-width="4"/>`;return `<svg class="wholeSvg" viewBox="0 0 300 116" aria-hidden="true"><rect x="0" y="0" width="300" height="116" fill="#fff7d9" stroke="#28435a" stroke-width="6"/><rect x="3" y="3" width="${p-3}" height="110" fill="#ff6f61"/>${lines}</svg>`}
+function pt(deg,r=88){let a=(deg-90)*Math.PI/180;return [100+r*Math.cos(a),100+r*Math.sin(a)]}
+function secPath(a,b,r=88){let p1=pt(a,r),p2=pt(b,r);return `M100,100 L${p1[0].toFixed(1)},${p1[1].toFixed(1)} A${r},${r} 0 ${b-a>180?1:0} 1 ${p2[0].toFixed(1)},${p2[1].toFixed(1)} Z`}
+function svgCircle(parts){let shade=parts===2?secPath(0,180):secPath(0,90),lines=parts===2?`<line x1="100" y1="12" x2="100" y2="188" stroke="#28435a" stroke-width="4"/>`:`<line x1="100" y1="12" x2="100" y2="188" stroke="#28435a" stroke-width="4"/><line x1="12" y1="100" x2="188" y2="100" stroke="#28435a" stroke-width="4"/>`;return `<svg class="wholeSvg" viewBox="0 0 200 200" aria-hidden="true"><circle cx="100" cy="100" r="88" fill="#fff7d9" stroke="#28435a" stroke-width="6"/><path d="${shade}" fill="#ff6f61"/>${lines}<circle cx="100" cy="100" r="88" fill="none" stroke="#28435a" stroke-width="6"/></svg>`}
+function gully(){return `<div id="gully" class="gully"><span class="glabel">Gully</span><span class="brow"></span><span class="eye"></span><span class="beak"></span></div>`}
+function dockBase(){return `<div class="dock"></div><div class="crowd">🦀🚩🦀🚩</div><div class="crowd r">🚩🦀🚩🦀</div>`}
+function promptHtml(t){return `<section class="prompt"><span><span class="pip">Pip:</span> ${t}</span></section>`}
+function startItem(i){
+ clearTimeout(stallTimer); idx=i; mode="item"; answered=false; selectedSector=null;
+ support={demoReplay:pendingDemo,fairness:0,ghostNudge:0,stall:0,tiles:0,elli:0}; pendingDemo=0;
+ if(nudgePending && i<2){support.ghostNudge=1;nudgePending=false}
+ itemStart=performance.now(); renderItem(); updateState(); sfx("interaction");
+ if(items[i].kind==="shade")stallTimer=setTimeout(()=>{if(selectedSector===null && !answered){support.stall=1;let r=document.getElementById("remind");if(r)r.textContent="One sector for one fourth, Captain.";sfx("recovery");updateState()}},7000)
+}
+function renderItem(){
+ const it=items[idx];
+ if(it.kind==="compare")renderCompare(it);
+ else if(it.kind==="shade")renderShade(it);
+ else renderRule(it);
+}
+function renderCompare(it){
+ let coach=lookFirstPending?"Look FIRST, then strike! ":"";
+ lookFirstPending=false;
+ let crates=it.opts.map(o=>`<button class="crate" id="crate${o.side}" aria-label="${o.frac}, ${o.text}" type="button" data-id="${o.id}">
+ <div class="tag">${o.frac}</div>${it.shape==="rect"?svgRect(o.parts):svgCircle(o.parts)}
+ <div class="crateText">One coral part of a same-size ${it.shape==="rect"?"rectangle":"circle"}.</div></button>`).join("");
+ stage.innerHTML=promptHtml(coach+it.prompt)+`<div id="arena">${dockBase()}${gully()}<div class="tools"><button id="glassBtn" class="ghost ${support.ghostNudge&&!fairnessUsed?'pulse':''}" ${fairnessUsed?'disabled':''} type="button">🔍 Fairness glass</button></div><div class="crates">${crates}</div><div id="feedback" style="display:none"></div></div>`;
+ it.opts.forEach(o=>document.getElementById("crate"+o.side).addEventListener("click",()=>commitCompare(o)));
+ document.getElementById("glassBtn").addEventListener("click",useGlass);
+}
+function useGlass(){
+ if(fairnessUsed||answered)return; fairnessUsed=true; support.fairness=1; sfx("interaction");
+ const a=document.getElementById("arena"),b=document.getElementById("glassBtn"); if(b){b.disabled=true;b.classList.remove("pulse")}
+ let n=document.createElement("div");n.className="glassNote";n.innerHTML="Fairness glass check:<br>the two wholes match in size.";
+ a.appendChild(n); updateState(); setTimeout(()=>{if(n.parentNode)n.remove()},2500)
+}
+function commitCompare(o){
+ if(answered)return; answered=true; const it=items[idx],rt=elapsed(),scaf=scaffold(),correct=!!o.correct;
+ record(it.id,correct,o.id,rt,scaf);
+ sfx(correct?"progress":"recovery");
+ it.opts.forEach(x=>{let c=document.getElementById("crate"+x.side);c.disabled=true;if(x.id===o.id)c.classList.add("chosen");if(x.correct)c.classList.add("truth")});
+ const trueSide=it.opts.find(x=>x.correct).side;
+ document.getElementById("gully").className="gully land"+trueSide;
+ if(!correct){nudgePending=true;if(rt<1500)lookFirstPending=true}
+ setTimeout(()=>showCompareFeedback(correct),780);
+ updateState();
+}
+function showCompareFeedback(correct){
+ const f=document.getElementById("feedback"); if(!f)return;
+ f.style.display="block";
+ f.innerHTML=correct?`Gully lands on your slice — sharp harbor eyes! <button class="nextBtn" type="button">Next dock round</button>`:`Gully lands on the actually-bigger slice with a head tilt. Same-size wholes — fewer equal parts means bigger pieces. <button class="nextBtn" type="button">Next dock round</button>`;
+ f.querySelector("button").addEventListener("click",()=>startItem(idx+1));
+ updateState();
+}
+function renderShade(it){
+ const paths=[secPath(0,90),secPath(90,180),secPath(180,270),secPath(270,360)];
+ stage.innerHTML=promptHtml(`Compass slice! ${it.prompt}`)+`<div id="arena">${dockBase()}<div class="compassBox"><svg id="sectorSvg" viewBox="0 0 200 200" role="img" aria-label="circle cut into four equal sectors">${paths.map((d,i)=>`<path class="sector" data-sector="${i}" d="${d}" fill="#fff7d9" stroke="#28435a" stroke-width="4"/>`).join("")}<circle cx="100" cy="100" r="88" fill="none" stroke="#28435a" stroke-width="6"/><line x1="100" y1="12" x2="100" y2="188" stroke="#28435a" stroke-width="4"/><line x1="12" y1="100" x2="188" y2="100" stroke="#28435a" stroke-width="4"/></svg><div id="remind" class="remind">Tap one sector. Tapping another moves the coral shade.</div><button id="submitShade" class="plate" disabled type="button">Stamp brass plate</button></div><div id="feedback" style="display:none"></div></div>`;
+ document.querySelectorAll(".sector").forEach(p=>p.addEventListener("click",e=>{selectedSector=+e.target.dataset.sector;document.querySelectorAll(".sector").forEach(q=>q.setAttribute("fill",+q.dataset.sector===selectedSector?"#ff6f61":"#fff7d9"));document.getElementById("submitShade").disabled=false;document.getElementById("remind").textContent="Exactly one sector is coral. Ready to stamp!";sfx("interaction");updateState()}));
+ document.getElementById("submitShade").addEventListener("click",submitShade);
+}
+function submitShade(){
+ if(answered||selectedSector===null)return; answered=true; clearTimeout(stallTimer); sfx("interaction");
+ const rt=elapsed(),scaf=scaffold(),attemptedValue=`shaded-sector-${selectedSector}; shadedSectorCount=1; sectorsUnchanged=true`;
+ record(items[idx].id,true,attemptedValue,rt,scaf); sfx("progress");
+ const f=document.getElementById("feedback"); f.style.display="block"; f.innerHTML=`Chunk! Your coral one-fourth slides into the dock Compass rose. <button class="nextBtn" type="button">Open the Rulebook</button>`;
+ document.getElementById("submitShade").disabled=true; f.querySelector("button").addEventListener("click",()=>startItem(idx+1)); updateState();
+}
+function renderRule(it){
+ stage.innerHTML=promptHtml(it.prompt)+`<div id="arena">${dockBase()}<div class="rulebook"><div class="bookTitle">Dockmaster's Rulebook: Harbor Law for Fair Shares</div><div><textarea id="ruleText" placeholder="Type your rule here. Example words are okay — no perfect spelling needed."></textarea><button id="elliBtn" class="conch" type="button">🐚 Ask Elli to listen while I say it</button></div><div><div class="inkLine" id="inkLine">Your law will ink here.</div><button id="tileBtn" class="conch" type="button">Open phrase tiles</button><div id="tiles" class="tiles" style="display:none"></div><button id="stampRule" class="plate" style="margin-top:12px" type="button">Stamp my harbor law</button><div id="ruleNote" class="remind"></div></div></div><div id="feedback" style="display:none"></div></div>`;
+ const phrases=["same-size wholes","fewer equal parts","bigger pieces","so 1/3 is larger","bigger bottom number"],sel=[];
+ document.getElementById("elliBtn").onclick=()=>{support.elli=1;sfx("interaction");document.getElementById("ruleNote").textContent="Tell Elli your thinking, then ink it with words or tiles here.";updateState()};
+ document.getElementById("tileBtn").onclick=()=>{support.tiles=1;sfx("interaction");let box=document.getElementById("tiles");box.style.display="flex";if(!box.innerHTML)box.innerHTML=phrases.map(p=>`<button class="tile" type="button">${p}</button>`).join("");box.querySelectorAll(".tile").forEach(b=>b.onclick=()=>{b.classList.toggle("sel");let t=b.textContent;if(sel.includes(t))sel.splice(sel.indexOf(t),1);else sel.push(t);document.getElementById("inkLine").textContent=sel.join(" ");sfx("interaction")});updateState()};
+ document.getElementById("stampRule").onclick=()=>submitRule(sel);
+ document.getElementById("ruleText").addEventListener("input",e=>{document.getElementById("inkLine").textContent=e.target.value.trim()||sel.join(" ")||"Your law will ink here."});
+}
+function gradeRule(t){
+ const s=t.toLowerCase();
+ const same=(/(same|equal|identical)/.test(s)&&/(whole|size|circle|rectangle|shape)/.test(s))||s.includes("same-size wholes");
+ const part=((/(fewer|less)/.test(s)&&/(part|piece|slice|sector)/.test(s))||(/more/.test(s)&&/small/.test(s)&&/(part|piece|slice)/.test(s))||s.includes("bigger pieces"));
+ const third=((/1\/3|one third|third/.test(s)&&/(larger|bigger|more)/.test(s))||s.includes("so 1/3 is larger"));
+ const shortcut=/(^| )bigger bottom number|larger denominator|bigger denominator/.test(s)&&!/(not|don't|doesn't|isn't)/.test(s);
+ return !shortcut && part && (third||same);
+}
+function submitRule(sel){
+ if(answered)return; let txt=(document.getElementById("ruleText").value+" "+sel.join(" ")).trim();
+ if(!txt){support.tiles=1;document.getElementById("tileBtn").click();document.getElementById("ruleNote").textContent="Pick tiles or type a few words so Pip has ink for the law.";return}
+ answered=true; const correct=gradeRule(txt),rt=elapsed(),scaf=scaffold();
+ record(items[idx].id,correct,txt,rt,scaf); sfx(correct?"progress":"recovery");
+ const f=document.getElementById("feedback"); f.style.display="block";
+ f.innerHTML=correct?`Pip inks your rule under “Harbor Law: Fair Shares.” <button class="nextBtn" type="button">Tune the Compass</button>`:`Pip inks your captain try and adds the crew note: same-size wholes, fewer equal parts make bigger parts. <button class="nextBtn" type="button">Tune the Compass</button>`;
+ f.querySelector("button").onclick=complete; updateState();
+}
+function complete(){
+ if(done)return; done=true; mode="complete"; clearTimeout(stallTimer); const good=targetResults.filter(r=>r.correct).length;
+ stage.innerHTML=promptHtml("Compass tuned dockside! Gully preens on Reina's route marker.")+`<div id="arena">${dockBase()}<div class="final"><h2>Captain Reina's Dock Badge is stamped!</h2><div class="rose ${good>=3?'spin':'wobble'}"></div><p>${good>=3?"Full golden spin! Gully rides the needle like the fastest bird in the cove.":"A plucky wobble, then the Compass settles true."}</p><p>Snip-Claw's “1/4 is BIGGER” sign splashes into the sea.</p></div></div>`;
+ sfx("completion"); updateState();
+ const accuracy=targetResults.length?targetResults.filter(r=>r.correct).length/targetResults.length:0;
+ emit("node_complete",{nodeId:NODE,completed:true,accuracy,targetResults,timeSpent_ms:Math.round(performance.now()-activityStart)});
+}
+function demoSvg(parts){return parts===2?svgCircle(2):svgCircle(4)}
+function openDemo(initial){
+ modalOpen=true; if(!initial){sfx("interaction"); if(mode==="item"&&!answered)support.demoReplay++; else pendingDemo++}
+ modal.className="modalLayer show";
+ modal.innerHTML=`<div class="modal"><h2>📣 Pip's worked sprint demo</h2><p>Both wholes are the same size. Gully checks the size of ONE coral part, not just the bottom number.</p><div class="demoRow"><div class="demoWhole"><div class="demoTag">1/2</div>${demoSvg(2)}</div><div class="demoGull">🪽</div><div class="demoWhole"><div class="demoTag">1/4</div>${demoSvg(4)}</div></div><p>The fairness glass lines up the edges. One of 2 equal parts is bigger than one of 4 equal parts.</p><button id="demoClose" class="nextBtn" type="button">${initial?"Start Round 1":"Back to the dock"}</button></div>`;
+ document.getElementById("demoClose").onclick=()=>{modal.className="modalLayer";modal.innerHTML="";modalOpen=false;if(initial)startItem(0);else updateState()};
+ updateState();
+}
+document.getElementById("soundBtn").onclick=()=>{muted=!muted;document.getElementById("soundBtn").textContent=muted?"🔇 Sound off":"🔊 Sound on";emit("sunny_sound_toggle",{muted})};
+document.getElementById("demoBtn").onclick=()=>openDemo(false);
+function init(){updateProgress();mode="demo";openDemo(true);ready();updateState()}
+init();
+})();
+</script>
+</body>
+</html>

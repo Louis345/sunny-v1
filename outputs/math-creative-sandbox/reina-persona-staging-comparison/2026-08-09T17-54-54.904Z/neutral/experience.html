@@ -1,0 +1,874 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=1365, initial-scale=1">
+<meta name="upstream-hash" content="8ce3dc55f20416bc1d6d2c73556f3f817ed8b75da208efbf10da505dfb5b840c">
+<title>The Signal Tower: Power the Valley</title>
+<!-- upstreamHash: 8ce3dc55f20416bc1d6d2c73556f3f817ed8b75da208efbf10da505dfb5b840c -->
+<style>
+  :root{
+    --bg:#0a0f24; --bg2:#141c3e; --panel:#111838; --amber:#ffb64a; --amber2:#ffd88a;
+    --dim:#2c3765; --line:#26305c; --ink:#f3ecdc; --ink2:#a9b4d8; --good:#8fe6b4;
+    --glow:0 0 12px rgba(255,182,74,.85), 0 0 26px rgba(255,182,74,.35);
+  }
+  body.skin1{ --bg:#08122a; --bg2:#122745; --amber:#8fd8ff; --amber2:#d3f0ff; --glow:0 0 12px rgba(143,216,255,.85),0 0 26px rgba(143,216,255,.3);}
+  body.skin2{ --bg:#180d1e; --bg2:#2c1730; --amber:#ffa05a; --amber2:#ffd0a8; --glow:0 0 12px rgba(255,160,90,.85),0 0 26px rgba(255,160,90,.3);}
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;padding:0;height:100%;overflow:hidden;background:#05070f;
+    font-family:"Trebuchet MS","Verdana",system-ui,sans-serif;color:var(--ink);}
+  #wrap{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:1365px;height:768px;overflow:hidden;
+    background:radial-gradient(120% 100% at 50% 0%, var(--bg2) 0%, var(--bg) 60%, #04060f 100%);}
+  /* progress strip */
+  #strip{height:48px;display:flex;align-items:center;gap:6px;padding:0 12px;border-bottom:1px solid var(--line);
+    background:linear-gradient(180deg,rgba(255,255,255,.05),rgba(0,0,0,.15));}
+  .chip{flex:1;height:34px;border-radius:8px;border:1px solid var(--line);background:rgba(255,255,255,.03);
+    display:flex;align-items:center;justify-content:center;gap:6px;font-size:12.5px;color:#7f8bb5;letter-spacing:.3px;}
+  .chip .bulb{width:10px;height:10px;border-radius:50%;background:#2a3560;}
+  .chip.active{border-color:var(--amber);color:var(--amber2);}
+  .chip.lit{color:var(--amber2);border-color:rgba(255,182,74,.55);background:rgba(255,182,74,.10);}
+  .chip.lit .bulb, .chip.active .bulb{background:var(--amber);box-shadow:var(--glow);}
+  .chip.reserve .bulb{background:rgba(255,182,74,.35);box-shadow:0 0 8px rgba(255,182,74,.35);}
+  #main{display:flex;height:720px;}
+  #scene{width:806px;height:720px;position:relative;padding:14px 16px;overflow:hidden;}
+  #panel{width:559px;height:720px;background:linear-gradient(180deg,rgba(255,255,255,.035),rgba(0,0,0,.12));
+    border-left:1px solid var(--line);padding:16px 18px 14px;display:flex;flex-direction:column;}
+  .sceneTitle{font-size:15px;letter-spacing:2px;text-transform:uppercase;color:#8290bd;margin-bottom:6px;}
+  .sceneBody{position:relative;height:640px;display:flex;flex-direction:column;align-items:center;justify-content:center;}
+  #counter{position:absolute;right:6px;top:2px;font-family:"Courier New",monospace;font-size:34px;color:var(--amber2);
+    text-shadow:var(--glow);display:none;}
+  .beam{position:absolute;left:-40px;top:50%;width:40px;height:5px;border-radius:4px;background:var(--amber);
+    box-shadow:var(--glow);animation:beam .75s ease-in forwards;}
+  @keyframes beam{from{left:-60px;opacity:1}to{left:780px;opacity:.15}}
+  .flicker{animation:flick .45s ease-in-out;}
+  @keyframes flick{0%{filter:brightness(1)}25%{filter:brightness(.45)}50%{filter:brightness(1)}75%{filter:brightness(.55)}100%{filter:brightness(1)}}
+  .hl{outline:3px solid var(--amber);outline-offset:3px;border-radius:8px;animation:hlp 1s ease-in-out infinite;}
+  @keyframes hlp{0%,100%{outline-color:rgba(255,182,74,.95)}50%{outline-color:rgba(255,182,74,.25)}}
+  .pulse{animation:pl .36s ease-out;}
+  @keyframes pl{0%{transform:scale(1)}40%{transform:scale(1.35)}100%{transform:scale(1)}}
+  /* objects */
+  .obj{background:#39406b;transition:background .18s, box-shadow .18s;}
+  .obj.lit{background:var(--amber);box-shadow:var(--glow);}
+  .slice{width:34px;height:20px;border-radius:34px 34px 4px 4px;}
+  .tulip{width:22px;height:34px;border-radius:11px 11px 4px 4px;}
+  .sticker{width:24px;height:24px;clip-path:polygon(50% 0,61% 35%,98% 35%,68% 57%,79% 91%,50% 70%,21% 91%,32% 57%,2% 35%,39% 35%);}
+  .carrot{width:26px;height:26px;clip-path:polygon(50% 100%,0 12%,100% 12%);}
+  .book{width:15px;height:44px;border-radius:3px;}
+  .pennant{width:20px;height:20px;clip-path:polygon(0 0,100% 0,50% 100%);}
+  .tray{background:rgba(255,255,255,.05);border:1px solid var(--line);border-radius:12px;padding:12px 14px;display:flex;gap:9px;}
+  .pot{background:rgba(255,255,255,.05);border:1px solid var(--line);border-radius:10px;padding:10px 12px 12px;display:flex;gap:8px;align-items:flex-end;}
+  .row{display:flex;gap:9px;align-items:center;justify-content:center;}
+  .shelf{display:flex;gap:9px;align-items:flex-end;justify-content:center;padding:10px 14px 8px;border-bottom:4px solid #39406b;border-radius:4px;}
+  .eqCard{font-family:"Courier New",monospace;font-size:34px;letter-spacing:2px;color:var(--amber2);
+    border:1px solid rgba(255,182,74,.4);border-radius:10px;padding:10px 22px;background:rgba(255,182,74,.08);}
+  .caption{font-size:16px;color:var(--ink2);text-align:center;max-width:700px;line-height:1.4;min-height:44px;}
+  /* build grid */
+  .buildRow{display:flex;gap:3px;margin-bottom:3px;}
+  .buildCell{width:46px;height:46px;border-radius:7px;border:1px dashed #33406f;background:rgba(255,255,255,.02);
+    display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0;}
+  .buildCell.filled{border:1px solid rgba(255,182,74,.5);background:rgba(255,182,74,.12);}
+  .ghostRow{width:490px;height:46px;border-radius:8px;border:1px dashed #3c4a80;color:#7f8bb5;font-size:13px;
+    display:flex;align-items:center;justify-content:center;cursor:pointer;background:rgba(255,255,255,.02);}
+  /* panel */
+  .pHead{font-size:12.5px;letter-spacing:2px;text-transform:uppercase;color:#8290bd;margin-bottom:8px;}
+  .prompt{font-size:16.5px;line-height:1.45;color:var(--ink);margin-bottom:12px;}
+  .qLabel{font-size:14.5px;color:var(--amber2);letter-spacing:.4px;margin:6px 0 6px;}
+  .choices{display:flex;gap:7px;}
+  .choice{flex:1;min-height:82px;border-radius:12px;border:2px solid var(--line);background:rgba(255,255,255,.04);
+    color:var(--ink);font-size:30px;font-family:"Courier New",monospace;cursor:pointer;}
+  .choice.sel{border-color:var(--amber);background:rgba(255,182,74,.16);color:var(--amber2);box-shadow:0 0 14px rgba(255,182,74,.25) inset;}
+  .card{width:100%;min-height:66px;border-radius:12px;border:2px solid var(--line);background:rgba(255,255,255,.04);
+    color:var(--ink);font-size:26px;font-family:"Courier New",monospace;cursor:pointer;margin-bottom:8px;
+    display:flex;align-items:center;justify-content:space-between;padding:0 16px;}
+  .card .mark{font-size:16px;color:#7f8bb5;font-family:"Trebuchet MS",sans-serif;}
+  .card.on{border-color:var(--amber);background:rgba(255,182,74,.16);color:var(--amber2);}
+  .card.on .mark{color:var(--amber2);}
+  .commit{width:100%;min-height:64px;margin-top:10px;border-radius:12px;border:none;cursor:pointer;
+    background:linear-gradient(180deg,var(--amber2),var(--amber));color:#2a1c05;font-size:20px;font-weight:bold;letter-spacing:.5px;}
+  .commit:disabled{background:#2a3260;color:#68739c;cursor:default;}
+  .mini{min-height:44px;padding:0 14px;border-radius:10px;border:1px solid var(--line);background:rgba(255,255,255,.05);
+    color:var(--ink2);font-size:14px;cursor:pointer;}
+  .feedback{margin-top:10px;font-size:15px;line-height:1.45;color:var(--ink2);min-height:80px;white-space:pre-line;}
+  .feedback b{color:var(--amber2);font-weight:normal;}
+  .feedback.good{color:var(--good);}
+  .spacer{flex:1;}
+  /* hints */
+  #hintBtn{position:absolute;right:18px;bottom:14px;min-height:48px;padding:0 18px;border-radius:10px;
+    border:1px solid rgba(255,182,74,.45);background:rgba(255,182,74,.10);color:var(--amber2);font-size:14px;cursor:pointer;z-index:20;}
+  #hintPanel{position:absolute;right:18px;bottom:72px;width:420px;max-height:300px;overflow:auto;border-radius:12px;
+    border:1px solid rgba(255,182,74,.35);background:#0e1533;padding:14px 16px;display:none;z-index:20;box-shadow:0 8px 30px rgba(0,0,0,.5);}
+  #hintPanel h4{margin:0 0 8px;font-size:13px;letter-spacing:1.5px;text-transform:uppercase;color:#8290bd;font-weight:normal;}
+  .note{font-size:15px;line-height:1.4;color:var(--ink);margin-bottom:9px;padding-left:22px;position:relative;}
+  .note:before{content:"▸";position:absolute;left:4px;color:var(--amber);}
+  /* overlays */
+  .overlay{position:absolute;inset:0;background:rgba(4,6,15,.94);display:flex;flex-direction:column;
+    align-items:center;justify-content:center;z-index:40;padding:40px;text-align:center;}
+  .overlay h1{font-size:40px;margin:0 0 10px;color:var(--amber2);letter-spacing:1px;font-weight:normal;}
+  .overlay p{font-size:19px;line-height:1.5;color:var(--ink2);max-width:820px;margin:6px 0;}
+  .btnRow{display:flex;gap:16px;margin-top:26px;}
+  .bigBtn{min-height:70px;padding:0 30px;border-radius:14px;border:none;cursor:pointer;font-size:19px;font-weight:bold;
+    background:linear-gradient(180deg,var(--amber2),var(--amber));color:#2a1c05;}
+  .ghostBtn{min-height:70px;padding:0 30px;border-radius:14px;cursor:pointer;font-size:18px;
+    border:1px solid var(--line);background:rgba(255,255,255,.05);color:var(--ink);}
+  #valleyMap{display:flex;gap:10px;margin:16px 0 6px;}
+  .vd{width:150px;height:96px;border-radius:12px;border:1px solid var(--line);background:rgba(255,255,255,.03);
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;font-size:12.5px;color:#7f8bb5;}
+  .vd.lit{border-color:rgba(255,182,74,.55);background:rgba(255,182,74,.12);color:var(--amber2);box-shadow:0 0 22px rgba(255,182,74,.18);}
+  .vd .eq{font-family:"Courier New",monospace;font-size:17px;}
+  #chain{margin-top:8px;min-height:180px;}
+  #chain div{font-size:18px;color:var(--ink);margin:7px 0;opacity:0;transform:translateY(8px);transition:all .5s;}
+  #chain div.show{opacity:1;transform:none;}
+  canvas#motes{position:absolute;inset:0;pointer-events:none;}
+  @media (prefers-reduced-motion: reduce){ .beam,.pulse,.hl{animation:none!important;} }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <div id="strip"></div>
+  <div id="main">
+    <div id="scene"></div>
+    <div id="panel"></div>
+  </div>
+  <button id="hintBtn" type="button">Circuit Notes</button>
+  <div id="hintPanel"><h4>Circuit notes</h4><div id="noteList"></div>
+    <button class="mini" id="nextNote" type="button" style="margin-top:6px">Reveal next note</button></div>
+  <div id="overlayHost"></div>
+</div>
+<script>
+/* ============================ framework ============================ */
+const RM = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+const scene = document.getElementById('scene');
+const panel = document.getElementById('panel');
+const strip = document.getElementById('strip');
+const hintBtn = document.getElementById('hintBtn');
+const hintPanel = document.getElementById('hintPanel');
+const noteList = document.getElementById('noteList');
+const nextNote = document.getElementById('nextNote');
+const overlayHost = document.getElementById('overlayHost');
+
+let TIMERS=[];
+function later(fn,ms){const t=setTimeout(fn,ms);TIMERS.push(t);return t;}
+function clearTimers(){TIMERS.forEach(clearTimeout);TIMERS=[];}
+function el(tag,cls,txt){const e=document.createElement(tag);if(cls)e.className=cls;if(txt!=null)e.textContent=txt;return e;}
+function fit(){
+  const s=Math.min(innerWidth/1365, innerHeight/768, 1);
+  document.getElementById('wrap').style.transform='translate(-50%,-50%) scale('+s+')';
+}
+addEventListener('resize',fit);fit();
+
+const DISTRICTS=[
+ {n:'Lunch Hall'},{n:'Greenhouse'},{n:'Sticker Workshop'},{n:'Carrot Farm'},
+ {n:'Library'},{n:'Stadium'},{n:'Signal Tower'}];
+
+let S;
+function resetState(){
+  S={idx:-1, lit:[false,false,false,false,false,false,false], reserve:false,
+     build:{rows:[]}, elected:null, hintTier:0, skin:(S?S.skin+1:0)%3,
+     libDone:false, stadium:{s1:false,s2:false}};
+  document.body.className = S.skin===0?'':(S.skin===1?'skin1':'skin2');
+}
+function drawStrip(){
+  strip.innerHTML='';
+  DISTRICTS.forEach((d,i)=>{
+    const c=el('div','chip');
+    if(S.lit[i])c.classList.add('lit');
+    if(i===S.idx)c.classList.add('active');
+    if(i===5&&S.reserve&&!S.lit[5])c.classList.add('reserve');
+    c.appendChild(el('span','bulb'));
+    c.appendChild(el('span',null,d.n));
+    strip.appendChild(c);
+  });
+}
+
+/* light-up helper: the world counts the product out loud, object by object */
+function illuminate(nodes, cb, showCount){
+  const n=nodes.length;
+  const iv = RM?8:Math.max(28,Math.min(150,Math.round(2200/Math.max(n,1))));
+  const counter=document.getElementById('counter');
+  if(showCount&&counter){counter.style.display='block';counter.textContent='0';}
+  let i=0;
+  (function step(){
+    if(i>=n){ if(cb) later(cb,320); return; }
+    nodes[i].classList.add('lit');
+    if(showCount&&counter)counter.textContent=String(i+1);
+    i++; later(step,iv);
+  })();
+}
+function sendCurrent(cb){
+  const b=el('div','beam'); scene.appendChild(b);
+  later(()=>{b.remove(); if(cb)cb();}, RM?60:720);
+}
+function flicker(){
+  const body=scene.querySelector('.sceneBody')||scene;
+  body.classList.remove('flicker'); void body.offsetWidth; body.classList.add('flicker');
+}
+function pulseSeq(nodes,n,per){
+  per=per||180; const k=Math.min(n,nodes.length);
+  for(let i=0;i<k;i++){
+    later(()=>{const e=nodes[i];e.classList.remove('pulse');void e.offsetWidth;e.classList.add('pulse');}, i*per);
+  }
+}
+function highlight(nodes,ms){
+  nodes.forEach(n=>n.classList.add('hl'));
+  later(()=>nodes.forEach(n=>n.classList.remove('hl')), ms||3200);
+}
+
+/* ============================ panel builders ============================ */
+function panelBase(step,total,promptText){
+  panel.innerHTML='';
+  panel.appendChild(el('div','pHead','District '+step+' of '+total+' · '+DISTRICTS[step-1].n));
+  panel.appendChild(el('div','prompt',promptText));
+  const body=el('div'); body.id='pBody'; panel.appendChild(body);
+  panel.appendChild(el('div','spacer'));
+  const fb=el('div','feedback'); fb.id='fb'; panel.appendChild(fb);
+  return body;
+}
+function say(text,good){
+  const fb=document.getElementById('fb');
+  fb.className='feedback'+(good?' good':''); fb.textContent=text;
+}
+function choiceGroup(parent,label,values,onPick){
+  parent.appendChild(el('div','qLabel',label));
+  const row=el('div','choices'); const btns=[];
+  values.forEach(v=>{
+    const b=el('button','choice',String(v)); b.type='button';
+    b.onclick=()=>{ btns.forEach(x=>x.classList.remove('sel')); b.classList.add('sel'); onPick(v,b); };
+    btns.push(b); row.appendChild(b);
+  });
+  parent.appendChild(row); return {row,btns};
+}
+function commitButton(parent,label,onClick){
+  const b=el('button','commit',label); b.type='button'; b.disabled=true; b.onclick=onClick;
+  parent.appendChild(b); return b;
+}
+
+/* ============================ hints ============================ */
+const HINTS={
+ 1:[],
+ 2:["Look at one pot on its own. How many tulips are standing in it?",
+    "Now count the pots. How many equal groups is that?",
+    "Add that pot's amount once for every pot: 4, then 4 more, then 4 more… keep going until every pot is counted."],
+ 3:["How many rows do you see, from top to bottom?",
+    "Count the stickers in just one row — every row has the same number.",
+    "Write it as rows × amount in each row."],
+ 4:["Find the number of equal groups — the rows — in the sentence.",
+    "Find how many are in each one.",
+    "Place that many, once for each row, then read your build as an equation: rows × amount in each row."],
+ 5:["Count the total books directly. Ten on a shelf, so 10, 20, 30 works well.",
+    "For each equation, ask: do its numbers describe how many groups there are and how many are in each group here?",
+    "Then check: does that equation's total equal the number of books you counted?"],
+ 6:["How many rows are there in all?",
+    "How many rows are left once 2 are covered?",
+    "Each remaining row still holds the same number of seats."],
+ 7:["Look at your own build again: one row is highlighted. Which number told you how many rows to make?",
+    "Now look at one shelf of books. Which number told you how many books stand on each shelf?"]
+};
+let hintOnHighlight=null;
+function setupHints(itemNo){
+  S.hintTier=0; noteList.innerHTML=''; hintPanel.style.display='none';
+  const has=(HINTS[itemNo]||[]).length>0;
+  hintBtn.style.display = has?'block':'none';
+  nextNote.style.display = has?'block':'none';
+  hintBtn.dataset.item=itemNo;
+}
+hintBtn.onclick=()=>{ hintPanel.style.display = hintPanel.style.display==='none'?'block':'none'; };
+nextNote.onclick=()=>{
+  const list=HINTS[+hintBtn.dataset.item]||[];
+  if(S.hintTier<list.length){
+    noteList.appendChild(el('div','note',list[S.hintTier]));
+    S.hintTier++;
+    if(hintOnHighlight)hintOnHighlight(S.hintTier);
+  }
+  if(S.hintTier>=list.length){nextNote.textContent='That is every note for this circuit.';nextNote.disabled=true;}
+};
+
+/* ============================ navigation ============================ */
+function goto(i){
+  clearTimers(); hintOnHighlight=null; hintPanel.style.display='none';
+  nextNote.disabled=false; nextNote.textContent='Reveal next note';
+  S.idx=i; drawStrip(); setupHints(i+1);
+  [item1,item2,item3,item4,item5,item6,item7][i]();
+}
+function completeDistrict(i,next){
+  S.lit[i]=true; drawStrip();
+  const b=el('button','commit','Send the current onward →'); b.type='button';
+  b.onclick=next; document.getElementById('pBody').appendChild(b);
+}
+
+/* ============================ ITEM 1 — Lunch Hall ============================ */
+function item1(){
+  scene.innerHTML='';
+  scene.appendChild(el('div','sceneTitle','District 1 — Lunch Hall'));
+  const body=el('div','sceneBody'); scene.appendChild(body);
+  const counter=el('div',null,''); counter.id='counter'; body.appendChild(counter);
+  const wrapRow=el('div','row'); wrapRow.style.flexWrap='wrap'; wrapRow.style.gap='26px';
+  const trays=[],slices=[];
+  for(let t=0;t<4;t++){
+    const tr=el('div','tray');
+    for(let s=0;s<3;s++){const sl=el('div','obj slice');tr.appendChild(sl);slices.push(sl);}
+    trays.push(tr); wrapRow.appendChild(tr);
+  }
+  body.appendChild(wrapRow);
+  const cap=el('div','caption','Four trays are set out. Every tray holds the same amount.');
+  cap.style.marginTop='26px'; body.appendChild(cap);
+
+  const pb=panelBase(1,7,"Four lunch trays are set out. Each tray holds 3 apple slices. Before finding any total, answer the two questions that govern every circuit here: How many equal groups are there? How many are in each group?");
+  let g=null,a=null,btn;
+  choiceGroup(pb,'How many equal groups?',[2,3,4,5],(v)=>{g=v;pulseSeq(trays,v);check();});
+  choiceGroup(pb,'How many are in each group?',[2,3,4,5],(v)=>{a=v;pulseSeq(slices.slice(0,3),v);check();});
+  btn=commitButton(pb,'Connect the wire',commit);
+  function check(){btn.disabled=!(g&&a);}
+  say('Tap a number and watch the lunch hall count it. Nothing is committed until you connect the wire.');
+  function commit(){
+    btn.disabled=true;
+    if(g===4&&a===3){
+      sendCurrent(()=>{
+        illuminate(slices,()=>{
+          say('4 trays, 3 slices on each tray. Both quantities named — the circuit carries.',true);
+          completeDistrict(0,()=>goto(1));
+        },false);
+      });
+    } else {
+      flicker();
+      highlight(g!==4?trays:[trays[0]]);
+      say("The current didn't carry yet — nothing is lost.\nGo back to the trays: count how many trays are set out, then count the slices on just one tray. Then choose again.");
+      later(()=>{btn.disabled=false;},600);
+    }
+  }
+}
+
+/* ============================ ITEM 2 — Greenhouse ============================ */
+function item2(){
+  scene.innerHTML='';
+  scene.appendChild(el('div','sceneTitle','District 2 — Greenhouse'));
+  const body=el('div','sceneBody'); scene.appendChild(body);
+  const counter=el('div',null,''); counter.id='counter'; body.appendChild(counter);
+  const row=el('div','row'); row.style.gap='22px';
+  const pots=[],tulips=[];
+  for(let p=0;p<5;p++){
+    const po=el('div','pot');
+    for(let t=0;t<4;t++){const tu=el('div','obj tulip');po.appendChild(tu);tulips.push(tu);}
+    pots.push(po); row.appendChild(po);
+  }
+  body.appendChild(row);
+  const eq=el('div','eqCard','5 × 4 = ?'); eq.style.marginTop='30px'; body.appendChild(eq);
+  const cap=el('div','caption','5 stands for the number of pots. 4 stands for the tulips in each pot.');
+  cap.style.marginTop='18px'; body.appendChild(cap);
+
+  const pb=panelBase(2,7,"Five flower pots. Each pot has exactly 4 tulips. The equation 5 × 4 = ? is wired beneath them: 5 is the number of pots, 4 is the tulips in each pot. Count or skip count the tulips and supply the product.");
+  let prod=null,btn;
+  choiceGroup(pb,'What is the product?',[9,16,20,25],(v)=>{prod=v;btn.disabled=false;});
+  btn=commitButton(pb,'Connect the wire',commit);
+  say('Circuit notes are in the corner if you want a step — they never hand you the answer.');
+  hintOnHighlight=(tier)=>{
+    if(tier===1)highlight([pots[0]],2600);
+    if(tier===2)highlight(pots,2600);
+  };
+  function commit(){
+    btn.disabled=true;
+    if(prod===20){
+      sendCurrent(()=>illuminate(tulips,()=>{
+        say('20 tulips — 4 in each pot, counted across 5 pots. 4, 8, 12, 16, 20.',true);
+        completeDistrict(1,()=>goto(2));
+      },true));
+    } else {
+      flicker();
+      say("Not carrying yet. The greenhouse stays exactly as it is.\nSkip count by 4s across the pots — watch each pot light in turn — then answer again.");
+      let i=0;
+      (function walk(){
+        if(i>=5)return;
+        highlight([pots[i]],700); i++; later(walk,700);
+      })();
+      later(()=>{btn.disabled=false;},900);
+    }
+  }
+}
+
+/* ============================ ITEM 3 — Sticker Workshop ============================ */
+function item3(){
+  scene.innerHTML='';
+  scene.appendChild(el('div','sceneTitle','District 3 — Sticker Workshop'));
+  const body=el('div','sceneBody'); scene.appendChild(body);
+  const counter=el('div',null,''); counter.id='counter'; body.appendChild(counter);
+  const grid=el('div'); grid.style.display='flex'; grid.style.flexDirection='column'; grid.style.gap='12px';
+  const rows=[],stickers=[];
+  for(let r=0;r<6;r++){
+    const rw=el('div','row'); rw.style.gap='14px'; const rowArr=[];
+    for(let c=0;c<7;c++){const st=el('div','obj sticker');rw.appendChild(st);stickers.push(st);rowArr.push(st);}
+    rw.dataset.cells=''; rows.push({node:rw,cells:rowArr}); grid.appendChild(rw);
+  }
+  body.appendChild(grid);
+  const eqSlot=el('div','eqCard','? × ? = ?'); eqSlot.style.marginTop='26px'; eqSlot.style.opacity='.35'; body.appendChild(eqSlot);
+
+  const pb=panelBase(3,7,"A full rectangle of stickers is on the workbench. No equation is wired yet. Name both factors and say what each one counts, then the equation will light up.");
+  let r=null,c=null,btn;
+  choiceGroup(pb,'How many rows?',[5,6,7,8],(v)=>{r=v;pulseSeq(rows.map(x=>x.node),v,200);ck();});
+  choiceGroup(pb,'How many stickers in each row?',[5,6,7,8],(v)=>{c=v;pulseSeq(rows[0].cells,v);ck();});
+  btn=commitButton(pb,'Connect the wire',commitFactors);
+  function ck(){btn.disabled=!(r&&c);}
+  say('Rows run across. Every row holds the same number of stickers.');
+  hintOnHighlight=(t)=>{ if(t===1)highlight(rows.map(x=>x.node),2600); if(t===2)highlight([rows[0].node],2600); };
+
+  function commitFactors(){
+    btn.disabled=true;
+    if(r===6&&c===7){
+      eqSlot.style.opacity='1'; eqSlot.textContent='6 × 7 = ?';
+      say('6 rows, 7 stickers in each row. The equation lights up: 6 × 7 = ?',true);
+      const pb2=document.getElementById('pBody'); pb2.innerHTML='';
+      pb2.appendChild(el('div','qLabel','6 rows of 7 stickers. What is the product?'));
+      let prod=null;
+      const g=choiceGroup(pb2,'Tap the total number of stickers',[13,36,42,49],(v)=>{prod=v;b2.disabled=false;});
+      const b2=commitButton(pb2,'Connect the wire',()=>{
+        b2.disabled=true;
+        if(prod===42){
+          sendCurrent(()=>illuminate(stickers,()=>{
+            say('42 stickers. 6 rows × 7 in each row = 42, and the workshop just counted every one.',true);
+            completeDistrict(2,()=>goto(3));
+          },true));
+        } else {
+          flicker(); highlight([rows[0].node],3000);
+          say("Not carrying yet. One row is highlighted — count that row again, then count how many rows there are, and re-answer.");
+          later(()=>{b2.disabled=false;},900);
+        }
+      });
+    } else {
+      flicker();
+      highlight(r!==6?rows.map(x=>x.node):[rows[0].node]);
+      say("Not carrying yet — the array is unchanged.\nCount the rows from top to bottom, then count the stickers in just one row. Every row holds the same number.");
+      later(()=>{btn.disabled=false;},700);
+    }
+  }
+}
+
+/* ============================ ITEM 4 — Carrot Farm ============================ */
+function item4(){
+  scene.innerHTML='';
+  scene.appendChild(el('div','sceneTitle','District 4 — Carrot Farm  ·  empty ground, no picture given'));
+  const body=el('div','sceneBody'); body.style.justifyContent='flex-start'; scene.appendChild(body);
+  const counter=el('div',null,''); counter.id='counter'; body.appendChild(counter);
+  const grid=el('div'); grid.style.marginTop='6px'; body.appendChild(grid);
+  const status=el('div','caption','Your ground is empty. Open a row, then tap in the row to set how many carrots fill it.');
+  status.style.marginTop='10px'; body.appendChild(status);
+  let stage='build';
+
+  function renderBuild(){
+    grid.innerHTML='';
+    S.build.rows.forEach((cnt,r)=>{
+      const rw=el('div','buildRow');
+      for(let c=0;c<10;c++){
+        const cell=el('button','buildCell'+(c<cnt?' filled':''));cell.type='button';
+        cell.setAttribute('aria-label','row '+(r+1)+', position '+(c+1));
+        if(c<cnt){const ca=el('div','obj carrot');ca.dataset.r=r;cell.appendChild(ca);}
+        cell.onclick=()=>{ if(stage!=='build')return;
+          const cur=S.build.rows[r]; S.build.rows[r]=(cur===c+1)?c:c+1; renderBuild(); };
+        rw.appendChild(cell);
+      }
+      grid.appendChild(rw);
+    });
+    if(S.build.rows.length<10){
+      const g=el('div','ghostRow','+ tap here to open another row');
+      g.onclick=()=>{ if(stage!=='build')return; S.build.rows.push(0); renderBuild(); };
+      grid.appendChild(g);
+    }
+    const rowsN=S.build.rows.length;
+    const uniform = rowsN>0 && S.build.rows.every(v=>v===S.build.rows[0]) && S.build.rows[0]>0;
+    status.textContent = rowsN===0 ? 'Your ground is empty. Tap the dashed row to open one.' :
+      ('Rows opened: '+rowsN+(uniform?('  ·  each row holds '+S.build.rows[0]):'  ·  the rows do not all hold the same amount yet'));
+    const b=document.getElementById('buildCommit'); if(b)b.disabled=(rowsN===0);
+  }
+
+  const pb=panelBase(4,7,"Words only, no picture: A gardener plants 8 rows of carrots with 6 carrots in each row. Build a faithful representation of this on the empty ground, then form the equation and give the product.");
+  const bBody=document.getElementById('pBody');
+  bBody.appendChild(el('div','qLabel','Build it yourself — the farm has no model to copy.'));
+  const ctrl=el('div','choices');
+  const addB=el('button','mini','+ Add a row'); addB.style.flex='1'; addB.style.minHeight='60px'; addB.type='button';
+  addB.onclick=()=>{ if(S.build.rows.length<10){S.build.rows.push(0);renderBuild();} };
+  const remB=el('button','mini','− Remove last row'); remB.style.flex='1'; remB.style.minHeight='60px'; remB.type='button';
+  remB.onclick=()=>{ S.build.rows.pop(); renderBuild(); };
+  ctrl.appendChild(addB); ctrl.appendChild(remB); bBody.appendChild(ctrl);
+  const bc=commitButton(bBody,'Check the wiring',checkBuild); bc.id='buildCommit'; bc.disabled=true;
+  say('Tap inside a row to set how many carrots fill it. Rows must all hold the same amount before the circuit can be tested.');
+  renderBuild();
+
+  function checkBuild(){
+    const rowsN=S.build.rows.length;
+    const uniform = rowsN>0 && S.build.rows.every(v=>v===S.build.rows[0]) && S.build.rows[0]>0;
+    if(!uniform){
+      flicker();
+      say('Structural check: every row must hold the same amount, and no row can be left empty, before this circuit can carry. Your work is kept exactly as it is — adjust the rows.');
+      return;
+    }
+    if(rowsN===8 && S.build.rows[0]===6){
+      say('Your build holds: 8 rows, 6 carrots in each row. Now read your own build as an equation.',true);
+      stage='equation'; equationStage();
+    } else {
+      flicker();
+      say('Not carrying yet — your build is kept, nothing erased.\nRead the words again: which number tells how many rows? Which tells how many are in each row? Then adjust your rows.');
+    }
+  }
+
+  function equationStage(){
+    const b=document.getElementById('pBody'); b.innerHTML='';
+    b.appendChild(el('div','qLabel','Read your build: rows first, then how many in each row.'));
+    const slot=el('div','eqCard','__ × __ = ?'); slot.style.textAlign='center'; slot.style.margin='4px 0 8px'; b.appendChild(slot);
+    let L=null,R=null;
+    choiceGroup(b,'First factor tile',[4,6,8,9],(v)=>{L=v;upd();});
+    choiceGroup(b,'Second factor tile',[4,6,8,9],(v)=>{R=v;upd();});
+    const cb=commitButton(b,'Connect the wire',()=>{
+      cb.disabled=true;
+      if(L===8&&R===6){ slot.textContent='8 × 6 = ?'; productStage(); }
+      else{
+        flicker(); highlight([grid.querySelector('.buildRow')],3000);
+        say('Not carrying yet. Look at your own build: how many rows did you open, and how many carrots are in each one? Read it rows first.');
+        later(()=>{cb.disabled=false;},700);
+      }
+    });
+    function upd(){ slot.textContent=(L||'__')+' × '+(R||'__')+' = ?'; cb.disabled=!(L&&R); }
+  }
+
+  function productStage(){
+    const b=document.getElementById('pBody'); b.innerHTML='';
+    b.appendChild(el('div','qLabel','8 × 6 = ?   Count your own carrots.'));
+    let p=null;
+    choiceGroup(b,'What is the product?',[14,36,48,54],(v)=>{p=v;cb.disabled=false;});
+    const cb=commitButton(b,'Connect the wire',()=>{
+      cb.disabled=true;
+      if(p===48){
+        stage='done';
+        const carrots=[...grid.querySelectorAll('.carrot')];
+        sendCurrent(()=>illuminate(carrots,()=>{
+          say('48 carrots — 8 rows, 6 in each row, and every one of them counted in the field you built yourself.',true);
+          completeDistrict(3,()=>goto(4));
+        },true));
+      } else {
+        flicker(); highlight([grid.querySelector('.buildRow')],3000);
+        say('Not carrying yet. Count one of your rows, then add that amount once for every row you opened. Your build stays put.');
+        later(()=>{cb.disabled=false;},700);
+      }
+    });
+  }
+  hintOnHighlight=(t)=>{ if(t===3&&grid.querySelector('.buildRow'))highlight([grid.querySelector('.buildRow')],2600); };
+}
+
+/* ============================ ITEM 5 — Library ============================ */
+function item5(){
+  scene.innerHTML='';
+  scene.appendChild(el('div','sceneTitle','District 5 — Library'));
+  const body=el('div','sceneBody'); scene.appendChild(body);
+  const counter=el('div',null,''); counter.id='counter'; body.appendChild(counter);
+  const stack=el('div'); stack.style.display='flex'; stack.style.flexDirection='column'; stack.style.gap='26px';
+  const shelves=[],books=[],cols=[[],[],[],[],[],[],[],[],[],[]];
+  for(let s=0;s<3;s++){
+    const sh=el('div','shelf'); const arr=[];
+    for(let bkI=0;bkI<10;bkI++){const bk=el('div','obj book');sh.appendChild(bk);books.push(bk);arr.push(bk);cols[bkI].push(bk);}
+    shelves.push({node:sh,cells:arr}); stack.appendChild(sh);
+  }
+  body.appendChild(stack);
+  const cap=el('div','caption','3 shelves. 10 books standing on each shelf.');
+  cap.style.marginTop='24px'; body.appendChild(cap);
+
+  const EQS=['3 × 10 = 30','10 × 3 = 30','3 + 10 = 13','10 × 10 = 100'];
+  const CORRECT=[true,true,false,false];
+  const chosen=[false,false,false,false];
+  const pb=panelBase(5,7,"Four fuse cards are on the bench. Select every equation that correctly matches this representation, and leave unselected any that does not. For each one you select, be ready to say what each factor counts.");
+  const cards=[];
+  EQS.forEach((t,i)=>{
+    const c=el('div','card'); c.appendChild(el('span',null,t)); const m=el('span','mark','not selected'); c.appendChild(m);
+    c.onclick=()=>{ chosen[i]=!chosen[i]; c.classList.toggle('on',chosen[i]); m.textContent=chosen[i]?'selected':'not selected'; };
+    cards.push(c); document.getElementById('pBody').appendChild(c);
+  });
+  const cb=commitButton(document.getElementById('pBody'),'Test the fuse cards',test); cb.disabled=false;
+  say('Toggle as many as you judge correct. Nothing is filled in for you.');
+  hintOnHighlight=(t)=>{ if(t===1)highlight(shelves.map(s=>s.node),2600); };
+
+  function test(){
+    const ok=CORRECT.every((v,i)=>v===chosen[i]);
+    if(ok){
+      cb.disabled=true;
+      say('3 × 10 = 30 fits: 3 shelves, 10 books on each shelf.\n10 × 3 = 30 fits: the same 30 books, read in the other order.\n3 + 10 = 13 does not fit: that joins the two numbers instead of counting 3 groups of 10.\n10 × 10 = 100 does not fit: there are not 10 shelves.',true);
+      sendCurrent(()=>trace());
+    } else {
+      flicker();
+      let firstBad=CORRECT.findIndex((v,i)=>v!==chosen[i]);
+      highlight([cards[firstBad]],4000);
+      say('Not carrying yet — every card you set is kept.\nCheck the highlighted card on its own: count the books on the shelves (10, 20, 30), then ask whether that card\'s numbers describe how many shelves there are and how many books are on each shelf, and whether its total matches your count.');
+    }
+  }
+  function trace(){
+    const c=document.getElementById('counter'); c.style.display='block';
+    cap.textContent='3 × 10 : three shelves, ten books on each shelf.';
+    let n=0;
+    function phase1(s){
+      if(s>=3){ later(phase2prep,700); return; }
+      let i=0;
+      (function light(){
+        if(i>=10){ later(()=>phase1(s+1),260); return; }
+        shelves[s].cells[i].classList.add('lit'); n++; c.textContent=String(n); i++; later(light,RM?8:70);
+      })();
+    }
+    function phase2prep(){
+      books.forEach(b=>b.classList.remove('lit')); n=0; c.textContent='0';
+      cap.textContent='10 × 3 : the same books read the other way — ten stacks of 3, one book from each shelf in every stack.';
+      later(()=>phase2(0),500);
+    }
+    function phase2(k){
+      if(k>=10){ later(done,700); return; }
+      cols[k].forEach(b=>b.classList.add('lit')); n+=3; c.textContent=String(n);
+      later(()=>phase2(k+1), RM?8:210);
+    }
+    function done(){
+      cap.textContent='Both readings counted the same 30 books. The order changes what each number is read as counting — not the total.';
+      S.libDone=true;
+      completeDistrict(4,()=>offerStadium());
+    }
+    phase1(0);
+  }
+}
+
+/* ============================ ITEM 6 offer + Stadium ============================ */
+function offerStadium(){
+  clearTimers();
+  const o=el('div','overlay');
+  const lines=[
+    "There is one more circuit out past the library — the stadium. It is the valley's biggest.",
+    "Nine rows of seats, nine seats in every row, and a banner that covers part of it partway through."
+  ];
+  o.appendChild(el('h1','','The valley\'s biggest circuit — yours if you want it.'));
+  lines.forEach(t=>o.appendChild(el('p',null,t)));
+  o.appendChild(el('p',null,'You can leave it at any moment and everything you have wired stays lit. Taking it or leaving it, the valley still finishes restored.'));
+  const row=el('div','btnRow');
+  const a=el('button','bigBtn','Open the stadium circuit'); a.type='button';
+  a.onclick=()=>{o.remove();S.elected=true;goto(5);};
+  const b=el('button','ghostBtn','Head to the tower'); b.type='button';
+  b.onclick=()=>{o.remove();S.elected=false;S.reserve=true;drawStrip();goto(6);};
+  row.appendChild(a); row.appendChild(b); o.appendChild(row);
+  overlayHost.appendChild(o);
+}
+
+function item6(){
+  scene.innerHTML='';
+  scene.appendChild(el('div','sceneTitle','District 6 — Stadium  ·  optional circuit, chosen by you'));
+  const body=el('div','sceneBody'); scene.appendChild(body);
+  const counter=el('div',null,''); counter.id='counter'; body.appendChild(counter);
+  const holder=el('div'); holder.style.position='relative'; body.appendChild(holder);
+  const rows=[],seats=[];
+  for(let r=0;r<9;r++){
+    const rw=el('div','row'); rw.style.gap='11px'; rw.style.marginBottom='9px'; const arr=[];
+    for(let s=0;s<9;s++){const p=el('div','obj pennant');rw.appendChild(p);seats.push(p);arr.push(p);}
+    rows.push({node:rw,cells:arr}); holder.appendChild(rw);
+  }
+  const banner=el('div'); banner.style.cssText='position:absolute;left:-10px;top:-8px;width:calc(100% + 20px);height:76px;'+
+    'background:linear-gradient(180deg,#2a3representative,#1b2450);border-radius:10px;display:none;align-items:center;justify-content:center;'+
+    'color:#93a0cc;font-size:15px;letter-spacing:2px;border:1px solid #3a4780;';
+  banner.style.background='linear-gradient(180deg,#232c58,#161d40)';
+  banner.textContent='BANNER — 2 ROWS COVERED';
+  holder.appendChild(banner);
+  const cap=el('div','caption','9 rows of seats. 9 seats in each row. Every seat holds exactly 1 pennant.');
+  cap.style.marginTop='16px'; body.appendChild(cap);
+
+  const pb=panelBase(6,7,"A stadium section has 9 rows of seats with 9 seats in each row, and every seat holds 1 pennant. First give the factors and product for the full section. Two rows will then be covered by a banner.");
+  const exit=el('button','mini','Leave the stadium — keep everything lit'); exit.type='button'; exit.style.marginTop='4px';
+  exit.onclick=()=>{ if(!S.lit[5])S.reserve=true; drawStrip(); goto(6); };
+  panel.appendChild(exit);
+  stage1();
+
+  function stage1(){
+    const b=document.getElementById('pBody'); b.innerHTML='';
+    let r=null,c=null,p=null;
+    choiceGroup(b,'Stage 1 — how many rows in the section?',[7,8,9,10],(v)=>{r=v;pulseSeq(rows.map(x=>x.node),v,150);ck();});
+    choiceGroup(b,'How many seats in each row?',[7,8,9,10],(v)=>{c=v;pulseSeq(rows[0].cells,v,140);ck();});
+    choiceGroup(b,'Pennants in the full section?',[18,72,81,90],(v)=>{p=v;ck();});
+    const cb=commitButton(b,'Connect the wire',()=>{
+      cb.disabled=true;
+      if(r===9&&c===9&&p===81){
+        sendCurrent(()=>illuminate(seats,()=>{
+          say('9 rows, 9 seats in each row: 9 × 9 = 81 pennants, counted one by one.',true);
+          S.stadium.s1=true; later(stage2prep,700);
+        },true));
+      } else {
+        flicker(); highlight(r!==9?rows.map(x=>x.node):[rows[0].node]);
+        say('Not carrying yet — nothing lost. Count the rows, then count the seats in one row, then decide the total again.');
+        later(()=>{cb.disabled=false;},700);
+      }
+    });
+    function ck(){cb.disabled=!(r&&c&&p);}
+    say('Stage 1 of 2. Notes are in the corner only if you ask for them — nothing here is pushed at you.');
+  }
+
+  function stage2prep(){
+    seats.forEach(s=>s.classList.remove('lit'));
+    banner.style.display='flex';
+    cap.textContent='The banner covers 2 rows. Those seats are not counted. The rest still hold their pennants.';
+    stage2();
+  }
+  function stage2(){
+    const b=document.getElementById('pBody'); b.innerHTML='';
+    let r=null,c=null,p=null;
+    choiceGroup(b,'Stage 2 — how many rows are uncovered?',[6,7,8,9],(v)=>{r=v;ck();});
+    choiceGroup(b,'How many seats in each uncovered row?',[7,8,9,10],(v)=>{c=v;pulseSeq(rows[2].cells,v,140);ck();});
+    choiceGroup(b,'Pennants still countable?',[49,56,63,72],(v)=>{p=v;ck();});
+    const cb=commitButton(b,'Connect the wire',()=>{
+      cb.disabled=true;
+      if(r===7&&c===9&&p===63){
+        const open=[]; for(let i=2;i<9;i++)open.push(...rows[i].cells);
+        sendCurrent(()=>illuminate(open,()=>{
+          say('7 uncovered rows, 9 seats in each: 7 × 9 = 63 pennants still countable. Stage 1 stays yours too — 9 × 9 = 81.',true);
+          S.stadium.s2=true; S.lit[5]=true; drawStrip();
+          const nb=el('button','commit','Send the current onward →'); nb.type='button'; nb.onclick=()=>goto(6);
+          document.getElementById('pBody').appendChild(nb);
+        },true));
+      } else {
+        flicker();
+        highlight([rows[2].node],3000);
+        say('Not carrying yet — your stage 1 work is kept. Count how many rows are left below the banner, and remember each of those rows still holds the same number of seats.');
+        later(()=>{cb.disabled=false;},700);
+      }
+    });
+    function ck(){cb.disabled=!(r&&c&&p);}
+    say('Stage 2 of 2. Stage 1 stays committed and correct no matter what happens here.');
+  }
+}
+
+/* ============================ ITEM 7 — Tower ============================ */
+function item7(){
+  scene.innerHTML='';
+  scene.appendChild(el('div','sceneTitle','District 7 — The Signal Tower  ·  your own work, projected'));
+  const body=el('div','sceneBody'); body.style.justifyContent='flex-start'; scene.appendChild(body);
+  const counter=el('div',null,''); counter.id='counter'; body.appendChild(counter);
+
+  const t1=el('div','caption','Your carrot field, exactly as you built it.'); t1.style.margin='2px 0 6px'; body.appendChild(t1);
+  const farm=el('div'); const farmRows=[];
+  const rowsData = (S.build.rows.length===8 && S.build.rows.every(v=>v===6))?S.build.rows:[6,6,6,6,6,6,6,6];
+  rowsData.forEach(()=>{
+    const rw=el('div','row'); rw.style.gap='7px'; rw.style.marginBottom='5px';
+    for(let i=0;i<6;i++){const ca=el('div','obj carrot lit');ca.style.width='18px';ca.style.height='18px';rw.appendChild(ca);}
+    farmRows.push(rw); farm.appendChild(rw);
+  });
+  body.appendChild(farm);
+  const eq1=el('div','eqCard','8 × 6 = 48'); eq1.style.marginTop='6px'; eq1.style.fontSize='24px'; body.appendChild(eq1);
+
+  const t2=el('div','caption','The library shelves you judged.'); t2.style.margin='14px 0 4px'; body.appendChild(t2);
+  const lib=el('div'); const shelfNodes=[];
+  for(let s=0;s<3;s++){
+    const sh=el('div','shelf'); sh.style.padding='4px 10px 4px';
+    for(let i=0;i<10;i++){const bk=el('div','obj book lit');bk.style.height='24px';bk.style.width='10px';sh.appendChild(bk);}
+    shelfNodes.push(sh); lib.appendChild(sh);
+  }
+  body.appendChild(lib);
+  const eq2=el('div','eqCard','3 × 10 = 30'); eq2.style.marginTop='6px'; eq2.style.fontSize='24px'; body.appendChild(eq2);
+
+  const pb=panelBase(7,7,"Your own work, replayed. In the 8 × 6 = 48 field you built, what did the 8 count and what did the 6 count? And in 3 × 10 = 30, what did the 3 count and what did the 10 count?");
+  const A=["8 counted the rows, 6 counted the carrots in each row",
+           "8 counted the carrots in each row, 6 counted the rows",
+           "8 and 6 were both totals"];
+  const B=["3 counted the shelves, 10 counted the books on each shelf",
+           "3 counted the books on each shelf, 10 counted the shelves",
+           "3 and 10 were both totals"];
+  let a=null,b2=null;
+  const bodyP=document.getElementById('pBody');
+  bodyP.appendChild(el('div','qLabel','In your build: 8 × 6 = 48'));
+  const aBtns=[]; A.forEach((t,i)=>{
+    const c=el('div','card'); c.style.fontSize='15px'; c.style.fontFamily='inherit'; c.style.minHeight='56px';
+    c.appendChild(el('span',null,t)); c.onclick=()=>{aBtns.forEach(x=>x.classList.remove('on'));c.classList.add('on');a=i;ck();};
+    aBtns.push(c); bodyP.appendChild(c);
+  });
+  bodyP.appendChild(el('div','qLabel','In the library: 3 × 10 = 30'));
+  const bBtns=[]; B.forEach((t,i)=>{
+    const c=el('div','card'); c.style.fontSize='15px'; c.style.fontFamily='inherit'; c.style.minHeight='56px';
+    c.appendChild(el('span',null,t)); c.onclick=()=>{bBtns.forEach(x=>x.classList.remove('on'));c.classList.add('on');b2=i;ck();};
+    bBtns.push(c); bodyP.appendChild(c);
+  });
+  const cb=commitButton(bodyP,'Light the beacon',()=>{
+    if(a===0&&b2===0){
+      cb.disabled=true;
+      say('Both true. The 8 counted rows, the 6 counted carrots in each row; the 3 counted shelves, the 10 counted books on each shelf.',true);
+      S.lit[6]=true; drawStrip();
+      sendCurrent(()=>later(finale,500));
+    } else {
+      flicker();
+      if(a!==0)highlight([farmRows[0]],3200);
+      if(b2!==0)highlight([shelfNodes[0]],3200);
+      say('Not carrying yet — and nothing here can end badly. One row of your own field and one shelf are highlighted: which number told you how many of those there were, and which told you how many were inside each one? Answer as many times as you like.');
+    }
+  });
+  function ck(){cb.disabled=!(a!=null&&b2!=null);}
+  say('No score here. This is only about what each number counted in the work you already finished.');
+  hintOnHighlight=(t)=>{ if(t===1)highlight([farmRows[0]],2800); if(t===2)highlight([shelfNodes[0]],2800); };
+}
+
+/* ============================ FINALE ============================ */
+function finale(){
+  clearTimers();
+  const o=el('div','overlay');
+  const cv=el('canvas'); cv.id='motes'; cv.width=1365; cv.height=768; o.appendChild(cv);
+  o.appendChild(el('h1','','The valley is lit.'));
+  const map=el('div'); map.id='valleyMap';
+  const eqs=['4 trays · 3 each','5 × 4 = 20','6 × 7 = 42','8 × 6 = 48','3 × 10 = 30',
+             S.lit[5]?'9 × 9 = 81 · 7 × 9 = 63':'reserve circuit','beacon'];
+  DISTRICTS.forEach((d,i)=>{
+    const c=el('div','vd'+((S.lit[i]||(i===5&&S.reserve))?' lit':''));
+    c.appendChild(el('div',null,d.n));
+    c.appendChild(el('div','eq',eqs[i]));
+    map.appendChild(c);
+  });
+  o.appendChild(map);
+  const chain=el('div'); chain.id='chain'; o.appendChild(chain);
+  const lines=[
+    'A situation: 8 rows of carrots, 6 carrots in each row.',
+    'You found the groups — how many rows, and how many in each row.',
+    'You built them, row by equal row, with nothing copied.',
+    'You wrote them: 8 × 6 = 48.',
+    'You counted them true: 48 carrots, every one of them in your own field.',
+    'And 3 × 10 = 30 held the same 30 books either way you read it.',
+    S.lit[5] ? '81 pennants over the stadium, 63 still countable under the banner.' : 'The stadium keeps a reserve circuit glowing, waiting.',
+    'Situation → equal groups → representation → equation → product, checked by counting.'
+  ];
+  lines.forEach(t=>{const d=el('div',null,t);chain.appendChild(d);});
+  const row=el('div','btnRow');
+  const again=el('button','ghostBtn','Light it again'); again.type='button';
+  again.onclick=()=>{o.remove();resetState();startIntro();};
+  row.appendChild(again); o.appendChild(row);
+  overlayHost.appendChild(o);
+  [...chain.children].forEach((d,i)=>later(()=>d.classList.add('show'), 500+i*(RM?120:850)));
+  motes(cv);
+}
+function motes(cv){
+  const ctx=cv.getContext('2d'); const P=[];
+  const col=getComputedStyle(document.body).getPropertyValue('--amber').trim()||'#ffb64a';
+  for(let i=0;i<90;i++)P.push({x:Math.random()*1365,y:768+Math.random()*400,r:1+Math.random()*2.6,
+    v:.25+Math.random()*.7,a:.25+Math.random()*.55});
+  let stop=false;
+  (function loop(){
+    if(stop)return;
+    ctx.clearRect(0,0,1365,768);
+    P.forEach(p=>{ p.y-=p.v; if(p.y<-10){p.y=778;p.x=Math.random()*1365;}
+      ctx.globalAlpha=p.a; ctx.fillStyle=col; ctx.beginPath(); ctx.arc(p.x,p.y,p.r,0,7); ctx.fill(); });
+    ctx.globalAlpha=1;
+    if(!RM) requestAnimationFrame(loop);
+  })();
+}
+
+/* ============================ INTRO ============================ */
+function startIntro(){
+  scene.innerHTML=''; panel.innerHTML=''; hintBtn.style.display='none'; drawStrip();
+  const o=el('div','overlay');
+  o.appendChild(el('h1','','The Signal Tower'));
+  o.appendChild(el('p',null,'The valley\'s power runs on equal groups.'));
+  const big=el('p',null,'Wire the circuits. Light the valley.');
+  big.style.fontSize='26px'; big.style.color='var(--amber2)'; o.appendChild(big);
+  const map=el('div'); map.id='valleyMap';
+  DISTRICTS.forEach(d=>{const c=el('div','vd');c.appendChild(el('div',null,d.n));c.appendChild(el('div','eq','dark'));map.appendChild(c);});
+  o.appendChild(map);
+  o.appendChild(el('p',null,'Seven districts are dark. Every circuit that carries lights one of them for good.'));
+  const b=el('button','bigBtn','Begin'); b.type='button'; b.style.marginTop='18px';
+  b.onclick=()=>{o.remove();goto(0);};
+  o.appendChild(b);
+  overlayHost.appendChild(o);
+  later(()=>{ if(o.parentNode){o.remove();goto(0);} }, 3400);
+}
+
+resetState();
+startIntro();
+</script>
+</body>
+</html>

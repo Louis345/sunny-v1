@@ -1,0 +1,9 @@
+{
+  "status": "READY_FOR_BLINDED_HUMAN_REVIEW",
+  "calls": 5,
+  "totalInputTokens": 67755,
+  "totalOutputTokens": 116334,
+  "totalCostUsd": 3.976475,
+  "report": "/Users/jamaltaylor/Development/sunny-math-creative-sandbox/outputs/math-creative-sandbox/evaluation-persona-comparison/2026-08-17T23-59-06.047Z/report.html",
+  "claim": "This compares generated evaluation quality and first-pass reliability; it does not establish learning, mastery, or causation."
+}

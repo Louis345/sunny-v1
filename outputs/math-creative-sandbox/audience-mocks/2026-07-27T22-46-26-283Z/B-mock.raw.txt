@@ -1,0 +1,212 @@
+```html
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Fortress of Ranks</title>
+<style>
+*{box-sizing:border-box;user-select:none}
+body{margin:0;background:#1b1208;font-family:'Segoe UI',Verdana,sans-serif;color:#eee;overflow:hidden}
+#app{width:1365px;height:768px;background:radial-gradient(ellipse at center,#3a2a15 0%,#1b1208 100%);position:relative}
+header{text-align:center;padding:6px;background:linear-gradient(#2a1a0a,#1b1208);border-bottom:3px solid #d4af37}
+header h1{margin:0;font-size:24px;color:#f0d078;text-shadow:0 0 8px #000}
+header p{margin:2px 0 0;font-size:12px;color:#cbb}
+.stage{display:flex;height:690px}
+.tray-panel{width:230px;padding:14px;border-right:2px solid #5a3d1a;display:flex;flex-direction:column;align-items:center}
+.tray-stack{width:150px;height:150px;border-radius:16px;background:radial-gradient(circle,#2b5db0,#173a75);border:3px solid #8fb4ff;display:flex;align-items:center;justify-content:center;position:relative;cursor:pointer;box-shadow:0 0 22px #2b5db0aa;transition:transform .1s;animation:pulse 1.6s infinite}
+@keyframes pulse{0%,100%{box-shadow:0 0 18px #2b5db0aa}50%{box-shadow:0 0 30px #7fb4ff}}
+.tray-stack:active{transform:scale(.92)}
+.token-icon{font-size:70px;color:#fff;text-shadow:0 2px 3px #000}
+.tray-count{position:absolute;bottom:6px;right:10px;background:#f0d078;color:#3a2a05;font-weight:bold;border-radius:10px;padding:2px 10px;font-size:18px}
+.tap-hint{margin-top:10px;font-size:14px;color:#ffd700;animation:bounce 1s infinite}
+@keyframes bounce{0%,100%{transform:translateY(0)}50%{transform:translateY(6px)}}
+.mentor-hint{margin-top:16px;font-size:13px;color:#f0d078;text-align:center;min-height:40px}
+.center-panel{flex:1;padding:12px;display:flex;flex-direction:column;align-items:center}
+.scroll-box{background:#e9d9a8;color:#3a2a05;border:3px solid #8a6a2a;border-radius:8px;padding:8px 20px;max-width:620px;text-align:center;box-shadow:0 4px 10px #0008}
+.scroll-title{font-weight:bold;font-size:17px;color:#7a1a1a}
+.scroll-text{font-size:15px;margin-top:3px}
+.grid{display:grid;gap:8px;margin:14px 0;padding:14px;background:#00000055;border-radius:10px;border:2px dashed #d4af3766}
+.cell{width:46px;height:46px;border:2px dashed #8fb4ff88;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:26px;background:#00000033}
+.cell.glow{box-shadow:0 0 14px 4px #ffd700;border-color:#ffd700}
+.cell.filled{background:#2b5db0;border-style:solid;color:#fff;animation:pop .25s}
+@keyframes pop{0%{transform:scale(.3)}70%{transform:scale(1.15)}100%{transform:scale(1)}}
+.rowflash{animation:flashrow .4s}
+@keyframes flashrow{0%{filter:brightness(1)}50%{filter:brightness(2.2)}100%{filter:brightness(1)}}
+.stepback{animation:stepback .5s forwards}
+@keyframes stepback{to{transform:translateY(24px) scale(.3);opacity:0}}
+.skipcount{min-height:34px;font-size:24px;font-weight:bold;color:#ffd700;letter-spacing:6px}
+.skipcount span{opacity:0;animation:fadein .5s forwards}
+@keyframes fadein{to{opacity:1}}
+.send-btn{margin-top:4px;padding:10px 26px;font-size:17px;background:linear-gradient(#f0d078,#c9a13a);border:2px solid #6a4a0a;border-radius:8px;cursor:pointer;font-weight:bold;color:#3a2405}
+.send-btn:disabled{opacity:.4;cursor:not-allowed}
+.hidden{display:none!important}
+.feedback{min-height:70px;font-size:15px;text-align:center;max-width:620px;margin-top:6px}
+.decoy-box{background:#3a1010;border:3px solid #b03a3a;border-radius:10px;padding:12px;text-align:center}
+.taunt{color:#ff9a9a;font-style:italic}
+.decoy-btns button{margin:6px;padding:8px 14px;border-radius:6px;border:none;cursor:pointer;font-weight:bold}
+.confirmBtn{background:#4a8a4a;color:#fff}
+.flagBtn{background:#c9a13a;color:#3a2405}
+.siege-panel{width:340px;padding:14px;border-left:2px solid #5a3d1a;display:flex;flex-direction:column;gap:12px}
+.siege-map{background:#5a4a2a;border-radius:10px;padding:14px;display:flex;align-items:center;gap:6px;height:70px}
+.track{flex:1;height:10px;background:#2a1e0e;border-radius:6px;position:relative}
+.marker{position:absolute;left:0%;top:-16px;font-size:28px;transition:left 1.3s cubic-bezier(.3,1.3,.6,1)}
+.fortress{font-size:40px;position:relative}
+.gate{font-size:20px;transition:filter .5s}
+.gate.cracked{filter:hue-rotate(200deg) brightness(1.6)}
+.reinforcements{background:#3a1010;border:1px solid #8a2a2a;border-radius:6px;padding:6px 10px;font-size:13px}
+.locked-card{background:#00000055;border:2px dashed #888;border-radius:8px;padding:10px;font-size:12px;color:#ccc}
+.preview-btn{padding:10px;background:linear-gradient(#8a6ad0,#5a3ab0);border:none;border-radius:8px;color:#fff;font-weight:bold;cursor:pointer}
+#modal{position:absolute;inset:0;background:#000c;display:flex;align-items:center;justify-content:center}
+.modal-box{background:#e9d9a8;color:#3a2a05;padding:22px;border-radius:12px;max-width:680px;text-align:center;border:4px solid #8a6a2a}
+table{width:100%;border-collapse:collapse;margin-top:10px}
+td,th{border:1px solid #8a6a2a;padding:6px;font-size:13px}
+.modal-box button{margin-top:12px;padding:8px 20px;border-radius:6px;border:none;background:#7a1a1a;color:#fff;font-weight:bold;cursor:pointer}
+</style>
+</head>
+<body>
+<div id="app">
+<header><h1>⚔️ Fortress of Ranks</h1><p>Read the enemy's scrolls faster and truer than their general reads yours.</p></header>
+<div class="stage">
+  <div class="tray-panel">
+    <h3 style="margin:4px 0">Soldier Tray</h3>
+    <div class="tray-stack" onclick="placeToken()"><div class="token-icon">♙</div><div class="tray-count" id="trayCount">12</div></div>
+    <div class="tap-hint" id="tapHint">Tap the soldier pile! 👆</div>
+    <div class="mentor-hint" id="mentorHint"></div>
+  </div>
+  <div class="center-panel">
+    <div class="scroll-box"><div class="scroll-title" id="scrollTitle"></div><div class="scroll-text" id="scrollText"></div></div>
+    <div class="grid" id="grid"></div>
+    <div class="skipcount" id="skipcount"></div>
+    <button class="send-btn hidden" id="sendBtn" onclick="sendFormation()">Send Formation ⚔️</button>
+    <div class="feedback" id="feedback"></div>
+  </div>
+  <div class="siege-panel">
+    <div class="siege-map">
+      <div style="font-size:30px">🔷</div>
+      <div class="track"><div class="marker" id="marker">🛡️</div></div>
+      <div class="fortress">🏰<div class="gate" id="gate">🚪</div></div>
+    </div>
+    <div class="reinforcements">Enemy reinforcements: <span id="reinfCount">0</span> 🚩</div>
+    <div class="locked-card" id="lockedCard">🔒 <b>Iron Gate — Final Siege</b><br>Chained scrolls, rapid decoys, a shrinking countdown clock — unlocks after this training siege.</div>
+    <button class="preview-btn" onclick="showModal()">👑 Preview Payoff</button>
+  </div>
+</div>
+</div>
+<div id="modal" class="hidden">
+  <div class="modal-box">
+    <h2 style="margin-top:0;color:#7a1a1a">🏆 Commander's Ledger (Preview)</h2>
+    <p>When the Iron Gate finally cracks, your full campaign is revealed:</p>
+    <table><tr><th>Stage</th><th>Formation</th><th>Result</th></tr>
+    <tr><td>Training Yard</td><td>3×4</td><td>✅ Correct march</td></tr>
+    <tr><td>Dispatch Scroll</td><td>5×6</td><td>🕵️ Decoy exposed! (General's "35" was fake)</td></tr>
+    <tr><td>Iron Gate</td><td>???</td><td>🔒 Locked — full siege not yet built</td></tr>
+    </table>
+    <p style="margin-top:14px">💥 The gate cracks, banners rise, and the general's forged scroll is revealed to the whole map.</p>
+    <button onclick="hideModal()">Close</button>
+  </div>
+</div>
+<script>
+const AC=new (window.AudioContext||window.webkitAudioContext)();
+function tone(f,d,type,v){const o=AC.createOscillator(),g=AC.createGain();o.type=type;o.frequency.value=f;g.gain.setValueAtTime(v,AC.currentTime);g.gain.exponentialRampToValueAtTime(.001,AC.currentTime+d);o.connect(g);g.connect(AC.destination);o.start();o.stop(AC.currentTime+d);}
+function drum(){tone(90,.25,'square',.3);}
+function horn(){tone(140,.6,'sawtooth',.25);setTimeout(()=>tone(110,.6,'sawtooth',.2),120);}
+function chime(){tone(880,.15,'sine',.2);setTimeout(()=>tone(1200,.2,'sine',.2),150);}
+
+const stages=[
+ {rows:3,cols:4,title:'Training Yard Scroll',text:'Form 3 rows of 4 soldiers.'},
+ {rows:5,cols:6,title:'Dispatch Scroll',text:'"5 wagons, 6 soldiers each." Build the ranks!',decoy:{text:'General Vex sneers: "Ha! My scouts counted 6 rows of 5 — that\\'s 35 soldiers!"',claimed:35}}
+];
+let stageIdx=0,filled=0,remaining=0,rows=0,cols=0,progressPct=2,reinforcements=0,firstTap=true;
+
+function loadStage(i){
+  const s=stages[i];rows=s.rows;cols=s.cols;filled=0;remaining=rows*cols;
+  document.getElementById('scrollTitle').textContent=s.title;
+  document.getElementById('scrollText').textContent=s.text;
+  document.getElementById('trayCount').textContent=remaining;
+  document.getElementById('skipcount').innerHTML='';
+  document.getElementById('feedback').innerHTML='';
+  document.getElementById('mentorHint').textContent='';
+  const btn=document.getElementById('sendBtn');
+  btn.classList.add('hidden');btn.disabled=true;btn.textContent='Send Formation ⚔️';btn.onclick=sendFormation;
+  const grid=document.getElementById('grid');
+  grid.style.gridTemplateColumns='repeat('+cols+',46px)';
+  grid.innerHTML='';
+  for(let k=0;k<rows*cols;k++){const d=document.createElement('div');d.className='cell';d.id='cell'+k;grid.appendChild(d);}
+  glowNext();
+}
+function glowNext(){
+  document.querySelectorAll('.cell.glow').forEach(c=>c.classList.remove('glow'));
+  if(filled<rows*cols) document.getElementById('cell'+filled).classList.add('glow');
+}
+function placeToken(){
+  if(firstTap){firstTap=false;document.getElementById('tapHint').classList.add('hidden');}
+  if(remaining<=0||filled>=rows*cols) return;
+  const cell=document.getElementById('cell'+filled);
+  cell.classList.remove('glow');cell.classList.add('filled');cell.textContent='♙';
+  filled++;remaining--;
+  document.getElementById('trayCount').textContent=remaining;
+  glowNext();
+  if(filled%cols===0){
+    drum();
+    for(let r=0;r<cols;r++){document.getElementById('cell'+(filled-1-r)).classList.add('rowflash');}
+    const span=document.createElement('span');span.textContent=filled;
+    document.getElementById('skipcount').appendChild(span);
+  }
+  if(filled===rows*cols){
+    if(stages[stageIdx].decoy){setTimeout(showDecoy,400);}
+    else{const btn=document.getElementById('sendBtn');btn.classList.remove('hidden');btn.disabled=false;}
+  }
+}
+function showDecoy(){
+  const d=stages[stageIdx].decoy;
+  document.getElementById('feedback').innerHTML='<div class="decoy-box"><div class="taunt">'+d.text+'</div><div class="decoy-btns"><button class="confirmBtn" onclick="resolveDecoy(true)">✅ Confirm — Matches</button><button class="flagBtn" onclick="resolveDecoy(false)">🚩 Flag as Miscount</button></div></div>';
+}
+function resolveDecoy(confirmed){
+  const d=stages[stageIdx].decoy;const actual=rows*cols;
+  const decoyIsWrong=d.claimed!==actual;
+  const playerCorrect=confirmed?!decoyIsWrong:decoyIsWrong;
+  const fb=document.getElementById('feedback');const btn=document.getElementById('sendBtn');
+  if(playerCorrect){
+    chime();
+    fb.innerHTML='<div style="color:#7CFC7C;font-weight:bold">🕵️ SPY EXPOSED! Real total is '+actual+', not '+d.claimed+'. Bonus advance!</div>';
+    advanceMarker(actual+18);
+  }else{
+    horn();reinforcements++;document.getElementById('reinfCount').textContent=reinforcements;
+    fb.innerHTML='<div class="taunt">😈 "Too slow, commander!" The fortress gains a reinforcement.</div>';
+    document.getElementById('mentorHint').textContent='🎖️ Mentor: "Recount the scroll — multiply wagons × soldiers each!"';
+    stepBack();advanceMarker(actual*0.4);
+  }
+  setTimeout(()=>{btn.classList.remove('hidden');btn.disabled=false;btn.textContent='Continue ⚔️';btn.onclick=nextStage;},1300);
+}
+function stepBack(){
+  document.querySelectorAll('.grid .cell.filled').forEach(c=>c.classList.add('stepback'));
+  setTimeout(()=>{document.querySelectorAll('.stepback').forEach(c=>{c.classList.remove('filled','stepback');c.textContent='';});},500);
+}
+function sendFormation(){
+  const total=rows*cols;
+  document.getElementById('feedback').innerHTML='<div style="color:#7CFC7C;font-weight:bold">⚔️ Formation of '+rows+'×'+cols+'='+total+' marches forward!</div>';
+  advanceMarker(total*1.6);
+  const btn=document.getElementById('sendBtn');btn.disabled=true;
+  setTimeout(()=>{btn.textContent='Continue ⚔️';btn.disabled=false;btn.onclick=nextStage;},1000);
+}
+function advanceMarker(amount){
+  progressPct=Math.min(92,progressPct+amount/60*20);
+  document.getElementById('marker').style.left=progressPct+'%';
+  if(progressPct>65) document.getElementById('gate').classList.add('cracked');
+}
+function nextStage(){
+  stageIdx++;
+  if(stageIdx<stages.length){loadStage(stageIdx);}
+  else{
+    document.getElementById('lockedCard').innerHTML='🔒 <b>Iron Gate — Final Siege</b><br>Chained scrolls, rapid decoys, countdown clock... (next training session)';
+    document.getElementById('feedback').innerHTML='<div style="color:#f0d078;font-weight:bold">Training siege complete! Tap 👑 Preview Payoff to see how victory looks.</div>';
+    document.getElementById('sendBtn').classList.add('hidden');
+  }
+}
+function showModal(){document.getElementById('modal').classList.remove('hidden');}
+function hideModal(){document.getElementById('modal').classList.add('hidden');}
+loadStage(0);
+</script>
+</body>
+</html>
+```

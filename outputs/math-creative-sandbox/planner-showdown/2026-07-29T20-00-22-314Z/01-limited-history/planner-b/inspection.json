@@ -1,0 +1,14 @@
+{
+  "hardFailures": [
+    "unsupported_high_confidence_claim"
+  ],
+  "metrics": {
+    "factualClaimCount": 7,
+    "evidenceReferencedClaimCount": 0,
+    "evidenceGroundingRatio": 0,
+    "fabricatedEvidenceReferenceCount": 0,
+    "unsupportedHighConfidenceCount": 1,
+    "predictionCount": 4,
+    "nodeCount": 5
+  }
+}

@@ -1,0 +1,26 @@
+{
+  "candidateId": "scenario-2-profile",
+  "screenshots": [
+    "/Users/jamaltaylor/Development/sunny-math-creative-sandbox/outputs/math-creative-sandbox/2026-07-27T02-56-08-227Z-reina/scenario-2-profile/00-opening.png",
+    "/Users/jamaltaylor/Development/sunny-math-creative-sandbox/outputs/math-creative-sandbox/2026-07-27T02-56-08-227Z-reina/scenario-2-profile/01-first-action.png",
+    "/Users/jamaltaylor/Development/sunny-math-creative-sandbox/outputs/math-creative-sandbox/2026-07-27T02-56-08-227Z-reina/scenario-2-profile/02-progress.png"
+  ],
+  "actions": [
+    {
+      "kind": "click_text",
+      "text": "Start Adventure 🌻",
+      "captureLabel": "first-action",
+      "reason": "This is the only visible interactive element; tapping it should launch the first activity screen to reveal the actual learning task.",
+      "ok": true
+    },
+    {
+      "kind": "wait",
+      "ms": 500,
+      "captureLabel": "progress",
+      "reason": "Allow time for any transition/animation to complete before capturing the new screen state.",
+      "ok": true
+    }
+  ],
+  "visibleText": "🐞 Buggy's Garden Market\n\nMarket day is coming! Buggy needs help sorting bugs and flowers into equal groups, building arrays, and skip-counting super fast.\n\nTap the button to begin the adventure!\n\nStart Adventure 🌻\n🐞\nHi! I'm Buggy! Ready to count with me?",
+  "consoleMessages": []
+}

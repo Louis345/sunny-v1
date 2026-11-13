@@ -1,0 +1,426 @@
+Repair this lightweight interactive mock exactly once.
+
+The academic contract and design artifact are immutable. Apply only the usability, visual, CSS/layout, responsive, affordance, and implementation-fidelity corrections in the review. Preserve the theme, mission, stakes, core interaction, and mathematical responsibility. Keep this as an opening-state and first-interaction mock, not a complete activity.
+
+Return one complete standalone HTML document under 14,000 characters with inline CSS and JavaScript. External HTTPS libraries and assets are allowed. It must work with touch or mouse inside a 1365x768 iframe. Return raw HTML only.
+
+NODE CONTRACT:
+{
+  "nodeId": "node_1_equal_partitioning",
+  "responsibility": "Establish that a whole (e.g., a strip, square, or set of objects) must be divided into parts of equal size or quantity for fraction language to apply, and distinguish equal partitions from unequal ones.",
+  "academicBoundary": "Limit to visual and physical partitioning of a single whole into 2, 3, 4, or 6 equal parts using shapes such as strips, squares, or circles distinct from the worksheet's rectangle/circle examples (e.g., a hexagon, a number line segment, or a set of counters). Do not yet introduce fraction notation or naming; focus only on the concept of 'equal-sized parts.' No comparison across wholes.",
+  "evidenceGoal": "Student can correctly identify which of several partitioned shapes/sets show equal parts versus unequal parts, and can partition a new whole into a specified number of equal parts."
+}
+
+FROZEN DESIGN ARTIFACT:
+{
+  "artifactId": "fairsplit-guild-node1-v1",
+  "nodeId": "node_1_equal_partitioning",
+  "title": "The Fair-Split Guild",
+  "audienceRationale": "Reina's data shows near-perfect completion and very high engagement (0.99) on precise, self-checking, high-repetition tasks (spell-check) and strong tolerance for grinding through many trials even at moderate accuracy (word-radar: 112 plays, 0.66 accuracy, engagement 0.86 despite frustration 0.27). She likes performance-flavored formats (wheel-of-fortune, pronunciation) but with low confidence/low volume, suggesting she prefers items she can practice repeatedly and master rather than one-shot spectacle. This node is built as a high-volume, instantly-checkable 'inspection and fixing' loop: many quick rounds, crisp right/wrong feedback, no reading-heavy notation yet, and a satisfying visual 'snap to equal' correction — mirroring the precision-and-repetition pattern she already thrives on, while keeping frustration low with forgiving retry mechanics.",
+  "openingPromise": "You'll become the Guild's Fair-Split Inspector — the only judge who can tell a truly equal split from a sneaky uneven one, and fix the bad ones with your own hands.",
+  "firstThreeSeconds": "A hexagon-shaped cookie tray appears on a workbench, already sliced into 6 pieces — two of them obviously bigger than the rest. A stamp icon glows over it, inviting a tap: 'FAIR' or 'UNFAIR'.",
+  "firstAction": "Tap the stamp that matches what you see: FAIR (all pieces same size) or UNFAIR (pieces are different sizes) — no reading required, just looking and tapping.",
+  "interactionDemonstration": "The first tray is deliberately obvious: two huge slices and four tiny slivers. As soon as Reina taps 'UNFAIR', the unequal lines pulse red, then a helper hand redraws them into 6 identical wedges while a chime plays, showing exactly what 'fair' looks like before she's asked to judge anything harder.",
+  "coreInteraction": "Across many quick rounds, Reina inspects a whole (hexagon tray, number-line ribbon, or a scattered set of counters split into groups) and (1) stamps it FAIR or UNFAIR, then (2) if UNFAIR, drags slice-boundaries or regroups counters until a live 'equalness meter' locks green at perfectly equal — and separately, on 'Build' rounds, she's given a whole and a target part-count (2, 3, 4, or 6) and must partition it herself from scratch until the meter locks green. Every action gets instant visual feedback with no penalty for retrying.",
+  "mathAsPower": "Being able to instantly spot 'equal vs. not equal' is the secret power that makes fraction language possible at all — Reina becomes the one person in the Guild who can certify any split as fair, which is the exact gatekeeping skill needed before anyone can even say 'a third' or 'a sixth' truthfully.",
+  "stakes": "Guild customers (a baker, a ribbon-maker, a marble-collector) are waiting for their orders to be certified. An uncorrected unequal split gets shipped out with a wobbly, sad customer reaction; a properly fixed one gets a happy stamp of approval and the order ships with a cheer.",
+  "consequences": "Misjudging FAIR/UNFAIR causes the tray to visibly wobble and tip over (pieces sliding off), giving immediate honest feedback without harsh punishment — she simply gets to look again and re-stamp. Successfully corrected splits get sealed with a wax Guild stamp and added to a growing 'certified orders' shelf.",
+  "recovery": "No lives, no timers. Wrong stamps or clumsy drags just trigger a gentle 'wobble and reset' animation with a soft sound, and the piece returns to its editable state so she can keep adjusting the equalness meter until it locks green — unlimited attempts, always forward progress once corrected.",
+  "progression": [
+    "Warm-up: obvious FAIR vs UNFAIR judgments on hexagons and strips (2 and 4 parts), heavy visual contrast",
+    "Judge + Fix: subtler unequal splits (near-equal but not quite) requiring drag-to-adjust corrections, introducing 3 and 6 parts",
+    "Sets of objects: counters grouped unevenly (e.g., 7 marbles in groups of 4 and 3) vs evenly (6 marbles in groups of 3 and 3), extending 'equal' beyond shapes to quantities",
+    "Build-from-scratch: given a blank whole and a target number of parts (2, 3, 4, or 6), partition it herself with no starting shape to judge, only the equalness meter as a guide",
+    "Mixed mastery round: a rapid shuffle of judge, fix, and build tasks across strips, number lines, hexagons, and counter sets, timed only as an optional personal-best challenge"
+  ],
+  "worldReaction": "The workbench fills up with a shelf of stamped, certified orders; customer characters visibly cheer, do a little dance, or offer thank-you notes when their split is fixed, while the Guildmaster's portrait in the background nods approvingly and adds new tools (a laser-straight ruler, a counter-sorting tray) to Reina's bench as she progresses.",
+  "payoff": "Reina earns the title 'Certified Fair-Split Inspector' and unlocks a golden stamp tool plus a display case showing every whole she's successfully equalized, from hexagons to ribbon number-lines to marble jars — visible proof of a skill fully mastered before any fraction names are even introduced.",
+  "replayVariation": "Randomized whole-shapes (hexagon, strip, circle-of-counters, number line, irregular blob), randomized part-counts (2, 3, 4, 6), randomized near-miss unequal splits of varying subtlety, and an optional speed-run mode for repeat play once accuracy is consistently high.",
+  "visualDirection": "Warm, tactile workshop aesthetic — wood-grain workbench, chalky stamps, hand-drawn-style trays and ribbons; equal parts glow soft green, unequal parts pulse warm red/orange; the 'equalness meter' is a simple horizontal gauge that fills and locks with a golden glow.",
+  "motionDirection": "Snappy, satisfying micro-animations: slices slide and snap into place with slight overshoot-and-settle physics; unequal pieces visibly wobble/tilt to show imbalance; the wax stamp comes down with a quick squash-and-bounce.",
+  "soundDirection": "Light, tactile sound design — soft wood-clink for taps, a rising chime as the equalness meter fills, a satisfying 'thunk' wax-stamp sound on certification, gentle low 'wobble' thud for mistakes, upbeat short jingle on level completion.",
+  "usefulLibraries": [
+    "Phaser (2D interaction, drag physics, tweening for snap/wobble effects)",
+    "GSAP (smooth meter-fill and stamp-squash animations)",
+    "Howler.js (layered sound feedback)",
+    "Matter.js or Phaser Arcade Physics (optional wobble/tip physics on unequal trays)"
+  ],
+  "engagementPrediction": "High: matches Reina's demonstrated preference for high-repetition, instantly-checkable tasks with clear visual right/wrong feedback and low reading load; forgiving retry loop should keep frustration low (similar to her low-frustration spell-check pattern) while volume of quick rounds mirrors her word-radar stamina.",
+  "falsifyingEvidence": "If Reina's completion rate drops sharply on Build-from-scratch rounds (self-directed partitioning) compared to Judge/Fix rounds, or if she disengages after few plays despite instant feedback, it would suggest she needs more structured scaffolding before open-ended partitioning, contradicting the assumption that she can transfer inspection skill directly into construction skill."
+}
+
+
+QUALITY REVIEW:
+{
+  "nodeId": "node_1_equal_partitioning",
+  "strongestQuality": "The FAIR/UNFAIR stamp pair is instantly readable as the first action, with satisfying press physics and a clearly unequal opening split.",
+  "usabilityIssues": [
+    "The same wobble animation plays for both correct and incorrect stamps, so the tray's reaction alone does not distinguish right from wrong.",
+    "The empty 'Equalness Meter' is visible from the opening frame with no role during the judging phase, inviting confusion about what it is for.",
+    "After the fix completes, both stamps stay disabled and no next tray arrives, leaving the mock at a dead end with no visible continue affordance."
+  ],
+  "visualIssues": [
+    "The tray renders as a plain circle rather than the artifact's hexagon, and a circle is exactly the shape the node boundary excludes.",
+    "All slices share one tan fill at rest, so unequal pieces are distinguished only by wedge size with no color or texture reinforcement.",
+    "The page is hard-coded to 1365×768 with overflow hidden, so smaller viewports clip the shelf and stamps with no scaling."
+  ],
+  "repairBrief": "Render the tray as a true hexagon outline (clip the wedge SVG to a hexagon path) so the whole matches the artifact and boundary. Differentiate feedback: keep wobble only for wrong stamps and add a brief green flash plus chime cue on correct ones. Hide the Equalness Meter until the fix phase begins, then fade it in labeled 'Watch it lock green.' After certification, re-enable a single 'Next Tray' button that reloads the same round with reshuffled bad angles. Wrap the scene in a transform-scale container so the 1365×768 stage fits any viewport."
+}
+
+EXISTING MOCK HTML:
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>The Fair-Split Guild</title>
+<style>
+  * { box-sizing: border-box; user-select: none; -webkit-user-select: none; }
+  html, body {
+    margin: 0; padding: 0; width: 1365px; height: 768px; overflow: hidden;
+    background: linear-gradient(180deg, #5b3a24 0%, #7a5238 100%);
+    font-family: 'Trebuchet MS', 'Segoe UI', sans-serif;
+  }
+  #scene { position: relative; width: 1365px; height: 768px; }
+
+  /* wood workbench */
+  #bench {
+    position: absolute; top: 0; left: 0; width: 1365px; height: 768px;
+    background: repeating-linear-gradient(90deg, #8a5c3a 0px, #96633f 40px, #8a5c3a 80px);
+  }
+  #bench::after {
+    content: ""; position: absolute; inset: 0;
+    background: radial-gradient(ellipse at center, rgba(0,0,0,0) 40%, rgba(0,0,0,0.35) 100%);
+  }
+
+  #title {
+    position: absolute; top: 18px; left: 0; width: 100%; text-align: center;
+    color: #ffe9c7; font-size: 30px; font-weight: bold; letter-spacing: 1px;
+    text-shadow: 2px 2px 3px #3a2312;
+  }
+  #subtitle {
+    position: absolute; top: 58px; left: 0; width: 100%; text-align: center;
+    color: #f0d3a8; font-size: 16px; text-shadow: 1px 1px 2px #3a2312;
+  }
+
+  /* certified shelf */
+  #shelf {
+    position: absolute; top: 100px; right: 30px; width: 230px; height: 560px;
+    background: #6b4326; border: 4px solid #4a2e18; border-radius: 8px;
+    padding: 10px; color: #ffe9c7; font-size: 14px; text-align: center;
+  }
+  #shelf h3 { margin: 4px 0 10px 0; font-size: 16px; color: #ffd98a; }
+  .cert-slot {
+    width: 90px; height: 90px; margin: 6px auto; border-radius: 8px;
+    background: #543018; border: 2px dashed #8a6440;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 30px; opacity: 0.5;
+  }
+  .cert-slot.filled { opacity: 1; background: #6d4a24; border: 2px solid #ffd98a; }
+
+  /* guildmaster */
+  #guildmaster {
+    position: absolute; top: 100px; left: 30px; width: 190px; text-align: center;
+    color: #ffe9c7;
+  }
+  #gm-portrait {
+    width: 140px; height: 140px; border-radius: 50%; margin: 0 auto 8px auto;
+    background: radial-gradient(circle at 35% 30%, #c9975a, #7a5230);
+    border: 5px solid #4a2e18; position: relative;
+  }
+  #gm-portrait .eye { position: absolute; width: 10px; height: 10px; background: #2a1a0e; border-radius: 50%; top: 55px; }
+  #gm-portrait .eye.l { left: 40px; } #gm-portrait .eye.r { right: 40px; }
+  #gm-portrait .mouth {
+    position: absolute; width: 40px; height: 15px; border: 4px solid #2a1a0e; border-top: none;
+    border-radius: 0 0 20px 20px; bottom: 30px; left: 50px; transition: all 0.4s;
+  }
+  #gm-note { font-size: 13px; color: #f0d3a8; min-height: 40px; }
+
+  /* main tray area */
+  #trayArea {
+    position: absolute; top: 140px; left: 260px; width: 840px; height: 420px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  #hexWrap { position: relative; width: 420px; height: 420px; }
+  svg#hex { width: 420px; height: 420px; overflow: visible; }
+  .slice {
+    stroke: #4a2e18; stroke-width: 3; transition: fill 0.3s;
+    filter: drop-shadow(0 2px 3px rgba(0,0,0,0.4));
+  }
+  .slice.unequal { fill: #d8985a; }
+  .slice.pulse { animation: pulseRed 0.6s ease-in-out 2; }
+  @keyframes pulseRed {
+    0%, 100% { fill: #d8985a; }
+    50% { fill: #ff6b4a; }
+  }
+  .slice.fixed { fill: #7fd88f; animation: none; }
+
+  #hexWrap.wobble { animation: wobbleTray 0.5s ease-in-out; }
+  @keyframes wobbleTray {
+    0%, 100% { transform: rotate(0deg) translateY(0); }
+    25% { transform: rotate(-4deg) translateY(3px); }
+    75% { transform: rotate(4deg) translateY(3px); }
+  }
+
+  /* stamps */
+  #stampRow {
+    position: absolute; bottom: 30px; left: 260px; width: 840px;
+    display: flex; justify-content: center; gap: 60px;
+  }
+  .stampBtn {
+    width: 200px; height: 90px; border-radius: 14px; border: 4px solid #3a2312;
+    font-size: 26px; font-weight: bold; cursor: pointer; letter-spacing: 2px;
+    box-shadow: 0 6px 0 #2a1a0c, 0 8px 10px rgba(0,0,0,0.4);
+    transition: transform 0.08s;
+    font-family: 'Trebuchet MS', sans-serif;
+  }
+  .stampBtn:active { transform: translateY(6px); box-shadow: 0 0px 0 #2a1a0c; }
+  #fairBtn { background: #8fe0a0; color: #244d2f; }
+  #unfairBtn { background: #f2a06a; color: #5c2c10; }
+  .stampBtn:disabled { opacity: 0.35; cursor: default; }
+
+  /* equalness meter */
+  #meterWrap {
+    position: absolute; top: 590px; left: 260px; width: 840px;
+    text-align: center; color: #ffe9c7;
+  }
+  #meterLabel { font-size: 15px; margin-bottom: 6px; }
+  #meterBar {
+    width: 500px; height: 26px; margin: 0 auto; background: #3a2312;
+    border-radius: 13px; border: 2px solid #1e1208; overflow: hidden;
+    position: relative;
+  }
+  #meterFill {
+    height: 100%; width: 0%; background: linear-gradient(90deg, #ffd98a, #ffb347);
+    transition: width 0.4s ease;
+  }
+  #meterFill.locked { background: linear-gradient(90deg, #ffe89a, #ffd23a); box-shadow: 0 0 20px #ffd23a inset; }
+
+  /* stamp overlay animation */
+  #stampMark {
+    position: absolute; top: 200px; left: 480px; width: 180px; height: 90px;
+    pointer-events: none; opacity: 0; z-index: 50;
+  }
+
+  #feedbackText {
+    position: absolute; top: 90px; left: 260px; width: 840px; text-align: center;
+    font-size: 20px; color: #fff4de; font-weight: bold; text-shadow: 1px 1px 2px #000;
+    min-height: 30px;
+  }
+
+  .customer {
+    position: absolute; bottom: 130px; left: 50%; transform: translateX(-50%);
+    font-size: 60px; opacity: 0; transition: opacity 0.4s, transform 0.4s;
+  }
+  .customer.show { opacity: 1; transform: translateX(-50%) translateY(-10px); }
+</style>
+</head>
+<body>
+<div id="scene">
+  <div id="bench"></div>
+  <div id="title">The Fair-Split Guild</div>
+  <div id="subtitle">You'll become the Fair-Split Inspector — spot the sneaky uneven split, then fix it.</div>
+
+  <div id="guildmaster">
+    <div id="gm-portrait">
+      <div class="eye l"></div><div class="eye r"></div>
+      <div class="mouth" id="gm-mouth"></div>
+    </div>
+    <div id="gm-note">A tray just came in... is it fair?</div>
+  </div>
+
+  <div id="shelf">
+    <h3>Certified Orders</h3>
+    <div class="cert-slot" id="slot0">🍪</div>
+    <div class="cert-slot" id="slot1">🎀</div>
+    <div class="cert-slot" id="slot2">🔵</div>
+  </div>
+
+  <div id="feedbackText"></div>
+
+  <div id="trayArea">
+    <div id="hexWrap">
+      <svg id="hex" viewBox="0 0 420 420"></svg>
+      <div class="customer" id="customer">😟</div>
+    </div>
+  </div>
+
+  <div id="stampRow">
+    <button class="stampBtn" id="fairBtn" onclick="judge('fair')">FAIR ✅</button>
+    <button class="stampBtn" id="unfairBtn" onclick="judge('unfair')">UNFAIR ❌</button>
+  </div>
+
+  <div id="meterWrap">
+    <div id="meterLabel">Equalness Meter</div>
+    <div id="meterBar"><div id="meterFill"></div></div>
+  </div>
+</div>
+
+<audio id="sndClink" src="https://cdn.jsdelivr.net/gh/anars/blank-audio/1-second-of-silence.mp3"></audio>
+
+<script>
+const svgNS = "http://www.w3.org/2000/svg";
+const cx = 210, cy = 210, R = 190;
+let state = "await_judge"; // await_judge, dragging_fix, done
+let sliceEls = [];
+let equalness = 0;
+
+// Define an obviously unequal hexagon split: 6 slices, uneven angles
+// two big wedges (100deg each) and four small wedges (40deg each) => 200+160=360
+const badAngles = [100, 40, 40, 100, 40, 40];
+const goodAngles = [60,60,60,60,60,60];
+let currentAngles = badAngles.slice();
+
+function polarPoint(angleDeg, radius) {
+  const rad = (angleDeg - 90) * Math.PI / 180;
+  return [cx + radius * Math.cos(rad), cy + radius * Math.sin(rad)];
+}
+
+function drawHex(angles, equalize=false) {
+  const hex = document.getElementById('hex');
+  hex.innerHTML = "";
+  sliceEls = [];
+  let start = 0;
+  angles.forEach((a, i) => {
+    const [x1,y1] = polarPoint(start, R);
+    const [x2,y2] = polarPoint(start+a, R);
+    const path = document.createElementNS(svgNS, "path");
+    const d = `M${cx},${cy} L${x1},${y1} A${R},${R} 0 ${a>180?1:0} 1 ${x2},${y2} Z`;
+    path.setAttribute("d", d);
+    path.classList.add("slice");
+    if (!equalize) path.classList.add("unequal");
+    else path.classList.add("fixed");
+    hex.appendChild(path);
+    sliceEls.push(path);
+    start += a;
+  });
+}
+
+drawHex(currentAngles, false);
+
+function setGmMouth(happy) {
+  const m = document.getElementById('gm-mouth');
+  if (happy) {
+    m.style.borderRadius = "0 0 20px 20px";
+    m.style.borderColor = "#2a6b2a";
+  } else {
+    m.style.borderRadius = "20px 20px 0 0";
+    m.style.borderColor = "#2a1a0e";
+    m.style.bottom = "38px";
+  }
+}
+
+function setFeedback(text, color) {
+  const f = document.getElementById('feedbackText');
+  f.textContent = text;
+  f.style.color = color || "#fff4de";
+}
+
+function judge(choice) {
+  if (state !== "await_judge") return;
+  document.getElementById('fairBtn').disabled = true;
+  document.getElementById('unfairBtn').disabled = true;
+
+  if (choice === "unfair") {
+    // correct judgment
+    setFeedback("Correct! That split is UNFAIR — pieces are not the same size.", "#c8ffcf");
+    document.getElementById('gm-note').textContent = "Good eye! Now fix it, Inspector.";
+    setGmMouth(true);
+    sliceEls.forEach(s => s.classList.add('pulse'));
+    document.getElementById('customer').classList.add('show');
+    document.getElementById('hexWrap').classList.add('wobble');
+    setTimeout(()=> document.getElementById('hexWrap').classList.remove('wobble'), 500);
+
+    setTimeout(() => {
+      sliceEls.forEach(s => s.classList.remove('pulse'));
+      animateFix();
+    }, 1300);
+  } else {
+    // incorrect judgment -> gentle wobble reset, retry
+    setFeedback("Hmm, look again — are all 6 pieces really the same size?", "#ffd9c2");
+    document.getElementById('hexWrap').classList.add('wobble');
+    setTimeout(() => {
+      document.getElementById('hexWrap').classList.remove('wobble');
+      document.getElementById('fairBtn').disabled = false;
+      document.getElementById('unfairBtn').disabled = false;
+    }, 550);
+  }
+}
+
+function animateFix() {
+  state = "fixing";
+  setFeedback("Watch the helper hand snap every slice to equal...", "#ffe9c7");
+  let steps = 20;
+  let frame = 0;
+  const startAngles = currentAngles.slice();
+  const target = goodAngles;
+
+  function step() {
+    frame++;
+    let t = frame / steps;
+    // ease out with slight overshoot
+    let eased = t < 1 ? 1 - Math.pow(1-t, 3) : 1;
+    let interp = startAngles.map((a,i) => a + (target[i]-a)*eased);
+    drawHex(interp, false);
+    equalness = Math.min(100, Math.round(t*100));
+    updateMeter();
+
+    if (frame < steps) {
+      requestAnimationFrame(step);
+    } else {
+      drawHex(target, true);
+      equalness = 100;
+      updateMeter(true);
+      onFixedComplete();
+    }
+  }
+  requestAnimationFrame(step);
+}
+
+function updateMeter(locked) {
+  const fill = document.getElementById('meterFill');
+  fill.style.width = equalness + "%";
+  if (locked) fill.classList.add('locked');
+}
+
+function onFixedComplete() {
+  state = "done";
+  setFeedback("Certified! 6 equal pieces — perfectly fair. 🎉", "#c8ffcf");
+  document.getElementById('gm-note').textContent = "Certified Fair-Split! Well done, Inspector.";
+  document.getElementById('customer').textContent = "😃";
+
+  // stamp animation
+  const hexWrap = document.getElementById('hexWrap');
+  const stamp = document.createElement('div');
+  stamp.textContent = "✅ FAIR";
+  stamp.style.position = "absolute";
+  stamp.style.top = "170px";
+  stamp.style.left = "110px";
+  stamp.style.fontSize = "42px";
+  stamp.style.fontWeight = "bold";
+  stamp.style.color = "#ffd23a";
+  stamp.style.textShadow = "2px 2px 3px #000";
+  stamp.style.transform = "scale(2) rotate(-15deg)";
+  stamp.style.opacity = "0";
+  stamp.style.transition = "all 0.35s cubic-bezier(.4,1.6,.6,1)";
+  hexWrap.appendChild(stamp);
+  requestAnimationFrame(() => {
+    stamp.style.opacity = "1";
+    stamp.style.transform = "scale(1) rotate(-15deg)";
+  });
+
+  // fill a shelf slot
+  const slot = document.getElementById('slot0');
+  slot.classList.add('filled');
+
+  setTimeout(() => {
+    document.getElementById('subtitle').textContent =
+      "You certified your first split. Many more trays are waiting, Inspector...";
+  }, 900);
+}
+
+// initial meter state
+updateMeter();
+</script>
+</body>
+</html>

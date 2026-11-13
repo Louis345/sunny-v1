@@ -1,0 +1,1201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=1365, initial-scale=1">
+<title>The Shape Museum: Vault of Five Doors</title>
+<style>
+  :root{
+    --hall:#0e1e22;
+    --hall2:#132b30;
+    --cream:#f6ecd8;
+    --cream-dim:#d9cdb4;
+    --brass:#c8963e;
+    --brass-lt:#f0c069;
+    --brass-dk:#8a6220;
+    --amber:#f2b544;
+    --ink:#20302f;
+    --grey-seal:#8b8f8c;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;padding:0;height:100%;overflow:hidden;}
+  body{
+    background:
+      radial-gradient(1200px 700px at 50% -10%, #1d3b41 0%, var(--hall2) 42%, var(--hall) 100%);
+    color:var(--cream);
+    font-family: "Nunito", "Trebuchet MS", system-ui, -apple-system, "Segoe UI", sans-serif;
+    user-select:none;
+  }
+  #app{height:100vh;min-height:640px;display:flex;flex-direction:column;}
+  .hidden{display:none !important;}
+
+  /* ---------- door progress strip ---------- */
+  #doorStrip{
+    height:76px;flex:0 0 76px;display:flex;align-items:center;justify-content:center;gap:26px;
+    border-bottom:2px solid rgba(200,150,62,.28);
+    background:linear-gradient(180deg, rgba(0,0,0,.28), rgba(0,0,0,0));
+  }
+  .door{
+    position:relative;width:104px;height:56px;border-radius:8px 8px 4px 4px;
+    background:linear-gradient(160deg,#2a3f43,#1a2c30);
+    border:2px solid rgba(200,150,62,.45);
+    display:flex;align-items:center;justify-content:center;gap:8px;
+  }
+  .door.active{border-color:var(--brass-lt);box-shadow:0 0 16px rgba(242,181,68,.45);}
+  .doorNum{font-size:16px;font-weight:800;color:var(--cream-dim);}
+  .wheel{width:32px;height:32px;transition:transform 620ms cubic-bezier(.2,.8,.25,1);}
+  .seal{
+    position:absolute;right:-8px;top:-8px;width:26px;height:26px;border-radius:50%;
+    display:none;align-items:center;justify-content:center;font-size:13px;font-weight:800;color:#3a2708;
+    border:2px solid rgba(0,0,0,.3);
+  }
+  .seal.wax{display:flex;background:radial-gradient(circle at 35% 30%, #ffd98a, #d08a1c);}
+  .seal.grey{display:flex;background:radial-gradient(circle at 35% 30%, #cfd3cf, #7d827e);color:#2c332f;}
+
+  /* ---------- stage / scenes ---------- */
+  #stage{position:relative;flex:1 1 auto;min-height:0;}
+  .scene{position:absolute;inset:0;display:none;flex-direction:column;align-items:center;padding:10px 30px 0;}
+  .scene.show{display:flex;animation:fadeIn 420ms ease-out;}
+  @keyframes fadeIn{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:none;}}
+
+  /* ---------- title ---------- */
+  #sceneTitle{justify-content:center;text-align:center;}
+  .titleBadge{
+    width:132px;height:132px;border-radius:50%;margin-bottom:14px;
+    background:radial-gradient(circle at 35% 30%, #ffe1a0, var(--brass) 55%, #6d4a12 100%);
+    border:5px solid #f4d79a;display:flex;align-items:center;justify-content:center;
+    color:#3a2708;font-weight:900;font-size:15px;letter-spacing:1px;line-height:1.15;
+    box-shadow:0 0 44px rgba(242,181,68,.4);
+    animation:badgeIn 700ms cubic-bezier(.2,.9,.25,1);
+  }
+  @keyframes badgeIn{from{transform:translateX(-140px) scale(.7);opacity:0;}to{transform:none;opacity:1;}}
+  #sceneTitle h1{font-size:44px;margin:4px 0 6px;letter-spacing:.5px;}
+  #sceneTitle p{font-size:24px;max-width:900px;line-height:1.4;margin:6px 0;color:var(--cream);}
+  #sceneTitle .small{font-size:19px;color:var(--cream-dim);max-width:860px;}
+  .bigBtn{
+    margin-top:20px;min-width:340px;min-height:96px;font-size:30px;font-weight:900;letter-spacing:1.2px;
+    color:#3a2708;border:none;border-radius:18px;cursor:pointer;
+    background:linear-gradient(180deg,var(--brass-lt),var(--brass) 60%,var(--brass-dk));
+    box-shadow:0 8px 0 #5f4210, 0 0 40px rgba(242,181,68,.35);
+  }
+  .bigBtn:active{transform:translateY(4px);box-shadow:0 4px 0 #5f4210;}
+
+  /* ---------- item scene ---------- */
+  .doorTag{font-size:17px;letter-spacing:2px;color:var(--brass-lt);font-weight:800;text-transform:uppercase;margin-bottom:2px;}
+  .promptWrap{max-width:1150px;text-align:center;}
+  .prompt-context{font-size:19px;line-height:1.3;color:var(--cream-dim);margin:2px 0 4px;}
+  .prompt-main{font-size:30px;line-height:1.25;margin:0;font-weight:800;}
+  .exhibit{display:flex;align-items:flex-end;justify-content:center;gap:44px;margin:8px 0 2px;height:222px;}
+  .exhibitItem{display:flex;flex-direction:column;align-items:center;}
+  .solid{display:block;}
+  .pedestal{
+    width:132px;height:15px;border-radius:6px;margin-top:2px;
+    background:linear-gradient(180deg,#6d5a3a,#3a3026);
+    box-shadow:0 6px 16px rgba(0,0,0,.5);
+  }
+  .exLabel{
+    margin-top:8px;font-size:17px;font-weight:800;color:#2a221a;letter-spacing:.4px;
+    background:linear-gradient(180deg,#f3dfae,#d9bd7f);border-radius:999px;padding:3px 14px;
+  }
+  .ruleLine{font-size:19px;color:var(--brass-lt);font-weight:700;min-height:24px;margin-top:2px;text-align:center;}
+  .options{display:flex;flex-wrap:wrap;gap:16px;justify-content:center;margin-top:6px;max-width:1270px;}
+  .card{
+    min-width:210px;max-width:290px;min-height:104px;padding:14px 18px;cursor:pointer;
+    background:linear-gradient(180deg,#fbf3e1,#eadfc4);
+    color:var(--ink);border:4px solid rgba(0,0,0,.12);border-radius:16px;
+    font-size:22px;font-weight:700;line-height:1.25;font-family:inherit;
+    display:flex;align-items:center;gap:12px;text-align:left;
+    box-shadow:0 6px 0 rgba(0,0,0,.28);
+  }
+  .card:active{transform:translateY(3px);box-shadow:0 3px 0 rgba(0,0,0,.28);}
+  .card.selected{
+    border-color:var(--amber);background:linear-gradient(180deg,#fffaea,#f7e9c6);
+    box-shadow:0 6px 0 rgba(0,0,0,.28), 0 0 0 5px rgba(242,181,68,.35);
+  }
+  .box{
+    flex:0 0 30px;width:30px;height:30px;border-radius:8px;border:3px solid #8a7b58;background:#fff;
+    display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:900;color:#7a5a10;
+  }
+  .card.selected .box{background:var(--amber);border-color:#8a6220;}
+  .card.wobble{animation:wob 460ms ease;}
+  @keyframes wob{0%,100%{transform:translateX(0)}20%{transform:translateX(-9px)}40%{transform:translateX(9px)}60%{transform:translateX(-6px)}80%{transform:translateX(4px)}}
+  .countLine{margin-top:8px;font-size:19px;color:var(--cream-dim);min-height:22px;}
+
+  .controls{
+    margin-top:auto;width:100%;height:96px;flex:0 0 96px;display:flex;align-items:center;justify-content:space-between;
+    padding:0 6px;border-top:2px solid rgba(200,150,62,.22);
+  }
+  .ctrlLeft,.ctrlRight{display:flex;gap:12px;align-items:center;}
+  .ghostBtn{
+    min-height:64px;min-width:150px;padding:10px 18px;font-size:19px;font-weight:800;font-family:inherit;
+    color:var(--cream);background:rgba(255,255,255,.06);border:3px solid rgba(200,150,62,.55);
+    border-radius:14px;cursor:pointer;
+  }
+  .ghostBtn:active{transform:translateY(2px);}
+  .ghostBtn.quiet{border-color:rgba(255,255,255,.22);color:var(--cream-dim);min-width:120px;}
+  .fileBtn{
+    min-width:320px;min-height:80px;font-size:28px;font-weight:900;letter-spacing:2px;font-family:inherit;
+    border:none;border-radius:16px;cursor:pointer;color:#3a2708;
+    background:linear-gradient(180deg,var(--brass-lt),var(--brass) 60%,var(--brass-dk));
+    box-shadow:0 7px 0 #5f4210;
+  }
+  .fileBtn:active{transform:translateY(4px);box-shadow:0 3px 0 #5f4210;}
+  .fileBtn:disabled{
+    background:linear-gradient(180deg,#5b6467,#414a4d);color:#a9b1b0;box-shadow:0 7px 0 #2b3234;cursor:default;
+  }
+  .pulseOnce{animation:pulse 900ms ease-out 2;}
+  @keyframes pulse{0%{box-shadow:0 7px 0 #5f4210,0 0 0 0 rgba(242,181,68,.55);}100%{box-shadow:0 7px 0 #5f4210,0 0 0 24px rgba(242,181,68,0);}}
+
+  .curatorCard{
+    position:absolute;left:8px;bottom:104px;max-width:520px;padding:14px 16px;border-radius:16px;
+    background:linear-gradient(180deg,#fbf3e1,#e9dcbe);color:var(--ink);
+    border:3px solid var(--brass);box-shadow:0 10px 30px rgba(0,0,0,.5);
+    font-size:19px;line-height:1.35;font-weight:700;z-index:6;
+  }
+  .curatorCard .who{font-size:15px;letter-spacing:1.4px;color:#7a5a10;text-transform:uppercase;margin-bottom:4px;}
+  .miniBtn{
+    margin-top:10px;min-height:48px;min-width:110px;font-size:17px;font-weight:800;font-family:inherit;
+    border-radius:10px;border:3px solid #8a6220;background:#f2d493;color:#3a2708;cursor:pointer;
+  }
+  .nudge{
+    position:absolute;bottom:106px;left:50%;transform:translateX(-50%);
+    background:rgba(20,40,44,.95);border:3px solid var(--brass);border-radius:14px;
+    padding:12px 20px;font-size:20px;font-weight:800;color:var(--cream);z-index:6;
+  }
+
+  /* ---------- transit ---------- */
+  #sceneTransit{justify-content:center;align-items:center;}
+  .lantern{
+    width:80px;height:80px;border-radius:50%;
+    background:radial-gradient(circle at 40% 35%, #fff3cf, var(--amber) 45%, rgba(242,181,68,0) 72%);
+    animation:glide 1000ms ease-in-out;
+  }
+  @keyframes glide{from{transform:translateX(-420px);opacity:.1}50%{opacity:1}to{transform:translateX(420px);opacity:.1}}
+  .transitText{margin-top:14px;font-size:22px;color:var(--cream-dim);letter-spacing:2px;}
+
+  /* ---------- complete / exit ---------- */
+  #sceneComplete,#sceneExit{justify-content:center;text-align:center;}
+  .vaultTitle{font-size:40px;font-weight:900;letter-spacing:2px;margin:0 0 4px;color:var(--brass-lt);}
+  .recordCard{
+    margin-top:14px;background:rgba(255,255,255,.07);border:3px solid rgba(200,150,62,.5);
+    border-radius:16px;padding:14px 26px;font-size:22px;font-weight:800;line-height:1.5;color:var(--cream);
+  }
+  .footnote{margin-top:12px;font-size:18px;color:var(--cream-dim);max-width:820px;line-height:1.4;}
+  .galleryWrap{position:relative;width:330px;height:250px;margin-top:6px;}
+  .orbCore{
+    position:absolute;left:50%;top:50%;width:74px;height:74px;margin:-37px 0 0 -37px;border-radius:50%;
+    background:radial-gradient(circle at 40% 35%, #fffbe9, #ffd77a 40%, rgba(255,196,80,0) 72%);
+    box-shadow:0 0 70px rgba(255,200,90,.55);
+  }
+  .orbit{position:absolute;inset:0;animation:spin 26s linear infinite;}
+  .orbit .mini{position:absolute;width:56px;height:56px;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+  .fog{
+    position:absolute;inset:auto 0 0 0;height:120px;
+    background:linear-gradient(0deg, rgba(230,240,240,.16), rgba(230,240,240,0));
+    animation:fogRise 3s ease-out;
+  }
+  @keyframes fogRise{from{opacity:0;transform:translateY(40px)}to{opacity:1;transform:none}}
+
+  /* ---------- overlays ---------- */
+  .overlay{
+    position:fixed;inset:0;background:rgba(6,16,18,.92);z-index:20;
+    display:none;align-items:center;justify-content:center;padding:40px;
+  }
+  .overlay.show{display:flex;}
+  .panel{
+    background:linear-gradient(180deg,#fbf3e1,#e9dcbe);color:var(--ink);border:4px solid var(--brass);
+    border-radius:20px;padding:26px 30px;max-width:1080px;width:100%;text-align:center;
+  }
+  .panel h2{margin:0 0 12px;font-size:30px;}
+  #readBody{font-size:30px;line-height:1.45;font-weight:800;text-align:left;}
+  #readBody ul{margin:14px 0 0 0;padding-left:26px;}
+  #readBody li{margin:8px 0;}
+  .panelBtns{display:flex;gap:18px;justify-content:center;margin-top:20px;flex-wrap:wrap;}
+  .panelBtn{
+    min-height:76px;min-width:230px;font-size:23px;font-weight:900;font-family:inherit;border-radius:14px;cursor:pointer;
+    border:none;color:#3a2708;background:linear-gradient(180deg,var(--brass-lt),var(--brass) 60%,var(--brass-dk));
+    box-shadow:0 6px 0 #5f4210;padding:10px 20px;
+  }
+  .panelBtn.sec{background:linear-gradient(180deg,#e6dcc4,#c9bd9c);color:#332b18;box-shadow:0 6px 0 #8a7f60;}
+  .panelBtn:active{transform:translateY(3px);}
+
+  /* ---------- stamp fx ---------- */
+  #stampFx{
+    position:fixed;inset:0;z-index:30;display:none;align-items:center;justify-content:center;pointer-events:none;
+  }
+  #stampFx.show{display:flex;}
+  .stampInk{
+    font-size:64px;font-weight:900;letter-spacing:6px;padding:18px 44px;border-radius:12px;
+    transform:rotate(-11deg);animation:press 560ms cubic-bezier(.2,.9,.2,1);
+  }
+  .stampInk.filed{color:#8d2b1c;border:8px solid #8d2b1c;background:rgba(255,240,220,.9);}
+  .stampInk.unres{color:#4d5551;border:8px solid #4d5551;background:rgba(240,242,240,.9);}
+  @keyframes press{0%{transform:rotate(-11deg) scale(2.6);opacity:0}45%{transform:rotate(-11deg) scale(.92);opacity:1}60%{transform:rotate(-11deg) scale(1.04)}100%{transform:rotate(-11deg) scale(1);opacity:1}}
+
+  @media (prefers-reduced-motion: reduce){
+    *{animation-duration:.001ms !important;animation-iteration-count:1 !important;transition-duration:120ms !important;}
+    .orbit{animation:none !important;}
+  }
+</style>
+</head>
+<body>
+
+<svg id="globalDefs" width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <linearGradient id="cyl-h" x1="0" y1="0" x2="1" y2="0">
+    <stop offset="0" stop-color="#7fd3f2"/><stop offset=".42" stop-color="#3fa9d6"/><stop offset="1" stop-color="#1c6c92"/>
+  </linearGradient>
+  <linearGradient id="cone-h" x1="0" y1="0" x2="1" y2="0">
+    <stop offset="0" stop-color="#ffd58c"/><stop offset=".42" stop-color="#f0a831"/><stop offset="1" stop-color="#a9690c"/>
+  </linearGradient>
+  <radialGradient id="sph-r" cx=".35" cy=".3" r=".82">
+    <stop offset="0" stop-color="#ffb7a6"/><stop offset=".5" stop-color="#e8654f"/><stop offset="1" stop-color="#8b2c20"/>
+  </radialGradient>
+  <pattern id="hatch" width="10" height="10" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+    <rect width="10" height="10" fill="none"/>
+    <line x1="0" y1="0" x2="0" y2="10" stroke="#fff4e0" stroke-width="4" opacity=".8"/>
+  </pattern>
+</defs></svg>
+
+<div id="app">
+
+  <header id="doorStrip" class="hidden">
+    <div class="door" id="door0"><span class="doorNum">1</span>
+      <svg class="wheel" id="wheel0" viewBox="0 0 40 40"><circle cx="20" cy="20" r="14" fill="none" stroke="#c8963e" stroke-width="3"/><circle cx="20" cy="20" r="4" fill="#c8963e"/><g stroke="#c8963e" stroke-width="3"><line x1="20" y1="6" x2="20" y2="14"/><line x1="34" y1="20" x2="26" y2="20"/><line x1="20" y1="34" x2="20" y2="26"/><line x1="6" y1="20" x2="14" y2="20"/></g></svg>
+      <span class="seal" id="seal0">✓</span></div>
+    <div class="door" id="door1"><span class="doorNum">2</span>
+      <svg class="wheel" id="wheel1" viewBox="0 0 40 40"><circle cx="20" cy="20" r="14" fill="none" stroke="#c8963e" stroke-width="3"/><circle cx="20" cy="20" r="4" fill="#c8963e"/><g stroke="#c8963e" stroke-width="3"><line x1="20" y1="6" x2="20" y2="14"/><line x1="34" y1="20" x2="26" y2="20"/><line x1="20" y1="34" x2="20" y2="26"/><line x1="6" y1="20" x2="14" y2="20"/></g></svg>
+      <span class="seal" id="seal1">✓</span></div>
+    <div class="door" id="door2"><span class="doorNum">3</span>
+      <svg class="wheel" id="wheel2" viewBox="0 0 40 40"><circle cx="20" cy="20" r="14" fill="none" stroke="#c8963e" stroke-width="3"/><circle cx="20" cy="20" r="4" fill="#c8963e"/><g stroke="#c8963e" stroke-width="3"><line x1="20" y1="6" x2="20" y2="14"/><line x1="34" y1="20" x2="26" y2="20"/><line x1="20" y1="34" x2="20" y2="26"/><line x1="6" y1="20" x2="14" y2="20"/></g></svg>
+      <span class="seal" id="seal2">✓</span></div>
+    <div class="door" id="door3"><span class="doorNum">4</span>
+      <svg class="wheel" id="wheel3" viewBox="0 0 40 40"><circle cx="20" cy="20" r="14" fill="none" stroke="#c8963e" stroke-width="3"/><circle cx="20" cy="20" r="4" fill="#c8963e"/><g stroke="#c8963e" stroke-width="3"><line x1="20" y1="6" x2="20" y2="14"/><line x1="34" y1="20" x2="26" y2="20"/><line x1="20" y1="34" x2="20" y2="26"/><line x1="6" y1="20" x2="14" y2="20"/></g></svg>
+      <span class="seal" id="seal3">✓</span></div>
+    <div class="door" id="door4"><span class="doorNum">5</span>
+      <svg class="wheel" id="wheel4" viewBox="0 0 40 40"><circle cx="20" cy="20" r="14" fill="none" stroke="#c8963e" stroke-width="3"/><circle cx="20" cy="20" r="4" fill="#c8963e"/><g stroke="#c8963e" stroke-width="3"><line x1="20" y1="6" x2="20" y2="14"/><line x1="34" y1="20" x2="26" y2="20"/><line x1="20" y1="34" x2="20" y2="26"/><line x1="6" y1="20" x2="14" y2="20"/></g></svg>
+      <span class="seal" id="seal4">✓</span></div>
+  </header>
+
+  <main id="stage">
+
+    <section id="sceneTitle" class="scene show">
+      <div class="titleBadge">NIGHT<br>INSPECTOR</div>
+      <h1>The Shape Museum</h1>
+      <p>The Shape Museum needs a Night Inspector. Five vault doors are sealed.<br>Only your five inspection reports can open them. Nobody has seen what's inside.</p>
+      <p class="small">The museum files reports without judging them — the archive is opened later. Every filed report turns a lock, so all five doors open no matter what you write. If you are not sure about an exhibit, you may file it as <b>Unresolved</b>. That is normal inspector work.</p>
+      <button class="bigBtn" id="btnStart">START INSPECTION</button>
+    </section>
+
+    <section id="sceneItem" class="scene">
+      <div class="doorTag" id="doorTag">Door 1 of 5</div>
+      <div class="promptWrap">
+        <p class="prompt-context" id="promptContext"></p>
+        <h1 class="prompt-main" id="promptMain"></h1>
+      </div>
+      <div class="exhibit" id="exhibit"></div>
+      <div class="ruleLine" id="ruleLine"></div>
+      <div class="options" id="options"></div>
+      <div class="countLine" id="countLine"></div>
+
+      <div class="curatorCard hidden" id="curatorCard">
+        <div class="who">The Curator</div>
+        <div id="curatorText"></div>
+        <button class="miniBtn" id="curatorDismiss">Got it</button>
+      </div>
+      <div class="nudge hidden" id="nudge"></div>
+
+      <footer class="controls">
+        <div class="ctrlLeft">
+          <button class="ghostBtn" id="btnCurator">Ask the Curator</button>
+          <button class="ghostBtn" id="btnRead">Read it BIG</button>
+        </div>
+        <button class="fileBtn" id="btnFile" disabled>FILE REPORT</button>
+        <div class="ctrlRight">
+          <button class="ghostBtn" id="btnUnresolved">File as Unresolved</button>
+          <button class="ghostBtn quiet" id="btnEnd">End Shift</button>
+        </div>
+      </footer>
+    </section>
+
+    <section id="sceneTransit" class="scene">
+      <div class="lantern"></div>
+      <div class="transitText">walking to the next door…</div>
+    </section>
+
+    <section id="sceneComplete" class="scene">
+      <h1 class="vaultTitle">THE VAULT IS OPEN</h1>
+      <div class="galleryWrap" id="galleryWrap">
+        <div class="orbCore"></div>
+        <div class="orbit" id="orbit"></div>
+      </div>
+      <div class="recordCard" id="completeRecord"></div>
+      <p class="footnote">Inspector's badge embossed with the vault emblem. The museum keeps every report exactly as you filed it. Nothing is marked tonight — the archive is opened later.</p>
+      <div class="fog"></div>
+    </section>
+
+    <section id="sceneExit" class="scene">
+      <h1 class="vaultTitle">SHIFT ENDED</h1>
+      <p style="font-size:24px;max-width:860px;line-height:1.4">Thank you, Inspector. The museum has your reports.</p>
+      <div class="recordCard" id="exitRecord"></div>
+      <p class="footnote">The vault simply waits for the next shift. Nothing is marked tonight.</p>
+    </section>
+
+  </main>
+</div>
+
+<div class="overlay" id="readOverlay">
+  <div class="panel">
+    <h2 id="readTitle">Reading the report line</h2>
+    <div id="readBody"></div>
+    <div class="panelBtns"><button class="panelBtn" id="readClose">Back to the exhibit</button></div>
+  </div>
+</div>
+
+<div class="overlay" id="confirmOverlay">
+  <div class="panel">
+    <h2 id="confirmTitle">Are you sure?</h2>
+    <p id="confirmText" style="font-size:23px;line-height:1.4;margin:6px 0 0"></p>
+    <div class="panelBtns">
+      <button class="panelBtn" id="confirmYes">Yes</button>
+      <button class="panelBtn sec" id="confirmNo">Go back</button>
+    </div>
+  </div>
+</div>
+
+<div id="stampFx"><div class="stampInk filed" id="stampInk">FILED</div></div>
+
+<script>
+(function(){
+  "use strict";
+
+  /* ============================================================
+     CONTRACT DATA (verbatim academic content)
+     ============================================================ */
+  var EVAL_ID = "eval:LAB-MATH-GEOMETRY-FACES-5-11:opening:v1";
+  var EVAL_HASH = "357e7ae9a9243586a072d9bb454180bf3f7fb63793f6cec1128c39b2781cffb0";
+  var DESIGN_HASH = "648f77489c08a8b28fde13520ceb0833f5d4196c52f898b035f36d955cb7fac7";
+
+  var ITEMS = [
+    {
+      id:"I1", construct:"C1", mode:"single-select",
+      context:"Here are four solid figures shown as pictures: a can-shaped cylinder, a ball-shaped sphere, a box-shaped rectangular prism, and a party-hat-shaped cone.",
+      question:"Which of these solids has NO flat face anywhere on it?",
+      fullPrompt:"Here are four solid figures shown as pictures: a can-shaped cylinder, a ball-shaped sphere, a box-shaped rectangular prism, and a party-hat-shaped cone. Which of these solids has NO flat face anywhere on it?",
+      options:["the cylinder","the sphere","the rectangular prism","the cone"],
+      correct:["the sphere"],
+      rule:"Tap one card. Then press FILE REPORT.",
+      exhibit:[{k:"cylinder",label:"cylinder"},{k:"sphere",label:"sphere"},{k:"prism",label:"rectangular prism"},{k:"cone",label:"cone"}],
+      exposure:{ solidsShown:["cylinder","sphere","rectangular prism","cone"], orientation:"upright, standard view",
+        freshness:"Fresh set and question stem; source asked for plane-figure-to-face matching, this asks for a no-flat-face identification",
+        doesNotRevealAnswersTo:["I2","I3","I4","I5"] },
+      confounds:[
+        "Child may pick the sphere by 'ball' association rather than by surface reasoning",
+        "Word 'flat' may be read as 'thin' or 'lying down'",
+        "Only one option is curved-only, so elimination could succeed without understanding",
+        "Picture shading could make the cylinder look curved-only"
+      ]
+    },
+    {
+      id:"I2", construct:"C2", mode:"single-select",
+      context:"A cylinder is shown standing upright, like a soup can. Its top flat face is highlighted.",
+      question:"What plane figure is that flat face?",
+      fullPrompt:"A cylinder is shown standing upright, like a soup can. Its top flat face is highlighted. What plane figure is that flat face?",
+      options:["circle","square","rectangle","triangle"],
+      correct:["circle"],
+      rule:"Tap one card. Then press FILE REPORT.",
+      exhibit:[{k:"cylinder",label:"cylinder",highlight:true}],
+      exposure:{ solidsShown:["cylinder"], orientation:"upright, standard view", highlight:"top face only",
+        freshness:"Fresh highlighted-face framing rather than worksheet matching columns",
+        doesNotRevealAnswersTo:["I1","I3","I4","I5"] },
+      confounds:[
+        "Selecting 'rectangle' may reflect silhouette matching of the side view rather than a misconception about the top",
+        "Perspective drawing renders the top face as an ellipse, which may block the 'circle' label",
+        "Child may know the answer from can/lid life experience without geometric reasoning"
+      ]
+    },
+    {
+      id:"I3", construct:"C1", mode:"multi-select",
+      context:"A cone is shown, point up, sitting on a table.",
+      question:"Choose every statement that is true about the cone's surfaces.",
+      fullPrompt:"A cone is shown, point up, sitting on a table. Choose every statement that is true about the cone's surfaces.",
+      options:["It has one flat face.","It has two flat faces.","It has a curved surface.","It has no curved surface."],
+      correct:["It has one flat face.","It has a curved surface."],
+      rule:"Pick every true statement — there can be more than one. Tap again to unpick.",
+      exhibit:[{k:"cone",label:"cone"}],
+      exposure:{ solidsShown:["cone"], orientation:"point up on a flat surface",
+        freshness:"Fresh coexistence-of-surface-types framing not present in the source",
+        doesNotRevealAnswersTo:["I1","I2","I4","I5"] },
+      confounds:[
+        "Multi-select format burden may cause under-selection independent of understanding",
+        "Child may treat the two statements as mutually exclusive and select only one",
+        "'Two flat faces' may be chosen by transferring a cylinder schema to the cone",
+        "Reading load is the highest of the item set"
+      ]
+    },
+    {
+      id:"I4", construct:"C4", mode:"single-select",
+      context:"A square pyramid is shown resting on its square base.",
+      question:"Which set of plane figures makes up ALL of its flat faces?",
+      fullPrompt:"A square pyramid is shown resting on its square base. Which set of plane figures makes up ALL of its flat faces?",
+      options:["one square and four triangles","four triangles only","one square and four rectangles","one triangle and four squares"],
+      correct:["one square and four triangles"],
+      rule:"Tap one card. Then press FILE REPORT.",
+      exhibit:[{k:"pyramid",label:"square pyramid"}],
+      exposure:{ solidsShown:["square pyramid"], orientation:"resting on square base, three-quarter view showing base edge and two lateral faces",
+        freshness:"Fresh whole-face-set question; source matched individual plane figures to faces",
+        doesNotRevealAnswersTo:["I1","I2","I3","I5"] },
+      confounds:[
+        "'Four triangles only' is the silhouette/visible-faces distractor and may be picked because the base is hidden from view",
+        "Child may not know the term 'square pyramid' and answer from the picture alone, or vice versa",
+        "Distinguishing square from rectangle may fail for vocabulary reasons rather than face reasoning",
+        "Option reading load may favor guessing"
+      ]
+    },
+    {
+      id:"I5", construct:"C3", mode:"multi-select",
+      context:"Four solids are shown: a cube, a sphere, a cylinder, and a square pyramid.",
+      question:"Which of them have at least one flat face that is a circle?",
+      fullPrompt:"Four solids are shown: a cube, a sphere, a cylinder, and a square pyramid. Which of them have at least one flat face that is a circle?",
+      options:["the cube","the sphere","the cylinder","the square pyramid","none of them"],
+      correct:["the cylinder"],
+      exclusive:"none of them",
+      rule:"Pick every solid that fits — there can be more than one. \u201cnone of them\u201d stands alone.",
+      exhibit:[{k:"cube",label:"cube"},{k:"sphere",label:"sphere"},{k:"cylinder",label:"cylinder"},{k:"pyramid",label:"square pyramid"}],
+      exposure:{ solidsShown:["cube","sphere","cylinder","square pyramid"], orientation:"standard upright views",
+        freshness:"Fresh cross-solid property search; deliberately omits the cone used in I1 and I3 to avoid answer carryover",
+        doesNotRevealAnswersTo:["I1","I2","I3","I4"],
+        carryoverRisk:"Cylinder appeared in I1 and I2; if I2 was answered correctly this item is partly dependent, so I5 is scored as conditional evidence for C3 rather than independent evidence for C2" },
+      confounds:[
+        "Selecting the sphere conflates 'round shape' with 'circular flat face' and is the target error, but could also arise from careless reading of 'flat'",
+        "Multi-select burden may cause under-selection",
+        "Child may select the cylinder from I2 memory rather than fresh reasoning",
+        "'None of them' may attract a child who over-applies the sphere rule from I1"
+      ]
+    }
+  ];
+
+  var CONSTRUCTS = [
+    {constructId:"C1", label:"Flat vs curved surface discrimination"},
+    {constructId:"C2", label:"Face-shape identification"},
+    {constructId:"C3", label:"Sphere/no-flat-face special case"},
+    {constructId:"C4", label:"Face-set reasoning over silhouette matching"}
+  ];
+
+  /* ============================================================
+     MESSAGING
+     ============================================================ */
+  function post(type, payload){
+    var msg = {type:type, evaluationId:EVAL_ID, evaluationHash:EVAL_HASH, designHash:DESIGN_HASH,
+               timestamp:new Date().toISOString()};
+    for(var k in payload){ if(Object.prototype.hasOwnProperty.call(payload,k)) msg[k]=payload[k]; }
+    try{ window.parent.postMessage(msg, "*"); }catch(e){}
+  }
+  var frictionSeq = 0;
+  function postFriction(itemId, constructId, frictionType, detail){
+    frictionSeq++;
+    post("evaluation_friction", {
+      itemId:itemId||null, constructId:constructId||null,
+      frictionType:frictionType, detail:detail||"", sequence:frictionSeq,
+      recovery:"child can always continue: selection is reversible, Unresolved and End Shift always available"
+    });
+  }
+
+  /* ============================================================
+     STATE
+     ============================================================ */
+  var state = {
+    idx:-1,
+    records:[],
+    curatorTotal:0,
+    readTotal:0,
+    filedCount:0,
+    unresolvedCount:0,
+    completeSent:false,
+    current:null,
+    sessionStart:0
+  };
+
+  /* ============================================================
+     DOM
+     ============================================================ */
+  var $ = function(id){ return document.getElementById(id); };
+  var doorStrip=$("doorStrip"), stage=$("stage");
+  var sceneTitle=$("sceneTitle"), sceneItem=$("sceneItem"), sceneTransit=$("sceneTransit"),
+      sceneComplete=$("sceneComplete"), sceneExit=$("sceneExit");
+  var doorTag=$("doorTag"), promptContext=$("promptContext"), promptMain=$("promptMain"),
+      exhibitEl=$("exhibit"), ruleLine=$("ruleLine"), optionsEl=$("options"), countLine=$("countLine");
+  var curatorCard=$("curatorCard"), curatorText=$("curatorText"), curatorDismiss=$("curatorDismiss");
+  var nudge=$("nudge");
+  var btnStart=$("btnStart"), btnCurator=$("btnCurator"), btnRead=$("btnRead"),
+      btnFile=$("btnFile"), btnUnresolved=$("btnUnresolved"), btnEnd=$("btnEnd");
+  var readOverlay=$("readOverlay"), readTitle=$("readTitle"), readBody=$("readBody"), readClose=$("readClose");
+  var confirmOverlay=$("confirmOverlay"), confirmTitle=$("confirmTitle"), confirmText=$("confirmText"),
+      confirmYes=$("confirmYes"), confirmNo=$("confirmNo");
+  var stampFx=$("stampFx"), stampInk=$("stampInk");
+  var completeRecord=$("completeRecord"), exitRecord=$("exitRecord"), orbit=$("orbit");
+
+  /* ============================================================
+     SOLID RENDERS (SVG)
+     ============================================================ */
+  var PAL = {
+    prism:{base:"#6cbf3f", light:"#a7e07a", dark:"#3d7a23"},
+    cube :{base:"#9a5fd0", light:"#c79df0", dark:"#5f3389"},
+    pyr  :{base:"#edb442", light:"#ffd98a", dark:"#a3711a"}
+  };
+  var ACCENT = "#ff5ca8";
+
+  function svgCylinder(h, highlight){
+    var topFill = highlight ? ACCENT : "#7fd3f2";
+    var extra = "";
+    if(highlight){
+      extra =
+        '<ellipse cx="85" cy="58" rx="53" ry="18" fill="url(#hatch)" opacity=".55"/>' +
+        '<ellipse cx="85" cy="58" rx="61" ry="24" fill="none" stroke="#fff4e0" stroke-width="4" stroke-dasharray="9 7"/>' +
+        '<line x1="146" y1="42" x2="172" y2="22" stroke="#fff4e0" stroke-width="3"/>' +
+        '<text x="120" y="17" fill="#fff4e0" font-size="17" font-weight="800" font-family="inherit">this face</text>';
+    }
+    return '<svg class="solid" height="'+h+'" viewBox="0 0 200 210" role="img" aria-label="cylinder">' +
+      '<path d="M32,58 L32,152 A53,18 0 0 0 138,152 L138,58 Z" fill="url(#cyl-h)" stroke="#12455e" stroke-width="2"/>' +
+      '<ellipse cx="85" cy="58" rx="53" ry="18" fill="'+topFill+'" stroke="#12455e" stroke-width="2"/>' +
+      extra + '</svg>';
+  }
+  function svgSphere(h){
+    return '<svg class="solid" height="'+h+'" viewBox="0 0 200 210" role="img" aria-label="sphere">' +
+      '<circle cx="90" cy="106" r="62" fill="url(#sph-r)" stroke="#6d2318" stroke-width="2"/>' +
+      '<ellipse cx="68" cy="80" rx="18" ry="12" fill="#ffe4d8" opacity=".55" transform="rotate(-25 68 80)"/>' +
+      '</svg>';
+  }
+  function svgPrism(h){
+    var p=PAL.prism;
+    return '<svg class="solid" height="'+h+'" viewBox="0 0 200 210" role="img" aria-label="rectangular prism">' +
+      '<polygon points="30,78 60,50 162,50 132,78" fill="'+p.light+'" stroke="#23461a" stroke-width="2"/>' +
+      '<polygon points="132,78 162,50 162,122 132,150" fill="'+p.dark+'" stroke="#23461a" stroke-width="2"/>' +
+      '<rect x="30" y="78" width="102" height="72" fill="'+p.base+'" stroke="#23461a" stroke-width="2"/>' +
+      '</svg>';
+  }
+  function svgCone(h){
+    return '<svg class="solid" height="'+h+'" viewBox="0 0 200 210" role="img" aria-label="cone">' +
+      '<ellipse cx="88" cy="158" rx="54" ry="16" fill="#b4780f" stroke="#7c5008" stroke-width="2"/>' +
+      '<path d="M88,34 L142,158 A54,16 0 0 1 34,158 Z" fill="url(#cone-h)" stroke="#7c5008" stroke-width="2"/>' +
+      '</svg>';
+  }
+  function svgCube(h){
+    var p=PAL.cube;
+    return '<svg class="solid" height="'+h+'" viewBox="0 0 200 210" role="img" aria-label="cube">' +
+      '<polygon points="40,80 68,52 148,52 120,80" fill="'+p.light+'" stroke="#3b1f5c" stroke-width="2"/>' +
+      '<polygon points="120,80 148,52 148,124 120,152" fill="'+p.dark+'" stroke="#3b1f5c" stroke-width="2"/>' +
+      '<rect x="40" y="80" width="80" height="72" fill="'+p.base+'" stroke="#3b1f5c" stroke-width="2"/>' +
+      '</svg>';
+  }
+  function svgPyramid(h){
+    var p=PAL.pyr;
+    return '<svg class="solid" height="'+h+'" viewBox="0 0 200 210" role="img" aria-label="square pyramid">' +
+      '<polygon points="90,32 30,152 90,178" fill="'+p.base+'" stroke="#6b4a10" stroke-width="2"/>' +
+      '<polygon points="90,32 150,152 90,178" fill="'+p.dark+'" stroke="#6b4a10" stroke-width="2"/>' +
+      '<line x1="30" y1="152" x2="90" y2="178" stroke="#6b4a10" stroke-width="3"/>' +
+      '<line x1="150" y1="152" x2="90" y2="178" stroke="#6b4a10" stroke-width="3"/>' +
+      '</svg>';
+  }
+  function solidMarkup(kind, h, highlight){
+    if(kind==="cylinder") return svgCylinder(h, !!highlight);
+    if(kind==="sphere")   return svgSphere(h);
+    if(kind==="prism")    return svgPrism(h);
+    if(kind==="cone")     return svgCone(h);
+    if(kind==="cube")     return svgCube(h);
+    if(kind==="pyramid")  return svgPyramid(h);
+    return "";
+  }
+
+  /* ============================================================
+     SCENES
+     ============================================================ */
+  function showScene(el){
+    [sceneTitle,sceneItem,sceneTransit,sceneComplete,sceneExit].forEach(function(s){
+      s.classList.remove("show");
+    });
+    el.classList.add("show");
+  }
+  function setDoorActive(i){
+    for(var d=0; d<5; d++){
+      var node = $("door"+d);
+      if(node) node.classList.toggle("active", d===i);
+    }
+  }
+  function sealDoor(i, kind){
+    var seal = $("seal"+i), wheel = $("wheel"+i);
+    if(seal){ seal.className = "seal " + (kind==="filed" ? "wax" : "grey"); seal.textContent = kind==="filed" ? "✓" : "–"; }
+    if(wheel){ wheel.style.transform = "rotate(72deg)"; }
+  }
+
+  /* ============================================================
+     ITEM RENDERING
+     ============================================================ */
+  function renderItem(index){
+    var item = ITEMS[index];
+    state.idx = index;
+    state.current = {
+      item:item, start:performance.now(), selected:[], changes:0,
+      curator:0, read:0, wobbles:0, blocked:0, done:false
+    };
+
+    doorStrip.classList.remove("hidden");
+    setDoorActive(index);
+    doorTag.textContent = "Door " + (index+1) + " of 5";
+    promptContext.textContent = item.context;
+    promptMain.textContent = item.question;
+    ruleLine.textContent = item.rule;
+
+    // exhibit (previous exhibits fully removed)
+    exhibitEl.innerHTML = "";
+    var many = item.exhibit.length > 1;
+    var h = many ? 168 : 196;
+    item.exhibit.forEach(function(ex){
+      var wrap = document.createElement("div");
+      wrap.className = "exhibitItem";
+      wrap.innerHTML = solidMarkup(ex.k, h, ex.highlight) +
+        '<div class="pedestal"></div><div class="exLabel">'+ex.label+'</div>';
+      exhibitEl.appendChild(wrap);
+    });
+
+    // options (previous options fully removed)
+    optionsEl.innerHTML = "";
+    item.options.forEach(function(opt, oi){
+      var b = document.createElement("button");
+      b.type = "button";
+      b.className = "card";
+      b.setAttribute("data-opt", opt);
+      b.setAttribute("data-i", String(oi));
+      var boxChar = item.mode==="multi-select" ? "" : "";
+      b.innerHTML = '<span class="box">'+boxChar+'</span><span class="cardText">'+opt+'</span>';
+      b.addEventListener("click", function(){ onCardTap(opt, b); });
+      optionsEl.appendChild(b);
+    });
+
+    updateCount();
+    curatorCard.classList.add("hidden");
+    nudge.classList.add("hidden");
+    btnFile.disabled = true;
+    btnFile.classList.remove("pulseOnce");
+    void btnFile.offsetWidth;
+    btnFile.classList.add("pulseOnce");
+
+    showScene(sceneItem);
+  }
+
+  function cardFor(opt){
+    var nodes = optionsEl.querySelectorAll(".card");
+    for(var i=0;i<nodes.length;i++){
+      if(nodes[i].getAttribute("data-opt")===opt) return nodes[i];
+    }
+    return null;
+  }
+
+  function paintSelection(){
+    var c = state.current; if(!c) return;
+    var nodes = optionsEl.querySelectorAll(".card");
+    for(var i=0;i<nodes.length;i++){
+      var opt = nodes[i].getAttribute("data-opt");
+      var on = c.selected.indexOf(opt) >= 0;
+      nodes[i].classList.toggle("selected", on);
+      var box = nodes[i].querySelector(".box");
+      if(box) box.textContent = on ? "✓" : "";
+    }
+    btnFile.disabled = c.selected.length === 0;
+  }
+
+  function updateCount(){
+    var c = state.current; if(!c) return;
+    if(c.item.mode === "multi-select"){
+      var n = c.selected.length;
+      countLine.textContent = n === 0 ? "0 picked" : (n + (n===1 ? " card picked" : " cards picked"));
+    }else{
+      countLine.textContent = c.selected.length ? "1 card picked" : "0 picked";
+    }
+  }
+
+  function onCardTap(opt, node){
+    var c = state.current; if(!c || c.done) return;
+    var item = c.item;
+    if(item.mode === "single-select"){
+      if(c.selected[0] === opt) return; // no change
+      c.selected = [opt];
+      c.changes++;
+    } else {
+      var excl = item.exclusive;
+      var isSel = c.selected.indexOf(opt) >= 0;
+      if(excl && opt === excl){
+        if(isSel){
+          c.selected = [];
+        } else {
+          if(c.selected.length > 0){
+            c.wobbles++;
+            wobbleAll();
+            showNudge("\u201cnone of them\u201d stands alone, so the other cards were unpicked.");
+            postFriction(item.id, item.construct, "exclusivityConflictWobble",
+              "child combined 'none of them' with other selections; auto-cleared with format-only note");
+          }
+          c.selected = [excl];
+        }
+        c.changes++;
+      } else {
+        if(isSel){
+          c.selected.splice(c.selected.indexOf(opt),1);
+        } else {
+          if(excl && c.selected.indexOf(excl) >= 0){
+            c.selected = [];
+            c.wobbles++;
+            wobbleAll();
+            showNudge("\u201cnone of them\u201d stands alone, so it was unpicked.");
+            postFriction(item.id, item.construct, "exclusivityConflictWobble",
+              "child added a solid while 'none of them' was picked; auto-cleared with format-only note");
+          }
+          c.selected.push(opt);
+        }
+        c.changes++;
+      }
+    }
+    paintSelection();
+    updateCount();
+    if(node){ node.classList.remove("wobble"); }
+  }
+
+  function wobbleAll(){
+    var nodes = optionsEl.querySelectorAll(".card");
+    for(var i=0;i<nodes.length;i++){
+      (function(n){
+        n.classList.remove("wobble"); void n.offsetWidth; n.classList.add("wobble");
+        setTimeout(function(){ n.classList.remove("wobble"); }, 520);
+      })(nodes[i]);
+    }
+  }
+
+  var nudgeTimer = null;
+  function showNudge(text){
+    nudge.textContent = text;
+    nudge.classList.remove("hidden");
+    if(nudgeTimer) clearTimeout(nudgeTimer);
+    nudgeTimer = setTimeout(function(){ nudge.classList.add("hidden"); }, 3600);
+  }
+
+  /* ============================================================
+     CURATOR (format restatement only — never content)
+     ============================================================ */
+  btnCurator.addEventListener("click", function(){
+    var c = state.current; if(!c || c.done) return;
+    c.curator++;
+    state.curatorTotal++;
+    var line1 = "I can only explain how to file, not what to write.";
+    var line2 = (c.item.mode === "multi-select")
+      ? "You can tap more than one card. Tap a card again to unpick it. When your report looks right to you, press FILE REPORT."
+      : "Tap one card to pick it. Tap a different card to change your pick. When your report looks right to you, press FILE REPORT.";
+    var line3 = "If you would rather not decide, press FILE AS UNRESOLVED. The lock still turns.";
+    curatorText.innerHTML = "\u201c" + line1 + "\u201d<br><br>" + line2 + "<br><br>" + line3;
+    curatorCard.classList.remove("hidden");
+    if(c.curator >= 2){
+      postFriction(c.item.id, c.item.construct, "repeatCuratorPress",
+        "curator pressed " + c.curator + " times on this item (format restatement only)");
+    }
+  });
+  curatorDismiss.addEventListener("click", function(){ curatorCard.classList.add("hidden"); });
+
+  /* ============================================================
+     READING SUPPORT (no audio available in this build: enlarged text)
+     ============================================================ */
+  btnRead.addEventListener("click", function(){
+    var c = state.current; if(!c || c.done) return;
+    c.read++; state.readTotal++;
+    readTitle.textContent = "Door " + (state.idx+1) + " — the report line, in big letters";
+    var lis = c.item.options.map(function(o){ return "<li>" + o + "</li>"; }).join("");
+    readBody.innerHTML = "<div>" + c.item.context + "</div><div style='margin-top:10px'>" + c.item.question + "</div>" +
+      "<ul>" + lis + "</ul>";
+    readOverlay.classList.add("show");
+  });
+  readClose.addEventListener("click", function(){ readOverlay.classList.remove("show"); });
+
+  /* ============================================================
+     CONFIRM HELPER
+     ============================================================ */
+  var pendingConfirm = null;
+  function askConfirm(title, text, yesLabel, noLabel, onYes){
+    confirmTitle.textContent = title;
+    confirmText.textContent = text;
+    confirmYes.textContent = yesLabel;
+    confirmNo.textContent = noLabel;
+    pendingConfirm = onYes;
+    confirmOverlay.classList.add("show");
+  }
+  confirmYes.addEventListener("click", function(){
+    confirmOverlay.classList.remove("show");
+    var fn = pendingConfirm; pendingConfirm = null;
+    if(typeof fn === "function") fn();
+  });
+  confirmNo.addEventListener("click", function(){
+    confirmOverlay.classList.remove("show");
+    pendingConfirm = null;
+  });
+
+  /* ============================================================
+     COMMIT
+     ============================================================ */
+  btnFile.addEventListener("click", function(){
+    var c = state.current; if(!c || c.done) return;
+    if(c.selected.length === 0){
+      c.blocked++;
+      showNudge("Pick a card first, then press FILE REPORT.");
+      postFriction(c.item.id, c.item.construct, "fileBlockedNoSelection", "FILE REPORT pressed with no card picked");
+      return;
+    }
+    commit(true);
+  });
+
+  btnUnresolved.addEventListener("click", function(){
+    var c = state.current; if(!c || c.done) return;
+    askConfirm("File this exhibit as Unresolved?",
+      "The museum accepts Unresolved reports. The lock still turns and you move to the next door.",
+      "Yes, file Unresolved", "Keep looking",
+      function(){ if(state.current && !state.current.done) commit(false); });
+  });
+
+  btnEnd.addEventListener("click", function(){
+    var c = state.current;
+    askConfirm("End your shift now?",
+      "The museum keeps the reports you already filed. Doors you have not reached stay sealed for another shift.",
+      "Yes, end shift", "Stay on duty",
+      function(){ endShift(); });
+    if(c) postFriction(c.item.id, c.item.construct, "endShiftConsidered", "child opened the End Shift confirmation");
+  });
+
+  function sortedCopy(a){ return a.slice().sort(); }
+  function sameSet(a,b){
+    if(a.length !== b.length) return false;
+    var x = sortedCopy(a), y = sortedCopy(b);
+    for(var i=0;i<x.length;i++){ if(x[i]!==y[i]) return false; }
+    return true;
+  }
+
+  function commit(isFiled){
+    var c = state.current; if(!c || c.done) return;
+    c.done = true;
+    var item = c.item;
+    var latencyMs = Math.round(performance.now() - c.start);
+    var confounds = item.confounds.slice();
+    var measurements = {
+      latencyMs: latencyMs,
+      optionChangeCount: c.changes,
+      hintRequested: c.curator > 0,
+      curatorPresses: c.curator,
+      readingSupportUses: c.read,
+      exclusivityWobbles: c.wobbles,
+      fileBlockedAttempts: c.blocked
+    };
+    var result, attemptedValue = null, evidenceQuality = "provisional";
+
+    if(!isFiled){
+      result = "noResponse";
+      attemptedValue = null;
+      evidenceQuality = "indeterminate";
+      measurements.terminalState = "unresolvedSkip";
+      confounds.push("observed: filed as Unresolved — declined item, not scored incorrect per completionRule");
+    } else {
+      measurements.terminalState = "filed";
+      if(item.mode === "single-select"){
+        var sel = c.selected[0];
+        attemptedValue = sel;
+        measurements.selectedOption = sel;
+        var ok = (item.correct.indexOf(sel) >= 0);
+        measurements.correct = ok;
+        result = ok ? "correct" : "incorrect";
+      } else {
+        var set = sortedCopy(c.selected);
+        attemptedValue = set;
+        measurements.selectedOptionSet = set;
+        var exact = sameSet(c.selected, item.correct);
+        measurements.exactSetCorrect = exact;
+        result = exact ? "correct" : "incorrect";
+
+        var missed = item.correct.filter(function(o){ return c.selected.indexOf(o) < 0; });
+        var extra = c.selected.filter(function(o){ return item.correct.indexOf(o) < 0; });
+
+        if(item.id === "I3"){
+          var contradictory =
+            (c.selected.indexOf("It has one flat face.") >= 0 && c.selected.indexOf("It has two flat faces.") >= 0) ||
+            (c.selected.indexOf("It has a curved surface.") >= 0 && c.selected.indexOf("It has no curved surface.") >= 0);
+          measurements.partialCreditPattern = {
+            trueStatementsPicked: item.correct.filter(function(o){ return c.selected.indexOf(o) >= 0; }),
+            falseStatementsPicked: extra,
+            missedTrueStatements: missed,
+            contradictoryPairSelected: contradictory,
+            selectionCount: c.selected.length
+          };
+          if(contradictory){
+            evidenceQuality = "indeterminate";
+            confounds.push("observed: contradictory pair selected — per contract this item yields no construct evidence");
+          }
+          if(!exact && missed.length === 1 && extra.length === 0){
+            confounds.push("observed: exactly one true statement selected — multi-select format burden is a live alternative explanation");
+            evidenceQuality = "indeterminate";
+          }
+        }
+        if(item.id === "I5"){
+          measurements.overSelectionCount = extra.length;
+          measurements.underSelectionCount = missed.length;
+          measurements.sphereSelected = c.selected.indexOf("the sphere") >= 0;
+          measurements.noneOfThemSelected = c.selected.indexOf("none of them") >= 0;
+          if(measurements.underSelectionCount > 0 && measurements.overSelectionCount === 0){
+            confounds.push("observed: under-selection on multi-select — response-mode burden not excluded");
+          }
+        }
+      }
+    }
+
+    if(isFiled && latencyMs < 2000){
+      confounds.push("observed: response committed in under 2s — elimination or tap-through cannot be excluded");
+    }
+    if(c.curator > 0){
+      confounds.push("observed: curator consulted " + c.curator + "x (navigation/format restatement only, no content)");
+    }
+    if(c.read > 0){
+      confounds.push("observed: reading support used (prompt/options enlarged) — reading load partially supported");
+    }
+    if(c.wobbles > 0){
+      confounds.push("observed: 'none of them' exclusivity conflict triggered — format friction present");
+    }
+    if(item.id === "I5"){
+      var i2 = null;
+      state.records.forEach(function(r){ if(r.itemId === "I2") i2 = r; });
+      if(i2 && i2.result === "correct"){
+        confounds.push("observed: I2 answered correctly earlier — cylinder carryover means I5 is CONDITIONAL evidence for C3, not independent evidence for C2");
+        measurements.conditionalOnI2 = true;
+      } else {
+        measurements.conditionalOnI2 = false;
+      }
+    }
+
+    var exposure = {};
+    for(var k in item.exposure){ if(Object.prototype.hasOwnProperty.call(item.exposure,k)) exposure[k]=item.exposure[k]; }
+    exposure.itemIndex = state.idx + 1;
+    exposure.itemOrder = "fixed I1..I5";
+    exposure.answerRevealed = false;
+    exposure.feedbackShown = false;
+    exposure.priorExhibitsVisible = false;
+    exposure.readingSupportShown = c.read > 0;
+    exposure.optionsShown = item.options.slice();
+
+    var record = {
+      itemId: item.id,
+      constructId: item.construct,
+      result: result,
+      attemptedValue: attemptedValue,
+      responseMode: item.mode,
+      assistance: {
+        hintRequested: c.curator > 0,
+        curatorPresses: c.curator,
+        assistanceType: "format-restatement-only",
+        contentHintsGiven: 0,
+        workedExamplesGiven: 0,
+        readingSupportUsed: c.read > 0,
+        readingSupportCount: c.read
+      },
+      exposure: exposure,
+      possibleConfounds: confounds,
+      measurements: measurements,
+      scoring: { method: (item.mode === "multi-select" ? "exact-set match scored binary" : "binary"),
+                 evidenceQuality: evidenceQuality },
+      attemptIndex: state.records.length + 1
+    };
+    state.records.push(record);
+
+    post("evaluation_attempt", record);
+
+    if(isFiled) state.filedCount++; else state.unresolvedCount++;
+    sealDoor(state.idx, isFiled ? "filed" : "unresolved");
+
+    playStamp(isFiled, function(){
+      if(state.idx >= ITEMS.length - 1){
+        finishComplete();
+      } else {
+        transitThen(function(){ renderItem(state.idx + 1); });
+      }
+    });
+  }
+
+  function playStamp(isFiled, done){
+    stampInk.className = "stampInk " + (isFiled ? "filed" : "unres");
+    stampInk.textContent = isFiled ? "FILED" : "UNRESOLVED";
+    stampFx.classList.add("show");
+    curatorCard.classList.add("hidden");
+    nudge.classList.add("hidden");
+    setTimeout(function(){
+      stampFx.classList.remove("show");
+      done();
+    }, 620);
+  }
+
+  function transitThen(fn){
+    showScene(sceneTransit);
+    setTimeout(fn, 950);
+  }
+
+  /* ============================================================
+     COMPLETION
+     ============================================================ */
+  function itemSummaries(reachedCount){
+    return ITEMS.map(function(it, i){
+      var rec = null;
+      state.records.forEach(function(r){ if(r.itemId === it.id) rec = r; });
+      if(rec){
+        return {
+          itemId: it.id, constructId: it.construct,
+          state: (rec.result === "noResponse" ? "skipped" : "responded"),
+          result: rec.result,
+          attemptedValue: rec.attemptedValue,
+          responseMode: rec.responseMode,
+          latencyMs: rec.measurements.latencyMs,
+          optionChangeCount: rec.measurements.optionChangeCount,
+          hintRequested: rec.assistance.hintRequested,
+          evidenceQuality: rec.scoring.evidenceQuality
+        };
+      }
+      return { itemId: it.id, constructId: it.construct, state: "notAdministered",
+               result: "notAdministered", attemptedValue: null, responseMode: it.mode };
+    });
+  }
+
+  function statusFromItems(ids){
+    var scored = [], anyMissing = false, anyIndeterminate = false;
+    ids.forEach(function(id){
+      var rec = null;
+      state.records.forEach(function(r){ if(r.itemId === id) rec = r; });
+      if(!rec){ anyMissing = true; return; }
+      if(rec.result === "noResponse"){ anyMissing = true; return; }
+      if(rec.scoring.evidenceQuality === "indeterminate"){ anyIndeterminate = true; }
+      scored.push(rec.result === "correct");
+    });
+    if(scored.length === 0) return "indeterminate";
+    var allTrue = scored.every(function(v){ return v; });
+    var allFalse = scored.every(function(v){ return !v; });
+    if(anyIndeterminate) return "indeterminate";
+    if(allTrue && !anyMissing) return "provisional-support";
+    if(allTrue && anyMissing) return "indeterminate";
+    if(allFalse) return "provisional-gap";
+    return "indeterminate";
+  }
+
+  function constructStatuses(){
+    var i2 = null; state.records.forEach(function(r){ if(r.itemId === "I2") i2 = r; });
+    var c3conditional = !!(i2 && i2.result === "correct");
+    return [
+      { constructId:"C1", label:"Flat vs curved surface discrimination",
+        status: statusFromItems(["I1","I3"]), evidenceFromItems:["I1","I3"], conditional:false },
+      { constructId:"C2", label:"Face-shape identification",
+        status: statusFromItems(["I2"]), evidenceFromItems:["I2"], conditional:false },
+      { constructId:"C3", label:"Sphere/no-flat-face special case",
+        status: statusFromItems(["I5"]), evidenceFromItems:["I5"], conditional:c3conditional,
+        conditionalNote: c3conditional
+          ? "I2 was answered correctly, so I5 is conditional evidence for C3 and not independent evidence for C2"
+          : "no I2 carryover flag" },
+      { constructId:"C4", label:"Face-set reasoning over silhouette matching",
+        status: statusFromItems(["I4"]), evidenceFromItems:["I4"], conditional:false }
+    ];
+  }
+
+  function sendComplete(completionState){
+    if(state.completeSent) return;
+    state.completeSent = true;
+    post("evaluation_complete", {
+      completionState: completionState,
+      itemsAdministered: state.records.length,
+      itemsTotal: ITEMS.length,
+      reportsFiled: state.filedCount,
+      reportsUnresolved: state.unresolvedCount,
+      curatorPressesTotal: state.curatorTotal,
+      readingSupportUsesTotal: state.readTotal,
+      totalDurationMs: Math.round(performance.now() - state.sessionStart),
+      items: itemSummaries(),
+      constructStatus: constructStatuses(),
+      interpretationLimit: "Single opening sample. No construct may be marked established, no mastery declared; constructs remain unknown or provisional-signal pending a second independent probe.",
+      feedbackShownToChild: false,
+      answersRevealed: false
+    });
+  }
+
+  function buildGallery(){
+    orbit.innerHTML = "";
+    var kinds = ["cylinder","sphere","prism","cone","cube","pyramid"];
+    var cx = 165, cy = 125, R = 108;
+    kinds.forEach(function(k, i){
+      var ang = (i / kinds.length) * Math.PI * 2;
+      var x = cx + R * Math.cos(ang) - 28;
+      var y = cy + R * Math.sin(ang) - 28;
+      var d = document.createElement("div");
+      d.className = "mini";
+      d.style.left = x + "px";
+      d.style.top = y + "px";
+      d.innerHTML = solidMarkup(k, 56, false);
+      var svg = d.querySelector("svg");
+      if(svg){ svg.setAttribute("width","56"); svg.style.opacity = "0.95"; }
+      orbit.appendChild(d);
+    });
+  }
+
+  function recordLine(){
+    return "Reports filed: " + state.filedCount +
+           " &nbsp;•&nbsp; Unresolved: " + state.unresolvedCount +
+           " &nbsp;•&nbsp; Curator consulted: " + state.curatorTotal + " times";
+  }
+
+  function finishComplete(){
+    setDoorActive(-1);
+    for(var d=0; d<5; d++){
+      (function(dd){
+        setTimeout(function(){
+          var w = $("wheel"+dd);
+          if(w) w.style.transform = "rotate(432deg)";
+        }, dd * 140);
+      })(d);
+    }
+    buildGallery();
+    completeRecord.innerHTML = recordLine();
+    showScene(sceneComplete);
+    sendComplete("allItemsTerminal");
+  }
+
+  function endShift(){
+    if(state.current && !state.current.done){
+      // current item was reached but not answered: it counts as notAdministered per early-exit rule
+      state.current.done = true;
+    }
+    setDoorActive(-1);
+    exitRecord.innerHTML = recordLine();
+    showScene(sceneExit);
+    sendComplete("earlyExit");
+  }
+
+  /* ============================================================
+     START
+     ============================================================ */
+  btnStart.addEventListener("click", function(){
+    state.sessionStart = performance.now();
+    doorStrip.classList.remove("hidden");
+    transitThen(function(){ renderItem(0); });
+  });
+
+  // Ready
+  state.sessionStart = performance.now();
+  post("evaluation_ready", {
+    title: "The Shape Museum: Vault of Five Doors",
+    viewport: { width: 1365, height: 768 },
+    itemCount: ITEMS.length,
+    itemOrder: ITEMS.map(function(i){ return i.id; }),
+    constructs: CONSTRUCTS,
+    responseModes: ["single-select","multi-select"],
+    assistanceAvailable: ["curator-format-restatement (logged as hintRequested)","reading-support-enlarge","file-as-unresolved","end-shift"],
+    feedbackPolicy: "no correctness feedback, no answer reveal, no worked examples at any point",
+    inputRequirements: "touch or mouse; no keyboard, no typing, no drag, no timing"
+  });
+
+})();
+</script>
+</body>
+</html>

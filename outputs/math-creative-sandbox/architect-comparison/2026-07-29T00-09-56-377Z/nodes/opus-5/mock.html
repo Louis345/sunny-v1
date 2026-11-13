@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<style>
+  html,body{margin:0;padding:0;overflow:hidden;background:#0a0e1f;font-family:'Georgia',serif;}
+  #stage{width:1365px;height:768px;position:relative;background:radial-gradient(ellipse at 50% 30%,#1a2340 0%,#0a0e1f 70%);overflow:hidden;}
+  .fog{position:absolute;bottom:0;left:0;width:100%;height:220px;
+    background:linear-gradient(to top,rgba(60,70,90,0.55),rgba(60,70,90,0));
+    animation:drift 18s linear infinite;}
+  @keyframes drift{0%{transform:translateX(0);}100%{transform:translateX(-60px);}}
+  .stars{position:absolute;width:100%;height:100%;}
+  .star{position:absolute;width:2px;height:2px;background:#dde5ff;border-radius:50%;opacity:.6;}
+  #title{position:absolute;top:18px;left:50%;transform:translateX(-50%);
+    color:#e8d6a0;letter-spacing:2px;font-size:22px;text-shadow:0 0 12px rgba(232,214,160,.4);}
+  #subtitle{position:absolute;top:50px;left:50%;transform:translateX(-50%);
+    color:#8fa0c0;font-size:14px;font-style:italic;}
+  #lamphouse{position:absolute;top:130px;left:50%;transform:translateX(-50%);}
+  #plate{position:absolute;top:520px;left:50%;transform:translateX(-50%);
+    background:linear-gradient(160deg,#b8935a,#8a6a3e);
+    border:3px solid #5c4626;border-radius:8px;padding:10px 26px;
+    box-shadow:0 6px 18px rgba(0,0,0,.5), inset 0 1px 3px rgba(255,255,255,.3);
+    display:flex;flex-direction:column;align-items:center;}
+  .fracNum, .fracDen{color:#2a1f10;font-size:32px;font-weight:bold;line-height:1;}
+  .fracBar{width:38px;height:3px;background:#2a1f10;margin:4px 0;}
+  #lever{position:absolute;top:600px;right:120px;width:60px;text-align:center;cursor:pointer;}
+  #leverStick{width:8px;height:70px;background:linear-gradient(90deg,#c9a25f,#7d5f36);
+    margin:0 auto;border-radius:4px;transform-origin:bottom center;transition:transform .15s;}
+  #leverKnob{width:22px;height:22px;background:radial-gradient(circle at 35% 35%,#f0d090,#8a6a3e);
+    border-radius:50%;margin:0 auto -4px;box-shadow:0 0 8px rgba(240,208,144,.5);}
+  #leverLabel{color:#8fa0c0;font-size:11px;margin-top:6px;}
+  #ship{position:absolute;bottom:60px;left:-80px;width:70px;height:40px;transition:left 2.2s ease-out;}
+  #bell{position:absolute;top:96px;left:50%;transform:translateX(-50%);color:#a8b8d8;font-size:13px;opacity:.85;}
+  #msg{position:absolute;bottom:22px;left:50%;transform:translateX(-50%);
+    color:#c9d6ee;font-size:15px;background:rgba(15,20,40,.6);padding:8px 20px;border-radius:20px;
+    border:1px solid rgba(140,160,200,.3);transition:opacity .4s;}
+  #dockLights{position:absolute;bottom:20px;left:0;width:100%;height:40px;display:flex;justify-content:center;gap:14px;}
+  .dock{width:12px;height:12px;border-radius:50%;background:#2a3550;transition:all .5s;}
+  .dock.lit{background:#ffd98a;box-shadow:0 0 12px #ffd98a;}
+  #roundLabel{position:absolute;top:200px;left:40px;color:#7a8bb0;font-size:13px;}
+  .flash{fill:#fff8dd !important;}
+</style>
+</head>
+<body>
+<div id="stage">
+  <div class="stars" id="stars"></div>
+  <div id="title">LANTERN KEEPER</div>
+  <div id="subtitle">One Pane of Many</div>
+  <div id="bell">🔔 a ship waits offshore...</div>
+  <div id="roundLabel">Beacon 1 — Guided</div>
+
+  <svg id="lamphouse" width="360" height="380" viewBox="0 0 360 380">
+    <!-- housing frame -->
+    <rect x="20" y="10" width="320" height="20" rx="4" fill="#6b4f2c" stroke="#3a2a15" stroke-width="2"/>
+    <rect x="150" y="0" width="60" height="14" fill="#6b4f2c" stroke="#3a2a15" stroke-width="2"/>
+    <circle cx="180" cy="210" r="150" fill="#1c2438" stroke="#3a2a15" stroke-width="6"/>
+    <g id="panes"></g>
+    <circle cx="180" cy="210" r="150" fill="none" stroke="#5c4626" stroke-width="8"/>
+    <!-- housing base -->
+    <rect x="60" y="350" width="240" height="20" rx="4" fill="#6b4f2c" stroke="#3a2a15" stroke-width="2"/>
+  </svg>
+
+  <div id="plate">
+    <div class="fracNum" id="fracNum">1</div>
+    <div class="fracBar"></div>
+    <div class="fracDen" id="fracDen">4</div>
+  </div>
+
+  <div id="lever" title="Replay anatomy">
+    <div id="leverKnob"></div>
+    <div id="leverStick"></div>
+    <div id="leverLabel">🔧 Lever<br>(replay how it works)</div>
+  </div>
+
+  <svg id="ship" viewBox="0 0 70 40">
+    <path d="M5,30 L65,30 L55,38 L15,38 Z" fill="#3a2a20" stroke="#1a1208" stroke-width="1.5"/>
+    <rect x="30" y="6" width="3" height="24" fill="#2a1c10"/>
+    <path d="M33,8 L33,26 L52,26 Z" fill="#8a95b0" opacity=".8"/>
+    <circle cx="33" cy="6" r="3" fill="#ffd98a" id="shipLamp" opacity="0"/>
+  </svg>
+
+  <div id="dockLights"></div>
+  <div id="msg">Tap the glowing pane to light the lighthouse.</div>
+</div>
+
+<script>
+const NS = "http://www.w3.org/2000/svg";
+let denom = 4, correctIdx = 0, guided = true, misses = 0, round = 1;
+let dockCount = 0;
+
+const panesG = document.getElementById('panes');
+const fracNum = document.getElementById('fracNum');
+const fracDen = document.getElementById('fracDen');
+const msg = document.getElementById('msg');
+const roundLabel = document.getElementById('roundLabel');
+const dockWrap = document.getElementById('dockLights');
+
+for(let i=0;i<8;i++){
+  const d=document.createElement('div'); d.className='dock'; dockWrap.appendChild(d);
+}
+
+// stars
+const starsEl = document.getElementById('stars');
+for(let i=0;i<70;i++){
+  const s=document.createElement('div'); s.className='star';
+  s.style.left = Math.random()*100+'%';
+  s.style.top = Math.random()*55+'%';
+  s.style.opacity = (Math.random()*0.5+0.3);
+  starsEl.appendChild(s);
+}
+
+function polarToXY(cx,cy,r,angle){
+  return [cx + r*Math.cos(angle), cy + r*Math.sin(angle)];
+}
+
+function buildPanes(n, pulseIdx){
+  panesG.innerHTML = '';
+  const cx=180, cy=210, r=148;
+  const startAngle = -Math.PI/2 - Math.PI/n;
+  for(let i=0;i<n;i++){
+    const a0 = startAngle + i*(2*Math.PI/n);
+    const a1 = a0 + (2*Math.PI/n);
+    const [x0,y0] = polarToXY(cx,cy,r,a0);
+    const [x1,y1] = polarToXY(cx,cy,r,a1);
+    const large = (a1-a0) > Math.PI ? 1 : 0;
+    const path = document.createElementNS(NS,'path');
+    path.setAttribute('d', `M${cx},${cy} L${x0},${y0} A${r},${r} 0 ${large} 1 ${x1},${y1} Z`);
+    path.setAttribute('fill', '#3b4a68');
+    path.setAttribute('stroke', '#1a2338');
+    path.setAttribute('stroke-width','3');
+    path.dataset.idx = i;
+    path.style.cursor = 'pointer';
+    path.style.transition = 'fill .18s';
+    if(i===pulseIdx){
+      path.classList.add('pulseTarget');
+      path.setAttribute('fill', '#5a4a2e');
+      pulseAnim(path);
+    }
+    path.addEventListener('click', ()=>handleTap(i));
+    panesG.appendChild(path);
+  }
+}
+
+let pulseInterval;
+function pulseAnim(path){
+  clearInterval(pulseInterval);
+  let on = true;
+  pulseInterval = setInterval(()=>{
+    if(!document.body.contains(path)) { clearInterval(pulseInterval); return; }
+    path.setAttribute('fill', on ? '#c9a25f' : '#5a4a2e');
+    on = !on;
+  }, 450);
+}
+
+function setRound(n, idx, isGuided, label){
+  denom = n; correctIdx = idx; guided = isGuided;
+  fracDen.textContent = n;
+  fracNum.textContent = 1;
+  roundLabel.textContent = label;
+  buildPanes(n, isGuided ? idx : null);
+  msg.textContent = isGuided ? 'Tap the glowing pane to light the lighthouse.'
+                              : 'Count the panes. Tap the one pane that matches 1/'+n+'.';
+  resetShip();
+}
+
+function resetShip(){
+  const ship = document.getElementById('ship');
+  const shipLamp = document.getElementById('shipLamp');
+  ship.style.transition = 'none';
+  ship.style.left = '-80px';
+  shipLamp.style.opacity = 0;
+  void ship.offsetWidth;
+  ship.style.transition = 'left 2.2s ease-out';
+  setTimeout(()=>{ ship.style.left = '640px'; }, 100);
+}
+
+function handleTap(i){
+  clearInterval(pulseInterval);
+  const paths = panesG.querySelectorAll('path');
+  if(i === correctIdx){
+    paths.forEach(p=>{ if(p !== paths[i]) p.setAttribute('fill','#3b4a68'); });
+    ignite(paths[i]);
+  } else {
+    paths[i].setAttribute('fill', '#6b3b3b');
+    setTimeout(()=>{ paths[i].setAttribute('fill','#3b4a68'); }, 500);
+    misses++;
+    msg.textContent = 'Not quite — that pane didn\\'t match 1/'+denom+'. Try counting again, or pull the lever.';
+  }
+}
+
+function ignite(path){
+  path.setAttribute('fill', '#ffe9b0');
+  path.classList.add('flash');
+  msg.textContent = 'Lit! One pane of ' + denom + ' — that is 1/' + denom + '.';
+
+  // beam sweep
+  const beam = document.createElementNS(NS,'path');
+  const cx=180, cy=210;
+  beam.setAttribute('d', `M${cx},${cy} L${cx-400},${cy-260} L${cx+400},${cy-260} Z`);
+  beam.setAttribute('fill', 'rgba(255,230,160,0.18)');
+  panesG.parentNode.appendChild(beam);
+  setTimeout(()=>{ beam.remove(); }, 950);
+
+  setTimeout(()=>{
+    document.getElementById('shipLamp').style.opacity = 1;
+    dockCount++;
+    const docks = dockWrap.querySelectorAll('.dock');
+    if(docks[dockCount-1]) docks[dockCount-1].classList.add('lit');
+    msg.textContent = 'A ship answers from the fog and finds its way home.';
+  }, 700);
+
+  setTimeout(()=>{ advance(); }, 2600);
+}
+
+let stage = 0;
+function advance(){
+  stage++;
+  if(stage === 1){
+    // Round 2: ghost trace then unguided-ish (still show ghost)
+    setRound(6, 2, false, 'Beacon 2 — Ghost Trace');
+    setTimeout(()=> ghostTrace(2), 500);
+  } else if(stage === 2){
+    setRound(5, 4, false, 'Beacon 2 — On Your Own');
+  } else {
+    setRound(7, 3, false, 'Beacon 3 — Denominators 7 & 8');
+  }
+}
+
+function ghostTrace(idx){
+  const paths = panesG.querySelectorAll('path');
+  const p = paths[idx];
+  if(!p) return;
+  const orig = p.getAttribute('fill');
+  let count = 0;
+  const t = setInterval(()=>{
+    p.setAttribute('fill', count%2===0 ? '#e0c98a' : orig);
+    count++;
+    if(count>5){ clearInterval(t); p.setAttribute('fill', orig); }
+  }, 220);
+}
+
+// anatomy replay lever
+document.getElementById('lever').addEventListener('click', ()=>{
+  const stick = document.getElementById('leverStick');
+  stick.style.transform = 'rotate(25deg)';
+  setTimeout(()=>{ stick.style.transform='rotate(0deg)'; }, 250);
+  playAnatomy();
+});
+
+function playAnatomy(){
+  const paths = Array.from(panesG.querySelectorAll('path'));
+  fracDen.style.fontSize='46px'; fracDen.style.transition='font-size .2s';
+  msg.textContent = 'Bottom number = how many equal panes.';
+  let i = 0;
+  const seq = setInterval(()=>{
+    if(i>0) paths[i-1].setAttribute('fill', paths[i-1].classList.contains('flash') ? '#ffe9b0':'#3b4a68');
+    if(i < paths.length){
+      paths[i].setAttribute('fill', '#e0c98a');
+      i++;
+    } else {
+      clearInterval(seq);
+      fracDen.style.fontSize='32px';
+      fracNum.style.fontSize='46px';
+      msg.textContent = 'Top number = light exactly one.';
+      setTimeout(()=>{
+        fracNum.style.fontSize='32px';
+        paths.forEach((p,idx)=>{ p.setAttribute('fill', idx===correctIdx && p.classList.contains('flash') ? '#ffe9b0' : '#3b4a68'); });
+        msg.textContent = guided ? 'Tap the glowing pane.' : 'Now find the one pane that matches 1/'+denom+'.';
+      }, 900);
+    }
+  }, 260);
+}
+
+// init
+setRound(4, 0, true, 'Beacon 1 — Guided');
+</script>
+</body>
+</html>

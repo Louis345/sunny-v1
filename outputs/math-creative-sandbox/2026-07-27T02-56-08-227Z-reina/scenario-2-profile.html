@@ -1,0 +1,616 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no">
+<title>Buggy's Garden Market</title>
+<style>
+  :root{
+    --bg:#f0f9ff;
+    --accent:#2563eb;
+    --accentBg:#dbeafe;
+    --card:#ffffff;
+    --good:#16a34a;
+    --bad:#dc2626;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{
+    margin:0;padding:0;height:100%;
+    background:linear-gradient(180deg,#f0f9ff 0%,#e0f2fe 100%);
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    font-size:20px;
+    line-height:1.6;
+    color:#1e293b;
+    overflow-x:hidden;
+    touch-action: manipulation;
+  }
+  #stage{
+    min-height:100vh;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:20px;
+    padding-bottom:140px;
+  }
+  .card{
+    background:var(--card);
+    border-radius:28px;
+    padding:28px;
+    max-width:640px;
+    width:100%;
+    box-shadow:0 12px 30px rgba(30,64,175,0.15);
+    text-align:center;
+    animation:pop .35s ease;
+  }
+  @keyframes pop{from{transform:scale(.9);opacity:0}to{transform:scale(1);opacity:1}}
+  h1{font-size:1.6em;margin:0 0 10px;color:var(--accent);}
+  h2{font-size:1.3em;margin:0 0 14px;color:#1e3a8a;}
+  p{margin:8px 0;font-size:1em;}
+  .bigbtn{
+    font-size:1.1em;
+    font-family:inherit;
+    padding:16px 26px;
+    border:none;
+    border-radius:18px;
+    background:var(--accent);
+    color:white;
+    cursor:pointer;
+    margin:10px 6px;
+    box-shadow:0 6px 0 #1d4ed8;
+    transition:transform .1s;
+    min-width:70px;
+    min-height:56px;
+  }
+  .bigbtn:active{transform:translateY(4px);box-shadow:0 2px 0 #1d4ed8;}
+  .bigbtn.secondary{background:#94a3b8;box-shadow:0 6px 0 #64748b;}
+  .bigbtn:disabled{opacity:.35;cursor:default;box-shadow:none;}
+  .choice-row{display:flex;flex-wrap:wrap;justify-content:center;gap:10px;margin-top:14px;}
+  .choice-btn{
+    font-size:1.2em;font-weight:700;
+    padding:14px 20px;border-radius:16px;border:3px solid var(--accent);
+    background:var(--accentBg);color:#1e3a8a;cursor:pointer;min-width:70px;
+  }
+  .choice-btn.correct{background:#bbf7d0;border-color:var(--good);color:#166534;}
+  .choice-btn.wrong{background:#fecaca;border-color:var(--bad);color:#991b1b;}
+  .basket-row, .array-grid, .seq-row{display:flex;flex-wrap:wrap;gap:14px;justify-content:center;margin:16px 0;}
+  .basket{
+    background:var(--accentBg);
+    border:3px dashed #93c5fd;
+    border-radius:16px;
+    padding:10px;
+    min-width:90px;min-height:90px;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    gap:4px;cursor:pointer;
+    font-size:1.5em;
+  }
+  .basket.full{border-style:solid;background:#bbf7d0;border-color:var(--good);}
+  .basket .items{font-size:1em;line-height:1;}
+  .basket .label{font-size:.4em;color:#475569;}
+  .grid-preview{
+    display:grid; gap:6px; margin:14px auto; justify-content:center;
+  }
+  .grid-preview div{font-size:1.4em;}
+  .rowcol-controls{display:flex;justify-content:center;gap:30px;margin:14px 0;}
+  .rc{display:flex;flex-direction:column;align-items:center;gap:6px;}
+  .rc button{font-size:1.4em;width:48px;height:48px;border-radius:12px;border:none;background:var(--accent);color:white;}
+  .rc .val{font-size:1.6em;font-weight:800;color:#1e3a8a;}
+  .progressbar{
+    height:14px;width:100%;background:#e2e8f0;border-radius:8px;overflow:hidden;margin-bottom:14px;
+  }
+  .progressfill{height:100%;background:var(--accent);transition:width .4s;}
+  .seq-box{
+    min-width:56px;padding:10px;border-radius:12px;background:var(--accentBg);
+    font-weight:800;font-size:1.3em;color:#1e3a8a;border:3px solid #93c5fd;
+  }
+  .seq-box.blank{background:#fef9c3;border-color:#eab308;color:#a16207;cursor:pointer;}
+  .seq-box.filled{background:#bbf7d0;border-color:var(--good);color:#166534;}
+  .feedback{font-weight:800;font-size:1.2em;min-height:1.4em;margin-top:8px;}
+  .feedback.good{color:var(--good);}
+  .feedback.bad{color:var(--bad);}
+
+  #companion{
+    position:fixed;bottom:14px;right:14px;
+    display:flex;flex-direction:row-reverse;align-items:flex-end;gap:8px;
+    z-index:50;
+    max-width:90vw;
+  }
+  #bugface{
+    font-size:56px;
+    filter:drop-shadow(0 4px 6px rgba(0,0,0,.2));
+    transform-origin:bottom center;
+  }
+  #bubble{
+    background:white;border:3px solid var(--accent);border-radius:16px;
+    padding:10px 14px;max-width:230px;font-size:.85em;font-weight:600;color:#1e3a8a;
+    box-shadow:0 4px 10px rgba(0,0,0,.15);
+    opacity:0;transform:translateY(10px);transition:all .25s;
+    pointer-events:none;
+  }
+  #bubble.show{opacity:1;transform:translateY(0);}
+  @keyframes bounceAnim{
+    0%,100%{transform:translateY(0) scale(1);}
+    50%{transform:translateY(var(--bounceH,-14px)) scale(var(--bounceS,1.1));}
+  }
+  .bounce{animation:bounceAnim var(--bounceD,0.9s) ease-in-out 2;}
+
+  .starrow{font-size:2.4em;margin:10px 0;}
+  .confetti{
+    position:fixed;top:-20px;font-size:1.6em;pointer-events:none;
+    animation:fall linear forwards;
+  }
+  @keyframes fall{
+    to{ transform:translateY(105vh) rotate(360deg); opacity:.9; }
+  }
+  .storytext{background:var(--accentBg);border-radius:16px;padding:12px 16px;margin-bottom:12px;font-weight:600;color:#1e3a8a;}
+  .small{font-size:.75em;color:#64748b;}
+</style>
+</head>
+<body>
+
+<div id="stage"><div class="card" id="app"></div></div>
+
+<div id="companion">
+  <div id="bugface">🐞</div>
+  <div id="bubble"></div>
+</div>
+
+<script>
+/* ================= DATA / STATE ================= */
+const themes = [
+  {name:'ladybugs', emoji:'🐞'},
+  {name:'sunflowers', emoji:'🌻'},
+  {name:'bumblebees', emoji:'🐝'},
+  {name:'apples', emoji:'🍎'},
+  {name:'snails', emoji:'🐌'},
+  {name:'acorns', emoji:'🌰'}
+];
+
+const sensitivity = {
+  session_start:0.8, correct_answer:0.8, wrong_answer:0.6,
+  mastery_unlock:1, session_end:0.8, idle_too_long:0.4
+};
+const moodKey = {start:'session_start', correct:'correct_answer', wrong:'wrong_answer',
+  mastery:'mastery_unlock', end:'session_end', idle:'idle_too_long'};
+
+let state = {};
+let lastInteraction = Date.now();
+let bubbleHideTimer = null;
+
+function randInt(a,b){ return Math.floor(Math.random()*(b-a+1))+a; }
+function pick(arr){ return arr[randInt(0,arr.length-1)]; }
+function shuffle(arr){ let a=arr.slice(); for(let i=a.length-1;i>0;i--){const j=randInt(0,i);[a[i],a[j]]=[a[j],a[i]];} return a; }
+
+/* ================= COMPANION ================= */
+function companionSay(text, mood){
+  const key = moodKey[mood] || 'session_start';
+  const sens = sensitivity[key] !== undefined ? sensitivity[key] : 0.7;
+  const bubble = document.getElementById('bubble');
+  const face = document.getElementById('bugface');
+  bubble.textContent = text;
+  bubble.classList.add('show');
+  face.style.setProperty('--bounceH', (-10 - sens*14)+'px');
+  face.style.setProperty('--bounceS', (1 + sens*0.25).toFixed(2));
+  face.style.setProperty('--bounceD', (1.3 - sens*0.6).toFixed(2)+'s');
+  face.classList.remove('bounce'); void face.offsetWidth; face.classList.add('bounce');
+  clearTimeout(bubbleHideTimer);
+  bubbleHideTimer = setTimeout(()=>bubble.classList.remove('show'), 3800 + text.length*35);
+}
+
+document.addEventListener('pointerdown', ()=>{ lastInteraction = Date.now(); });
+
+setInterval(()=>{
+  if(Date.now() - lastInteraction > 45000){
+    companionSay(pick([
+      "Still there? Tap something whenever you're ready! 🌱",
+      "Take your time — I'll wait right here!",
+      "The garden's not going anywhere. No rush!"
+    ]), 'idle');
+    lastInteraction = Date.now();
+  }
+}, 8000);
+
+setInterval(()=>{
+  if(Math.random() < 0.3 && Date.now()-lastInteraction < 40000){
+    companionSay(pick([
+      "You're doing great!",
+      "I love counting with you!",
+      "Skip-counting is my favorite bug trick!",
+      "Groups, arrays... you're a math explorer!"
+    ]), 'start');
+  }
+}, 20000);
+
+/* ================= SCORE ================= */
+function resetScore(){ state.correct = 0; state.total = 0; }
+function markResult(isCorrect){
+  state.total++;
+  if(isCorrect) state.correct++;
+}
+
+/* ================= GENERATORS ================= */
+function genGroupsQ(){
+  const n = randInt(2,5), m = randInt(2,5);
+  return {n, m, theme: pick(themes), product: n*m, built: new Array(n).fill(0)};
+}
+function genArrayQ(){
+  const r = randInt(2,5), c = randInt(2,5);
+  return {r, c, theme: pick(themes), product: r*c, curR:1, curC:1};
+}
+function genSkipQ(){
+  const m = pick([2,3,4,5,10]);
+  const terms = 5;
+  const seq = [];
+  for(let i=1;i<=terms;i++) seq.push(m*i);
+  let blanks = shuffle([1,2,3,4]).slice(0,2).sort((a,b)=>a-b);
+  return {m, seq, blanks, filled:{}};
+}
+function makeChoices(correct, spread){
+  let set = new Set([correct]);
+  while(set.size<3){
+    let d = correct + pick([-spread,-spread*2,spread,spread*2, -1, 1]);
+    if(d>0) set.add(d);
+  }
+  return shuffle([...set]);
+}
+
+const wordProblemBank = () => {
+  const t1 = pick(themes), t2 = pick(themes);
+  const n1=randInt(2,5), m1=randInt(2,6);
+  const r1=randInt(2,5), c1=randInt(2,5);
+  const n2=randInt(2,5), m2=randInt(2,6);
+  const bags = randInt(2,5), each = randInt(2,6);
+  return [
+    {
+      text:`Buggy sees ${n1} spiderwebs. Each web has ${m1} ${t1.name} ${t1.emoji} stuck on it. How many ${t1.name} in all?`,
+      answer:n1*m1
+    },
+    {
+      text:`A garden bed is planted in ${r1} rows with ${c1} ${t2.emoji} ${t2.name} in each row. How many ${t2.name} are planted?`,
+      answer:r1*c1
+    },
+    {
+      text:`There are ${bags} baskets. Each basket holds ${each} apples 🍎. How many apples altogether?`,
+      answer:bags*each
+    },
+    {
+      text:`Buggy hops ${n2} times. Each hop covers ${m2} steps. Skip-count to find the total steps Buggy hopped!`,
+      answer:n2*m2
+    }
+  ];
+};
+
+/* ================= FLOW CONTROL ================= */
+function goto(screen){
+  window.scrollTo(0,0);
+  screen();
+}
+
+function startAll(){
+  resetScore();
+  state.groupsQ = [genGroupsQ(), genGroupsQ()];
+  state.groupsIdx = 0;
+  state.arrayQ = [genArrayQ(), genArrayQ()];
+  state.arrayIdx = 0;
+  state.skipQ = [genSkipQ(), genSkipQ()];
+  state.skipIdx = 0;
+  state.wordQ = wordProblemBank();
+  state.wordIdx = 0;
+  state.bonusIdx = 0;
+  goto(renderWelcome);
+}
+
+/* ================= WELCOME ================= */
+function renderWelcome(){
+  document.getElementById('app').innerHTML = `
+    <h1>🐞 Buggy's Garden Market</h1>
+    <p>Market day is coming! Buggy needs help sorting bugs and flowers into <b>equal groups</b>, building <b>arrays</b>, and <b>skip-counting</b> super fast.</p>
+    <p class="small">Tap the button to begin the adventure!</p>
+    <button class="bigbtn" onclick="startAll()">Start Adventure 🌻</button>
+  `;
+  companionSay("Hi! I'm Buggy! Ready to count with me?", 'start');
+}
+
+/* ================= ACTIVITY 1: EQUAL GROUPS ================= */
+function renderGroups(){
+  const q = state.groupsQ[state.groupsIdx];
+  const allFull = q.built.every((b,i)=>b===q.m);
+  let basketsHtml = '';
+  for(let i=0;i<q.n;i++){
+    const full = q.built[i]===q.m;
+    basketsHtml += `<div class="basket ${full?'full':''}" onclick="tapBasket(${i})">
+      <div class="items">${q.theme.emoji.repeat(Math.max(q.built[i],1))}</div>
+      <div class="label">${q.built[i]}/${q.m}</div>
+    </div>`;
+  }
+  document.getElementById('app').innerHTML = `
+    <div class="progressbar"><div class="progressfill" style="width:${(state.groupsIdx)/2*100}%"></div></div>
+    <h2>🧺 Equal Groups</h2>
+    <div class="storytext">Buggy has <b>${q.n}</b> baskets. Tap each basket to add ${q.theme.emoji} until every basket has <b>${q.m}</b> ${q.theme.name}!</div>
+    <div class="basket-row">${basketsHtml}</div>
+    <div id="groupsNext">
+      ${allFull ? '<button class="bigbtn" onclick="revealGroupsCount()">Count them up! 🔢</button>' : ''}
+    </div>
+    <div class="feedback" id="fb"></div>
+  `;
+}
+function tapBasket(i){
+  const q = state.groupsQ[state.groupsIdx];
+  if(q.built[i] < q.m){ q.built[i]++; }
+  renderGroups();
+}
+function revealGroupsCount(){
+  const q = state.groupsQ[state.groupsIdx];
+  let seqHtml = '';
+  for(let i=1;i<=q.n;i++){
+    seqHtml += `<div class="seq-box">${q.m*i}</div>`;
+  }
+  const choices = makeChoices(q.product, q.m);
+  document.getElementById('app').innerHTML = `
+    <h2>🔢 Skip-Count the Baskets</h2>
+    <div class="storytext">${q.n} baskets of ${q.m} ${q.theme.name}: skip-count by ${q.m}!</div>
+    <div class="seq-row">${seqHtml}</div>
+    <p>How many ${q.theme.name} are there <b>in all</b>?</p>
+    <div class="choice-row" id="choices">
+      ${choices.map(c=>`<button class="choice-btn" onclick="answerGroups(${c},${q.product},this)">${c}</button>`).join('')}
+    </div>
+    <div class="feedback" id="fb"></div>
+  `;
+}
+function answerGroups(val, correct, btn){
+  const ok = val === correct;
+  markResult(ok);
+  document.querySelectorAll('#choices .choice-btn').forEach(b=>b.disabled=true);
+  btn.classList.add(ok?'correct':'wrong');
+  document.getElementById('fb').textContent = ok ? "Yes! Great skip-counting!" : `So close! It's ${correct}.`;
+  document.getElementById('fb').className = 'feedback ' + (ok?'good':'bad');
+  companionSay(ok ? pick(["Yes!! You nailed it!","Buzzing with pride!","Perfect counting!"])
+                  : pick(["Almost! Let's try the next one!","Good try — counting takes practice!"]), ok?'correct':'wrong');
+  setTimeout(()=>{
+    state.groupsIdx++;
+    if(state.groupsIdx < state.groupsQ.length){ goto(renderGroups); }
+    else { goto(renderArrayIntro); }
+  }, 1600);
+}
+
+/* ================= ACTIVITY 2: ARRAYS ================= */
+function renderArrayIntro(){
+  document.getElementById('app').innerHTML = `
+    <h2>🌻 Array Architect</h2>
+    <p>Now Buggy is planting a garden in neat <b>rows and columns</b> — that's called an <b>array</b>!</p>
+    <button class="bigbtn" onclick="goto(renderArray)">Let's Build! 🌱</button>
+  `;
+}
+function renderArray(){
+  const q = state.arrayQ[state.arrayIdx];
+  let gridHtml = '';
+  for(let i=0;i<q.curR*q.curC;i++) gridHtml += `<div>${q.theme.emoji}</div>`;
+  const match = (q.curR===q.r && q.curC===q.c);
+  document.getElementById('app').innerHTML = `
+    <div class="progressbar"><div class="progressfill" style="width:${(state.arrayIdx)/2*100}%"></div></div>
+    <h2>🌻 Array Architect</h2>
+    <div class="storytext">Build an array with <b>${q.r} rows</b> and <b>${q.c}</b> ${q.theme.name} in each row!</div>
+    <div class="rowcol-controls">
+      <div class="rc">
+        <button onclick="changeRC('r',1)">+</button>
+        <div class="val">Rows: ${q.curR}</div>
+        <button onclick="changeRC('r',-1)">−</button>
+      </div>
+      <div class="rc">
+        <button onclick="changeRC('c',1)">+</button>
+        <div class="val">Cols: ${q.curC}</div>
+        <button onclick="changeRC('c',-1)">−</button>
+      </div>
+    </div>
+    <div class="grid-preview" style="grid-template-columns:repeat(${q.curC},1fr);">${gridHtml}</div>
+    ${match ? '<button class="bigbtn" onclick="revealArrayCount()">That\'s it! Count it! 🔢</button>' : '<p class="small">Adjust rows and columns to match!</p>'}
+    <div class="feedback" id="fb"></div>
+  `;
+}
+function changeRC(which, dir){
+  const q = state.arrayQ[state.arrayIdx];
+  if(which==='r'){ q.curR = Math.min(6, Math.max(1, q.curR+dir)); }
+  else { q.curC = Math.min(6, Math.max(1, q.curC+dir)); }
+  renderArray();
+}
+function revealArrayCount(){
+  const q = state.arrayQ[state.arrayIdx];
+  let seqHtml='';
+  for(let i=1;i<=q.r;i++) seqHtml += `<div class="seq-box">${q.c*i}</div>`;
+  const choices = makeChoices(q.product, q.c);
+  document.getElementById('app').innerHTML = `
+    <h2>🔢 Skip-Count the Rows</h2>
+    <div class="storytext">${q.r} rows of ${q.c}: skip-count by ${q.c}!</div>
+    <div class="seq-row">${seqHtml}</div>
+    <p>How many ${q.theme.name} in the whole array?</p>
+    <div class="choice-row" id="choices">
+      ${choices.map(c=>`<button class="choice-btn" onclick="answerArray(${c},${q.product},this)">${c}</button>`).join('')}
+    </div>
+    <div class="feedback" id="fb"></div>
+  `;
+}
+function answerArray(val, correct, btn){
+  const ok = val === correct;
+  markResult(ok);
+  document.querySelectorAll('#choices .choice-btn').forEach(b=>b.disabled=true);
+  btn.classList.add(ok?'correct':'wrong');
+  document.getElementById('fb').textContent = ok ? "Perfect array math!" : `Close! It's ${correct}.`;
+  document.getElementById('fb').className = 'feedback ' + (ok?'good':'bad');
+  companionSay(ok ? pick(["Wow, a true architect!","Rows and columns — nailed it!"])
+                  : pick(["Arrays are tricky — nice try!","Let's keep building!"]), ok?'correct':'wrong');
+  setTimeout(()=>{
+    state.arrayIdx++;
+    if(state.arrayIdx < state.arrayQ.length){ goto(renderArray); }
+    else { goto(renderSkipIntro); }
+  }, 1600);
+}
+
+/* ================= ACTIVITY 3: SKIP COUNT TRAIL ================= */
+function renderSkipIntro(){
+  document.getElementById('app').innerHTML = `
+    <h2>🐝 Skip-Count Trail</h2>
+    <p>Buggy needs to hop across the garden path by skip-counting. Fill in the missing stones!</p>
+    <button class="bigbtn" onclick="goto(renderSkip)">Hop In! 🐾</button>
+  `;
+}
+function renderSkip(){
+  const q = state.skipQ[state.skipIdx];
+  const nextBlankIdx = q.blanks.find(b => q.filled[b] === undefined);
+  let seqHtml = q.seq.map((v,i)=>{
+    if(q.blanks.includes(i)){
+      if(q.filled[i] !== undefined) return `<div class="seq-box filled">${v}</div>`;
+      if(i === nextBlankIdx) return `<div class="seq-box blank">?</div>`;
+      return `<div class="seq-box blank">?</div>`;
+    }
+    return `<div class="seq-box">${v}</div>`;
+  }).join('');
+  let choicesHtml = '';
+  if(nextBlankIdx !== undefined){
+    const correct = q.seq[nextBlankIdx];
+    const choices = makeChoices(correct, q.m);
+    choicesHtml = `<p>Skip-counting by <b>${q.m}</b> — what goes on the next stone?</p>
+      <div class="choice-row" id="choices">
+        ${choices.map(c=>`<button class="choice-btn" onclick="answerSkip(${c},${correct},${nextBlankIdx})">${c}</button>`).join('')}
+      </div>`;
+  } else {
+    choicesHtml = `<button class="bigbtn" onclick="nextSkip()">Next! 🐾</button>`;
+  }
+  document.getElementById('app').innerHTML = `
+    <div class="progressbar"><div class="progressfill" style="width:${(state.skipIdx)/2*100}%"></div></div>
+    <h2>🐝 Skip-Count Trail (by ${q.m}s)</h2>
+    <div class="seq-row">${seqHtml}</div>
+    ${choicesHtml}
+    <div class="feedback" id="fb"></div>
+  `;
+}
+function answerSkip(val, correct, idx){
+  const q = state.skipQ[state.skipIdx];
+  const ok = val === correct;
+  markResult(ok);
+  document.querySelectorAll('#choices .choice-btn').forEach(b=>b.disabled=true);
+  if(ok){ q.filled[idx] = true; }
+  document.getElementById('fb').textContent = ok ? "Right on the stone!" : `Oops! It's ${correct}.`;
+  document.getElementById('fb').className = 'feedback ' + (ok?'good':'bad');
+  companionSay(ok ? pick(["Hop hop hooray!","You're a skip-counting star!"])
+                  : pick(["Nice try, keep hopping!","Almost there!"]), ok?'correct':'wrong');
+  if(!ok) q.filled[idx] = true; // move on even if wrong, mark seen
+  setTimeout(()=>goto(renderSkip), 1300);
+}
+function nextSkip(){
+  state.skipIdx++;
+  if(state.skipIdx < state.skipQ.length){ goto(renderSkip); }
+  else { goto(renderWordIntro); }
+}
+
+/* ================= ACTIVITY 4: WORD PROBLEMS ================= */
+function renderWordIntro(){
+  document.getElementById('app').innerHTML = `
+    <h2>📖 Market Day Word Problems</h2>
+    <p>Buggy has real garden puzzles for you. Read carefully and think about groups or arrays!</p>
+    <button class="bigbtn" onclick="goto(renderWord)">Solve Puzzles 🧩</button>
+  `;
+}
+function renderWord(){
+  const q = state.wordQ[state.wordIdx];
+  const choices = makeChoices(q.answer, randInt(2,4));
+  document.getElementById('app').innerHTML = `
+    <div class="progressbar"><div class="progressfill" style="width:${(state.wordIdx)/state.wordQ.length*100}%"></div></div>
+    <h2>🧩 Puzzle ${state.wordIdx+1} of ${state.wordQ.length}</h2>
+    <div class="storytext">${q.text}</div>
+    <div class="choice-row" id="choices">
+      ${choices.map(c=>`<button class="choice-btn" onclick="answerWord(${c},${q.answer},this)">${c}</button>`).join('')}
+    </div>
+    <div class="feedback" id="fb"></div>
+  `;
+}
+function answerWord(val, correct, btn){
+  const ok = val === correct;
+  markResult(ok);
+  document.querySelectorAll('#choices .choice-btn').forEach(b=>b.disabled=true);
+  btn.classList.add(ok?'correct':'wrong');
+  document.getElementById('fb').textContent = ok ? "Correct! Great thinking!" : `The answer was ${correct}.`;
+  document.getElementById('fb').className = 'feedback ' + (ok?'good':'bad');
+  companionSay(ok ? pick(["You're a math detective!","Boom! Solved it!"])
+                  : pick(["Tricky one! Nice effort!","We'll get the next one!"]), ok?'correct':'wrong');
+  setTimeout(()=>{
+    state.wordIdx++;
+    if(state.wordIdx < state.wordQ.length){ goto(renderWord); }
+    else { goto(renderBonusIntro); }
+  }, 1700);
+}
+
+/* ================= BONUS ROUND ================= */
+function renderBonusIntro(){
+  document.getElementById('app').innerHTML = `
+    <h2>✨ Bonus Round!</h2>
+    <p>You unlocked Buggy's Bonus Round! Answer 3 super-fast multiplication puzzles!</p>
+    <button class="bigbtn" onclick="startBonus()">Go!</button>
+  `;
+  companionSay("Ooh, bonus round! Let's gooo!", 'mastery');
+}
+function startBonus(){
+  state.bonusQ = [1,2,3].map(()=>{
+    const a = randInt(2,5), b = randInt(2,5);
+    return {text:`${a} groups of ${b}`, answer:a*b, a, b};
+  });
+  state.bonusIdx = 0;
+  goto(renderBonus);
+}
+function renderBonus(){
+  const q = state.bonusQ[state.bonusIdx];
+  const choices = makeChoices(q.answer, q.b);
+  document.getElementById('app').innerHTML = `
+    <h2>⚡ Bonus ${state.bonusIdx+1}/3</h2>
+    <div class="storytext">${q.text}. How many in all?</div>
+    <div class="choice-row" id="choices">
+      ${choices.map(c=>`<button class="choice-btn" onclick="answerBonus(${c},${q.answer},this)">${c}</button>`).join('')}
+    </div>
+    <div class="feedback" id="fb"></div>
+  `;
+}
+function answerBonus(val, correct, btn){
+  const ok = val===correct;
+  markResult(ok);
+  document.querySelectorAll('#choices .choice-btn').forEach(b=>b.disabled=true);
+  btn.classList.add(ok?'correct':'wrong');
+  document.getElementById('fb').textContent = ok ? "Zoom! Correct!" : `It was ${correct}.`;
+  document.getElementById('fb').className = 'feedback ' + (ok?'good':'bad');
+  companionSay(ok?"Lightning fast!":"So close!", ok?'correct':'wrong');
+  setTimeout(()=>{
+    state.bonusIdx++;
+    if(state.bonusIdx < state.bonusQ.length){ goto(renderBonus); }
+    else { goto(renderEnd); }
+  }, 1300);
+}
+
+/* ================= END SCREEN ================= */
+function launchConfetti(){
+  const emojis = ['🌻','🐞','✨','🍎','🐝'];
+  for(let i=0;i<26;i++){
+    const el = document.createElement('div');
+    el.className='confetti';
+    el.textContent = pick(emojis);
+    el.style.left = Math.random()*100+'vw';
+    el.style.animationDuration = (2+Math.random()*2)+'s';
+    document.body.appendChild(el);
+    setTimeout(()=>el.remove(), 4200);
+  }
+}
+function renderEnd(){
+  const pct = state.total ? Math.round(state.correct/state.total*100) : 0;
+  const stars = pct>=90 ? 3 : pct>=70 ? 2 : 1;
+  document.getElementById('app').innerHTML = `
+    <h1>🎉 Market Day Success!</h1>
+    <div class="starrow">${'⭐'.repeat(stars)}${'☆'.repeat(3-stars)}</div>
+    <p>You solved <b>${state.correct} / ${state.total}</b> puzzles about groups, arrays, and skip-counting!</p>
+    <p class="storytext">Buggy says: "${stars===3?'You are a Multiplication Master!':stars===2?'Fantastic counting today!':'Every trip to the garden makes you stronger!'}"</p>
+    <button class="bigbtn" onclick="startAll()">Play Again 🔁</button>
+  `;
+  launchConfetti();
+  companionSay(stars===3 ? "MASTERY UNLOCKED! Amazing job!" : "You did such great work today!", 'mastery');
+}
+
+/* ================= INIT ================= */
+window.onload = () => { goto(renderWelcome); };
+</script>
+</body>
+</html>

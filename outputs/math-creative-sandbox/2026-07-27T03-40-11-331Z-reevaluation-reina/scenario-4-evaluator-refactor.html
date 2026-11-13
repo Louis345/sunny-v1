@@ -1,0 +1,830 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Pip's Patch: Multiply the Garden!</title>
+<style>
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none; }
+  html, body {
+    margin: 0; padding: 0; height: 100%;
+    font-family: 'Trebuchet MS', 'Segoe UI', sans-serif;
+    background: linear-gradient(180deg, #a7e0ff 0%, #cdeeff 35%, #eafaf0 60%, #d6f0c8 100%);
+    overflow-x: hidden;
+    touch-action: manipulation;
+  }
+  #sun {
+    position: fixed; top: -40px; right: -20px; width: 140px; height: 140px;
+    background: radial-gradient(circle, #fff6b0 0%, #ffe08a 60%, #ffd25b 100%);
+    border-radius: 50%; box-shadow: 0 0 60px 20px rgba(255,214,90,0.5); z-index: 0;
+  }
+  #cloud1, #cloud2 {
+    position: fixed; background: white; border-radius: 50px; opacity: 0.8; z-index: 0;
+  }
+  #cloud1 { width: 90px; height: 34px; top: 60px; left: 8%; }
+  #cloud2 { width: 60px; height: 24px; top: 120px; left: 60%; }
+
+  #app {
+    position: relative; z-index: 1;
+    max-width: 720px; margin: 0 auto; min-height: 100vh;
+    padding: 14px 14px 30px;
+    display: flex; flex-direction: column; align-items: stretch;
+  }
+
+  .progress-bar {
+    display: flex; justify-content: center; gap: 6px; margin: 6px 0 10px;
+  }
+  .progress-dot {
+    width: 10px; height: 10px; border-radius: 50%; background: #ffffff90; border: 2px solid #6bb04a;
+  }
+  .progress-dot.active { background: #ff9a3d; border-color: #ff9a3d; }
+  .progress-dot.done { background: #6bb04a; }
+
+  .screen { display: none; flex-direction: column; gap: 12px; animation: fadein 0.35s ease; }
+  .screen.active { display: flex; }
+  @keyframes fadein { from { opacity:0; transform: translateY(8px);} to {opacity:1; transform:none;} }
+  @keyframes pop { 0%{transform:scale(1);} 40%{transform:scale(1.25);} 100%{transform:scale(1);} }
+  @keyframes shake { 0%,100%{transform:translateX(0);} 25%{transform:translateX(-6px);} 75%{transform:translateX(6px);} }
+
+  .card {
+    background: rgba(255,255,255,0.92);
+    border-radius: 20px;
+    padding: 18px 18px;
+    box-shadow: 0 6px 16px rgba(0,60,20,0.15);
+  }
+
+  h1 { font-size: 1.5em; color: #2f6b1f; margin: 4px 0; text-align:center;}
+  h2 { font-size: 1.25em; color: #2f6b1f; margin: 2px 0 6px; }
+  p { font-size: 1.05em; color: #3a3a3a; line-height: 1.4; margin: 4px 0;}
+  .story { text-align: center; }
+
+  .btn {
+    background: linear-gradient(180deg, #ffb84d, #ff9a3d);
+    border: none; color: white; font-weight: bold; font-size: 1.1em;
+    padding: 14px 22px; border-radius: 16px; cursor: pointer;
+    box-shadow: 0 4px 0 #d97a1f; transition: transform 0.08s;
+  }
+  .btn:active { transform: translateY(3px); box-shadow: 0 1px 0 #d97a1f; }
+  .btn:disabled { background: #ccc; box-shadow: 0 4px 0 #999; cursor: default; opacity:0.7; }
+  .btn.secondary { background: linear-gradient(180deg, #7bc96f, #52a942); box-shadow: 0 4px 0 #3a7d2d; }
+  .btn.secondary:active { box-shadow: 0 1px 0 #3a7d2d; }
+  .btn.tiny { padding: 8px 14px; font-size: 0.95em; }
+  .btn-row { display:flex; gap:10px; justify-content:center; flex-wrap: wrap; }
+
+  .stepper { display:flex; flex-direction:column; align-items:center; gap:4px; }
+  .stepper-label { font-size: 0.9em; color:#2f6b1f; font-weight:bold; }
+  .stepper-row { display:flex; align-items:center; gap:8px; }
+  .step-btn {
+    width: 44px; height: 44px; border-radius: 50%; border:none;
+    background:#eaf7e0; color:#2f6b1f; font-size:1.5em; font-weight:bold; cursor:pointer;
+    box-shadow: 0 3px 0 #b7d9a5; touch-action: manipulation;
+  }
+  .step-btn:active { box-shadow:none; transform: translateY(2px); }
+  .step-btn:disabled { background:#ddd; color:#999; box-shadow:0 3px 0 #bbb; cursor:default; }
+  .stepper-value {
+    min-width: 40px; text-align:center; font-size: 1.5em; font-weight:bold; color:#a35a12;
+  }
+  .steppers-wrap { display:flex; justify-content:center; gap: 24px; margin: 6px 0; flex-wrap: wrap; }
+
+  .groups-area {
+    display:flex; flex-wrap:wrap; justify-content:center; gap: 14px; min-height: 90px; align-items:flex-start;
+  }
+  .group-box {
+    background: #f4e3c9; border: 3px solid #c99a52; border-radius: 12px;
+    padding: 8px 10px; text-align:center; min-width: 66px; cursor:pointer;
+    transition: transform 0.12s, border-color 0.2s;
+  }
+  .group-box:active { transform: scale(0.95); }
+  .group-box.pot-complete { border-color:#2f8f2f; box-shadow:0 0 0 3px #cdeec2; }
+  .group-box.dim { opacity: 0.35; }
+  .group-box.active-tap { transform: scale(1.08); border-color: #ff9a3d; }
+  .slot { font-size: 1.4em; margin: 1px; display:inline-block; width:22px; }
+  .slot.empty { color:#c9a86a; opacity:0.5; }
+  .cum-label {
+    margin-top: 4px; font-weight:bold; color:#a35a12; font-size:1.05em;
+  }
+
+  .array-area-rows { display:flex; flex-direction:column; gap:4px; align-items:center; }
+  .array-area-cols { display:flex; flex-direction:row; gap:4px; justify-content:center; }
+  .array-row, .array-col { display:flex; gap:4px; padding: 3px 6px; border-radius:8px; cursor:pointer; }
+  .array-col { flex-direction:column; }
+  .array-row.highlight, .array-col.highlight { background:#fff2cc; }
+  .array-row.dim, .array-col.dim { opacity:0.35; }
+  .array-cell2 { font-size:1.5em; width:34px; height:34px; display:flex; align-items:center; justify-content:center; }
+
+  .count-seq { text-align:center; font-size: 1.3em; font-weight:bold; color:#1f7a3d; min-height: 1.6em; }
+  .equation { text-align:center; font-size:1.3em; font-weight:bold; color:#a35a12; min-height:1.6em; }
+
+  .target-box {
+    background:#eaf7e0; border-radius:14px; padding: 10px 16px; text-align:center;
+    font-size:1.15em; font-weight:bold; color:#2f6b1f; border: 2px dashed #6bb04a;
+  }
+
+  .feedback { text-align:center; font-size:1.15em; font-weight:bold; min-height: 1.5em; }
+  .feedback.good { color:#2f8f2f; animation: pop 0.4s ease; }
+  .feedback.bad { color:#c94f4f; animation: shake 0.4s ease; }
+
+  .mode-toggle { display:flex; justify-content:center; gap:10px; margin-bottom:4px;}
+  .mode-btn {
+    padding: 8px 14px; border-radius: 12px; border: 2px solid #6bb04a; background:white;
+    color:#2f6b1f; font-weight:bold; cursor:pointer;
+  }
+  .mode-btn.selected { background:#6bb04a; color:white; }
+
+  .stars-row { text-align:center; font-size:1.6em; letter-spacing:4px; }
+
+  .badge {
+    text-align:center; font-size:1.4em; font-weight:bold; color:#a35a12; margin-top:6px;
+  }
+
+  .word-context { font-size:2.4em; text-align:center; }
+
+  .small-note { text-align:center; font-size:0.85em; color:#5c5c5c; }
+
+  @media (max-width:420px){
+    .array-cell2 { width:26px; height:26px; font-size:1.2em; }
+  }
+</style>
+</head>
+<body>
+<div id="sun"></div>
+<div id="cloud1"></div>
+<div id="cloud2"></div>
+
+<div id="app">
+  <div class="progress-bar" id="progressBar"></div>
+
+  <!-- INTRO -->
+  <section class="screen active" id="screen-intro">
+    <div class="card story">
+      <h1>🌻 Pip's Patch 🌻</h1>
+      <p>Pip the gardener plants flowers in <b>equal groups</b> — and needs YOUR help figuring out how many pots to plant!</p>
+      <p>Tap flowers to plant them, build arrays, and solve Pip's garden puzzles using <b>multiplication</b>.</p>
+      <div class="btn-row"><button class="btn" onclick="startPlantStage()">🌱 Start Growing</button></div>
+    </div>
+  </section>
+
+  <!-- PLANT STAGE: build equal groups to hit a target -->
+  <section class="screen" id="screen-plant">
+    <div class="card">
+      <h2>Plant Equal Groups <span id="plant-round-label"></span></h2>
+      <p id="plant-instructions"></p>
+      <div class="target-box" id="plant-target"></div>
+      <div class="steppers-wrap" id="plant-stepper"></div>
+      <div class="groups-area" id="plant-pots"></div>
+      <div class="count-seq" id="plant-seq"></div>
+      <div class="equation" id="plant-eq">&nbsp;</div>
+      <div class="feedback" id="plant-feedback">&nbsp;</div>
+      <p class="small-note">Tap a pot to add a flower. Tap a full pot to take one back out.</p>
+      <div class="btn-row">
+        <button class="btn" id="plant-check" onclick="checkPlant()">✓ Check My Garden</button>
+        <button class="btn secondary" id="plant-continue" style="display:none;" onclick="nextPlantRound()">Next →</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- TEACH 2: Arrays -->
+  <section class="screen" id="screen-teach2">
+    <div class="card">
+      <h2>Same Flowers, New Shape: Arrays!</h2>
+      <p>Look — the very same flowers, now lined up in neat <b>rows</b> and <b>columns</b>. This is called an <b>array</b>.</p>
+      <p>Tap each <span id="t2-modeword">row</span> in order to skip-count!</p>
+      <div id="t2-arraywrap"></div>
+      <div class="count-seq" id="t2-seq"></div>
+      <div class="equation" id="t2-eq">&nbsp;</div>
+      <p class="small-note" id="t2-connect"></p>
+      <div class="btn-row">
+        <button class="btn tiny secondary" id="t2-switch" onclick="switchArrayMode()" style="display:none;">🔄 Recount by <span id="t2-switchlabel">Columns</span></button>
+      </div>
+      <div class="btn-row">
+        <button class="btn" id="t2-next" disabled onclick="startArrayChallenge()">Next: Array Challenge! →</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- BUILD 2: Array Challenge -->
+  <section class="screen" id="screen-build2">
+    <div class="card">
+      <h2>Array Challenge <span id="b2-round-label"></span></h2>
+      <div class="target-box" id="b2-target"></div>
+      <div class="steppers-wrap" id="b2-steppers"></div>
+      <div class="array-area-rows" id="b2-array"></div>
+      <div class="equation" id="b2-eq"></div>
+      <p class="small-note" id="b2-verifynote">Now tap each row in order to prove your count!</p>
+      <div class="array-area-rows" id="b2-verify"></div>
+      <div class="count-seq" id="b2-verifyseq"></div>
+      <div class="feedback" id="b2-feedback">&nbsp;</div>
+      <div class="btn-row">
+        <button class="btn" id="b2-check" onclick="checkArrayChallenge()" disabled>✓ Check My Array</button>
+        <button class="btn secondary" id="b2-continue" style="display:none;" onclick="nextArrayRound()">Next →</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- WORD PROBLEMS -->
+  <section class="screen" id="screen-word">
+    <div class="card">
+      <h2>Garden Story Problems <span id="w-round-label"></span></h2>
+      <div class="word-context" id="w-emoji">🌼</div>
+      <p id="w-text"></p>
+      <div class="mode-toggle" id="w-mode-toggle"></div>
+      <div class="steppers-wrap" id="w-steppers"></div>
+      <div id="w-visual"></div>
+      <div class="equation" id="w-eq"></div>
+      <div class="feedback" id="w-feedback">&nbsp;</div>
+      <div class="btn-row">
+        <button class="btn" id="w-check" onclick="checkWordProblem()">✓ Check My Answer</button>
+        <button class="btn secondary" id="w-continue" style="display:none;" onclick="nextWordProblem()">Next Story →</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- END -->
+  <section class="screen" id="screen-end">
+    <div class="card story">
+      <h1>🎉 Harvest Time! 🎉</h1>
+      <p>You helped Pip plant and count the whole garden using multiplication!</p>
+      <div class="stars-row" id="end-stars"></div>
+      <div class="badge" id="end-badge"></div>
+      <div class="btn-row"><button class="btn" onclick="restartAll()">🔁 Play Again</button></div>
+    </div>
+  </section>
+
+</div>
+
+<script>
+/* ---------------- Global state ---------------- */
+const SCREEN_ORDER = ['screen-intro','screen-plant','screen-teach2','screen-build2','screen-word','screen-end'];
+let totalStars = 0;
+let maxStars = 0;
+
+/* ---------------- Navigation ---------------- */
+function goTo(id){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  renderProgress(id);
+  window.scrollTo(0,0);
+}
+function renderProgress(currentId){
+  const bar = document.getElementById('progressBar');
+  bar.innerHTML = '';
+  const idx = SCREEN_ORDER.indexOf(currentId);
+  SCREEN_ORDER.forEach((id,i)=>{
+    const dot = document.createElement('div');
+    dot.className = 'progress-dot' + (i===idx ? ' active' : (i<idx ? ' done' : ''));
+    bar.appendChild(dot);
+  });
+}
+renderProgress('screen-intro');
+
+/* ---------------- Helpers ---------------- */
+function randInt(min,max){ return Math.floor(Math.random()*(max-min+1))+min; }
+function starsDisplay(count, max){
+  let s = '';
+  for(let i=0;i<max;i++) s += (i<count ? '⭐' : '✩');
+  return s;
+}
+
+/* Robust stepper component */
+function makeStepper(label, min, max, value, onChange){
+  const wrap = document.createElement('div');
+  wrap.className = 'stepper';
+  const lbl = document.createElement('div');
+  lbl.className = 'stepper-label';
+  lbl.textContent = label;
+  const row = document.createElement('div');
+  row.className = 'stepper-row';
+  const minus = document.createElement('button');
+  minus.type = 'button';
+  minus.className = 'step-btn'; minus.textContent = '−';
+  const val = document.createElement('div');
+  val.className = 'stepper-value'; val.textContent = value;
+  const plus = document.createElement('button');
+  plus.type = 'button';
+  plus.className = 'step-btn'; plus.textContent = '+';
+
+  function refreshDisabled(){
+    minus.disabled = (value <= min);
+    plus.disabled = (value >= max);
+  }
+  minus.addEventListener('click', function(e){
+    e.preventDefault();
+    if(value > min){ value--; val.textContent = value; refreshDisabled(); onChange(value); }
+  });
+  plus.addEventListener('click', function(e){
+    e.preventDefault();
+    if(value < max){ value++; val.textContent = value; refreshDisabled(); onChange(value); }
+  });
+  refreshDisabled();
+  row.append(minus, val, plus);
+  wrap.append(lbl, row);
+  return { el: wrap, get: () => value, set: (v) => { value = v; val.textContent = v; refreshDisabled(); } };
+}
+
+function renderGroupsVisual(container, groups, size, emoji){
+  container.innerHTML = '';
+  let cum = 0;
+  for(let g=0; g<groups; g++){
+    const box = document.createElement('div');
+    box.className = 'group-box';
+    const items = document.createElement('div');
+    for(let i=0;i<size;i++){
+      const span = document.createElement('span');
+      span.className='slot';
+      span.textContent = emoji;
+      items.appendChild(span);
+    }
+    box.appendChild(items);
+    cum += size;
+    const cLabel = document.createElement('div');
+    cLabel.className = 'cum-label';
+    cLabel.textContent = cum;
+    box.appendChild(cLabel);
+    container.appendChild(box);
+  }
+}
+
+function renderArrayRows(container, rows, cols, emoji){
+  container.innerHTML = '';
+  const rowEls = [];
+  for(let r=0; r<rows; r++){
+    const rowDiv = document.createElement('div');
+    rowDiv.className = 'array-row';
+    for(let c=0;c<cols;c++){
+      const cell = document.createElement('div');
+      cell.className = 'array-cell2';
+      cell.textContent = emoji;
+      rowDiv.appendChild(cell);
+    }
+    container.appendChild(rowDiv);
+    rowEls.push(rowDiv);
+  }
+  return rowEls;
+}
+function renderArrayCols(container, rows, cols, emoji){
+  container.innerHTML = '';
+  const colEls = [];
+  for(let c=0; c<cols; c++){
+    const colDiv = document.createElement('div');
+    colDiv.className = 'array-col';
+    for(let r=0;r<rows;r++){
+      const cell = document.createElement('div');
+      cell.className = 'array-cell2';
+      cell.textContent = emoji;
+      colDiv.appendChild(cell);
+    }
+    container.appendChild(colDiv);
+    colEls.push(colDiv);
+  }
+  return colEls;
+}
+function skipList(n1, n2){
+  let arr = [];
+  for(let i=1;i<=n1;i++) arr.push(i*n2);
+  return arr;
+}
+
+/* ================= PLANT STAGE ================= */
+let plantRounds = [];
+let plantRoundIdx = 0;
+let plantCap = 4, plantTarget = 12, plantPots = [];
+let plantStars = 0;
+
+function generatePlantRounds(){
+  const r1cap = randInt(3,5); const r1groups = randInt(2,4);
+  let r2cap = randInt(3,6); let r2groups = randInt(2,4);
+  // ensure round2 different target from round1
+  while(r2cap*r2groups === r1cap*r1groups){ r2cap = randInt(3,6); r2groups = randInt(2,4); }
+  return [
+    {cap:r1cap, groups:r1groups},
+    {cap:r2cap, groups:r2groups}
+  ];
+}
+
+function startPlantStage(){
+  plantRounds = generatePlantRounds();
+  plantRoundIdx = 0;
+  plantStars = 0;
+  goTo('screen-plant');
+  setupPlantRound();
+}
+
+function setupPlantRound(){
+  const round = plantRounds[plantRoundIdx];
+  plantCap = round.cap;
+  plantTarget = round.cap * round.groups;
+  plantPots = [0]; // start with 1 empty pot
+
+  document.getElementById('plant-round-label').textContent = `(${plantRoundIdx+1} of ${plantRounds.length})`;
+  document.getElementById('plant-instructions').innerHTML =
+    `Pip needs <b>${plantTarget} flowers</b> total, planted with exactly <b>${plantCap}</b> in every pot. How many pots will you need?`;
+  document.getElementById('plant-target').textContent = `🎯 Target: ${plantTarget} flowers, ${plantCap} per pot`;
+  document.getElementById('plant-feedback').textContent = '';
+  document.getElementById('plant-feedback').className = 'feedback';
+  document.getElementById('plant-check').style.display = 'inline-block';
+  document.getElementById('plant-check').disabled = false;
+  document.getElementById('plant-continue').style.display = 'none';
+
+  const stepWrap = document.getElementById('plant-stepper');
+  stepWrap.innerHTML = '';
+  const s = makeStepper('Number of Pots', 1, 8, plantPots.length, (v)=>{
+    if(v > plantPots.length){
+      while(plantPots.length < v) plantPots.push(0);
+    } else {
+      plantPots = plantPots.slice(0, v);
+    }
+    refreshPlantView();
+  });
+  stepWrap.appendChild(s.el);
+
+  refreshPlantView();
+}
+
+function onPotTap(i){
+  if(plantPots[i] < plantCap){
+    plantPots[i]++;
+  } else {
+    plantPots[i]--; // tapping a full pot lets you take one back out
+  }
+  refreshPlantView();
+}
+
+function refreshPlantView(){
+  const container = document.getElementById('plant-pots');
+  container.innerHTML = '';
+  let cum = 0;
+  plantPots.forEach((fill, i) => {
+    const box = document.createElement('div');
+    box.className = 'group-box' + (fill === plantCap ? ' pot-complete' : '');
+    const items = document.createElement('div');
+    for(let s=0; s<plantCap; s++){
+      const span = document.createElement('span');
+      span.className = 'slot' + (s < fill ? '' : ' empty');
+      span.textContent = s < fill ? '🌼' : '○';
+      items.appendChild(span);
+    }
+    box.appendChild(items);
+    const lbl = document.createElement('div');
+    lbl.className = 'cum-label';
+    lbl.textContent = `${fill}/${plantCap}`;
+    box.appendChild(lbl);
+    box.onclick = () => onPotTap(i);
+    container.appendChild(box);
+    if(fill === plantCap){ cum += plantCap; }
+  });
+
+  const total = plantPots.reduce((a,b)=>a+b,0);
+  const completeCount = plantPots.filter(f=>f===plantCap).length;
+  const seqParts = [];
+  let running = 0;
+  for(let i=0;i<completeCount;i++){ running += plantCap; seqParts.push(running); }
+  document.getElementById('plant-seq').textContent = seqParts.length ? ('Skip-counting: ' + seqParts.join(', ')) : '';
+
+  const allComplete = plantPots.length>0 && plantPots.every(f=>f===plantCap);
+  if(allComplete){
+    document.getElementById('plant-eq').textContent = `${plantPots.length} × ${plantCap} = ${total}`;
+  } else {
+    document.getElementById('plant-eq').textContent = `Flowers so far: ${total}`;
+  }
+}
+
+function checkPlant(){
+  const total = plantPots.reduce((a,b)=>a+b,0);
+  const allComplete = plantPots.length>0 && plantPots.every(f=>f===plantCap);
+  const fb = document.getElementById('plant-feedback');
+
+  if(total === plantTarget && allComplete){
+    plantStars++; totalStars++;
+    fb.textContent = `🎉 Perfect! ${plantPots.length} pots × ${plantCap} flowers = ${plantTarget}!`;
+    fb.className = 'feedback good';
+    document.getElementById('plant-check').style.display = 'none';
+    document.getElementById('plant-continue').style.display = 'inline-block';
+  } else if(!allComplete && total === plantTarget){
+    fb.textContent = `So close — you have ${total} flowers, but not every pot has ${plantCap}. Equal groups need the SAME number in each pot!`;
+    fb.className = 'feedback bad';
+  } else if(total < plantTarget){
+    fb.textContent = `Not enough yet — you have ${total}, but Pip needs ${plantTarget}. Keep planting!`;
+    fb.className = 'feedback bad';
+  } else {
+    fb.textContent = `Too many! You have ${total}, but Pip only needs ${plantTarget}. Tap a full pot to remove a flower, or use fewer pots.`;
+    fb.className = 'feedback bad';
+  }
+}
+
+function nextPlantRound(){
+  plantRoundIdx++;
+  if(plantRoundIdx < plantRounds.length){
+    setupPlantRound();
+  } else {
+    // carry last round's numbers into the array teaching stage
+    const round = plantRounds[plantRounds.length-1];
+    setupTeach2(round.groups, round.cap);
+    goTo('screen-teach2');
+  }
+}
+
+/* ================= TEACH 2: Array intro with row/column recount ================= */
+let t2rows = 3, t2cols = 4, t2mode = 'rows';
+function setupTeach2(rows, cols){
+  t2rows = rows; t2cols = cols; t2mode = 'rows';
+  document.getElementById('t2-next').disabled = true;
+  document.getElementById('t2-switch').style.display = 'none';
+  document.getElementById('t2-seq').textContent = '';
+  document.getElementById('t2-eq').textContent = '';
+  document.getElementById('t2-connect').textContent = '';
+  document.getElementById('t2-modeword').textContent = 'row';
+  document.getElementById('t2-switchlabel').textContent = 'Columns';
+  renderTeach2Grid();
+}
+
+function renderTeach2Grid(){
+  const wrap = document.getElementById('t2-arraywrap');
+  wrap.innerHTML = '';
+  const rows = t2rows, cols = t2cols;
+  const mode = t2mode;
+  const groupCount = mode === 'rows' ? rows : cols;
+  const groupSize = mode === 'rows' ? cols : rows;
+  const els = mode === 'rows' ? renderArrayRows(wrap, rows, cols, '🌼') : renderArrayCols(wrap, rows, cols, '🌼');
+
+  let currentIndex = 0;
+  const revealedSeq = [];
+  els.forEach(el => el.classList.add('dim'));
+
+  els.forEach((el, idx) => {
+    el.onclick = () => {
+      if(idx !== currentIndex) return;
+      el.classList.remove('dim');
+      el.classList.add('highlight');
+      const cum = (currentIndex+1) * groupSize;
+      revealedSeq.push(cum);
+      document.getElementById('t2-seq').textContent = revealedSeq.join(', ');
+      currentIndex++;
+      if(currentIndex === groupCount){
+        const word = mode==='rows' ? `${rows} rows × ${cols} columns` : `${cols} columns × ${rows} rows`;
+        document.getElementById('t2-eq').textContent = `${word} = ${rows*cols}`;
+        document.getElementById('t2-connect').textContent =
+          mode === 'rows'
+          ? `That's ${rows} × ${cols} = ${rows*cols}. Now try counting the OTHER way!`
+          : `Counting by columns still gives ${cols} × ${rows} = ${rows*cols} — same flowers, same total!`;
+        document.getElementById('t2-next').disabled = false;
+        document.getElementById('t2-switch').style.display = 'inline-block';
+      }
+    };
+  });
+}
+
+function switchArrayMode(){
+  t2mode = (t2mode === 'rows') ? 'cols' : 'rows';
+  document.getElementById('t2-modeword').textContent = (t2mode==='rows') ? 'row' : 'column';
+  document.getElementById('t2-switchlabel').textContent = (t2mode==='rows') ? 'Columns' : 'Rows';
+  document.getElementById('t2-seq').textContent = '';
+  document.getElementById('t2-eq').textContent = '';
+  document.getElementById('t2-connect').textContent = '';
+  renderTeach2Grid();
+}
+
+/* ================= BUILD 2: Array Challenge (with tap verification) ================= */
+let arrayRoundIndex = 0;
+let arrayTargets = [];
+let b2r = 2, b2c = 2;
+let arrayStars = 0;
+let b2verified = false;
+
+function startArrayChallenge(){
+  arrayRoundIndex = 0;
+  arrayStars = 0;
+  arrayTargets = [
+    { total: randInt(6,20) },
+    { total: randInt(6,24) }
+  ];
+  goTo('screen-build2');
+  setupArrayRound();
+}
+
+function setupArrayRound(){
+  document.getElementById('b2-round-label').textContent = `(${arrayRoundIndex+1} of 2)`;
+  const target = arrayTargets[arrayRoundIndex];
+  document.getElementById('b2-target').textContent =
+    `🎯 Build an array with exactly ${target.total} flowers, in neat rows and columns.`;
+  document.getElementById('b2-feedback').textContent = '';
+  document.getElementById('b2-feedback').className = 'feedback';
+  document.getElementById('b2-check').style.display = 'inline-block';
+  document.getElementById('b2-check').disabled = true;
+  document.getElementById('b2-continue').style.display = 'none';
+  b2verified = false;
+
+  b2r = 2; b2c = 2;
+  const stepWrap = document.getElementById('b2-steppers');
+  stepWrap.innerHTML = '';
+  const s1 = makeStepper('Rows', 1, 8, b2r, (v)=>{ b2r=v; refreshArrayRound(); });
+  const s2 = makeStepper('Columns', 1, 8, b2c, (v)=>{ b2c=v; refreshArrayRound(); });
+  stepWrap.append(s1.el, s2.el);
+  refreshArrayRound();
+}
+
+function refreshArrayRound(){
+  renderArrayRows(document.getElementById('b2-array'), b2r, b2c, '🐞');
+  document.getElementById('b2-eq').textContent = `${b2r} × ${b2c} = ${b2r*b2c}`;
+  b2verified = false;
+  document.getElementById('b2-check').disabled = true;
+  document.getElementById('b2-verifyseq').textContent = '';
+  setupArrayVerify();
+}
+
+function setupArrayVerify(){
+  const container = document.getElementById('b2-verify');
+  const els = renderArrayRows(container, b2r, b2c, '🐞');
+  els.forEach(el => el.classList.add('dim'));
+  let currentIndex = 0;
+  const revealed = [];
+  els.forEach((el, idx) => {
+    el.onclick = () => {
+      if(idx !== currentIndex) return;
+      el.classList.remove('dim');
+      el.classList.add('highlight');
+      const cum = (currentIndex+1) * b2c;
+      revealed.push(cum);
+      document.getElementById('b2-verifyseq').textContent = revealed.join(', ');
+      currentIndex++;
+      if(currentIndex === b2r){
+        b2verified = true;
+        document.getElementById('b2-check').disabled = false;
+      }
+    };
+  });
+}
+
+function checkArrayChallenge(){
+  const target = arrayTargets[arrayRoundIndex];
+  const gotTotal = b2r * b2c;
+  const fb = document.getElementById('b2-feedback');
+  if(!b2verified){
+    fb.textContent = `Tap through your rows above first, to prove your skip-count!`;
+    fb.className = 'feedback bad';
+    return;
+  }
+  if(gotTotal === target.total){
+    arrayStars++; totalStars++;
+    fb.textContent = `🎉 Yes! ${b2r} × ${b2c} = ${gotTotal}. That's a perfect array!`;
+    fb.className = 'feedback good';
+    document.getElementById('b2-check').style.display = 'none';
+    document.getElementById('b2-continue').style.display = 'inline-block';
+  } else {
+    fb.textContent = `Your array shows ${gotTotal}, but Pip needs ${target.total}. Adjust rows or columns and re-tap to verify.`;
+    fb.className = 'feedback bad';
+  }
+}
+
+function nextArrayRound(){
+  arrayRoundIndex++;
+  if(arrayRoundIndex < arrayTargets.length){
+    setupArrayRound();
+  } else {
+    startWordProblems();
+  }
+}
+
+/* ================= WORD PROBLEMS ================= */
+const problemTemplates = [
+  { text:(a,b)=>`Pip lines up ${a} baskets in the shed. Each basket holds ${b} shiny apples. How many apples in all?`, emoji:'🍎', hintMode:'groups' },
+  { text:(a,b)=>`Pip sets out ${a} flower pots. Each pot has ${b} tulips. How many tulips in total?`, emoji:'🌷', hintMode:'groups' },
+  { text:(a,b)=>`Pip plants seeds in ${a} neat rows, with ${b} seeds in each row. How many seeds did Pip plant?`, emoji:'🌱', hintMode:'array' },
+  { text:(a,b)=>`There are ${a} spiderwebs in the garden. Each web has ${b} sparkly dew drops. How many dew drops in all?`, emoji:'💧', hintMode:'groups' },
+  { text:(a,b)=>`The garden has ${a} rows of pumpkins with ${b} pumpkins in each row. How many pumpkins are there?`, emoji:'🎃', hintMode:'array' },
+  { text:(a,b)=>`Pip bakes ${a} trays of cookies. Each tray has ${b} cookies. How many cookies did Pip bake?`, emoji:'🍪', hintMode:'groups' },
+  { text:(a,b)=>`Ladybugs line up in ${a} rows and ${b} columns on a big leaf. How many ladybugs are there?`, emoji:'🐞', hintMode:'array' },
+  { text:(a,b)=>`Pip has ${a} jars on the shelf. Each jar has ${b} fireflies. How many fireflies in all?`, emoji:'✨', hintMode:'groups' }
+];
+
+let wordProblems = [];
+let wordIndex = 0;
+let wordStars = 0;
+let wMode = 'groups';
+let wN1 = 2, wN2 = 2;
+
+function pickWordProblems(){
+  const shuffled = [...problemTemplates].sort(()=>Math.random()-0.5);
+  const chosen = shuffled.slice(0,5);
+  return chosen.map(t => {
+    const a = randInt(2,5);
+    const b = randInt(2,6);
+    return { text: t.text(a,b), emoji: t.emoji, a, b, hintMode: t.hintMode };
+  });
+}
+
+function startWordProblems(){
+  wordProblems = pickWordProblems();
+  wordIndex = 0;
+  wordStars = 0;
+  goTo('screen-word');
+  setupWordProblem();
+}
+
+function setupWordProblem(){
+  const p = wordProblems[wordIndex];
+  document.getElementById('w-round-label').textContent = `(${wordIndex+1} of ${wordProblems.length})`;
+  document.getElementById('w-emoji').textContent = p.emoji;
+  document.getElementById('w-text').textContent = p.text;
+  document.getElementById('w-feedback').textContent = '';
+  document.getElementById('w-feedback').className = 'feedback';
+  document.getElementById('w-check').style.display = 'inline-block';
+  document.getElementById('w-continue').style.display = 'none';
+
+  wMode = p.hintMode;
+  wN1 = 2; wN2 = 2;
+
+  const toggle = document.getElementById('w-mode-toggle');
+  toggle.innerHTML = '';
+  const btnGroups = document.createElement('button');
+  btnGroups.className = 'mode-btn' + (wMode==='groups' ? ' selected' : '');
+  btnGroups.textContent = 'Equal Groups';
+  btnGroups.onclick = () => { wMode='groups'; refreshWordProblem(); updateModeButtons(); };
+  const btnArray = document.createElement('button');
+  btnArray.className = 'mode-btn' + (wMode==='array' ? ' selected' : '');
+  btnArray.textContent = 'Array (Rows × Cols)';
+  btnArray.onclick = () => { wMode='array'; refreshWordProblem(); updateModeButtons(); };
+  toggle.append(btnGroups, btnArray);
+
+  function updateModeButtons(){
+    btnGroups.classList.toggle('selected', wMode==='groups');
+    btnArray.classList.toggle('selected', wMode==='array');
+  }
+
+  buildWordSteppers();
+  refreshWordProblem();
+}
+
+function buildWordSteppers(){
+  const wrap = document.getElementById('w-steppers');
+  wrap.innerHTML = '';
+  const label1 = wMode === 'groups' ? 'Number of Groups' : 'Rows';
+  const label2 = wMode === 'groups' ? 'Size of Each Group' : 'Columns';
+  const s1 = makeStepper(label1, 1, 8, wN1, (v)=>{ wN1=v; refreshWordProblem(); });
+  const s2 = makeStepper(label2, 1, 8, wN2, (v)=>{ wN2=v; refreshWordProblem(); });
+  wrap.append(s1.el, s2.el);
+}
+
+function refreshWordProblem(){
+  buildWordSteppers();
+  const p = wordProblems[wordIndex];
+  const visual = document.getElementById('w-visual');
+  if(wMode === 'groups'){
+    visual.innerHTML = '';
+    renderGroupsVisual(visual, wN1, wN2, p.emoji);
+    document.getElementById('w-eq').textContent = `${wN1} groups of ${wN2} = ${wN1} × ${wN2} = ${wN1*wN2}`;
+  } else {
+    visual.innerHTML = '';
+    const holder = document.createElement('div');
+    holder.className = 'array-area-rows';
+    visual.appendChild(holder);
+    renderArrayRows(holder, wN1, wN2, p.emoji);
+    document.getElementById('w-eq').textContent = `${wN1} rows × ${wN2} columns = ${wN1} × ${wN2} = ${wN1*wN2}`;
+  }
+}
+
+function checkWordProblem(){
+  const p = wordProblems[wordIndex];
+  const wantTotal = p.a * p.b;
+  const gotTotal = wN1 * wN2;
+  const fb = document.getElementById('w-feedback');
+  if(gotTotal === wantTotal){
+    wordStars++; totalStars++;
+    fb.textContent = `🎉 That's right! ${wN1} × ${wN2} = ${gotTotal}.`;
+    fb.className = 'feedback good';
+    document.getElementById('w-check').style.display = 'none';
+    document.getElementById('w-continue').style.display = 'inline-block';
+  } else {
+    fb.textContent = `Your total is ${gotTotal}. The story needs ${wantTotal}. Try changing the numbers!`;
+    fb.className = 'feedback bad';
+  }
+}
+
+function nextWordProblem(){
+  wordIndex++;
+  if(wordIndex < wordProblems.length){
+    setupWordProblem();
+  } else {
+    showEnd();
+  }
+}
+
+/* ================= END ================= */
+function showEnd(){
+  goTo('screen-end');
+  maxStars = plantRounds.length + arrayTargets.length + wordProblems.length;
+  document.getElementById('end-stars').textContent = starsDisplay(totalStars, maxStars) + `  (${totalStars}/${maxStars})`;
+  let badge = 'Garden Rookie 🌱';
+  const ratio = totalStars / maxStars;
+  if(ratio >= 0.6) badge = 'Skip-Counting Star ⭐';
+  if(ratio >= 0.9) badge = 'Multiplication Master 🏆';
+  document.getElementById('end-badge').textContent = badge;
+}
+
+/* ================= RESTART ================= */
+function restartAll(){
+  totalStars = 0;
+  goTo('screen-intro');
+}
+</script>
+</body>
+</html>

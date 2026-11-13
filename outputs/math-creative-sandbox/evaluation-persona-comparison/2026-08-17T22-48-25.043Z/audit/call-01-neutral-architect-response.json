@@ -1,0 +1,228 @@
+{
+  "model": "claude-fable-5",
+  "id": "msg_011Ce99yyr12PU83Wr9RpYDo",
+  "type": "message",
+  "role": "assistant",
+  "content": [
+    {
+      "type": "tool_use",
+      "id": "toolu_01JGp5cUZzdkK2prQKEmNyEs",
+      "name": "submit_evaluation_design_artifact",
+      "input": {
+        "artifactId": "DESIGN-EVAL-LAB-MATH-C-OPEN-01-v1",
+        "upstreamHash": "274c49ed00318c3c5e7eb4fae53bfbbea61645b4488f4b88780ba9cb431b7361",
+        "title": "Four Quiet Questions: An Independent-Evidence Screen for Equal-Groups Multiplication",
+        "designRationale": {
+          "purpose": "Collect one uncontaminated observation per construct (C1 equal-group structure, C3 array reading, C2 representation-to-equation mapping, C4 factor-referent discrimination) before any teaching, hint, example, or feedback occurs, so that every recorded response reflects what the child independently understands.",
+          "whyThisShape": "The contract fixes four items, their order, their stimuli, their response contracts, and a no-feedback administration window. The design problem is therefore purely presentational: make the first action self-evident on sight, keep reading and pointer work below the threshold where they could gate mathematics, make 'not sure' a dignified first-class response, and ensure that an incorrect or abandoned response never traps the child or leaks the correct answer.",
+          "useOfChildEvidence": "Evidence shows a nine-year-old who tolerates difficulty (reina:riddles:harder), notices logical inconsistency (reina:riddles:logic), and requests hints when stuck rather than guessing (reina:riddles:scaffold). This supports (a) trusting her to attempt ITEM-4's referent-swap contrast without softening it, and (b) treating stalling as a real risk: the visible 'not sure' tile exists so a stall becomes recorded missing evidence rather than a forced guess or silent abandonment. Small-sample feedback favoring hints (reina:activity-feedback:small-sample) is honored only after the independent window closes, exactly as the contract requires; during the window a small persistent note reads 'No hints in this part — hints unlock at the end' so the absence of a hint button is explained rather than experienced as a broken interface. Color preference from the same feedback is applied only to neutral parsing aids (uniform cluster tinting) that never differentiate the correct answer.",
+          "whatIsDeliberatelyAbsent": "Per the contract's prohibitions: no world, characters, narrative, game mechanics, points, badges, streaks, music, or thematic art. The instrument is a calm, plain measurement surface. Warmth is delivered through pacing, generous touch targets, unhurried motion, and honest end-of-session acknowledgment — not through reward systems that would contaminate motivation evidence.",
+          "measurementStance": "Every design choice is auditable against the question: could this element change the child's answer for a non-mathematical reason, or leak answer information? Color never encodes correctness, motion never highlights any option differentially, sound never differs by response content, layout never orders options by plausibility, and confirmation steps never re-display the stimulus in a way that permits recount-and-revise after commitment ambiguity."
+        },
+        "independentlyChosenPrinciples": [
+          "One decision per screen: each screen contains exactly one stimulus and one response cluster; nothing else is interactive, so interface discovery cannot become the measured construct.",
+          "Answer-neutral presentation: no visual, motion, or sound property may correlate with correctness — all response options are identical in size, color, weight, position class, and animation.",
+          "Commit-then-lock: a response is recorded only after an explicit 'Done' confirmation; before Done, any entry can be freely changed. After Done, the item is closed and never revisited, preserving response independence.",
+          "'Not sure' is honorable: the not-sure tile is styled with the same dignity as numeric tiles, is never last-positioned as an afterthought, and advancing via it looks identical to advancing via an answer.",
+          "No dead ends: every state — empty, partial, uncertain, or mistaken input — has a visible, low-cost way forward that never exposes correctness.",
+          "Silence about correctness: the transition after every item is byte-for-byte identical regardless of answer content; the child cannot infer correctness from anything the instrument does.",
+          "Reading is optional insurance, not a gate: every sentence and prompt has a tap-to-hear speaker icon (pre-recorded neutral narration reading exactly the on-screen text, no elaboration), so reading fluency (an excluded construct) cannot gate mathematics evidence.",
+          "Touch-first ergonomics: minimum 64×64 px targets with 16 px gaps, no dragging, no drawing, no double-tap, no hover-dependent affordances, no keyboard.",
+          "Friction is data: input corrections, replays of narration, long idles, and mid-item stimulus re-inspection are logged as friction facts, not scored, and can trigger confound flags.",
+          "Report facts, never verdicts: the instrument's output vocabulary is attempts, outcomes, flags, and exposure records; the words mastery, proficiency, and preference are structurally impossible in its reporting layer."
+        ],
+        "openingState": {
+          "screen": "A single welcome screen at 1365×768, off-white background (#F7F5F1), one short centered line in a large humanist sans (28 px minimum): 'Four math questions. Answer what you can. \"Not sure\" is always okay.' A tap-to-hear speaker icon sits beside the text. Below it, one large button (280×80 px), centered: 'Start'. A small non-interactive progress strip of four hollow dots sits at the bottom center, showing 0 of 4 filled.",
+          "whatIsCommunicated": "Three facts before any measurement: how many questions there are, that 'not sure' is legitimate, and that hints are unavailable in this part ('No hints in this part — hints unlock at the end' appears in small quiet text under the Start button). This pre-frames the no-hint window so the child, who has previously relied on hints, does not experience their absence as malfunction.",
+          "whatIsAbsent": "No example, no demo item, no practice round, no depiction of dots, arrays, or equations — any of these would constitute instructional exposure before independent evidence. No timer, no score display, no name entry.",
+          "stateOnItemOne": "After Start, ITEM-1 appears: four visibly separated clusters of 6 dots each (uniform slate-blue dots, generous whitespace between clusters), the contract sentence 'Each bunch has the same number of dots.' with its speaker icon, the prompt with its speaker icon, and below, two labeled entry fields ('How many bunches?' / 'How many dots in each bunch?') plus a 'Not sure' tile and an initially disabled 'Done' button."
+        },
+        "firstAction": {
+          "action": "Tap the single 'Start' button on the welcome screen.",
+          "whyUnderstandableFromFinishedScreen": "It is the only interactive element of button appearance on the screen, it is centered, large (280×80 px), high-contrast, and labeled with one familiar word. Nothing competes for attention; there is no navigation chrome, menu, or secondary control. A child who cannot read the word can tap the speaker icon, or simply tap the only button — either path succeeds.",
+          "firstMeasuredAction": "On ITEM-1, the first required action is tapping a number tile in a visible 1–10 tile row under the 'How many bunches?' field. The empty field shows a soft pulsing outline (the only motion on screen) indicating where input will land; tapping any tile fills it instantly. The interaction is demonstrated by its own affordance — labeled tiles under a labeled empty slot — requiring no instructions to discover.",
+          "failsafe": "If 20 seconds pass on the welcome screen with no tap, the Start button gains a single gentle scale pulse (1.0→1.04→1.0 over 900 ms, once). No measurement occurs on the welcome screen, so this nudge cannot contaminate evidence."
+        },
+        "interactionModel": {
+          "globalModel": "Tap-only. Every response in all four items is made by tapping large tiles or buttons. No typing, no dragging, no drawing, no scrolling (all content fits 1365×768), no keyboard, no hover dependence. Mouse and touch behave identically.",
+          "numericEntry": "For ITEM-1, ITEM-2 fields, and ITEM-4's basket count: a horizontal row of ten number tiles (1–10), each ≥64×64 px, sits beneath the active field. Tapping a tile places that number into the currently outlined field. Tapping a different tile replaces it. A small '×' clear control appears inside a filled field. With two fields (ITEM-1, ITEM-2), focus moves automatically to the second empty field after the first is filled; the child can also tap either field to re-outline it and change it. This makes entry a single tap per value with unlimited free revision before commit.",
+          "selection": "For ITEM-3's four equations and ITEM-4's same/different choice: equal-sized tap cards in identical neutral styling. Tapping selects (card shows a neutral outline); tapping another card moves the selection. Selection is not commitment.",
+          "notSure": "Every item shows one 'Not sure' tile, same visual weight as answer tiles, positioned consistently at the lower right of the response cluster. Tapping it selects it like any answer; committing it via Done records the not_sure outcome. On two-field items, 'Not sure' can be applied per field (a small not-sure tile at the end of each tile row) or to the whole item.",
+          "commitment": "The 'Done' button (lower right, 200×72 px) is disabled (visibly muted) until every required field has either a value or a not-sure selection. Tapping Done locks the response, logs it with timestamps, and advances. There is no back navigation between items — independence of evidence requires items to be unrevisitable — but this is never experienced as a trap because revision before Done is unlimited and free.",
+          "narration": "Each on-screen sentence and prompt has a speaker icon; tapping replays a neutral pre-recorded reading of exactly the visible text. Replay count is logged as a reading-load signal. Narration never mentions numbers not present in the visible text and never describes the picture (describing 'four bunches' aloud would answer ITEM-1).",
+          "pacing": "No time limits anywhere, per contract. Idle beyond 45 seconds on an item surfaces one quiet reminder line: 'Take your time. \"Not sure\" is okay too.' — content-free with respect to the answer, logged as an idle event.",
+          "stopping": "A small, persistent 'I want to stop' text control sits in the top-right corner on every item. Tapping it asks one confirmation ('Stop now? What you did is saved.') with Stop / Keep going. Stopping records the current item and all unreached items as abandoned/omitted missing evidence and proceeds directly to the closing screen. The child may always stop, per contract."
+        },
+        "responseAffordances": {
+          "ITEM-1": "Two labeled numeric fields ('How many bunches?', 'How many dots in each bunch?') each fed by a shared 1–10 tile row plus per-field not-sure. Field labels use the stimulus's own words ('bunches', 'dots') so vocabulary mapping is not an added task. Roles are preserved as distinct fields per the response contract; the instrument never suggests which field 'should' be larger.",
+          "ITEM-2": "Identical mechanics with labels 'How many rows?' and 'How many squares in each row?'. To reduce the vocabulary confound noted in the contract, the label 'rows' is accompanied by a tiny neutral glyph of three horizontal dashes (a generic rows pictogram that shows orientation only — three dashes, deliberately not matching the stimulus's 3×7 dimensions in any countable way, and identical regardless of the correct answer). This clarifies the word 'row' without hinting at either number.",
+          "ITEM-3": "Four equation cards in a 2×2 grid, identical styling, plus a separate 'Not sure' tile below the grid recorded distinctly per contract. Card order is fixed once per administration by a pre-committed shuffle recorded in the log, so position bias is documented rather than uncontrolled. Equations render in a large clear math face with '×' unmistakably distinct from '+'.",
+          "ITEM-4": "Statement A and Statement B in two visually identical text cards (A above B as contracted order, order logged), each with its own speaker icon — the highest-reading-load item gets the strongest narration support. Below: question one, 'Do these describe the same situation?' with three equal cards (Same / Different / Not sure); then question two, 'How many baskets in Statement A?' with the 1–10 tile row plus not-sure. Both sub-responses are freely revisable until one shared Done.",
+          "sharedProperties": "All affordances: ≥64 px targets, ≥16 px gaps, 4.5:1 minimum text contrast, no reliance on color alone for any state (selection shows outline + slight elevation), no free text anywhere per contract, no affordance whose position, size, color, or animation correlates with correctness."
+        },
+        "progression": {
+          "sequence": "Fixed contract order: ITEM-1 (C1) → ITEM-2 (C3) → ITEM-3 (C2) → ITEM-4 (C4). One stimulus per screen. No branching, no adaptive difficulty, no skipping ahead, no returning back.",
+          "betweenItems": "After Done, a uniform 800 ms neutral transition: current content fades out, the corresponding progress dot fills with the neutral ink color, next item fades in. The transition is identical for correct, incorrect, not-sure, and mixed responses — no differential timing, motion, color, or sound that could leak correctness.",
+          "progressCommunication": "The four-dot strip is the only progress indicator. Dots fill in neutral ink regardless of outcome; they communicate 'how much remains,' never 'how you did.'",
+          "exposureHygiene": "Sequence honors the contract's rule that later items must not reveal earlier structure: ITEM-3's equation options appear only after both counting items are locked; ITEM-4's referent-swap contrast appears last and is never previewed. Each exposure identity (EX-EQGROUPS-DOTS-4x6, EX-ARRAY-GRID-3x7, EX-EQUATION-MATCH-5x3, EX-REFERENT-SWAP-2x8) is used exactly once and logged as consumed.",
+          "earlyStop": "If the child stops at any point, unreached items are recorded as omitted missing evidence and the session jumps to the closing screen with the same calm tone as full completion — stopping is never framed as failure.",
+          "postWindowHintAffordance": "Only after all four outcomes are recorded (including via early stop) does the closing screen mention hints: 'Hints are unlocked now for next time.' No hint content, no answer review, and no re-presentation of items occurs in this session; the affordance is announced, not exercised, keeping this session's evidence fully independent while honoring the child's known hint expectation and the contract's hintAffordanceAllowedAfter rule."
+        },
+        "feedbackAndRecovery": {
+          "correctnessFeedback": "None, ever, during the evaluation, per contract. No checkmarks, no colors, no sounds, no 'good job' contingent on content. The only acknowledgment after Done is the uniform neutral transition.",
+          "receiptFeedback": "Non-evaluative receipt feedback is allowed and used: a tapped tile fills its field instantly; a selected card shows its outline; Done depresses slightly and the progress dot fills. These confirm 'the machine heard you,' never 'you were right.'",
+          "inputRecovery": "Before Done: unlimited free revision — retap a tile to replace a number, tap '×' to clear a field, tap a different card to move a selection, switch between fields at will. This ensures an accidental tap (pointer slip, an excluded construct) never becomes a recorded mathematical error. Correction events are logged as input-friction facts, and heavy correction on an item raises an input-interference confound flag that downgrades that item toward evidence_ambiguous per the contract's confound gating.",
+          "uncertaintyRecovery": "'Not sure' is always visible, always one tap, and produces the identical advance as any answer. The 45-second idle reminder explicitly re-offers it. This converts the child's documented stall-when-stuck pattern into recorded missing evidence instead of a trap.",
+          "trapAudit": "State analysis: (empty fields → Done disabled but not-sure available → no trap), (wrong entry → revisable → no trap), (can't read → narration → no trap), (doesn't understand item → not-sure → no trap), (wants out entirely → stop control on every screen → no trap), (idle/frozen → gentle content-free reminder → no trap). No state exists from which the child cannot move forward within one or two taps without answer exposure.",
+          "technicalRecovery": "If the session is interrupted (tab closed, device sleep), resume restores the exact pending item with fields cleared, logs an interruption flag on that item, and never re-presents completed items. Interruption on an item marks it for possible evidence_ambiguous review.",
+          "emotionalTone": "All instrument language is calm and non-judgmental. The closing message is identical in warmth whether the child answered four, one, or zero items."
+        },
+        "visualSystem": {
+          "palette": "Off-white background (#F7F5F1), near-black ink (#2B2B2B) for text, single slate-blue (#4A6FA5) for all countable stimulus shapes, muted warm gray (#D8D4CC) for disabled states, single accent (#3E7C59) used only for the Start/Done buttons — never on answer options. Color count is deliberately minimal so color cannot encode correctness. This honors the small-sample 'visible color' preference through clean, high-contrast tinted stimuli rather than decorative variety.",
+          "stimulusRendering": "ITEM-1: four clusters of six 28 px dots, clusters separated by ≥120 px whitespace, all dots identical — no per-cluster color coding, which could pre-chunk the structure the item is measuring. ITEM-2: 3×7 grid of 56 px squares with 6 px uniform gutters, no numeric labels, no alternating row shading (shading would pre-read the rows for the child). ITEM-3: five clusters of three 28 px dots, same rendering rules as ITEM-1. ITEM-4: two identical text cards, 26 px text, generous line height, no picture per contract.",
+          "typography": "Humanist sans throughout; stimulus sentences and prompts ≥24 px, equation cards ≥32 px with clearly differentiated × and + glyphs, all text left-aligned in short single-clause lines to minimize reading load (an excluded construct).",
+          "layoutGrammar": "Every item uses the same skeleton — stimulus upper-left two-thirds, sentence+prompt with speaker icons beneath it, response cluster right/lower third, Done lower-right, stop control top-right, progress dots bottom-center. After ITEM-1 the interface itself requires zero new learning, so interface discovery cannot contaminate later items.",
+          "answerNeutrality": "All answer tiles/cards share identical dimensions, fill, border, and typography. Selection state is outline + 2 px elevation, identical for every option including 'Not sure'. Nothing visual distinguishes the correct option from distractors.",
+          "accessibility": "4.5:1 minimum contrast, no meaning carried by color alone, no flashing, no content requiring fine discrimination below 24 px, comfortable for a 1365×768 touch viewport at arm's length."
+        },
+        "motionSystem": {
+          "philosophy": "Motion exists only to (a) direct attention to the single next affordance and (b) confirm receipt of input. Motion never evaluates, never celebrates, never differentiates options, and never animates the stimulus.",
+          "inventory": [
+            "Active-field pulse: the currently outlined empty field's border softly pulses (opacity 0.6→1.0, 1.2 s cycle) — the only ambient motion on any item screen, marking where input lands.",
+            "Tile press: 80 ms scale-down-and-return on tap, identical for every tile including 'Not sure'.",
+            "Selection settle: selected card rises 2 px over 120 ms; deselection reverses it. Identical across all options.",
+            "Item transition: 400 ms fade-out, 800 ms total, 400 ms fade-in, easing ease-in-out, byte-identical regardless of response content.",
+            "Progress dot fill: 200 ms radial fill in neutral ink, same for every outcome.",
+            "Welcome-only Start pulse after 20 s idle, single occurrence, pre-measurement only."
+          ],
+          "prohibitedMotion": "No stimulus animation (moving dots would alter counting difficulty mid-item), no confetti or celebration, no shake/error animation (implies wrongness), no differential motion on any answer option, no auto-scrolling, no parallax.",
+          "reducedMotionCompliance": "All motion degrades to instant state changes if the platform signals reduced-motion preference; no evidence depends on motion perception."
+        },
+        "soundSystem": {
+          "contractCompliance": "The contract prohibits sound, music, and reward audio as experience elements. Accordingly there is no soundtrack, no earcons for taps, no success/failure audio, and no ambient sound.",
+          "narrationException": "The only audio in the instrument is functional tap-to-hear narration: a neutral adult voice reading exactly the visible sentence or prompt, on explicit demand only, never autoplaying. This is an access accommodation targeting the excluded reading-fluency construct, not a reward, cue, or experiential sound; it carries zero information beyond the visible text and never describes stimuli or quantities.",
+          "narrationDiscipline": "Recordings are fixed per item, identical for every child and every response state; narration for ITEM-4 reads each statement verbatim with flat prosody so stress patterns cannot hint that the statements differ. Replay counts and timing are logged as reading-load facts.",
+          "silenceElsewhere": "Done, transitions, progress fills, item completion, and the closing screen are all silent. The absence of response-contingent audio guarantees the child cannot infer correctness acoustically."
+        },
+        "completionPayoff": {
+          "closingScreen": "After the fourth Done (or an early stop), a single calm screen: all reached progress dots filled, headline 'You finished. Thank you.' (or 'Thanks for what you did today.' after early stop), one factual line: 'You answered N questions.' where N counts committed responses of any kind including not-sure. A speaker icon reads it aloud on demand.",
+          "hintUnlockNotice": "One quiet line: 'Hints are unlocked now for next time.' — honoring the contract's post-window hint allowance and the child's known hint expectation, without delivering any hint content, answer review, or item re-exposure in this session.",
+          "whatIsAbsent": "No score, no per-item results, no stars, badges, points, streaks, or rankings; no 'You're great at multiplication!' (a mastery claim); no 'You seem to like arrays!' (an invented preference). Per contract, the payoff cannot be evaluative.",
+          "whyThisIsStillAPayoff": "The payoff is closure and respect: visible completion of a bounded task, honest acknowledgment of effort independent of performance, and the concrete unlocked-hints promise for the future. For a child documented to value difficulty and fairness of logic, being treated as capable of a hint-free stretch — and told plainly why — is itself coherent and respectful.",
+          "adultFacingOutput": "Separately from the child-facing screen, the instrument emits the contracted per-construct evidence map (supported-provisionally / contradicted / ambiguous / missing per C1–C4), all confound flags, exposure consumption records, and friction facts. This report is never displayed to the child."
+        },
+        "anticipatedChildConfusions": [
+          {
+            "confusion": "Which number goes in which field on two-field items (ITEM-1, ITEM-2) — the child knows both quantities but may place them in reversed roles.",
+            "handling": "Field labels quote the stimulus vocabulary exactly ('bunches'/'dots', 'rows'/'squares in each row') and each field is independently revisable before Done. If reversal is committed anyway, it is exactly the diagnostic outcome the contract wants recorded (c1_roles_reversed / c3_roles_reversed), so the instrument clarifies the interface without steering the mathematics."
+          },
+          {
+            "confusion": "Believing the total is being asked ('24!' or '21!') instead of the pair.",
+            "handling": "Two separate fields make a single-number answer structurally impossible to submit as complete; a child who wants to report a total must still confront two labeled slots. If she enters the total into one field, it is recorded and maps to the contracted reported_total_instead_of_pair keys. Note: 21 and 24 exceed the 1–10 tile range, so the tiles physically preclude literal total entry — this range constraint comes from the contract's allowedValues and is logged as a possible shaping influence (see instrumentRisks)."
+          },
+          {
+            "confusion": "The word 'same' in ITEM-4 read as 'same total' — a mathematically defensible commutativity reading.",
+            "handling": "The contract itself anticipates this: any 'same' response is auto-flagged c4_ambiguity_flag_requires_followup and gated to evidence_ambiguous. The instrument does not attempt in-session disambiguation (that would require a probe outside this contract); it faithfully records and flags."
+          },
+          {
+            "confusion": "Row vs. column orientation in ITEM-2 — reading vertical lines as 'rows'.",
+            "handling": "The tiny three-dash orientation glyph beside the 'rows' label clarifies the word's meaning without revealing counts. A committed reversal remains recordable as c3_roles_reversed, preserving the contract's diagnostic."
+          },
+          {
+            "confusion": "Expecting a hint button (her documented pattern) and interpreting its absence as the app being broken.",
+            "handling": "Pre-framed on the welcome screen and quietly footnoted on each item ('Hints unlock at the end'), with 'Not sure' offered as the sanctioned alternative to stalling."
+          },
+          {
+            "confusion": "Not realizing answers can be changed before Done, leading to distress after a mistap.",
+            "handling": "The '×' clear affordance appears the moment a field fills, and retapping tiles visibly replaces values; both behaviors are discoverable within one exploratory tap and cost nothing."
+          },
+          {
+            "confusion": "Thinking Done is broken because it is disabled while fields are empty.",
+            "handling": "Disabled Done is visibly muted, and the pulsing outline on the empty field directs attention to what remains. The idle reminder re-offers 'Not sure' if she is stuck rather than confused."
+          },
+          {
+            "confusion": "Fear that 'Not sure' or stopping counts as failing.",
+            "handling": "Welcome screen states '\"Not sure\" is always okay'; not-sure tiles share full visual dignity with answers; the closing screen is equally warm regardless of path."
+          }
+        ],
+        "instrumentRisks": [
+          {
+            "risk": "Tile range 1–10 physically prevents entering totals (21, 24), which may nudge a total-minded child toward the pair without her understanding why — mildly shaping responses and suppressing the reported_total_instead_of_pair signal.",
+            "mitigation": "The range is the contract's own allowedValues; the instrument logs any observed attempt pattern consistent with total-seeking (e.g., taps on 10 followed by long idle) as a friction fact, and the report notes range-constrained-entry as a standing confound on the total-substitution keys."
+          },
+          {
+            "risk": "The rows-orientation glyph on ITEM-2, despite deliberate count-mismatch (three dashes vs. any answer-relevant number), still teaches the word 'row' — a boundary case between access support and instruction.",
+            "mitigation": "Glyph is static, identical for all children, contains no countable correspondence to the answer (three dashes for a 3-row array is a residual coincidence risk — flagged; an implementation should render four dashes to break the coincidence), and its presence is recorded in the exposure log for audit."
+          },
+          {
+            "risk": "Narration replay behavior differs between children; heavy replay could add time-on-screen that contaminates latency keys.",
+            "mitigation": "Latency keys (e.g., c1_time_to_first_entry_ms) are measured from stimulus render, with narration replay intervals separately timestamped so analysts can partition reading-support time from decision time; items with heavy replay are candidates for the contract's reading-interference downgrade."
+          },
+          {
+            "risk": "Guessing on ITEM-3 (1-in-4 baseline) with no in-session control beyond latency.",
+            "mitigation": "The contract's inspection-threshold rule is implemented: sub-threshold correct selections are logged with c2_selection_latency_below_inspection_threshold and downgraded to evidence_ambiguous. The threshold itself is provisional pending the contracted non-mathematical latency baseline (evidenceRequiredNext), and the report labels it as uncalibrated."
+          },
+          {
+            "risk": "Auto-advance of field focus (first field → second field) could cause a child to enter the second number into the first field or vice versa if she taps faster than she looks.",
+            "mitigation": "Focus movement is visually loud (pulsing outline moves), both fields remain freely tappable, and rapid-fire double entry followed by correction is logged as input friction feeding the contract's input-interference downgrade."
+          },
+          {
+            "risk": "The fixed 2×2 equation grid could still induce position bias despite logged shuffle.",
+            "mitigation": "Shuffle seed and final positions are recorded per administration so any single-session position effect is auditable; the contract already lists position bias as a possible confound and this design converts it from unknown to documented."
+          },
+          {
+            "risk": "Announcing 'hints unlock at the end' could incentivize rushing to finish.",
+            "mitigation": "The notice is phrased for 'next time,' not as an in-session reward; no countdown or reward framing accompanies it; per-item latencies allow detection of anomalous acceleration across items, which would be reported as a pacing confound."
+          },
+          {
+            "risk": "Single-session, single-item-per-construct sampling invites over-reading of results.",
+            "mitigation": "The reporting layer hard-codes the contract's noMasteryDeclaration: outcomes are capped at 'supported provisionally' and the report body restates that one item per construct is one observation, with the contracted evidenceRequiredNext list attached verbatim."
+          }
+        ],
+        "falsifyingEvidence": {
+          "forTheDesignItself": [
+            "If the child asks 'what do I do?' or taps non-interactive regions repeatedly on the welcome or ITEM-1 screen, the claim that the first action is understandable from the finished screen is falsified; logged as first-action-discovery failure.",
+            "If input-correction events (clears, replacements, moved selections) exceed a small per-item count, the claim that pointer/interface mechanics are not being measured is falsified for that item; the item is downgraded to evidence_ambiguous per contract gating.",
+            "If narration replays plus long pre-response idles cluster on high-text items (especially ITEM-4) alongside errors, the claim that reading load was successfully removed as a gate is falsified; reading-interference flag raised and the contracted reduced-text follow-up becomes required.",
+            "If the child stalls past the idle reminder without using 'Not sure' and then abandons, the claim that 'not sure' successfully converts stalls into recorded missing evidence is falsified for this child; the affordance's visibility or framing needs revision.",
+            "If the child verbally or behaviorally indicates she inferred correctness from any transition, sound, or visual difference, the answer-neutrality claim is falsified; the leak channel must be identified from logs.",
+            "If she expresses distress at the absent hint button despite the pre-framing, the hint-absence framing is falsified as sufficient and the welcome copy needs strengthening.",
+            "If ITEM-2 responses correlate with the orientation glyph in a way suggesting it carried count information (e.g., '3 rows' answered before the array is visibly scanned, per gaze/latency proxy), the glyph's answer-neutrality is falsified and it must be removed or re-rendered."
+          ],
+          "perItemMathematicalFalsifiers": "Adopted verbatim from the contract and operationalized: reversed role pairs on ITEM-1/ITEM-2 falsify secure role assignment; totals-instead-of-pairs falsify prompt parsing; additive or duplicated-factor distractor selection on ITEM-3 falsifies multiplicative interpretation or group/size discrimination respectively; 'same' on ITEM-4 falsifies (ambiguously, pending follow-up) referent discrimination; sub-threshold latencies weaken rather than confirm correct responses; cross-item inconsistencies (correct ITEM-3 with failed ITEM-1/ITEM-2) falsify structural-mapping claims in favor of product recognition. The instrument records all of these as first-class outcomes rather than noise.",
+          "forTheEvidenceHypotheses": "If the child engages willingly with ITEM-4's difficulty, the engagement hypothesis gains a data point; if she disengages there specifically, the riddle-derived tolerance hypothesis fails to transfer to mathematics and is reported as such — the design commits to reporting either outcome as fact, never as preference."
+        },
+        "measurementResponsibilities": {
+          "attempts": "For each item: whether it was reached, whether a response was committed, response content, and outcome classification from the contracted set {correct, incorrect, not_sure, omitted, abandoned}. All contracted measurement keys are emitted (c1_group_pair_correct, c1_roles_reversed, c1_reported_total_instead_of_pair, c1_not_sure_rate, c3_array_dimensions_correct, c3_roles_reversed, c3_reported_total_instead_of_dimensions, c3_off_by_one_count, c3_not_sure_rate, c2_equation_match_correct, c2_additive_distractor_selected, c2_duplicated_factor_distractor_selected, c2_product_only_recognition_flag, c2_not_sure_rate, c2_selection_latency_below_inspection_threshold, c4_referent_discrimination_correct, c4_same_selected_product_equality_confusion, c4_referent_count_correct, c4_ambiguity_flag_requires_followup, c4_not_sure_rate) plus all latency keys measured from stimulus render to first entry/selection.",
+          "assistance": "Recorded facts: zero hints given (structurally enforced), zero examples, zero feedback, zero answer exposure during the window; narration replays per text element with timestamps (access support, reported as assistance-adjacent fact, never scored); idle reminders shown (count, item, timing); hint-unlock notice shown at close (yes/no). Any deviation from zero-assistance would be a critical integrity flag on the whole session.",
+          "exposure": "Exposure ledger: each of EX-EQGROUPS-DOTS-4x6, EX-ARRAY-GRID-3x7, EX-EQUATION-MATCH-5x3, EX-REFERENT-SWAP-2x8 marked consumed with timestamps, honoring reuse prohibitions; ITEM-3's option set logged as answer-adjacent exposure per its contract note; the ITEM-2 orientation glyph logged as a non-contracted presentational exposure for audit; confirmation that no exposure identity recurred and no answer content was displayed at close.",
+          "possibleConfounds": "Every contracted confound is checked and reported per item: reading-load signals (replays, pre-response idle), input friction (corrections, clears, focus bounces), counting-by-ones proxy (long uniform scanning latency on ITEM-1/ITEM-2), position bias (logged shuffle for ITEM-3), statement-order anchoring (fixed A/B order logged for ITEM-4), guessing (latency threshold, flagged as uncalibrated pending baseline), tile-range shaping of total-substitution behavior, session interruptions, and the vocabulary confounds ('rows', 'same'). Contracted downgrade rules applied mechanically: flagged items → evidence_ambiguous; ITEM-4 'same' → always ambiguous pending follow-up; sub-threshold correct → ambiguous.",
+          "friction": "Reported as facts: per-item correction counts, narration replay counts, idle events and durations, stop-control invocations (including cancelled ones), time from welcome to Start, and any resume-after-interruption events.",
+          "completion": "Completion status per the contract's criteria: which of the four items reached terminal outcomes, whether the child stopped early and where, total session duration, and the resulting per-construct evidence map with each of C1–C4 labeled exactly one of {evidence_supports_construct_provisionally, evidence_contradicts_construct, evidence_ambiguous, evidence_missing}, cross-item consistency check results (dual role-reversal candidate gap; product-recognition-without-structure pattern), and the full confound-flag list.",
+          "prohibitedClaims": "The report layer cannot emit mastery, proficiency, grade-level attainment, learning-style, or preference statements. Four correct answers are reported as four provisionally supportive single observations with the contracted evidenceRequiredNext follow-ups attached. Engagement observations (e.g., persistence on ITEM-4) are reported as session facts explicitly labeled non-predictive, consistent with the contract's uncertainty statement."
+        }
+      },
+      "caller": {
+        "type": "direct"
+      }
+    }
+  ],
+  "stop_reason": "tool_use",
+  "stop_sequence": null,
+  "stop_details": null,
+  "usage": {
+    "input_tokens": 11384,
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 0,
+    "cache_creation": {
+      "ephemeral_5m_input_tokens": 0,
+      "ephemeral_1h_input_tokens": 0
+    },
+    "output_tokens": 13189,
+    "output_tokens_details": {
+      "thinking_tokens": 0
+    },
+    "service_tier": "standard",
+    "inference_geo": "global"
+  }
+}

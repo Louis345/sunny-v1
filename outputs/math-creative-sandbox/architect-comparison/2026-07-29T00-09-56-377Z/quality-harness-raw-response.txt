@@ -1,0 +1,73 @@
+{
+  "reviews": [
+    {
+      "nodeId": "node_1_equal_partitioning",
+      "strongestQuality": "The drag-to-cut gesture plus instant good/bad piece recoloring gives a genuinely fast, self-checking cycle that matches the artifact's fast-rep intent.",
+      "usabilityIssues": [
+        "The 500ms-delayed demo runs before any 'watch this' cue and input is silently swallowed during it, so an early tap teaches the child the screen is dead.",
+        "Equality is judged by 'midpoint within 22px of center and length > 200', so a visually fair cut that starts short or off-diameter is marked unequal, punishing correct spatial reasoning.",
+        "The live meter jitters with a random sign during drag (`Math.random()` in onMove), so the child's main in-progress feedback signal is untrustworthy.",
+      ],
+      "visualIssues": [
+        "The customer sprite and patience bar are absolutely positioned at left:90px/top:240px and collide with the cookie, sitting on top of the shape the child must read.",
+        "The meter and Try Again button are pushed to bottom:-50px / bottom:20px of the 678px stage and are clipped or below the fold in the 720px capture, hiding the retry affordance.",
+        "The feedback column at right:90px is a bare text block with no card or icon, so success/failure reads as much weaker than the artifact's coin/customer reaction."
+      ],
+      "implementationMismatch": [
+        "Only a circle is ever rendered and only 2-piece cuts are possible; squares, rectangles, bars and 3/4/6-part orders from the contract and progression are absent.",
+        "Judge-only 'Yes/No' tickets (Level 1, and half the evidence goal) have no UI at all — no check/X buttons exist.",
+        "Recovery's promised ghost outline of the correct cut lines never appears after a wrong cut; resetRound only clears the shape."
+      ],
+      "repairBrief": "Reposition the customer+patience block outside the board (left gutter) and move the meter and Try Again inside the board's lower area so nothing overlaps the shape or clips at 720px height. Replace the random-jitter meter math with a deterministic area ratio from the actual cut geometry, and loosen equality to a tolerance on that ratio (e.g. within 8%) rather than midpoint distance and line length. Gate the demo behind a visible 'Watch' badge and make any pointer-down skip it instantly. Add a minimal judge ticket variant (pre-cut shape + green check / red X buttons) and at least one non-circle shape so the round pool matches the contract, plus a faint ghost cut-line on reset after a miss."
+    },
+    {
+      "nodeId": "node_2_unit_fraction_recognition",
+      "strongestQuality": "The brass plate reading 1/4 directly beneath the partitioned glass creates a clean, uncluttered symbol-to-shape binding with a single obvious tap target.",
+      "usabilityIssues": [
+        "In the opening screenshot no panes are rendered inside the glass, so the promised 'one pulsing wedge' first action is invisible and the child has nothing to tap.",
+        "The pulse is a 450ms fill swap between two dim browns (#5a4a2e / #c9a25f) against slate panes, too low-contrast to read as 'this one, tap here'.",
+        "The instruction bar sits at bottom:22px of a 768px stage and is cut off in the 720px view, removing the only textual guidance.",
+        "A wrong tap flashes red then reverts with no pane-numbering or lever prompt escalation, so recovery is text-only and easy to miss."
+      ],
+      "visualIssues": [
+        "The lamp housing is 380px tall starting at top:130px while the plate is absolutely positioned at top:520px, so hero object, plate and lever are visually disconnected with a large dead band.",
+        "The lever is a tiny 8px stick at right:120px with two-line 11px caption that wraps and clips off the bottom edge; it reads as decoration, not a control.",
+        "The stage is overwhelmingly empty dark navy — no pier, water, or harbor mass — so 'cumulative brightness' has no visual ground and the dock dots read as stray pixels."
+      ],
+      "implementationMismatch": [
+        "Mode B (Engrave the Plate) is entirely absent, so the 'write the unit fraction for 3 shaded models' half of the evidence goal has no interface.",
+        "Only round glass exists; rectangular, hexagonal, and pier-bar lamps and the unequal-glass decoys specified in coreInteraction are not implemented.",
+        "The anatomy lever plays a pane sweep but no ghost-trace on round 2 as designed, and the ghostTrace function only blinks a fill instead of tracing an outline."
+      ],
+      "repairBrief": "First fix the blank glass: confirm buildPanes runs on init and that pane fills render above the housing circle, since the opening frame currently shows no partitions at all. Raise contrast on the guided pane to a clear amber (#f0c060) with a stroke change so the tap target is unmistakable. Pull the whole composition tighter — move the lamp up, dock the plate directly under the glass, and reposition the message bar and lever above 700px so nothing clips at 720px. Make the lever a labeled brass button with visible hit area. Add a minimal Engrave mode: blank plate, three numeral tiles, lever to stamp, and the twin-lamp check."
+    },
+    {
+      "nodeId": "node_3_comparing_unit_fractions",
+      "strongestQuality": "The three-step round (tap bigger bottle, place the sign, choose the reason) maps cleanly onto both halves of the evidence goal within one uninterrupted screen.",
+      "usabilityIssues": [
+        "The bottles show only the bottom dose glowing with the remaining segments nearly invisible, so the child compares two amber blocks rather than 'one of b equal parts'.",
+        "Nothing marks which stage is active; the symbol buttons and reasoning row are visible or empty with no disabled styling, so early taps do nothing silently.",
+        "For the 1/4 vs 1/4 pair, `chooseBottle` accepts any bottle as correct and the whisper never mentions the 'same size' option, so the equal case teaches a wrong rule.",
+        "The demo round zero and the overlay verification promised in the artifact never run, so a wrong pick gives only a text hint with no visual proof."
+      ],
+      "visualIssues": [
+        "The cauldron at right:40px/bottom:10px overflows the viewport and is clipped mid-body, and the Brew Meter label is cut off at the bottom-left.",
+        "Two redundant instruction lines ('Bigger sip wins. Tap it, then set the sign.' and the italic whisper) stack above the wheel, splitting attention at the top.",
+        "The 'SPIN' wheel label ends up rotated upside-down after the spin transform and never resets, leaving unreadable text as a permanent artifact.",
+        "Segment dividers at 1px rgba(255,255,255,0.25) are far too faint for a child to count partitions."
+      ],
+      "implementationMismatch": [
+        "The bottle-overlay verification — the artifact's core consequence and demo mechanic — is not implemented anywhere.",
+        "Symbols are clicked as buttons rather than dragged into the slot, contradicting the specified drag-the-symbol interaction and the on-screen 'drag' instruction.",
+        "The Shadow Alchemist, rival meter, and Certainty Seal stakes are absent, so the Brew Meter fills with no opposition or consequence."
+      ],
+      "repairBrief": "Make the partition structure legible: raise segment divider strokes to 2px at ~0.55 opacity and fill unlit doses with a dim violet so the child sees b equal parts, not one amber block. Move the cauldron and Brew Meter fully inside 1365×768 so neither clips. Reset the wheel's rotation after each spin, or replace the text with a static icon, and remove one of the two duplicate instruction lines. Gate stages visibly: dim and disable the symbol buttons until a bottle is chosen, and reveal the reasoning row only at stage 2. Add the promised overlay — on a wrong pick, slide the bottles together with one translucent so the dose-height difference is undeniable. Fix the equal-pair branch to require the '=' path."
+    }
+  ],
+  "boardLevelObservations": [
+    "All three mocks are authored at a fixed 1365×768 with absolutely positioned bottom-edge elements (retry button, message bar, brew meter, cauldron), and all three clip critical controls in the delivered 1280×720 capture; each needs its bottom band pulled inside a safe area.",
+    "Each node stages an autoplay or spin animation before the child can act while silently ignoring input during it; all three should let any pointer-down skip the intro and show a visible 'watch' cue.",
+    "Feedback across the board is carried mostly by small text strings in a side or bottom slot; the world-reaction promises (customers filling the storefront, harbor brightening, imps cheering) are the weakest-implemented layer and would benefit most from one strong on-shape visual per node.",
+    "Correctness tolerances and state gating are the shared reliability risk: node 1 judges by cut midpoint, node 3 mis-handles the equal pair, and node 2 renders no panes at open — each should be verified against a small table of expected inputs before further polish."
+  ]
+}

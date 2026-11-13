@@ -1,0 +1,87 @@
+[
+  {
+    "action": {
+      "kind": "click_text",
+      "text": "🌱 Start Growing",
+      "captureLabel": "first-action",
+      "reason": "Begin the activity by clicking the primary call-to-action button to see the first interactive screen."
+    },
+    "done": false,
+    "summary": "Clicked the 'Start Growing' button to begin exploring Pip's Patch multiplication activity."
+  },
+  {
+    "action": {
+      "kind": "click_at",
+      "x": 538,
+      "y": 184,
+      "captureLabel": "progress",
+      "reason": "Tap the first flower pot to begin skip-counting as instructed by the activity."
+    },
+    "done": false,
+    "summary": "Clicked Start Growing previously; now on the Equal Groups screen with three flower pots each showing 4 flowers and a '?' count. Tapping the first pot to test the skip-counting interaction."
+  },
+  {
+    "action": {
+      "kind": "click_at",
+      "x": 682,
+      "y": 184,
+      "captureLabel": "progress",
+      "reason": "Tap the second flower pot to continue the skip-counting sequence in order, as instructed."
+    },
+    "done": false,
+    "summary": "First pot was tapped successfully and shows count 4, with running total displayed. Continuing to tap the second pot in sequence to verify skip-counting progression works correctly before moving to next screens."
+  },
+  {
+    "action": {
+      "kind": "click_at",
+      "x": 826,
+      "y": 184,
+      "captureLabel": "progress",
+      "reason": "Tap the third flower pot to complete the skip-counting sequence and reveal the final count, testing progression logic."
+    },
+    "done": false,
+    "summary": "Continuing exploration of the Equal Groups skip-counting activity by tapping the third pot to see if it reveals the count and updates the sequence display."
+  },
+  {
+    "done": false,
+    "summary": "Completed the skip-counting exercise successfully - tapping each pot in order revealed 4, 8, 12 and the equation 3 x 4 = 12. Now proceeding to the next stage 'Build my own!' to test the array-building interaction.",
+    "action": {
+      "kind": "click_text",
+      "text": "Next: Build my own! →",
+      "captureLabel": "progress",
+      "reason": "Progress to the next stage of the activity to see the array-building interaction and test further concept coverage."
+    }
+  },
+  {
+    "action": {
+      "kind": "click_at",
+      "x": 651,
+      "y": 160,
+      "captureLabel": "progress",
+      "reason": "Test the '+' button for 'Flowers in Each' to see if the interactive controls correctly update the group count, flower array, skip-counting sequence, and multiplication equation."
+    },
+    "done": false,
+    "summary": "Continuing exploration of the 'Build Equal Groups' interactive stage by testing the increment/decrement controls before moving to the array view."
+  },
+  {
+    "done": false,
+    "summary": "The 'Flowers in Each' + button correctly updated the value from 3 to 4, regenerated the flower groups (4,8,12,16), updated the skip-counting text, and updated the multiplication equation to 4×4=16. This confirms the interactive controls are working as expected. Next, I will click 'See it as an Array!' to test the array-view transition and further validate concept coverage.",
+    "action": {
+      "kind": "click_text",
+      "text": "See it as an Array! →",
+      "captureLabel": "progress",
+      "reason": "Progress to the array view to verify that the equal-groups concept correctly transitions into an array representation, testing connected concept coverage."
+    }
+  },
+  {
+    "action": {
+      "kind": "click_at",
+      "x": 626,
+      "y": 187,
+      "captureLabel": "progress",
+      "reason": "Tap the first row of flowers to test the row-based skip-counting interaction on this array screen."
+    },
+    "done": false,
+    "summary": "On the array concept screen, testing the row-tap skip-counting interaction before progressing further."
+  }
+]

@@ -1,0 +1,1081 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Slice Kitchen: The Fraction Bakery</title>
+<style>
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none; }
+  html,body {
+    margin:0; padding:0; width:1365px; height:768px; overflow:hidden;
+    font-family: 'Comic Sans MS', 'Trebuchet MS', sans-serif;
+    background: linear-gradient(180deg, #fef6e4 0%, #fbead2 60%, #f7dfc0 100%);
+  }
+  #game { position:relative; width:1365px; height:768px; }
+
+  /* ---- Top bar ---- */
+  #topbar {
+    position:absolute; top:0; left:0; width:100%; height:78px;
+    background: linear-gradient(180deg,#ffe3ba,#ffd39a);
+    border-bottom: 4px solid #d99a55;
+    display:flex; align-items:center; padding:0 20px; gap:20px;
+    z-index: 30;
+  }
+  #badge {
+    width:60px;height:60px;border-radius:50%;
+    background: radial-gradient(circle at 35% 30%, #fff7e0, #f6c453 70%, #d99a1a);
+    border:3px solid #b9781a; display:flex;align-items:center;justify-content:center;
+    font-size:26px; box-shadow:0 3px 6px rgba(0,0,0,0.2);
+  }
+  #stageTitle { font-size:22px; font-weight:bold; color:#7a4a1e; }
+  #stageSub { font-size:14px; color:#9a6b3a; }
+  #stars { margin-left:auto; font-size:20px; color:#e8a800; display:flex; gap:4px; align-items:center;}
+  #crumbCount { font-weight:bold; color:#7a4a1e; }
+  #skipBtn {
+    background:#fff2d8; border:2px solid #d99a55; border-radius:10px; padding:8px 14px;
+    font-weight:bold; color:#7a4a1e; cursor:pointer; font-size:14px;
+  }
+  #skipBtn:disabled { opacity:0.35; cursor:default; }
+
+  /* ---- Speech bubble ---- */
+  #bubbleWrap {
+    position:absolute; top:88px; left:50%; transform:translateX(-50%);
+    z-index: 25; display:flex; align-items:flex-end; gap:10px;
+  }
+  #roly {
+    width:70px; height:70px; border-radius:50%;
+    background: radial-gradient(circle at 35% 30%, #ffffff, #e9c6a0 60%, #c98f52);
+    border:3px solid #9c6a34; position:relative;
+    display:flex; align-items:center; justify-content:center; font-size:30px;
+  }
+  #bubble {
+    background:#fff; border:3px solid #d99a55; border-radius:18px;
+    padding:12px 18px; max-width:560px; font-size:17px; color:#5b3a1a; font-weight:bold;
+    box-shadow:0 4px 10px rgba(0,0,0,0.15); position:relative;
+  }
+  #bubble:after {
+    content:''; position:absolute; left:-14px; bottom:18px;
+    border:9px solid transparent; border-right-color:#d99a55;
+  }
+  #bubble:before {
+    content:''; position:absolute; left:-9px; bottom:20px;
+    border:7px solid transparent; border-right-color:#fff; z-index:1;
+  }
+
+  /* ---- Belt ---- */
+  #beltTrack {
+    position:absolute; top:640px; left:0; width:100%; height:90px;
+    background: repeating-linear-gradient(90deg,#c98f52,#c98f52 40px,#b97e40 40px,#b97e40 80px);
+    border-top:4px solid #8a5a28; z-index:5;
+  }
+
+  /* ---- Stage/work area ---- */
+  #stageArea {
+    position:absolute; top:170px; left:0; width:100%; height:460px;
+    display:flex; align-items:center; justify-content:center;
+  }
+  #shapeHost { position:relative; width:520px; height:420px; display:flex; align-items:center; justify-content:center; }
+
+  #promptCard {
+    position:absolute; top:170px; left:40px; width:230px;
+    background:#fffaf0; border:3px dashed #d99a55; border-radius:16px; padding:14px;
+    font-size:16px; color:#7a4a1e; text-align:center; z-index:10;
+  }
+  #promptTarget { font-size:30px; font-weight:bold; color:#c65b2e; margin-top:6px;}
+
+  #hintBtn, #practiceBtn, #gridBtn {
+    display:block; margin:10px auto 0; background:#ffe3ba; border:2px solid #d99a55;
+    border-radius:10px; padding:8px 10px; font-weight:bold; color:#7a4a1e; cursor:pointer; font-size:13px;
+    width:90%;
+  }
+  #hintBtn.hidden, #gridBtn.hidden { display:none; }
+
+  #sideCustomers {
+    position:absolute; top:170px; right:40px; width:220px; z-index:10;
+    background:#fffaf0; border:3px solid #d99a55; border-radius:16px; padding:12px; font-size:14px; color:#7a4a1e;
+  }
+  #sideCustomers h3 { margin:4px 0 8px; text-align:center; font-size:16px;}
+  .custRow { display:flex; align-items:center; gap:8px; margin-bottom:6px; }
+  .custIcon { font-size:26px; }
+
+  #feedbackFlash {
+    position:absolute; inset:0; pointer-events:none; z-index:40;
+    display:flex; align-items:center; justify-content:center;
+    font-size:64px; font-weight:bold; opacity:0; color:#e8a800;
+  }
+
+  #confettiCanvas { position:absolute; inset:0; z-index:50; pointer-events:none; }
+
+  #compareArea {
+    position:absolute; top:170px; left:0; width:100%; height:460px;
+    display:none; align-items:center; justify-content:center; gap:60px;
+  }
+  .compareCard { background:#fffaf0; border:3px solid #d99a55; border-radius:20px; padding:20px; text-align:center; }
+  .compareCard button { margin-top:10px; padding:10px 20px; font-size:16px; border-radius:10px; border:2px solid #b9781a; background:#f6c453; font-weight:bold; cursor:pointer;}
+
+  #designModeOverlay {
+    position:absolute; inset:0; background:rgba(255,247,224,0.98); z-index:60; display:none;
+    flex-direction:column; align-items:center; padding-top:100px;
+  }
+  #designModeOverlay h2 { color:#7a4a1e; }
+  #designControls { display:flex; gap:16px; margin-bottom:20px; flex-wrap:wrap; justify-content:center; }
+  #designControls button, #designControls select {
+    padding:10px 16px; border-radius:10px; border:2px solid #d99a55; background:#ffe3ba; font-weight:bold; cursor:pointer; font-size:15px;
+  }
+  #closeDesign { position:absolute; top:14px; right:20px; }
+
+  .toast {
+    position:absolute; bottom:120px; left:50%; transform:translateX(-50%);
+    background:#5b3a1a; color:#fff; padding:10px 20px; border-radius:20px; font-size:15px;
+    z-index:70; opacity:0; transition:opacity .3s;
+  }
+</style>
+</head>
+<body>
+<div id="game">
+
+  <div id="topbar">
+    <div id="badge">🥖</div>
+    <div>
+      <div id="stageTitle">Warm Dough</div>
+      <div id="stageSub">Learning to slice equal parts</div>
+    </div>
+    <div id="stars">⭐<span id="crumbCount">0</span></div>
+    <button id="skipBtn" title="Use a Flour Dust hint token">🌾 Flour Dust: <span id="tokenCount">0</span></button>
+  </div>
+
+  <div id="bubbleWrap">
+    <div id="roly">🧑‍🍳</div>
+    <div id="bubble" id="bubbleText">Welcome to the bakery! I'm Roly. Let's slice something yummy!</div>
+  </div>
+
+  <div id="promptCard">
+    <div>Order for:</div>
+    <div id="custName" style="font-weight:bold;font-size:18px;">Grumbles</div>
+    <div id="promptTarget">1/3</div>
+    <div id="promptWords" style="font-size:13px;color:#9a6b3a;">one third</div>
+    <button id="gridBtn">✨ Show me the grid</button>
+    <button id="hintBtn" class="hidden">💡 Hint</button>
+    <button id="practiceBtn">🎯 Practice Slice</button>
+  </div>
+
+  <div id="sideCustomers">
+    <h3>Line-up</h3>
+    <div id="custList"></div>
+  </div>
+
+  <div id="stageArea">
+    <div id="shapeHost"></div>
+  </div>
+
+  <div id="compareArea">
+    <div class="compareCard" id="cardA"></div>
+    <div style="font-size:40px;color:#7a4a1e;">VS</div>
+    <div class="compareCard" id="cardB"></div>
+  </div>
+
+  <div id="beltTrack"></div>
+
+  <div id="feedbackFlash"></div>
+  <canvas id="confettiCanvas" width="1365" height="768"></canvas>
+
+  <div id="designModeOverlay">
+    <button id="closeDesign">✖ Close</button>
+    <h2>🍰 Design Your Own Treat</h2>
+    <div id="designControls">
+      <select id="dShape">
+        <option value="rect">Rectangle Cookie</option>
+        <option value="circle">Circle Pie</option>
+        <option value="triangle">Triangle Scone</option>
+        <option value="hexagon">Hexagon Donut</option>
+      </select>
+      <select id="dDenom">
+        <option value="2">halves (2)</option>
+        <option value="3">thirds (3)</option>
+        <option value="4">fourths (4)</option>
+        <option value="5">fifths (5)</option>
+        <option value="6">sixths (6)</option>
+        <option value="8">eighths (8)</option>
+      </select>
+      <button id="dCreate">Give this order to Roly!</button>
+    </div>
+    <div id="designHost" style="width:520px;height:420px;"></div>
+    <div id="dResult" style="margin-top:14px;font-size:18px;color:#7a4a1e;font-weight:bold;"></div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+</div>
+
+<script>
+/* ============================= AUDIO (Web Audio API, no external deps) ============================= */
+const AudioCtx = window.AudioContext || window.webkitAudioContext;
+const actx = new AudioCtx();
+function beep(freq, dur, type='sine', vol=0.2, delay=0){
+  const t0 = actx.currentTime + delay;
+  const osc = actx.createOscillator();
+  const gain = actx.createGain();
+  osc.type = type; osc.frequency.setValueAtTime(freq, t0);
+  gain.gain.setValueAtTime(0, t0);
+  gain.gain.linearRampToValueAtTime(vol, t0+0.02);
+  gain.gain.exponentialRampToValueAtTime(0.001, t0+dur);
+  osc.connect(gain).connect(actx.destination);
+  osc.start(t0); osc.stop(t0+dur+0.05);
+}
+function chimeCorrect(){
+  beep(523.25,0.25,'triangle',0.18,0);
+  beep(659.25,0.25,'triangle',0.16,0.09);
+  beep(783.99,0.35,'triangle',0.16,0.18);
+}
+function boopWrong(){
+  beep(220,0.28,'sine',0.16,0);
+  beep(196,0.32,'sine',0.14,0.06);
+}
+function jingleStageUp(){
+  [523,659,784,1046].forEach((f,i)=>beep(f,0.3,'triangle',0.18,i*0.12));
+  setTimeout(()=>{ for(let i=0;i<10;i++) beep(300+Math.random()*500,0.08,'square',0.03,i*0.03); }, 500);
+}
+function ambienceStart(){
+  // very soft hum
+  try{
+    const osc = actx.createOscillator();
+    const gain = actx.createGain();
+    osc.type='sine'; osc.frequency.value=80;
+    gain.gain.value=0.015;
+    osc.connect(gain).connect(actx.destination);
+    osc.start();
+  }catch(e){}
+}
+document.addEventListener('pointerdown', function once(){
+  if(actx.state==='suspended') actx.resume();
+  ambienceStart();
+  document.removeEventListener('pointerdown', once);
+});
+
+/* ============================= GSAP-lite tween helper (no external lib, fallback) ============================= */
+// Simple tween utility replicating what GSAP would give us, self-contained.
+function tween(el, props, duration, opts={}){
+  const start = performance.now();
+  const from = {};
+  const unit = opts.unit || {};
+  for(const k in props){
+    const cur = getComputedStyle(el)[k] !== undefined ? el.style[k] : null;
+  }
+  // We'll instead animate via requestAnimationFrame directly setting inline style/transform values passed in opts.from/opts.to
+}
+
+function animateVal(from, to, duration, onUpdate, onComplete, ease){
+  ease = ease || (t=>1-Math.pow(1-t,3));
+  const t0 = performance.now();
+  function step(now){
+    let t = Math.min(1,(now-t0)/duration);
+    const e = ease(t);
+    onUpdate(from + (to-from)*e);
+    if(t<1) requestAnimationFrame(step); else if(onComplete) onComplete();
+  }
+  requestAnimationFrame(step);
+}
+
+/* ============================= FRACTION HELPERS ============================= */
+function gcd(a,b){ return b===0?a:gcd(b,a%b); }
+function simplify(n,d){ const g=gcd(n,d)||1; return [n/g, d/g]; }
+
+/* ============================= GLOBAL STATE ============================= */
+const CUSTOMERS = [
+  {name:'Grumbles the Gnome', icon:'🧙'},
+  {name:'Sizzle the Dragon', icon:'🐉'},
+  {name:'Pancake Stack', icon:'🥞'}
+];
+const SHAPES = ['rect','circle','triangle','hexagon'];
+const WORDS = {1:'one',2:'two',3:'three',4:'four',5:'five',6:'six',7:'seven',8:'eight'};
+const ORDINAL_WORDS = {2:'half',3:'third',4:'fourth',5:'fifth',6:'sixth',7:'seventh',8:'eighth'};
+
+const state = {
+  stageIndex: 0,
+  crumbs: 0,
+  stars: 0,
+  tokens: 0,
+  missesOnCurrent: 0,
+  currentOrder: null,
+  belt: [],
+  correctInARow: 0,
+  gridForced: false,
+  isDoubleOrder: false,
+  doubleStep: 0
+};
+
+const STAGES = [
+  { key:'warm', title:'Warm Dough', sub:'Learning to slice equal parts', denomPool:[2,3], shapes:['rect','circle'], selfDivide:false, guidesAlways:true, timer:false, comparisons:false },
+  { key:'rising', title:'Rising Batch', sub:'Slice it yourself now!', denomPool:[2,3,4], shapes:['rect','circle'], selfDivide:true, guidesAlways:false, timer:false, comparisons:true },
+  { key:'master', title:"Master Baker's Oven", sub:'Fraction Judge time!', denomPool:[2,3,4,5,6,7,8], shapes:['rect','circle','triangle','hexagon'], selfDivide:true, guidesAlways:false, timer:false, comparisons:true, judge:true },
+  { key:'grand', title:'Bakery Grand Opening', sub:'Mastery Challenge', denomPool:[2,3,4,5,6,7,8], shapes:['rect','circle','triangle','hexagon'], selfDivide:true, guidesAlways:false, timer:true, comparisons:true, judge:true, multiStep:true }
+];
+
+function currentStage(){ return STAGES[state.stageIndex]; }
+
+/* ============================= DOM refs ============================= */
+const shapeHost = document.getElementById('shapeHost');
+const promptTarget = document.getElementById('promptTarget');
+const promptWords = document.getElementById('promptWords');
+const custName = document.getElementById('custName');
+const bubbleText = document.getElementById('bubbleText');
+const crumbCountEl = document.getElementById('crumbCount');
+const tokenCountEl = document.getElementById('tokenCount');
+const stageTitleEl = document.getElementById('stageTitle');
+const stageSubEl = document.getElementById('stageSub');
+const gridBtn = document.getElementById('gridBtn');
+const hintBtn = document.getElementById('hintBtn');
+const practiceBtn = document.getElementById('practiceBtn');
+const custList = document.getElementById('custList');
+const feedbackFlash = document.getElementById('feedbackFlash');
+const skipBtn = document.getElementById('skipBtn');
+const toastEl = document.getElementById('toast');
+
+function toast(msg, dur=1800){
+  toastEl.textContent = msg;
+  toastEl.style.opacity = 1;
+  clearTimeout(toast._t);
+  toast._t = setTimeout(()=>{ toastEl.style.opacity=0; }, dur);
+}
+
+function say(msg){ bubbleText.textContent = msg; }
+
+function updateHUD(){
+  crumbCountEl.textContent = state.crumbs;
+  tokenCountEl.textContent = state.tokens;
+  stageTitleEl.textContent = currentStage().title;
+  stageSubEl.textContent = currentStage().sub;
+  skipBtn.disabled = state.tokens<=0;
+}
+
+function renderLineup(){
+  custList.innerHTML='';
+  for(let i=0;i<3;i++){
+    const c = state.belt[i] || CUSTOMERS[i%3];
+    const row = document.createElement('div');
+    row.className='custRow';
+    row.innerHTML = `<span class="custIcon">${c.icon}</span><span>${c.name}</span>`;
+    custList.appendChild(row);
+  }
+}
+
+/* ============================= SHAPE RENDERING (SVG) ============================= */
+// Generic function: draws shape with N equal wedge/segments, returns {svg, segEls(array), shadeCount(fn), isCorrectShape(fn)}
+function buildShape(shapeType, n, opts={}){
+  const w=460, h=380;
+  const ns = "http://www.w3.org/2000/svg";
+  const svg = document.createElementNS(ns,'svg');
+  svg.setAttribute('width', w);
+  svg.setAttribute('height', h);
+  svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
+  svg.style.filter = 'drop-shadow(0 6px 8px rgba(0,0,0,0.18))';
+
+  const cx=w/2, cy=h/2;
+  const segs = [];
+
+  function addSeg(el, index){
+    el.setAttribute('data-index', index);
+    el.setAttribute('fill', '#fff2df');
+    el.setAttribute('stroke', '#8a5a28');
+    el.setAttribute('stroke-width', '3');
+    el.style.cursor='pointer';
+    svg.appendChild(el);
+    segs.push(el);
+  }
+
+  if(shapeType==='circle'){
+    const r = 160;
+    for(let i=0;i<n;i++){
+      const a0 = -Math.PI/2 + i*(2*Math.PI/n);
+      const a1 = -Math.PI/2 + (i+1)*(2*Math.PI/n);
+      const x0 = cx + r*Math.cos(a0), y0=cy+r*Math.sin(a0);
+      const x1 = cx + r*Math.cos(a1), y1=cy+r*Math.sin(a1);
+      const large = (a1-a0)>Math.PI?1:0;
+      const path = document.createElementNS(ns,'path');
+      path.setAttribute('d', `M${cx},${cy} L${x0},${y0} A${r},${r} 0 ${large} 1 ${x1},${y1} Z`);
+      addSeg(path,i);
+    }
+  } else if(shapeType==='rect'){
+    const rw=380, rh=220, x0=cx-rw/2, y0=cy-rh/2;
+    for(let i=0;i<n;i++){
+      const seg = document.createElementNS(ns,'rect');
+      seg.setAttribute('x', x0 + i*(rw/n));
+      seg.setAttribute('y', y0);
+      seg.setAttribute('width', rw/n);
+      seg.setAttribute('height', rh);
+      addSeg(seg,i);
+    }
+  } else if(shapeType==='triangle'){
+    // divide triangle into n equal-area vertical-ish strips using apex + base subdivisions
+    const apex = {x:cx, y:cy-170};
+    const baseL = {x:cx-190, y:cy+150};
+    const baseR = {x:cx+190, y:cy+150};
+    for(let i=0;i<n;i++){
+      const t0=i/n, t1=(i+1)/n;
+      const p0 = {x: baseL.x + (baseR.x-baseL.x)*t0, y: baseL.y};
+      const p1 = {x: baseL.x + (baseR.x-baseL.x)*t1, y: baseL.y};
+      const path = document.createElementNS(ns,'path');
+      path.setAttribute('d', `M${apex.x},${apex.y} L${p0.x},${p0.y} L${p1.x},${p1.y} Z`);
+      addSeg(path,i);
+    }
+  } else if(shapeType==='hexagon'){
+    const r=170;
+    const pts=[];
+    for(let i=0;i<6;i++){
+      const a = -Math.PI/2 + i*(Math.PI/3);
+      pts.push({x:cx+r*Math.cos(a), y:cy+r*Math.sin(a)});
+    }
+    for(let i=0;i<n;i++){
+      const a0 = -Math.PI/2 + i*(2*Math.PI/n);
+      const a1 = -Math.PI/2 + (i+1)*(2*Math.PI/n);
+      const x0 = cx + r*Math.cos(a0), y0=cy+r*Math.sin(a0);
+      const x1 = cx + r*Math.cos(a1), y1=cy+r*Math.sin(a1);
+      const path = document.createElementNS(ns,'path');
+      path.setAttribute('d', `M${cx},${cy} L${x0},${y0} L${x1},${y1} Z`);
+      addSeg(path,i);
+    }
+    // outer hex outline for style
+    const outline = document.createElementNS(ns,'polygon');
+    outline.setAttribute('points', pts.map(p=>`${p.x},${p.y}`).join(' '));
+    outline.setAttribute('fill','none');
+    outline.setAttribute('stroke','#8a5a28');
+    outline.setAttribute('stroke-width','4');
+    svg.appendChild(outline);
+  }
+
+  return {svg, segs};
+}
+
+const SHADE_COLORS = ['#f6a5a5','#f9cfa0','#c9e4c5','#a9d6e5','#d9b8f2','#f2e2a9','#f2a9d0','#a9f2d0'];
+
+/* ============================= GAME FLOW ============================= */
+let activeShapeData = null; // {segs, n, shaded:Set, targetCount, shapeType, isDemo, isPractice}
+
+function pickDenomForStage(){
+  const pool = currentStage().denomPool;
+  return pool[Math.floor(Math.random()*pool.length)];
+}
+function pickShapeForStage(){
+  const pool = currentStage().shapes;
+  return pool[Math.floor(Math.random()*pool.length)];
+}
+
+function shapeLabel(s){
+  return {rect:'Rectangle Cookie', circle:'Circle Pie', triangle:'Triangle Scone', hexagon:'Hexagon Donut'}[s];
+}
+
+function fillLineup(){
+  state.belt = [];
+  for(let i=0;i<3;i++){
+    state.belt.push(CUSTOMERS[Math.floor(Math.random()*CUSTOMERS.length)]);
+  }
+  renderLineup();
+}
+
+function newOrder(isPractice=false){
+  hintBtn.classList.add('hidden');
+  gridBtn.classList.remove('hidden');
+  state.missesOnCurrent = 0;
+  const stage = currentStage();
+  const denom = pickDenomForStage();
+  const shapeType = pickShapeForStage();
+  const asWords = Math.random()<0.5;
+
+  let doubleOrder = false;
+  let secondDenom = null;
+  if(stage.multiStep && Math.random()<0.35){
+    doubleOrder = true;
+    do { secondDenom = pickDenomForStage(); } while(secondDenom===denom);
+  }
+
+  const customer = state.belt[0] || CUSTOMERS[0];
+  custName.textContent = isPractice ? 'Practice (no grading!)' : customer.name;
+
+  const target = 1; // unit fraction numerator always 1
+  promptTarget.textContent = asWords ? `${WORDS[target]} ${denom===2?'half':ORDINAL_WORDS[denom]+(target>1?'s':'')}` : `${target}/${denom}`;
+  promptWords.textContent = asWords ? `(${target}/${denom})` : `(${WORDS[target]} ${denom===2?'half':ORDINAL_WORDS[denom]})`;
+
+  const {svg, segs} = buildShape(shapeType, denom);
+  shapeHost.innerHTML='';
+  shapeHost.appendChild(svg);
+  svg.style.opacity=0;
+  animateVal(0,1,300, v=>svg.style.opacity=v);
+
+  activeShapeData = {
+    segs, n: denom, shaded: new Set(), targetCount: 1, shapeType,
+    isDemo:false, isPractice, doubleOrder, secondDenom, secondPhase:false, denom
+  };
+
+  segs.forEach(seg=>{
+    seg.addEventListener('pointerdown', onSegTap);
+  });
+
+  if(stage.guidesAlways || state.gridForced){
+    showGuideDots();
+  }
+
+  if(!isPractice){
+    if(doubleOrder){
+      say(`Two-part order! First give me ${WORDS[1]} ${ORDINAL_WORDS[denom]||'half'} of the ${shapeLabel(shapeType)}.`);
+    } else {
+      const shapeComment = denom>=6 ? `Ooh, a ${shapeLabel(shapeType)}! ${WORDS[denom]||denom}ths, fancy!` : `Shade ${promptTarget.textContent} for ${customer.name}!`;
+      say(shapeComment);
+    }
+  } else {
+    say(`Practice round — try shading ${promptTarget.textContent}. No pressure!`);
+  }
+}
+
+function showGuideDots(){
+  if(!activeShapeData) return;
+  activeShapeData.segs.forEach(seg=>{
+    seg.setAttribute('stroke-dasharray', activeShapeData.isDemo?'':'0');
+  });
+  // add faint center dots per segment as guide
+  const svg = shapeHost.querySelector('svg');
+  if(!svg || svg.querySelector('.guideDot')) return;
+  activeShapeData.segs.forEach(seg=>{
+    const bbox = seg.getBBox();
+    const dot = document.createElementNS("http://www.w3.org/2000/svg",'circle');
+    dot.setAttribute('cx', bbox.x+bbox.width/2);
+    dot.setAttribute('cy', bbox.y+bbox.height/2);
+    dot.setAttribute('r', 4);
+    dot.setAttribute('fill', '#c98f52');
+    dot.setAttribute('opacity', 0.55);
+    dot.classList.add('guideDot');
+    svg.appendChild(dot);
+  });
+}
+
+function onSegTap(e){
+  const seg = e.currentTarget;
+  const idx = +seg.getAttribute('data-index');
+  if(!activeShapeData) return;
+  const data = activeShapeData;
+
+  if(data.shaded.has(idx)){
+    data.shaded.delete(idx);
+    animateColor(seg, '#fff2df');
+    return;
+  }
+  data.shaded.add(idx);
+  const colorIdx = data.secondPhase ? 1 : 0;
+  animateColor(seg, SHADE_COLORS[colorIdx % SHADE_COLORS.length]);
+  beep(700,0.08,'sine',0.05);
+
+  const wantCount = data.secondPhase ? 1 : 1; // unit fraction: always shade exactly 1 part
+  if(data.shaded.size >= wantCount){
+    setTimeout(()=> evaluateOrder(), 350);
+  }
+}
+
+function animateColor(el, hexTo){
+  // simple ease into fill using rAF interpolation of rgb
+  const fromHex = el.getAttribute('fill');
+  const from = hexToRgb(fromHex) || [255,242,223];
+  const to = hexToRgb(hexTo);
+  animateVal(0,1,300, t=>{
+    const r = Math.round(from[0]+(to[0]-from[0])*t);
+    const g = Math.round(from[1]+(to[1]-from[1])*t);
+    const b = Math.round(from[2]+(to[2]-from[2])*t);
+    el.setAttribute('fill', `rgb(${r},${g},${b})`);
+  });
+}
+function hexToRgb(hex){
+  if(!hex || hex[0]!=='#') return [255,255,255];
+  const v = hex.substring(1);
+  const bigint = parseInt(v.length===3 ? v.split('').map(c=>c+c).join('') : v, 16);
+  return [(bigint>>16)&255, (bigint>>8)&255, bigint&255];
+}
+
+function wobbleShape(){
+  const svg = shapeHost.querySelector('svg');
+  if(!svg) return;
+  let t=0;
+  const dur=500;
+  const t0=performance.now();
+  function step(now){
+    const p=(now-t0)/dur;
+    if(p>=1){ svg.style.transform=''; return; }
+    const x = Math.sin(p*Math.PI*6)*10*(1-p);
+    svg.style.transform = `translateX(${x}px)`;
+    requestAnimationFrame(step);
+  }
+  requestAnimationFrame(step);
+}
+
+function bounceShape(cb){
+  const svg = shapeHost.querySelector('svg');
+  if(!svg){ if(cb) cb(); return; }
+  const dur=450; const t0=performance.now();
+  function step(now){
+    const p=Math.min(1,(now-t0)/dur);
+    const s = 1 + Math.sin(p*Math.PI)*0.12;
+    svg.style.transform = `scale(${s})`;
+    if(p<1) requestAnimationFrame(step); else { svg.style.transform=''; if(cb) cb(); }
+  }
+  requestAnimationFrame(step);
+}
+
+function evaluateOrder(){
+  const data = activeShapeData;
+  if(!data) return;
+  const correct = data.shaded.size === 1; // exactly one unit shaded, no more no less
+  if(correct){
+    onOrderCorrect();
+  } else {
+    onOrderWrong();
+  }
+}
+
+function onOrderCorrect(){
+  const data = activeShapeData;
+  chimeCorrect();
+  bounceShape(()=>{
+    if(data.isPractice){
+      say("Great practice! Want to try a real order now?");
+      flashText('✓', '#4caf7a');
+      setTimeout(()=>newOrder(false), 900);
+      return;
+    }
+    if(data.doubleOrder && !data.secondPhase){
+      // move to second fraction on same shape (fresh shape though, re-divided by secondDenom)
+      flashText('✓','#4caf7a');
+      data.secondPhase = true;
+      const shapeType = data.shapeType;
+      const denom2 = data.secondDenom;
+      const {svg, segs} = buildShape(shapeType, denom2);
+      shapeHost.innerHTML='';
+      shapeHost.appendChild(svg);
+      segs.forEach(seg=> seg.addEventListener('pointerdown', onSegTap));
+      activeShapeData = {segs, n:denom2, shaded:new Set(), targetCount:1, shapeType, isDemo:false, isPractice:false, doubleOrder:true, secondPhase:true, denom:denom2};
+      promptTarget.textContent = `1/${denom2}`;
+      promptWords.textContent = `(${WORDS[1]} ${ORDINAL_WORDS[denom2]||'half'})`;
+      say(`Nice! Now give ${state.belt[0]?.name||'the customer'} the second slice: one ${ORDINAL_WORDS[denom2]||'half'}!`);
+      if(currentStage().guidesAlways || state.gridForced) showGuideDots();
+      return;
+    }
+
+    flashText('✓ Yum!', '#4caf7a');
+    awardCrumb();
+    advanceBelt(true);
+    state.correctInARow++;
+    if(currentStage().judge && state.correctInARow>0 && state.correctInARow%3===0){
+      say("Three in a row! You've earned a Fraction Judge ceremony! 👩‍⚖️✨");
+      celebrateJudge();
+    } else {
+      say(pickPraise());
+    }
+    checkStageAdvance();
+    setTimeout(()=>newOrder(false), 900);
+  });
+}
+
+function pickPraise(){
+  const arr = ["Perfectly equal slices!", "The bakery smells amazing today!", "You're getting so good at this!", "Roly is impressed!", "Another happy customer!"];
+  return arr[Math.floor(Math.random()*arr.length)];
+}
+
+function onOrderWrong(){
+  boopWrong();
+  wobbleShape();
+  state.missesOnCurrent++;
+  state.correctInARow = 0;
+  flashText('Try again!', '#e07b39');
+  say("Try that slice again! Not quite equal parts yet.");
+  setTimeout(()=>{
+    // reset shading only
+    const data = activeShapeData;
+    if(!data) return;
+    data.shaded.forEach(idx=>{
+      const seg = data.segs.find(s=>+s.getAttribute('data-index')===idx);
+      if(seg) animateColor(seg, '#fff2df');
+    });
+    data.shaded.clear();
+  }, 550);
+
+  if(state.missesOnCurrent>=2){
+    hintBtn.classList.remove('hidden');
+  }
+}
+
+function flashText(txt, color){
+  feedbackFlash.textContent = txt;
+  feedbackFlash.style.color = color;
+  feedbackFlash.style.transition = 'none';
+  feedbackFlash.style.opacity = 1;
+  feedbackFlash.style.transform = 'scale(0.8)';
+  requestAnimationFrame(()=>{
+    feedbackFlash.style.transition = 'opacity 0.6s, transform 0.6s';
+    feedbackFlash.style.opacity = 0;
+    feedbackFlash.style.transform = 'scale(1.3)';
+  });
+}
+
+function awardCrumb(){
+  state.crumbs++;
+  if(state.crumbs % 5 === 0){
+    state.tokens++;
+    toast('🌾 Earned a Flour Dust hint token!');
+  }
+  updateHUD();
+}
+
+function advanceBelt(success){
+  if(success){
+    state.belt.shift();
+    state.belt.push(CUSTOMERS[Math.floor(Math.random()*CUSTOMERS.length)]);
+  } else {
+    const c = state.belt.shift();
+    state.belt.push(c);
+  }
+  renderLineup();
+}
+
+/* Ceremony animation for judge stage */
+function celebrateJudge(){
+  spawnConfetti();
+  jingleStageUp();
+}
+
+/* Confetti */
+const confettiCanvas = document.getElementById('confettiCanvas');
+const cctx = confettiCanvas.getContext('2d');
+let confettiParticles = [];
+function spawnConfetti(n=80){
+  for(let i=0;i<n;i++){
+    confettiParticles.push({
+      x: Math.random()*1365, y: -20-Math.random()*200,
+      vx: (Math.random()-0.5)*2, vy: 2+Math.random()*3,
+      size: 4+Math.random()*6,
+      color: SHADE_COLORS[Math.floor(Math.random()*SHADE_COLORS.length)],
+      rot: Math.random()*360, vr: (Math.random()-0.5)*10
+    });
+  }
+  if(!confettiRunning) runConfetti();
+}
+let confettiRunning=false;
+function runConfetti(){
+  confettiRunning=true;
+  cctx.clearRect(0,0,1365,768);
+  confettiParticles.forEach(p=>{
+    p.x+=p.vx; p.y+=p.vy; p.rot+=p.vr;
+    cctx.save();
+    cctx.translate(p.x,p.y);
+    cctx.rotate(p.rot*Math.PI/180);
+    cctx.fillStyle=p.color;
+    cctx.fillRect(-p.size/2,-p.size/2,p.size,p.size);
+    cctx.restore();
+  });
+  confettiParticles = confettiParticles.filter(p=>p.y<820);
+  if(confettiParticles.length>0){
+    requestAnimationFrame(runConfetti);
+  } else {
+    confettiRunning=false;
+    cctx.clearRect(0,0,1365,768);
+  }
+}
+
+/* ============================= STAGE ADVANCE / BADGE ============================= */
+function checkStageAdvance(){
+  const thresholds = [5, 12, 20, 999999]; // crumbs needed cumulative before considering next stage
+  const idx = state.stageIndex;
+  if(idx < STAGES.length-1 && state.crumbs >= thresholds[idx]){
+    state.stageIndex++;
+    state.stars++;
+    updateHUD();
+    document.getElementById('badge').textContent = ['🥖','🥐','🍩','🏆'][Math.min(state.stageIndex,3)];
+    jingleStageUp();
+    spawnConfetti(120);
+    document.body.style.background = stageBackgrounds[state.stageIndex];
+    toast(`🎉 Stage up! Welcome to ${currentStage().title}!`, 2600);
+    updateBunting();
+    if(currentStage().key==='grand'){
+      say("The whole bakery is buzzing — Grand Opening time! Timed mixed orders now!");
+    } else if(currentStage().judge){
+      say("You're the Fraction Judge now! Settle disputes by comparing slices.");
+    } else if(currentStage().selfDivide){
+      say("No more guide-lines drawn for you — tap-drag to slice it yourself now!");
+    }
+  }
+}
+
+const stageBackgrounds = [
+  'linear-gradient(180deg, #fef6e4 0%, #fbead2 60%, #f7dfc0 100%)',
+  'linear-gradient(180deg, #fdf0e6 0%, #fbe0d0 60%, #f5cbb0 100%)',
+  'linear-gradient(180deg, #fbeee6 0%, #f6dccb 60%, #eeb98a 100%)',
+  'linear-gradient(180deg, #fff6e0 0%, #ffe2b0 60%, #ffcf7a 100%)'
+];
+
+function updateBunting(){
+  const idx = state.stageIndex;
+  let bunting = document.getElementById('buntingDeco');
+  if(!bunting){
+    bunting = document.createElement('div');
+    bunting.id='buntingDeco';
+    bunting.style.position='absolute'; bunting.style.top='78px'; bunting.style.left='0';
+    bunting.style.width='100%'; bunting.style.height='24px'; bunting.style.zIndex='20';
+    bunting.style.textAlign='center'; bunting.style.fontSize='20px'; bunting.style.letterSpacing='30px';
+    document.getElementById('game').appendChild(bunting);
+  }
+  const decos = ['', '🎏🎏🎏🎏🎏🎏🎏', '✨🎏✨🎏✨🎏✨', '🎉✨🎏🏆🎏✨🎉'];
+  bunting.textContent = decos[Math.min(idx,3)];
+}
+
+/* ============================= HINT / GRID / PRACTICE BUTTONS ============================= */
+gridBtn.addEventListener('click', ()=>{
+  state.gridForced = true;
+  showGuideDots();
+  gridBtn.classList.add('hidden');
+  toast('Guide dots added!');
+});
+hintBtn.addEventListener('click', ()=>{
+  showGuideDots();
+  if(activeShapeData){
+    // Also softly pulse the "correct-looking" first segment as a suggestion
+    const seg = activeShapeData.segs[0];
+    if(seg){
+      let flashes=0;
+      const iv = setInterval(()=>{
+        seg.setAttribute('opacity', seg.getAttribute('opacity')==='0.5'?'1':'0.5');
+        flashes++;
+        if(flashes>5){ clearInterval(iv); seg.setAttribute('opacity','1'); }
+      }, 220);
+    }
+  }
+  say("Here's a helper grid! Try tapping just ONE equal part.");
+});
+practiceBtn.addEventListener('click', ()=>{
+  newOrder(true);
+});
+
+skipBtn.addEventListener('click', ()=>{
+  if(state.tokens<=0) return;
+  state.tokens--;
+  updateHUD();
+  // auto-solve current order for the player, count as correct without harsh penalty
+  if(activeShapeData && activeShapeData.segs[0]){
+    activeShapeData.segs[0].dispatchEvent(new Event('pointerdown', {bubbles:true}));
+    const idx = 0;
+    activeShapeData.shaded.add(idx);
+    animateColor(activeShapeData.segs[0], SHADE_COLORS[0]);
+    setTimeout(()=>evaluateOrder(), 350);
+  }
+  toast('🌾 Flour dust sprinkled — slice revealed!');
+});
+
+/* ============================= COMPARISON / JUDGE MODE ============================= */
+// Occasionally triggered instead of a normal shading order once stage.comparisons is true
+function maybeTriggerComparison(){
+  if(!currentStage().comparisons) return false;
+  if(Math.random() < 0.22){
+    runComparisonChallenge();
+    return true;
+  }
+  return false;
+}
+
+function runComparisonChallenge(){
+  document.getElementById('compareArea').style.display='flex';
+  document.getElementById('stageArea').style.display='none';
+
+  let dA, dB;
+  do {
+    dA = pickDenomForStage(); dB = pickDenomForStage();
+  } while(dA===dB);
+
+  const shapeTypeA = pickShapeForStage();
+  const shapeTypeB = shapeTypeA; // keep same shape type for fair visual comparison
+
+  const cardA = document.getElementById('cardA');
+  const cardB = document.getElementById('cardB');
+  cardA.innerHTML = `<div>1/${dA}</div>`;
+  cardB.innerHTML = `<div>1/${dB}</div>`;
+
+  const {svg:svgA} = buildShape(shapeTypeA, dA);
+  const {svg:svgB} = buildShape(shapeTypeB, dB);
+  svgA.setAttribute('width', 260); svgA.setAttribute('height',220);
+  svgB.setAttribute('width', 260); svgB.setAttribute('height',220);
+  // pre-shade one segment each to visualize
+  svgA.querySelector('[data-index="0"]').setAttribute('fill', SHADE_COLORS[0]);
+  svgB.querySelector('[data-index="0"]').setAttribute('fill', SHADE_COLORS[2]);
+
+  cardA.appendChild(svgA);
+  cardB.appendChild(svgB);
+
+  const btnA = document.createElement('button');
+  btnA.textContent = 'This one is BIGGER';
+  const btnB = document.createElement('button');
+  btnB.textContent = 'This one is BIGGER';
+  cardA.appendChild(btnA);
+  cardB.appendChild(btnB);
+
+  say(`Fraction Judge time! Which slice is bigger: 1/${dA} or 1/${dB}?`);
+
+  function resolve(pickedIsA){
+    const correctIsA = dA < dB; // smaller denominator = bigger unit fraction piece
+    const correct = pickedIsA === correctIsA;
+    if(correct){
+      chimeCorrect();
+      flashText('✓ Correct!', '#4caf7a');
+      awardCrumb();
+      state.correctInARow++;
+      if(currentStage().judge && state.correctInARow>0 && state.correctInARow%3===0){
+        celebrateJudge();
+        say("Three correct judgments in a row — amazing Fraction Judge work!");
+      } else {
+        say("Yes! Fewer, bigger pieces beat more, smaller pieces sharing the same whole.");
+      }
+    } else {
+      boopWrong();
+      flashText('Hmm, try again!', '#e07b39');
+      say(`Actually, 1/${Math.min(dA,dB)} is bigger — fewer slices means each one is chunkier!`);
+      state.correctInARow = 0;
+    }
+    setTimeout(()=>{
+      document.getElementById('compareArea').style.display='none';
+      document.getElementById('stageArea').style.display='flex';
+      checkStageAdvance();
+      newOrder(false);
+    }, 1600);
+  }
+  btnA.onclick = ()=>resolve(true);
+  btnB.onclick = ()=>resolve(false);
+}
+
+/* ============================= MULTI-STEP "between" ORDER (Grand Opening) ============================= */
+// Handled implicitly via doubleOrder mechanic above (two unit fractions shaded before belt advances)
+
+/* ============================= INTRO / DEMO SEQUENCE ============================= */
+function runIntroDemo(){
+  say("You're the newest baker here! Every treat needs perfectly EQUAL slices.");
+  fillLineup();
+  const {svg, segs} = buildShape('circle', 3);
+  shapeHost.innerHTML='';
+  shapeHost.appendChild(svg);
+  activeShapeData = {segs, n:3, shaded:new Set(), targetCount:1, shapeType:'circle', isDemo:true};
+  showGuideDots();
+
+  promptTarget.textContent = '1/3';
+  promptWords.textContent = '(one third)';
+  custName.textContent = 'Demo Cake';
+  gridBtn.classList.add('hidden');
+  practiceBtn.style.display='none';
+
+  segs[0].style.opacity=1;
+  // pulse glow on first segment to invite tap eventually, but first Roly auto-demos.
+  let pulse = setInterval(()=>{
+    const o = segs[0].getAttribute('opacity')==='0.55'?'1':'0.55';
+    segs[0].setAttribute('opacity', o);
+  }, 400);
+
+  setTimeout(()=>{
+    say("See? Same size as its friends! Roly cuts the first slice...");
+    setTimeout(()=>{
+      clearInterval(pulse);
+      segs[0].setAttribute('opacity','1');
+      animateColor(segs[0], SHADE_COLORS[0]);
+      beep(700,0.15,'sine',0.08);
+      setTimeout(()=>{
+        say("Now YOU tap the other two slices to finish the demo cake!");
+        segs[1].addEventListener('pointerdown', demoTapHandler);
+        segs[2].addEventListener('pointerdown', demoTapHandler);
+      }, 900);
+    }, 1600);
+  }, 1800);
+}
+
+let demoTapsRemaining = 2;
+function demoTapHandler(e){
+  const seg = e.currentTarget;
+  animateColor(seg, SHADE_COLORS[+seg.getAttribute('data-index') % SHADE_COLORS.length]);
+  beep(700,0.12,'sine',0.06);
+  seg.removeEventListener('pointerdown', demoTapHandler);
+  demoTapsRemaining--;
+  if(demoTapsRemaining<=0){
+    setTimeout(()=>{
+      chimeCorrect();
+      bounceShape(()=>{
+        flashText('✓ Demo Complete!', '#4caf7a');
+        say("Perfect! Now let's bake for real customers. Orders incoming!");
+        practiceBtn.style.display='block';
+        setTimeout(startRealGame, 1200);
+      });
+    }, 400);
+  }
+}
+
+function startRealGame(){
+  updateHUD();
+  fillLineup();
+  newOrder(false);
+}
+
+/* ============================= ORDER FLOW WRAPPER (adds comparison chance) ============================= */
+const originalNewOrder = newOrder;
+newOrder = function(isPractice){
+  if(!isPractice && maybeTriggerComparison()){
+    return;
+  }
+  originalNewOrder(isPractice);
+};
+
+/* ============================= DESIGN YOUR OWN TREAT (Payoff, unlocked at Golden Rolling Pin) ============================= */
+const designOverlay = document.getElementById('designModeOverlay');
+document.getElementById('closeDesign').addEventListener('click', ()=>{
+  designOverlay.style.display='none';
+});
+document.getElementById('dCreate').addEventListener('click', ()=>{
+  const shapeType = document.getElementById('dShape').value;
+  const denom = +document.getElementById('dDenom').value;
+  const host = document.getElementById('designHost');
+  host.innerHTML='';
+  const {svg, segs} = buildShape(shapeType, denom);
+  host.appendChild(svg);
+  document.getElementById('dResult').textContent = "Roly is thinking...";
+  // Roly "solves" by shading exactly one correct segment after a short thinking delay
+  setTimeout(()=>{
+    const target = Math.floor(Math.random()*denom);
+    segs[target].setAttribute('fill', SHADE_COLORS[0]);
+    chimeCorrect();
+    document.getElementById('dResult').textContent = `Roly shaded 1/${denom} — "Is that right, Teacher Reina?"`;
+  }, 900);
+});
+
+function maybeUnlockDesignMode(){
+  if(state.stageIndex === STAGES.length-1 && state.stars>=4){
+    const btn = document.createElement('button');
+    btn.textContent = '🍰 Design Your Own Treat';
+    btn.style.position='absolute'; btn.style.top='14px'; btn.style.right='140px'; btn.style.zIndex='35';
+    btn.style.padding='8px 14px'; btn.style.borderRadius='10px'; btn.style.border='2px solid #d99a55';
+    btn.style.background='#f6c453'; btn.style.fontWeight='bold'; btn.style.cursor='pointer';
+    btn.onclick = ()=>{ designOverlay.style.display='flex'; };
+    document.getElementById('game').appendChild(btn);
+  }
+}
+
+/* hook into checkStageAdvance to try unlocking design mode after reaching final stage + enough stars */
+const originalCheckStageAdvance = checkStageAdvance;
+checkStageAdvance = function(){
+  originalCheckStageAdvance();
+  if(state.stageIndex===STAGES.length-1){
+    state._grandCrumbCounter = (state._grandCrumbCounter||0)+0;
+  }
+  maybeUnlockDesignMode();
+};
+
+/* Ensure design mode also reachable once enough crumbs collected in Grand stage even without extra star bump */
+setInterval(()=>{
+  if(state.stageIndex===STAGES.length-1 && state.crumbs>=26 && !document.getElementById('__designUnlocked')){
+    const marker = document.createElement('div'); marker.id='__designUnlocked'; marker.style.display='none';
+    document.body.appendChild(marker);
+    maybeUnlockDesignMode();
+    toast('🏆 Golden Rolling Pin badge earned! Design Your Own Treat unlocked!', 3200);
+    document.getElementById('badge').textContent='🏆';
+  }
+}, 1000);
+
+/* ============================= INIT ============================= */
+updateHUD();
+runIntroDemo();
+</script>
+</body>
+</html>

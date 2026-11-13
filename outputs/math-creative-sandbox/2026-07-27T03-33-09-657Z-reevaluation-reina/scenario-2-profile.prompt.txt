@@ -1,0 +1,71 @@
+Create one original, complete, standalone HTML learning experience.
+
+Mathematical concept:
+multiplication as equal groups and arrays, connected to skip-counting and interpreted in word problems
+
+Experimental condition:
+Scenario 2 — concept plus factual child profile
+
+Available factual context:
+{
+  "childProfileFacts": {
+    "demographics": {
+      "age": 7,
+      "grade": 2,
+      "diagnoses": [],
+      "learningStyle": "mixed",
+      "attentionSpan": "moderate",
+      "iepActive": false
+    },
+    "iepTargets": [],
+    "readingProfile": {
+      "currentReadingLevel": "CVC",
+      "averageReadingAccuracy": 0,
+      "comprehensionAccuracy": 0,
+      "flaggedPatterns": [],
+      "storiesCompleted": 0,
+      "fontSize": 28,
+      "lineHeight": 1.6,
+      "fontFamily": "system-ui",
+      "background": "#f0f9ff",
+      "wordsPerLine": 12,
+      "highlightColor": "#2563eb",
+      "highlightBackground": "#dbeafe",
+      "dyslexiaMode": false
+    },
+    "rewardPreferences": {
+      "favoriteGames": [],
+      "celebrationStyle": "mixed",
+      "bonusRoundHistory": {
+        "triggered": 0,
+        "correct": 0
+      }
+    },
+    "companion": {
+      "sensitivity": {
+        "session_start": 0.8,
+        "correct_answer": 0.8,
+        "wrong_answer": 0.6,
+        "mastery_unlock": 1,
+        "session_end": 0.8,
+        "idle_too_long": 0.4
+      },
+      "idleFrequency_ms": 45000,
+      "randomMomentProbability": 0.3,
+      "toggledOff": false
+    }
+  }
+}
+
+Teach and challenge the concept rather than reproducing worksheet questions.
+You own the pedagogy, questions, experience form, mechanics, stakes,
+consequences, progression, payoff, replay structure, and visual identity.
+The experience may be a game, simulation, construction, demonstration, mystery,
+story, or another form you judge stronger.
+
+Create an experience a child can use with touch or mouse. Everything must live
+inside one HTML document using inline CSS, JavaScript, SVG, or Canvas. Do not use
+external libraries, network assets, Sunny runtime contracts, test hooks, or
+parent-window messaging.
+
+Return raw complete HTML only.

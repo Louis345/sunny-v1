@@ -1,0 +1,73 @@
+{
+  "status": "human_review",
+  "academicContract": "Teach Grade 3 multiplication through fresh material:\n- interpret multiplicative situations as number of equal groups and amount in each group;\n- construct or read equal-group and array representations;\n- connect the representation to a multiplication equation and product;\n- increase mathematical independence and challenge over the experience.\n\nThe experience must remain mathematically correct, usable with touch or mouse in a 1365×768 iframe, and complete from opening through payoff. Everything else is creatively mutable.",
+  "original": {
+    "id": "opus-5",
+    "label": "Claude Opus 5",
+    "provider": "anthropic",
+    "model": "claude-opus-5",
+    "status": "complete",
+    "elapsedMs": 118831,
+    "inputTokens": 4565,
+    "outputTokens": 10996,
+    "estimatedCostUsd": 0.297725,
+    "artifactHash": "90cc771e3f564f81b2431710cf60089476340e223cf2eef81eb54b13471dc190",
+    "promptHash": "c9fa1c1f791c38d2d5aed3d3345ac4e04f7306e72475dcfcf0ab4a2f05c048b5",
+    "apiResponseHash": "6089c7602621415a4c456d852790879a0d3fbeb0943c30f113d911597856e675",
+    "savedHtmlHash": "6089c7602621415a4c456d852790879a0d3fbeb0943c30f113d911597856e675",
+    "iframeSrcDocHash": "6089c7602621415a4c456d852790879a0d3fbeb0943c30f113d911597856e675",
+    "extractionMode": "raw_html",
+    "error": null
+  },
+  "decision": {
+    "mode": "pivot",
+    "verdict": "Cargo Code is mathematically sound but creatively inert. Its core loop is transcription — read a sentence, copy two numbers onto dials, type the product — dressed in a dashboard so dense (seven panels, six buttons, a keypad, a map, a tally strip) that the multiplication never feels like it DOES anything. The tally strip literally hands the child the answer she is supposed to reason toward, the wall-clock Vex timer punishes exactly the careful re-reading the math demands, and the world's only reaction to a correct equation is a thin grey line called a claw. One buried mechanic — calling Vex's bluff — is genuinely alive, and it should survive the pivot. The rest should be replaced with an experience where the product IS the power, where losing has a path back, and where the challenge visibly climbs toward a final worth winning.",
+    "strongestExistingQuality": "The bluff-busting beat: Vex asserts a false product and the child must construct the true array as proof to call the lie. This is real mathematical authority — verifying a claim rather than answering a prompt — and it maps directly onto this child's demonstrated instinct to catch repeated riddles and challenge faulty logic. It survives the pivot as a first-class mechanic, not a side mode.",
+    "largestCreativeFailure": "Multiplication has no visible consequence in the world. The array is a diagram in a box; the equation is a form field; success fires an almost-invisible claw. Meanwhile a real-time timer races against reflection, and the 'true count' tally strip pre-answers every problem. The math is checked by the game rather than powering it, and the child's job is data entry under pressure — the opposite of the independent, escalating reasoning the contract asks for.",
+    "creativeDirection": {
+      "title": "ARRAY ARENA: The Formation Championship",
+      "openingPromise": "A single sentence over a roaring arena: 'Champions here don't win with muscle — they win with formations. Build the true formation, prove the product, take the belt.' The child sees a four-round tournament bracket with her banner at the bottom and a masked reigning champion, SOLVA, at the top. One tap on FIRST MATCH and she is on the arena floor within ten seconds.",
+      "coreLoop": "Each match is a best-of-3 exchange with no wall-clock timer. (1) The opponent declares a challenge as a spoken-style scroll: a multiplicative situation ('I send 4 squads, 6 lantern-golems in each squad — match my force or fall'). (2) The child builds her counter-formation on the glowing arena floor: tap ROWS and PER ROW steppers, and living golem tiles march into an array in real time — rows are visibly squads, columns visibly count members. (3) She locks the equation ROWS × PER ROW = TOTAL by typing the product. (4) The formation charges: every golem lights, energy equal to the product surges into her banner, and the clash resolves. A correct structure with correct product wins the exchange outright; a correct array with a wrong product 'sparks but fizzles' — golems flicker in countable rows, inviting a recount, and she gets one more attempt before the exchange goes to the opponent. In later rounds, exchanges invert: the OPPONENT builds a formation on the floor and the child must read it into an equation, or the opponent boasts a total ('My 7 rows of 8 make 54!') and she must CONFIRM or CALL THE BLUFF — a called bluff shatters the opponent's formation tile by tile in rows, proving the true product visually.",
+      "mathAsPower": "The product is literally the strength of her move. A 6×4 formation discharges exactly 24 energy pulses — the child can watch them count off in rows of 4 — and the clash meter fills by exactly that amount. Groups and group-size are never abstract: rows ARE squads, tiles ARE members, and the equation is the arming switch. Nothing in the arena moves until the multiplication is true, and when it is true, the world erupts in exact proportion to the product.",
+      "stakes": "A championship belt and a bracket. Each match won advances her banner up the bracket toward SOLVA, whose mask displays scrolling equations. Exchanges within a match are the real tension: lose two exchanges and you lose the match — but losing a match never ends the run.",
+      "consequenceAndRecovery": "A wrong product never erases her work: the built array stays on the floor, flickering row by row as a countable structure, and a one-line coach whisper scaffolds without answering ('Your floor shows 5 squads. Count one squad, then count the squads.'). A second miss concedes the exchange, and the opponent's winning formation assembles WITH its equation displayed — every failure teaches by showing the true array-equation pair. Losing a match drops her banner into the Redemption Bracket: one comeback match against a rematch opponent (fresh numbers, same round difficulty) returns her to the main bracket. Losses cost time and pride, never progress or dignity — a championship where you can fight your way back.",
+      "progression": [
+        "ROUND 1 — QUALIFIER (guided): plain equal-groups language with the groups-word highlighted; factors 2–5; a HINT button unpacks one squad visually; coach confirms the first correct lock with full narration of groups × size = total.",
+        "ROUND 2 — QUARTERFINAL (phrasing flips): situations state 'each' first or bury factors among decoy numbers (an age, an arena number); factors 3–8; one reverse exchange appears — the opponent's array is already on the floor and the child must read it into the equation herself; hint now costs the exchange advantage.",
+        "ROUND 3 — SEMIFINAL (the bluff round): opponent alternates honest builds and boasted false totals off by a plausible margin; the child must construct the true array as courtroom proof before ruling CONFIRM or BUST; factors up to 9; no highlighted words, no free hints.",
+        "ROUND 4 — CHAMPIONSHIP vs SOLVA (independence): missing-factor challenges ('My total is 42 in 6 squads — how large is each squad? Build it.') and one two-step formation (3 platoons of 2 squads of 4); no highlighting, no hint button, best-of-5; SOLVA's mask cracks with each exchange the child wins, revealing the equations were her own past solutions — she has been training her true rival all along: herself."
+      ],
+      "worldReaction": "The arena is the scoreboard. Correct locks send the child's exact product pulsing through floor tiles row by row while the crowd-glow swells; wrong products make her formation flicker in countable rows rather than vanish; a busted bluff shatters the opponent's array tile by tile so the true count is watchable; the bracket banner physically climbs after each match; SOLVA's mask fractures across the final. Every mathematical act has a proportional, legible, physical consequence.",
+      "payoff": "Winning the final triggers the belt ceremony: her full tournament replays as a wall of formations — every array she built, each labeled with its equation — assembling into the arena's Hall of Formations, with her hardest-won equation (the two-step or missing-factor clash) center-lit. The unmasked SOLVA bows: 'The championship was never against me.' Then the belt is hers, engraved with her fastest clean product.",
+      "replay": "REMATCH SEASON reseeds the bracket with new opponents, new formation flavors (ice-golems, ember-hounds), fresh factor draws, and one rule twist per season (e.g., 'all boasts round, trust nothing'). The Hall of Formations persists and grows across seasons, so replay builds a visible personal record — and because problems are generated, no riddle ever repeats, which this child will absolutely check.",
+      "visualAndSoundDirection": "One uncluttered stage, not a dashboard: a dark violet-and-ember arena, a single spotlighted formation floor at center, the challenge scroll above it, steppers and equation bar below — nothing else competing for attention at 1365×768. Golem tiles are chunky, warm-lit, and march in with staggered row timing so rows read as groups at a glance. Sound: a low crowd bed that swells with correct locks; each energy pulse ticks a rising note per tile so the product is audible; a deep gong for won exchanges; a glassy multi-crack shatter for busted bluffs; a fanfare with per-row chimes for the belt ceremony. All WebAudio, no assets."
+    },
+    "opusBuilderBrief": "Build a single-file HTML/JS/CSS experience, 1365×768, touch and mouse, no external assets, called ARRAY ARENA: The Formation Championship. STRUCTURE: title/bracket screen (4-round bracket graphic, child's banner at bottom, masked champion SOLVA at top, one FIRST MATCH button) → four tournament matches → belt-ceremony payoff → rematch season. MATCH FORMAT: best-of-3 exchanges (best-of-5 in the final), turn-based, NO wall-clock timer ever. EXCHANGE TYPES: (A) BUILD — opponent scroll states an equal-groups situation with randomized flavor units; child sets ROWS and PER ROW via large +/- steppers; golem tiles animate into the array live, row by row, as she adjusts; she types the product into an equation bar reading ROWS × PER ROW = ?; lock button fires. Correct structure+product: exactly PRODUCT energy pulses stream from tiles in row order (audible tick per tile) into a clash meter; win exchange with gong. Wrong product with correct array: formation flickers row-by-row as a countable prompt, one coach whisper scaffolds without giving the answer, one retry, then exchange lost and the opponent's correct formation assembles WITH its full equation shown. Wrong array: coach whisper redirects to which number is the groups. (B) READ (round 2+) — an opponent formation is already assembled; child must fill both factors and product to describe it. (C) BOAST (round 3+) — opponent claims 'G rows of E makes CLAIM' where CLAIM is truthful ~45% or off by a plausible 1–20%; child must build the true array first (enforce: verdict buttons disabled until her floor matches G×E structure), then CONFIRM or CALL THE BLUFF; a correct bust shatters the boast tile-by-tile in rows revealing the true product; a wrong verdict loses the exchange and shows the true array+equation. DIFFICULTY CONTRACT: Round 1 factors 2–5, groups-word highlighted in scroll, free HINT button that unpacks one squad visually, guided first lock. Round 2 factors 3–8, decoy numbers (ages, arena numbers) in scrolls, 'each'-first phrasing, one READ exchange, hint costs exchange advantage. Round 3 factors up to 9, BOAST exchanges alternating with BUILD, no highlighting, no free hints. Round 4 (SOLVA) missing-factor challenges ('total 42 in 6 squads — build each squad') where the child sets the unknown dimension and the product is given or vice versa, plus one two-step build (t platoons × c squads × e members, presented as total-groups reasoning), best-of-5, no hints, SOLVA's mask cracks per exchange won. RECOVERY: losing a match routes to a Redemption Bracket — one comeback match at same-round difficulty with fresh numbers, then back into the main bracket; a run can never dead-end. NEVER display the true total anywhere before the child commits (no tally strips). Ensure generated problems never repeat factor-pairs within a run — this child notices repeats. PAYOFF: belt ceremony replays every array she built with its equation assembling into a Hall of Formations wall, SOLVA unmasked with the line that the mask's equations were her own past solutions; REMATCH SEASON button reseeds with new flavors, fresh factor draws, one season rule twist, and a persistent Hall across seasons (in-memory is fine). VISUAL: one spotlighted formation floor center-stage, scroll above, steppers+equation below, dark violet/ember palette, chunky warm golem tiles with staggered row-entry animation so rows read as groups; keep the screen radically less cluttered than the previous build. SOUND (WebAudio only): crowd bed swell on locks, per-tile rising ticks equal to the product, gong for won exchanges, glassy row-by-row shatter for busts, per-row chime fanfare for the belt. Guarantee mathematical correctness in every generated situation, every displayed equation, and every shatter/pulse count — the pulse count MUST equal the product exactly, because the product being the power is the whole point."
+  },
+  "critic": {
+    "model": "claude-fable-5",
+    "elapsedMs": 93133,
+    "inputTokens": 14398,
+    "outputTokens": 5485,
+    "estimatedCostUsd": 0.41823
+  },
+  "rebuilt": {
+    "id": "opus-5",
+    "label": "Claude Opus 5",
+    "provider": "anthropic",
+    "model": "claude-opus-5",
+    "status": "complete",
+    "elapsedMs": 142712,
+    "inputTokens": 4744,
+    "outputTokens": 13731,
+    "estimatedCostUsd": 0.366995,
+    "artifactHash": "025824a5af5fda49a7adaa787633848390e51162de76fc990a0292edd5cc58d0",
+    "promptHash": "ce73d3cdcf51d45d517bc5e3ec1b6040a9c2ec902525bee22b1958a3b702daf5",
+    "apiResponseHash": "d98a70dfbbdeaa696adf9201ea57df9536dbc4e3abdacaab578ee1ad1d1e4f07",
+    "savedHtmlHash": "d98a70dfbbdeaa696adf9201ea57df9536dbc4e3abdacaab578ee1ad1d1e4f07",
+    "iframeSrcDocHash": "d98a70dfbbdeaa696adf9201ea57df9536dbc4e3abdacaab578ee1ad1d1e4f07",
+    "extractionMode": "raw_html",
+    "error": null
+  },
+  "incrementalCostUsd": 0.7852250000000001
+}

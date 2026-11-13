@@ -1,0 +1,23 @@
+Read the attached Grade 3 fractions assignment and create one compact academic program with exactly three comparable nodes.
+
+The three nodes must respectively address:
+1. equal partitioning;
+2. recognizing unit fractions;
+3. comparing 1/3 and 1/4.
+
+You own academic sequencing, fresh mathematical examples, boundaries, and evidence goals. Do not choose a world, story, mission, mechanic, stakes, visual style, sound, reward, or implementation. Do not reproduce the worksheet questions as the reusable content.
+
+Return JSON only:
+{
+  "boardTitle": "",
+  "boardAcademicGoal": "",
+  "coherence": "",
+  "nodes": [
+    {
+      "nodeId": "",
+      "responsibility": "",
+      "academicBoundary": "",
+      "evidenceGoal": ""
+    }
+  ]
+}

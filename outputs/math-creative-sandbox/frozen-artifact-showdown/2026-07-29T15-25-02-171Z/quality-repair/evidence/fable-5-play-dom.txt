@@ -1,0 +1,30 @@
+- generic: "📦 Seized: 0 💥 Bluffs busted: 0"
+- generic: 🚤
+- generic: 📦
+- generic: ACT 1 · HARBOR DOCKS
+- generic: Vex loaded 3 crates. Each crate holds 5 signal lamps.
+- text: "📋 Tally strip — one crate opened: 5 in each"
+- text: 🏮🏮🏮🏮🏮
+- generic: — THE DOCK —
+- heading "CRATES (groups)" [level=3]
+- button "−"
+- generic: "1"
+- button "+"
+- heading "IN EACH" [level=3]
+- button "−"
+- generic: "0"
+- button "+"
+- generic: 1 × — = ?
+- button "7"
+- button "8"
+- button "9"
+- button "4"
+- button "5"
+- button "6"
+- button "1"
+- button "2"
+- button "3"
+- button "0"
+- button "⌫"
+- button "🔒 LOCK"
+- button "🔦 RECOUNT (freezes Vex)"

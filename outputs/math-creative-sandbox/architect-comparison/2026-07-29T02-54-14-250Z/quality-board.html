@@ -1,0 +1,76 @@
+<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Architect Quality A/B Board</title><style>
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at top,#344679,#0a0e20 62%);color:#fff;font:16px system-ui;min-height:100vh;padding:38px}h1{text-align:center;font-size:48px;margin:0}.lede{text-align:center;color:#c9d4ef;margin:8px 0 38px}.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:22px;max-width:1300px;margin:auto}article{background:#17203f;border:2px solid #52618e;border-radius:24px;padding:24px;box-shadow:0 20px 50px #0007}.model{color:#ffd66b;font-size:12px;font-weight:900;text-transform:uppercase;letter-spacing:.1em}h2{font-size:28px;margin:8px 0}article>p{color:#d5def3}.actions{display:flex;gap:10px;margin:20px 0}button{border:0;border-radius:999px;padding:12px 18px;font-weight:900;cursor:pointer}.repaired{background:#ffd66b;color:#1a1830}details{color:#bfcbea}pre{white-space:pre-wrap}.player{position:fixed;inset:0;background:#050812;display:none;z-index:10}.player.open{display:block}.player iframe{width:100%;height:100%;border:0;background:#fff}.back{position:absolute;top:16px;right:20px;z-index:11;background:#090d18dd;color:#fff;border:2px solid #fff}.badge{position:absolute;top:20px;left:20px;z-index:11;background:#ffd66b;color:#14172a;border-radius:999px;padding:10px 16px;font-weight:900}@media(max-width:950px){.grid{grid-template-columns:1fr}body{padding:22px}}
+</style></head><body><h1>Original vs Quality Pass</h1><p class="lede">Same Planner, architects, artifacts, and Sonnet builder. One bounded usability and visual repair.</p><main class="grid"><article>
+      <p class="model">Claude Sonnet 5 architect · Sonnet implementation</p>
+      <h2>The Fair-Split Guild</h2>
+      <p>Establish that a whole (e.g., a strip, square, or set of objects) must be divided into parts of equal size or quantity for fraction language to apply, and distinguish equal partitions from unequal ones.</p>
+      <div class="actions">
+        <button data-src="./nodes/sonnet-5/mock.html" data-label="Original The Fair-Split Guild">Original</button>
+        <button class="repaired" data-src="./nodes/sonnet-5/quality-repair/mock.html" data-label="Quality-pass The Fair-Split Guild">Quality pass</button>
+      </div>
+      <details><summary>Harness observations</summary><pre>{
+  &quot;nodeId&quot;: &quot;node_1_equal_partitioning&quot;,
+  &quot;strongestQuality&quot;: &quot;The FAIR/UNFAIR stamp pair is instantly readable as the first action, with satisfying press physics and a clearly unequal opening split.&quot;,
+  &quot;usabilityIssues&quot;: [
+    &quot;The same wobble animation plays for both correct and incorrect stamps, so the tray's reaction alone does not distinguish right from wrong.&quot;,
+    &quot;The empty 'Equalness Meter' is visible from the opening frame with no role during the judging phase, inviting confusion about what it is for.&quot;,
+    &quot;After the fix completes, both stamps stay disabled and no next tray arrives, leaving the mock at a dead end with no visible continue affordance.&quot;
+  ],
+  &quot;visualIssues&quot;: [
+    &quot;The tray renders as a plain circle rather than the artifact's hexagon, and a circle is exactly the shape the node boundary excludes.&quot;,
+    &quot;All slices share one tan fill at rest, so unequal pieces are distinguished only by wedge size with no color or texture reinforcement.&quot;,
+    &quot;The page is hard-coded to 1365×768 with overflow hidden, so smaller viewports clip the shelf and stamps with no scaling.&quot;
+  ],
+  &quot;repairBrief&quot;: &quot;Render the tray as a true hexagon outline (clip the wedge SVG to a hexagon path) so the whole matches the artifact and boundary. Differentiate feedback: keep wobble only for wrong stamps and add a brief green flash plus chime cue on correct ones. Hide the Equalness Meter until the fix phase begins, then fade it in labeled 'Watch it lock green.' After certification, re-enable a single 'Next Tray' button that reloads the same round with reshuffled bad angles. Wrap the scene in a transform-scale container so the 1365×768 stage fits any viewport.&quot;
+}</pre></details>
+    </article><article>
+      <p class="model">Claude Opus 5 architect · Sonnet implementation</p>
+      <h2>The Lantern Keeper's Naming Glass</h2>
+      <p>Connect equally partitioned wholes to unit fraction names and notation (1/2, 1/3, 1/4, 1/5), recognizing that a unit fraction represents one equal part out of the total number of equal parts.</p>
+      <div class="actions">
+        <button data-src="./nodes/opus-5/mock.html" data-label="Original The Lantern Keeper's Naming Glass">Original</button>
+        <button class="repaired" data-src="./nodes/opus-5/quality-repair/mock.html" data-label="Quality-pass The Lantern Keeper's Naming Glass">Quality pass</button>
+      </div>
+      <details><summary>Harness observations</summary><pre>{
+  &quot;nodeId&quot;: &quot;node_2_recognizing_unit_fractions&quot;,
+  &quot;strongestQuality&quot;: &quot;The sweep-to-count loop is faithfully implemented — the glass snaps to the glowing pane, counts parts aloud in text, and flows cleanly into the nameplate and keypad.&quot;,
+  &quot;usabilityIssues&quot;: [
+    &quot;The 'Drag the brass glass over the glowing pane' hint is visible behind the mission card before the player can act, instructing an unavailable action.&quot;,
+    &quot;Wrong keypad answers reference a 'flicker' CSS class that is never defined, so incorrect panes give no visible world reaction beyond text.&quot;,
+    &quot;The brass glass drop point uses the cursor position, and its 90px ring makes it unclear whether the ring center or the pointer must touch the pane.&quot;
+  ],
+  &quot;visualIssues&quot;: [
+    &quot;The drag hint text collides directly with the opening headline at the top of the screen, overlapping the word 'harbor'.&quot;,
+    &quot;The lantern's glowing pane and the half-hidden glass ring bleed out from under the mission card, creating a messy z-order in the opening frame.&quot;,
+    &quot;The ferry emoji renders as a tiny near-black glyph on dark water and is effectively invisible.&quot;
+  ],
+  &quot;repairBrief&quot;: &quot;Hide the drag hint until the mission card is dismissed, then position it just below the lantern so it never touches the headline. While the card is open, dim or blur the scene behind it (backdrop overlay) so the lantern glow and glass do not poke through. Define the missing .flicker keyframes (two soft opacity dips on panes) so wrong denominators produce the promised gentle flicker. Restyle the ferry as a light amber silhouette or larger emoji with a glow so channel progress reads at a glance. Keep all copy and mechanics unchanged.&quot;
+}</pre></details>
+    </article><article>
+      <p class="model">Claude Fable 5 architect · Sonnet implementation</p>
+      <h2>The Chocolate Caravan: Biggest Piece Wins</h2>
+      <p>Reason about and justify which unit fraction is larger when comparing 1/3 and 1/4, using the principle that dividing a whole into more equal parts produces smaller individual parts.</p>
+      <div class="actions">
+        <button data-src="./nodes/fable-5/mock.html" data-label="Original The Chocolate Caravan: Biggest Piece Wins">Original</button>
+        <button class="repaired" data-src="./nodes/fable-5/quality-repair/mock.html" data-label="Quality-pass The Chocolate Caravan: Biggest Piece Wins">Quality pass</button>
+      </div>
+      <details><summary>Harness observations</summary><pre>{
+  &quot;nodeId&quot;: &quot;node_3_comparing_1_3_and_1_4&quot;,
+  &quot;strongestQuality&quot;: &quot;The predict–verify–justify structure is fully wired, with a working custom drag, justification stamps, seal counter, and owl echo of the reasoning.&quot;,
+  &quot;usabilityIssues&quot;: [
+    &quot;The comparison tray is positioned at top:470 inside a 380px-tall table, pushing the instructed drop target below the visible page so drags can never land.&quot;,
+    &quot;Only the first piece of each bar is draggable, but nothing communicates this, so taps on the other pieces silently do nothing.&quot;,
+    &quot;The ghost-hand demo animates toward the off-screen tray and is clipped at the bottom edge, demonstrating a gesture the player cannot complete.&quot;
+  ],
+  &quot;visualIssues&quot;: [
+    &quot;Piece seams are nearly invisible against the chocolate fill, so the badger bar reads as an unsplit whole rather than four equal parts.&quot;,
+    &quot;A large empty band between the speech bubble and the table leaves the top half of the screen dead and weakens hierarchy.&quot;,
+    &quot;Tray pieces are placed with staggered left offsets (10 + idx*10), breaking the promised left-edge alignment that makes the size comparison honest.&quot;
+  ],
+  &quot;repairBrief&quot;: &quot;Move the tray fully on-screen (e.g., top:170 within the table, between the two bars) and re-target the ghost-hand path to it. Snap both dropped pieces flush to the yellow guide line at identical left positions, stacked vertically, so the length difference is the only visible variable. Strengthen partition seams with a 4px light-cream gap so 3 vs 4 parts read instantly. Add a pulsing glow on the two pickable pieces and a one-line caption 'Take one piece from each bar.' Raise the bars slightly to close the dead space under the speech bubble.&quot;
+}</pre></details>
+    </article></main><section class="player" id="qualityPlayer"><div class="badge" id="qualityLabel"></div><button class="back" id="qualityBack">← Back to comparisons</button><iframe id="qualityFrame" title="Quality comparison" sandbox="allow-scripts allow-same-origin" allow="autoplay; fullscreen"></iframe></section><script>
+const p=document.getElementById('qualityPlayer'),f=document.getElementById('qualityFrame'),l=document.getElementById('qualityLabel');
+document.querySelectorAll('[data-src]').forEach(b=>b.addEventListener('click',()=>{f.src=b.dataset.src;l.textContent=b.dataset.label;p.classList.add('open')}));
+document.getElementById('qualityBack').addEventListener('click',()=>{p.classList.remove('open');f.src='about:blank'});
+</script></body></html>

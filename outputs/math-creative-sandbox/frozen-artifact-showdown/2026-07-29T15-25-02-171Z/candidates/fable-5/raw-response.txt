@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=1365">
+<style>
+*{box-sizing:border-box;margin:0;user-select:none;-webkit-user-select:none;font-family:'Trebuchet MS',sans-serif}
+html,body{background:#050a14;overflow:hidden}
+#game{position:relative;width:1365px;height:768px;background:linear-gradient(#0a1428 0%,#0d1f3c 55%,#081020 56%,#0a1830 100%);color:#e8f0ff;overflow:hidden}
+#topbar{height:96px;display:flex;align-items:center;gap:20px;padding:0 24px;background:rgba(0,0,0,.35);border-bottom:2px solid #1e3a5c}
+#railwrap{flex:1;position:relative;height:56px;background:#06101f;border:2px solid #2a4a72;border-radius:28px;overflow:hidden}
+#water{position:absolute;inset:0;background:repeating-linear-gradient(90deg,#0a2038 0 40px,#0c2542 40px 80px);opacity:.6}
+#vexboat{position:absolute;top:6px;left:0;font-size:38px;transition:left .3s linear;filter:drop-shadow(0 0 6px #f44)}
+#ship{position:absolute;right:8px;top:8px;font-size:34px}
+#hud{font-size:20px;color:#ffd76e;white-space:nowrap}
+#act{font-size:16px;color:#7ec8ff}
+#main{display:flex;height:672px}
+#note{width:390px;padding:22px;display:flex;flex-direction:column;gap:16px}
+#msg{background:#f5ecd0;color:#2a2418;padding:20px;border-radius:6px;font-size:23px;line-height:1.45;box-shadow:0 6px 18px #000a;transform:rotate(-1.2deg);border-top:14px solid #d9c9a0;min-height:170px}
+#msg .g{color:#b85c00;font-weight:bold}#msg .e{color:#0077aa;font-weight:bold}
+#msg.plain .g,#msg.plain .e{color:#2a2418;font-weight:bold}
+#tally{background:#0b1a30;border:2px dashed #2a5a8a;border-radius:8px;padding:12px;font-size:18px;color:#9fd2ff;min-height:70px}
+#tally.flash{animation:fl .3s 4}
+@keyframes fl{50%{background:#5a1420;border-color:#ff5566}}
+#vexsay{background:#1a0d14;border:2px solid #a03050;border-radius:8px;padding:12px;font-size:19px;color:#ff9db0;display:none}
+#dockwrap{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px}
+#docklabel{color:#5ff0ff;font-size:15px;letter-spacing:3px}
+#dock{width:560px;height:470px;background:rgba(0,40,70,.35);border:2px solid #1e5a7a;border-radius:10px;box-shadow:0 0 30px #0af3 inset;padding:10px;display:flex;flex-direction:column-reverse;justify-content:flex-start;gap:4px;overflow:hidden}
+.row{display:flex;gap:4px;animation:thunk .25s}
+@keyframes thunk{0%{transform:translateY(-40px) scaleY(1.3)}70%{transform:translateY(4px) scaleY(.85)}100%{transform:none}}
+.crate{flex:1;display:flex;align-items:center;justify-content:center;background:linear-gradient(#8a5c2e,#6b4420);border:2px solid #4a2f14;border-radius:5px;font-size:20px;overflow:hidden;gap:1px;color:#ffe;min-height:30px}
+.crate span.hi{filter:drop-shadow(0 0 6px #ff0);transform:scale(1.4)}
+#ctrl{width:360px;padding:18px;display:flex;flex-direction:column;gap:14px;background:rgba(0,0,0,.25)}
+.dial{background:#0d1f38;border:3px solid #2a4a72;border-radius:14px;padding:10px;text-align:center}
+.dial.pulse{animation:pu 1s infinite;border-color:#ffd76e}
+@keyframes pu{50%{box-shadow:0 0 22px #ffd76e}}
+.dial h3{font-size:16px;letter-spacing:2px;margin-bottom:6px}
+#dg h3{color:#ffb45c}#de h3{color:#5fc8ff}
+.dial .val{font-size:40px;font-weight:bold;width:80px;display:inline-block}
+.dbtn{width:56px;height:56px;font-size:32px;border-radius:50%;border:none;background:#2a5a8a;color:#fff;cursor:pointer;vertical-align:middle}
+.dbtn:active{background:#4a8aca}
+#codebar{background:#08111f;border:2px solid #3a6a9a;border-radius:10px;padding:10px;text-align:center;font-size:32px;color:#7ff;min-height:62px}
+#pad{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+#pad button{height:48px;font-size:24px;border:none;border-radius:8px;background:#1c3a5e;color:#fff;cursor:pointer}
+#pad button:active{background:#3a6a9e}
+#lockb{grid-column:span 2;background:#b8862a!important;font-weight:bold}
+#verdict{display:none;gap:10px}
+#verdict button{flex:1;height:60px;font-size:22px;font-weight:bold;border:none;border-radius:10px;cursor:pointer}
+#confb{background:#2a7a4a;color:#fff}#bustb{background:#a83048;color:#fff}
+#recount{height:44px;border:2px solid #5a8aba;background:#0d2038;color:#9fd2ff;border-radius:10px;font-size:17px;cursor:pointer}
+#ov{position:absolute;inset:0;background:rgba(3,6,14,.93);display:flex;align-items:center;justify-content:center;z-index:50}
+#ovbox{max-width:820px;text-align:center;padding:40px}
+#ovbox h1{color:#ffd76e;font-size:44px;margin-bottom:18px}
+#ovbox p{font-size:23px;line-height:1.5;margin-bottom:14px}
+#ovbox button{font-size:26px;padding:14px 44px;border:none;border-radius:12px;background:#b8862a;color:#fff;cursor:pointer;margin-top:10px}
+#stamps{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;margin:14px 0;max-height:280px;overflow:auto}
+.stamp{background:#1a3050;border:2px solid #ffd76e;border-radius:8px;padding:8px 14px;font-size:22px;color:#ffe9b0;transform:rotate(-2deg)}
+#toast{position:absolute;top:110px;left:50%;transform:translateX(-50%);background:#101f38;border:2px solid #ffd76e;color:#ffe9b0;padding:12px 26px;border-radius:10px;font-size:22px;z-index:40;display:none;max-width:640px;text-align:center}
+</style></head><body>
+<div id="game">
+<div id="topbar">
+<div id="hud">📦 Seized: <span id="sz">0</span> &nbsp; 💥 Bluffs busted: <span id="bb">0</span></div>
+<div id="railwrap"><div id="water"></div><div id="vexboat">🚤</div><div id="ship">📦</div></div>
+<div id="act">ACT 1 · HARBOR DOCKS</div>
+</div>
+<div id="main">
+<div id="note">
+<div id="msg"></div>
+<div id="tally"></div>
+<div id="vexsay"></div>
+</div>
+<div id="dockwrap"><div id="docklabel">— THE DOCK —</div><div id="dock"></div></div>
+<div id="ctrl">
+<div class="dial" id="dg"><h3>CRATES (groups)</h3><button class="dbtn" onclick="dial('g',-1)">−</button><span class="val" id="gv">0</span><button class="dbtn" onclick="dial('g',1)">+</button></div>
+<div class="dial" id="de"><h3>IN EACH</h3><button class="dbtn" onclick="dial('e',-1)">−</button><span class="val" id="ev">0</span><button class="dbtn" onclick="dial('e',1)">+</button></div>
+<div id="codebar">— × — = ?</div>
+<div id="pad"></div>
+<div id="verdict" style="display:none"><button id="confb" onclick="verd(true)">CONFIRM ✔</button><button id="bustb" onclick="verd(false)">CALL THE BLUFF ✘</button></div>
+<button id="recount" onclick="recount()">🔦 RECOUNT (freezes Vex)</button>
+</div>
+</div>
+<div id="toast"></div>
+<div id="ov"><div id="ovbox">
+<h1>CARGO CODE: OUTSMART VEX</h1>
+<p>The smuggler <b style="color:#ff8899">Vex</b> is stealing shipments across the harbor. Each intercepted note hides a load's secret: <b style="color:#ffb45c">how many crates</b> and <b style="color:#5fc8ff">how much is in each</b>.</p>
+<p>Set the two dials to build the load on the dock, then lock it with a multiplication equation. A correct lock fires the claw and seizes the cargo — <b>before Vex's boat reaches it.</b></p>
+<button onclick="start()">CRACK THE FIRST NOTE</button>
+</div></div>
+</div>
+<script>
+var AC=null;function snd(f,d,t,v){try{if(!AC)AC=new (window.AudioContext||window.webkitAudioContext)();var o=AC.createOscillator(),g=AC.createGain();o.type=t||'triangle';o.frequency.value=f;g.gain.value=v||.12;g.gain.exponentialRampToValueAtTime(.001,AC.currentTime+d);o.connect(g);g.connect(AC.destination);o.start();o.stop(AC.currentTime+d)}catch(e){}}
+function thunk(n){snd(180+n*45,.18,'triangle',.15);snd(90,.1,'square',.06)}
+function brass(){[523,659,784,1046].forEach(function(f,i){setTimeout(function(){snd(f,.3,'sawtooth',.08)},i*90)})}
+function sproing(){snd(300,.4,'sine',.12);setTimeout(function(){snd(150,.3,'sine',.1)},120)}
+function crack(){snd(1800,.15,'square',.08);snd(120,.3,'sawtooth',.1)}
+
+var R=[
+{t:'c',g:3,e:5,it:'🏮',h:1,m:'Vex loaded <span class="g">3 crates</span>. Each crate holds <span class="e">5 signal lamps</span>.'},
+{t:'c',g:4,e:3,it:'🪙',h:1,m:'Intercepted: <span class="g">4 sacks</span> on the dock, with <span class="e">3 gold coins in each sack</span>.'},
+{t:'c',g:5,e:5,it:'🔋',h:1,m:'Night drop: <span class="g">5 tanks</span>, each packed with <span class="e">5 fuel cells</span>.'},
+{t:'c',g:6,e:8,it:'🪙',h:0,a:2,m:'Vex, who is <b>42</b> years old, packed <span class="g">6 sacks</span> with <span class="e">8 coins each</span>. Ignore the trick number!'},
+{t:'b',g:4,e:7,cp:24,it:'🐦',a:2,m:'Build Vex\'s real load, then judge his claim.',v:'VEX BROADCAST: "4 cages of 7 birds… that\'s 24 birds! Hands off!"'},
+{t:'c',g:7,e:9,it:'💎',h:0,a:2,m:'There are <span class="e">9 gems in every pouch</span>, and Vex grabbed <span class="g">7 pouches</span>. Careful — which number is the groups?'},
+{t:'b',g:6,e:8,cp:48,it:'🏮',a:2,m:'Build the true load, then judge.',v:'VEX BROADCAST: "6 crates of 8 lamps = 48. I never lie!"'},
+{t:'c',g:12,e:6,it:'🏮',h:0,a:3,m:'NIGHT CONVOY: Each truck carries <b>4 crates</b>. Each crate holds <b>6 lanterns</b>. There are <b>3 trucks</b>. Crack the TOTAL crates and lanterns! (How many crates in all?)'},
+{t:'b',g:9,e:6,cp:54,it:'🪙',a:3,m:'BLUFF-STORM 1 of 3! Fast!',v:'VEX: "9 sacks of 6 coins = 54!"'},
+{t:'b',g:7,e:8,cp:54,it:'💎',a:3,m:'BLUFF-STORM 2 of 3!',v:'VEX: "7 pouches of 8 gems = 54!"'},
+{t:'b',g:8,e:8,cp:64,it:'🔋',a:3,m:'BLUFF-STORM 3 of 3! Sink him!',v:'VEX: "8 tanks of 8 cells = 64. You can\'t catch me!"'}
+];
+var ri=0,g=0,e=0,inp='',vex=0,vt=null,frozen=0,seized=0,busts=0,stamps=[],hinted=0,busy=0;
+var $=function(i){return document.getElementById(i)};
+function toast(s,ms){var t=$('toast');t.innerHTML=s;t.style.display='block';clearTimeout(t.tm);t.tm=setTimeout(function(){t.style.display='none'},ms||2200)}
+function pad(){var p=$('pad');p.innerHTML='';'789456123'.split('').forEach(function(d){var b=document.createElement('button');b.textContent=d;b.onclick=function(){key(d)};p.appendChild(b)});var z=document.createElement('button');z.textContent='0';z.onclick=function(){key('0')};p.appendChild(z);var c=document.createElement('button');c.textContent='⌫';c.onclick=function(){inp=inp.slice(0,-1);bar()};p.appendChild(c);var l=document.createElement('button');l.id='lockb';l.textContent='🔒 LOCK';l.onclick=lock;p.appendChild(l)}
+function key(d){if(inp.length<3){inp+=d;snd(600,.06,'square',.05);bar()}}
+function bar(){$('codebar').textContent=(g||'—')+' × '+(e||'—')+' = '+(inp||'?')}
+function dial(w,d){if(busy)return;var r=R[ri];if(w==='g'){g=Math.max(0,Math.min(12,g+d))}else{e=Math.max(0,Math.min(12,e+d))}
+$('gv').textContent=g;$('ev').textContent=e;$('dg').classList.remove('pulse');
+if(d>0)thunk(w==='g'?g:e);build();bar()}
+function build(hl){var dk=$('dock');dk.innerHTML='';var r=R[ri];for(var i=0;i<g;i++){var row=document.createElement('div');row.className='row';var cr=document.createElement('div');cr.className='crate';var fs=Math.max(11,Math.min(24,340/Math.max(e,1)));cr.style.fontSize=fs+'px';for(var j=0;j<e;j++){var s=document.createElement('span');s.textContent=r.it;cr.appendChild(s)}row.appendChild(cr);dk.appendChild(row)}}
+function tally(){var r=R[ri];$('tally').innerHTML='📋 Tally strip — one crate opened: <b>'+r.e+' in each</b><br><span style="font-size:24px">'+r.it.repeat(r.e)+'</span>'}
+function show(){var r=R[ri];g=0;e=0;inp='';busy=0;$('gv').textContent=0;$('ev').textContent=0;bar();$('dock').innerHTML='';
+$('msg').innerHTML=r.m;$('msg').className=r.h?'':'plain';tally();
+$('act').textContent=r.a===3?'ACT 3 · THE NIGHT CONVOY':(r.a===2?'ACT 2 · WAREHOUSE ROW':'ACT 1 · HARBOR DOCKS');
+if(r.t==='b'){$('vexsay').style.display='block';$('vexsay').innerHTML='📡 '+r.v;$('verdict').style.display='flex';$('pad').style.display='none'}
+else{$('vexsay').style.display='none';$('verdict').style.display='none';$('pad').style.display='grid'}
+if(ri===0){$('dg').classList.add('pulse');setTimeout(function(){if(g===0){g=1;$('gv').textContent=1;thunk(1);build();bar();toast('The CRATES dial builds crate rows — turn it to match the note!',2600)}},900)}
+vex=0;moveBoat();clearInterval(vt);var sp=r.a===3?.55:(r.a===2?.38:.26);vt=setInterval(function(){if(frozen>0){frozen--;return}if(busy)return;vex+=sp;moveBoat();if(vex>=100)steal()},100)}
+function moveBoat(){var w=$('railwrap').clientWidth-100;$('vexboat').style.left=(vex/100*w)+'px'}
+function steal(){clearInterval(vt);busy=1;sproing();toast('💀 VEX: "Too slow! This shipment is MINE… for now." — It reappears as a Reclaim Run with the codes lit up.',3200);var r=R[ri];r.h=1;setTimeout(function(){toast('🔁 RECLAIM RUN — crack it back!',1800);show()},3300)}
+function penal(msg){vex=Math.min(96,vex+12);moveBoat();sproing();toast(msg,2600);$('tally').classList.add('flash');setTimeout(function(){$('tally').classList.remove('flash')},1300)}
+function lock(){if(busy)return;var r=R[ri];if(g===0||e===0){toast('Turn both dials first — build the load on the dock!');return}
+if(g!==r.g||e!==r.e){if(g===r.e&&e===r.g){penal('🔍 The tally strip says each crate holds <b>'+r.e+'</b> — your rows don\'t match! Which number is the CRATES?')}else{penal('❌ Your dock doesn\'t match the note. Re-read it — the tally strip shows what one crate holds.')}return}
+if(inp===''){toast('Type the product, then LOCK.');return}
+if(+inp!==r.g*r.e){penal('⚠️ Claw slipped! '+g+' rows of '+e+' isn\'t '+inp+'. Count by '+e+'s along the rows!');inp='';bar();return}
+seize(r.g+' × '+r.e+' = '+r.g*r.e)}
+function seize(eq){busy=1;clearInterval(vt);brass();stamps.push(eq);seized++;$('sz').textContent=seized;
+$('codebar').innerHTML='<b style="color:#ffd76e">🪝 SEIZED! '+eq+'</b>';toast('🪝 CLAW FIRED — shipment stamped <b>'+eq+'</b> and seized!',2000);
+setTimeout(next,1800)}
+function verd(conf){if(busy)return;var r=R[ri];if(g!==r.g||e!==r.e){penal('First set the dials to Vex\'s REAL load ('+(r.v.match(/"[^"]*"/)||[''])[0]+') and build the proof.');return}
+var truth=r.g*r.e===r.cp;if(conf===truth){busy=1;clearInterval(vt);if(!truth){busts++;$('bb').textContent=busts;crack();stamps.push('BUSTED: '+r.g+'×'+r.e+'='+(r.g*r.e)+' not '+r.cp);toast('💥 BLUFF BUSTED! Your array proves '+r.g+' × '+r.e+' = '+(r.g*r.e)+', not '+r.cp+'. Vex\'s screen shatters!',2600);vex=Math.max(0,vex-25);moveBoat()}else{brass();stamps.push('CONFIRMED: '+r.g+'×'+r.e+'='+r.cp);toast('✔ Confirmed — the array checks out. Cargo logged before Vex moves!',2200)}setTimeout(next,2200)}
+else{penal(truth?'He was telling the truth this time — count the rows: '+r.g+' rows of '+r.e+'.':'Look again — does '+r.g+' × '+r.e+' really make '+r.cp+'? Count along your rows!')}}
+function recount(){if(busy)return;var r=R[ri];if(g===0){toast('Build at least one crate row first, then RECOUNT it.');return}
+frozen=r.a===3?30:60;if(r.a===3){vex=Math.min(96,vex+6);moveBoat();toast('🔦 RECOUNT (costs boat-distance in Act 3)…',1500)}else toast('🔦 RECOUNT — Vex frozen. Counting one crate…',1500)
+snd(200,.5,'sine',.1);var spans=$('dock').querySelector('.crate').children;for(var j=0;j<spans.length;j++){(function(j){setTimeout(function(){spans[j].classList.add('hi');snd(400+j*80,.15,'triangle',.12)},j*350)})(j)}}
+function next(){ri++;if(ri>=R.length){finale();return}show()}
+function finale(){clearInterval(vt);var o=$('ov');o.style.display='flex';
+$('ovbox').innerHTML='<h1>🏆 VEX IS DEAD IN THE WATER</h1><p>His battered boat drifts out of the harbor. Every shipment you cracked is stamped in your Case File:</p><div id="stamps">'+stamps.map(function(s){return'<div class="stamp">'+s+'</div>'}).join('')+'</div><p>📦 Shipments seized: <b>'+seized+'</b> &nbsp; 💥 Bluffs busted: <b>'+busts+'</b></p><button onclick="location.reload()">⚔ RIVAL REMATCH</button>'}
+function start(){$('ov').style.display='none';pad();show();snd(300,.3,'sine',.1)}
+document.addEventListener('pointerdown',function(){if(!AC)snd(1,.01,'sine',.001)},{once:true});
+</script></body></html>

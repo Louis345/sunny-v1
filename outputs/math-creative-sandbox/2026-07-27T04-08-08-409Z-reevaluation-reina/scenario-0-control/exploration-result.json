@@ -1,0 +1,71 @@
+{
+  "candidateId": "scenario-0-control",
+  "screenshots": [
+    "/Users/jamaltaylor/Development/sunny-math-creative-sandbox/outputs/math-creative-sandbox/2026-07-27T04-08-08-409Z-reevaluation-reina/scenario-0-control/00-opening.png",
+    "/Users/jamaltaylor/Development/sunny-math-creative-sandbox/outputs/math-creative-sandbox/2026-07-27T04-08-08-409Z-reevaluation-reina/scenario-0-control/01-first-action.png",
+    "/Users/jamaltaylor/Development/sunny-math-creative-sandbox/outputs/math-creative-sandbox/2026-07-27T04-08-08-409Z-reevaluation-reina/scenario-0-control/02-incorrect-recovery.png",
+    "/Users/jamaltaylor/Development/sunny-math-creative-sandbox/outputs/math-creative-sandbox/2026-07-27T04-08-08-409Z-reevaluation-reina/scenario-0-control/03-progress.png",
+    "/Users/jamaltaylor/Development/sunny-math-creative-sandbox/outputs/math-creative-sandbox/2026-07-27T04-08-08-409Z-reevaluation-reina/scenario-0-control/04-incorrect-recovery.png",
+    "/Users/jamaltaylor/Development/sunny-math-creative-sandbox/outputs/math-creative-sandbox/2026-07-27T04-08-08-409Z-reevaluation-reina/scenario-0-control/05-progress.png",
+    "/Users/jamaltaylor/Development/sunny-math-creative-sandbox/outputs/math-creative-sandbox/2026-07-27T04-08-08-409Z-reevaluation-reina/scenario-0-control/06-incorrect-recovery.png",
+    "/Users/jamaltaylor/Development/sunny-math-creative-sandbox/outputs/math-creative-sandbox/2026-07-27T04-08-08-409Z-reevaluation-reina/scenario-0-control/07-completion.png"
+  ],
+  "actions": [
+    {
+      "kind": "click_text",
+      "text": "Show me",
+      "captureLabel": "first-action",
+      "reason": "Check the demo/tutorial mode to understand expected behavior before attempting the puzzle myself.",
+      "ok": true
+    },
+    {
+      "kind": "click_text",
+      "text": "16",
+      "captureLabel": "incorrect-recovery",
+      "reason": "Select a wrong answer (16 is not a multiple of 5) to observe the error/recovery feedback mechanism.",
+      "ok": true
+    },
+    {
+      "kind": "click_text",
+      "text": "20",
+      "captureLabel": "progress",
+      "reason": "Select the correct answer (20 continues the skip-count by 5s: 5,10,15,20) to observe positive feedback and progression behavior.",
+      "ok": true
+    },
+    {
+      "kind": "click_text",
+      "text": "7",
+      "captureLabel": "incorrect-recovery",
+      "reason": "Select a wrong answer (7 is odd, not a valid continuation of skip-counting by 2s) to verify the error/recovery feedback works consistently in this new round.",
+      "ok": true
+    },
+    {
+      "kind": "click_text",
+      "text": "8",
+      "captureLabel": "progress",
+      "reason": "Select the correct answer (8 continues the skip-count by 2s: 2,4,6,8) to confirm positive feedback and progression after a prior wrong attempt.",
+      "value": null,
+      "ok": true
+    },
+    {
+      "kind": "click_text",
+      "text": "35",
+      "captureLabel": "incorrect-recovery",
+      "reason": "Select a wrong answer (35 is not a multiple of 10) to verify error/recovery feedback works consistently in this third round.",
+      "value": null,
+      "ok": true
+    },
+    {
+      "kind": "click_text",
+      "text": "40",
+      "captureLabel": "completion",
+      "reason": "Select the correct answer (40 continues the skip-count by 10s: 10,20,30,40) to confirm positive feedback and check final progression/payoff after third round.",
+      "value": null,
+      "ok": true
+    }
+  ],
+  "visibleText": "Skyglider Skip-Count Run\nTap the lantern that continues the count!\n▶ Show me\n✋ Let me try\n🔊 Sound\nRun complete!\n🚀\n🏅\nSkip-Count Pilot\nGreat flying, Reina!",
+  "consoleMessages": [
+    "error: Failed to load resource: the server responded with a status of 404 (Not Found)"
+  ]
+}

@@ -1,0 +1,85 @@
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dot's Garden of Groups — Multiplication Adventure</title>
+<style>
+  :root{
+    --font-size: 28px;
+    --line-height: 1.6;
+    --font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --bg: #f0f9ff;
+    --accent: #2563eb;
+    --accent-bg: #dbeafe;
+    --good: #16a34a;
+    --bad: #ef4444;
+    --warn: #f59e0b;
+    --card: #ffffff;
+    --ink: #1e293b;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    font-family: var(--font-family);
+    background: linear-gradient(#bfe4fd, var(--bg) 45%);
+    color: var(--ink);
+    min-height:100vh;
+    overflow-x:hidden;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .ground{
+    position:fixed; left:0; right:0; bottom:0; height:34px;
+    background:linear-gradient(#86efac,#4ade80);
+    z-index:-1;
+  }
+  .sun{
+    position:fixed; top:-40px; right:-40px; width:140px;height:140px;border-radius:50%;
+    background:radial-gradient(circle at 40% 40%, #fff7b0, #fde047 70%);
+    z-index:-1; opacity:.9;
+  }
+  #app{
+    max-width:900px; margin:0 auto; padding:10px 12px 150px; position:relative;
+  }
+  header{
+    position:sticky; top:0; z-index:40;
+    background:rgba(240,249,255,.92); backdrop-filter:blur(4px);
+    display:flex; align-items:center; justify-content:space-between;
+    gap:8px; padding:8px 4px; border-bottom:3px solid var(--accent-bg);
+  }
+  header h1{
+    font-size:20px; margin:0; color:var(--accent); display:flex; align-items:center; gap:6px;
+  }
+  .header-right{display:flex; align-items:center; gap:8px;}
+  .icon-btn{
+    background:#fff; border:2px solid var(--accent); border-radius:12px;
+    font-size:20px; padding:6px 10px; cursor:pointer; min-width:44px; min-height:44px;
+  }
+  .icon-btn:active{transform:scale(.92);}
+  #starBadge{
+    background:var(--warn); color:#fff; font-weight:bold; border-radius:20px;
+    padding:6px 14px; font-size:18px; display:flex; align-items:center; gap:4px;
+  }
+  #starBadge.pulse{animation:starPulse .5s ease;}
+  @keyframes starPulse{ 0%{transform:scale(1);} 40%{transform:scale(1.3);} 100%{transform:scale(1);} }
+
+  .progress-dots{display:flex; justify-content:center; gap:6px; margin:10px 0 6px; flex-wrap:wrap;}
+  .dot{
+    border:none; background:#fff; border:2px solid #cbd5e1; border-radius:50%;
+    width:40px;height:40px; font-size:18px; cursor:pointer; opacity:.55;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .dot.unlocked{opacity:1; border-color:var(--accent);}
+  .dot.active{background:var(--accent); color:#fff; border-color:var(--accent); transform:scale(1.15);}
+  .dot.locked{cursor:not-allowed;}
+
+  .card{
+    background:var(--card); border-radius:24px; padding:18px 16px; margin:14px 0;
+    box-shadow:0 6px 18px rgba(30,64,175,.12);
+  }
+  h2{font-size:24px; color:var(--accent); margin-top:0;}
+  h3{font-size:20px; color:var(--accent);}
+  .lead, .prompt-text, .story-text, .quiz-prompt-text{
+    font-

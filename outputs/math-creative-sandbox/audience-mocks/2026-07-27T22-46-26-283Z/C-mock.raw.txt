@@ -1,0 +1,292 @@
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>The Forger's Ledger — Review Mock</title>
+<link href="https://fonts.googleapis.com/css2?family=Special+Elite&family=IM+Fell+English+SC:ital@0;1&display=swap" rel="stylesheet">
+<style>
+:root{--ink:#241c15;--paper:#ecdcb0;--red:#8b1e1e;--gold:#c9a227;--board:#3e2c1d;--boardline:#2a1d13}
+*{box-sizing:border-box;user-select:none}
+html,body{margin:0;width:1365px;height:768px;overflow:hidden;background:var(--board);
+ background-image:repeating-linear-gradient(0deg,#43301f,#43301f 2px,#3a2818 2px,#3a2818 40px),repeating-linear-gradient(90deg,#43301f,#43301f 2px,#3a2818 2px,#3a2818 40px);
+ font-family:'Special Elite',monospace;color:var(--paper)}
+header{height:78px;display:flex;align-items:center;justify-content:space-between;padding:0 26px;
+ background:linear-gradient(#1c140d,#241a10);border-bottom:3px solid var(--gold)}
+h1{font-size:22px;letter-spacing:2px;color:var(--gold);text-shadow:1px 1px #000;margin:0}
+#meterWrap{display:flex;gap:4px}
+.seg{width:34px;height:14px;border:2px solid var(--gold);background:#1c140d;border-radius:2px}
+.seg.on{background:var(--red);box-shadow:0 0 8px var(--red)}
+#clockBox{display:flex;align-items:center;gap:14px}
+#clock{width:56px;height:56px;border-radius:50%;border:3px solid var(--gold);position:relative;background:#1c140d}
+#hand{position:absolute;left:50%;top:50%;width:2px;height:22px;background:var(--red);transform-origin:bottom center;transform:translate(-50%,-100%) rotate(20deg);transition:transform 1s}
+#rivalBar{width:150px;height:10px;background:#1c140d;border:1px solid var(--gold);border-radius:5px;position:relative;overflow:hidden}
+#rivalFill,#playerFill{position:absolute;top:0;left:0;height:100%;border-radius:5px}
+#rivalFill{background:#555;width:14%}
+#playerFill{background:var(--gold);width:0%;opacity:.9;mix-blend-mode:screen}
+small.lbl{font-size:10px;color:#cbb27a;display:block;text-align:center}
+#peekBtn{background:var(--red);color:var(--paper);border:2px solid var(--gold);padding:8px 14px;border-radius:6px;cursor:pointer;font-family:inherit;font-size:13px}
+main{position:relative;height:566px;display:flex;align-items:center;justify-content:center}
+#caseCard{width:820px;min-height:340px;background:var(--paper);color:#241c15;border-radius:6px;
+ box-shadow:0 12px 34px rgba(0,0,0,.6);display:flex;padding:26px 30px;gap:26px;position:relative;overflow:visible;
+ border:6px solid #d8c184; transition:transform .12s}
+#caseCard.shake{animation:shk .4s}
+@keyframes shk{0%,100%{transform:translateX(0)}25%{transform:translateX(-10px)}75%{transform:translateX(10px)}}
+.claimBox{flex:1;font-size:16px;line-height:1.5;border-right:2px dashed #8b7748;padding-right:18px}
+.claimBox b{color:var(--red)}
+.arrayBox{flex:1;position:relative;padding-top:6px}
+.grid{display:grid;grid-template-columns:repeat(4,42px);gap:8px;justify-content:center}
+.dot{width:36px;height:36px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#e8d9a5,#a9832f);
+ box-shadow:inset 0 0 4px #4d3a12,0 2px 3px rgba(0,0,0,.4)}
+.extraRow{grid-column:1/5;display:grid;grid-template-columns:repeat(4,42px);gap:8px;margin-top:8px;
+ transform:translateY(14px) rotate(-2deg);position:relative;z-index:3;cursor:grab;
+ filter:drop-shadow(0 0 6px var(--red))}
+.extraRow.pulse{animation:pulseRow 1s infinite}
+@keyframes pulseRow{0%,100%{filter:drop-shadow(0 0 6px var(--red))}50%{filter:drop-shadow(0 0 16px var(--red))}}
+#crate{position:absolute;right:-70px;bottom:-30px;width:70px;height:60px;border:3px dashed var(--red);
+ border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--red);
+ opacity:0;transition:opacity .3s;text-align:center}
+#crate.show{opacity:1}
+.mag{position:absolute;font-size:34px;pointer-events:none;opacity:0;transition:opacity .3s;z-index:5}
+.mag.show{opacity:1}
+#stamps{position:absolute;bottom:14px;left:50%;transform:translateX(-50%);display:flex;gap:60px}
+.stamp{width:96px;height:96px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+ font-weight:bold;font-size:15px;letter-spacing:1px;color:#fff;cursor:grab;border:4px solid #111;
+ box-shadow:0 6px 10px rgba(0,0,0,.5);touch-action:none;position:relative;z-index:10}
+#stampApprove{background:radial-gradient(circle,#2c6e3f,#153d20)}
+#stampFlag{background:radial-gradient(circle,#a3241f,#5e120f)}
+#stampFlag.pulse{animation:pulseStamp 1.1s infinite}
+@keyframes pulseStamp{0%,100%{transform:scale(1)}50%{transform:scale(1.12)}}
+.splat{position:fixed;width:10px;height:10px;border-radius:50%;pointer-events:none;z-index:50;
+ transform:translate(-50%,-50%) scale(1);opacity:.9}
+#feedback{position:absolute;bottom:120px;left:50%;transform:translateX(-50%);text-align:center;
+ font-size:15px;color:var(--gold);text-shadow:1px 1px #000;min-height:24px}
+#strip{height:124px;background:linear-gradient(#3a2818,#2a1d13);border-top:3px solid var(--gold);
+ display:flex;align-items:center;justify-content:center;gap:18px;position:relative}
+.slot{width:78px;height:78px;border-radius:4px;background:#1c140d;border:3px solid #6b5836;
+ display:flex;align-items:center;justify-content:center;font-size:26px;position:relative}
+.slot.active{border-color:var(--red);box-shadow:0 0 12px var(--red)}
+.slot.solved{border-color:var(--gold)}
+.pin{width:14px;height:14px;background:var(--red);border-radius:50%;position:absolute;top:-7px;right:-7px;box-shadow:0 0 6px #000}
+#overlay{position:fixed;inset:0;background:rgba(10,7,4,.92);display:none;align-items:center;justify-content:center;z-index:100}
+#overlay.show{display:flex}
+#panel{width:900px;background:#2a1d13;border:4px solid var(--gold);border-radius:8px;padding:26px 34px;position:relative}
+#panel h2{color:var(--gold);text-align:center;margin-top:0}
+.close{position:absolute;top:10px;right:14px;cursor:pointer;font-size:22px;color:var(--paper)}
+.trainRow{display:flex;gap:30px;align-items:center;justify-content:center;margin-top:14px}
+.train{width:180px;height:70px;background:#111;border-radius:6px 30px 6px 6px;position:relative}
+.train:before{content:"";position:absolute;left:20px;top:-16px;width:60px;height:20px;background:#111;border-radius:6px 6px 0 0}
+.code{font-size:26px;letter-spacing:6px;color:var(--red);text-align:center;margin:14px 0}
+.blur{filter:blur(3px)}
+.stampBig{border:4px solid var(--red);color:var(--red);padding:10px 20px;transform:rotate(-8deg);
+ display:inline-block;font-size:20px;font-weight:bold}
+</style>
+</head>
+<body>
+<header>
+ <h1>THE FORGER'S LEDGER</h1>
+ <div>
+   <small class="lbl">EVIDENCE</small>
+   <div id="meterWrap"></div>
+ </div>
+ <div id="clockBox">
+   <div>
+     <div id="clock"><div id="hand"></div></div>
+     <small class="lbl">til sundown</small>
+   </div>
+   <div>
+     <small class="lbl">rival pace</small>
+     <div id="rivalBar"><div id="rivalFill"></div><div id="playerFill"></div></div>
+   </div>
+   <button id="peekBtn">Peek Ahead ▸</button>
+ </div>
+</header>
+
+<main>
+ <div id="caseCard">
+   <div class="claimBox">The Forger's ledger claims:<br><br>
+   "I stacked <b>3 rows</b> of <b>4</b> gold stamps each."<br><br>
+   <i>Read the array on the right. Does it match the story?</i></div>
+   <div class="arrayBox">
+     <div class="grid" id="baseGrid"></div>
+     <div class="extraRow pulse" id="extraRow"></div>
+     <div id="crate">drop<br>extra row<br>here</div>
+     <div class="mag" id="mag">🔍</div>
+   </div>
+ </div>
+ <div id="stamps">
+   <div class="stamp" id="stampApprove">APPROVE</div>
+   <div class="stamp pulse" id="stampFlag">FLAG</div>
+ </div>
+ <div id="feedback"></div>
+</main>
+
+<div id="strip"></div>
+
+<div id="overlay">
+ <div id="panel">
+   <span class="close" id="closeOverlay">✕</span>
+   <h2>Coming up in the full case...</h2>
+   <p style="text-align:center">Corkboard fills with every audited claim, then the finale: solve six rapid cases and combine their products into the Forger's address before the train departs.</p>
+   <div class="code">4 <span class="blur">✕</span> 7 = <span class="blur">▢▢</span> STREET</div>
+   <div class="trainRow">
+     <div class="train"></div>
+     <div class="stampBig">CASE CLOSED<br><span style="font-size:13px">Lead Detective: REINA</span></div>
+   </div>
+ </div>
+</div>
+
+<script>
+// dots
+const g=document.getElementById('baseGrid');
+for(let i=0;i<12;i++){let d=document.createElement('div');d.className='dot';g.appendChild(d);}
+const er=document.getElementById('extraRow');
+for(let i=0;i<4;i++){let d=document.createElement('div');d.className='dot';er.appendChild(d);}
+
+// meter
+const mw=document.getElementById('meterWrap');
+for(let i=0;i<6;i++){let s=document.createElement('div');s.className='seg';s.id='seg'+i;mw.appendChild(s);}
+
+// strip
+const strip=document.getElementById('strip');
+for(let i=0;i<6;i++){let s=document.createElement('div');s.className='slot'+(i===0?' active':'');
+ s.innerHTML=i===0?'🕵️':'🔒'; s.id='slot'+i; strip.appendChild(s);}
+
+let clockDeg=20, rivalPct=14, playerPct=0, solved=false, retried=false;
+
+function beep(freq,dur,type){
+ try{
+  const ctx=new (window.AudioContext||window.webkitAudioContext)();
+  const o=ctx.createOscillator(), gain=ctx.createGain();
+  o.type=type||'square'; o.frequency.value=freq;
+  o.connect(gain); gain.connect(ctx.destination);
+  gain.gain.setValueAtTime(.15,ctx.currentTime);
+  gain.gain.exponentialRampToValueAtTime(.001,ctx.currentTime+dur);
+  o.start(); o.stop(ctx.currentTime+dur);
+ }catch(e){}
+}
+
+function splat(x,y,color){
+ const s=document.createElement('div');
+ s.className='splat'; s.style.left=x+'px'; s.style.top=y+'px';
+ s.style.background='radial-gradient(circle,'+color+' 0%,'+color+' 40%,transparent 70%)';
+ document.body.appendChild(s);
+ s.animate([{transform:'translate(-50%,-50%) scale(0.3)',opacity:1},
+   {transform:'translate(-50%,-50%) scale(3.2)',opacity:0}],{duration:520,easing:'ease-out'});
+ setTimeout(()=>s.remove(),550);
+}
+
+function fb(msg,color){
+ const f=document.getElementById('feedback');
+ f.style.color=color||'var(--gold)'; f.textContent=msg;
+}
+
+function makeDraggable(el,onDrop){
+ el.addEventListener('pointerdown',e=>{
+  const r=el.getBoundingClientRect();
+  const offX=e.clientX-r.left, offY=e.clientY-r.top;
+  const origLeft=r.left, origTop=r.top;
+  el.style.position='fixed'; el.style.left=r.left+'px'; el.style.top=r.top+'px'; el.style.zIndex=999;
+  el.setPointerCapture(e.pointerId);
+  function move(ev){
+   el.style.left=(ev.clientX-offX)+'px';
+   el.style.top=(ev.clientY-offY)+'px';
+  }
+  function up(ev){
+   el.removeEventListener('pointermove',move);
+   el.removeEventListener('pointerup',up);
+   const rr=el.getBoundingClientRect();
+   const dropped=onDrop(rr, ev.clientX, ev.clientY);
+   if(!dropped){
+    el.style.transition='left .3s,top .3s';
+    el.style.left=origLeft+'px'; el.style.top=origTop+'px';
+    setTimeout(()=>{el.style.transition='';el.style.position='';el.style.left='';el.style.top='';el.style.zIndex='';},310);
+   }
+  }
+  el.addEventListener('pointermove',move);
+  el.addEventListener('pointerup',up);
+ });
+}
+
+function overlaps(r1,r2){
+ return !(r1.right<r2.left||r1.left>r2.right||r1.bottom<r2.top||r1.top>r2.bottom);
+}
+
+const card=document.getElementById('caseCard');
+const flagStamp=document.getElementById('stampFlag');
+const approveStamp=document.getElementById('stampApprove');
+const crate=document.getElementById('crate');
+const mag=document.getElementById('mag');
+
+makeDraggable(flagStamp,(rect,x,y)=>{
+ if(solved) return false;
+ const cr=card.getBoundingClientRect();
+ if(overlaps(rect,cr)){
+  splat(x,y,'#8b1e1e'); beep(120,.25,'square');
+  flagStamp.classList.remove('pulse');
+  fb('CORRECT — the row doesn\\'t belong. Flagging the Forger\\'s claim!','#c9a227');
+  setTimeout(startRepair,500);
+  return true;
+ }
+ return false;
+});
+
+makeDraggable(approveStamp,(rect,x,y)=>{
+ if(solved) return false;
+ const cr=card.getBoundingClientRect();
+ if(overlaps(rect,cr)){
+  splat(x,y,'#2c6e3f'); beep(70,.35,'sine');
+  card.classList.add('shake'); setTimeout(()=>card.classList.remove('shake'),400);
+  fb('The trail cools... that array doesn\\'t match the story. Look closer.','#e0a0a0');
+  mag.classList.add('show');
+  tickClock(1);
+  return true;
+ }
+ return false;
+});
+
+function tickClock(n){
+ clockDeg+=n*22; document.getElementById('hand').style.transform='translate(-50%,-100%) rotate('+clockDeg+'deg)';
+ rivalPct=Math.min(90,rivalPct+n*8);
+ document.getElementById('rivalFill').style.width=rivalPct+'%';
+}
+
+function startRepair(){
+ crate.classList.add('show');
+ fb('Drag the extra row into the crate to repair the array.','#c9a227');
+ makeDraggable(er,(rect,x,y)=>{
+  const cr=crate.getBoundingClientRect();
+  if(overlaps(rect,cr)){
+   er.style.transition='transform .3s,opacity .3s';
+   er.style.transform='scale(0.2)'; er.style.opacity='0';
+   beep(300,.15,'triangle');
+   setTimeout(finishCase,350);
+   return true;
+  }
+  return false;
+ });
+}
+
+function finishCase(){
+ solved=true;
+ splat(window.innerWidth/2,300,'#2c6e3f');
+ beep(220,.3,'sine');
+ fb('MATCH CONFIRMED — Evidence secured. Ahead of the rival!','#8fe28f');
+ document.getElementById('seg0').classList.add('on');
+ const slot0=document.getElementById('slot0');
+ slot0.classList.add('solved'); slot0.innerHTML='📌';
+ const pin=document.createElement('div'); pin.className='pin'; slot0.appendChild(pin);
+ const slot1=document.getElementById('slot1');
+ slot1.classList.add('active'); slot1.innerHTML='🕵️';
+ playerPct=30; document.getElementById('playerFill').style.width=playerPct+'%';
+ tickClock(-1);
+ document.getElementById('peekBtn').style.boxShadow='0 0 14px var(--gold)';
+ setTimeout(()=>{fb('More cases wait in the full Ledger. Try "Peek Ahead" ▸','#c9a227');},1800);
+}
+
+document.getElementById('peekBtn').onclick=()=>document.getElementById('overlay').classList.add('show');
+document.getElementById('closeOverlay').onclick=()=>document.getElementById('overlay').classList.remove('show');
+</script>
+</body>
+</html>
+```

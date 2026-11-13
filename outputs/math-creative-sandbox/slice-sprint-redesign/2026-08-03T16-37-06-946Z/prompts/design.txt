@@ -1,0 +1,235 @@
+You are the experience architect for one child learning activity.
+
+The academic contract below is immutable. Preserve its target, difficulty boundaries, item content, response contracts, and evidence limits exactly.
+
+ACADEMIC CONTRACT
+{
+  "id": "N3B",
+  "routeId": "route-quick-compare",
+  "responsibilityId": "R4",
+  "academicTarget": "Independently choose the larger unit fraction across repeated same-size-whole rounds, shade exactly one fourth of a pre-cut circle, and justify the comparison by the size of one part rather than by the size of the denominator.",
+  "difficultyBoundary": {
+    "allowedConcepts": [
+      "comparing one part of a 3-part whole with one part of a same-size 4-part whole",
+      "comparing 1/2 with 1/4 on same-size wholes",
+      "shading exactly one of four equal sectors to show one fourth",
+      "stating a deciding rule based on part size"
+    ],
+    "allowedRepresentations": [
+      "pairs of identical-size rectangles or circles already cut into equal parts",
+      "one shaded part in the same consistent color used since N1",
+      "a pre-cut 4-sector circle where tapping selects exactly one sector",
+      "labels 1/2, 1/3, 1/4",
+      "spoken or typed explanation",
+      "read-aloud of prompts"
+    ],
+    "excludedExtensions": [
+      "denominators above 4",
+      "non-unit fractions",
+      "comparing wholes of different sizes",
+      "child-drawn cut lines",
+      "equivalence, arithmetic, or number lines",
+      "any fail timer or forced cutoff on a round",
+      "reteaching of the N2 rule"
+    ],
+    "startingSupport": "One replayable worked demonstration of the same-whole comparison before the first round, plus a single on-request equality check. Rounds never time out; pacing pressure is presentational only and no answer is ever cut off.",
+    "expectedIndependence": "Independent across repeated rounds after the single demonstration: no hints required, no reteaching, and the shading item completed without assistance."
+  },
+  "items": [
+    {
+      "id": "N3B-I1",
+      "prompt": "Quick round: two rectangles are exactly the same size. One shows 1 of 3 equal parts shaded, the other shows 1 of 4 equal parts shaded. Tap the larger shaded part.",
+      "lineage": {
+        "sourceEvidenceIds": [
+          "assignment:c08535fb000c772e6a4f7b72df12fe4f64e5e941cab236c0ec9fe499a321c8bc",
+          "asm-likely-misconception-count-parts"
+        ],
+        "exposure": "taught"
+      },
+      "response": {
+        "mode": "selection",
+        "options": [
+          {
+            "id": "N3B-I1-A",
+            "label": "The shaded part of the rectangle cut into 3 equal parts (1/3)",
+            "correct": true
+          },
+          {
+            "id": "N3B-I1-B",
+            "label": "The shaded part of the rectangle cut into 4 equal parts (1/4)",
+            "correct": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "N3B-I2",
+      "prompt": "Quick round: two circles are exactly the same size. One shows 1 of 2 equal parts shaded, the other shows 1 of 4 equal parts shaded. Tap the larger shaded part.",
+      "lineage": {
+        "sourceEvidenceIds": [
+          "assignment:c08535fb000c772e6a4f7b72df12fe4f64e5e941cab236c0ec9fe499a321c8bc",
+          "asm-likely-misconception-count-parts"
+        ],
+        "exposure": "taught"
+      },
+      "response": {
+        "mode": "selection",
+        "options": [
+          {
+            "id": "N3B-I2-A",
+            "label": "The shaded part of the circle cut into 2 equal parts (1/2)",
+            "correct": true
+          },
+          {
+            "id": "N3B-I2-B",
+            "label": "The shaded part of the circle cut into 4 equal parts (1/4)",
+            "correct": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "N3B-I3",
+      "prompt": "This circle is one whole already cut into 4 equal parts. Shade one fourth of the circle.",
+      "lineage": {
+        "sourceEvidenceIds": [
+          "assignment:c08535fb000c772e6a4f7b72df12fe4f64e5e941cab236c0ec9fe499a321c8bc",
+          "asm-construction-tolerance"
+        ],
+        "exposure": "practiced"
+      },
+      "response": {
+        "mode": "construction",
+        "expectedState": {
+          "totalSectors": 4,
+          "shadedSectorCount": 1,
+          "sectorsUnchanged": true
+        },
+        "successDescription": "Exactly one of the four equal sectors is shaded, the other three are left unshaded, and the existing equal partition is not altered."
+      }
+    },
+    {
+      "id": "N3B-I4",
+      "prompt": "You answered fast. Now explain your rule: when both wholes are the same size, how do you decide whether 1/3 or 1/4 is larger?",
+      "lineage": {
+        "sourceEvidenceIds": [
+          "assignment:c08535fb000c772e6a4f7b72df12fe4f64e5e941cab236c0ec9fe499a321c8bc",
+          "concept-history:math.fractions.unit-fraction-equal-parts"
+        ],
+        "exposure": "taught"
+      },
+      "response": {
+        "mode": "explanation",
+        "rubric": [
+          "States that 1/3 is larger",
+          "Gives a rule based on part size: more equal parts in the same whole means each part is smaller",
+          "Mentions that the two wholes are the same size",
+          "Does not decide by which bottom number is bigger",
+          "Credit partial if the rule is correct in direction but omits the same-size whole condition"
+        ]
+      }
+    }
+  ],
+  "academicPrediction": {
+    "constructId": "math.fractions.unit-fraction-equal-parts",
+    "context": "Rapid same-whole comparison route after the N2 explainer: repeated quick selection rounds plus one shading production on a pre-cut circle and one part-size justification.",
+    "horizon": "independent performance later in the same session, after teaching, with no reteaching available",
+    "expectedMetric": {
+      "key": "node.N3B.itemAccuracy",
+      "min": 0.6,
+      "max": 0.95
+    },
+    "predictedErrorPatterns": [
+      "Reverts to the larger-denominator shortcut on the first quick round and picks 1/4",
+      "Gets the 1/2 versus 1/4 round right but the 1/3 versus 1/4 round wrong, because the closer part sizes remove the visual cue",
+      "Shades 2 or more sectors on N3B-I3 instead of exactly one",
+      "Correct fast selections with an explanation that names only the numerals rather than part size",
+      "Responds before inspecting part sizes, producing a fast wrong answer with very low timeToFirstValidActionMs"
+    ],
+    "confidence": 0.45,
+    "evidenceIds": [
+      "asm-engagement-puzzle-speed-only",
+      "asm-likely-misconception-count-parts",
+      "asm-construction-tolerance",
+      "choice_event_9b79e3739428",
+      "child-chart:engagementEvidence.dimensions"
+    ],
+    "intervention": "Single replayable worked same-whole comparison demonstration plus one on-request equality check; otherwise independent responding across short rounds with no time cutoff.",
+    "evidenceLimit": "practice_only"
+  },
+  "measurementKeys": [
+    "node.N3B.itemAccuracy",
+    "node.N3B.item.N3B-I1.correct",
+    "node.N3B.item.N3B-I2.correct",
+    "node.N3B.shadingItemExactlyOneSector",
+    "node.N3B.item.N3B-I4.rubricScore",
+    "node.N3B.assistanceRequestCount",
+    "node.N3B.invalidActionCount",
+    "node.N3B.timeToFirstValidActionMs",
+    "node.N3B.perRoundLatencyMs",
+    "node.N3B.started",
+    "node.N3B.completed",
+    "node.N3B.abandoned",
+    "node.N3B.routeSwitched",
+    "node.N3B.replayRequested",
+    "node.N3B.frustrationScore",
+    "node.N3B.childRating"
+  ],
+  "catalogDecision": {
+    "action": "revise",
+    "reason": "The existing N3B artifact validated and its no-timeout brisk-round structure is retained, but the academic contract is revised: a second comparison round using 1/2 versus 1/4 is added so that stability of the inverse rule can be distinguished from a single lucky pick, and the shading contract now explicitly forbids altering the given partition so the item measures unit-fraction selection rather than partitioning."
+  }
+}
+
+CURRENT DESIGN ARTIFACT
+{
+  "artifactId": "hw-math-7ead7e33:design:N3B:slice-sprint-dock:v2",
+  "nodeId": "N3B",
+  "academicContractHash": "873b3920dfac42d69e38b06cd9598b30e494d3b721c205ac796cdf73c4ee0b16",
+  "title": "The Slice Sprint Dock: Beat the Gull!",
+  "audienceRationale": "",
+  "openingPromise": "Dockmaster Pip blows a whistle under the high-noon sun: 'Captain trial, sprint style! Gully the seagull ALWAYS dives for the bigger fair slice. Spot it before she lands and you out-eye the fastest bird in the cove — then tune the Compass with your own shaded slice!'",
+  "firstThreeSeconds": "Cyan sky, bunting snapping in the breeze, two identical crates sliding into place on the dock, each carrying a same-size rectangle whole; Gully circles high above with a playful screech; Pip's whistle 'TWEET' marks the round open. The crates lock into position and freeze completely.",
+  "firstAction": "Tap the crate holding the larger coral shaded part — the entire crate is the tap target (huge, forgiving), and the two wholes are physically aligned side by side at identical size so the same-whole constraint is visually enforced from the first touch.",
+  "interactionDemonstration": "Before round 1, Pip and Gully perform one complete worked comparison: two same-size wholes, the ghost-overlay stacked edge-to-edge, Gully diving to the bigger part — demonstrating both the judgment and the tap gesture. Replayable from a small whistle icon at any point between rounds; replays logged.",
+  "coreInteraction": "Rounds with honest pressure: once the crates lock, ALL stimuli freeze — Gully's descent is pure theater that starts only around Reina's decision and never converts to a timeout; a slow answer just means Gully hovers, wings flapping impatiently, forever if needed. Round 1 (N3B-I1): 1/3 vs 1/4 rectangles, tap the larger shaded part. Round 2 (N3B-I2): 1/2 vs 1/4 circles, same gesture. Then Pip's whistle changes pitch — 'Compass slice!' (N3B-I3): a pre-cut 4-sector circle rises on a pedestal; tapping one sector shades it coral, tapping a different sector moves the shading (always exactly-one-or-zero shaded, the partition itself is untouchable), then stamp the brass submit plate. Finale (N3B-I4): pace drops completely, bunting stills, Pip opens the Dockmaster's Rulebook: 'Say your deciding rule for the harbor crew' — talk-or-type conch. A replayable worked demonstration of one same-whole comparison plays before round 1; the fairness-glass equality check is available once on request.",
+  "mathAsPower": "Every correct spot steers Gully: she dives and lands triumphantly on the slice Reina picked, and the dock crowd of crabs and gulls cheers — Reina's part-size judgment literally commands the fastest eye in the cove. Her sealed Compass slice in item 3 slots into the Compass rose painted on the dock, spinning its needle to life. Her spoken rule gets inked into the Dockmaster's Rulebook, a permanent law of the harbor.",
+  "stakes": "Out-eyeing Gully in front of the harbor crowd is the social stake — playful reputation, not survival. The deeper stake: only a captain whose rule is inked into the Dockmaster's Rulebook gets the Compass tuned dockside. Gully never steals a turn, no round ever times out, and a slow careful answer wins exactly the same cheer as a fast one — Pip says so out loud in the intro: 'Fast eyes OR sure eyes, Captain. Gully respects both.'",
+  "consequences": "Committed answers resolve honestly and immediately: a correct pick sends Gully to Reina's slice with a crowd cheer; a wrong pick sends Gully to the actually-bigger slice with her comic head tilt — the world shows the truth without lecture, and Pip adds one factual line ('Same-size wholes — fewer equal parts means bigger pieces') as the round closes. Rounds are single-attempt and the trial always proceeds; accumulated correct rounds determine how grandly the Compass rose spins in the finale (full golden spin vs. a modest wobble-then-settle), so accuracy shapes payoff richness rather than gating completion.",
+  "recovery": "After a wrong round, the next round opens with the ghost-overlay hint icon gently highlighted once (available, not forced) — a nudge toward inspecting before tapping, which is this route's specific risk. If timeToFirstValidActionMs is trending under ~1500ms with an error, Pip's round-open line changes to 'Look FIRST, then strike' (pacing coaching, not answer coaching). The single fairness-glass equality check is available on request. If she stalls in item 3 with zero sectors shaded, the submit plate stays dim and Pip reminds 'One sector for one fourth, Captain' — state guidance permitted by the always-valid tap design. The rulebook item offers say-it, type-it, or tap-phrase-tiles fallback so explanation friction never blocks completion.",
+  "progression": [
+    "Pip's whistle intro plus the replayable worked demonstration: one full same-whole comparison shown with the ghost-overlay (contract's startingSupport)",
+    "Round 1 (N3B-I1): 1/3 vs 1/4 rectangles on aligned crates; tap, commit, Gully resolves it",
+    "Crooked map cut untangles; crowd gathers slightly",
+    "Round 2 (N3B-I2): 1/2 vs 1/4 circles — the easier visual gap placed second so a round-1 stumble is followed by a confidence-rebuilding win",
+    "Whistle pitch change — 'Compass slice!' (N3B-I3): shade exactly one sector of the pre-cut 4-part circle, brass plate submit",
+    "The slice slots into the dock's painted Compass rose; padlock rattles offshore",
+    "Rulebook finale (N3B-I4): pace drops, talk-or-type the deciding rule; Pip inks it into the Dockmaster's Rulebook with her name"
+  ],
+  "interactionContinuity": "Inherits coral-only shading, the ghost-overlay self-check from N2, commit-then-resolve, and the talk-or-type conch. The whistle replaces the wax seal as this route's commit ritual, keeping the same grammar in a faster register. The aligned-crates staging extends N1 riddle 3's stacked same-size rectangles into the sprint context.",
+  "worldReaction": "The crab crowd waves tiny flags; Gully perches on Reina's route marker and preens (she's earned the bird's respect); the candlelit workshop window across the harbor glows warmly in the background — the unchosen route stays dignified. The quest parchment corner lifts with its brightest gold glint yet.",
+  "payoff": "The Compass rose on the dock spins to life — a full golden spin with Gully riding the needle if the rounds were sharp, a plucky wobble-and-settle otherwise — Pip stamps Reina's captain's badge, and the Rulebook shows HER rule in fresh ink under 'Harbor Law: Fair Shares.' On the board map the coral ribbon completes to the dock, the padlock chain link strains, and Snip-Claw hurls his '1/4 is BIGGER' sign into the sea in disgust.",
+  "replayVariation": "On replay the comparison pairs swap presentation sides and whole shapes (round 1 becomes circles, round 2 rectangles) with the same contracted fraction pairs, Gully gains a tiny racing goggle accessory as a returning-champion nod, and Pip offers a 'personal best' framing on perRoundLatencyMs shown only AFTER each commit so pace display can never pressure the decision itself. Replay is engagement-only evidence.",
+  "visualDirection": "High-noon brightness: cyan sky, sun-bleached planks, triangle bunting — the energetic opposite of the candlelit workshop so the fork reads as a real choice. Comparisons always show same-size wholes on identical crates, edges aligned at the same height (encoding the same-whole constraint spatially). Coral shading convention continues and remains exclusive. Fraction labels 1/2, 1/3, 1/4 in bold dockside stencil type on hanging tags. Gully is white-and-grey with one skeptical eyebrow feather; correct picks earn her comic double-take. The N2 ghost-overlay is available on tap during any comparison round for self-checking before committing.",
+  "motionDirection": "Snappy round transitions (crates slide in 0.4s) deliver momentum, but decision windows are motion-frozen except Gully's slow, readable glide — one gentle descent path, no jitter. Correct pick: Gully's dive is a crisp 0.7s swoop with feather puff. Wrong pick: Gully lands on the OTHER slice with a comic 'told-you-so' head tilt (0.8s) — the truth is shown by where the bird goes, not by a red X. Item 3's sector shading is an instant coral fill; moving it is an instant swap. Rulebook finale: everything slows, bunting settles, 2s calm.",
+  "soundDirection": "Bright harbor ambience, crowd murmur, bunting flutter; Pip's whistle as the round-open signal (distinct pitches for comparison rounds vs. the Compass slice). Interaction: woody crate-thump on tap, satisfying brass plate 'chunk' on submit. Correct: Gully's happy screech plus a short crowd cheer. Recovery: a soft descending gull coo — sympathetic, comedic, never a failure buzzer. Completion: the Compass needle spin-up whirr, Rulebook page-turn, and the offshore padlock rattle. All sounds respect mute.",
+  "usefulLibraries": [
+    "https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js"
+  ],
+  "engagementPrediction": "Per the route hypothesis: started=true, completed=true, zero assistance requests, timeToFirstValidActionMs <10000, frustrationScore ≤0.3, itemAccuracy in the 0.6-0.95 band with at most one fast wrong first-round answer, and a realistic chance of replayRequested=true. The core design bet: freezing all stimuli during decisions lets speed excitement coexist with genuine part-size inspection.",
+  "falsifyingEvidence": "timeToFirstValidActionMs <1500 paired with an incorrect comparison (answering before inspecting); accuracy <0.6 on comparison rounds despite correct N2 interaction points; abandonment or drop-off after the first incorrect round; frustrationScore ≥0.6 during the brisk rounds; correct fast selections with a rule that cites only the numerals 3 and 4; ≥2 assistance requests contradicting the low-friction prediction."
+}
+
+FACTUAL HUMAN OBSERVATIONS FROM THE CURRENT IMPLEMENTATION
+- A human played the activity and judged it a strong learning activity but only a moderate game.
+- The visible experience did not fully deliver the anticipation, changing world, or payoff promised by its title and design artifact.
+- The opening required more reading than the human expected for a nine-year-old.
+- The completion payoff appeared mostly static.
+- Incorrect work advanced visible dock progress, which made completion progress and mathematical success difficult to distinguish.
+- The human wants to keep experimenting and has not concluded which mechanic, theme, consequence, or presentation is best.
+
+Independently decide whether to preserve, substantially revise, or replace the current creative direction. Do not treat the observations as instructions for a particular solution. Choose the experience form, mechanics, stakes, consequences, recovery, pacing, visual language, motion, sound, progression, and payoff yourself.
+
+The result should be immediately understandable to a nine-year-old, make the mathematics causally affect what happens, and give the child a reason to continue. It may use any HTTPS browser library or asset that helps.
+
+Return one complete design artifact as JSON only, using the same field names as CURRENT DESIGN ARTIFACT. Preserve nodeId and academicContractHash. Add one field named revisionRationale explaining what you preserved, changed, or replaced and why.

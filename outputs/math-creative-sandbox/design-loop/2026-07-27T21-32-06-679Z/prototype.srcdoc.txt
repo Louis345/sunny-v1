@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>The Last Honest Courier</title>
+<style>
+  :root{
+    --bg:#182028; --panel:#232e3a; --panel2:#2b3846; --accent:#ff9f43;
+    --good:#2ecc71; --bad:#e74c3c; --crate:#8d5b32; --crateLight:#a9713f;
+    --text:#eef2f5; --sub:#a9b7c4;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;width:100%;height:100%;background:var(--bg);
+    font-family:'Trebuchet MS',Verdana,sans-serif;color:var(--text);overflow:hidden;}
+  #app{width:1365px;height:768px;position:relative;margin:0 auto;overflow:hidden;}
+  .screen{position:absolute;inset:0;display:flex;flex-direction:column;
+    align-items:center;justify-content:center;padding:30px;transition:opacity .3s;}
+  .hidden{display:none;}
+  .card{background:var(--panel);border-radius:18px;padding:36px 48px;
+    box-shadow:0 8px 30px rgba(0,0,0,.5);max-width:900px;text-align:center;}
+  h1{color:var(--accent);margin:0 0 10px;font-size:38px;}
+  p.sub{color:var(--sub);font-size:18px;line-height:1.5;}
+  button{background:var(--accent);color:#1b1204;border:none;border-radius:10px;
+    padding:14px 30px;font-size:18px;font-weight:bold;cursor:pointer;margin-top:20px;
+    transition:transform .15s, background .2s;}
+  button:hover{transform:scale(1.05);background:#ffb066;}
+  button:disabled{background:#555;color:#999;cursor:default;transform:none;}
+  .dispatch-bubble{background:var(--panel2);border-left:6px solid var(--accent);
+    border-radius:10px;padding:20px 26px;margin:16px 0;font-size:20px;text-align:left;
+    max-width:800px;}
+  .dispatch-bubble b{color:var(--accent);}
+  /* --- Loading screen --- */
+  #scr-load{justify-content:flex-start;padding-top:24px;}
+  .order-banner{font-size:20px;color:var(--sub);margin-bottom:6px;}
+  .order-banner b{color:var(--accent);}
+  #flagMsg{min-height:34px;font-size:17px;color:var(--bad);font-weight:bold;}
+  #crates{display:flex;gap:22px;margin:18px 0 10px;}
+  .crate{width:150px;min-height:190px;background:linear-gradient(var(--crate),#5f3c1e);
+    border:4px solid #6a431f;border-radius:10px;padding:10px;position:relative;
+    display:flex;flex-direction:column;align-items:center;transition:transform .5s, opacity .5s;}
+  .crate.lit{box-shadow:0 0 22px 6px var(--accent);border-color:var(--accent);}
+  .crate.toppled{transform:rotate(75deg) translateY(60px) translateX(-20px);opacity:.3;}
+  .crate-label{font-weight:bold;font-size:15px;margin-bottom:4px;}
+  .crate-count{font-size:15px;color:#ffe9c9;margin-bottom:6px;}
+  .gearRow{display:flex;flex-wrap:wrap;gap:2px;justify-content:center;flex:1;
+    align-content:flex-start;}
+  .gear{font-size:20px;cursor:pointer;user-select:none;transition:transform .15s;}
+  .gear:hover{transform:scale(1.25);}
+  #poolWrap{background:var(--panel2);border-radius:12px;padding:14px 22px;
+    display:flex;align-items:center;gap:14px;min-height:52px;}
+  #poolWrap .lbl{color:var(--sub);font-size:15px;}
+  .gear.selected{outline:3px solid var(--good);border-radius:6px;background:#0f2;}
+  /* --- Success screen --- */
+  #scr-success{justify-content:flex-start;padding-top:24px;}
+  #skipLine{font-size:26px;letter-spacing:2px;color:var(--accent);min-height:40px;
+    font-weight:bold;}
+  #totalLine{font-size:22px;color:var(--good);font-weight:bold;min-height:30px;}
+  .badge{display:inline-block;background:var(--good);color:#04240f;font-weight:bold;
+    padding:8px 18px;border-radius:30px;margin-top:10px;font-size:17px;
+    animation:pop .4s ease;}
+  @keyframes pop{0%{transform:scale(0);}70%{transform:scale(1.2);}100%{transform:scale(1);}}
+  #roadmap{display:flex;gap:16px;margin-top:26px;flex-wrap:nowrap;}
+  .tier{width:190px;background:var(--panel2);border-radius:12px;padding:14px;
+    font-size:13px;color:var(--sub);border:2px solid #3a4a5a;}
+  .tier.current{border-color:var(--good);color:var(--text);}
+  .tier h3{margin:0 0 6px;font-size:15px;color:var(--accent);}
+  .tier.current h3{color:var(--good);}
+  .lockicon{float:right;opacity:.7;}
+  #payoffLine{margin-top:22px;font-size:16px;color:var(--sub);max-width:900px;text-align:center;}
+  #payoffLine b{color:var(--accent);}
+  .topbar{position:absolute;top:12px;left:20px;font-size:14px;color:var(--sub);}
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- SCREEN 1: OPENING PROMISE -->
+  <div class="screen" id="scr-title">
+    <div class="card">
+      <h1>📦 The Last Honest Courier</h1>
+      <p class="sub">You're the only courier who still checks the math — everyone
+      else just guesses and hopes. One wrong crate, one uncounted gear, and a
+      client's whole shipment goes out wrong. Not on your route.</p>
+      <button onclick="showScreen('scr-dispatch')">Start Shift</button>
+    </div>
+  </div>
+
+  <!-- SCREEN 2: DISPATCH CALL -->
+  <div class="screen hidden" id="scr-dispatch">
+    <div class="card">
+      <h1>📻 Dispatch Radio</h1>
+      <div class="dispatch-bubble">
+        "Hey — got a live one for you. <b>6 crates, 7 gears each.</b>
+        Client's waiting, let's move. Don't send it out until you're sure it's right."
+      </div>
+      <button onclick="startLoad()">Load the Truck</button>
+    </div>
+  </div>
+
+  <!-- SCREEN 3: LOADING / MAIN ACTION -->
+  <div class="screen hidden" id="scr-load">
+    <div class="topbar">Order Manifest</div>
+    <div class="order-banner">Order: <b>6 crates</b> &times; <b>7 gears each</b> — build it, then ship it.</div>
+    <div id="crates"></div>
+    <div id="flagMsg"></div>
+    <div id="poolWrap">
+      <span class="lbl">Loose gears (click one, then click a crate):</span>
+      <span id="pool"></span>
+    </div>
+    <button id="shipBtn" onclick="tryShip()">Ship It 🚚</button>
+  </div>
+
+  <!-- SCREEN 4: SUCCESS / WORLD REACTION / PREVIEW -->
+  <div class="screen hidden" id="scr-success">
+    <div class="topbar">Route Log — Delivery #1</div>
+    <h1 style="margin-top:6px;">Calling it out to Dispatch…</h1>
+    <div id="skipLine">&nbsp;</div>
+    <div id="totalLine">&nbsp;</div>
+    <div id="reactionWrap" style="text-align:center;display:none;">
+      <div class="dispatch-bubble" style="text-align:center;">
+        "42 on the nose, matches every crate on screen. That's the kind of
+        manifest I can send out without double-checking. <b>Route upgrade — you're
+        off Trainee runs.</b>"
+      </div>
+      <div class="badge">⭐ Route Tier Upgraded: Verified Courier</div>
+    </div>
+    <div id="roadmap"></div>
+    <div id="payoffLine">
+      Ahead on this route: <b>arrays</b> (rows &amp; columns), a quiet
+      <b>vendor audit</b> with no rival watching, two-step riddles like
+      <b>"4 pallets of 6 rows of 3,"</b> and — eventually — catching the rival
+      live when his manifest's total is <b>technically correct but grouped to
+      deceive.</b> That's the day you stop being fast, and start being the one
+      everyone trusts.
+    </div>
+  </div>
+
+</div>
+
+<script>
+function showScreen(id){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.add('hidden'));
+  document.getElementById(id).classList.remove('hidden');
+}
+
+// ---- game state ----
+// crateCounts represent gears currently in each crate. Crate index 3 (row 4)
+// starts short (rushed load) — demonstrates the incorrect-consequence beat.
+let crateCounts = [7,7,7,6,7,7];
+let poolCount = 1; // the "missing" gear sits loose in the pool
+let selectedGearFromPool = false;
+const NEEDED = 7;
+
+function startLoad(){
+  showScreen('scr-load');
+  renderAll();
+}
+
+function renderAll(){
+  renderCrates();
+  renderPool();
+  document.getElementById('flagMsg').textContent = '';
+}
+
+function renderCrates(){
+  const wrap = document.getElementById('crates');
+  wrap.innerHTML = '';
+  crateCounts.forEach((count, idx)=>{
+    const div = document.createElement('div');
+    div.className = 'crate';
+    div.id = 'crate'+idx;
+    div.innerHTML = `<div class="crate-label">Crate ${idx+1}</div>
+      <div class="crate-count" id="cnt${idx}">${count} / ${NEEDED} ⚙️</div>
+      <div class="gearRow" id="gr${idx}"></div>`;
+    div.addEventListener('click', (e)=>{
+      if(e.target.classList.contains('gear')) return; // handled separately
+      onCrateClick(idx);
+    });
+    wrap.appendChild(div);
+    const gr = div.querySelector('.gearRow');
+    for(let i=0;i<count;i++){
+      const g = document.createElement('span');
+      g.className='gear';
+      g.textContent='⚙️';
+      g.title='Click to send this gear back to the pool';
+      g.addEventListener('click', (ev)=>{
+        ev.stopPropagation();
+        crateCounts[idx]--; poolCount++; renderAll();
+      });
+      gr.appendChild(g);
+    }
+  });
+}
+
+function renderPool(){
+  const p = document.getElementById('pool');
+  p.innerHTML='';
+  for(let i=0;i<poolCount;i++){
+    const g = document.createElement('span');
+    g.className='gear';
+    g.textContent='⚙️';
+    g.addEventListener('click', ()=>{
+      document.querySelectorAll('#pool .gear').forEach(el=>el.classList.remove('selected'));
+      g.classList.add('selected');
+      selectedGearFromPool = true;
+    });
+    p.appendChild(g);
+  }
+  if(poolCount===0){
+    const s=document.createElement('span');
+    s.style.color='var(--sub)';
+    s.textContent='(none loose right now)';
+    p.appendChild(s);
+  }
+}
+
+function onCrateClick(idx){
+  if(!selectedGearFromPool || poolCount<=0) return;
+  crateCounts[idx]++;
+  poolCount--;
+  selectedGearFromPool = false;
+  renderAll();
+}
+
+function tryShip(){
+  const badIdx = crateCounts.findIndex(c => c !== NEEDED);
+  if(badIdx === -1){
+    document.getElementById('shipBtn').disabled = true;
+    runSuccessSequence();
+    return;
+  }
+  // ---- INCORRECT CONSEQUENCE ----
+  const crateEl = document.getElementById('crate'+badIdx);
+  crateEl.classList.add('toppled');
+  const had = crateCounts[badIdx];
+  document.getElementById('flagMsg').textContent =
+    `📻 Dispatch: "Whoa — hold up. Row ${badIdx+1} only has ${had} gears, not 7. `+
+    `Don't send the whole load out — just rebuild that row."`;
+  setTimeout(()=>{
+    poolCount += crateCounts[badIdx];
+    crateCounts[badIdx] = 0;
+    crateEl.classList.remove('toppled');
+    renderAll();
+    document.getElementById('flagMsg').textContent =
+      `Row ${badIdx+1} reset — add gears from the pool until it reads 7 / 7, then ship it again.`;
+  }, 700);
+}
+
+// ---- SUCCESS SEQUENCE: skip-count + world reaction + preview ----
+function runSuccessSequence(){
+  showScreen('scr-success');
+  const skipEl = document.getElementById('skipLine');
+  const totalEl = document.getElementById('totalLine');
+  skipEl.textContent = '';
+  totalEl.textContent = '';
+  document.getElementById('reactionWrap').style.display='none';
+  document.getElementById('roadmap').innerHTML='';
+
+  let running = 0;
+  let step = 0;
+  const timer = setInterval(()=>{
+    running += 7;
+    step++;
+    skipEl.textContent += (step>1 ? ', ' : '') + running;
+    if(step === 6){
+      clearInterval(timer);
+      setTimeout(()=>{
+        totalEl.textContent = `Radioing total... 6 crates confirmed on screen → 42 gears ✅`;
+        setTimeout(()=>{
+          document.getElementById('reactionWrap').style.display='block';
+          buildRoadmap();
+        }, 500);
+      }, 400);
+    }
+  }, 550);
+}
+
+function buildRoadmap(){
+  const data = [
+    {t:'Tier 1', d:'Equal groups, single crates.', cur:true},
+    {t:'Tier 2', d:'Arrays — same crates, rows & columns swapped.', cur:false},
+    {t:'Tier 3', d:'A quiet audit: check a vendor\'s manifest, no rival watching.', cur:false},
+    {t:'Tier 4', d:'Two-step riddles: "4 pallets of 6 rows of 3."', cur:false},
+    {t:'Finale', d:'Rival\'s total is correct — but his grouping lies. Prove it.', cur:false},
+  ];
+  const wrap = document.getElementById('roadmap');
+  data.forEach(item=>{
+    const div = document.createElement('div');
+    div.className = 'tier' + (item.cur ? ' current' : '');
+    div.innerHTML = `<h3>${item.t} ${item.cur? '✅' : '<span class="lockicon">🔒</span>'}</h3><div>${item.d}</div>`;
+    wrap.appendChild(div);
+  });
+}
+</script>
+</body>
+</html>

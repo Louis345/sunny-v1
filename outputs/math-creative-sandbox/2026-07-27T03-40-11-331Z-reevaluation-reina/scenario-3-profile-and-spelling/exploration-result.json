@@ -1,0 +1,78 @@
+{
+  "candidateId": "scenario-3-profile-and-spelling",
+  "screenshots": [
+    "/Users/jamaltaylor/Development/sunny-math-creative-sandbox/outputs/math-creative-sandbox/2026-07-27T03-40-11-331Z-reevaluation-reina/scenario-3-profile-and-spelling/00-opening.png",
+    "/Users/jamaltaylor/Development/sunny-math-creative-sandbox/outputs/math-creative-sandbox/2026-07-27T03-40-11-331Z-reevaluation-reina/scenario-3-profile-and-spelling/01-first-action.png",
+    "/Users/jamaltaylor/Development/sunny-math-creative-sandbox/outputs/math-creative-sandbox/2026-07-27T03-40-11-331Z-reevaluation-reina/scenario-3-profile-and-spelling/02-progress.png",
+    "/Users/jamaltaylor/Development/sunny-math-creative-sandbox/outputs/math-creative-sandbox/2026-07-27T03-40-11-331Z-reevaluation-reina/scenario-3-profile-and-spelling/03-incorrect-recovery.png",
+    "/Users/jamaltaylor/Development/sunny-math-creative-sandbox/outputs/math-creative-sandbox/2026-07-27T03-40-11-331Z-reevaluation-reina/scenario-3-profile-and-spelling/04-progress.png",
+    "/Users/jamaltaylor/Development/sunny-math-creative-sandbox/outputs/math-creative-sandbox/2026-07-27T03-40-11-331Z-reevaluation-reina/scenario-3-profile-and-spelling/05-progress.png",
+    "/Users/jamaltaylor/Development/sunny-math-creative-sandbox/outputs/math-creative-sandbox/2026-07-27T03-40-11-331Z-reevaluation-reina/scenario-3-profile-and-spelling/06-incorrect-recovery.png",
+    "/Users/jamaltaylor/Development/sunny-math-creative-sandbox/outputs/math-creative-sandbox/2026-07-27T03-40-11-331Z-reevaluation-reina/scenario-3-profile-and-spelling/07-progress.png",
+    "/Users/jamaltaylor/Development/sunny-math-creative-sandbox/outputs/math-creative-sandbox/2026-07-27T03-40-11-331Z-reevaluation-reina/scenario-3-profile-and-spelling/08-progress.png"
+  ],
+  "actions": [
+    {
+      "kind": "click_text",
+      "text": "Start Growing! 🌻",
+      "captureLabel": "first-action",
+      "reason": "This is the primary call-to-action to begin the multiplication activity; need to see what the first interactive task looks like.",
+      "ok": true
+    },
+    {
+      "kind": "click_text",
+      "text": "Let's Go!",
+      "captureLabel": "progress",
+      "reason": "Proceed into the first level's activity to observe the actual multiplication task presented to the child.",
+      "ok": true
+    },
+    {
+      "kind": "click_text",
+      "text": "18",
+      "captureLabel": "incorrect-recovery",
+      "reason": "Selecting a deliberately wrong answer to observe how the app responds to incorrect input, testing feedback and recovery behavior.",
+      "ok": true
+    },
+    {
+      "kind": "click_text",
+      "text": "15",
+      "captureLabel": "progress",
+      "reason": "Selecting the correct answer (5 x 3 = 15) to observe positive feedback, scoring update, and progression to next question.",
+      "ok": true
+    },
+    {
+      "kind": "click_text",
+      "text": "Continue →",
+      "captureLabel": "progress",
+      "reason": "Proceed to the next question after answering correctly, to confirm progression through the activity works as expected.",
+      "ok": true
+    },
+    {
+      "kind": "click_text",
+      "text": "8",
+      "captureLabel": "incorrect-recovery",
+      "reason": "Test another deliberately wrong answer on this new question to check that error feedback is consistent and correctly identifies the mistake (as opposed to previous question's leftover feedback text).",
+      "x": 516,
+      "y": 541,
+      "ok": true
+    },
+    {
+      "kind": "click_text",
+      "text": "15",
+      "captureLabel": "progress",
+      "reason": "Now select the correct answer (3 x 5 = 15) to confirm the app recovers properly from the wrong answer and allows successful progression on this question.",
+      "x": 516,
+      "y": 465,
+      "ok": true
+    },
+    {
+      "kind": "click_text",
+      "text": "Continue →",
+      "captureLabel": "progress",
+      "reason": "Proceed to question 3 of 5 to continue evaluating progression flow and subsequent question variety.",
+      "ok": true
+    }
+  ],
+  "visibleText": "⭐ x2\n🌼 Garden Groups — Q3/5\nThere are 4 baskets. Each basket has 4 sunflowers. How many sunflowers in all?\n🌻\n🌻\n🌻\n🌻\n🌻\n🌻\n🌻\n🌻\n🌻\n🌻\n🌻\n🌻\n🌻\n🌻\n🌻\n🌻\n\n4 groups of 4  →  4 × 4 = ?\n\n20\n8\n16\n12\nThat's exactly right! 3 groups of 5 makes 3 × 5 = 15.",
+  "consoleMessages": []
+}

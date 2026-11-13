@@ -1,0 +1,18 @@
+{
+  "id": "repaired",
+  "label": "Repaired Claude Fable 5",
+  "provider": "anthropic",
+  "model": "claude-fable-5",
+  "status": "complete",
+  "elapsedMs": 160405,
+  "inputTokens": 16698,
+  "outputTokens": 16908,
+  "estimatedCostUsd": 1.01238,
+  "artifactHash": "0ac4b9badffcab37a2bf6d1b9c1c915caed2cd13410adfe62b015756dc1dd129",
+  "promptHash": "69b85359c078988245f4e5e792a9e7d767e08d48f6fc40c0c756c7a7a610c431",
+  "apiResponseHash": "74c53823030615a64c5f199cfae7d7ec3f4ca9b896316a7ab2c2144cf62fa259",
+  "savedHtmlHash": "74c53823030615a64c5f199cfae7d7ec3f4ca9b896316a7ab2c2144cf62fa259",
+  "iframeSrcDocHash": "74c53823030615a64c5f199cfae7d7ec3f4ca9b896316a7ab2c2144cf62fa259",
+  "extractionMode": "raw_html",
+  "error": null
+}

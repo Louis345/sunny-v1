@@ -1,0 +1,94 @@
+<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Architect Quality A/B Board</title><style>
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at top,#344679,#0a0e20 62%);color:#fff;font:16px system-ui;min-height:100vh;padding:38px}h1{text-align:center;font-size:48px;margin:0}.lede{text-align:center;color:#c9d4ef;margin:8px 0 38px}.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:22px;max-width:1300px;margin:auto}article{background:#17203f;border:2px solid #52618e;border-radius:24px;padding:24px;box-shadow:0 20px 50px #0007}.model{color:#ffd66b;font-size:12px;font-weight:900;text-transform:uppercase;letter-spacing:.1em}h2{font-size:28px;margin:8px 0}article>p{color:#d5def3}.actions{display:flex;gap:10px;margin:20px 0}button{border:0;border-radius:999px;padding:12px 18px;font-weight:900;cursor:pointer}.repaired{background:#ffd66b;color:#1a1830}details{color:#bfcbea}pre{white-space:pre-wrap}.player{position:fixed;inset:0;background:#050812;display:none;z-index:10}.player.open{display:block}.player iframe{width:100%;height:100%;border:0;background:#fff}.back{position:absolute;top:16px;right:20px;z-index:11;background:#090d18dd;color:#fff;border:2px solid #fff}.badge{position:absolute;top:20px;left:20px;z-index:11;background:#ffd66b;color:#14172a;border-radius:999px;padding:10px 16px;font-weight:900}@media(max-width:950px){.grid{grid-template-columns:1fr}body{padding:22px}}
+</style></head><body><h1>Original vs Quality Pass</h1><p class="lede">Same Planner, architects, artifacts, and Sonnet builder. One bounded usability and visual repair.</p><main class="grid"><article>
+      <p class="model">Claude Sonnet 5 architect · Sonnet implementation</p>
+      <h2>Fair Slice Bakery</h2>
+      <p>Determine whether a shape has been divided into equal-sized parts, and divide given shapes into a specified number of equal parts.</p>
+      <div class="actions">
+        <button data-src="./nodes/sonnet-5/mock.html" data-label="Original Fair Slice Bakery">Original</button>
+        <button class="repaired" data-src="./nodes/sonnet-5/quality-repair/mock.html" data-label="Quality-pass Fair Slice Bakery">Quality pass</button>
+      </div>
+      <details><summary>Harness observations</summary><pre>{
+  &quot;nodeId&quot;: &quot;node_1_equal_partitioning&quot;,
+  &quot;strongestQuality&quot;: &quot;The drag-to-cut gesture plus instant good/bad piece recoloring gives a genuinely fast, self-checking cycle that matches the artifact's fast-rep intent.&quot;,
+  &quot;usabilityIssues&quot;: [
+    &quot;The 500ms-delayed demo runs before any 'watch this' cue and input is silently swallowed during it, so an early tap teaches the child the screen is dead.&quot;,
+    &quot;Equality is judged by 'midpoint within 22px of center and length &gt; 200', so a visually fair cut that starts short or off-diameter is marked unequal, punishing correct spatial reasoning.&quot;,
+    &quot;The live meter jitters with a random sign during drag (`Math.random()` in onMove), so the child's main in-progress feedback signal is untrustworthy.&quot;
+  ],
+  &quot;visualIssues&quot;: [
+    &quot;The customer sprite and patience bar are absolutely positioned at left:90px/top:240px and collide with the cookie, sitting on top of the shape the child must read.&quot;,
+    &quot;The meter and Try Again button are pushed to bottom:-50px / bottom:20px of the 678px stage and are clipped or below the fold in the 720px capture, hiding the retry affordance.&quot;,
+    &quot;The feedback column at right:90px is a bare text block with no card or icon, so success/failure reads as much weaker than the artifact's coin/customer reaction.&quot;
+  ],
+  &quot;implementationMismatch&quot;: [
+    &quot;Only a circle is ever rendered and only 2-piece cuts are possible; squares, rectangles, bars and 3/4/6-part orders from the contract and progression are absent.&quot;,
+    &quot;Judge-only 'Yes/No' tickets (Level 1, and half the evidence goal) have no UI at all — no check/X buttons exist.&quot;,
+    &quot;Recovery's promised ghost outline of the correct cut lines never appears after a wrong cut; resetRound only clears the shape.&quot;
+  ],
+  &quot;repairBrief&quot;: &quot;Reposition the customer+patience block outside the board (left gutter) and move the meter and Try Again inside the board's lower area so nothing overlaps the shape or clips at 720px height. Replace the random-jitter meter math with a deterministic area ratio from the actual cut geometry, and loosen equality to a tolerance on that ratio (e.g. within 8%) rather than midpoint distance and line length. Gate the demo behind a visible 'Watch' badge and make any pointer-down skip it instantly. Add a minimal judge ticket variant (pre-cut shape + green check / red X buttons) and at least one non-circle shape so the round pool matches the contract, plus a faint ghost cut-line on reset after a miss.&quot;
+}</pre></details>
+    </article><article>
+      <p class="model">Claude Opus 5 architect · Sonnet implementation</p>
+      <h2>Lantern Keeper: One Pane of Many</h2>
+      <p>Identify and represent a unit fraction (1/b) as exactly one of b equal parts of a whole, and connect the fraction symbol to the shaded/selected part.</p>
+      <div class="actions">
+        <button data-src="./nodes/opus-5/mock.html" data-label="Original Lantern Keeper: One Pane of Many">Original</button>
+        <button class="repaired" data-src="./nodes/opus-5/quality-repair/mock.html" data-label="Quality-pass Lantern Keeper: One Pane of Many">Quality pass</button>
+      </div>
+      <details><summary>Harness observations</summary><pre>{
+  &quot;nodeId&quot;: &quot;node_2_unit_fraction_recognition&quot;,
+  &quot;strongestQuality&quot;: &quot;The brass plate reading 1/4 directly beneath the partitioned glass creates a clean, uncluttered symbol-to-shape binding with a single obvious tap target.&quot;,
+  &quot;usabilityIssues&quot;: [
+    &quot;In the opening screenshot no panes are rendered inside the glass, so the promised 'one pulsing wedge' first action is invisible and the child has nothing to tap.&quot;,
+    &quot;The pulse is a 450ms fill swap between two dim browns (#5a4a2e / #c9a25f) against slate panes, too low-contrast to read as 'this one, tap here'.&quot;,
+    &quot;The instruction bar sits at bottom:22px of a 768px stage and is cut off in the 720px view, removing the only textual guidance.&quot;,
+    &quot;A wrong tap flashes red then reverts with no pane-numbering or lever prompt escalation, so recovery is text-only and easy to miss.&quot;
+  ],
+  &quot;visualIssues&quot;: [
+    &quot;The lamp housing is 380px tall starting at top:130px while the plate is absolutely positioned at top:520px, so hero object, plate and lever are visually disconnected with a large dead band.&quot;,
+    &quot;The lever is a tiny 8px stick at right:120px with two-line 11px caption that wraps and clips off the bottom edge; it reads as decoration, not a control.&quot;,
+    &quot;The stage is overwhelmingly empty dark navy — no pier, water, or harbor mass — so 'cumulative brightness' has no visual ground and the dock dots read as stray pixels.&quot;
+  ],
+  &quot;implementationMismatch&quot;: [
+    &quot;Mode B (Engrave the Plate) is entirely absent, so the 'write the unit fraction for 3 shaded models' half of the evidence goal has no interface.&quot;,
+    &quot;Only round glass exists; rectangular, hexagonal, and pier-bar lamps and the unequal-glass decoys specified in coreInteraction are not implemented.&quot;,
+    &quot;The anatomy lever plays a pane sweep but no ghost-trace on round 2 as designed, and the ghostTrace function only blinks a fill instead of tracing an outline.&quot;
+  ],
+  &quot;repairBrief&quot;: &quot;First fix the blank glass: confirm buildPanes runs on init and that pane fills render above the housing circle, since the opening frame currently shows no partitions at all. Raise contrast on the guided pane to a clear amber (#f0c060) with a stroke change so the tap target is unmistakable. Pull the whole composition tighter — move the lamp up, dock the plate directly under the glass, and reposition the message bar and lever above 700px so nothing clips at 720px. Make the lever a labeled brass button with visible hit area. Add a minimal Engrave mode: blank plate, three numeral tiles, lever to stamp, and the twin-lamp check.&quot;
+}</pre></details>
+    </article><article>
+      <p class="model">Claude Fable 5 architect · Sonnet implementation</p>
+      <h2>Potion Split Showdown</h2>
+      <p>Compare two unit fractions with different denominators (e.g., 1/5 vs. 1/2) and justify which is larger based on the number of equal parts the whole is divided into.</p>
+      <div class="actions">
+        <button data-src="./nodes/fable-5/mock.html" data-label="Original Potion Split Showdown">Original</button>
+        <button class="repaired" data-src="./nodes/fable-5/quality-repair/mock.html" data-label="Quality-pass Potion Split Showdown">Quality pass</button>
+      </div>
+      <details><summary>Harness observations</summary><pre>{
+  &quot;nodeId&quot;: &quot;node_3_comparing_unit_fractions&quot;,
+  &quot;strongestQuality&quot;: &quot;The three-step round (tap bigger bottle, place the sign, choose the reason) maps cleanly onto both halves of the evidence goal within one uninterrupted screen.&quot;,
+  &quot;usabilityIssues&quot;: [
+    &quot;The bottles show only the bottom dose glowing with the remaining segments nearly invisible, so the child compares two amber blocks rather than 'one of b equal parts'.&quot;,
+    &quot;Nothing marks which stage is active; the symbol buttons and reasoning row are visible or empty with no disabled styling, so early taps do nothing silently.&quot;,
+    &quot;For the 1/4 vs 1/4 pair, `chooseBottle` accepts any bottle as correct and the whisper never mentions the 'same size' option, so the equal case teaches a wrong rule.&quot;,
+    &quot;The demo round zero and the overlay verification promised in the artifact never run, so a wrong pick gives only a text hint with no visual proof.&quot;
+  ],
+  &quot;visualIssues&quot;: [
+    &quot;The cauldron at right:40px/bottom:10px overflows the viewport and is clipped mid-body, and the Brew Meter label is cut off at the bottom-left.&quot;,
+    &quot;Two redundant instruction lines ('Bigger sip wins. Tap it, then set the sign.' and the italic whisper) stack above the wheel, splitting attention at the top.&quot;,
+    &quot;The 'SPIN' wheel label ends up rotated upside-down after the spin transform and never resets, leaving unreadable text as a permanent artifact.&quot;,
+    &quot;Segment dividers at 1px rgba(255,255,255,0.25) are far too faint for a child to count partitions.&quot;
+  ],
+  &quot;implementationMismatch&quot;: [
+    &quot;The bottle-overlay verification — the artifact's core consequence and demo mechanic — is not implemented anywhere.&quot;,
+    &quot;Symbols are clicked as buttons rather than dragged into the slot, contradicting the specified drag-the-symbol interaction and the on-screen 'drag' instruction.&quot;,
+    &quot;The Shadow Alchemist, rival meter, and Certainty Seal stakes are absent, so the Brew Meter fills with no opposition or consequence.&quot;
+  ],
+  &quot;repairBrief&quot;: &quot;Make the partition structure legible: raise segment divider strokes to 2px at ~0.55 opacity and fill unlit doses with a dim violet so the child sees b equal parts, not one amber block. Move the cauldron and Brew Meter fully inside 1365×768 so neither clips. Reset the wheel's rotation after each spin, or replace the text with a static icon, and remove one of the two duplicate instruction lines. Gate stages visibly: dim and disable the symbol buttons until a bottle is chosen, and reveal the reasoning row only at stage 2. Add the promised overlay — on a wrong pick, slide the bottles together with one translucent so the dose-height difference is undeniable. Fix the equal-pair branch to require the '=' path.&quot;
+}</pre></details>
+    </article></main><section class="player" id="qualityPlayer"><div class="badge" id="qualityLabel"></div><button class="back" id="qualityBack">← Back to comparisons</button><iframe id="qualityFrame" title="Quality comparison" sandbox="allow-scripts allow-same-origin" allow="autoplay; fullscreen"></iframe></section><script>
+const p=document.getElementById('qualityPlayer'),f=document.getElementById('qualityFrame'),l=document.getElementById('qualityLabel');
+document.querySelectorAll('[data-src]').forEach(b=>b.addEventListener('click',()=>{f.src=b.dataset.src;l.textContent=b.dataset.label;p.classList.add('open')}));
+document.getElementById('qualityBack').addEventListener('click',()=>{p.classList.remove('open');f.src='about:blank'});
+</script></body></html>

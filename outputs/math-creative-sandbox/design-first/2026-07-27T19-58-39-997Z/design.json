@@ -1,0 +1,17 @@
+{
+  "title": "The Fractured Arena",
+  "mission": "Restore three arena shields before the rival reaches the core.",
+  "childAction": "Arrange energy cells into equal formations.",
+  "mathAsPower": "Valid arrays charge shields; multiplication predicts their strength.",
+  "stakes": "Incorrect formations let the rival advance one position.",
+  "recovery": "The damaged shield reveals the mismatch between rows and groups.",
+  "progression": [
+    "Build equal groups",
+    "Recognize arrays",
+    "Infer a missing factor",
+    "Apply multiplication during the finale"
+  ],
+  "worldReaction": "Cells snap together, shields illuminate, and the rival changes position.",
+  "payoff": "The completed array activates the arena and reveals the final victory sequence.",
+  "replayVariation": "Different arena layouts and rival strategies require new arrays."
+}

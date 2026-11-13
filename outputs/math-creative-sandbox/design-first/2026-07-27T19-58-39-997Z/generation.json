@@ -1,0 +1,11 @@
+{
+  "model": "claude-sonnet-5",
+  "elapsedMs": 349327,
+  "inputTokens": 673,
+  "outputTokens": 32000,
+  "stopReason": "max_tokens",
+  "rawResponseHash": "e11141ac4031f60a2522609420258c08f612d13cf38de96664ca718e7946e20c",
+  "savedHtmlHash": "b3e69a270096918bdff65f69402c737dca208cee496ab7941192e480cab7876f",
+  "iframeSrcDocHash": "b3e69a270096918bdff65f69402c737dca208cee496ab7941192e480cab7876f",
+  "normalizationApplied": "markdown_code_fence_removed"
+}

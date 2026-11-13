@@ -1,0 +1,639 @@
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>The Fractured Arena</title>
+<style>
+  html,body{margin:0;padding:0;width:1365px;height:768px;overflow:hidden;background:#05070d;}
+  *{box-sizing:border-box;}
+  #app{
+    width:1365px;height:768px;position:relative;overflow:hidden;
+    background:radial-gradient(ellipse at 50% -10%, #1c2b4a 0%, #0a0e1a 60%, #05070d 100%);
+    color:#dfefff;font-family:'Segoe UI',Arial,sans-serif;user-select:none;
+  }
+  #app::before{
+    content:'';position:absolute;inset:0;pointer-events:none;opacity:.12;z-index:0;
+    background-image:
+      repeating-linear-gradient(0deg, rgba(143,233,255,.4) 0 1px, transparent 1px 46px),
+      repeating-linear-gradient(90deg, rgba(143,233,255,.4) 0 1px, transparent 1px 46px);
+  }
+
+  /* TOP BAR */
+  #topbar{position:relative;z-index:2;height:64px;display:flex;align-items:center;justify-content:space-between;
+    padding:8px 24px;border-bottom:1px solid rgba(255,255,255,.08);}
+  #titleBlock h1{font-size:21px;margin:0;letter-spacing:1px;color:#8fe9ff;text-shadow:0 0 12px rgba(79,216,255,.6);}
+  #titleBlock div{font-size:11px;color:#9fb3d9;}
+  #shieldsRow{display:flex;gap:16px;align-items:center;}
+  .shieldLabel{font-size:10px;color:#9fb3d9;text-align:center;margin-top:2px;}
+  .shieldWrap{display:flex;flex-direction:column;align-items:center;}
+  .shieldIcon{width:46px;height:46px;display:flex;align-items:center;justify-content:center;font-size:22px;
+    background:rgba(255,255,255,.05);clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%);
+    border:2px solid rgba(255,255,255,.15);transition:all .3s;}
+  .shieldIcon.pending{opacity:.35;}
+  .shieldIcon.active{border-color:#4fd8ff;box-shadow:0 0 14px #4fd8ff;}
+  .shieldIcon.charged{border-color:#7dff8a;box-shadow:0 0 18px #7dff8a;background:rgba(125,255,138,.15);}
+  .shieldIcon.pulse{animation:pulseGlow .8s ease;}
+  @keyframes pulseGlow{0%{transform:scale(1);}50%{transform:scale(1.3);}100%{transform:scale(1);}}
+  .smallBtn{background:none;border:1px solid rgba(255,255,255,.3);color:#dfefff;padding:7px 14px;
+    border-radius:8px;cursor:pointer;font-size:12px;}
+  .smallBtn:hover{background:rgba(255,255,255,.08);}
+
+  /* RIVAL TRACK */
+  #rivalTrackWrap{position:relative;z-index:2;height:56px;padding:4px 30px;}
+  #rivalTrackLabel{font-size:10px;color:#9fb3d9;margin-bottom:3px;letter-spacing:.5px;}
+  #rivalTrack{position:relative;height:34px;border-radius:18px;border:1px solid rgba(255,255,255,.12);
+    background:linear-gradient(90deg, rgba(255,80,80,.12), rgba(79,216,255,.12));}
+  #rivalIcon{position:absolute;top:1px;left:0;width:32px;height:32px;font-size:24px;
+    display:flex;align-items:center;justify-content:center;transition:left .7s cubic-bezier(.4,1.4,.6,1);
+    filter:drop-shadow(0 0 6px #ff6b6b);}
+  #coreIcon{position:absolute;top:1px;right:2px;width:32px;height:32px;font-size:22px;
+    display:flex;align-items:center;justify-content:center;filter:drop-shadow(0 0 8px #4fd8ff);}
+  #coreIcon.danger{filter:drop-shadow(0 0 14px #ff2b3d);animation:coreDanger .5s infinite alternate;}
+  @keyframes coreDanger{from{transform:scale(1);}to{transform:scale(1.18);}}
+
+  /* STAGE AREA */
+  #stageArea{position:relative;z-index:2;height:648px;display:flex;padding:12px 24px;gap:16px;}
+  #leftPanel{width:290px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);
+    border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:10px;}
+  #leftPanel h2{margin:0;font-size:15px;color:#ffd75e;}
+  #stagePrompt{font-size:13.5px;line-height:1.45;color:#dfefff;}
+  #stageTip{font-size:11.5px;color:#9fb3d9;font-style:italic;}
+  .feedback{margin-top:auto;font-size:12.5px;padding:10px;border-radius:8px;min-height:18px;line-height:1.4;}
+  .feedback.good{background:rgba(125,255,138,.15);color:#7dff8a;border:1px solid rgba(125,255,138,.4);}
+  .feedback.bad{background:rgba(255,90,90,.15);color:#ff8a8a;border:1px solid rgba(255,90,90,.4);}
+
+  #centerPanelWrap{flex:1;position:relative;overflow:hidden;display:flex;flex-direction:column;
+    align-items:center;justify-content:center;gap:14px;background:rgba(255,255,255,.02);
+    border:1px solid rgba(255,255,255,.06);border-radius:12px;}
+  #centerPanelWrap.crack::after{content:'';position:absolute;inset:0;pointer-events:none;
+    background:radial-gradient(circle, rgba(255,60,60,.4), transparent 70%);animation:crackFlash .5s ease;}
+  @keyframes crackFlash{0%{opacity:1;}100%{opacity:0;}}
+  #centerArena{display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:22px;padding:16px;min-height:300px;}
+  #mathReadout{text-align:center;font-size:14px;color:#8fe9ff;padding-bottom:6px;}
+  #readoutLine2{font-size:19px;color:#ffd75e;font-weight:bold;min-height:24px;}
+
+  #rightPanel{width:250px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);
+    border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:12px;}
+
+  /* PODS */
+  .podsRow{display:flex;gap:18px;flex-wrap:wrap;justify-content:center;}
+  .pod{width:92px;min-height:160px;border:2px solid rgba(143,233,255,.4);border-radius:14px;
+    display:flex;flex-direction:column;align-items:center;justify-content:flex-end;padding:8px;
+    cursor:pointer;background:rgba(79,216,255,.05);position:relative;transition:border-color .3s, box-shadow .3s;}
+  .pod.selected{border-color:#4fd8ff;box-shadow:0 0 14px rgba(79,216,255,.6);}
+  .pod.static{cursor:default;}
+  .pod.overfilled{border-color:#ffb454;box-shadow:0 0 10px rgba(255,180,84,.5);}
+  .pod.mismatch{animation:mismatchShake .4s;border-color:#ff5e6c!important;box-shadow:0 0 14px rgba(255,94,108,.6);}
+  @keyframes mismatchShake{0%,100%{transform:translateX(0);}25%{transform:translateX(-4px);}75%{transform:translateX(4px);}}
+  .podLabel{font-size:10.5px;color:#9fb3d9;margin-bottom:4px;}
+  .podCells{display:flex;flex-wrap:wrap-reverse;gap:3px;width:100%;justify-content:center;align-content:flex-end;flex:1;}
+  .cellDot{width:13px;height:13px;border-radius:50%;background:radial-gradient(circle at 30% 30%, #b6f2ff, #4fd8ff);box-shadow:0 0 6px #4fd8ff;}
+  .podCount{font-size:15px;font-weight:bold;margin-top:6px;color:#dfefff;}
+  .minusBtn{position:absolute;top:4px;right:4px;background:rgba(255,255,255,.12);border:none;color:#fff;
+    width:19px;height:19px;border-radius:50%;cursor:pointer;font-size:12px;line-height:1;}
+
+  /* ARRAY GRID */
+  .arrayGrid{display:grid;gap:6px;}
+  .arrCell{width:52px;height:52px;border:2px dashed rgba(143,233,255,.35);border-radius:8px;cursor:pointer;transition:all .15s;}
+  .arrCell.filled{background:radial-gradient(circle at 30% 30%, #ffe9b0, #ffd75e);border:2px solid #ffd75e;box-shadow:0 0 12px rgba(255,215,94,.6);}
+  .arrCell.mismatchCell{border-color:#ff5e6c!important;box-shadow:0 0 10px rgba(255,94,108,.7);}
+
+  /* TRAIL CHIPS */
+  .trailWrap{display:flex;align-items:center;gap:6px;flex-wrap:wrap;justify-content:center;max-width:420px;}
+  .chip{background:rgba(79,216,255,.15);border:1px solid #4fd8ff;color:#8fe9ff;padding:4px 9px;border-radius:14px;font-size:13px;}
+  .chip.active{background:#4fd8ff;color:#04202b;font-weight:bold;}
+  .arrowChip{color:#9fb3d9;font-size:12px;}
+
+  /* SUPPLY & CONTROLS */
+  .supplyLabel{font-size:11.5px;color:#9fb3d9;margin-bottom:6px;}
+  .supplyGrid{display:flex;flex-wrap:wrap;gap:8px;}
+  .supplyOrb{width:36px;height:36px;border-radius:50%;background:radial-gradient(circle at 30% 30%, #fff6cf, #ffd75e);
+    display:flex;align-items:center;justify-content:center;font-size:16px;cursor:pointer;
+    box-shadow:0 0 10px rgba(255,215,94,.5);transition:transform .12s;}
+  .supplyOrb:active{transform:scale(.82);}
+  .chargeBtn{margin-top:auto;background:linear-gradient(135deg,#4fd8ff,#7d6bff);border:none;color:#04202b;
+    font-weight:bold;padding:12px;border-radius:10px;cursor:pointer;font-size:14px;box-shadow:0 0 16px rgba(79,216,255,.5);}
+  .chargeBtn:hover{filter:brightness(1.1);}
+  .layerBtns{display:flex;flex-direction:column;gap:8px;}
+  .layerBtn{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.2);color:#dfefff;
+    padding:10px;border-radius:8px;cursor:pointer;font-size:12.5px;}
+  .layerBtn.secondary{background:rgba(255,90,90,.1);border-color:rgba(255,90,90,.3);}
+  .timerWrap{margin-bottom:4px;}
+  .timerLabel{font-size:11px;color:#9fb3d9;margin-bottom:4px;}
+  .timerBarOuter{height:9px;background:rgba(255,255,255,.1);border-radius:5px;overflow:hidden;}
+  .timerBarInner{height:100%;width:100%;background:linear-gradient(90deg,#7dff8a,#ffd75e,#ff5e6c);transition:width 1s linear;}
+
+  /* OVERLAY */
+  #overlay{position:absolute;inset:0;background:rgba(3,5,10,.9);display:flex;align-items:center;justify-content:center;z-index:50;}
+  #overlay.hidden{display:none;}
+  .overlayCard{max-width:640px;background:rgba(15,20,35,.96);border:1px solid rgba(143,233,255,.3);
+    border-radius:16px;padding:34px 44px;text-align:center;box-shadow:0 0 40px rgba(79,216,255,.25);}
+  .overlayCard h1{color:#8fe9ff;font-size:27px;margin-bottom:14px;text-shadow:0 0 14px rgba(79,216,255,.6);}
+  .overlayCard.breach h1{color:#ff6b6b;text-shadow:0 0 14px rgba(255,90,90,.6);}
+  .overlayCard.victory h1{color:#ffd75e;text-shadow:0 0 18px rgba(255,215,94,.7);}
+  .overlayCard p{color:#dfefff;font-size:14.5px;line-height:1.5;margin:8px 0;}
+  .finalEquation{font-size:23px;color:#7dff8a;font-weight:bold;margin-top:12px;}
+  .bigBtn{margin-top:18px;background:linear-gradient(135deg,#4fd8ff,#7d6bff);border:none;color:#04202b;
+    font-weight:bold;padding:13px 28px;border-radius:12px;cursor:pointer;font-size:15px;box-shadow:0 0 20px rgba(79,216,255,.5);}
+</style>
+</head>
+<body>
+<div id="app">
+
+  <div id="topbar">
+    <div id="titleBlock">
+      <h1>⚡ THE FRACTURED ARENA</h1>
+      <div>Restore three shields before the rival reaches the core</div>
+    </div>
+    <div id="shieldsRow">
+      <div class="shieldWrap"><div class="shieldIcon pending" id="shield0">🛡️</div><div class="shieldLabel">Shield 1</div></div>
+      <div class="shieldWrap"><div class="shieldIcon pending" id="shield1">🛡️</div><div class="shieldLabel">Shield 2</div></div>
+      <div class="shieldWrap"><div class="shieldIcon pending" id="shield2">🛡️</div><div class="shieldLabel">Shield 3</div></div>
+    </div>
+    <button class="smallBtn" id="restartTopBtn">⟳ Reset Arena</button>
+  </div>
+
+  <div id="rivalTrackWrap">
+    <div id="rivalTrackLabel">RIVAL ADVANCE ⟶ CORE</div>
+    <div id="rivalTrack">
+      <div id="rivalIcon">🤖</div>
+      <div id="coreIcon">🔮</div>
+    </div>
+  </div>
+
+  <div id="stageArea">
+    <div id="leftPanel">
+      <h2 id="stageTitle">SHIELD 1</h2>
+      <div id="stagePrompt">Loading mission...</div>
+      <div id="stageTip"></div>
+      <div class="feedback" id="feedbackEl"></div>
+    </div>
+
+    <div id="centerPanelWrap">
+      <div id="centerArena"></div>
+      <div id="mathReadout">
+        <div id="readoutLine1"></div>
+        <div id="readoutLine2"></div>
+      </div>
+    </div>
+
+    <div id="rightPanel"></div>
+  </div>
+
+  <div id="overlay">
+    <div class="overlayCard">
+      <h1>⚡ THE FRACTURED ARENA ⚡</h1>
+      <p>The arena's three shields have gone dark, and a rival is advancing toward the core.</p>
+      <p>Arrange energy cells into <b>equal formations</b> to charge each shield. Correct formations push the rival back — mistakes let it advance!</p>
+      <p style="font-size:12.5px;color:#9fb3d9;">Build equal groups &rarr; Recognize arrays &rarr; Find the missing factor &rarr; Charge the final core</p>
+      <button class="bigBtn" id="beginBtn">Begin Mission</button>
+    </div>
+  </div>
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.js"></script>
+<script>
+/* ============ STATE ============ */
+const state = {
+  stageIndex: 0,
+  rivalPos: 0,
+  maxRival: 6,
+  shieldsCharged: [false,false,false],
+  task: null,
+  selectedPod: 0,
+  lastFinaleSentence: ''
+};
+let finaleInterval = null;
+
+/* ============ HELPERS ============ */
+function rand(min,max){ return Math.floor(Math.random()*(max-min+1))+min; }
+const overlay = document.getElementById('overlay');
+const centerArena = document.getElementById('centerArena');
+const rightControls = document.getElementById('rightPanel');
+const feedbackEl = document.getElementById('feedbackEl');
+
+function showOverlay(html){ overlay.innerHTML = html; overlay.classList.remove('hidden'); }
+function hideOverlay(){ overlay.classList.add('hidden'); }
+
+/* ============ AUDIO ============ */
+let actx;
+function ensureAudio(){ if(!actx){ try{ actx = new (window.AudioContext||window.webkitAudioContext)(); }catch(e){} } }
+function playTone(freq,dur,type,delay){
+  type=type||'sine'; delay=delay||0;
+  try{
+    ensureAudio(); if(!actx) return;
+    const t=actx.currentTime+delay;
+    const osc=actx.createOscillator(); const gain=actx.createGain();
+    osc.type=type; osc.frequency.value=freq;
+    gain.gain.setValueAtTime(0.0001,t);
+    gain.gain.exponentialRampToValueAtTime(0.22,t+0.01);
+    gain.gain.exponentialRampToValueAtTime(0.0001,t+dur);
+    osc.connect(gain); gain.connect(actx.destination);
+    osc.start(t); osc.stop(t+dur+0.02);
+  }catch(e){}
+}
+function playClick(){ playTone(880,0.04,'square'); }
+function playSuccessChime(){ playTone(523,0.12); playTone(659,0.12,'sine',0.12); playTone(784,0.18,'sine',0.24); }
+function playFailBuzz(){ playTone(150,0.28,'sawtooth'); }
+function playVictoryFanfare(){ [523,659,784,1046].forEach((f,i)=>playTone(f,0.22,'triangle',i*0.15)); }
+function burstConfettiSmall(){ if(window.confetti) confetti({particleCount:40,spread:55,origin:{y:0.5},colors:['#5ee7ff','#7dff8a','#ffd75e']}); }
+function fireConfettiBig(){
+  if(!window.confetti) return;
+  const end = Date.now()+2000;
+  (function frame(){
+    confetti({particleCount:6,angle:60,spread:70,origin:{x:0}});
+    confetti({particleCount:6,angle:120,spread:70,origin:{x:1}});
+    if(Date.now()<end) requestAnimationFrame(frame);
+  })();
+}
+
+/* ============ RIVAL TRACK & SHIELDS ============ */
+function updateRivalTrack(){
+  const track = document.getElementById('rivalTrack');
+  const icon = document.getElementById('rivalIcon');
+  const core = document.getElementById('coreIcon');
+  const w = track.clientWidth - 34;
+  const pct = state.rivalPos / state.maxRival;
+  icon.style.left = Math.max(0,pct*w) + 'px';
+  core.classList.toggle('danger', state.rivalPos >= state.maxRival-1);
+}
+function updateShieldIcons(){
+  for(let i=0;i<3;i++){
+    const el = document.getElementById('shield'+i);
+    el.classList.remove('pending','active','charged');
+    if(state.shieldsCharged[i]) el.classList.add('charged');
+    else if(i===state.stageIndex) el.classList.add('active');
+    else el.classList.add('pending');
+  }
+}
+function flashShieldSuccess(idx){
+  if(idx>2) return;
+  const el = document.getElementById('shield'+idx);
+  el.classList.add('pulse'); setTimeout(()=>el.classList.remove('pulse'),800);
+}
+function crackShieldEffect(){
+  const wrap = document.getElementById('centerPanelWrap');
+  wrap.classList.remove('crack'); void wrap.offsetWidth; wrap.classList.add('crack');
+  setTimeout(()=>wrap.classList.remove('crack'),500);
+}
+function applyHighlight(h){
+  if(!h) return;
+  if(h.type==='pods'){
+    h.indices.forEach(i=>{
+      const p=document.querySelector('.pod[data-i="'+i+'"]');
+      if(p){ p.classList.add('mismatch'); setTimeout(()=>p.classList.remove('mismatch'),700); }
+    });
+  } else if(h.type==='rows'){
+    h.indices.forEach(r=>{
+      document.querySelectorAll('.arrCell[data-r="'+r+'"]').forEach(c=>c.classList.add('mismatchCell'));
+    });
+    setTimeout(()=>document.querySelectorAll('.mismatchCell').forEach(c=>c.classList.remove('mismatchCell')),700);
+  }
+}
+
+/* ============ TASK GENERATION ============ */
+function newTaskForStage(idx){
+  if(idx===0){
+    const groups=rand(3,5), perGroup=rand(3,6);
+    return {type:'groups', groups, perGroup, total:groups*perGroup, filled:Array(groups).fill(0)};
+  }
+  if(idx===1){
+    const rows=rand(3,5), cols=rand(3,6);
+    return {type:'array', rows, cols, total:rows*cols, grid:Array(rows).fill(0).map(()=>Array(cols).fill(false))};
+  }
+  if(idx===2){
+    const groups=rand(3,6), perGroup=rand(3,7);
+    return {type:'missingFactor', groups, total:groups*perGroup, layers:0, trail:[]};
+  }
+}
+function newFinaleTask(){
+  const groups=rand(4,6), perGroup=rand(4,6);
+  return {type:'finale', groups, perGroup, total:groups*perGroup, filled:Array(groups).fill(0), timeLeft:40};
+}
+
+/* ============ BRIEFING ============ */
+function setBriefing(title,prompt,tip){
+  document.getElementById('stageTitle').textContent=title;
+  document.getElementById('stagePrompt').textContent=prompt;
+  document.getElementById('stageTip').textContent=tip;
+}
+function briefingFor(task, idx){
+  if(task.type==='groups'){
+    setBriefing('SHIELD '+(idx+1)+' — Equal Groups',
+      'Command: Form '+task.groups+' equal squads with '+task.perGroup+' energy cells in each squad.',
+      'Tip: Tap a row to select it, then tap ⚡ to add cells. Every squad must match exactly!');
+  } else if(task.type==='array'){
+    setBriefing('SHIELD '+(idx+1)+' — Recognize the Array',
+      'Command: Build a full array — '+task.rows+' rows and '+task.cols+' columns — to charge the shield.',
+      'Tip: Tap the grid squares to place cells. A complete rectangle powers the shield!');
+  } else if(task.type==='missingFactor'){
+    setBriefing('SHIELD '+(idx+1)+' — Find the Missing Factor',
+      'Command: The shield needs exactly '+task.total+' energy cells arranged in '+task.groups+' equal rows. How many cells belong in each row?',
+      'Tip: Add a layer to grow every row together — the skip-count trail reveals the missing factor!');
+  } else if(task.type==='finale'){
+    setBriefing('FINAL CORE — Apply Multiplication',
+      'The rival surges toward the core! Build '+task.groups+' rows of '+task.perGroup+' energy cells before stability runs out!',
+      'Tip: Use everything you\'ve learned — equal rows, full arrays, and quick counting!');
+  }
+}
+
+/* ============ MATH READOUT ============ */
+function updateMathReadout(task){
+  const l1=document.getElementById('readoutLine1'), l2=document.getElementById('readoutLine2');
+  if(task.type==='groups'||task.type==='finale'){
+    const sum=task.filled.reduce((a,b)=>a+b,0);
+    l1.textContent = 'Total energy cells: '+sum;
+    const unit=task.filled[0];
+    const allEq = task.filled.every(c=>c===unit) && unit>0;
+    l2.textContent = allEq ? (task.filled.length+' × '+unit+' = '+sum) : '';
+  } else if(task.type==='array'){
+    let filled=0, rowsFull=0;
+    task.grid.forEach(row=>{ const c=row.filter(Boolean).length; filled+=c; if(c===task.cols) rowsFull++; });
+    l1.textContent = 'Filled cells: '+filled+' / '+task.total;
+    l2.textContent = rowsFull>0 ? (rowsFull+' row'+(rowsFull>1?'s':'')+' × '+task.cols+' = '+(rowsFull*task.cols)) : '';
+  } else if(task.type==='missingFactor'){
+    l1.textContent = 'Layers added: '+task.layers+'  (target '+task.total+' cells)';
+    l2.textContent = task.groups+' × '+task.layers+' = '+(task.groups*task.layers);
+  }
+}
+function sentenceFor(task){
+  if(task.type==='groups'||task.type==='finale') return task.groups+' × '+task.perGroup+' = '+task.total;
+  if(task.type==='array') return task.rows+' × '+task.cols+' = '+task.total;
+  if(task.type==='missingFactor') return task.groups+' × '+task.layers+' = '+task.total;
+}
+
+/* ============ RENDERERS ============ */
+function clearArena(){ centerArena.innerHTML=''; rightControls.innerHTML=''; }
+
+function selectPod(i){ state.selectedPod=i; document.querySelectorAll('.pod').forEach(p=>p.classList.toggle('selected', parseInt(p.dataset.i)===i)); }
+
+function renderGroupsLike(task){
+  const podsRow=document.createElement('div'); podsRow.className='podsRow';
+  for(let i=0;i<task.groups;i++){
+    const pod=document.createElement('div'); pod.className='pod'; pod.dataset.i=i;
+    pod.innerHTML='<div class="podLabel">Row '+(i+1)+'</div>'+
+      '<div class="podCells" id="podCells'+i+'"></div>'+
+      '<div class="podCount" id="podCount'+i+'">0</div>'+
+      '<button class="minusBtn" data-i="'+i+'">−</button>';
+    pod.addEventListener('click', ()=> selectPod(i));
+    podsRow.appendChild(pod);
+  }
+  centerArena.appendChild(podsRow);
+  podsRow.querySelectorAll('.minusBtn').forEach(b=>{
+    b.addEventListener('click',(e)=>{ e.stopPropagation(); removeCell(parseInt(b.dataset.i)); });
+  });
+  state.selectedPod=0;
+  refreshPods(task);
+  selectPod(0);
+
+  if(task.type==='finale'){
+    const timerWrap=document.createElement('div'); timerWrap.className='timerWrap';
+    timerWrap.innerHTML='<div class="timerLabel">Core Stability</div><div class="timerBarOuter"><div class="timerBarInner" id="timerBarInner"></div></div>';
+    rightControls.appendChild(timerWrap);
+  }
+
+  const supplyWrap=document.createElement('div'); supplyWrap.className='supplyWrap';
+  supplyWrap.innerHTML='<div class="supplyLabel">Energy Cell Source — tap to add to selected row</div><div class="supplyGrid" id="supplyGrid"></div>';
+  rightControls.appendChild(supplyWrap);
+  const sg=supplyWrap.querySelector('#supplyGrid');
+  for(let k=0;k<8;k++){
+    const orb=document.createElement('div'); orb.className='supplyOrb'; orb.textContent='⚡';
+    orb.addEventListener('click', ()=> addCell(state.selectedPod));
+    sg.appendChild(orb);
+  }
+  const chargeBtn=document.createElement('button'); chargeBtn.className='chargeBtn'; chargeBtn.textContent='⚡ Charge Shield';
+  chargeBtn.addEventListener('click', submit);
+  rightControls.appendChild(chargeBtn);
+
+  if(task.type==='finale') startFinaleTimer();
+}
+function addCell(i){ const task=state.task; task.filled[i]++; refreshPods(task); playTone(440,0.05,'sine'); }
+function removeCell(i){ const task=state.task; if(task.filled[i]>0) task.filled[i]--; refreshPods(task); playTone(300,0.05,'sine'); }
+function refreshPods(task){
+  for(let i=0;i<task.groups;i++){
+    const cellsEl=document.getElementById('podCells'+i);
+    const cnt=task.filled[i];
+    cellsEl.innerHTML='';
+    for(let k=0;k<cnt;k++){ const d=document.createElement('div'); d.className='cellDot'; cellsEl.appendChild(d); }
+    document.getElementById('podCount'+i).textContent=cnt;
+    const pod=document.querySelector('.pod[data-i="'+i+'"]');
+    if(pod) pod.classList.toggle('overfilled', task.perGroup && cnt>task.perGroup);
+  }
+  updateMathReadout(task);
+}
+
+function renderArray(task){
+  const gridEl=document.createElement('div'); gridEl.className='arrayGrid';
+  gridEl.style.gridTemplateColumns='repeat('+task.cols+', 52px)';
+  gridEl.style.gridTemplateRows='repeat('+task.rows+', 52px)';
+  for(let r=0;r<task.rows;r++){
+    for(let c=0;c<task.cols;c++){
+      const cell=document.createElement('div'); cell.className='arrCell'; cell.dataset.r=r; cell.dataset.c=c;
+      cell.addEventListener('click', ()=>{
+        task.grid[r][c]=!task.grid[r][c];
+        cell.classList.toggle('filled');
+        playTone(task.grid[r][c]?440:300,0.05,'sine');
+        updateMathReadout(task);
+      });
+      gridEl.appendChild(cell);
+    }
+  }
+  centerArena.appendChild(gridEl);
+  const note=document.createElement('div');
+  note.style.cssText='font-size:12px;color:#9fb3d9;margin-top:8px;text-align:center;';
+  note.textContent='Tap each square to place an energy cell.';
+  rightControls.appendChild(note);
+  const chargeBtn=document.createElement('button'); chargeBtn.className='chargeBtn'; chargeBtn.textContent='⚡ Charge Shield';
+  chargeBtn.addEventListener('click', submit);
+  rightControls.appendChild(chargeBtn);
+  updateMathReadout(task);
+}
+
+function renderMissingFactor(task){
+  const podsRow=document.createElement('div'); podsRow.className='podsRow';
+  for(let i=0;i<task.groups;i++){
+    const pod=document.createElement('div'); pod.className='pod static';
+    pod.innerHTML='<div class="podLabel">Row '+(i+1)+'</div><div class="podCells" id="mfCells'+i+'"></div><div class="podCount" id="mfCount'+i+'">0</div>';
+    podsRow.appendChild(pod);
+  }
+  centerArena.appendChild(podsRow);
+  const trailWrap=document.createElement('div'); trailWrap.className='trailWrap'; trailWrap.id='trailWrap';
+  centerArena.appendChild(trailWrap);
+
+  const btnRow=document.createElement('div'); btnRow.className='layerBtns';
+  const addBtn=document.createElement('button'); addBtn.className='layerBtn'; addBtn.textContent='+ Add Layer to All Rows';
+  const remBtn=document.createElement('button'); remBtn.className='layerBtn secondary'; remBtn.textContent='− Remove Layer';
+  addBtn.addEventListener('click', ()=>{ task.layers++; task.trail.push(task.layers*task.groups); refreshMF(task); playTone(440,0.06,'sine'); });
+  remBtn.addEventListener('click', ()=>{ if(task.layers>0){ task.layers--; task.trail.pop(); refreshMF(task); playTone(300,0.06,'sine'); } });
+  btnRow.appendChild(addBtn); btnRow.appendChild(remBtn);
+  rightControls.appendChild(btnRow);
+  const chargeBtn=document.createElement('button'); chargeBtn.className='chargeBtn'; chargeBtn.textContent='⚡ Charge Shield';
+  chargeBtn.addEventListener('click', submit);
+  rightControls.appendChild(chargeBtn);
+  refreshMF(task);
+}
+function refreshMF(task){
+  for(let i=0;i<task.groups;i++){
+    const cellsEl=document.getElementById('mfCells'+i); cellsEl.innerHTML='';
+    for(let k=0;k<task.layers;k++){ const d=document.createElement('div'); d.className='cellDot'; cellsEl.appendChild(d); }
+    document.getElementById('mfCount'+i).textContent=task.layers;
+  }
+  const trailWrap=document.getElementById('trailWrap'); trailWrap.innerHTML='';
+  task.trail.forEach((v,idx)=>{
+    const chip=document.createElement('span'); chip.className='chip'+(idx===task.trail.length-1?' active':''); chip.textContent=v;
+    trailWrap.appendChild(chip);
+    if(idx<task.trail.length-1){ const arrow=document.createElement('span'); arrow.className='arrowChip'; arrow.textContent='→'; trailWrap.appendChild(arrow); }
+  });
+  updateMathReadout(task);
+}
+
+/* ============ FINALE TIMER ============ */
+function startFinaleTimer(){
+  clearInterval(finaleInterval);
+  if(state.task.timeLeft==null) state.task.timeLeft=40;
+  const bar=document.getElementById('timerBarInner'); if(bar) bar.style.width='100%';
+  finaleInterval=setInterval(()=>{
+    if(!state.task || state.task.type!=='finale'){ clearInterval(finaleInterval); return; }
+    state.task.timeLeft--;
+    const pct=Math.max(0,state.task.timeLeft/40*100);
+    const b=document.getElementById('timerBarInner'); if(b) b.style.width=pct+'%';
+    if(state.task.timeLeft<=0){
+      onFail('Core stability depleted! The rival surges forward!', null);
+      if(state.task && state.task.type==='finale') state.task.timeLeft=40;
+    }
+  },1000);
+}
+
+/* ============ SUBMIT / VALIDATION ============ */
+function submit(){
+  playClick();
+  const task=state.task;
+  let ok=false, msg='', highlight=null;
+  if(task.type==='groups'||task.type==='finale'){
+    const bad=[];
+    task.filled.forEach((c,i)=>{ if(c!==task.perGroup) bad.push(i); });
+    ok = bad.length===0;
+    if(!ok){
+      msg = bad.map(i=>'Row '+(i+1)+' has '+task.filled[i]+' cell'+(task.filled[i]!==1?'s':'')+', needs '+task.perGroup).join('  •  ');
+      highlight={type:'pods', indices:bad};
+    }
+  } else if(task.type==='array'){
+    let filled=0; const bad=[];
+    task.grid.forEach((row,ri)=>{ const c=row.filter(Boolean).length; filled+=c; if(c!==task.cols) bad.push(ri); });
+    ok = bad.length===0 && filled===task.total;
+    if(!ok){
+      if(bad.length){
+        msg = bad.map(ri=>{ const c=task.grid[ri].filter(Boolean).length; return 'Row '+(ri+1)+' has '+c+' of '+task.cols; }).join('  •  ');
+      } else { msg = 'Filled '+filled+', need '+task.total+'.'; }
+      highlight={type:'rows', indices:bad};
+    }
+  } else if(task.type==='missingFactor'){
+    const total = task.layers*task.groups;
+    ok = total===task.total;
+    if(!ok){
+      msg = task.groups+' rows × '+task.layers+' layers = '+total+', but the shield needs '+task.total+'. '+(total<task.total?'Add more layers!':'Remove a few layers!');
+    }
+  }
+  if(ok) onSuccess(); else onFail(msg, highlight);
+}
+
+function onSuccess(){
+  const task=state.task, idx=state.stageIndex;
+  playSuccessChime();
+  feedbackEl.textContent = '✅ Shield charged! '+sentenceFor(task);
+  feedbackEl.className='feedback good';
+  burstConfettiSmall();
+  if(idx<3){
+    flashShieldSuccess(idx);
+    state.shieldsCharged[idx]=true;
+    updateShieldIcons();
+  } else {
+    state.lastFinaleSentence = sentenceFor(task);
+    const core=document.getElementById('coreIcon');
+    core.classList.add('pulse'); setTimeout(()=>core.classList.remove('pulse'),800);
+    clearInterval(finaleInterval);
+  }
+  state.rivalPos = Math.max(0, state.rivalPos-1);
+  updateRivalTrack();
+  if(idx<3){
+    setTimeout(()=>{ state.stageIndex++; loadStage(); }, 1500);
+  } else {
+    setTimeout(()=> triggerVictory(), 1200);
+  }
+}
+
+function onFail(msg, highlight){
+  playFailBuzz();
+  feedbackEl.textContent = '⚠ '+msg;
+  feedbackEl.className='feedback bad';
+  crackShieldEffect();
+  applyHighlight(highlight);
+  state.rivalPos = Math.min(state.maxRival, state.rivalPos+1);
+  updateRivalTrack();
+  if(state.rivalPos >= state.maxRival) triggerBreach();
+}
+
+/* ============ END STATES ============ */
+function triggerBreach(){
+  clearInterval(finaleInterval);
+  showOverlay(
+    '<div class="overlayCard breach">'+
+    '<h1>⚠ CORE BREACH ⚠</h1>'+
+    '<p>The rival reached the core before the arena could stabilize.</p>'+
+    '<p>Reboot the arena systems and try again — you\'ve got this!</p>'+
+    '<button class="bigBtn" id="rebootBtn">Reboot Arena</button>'+
+    '</div>'
+  );
+  document.getElementById('rebootBtn').addEventListener('click', newGame);
+}
+function triggerVictory(){
+  fireConfettiBig();
+  playVictoryFanfare();
+  showOverlay(
+    '<div class="overlayCard victory">'+
+    '<h1>🏆 ARENA RESTORED 🏆</h1>'+
+    '<p>All three shields are charged and the core array is complete!</p>'+
+    '<p class="finalEquation">'+(state.lastFinaleSentence||'')+'</p>'+
+    '<button class="bigBtn" id="playAgainBtn">New Arena Challenge</button>'+
+    '</div>'
+  );
+  document.getElementById('playAgainBtn').addEventListener('click', newGame);
+}
+
+/* ============ STAGE LOADING ============ */
+function loadStage(){
+  clearArena();
+  feedbackEl.textContent=''; feedbackEl.className='feedback';
+  const idx=state.stageIndex;
+  const task = idx<3 ? newTaskForStage(idx) : newFinaleTask();
+  state.task = task;
+  updateShieldIcons();
+  briefingFor(task, idx);
+  if(task.type==='array') renderArray(task);
+  else if(task.type==='missingFactor') renderMissingFactor(task);
+  else renderGroupsLike(task);
+}
+
+/* ============ GAME LIFECYCLE ============ */
+function newGame(){
+  clearInterval(finaleInterval);
+  state.stageIndex=0;
+  state.rivalPos=0;
+  state.maxRival=rand(5,7);
+  state.shieldsCharged=[false,false,false];
+  state.lastFinaleSentence='';
+  hideOverlay();
+  loadStage();
+  updateRivalTrack();
+}
+
+document.getElementById('beginBtn').addEventListener('click', ()=>{ ensureAudio(); hideOverlay(); newGame(); });
+document.getElementById('restartTopBtn').addEventListener('click', ()=>{ ensureAudio(); newGame(); });
+
+updateRivalTrack();
+</script>
+</body>
+</html>
+```

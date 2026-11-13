@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Fair Slice Bakery</title>
+<style>
+  * { box-sizing: border-box; user-select: none; -webkit-user-select: none; touch-action: none; }
+  body {
+    margin: 0; width: 1365px; height: 768px; overflow: hidden;
+    background: linear-gradient(180deg, #fff3e2 0%, #ffe4c4 100%);
+    font-family: 'Segoe UI', Arial, sans-serif;
+    position: relative;
+  }
+  #header {
+    position: absolute; top: 0; left: 0; right: 0; height: 90px;
+    background: #e8956b; display: flex; align-items: center; justify-content: space-between;
+    padding: 0 40px; box-shadow: 0 4px 10px rgba(0,0,0,0.15); z-index: 5;
+  }
+  #title { color: #fff; font-size: 30px; font-weight: 800; text-shadow: 1px 1px 2px rgba(0,0,0,0.2); }
+  #ticket {
+    background: #fff8ef; border: 3px solid #d97a4a; border-radius: 14px;
+    padding: 10px 26px; font-size: 22px; font-weight: 700; color: #7a4a2a;
+  }
+  #coins {
+    background: #ffd97a; border: 3px solid #d99a2b; border-radius: 20px;
+    padding: 10px 22px; font-size: 22px; font-weight: 800; color: #7a4a10;
+  }
+  #stage {
+    position: absolute; top: 90px; left: 0; width: 1365px; height: 678px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  #board {
+    width: 620px; height: 520px; background: #fbe4c0; border-radius: 24px;
+    border: 6px solid #c98a4b; position: relative; box-shadow: inset 0 0 30px rgba(160,100,40,0.2);
+    display: flex; align-items: center; justify-content: center;
+  }
+  #customer {
+    position: absolute; left: 90px; top: 240px; text-align: center; width: 160px;
+  }
+  #customerFace { font-size: 90px; transition: transform 0.2s; }
+  #patienceBarWrap {
+    width: 130px; height: 14px; background: #eee; border-radius: 8px; margin: 8px auto 0;
+    border: 2px solid #cc8; overflow: hidden;
+  }
+  #patienceBar { height: 100%; width: 100%; background: #6cd66c; transition: width 0.4s, background 0.4s; }
+  #feedback {
+    position: absolute; right: 90px; top: 250px; width: 220px; font-size: 22px;
+    color: #7a4a2a; font-weight: 700; text-align: center; min-height: 60px;
+  }
+  #instructionBanner {
+    position: absolute; top: 8px; left: 50%; transform: translateX(-50%);
+    background: #ffffffdd; border: 2px solid #d97a4a; border-radius: 12px;
+    padding: 6px 20px; font-size: 17px; color: #7a4a2a; font-weight: 600;
+  }
+  svg { overflow: visible; }
+  .cookie { fill: #e8b878; stroke: #7a4a2a; stroke-width: 5; }
+  .piece-good { fill: #f6cd8e; stroke: #3a9a3a; stroke-width: 4; }
+  .piece-bad { fill: #f2a4a4; stroke: #b23a3a; stroke-width: 4; }
+  .cutline { stroke: #7a4a2a; stroke-width: 5; stroke-linecap: round; opacity: 0.9; }
+  #meter {
+    position: absolute; bottom: -50px; left: 50%; transform: translateX(-50%);
+    width: 300px; text-align: center; font-size: 16px; color: #7a4a2a; font-weight: 600;
+  }
+  #meterBarWrap { width: 260px; height: 12px; background: #eee; border-radius: 6px; margin: 4px auto; border: 2px solid #ccc; overflow: hidden; display:flex;}
+  .meterSeg { height: 100%; transition: all 0.15s; }
+  #retryBtn {
+    position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
+    background: #d97a4a; color: white; border: none; padding: 10px 24px; border-radius: 10px;
+    font-size: 16px; font-weight: 700; cursor: pointer; display: none;
+  }
+  #demoHand {
+    position: absolute; font-size: 40px; pointer-events: none; z-index: 20; display: none;
+  }
+  @keyframes wobble {
+    0%,100% { transform: rotate(0deg); }
+    25% { transform: rotate(-4deg); }
+    75% { transform: rotate(4deg); }
+  }
+  .wobble { animation: wobble 0.4s ease-in-out 2; }
+  @keyframes popIn {
+    from { transform: scale(0.7); opacity: 0; }
+    to { transform: scale(1); opacity: 1; }
+  }
+  .popIn { animation: popIn 0.3s ease-out; }
+</style>
+</head>
+<body>
+
+<div id="header">
+  <div id="title">🍪 Fair Slice Bakery</div>
+  <div id="ticket">Order: Cut into <span id="pieceCount">2</span> equal pieces</div>
+  <div id="coins">🪙 <span id="coinCount">0</span></div>
+</div>
+
+<div id="stage">
+  <div id="instructionBanner">Drag a straight line across the cookie to cut it!</div>
+  <div id="board">
+    <div id="customer">
+      <div id="customerFace">😐</div>
+      <div style="font-size:14px;color:#7a4a2a;font-weight:700;">Patience</div>
+      <div id="patienceBarWrap"><div id="patienceBar"></div></div>
+    </div>
+
+    <svg width="380" height="380" id="svgArea">
+      <circle class="cookie" cx="190" cy="190" r="150" id="cookieCircle"></circle>
+      <g id="pieces"></g>
+      <line id="dragLine" class="cutline" x1="0" y1="0" x2="0" y2="0" visibility="hidden"></line>
+    </svg>
+
+    <div id="feedback"></div>
+    <div id="meter">
+      <div>Piece Size Match</div>
+      <div id="meterBarWrap">
+        <div class="meterSeg" id="segA" style="background:#f6cd8e; width:50%;"></div>
+        <div class="meterSeg" id="segB" style="background:#e8b878; width:50%;"></div>
+      </div>
+    </div>
+  </div>
+  <button id="retryBtn" onclick="resetRound(true)">Try Again</button>
+</div>
+
+<div id="demoHand">👆</div>
+
+<script>
+const svg = document.getElementById('svgArea');
+const cookie = document.getElementById('cookieCircle');
+const dragLine = document.getElementById('dragLine');
+const piecesG = document.getElementById('pieces');
+const feedback = document.getElementById('feedback');
+const face = document.getElementById('customerFace');
+const patienceBar = document.getElementById('patienceBar');
+const retryBtn = document.getElementById('retryBtn');
+const segA = document.getElementById('segA');
+const segB = document.getElementById('segB');
+const banner = document.getElementById('instructionBanner');
+let coins = 0;
+let patience = 100;
+let dragging = false;
+let start = null;
+let center = {x:190, y:190}, radius = 150;
+let demoPlaying = true;
+
+function setCoins(v){ coins = v; document.getElementById('coinCount').textContent = coins; }
+
+// ---- demo animation: bad cut then good cut ----
+function runDemo(){
+  const hand = document.getElementById('demoHand');
+  const boardRect = document.getElementById('board').getBoundingClientRect();
+  hand.style.display = 'block';
+
+  function placeHand(x, y){
+    hand.style.left = (boardRect.left + x - 20) + 'px';
+    hand.style.top = (boardRect.top + y - 20) + 'px';
+  }
+
+  // bad cut path (off-center vertical-ish)
+  let t = 0;
+  placeHand(150, 60);
+  drawStaticCut(150,60,230,320, false);
+  setTimeout(()=>{
+    face.textContent = "😟"; feedback.textContent = "Unequal! Customer unhappy.";
+  }, 300);
+
+  setTimeout(()=>{
+    piecesG.innerHTML = '';
+    dragLine.setAttribute('visibility','hidden');
+    face.textContent = "😐"; feedback.textContent = "";
+    placeHand(190, 40);
+    drawStaticCut(190,40,190,340, true);
+    setTimeout(()=>{
+      face.textContent = "😄"; feedback.textContent = "Equal! Fair cut!";
+    },300);
+  }, 1600);
+
+  setTimeout(()=>{
+    hand.style.display = 'none';
+    piecesG.innerHTML = '';
+    dragLine.setAttribute('visibility','hidden');
+    face.textContent = "😐";
+    feedback.textContent = "";
+    demoPlaying = false;
+    banner.textContent = "Your turn! Drag across the cookie to cut it fairly.";
+  }, 3200);
+}
+
+function drawStaticCut(x1,y1,x2,y2, equal){
+  dragLine.setAttribute('x1',x1); dragLine.setAttribute('y1',y1);
+  dragLine.setAttribute('x2',x2); dragLine.setAttribute('y2',y2);
+  dragLine.setAttribute('visibility','visible');
+  renderPieces(x1,y1,x2,y2,equal);
+}
+
+function renderPieces(x1,y1,x2,y2, forcedEqual){
+  piecesG.innerHTML = '';
+  // Approximate: just show two colored half-circles via clip using paths
+  const dx = x2-x1, dy = y2-y1;
+  const len = Math.sqrt(dx*dx+dy*dy) || 1;
+  const nx = -dy/len, ny = dx/len;
+  const far = 400;
+  const p1 = `${x1+nx*far},${y1+ny*far}`;
+  const p2 = `${x2+nx*far},${y2+ny*far}`;
+  const p3 = `${x2-nx*far},${y2-ny*far}`;
+  const p4 = `${x1-nx*far},${y1-ny*far}`;
+  const cls = forcedEqual ? 'piece-good' : 'piece-bad';
+  const cls2 = forcedEqual ? 'piece-good' : 'piece-bad';
+
+  const clipA = document.createElementNS("http://www.w3.org/2000/svg","clipPath");
+  clipA.setAttribute("id","clipA");
+  const polyA = document.createElementNS("http://www.w3.org/2000/svg","polygon");
+  polyA.setAttribute("points", `${x1},${y1} ${p1} ${p2} ${x2},${y2}`);
+  clipA.appendChild(polyA);
+
+  const clipB = document.createElementNS("http://www.w3.org/2000/svg","clipPath");
+  clipB.setAttribute("id","clipB");
+  const polyB = document.createElementNS("http://www.w3.org/2000/svg","polygon");
+  polyB.setAttribute("points", `${x1},${y1} ${p4} ${p3} ${x2},${y2}`);
+  clipB.appendChild(polyB);
+
+  piecesG.appendChild(clipA);
+  piecesG.appendChild(clipB);
+
+  const circA = document.createElementNS("http://www.w3.org/2000/svg","circle");
+  circA.setAttribute("cx",190); circA.setAttribute("cy",190); circA.setAttribute("r",150);
+  circA.setAttribute("clip-path","url(#clipA)");
+  circA.setAttribute("class", cls);
+  circA.setAttribute("id","pieceA");
+
+  const circB = document.createElementNS("http://www.w3.org/2000/svg","circle");
+  circB.setAttribute("cx",190); circB.setAttribute("cy",190); circB.setAttribute("r",150);
+  circB.setAttribute("clip-path","url(#clipB)");
+  circB.setAttribute("class", cls2);
+  circB.setAttribute("id","pieceB");
+
+  piecesG.appendChild(circA);
+  piecesG.appendChild(circB);
+
+  // compute rough area ratio for meter using shoelace on polygon approx (clipped to circle bounding box is imprecise but good enough visually)
+  const areaA = Math.abs(polyArea([{x:x1,y:y1}, pt(p1), pt(p2), {x:x2,y:y2}]));
+  const areaB = Math.abs(polyArea([{x:x1,y:y1}, pt(p4), pt(p3), {x:x2,y:y2}]));
+  const total = areaA+areaB;
+  let pctA = total ? (areaA/total*100) : 50;
+  pctA = Math.max(5, Math.min(95, pctA));
+  segA.style.width = pctA + '%';
+  segB.style.width = (100-pctA) + '%';
+
+  if(!forcedEqual){
+    circA.classList.add('wobble');
+    circB.classList.add('wobble');
+  } else {
+    circA.classList.add('popIn');
+    circB.classList.add('popIn');
+  }
+}
+
+function pt(str){ const [x,y] = str.split(',').map(Number); return {x,y}; }
+function polyArea(pts){
+  let a = 0;
+  for(let i=0;i<pts.length;i++){
+    const j = (i+1)%pts.length;
+    a += pts[i].x*pts[j].y - pts[j].x*pts[i].y;
+  }
+  return a/2;
+}
+
+// ---- interactive cut ----
+function getPos(evt){
+  const rect = svg.getBoundingClientRect();
+  const clientX = evt.touches ? evt.touches[0].clientX : evt.clientX;
+  const clientY = evt.touches ? evt.touches[0].clientY : evt.clientY;
+  return { x: clientX - rect.left, y: clientY - rect.top };
+}
+
+function onDown(e){
+  if(demoPlaying) return;
+  e.preventDefault();
+  dragging = true;
+  start = getPos(e);
+  dragLine.setAttribute('x1', start.x);
+  dragLine.setAttribute('y1', start.y);
+  dragLine.setAttribute('x2', start.x);
+  dragLine.setAttribute('y2', start.y);
+  dragLine.setAttribute('visibility','visible');
+  piecesG.innerHTML = '';
+  feedback.textContent = '';
+  retryBtn.style.display = 'none';
+}
+function onMove(e){
+  if(!dragging) return;
+  e.preventDefault();
+  const p = getPos(e);
+  dragLine.setAttribute('x2', p.x);
+  dragLine.setAttribute('y2', p.y);
+  // live meter based on angle offset from center diameter
+  const mid = {x:(start.x+p.x)/2, y:(start.y+p.y)/2};
+  const distFromCenter = Math.sqrt((mid.x-center.x)**2 + (mid.y-center.y)**2);
+  const closeness = Math.max(0, 1 - distFromCenter/120);
+  const pct = 50 + (1-closeness)*30*(Math.random()>0.5?1:-1)*0.3;
+  segA.style.width = pct + '%';
+  segB.style.width = (100-pct) + '%';
+}
+function onUp(e){
+  if(!dragging) return;
+  dragging = false;
+  const p = getPos(e);
+  const x1 = parseFloat(dragLine.getAttribute('x1'));
+  const y1 = parseFloat(dragLine.getAttribute('y1'));
+  const x2 = p.x, y2 = p.y;
+
+  // Determine equality: does the line pass near center (within tolerance)?
+  const mid = {x:(x1+x2)/2, y:(y1+y2)/2};
+  const distFromCenter = Math.sqrt((mid.x-center.x)**2 + (mid.y-center.y)**2);
+  const lineLen = Math.sqrt((x2-x1)**2+(y2-y1)**2);
+  const isEqual = distFromCenter < 22 && lineLen > 200;
+
+  renderPieces(x1,y1,x2,y2, isEqual);
+
+  if(isEqual){
+    face.textContent = "😄";
+    feedback.textContent = "Perfectly equal! Fair cut! 🎉";
+    setCoins(coins + 10);
+    patience = Math.min(100, patience + 10);
+    banner.textContent = "Great! Next order coming up...";
+    setTimeout(()=> resetRound(false), 1400);
+  } else {
+    face.textContent = "😟";
+    feedback.textContent = "Not equal — one piece is bigger!";
+    patience = Math.max(0, patience - 20);
+    retryBtn.style.display = 'block';
+    banner.textContent = "Oops! Try cutting through the center.";
+  }
+  updatePatience();
+}
+
+function updatePatience(){
+  patienceBar.style.width = patience + '%';
+  if(patience > 60) patienceBar.style.background = '#6cd66c';
+  else if(patience > 30) patienceBar.style.background = '#e8c94a';
+  else patienceBar.style.background = '#e05a5a';
+}
+
+function resetRound(keepFeedback){
+  piecesG.innerHTML = '';
+  dragLine.setAttribute('visibility','hidden');
+  retryBtn.style.display = 'none';
+  segA.style.width = '50%';
+  segB.style.width = '50%';
+  face.textContent = "😐";
+  if(!keepFeedback){ feedback.textContent = ''; }
+  banner.textContent = "Drag a straight line across the cookie to cut it!";
+}
+
+svg.addEventListener('mousedown', onDown);
+svg.addEventListener('mousemove', onMove);
+window.addEventListener('mouseup', onUp);
+svg.addEventListener('touchstart', onDown, {passive:false});
+svg.addEventListener('touchmove', onMove, {passive:false});
+window.addEventListener('touchend', onUp);
+
+updatePatience();
+setTimeout(runDemo, 500);
+</script>
+</body>
+</html>

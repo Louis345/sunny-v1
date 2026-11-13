@@ -1,0 +1,481 @@
+{
+  "evaluationId": "EVAL-LAB-MATH-C-OPEN-01",
+  "upstreamHash": "e2eb68e06274b1814b1fac57606dae0227e72ba71b89c1e87cfad79726c293af",
+  "assignmentScope": [
+    "assignment:LAB-MATH-C:scope",
+    "Grade 3 multiplication as equal groups: number of groups x amount in each group",
+    "Equal-group and array representations read or constructed, not merely decorated",
+    "Mapping a representation to a multiplication equation and product",
+    "Factor meaning: which factor counts groups and which counts items per group",
+    "Factors constrained to 1-10, products at or below 100",
+    "Excluded from scoring: reading fluency, spelling, typing speed, pointer precision, computation beyond the stated factor range"
+  ],
+  "constructs": [
+    {
+      "constructId": "C1",
+      "name": "Equal-group structure recognition",
+      "definition": "Given a described or shown situation of equal groups, the child identifies that the situation is multiplicative and states the number of groups and the amount in each group.",
+      "prerequisiteFor": [
+        "C2",
+        "C3",
+        "C4"
+      ],
+      "prerequisites": [
+        "Counting and skip counting within 100",
+        "Recognizing that groups are equal in size"
+      ],
+      "observableBehavior": "Child reports a (groups, per-group) pair consistent with the stimulus.",
+      "sourceEvidenceIds": [
+        "assignment:LAB-MATH-C:scope"
+      ]
+    },
+    {
+      "constructId": "C2",
+      "name": "Representation to equation mapping",
+      "definition": "The child connects an equal-group or array representation to a multiplication equation and its product within the 1-10 factor range.",
+      "prerequisiteFor": [
+        "C4"
+      ],
+      "prerequisites": [
+        "C1"
+      ],
+      "observableBehavior": "Child selects or assembles an equation whose factors match the represented structure and whose product matches the total.",
+      "sourceEvidenceIds": [
+        "assignment:LAB-MATH-C:scope"
+      ]
+    },
+    {
+      "constructId": "C3",
+      "name": "Array row-column reading",
+      "definition": "The child reads a rectangular array as rows of equal size and identifies rows and items per row as the two factors.",
+      "prerequisiteFor": [
+        "C4"
+      ],
+      "prerequisites": [
+        "C1"
+      ],
+      "observableBehavior": "Child reports row count and per-row count for an array without counting every cell one by one being required for credit.",
+      "sourceEvidenceIds": [
+        "assignment:LAB-MATH-C:scope"
+      ]
+    },
+    {
+      "constructId": "C4",
+      "name": "Factor referent discrimination",
+      "definition": "The child distinguishes what each factor counts in a specific context, including recognizing that swapping the referents changes the described situation even when the product is unchanged.",
+      "prerequisiteFor": [],
+      "prerequisites": [
+        "C1",
+        "C2",
+        "C3"
+      ],
+      "observableBehavior": "Child attributes each factor to the correct quantity (groups vs. amount per group) and does not treat equal products as equal meanings.",
+      "sourceEvidenceIds": [
+        "assignment:LAB-MATH-C:scope"
+      ]
+    }
+  ],
+  "instrumentHypothesis": {
+    "status": "hypothesis_only_not_measured",
+    "derivedFrom": [
+      "reina:age:2026-07",
+      "reina:riddles:harder",
+      "reina:riddles:logic",
+      "reina:riddles:scaffold",
+      "reina:activity-feedback:small-sample"
+    ],
+    "presentationBurdenHypotheses": [
+      "Text load should be low: short sentences, one stimulus per screen, so reading is not a hidden gate on math evidence (excluded construct).",
+      "Quantities should be visible and countable without fine pointer work; response mode should be selection or single small-number entry rather than dragging or drawing.",
+      "Color or grouping cues may aid parsing of equal groups, but must not by themselves signal the correct answer.",
+      "A hint affordance was favored in small-sample feedback, but hints, examples, and answer exposure are withheld during this opening evaluation to keep evidence independent; any hint affordance may only be offered after all items are recorded."
+    ],
+    "engagementHypotheses": [
+      "Prior interest in harder riddles and in questioning faulty logic suggests tolerance for a discrimination item where two options share the same product; this is a hypothesis about willingness to engage, not evidence of ability.",
+      "Requesting hints when stuck suggests she may stall rather than guess; the instrument should allow an explicit 'not sure' response so stalling is recorded as missing evidence rather than forced error."
+    ],
+    "uncertaintyStatement": "No prior mathematics performance evidence exists for this child in this domain. Difficulty placement, pacing, and item order are provisional. All engagement facts come from riddle activity and small-sample feedback and cannot predict multiplication competence. Results from this evaluation are an initial evidence sample only.",
+    "notMeasuredHere": [
+      "reading fluency",
+      "spelling",
+      "typing speed",
+      "pointer precision",
+      "motivation",
+      "mastery"
+    ]
+  },
+  "items": [
+    {
+      "itemId": "ITEM-1",
+      "targetConstruct": "C1",
+      "prerequisiteProbe": true,
+      "stimulus": {
+        "mode": "static visual plus one short sentence",
+        "description": "Four separate clusters are shown, each cluster containing exactly 6 identical dots. Sentence: 'Each bunch has the same number of dots.' No equation, no total, and no worked example is shown.",
+        "freshness": "Newly authored context (dot clusters, 4 x 6); does not reuse or paraphrase the source assignment's factor-explanation prompt."
+      },
+      "prompt": "How many bunches are there, and how many dots are in each bunch?",
+      "responseContract": {
+        "type": "two numeric entries, each a single integer 1-10",
+        "fields": [
+          "numberOfGroups",
+          "amountInEachGroup"
+        ],
+        "allowedValues": "integers 1-10 per field, plus an explicit 'not sure' option",
+        "noFreeText": true,
+        "rationale": "Lowest-friction mode that still preserves the two distinct quantities; avoids writing, dragging, and spelling."
+      },
+      "correctAnswerContract": {
+        "numberOfGroups": 4,
+        "amountInEachGroup": 6,
+        "creditRule": "Full credit only when both fields are correct and in the correct roles. Reversed pair (6 and 4) is scored as a distinct diagnostic outcome, not as partial credit.",
+        "productNotRequired": true
+      },
+      "difficultyBoundary": {
+        "factorRange": "4 and 6, within 1-10",
+        "productCeiling": 24,
+        "belowBoundary": "Groups are visually separated and equal, so no partitioning decision is required.",
+        "aboveBoundaryExcluded": "No unequal groups, no leftover items, no two-step totals, no factors above 10."
+      },
+      "exposureIdentity": {
+        "exposureId": "EX-EQGROUPS-DOTS-4x6",
+        "structure": "separated equal clusters",
+        "contextFamily": "dot clusters",
+        "factorPair": "4 x 6",
+        "distinctFrom": [
+          "EX-ARRAY-GRID-3x7",
+          "EX-EQUATION-MATCH-5x3",
+          "EX-REFERENT-SWAP-2x8"
+        ],
+        "reuseRule": "This exposure identity must not recur in later items of this evaluation or in any teaching phase before evidence is recorded."
+      },
+      "possibleConfounds": [
+        "Child may count all 24 dots and infer group size by division rather than reading equal-group structure.",
+        "Reading of the single sentence could gate the response (excluded construct).",
+        "Visual clutter or cluster spacing could cause miscounting of clusters rather than a structural error.",
+        "Numeric-entry mechanics could produce an input error unrelated to mathematics."
+      ],
+      "falsifyingEvidence": [
+        "Correct group and per-group values reported with reversed roles falsifies the claim that C1 role assignment is secure.",
+        "A correct total (24) reported instead of the requested pair falsifies the claim that the child parsed the requested quantities.",
+        "'Not sure' or omission falsifies any claim of available C1 evidence and marks it missing.",
+        "Correct response on this item while ITEM-2 and ITEM-3 fail falsifies a general equal-group claim and localizes evidence to separated clusters only."
+      ],
+      "measurementKeys": {
+        "primary": "c1_group_pair_correct",
+        "secondary": [
+          "c1_roles_reversed",
+          "c1_reported_total_instead_of_pair",
+          "c1_not_sure_rate"
+        ],
+        "latencyKey": "c1_time_to_first_entry_ms",
+        "excludedFromScoring": [
+          "reading_time",
+          "keystroke_count",
+          "pointer_path_length"
+        ]
+      },
+      "instructionalExposure": "none: no example, no hint, no feedback, no correct answer shown"
+    },
+    {
+      "itemId": "ITEM-2",
+      "targetConstruct": "C3",
+      "prerequisiteProbe": false,
+      "stimulus": {
+        "mode": "static visual array plus one short sentence",
+        "description": "A rectangular array of identical squares arranged in 3 rows with 7 squares in each row. Sentence: 'Here is one rectangle of squares.' No gridlines labeled with numbers, no equation, no total shown.",
+        "freshness": "Newly authored array (3 x 7) unrelated to any source item wording."
+      },
+      "prompt": "How many rows are there, and how many squares are in each row?",
+      "responseContract": {
+        "type": "two numeric entries, each a single integer 1-10",
+        "fields": [
+          "rows",
+          "squaresPerRow"
+        ],
+        "allowedValues": "integers 1-10 per field, plus an explicit 'not sure' option",
+        "noFreeText": true,
+        "rationale": "Preserves the two array dimensions as separate quantities without requiring drawing or dragging."
+      },
+      "correctAnswerContract": {
+        "rows": 3,
+        "squaresPerRow": 7,
+        "creditRule": "Full credit when both fields are correct in the correct roles. The pair 7 and 3 is recorded as a role-reversal outcome, not partial credit.",
+        "productNotRequired": true
+      },
+      "difficultyBoundary": {
+        "factorRange": "3 and 7, within 1-10",
+        "productCeiling": 21,
+        "belowBoundary": "Array is complete, rectangular, and unambiguous in orientation labeling (rows are horizontal).",
+        "aboveBoundaryExcluded": "No incomplete arrays, no nested arrays, no area-model conversion, no products above 100."
+      },
+      "exposureIdentity": {
+        "exposureId": "EX-ARRAY-GRID-3x7",
+        "structure": "contiguous rectangular array",
+        "contextFamily": "squares grid",
+        "factorPair": "3 x 7",
+        "distinctFrom": [
+          "EX-EQGROUPS-DOTS-4x6",
+          "EX-EQUATION-MATCH-5x3",
+          "EX-REFERENT-SWAP-2x8"
+        ],
+        "reuseRule": "Single use within this evaluation; factor pair and structure both differ from all other items."
+      },
+      "possibleConfounds": [
+        "Row/column vocabulary may be the barrier rather than array structure (language, not mathematics).",
+        "Child may count all 21 squares one by one and still answer correctly, masking whether structure was read.",
+        "Visual scanning at the given viewport width could cause an off-by-one count.",
+        "Orientation preference may lead the child to read columns as rows."
+      ],
+      "falsifyingEvidence": [
+        "Reversed pair (7 rows, 3 per row) falsifies secure row-column referent assignment while leaving structural counting intact.",
+        "Reporting 21 falsifies the claim that the child attended to the requested dimensions.",
+        "Correct here but failure on ITEM-1 falsifies a claim that equal-group parsing generalizes across separated and contiguous layouts.",
+        "'Not sure' marks C3 evidence as missing rather than absent ability."
+      ],
+      "measurementKeys": {
+        "primary": "c3_array_dimensions_correct",
+        "secondary": [
+          "c3_roles_reversed",
+          "c3_reported_total_instead_of_dimensions",
+          "c3_off_by_one_count",
+          "c3_not_sure_rate"
+        ],
+        "latencyKey": "c3_time_to_first_entry_ms",
+        "excludedFromScoring": [
+          "reading_time",
+          "pointer_precision",
+          "typing_speed"
+        ]
+      },
+      "instructionalExposure": "none: no example, no hint, no feedback, no correct answer shown"
+    },
+    {
+      "itemId": "ITEM-3",
+      "targetConstruct": "C2",
+      "prerequisiteProbe": false,
+      "stimulus": {
+        "mode": "static visual plus one short sentence",
+        "description": "Five separated equal groups are shown, each containing 3 identical items. Sentence: 'Every group holds the same amount.' No total and no equation appear in the stimulus.",
+        "freshness": "Newly authored 5 x 3 equal-group context; not a rewrite of the source prompt."
+      },
+      "prompt": "Choose the multiplication equation that matches what is shown.",
+      "responseContract": {
+        "type": "single selection from four fixed options",
+        "options": [
+          "5 x 3 = 15",
+          "5 + 3 = 8",
+          "5 x 5 = 25",
+          "3 x 10 = 30"
+        ],
+        "additionalOption": "an explicit 'not sure' choice recorded separately from the four options",
+        "noFreeText": true,
+        "rationale": "Selection is the lowest-friction mode that still requires mapping structure to both factors and the product."
+      },
+      "correctAnswerContract": {
+        "correctOption": "5 x 3 = 15",
+        "creditRule": "Credit only for the option whose factors match the represented structure and whose product matches the total. No partial credit.",
+        "distractorMeanings": {
+          "5 + 3 = 8": "additive rather than multiplicative interpretation",
+          "5 x 5 = 25": "one factor duplicated; group count substituted for group size",
+          "3 x 10 = 30": "correct factor present but structure and product mismatched"
+        }
+      },
+      "difficultyBoundary": {
+        "factorRange": "5 and 3, within 1-10",
+        "productCeiling": 15,
+        "belowBoundary": "Only one option is structurally consistent; product arithmetic stays within a commonly memorized range so computation does not dominate.",
+        "aboveBoundaryExcluded": "No multi-step equations, no unknown-factor equations, no products above 100."
+      },
+      "exposureIdentity": {
+        "exposureId": "EX-EQUATION-MATCH-5x3",
+        "structure": "separated equal groups mapped to symbolic equation",
+        "contextFamily": "equation selection",
+        "factorPair": "5 x 3",
+        "distinctFrom": [
+          "EX-EQGROUPS-DOTS-4x6",
+          "EX-ARRAY-GRID-3x7",
+          "EX-REFERENT-SWAP-2x8"
+        ],
+        "reuseRule": "Options themselves constitute answer-adjacent exposure; this option set must not be reused in any later item or teaching phase."
+      },
+      "possibleConfounds": [
+        "Selection format permits guessing; a single correct choice is weak evidence (1 in 4 baseline).",
+        "Child may select by recognizing the product 15 without reading the group structure.",
+        "Option order could induce position bias.",
+        "Symbol reading (x versus +) may be the discriminating factor rather than multiplicative reasoning."
+      ],
+      "falsifyingEvidence": [
+        "Selecting '5 + 3 = 8' falsifies the claim that the situation was interpreted multiplicatively.",
+        "Selecting '5 x 5 = 25' falsifies secure discrimination between number of groups and amount per group.",
+        "Correct selection combined with incorrect ITEM-1 or ITEM-2 pairs falsifies the claim that equation choice was driven by structure rather than product recognition.",
+        "Fast correct selection with latency below a plausible inspection threshold weakens, and does not confirm, the C2 claim."
+      ],
+      "measurementKeys": {
+        "primary": "c2_equation_match_correct",
+        "secondary": [
+          "c2_additive_distractor_selected",
+          "c2_duplicated_factor_distractor_selected",
+          "c2_product_only_recognition_flag",
+          "c2_not_sure_rate"
+        ],
+        "latencyKey": "c2_time_to_selection_ms",
+        "guessingControlKey": "c2_selection_latency_below_inspection_threshold",
+        "excludedFromScoring": [
+          "reading_time",
+          "pointer_precision"
+        ]
+      },
+      "instructionalExposure": "none: no example, no hint, no feedback, no correct answer shown"
+    },
+    {
+      "itemId": "ITEM-4",
+      "targetConstruct": "C4",
+      "prerequisiteProbe": false,
+      "stimulus": {
+        "mode": "two short parallel sentences, no picture",
+        "description": "Statement A: '2 baskets, and each basket holds 8 balls.' Statement B: '8 baskets, and each basket holds 2 balls.' Both statements are presented at once. No totals, equations, or pictures are shown.",
+        "freshness": "Newly authored referent-swap contrast; the source assignment's explanation prompt is not reused in wording or format."
+      },
+      "prompt": "Do these two statements describe the same situation? Then say how many baskets Statement A describes.",
+      "responseContract": {
+        "type": "one selection plus one numeric entry",
+        "fields": [
+          {
+            "name": "sameSituation",
+            "options": [
+              "same",
+              "different",
+              "not sure"
+            ]
+          },
+          {
+            "name": "basketsInA",
+            "allowedValues": "integer 1-10, plus 'not sure'"
+          }
+        ],
+        "noFreeText": true,
+        "rationale": "Avoids requiring written explanation, which would convert the item into a writing measure, while still separating referent meaning from bare product equality."
+      },
+      "correctAnswerContract": {
+        "sameSituation": "different",
+        "basketsInA": 2,
+        "creditRule": "Full credit requires both fields correct. Selecting 'same' is scored as evidence that equal products were treated as equal meanings, regardless of the numeric field.",
+        "note": "Both statements yield the product 16; product equality is deliberately not the discriminating feature."
+      },
+      "difficultyBoundary": {
+        "factorRange": "2 and 8, within 1-10",
+        "productCeiling": 16,
+        "belowBoundary": "Only two statements are compared; no third case, no justification required, no symbolic equation to parse.",
+        "aboveBoundaryExcluded": "No formal commutativity statement required, no explanation writing, no factors above 10."
+      },
+      "exposureIdentity": {
+        "exposureId": "EX-REFERENT-SWAP-2x8",
+        "structure": "verbal referent swap with constant product",
+        "contextFamily": "containers and contents",
+        "factorPair": "2 x 8",
+        "distinctFrom": [
+          "EX-EQGROUPS-DOTS-4x6",
+          "EX-ARRAY-GRID-3x7",
+          "EX-EQUATION-MATCH-5x3"
+        ],
+        "reuseRule": "Single use; the swap structure is the sharpest evidence in this set and must not be previewed earlier in the sequence."
+      },
+      "possibleConfounds": [
+        "The word 'same' is ambiguous between same total and same situation; a 'same' response may reflect interpretation of the question rather than factor-referent confusion.",
+        "Reading load is highest in this item and could gate the response (excluded construct).",
+        "Child may already know commutativity and answer 'same' for a mathematically defensible product-based reason.",
+        "Order of Statement A and B could bias which referent is anchored."
+      ],
+      "falsifyingEvidence": [
+        "Selecting 'same' falsifies the claim of secure factor-referent discrimination, but is ambiguous with a product-based reading of 'same' and therefore requires a follow-up disambiguation probe before any C4 claim.",
+        "Correct 'different' with an incorrect basket count falsifies the claim that the specific referents were tracked.",
+        "Correct response here combined with role reversals in ITEM-1 or ITEM-2 falsifies a general C4 claim and confines it to verbal contexts.",
+        "'Not sure' on either field marks C4 evidence as missing."
+      ],
+      "measurementKeys": {
+        "primary": "c4_referent_discrimination_correct",
+        "secondary": [
+          "c4_same_selected_product_equality_confusion",
+          "c4_referent_count_correct",
+          "c4_ambiguity_flag_requires_followup",
+          "c4_not_sure_rate"
+        ],
+        "latencyKey": "c4_time_to_first_response_ms",
+        "excludedFromScoring": [
+          "reading_time",
+          "spelling",
+          "typing_speed",
+          "pointer_precision"
+        ]
+      },
+      "instructionalExposure": "none: no example, no hint, no feedback, no correct answer shown"
+    }
+  ],
+  "completionRule": {
+    "sequence": [
+      "ITEM-1",
+      "ITEM-2",
+      "ITEM-3",
+      "ITEM-4"
+    ],
+    "sequenceRationale": "Prerequisite-first ordering: equal-group structure, then array reading, then representation-to-equation mapping, then factor-referent discrimination. Later items must not reveal structure needed by earlier ones.",
+    "administration": {
+      "independentEvidenceWindow": "All four items are administered before any teaching, worked example, hint, feedback, or correct-answer exposure.",
+      "noFeedbackDuringEvaluation": true,
+      "noHintsDuringEvaluation": true,
+      "hintAffordanceAllowedAfter": "all four item responses are recorded",
+      "retriesAllowed": 0,
+      "childMayStop": true,
+      "notSureIsValidResponse": true,
+      "oneStimulusPerScreen": true,
+      "noTimeLimit": true
+    },
+    "completionCriteria": [
+      "Evaluation is complete when each of ITEM-1 through ITEM-4 has a recorded outcome from the set {correct, incorrect, not_sure, omitted, abandoned}.",
+      "A response of 'not sure', omission, or abandonment is a valid terminal outcome for that item and is recorded as missing evidence for its construct, never as a failure of ability.",
+      "Evaluation is also complete if the child stops early; all unreached items are recorded as missing evidence and the constructs they target remain unresolved."
+    ],
+    "scoringPolicy": {
+      "perConstructOutcomes": [
+        "evidence_supports_construct_provisionally",
+        "evidence_contradicts_construct",
+        "evidence_ambiguous",
+        "evidence_missing"
+      ],
+      "noMasteryDeclaration": "No outcome combination, including four correct responses, may be reported as mastery, proficiency, or a settled skill claim. One item per construct is a single observation sample.",
+      "confoundGating": [
+        "A correct response with latency below the inspection threshold is downgraded to evidence_ambiguous.",
+        "Any item flagged for reading, input, or pointer interference is downgraded to evidence_ambiguous and its construct is treated as unresolved.",
+        "ITEM-4 'same' responses are always flagged evidence_ambiguous pending a disambiguation probe."
+      ],
+      "crossItemConsistencyChecks": [
+        "Role reversal appearing in both ITEM-1 and ITEM-2 indicates a candidate referent-assignment gap that ITEM-4 must corroborate or contradict.",
+        "Correct ITEM-3 with incorrect ITEM-1 and ITEM-2 indicates probable product recognition rather than structural mapping."
+      ]
+    },
+    "outputOfEvaluation": "A per-construct evidence map (C1, C2, C3, C4) with each construct labeled supported-provisionally, contradicted, ambiguous, or missing, plus the list of confound flags raised. No instructional plan is produced by this artifact.",
+    "prohibitions": [
+      "no world, character, setting, or narrative",
+      "no game type or named mechanic",
+      "no visual style, theme, or art direction beyond neutral countable shapes",
+      "no sound, music, reward, points, badges, or streaks",
+      "no HTML, markup, or implementation code",
+      "no mastery, proficiency, or grade-level-attainment claim",
+      "no teaching, modeling, or answer exposure inside the evaluation window"
+    ]
+  },
+  "evidenceRequiredNext": [
+    "Disambiguation probe for ITEM-4 when 'same' is selected: a non-teaching follow-up that separates 'same total' from 'same situation' without revealing the correct answer.",
+    "A second, structurally different observation per construct before any construct may move beyond provisional status; one item is an insufficient sample.",
+    "A no-picture equal-group item to test whether C1 depends on visual separation of groups.",
+    "An unknown-factor probe (total and one factor given, other factor requested) to test whether C2 mapping is bidirectional or only representation-to-equation.",
+    "A column-reading array probe to test whether C3 is orientation-dependent rather than structural.",
+    "Confound-isolation checks: a read-aloud or reduced-text version of the same construct to determine whether any incorrect response was gated by reading load rather than mathematics.",
+    "Input-mode check: confirmation that numeric entry and selection mechanics did not produce recorded errors unrelated to mathematics.",
+    "Latency baselines for this child on a non-mathematical selection task, to calibrate the inspection threshold used in guessing control.",
+    "Repeat observation on a separate occasion to distinguish stable evidence from single-session variation.",
+    "Post-evaluation-only: whether an available hint changes performance, recorded strictly after independent evidence is closed and reported separately from opening evidence."
+  ],
+  "evaluationHash": "274c49ed00318c3c5e7eb4fae53bfbbea61645b4488f4b88780ba9cb431b7361"
+}

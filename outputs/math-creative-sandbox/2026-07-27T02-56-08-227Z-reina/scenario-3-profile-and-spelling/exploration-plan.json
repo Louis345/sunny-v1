@@ -1,0 +1,30 @@
+{
+  "summary": "Start the Ladybug Multiplication Garden activity, explore an incorrect answer path, then attempt to progress correctly toward completion.",
+  "actions": [
+    {
+      "kind": "click_text",
+      "text": "Start Growing! 🌻",
+      "captureLabel": "first-action",
+      "reason": "Begin the activity to see the first multiplication question interface."
+    },
+    {
+      "kind": "wait",
+      "ms": 1000,
+      "captureLabel": "progress",
+      "reason": "Allow the next screen or question to load after starting."
+    },
+    {
+      "kind": "click_at",
+      "x": 682,
+      "y": 500,
+      "captureLabel": "exploration",
+      "reason": "Probe for any answer options or interactive elements that may have appeared lower on the screen."
+    },
+    {
+      "kind": "wait",
+      "ms": 500,
+      "captureLabel": "exploration",
+      "reason": "Check for any tooltip or feedback after probing click."
+    }
+  ]
+}

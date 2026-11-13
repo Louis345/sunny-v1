@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=1365,height=768">
+<title>Slice Kitchen: The Fraction Bakery</title>
+<style>
+html,body{margin:0;padding:0;width:1365px;height:768px;overflow:hidden;font-family:'Comic Sans MS','Chalkboard SE',cursive,sans-serif;user-select:none;-webkit-user-select:none}
+#stage{position:relative;width:1365px;height:768px;background:linear-gradient(#ffe9d6,#ffd9c0 78%,#c98a5b 78.5%,#b5723f);}
+#deco{position:absolute;top:0;left:0;width:100%;height:120px;pointer-events:none;font-size:34px;text-align:center;letter-spacing:18px;opacity:0;transition:opacity 1s}
+#topbar{position:absolute;top:10px;left:0;width:100%;display:flex;justify-content:space-between;padding:0 24px;box-sizing:border-box;align-items:center;z-index:5}
+.badge{background:#fff6ea;border:4px solid #e8a15c;border-radius:20px;padding:8px 18px;font-size:22px;color:#5a3a15;box-shadow:0 4px 0 #d18a44}
+#stageName{font-size:26px;color:#5a3a15;background:#fff6ea;border:4px solid #e8a15c;border-radius:20px;padding:8px 24px;box-shadow:0 4px 0 #d18a44}
+#counter{position:absolute;top:150px;left:0;width:100%;height:430px;display:flex;align-items:center;justify-content:center;gap:40px}
+#belt{position:absolute;bottom:0;left:0;width:100%;height:70px;background:repeating-linear-gradient(90deg,#6b4423 0 60px,#7d5330 60px 120px);border-top:6px solid #4e2f14;animation:belt 3s linear infinite}
+@keyframes belt{from{background-position:0 0}to{background-position:120px 0}}
+#customers{position:absolute;bottom:76px;right:20px;font-size:54px;display:flex;gap:8px;z-index:4}
+.cust{transition:transform .3s;filter:drop-shadow(0 4px 2px rgba(0,0,0,.25))}
+#roly{position:absolute;bottom:80px;left:24px;z-index:6;width:170px;text-align:center}
+#rolyName{display:inline-block;background:#fff6ea;border:3px solid #e8a15c;border-radius:14px;padding:3px 16px;font-size:19px;color:#5a3a15;box-shadow:0 3px 0 #d18a44}
+#bubble{position:absolute;top:120px;left:50%;transform:translateX(-50%);max-width:860px;background:#fffdf5;border:5px solid #e8a15c;border-radius:26px;padding:14px 30px;font-size:26px;color:#5a3a15;text-align:center;z-index:7;box-shadow:0 6px 0 rgba(0,0,0,.12)}
+#bubble b{color:#d15f8f}
+.treat{filter:drop-shadow(0 8px 6px rgba(0,0,0,.22));cursor:pointer;transition:transform .3s}
+.treat.wob{animation:wob .55s ease}
+@keyframes wob{0%,100%{transform:rotate(0)}25%{transform:rotate(-6deg)}50%{transform:rotate(5deg)}75%{transform:rotate(-3deg)}}
+.treat.bounce{animation:bnc .55s ease}
+@keyframes bnc{0%,100%{transform:translateY(0)}40%{transform:translateY(-26px) scale(1.04)}}
+.sector{fill:#fff2df;stroke:#8a5a2b;stroke-width:5;cursor:pointer;transition:fill .3s}
+.sector.shaded{fill:#f7a8c4}
+.sector:hover{fill:#ffe6c9}.sector.shaded:hover{fill:#f48fb4}
+.sector.demoTarget{stroke:#d15f8f;stroke-width:7;stroke-dasharray:12 9;animation:dash 1s linear infinite}
+@keyframes dash{to{stroke-dashoffset:-42}}
+.hand{font-size:40px;pointer-events:none;animation:handB .8s ease infinite}
+@keyframes handB{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
+#btns{position:absolute;bottom:96px;left:50%;transform:translateX(-50%);display:flex;gap:14px;z-index:8;flex-wrap:wrap;justify-content:center;max-width:900px}
+button{font-family:inherit;font-size:24px;background:#ffb85e;border:none;border-radius:18px;padding:12px 26px;color:#5a3410;cursor:pointer;box-shadow:0 5px 0 #cf8b33;transition:transform .1s}
+button:active{transform:translateY(4px);box-shadow:0 1px 0 #cf8b33}
+button.alt{background:#a8dcc8;box-shadow:0 5px 0 #6fae94;color:#1e5240}
+button.small{font-size:18px;padding:8px 16px}
+#sidebtns{position:absolute;right:20px;top:150px;display:flex;flex-direction:column;gap:12px;z-index:8}
+#overlay{position:absolute;inset:0;background:rgba(60,30,10,.55);z-index:20;display:flex;align-items:center;justify-content:center}
+#overlay .card{background:#fff6ea;border:6px solid #e8a15c;border-radius:30px;padding:36px 56px;text-align:center;max-width:760px;color:#5a3a15}
+#overlay h1{color:#d15f8f;font-size:44px;margin:0 0 14px}
+#overlay p{font-size:24px;line-height:1.4}
+.confetti{position:absolute;width:12px;height:12px;border-radius:3px;z-index:30;pointer-events:none}
+.fracLabel{font-size:38px;font-weight:bold;fill:#7a4a1e}
+#hintTag{position:absolute;left:210px;bottom:110px;background:#fffdf5;border:4px solid #a8dcc8;border-radius:18px;padding:10px 16px;font-size:20px;color:#1e5240;display:none;z-index:9;max-width:280px}
+</style>
+</head>
+<body>
+<div id="stage">
+<div id="deco">🎀 💡 🎀 💡 🎀 💡 🎀 💡 🎀</div>
+<div id="topbar">
+ <div class="badge">⭐ Baker Badge: <span id="stars"></span></div>
+ <div id="stageName">Warm Dough</div>
+ <div class="badge">🍞 Golden Crumbs: <span id="crumbs">0</span></div>
+</div>
+<div id="bubble">…</div>
+<div id="counter"></div>
+<div id="btns"></div>
+<div id="sidebtns">
+ <button class="alt small" id="practiceBtn">🥐 Practice Slice</button>
+ <button class="alt small" id="gridBtn">👀 Show me the grid</button>
+ <button class="alt small" id="flourBtn" style="display:none">✨ Flour Dust (1)</button>
+</div>
+<div id="roly">
+ <svg width="150" height="150" viewBox="0 0 150 150">
+  <rect x="10" y="60" width="130" height="34" rx="17" fill="#e8b87a" stroke="#a06a2c" stroke-width="4"/>
+  <rect x="0" y="66" width="18" height="22" rx="8" fill="#c98a44" stroke="#a06a2c" stroke-width="3"/>
+  <rect x="132" y="66" width="18" height="22" rx="8" fill="#c98a44" stroke="#a06a2c" stroke-width="3"/>
+  <circle cx="60" cy="74" r="4.5" fill="#3a2410"/><circle cx="88" cy="74" r="4.5" fill="#3a2410"/>
+  <path d="M62 85 Q74 94 86 85" stroke="#3a2410" stroke-width="3.5" fill="none" stroke-linecap="round"/>
+ </svg>
+ <div id="rolyName">Roly</div>
+</div>
+<div id="hintTag"></div>
+<div id="customers"></div>
+<div id="belt"></div>
+<div id="overlay"><div class="card">
+<h1>🍰 Slice Kitchen</h1>
+<p>Welcome to the magical bakery! Every treat must be cut into <b style="color:#d15f8f">perfectly EQUAL</b> slices.<br>Read each order carefully — customers ask for <b>exactly</b> the right number of pieces!</p>
+<button id="startBtn" style="font-size:30px">Start Baking! 🥧</button>
+</div></div>
+</div>
+<script>
+/* ---------- audio ---------- */
+let AC=null;
+function ac(){if(!AC)AC=new (window.AudioContext||window.webkitAudioContext)();return AC;}
+function tone(f,t,dur,type,vol){const a=ac(),o=a.createOscillator(),g=a.createGain();o.type=type||'sine';o.frequency.value=f;g.gain.setValueAtTime(vol||.18,a.currentTime+t);g.gain.exponentialRampToValueAtTime(.0001,a.currentTime+t+dur);o.connect(g).connect(a.destination);o.start(a.currentTime+t);o.stop(a.currentTime+t+dur+.05);}
+const sChime=()=>{tone(660,0,.35,'sine');tone(880,.09,.4,'sine');tone(1320,.18,.5,'sine',.12);};
+const sBoop=()=>tone(200,0,.3,'triangle',.15);
+const sTap=()=>tone(520,0,.12,'sine',.12);
+const sJingle=()=>{[523,659,784,1047,1319].forEach((f,i)=>tone(f,i*.13,.4,'sine',.16));};
+let ambOn=false;
+function ambience(){if(ambOn)return;ambOn=true;const a=ac(),b=a.createBuffer(1,a.sampleRate*2,a.sampleRate),d=b.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=(Math.random()*2-1)*.015;const src=a.createBufferSource();src.buffer=b;src.loop=true;const f=a.createBiquadFilter();f.type='lowpass';f.frequency.value=300;src.connect(f).connect(a.destination);src.start();}
+/* ---------- state ---------- */
+const STAGES=[
+ {name:'Warm Dough',need:6},
+ {name:'Rising Batch',need:5},
+ {name:"Master Baker's Oven",need:5},
+ {name:'Bakery Grand Opening',need:5},
+ {name:'Design Your Own Treat',need:999}
+];
+let S={stage:0,correct:0,stars:0,crumbs:0,miss:0,flour:1,order:null,demo:true,judgeStreak:0,timer:null,timeLeft:0,orderIdx:0,cleanStreak:0};
+const CUSTS=[['🧙','Grumbles the Gnome'],['🐲','Sizzle the tiny dragon'],['🥞','the Googly Pancake Stack']];
+const WORDS={2:'one HALF',3:'one THIRD',4:'one FOURTH',5:'one FIFTH',6:'one SIXTH',7:'one SEVENTH',8:'one EIGHTH'};
+const PLUR={2:'HALVES',3:'THIRDS',4:'FOURTHS',5:'FIFTHS',6:'SIXTHS',7:'SEVENTHS',8:'EIGHTHS'};
+const NUMW=['zero','ONE','TWO','THREE','FOUR','FIVE','SIX','SEVEN'];
+function fracWord(num,den){return num===1?WORDS[den]:NUMW[num]+' '+PLUR[den];}
+function fracText(num,den){return Math.random()<.5?fracWord(num,den):'<b>'+num+'/'+den+'</b>';}
+const $=id=>document.getElementById(id);
+function bubble(html){$('bubble').innerHTML=html;}
+function updHUD(){$('stars').textContent='★'.repeat(S.stars)||'—';$('crumbs').textContent=S.crumbs;$('stageName').textContent=STAGES[S.stage].name;$('flourBtn').style.display=S.stage===3?'block':'none';$('flourBtn').textContent='✨ Flour Dust ('+S.flour+')';if(S.stars>=6)$('deco').style.opacity=1;}
+function pick(a){return a[Math.floor(Math.random()*a.length)];}
+function shuffle(a){return a.slice().sort(()=>Math.random()-.5);}
+/* ---------- shape geometry ---------- */
+function shapeSVG(shape,den,opts){
+ opts=opts||{};const W=320,H=260;let sectors=[],cx=W/2,cy=H/2;
+ function pie(cx,cy,r,n){const arr=[];for(let i=0;i<n;i++){const a0=-Math.PI/2+i*2*Math.PI/n,a1=-Math.PI/2+(i+1)*2*Math.PI/n;arr.push(`M${cx},${cy} L${cx+r*Math.cos(a0)},${cy+r*Math.sin(a0)} A${r},${r} 0 0 1 ${cx+r*Math.cos(a1)},${cy+r*Math.sin(a1)} Z`);}return arr;}
+ function polyVerts(n,r,rot){const v=[];for(let i=0;i<n;i++){const a=rot+i*2*Math.PI/n;v.push([cx+r*Math.cos(a),cy+r*Math.sin(a)]);}return v;}
+ if(shape==='rect'){const w=280,h=170,x0=cx-w/2,y0=cy-h/2;for(let i=0;i<den;i++){const a=x0+w*i/den,b=x0+w*(i+1)/den;sectors.push(`M${a},${y0} L${b},${y0} L${b},${y0+h} L${a},${y0+h} Z`);}}
+ else if(shape==='circle'){sectors=pie(cx,cy,110,den);}
+ else if(shape==='triangle'){const v=polyVerts(3,120,-Math.PI/2);for(let i=0;i<3;i++){const a=v[i],b=v[(i+1)%3];sectors.push(`M${cx},${cy} L${a[0]},${a[1]} L${b[0]},${b[1]} Z`);}}
+ else if(shape==='hex'){const v=polyVerts(6,115,-Math.PI/2),per=6/den;for(let i=0;i<den;i++){let p=`M${cx},${cy}`;for(let k=0;k<=per;k++){const q=v[(i*per+k)%6];p+=` L${q[0]},${q[1]}`;}sectors.push(p+' Z');}}
+ const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');
+ svg.setAttribute('width',opts.small?230:W);svg.setAttribute('height',opts.small?187:H);svg.setAttribute('viewBox',`0 0 ${W} ${H}`);svg.classList.add('treat');
+ sectors.forEach((d,i)=>{const p=document.createElementNS('http://www.w3.org/2000/svg','path');p.setAttribute('d',d);p.classList.add('sector');p.dataset.i=i;svg.appendChild(p);});
+ if(opts.label){const t=document.createElementNS('http://www.w3.org/2000/svg','text');t.setAttribute('x',cx);t.setAttribute('y',H-4);t.setAttribute('text-anchor','middle');t.setAttribute('class','fracLabel');t.textContent=opts.label;svg.appendChild(t);}
+ return svg;
+}
+const SHAPE_NAMES={rect:'rectangle cookie',circle:'circle pie',triangle:'triangle scone',hex:'HEXAGON donut'};
+/* ---------- customers ---------- */
+function drawCustomers(){$('customers').innerHTML=CUSTS.map((c,i)=>`<div class="cust" id="cust${i}">${c[0]}</div>`).join('');}
+function custHappy(){const c=$('cust0');if(!c)return;c.style.transform='translateY(-18px) scale(1.15)';setTimeout(()=>c.style.transform='',450);}
+function custSad(){const c=$('cust0');if(!c)return;c.style.transform='rotate(-14deg) translateY(6px)';setTimeout(()=>c.style.transform='',600);$('customers').appendChild(c);[...$('customers').children].forEach((el,i)=>el.id='cust'+i);}
+/* ---------- confetti ---------- */
+function confetti(){for(let i=0;i<50;i++){const d=document.createElement('div');d.className='confetti';d.style.left=(Math.random()*1365)+'px';d.style.top='-20px';d.style.background=pick(['#f7a8c4','#a8dcc8','#ffd166','#b9a8f0','#fff']);document.getElementById('stage').appendChild(d);const dur=1200+Math.random()*1400;d.animate([{transform:'translateY(0) rotate(0)'},{transform:`translateY(800px) rotate(${Math.random()*720-360}deg)`}],{duration:dur,easing:'ease-in'});setTimeout(()=>d.remove(),dur);}}
+/* ---------- order generation ---------- */
+function pick3(range){const s=shuffle(range);return s.slice(0,3).sort((a,b)=>a-b);}
+function genOrder(){
+ S.miss=0;$('hintTag').style.display='none';
+ const st=S.stage;S.orderIdx++;const alt=S.orderIdx%2===1;let o;
+ function mkShade(shape,den,predivided,selfOpts){
+  /* numerator varies: alternate unit and explicit non-unit checks */
+  let num=1;
+  if(alt&&den>=3)num=pick([2,Math.min(3,den-1)].filter(n=>n>=2&&n<den));
+  return {type:'shade',shape,den,num:num||1,predivided,selfDivideOpts:selfOpts};
+ }
+ if(st===0){
+  const den=pick([2,3,4]);
+  /* denominator-choice gate on roughly half of Warm Dough orders: uncut shape first */
+  const gate=S.orderIdx%2===0;
+  o=mkShade(pick(['rect','circle']),den,!gate,shuffle([2,3,4]));
+ }
+ else if(st===1){
+  o=Math.random()<.3?{type:'compare',dens:pick3([2,3,4,5])}:mkShade(pick(['rect','circle']),pick([2,3,4]),false,shuffle([2,3,4]));
+ }
+ else if(st===2){
+  if(Math.random()<.45){o={type:'compare',dens:pick3([2,3,4,5,6,7,8]),judge:true};}
+  else{const shape=pick(['rect','circle','triangle','hex']);const den=shape==='triangle'?3:shape==='hex'?pick([2,3,6]):pick([3,4,5,6,7,8]);o=mkShade(shape,den,true);}
+ }
+ else{const r=Math.random();
+  if(r<.2){o={type:'between',lo:5,hi:3,opts:shuffle([2,4,6]),ans:4};}
+  else if(r<.5){o={type:'compare',dens:pick3([2,3,4,5,6,7,8])};}
+  else{const shape=pick(['rect','circle']);o=mkShade(shape,pick([2,3,4,5,6,7,8]),Math.random()<.5,shuffle([2,3,4,5,6,7,8]).slice(0,4));if(o.selfDivideOpts&&!o.selfDivideOpts.includes(o.den))o.selfDivideOpts[0]=o.den;}
+ }
+ o.usedHint=false;
+ o.cust=$('customers').children[0]?[...$('customers').children][0].textContent:'🧙';
+ S.order=o;renderOrder();
+ if(st===3)startTimer(22);
+}
+/* ---------- timer ---------- */
+function startTimer(sec){stopTimer();S.timeLeft=sec;tick();S.timer=setInterval(tick,1000);}
+function stopTimer(){if(S.timer){clearInterval(S.timer);S.timer=null;}}
+function tick(){S.timeLeft--;const t=$('timer');if(t)t.textContent='⏱ '+Math.max(0,S.timeLeft);if(S.timeLeft<=0){stopTimer();sBoop();bubble('⏱ The oven timer dinged! No worries — let\'s try that order fresh.');if(S.order&&S.order.shaded)S.order.shaded=new Set();setTimeout(()=>startTimer(22),1200);miss(true);}}
+/* ---------- rendering orders ---------- */
+function renderOrder(){
+ const o=S.order,C=$('counter'),B=$('btns');C.innerHTML='';B.innerHTML='';
+ const custName=CUSTS.find(c=>c[0]===o.cust);const who=custName?custName[1]:'a customer';
+ if(S.stage===3)B.innerHTML='<span id="timer" class="badge" style="font-size:22px">⏱</span>';
+ if(o.type==='shade'){
+  o.shaded=new Set();
+  if(!o.predivided&&!o.divided){
+   /* denominator-choice gate: uncut shape shown first, child must choose parts */
+   bubble(`${o.cust} ${who} wants <b>${fracText(o.num,o.den)}</b>! First, <b>cut</b> this ${SHAPE_NAMES[o.shape]}: how many <b>equal pieces</b> do we need?`);
+   const svg=shapeSVG(o.shape,1);C.appendChild(svg);
+   (o.selfDivideOpts||shuffle([2,3,4])).forEach(n=>{const b=document.createElement('button');b.textContent=n+' pieces';b.onclick=()=>{sTap();if(n===o.den){o.divided=true;renderOrder();}else{sBoop();svg.classList.add('wob');setTimeout(()=>svg.classList.remove('wob'),600);bubble(`Hmm, ${n} pieces makes ${PLUR[n]?PLUR[n].toLowerCase():n+'ths'}. The order says <b>${o.num}/${o.den}</b> — the bottom number tells the pieces. Try again!`);miss();}};B.appendChild(b);});
+   return;
+  }
+  bubble(`${o.cust} ${who} orders: shade <b>${fracText(o.num,o.den)}</b> of the ${SHAPE_NAMES[o.shape]} — that means exactly <b>${o.num}</b> of the ${o.den} equal pieces!`);
+  const svg=shapeSVG(o.shape,o.den);C.appendChild(svg);o.svg=svg;
+  svg.querySelectorAll('.sector').forEach(p=>{p.onclick=()=>{sTap();const i=p.dataset.i;if(o.shaded.has(i)){o.shaded.delete(i);p.classList.remove('shaded');}else{o.shaded.add(i);p.classList.add('shaded');}};});
+  const serve=document.createElement('button');serve.textContent='Serve it! 🍽';serve.onclick=()=>checkShade();B.appendChild(serve);
+ }
+ else if(o.type==='compare'){
+  /* three fractions; step 1 pick biggest slice, step 2 say which has the most pieces */
+  const dens=o.dens,minD=Math.min(...dens),maxD=Math.max(...dens);
+  bubble(o.judge?`👩‍⚖️ <b>Fraction Judge!</b> Three customers argue: whose slice is <b>BIGGEST</b> — ${dens.map(d=>'<b>1/'+d+'</b>').join(', ')}? Tap the biggest slice!`:`${o.cust} asks: which gives the <b>BIGGEST slice</b> — ${dens.map(d=>'<b>1/'+d+'</b>').join(', ')}? Tap it!`);
+  const svgs={};
+  shuffle(dens).forEach(d=>{const svg=shapeSVG('circle',d,{small:true,label:'1/'+d});svg.querySelector('.sector').classList.add('shaded');C.appendChild(svg);svgs[d]=svg;
+   svg.style.cursor='pointer';svg.onclick=()=>{
+    if(o.step2)return;
+    if(d===minD){
+     sChime();svg.classList.add('bounce');o.step2=true;
+     bubble(`✔ Yes, <b>1/${minD}</b> is the biggest slice! Now one more question: which treat is cut into the <b>MOST pieces</b>?`);
+     B.innerHTML=S.stage===3?'<span id="timer" class="badge" style="font-size:22px">⏱ '+Math.max(0,S.timeLeft)+'</span>':'';
+     shuffle(dens).forEach(dd=>{const b=document.createElement('button');b.textContent='1/'+dd;b.onclick=()=>{sTap();
+      if(dd===maxD){win(svgs[dd]);bubble(`✨ Right! 1/${maxD} has the <b>most pieces</b> (${maxD}!) so each piece is the <b>smallest</b> — and 1/${minD} has the fewest, so it's biggest!`);}
+      else{sBoop();svgs[dd].classList.add('wob');setTimeout(()=>svgs[dd].classList.remove('wob'),600);miss();bubble(`Count the cuts! 1/${dd} has ${dd} pieces. Which fraction's bottom number is the <b>largest</b>?`);}};B.appendChild(b);});
+    }else{sBoop();svg.classList.add('wob');setTimeout(()=>svg.classList.remove('wob'),600);miss();bubble(`Gentle boop! More pieces means each piece is <b>smaller</b>. Which of the three has the <b>FEWEST</b> pieces?`);}};});
+  const helper=document.createElement('button');helper.className='alt small';helper.textContent='Show side-by-side hint';helper.onclick=()=>{o.usedHint=true;bubble(`Same-size pies, different cuts: <b>${dens.join(', ')}</b> pieces. Fewer cuts → <b>bigger</b> pieces; more cuts → <b>more, smaller</b> pieces!`);};B.appendChild(helper);
+ }
+ else if(o.type==='between'){
+  bubble(`🐲 Sizzle wants a slice <b>bigger than 1/5</b> but <b>smaller than 1/3</b>. Tap the right treat!`);
+  o.opts.forEach(d=>{const svg=shapeSVG('circle',d,{small:true,label:'1/'+d});svg.querySelector('.sector').classList.add('shaded');C.appendChild(svg);svg.style.cursor='pointer';
+   svg.onclick=()=>{if(d===o.ans)win(svg);else{sBoop();svg.classList.add('wob');setTimeout(()=>svg.classList.remove('wob'),600);miss();bubble(d<o.ans?`1/${d} is <b>bigger</b> than 1/3 — too big for Sizzle!`:`1/${d} is <b>smaller</b> than 1/5 — too tiny! Try between.`);}};});
+ }
+}
+function checkShade(){
+ const o=S.order;
+ if(o.shaded.size===o.num){win(o.svg);}
+ else{sBoop();o.svg.classList.add('wob');setTimeout(()=>o.svg.classList.remove('wob'),600);
+  bubble(o.shaded.size===0?`Tap slices first — the customer wants <b>${fracWord(o.num,o.den)}</b>, that's <b>${o.num}</b> piece${o.num>1?'s':''}!`:`Oops, that's ${o.shaded.size} piece${o.shaded.size>1?'s':''} — <b>${o.num}/${o.den}</b> means exactly <b>${o.num}</b> of the ${o.den} equal pieces. Count and try again!`);
+  o.shaded=new Set();o.svg.querySelectorAll('.sector').forEach(p=>p.classList.remove('shaded'));
+  miss();}
+}
+function miss(silent){S.miss++;custSad();if(S.miss>=2){const o=S.order;o.usedHint=true;$('hintTag').style.display='block';
+ $('hintTag').innerHTML=o.type==='shade'?`💡 Roly says: the shape has <b>${o.den} equal parts</b>. Shade exactly <b>${o.num}</b> — count as you tap!`:`💡 Roly says: fewer pieces = bigger pieces. <b>1/${Math.min(...(o.dens||[2,3]))}</b> is biggest; the biggest bottom number has the <b>most</b> pieces!`;}}
+function win(svg){
+ stopTimer();sChime();if(svg){svg.classList.add('bounce');svg.querySelectorAll('.sector').forEach(p=>p.style.filter='drop-shadow(0 0 8px #ffd166)');}
+ custHappy();S.crumbs++;S.correct++;
+ if(S.order&&!S.order.usedHint)S.cleanStreak++;else S.cleanStreak=0;
+ if(S.order&&S.order.judge){S.judgeStreak++;if(S.judgeStreak>=3){confetti();sJingle();S.judgeStreak=0;}}
+ updHUD();
+ const praise=pick(['Perfectly equal!','Sparkling slice!','The treat is steaming happily!','Ooh, fancy cutting!','Same size as its friends!']);
+ if($('bubble').innerHTML.indexOf('✨ Right!')<0)bubble(`✨ ${praise} +1 Golden Crumb! ${S.order.cust} cheers!`);
+ setTimeout(()=>{
+  const met=S.correct>=STAGES[S.stage].need;
+  const clean=S.stage!==0||S.cleanStreak>=2; /* Warm Dough: 2 hint-free wins in a row required */
+  if(met&&clean){stageUp();}
+  else{if(met&&!clean)bubble(`So close to stage-up! Get <b>two orders in a row</b> right <b>without a hint</b> to prove your baker skills!`);setTimeout(genOrder,met&&!clean?1400:0);} 
+ },1400);
+}
+function stageUp(){
+ S.stars++;S.stage++;S.correct=0;S.cleanStreak=0;confetti();sJingle();updHUD();
+ if(S.stage===4){grandFinale();return;}
+ const lines=['Belt speeds up a little — you\'re rising like good dough! Keep <b>cutting shapes yourself</b> and settle which slices are bigger!','You\'re promoted to <b>Fraction Judge</b>! Hexagon donuts and triangle scones ahead — sixths, fancy!','🎉 <b>GRAND OPENING!</b> Timed orders, tricky judgments, and one ✨Flour Dust✨ token if you get stuck!'];
+ bubble(`⭐ <b>Stage up: ${STAGES[S.stage].name}!</b><br>${lines[S.stage-1]}`);
+ document.getElementById('belt').style.animationDuration=(3-S.stage*.5)+'s';
+ setTimeout(genOrder,3200);
+}
+/* ---------- Grand finale + design mode ---------- */
+function grandFinale(){
+ stopTimer();confetti();setTimeout(confetti,500);sJingle();
+ bubble(`🏆 <b>GOLDEN ROLLING PIN!</b> The whole bakery crowd cheers in a poof of flour! You unlocked <b>Design Your Own Treat</b> — now YOU make orders and check ROLY'S work!`);
+ updHUD();$('customers').innerHTML='🧙🐲🥞🎉🎊';
+ setTimeout(designMode,3000);
+}
+function designMode(){
+ const C=$('counter'),B=$('btns');C.innerHTML='';B.innerHTML='';stopTimer();
+ bubble(`👩‍🍳 <b>Teacher-Baker mode!</b> Pick a shape and a fraction. Roly will try to shade it — then YOU check his work!`);
+ let shape='circle',den=4;
+ const mkRow=(opts,cb,fmt)=>{const d=document.createElement('div');d.style.display='flex';d.style.gap='8px';opts.forEach(v=>{const b=document.createElement('button');b.className='small';b.textContent=fmt(v);b.onclick=()=>{sTap();cb(v);};d.appendChild(b);});return d;};
+ B.appendChild(mkRow(['rect','circle','triangle','hex'],v=>{shape=v;},v=>SHAPE_NAMES[v].split(' ')[0]));
+ B.appendChild(mkRow([2,3,4,5,6,7,8],v=>{den=v;},v=>'1/'+v));
+ const go=document.createElement('button');go.textContent='Give Roly the order! 🫱';B.appendChild(go);
+ go.onclick=()=>{
+  if(shape==='triangle')den=3;if(shape==='hex'&&![2,3,6].includes(den))den=6;
+  C.innerHTML='';const svg=shapeSVG(shape,den,{label:'1/'+den});C.appendChild(svg);
+  const wrongMode=Math.random()<.5;const secs=[...svg.querySelectorAll('.sector')];
+  const shadeN=wrongMode&&den>1?2:1;
+  shuffle(secs).slice(0,Math.min(shadeN,secs.length)).forEach((p,i)=>setTimeout(()=>{p.classList.add('shaded');sTap();},400+i*400));
+  bubble(`Roly shades the ${SHAPE_NAMES[shape]}… Did he shade exactly <b>${WORDS[den]}</b>?`);
+  B.innerHTML='';
+  const yes=document.createElement('button');yes.textContent='✅ Just right, Roly!';
+  const no=document.createElement('button');no.textContent='❌ Redo it, Roly!';no.style.background='#f2a0a0';no.style.boxShadow='0 5px 0 #c86a6a';
+  B.appendChild(yes);B.appendChild(no);
+  const judge=saidCorrect=>{const truth=!wrongMode;if(saidCorrect===truth){sChime();S.crumbs++;updHUD();confetti();bubble(truth?`✨ Right! Roly shaded exactly ONE of ${den} equal parts. Great checking, Teacher-Baker!`:`✨ Sharp eyes! Roly shaded ${shadeN} pieces — that's ${shadeN}/${den}, not ${WORDS[den]}!`);}else{sBoop();svg.classList.add('wob');setTimeout(()=>svg.classList.remove('wob'),600);bubble(truth?`Look again — Roly shaded just ONE of the ${den} equal parts. That IS ${WORDS[den]}!`:`Count the pink pieces — Roly shaded ${shadeN}! ${WORDS[den]} means only ONE.`);}
+   setTimeout(designMode,2600);};
+  yes.onclick=()=>judge(true);no.onclick=()=>judge(false);
+ };
+}
+/* ---------- demo: dashed outlines + pointing hand, unmissable ---------- */
+function demo(){
+ const C=$('counter'),B=$('btns');C.innerHTML='';B.innerHTML='';
+ const svg=shapeSVG('circle',3);C.appendChild(svg);
+ svg.style.transform='translateY(-40px)';setTimeout(()=>{svg.style.transform='';},50);
+ bubble(`🍰 "Cut me into <b>3 EQUAL</b> pieces!" — Roly shows you first: <i>"See? Same size as its friends!"</i>`);
+ const secs=[...svg.querySelectorAll('.sector')];
+ const cx=160,cy=130,r=72;
+ function handAt(i){const a=-Math.PI/2+(i+.5)*2*Math.PI/3;const t=document.createElementNS('http://www.w3.org/2000/svg','text');
+  t.setAttribute('x',cx+r*Math.cos(a));t.setAttribute('y',cy+r*Math.sin(a)+14);t.setAttribute('text-anchor','middle');t.setAttribute('class','hand');t.textContent='👆';svg.appendChild(t);return t;}
+ setTimeout(()=>{secs[0].classList.add('shaded');sChime();
+  bubble(`Roly cut one! Now <b>you</b> tap the two <b>dashed</b> slices — the pointing hands show exactly where. No way to get it wrong!`);
+  const hands={};
+  [1,2].forEach(i=>{secs[i].classList.add('demoTarget');hands[i]=handAt(i);});
+  let done=0;
+  [1,2].forEach(i=>{secs[i].onclick=()=>{secs[i].classList.remove('demoTarget');if(hands[i])hands[i].remove();secs[i].classList.add('shaded');sChime();done++;
+   if(done===2){bubble(`🎉 Perfect equal pieces! Warm chime, happy cake! Real orders are rolling in…`);svg.classList.add('bounce');setTimeout(()=>{S.demo=false;genOrder();},1800);}};});
+ },1600);
+}
+/* ---------- practice + grid ---------- */
+$('practiceBtn').onclick=()=>{
+ sTap();const C=$('counter'),B=$('btns');stopTimer();C.innerHTML='';B.innerHTML='';
+ const den=pick([2,3,4]),num=pick(den>=3?[1,2]:[1]),svg=shapeSVG(pick(['rect','circle']),den);C.appendChild(svg);
+ bubble(`🥐 <b>Practice Slice</b> — ungraded! Try shading <b>${fracWord(num,den)}</b> (${num} piece${num>1?'s':''}). Tap "Back to orders" when ready.`);
+ svg.querySelectorAll('.sector').forEach(p=>p.onclick=()=>{sTap();p.classList.toggle('shaded');});
+ const back=document.createElement('button');back.textContent='Back to orders 🧾';back.onclick=()=>{sTap();S.stage<4?renderOrder():designMode();if(S.stage===3)startTimer(22);};B.appendChild(back);
+ S.order&&(S.order.shaded=new Set());
+};
+$('gridBtn').onclick=()=>{sTap();if(S.order)S.order.usedHint=true;bubble(`👀 Grid guide: every piece drawn with thick lines is <b>exactly equal</b>. The <b>bottom</b> number counts the pieces; the <b>top</b> number says how many to shade!`);document.querySelectorAll('#counter .sector').forEach(p=>{p.style.stroke='#4a9e7c';setTimeout(()=>p.style.stroke='#8a5a2b',2000);});};
+$('flourBtn').onclick=()=>{if(S.flour<1||S.stage!==3)return;S.flour=0;if(S.order)S.order.usedHint=true;updHUD();confetti();bubble(`✨ Flour Dust! Roly finishes this order for you — watch how he does it!`);
+ setTimeout(()=>win(document.querySelector('#counter .treat')),1200);};
+/* ---------- start ---------- */
+$('startBtn').onclick=()=>{ac();ambience();sJingle();$('overlay').style.display='none';drawCustomers();updHUD();demo();};
+</script>
+</body>
+</html>

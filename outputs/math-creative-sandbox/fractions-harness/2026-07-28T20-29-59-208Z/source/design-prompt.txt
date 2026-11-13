@@ -1,0 +1,78 @@
+Read the attached Grade 3 math assignment as the academic source.
+
+Create one structured design artifact for a complete interactive learning experience for a nine-year-old. Teach the mathematical concepts represented by the assignment rather than reproducing its questions. Author fresh examples and challenges.
+
+The following are factual observations from prior learning experiences. They are evidence, not instructions or conclusions:
+{
+  "childId": "reina",
+  "age": 9,
+  "observations": [
+    {
+      "activity": "wheel-of-fortune",
+      "plays": 4,
+      "completions": 2,
+      "likedCount": 4,
+      "dislikedCount": 0,
+      "lastRating": "like",
+      "confidence": "low"
+    },
+    {
+      "activity": "pronunciation",
+      "plays": 2,
+      "completions": 2,
+      "accuracy": 0.955,
+      "likedCount": 2,
+      "dislikedCount": 0,
+      "lastRating": "like",
+      "confidence": "low"
+    },
+    {
+      "activity": "word-radar",
+      "plays": 112,
+      "completions": 112,
+      "accuracy": 0.655,
+      "engagementScore": 0.859,
+      "frustrationScore": 0.271
+    },
+    {
+      "activity": "spell-check",
+      "plays": 167,
+      "completions": 167,
+      "accuracy": 1,
+      "engagementScore": 0.992,
+      "frustrationScore": 0.1
+    }
+  ]
+}
+
+Do not infer a durable preference from weak evidence. Independently choose the world, mission, experience form, interaction, stakes, consequences, recovery, progression, payoff, replay variation, visual direction, motion, sound, and useful libraries. Make the first action immediately understandable while allowing mathematical difficulty and independence to increase.
+
+Return JSON only with:
+{
+  "title": "",
+  "academicSourceSummary": [],
+  "audienceRationale": "",
+  "openingPromise": "",
+  "firstThreeSeconds": "",
+  "firstAction": "",
+  "interactionDemonstration": "",
+  "coreInteraction": "",
+  "mathAsPower": "",
+  "stakes": "",
+  "consequences": "",
+  "recovery": "",
+  "progression": [
+    { "stage": "", "mathematicalDemand": "", "experienceBeat": "", "supportAvailable": "" }
+  ],
+  "worldReaction": "",
+  "payoff": "",
+  "replayVariation": "",
+  "visualDirection": "",
+  "motionDirection": "",
+  "soundDirection": "",
+  "usefulLibraries": [],
+  "engagementPrediction": "",
+  "falsifyingEvidence": ""
+}
+
+Do not return HTML.

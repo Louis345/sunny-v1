@@ -1,0 +1,303 @@
+{
+  "programId": "program:reina:mult-x2x5x10:v1",
+  "assignmentAnalysis": {
+    "constructs": [
+      "math.multiplication.equal_groups",
+      "math.multiplication.arrays",
+      "math.multiplication.skip_counting",
+      "math.multiplication.word_problem_interpretation"
+    ],
+    "prerequisites": [
+      "Skip counting forward by 2, 5, and 10 from zero",
+      "Interpreting 'each' as a per-group quantity rather than a total",
+      "Counting rows and columns in a rectangular arrangement without recounting or omitting",
+      "Mapping a multiplication expression a x b onto a group count and a per-group count",
+      "Recognizing that a total can be produced by repeated addition of equal-sized groups"
+    ],
+    "difficultyBoundaries": {
+      "included": [
+        "Fact families x2, x5, x10 with the other factor from 1 to 10",
+        "Single-step equal-groups word problems with explicit group count and per-group count",
+        "Arrays with up to 10 rows and up to 10 columns, presented visually",
+        "Translating between an array, an equal-groups picture, and a multiplication sentence",
+        "Skip-counting sequences by 2, 5, and 10 used as a solution strategy"
+      ],
+      "excluded": [
+        "Fact families x3, x4, x6, x7, x8, x9",
+        "Two-step or multi-operation word problems",
+        "Division, missing-factor, or inverse-operation items",
+        "Multi-digit multiplication or regrouping",
+        "Formal statement of the commutative or distributive property as a named rule",
+        "Word problems requiring extraction of implicit or extraneous quantities"
+      ]
+    }
+  },
+  "assumptions": [
+    {
+      "assumptionId": "asm-01",
+      "claim": "Reina can execute equal-groups multiplication accurately when visual group outlines and a demonstration remain available, but this performance is support-dependent and does not yet indicate independent skill.",
+      "evidenceIds": ["academic:guided-groups"],
+      "confidence": 0.75,
+      "uncertainty": "The 90% figure comes from a single guided session; no unassisted equal-groups measurement exists, so the size of the support effect is unknown.",
+      "falsifyingEvidence": "An unassisted equal-groups probe on fresh items scoring at or near 90% would show the support was not load-bearing."
+    },
+    {
+      "assumptionId": "asm-02",
+      "claim": "Independent array interpretation is currently below working level (40% on 5 unseen items).",
+      "evidenceIds": ["academic:independent-array"],
+      "confidence": 0.6,
+      "uncertainty": "Five items is a very small sample; the confidence interval around 40% is wide and could plausibly span roughly 15%-70%.",
+      "falsifyingEvidence": "An independent array probe of 10 or more fresh items scoring above 70% would contradict the low estimate."
+    },
+    {
+      "assumptionId": "asm-03",
+      "claim": "The gap between guided equal-groups accuracy and independent array accuracy is best explained by removal of support and by a groups-versus-per-group mapping confusion, rather than by an array-specific perceptual difficulty.",
+      "evidenceIds": ["academic:guided-groups", "academic:independent-array", "teacher:group-reversal"],
+      "confidence": 0.45,
+      "uncertainty": "Support removal and item type are confounded across the two observations; no probe has varied one while holding the other constant. The teacher note is second-hand and undated.",
+      "falsifyingEvidence": "An unassisted equal-groups probe at high accuracy paired with a supported array probe at low accuracy would locate the difficulty in array format rather than in support removal or the mapping confusion."
+    },
+    {
+      "assumptionId": "asm-04",
+      "claim": "Reversal of group count and per-group count is a recurring error pattern that will surface in word-problem interpretation.",
+      "evidenceIds": ["teacher:group-reversal"],
+      "confidence": 0.5,
+      "uncertainty": "Teacher-stream report only; no scored work item in the packet shows the reversal directly, and reversals often do not change the numeric answer, so they may be invisible in accuracy scores.",
+      "falsifyingEvidence": "Work samples or think-aloud responses in which Reina consistently labels which number is the group count and which is the per-group count."
+    },
+    {
+      "assumptionId": "asm-05",
+      "claim": "Skip-counting fluency by 2, 5, and 10 is untested in this packet and cannot be assumed as an available strategy.",
+      "evidenceIds": [],
+      "confidence": 0.3,
+      "uncertainty": "No academic evidence addresses skip counting at all; this assumption is a statement of absence, not a measured estimate.",
+      "falsifyingEvidence": "Any timed or untimed skip-counting probe result, in either direction, replaces this assumption with data."
+    },
+    {
+      "assumptionId": "asm-06",
+      "claim": "Session engagement has been high, but engagement evidence carries no information about mastery of any construct in this assignment.",
+      "evidenceIds": ["engagement:math-session", "engagement:wheel:like", "engagement:pronunciation:like"],
+      "confidence": 0.4,
+      "uncertainty": "The wheel and pronunciation logs are low-confidence, drawn from spelling rather than math, and show four initiations against two completions; no stable preference or disposition can be inferred.",
+      "falsifyingEvidence": "Not applicable to mastery claims; this assumption exists only to bar engagement data from academic inference."
+    }
+  ],
+  "academicPredictions": [
+    {
+      "predictionId": "pred-01",
+      "construct": "math.multiplication.equal_groups",
+      "expectedOutcome": "On an unassisted baseline probe of 10 fresh equal-groups items (x2, x5, x10 only, no outlines, no demonstration), accuracy falls well below the 90% observed under support.",
+      "expectedRange": { "metric": "proportion_correct", "minimum": 0.45, "maximum": 0.8 },
+      "predictedErrorPatterns": [
+        "Adding the two numbers instead of multiplying",
+        "Counting the number of groups as the answer",
+        "Losing count partway through repeated addition"
+      ],
+      "confidence": 0.5,
+      "evidenceIds": ["academic:guided-groups", "teacher:group-reversal"],
+      "horizon": "baseline",
+      "maximumClaim": "If confirmed, this establishes only a current unassisted baseline for equal groups; it does not establish mastery or non-mastery of the unit."
+    },
+    {
+      "predictionId": "pred-02",
+      "construct": "math.multiplication.arrays",
+      "expectedOutcome": "On an unassisted baseline probe of 10 fresh array items, accuracy remains low and errors cluster on miscounting rows or columns rather than on computing the product once the two counts are stated.",
+      "expectedRange": { "metric": "proportion_correct", "minimum": 0.2, "maximum": 0.6 },
+      "predictedErrorPatterns": [
+        "Reporting the row count or the column count alone as the total",
+        "Counting rows twice or skipping the last row",
+        "Correctly stating rows and columns but adding them instead of multiplying"
+      ],
+      "confidence": 0.45,
+      "evidenceIds": ["academic:independent-array"],
+      "horizon": "baseline",
+      "maximumClaim": "Establishes a baseline independent estimate only; the prior 5-item result is too small to treat as a stable rate."
+    },
+    {
+      "predictionId": "pred-03",
+      "construct": "math.multiplication.word_problem_interpretation",
+      "expectedOutcome": "On 8 single-step word problems, Reina produces correct totals more often than she correctly identifies which quantity is the group count and which is the per-group count when asked to label them.",
+      "expectedRange": { "metric": "proportion_correct_labeling", "minimum": 0.25, "maximum": 0.65 },
+      "predictedErrorPatterns": [
+        "Swapping group count and per-group count while still reaching a correct product",
+        "Selecting the first number in the sentence as the group count by default",
+        "Treating 'each' as a signal to add"
+      ],
+      "confidence": 0.4,
+      "evidenceIds": ["teacher:group-reversal", "academic:guided-groups"],
+      "horizon": "baseline",
+      "maximumClaim": "Tests the teacher-reported reversal against direct academic evidence; a single probe cannot confirm the pattern is recurring."
+    },
+    {
+      "predictionId": "pred-04",
+      "construct": "math.multiplication.skip_counting",
+      "expectedOutcome": "Skip counting by 10 is more accurate than by 5, which is more accurate than by 2, across untimed oral or written sequence items to 10 multiples.",
+      "expectedRange": { "metric": "proportion_correct", "minimum": 0.3, "maximum": 0.95 },
+      "predictedErrorPatterns": [
+        "Correct sequence by 10 and 5 but breakdown by 2 past 12",
+        "Restarting the sequence when interrupted",
+        "Unable to enter a sequence at a non-zero starting point"
+      ],
+      "confidence": 0.2,
+      "evidenceIds": [],
+      "horizon": "baseline",
+      "maximumClaim": "This is an untethered prediction with no supporting evidence in the packet; the wide range reflects that any result is informative and none is expected."
+    },
+    {
+      "predictionId": "pred-05",
+      "construct": "math.multiplication.equal_groups",
+      "expectedOutcome": "On an unassisted probe of fresh items administered at least 5 days after instruction, accuracy is at or above the immediate post-instruction independent probe rather than dropping by more than 15 percentage points.",
+      "expectedRange": { "metric": "proportion_correct", "minimum": 0.55, "maximum": 0.9 },
+      "predictedErrorPatterns": [
+        "Return of additive substitution after the delay",
+        "Correct procedure on x10 and x5 with decay on x2"
+      ],
+      "confidence": 0.35,
+      "evidenceIds": ["academic:guided-groups", "academic:independent-array"],
+      "horizon": "delayed",
+      "maximumClaim": "Retention over one delay interval; a durable claim requires a second delayed measurement."
+    },
+    {
+      "predictionId": "pred-06",
+      "construct": "math.multiplication.word_problem_interpretation",
+      "expectedOutcome": "Teacher-scored returned classwork or a returned unit assessment on x2, x5, x10 shows an accuracy level consistent with the independent probe estimate within 15 percentage points.",
+      "expectedRange": { "metric": "absolute_difference_from_independent_probe", "minimum": 0.0, "maximum": 0.15 },
+      "predictedErrorPatterns": [
+        "Higher returned-work accuracy than probe accuracy, indicating classroom scaffolds not present in probes",
+        "Lower returned-work accuracy than probe accuracy, indicating probe items were narrower than assigned items"
+      ],
+      "confidence": 0.3,
+      "evidenceIds": ["teacher:group-reversal"],
+      "horizon": "returned_work",
+      "maximumClaim": "No calibration claim can be made until at least one graded returned artifact exists; this prediction is preregistered against that future artifact."
+    }
+  ],
+  "learningSequence": [
+    {
+      "nodeId": "node-01-baseline-probe",
+      "responsibility": "probe",
+      "constructs": [
+        "math.multiplication.equal_groups",
+        "math.multiplication.arrays",
+        "math.multiplication.skip_counting"
+      ],
+      "startingSupport": "None. No outlines, no demonstration, no hints, no retry. Items are fresh and drawn from the same construct space as the assignment, not from the assignment text.",
+      "expectedIndependence": "Full independence required; the purpose is to separate support removal from item format, which the existing packet confounds.",
+      "evidenceRequired": [
+        "Per-construct accuracy on 10 equal-groups items, 10 array items, and a skip-counting sequence check for 2, 5, 10",
+        "Item-level error codes distinguishing miscount, additive substitution, and group/per-group reversal",
+        "Explicit record that no assistance was given"
+      ],
+      "nextDecisionEnabled": "Determines whether instruction targets the groups/per-group mapping (asm-03, asm-04), array row-column counting, skip-counting prerequisites, or none of these."
+    },
+    {
+      "nodeId": "node-02-teach-mapping",
+      "responsibility": "teach",
+      "constructs": [
+        "math.multiplication.equal_groups",
+        "math.multiplication.word_problem_interpretation"
+      ],
+      "startingSupport": "Full instruction with explicit labeling of the group count and the per-group count, worked examples, and immediate corrective feedback.",
+      "expectedIndependence": "None expected. Instruction-phase responses may be recorded as practice evidence only.",
+      "evidenceRequired": [
+        "Record of instruction delivered and examples used",
+        "Practice-only response log flagged as assisted"
+      ],
+      "nextDecisionEnabled": "Confirms whether the mapping distinction is teachable in one pass or requires re-teaching before guided practice."
+    },
+    {
+      "nodeId": "node-03-teach-array-link",
+      "responsibility": "teach",
+      "constructs": [
+        "math.multiplication.arrays",
+        "math.multiplication.equal_groups"
+      ],
+      "startingSupport": "Full instruction linking each row of an array to one equal group, with rows and columns counted aloud and the multiplication sentence written from the two counts.",
+      "expectedIndependence": "None expected. Practice evidence only.",
+      "evidenceRequired": [
+        "Record of instruction delivered",
+        "Practice-only response log flagged as assisted"
+      ],
+      "nextDecisionEnabled": "Establishes whether the array format has been connected to the already-supported equal-groups routine before independence is tested."
+    },
+    {
+      "nodeId": "node-04-guided-practice",
+      "responsibility": "guided_practice",
+      "constructs": [
+        "math.multiplication.equal_groups",
+        "math.multiplication.arrays",
+        "math.multiplication.word_problem_interpretation"
+      ],
+      "startingSupport": "Faded support: labeling prompts available on request for the first third of items, then withdrawn; no demonstration.",
+      "expectedIndependence": "Partial. Support requests are logged per item so that assisted and unassisted items remain separable.",
+      "evidenceRequired": [
+        "Per-item support-request log",
+        "Accuracy reported separately for assisted and unassisted items",
+        "Explicit statement that no mastery claim follows from this node"
+      ],
+      "nextDecisionEnabled": "Indicates readiness for an unassisted probe and quantifies how much accuracy depends on the labeling prompt."
+    },
+    {
+      "nodeId": "node-05-independent-probe",
+      "responsibility": "independent_probe",
+      "constructs": [
+        "math.multiplication.equal_groups",
+        "math.multiplication.arrays",
+        "math.multiplication.word_problem_interpretation"
+      ],
+      "startingSupport": "None. Fresh unseen items, no hints, no retry, no feedback until after scoring.",
+      "expectedIndependence": "Full independence required for any claim beyond practice.",
+      "evidenceRequired": [
+        "Accuracy on at least 10 fresh items per construct",
+        "Labeling accuracy on group count versus per-group count, scored separately from product accuracy",
+        "Error-pattern coding comparable to node-01 for direct pre/post comparison"
+      ],
+      "nextDecisionEnabled": "Tests pred-01, pred-02, and pred-03 and decides whether to proceed to the delayed probe or return to node-02."
+    },
+    {
+      "nodeId": "node-06-delayed-probe",
+      "responsibility": "independent_probe",
+      "constructs": [
+        "math.multiplication.equal_groups",
+        "math.multiplication.arrays"
+      ],
+      "startingSupport": "None. Administered at least 5 days after node-05 with fresh items.",
+      "expectedIndependence": "Full independence required.",
+      "evidenceRequired": [
+        "Delayed accuracy per construct on fresh items",
+        "Elapsed-days record",
+        "Comparison against node-05 accuracy"
+      ],
+      "nextDecisionEnabled": "Tests pred-05 and determines whether to extend to untaught fact families or to consolidate x2, x5, x10."
+    }
+  ],
+  "evidenceSeparation": {
+    "practiceClaims": [
+      "academic:guided-groups shows 90% equal-groups accuracy with visual outlines and a demonstration available; this is a supported-practice result and does not establish independent equal-groups skill.",
+      "Any responses recorded during node-02, node-03, and node-04 are practice evidence only.",
+      "Assisted items within node-04 must be reported separately from unassisted items and cannot be pooled into an independence estimate.",
+      "engagement:math-session, engagement:wheel:like, and engagement:pronunciation:like record completion, replay, and ratings only; none contributes to any academic claim, and the wheel log shows more initiations than completions."
+    ],
+    "independentClaims": [
+      "academic:independent-array supports only a provisional low estimate of array interpretation (40% on 5 items) with a wide interval due to sample size.",
+      "node-01 and node-05 results may support independent-performance claims bounded by their item counts.",
+      "node-06 may support a single-interval retention claim only.",
+      "teacher:group-reversal is teacher-stream report and may motivate a probe but may not itself establish an error pattern."
+    ],
+    "calibrationRequirements": [
+      "At least one graded returned artifact (classwork or unit assessment) on x2, x5, x10 is required before any mastery or readiness statement is made; the packet currently contains none.",
+      "Calibration compares returned-work accuracy against node-05 independent-probe accuracy on matched constructs.",
+      "A delayed independent probe (node-06) is required in addition to returned work; immediate post-instruction accuracy alone cannot calibrate retention.",
+      "If returned work and independent probe diverge by more than 15 percentage points, the divergence must be reported as unresolved rather than averaged."
+    ]
+  },
+  "nextEvidenceRequired": [
+    "Unassisted equal-groups accuracy on at least 10 fresh items, to disentangle support removal from item format in academic:guided-groups versus academic:independent-array",
+    "Array interpretation accuracy on at least 10 fresh items to replace the 5-item estimate",
+    "Skip-counting probe results for 2, 5, and 10, which are entirely absent from the packet",
+    "Direct scored evidence of group-count versus per-group-count labeling, to test teacher:group-reversal against academic data",
+    "At least one graded returned artifact on this unit for calibration",
+    "A delayed unassisted probe at 5 or more days for retention"
+  ],
+  "planningRationale": "The packet contains one internally contradictory pair: supported equal-groups performance at 90% (academic:guided-groups) against independent array performance at 40% (academic:independent-array). These two observations differ on two dimensions at once, support level and item format, so neither alone explains the gap. teacher:group-reversal offers a third candidate explanation, a groups-versus-per-group mapping confusion, but is teacher-stream and unscored. The plan therefore opens with an unassisted mixed-construct probe that varies format while holding support constant at zero, which is the smallest manipulation that can separate the three explanations. Instruction (node-02, node-03) is deliberately narrow and targets only the mapping distinction and the array-to-groups link, since these are the only mechanisms the evidence implicates; broader fact-family work is excluded by the difficulty boundaries. Guided practice logs support requests per item so assisted and unassisted performance never merge. No mastery claim is available anywhere in this sequence: the packet has no returned graded work and no delayed measurement, so node-05 and node-06 plus a returned artifact are all required before readiness is discussed. Skip counting is included as a probe target despite having zero supporting evidence precisely because that absence is itself a gap in the prerequisite chain. Engagement records are held entirely outside academic inference; the high fun rating, the completed pronunciation sessions, and the wheel likes describe session behavior and support no statement about what Reina knows, prefers, or can do."
+}

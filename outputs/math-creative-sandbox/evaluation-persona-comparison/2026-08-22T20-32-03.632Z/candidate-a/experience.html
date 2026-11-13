@@ -1,0 +1,1236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=1365, initial-scale=1">
+<title>The Museum of Mystery Solids — Night Curator</title>
+<style>
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;padding:0;height:100%;background:#06080f;overflow:hidden;
+  font-family:"Trebuchet MS",Verdana,"Segoe UI",system-ui,sans-serif}
+#stage-wrap{position:fixed;inset:0;display:flex;align-items:center;justify-content:center}
+#stage{width:1365px;height:768px;position:relative;overflow:hidden;color:#f2e6cd;
+  background:linear-gradient(180deg,#0e1226 0%,#161b34 55%,#1c2240 100%);transform-origin:center center}
+
+/* ---------- top bar ---------- */
+#topbar{height:60px;display:flex;align-items:center;justify-content:space-between;padding:0 18px;
+  border-bottom:1px solid rgba(190,160,105,.25);background:rgba(7,9,20,.65);position:relative;z-index:6}
+#title{font-size:16px;letter-spacing:.16em;color:#bfa87f}
+#clockwrap{display:flex;align-items:center;gap:12px}
+#clock-time{font-size:23px;letter-spacing:.10em;color:#e6d6ae;min-width:74px;text-align:center}
+#hourdots{display:flex;gap:7px}
+.hourdot{width:10px;height:10px;border-radius:50%;background:#272c48;border:1px solid #454f79}
+.hourdot.on{background:#c98c37;border-color:#e0ac5e;box-shadow:0 0 8px rgba(201,140,55,.8)}
+#exit-btn{background:rgba(24,28,50,.9);color:#cbb992;border:1px solid rgba(190,160,105,.45);
+  border-radius:8px;padding:9px 14px;font-size:14px;cursor:pointer;font-family:inherit}
+#exit-btn:hover{background:#232a4a}
+
+/* ---------- gallery ---------- */
+#gallery{height:378px;position:relative;overflow:hidden}
+#wings{position:absolute;left:0;bottom:0;width:1365px;height:250px;z-index:1}
+#spotpool{position:absolute;left:50%;top:-40px;transform:translateX(-50%);width:1100px;height:430px;z-index:1;
+  background:radial-gradient(ellipse 46% 52% at 50% 42%,rgba(226,226,236,.16),rgba(226,226,236,.05) 55%,rgba(0,0,0,0) 72%)}
+#exhibit-area{position:absolute;left:0;top:4px;width:100%;height:302px;display:flex;align-items:flex-end;
+  justify-content:center;gap:30px;z-index:3;transition:filter .5s ease,opacity .5s ease}
+#exhibit-area.archived{filter:sepia(.75) saturate(.7) brightness(.7);opacity:.85}
+.exhibit{display:flex;flex-direction:column;align-items:center}
+canvas.solid{display:block;touch-action:none;cursor:grab}
+canvas.solid:active{cursor:grabbing}
+.plinth{width:128px;height:18px;margin-top:-2px;border-radius:7px/5px;
+  background:linear-gradient(180deg,#454b6d,#1d2138);box-shadow:0 8px 20px rgba(0,0,0,.65)}
+.slabel{margin-top:9px;font-size:15px;line-height:1.2;color:#eee0c2;background:rgba(9,11,25,.6);
+  border:1px solid rgba(190,160,105,.32);padding:4px 10px;border-radius:5px;max-width:230px;text-align:center}
+#cue{position:absolute;top:6px;left:0;width:100%;text-align:center;font-size:15px;color:#b9c4e0;z-index:4}
+#goldnote{position:absolute;top:26px;left:0;width:100%;text-align:center;font-size:14px;color:#d9c99f;z-index:4}
+#idle-nudge{position:absolute;left:50%;bottom:58px;transform:translateX(-50%);z-index:5;
+  background:rgba(12,15,32,.92);border:1px solid rgba(190,160,105,.5);border-radius:10px;
+  padding:10px 18px;font-size:16px;color:#eadfc2;max-width:760px;text-align:center;
+  opacity:0;transition:opacity .5s ease;pointer-events:none}
+#idle-nudge.show{opacity:1}
+
+/* corridor map */
+#corridor{position:absolute;bottom:5px;left:0;width:100%;height:42px;display:flex;justify-content:center;
+  align-items:flex-end;gap:30px;z-index:4}
+.ped{width:104px;display:flex;flex-direction:column;align-items:center;gap:3px;opacity:.55;transition:opacity .4s}
+.ped .slot{width:78px;height:16px;border-radius:3px;background:#20253f;border:1px solid #3c4569;position:relative}
+.ped .num{font-size:12px;letter-spacing:.12em;color:#9fadd0}
+.ped.active{opacity:1}
+.ped.active .slot{box-shadow:0 0 12px rgba(220,225,240,.55);border-color:#b9c4e0}
+.ped.sealed{opacity:.95}
+.ped.sealed .slot{background:#5b4526;border-color:#c98c37}
+.ped.sealed .slot:after{content:"";position:absolute;left:50%;top:50%;width:11px;height:11px;margin:-5.5px 0 0 -5.5px;
+  border-radius:50%;background:#a8532f;box-shadow:0 0 6px rgba(168,83,47,.9)}
+.ped.clipped{opacity:.9}
+.ped.clipped .slot{background:#2b3350;border-color:#8fa0c8;border-style:dashed}
+.walk{position:absolute;bottom:38px;left:0;width:100%;height:3px;background:rgba(160,175,215,.10);z-index:3}
+.walk.lit{background:linear-gradient(90deg,rgba(201,140,55,0),rgba(201,140,55,.55),rgba(201,140,55,0))}
+
+/* ---------- clipboard ---------- */
+#clipboard{height:330px;background:linear-gradient(180deg,#241f18,#1a1710);border-top:3px solid #8d7239;
+  padding:10px 30px 8px;position:relative;z-index:5}
+#plaque{display:flex;align-items:baseline;gap:16px;background:#f3e7cf;color:#2b2419;border-radius:8px;
+  padding:8px 16px;border:2px solid #c3ab7c;min-height:60px}
+#exhibit-no{font-size:14px;letter-spacing:.14em;color:#7b6a45;white-space:nowrap;padding-top:4px}
+#prompt{margin:0;font-size:23px;line-height:1.25;font-weight:bold}
+#mode-header{margin:7px 0 5px;font-size:17px;color:#e2d3ad;letter-spacing:.04em;display:flex;
+  align-items:center;gap:12px;min-height:24px}
+#mode-tag{font-size:13px;letter-spacing:.12em;padding:3px 9px;border-radius:4px;border:1px solid #8d7239;color:#e6d6ae}
+#mode-tag.multi{border-style:dashed;background:rgba(141,114,57,.18)}
+#cards{display:flex;justify-content:center;align-items:stretch;gap:16px;height:120px}
+.card{position:relative;background:#f2e6cd;border:2px solid #cbb58a;border-radius:12px;color:#2b2419;
+  font-family:inherit;font-size:20px;line-height:1.2;padding:14px 12px 20px;cursor:pointer;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;
+  transition:transform .15s ease,box-shadow .15s ease,border-color .15s ease,background .15s ease;text-align:center}
+.card.multi{border-top:6px dashed #b09a6a}
+.card:hover{background:#fbf2df}
+.card.sel{border-color:#3f6a94;border-width:4px;background:#fdf6e6;transform:translateY(-6px);
+  box-shadow:0 10px 18px rgba(0,0,0,.45)}
+.card .pintag{position:absolute;bottom:5px;left:50%;transform:translateX(-50%);font-size:11px;letter-spacing:.16em;
+  color:#3f6a94;opacity:0;transition:opacity .15s}
+.card.sel .pintag{opacity:1}
+.card .pindot{position:absolute;top:8px;right:9px;width:14px;height:14px;border-radius:50%;
+  border:2px solid #b09a6a;background:transparent}
+.card.sel .pindot{background:#3f6a94;border-color:#3f6a94}
+.glyphrow{display:flex;align-items:center;justify-content:center;gap:5px;flex-wrap:wrap}
+.gl{width:22px;height:22px;display:block}
+#controls{display:flex;align-items:center;gap:18px;margin-top:8px;height:100px}
+#reread{background:#2f2a20;color:#e6d6ae;border:1px solid #8d7239;border-radius:10px;padding:14px 18px;
+  font-size:16px;font-family:inherit;cursor:pointer;min-height:60px;min-width:170px}
+#reread:hover{background:#3a3428}
+#skip{flex:1;background:rgba(255,255,255,.05);color:#cbd4ea;border:1px dashed #6e7aa0;border-radius:10px;
+  padding:14px;font-size:17px;font-family:inherit;cursor:pointer;min-height:60px}
+#skip:hover{background:rgba(255,255,255,.10)}
+#stamp-wrap{display:flex;flex-direction:column;align-items:center;gap:4px;width:210px}
+#stamp{width:96px;height:96px;border-radius:50%;border:4px solid #6d5628;font-family:inherit;
+  background:radial-gradient(circle at 34% 30%,#e0c07a,#a8823a 70%,#7d5f24);color:#2b2008;
+  font-size:20px;font-weight:bold;letter-spacing:.10em;cursor:pointer;box-shadow:0 6px 14px rgba(0,0,0,.5)}
+#stamp.off{opacity:.38;cursor:default;box-shadow:none}
+#stamp.press{transform:scale(.9)}
+#stamp-hint{font-size:12.5px;color:#c0b391;text-align:center;line-height:1.2;height:26px}
+#reread-note{position:absolute;left:30px;bottom:108px;max-width:620px;background:#f3e7cf;color:#2b2419;
+  border:2px solid #8d7239;border-radius:10px;padding:11px 15px;font-size:17px;line-height:1.3;z-index:8;
+  display:none}
+#reread-note.show{display:block}
+#reread-note b{letter-spacing:.06em}
+
+/* ---------- overlays ---------- */
+.overlay{position:absolute;inset:0;z-index:20;background:rgba(6,8,18,.94);display:flex;
+  align-items:center;justify-content:center;padding:40px}
+.overlay.hidden{display:none}
+.panel{max-width:900px;background:linear-gradient(180deg,#1b2038,#141830);border:2px solid #8d7239;
+  border-radius:16px;padding:34px 40px;text-align:center}
+.panel h1{margin:0 0 14px;font-size:30px;letter-spacing:.08em;color:#e6d6ae}
+.panel p{font-size:20px;line-height:1.45;color:#e8e0cd;margin:10px 0}
+.panel .small{font-size:16px;color:#b6ab8f}
+.bigbtn{margin-top:22px;background:radial-gradient(circle at 34% 30%,#e0c07a,#a8823a 70%,#7d5f24);
+  color:#2b2008;border:3px solid #6d5628;border-radius:14px;padding:18px 40px;font-size:22px;font-weight:bold;
+  font-family:inherit;letter-spacing:.06em;cursor:pointer}
+.quietbtn{margin:14px 8px 0;background:transparent;color:#cbd4ea;border:1px solid #6e7aa0;border-radius:10px;
+  padding:14px 22px;font-size:17px;font-family:inherit;cursor:pointer}
+#reportlist{list-style:none;padding:0;margin:18px auto;max-width:520px;text-align:left;font-size:21px;line-height:1.9}
+#reportlist li{border-bottom:1px dashed rgba(190,160,105,.35);display:flex;justify-content:space-between}
+#badge{margin:18px auto 4px;width:230px;padding:12px;border-radius:12px;border:3px solid #6d5628;
+  background:radial-gradient(circle at 30% 26%,#dcbd7c,#9c7833 72%);color:#2b2008;font-size:15px;letter-spacing:.1em;line-height:1.5}
+</style>
+</head>
+<body>
+<div id="stage-wrap">
+<div id="stage">
+
+  <div id="topbar">
+    <div id="title">THE MUSEUM OF MYSTERY SOLIDS &middot; NIGHT CURATOR</div>
+    <div id="clockwrap">
+      <div id="clock-time">1 AM</div>
+      <div id="hourdots">
+        <div class="hourdot" id="hd0"></div><div class="hourdot" id="hd1"></div>
+        <div class="hourdot" id="hd2"></div><div class="hourdot" id="hd3"></div>
+        <div class="hourdot" id="hd4"></div>
+      </div>
+    </div>
+    <button id="exit-btn" type="button">Leave the museum</button>
+  </div>
+
+  <div id="gallery">
+    <svg id="wings" viewBox="0 0 1365 250" preserveAspectRatio="none" aria-hidden="true">
+      <g id="wing0" class="wing">
+        <rect x="30" y="150" width="200" height="100" fill="#1c2340"></rect>
+        <path d="M30 150 A100 70 0 0 1 230 150 Z" fill="#1c2340"></path>
+        <rect class="win" x="60" y="180" width="18" height="40" fill="#141a30"></rect>
+        <rect class="win" x="100" y="180" width="18" height="40" fill="#141a30"></rect>
+        <rect class="win" x="140" y="180" width="18" height="40" fill="#141a30"></rect>
+        <rect class="win" x="180" y="180" width="18" height="40" fill="#141a30"></rect>
+      </g>
+      <g id="wing1" class="wing">
+        <rect x="290" y="130" width="230" height="120" fill="#1c2340"></rect>
+        <path d="M300 250 L300 190 A28 28 0 0 1 356 190 L356 250 Z" class="win" fill="#141a30"></path>
+        <path d="M380 250 L380 190 A28 28 0 0 1 436 190 L436 250 Z" class="win" fill="#141a30"></path>
+        <path d="M460 250 L460 190 A28 28 0 0 1 516 190 L516 250 Z" class="win" fill="#141a30"></path>
+      </g>
+      <g id="wing2" class="wing">
+        <rect x="570" y="160" width="220" height="90" fill="#1c2340"></rect>
+        <path d="M570 160 L680 96 L790 160 Z" fill="#1c2340"></path>
+        <rect class="win" x="600" y="180" width="50" height="60" fill="#141a30"></rect>
+        <rect class="win" x="670" y="180" width="50" height="60" fill="#141a30"></rect>
+        <rect class="win" x="740" y="180" width="30" height="60" fill="#141a30"></rect>
+      </g>
+      <g id="wing3" class="wing">
+        <path d="M840 250 L840 210 L890 210 L890 180 L940 180 L940 150 L990 150 L990 120 L1040 120 L1040 250 Z" fill="#1c2340"></path>
+        <rect class="win" x="1000" y="150" width="20" height="30" fill="#141a30"></rect>
+        <rect class="win" x="950" y="190" width="20" height="30" fill="#141a30"></rect>
+        <rect class="win" x="900" y="220" width="20" height="24" fill="#141a30"></rect>
+      </g>
+      <g id="wing4" class="wing">
+        <rect x="1090" y="170" width="240" height="80" fill="#1c2340"></rect>
+        <path d="M1120 170 A90 78 0 0 1 1300 170 Z" fill="#1c2340"></path>
+        <rect x="1205" y="60" width="8" height="36" fill="#1c2340"></rect>
+        <rect class="win" x="1130" y="195" width="26" height="46" fill="#141a30"></rect>
+        <rect class="win" x="1180" y="195" width="26" height="46" fill="#141a30"></rect>
+        <rect class="win" x="1230" y="195" width="26" height="46" fill="#141a30"></rect>
+        <rect class="win" x="1280" y="195" width="26" height="46" fill="#141a30"></rect>
+      </g>
+    </svg>
+    <div id="spotpool"></div>
+    <div id="cue"></div>
+    <div id="goldnote"></div>
+    <div id="exhibit-area"></div>
+    <div class="walk" id="walk"></div>
+    <div id="corridor">
+      <div class="ped" id="ped0"><div class="slot"></div><div class="num">EXHIBIT 1</div></div>
+      <div class="ped" id="ped1"><div class="slot"></div><div class="num">EXHIBIT 2</div></div>
+      <div class="ped" id="ped2"><div class="slot"></div><div class="num">EXHIBIT 3</div></div>
+      <div class="ped" id="ped3"><div class="slot"></div><div class="num">EXHIBIT 4</div></div>
+      <div class="ped" id="ped4"><div class="slot"></div><div class="num">EXHIBIT 5</div></div>
+    </div>
+    <div id="idle-nudge">Take your time. You can turn the solid, pick a card, or leave this one for the day curator.</div>
+  </div>
+
+  <div id="clipboard">
+    <div id="plaque">
+      <div id="exhibit-no">RECORD CARD 1 / 5</div>
+      <p id="prompt">&nbsp;</p>
+    </div>
+    <div id="mode-header"><span id="mode-tag">PICK ONE</span><span id="mode-text">&nbsp;</span></div>
+    <div id="cards"></div>
+    <div id="controls">
+      <button id="reread" type="button">Reread the task</button>
+      <button id="skip" type="button">Leave this exhibit for the day curator</button>
+      <div id="stamp-wrap">
+        <button id="stamp" class="off" type="button">STAMP</button>
+        <div id="stamp-hint">Pick a card to unlock the stamp.</div>
+      </div>
+    </div>
+    <div id="reread-note"></div>
+  </div>
+
+  <div id="intro" class="overlay">
+    <div class="panel">
+      <h1>THE MUSEUM OF MYSTERY SOLIDS</h1>
+      <p>The museum is dark. Five mystery solids arrived tonight, and their record cards are blank.
+         You are the Night Curator &mdash; examine each one and file its true record before morning.</p>
+      <p class="small">Drag a solid to turn it. Tap a card. Press STAMP to file the record.<br>
+         No one will say right or wrong tonight: every filed card is sealed for the Head Curator.</p>
+      <button class="bigbtn" id="begin-btn" type="button">Begin the shift</button>
+    </div>
+  </div>
+
+  <div id="exit-confirm" class="overlay hidden">
+    <div class="panel">
+      <h1>LEAVE THE MUSEUM?</h1>
+      <p>Records you already filed stay sealed. Exhibits you have not opened will be marked "not opened".</p>
+      <button class="quietbtn" id="stay-btn" type="button">Stay on shift</button>
+      <button class="bigbtn" id="leave-btn" type="button">Leave now</button>
+    </div>
+  </div>
+
+  <div id="report" class="overlay hidden">
+    <div class="panel">
+      <h1 id="report-title">THE SHIFT REPORT</h1>
+      <p id="report-sub" class="small">The morning bell rings once. The wings you lit stay lit.</p>
+      <ul id="reportlist">
+        <li><span>Records filed</span><span id="r-filed">0</span></li>
+        <li><span>Left for the day curator</span><span id="r-skipped">0</span></li>
+        <li><span>Exhibits not opened</span><span id="r-unopened">0</span></li>
+        <li><span>Times you asked to reread a task</span><span id="r-reread">0</span></li>
+        <li><span>Museum wings lit</span><span id="r-wings">0</span></li>
+      </ul>
+      <div id="badge">NIGHT CURATOR<br><span id="badge-date"></span></div>
+      <p class="small">Your records are sealed for the Head Curator.</p>
+    </div>
+  </div>
+
+</div>
+</div>
+
+<script>
+(function(){
+"use strict";
+
+/* ============================================================
+   CONSTANTS
+   ============================================================ */
+var EVAL_ID = "eval:LAB-MATH-GEOMETRY-FACES-5-11:opening:v1";
+var EVAL_HASH = "357e7ae9a9243586a072d9bb454180bf3f7fb63793f6cec1128c39b2781cffb0";
+var DESIGN_HASH = "64b12c9861174fd4073ac239615ec5c02c19b96190130a27dc62d98eb71a4211";
+var REDUCED = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+function post(type, payload){
+  var msg = {type:type, evaluationId:EVAL_ID, evaluationHash:EVAL_HASH, designHash:DESIGN_HASH, t:Date.now()};
+  for(var k in payload){ if(Object.prototype.hasOwnProperty.call(payload,k)) msg[k]=payload[k]; }
+  try{ window.parent.postMessage(msg, "*"); }catch(e){}
+}
+
+/* ============================================================
+   ITEM BANK (verbatim from the evaluation contract)
+   ============================================================ */
+var ITEMS = [
+{
+  id:"I1", construct:"C1", mode:"single-select",
+  prompt:"Which of these solids has NO flat face anywhere on it?",
+  solids:[
+    {key:"cylinder", label:"can-shaped cylinder"},
+    {key:"sphere",   label:"ball-shaped sphere"},
+    {key:"prism",    label:"box-shaped rectangular prism"},
+    {key:"cone",     label:"party-hat-shaped cone"}
+  ],
+  options:[
+    {v:"the cylinder"},{v:"the sphere"},{v:"the rectangular prism"},{v:"the cone"}
+  ],
+  correct:["the sphere"],
+  exposure:{
+    solidsShown:["cylinder","sphere","rectangular prism","cone"],
+    orientation:"upright, standard view",
+    freshness:"Fresh set and question stem; source asked for plane-figure-to-face matching, this asks for a no-flat-face identification"
+  },
+  confounds:[
+    "Child may pick the sphere by 'ball' association rather than by surface reasoning",
+    "Word 'flat' may be read as 'thin' or 'lying down'",
+    "Only one option is curved-only, so elimination could succeed without understanding",
+    "Picture shading could make the cylinder look curved-only"
+  ],
+  keys:["selectedOption","correct","latencyMs","optionChangeCount","hintRequested"]
+},
+{
+  id:"I2", construct:"C2", mode:"single-select",
+  prompt:"The top flat face is highlighted. What plane figure is that flat face?",
+  solids:[{key:"cylinder", label:"cylinder \u2014 standing upright, like a soup can", highlightTop:true}],
+  goldNote:"The gold face is the one the question is about.",
+  options:[
+    {v:"circle", glyphs:[["circle",1]]},
+    {v:"square", glyphs:[["square",1]]},
+    {v:"rectangle", glyphs:[["rectangle",1]]},
+    {v:"triangle", glyphs:[["triangle",1]]}
+  ],
+  correct:["circle"],
+  exposure:{ solidsShown:["cylinder"], orientation:"upright, standard view", highlight:"top face only",
+    freshness:"Fresh highlighted-face framing rather than worksheet matching columns" },
+  confounds:[
+    "Selecting 'rectangle' may reflect silhouette matching of the side view rather than a misconception about the top",
+    "Perspective drawing renders the top face as an ellipse, which may block the 'circle' label",
+    "Child may know the answer from can/lid life experience without geometric reasoning"
+  ],
+  keys:["selectedOption","correct","latencyMs","optionChangeCount","hintRequested"]
+},
+{
+  id:"I3", construct:"C1", mode:"multi-select",
+  prompt:"Choose every statement that is true about the cone's surfaces.",
+  solids:[{key:"cone", label:"cone \u2014 point up, sitting on a table"}],
+  options:[
+    {v:"It has one flat face."},{v:"It has two flat faces."},
+    {v:"It has a curved surface."},{v:"It has no curved surface."}
+  ],
+  correct:["It has one flat face.","It has a curved surface."],
+  exposure:{ solidsShown:["cone"], orientation:"point up on a flat surface",
+    freshness:"Fresh coexistence-of-surface-types framing not present in the source" },
+  confounds:[
+    "Multi-select format burden may cause under-selection independent of understanding",
+    "Child may treat the two statements as mutually exclusive and select only one",
+    "'Two flat faces' may be chosen by transferring a cylinder schema to the cone",
+    "Reading load is the highest of the item set"
+  ],
+  keys:["selectedOptionSet","exactSetCorrect","partialCreditPattern","latencyMs","optionChangeCount","hintRequested"]
+},
+{
+  id:"I4", construct:"C4", mode:"single-select",
+  prompt:"Which set of plane figures makes up ALL of its flat faces?",
+  solids:[{key:"pyramid", label:"square pyramid \u2014 resting on its square base"}],
+  options:[
+    {v:"one square and four triangles", glyphs:[["square",1],["triangle",4]]},
+    {v:"four triangles only", glyphs:[["triangle",4]]},
+    {v:"one square and four rectangles", glyphs:[["square",1],["rectangle",4]]},
+    {v:"one triangle and four squares", glyphs:[["triangle",1],["square",4]]}
+  ],
+  correct:["one square and four triangles"],
+  exposure:{ solidsShown:["square pyramid"],
+    orientation:"resting on square base, three-quarter view showing base edge and two lateral faces",
+    freshness:"Fresh whole-face-set question; source matched individual plane figures to faces" },
+  confounds:[
+    "'Four triangles only' is the silhouette/visible-faces distractor and may be picked because the base is hidden from view",
+    "Child may not know the term 'square pyramid' and answer from the picture alone, or vice versa",
+    "Distinguishing square from rectangle may fail for vocabulary reasons rather than face reasoning",
+    "Option reading load may favor guessing"
+  ],
+  keys:["selectedOption","correct","latencyMs","optionChangeCount","hintRequested"]
+},
+{
+  id:"I5", construct:"C3", mode:"multi-select",
+  prompt:"Which of them have at least one flat face that is a circle?",
+  solids:[
+    {key:"cube",     label:"cube"},
+    {key:"sphere",   label:"sphere"},
+    {key:"cylinder", label:"cylinder"},
+    {key:"pyramid",  label:"square pyramid"}
+  ],
+  options:[
+    {v:"the cube"},{v:"the sphere"},{v:"the cylinder"},{v:"the square pyramid"},
+    {v:"none of them", exclusive:true, pinLast:true}
+  ],
+  correct:["the cylinder"],
+  exposure:{ solidsShown:["cube","sphere","cylinder","square pyramid"], orientation:"standard upright views",
+    freshness:"Fresh cross-solid property search; deliberately omits the cone used in I1 and I3",
+    carryoverRisk:"Cylinder appeared in I1 and I2; if I2 was answered correctly this item is partly dependent" },
+  confounds:[
+    "Selecting the sphere conflates 'round shape' with 'circular flat face' and is the target error, but could also arise from careless reading of 'flat'",
+    "Multi-select burden may cause under-selection",
+    "Child may select the cylinder from I2 memory rather than fresh reasoning",
+    "'None of them' may attract a child who over-applies the sphere rule from I1"
+  ],
+  keys:["selectedOptionSet","exactSetCorrect","overSelectionCount","underSelectionCount","sphereSelected","latencyMs","optionChangeCount","hintRequested"]
+}
+];
+
+/* ============================================================
+   MINI 3D ENGINE (canvas 2D, convex solids, painter + cull)
+   ============================================================ */
+function V(x,y,z){ return {x:x,y:y,z:z}; }
+function sub(a,b){ return V(a.x-b.x,a.y-b.y,a.z-b.z); }
+function cross(a,b){ return V(a.y*b.z-a.z*b.y, a.z*b.x-a.x*b.z, a.x*b.y-a.y*b.x); }
+function dot(a,b){ return a.x*b.x+a.y*b.y+a.z*b.z; }
+function norm(a){ var m=Math.sqrt(a.x*a.x+a.y*a.y+a.z*a.z)||1; return V(a.x/m,a.y/m,a.z/m); }
+
+function hex2rgb(h){ return {r:parseInt(h.substr(1,2),16), g:parseInt(h.substr(3,2),16), b:parseInt(h.substr(5,2),16)}; }
+
+function finish(solid){
+  // ensure outward winding (solids are convex and centred on origin)
+  for(var i=0;i<solid.faces.length;i++){
+    var f=solid.faces[i], vs=f.idx.map(function(j){ return solid.verts[j]; });
+    var cxx=0,cyy=0,czz=0;
+    for(var k=0;k<vs.length;k++){ cxx+=vs[k].x; cyy+=vs[k].y; czz+=vs[k].z; }
+    var c=V(cxx/vs.length, cyy/vs.length, czz/vs.length);
+    var n=cross(sub(vs[1],vs[0]), sub(vs[2],vs[0]));
+    if(Math.abs(n.x)+Math.abs(n.y)+Math.abs(n.z) < 1e-9 && vs.length>3){
+      n=cross(sub(vs[2],vs[0]), sub(vs[3],vs[0]));
+    }
+    if(dot(n,c)<0){ f.idx = f.idx.slice().reverse(); }
+    f.centroid=c;
+  }
+  return solid;
+}
+
+function buildBox(w,h,d,color){
+  var x=w/2,y=h/2,z=d/2;
+  var verts=[V(-x,-y,-z),V(x,-y,-z),V(x,-y,z),V(-x,-y,z),V(-x,y,-z),V(x,y,-z),V(x,y,z),V(-x,y,z)];
+  var quads=[[0,1,2,3],[4,5,6,7],[0,1,5,4],[1,2,6,5],[2,3,7,6],[3,0,4,7]];
+  var faces=quads.map(function(q){ return {idx:q,color:color,flat:true}; });
+  return finish({verts:verts,faces:faces});
+}
+function buildPyramid(base,h,color){
+  var b=base/2,y=h/2;
+  var verts=[V(-b,-y,-b),V(b,-y,-b),V(b,-y,b),V(-b,-y,b),V(0,y,0)];
+  var faces=[{idx:[0,1,2,3],color:color,flat:true},
+             {idx:[0,1,4],color:color,flat:true},
+             {idx:[1,2,4],color:color,flat:true},
+             {idx:[2,3,4],color:color,flat:true},
+             {idx:[3,0,4],color:color,flat:true}];
+  return finish({verts:verts,faces:faces});
+}
+function buildCylinder(r,h,seg,color,highlightTop){
+  var verts=[],faces=[],i,a;
+  for(i=0;i<seg;i++){ a=i/seg*Math.PI*2; verts.push(V(r*Math.cos(a), h/2, r*Math.sin(a))); }
+  for(i=0;i<seg;i++){ a=i/seg*Math.PI*2; verts.push(V(r*Math.cos(a), -h/2, r*Math.sin(a))); }
+  var top=[],bot=[];
+  for(i=0;i<seg;i++){ top.push(i); bot.push(seg+i); }
+  faces.push({idx:top,color:color,flat:true,highlight:!!highlightTop});
+  faces.push({idx:bot,color:color,flat:true});
+  for(i=0;i<seg;i++){
+    var j=(i+1)%seg, am=((i+0.5)/seg)*Math.PI*2;
+    faces.push({idx:[i,j,seg+j,seg+i],color:color,flat:false,
+                sn:norm(V(Math.cos(am),0,Math.sin(am)))});
+  }
+  return finish({verts:verts,faces:faces});
+}
+function buildCone(r,h,seg,color){
+  var verts=[],faces=[],i,a;
+  for(i=0;i<seg;i++){ a=i/seg*Math.PI*2; verts.push(V(r*Math.cos(a),-h/2,r*Math.sin(a))); }
+  verts.push(V(0,h/2,0));
+  var apex=seg, base=[];
+  for(i=0;i<seg;i++){ base.push(i); }
+  faces.push({idx:base,color:color,flat:true});
+  for(i=0;i<seg;i++){
+    var j=(i+1)%seg, am=((i+0.5)/seg)*Math.PI*2;
+    faces.push({idx:[i,j,apex],color:color,flat:false,
+                sn:norm(V(h*Math.cos(am), r, h*Math.sin(am)))});
+  }
+  return finish({verts:verts,faces:faces});
+}
+function buildSphere(r,lat,lon,color){
+  var verts=[],faces=[],i,j;
+  for(i=0;i<=lat;i++){
+    var th=i/lat*Math.PI;
+    for(j=0;j<lon;j++){
+      var ph=j/lon*Math.PI*2;
+      verts.push(V(r*Math.sin(th)*Math.cos(ph), r*Math.cos(th), r*Math.sin(th)*Math.sin(ph)));
+    }
+  }
+  for(i=0;i<lat;i++){
+    for(j=0;j<lon;j++){
+      var j2=(j+1)%lon;
+      var a=i*lon+j, b=i*lon+j2, c=(i+1)*lon+j2, d=(i+1)*lon+j;
+      var q=[a,b,c,d];
+      var cx=(verts[a].x+verts[b].x+verts[c].x+verts[d].x)/4;
+      var cy=(verts[a].y+verts[b].y+verts[c].y+verts[d].y)/4;
+      var cz=(verts[a].z+verts[b].z+verts[c].z+verts[d].z)/4;
+      faces.push({idx:q,color:color,flat:false,sn:norm(V(cx,cy,cz))});
+    }
+  }
+  return finish({verts:verts,faces:faces});
+}
+
+var PALETTE={cylinder:"#2f8f8a",sphere:"#e2725b",prism:"#c9922e",cone:"#7a5aa8",cube:"#6b7a8f",pyramid:"#d8b878"};
+function makeSolid(key,spec){
+  switch(key){
+    case "cylinder": return buildCylinder(0.78,1.5,40,PALETTE.cylinder,spec&&spec.highlightTop);
+    case "sphere":   return buildSphere(0.95,13,24,PALETTE.sphere);
+    case "prism":    return buildBox(1.5,1.0,0.95,PALETTE.prism);
+    case "cone":     return buildCone(0.88,1.7,40,PALETTE.cone);
+    case "cube":     return buildBox(1.25,1.25,1.25,PALETTE.cube);
+    case "pyramid":  return buildPyramid(1.5,1.45,PALETTE.pyramid);
+  }
+  return buildBox(1,1,1,"#888888");
+}
+function startRot(key){
+  if(key==="cone")    return {rx:0.20, ry:0.35};
+  if(key==="pyramid") return {rx:0.26, ry:0.62};
+  if(key==="cylinder")return {rx:0.34, ry:0.20};
+  if(key==="sphere")  return {rx:0.20, ry:0.30};
+  return {rx:0.30, ry:0.62};
+}
+
+var LIGHT = norm(V(-0.38,0.66,0.72));
+var HALF  = norm(V(LIGHT.x, LIGHT.y, LIGHT.z+1));
+
+function rotPoint(v,cx,sx,cy,sy){
+  var x=v.x*cy + v.z*sy;
+  var z=-v.x*sy + v.z*cy;
+  var y=v.y;
+  return {x:x, y:y*cx - z*sx, z:y*sx + z*cx};
+}
+
+var stages=[];
+var AUTO_SPEED = (Math.PI*2)/20; /* one revolution per 20s */
+
+function renderStage(st,dt){
+  var ctx=st.ctx, W=st.w, H=st.h;
+  if(!st.dragging){
+    st.rotY += st.vel; st.vel *= 0.93; if(Math.abs(st.vel)<0.0002) st.vel=0;
+    st.rotY += AUTO_SPEED*dt; st.autoAccum += AUTO_SPEED*dt;
+  }
+  ctx.clearRect(0,0,W,H);
+
+  var cx=Math.cos(st.rotX), sx=Math.sin(st.rotX), cy=Math.cos(st.rotY), sy=Math.sin(st.rotY);
+  var solid=st.solid, i;
+  var rv=new Array(solid.verts.length);
+  for(i=0;i<solid.verts.length;i++) rv[i]=rotPoint(solid.verts[i],cx,sx,cy,sy);
+
+  var dist=4.6, ppu=H*0.40, f=ppu*dist;
+  var ox=W/2, oy=H*0.50;
+
+  /* ground shadow */
+  ctx.save();
+  var gy=H*0.90;
+  var g=ctx.createRadialGradient(ox,gy,2,ox,gy,ppu*1.05);
+  g.addColorStop(0,"rgba(0,0,0,0.45)"); g.addColorStop(1,"rgba(0,0,0,0)");
+  ctx.fillStyle=g; ctx.beginPath(); ctx.ellipse(ox,gy,ppu*1.05,ppu*0.24,0,0,Math.PI*2); ctx.fill();
+  ctx.restore();
+
+  var list=[];
+  for(i=0;i<solid.faces.length;i++){
+    var fc=solid.faces[i], idx=fc.idx, vs=new Array(idx.length), k;
+    var sxm=0,sym=0,szm=0;
+    for(k=0;k<idx.length;k++){ var p=rv[idx[k]]; vs[k]=p; sxm+=p.x; sym+=p.y; szm+=p.z; }
+    var c=V(sxm/idx.length, sym/idx.length, szm/idx.length);
+    var n=cross(sub(vs[1],vs[0]), sub(vs[2],vs[0]));
+    if(Math.abs(n.x)+Math.abs(n.y)+Math.abs(n.z)<1e-9 && vs.length>3) n=cross(sub(vs[2],vs[0]), sub(vs[3],vs[0]));
+    n=norm(n);
+    var view=norm(V(-c.x,-c.y,dist-c.z));
+    if(dot(n,view)<=0.001) continue;
+    var shadeN = fc.sn ? rotPoint(fc.sn,cx,sx,cy,sy) : n;
+    list.push({vs:vs,z:c.z,fc:fc,n:shadeN});
+  }
+  list.sort(function(a,b){ return a.z-b.z; });
+
+  for(i=0;i<list.length;i++){
+    var it=list[i], base=hex2rgb(it.fc.color);
+    var d=Math.max(0,dot(it.n,LIGHT));
+    var kk=0.30+0.70*d;
+    var sp=Math.pow(Math.max(0,dot(it.n,HALF)), it.fc.flat?18:30)*(it.fc.flat?0.32:0.5);
+    var r=Math.min(255,base.r*kk+255*sp), gg=Math.min(255,base.g*kk+255*sp), bb=Math.min(255,base.b*kk+255*sp);
+    ctx.beginPath();
+    for(var k2=0;k2<it.vs.length;k2++){
+      var pv=it.vs[k2], s=f/(dist-pv.z);
+      var X=ox+pv.x*s, Y=oy-pv.y*s;
+      if(k2===0) ctx.moveTo(X,Y); else ctx.lineTo(X,Y);
+    }
+    ctx.closePath();
+    if(it.fc.highlight){
+      var hg=ctx.createLinearGradient(ox-ppu,oy-ppu,ox+ppu,oy+ppu);
+      hg.addColorStop(0,"#fff0b8"); hg.addColorStop(1,"#f0c246");
+      ctx.save();
+      ctx.shadowColor="rgba(255,214,110,0.85)"; ctx.shadowBlur=16;
+      ctx.fillStyle=hg; ctx.fill();
+      ctx.shadowBlur=0; ctx.lineWidth=3; ctx.strokeStyle="#fff6cf"; ctx.stroke();
+      ctx.restore();
+    } else {
+      var col="rgb("+(r|0)+","+(gg|0)+","+(bb|0)+")";
+      ctx.fillStyle=col; ctx.fill();
+      ctx.lineWidth=1; ctx.strokeStyle=col; ctx.stroke();
+    }
+  }
+}
+
+var lastT=performance.now();
+function loop(now){
+  var dt=Math.min(0.05,(now-lastT)/1000); lastT=now;
+  for(var i=0;i<stages.length;i++) renderStage(stages[i],dt);
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+
+/* ============================================================
+   DOM refs
+   ============================================================ */
+var stage=document.getElementById("stage");
+var exhibitArea=document.getElementById("exhibit-area");
+var cardsEl=document.getElementById("cards");
+var promptEl=document.getElementById("prompt");
+var exhibitNoEl=document.getElementById("exhibit-no");
+var modeTag=document.getElementById("mode-tag");
+var modeText=document.getElementById("mode-text");
+var stampBtn=document.getElementById("stamp");
+var stampHint=document.getElementById("stamp-hint");
+var skipBtn=document.getElementById("skip");
+var rereadBtn=document.getElementById("reread");
+var rereadNote=document.getElementById("reread-note");
+var idleNudge=document.getElementById("idle-nudge");
+var cueEl=document.getElementById("cue");
+var goldNoteEl=document.getElementById("goldnote");
+var clockTime=document.getElementById("clock-time");
+var walk=document.getElementById("walk");
+var introOv=document.getElementById("intro");
+var reportOv=document.getElementById("report");
+var exitOv=document.getElementById("exit-confirm");
+var beginBtn=document.getElementById("begin-btn");
+var exitBtn=document.getElementById("exit-btn");
+var stayBtn=document.getElementById("stay-btn");
+var leaveBtn=document.getElementById("leave-btn");
+
+/* ============================================================
+   scaling for small windows (pointer deltas divided by SCALE)
+   ============================================================ */
+var SCALE=1;
+function fit(){
+  var w=window.innerWidth, h=window.innerHeight;
+  SCALE=Math.min(w/1365,h/768,1);
+  stage.style.transform="scale("+SCALE+")";
+}
+window.addEventListener("resize",fit); fit();
+
+/* ============================================================
+   STATE
+   ============================================================ */
+var state={ index:-1, started:false, finished:false, records:[], hintTotal:0, nudgeTotal:0,
+            filed:0, skipped:0, startedAt:0 };
+var cur=null, idleTimer=null, committing=false;
+
+function shuffle(a){
+  var arr=a.slice();
+  for(var i=arr.length-1;i>0;i--){ var j=Math.floor(Math.random()*(i+1)); var t=arr[i]; arr[i]=arr[j]; arr[j]=t; }
+  return arr;
+}
+function glyphSVG(name){
+  var s='stroke="#3a3222" stroke-width="2.2" fill="none"';
+  if(name==="circle")    return '<svg class="gl" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" '+s+'/></svg>';
+  if(name==="square")    return '<svg class="gl" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" '+s+'/></svg>';
+  if(name==="rectangle") return '<svg class="gl" viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="10" '+s+'/></svg>';
+  if(name==="triangle")  return '<svg class="gl" viewBox="0 0 24 24"><polygon points="12,4 21,20 3,20" '+s+'/></svg>';
+  return "";
+}
+function glyphRow(glyphs){
+  if(!glyphs) return "";
+  var out="";
+  for(var i=0;i<glyphs.length;i++){
+    for(var n=0;n<glyphs[i][1];n++) out+=glyphSVG(glyphs[i][0]);
+  }
+  return '<span class="glyphrow">'+out+'</span>';
+}
+function esc(t){ return String(t).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+
+/* ============================================================
+   EXHIBIT BUILD
+   ============================================================ */
+function buildExhibits(item){
+  exhibitArea.innerHTML="";
+  stages.length=0;
+  var single=item.solids.length===1;
+  var W=single?286:206, H=single?254:214;
+  var dpr=Math.min(2, window.devicePixelRatio||1);
+  item.solids.forEach(function(spec){
+    var wrap=document.createElement("div"); wrap.className="exhibit";
+    var cv=document.createElement("canvas"); cv.className="solid";
+    cv.width=Math.round(W*dpr); cv.height=Math.round(H*dpr);
+    cv.style.width=W+"px"; cv.style.height=H+"px";
+    var ctx=cv.getContext("2d"); ctx.scale(dpr,dpr);
+    var plinth=document.createElement("div"); plinth.className="plinth";
+    var lab=document.createElement("div"); lab.className="slabel"; lab.textContent=spec.label;
+    wrap.appendChild(cv); wrap.appendChild(plinth); wrap.appendChild(lab);
+    exhibitArea.appendChild(wrap);
+
+    var r0=startRot(spec.key);
+    var st={canvas:cv, ctx:ctx, w:W, h:H, solid:makeSolid(spec.key,spec),
+            rotX:r0.rx, rotY:r0.ry, vel:0, dragging:false, autoAccum:0, moved:0, lx:0, ly:0};
+    stages.push(st);
+
+    cv.addEventListener("pointerdown", function(e){
+      st.dragging=true; st.moved=0; st.lx=e.clientX; st.ly=e.clientY; st.vel=0;
+      try{ cv.setPointerCapture(e.pointerId); }catch(err){}
+      noteInput(); e.preventDefault();
+    });
+    cv.addEventListener("pointermove", function(e){
+      if(!st.dragging) return;
+      var dx=(e.clientX-st.lx)/SCALE, dy=(e.clientY-st.ly)/SCALE;
+      st.lx=e.clientX; st.ly=e.clientY;
+      st.rotY += dx*0.0125;
+      st.rotX = Math.max(-1.25, Math.min(1.25, st.rotX + dy*0.010));
+      st.vel = dx*0.0125*0.35;
+      st.moved += Math.abs(dx)+Math.abs(dy);
+      if(st.moved>16 && cur && !cur.rotationEngaged){ cur.rotationEngaged=true; }
+      noteInput(); e.preventDefault();
+    });
+    function endDrag(e){ if(st.dragging){ st.dragging=false; try{ cv.releasePointerCapture(e.pointerId); }catch(err){} } }
+    cv.addEventListener("pointerup", endDrag);
+    cv.addEventListener("pointercancel", endDrag);
+    cv.addEventListener("pointerleave", function(e){ if(st.dragging && e.buttons===0) endDrag(e); });
+  });
+}
+
+/* ============================================================
+   ITEM PRESENTATION
+   ============================================================ */
+function presentItem(i){
+  state.index=i;
+  var item=ITEMS[i];
+  committing=false;
+
+  var opts=item.options.slice();
+  var pinned=opts.filter(function(o){ return o.pinLast; });
+  var rest=shuffle(opts.filter(function(o){ return !o.pinLast; }));
+  var ordered=rest.concat(pinned);
+
+  cur={
+    item:item, startTime:Date.now(), order:ordered.map(function(o){ return o.v; }),
+    single:null, multi:{}, optionChangeCount:0, hintRequested:0, idleNudgeShown:false,
+    rotationEngaged:false, exclusivityShown:0, commitBeforeSelection:0
+  };
+
+  exhibitNoEl.textContent="RECORD CARD "+(i+1)+" / 5";
+  promptEl.textContent=item.prompt;
+  if(item.mode==="single-select"){
+    modeTag.textContent="PICK ONE"; modeTag.className="";
+    modeTag.setAttribute("id","mode-tag");
+    modeText.textContent="Pick one card, then press STAMP.";
+  } else {
+    modeTag.textContent="PICK EVERY TRUE CARD"; modeTag.className="multi";
+    modeTag.setAttribute("id","mode-tag");
+    modeText.textContent = "Pick every card that is true, then press STAMP."
+      + (item.id==="I5" ? "   \u2022   \u201cnone of them\u201d cannot be joined with other cards." : "");
+  }
+  cueEl.textContent = (i===0) ? "Drag a solid to turn it. Tap a card to answer." : "";
+  goldNoteEl.textContent = item.goldNote || "";
+
+  exhibitArea.classList.remove("archived");
+  walk.classList.remove("lit");
+  rereadNote.classList.remove("show");
+  idleNudge.classList.remove("show");
+
+  buildExhibits(item);
+  buildCards(item, ordered);
+  updateStamp();
+  markPedestals();
+  resetIdle();
+}
+
+function buildCards(item, ordered){
+  cardsEl.innerHTML="";
+  var wide = ordered.length<=4 ? 268 : 224;
+  ordered.forEach(function(opt){
+    var b=document.createElement("button");
+    b.type="button";
+    b.className="card"+(item.mode==="multi-select"?" multi":"");
+    b.style.width=wide+"px";
+    b.setAttribute("data-value", opt.v);
+    b.innerHTML='<span class="pindot"></span>'+glyphRow(opt.glyphs)+
+                '<span class="card-text">'+esc(opt.v)+'</span><span class="pintag">PICKED</span>';
+    b.addEventListener("click", function(){ onCard(opt, b); });
+    cardsEl.appendChild(b);
+  });
+}
+
+function onCard(opt, btn){
+  if(committing) return;
+  noteInput();
+  var item=cur.item;
+  cur.optionChangeCount++;
+  if(item.mode==="single-select"){
+    var all=cardsEl.querySelectorAll(".card");
+    for(var i=0;i<all.length;i++) all[i].classList.remove("sel");
+    btn.classList.add("sel");
+    cur.single=opt.v;
+  } else {
+    var isSel=btn.classList.contains("sel");
+    if(opt.exclusive){
+      if(isSel){ btn.classList.remove("sel"); delete cur.multi[opt.v]; }
+      else{
+        var others=cardsEl.querySelectorAll(".card"), cleared=0;
+        for(var j=0;j<others.length;j++){
+          if(others[j]!==btn && others[j].classList.contains("sel")){ others[j].classList.remove("sel"); cleared++; }
+        }
+        cur.multi={}; cur.multi[opt.v]=true; btn.classList.add("sel");
+        if(cleared>0){
+          cur.exclusivityShown++;
+          post("evaluation_friction",{itemId:item.id, constructId:item.construct,
+            frictionType:"exclusivityRuleShown",
+            detail:"'none of them' auto-unpinned "+cleared+" other card(s)", recoverable:true});
+        }
+      }
+    } else {
+      if(isSel){ btn.classList.remove("sel"); delete cur.multi[opt.v]; }
+      else{
+        btn.classList.add("sel"); cur.multi[opt.v]=true;
+        // remove any exclusive pin
+        var ex=cardsEl.querySelectorAll(".card");
+        for(var k=0;k<ex.length;k++){
+          var v=ex[k].getAttribute("data-value");
+          var od=item.options.filter(function(o){ return o.v===v; })[0];
+          if(od && od.exclusive && ex[k].classList.contains("sel")){
+            ex[k].classList.remove("sel"); delete cur.multi[v]; cur.exclusivityShown++;
+          }
+        }
+      }
+    }
+  }
+  updateStamp();
+}
+
+function selectionCount(){
+  if(!cur) return 0;
+  if(cur.item.mode==="single-select") return cur.single?1:0;
+  return Object.keys(cur.multi).length;
+}
+function updateStamp(){
+  if(selectionCount()>0){
+    stampBtn.classList.remove("off");
+    stampHint.textContent="Press to file this record. It seals for good.";
+  } else {
+    stampBtn.classList.add("off");
+    stampHint.textContent = cur && cur.item.mode==="multi-select"
+      ? "Pick at least one card to unlock the stamp." : "Pick a card to unlock the stamp.";
+  }
+}
+
+/* ============================================================
+   IDLE NUDGE (navigation only)
+   ============================================================ */
+function resetIdle(){
+  if(idleTimer) clearTimeout(idleTimer);
+  if(!cur || cur.idleNudgeShown) return;
+  idleTimer=setTimeout(function(){
+    if(!cur || committing) return;
+    cur.idleNudgeShown=true; state.nudgeTotal++;
+    idleNudge.classList.add("show");
+    setTimeout(function(){ idleNudge.classList.remove("show"); }, 9000);
+    post("evaluation_friction",{itemId:cur.item.id, constructId:cur.item.construct,
+      frictionType:"idleNudgeShown", detail:"45s with no input; navigation-only nudge, no content help",
+      recoverable:true});
+  }, 45000);
+}
+function noteInput(){
+  if(!cur || cur.idleNudgeShown){ return; }
+  resetIdle();
+}
+
+/* ============================================================
+   COMMIT / SKIP
+   ============================================================ */
+function setsEqual(a,b){
+  if(a.length!==b.length) return false;
+  var s={}; b.forEach(function(x){ s[x]=1; });
+  for(var i=0;i<a.length;i++){ if(!s[a[i]]) return false; }
+  return true;
+}
+
+function commit(kind){
+  if(committing || !cur) return;
+  if(kind==="stamp" && selectionCount()===0){
+    cur.commitBeforeSelection++;
+    stampHint.textContent = cur.item.mode==="multi-select"
+      ? "Pick every card that is true first." : "Pick one card first.";
+    post("evaluation_friction",{itemId:cur.item.id, constructId:cur.item.construct,
+      frictionType:"commitBeforeSelection", detail:"STAMP pressed with no card picked", recoverable:true});
+    return;
+  }
+  committing=true;
+  if(idleTimer) clearTimeout(idleTimer);
+  idleNudge.classList.remove("show");
+  rereadNote.classList.remove("show");
+
+  var item=cur.item;
+  var latency=Date.now()-cur.startTime;
+  var attemptedValue=null, result="noResponse";
+  var selectedSet=[];
+
+  if(kind==="stamp"){
+    if(item.mode==="single-select"){
+      attemptedValue=cur.single;
+      result=(item.correct.indexOf(cur.single)>=0)?"correct":"incorrect";
+    } else {
+      selectedSet=cur.order.filter(function(v){ return !!cur.multi[v]; });
+      attemptedValue=selectedSet;
+      result=setsEqual(selectedSet,item.correct)?"correct":"incorrect";
+    }
+  }
+
+  /* -------- measurement keys, exactly as contracted -------- */
+  var m={ latencyMs:latency, optionChangeCount:cur.optionChangeCount, hintRequested:cur.hintRequested };
+  if(item.mode==="single-select"){
+    m.selectedOption = (kind==="stamp") ? cur.single : null;
+    m.correct = (kind==="stamp") ? (result==="correct") : null;
+  } else {
+    m.selectedOptionSet = (kind==="stamp") ? selectedSet : null;
+    m.exactSetCorrect = (kind==="stamp") ? (result==="correct") : null;
+  }
+  if(item.id==="I3" && kind==="stamp"){
+    var truePicked=selectedSet.filter(function(v){ return item.correct.indexOf(v)>=0; });
+    var falsePicked=selectedSet.filter(function(v){ return item.correct.indexOf(v)<0; });
+    var missed=item.correct.filter(function(v){ return selectedSet.indexOf(v)<0; });
+    m.partialCreditPattern={
+      truthfulSelected:truePicked, untruthfulSelected:falsePicked, missedTrue:missed,
+      code:"T"+truePicked.length+"_F"+falsePicked.length+"_M"+missed.length,
+      classification: falsePicked.length>0 ? "containsFalseStatement"
+                     : (missed.length===0 ? "exactSet" : "underSelectedTrueStatements")
+    };
+  }
+  if(item.id==="I5" && kind==="stamp"){
+    m.overSelectionCount=selectedSet.filter(function(v){ return item.correct.indexOf(v)<0; }).length;
+    m.underSelectionCount=item.correct.filter(function(v){ return selectedSet.indexOf(v)<0; }).length;
+    m.sphereSelected=selectedSet.indexOf("the sphere")>=0;
+    m.noneOfThemSelected=selectedSet.indexOf("none of them")>=0;
+  }
+
+  /* -------- observed confounds -------- */
+  var observed=[];
+  if(kind==="stamp" && latency<3000) observed.push("observed: commit under 3 seconds (rapid response, guessing is a live alternative)");
+  if(kind==="stamp" && item.mode==="multi-select" && selectedSet.length===1) observed.push("observed: single pin on a multi-select item (format burden is a live alternative to under-selection)");
+  if(!cur.rotationEngaged) observed.push("observed: child did not drag-rotate this exhibit before responding");
+  if(cur.optionChangeCount>=5) observed.push("observed: high option churn before commit (>=5 card changes)");
+  if(cur.hintRequested>0) observed.push("observed: format restatement requested (navigation only, no content help given)");
+  if(cur.idleNudgeShown) observed.push("observed: idle nudge shown before response");
+
+  var autoReveal = stages.some(function(s){ return s.autoAccum>Math.PI; });
+
+  var record={
+    itemId:item.id, constructId:item.construct, result:result,
+    responseMode:item.mode, attemptedValue:attemptedValue,
+    measurements:m, terminalState: kind==="stamp" ? "responded" : "skipped",
+    rotationEngagedBeforeAnswer:cur.rotationEngaged, autoRevealOccurred:autoReveal,
+    hintRequested:cur.hintRequested, idleNudgeShown:cur.idleNudgeShown,
+    optionOrderShown:cur.order.slice()
+  };
+  state.records.push(record);
+  state.hintTotal+=cur.hintRequested;
+  if(kind==="stamp") state.filed++; else state.skipped++;
+
+  post("evaluation_attempt",{
+    itemId:item.id,
+    constructId:item.construct,
+    result:result,
+    assistance:{
+      hintRequested:cur.hintRequested,
+      hintRequestedFlag:cur.hintRequested>0,
+      clarificationType: cur.hintRequested>0 ? "format-and-navigation-restatement-only" : "none",
+      contentHintsGiven:0,
+      workedExamplesShown:0,
+      feedbackGiven:false,
+      answerRevealed:false,
+      idleNudgeShown:cur.idleNudgeShown,
+      narrationPlayed:false
+    },
+    exposure:{
+      itemPosition:state.index+1, ofItems:5,
+      solidsShown:item.exposure.solidsShown,
+      orientation:item.exposure.orientation,
+      highlight:item.exposure.highlight||null,
+      freshness:item.exposure.freshness,
+      carryoverRisk:item.exposure.carryoverRisk||null,
+      optionOrderShown:cur.order.slice(),
+      rotationEngagedBeforeAnswer:cur.rotationEngaged,
+      autoRevealOccurred:autoReveal,
+      answerExposedBeforeResponse:false,
+      correctnessSignalledToChild:false
+    },
+    responseMode:item.mode,
+    possibleConfounds:item.confounds.concat(observed),
+    attemptedValue:attemptedValue,
+    measurements:m,
+    scoring:(item.mode==="multi-select"?"exact-set match scored binary":"binary"),
+    terminalState:record.terminalState
+  });
+
+  if(kind==="skip"){
+    post("evaluation_friction",{itemId:item.id, constructId:item.construct,
+      frictionType:"itemSkipped", detail:"child chose to leave this exhibit for the day curator; recorded as noResponse, not scored incorrect",
+      recoverable:true});
+  }
+  if(kind==="stamp" && latency<3000){
+    post("evaluation_friction",{itemId:item.id, constructId:item.construct,
+      frictionType:"rapidCommit", detail:"latencyMs="+latency, recoverable:true});
+  }
+  if(kind==="stamp" && item.mode==="multi-select" && selectedSet.length===1){
+    post("evaluation_friction",{itemId:item.id, constructId:item.construct,
+      frictionType:"singlePinOnMultiSelect", detail:"one card pinned on a select-all item", recoverable:true});
+  }
+
+  /* world reaction: identical for every stamp */
+  sealAndAdvance(kind);
+}
+
+function sealAndAdvance(kind){
+  var ped=document.getElementById("ped"+state.index);
+  if(ped){ ped.classList.remove("active"); ped.classList.add(kind==="stamp"?"sealed":"clipped"); }
+  exhibitArea.classList.add("archived");
+  stampBtn.classList.add("off");
+  var wing=document.getElementById("wing"+state.index);
+  if(wing){
+    var shapes=wing.querySelectorAll("*");
+    for(var i=0;i<shapes.length;i++){
+      var el=shapes[i];
+      if(el.getAttribute("class")==="win"){ el.setAttribute("fill","#e0ac5e"); }
+      else { el.setAttribute("fill","#2b3560"); }
+    }
+  }
+  var hour=1+state.records.length;
+  clockTime.textContent=hour+" AM";
+  var dot=document.getElementById("hd"+(state.records.length-1));
+  if(dot) dot.classList.add("on");
+  walk.classList.add("lit");
+
+  var delay=REDUCED?250:900;
+  setTimeout(function(){
+    if(state.records.length>=ITEMS.length){ finishEvaluation("allItemsTerminal"); }
+    else { presentItem(state.records.length); }
+  }, delay);
+}
+
+/* ============================================================
+   REREAD (format restatement only — logged as hintRequested)
+   ============================================================ */
+rereadBtn.addEventListener("click", function(){
+  if(!cur || committing) return;
+  cur.hintRequested++;
+  noteInput();
+  var item=cur.item;
+  var txt;
+  if(item.mode==="single-select"){
+    txt="<b>Pick one card.</b> Tap a card to pick it. Tap another card to change your pick. "+
+        "Then press STAMP to file the record. You may also leave this exhibit for the day curator.";
+  } else if(item.id==="I5"){
+    txt="<b>Pick every card that is true.</b> Tap cards to pin and unpin them. "+
+        "\u201cNone of them\u201d cannot be joined with other cards. Then press STAMP to file the record. "+
+        "You may also leave this exhibit for the day curator.";
+  } else {
+    txt="<b>Pick every card that is true.</b> Tap cards to pin and unpin them. You may pin more than one. "+
+        "Then press STAMP to file the record. You may also leave this exhibit for the day curator.";
+  }
+  rereadNote.innerHTML=txt;
+  rereadNote.classList.add("show");
+  post("evaluation_friction",{itemId:item.id, constructId:item.construct,
+    frictionType:"hintRequested",
+    detail:"reread pressed; only response-format and navigation restated; no content hint, no example, no answer",
+    hintCountForItem:cur.hintRequested, recoverable:true});
+});
+
+stampBtn.addEventListener("click", function(){
+  if(!committing && selectionCount()>0 && !REDUCED){
+    stampBtn.classList.add("press");
+    setTimeout(function(){ stampBtn.classList.remove("press"); },220);
+  }
+  commit("stamp");
+});
+skipBtn.addEventListener("click", function(){ commit("skip"); });
+
+/* ============================================================
+   PEDESTAL MAP
+   ============================================================ */
+function markPedestals(){
+  for(var i=0;i<5;i++){
+    var p=document.getElementById("ped"+i);
+    if(!p) continue;
+    p.classList.remove("active");
+    if(i===state.index && !state.finished) p.classList.add("active");
+  }
+}
+
+/* ============================================================
+   EXIT
+   ============================================================ */
+exitBtn.addEventListener("click", function(){ if(!state.finished) exitOv.classList.remove("hidden"); });
+stayBtn.addEventListener("click", function(){ exitOv.classList.add("hidden"); resetIdle(); });
+leaveBtn.addEventListener("click", function(){
+  exitOv.classList.add("hidden");
+  post("evaluation_friction",{itemId: cur?cur.item.id:null, constructId: cur?cur.item.construct:null,
+    frictionType:"earlyExit", detail:"child left the museum before all exhibits reached a terminal state",
+    recoverable:false});
+  finishEvaluation("earlyExit");
+});
+
+/* ============================================================
+   CONSTRUCT STATUS (provisional only — never mastery)
+   ============================================================ */
+function findRec(id){
+  for(var i=0;i<state.records.length;i++) if(state.records[i].itemId===id) return state.records[i];
+  return null;
+}
+function computeConstructStatus(){
+  var r1=findRec("I1"), r2=findRec("I2"), r3=findRec("I3"), r4=findRec("I4"), r5=findRec("I5");
+  var s={C1:"indeterminate",C2:"indeterminate",C3:"indeterminate",C4:"indeterminate"};
+
+  var signals=[];
+  if(r1 && r1.result!=="noResponse") signals.push(r1.result==="correct"?"support":"gap");
+  if(r3 && r3.result!=="noResponse"){
+    var p=r3.measurements.partialCreditPattern;
+    if(p && p.classification==="exactSet") signals.push("support");
+    else if(p && p.classification==="containsFalseStatement") signals.push("gap");
+    else signals.push("indeterminate");
+  }
+  if(signals.indexOf("gap")>=0) s.C1="provisional-gap";
+  else if(signals.length>0 && signals.every(function(x){ return x==="support"; })) s.C1="provisional-support";
+  else s.C1="indeterminate";
+
+  if(r2 && r2.result!=="noResponse") s.C2 = (r2.result==="correct")?"provisional-support":"provisional-gap";
+  if(r4 && r4.result!=="noResponse" && typeof r4.attemptedValue==="string" &&
+     r4.attemptedValue.indexOf("rectangle")>=0) s.C2="provisional-gap";
+  if(r5 && r5.result!=="noResponse" && r5.measurements.noneOfThemSelected) s.C2="provisional-gap";
+
+  if(r5 && r5.result!=="noResponse"){
+    if(r5.measurements.sphereSelected || r5.measurements.noneOfThemSelected) s.C3="provisional-gap";
+    else if(r5.result==="correct") s.C3="provisional-support";
+    else s.C3="indeterminate";
+  }
+
+  if(r4 && r4.result!=="noResponse"){
+    if(r4.result==="correct") s.C4="provisional-support";
+    else if(r4.attemptedValue==="four triangles only") s.C4="provisional-gap";
+    else s.C4="indeterminate";
+  }
+  return s;
+}
+
+/* ============================================================
+   COMPLETION
+   ============================================================ */
+function finishEvaluation(reason){
+  if(state.finished) return;
+  state.finished=true;
+  committing=true;
+  if(idleTimer) clearTimeout(idleTimer);
+  markPedestals();
+
+  var reached={};
+  state.records.forEach(function(r){ reached[r.itemId]=true; });
+  var notAdministered=ITEMS.filter(function(it){ return !reached[it.id]; }).map(function(it){ return it.id; });
+
+  var r2=findRec("I2"), r5=findRec("I5");
+  var conditional=[];
+  if(r5 && r2 && r2.result==="correct"){
+    conditional.push("I5 is conditional evidence for C3 only: the cylinder appeared in I1 and I2, and I2 was answered correctly.");
+  }
+
+  var filed=state.filed, skipped=state.skipped;
+  document.getElementById("r-filed").textContent=filed;
+  document.getElementById("r-skipped").textContent=skipped;
+  document.getElementById("r-unopened").textContent=notAdministered.length;
+  document.getElementById("r-reread").textContent=state.hintTotal;
+  document.getElementById("r-wings").textContent=state.records.length;
+  var d=new Date();
+  document.getElementById("badge-date").textContent=
+    d.getFullYear()+"-"+("0"+(d.getMonth()+1)).slice(-2)+"-"+("0"+d.getDate()).slice(-2);
+  if(reason==="earlyExit"){
+    document.getElementById("report-title").textContent="THE SHIFT REPORT";
+    document.getElementById("report-sub").textContent=
+      "You left before the morning bell. Thank you for the records you filed \u2014 they stay sealed.";
+  }
+  reportOv.classList.remove("hidden");
+
+  post("evaluation_complete",{
+    completionState:reason,
+    itemsAdministered:state.records.length,
+    itemsResponded:filed,
+    itemsSkippedNoResponse:skipped,
+    itemsNotAdministered:notAdministered,
+    records:state.records,
+    assistanceTotals:{hintRequested:state.hintTotal, idleNudgeShown:state.nudgeTotal,
+                      contentHintsGiven:0, feedbackGiven:false, answerRevealed:false},
+    constructStatus:computeConstructStatus(),
+    conditionalEvidenceFlags:conditional,
+    scoringOutput:"Per-item binary score plus recorded measurement keys, and a per-construct status of provisional-support, provisional-gap, or indeterminate.",
+    interpretationLimit:"Results are a single opening sample. No construct may be marked established from this evaluation alone, no mastery may be declared, and constructs remain 'unknown' or 'provisional-signal' pending a second independent probe.",
+    noMasteryClaim:true,
+    evidenceRequiredNext:[
+      "A fresh no-flat-face probe that does not use a sphere",
+      "A cylinder-versus-cone circular-face contrast item",
+      "A non-square-based pyramid or triangular prism face-set item",
+      "A vocabulary-isolation check on circle, square, rectangle, triangle as plane figures",
+      "A silhouette-control item conflicting with the outline in the opposite direction from I4",
+      "A format-burden control re-asking one multi-select construct as single-select",
+      "Latency and option-change comparison across items to estimate guessing"
+    ],
+    durationMs: state.startedAt ? (Date.now()-state.startedAt) : 0
+  });
+}
+
+/* ============================================================
+   START
+   ============================================================ */
+beginBtn.addEventListener("click", function(){
+  if(state.started) return;
+  state.started=true; state.startedAt=Date.now();
+  introOv.classList.add("hidden");
+  presentItem(0);
+});
+
+post("evaluation_ready",{
+  title:"The Museum of Mystery Solids: Night Curator",
+  viewport:"1365x768",
+  itemCount:ITEMS.length,
+  itemOrder:ITEMS.map(function(i){ return i.id; }),
+  constructs:["C1","C2","C3","C4"],
+  responseModes:["single-select","multi-select"],
+  feedbackPolicy:"no correctness signal, no content hints, no answer exposure at any point during the evaluation",
+  assistanceAvailable:["reread the task (format/navigation restatement only, logged as hintRequested)",
+                       "idle nudge after 45s of no input (navigation only)",
+                       "skip an exhibit (recorded as noResponse, never scored incorrect)",
+                       "early exit (unreached items recorded as notAdministered)"],
+  inputRequirements:{keyboard:false, touch:true, mouse:true, typing:false, audio:false}
+});
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,1379 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Lantern Workshop: Four Signal Puzzles</title>
+<style>
+  :root{
+    --indigo:#121829;
+    --indigo2:#1b2440;
+    --indigo3:#243venn;
+    --panel:#1e2942;
+    --wood:#6d4a2a;
+    --wood-dark:#4a3220;
+    --amber:#f5b83d;
+    --amber-soft:#ffd88a;
+    --cream:#f6efe2;
+    --dim:#a9b3cd;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;padding:0;height:100%;width:100%;overflow:hidden;background:var(--indigo);}
+  body{
+    font-family:"Segoe UI",Verdana,Tahoma,system-ui,sans-serif;
+    color:var(--cream);
+    touch-action:manipulation;
+    user-select:none;
+    -webkit-user-select:none;
+  }
+  .hidden{display:none !important;}
+  button{font-family:inherit;color:inherit;cursor:pointer;border:none;background:none;}
+
+  #app{position:relative;width:100vw;height:100vh;min-width:900px;min-height:600px;
+    background:
+      radial-gradient(900px 520px at 50% 42%, #2b3555 0%, #1a2138 45%, #10152580 75%, #0d1120 100%),
+      var(--indigo);
+  }
+  .screen{position:absolute;inset:0;}
+
+  /* ---------- opening ---------- */
+  #screen-open{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px 90px;text-align:center;}
+  .lantern{width:120px;height:120px;border-radius:50%;
+    background:radial-gradient(circle at 50% 45%, #fff0c4 0%, var(--amber) 38%, #a8721c 70%, #5a3f11 100%);
+    box-shadow:0 0 90px 30px rgba(245,184,61,.28);margin-bottom:26px;animation:breathe 4s ease-in-out infinite;}
+  @keyframes breathe{0%,100%{opacity:.86;transform:scale(1);}50%{opacity:1;transform:scale(1.04);}}
+  #openLine{font-size:34px;line-height:1.45;max-width:1000px;margin:0 0 18px;}
+  #openSub{font-size:24px;color:var(--dim);max-width:900px;margin:0 0 34px;line-height:1.45;}
+  .big-btn{background:linear-gradient(180deg,#8a5c30,#5f3f20);border:3px solid #c78f4a;border-radius:16px;
+    color:var(--cream);font-size:28px;padding:20px 40px;min-height:76px;box-shadow:0 8px 0 #33210f;}
+  .big-btn:active{transform:translateY(4px);box-shadow:0 4px 0 #33210f;}
+
+  /* ---------- work screen ---------- */
+  #screen-work{display:grid;grid-template-columns:240px 1fr 452px;height:100%;}
+  #rail{padding:18px 16px;background:linear-gradient(180deg,#161d33,#111726);border-right:2px solid #2b3category;
+    border-right:2px solid #2b3554;display:flex;flex-direction:column;gap:14px;}
+  .rail-btn{border:2px solid #6c7ba6;border-radius:12px;padding:12px 10px;font-size:19px;color:var(--cream);
+    background:#212b46;min-height:60px;text-align:left;line-height:1.2;}
+  .rail-btn:active{background:#2c3a5e;}
+  #chalkboard{background:#22302a;border:4px solid #4b3venn;border:4px solid #4b3a24;border-radius:10px;
+    padding:12px 10px;text-align:center;font-size:24px;color:#e8e6d5;letter-spacing:.5px;}
+  .rail-title{font-size:17px;color:var(--dim);letter-spacing:1px;text-transform:uppercase;margin:2px 0 -6px;}
+  #tower{flex:0 0 auto;display:flex;flex-direction:column-reverse;gap:8px;align-items:center;
+    padding:12px 8px;background:#0f1424;border:2px solid #2b3554;border-radius:12px;}
+  .rung{width:100%;height:26px;border-radius:6px;background:#2a3category;background:#28324f;border:2px solid #3c4straight;
+    border:2px solid #3c4a70;transition:background .4s ease, box-shadow .4s ease;}
+  .rung.lit{background:linear-gradient(180deg,var(--amber-soft),var(--amber));border-color:#ffe6b0;
+    box-shadow:0 0 18px 4px rgba(245,184,61,.45);}
+  .shelf{background:#161e33;border:2px solid #2b3554;border-radius:10px;padding:8px;}
+  .shelf .shelf-name{font-size:16px;color:var(--dim);margin-bottom:6px;}
+  .shelf-row{display:flex;flex-wrap:wrap;gap:6px;min-height:30px;}
+  .mini-crate{width:26px;height:22px;border-radius:4px;background:var(--wood);border:2px solid #c78f4a;}
+  .mini-crate.look{background:#33405f;border-color:#8fa4d6;}
+
+  #stage{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;
+    padding:18px 22px;gap:12px;}
+  .crate-tag{font-size:20px;color:var(--amber-soft);letter-spacing:1px;}
+  .crate-note{font-size:19px;color:var(--dim);margin-top:-6px;}
+  .crate{position:relative;width:100%;max-width:640px;height:322px;border-radius:16px;
+    background:linear-gradient(180deg,#7a5430,#523venn);background:linear-gradient(180deg,#7a5430,#4e3520);
+    border:8px solid #35240f;box-shadow:0 14px 34px rgba(0,0,0,.5), inset 0 0 0 4px #8d6538;
+    display:flex;align-items:center;justify-content:center;padding:14px;}
+  .crate-inner{width:100%;height:100%;border-radius:8px;background:radial-gradient(520px 240px at 50% 40%,#20294a,#131a2e);
+    border:3px solid #2f2110;display:flex;align-items:center;justify-content:center;overflow:hidden;}
+  .stim{display:flex;align-items:center;justify-content:center;}
+  .clusters{gap:30px;}
+  .cluster{background:rgba(255,255,255,.045);border-radius:14px;padding:12px;display:grid;gap:9px;}
+  .bead{width:24px;height:24px;border-radius:50%;
+    background:radial-gradient(circle at 40% 35%, #ffe6ad, var(--amber) 62%, #b7801f 100%);
+    box-shadow:0 0 10px rgba(245,184,61,.35);}
+  .diamond{width:24px;height:24px;transform:rotate(45deg);border-radius:4px;
+    background:linear-gradient(140deg,#ffe0a0,var(--amber) 60%,#b7801f);}
+  .grid2{flex-direction:column;gap:4px;}
+  .grid-row{display:flex;gap:4px;}
+  .sq{width:36px;height:36px;border-radius:5px;background:linear-gradient(160deg,#ffdf9f,var(--amber) 55%,#b7801f);}
+  .statements{flex-direction:column;gap:22px;padding:18px 26px;width:100%;}
+  .statement{background:#f3ead6;color:#221a10;border-radius:10px;padding:16px 18px;box-shadow:0 4px 0 #b7a689;}
+  .st-label{display:block;font-size:19px;letter-spacing:1px;color:#6d5a3a;margin-bottom:4px;}
+  .st-text{font-size:28px;line-height:1.3;}
+  .stim-sentence{font-size:30px;margin:6px 0 0;text-align:center;max-width:640px;line-height:1.35;}
+  .prompt{font-size:26px;color:var(--amber-soft);margin:0;text-align:center;max-width:640px;line-height:1.35;}
+  .ghost-btn{border:2px solid #6c7ba6;border-radius:12px;background:#1d2740;font-size:20px;padding:12px 18px;min-height:56px;}
+  .ghost-btn:active{background:#2a3757;}
+  .pulse-once{animation:pulseOnce 1.2s ease-in-out 2;}
+  @keyframes pulseOnce{0%,100%{box-shadow:0 0 0 0 rgba(245,184,61,0);}50%{box-shadow:0 0 0 10px rgba(245,184,61,.25);}}
+
+  .bigtext{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:600px;max-width:92%;
+    background:#f6efe2;color:#1c1710;border-radius:16px;padding:28px;z-index:40;box-shadow:0 20px 50px rgba(0,0,0,.6);}
+  .bigtext p{font-size:34px;line-height:1.35;margin:0 0 18px;}
+  .bigtext .close-note{font-size:20px;color:#61513a;margin:0;}
+
+  #respPanel{background:linear-gradient(180deg,#1b2440,#151c31);border-left:2px solid #2b3554;
+    padding:18px 20px;display:flex;flex-direction:column;gap:14px;}
+  .panel-head{font-size:17px;letter-spacing:1px;text-transform:uppercase;color:var(--dim);}
+  .slots{display:flex;gap:16px;}
+  .slot{flex:1 1 0;min-height:118px;border-radius:14px;background:#243venn;background:#222d4b;
+    border:3px dashed #6c7ba6;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;padding:8px;}
+  .slot.single{max-width:100%;}
+  .slot.active{border-style:solid;border-color:var(--amber);background:#2a3757;}
+  .slot.active.empty{animation:slotBreathe 1.2s ease-in-out infinite;}
+  @keyframes slotBreathe{0%,100%{box-shadow:0 0 0 0 rgba(245,184,61,0);}50%{box-shadow:0 0 0 8px rgba(245,184,61,.20);}}
+  .slot .slot-icon{height:28px;display:flex;align-items:center;}
+  .slot .slot-label{font-size:24px;color:var(--cream);text-align:center;line-height:1.1;}
+  .slot .slot-val{font-size:44px;line-height:1;color:var(--amber);min-height:44px;}
+  .slot .slot-val.ns{font-size:22px;color:var(--amber-soft);line-height:1.2;text-align:center;}
+  .wiggle{animation:wiggle .45s ease;}
+  @keyframes wiggle{0%,100%{transform:translateX(0);}20%{transform:translateX(-8px);}40%{transform:translateX(8px);}60%{transform:translateX(-5px);}80%{transform:translateX(5px);}}
+  .erase{animation:erase .2s ease;}
+  @keyframes erase{0%{opacity:1;}60%{opacity:.15;}100%{opacity:1;}}
+  .keypad{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;}
+  .tile{height:72px;min-width:72px;border-radius:12px;background:linear-gradient(180deg,#33436d,#26314f);
+    border:2px solid #7c8cba;font-size:32px;color:var(--cream);box-shadow:0 5px 0 #161d31;}
+  .tile:active{transform:translateY(3px);box-shadow:0 2px 0 #161d31;background:#3d5085;}
+  .opt-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+  .opt{min-height:96px;border-radius:14px;background:#f3ead6;color:#211a10;border:4px solid #b7a689;
+    font-size:30px;display:flex;align-items:center;justify-content:center;box-shadow:0 5px 0 #8b7d63;}
+  .opt.sel{border-color:var(--amber);background:#fff6e2;box-shadow:0 0 0 5px rgba(245,184,61,.35),0 5px 0 #8b7d63;}
+  .toggle-col{display:flex;flex-direction:column;gap:10px;}
+  .toggle{min-height:66px;border-radius:12px;background:#222d4b;border:3px solid #6c7ba6;font-size:24px;
+    display:flex;align-items:center;justify-content:center;color:var(--cream);}
+  .toggle.sel{border-color:var(--amber);background:#2f3d66;box-shadow:0 0 0 4px rgba(245,184,61,.25);}
+  .ns-chip{border:2px solid #8fa4d6;border-radius:10px;background:#243venn;background:#222d4a;font-size:20px;padding:10px 12px;min-height:52px;}
+  .ns-chip.sel{border-color:var(--amber);background:#2f3d66;}
+  .commit-row{margin-top:auto;display:flex;gap:14px;}
+  .commit-btn{flex:1 1 0;min-height:92px;border-radius:16px;font-size:23px;line-height:1.15;padding:10px;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;}
+  #notSureBtn{background:linear-gradient(180deg,#3c4straight,#2b3category);background:linear-gradient(180deg,#3d4d7a,#2a3555);
+    border:3px solid #9fb1de;color:var(--cream);box-shadow:0 6px 0 #171f33;}
+  #notSureBtn.on{border-color:var(--amber);background:linear-gradient(180deg,#5a4a2e,#3c3venn);background:linear-gradient(180deg,#5c4a2c,#3a2f1c);}
+  #sealBtn{background:linear-gradient(180deg,#8a5c30,#5f3f20);border:3px solid #c78f4a;color:var(--cream);box-shadow:0 6px 0 #33210f;}
+  #sealBtn.off{opacity:.5;}
+  .commit-btn:active{transform:translateY(3px);}
+  .icon-line{font-size:26px;}
+
+  .stamp-fx{position:absolute;left:50%;top:50%;width:210px;height:210px;margin:-105px 0 0 -105px;border-radius:50%;
+    border:12px solid #b6413a;color:#b6413a;display:flex;align-items:center;justify-content:center;
+    font-size:44px;letter-spacing:3px;background:rgba(246,239,226,.86);z-index:30;
+    transform:scale(2.2);opacity:0;}
+  .stamp-fx.go{animation:stampGo .8s cubic-bezier(.2,.8,.3,1) forwards;}
+  @keyframes stampGo{0%{transform:scale(2.2) rotate(-12deg);opacity:0;}55%{transform:scale(.94) rotate(-5deg);opacity:1;}70%{transform:scale(1.04) rotate(-5deg);}100%{transform:scale(1) rotate(-5deg);opacity:1;}}
+
+  /* ---------- transit ---------- */
+  #screen-transit{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:26px;background:rgba(10,14,26,.92);z-index:50;}
+  .belt{width:640px;height:22px;border-radius:11px;background:#2a3category;background:#2b3554;overflow:hidden;position:relative;}
+  .belt i{position:absolute;top:0;left:-40%;width:40%;height:100%;background:linear-gradient(90deg,transparent,#f5b83d88,transparent);animation:belt 1.4s linear infinite;}
+  @keyframes belt{0%{left:-40%;}100%{left:100%;}}
+  #transitText{font-size:28px;color:var(--cream);}
+
+  /* ---------- end ---------- */
+  #screen-end{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:30px 60px;gap:18px;
+    background:radial-gradient(900px 500px at 50% 30%, #223058, #121829 70%);}
+  #lamps{display:flex;gap:26px;}
+  .lamp{width:74px;height:74px;border-radius:50%;background:#26314f;border:3px solid #46557f;}
+  .lamp.on{background:radial-gradient(circle at 45% 40%, #fff2cd, var(--amber) 55%, #a8721c 100%);
+    border-color:#ffe6b0;box-shadow:0 0 34px 10px rgba(245,184,61,.35);}
+  #endLine{font-size:34px;text-align:center;max-width:1000px;line-height:1.4;margin:6px 0 0;}
+  #endSub{font-size:22px;color:var(--dim);text-align:center;max-width:900px;line-height:1.4;margin:0;}
+  #keeperBox{background:#1b2440;border:2px solid #2b3554;border-radius:14px;padding:16px 18px;max-width:900px;width:100%;}
+  #keeperBox h3{font-size:20px;margin:0 0 10px;color:var(--dim);font-weight:normal;letter-spacing:1px;text-transform:uppercase;}
+  #keeperBtns{display:flex;flex-wrap:wrap;gap:10px;}
+  #keeperReply{font-size:22px;line-height:1.4;margin:12px 0 0;color:var(--cream);}
+
+  .overlay{position:absolute;inset:0;background:rgba(8,11,20,.82);display:flex;align-items:center;justify-content:center;z-index:60;}
+  .dialog{background:#1e2942;border:3px solid #6c7ba6;border-radius:18px;padding:28px;text-align:center;max-width:620px;}
+  .dialog p{font-size:30px;margin:0 0 22px;}
+  .dialog .row{display:flex;gap:16px;justify-content:center;}
+  .dialog button{min-height:76px;font-size:24px;border-radius:14px;padding:14px 26px;border:3px solid #c78f4a;background:#5f3f20;}
+  .dialog button.secondary{border-color:#9fb1de;background:#2a3555;}
+
+  @media (prefers-reduced-motion: reduce){
+    *{animation-duration:.01ms !important;animation-iteration-count:1 !important;transition-duration:.01ms !important;}
+  }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- ============ OPENING ============ -->
+  <section id="screen-open" class="screen">
+    <div class="lantern" aria-hidden="true"></div>
+    <p id="openLine">The signal tower needs its lanterns tonight. Four crates just arrived. You are the Inspector. Check each crate, file your report, and the tower lights at the end.</p>
+    <p id="openSub">Reports go to the tower keepers, and they write back later — so no crate will tell you if you were right. If a crate puzzles you, mark it <strong>Needs another look</strong>. That is a real inspector's answer.</p>
+    <div style="display:flex;gap:16px;align-items:center;">
+      <button id="startBtn" class="big-btn">Open the workshop</button>
+      <button id="openReadBtn" class="ghost-btn">Show the words bigger</button>
+    </div>
+    <div id="openBigText" class="bigtext hidden">
+      <p id="openBigP">The signal tower needs its lanterns tonight. Four crates just arrived. You are the Inspector. Check each crate, file your report, and the tower lights at the end.</p>
+      <p class="close-note">Tap this card to close it.</p>
+    </div>
+  </section>
+
+  <!-- ============ WORK ============ -->
+  <section id="screen-work" class="screen hidden">
+    <aside id="rail">
+      <button id="doorBtn" class="rail-btn">&#9138; Close the workshop</button>
+      <div id="chalkboard">Crate 1 of 4</div>
+      <div class="rail-title">Signal tower</div>
+      <div id="tower">
+        <div class="rung" id="rung1"></div>
+        <div class="rung" id="rung2"></div>
+        <div class="rung" id="rung3"></div>
+        <div class="rung" id="rung4"></div>
+      </div>
+      <div class="shelf">
+        <div class="shelf-name">Shipping shelf</div>
+        <div class="shelf-row" id="shipShelf"></div>
+      </div>
+      <div class="shelf">
+        <div class="shelf-name">Second-look shelf</div>
+        <div class="shelf-row" id="lookShelf"></div>
+      </div>
+    </aside>
+
+    <main id="stage">
+      <div class="crate-tag" id="crateTag">Crate 1 &middot; the bead crate</div>
+      <div class="crate-note hidden" id="crateNote">This one fooled the last inspector.</div>
+      <div class="crate" id="crate">
+        <div class="crate-inner">
+          <div class="stim clusters" id="stim-1"></div>
+          <div class="stim grid2 hidden" id="stim-2"></div>
+          <div class="stim clusters hidden" id="stim-3"></div>
+          <div class="stim statements hidden" id="stim-4">
+            <div class="statement"><span class="st-label">Statement A</span><span class="st-text">2 baskets, and each basket holds 8 balls.</span></div>
+            <div class="statement"><span class="st-label">Statement B</span><span class="st-text">8 baskets, and each basket holds 2 balls.</span></div>
+          </div>
+        </div>
+        <div class="stamp-fx hidden" id="stampFx">FILED</div>
+      </div>
+      <p class="stim-sentence" id="stimSentence">Each bunch has the same number of dots.</p>
+      <p class="prompt" id="promptText">How many bunches are there, and how many dots are in each bunch?</p>
+      <button id="readBtn" class="ghost-btn">Show the words bigger</button>
+      <div id="bigTextCard" class="bigtext hidden">
+        <p id="bigSentence">Each bunch has the same number of dots.</p>
+        <p id="bigPrompt" style="color:#7a5a1e;">How many bunches are there, and how many dots are in each bunch?</p>
+        <p class="close-note">Tap this card to close it.</p>
+      </div>
+    </main>
+
+    <aside id="respPanel">
+      <div class="panel-head" id="panelHead">Inspection report</div>
+
+      <!-- numeric two-slot panel: ITEM-1 / ITEM-2 -->
+      <div id="resp-num" class="resp hidden">
+        <div class="slots">
+          <button class="slot empty" id="slotA">
+            <span class="slot-icon" id="iconA"></span>
+            <span class="slot-label" id="labelA">bunches</span>
+            <span class="slot-val" id="valA"></span>
+          </button>
+          <button class="slot empty" id="slotB">
+            <span class="slot-icon" id="iconB"></span>
+            <span class="slot-label" id="labelB">dots in each bunch</span>
+            <span class="slot-val" id="valB"></span>
+          </button>
+        </div>
+        <div class="keypad" id="keypadA" style="margin-top:14px;"></div>
+      </div>
+
+      <!-- option panel: ITEM-3 -->
+      <div id="resp-opts" class="resp hidden">
+        <div class="opt-grid" id="optGrid"></div>
+      </div>
+
+      <!-- ITEM-4 panel -->
+      <div id="resp-item4" class="resp hidden">
+        <div class="toggle-col">
+          <button class="toggle" id="tgSame" data-val="same">Same situation</button>
+          <button class="toggle" id="tgDiff" data-val="different">Different situations</button>
+          <button class="toggle" id="tgNS" data-val="not_sure">Not sure about this part</button>
+        </div>
+        <div class="slots" style="margin-top:14px;">
+          <button class="slot single empty active" id="slotC">
+            <span class="slot-icon" id="iconC"></span>
+            <span class="slot-label">baskets in Statement A</span>
+            <span class="slot-val" id="valC"></span>
+          </button>
+        </div>
+        <div class="keypad" id="keypadB" style="margin-top:12px;"></div>
+        <button class="ns-chip" id="basketNS" style="margin-top:10px;width:100%;">Not sure about the basket number</button>
+      </div>
+
+      <div class="commit-row">
+        <button id="notSureBtn" class="commit-btn"><span class="icon-line">&#128269;</span><span>Needs another look</span></button>
+        <button id="sealBtn" class="commit-btn off"><span class="icon-line">&#9679;</span><span>Seal the report</span></button>
+      </div>
+    </aside>
+  </section>
+
+  <!-- ============ TRANSIT ============ -->
+  <section id="screen-transit" class="screen hidden">
+    <div class="belt"><i></i></div>
+    <p id="transitText">Report filed. The next crate is coming down the line&hellip;</p>
+  </section>
+
+  <!-- ============ END ============ -->
+  <section id="screen-end" class="screen hidden">
+    <div id="lamps"></div>
+    <p id="endLine">Shift complete.</p>
+    <p id="endSub">The tower keepers will read the reports later.</p>
+    <div id="keeperBox" class="hidden">
+      <h3>Second-look shelf &mdash; after the shift</h3>
+      <div id="keeperBtns"></div>
+      <p id="keeperReply" class="hidden"></p>
+    </div>
+    <button id="endCloseBtn" class="big-btn" style="margin-top:10px;">Put out the workshop lamp</button>
+    <p id="endFinal" class="hidden" style="font-size:26px;color:#a9b3cd;">The workshop rests. The crates will keep.</p>
+  </section>
+
+  <!-- ============ DOOR DIALOG ============ -->
+  <div id="doorDialog" class="overlay hidden">
+    <div class="dialog">
+      <p>Done for tonight?</p>
+      <div class="row">
+        <button id="stayBtn" class="secondary">Not yet</button>
+        <button id="leaveBtn">Yes, close up</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  /* ---------------------------------------------------------------
+     Constants. Latency thresholds are PROVISIONAL: the contract
+     requires a non-mathematical latency baseline for this child
+     before they can be calibrated (evidenceRequiredNext).
+     Audio read-aloud is unavailable in this environment (no
+     speech synthesis, no oscillator, no external assets), so the
+     reading-load accommodation is delivered as a verbatim
+     enlarged-text restatement and logged as an accommodation.
+  --------------------------------------------------------------- */
+  var EVAL_ID = "EVAL-LAB-MATH-C-OPEN-01";
+  var EVAL_HASH = "274c49ed00318c3c5e7eb4fae53bfbbea61645b4488f4b88780ba9cb431b7361";
+  var DESIGN_HASH = "8548c0a3a8a3264b62ae9f21bfb3992d83a68ac17cd98b66f0518dd98638acde";
+  var SEAL_INSPECTION_THRESHOLD_MS = 2000;
+  var SELECTION_INSPECTION_THRESHOLD_MS = 1500;
+  var IDLE_MS = 60000;
+  var REDUCE = false;
+  try { REDUCE = window.matchMedia("(prefers-reduced-motion: reduce)").matches; } catch(e){}
+
+  var D = function(id){ return document.getElementById(id); };
+
+  /* ---------------- icons (referent category only, no quantities) -------- */
+  var ICON_GROUP = '<svg viewBox="0 0 34 24" width="34" height="24" aria-hidden="true"><rect x="2" y="3" width="30" height="18" rx="8" fill="none" stroke="#ffd88a" stroke-width="2.5" stroke-dasharray="5 4"/></svg>';
+  var ICON_ONE_BEAD = '<svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true"><circle cx="12" cy="12" r="7" fill="#f5b83d"/></svg>';
+  var ICON_ROW = '<svg viewBox="0 0 36 20" width="36" height="20" aria-hidden="true"><rect x="2" y="6" width="32" height="9" rx="4" fill="none" stroke="#ffd88a" stroke-width="2.5" stroke-dasharray="5 4"/></svg>';
+  var ICON_ONE_SQ = '<svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="3" fill="#f5b83d"/></svg>';
+  var ICON_BASKET = '<svg viewBox="0 0 30 22" width="30" height="22" aria-hidden="true"><path d="M3 7 h24 l-3 12 h-18 z" fill="none" stroke="#ffd88a" stroke-width="2.5"/></svg>';
+
+  /* ---------------- item configuration (contract-faithful) -------------- */
+  var ITEMS = [
+    {
+      itemId:"ITEM-1", constructId:"C1", panel:"num",
+      crateTag:"Crate 1 \u00b7 the bead crate", crateNote:null, stimId:"stim-1",
+      sentence:"Each bunch has the same number of dots.",
+      prompt:"How many bunches are there, and how many dots are in each bunch?",
+      fields:["numberOfGroups","amountInEachGroup"],
+      labels:["bunches","dots in each bunch"],
+      icons:[ICON_GROUP, ICON_ONE_BEAD],
+      correct:{a:4,b:6},
+      responseMode:"two_numeric_tile_entries_1_to_10_plus_not_sure",
+      latencyKey:"c1_time_to_first_entry_ms",
+      exposure:{exposureId:"EX-EQGROUPS-DOTS-4x6",structure:"separated equal clusters",contextFamily:"dot clusters",factorPair:"4 x 6",instructionalExposure:"none: no example, no hint, no feedback, no correct answer shown"},
+      possibleConfounds:[
+        "Child may count all 24 dots and infer group size by division rather than reading equal-group structure.",
+        "Reading of the single sentence could gate the response (excluded construct).",
+        "Visual clutter or cluster spacing could cause miscounting of clusters rather than a structural error.",
+        "Numeric-entry mechanics could produce an input error unrelated to mathematics."
+      ]
+    },
+    {
+      itemId:"ITEM-2", constructId:"C3", panel:"num",
+      crateTag:"Crate 2 \u00b7 the tile panel crate", crateNote:null, stimId:"stim-2",
+      sentence:"Here is one rectangle of squares.",
+      prompt:"How many rows are there, and how many squares are in each row?",
+      fields:["rows","squaresPerRow"],
+      labels:["rows","squares in each row"],
+      icons:[ICON_ROW, ICON_ONE_SQ],
+      correct:{a:3,b:7},
+      responseMode:"two_numeric_tile_entries_1_to_10_plus_not_sure",
+      latencyKey:"c3_time_to_first_entry_ms",
+      exposure:{exposureId:"EX-ARRAY-GRID-3x7",structure:"contiguous rectangular array",contextFamily:"squares grid",factorPair:"3 x 7",instructionalExposure:"none: no example, no hint, no feedback, no correct answer shown"},
+      possibleConfounds:[
+        "Row/column vocabulary may be the barrier rather than array structure (language, not mathematics).",
+        "Child may count all 21 squares one by one and still answer correctly, masking whether structure was read.",
+        "Visual scanning at the given viewport width could cause an off-by-one count.",
+        "Orientation preference may lead the child to read columns as rows."
+      ]
+    },
+    {
+      itemId:"ITEM-3", constructId:"C2", panel:"opts",
+      crateTag:"Crate 3 \u00b7 the label crate", crateNote:null, stimId:"stim-3",
+      sentence:"Every group holds the same amount.",
+      prompt:"Choose the multiplication equation that matches what is shown.",
+      options:[
+        {id:"O1", contract:"5 x 3 = 15", display:"5 \u00d7 3 = 15"},
+        {id:"O2", contract:"5 + 3 = 8",  display:"5 + 3 = 8"},
+        {id:"O3", contract:"5 x 5 = 25", display:"5 \u00d7 5 = 25"},
+        {id:"O4", contract:"3 x 10 = 30", display:"3 \u00d7 10 = 30"}
+      ],
+      correctOption:"5 x 3 = 15",
+      responseMode:"single_selection_from_four_options_plus_not_sure",
+      latencyKey:"c2_time_to_selection_ms",
+      exposure:{exposureId:"EX-EQUATION-MATCH-5x3",structure:"separated equal groups mapped to symbolic equation",contextFamily:"equation selection",factorPair:"5 x 3",instructionalExposure:"none: no example, no hint, no feedback, no correct answer shown"},
+      possibleConfounds:[
+        "Selection format permits guessing; a single correct choice is weak evidence (1 in 4 baseline).",
+        "Child may select by recognizing the product 15 without reading the group structure.",
+        "Option order could induce position bias.",
+        "Symbol reading (x versus +) may be the discriminating factor rather than multiplicative reasoning."
+      ]
+    },
+    {
+      itemId:"ITEM-4", constructId:"C4", panel:"item4",
+      crateTag:"Crate 4 \u00b7 the trick crate", crateNote:"This one fooled the last inspector.", stimId:"stim-4",
+      sentence:"Statement A: 2 baskets, and each basket holds 8 balls. Statement B: 8 baskets, and each basket holds 2 balls.",
+      prompt:"Do these two statements describe the same situation? Then say how many baskets Statement A describes.",
+      correct:{same:"different", baskets:2},
+      responseMode:"one_selection_plus_one_numeric_entry_plus_not_sure",
+      latencyKey:"c4_time_to_first_response_ms",
+      exposure:{exposureId:"EX-REFERENT-SWAP-2x8",structure:"verbal referent swap with constant product",contextFamily:"containers and contents",factorPair:"2 x 8",instructionalExposure:"none: no example, no hint, no feedback, no correct answer shown"},
+      possibleConfounds:[
+        "The word 'same' is ambiguous between same total and same situation; a 'same' response may reflect interpretation of the question rather than factor-referent confusion.",
+        "Reading load is highest in this item and could gate the response (excluded construct).",
+        "Child may already know commutativity and answer 'same' for a mathematically defensible product-based reason.",
+        "Order of Statement A and B could bias which referent is anchored."
+      ]
+    }
+  ];
+
+  /* ---------------- session state ---------------- */
+  var session = {
+    startedAt: 0,
+    index: 0,
+    records: [],
+    frictionCount: 0,
+    optionOrder: [],
+    inputTypes: {},
+    handled: 0,
+    ended: false,
+    postWindow: []
+  };
+  var cur = null;
+  var busy = false;
+  var lastInteraction = 0;
+  var idleTimer = null;
+  var idleFlagsThisItem = 0;
+
+  /* ---------------- messaging ---------------- */
+  function post(msg){
+    var base = {
+      evaluationId: EVAL_ID,
+      evaluationHash: EVAL_HASH,
+      designArtifactHash: DESIGN_HASH,
+      timestamp: Date.now()
+    };
+    for (var k in msg){ if (Object.prototype.hasOwnProperty.call(msg,k)) base[k]=msg[k]; }
+    try { window.parent.postMessage(base, "*"); } catch(e){}
+  }
+  function friction(itemId, constructId, type, detail){
+    session.frictionCount++;
+    post({
+      type:"evaluation_friction",
+      itemId: itemId || null,
+      constructId: constructId || null,
+      frictionType: type,
+      detail: detail || null,
+      elapsedMsInSession: Math.round(now() - session.startedAt),
+      excludedFromScoring:true
+    });
+  }
+  function now(){ return (window.performance && performance.now) ? performance.now() : Date.now(); }
+
+  /* ---------------- stimulus rendering ---------------- */
+  function buildClusters(container, groups, per, cls, cols){
+    container.innerHTML = "";
+    container.style.display = "flex";
+    for (var g=0; g<groups; g++){
+      var cl = document.createElement("div");
+      cl.className = "cluster";
+      cl.style.gridTemplateColumns = "repeat(" + cols + ", 24px)";
+      for (var i=0;i<per;i++){
+        var b = document.createElement("div");
+        b.className = cls;
+        cl.appendChild(b);
+      }
+      container.appendChild(cl);
+    }
+  }
+  function buildGrid(container, rows, perRow){
+    container.innerHTML = "";
+    for (var r=0;r<rows;r++){
+      var row = document.createElement("div");
+      row.className = "grid-row";
+      for (var c=0;c<perRow;c++){
+        var s = document.createElement("div");
+        s.className = "sq";
+        row.appendChild(s);
+      }
+      container.appendChild(row);
+    }
+  }
+  function buildKeypad(container){
+    container.innerHTML = "";
+    for (var n=1;n<=10;n++){
+      var b = document.createElement("button");
+      b.className = "tile";
+      b.setAttribute("data-val", String(n));
+      b.textContent = String(n);
+      container.appendChild(b);
+    }
+  }
+  function shuffle(arr){
+    var a = arr.slice(), i, j, t;
+    for (i=a.length-1;i>0;i--){ j = Math.floor(Math.random()*(i+1)); t=a[i]; a[i]=a[j]; a[j]=t; }
+    return a;
+  }
+  function buildOptions(){
+    var grid = D("optGrid");
+    grid.innerHTML = "";
+    var order = shuffle(ITEMS[2].options);
+    session.optionOrder = order.map(function(o){ return o.contract; });
+    order.forEach(function(o){
+      var b = document.createElement("button");
+      b.className = "opt";
+      b.setAttribute("data-contract", o.contract);
+      b.textContent = o.display;
+      grid.appendChild(b);
+    });
+  }
+
+  /* ---------------- item lifecycle ---------------- */
+  function newItemState(cfg){
+    return {
+      cfg: cfg,
+      shownAt: now(),
+      firstInteractionAt: null,
+      tapCount: 0,
+      clears: 0,
+      disabledSealTaps: 0,
+      textSupport: 0,
+      idleFlags: 0,
+      rapidTapFlag: false,
+      tileTapTimes: [],
+      A:{val:null,ns:false},
+      B:{val:null,ns:false},
+      C:{val:null,ns:false},
+      option:null,
+      same:null,
+      itemNotSure:false,
+      sealed:false
+    };
+  }
+
+  function showItem(i){
+    var cfg = ITEMS[i];
+    cur = newItemState(cfg);
+    idleFlagsThisItem = 0;
+    busy = false;
+
+    D("chalkboard").textContent = "Crate " + (i+1) + " of 4";
+    D("crateTag").textContent = cfg.crateTag;
+    if (cfg.crateNote){ D("crateNote").textContent = cfg.crateNote; D("crateNote").classList.remove("hidden"); }
+    else { D("crateNote").classList.add("hidden"); }
+
+    ["stim-1","stim-2","stim-3","stim-4"].forEach(function(id){ D(id).classList.add("hidden"); });
+    D(cfg.stimId).classList.remove("hidden");
+
+    D("stimSentence").textContent = cfg.sentence;
+    D("promptText").textContent = cfg.prompt;
+    D("bigSentence").textContent = cfg.sentence;
+    D("bigPrompt").textContent = cfg.prompt;
+    D("bigTextCard").classList.add("hidden");
+
+    D("resp-num").classList.add("hidden");
+    D("resp-opts").classList.add("hidden");
+    D("resp-item4").classList.add("hidden");
+
+    if (cfg.panel === "num"){
+      D("resp-num").classList.remove("hidden");
+      D("iconA").innerHTML = cfg.icons[0];
+      D("iconB").innerHTML = cfg.icons[1];
+      D("labelA").textContent = cfg.labels[0];
+      D("labelB").textContent = cfg.labels[1];
+      cur.active = "A";
+    } else if (cfg.panel === "opts"){
+      D("resp-opts").classList.remove("hidden");
+      var opts = D("optGrid").querySelectorAll(".opt");
+      for (var k=0;k<opts.length;k++){ opts[k].classList.remove("sel"); }
+    } else {
+      D("resp-item4").classList.remove("hidden");
+      D("iconC").innerHTML = ICON_BASKET;
+      cur.active = "C";
+    }
+    D("notSureBtn").classList.remove("on");
+    D("stampFx").classList.add("hidden");
+    D("stampFx").classList.remove("go");
+    render();
+    touch();
+  }
+
+  function render(){
+    var c = cur; if (!c) return;
+    if (c.cfg.panel === "num"){
+      paintSlot("slotA","valA", c.A, c.active === "A");
+      paintSlot("slotB","valB", c.B, c.active === "B");
+    } else if (c.cfg.panel === "item4"){
+      paintSlot("slotC","valC", c.C, true);
+      ["tgSame","tgDiff","tgNS"].forEach(function(id){
+        var el = D(id);
+        var v = el.getAttribute("data-val");
+        if (c.same === v) el.classList.add("sel"); else el.classList.remove("sel");
+      });
+      if (c.C.ns) D("basketNS").classList.add("sel"); else D("basketNS").classList.remove("sel");
+    } else {
+      var opts = D("optGrid").querySelectorAll(".opt");
+      for (var k=0;k<opts.length;k++){
+        if (c.option && opts[k].getAttribute("data-contract") === c.option) opts[k].classList.add("sel");
+        else opts[k].classList.remove("sel");
+      }
+    }
+    if (c.itemNotSure) D("notSureBtn").classList.add("on"); else D("notSureBtn").classList.remove("on");
+    var ok = canSeal();
+    if (ok) D("sealBtn").classList.remove("off"); else D("sealBtn").classList.add("off");
+  }
+
+  function paintSlot(slotId, valId, field, active){
+    var slot = D(slotId), val = D(valId);
+    if (field.ns){
+      val.textContent = "needs another look";
+      val.classList.add("ns");
+      slot.classList.remove("empty");
+    } else if (field.val !== null){
+      val.textContent = String(field.val);
+      val.classList.remove("ns");
+      slot.classList.remove("empty");
+    } else {
+      val.textContent = "";
+      val.classList.remove("ns");
+      slot.classList.add("empty");
+    }
+    if (active) slot.classList.add("active"); else slot.classList.remove("active");
+  }
+
+  function canSeal(){
+    var c = cur; if (!c) return false;
+    if (c.cfg.panel === "num"){
+      var a = (c.A.val !== null) || c.A.ns;
+      var b = (c.B.val !== null) || c.B.ns;
+      return a && b;
+    }
+    if (c.cfg.panel === "opts"){
+      return c.option !== null || c.itemNotSure;
+    }
+    var s = (c.same !== null);
+    var n = (c.C.val !== null) || c.C.ns;
+    return s && n;
+  }
+
+  function markFirst(){
+    if (cur && cur.firstInteractionAt === null) cur.firstInteractionAt = now();
+  }
+
+  /* ---------------- interaction handlers ---------------- */
+  function touch(){ lastInteraction = now(); }
+
+  document.addEventListener("pointerdown", function(ev){
+    var t = (ev && ev.pointerType) ? ev.pointerType : "unknown";
+    session.inputTypes[t] = (session.inputTypes[t]||0)+1;
+    touch();
+  }, true);
+  document.addEventListener("click", function(){ touch(); }, true);
+
+  function tileTap(v){
+    var c = cur; if (!c || busy) return;
+    markFirst();
+    c.tapCount++;
+    var t = now();
+    c.tileTapTimes.push(t);
+    if (c.tileTapTimes.length >= 3){
+      var last3 = c.tileTapTimes.slice(-3);
+      if (last3[2] - last3[0] < 1200 && !c.rapidTapFlag){
+        c.rapidTapFlag = true;
+        friction(c.cfg.itemId, c.cfg.constructId, "rapid_multi_tile_taps",
+          "Three number taps within 1200 ms: possible attempt to enter a multi-digit value the 1-10 keypad cannot hold.");
+      }
+    }
+    if (c.itemNotSure){
+      c.itemNotSure = false;
+      if (c.cfg.panel === "num"){ c.A.ns = false; c.B.ns = false; }
+      if (c.cfg.panel === "item4"){ c.C.ns = false; if (c.same === "not_sure") c.same = null; }
+    }
+    if (c.cfg.panel === "num"){
+      var key = c.active === "B" ? "B" : "A";
+      c[key].val = v; c[key].ns = false;
+      var other = key === "A" ? "B" : "A";
+      if (c[other].val === null && !c[other].ns) c.active = other;
+      slotFx(key === "A" ? "slotA" : "slotB");
+    } else if (c.cfg.panel === "item4"){
+      c.C.val = v; c.C.ns = false;
+      slotFx("slotC");
+    }
+    render();
+  }
+
+  function slotFx(id){
+    var el = D(id);
+    el.classList.remove("erase");
+    void el.offsetWidth;
+    el.classList.add("erase");
+  }
+
+  function slotTap(key){
+    var c = cur; if (!c || busy) return;
+    if (c.cfg.panel === "num"){
+      c.active = key;
+      if (c[key].val !== null || c[key].ns){
+        c[key].val = null; c[key].ns = false;
+        c.clears++;
+        slotFx(key === "A" ? "slotA" : "slotB");
+        if (c.clears === 3){
+          friction(c.cfg.itemId, c.cfg.constructId, "repeated_slot_clearing", "Three or more slot clears on this crate.");
+        }
+      }
+      if (c.itemNotSure && !c.A.ns && !c.B.ns) c.itemNotSure = false;
+    } else if (c.cfg.panel === "item4" && key === "C"){
+      if (c.C.val !== null || c.C.ns){
+        c.C.val = null; c.C.ns = false;
+        c.clears++;
+        slotFx("slotC");
+      }
+      if (c.itemNotSure && !c.C.ns) c.itemNotSure = false;
+    }
+    render();
+  }
+
+  function optionTap(contract){
+    var c = cur; if (!c || busy) return;
+    markFirst();
+    c.tapCount++;
+    if (c.option === contract){ c.option = null; }
+    else { c.option = contract; c.itemNotSure = false; }
+    render();
+  }
+
+  function toggleTap(v){
+    var c = cur; if (!c || busy) return;
+    markFirst();
+    c.tapCount++;
+    c.same = (c.same === v) ? null : v;
+    if (c.same !== null && c.same !== "not_sure") c.itemNotSure = false;
+    render();
+  }
+
+  function basketNotSure(){
+    var c = cur; if (!c || busy) return;
+    markFirst();
+    c.C.ns = !c.C.ns;
+    if (c.C.ns) c.C.val = null;
+    render();
+  }
+
+  function itemNotSureTap(){
+    var c = cur; if (!c || busy) return;
+    markFirst();
+    c.itemNotSure = !c.itemNotSure;
+    if (c.cfg.panel === "num"){
+      c.A.ns = c.itemNotSure; c.B.ns = c.itemNotSure;
+      if (c.itemNotSure){ c.A.val = null; c.B.val = null; }
+    } else if (c.cfg.panel === "opts"){
+      if (c.itemNotSure) c.option = null;
+    } else {
+      c.C.ns = c.itemNotSure;
+      if (c.itemNotSure){ c.C.val = null; c.same = "not_sure"; }
+      else if (c.same === "not_sure"){ c.same = null; }
+    }
+    render();
+  }
+
+  function wiggleEmpty(){
+    var c = cur;
+    var ids = [];
+    if (c.cfg.panel === "num"){
+      if (c.A.val === null && !c.A.ns) ids.push("slotA");
+      if (c.B.val === null && !c.B.ns) ids.push("slotB");
+    } else if (c.cfg.panel === "opts"){
+      ids.push("optGrid");
+    } else {
+      if (c.same === null) ids.push("tgSame");
+      if (c.C.val === null && !c.C.ns) ids.push("slotC");
+    }
+    ids.forEach(function(id){
+      var el = D(id);
+      el.classList.remove("wiggle"); void el.offsetWidth; el.classList.add("wiggle");
+    });
+  }
+
+  function sealTap(){
+    var c = cur; if (!c || busy) return;
+    if (!canSeal()){
+      c.disabledSealTaps++;
+      wiggleEmpty();
+      friction(c.cfg.itemId, c.cfg.constructId, "seal_attempt_with_empty_field",
+        "Seal pressed while a report field held no value and no 'needs another look' mark. Nothing recorded.");
+      return;
+    }
+    busy = true;
+    commit();
+  }
+
+  /* ---------------- scoring + recording ---------------- */
+  function classify(c){
+    var cfg = c.cfg;
+    var out = { keys:{}, result:"incorrect", attemptedValue:null, flags:[] };
+    var sealAt = now();
+    var latencyFirst = (c.firstInteractionAt === null) ? null : Math.round(c.firstInteractionAt - c.shownAt);
+    var sealLatency = Math.round(sealAt - c.shownAt);
+    out.latencyKey = cfg.latencyKey;
+    out.latencyMs = latencyFirst;
+    out.sealLatencyMs = sealLatency;
+
+    if (cfg.itemId === "ITEM-1" || cfg.itemId === "ITEM-2"){
+      var a = c.A.ns ? "not_sure" : c.A.val;
+      var b = c.B.ns ? "not_sure" : c.B.val;
+      out.attemptedValue = {};
+      out.attemptedValue[cfg.fields[0]] = a;
+      out.attemptedValue[cfg.fields[1]] = b;
+      var ns = (a === "not_sure" || b === "not_sure");
+      var correct = (!ns && a === cfg.correct.a && b === cfg.correct.b);
+      var reversed = (!ns && a === cfg.correct.b && b === cfg.correct.a);
+      out.result = ns ? "not_sure" : (correct ? "correct" : "incorrect");
+      if (cfg.itemId === "ITEM-1"){
+        out.keys = {
+          c1_group_pair_correct: correct,
+          c1_roles_reversed: reversed,
+          c1_reported_total_instead_of_pair: false,
+          c1_reported_total_note: "The 1-10 tile keypad structurally prevents entering 24; total-reporting intent can only surface as tap/clear pressure (see confound flags).",
+          c1_not_sure_rate: ns ? 1 : 0
+        };
+      } else {
+        var offByOne = (!ns && !correct && Math.abs(a - cfg.correct.a) <= 1 && Math.abs(b - cfg.correct.b) <= 1);
+        out.keys = {
+          c3_array_dimensions_correct: correct,
+          c3_roles_reversed: reversed,
+          c3_reported_total_instead_of_dimensions: false,
+          c3_reported_total_note: "The 1-10 tile keypad structurally prevents entering 21.",
+          c3_off_by_one_count: offByOne,
+          c3_not_sure_rate: ns ? 1 : 0
+        };
+      }
+    } else if (cfg.itemId === "ITEM-3"){
+      if (c.itemNotSure || c.option === null){
+        out.attemptedValue = "not_sure";
+        out.result = "not_sure";
+        out.keys = {
+          c2_equation_match_correct:false,
+          c2_additive_distractor_selected:false,
+          c2_duplicated_factor_distractor_selected:false,
+          c2_product_only_recognition_flag:false,
+          c2_not_sure_rate:1,
+          c2_selection_latency_below_inspection_threshold:false
+        };
+      } else {
+        var correct3 = (c.option === cfg.correctOption);
+        var r1 = findRecord("ITEM-1"), r2 = findRecord("ITEM-2");
+        var productOnly = correct3 && r1 && r2 && r1.result === "incorrect" && r2.result === "incorrect";
+        out.attemptedValue = { selectedOption: c.option, optionOrderPresented: session.optionOrder };
+        out.result = correct3 ? "correct" : "incorrect";
+        out.keys = {
+          c2_equation_match_correct: correct3,
+          c2_additive_distractor_selected: (c.option === "5 + 3 = 8"),
+          c2_duplicated_factor_distractor_selected: (c.option === "5 x 5 = 25"),
+          c2_structure_product_mismatch_distractor_selected: (c.option === "3 x 10 = 30"),
+          c2_product_only_recognition_flag: !!productOnly,
+          c2_not_sure_rate:0,
+          c2_selection_latency_below_inspection_threshold: (latencyFirst !== null && latencyFirst < SELECTION_INSPECTION_THRESHOLD_MS)
+        };
+      }
+    } else {
+      var same = c.same;
+      var bask = c.C.ns ? "not_sure" : c.C.val;
+      out.attemptedValue = { sameSituation: same, basketsInA: bask };
+      var nsAny = (same === "not_sure" || same === null || bask === "not_sure" || bask === null);
+      var basketOk = (bask === cfg.correct.baskets);
+      var diffOk = (same === "different");
+      if (nsAny){ out.result = "not_sure"; }
+      else { out.result = (diffOk && basketOk) ? "correct" : "incorrect"; }
+      out.keys = {
+        c4_referent_discrimination_correct: (!nsAny && diffOk && basketOk),
+        c4_same_selected_product_equality_confusion: (same === "same"),
+        c4_referent_count_correct: (bask === "not_sure" || bask === null) ? null : basketOk,
+        c4_ambiguity_flag_requires_followup: (same === "same"),
+        c4_not_sure_rate: nsAny ? 1 : 0
+      };
+    }
+
+    /* observed confound flags */
+    if (c.textSupport > 0) out.flags.push("text_restatement_accommodation_used_reading_confound_live");
+    if (c.rapidTapFlag) out.flags.push("input_affordance_bound_pressure");
+    if (c.clears >= 3) out.flags.push("repeated_slot_clearing");
+    if (c.disabledSealTaps > 0) out.flags.push("seal_attempted_with_empty_field");
+    if (c.idleFlags > 0) out.flags.push("idle_interval_over_60s");
+    if (sealLatency < SEAL_INSPECTION_THRESHOLD_MS) out.flags.push("seal_latency_below_provisional_inspection_threshold");
+    if (cfg.itemId === "ITEM-3" && out.keys.c2_selection_latency_below_inspection_threshold) out.flags.push("selection_latency_below_provisional_inspection_threshold");
+    if (cfg.itemId === "ITEM-4" && c.same === "same") out.flags.push("item4_same_response_ambiguous_pending_disambiguation_probe");
+    if (cfg.panel === "num") out.flags.push("presentation_condition_slot_role_icons_present");
+    if (cfg.itemId === "ITEM-4") out.flags.push("presentation_condition_trick_crate_framing_present");
+    return out;
+  }
+
+  function findRecord(id){
+    for (var i=0;i<session.records.length;i++){ if (session.records[i].itemId === id) return session.records[i]; }
+    return null;
+  }
+
+  function assistanceBlock(c){
+    return {
+      level:"none_provided",
+      hintsShown:0,
+      examplesShown:0,
+      feedbackShown:0,
+      correctAnswerShown:false,
+      textRestatementRequests: c ? c.textSupport : 0,
+      audioReadAloudAvailable:false,
+      notSureAffordanceUsed: c ? (c.itemNotSure || c.A.ns || c.B.ns || c.C.ns || c.same === "not_sure") : false,
+      accommodationNote:"Enlarged verbatim text restatement stands in for audio read-aloud; logged as accommodation, never scored."
+    };
+  }
+
+  function commit(){
+    var c = cur;
+    var res = classify(c);
+    c.sealed = true;
+
+    var record = {
+      itemId: c.cfg.itemId,
+      constructId: c.cfg.constructId,
+      result: res.result,
+      attemptedValue: res.attemptedValue,
+      measurementKeys: res.keys,
+      confoundFlags: res.flags,
+      latencyKey: res.latencyKey,
+      latencyMs: res.latencyMs,
+      sealLatencyMs: res.sealLatencyMs,
+      exposure: c.cfg.exposure,
+      responseMode: c.cfg.responseMode
+    };
+    session.records.push(record);
+
+    post({
+      type:"evaluation_attempt",
+      itemId: c.cfg.itemId,
+      constructId: c.cfg.constructId,
+      result: res.result,
+      assistance: assistanceBlock(c),
+      exposure: c.cfg.exposure,
+      responseMode: c.cfg.responseMode,
+      possibleConfounds: c.cfg.possibleConfounds,
+      attemptedValue: res.attemptedValue,
+      measurementKeys: res.keys,
+      observedConfoundFlags: res.flags,
+      latency: { key: res.latencyKey, ms: res.latencyMs, sealLatencyMs: res.sealLatencyMs,
+                 provisionalInspectionThresholdMs: SEAL_INSPECTION_THRESHOLD_MS },
+      excludedFromScoring: { tapCount: c.tapCount, slotClears: c.clears, textRestatementRequests: c.textSupport,
+                             note:"reading time, tap counts, pointer path and typing speed are context only" },
+      retriesAllowed: 0,
+      feedbackShown: false
+    });
+
+    session.handled++;
+    lightRung(session.handled);
+    addShelfCrate(res.result === "not_sure");
+
+    /* ceremonial, answer-blind stamp */
+    var fx = D("stampFx");
+    fx.classList.remove("hidden");
+    fx.classList.remove("go");
+    void fx.offsetWidth;
+    fx.classList.add("go");
+
+    var stampMs = REDUCE ? 120 : 820;
+    var transitMs = REDUCE ? 300 : 1450;
+    window.setTimeout(function(){
+      if (session.index >= ITEMS.length - 1){
+        finish("all_items_recorded");
+        return;
+      }
+      D("screen-transit").classList.remove("hidden");
+      D("transitText").textContent = "Report filed. The next crate is coming down the line\u2026";
+      window.setTimeout(function(){
+        D("screen-transit").classList.add("hidden");
+        session.index++;
+        showItem(session.index);
+      }, transitMs);
+    }, stampMs);
+  }
+
+  function lightRung(n){
+    var el = D("rung" + n);
+    if (el) el.classList.add("lit");
+  }
+  function addShelfCrate(isNotSure){
+    var box = D(isNotSure ? "lookShelf" : "shipShelf");
+    var m = document.createElement("div");
+    m.className = "mini-crate" + (isNotSure ? " look" : "");
+    box.appendChild(m);
+  }
+
+  /* ---------------- idle watch ---------------- */
+  function startIdleWatch(){
+    if (idleTimer) return;
+    idleTimer = window.setInterval(function(){
+      if (!cur || busy || session.ended) return;
+      if (D("screen-work").classList.contains("hidden")) return;
+      if (now() - lastInteraction > IDLE_MS){
+        lastInteraction = now();
+        cur.idleFlags++;
+        idleFlagsThisItem++;
+        var rb = D("readBtn");
+        rb.classList.remove("pulse-once"); void rb.offsetWidth; rb.classList.add("pulse-once");
+        friction(cur.cfg.itemId, cur.cfg.constructId, "idle_over_60s",
+          "No interaction for 60 s; the text-support button pulsed once. No content hint was shown.");
+      }
+    }, 5000);
+  }
+
+  /* ---------------- evidence map (contract output) ---------------- */
+  var DOWNGRADE = /latency_below|input_affordance_bound_pressure|repeated_slot_clearing|reading_confound_live/;
+
+  function evidenceMap(){
+    var map = {};
+    var raised = [];
+    var checks = [];
+    var byItem = {};
+    ITEMS.forEach(function(cfg){ byItem[cfg.itemId] = findRecord(cfg.itemId); });
+
+    function labelFor(cfg){
+      var rec = byItem[cfg.itemId];
+      var entry = { sourceItem: cfg.itemId, outcome: rec ? rec.result : "omitted",
+                    confoundFlags: rec ? rec.confoundFlags.slice() : [], notes: [] };
+      if (!rec || rec.result === "omitted" || rec.result === "abandoned"){
+        entry.label = "evidence_missing";
+        entry.notes.push("Item not completed; construct unresolved. Not a statement about ability.");
+        return entry;
+      }
+      if (rec.result === "not_sure"){
+        entry.label = "evidence_missing";
+        entry.notes.push("'Needs another look' recorded as missing evidence, never as a failure of ability.");
+        return entry;
+      }
+      if (cfg.itemId === "ITEM-4" && rec.attemptedValue && rec.attemptedValue.sameSituation === "same"){
+        entry.label = "evidence_ambiguous";
+        entry.notes.push("'Same' response is always flagged ambiguous pending the contracted disambiguation probe.");
+        return entry;
+      }
+      if (rec.result === "correct"){
+        var downgraded = rec.confoundFlags.some(function(f){ return DOWNGRADE.test(f); });
+        if (downgraded){
+          entry.label = "evidence_ambiguous";
+          entry.notes.push("Correct response downgraded: latency, input, or reading interference flagged.");
+          return entry;
+        }
+        entry.label = "evidence_supports_construct_provisionally";
+        entry.notes.push("One observation only; provisional by contract.");
+        return entry;
+      }
+      entry.label = "evidence_contradicts_construct";
+      if (rec.measurementKeys && (rec.measurementKeys.c1_roles_reversed || rec.measurementKeys.c3_roles_reversed)){
+        entry.notes.push("Role reversal recorded as a distinct diagnostic outcome, not partial credit.");
+      }
+      return entry;
+    }
+
+    map.C1 = labelFor(ITEMS[0]);
+    map.C3 = labelFor(ITEMS[1]);
+    map.C2 = labelFor(ITEMS[2]);
+    map.C4 = labelFor(ITEMS[3]);
+
+    /* cross-item consistency checks */
+    var r1 = byItem["ITEM-1"], r2 = byItem["ITEM-2"], r3 = byItem["ITEM-3"], r4 = byItem["ITEM-4"];
+    var rev1 = r1 && r1.measurementKeys && r1.measurementKeys.c1_roles_reversed;
+    var rev2 = r2 && r2.measurementKeys && r2.measurementKeys.c3_roles_reversed;
+    if (rev1 && rev2){
+      checks.push("dual_role_reversal_item1_item2_candidate_referent_assignment_gap_requires_item4_corroboration");
+    }
+    if (r3 && r3.result === "correct" && r1 && r1.result === "incorrect" && r2 && r2.result === "incorrect"){
+      checks.push("item3_correct_with_item1_item2_incorrect_probable_product_recognition_not_structural_mapping");
+      if (map.C2.label === "evidence_supports_construct_provisionally"){
+        map.C2.label = "evidence_ambiguous";
+        map.C2.notes.push("Downgraded by cross-item check: equation choice may reflect product recognition.");
+      }
+    }
+    if (r4 && r4.result === "correct" && (rev1 || rev2)){
+      if (map.C4.label === "evidence_supports_construct_provisionally"){
+        map.C4.label = "evidence_ambiguous";
+        map.C4.notes.push("Role reversal elsewhere confines any C4 reading to verbal contexts.");
+      }
+      checks.push("item4_correct_with_role_reversal_elsewhere_c4_claim_confined_to_verbal_context");
+    }
+
+    ["C1","C2","C3","C4"].forEach(function(k){
+      map[k].confoundFlags.forEach(function(f){ if (raised.indexOf(f) < 0) raised.push(f); });
+    });
+    return { map: map, raised: raised, checks: checks };
+  }
+
+  /* ---------------- finish / early exit ---------------- */
+  function finish(reason){
+    if (session.ended) return;
+    session.ended = true;
+
+    /* record unreached / abandoned items as missing evidence */
+    if (reason === "child_stopped_early"){
+      var startIdx = session.index;
+      for (var i = startIdx; i < ITEMS.length; i++){
+        var cfg = ITEMS[i];
+        if (findRecord(cfg.itemId)) continue;
+        var isCurrent = (i === startIdx && cur && !cur.sealed);
+        var result = isCurrent ? "abandoned" : "omitted";
+        var partial = null;
+        if (isCurrent){
+          if (cfg.panel === "num") partial = { partialEntries: { fieldA: cur.A.val, fieldB: cur.B.val } };
+          else if (cfg.panel === "opts") partial = { partialEntries: { selectedOption: cur.option } };
+          else partial = { partialEntries: { sameSituation: cur.same, basketsInA: cur.C.val } };
+        }
+        var rec = {
+          itemId: cfg.itemId, constructId: cfg.constructId, result: result,
+          attemptedValue: partial, measurementKeys: {}, confoundFlags: ["item_not_completed_evidence_missing"],
+          latencyKey: cfg.latencyKey, latencyMs: null, sealLatencyMs: null,
+          exposure: cfg.exposure, responseMode: cfg.responseMode
+        };
+        session.records.push(rec);
+        post({
+          type:"evaluation_attempt",
+          itemId: cfg.itemId,
+          constructId: cfg.constructId,
+          result: result,
+          assistance: assistanceBlock(isCurrent ? cur : null),
+          exposure: cfg.exposure,
+          responseMode: cfg.responseMode,
+          possibleConfounds: cfg.possibleConfounds,
+          attemptedValue: partial,
+          measurementKeys: {},
+          observedConfoundFlags: ["item_not_completed_evidence_missing"],
+          latency: { key: cfg.latencyKey, ms: null, sealLatencyMs: null,
+                     provisionalInspectionThresholdMs: SEAL_INSPECTION_THRESHOLD_MS },
+          excludedFromScoring: {},
+          retriesAllowed: 0,
+          feedbackShown: false,
+          note: isCurrent ? "Crate reached but never sealed; recorded as abandoned (missing evidence)."
+                          : "Crate never reached; recorded as omitted (missing evidence)."
+        });
+      }
+    }
+
+    var ev = evidenceMap();
+    post({
+      type:"evaluation_complete",
+      completionReason: reason,
+      itemsAdministered: ITEMS.length,
+      cratesHandled: session.handled,
+      outcomes: session.records.map(function(r){
+        return { itemId:r.itemId, constructId:r.constructId, result:r.result,
+                 latencyKey:r.latencyKey, latencyMs:r.latencyMs, sealLatencyMs:r.sealLatencyMs,
+                 exposureId:r.exposure.exposureId, responseMode:r.responseMode,
+                 measurementKeys:r.measurementKeys, confoundFlags:r.confoundFlags };
+      }),
+      evidenceMap: ev.map,
+      confoundFlagsRaised: ev.raised,
+      crossItemConsistencyChecks: ev.checks,
+      item3OptionOrderPresented: session.optionOrder,
+      frictionEvents: session.frictionCount,
+      inputTypesObserved: session.inputTypes,
+      sessionDurationMs: Math.round(now() - session.startedAt),
+      instructionalExposureDuringWindow:"none",
+      postWindowAffordanceUses: session.postWindow,
+      note:"Opening evidence sample only, one observation per construct. No mastery, proficiency, grade-level, or settled-skill claim is made or implied. Latency thresholds are provisional pending a non-mathematical baseline for this child."
+    });
+
+    showEnd(reason);
+  }
+
+  function showEnd(reason){
+    D("screen-work").classList.add("hidden");
+    D("screen-transit").classList.add("hidden");
+    D("doorDialog").classList.add("hidden");
+    var lamps = D("lamps");
+    lamps.innerHTML = "";
+    for (var i=0;i<4;i++){
+      var l = document.createElement("div");
+      l.className = "lamp";
+      lamps.appendChild(l);
+    }
+    var kids = lamps.querySelectorAll(".lamp");
+    var lit = 0;
+    var step = REDUCE ? 40 : 380;
+    var timer = window.setInterval(function(){
+      if (lit >= session.handled || lit >= kids.length){ window.clearInterval(timer); return; }
+      kids[lit].classList.add("on");
+      lit++;
+    }, step);
+
+    if (reason === "all_items_recorded"){
+      D("endLine").textContent = "Shift complete. Four crates handled. The tower saw your work.";
+      D("endSub").textContent = "Every crate got an honest report. The tower keepers read them later.";
+    } else {
+      D("endLine").textContent = "The workshop rests. " + session.handled + " of 4 crates handled.";
+      D("endSub").textContent = "The crates that are still waiting stay under the cloth. Closing early is allowed.";
+    }
+
+    /* post-window affordance: only for crates on the second-look shelf */
+    var secondLook = session.records.filter(function(r){
+      return r.result === "not_sure" || r.result === "abandoned" || r.result === "omitted";
+    });
+    if (secondLook.length){
+      var box = D("keeperBox");
+      var btns = D("keeperBtns");
+      btns.innerHTML = "";
+      secondLook.forEach(function(r){
+        var b = document.createElement("button");
+        b.className = "ghost-btn";
+        b.textContent = "Ask the tower keeper about " + r.itemId.replace("ITEM-","Crate ");
+        b.setAttribute("data-item", r.itemId);
+        btns.appendChild(b);
+      });
+      box.classList.remove("hidden");
+    }
+    D("screen-end").classList.remove("hidden");
+  }
+
+  /* ---------------- wiring ---------------- */
+  function wire(){
+    D("startBtn").addEventListener("click", function(){
+      D("screen-open").classList.add("hidden");
+      D("screen-work").classList.remove("hidden");
+      session.index = 0;
+      showItem(0);
+      startIdleWatch();
+    });
+    D("openReadBtn").addEventListener("click", function(){
+      D("openBigText").classList.remove("hidden");
+      post({ type:"evaluation_friction", itemId:null, constructId:null,
+             frictionType:"text_restatement_requested_opening",
+             detail:"Opening line shown enlarged (accommodation, not scored).",
+             elapsedMsInSession: Math.round(now() - session.startedAt), excludedFromScoring:true });
+      session.frictionCount++;
+    });
+    D("openBigText").addEventListener("click", function(){ D("openBigText").classList.add("hidden"); });
+
+    D("keypadA").addEventListener("click", function(ev){
+      var t = ev.target.closest ? ev.target.closest(".tile") : null;
+      if (t) tileTap(parseInt(t.getAttribute("data-val"),10));
+    });
+    D("keypadB").addEventListener("click", function(ev){
+      var t = ev.target.closest ? ev.target.closest(".tile") : null;
+      if (t) tileTap(parseInt(t.getAttribute("data-val"),10));
+    });
+    D("slotA").addEventListener("click", function(){ slotTap("A"); });
+    D("slotB").addEventListener("click", function(){ slotTap("B"); });
+    D("slotC").addEventListener("click", function(){ slotTap("C"); });
+    D("optGrid").addEventListener("click", function(ev){
+      var t = ev.target.closest ? ev.target.closest(".opt") : null;
+      if (t) optionTap(t.getAttribute("data-contract"));
+    });
+    ["tgSame","tgDiff","tgNS"].forEach(function(id){
+      D(id).addEventListener("click", function(){ toggleTap(D(id).getAttribute("data-val")); });
+    });
+    D("basketNS").addEventListener("click", basketNotSure);
+    D("notSureBtn").addEventListener("click", itemNotSureTap);
+    D("sealBtn").addEventListener("click", sealTap);
+
+    D("readBtn").addEventListener("click", function(){
+      if (!cur) return;
+      cur.textSupport++;
+      D("bigTextCard").classList.remove("hidden");
+      friction(cur.cfg.itemId, cur.cfg.constructId, "text_restatement_requested",
+        "Verbatim sentence and prompt shown enlarged. Accommodation, logged not scored; no content hint.");
+    });
+    D("bigTextCard").addEventListener("click", function(){ D("bigTextCard").classList.add("hidden"); });
+
+    D("doorBtn").addEventListener("click", function(){
+      if (busy) return;
+      D("doorDialog").classList.remove("hidden");
+    });
+    D("stayBtn").addEventListener("click", function(){
+      D("doorDialog").classList.add("hidden");
+      touch();
+    });
+    D("leaveBtn").addEventListener("click", function(){
+      D("doorDialog").classList.add("hidden");
+      friction(cur ? cur.cfg.itemId : null, cur ? cur.cfg.constructId : null,
+               "child_closed_workshop_early", "Child chose to stop. Remaining crates recorded as missing evidence.");
+      finish("child_stopped_early");
+    });
+
+    D("keeperBtns").addEventListener("click", function(ev){
+      var b = ev.target.closest ? ev.target.closest("button") : null;
+      if (!b) return;
+      var itemId = b.getAttribute("data-item");
+      session.postWindow.push({ itemId: itemId, affordance:"ask_the_tower_keeper", atMs: Math.round(now() - session.startedAt) });
+      D("keeperReply").textContent = "The keeper writes back: \u201cNoted. That crate stays on the second-look shelf. We can open it together another night \u2014 nothing about it is settled tonight.\u201d";
+      D("keeperReply").classList.remove("hidden");
+      post({ type:"evaluation_friction", itemId:itemId, constructId:null,
+             frictionType:"post_window_affordance_used",
+             detail:"'Ask the tower keeper' tapped after all responses were recorded. Outside the evaluation window; sealed evidence unchanged; no answer, example, or instruction shown.",
+             elapsedMsInSession: Math.round(now() - session.startedAt), excludedFromScoring:true });
+    });
+
+    D("endCloseBtn").addEventListener("click", function(){
+      D("endCloseBtn").classList.add("hidden");
+      D("endFinal").classList.remove("hidden");
+    });
+  }
+
+  /* ---------------- init ---------------- */
+  function init(){
+    buildClusters(D("stim-1"), 4, 6, "bead", 3);   /* ITEM-1: 4 bunches of 6 */
+    buildGrid(D("stim-2"), 3, 7);                  /* ITEM-2: 3 rows of 7 */
+    buildClusters(D("stim-3"), 5, 3, "diamond", 1);/* ITEM-3: 5 groups of 3 */
+    buildKeypad(D("keypadA"));
+    buildKeypad(D("keypadB"));
+    buildOptions();
+    wire();
+    session.startedAt = now();
+    lastInteraction = session.startedAt;
+
+    post({
+      type:"evaluation_ready",
+      title:"The Lantern Workshop: Four Signal Puzzles",
+      viewport:{ width:1365, height:768 },
+      itemCount: ITEMS.length,
+      itemSequence: ITEMS.map(function(i){ return i.itemId; }),
+      constructs: ["C1","C3","C2","C4"],
+      constructsBySequence: ITEMS.map(function(i){ return { itemId:i.itemId, constructId:i.constructId, exposureId:i.exposure.exposureId, responseMode:i.responseMode }; }),
+      administration:{
+        noFeedbackDuringEvaluation:true,
+        noHintsDuringEvaluation:true,
+        retriesAllowed:0,
+        notSureIsValidResponse:true,
+        childMayStop:true,
+        noTimeLimit:true,
+        oneStimulusPerScreen:true,
+        keyboardRequired:false,
+        pointerAndTouchSupported:true,
+        audioReadAloudAvailable:false,
+        textRestatementAccommodationAvailable:true
+      },
+      provisionalThresholds:{ sealInspectionMs: SEAL_INSPECTION_THRESHOLD_MS, selectionInspectionMs: SELECTION_INSPECTION_THRESHOLD_MS },
+      item3OptionOrderPresented: session.optionOrder,
+      note:"Opening independent-evidence window. No instructional exposure until all four outcomes are recorded."
+    });
+  }
+
+  init();
+})();
+</script>
+</body>
+</html>

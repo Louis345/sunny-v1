@@ -1,0 +1,12 @@
+{
+  "hardFailures": [],
+  "metrics": {
+    "factualClaimCount": 9,
+    "evidenceReferencedClaimCount": 9,
+    "evidenceGroundingRatio": 1,
+    "fabricatedEvidenceReferenceCount": 0,
+    "unsupportedHighConfidenceCount": 0,
+    "predictionCount": 5,
+    "nodeCount": 4
+  }
+}

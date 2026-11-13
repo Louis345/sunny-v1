@@ -1,0 +1,399 @@
+```html
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<style>
+  html,body{margin:0;padding:0;overflow:hidden;background:#0a0e1f;font-family:'Georgia',serif;}
+  #stage{width:1365px;height:768px;position:relative;background:radial-gradient(ellipse at 50% 25%,#1a2340 0%,#0a0e1f 70%);overflow:hidden;}
+  .water{position:absolute;bottom:0;left:0;width:100%;height:110px;background:linear-gradient(to top,#0d1830,#16233f);}
+  .pier{position:absolute;bottom:90px;left:50%;transform:translateX(-50%);width:520px;height:14px;background:#3a2a18;border-radius:2px;box-shadow:0 4px 10px rgba(0,0,0,.5);}
+  .fog{position:absolute;bottom:0;left:0;width:100%;height:180px;
+    background:linear-gradient(to top,rgba(60,70,90,0.5),rgba(60,70,90,0));
+    animation:drift 18s linear infinite;pointer-events:none;}
+  @keyframes drift{0%{transform:translateX(0);}100%{transform:translateX(-60px);}}
+  .stars{position:absolute;width:100%;height:100%;}
+  .star{position:absolute;width:2px;height:2px;background:#dde5ff;border-radius:50%;opacity:.6;}
+  #title{position:absolute;top:10px;left:50%;transform:translateX(-50%);
+    color:#e8d6a0;letter-spacing:2px;font-size:20px;text-shadow:0 0 12px rgba(232,214,160,.4);}
+  #subtitle{position:absolute;top:34px;left:50%;transform:translateX(-50%);
+    color:#8fa0c0;font-size:12px;font-style:italic;}
+  #lamphouse{position:absolute;top:70px;left:50%;transform:translateX(-50%);}
+  #plate{position:absolute;top:420px;left:50%;transform:translateX(-50%);
+    background:linear-gradient(160deg,#b8935a,#8a6a3e);
+    border:3px solid #5c4626;border-radius:8px;padding:8px 24px;
+    box-shadow:0 6px 18px rgba(0,0,0,.5), inset 0 1px 3px rgba(255,255,255,.3);
+    display:flex;flex-direction:column;align-items:center;z-index:5;}
+  .fracNum, .fracDen{color:#2a1f10;font-size:30px;font-weight:bold;line-height:1;}
+  .fracBar{width:34px;height:3px;background:#2a1f10;margin:3px 0;}
+  #plate.blank .fracNum, #plate.blank .fracDen{color:#c9a25f;}
+  #modeBtn{position:absolute;top:470px;left:50%;transform:translateX(-50%);
+    color:#8fa0c0;font-size:11px;background:rgba(20,26,48,.6);padding:5px 14px;border-radius:12px;
+    border:1px solid rgba(140,160,200,.3);cursor:pointer;z-index:5;}
+  #tiles{position:absolute;top:512px;left:50%;transform:translateX(-50%);display:flex;gap:10px;z-index:5;}
+  .tile{width:34px;height:34px;border-radius:6px;background:linear-gradient(160deg,#e0c98a,#a8853f);
+    border:2px solid #5c4626;color:#2a1f10;font-weight:bold;font-size:18px;
+    display:flex;align-items:center;justify-content:center;cursor:pointer;user-select:none;
+    box-shadow:0 3px 6px rgba(0,0,0,.4);}
+  .tile:active{transform:translateY(1px);}
+  #twinWrap{position:absolute;top:150px;left:1010px;width:260px;text-align:center;color:#8fa0c0;font-size:12px;display:none;z-index:4;}
+  #twinLamp{width:180px;height:180px;margin:0 auto;}
+  #lever{position:absolute;top:560px;left:50%;transform:translateX(-50%);width:140px;text-align:center;cursor:pointer;z-index:6;}
+  #leverBtn{background:linear-gradient(160deg,#c9a25f,#7d5f36);border:2px solid #4a3620;border-radius:8px;
+    padding:8px 14px;color:#2a1c10;font-size:12px;font-weight:bold;box-shadow:0 4px 10px rgba(0,0,0,.4);
+    transition:transform .12s;}
+  #lever:active #leverBtn{transform:translateY(3px);}
+  #ship{position:absolute;bottom:112px;left:-80px;width:70px;height:40px;transition:left 2.2s ease-out;}
+  #bell{position:absolute;top:56px;left:50%;transform:translateX(-50%);color:#a8b8d8;font-size:12px;opacity:.85;}
+  #msg{position:absolute;top:645px;left:50%;transform:translateX(-50%);
+    color:#c9d6ee;font-size:14px;background:rgba(15,20,40,.7);padding:7px 18px;border-radius:20px;
+    border:1px solid rgba(140,160,200,.3);transition:opacity .4s;max-width:520px;text-align:center;}
+  #dockLights{position:absolute;bottom:6px;left:0;width:100%;height:30px;display:flex;justify-content:center;gap:12px;z-index:2;}
+  .dock{width:10px;height:10px;border-radius:50%;background:#2a3550;transition:all .5s;}
+  .dock.lit{background:#ffd98a;box-shadow:0 0 12px #ffd98a;}
+  #roundLabel{position:absolute;top:96px;left:30px;color:#7a8bb0;font-size:12px;}
+  .flash{fill:#fff8dd !important;}
+</style>
+</head>
+<body>
+<div id="stage">
+  <div class="stars" id="stars"></div>
+  <div class="fog"></div>
+  <div class="pier"></div>
+  <div class="water"></div>
+  <div id="title">LANTERN KEEPER</div>
+  <div id="subtitle">One Pane of Many</div>
+  <div id="bell">🔔 a ship waits offshore...</div>
+  <div id="roundLabel">Beacon 1 — Guided</div>
+
+  <svg id="lamphouse" width="300" height="330" viewBox="0 0 300 330">
+    <rect x="10" y="6" width="280" height="16" rx="4" fill="#6b4f2c" stroke="#3a2a15" stroke-width="2"/>
+    <rect x="128" y="0" width="44" height="10" fill="#6b4f2c" stroke="#3a2a15" stroke-width="2"/>
+    <circle cx="150" cy="172" r="130" fill="#1c2438" stroke="#3a2a15" stroke-width="6"/>
+    <g id="panes"></g>
+    <circle cx="150" cy="172" r="130" fill="none" stroke="#5c4626" stroke-width="8"/>
+    <rect x="50" y="302" width="200" height="16" rx="4" fill="#6b4f2c" stroke="#3a2a15" stroke-width="2"/>
+  </svg>
+
+  <div id="plate">
+    <div class="fracNum" id="fracNum">1</div>
+    <div class="fracBar"></div>
+    <div class="fracDen" id="fracDen">4</div>
+  </div>
+
+  <div id="modeBtn">Mode A: Light the Pane (tap to preview Mode B)</div>
+  <div id="tiles" style="display:none;">
+    <div class="tile" data-v="1">1</div>
+    <div class="tile" data-v="4">4</div>
+    <div class="tile" data-v="6">6</div>
+  </div>
+
+  <div id="twinWrap">
+    <div>Twin lamp obeys your plate:</div>
+    <svg id="twinLamp" viewBox="0 0 180 180"></svg>
+  </div>
+
+  <div id="lever" title="Replay anatomy">
+    <div id="leverBtn">🔧 Replay: how it works</div>
+  </div>
+
+  <svg id="ship" viewBox="0 0 70 40">
+    <path d="M5,30 L65,30 L55,38 L15,38 Z" fill="#3a2a20" stroke="#1a1208" stroke-width="1.5"/>
+    <rect x="30" y="6" width="3" height="24" fill="#2a1c10"/>
+    <path d="M33,8 L33,26 L52,26 Z" fill="#8a95b0" opacity=".8"/>
+    <circle cx="33" cy="6" r="3" fill="#ffd98a" id="shipLamp" opacity="0"/>
+  </svg>
+
+  <div id="dockLights"></div>
+  <div id="msg">A pane is glowing on the glass. Tap it to light the lighthouse.</div>
+</div>
+
+<script>
+const NS = "http://www.w3.org/2000/svg";
+let denom = 4, correctIdx = 0, guided = true, misses = 0, stage = 0;
+let dockCount = 0;
+let mode = 'A'; // 'A' light the pane, 'B' engrave the plate
+
+const panesG = document.getElementById('panes');
+const fracNum = document.getElementById('fracNum');
+const fracDen = document.getElementById('fracDen');
+const plateEl = document.getElementById('plate');
+const msg = document.getElementById('msg');
+const roundLabel = document.getElementById('roundLabel');
+const dockWrap = document.getElementById('dockLights');
+const tilesEl = document.getElementById('tiles');
+const modeBtn = document.getElementById('modeBtn');
+const twinWrap = document.getElementById('twinWrap');
+
+for(let i=0;i<8;i++){
+  const d=document.createElement('div'); d.className='dock'; dockWrap.appendChild(d);
+}
+
+const starsEl = document.getElementById('stars');
+for(let i=0;i<70;i++){
+  const s=document.createElement('div'); s.className='star';
+  s.style.left = Math.random()*100+'%';
+  s.style.top = Math.random()*50+'%';
+  s.style.opacity = (Math.random()*0.5+0.3);
+  starsEl.appendChild(s);
+}
+
+function polarToXY(cx,cy,r,angle){
+  return [cx + r*Math.cos(angle), cy + r*Math.sin(angle)];
+}
+
+function buildPanes(n, pulseIdx, litIdx, targetSvgGroup, cx, cy, r){
+  targetSvgGroup.innerHTML = '';
+  const startAngle = -Math.PI/2 - Math.PI/n;
+  for(let i=0;i<n;i++){
+    const a0 = startAngle + i*(2*Math.PI/n);
+    const a1 = a0 + (2*Math.PI/n);
+    const [x0,y0] = polarToXY(cx,cy,r,a0);
+    const [x1,y1] = polarToXY(cx,cy,r,a1);
+    const large = (a1-a0) > Math.PI ? 1 : 0;
+    const path = document.createElementNS(NS,'path');
+    path.setAttribute('d', `M${cx},${cy} L${x0},${y0} A${r},${r} 0 ${large} 1 ${x1},${y1} Z`);
+    path.setAttribute('fill', i===litIdx ? '#ffe9b0' : '#3b4a68');
+    if(i===litIdx) path.classList.add('flash');
+    path.setAttribute('stroke', '#1a2338');
+    path.setAttribute('stroke-width','3');
+    path.dataset.idx = i;
+    path.style.cursor = 'pointer';
+    path.style.transition = 'fill .18s';
+    if(i===pulseIdx){
+      path.classList.add('pulseTarget');
+      path.setAttribute('fill', '#f0c060');
+      pulseAnim(path);
+    }
+    targetSvgGroup.appendChild(path);
+  }
+}
+
+let pulseInterval;
+function pulseAnim(path){
+  clearInterval(pulseInterval);
+  let on = true;
+  pulseInterval = setInterval(()=>{
+    if(!document.body.contains(path)) { clearInterval(pulseInterval); return; }
+    path.setAttribute('fill', on ? '#ffd27a' : '#f0c060');
+    path.setAttribute('stroke', on ? '#fff2c0' : '#1a2338');
+    on = !on;
+  }, 380);
+}
+
+function setRoundA(n, idx, isGuided, label){
+  mode = 'A';
+  tilesEl.style.display = 'none';
+  twinWrap.style.display = 'none';
+  plateEl.classList.remove('blank');
+  modeBtn.textContent = 'Mode A: Light the Pane';
+  denom = n; correctIdx = idx; guided = isGuided;
+  fracDen.textContent = n;
+  fracNum.textContent = 1;
+  roundLabel.textContent = label;
+  buildPanes(n, isGuided ? idx : null, null, panesG, 150, 172, 128);
+  msg.textContent = isGuided ? 'A pane is glowing on the glass. Tap it to light the lighthouse.'
+                              : 'Count the panes. Tap the one pane that matches 1/'+n+'.';
+  resetShip();
+}
+
+let engraveState = { correctDen: 4, litIdx: 1, numTile:null, denTile:null };
+function setRoundB(n, litIdx, label){
+  mode = 'B';
+  tilesEl.style.display = 'flex';
+  twinWrap.style.display = 'block';
+  plateEl.classList.add('blank');
+  modeBtn.textContent = 'Mode B: Engrave the Plate';
+  roundLabel.textContent = label;
+  engraveState = { correctDen: n, litIdx: litIdx, numTile:null, denTile:null };
+  fracNum.textContent = '?';
+  fracDen.textContent = '?';
+  buildPanes(n, null, litIdx, panesG, 150, 172, 128);
+  buildTiles(n);
+  document.getElementById('twinLamp').innerHTML = '';
+  msg.textContent = 'One pane is lit. Drag/tap numerals to engrave the matching unit fraction, then pull the lever.';
+  resetShip(true);
+}
+
+function buildTiles(correctDen){
+  const opts = new Set([1, correctDen]);
+  while(opts.size < 3){
+    opts.add(2 + Math.floor(Math.random()*7));
+  }
+  const arr = Array.from(opts).sort(()=>Math.random()-0.5);
+  tilesEl.innerHTML = '';
+  arr.forEach(v=>{
+    const t = document.createElement('div');
+    t.className='tile'; t.textContent = v; t.dataset.v = v;
+    t.addEventListener('click', ()=>{
+      if(engraveState.numTile === null){
+        engraveState.numTile = v;
+        fracNum.textContent = v;
+        t.style.opacity = '0.35';
+      } else if(engraveState.denTile === null){
+        engraveState.denTile = v;
+        fracDen.textContent = v;
+        t.style.opacity = '0.35';
+      }
+    });
+    tilesEl.appendChild(t);
+  });
+}
+
+function resetShip(delay){
+  const ship = document.getElementById('ship');
+  const shipLamp = document.getElementById('shipLamp');
+  ship.style.transition = 'none';
+  ship.style.left = '-80px';
+  shipLamp.style.opacity = 0;
+  void ship.offsetWidth;
+  ship.style.transition = 'left 2.2s ease-out';
+  if(!delay) setTimeout(()=>{ ship.style.left = '640px'; }, 100);
+}
+
+function handleTap(i){
+  if(mode !== 'A') return;
+  clearInterval(pulseInterval);
+  const paths = panesG.querySelectorAll('path');
+  if(i === correctIdx){
+    paths.forEach(p=>{ if(parseInt(p.dataset.idx) !== i) p.setAttribute('fill','#3b4a68'); });
+    ignite(paths[i]);
+  } else {
+    paths[i].setAttribute('fill', '#6b3b3b');
+    setTimeout(()=>{ paths[i].setAttribute('fill','#3b4a68'); }, 500);
+    misses++;
+    if(misses===1){
+      msg.textContent = 'Not quite — that pane didn\\'t match 1/'+denom+'. Try counting again, or pull the lever.';
+    } else if(misses===2){
+      msg.textContent = 'Watch the panes number as they flash — pull the lever.';
+      numberPanes();
+    } else {
+      msg.textContent = 'Let\\'s try guided — the right pane will glow.';
+      setTimeout(()=> setRoundA(denom, correctIdx, true, roundLabel.textContent), 900);
+      misses = 0;
+    }
+  }
+}
+panesG.addEventListener('click', (e)=>{
+  const p = e.target.closest('path');
+  if(p && mode==='A') handleTap(parseInt(p.dataset.idx));
+});
+
+function numberPanes(){
+  const paths = panesG.querySelectorAll('path');
+  paths.forEach((p,idx)=>{
+    setTimeout(()=>{
+      const t = document.createElementNS(NS,'text');
+      const d = p.getAttribute('d').match(/M([\\d.\\-]+),([\\d.\\-]+)/);
+      t.setAttribute('x', 150); t.setAttribute('y', 90);
+      t.textContent = idx+1;
+      t.setAttribute('fill', '#fff2c0');
+      t.setAttribute('font-size','20');
+      p.setAttribute('fill', '#e0c98a');
+      setTimeout(()=> p.setAttribute('fill', idx===correctIdx? '#e0c98a':'#3b4a68'), 200);
+    }, idx*220);
+  });
+}
+
+function ignite(path){
+  path.setAttribute('fill', '#ffe9b0');
+  path.classList.add('flash');
+  msg.textContent = 'Lit! One pane of ' + denom + ' — that is 1/' + denom + '.';
+
+  const beam = document.createElementNS(NS,'path');
+  const cx=150, cy=172;
+  beam.setAttribute('d', `M${cx},${cy} L${cx-380},${cy-230} L${cx+380},${cy-230} Z`);
+  beam.setAttribute('fill', 'rgba(255,230,160,0.18)');
+  panesG.parentNode.appendChild(beam);
+  setTimeout(()=>{ beam.remove(); }, 950);
+
+  setTimeout(()=>{
+    document.getElementById('shipLamp').style.opacity = 1;
+    dockCount++;
+    const docks = dockWrap.querySelectorAll('.dock');
+    if(docks[dockCount-1]) docks[dockCount-1].classList.add('lit');
+    msg.textContent = 'A ship answers from the fog and finds its way home.';
+  }, 700);
+
+  setTimeout(()=>{ advance(); }, 2600);
+}
+
+function advance(){
+  stage++;
+  misses = 0;
+  if(stage === 1){
+    setRoundA(6, 2, false, 'Beacon 2 — Ghost Trace');
+    setTimeout(()=> ghostTrace(2), 500);
+  } else if(stage === 2){
+    setRoundA(5, 4, false, 'Beacon 2 — On Your Own');
+  } else if(stage === 3){
+    setRoundB(4, 1, 'Beacon 4 — Engrave the Plate');
+  } else {
+    setRoundA(7, 3, false, 'Beacon 5 — Denominators 7 & 8');
+  }
+}
+
+function ghostTrace(idx){
+  const paths = panesG.querySelectorAll('path');
+  const p = paths[idx];
+  if(!p) return;
+  let count = 0;
+  const t = setInterval(()=>{
+    p.setAttribute('fill', count%2===0 ? '#f0c060' : '#3b4a68');
+    p.setAttribute('stroke', count%2===0 ? '#fff2c0' : '#1a2338');
+    count++;
+    if(count>5){ clearInterval(t); p.setAttribute('fill', '#3b4a68'); p.setAttribute('stroke','#1a2338'); }
+  }, 220);
+}
+
+document.getElementById('lever').addEventListener('click', ()=>{
+  const btn = document.getElementById('leverBtn');
+  btn.style.transform = 'translateY(3px)';
+  setTimeout(()=>{ btn.style.transform='translateY(0)'; }, 200);
+  if(mode === 'A'){
+    playAnatomy();
+  } else {
+    stampPlate();
+  }
+});
+
+function playAnatomy(){
+  const paths = Array.from(panesG.querySelectorAll('path'));
+  fracDen.style.fontSize='42px'; fracDen.style.transition='font-size .2s';
+  msg.textContent = 'Bottom number = how many equal panes.';
+  let i = 0;
+  const seq = setInterval(()=>{
+    if(i>0) paths[i-1].setAttribute('fill', paths[i-1].classList.contains('flash') ? '#ffe9b0':'#3b4a68');
+    if(i < paths.length){
+      paths[i].setAttribute('fill', '#e0c98a');
+      i++;
+    } else {
+      clearInterval(seq);
+      fracDen.style.fontSize='30px';
+      fracNum.style.fontSize='42px';
+      msg.textContent = 'Top number = light exactly one.';
+      setTimeout(()=>{
+        fracNum.style.fontSize='30px';
+        paths.forEach((p,idx)=>{ p.setAttribute('fill', idx===correctIdx && p.classList.contains('flash') ? '#ffe9b0' : '#3b4a68'); });
+        msg.textContent = guided ? 'Tap the glowing pane.' : 'Now find the one pane that matches 1/'+denom+'.';
+      }, 900);
+    }
+  }, 260);
+}
+
+function stampPlate(){
+  if(engraveState.numTile === null || engraveState.denTile === null){
+    msg.textContent = 'Place both numerals on the plate first, then pull the lever.';
+    return;
+  }
+  const twinSvg = document.getElementById('twinLamp');
+  const guessDen = engraveState.denTile;
+  const guessNum = engraveState.numTile;
+  const isCorrect = (guessNum === 1 && guessDen === engraveState.correctDen);
+  buildPanes(guessDen, null, 0, twinSvg, 90, 90, 78);
+  twinWrap.style.display = 'block';
+  if(isCorrect){
+    msg.textContent = 'The twin lamp agrees — 1/' + guessDen + ' matches! Correct engraving.';
+    setTimeout(()=>{ advance(); }, 2200);
+  } else {
+    msg.textContent = 'The twin lamp lit ' + gu

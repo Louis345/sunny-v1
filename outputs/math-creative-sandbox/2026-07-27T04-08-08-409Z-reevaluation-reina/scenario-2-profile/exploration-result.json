@@ -1,0 +1,78 @@
+{
+  "candidateId": "scenario-2-profile",
+  "screenshots": [
+    "/Users/jamaltaylor/Development/sunny-math-creative-sandbox/outputs/math-creative-sandbox/2026-07-27T04-08-08-409Z-reevaluation-reina/scenario-2-profile/00-opening.png",
+    "/Users/jamaltaylor/Development/sunny-math-creative-sandbox/outputs/math-creative-sandbox/2026-07-27T04-08-08-409Z-reevaluation-reina/scenario-2-profile/01-first-action.png",
+    "/Users/jamaltaylor/Development/sunny-math-creative-sandbox/outputs/math-creative-sandbox/2026-07-27T04-08-08-409Z-reevaluation-reina/scenario-2-profile/02-progress.png",
+    "/Users/jamaltaylor/Development/sunny-math-creative-sandbox/outputs/math-creative-sandbox/2026-07-27T04-08-08-409Z-reevaluation-reina/scenario-2-profile/03-progress.png",
+    "/Users/jamaltaylor/Development/sunny-math-creative-sandbox/outputs/math-creative-sandbox/2026-07-27T04-08-08-409Z-reevaluation-reina/scenario-2-profile/04-progress.png",
+    "/Users/jamaltaylor/Development/sunny-math-creative-sandbox/outputs/math-creative-sandbox/2026-07-27T04-08-08-409Z-reevaluation-reina/scenario-2-profile/05-incorrect-recovery.png",
+    "/Users/jamaltaylor/Development/sunny-math-creative-sandbox/outputs/math-creative-sandbox/2026-07-27T04-08-08-409Z-reevaluation-reina/scenario-2-profile/06-progress.png",
+    "/Users/jamaltaylor/Development/sunny-math-creative-sandbox/outputs/math-creative-sandbox/2026-07-27T04-08-08-409Z-reevaluation-reina/scenario-2-profile/07-progress.png",
+    "/Users/jamaltaylor/Development/sunny-math-creative-sandbox/outputs/math-creative-sandbox/2026-07-27T04-08-08-409Z-reevaluation-reina/scenario-2-profile/08-progress.png"
+  ],
+  "actions": [
+    {
+      "kind": "click_text",
+      "text": "Enter the Ring 🥋",
+      "captureLabel": "first-action",
+      "reason": "This is the primary call-to-action to begin the multiplication game, must click to proceed to first challenge.",
+      "ok": true
+    },
+    {
+      "kind": "click_at",
+      "x": 671,
+      "y": 319,
+      "captureLabel": "progress",
+      "reason": "Tap the first cell of Section 1 to begin building the array as instructed by the on-screen prompt.",
+      "ok": true
+    },
+    {
+      "kind": "click_at",
+      "x": 671,
+      "y": 375,
+      "captureLabel": "progress",
+      "reason": "Click the first empty cell in Section 2 to continue building the array as the game expects, testing whether the app registers sequential clicks correctly.",
+      "ok": true
+    },
+    {
+      "kind": "click_at",
+      "x": 671,
+      "y": 431,
+      "captureLabel": "progress",
+      "reason": "Click first empty cell in Section 3 to continue filling out the array as prompted, testing whether the game correctly tracks progress toward completing the 3x3 array.",
+      "ok": true
+    },
+    {
+      "kind": "click_text",
+      "text": "6",
+      "captureLabel": "incorrect-recovery",
+      "reason": "Deliberately select a wrong answer (6) to observe how the app responds to an incorrect choice before testing the correct one.",
+      "ok": true
+    },
+    {
+      "kind": "click_text",
+      "text": "9",
+      "captureLabel": "progress",
+      "reason": "Select the correct answer (9) to verify the app properly recognizes correct responses and advances the streak/progress state.",
+      "ok": true
+    },
+    {
+      "kind": "click_text",
+      "text": "Next Opponent ➡️",
+      "captureLabel": "progress",
+      "reason": "Advance to the next match to observe how the game progresses through multiple questions and whether streak/star counts update correctly.",
+      "ok": true
+    },
+    {
+      "kind": "click_at",
+      "x": 649,
+      "y": 319,
+      "captureLabel": "progress",
+      "reason": "Tap first empty cell in Box 1 to begin building the new array for the second word problem, testing whether the array-building interaction resets correctly for a new match.",
+      "ok": true
+    }
+  ],
+  "visibleText": "🤼 Reina's Multiplication Dojo 🏆\nMatch 2 of 5\n🔥 Streak: 1\n⭐ 10\nNew challenger approaches! Build your array!\nThe trophy shelf has 3 boxes with 4 medals in each box. How many medals are there?\nBox 1\n🥇\n🥇\n🥇\n🥇\nBox 2\nBox 3\n4\n1 box of 4 = 4",
+  "consoleMessages": []
+}

@@ -1,0 +1,66 @@
+{
+  "summary": "Explore Pip's Patch multiplication activity: start the activity, try the group-building interaction with an incorrect/edge attempt, then adjust to a correct configuration and progress through to the array challenge and check completion flow.",
+  "actions": [
+    {
+      "kind": "click_text",
+      "text": "🌱 Start Growing",
+      "captureLabel": "first-action",
+      "reason": "Begin the activity to see the first interactive screen (likely group builder)."
+    },
+    {
+      "kind": "wait",
+      "ms": 500,
+      "captureLabel": "progress",
+      "reason": "Allow screen transition to render."
+    },
+    {
+      "kind": "click_at",
+      "x": 683,
+      "y": 205,
+      "captureLabel": "exploration",
+      "reason": "Click '+' or increment button repeatedly to see if there's a limit or odd behavior (testing edge case) before checking answer."
+    },
+    {
+      "kind": "click_text",
+      "text": "✓ Check My Array",
+      "captureLabel": "incorrect-recovery",
+      "reason": "Attempt to check the array/answer before properly setting values, to see how the activity handles an incorrect or incomplete attempt."
+    },
+    {
+      "kind": "wait",
+      "ms": 500,
+      "captureLabel": "progress",
+      "reason": "Observe feedback after incorrect check."
+    },
+    {
+      "kind": "click_text",
+      "text": "+",
+      "captureLabel": "progress",
+      "reason": "Increment a counter to try to build correct number of groups/rows."
+    },
+    {
+      "kind": "click_text",
+      "text": "+",
+      "captureLabel": "progress",
+      "reason": "Increment second counter to try to build correct columns."
+    },
+    {
+      "kind": "click_text",
+      "text": "✓ Check My Array",
+      "captureLabel": "progress",
+      "reason": "Check array again after adjusting values, hoping for correct feedback this time."
+    },
+    {
+      "kind": "click_text",
+      "text": "See it as an Array! →",
+      "captureLabel": "progress",
+      "reason": "Progress forward if allowed, to see array visualization step."
+    },
+    {
+      "kind": "click_text",
+      "text": "Next: Array Challenge! →",
+      "captureLabel": "completion",
+      "reason": "Advance to the next challenge stage to test overall progression and completion flow."
+    }
+  ]
+}

@@ -1,0 +1,18 @@
+{
+  "candidateId": "scenario-3-profile-and-spelling",
+  "verdict": "reject",
+  "scores": {
+    "designQuality": 2,
+    "originality": 1,
+    "craft": 1,
+    "functionality": 1,
+    "learningIntegration": 1,
+    "replayAppeal": 1
+  },
+  "evidence": [
+    "Clicking 'Let's Go!' (captured as 'first-action', 'progress', 'exploration' x2) produced zero screen change across all 5 screenshots — the same 'Level 1 of 4 / Garden Groups / Let's Go!' splash is shown every time, meaning the core interaction is completely broken or never implemented.",
+    "The intro screen's promise ('3 groups of 3 strawberries... how many in all?') is never followed up — the app never advances to show the actual multiplication question, array, or any interactive group-counting mechanic; the strawberry visuals from the title screen do not reappear or participate in the Level 1 content at all."
+  ],
+  "critique": "This candidate cannot even be judged on math integration or mechanic quality because the app appears to be non-functional past the level splash screen: five consecutive captures (spanning a click, two waits, and a probing click at center-screen) show an identical static 'Let's Go!' card with no progression. There's no evidence any group/array/skip-count interaction ever renders — no equal-groups visual, no clickable strawberries, no counting interface, nothing for a child to actually do. The opening screen's strawberry-group visual is pleasant but purely decorative for the pitch, and the trace shows it doesn't return during actual play, echoing the 'world disappears during play' failure pattern seen in past rejected harbor/cargo quests. Right now this is not 'attractive artwork wrapping a quiz' — it's artwork wrapping nothing, since the click through to gameplay stalls entirely. There is no way to assess replay appeal, payoff, or math substance because the experience apparently dead-ends at the level intro. This is a functionality failure that overrides any surface polish; the button and level badge are the only 'craft' on display, and even that is inert.",
+  "nextMove": "pivot"
+}

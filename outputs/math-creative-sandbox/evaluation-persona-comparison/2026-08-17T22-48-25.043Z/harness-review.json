@@ -1,0 +1,110 @@
+{
+  "scope": "Review-only inspection of two blinded child-facing evaluation candidates (Candidate A, Candidate B) derived from academic contract 274c49ed00318c3c5e7eb4fae53bfbbea61645b4488f4b88780ba9cb431b7361. Evidence limited to one intro-screen screenshot per candidate at 1365×768 and blinded machine diagnostics (title, visible text, control count, document/viewport dimensions, console/page errors). No interaction traces, event logs, or post-Start screens were provided.",
+  "candidateA": {
+    "design_hash": "260734920207b96bc327a76e22028556f7bf84ce5155ef0f0acff0dba1164929",
+    "html_hash": "639578c16d665c7ec956468be43916c6c8097a071e853cbe67652410c722a255",
+    "first_required_action": {
+      "observation": "A single prominent 'Start' button is centered below the instruction text 'Four questions about groups. Look, then tap your answer.' The first required action (tap Start) is visible and plausibly understandable; instruction explicitly states the response mechanic ('tap your answer').",
+      "evidence": "Candidate A screenshot; diagnostics visibleText",
+      "confidence": "high"
+    },
+    "layout_1365x768": {
+      "observation": "documentWidth/Height (1365×768) equal viewport dimensions, indicating no off-screen scroll content on the intro screen. No clipped, overlapping, obscured, or illegible content observed in the screenshot. Four empty progress dots at top center; 'Stop' link at bottom-left is small and low-contrast relative to the Start button but legible.",
+      "evidence": "Candidate A screenshot; diagnostics documentWidth=1365, documentHeight=768",
+      "confidence": "high (intro screen only)"
+    },
+    "control_responsiveness_and_state": {
+      "observation": "Two visible controls reported (Start, Stop). Four progress dots suggest a state indicator for question progression. Actual responsiveness and post-interaction state changes cannot be verified from the provided static evidence.",
+      "evidence": "diagnostics visibleControlCount=2; screenshot progress dots",
+      "confidence": "not verifiable from provided artifacts"
+    },
+    "incorrect_or_uncertain_response_continuation": {
+      "observation": "No visible affordance on the intro screen indicating that an uncertain response (e.g., a 'Not sure' option) exists. Whether an incorrect answer permits continuation is not observable from the intro screen.",
+      "evidence": "Candidate A screenshot; diagnostics visibleText contains no uncertainty option",
+      "confidence": "not verifiable; absence of visible 'Not sure' affordance noted with medium confidence for intro screen only"
+    },
+    "mathematics_controls_interaction": {
+      "observation": "Intro text references 'questions about groups,' consistent with a math (grouping) task, but no question content is visible; whether contract mathematics governs the interaction cannot be confirmed from provided evidence.",
+      "evidence": "Candidate A screenshot text",
+      "confidence": "not verifiable"
+    },
+    "confound_risks": {
+      "observation": "Reading load is low (two short sentences). No visible read-aloud support; children with limited reading may depend on adult mediation, a potential reading confound. Interface discovery burden appears minimal (one primary button). Response mechanics ('tap') stated explicitly.",
+      "evidence": "Candidate A screenshot; diagnostics visibleText",
+      "confidence": "medium"
+    },
+    "event_evidence_classification": {
+      "observation": "No emitted events, event schema, or logs were provided; preservation of independent/assisted/exposed/ambiguous/friction evidence classes cannot be assessed. Note: absence of a visible read-aloud control means assisted-reading events, if any, would have no visible source on this screen.",
+      "evidence": "none provided",
+      "confidence": "not verifiable"
+    },
+    "contract_modification": {
+      "observation": "No evidence on the intro screen of altered item count (four progress dots match 'Four questions') or altered task framing that would indicate contract modification. Full conformance cannot be confirmed without question-level content. Provenance caution: the architect-call design-hash fields were reported as 'injected_after_frozen_architect_call', so design provenance relative to the frozen contract cannot be independently verified from provided data.",
+      "evidence": "screenshot; hash provenance note in task metadata",
+      "confidence": "low-to-medium; provenance unverifiable"
+    },
+    "errors": {
+      "observation": "No console errors or page errors reported.",
+      "evidence": "diagnostics consoleErrors=[], pageErrors=[]",
+      "confidence": "high for load-time state"
+    }
+  },
+  "candidateB": {
+    "design_hash": "3d9a4fff9402586b87ccad9ea28ce0ca1265a9740d2a47da342873e3bdd4b4c0",
+    "html_hash": "89459bbebf3f82bed14f4f76eada3794ef5803b8dea7bb6d0fdb51d87000bedf",
+    "first_required_action": {
+      "observation": "A single prominent 'Start' button is centered below the instruction 'Four math questions. Answer what you can. “Not sure” is always okay.' First required action is visible and plausibly understandable. A 'Read again' control (with a play-style icon) sits to the right of the instruction, suggesting audio/re-read support.",
+      "evidence": "Candidate B screenshot; diagnostics visibleText",
+      "confidence": "high"
+    },
+    "layout_1365x768": {
+      "observation": "document dimensions equal viewport (1365×768); no off-screen scroll content on the intro screen. No clipped, obscured, overlapping, or illegible content observed. Diagnostics visibleText begins with blank/whitespace lines, suggesting empty or non-textual elements preceding the instruction; no corresponding visual defect is apparent in the screenshot. Progress dots are placed near the bottom of the screen rather than the top. The 'Read again' control is right-aligned and offset from the instruction text; it is fully on-screen. The caption 'No hints in this part — hints unlock at the end' is small but legible.",
+      "evidence": "Candidate B screenshot; diagnostics documentWidth=1365, documentHeight=768; leading whitespace lines in visibleText",
+      "confidence": "high (intro screen only)"
+    },
+    "control_responsiveness_and_state": {
+      "observation": "Two visible controls reported (Read again, Start); note the screenshot also shows what appears to be a Start button and Read again button consistent with that count, but no visible Stop/exit control is present on this screen. Responsiveness and state changes (including Read again playback state) cannot be verified from static evidence.",
+      "evidence": "diagnostics visibleControlCount=2; screenshot",
+      "confidence": "not verifiable; absence of visible stop/exit affordance noted with medium confidence for intro screen"
+    },
+    "incorrect_or_uncertain_response_continuation": {
+      "observation": "Intro text explicitly states '“Not sure” is always okay,' indicating an intended pathway for uncertain responses to continue. Whether such a control exists and functions on question screens is not observable from provided evidence.",
+      "evidence": "Candidate B screenshot text",
+      "confidence": "medium (stated intent visible; behavior unverified)"
+    },
+    "mathematics_controls_interaction": {
+      "observation": "Intro references 'Four math questions'; the note 'No hints in this part — hints unlock at the end' indicates a hint-gating policy relevant to independent-vs-assisted evidence. No question content visible; whether contract mathematics governs interaction cannot be confirmed.",
+      "evidence": "Candidate B screenshot text",
+      "confidence": "not verifiable"
+    },
+    "confound_risks": {
+      "observation": "Presence of a 'Read again' control suggests read-aloud support that may reduce reading confounds, though its function is unverified. The hint-unlock caption adds a small amount of extra reading. The response mechanic (how to answer) is not stated on the intro screen ('Answer what you can' does not specify tap/type), a minor interface-discovery risk relative to explicit instruction.",
+      "evidence": "Candidate B screenshot; diagnostics visibleText",
+      "confidence": "medium"
+    },
+    "event_evidence_classification": {
+      "observation": "No emitted events or event schema provided; classification preservation cannot be assessed. Visible affordances imply at least two evidence-relevant sources: 'Read again' (assisted) and end-gated hints (exposed/assisted), plus stated 'Not sure' pathway (ambiguous). Whether events distinguish these classes is unverified.",
+      "evidence": "screenshot affordances only",
+      "confidence": "not verifiable"
+    },
+    "contract_modification": {
+      "observation": "Four progress dots match 'Four math questions'; no visible evidence of contract alteration on the intro screen. The hint-gating statement is a delivery policy whose contract conformance cannot be judged without the contract text. Provenance caution: architect-call design-hash fields were reported as 'injected_after_frozen_architect_call', so design provenance cannot be independently verified from provided data.",
+      "evidence": "screenshot; hash provenance note in task metadata",
+      "confidence": "low-to-medium; provenance unverifiable"
+    },
+    "errors": {
+      "observation": "No console errors or page errors reported.",
+      "evidence": "diagnostics consoleErrors=[], pageErrors=[]",
+      "confidence": "high for load-time state"
+    }
+  },
+  "limitations": [
+    "Only one static intro-screen screenshot per candidate was provided; no question screens, interaction traces, or recordings, so control responsiveness, state-change comprehensibility, incorrect/uncertain-response continuation behavior, and mathematical control of the interaction could not be directly observed for either candidate.",
+    "No emitted event logs or event schemas were provided; preservation of independent/assisted/exposed/ambiguous/friction evidence classification could not be assessed.",
+    "The immutable academic contract content was not provided (only its hash), so conformance and non-modification could only be checked against surface indicators (e.g., question count vs. progress dots).",
+    "Candidate design hashes in the architect-call metadata were listed as 'injected_after_frozen_architect_call', preventing independent verification that the supplied candidate hashes correspond to designs frozen before this review.",
+    "Diagnostics reflect load-time state only; runtime console/page errors after interaction are unknown.",
+    "Candidate B diagnostics visibleText contains leading blank lines whose source elements are not identifiable from the screenshot; this is noted but unexplained.",
+    "All observations are limited to the 1365×768 viewport; behavior at other resolutions was not evaluated."
+  ]
+}

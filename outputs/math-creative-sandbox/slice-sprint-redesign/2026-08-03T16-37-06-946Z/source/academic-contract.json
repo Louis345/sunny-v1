@@ -1,0 +1,177 @@
+{
+  "id": "N3B",
+  "routeId": "route-quick-compare",
+  "responsibilityId": "R4",
+  "academicTarget": "Independently choose the larger unit fraction across repeated same-size-whole rounds, shade exactly one fourth of a pre-cut circle, and justify the comparison by the size of one part rather than by the size of the denominator.",
+  "difficultyBoundary": {
+    "allowedConcepts": [
+      "comparing one part of a 3-part whole with one part of a same-size 4-part whole",
+      "comparing 1/2 with 1/4 on same-size wholes",
+      "shading exactly one of four equal sectors to show one fourth",
+      "stating a deciding rule based on part size"
+    ],
+    "allowedRepresentations": [
+      "pairs of identical-size rectangles or circles already cut into equal parts",
+      "one shaded part in the same consistent color used since N1",
+      "a pre-cut 4-sector circle where tapping selects exactly one sector",
+      "labels 1/2, 1/3, 1/4",
+      "spoken or typed explanation",
+      "read-aloud of prompts"
+    ],
+    "excludedExtensions": [
+      "denominators above 4",
+      "non-unit fractions",
+      "comparing wholes of different sizes",
+      "child-drawn cut lines",
+      "equivalence, arithmetic, or number lines",
+      "any fail timer or forced cutoff on a round",
+      "reteaching of the N2 rule"
+    ],
+    "startingSupport": "One replayable worked demonstration of the same-whole comparison before the first round, plus a single on-request equality check. Rounds never time out; pacing pressure is presentational only and no answer is ever cut off.",
+    "expectedIndependence": "Independent across repeated rounds after the single demonstration: no hints required, no reteaching, and the shading item completed without assistance."
+  },
+  "items": [
+    {
+      "id": "N3B-I1",
+      "prompt": "Quick round: two rectangles are exactly the same size. One shows 1 of 3 equal parts shaded, the other shows 1 of 4 equal parts shaded. Tap the larger shaded part.",
+      "lineage": {
+        "sourceEvidenceIds": [
+          "assignment:c08535fb000c772e6a4f7b72df12fe4f64e5e941cab236c0ec9fe499a321c8bc",
+          "asm-likely-misconception-count-parts"
+        ],
+        "exposure": "taught"
+      },
+      "response": {
+        "mode": "selection",
+        "options": [
+          {
+            "id": "N3B-I1-A",
+            "label": "The shaded part of the rectangle cut into 3 equal parts (1/3)",
+            "correct": true
+          },
+          {
+            "id": "N3B-I1-B",
+            "label": "The shaded part of the rectangle cut into 4 equal parts (1/4)",
+            "correct": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "N3B-I2",
+      "prompt": "Quick round: two circles are exactly the same size. One shows 1 of 2 equal parts shaded, the other shows 1 of 4 equal parts shaded. Tap the larger shaded part.",
+      "lineage": {
+        "sourceEvidenceIds": [
+          "assignment:c08535fb000c772e6a4f7b72df12fe4f64e5e941cab236c0ec9fe499a321c8bc",
+          "asm-likely-misconception-count-parts"
+        ],
+        "exposure": "taught"
+      },
+      "response": {
+        "mode": "selection",
+        "options": [
+          {
+            "id": "N3B-I2-A",
+            "label": "The shaded part of the circle cut into 2 equal parts (1/2)",
+            "correct": true
+          },
+          {
+            "id": "N3B-I2-B",
+            "label": "The shaded part of the circle cut into 4 equal parts (1/4)",
+            "correct": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "N3B-I3",
+      "prompt": "This circle is one whole already cut into 4 equal parts. Shade one fourth of the circle.",
+      "lineage": {
+        "sourceEvidenceIds": [
+          "assignment:c08535fb000c772e6a4f7b72df12fe4f64e5e941cab236c0ec9fe499a321c8bc",
+          "asm-construction-tolerance"
+        ],
+        "exposure": "practiced"
+      },
+      "response": {
+        "mode": "construction",
+        "expectedState": {
+          "totalSectors": 4,
+          "shadedSectorCount": 1,
+          "sectorsUnchanged": true
+        },
+        "successDescription": "Exactly one of the four equal sectors is shaded, the other three are left unshaded, and the existing equal partition is not altered."
+      }
+    },
+    {
+      "id": "N3B-I4",
+      "prompt": "You answered fast. Now explain your rule: when both wholes are the same size, how do you decide whether 1/3 or 1/4 is larger?",
+      "lineage": {
+        "sourceEvidenceIds": [
+          "assignment:c08535fb000c772e6a4f7b72df12fe4f64e5e941cab236c0ec9fe499a321c8bc",
+          "concept-history:math.fractions.unit-fraction-equal-parts"
+        ],
+        "exposure": "taught"
+      },
+      "response": {
+        "mode": "explanation",
+        "rubric": [
+          "States that 1/3 is larger",
+          "Gives a rule based on part size: more equal parts in the same whole means each part is smaller",
+          "Mentions that the two wholes are the same size",
+          "Does not decide by which bottom number is bigger",
+          "Credit partial if the rule is correct in direction but omits the same-size whole condition"
+        ]
+      }
+    }
+  ],
+  "academicPrediction": {
+    "constructId": "math.fractions.unit-fraction-equal-parts",
+    "context": "Rapid same-whole comparison route after the N2 explainer: repeated quick selection rounds plus one shading production on a pre-cut circle and one part-size justification.",
+    "horizon": "independent performance later in the same session, after teaching, with no reteaching available",
+    "expectedMetric": {
+      "key": "node.N3B.itemAccuracy",
+      "min": 0.6,
+      "max": 0.95
+    },
+    "predictedErrorPatterns": [
+      "Reverts to the larger-denominator shortcut on the first quick round and picks 1/4",
+      "Gets the 1/2 versus 1/4 round right but the 1/3 versus 1/4 round wrong, because the closer part sizes remove the visual cue",
+      "Shades 2 or more sectors on N3B-I3 instead of exactly one",
+      "Correct fast selections with an explanation that names only the numerals rather than part size",
+      "Responds before inspecting part sizes, producing a fast wrong answer with very low timeToFirstValidActionMs"
+    ],
+    "confidence": 0.45,
+    "evidenceIds": [
+      "asm-engagement-puzzle-speed-only",
+      "asm-likely-misconception-count-parts",
+      "asm-construction-tolerance",
+      "choice_event_9b79e3739428",
+      "child-chart:engagementEvidence.dimensions"
+    ],
+    "intervention": "Single replayable worked same-whole comparison demonstration plus one on-request equality check; otherwise independent responding across short rounds with no time cutoff.",
+    "evidenceLimit": "practice_only"
+  },
+  "measurementKeys": [
+    "node.N3B.itemAccuracy",
+    "node.N3B.item.N3B-I1.correct",
+    "node.N3B.item.N3B-I2.correct",
+    "node.N3B.shadingItemExactlyOneSector",
+    "node.N3B.item.N3B-I4.rubricScore",
+    "node.N3B.assistanceRequestCount",
+    "node.N3B.invalidActionCount",
+    "node.N3B.timeToFirstValidActionMs",
+    "node.N3B.perRoundLatencyMs",
+    "node.N3B.started",
+    "node.N3B.completed",
+    "node.N3B.abandoned",
+    "node.N3B.routeSwitched",
+    "node.N3B.replayRequested",
+    "node.N3B.frustrationScore",
+    "node.N3B.childRating"
+  ],
+  "catalogDecision": {
+    "action": "revise",
+    "reason": "The existing N3B artifact validated and its no-timeout brisk-round structure is retained, but the academic contract is revised: a second comparison round using 1/2 versus 1/4 is added so that stability of the inverse rule can be distinguished from a single lucky pick, and the shading contract now explicitly forbids altering the given partition so the item measures unit-fraction selection rather than partitioning."
+  }
+}

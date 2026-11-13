@@ -1,0 +1,1216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<title>Four Quiet Questions</title>
+<!--
+  EVAL-LAB-MATH-C-OPEN-01 / DESIGN-EVAL-LAB-MATH-C-OPEN-01-v1
+  Implementation note on the design's tap-to-hear narration affordance:
+  this standalone document may not use browser speech synthesis or generated audio,
+  and no pre-recorded narration asset can be embedded. The reading-support affordance
+  is therefore implemented as a no-audio equivalent: a "Read again" control that
+  re-presents EXACTLY the same visible words at larger size, adds nothing, describes
+  no stimulus or quantity, and logs each use as a reading-load friction fact, as the
+  design requires for narration replays.
+-->
+<style>
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;padding:0;height:100%;overflow:hidden;background:#E9E6E0}
+  body{display:flex;align-items:center;justify-content:center;
+       font-family:"Segoe UI","Trebuchet MS",Verdana,Tahoma,sans-serif;color:#2B2B2B;
+       touch-action:manipulation}
+  button{font-family:inherit;color:#2B2B2B;cursor:pointer}
+  #stage{width:1365px;height:768px;background:#F7F5F1;position:relative;overflow:hidden;
+         transform-origin:center center;box-shadow:0 0 0 1px #DDD9D2}
+
+  .screen{position:absolute;inset:0;display:none;flex-direction:column;
+          padding:16px 40px 12px;opacity:1;transition:opacity .4s ease-in-out}
+  .screen.active{display:flex}
+  .screen.fadeout{opacity:0}
+  .screen.fadein{opacity:0}
+
+  /* ---------- top / bottom bars ---------- */
+  .topbar{display:flex;align-items:center;justify-content:space-between;height:46px;flex:0 0 auto}
+  .note{font-size:15px;color:#6B675F}
+  .stopbtn{min-width:170px;height:46px;padding:0 16px;font-size:16px;background:#FFFDF9;
+           border:1px solid #D8D4CC;border-radius:10px}
+  .botbar{display:grid;grid-template-columns:210px 1fr 210px;align-items:center;height:84px;flex:0 0 auto}
+  .dots{display:flex;gap:16px;justify-self:center}
+  .pdot{width:18px;height:18px;border-radius:50%;border:2px solid #9C978D;background:transparent;
+        transition:background-color .2s linear,border-color .2s linear}
+  .pdot.filled{background:#2B2B2B;border-color:#2B2B2B}
+  .donebtn{width:200px;height:72px;font-size:26px;border:none;border-radius:14px;
+           background:#3E7C59;color:#FFFFFF;justify-self:end}
+  .donebtn:disabled{background:#D8D4CC;color:#87827A;cursor:default}
+  .donebtn:active:not(:disabled){transform:translateY(2px)}
+
+  /* ---------- item body ---------- */
+  .content{flex:1 1 auto;display:flex;flex-direction:column;gap:12px;min-height:0}
+  .stimzone{display:flex;flex-direction:column;gap:10px;align-items:flex-start}
+  .stimvis{display:flex;align-items:flex-end;padding:6px 0}
+  .textline{display:flex;align-items:center;gap:14px}
+  .sentence{margin:0;font-size:24px}
+  .prompt{margin:0;font-size:26px;font-weight:600;max-width:1050px}
+  .readbtn{min-height:48px;padding:6px 14px;font-size:16px;background:#FFFDF9;
+           border:1px solid #C9C4BA;border-radius:10px;white-space:nowrap}
+  .readbtn:active{transform:scale(.97)}
+
+  /* stimulus shapes: one single slate-blue, no per-group coding */
+  .cluster{display:grid;grid-template-columns:repeat(2,28px);gap:12px}
+  .cluster3{display:grid;grid-template-columns:28px;gap:12px}
+  .dot{width:28px;height:28px;border-radius:50%;background:#4A6FA5}
+  .grid37{display:grid;grid-template-columns:repeat(7,56px);gap:6px}
+  .sq{width:56px;height:56px;background:#4A6FA5;border-radius:4px}
+
+  /* ---------- response cluster ---------- */
+  .respzone{margin-top:auto;display:flex;flex-direction:column;gap:14px}
+  .fieldrow{display:flex;gap:48px;flex-wrap:wrap}
+  .field{display:flex;flex-direction:column;gap:6px}
+  .flabel{font-size:20px;display:flex;align-items:center;gap:10px}
+  .slotbtn{width:130px;height:78px;border:3px solid #C9C4BA;border-radius:12px;background:#FFFDF9;
+           font-size:34px;display:flex;align-items:center;justify-content:center;position:relative}
+  .field.focused .slotbtn{border-color:#4A6FA5}
+  .field.pulse .slotbtn{animation:pulseB 1.2s ease-in-out infinite}
+  @keyframes pulseB{0%,100%{border-color:rgba(74,111,165,.45)}50%{border-color:rgba(74,111,165,1)}}
+  .slotval.small{font-size:19px}
+  .clearbtn{position:absolute;top:-16px;right:-16px;width:48px;height:48px;border-radius:50%;
+            border:1px solid #C9C4BA;background:#F7F5F1;font-size:22px;line-height:1}
+  .rowsglyph{display:inline-flex;flex-direction:column;gap:3px}
+  .rowsglyph i{display:block;width:26px;height:3px;background:#6B675F}
+
+  .tileline{display:flex;gap:16px;align-items:center}
+  .tile{width:64px;height:64px;font-size:26px;background:#FFFDF9;border:2px solid #C9C4BA;
+        border-radius:12px;padding:0}
+  .tile.notsure{width:152px;font-size:19px}
+  .tile:active,.card:active{transform:scale(.96)}
+  .tile.selected,.card.selected{border-color:#2B2B2B;border-width:3px;transform:translateY(-2px);
+        box-shadow:0 2px 0 rgba(43,43,43,.18)}
+
+  .cardgrid{display:grid;grid-template-columns:repeat(2,320px);gap:16px}
+  .card{height:88px;font-size:34px;background:#FFFDF9;border:2px solid #C9C4BA;border-radius:14px}
+  .choicerow{display:flex;gap:16px;align-items:center}
+  .card.choice{width:190px;height:72px;font-size:22px}
+  .qlabel{font-size:20px;margin:0 0 6px}
+  .stmtrow{display:flex;gap:28px}
+  .stmt{width:440px;padding:16px 18px;background:#FFFDF9;border:1px solid #C9C4BA;border-radius:12px;
+        font-size:23px;line-height:1.4}
+  .stmt b{font-weight:600;display:block;font-size:18px;color:#6B675F;margin-bottom:4px}
+  .idlenote{margin:0;font-size:18px;color:#6B675F;min-height:24px}
+
+  /* ---------- welcome / close ---------- */
+  .midscreen{flex:1 1 auto;display:flex;flex-direction:column;align-items:center;
+             justify-content:center;gap:22px;text-align:center}
+  .bigline{font-size:30px;margin:0;max-width:900px;line-height:1.45}
+  .headline{font-size:38px;margin:0}
+  .startbtn{width:280px;height:80px;font-size:30px;border:none;border-radius:16px;
+            background:#3E7C59;color:#FFFFFF}
+  .startbtn:active{transform:translateY(2px)}
+  .startbtn.nudge{animation:nudge .9s ease-in-out 1}
+  @keyframes nudge{0%,100%{transform:scale(1)}50%{transform:scale(1.04)}}
+  .quiet{font-size:16px;color:#6B675F;margin:0}
+  .factline{font-size:24px;margin:0}
+
+  /* ---------- overlays ---------- */
+  .overlay{position:absolute;inset:0;background:rgba(43,43,43,.45);display:none;
+           align-items:center;justify-content:center;padding:40px}
+  .overlay.show{display:flex}
+  .panel{background:#F7F5F1;border:1px solid #C9C4BA;border-radius:18px;padding:32px 36px;
+         max-width:940px;display:flex;flex-direction:column;gap:22px}
+  .paneltext{font-size:38px;line-height:1.35;margin:0}
+  .panelrow{display:flex;gap:18px;justify-content:flex-end}
+  .panelbtn{min-width:180px;height:68px;font-size:22px;background:#FFFDF9;border:2px solid #C9C4BA;
+            border-radius:12px;padding:0 20px}
+  .panelbtn.primary{background:#3E7C59;color:#fff;border-color:#3E7C59}
+  .panelq{font-size:30px;margin:0}
+
+  @media (prefers-reduced-motion: reduce){
+    *{animation:none !important;transition:none !important}
+  }
+</style>
+</head>
+<body>
+<div id="stage">
+
+  <!-- ============ WELCOME ============ -->
+  <section class="screen active" id="screen-welcome">
+    <header class="topbar">
+      <span class="note">&nbsp;</span>
+      <span class="note">&nbsp;</span>
+    </header>
+    <div class="midscreen">
+      <div class="textline">
+        <p class="bigline" id="txt-welcome">Four math questions. Answer what you can. &ldquo;Not sure&rdquo; is always okay.</p>
+        <button class="readbtn" type="button" data-read="txt-welcome" data-item="none">&#9655;&#41; Read again</button>
+      </div>
+      <button class="startbtn" type="button" id="startBtn">Start</button>
+      <p class="quiet">No hints in this part &mdash; hints unlock at the end.</p>
+    </div>
+    <footer class="botbar">
+      <span></span>
+      <div class="dots" data-dots></div>
+      <span></span>
+    </footer>
+  </section>
+
+  <!-- ============ ITEM 1 ============ -->
+  <section class="screen" id="screen-item1">
+    <header class="topbar">
+      <span class="note">No hints in this part &mdash; hints unlock at the end.</span>
+      <button class="stopbtn" type="button" data-stop="1">I want to stop</button>
+    </header>
+    <div class="content">
+      <div class="stimzone">
+        <div class="stimvis" id="stim1" style="gap:120px"></div>
+        <div class="textline">
+          <p class="sentence" id="txt-1-sent">Each bunch has the same number of dots.</p>
+          <button class="readbtn" type="button" data-read="txt-1-sent" data-item="ITEM-1">&#9655;&#41; Read again</button>
+        </div>
+        <div class="textline">
+          <p class="prompt" id="txt-1-prompt">How many bunches are there, and how many dots are in each bunch?</p>
+          <button class="readbtn" type="button" data-read="txt-1-prompt" data-item="ITEM-1">&#9655;&#41; Read again</button>
+        </div>
+      </div>
+      <div class="respzone">
+        <div class="fieldrow">
+          <div class="field" data-item="ITEM-1" data-field="numberOfGroups">
+            <span class="flabel">How many bunches?</span>
+            <button class="slotbtn" type="button" data-focusfield="numberOfGroups" data-item="ITEM-1">
+              <span class="slotval"></span>
+              <span class="clearbtn" data-clear="numberOfGroups" data-item="ITEM-1" hidden>&times;</span>
+            </button>
+          </div>
+          <div class="field" data-item="ITEM-1" data-field="amountInEachGroup">
+            <span class="flabel">How many dots in each bunch?</span>
+            <button class="slotbtn" type="button" data-focusfield="amountInEachGroup" data-item="ITEM-1">
+              <span class="slotval"></span>
+              <span class="clearbtn" data-clear="amountInEachGroup" data-item="ITEM-1" hidden>&times;</span>
+            </button>
+          </div>
+        </div>
+        <div class="tileline" data-tiles="ITEM-1"></div>
+      </div>
+      <p class="idlenote" data-idle="ITEM-1">&nbsp;</p>
+    </div>
+    <footer class="botbar">
+      <span></span>
+      <div class="dots" data-dots></div>
+      <button class="donebtn" type="button" data-done="ITEM-1" disabled>Done</button>
+    </footer>
+  </section>
+
+  <!-- ============ ITEM 2 ============ -->
+  <section class="screen" id="screen-item2">
+    <header class="topbar">
+      <span class="note">No hints in this part &mdash; hints unlock at the end.</span>
+      <button class="stopbtn" type="button" data-stop="1">I want to stop</button>
+    </header>
+    <div class="content">
+      <div class="stimzone">
+        <div class="stimvis" id="stim2"></div>
+        <div class="textline">
+          <p class="sentence" id="txt-2-sent">Here is one rectangle of squares.</p>
+          <button class="readbtn" type="button" data-read="txt-2-sent" data-item="ITEM-2">&#9655;&#41; Read again</button>
+        </div>
+        <div class="textline">
+          <p class="prompt" id="txt-2-prompt">How many rows are there, and how many squares are in each row?</p>
+          <button class="readbtn" type="button" data-read="txt-2-prompt" data-item="ITEM-2">&#9655;&#41; Read again</button>
+        </div>
+      </div>
+      <div class="respzone">
+        <div class="fieldrow">
+          <div class="field" data-item="ITEM-2" data-field="rows">
+            <span class="flabel">How many rows?
+              <span class="rowsglyph" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+            </span>
+            <button class="slotbtn" type="button" data-focusfield="rows" data-item="ITEM-2">
+              <span class="slotval"></span>
+              <span class="clearbtn" data-clear="rows" data-item="ITEM-2" hidden>&times;</span>
+            </button>
+          </div>
+          <div class="field" data-item="ITEM-2" data-field="squaresPerRow">
+            <span class="flabel">How many squares in each row?</span>
+            <button class="slotbtn" type="button" data-focusfield="squaresPerRow" data-item="ITEM-2">
+              <span class="slotval"></span>
+              <span class="clearbtn" data-clear="squaresPerRow" data-item="ITEM-2" hidden>&times;</span>
+            </button>
+          </div>
+        </div>
+        <div class="tileline" data-tiles="ITEM-2"></div>
+      </div>
+      <p class="idlenote" data-idle="ITEM-2">&nbsp;</p>
+    </div>
+    <footer class="botbar">
+      <span></span>
+      <div class="dots" data-dots></div>
+      <button class="donebtn" type="button" data-done="ITEM-2" disabled>Done</button>
+    </footer>
+  </section>
+
+  <!-- ============ ITEM 3 ============ -->
+  <section class="screen" id="screen-item3">
+    <header class="topbar">
+      <span class="note">No hints in this part &mdash; hints unlock at the end.</span>
+      <button class="stopbtn" type="button" data-stop="1">I want to stop</button>
+    </header>
+    <div class="content">
+      <div class="stimzone">
+        <div class="stimvis" id="stim3" style="gap:100px"></div>
+        <div class="textline">
+          <p class="sentence" id="txt-3-sent">Every group holds the same amount.</p>
+          <button class="readbtn" type="button" data-read="txt-3-sent" data-item="ITEM-3">&#9655;&#41; Read again</button>
+        </div>
+        <div class="textline">
+          <p class="prompt" id="txt-3-prompt">Choose the multiplication equation that matches what is shown.</p>
+          <button class="readbtn" type="button" data-read="txt-3-prompt" data-item="ITEM-3">&#9655;&#41; Read again</button>
+        </div>
+      </div>
+      <div class="respzone">
+        <div class="choicerow" style="align-items:flex-end">
+          <div class="cardgrid" id="cards3"></div>
+          <div class="tileline" data-tiles="ITEM-3"></div>
+        </div>
+      </div>
+      <p class="idlenote" data-idle="ITEM-3">&nbsp;</p>
+    </div>
+    <footer class="botbar">
+      <span></span>
+      <div class="dots" data-dots></div>
+      <button class="donebtn" type="button" data-done="ITEM-3" disabled>Done</button>
+    </footer>
+  </section>
+
+  <!-- ============ ITEM 4 ============ -->
+  <section class="screen" id="screen-item4">
+    <header class="topbar">
+      <span class="note">No hints in this part &mdash; hints unlock at the end.</span>
+      <button class="stopbtn" type="button" data-stop="1">I want to stop</button>
+    </header>
+    <div class="content">
+      <div class="stimzone">
+        <div class="stmtrow">
+          <div class="stmt" id="txt-4-a"><b>Statement A</b>2 baskets, and each basket holds 8 balls.</div>
+          <button class="readbtn" type="button" data-read="txt-4-a" data-item="ITEM-4" style="align-self:center">&#9655;&#41; Read again</button>
+        </div>
+        <div class="stmtrow">
+          <div class="stmt" id="txt-4-b"><b>Statement B</b>8 baskets, and each basket holds 2 balls.</div>
+          <button class="readbtn" type="button" data-read="txt-4-b" data-item="ITEM-4" style="align-self:center">&#9655;&#41; Read again</button>
+        </div>
+        <div class="textline">
+          <p class="prompt" id="txt-4-prompt">Do these two statements describe the same situation? Then say how many baskets Statement A describes.</p>
+          <button class="readbtn" type="button" data-read="txt-4-prompt" data-item="ITEM-4">&#9655;&#41; Read again</button>
+        </div>
+      </div>
+      <div class="respzone">
+        <div>
+          <p class="qlabel">Do these describe the same situation?</p>
+          <div class="choicerow" id="cards4"></div>
+        </div>
+        <div class="fieldrow" style="align-items:flex-end;gap:24px">
+          <div class="field" data-item="ITEM-4" data-field="basketsInA">
+            <span class="flabel">How many baskets in Statement A?</span>
+            <button class="slotbtn" type="button" data-focusfield="basketsInA" data-item="ITEM-4">
+              <span class="slotval"></span>
+              <span class="clearbtn" data-clear="basketsInA" data-item="ITEM-4" hidden>&times;</span>
+            </button>
+          </div>
+          <div class="tileline" data-tiles="ITEM-4"></div>
+        </div>
+      </div>
+      <p class="idlenote" data-idle="ITEM-4">&nbsp;</p>
+    </div>
+    <footer class="botbar">
+      <span></span>
+      <div class="dots" data-dots></div>
+      <button class="donebtn" type="button" data-done="ITEM-4" disabled>Done</button>
+    </footer>
+  </section>
+
+  <!-- ============ CLOSING ============ -->
+  <section class="screen" id="screen-close">
+    <header class="topbar">
+      <span class="note">&nbsp;</span>
+      <span class="note">&nbsp;</span>
+    </header>
+    <div class="midscreen">
+      <div class="textline">
+        <div id="txt-close">
+          <p class="headline" id="closeHead">You finished. Thank you.</p>
+          <p class="factline" id="closeCount">You answered 0 questions.</p>
+        </div>
+        <button class="readbtn" type="button" data-read="txt-close" data-item="none">&#9655;&#41; Read again</button>
+      </div>
+      <p class="quiet" id="closeHint">Hints are unlocked now for next time.</p>
+    </div>
+    <footer class="botbar">
+      <span></span>
+      <div class="dots" data-dots></div>
+      <span></span>
+    </footer>
+  </section>
+
+  <!-- ============ OVERLAYS ============ -->
+  <div class="overlay" id="readOverlay">
+    <div class="panel">
+      <p class="paneltext" id="readText"></p>
+      <div class="panelrow">
+        <button class="panelbtn primary" type="button" id="readClose">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="overlay" id="stopOverlay">
+    <div class="panel">
+      <p class="panelq">Stop now? What you did is saved.</p>
+      <div class="panelrow">
+        <button class="panelbtn" type="button" id="stopKeep">Keep going</button>
+        <button class="panelbtn primary" type="button" id="stopNow">Stop</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  /* ================= constants ================= */
+  var EVAL_ID   = "EVAL-LAB-MATH-C-OPEN-01";
+  var EVAL_HASH = "274c49ed00318c3c5e7eb4fae53bfbbea61645b4488f4b88780ba9cb431b7361";
+  var DESIGN_ID = "DESIGN-EVAL-LAB-MATH-C-OPEN-01-v1";
+  var DESIGN_HASH = "3d9a4fff9402586b87ccad9ea28ce0ca1265a9740d2a47da342873e3bdd4b4c0";
+  var INSPECTION_THRESHOLD_MS = 3000;   /* provisional, UNCALIBRATED */
+  var CORRECTION_FLAG_THRESHOLD = 4;
+  var READ_REPLAY_FLAG_THRESHOLD = 3;
+  var SCAN_LATENCY_PROXY_MS = 20000;
+  var IDLE_MS = 45000;
+  var WELCOME_NUDGE_MS = 20000;
+
+  var NOT_MEASURED = ["reading fluency","spelling","typing speed","pointer precision","motivation","mastery"];
+  var NO_MASTERY = "No outcome combination, including four correct responses, may be reported as mastery, proficiency, or a settled skill claim. One item per construct is a single observation sample.";
+  var EVIDENCE_NEXT = [
+    "Disambiguation probe for ITEM-4 when 'same' is selected: a non-teaching follow-up that separates 'same total' from 'same situation' without revealing the correct answer.",
+    "A second, structurally different observation per construct before any construct may move beyond provisional status; one item is an insufficient sample.",
+    "A no-picture equal-group item to test whether C1 depends on visual separation of groups.",
+    "An unknown-factor probe (total and one factor given, other factor requested) to test whether C2 mapping is bidirectional or only representation-to-equation.",
+    "A column-reading array probe to test whether C3 is orientation-dependent rather than structural.",
+    "Confound-isolation checks: a read-aloud or reduced-text version of the same construct to determine whether any incorrect response was gated by reading load rather than mathematics.",
+    "Input-mode check: confirmation that numeric entry and selection mechanics did not produce recorded errors unrelated to mathematics.",
+    "Latency baselines for this child on a non-mathematical selection task, to calibrate the inspection threshold used in guessing control.",
+    "Repeat observation on a separate occasion to distinguish stable evidence from single-session variation.",
+    "Post-evaluation-only: whether an available hint changes performance, recorded strictly after independent evidence is closed and reported separately from opening evidence."
+  ];
+
+  var ITEM3_OPTIONS = [
+    {optionId:"OPT-1", canonical:"5 x 3 = 15",  display:"5 \u00D7 3 = 15", isKey:true,  meaning:"structurally consistent option"},
+    {optionId:"OPT-2", canonical:"5 + 3 = 8",   display:"5 + 3 = 8",       isKey:false, meaning:"additive rather than multiplicative interpretation"},
+    {optionId:"OPT-3", canonical:"5 x 5 = 25",  display:"5 \u00D7 5 = 25", isKey:false, meaning:"one factor duplicated; group count substituted for group size"},
+    {optionId:"OPT-4", canonical:"3 x 10 = 30", display:"3 \u00D7 10 = 30",isKey:false, meaning:"correct factor present but structure and product mismatched"}
+  ];
+
+  var ITEMS = [
+    {
+      itemId:"ITEM-1", constructId:"C1", screenId:"screen-item1",
+      fields:["numberOfGroups","amountInEachGroup"], tileFields:["numberOfGroups","amountInEachGroup"],
+      responseMode:"tap_two_numeric_tile_entries_1_to_10_plus_not_sure",
+      exposure:{exposureId:"EX-EQGROUPS-DOTS-4x6", structure:"separated equal clusters",
+                contextFamily:"dot clusters", factorPair:"4 x 6"},
+      confounds:[
+        "Child may count all 24 dots and infer group size by division rather than reading equal-group structure.",
+        "Reading of the single sentence could gate the response (excluded construct).",
+        "Visual clutter or cluster spacing could cause miscounting of clusters rather than a structural error.",
+        "Numeric-entry mechanics could produce an input error unrelated to mathematics."
+      ]
+    },
+    {
+      itemId:"ITEM-2", constructId:"C3", screenId:"screen-item2",
+      fields:["rows","squaresPerRow"], tileFields:["rows","squaresPerRow"],
+      responseMode:"tap_two_numeric_tile_entries_1_to_10_plus_not_sure",
+      exposure:{exposureId:"EX-ARRAY-GRID-3x7", structure:"contiguous rectangular array",
+                contextFamily:"squares grid", factorPair:"3 x 7"},
+      confounds:[
+        "Row/column vocabulary may be the barrier rather than array structure (language, not mathematics).",
+        "Child may count all 21 squares one by one and still answer correctly, masking whether structure was read.",
+        "Visual scanning at the given viewport width could cause an off-by-one count.",
+        "Orientation preference may lead the child to read columns as rows."
+      ]
+    },
+    {
+      itemId:"ITEM-3", constructId:"C2", screenId:"screen-item3",
+      fields:["selection"], tileFields:[],
+      responseMode:"tap_single_selection_from_four_options_plus_separate_not_sure",
+      exposure:{exposureId:"EX-EQUATION-MATCH-5x3", structure:"separated equal groups mapped to symbolic equation",
+                contextFamily:"equation selection", factorPair:"5 x 3"},
+      confounds:[
+        "Selection format permits guessing; a single correct choice is weak evidence (1 in 4 baseline).",
+        "Child may select by recognizing the product 15 without reading the group structure.",
+        "Option order could induce position bias.",
+        "Symbol reading (x versus +) may be the discriminating factor rather than multiplicative reasoning."
+      ]
+    },
+    {
+      itemId:"ITEM-4", constructId:"C4", screenId:"screen-item4",
+      fields:["sameSituation","basketsInA"], tileFields:["basketsInA"],
+      responseMode:"tap_one_selection_plus_one_numeric_tile_entry_each_with_not_sure",
+      exposure:{exposureId:"EX-REFERENT-SWAP-2x8", structure:"verbal referent swap with constant product",
+                contextFamily:"containers and contents", factorPair:"2 x 8"},
+      confounds:[
+        "The word 'same' is ambiguous between same total and same situation; a 'same' response may reflect interpretation of the question rather than factor-referent confusion.",
+        "Reading load is highest in this item and could gate the response (excluded construct).",
+        "Child may already know commutativity and answer 'same' for a mathematically defensible product-based reason.",
+        "Order of Statement A and B could bias which referent is anchored."
+      ]
+    }
+  ];
+
+  /* ================= session state ================= */
+  var t0 = (window.performance && performance.now) ? performance.now() : Date.now();
+  function ms(){ return Math.round(((window.performance && performance.now) ? performance.now() : Date.now()) - t0); }
+  function iso(){ return new Date().toISOString(); }
+
+  var RT = {};          /* runtime per item */
+  var REC = {};         /* committed records per item */
+  var FRICTION = [];    /* friction facts */
+  var EXPOSURE_LEDGER = [];
+  var STATE = {
+    currentIndex:-1, started:false, stopped:false, closed:false,
+    timeToStartMs:null, nonInteractiveTaps:{}, readReplaysTotal:0,
+    idleRemindersTotal:0, stopOpened:0, stopCancelled:0, interruptions:0,
+    item3Positions:null, item3Seed:null
+  };
+  ITEMS.forEach(function(it){
+    RT[it.itemId] = {reached:false, renderedAt:null, firstResponseAt:null, corrections:0,
+      clears:0, focusChanges:0, readReplays:0, idleReminders:0, interruptions:0,
+      values:{}, activeField: it.tileFields.length ? it.tileFields[0] : null, committed:false};
+  });
+
+  /* ================= messaging ================= */
+  function post(type, payload){
+    var msg = {
+      type:type, evaluationId:EVAL_ID, evaluationHash:EVAL_HASH,
+      designArtifactId:DESIGN_ID, designArtifactHash:DESIGN_HASH,
+      sentAt:iso(), sessionElapsedMs:ms()
+    };
+    for(var k in payload){ if(Object.prototype.hasOwnProperty.call(payload,k)) msg[k]=payload[k]; }
+    try{ window.parent.postMessage(msg, "*"); }catch(e){ /* no parent available */ }
+  }
+
+  function currentItem(){ return (STATE.currentIndex>=0 && STATE.currentIndex<ITEMS.length) ? ITEMS[STATE.currentIndex] : null; }
+
+  function friction(kind, detail){
+    var it = currentItem();
+    var fact = {frictionType:kind, itemId: it?it.itemId:"none", constructId: it?it.constructId:"none",
+                atMs:ms(), at:iso(), detail:detail||{}};
+    FRICTION.push(fact);
+    post("evaluation_friction", {
+      itemId: fact.itemId, constructId: fact.constructId,
+      frictionType: kind, detail: fact.detail,
+      scored:false,
+      note:"friction facts are recorded, never scored; they may raise confound flags per the contract's gating rules"
+    });
+  }
+
+  /* ================= DOM helpers ================= */
+  function qs(s, r){ return (r||document).querySelector(s); }
+  function qsa(s, r){ return Array.prototype.slice.call((r||document).querySelectorAll(s)); }
+
+  var stage = qs("#stage");
+  function fitStage(){
+    var sc = Math.min(window.innerWidth/1365, window.innerHeight/768, 1);
+    if(!isFinite(sc) || sc<=0) sc = 1;
+    stage.style.transform = "scale("+sc+")";
+  }
+  window.addEventListener("resize", fitStage);
+  fitStage();
+
+  /* progress dots */
+  qsa("[data-dots]").forEach(function(c){
+    for(var i=0;i<4;i++){ var d=document.createElement("span"); d.className="pdot"; c.appendChild(d); }
+  });
+  function renderDots(){
+    var filled = ITEMS.reduce(function(n,it){ return n + (REC[it.itemId]?1:0); },0);
+    qsa("[data-dots]").forEach(function(c){
+      qsa(".pdot", c).forEach(function(d,i){
+        if(i<filled) d.classList.add("filled"); else d.classList.remove("filled");
+      });
+    });
+  }
+  renderDots();
+
+  /* ================= stimulus rendering ================= */
+  function buildDots(container, clusters, perCluster, clusterClass){
+    for(var c=0;c<clusters;c++){
+      var g=document.createElement("div"); g.className=clusterClass;
+      for(var d=0;d<perCluster;d++){ var el=document.createElement("span"); el.className="dot"; g.appendChild(el); }
+      container.appendChild(g);
+    }
+  }
+  buildDots(qs("#stim1"), 4, 6, "cluster");                /* EX-EQGROUPS-DOTS-4x6 */
+  buildDots(qs("#stim3"), 5, 3, "cluster3");               /* EX-EQUATION-MATCH-5x3 stimulus */
+  (function(){                                             /* EX-ARRAY-GRID-3x7 */
+    var wrap=document.createElement("div"); wrap.className="grid37";
+    for(var i=0;i<21;i++){ var s=document.createElement("span"); s.className="sq"; wrap.appendChild(s); }
+    qs("#stim2").appendChild(wrap);
+  })();
+
+  /* ================= tile rows ================= */
+  function buildTileRow(itemId){
+    var row = qs('[data-tiles="'+itemId+'"]');
+    if(!row) return;
+    var item = ITEMS.filter(function(i){return i.itemId===itemId;})[0];
+    if(item.tileFields.length){
+      for(var n=1;n<=10;n++){
+        var b=document.createElement("button");
+        b.type="button"; b.className="tile"; b.textContent=String(n);
+        b.setAttribute("data-tilevalue", String(n)); b.setAttribute("data-item", itemId);
+        row.appendChild(b);
+      }
+    }
+    var ns=document.createElement("button");
+    ns.type="button"; ns.className="tile notsure"; ns.textContent="Not sure";
+    ns.setAttribute("data-tilevalue","not_sure"); ns.setAttribute("data-item", itemId);
+    row.appendChild(ns);
+  }
+  ["ITEM-1","ITEM-2","ITEM-3","ITEM-4"].forEach(buildTileRow);
+
+  /* ================= item 3 cards (pre-committed shuffle) ================= */
+  (function(){
+    var seed = Math.floor(Math.random()*2000000)+1;
+    STATE.item3Seed = seed;
+    var s = seed % 2147483647; if(s<=0) s+=2147483646;
+    function rnd(){ s = s*16807 % 2147483647; return (s-1)/2147483646; }
+    var order = ITEM3_OPTIONS.slice();
+    for(var i=order.length-1;i>0;i--){
+      var j = Math.floor(rnd()*(i+1));
+      var tmp=order[i]; order[i]=order[j]; order[j]=tmp;
+    }
+    STATE.item3Positions = order.map(function(o,idx){ return {position:idx+1, optionId:o.optionId, option:o.canonical}; });
+    var grid = qs("#cards3");
+    order.forEach(function(o){
+      var b=document.createElement("button");
+      b.type="button"; b.className="card"; b.textContent=o.display;
+      b.setAttribute("data-item","ITEM-3"); b.setAttribute("data-cardfield","selection");
+      b.setAttribute("data-cardvalue", o.canonical);
+      grid.appendChild(b);
+    });
+  })();
+
+  /* ================= item 4 same/different cards (fixed contract order) ================= */
+  (function(){
+    var row = qs("#cards4");
+    [["same","Same"],["different","Different"],["not_sure","Not sure"]].forEach(function(pair){
+      var b=document.createElement("button");
+      b.type="button"; b.className="card choice"; b.textContent=pair[1];
+      b.setAttribute("data-item","ITEM-4"); b.setAttribute("data-cardfield","sameSituation");
+      b.setAttribute("data-cardvalue", pair[0]);
+      row.appendChild(b);
+    });
+  })();
+
+  /* ================= screen transitions ================= */
+  var transitioning = false;
+  function goTo(screenId, after){
+    if(transitioning) return;
+    transitioning = true;
+    var cur = qs(".screen.active");
+    function show(){
+      var el = document.getElementById(screenId);
+      el.classList.add("fadein");
+      el.classList.add("active");
+      requestAnimationFrame(function(){ requestAnimationFrame(function(){ el.classList.remove("fadein"); }); });
+      window.setTimeout(function(){ transitioning=false; if(after) after(); }, 400);
+    }
+    if(cur){
+      cur.classList.add("fadeout");
+      window.setTimeout(function(){ cur.classList.remove("active"); cur.classList.remove("fadeout"); show(); }, 400);
+    } else { show(); }
+  }
+
+  /* ================= idle handling ================= */
+  var idleTimer = null;
+  function clearIdle(){ if(idleTimer){ window.clearTimeout(idleTimer); idleTimer=null; } }
+  function startIdle(){
+    clearIdle();
+    var it = currentItem(); if(!it) return;
+    var rt = RT[it.itemId];
+    idleTimer = window.setTimeout(function(){
+      if(rt.idleReminders>0) return;
+      rt.idleReminders++; STATE.idleRemindersTotal++;
+      var note = qs('[data-idle="'+it.itemId+'"]');
+      if(note) note.innerHTML = 'Take your time. &ldquo;Not sure&rdquo; is okay too.';
+      friction("idle_reminder_shown", {afterMs:IDLE_MS});
+    }, IDLE_MS);
+  }
+  function bumpIdle(){ var it=currentItem(); if(!it) return; if(RT[it.itemId].idleReminders===0) startIdle(); }
+
+  /* ================= rendering the response cluster ================= */
+  function renderItem(itemId){
+    var item = ITEMS.filter(function(i){return i.itemId===itemId;})[0];
+    var rt = RT[itemId];
+    var screen = document.getElementById(item.screenId);
+
+    qsa(".field", screen).forEach(function(f){
+      var name = f.getAttribute("data-field");
+      var v = rt.values[name];
+      var valEl = qs(".slotval", f), clr = qs(".clearbtn", f);
+      if(v === undefined){
+        valEl.textContent = ""; valEl.classList.remove("small"); clr.hidden = true;
+      } else if(v === "not_sure"){
+        valEl.textContent = "not sure"; valEl.classList.add("small"); clr.hidden = false;
+      } else {
+        valEl.textContent = String(v); valEl.classList.remove("small"); clr.hidden = false;
+      }
+      var isActive = (rt.activeField === name);
+      f.classList.toggle("focused", isActive);
+      f.classList.toggle("pulse", isActive && v === undefined);
+    });
+
+    qsa("[data-cardvalue]", screen).forEach(function(c){
+      var fname = c.getAttribute("data-cardfield");
+      c.classList.toggle("selected", rt.values[fname] === c.getAttribute("data-cardvalue"));
+    });
+
+    qsa("[data-tilevalue]", screen).forEach(function(t){
+      var raw = t.getAttribute("data-tilevalue");
+      var val = (raw === "not_sure") ? "not_sure" : parseInt(raw,10);
+      var target;
+      if(item.tileFields.length){
+        target = (rt.activeField && item.tileFields.indexOf(rt.activeField)>=0) ? rt.activeField : item.tileFields[0];
+      } else {
+        target = item.fields[0];
+      }
+      t.classList.toggle("selected", rt.values[target] === val);
+    });
+
+    var done = qs('[data-done="'+itemId+'"]');
+    var complete = item.fields.every(function(f){ return rt.values[f] !== undefined; });
+    done.disabled = !complete;
+  }
+
+  function setResponse(itemId, field, value){
+    var rt = RT[itemId];
+    if(rt.committed) return;
+    var prev = rt.values[field];
+    if(prev !== undefined && prev !== value){
+      rt.corrections++;
+      friction("input_correction", {field:field, from:String(prev), to:String(value), correctionCount:rt.corrections});
+    }
+    rt.values[field] = value;
+    if(rt.firstResponseAt === null){
+      rt.firstResponseAt = ms();
+      friction("first_response_registered", {field:field, latencyFromStimulusMs: rt.renderedAt===null?null:(rt.firstResponseAt - rt.renderedAt)});
+    }
+    var item = ITEMS.filter(function(i){return i.itemId===itemId;})[0];
+    if(item.tileFields.indexOf(field) >= 0){
+      var nextEmpty = null;
+      item.tileFields.forEach(function(f){ if(nextEmpty===null && rt.values[f]===undefined) nextEmpty=f; });
+      if(nextEmpty){ rt.activeField = nextEmpty; }
+    }
+    bumpIdle();
+    renderItem(itemId);
+  }
+
+  /* ================= scoring (no child-facing feedback) ================= */
+  function latencyOf(rt){
+    if(rt.renderedAt===null || rt.firstResponseAt===null) return null;
+    return rt.firstResponseAt - rt.renderedAt;
+  }
+
+  function scoreItem(item){
+    var rt = RT[item.itemId];
+    var v = rt.values, lat = latencyOf(rt);
+    var keys = {}, result = "incorrect", attempted = {};
+    var nsCount = 0;
+    item.fields.forEach(function(f){ if(v[f]==="not_sure") nsCount++; });
+
+    if(item.itemId === "ITEM-1"){
+      var g=v.numberOfGroups, a=v.amountInEachGroup;
+      attempted = {numberOfGroups:g, amountInEachGroup:a};
+      var ok = (g===4 && a===6);
+      result = nsCount>0 ? "not_sure" : (ok ? "correct" : "incorrect");
+      keys = {
+        c1_group_pair_correct: ok && nsCount===0,
+        c1_roles_reversed: (g===6 && a===4),
+        c1_reported_total_instead_of_pair: false,
+        c1_reported_total_instead_of_pair_note: "range-constrained entry (tiles 1-10, per contract allowedValues) makes literal entry of the total 24 impossible; standing confound on this key",
+        c1_not_sure_rate: nsCount>0 ? 1 : 0,
+        c1_time_to_first_entry_ms: lat
+      };
+    } else if(item.itemId === "ITEM-2"){
+      var r=v.rows, p=v.squaresPerRow;
+      attempted = {rows:r, squaresPerRow:p};
+      var ok2 = (r===3 && p===7);
+      result = nsCount>0 ? "not_sure" : (ok2 ? "correct" : "incorrect");
+      var offByOne = (!ok2 && nsCount===0) && ((r===2||r===4) || (p===6||p===8));
+      keys = {
+        c3_array_dimensions_correct: ok2 && nsCount===0,
+        c3_roles_reversed: (r===7 && p===3),
+        c3_reported_total_instead_of_dimensions: false,
+        c3_reported_total_instead_of_dimensions_note: "range-constrained entry (tiles 1-10) makes literal entry of the total 21 impossible; standing confound on this key",
+        c3_off_by_one_count: !!offByOne,
+        c3_not_sure_rate: nsCount>0 ? 1 : 0,
+        c3_time_to_first_entry_ms: lat
+      };
+    } else if(item.itemId === "ITEM-3"){
+      var sel = v.selection;
+      attempted = {selectedOption: sel, optionPositions: STATE.item3Positions, shuffleSeed: STATE.item3Seed};
+      var isNS = (sel === "not_sure");
+      var ok3 = (sel === "5 x 3 = 15");
+      result = isNS ? "not_sure" : (ok3 ? "correct" : "incorrect");
+      var i1 = REC["ITEM-1"], i2 = REC["ITEM-2"];
+      var structureFailed = !!(i1 && i1.result!=="correct") && !!(i2 && i2.result!=="correct");
+      keys = {
+        c2_equation_match_correct: ok3,
+        c2_additive_distractor_selected: (sel === "5 + 3 = 8"),
+        c2_duplicated_factor_distractor_selected: (sel === "5 x 5 = 25"),
+        c2_product_only_recognition_flag: !!(ok3 && (structureFailed || (lat!==null && lat < INSPECTION_THRESHOLD_MS))),
+        c2_not_sure_rate: isNS ? 1 : 0,
+        c2_selection_latency_below_inspection_threshold: (lat!==null && lat < INSPECTION_THRESHOLD_MS),
+        c2_inspection_threshold_ms: INSPECTION_THRESHOLD_MS,
+        c2_inspection_threshold_status: "uncalibrated_pending_non_mathematical_latency_baseline",
+        c2_time_to_selection_ms: lat
+      };
+    } else {
+      var s=v.sameSituation, b=v.basketsInA;
+      attempted = {sameSituation:s, basketsInA:b, statementOrder:"A_then_B"};
+      var isNS4 = (s==="not_sure" || b==="not_sure");
+      var ok4 = (s==="different" && b===2);
+      result = isNS4 ? "not_sure" : (ok4 ? "correct" : "incorrect");
+      keys = {
+        c4_referent_discrimination_correct: ok4,
+        c4_same_selected_product_equality_confusion: (s==="same"),
+        c4_referent_count_correct: (b===2),
+        c4_ambiguity_flag_requires_followup: (s==="same"),
+        c4_not_sure_rate: isNS4 ? 1 : 0,
+        c4_time_to_first_response_ms: lat
+      };
+    }
+    return {result:result, keys:keys, attemptedValue:attempted, latencyMs:lat};
+  }
+
+  function flagsFor(item, scored){
+    var rt = RT[item.itemId], flags = [], facts = [];
+    if(rt.corrections >= CORRECTION_FLAG_THRESHOLD)
+      flags.push("input_interference_heavy_correction");
+    if(rt.readReplays >= READ_REPLAY_FLAG_THRESHOLD)
+      flags.push("reading_load_interference_candidate");
+    if(rt.interruptions > 0)
+      flags.push("session_interruption_on_item");
+    if(rt.idleReminders > 0 && scored.result === "incorrect")
+      flags.push("long_pre_response_idle_with_incorrect_response");
+    if(item.itemId === "ITEM-3" && scored.result === "correct" &&
+       scored.latencyMs !== null && scored.latencyMs < INSPECTION_THRESHOLD_MS)
+      flags.push("correct_selection_below_inspection_threshold_uncalibrated");
+
+    if(rt.corrections > 0) facts.push("input_corrections:"+rt.corrections);
+    if(rt.clears > 0) facts.push("field_clears:"+rt.clears);
+    if(rt.focusChanges > 0) facts.push("manual_field_refocus:"+rt.focusChanges);
+    if(rt.readReplays > 0) facts.push("read_support_replays:"+rt.readReplays);
+    if(rt.idleReminders > 0) facts.push("idle_reminders_shown:"+rt.idleReminders);
+    if((item.itemId==="ITEM-1"||item.itemId==="ITEM-2") && scored.latencyMs!==null && scored.latencyMs > SCAN_LATENCY_PROXY_MS)
+      facts.push("long_uniform_scanning_latency_counting_by_ones_proxy");
+    if(item.itemId==="ITEM-2") facts.push("orientation_glyph_present_four_dashes_non_contracted_presentational_exposure");
+    if(item.itemId==="ITEM-1"||item.itemId==="ITEM-2") facts.push("tile_range_1_to_10_constrains_total_substitution_signal");
+    if(item.itemId==="ITEM-3") facts.push("option_set_is_answer_adjacent_exposure_logged_and_not_reused");
+    if(item.itemId==="ITEM-4") facts.push("statement_order_fixed_A_then_B_anchoring_documented");
+    return {flags:flags, facts:facts};
+  }
+
+  function assistanceFor(item){
+    var rt = RT[item.itemId];
+    return {
+      hintsGiven:0, examplesShown:0, workedExamplesShown:0, feedbackGiven:0,
+      correctAnswerExposed:false, teachingEvents:0,
+      readSupportReplays: rt.readReplays,
+      readSupportNote:"access support for the excluded reading-fluency construct; re-presents the identical visible words only, adds no content, never scored",
+      idleRemindersShown: rt.idleReminders,
+      policy:"no_hints_no_examples_no_feedback_no_answer_exposure_during_independent_evidence_window"
+    };
+  }
+
+  function exposureFor(item, consumed){
+    var e = item.exposure;
+    var rec = {
+      exposureId:e.exposureId, structure:e.structure, contextFamily:e.contextFamily,
+      factorPair:e.factorPair, consumed:!!consumed, consumedAt: consumed ? iso() : null,
+      reusedWithinSession:false,
+      instructionalExposure:"none: no example, no hint, no feedback, no correct answer shown"
+    };
+    if(item.itemId==="ITEM-2") rec.presentationalExposures = ["rows_orientation_glyph_four_horizontal_dashes_no_countable_correspondence_to_answer"];
+    if(item.itemId==="ITEM-3") rec.answerAdjacentExposure = "four_equation_option_set_displayed_once_never_reused";
+    return rec;
+  }
+
+  function postAttempt(item, scored, flagInfo, terminalKind){
+    var rt = RT[item.itemId];
+    var record = {
+      itemId:item.itemId, constructId:item.constructId,
+      result: scored.result,
+      responseMode: item.responseMode,
+      attemptedValue: scored.attemptedValue,
+      measurementKeys: scored.keys,
+      latencyMs: scored.latencyMs,
+      confoundFlags: flagInfo.flags,
+      observedFacts: flagInfo.facts,
+      committed: terminalKind === "committed",
+      reached: rt.reached
+    };
+    REC[item.itemId] = record;
+
+    post("evaluation_attempt", {
+      itemId: item.itemId,
+      constructId: item.constructId,
+      result: scored.result,
+      assistance: assistanceFor(item),
+      exposure: exposureFor(item, rt.reached),
+      responseMode: item.responseMode,
+      possibleConfounds: {
+        contracted: item.confounds,
+        observedFlags: flagInfo.flags,
+        observedFacts: flagInfo.facts,
+        gatingApplied: "flagged items are downgraded to evidence_ambiguous per contract confoundGating"
+      },
+      attemptedValue: scored.attemptedValue,
+      measurementKeys: scored.keys,
+      latencyMs: scored.latencyMs,
+      excludedFromScoring: ["reading_time","keystroke_count","pointer_path_length","pointer_precision","typing_speed","spelling"],
+      retriesAllowed: 0,
+      feedbackShownToChild: false,
+      answerExposedToChild: false,
+      terminalOutcomeKind: terminalKind,
+      recordedAt: iso()
+    });
+    renderDots();
+  }
+
+  /* ================= commit + advance ================= */
+  function commit(itemId){
+    var item = ITEMS.filter(function(i){return i.itemId===itemId;})[0];
+    var rt = RT[itemId];
+    if(rt.committed) return;
+    var complete = item.fields.every(function(f){ return rt.values[f] !== undefined; });
+    if(!complete) return;
+    rt.committed = true;
+    clearIdle();
+    var scored = scoreItem(item);
+    var flagInfo = flagsFor(item, scored);
+    postAttempt(item, scored, flagInfo, "committed");
+    EXPOSURE_LEDGER.push(exposureFor(item, true));
+    advance();
+  }
+
+  function advance(){
+    var next = STATE.currentIndex + 1;
+    if(next < ITEMS.length){ startItem(next); }
+    else { finish(false); }
+  }
+
+  function startItem(index){
+    STATE.currentIndex = index;
+    var item = ITEMS[index];
+    var rt = RT[item.itemId];
+    rt.reached = true;
+    renderItem(item.itemId);
+    goTo(item.screenId, function(){
+      rt.renderedAt = ms();
+      startIdle();
+      renderItem(item.itemId);
+    });
+  }
+
+  /* ================= stop / finish ================= */
+  function stopSession(){
+    STATE.stopped = true;
+    clearIdle();
+    for(var i=0;i<ITEMS.length;i++){
+      var item = ITEMS[i], rt = RT[item.itemId];
+      if(REC[item.itemId]) continue;
+      var partial = {};
+      item.fields.forEach(function(f){ partial[f] = (rt.values[f]===undefined) ? null : rt.values[f]; });
+      var kind = rt.reached ? "abandoned" : "omitted";
+      var keys = {};
+      keys[item.constructId.toLowerCase()+"_evidence"] = "missing";
+      keys.notSureOrOmission = true;
+      var scored = {result:kind, keys:keys, attemptedValue:{partialResponse:partial, note:"no response committed"}, latencyMs:latencyOf(rt)};
+      var flagInfo = flagsFor(item, scored);
+      flagInfo.flags.push("no_response_committed");
+      postAttempt(item, scored, flagInfo, kind);
+      if(rt.reached) EXPOSURE_LEDGER.push(exposureFor(item, true));
+    }
+    finish(true);
+  }
+
+  function evidenceLabel(item){
+    var rec = REC[item.itemId];
+    if(!rec) return {label:"evidence_missing", because:["item not reached"]};
+    var because = [];
+    if(rec.result==="not_sure"){ return {label:"evidence_missing", because:["'not sure' response: recorded as missing evidence, never as a failure of ability"]}; }
+    if(rec.result==="omitted" || rec.result==="abandoned"){ return {label:"evidence_missing", because:["no response committed ("+rec.result+")"]}; }
+    if(item.itemId==="ITEM-4" && rec.measurementKeys.c4_same_selected_product_equality_confusion){
+      return {label:"evidence_ambiguous", because:["'same' selected: always flagged ambiguous pending the contracted disambiguation probe"]};
+    }
+    if(rec.confoundFlags.length){
+      return {label:"evidence_ambiguous", because:rec.confoundFlags.slice()};
+    }
+    if(rec.result==="correct"){
+      return {label:"evidence_supports_construct_provisionally", because:["single correct observation, one item for this construct"]};
+    }
+    return {label:"evidence_contradicts_construct", because:["single incorrect observation, one item for this construct"]};
+  }
+
+  function finish(early){
+    if(STATE.closed) return;
+    STATE.closed = true;
+    clearIdle();
+
+    var committedCount = ITEMS.filter(function(it){
+      var r = REC[it.itemId];
+      return r && (r.result==="correct" || r.result==="incorrect" || r.result==="not_sure");
+    }).length;
+
+    var head = qs("#closeHead"), cnt = qs("#closeCount");
+    head.textContent = early ? "Thanks for what you did today." : "You finished. Thank you.";
+    cnt.textContent = "You answered " + committedCount + (committedCount===1 ? " question." : " questions.");
+    qs("#closeHint").textContent = "Hints are unlocked now for next time.";
+    renderDots();
+    goTo("screen-close", null);
+
+    var map = {};
+    ITEMS.forEach(function(it){
+      var e = evidenceLabel(it);
+      map[it.constructId] = {
+        constructId: it.constructId, sourceItem: it.itemId,
+        evidence: e.label, reasons: e.because,
+        observationCount: 1,
+        statusCeiling: "provisional_single_observation"
+      };
+    });
+
+    var i1=REC["ITEM-1"], i2=REC["ITEM-2"], i3=REC["ITEM-3"];
+    var checks = [
+      {check:"dual_role_reversal_ITEM1_and_ITEM2",
+       observed: !!(i1 && i1.measurementKeys.c1_roles_reversed && i2 && i2.measurementKeys.c3_roles_reversed),
+       note:"candidate referent-assignment gap that ITEM-4 must corroborate or contradict"},
+      {check:"ITEM3_correct_with_ITEM1_and_ITEM2_not_correct",
+       observed: !!(i3 && i3.result==="correct" && i1 && i1.result!=="correct" && i2 && i2.result!=="correct"),
+       note:"indicates probable product recognition rather than structural mapping"}
+    ];
+
+    var allFlags = [];
+    ITEMS.forEach(function(it){
+      var r = REC[it.itemId];
+      if(r) r.confoundFlags.forEach(function(f){ allFlags.push({itemId:it.itemId, flag:f}); });
+    });
+    allFlags.push({itemId:"ITEM-3", flag:"inspection_threshold_uncalibrated_pending_non_mathematical_latency_baseline"});
+    allFlags.push({itemId:"ITEM-1/ITEM-2", flag:"tile_range_1_to_10_may_shape_total_substitution_behaviour"});
+
+    post("evaluation_complete", {
+      completion: {
+        status: early ? "stopped_early_by_child" : "all_four_items_administered",
+        itemsReached: ITEMS.filter(function(it){return RT[it.itemId].reached;}).map(function(it){return it.itemId;}),
+        committedResponseCount: committedCount,
+        perItemOutcome: ITEMS.map(function(it){
+          var r = REC[it.itemId];
+          return {itemId:it.itemId, constructId:it.constructId, result: r ? r.result : "omitted"};
+        }),
+        totalSessionDurationMs: ms(),
+        childStoppedEarly: !!early
+      },
+      perConstructEvidenceMap: map,
+      crossItemConsistencyChecks: checks,
+      confoundFlags: allFlags,
+      exposureLedger: EXPOSURE_LEDGER,
+      assistanceLedger: {
+        hintsGiven:0, examplesShown:0, feedbackGiven:0, answerExposures:0, teachingEvents:0,
+        readSupportReplaysTotal: STATE.readReplaysTotal,
+        idleRemindersTotal: STATE.idleRemindersTotal,
+        hintUnlockNoticeShownAtClose: true,
+        integrityNote:"zero assistance during the independent evidence window; any non-zero value here would be a critical integrity flag"
+      },
+      frictionFacts: {
+        events: FRICTION,
+        timeFromWelcomeToStartMs: STATE.timeToStartMs,
+        stopControlOpened: STATE.stopOpened,
+        stopControlCancelled: STATE.stopCancelled,
+        interruptions: STATE.interruptions,
+        nonInteractiveTaps: STATE.nonInteractiveTaps,
+        note:"friction facts are reported, never scored"
+      },
+      attempts: ITEMS.map(function(it){ return REC[it.itemId] || {itemId:it.itemId, constructId:it.constructId, result:"omitted"}; }),
+      item3PositionLog: {shuffleSeed: STATE.item3Seed, positions: STATE.item3Positions},
+      scoringPolicy: {noMasteryDeclaration: NO_MASTERY, retriesAllowed:0, notSureIsValidResponse:true},
+      notMeasuredHere: NOT_MEASURED,
+      evidenceRequiredNext: EVIDENCE_NEXT,
+      childFacingConclusions: "none: no score, no correctness feedback, and no skill claim was shown to the child",
+      reportAudience: "adult-facing only"
+    });
+  }
+
+  /* ================= event wiring ================= */
+  qs("#startBtn").addEventListener("click", function(){
+    if(STATE.started) return;
+    STATE.started = true;
+    STATE.timeToStartMs = ms();
+    friction("welcome_to_start", {timeMs: STATE.timeToStartMs});
+    startItem(0);
+  });
+
+  var welcomeNudge = window.setTimeout(function(){
+    if(!STATE.started){
+      var b = qs("#startBtn");
+      b.classList.add("nudge");
+      window.setTimeout(function(){ b.classList.remove("nudge"); }, 1000);
+      friction("welcome_idle_nudge", {afterMs: WELCOME_NUDGE_MS, preMeasurement:true});
+    }
+  }, WELCOME_NUDGE_MS);
+
+  stage.addEventListener("click", function(ev){
+    var t = ev.target;
+    var btn = t.closest ? t.closest("button") : null;
+
+    if(!btn){
+      var scr = qs(".screen.active");
+      var id = scr ? scr.id : "unknown";
+      STATE.nonInteractiveTaps[id] = (STATE.nonInteractiveTaps[id]||0) + 1;
+      if(STATE.nonInteractiveTaps[id] === 3){
+        friction("non_interactive_taps", {screen:id, count:3,
+          note:"three taps on non-interactive area; candidate first-action-discovery difficulty"});
+      }
+      bumpIdle();
+      return;
+    }
+
+    /* read support (no audio available in this standalone document) */
+    if(btn.hasAttribute("data-read")){
+      var srcId = btn.getAttribute("data-read");
+      var srcEl = document.getElementById(srcId);
+      if(srcEl){
+        qs("#readText").textContent = (srcEl.textContent || "").replace(/\s+/g," ").trim();
+        qs("#readOverlay").classList.add("show");
+      }
+      STATE.readReplaysTotal++;
+      var ri = btn.getAttribute("data-item");
+      if(ri && RT[ri]) RT[ri].readReplays++;
+      friction("read_support_replay", {textId:srcId, itemReplays: (ri && RT[ri]) ? RT[ri].readReplays : 0});
+      bumpIdle();
+      return;
+    }
+    if(btn.id === "readClose"){ qs("#readOverlay").classList.remove("show"); bumpIdle(); return; }
+
+    /* stop control */
+    if(btn.hasAttribute("data-stop")){
+      STATE.stopOpened++;
+      qs("#stopOverlay").classList.add("show");
+      friction("stop_control_opened", {count: STATE.stopOpened});
+      return;
+    }
+    if(btn.id === "stopKeep"){
+      STATE.stopCancelled++;
+      qs("#stopOverlay").classList.remove("show");
+      friction("stop_control_cancelled", {count: STATE.stopCancelled});
+      bumpIdle();
+      return;
+    }
+    if(btn.id === "stopNow"){
+      qs("#stopOverlay").classList.remove("show");
+      friction("stop_confirmed", {atItem: currentItem() ? currentItem().itemId : "none"});
+      stopSession();
+      return;
+    }
+
+    /* clear a filled field */
+    var clearHost = t.classList && t.classList.contains("clearbtn") ? t : null;
+    if(clearHost){
+      var cItem = clearHost.getAttribute("data-item"), cField = clearHost.getAttribute("data-clear");
+      var crt = RT[cItem];
+      if(crt && !crt.committed && crt.values[cField] !== undefined){
+        delete crt.values[cField];
+        crt.clears++;
+        crt.activeField = cField;
+        friction("field_cleared", {field:cField, clears:crt.clears});
+        renderItem(cItem);
+      }
+      ev.stopPropagation();
+      bumpIdle();
+      return;
+    }
+
+    /* focus a field */
+    if(btn.hasAttribute("data-focusfield")){
+      var fItem = btn.getAttribute("data-item"), fName = btn.getAttribute("data-focusfield");
+      var frt = RT[fItem];
+      if(frt && !frt.committed){
+        if(frt.activeField !== fName){ frt.focusChanges++; friction("field_refocus", {field:fName}); }
+        frt.activeField = fName;
+        renderItem(fItem);
+      }
+      bumpIdle();
+      return;
+    }
+
+    /* number / not-sure tiles */
+    if(btn.hasAttribute("data-tilevalue")){
+      var tItem = btn.getAttribute("data-item");
+      var raw = btn.getAttribute("data-tilevalue");
+      var val = (raw === "not_sure") ? "not_sure" : parseInt(raw,10);
+      var titem = ITEMS.filter(function(i){return i.itemId===tItem;})[0];
+      var trt = RT[tItem];
+      if(!titem || !trt || trt.committed) return;
+      var target;
+      if(titem.tileFields.length){
+        target = (trt.activeField && titem.tileFields.indexOf(trt.activeField)>=0) ? trt.activeField : titem.tileFields[0];
+      } else {
+        target = titem.fields[0];
+      }
+      setResponse(tItem, target, val);
+      return;
+    }
+
+    /* selection cards */
+    if(btn.hasAttribute("data-cardvalue")){
+      var kItem = btn.getAttribute("data-item");
+      var kField = btn.getAttribute("data-cardfield");
+      var kVal = btn.getAttribute("data-cardvalue");
+      setResponse(kItem, kField, kVal);
+      return;
+    }
+
+    /* done */
+    if(btn.hasAttribute("data-done")){
+      commit(btn.getAttribute("data-done"));
+      return;
+    }
+  });
+
+  document.addEventListener("visibilitychange", function(){
+    if(document.hidden){
+      STATE.interruptions++;
+      var it = currentItem();
+      if(it && !RT[it.itemId].committed){ RT[it.itemId].interruptions++; }
+      friction("session_interruption", {interruptions: STATE.interruptions});
+    }
+  });
+
+  /* ================= ready ================= */
+  post("evaluation_ready", {
+    viewport:{width:1365, height:768, scaledToWindow:true},
+    inputModel:"tap_only_touch_and_mouse_no_keyboard_required_no_drag_no_typing",
+    itemSequence: ITEMS.map(function(i){
+      return {itemId:i.itemId, constructId:i.constructId, responseMode:i.responseMode, exposureId:i.exposure.exposureId};
+    }),
+    constructs:["C1","C2","C3","C4"],
+    administration:{
+      noFeedbackDuringEvaluation:true, noHintsDuringEvaluation:true, retriesAllowed:0,
+      notSureIsValidResponse:true, oneStimulusPerScreen:true, noTimeLimit:true, childMayStop:true,
+      hintAffordanceAllowedAfter:"all four item responses are recorded"
+    },
+    accessibilityNote:"reading support re-presents the identical on-screen words at larger size; no audio, no speech synthesis, no added content",
+    storageUse:"none",
+    notMeasuredHere: NOT_MEASURED
+  });
+
+})();
+</script>
+</body>
+</html>

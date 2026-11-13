@@ -1,0 +1,47 @@
+{
+  "summary": "Explore the Skyglider Skip-Count Run activity: try the 'Show me' demo, attempt an incorrect answer to see recovery feedback, then choose the correct answer to test successful progression, and observe completion state.",
+  "actions": [
+    {
+      "kind": "click_text",
+      "text": "▶ Show me",
+      "captureLabel": "first-action",
+      "reason": "See what the demo/tutorial shows before attempting the problem myself"
+    },
+    {
+      "kind": "wait",
+      "ms": 1500,
+      "captureLabel": "progress",
+      "reason": "Allow demo animation to play out"
+    },
+    {
+      "kind": "click_text",
+      "text": "✋ Let me try",
+      "captureLabel": "progress",
+      "reason": "Switch to interactive mode to attempt the problem"
+    },
+    {
+      "kind": "click_text",
+      "text": "16",
+      "captureLabel": "incorrect-recovery",
+      "reason": "Deliberately pick an incorrect answer (16 breaks the skip-count-by-5 pattern) to see how the app handles wrong answers"
+    },
+    {
+      "kind": "wait",
+      "ms": 1000,
+      "captureLabel": "incorrect-recovery",
+      "reason": "Wait for any feedback animation or message after wrong answer"
+    },
+    {
+      "kind": "click_text",
+      "text": "20",
+      "captureLabel": "completion",
+      "reason": "Select the correct answer (20 continues the skip count by 5s) to test successful completion"
+    },
+    {
+      "kind": "wait",
+      "ms": 1500,
+      "captureLabel": "completion",
+      "reason": "Allow success animation/feedback to fully render"
+    }
+  ]
+}

@@ -1,0 +1,32 @@
+[
+  {
+    "call": 1,
+    "stage": "evaluation-planner",
+    "model": "claude-opus-5",
+    "status": "complete",
+    "inputTokens": 1943,
+    "outputTokens": 8429,
+    "elapsedMs": 104926,
+    "stopReason": "tool_use"
+  },
+  {
+    "call": 2,
+    "stage": "evaluation-architect",
+    "model": "claude-fable-5",
+    "status": "complete",
+    "inputTokens": 11332,
+    "outputTokens": 6613,
+    "elapsedMs": 104241,
+    "stopReason": "tool_use"
+  },
+  {
+    "call": 3,
+    "stage": "evaluation-engineer",
+    "model": "claude-opus-5",
+    "status": "complete",
+    "inputTokens": 16226,
+    "outputTokens": 33734,
+    "elapsedMs": 387615,
+    "stopReason": "end_turn"
+  }
+]

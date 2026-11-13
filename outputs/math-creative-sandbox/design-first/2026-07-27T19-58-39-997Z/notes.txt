@@ -1,0 +1,14 @@
+Design-first experiment result
+
+- One model call.
+- Model: claude-sonnet-5.
+- Generation time: 349,327 ms.
+- The model chose GSAP for animation and Tone.js for sound.
+- The opening screen expresses the approved mission, stakes, progression, and mathematical role substantially better than the unconstrained one-shot activity.
+- Generation reached the 32,000-token limit and stopped in the middle of the validation function.
+- The opening HTML renders, but the activity is not playable because the JavaScript is incomplete.
+- No retry or repair was performed.
+
+Conclusion
+
+The design-first artifact materially improved creative direction and gave the model a reason to use richer libraries. The experiment also exposed a delivery bottleneck: asking one call to implement a richer experience exceeded the output budget.

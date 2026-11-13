@@ -1,0 +1,322 @@
+{
+  "programId": "program:reina:multiplication-x2x5x10:recalibration-01",
+  "assignmentAnalysis": {
+    "constructs": [
+      "math.multiplication.equal_groups",
+      "math.multiplication.arrays",
+      "math.multiplication.skip_counting",
+      "math.multiplication.word_problem_interpretation",
+      "math.multiplication.factor_referent_mapping (which factor names groups vs. items per group)",
+      "math.multiplication.operation_selection (multiplication vs. addition)"
+    ],
+    "prerequisites": [
+      "Counts by 2s, 5s, and 10s from a stated starting point",
+      "Recognizes when a collection is partitioned into equal-sized groups",
+      "Reads rows and columns of an array as a structured count",
+      "Writes and reads the a x b = c notation form",
+      "Extracts two quantities and the question asked from a one-sentence word problem",
+      "Single-digit addition used as a checking strategy rather than a substitute operation"
+    ],
+    "difficultyBoundaries": {
+      "included": [
+        "Factor families x2, x5, x10 only",
+        "Products up to 100",
+        "Single-step problems",
+        "Equal-groups contexts with stated group count and stated items per group",
+        "Rectangular arrays with rows and columns both visible or stated",
+        "Skip-counting as a route to a product",
+        "Translating an equal-groups or array situation into a x b = c notation",
+        "Stating what each factor refers to in the situation"
+      ],
+      "excluded": [
+        "Factor families other than 2, 5, 10",
+        "Division and missing-factor problems",
+        "Two-step or multi-operation word problems",
+        "Multi-digit or regrouping multiplication",
+        "Formal statement of the commutative property as a named rule",
+        "Area or measurement interpretations of multiplication",
+        "Timed fluency scoring"
+      ]
+    }
+  },
+  "assumptions": [
+    {
+      "assumptionId": "assumption:guided-inflation",
+      "claim": "Guided performance materially overstates Reina's unsupported performance on this unit; the 90% guided figure should not be used to set independent expectations.",
+      "evidenceIds": [
+        "academic:guided-groups",
+        "academic:independent-array",
+        "returned:score"
+      ],
+      "confidence": 0.82,
+      "uncertainty": "The guided and independent samples covered different sub-constructs (equal groups vs. arrays) and the independent sample was only 5 items, so part of the 90%-to-40% drop may be construct difference rather than support removal.",
+      "falsifyingEvidence": "An unassisted, unseen equal-groups probe of 10+ items scoring at or near the guided level (>=0.85)."
+    },
+    {
+      "assumptionId": "assumption:factor-referent-mapping",
+      "claim": "Reina's most frequent documented error is mis-assigning which quantity is the number of groups and which is the number of items per group, indicating unstable mapping between situation structure and the two factors.",
+      "evidenceIds": [
+        "returned:error-pattern",
+        "academic:independent-array"
+      ],
+      "confidence": 0.6,
+      "uncertainty": "In a bare equal-groups product, swapping the two factors does not change the numerical answer, so the marked items must have required structural labeling, a drawing, or a specific referent; the packet does not contain item text or scoring keys, so the mechanism behind these three marked-wrong items is not established.",
+      "falsifyingEvidence": "Item-level extraction showing the three items were marked wrong for a different reason (e.g., miscount, unanswered, copied wrong number) rather than reversed referents."
+    },
+    {
+      "assumptionId": "assumption:additive-substitution",
+      "claim": "On a minority of items Reina substitutes addition for multiplication rather than reasoning from group structure.",
+      "evidenceIds": [
+        "returned:error-pattern"
+      ],
+      "confidence": 0.45,
+      "uncertainty": "Only two items showed this and the observation says the addition was unrelated to the represented groups; whether this reflects operation-selection failure, a misread problem, or abandoning an unfinished strategy is not established.",
+      "falsifyingEvidence": "An unassisted probe in which Reina selects multiplication (or correct repeated addition matching the groups) on all equal-groups items while still making other errors."
+    },
+    {
+      "assumptionId": "assumption:calibration-offset",
+      "claim": "The prior 60%-80% returned-work band was set too high; the model of Reina's unsupported accuracy on this unit should be shifted downward.",
+      "evidenceIds": [
+        "returned:score",
+        "academic:independent-array"
+      ],
+      "confidence": 0.75,
+      "uncertainty": "Assistance condition on the returned work was not confirmed and the work was completed at school, so the 5/10 could reflect either a lower true level or unmodeled test conditions (time limits, distraction, unfinished items).",
+      "falsifyingEvidence": "Confirmation that the returned work was completed under atypical conditions (e.g., truncated time, missed instruction) plus an unassisted probe in the 60%-80% range."
+    },
+    {
+      "assumptionId": "assumption:skip-counting-unknown",
+      "claim": "There is no evidence in this packet about Reina's unassisted x2/x5/x10 fact retrieval or skip-counting accuracy, so it must be measured before it is assumed available as a prerequisite.",
+      "evidenceIds": [
+        "academic:guided-groups",
+        "academic:independent-array",
+        "returned:score"
+      ],
+      "confidence": 0.7,
+      "uncertainty": "The returned work likely contained fluency items but no per-item breakdown by item type is available, so fluency accuracy is genuinely unknown rather than low.",
+      "falsifyingEvidence": "Returned-work item extraction or a fluency probe establishing x2/x5/x10 retrieval accuracy."
+    },
+    {
+      "assumptionId": "assumption:engagement-not-academic",
+      "claim": "The recorded likes and completions are engagement-stream records from spelling activities and establish nothing about Reina's multiplication knowledge, preferences, or ability.",
+      "evidenceIds": [
+        "engagement:wheel:like",
+        "engagement:pronunciation:like",
+        "profile:reina:age"
+      ],
+      "confidence": 0.9,
+      "uncertainty": "Engagement records are low-confidence (0.45) and drawn from a different subject; likes with only two of four completions do not indicate sustained engagement either.",
+      "falsifyingEvidence": "Academic-stream evidence from mathematics activities carrying its own accuracy record."
+    }
+  ],
+  "academicPredictions": [
+    {
+      "predictionId": "prediction:baseline-structure-mapping",
+      "construct": "math.multiplication.factor_referent_mapping",
+      "expectedOutcome": "On an unassisted baseline probe of 10 unseen items that require stating both the product and what each factor refers to (number of groups / items per group, rows / per row), Reina scores below the guided level, with referent labels wrong more often than products.",
+      "expectedRange": {
+        "metric": "unassisted_baseline_accuracy_referent_labels",
+        "minimum": 0.2,
+        "maximum": 0.55
+      },
+      "predictedErrorPatterns": [
+        "assigns the group count to items-per-group and vice versa",
+        "gives a correct product but cannot say which factor is which",
+        "on array items, reports total or one dimension when asked for the other"
+      ],
+      "confidence": 0.6,
+      "evidenceIds": [
+        "academic:independent-array",
+        "returned:error-pattern",
+        "returned:score"
+      ],
+      "horizon": "baseline",
+      "maximumClaim": "unassisted baseline level only; no mastery or instructional-effect claim"
+    },
+    {
+      "predictionId": "prediction:baseline-fluency",
+      "construct": "math.multiplication.skip_counting",
+      "expectedOutcome": "On an unassisted, untimed probe of 12 unseen x2/x5/x10 fact items, accuracy is measurable but the band is wide because no fluency evidence exists in the packet; x10 items are answered more accurately than x2 items.",
+      "expectedRange": {
+        "metric": "unassisted_baseline_accuracy_facts",
+        "minimum": 0.4,
+        "maximum": 0.85
+      },
+      "predictedErrorPatterns": [
+        "off-by-one-group skip-counting errors (e.g., 5x5 answered as 20 or 30)",
+        "loses count on the longer x2 chains",
+        "answers x10 by appending a zero while x2 and x5 require counting"
+      ],
+      "confidence": 0.35,
+      "evidenceIds": [
+        "returned:score",
+        "academic:guided-groups"
+      ],
+      "horizon": "baseline",
+      "maximumClaim": "descriptive baseline only; wide band reflects absent evidence"
+    },
+    {
+      "predictionId": "prediction:delayed-independent-transfer",
+      "construct": "math.multiplication.equal_groups",
+      "expectedOutcome": "After explicit referent-labeling instruction and faded guided practice, an unassisted delayed probe (5-10 days later) of 10 unseen equal-groups and array items scores above the 40% independent array figure but below the 90% guided figure, with residual errors concentrated on array items rather than equal-groups items.",
+      "expectedRange": {
+        "metric": "delayed_unassisted_accuracy",
+        "minimum": 0.5,
+        "maximum": 0.8
+      },
+      "predictedErrorPatterns": [
+        "residual reversal of rows and items-per-row on arrays",
+        "correct product with an unlabeled or mislabeled representation",
+        "occasional additive substitution on the last items of the probe"
+      ],
+      "confidence": 0.45,
+      "evidenceIds": [
+        "academic:guided-groups",
+        "academic:independent-array",
+        "returned:error-pattern"
+      ],
+      "horizon": "delayed",
+      "maximumClaim": "retained independent performance on unseen items; not classroom-level mastery"
+    },
+    {
+      "predictionId": "prediction:next-returned-work",
+      "construct": "math.multiplication.word_problem_interpretation",
+      "expectedOutcome": "The next returned graded assignment covering this unit scores in a downward-recalibrated band relative to the prior 60%-80% prediction, and additive-substitution errors do not exceed two items.",
+      "expectedRange": {
+        "metric": "returned_work_accuracy",
+        "minimum": 0.45,
+        "maximum": 0.7
+      },
+      "predictedErrorPatterns": [
+        "reversed group/item referents on items requiring a labeled representation",
+        "addition used in place of multiplication on at most two items",
+        "word-problem items scored lower than bare fluency items"
+      ],
+      "confidence": 0.5,
+      "evidenceIds": [
+        "returned:score",
+        "returned:error-pattern",
+        "academic:independent-array"
+      ],
+      "horizon": "returned_work",
+      "maximumClaim": "external calibration of the planner's model; conditional on the assistance condition being confirmed as unassisted"
+    }
+  ],
+  "learningSequence": [
+    {
+      "nodeId": "node:01-baseline-probe",
+      "responsibility": "probe",
+      "constructs": [
+        "math.multiplication.skip_counting",
+        "math.multiplication.factor_referent_mapping",
+        "math.multiplication.operation_selection"
+      ],
+      "startingSupport": "None. Unseen items, no demonstration, no hints, untimed, no corrective feedback until the probe is closed.",
+      "expectedIndependence": "Fully unassisted; responses recorded item by item and separated into fact items, referent-labeling items, and operation-choice items.",
+      "evidenceRequired": [
+        "Per-item accuracy on 12 unseen x2/x5/x10 fact items",
+        "Per-item accuracy on 6 unseen items asking both the product and what each factor refers to",
+        "Per-item record of which operation Reina used on 4 unseen one-step word problems",
+        "Explicit confirmation that no assistance was given"
+      ],
+      "nextDecisionEnabled": "Determines whether the gap is fact retrieval, referent mapping, operation selection, or a combination, and therefore which single sub-construct node:02 teaches."
+    },
+    {
+      "nodeId": "node:02-teach-referents",
+      "responsibility": "teach",
+      "constructs": [
+        "math.multiplication.factor_referent_mapping",
+        "math.multiplication.equal_groups"
+      ],
+      "startingSupport": "Full worked demonstration: each situation is read aloud, the number of groups and the number per group are named and written as labels before any product is computed.",
+      "expectedIndependence": "None expected at this node; Reina restates the two labels after a demonstration.",
+      "evidenceRequired": [
+        "Record of whether Reina can restate the two referents immediately after each demonstration",
+        "Count of demonstrations required before restatement is accurate"
+      ],
+      "nextDecisionEnabled": "Establishes whether the referent distinction is teachable within a short sequence; a practice-level claim only, and cannot establish mastery."
+    },
+    {
+      "nodeId": "node:03-guided-fading",
+      "responsibility": "guided_practice",
+      "constructs": [
+        "math.multiplication.equal_groups",
+        "math.multiplication.arrays",
+        "math.multiplication.operation_selection"
+      ],
+      "startingSupport": "Begins with labels pre-printed; support fades across three tiers - pre-printed labels, then a prompt to write the labels, then no prompt.",
+      "expectedIndependence": "Accurate labeling and product at the no-prompt tier on at least 8 of 10 fresh items; performance is logged separately at each support tier.",
+      "evidenceRequired": [
+        "Accuracy at each of the three support tiers, reported separately",
+        "Whether any item was answered by addition instead of multiplication",
+        "Explicit tagging of all results as guided practice"
+      ],
+      "nextDecisionEnabled": "Determines readiness for an unassisted probe and quantifies the current support-removal gap against the 90%/40% precedent."
+    },
+    {
+      "nodeId": "node:04-independent-probe",
+      "responsibility": "independent_probe",
+      "constructs": [
+        "math.multiplication.equal_groups",
+        "math.multiplication.arrays",
+        "math.multiplication.word_problem_interpretation"
+      ],
+      "startingSupport": "None. Unseen items, no labels supplied, no demonstration, no hints.",
+      "evidenceRequired": [
+        "Per-item accuracy on 10 unseen items mixing equal groups, arrays, and one-step word problems",
+        "Error classification: referent reversal, additive substitution, skip-count slip, other",
+        "Confirmation of unassisted conditions"
+      ],
+      "expectedIndependence": "Fully unassisted; this is the only node in the sequence that can support an independent-performance claim.",
+      "nextDecisionEnabled": "Tests prediction:baseline-structure-mapping against post-instruction performance and decides whether to advance, re-teach arrays specifically, or hold."
+    },
+    {
+      "nodeId": "node:05-delayed-independent-probe",
+      "responsibility": "independent_probe",
+      "constructs": [
+        "math.multiplication.equal_groups",
+        "math.multiplication.arrays",
+        "math.multiplication.factor_referent_mapping"
+      ],
+      "startingSupport": "None, administered 5-10 days after node:04 with no intervening instruction on these constructs.",
+      "expectedIndependence": "Fully unassisted retention check on 10 unseen items.",
+      "evidenceRequired": [
+        "Per-item accuracy and error classification",
+        "Confirmed interval since node:04 and confirmation of no intervening instruction",
+        "Comparison against the 0.5-0.8 band in prediction:delayed-independent-transfer"
+      ],
+      "nextDecisionEnabled": "Resolves whether any node:04 gain is retained, and pairs with the next returned graded assignment to close the calibration loop opened by returned:score."
+    }
+  ],
+  "evidenceSeparation": {
+    "practiceClaims": [
+      "academic:guided-groups (90% across 10 items) supports only a supported-performance claim with visual group outlines and a demonstration available; it does not establish equal-groups mastery.",
+      "node:02 restatement records support only a claim that the referent distinction can be reproduced immediately after demonstration.",
+      "node:03 tiered results support only a claim about performance at a named support level, reported per tier and never averaged with unassisted results.",
+      "engagement:wheel:like and engagement:pronunciation:like support no academic claim of any kind; likes and completions are not accuracy evidence, and only two of four Wheel initiations were completed."
+    ],
+    "independentClaims": [
+      "academic:independent-array (40% across 5 items) is the only current unassisted academic datum; with n=5 the interval around it is wide and it covers arrays only.",
+      "node:01 results establish an unassisted baseline per sub-construct.",
+      "node:04 results establish post-instruction unassisted performance.",
+      "node:05 results establish retained unassisted performance.",
+      "returned:score cannot be treated as an independent claim until the assistance condition is confirmed; the packet records it as unconfirmed."
+    ],
+    "calibrationRequirements": [
+      "Calibration requires caregiver-confirmed marked work with a per-item breakdown; returned:score and returned:error-pattern satisfy this for the closed prior cycle and falsified prior-prediction:returned-work (5/10 fell below the preregistered 0.6-0.8 band).",
+      "The next calibration cycle requires a returned graded assignment on this unit with per-item marks, item text or item type, and a confirmed assistance condition.",
+      "A delayed unassisted probe (node:05) is required alongside returned work; neither alone closes the loop.",
+      "Prediction bands are recorded before each probe is administered and are not revised after results are seen; revisions are logged as a new preregistered prediction."
+    ]
+  },
+  "nextEvidenceRequired": [
+    "Confirmation of the assistance condition and testing conditions (time available, whether all items were attempted) for returned:score, since it was completed at school and is currently unconfirmed.",
+    "Item-level extraction for the returned work showing item text or item type per item, so the three reversal-marked items can be distinguished from miscounts, blanks, or copying errors.",
+    "Split of returned-work performance by item type (bare fluency items vs. word problems), which is not currently available.",
+    "Unassisted baseline accuracy on x2/x5/x10 fact retrieval and skip-counting (node:01), for which the packet contains no evidence.",
+    "Unassisted accuracy on items that require naming what each factor refers to, distinguishing referent mapping from product computation.",
+    "A delayed unassisted probe at 5-10 days (node:05) with confirmation of no intervening instruction.",
+    "One further returned graded assignment on this unit with per-item marks to test prediction:next-returned-work."
+  ],
+  "planningRationale": "The prior cycle's single preregistered prediction failed: returned work came in at 5/10, below the 60%-80% band, so the planner's model of Reina's unsupported level was too optimistic and the guided 90% figure was weighted too heavily against the unassisted 40% figure. The returned error pattern partly confirmed the predicted groups/items reversal but also produced an unpredicted class of error - two items using addition unrelated to the represented groups - which the prior program did not anticipate. Two consequences follow. First, all expectation bands are shifted downward and widened, and guided results are quarantined from independent results at every node. Second, the plan treats the reversal claim as provisional rather than settled, because reversing the two factors in a bare equal-groups product does not change the numeric answer, so the marked items must have demanded structural labeling that the packet does not document; item-level text is therefore requested rather than assumed. The sequence is deliberately short: one unassisted baseline that separates fact retrieval, referent mapping, and operation selection (none of which the packet currently distinguishes), one narrow teaching node on referent labeling, one guided node with tiered fading so the support-removal gap is measured rather than inferred, and two unassisted probes, one immediate and one delayed, to supply the retention datum that returned work alone cannot supply. Nothing about Reina's interests, dispositions, or general ability is inferred; the engagement records come from spelling activities, carry 0.45 confidence, and show two completions out of four initiations, so they are excluded from academic reasoning entirely. The next educational question is: when the number of groups and the number of items per group must be named rather than merely multiplied, can Reina assign each quantity to the correct role without support, and does that assignment survive a five-to-ten-day delay?"
+}

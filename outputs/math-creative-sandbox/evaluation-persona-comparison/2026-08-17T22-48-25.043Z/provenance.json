@@ -1,0 +1,105 @@
+{
+  "candidates": [
+    {
+      "label": "Candidate A",
+      "arm": "persona",
+      "designHash": "260734920207b96bc327a76e22028556f7bf84ce5155ef0f0acff0dba1164929",
+      "htmlHash": "639578c16d665c7ec956468be43916c6c8097a071e853cbe67652410c722a255"
+    },
+    {
+      "label": "Candidate B",
+      "arm": "neutral",
+      "designHash": "3d9a4fff9402586b87ccad9ea28ce0ca1265a9740d2a47da342873e3bdd4b4c0",
+      "htmlHash": "89459bbebf3f82bed14f4f76eada3794ef5803b8dea7bb6d0fdb51d87000bedf"
+    }
+  ],
+  "promptHashes": {
+    "shared": "8fe0bb503bd48a09b0c6a2b0700a02d754d9fcf896d27a5f126fa22d7c6234fb",
+    "neutralVariant": "001f2e9939a0dcdff4ee0d8e35ac4eb62f543329b7304920ec433653a7ef2f78",
+    "personaVariant": "13fb219b60f7ce7e50e61377e1855db2fb7c76849246dae8ab797acaccd72bba",
+    "neutralFull": "be9731e276c4858961b827bcf968f6ffaecbfd0244d30d9e50ef68c214fba9de",
+    "personaFull": "92650e1ef8c050c068c762d759cf7b71746587cdb18b8c0140c5c12d3fbcb2c2",
+    "builderInstruction": "af60abedd7f81b26c5dd704d6bb49056026bd4a6482f00e4c8633a104cd4cf7a",
+    "harness": "246011d73d913ca79c60901c3a73fac27178410923e2227e3fb98bc5ef8936fb"
+  },
+  "evaluationHash": "274c49ed00318c3c5e7eb4fae53bfbbea61645b4488f4b88780ba9cb431b7361",
+  "originalUsage": [
+    {
+      "call": 2,
+      "stage": "persona-architect",
+      "model": "claude-fable-5",
+      "status": "complete",
+      "inputTokens": 11499,
+      "outputTokens": 9707,
+      "elapsedMs": 149726,
+      "costUsd": 0.60034,
+      "stopReason": "tool_use"
+    },
+    {
+      "call": 1,
+      "stage": "neutral-architect",
+      "model": "claude-fable-5",
+      "status": "complete",
+      "inputTokens": 11384,
+      "outputTokens": 13189,
+      "elapsedMs": 193156,
+      "costUsd": 0.77329,
+      "stopReason": "tool_use"
+    },
+    {
+      "call": 4,
+      "stage": "persona-builder",
+      "model": "claude-opus-5",
+      "status": "failed",
+      "inputTokens": 0,
+      "outputTokens": 0,
+      "elapsedMs": 29671,
+      "error": "{\"type\":\"error\",\"error\":{\"details\":null,\"type\":\"invalid_request_error\",\"message\":\"Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.\"},\"request_id\":\"req_011Ce9AECwwGLBHr2mKCp548\"     }"
+    },
+    {
+      "call": 3,
+      "stage": "neutral-builder",
+      "model": "claude-opus-5",
+      "status": "failed",
+      "inputTokens": 0,
+      "outputTokens": 0,
+      "elapsedMs": 29991,
+      "error": "{\"type\":\"error\",\"error\":{\"details\":null,\"type\":\"invalid_request_error\",\"message\":\"Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.\"},\"request_id\":\"req_011Ce9AECpzD7qYShNHCPGT8\"         }"
+    }
+  ],
+  "continuationUsage": [
+    {
+      "call": 2,
+      "stage": "persona-builder",
+      "model": "claude-opus-5",
+      "status": "complete",
+      "inputTokens": 19357,
+      "outputTokens": 37804,
+      "elapsedMs": 393996,
+      "costUsd": 1.041885,
+      "stopReason": "end_turn"
+    },
+    {
+      "call": 1,
+      "stage": "neutral-builder",
+      "model": "claude-opus-5",
+      "status": "complete",
+      "inputTokens": 22754,
+      "outputTokens": 45744,
+      "elapsedMs": 492892,
+      "costUsd": 1.25737,
+      "stopReason": "end_turn"
+    },
+    {
+      "call": 3,
+      "stage": "review-harness",
+      "model": "claude-fable-5",
+      "status": "complete",
+      "inputTokens": 4410,
+      "outputTokens": 3800,
+      "elapsedMs": 54944,
+      "costUsd": 0.2341,
+      "stopReason": "tool_use"
+    }
+  ]
+}

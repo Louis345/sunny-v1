@@ -1,0 +1,9 @@
+{
+  "model": "claude-sonnet-5",
+  "elapsedMs": 128484,
+  "inputTokens": 2776,
+  "outputTokens": 12262,
+  "stopReason": "end_turn",
+  "responseHash": "0120c275afcb3aaed4d6cb46cc682c6f4e0328b4ce7c9b2afdd846c004ac88ba",
+  "htmlHash": "c1e3da9ffa13d33ee895b58446da5f5db0f6a0fcecf72a516703ca92911b2282"
+}

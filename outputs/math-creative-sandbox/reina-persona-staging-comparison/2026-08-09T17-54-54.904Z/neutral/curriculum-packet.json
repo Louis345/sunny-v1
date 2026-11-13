@@ -1,0 +1,472 @@
+{
+  "packetId": "packet:g3-mult-equal-groups-arrays:curriculum:v1",
+  "upstreamHash": "340b301444e0d2dc57ee8061b365ca552c03268105fa47d7b950e72b28267c1a",
+  "items": [
+    {
+      "itemId": "item-01-open-orientation",
+      "segment": "Opening orientation",
+      "prompt": "Four lunch trays are set out. Each tray holds 3 apple slices. Before finding any total, answer the two questions that govern every item here: How many equal groups are there? How many are in each group?",
+      "options": {
+        "groupCountChoices": [
+          2,
+          3,
+          4,
+          5
+        ],
+        "amountPerGroupChoices": [
+          2,
+          3,
+          4,
+          5
+        ]
+      },
+      "correctAnswer": {
+        "numberOfGroups": 4,
+        "amountInEachGroup": 3,
+        "groupReferent": "trays",
+        "memberReferent": "apple slices per tray"
+      },
+      "responseContract": {
+        "type": "two-part-selection",
+        "learnerSupplies": [
+          "numberOfGroups",
+          "amountInEachGroup"
+        ],
+        "productRequested": false,
+        "inputMode": "single tap or click on one choice per question; both questions visible simultaneously without scrolling",
+        "validation": "Both parts must be committed before any feedback. Feedback names the referent back to the learner (\"4 trays, 3 slices on each tray\") and never states the product at this stage.",
+        "incorrectPath": "Reasoning retry: learner is invited to re-count the trays or the slices on one tray in the shown situation; progress is preserved and the item is re-answered, not skipped.",
+        "hintPolicy": "none needed; no scoring, no failure state in orientation"
+      },
+      "sourceLineage": {
+        "charterId": "charter:g3-multiplication-equal-groups-arrays:v1",
+        "progressionStep": "Opening orientation: establish the two governing questions with factors at or below 5, no scoring, no failure state",
+        "assumptionIds": [
+          "asm-01-grade-band-fit",
+          "asm-07-interaction-modality"
+        ],
+        "derivation": "Freshly authored situation; not drawn from or adapted from any worksheet item."
+      },
+      "exposure": {
+        "factors": [
+          4,
+          3
+        ],
+        "product": 12,
+        "factorRange": "2-5",
+        "representationType": "equal groups (given, complete)",
+        "novelty": "first appearance of group/amount-per-group language",
+        "scaffoldDensity": "maximum: both quantities offered as bounded choices, no product demanded",
+        "learnerConstructs": "nothing; interpretation only"
+      },
+      "academicTarget": "Interpret a multiplicative situation as a number of equal groups and an amount in each group, naming both quantities explicitly with correct referents."
+    },
+    {
+      "itemId": "item-02-seg1-supply-product",
+      "segment": "Segment 1 — read and count",
+      "prompt": "Five flower pots are shown. Each pot has exactly 4 tulips. The equation 5 x 4 = ? is shown beneath the pots, where 5 stands for the number of pots and 4 stands for the tulips in each pot. Count or skip count the tulips and supply the product.",
+      "options": {
+        "productChoices": [
+          9,
+          16,
+          20,
+          25
+        ]
+      },
+      "correctAnswer": {
+        "product": 20,
+        "equation": "5 x 4 = 20",
+        "verification": "Directly countable: 4 + 4 + 4 + 4 + 4 = 20 tulips shown."
+      },
+      "responseContract": {
+        "type": "single-selection-product",
+        "learnerSupplies": [
+          "product"
+        ],
+        "factorsGiven": true,
+        "inputMode": "one tap or click on a product choice; choice targets sized for low-precision touch",
+        "validation": "Feedback affirms only the countable product. A correct product is never rejected; an incorrect product is never affirmed.",
+        "incorrectPath": "Reasoning retry: the representation stays on screen and the learner is asked to skip count aloud or in sequence by 4s across the pots, then re-answer. Progress preserved.",
+        "hintPolicy": "on request only, stepwise: (1) point at one pot and count its tulips; (2) count how many pots; (3) add that amount once for each pot. Hint never states 20."
+      },
+      "sourceLineage": {
+        "charterId": "charter:g3-multiplication-equal-groups-arrays:v1",
+        "progressionStep": "Segment 1 — representation and matching equation given, learner supplies only the product; factors 2-5",
+        "assumptionIds": [
+          "asm-01-grade-band-fit",
+          "asm-03-on-request-scaffolding",
+          "asm-06-persistence-after-setback"
+        ],
+        "derivation": "Freshly authored; distractors chosen as 4+5 (added instead of multiplied), 4x4 (miscounted groups), 5x5 (miscounted amount) so each error is diagnostic. Not worksheet-derived."
+      },
+      "exposure": {
+        "factors": [
+          5,
+          4
+        ],
+        "product": 20,
+        "factorRange": "2-5",
+        "representationType": "equal groups (given, complete) with matching equation shown",
+        "novelty": "first product production; first skip-counting demand",
+        "scaffoldDensity": "high: both factors and equation given",
+        "learnerConstructs": "the product only"
+      },
+      "academicTarget": "Determine the product from a given equal-group representation and its matching equation using counting, skip counting, or repeated addition, and verify it against the representation."
+    },
+    {
+      "itemId": "item-03-seg2-name-factors-array",
+      "segment": "Segment 2 — name the factors",
+      "prompt": "A complete rectangular array of stickers is shown with 6 rows and 7 stickers in every row. No equation is shown. Identify both factors with what each one refers to, then give the product.",
+      "options": {
+        "rowsChoices": [
+          5,
+          6,
+          7,
+          8
+        ],
+        "perRowChoices": [
+          5,
+          6,
+          7,
+          8
+        ],
+        "productChoices": [
+          13,
+          36,
+          42,
+          49
+        ]
+      },
+      "correctAnswer": {
+        "numberOfRows": 6,
+        "amountInEachRow": 7,
+        "equation": "6 x 7 = 42",
+        "product": 42,
+        "referents": {
+          "6": "rows in the array",
+          "7": "stickers in each row"
+        },
+        "verification": "Directly countable: 7 stickers per row across 6 rows totals 42 stickers shown."
+      },
+      "responseContract": {
+        "type": "three-part-selection",
+        "learnerSupplies": [
+          "numberOfRows",
+          "amountInEachRow",
+          "product"
+        ],
+        "factorsGiven": false,
+        "inputMode": "three tap or click selections, each on separately sized targets, all reachable without scrolling in a 1365x768 frame",
+        "validation": "Both factors must be committed with correct referents before the product is accepted. The equation is not revealed until the learner has committed to both factors.",
+        "incorrectPath": "Reasoning retry: one row is highlighted for re-counting, then the row count is highlighted; the array remains complete and unaltered. Progress preserved.",
+        "hintPolicy": "on request only, stepwise: (1) how many rows do you see; (2) count the stickers in just one row — every row has the same number; (3) write it as rows x amount in each row. Hint never states 42."
+      },
+      "sourceLineage": {
+        "charterId": "charter:g3-multiplication-equal-groups-arrays:v1",
+        "progressionStep": "Segment 2 — representation given, learner identifies both factors with referents and produces the product; introduces rows-and-columns language; factors 2-7",
+        "assumptionIds": [
+          "asm-01-grade-band-fit",
+          "asm-05-independence-transfer",
+          "asm-04-logical-integrity-sensitivity"
+        ],
+        "derivation": "Freshly authored; array is a complete rectangle with uniform rows and columns. Distractors: 6+7 (addition), 6x6 and 7x7 (single-factor confusion). Not worksheet-derived."
+      },
+      "exposure": {
+        "factors": [
+          6,
+          7
+        ],
+        "product": 42,
+        "factorRange": "2-7",
+        "representationType": "rectangular array (given, complete)",
+        "novelty": "first array; first rows-and-columns language; first unaided factor naming",
+        "scaffoldDensity": "medium: representation given, no equation given",
+        "learnerConstructs": "both factors with referents, and the product"
+      },
+      "academicTarget": "Read a rectangular array as rows x amount in each row, identify what each factor refers to, and translate the representation into a multiplication equation and product."
+    },
+    {
+      "itemId": "item-04-seg3-construct-from-words",
+      "segment": "Segment 3 — construct",
+      "prompt": "Words only, no picture: A gardener plants 8 rows of carrots with 6 carrots in each row. Build a faithful representation of this situation on the empty grid surface, then form the equation and give the product.",
+      "options": {
+        "buildSurface": "tap-to-place grid; learner sets the number of rows and the number placed in each row",
+        "equationAssembly": {
+          "leftFactorTiles": [
+            4,
+            6,
+            8,
+            9
+          ],
+          "rightFactorTiles": [
+            4,
+            6,
+            8,
+            9
+          ]
+        },
+        "productChoices": [
+          14,
+          36,
+          48,
+          54
+        ]
+      },
+      "correctAnswer": {
+        "builtRepresentation": "a complete 8-by-6 rectangular array (8 rows, 6 in each row), or an equivalent equal-groups arrangement of 8 groups of 6",
+        "equation": "8 x 6 = 48",
+        "product": 48,
+        "referents": {
+          "6": "carrots in each row",
+          "8": "rows of carrots"
+        },
+        "verification": "Directly countable: the learner's own built representation contains 48 carrot markers."
+      },
+      "responseContract": {
+        "type": "construct-then-equation-then-product",
+        "learnerSupplies": [
+          "representation",
+          "leftFactor",
+          "rightFactor",
+          "product"
+        ],
+        "factorsGiven": false,
+        "inputMode": "single taps or clicks to place rows and members; no drag precision required; equation assembled by tapping factor tiles",
+        "validation": "The system preserves structural integrity — an unequal group or a ragged row cannot be silently committed — but it never auto-arranges the correct array and never auto-fills a factor or the product. The learner decides the structure. Both an 8-rows-of-6 array and an 8-groups-of-6 equal-groups build are accepted as faithful.",
+        "incorrectPath": "Reasoning retry: the learner is asked which number in the words tells how many rows and which tells how many in each row, then may rebuild. The built work is preserved, not erased, and progress is kept.",
+        "hintPolicy": "on request only, stepwise: (1) find the number of equal groups or rows in the sentence; (2) find how many are in each one; (3) place that many, once for each row, then read your build as an equation. Hint never states 48."
+      },
+      "sourceLineage": {
+        "charterId": "charter:g3-multiplication-equal-groups-arrays:v1",
+        "progressionStep": "Segment 3 — situation in words only, learner constructs the representation then the equation and product; factors 3-9, products to 90",
+        "assumptionIds": [
+          "asm-05-independence-transfer",
+          "asm-03-on-request-scaffolding",
+          "asm-07-interaction-modality"
+        ],
+        "derivation": "Freshly authored; the responsibility-transfer point where the model is no longer supplied. Distractors: 8+6 (addition), 6x6 and 9x6 (factor misread). Not worksheet-derived."
+      },
+      "exposure": {
+        "factors": [
+          8,
+          6
+        ],
+        "product": 48,
+        "factorRange": "3-9",
+        "representationType": "learner-constructed (array or equal groups; both valid)",
+        "novelty": "first construction with no model shown; first time no representation is supplied",
+        "scaffoldDensity": "low: no representation, no equation, structural integrity guard only",
+        "learnerConstructs": "the representation, both factors, and the product"
+      },
+      "academicTarget": "Construct a faithful equal-group or array representation from a verbal multiplicative situation, then translate it into a multiplication equation with correct factor referents and a verified product."
+    },
+    {
+      "itemId": "item-05-seg4-judge-matching-equations",
+      "segment": "Segment 4 — flexible structure",
+      "prompt": "One representation is shown: 3 shelves with 10 books standing on each shelf. Four equations are listed. Select every equation that correctly matches this representation, and leave unselected any that does not. For each one you select, be ready to say what each factor refers to.",
+      "options": {
+        "equationChoices": [
+          "3 x 10 = 30",
+          "10 x 3 = 30",
+          "3 + 10 = 13",
+          "10 x 10 = 100"
+        ]
+      },
+      "correctAnswer": {
+        "matching": [
+          "3 x 10 = 30",
+          "10 x 3 = 30"
+        ],
+        "notMatching": [
+          "3 + 10 = 13",
+          "10 x 10 = 100"
+        ],
+        "referentNote": "In 3 x 10 the 3 counts the shelves and the 10 counts the books on each shelf. In 10 x 3 the numbers are read in the other order, so 10 counts books in each shelf-group and 3 counts the shelves; the total is the same 30 books either way. The order changes what each factor is read as standing for, not the product.",
+        "verification": "Directly countable: 10 + 10 + 10 = 30 books shown on the three shelves."
+      },
+      "responseContract": {
+        "type": "multi-select-judgment",
+        "learnerSupplies": [
+          "set of matching equations"
+        ],
+        "factorsGiven": true,
+        "inputMode": "tap or click to toggle each equation on or off, then one tap to commit; toggles are large, keyboard-free, and hover-free",
+        "validation": "Partial selections are not auto-completed. Feedback addresses each equation the learner judged, affirming both valid orderings and never affirming 3 + 10 = 13 or 10 x 10 = 100 as a match. No formal property name is required or used.",
+        "incorrectPath": "Reasoning retry: the shelves stay on screen and the learner re-checks one equation at a time against the countable books, then re-commits. Progress preserved.",
+        "hintPolicy": "on request only, stepwise: (1) count the total books directly; (2) ask whether each equation's numbers describe groups and amount per group here; (3) check whether the equation's total equals your count. Hint never lists the answer set."
+      },
+      "sourceLineage": {
+        "charterId": "charter:g3-multiplication-equal-groups-arrays:v1",
+        "progressionStep": "Segment 4 — same product by different valid structures; judge which equations match a representation, surfacing factor-order referent without formal property naming; factors 2-10",
+        "assumptionIds": [
+          "asm-04-logical-integrity-sensitivity",
+          "asm-05-independence-transfer"
+        ],
+        "derivation": "Freshly authored; deliberately includes two valid orderings so no single structure is presented as the only correct model. Distractors are an addition confusion and a squared-factor confusion. Not worksheet-derived."
+      },
+      "exposure": {
+        "factors": [
+          3,
+          10
+        ],
+        "product": 30,
+        "factorRange": "2-10",
+        "representationType": "equal groups (given) judged against multiple candidate equations",
+        "novelty": "first multi-select judgment; first explicit treatment of factor order and referent",
+        "scaffoldDensity": "low: representation given, but truth value of each equation is entirely learner-decided",
+        "learnerConstructs": "the judgment set and the referent explanation"
+      },
+      "academicTarget": "Recognize that the same representation and product can be written with factors in either order, that swapping factors changes what each factor refers to but not the product, and reject equations that do not match the representation."
+    },
+    {
+      "itemId": "item-06-seg5-elected-challenge",
+      "segment": "Segment 5 — learner-elected challenge (optional)",
+      "prompt": "Optional harder tier, chosen by you: A stadium section has 9 rows of seats with 9 seats in each row. Every seat holds exactly 1 pennant. Two rows are then covered by a banner and their seats are not counted. First give the product for the full 9-row section, then give how many pennants are still countable in the uncovered rows. Give both factors and their referents for each answer.",
+      "options": {
+        "fullSectionProductChoices": [
+          18,
+          72,
+          81,
+          90
+        ],
+        "uncoveredProductChoices": [
+          49,
+          56,
+          63,
+          72
+        ]
+      },
+      "correctAnswer": {
+        "fullSection": {
+          "equation": "9 x 9 = 81",
+          "product": 81,
+          "referents": {
+            "first 9": "rows in the section",
+            "second 9": "seats in each row"
+          }
+        },
+        "uncovered": {
+          "equation": "7 x 9 = 63",
+          "product": 63,
+          "referents": {
+            "7": "uncovered rows",
+            "9": "seats in each row"
+          }
+        },
+        "verification": "Directly countable: the full array shows 81 seats; with 2 of the 9 rows covered, 7 rows of 9 remain, totalling 63 countable pennants."
+      },
+      "responseContract": {
+        "type": "two-stage-multi-step",
+        "learnerSupplies": [
+          "fullSectionProduct",
+          "uncoveredProduct",
+          "factor referents for both stages"
+        ],
+        "factorsGiven": false,
+        "inputMode": "tap or click selections at each stage; the array remains fully visible in the 1365x768 frame without scrolling",
+        "validation": "Stage two is not unlocked by the system supplying stage one's answer; the learner must commit stage one first. Hints appear only if requested — nothing is pushed in this tier.",
+        "incorrectPath": "Reasoning retry at the stage that was missed only; the other stage's committed correct work is preserved. The learner may return to the standard tier at any time without losing completed progress.",
+        "hintPolicy": "on request only, stepwise, and only in this tier: (1) how many rows are there in all; (2) how many rows are left once 2 are covered; (3) each remaining row still holds the same number of seats. Hint never states 81 or 63."
+      },
+      "sourceLineage": {
+        "charterId": "charter:g3-multiplication-equal-groups-arrays:v1",
+        "progressionStep": "Segment 5 — optional harder tier with multi-step multiplicative situations or larger factors up to 10 x 10, hints on request only, no auto-scaffolding",
+        "assumptionIds": [
+          "asm-02-rising-challenge-ramp",
+          "asm-03-on-request-scaffolding",
+          "asm-06-persistence-after-setback"
+        ],
+        "derivation": "Freshly authored; multi-step but strictly multiplicative — the second stage is a new equal-group count (7 rows of 9), not a division or subtraction-of-products requirement. Not worksheet-derived."
+      },
+      "exposure": {
+        "factors": [
+          9,
+          9,
+          7,
+          9
+        ],
+        "products": [
+          81,
+          63
+        ],
+        "factorRange": "7-10",
+        "representationType": "rectangular array (given, complete) with a partial-view second stage",
+        "novelty": "first multi-step item; largest factors in the experience; learner-elected entry",
+        "scaffoldDensity": "minimal: nothing pushed, hints only on request",
+        "learnerConstructs": "both products, both equations, and all referents"
+      },
+      "academicTarget": "Sustain multiplicative reasoning across a multi-step array situation with factors to 10, re-identifying the number of equal rows and the amount in each row when the situation changes, and verifying each product against the representation."
+    },
+    {
+      "itemId": "item-07-payoff-consolidation",
+      "segment": "Payoff consolidation",
+      "prompt": "Your own work, replayed: for the carrot rows you built yourself and the shelves of books you judged, state what each factor stood for. In your 8 x 6 = 48 build, what did the 8 count and what did the 6 count? In 3 x 10 = 30, what did the 3 count and what did the 10 count?",
+      "options": {
+        "carrotFactorMeanings": [
+          "8 counted the rows, 6 counted the carrots in each row",
+          "8 counted the carrots in each row, 6 counted the rows",
+          "8 and 6 were both totals"
+        ],
+        "bookFactorMeanings": [
+          "3 counted the shelves, 10 counted the books on each shelf",
+          "3 counted the books on each shelf, 10 counted the shelves",
+          "3 and 10 were both totals"
+        ]
+      },
+      "correctAnswer": {
+        "carrots": "8 counted the rows, 6 counted the carrots in each row",
+        "books": "3 counted the shelves, 10 counted the books on each shelf",
+        "chainRestated": "Situation, then how many equal groups and how many in each group, then a faithful representation, then the equation, then the product — checked by counting the representation."
+      },
+      "responseContract": {
+        "type": "anchored-meaning-check",
+        "learnerSupplies": [
+          "factor referent for each of two of the learner's own completed items"
+        ],
+        "factorsGiven": true,
+        "inputMode": "one tap or click per statement; the learner's own earlier build and judgment are shown alongside, unaltered",
+        "validation": "This is a meaning check, not a scored gate; it cannot end the experience in a failure state. Feedback restates the full chain anchored to the learner's own completed work rather than a generic example, and never introduces a product that was not countable in that work.",
+        "incorrectPath": "Reasoning retry: the learner's own representation is re-shown and the learner re-reads which number told how many groups and which told how many in each group. Unlimited re-answers; the experience always reaches its close.",
+        "hintPolicy": "on request only: re-highlight one row or one group in the learner's own saved representation."
+      },
+      "sourceLineage": {
+        "charterId": "charter:g3-multiplication-equal-groups-arrays:v1",
+        "progressionStep": "Payoff consolidation: learner-visible restatement of the full chain anchored to the learner's own completed work",
+        "assumptionIds": [
+          "asm-08-payoff-as-consolidation",
+          "asm-04-logical-integrity-sensitivity"
+        ],
+        "derivation": "Freshly authored; references only items 04 and 05 of this packet so no new mathematics is introduced at the close and no item is repeated. Not worksheet-derived."
+      },
+      "exposure": {
+        "factors": [
+          8,
+          6,
+          3,
+          10
+        ],
+        "products": [
+          48,
+          30
+        ],
+        "factorRange": "3-10 (revisited, not new)",
+        "representationType": "the learner's own prior constructions and judgments, re-shown",
+        "novelty": "no new mathematics; meaning retrieval only",
+        "scaffoldDensity": "none pushed; the learner supplies meaning unaided",
+        "learnerConstructs": "the stated meaning of each factor"
+      },
+      "academicTarget": "Restate the full multiplicative chain — situation to groups and amount per group, to representation, to equation, to verified product — and state what each factor referred to in the learner's own completed work."
+    }
+  ],
+  "supportProgression": [
+    "Opening orientation (item-01): maximum support. Both governing quantities are offered as bounded choices, no product is demanded, no scoring and no failure state exists. Support here is structural rather than requested — it establishes vocabulary, not performance.",
+    "Segment 1 (item-02): high support. Representation and matching equation are both supplied; the learner owns only the product. Stepwise hints become available but are surfaced as an offer the learner may take, never auto-pushed. Hint tier 1 identifies one group, tier 2 counts the groups, tier 3 prompts repeated addition; no tier ever states the product.",
+    "Segment 2 (item-03): medium support. The equation is withdrawn — the learner supplies both factors with referents before any equation is revealed. Array language is introduced with the representation still fully given, so exactly one new demand is added at a time. Hints remain on request only and stepwise.",
+    "Segment 3 (item-04): low support and the responsibility-transfer point. The representation itself is withdrawn; the learner builds it. The system holds structural integrity (equal groups stay equal, rows stay uniform) but never auto-arranges, never auto-fills a factor, and never reveals the equation before the learner commits. Both an array and an equal-groups build are accepted, so no single structure is presented as the only valid model.",
+    "Segment 4 (item-05): low support with judgment shifted entirely to the learner. The representation returns as a reference surface, but the correctness of each candidate equation is the learner's decision, including two valid factor orderings. Hints direct attention to counting and checking, never to the answer set.",
+    "Segment 5 (item-06): minimal support, entered only by learner election. Multi-step reasoning with the largest factors; nothing is pushed at any point. Hints exist but must be requested, and stage two cannot be unlocked by the system answering stage one. The learner may exit back to the standard tier without losing progress.",
+    "Payoff (item-07): support returns only as retrieval assistance anchored to the learner's own saved work. No new mathematics, unlimited re-answers, and no failure exit — the experience always reaches its close.",
+    "Across all segments: every incorrect response routes to a reasoning retry that preserves progress rather than terminating the item. Retries re-expose the countable representation and ask the learner to re-decide, never supplying the decision. Scaffold density decreases monotonically from item-01 through item-06 while learner-constructed content increases; no item repeats within the packet."
+  ],
+  "charterConcern": "Two open concerns, both flagged rather than resolved here. First, the responsibility-transfer point is fixed at item-04 by charter progression, but asm-05 is only 0.6 confidence and no supplied evidence addresses construction versus interpretation in mathematics at all. If the construct-vs-read accuracy delta at item-04 proves large, the transfer likely needs an intermediate rung — a partially pre-built representation the learner completes — which this packet does not currently contain and which would require a sixth instructional item. Second, and more structurally: the charter directs a monotonically rising ramp with an optional escalation (asm-02, 0.65 confidence) on the strength of a learner requesting harder riddles. That is verbal-puzzle evidence, and the charter itself names the risk that in mathematics difficulty can read as failure rather than invitation. I have written item-06 as strictly elective with a preserved-progress exit, but I want to note that the escalation offer's framing is a downstream creative decision I do not control, and a competitively framed offer could plausibly discourage rather than motivate. Relatedly, the wrestling-loss evidence underwriting asm-06 (0.5 confidence) establishes only comfort discussing a competitive loss, not any in-task failure response; the retry design should be treated as an untested hypothesis, not a settled accommodation. I have also kept item-05's referent note informal per the out-of-scope rule against formal property names, but describing 10 x 3 as counting shelf-groups of books requires careful downstream wording to stay unambiguous — this is exactly the kind of phrasing asm-04 warns carries trust cost if it lands loosely."
+}

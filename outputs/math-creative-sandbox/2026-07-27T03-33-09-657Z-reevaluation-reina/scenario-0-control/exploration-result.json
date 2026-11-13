@@ -1,0 +1,54 @@
+{
+  "candidateId": "scenario-0-control",
+  "screenshots": [
+    "/Users/jamaltaylor/Development/sunny-math-creative-sandbox/outputs/math-creative-sandbox/2026-07-27T03-33-09-657Z-reevaluation-reina/scenario-0-control/00-opening.png",
+    "/Users/jamaltaylor/Development/sunny-math-creative-sandbox/outputs/math-creative-sandbox/2026-07-27T03-33-09-657Z-reevaluation-reina/scenario-0-control/01-first-action.png",
+    "/Users/jamaltaylor/Development/sunny-math-creative-sandbox/outputs/math-creative-sandbox/2026-07-27T03-33-09-657Z-reevaluation-reina/scenario-0-control/02-incorrect-recovery.png",
+    "/Users/jamaltaylor/Development/sunny-math-creative-sandbox/outputs/math-creative-sandbox/2026-07-27T03-33-09-657Z-reevaluation-reina/scenario-0-control/03-progress.png",
+    "/Users/jamaltaylor/Development/sunny-math-creative-sandbox/outputs/math-creative-sandbox/2026-07-27T03-33-09-657Z-reevaluation-reina/scenario-0-control/04-progress.png",
+    "/Users/jamaltaylor/Development/sunny-math-creative-sandbox/outputs/math-creative-sandbox/2026-07-27T03-33-09-657Z-reevaluation-reina/scenario-0-control/05-progress.png"
+  ],
+  "actions": [
+    {
+      "kind": "click_text",
+      "text": "▶ Show me",
+      "captureLabel": "first-action",
+      "reason": "Check the demonstration mode to see how the app models the skip-counting task before attempting it myself.",
+      "ok": true
+    },
+    {
+      "kind": "click_text",
+      "text": "16",
+      "captureLabel": "incorrect-recovery",
+      "reason": "Test wrong answer (16) to see how the app responds to an incorrect choice before trying the correct one.",
+      "ok": true
+    },
+    {
+      "kind": "click_text",
+      "text": "20",
+      "captureLabel": "progress",
+      "reason": "Test the correct answer to verify the app properly recognizes success and progresses, since 5,10,15,20 is the correct next number in the skip-count sequence.",
+      "ok": true
+    },
+    {
+      "kind": "click_text",
+      "text": "8",
+      "captureLabel": "progress",
+      "reason": "8 is the correct next number in skip-counting by 2s (2,4,6,8), so selecting it should verify the app continues to recognize correct answers and advances the game, potentially revealing a reward/payoff screen.",
+      "ok": true
+    },
+    {
+      "kind": "click_text",
+      "text": "40",
+      "captureLabel": "progress",
+      "reason": "40 is the correct next number in skip-counting by 10s (10,20,30,40). Selecting it should confirm continued progression and possibly reveal a payoff/reward screen after multiple correct rounds.",
+      "x": 683,
+      "y": 630,
+      "ok": true
+    }
+  ],
+  "visibleText": "Skyglider Skip-Count Run\nTap the lantern that continues the count!\n▶ Show me\n✋ Let me try\n🔊 Sound\nRun complete!\n🚀\n🏅\nSkip-Count Pilot\nGreat flying, Reina!",
+  "consoleMessages": [
+    "error: Failed to load resource: the server responded with a status of 404 (Not Found)"
+  ]
+}

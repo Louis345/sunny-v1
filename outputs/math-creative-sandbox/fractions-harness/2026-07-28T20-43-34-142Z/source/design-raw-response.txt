@@ -1,0 +1,62 @@
+```json
+{
+  "title": "Slice Kitchen: The Fraction Bakery",
+  "academicSourceSummary": [
+    "Shading equal parts of a whole shape (rectangle) to represent a unit fraction such as one third",
+    "Shading equal parts of a different whole shape (circle) to represent a unit fraction such as one fourth",
+    "Comparing two unit fractions (1/3 vs 1/4) to determine which represents a larger portion of a whole",
+    "Underlying concept: as the denominator increases, each equal piece of the same whole becomes smaller"
+  ],
+  "audienceRationale": "Reina is nine and has no direct prior exposure to fractions in the provided data, so difficulty must start at true zero with heavy visual scaffolding. Her behavioral pattern shows very high engagement and near-perfect accuracy on repetitive, low-frustration tasks (spell-check: 167 plays, 100% accuracy, 0.1 frustration) and strong engagement with moderate accuracy on a mid-frustration pattern-finding task (word-radar: 0.655 accuracy, 0.271 frustration, 0.859 engagement). This suggests she thrives with frequent short reps and tolerates some challenge if feedback is immediate and forgiving, but the sample sizes for novel formats (wheel-of-fortune, pronunciation) are too small to draw preferences from, so this design does not lean on spinning or speaking mechanics. Instead it uses a tactile slicing/matching interaction, delivered in short repeatable rounds like spell-check, with escalating visual complexity like word-radar, but always allowing retry without penalty to keep frustration low.",
+  "openingPromise": "You're the newest baker at a magical bakery where every treat must be cut into perfectly equal slices — cut it wrong and the treat gets grumpy; cut it right and it becomes a happy customer's favorite.",
+  "firstThreeSeconds": "A cheerful round cake bounces onto a wooden counter, already outlined with 3 faint dashed guide-lines, and a friendly voice-bubble says 'Cut me into 3 EQUAL pieces!' while one slice pulses with a soft glow, inviting a tap.",
+  "firstAction": "Reina taps the glowing slice outline to 'cut' it, immediately shading it a warm frosting-pink, with a satisfied chime confirming one correct equal piece has been made.",
+  "interactionDemonstration": "Before any task counts, the bakery mascot (a rolling pin named Roly) drags a knife along one guide-line himself, narrating 'See? Same size as its friends!' Reina then taps the remaining two pre-drawn slice zones herself to finish the demo cake with no risk of failing, building the tap-to-shade motion into muscle memory before real orders arrive.",
+  "coreInteraction": "Orders appear one at a time on a conveyor belt: a shape (rectangle cookie, circle pie, triangle scone, hexagon donut) with a spoken/written request like 'Shade ONE FOURTH for the customer.' Reina taps sections of a grid overlay to shade exactly the right number of equal parts — no more, no less. Correct orders animate the treat sliding to a happy customer; wrong orders (too many/few shaded, or uneven taps) gently wobble and reset the shading with an encouraging 'Try that slice again!' so failure costs nothing but a few seconds.",
+  "mathAsPower": "Each correctly filled order earns Reina a 'Golden Crumb,' and once she has enough, she unlocks the ability to compare two treats side-by-side and predict which fraction is the bigger slice before cutting — turning her into the bakery's official 'Fraction Judge' who settles size disputes between customers, a role only she can do because she understands unit fractions.",
+  "stakes": "A trio of picky-but-loveable customers (Grumbles the Gnome, tiny dragon Sizzle, and a stack of googly-eyed pancakes) are waiting in line; if slices are uneven or wrong, they don't get angry-permanent, they just do a comedic sad wobble and re-join the back of the line for another attempt, keeping stakes emotionally real but never punishing.",
+  "consequences": "Correct unit fraction shading makes the treat sparkle and the customer cheer, adding a star to Reina's baker badge and slightly speeding up the belt (more orders per minute) to reflect growing mastery; incorrect shading simply un-shades that treat and it drifts back one spot in line for a retry, with zero score loss and a hint icon appearing after two misses on the same shape.",
+  "recovery": "After any miss, Roly the rolling pin pops up with a one-tap 'Show me the grid' helper that overlays faint equal-size guide dots on the shape, and a 'Practice Slice' mini-round (a single ungraded shape) is always available via a side button so Reina can rebuild confidence before returning to the live order line.",
+  "progression": [
+    {
+      "stage": "Warm Dough (Intro)",
+      "mathematicalDemand": "Shade one equal part of a pre-divided shape (halves and thirds only), matching a labeled example",
+      "experienceBeat": "Roly demonstrates, Reina copies with guide-lines fully visible and no timer",
+      "supportAvailable": "Full grid guide-lines always on; unlimited retries; no order timer"
+    },
+    {
+      "stage": "Rising Batch",
+      "mathematicalDemand": "Shade unit fractions with denominators 2, 3, and 4 on rectangles and circles without pre-drawn guides — Reina must divide the shape herself using tap-and-drag slice lines",
+      "experienceBeat": "Belt speeds up slightly; first comparisons appear ('which treat has bigger slices, thirds or fourths?')",
+      "supportAvailable": "Optional guide-dot overlay on demand; gentle wobble+reset on errors, no scoring penalty"
+    },
+    {
+      "stage": "Master Baker's Oven",
+      "mathematicalDemand": "Shade unit fractions up to eighths across four shape types (rectangle, circle, triangle, hexagon) and directly compare two unit fractions to choose the larger, justifying with a picture match",
+      "experienceBeat": "Reina becomes 'Fraction Judge,' resolving customer size disputes; a small ceremony animation plays when she nails three judgments in a row",
+      "supportAvailable": "Hints fade to only appear after two consecutive misses; comparison helper shows both shapes shrunk side-by-side on request"
+    },
+    {
+      "stage": "Bakery Grand Opening (Mastery Challenge)",
+      "mathematicalDemand": "Timed mixed rounds combining shading, self-dividing shapes, and larger-fraction judgments with denominators 2–8, including at least one multi-step order ('give Sizzle a piece bigger than 1/5 but smaller than 1/3')",
+      "experienceBeat": "Full bakery crowd cheers, confetti flour poof, badge upgrades to Golden Rolling Pin",
+      "supportAvailable": "One 'flour dust' skip-and-hint token per round to use strategically; practice mode remains accessible between rounds"
+    }
+  ],
+  "worldReaction": "The bakery itself responds physically: correct cuts make warm chime sounds and the treat glows and steams happily; the counter background brightens and gains new decorations (bunting, string lights) as Reina's badge level rises, and Roly's dialogue grows warmer and more playfully complex ('Ooh, a HEXAGON donut — sixths, fancy!') to mirror her growing skill.",
+  "payoff": "At Golden Rolling Pin status, Reina unlocks a free-play 'Design Your Own Treat' mode where she chooses any shape and denominator to create custom orders for Roly to solve, flipping the roles so she becomes the teacher-baker who checks his work.",
+  "replayVariation": "Each session randomizes shape types, fraction targets, customer characters, and order phrasing (e.g., sometimes fractions are requested as words 'one fifth,' sometimes as numerals '1/6'), plus occasional 'double order' challenges requiring two different unit fractions shaded correctly before the belt advances, keeping repetition fresh without changing core skill demand.",
+  "visualDirection": "Warm, rounded, storybook-bakery palette — cream counters, pastel frosting colors (mint, peach, lavender), soft drop shadows on shapes, chunky friendly fonts, and every fraction shape drawn with clean thick outlines so equal-part boundaries are always crisp and unambiguous even for a first-time fraction learner.",
+  "motionDirection": "Slices ease into shaded color with a gentle 300ms fill animation rather than a snap, treats bounce softly when correct, wobble side-to-side (not shake harshly) when incorrect, and the conveyor belt glides at a smooth constant speed that only nudges faster between stages, never abruptly.",
+  "soundDirection": "A cozy low-key bakery ambience (soft kitchen clatter, faint oven hum) under gameplay; correct shading triggers a warm marimba chime, incorrect triggers a soft low 'boop' (never harsh or buzzer-like), and stage-ups trigger a short cheerful jingle with crowd applause sample.",
+  "usefulLibraries": [
+    "Phaser 3 (2D scene management, sprite animation, input handling for tap/drag slicing)",
+    "GSAP (smooth tweening for fill animations, wobble effects, belt movement)",
+    "Howler.js (layered ambient sound plus short SFX triggers without audio lag)",
+    "Fraction.js (reliable fraction comparison and validation logic under the hood)",
+    "Rough.js or a hand-drawn SVG shape set (to keep guide-lines and shapes feeling warm and non-clinical rather than sterile geometric grids)"
+  ],
+  "engagementPrediction": "High initial engagement and completion likelihood: the short, repeatable, low-stakes round structure mirrors the format (frequent brief tasks, immediate feedback, forgiving retries) that correlates with Reina's highest observed engagement and lowest frustration in the evidence (spell-check), while the escalating visual/shape complexity across stages mirrors the moderate-challenge pattern-based engagement seen in word-radar; risk is lowest at the Warm Dough stage and highest at Master Baker's Oven where self-dividing shapes may initially frustrate before the hint system engages.",
+  "falsifyingEvidence": "If Reina disengages quickly during Warm Dough despite full guide-lines and zero time pressure, or requests to skip straight to comparison judgments without practicing shading, that would indicate the tactile slicing metaphor itself (rather than difficulty pacing) is the mismatch, suggesting a text/number-first fraction format might serve her better than a spatial-cutting one."
+}
+```

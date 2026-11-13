@@ -1,0 +1,38 @@
+{
+  "status": "partial",
+  "modelCalls": 4,
+  "review": {
+    "model": "claude-opus-5",
+    "elapsedMs": 60846,
+    "inputTokens": 0,
+    "outputTokens": 0,
+    "costUsd": 0
+  },
+  "repairs": [
+    {
+      "id": "sonnet-5",
+      "status": "failed",
+      "error": "complete_html_document_missing",
+      "costUsd": 0,
+      "elapsedMs": 55726
+    },
+    {
+      "id": "opus-5",
+      "status": "failed",
+      "error": "complete_html_document_missing",
+      "costUsd": 0,
+      "elapsedMs": 60843
+    },
+    {
+      "id": "fable-5",
+      "status": "complete",
+      "error": null,
+      "costUsd": 0.07957,
+      "elapsedMs": 44735,
+      "inputTokens": 8630,
+      "outputTokens": 6231,
+      "htmlHash": "8073f59aabd3fbf68710a4727f4d3ba75e3e62fe17e6ca3290965c21c990a66a"
+    }
+  ],
+  "totalEstimatedCostUsd": 0.07957
+}

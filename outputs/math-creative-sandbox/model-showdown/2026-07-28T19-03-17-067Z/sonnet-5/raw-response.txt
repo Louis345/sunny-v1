@@ -1,0 +1,940 @@
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Caravan Rush: The Broker's Wager</title>
+<style>
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0; width: 1365px; height: 768px; overflow: hidden;
+    font-family: 'Georgia', 'Times New Roman', serif;
+    background: #2b1d12;
+    user-select: none;
+  }
+  #game {
+    position: relative;
+    width: 1365px; height: 768px;
+    background: linear-gradient(180deg, #f4d9a3 0%, #e8bd76 40%, #c99a52 100%);
+    overflow: hidden;
+  }
+
+  /* Sky/market backdrop */
+  #skyline {
+    position: absolute; top: 0; left: 0; width: 100%; height: 220px;
+    background: linear-gradient(180deg, #fbe7b8 0%, #f2c977 100%);
+  }
+  .awning {
+    position: absolute; top: 40px; width: 90px; height: 50px;
+    background: repeating-linear-gradient(90deg, #1f6f6a 0 15px, #17544f 15px 30px);
+    border-radius: 6px 6px 0 0;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+  }
+
+  #gateArea {
+    position: absolute; right: 0; top: 0; width: 90px; height: 768px;
+    background: linear-gradient(180deg, #4a2f1a, #2b1a0d);
+    box-shadow: -6px 0 15px rgba(0,0,0,0.4) inset;
+    z-index: 5;
+  }
+  #gateArea .gateLabel {
+    position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%) rotate(90deg);
+    color: #f4d9a3; font-weight: bold; font-size: 22px; letter-spacing: 3px;
+    white-space: nowrap;
+  }
+
+  /* Track */
+  #track {
+    position: absolute; top: 230px; left: 0; width: 1275px; height: 160px;
+    background: linear-gradient(180deg, #b98a4e, #a97a3e);
+    border-top: 4px solid #7a5a30; border-bottom: 4px solid #7a5a30;
+  }
+  .lane {
+    position: absolute; left: 0; width: 1275px; height: 70px;
+  }
+  #laneMine { top: 5px; }
+  #laneRival { top: 82px; }
+  .laneLine {
+    position: absolute; top: 50%; left: 0; width: 100%; height: 2px;
+    background: repeating-linear-gradient(90deg, #7a5a30 0 20px, transparent 20px 40px);
+  }
+  .caravan {
+    position: absolute; top: 5px; width: 110px; height: 60px;
+    transition: left 0.9s cubic-bezier(.34,1.56,.64,1);
+    z-index: 3;
+  }
+  .caravanBody {
+    position: relative; width: 100%; height: 100%;
+  }
+  .cart {
+    position: absolute; bottom: 12px; left: 10px; width: 80px; height: 35px;
+    border-radius: 4px;
+  }
+  .cartMine .cart { background: linear-gradient(180deg,#1f6f6a,#134a46); border: 2px solid #0e3532; }
+  .cartRival .cart { background: linear-gradient(180deg,#a13d2e,#6e2318); border: 2px solid #4a170f; }
+  .canopy {
+    position: absolute; top: 0; left: 15px; width: 70px; height: 20px;
+    border-radius: 8px 8px 2px 2px;
+  }
+  .cartMine .canopy { background: #e8bd76; }
+  .cartRival .canopy { background: #d9a34a; }
+  .wheel {
+    position: absolute; bottom: 0; width: 18px; height: 18px; border-radius: 50%;
+    background: radial-gradient(circle at 35% 35%, #6b4a25, #2a1a0a);
+    border: 2px solid #1a0f05;
+  }
+  .wheelBack { left: 15px; }
+  .wheelFront { left: 65px; }
+  .flag {
+    position: absolute; top: -18px; left: 40px; width: 3px; height: 18px; background: #5a3a1a;
+  }
+  .flag::after {
+    content: ''; position: absolute; top: 0; left: 3px; width: 16px; height: 10px;
+    background: #e8bd76; clip-path: polygon(0 0, 100% 50%, 0 100%);
+  }
+  .banner {
+    position: absolute; top: -34px; left: -10px; width: 130px; text-align: center;
+    background: gold; color: #4a2f0a; font-weight: bold; font-size: 12px;
+    padding: 2px 4px; border-radius: 4px; box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+    opacity: 0; transform: scale(0.5); transition: all 0.4s ease;
+  }
+  .banner.show { opacity: 1; transform: scale(1); }
+
+  /* HUD */
+  #hud {
+    position: absolute; top: 400px; left: 0; width: 1275px; height: 368px;
+    background: #f6ecd8;
+    box-shadow: 0 -8px 20px rgba(0,0,0,0.25) inset;
+    display: flex;
+  }
+  #leftPanel {
+    width: 480px; padding: 14px 18px; border-right: 2px dashed #c9b088;
+    background: repeating-linear-gradient(180deg, #f9f2e2 0 26px, #f2e6cc 26px 27px);
+    position: relative;
+  }
+  #orderTitle { font-size: 20px; font-weight: bold; color: #5a3a1a; margin-bottom: 4px; }
+  #orderText { font-size: 16px; color: #333; min-height: 60px; line-height: 1.4; }
+  #tickerWrap { margin-top: 10px; }
+  #tickerLabel { font-size: 13px; color: #7a5a30; letter-spacing: 1px; }
+  #ticker {
+    font-size: 30px; font-weight: bold; color: #1f6f6a; letter-spacing: 4px; min-height: 40px;
+  }
+  .tickNum { display: inline-block; opacity: 0; transform: translateY(10px) scale(0.5); animation: popIn .35s forwards; margin-right: 8px;}
+  @keyframes popIn { to { opacity: 1; transform: translateY(0) scale(1); } }
+
+  #controls { margin-top: 12px; display: flex; gap: 8px; flex-wrap: wrap; }
+  .btn {
+    background: #1f6f6a; color: #fff; border: none; padding: 8px 14px;
+    border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: bold;
+    box-shadow: 0 3px 0 #0e3532;
+  }
+  .btn:active { transform: translateY(2px); box-shadow: 0 1px 0 #0e3532; }
+  .btn.secondary { background: #a97a3e; box-shadow: 0 3px 0 #6b4d24; }
+  .btn:disabled { opacity: 0.5; cursor: default; }
+
+  #timerWrap {
+    position: absolute; top: 14px; right: 18px; width: 150px; text-align: right;
+  }
+  #timerBar {
+    width: 150px; height: 12px; background: #ddd0b0; border-radius: 6px; overflow: hidden;
+    border: 1px solid #a98a5a;
+  }
+  #timerFill { height: 100%; background: linear-gradient(90deg,#1f6f6a,#39a89f); width: 100%; }
+  #timerText { font-size: 12px; color: #7a5a30; margin-top: 2px; }
+
+  #centerPanel {
+    flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-start;
+    padding: 10px;
+  }
+  #gridArea {
+    display: grid; gap: 6px; margin-top: 6px;
+  }
+  .slot {
+    width: 58px; height: 58px; border-radius: 8px;
+    border: 3px dashed #b99a6a;
+    background: rgba(255,255,255,0.35);
+    display: flex; align-items: center; justify-content: center;
+    position: relative;
+  }
+  .slot.pulse { animation: pulseGlow 1.2s infinite; }
+  @keyframes pulseGlow {
+    0%,100% { box-shadow: 0 0 0px #ffd76a; border-color: #b99a6a; }
+    50% { box-shadow: 0 0 18px #ffd76a; border-color: #ffbf3f; }
+  }
+  .slot.filled { border-style: solid; border-color: #1f6f6a; background: rgba(31,111,106,0.12); }
+  .crateImg {
+    width: 46px; height: 46px; border-radius: 6px;
+    display: flex; align-items: center; justify-content: center; font-size: 28px;
+    box-shadow: 0 3px 6px rgba(0,0,0,0.25);
+    cursor: grab;
+    transform-origin: center;
+  }
+  .crateDrop { animation: dropSettle 0.35s ease; }
+  @keyframes dropSettle {
+    0% { transform: scale(1.3); }
+    60% { transform: scale(0.9); }
+    100% { transform: scale(1); }
+  }
+  .rowFillFlash {
+    animation: rowFlash 0.5s ease;
+  }
+  @keyframes rowFlash {
+    0% { background: rgba(255,215,106,0.6); }
+    100% { background: transparent; }
+  }
+
+  #rightPanel {
+    width: 260px; padding: 14px; border-left: 2px dashed #c9b088;
+    display: flex; flex-direction: column; align-items: center;
+  }
+  #trayLabel { font-size: 14px; color: #7a5a30; margin-bottom: 8px; font-weight: bold; }
+  #tray {
+    display: flex; flex-wrap: wrap; gap: 10px; justify-content: center;
+    width: 220px;
+  }
+  #speedLabel {
+    margin-top: 16px; font-size: 13px; color: #5a3a1a; text-align: center;
+  }
+  #speedVal { font-size: 26px; font-weight: bold; color: #1f6f6a; }
+
+  #rivalLine {
+    position: absolute; bottom: 8px; left: 18px; font-style: italic; color: #a13d2e; font-size: 14px; min-height: 20px;
+  }
+
+  #overlay {
+    position: absolute; top: 0; left: 0; width: 1365px; height: 768px;
+    background: rgba(20,12,5,0.75);
+    display: none; align-items: center; justify-content: center; z-index: 50;
+    flex-direction: column; color: #f6ecd8; text-align: center;
+  }
+  #overlay.show { display: flex; }
+  #overlay h1 { font-size: 42px; color: #ffd76a; margin-bottom: 10px; }
+  #overlay p { font-size: 18px; max-width: 700px; line-height: 1.5; }
+  #ledger {
+    background: #f6ecd8; color: #333; padding: 16px 24px; border-radius: 8px;
+    margin-top: 16px; max-height: 260px; overflow-y: auto; width: 500px;
+    font-size: 14px; text-align: left;
+  }
+  #ledger div { padding: 3px 0; border-bottom: 1px dotted #c9b088; }
+
+  #toast {
+    position: absolute; top: 20px; left: 50%; transform: translateX(-50%);
+    background: #1f6f6a; color: #fff; padding: 10px 22px; border-radius: 20px;
+    font-size: 16px; font-weight: bold; opacity: 0; pointer-events: none; z-index: 40;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+    transition: opacity 0.3s, top 0.3s;
+  }
+  #toast.show { opacity: 1; top: 40px; }
+
+  .stumble { animation: stumbleAnim 0.5s ease; }
+  @keyframes stumbleAnim {
+    0%,100% { transform: translateX(0) rotate(0deg); }
+    20% { transform: translateX(-6px) rotate(-2deg); }
+    40% { transform: translateX(5px) rotate(2deg); }
+    60% { transform: translateX(-4px) rotate(-1deg); }
+    80% { transform: translateX(3px) rotate(1deg); }
+  }
+  .spillCrate {
+    position: absolute; font-size: 24px; pointer-events: none;
+    animation: spillFly 0.8s ease forwards;
+  }
+  @keyframes spillFly {
+    0% { transform: translate(0,0) rotate(0deg); opacity: 1; }
+    100% { transform: translate(var(--dx), var(--dy)) rotate(var(--rot)); opacity: 0; }
+  }
+
+  #nodeBadge {
+    position: absolute; top: 14px; left: 18px; font-size: 13px; color: #7a5a30; font-weight: bold;
+    background: rgba(255,255,255,0.5); padding: 4px 10px; border-radius: 12px;
+  }
+
+  #bellBtn {
+    background: #7a5a30;
+  }
+</style>
+</head>
+<body>
+<div id="game">
+  <div id="skyline"></div>
+  <div id="gateArea"><div class="gateLabel">GATE</div></div>
+
+  <div id="track">
+    <div class="lane" id="laneMine"><div class="laneLine"></div>
+      <div class="caravan cartMine" id="myCaravan" style="left:10px;">
+        <div class="banner" id="myBanner">MASTER TRADER</div>
+        <div class="caravanBody">
+          <div class="flag"></div>
+          <div class="canopy"></div>
+          <div class="cart"></div>
+          <div class="wheel wheelBack"></div>
+          <div class="wheel wheelFront"></div>
+        </div>
+      </div>
+    </div>
+    <div class="lane" id="laneRival"><div class="laneLine"></div>
+      <div class="caravan cartRival" id="rivalCaravan" style="left:10px;">
+        <div class="caravanBody">
+          <div class="canopy"></div>
+          <div class="cart"></div>
+          <div class="wheel wheelBack"></div>
+          <div class="wheel wheelFront"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="hud">
+    <div id="nodeBadge">Leg 1 · Quiet Stall</div>
+    <div id="timerWrap">
+      <div id="timerBar"><div id="timerFill"></div></div>
+      <div id="timerText">no rush</div>
+    </div>
+    <div id="leftPanel">
+      <div id="orderTitle">Order Ticket</div>
+      <div id="orderText">Drag a crate into the grid to begin.</div>
+      <div id="tickerWrap">
+        <div id="tickerLabel">SKIP COUNT</div>
+        <div id="ticker"></div>
+      </div>
+      <div id="controls">
+        <button class="btn secondary" id="bellBtn">🔔 Read Again</button>
+        <button class="btn secondary" id="hintBtn" style="display:none;">✨ Ghost Hint</button>
+        <button class="btn" id="resetBtn">↺ Reset Crates</button>
+      </div>
+      <div id="rivalLine"></div>
+    </div>
+    <div id="centerPanel">
+      <div id="gridArea"></div>
+    </div>
+    <div id="rightPanel">
+      <div id="trayLabel">CRATE TRAY (drag out)</div>
+      <div id="tray"></div>
+      <div id="speedLabel">Array Power<br><span id="speedVal">0</span></div>
+    </div>
+  </div>
+
+  <div id="toast"></div>
+  <div id="overlay">
+    <div id="overlayInner">
+      <h1 id="overlayTitle">Leg Complete!</h1>
+      <p id="overlayText"></p>
+      <div id="ledger" style="display:none;"></div>
+      <button class="btn" id="continueBtn" style="margin-top:18px;">Continue →</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  const ICONS = ['🍎','🍊','🍇','🧪','🍺','🍯','🌽','🥕'];
+  const gridArea = document.getElementById('gridArea');
+  const tray = document.getElementById('tray');
+  const ticker = document.getElementById('ticker');
+  const orderText = document.getElementById('orderText');
+  const orderTitle = document.getElementById('orderTitle');
+  const myCaravan = document.getElementById('myCaravan');
+  const rivalCaravan = document.getElementById('rivalCaravan');
+  const rivalLine = document.getElementById('rivalLine');
+  const nodeBadge = document.getElementById('nodeBadge');
+  const speedVal = document.getElementById('speedVal');
+  const timerFill = document.getElementById('timerFill');
+  const timerText = document.getElementById('timerText');
+  const toast = document.getElementById('toast');
+  const overlay = document.getElementById('overlay');
+  const overlayTitle = document.getElementById('overlayTitle');
+  const overlayText = document.getElementById('overlayText');
+  const ledgerDiv = document.getElementById('ledger');
+  const continueBtn = document.getElementById('continueBtn');
+  const bellBtn = document.getElementById('bellBtn');
+  const hintBtn = document.getElementById('hintBtn');
+  const resetBtn = document.getElementById('resetBtn');
+  const myBanner = document.getElementById('myBanner');
+
+  const TRACK_LEN = 1160; // px available for travel
+  let myPos = 10, rivalPos = 10;
+  let ledger = [];
+  let perfectStreak = 0;
+  let secondWindReady = false;
+
+  // ---------- Audio (simple WebAudio beep synth, no external assets needed) ----------
+  let actx;
+  function ctx(){ if(!actx) actx = new (window.AudioContext||window.webkitAudioContext)(); return actx; }
+  function beep(freq, dur, type='sine', vol=0.15, delay=0){
+    try{
+      const a = ctx();
+      const o = a.createOscillator();
+      const g = a.createGain();
+      o.type = type; o.frequency.value = freq;
+      g.gain.value = vol;
+      o.connect(g); g.connect(a.destination);
+      const t = a.currentTime + delay;
+      o.start(t);
+      g.gain.setValueAtTime(vol, t);
+      g.gain.exponentialRampToValueAtTime(0.001, t+dur);
+      o.stop(t+dur+0.02);
+    }catch(e){}
+  }
+  function thud(){ beep(120,0.15,'square',0.2); }
+  function click(){ beep(600,0.06,'sine',0.15); }
+  function success(){ beep(523,0.1,'triangle',0.2,0); beep(659,0.12,'triangle',0.2,0.1); beep(784,0.18,'triangle',0.2,0.2); }
+  function fail(){ beep(180,0.25,'sawtooth',0.2); beep(120,0.3,'sawtooth',0.2,0.1); }
+  function rollWheel(){ beep(300+Math.random()*100,0.05,'square',0.05); }
+
+  function showToast(msg, ms=1800){
+    toast.textContent = msg;
+    toast.classList.add('show');
+    clearTimeout(showToast._t);
+    showToast._t = setTimeout(()=>toast.classList.remove('show'), ms);
+  }
+
+  function speak(text){
+    try{
+      const u = new SpeechSynthesisUtterance(text);
+      u.rate = 0.95; u.pitch = 1.05;
+      speechSynthesis.cancel();
+      speechSynthesis.speak(u);
+    }catch(e){}
+  }
+
+  // ---------- Node / Order Definitions ----------
+  const RIVAL_LINES_FAIL = [
+    "Ha! Fumble fingers strikes again!",
+    "Careful with those crates, friend!",
+    "That's what happens when you rush the count!",
+    "My caravan thanks you for the head start."
+  ];
+  const RIVAL_LINES_WIN = [
+    "Not bad... this time.",
+    "Lucky count.",
+    "Hmph. Fine work.",
+  ];
+  const RIVAL_LINES_TAUNT = [
+    "Falling behind, are we?",
+    "Keep up if you can!",
+    "The gate won't wait for you!"
+  ];
+
+  let nodeIndex = 0;
+  let orderIndex = 0;
+  let currentOrder = null;
+  let placedCount = 0;
+  let rows = 0, cols = 0;
+  let gardleFlag = false;
+  let timerInterval = null;
+  let timeLeft = 0, timeMax = 0;
+  let rivalMoveInterval = null;
+  let awaitingCatch = false;
+
+  const NODES = [
+    {
+      role: 'teach',
+      badge: 'Leg 1 · Quiet Stall',
+      orders: [
+        { rows:3, cols:4, label:"Simple order: pack 3 rows of 4 apples.", icon:'🍎', timed:false }
+      ]
+    },
+    {
+      role: 'guided',
+      badge: 'Leg 2 · Market Street',
+      orders: [
+        { rows:5, cols:3, label:"The tavern needs 5 barrels, 3 potions each.", icon:'🍺', timed:true, time:26 },
+        { rows:4, cols:6, label:"The inn wants 4 crates, 6 oranges each.", icon:'🍊', timed:true, time:24 },
+        { rows:6, cols:2, label:"The smith orders 6 sacks, 2 potions each.", icon:'🧪', timed:true, time:22 }
+      ]
+    },
+    {
+      role: 'grand',
+      badge: 'Grand Market Run · Dusk Gate',
+      orders: [
+        { rows:4, cols:5, label:"Farmstead order: 4 rows, 5 corn each.", icon:'🌽', timed:true, time:20 },
+        { rows:7, cols:2, label:"RIVAL WHISPER: 'They said 8 rows of 2... or was it?' Actual order: 7 sacks, 2 honeypots each. Check before you build!", icon:'🍯', timed:true, time:24, garbled:true, garbledRows:8, garbledCols:2 },
+        { rows:5, cols:5, label:"Merchant guild: 5 crates, 5 grapes each.", icon:'🍇', timed:true, time:20 },
+        { rows:6, cols:4, label:"Final sprint order: 6 rows, 4 carrots each — the gate is closing!", icon:'🥕', timed:true, time:18 }
+      ]
+    }
+  ];
+
+  function currentNode(){ return NODES[nodeIndex]; }
+
+  function totalLegs(){ return NODES.length; }
+
+  function initNode(){
+    orderIndex = 0;
+    nodeBadge.textContent = currentNode().badge;
+    loadOrder();
+  }
+
+  function loadOrder(){
+    const node = currentNode();
+    if(orderIndex >= node.orders.length){
+      finishNode();
+      return;
+    }
+    const o = node.orders[orderIndex];
+    currentOrder = o;
+    rows = o.rows; cols = o.cols;
+    placedCount = 0;
+    gardleFlag = false;
+    awaitingCatch = !!o.garbled;
+    buildGrid(rows, cols);
+    buildTray(rows*cols, o.icon);
+    ticker.innerHTML = '';
+    speedVal.textContent = '0';
+    rivalLine.textContent = '';
+
+    if(o.garbled){
+      orderTitle.textContent = "⚠ Suspicious Order Ticket";
+      orderText.innerHTML = `${o.label}<br><br><b>Grid shown below is a GUESS (${o.garbledRows}×${o.garbledCols}). Tap "Fix Order" if it's wrong!</b>`;
+      showFixButton(o);
+    } else {
+      orderTitle.textContent = node.role === 'teach' ? "Practice Packing" : "Order Ticket";
+      orderText.textContent = o.label;
+      hideFixButton();
+    }
+
+    hintBtn.style.display = (node.role === 'guided') ? 'inline-block' : 'none';
+    bellBtn.style.display = (node.role !== 'teach') ? 'inline-block' : 'none';
+
+    if(o.timed){
+      startTimer(o.time);
+    } else {
+      stopTimer();
+      timerText.textContent = 'no rush';
+      timerFill.style.width = '100%';
+    }
+
+    if(node.role !== 'teach'){
+      speak(o.label.replace(/RIVAL WHISPER.*?build!/,'Careful, check the ticket before you build.'));
+    }
+  }
+
+  let fixBtn = null;
+  function showFixButton(o){
+    hideFixButton();
+    fixBtn = document.createElement('button');
+    fixBtn.className = 'btn secondary';
+    fixBtn.textContent = '🛠 Fix Order Grid';
+    fixBtn.onclick = ()=> fixGarbledOrder(o);
+    document.getElementById('controls').appendChild(fixBtn);
+  }
+  function hideFixButton(){
+    if(fixBtn && fixBtn.parentNode){ fixBtn.parentNode.removeChild(fixBtn); }
+    fixBtn = null;
+  }
+  function fixGarbledOrder(o){
+    rows = o.rows; cols = o.cols;
+    buildGrid(rows, cols);
+    buildTray(rows*cols, o.icon);
+    placedCount = 0;
+    ticker.innerHTML = '';
+    speedVal.textContent = '0';
+    orderText.innerHTML = `${o.label}<br><br><span style="color:#1f6f6a;font-weight:bold;">✔ Corrected to ${o.rows}×${o.cols}. Now pack it!</span>`;
+    hideFixButton();
+    awaitingCatch = false;
+    showToast("Caught the garbled order! Nice eye.", 2000);
+    success();
+  }
+
+  function buildGrid(r, c){
+    gridArea.innerHTML = '';
+    gridArea.style.gridTemplateRows = `repeat(${r}, 58px)`;
+    gridArea.style.gridTemplateColumns = `repeat(${c}, 58px)`;
+    for(let i=0;i<r*c;i++){
+      const slot = document.createElement('div');
+      slot.className = 'slot';
+      slot.dataset.index = i;
+      slot.dataset.row = Math.floor(i/c);
+      slot.dataset.col = i%c;
+      addDropHandlers(slot);
+      gridArea.appendChild(slot);
+    }
+    updateSlotPulse();
+  }
+
+  function updateSlotPulse(){
+    const slots = gridArea.querySelectorAll('.slot:not(.filled)');
+    gridArea.querySelectorAll('.slot').forEach(s=>s.classList.remove('pulse'));
+    if(slots.length) slots[0].classList.add('pulse');
+  }
+
+  function buildTray(count, icon){
+    tray.innerHTML = '';
+    for(let i=0;i<count;i++){
+      const crate = document.createElement('div');
+      crate.className = 'crateImg';
+      crate.style.background = crateColor(icon);
+      crate.textContent = icon;
+      crate.draggable = true;
+      crate.dataset.icon = icon;
+      addDragHandlers(crate);
+      tray.appendChild(crate);
+    }
+  }
+
+  function crateColor(icon){
+    const map = {
+      '🍎':'linear-gradient(180deg,#e77,#c33)',
+      '🍊':'linear-gradient(180deg,#fb3,#e80)',
+      '🍇':'linear-gradient(180deg,#a6d,#639)',
+      '🧪':'linear-gradient(180deg,#7cf,#39a)',
+      '🍺':'linear-gradient(180deg,#eb4,#a80)',
+      '🍯':'linear-gradient(180deg,#fc6,#d90)',
+      '🌽':'linear-gradient(180deg,#ff5,#cb0)',
+      '🥕':'linear-gradient(180deg,#f83,#c50)'
+    };
+    return map[icon] || '#ccc';
+  }
+
+  // Drag and drop (both mouse HTML5 DnD and touch fallback)
+  let draggedEl = null;
+  function addDragHandlers(el){
+    el.addEventListener('dragstart', (e)=>{
+      draggedEl = el;
+      e.dataTransfer.setData('text/plain', 'x');
+    });
+    // touch support
+    el.addEventListener('touchstart', touchStart, {passive:false});
+  }
+
+  let touchClone = null, touchSourceEl = null;
+  function touchStart(e){
+    e.preventDefault();
+    const el = e.currentTarget;
+    touchSourceEl = el;
+    const touch = e.touches[0];
+    touchClone = el.cloneNode(true);
+    touchClone.style.position = 'fixed';
+    touchClone.style.zIndex = 999;
+    touchClone.style.pointerEvents = 'none';
+    touchClone.style.left = (touch.clientX-23)+'px';
+    touchClone.style.top = (touch.clientY-23)+'px';
+    document.body.appendChild(touchClone);
+    document.addEventListener('touchmove', touchMove, {passive:false});
+    document.addEventListener('touchend', touchEnd);
+  }
+  function touchMove(e){
+    e.preventDefault();
+    const touch = e.touches[0];
+    if(touchClone){
+      touchClone.style.left = (touch.clientX-23)+'px';
+      touchClone.style.top = (touch.clientY-23)+'px';
+    }
+  }
+  function touchEnd(e){
+    const touch = e.changedTouches[0];
+    if(touchClone){ document.body.removeChild(touchClone); touchClone = null; }
+    document.removeEventListener('touchmove', touchMove);
+    document.removeEventListener('touchend', touchEnd);
+    const el = document.elementFromPoint(touch.clientX, touch.clientY);
+    if(el && el.classList.contains('slot')){
+      handleDrop(el, touchSourceEl);
+    }
+    touchSourceEl = null;
+  }
+
+  function addDropHandlers(slot){
+    slot.addEventListener('dragover', (e)=> e.preventDefault());
+    slot.addEventListener('drop', (e)=>{
+      e.preventDefault();
+      if(draggedEl) handleDrop(slot, draggedEl);
+    });
+  }
+
+  function handleDrop(slot, crateEl){
+    if(!crateEl || slot.classList.contains('filled')) return;
+    // Must fill left-to-right, top-to-bottom order for the row skip-count effect
+    const idx = parseInt(slot.dataset.index);
+    const emptySlots = [...gridArea.querySelectorAll('.slot:not(.filled)')];
+    const nextExpected = emptySlots.length ? parseInt(emptySlots[0].dataset.index) : -1;
+    if(idx !== nextExpected){
+      // allow drop anywhere but nudge back to next slot for a clean skip count
+      slot = gridArea.querySelector(`.slot[data-index="${nextExpected}"]`);
+      if(!slot) return;
+    }
+
+    const icon = crateEl.dataset.icon;
+    slot.classList.add('filled');
+    slot.innerHTML = '';
+    const settled = document.createElement('div');
+    settled.className = 'crateImg crateDrop';
+    settled.style.background = crateColor(icon);
+    settled.textContent = icon;
+    slot.appendChild(settled);
+    crateEl.remove();
+    thud();
+    click();
+    placedCount++;
+    updateSlotPulse();
+
+    const r = parseInt(slot.dataset.row);
+    const c = cols;
+    const rowFilled = [...gridArea.querySelectorAll(`.slot[data-row="${r}"]`)].every(s=>s.classList.contains('filled'));
+    if(rowFilled){
+      flashRow(r);
+      const rowNumber = (r+1)*c;
+      addTick(rowNumber);
+    }
+
+    if(placedCount === rows*cols){
+      onOrderComplete();
+    }
+  }
+
+  function flashRow(r){
+    gridArea.querySelectorAll(`.slot[data-row="${r}"]`).forEach(s=>{
+      s.classList.add('rowFillFlash');
+      setTimeout(()=>s.classList.remove('rowFillFlash'), 500);
+    });
+  }
+
+  function addTick(num){
+    const span = document.createElement('span');
+    span.className = 'tickNum';
+    span.textContent = num;
+    ticker.appendChild(span);
+    speedVal.textContent = num;
+  }
+
+  function onOrderComplete(){
+    stopTimer();
+    success();
+    perfectStreak++;
+    ledger.push({rows, cols, product: rows*cols, node: currentNode().role});
+    const power = rows*cols;
+    speedVal.textContent = power;
+    showToast(`Array complete! ${rows}×${cols} = ${power}. Caravan surges forward!`, 1600);
+
+    if(perfectStreak >= 2 && !secondWindReady){
+      secondWindReady = true;
+      showToast("✨ SECOND WIND unlocked! Extra boost incoming!", 2200);
+    }
+
+    let boost = power * 3.2;
+    if(secondWindReady){ boost *= 1.6; secondWindReady = false; }
+
+    moveCaravan(myCaravan, boost, true, ()=>{
+      orderIndex++;
+      setTimeout(loadOrder, 700);
+    });
+  }
+
+  function onOrderFail(reason){
+    stopTimer();
+    fail();
+    perfectStreak = 0;
+    const line = RIVAL_LINES_FAIL[Math.floor(Math.random()*RIVAL_LINES_FAIL.length)];
+    rivalLine.textContent = '"' + line + '"';
+    myCaravan.classList.add('stumble');
+    spillCrates();
+    showToast(reason || "Order spilled! That row resets — try again.", 2000);
+    setTimeout(()=> myCaravan.classList.remove('stumble'), 500);
+
+    // rival takes a small free advance
+    moveCaravan(rivalCaravan, 60, false);
+
+    // reset only failed row's placements - simplest: rebuild grid & tray for this order
+    setTimeout(()=>{
+      buildGrid(rows, cols);
+      buildTray(rows*cols, currentOrder.icon);
+      placedCount = 0;
+      ticker.innerHTML = '';
+      speedVal.textContent = '0';
+      if(currentOrder.timed) startTimer(currentOrder.time);
+    }, 750);
+  }
+
+  function spillCrates(){
+    const rect = gridArea.getBoundingClientRect();
+    for(let i=0;i<6;i++){
+      const s = document.createElement('div');
+      s.className = 'spillCrate';
+      s.textContent = ICONS[Math.floor(Math.random()*ICONS.length)];
+      s.style.left = (rect.left + rect.width/2) + 'px';
+      s.style.top = (rect.top + rect.height/2) + 'px';
+      const dx = (Math.random()-0.5)*300 + 'px';
+      const dy = (Math.random()*150+50) + 'px';
+      const rot = (Math.random()*360-180)+'deg';
+      s.style.setProperty('--dx', dx);
+      s.style.setProperty('--dy', dy);
+      s.style.setProperty('--rot', rot);
+      document.body.appendChild(s);
+      setTimeout(()=>s.remove(), 850);
+    }
+  }
+
+  function moveCaravan(el, amount, isMine, cb){
+    const key = isMine ? 'myPos' : 'rivalPos';
+    let pos = isMine ? myPos : rivalPos;
+    pos = Math.min(pos + amount, TRACK_LEN);
+    if(isMine) myPos = pos; else rivalPos = pos;
+    el.style.left = pos + 'px';
+    let rollCount = 0;
+    const rollTimer = setInterval(()=>{ rollWheel(); rollCount++; if(rollCount>4) clearInterval(rollTimer); }, 90);
+    setTimeout(()=>{ if(cb) cb(); checkGatePositions(); }, 950);
+  }
+
+  function checkGatePositions(){
+    if(rivalPos >= TRACK_LEN - 5 && currentNode().role !== 'grand'){
+      // rival wins this leg's bonus but campaign continues
+    }
+  }
+
+  // ---------- Timer ----------
+  function startTimer(seconds){
+    stopTimer();
+    timeMax = seconds; timeLeft = seconds;
+    timerFill.style.width = '100%';
+    timerText.textContent = seconds.toFixed(0)+'s';
+    timerInterval = setInterval(()=>{
+      timeLeft -= 0.1;
+      if(timeLeft <= 0){
+        timeLeft = 0;
+        clearInterval(timerInterval);
+        onOrderFail("Time's up! The order spills.");
+      }
+      timerFill.style.width = Math.max(0,(timeLeft/timeMax*100)) + '%';
+      timerText.textContent = Math.max(0,timeLeft).toFixed(1)+'s';
+      if(timeLeft < timeMax*0.3) timerFill.style.background = 'linear-gradient(90deg,#c0392b,#e74c3c)';
+      else timerFill.style.background = 'linear-gradient(90deg,#1f6f6a,#39a89f)';
+    }, 100);
+  }
+  function stopTimer(){
+    clearInterval(timerInterval);
+  }
+
+  // ---------- Rival adaptive movement for guided/grand nodes ----------
+  function startRivalAmbient(){
+    stopRivalAmbient();
+    rivalMoveInterval = setInterval(()=>{
+      if(currentNode().role === 'teach') return;
+      if(overlay.classList.contains('show')) return;
+      let step = currentNode().role === 'grand' ? 10 : 6;
+      // adapt: if player far ahead, rival speeds up slightly
+      if(myPos - rivalPos > 150) step *= 1.6;
+      rivalPos = Math.min(rivalPos + step, TRACK_LEN);
+      rivalCaravan.style.left = rivalPos + 'px';
+      if(Math.random() < 0.08){
+        rivalLine.textContent = '"' + RIVAL_LINES_TAUNT[Math.floor(Math.random()*RIVAL_LINES_TAUNT.length)] + '"';
+      }
+    }, 1000);
+  }
+  function stopRivalAmbient(){ clearInterval(rivalMoveInterval); }
+
+  // ---------- Node completion / transitions ----------
+  function finishNode(){
+    stopRivalAmbient();
+    const legWon = myPos >= rivalPos;
+    overlayTitle.textContent = legWon ? "Leg Complete — You're Ahead!" : "Leg Complete — Rival's Ahead!";
+    let txt = legWon
+      ? "Your caravan rolls in strong. The bonus goods are yours!"
+      : "The rival nudged ahead this leg. Bonus goods lost — but the road continues.";
+    if(!legWon){
+      const w = RIVAL_LINES_WIN[Math.floor(Math.random()*RIVAL_LINES_WIN.length)];
+      txt += ` Rival smirks: "${w}"`;
+    }
+    overlayText.textContent = txt;
+    ledgerDiv.style.display = 'none';
+    continueBtn.textContent = (nodeIndex < NODES.length-1) ? "Continue to Next Leg →" : "See Grand Ledger →";
+    overlay.classList.add('show');
+  }
+
+  continueBtn.addEventListener('click', ()=>{
+    overlay.classList.remove('show');
+    if(nodeIndex < NODES.length-1){
+      nodeIndex++;
+      myPos = 10; rivalPos = 10;
+      myCaravan.style.left = '10px';
+      rivalCaravan.style.left = '10px';
+      perfectStreak = 0;
+      initNode();
+      if(currentNode().role !== 'teach') startRivalAmbient();
+    } else {
+      showFinalPayoff();
+    }
+  });
+
+  function showFinalPayoff(){
+    const won = myPos >= rivalPos;
+    overlayTitle.textContent = won ? "🏆 MASTER TRADER! 🏆" : "The Gate Closes...";
+    overlayText.textContent = won
+      ? "You out-packed the rival across every leg! The gatekeeper salutes your caravan as the banner unfurls overhead."
+      : "The rival's caravan slips through first this time — but every crate you counted was real skill. The road continues tomorrow.";
+    if(won){
+      myBanner.classList.add('show');
+      rivalLine.textContent = '"Fine... FINE! You win this round, trader. But next market day, watch your back!"';
+      success();
+    }
+    ledgerDiv.style.display = 'block';
+    ledgerDiv.innerHTML = '<b>Today\'s Ledger — Every Array You Built:</b><br>' +
+      ledger.map((l,i)=>`<div>${i+1}. ${l.rows} rows × ${l.cols} = <b>${l.product}</b> &nbsp; <span style="color:#888;">(${l.node})</span></div>`).join('');
+    continueBtn.textContent = "Play Again (New Route) ↺";
+    overlay.classList.add('show');
+    continueBtn.onclick = ()=> location.reload();
+  }
+
+  // ---------- Support buttons ----------
+  bellBtn.addEventListener('click', ()=>{
+    if(currentOrder) speak(currentOrder.label.replace(/RIVAL WHISPER.*?build!/,'Careful, check the ticket before you build.'));
+  });
+
+  let hintShown = false;
+  hintBtn.addEventListener('click', ()=>{
+    if(!currentOrder) return;
+    gridArea.querySelectorAll('.slot').forEach(s=>{
+      if(!s.classList.contains('filled')){
+        s.style.background = 'rgba(255,215,106,0.35)';
+      }
+    });
+    showToast("Ghost hint: grid shape shown for a moment.", 1600);
+    setTimeout(()=>{
+      gridArea.querySelectorAll('.slot:not(.filled)').forEach(s=>{ s.style.background=''; });
+    }, 1600);
+  });
+
+  resetBtn.addEventListener('click', ()=>{
+    if(!currentOrder) return;
+    buildGrid(rows, cols);
+    buildTray(rows*cols, currentOrder.icon);
+    placedCount = 0;
+    ticker.innerHTML = '';
+    speedVal.textContent = '0';
+    showToast("Crates returned to tray.", 1200);
+  });
+
+  // Stall-detection for auto ghost hint suggestion (guided node only, on request already covered by button)
+  let idleTimer = null;
+  function resetIdle(){
+    clearTimeout(idleTimer);
+    if(currentNode() && currentNode().role === 'guided'){
+      idleTimer = setTimeout(()=>{
+        hintBtn.style.boxShadow = '0 0 12px 4px gold';
+        setTimeout(()=> hintBtn.style.boxShadow='', 1500);
+      }, 6000);
+    }
+  }
+  document.addEventListener('mousemove', resetIdle);
+  document.addEventListener('touchstart', resetIdle);
+
+  // decorative awnings
+  (function placeAwnings(){
+    const positions = [60, 220, 400, 620, 850, 1050, 1200];
+    positions.forEach((x,i)=>{
+      const a = document.createElement('div');
+      a.className='awning';
+      a.style.left = x+'px';
+      document.getElementById('skyline').appendChild(a);
+    });
+  })();
+
+  // ---------- Init ----------
+  function start(){
+    initNode();
+    if(currentNode().role !== 'teach') startRivalAmbient();
+  }
+  start();
+
+})();
+</script>
+</body>
+</html>
+```

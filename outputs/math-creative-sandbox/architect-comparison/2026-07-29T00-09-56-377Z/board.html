@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Sunny Architect Lab Board</title>
+  <style>
+    *{box-sizing:border-box}body{margin:0;min-height:100vh;background:radial-gradient(circle at 50% 10%,#364878 0,#151b38 48%,#090d1d 100%);color:#fff;font-family:system-ui,sans-serif}
+    .board{min-height:100vh;padding:42px}.eyebrow{text-align:center;color:#ffd86a;font-weight:900;letter-spacing:.18em;text-transform:uppercase}.title{text-align:center;font-size:clamp(36px,5vw,74px);margin:8px 0 6px}.subtitle{text-align:center;color:#c8d3ee;margin:0 0 44px}
+    .path{max-width:1280px;margin:auto;display:grid;grid-template-columns:repeat(3,1fr);gap:30px;position:relative}.path:before{content:"";position:absolute;left:13%;right:13%;top:108px;border-top:10px dashed rgba(255,216,106,.55);z-index:0}
+    .node{position:relative;z-index:1;border:3px solid rgba(255,255,255,.72);border-radius:28px;overflow:hidden;background:#192243;box-shadow:0 22px 55px #0008;cursor:pointer;color:#fff;padding:0;text-align:left;transition:.2s transform,.2s box-shadow}.node:hover{transform:translateY(-7px);box-shadow:0 28px 70px #000b}.art{height:210px;display:grid;place-items:center;font-size:84px}.sonnet .art{background:linear-gradient(145deg,#ffbd6a,#df6b5d)}.opus .art{background:linear-gradient(145deg,#58bfe8,#293b83)}.fable .art{background:linear-gradient(145deg,#ad6be8,#4c2479)}
+    .copy{padding:22px}.model{font-size:12px;color:#ffd86a;font-weight:900;letter-spacing:.12em;text-transform:uppercase}.copy h2{font-size:28px;margin:8px 0}.copy p{margin:0;color:#d6ddf2;line-height:1.45}.launch{display:inline-block;margin-top:18px;background:#fff;color:#18203d;border-radius:999px;padding:10px 16px;font-weight:900}
+    .player{position:fixed;inset:0;background:#050812;z-index:10;display:none}.player.open{display:block}.player iframe{width:100%;height:100%;border:0;background:#fff}.back{position:absolute;z-index:11;top:18px;right:20px;border:2px solid #fff;background:#0a0d17dd;color:#fff;border-radius:999px;padding:12px 20px;font-size:17px;font-weight:900;cursor:pointer}
+    @media(max-width:900px){.path{grid-template-columns:1fr}.path:before{display:none}.board{padding:24px}}
+  </style>
+</head>
+<body>
+  <main class="board">
+    <div class="eyebrow">Sunny Architect Lab</div>
+    <h1 class="title">Choose a Fractions Mission</h1>
+    <p class="subtitle">Three AI architects. One coherent Grade 3 learning path.</p>
+    <section class="path">
+      <button class="node sonnet" data-src="./nodes/sonnet-5/mock.html">
+        <div class="art">🥧</div><div class="copy"><div class="model">Designed by Sonnet</div><h2>Fair Slice Bakery</h2><p>Partition shapes into genuinely equal shares.</p><span class="launch">Open node →</span></div>
+      </button>
+      <button class="node opus" data-src="./nodes/opus-5/mock.html">
+        <div class="art">🏮</div><div class="copy"><div class="model">Designed by Opus</div><h2>Lantern Keeper</h2><p>Connect one illuminated part to its unit fraction.</p><span class="launch">Open node →</span></div>
+      </button>
+      <button class="node fable" data-src="./nodes/fable-5/mock.html">
+        <div class="art">🧪</div><div class="copy"><div class="model">Designed by Fable</div><h2>Potion Split Showdown</h2><p>Compare unit fractions to choose the larger potion dose.</p><span class="launch">Open node →</span></div>
+      </button>
+    </section>
+  </main>
+  <section class="player" id="player">
+    <button class="back" id="back">← Back to board</button>
+    <iframe id="experience" title="Architect experience" sandbox="allow-scripts allow-same-origin" allow="autoplay; fullscreen"></iframe>
+  </section>
+  <script>
+    const player=document.getElementById('player'),frame=document.getElementById('experience');
+    document.querySelectorAll('[data-src]').forEach(node=>node.addEventListener('click',()=>{frame.src=node.dataset.src;player.classList.add('open')}));
+    document.getElementById('back').addEventListener('click',()=>{player.classList.remove('open');frame.src='about:blank'});
+  </script>
+</body>
+</html>

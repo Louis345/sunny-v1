@@ -1,0 +1,823 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=1365,height=768">
+<title>Gull Duel: Light the Lantern Mast</title>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js"></script>
+<style>
+  html,body{margin:0;padding:0;background:#0d1418;overflow:hidden;font-family:"Trebuchet MS","Verdana",sans-serif;}
+  #stage{position:relative;width:1365px;height:768px;overflow:hidden;
+    background:linear-gradient(180deg,#8b8f86 0%,#a9a394 45%,#8d8878 70%,#6f6d64 100%);}
+  #stage.b1{background:linear-gradient(180deg,#8fa0a0 0%,#b3b39c 45%,#94958a 70%,#6f7570 100%);}
+  #stage.b2{background:linear-gradient(180deg,#8fb4c4 0%,#c1c8ae 45%,#9fae9c 70%,#657f80 100%);}
+  #stage.b3{background:linear-gradient(180deg,#79c2e0 0%,#cfe0b4 45%,#a8c8b4 70%,#4f8c9c 100%);}
+  #stage.b4{background:linear-gradient(180deg,#3fc0f0 0%,#a8e6ff 40%,#bfe9c9 68%,#2b93b8 100%);}
+  #stage{transition:background 1.2s ease;}
+  .fogband{position:absolute;left:0;width:1365px;pointer-events:none;
+    background:radial-gradient(ellipse at 50% 50%, rgba(238,238,232,.92), rgba(232,232,226,.55) 60%, rgba(230,230,225,0) 100%);
+    filter:blur(2px);}
+  #water{position:absolute;left:0;bottom:0;width:1365px;height:150px;
+    background:linear-gradient(180deg,#5c7d84,#3d5f6b);}
+  #dockplanks{position:absolute;left:0;bottom:110px;width:1365px;height:60px;
+    background:repeating-linear-gradient(90deg,#7a5a3a 0 58px,#6a4d31 58px 62px);
+    border-top:5px solid #8d6a44;box-shadow:0 6px 12px rgba(0,0,0,.35) inset;}
+  /* ROUND RAIL (completion) */
+  #rail{position:absolute;left:0;bottom:0;width:1365px;height:74px;
+    background:linear-gradient(180deg,rgba(20,26,30,.55),rgba(12,16,18,.85));
+    display:flex;align-items:center;gap:14px;padding:0 18px;box-sizing:border-box;}
+  #railLabel{color:#e8dcc4;font-size:13px;letter-spacing:1px;text-transform:uppercase;opacity:.8;width:120px;line-height:1.1}
+  #ropeWrap{position:relative;flex:1;height:34px;}
+  #rope{position:absolute;top:15px;left:0;right:0;height:6px;border-radius:3px;
+    background:repeating-linear-gradient(90deg,#c8a874 0 10px,#a98a58 10px 20px);opacity:.85}
+  .knot{position:absolute;top:0;width:34px;height:34px;border-radius:50%;
+    background:radial-gradient(circle at 35% 35%,#8e7550,#5d4a2f);border:3px solid #3a2c1a;
+    display:flex;align-items:center;justify-content:center;color:#e3d3ae;font-size:13px;font-weight:bold;}
+  .knot.done{background:radial-gradient(circle at 35% 35%,#d8bd8c,#9c7d4d);color:#2c2010}
+  .knot.now{box-shadow:0 0 0 4px rgba(255,230,160,.35)}
+  /* LANTERN MAST (success) */
+  #mast{position:absolute;right:26px;top:34px;width:150px;height:470px;}
+  #mastPole{position:absolute;left:66px;top:0;width:18px;height:470px;border-radius:8px;
+    background:linear-gradient(90deg,#3a2b1c,#6b5334,#3a2b1c);}
+  .lantern{position:absolute;left:22px;width:106px;height:96px;}
+  .lglass{position:absolute;left:18px;top:12px;width:70px;height:64px;border-radius:10px 10px 18px 18px;
+    background:rgba(30,36,40,.75);border:4px solid #4b3a24;overflow:hidden;}
+  .lflame{position:absolute;left:50%;top:50%;width:34px;height:40px;margin:-20px 0 0 -17px;border-radius:50% 50% 45% 45%;
+    background:radial-gradient(circle at 50% 60%,#fff6c9,#ffd166 45%,#ff9d2e 75%,rgba(255,120,0,0) 100%);
+    opacity:0;transform:scale(.4);}
+  .lantern.lit .lflame{opacity:1;transform:scale(1);}
+  .lantern.lit .lglass{background:rgba(255,214,120,.35);border-color:#c69b56;box-shadow:0 0 26px 10px rgba(255,196,90,.6);}
+  .lantern.ghost .lflame{opacity:.28;transform:scale(.8);filter:grayscale(.6)}
+  .lhat{position:absolute;left:12px;top:0;width:82px;height:16px;background:#4b3a24;border-radius:6px 6px 2px 2px}
+  #mastCap{position:absolute;left:52px;top:-16px;width:46px;height:20px;background:#5a4529;border-radius:6px}
+  #mastTitle{position:absolute;left:0;top:470px;width:150px;text-align:center;color:#f0e2c2;font-size:13px;
+    letter-spacing:1px;text-transform:uppercase;opacity:.85}
+  /* Panels */
+  #beatArea{position:absolute;left:0;top:0;width:1180px;height:600px;}
+  .cardRow{position:absolute;top:150px;left:0;width:1180px;display:flex;justify-content:center;gap:90px;}
+  .choice{position:relative;cursor:pointer;border:none;background:transparent;padding:0;}
+  .crate{position:relative;width:340px;padding:18px;border-radius:12px;
+    background:repeating-linear-gradient(180deg,#a2764a 0 24px,#916a41 24px 28px);
+    border:8px solid #6f5030;box-shadow:0 10px 22px rgba(0,0,0,.35);}
+  .crate:after{content:"";position:absolute;inset:8px;border:3px dashed rgba(255,255,255,.12);border-radius:6px;pointer-events:none}
+  .choice:hover .crate{transform:translateY(-4px)}
+  .crate{transition:transform .15s ease, box-shadow .15s}
+  .choice:focus{outline:none}
+  .choice:focus .crate{box-shadow:0 0 0 6px rgba(255,225,140,.7),0 10px 22px rgba(0,0,0,.35)}
+  .tag{position:absolute;top:-34px;left:50%;transform:translateX(-50%);
+    background:#f3e3bf;color:#3a2a14;padding:4px 18px;border-radius:4px;font-size:30px;font-weight:bold;
+    font-family:"Courier New",monospace;box-shadow:0 4px 8px rgba(0,0,0,.3);border:3px solid #8b6a3c;}
+  #pipbar{position:absolute;left:24px;bottom:86px;width:760px;min-height:64px;
+    background:rgba(16,22,26,.78);border:3px solid #d9b878;border-radius:14px;color:#fdf3dc;
+    display:flex;align-items:center;gap:14px;padding:10px 16px;box-sizing:border-box;font-size:22px;line-height:1.25}
+  #pipFace{width:56px;height:56px;flex:0 0 56px;border-radius:50%;background:radial-gradient(circle at 40% 35%,#ffe6a8,#c98f3f);
+    display:flex;align-items:center;justify-content:center;font-size:30px}
+  .iconbtn{width:56px;height:56px;border-radius:50%;border:3px solid #d9b878;background:rgba(16,22,26,.8);
+    color:#ffe9bd;font-size:26px;cursor:pointer;display:flex;align-items:center;justify-content:center}
+  .iconbtn:hover{background:#2b3a44}
+  .iconbtn:disabled{opacity:.35;cursor:default}
+  #tools{position:absolute;right:200px;bottom:86px;display:flex;gap:12px;}
+  #gully{position:absolute;width:120px;height:90px;left:600px;top:60px;pointer-events:none;z-index:30}
+  /* Shading beat */
+  #pedestal{position:absolute;left:0;top:96px;width:1180px;display:flex;flex-direction:column;align-items:center;gap:10px}
+  #brass{margin-top:6px;padding:14px 34px;border-radius:10px;font-size:26px;font-weight:bold;cursor:pointer;
+    background:linear-gradient(180deg,#6a6255,#4a453b);color:#b9b2a2;border:4px solid #3a352d;}
+  #brass.ready{background:linear-gradient(180deg,#f0cf7d,#c79b3f);color:#3a2a10;border-color:#8d6c2c;box-shadow:0 0 18px rgba(255,215,120,.7)}
+  /* Explanation */
+  #rulebook{position:absolute;left:120px;top:70px;width:940px;background:linear-gradient(180deg,#fbf0d4,#efdfb8);
+    border:10px solid #7d5a30;border-radius:12px;padding:18px 24px;box-sizing:border-box;color:#3a2a14;display:none}
+  #rulebook h2{margin:0 0 6px;font-size:24px;letter-spacing:1px}
+  #tiles{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0}
+  .tile{background:#f7e7c2;border:3px solid #a8823f;border-radius:8px;padding:8px 12px;font-size:18px;cursor:pointer}
+  .tile:hover{background:#ffe;}
+  #answerBox{width:100%;min-height:86px;font-size:22px;padding:10px;border-radius:8px;border:3px solid #a8823f;
+    background:#fffaea;color:#33240f;box-sizing:border-box;font-family:inherit}
+  .rowbtns{display:flex;gap:12px;align-items:center;margin-top:8px}
+  .bigbtn{background:linear-gradient(180deg,#f0cf7d,#c79b3f);border:4px solid #8d6c2c;border-radius:10px;
+    font-size:22px;font-weight:bold;padding:10px 22px;cursor:pointer;color:#3a2a10}
+  .bigbtn.dim{background:#cdc4ad;border-color:#9c9483;color:#6a6250;cursor:default}
+  /* Opening */
+  #opening{position:absolute;inset:0;z-index:60}
+  #openBtn{position:absolute;left:50%;bottom:120px;transform:translateX(-50%);z-index:70}
+  #compass{position:absolute;left:520px;bottom:118px;width:150px;height:150px;opacity:.75}
+  #finale{position:absolute;inset:0;z-index:80;display:none;pointer-events:none}
+  #finaleCard{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:820px;
+    background:rgba(10,18,22,.9);border:6px solid #ffd98a;border-radius:18px;color:#fff5dc;padding:24px 30px;
+    box-sizing:border-box;text-align:center;pointer-events:auto;display:none}
+  #finaleCard h1{margin:4px 0 10px;font-size:38px;color:#ffe1a0}
+  .starRow{font-size:40px;letter-spacing:8px}
+  #ratingRow{display:flex;justify-content:center;gap:10px;margin-top:12px}
+  .rateBtn{font-size:34px;background:none;border:none;cursor:pointer;filter:grayscale(1);opacity:.6}
+  .rateBtn.on{filter:none;opacity:1}
+  #beam{position:absolute;left:0;top:0;width:1365px;height:768px;pointer-events:none;
+    background:linear-gradient(100deg,rgba(255,240,190,0) 40%,rgba(255,240,190,.35) 50%,rgba(255,240,190,0) 60%);
+    opacity:0}
+  .hidden{display:none !important}
+  #freezeNote{position:absolute;left:24px;top:18px;color:#fff3d6;font-size:15px;opacity:.75;letter-spacing:1px}
+  #ghostOverlay{position:absolute;pointer-events:none;z-index:25}
+  #snip{position:absolute;left:60px;bottom:150px;width:120px;text-align:center;color:#fff;font-size:12px}
+</style>
+</head>
+<body>
+<div id="stage">
+  <div id="water"></div>
+  <div id="dockplanks"></div>
+
+  <svg id="compass" viewBox="0 0 100 100">
+    <circle cx="50" cy="50" r="46" fill="#2b3a3f" stroke="#c9a45f" stroke-width="4"/>
+    <g id="needle"><polygon points="50,10 57,50 50,90 43,50" fill="#e8c274"/></g>
+    <circle cx="50" cy="50" r="6" fill="#7d5a30"/>
+    <g id="padlock"><rect x="38" y="46" width="24" height="20" rx="3" fill="#8b8b8b" stroke="#555" stroke-width="2"/>
+      <path d="M44 46 v-6 a6 6 0 0 1 12 0 v6" fill="none" stroke="#9a9a9a" stroke-width="4"/></g>
+  </svg>
+
+  <!-- FOG BANDS -->
+  <div class="fogband" id="fog1" style="top:0;height:230px"></div>
+  <div class="fogband" id="fog2" style="top:170px;height:230px"></div>
+  <div class="fogband" id="fog3" style="top:330px;height:250px"></div>
+  <div class="fogband" id="fog4" style="top:500px;height:268px"></div>
+
+  <div id="beam"></div>
+
+  <!-- LANTERN MAST : success only -->
+  <div id="mast">
+    <div id="mastPole"></div><div id="mastCap"></div>
+    <div class="lantern" id="lan4" style="top:14px"><div class="lhat"></div><div class="lglass"><div class="lflame"></div></div></div>
+    <div class="lantern" id="lan3" style="top:126px"><div class="lhat"></div><div class="lglass"><div class="lflame"></div></div></div>
+    <div class="lantern" id="lan2" style="top:238px"><div class="lhat"></div><div class="lglass"><div class="lflame"></div></div></div>
+    <div class="lantern" id="lan1" style="top:350px"><div class="lhat"></div><div class="lglass"><div class="lflame"></div></div></div>
+    <div id="mastTitle">Lantern Mast<br><span id="mastCount" style="font-size:18px;color:#ffd98a">0 / 4 lit</span></div>
+  </div>
+
+  <div id="freezeNote"></div>
+
+  <!-- GULLY -->
+  <svg id="gully" viewBox="0 0 120 90">
+    <g id="gbody">
+      <ellipse cx="60" cy="52" rx="34" ry="20" fill="#f7f7f2"/>
+      <path id="gwing" d="M55 44 q22 -30 44 -6 q-20 12 -44 6z" fill="#dcdcd4"/>
+      <circle cx="90" cy="40" r="12" fill="#fbfbf6"/>
+      <circle cx="94" cy="37" r="2.6" fill="#22262a"/>
+      <polygon points="101,40 118,44 101,47" fill="#f0a63a"/>
+      <path d="M30 56 q-16 4 -20 12 q16 0 26 -6z" fill="#dcdcd4"/>
+      <path d="M56 70 l-4 12 M68 70 l4 12" stroke="#f0a63a" stroke-width="4" stroke-linecap="round"/>
+    </g>
+  </svg>
+
+  <div id="beatArea">
+    <div class="cardRow" id="cardRow"></div>
+    <div id="pedestal" class="hidden"></div>
+    <div id="rulebook"></div>
+    <svg id="ghostOverlay" class="hidden"></svg>
+  </div>
+
+  <div id="pipbar"><div id="pipFace">🧭</div><div id="pipText">…</div></div>
+  <div id="tools">
+    <button class="iconbtn" id="btnEar" title="Hear it again">👂</button>
+    <button class="iconbtn" id="btnWhistle" title="Replay the show">🎬</button>
+    <button class="iconbtn" id="btnGhost" title="Equality check (once)">👻</button>
+  </div>
+
+  <!-- ROUND RAIL : completion only -->
+  <div id="rail">
+    <div id="railLabel">Round rail<br><span style="font-size:11px;opacity:.7">you always finish</span></div>
+    <div id="ropeWrap"><div id="rope"></div>
+      <div class="knot" id="k1" style="left:2%">1</div>
+      <div class="knot" id="k2" style="left:27%">2</div>
+      <div class="knot" id="k3" style="left:52%">3</div>
+      <div class="knot" id="k4" style="left:77%">4</div>
+    </div>
+  </div>
+
+  <!-- OPENING -->
+  <div id="opening">
+    <svg width="1365" height="768" style="position:absolute;inset:0">
+      <g id="demoStage"></g>
+    </svg>
+    <button class="bigbtn" id="openBtn">▶ Tap to begin</button>
+  </div>
+
+  <div id="finale">
+    <div id="finaleCard"></div>
+  </div>
+</div>
+
+<script>
+/* ============ Telemetry ============ */
+const M = {
+  "node.N3B.started":false,"node.N3B.completed":false,"node.N3B.abandoned":false,
+  "node.N3B.routeSwitched":false,"node.N3B.replayRequested":0,
+  "node.N3B.assistanceRequestCount":0,"node.N3B.invalidActionCount":0,
+  "node.N3B.timeToFirstValidActionMs":null,"node.N3B.perRoundLatencyMs":[],
+  "node.N3B.item.N3B-I1.correct":null,"node.N3B.item.N3B-I2.correct":null,
+  "node.N3B.shadingItemExactlyOneSector":null,"node.N3B.item.N3B-I4.rubricScore":null,
+  "node.N3B.itemAccuracy":null,"node.N3B.frustrationScore":0,"node.N3B.childRating":null
+};
+function log(){ console.log("[N3B]", JSON.parse(JSON.stringify(M))); }
+
+/* ============ Voice ============ */
+let muted=false, lastLine="";
+function say(t,opts={}){
+  lastLine=t;
+  document.getElementById('pipText').textContent = t;
+  if(muted) return;
+  try{
+    window.speechSynthesis.cancel();
+    const u=new SpeechSynthesisUtterance(t);
+    u.rate=opts.rate||0.95; u.pitch=opts.pitch||1.05;
+    window.speechSynthesis.speak(u);
+  }catch(e){}
+}
+document.getElementById('btnEar').onclick=()=>{ if(lastLine) say(lastLine); };
+
+/* ============ Audio (WebAudio blips) ============ */
+let AC=null;
+function ac(){ if(!AC){ try{AC=new (window.AudioContext||window.webkitAudioContext)();}catch(e){} } return AC; }
+function tone(f,d,type="sine",vol=.18,delay=0){
+  const c=ac(); if(!c) return;
+  const o=c.createOscillator(), g=c.createGain();
+  o.type=type; o.frequency.value=f; g.gain.value=0;
+  o.connect(g); g.connect(c.destination);
+  const t=c.currentTime+delay;
+  g.gain.linearRampToValueAtTime(vol,t+0.02);
+  g.gain.exponentialRampToValueAtTime(0.001,t+d);
+  o.start(t); o.stop(t+d+0.05);
+}
+function sfxThump(){tone(150,.16,"triangle",.25);}
+function sfxWhistle(hi){tone(hi?1400:900,.18,"sine",.14); tone(hi?1750:1100,.16,"sine",.1,.1);}
+function sfxFwoom(){tone(90,.5,"sawtooth",.16); tone(520,.5,"sine",.12,.06); tone(780,.6,"sine",.1,.14);}
+function sfxCoo(){tone(600,.2,"sine",.12); tone(430,.28,"sine",.11,.16); tone(330,.3,"sine",.09,.34);}
+function sfxChunk(){tone(220,.12,"square",.16); tone(120,.2,"triangle",.18,.05);}
+function sfxChime(i){tone(660+i*160,.5,"sine",.13,i*0.12);}
+
+/* ============ Fog / lanterns / rail ============ */
+const stage=document.getElementById('stage');
+let lanternsLit=0, roundsDone=0;
+function litLantern(n){
+  lanternsLit++;
+  const L=document.getElementById('lan'+n);
+  L.classList.remove('ghost'); L.classList.add('lit');
+  document.getElementById('mastCount').textContent=lanternsLit+" / 4 lit";
+  sfxFwoom();
+  gsap.fromTo(L,{scale:1},{scale:1.18,duration:.18,yoyo:true,repeat:1,transformOrigin:"50% 50%"});
+  const fog=document.getElementById('fog'+n);
+  gsap.to(fog,{opacity:0,y:-40,duration:1.2,ease:"power2.out"});
+  stage.className="b"+lanternsLit;
+  worldLayer(lanternsLit);
+}
+function ghostLantern(n){
+  const L=document.getElementById('lan'+n);
+  L.classList.add('ghost');
+  gsap.fromTo(L.querySelector('.lflame'),{opacity:0},{opacity:.3,duration:.25,yoyo:true,repeat:5});
+}
+function tickRail(n){
+  roundsDone=n;
+  for(let i=1;i<=4;i++){
+    const k=document.getElementById('k'+i);
+    k.classList.toggle('done', i<=n);
+    k.classList.toggle('now', i===n+1);
+  }
+  gsap.fromTo(document.getElementById('k'+n),{scale:1},{scale:1.3,duration:.2,yoyo:true,repeat:1});
+}
+/* world reaction layers */
+function worldLayer(n){
+  if(n>=1) crabCrowd();
+  if(n>=2) sparkleWater();
+  if(n>=3) gullyPerch();
+}
+let crabsMade=false;
+function crabCrowd(){
+  if(crabsMade) return; crabsMade=true;
+  const box=document.createElement('div');
+  box.style.cssText="position:absolute;left:40px;bottom:150px;display:flex;gap:12px;z-index:12";
+  box.innerHTML=[0,1,2,3].map(i=>`<div style="font-size:30px;transform:translateY(30px);opacity:0" class="crab">🦀</div>`).join('');
+  stage.appendChild(box);
+  gsap.to(box.querySelectorAll('.crab'),{y:0,opacity:1,duration:.5,stagger:.12,ease:"back.out(2)"});
+  gsap.to(box.querySelectorAll('.crab'),{y:-6,duration:.6,yoyo:true,repeat:-1,stagger:.15,delay:.7});
+}
+let sparkled=false;
+function sparkleWater(){
+  if(sparkled) return; sparkled=true;
+  const w=document.getElementById('water');
+  for(let i=0;i<26;i++){
+    const s=document.createElement('div');
+    s.style.cssText=`position:absolute;left:${Math.random()*1340}px;top:${Math.random()*130}px;width:6px;height:6px;border-radius:50%;background:#fff;opacity:.0`;
+    w.appendChild(s);
+    gsap.to(s,{opacity:.85,duration:.5,delay:Math.random(),yoyo:true,repeat:-1,repeatDelay:Math.random()*2});
+  }
+  document.querySelectorAll('#bunting').forEach(b=>gsap.to(b,{filter:"saturate(1.8)",duration:1}));
+}
+function gullyPerch(){
+  gsap.to("#gully",{left:1080,top:430,duration:1,ease:"power2.inOut"});
+}
+
+/* ============ Gully helpers ============ */
+const gully=document.getElementById('gully');
+function gullyIdle(){
+  gsap.killTweensOf(gully);
+  gsap.set(gully,{left:520,top:70,rotate:0,scaleX:1});
+  gsap.to(gully,{x:180,duration:3.4,yoyo:true,repeat:-1,ease:"sine.inOut"});
+  gsap.to("#gwing",{rotate:-12,transformOrigin:"55px 44px",duration:.8,yoyo:true,repeat:-1,ease:"sine.inOut"});
+}
+function gullyDiveTo(el,cb){
+  const r=el.getBoundingClientRect(), s=stage.getBoundingClientRect();
+  gsap.killTweensOf(gully);
+  gsap.to(gully,{x:0,left:r.left-s.left+r.width/2-60,top:r.top-s.top-40,rotate:14,duration:.7,ease:"power2.in",
+    onComplete:()=>{
+      gsap.to(gully,{rotate:0,y:"+=14",duration:.2,yoyo:true,repeat:1,onComplete:cb});
+    }});
+}
+
+/* ============ SVG shape builders ============ */
+const CORAL="#ff6f52", CORAL_D="#d94b31";
+function rectWhole(parts, shadeIndex, w=300,h=150){
+  const pw=w/parts;
+  let s=`<svg viewBox="0 0 ${w} ${h}" width="${w}" height="${h}">
+    <rect x="1" y="1" width="${w-2}" height="${h-2}" fill="#fdf6e6" stroke="#4b3a24" stroke-width="4"/>`;
+  for(let i=0;i<parts;i++){
+    if(i===shadeIndex) s+=`<rect x="${i*pw+2}" y="3" width="${pw-4}" height="${h-6}" fill="${CORAL}"/>`;
+  }
+  for(let i=1;i<parts;i++) s+=`<line x1="${i*pw}" y1="1" x2="${i*pw}" y2="${h-1}" stroke="#4b3a24" stroke-width="4"/>`;
+  s+=`<rect x="1" y="1" width="${w-2}" height="${h-2}" fill="none" stroke="#4b3a24" stroke-width="4"/></svg>`;
+  return s;
+}
+function sectorPath(cx,cy,r,a0,a1){
+  const x0=cx+r*Math.cos(a0), y0=cy+r*Math.sin(a0);
+  const x1=cx+r*Math.cos(a1), y1=cy+r*Math.sin(a1);
+  const large=(a1-a0)>Math.PI?1:0;
+  return `M${cx},${cy} L${x0},${y0} A${r},${r} 0 ${large} 1 ${x1},${y1} Z`;
+}
+function circleWhole(parts, shadeIndex, size=190){
+  const r=size/2-6, c=size/2;
+  let s=`<svg viewBox="0 0 ${size} ${size}" width="${size}" height="${size}">
+    <circle cx="${c}" cy="${c}" r="${r}" fill="#fdf6e6" stroke="#4b3a24" stroke-width="4"/>`;
+  const step=2*Math.PI/parts;
+  for(let i=0;i<parts;i++){
+    const a0=-Math.PI/2+i*step, a1=a0+step;
+    if(i===shadeIndex) s+=`<path d="${sectorPath(c,c,r-2,a0,a1)}" fill="${CORAL}"/>`;
+  }
+  for(let i=0;i<parts;i++){
+    const a=-Math.PI/2+i*step;
+    s+=`<line x1="${c}" y1="${c}" x2="${c+r*Math.cos(a)}" y2="${c+r*Math.sin(a)}" stroke="#4b3a24" stroke-width="4"/>`;
+  }
+  s+=`<circle cx="${c}" cy="${c}" r="${r}" fill="none" stroke="#4b3a24" stroke-width="4"/></svg>`;
+  return s;
+}
+
+/* ============ Opening pantomime ============ */
+const demoStage=document.getElementById('demoStage');
+function buildDemo(){
+  demoStage.innerHTML=`
+   <g id="demoGroup" opacity="0">
+     <g transform="translate(300,250)">
+       <rect x="-8" y="-8" width="316" height="166" rx="8" fill="#6f5030"/>
+       ${rectWhole(3,0).replace('<svg','<svg x="0" y="0"')}
+       <rect x="0" y="-46" width="90" height="36" rx="4" fill="#f3e3bf" stroke="#8b6a3c" stroke-width="3"/>
+       <text x="45" y="-19" font-size="26" font-family="Courier New" font-weight="bold" text-anchor="middle" fill="#3a2a14">1/3</text>
+     </g>
+     <g id="demoB" transform="translate(740,250)">
+       <rect x="-8" y="-8" width="316" height="166" rx="8" fill="#6f5030"/>
+       ${rectWhole(4,0).replace('<svg','<svg x="0" y="0"')}
+       <rect x="0" y="-46" width="90" height="36" rx="4" fill="#f3e3bf" stroke="#8b6a3c" stroke-width="3"/>
+       <text x="45" y="-19" font-size="26" font-family="Courier New" font-weight="bold" text-anchor="middle" fill="#3a2a14">1/4</text>
+     </g>
+     <g id="ghostSlice" opacity="0" transform="translate(740,250)">
+       <rect x="0" y="0" width="100" height="150" fill="#ff6f52" opacity=".55" stroke="#fff" stroke-width="3" stroke-dasharray="8 6"/>
+     </g>
+   </g>`;
+}
+function playDemo(cb){
+  buildDemo();
+  document.getElementById('opening').style.display="block";
+  document.getElementById('openBtn').classList.add('hidden');
+  gsap.set("#demoGroup",{opacity:1});
+  const g=document.getElementById('ghostSlice');
+  const tl=gsap.timeline({onComplete:()=>{ 
+      gsap.to("#demoGroup",{opacity:0,duration:.4,onComplete:()=>{document.getElementById('opening').style.display="none"; cb&&cb();}});
+  }});
+  tl.fromTo("#demoGroup",{y:-40,opacity:0},{y:0,opacity:1,duration:.5});
+  tl.add(()=>{sfxThump();});
+  tl.to(g,{opacity:1,duration:.3},"+=0.2");
+  tl.add(()=>say("Watch. Same size wholes. Slide one part on top of the other."));
+  tl.to(g,{x:-440,duration:1.3,ease:"power2.inOut"},"+=0.3"); // slide 1/4 slice over 1/3 slice
+  tl.to(g,{opacity:.85,duration:.2});
+  tl.add(()=>{ sfxWhistle(false); });
+  tl.to({},{duration:.9});
+  tl.add(()=>{ 
+    const b=document.getElementById('demoB');
+    gsap.set(gully,{left:200,top:60});
+    gsap.to(gully,{left:340,top:180,duration:.7,ease:"power2.in",onComplete:()=>{ sfxThump(); gsap.to(gully,{y:"+=12",duration:.18,yoyo:true,repeat:1});}});
+    say("The three-part whole has the bigger piece. Gully takes it.");
+  });
+  tl.to({},{duration:1.6});
+}
+
+/* ============ Ghost overlay equality check (once) ============ */
+let ghostUsed=false;
+const btnGhost=document.getElementById('btnGhost');
+function enableGhost(on){
+  btnGhost.disabled = !on || ghostUsed;
+}
+btnGhost.onclick=()=>{
+  if(ghostUsed || btnGhost.disabled) return;
+  ghostUsed=true; btnGhost.disabled=true;
+  M["node.N3B.assistanceRequestCount"]++;
+  say("Equality check. I slide one part on top of the other so you can see which is bigger.");
+  runGhostCheck();
+  log();
+};
+function runGhostCheck(){
+  const cards=document.querySelectorAll('#cardRow .choice');
+  if(cards.length<2) return;
+  const s=stage.getBoundingClientRect();
+  const a=cards[0].querySelector('.shadedRef'), b=cards[1].querySelector('.shadedRef');
+  if(!a||!b) return;
+  const ra=a.getBoundingClientRect(), rb=b.getBoundingClientRect();
+  const ov=document.createElement('div');
+  ov.style.cssText=`position:absolute;z-index:26;left:${rb.left-s.left}px;top:${rb.top-s.top}px;
+     width:${rb.width}px;height:${rb.height}px;background:${CORAL};opacity:.6;border:3px dashed #fff;box-sizing:border-box;pointer-events:none`;
+  stage.appendChild(ov);
+  gsap.to(ov,{left:ra.left-s.left, top:ra.top-s.top, duration:1.4, ease:"power2.inOut",
+    onComplete:()=>{ gsap.to(ov,{opacity:0,duration:1.4,delay:1.2,onComplete:()=>ov.remove()}); }});
+}
+
+/* ============ Beats ============ */
+let firstActionLogged=false, roundOpenAt=0;
+function markFirstAction(){
+  if(!firstActionLogged){
+    firstActionLogged=true;
+    M["node.N3B.timeToFirstValidActionMs"]=Date.now()-startedAt;
+  }
+}
+let startedAt=0;
+let fastFlag=false;
+const cardRow=document.getElementById('cardRow');
+const pedestal=document.getElementById('pedestal');
+const rulebook=document.getElementById('rulebook');
+
+function clearBeat(){
+  cardRow.innerHTML=""; pedestal.classList.add('hidden'); pedestal.innerHTML="";
+  rulebook.style.display="none";
+}
+
+/* -------- Comparison beat -------- */
+function comparisonBeat(cfg, done){
+  clearBeat();
+  enableGhost(true);
+  gullyIdle();
+  document.getElementById('freezeNote').textContent="";
+  const order = cfg.swap ? [cfg.right, cfg.wrong] : [cfg.wrong, cfg.right];
+  order.forEach(o=>{
+    const btn=document.createElement('button');
+    btn.className="choice"; btn.setAttribute('aria-label',o.label);
+    const inner = cfg.shape==="rect" ? rectWhole(o.parts,0,300,150) : circleWhole(o.parts,0,190);
+    btn.innerHTML=`<div class="crate"><div class="tag">${o.tag}</div>
+        <div style="display:flex;justify-content:center;align-items:center;height:${cfg.shape==="rect"?150:190}px">${inner}</div></div>`;
+    // mark shaded ref rect for ghost overlay
+    const svg=btn.querySelector('svg');
+    const shaded = svg.querySelector(cfg.shape==="rect" ? 'rect[fill="'+CORAL+'"]' : 'path[fill="'+CORAL+'"]');
+    if(shaded) shaded.classList.add('shadedRef');
+    btn.onclick=()=>choose(o,btn);
+    cardRow.appendChild(btn);
+  });
+  gsap.fromTo(cardRow.children,{y:-260,opacity:0},{y:0,opacity:1,duration:.4,stagger:.1,ease:"power2.out",
+    onComplete:()=>{ sfxThump(); }});
+  sfxWhistle(false);
+  say(cfg.spoken);
+  roundOpenAt=Date.now();
+  if(fastFlag){ setTimeout(()=>say("Look FIRST, then strike."),2600); }
+  let locked=false;
+  function choose(o,btn){
+    if(locked) return; locked=true;
+    markFirstAction();
+    const lat=Date.now()-roundOpenAt;
+    M["node.N3B.perRoundLatencyMs"].push(lat);
+    enableGhost(false);
+    sfxChunk();
+    document.querySelectorAll('#cardRow .choice').forEach(c=>c.style.pointerEvents="none");
+    const correct = !!o.correct;
+    M["node.N3B.item."+cfg.itemId+".correct"]=correct;
+    if(!correct && lat<1500){ fastFlag=true; M["node.N3B.frustrationScore"]=Math.min(1,M["node.N3B.frustrationScore"]+.1); }
+    // Gully lands on the TRUTH
+    const truthBtn = [...cardRow.children].find(c=>c.getAttribute('aria-label')===cfg.right.label);
+    gsap.to(btn.querySelector('.crate'),{scale:correct?1.06:0.97,duration:.25});
+    gullyDiveTo(truthBtn,()=>{
+      if(correct){
+        featherPuff(truthBtn);
+        litLantern(cfg.lantern);
+        say("Right! Fewer equal parts, bigger piece. Lantern lit.");
+      }else{
+        sfxCoo();
+        ghostLantern(cfg.lantern);
+        gsap.to("#gbody",{rotate:-14,transformOrigin:"60px 52px",duration:.3,yoyo:true,repeat:1});
+        say("Gully found the bigger one. Same size wholes — fewer equal parts, bigger pieces.");
+      }
+      tickRail(cfg.round);
+      log();
+      setTimeout(done, correct?1900:2600);
+    });
+  }
+}
+function featherPuff(el){
+  const s=stage.getBoundingClientRect(), r=el.getBoundingClientRect();
+  for(let i=0;i<10;i++){
+    const f=document.createElement('div');
+    f.textContent="•";
+    f.style.cssText=`position:absolute;z-index:40;color:#fff;font-size:26px;left:${r.left-s.left+r.width/2}px;top:${r.top-s.top+20}px;pointer-events:none`;
+    stage.appendChild(f);
+    gsap.to(f,{x:(Math.random()-.5)*180,y:-60-Math.random()*80,opacity:0,duration:1,onComplete:()=>f.remove()});
+  }
+}
+
+/* -------- Shading beat -------- */
+function shadingBeat(done){
+  clearBeat();
+  enableGhost(false);
+  gullyIdle();
+  pedestal.classList.remove('hidden');
+  const size=300, r=size/2-8, c=size/2, step=2*Math.PI/4;
+  let paths="";
+  for(let i=0;i<4;i++){
+    const a0=-Math.PI/2+i*step;
+    paths+=`<path class="sec" data-i="${i}" d="${sectorPath(c,c,r,a0,a0+step)}" fill="#fdf6e6" stroke="#4b3a24" stroke-width="5" style="cursor:pointer"/>`;
+  }
+  pedestal.innerHTML=`
+    <div style="position:relative;padding:14px 30px;background:linear-gradient(180deg,#8f6c42,#6a4d2e);border-radius:14px;border:6px solid #4b3520;box-shadow:0 12px 24px rgba(0,0,0,.4)">
+      <div class="tag" style="top:-30px">1/4</div>
+      <svg id="pieSvg" viewBox="0 0 ${size} ${size}" width="${size}" height="${size}">${paths}
+        <circle cx="${c}" cy="${c}" r="${r}" fill="none" stroke="#4b3a24" stroke-width="5"/></svg>
+    </div>
+    <button id="brass">🔨 Stamp the brass plate</button>`;
+  const brass=document.getElementById('brass');
+  let shaded=null;
+  pedestal.querySelectorAll('.sec').forEach(p=>{
+    p.onclick=()=>{
+      markFirstAction();
+      sfxThump();
+      pedestal.querySelectorAll('.sec').forEach(q=>q.setAttribute('fill','#fdf6e6'));
+      shaded=+p.dataset.i;
+      p.setAttribute('fill',CORAL);
+      gsap.fromTo(p,{opacity:.4},{opacity:1,duration:.2});
+      brass.classList.add('ready');
+      say("One sector coral. That is one fourth. Stamp when ready.");
+    };
+    p.onmouseenter=()=>{ if(+p.dataset.i!==shaded) p.setAttribute('fill','#ffe1d6'); };
+    p.onmouseleave=()=>{ if(+p.dataset.i!==shaded) p.setAttribute('fill','#fdf6e6'); };
+  });
+  sfxWhistle(true);
+  say("This circle is one whole, already cut into four equal parts. Tap to shade one fourth of the circle.");
+  roundOpenAt=Date.now();
+  brass.onclick=()=>{
+    if(shaded===null){
+      M["node.N3B.invalidActionCount"]++;
+      say("One sector for one fourth, Captain.");
+      gsap.fromTo(brass,{x:-6},{x:0,duration:.4,ease:"elastic.out(1,0.3)"});
+      log(); return;
+    }
+    sfxChunk();
+    M["node.N3B.perRoundLatencyMs"].push(Date.now()-roundOpenAt);
+    M["node.N3B.shadingItemExactlyOneSector"]=true;
+    brass.disabled=true; brass.classList.remove('ready');
+    pedestal.querySelectorAll('.sec').forEach(q=>q.onclick=null);
+    // slice flies to compass rose
+    const svg=document.getElementById('pieSvg');
+    gsap.to(svg,{scale:.35,x:-260,y:290,duration1:1,duration:1.1,ease:"power2.inOut",transformOrigin:"50% 50%"});
+    litLantern(3);
+    say("Exactly one of four equal parts. Your compass slice fits the rose!");
+    gsap.to("#compass",{opacity:1,scale:1.12,duration:.6,yoyo:true,repeat:1,transformOrigin:"50% 50%"});
+    tickRail(3);
+    log();
+    setTimeout(done,2200);
+  };
+}
+
+/* -------- Explanation beat -------- */
+const TILES=["1/3 is larger","1/4 is larger","the wholes are the same size","3 equal parts","4 equal parts",
+ "more equal parts","fewer equal parts","means each part is smaller","means each part is bigger",
+ "so","because","I compared the size of one part","the bottom number is bigger"];
+function explainBeat(done){
+  clearBeat();
+  enableGhost(false);
+  gsap.to(gully,{left:1060,top:420,duration:1,ease:"power2.inOut"});
+  rulebook.style.display="block";
+  rulebook.innerHTML=`
+    <h2>📖 Dockmaster's Rulebook — Harbor Law: Fair Shares</h2>
+    <div style="font-size:20px;margin-bottom:4px">When both wholes are the same size, how do you decide whether <b>1/3</b> or <b>1/4</b> is larger?</div>
+    <div id="tiles">${TILES.map(t=>`<button class="tile">${t}</button>`).join('')}</div>
+    <textarea id="answerBox" placeholder="Talk, type, or tap the word tiles…"></textarea>
+    <div class="rowbtns">
+      <button class="iconbtn" id="mic" title="Speak your rule">🎤</button>
+      <button class="bigbtn dim" id="sendRule">Ink it into the Rulebook ✒</button>
+      <span id="micNote" style="font-size:16px;opacity:.7"></span>
+    </div>`;
+  gsap.fromTo(rulebook,{y:-30,opacity:0},{y:0,opacity:1,duration:.5});
+  const box=document.getElementById('answerBox');
+  const send=document.getElementById('sendRule');
+  function refresh(){ send.classList.toggle('dim', box.value.trim().length<4); }
+  rulebook.querySelectorAll('.tile').forEach(t=>t.onclick=()=>{
+    box.value=(box.value+" "+t.textContent).replace(/\s+/g," ").trim(); refresh(); sfxThump();
+  });
+  box.oninput=refresh;
+  setTimeout(()=>{ sfxWhistle(false); say("Almost done, Captain. Tell me your rule: when both wholes are the same size, how do you decide whether one third or one fourth is larger?"); },1400);
+  // speech input
+  const mic=document.getElementById('mic'), micNote=document.getElementById('micNote');
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  mic.onclick=()=>{
+    if(!SR){ micNote.textContent="Mic not available — type or tap tiles."; return; }
+    try{
+      const rec=new SR(); rec.lang="en-US"; rec.interimResults=false;
+      micNote.textContent="Listening…"; rec.start();
+      rec.onresult=e=>{ box.value=(box.value+" "+e.results[0][0].transcript).trim(); micNote.textContent="Got it!"; refresh(); };
+      rec.onerror=()=>micNote.textContent="Didn't catch that — type or tap tiles.";
+      rec.onend=()=>{ if(micNote.textContent==="Listening…") micNote.textContent=""; };
+    }catch(e){ micNote.textContent="Type or tap tiles."; }
+  };
+  send.onclick=()=>{
+    const txt=box.value.trim();
+    if(txt.length<4){ M["node.N3B.invalidActionCount"]++; say("Give me a few words, Captain."); return; }
+    markFirstAction();
+    sfxChunk();
+    const score=scoreRule(txt);
+    M["node.N3B.item.N3B-I4.rubricScore"]=score.score;
+    if(score.score>=0.5){ litLantern(4); } else { ghostLantern(4); }
+    tickRail(4);
+    rulebook.innerHTML=`<h2>📖 Harbor Law: Fair Shares</h2>
+      <div id="inked" style="font-size:26px;font-family:'Courier New',monospace;min-height:70px;border-bottom:3px dashed #a8823f;padding:6px 0"></div>
+      <div style="text-align:right;font-size:20px;margin-top:6px">— signed, Captain Reina</div>
+      <div style="margin-top:10px;font-size:19px;color:#5a4116">${score.feedback}</div>`;
+    const inked=document.getElementById('inked');
+    let i=0; const t=setInterval(()=>{ inked.textContent=txt.slice(0,++i); if(i>=txt.length){clearInterval(t); setTimeout(done,1000);} },26);
+    say(score.spoken);
+    log();
+  };
+}
+function scoreRule(t){
+  const s=t.toLowerCase();
+  const saysThird = /1\/3|one ?third|thirds?\b/.test(s) && !/1\/4 is (larger|bigger)/.test(s);
+  const dirRule = /(more|4|four).{0,26}(smaller)|(fewer|less|3|three).{0,26}(bigger|larger)|smaller.{0,20}(more|four)|bigger.{0,20}(fewer|three)/.test(s)
+                 || /(more equal parts).{0,30}(smaller)/.test(s) || /(fewer equal parts).{0,30}(bigger|larger)/.test(s);
+  const sameWhole=/same size|same whole|both.{0,12}same|equal size whole/.test(s);
+  const numeralOnly=/bottom number|denominator.{0,20}(bigger|larger)/.test(s) && !dirRule;
+  let pts=0;
+  if(saysThird) pts+=0.35;
+  if(dirRule) pts+=0.4;
+  if(sameWhole) pts+=0.25;
+  if(numeralOnly) pts=Math.max(0,pts-0.25);
+  pts=Math.round(Math.min(1,pts)*100)/100;
+  let feedback, spoken;
+  if(pts>=0.85){ feedback="Full credit: names 1/3, uses part size, and states the same-size-whole condition."; spoken="Perfect rule! Same size wholes, fewer equal parts, bigger pieces. The beacon lights!"; }
+  else if(pts>=0.5){ feedback="Partial-to-strong credit: the direction of your rule is right. Remember to say the wholes are the same size."; spoken="Good rule — your direction is right. Say the wholes are the same size and it's airtight. Beacon lit!"; }
+  else if(numeralOnly){ feedback="Careful: this decides by the bottom number, not by the size of one part."; spoken="Careful — that decides by the bottom number. The real rule is about the size of one part."; }
+  else { feedback="The rule needs the part-size idea: more equal parts in the same whole makes each part smaller."; spoken="The rule is about part size: more equal parts in the same whole makes each part smaller."; }
+  return {score:pts, feedback, spoken};
+}
+
+/* ============ Finale ============ */
+function finale(){
+  M["node.N3B.completed"]=true;
+  const items=[M["node.N3B.item.N3B-I1.correct"]?1:0, M["node.N3B.item.N3B-I2.correct"]?1:0,
+               M["node.N3B.shadingItemExactlyOneSector"]?1:0, (M["node.N3B.item.N3B-I4.rubricScore"]>=0.5?1:0)];
+  M["node.N3B.itemAccuracy"]=Math.round(items.reduce((a,b)=>a+b,0)/4*100)/100;
+  log();
+  const fin=document.getElementById('finale'); fin.style.display="block";
+  clearBeat();
+  say("Beacon sweep, Captain!");
+  const tl=gsap.timeline();
+  // Stage 1 beacon sweep + chime arpeggio across lit lanterns
+  tl.to("#beam",{opacity:1,duration:.4});
+  tl.fromTo("#beam",{backgroundPositionX:"-600px"},{backgroundPositionX:"900px",duration:2.2,ease:"none"},"<");
+  tl.add(()=>{ for(let i=0;i<lanternsLit;i++) sfxChime(i); },"<0.3");
+  tl.to("#beam",{opacity:0,duration:.6});
+  // Stage 2 compass spin
+  tl.add(()=>{
+    tone(300,1.4,"sawtooth",.1);
+    const spins = lanternsLit===4?1440:360+lanternsLit*180;
+    gsap.to("#needle",{rotation:spins,duration:lanternsLit===4?2.2:2.6,ease:lanternsLit===4?"power2.out":"elastic.out(1,0.35)",transformOrigin:"50px 50px"});
+    gsap.to("#compass",{scale:1.5,x:120,y:-40,duration:1,transformOrigin:"50% 50%"});
+    if(lanternsLit===4 && window.confetti){
+      confetti({particleCount:160,spread:100,origin:{x:.45,y:.8},colors:["#ff6f52","#ffd98a","#6fe3ff","#fff"]});
+    }
+  });
+  tl.to({},{duration:2.4});
+  // Stage 3 chain snap
+  tl.add(()=>{
+    tone(160,.25,"square",.25); tone(90,.5,"sawtooth",.2,.05);
+    gsap.to("#padlock",{y:120,rotate:70,opacity:0,duration:.9,ease:"power2.in"});
+    const sign=document.createElement('div');
+    sign.textContent="🦀 “1/4 is BIGGER” 🚫";
+    sign.style.cssText="position:absolute;left:120px;bottom:210px;z-index:85;font-size:22px;background:#fff;color:#a02b12;padding:8px 12px;border:4px solid #a02b12;border-radius:8px;transform:rotate(-8deg)";
+    stage.appendChild(sign);
+    gsap.to(sign,{x:-160,y:280,rotate:-140,opacity:0,duration:1.3,ease:"power1.in",onComplete:()=>sign.remove()});
+    say(lanternsLit===4?"All four lanterns lit! The chain SNAPS. Harbor Law is yours, Captain Reina!":
+        "The chain snaps! "+lanternsLit+" of 4 lanterns lit — Gully gave the needle a shove.");
+  });
+  tl.to({},{duration:1.6});
+  tl.add(showCard);
+}
+function showCard(){
+  const c=document.getElementById('finaleCard'); c.style.display="block";
+  const stars="★".repeat(lanternsLit)+"☆".repeat(4-lanternsLit);
+  c.innerHTML=`<h1>Harbor Law: Fair Shares</h1>
+    <div class="starRow" style="color:#ffd98a">${stars}</div>
+    <div style="font-size:22px;margin-top:8px">Round rail: <b>4 / 4 finished</b> — you completed the trial.</div>
+    <div style="font-size:22px">Lantern mast: <b>${lanternsLit} / 4 lit</b> — that part was earned by right answers only.</div>
+    <div style="font-size:20px;margin-top:10px;opacity:.9">Rule of the harbor: same-size wholes — <b>fewer equal parts, bigger pieces.</b></div>
+    <div style="margin-top:14px;font-size:20px">How was that, Captain?</div>
+    <div id="ratingRow">${[1,2,3,4,5].map(i=>`<button class="rateBtn" data-r="${i}">⭐</button>`).join('')}</div>
+    <div class="rowbtns" style="justify-content:center;margin-top:14px">
+      <button class="bigbtn" id="again">🥽 Replay — light the mast in GOLD</button>
+    </div>`;
+  gsap.fromTo(c,{scale:.7,opacity:0},{scale:1,opacity:1,duration:.5,ease:"back.out(1.6)"});
+  c.querySelectorAll('.rateBtn').forEach(b=>b.onclick=()=>{
+    const r=+b.dataset.r; M["node.N3B.childRating"]=r;
+    c.querySelectorAll('.rateBtn').forEach(x=>x.classList.toggle('on',+x.dataset.r<=r));
+    sfxChime(2); log();
+  });
+  document.getElementById('again').onclick=()=>{ M["node.N3B.replayRequested"]++; log(); replay(); };
+}
+
+/* ============ Flow ============ */
+let replayMode=false;
+const BEAT1={itemId:"N3B-I1",round:1,lantern:1,shape:"rect",
+  right:{parts:3,tag:"1/3",correct:true,label:"1/3"},wrong:{parts:4,tag:"1/4",correct:false,label:"1/4"},
+  spoken:"Quick round. Two rectangles are exactly the same size. One shows one of three equal parts shaded. The other shows one of four equal parts shaded. Tap the crate with the larger shaded part."};
+const BEAT2={itemId:"N3B-I2",round:2,lantern:2,shape:"circle",
+  right:{parts:2,tag:"1/2",correct:true,label:"1/2"},wrong:{parts:4,tag:"1/4",correct:false,label:"1/4"},
+  spoken:"Quick round. Two circles are exactly the same size. One shows one of two equal parts shaded. The other shows one of four equal parts shaded. Tap the crate with the larger shaded part."};
+
+function runFlow(){
+  const b1 = replayMode ? Object.assign({},BEAT1,{shape:"circle",swap:true}) : BEAT1;
+  const b2 = replayMode ? Object.assign({},BEAT2,{shape:"rect",swap:true}) : BEAT2;
+  comparisonBeat(b1, ()=>{
+    if(M["node.N3B.item.N3B-I1.correct"]===false && !ghostUsed){
+      enableGhost(true);
+      gsap.fromTo(btnGhost,{scale:1},{scale:1.25,duration:.35,yoyo:true,repeat:3});
+      say("Want the ghost check? Tap the ghost — or just look and pick.");
+    }
+    setTimeout(()=>comparisonBeat(b2, ()=>{
+      setTimeout(()=>{
+        say("Whistle drops. Compass slice time.");
+        setTimeout(()=>shadingBeat(()=>{
+          gsap.to("#beatArea",{opacity:.6,duration:.6,yoyo:true,repeat:1});
+          say("Quiet now. Walk to the lighthouse door.");
+          setTimeout(()=>explainBeat(finale),2000);
+        }),900);
+      },400);
+    }),300);
+  });
+}
+function start(){
+  startedAt=Date.now();
+  M["node.N3B.started"]=true; log();
+  gullyIdle();
+  say("Out-eye the gull, Captain — every right pick lights a lantern and burns the fog.");
+  tickRail(0);
+  setTimeout(()=>{
+    M["node.N3B.replayRequested"]++; // demonstration play counted per design (whistle-logged)
+    playDemo(()=>{ setTimeout(runFlow,300); });
+  },3400);
+}
+function replay(){
+  replayMode=true;
+  lanternsLit=0; roundsDone=0; ghostUsed=false; fastFlag=false; firstActionLogged=false;
+  ["node.N3B.item.N3B-I1.correct","node.N3B.item.N3B-I2.correct","node.N3B.shadingItemExactlyOneSector",
+   "node.N3B.item.N3B-I4.rubricScore","node.N3B.itemAccuracy"].forEach(k=>M[k]=null);
+  M["node.N3B.perRoundLatencyMs"]=[];
+  document.querySelectorAll('.lantern').forEach(l=>{l.classList.remove('lit','ghost');});
+  document.getElementById('mastCount').textContent="0 / 4 lit";
+  document.getElementById('finale').style.display="none";
+  document.getElementById('finaleCard').style.display="none";
+  document.querySelectorAll('.fogband').forEach((f,i)=>gsap.set(f,{opacity:i<2?0:.6,y:0}));
+  gsap.set("#compass",{opacity:.75,scale:1,x:0,y:0}); gsap.set("#padlock",{y:0,rotate:0,opacity:1});
+  gsap.set("#beatArea",{opacity:1});
+  stage.className="b2";
+  document.getElementById('gully').insertAdjacentHTML('beforeend',
+    '<g id="goggles"><rect x="82" y="32" width="26" height="10" rx="4" fill="#3a6fa8" opacity=".85"/></g>');
+  tickRail(0);
+  say("Returning champion! Fog is already half gone. Light the mast in gold.");
+  setTimeout(runFlow,1600);
+}
+
+document.getElementById('btnWhistle').onclick=()=>{
+  M["node.N3B.replayRequested"]++; log();
+  playDemo(()=>{});
+};
+document.getElementById('openBtn').onclick=()=>{
+  ac(); document.getElementById('openBtn').classList.add('hidden');
+  document.getElementById('opening').style.display="none";
+  start();
+};
+window.addEventListener('beforeunload',()=>{ if(!M["node.N3B.completed"]){M["node.N3B.abandoned"]=true; log();} });
+/* pre-show fog drift */
+document.querySelectorAll('.fogband').forEach((f,i)=>{
+  gsap.set(f,{opacity:.72});
+  gsap.to(f,{x:i%2?60:-60,duration:8+i*2,yoyo:true,repeat:-1,ease:"sine.inOut"});
+});
+gsap.set("#gully",{left:200,top:60});
+gsap.to("#gully",{left:900,duration:6,yoyo:true,repeat:-1,ease:"sine.inOut"});
+enableGhost(false);
+say("Tap to begin.");
+</script>
+</body>
+</html>

@@ -1,0 +1,88 @@
+{
+  "candidateId": "scenario-3-profile-and-spelling",
+  "screenshots": [
+    "/Users/jamaltaylor/Development/sunny-math-creative-sandbox/outputs/math-creative-sandbox/2026-07-27T04-08-08-409Z-reevaluation-reina/scenario-3-profile-and-spelling/00-opening.png",
+    "/Users/jamaltaylor/Development/sunny-math-creative-sandbox/outputs/math-creative-sandbox/2026-07-27T04-08-08-409Z-reevaluation-reina/scenario-3-profile-and-spelling/01-first-action.png",
+    "/Users/jamaltaylor/Development/sunny-math-creative-sandbox/outputs/math-creative-sandbox/2026-07-27T04-08-08-409Z-reevaluation-reina/scenario-3-profile-and-spelling/02-progress.png",
+    "/Users/jamaltaylor/Development/sunny-math-creative-sandbox/outputs/math-creative-sandbox/2026-07-27T04-08-08-409Z-reevaluation-reina/scenario-3-profile-and-spelling/03-incorrect-recovery.png",
+    "/Users/jamaltaylor/Development/sunny-math-creative-sandbox/outputs/math-creative-sandbox/2026-07-27T04-08-08-409Z-reevaluation-reina/scenario-3-profile-and-spelling/04-incorrect-recovery.png",
+    "/Users/jamaltaylor/Development/sunny-math-creative-sandbox/outputs/math-creative-sandbox/2026-07-27T04-08-08-409Z-reevaluation-reina/scenario-3-profile-and-spelling/05-incorrect-recovery.png",
+    "/Users/jamaltaylor/Development/sunny-math-creative-sandbox/outputs/math-creative-sandbox/2026-07-27T04-08-08-409Z-reevaluation-reina/scenario-3-profile-and-spelling/06-incorrect-recovery.png",
+    "/Users/jamaltaylor/Development/sunny-math-creative-sandbox/outputs/math-creative-sandbox/2026-07-27T04-08-08-409Z-reevaluation-reina/scenario-3-profile-and-spelling/07-incorrect-recovery.png",
+    "/Users/jamaltaylor/Development/sunny-math-creative-sandbox/outputs/math-creative-sandbox/2026-07-27T04-08-08-409Z-reevaluation-reina/scenario-3-profile-and-spelling/08-incorrect-recovery.png"
+  ],
+  "actions": [
+    {
+      "kind": "click_text",
+      "text": "Start Training 🥋",
+      "captureLabel": "first-action",
+      "reason": "Begin the training sequence to see the first interactive lesson screen.",
+      "ok": true
+    },
+    {
+      "kind": "click_text",
+      "text": "Team of 5",
+      "captureLabel": "progress",
+      "reason": "Select team size of 5 to begin adding teams to the mat, testing the interactive equal-groups mechanic.",
+      "ok": true
+    },
+    {
+      "kind": "fill",
+      "captureLabel": "incorrect-recovery",
+      "reason": "Enter an incorrect answer to the word problem to see how the game responds to mistakes before testing the correct answer.",
+      "x": 623,
+      "y": 729,
+      "value": "25",
+      "ok": false,
+      "error": "fill_missing_target"
+    },
+    {
+      "kind": "fill",
+      "captureLabel": "incorrect-recovery",
+      "reason": "Enter an incorrect answer (25) to the word problem 'There are 5 training mats, and 6 wrestlers practice on each mat' (correct answer is 30) to see how the game responds to mistakes before testing the correct answer.",
+      "x": 623,
+      "y": 729,
+      "value": "25",
+      "ok": false,
+      "error": "fill_missing_target"
+    },
+    {
+      "kind": "click_at",
+      "captureLabel": "incorrect-recovery",
+      "reason": "Click directly on the input field to focus it before typing an incorrect answer, since previous fill attempts failed to locate the target.",
+      "x": 623,
+      "y": 729,
+      "ok": true
+    },
+    {
+      "kind": "fill",
+      "captureLabel": "incorrect-recovery",
+      "reason": "Fill the now-focused input field with an incorrect answer (25) to test how the game responds to mistakes before trying the correct answer.",
+      "x": 623,
+      "y": 729,
+      "value": "25",
+      "ok": false,
+      "error": "fill_missing_target"
+    },
+    {
+      "kind": "click_at",
+      "x": 623,
+      "y": 729,
+      "captureLabel": "incorrect-recovery",
+      "reason": "Click the input field at its exact coordinates to focus it before typing, since the underlying element may be rendered on a canvas requiring a direct click to activate text entry.",
+      "ok": true
+    },
+    {
+      "kind": "fill",
+      "captureLabel": "incorrect-recovery",
+      "reason": "Now that the input field appears focused after direct click, attempt to fill it with an incorrect answer (25) to observe the game's error/incorrect feedback behavior.",
+      "x": 623,
+      "y": 729,
+      "value": "25",
+      "ok": false,
+      "error": "fill_missing_target"
+    }
+  ],
+  "visibleText": "⭐ 0\nRound 1: Equal Groups\n\nWrestling teams train in equal groups. Tap a team size, then add teams to the mat!\n\nTeam of 2\nTeam of 3\nTeam of 4\nTeam of 5\n🤼\n🤼\n🤼\n🤼\n🤼\n1 × 5 = 5 (skip count: 5)\nUndo\nClear Mat\nChallenge 1 of 3\n\nThere are 5 training mats, and 6 wrestlers practice on each mat. How many wrestlers total?\n\nCheck\nLet's build some muscle memory... math muscle! 💪",
+  "consoleMessages": []
+}
