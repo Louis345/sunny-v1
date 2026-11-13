@@ -36,8 +36,12 @@ export async function requestPlannerMessage(
   const started = Date.now();
   console.log(` 🎮 [planner-transport] [request] [requested] model=${params.model} streaming=${policy.streaming} timeout_ms=${policy.timeout} max_tokens=${policy.maxTokens} request_chars=${JSON.stringify(request).length}`);
   try {
-    const message = await (policy.streaming ? client.messages.stream(request, requestOptions).finalMessage() : client.messages.create(request, requestOptions));
-    console.log(` 🎮 [planner-transport] [request] [received] id=${message.id} elapsed_ms=${Date.now()-started} stop=${message.stop_reason} input_tokens=${message.usage?.input_tokens} output_tokens=${message.usage?.output_tokens}`);
+    // How long the provider took before its first stream event, apart from writing the answer (issue #56).
+    let firstEventMs: number | undefined;
+    const stream = policy.streaming ? client.messages.stream(request, requestOptions) : undefined;
+    stream?.on?.('streamEvent', () => { firstEventMs ??= Date.now() - started; });
+    const message = await (stream ? stream.finalMessage() : client.messages.create(request, requestOptions));
+    console.log(` 🎮 [planner-transport] [request] [received] id=${message.id} elapsed_ms=${Date.now()-started}${firstEventMs === undefined ? '' : ` first_event_ms=${firstEventMs}`} stop=${message.stop_reason} input_tokens=${message.usage?.input_tokens} output_tokens=${message.usage?.output_tokens}`);
     return message;
   } catch (error) {
     console.error(` 🎮 [planner-transport] [request] [failed] elapsed_ms=${Date.now()-started} error=${error instanceof Error ? error.message : String(error)}`);
@@ -190,4 +194,12 @@ export function strictBudget(tools: Array<{ input_schema: unknown; strict?: bool
   };
   for (const tool of tools) if (tool.strict !== false) walk(tool.input_schema, '$');
   return { optional, unions, unsupported };
+}
+/** A pick-list too long for the strict grammar lists its values in its description after this label (2026-11-10). */
+export const VALID_VALUES = 'Valid values:';
+/** The values a pick-list field offers: its enum, or the values its description lists. Fixtures read offers with it. */
+export function offeredValues(field: { enum?: unknown; description?: unknown } | undefined): string[] | undefined {
+  if (Array.isArray(field?.enum)) return field.enum as string[];
+  const at = typeof field?.description === 'string' ? field.description.lastIndexOf(VALID_VALUES) : -1;
+  return at < 0 ? undefined : JSON.parse((field!.description as string).slice(at + VALID_VALUES.length)) as string[];
 }

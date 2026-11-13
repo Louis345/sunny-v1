@@ -8,8 +8,15 @@ import {
   markVideoCallTicketOpened,
   createStarterCompanionCarePlan,
   getCompanionReadiness,
+  grantNodeChest,
+  nodeChestKind,
+  purchaseWithCoins,
+  spendCallMinute,
+  spendArcadeMinute,
 } from "./companionCareEngine";
 import type { CompanionCarePlan } from "../shared/companionCareTypes";
+import { REWARD_GAMES } from "../shared/gameRegistry.generated";
+import { ARCADE_RULES, CALL_RULES, CHEST_TABLE, PRICE_LIST, REWARD_CATALOG } from "../shared/rewardCatalog";
 
 function plan(overrides: Partial<CompanionCarePlan["state"]> = {}): CompanionCarePlan {
   return {
@@ -222,5 +229,263 @@ describe("companionCareEngine", () => {
     expect(replay.awarded).toBe(false);
     expect(replay.amount).toBe(21);
     expect(replay.plan.economy.coins).toBe(121);
+  });
+});
+
+// Owner, 2026-11-06: a treasure chest after every finished node. Its colour shows the rarity; it is rolled
+// once, saved, and pays coins plus a chance of bonus call minutes, with a pity counter raising that chance.
+describe("node treasure chests", () => {
+  const plan = () => createStarterCompanionCarePlan({ childId: "demo-pashley", companionId: "elli" });
+  const at = "2026-11-06T20:00:00.000Z";
+
+  it("picks the chest from the node: practice wooden, check rare, Quest epic, Mystery mystery", () => {
+    expect(nodeChestKind({ role: "baseline" })).toBe("common");
+    expect(nodeChestKind({ role: "evaluation" })).toBe("rare");
+    expect(nodeChestKind({ role: "quest" })).toBe("epic");
+    expect(nodeChestKind({ role: "mystery" })).toBe("mystery");
+  });
+
+  it("pays coins once, saves the chest, and shows the same chest again", () => {
+    // Rolls: rarity 0.1 (stays common), coins 0 (low end of the range), bonus 0.99 (no bonus).
+    const noBonus = [0.1, 0, 0.99];
+    const first = grantNodeChest(plan(), { homeworkId: "hw", nodeId: "n1", kind: "common", nowIso: at, roll: () => noBonus.shift() ?? 0.99 });
+    expect(first.granted).toBe(true);
+    expect(first.chest).toMatchObject({ kind: "common", rarity: "common", coins: CHEST_TABLE.common.coinRange[0], bonusChance: CHEST_TABLE.common.bonusChance });
+    expect(first.chest.bonus).toBeUndefined();
+    expect(first.plan.economy.coins).toBe(plan().economy.coins + CHEST_TABLE.common.coinRange[0]);
+    const again = grantNodeChest(first.plan, { homeworkId: "hw", nodeId: "n1", kind: "common", nowIso: at, roll: () => 0 });
+    expect(again.granted).toBe(false);
+    expect(again.chest).toEqual(first.chest);
+    expect(again.plan.economy.coins).toBe(first.plan.economy.coins);
+  });
+
+  it("drops an item on a lucky roll, and the pity counter raises the chance after each chest without one", () => {
+    let current = plan();
+    const miss = () => { const values = [0.1, 0, 0.99]; return () => values.shift() ?? 0.99; };
+    current = grantNodeChest(current, { homeworkId: "hw", nodeId: "a", kind: "common", nowIso: at, roll: miss() }).plan;
+    const second = grantNodeChest(current, { homeworkId: "hw", nodeId: "b", kind: "common", nowIso: at, roll: miss() });
+    // The pity counter adds 0.1 per chest without a bonus.
+    expect(second.chest.bonusChance).toBeCloseTo(CHEST_TABLE.common.bonusChance + 0.1);
+    // A lucky roll (0.25, under the chance), then 0 picks an item, then the first eligible item, then call time.
+    const luckyRolls = [0.1, 0, 0.25, 0, 0, 0];
+    const lucky = grantNodeChest(second.plan, { homeworkId: "hw", nodeId: "c", kind: "common", nowIso: at, roll: () => luckyRolls.shift()! });
+    expect(lucky.chest.bonusChance).toBeCloseTo(CHEST_TABLE.common.bonusChance + 0.2);
+    expect(lucky.chest.bonus).toMatchObject({ kind: "item" });
+    expect(lucky.plan.economy.chestsSinceBonus).toBe(0);
+  });
+
+  it("rolls a mystery chest's rarity and pays that rarity's chest", () => {
+    const rolls = [0.9, 0, 0.99];
+    const mystery = grantNodeChest(plan(), { homeworkId: "hw", nodeId: "m", kind: "mystery", nowIso: at, roll: () => rolls.shift()! });
+    expect(mystery.chest).toMatchObject({ kind: "mystery", rarity: "epic", coins: CHEST_TABLE.epic.coinRange[0] });
+  });
+});
+
+// Owner, 2026-11-07: a chest's bonus can be something from her collection; it goes into her inventory.
+describe("chests drop collection items", () => {
+  const plan = () => createStarterCompanionCarePlan({ childId: "demo-pashley", companionId: "elli" });
+  const at = "2026-11-07T20:00:00.000Z";
+  const rolls = (...values: number[]) => () => values.shift() ?? 0;
+
+  it("drops an item she does not own into her inventory when the bonus is an item", () => {
+    // bonus roll 0 (lucky), item-or-minutes roll 0 (item), pick roll 0 (first eligible item)
+    const opened = grantNodeChest(plan(), { homeworkId: "hw", nodeId: "n1", kind: "rare", nowIso: at, roll: rolls(0, 0, 0) });
+    expect(opened.chest.bonus).toMatchObject({ kind: "item" });
+    const itemId = (opened.chest.bonus as { itemId: string }).itemId;
+    expect(opened.plan.inventory.rewards).toEqual([itemId]);
+    expect(opened.plan.economy.callMinutes ?? 0).toBe(0);
+  });
+
+  it("never drops something she owns, and drops no bonus once a chest has nothing left to find", () => {
+    let current = plan();
+    for (let i = 0; i < 40; i += 1) current = grantNodeChest(current, { homeworkId: "hw", nodeId: `n${i}`, kind: "common", nowIso: at, roll: rolls(0, 0, 0) }).plan;
+    const owned = current.inventory.rewards ?? [];
+    expect(new Set(owned).size).toBe(owned.length);
+    const last = grantNodeChest(current, { homeworkId: "hw", nodeId: "last", kind: "common", nowIso: at, roll: rolls(0, 0, 0) });
+    expect(last.chest.bonus).toBeUndefined();
+    expect(last.chest.callSeconds).toBeGreaterThan(0);
+  });
+});
+
+// Owner, 2026-11-07: coins must mean something. Buying refuses when she is short, never goes below zero,
+// and a double tap pays once.
+describe("spending coins", () => {
+  const at = "2026-11-07T21:00:00.000Z";
+  const rich = (coins: number) => { const plan = createStarterCompanionCarePlan({ childId: "demo-pashley", companionId: "elli" }); return { ...plan, economy: { ...plan.economy, coins } }; };
+
+  it("buys call minutes, takes the price, and keeps a receipt", () => {
+    const bought = purchaseWithCoins(rich(100), { receiptId: "r1", offer: { kind: "call_minutes", minutes: 5 }, nowIso: at });
+    expect(bought).toMatchObject({ ok: true, price: PRICE_LIST.callMinutes5 });
+    if (!bought.ok) throw Error("expected purchase");
+    expect(bought.plan.economy.coins).toBe(100 - PRICE_LIST.callMinutes5);
+    expect(bought.plan.economy.callSeconds).toBe(300);
+    expect(bought.plan.economy.coinPurchases?.map(row => row.receiptId)).toEqual(["r1"]);
+  });
+
+  it("refuses when she is short and says how short", () => {
+    const short = purchaseWithCoins(rich(10), { receiptId: "r1", offer: { kind: "game_play", itemId: "game:asteroid", trial: true }, nowIso: at });
+    expect(short).toEqual({ ok: false, reason: "not_enough_coins", price: PRICE_LIST.gamePlay, balance: 10 });
+  });
+
+  it("pays once for a double tap", () => {
+    const first = purchaseWithCoins(rich(100), { receiptId: "r1", offer: { kind: "call_minutes", minutes: 5 }, nowIso: at });
+    if (!first.ok) throw Error("expected purchase");
+    const again = purchaseWithCoins(first.plan, { receiptId: "r1", offer: { kind: "call_minutes", minutes: 5 }, nowIso: at });
+    expect(again).toMatchObject({ ok: true, duplicate: true });
+    if (!again.ok) throw Error("expected purchase");
+    expect(again.plan.economy.coins).toBe(first.plan.economy.coins);
+  });
+
+  it("plays only games she has unlocked, unless it is a trial offer", () => {
+    expect(purchaseWithCoins(rich(100), { receiptId: "r1", offer: { kind: "game_play", itemId: "game:asteroid" }, nowIso: at })).toMatchObject({ ok: false, reason: "not_owned" });
+    expect(purchaseWithCoins(rich(100), { receiptId: "r2", offer: { kind: "game_play", itemId: "game:asteroid", trial: true }, nowIso: at })).toMatchObject({ ok: true });
+  });
+
+  it("buys an outfit into her collection at its catalog price, once", () => {
+    const crown = REWARD_CATALOG.find(item => item.id === "outfit:royal-crown")!;
+    const bought = purchaseWithCoins(rich(100), { receiptId: "r1", offer: { kind: "outfit", itemId: crown.id }, nowIso: at });
+    if (!bought.ok) throw Error("expected purchase");
+    expect(bought.price).toBe(crown.price);
+    expect(bought.plan.inventory.rewards).toEqual([crown.id]);
+    expect(purchaseWithCoins(bought.plan, { receiptId: "r2", offer: { kind: "outfit", itemId: crown.id }, nowIso: at })).toMatchObject({ ok: false, reason: "already_owned" });
+  });
+});
+
+// Owner, 2026-11-07: the call is earned at the end of a board and burns time; when time runs out she
+// spends coins for more, so she wants to come back and earn again. The server owns the clock.
+describe("call clock", () => {
+  const at = "2026-11-07T22:00:00.000Z";
+  const earned = () => grantVideoCallTicket(createStarterCompanionCarePlan({ childId: "demo-pashley", companionId: "elli" }), "hw-1", at).plan;
+
+  it("opening an earned call marks the ticket once and adds no free minutes", () => {
+    const opened = markVideoCallTicketOpened(earned(), "hw-1", at);
+    expect(opened.alreadyOpened).toBe(false);
+    expect(opened.plan.economy.callSeconds ?? 0).toBe(0);
+    const again = markVideoCallTicketOpened(opened.plan, "hw-1", at);
+    expect(again.alreadyOpened).toBe(true);
+  });
+
+  it("spends one minute per receipt, once, and stops at zero", () => {
+    const start = { ...earned(), economy: { ...earned().economy, callSeconds: 120 } };
+    const first = spendCallMinute(start, { receiptId: "m1", nowIso: at });
+    expect(first).toMatchObject({ ok: true, minutesLeft: 1, duplicate: false });
+    if (!first.ok) throw Error("expected a minute");
+    expect(spendCallMinute(first.plan, { receiptId: "m1", nowIso: at })).toMatchObject({ ok: true, minutesLeft: 1, duplicate: true });
+    const second = spendCallMinute(first.plan, { receiptId: "m2", nowIso: at });
+    if (!second.ok) throw Error("expected a minute");
+    expect(second.minutesLeft).toBe(0);
+    expect(spendCallMinute(second.plan, { receiptId: "m3", nowIso: at })).toEqual({ ok: false, reason: "no_minutes" });
+  });
+});
+
+// Owner, 2026-11-07, after Ila's session: every chest is a surprise. Each chest rolls its rarity (a stop's kind is
+// only the floor) and its coins within that rarity's range, so no two openings feel the same. Rewards never pick
+// a learning step; they only follow one.
+describe("variable chests", () => {
+  const at2 = "2026-11-08T12:00:00.000Z";
+  const grant = (kind: "common" | "rare" | "epic" | "legendary", values: number[]) =>
+    grantNodeChest(plan(), { homeworkId: "hw", nodeId: `n-${values.join("-")}`, kind, nowIso: at2, roll: () => values.shift() ?? 0.99 }).chest;
+
+  it("rolls a practice chest's rarity from the odds table, with coins inside that rarity's range", () => {
+    expect(grant("common", [0.1, 0, 0.99]).rarity).toBe("common");
+    expect(grant("common", [0.8, 0, 0.99]).rarity).toBe("rare");
+    expect(grant("common", [0.95, 0, 0.99]).rarity).toBe("epic");
+    expect(grant("common", [0.999, 0, 0.99]).rarity).toBe("legendary");
+    for (const rarity of ["common", "rare", "epic", "legendary"] as const) {
+      const [min, max] = CHEST_TABLE[rarity].coinRange;
+      expect(min).toBeLessThan(max);
+    }
+    const low = grant("common", [0.1, 0, 0.99]);
+    const high = grant("common", [0.1, 0.9999, 0.99]);
+    expect(low.coins).toBe(CHEST_TABLE.common.coinRange[0]);
+    expect(high.coins).toBe(CHEST_TABLE.common.coinRange[1]);
+  });
+
+  it("never rolls below a stop's floor", () => {
+    expect(grant("rare", [0.1, 0, 0.99]).rarity).toBe("rare");
+    expect(grant("epic", [0.1, 0, 0.99]).rarity).toBe("epic");
+    expect(grant("epic", [0.999, 0, 0.99]).rarity).toBe("legendary");
+  });
+
+  it("keeps a practice chest worth about the same on average", () => {
+    let total = 0;
+    let seed = 7;
+    const random = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
+    for (let i = 0; i < 4000; i += 1) {
+      total += grantNodeChest(plan(), { homeworkId: "hw", nodeId: `avg-${i}`, kind: "common", nowIso: at2, roll: random }).chest.coins;
+    }
+    expect(total / 4000).toBeGreaterThan(9);
+    expect(total / 4000).toBeLessThan(15);
+  });
+});
+
+// Owner, 2026-11-07: "at the end of the board they can use FaceTime." Every completed board earns a call, not only
+// the first board of a list; opening a call uses the newest unopened ticket and adds its free minutes.
+describe("a call after every completed board", () => {
+  const at3 = "2026-11-08T13:00:00.000Z";
+  it("grants one ticket per board, never twice for the same board", () => {
+    let current = createStarterCompanionCarePlan({ childId: "demo-pashley", companionId: "elli" });
+    current = grantVideoCallTicket(current, "hw-1", at3, undefined, "hw-1:board:2").plan;
+    const again = grantVideoCallTicket(current, "hw-1", at3, undefined, "hw-1:board:2");
+    expect(again.granted).toBe(false);
+    const next = grantVideoCallTicket(again.plan, "hw-1", at3, undefined, "hw-1:board:3");
+    expect(next.granted).toBe(true);
+    expect(next.plan.economy.videoCallTickets?.map(ticket => ticket.boardId)).toEqual(["hw-1:board:2", "hw-1:board:3"]);
+  });
+
+  it("opens each board's call once, and the call time is only what her chests earned", () => {
+    let current = createStarterCompanionCarePlan({ childId: "demo-pashley", companionId: "elli" });
+    current = grantVideoCallTicket(current, "hw-1", at3, undefined, "hw-1:board:2").plan;
+    current = markVideoCallTicketOpened(current, "hw-1", at3).plan;
+    expect(current.economy.callSeconds ?? 0).toBe(0);
+    current = grantVideoCallTicket(current, "hw-1", at3, undefined, "hw-1:board:3").plan;
+    const second = markVideoCallTicketOpened(current, "hw-1", at3);
+    expect(second.alreadyOpened).toBe(false);
+    expect(second.plan.economy.callSeconds ?? 0).toBe(0);
+    expect(markVideoCallTicketOpened(second.plan, "hw-1", at3).alreadyOpened).toBe(true);
+  });
+});
+
+// Owner, 2026-11-08: reward games are timed and cost coins; 25 coins buys 3 minutes, on the call clock's meter.
+describe("arcade clock", () => {
+  const at = "2026-11-08T22:00:00.000Z";
+  const rich = () => {
+    const plan = createStarterCompanionCarePlan({ childId: "demo-pashley", companionId: "elli" });
+    return { ...plan, economy: { ...plan.economy, coins: 100 }, inventory: { ...plan.inventory, rewards: ["game:asteroid"] } };
+  };
+
+  it("a game play costs the play price and adds arcade minutes, not call minutes", () => {
+    const bought = purchaseWithCoins(rich(), { receiptId: "p1", offer: { kind: "game_play", itemId: "game:asteroid" }, nowIso: at });
+    if (!bought.ok) throw Error("expected a purchase");
+    expect(bought.plan.economy.coins).toBe(100 - PRICE_LIST.gamePlay);
+    expect(bought.plan.economy.arcadeMinutes).toBe(ARCADE_RULES.minutesPerPlay);
+    expect(bought.plan.economy.callMinutes ?? 0).toBe(0);
+    const trial = purchaseWithCoins(rich(), { receiptId: "p2", offer: { kind: "game_play", itemId: "game:space-invaders", trial: true }, nowIso: at });
+    expect(trial.ok).toBe(true);
+  });
+
+  it("any registered reward game can be played for coins, even one outside the collection; teaching games never", () => {
+    REWARD_GAMES["test-reward-game"] = { url: "/games/test.html" } as (typeof REWARD_GAMES)[string];
+    try {
+      const outside = purchaseWithCoins(rich(), { receiptId: "p3", offer: { kind: "game_play", itemId: "game:test-reward-game", trial: true }, nowIso: at });
+      expect(outside.ok && outside.plan.economy.arcadeMinutes).toBe(ARCADE_RULES.minutesPerPlay);
+    } finally {
+      delete REWARD_GAMES["test-reward-game"];
+    }
+    expect(purchaseWithCoins(rich(), { receiptId: "p4", offer: { kind: "game_play", itemId: "game:word-builder", trial: true }, nowIso: at })).toMatchObject({ ok: false, reason: "unknown_offer" });
+  });
+
+  it("spends one arcade minute per receipt, once, stops at zero, and leaves call minutes alone", () => {
+    const start = { ...rich(), economy: { ...rich().economy, arcadeMinutes: 2, callMinutes: 4 } };
+    const first = spendArcadeMinute(start, { receiptId: "a1", nowIso: at });
+    if (!first.ok) throw Error("expected a minute");
+    expect(first.minutesLeft).toBe(1);
+    expect(first.plan.economy.callMinutes).toBe(4);
+    expect(spendArcadeMinute(first.plan, { receiptId: "a1", nowIso: at })).toMatchObject({ ok: true, minutesLeft: 1, duplicate: true });
+    const second = spendArcadeMinute(first.plan, { receiptId: "a2", nowIso: at });
+    if (!second.ok) throw Error("expected a minute");
+    expect(spendArcadeMinute(second.plan, { receiptId: "a3", nowIso: at })).toEqual({ ok: false, reason: "no_minutes" });
+    const call = spendCallMinute(second.plan, { receiptId: "c1", nowIso: at });
+    expect(call.ok && call.plan.economy.arcadeMinutes).toBe(0);
   });
 });

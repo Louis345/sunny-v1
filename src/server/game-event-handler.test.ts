@@ -171,6 +171,19 @@ describe("game event handler companion events", () => {
     );
   });
 
+  // Seen in Reina's first math session (2026-11-08): each answer logged "Attempt correct must be boolean". A built
+  // math game reports her answer without right/wrong; code scores it when the stop completes.
+  it("passes an answer with no right/wrong to completion scoring instead of the old attempt log", () => {
+    delete process.env.SUNNY_MODE;
+    vi.mocked(recordLearningAttempt).mockClear();
+    const fakeSession = { childName: "Reina", chartChildId: "reina", recordDebugEvent: vi.fn(), recordGameTrace: vi.fn(), noteExternalEvent: vi.fn() };
+    expect(() => handleGameEventForSession(fakeSession, {
+      type: "attempt_event", game: "generated-game", activityId: "stop-1", domain: "math", childId: "reina", target: "p1", attemptedValue: "odd",
+    })).not.toThrow();
+    expect(recordLearningAttempt).not.toHaveBeenCalled();
+    expect(fakeSession.recordGameTrace).toHaveBeenCalledWith(expect.objectContaining({ type: "attempt_event", target: "p1" }));
+  });
+
   it("keeps preview attempt events diagnostic-only and out of the child fact bank", () => {
     process.env.SUNNY_MODE = "as-child";
     vi.mocked(recordLearningAttempt).mockClear();

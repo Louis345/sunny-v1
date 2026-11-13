@@ -1,10 +1,11 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef, type ReactNode } from "react";
 import { motion } from "framer-motion";
 import {
   normalizeCompanionConfig,
   type CompanionThemeConfig,
   type CompanionThemeResponse,
 } from "../../../src/shared/companionTheme";
+import { kioskSkyClockInput, skyMoodForTime, type SkyClockInput, type SkyMood } from "../../../src/shared/skyClock";
 
 interface Props {
   /** `diagKiosk` uses child=creator + Charlotte on the server (diagnostic prompt). */
@@ -18,7 +19,224 @@ function requestCompanionRows(): Promise<CompanionThemeResponse[]> {
   });
 }
 
+/** Grown-up tools (the creator profile, diagnostic mode) appear only on the dev address, never for the kids. */
+function devToolsVisible(): boolean {
+  return typeof window !== "undefined" && new URLSearchParams(window.location.search).get("dev") === "1";
+}
+
+/** The start screen's sky follows the real sun where the kiosk is (owner, 2026-11-07): soft, muted moods. */
+export type StartSky = {
+  name: SkyMood;
+  gradient: string;
+  glow: string | null;
+  lights: "motes" | "stars";
+  text: string;
+  subtext: string;
+  /** Three soft color clouds that drift slowly behind everything, so the background itself moves. */
+  clouds: [string, string, string];
+};
+
+export const START_SKIES: Record<StartSky["name"], StartSky> = {
+  sunrise: { name: "sunrise", clouds: ["rgba(255,196,170,0.55)", "rgba(214,180,230,0.5)", "rgba(255,226,180,0.5)"], lights: "motes", text: "#4a3340", subtext: "#7a5a66",
+    gradient: "linear-gradient(180deg, #b9b3d6 0%, #e3b9c0 48%, #f1cfae 100%)", glow: "rgba(255,190,140,0.45)" },
+  // Owner 2026-11-08: the afternoon read as overcast; a clear sky warming to the horizon, with the sun's glow.
+  day: { name: "day", clouds: ["rgba(255,255,255,0.75)", "rgba(236,244,252,0.7)", "rgba(255,248,236,0.65)"], lights: "motes", text: "#33404d", subtext: "#5f6e7c",
+    gradient: "linear-gradient(180deg, #7fb6e3 0%, #a9d0ee 45%, #d6e8f2 75%, #f4e6cc 100%)", glow: "rgba(255,230,170,0.45)" },
+  golden: { name: "golden", clouds: ["rgba(255,200,140,0.5)", "rgba(220,170,190,0.45)", "rgba(250,220,170,0.45)"], lights: "motes", text: "#45322a", subtext: "#735a4c",
+    gradient: "linear-gradient(180deg, #c7c0cf 0%, #e0c2a8 55%, #d9a882 100%)", glow: "rgba(230,160,100,0.35)" },
+  twilight: { name: "twilight", clouds: ["rgba(150,110,200,0.35)", "rgba(220,120,150,0.3)", "rgba(90,110,200,0.35)"], lights: "stars", text: "#f1eaf6", subtext: "#c7bdd6",
+    gradient: "linear-gradient(180deg, #2a2d55 0%, #4a3f6e 60%, #8a5e78 100%)", glow: "rgba(220,130,120,0.25)" },
+  night: { name: "night", clouds: ["rgba(90,80,170,0.32)", "rgba(60,110,170,0.28)", "rgba(140,80,150,0.25)"], lights: "stars", text: "#efe9f7", subtext: "#b9b1cc",
+    gradient: "linear-gradient(180deg, #161a30 0%, #1f2340 55%, #2b2846 100%)", glow: null },
+};
+
+/** The sky mood comes from the shared sky clock; this screen only paints it. */
+export function skyForTime(input: SkyClockInput): StartSky {
+  return START_SKIES[skyMoodForTime(input)];
+}
+
+/** The kiosk's own clock and timezone, rechecked every ten minutes so a long-open screen follows the sun. */
+function useKioskSky(): StartSky {
+  const read = () => skyForTime(kioskSkyClockInput());
+  const [sky, setSky] = useState(read);
+  useEffect(() => {
+    const timer = window.setInterval(() => setSky(read()), 10 * 60 * 1000);
+    return () => window.clearInterval(timer);
+  }, []);
+  return sky;
+}
+
+/** One full turn of the night sky every five minutes: visibly moving, still calm (owner, 2026-11-07). */
+const STARFIELD_TURN_MS = 300_000;
+export function starfieldRotation(elapsedMs: number): number {
+  return ((elapsedMs % STARFIELD_TURN_MS) / STARFIELD_TURN_MS) * Math.PI * 2;
+}
+
+/** A fixed starfield around a pole above the top-right corner (same every load). Radius and angle are unit values. */
+export const STARFIELD = Array.from({ length: 1400 }, (_, index) => {
+  const random = (salt: number) => { const x = Math.sin(index * 127.1 + salt * 311.7) * 43758.5453; return x - Math.floor(x); };
+  const bright = random(4) > 0.93;
+  return {
+    radius: Math.sqrt(random(1)),
+    angle: random(2) * Math.PI * 2,
+    size: bright ? 1.8 + random(3) * 1.2 : 0.6 + random(3) * 0.9,
+    low: 0.3 + random(5) * 0.25,
+    high: bright ? 1 : 0.65 + random(6) * 0.35,
+    twinkleMs: 2500 + random(7) * 4000,
+    phase: random(8) * Math.PI * 2,
+    bright,
+    sparkleOffsetMs: random(9) * 9000,
+  };
+});
+const SPARKLE_PERIOD_MS = 9000;
+const SPARKLE_MS = 1100;
+
+function drawStarfield(canvas: HTMLCanvasElement, elapsedMs: number): void {
+  const context = canvas.getContext("2d");
+  if (!context) return;
+  const ratio = window.devicePixelRatio || 1;
+  const width = canvas.clientWidth;
+  const height = canvas.clientHeight;
+  if (canvas.width !== Math.round(width * ratio) || canvas.height !== Math.round(height * ratio)) {
+    canvas.width = Math.round(width * ratio);
+    canvas.height = Math.round(height * ratio);
+  }
+  context.setTransform(ratio, 0, 0, ratio, 0, 0);
+  context.clearRect(0, 0, width, height);
+  const poleX = width * 0.82;
+  const poleY = -height * 0.15;
+  const reach = Math.hypot(poleX, height - poleY) * 1.05;
+  const turn = starfieldRotation(elapsedMs);
+  for (const star of STARFIELD) {
+    const angle = star.angle + turn;
+    const x = poleX + Math.cos(angle) * star.radius * reach;
+    const y = poleY + Math.sin(angle) * star.radius * reach;
+    if (x < -10 || y < -10 || x > width + 10 || y > height + 10) continue;
+    const twinkle = 0.5 + 0.5 * Math.sin((elapsedMs / star.twinkleMs) * Math.PI * 2 + star.phase);
+    context.globalAlpha = star.low + (star.high - star.low) * twinkle;
+    context.fillStyle = "#fff8e6";
+    context.beginPath();
+    context.arc(x, y, star.size, 0, Math.PI * 2);
+    context.fill();
+    if (!star.bright) continue;
+    const inSparkle = (elapsedMs + star.sparkleOffsetMs) % SPARKLE_PERIOD_MS;
+    if (inSparkle > SPARKLE_MS) continue;
+    const glint = Math.sin((inSparkle / SPARKLE_MS) * Math.PI);
+    const arm = 11 * glint;
+    context.globalAlpha = glint;
+    context.strokeStyle = "#fffaeb";
+    context.lineWidth = 1.2;
+    context.save();
+    context.translate(x, y);
+    context.rotate((inSparkle / SPARKLE_MS) * (Math.PI / 2));
+    context.beginPath();
+    context.moveTo(-arm, 0); context.lineTo(arm, 0);
+    context.moveTo(0, -arm); context.lineTo(0, arm);
+    context.stroke();
+    context.restore();
+  }
+  context.globalAlpha = 1;
+}
+
+/** The turning night sky. One canvas, one animation loop that stops when the screen closes; still for reduced motion. */
+function TurningStarfield() {
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const still = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
+    const started = performance.now();
+    let frame = 0;
+    const tick = (now: number) => {
+      drawStarfield(canvas, now - started);
+      frame = window.requestAnimationFrame(tick);
+    };
+    // A still sky is drawn once, so it is redrawn when the window changes size (2026-11-10).
+    const redrawStill = () => drawStarfield(canvas, 0);
+    if (still) {
+      redrawStill();
+      window.addEventListener("resize", redrawStill);
+    } else frame = window.requestAnimationFrame(tick);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.removeEventListener("resize", redrawStill);
+    };
+  }, []);
+  return <canvas ref={canvasRef} data-starfield className="absolute inset-0 h-full w-full" />;
+}
+
+/** Daytime clouds float across the screen and loop around; each starts partway so the sky is never empty. */
+const CLOUD_CROSSING = [
+  { top: "-12%", seconds: 95, startAt: -20 },
+  { top: "18%", seconds: 120, startAt: -75 },
+  { top: "48%", seconds: 140, startAt: -40 },
+];
+
+/**
+ * The start screen owns the whole kiosk window at any size and after any resize (2026-11-10: expanding the window
+ * left white space). It is fixed to the viewport by its own style, never sized by the document flow or a stylesheet.
+ */
+export function StartScreenFrame({ children }: { children: ReactNode }) {
+  return (
+    <div data-testid="start-screen" style={{ position: "fixed", inset: 0, overflow: "hidden" }}>
+      {children}
+    </div>
+  );
+}
+
+export function StartScreenSky({ sky }: { sky: StartSky }) {
+  const starry = sky.lights === "stars";
+  return (
+    <div
+      data-testid="start-screen-sky"
+      data-sky={sky.name}
+      aria-hidden="true"
+      className="pointer-events-none absolute inset-0 overflow-hidden"
+      style={{ position: "absolute", inset: 0, background: sky.gradient, transition: "background 2s ease" }}
+    >
+      <style>{`@keyframes sunny-sky-cross { from { transform: translateX(-75vw); } to { transform: translateX(110vw); } }
+        @keyframes sunny-sky-swirl { 0% { transform: translate(0,0) scale(1); } 50% { transform: translate(6vw,4vh) scale(1.15); } 100% { transform: translate(0,0) scale(1); } }
+        @media (prefers-reduced-motion: reduce) { [data-drift-cloud] { animation: none !important; } }`}</style>
+      {sky.clouds.map((color, index) => (
+        <div
+          key={`${sky.name}-cloud-${index}`}
+          data-drift-cloud
+          className="absolute rounded-full"
+          style={{ width: "70vmax", height: starry ? "50vmax" : "30vmax", left: starry ? ["-20%", "40%", "5%"][index] : 0,
+            top: starry ? ["-15%", "10%", "45%"][index] : CLOUD_CROSSING[index].top,
+            background: `radial-gradient(ellipse at center, ${color} 0%, rgba(0,0,0,0) 65%)`,
+            animation: starry
+              ? `sunny-sky-swirl ${[40, 52, 60][index]}s ease-in-out ${-[5, 20, 35][index]}s infinite`
+              : `sunny-sky-cross ${CLOUD_CROSSING[index].seconds}s linear ${CLOUD_CROSSING[index].startAt}s infinite` }}
+        />
+      ))}
+      {sky.glow && (
+        <div
+          className="absolute rounded-full"
+          style={{ width: 560, height: 560, left: "50%", bottom: -340, transform: "translateX(-50%)",
+            background: `radial-gradient(circle, ${sky.glow} 0%, rgba(0,0,0,0) 70%)` }}
+        />
+      )}
+      {starry && <TurningStarfield />}
+      {starry && (
+        <motion.span
+          data-shooting-star
+          className="absolute motion-reduce:hidden"
+          style={{ top: "8%", left: "70%", width: 140, height: 2, borderRadius: 2, rotate: -28, transformOrigin: "right center",
+            background: "linear-gradient(90deg, rgba(255,250,235,0) 0%, rgba(255,250,235,0.95) 100%)" }}
+          initial={{ x: 0, y: 0, opacity: 0 }}
+          animate={{ x: [0, -520], y: [0, 280], opacity: [0, 1, 1, 0] }}
+          transition={{ duration: 1.4, times: [0, 0.15, 0.7, 1], repeat: Infinity, repeatDelay: 9, delay: 3, ease: "easeIn" }}
+        />
+      )}
+    </div>
+  );
+}
+
+
 export function ChildPicker({ onSelect }: Props) {
+  const showDevTools = devToolsVisible();
+  const sky = useKioskSky();
   const [companions, setCompanions] = useState<CompanionThemeConfig[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -87,16 +305,17 @@ export function ChildPicker({ onSelect }: Props) {
   }
 
   return (
-    <div className="w-full h-full flex flex-col items-center justify-center gap-8 bg-white relative">
-      <div className="text-center">
-        <h1 className="text-3xl font-medium text-gray-900">
+    <div className="w-full h-full flex flex-col items-center justify-center gap-8 relative overflow-hidden" style={{ position: "absolute", inset: 0 }}>
+      <StartScreenSky sky={sky} />
+      <div className="text-center relative">
+        <h1 className="text-3xl font-medium" style={{ color: sky.text }}>
           Who's learning today?
         </h1>
-        <p className="text-sm text-gray-500 mt-1">Tap your name to start</p>
+        <p className="text-sm mt-1" style={{ color: sky.subtext }}>Tap your name to start</p>
       </div>
 
-      <div className="flex flex-wrap justify-center items-start gap-8 max-w-5xl px-4">
-        {companions.map((c) => {
+      <div className="relative flex flex-wrap justify-center items-start gap-8 max-w-5xl px-4">
+        {companions.filter((c) => showDevTools || c.childName.trim().toLowerCase() !== "creator").map((c) => {
           const childId = c.childName.trim().toLowerCase();
           return (
             <motion.button
@@ -152,7 +371,7 @@ export function ChildPicker({ onSelect }: Props) {
           );
         })}
 
-        <motion.button
+        {showDevTools && <motion.button
           type="button"
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
@@ -197,10 +416,10 @@ export function ChildPicker({ onSelect }: Props) {
               Diagnostic mode
             </div>
           </div>
-        </motion.button>
+        </motion.button>}
       </div>
 
-      <div className="absolute bottom-3 text-xs text-gray-400">
+      <div className="absolute bottom-3 text-xs" style={{ color: sky.subtext }}>
         Project Sunny
       </div>
     </div>

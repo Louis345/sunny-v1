@@ -1,5 +1,6 @@
 import {verifyPreparingBoardCanvas} from './adventureBoardCanvas';
 import { prebuiltGameClient } from "./prebuiltBoard";
+import { isLibraryPicture, pictureFilename, pictureKeywords, planBoardPictures, readPictureLibrary, savePictureLibrary, type PictureKind, type PictureLibraryEntry } from "./pictureLibrary";
 import { thumbnailUrlForActivity } from "../shared/activityPresentation";
 import { createHash } from "crypto";
 import fs from "fs";
@@ -19,14 +20,18 @@ import {
 } from "./directMathExperience";
 import { engagementTheoryEvidenceContext } from "./engagementTheory";
 import {
+  CUT_OFF_STOP_REASON,
+  LOST_BIND_STOP_REASON,
   getLearningCycle,
+  savePaintedNodeArtwork,
   transitionLearningCycle,
   type LearningCycleNodeContract,
   type LearningCycleRecordV2,
   type LearningCycleRepositoryOptions,
 } from "./learningCycleRepository";
 import { currentBoardInstance, preparingBoardInstance } from "./learningBoardInstances";
-import { prepareGeneratedSpellingGame, type SpellingGameClient } from "./spellingGameBuilder";
+import { bindSavedSpellingGame, gameProblems, prepareGeneratedSpellingGame, type SpellingGameClient } from "./spellingGameBuilder";
+import { LIBRARY_GAMES, libraryGameHtml } from "./libraryGames";
 
 export type CanonicalProgressionGeneratorInput = {
   childId: string;
@@ -41,7 +46,58 @@ export type CanonicalProgressionGeneratorInput = {
   validate?: (input: { html: string; node: LearningCycleNodeContract; cycle: LearningCycleRecordV2 }) => Promise<ProgressionValidationResult>;
   /** The model client for her generated spelling games; tests pass a recorded one. */
   spellingGameClient?: SpellingGameClient;
+  /** Paints one map-stop picture into web/public under the given file name; tests pass a recorded one. */
+  paintPicture?: (prompt: string, filename: string) => Promise<string>;
 };
+
+export const MAX_NEW_PICTURES_PER_BOARD = 8;
+const pictureKind = (role: LearningCycleNodeContract["role"]): PictureKind =>
+  role === "mystery" ? "mystery" : role === "quest" ? "quest" : role === "boss" ? "boss" : "activity";
+
+/**
+ * Pictures for a new board's stops from her picture library (owner, 2026-11-13): reuse what fits, paint only what is
+ * missing, keep the icon when painting fails. Runs beside the game builds; a picture never holds back the board.
+ */
+async function paintSuccessorPictures(input: { childId: string; homeworkId: string; nodeIds: readonly string[]; paint: (prompt: string, filename: string) => Promise<string> }, opts: LearningCycleRepositoryOptions): Promise<void> {
+  const cycle = getLearningCycle(input.childId, input.homeworkId, opts);
+  if (!cycle) return;
+  const stops = cycle.nodes
+    .filter(node => input.nodeIds.includes(node.nodeId) && node.artwork.prompt && node.artwork.status === "placeholder" && !isLibraryPicture(node.artwork.localPath))
+    .map(node => ({ nodeId: node.nodeId, kind: pictureKind(node.role), prompt: node.artwork.prompt! }));
+  if (!stops.length) return;
+  const library = readPictureLibrary(input.childId, opts);
+  const plan = planBoardPictures({ stops, library, childNames: [input.childId], maxNew: MAX_NEW_PICTURES_PER_BOARD });
+  const added: PictureLibraryEntry[] = [];
+  let reused = 0, painted = 0, failed = 0;
+  await Promise.all(plan.map(async row => {
+    const stop = stops.find(candidate => candidate.nodeId === row.nodeId)!;
+    try {
+      if ("reuse" in row) {
+        savePaintedNodeArtwork(input.childId, input.homeworkId, row.nodeId, row.reuse.path, opts);
+        reused += 1;
+        console.log(` 🎮 [picture-library] [reused] node=${row.nodeId} picture=${row.reuse.path}`);
+      } else if ("paint" in row) {
+        const localPath = await input.paint(row.paint, pictureFilename(input.childId, row.paint));
+        savePaintedNodeArtwork(input.childId, input.homeworkId, row.nodeId, localPath, opts);
+        added.push({ path: localPath, prompt: row.paint, keywords: pictureKeywords(row.paint, [input.childId]), kind: stop.kind, homeworkId: input.homeworkId, createdAt: new Date().toISOString() });
+        painted += 1;
+        console.log(` 🎮 [picture-library] [painted] node=${row.nodeId} picture=${localPath}`);
+      } else console.log(` 🎮 [picture-library] [icon-kept] node=${row.nodeId} reason=board_paint_limit`);
+    } catch (error) {
+      failed += 1;
+      console.warn(` 🎮 [picture-library] [paint] [failed] node=${row.nodeId} icon=kept reason=${error instanceof Error ? error.message : String(error)}`);
+    }
+  }));
+  if (added.length) savePictureLibrary(input.childId, [...library, ...added], opts);
+  console.log(` 🎮 [picture-library] [board] [done] homework=${input.homeworkId} reused=${reused} painted=${painted} failed=${failed}`);
+}
+
+function productionPicture(rootDir: string) {
+  return (prompt: string, filename: string) => {
+    const protectedPrompt = prompt.toLowerCase().includes("without words, letters, numbers, equations, labels") ? prompt : `${prompt}. without words, letters, numbers, equations, labels.`;
+    return createDirectArtwork(protectedPrompt, path.join(rootDir, "web", "public"), filename);
+  };
+}
 
 type ProgressionValidationResult = {
   passed: boolean;
@@ -251,6 +307,7 @@ export async function generateCanonicalProgressionArtifact(
   if (!cycle) throw new Error(`learning_cycle_missing:${input.homeworkId}`);
   const node = cycle.nodes.find((candidate) => (!input.nodeId || candidate.nodeId === input.nodeId) && candidate.state === "generating" && candidate.generationPrompt);
   if (!node?.generationPrompt) return cycle;
+  if (node.libraryGame) return bindLibraryGame(cycle, node, opts);
   const stage = node.role === "quest" ? "quest" : node.role === "boss" ? "boss" : "baseline";
   // Every generated activity gets one bounded repair from validator evidence.
   // Frozen-request and provider-outcome uncertainty still stop immediately.
@@ -361,11 +418,33 @@ Correct only the implementation while preserving the Planner's academic target, 
   return bindGeneratedHtml({ cycle: latest, node, html, artworkPath, validation }, opts);
 }
 
+/**
+ * The owner's one approved reveal path (owner, 2026-11-11; approved under the Math Prompt Chain Boundary, Reina's
+ * math included): a Quest/Boss stop the Planner put a library game on is the hand-built game, filled with the node's
+ * frozen items. No model call; binding, lifecycle and serving are the same as a Creator-built stop.
+ */
+function bindLibraryGame(cycle: LearningCycleRecordV2, node: LearningCycleNodeContract, opts: LearningCycleRepositoryOptions): LearningCycleRecordV2 {
+  const id = node.libraryGame!;
+  const answerOf = (item: NonNullable<LearningCycleNodeContract["evidenceContract"]["itemContracts"]>[string]) =>
+    item.response.mode === "numeric" ? String(item.response.expected) : item.response.mode === "selection" ? item.response.options.find(option => option.correct)?.label : undefined;
+  const items = cycle.domain === "spelling"
+    ? Object.values(node.evidenceContract.spellingItems ?? {}).map(item => ({ itemId: item.id, prompt: item.word, answer: item.word }))
+    : Object.values(node.evidenceContract.itemContracts ?? {}).flatMap(item => { const answer = answerOf(item); return answer === undefined ? [] : [{ itemId: item.id, prompt: item.prompt, answer }]; });
+  const { html, matchedItemIds, unmatchedTargets } = libraryGameHtml({ id, childId: cycle.childId, nodeId: node.nodeId, items, rootDir: opts.rootDir });
+  const problems = gameProblems(html, cycle.domain);
+  console.log(` 🎮 [library-game] [filled] node=${node.nodeId} game=${id} items=${items.length} matched=${matchedItemIds.length} unmatched=${unmatchedTargets.length} checks=${problems.length ? problems.join("|") : "clean"}`);
+  // A game none of her items reach would record nothing: that stop degrades to Not ready instead.
+  if (!matchedItemIds.length) throw new Error(`library_game_no_items_matched:${id}`);
+  return bindGeneratedHtml({ cycle, node, html, artworkPath: node.artwork.localPath, libraryGame: id }, opts);
+}
+
 /** Write an accepted activity where the kiosk serves it and bind it to its node. */
 function bindGeneratedHtml(input: {
   cycle: LearningCycleRecordV2; node: LearningCycleNodeContract; html: string; artworkPath?: string | null; validation?: ProgressionValidationResult;
+  /** Set when the html is the owner's library game, so provenance says so rather than claiming the Creator. */
+  libraryGame?: keyof typeof LIBRARY_GAMES;
 }, opts: LearningCycleRepositoryOptions): LearningCycleRecordV2 {
-  const { cycle, node, html, artworkPath, validation } = input;
+  const { cycle, node, html, artworkPath, validation, libraryGame } = input;
   const rootDir = opts.rootDir ?? process.cwd();
   const stage = node.role === "quest" ? "quest" : node.role === "boss" ? "boss" : "baseline";
   const filename = `${slug(cycle.homeworkId)}-${stage}-${slug(node.experimentId)}.html`;
@@ -388,7 +467,16 @@ function bindGeneratedHtml(input: {
       localArtworkPath: artworkPath ?? (stage === "boss" ? "/generated/adventure-board-demo/boss.jpeg" : "/generated/adventure-board-demo/quest.jpeg"),
       contractFingerprint,
       validationStatus: "passed",
-      ...((node.role === "quest" || node.role === "boss") ? {
+      ...(libraryGame ? {
+        creativeProvenance: {
+          rationale: `Owner-chosen library game ${libraryGame} (${LIBRARY_GAMES[libraryGame].title}), hand-built and placed on this stop by the Planner; not Creator-generated.`,
+          qualityPrediction: "No numeric quality score is inferred.",
+          creatorPromptHash: createHash("sha256").update(`library-game:${libraryGame}`).digest("hex"),
+          artworkPromptHash: createHash("sha256").update(node.artwork.prompt ?? "").digest("hex"),
+          builderModel: `library-game:${libraryGame}`,
+          generatedHtmlHash: createHash("sha256").update(html).digest("hex"),
+        },
+      } : (node.role === "quest" || node.role === "boss") ? {
         creativeProvenance: {
           rationale: "Publication requires the text check only; the child playing it is the review.",
           qualityPrediction: "No numeric quality score is inferred.",
@@ -478,6 +566,86 @@ export function repairNotReadyActivities(
 }
 
 /**
+ * One person-approved paid rebuild of a built-game stop whose build was cut off (owner, 2026-11-11), like the
+ * next-board question retry of 2026-11-04. The approval is recorded first, the cut-off receipts are set aside
+ * (never deleted), and the stop is rebuilt once through the board's own builder. A failure keeps it Not ready.
+ */
+export async function retryCutOffStop(
+  input: { childId: string; homeworkId: string; nodeId: string; reason: string; client?: SpellingGameClient },
+  opts: LearningCycleRepositoryOptions = {},
+): Promise<{ cycle: LearningCycleRecordV2; rebuilt: boolean; failure?: string; setAside: string[]; setAsideDir?: string }> {
+  const rootDir = opts.rootDir ?? process.cwd();
+  const log = (action: string, result: string, detail: string) => console.log(` 🎮 [board] [${action}] [${result}] child=${input.childId} homework=${input.homeworkId} node=${input.nodeId}${detail ? ` ${detail}` : ""}`);
+  const cycle = getLearningCycle(input.childId, input.homeworkId, opts);
+  if (!cycle) throw new Error(`learning_cycle_missing:${input.homeworkId}`);
+  const node = cycle.nodes.find(candidate => candidate.nodeId === input.nodeId);
+  const draftDir = node ? qualityDiagnosticsDir(rootDir, cycle, node) : "";
+  const receipts = path.join(draftDir, "provider-receipts");
+  // The reason names the cut-off receipt by its absolute path (node IDs hold colons), so only its file name is read.
+  const receiptName = node?.notReadyReason?.startsWith(CUT_OFF_STOP_REASON) ? /provider-receipts\/([a-f0-9]{64}\.json)/.exec(node.notReadyReason)?.[1] : undefined;
+  const cutOffReceipt = receiptName ? path.join(receipts, receiptName) : "";
+  const cutOffStatus = cutOffReceipt && fs.existsSync(cutOffReceipt) ? (JSON.parse(fs.readFileSync(cutOffReceipt, "utf8")) as { status?: string }).status : undefined;
+  // A finished game that lost the bind race keeps its saved build: the builder replays it, with no new purchase.
+  const lostBind = Boolean(node?.notReadyReason?.startsWith(LOST_BIND_STOP_REASON));
+  const refusal = !node ? "no_such_node"
+    : !cycle.boards || !currentBoardInstance(cycle).nodeIds.includes(node.nodeId) ? "not_on_current_board"
+    : !node.notReadyReason?.startsWith(CUT_OFF_STOP_REASON) && !lostBind ? `not_ready_reason_is_not_provider_outcome_uncertain:${node.notReadyReason ?? "ready"}`
+    : node.artifactBinding ? "already_bound"
+    : node.implementationType !== "generated-game" || node.reusedFrom || node.libraryGame || !node.generationPrompt ? `not_a_built_game:${node.implementationType ?? "none"}`
+    : !lostBind && !["in_flight", "outcome_uncertain"].includes(cutOffStatus ?? "") ? `cut_off_receipt_not_uncertain:${cutOffStatus ?? "missing"}:${cutOffReceipt}`
+    : !input.reason.trim() ? "reason_required" : "";
+  if (refusal) {
+    log("retry-cut-off-stop", "refused", `reason=${refusal}`);
+    throw new Error(`cut_off_stop_retry_not_eligible:${input.nodeId}:${refusal}`);
+  }
+  const lease = acquireMathGenerationLease({ rootDir: opts.rootDir, childId: input.childId, homeworkId: input.homeworkId });
+  if (!lease.acquired || !lease.token) {
+    log("retry-cut-off-stop", "refused", "reason=another_build_is_running");
+    throw new Error(`cut_off_stop_retry_not_eligible:${input.nodeId}:another_build_is_running`);
+  }
+  try {
+    // The approval is durable before any purchase: a crash from here on leaves the stop Not ready and never re-approvable.
+    let current = transitionLearningCycle(input.childId, input.homeworkId, cycle.revision, { type: "not_ready_paid_retry_authorized", nodeId: input.nodeId, reason: input.reason }, opts);
+    log("retry-cut-off-stop", "approved", `revision=${current.revision} cut_off_receipt=${cutOffReceipt}`);
+    // The cut-off build's receipts and request diagnostics are set aside, never deleted, so the builder starts fresh.
+    const setAsideDir = path.join(draftDir, "superseded", `paid-retry-r${current.revision}`);
+    const setAside: string[] = [];
+    for (const folder of lostBind ? [] : ["provider-receipts", "provider-diagnostics"]) {
+      const from = path.join(draftDir, folder);
+      if (!fs.existsSync(from)) continue;
+      fs.mkdirSync(path.join(setAsideDir, folder), { recursive: true });
+      for (const name of fs.readdirSync(from)) {
+        const to = path.join(setAsideDir, folder, name);
+        fs.renameSync(path.join(from, name), to);
+        setAside.push(to);
+        log("retry-cut-off-stop", "set-aside", `from=${path.join(from, name)} to=${to}`);
+      }
+    }
+    const pending = current.nodes.find(candidate => candidate.nodeId === input.nodeId)!;
+    let failure = "";
+    try {
+      log("retry-cut-off-stop", "building", lostBind ? "attempts=1 paid=false binds=saved-build" : "attempts=1 paid=true");
+      const next = lostBind ? bindSavedSpellingGame({ cycle: current, node: pending, draftDir }, opts)
+        : await prepareGeneratedSpellingGame({ cycle: current, node: pending, client: input.client ?? prebuiltGameClient(input.childId, input.homeworkId, pending.nodeId, opts), draftDir }, opts);
+      if (next.revision === current.revision) failure = latestQualityFailure(rootDir, current, pending) ?? "human_review_required";
+      else current = next;
+    } catch (error) {
+      failure = error instanceof Error ? error.message : String(error);
+      current = getLearningCycle(input.childId, input.homeworkId, opts)!;
+    }
+    if (failure) {
+      current = transitionLearningCycle(input.childId, input.homeworkId, current.revision, { type: "not_ready_paid_retry_failed", nodeId: input.nodeId, reason: failure }, opts);
+      log("retry-cut-off-stop", "still-not-ready", `reason=${failure}`);
+      return { cycle: current, rebuilt: false, failure, setAside, setAsideDir };
+    }
+    log("retry-cut-off-stop", "rebuilt", `revision=${current.revision} artifact=${current.nodes.find(candidate => candidate.nodeId === input.nodeId)?.artifactBinding?.localArtifactPath}`);
+    return { cycle: current, rebuilt: true, setAside, setAsideDir };
+  } finally {
+    releaseMathGenerationLease({ rootDir: opts.rootDir, childId: input.childId, homeworkId: input.homeworkId, token: lease.token });
+  }
+}
+
+/**
  * Implement and verify every node of the one preparing successor board, reusing
  * nodes already bound by an earlier run. The board publishes on its last verified
  * binding; it never opens a node or interrupts the child.
@@ -529,6 +697,7 @@ export async function prepareSuccessorBoard(
     console.log(` 🎮 [learning-board] [successor-preparation] [already-running] board=${board.boardId}`);
     return cycle;
   }
+  let painting: Promise<void> = Promise.resolve();
   try {
     try {
       await verifyPreparingBoardCanvas({rootDir:opts.rootDir??process.cwd(),childId:input.childId,homeworkId:input.homeworkId,acceptAsAuthored:true,directory:path.join(resolveChildContextDir(input.childId,opts),'homework','canvas-verification',board.boardId.replace(/[^a-zA-Z0-9_-]/g,'_'))});
@@ -536,6 +705,8 @@ export async function prepareSuccessorBoard(
       console.warn(` 🎮 [learning-board] [canvas-diagnostic] [unavailable] board=${board.boardId} reason=${error instanceof Error ? error.message : String(error)}`);
     }
     cycle=getLearningCycle(input.childId,input.homeworkId,opts)!;
+    painting = paintSuccessorPictures({ childId: input.childId, homeworkId: input.homeworkId, nodeIds: board.nodeIds, paint: input.paintPicture ?? productionPicture(opts.rootDir ?? process.cwd()) }, opts)
+      .catch(error => console.warn(` 🎮 [picture-library] [board] [failed] homework=${input.homeworkId} reason=${error instanceof Error ? error.message : String(error)}`));
     // An activity held for attention before this rule becomes Not ready at $0, keeping its recorded reason.
     const heldReason = [...cycle.decisionHistory].reverse().find(row => row.eventType === "artifact_generation_attention_required")?.reason ?? "activity_build_failed";
     for (const held of cycle.nodes.filter((node) => board.nodeIds.includes(node.nodeId) && node.state === "blocked" && !node.notReadyReason)) {
@@ -549,11 +720,15 @@ export async function prepareSuccessorBoard(
       let failure = "";
       try {
         // Spelling boards run only tested built-in games: a step with none to launch is Not ready, never built.
-        if (cycle.domain === "spelling" && !pending.reusedFrom && !pending.implementationType) throw new Error("spelling_no_reusable_builtin");
+        if (cycle.domain === "spelling" && !pending.reusedFrom && !pending.implementationType && !pending.libraryGame) throw new Error("spelling_no_reusable_builtin");
         // Her own game is built for her once, from her chart and the Planner's story; a re-run reuses its file.
-        next = cycle.domain === "spelling" && pending.implementationType === "generated-game" && !pending.reusedFrom
+        // Any subject's built-game stop goes to the one builder (owner, 2026-11-08: one pipeline).
+        // The owner's library game is served, not built (owner, 2026-11-11).
+        next = pending.libraryGame ? bindLibraryGame(cycle, pending, opts)
+          : pending.implementationType === "generated-game" && !pending.reusedFrom
           ? await prepareGeneratedSpellingGame({ cycle, node: pending, client: input.spellingGameClient ?? prebuiltGameClient(input.childId, input.homeworkId, pending.nodeId, opts), draftDir: qualityDiagnosticsDir(opts.rootDir ?? process.cwd(), cycle, pending) }, opts)
-          : cycle.domain === "spelling"
+          // A reward break is a built-in Mystery in any subject: bound with no build and no provider (Law 16).
+          : cycle.domain === "spelling" || pending.implementationType === "mystery"
           ? launchBuiltInActivity(input.childId, input.homeworkId, cycle, pending, opts)
           : await generateCanonicalProgressionArtifact({ ...input, nodeId: pending.nodeId }, opts);
         if (next.revision === cycle.revision) failure = latestQualityFailure(opts.rootDir ?? process.cwd(), cycle, pending) ?? "human_review_required";
@@ -573,6 +748,7 @@ export async function prepareSuccessorBoard(
     }
     throw new Error(`successor_board_preparation_guard_exceeded:${board.boardId}`);
   } finally {
+    await painting;
     releaseMathGenerationLease({ rootDir: opts.rootDir, childId: input.childId, homeworkId: input.homeworkId, token: lease.token });
   }
 }

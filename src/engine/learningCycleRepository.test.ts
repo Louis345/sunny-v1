@@ -399,10 +399,15 @@ describe("canonical learning cycle repository", () => {
     const successor = structuredClone(cycle);
     successor.boards![0]!.kind = "successor";
     expect(canonicalJourneyLaunchable(successor, "practice")).toBe(true);
+    // One pipeline (owner, 2026-11-08): a math board's built stops are open too; other subjects keep their path.
     const math = structuredClone(cycle);
     math.domain = "math";
-    expect(canonicalJourneyLaunchable(math, "practice")).toBe(false);
-    expect(projectLearningCycle(math).adventureBoard.nodes.find(node => node.id === "practice")?.state).toBe("locked");
+    expect(canonicalJourneyLaunchable(math, "practice")).toBe(true);
+    expect(projectLearningCycle(math).adventureBoard.nodes.find(node => node.id === "practice")?.state).toBe("available");
+    const reading = structuredClone(cycle);
+    reading.domain = "reading";
+    expect(canonicalJourneyLaunchable(reading, "practice")).toBe(false);
+    expect(projectLearningCycle(reading).adventureBoard.nodes.find(node => node.id === "practice")?.state).toBe("locked");
     const probe = structuredClone(cycle);
     probe.boards![0]!.kind = "probe";
     expect(canonicalJourneyLaunchable(probe, "practice")).toBe(false);

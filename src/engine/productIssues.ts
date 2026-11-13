@@ -171,9 +171,53 @@ export function recordProductIssue(
   }
   const dir = productIssueDir(record.childId, opts);
   fs.mkdirSync(dir, { recursive: true });
-  fs.appendFileSync(path.join(dir, `${fileDate(record.createdAt)}.ndjson`), `${JSON.stringify(record)}\n`, "utf8");
+  const file = path.join(dir, `${fileDate(record.createdAt)}.ndjson`);
+  // One sentence, one ticket (2026-11-10: a growing partial transcript made 10): the same sentence, growing, in the
+  // same session, within two minutes, updates its ticket with the longer words.
+  const lines = fs.existsSync(file) ? fs.readFileSync(file, "utf8").split("\n").filter(Boolean) : [];
+  const flat = (text: string) => text.toLowerCase().replace(/[^a-z0-9 ]+/g, "").replace(/\s+/g, " ").trim();
+  const same = lines.findIndex(line => {
+    try {
+      const prior = JSON.parse(line) as ProductIssueRecord;
+      const [a, b] = [flat(prior.childUtterance), flat(record.childUtterance)];
+      return prior.childId === record.childId && prior.sessionId && prior.sessionId === record.sessionId && prior.issueType === record.issueType
+        && prior.source === record.source && Math.abs(Date.parse(record.createdAt) - Date.parse(prior.createdAt)) <= 120_000 && (a.startsWith(b) || b.startsWith(a));
+    } catch { return false; }
+  });
+  if (same >= 0) {
+    const prior = JSON.parse(lines[same]) as ProductIssueRecord;
+    const merged = record.childUtterance.length > prior.childUtterance.length ? { ...prior, childUtterance: record.childUtterance } : prior;
+    lines[same] = JSON.stringify(merged);
+    fs.writeFileSync(file, `${lines.join("\n")}\n`, "utf8");
+    console.log(`  🎮 [product-issue] [same-sentence] child=${record.childId} issue=${record.issueType} kept=${prior.productIssueId}`);
+    return { record: merged, persisted: true };
+  }
+  fs.appendFileSync(file, `${JSON.stringify(record)}\n`, "utf8");
   console.log(
     `  🎮 [product-issue] [recorded] child=${record.childId} activity=${record.activityId} issue=${record.issueType} severity=${record.severity}`,
   );
   return { record, persisted: true };
+}
+
+/**
+ * What she (or a parent) said about Sunny's games, oldest first, newest `limit` kept: her words, never an
+ * automated audit's summary. Read from the same folder recordProductIssue writes; an unreadable line is logged
+ * and skipped, so one bad line never hides the rest.
+ */
+export function listChildProductIssues(childId: string, opts: Pick<ProductIssueOptions, "rootDir"> & { limit?: number } = {}): ProductIssueRecord[] {
+  const dir = productIssueDir(childId, opts);
+  if (!fs.existsSync(dir)) return [];
+  const rows: ProductIssueRecord[] = [];
+  for (const file of fs.readdirSync(dir).filter(name => name.endsWith(".ndjson")).sort()) {
+    for (const line of fs.readFileSync(path.join(dir, file), "utf8").split("\n")) {
+      if (!line.trim()) continue;
+      try { rows.push(JSON.parse(line) as ProductIssueRecord); }
+      catch { console.warn(`  🎮 [product-issue] [read] [skipped-line] child=${safeChildId(childId)} file=${file}`); }
+    }
+  }
+  const seen = new Set<string>();
+  const heard = rows.filter(row => row.source !== "observed_behavior" && typeof row.childUtterance === "string" && row.childUtterance.trim())
+    .sort((a, b) => Date.parse(a.createdAt) - Date.parse(b.createdAt))
+    .filter(row => { const key = row.childUtterance.trim().toLowerCase(); if (seen.has(key)) return false; seen.add(key); return true; });
+  return heard.slice(-(opts.limit ?? 8));
 }

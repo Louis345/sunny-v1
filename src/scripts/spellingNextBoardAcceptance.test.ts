@@ -19,6 +19,7 @@ import type { RecordedToolLab } from "./fixtures/recordedToolPlanner";
 import { COMPANION_DEFAULTS } from "../shared/companionTypes";
 import { handleWsConnection } from "../server/ws-handler";
 import { getActiveVoiceSessionManagerForChild } from "../server/voice-session-registry";
+import { collectTreasureIfShown, leaveStopToMap, skipRatingAfterTreasure } from "./acceptanceTreasure";
 
 // 2026-10-21 human catch: every fix today passed its own tests, yet each real session on the kiosk Mac
 // found the next failure (a rejected canvas, a frozen board, AI rebuilds of reused games, an explainer
@@ -134,7 +135,7 @@ it("plays Discovery, the Teaching board and a reused next board through the real
       await hearAndSpell(index >= 6 ? "zzz" : word);
       if (index < words.length - 1) await page.getByTestId("word-radar-input").waitFor();
     }
-    await page.getByText("Skip", { exact: true }).click();
+    await skipRatingAfterTreasure(page);
     await page.getByRole("button", { name: "Let's go!", exact: true }).or(page.locator(".adventure-board")).first().waitFor({ timeout: 60000 });
     expect(automaticGeneration).toBeDefined();
     await automaticGeneration;
@@ -178,7 +179,7 @@ it("plays Discovery, the Teaching board and a reused next board through the real
         await rush.locator("#jackpotBanner.on").waitFor();
         await rush.getByRole("button", { name: "Next word →", exact: true }).click();
       }
-      await page.getByTestId("post-activity-engagement-overlay").getByRole("button", { name: "Back to map", exact: true }).click();
+      await leaveStopToMap(page);
     };
     // What Elli would be told about the screen right now: her real per-turn builder on the live session.
     const elliScreen = () => {
@@ -202,7 +203,7 @@ it("plays Discovery, the Teaching board and a reused next board through the real
     await page.getByRole("button", { name: "Choose your path", exact: true }).click();
     await page.getByRole("dialog").getByRole("button", { name: /Speed It/ }).click();
     await playRadar(missedWords, false);
-    await page.getByTestId("post-activity-engagement-overlay").getByRole("button", { name: "Back to map", exact: true }).click();
+    await leaveStopToMap(page);
     await playLetterRush("Letter Rush", missedWords);
     await page.getByRole("button", { name: "Recall Checkpoint", exact: true }).click();
     await page.getByText(`Word 1 of ${words.length}`, { exact: true }).waitFor();
@@ -212,6 +213,7 @@ it("plays Discovery, the Teaching board and a reused next board through the real
     ws.clients.forEach(socket => socket.terminate());
     await elliSeesScreen(/Recall Checkpoint is open/);
     await playRadar(words, true);
+    await collectTreasureIfShown(page);
     await page.getByTestId("post-activity-engagement-overlay").getByRole("button", { name: "Play again", exact: true }).waitFor();
     await noModal();
     // Completing the Teaching board calls the Planner once, and the server builds the next board by itself.
@@ -229,7 +231,7 @@ it("plays Discovery, the Teaching board and a reused next board through the real
     // 2026-11-01 owner: finishing a board shows her results on the same waiting screen, then she chooses:
     // play the next board now, or save it for next time. Without a reload, the kiosk learns it is published.
     const label = (title: string) => nextBoard.definition!.portals.find(portal => portal.activityNodeId === (title === "Fresh Radar" ? nextNodes[0] : nextNodes.find(node => node.reusedFrom === teachingId(title))!).nodeId)!.label;
-    await page.getByTestId("post-activity-engagement-overlay").getByRole("button", { name: "Back to map", exact: true }).click();
+    await leaveStopToMap(page);
     await page.getByRole("heading", { name: "You did it!" }).waitFor({ timeout: 30000 });
     await page.getByRole("button", { name: "Save for next time", exact: true }).waitFor({ timeout: 45000 });
     await page.getByRole("button", { name: "Let's go!", exact: true }).click();
@@ -239,10 +241,11 @@ it("plays Discovery, the Teaching board and a reused next board through the real
     await elliSeesScreen(/The board is showing[^]*No activity is open/);
     await page.getByRole("button", { name: label("Fresh Radar"), exact: true }).click();
     await playRadar(missedWords, false);
-    await page.getByTestId("post-activity-engagement-overlay").getByRole("button", { name: "Back to map", exact: true }).click();
+    await leaveStopToMap(page);
     await playLetterRush(label("Letter Rush"), missedWords);
     await page.getByRole("button", { name: label("Recall Checkpoint"), exact: true }).click();
     await playRadar(words, true);
+    await collectTreasureIfShown(page);
     await page.getByTestId("post-activity-engagement-overlay").getByRole("button", { name: "Play again", exact: true }).waitFor();
     await noModal();
     // Every answer lands on the next board's fresh questions, and finishing it hands back to the Planner.

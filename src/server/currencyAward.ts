@@ -1,4 +1,7 @@
 import { getChildChart } from "../profiles/childChart";
+import { callSecondsOf, purchaseWithCoins, spendPaidMinute, type PaidMinuteKind } from "../engine/companionCareEngine";
+import { ARCADE_RULES, CALL_RULES, PRICE_LIST } from "../shared/rewardCatalog";
+import type { CoinOffer } from "../shared/companionCareTypes";
 import {
   loadCompanionCarePlanForChart,
   mirrorCompanionCareToLearningProfile,
@@ -106,4 +109,111 @@ export function reconcileCompanionCareCurrencyAward(opts: {
     );
   }
   return { ok: true, balance: next };
+}
+
+export type PurchaseForChildResult =
+  | { ok: true; balance: number; price: number; duplicate: boolean; callMinutes: number; callSeconds: number; arcadeMinutes: number }
+  | { ok: false; reason: string; price?: number; balance?: number };
+
+/** Buy with coins (PR #59, 4.4): charged to the companion plan, mirrored to the profile, a receipt per tap. */
+export function purchaseForChild(
+  childId: string,
+  input: { receiptId: string; offer: CoinOffer },
+  opts: { rootDir?: string; nowIso?: string } = {},
+): PurchaseForChildResult {
+  const chart = getChildChart(childId, opts.rootDir ? { rootDir: opts.rootDir } : {});
+  const result = purchaseWithCoins(chart.companionCare.plan, { ...input, nowIso: opts.nowIso ?? new Date().toISOString() });
+  if (!result.ok) {
+    console.log(` 🎮 [rewards] [purchase] [refused] child=${childId} offer=${input.offer.kind} reason=${result.reason} price=${result.price ?? "n/a"} balance=${result.balance ?? "n/a"}`);
+    return result;
+  }
+  if (!result.duplicate) {
+    saveCompanionCarePlan(chart, result.plan);
+    mirrorCompanionCareToLearningProfile(chart, result.plan);
+  }
+  console.log(` 🎮 [rewards] [purchase] [${result.duplicate ? "repeated" : "paid"}] child=${childId} offer=${input.offer.kind} price=${result.price} balance=${result.plan.economy.coins}`);
+  return { ok: true, balance: result.plan.economy.coins, price: result.price, duplicate: result.duplicate, callMinutes: Math.floor(callSecondsOf(result.plan.economy) / 60), callSeconds: callSecondsOf(result.plan.economy), arcadeMinutes: result.plan.economy.arcadeMinutes ?? 0 };
+}
+
+/** The outfit shop's wallet: her saved coins and the rewards she owns (chest drops and purchases). */
+export function walletForChild(childId: string, opts: { rootDir?: string } = {}): { coins: number; ownedRewardIds: string[] } {
+  const plan = getChildChart(childId, opts.rootDir ? { rootDir: opts.rootDir } : {}).companionCare.plan;
+  return { coins: plan.economy.coins, ownedRewardIds: [...(plan.inventory.rewards ?? [])] };
+}
+
+export type CallClock = { minutesLeft: number; secondsLeft: number; coins: number; price: number; minutes: number; warnAtSecondsLeft: number };
+type PaidTimeSpend = { ok: true; minutesLeft: number; secondsLeft: number; secondsGranted: number; coins: number } | { ok: false; reason: "no_minutes"; coins: number };
+
+/** What the call screen needs: saved call time (in seconds), her coins, and what 5 more minutes cost. */
+export function callClockForChild(childId: string, opts: { rootDir?: string } = {}): CallClock {
+  const plan = getChildChart(childId, opts.rootDir ? { rootDir: opts.rootDir } : {}).companionCare.plan;
+  const secondsLeft = callSecondsOf(plan.economy);
+  return { minutesLeft: Math.floor(secondsLeft / 60), secondsLeft, coins: plan.economy.coins, price: PRICE_LIST.callMinutes5, minutes: 5, warnAtSecondsLeft: CALL_RULES.warnAtSecondsLeft };
+}
+
+/** Pay one call minute before it is used; a retried tick with the same receipt is charged once. */
+export function spendCallMinuteForChild(
+  childId: string,
+  receiptId: string,
+  opts: { rootDir?: string; nowIso?: string } = {},
+): PaidTimeSpend {
+  return spendPaidMinuteForChild("call", childId, receiptId, opts);
+}
+
+/** What a reward game's clock needs: saved arcade minutes, her coins, and what one more play costs. */
+export function arcadeClockForChild(childId: string, opts: { rootDir?: string } = {}): CallClock {
+  const plan = getChildChart(childId, opts.rootDir ? { rootDir: opts.rootDir } : {}).companionCare.plan;
+  const minutesLeft = Math.max(0, Math.floor(plan.economy.arcadeMinutes ?? 0));
+  return {
+    minutesLeft,
+    secondsLeft: minutesLeft * 60,
+    coins: plan.economy.coins,
+    price: PRICE_LIST.gamePlay,
+    minutes: ARCADE_RULES.minutesPerPlay,
+    warnAtSecondsLeft: ARCADE_RULES.warnAtSecondsLeft,
+  };
+}
+
+function spendPaidMinuteForChild(
+  kind: PaidMinuteKind,
+  childId: string,
+  receiptId: string,
+  opts: { rootDir?: string; nowIso?: string },
+): PaidTimeSpend {
+  const chart = getChildChart(childId, opts.rootDir ? { rootDir: opts.rootDir } : {});
+  const result = spendPaidMinute(chart.companionCare.plan, kind, { receiptId, nowIso: opts.nowIso ?? new Date().toISOString() });
+  if (!result.ok) {
+    console.log(` 🎮 [rewards] [${kind}-minute] [out] child=${childId} coins=${chart.companionCare.plan.economy.coins}`);
+    return { ok: false, reason: result.reason, coins: chart.companionCare.plan.economy.coins };
+  }
+  if (!result.duplicate) {
+    saveCompanionCarePlan(chart, result.plan);
+    mirrorCompanionCareToLearningProfile(chart, result.plan);
+  }
+  console.log(` 🎮 [rewards] [${kind}-minute] [${result.duplicate ? "repeated" : "spent"}] child=${childId} granted=${result.secondsGranted}s left=${result.secondsLeft}s`);
+  return { ok: true, minutesLeft: result.minutesLeft, secondsLeft: result.secondsLeft, secondsGranted: result.secondsGranted, coins: result.plan.economy.coins };
+}
+
+/** Pay one reward-game minute before it is used; a retried tick with the same receipt is charged once. */
+export function spendArcadeMinuteForChild(
+  childId: string,
+  receiptId: string,
+  opts: { rootDir?: string; nowIso?: string } = {},
+): PaidTimeSpend {
+  return spendPaidMinuteForChild("arcade", childId, receiptId, opts);
+}
+
+/** Clock facts for Elli's reaction, read from the saved plan, never from the screen. */
+export function showroomCallClockFacts(
+  childId: string,
+  event: "minute_left" | "time_up" | "minutes_bought",
+  opts: { rootDir?: string } = {},
+): { event: typeof event; minutesLeft: number; secondsLeft: number; coins: number; price: number; minutes: number } | undefined {
+  try {
+    const clock = callClockForChild(childId, opts);
+    return { event, minutesLeft: clock.minutesLeft, secondsLeft: clock.secondsLeft, coins: clock.coins, price: clock.price, minutes: clock.minutes };
+  } catch (error) {
+    console.error(` 🎮 [rewards] [call-clock-facts] [failed] child=${childId}`, error);
+    return undefined;
+  }
 }

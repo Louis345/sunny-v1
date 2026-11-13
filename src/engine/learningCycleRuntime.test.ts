@@ -6,7 +6,7 @@ import os from "os";
 import path from "path";
 import { describe, expect, it, vi } from "vitest";
 import { createLearningCycle, getLearningCycle, projectLearningCycle, transitionLearningCycle, type CreateLearningCycleInput } from "./learningCycleRepository";
-import { pageTimeFromKiosk, recordExitChoice, advanceCanonicalCycleFromEvidence, authorizeCanonicalPlannerRetry, parseCanonicalProgressionDecision, recordCanonicalNodeCompletion } from "./learningCycleRuntime";
+import { pageTimeFromKiosk, recordExitChoice, advanceCanonicalCycleFromEvidence, authorizeCanonicalPlannerRetry, parseCanonicalProgressionDecision, recordCanonicalNodeCompletion, recordCanonicalLateTries } from "./learningCycleRuntime";
 import {runMathProviderStage} from "./adaptiveMathDiscovery";
 import {authorizePlannerRecoveryFromArgs} from "../scripts/authorizePlannerRecovery";
 
@@ -283,6 +283,25 @@ describe("canonical learning cycle runtime", () => {
     ]));
   });
 
+  // One pipeline (owner, 2026-11-08): honesty lives in code. A built game cannot hide that the answer was on
+  // screen when the problem opened; that answer is recorded as helped, never as independent evidence.
+  it("records an answer as helped when the answer was showing when the problem opened", () => {
+    const rootDir = root();
+    const instrument = { ...node("facts", "baseline"), evidenceContract: { academic: true, engagement: true, companionObservations: true,
+      itemContracts: Object.fromEntries(frozenItems().map(item=>[item.id,item])), itemRoles: { "checkpoint-1": "fresh_checkpoint", "2x5": "fresh_checkpoint" } } };
+    createLearningCycle({ ...input(), nodes: [instrument] as never }, { rootDir });
+    const cycle = recordCanonicalNodeCompletion({ childId: "reina", homeworkId: "hw-runtime", sessionId: "shown-session", nodeId: "facts", result: {
+      completed: true, accuracy: 1, timeSpent_ms: 1000, targetResults: [
+        { target: "checkpoint-1", correct: true, attemptedValue: "10", screenAtOpen: "Camp 1. 4 + 6 = 10 ... what is 4 + 6?" },
+        { target: "2x5", correct: true, attemptedValue: "10", screenAtOpen: "Camp 2. 2 groups of 5 = ?" },
+      ] as never } }, { rootDir });
+    expect(cycle?.observations).toEqual(expect.arrayContaining([
+      expect.objectContaining({ itemId: "checkpoint-1", provenance: "practice", assistance: expect.objectContaining({ status: "assisted" }), confounds: expect.arrayContaining(["answer_exposure"]) }),
+      expect.objectContaining({ itemId: "2x5", provenance: "independent_probe" }),
+    ]));
+    fs.rmSync(rootDir, { recursive: true, force: true });
+  });
+
   it("rejects target results that are not in the frozen item contract", () => {
     const rootDir = root();
     createLearningCycle({
@@ -518,6 +537,92 @@ describe("canonical learning cycle runtime", () => {
     expect(() => projectLearningCycle(routeComplete!)).toThrow("board_definition_missing"); // Unsaved historical presentation cannot be reconstructed.
     expect(() => recordCanonicalNodeCompletion({ childId: "reina", homeworkId: "hw-runtime", sessionId: "s1", nodeId: "puzzle-fact", result: { completed: true, accuracy: 1, timeSpent_ms: 1000 } }, { rootDir }))
       .toThrow("learning_board_batch_closed:puzzle-fact");
+  });
+
+  // 2026-11-10, both audits: all 47 of Reina's math answers were saved "on her own", including problems Matilda
+  // talked her through, because built games never send companion interactions. The server knows which problem
+  // was open when her companion helped; that problem's answer is saved as helped.
+  // 2026-11-10, Ila's math session: 34 answers in the game, 26 saved; her repeated "34" guesses on one problem
+  // were lost, so first-try accuracy and her guess count could not be read. Human caught the count gap; the logs
+  // had both counts but no per-try record; the lab never retries. Each try is its own observation now.
+  it("saves every try on a problem: the first try is the measure, later tries are practice", () => {
+    const rootDir = root();
+    createLearningCycle(input(), { rootDir });
+    const tries = ["34", "34", "34", "10"].map((attemptedValue, index) => ({ attemptedValue, at: Date.parse("2026-11-10T15:00:00Z") + index * 4000 }));
+    const cycle = recordCanonicalNodeCompletion({ childId: "reina", homeworkId: "hw-runtime", sessionId: "s1", nodeId: "facts", result: { completed: true, accuracy: 1, timeSpent_ms: 1000,
+      targetResults: [{ target: "2x5", correct: true, attemptedValue: "34", tries }, { target: "groups", correct: true, attemptedValue: "10" }] } }, { rootDir })!;
+    const rows = cycle.observations.filter(row => row.itemId === "2x5");
+    expect(rows.map(row => [row.childResponse, row.result.correct, row.provenance])).toEqual([
+      ["34", false, "independent_probe"], ["34", false, "practice"], ["34", false, "practice"], ["10", true, "practice"]]);
+    expect(rows[0].confounds).toEqual(expect.arrayContaining(["first_try", "attempt:1"]));
+    expect(rows[3].confounds).toEqual(expect.arrayContaining(["retry", "attempt:4"]));
+    expect(new Set(rows.map(row => row.observationId)).size).toBe(4);
+    expect(rows[0].observationId).toBe("s1:facts:observation:1");
+    expect(cycle.observations.filter(row => row.itemId === "groups")).toHaveLength(1);
+  });
+
+  // BUGS.md 2026-11-10 evening: a stop finishes once each problem has a first answer, so her retries on the last
+  // problem after that were never saved. Human caught it (fix/1110-learning caveat) reading the game's count against
+  // the saved count; logs showed the finish but not the tries made after it; the lab's retries all came before the
+  // last first answer. A follow-up record after the completion adds only the tries not yet saved.
+  it("adds her later tries on a finished stop as retries, once, without reopening the stop", () => {
+    const rootDir = root();
+    createLearningCycle(input(), { rootDir });
+    const at = Date.parse("2026-11-10T15:00:00Z");
+    recordCanonicalNodeCompletion({ childId: "reina", homeworkId: "hw-runtime", sessionId: "s1", nodeId: "facts", result: { completed: true, ended: true, accuracy: 0, timeSpent_ms: 1000,
+      targetResults: [{ target: "2x5", correct: false, attemptedValue: "34", tries: [{ attemptedValue: "34", at }] }, { target: "groups", correct: false, attemptedValue: "9", tries: [{ attemptedValue: "9", at }] }] } }, { rootDir });
+    const late = { childId: "reina", homeworkId: "hw-runtime", sessionId: "s1", nodeId: "facts",
+      targetResults: [{ target: "2x5", attemptedValue: "34", tries: [{ attemptedValue: "34", at }] }, { target: "groups", attemptedValue: "9", tries: [{ attemptedValue: "9", at }, { attemptedValue: "10", at: at + 4000 }] }] };
+    recordCanonicalLateTries(late, { rootDir });
+    const cycle = recordCanonicalLateTries(late, { rootDir })!;
+    const rows = cycle.observations.filter(row => row.itemId === "groups");
+    expect(rows.map(row => [row.childResponse, row.result.correct, row.provenance])).toEqual([["9", false, "independent_probe"], ["10", true, "practice"]]);
+    expect(rows[1].observationId).toBe("s1:facts:observation:2:try:2");
+    expect(rows[1].confounds).toEqual(expect.arrayContaining(["retry", "attempt:2"]));
+    expect(cycle.observations.filter(row => row.itemId === "2x5")).toHaveLength(1);
+    expect(cycle.nodes.find(node => node.nodeId === "facts")?.state).toBe("completed");
+  });
+
+  it("refuses later tries for a stop whose completion is not saved yet", () => {
+    const rootDir = root();
+    createLearningCycle(input(), { rootDir });
+    expect(() => recordCanonicalLateTries({ childId: "reina", homeworkId: "hw-runtime", sessionId: "s1", nodeId: "facts",
+      targetResults: [{ target: "2x5", attemptedValue: "34", tries: [{ attemptedValue: "34" }, { attemptedValue: "10" }] }] }, { rootDir })).toThrow(/late_tries_completion_missing/);
+  });
+
+  // BUGS.md 2026-11-08 (owner, 2026-11-13: "garbage in, garbage out, we need to trust the numbers"): built games never
+  // reported hints, so an answer after three hints was saved as on her own. Why the human caught it: Reina said the
+  // hints were long and a worked example. Why the logs missed it: hints were never sent. Why the lab missed it: its
+  // games have no hints. A try after a hint is helped; a game that cannot report hints has help unknown.
+  it("saves a try after a hint as helped, and the try before the hint as on her own", () => {
+    const rootDir = root();
+    createLearningCycle(input(), { rootDir });
+    const cycle = recordCanonicalNodeCompletion({ childId: "reina", homeworkId: "hw-runtime", sessionId: "s1", nodeId: "facts", result: { completed: true, accuracy: 1, timeSpent_ms: 1000,
+      targetResults: [{ target: "2x5", correct: true, attemptedValue: "10", tries: [{ attemptedValue: "34" }, { attemptedValue: "10", hinted: true }] }] } }, { rootDir })!;
+    const rows = cycle.observations.filter(row => row.itemId === "2x5");
+    expect(rows.map(row => row.assistance)).toEqual([{ status: "unassisted", scaffolds: [] }, { status: "assisted", scaffolds: ["hint_shown"] }]);
+  });
+
+  it("saves help as unknown, never on her own, for a built game that cannot report hints", () => {
+    for (const reportsHints of [false, true]) {
+      const rootDir = root();
+      const base = input();
+      createLearningCycle({ ...base, nodes: base.nodes.map(row => row.nodeId === "facts" ? { ...row, implementationType: "generated-game" as const,
+        artifactBinding: { ...row.artifactBinding!, creativeProvenance: { rationale: "r", qualityPrediction: "q", creatorPromptHash: "c", artworkPromptHash: "a", ...(reportsHints ? { reportsHints: true } : {}) } } } : row) }, { rootDir });
+      const cycle = recordCanonicalNodeCompletion({ childId: "reina", homeworkId: "hw-runtime", sessionId: "s1", nodeId: "facts", result: { completed: true, accuracy: 1, timeSpent_ms: 1000,
+        targetResults: [{ target: "2x5", correct: true, attemptedValue: "10" }] } }, { rootDir })!;
+      const row = cycle.observations.find(candidate => candidate.itemId === "2x5")!;
+      expect(row.assistance.status, `reportsHints=${reportsHints}`).toBe(reportsHints ? "unassisted" : "unknown");
+      if (!reportsHints) expect(row.provenance).toBe("practice");
+    }
+  });
+
+  it("saves a math answer as helped when her companion helped while that problem was open", () => {
+    const rootDir = root();
+    createLearningCycle(input(), { rootDir });
+    const cycle = recordCanonicalNodeCompletion({ childId: "reina", homeworkId: "hw-runtime", sessionId: "s1", nodeId: "facts", result: { completed: true, accuracy: 1, timeSpent_ms: 1000,
+      targetResults: [{ target: "2x5", correct: true, attemptedValue: "10" }], companionHelpItemIds: ["2x5"] } }, { rootDir });
+    expect(cycle!.observations.find(row => row.itemId === "2x5")!.assistance).toEqual({ status: "assisted", scaffolds: ["companion_help_on_item"] });
   });
 
   it("records factual baseline scorecards before one Planner decision generates Quest", async () => {
@@ -1006,7 +1111,8 @@ describe("canonical learning cycle runtime", () => {
   });
 });
 
-it('uses the configured spelling Planner for next-step decisions, keeping math configuration separate',async()=>{
+// Owner 2026-11-09: both girls on the same Planner model; one setting chooses it for every subject (was spelling-only).
+it('uses the one configured Planner model for next-step decisions in every subject',async()=>{
  vi.stubEnv('SUNNY_EXPERIENCE_PLANNER_MODEL','claude-opus-5-5');
  vi.stubEnv('SUNNY_INGEST_MODEL','legacy-math-model');
  try {
@@ -1020,7 +1126,7 @@ it('uses the configured spelling Planner for next-step decisions, keeping math c
     const create=vi.fn(async(_payload?:unknown)=>{throw Error('fixture-stop');});
     await expect(advanceCanonicalCycleFromEvidence({childId:'reina',homeworkId:'hw-runtime',client:{messages:{create,stream:(payload:unknown)=>({finalMessage:()=>create(payload)})}} as never},{rootDir})).rejects.toThrow('fixture-stop');
     expect(create).toHaveBeenCalledOnce();
-    expect((create.mock.calls[0] as unknown as [Record<string,unknown>])[0].model).toBe(domain==='spelling'?'claude-opus-5-5':'legacy-math-model');
+    expect((create.mock.calls[0] as unknown as [Record<string,unknown>])[0].model).toBe('claude-opus-5-5');
    }finally{fs.rmSync(rootDir,{recursive:true,force:true});}
   }
  }finally{vi.unstubAllEnvs();}

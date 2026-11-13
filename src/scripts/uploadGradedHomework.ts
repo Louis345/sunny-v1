@@ -10,11 +10,15 @@ import { extractAssignmentSource } from "../engine/assignmentSourceExtraction";
 import { recordGradedHomeworkCalibration } from "../engine/learningDecisionContext";
 import type { LearningCycleRecordV2 } from "../engine/learningCycleRepository";
 import {
+  frozenSpellingWordMapping,
   interpretReturnedWorkBatch,
   recordConfirmedReturnedWork,
   type TheoryDecisionContent,
 } from "../engine/longitudinalLearning";
 import { resolveChildContextDir } from "../utils/contextRoot";
+import { familyDay } from "../utils/familyCalendar";
+import { openChart } from "../chart/db";
+import { recordGradedTestBond } from "../engine/predictionBond";
 
 type HomeworkCycleCandidateRecord = HomeworkCycle | LearningCycleRecordV2;
 
@@ -34,9 +38,36 @@ export type GradedHomeworkUpload = {
     correct: boolean;
     observedErrorType?: string;
     note?: string;
+    /** What she wrote, when the parent typed it. */
+    wrote?: string;
   }>;
   contentFingerprint?: string;
 };
+
+const RIGHT_MARKS = new Set(["✓", "✔", "√", "right", "yes", "y", "1", "c", "correct", "ok"]);
+const WRONG_MARKS = new Set(["✗", "✘", "x", "wrong", "no", "n", "0", "w", "missed"]);
+
+/**
+ * The parent's simple format: an optional `date: YYYY-MM-DD` line, then one word per line followed by a tick or a
+ * cross, and optionally what she wrote: `light ✗ lite`.
+ */
+export function parseTickedSpellingTest(text: string): { testDate: string | null; rows: Array<{ word: string; correct: boolean; wrote?: string }> } {
+  let testDate: string | null = null;
+  const rows: Array<{ word: string; correct: boolean; wrote?: string }> = [];
+  for (const raw of text.split(/\r?\n/)) {
+    const line = raw.trim();
+    if (!line || line.startsWith("#")) continue;
+    const date = line.match(/^(?:date|test date|test)\s*[:=]\s*(\d{4}-\d{2}-\d{2})$/i);
+    if (date) { testDate = date[1]; continue; }
+    const [word, mark, ...rest] = line.split(/\s+/);
+    const key = (mark ?? "").toLowerCase();
+    if (!word || !(RIGHT_MARKS.has(key) || WRONG_MARKS.has(key))) continue;
+    const correct = RIGHT_MARKS.has(key);
+    const wrote = rest.join(" ").trim();
+    rows.push({ word: word.toLowerCase(), correct, ...(!correct && wrote ? { wrote } : {}) });
+  }
+  return { testDate, rows };
+}
 
 export type HomeworkMatchCandidate = {
   homeworkId: string;
@@ -284,10 +315,11 @@ async function uploadFromFile(args: CliArgs): Promise<GradedHomeworkUpload> {
   const questions = Array.isArray(structured.questions)
     ? structured.questions.map((question) => String(question))
     : [];
+  const ticked = /\.(txt|md)$/i.test(sourceFile) ? parseTickedSpellingTest(rawText) : { testDate: null, rows: [] };
   const gradedItems = Array.isArray(structured.gradedItems)
     ? structured.gradedItems
-    : [];
-  const testDate = typeof structured.testDate === "string" ? structured.testDate : null;
+    : ticked.rows.map((row) => ({ target: row.word, correct: row.correct, ...(row.wrote ? { wrote: row.wrote } : {}) }));
+  const testDate = typeof structured.testDate === "string" ? structured.testDate : ticked.testDate;
   const returnTag =
     typeof structured.returnTag === "string"
       ? structured.returnTag
@@ -333,8 +365,19 @@ async function recordCanonicalUpload(input: {
   if (input.upload.gradedItems.length === 0) {
     throw new Error("returned_work_item_review_required");
   }
+  // Spelling words were frozen to IDs when the week began; the parent types the word, code finds its ID.
+  const spelling = frozenSpellingWordMapping(input.candidate.cycle);
+  const key = (value: string) => value.normalize("NFC").trim().toLocaleLowerCase("en-US");
+  const constructIdFor = (target: string) => spelling?.find((item) => key(item.word) === key(target))?.constructId ?? target;
+  const unknown = spelling ? input.upload.gradedItems.filter((item) => constructIdFor(item.target) === item.target).map((item) => item.target) : [];
+  if (unknown.length) throw new Error(`returned_spelling_word_unknown:${unknown.join(",")}`);
+  const testDate = typeof input.upload.testDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(input.upload.testDate) ? input.upload.testDate : undefined;
+  const right = input.upload.gradedItems.filter((item) => item.correct).length;
   const bytes = fs.readFileSync(input.upload.sourceFile);
   const fileFingerprint = crypto.createHash("sha256").update(bytes).digest("hex");
+  // Her chart database first (owner 2026-11-12): the graded test bonded to the predictions locked before it. If the
+  // chart refuses, nothing is written anywhere and the upload stops loudly; rerunning the same file is safe.
+  if (spelling) bondSpellingSchoolTestInChart({ cycle: input.candidate.cycle, testDate: testDate ?? familyDay(input.now), fileFingerprint, items: input.upload.gradedItems });
   const sourceId = `returned-work:${crypto.createHash("sha256").update(`${input.upload.childId}:${input.candidate.homeworkId}:${fileFingerprint}`).digest("hex").slice(0, 20)}`;
   const sourceDir = path.join(resolveChildContextDir(input.upload.childId, { rootDir: input.rootDir }), "homework", "returned-work", "sources", sourceId.replace(/:/g, "-"));
   fs.mkdirSync(sourceDir, { recursive: true });
@@ -350,6 +393,7 @@ async function recordCanonicalUpload(input: {
       sourceFile,
       provenance: "caregiver",
       capturedAt: input.now.toISOString(),
+      ...(testDate ? { testDate } : {}),
       assignmentLink: {
         homeworkId: input.candidate.homeworkId,
         method: input.explicitSelection ? "explicit_selection" : "content_match",
@@ -358,15 +402,23 @@ async function recordCanonicalUpload(input: {
       },
       status: "confirmed",
     },
-    ...(typeof input.upload.score === "number" ? { score: { earned: input.upload.score, possible: input.upload.score <= 1 ? 1 : 100 } } : {}),
+    // The teacher's score when it is readable (0.8 is a fraction, 95 a percent). A bare 1 can mean "1 right" or
+    // "100%", so then, and when no score is given, the score is counted from the ticks.
+    // A whole number no bigger than the graded words is a count of right words (2026-11-13: "8" on 8 words was 8%).
+    score: typeof input.upload.score === "number" && Number.isInteger(input.upload.score) && input.upload.score > 1 && input.upload.score <= input.upload.gradedItems.length
+      ? { earned: input.upload.score, possible: input.upload.gradedItems.length }
+      : typeof input.upload.score === "number" && input.upload.score >= 0 && input.upload.score !== 1 && input.upload.score <= 100
+      ? { earned: input.upload.score, possible: input.upload.score < 1 ? 1 : 100 }
+      : { earned: right, possible: input.upload.gradedItems.length },
     items: input.upload.gradedItems.map((item, index) => ({
       itemId: `item-${index + 1}`,
       prompt: item.target,
+      ...(item.wrote ? { childResponse: item.wrote } : {}),
       correct: item.correct,
       ...(item.observedErrorType ? { observedErrorType: item.observedErrorType } : {}),
       ...(item.note ? { teacherNote: item.note } : {}),
       extractionConfidence: 1,
-      constructLinks: [{ constructId: item.target, role: "primary", confidence: 1 }],
+      constructLinks: [{ constructId: constructIdFor(item.target), role: "primary", confidence: 1 }],
     })),
   }, { rootDir: input.rootDir, now: input.now });
   const result = await interpretReturnedWorkBatch({
@@ -381,6 +433,32 @@ async function recordCanonicalUpload(input: {
     status: result.reason === "already_interpreted" ? "already_interpreted" : cycle.calibrations?.at(-1)?.status ?? "inconclusive",
     calibrationId: cycle.calibrations?.at(-1)?.calibrationId ?? sourceId,
   };
+}
+
+/**
+ * The same graded test, word by word, in her chart database, bonded to every prediction locked before it. A missing
+ * chart or any refusal throws chart_bond_failed: a graded test that cannot be bonded is not half-recorded.
+ */
+function bondSpellingSchoolTestInChart(input: { cycle: LearningCycleRecordV2; testDate: string; fileFingerprint: string; items: GradedHomeworkUpload["gradedItems"] }): void {
+  let db: ReturnType<typeof openChart> | undefined;
+  try {
+    if (!process.env.SUNNY_CHART_DIR?.trim()) throw new Error("no_chart_dir: set SUNNY_CHART_DIR to her chart folder");
+    db = openChart(input.cycle.childId);
+    const scored = recordGradedTestBond(db, { cycle: input.cycle, occurredAt: `${input.testDate}T12:00:00.000Z`, schoolTest: {
+      assignmentId: input.cycle.homeworkId, testDate: input.testDate, photoHash: input.fileFingerprint, sourceKind: "parent_transcription",
+      results: input.items.map((item) => {
+        const word = item.target.normalize("NFC").trim().toLowerCase();
+        return { word, correct: item.correct, writtenResponse: item.wrote ?? (item.correct ? word : null) };
+      }),
+    } });
+    console.log(` 🎮 [homework-upload] [chart-school-test] [bonded] homework=${input.cycle.homeworkId} words=${input.items.length} right=${scored.summary.right} inRange=${scored.summary.inRange}`);
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error);
+    console.error(` 🎮 [homework-upload] [chart-school-test] [refused] homework=${input.cycle.homeworkId} reason=${reason}`);
+    throw new Error(`chart_bond_failed:${reason}`);
+  } finally {
+    db?.close();
+  }
 }
 
 async function confirmCandidate(
@@ -454,6 +532,15 @@ export async function runUploadGradedHomework(
           interpret: opts.interpret,
         });
       } catch (error) {
+        if (error instanceof Error && error.message.startsWith("returned_spelling_word_unknown:")) {
+          fs.writeFileSync(unmatchedPath(rootDir, args.childId, now), JSON.stringify(upload, null, 2), "utf8");
+          logger.log(`⚠️  Not on this week's list: ${error.message.split(":")[1]}. Check the spelling of those words; nothing was recorded.`);
+          return;
+        }
+        if (error instanceof Error && error.message.startsWith("chart_bond_failed:")) {
+          logger.log(`❌ NOT RECORDED: her chart database refused this graded test (${error.message.slice("chart_bond_failed:".length)}). Nothing was saved; fix that and run the same upload again.`);
+          throw error;
+        }
         if (error instanceof Error && error.message === "returned_work_item_review_required") {
           fs.writeFileSync(unmatchedPath(rootDir, args.childId, now), JSON.stringify(upload, null, 2), "utf8");
           logger.log("⚠️  Item-level review is required; queued the upload without changing learning state.");

@@ -1,10 +1,11 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { LUMIPUFF_MONSTER } from "../components/capturedMonsterCatalog";
+import { LUMIPUFF_MONSTER } from "../../../src/shared/capturedMonsterCatalog";
 import {
   buildCapturedCreatureReward,
   buildOrbCaptureCompletedEvent,
   createStorybookMonsterInventory,
 } from "../components/capturedMonsterReward";
+import { DEN_STARTING_BOND } from "../../../src/shared/creatureDenRules";
 
 const capturedAt = "2026-05-30T17:00:00.000Z";
 
@@ -36,7 +37,7 @@ describe("captured monster reward contract", () => {
         speciesName: "Lumipuff",
         nickname: "Lumi",
         mood: "curious",
-        bond: 18,
+        bond: DEN_STARTING_BOND,
         sidekickSelected: false,
         capturedAt,
         chartWriteMode: "storybook_only",

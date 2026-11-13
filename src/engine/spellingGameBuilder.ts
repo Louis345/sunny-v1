@@ -9,8 +9,11 @@ import { resolveChildContextDir } from "../utils/contextRoot";
 import { runMathProviderStage } from "./adaptiveMathDiscovery";
 import { engagementTheoryEvidenceContext } from "./engagementTheory";
 import { requestForModel } from "./plannerTransport";
+import { childFeedbackLines } from "./plannerIntrospection";
 import { captureGame } from "./prebuiltBoard";
+import { gameTrackRecord } from "./gameTrackRecord";
 import {
+  getLearningCycle,
   transitionLearningCycle,
   type LearningCycleNodeContract,
   type LearningCycleRecordV2,
@@ -32,14 +35,34 @@ const MAX_OUTPUT = 128_000;
 const CONTRACT_TAG = '<script src="/games/_contract.js"></script>';
 const CSP = `<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' data: blob:; font-src 'self' data:; connect-src 'none'">`;
 
-/** What her chart says about her, and how she has played this homework's games so far. */
+/** What her chart says about her, how she has played this homework's games so far, and what she said about Sunny's games. */
 function childFacts(cycle: LearningCycleRecordV2, rootDir: string) {
   const chart = getChildChart(cycle.childId, { rootDir });
-  const played = cycle.nodes.filter(node => node.state === "completed").map(node => {
-    const answers = cycle.observations.filter(row => row.sourceId.endsWith(`:${node.nodeId}`));
-    return { stop: node.title, game: node.implementationType ?? node.mechanic, answers: answers.length, correct: answers.filter(row => row.result.correct === true).length };
-  });
-  return { identity: chart.identity, demographics: chart.demographics, childVoice: chart.childVoice, engagementEvidence: engagementTheoryEvidenceContext(chart.engagementTheory), playedThisHomework: played };
+  // Each game she played with its track record and her tutor's keep / fix / retire note (2026-11-10).
+  const played = gameTrackRecord(cycle, { rootDir }).map(row => ({ stop: row.title, game: row.game, answers: row.answers, correct: row.right,
+    minutesToFirstAnswer: row.minutesToFirstAnswer, ...(row.tutorNote ? { tutorNote: row.tutorNote } : {}) }));
+  return { identity: chart.identity, demographics: chart.demographics, childVoice: chart.childVoice, engagementEvidence: engagementTheoryEvidenceContext(chart.engagementTheory), playedThisHomework: played, whatSheSaidAboutSunnysGames: childFeedbackLines(cycle, { rootDir }) };
+}
+
+/**
+ * The game she played that this one starts from, when the Planner named one (owner, 2026-11-09: a game she loved
+ * keeps its mechanic; only what is behind the door changes). Her old words were written into it, so the builder
+ * rewrites its content, never the parts she already learned. Empty when none was named or its file is gone.
+ */
+function buildFromSection(input: { cycle: LearningCycleRecordV2; node: LearningCycleNodeContract; rootDir: string }, content: string): string {
+  const source = input.node.buildFrom ? input.cycle.nodes.find(row => row.nodeId === input.node.buildFrom) : undefined;
+  const local = source?.artifactBinding?.localArtifactPath;
+  const file = local ? path.join(resolveChildContextDir(input.cycle.childId, { rootDir: input.rootDir }), local) : "";
+  if (!source || !file || !fs.existsSync(file)) {
+    if (input.node.buildFrom) console.log(` 🎮 [spelling-game] [build-from] [missing] node=${input.node.nodeId} from=${input.node.buildFrom}`);
+    return "";
+  }
+  const html = fs.readFileSync(file, "utf8").replace(CSP, "").replace(CONTRACT_TAG, "");
+  console.log(` 🎮 [spelling-game] [build-from] [included] node=${input.node.nodeId} from=${source.nodeId} chars=${html.length}`);
+  return `
+
+Start from "${source.title}", a game she already played. She knows how it works, so keep its mechanic, its look and its steps; change what is behind each door and put in ${content}. Its old content was written for other ${content.includes("problem") ? "problems" : "words"}: replace all of it. Her tutor's story and aim for this stop (above) still apply. The game she played:
+${html}`;
 }
 
 export function buildSpellingGameAsk(input: { cycle: LearningCycleRecordV2; node: LearningCycleNodeContract; rootDir: string }): string {
@@ -54,9 +77,9 @@ Her ${words.length} words for this game: ${words.join(", ")}
 This stop on her map, as her tutor wrote it:
 - Title: ${node.title}
 - Story: ${node.theme}
-- What it is for: ${node.openingScreen.purpose}
+- What it is for: ${node.openingScreen.purpose}${node.focus ? `\n- What this game is aimed at: ${node.focus}` : ""}${buildFromSection(input, "her words for this game")}
 
-Make it something she will gasp at and want to play again, and that helps her spell these words without help. Invent a world made for her; avoid the first idea anyone would have.
+Make it something she will gasp at and want to play again, and that helps her spell these words without help.${node.buildFrom ? "" : " Invent a world made for her; avoid the first idea anyone would have."}
 
 How the game must work:
 - One complete, self-contained HTML document: inline CSS and JavaScript only. No external files, no internet, no image URLs; draw with CSS, SVG, canvas or emoji. It fills a frame about 900×650 pixels, with mouse or touch.
@@ -67,7 +90,42 @@ How the game must work:
 - Elli is her companion and speaks for the game. To say anything else aloud, call parent.postMessage({type: "narration_request", text: "<what to say>", reason: "<why>"}, "*"). Do not use speechSynthesis.
 - At big moments (a streak, a miss, a win), call window.fireCompanionEvent("<moment>", {word: "<word>"}) so Elli can react.
 - She spells each word at least once, by typing or tapping letters. A wrong answer never ends the game.
+- Each time she reaches a new step (for example listen, tap, type, check), call window.reportStep("<short step name>", "<the instruction on screen>"). Her companion and her session retro see the step.
+- Each time the game shows her a hint, a worked example or part of the word, call window.reportHint("<the word>", "<what the hint showed her>") first. Answers after a hint are saved as helped, so her own answers stay honest.
 - When she finishes, call window.sendNodeComplete({completed: true}).
+
+Reply with only the HTML document.`;
+}
+
+/** The ask for a math game: her chart, the stop, and how Sunny's contract works; the problems never carry answers. */
+export function buildMathGameAsk(input: { cycle: LearningCycleRecordV2; node: LearningCycleNodeContract; rootDir: string }): string {
+  const { node } = input;
+  const lines = gameItemLines(node);
+  const companion = getChildChart(input.cycle.childId, { rootDir: input.rootDir }).companion.displayName || "her companion";
+  return `Build one math game for a child. It runs inside Sunny, her study helper.
+
+About her, from her chart (what she does counts more than what she says, and what she says clearly more than what she is unsure about):
+${JSON.stringify(childFacts(input.cycle, input.rootDir), null, 2)}
+
+Her ${lines.length} problems for this game (id: problem, how she answers):
+${lines.join("\n")}
+This stop on her map, as her tutor wrote it:
+- Title: ${node.title}
+- Story: ${node.theme}
+- What it is for: ${node.openingScreen.purpose}${node.focus ? `\n- What this game is aimed at: ${node.focus}` : ""}${buildFromSection(input, "her problems for this game")}
+
+Make it something she will gasp at and want to play again, and that helps her solve these problems on her own.
+
+How Sunny's game contract works:
+- The game is one self-contained HTML document with inline CSS and JavaScript. The page has no internet, so pictures are CSS, SVG, canvas or emoji. It fills a frame about 900×650 pixels, with mouse or touch.
+- Sunny's contract is already loaded. window.GAME_PARAMS.itemBindings lists each problem as {itemId, display}.
+- window.openItem("<itemId>", "<progress, like Camp 2 of 6>") opens a problem. Sunny keeps what is on screen at that moment; an answer already showing counts as help.
+- window.fireAttemptEvent({target: "<itemId>", attemptedValue: "<her answer: digits, or the option id shown in brackets above, like odd>"}) reports her answer. Report every answer she gives, retries too; Sunny scores each one.
+- ${companion} is her companion and speaks for the game: parent.postMessage({type: "narration_request", text: "<what to say>", reason: "<why>"}, "*").
+- window.fireCompanionEvent("<moment>", {itemId: "<itemId>"}) lets ${companion} react at big moments.
+- window.reportStep("<short step name>", "<the instruction on screen>") each time she reaches a new step. Her companion and her session retro see the step.
+- window.reportHint("<itemId>", "<what the hint showed her>") each time the game shows her a hint, a worked example or part of the answer, before she answers. Answers after a hint are saved as helped, so her own answers stay honest.
+- window.sendNodeComplete({completed: true}) ends the game.
 
 Reply with only the HTML document.`;
 }
@@ -78,6 +136,23 @@ export function extractHtml(text: string): string {
   if (fenced && /<html[\s>]|<!doctype html/i.test(fenced)) return fenced;
   const start = text.search(/<!doctype html|<html[\s>]/i), end = text.toLowerCase().lastIndexOf("</html>");
   return start >= 0 && end > start ? text.slice(start, end + 7) : "";
+}
+
+/** Each math problem as the builder sees it: its id, its text and how she answers, never the answer. */
+export function gameItemLines(node: LearningCycleNodeContract): string[] {
+  return Object.values(node.evidenceContract.itemContracts ?? {}).map(item => {
+    const answers = item.response.mode === "selection"
+      ? `she picks one: ${item.response.options.map(option => `${option.label} [${option.id}]`).join(", ")}`
+      : item.response.mode === "numeric" ? `she gives a number${item.response.unit ? ` in ${item.response.unit}` : ""}` : `she ${item.response.mode === "construction" ? "builds it" : "explains it"}`;
+    return `- ${item.id}: ${item.prompt} (${answers})`;
+  });
+}
+
+/** Problems code can see in a game before she plays it, for any subject. */
+export function gameProblems(html: string, domain: string): string[] {
+  if (domain === "spelling") return spellingGameProblems(html);
+  const problems = spellingGameProblems(html).filter(row => !row.includes("openSpellingItem"));
+  return [...(/openItem\s*\(/.test(html) ? [] : ["it never calls window.openItem before a problem, so no answer can count"]), ...problems];
 }
 
 /** Problems code can see in a game before she plays it: each would break her measurement or her safety. */
@@ -92,6 +167,8 @@ export function spellingGameProblems(html: string): string[] {
     ...(/openSpellingItem\s*\(/.test(html) ? [] : ["it never calls window.openSpellingItem before a word, so no answer can count"]),
     ...(/fireAttemptEvent\s*\(/.test(html) ? [] : ["it never reports an attempt with window.fireAttemptEvent"]),
     ...(/sendNodeComplete\s*\(/.test(html) ? [] : ["it never says it is done with window.sendNodeComplete"]),
+    // Her companion and her retro see each step only when the game reports it (2026-11-10: 0 of 16 games did).
+    ...(/reportStep\s*\(/.test(html) ? [] : ["it never reports her step with window.reportStep, so her companion cannot see where she is"]),
     ...scripts,
   ];
 }
@@ -119,14 +196,14 @@ export async function prepareGeneratedSpellingGame(input: {
   const { cycle, node } = input;
   const client = input.client ?? new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY, maxRetries: 0 });
   const started = Date.now();
-  const prompt = buildSpellingGameAsk({ cycle, node, rootDir });
+  const prompt = cycle.domain === "spelling" ? buildSpellingGameAsk({ cycle, node, rootDir }) : buildMathGameAsk({ cycle, node, rootDir });
   const first = await ask(client, input.draftDir, "generated-game-1", [{ role: "user", content: prompt }]);
-  let game = first, problems = spellingGameProblems(first.html);
+  let game = first, problems = gameProblems(first.html, cycle.domain);
   console.log(` 🎮 [spelling-game] [build] [received] node=${node.nodeId} model=${spellingGameModel()} chars=${first.html.length} problems=${problems.length} stop=${first.stop}`);
   if (problems.length) {
     const feedback = `Sunny checked your game. It has these problems:\n${problems.map(row => `- ${row}`).join("\n")}\n\nFix them and keep everything else. Reply with only the whole fixed HTML document.`;
     game = await ask(client, input.draftDir, "generated-game-2", [{ role: "user", content: prompt }, { role: "assistant", content: first.html || first.text || "(no game)" }, { role: "user", content: feedback }]);
-    problems = spellingGameProblems(game.html);
+    problems = gameProblems(game.html, cycle.domain);
     console.log(` 🎮 [spelling-game] [repair] [${problems.length ? "still-broken" : "fixed"}] node=${node.nodeId} problems=${problems.length}`);
   }
   if (problems.length) throw new Error(`generated_game_problems:${problems.join(" | ")}`);
@@ -138,14 +215,52 @@ export async function prepareGeneratedSpellingGame(input: {
   fs.mkdirSync(path.dirname(file), { recursive: true });
   fs.writeFileSync(`${file}.${process.pid}.tmp`, html); fs.renameSync(`${file}.${process.pid}.tmp`, file);
   const hash = (value: unknown) => createHash("sha256").update(typeof value === "string" ? value : JSON.stringify(value)).digest("hex");
+  // A build takes minutes; her session keeps writing to the cycle meanwhile (Ila, 2026-11-11: a call moved it from
+  // revision 588 to 589 and a finished game was thrown away). Bind against the latest cycle when this stop is unchanged.
+  const latest = getLearningCycle(cycle.childId, cycle.homeworkId, opts);
+  const now = latest?.nodes.find(candidate => candidate.nodeId === node.nodeId);
+  if (!latest || !now || now.artifactBinding || JSON.stringify(now.evidenceContract) !== JSON.stringify(node.evidenceContract)) {
+    throw new Error(`spelling_game_stop_changed:${node.nodeId}`);
+  }
+  if (latest.revision !== cycle.revision) console.log(` 🎮 [spelling-game] [build] [rebased] node=${node.nodeId} from=${cycle.revision} to=${latest.revision}`);
   console.log(` 🎮 [spelling-game] [build] [bound] node=${node.nodeId} file=${filename} seconds=${Math.round((Date.now() - started) / 1000)}`);
-  return transitionLearningCycle(cycle.childId, cycle.homeworkId, cycle.revision, { type: "artifact_bound", nodeId: node.nodeId, artifact: {
+  return transitionLearningCycle(cycle.childId, cycle.homeworkId, latest.revision, { type: "artifact_bound", nodeId: node.nodeId, artifact: {
     contentId: `${cycle.homeworkId}:${node.nodeId}`, artifactId: `${cycle.homeworkId}:${node.nodeId}:generated`,
     localArtifactPath: `/homework/games/${cycle.homeworkId}/${filename}`,
     localArtworkPath: node.artwork.localPath ?? thumbnailUrlForActivity("generated-game"),
     contractFingerprint: hash({ evidenceContract: node.evidenceContract, html }), validationStatus: "passed",
     creativeProvenance: { rationale: node.openingScreen.purpose, qualityPrediction: node.theme, creatorPromptHash: hash(prompt), artworkPromptHash: hash(node.artwork.prompt ?? ""),
-      builderProvider: "anthropic", builderModel: spellingGameModel(), generatedHtmlHash: hash(html), generationElapsedMs: Date.now() - started,
+      builderProvider: "anthropic", builderModel: spellingGameModel(), generatedHtmlHash: hash(html), reportsHints: /reportHint\s*\(/.test(html), generationElapsedMs: Date.now() - started,
       inputTokens: first.inputTokens + (game === first ? 0 : game.inputTokens), outputTokens: first.outputTokens + (game === first ? 0 : game.outputTokens) },
+  } }, opts);
+}
+
+/**
+ * Bind a game this builder already finished and wrote, whose bind lost the race to her own session (Ila, 2026-11-11:
+ * board 13 stop 1). No provider call: the file is the builder's own checked output, and its saved request names it.
+ */
+export function bindSavedSpellingGame(input: { cycle: LearningCycleRecordV2; node: LearningCycleNodeContract; draftDir: string }, opts: LearningCycleRepositoryOptions = {}): LearningCycleRecordV2 {
+  const { cycle, node } = input;
+  const rootDir = opts.rootDir ?? process.cwd();
+  const filename = `${node.nodeId.replace(/[^a-zA-Z0-9_-]/g, "_")}.html`;
+  const file = path.join(resolveChildContextDir(cycle.childId, { rootDir }), "homework/games", cycle.homeworkId, filename);
+  if (!fs.existsSync(file)) throw new Error(`saved_game_missing:${file}`);
+  const html = fs.readFileSync(file, "utf8");
+  if (!html.includes("</html>")) throw new Error(`saved_game_incomplete:${file}`);
+  const stageFile = path.join(input.draftDir, "provider-receipts", "generated-game-1.stage.json");
+  const requestHash = fs.existsSync(stageFile) ? String((JSON.parse(fs.readFileSync(stageFile, "utf8")) as { requestHash?: string }).requestHash ?? "") : "";
+  if (!/^[a-f0-9]{64}$/.test(requestHash)) throw new Error(`saved_game_request_unknown:${stageFile}`);
+  const hash = (value: unknown) => createHash("sha256").update(typeof value === "string" ? value : JSON.stringify(value)).digest("hex");
+  const latest = getLearningCycle(cycle.childId, cycle.homeworkId, opts);
+  const now = latest?.nodes.find(candidate => candidate.nodeId === node.nodeId);
+  if (!latest || !now || now.artifactBinding || JSON.stringify(now.evidenceContract) !== JSON.stringify(node.evidenceContract)) throw new Error(`spelling_game_stop_changed:${node.nodeId}`);
+  console.log(` 🎮 [spelling-game] [saved-build] [bound] node=${node.nodeId} file=${filename} provider_calls=0`);
+  return transitionLearningCycle(cycle.childId, cycle.homeworkId, latest.revision, { type: "artifact_bound", nodeId: node.nodeId, artifact: {
+    contentId: `${cycle.homeworkId}:${node.nodeId}`, artifactId: `${cycle.homeworkId}:${node.nodeId}:generated`,
+    localArtifactPath: `/homework/games/${cycle.homeworkId}/${filename}`,
+    localArtworkPath: node.artwork.localPath ?? thumbnailUrlForActivity("generated-game"),
+    contractFingerprint: hash({ evidenceContract: node.evidenceContract, html }), validationStatus: "passed",
+    creativeProvenance: { rationale: node.openingScreen.purpose, qualityPrediction: node.theme, creatorPromptHash: requestHash, artworkPromptHash: hash(node.artwork.prompt ?? ""),
+      builderProvider: "anthropic", builderModel: spellingGameModel(), generatedHtmlHash: hash(html), reportsHints: /reportHint\s*\(/.test(html), generationElapsedMs: 0, inputTokens: 0, outputTokens: 0 },
   } }, opts);
 }

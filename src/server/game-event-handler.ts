@@ -3,6 +3,8 @@
  * Session state lives on SessionManager; this module holds extracted handlers (no circular imports).
  */
 
+import { noteGamePace } from "./gamePace";
+import { finishItemAttempts, noteItemAnswer, noteItemHint, noteItemOpened } from "./itemAttemptFacts";
 import { isSpellingPracticeContinuation } from "../engine/learningCycleRepository";
 import { recordClockAttempt } from "../engine/clockTracker";
 import { childIdFromName, recordAttempt } from "../engine/learningEngine";
@@ -22,6 +24,7 @@ import { withOriginalSpellingChart } from "../chart/spelling/originalResponses";
 import { schemas } from '../chart/spelling/schemas';
 import { recordFact } from '../chart/spelling/record';
 import { commitOriginalSpellingAttempt } from "./originalSpellingCommit";
+import { typedSpellingForChart } from "./spellingKeyboardInput";
 import {
   recordCompanionVideoCallTraceEvent,
   type CompanionVideoCallTraceEventName,
@@ -52,7 +55,7 @@ export function armGameNarrationPlaybackTimer(
   }, GAME_NARRATION_PLAYBACK_TIMEOUT_MS);
 }
 
-export type SpellingAssessmentState = { lastStimulusRates?:number[]|null; launchToken?:string; chartItemId?:string; audioPlaybacks:number; instrument:"discovery"|"practice"|"recall_check"; launchId?: string; nodeId: string; homeworkId: string; itemId: string; word: string; artifactHash: string; audioDelivered: boolean; supportIds: string[]; lettersVisible: boolean|null };
+export type SpellingAssessmentState = { lastStimulusRates?:number[]|null; launchToken?:string; chartItemId?:string; audioPlaybacks:number; instrument:"discovery"|"practice"|"recall_check"; launchId?: string; nodeId: string; homeworkId: string; itemId: string; word: string; artifactHash: string; audioDelivered: boolean; supportIds: string[]; lettersVisible: boolean|null; helpRequested?: boolean };
 export function bindSpellingAssessment(input: {
   state: Record<string, unknown>; cycle?: LearningCycleRecordV2 | null; current?: SpellingAssessmentState;
   history: Map<string, SpellingAssessmentState>;
@@ -293,6 +296,18 @@ export function handleGameEventForSession(
   const type = event.type as string;
 
   if (TRACEABLE_GAME_EVENT_TYPES.has(type)) {
+    // Pace facts for her companion, in every game (2026-11-10).
+    if (typeof event.nodeId === "string" && event.nodeId && (s.chartChildId || s.childName)) {
+      const childId = chartChildIdForSession(s);
+      noteGamePace(childId, event.nodeId, type === "attempt_event" ? "answer" : "state");
+      // Her tries on the open problem, scored by code as they arrive, for her companion (2026-11-10).
+      if (type === "game_state_update" && typeof event.itemId === "string" && event.itemId) noteItemOpened(childId, event.nodeId, event.itemId);
+      // A hint the game showed: her later tries on that problem are saved as helped (owner, 2026-11-13).
+      if (type === "game_state_update" && typeof event.hintShownItemId === "string" && event.hintShownItemId) noteItemHint(childId, event.nodeId, event.hintShownItemId);
+      if (type === "attempt_event" && typeof event.target === "string" && typeof event.attemptedValue === "string" && shouldPersistSessionData()) noteItemAnswer(childId, event.nodeId, event.target, event.attemptedValue, () => getChildChart(childId).learningCycle);
+      // The ended game's tries are held for the completion that saves them (BUGS.md 2026-11-13: clearing raced it).
+      if (type === "node_complete" || type === "game_complete") finishItemAttempts(childId, event.nodeId);
+    }
     s.recordDebugEvent?.("flow_game", type, buildFlowGameEventFields(event));
     s.recordGameTrace?.({
       ...event,
@@ -588,22 +603,43 @@ export function handleGameEventForSession(
         return; // A chunk/selection score never enters spelling scoring or the word bank.
       }
       if (event.domain === "spelling" && launch && matchesLaunch && event.activityId !== "word-radar" && event.game !== "word-radar") {
+        // A library 3D game bound before 2026-11-11 names a word by its word id; the stop files it as `${nodeId}:${wordId}`
+        // (Ila's Boss: every answer went unsaved). Read the short form as the stop's own item when that item exists.
+        const shortTarget = String(event.target ?? "");
+        if (shortTarget && !shortTarget.startsWith(`${launch.nodeId}:`)) {
+          const full = `${launch.nodeId}:${shortTarget}`;
+          if (getLearningCycle(childId, launch.homeworkId)?.nodes.find(n => n.nodeId === launch.nodeId)?.evidenceContract.spellingItems?.[full]) {
+            console.log(` 🎮 [spelling] [target] [stop-item] node=${launch.nodeId} from=${shortTarget}`);
+            event = { ...event, target: full };
+          }
+        }
         const live = s.getDiscoveryAttemptContext?.(launch.homeworkId, String(event.target ?? ""), event.launchToken);
         if (live?.practice && typeof event.attemptedValue === "string") {
           const cycle = getLearningCycle(childId, launch.homeworkId);
           const node = cycle?.nodes.find(n => n.nodeId === launch.nodeId);
           if (!node?.evidenceContract.spellingItems?.[String(event.target)] || live.launchId !== launch.launchId || live.nodeId !== launch.nodeId || live.artifactHash !== node.artifactBinding?.contractFingerprint) throw new Error("native_spelling_binding_mismatch");
           if (typeof event.attemptId !== "string" || !event.attemptId || typeof event.timestamp !== "number" || !Number.isFinite(event.timestamp)) throw new Error("native_spelling_attempt_identity_required");
+          const keyboard = typedSpellingForChart(event.attemptedValue, node.evidenceContract.spellingItems[String(event.target)].response.acceptedForms);
+          if (keyboard.keyboardFact) s.noteExternalEvent?.({source:"keyboard",summary:keyboard.keyboardFact});
           const request = {attemptId:event.attemptId,itemId:String(event.target),attemptedValue:event.attemptedValue,observedAt:new Date(event.timestamp).toISOString(),supportEventIds:[],instrumentSignals:[],skipped:false,sessionId:live.sessionId,launchToken:launch.launchToken};
-          const legacy = {childId,homeworkId:launch.homeworkId,attempt:request,support:live.support,artifactHash:live.artifactHash,sessionId:live.sessionId,launchId:launch.launchId,instrumentSignals:live.instrumentSignals};
+          // Letters left when a built game's word ended are an incomplete try, never a misspelling (G8, 2026-11-10).
+          const incomplete = event.incomplete === true;
+          if (incomplete) console.log(` 🎮 [spelling] [incomplete-try] [recorded] item=${request.itemId}`);
+          const legacy = {childId,homeworkId:launch.homeworkId,attempt:{...request,...(incomplete ? {incomplete} : {})},support:live.support,artifactHash:live.artifactHash,sessionId:live.sessionId,launchId:launch.launchId,instrumentSignals:live.instrumentSignals};
           const committed = withOriginalSpellingChart(childId, db => commitOriginalSpellingAttempt(db,launch.homeworkId,request,()=>{
             if (!live.chartItemId) throw new Error("chart_live_presentation_required");
-            return {legacy,response:{assignmentId:launch.homeworkId,sessionId:live.sessionId,itemId:live.chartItemId,sourceResponseId:request.attemptId,rawResponse:request.attemptedValue,status:"answered",support:{spellingShown:live.spellingShown ?? null,hint:null,companionHelp:live.support.status === "assisted" ? true : null,audioReplays:live.audioReplays ?? null}}};
+            return {legacy,response:{assignmentId:launch.homeworkId,sessionId:live.sessionId,itemId:live.chartItemId,sourceResponseId:request.attemptId,rawResponse:keyboard.rawResponse,status:incomplete ? "unknown" : keyboard.unreadable ? "ambiguous" : "answered",support:{spellingShown:live.spellingShown ?? null,hint:null,companionHelp:live.support.status === "assisted" ? true : null,audioReplays:live.audioReplays ?? null}}};
           },recordSpellingDiscoveryAttempt)) ?? recordSpellingDiscoveryAttempt(legacy);
           const correct = committed.observations.find(row => row.observationId === request.attemptId)?.result.correct;
           // The private word bank cannot override the code-scored raw response.
-          if (typeof correct === "boolean") event = {...event,correct,quality:correct ? 5 : 1};
+          // An unscored answer (e.g. unreadable keyboard text) stays out of the word bank too.
+          event = typeof correct === "boolean" ? {...event,correct,quality:correct ? 5 : 1} : {...event,correct:undefined};
         }
+      }
+      // A built game's answer with no right/wrong is scored by code when the stop completes (BUGS.md 2026-11-08).
+      if (typeof event.correct !== "boolean") {
+        console.log(` 🎮 [attempt_event] [scored-at-completion] target=${String(event.target ?? "")}`);
+        return;
       }
       const recorded = recordLearningAttempt(event, childId);
       if (recorded.skipped) return;
@@ -947,3 +983,5 @@ export function handleReadingProgress(s: SM, payload: Record<string, unknown>): 
       }
     }
 }
+
+export { NarrationGate } from "./narrationGate";

@@ -1,6 +1,6 @@
 import { act, fireEvent, render, renderHook, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { useAppAdventurePreparation, type PreparationSurface } from "../components/AdventurePreparation/useAppAdventurePreparation";
+import { boardReadyRaiseHand, useAppAdventurePreparation, type PreparationSurface } from "../components/AdventurePreparation/useAppAdventurePreparation";
 import type { GenerationStatus } from "../hooks/useAdaptiveMathGenerationRefresh";
 
 const packet = { activeSessionPlan: { domain: "spelling", nodePlan: [{ targets: ["night", "light"] }], adventureBoard: { nodes: [{ id: "a", kind: "activity", activityId: "word-radar" }, { id: "b", kind: "activity", activityId: "letter-rush" }] } } } as never;
@@ -32,6 +32,27 @@ describe("useAppAdventurePreparation", () => {
     expect(screen.getAllByRole("button", { name: /Hear word/ })).toHaveLength(10);
     expect(screen.getByRole("button", { name: "Hear word0 — Correct" })).toHaveTextContent("✓");
     expect(screen.getByRole("button", { name: "Hear word9 — To practise" })).toHaveTextContent("✕");
+  });
+
+  // Owner 2026-11-12: "it just shows spelling, but we should just show math... their progress, what they worked on."
+  // The same waiting screen shows a finished math board: each problem as her answer with a check or a cross, the
+  // problem read aloud on tap, and "New!" where she fixed a first miss.
+  it("shows a finished math board's problems as her answers", () => {
+    const math = { activeSessionPlan: { domain: "math" }, mathBoardResults: { "hw:board:3": [
+      { display: "7", spoken: "42 stickers, 6 on each sheet. How many sheets?", firstTry: false, correct: true },
+      { display: "8", spoken: "56 apples in 8 bags. How many in each bag?", firstTry: true, correct: false },
+    ] } };
+    const sendMessage = vi.fn();
+    const { result } = renderHook(() => useAppAdventurePreparation({
+      surface: "chapter", packet: math as never, childId: "lab", homeworkId: "hw", finishedBoardId: "hw:board:3",
+      status: status("successor_preparing", []), finished: false, checkNow: vi.fn(), onFinish: vi.fn(), sendMessage,
+    }));
+    render(<>{result.current.screen}</>);
+    expect(screen.getByRole("button", { name: "Hear 7 — Correct" })).toHaveTextContent("New!");
+    expect(screen.getByRole("button", { name: "Hear 8 — To practise" })).toHaveTextContent("✕");
+    expect(result.current.waiting?.step).toBe("You did it! Let me look at all your answers.");
+    fireEvent.click(screen.getByRole("button", { name: "Hear 7 — Correct" }));
+    expect(JSON.stringify(sendMessage.mock.calls)).toContain("42 stickers, 6 on each sheet. How many sheets?");
   });
 
   // 2026-11-01 Ila finished her board and nothing happened: the next board was ready but her screen still said done.
@@ -280,6 +301,42 @@ describe("useAppAdventurePreparation", () => {
     render(<>{result.current.screen}</>);
     expect(screen.getByRole("button", { name: "Let's go!" })).toBeTruthy();
     expect(screen.queryByText(/min/)).toBeNull();
+  });
+
+  // 2026-11-12 Ila (AI-caught in the log): she tapped "Stop for now" 11 s into the waiting screen while board 3 was
+  // still being built, then stayed on "You can go. I'll finish it for next time" for 35 minutes. Board 3 was
+  // published at 21:13, but the stop card ignored it, so nothing opened. Why a human would catch it: a child sat in
+  // front of a finished board. Why the logs missed it: the screen kept reporting "waiting" and nothing measured how
+  // long. Why the lab missed it: stop was tested only on an already-ready board (declining it, below).
+  it("offers a board that is published after she tapped Stop while it was still being built", () => {
+    const { result, rerender } = setup({ surface: "held", status: status("board_generating", [["a", "ready"], ["b", "preparing"]]) });
+    const first = render(<>{result.current.screen}</>);
+    fireEvent.click(screen.getByRole("button", { name: /stop for now/i }));
+    first.unmount();
+    rerender({ surface: null, status: status("board_ready", [["a", "ready"], ["b", "ready"]]) });
+    render(<>{result.current.screen}</>);
+    expect(screen.getByRole("button", { name: "Let's go!" })).toBeTruthy();
+    expect(result.current.waiting?.step).toBe("Your map is ready. Let's go!");
+    expect(result.current.readyAt).toEqual(expect.any(Number));
+  });
+
+  it("never offers Let's go on a finished math board before the next board is published", () => {
+    const math = { activeSessionPlan: { domain: "math", adventureBoard: { nodes: [{ id: "a", kind: "activity" }] } }, mathBoardResults: {} };
+    const { result } = renderHook(() => useAppAdventurePreparation({
+      surface: null, packet: math as never, childId: "lab", homeworkId: "hw", finishedBoardId: "hw:board:2",
+      status: status("successor_preparing", []), finished: false, checkNow: vi.fn(), onFinish: vi.fn(), sendMessage: vi.fn(),
+    }));
+    act(() => { vi.advanceTimersByTime(20_000); });
+    render(<>{result.current.screen}</>);
+    expect(screen.queryByRole("button", { name: "Let's go!" })).toBeNull();
+    expect(result.current.readyAt).toBeNull();
+  });
+
+  it("raises Elli's hand once when the board becomes ready, with no scripted words", () => {
+    expect(boardReadyRaiseHand("ila", null)).toBeNull();
+    expect(boardReadyRaiseHand("ila", 1234)).toEqual(expect.objectContaining({
+      type: "check_back_in", childId: "ila", timestamp: 1234, payload: { how: "raise_hand", why: "her next map is ready" },
+    }));
   });
 
   it("allows declining a completed board without revealing it", () => {

@@ -36,6 +36,14 @@ export function useAdventureState(
   // Lazy init: read VITE_DIAG_CHILD_ID once at mount; no mount effect needed.
   const [adventureChildId, setAdventureChildId] = useState<string | null>(() => {
     if (!adventureMapEnabled) return null;
+    // The earned call's goodbye returns to "/?child=<id>", her own map, not the picker (BUGS.md 2026-11-07).
+    const fromAddress = typeof window === "undefined"
+      ? null
+      : new URLSearchParams(window.location.search).get("child")?.trim().toLowerCase() ?? null;
+    if (fromAddress && /^[a-z][a-z0-9-]{0,31}$/.test(fromAddress)) {
+      console.log(` 🎮 [adventure] [child-from-address] [${fromAddress}]`);
+      return fromAddress;
+    }
     return resolveSunnyRuntimeConfig(import.meta.env as Record<string, string>).childId;
   });
 

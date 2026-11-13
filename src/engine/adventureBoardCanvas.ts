@@ -122,6 +122,10 @@ const previewOrigin='http://sunny.preview';
 
 /** What the map artist sees: the kiosk renderer with the real artwork, at kiosk and portrait
  * size, plus each portal's measured box. It reports; it never judges or rejects a layout. */
+/** The preview page is UTF-8 by declaration and by header (2026-11-10: the badge's "⭐" was drawn as "â"). */
+export const BOARD_PREVIEW_CONTENT_TYPE='text/html; charset=utf-8';
+export const boardPreviewHtml=(css:string,markup:string)=>`<!doctype html><html><head><meta charset="utf-8"><style>${css}</style></head><body>${markup}</body></html>`;
+
 export async function renderBoardPreview(input:{definition:AdventureBoardDefinition;directory:string;rootDir:string}):Promise<BoardPreview>{
  const sourceRoot=path.resolve(__dirname,'../..'),publicRoot=path.resolve(input.rootDir,'web/public');
  const css=fs.readFileSync(path.join(sourceRoot,'web/src/components/AdventureBoard.css'),'utf8');
@@ -131,7 +135,7 @@ export async function renderBoardPreview(input:{definition:AdventureBoardDefinit
  fs.writeFileSync(moduleFile,bundle.outputFiles[0]!.text);
  const render=(require(moduleFile) as {render:(board:ReturnType<typeof renderBoardDefinition>)=>string}).render;
  const board=renderBoardDefinition(input.definition,{boardId:'preview',planId:'preview',childId:'board-preview',domain:'generic',activities:[...new Set(input.definition.portals.flatMap(p=>p.activityNodeId?[p.activityNodeId]:[]))].map(id=>({id,verified:true,state:'ready'}))});
- const html=`<!doctype html><html><head><style>${css}body{margin:0}</style></head><body>${render(board)}</body></html>`;
+ const html=boardPreviewHtml(`${css}body{margin:0}`,render(board));
  const background=input.definition.theme.background;
  const browser=await chromium.launch({headless:true});
  const preview:BoardPreview={screenshots:[],portals:[],overlaps:[],crowded:[],artworkLoaded:true};
@@ -142,7 +146,7 @@ export async function renderBoardPreview(input:{definition:AdventureBoardDefinit
    await page.route('**/*',route=>{
     const url=new URL(route.request().url());
     if(url.origin!==previewOrigin)return route.abort();
-    if(url.pathname==='/')return route.fulfill({contentType:'text/html',body:html});
+    if(url.pathname==='/')return route.fulfill({contentType:BOARD_PREVIEW_CONTENT_TYPE,body:html});
     const file=path.resolve(publicRoot,decodeURIComponent(url.pathname).replace(/^\//,''));
     return file.startsWith(`${publicRoot}${path.sep}`)&&fs.existsSync(file)&&fs.statSync(file).isFile()?route.fulfill({path:file}):route.abort();
    });

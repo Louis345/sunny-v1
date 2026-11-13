@@ -168,3 +168,90 @@ describe("companionCarePlan IO", () => {
     expect(second.plan.economy.coins).toBe(999);
   });
 });
+
+// AI-caught in the free kiosk demo (2026-11-07): the saved plan had 85 coins but only the second chest's
+// receipt, because loading rebuilt the economy from a fixed field list and dropped the chest receipts,
+// call minutes and pity counter. Without receipts, "one chest per stop" is not guaranteed.
+describe("node chests survive a save and a load", () => {
+  it("keeps every chest receipt, the call seconds and the pity counter", async () => {
+    const { createStarterCompanionCarePlan, grantNodeChest } = await import("./companionCareEngine");
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-chest-roundtrip-"));
+    const chart = { childId: "lab-child", links: { companionCareDir: dir, learningProfile: path.join(dir, "profile.json") }, companion: { presetId: "elli" },
+      learningProfile: minimalProfile(), economy: { coinBalance: 0 } };
+    try {
+      const at = "2026-11-07T12:00:00.000Z";
+      let plan = createStarterCompanionCarePlan({ childId: "lab-child", companionId: "elli" });
+      const warmUpRolls = [0.1, 0, 0.99]; // common, low coins, no bonus
+      plan = grantNodeChest(plan, { homeworkId: "hw", nodeId: "warm-up", kind: "common", nowIso: at, roll: () => warmUpRolls.shift() ?? 0.99 }).plan;
+      saveCompanionCarePlan(chart, plan);
+      const questRolls = [0.1, 0, 0, 0, 0, 0.9999]; // stays epic, low coins, lucky, an item, the first one, then a full minute of call time
+      plan = grantNodeChest(loadCompanionCarePlanForChart(chart).plan, { homeworkId: "hw", nodeId: "quest", kind: "epic", nowIso: at, roll: () => questRolls.shift()! }).plan;
+      saveCompanionCarePlan(chart, plan);
+      const loaded = loadCompanionCarePlanForChart(chart).plan;
+      expect(loaded.economy.nodeChests?.map(chest => chest.nodeId)).toEqual(["warm-up", "quest"]);
+      const { CALL_TIME_LOOT } = await import("../shared/rewardCatalog");
+      const earnedSeconds = CALL_TIME_LOOT.at(-1)!.seconds + (loaded.economy.nodeChests?.[0]?.callSeconds ?? 0);
+      expect(loaded.economy.callSeconds).toBe(earnedSeconds);
+      expect(loaded.economy.chestsSinceBonus).toBe(0);
+      const replay = grantNodeChest(loaded, { homeworkId: "hw", nodeId: "warm-up", kind: "common", nowIso: at, roll: () => 0 });
+      expect(replay.granted).toBe(false);
+      const { spendCallMinute } = await import("./companionCareEngine");
+      const spent = spendCallMinute(loaded, { receiptId: "call:m1", nowIso: at });
+      if (!spent.ok) throw Error("expected a minute");
+      saveCompanionCarePlan(chart, spent.plan);
+      const reloaded = loadCompanionCarePlanForChart(chart).plan;
+      expect(reloaded.economy.callSeconds).toBe(earnedSeconds - spent.secondsGranted);
+      expect(spendCallMinute(reloaded, { receiptId: "call:m1", nowIso: at })).toMatchObject({ ok: true, duplicate: true, secondsLeft: earnedSeconds - spent.secondsGranted });
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});
+
+it("keeps the collection items in her inventory across a save and a load", async () => {
+  const { createStarterCompanionCarePlan } = await import("./companionCareEngine");
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-inventory-roundtrip-"));
+  const chart = { childId: "lab-child", links: { companionCareDir: dir, learningProfile: path.join(dir, "profile.json") }, companion: { presetId: "elli" },
+    learningProfile: minimalProfile(), economy: { coinBalance: 0 } };
+  try {
+    const plan = createStarterCompanionCarePlan({ childId: "lab-child", companionId: "elli" });
+    saveCompanionCarePlan(chart, { ...plan, inventory: { ...plan.inventory, rewards: ["outfit:cat-ears", "game:asteroid"] } });
+    expect(loadCompanionCarePlanForChart(chart).plan.inventory.rewards).toEqual(["outfit:cat-ears", "game:asteroid"]);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+it("keeps her purchase receipts across a save and a load, so a double tap after a restart still pays once", async () => {
+  const { createStarterCompanionCarePlan } = await import("./companionCareEngine");
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-purchase-roundtrip-"));
+  const chart = { childId: "lab-child", links: { companionCareDir: dir, learningProfile: path.join(dir, "profile.json") }, companion: { presetId: "elli" },
+    learningProfile: minimalProfile(), economy: { coinBalance: 0 } };
+  try {
+    const plan = createStarterCompanionCarePlan({ childId: "lab-child", companionId: "elli" });
+    const receipt = { receiptId: "r1", offer: { kind: "call_minutes" as const, minutes: 5 as const }, price: 30, purchasedAt: "2026-11-07T00:00:00.000Z" };
+    saveCompanionCarePlan(chart, { ...plan, economy: { ...plan.economy, coinPurchases: [receipt] } });
+    expect(loadCompanionCarePlanForChart(chart).plan.economy.coinPurchases).toEqual([receipt]);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+it("keeps her arcade minutes and their receipts across a save and a load", async () => {
+  const { createStarterCompanionCarePlan, spendArcadeMinute } = await import("./companionCareEngine");
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-arcade-roundtrip-"));
+  const chart = { childId: "lab-child", links: { companionCareDir: dir, learningProfile: path.join(dir, "profile.json") }, companion: { presetId: "elli" },
+    learningProfile: minimalProfile(), economy: { coinBalance: 0 } };
+  try {
+    const at = "2026-11-08T12:00:00.000Z";
+    const base = createStarterCompanionCarePlan({ childId: "lab-child", companionId: "elli" });
+    const spent = spendArcadeMinute({ ...base, economy: { ...base.economy, arcadeMinutes: 3 } }, { receiptId: "arcade:g1:1", nowIso: at });
+    if (!spent.ok) throw Error("expected a minute");
+    saveCompanionCarePlan(chart, spent.plan);
+    const loaded = loadCompanionCarePlanForChart(chart).plan;
+    expect(loaded.economy.arcadeMinutes).toBe(2);
+    expect(spendArcadeMinute(loaded, { receiptId: "arcade:g1:1", nowIso: at })).toMatchObject({ ok: true, duplicate: true, minutesLeft: 2 });
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});

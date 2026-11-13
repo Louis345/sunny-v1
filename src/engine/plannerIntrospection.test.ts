@@ -1,0 +1,376 @@
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import { afterEach, expect, it, vi } from "vitest";
+import { linearJourneyFixture } from "../scripts/fixtures/authoredJourney";
+import { seedSpellingLab } from "../scripts/fixtures/spellingEvidenceFirst";
+import { builtInWordRadar } from "../scripts/fixtures/builtInSpellingActivity";
+import { ilaLikeIntrospectionCycle } from "../scripts/fixtures/ilaLikeIntrospectionCycle";
+import { plainDraw, successorToolReply } from "../scripts/fixtures/successorToolConversation";
+import { buildSpellingRecallItems } from "./learningCycleIngest";
+import { createLearningCycle, getLearningCycle } from "./learningCycleRepository";
+import { currentBoardInstance } from "./learningBoardInstances";
+import { prepareSuccessorBoard } from "./canonicalProgressionGenerator";
+import { parseCanonicalProgressionDecision } from "./learningCycleRuntime";
+import * as runtime from "./learningCycleRuntime";
+import * as canvas from "./adventureBoardCanvas";
+import { plannerJournalSection, schoolTestSection, spellingTrackRecordSection, writePlannerJournalEntry } from "./plannerIntrospection";
+import { spellingSuccessorToolkit, type SuccessorFacts } from "./spellingSuccessorTools";
+import { recordProductIssue } from "./productIssues";
+
+// 2026-11-08 owner (Ila's sessions): she wrote "inport" for import again and again. A picture explainer
+// (board 3) and Word Radar practice (boards 3, 4) did not fix it, and the next board re-taught the same way.
+// The human saw it by reading board after board; no log failed, because nothing was wrong with any one board;
+// the lab never asked whether the Planner was shown its own track record. Now every next-board question
+// carries her per-word record and the Planner's journal, and the Planner writes a self-review it is held to.
+const roots: string[] = [];
+afterEach(() => { vi.restoreAllMocks(); vi.unstubAllEnvs(); vi.unstubAllGlobals(); for (const root of roots.splice(0)) fs.rmSync(root, { recursive: true, force: true }); });
+const noDoNot = (text: string) => text.split("\n").filter(line => /\b(do not|don't|never|must not)\b/i.test(line));
+
+it("lays out her track record per word: right on her own and with help, what she wrote, where she practiced it", () => {
+  const section = spellingTrackRecordSection(ilaLikeIntrospectionCycle());
+  expect(section.split("\n")[0]).toBe("Her track record on each word (code counted every recorded answer on this list; on her own means no help was recorded):");
+  expect(section).toContain(`- import: on her own 0 of 4 right, wrote "inport" x3, "impot" x1; with help 2 of 2 right; help not recorded 0 of 1 right, wrote "inport" x1; practiced in: word-radar on boards 1, 2, 3, 4 ("Word Check", "Radar Warm-up", "Radar Run", "Radar Rematch"), visual-explainer on boards 2, 3 ("Sound Detectives", "Picture Clues"); latest on her own: "inport" (missed, board 4)`);
+  expect(section).toContain(`- pardon: on her own 2 of 3 right, wrote "parden" x1;`);
+  expect(section).toContain("- Right every time she answered on her own: charge (1 of 1), carnivore (1 of 1)");
+  expect(noDoNot(section)).toEqual([]);
+});
+
+it("keeps the Planner's journal: what each earlier decision said it would change, what it built, and her results before and after", () => {
+  const section = plannerJournalSection(ilaLikeIntrospectionCycle());
+  expect(section.split("\n")[0]).toBe("Your journal: what you tried on earlier boards and what happened (your words from each decision; her answers counted by code):");
+  expect(section).toContain("- Decision 1 (2026-11-03, after board 2; generate_support; theory revised)");
+  expect(section).toContain(`  You said you would change: "Show the m before p in import with a picture explainer." | "Radar practice on import, dormant and pardon."`);
+  expect(section).toContain(`  You said you would test next: "import on her own"`);
+  expect(section).toContain(`  You built board 3: visual-explainer "Picture Clues" (import, dormant); word-radar "Radar Run" (import, pardon, dormant)`);
+  expect(section).toContain(`    - import: before 0 of 1 right (wrote "inport" x1) -> after 0 of 1 right (wrote "inport" x1)`);
+  expect(section).toContain(`    - dormant: before 0 of 1 right (wrote "dorment" x1) -> after 1 of 1 right`);
+  expect(section).toContain("- Decision 2 (2026-11-05, after board 3; generate_support; theory revised)");
+  expect(section).toContain(`    - import: before 0 of 2 right (wrote "inport" x2) -> after 0 of 2 right (wrote "impot" x1, "inport" x1)`);
+  expect(noDoNot(section)).toEqual([]);
+});
+
+// The live path: her answers, the Planner's decision, the next board, her answers again, and the next question.
+const childId = "introspection-lab", homeworkId = "introspection-words";
+function liveFixture() {
+  const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-introspection-")); roots.push(rootDir);
+  vi.stubEnv("SUNNY_CONTEXT_ROOT", path.join(rootDir, "src/context"));
+  vi.stubGlobal("fetch", () => { throw Error("lab_forbids_network"); });
+  vi.spyOn(canvas, "verifyPreparingBoardCanvas").mockResolvedValue(undefined);
+  const words = ["import", "pardon"];
+  seedSpellingLab(rootDir, words, "", childId);
+  const items = buildSpellingRecallItems({ homeworkId, words, evidenceIds: ["school:lab"], measurementRole: "practice", exposure: "practiced", occasionId: "first" });
+  createLearningCycle({ childId, homeworkId, domain: "spelling", assignment: { title: "Lab words", contentFingerprint: "lab", capturedEvidenceIds: ["school:lab"], targets: words },
+    academicTheory: { theoryId: "lab-theory", revision: 1, hypothesis: "Practice may help", supportCriteria: [], reviseCriteria: [], falsifyCriteria: [] }, engagementTheory: null,
+    boardDefinition: linearJourneyFixture(["radar"]), initialLifecycle: "board_ready", nodes: [{
+      nodeId: "radar", role: "baseline", title: "Radar Run", state: "ready", academicTarget: { domain: "spelling", skill: "spelling", targets: words }, algorithmOwner: "ai_tutor", theoryId: "lab-theory", experimentId: "radar",
+      mechanic: "word-radar", theme: "world", openingScreen: { title: "Radar Run", purpose: "Practice" }, generationPrompt: null, artwork: { status: "ready", localPath: "/generated/world.jpeg", prompt: null }, sfxContract: [], companionContract: { events: [] }, evidenceIds: [],
+      ...builtInWordRadar({ rootDir, childId, homeworkId, nodeId: "radar", title: "Radar Run", items }),
+    }] } as never, { rootDir });
+  const opts = { rootDir };
+  const play = (nodeId: string, at: string) => {
+    const node = getLearningCycle(childId, homeworkId, opts)!.nodes.find(row => row.nodeId === nodeId)!;
+    const own = Object.values(node.evidenceContract.spellingItems!);
+    own.forEach(item => runtime.recordSpellingDiscoveryAttempt({ childId, homeworkId, support: { status: "unassisted", scaffolds: [] },
+      attempt: { attemptId: `${nodeId}:${item.id}`, itemId: item.id, attemptedValue: item.word === "import" ? "inport" : item.word, observedAt: at } }, opts));
+    runtime.recordCanonicalNodeCompletion({ childId, homeworkId, nodeId, sessionId: `${nodeId}-session`, result: { completed: true, accuracy: 0.5, timeSpent_ms: 100,
+      targetResults: own.map(item => ({ target: item.id, correct: item.word !== "import", attemptedValue: item.word === "import" ? "inport" : item.word })) } }, opts);
+  };
+  const decision = { status: "revised", reason: "She writes n for m in import.", progressionAction: "generate_support", preserve: [], change: ["Show the m before p in import with a picture."], testNext: ["import on her own"],
+    nextEvidenceRequired: ["Independent recall."], boardDefinition: linearJourneyFixture(["again"]),
+    selfReview: { whatITried: "Radar practice on both words.", whatHappened: "import stayed inport.", why: "She hears n before p.", whatIChangeNow: "Aim at the m before p." },
+    nextInstruments: [{ nodeId: "again", title: "Radar Again", academicTarget: "m before p", openingPurpose: "Practice", spelling: { builtInActivityId: "radar", wordIds: items.map(item => item.wordId) } }] };
+  const requests: any[] = [];
+  const request = { childId, homeworkId, client: { messages: { stream: (payload: any) => { requests.push(payload); return { finalMessage: async () => successorToolReply(decision, payload) }; } } } as never, draw: plainDraw };
+  const prepare = () => prepareSuccessorBoard({ childId, homeworkId, generateHtml: async ({ node }: any) => `<html><body>${node.title}</body></html>`, generateArtwork: async () => "/generated/world.jpeg", validate: async () => ({ passed: true, failures: [] }) } as never, opts);
+  return { rootDir, opts, play, request, requests, prepare, decision: decision as Record<string, unknown> };
+}
+const promptOf = (request: any): string => { const first = request.messages[0].content; return typeof first === "string" ? first : first.filter((block: any) => block.type === "text").map((block: any) => block.text).join("\n"); };
+
+it("shows the next-board Planner her track record and its journal, requires its self-review, and writes the journal file", async () => {
+  const f = liveFixture();
+  f.play("radar", new Date(Date.now() - 3_600_000).toISOString());
+  await runtime.advanceCanonicalCycleFromEvidence(f.request, f.opts);
+  const first = promptOf(f.requests[0]);
+  expect(first).toContain(`- import: on her own 0 of 1 right, wrote "inport" x1;`);
+  expect(first).toContain(`word-radar on board 1 ("Radar Run")`);
+  expect(first).toContain("Your journal: what you tried on earlier boards and what happened");
+  expect(first).toContain("- No earlier decisions on this list yet.");
+  const decide = f.requests[0].tools.find((tool: any) => tool.name === "decide").input_schema;
+  expect(decide.required).toContain("self_review");
+  expect(Object.keys(decide.properties.self_review.properties)).toEqual(["what_i_tried", "what_happened", "why", "what_i_keep", "what_i_change_now"]);
+  // The self-review is stored with the decision, and readable in her folder.
+  let cycle = getLearningCycle(childId, homeworkId, f.opts)!;
+  expect(cycle.decisionHistory.at(-1)).toMatchObject({ selfReview: { whatITried: "Radar practice on both words.", whatIChangeNow: "Aim at the m before p." } });
+  const journalFile = path.join(f.rootDir, "src/context", childId, "homework/planner-journal", `${homeworkId}.md`);
+  const journal = fs.readFileSync(journalFile, "utf8");
+  expect(journal).toContain(cycle.decisionHistory.at(-1)!.decisionId);
+  expect(journal).toContain("What I tried: Radar practice on both words.");
+  expect(journal).toContain("What I change now: Aim at the m before p.");
+  expect(journal).toContain("- Show the m before p in import with a picture.");
+  // She plays the board it built, and gets import wrong again.
+  cycle = await f.prepare();
+  const built = currentBoardInstance(cycle);
+  expect(built.plannerDecisionId).toBe(cycle.decisionHistory.filter(row => row.eventType === "theory_decided").at(-1)!.decisionId);
+  f.play(built.nodeIds[0], new Date().toISOString());
+  const asked = f.requests.length;
+  await runtime.advanceCanonicalCycleFromEvidence(f.request, f.opts);
+  const second = promptOf(f.requests[asked]);
+  expect(second).toContain(`- import: on her own 0 of 2 right, wrote "inport" x2;`);
+  expect(second).toContain(`You said you would change: "Show the m before p in import with a picture."`);
+  expect(second).toContain(`You built board 2: word-radar "Radar Again" (import, pardon)`);
+  expect(second).toContain(`    - import: before 0 of 1 right (wrote "inport" x1) -> after 0 of 1 right (wrote "inport" x1)`);
+  expect(second).toContain(`Your self-review then: "Aim at the m before p."`);
+  expect(fs.readFileSync(journalFile, "utf8").match(/^## /gm)).toHaveLength(2);
+  const instructions = second.split("\n").filter(line => !/^\s*[[{"]/.test(line) && line.length < 2000);
+  expect(noDoNot(instructions.join("\n"))).toEqual([]);
+}, 120000);
+
+const facts = (overrides: Partial<SuccessorFacts> = {}): SuccessorFacts => ({
+  builtIns: [{ nodeId: "act-1", title: "Radar", implementationType: "word-radar", wordIds: ["w-import"], responseMode: "spelling_letters", checkpoint: false }],
+  activities: [{ id: "generated-game", checkpoint: false, setup: { type: "generated-game" } }],
+  rerunnable: () => true, evaluationIds: [], allowedActions: ["generate_support"], idPrefix: "next", ...overrides,
+});
+const decideInput = { status: "revised", reason: "import is still inport.", progression_action: "generate_support", preserve: [], change: ["Aim a game at m before p."], test_next: [], next_evidence_required: [], prediction_evaluation_ids: [], revised_hypothesis: "" };
+const review = { what_i_tried: "Radar twice.", what_happened: "inport each time.", why: "Same practice, same error.", what_i_keep: "She liked the radar.", what_i_change_now: "A game aimed at m before p." };
+
+it("answers a new decide without a self-review with a tool error, and keeps older questions and saved decisions working", () => {
+  const kit = spellingSuccessorToolkit(facts({ selfReview: true, aimedGames: true }));
+  const decide = kit.tools.find(row => row.name === "decide")!;
+  expect(decide.schema.safeParse(decideInput).success).toBe(false);
+  const state = kit.initialState();
+  const parsed = decide.schema.safeParse({ ...decideInput, self_review: review });
+  expect(parsed.success).toBe(true);
+  expect(decide.run(state, parsed.data)).toMatchObject({ ok: true });
+  expect(state.decision?.selfReview).toEqual({ whatITried: "Radar twice.", whatHappened: "inport each time.", why: "Same practice, same error.", whatIKeep: "She liked the radar.", whatIChangeNow: "A game aimed at m before p." });
+  // A question frozen before contract 56 replays its saved turns as they were.
+  expect(spellingSuccessorToolkit(facts()).tools.find(row => row.name === "decide")!.schema.safeParse(decideInput).success).toBe(true);
+  // A decision saved before contract 56 still parses; a new one keeps its review.
+  const saved = { status: "revised", reason: "Saved earlier.", progressionAction: "await_calibration", preserve: [], change: [], testNext: [], nextEvidenceRequired: [] };
+  expect(parseCanonicalProgressionDecision(saved).selfReview).toBeUndefined();
+  expect(parseCanonicalProgressionDecision({ ...saved, selfReview: state.decision!.selfReview }).selfReview).toEqual(state.decision!.selfReview);
+});
+
+it("lets a generated-game step be aimed at one error, and only a generated-game step", () => {
+  const kit = spellingSuccessorToolkit(facts({ selfReview: true, aimedGames: true }));
+  const state = kit.initialState();
+  const add = kit.tools.find(row => row.name === "add_step")!;
+  const step = { built_in: "generated-game", words: ["w-import"], title: "Lip Lock", purpose: "Aim at m before p.", story: "Story", picture: "Picture", focus: "the m before p in import" };
+  expect(add.run(state, add.schema.parse(step))).toMatchObject({ ok: true });
+  expect(state.steps[0]).toMatchObject({ focus: "the m before p in import" });
+  expect(add.run(state, add.schema.parse({ ...step, built_in: "act-1" }))).toMatchObject({ ok: false, error: expect.stringContaining("focus") });
+});
+
+it("logs a journal file it cannot write and never throws into the board flow", () => {
+  const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-journal-blocked-")); roots.push(rootDir);
+  const cycle = ilaLikeIntrospectionCycle();
+  // A file where her homework folder should be: the journal cannot be written.
+  fs.mkdirSync(path.join(rootDir, "src/context", cycle.childId), { recursive: true });
+  fs.writeFileSync(path.join(rootDir, "src/context", cycle.childId, "homework"), "not a folder");
+  vi.stubEnv("SUNNY_CONTEXT_ROOT", path.join(rootDir, "src/context"));
+  const error = vi.spyOn(console, "error").mockImplementation(() => undefined);
+  expect(() => writePlannerJournalEntry(cycle, cycle.decisionHistory[0], { rootDir })).not.toThrow();
+  expect(error.mock.calls.flat().join(" ")).toContain("[planner-journal] [review] [write-failed]");
+});
+
+// 2026-11-08 Reina told Matilda the Boss hints "were too long. They didn't make sense." It was saved as a product
+// issue tied to the stop, yet the Planner's self-review never saw it, so nothing could change because of it.
+// The human heard it; the log line [product-issue] [recorded] fired; the lab never checked who reads it back.
+it("shows the next-board Planner what she said about Sunny's games, in her words, beside her track record", async () => {
+  const f = liveFixture();
+  recordProductIssue({ childId, activityId: "word-radar", nodeId: "radar", issueType: "flow_complaint", severity: "medium", source: "child_utterance", confidence: 0.9,
+    childUtterance: "the hints were too long, they didn't make sense", evidenceText: "Hints too long.", createdAt: "2026-11-08T22:20:00Z" }, f.opts);
+  recordProductIssue({ childId, activityId: "word-radar", issueType: "companion_lag", severity: "medium", source: "observed_behavior", confidence: 0.7,
+    childUtterance: "session transcript contained product complaint", evidenceText: "Audit.", createdAt: "2026-11-08T22:49:00Z" }, f.opts);
+  f.play("radar", new Date(Date.now() - 3_600_000).toISOString());
+  await runtime.advanceCanonicalCycleFromEvidence(f.request, f.opts);
+  const prompt = promptOf(f.requests[0]);
+  expect(prompt).toContain("What she (or a parent) said about Sunny's games, in her own words (recorded by code, most recent last):");
+  expect(prompt).toContain(`- 2026-11-08, at "Radar Run": "the hints were too long, they didn't make sense"`);
+  expect(prompt).not.toContain("session transcript contained product complaint");
+}, 120000);
+
+// 2026-11-09 Ila: the Planner read "carnivore: right with help 5 of 5" as "she knows it when prompted" and stopped
+// teaching; the help was Elli spelling every letter. The owner caught it ("the nurse is the doctor's eyes and is not
+// reporting back"); the session log held Elli's words but nothing carried them to the Planner; the lab only counted
+// assisted answers. After each session a small model writes a shift handoff from the conversation, and the Planner
+// reads the recent ones beside her track record. The handoff is the nurse's report: facts quoted from the session.
+it("writes a shift handoff from the session conversation and shows it to the next-board Planner", async () => {
+  const f = liveFixture();
+  const { writeSessionHandoff, handoffModel } = await import("./sessionHandoff");
+  const sessionDir = path.join(f.rootDir, "logs/sessions/s1"); fs.mkdirSync(sessionDir, { recursive: true });
+  const startedAt = new Date(Date.now() - 7_200_000).toISOString();
+  fs.writeFileSync(path.join(sessionDir, "metadata.json"), JSON.stringify({ sessionId: "s1", child: "Ila", startedAt }));
+  fs.writeFileSync(path.join(sessionDir, "transcript.md"), `### ${startedAt}\n\n**user:** Ellie, can you help me with import?\n\n### ${startedAt}\n\n**assistant:** Sure! i, m, p, o, r, t.\n`);
+  f.play("radar", new Date(Date.now() - 3_600_000).toISOString());
+  const asks: any[] = [];
+  const client = { messages: { create: async (request: any) => { asks.push(request); return { content: [{ type: "text", text: "- import: Elli spelled every letter (\"i, m, p, o, r, t\"); she wrote inport on her own." }], usage: { input_tokens: 1, output_tokens: 1 } }; } } };
+  const file = await writeSessionHandoff({ childId, sessionDir, homeworkId, client: client as never }, f.opts);
+  expect(asks).toHaveLength(1);
+  expect(asks[0].model).toBe(handoffModel());
+  // 2026-11-09 on Saori: claude-haiku-5-5 thinks first; at 1,200 tokens it spent them all thinking and wrote no handoff.
+  expect(asks[0].max_tokens).toBeGreaterThanOrEqual(8000);
+  const ask = asks[0].messages[0].content as string;
+  expect(ask).toContain("Ellie, can you help me with import?");
+  expect(ask).toContain("Sure! i, m, p, o, r, t.");
+  // Owner 2026-11-09: the handoff is the session's retro, from a code-built timeline: what went well and what went wrong.
+  expect(ask).toContain("Session timeline (built by code");
+  expect(ask).toMatch(/What went well/);
+  expect(ask).toMatch(/What went wrong/);
+  expect(ask).toContain(`import: "inport" missed, help not recorded`.replace("help not recorded", "on her own"));
+  expect(fs.readFileSync(file!, "utf8")).toContain("Elli spelled every letter");
+  // Each game's one-line facts are kept by code under the retro, whatever the summary chose to repeat.
+  expect(fs.readFileSync(file!, "utf8")).toContain("Games, counted by code:");
+  await runtime.advanceCanonicalCycleFromEvidence(f.request, f.opts);
+  const prompt = promptOf(f.requests[0]);
+  expect(prompt).toContain("Shift handoffs from her sessions (a small model's summary of each session's conversation with her companion; her answers above are counted by code):");
+  expect(prompt).toContain(`- import: Elli spelled every letter ("i, m, p, o, r, t"); she wrote inport on her own.`);
+  // A provider failure is logged and never throws into the session's end.
+  const failing = { messages: { create: async () => { throw Error("provider down"); } } };
+  await expect(writeSessionHandoff({ childId, sessionDir, homeworkId, client: failing as never }, f.opts)).resolves.toBeUndefined();
+}, 120000);
+
+// 2026-11-10, both audits: the Planner's question was 431,000 characters, mostly raw record dumps (the cycle 256K,
+// her learning history 90K, the prior plan 34K), with the retro, scorecard and journal it most needs a small slice
+// in the middle. The summaries stay in the question; the raw record is a tool it can read, page by page.
+it("keeps the raw record out of the Planner's question and lets it read any part with read_record", async () => {
+  const f = liveFixture();
+  f.play("radar", new Date(Date.now() - 3_600_000).toISOString());
+  await runtime.advanceCanonicalCycleFromEvidence(f.request, f.opts);
+  const prompt = promptOf(f.requests[0]);
+  expect(prompt).not.toContain("Cycle:\n{");
+  expect(prompt).not.toContain('"learningHistory"');
+  expect(prompt).toContain("read_record");
+  const { spellingSuccessorToolkit } = await import("./spellingSuccessorTools");
+  const question = JSON.parse(fs.readFileSync(fs.readdirSync(f.rootDir, { recursive: true }).map(String).filter(name => name.endsWith("tools.question.json")).map(name => path.join(f.rootDir, name))[0], "utf8"));
+  const kit = spellingSuccessorToolkit({ ...question.facts, rerunnable: () => false });
+  const read = kit.tools.find(tool => tool.name === "read_record")!;
+  const observations = read.run(kit.initialState(), read.schema.parse({ section: "observations", offset: 0, limit: 2 }) as never) as { ok: boolean; result: { total: number; rows: unknown[] } };
+  expect(observations).toMatchObject({ ok: true, result: { total: expect.any(Number), rows: expect.any(Array) } });
+  expect(observations.result.rows.length).toBeLessThanOrEqual(2);
+  expect(read.run(kit.initialState(), read.schema.parse({ section: "learning_history" }) as never)).toMatchObject({ ok: true });
+}, 120000);
+
+// 2026-11-10 (Fable audit): the Planner's checkable predictions all date from the first day; on every later board it
+// wrote its own verdict ("my main prediction for board 7 was met") and nothing but the Planner checked. Now it may
+// call, per word, whether she will get it right on her own next time; code checks each call against her next
+// unhelped answer and shows the tally back, so the tutor is scored on its own bets.
+it("scores the Planner's per-word calls against her next answer on her own, and shows the tally back", async () => {
+  const f = liveFixture();
+  f.play("radar", new Date(Date.now() - 3_600_000).toISOString());
+  const node = getLearningCycle(childId, homeworkId, f.opts)!.nodes[0];
+  const wordId = (word: string) => Object.values(node.evidenceContract.spellingItems!).find(item => item.word === word)!.wordId;
+  f.decision.expectations = [{ item: wordId("import"), right: true }, { item: wordId("pardon"), right: true }];
+  await runtime.advanceCanonicalCycleFromEvidence(f.request, f.opts);
+  expect(f.requests[0].tools.find((tool: any) => tool.name === "decide").input_schema.properties.expect_on_her_own).toBeTruthy();
+  expect(getLearningCycle(childId, homeworkId, f.opts)!.decisionHistory.at(-1)).toMatchObject({ expectations: [{ itemId: wordId("import"), onHerOwn: true }, { itemId: wordId("pardon"), onHerOwn: true }] });
+  const cycle = await f.prepare();
+  f.play(currentBoardInstance(cycle).nodeIds[0], new Date().toISOString());
+  const asked = f.requests.length;
+  await runtime.advanceCanonicalCycleFromEvidence(f.request, f.opts);
+  const prompt = promptOf(f.requests[asked]);
+  expect(prompt).toContain("Your calls, checked by code against her next answer on her own:");
+  expect(prompt).toMatch(/1 of 2 calls right/);
+  expect(prompt).toContain(`import: you expected right; she wrote "inport"`);
+}, 120000);
+
+// 2026-11-10, both audits: a FaceTime call with no homework got a lesson retro ("plan the next lesson to start with
+// ar/or words before any games"), and it took one of the three retro slots the Planner reads. A session in which she
+// answered nothing is play: no lesson retro is written for it.
+it("writes no lesson retro for a session in which she answered nothing", async () => {
+  const f = liveFixture();
+  const { writeSessionHandoff } = await import("./sessionHandoff");
+  const sessionDir = path.join(f.rootDir, "logs/sessions/call"); fs.mkdirSync(sessionDir, { recursive: true });
+  const startedAt = new Date().toISOString();
+  fs.writeFileSync(path.join(sessionDir, "metadata.json"), JSON.stringify({ sessionId: "call", child: "Ila", startedAt }));
+  fs.writeFileSync(path.join(sessionDir, "transcript.md"), `### ${startedAt}\n\n**user:** Hikari, look at my new hat!\n`);
+  const asks: unknown[] = [];
+  const client = { messages: { create: async (request: unknown) => { asks.push(request); return { content: [{ type: "text", text: "retro" }], usage: {} }; } } };
+  await expect(writeSessionHandoff({ childId, sessionDir, homeworkId, client: client as never }, f.opts)).resolves.toBeUndefined();
+  expect(asks).toHaveLength(0);
+}, 120000);
+
+// 2026-11-09 owner: board 5 was built on a misread ("with help" taken for "she knows it"), and a new board is only
+// planned when she finishes the current one. The owner may close the current board for one fresh decision, with
+// a stated reason; her finished stops and answers stay; the Planner sees the reason as a fact.
+it("lets the owner close her current board for one fresh decision, with the reason shown to the Planner", async () => {
+  const f = liveFixture();
+  const { transitionLatestLearningCycle } = await import("./learningCycleRepository");
+  const { successorResumeAction } = await import("./learningBoardInstances");
+  f.play("radar", new Date(Date.now() - 3_600_000).toISOString());
+  await runtime.advanceCanonicalCycleFromEvidence(f.request, f.opts);
+  let cycle = await f.prepare();
+  expect(successorResumeAction(cycle)).toBeNull();
+  const answers = cycle.observations.length;
+  cycle = transitionLatestLearningCycle(childId, homeworkId, { type: "owner_replan_requested", reason: "Board built on a misread of Elli's help." }, f.opts);
+  expect(cycle.lifecycle).toBe("baseline_evaluating");
+  expect(cycle.observations).toHaveLength(answers);
+  expect(successorResumeAction(cycle)).toBe("decide");
+  const asked = f.requests.length;
+  await runtime.advanceCanonicalCycleFromEvidence(f.request, f.opts);
+  expect(promptOf(f.requests[asked])).toContain("The owner closed her current board early for this fresh decision: \"Board built on a misread of Elli's help.\"");
+  // Only from a ready or active board, and only with a reason.
+  expect(() => transitionLatestLearningCycle(childId, homeworkId, { type: "owner_replan_requested", reason: "again" }, f.opts)).toThrow("owner_replan_not_eligible");
+}, 120000);
+
+// 2026-11-09 owner ("let's verify, no more surprises"): confirmed school-test results did reach the Planner's raw
+// data, but its readable track record counted them as "help not recorded", the same words as a practice answer
+// whose help was not captured. The real test is the goal; the Planner must see it named as the school test.
+it("names confirmed school-test results as the school test in her track record", async () => {
+  const f = liveFixture();
+  const { recordConfirmedReturnedWork } = await import("./longitudinalLearning");
+  f.play("radar", new Date(Date.now() - 3_600_000).toISOString());
+  const node = getLearningCycle(childId, homeworkId, f.opts)!.nodes.find(row => row.nodeId === "radar")!;
+  // Real uploads give each school word its own item id, linked to her frozen word by its construct (spellingReturnedWork.test.ts).
+  const item = Object.values(node.evidenceContract.spellingItems!).find(row => row.word === "import")!;
+  recordConfirmedReturnedWork({ childId, homeworkId, items: [{ itemId: "returned-0", prompt: "import", childResponse: "inport", correct: false, extractionConfidence: 0.95, constructLinks: [{ role: "primary", confidence: 1, constructId: item.constructId }] }],
+    source: { sourceId: "returned-work:lab", type: "graded_work", fileFingerprint: "f1", sourceFile: "test.jpg", capturedAt: new Date().toISOString(), provenance: "caregiver",
+      assignmentLink: { homeworkId, method: "explicit_selection", confidence: 1, confirmedBy: "caregiver" }, status: "confirmed" } } as never, f.opts);
+  const section = spellingTrackRecordSection(getLearningCycle(childId, homeworkId, f.opts)!);
+  expect(section).toContain(`- import: on her own 0 of 1 right, wrote "inport" x1; help not recorded 0 of 1 right, wrote "inport" x1; on the school test 0 of 1 right, wrote "inport" x1;`);
+}, 120000);
+
+// Reina's school math test has its own problems, not her homework's, so nothing can be matched to a homework
+// problem. Every returned school test is laid out on its own, item by item, for both subjects.
+it("lists every returned school test item for the Planner, matched to her homework or not", () => {
+  const cycle = { ...ilaLikeIntrospectionCycle(), observations: [...ilaLikeIntrospectionCycle().observations,
+    { observationId: "o-school-1", sourceId: "returned-work:abc", itemId: "item-1", prompt: "Round 47 to the nearest ten.", childResponse: "40", constructLinks: [],
+      result: { correct: false, score: 0 }, assistance: { status: "unknown", scaffolds: [] }, exposure: "unknown", provenance: "graded_work", observedAt: "2026-11-09T18:00:00.000Z", confounds: [] }] } as never;
+  const section = schoolTestSection(cycle);
+  expect(section.split("\n")[0]).toBe("Her returned school tests (each item as a parent confirmed it from the graded paper):");
+  expect(section).toContain(`- 2026-11-09: "Round 47 to the nearest ten." she wrote "40": missed`);
+  expect(schoolTestSection(ilaLikeIntrospectionCycle())).toContain("- No returned school test recorded yet.");
+});
+
+// Owner 2026-11-09 ("how do we measure we are heading in the right direction?"): after every session, code counts
+// one scorecard: her answers (on her own, with help), each game's time to first answer, help requests, bugs she
+// reported, and how the Planner's predictions are landing. The Planner reads recent ones as a trend; no judgment here.
+it("counts a scorecard after each session and shows the recent ones to the next-board Planner", async () => {
+  const f = liveFixture();
+  const { writeSessionScorecard } = await import("./sessionScorecard");
+  const sessionDir = path.join(f.rootDir, "logs/sessions/s2"); fs.mkdirSync(sessionDir, { recursive: true });
+  const startedAt = new Date(Date.now() - 7_200_000).toISOString();
+  const at = (min: number) => new Date(Date.parse(startedAt) + min * 60_000).toISOString();
+  fs.writeFileSync(path.join(sessionDir, "metadata.json"), JSON.stringify({ sessionId: "s2", startedAt }));
+  fs.writeFileSync(path.join(sessionDir, "transcript.md"), `### ${at(3)}\n\n**user:** Ellie, can you help me?\n\n### ${at(4)}\n\n**user:** Can you help me again?\n`);
+  fs.writeFileSync(path.join(sessionDir, "game-traces.ndjson"), [
+    JSON.stringify({ ts: at(0.5), nodeId: "radar", activityTitle: "Radar Run", type: "game_state_update", phase: "opening" }),
+    JSON.stringify({ ts: at(2.5), nodeId: "radar", activityTitle: "Radar Run", type: "attempt_event", correct: false }),
+    JSON.stringify({ ts: at(6), nodeId: "radar", activityTitle: "Radar Run", type: "game_complete" }),
+  ].join("\n"));
+  f.play("radar", new Date(Date.now() - 3_600_000).toISOString());
+  recordProductIssue({ childId, activityId: "word-radar", issueType: "bug_report", severity: "medium", source: "child_utterance", confidence: 0.9,
+    childUtterance: "that's a bug", evidenceText: "Bug.", createdAt: at(5) }, f.opts);
+  const card = writeSessionScorecard({ childId, homeworkId, sessionDir }, f.opts)!;
+  expect(card).toMatchObject({ sessionId: "s2", answers: { total: 2, right: 1, onHerOwn: 2, onHerOwnRight: 1, withHelp: 0, given: 1 }, helpRequests: 2, bugsReported: 1 });
+  expect(card.games).toEqual([expect.objectContaining({ title: "Radar Run", minutesToFirstAnswer: 2, finished: true })]);
+  await runtime.advanceCanonicalCycleFromEvidence(f.request, f.opts);
+  // 2026-11-10: Reina's games logged 37 answers while 0 were saved, and nothing compared them. Now the scorecard does.
+  fs.writeFileSync(path.join(sessionDir, "game-traces.ndjson"), Array.from({ length: 5 }, (_, index) => JSON.stringify({ ts: at(1 + index), nodeId: "radar", activityTitle: "Radar Run", type: "attempt_event" })).join("\n"));
+  expect(writeSessionScorecard({ childId, homeworkId, sessionDir }, f.opts)!.answers).toMatchObject({ given: 5, total: 2 });
+  const alerts = fs.readFileSync(path.join(f.rootDir, "src/context", childId, "sunny_health/parent-alerts.ndjson"), "utf8");
+  expect(alerts).toContain("5 answers given in games but 4 saved");
+  const prompt = promptOf(f.requests.at(-1));
+  expect(prompt).toContain("Her session scorecards (counted by code after each session, oldest first):");
+  expect(prompt).toMatch(/on her own 1 of 2 right; with help 0; help asked 2 times; bugs she reported 1; games: Radar Run first answer after 2\.0 min/);
+}, 120000);

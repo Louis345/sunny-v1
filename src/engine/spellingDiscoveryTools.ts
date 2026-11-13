@@ -38,20 +38,24 @@ export function spellingDiscoveryToolkit(packet: AssignmentPlanningPacket) {
         state.result = undefined;
         return { ok: true, result: { words: input.words.length } };
       } }),
-    tool({ name: "choose_discovery", description: "Choose the validated instrument that can find her independent starting point on these words, or say none fits. Calling it again replaces the choice.",
+    tool({ name: "choose_discovery", description: "Choose how this list begins: check some or all words first with a validated instrument (select), start teaching with no check up front (open_with_teaching), or say no instrument fits. Calling it again replaces the choice.",
       schema: z.object({
-        action: z.enum(["select", "needs_instrument"]),
-        instrument: enumOf([...instruments.keys(), "none"], "none").describe("The validated instrument and mode for select; none for needs_instrument."),
+        action: z.enum(["select", "open_with_teaching", "needs_instrument"]),
+        instrument: enumOf([...instruments.keys(), "none"], "none").describe("The validated instrument and mode for select; none otherwise."),
+        check_words: z.array(text("A recorded word to check before teaching.")).describe("For select: the words to check first, from one word to all of them. For open_with_teaching and needs_instrument: empty. Words not checked stay unknown until a check you place later."),
         reason: text("Why this choice fits her and these words."),
         evidence_ids: z.array(enumOf(context.evidenceIds, "none")).min(1).describe("The supplied evidence IDs behind the choice."),
         uncertainty: z.array(z.string().min(1)).min(1), next_evidence_needed: z.array(z.string().min(1)).min(1),
       }).strict(),
       run: (state, input) => {
         if (input.action === "select" && input.instrument === "none") return { ok: false, error: "select needs an instrument from the list" };
-        if (input.action === "needs_instrument" && input.instrument !== "none") return { ok: false, error: "use instrument none with needs_instrument" };
+        if (input.action !== "select" && input.instrument !== "none") return { ok: false, error: `use instrument none with ${input.action}` };
+        if (input.action === "select" && input.check_words.length === 0) return { ok: false, error: "select checks at least one word; to check none, use open_with_teaching" };
+        if (input.action !== "select" && input.check_words.length > 0) return { ok: false, error: `${input.action} checks no words up front; leave check_words empty` };
         const chosen = instruments.get(input.instrument);
         const reasons = { reason: input.reason, evidenceIds: [...input.evidence_ids], uncertainty: [...input.uncertainty], nextEvidenceNeeded: [...input.next_evidence_needed] };
-        state.diagnostic = chosen ? { action: "select", activityId: chosen.activityId, modeId: chosen.modeId, ...reasons } : { action: "needs_instrument", ...reasons };
+        state.diagnostic = chosen ? { action: "select", activityId: chosen.activityId, modeId: chosen.modeId, checkWords: [...input.check_words], ...reasons }
+          : input.action === "open_with_teaching" ? { action: "open_with_teaching", checkWords: [], ...reasons } : { action: "needs_instrument", ...reasons };
         state.result = undefined;
         return { ok: true, result: { action: input.action } };
       } }),
@@ -60,11 +64,14 @@ export function spellingDiscoveryToolkit(packet: AssignmentPlanningPacket) {
       run: (state, input) => {
         if (!state.capture) return { ok: false, error: "record the words first with record_words" };
         if (!state.diagnostic) return { ok: false, error: "choose the Discovery instrument first with choose_discovery" };
+        const recorded = new Set(state.capture.words.map(row => identity(row.word)));
+        const unknown = (state.diagnostic.action === "select" ? state.diagnostic.checkWords ?? [] : []).filter(word => !recorded.has(identity(word)));
+        if (unknown.length) return { ok: false, error: `check_words must be recorded words; not on the list: ${unknown.join(", ")}` };
         const capture: SpellingIntake = { title: input.title, ...state.capture, diagnostic: state.diagnostic };
         try { resolveSpellingDiagnosticSelection(capture, packet); }
         catch (error) { return { ok: false, error: `the Discovery choice cannot run: ${error instanceof Error ? error.message : String(error)}` }; }
-        const journey = state.diagnostic.action === "select" ? expandJourneySequence({ title: input.title, opening: ["diagnostic"], closing: [],
-          singlePathReason: "Discovery is one independent check of every assigned word.", endpointLabel: input.endpoint_label }, [{ id: "diagnostic", title: input.portal_label }]) : undefined;
+        const journey = state.diagnostic.action !== "needs_instrument" ? expandJourneySequence({ title: input.title, opening: ["diagnostic"], closing: [],
+          singlePathReason: "The opening check the Planner chose for this list.", endpointLabel: input.endpoint_label }, [{ id: "diagnostic", title: input.portal_label }]) : undefined;
         state.result = { capture, ...(journey ? { journey } : {}) };
         return { ok: true, result: { accepted: true, words: capture.words.length } };
       } }),

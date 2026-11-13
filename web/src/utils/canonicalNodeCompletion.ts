@@ -1,8 +1,12 @@
+import type { ServerNodeChest } from "../components/NodeTreasureChest";
+import type { PendingCreatureEncounter } from "../../../src/shared/companionCareTypes";
 export type CanonicalNodeCompletionInput = {
   childId: string;
   homeworkId: string;
   nodeId: string;
   completionId: string;
+  /** When the kiosk opened this stop (Date.now()); her time is measured from it, never taken from the game. */
+  launchedAt: number;
   result: Record<string, unknown> & {
     completed?: boolean;
     accuracy?: number;
@@ -31,6 +35,17 @@ export function postDiscoveryComplete(input: { childId: string; homeworkId: stri
     `/api/learning/${encodeURIComponent(input.childId)}/assignments/${encodeURIComponent(input.homeworkId)}/discovery/complete`,
     input.nodeId ? { nodeId: input.nodeId } : {},
   );
+}
+
+/** The chest a finished Discovery stop opened, and her new balance, from the completion response (2026-11-07). */
+export function discoveryCompletionRewards(result: Record<string, unknown> | null | undefined): { nodeChest: ServerNodeChest | null; balance: number | null } {
+  const chest = result?.nodeChest as Partial<ServerNodeChest> | undefined;
+  const valid = chest && typeof chest.kind === "string" && typeof chest.rarity === "string" && typeof chest.coins === "number";
+  const award = result?.coinAward as { balance?: unknown } | undefined;
+  return {
+    nodeChest: valid ? (chest as ServerNodeChest) : null,
+    balance: valid && typeof award?.balance === "number" ? award.balance : null,
+  };
 }
 
 export async function flushDiscoveryAttemptWrites(
@@ -154,14 +169,23 @@ export async function postCanonicalNodeCompletion(input: CanonicalNodeCompletion
   coinAward?: { amount: number; balance: number };
   videoCallTicket?: { homeworkId: string; earnedAt: string; bonusUrl?: string };
   bossDrop?: { tier: "common" | "rare" | "epic" | "legendary"; coins: number };
+  nodeChest?: ServerNodeChest;
+  creatureEncounter?: PendingCreatureEncounter;
 }> {
-  const { completionId, ...request } = input;
+  const { completionId, launchedAt, ...request } = input;
+  // G7 (2026-11-10): games and built-ins sent 0 or nothing, saved as "completed in 0ms". The kiosk's own clock owns it.
+  const timeSpent_ms = Number.isFinite(launchedAt) ? Math.max(0, Date.now() - launchedAt) : request.result.timeSpent_ms;
+  console.log(" 🎮 [AdventureBoard] [completion-time] [measured]", { nodeId: input.nodeId, timeSpent_ms, gameReported: request.result.timeSpent_ms ?? null });
   const response = await fetch("/api/learning-cycle/node-complete", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ ...request, result: { ...request.result, sessionId: completionId } }),
+    body: JSON.stringify({ ...request, result: { ...request.result, timeSpent_ms, sessionId: completionId } }),
   });
-  if (!response.ok) throw new Error(`canonical_node_completion_${response.status}`);
+  if (!response.ok) {
+    // A refused save the server kept (2026-11-10): her answers are held, not lost.
+    const failure = await response.json().catch(() => ({})) as { held?: boolean };
+    throw new Error(failure.held ? "canonical_node_completion_held" : `canonical_node_completion_${response.status}`);
+  }
   const result = await response.json() as {
     lifecycle: string;
     revision: number;
@@ -170,7 +194,21 @@ export async function postCanonicalNodeCompletion(input: CanonicalNodeCompletion
     coinAward?: { amount: number; balance: number };
     videoCallTicket?: { homeworkId: string; earnedAt: string; bonusUrl?: string };
     bossDrop?: { tier: "common" | "rare" | "epic" | "legendary"; coins: number };
+  nodeChest?: ServerNodeChest;
+    creatureEncounter?: PendingCreatureEncounter;
   };
   window.dispatchEvent(new CustomEvent("sunny_learning_cycle_progression", { detail: result }));
-  return { ...result, outcome: { ...input.result, completed: result.nodeState === "completed", accuracy: result.academicAccuracy ?? undefined } };
+  return { ...result, outcome: { ...input.result, ...(timeSpent_ms === undefined ? {} : { timeSpent_ms }), completed: result.nodeState === "completed", accuracy: result.academicAccuracy ?? undefined } };
+}
+
+/** Her tries on a finished stop after its completion was saved (BUGS.md 2026-11-10 evening); the server adds only new ones. */
+export async function postCanonicalLateTries(input: { childId: string; homeworkId: string; nodeId: string; completionId: string; targetResults: unknown[] }): Promise<void> {
+  const { completionId, ...request } = input;
+  const response = await fetch("/api/learning-cycle/node-late-tries", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ ...request, sessionId: completionId }),
+  });
+  if (!response.ok) throw new Error(`canonical_late_tries_${response.status}`);
+  console.log(" 🎮 [AdventureBoard] [late-tries] [saved]", { nodeId: input.nodeId });
 }

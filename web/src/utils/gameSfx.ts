@@ -22,6 +22,12 @@ export const GAME_SFX = {
     completeFanfare: "/sfx/pronunciation/complete_fanfare.wav",
     heatUp: "/sfx/pronunciation/hes-heating-up.mp3",
   },
+  /** Recorded big moments for the Spark Orb capture; gesture sounds are synthesized in sparkOrbSfx. */
+  sparkOrb: {
+    captureLock: "/sfx/unlock/boom.mp3",
+    collected: "/sfx/unlock/fanfare.mp3",
+    perfect: "/sfx/unlock/coin.mp3",
+  },
 } as const;
 
 export type AdventureBoardSfxCue = keyof typeof GAME_SFX.adventureBoard;
@@ -71,6 +77,16 @@ export type PronunciationHitSfxEffect =
   | "legendary";
 
 let audioCtx: AudioContext | null = null;
+
+/** The one Web Audio context every game sound shares (browsers limit how many can be open). */
+export function getSharedAudioContext(): AudioContext | null {
+  return getAudioCtx();
+}
+
+/** Test seam: drop the cached context so a stubbed AudioContext is picked up. */
+export function resetSharedAudioContextForTests(): void {
+  audioCtx = null;
+}
 
 function getAudioCtx(): AudioContext | null {
   if (typeof window === "undefined") return null;

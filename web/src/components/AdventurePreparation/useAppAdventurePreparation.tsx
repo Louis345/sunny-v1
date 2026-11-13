@@ -4,7 +4,8 @@ import type { GenerationStatus } from "../../hooks/useAdaptiveMathGenerationRefr
 import { resolveDirectDiscoveryLaunchNode } from "../../utils/adventureBoardLaunch";
 import { AdventurePreparationScreen } from "./AdventurePreparationScreen";
 import type { PreparationMode, PreparationState } from "./adventurePreparationMachine";
-import { isPreparationSlow, preparationElapsedLabel, preparationEventsFromStatus } from "./preparationStatusAdapter";
+import { isPreparationSlow, isPublishedStatus, preparationElapsedLabel, preparationEventsFromStatus } from "./preparationStatusAdapter";
+import { COMPANION_API_VERSION, type CompanionCommand } from "../../../../src/shared/companions/companionContract";
 import { useAdventurePreparation } from "./useAdventurePreparation";
 
 export type PreparationSurface = "chapter" | "held" | null;
@@ -12,7 +13,7 @@ export type PreparationSurface = "chapter" | "held" | null;
 /** The waiting screen's own words and real progress, as reported to Elli. */
 export type PreparationWaitingReport = { step: string; detail: string; ready: number; total: number };
 
-/** Spelling only: right after Discovery or a next-session map still building. */
+/** Right after spelling Discovery, after a finished board (spelling or math), or a next-session map still building. */
 export function resolvePreparationSurface(input: {
   packet: ChildExperiencePacket | null;
   directDiscoveryMode: boolean;
@@ -24,8 +25,10 @@ export function resolvePreparationSurface(input: {
   boardFinished?: boolean;
   preview: boolean;
 }): PreparationSurface {
-  if (input.preview || input.packet?.activeSessionPlan?.domain !== "spelling") return null;
+  const domain = input.packet?.activeSessionPlan?.domain;
+  if (input.preview || (domain !== "spelling" && domain !== "math")) return null;
   if (input.boardFinished) return input.published ? null : "chapter";
+  if (domain !== "spelling") return input.held && !input.published ? "held" : null;
   if (input.directDiscoveryMode) return input.handoff === "targeted-planning" ? "chapter" : null;
   return input.held && !input.published ? "held" : null;
 }
@@ -34,6 +37,15 @@ export function preparationWords(packet: ChildExperiencePacket | null): string[]
   const radar = resolveDirectDiscoveryLaunchNode(packet)?.wordRadarItems?.map(item => item.display);
   const words = radar?.length ? radar : packet?.activeSessionPlan?.nodePlan?.flatMap(node => node.targets ?? []) ?? [];
   return [...new Set(words.filter(word => typeof word === "string" && word.trim()))].slice(0, 16);
+}
+
+/**
+ * When her next map is ready on the waiting screen, Elli raises her hand (BUGS.md 2026-11-12). No scripted words:
+ * if she taps Elli, Elli sees the ready screen in her screen report and answers in her own words.
+ */
+export function boardReadyRaiseHand(childId: string, readyAt: number | null): CompanionCommand | null {
+  if (readyAt === null) return null;
+  return { apiVersion: COMPANION_API_VERSION, type: "check_back_in", payload: { how: "raise_hand", why: "her next map is ready" }, childId, timestamp: readyAt, source: "diag" };
 }
 
 const REVIEW_DWELL_MS = 4000;
@@ -59,7 +71,7 @@ export function useAppAdventurePreparation(input: {
   /** "Let's go!" on a next board: the published board has to be read before it can show. */
   onReveal?: () => void;
   sendMessage: (type: string, payload?: Record<string, unknown>) => void;
-}): { screen: ReactNode | null; waiting: PreparationWaitingReport | null } {
+}): { screen: ReactNode | null; waiting: PreparationWaitingReport | null; readyAt: number | null } {
   const scope = `${input.childId ?? ""}:${input.homeworkId ?? ""}:${input.finishedBoardId ?? ""}`;
   const [modeByScope, setModeByScope] = useState<{ scope: string; mode: PreparationMode } | null>(null);
   useEffect(() => {
@@ -69,16 +81,21 @@ export function useAppAdventurePreparation(input: {
   }, [input.surface, input.finishedBoardId, scope]);
   const mode = modeByScope?.scope === scope ? modeByScope.mode : null;
 
+  // One screen for every subject: spelling shows her words; math shows each problem as her answer, read aloud on tap.
+  const subject = input.packet?.activeSessionPlan?.domain === "math" ? "math" : "spelling";
+  const mathResults = subject === "math" && input.finishedBoardId ? input.packet?.mathBoardResults?.[input.finishedBoardId] : undefined;
   const wordsRef = useRef<{ scope: string; words: string[] }>({ scope: "", words: [] });
-  const words = preparationWords(input.packet);
+  const words = subject === "math" ? [] : preparationWords(input.packet);
   if (words.length && wordsRef.current.scope !== scope) wordsRef.current = { scope, words };
   const results: Array<{ display: string; firstTry?: boolean; correct?: boolean }> | undefined = mode !== "chapter" ? undefined
     : input.finishedBoardId ? input.packet?.spellingBoardResults : input.packet?.spellingEvaluationResults;
-  const resultsKey = JSON.stringify(results);
-  const items = useMemo(() => (wordsRef.current.scope === scope ? wordsRef.current.words : words).map(face => {
-    const result = results?.find(item => item.display === face);
-    return { face, spoken: face, correct: result?.correct, improved: result?.firstTry === false && result.correct === true };
-  }), [scope, words.join("|"), resultsKey]); // eslint-disable-line react-hooks/exhaustive-deps
+  const resultsKey = JSON.stringify(subject === "math" ? mathResults : results);
+  const items = useMemo(() => subject === "math"
+    ? (mathResults ?? []).map(result => ({ face: result.display, spoken: result.spoken, correct: result.correct, improved: result.firstTry === false && result.correct === true }))
+    : (wordsRef.current.scope === scope ? wordsRef.current.words : words).map(face => {
+      const result = results?.find(item => item.display === face);
+      return { face, spoken: face, correct: result?.correct, improved: result?.firstTry === false && result.correct === true };
+    }), [scope, subject, words.join("|"), resultsKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const activityTypes = useMemo(() => new Map(
     (input.packet?.activeSessionPlan?.adventureBoard?.nodes ?? []).map(node => [node.id, node.activityId ?? node.kind] as [string, string]),
@@ -98,7 +115,7 @@ export function useAppAdventurePreparation(input: {
   // A resume waits for the first real status so it opens on the true step.
   const active = Boolean(mode) && !input.finished && (mode === "chapter" || input.status !== null);
   const { snapshot, send } = useAdventurePreparation({
-    active, scopeKey: `${scope}:${mode}`, mode: mode ?? "live", subject: "spelling", say: () => undefined,
+    active, scopeKey: `${scope}:${mode}`, mode: mode ?? "live", subject, say: () => undefined,
     initialStops: initialPlan?.type === "PLAN_DONE" ? initialPlan.stops : undefined,
     initialReady: initialReady?.type === "ACTIVITY_READY" ? initialReady.n : undefined,
   });
@@ -114,9 +131,11 @@ export function useAppAdventurePreparation(input: {
     return () => timers.forEach(clearTimeout);
   }, [state === "look", items, send]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Ready means the server published the board, never a guess from the screen's surface (BUGS.md 2026-11-12).
+  const published = isPublishedStatus(input.status);
   // A next board can already be published when she gets here: she still sees her results first.
   const holdForResults = Boolean(input.finishedBoardId) && state === "look";
-  useEffect(() => { if (snapshot && !holdForResults) statusEvents.forEach(event => send(event.type === "ACTIVITY_READY" ? {...event, published:input.surface === null} : event)); }, [statusEvents, input.surface, snapshot !== null, holdForResults, send]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (snapshot && !holdForResults) statusEvents.forEach(event => send(event.type === "ACTIVITY_READY" ? {...event, published:input.surface === null && published} : event)); }, [statusEvents, input.surface, published, snapshot !== null, holdForResults, send]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
@@ -129,9 +148,9 @@ export function useAppAdventurePreparation(input: {
   // The complete map became playable; keep its explicit reveal control visible.
   const total = snapshot?.context.total ?? 0;
   useEffect(() => {
-    if (!snapshot || input.surface || holdForResults) return;
-    send({ type: "ACTIVITY_READY", n: Math.max(total, 1), total: Math.max(total, 1) });
-  }, [input.surface, snapshot !== null, total, holdForResults, send]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (!snapshot || input.surface || holdForResults || !published) return;
+    send({ type: "ACTIVITY_READY", n: Math.max(total, 1), total: Math.max(total, 1), published: true });
+  }, [input.surface, published, snapshot !== null, total, holdForResults, send]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const [revealedScope, setRevealedScope] = useState<string | null>(null);
   const ctx = snapshot?.context;
@@ -156,7 +175,16 @@ export function useAppAdventurePreparation(input: {
     total: contextTotal,
   } : null;
 
-  if (!visible || !snapshot || !state || !ctx) return { screen: null, waiting: null };
+  const [readySeen, setReadySeen] = useState<{ scope: string; at: number } | null>(null);
+  const showingReady = visible && active && state === "ready";
+  useEffect(() => {
+    if (!showingReady || readySeen?.scope === scope) return;
+    console.log(` 🎮 [adventure-preparation] [ready] [shown] child=${input.childId ?? "unknown"} homework=${input.homeworkId ?? "unknown"}`);
+    setReadySeen({ scope, at: Date.now() });
+  }, [showingReady, readySeen?.scope, scope, input.childId, input.homeworkId]);
+  const readyAt = showingReady && readySeen?.scope === scope ? readySeen.at : null;
+
+  if (!visible || !snapshot || !state || !ctx) return { screen: null, waiting: null, readyAt: null };
   return {
     screen: (
       <div className="h-screen w-screen">
@@ -172,5 +200,6 @@ export function useAppAdventurePreparation(input: {
       </div>
     ),
     waiting,
+    readyAt,
   };
 }

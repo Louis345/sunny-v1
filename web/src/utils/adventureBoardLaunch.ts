@@ -173,10 +173,13 @@ export function hasPendingLearningGeneration(packet: ChildExperiencePacket | nul
     || (isDirectDiscoveryPacket(packet) && completingDiscovery));
 }
 
-/** The board she was on is finished and Sunny is deciding what comes next. */
+/**
+ * The board she was on is finished and Sunny is deciding or building what comes next, in any subject (owner
+ * 2026-11-12: Reina saw her finished math board as if it were current while the next one was being built).
+ */
 export function isBoardFinishedPacket(packet: ChildExperiencePacket | null): boolean {
-  return packet?.activeSessionPlan?.domain === "spelling"
-    && ["baseline_evaluating", "quest_evaluating", "boss_evaluating"].includes(packet.childChart?.learningCycle?.lifecycle ?? "");
+  return ["spelling", "math"].includes(packet?.activeSessionPlan?.domain ?? "")
+    && ["baseline_evaluating", "quest_evaluating", "boss_evaluating", "quest_generating", "boss_generating"].includes(packet?.childChart?.learningCycle?.lifecycle ?? "");
 }
 
 /** A Teaching Board opens as one complete chapter; Probe siblings may unlock independently. */
@@ -411,6 +414,7 @@ export function resolvePlannerBoardLaunchNode(
     wordRadarItems: radarItems,
     spellingAssessment: packet.spellingInstruments?.[planNode?.id ?? boardNode.id]?.assessment,
     spellingItemBindings: packet.spellingInstruments?.[planNode?.id ?? boardNode.id]?.items.map(item => ({ itemId: item.itemId, word: item.display })),
+    itemBindings: packet.itemBindings?.[planNode?.id ?? boardNode.id],
     wordRadarConfig:
       type === "word-radar"
         ? planNode?.wordRadarConfig ?? boardWordRadarConfig(boardNode)

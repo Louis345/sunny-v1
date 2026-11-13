@@ -10,8 +10,8 @@ import {
 } from "react";
 import { useSession } from "./hooks/useSession";
 import { useAdventureState } from "./hooks/useAdventureState";
-import { ChildPicker } from "./components/ChildPicker";
-import { DiscoveryAcademicCompletionCoordinator, hasCanonicalLearningCycle, postCanonicalNodeCompletion, postDiscoveryAttempt, postDiscoveryComplete } from "./utils/canonicalNodeCompletion";
+import { ChildPicker, StartScreenFrame } from "./components/ChildPicker";
+import { DiscoveryAcademicCompletionCoordinator, discoveryCompletionRewards, hasCanonicalLearningCycle, postCanonicalLateTries, postCanonicalNodeCompletion, postDiscoveryAttempt, postDiscoveryComplete } from "./utils/canonicalNodeCompletion";
 import { SessionScreen } from "./components/SessionScreen";
 import { SessionEnd } from "./components/SessionEnd";
 import { SessionLoadingOverlay, sessionVoiceReady } from "./components/SessionLoadingOverlay";
@@ -27,6 +27,8 @@ import type {
 } from "../../src/shared/adventureBoardJson";
 import type { NodeConfig } from "../../src/shared/adventureTypes";
 import { buildNodeLaunchAction } from "../../src/shared/homeworkNodeRouting";
+import { RewardBreakPicker } from "./components/RewardBreakPicker";
+import { ArcadeClock, rewardBreakArcadeTerms } from "./components/CallClock";
 import { CompanionLayer, type CompanionLayerProps } from "./components/CompanionLayer";
 import { TamagotchiSheet } from "./components/TamagotchiSheet";
 import { TamagotchiStrip } from "./components/TamagotchiStrip";
@@ -56,7 +58,6 @@ import {
 import { RewardDiagOverlay } from "./components/RewardDiagOverlay";
 import { RewardTriggerPanel } from "./components/RewardTriggerPanel";
 import { isRewardDiagEnabled, type RewardDiagEvent } from "./types/rewardDiag";
-import { CompanionShowroomPage } from "./CompanionShowroomPage";
 import { WordRadar } from "./components/WordRadar";
 import { FlowGameOverlay } from "./components/FlowGameOverlay";
 import { DIAG_WORD_RADAR_ITEMS } from "./fixtures/wordRadarDiagItems";
@@ -101,7 +102,7 @@ import { useChildExperiencePacket } from "./hooks/useChildExperiencePacket";
 import { useAdaptiveMathGenerationRefresh } from "./hooks/useAdaptiveMathGenerationRefresh";
 import { DiscoveryCompletionChapter } from "./components/DiscoveryCompletionChapter";
 import { LearningPreparationStatus } from "./components/LearningPreparationStatus";
-import { resolvePreparationSurface, useAppAdventurePreparation } from "./components/AdventurePreparation/useAppAdventurePreparation";
+import { resolvePreparationSurface, useAppAdventurePreparation, boardReadyRaiseHand } from "./components/AdventurePreparation/useAppAdventurePreparation";
 import { isPublishedStatus } from "./components/AdventurePreparation/preparationStatusAdapter";
 import { kioskScreenReport } from "./utils/kioskScreenReport";
 import {
@@ -110,8 +111,18 @@ import {
 } from "./context/CompanionCareContext";
 import { resolveSunnyRuntimeConfig } from "../../src/shared/runtimeConfig";
 import { BossDropReveal } from "./components/BossDropReveal";
+import { NodeTreasureChest, chestFromServer, type ServerNodeChest } from "./components/NodeTreasureChest";
+import { ChestThenCreature } from "./components/LiveCreatureEncounter";
+import { CreatureDenOverlay, DenButton } from "./components/CreatureDenOverlay";
+import { SidekickBuddy } from "./components/SidekickBuddy";
+import { fetchCreatures, sendDenAction, startCreatureSession, type CreatureSnapshot } from "./utils/creatureApi";
+import { CREATURE_CATALOG } from "../../src/shared/capturedMonsterCatalog";
+import type { PendingCreatureEncounter } from "../../src/shared/companionCareTypes";
 import { rewardCallHeldReason } from "./utils/rewardCallOffer";
+import { boardCallTicket } from "./utils/callCompanion";
+import { pronunciationBoardCompletion } from "./utils/pronunciationBoardCompletion";
 import type { PostActivityAction } from "../../src/engine/choiceEvents";
+import { CallProgressBadge } from "./components/CallProgressBadge";
 import {
   playAdventureBoardSfx,
   playUnlockCeremonySfx,
@@ -193,6 +204,9 @@ function CompanionLayerWithCare(props: CompanionLayerProps) {
   );
 }
 
+/** Owner 2026-11-09: the food/mood strip under the companion is hidden; companion care itself stays. */
+const SHOW_CARE_STRIP = false;
+
 function CompanionEconomyControls(props: {
   visible: boolean;
   companionName: string;
@@ -201,13 +215,17 @@ function CompanionEconomyControls(props: {
   homeworkId?: string;
   /** False while the one reward-call rule holds the call; the saved ticket waits. */
   callOffered: boolean;
+  /** On the next-board screen only the call button shows (owner, 2026-11-08: call Elli while it builds). */
+  callOnly?: boolean;
+  boardPublishedAt?: string | null;
+  /** The ticket the server returned with this board's last completion (the saved list may predate it). */
+  serverTicket?: { homeworkId: string; earnedAt: string; bonusUrl?: string };
   onOpenVideoCall: (ticket: { homeworkId: string; earnedAt: string; bonusUrl?: string }) => void;
 }) {
   const companionCare = useCompanionCare();
   const [shopOpen, setShopOpen] = useState(false);
-  const earnedTicket = companionCare.care?.economy.videoCallTickets?.find(
-    (ticket) => ticket.homeworkId === props.homeworkId && !ticket.openedAt,
-  );
+  // Offered only for the board she just finished; it does not carry over (owner, 2026-11-08).
+  const earnedTicket = boardCallTicket(companionCare.care?.economy.videoCallTickets, props.serverTicket, props.homeworkId, props.boardPublishedAt);
   if (!props.visible) return null;
   return (
     <>
@@ -220,12 +238,14 @@ function CompanionEconomyControls(props: {
           Call {props.companionName}
         </button>
       ) : null}
+      {props.callOnly ? null : <>
+      {SHOW_CARE_STRIP ? (
       <TamagotchiStrip
         tamagotchi={props.tamagotchi}
         companionCare={companionCare.care}
         balance={props.balance}
         onOpenSheet={() => setShopOpen(true)}
-      />
+      />) : null}
       <TamagotchiSheet
         open={shopOpen}
         tamagotchi={props.tamagotchi}
@@ -238,6 +258,7 @@ function CompanionEconomyControls(props: {
         isPurchasing={companionCare.isPurchasing}
         onClose={() => setShopOpen(false)}
       />
+      </>}
     </>
   );
 }
@@ -608,9 +629,16 @@ function App() {
     iframeUrl: string | null;
     replayNonce: number;
     completionId: string;
+    launchedAt: number;
   } | null>(null);
   // Beating the Boss drops loot: the saved server roll, shown once per completion reply.
   const [bossDrop, setBossDrop] = useState<{ tier: "common" | "rare" | "epic" | "legendary"; coins: number } | null>(null);
+  const [nodeChest, setNodeChest] = useState<ServerNodeChest | null>(null);
+  // Her creatures (owner, 2026-11-08): an encounter the Planner placed, her den, and the sidekick by Elli.
+  const [creatureEncounter, setCreatureEncounter] = useState<PendingCreatureEncounter | null>(null);
+  const [creatureSnapshot, setCreatureSnapshot] = useState<CreatureSnapshot | null>(null);
+  const [creatureDenOpen, setCreatureDenOpen] = useState(false);
+  const [sidekickCheer, setSidekickCheer] = useState(0);
   const [postActivityEngagement, setPostActivityEngagement] = useState<{
     node: NodeConfig;
     outcome: PostActivityOutcome;
@@ -620,10 +648,17 @@ function App() {
     coinAward?: { amount: number; balance: number };
     videoCallTicket?: { homeworkId: string; earnedAt: string; bonusUrl?: string };
   } | null>(null);
+  // The chest belongs to one finished stop's panel and leaves with it.
+  useEffect(() => { if (!postActivityEngagement) setNodeChest(null); }, [postActivityEngagement]);
   const [locallyCompletedPlannerNodeIds, setLocallyCompletedPlannerNodeIds] = useState<string[]>([]);
   const [generatedMathSoundMuted, setGeneratedMathSoundMuted] = useState(false);
   const plannerBoardIframeCompletionKeyRef = useRef<string | null>(null);
+  // The saved completion per launch; her later tries are saved only after it (BUGS.md 2026-11-10 evening).
+  const plannerBoardCompletionWriteRef = useRef<{ key: string; written: Promise<unknown> } | null>(null);
   const pendingPlannerBoardLaunchRef = useRef<{node:NodeConfig;replayNonce:number}|null>(null);
+  // A reward break (2026-11-10): a round ending restarts the game; the arcade clock owns the end of the break.
+  const [rewardBreakRound, setRewardBreakRound] = useState(0);
+  const rewardBreakLastRoundRef = useRef<Record<string, unknown> | null>(null);
   const [sessionReady, setSessionReady] = useState(false);
   const [homeworkFinishedForNow, setHomeworkFinishedForNow] = useState(false);
   const homeworkSessionFinished = homeworkFinishedForNow || state.phase === "ended";
@@ -677,6 +712,7 @@ function App() {
     theaterLoadingEnabled && Boolean(adventureChildId);
 
   const effectiveCompanion = activeProfileChildId ? profileCompanion : null;
+
   const activeProfileIdRef = useRef<string | null>(null);
 
   useEffect(() => {
@@ -733,6 +769,37 @@ function App() {
     plannerBoardPacketState.packet?.activeSessionPlan?.adventureBoard
       ? plannerBoardPacketState.packet
       : null;
+
+  // Her creatures: read from the server; the bond fade runs once when her session starts (never mid-homework).
+  // Reading needs only her board; the bond check (a write) waits until her session is really running:
+  // choosing a child whose session then fails must write nothing (homeworkEntryBrowser, 2026-11-08).
+  const creatureBoardReady = Boolean(adventureChildId && plannerBoardPacket);
+  const creatureSessionLive = creatureBoardReady && state.phase === "active";
+  const creatureSessionStartedRef = useRef<string | null>(null);
+  const refreshCreatures = useCallback(() => {
+    if (!adventureChildId) return;
+    fetchCreatures(adventureChildId)
+      .then((snapshot) => { if (snapshot) setCreatureSnapshot(snapshot); })
+      .catch((error: unknown) => console.error(" 🎮 [creatures] [snapshot] [failed]", error));
+  }, [adventureChildId]);
+  useEffect(() => {
+    if (!adventureChildId || !creatureBoardReady) return;
+    if (!creatureSessionLive || creatureSessionStartedRef.current === adventureChildId) {
+      refreshCreatures();
+      return;
+    }
+    creatureSessionStartedRef.current = adventureChildId;
+    startCreatureSession(adventureChildId)
+      .then((result) => console.log(` 🎮 [creatures] [session-start] [done] ranAway=${result.ranAwayId ?? "none"}`))
+      .catch((error: unknown) => console.error(" 🎮 [creatures] [session-start] [failed]", error))
+      .finally(refreshCreatures);
+  }, [adventureChildId, creatureBoardReady, creatureSessionLive, refreshCreatures]);
+  // The sidekick cheers each time her correct streak grows.
+  const lastCorrectStreakRef = useRef(0);
+  useEffect(() => {
+    if (state.correctStreak > lastCorrectStreakRef.current) setSidekickCheer((count) => count + 1);
+    lastCorrectStreakRef.current = state.correctStreak;
+  }, [state.correctStreak]);
   const homeworkVoiceStart = useMemo(
     () => resolveHomeworkVoiceSessionStart(
       plannerBoardPacket,
@@ -1103,9 +1170,16 @@ function App() {
     pendingPlannerBoardLaunchRef.current = null;
   }, [plannerBoardSessionScope]);
 
+  const [rewardBreakPick, setRewardBreakPick] = useState<{ node: NodeConfig; replayNonce: number } | null>(null);
   const launchPlannerBoardNode = useCallback(
     (node: NodeConfig, replayNonce = 0) => {
       if (homeworkSessionFinishedRef.current) return false;
+      // Her reward break: she picks one of the games she owns before it opens (owner, 2026-11-09).
+      if (node.type === "mystery" && !node.gameFile) {
+        console.log(" 🎮 [reward-break] [picker] [shown]", { nodeId: node.id });
+        setRewardBreakPick({ node, replayNonce });
+        return true;
+      }
       if (!mapPreviewMode && !parentPreviewActive && !state.voiceSessionId) {
         pendingPlannerBoardLaunchRef.current = {node,replayNonce};
         console.log(" 🎮 [AdventureBoard] [launch] [waiting-for-session]", {nodeId:node.id});
@@ -1170,11 +1244,13 @@ function App() {
       plannerBoardIframeCompletionKeyRef.current = null;
       discoveryCompletionCoordinatorRef.current = new DiscoveryAcademicCompletionCoordinator();
       setCompanionPresence("collapsed");
+      rewardBreakLastRoundRef.current = null;
       setPlannerBoardLaunch({
         node,
         iframeUrl: action.kind === "iframe" ? `${action.url}${action.url.includes("?") ? "&" : "?"}launchToken=${encodeURIComponent(completionId)}` : null,
         replayNonce,
         completionId,
+        launchedAt: Date.now(),
       });
       return true;
     },
@@ -1437,6 +1513,8 @@ function App() {
     [adventureChildId, mapPreviewMode, plannerBoardPacket],
   );
 
+  // A Discovery / probe chest comes back with the academic commit; the stop's screen waits for it (2026-11-10).
+  const [discoveryRewardsPending, setDiscoveryRewardsPending] = useState(false);
   const startDiscoveryAcademicCompletion = useCallback((nodeId?: string): Promise<Record<string, unknown>> => {
     const homeworkId = plannerBoardPacket?.childChart.learningCycle?.homeworkId;
     if (!adventureChildId || !homeworkId) {
@@ -1450,7 +1528,16 @@ function App() {
         ...(nodeId ? { nodeId } : {}),
       }),
     );
-    void completionPromise.catch((error: unknown) => {
+    setDiscoveryRewardsPending(true);
+    void completionPromise.then((result) => {
+      // A finished Discovery stop opens a chest too (owner, 2026-11-07); it shows in the post-activity panel.
+      const rewards = discoveryCompletionRewards(result);
+      if (rewards.nodeChest) setNodeChest(rewards.nodeChest);
+      if (rewards.balance != null) setProfileCompanionCurrency(rewards.balance);
+      // Released with the chest in the same update, so the stop never finishes between the two.
+      setDiscoveryRewardsPending(false);
+    }, (error: unknown) => {
+      setDiscoveryRewardsPending(false);
       console.error(" 🎮 [adaptive-math] [discovery-complete] [failed]", error);
     });
     return completionPromise;
@@ -1470,8 +1557,10 @@ function App() {
   }, [adventureChildId, directDiscoveryMode, plannerBoardLaunch, plannerBoardPacket?.childChart.learningCycle?.homeworkId, state.voiceSessionId]);
 
 
-  const handlePlannerBoardFunRating = useCallback(
-    (rating: 1 | 2 | 3 | 4 | 5 | null) => {
+  /** A finished stop returns her to the map by itself (owner, 2026-11-10: no stars popup); the back-to-map choice
+   * event still records the outcome, and Discovery / probe boards still run their exit sequence. */
+  const handlePlannerBoardFinished = useCallback(
+    () => {
       const current = postActivityEngagement;
       if (!current) return;
       if (directDiscoveryMode || probeBoardMode) {
@@ -1484,10 +1573,7 @@ function App() {
           plannerBoardPacket,
           current.node,
           "back_to_map",
-          {
-            ...choiceOutcomeFromOverlay(current.outcome),
-            ...(rating != null ? { funRating: rating } : {}),
-          },
+          choiceOutcomeFromOverlay(current.outcome),
         );
         void runDiscoveryExitSequence({
           commitEngagement: () => postAdventureBoardChoiceEvent(event, { preview: mapPreviewMode })
@@ -1496,7 +1582,6 @@ function App() {
             console.log(` 🎮 [adaptive-math] [discovery-engagement] [${delivery}]`, {
               childId: adventureChildId,
               homeworkId,
-              rating,
             });
             return engagement;
           }),
@@ -1535,12 +1620,7 @@ function App() {
           });
         return;
       }
-      recordPlannerBoardPostActivityAction(
-        "back_to_map",
-        current.node,
-        current.outcome,
-        rating ?? undefined,
-      );
+      recordPlannerBoardPostActivityAction("back_to_map", current.node, current.outcome);
       closePlannerBoardLaunch();
     },
     [
@@ -1557,6 +1637,7 @@ function App() {
     ],
   );
 
+  const [lastServerCallTicket, setLastServerCallTicket] = useState<{ homeworkId: string; earnedAt: string; bonusUrl?: string } | undefined>(undefined);
   const showPlannerBoardEngagementOverlay = useCallback(
     (
       node: NodeConfig,
@@ -1565,6 +1646,10 @@ function App() {
       videoCallTicket?: { homeworkId: string; earnedAt: string; bonusUrl?: string },
     ) => {
       const outcome = plannerOutcomeFromResult(result);
+      if (videoCallTicket) {
+        setLastServerCallTicket(videoCallTicket);
+        console.log(` 🎮 [reward-loop] [call-ticket] [received] homework=${videoCallTicket.homeworkId}`);
+      }
       setPostActivityEngagement({
         node,
         outcome: { ...outcome, decisionStartedAtMs: Date.now() },
@@ -1602,10 +1687,12 @@ function App() {
       rewardId: "video_call_ticket",
       earnedBy: ticket.homeworkId,
       homeworkId: ticket.homeworkId,
+      // Her own companion answers the call (BUGS.md 2026-11-08: Ila's call greeted her as Matilda).
+      companion: plannerBoardPacket?.childChart.companion.id ?? effectiveCompanion?.companionId ?? "elli",
       ...(ticket.bonusUrl ? { bonusUrl: ticket.bonusUrl } : {}),
     });
     window.location.assign(`/companions?${query.toString()}`);
-  }, [adventureChildId, rewardCallHeld]);
+  }, [adventureChildId, rewardCallHeld, plannerBoardPacket?.childChart.companion.id, effectiveCompanion?.companionId]);
 
   const openEarnedVideoCall = useCallback(() => {
     const ticket = postActivityEngagement?.videoCallTicket;
@@ -1637,13 +1724,15 @@ function App() {
     if (plannerBoardIframeCompletionKeyRef.current === key) return;
     plannerBoardIframeCompletionKeyRef.current = key;
     const homeworkId = plannerBoardPacket?.childChart.learningCycle?.homeworkId;
-    const write = async () => {
+    const written = (async () => {
       if (!adventureChildId) throw new Error("canonical_completion_missing_child");
       await discoveryCompletionCoordinatorRef.current.flushForExit();
       return hasCanonicalLearningCycle(plannerBoardPacket) && homeworkId
-        ? postCanonicalNodeCompletion({ childId: adventureChildId, homeworkId, nodeId: launch.node.id, completionId: launch.completionId, result: {...payload,launchToken:launch.completionId,voiceSessionId:state.voiceSessionId} })
+        ? postCanonicalNodeCompletion({ childId: adventureChildId, homeworkId, nodeId: launch.node.id, completionId: launch.completionId, launchedAt: launch.launchedAt, result: {...payload,launchToken:launch.completionId,voiceSessionId:state.voiceSessionId} })
         : null;
-    };
+    })();
+    const write = () => written;
+    plannerBoardCompletionWriteRef.current = { key, written };
     void write().then(async completion => {
       try {
         await refreshPlannerBoardPacket();
@@ -1656,15 +1745,30 @@ function App() {
       if (completed) setLocallyCompletedPlannerNodeIds(current => current.includes(launch.node.id) ? current : [...current, launch.node.id]);
       if (completion?.coinAward) setProfileCompanionCurrency(completion.coinAward.balance);
       if (completion?.bossDrop) setBossDrop(completion.bossDrop);
+      if (completion?.nodeChest) setNodeChest(completion.nodeChest);
+      if (completion?.creatureEncounter) setCreatureEncounter(completion.creatureEncounter);
       showPlannerBoardEngagementOverlay(launch.node, completion ? completion.outcome : payload, completion?.coinAward, completion?.videoCallTicket);
       console.log(" 🎮 [AdventureBoard] [canonical-completion] [saved]", { nodeId: launch.node.id, nodeState: completion?.nodeState, completed });
     }).catch((error: unknown) => {
       plannerBoardIframeCompletionKeyRef.current = null;
       console.error(" 🎮 [AdventureBoard] canonical_completion_failed", error);
       if (homeworkSessionFinishedRef.current) return;
-      setPostActivityEngagement({ node: launch.node, outcome: { completed: false }, title: "Progress could not be saved", stats: [], canTryHarder: false });
+      const held = error instanceof Error && error.message === "canonical_node_completion_held";
+      setPostActivityEngagement({ node: launch.node, outcome: { completed: false }, title: held ? "Your work is kept safe. A grown-up will finish saving it." : "Progress could not be saved", stats: [], canTryHarder: false });
     });
   }, [adventureChildId, plannerBoardLaunch, plannerBoardPacket, refreshPlannerBoardPacket, showPlannerBoardEngagementOverlay, state.voiceSessionId]);
+
+  /** Her reward break ends when she leaves (time up or the back button): the stop is finished, once. */
+  const finishRewardBreak = useCallback(() => {
+    const last = rewardBreakLastRoundRef.current;
+    rewardBreakLastRoundRef.current = null;
+    console.log(" 🎮 [reward-break] [finish] [back-to-map]", { nodeId: plannerBoardLaunch?.node.id, rounds: rewardBreakRound });
+    completePlannerBoardActivity({
+      completed: true,
+      rewardBreak: "finished",
+      ...(typeof last?.score === "number" ? { score: last.score, xpEarned: last.score } : {}),
+    });
+  }, [completePlannerBoardActivity, plannerBoardLaunch?.node.id, rewardBreakRound]);
 
   const handlePlannerBoardPostActivityAction = useCallback(
     (action: PostActivityAction) => {
@@ -1701,6 +1805,10 @@ function App() {
       return;
     }
     const current = postActivityEngagement;
+    if (!current && plannerBoardLaunch && rewardBreakArcadeTerms(plannerBoardLaunch.node)) {
+      finishRewardBreak();
+      return;
+    }
     if (current) {
       recordPlannerBoardPostActivityAction("back_to_map", current.node, current.outcome);
     } else if (plannerBoardLaunch) {
@@ -1714,6 +1822,7 @@ function App() {
     closePlannerBoardLaunch,
     directDiscoveryMode,
     endSession,
+    finishRewardBreak,
     plannerBoardLaunch,
     postActivityEngagement,
     probeBoardMode,
@@ -1829,11 +1938,32 @@ function App() {
         showPlannerBoardEngagementOverlay(launch.node, { completed: true });
         return;
       }
+      if (data.type === "late_tries") {
+        const tries = data.payload as { targetResults?: unknown } | undefined;
+        const homeworkId = plannerBoardPacket?.childChart.learningCycle?.homeworkId;
+        const saved = plannerBoardCompletionWriteRef.current;
+        if (!saved || saved.key !== `${launch.node.id}:${launch.replayNonce}` || !adventureChildId || !homeworkId || !Array.isArray(tries?.targetResults)) {
+          console.warn(" 🎮 [AdventureBoard] [late-tries] [no-saved-completion]", { nodeId: launch.node.id });
+          return;
+        }
+        const targetResults = tries.targetResults;
+        saved.written = saved.written.catch(() => undefined)
+          .then(() => postCanonicalLateTries({ childId: adventureChildId, homeworkId, nodeId: launch.node.id, completionId: launch.completionId, targetResults }))
+          .catch(error => console.error(" 🎮 [AdventureBoard] [late-tries] [failed]", error));
+        return;
+      }
       if (data.type !== "node_complete" && data.type !== "game_complete") return;
       const payload =
         data.payload && typeof data.payload === "object" && !Array.isArray(data.payload)
           ? data.payload as Record<string, unknown>
           : data as Record<string, unknown>;
+      if (rewardBreakArcadeTerms(launch.node)) {
+        // A round ending (game over, a win) never ends her break: the next round starts and the clock owns the end.
+        rewardBreakLastRoundRef.current = payload;
+        console.log(" 🎮 [reward-break] [round] [restarted]", { nodeId: launch.node.id, eventType: data.type });
+        window.setTimeout(() => setRewardBreakRound((round) => round + 1), 2500);
+        return;
+      }
       console.log(" 🎮 [AdventureBoard] iframe_activity_complete", {
         childId: adventureChildId,
         nodeId: launch.node.id,
@@ -1860,10 +1990,15 @@ function App() {
     return vrrCelebrateEvent ? [...base, vrrCelebrateEvent] : base;
   }, [voiceCompanionEvents, vrrCelebrateEvent]);
 
+  // Her next map is ready on the waiting screen: Elli raises her hand (BUGS.md 2026-11-12).
+  const boardReadyHand = useMemo(
+    () => boardReadyRaiseHand(adventureChildId ?? "", adventureChildId ? preparation.readyAt : null),
+    [adventureChildId, preparation.readyAt],
+  );
   const mergedCompanionCommands = useMemo(
     () =>
-      mergeCompanionCommands(voiceCompanionCommands, diagCompanionCommands),
-    [voiceCompanionCommands, diagCompanionCommands],
+      mergeCompanionCommands(voiceCompanionCommands, boardReadyHand ? [...diagCompanionCommands, boardReadyHand] : diagCompanionCommands),
+    [voiceCompanionCommands, diagCompanionCommands, boardReadyHand],
   );
 
   useEffect(() => {
@@ -1998,10 +2133,6 @@ function App() {
     };
   }, [profileApiChildId, profileReloadNonce]);
 
-  if (import.meta.env.VITE_MODE === "intro" || window.location.pathname === "/companions") {
-    return <CompanionShowroomPage />;
-  }
-
   if (kioskResting) {
     return (
       <KioskRestingScreen
@@ -2080,7 +2211,7 @@ function App() {
     );
   } else if (state.phase === "picker" && (!homeworkBoardMode || !adventureChildId)) {
     main = (
-      <div className="w-screen h-screen overflow-hidden">
+      <StartScreenFrame>
         {state.error && (
           <div className="absolute top-4 left-1/2 -translate-x-1/2 px-4 py-2 bg-red-100 text-red-800 rounded-lg text-sm z-10">
             {state.error}
@@ -2100,7 +2231,7 @@ function App() {
             startSession(name);
           }}
         />
-      </div>
+      </StartScreenFrame>
     );
   } else if (homeworkBoardMode) {
     if (!adventureChildId) {
@@ -2145,6 +2276,18 @@ function App() {
         </div>
       ) : (
         <div className="w-screen h-screen overflow-hidden relative bg-zinc-950">
+          {!plannerBoardLaunch && !postActivityEngagement ? (
+            <DenButton creatureCount={creatureSnapshot?.den.creatures.length ?? 0} onOpen={() => setCreatureDenOpen(true)} />
+          ) : null}
+          {creatureDenOpen && adventureChildId ? (
+            <CreatureDenOverlay childId={adventureChildId} onClose={() => { setCreatureDenOpen(false); refreshCreatures(); }} />
+          ) : null}
+          {!plannerBoardLaunch && !postActivityEngagement ? (
+            <CallProgressBadge
+              stopsLeft={plannerBoardPacket?.boardProgress?.stopsLeft}
+              companionName={plannerBoardPacket?.childChart.companion.displayName ?? "your friend"}
+            />
+          ) : null}
           <AdventureBoardExperience
             packet={plannerBoardPacket}
             completedNodeIds={locallyCompletedPlannerNodeIds}
@@ -2162,6 +2305,17 @@ function App() {
               }
             }}
           />
+          {rewardBreakPick && adventureChildId ? (
+            <RewardBreakPicker
+              childId={adventureChildId}
+              onClose={() => setRewardBreakPick(null)}
+              onPick={(game) => {
+                const pick = rewardBreakPick;
+                setRewardBreakPick(null);
+                launchPlannerBoardNode({ ...pick.node, gameFile: game.file }, pick.replayNonce);
+              }}
+            />
+          ) : null}
           {targetedMathGenerationPending && !plannerBoardLaunch && !postActivityEngagement && <div className="absolute left-4 top-4 z-20 max-w-sm"><LearningPreparationStatus {...generationProgress} onCheck={generationProgress.checkNow} onFinish={finishHomeworkSession}/></div>}
         </div>
       );
@@ -2261,6 +2415,13 @@ function App() {
     plannerBoardPacket != null &&
     plannerBoardLaunch == null &&
     !homeworkSessionFinished;
+  const companionSummonedNow = boardMapCompanionCompact
+    ? state.companionPresence === "summoned"
+    : plannerBoardLaunch == null || state.companionPresence === "summoned";
+  const sidekickEntry = creatureSnapshot?.den.sidekickId
+    ? creatureSnapshot.den.creatures.find((creature) => creature.creatureId === creatureSnapshot.den.sidekickId)
+    : undefined;
+  const sidekickSpecies = sidekickEntry ? CREATURE_CATALOG.find((species) => species.id === sidekickEntry.creatureId) : undefined;
   const companionPortraitMode =
     preparationScreenActive ||
     boardMapCompanionCompact ||
@@ -2342,7 +2503,9 @@ function App() {
         }
       />
       <CompanionEconomyControls
-        visible={homeworkBoardMode && !homeworkSessionFinished && plannerBoardLaunch == null && !preparationScreenActive}
+        visible={homeworkBoardMode && !homeworkSessionFinished && plannerBoardLaunch == null}
+        callOnly={preparationScreenActive}
+        boardPublishedAt={plannerBoardPacket?.childChart.learningCycle?.boardPublishedAt ?? null}
         companionName={
           plannerBoardPacket?.childChart.companion.displayName ??
           (effectiveCompanion?.companionId
@@ -2355,6 +2518,7 @@ function App() {
         balance={profileCompanionCurrency}
         homeworkId={plannerBoardPacket?.childChart.learningCycle?.homeworkId}
         callOffered={rewardCallHeld == null}
+        serverTicket={lastServerCallTicket}
         onOpenVideoCall={(ticket) => void openVideoCallTicket(ticket)}
       />
       {adventureMapEnabled &&
@@ -2417,6 +2581,20 @@ function App() {
         }
       />
       </CompanionCareProvider>
+      {sidekickEntry && sidekickSpecies && companionPortraitMode && effectiveCompanion && !homeworkSessionFinished && !creatureDenOpen ? (
+        <SidekickBuddy
+          creature={sidekickSpecies}
+          nickname={sidekickEntry.nickname}
+          cheerKey={sidekickCheer}
+          companionSize={companionSummonedNow ? 188 : 68}
+          onDismiss={() => {
+            if (!adventureChildId) return;
+            void sendDenAction(adventureChildId, { action: "dismiss" })
+              .then(refreshCreatures)
+              .catch((error: unknown) => console.error(" 🎮 [creatures] [sidekick] [dismiss-failed]", error));
+          }}
+        />
+      ) : null}
       {isRewardDiagEnabled() ? (
         <>
           <RewardDiagBridge />
@@ -2551,11 +2729,27 @@ function App() {
               showBackAction={!directDiscoveryMode}
               canTryHarder={postActivityEngagement.canTryHarder}
               onAction={handlePlannerBoardPostActivityAction}
-              onFunRating={handlePlannerBoardFunRating}
-              coinAward={postActivityEngagement.coinAward}
+              onFinished={handlePlannerBoardFinished}
+              holdFinish={discoveryRewardsPending}
+              coinAward={nodeChest ? null : postActivityEngagement.coinAward}
               onOpenVideoCall={
                 postActivityEngagement.videoCallTicket && !rewardCallHeld ? openEarnedVideoCall : null
               }
+              treasure={nodeChest || creatureEncounter ? (finish) => (
+                <ChestThenCreature
+                  renderChest={nodeChest ? (collect) => (
+                    <NodeTreasureChest
+                      {...chestFromServer(nodeChest)}
+                      onOpened={() => { if (nodeChest.bonus && nodeChest.homeworkId && nodeChest.nodeId) sendMessage("reward_drop", { homeworkId: nodeChest.homeworkId, nodeId: nodeChest.nodeId }); }}
+                      onCollect={collect}
+                    />
+                  ) : null}
+                  encounter={creatureEncounter}
+                  childId={adventureChildId ?? ""}
+                  companion={effectiveCompanion}
+                  onFinish={() => { setCreatureEncounter(null); refreshCreatures(); finish(); }}
+                />
+              ) : null}
             />
           ) : null}
         </FlowGameOverlay>
@@ -2572,6 +2766,7 @@ function App() {
             replayWords={plannerBoardLaunch.node.words ?? []}
             pronunciationConfig={plannerBoardLaunch.node.pronunciationConfig}
             interimTranscript={liveFlowStt}
+            settleTailMs={600}
             sendMessage={sendMessage}
             backgroundImageUrl={state.canvas.backgroundImageUrl}
             accentColor={state.companion?.accentColor}
@@ -2585,6 +2780,8 @@ function App() {
                 accuracy: result.accuracy,
                 wordsAttempted: result.wordsAttempted,
               });
+              // The stop counts as done, like every other game (BUGS.md 2026-11-08).
+              completePlannerBoardActivity(pronunciationBoardCompletion(result, plannerBoardLaunch.node.spellingItemBindings ?? []));
             }}
             onPostActivityAction={(action, result) => {
               recordPlannerBoardPostActivityAction(action, plannerBoardLaunch.node, {
@@ -2622,7 +2819,7 @@ function App() {
               }}
             >
               <iframe
-                key={`${plannerBoardLaunch.node.id}:${plannerBoardLaunch.replayNonce}`}
+                key={`${plannerBoardLaunch.node.id}:${plannerBoardLaunch.replayNonce}:${rewardBreakRound}`}
                 ref={adventureGameIframeRef}
                 title={plannerBoardLaunch.node.type}
                 src={plannerBoardLaunch.iframeUrl}
@@ -2631,6 +2828,17 @@ function App() {
               />
             </div>
           </div>
+          {!postActivityEngagement && adventureChildId && rewardBreakArcadeTerms(plannerBoardLaunch.node) ? (
+            <ArcadeClock
+              key={plannerBoardLaunch.completionId}
+              childId={adventureChildId}
+              playId={plannerBoardLaunch.completionId}
+              gameMode={(plannerBoardLaunch.node.gameFile ?? "space-invaders.html").replace(/\.html$/, "")}
+              active
+              freeSeconds={rewardBreakArcadeTerms(plannerBoardLaunch.node)!.freeSeconds}
+              onLeave={finishRewardBreak}
+            />
+          ) : null}
           {postActivityEngagement ? (
             <PostActivityEngagementOverlay
               title={postActivityEngagement.title}
@@ -2640,11 +2848,27 @@ function App() {
               showBackAction={!directDiscoveryMode && !probeBoardMode}
               canTryHarder={postActivityEngagement.canTryHarder}
               onAction={handlePlannerBoardPostActivityAction}
-              onFunRating={handlePlannerBoardFunRating}
-              coinAward={postActivityEngagement.coinAward}
+              onFinished={handlePlannerBoardFinished}
+              holdFinish={discoveryRewardsPending}
+              coinAward={nodeChest ? null : postActivityEngagement.coinAward}
               onOpenVideoCall={
                 postActivityEngagement.videoCallTicket && !rewardCallHeld ? openEarnedVideoCall : null
               }
+              treasure={nodeChest || creatureEncounter ? (finish) => (
+                <ChestThenCreature
+                  renderChest={nodeChest ? (collect) => (
+                    <NodeTreasureChest
+                      {...chestFromServer(nodeChest)}
+                      onOpened={() => { if (nodeChest.bonus && nodeChest.homeworkId && nodeChest.nodeId) sendMessage("reward_drop", { homeworkId: nodeChest.homeworkId, nodeId: nodeChest.nodeId }); }}
+                      onCollect={collect}
+                    />
+                  ) : null}
+                  encounter={creatureEncounter}
+                  childId={adventureChildId ?? ""}
+                  companion={effectiveCompanion}
+                  onFinish={() => { setCreatureEncounter(null); refreshCreatures(); finish(); }}
+                />
+              ) : null}
             />
           ) : null}
         </FlowGameOverlay>

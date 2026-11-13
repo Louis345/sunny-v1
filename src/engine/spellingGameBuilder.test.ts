@@ -2,6 +2,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, expect, it } from "vitest";
+import { offeredValues } from "./plannerTransport";
 import { linearJourneyFixture } from "../scripts/fixtures/authoredJourney";
 import { seedSpellingLab } from "../scripts/fixtures/spellingEvidenceFirst";
 import { plainDraw, successorToolReply } from "../scripts/fixtures/successorToolConversation";
@@ -11,6 +12,7 @@ import { advanceCanonicalCycleFromEvidence, recordCanonicalNodeCompletion } from
 import { preparingBoardInstance, publishBoardInstance } from "./learningBoardInstances";
 import { prepareSuccessorBoard } from "./canonicalProgressionGenerator";
 import type { SpellingGameClient } from "./spellingGameBuilder";
+import { recordProductIssue } from "./productIssues";
 import { spellingActivityMenu } from "./spellingTeachingTools";
 import { spellingActivityCatalog } from "./assignmentPlanner";
 import { NODE_REGISTRY } from "../shared/nodeRegistry";
@@ -23,24 +25,24 @@ afterEach(() => { for (const root of roots.splice(0)) fs.rmSync(root, { recursiv
 
 const GOOD = `<!doctype html><html><head><title>Lantern Harbor</title></head><body><p>Spell the word Elli says.</p><input id="box"><script>
 const words = window.GAME_PARAMS.words; let i = 0;
-window.openSpellingItem(words[i], "Lantern 1");
+window.reportStep("listen and type", "Spell the word Elli says."); window.openSpellingItem(words[i], "Lantern 1");
 document.getElementById("box").onchange = event => { window.fireAttemptEvent({ domain: "spelling", target: words[i], attemptedValue: event.target.value, correct: event.target.value === words[i] });
   i += 1; if (i < words.length) window.openSpellingItem(words[i], "Lantern " + (i + 1)); else window.sendNodeComplete({ completed: true }); };
 </script></body></html>`;
 // Reports answers but never opens a word through the contract, so no answer could bind to her items.
 const UNBOUND = GOOD.replace(/window\.openSpellingItem\(/g, "console.log(");
 
-function fixture() {
+function fixture(played?: { title: string; path: string }) {
   const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-spelling-game-builder-")); roots.push(rootDir);
   const childId = "builder-child", homeworkId = "school-words";
   seedSpellingLab(rootDir, ["night", "light"], "", childId);
   const items = buildSpellingRecallItems({ homeworkId, words: ["night", "light"], evidenceIds: ["school:one"], measurementRole: "practice", exposure: "unseen" });
   const node: LearningCycleNodeContract = {
-    nodeId: "practice", role: "baseline", title: "Word workshop", state: "ready", implementationType: "word-radar",
+    nodeId: "practice", role: "baseline", title: played?.title ?? "Word workshop", state: "ready", implementationType: played ? "generated-game" : "word-radar",
     academicTarget: { domain: "spelling", skill: "school words", targets: items.map(item => item.word) },
     algorithmOwner: "retrieval-practice", theoryId: "theory", experimentId: "practice", mechanic: "guided spelling", theme: "harbor",
     openingScreen: { title: "Word workshop", purpose: "Practice school words" }, generationPrompt: null,
-    artifactBinding: { contentId: "practice", artifactId: "practice", localArtifactPath: "/games/practice.html", localArtworkPath: "/generated/practice.png", contractFingerprint: "recorded", validationStatus: "passed" },
+    artifactBinding: { contentId: "practice", artifactId: "practice", localArtifactPath: played?.path ?? "/games/practice.html", localArtworkPath: "/generated/practice.png", contractFingerprint: "recorded", validationStatus: "passed" },
     artwork: { status: "ready", localPath: "/generated/practice.png", prompt: null }, sfxContract: [], companionContract: { events: ["completion"] },
     evidenceContract: { academic: true, engagement: true, companionObservations: true, spellingItems: Object.fromEntries(items.map(item => [item.id, item])),
       nativeConfig: { activityId: "word-radar", wordRadarConfig: { recallMode: "hidden_word_recall", inputMode: "keyboard" } } }, evidenceIds: [],
@@ -79,8 +81,8 @@ it("builds her game from her chart and the Planner's story, binds every word, an
   const planned = await plannedBoard(f);
   const node = planned.nodes.find(row => preparingBoardInstance(planned)!.nodeIds.includes(row.nodeId))!;
   expect(node.implementationType).toBe("generated-game");
-  // The Planner is told what her game is and that each next board should let her choose it or a hand-made game.
-  expect(plannerRequests[0].messages[0].content[0].text).toMatch(/generated-game[^\n]*choice[^\n]*hand-made/);
+  // The Planner is told what her game is; whether to offer it is its call (owner, 2026-11-08).
+  expect(plannerRequests[0].messages[0].content[0].text).toMatch(/generated-game is a new game Sunny builds for her/);
   const builder = recordedBuilder([GOOD]);
   const ready = await prepareSuccessorBoard({ childId: f.childId, homeworkId: f.homeworkId, spellingGameClient: builder.client }, { rootDir: f.rootDir });
   const built = ready.nodes.find(row => row.nodeId === node.nodeId)!;
@@ -129,3 +131,125 @@ it("degrades only her game to Not ready when the repair still cannot bind answer
   await prepareSuccessorBoard({ childId: f.childId, homeworkId: f.homeworkId, spellingGameClient: builder.client }, { rootDir: f.rootDir });
   expect(builder.requests).toHaveLength(2);
 });
+
+// 2026-11-08 owner (Ila's "inport"): her game could only be described by a story, so the Planner had no way to
+// build a game aimed at the m before p it kept seeing. The focus it names now reaches the builder's ask.
+it("aims her game at the one error the Planner names", async () => {
+  const f = fixture();
+  (f.decision.nextInstruments[0] as Record<string, unknown>).focus = "the m before p in import";
+  const planned = await plannedBoard(f);
+  expect(plannerRequests.at(-1).tools.find((tool: any) => tool.name === "add_step").input_schema.properties.focus).toBeTruthy();
+  expect(planned.nodes.find(row => row.implementationType === "generated-game")).toMatchObject({ focus: "the m before p in import" });
+  const builder = recordedBuilder([GOOD]);
+  await prepareSuccessorBoard({ childId: f.childId, homeworkId: f.homeworkId, spellingGameClient: builder.client }, { rootDir: f.rootDir });
+  expect(builder.requests[0].messages[0].content as string).toContain("- What this game is aimed at: the m before p in import");
+});
+
+// 2026-11-08 Reina (math Boss, stop 4): "the hints, I tried them all, and they kind of were too long. They didn't
+// make sense." Matilda saved it as a product issue, but no builder ever read it, so her next games were written
+// blind. The human heard it; the logs recorded it ([product-issue] [recorded]); the lab never asked whether what
+// she says about Sunny's games reaches the one who builds them. Facts only: her words, where, when.
+it("shows the builder what she said about Sunny's games, in her own words, and leaves the conclusion to it", async () => {
+  const f = fixture();
+  recordProductIssue({ childId: f.childId, activityId: "generated-game", nodeId: "practice", issueType: "flow_complaint", severity: "medium", source: "child_utterance", confidence: 0.9,
+    childUtterance: "the hints were too long, they didn't make sense", evidenceText: "Hints too long.", createdAt: "2026-11-08T22:20:00Z" }, { rootDir: f.rootDir });
+  recordProductIssue({ childId: f.childId, activityId: "pronunciation", issueType: "companion_lag", severity: "medium", source: "observed_behavior", confidence: 0.7,
+    childUtterance: "session transcript contained product complaint", evidenceText: "Audit.", createdAt: "2026-11-08T22:49:00Z" }, { rootDir: f.rootDir });
+  await plannedBoard(f);
+  const builder = recordedBuilder([GOOD]);
+  await prepareSuccessorBoard({ childId: f.childId, homeworkId: f.homeworkId, spellingGameClient: builder.client }, { rootDir: f.rootDir });
+  const ask = builder.requests[0].messages[0].content as string;
+  expect(ask).toContain(`2026-11-08, at \\"Word workshop\\": \\"the hints were too long, they didn't make sense\\"`);
+  expect(ask).not.toContain("session transcript contained product complaint");
+});
+
+// 2026-11-09 Ila: a built game hid its keyboard behind an unexplained step; the companion could not see the step.
+it("asks every built game to report each step and its on-screen instruction", async () => {
+  const { buildSpellingGameAsk, buildMathGameAsk } = await import("./spellingGameBuilder");
+  const f = fixture();
+  const cycle = getLearningCycle(f.childId, f.homeworkId, { rootDir: f.rootDir })!;
+  const node = cycle.nodes[0];
+  for (const ask of [buildSpellingGameAsk({ cycle, node, rootDir: f.rootDir }), buildMathGameAsk({ cycle, node, rootDir: f.rootDir })]) {
+    expect(ask).toContain('window.reportStep("<short step name>", "<the instruction on screen>")');
+  }
+});
+
+// BUGS.md 2026-11-08 / owner 2026-11-13 ("garbage in, garbage out"): built games never reported hints, and the ask told
+// them Sunny keeps only her first answer, so retries and help went unreported. Every built game is now asked to report
+// every answer and every hint, and Sunny records whether the game it got can report hints.
+it("asks every built game to report every answer and every hint, and records whether it does", async () => {
+  const { buildSpellingGameAsk, buildMathGameAsk } = await import("./spellingGameBuilder");
+  const f = fixture();
+  const cycle = getLearningCycle(f.childId, f.homeworkId, { rootDir: f.rootDir })!;
+  const spelling = buildSpellingGameAsk({ cycle, node: cycle.nodes[0], rootDir: f.rootDir }), math = buildMathGameAsk({ cycle, node: cycle.nodes[0], rootDir: f.rootDir });
+  expect(spelling).toContain('window.reportHint("<the word>", "<what the hint showed her>")');
+  expect(math).toContain('window.reportHint("<itemId>", "<what the hint showed her>")');
+  expect(math).not.toContain("keeps her first answer");
+  expect(math).toContain("every answer she gives, retries too");
+  const planned = await plannedBoard(f);
+  const node = planned.nodes.find(row => preparingBoardInstance(planned)!.nodeIds.includes(row.nodeId))!;
+  const builder = recordedBuilder([GOOD.replace("</script>", 'function showHint(id){ window.reportHint(id, "Count by tens"); }</script>')]);
+  const ready = await prepareSuccessorBoard({ childId: f.childId, homeworkId: f.homeworkId, spellingGameClient: builder.client }, { rootDir: f.rootDir });
+  expect(ready.nodes.find(row => row.nodeId === node.nodeId)!.artifactBinding!.creativeProvenance).toMatchObject({ reportsHints: true });
+});
+
+// 2026-11-09 owner, after Ila's Spelling Voice Gate (the highlight of her day; she wanted to see what was behind the
+// door): a game she loved could only be replayed with its own words, because its words were written into it. The
+// Planner was missing a tool, not a rule: build from a game she played, so she keeps the mechanic she already
+// learned and gets new content behind the door. Whether and when to reuse stays the Planner's call.
+it("builds her next game from a game she played when the Planner names it, keeping what she already learned", async () => {
+  const playedPath = "/homework/games/school-words/voice-gate.html";
+  const f = fixture({ title: "Spelling Voice Gate", path: playedPath });
+  // Her completed game is a built-for-her game with its finished HTML in her folder.
+  fs.mkdirSync(path.join(f.rootDir, "src/context", f.childId, "homework/games/school-words"), { recursive: true });
+  fs.writeFileSync(path.join(f.rootDir, "src/context", f.childId, playedPath), `<!doctype html><html><body><div id="door">Voice Gate door</div></body></html>`);
+  (f.decision.nextInstruments[0] as Record<string, unknown>).buildFrom = "practice";
+  const planned = await plannedBoard(f);
+  const prompt = plannerRequests.at(-1).messages[0].content[0].text as string;
+  expect(prompt).toMatch(/Games Sunny built for her that she played[^\n]*build_from/);
+  expect(prompt).toContain('"title":"Spelling Voice Gate"');
+  expect(offeredValues(plannerRequests.at(-1).tools.find((tool: any) => tool.name === "add_step").input_schema.properties.build_from)).toContain("practice");
+  expect(planned.nodes.find(row => row.implementationType === "generated-game" && row.nodeId !== "practice")).toMatchObject({ buildFrom: "practice" });
+  const builder = recordedBuilder([GOOD]);
+  await prepareSuccessorBoard({ childId: f.childId, homeworkId: f.homeworkId, spellingGameClient: builder.client }, { rootDir: f.rootDir });
+  const ask = builder.requests[0].messages[0].content as string;
+  expect(ask).toContain('Start from "Spelling Voice Gate", a game she already played');
+  expect(ask).toContain("Voice Gate door");
+  expect(ask).toContain("night");
+});
+
+// 2026-11-10, both audits: the builder was told to invent a new world every time and never told which games she
+// finished fast, which walled her, or what the Planner concluded about them; lessons about a game went to BUGS.md,
+// which only engineers read. Each played game now carries its track record (answers, right, minutes to her first
+// answer from the scorecards) and the Planner's own keep / fix / retire note, for the Planner and the builder.
+it("gives the Planner and the builder each played game's track record and the Planner's keep, fix or retire note", async () => {
+  const playedPath = "/homework/games/school-words/voice-gate.html";
+  const f = fixture({ title: "Spelling Voice Gate", path: playedPath });
+  fs.mkdirSync(path.join(f.rootDir, "src/context", f.childId, "homework/games/school-words"), { recursive: true });
+  fs.writeFileSync(path.join(f.rootDir, "src/context", f.childId, playedPath), "<!doctype html><html><body>gate</body></html>");
+  fs.mkdirSync(path.join(f.rootDir, "src/context", f.childId, "homework/scorecards"), { recursive: true });
+  fs.writeFileSync(path.join(f.rootDir, "src/context", f.childId, "homework/scorecards/school-words.ndjson"),
+    `${JSON.stringify({ sessionId: "s1", startedAt: "2026-11-10T00:22:00Z", homeworkId: "school-words", answers: {}, games: [{ title: "Spelling Voice Gate", answers: 11, right: 5, finished: true, minutesToFirstAnswer: 14.9 }], helpRequests: 4, bugsReported: 1, predictions: { checked: 0, inRange: 0 } })}\n`);
+  (f.decision as Record<string, unknown>).gameNotes = [{ game: "practice", verdict: "keep", why: "She loved the doors once she understood them." }];
+  await plannedBoard(f);
+  const prompt = plannerRequests.at(-1).messages[0].content[0].text as string;
+  expect(prompt).toContain('"minutesToFirstAnswer":14.9');
+  expect(plannerRequests.at(-1).tools.find((tool: any) => tool.name === "decide").input_schema.properties.game_notes).toBeTruthy();
+  const builder = recordedBuilder([GOOD]);
+  await prepareSuccessorBoard({ childId: f.childId, homeworkId: f.homeworkId, spellingGameClient: builder.client }, { rootDir: f.rootDir });
+  const ask = builder.requests[0].messages[0].content as string;
+  expect(ask).toContain("14.9");
+  expect(ask).toContain("She loved the doors once she understood them.");
+});
+
+// 2026-11-10, both audits: the step-report line was added to the builder's ask on 11/9, but no built game had it
+// (0 of 16), because the pre-publish check never asked for it. Ila's 15-minute wall stayed invisible to Elli. A game
+// that never reports its step is now sent back once with that problem, like a game that cannot save her answers.
+it("sends back a built game that never reports its step to her companion", async () => {
+  const { spellingGameProblems, gameProblems } = await import("./spellingGameBuilder");
+  const silent = GOOD.replace(/window\.reportStep\([^)]*\);?/g, "");
+  expect(spellingGameProblems(silent)).toContain("it never reports her step with window.reportStep, so her companion cannot see where she is");
+  expect(spellingGameProblems(GOOD)).toEqual([]);
+  expect(gameProblems(silent.replace(/openSpellingItem/g, "openItem"), "math")).toContain("it never reports her step with window.reportStep, so her companion cannot see where she is");
+});
+

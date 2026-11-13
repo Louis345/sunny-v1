@@ -328,6 +328,8 @@ describe("authored board definition persistence", () => {
 describe('canonical authored navigation', () => {
   function setup(kind: 'teaching'|'probe'|'quest' = 'teaching') {
     const input = cycleInput(false);
+    // The authored path's own mechanics, on a subject whose path orders its stops (spelling and math open every built stop).
+    input.domain = 'reading';
     input.initialLifecycle = kind==='probe' ? 'evaluation_ready' : kind==='quest' ? 'quest_ready' : 'baseline_ready'; delete input.agencyExperiment;
     input.nodes = ['check','play','learn'].map(id => node(id,{role:kind==='probe'?'evaluation':kind==='quest'&&id==='play'?'quest':'baseline',artifactBinding:{...binding,contentId:id,artifactId:id}}));
     const definition = authoredJourney();

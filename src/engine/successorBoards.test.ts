@@ -520,7 +520,10 @@ describe("successor boards (contract 21)", () => {
     cycle = getLearningCycle(CHILD, HW, { rootDir })!;
     expect(cycle.lifecycle).toBe("baseline_evaluating");
     const untaken = "reef:route-reef";
-    expect(projectLearningCycle(cycle).adventureBoard.nodes.find((node) => node.id === untaken)?.lock).toMatchObject({ reason: "route-not-taken", label: "Not taken" });
+    // One pipeline (owner, 2026-11-08): on spelling and math an untaken route's built stop stays open as practice;
+    // a subject that still orders its path shows it as not taken.
+    expect(projectLearningCycle(cycle).adventureBoard.nodes.find((node) => node.id === untaken)?.state).toBe("available");
+    expect(projectLearningCycle({ ...cycle, domain: "reading" }).adventureBoard.nodes.find((node) => node.id === untaken)?.lock).toMatchObject({ reason: "route-not-taken", label: "Not taken" });
   });
 });
 

@@ -646,6 +646,12 @@ export interface LearningProfile {
     learningStyle: "visual_kinesthetic" | "auditory" | "mixed";
     attentionSpan: "short" | "moderate" | "long";
     iepActive: boolean;
+    /** Her birthday (YYYY-MM-DD): her age is worked out from it each day (2026-11-10). */
+    birthDate?: string;
+    /** The school year `grade` was confirmed for, by its starting year (2026 = 2026-27); the grade moves up each August. */
+    gradeSchoolYear?: number;
+    /** Her school, as the parent gave it. */
+    school?: string;
   };
 
   algorithmParams: {

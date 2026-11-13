@@ -307,3 +307,77 @@ export function boardDesignHistory(cycles:ReadonlyArray<{boards?:ReadonlyArray<P
     .flatMap(board=>board.publishedAt&&board.definition?.pattern?[{pattern:board.definition.pattern,theme:THEME_PRESETS.find(preset=>isDeepStrictEqual(preset.palette,board.definition!.theme.palette))?.id??null,publishedAt:board.publishedAt}]:[])
     .sort((a,b)=>b.publishedAt.localeCompare(a.publishedAt)).slice(0,limit);
 }
+
+/** A planned stop a system failure kept from her: its code, a plain reason, and whether it was repaired since. */
+export type SystemBlockedStop = { nodeId: string; title: string; game: string; code: string; plain: string; repaired: boolean; finishedSince: boolean };
+export type BoardDelivery = { boardId: string; number: number; kind: LearningBoardKind; publishedAt: string; planned: number; delivered: number; systemBlocked: number; stops: SystemBlockedStop[] };
+
+const PLAIN_STOP_FAILURES: Array<[RegExp, string]> = [
+  [/provider_outcome_uncertain/, "its build was cut off before it finished (the kiosk restarted or the connection dropped)"],
+  [/learning_cycle_revision_conflict/, "its finished game was not saved because another save landed at the same moment"],
+  [/generated_game_problems/, "the built game still failed Sunny's checks after the repair round"],
+  [/human_review_required/, "the build was held for a person to review and never released"],
+  [/^paid_retry_in_progress/, "a rebuild was still running"],
+  [/spelling_no_reusable_builtin|no_builtin_named|setup_cannot_take_these_words|words_differ/, "Sunny had no tested game it could run with these words"],
+  [/^activity_unavailable/, "this game is not available on the kiosk"],
+  [/timeout|timed_out|ETIMEDOUT|ECONNRESET|overloaded|rate_limit|\b5\d\d\b/i, "the build service failed or timed out"],
+  [/^reason_not_recorded$/, "the reason was not saved with this stop (recorded before 2026-11-11)"],
+];
+
+/** A system failure's code, short (no paths or problem lists), with a plain reason a parent or the Planner can read. */
+export function plainStopFailure(reason: string): { code: string; plain: string } {
+  const parts = reason.split(":");
+  const code = parts.slice(0, parts[0] === "successor_node_failed" ? 2 : 1).join(":") || "unknown";
+  return { code, plain: PLAIN_STOP_FAILURES.find(([pattern]) => pattern.test(reason))?.[1] ?? "its build failed" };
+}
+
+/**
+ * Per published board: planned stops, stops playable now, and each stop a system failure kept from her (owner,
+ * 2026-11-11: an unplayed stop was read as the Planner's or her failure when Sunny never delivered it). A stop counts
+ * as repaired when it is playable now after a Not ready reason. Legacy cycles without boards report nothing.
+ */
+export function boardDeliveries(cycle: LearningCycleRecordV2): BoardDelivery[] {
+  if (!cycle.boards) return [];
+  const nodes = new Map(cycle.nodes.map(node => [node.nodeId, node]));
+  const notReady = new Map<string, string[]>();
+  const rejected = new Map<string, string>();
+  for (const row of cycle.decisionHistory) {
+    if (row.nodeId && row.notReadyReason && !row.notReadyReason.startsWith("paid_retry_in_progress:")) notReady.set(row.nodeId, [...(notReady.get(row.nodeId) ?? []), row.notReadyReason]);
+    if (row.nodeId && row.eventType === "artifact_rejected") rejected.set(row.nodeId, row.reason);
+  }
+  // Decisions before 2026-11-11 kept no stop id; these two named the stop in their reason, so a repair through them still counts.
+  const legacyRepaired = (nodeId: string) => cycle.decisionHistory.some(row => !row.nodeId
+    && ((row.eventType === "not_ready_rerun_builtin" && row.reason.startsWith(`Not ready step ${nodeId} `))
+      || (row.eventType === "not_ready_paid_retry_authorized" && row.reason.startsWith(`One paid rebuild approved for cut-off stop ${nodeId}:`))));
+  return listBoardInstances(cycle).flatMap((board, index) => {
+    if (!board.publishedAt) return [];
+    const planned = board.nodeIds.flatMap(id => nodes.get(id) ? [nodes.get(id)!] : []);
+    const stops = planned.flatMap((node): SystemBlockedStop[] => {
+      const now = unavailableActivityReason(node);
+      const delivered = !now && node.artifactBinding?.validationStatus === "passed";
+      const past = notReady.get(node.nodeId) ?? [];
+      const reason = !delivered ? now ?? rejected.get(node.nodeId) ?? past.at(-1) ?? "reason_not_recorded"
+        : past.length || legacyRepaired(node.nodeId) ? past.at(-1) ?? "reason_not_recorded" : undefined;
+      return reason ? [{ nodeId: node.nodeId, title: node.title, game: node.libraryGame ?? node.implementationType ?? node.mechanic, ...plainStopFailure(reason),
+        repaired: delivered, finishedSince: delivered && node.state === "completed" }] : [];
+    });
+    const blocked = stops.filter(stop => !stop.repaired).length;
+    return [{ boardId: board.boardId, number: index + 1, kind: board.kind, publishedAt: board.publishedAt, planned: planned.length,
+      delivered: planned.length - blocked, systemBlocked: blocked, stops }];
+  });
+}
+
+/** One board's stops a system failure kept from her, as lines (the question and the past-weeks archive share them). */
+export function boardDeliveryLines(board: Pick<BoardDelivery, "number" | "publishedAt" | "planned" | "delivered" | "systemBlocked" | "stops"> & { kind: string }): string[] {
+  return [`- Board ${board.number} (${board.kind}, ${board.publishedAt.slice(0, 10)}): ${board.planned} stops planned, ${board.delivered} playable now, ${board.systemBlocked} blocked by a system failure.`,
+    ...board.stops.map(stop => `  "${stop.title}" (${stop.game}): ${stop.plain} [${stop.code}]; ${stop.repaired ? `repaired later and playable since${stop.finishedSince ? "; she has finished it since" : ""}` : "still not ready"}.`)];
+}
+
+/** The question's block: only boards with such stops; empty otherwise. */
+export function systemBlockedSection(cycle: LearningCycleRecordV2): string {
+  const boards = boardDeliveries(cycle).filter(board => board.stops.length);
+  if (!boards.length) return "";
+  return [`Stops you planned that Sunny failed to deliver (system failures, counted by code; not her choice and not your plan):`,
+    ...boards.flatMap(boardDeliveryLines),
+    `Read a stop listed here as Sunny's failure: she could not play it while it was blocked, so its missing answers say nothing about her or about the stop's design.`].join("\n") + "\n";
+}

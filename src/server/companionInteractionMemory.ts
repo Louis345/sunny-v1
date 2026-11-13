@@ -1,8 +1,9 @@
+import { readLivingProfile, recordLivingFactsFromCall, type ProposedChildFact } from "./livingProfileFacts";
 import Anthropic from "@anthropic-ai/sdk";
 import crypto from "crypto";
 import fs from "fs";
 import path from "path";
-import type { CompanionCareMemory, CompanionCarePlan } from "../shared/companionCareTypes";
+import type { CompanionCareMemory, CompanionCarePlan, CompanionChildGivenName } from "../shared/companionCareTypes";
 import type {
   CompanionCallSource,
   CompanionRelationshipState,
@@ -11,6 +12,7 @@ import type {
 } from "./companionShowroomTalk";
 import { resolveChildContextDir } from "../utils/contextRoot";
 import { requestForModel } from "../engine/plannerTransport";
+import { inLegacyHikariWindow, readsLegacyHikariData, resolveMatildaReadPath } from "../profiles/legacyHikariRead";
 
 const COMPANION_MEMORY_HAIKU_MODEL = "claude-haiku-4-5-20251001";
 const DEFAULT_COMPACT_EVENT_THRESHOLD = 3;
@@ -86,7 +88,7 @@ export type CompanionInteractionSummarizer = (input: {
   companionId: string;
   events: CompanionInteractionEventRecord[];
   existingMemory: CompanionCareMemory;
-}) => Promise<CompanionMemorySummaryPatch>;
+}) => Promise<CompanionMemorySummaryPatch & { childFacts?: ProposedChildFact[] }>;
 
 type CompanionInteractionMemoryOptions = {
   rootDir?: string;
@@ -145,20 +147,115 @@ function safeJsonParse<T>(raw: string): T | null {
   }
 }
 
-function readCarePlan(
+/**
+ * Where a companion's memory of a child lives (2026-11-10). The child's own companion keeps it inside her care plan;
+ * any other companion she calls (Hikari on FaceTime) keeps it in a relationship file that holds memory only — never
+ * coins or vitals, so a second companion can never fork her one coin balance.
+ */
+type CompanionRelationship = {
+  memory: CompanionCareMemory;
+  filePath: string;
+  save: (memory: CompanionCareMemory) => void;
+};
+
+export function companionRelationshipPath(
   childId: string,
   companionId: string,
   opts: CompanionInteractionMemoryOptions = {},
-): { plan: CompanionCarePlan; filePath: string } | null {
-  const filePath = companionCarePath(childId, companionId, opts);
-  if (!fs.existsSync(filePath)) return null;
-  const plan = safeJsonParse<CompanionCarePlan>(fs.readFileSync(filePath, "utf8"));
-  return plan ? { plan, filePath } : null;
+): string {
+  return path.join(
+    resolveChildContextDir(childId, { rootDir: opts.rootDir }),
+    "companion_relationships",
+    `${companionId}.json`,
+  );
 }
 
-function writeCarePlan(filePath: string, plan: CompanionCarePlan): void {
+type CompanionRelationshipFile = {
+  version: 1;
+  childId: string;
+  companionId: string;
+  memory: CompanionCareMemory;
+  updatedAt: string;
+};
+
+function writeJsonFile(filePath: string, value: unknown): void {
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
-  fs.writeFileSync(filePath, JSON.stringify(plan, null, 2), "utf8");
+  fs.writeFileSync(filePath, JSON.stringify(value, null, 2), "utf8");
+}
+
+/**
+ * Only memory is replaced, against the file as it is now: a slow summary never rolls back coins earned meanwhile.
+ * `readFrom` differs from `filePath` only for Matilda's 11/10 hikari.json (legacyHikariRead); the old file is kept.
+ */
+function saveMemoryInto(filePath: string, memory: CompanionCareMemory, readFrom: string = filePath): void {
+  const current = fs.existsSync(readFrom)
+    ? safeJsonParse<Record<string, unknown>>(fs.readFileSync(readFrom, "utf8"))
+    : null;
+  if (!current) throw new Error(`companion_memory_file_unreadable:${readFrom}`);
+  writeJsonFile(filePath, {
+    ...current,
+    ...(readFrom !== filePath && { companionId: path.basename(filePath, ".json") }),
+    memory,
+    updatedAt: new Date().toISOString(),
+  });
+}
+
+function readRelationship(
+  childId: string,
+  companionId: string,
+  opts: CompanionInteractionMemoryOptions = {},
+): CompanionRelationship | null {
+  const carePath = companionCarePath(childId, companionId, opts);
+  const readPath = resolveMatildaReadPath(childId, companionId, carePath);
+  const plan = fs.existsSync(readPath)
+    ? safeJsonParse<CompanionCarePlan>(fs.readFileSync(readPath, "utf8"))
+    : null;
+  if (plan) {
+    return {
+      memory: plan.memory,
+      filePath: carePath,
+      // Re-resolved at save time so a coin save to matilda.json in between is never rolled back.
+      save: (memory) => saveMemoryInto(carePath, memory, resolveMatildaReadPath(childId, companionId, carePath)),
+    };
+  }
+  const relationPath = companionRelationshipPath(childId, companionId, opts);
+  const file = fs.existsSync(relationPath)
+    ? safeJsonParse<CompanionRelationshipFile>(fs.readFileSync(relationPath, "utf8"))
+    : null;
+  if (!file?.memory) return null;
+  return {
+    memory: file.memory,
+    filePath: relationPath,
+    save: (memory) => saveMemoryInto(relationPath, memory),
+  };
+}
+
+/** First contact creates the relationship; a companion never meets a child without remembering it. */
+export function ensureCompanionRelationship(
+  childIdInput: string,
+  companionIdInput: string,
+  opts: CompanionInteractionMemoryOptions & { nowIso?: string } = {},
+): CompanionRelationship & { created: boolean } {
+  const childId = normalizeId(childIdInput, "showroom");
+  const companionId = normalizeId(companionIdInput, "companion");
+  const existing = readRelationship(childId, companionId, opts);
+  if (existing) return { ...existing, created: false };
+  const nowIso = normalizeIso(opts.nowIso);
+  const file: CompanionRelationshipFile = {
+    version: 1,
+    childId,
+    companionId,
+    memory: { firstMetAt: nowIso },
+    updatedAt: nowIso,
+  };
+  const filePath = companionRelationshipPath(childId, companionId, opts);
+  writeJsonFile(filePath, file);
+  console.log(
+    ` 🎮 [companion-memory] [relationship_created] [ok] child=${childId} companion=${companionId}`,
+  );
+  const created = readRelationship(childId, companionId, opts);
+  if (!created) throw new Error(`companion_relationship_unreadable:${filePath}`);
+  return { ...created, created: true };
 }
 
 function sanitizeMemoryField(value: unknown): string | undefined {
@@ -215,19 +312,48 @@ export function recordCompanionGameResult(
 ): { recorded: boolean; reason?: string } {
   const childId = normalizeId(input.childId, "showroom");
   const companionId = normalizeId(input.companionId, "companion");
-  const care = readCarePlan(childId, companionId, opts);
-  if (!care) return { recorded: false, reason: "missing_care_plan" };
-  const gameRecord = applyCompanionGameResult(care.plan.memory.gameRecord, {
+  const relationship = ensureCompanionRelationship(childId, companionId, opts);
+  const gameRecord = applyCompanionGameResult(relationship.memory.gameRecord, {
     activityId: input.activityId,
     result: input.result,
     at: input.at,
   });
-  writeCarePlan(care.filePath, {
-    ...care.plan,
-    memory: { ...care.plan.memory, gameRecord },
-    updatedAt: new Date().toISOString(),
-  });
+  relationship.save({ ...relationship.memory, gameRecord });
   return { recorded: true };
+}
+
+const MAX_CHILD_GIVEN_NAMES = 5;
+
+/**
+ * Keeps a nickname or role the child gave her companion. The companion decides when she has given one (its own tool
+ * call); code only stores it, newest last, without duplicates.
+ */
+export function recordChildGivenCompanionName(
+  input: { childId: string; companionId: string; name: unknown; kind: unknown; childWords?: unknown; at?: string },
+  opts: CompanionInteractionMemoryOptions = {},
+): { recorded: true; entry: CompanionChildGivenName } | { recorded: false; reason: string } {
+  const name = typeof input.name === "string" ? normalizeText(input.name, 60) : "";
+  if (!name) return { recorded: false, reason: "empty_name" };
+  const kind = input.kind === "role" ? "role" : "nickname";
+  const childWords = typeof input.childWords === "string" ? normalizeText(input.childWords, 200) : "";
+  const entry: CompanionChildGivenName = {
+    name,
+    kind,
+    ...(childWords && { childWords }),
+    givenAt: normalizeIso(input.at),
+  };
+  const relationship = ensureCompanionRelationship(input.childId, input.companionId, opts);
+  const kept = (relationship.memory.childGivenNames ?? []).filter(
+    (row) => row.name.toLowerCase() !== name.toLowerCase(),
+  );
+  relationship.save({
+    ...relationship.memory,
+    childGivenNames: [...kept, entry].slice(-MAX_CHILD_GIVEN_NAMES),
+  });
+  console.log(
+    ` 🎮 [companion-memory] [child_given_name] [ok] child=${input.childId} companion=${input.companionId} kind=${kind} name="${name}"`,
+  );
+  return { recorded: true, entry };
 }
 
 function sanitizeMemoryList(value: unknown): string[] | undefined {
@@ -259,8 +385,8 @@ function sanitizeMemoryPatch(patch: CompanionMemorySummaryPatch): CompanionMemor
     ...(sanitizeMemoryList(patch.companionSelfNotes) && {
       companionSelfNotes: sanitizeMemoryList(patch.companionSelfNotes)?.slice(0, 3),
     }),
-    // gameRecord is deliberately absent: the model may read it but never write
-    // it, so a summarizer can never rewrite a child's win/loss history.
+    // gameRecord and childGivenNames are deliberately absent: the model may read them but never write them, so a
+    // summarizer can never rewrite a child's win/loss history or the names she gave her companion.
   };
 }
 
@@ -321,14 +447,17 @@ export function recordCompanionInteractionEvent(
 
 export function readCompanionInteractionEvents(
   childIdInput: string,
-  companionIdInput: string,
+  companionIdInput: string | null,
   opts: CompanionInteractionMemoryOptions = {},
 ): CompanionInteractionEventRecord[] {
   const childId = normalizeId(childIdInput, "showroom");
-  const companionId = normalizeId(companionIdInput, "companion");
+  // null: every companion's calls with her (shared recall).
+  const companionId = companionIdInput === null ? null : normalizeId(companionIdInput, "companion");
   const dir = interactionDir(childId, opts);
   if (!fs.existsSync(dir)) return [];
-  return fs
+  // Matilda's calls were logged as "hikari" during the 11/10 merge; she reads them as hers (legacyHikariRead).
+  const legacyHikariLedger = companionId !== null && readsLegacyHikariData(childId, companionId);
+  const records = fs
     .readdirSync(dir)
     .filter((file) => file.endsWith(".ndjson"))
     .sort()
@@ -340,10 +469,20 @@ export function readCompanionInteractionEvents(
         .filter(Boolean)
         .map((line) => safeJsonParse<CompanionInteractionEventRecord>(line))
         .filter((record): record is CompanionInteractionEventRecord =>
-          Boolean(record && record.companionId === companionId),
+          Boolean(
+            record &&
+              (companionId === null ||
+                record.companionId === companionId ||
+                (legacyHikariLedger && record.companionId === "hikari" && inLegacyHikariWindow(record.createdAt))),
+          ),
         ),
     )
     .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+  const legacyCount = legacyHikariLedger ? records.filter((record) => record.companionId === "hikari").length : 0;
+  if (legacyCount > 0) {
+    console.log(` 🎮 [companion] [legacy-hikari-read] [ledger] child=${childId} companion=${companionId} hikari_records=${legacyCount}`);
+  }
+  return records;
 }
 
 export function readCompanionCareMemoryForPrompt(
@@ -353,7 +492,7 @@ export function readCompanionCareMemoryForPrompt(
 ): CompanionCareMemory | undefined {
   const childId = normalizeId(childIdInput, "showroom");
   const companionId = normalizeId(companionIdInput, "companion");
-  return readCarePlan(childId, companionId, opts)?.plan.memory;
+  return readRelationship(childId, companionId, opts)?.memory;
 }
 
 function eventsAfterLastCompaction(
@@ -410,7 +549,7 @@ async function summarizeCompanionInteractionsWithHaiku(input: {
   companionId: string;
   events: CompanionInteractionEventRecord[];
   existingMemory: CompanionCareMemory;
-}): Promise<CompanionMemorySummaryPatch> {
+}): Promise<CompanionMemorySummaryPatch & { childFacts?: ProposedChildFact[] }> {
   const client = new Anthropic();
   const message = await client.messages.create(requestForModel({
     model: COMPANION_MEMORY_HAIKU_MODEL,
@@ -419,6 +558,7 @@ async function summarizeCompanionInteractionsWithHaiku(input: {
       "You compact child-companion interaction logs into stable companion relationship memory. Do not invent facts. Do not include raw screenshots, base64, or private implementation details. " +
       "Events with an activityContext are game beats: the child did not speak those words, so never attribute them to the child. " +
       "gameRecord is the authoritative win/loss history, counted by the app: never state, imply, or recompute a tally that disagrees with it, and never guess a record when it is absent. " +
+      "childFacts: things the child said about herself in questionText (likes, dislikes, school, friends, family, feelings, health, things that happened). quote must be her exact words copied from one questionText. Set speaker to someone_else when the words were clearly said by someone else (an adult, her sister, talking about her). Reuse a topic name from knownTopics when it is the same subject. Leave childFacts empty when she said nothing about herself. " +
       `Call ${COMPANION_MEMORY_SUMMARY_TOOL} exactly once.`,
     messages: [
       {
@@ -428,6 +568,7 @@ async function summarizeCompanionInteractionsWithHaiku(input: {
           companionId: input.companionId,
           existingMemory: input.existingMemory,
           gameRecord: input.existingMemory.gameRecord ?? {},
+          knownTopics: (readLivingProfile(input.childId)?.current ?? []).map((fact) => fact.topic),
           events: compactEventsForPrompt(input.events),
           outputShape: {
             lastSessionSummary: "one concise summary",
@@ -456,6 +597,10 @@ async function summarizeCompanionInteractionsWithHaiku(input: {
           companionSelfNotes: { type: "array", maxItems: 3, items: { type: "string" } },
           relationshipFacts: { type: "array", maxItems: 8, items: { type: "string" } },
           favoriteMoments: { type: "array", maxItems: 8, items: { type: "string" } },
+          childFacts: { type: "array", maxItems: 6, items: { type: "object", additionalProperties: false,
+            properties: { topic: { type: "string" }, kind: { type: "string", enum: ["like", "dislike", "life_event", "school", "friends", "family", "feeling", "health", "other"] },
+              statement: { type: "string" }, quote: { type: "string" }, speaker: { type: "string", enum: ["child", "someone_else"] } },
+            required: ["topic", "kind", "statement", "quote", "speaker"] } },
         },
         required: [
           "lastSessionSummary",
@@ -487,16 +632,10 @@ export async function maybeCompactCompanionInteractionMemory(
 > {
   const childId = normalizeId(input.childId, "showroom");
   const companionId = normalizeId(input.companionId, "companion");
-  const care = readCarePlan(childId, companionId, opts);
-  if (!care) {
-    console.log(
-      ` 🎮 [companion-memory] [compact_skip] [missing_care_plan] child=${childId} companion=${companionId}`,
-    );
-    return { compacted: false, reason: "missing_companion_care", eventCount: 0 };
-  }
+  const relationship = ensureCompanionRelationship(childId, companionId, opts);
   const events = eventsAfterLastCompaction(
     readCompanionInteractionEvents(childId, companionId, opts),
-    care.plan.memory,
+    relationship.memory,
   );
   const minEvents = opts.minEvents ?? DEFAULT_COMPACT_EVENT_THRESHOLD;
   const minCharacters = opts.minCharacters ?? DEFAULT_COMPACT_CHARACTER_THRESHOLD;
@@ -510,36 +649,32 @@ export async function maybeCompactCompanionInteractionMemory(
 
   const summarize = opts.summarize ?? summarizeCompanionInteractionsWithHaiku;
   // Old records remain intact; prospective dialogue is not evidence for a new summary.
-  const { reunionLineSeed: _seed, emotionalTone: _tone, ...existingMemory } = care.plan.memory;
-  const patch = sanitizeMemoryPatch(
-    await summarize({
-      childId,
-      companionId,
-      events,
-      existingMemory,
-    }),
-  );
+  const { reunionLineSeed: _seed, emotionalTone: _tone, ...existingMemory } = relationship.memory;
+  const summary = await summarize({
+    childId,
+    companionId,
+    events,
+    existingMemory,
+  });
+  const patch = sanitizeMemoryPatch(summary);
   const latestEvent = events[events.length - 1];
   const nextMemory: CompanionCareMemory = {
-    ...care.plan.memory,
+    ...relationship.memory,
     ...patch,
     lastCompanionInteractionCompactedAt: latestEvent.createdAt,
     lastCompanionInteractionId: latestEvent.id,
-    interactionSummaryRevision: (care.plan.memory.interactionSummaryRevision ?? 0) + 1,
+    interactionSummaryRevision: (relationship.memory.interactionSummaryRevision ?? 0) + 1,
   };
-  const nextPlan: CompanionCarePlan = {
-    ...care.plan,
-    memory: nextMemory,
-    updatedAt: new Date().toISOString(),
-  };
-  writeCarePlan(care.filePath, nextPlan);
+  relationship.save(nextMemory);
+  // Her living profile: facts she shared, kept only when her own words in this call carry them.
+  recordLivingFactsFromCall({ childId, companionId, events, proposed: summary.childFacts });
   console.log(
     ` 🎮 [companion-memory] [compact] [ok] child=${childId} companion=${companionId} events=${events.length}`,
   );
   return {
     compacted: true,
     eventCount: events.length,
-    filePath: care.filePath,
+    filePath: relationship.filePath,
     memory: nextMemory,
   };
 }

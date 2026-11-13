@@ -9,13 +9,17 @@ import { createLearningCycle, getLearningCycle, type LearningCycleNodeContract }
 import { advanceCanonicalCycleFromEvidence, recordCanonicalNodeCompletion } from "../engine/learningCycleRuntime";
 import { reconcileCompanionCareCurrencyAward } from "./currencyAward";
 import { setupRoutes } from "./routes";
+import { CHEST_TABLE } from "../shared/rewardCatalog";
 
 vi.mock("../engine/learningCycleRuntime", async original => ({
   ...await original<typeof import("../engine/learningCycleRuntime")>(),
   advanceCanonicalCycleFromEvidence: vi.fn(async () => ({ lifecycle: "baseline_evaluating", revision: 2 })),
 }));
 vi.mock("../engine/canonicalProgressionGenerator", () => ({ generateCanonicalProgressionArtifact: vi.fn(() => { throw new Error("provider_forbidden"); }) }));
-vi.mock("../profiles/childChart", () => ({ getChildChart: vi.fn(() => ({ companionCare: { plan: {} } })) }));
+vi.mock("../profiles/childChart", async () => {
+  const { createStarterCompanionCarePlan } = await import("../engine/companionCareEngine");
+  return { getChildChart: vi.fn(() => ({ companionCare: { plan: createStarterCompanionCarePlan({ childId: "lab-child", companionId: "elli" }) } })) };
+});
 vi.mock("../profiles/companionCarePlan", () => ({ saveCompanionCarePlan: vi.fn(), mirrorCompanionCareToLearningProfile: vi.fn() }));
 vi.mock("../engine/companionCareEngine", async original => ({
   ...await original<typeof import("../engine/companionCareEngine")>(),
@@ -68,7 +72,9 @@ function fixture() {
 
 /** Human saw the loss screen but no saved participation. HTTP-success logs and
  * win-only lab paths missed it. Execute the actual endings and identity bridge. */
-function nativeEnding(game: "wordle" | "wheel", won: boolean): Record<string, unknown> {
+type NativeGame = "wordle" | "wheel" | "monster-stampede" | "speed-catcher";
+const GAME_FILES: Record<NativeGame, string> = { wordle: "wordle.html", wheel: "WheelOfFortune.html", "monster-stampede": "monster-stampede.html", "speed-catcher": "speed-catcher.html" };
+function nativeEnding(game: NativeGame, won: boolean): Record<string, unknown> {
   const messages: Array<Record<string, unknown>> = [];
   const params = new URLSearchParams({ nodeId: "native-practice", childId: "lab-child", sessionId: "host-launch", preview: "go-live", spellingItemBindings: JSON.stringify([{ itemId: "frozen-night", word: "night" }]) });
   const sandbox = {
@@ -77,11 +83,21 @@ function nativeEnding(game: "wordle" | "wheel", won: boolean): Record<string, un
     window: { parent: { postMessage: (message: Record<string, unknown>) => messages.push(message) } },
     nodeSent: false, gameOver: false, word: "night", triesUsed: won ? 1 : 6, lastGuess: won ? "night" : "light", startTime: Date.now() - 1000, targetResults: [],
     WORD_RAW: "night", wrongGuesses: won ? 0 : 6, ilaCoins: 110, wofSessionCoinDelta: (coins: number) => coins - 100,
+    // React arcade games (Monster Stampede, Speed Catcher): the real endGame callback with hooks stubbed.
+    WORDS_RAW: ["night"], WORDS: ["night"], score: won ? 30 : 10, completedRef: { current: false },
+    wordsCorrect: { current: won ? ["night"] : [] }, wordsWrong: { current: won ? [] : ["night"] },
+    timerRef: { current: 0 }, compTimerRef: { current: 0 }, SE: { fanfare() {}, gameover() {} },
+    setPhase() {}, setBubbles() {}, setCompMood() {}, setCompSpeech() {}, reportState() {},
+    setTimeout: (fn: () => void) => fn(), clearInterval() {}, clearTimeout() {},
   };
   vm.createContext(sandbox);
   vm.runInContext(fs.readFileSync(path.join(process.cwd(), "web/public/games/_contract.js"), "utf8"), sandbox);
-  const source = fs.readFileSync(path.join(process.cwd(), `web/public/games/${game === "wordle" ? "wordle.html" : "WheelOfFortune.html"}`), "utf8");
-  if (game === "wordle") {
+  const source = fs.readFileSync(path.join(process.cwd(), `web/public/games/${GAME_FILES[game]}`), "utf8");
+  if (game === "monster-stampede" || game === "speed-catcher") {
+    const start = source.indexOf("const endGame = useCallback(") + "const endGame = useCallback(".length;
+    const callback = source.slice(start, source.indexOf("},[score]);", start) + 1);
+    vm.runInContext(`startTime = { current: Date.now() - 1000 }; const endGame = ${callback};\nendGame(${won}); endGame(${won});`, sandbox);
+  } else if (game === "wordle") {
     vm.runInContext(`${source.slice(source.indexOf("function endGame("), source.indexOf("function runFlipThenApply("))}\nendGame(${won}); endGame(${won});`, sandbox);
   } else {
     const region = source.slice(source.indexOf(won ? "if (!isSolved" : "// Game-over detection"));
@@ -94,7 +110,9 @@ function nativeEnding(game: "wordle" | "wheel", won: boolean): Record<string, un
 }
 
 describe("finished native spelling participation", () => {
-  it.each(["wordle", "wheel"] as const)("saves an ended %s loss once, without a win award or invented answer", async game => {
+  // Owner, 2026-11-08: Ila lost Monster Stampede and the stop stayed open, so she replayed until she won.
+  // The arcade games reported a loss as completed:false with no ended flag, which reads as quitting.
+  it.each(["wordle", "wheel", "monster-stampede", "speed-catcher"] as const)("saves an ended %s loss once, without a win award or invented answer", async game => {
     const { post, current } = fixture();
     const result = nativeEnding(game, false);
     expect(result).toMatchObject({ completed: false, ended: true, won: false });
@@ -107,8 +125,10 @@ describe("finished native spelling participation", () => {
     expect(saved.observations).toHaveLength(1);
     expect(saved.observations[0]).toMatchObject({ itemId: "frozen-night", provenance: "practice", exposure: "previously_practiced" });
     expect(saved.observations[0].assistance.status).not.toBe("unassisted");
-    expect(saved.observations[0].result).toEqual(game === "wordle" ? { correct: false, score: 0 } : { observedErrorType: "response_not_captured" });
-    expect(saved.observations[0].childResponse).toBe(game === "wordle" ? "light" : undefined);
+    if (game === "wordle" || game === "wheel") {
+      expect(saved.observations[0].result).toEqual(game === "wordle" ? { correct: false, score: 0 } : { observedErrorType: "response_not_captured" });
+      expect(saved.observations[0].childResponse).toBe(game === "wordle" ? "light" : undefined);
+    }
     expect(saved.evidence.engagement[0].summary).toContain("won=false");
     expect((await post(result)).body.nodeState).toBe("completed");
     expect(current()).toEqual(saved);
@@ -116,13 +136,24 @@ describe("finished native spelling participation", () => {
     expect(reconcileCompanionCareCurrencyAward).not.toHaveBeenCalled();
   });
 
-  it.each(["wordle", "wheel"] as const)("preserves the existing %s win award, once", async game => {
+  // Owner, 2026-11-06: a win opens a wooden treasure chest that pays the stop's coins, once.
+  it.each(["wordle", "wheel", "monster-stampede", "speed-catcher"] as const)("opens one treasure chest for a %s win, paying its coins once", async game => {
     const { post } = fixture();
     const result = nativeEnding(game, true);
     expect(result).toMatchObject({ completed: true, ended: true, won: true });
-    expect((await post(result)).body).toMatchObject({ nodeState: "completed", coinAward: { amount: 25, balance: 125 } });
-    expect((await post(result)).body.coinAward).toBeUndefined();
-    expect(reconcileCompanionCareCurrencyAward).toHaveBeenCalledTimes(1);
+    const first = (await post(result)).body;
+    // Every chest is a surprise (owner, 2026-11-07): a practice stop's chest is at least common and rolls its coins.
+    expect(first).toMatchObject({ nodeState: "completed", nodeChest: { kind: "common" } });
+    const chest = first.nodeChest as { rarity: keyof typeof CHEST_TABLE; coins: number };
+    const [min, max] = CHEST_TABLE[chest.rarity].coinRange;
+    expect(chest.coins).toBeGreaterThanOrEqual(min);
+    expect(chest.coins).toBeLessThanOrEqual(max);
+    expect((first.coinAward as { amount: number }).amount).toBe(chest.coins);
+    expect((first.coinAward as { balance: number }).balance).toBeGreaterThanOrEqual(chest.coins);
+    const again = (await post(result)).body;
+    expect(again.coinAward).toBeUndefined();
+    expect(again.nodeChest).toBeUndefined();
+    expect(reconcileCompanionCareCurrencyAward).not.toHaveBeenCalled();
   });
 
   it.each([{ completed: false }, { completed: false, ended: true, won: false, earlyExit: true }, { completed: true, ended: true, won: true, earlyExit: true }])("keeps an unfinished/early exit incomplete: %j", async ending => {
@@ -152,5 +183,17 @@ describe("finished native spelling participation", () => {
     expect(response).toMatchObject({ status: 409, body: { error: "learning_cycle_instrument_unknown_item:invented" } });
     expect(current()).toEqual(before);
     expect(reconcileCompanionCareCurrencyAward).not.toHaveBeenCalled();
+  });
+
+  // 2026-11-10, Reina's test morning: her record refused every save (a hand edit broke its seal), the route answered
+  // 409, and her 37 answers were gone. A refused save now keeps her answers, held to replay once the record accepts them.
+  it("holds her answers when the record refuses the save, and says so", async () => {
+    const runtime = await import("../engine/learningCycleRuntime");
+    const { post } = fixture();
+    vi.spyOn(runtime, "recordCanonicalNodeCompletion").mockImplementationOnce(() => { throw new Error("learning_board_topology_changed:hw-finished:board:1"); });
+    const response = await post({ completed: true, sessionId: "host-launch", accuracy: 1, timeSpent_ms: 60_000, targetResults: [{ target: "frozen-night", correct: true, attemptedValue: "night" }] });
+    expect(response).toMatchObject({ status: 409, body: { held: true } });
+    const held = JSON.parse(fs.readFileSync(path.join(process.env.SUNNY_CONTEXT_ROOT!, "lab-child", "sunny_health", "held-completions.json"), "utf8"));
+    expect(held).toEqual([expect.objectContaining({ nodeId: "native-practice", result: expect.objectContaining({ targetResults: [expect.objectContaining({ attemptedValue: "night" })] }) })]);
   });
 });

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import fs from "node:fs";
 import path from "node:path";
-import { kioskBrowserCommand, kioskBrowserExitAction, macKioskBrowserPid } from "./kioskBrowserLaunch";
+import { kioskBrowserCommand, kioskBrowserExitAction, kioskWindowWatchAction, macKioskBrowserPid, nextEmptyWindowChecks } from "./kioskBrowserLaunch";
 
 const browser = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
 const args = ["--kiosk", "--user-data-dir=/tmp/sunny-profile", "--app=http://localhost:3001/?sunnyKioskToken=owned"];
@@ -80,5 +80,33 @@ describe("kiosk window closed during a session", () => {
     const source = fs.readFileSync(path.join(process.cwd(), "src/scripts/launch-kiosk.ts"), "utf8");
     expect(source).toContain("kioskBrowserExitAction(browserReopens)");
     expect(source).toContain("[kiosk] [browser-exit] [reopening]");
+  });
+});
+
+// 2026-11-09 owner: Melty's call tile drew nothing on Saori, and the browser's own errors never reach the kiosk log.
+// An opt-in debugging port lets the operator read the kiosk console over SSH; it listens on this Mac only.
+describe("kiosk debugging port", () => {
+  it("adds a local-only debugging port only when SUNNY_KIOSK_DEBUG_PORT is a port number", async () => {
+    const { kioskDebugArgs } = await import("./kioskBrowserLaunch");
+    expect(kioskDebugArgs({ SUNNY_KIOSK_DEBUG_PORT: "9222" })).toEqual(["--remote-debugging-port=9222", "--remote-debugging-address=127.0.0.1"]);
+    expect(kioskDebugArgs({})).toEqual([]);
+    expect(kioskDebugArgs({ SUNNY_KIOSK_DEBUG_PORT: "0.0.0.0:9222" })).toEqual([]);
+    const source = fs.readFileSync(path.join(process.cwd(), "src/scripts/launch-kiosk.ts"), "utf8");
+    expect(source).toContain("...kioskDebugArgs(process.env)");
+  });
+});
+
+describe("macOS kiosk window watch (owner 2026-11-12: closed window left Chrome running windowless)", () => {
+  it("closes the windowless Chrome only after two empty checks in a row", () => {
+    let empty = 0;
+    empty = nextEmptyWindowChecks(empty, 0);
+    expect(kioskWindowWatchAction(empty)).toBe("wait");
+    empty = nextEmptyWindowChecks(empty, 0);
+    expect(kioskWindowWatchAction(empty)).toBe("close-browser");
+  });
+  it("a window coming back resets the count, and a failed count never counts as empty", () => {
+    expect(nextEmptyWindowChecks(1, 1)).toBe(0);
+    expect(nextEmptyWindowChecks(1, null)).toBe(1);
+    expect(kioskWindowWatchAction(nextEmptyWindowChecks(0, null))).toBe("wait");
   });
 });

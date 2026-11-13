@@ -1,6 +1,17 @@
 import { type ReactNode, type RefObject } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Eye, Gamepad2, Mic, PhoneOff, Send, Video, VideoOff, X } from "lucide-react";
+import { CALL_SCREEN_CONTROLS } from "../../../src/shared/companions/callScreenControls";
+import {
+  Eye,
+  Gamepad2,
+  Mic,
+  PhoneOff,
+  Send,
+  ShoppingBag,
+  Video,
+  VideoOff,
+  X,
+} from "lucide-react";
 
 export type CompanionVideoCallPhase = "idle" | "calling" | "answered" | "live";
 export type CompanionVideoCallCameraState = "off" | "requesting" | "live" | "blocked";
@@ -29,6 +40,8 @@ export type CompanionVideoCallOverlayProps = {
   activitySlot?: ReactNode;
   /** Width the mounted activity asks for; falls back to the compact default. */
   activityTrayWidthPx?: number;
+  /** A game is playing in the tray: give it most of the screen (a game in a 150px-high frame was clipped, 2026-11-11). */
+  activityTrayGame?: boolean;
   layout?: CompanionVideoCallLayout;
   companionView?: CompanionVideoCompanionView;
   handsFree?: boolean;
@@ -38,6 +51,9 @@ export type CompanionVideoCallOverlayProps = {
   onLayoutChange?: (layout: CompanionVideoCallLayout) => void;
   onCompanionViewChange?: (view: CompanionVideoCompanionView) => void;
   onCopyTraceLink?: () => void;
+  onGoShopping?: () => void;
+  /** Her games: lit when won, dark until then (owner, 2026-11-09). */
+  onOpenGames?: () => void;
   onAskVoice: () => void;
   onQuestionChange: (value: string) => void;
   onSubmitQuestion: () => void;
@@ -68,6 +84,7 @@ export function CompanionVideoCallOverlay({
   portrait,
   activitySlot,
   activityTrayWidthPx,
+  activityTrayGame = false,
   layout,
   companionView,
   handsFree = false,
@@ -77,6 +94,8 @@ export function CompanionVideoCallOverlay({
   onLayoutChange,
   onCompanionViewChange,
   onCopyTraceLink,
+  onGoShopping,
+  onOpenGames,
   onAskVoice,
   onQuestionChange,
   onSubmitQuestion,
@@ -291,7 +310,7 @@ export function CompanionVideoCallOverlay({
                 }}
               >
                 <Video size={15} aria-hidden />
-                Call
+                {CALL_SCREEN_CONTROLS.call.label}
               </button>
               <button
                 type="button"
@@ -318,7 +337,7 @@ export function CompanionVideoCallOverlay({
                 }}
               >
                 <Gamepad2 size={15} aria-hidden />
-                Play
+                {CALL_SCREEN_CONTROLS.play.label}
               </button>
             </div>
             <div
@@ -355,7 +374,7 @@ export function CompanionVideoCallOverlay({
                   cursor: "pointer",
                 }}
               >
-                Portrait
+                {CALL_SCREEN_CONTROLS.portrait.label}
               </button>
               <button
                 type="button"
@@ -378,9 +397,49 @@ export function CompanionVideoCallOverlay({
                   cursor: "pointer",
                 }}
               >
-                Full body
+                {CALL_SCREEN_CONTROLS.fullBody.label}
               </button>
             </div>
+            {onOpenGames && (
+              <button
+                type="button"
+                aria-label="Games"
+                onClick={onOpenGames}
+                style={{ minHeight: 44, borderRadius: 8, border: "1px solid rgba(255,255,255,0.18)", background: "rgba(167,139,250,0.94)", color: "#1e1442",
+                  padding: "0 14px", display: "inline-flex", alignItems: "center", gap: 7, fontFamily: "Lexend, system-ui, sans-serif", fontSize: 12,
+                  fontWeight: 900, whiteSpace: "nowrap", cursor: "pointer", boxShadow: "0 12px 30px rgba(0,0,0,0.18)" }}
+              >
+                <Gamepad2 size={16} aria-hidden />
+                {CALL_SCREEN_CONTROLS.games.label}
+              </button>
+            )}
+            {onGoShopping && (
+              <button
+                type="button"
+                aria-label="Go Shopping"
+                onClick={onGoShopping}
+                style={{
+                  minHeight: 44,
+                  borderRadius: 8,
+                  border: "1px solid rgba(255,255,255,0.18)",
+                  background: "rgba(255,236,159,0.94)",
+                  color: "#392f18",
+                  padding: "0 14px",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 7,
+                  fontFamily: "Lexend, system-ui, sans-serif",
+                  fontSize: 12,
+                  fontWeight: 900,
+                  whiteSpace: "nowrap",
+                  cursor: "pointer",
+                  boxShadow: "0 12px 30px rgba(0,0,0,0.18)",
+                }}
+              >
+                <ShoppingBag size={16} aria-hidden />
+                {CALL_SCREEN_CONTROLS.shop.label}
+              </button>
+            )}
             <button
               type="button"
               aria-label="Close video chat"
@@ -540,9 +599,10 @@ export function CompanionVideoCallOverlay({
                   transform: "none",
                   transformOrigin: "center center",
                   zIndex: 4,
-                  width: `min(46vw, ${activityTrayWidthPx ?? 300}px)`,
+                  width: activityTrayGame ? "min(64vw, 1100px)" : `min(46vw, ${activityTrayWidthPx ?? 300}px)`,
                   minWidth: 250,
-                  maxWidth: activityTrayWidthPx ?? 300,
+                  maxWidth: activityTrayGame ? 1100 : activityTrayWidthPx ?? 300,
+                  ...(activityTrayGame ? { height: "min(calc(100vh - 230px), 760px)", gridTemplateRows: "100%", gridTemplateColumns: "100%" } : {}),
                   maxHeight: "calc(100vh - 190px)",
                   display: "grid",
                   placeItems: "center",
@@ -610,7 +670,7 @@ export function CompanionVideoCallOverlay({
                   whiteSpace: "nowrap",
                 }}
               >
-                <span>Hands-free</span>
+                <span>{CALL_SCREEN_CONTROLS.handsFree.label}</span>
                 <span style={{ color: "rgba(248,250,252,0.68)", fontSize: 10 }}>
                   {phaseLabel(talkPhase, companionName)}
                 </span>

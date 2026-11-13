@@ -4,7 +4,7 @@
   "voiceModelId": "eleven_multilingual_v2",
   "ttsName": "ELL-ee",
   "unlockCost": 0,
-  "vrmPath": "/companions/2878599730723533962.vrm",
+  "vrmPath": "/companions/sample.vrm",
   "showInShowroom": true,
   "defaultFor": "ila"
 }

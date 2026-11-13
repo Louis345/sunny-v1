@@ -1348,7 +1348,7 @@ export type DiscoveryEvidenceSummary = {
   version: 1;
   homeworkId: string;
   evaluationId: string;
-  coverage?: { assigned: number; attempted: number; untestedItemIds: string[]; complete: boolean };
+  coverage?: { assigned: number; attempted: number; untestedItemIds: string[]; complete: boolean; notCheckedItemIds?: string[] };
   spellingTargets?: Array<{
     word: string;
     itemId: string;
@@ -2003,13 +2003,18 @@ export function buildDiscoveryEvidenceSummary(cycle: LearningCycleRecordV2): Dis
   const evaluationSourceIds = new Set(evaluations.map(node => `evaluation:${node.nodeId}`));
   const observations = cycle.observations.filter((observation) => evaluationSourceIds.has(observation.sourceId));
   const spellingItems = evaluations.flatMap(evaluation => Object.values(evaluation.evidenceContract.spellingItems ?? {}));
-  const untestedItemIds = spellingItems.filter(item => !observations.some(row => row.itemId === item.id)).map(item => item.id);
+  // Contract 54: Discovery covers the words the Planner chose to check; the rest are explicitly not checked (unknown).
+  const checked = (item: { id: string }) => evaluations.every(evaluation => !evaluation.evidenceContract.discoveryItemIds
+    || !evaluation.evidenceContract.spellingItems?.[item.id] || evaluation.evidenceContract.discoveryItemIds.includes(item.id));
+  const checkedItems = spellingItems.filter(checked);
+  const notCheckedItemIds = spellingItems.filter(item => !checked(item)).map(item => item.id);
+  const untestedItemIds = checkedItems.filter(item => !observations.some(row => row.itemId === item.id)).map(item => item.id);
   const constructIds = [...new Set([...spellingItems.map(item => item.constructId), ...observations.flatMap((observation) => observation.constructLinks.map((link) => link.constructId))])].sort();
   return {
     version: 1,
     homeworkId: cycle.homeworkId,
     evaluationId: evaluations.length === 1 ? evaluations[0]!.nodeId : `probe-board:${cycle.homeworkId}`,
-    ...(spellingItems.length ? { coverage: { assigned: spellingItems.length, attempted: spellingItems.length - untestedItemIds.length, untestedItemIds, complete: untestedItemIds.length === 0 } } : {}),
+    ...(spellingItems.length ? { coverage: { assigned: checkedItems.length, attempted: checkedItems.length - untestedItemIds.length, untestedItemIds, complete: untestedItemIds.length === 0, ...(notCheckedItemIds.length ? { notCheckedItemIds } : {}) } } : {}),
     ...(spellingItems.length ? {
       spellingTargets: spellingItems.map((item) => {
         const matching = observations.filter((observation) => observation.itemId === item.id);

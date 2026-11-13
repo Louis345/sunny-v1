@@ -2,15 +2,21 @@ import type { AdventureMapProfile } from "../context/schemas/learningProfile";
 import type { ChildChart } from "./childChart";
 import type { CompanionConfig } from "../shared/companionTypes";
 import type { AdventureBoardJson } from "../shared/adventureBoardJson";
-import { isSpellingPracticeContinuation } from "../engine/learningCycleRepository";
+import { isSpellingPracticeContinuation, presentedSpellingItems } from "../engine/learningCycleRepository";
 import { readChoiceEvents } from "../engine/choiceEvents";
 
 export type ChildExperiencePacket = {
+  /** Stops left before this board ends and earns the FaceTime call (owner, 2026-11-07). Display only. */
+  boardProgress?: { stopsLeft: number };
   spellingEvaluationResults?: Array<{ display: string; correct?: boolean }>;
   /** Her first try at each word, and her latest try without help; a word with no such try has no `correct`. */
   spellingBoardResults?: Array<{ display: string; firstTry?: boolean; correct?: boolean }>;
+  /** Per math board: each problem she answered, shown as her answer and read aloud as the problem (owner 2026-11-12). */
+  mathBoardResults?: Record<string, Array<{ display: string; spoken: string; firstTry?: boolean; correct?: boolean }>>;
   spellingDiscovery?: { nodeId: string; items: Array<{ itemId: string; display: string; acceptedResponses: string[]; label: string; subject: string }> };
   spellingInstruments?: Record<string, { assessment: boolean; items: NonNullable<ChildExperiencePacket["spellingDiscovery"]>["items"] }>;
+  /** Each built game's items to open through the contract's openItem, per stop (display = the item as she sees it). */
+  itemBindings?: Record<string, Array<{ itemId: string; display: string }>>;
   childChart: {
     childId: string;
     identity: ChildChart["identity"];
@@ -27,6 +33,7 @@ export type ChildExperiencePacket = {
       lifecycle: string;
       revision: number;
       boardKind?: "probe" | "teaching" | "successor" | "legacy";
+      boardPublishedAt?: string | null;
     };
   };
   activeSessionPlan: ChildChart["activeSessionPlan"];
@@ -219,11 +226,15 @@ export function buildChildExperiencePacket(chart: ChildChart): ChildExperiencePa
     : undefined;
   const answered = new Set(spellingEvaluation ? chart.learningCycle!.observations.map(observation => observation.itemId) : []);
   const spellingInstruments = chart.learningCycle?.domain === "spelling" ? Object.fromEntries(chart.learningCycle.nodes.flatMap(node => {
-    const items = Object.values(node.evidenceContract.spellingItems ?? {});
+    const items = presentedSpellingItems(node);
     if (!items.length) return [];
     const assessment = node.state !== "completed" && !isSpellingPracticeContinuation(chart.learningCycle!) && (node.role === "evaluation" || items.every(item => item.lineage.measurementRole === "fresh_checkpoint"));
     const captured = new Set(chart.learningCycle!.observations.map(row => row.itemId));
     return [[node.nodeId, { assessment, items: items.filter(item => !assessment || node.state === "completed" || !captured.has(item.id)).map(item => ({ itemId: item.id, display: item.word, acceptedResponses: item.response.acceptedForms, label: "Spelling", subject: "spelling" })) }]];
+  })) : undefined;
+  const itemBindings = chart.learningCycle && chart.learningCycle.domain !== "spelling" ? Object.fromEntries((chart.learningCycle.nodes ?? []).flatMap(node => {
+    const items = Object.values(node.evidenceContract?.itemContracts ?? {});
+    return node.implementationType === "generated-game" && items.length ? [[node.nodeId, items.map(item => ({ itemId: item.id, display: item.prompt }))]] : [];
   })) : undefined;
   const spellingEvaluationResults = chart.learningCycle?.domain === "spelling"
     && !["evaluation_ready", "evaluation_active"].includes(chart.learningCycle.lifecycle)
@@ -241,11 +252,29 @@ export function buildChildExperiencePacket(chart: ChildChart): ChildExperiencePa
         && row.assistance?.status === "unassisted" && row.constructLinks?.some(link => link.constructId === construct)).at(-1) : undefined;
       return { display: item.word, ...(typeof first?.result.correct === "boolean" ? { firstTry: first.result.correct } : {}), ...(typeof latest?.result.correct === "boolean" ? { correct: latest.result.correct } : {}) };
     })) : undefined;
+  // A helped answer is never counted right; her answer shown is her latest without help when she has one.
+  const mathCycle = chart.learningCycle?.domain === "math" ? chart.learningCycle : null;
+  const mathBoardResults = mathCycle ? Object.fromEntries((mathCycle.boards ?? []).map(board => {
+    const nodeIds = (board as { nodeIds?: string[] }).nodeIds ?? [];
+    const rows = mathCycle.nodes.filter(node => nodeIds.includes(node.nodeId)).flatMap(node =>
+      Object.values(node.evidenceContract?.itemContracts ?? {}).flatMap(item => {
+        const seen = mathCycle.observations.filter(row => row.itemId === item.id && row.sourceId.endsWith(`:${node.nodeId}`));
+        if (!seen.length) return [];
+        const latest = seen.filter(row => row.assistance?.status === "unassisted").at(-1);
+        const shown = latest ?? seen.at(-1)!;
+        return [{ display: String(shown.childResponse ?? "?"), spoken: item.prompt,
+          ...(typeof seen[0].result.correct === "boolean" ? { firstTry: seen[0].result.correct } : {}),
+          ...(typeof latest?.result.correct === "boolean" ? { correct: latest.result.correct } : {}) }];
+      }));
+    return [board.boardId, rows] as const;
+  }).filter(([, rows]) => rows.length)) : {};
   return {
+    ...(Object.keys(mathBoardResults).length ? { mathBoardResults } : {}),
     ...(spellingEvaluationResults?.length ? { spellingEvaluationResults } : {}),
     ...(spellingBoardResults?.length ? { spellingBoardResults } : {}),
     ...(spellingInstruments ? { spellingInstruments } : {}),
-    ...(spellingEvaluation ? { spellingDiscovery: { nodeId: spellingEvaluation.nodeId, items: Object.values(spellingEvaluation.evidenceContract.spellingItems!).filter(item => !answered.has(item.id)).map(item => ({ itemId: item.id, display: item.word, acceptedResponses: item.response.acceptedForms, label: "Spelling", subject: "spelling" })) } } : {}),
+    ...(itemBindings && Object.keys(itemBindings).length ? { itemBindings } : {}),
+    ...(spellingEvaluation ? { spellingDiscovery: { nodeId: spellingEvaluation.nodeId, items: presentedSpellingItems(spellingEvaluation).filter(item => !answered.has(item.id)).map(item => ({ itemId: item.id, display: item.word, acceptedResponses: item.response.acceptedForms, label: "Spelling", subject: "spelling" })) } } : {}),
     childChart: {
       childId: chart.childId,
       identity: chart.identity,
@@ -263,6 +292,8 @@ export function buildChildExperiencePacket(chart: ChildChart): ChildExperiencePa
             lifecycle: chart.learningCycle.lifecycle,
             revision: chart.learningCycle.revision,
             boardKind: chart.learningCycle.boards?.find(board => board.boardId === selectedPlan?.adventureBoard?.boardId)?.kind,
+            // When the board on screen was published: an earned call is offered only for the board just finished.
+            boardPublishedAt: chart.learningCycle.boards?.find(board => board.boardId === selectedPlan?.adventureBoard?.boardId)?.publishedAt ?? null,
           }
         : undefined,
     },

@@ -1,0 +1,231 @@
+<!-- DESIGN CARD
+title: Split Second
+genre / core loop (one sentence): A wrestling-mat division battler where she deals little wrestlers from a gym bag onto squad mats (or skips dealing and does it in her head), types how many are in each squad, and every right answer is a takedown on a grumpy daruma bully.
+why this child (3 facts from her files this design uses):
+  1. Wrestler who thrives on competition, streaks and personal bests: bouts, takedowns, a three-count pin (一 二 三), combo multiplier, belt level, and a ghost of her best run.
+  2. A year ahead, checks out when it is easy or slow: the keypad is live from second one, answering without dealing is a faster, bigger HEAD PIN, and two head pins raise the fact tier mid-match.
+  3. Proud of her Japanese, wants katakana, chose Matilda: Matilda coaches ringside in her own voice (すごい! やった!), and the Locker Room Mystery drops a katakana sticker of a favourite thing (スシ, ポテト, チェス...).
+learning: how each target item is truly retrieved or reasoned (not guessed)
+  - Every answer is a typed number; no options, and the answer numeral is never on screen before she tries.
+  - Anchors 16 ÷ 4 and 24 ÷ 3 in a fresh context (wrestlers into squads): Bout 1 with dealing (the worksheet method, she counts a squad herself); one returns in Bout 2 as in-the-head retrieval framed "3 × ? = 24".
+  - What she types fills "24 ÷ 3 = ▢" and "3 × ▢ = 24" at once, so the multiplication link is in her hands every item.
+  - Championship: one "how many groups" round (trays of 9, counters fill a tray at a time) and one "how many in each" round, random order, so she must read the move.
+  - Hints escalate only after a real typed attempt: (1) think-multiplication nudge, (2) counters dealt and one squad bounce-counted, (3) answer shown, typed in, and the fact returns later as a REMATCH.
+replayability bet: personal best with live ghost delta, persistent belt level that raises fact tier, 10 katakana stickers (one per run), different least-seen facts each run, and a missed fact opens the next run as a REMATCH with a revenge bonus.
+dopamine bet: each deal is a pitched pop with squash landing; a correct answer rains the rest of the counters into equal squads, Matilda throws a fireball, the daruma goes flat with shake, sparks, crowd and a slammed banner.
+intuitive bet (first 10 seconds, no reading): a bag with a big 16, four empty mats, one pulsing button with a bouncing hand. Tap: a wrestler hops to mat 1; tap: mat 2. Bag empty, keypad glows. Matilda says the one instruction line aloud.
+algorithm targets: retrieval practice, concrete-to-abstract fading, spaced repetition (anchor returns after 3+ items; misses return 2 items later and next session), error-pattern remediation (3-level hints), desirable difficulty (24 ÷ 4 beside 24 ÷ 3; groups vs each), mastery gating (2 head pins = tier up; miss = tier down), variable reward (locker).
+how we will know it worked: evidence shows first-attempt result, hint level, ms and whether she dealt, per item. Success = anchors move from dealt to head pin within a run, first-try on next-session REMATCH, clean wins on both championship move types, then 16 ÷ 4 and 24 ÷ 3 right on paper days later.
+-->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Split Second</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Dela+Gothic+One&family=M+PLUS+Rounded+1c:wght@800&display=swap" rel="stylesheet">
+<script type="application/json" id="sunny-assets">{
+"voice":[
+{"id":"n-16","text":"Sixteen wrestlers."},
+{"id":"n-18","text":"Eighteen wrestlers."},
+{"id":"n-20","text":"Twenty wrestlers."},
+{"id":"n-24","text":"Twenty-four wrestlers."},
+{"id":"n-27","text":"Twenty-seven wrestlers."},
+{"id":"n-28","text":"Twenty-eight wrestlers."},
+{"id":"n-30","text":"Thirty wrestlers."},
+{"id":"n-32","text":"Thirty-two wrestlers."},
+{"id":"n-36","text":"Thirty-six wrestlers."},
+{"id":"n-42","text":"Forty-two wrestlers."},
+{"id":"n-45","text":"Forty-five wrestlers."},
+{"id":"n-48","text":"Forty-eight wrestlers."},
+{"id":"n-54","text":"Fifty-four wrestlers."},
+{"id":"n-56","text":"Fifty-six wrestlers."},
+{"id":"n-63","text":"Sixty-three wrestlers."},
+{"id":"n-72","text":"Seventy-two wrestlers."},
+{"id":"g-3","text":"Three equal squads. How many wrestlers in each squad?"},
+{"id":"g-4","text":"Four equal squads. How many wrestlers in each squad?"},
+{"id":"g-5","text":"Five equal squads. How many wrestlers in each squad?"},
+{"id":"g-6","text":"Six equal squads. How many wrestlers in each squad?"},
+{"id":"g-7","text":"Seven equal squads. How many wrestlers in each squad?"},
+{"id":"g-8","text":"Eight equal squads. How many wrestlers in each squad?"},
+{"id":"g-9","text":"Nine equal squads. How many wrestlers in each squad?"},
+{"id":"how-deal","text":"Deal them out, one by one. Then punch in how many are in each squad!"},
+{"id":"how-head","text":"Now do it in your head. Squads, times what, makes the total?"},
+{"id":"hint1","text":"Not yet. Think multiplication. What number fills the box?"},
+{"id":"hint2","text":"Let's deal them out. Now count carefully."},
+{"id":"hint3","text":"Here's the split. Type it in. We'll get a rematch on this one."},
+{"id":"sugoi","text":"すごい!"},
+{"id":"yatta","text":"やった!"},
+{"id":"headpin","text":"In your head! That's brain power."},
+{"id":"rematch","text":"Rematch time. You've got this one now."},
+{"id":"locker","text":"The locker room door is glowing. Open it!"},
+{"id":"champ-intro","text":"Championship match! Read each move. Is it how many groups, or how many in each group?"},
+{"id":"champ-g1","text":"Forty-five sushi rolls, packed in trays of nine. How many trays?"},
+{"id":"champ-e1","text":"Thirty-two books, shared equally by four readers. How many books for each reader?"},
+{"id":"champ-g2","text":"Forty-two french fries, packed in cups of six. How many cups?"},
+{"id":"champ-e2","text":"Thirty-five chess pieces, shared equally by five players. How many pieces for each player?"},
+{"id":"win","text":"やった! You are the champion!"},
+{"id":"best","text":"New personal best! すごい!"}
+],
+"sfx":[
+{"id":"dojo-music","prompt":"energetic playful Japanese festival wrestling match music loop, driving taiko drums, shamisen riff, hand claps, upbeat and confident, seamless loop","seconds":20,"loop":true},
+{"id":"fire-whoosh","prompt":"fast magical energy blast whoosh with bright sparkle, punchy and short","seconds":1.0},
+{"id":"taiko-hit","prompt":"single deep powerful taiko drum hit with a short tail","seconds":0.8},
+{"id":"ring-bell","prompt":"wrestling match ring bell, three quick bright dings","seconds":1.5},
+{"id":"locker-open","prompt":"metal locker door creaks open, then a magical shimmering chime reveal","seconds":2.2},
+{"id":"level-up","prompt":"bright rising arcade power-up sweep ending in a sparkle chime","seconds":1.2},
+{"id":"key-tap","prompt":"soft crisp satisfying arcade button click, very short","seconds":0.5},
+{"id":"sticker-pop","prompt":"cute bubbly pop with a tiny sparkle, collectible sticker earned","seconds":0.8}
+]}</script>
+<script type="importmap">{"imports":{
+  "three":"https://cdn.jsdelivr.net/npm/three@0.183.2/build/three.module.js",
+  "three/addons/":"https://cdn.jsdelivr.net/npm/three@0.183.2/examples/jsm/",
+  "@pixiv/three-vrm":"https://cdn.jsdelivr.net/npm/@pixiv/three-vrm@3.5.1/lib/three-vrm.module.min.js"}}</script>
+<script src="/games/_contract.js"></script>
+<script src="/games/cookoff/_library.js"></script>
+<style>
+html{font-size:min(1vw,1.7778vh)}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;overflow:hidden;background:#0d0b24;color:#fff;font-family:'M PLUS Rounded 1c',system-ui,sans-serif;font-weight:800;-webkit-user-select:none;user-select:none;touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+button{font:inherit;color:inherit;border:0;cursor:pointer;touch-action:manipulation}
+.hidden{display:none!important}
+.dg{font-family:'Dela Gothic One','M PLUS Rounded 1c',system-ui,sans-serif;font-weight:400}
+#stage{position:fixed;inset:0}
+#stage canvas{position:absolute;left:0;top:0;display:block}
+#vig{position:fixed;inset:0;pointer-events:none;background:radial-gradient(ellipse at 50% 55%,transparent 55%,rgba(5,3,18,.6) 100%)}
+#ui{position:fixed;inset:0;pointer-events:none;z-index:10}
+#ui button{pointer-events:auto}
+#ui.pre{opacity:0}
+#ui.pre,#ui.pre *{pointer-events:none!important}
+#hudL{position:absolute;left:1.6rem;top:1.2rem;display:flex;flex-direction:column;align-items:flex-start;gap:.35rem}
+#belt{display:flex;align-items:center;gap:.6rem;font-size:1.7rem;background:rgba(15,12,40,.7);padding:.3rem .9rem;border-radius:99px}
+#belt i{display:inline-flex;align-items:center;justify-content:center;width:4.4rem;height:1.8rem;border-radius:.3rem;background:#fff;color:#222;font-style:normal;font-size:1.2rem;border:.12rem solid rgba(255,255,255,.7)}
+#score{font-size:4.4rem;line-height:1;text-shadow:0 .07em 0 #8b1228,0 0 .3em rgba(255,120,60,.55)}
+.bump{animation:bump .3s}
+@keyframes bump{40%{transform:scale(1.25)}}
+#combo{font-size:2.2rem;color:#ffd45e;min-height:2.8rem;text-shadow:0 0 .4em rgba(255,150,40,.8)}
+#ghost{font-size:1.6rem;padding:.2rem .8rem;border-radius:99px;background:rgba(15,12,40,.7)}
+#ghost.up{color:#7dffb0}#ghost.dn{color:#9fc4ff}
+#hudC{position:absolute;left:50%;top:1rem;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:.4rem}
+#boutName{font-size:1.9rem;letter-spacing:.12em;text-shadow:0 .1em .3em #000}
+#pips{display:flex;gap:.5rem;height:1.6rem}
+#pips i{width:1.6rem;height:1.6rem;border-radius:50%;background:#ff4d5e;border:.15rem solid #fff}
+#clock{width:20rem;height:.9rem;border-radius:99px;background:rgba(255,255,255,.18);overflow:hidden}
+#clockFill{height:100%;width:100%;background:linear-gradient(90deg,#ff9a3c,#ffe46b);border-radius:99px;transform-origin:left center;will-change:transform}
+#hudR{position:absolute;right:1.6rem;top:1.2rem;font-size:1.8rem;color:#cfd6ff;background:rgba(15,12,40,.7);padding:.3rem 1.2rem;border-radius:99px}
+#hudR b{color:#ffd45e;font-size:2.2rem;margin-left:.3em}
+#panel{position:absolute;right:1.3rem;top:7.4rem;bottom:1.3rem;width:23.5rem;display:flex;flex-direction:column;justify-content:space-between;gap:1rem}
+#card{position:relative;background:rgba(18,14,48,.9);border:.25rem solid #ffc94d;border-radius:1.4rem;padding:1rem 1.1rem}
+#hear{position:absolute;right:-.6rem;top:-1.4rem;width:5rem;height:5rem;border-radius:50%;background:#3aa0ff;font-size:2.5rem;box-shadow:0 .35rem 0 #1c5fae}
+#hear:active{transform:translateY(.25rem);box-shadow:none}
+#pic{display:flex;align-items:center;flex-wrap:wrap;gap:.5rem;min-height:4.6rem;padding-right:3.6rem}
+#pic .n{font-size:3.6rem;color:#ffe46b;line-height:1}
+#pic .ic{font-size:2.4rem}
+#pic .ar{font-size:1.8rem;opacity:.8}
+#pic .ms{display:flex;flex-wrap:wrap;gap:.3rem;max-width:11.5rem}
+#pic .mt,#pic .tr{font-style:normal;display:inline-flex;align-items:center;justify-content:center;width:2.4rem;height:2.4rem;font-size:1.4rem;background:#27348f;border:.2rem solid #ffc94d;border-radius:50%}
+#pic .tr{border-radius:.5rem;background:#8b2a3c;width:2.8rem}
+.eq{font-size:3.3rem;line-height:1.5;white-space:nowrap;display:flex;align-items:center;gap:.28em}
+#eq2{color:#9fe8ff}
+#eq2.off{visibility:hidden}
+.box{display:inline-flex;align-items:center;justify-content:center;min-width:4.4rem;height:4.3rem;padding:0 .15em;border:.3rem dashed #ffc94d;border-radius:.8rem;background:rgba(255,255,255,.12)}
+.box.ghost{color:rgba(255,255,255,.4)}
+.box.wob{animation:wob .4s}
+@keyframes wob{20%{transform:translateX(-12%) rotate(-4deg)}50%{transform:translateX(12%) rotate(4deg)}80%{transform:translateX(-6%)}}
+#card.won .box{border-style:solid;border-color:#7dffb0;background:rgba(80,255,160,.25);animation:bump .35s}
+@keyframes gl{to{opacity:1}}
+#pad{position:relative;display:grid;grid-template-columns:repeat(3,1fr);gap:.7rem;border-radius:1.4rem;padding:.5rem}
+#pad.glow::after{content:"";position:absolute;inset:0;border-radius:1.4rem;box-shadow:0 0 2.4rem rgba(255,210,90,.8);opacity:0;animation:gl 1s infinite alternate;pointer-events:none}
+#pad button{height:6.3rem;font-size:3.4rem;border-radius:1.1rem;background:linear-gradient(#f7f3ff,#cfc8ee);color:#1c1640;box-shadow:0 .45rem 0 #6f66a8}
+#pad button:active{transform:translateY(.35rem);box-shadow:0 .1rem 0 #6f66a8}
+#pad #kBack{background:linear-gradient(#b8c2e6,#8d98c4)}
+#pad #kOk{background:linear-gradient(#ffe46b,#ff9a3c);box-shadow:0 .45rem 0 #b3521a;font-size:2.5rem}
+#deal{position:absolute;left:50%;bottom:1.5rem;margin-left:-11rem;width:22rem;height:7rem;border-radius:1.6rem;font-size:3.2rem;background:linear-gradient(#ff6b6b,#d92c3f);border:.3rem solid #ffe46b;box-shadow:0 .55rem 0 #7e1022;letter-spacing:.08em}
+#deal:active{transform:translateY(.4rem);box-shadow:0 .1rem 0 #7e1022}
+#deal.pulse::after{content:"";position:absolute;inset:-.4rem;border-radius:1.9rem;box-shadow:0 0 3rem .5rem #ffd45e;opacity:0;animation:gl .7s infinite alternate;pointer-events:none}
+#deal.mini{width:15rem;margin-left:-7.5rem;height:5rem;font-size:2.2rem;opacity:.85}
+#deal.done{opacity:.3}
+#hand{position:absolute;left:50%;bottom:8.6rem;margin-left:-2.2rem;font-size:4.4rem;animation:hand .5s infinite alternate;will-change:transform}
+@keyframes hand{to{transform:translateY(30%)}}
+#banner{position:absolute;left:50%;top:27%;transform:translate(-50%,-50%);font-size:7rem;white-space:nowrap;opacity:0;will-change:transform,opacity;text-shadow:0 .06em 0 #b3182d,0 .12em 0 #5c0b18,0 0 .3em rgba(255,160,60,.9)}
+#banner.show{animation:slam 1.25s forwards}
+#banner.big{font-size:8.5rem}
+#banner.mid{font-size:5.2rem;color:#9fe8ff}
+#banner.sm{font-size:4.2rem;color:#d8ddff}
+#banner.count{font-size:13rem;color:#ffe46b}
+#banner.count.show{animation:slam .42s forwards}
+#banner.lv{color:#7dffb0}
+@keyframes slam{0%{transform:translate(-50%,-50%) scale(2.6) rotate(-7deg);opacity:0}16%{transform:translate(-50%,-50%) scale(.9) rotate(-3deg);opacity:1}28%{transform:translate(-50%,-50%) scale(1.06) rotate(-3deg)}78%{transform:translate(-50%,-50%) scale(1) rotate(-3deg);opacity:1}100%{transform:translate(-50%,-56%) scale(1.08) rotate(-3deg);opacity:0}}
+#pop{position:absolute;left:50%;top:40%;transform:translate(-50%,-50%);font-size:4rem;color:#ffe46b;opacity:0;will-change:transform,opacity;text-shadow:0 .08em 0 #7a3a00}
+#pop.show{animation:popup 1s forwards}
+@keyframes popup{0%{opacity:0;transform:translate(-50%,-20%) scale(.6)}20%{opacity:1;transform:translate(-50%,-50%) scale(1.15)}100%{opacity:0;transform:translate(-50%,-140%)}}
+.lab{position:absolute;left:0;top:0;font-size:3rem;min-width:4.6rem;height:4.6rem;display:flex;align-items:center;justify-content:center;border-radius:99px;background:#fff;color:#c2182f;border:.3rem solid #ffc94d;padding:0 .3em;will-change:transform}
+.lab.ans{background:#7dffb0;color:#0d3b22;border-color:#fff}
+.ov{position:fixed;inset:0;z-index:50}
+#title{display:flex;flex-direction:column;align-items:flex-end;justify-content:center;padding-right:5%;gap:1.2rem;background:linear-gradient(90deg,rgba(8,6,25,0) 30%,rgba(8,6,25,.8) 70%)}
+#title h1{margin:0;max-width:50rem;font-size:8.6rem;line-height:1;text-align:right;text-shadow:0 .05em 0 #d92c3f,0 .1em 0 #7e1022,0 0 .3em rgba(255,140,60,.8);transform:rotate(-3deg)}
+#jp{font-size:2.8rem;color:#ffe46b;letter-spacing:.15em}
+#tstats{font-size:1.9rem;color:#cfd6ff;min-height:2.6rem}
+#loading{width:26rem;height:1.4rem;border-radius:99px;background:rgba(255,255,255,.18);overflow:hidden}
+#loadFill{height:100%;width:8%;background:linear-gradient(90deg,#ff9a3c,#ffe46b);transition:width .4s}
+#start{font-size:4rem;padding:1.3rem 4rem;border-radius:2rem;background:linear-gradient(#ffe46b,#ff9a3c);color:#3a1404;box-shadow:0 .7rem 0 #b3521a,0 0 3rem rgba(255,200,80,.6);animation:sp .8s infinite alternate}
+@keyframes sp{to{transform:scale(1.05)}}
+#locker{display:flex;align-items:center;justify-content:center;background:rgba(6,4,20,.8)}
+#lockerBox{position:relative;width:20rem;height:32rem}
+#prize{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.6rem;border-radius:1.2rem;background:radial-gradient(circle,#fff6c9,#ffc94d 70%,#ff9a3c);color:#3a1404;transform:scale(.6);opacity:0}
+#prize.show{animation:prize .5s .25s forwards cubic-bezier(.3,1.6,.5,1)}
+@keyframes prize{to{transform:scale(1);opacity:1}}
+#prizeIco{font-size:10rem;line-height:1}
+#prizeKana{font-size:3rem}
+#prizeBonus{font-size:2.6rem;color:#c2182f}
+#door{position:absolute;inset:0;width:100%;height:100%;border-radius:1.2rem;border:.45rem solid #b9c8e8;background:repeating-linear-gradient(180deg,#5f7fb5 0 7%,#4a659c 7% 9%);transform-origin:left center;transition:transform .55s cubic-bezier(.5,-.2,.3,1);box-shadow:0 0 6rem #ffe9a0;font-size:7rem}
+#door.open{transform:perspective(70vw) rotateY(-108deg)}
+#finish{display:flex;align-items:center;justify-content:flex-end;padding-right:4%;background:linear-gradient(90deg,rgba(8,6,25,0) 26%,rgba(8,6,25,.85) 66%)}
+#fcard{width:48rem;display:flex;flex-direction:column;align-items:center;gap:1rem;animation:fin .5s cubic-bezier(.3,1.5,.5,1)}
+@keyframes fin{from{transform:scale(.7);opacity:0}}
+#fTitle{font-size:6.4rem;text-shadow:0 .06em 0 #d92c3f,0 .12em 0 #7e1022,0 0 .3em rgba(255,150,60,.9);transform:rotate(-2deg);white-space:nowrap}
+#fScore{font-size:7rem;color:#ffe46b;line-height:1}
+#fBest{font-size:2.2rem;color:#7dffb0;min-height:2.8rem}
+#fRows{display:flex;gap:1.2rem;font-size:2.3rem}
+#fRows span{background:rgba(255,255,255,.12);padding:.6rem 1.3rem;border-radius:1rem}
+#fCoins{font-size:3.4rem;color:#ffd45e}
+#fStick{display:flex;gap:.5rem}
+#fStick i{font-style:normal;width:4rem;height:4rem;display:flex;align-items:center;justify-content:center;font-size:2.4rem;border-radius:.8rem;background:rgba(255,255,255,.1);color:rgba(255,255,255,.35)}
+#fStick i.on{background:#fff6c9}
+#fStick i.new{box-shadow:0 0 1.6rem #ffe46b}
+#again{font-size:3.2rem;padding:1.1rem 3.6rem;border-radius:1.8rem;background:linear-gradient(#ffe46b,#ff9a3c);color:#3a1404;box-shadow:0 .6rem 0 #b3521a}
+.pre2{position:absolute;opacity:0;pointer-events:none;font-size:10px}
+</style>
+</head>
+<body>
+<div id="stage"></div><div id="vig"></div>
+<div id="ui" class="pre">
+  <div id="hudL"><div id="belt"><i id="beltI">白</i><b id="beltTxt">LV 1</b></div><div id="score" class="dg">0</div><div id="combo"></div><div id="ghost" class="hidden"></div></div>
+  <div id="hudC"><div id="boutName" class="dg">DARUMA DAN</div><div id="pips"></div><div id="clock"><div id="clockFill"></div></div></div>
+  <div id="hudR">BEST<b id="best">0</b></div>
+  <div id="labels"></div>
+  <div id="banner" class="dg"></div><div id="pop" class="dg"></div>
+  <div id="panel">
+    <div id="card"><button id="hear" aria-label="hear it">🔊</button><div id="pic"></div><div id="eq1" class="eq dg">16 ÷ 4 = ?</div><div id="eq2" class="eq dg off">4 × ? = 16</div></div>
+    <div id="pad"><button data-k="1">1</button><button data-k="2">2</button><button data-k="3">3</button><button data-k="4">4</button><button data-k="5">5</button><button data-k="6">6</button><button data-k="7">7</button><button data-k="8">8</button><button data-k="9">9</button><button id="kBack" data-k="b">⌫</button><button data-k="0">0</button><button id="kOk" data-k="e" class="dg">PIN!</button></div>
+  </div>
+  <div id="hand" class="hidden">👇</div>
+  <button id="deal" class="dg">🤼 DEAL</button>
+</div>
+<div id="title" class="ov">
+  <h1 class="dg">SPLIT SECOND</h1>
+  <div id="jp" class="dg">スプリット・セカンド</div>
+  <div id="tstats"></div>
+  <div id="loading"><div id="loadFill"></div></div>
+  <button id="start" class="dg hidden">▶ START MATCH</button>
+  <span class="pre2 dg">すごいやった一二三白黄青黒リベンジ！0123456789+×÷=?,</span>
+  <span class="pre2">白黄青黒 LV BEST 0123456789 ▲ 👇🧠🔥➜🍣🍟📚♟️🏆🪙👻</span>
+</div>
+<div id="locker" class="ov hidden"><div id="lockerBox"><div id="prize"><div id="prizeIco"></div><div id="prizeKana" class="dg"></div><div id="prizeBonus" class="dg"></div></div><button id="door" aria-label="open the locker">✨</button></div></div>
+<div id="finish" class="ov hidden"><div id="fcard"><div id="fTitle" class="dg"></div><div id="fScore" class="dg">0</div><div id="fBest"></div><div id="fRows"></div><div id="fCoins" class="dg"></div><div id="fStick"></div><button id="again" class="dg">▶ REMATCH</button></div></div>
+
+<script type="module" src="main.js"></script>
+</body>
+</html>

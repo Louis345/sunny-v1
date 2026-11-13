@@ -470,3 +470,30 @@ describe("useKaraokeReading", () => {
     });
   });
 });
+
+// Human-caught 2026-11-08 (owner watching Ila in Echo Canyon): saying "important" counted for the word
+// "import". The matcher rejects that pair; the credit came from the live transcript passing through "import"
+// while she was still speaking. Logs showed only the final words; the lab fed whole transcripts at once.
+describe("Echo Canyon waits for a spoken word to settle", () => {
+  const props = (interim: string) => ({
+    words: ["import", "ornament"], interimTranscript: interim, sendMessage: vi.fn(),
+    mode: "sequential" as const, matchMode: "pronunciation" as const, sequentialMatchScope: "tail" as const, settleTailMs: 600,
+  });
+  afterEach(() => vi.useRealTimers());
+
+  it("does not credit a word the live transcript passes through on the way to another word", () => {
+    vi.useFakeTimers();
+    const { result, rerender } = renderHook((interim: string) => useKaraokeReading(props(interim)), { initialProps: "change charge forgot import" });
+    act(() => { vi.advanceTimersByTime(200); });
+    rerender("change charge forgot important");
+    act(() => { vi.advanceTimersByTime(1000); });
+    expect(result.current.wordIndex).toBe(0);
+  });
+
+  it("credits the word once it stays the last word she said", () => {
+    vi.useFakeTimers();
+    const { result } = renderHook((interim: string) => useKaraokeReading(props(interim)), { initialProps: "import" });
+    act(() => { vi.advanceTimersByTime(700); });
+    expect(result.current.wordIndex).toBe(1);
+  });
+});

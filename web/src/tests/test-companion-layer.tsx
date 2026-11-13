@@ -472,6 +472,26 @@ describe("CompanionLayer mode transition", () => {
   });
 });
 
+// 2026-11-10, owner: a quiet child may be thinking, so her companion raises a hand instead of interrupting; she taps
+// the portrait if she wants help. The hand shows only while she has not called the companion since it was raised.
+describe("CompanionLayer raised hand", () => {
+  afterEach(() => cleanup());
+
+  it("shows a raised hand on the collapsed portrait until she calls her companion", async () => {
+    const raise = { apiVersion: "1.0" as const, type: "check_back_in", payload: { how: "raise_hand", why: "quiet" }, childId: "fixture", timestamp: Date.now(), source: "claude" as const };
+    const onSummon = vi.fn();
+    const { container, rerender } = render(
+      <CompanionLayer mode="portrait" childId="fixture" companion={companion} toggledOff={false} summoned={false} onSummon={onSummon} companionCommands={[raise] as never} />,
+    );
+    await waitFor(() => expect(container.querySelector('[data-testid="companion-raised-hand"]')).toBeTruthy());
+    fireEvent.click(container.querySelector('[data-testid="companion-portrait"]')!);
+    expect(onSummon).toHaveBeenCalled();
+    rerender(<CompanionLayer mode="portrait" childId="fixture" companion={companion} toggledOff={false} summoned onSummon={onSummon} companionCommands={[raise] as never} />);
+    rerender(<CompanionLayer mode="portrait" childId="fixture" companion={companion} toggledOff={false} summoned={false} onSummon={onSummon} companionCommands={[raise] as never} />);
+    expect(container.querySelector('[data-testid="companion-raised-hand"]')).toBeNull();
+  });
+});
+
 describe("CompanionLayer portrait mode", () => {
   beforeEach(() => {
     vi.mocked(loadCompanionVrm).mockClear();

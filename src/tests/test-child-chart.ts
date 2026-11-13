@@ -4,6 +4,7 @@ import path from "path";
 import { afterEach, describe, expect, it } from "vitest";
 import { createEmptyWordBank } from "../context/schemas/wordBank";
 import { getChildChart } from "../profiles/childChart";
+import { DEFAULT_SENSORY_PROFILE, resolveSensoryProfile } from "../shared/sensoryProfile";
 import {
   appendDecisionTrace,
   migrateLearningProfileToWaterfall,
@@ -264,6 +265,11 @@ describe("getChildChart", () => {
       economy: {
         coinBalance: 42,
       },
+      sensory: {
+        soundVolume: 0.4,
+        soundBrightness: "soft",
+        motion: "calm",
+      },
       links: {
         learningProfile: "learning_profile.json",
         wordBank: "word_bank.json",
@@ -281,6 +287,25 @@ describe("getChildChart", () => {
     expect(chart.identity.avatarImagePath).toBe("/characters/chart-kid.png");
     expect(chart.companion.presetId).toBe("elli");
     expect(chart.economy.coinBalance).toBe(42);
+    expect(chart.sensory).toEqual({
+      soundEnabled: true,
+      soundVolume: 0.4,
+      soundBrightness: "soft",
+      motion: "calm",
+    });
+  });
+
+  it("gives every child the neutral sensory sheet when the chart sets none, and clamps bad values", () => {
+    expect(resolveSensoryProfile(undefined)).toEqual(DEFAULT_SENSORY_PROFILE);
+    expect(
+      resolveSensoryProfile({
+        soundVolume: 7,
+        soundBrightness: "deafening" as never,
+        motion: "wild" as never,
+        soundEnabled: false,
+      }),
+    ).toEqual({ ...DEFAULT_SENSORY_PROFILE, soundVolume: 1, soundEnabled: false });
+    expect(resolveSensoryProfile({ soundVolume: -2 }).soundVolume).toBe(0);
   });
 
   it("exposes the child chart waterfall from linked profile files", () => {

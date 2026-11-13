@@ -1353,3 +1353,44 @@ export async function assertMathControlsVisible(page: BrowserPage, required = tr
   ];
   if (issues.length) throw new Error([...new Set(issues), `math_repair_state:${JSON.stringify(result.state)}`].join(" | "));
 }
+
+/**
+ * Numbers and operator labels must stand apart (BUGS.md 2026-11-10 evening: Kappa Pond's hop labels read as "1.9"
+ * and "negative"). Installed before the game loads: records the box of each number/operator label drawn on a canvas,
+ * per animation frame, so only the latest drawn frame is measured.
+ */
+export const MATH_LABEL_CANVAS_PROBE = `(()=>{if(typeof CanvasRenderingContext2D==="undefined")return;let frame=0;const tick=()=>{frame++;requestAnimationFrame(tick)};requestAnimationFrame(tick);
+const P=CanvasRenderingContext2D.prototype,label=/\\d|[\\u2212+\\u00d7\\u00f7=]/;
+for(const name of ["fillText","strokeText"]){const original=P[name];P[name]=function(text,x,y,...rest){try{const s=String(text).trim();if(s&&s.length<=12&&label.test(s)){
+const m=this.measureText(s),t=this.getTransform(),pts=[[x-m.actualBoundingBoxLeft,y-m.actualBoundingBoxAscent],[x+m.actualBoundingBoxRight,y+m.actualBoundingBoxDescent],[x-m.actualBoundingBoxLeft,y+m.actualBoundingBoxDescent],[x+m.actualBoundingBoxRight,y-m.actualBoundingBoxAscent]].map(([px,py])=>[t.a*px+t.c*py+t.e,t.b*px+t.d*py+t.f]);
+const list=this.canvas.__sunnyLabels||(this.canvas.__sunnyLabels=[]);list.push({text:s,frame,left:Math.min(...pts.map(p=>p[0])),right:Math.max(...pts.map(p=>p[0])),top:Math.min(...pts.map(p=>p[1])),bottom:Math.max(...pts.map(p=>p[1]))});if(list.length>400)list.splice(0,list.length-400);}}catch(e){}return original.call(this,text,x,y,...rest)}}})()`;
+
+export type MathLabelCollision = { a: string; b: string; boxA: { x: number; y: number; width: number; height: number }; boxB: { x: number; y: number; width: number; height: number } };
+
+/**
+ * Pairs of number/operator labels that overlap or touch on the rendered screen (page text and canvas text). Only
+ * labels the game places itself (absolute/fixed, SVG, canvas) are compared; text the browser lays out in a line is not.
+ */
+export async function findMathLabelCollisions(page: BrowserPage): Promise<MathLabelCollision[]> {
+  return await page.evaluate(`(() => {
+    const token=/[\\u2212\\u2013+\\u00d7\\u00f7=-]?\\d+(?:[.,]\\d+)?|[\\u2212+\\u00d7\\u00f7=]/g, labels=[];
+    const onScreen=b=>b.width>0&&b.height>0&&b.right>0&&b.bottom>0&&b.left<innerWidth&&b.top<innerHeight;
+    const walker=document.createTreeWalker(document.body,NodeFilter.SHOW_TEXT);let node,owner=0;
+    while((node=walker.nextNode())){const el=node.parentElement;if(!el||el.closest('script,style,noscript'))continue;const s=getComputedStyle(el);if(s.visibility==='hidden'||Number(s.opacity)===0)continue;
+      owner++;let placed=Boolean(el.closest('svg'));for(let e=el;e&&e!==document.body&&!placed;e=e.parentElement){const p=getComputedStyle(e).position;placed=p==='absolute'||p==='fixed';}
+      for(const match of node.data.matchAll(token)){const r=document.createRange();r.setStart(node,match.index);r.setEnd(node,match.index+match[0].length);const b=r.getBoundingClientRect();if(onScreen(b))labels.push({text:match[0],owner,placed,left:b.left,right:b.right,top:b.top,bottom:b.bottom});}}
+    for(const canvas of document.querySelectorAll('canvas')){const list=canvas.__sunnyLabels||[];if(!list.length)continue;const latest=Math.max(...list.map(row=>row.frame)),r=canvas.getBoundingClientRect(),sx=r.width/canvas.width,sy=r.height/canvas.height;
+      for(const row of list.filter(row=>row.frame===latest)){const b={left:r.left+row.left*sx,right:r.left+row.right*sx,top:r.top+row.top*sy,bottom:r.top+row.bottom*sy};b.width=b.right-b.left;b.height=b.bottom-b.top;if(onScreen(b))labels.push({text:row.text,owner:++owner,placed:true,...b});}}
+    const near=(a,b)=>Math.abs(a.left-b.left)<1.5&&Math.abs(a.top-b.top)<1.5&&Math.abs(a.right-b.right)<1.5&&Math.abs(a.bottom-b.bottom)<1.5;
+    const box=b=>({x:Math.round(b.left),y:Math.round(b.top),width:Math.round(b.right-b.left),height:Math.round(b.bottom-b.top)});
+    // An outline drawn under the same label (strokeText then fillText) is one label.
+    const unique=labels.filter((a,i)=>!labels.slice(0,i).some(b=>a.text===b.text&&near(a,b)));
+    const found=[];
+    for(let i=0;i<unique.length&&found.length<5;i++)for(let j=i+1;j<unique.length&&found.length<5;j++){const a=unique[i],b=unique[j];
+      if(a.owner===b.owner||!(a.placed||b.placed))continue;
+      // Touching: closer than a quarter of the smaller label's height, which reads as one number ("1" "−3" → "1−3").
+      const gap=Math.min(a.bottom-a.top,b.bottom-b.top)/4;
+      if(a.left<=b.right+gap&&b.left<=a.right+gap&&a.top<=b.bottom+gap&&b.top<=a.bottom+gap)found.push({a:a.text,b:b.text,boxA:box(a),boxB:box(b)});}
+    return found;
+  })()`) as MathLabelCollision[];
+}

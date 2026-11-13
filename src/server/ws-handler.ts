@@ -1,4 +1,4 @@
-import type { WebSocket } from "ws";
+import type { RawData, WebSocket } from "ws";
 import type { IncomingMessage } from "http";
 import {
   handleMapSocketIframeCompanionEvent,
@@ -48,7 +48,7 @@ export function handleWsConnection(
   let session: SessionManager | null = null;
   let audioGate: ReturnType<typeof createAudioGate> | null = null;
 
-  ws.on("message", async (raw) => {
+  const onMessage = async (raw: RawData): Promise<void> => {
     let msg: { type?: string; child?: string; data?: string };
     try {
       msg = JSON.parse(raw.toString());
@@ -132,7 +132,8 @@ export function handleWsConnection(
           return;
         }
         const runtime = resolveSunnyRuntimeConfig(process.env);
-        if (runtime.subject === "homework" && !diagKiosk) {
+        // The earned call's speech-only connection turns her voice into text; it is not homework (BUGS.md 2026-11-08).
+        if (runtime.subject === "homework" && !diagKiosk && !sttOnly) {
           if (!homeworkId) {
             console.warn(
               ` 🎮 [session-launch] [assignment-validation] [rejected] child=${child} requested=missing`,
@@ -351,6 +352,16 @@ export function handleWsConnection(
         break;
       }
 
+      case "reward_drop": {
+        // The board names the chest she opened; the session reads what it held from her saved plan.
+        const drop = msg as { homeworkId?: unknown; nodeId?: unknown };
+        if (!session || typeof drop.homeworkId !== "string" || typeof drop.nodeId !== "string") return;
+        session.reactToRewardDrop({ homeworkId: drop.homeworkId, nodeId: drop.nodeId }).catch((error: unknown) => {
+          console.error(" 🎮 [rewards] [drop-reaction] [failed]", error);
+        });
+        break;
+      }
+
       case "companion_care_event": {
         if (!session) {
           console.log("  🎮 [companion-care] live event skipped no active session");
@@ -419,6 +430,19 @@ export function handleWsConnection(
             message: `Unknown type: ${msg.type}`,
           })
         );
+    }
+  };
+
+  // One failed message costs that message, never the kiosk: an async listener's throw is an
+  // unhandled rejection, and Node exits on those (BUGS.md 2026-11-07).
+  ws.on("message", async (raw: RawData) => {
+    try {
+      await onMessage(raw);
+    } catch (error) {
+      let type = "unknown";
+      try { type = String((JSON.parse(raw.toString()) as { type?: unknown }).type ?? "unknown"); } catch { /* already logged as invalid JSON */ }
+      console.error(` 🎮 [ws] [message] [failed] type=${type}`, error);
+      ws.send(JSON.stringify({ type: "error", fatal: false, message: "Something went wrong. Keep going." }));
     }
   });
 

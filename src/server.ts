@@ -1,4 +1,6 @@
 import { loadSunnyRuntimeEnvironment } from "./scripts/sunnyMenu";
+import { replayHeldCompletions, runStartupCheck } from "./engine/sunnyHealth";
+import { readChildrenConfig } from "./profiles/childrenConfig";
 loadSunnyRuntimeEnvironment();
 import "./server/server";
 import express from "express";
@@ -10,11 +12,18 @@ import { setupRoutes } from "./server/routes";
 import { handleWsConnection } from "./server/ws-handler";
 import { openKioskCharts } from "./chart/kioskLifecycle";
 import { endActiveVoiceSessions } from "./server/voice-session-registry";
+import { setupWardrobeAssetRoute } from "./server/wardrobeAssetRoute";
+import { requiredSettingsReport } from "./server/requiredSettings";
+import { installServerLogFile } from "./server/serverLogFile";
 
 const PORT = parseInt(process.env.PORT || "3001", 10);
 const isKiosk = process.argv.includes("--kiosk");
 const serveStatic = process.argv.includes("--serve-static");
 
+// A dated, timed copy of everything printed, kept seven days: a restart no longer erases the evidence (2026-11-10).
+installServerLogFile({ dir: path.join(process.cwd(), "logs", "server") });
+// Say up front whether every required setting is present, so a missing one is seen before a session starts.
+console.log(requiredSettingsReport().line);
 // Validate/open the declared charts before accepting any HTTP or kiosk traffic.
 const charts = openKioskCharts(process.env, undefined, isKiosk);
 const app = express();
@@ -30,6 +39,9 @@ if (!serveStatic) {
     res.redirect(302, "/worlds/proof-of-concept.html");
   });
 }
+
+// Outfit files (local, git-ignored) at the address the app requests them; before the SPA fallback.
+setupWardrobeAssetRoute(app);
 
 // Serve built frontend in production (--serve-static flag)
 if (serveStatic) {
@@ -52,6 +64,14 @@ wss.on("connection", (ws, req) => {
 
 httpServer.listen(PORT, () => {
   console.log(`\n  🌟 Project Sunny server on http://localhost:${PORT}`);
+  // Before any child sits down: every record can still accept a save, and answers held from a refused save are replayed.
+  try {
+    const childIds = Object.keys(readChildrenConfig().childCompanionIds ?? {});
+    runStartupCheck(childIds);
+    for (const childId of childIds) replayHeldCompletions(childId);
+  } catch (error) {
+    console.error(" 🎮 [startup-check] [failed] reason=", error instanceof Error ? error.message : String(error));
+  }
   console.log(`  📡 WebSocket at ws://localhost:${PORT}/ws\n`);
 
   if (serveStatic) {

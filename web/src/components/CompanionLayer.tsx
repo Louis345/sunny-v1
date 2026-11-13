@@ -17,6 +17,11 @@ import type {
   CompanionEventPayload,
 } from "../../../src/shared/companionTypes";
 import { loadCompanionVrm } from "../utils/loadCompanionVrm";
+import { WARDROBE_LOOK_CHANGED_EVENT, loadBoardPortraitLook, type BoardPortraitLook } from "../lib/boardPortraitLook";
+import { attachXwearOutfit, captureXwearAvatarBindPose, getXwearOutfitDefinition, isXwearOutfitApprovedForAvatar, type XwearOutfitDefinition } from "../lib/xwearDress";
+import { retainIntrinsicAccessories } from "../lib/wardrobeAccessoryFit";
+import { attachWardrobeHairCollisions } from "../lib/wardrobeHairCollision";
+import { attachWardrobeAccessory } from "./CompanionShowroom";
 import { CompanionMotor } from "../companion/CompanionMotor";
 import { CompanionVfxLayer } from "../companion/CompanionVfxLayer";
 import {
@@ -223,6 +228,35 @@ export function CompanionLayer({
   const layerZIndex = feedEffect ? 12050 : 15;
   const [feedCombo, setFeedCombo] = useState<FeedComboState | null>(null);
   const [modelStatus, setModelStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
+  // The board portrait wears the look she saved in the closet (BUGS.md 2026-11-12: Matilda went back to old clothes).
+  const [portraitLook, setPortraitLook] = useState<(BoardPortraitLook & { companionId: string }) | null>(null);
+  const companionLook: BoardPortraitLook = portraitLook && portraitLook.companionId === companion?.companionId
+    ? { modelUrl: portraitLook.modelUrl, look: portraitLook.look }
+    : { modelUrl: companion?.vrmUrl ?? "", look: { accessoryId: "none", outfitId: "none" } };
+  const companionLookKey = JSON.stringify(companionLook);
+  const companionLookRef = useRef(companionLook);
+  companionLookRef.current = companionLook;
+  useEffect(() => {
+    const companionId = companion?.companionId;
+    const defaultModelUrl = companion?.vrmUrl;
+    if (!childId || !companionId || !defaultModelUrl) return;
+    let current = true;
+    const resolve = () => {
+      loadBoardPortraitLook({
+        childId, companionId, defaultModelUrl, storage: window.localStorage,
+        fetchWallet: (id) => fetch(`/api/rewards/wallet/${encodeURIComponent(id)}`, { signal: AbortSignal.timeout(5000) })
+          .then((response) => (response.ok ? response.json() : Promise.reject(new Error(`status ${response.status}`)))),
+      })
+        .then((look) => { if (current) setPortraitLook({ ...look, companionId }); })
+        .catch((error: unknown) => console.error(" 🎮 [board-portrait] [look] [failed]", error));
+    };
+    resolve();
+    window.addEventListener(WARDROBE_LOOK_CHANGED_EVENT, resolve);
+    return () => {
+      current = false;
+      window.removeEventListener(WARDROBE_LOOK_CHANGED_EVENT, resolve);
+    };
+  }, [childId, companion?.companionId, companion?.vrmUrl]);
   const feedComboRef = useRef<{ count: number; lastAt: number; eventId: string | null }>({
     count: 0,
     lastAt: 0,
@@ -581,7 +615,8 @@ export function CompanionLayer({
       scene.add(amb, dir);
       console.log("CompanionLayer: [finishSetup] lights added, loading VRM...");
 
-      const modelUrl = resolveModelUrl(companion.vrmUrl);
+      const { modelUrl: lookModelUrl, look } = companionLookRef.current;
+      const modelUrl = resolveModelUrl(lookModelUrl || companion.vrmUrl);
       console.log("CompanionLayer: [finishSetup] calling loadCompanionVrm", modelUrl, {
         webgpu: false,
       });
@@ -591,8 +626,11 @@ export function CompanionLayer({
           vrm.scene.removeFromParent();
           return;
         }
+        const outfit = look.outfitId === "none" ? null : getXwearOutfitDefinition(look.outfitId);
+        if (outfit) captureXwearAvatarBindPose(vrm.scene);
         const { w: mw, h: mh } = readMountSize();
         motor.attachVrm(vrm, scene, mw, mh);
+        dressBoardPortrait(vrm, look, outfit, lookModelUrl, () => cancelled);
         applyBehaviorToMotor(behaviorRef.current);
 
         if (modeRef.current === "portrait") {
@@ -715,7 +753,19 @@ export function CompanionLayer({
         rendererRef.current = null;
       }
     };
-  }, [childId, companion?.companionId, companion?.vrmUrl, mode, startLoop, stopLoop]);
+  }, [childId, companion?.companionId, companion?.vrmUrl, companionLookKey, mode, startLoop, stopLoop]);
+
+  // The companion's raised hand (2026-11-10): shown until she calls her companion, or for two minutes.
+  const latestRaise = companionCommands.filter(command => command.type === "check_back_in" && (command.payload as { how?: string })?.how === "raise_hand").reduce((latest, command) => Math.max(latest, command.timestamp), 0);
+  const [raisedHandAt, setRaisedHandAt] = useState(0);
+  const answeredRaiseRef = useRef(0);
+  useEffect(() => {
+    if (summoned && raisedHandAt) { answeredRaiseRef.current = raisedHandAt; setRaisedHandAt(0); return; }
+    if (!latestRaise || latestRaise <= answeredRaiseRef.current || Date.now() - latestRaise > 120_000) return;
+    setRaisedHandAt(latestRaise);
+    const timer = window.setTimeout(() => { answeredRaiseRef.current = latestRaise; setRaisedHandAt(0); }, Math.max(0, 120_000 - (Date.now() - latestRaise)));
+    return () => window.clearTimeout(timer);
+  }, [latestRaise, summoned, raisedHandAt]);
 
   if (!childId || !companion) {
     return null;
@@ -723,6 +773,7 @@ export function CompanionLayer({
 
   if (mode === "portrait") {
     const portraitSize = summoned ? 188 : 68;
+    const showRaisedHand = Boolean(raisedHandAt) && !summoned;
     const activatePortrait = () => (summoned ? onDismiss : onSummon)?.();
     return (
       <>
@@ -791,6 +842,12 @@ export function CompanionLayer({
             }}
           >
             <div ref={mountRef} style={{ width: "100%", height: "100%", pointerEvents: "none" }} />
+            {showRaisedHand ? (
+              <div data-testid="companion-raised-hand" aria-label="Your companion raised a hand: tap if you want help"
+                style={{ position: "absolute", top: 2, left: 2, fontSize: 26, lineHeight: 1, pointerEvents: "none", animation: "companionHandWave 1.6s ease-in-out infinite" }}>
+                ✋<style>{"@keyframes companionHandWave{0%,100%{transform:rotate(0)}50%{transform:rotate(-14deg)}}"}</style>
+              </div>
+            ) : null}
             {micMuted ? (
               <div
                 data-testid="companion-muted-overlay"
@@ -1056,4 +1113,37 @@ export function CompanionLayer({
       `}</style>
     </div>
   );
+}
+
+/** Puts her saved outfit and accessory on the board portrait, as the closet and FaceTime call do (BUGS.md 2026-11-12). */
+function dressBoardPortrait(
+  vrm: Awaited<ReturnType<typeof loadCompanionVrm>>,
+  look: BoardPortraitLook["look"],
+  outfit: XwearOutfitDefinition | null,
+  modelUrl: string,
+  isCancelled: () => boolean,
+): void {
+  const head = vrm.humanoid?.getRawBoneNode("head") ?? null;
+  const intrinsic = retainIntrinsicAccessories(vrm.scene, look.accessoryId);
+  if (head && look.accessoryId !== "none" && !intrinsic) {
+    try {
+      attachWardrobeAccessory(head, look.accessoryId, modelUrl);
+    } catch (error: unknown) {
+      console.error(` 🎮 [board-portrait] [accessory] [failed] accessory=${look.accessoryId}`, error);
+    }
+  }
+  if (!outfit || !isXwearOutfitApprovedForAvatar(outfit, modelUrl)) {
+    console.log(` 🎮 [board-portrait] [look] [wearing] outfit=none accessory=${look.accessoryId} model=${modelUrl}`);
+    return;
+  }
+  attachXwearOutfit(vrm.scene, outfit, look.outfitMaterialVariant ?? null, modelUrl)
+    .then((part) => {
+      if (isCancelled()) {
+        part.removeFromParent();
+        return;
+      }
+      part.userData.disposeWardrobeColliders = attachWardrobeHairCollisions(vrm, outfit.id);
+      console.log(` 🎮 [board-portrait] [look] [wearing] outfit=${outfit.id} accessory=${look.accessoryId} model=${modelUrl}`);
+    })
+    .catch((error: unknown) => console.error(` 🎮 [board-portrait] [outfit] [failed] outfit=${outfit.id} model=${modelUrl}`, error));
 }

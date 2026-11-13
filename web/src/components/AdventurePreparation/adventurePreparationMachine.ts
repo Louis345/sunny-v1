@@ -37,6 +37,8 @@ export type PreparationContext = {
   ready: number;
   failure: { reason: string; retryable: boolean } | null;
   line: string;
+  /** She chose "save for next time" on a ready map; a stop before the map was ready is not a decline. */
+  declined: boolean;
 };
 
 const NOUN: Record<PreparationSubject, string> = { spelling: "words", math: "answers", science: "ideas" };
@@ -90,10 +92,13 @@ export const adventurePreparationMachine = setup({
         : {}),
     takeFailure: assign(({ event }) => (event.type === "FAILED" ? { failure: { reason: event.reason, retryable: event.retryable } } : {})),
     clearFailure: assign({ failure: null }),
+    decline: assign({ declined: true }),
   },
   guards: {
     isNewCount: ({ context, event }) => event.type === "ACTIVITY_READY" && event.n > context.ready && event.n < event.total,
     isFinalCount: ({ event }) => event.type === "ACTIVITY_READY" && event.published !== false && event.total > 0 && event.n >= event.total,
+    // After a stop, only the server's publication fact reopens the choice, and never a map she already declined.
+    publishedAfterStop: ({ context, event }) => !context.declined && event.type === "ACTIVITY_READY" && event.published === true && event.total > 0 && event.n >= event.total,
     resumesBuilding: ({ context }) => context.mode === "resume" && context.stops.length > 0,
     resumesPlanning: ({ context }) => context.mode === "resume",
   },
@@ -102,7 +107,7 @@ export const adventurePreparationMachine = setup({
   context: ({ input }) => ({
     subject: input?.subject ?? "spelling",
     mode: input?.mode ?? "live",
-    reviewTotal: 0, reviewed: [], stops: input?.stops ?? [], total: input?.stops?.length ?? 0, ready: input?.ready ?? 0, failure: null, line: "",
+    reviewTotal: 0, reviewed: [], stops: input?.stops ?? [], total: input?.stops?.length ?? 0, ready: input?.ready ?? 0, failure: null, line: "", declined: false,
   }),
   initial: "boot",
   on: {
@@ -163,7 +168,7 @@ export const adventurePreparationMachine = setup({
     },
     ready: {
       entry: ["readyLine", "speak"],
-      on: { FAILED: {}, STOP: { target: "stop" } },
+      on: { FAILED: {}, STOP: { target: "stop", actions: "decline" } },
     },
     help: {
       entry: ["helpLine", "speak"],
@@ -171,9 +176,13 @@ export const adventurePreparationMachine = setup({
     },
     stop: {
       entry: ["stopLine", "speak"],
-      // The build keeps going behind the moon card; counts still update, the state stays.
+      // The build keeps going behind the moon card; counts still update. If she is still here when the map is
+      // published, she gets the same two choices as anyone else (BUGS.md 2026-11-12, Ila sat 35 min on this card).
       on: {
-        ACTIVITY_READY: { actions: "takeCount" },
+        ACTIVITY_READY: [
+          { guard: "publishedAfterStop", target: "ready", actions: "takeCount" },
+          { actions: "takeCount" },
+        ],
         PLAN_DONE: { actions: "takeStops" },
         FAILED: {},
         STOP: {},

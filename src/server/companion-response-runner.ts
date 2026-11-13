@@ -1,6 +1,7 @@
 /** Companion LLM turn — extracted from SessionManager.runCompanionResponse. */
 // @ts-nocheck
 import { redactProtectedSpellingText, redactProtectedSpellingValue } from "./currentBoardSnapshot";
+import { noteCompanionReplyForTutorPlan } from "./urgentLearningSupport";
 import { randomUUID } from "node:crypto";
 import { rewriteChildNameForTts } from "./sessionTextHelpers";
 import { runAgent } from "../agents/elli/run";
@@ -672,6 +673,7 @@ export async function runCompanionResponseForSession(
         session.conversationHistory.push({ role: "assistant", content: fullResponse });
         session.recordDebugTranscript?.("assistant", fullResponse);
         if (source === "user") session.recordCompanionHelpTurn?.(userMessage, fullResponse);
+        if (session.chartChildId) noteCompanionReplyForTutorPlan(String(session.chartChildId), fullResponse);
       }
 
       if (await finalizePendingSessionEnd(session)) {

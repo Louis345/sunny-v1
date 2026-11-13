@@ -12,14 +12,56 @@ import {
   shouldRequireShowroomActivityReactionSpeech,
   resolveShowroomSpokenText,
   resolveShowroomTalkRequest,
+  shouldSynthesizeShowroomSpeech,
   shouldRunShowroomToolFollowup,
 } from "./companionShowroomTalk";
+import { resolveShowroomTalkRouteFailure } from "./routes";
+import * as showroomTalkContract from "./companionShowroomTalk";
 
 describe("companion showroom talk contract", () => {
   const voiceOptions = [
     { id: "voice_a", label: "Voice A", language: "en", default: true },
     { id: "voice_b", label: "Voice B", language: "en" },
   ];
+
+  it("redacts Anthropic billing failures and returns a child-safe retryable response", () => {
+    const failure = resolveShowroomTalkRouteFailure({
+      status: 400,
+      error: {
+        type: "invalid_request_error",
+        message:
+          "Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to purchase credits.",
+      },
+      request_id: "req_private_provider_id",
+    });
+
+    expect(failure).toEqual({
+      status: 503,
+      body: {
+        ok: false,
+        code: "companion_voice_temporarily_unavailable",
+        error:
+          "Your companion’s voice is taking a short break. Their choice still counts—please try again soon.",
+        retryable: true,
+      },
+    });
+    expect(JSON.stringify(failure)).not.toMatch(
+      /anthropic|credit balance|plans & billing|req_private_provider_id/i,
+    );
+
+    const routeSource = readFileSync(resolve(__dirname, "routes.ts"), "utf8");
+    const talkRouteStart = routeSource.indexOf(
+      'app.post("/api/companions/:companionId/talk"',
+    );
+    const talkRouteEnd = routeSource.indexOf(
+      // The next route after talk, so the check reads the talk route alone.
+      'app.get("/api/companions/:companionId/recognition"',
+      talkRouteStart,
+    );
+    const talkRoute = routeSource.slice(talkRouteStart, talkRouteEnd);
+    expect(talkRoute).toContain("resolveShowroomTalkRouteFailure(err)");
+    expect(talkRoute).not.toContain("error: message");
+  });
 
   it("preserves the selected companion, selected voice, room, child, and question", () => {
     const result = resolveShowroomTalkRequest(
@@ -91,6 +133,185 @@ describe("companion showroom talk contract", () => {
           earnedBy: "finished word radar",
         },
       }),
+    });
+  });
+
+  it("accepts bounded shopping truth for a companion call", () => {
+    const result = resolveShowroomTalkRequest(
+      {
+        childId: "ila",
+        companionId: "elli",
+        voiceId: "voice_a",
+        showroomTheme: "crystal",
+        mode: "video_call",
+        question: "Do you like this one?",
+        shoppingContext: {
+          mode: "try_on",
+          visitId: "visit-elli-1",
+          walletBalance: 80,
+          companionWish: "a celestial headpiece",
+          companionMood: { id: "dreamy", label: "dreamy and cosmic" },
+          selectedItem: {
+            id: "royal-crown",
+            name: "Royal Crown",
+            price: 20,
+            category: "accessory",
+            styleTags: ["gold", "royal", "sparkly"],
+            owned: true,
+            saved: false,
+            preferenceMatch: true,
+            opinionVerdict: "reject",
+            opinionReasons: ["too royal for this mood"],
+            companionConsentsToWear: false,
+          },
+          ownedItemIds: ["royal-crown"],
+          savedItemIds: [],
+        },
+      },
+      {
+        routeCompanionId: "elli",
+        voiceOptions,
+        fallbackVoiceId: "voice_a",
+      },
+    );
+
+    expect(result).toEqual({
+      ok: true,
+      request: expect.objectContaining({
+        shoppingContext: {
+          mode: "try_on",
+          visitId: "visit-elli-1",
+          walletBalance: 80,
+          companionWish: "a celestial headpiece",
+          companionMood: { id: "dreamy", label: "dreamy and cosmic" },
+          selectedItem: {
+            id: "royal-crown",
+            name: "Royal Crown",
+            price: 20,
+            category: "accessory",
+            styleTags: ["gold", "royal", "sparkly"],
+            owned: true,
+            saved: false,
+            preferenceMatch: true,
+            opinionVerdict: "reject",
+            opinionReasons: ["too royal for this mood"],
+            companionConsentsToWear: false,
+          },
+          ownedItemIds: ["royal-crown"],
+          savedItemIds: [],
+        },
+      }),
+    });
+  });
+
+  it("accepts a bounded try-on event and grounds a generated reaction in it", () => {
+    const result = resolveShowroomTalkRequest(
+      {
+        companionId: "elli",
+        voiceId: "voice_a",
+        showroomTheme: "crystal",
+        mode: "video_call",
+        question: "React naturally to the item that was just tried on.",
+        shoppingEvent: {
+          type: "try_on_started",
+          itemId: "royal-crown",
+        },
+      },
+      {
+        routeCompanionId: "elli",
+        voiceOptions,
+        fallbackVoiceId: "voice_a",
+      },
+    );
+
+    expect(result).toEqual({
+      ok: true,
+      request: expect.objectContaining({
+        shoppingEvent: {
+          type: "try_on_started",
+          itemId: "royal-crown",
+        },
+      }),
+    });
+  });
+
+  it("accepts item-review events without pretending they are child speech", () => {
+    const result = resolveShowroomTalkRequest(
+      {
+        companionId: "elli",
+        voiceId: "voice_a",
+        showroomTheme: "crystal",
+        mode: "video_call",
+        question: "Give a brief first impression of the selected item.",
+        shoppingEvent: {
+          type: "item_reviewed",
+          itemId: "star-halo",
+        },
+      },
+      {
+        routeCompanionId: "elli",
+        voiceOptions,
+        fallbackVoiceId: "voice_a",
+      },
+    );
+
+    expect(result).toEqual({
+      ok: true,
+      request: expect.objectContaining({
+        shoppingEvent: { type: "item_reviewed", itemId: "star-halo" },
+      }),
+    });
+  });
+
+  it("keeps generated text and gestures available when TTS is not configured", () => {
+    expect(shouldSynthesizeShowroomSpeech("I love the sparkle!", undefined)).toBe(false);
+    expect(shouldSynthesizeShowroomSpeech("I love the sparkle!", "tts-key")).toBe(true);
+    expect(shouldSynthesizeShowroomSpeech("", "tts-key")).toBe(false);
+
+    const routeSource = readFileSync(resolve(__dirname, "routes.ts"), "utf8");
+    const talkRouteStart = routeSource.indexOf(
+      'app.post("/api/companions/:companionId/talk"',
+    );
+    // The talk route alone: /speak, further down, rightly needs the voice key.
+    const talkRoute = routeSource.slice(talkRouteStart, routeSource.indexOf('app.get("/api/companions/:companionId/recognition"', talkRouteStart));
+    expect(talkRoute).not.toContain(
+      'return res.status(500).json({ ok: false, error: "elevenlabs_api_key_missing" })',
+    );
+    expect(talkRoute).toContain(
+      "shouldSynthesizeShowroomSpeech(spokenText, apiKey)",
+    );
+  });
+
+  it("rejects shopping context with invented negative currency", () => {
+    const result = resolveShowroomTalkRequest(
+      {
+        companionId: "elli",
+        voiceId: "voice_a",
+        showroomTheme: "crystal",
+        mode: "video_call",
+        question: "What can we buy?",
+        shoppingContext: {
+          mode: "entrance",
+          visitId: "visit-invalid",
+          walletBalance: -20,
+          companionWish: "something fun",
+          companionMood: { id: "bold", label: "bold and adventurous" },
+          selectedItem: null,
+          ownedItemIds: [],
+          savedItemIds: [],
+        },
+      },
+      {
+        routeCompanionId: "elli",
+        voiceOptions,
+        fallbackVoiceId: "voice_a",
+      },
+    );
+
+    expect(result).toEqual({
+      ok: false,
+      status: 400,
+      error: "invalid_shopping_context",
     });
   });
 
@@ -388,6 +609,52 @@ describe("companion showroom talk contract", () => {
     expect(prompt).toContain("Never tutor unless the child explicitly asks");
     expect(prompt).toContain("follow the child's conversational lead");
     expect(prompt).not.toContain("interactive Sunny learning companion");
+  });
+
+  it("grounds shopping dialogue in exact store state without giving spending authority", () => {
+    const prompt = buildShowroomTalkSystemPrompt({
+      companionId: "elli",
+      companionName: "Elli",
+      showroomTheme: "crystal",
+      personality: "Warm, expressive, and honest about her preferences.",
+      mode: "video_call",
+      shoppingEvent: { type: "try_on_started", itemId: "royal-crown" },
+      shoppingContext: {
+        mode: "try_on",
+        visitId: "visit-elli-prompt",
+        walletBalance: 80,
+        companionWish: "a celestial headpiece",
+        companionMood: { id: "dreamy", label: "dreamy and cosmic" },
+        selectedItem: {
+          id: "royal-crown",
+          name: "Royal Crown",
+          price: 20,
+          category: "accessory",
+          styleTags: ["gold", "sparkly"],
+          owned: false,
+          saved: false,
+          preferenceMatch: true,
+          opinionVerdict: "reject",
+          opinionReasons: ["royal is not her mood today"],
+          companionConsentsToWear: false,
+        },
+        ownedItemIds: [],
+        savedItemIds: [],
+      },
+    });
+
+    expect(prompt).toContain("Active shared shopping context");
+    expect(prompt).toContain("Selected item: Royal Crown");
+    expect(prompt).toContain("Wallet balance: 80 demo coins");
+    expect(prompt).toContain("Companion wish: a celestial headpiece");
+    expect(prompt).toContain("The child controls spending");
+    expect(prompt).toContain("wearing the selected item in the try-on view");
+    expect(prompt).toContain("Code-owned companion verdict: reject");
+    expect(prompt).toContain("A like verdict is not love or obsession");
+    expect(prompt).toContain("The selected item is for you, the companion");
+    expect(prompt).toContain("cannot be bought-and-worn or equipped");
+    expect(prompt).toContain("Always include one short spoken reaction");
+    expect(prompt).not.toContain("silence or a gesture feels more natural");
   });
 
   it("keeps an active game as background when the child is just socializing", () => {
@@ -928,8 +1195,55 @@ describe("companion showroom talk contract", () => {
       resolveShowroomSpokenText({
         rawText: "",
         companionCommandCount: 0,
+        requireGeneratedSpeech: true,
       }),
-    ).toBe("I'm here with you. Let's keep going.");
+    ).toBe("");
+    expect(
+      resolveShowroomSpokenText({
+        rawText: "",
+        companionCommandCount: 0,
+        shoppingContextPresent: true,
+      }),
+    ).toBe("");
+  });
+
+  it("rejects generic, incomplete, verdict-changing, and item-role-confused shopping speech", () => {
+    const evaluateShoppingSpeech = (
+      showroomTalkContract as typeof showroomTalkContract & {
+        evaluateShoppingSpeech?: (input: {
+          text: string;
+          verdict: "love" | "like" | "unsure" | "reject";
+        }) => { accepted: boolean; reason: string | null };
+      }
+    ).evaluateShoppingSpeech;
+
+    expect(
+      evaluateShoppingSpeech?.({
+        text: "I'm here with you. Let's keep going.",
+        verdict: "like",
+      }),
+    ).toEqual({ accepted: false, reason: "generic_fallback" });
+    expect(
+      evaluateShoppingSpeech?.({ text: "I can feel this navy", verdict: "like" }),
+    ).toEqual({ accepted: false, reason: "incomplete_response" });
+    expect(
+      evaluateShoppingSpeech?.({
+        text: "I am obsessed with this dress!",
+        verdict: "like",
+      }),
+    ).toEqual({ accepted: false, reason: "verdict_mismatch" });
+    expect(
+      evaluateShoppingSpeech?.({
+        text: "Are you going to get one too?",
+        verdict: "like",
+      }),
+    ).toEqual({ accepted: false, reason: "item_role_confusion" });
+    expect(
+      evaluateShoppingSpeech?.({
+        text: "I like this navy dress; it feels polished today.",
+        verdict: "like",
+      }),
+    ).toEqual({ accepted: true, reason: null });
   });
 
   it("does not let companionAct-only turns fall through to the thinking fallback", () => {
@@ -1015,6 +1329,16 @@ describe("companion showroom talk contract", () => {
     ).toBe(false);
   });
 
+  it("bounds shopping speech repair to one text-only retry and traces why it happened", () => {
+    const routeSource = readFileSync(resolve(__dirname, "routes.ts"), "utf8");
+
+    expect(routeSource).toContain("MAX_SHOWROOM_SPEECH_RETRIES = 1");
+    expect(routeSource).toContain("shopping_speech_retry");
+    expect(routeSource).toContain("shopping_speech_guard_failed");
+    expect(routeSource).toContain("companion_tool_rejected");
+    expect(routeSource).toContain('tool_choice: { type: "none" }');
+  });
+
   it("keeps tic-tac-toe activity reactions to one Claude round trip when speech is already present and records latency spans", () => {
     const routeSource = readFileSync(resolve(__dirname, "routes.ts"), "utf8");
 
@@ -1027,4 +1351,96 @@ describe("companion showroom talk contract", () => {
     expect(routeSource).toContain("latencySpans");
   });
 
+  it("requires provider-authored try-on speech after a tool-only response and never substitutes generic fallback copy", () => {
+    const routeSource = readFileSync(resolve(__dirname, "routes.ts"), "utf8");
+
+    expect(routeSource).toContain(
+      'talk.shoppingEvent?.type === "try_on_started"',
+    );
+    expect(routeSource).toContain(
+      "Try-on reactions require one short in-character spoken opinion",
+    );
+    expect(routeSource).toContain("requireGeneratedSpeech");
+    expect(routeSource).toContain("generated_try_on_reaction_missing");
+  });
+
+});
+
+// Owner, 2026-11-07: Elli reacts to the call clock in her own words, from facts the server owns.
+describe("call clock events", () => {
+  const voiceOptions = [{ id: "voice_a", label: "Voice A", language: "en", default: true }];
+  const base = { childId: "ila", companionId: "elli", voiceId: "voice_a", showroomTheme: "crystal", question: "(call clock)", mode: "video_call" };
+  const opts = { routeCompanionId: "elli", voiceOptions, fallbackVoiceId: "voice_a" };
+
+  it("accepts only known clock events, and only on a video call", () => {
+    const ok = resolveShowroomTalkRequest({ ...base, callClockEvent: "minute_left" }, opts);
+    expect(ok).toMatchObject({ ok: true, request: { callClockEvent: "minute_left" } });
+    expect(resolveShowroomTalkRequest({ ...base, callClockEvent: "free_coins" }, opts)).toMatchObject({ ok: false, error: "invalid_call_clock_event" });
+    const notCall = resolveShowroomTalkRequest({ ...base, mode: undefined, callClockEvent: "time_up" }, opts);
+    expect(notCall.ok && "callClockEvent" in notCall.request).toBe(false);
+  });
+
+  it("tells her the saved facts and that the clock, not the child, spoke", () => {
+    const prompt = buildShowroomTalkSystemPrompt({ companionId: "elli", companionName: "Elli", showroomTheme: "crystal", personality: "warm", mode: "video_call",
+      callClock: { event: "time_up", minutesLeft: 0, coins: 12, price: 30, minutes: 5 } });
+    expect(prompt).toContain("Live call clock event: call time is up");
+    expect(prompt).toContain("12 coins");
+    expect(prompt).toContain("5 more minutes cost 30 coins");
+    expect(prompt).toContain("not from words spoken by the child");
+  });
+
+  it("counts the minute she is using when she buys more time", () => {
+    const prompt = buildShowroomTalkSystemPrompt({ companionId: "elli", companionName: "Elli", showroomTheme: "crystal", personality: "warm", mode: "video_call",
+      callClock: { event: "minutes_bought", minutesLeft: 4, coins: 10, price: 30, minutes: 5 } });
+    expect(prompt).toContain("about 5 minutes are left now");
+  });
+
+  it("tells her plainly when the child cannot afford more time", () => {
+    const prompt = buildShowroomTalkSystemPrompt({ companionId: "elli", companionName: "Elli", showroomTheme: "crystal", personality: "warm", mode: "video_call",
+      callClock: { event: "time_up", minutesLeft: 0, coins: 12, price: 30, minutes: 5 } });
+    expect(prompt).toContain("She cannot afford more time yet; she needs 18 more coins. Do not offer to buy time");
+    expect(buildShowroomTalkSystemPrompt({ companionId: "elli", companionName: "Elli", showroomTheme: "crystal", personality: "warm", mode: "video_call",
+      callClock: { event: "time_up", minutesLeft: 0, coins: 40, price: 30, minutes: 5 } })).toContain("She can afford more time.");
+  });
+});
+
+// Owner 2026-11-12: "not for me today" is the companion's opinion, never a lock. The talk server refused any
+// shopping context where a rejected item could still be worn, so her voice would have broken on those items.
+describe("a companion's rejection is an opinion the child can overrule", () => {
+  const shoppingContext = {
+    mode: "try_on", visitId: "visit-elli", walletBalance: 80, companionWish: "a celestial headpiece",
+    companionMood: { id: "dreamy", label: "dreamy and cosmic" },
+    selectedItem: { id: "royal-crown", name: "Royal Crown", price: 50, category: "accessory", styleTags: ["gold", "royal"],
+      owned: false, saved: false, preferenceMatch: false, opinionVerdict: "reject", opinionReasons: ["not feeling royal today"], companionConsentsToWear: true },
+    ownedItemIds: [], savedItemIds: [],
+  };
+  it("accepts the context and tells her the child decides", () => {
+    const resolved = resolveShowroomTalkRequest(
+      { companionId: "elli", question: "Do you like it?", voiceId: "voice_a", mode: "video_call", shoppingContext },
+      { routeCompanionId: "elli", voiceOptions: [{ id: "voice_a", label: "A", language: "en", default: true }] },
+    );
+    expect(resolved.ok).toBe(true);
+    if (!resolved.ok) return;
+    const prompt = buildShowroomTalkSystemPrompt({ companionId: "elli", companionName: "Elli", showroomTheme: "aurora", personality: "warm", mode: "video_call", shoppingContext: resolved.request.shoppingContext });
+    expect(prompt).toContain("Not your favourite today, but it is the child's choice");
+    expect(prompt).not.toContain("cannot be bought-and-worn");
+  });
+});
+
+// Owner 2026-11-12: when the child buys the companion's wish, the companion recognizes it and celebrates.
+it("tells the companion the child just made her wish come true", () => {
+  const shoppingContext = {
+    mode: "entrance", visitId: "visit-elli", walletBalance: 40, companionWish: "a celestial headpiece",
+    companionMood: { id: "dreamy", label: "dreamy and cosmic" }, selectedItem: null,
+    ownedItemIds: ["star-halo"], savedItemIds: [], wishFulfilled: { itemId: "star-halo", name: "Star Halo" },
+  };
+  const resolved = resolveShowroomTalkRequest(
+    { companionId: "elli", question: "Look!", voiceId: "voice_a", mode: "video_call", shoppingContext },
+    { routeCompanionId: "elli", voiceOptions: [{ id: "voice_a", label: "A", language: "en", default: true }] },
+  );
+  expect(resolved.ok).toBe(true);
+  if (!resolved.ok) return;
+  expect(resolved.request.shoppingContext?.wishFulfilled).toEqual({ itemId: "star-halo", name: "Star Halo" });
+  const prompt = buildShowroomTalkSystemPrompt({ companionId: "elli", companionName: "Elli", showroomTheme: "aurora", personality: "warm", mode: "video_call", shoppingContext: resolved.request.shoppingContext });
+  expect(prompt).toContain("The child just made your wish come true: Star Halo");
 });

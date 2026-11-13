@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import type { PostActivityAction } from "../../../src/engine/choiceEvents";
+import "./PostActivityEngagementOverlay.css";
 
 export type PostActivityOutcome = {
   completed: boolean;
@@ -29,9 +30,16 @@ export type PostActivityEngagementOverlayProps = {
   showBackAction?: boolean;
   children?: ReactNode;
   onAction: (action: PostActivityAction) => void;
-  onFunRating?: (rating: 1 | 2 | 3 | 4 | 5 | null) => void;
+  /** A finished stop needs no summary (owner, 2026-11-10: no stars popup): after any treasure, she goes straight
+   * back to her map. Called once; without it the summary panel is shown. */
+  onFinished?: () => void;
+  /** The stop's reward is still being saved (a Discovery or probe chest comes back after the result): wait for it,
+   * so a chest never arrives on a screen that is already closing. */
+  holdFinish?: boolean;
   coinAward?: { amount: number; balance: number } | null;
   onOpenVideoCall?: (() => void) | null;
+  /** The chest she earned (owner, 2026-11-07): shown alone, center stage, before the summary. `finish` moves on. */
+  treasure?: ((finish: () => void) => ReactNode) | null;
 };
 
 function accuracyLabel(value: number | undefined): string | null {
@@ -54,16 +62,22 @@ export function PostActivityEngagementOverlay({
   showBackAction = true,
   children,
   onAction,
-  onFunRating,
+  onFinished,
+  holdFinish = false,
   coinAward,
   onOpenVideoCall,
+  treasure,
 }: PostActivityEngagementOverlayProps) {
-  const [hoveredRating, setHoveredRating] = useState<1 | 2 | 3 | 4 | 5 | null>(null);
-  const [selectedRating, setSelectedRating] = useState<1 | 2 | 3 | 4 | 5 | null>(null);
-  const ratingTimerRef = useRef<number | null>(null);
-  useEffect(() => () => {
-    if (ratingTimerRef.current != null) window.clearTimeout(ratingTimerRef.current);
-  }, []);
+  const [treasureDone, setTreasureDone] = useState(false);
+  const finishedRef = useRef(false);
+  const finishesByItself = Boolean(outcome.completed && onFinished);
+  const treasureShowing = Boolean(treasure && !treasureDone);
+  useEffect(() => {
+    if (!finishesByItself || holdFinish || treasureShowing || finishedRef.current) return;
+    finishedRef.current = true;
+    console.log(` 🎮 [post-activity] [finished] [back-to-map] title=${title}`);
+    onFinished?.();
+  }, [finishesByItself, holdFinish, onFinished, title, treasureShowing]);
   const fallbackStats: PostActivityStat[] = [
     ...(accuracyLabel(outcome.accuracy)
       ? [{ label: "accuracy", value: accuracyLabel(outcome.accuracy)! }]
@@ -74,10 +88,38 @@ export function PostActivityEngagementOverlay({
   ];
   const visibleStats = stats ?? fallbackStats;
 
+  if (treasure && !treasureDone) {
+    return (
+      <div
+        data-testid="post-activity-treasure-stage"
+        className="post-activity-treasure-stage fixed inset-0 z-[120] flex flex-col items-center justify-center overflow-hidden px-6 text-center text-white"
+        style={{ pointerEvents: "auto" }}
+      >
+        <div className="post-activity-treasure-stage__sparkles" aria-hidden="true">
+          {Array.from({ length: 18 }, (_, index) => <span key={index} style={{ ["--i" as string]: index }} />)}
+        </div>
+        <p className="relative text-sm font-black uppercase tracking-widest text-amber-200">{title}</p>
+        <h1 className="relative mt-1 text-4xl font-black">You found a treasure!</h1>
+        <div className="relative mt-6">{treasure(() => setTreasureDone(true))}</div>
+      </div>
+    );
+  }
+
+  if (finishesByItself && holdFinish) {
+    return (
+      <div data-testid="post-activity-saving" className="post-activity-treasure-stage fixed inset-0 z-[120] flex flex-col items-center justify-center px-6 text-center text-white" style={{ pointerEvents: "auto" }}>
+        <p className="text-sm font-black uppercase tracking-widest text-amber-200">{title}</p>
+        <h1 className="mt-1 text-3xl font-black">Saving your treasure…</h1>
+      </div>
+    );
+  }
+  if (finishesByItself) return null;
+
   return (
     <div
       data-testid="post-activity-engagement-overlay"
-      className="fixed inset-0 z-[120] flex flex-col items-center justify-center px-6 text-center text-white"
+      // Scrolls when its content is taller than the screen; my-auto centres it when it fits.
+      className="fixed inset-0 z-[120] flex flex-col items-center overflow-y-auto px-6 py-6 text-center text-white"
       style={{
         background: "rgba(5, 7, 12, 0.62)",
         backdropFilter: "blur(10px)",
@@ -86,7 +128,7 @@ export function PostActivityEngagementOverlay({
       }}
     >
       <div
-        className="w-full max-w-3xl border border-white/15 bg-slate-950/80 p-8 shadow-2xl"
+        className="my-auto w-full max-w-3xl border border-white/15 bg-slate-950/80 p-8 shadow-2xl"
         style={{ borderRadius: 8 }}
       >
         <p className="text-xs font-black uppercase text-amber-300">
@@ -120,42 +162,6 @@ export function PostActivityEngagementOverlay({
             </div>
             <div className="mt-1 text-sm font-bold text-white/70">
               Balance: {coinAward.balance}
-            </div>
-          </div>
-        ) : null}
-
-        {outcome.completed && onFunRating ? (
-          <div className="mt-6" aria-label="Activity fun rating">
-            <p className="text-lg font-black">How fun was this activity?</p>
-            <div className="mt-3 flex items-center justify-center gap-2">
-              {([1, 2, 3, 4, 5] as const).map((rating) => (
-                <button
-                  key={rating}
-                  type="button"
-                  aria-label={`${rating} ${rating === 1 ? "star" : "stars"}`}
-                  aria-pressed={selectedRating === rating}
-                  className="h-12 w-12 text-4xl leading-none text-amber-300 transition-colors hover:text-yellow-200 hover:drop-shadow-[0_0_10px_rgba(251,191,36,0.9)]"
-                  onMouseEnter={() => setHoveredRating(rating)}
-                  onMouseLeave={() => setHoveredRating(null)}
-                  onFocus={() => setHoveredRating(rating)}
-                  onBlur={() => setHoveredRating(null)}
-                  onClick={() => {
-                    if (selectedRating != null) return;
-                    setSelectedRating(rating);
-                    ratingTimerRef.current = window.setTimeout(() => onFunRating(rating), 300);
-                  }}
-                >
-                  {rating <= (selectedRating ?? hoveredRating ?? 0) ? "★" : "☆"}
-                </button>
-              ))}
-              <button
-                type="button"
-                aria-label="Skip fun rating"
-                className="ml-2 px-3 py-2 text-sm font-bold text-white/65 underline"
-                onClick={() => onFunRating(null)}
-              >
-                Skip
-              </button>
             </div>
           </div>
         ) : null}

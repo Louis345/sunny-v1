@@ -1,7 +1,9 @@
 import {journeyChoiceAvailable,unfinishedActivityClosesChoices} from '../shared/adventureBoardDefinition';
+import { schoolForecastPredictions, type SchoolForecast } from "./schoolForecast";
+import { isLibraryPicture } from "./pictureLibrary";
 import { letterRushConfig, spellingExplainerConfig, spellingNativeConfig } from "./spellingNativeSetup";
 import type { BoardCanvasProof } from './adventureBoardCanvas';
-import { renderBoardDefinition, journeyFrontier, type AdventureBoardDefinition } from '../shared/adventureBoardDefinition';
+import { renderBoardDefinition, journeyFrontier, journeyStopsLeft, type AdventureBoardDefinition } from '../shared/adventureBoardDefinition';
 import fs from "fs";
 import path from "path";
 import { createHash } from "crypto";
@@ -19,6 +21,7 @@ import {
 import { resolveChildContextDir } from "../utils/contextRoot";
 import { validateVisualLearnerArtifactConfig } from "../shared/visualLearnerArtifactConfig";
 import { validateActivityEngineConfig, validateLetterRushConfig } from "./activityEngineConfig";
+import type { LibraryGameId } from "./libraryGames";
 import {
   assertPublishedBoardsImmutable,
   boardOwningNode,
@@ -90,6 +93,8 @@ export type LearningCycleArtifactBinding = {
     academicContractHash?: string;
     designArtifactHash?: string;
     generatedHtmlHash?: string;
+    /** The built game calls window.reportHint, so a try after a hint is known as helped (owner, 2026-11-13). */
+    reportsHints?: boolean;
     externalLibraryUrls?: string[];
     generationElapsedMs?: number;
     inputTokens?: number;
@@ -164,6 +169,17 @@ export type LearningCycleNodeContract = {
   implementationType?: ActiveSessionPlan["nodePlan"][number]["type"];
   /** The earlier built-in activity the Planner named; it is re-launched with this node's items instead of rebuilt. */
   reusedFrom?: string;
+  /**
+   * The Planner placed a creature encounter on this stop (owner, 2026-11-08): rolled after she finishes it,
+   * at most one per board, never chosen by code. A reward that follows the learning; never evidence.
+   */
+  creatureEncounter?: { reason: string; itemIds?: string[] };
+  /** The one error the Planner aimed this built-for-her game at (contract 56); the game builder reads it. */
+  focus?: string;
+  /** A built-for-her game she played that this one starts from (owner, 2026-11-09): same mechanic, new content. */
+  buildFrom?: string;
+  /** The owner's hand-built library game the Planner put on this Quest/Boss stop (owner, 2026-11-11); served, not built. */
+  libraryGame?: LibraryGameId;
   nodeId: string;
   routeId?: string;
   predictionId?: string;
@@ -218,6 +234,8 @@ export type LearningCycleNodeContract = {
     itemContracts?: Record<string, LearningCycleMathItem>;
     spellingItems?: Record<string, LearningCycleSpellingItem>;
     diagnosticSelection?: SpellingDiagnosticSelection;
+    /** The words this Discovery checks (contract 54); absent means every word. Every word stays in spellingItems. */
+    discoveryItemIds?: string[];
     nativeConfig?: Record<string, unknown>;
   };
   evidenceIds: string[];
@@ -263,6 +281,8 @@ export type LearningEvidenceSourceRef = {
   sourceFile: string;
   provenance: "real_child" | "caregiver" | "teacher" | "school" | "system";
   capturedAt: string;
+  /** The day she took the test (family calendar, YYYY-MM-DD); capturedAt is when the parent uploaded it. */
+  testDate?: string;
   assignmentLink: {
     homeworkId: string;
     method: "explicit_selection" | "return_tag" | "fingerprint" | "content_match";
@@ -291,6 +311,14 @@ export type LearningObservation = {
   provenance: "graded_work" | "delayed_reassessment" | "independent_probe" | "practice" | "teacher_note";
   observedAt: string;
   confounds: string[];
+};
+
+export type ObservationRescore = {
+  rescoreId: string; observationId: string; at: string; reason: string; source: string;
+  from: { childResponse?: string; result: LearningObservation["result"] };
+  to: { childResponse?: string; result: LearningObservation["result"] };
+  /** Evaluations and decisions that cited the old result; they are history and are not recomputed. */
+  citedBy: string[];
 };
 
 export type AcademicPrediction = {
@@ -358,7 +386,23 @@ export type LearningCycleDecision = {
   predictionEvaluationIds?: string[];
   assumptionAssessments?: AssumptionAssessment[];
   replayedResponse?: {blockedDecisionId:string;requestHash:string;receiptHash:string;reason:string;deferredContentDecisions?:EvidenceBasedContentDecision[]};
+  /** The Planner's review of its own track record, written before this decision (contract 56). Older decisions have none. */
+  selfReview?: PlannerSelfReview;
+  /** The Planner's calls, item by item: right on her own next time? Code checks them (2026-11-10). */
+  expectations?: PlannerExpectation[];
+  /** The Planner's keep / fix / retire notes on games she played (2026-11-10). */
+  gameNotes?: Array<{ nodeId: string; verdict: "keep" | "fix" | "retire"; why: string }>;
+  /** The stop this event changed and its Not ready reason after it (owner, 2026-11-11): a repair deletes the node's
+   * reason, so the decision keeps which stop a system failure blocked. Older decisions have neither. */
+  nodeId?: string;
+  notReadyReason?: string;
 };
+
+/** One call the Planner made: whether her next answer on her own for this word or problem will be right. */
+export type PlannerExpectation = { itemId: string; onHerOwn: boolean };
+
+/** The Planner reviews itself (contract 56, owner 2026-11-08): its words, stored with the decision. */
+export type PlannerSelfReview = { whatITried: string; whatHappened: string; why: string; whatIKeep?: string; whatIChangeNow: string };
 
 export type LearningCycleAgencyExperiment = {
   experimentId: string;
@@ -408,6 +452,8 @@ export type LearningCycleRecordV2 = {
   calibrations?: LearningCycleCalibration[];
   evidenceSources: LearningEvidenceSourceRef[];
   academicPredictions: AcademicPrediction[];
+  /** School-test forecasts locked at each Planner decision, the Planner's and code's baseline (2026-11-13). Scored only by graded work. */
+  schoolForecasts?: Array<AcademicPrediction & { modelId: string }>;
   assumptions: LearningAssumption[];
   observations: LearningObservation[];
   predictionEvaluations: PredictionEvaluation[];
@@ -416,6 +462,8 @@ export type LearningCycleRecordV2 = {
   /** Published immutable board instances (contract 21). Absent on legacy cycles. */
   boards?: LearningBoardInstance[];
   canvasVerifications?: Record<string, BoardCanvasProof>;
+  /** Appended re-scores of saved answers (e.g. Japanese-keyboard kana, 2026-11-10); each keeps the old answer and result. */
+  observationRescores?: ObservationRescore[];
   adaptiveGeneration?: {
     evaluationId: string;
     evaluationCompletedAt?: string;
@@ -447,16 +495,30 @@ export type CreateLearningCycleInput = Omit<
   boardDefinition?: AdventureBoardDefinition;
 };
 
-/** Calibration authority requires sufficient evaluations linked to cited external facts. */
-/** Blocks an operator may retry: a truncated answer, a decision blocked by the since-fixed
- * stage-changed bug (a retry collided with its own saved turns; fixed 2026-10-25), or a request
- * whose connection dropped before any answer arrived (2026-11-04). */
-export function isRetryablePlannerBlock(reason: string): boolean {
-  return reason === "planner_decision_invalid:planner_response_max_tokens"
-    || reason.startsWith("planner_decision_invalid:provider_stage_request_changed:")
-    || reason.startsWith("provider_outcome_uncertain:");
+/** A math cycle from the one-pipeline item intake: its stops are games bound to her recorded problems.
+ * Its next board is decided through the shared next-board tools, as spelling's is. */
+export function isItemIntakeMathCycle(cycle: Pick<LearningCycleRecordV2, "domain" | "nodes">): boolean {
+  return cycle.domain === "math" && cycle.nodes.some((node) => node.implementationType === "generated-game" && Object.keys(node.evidenceContract.itemContracts ?? {}).length > 0);
 }
 
+/** A stop whose build was cut off before any answer arrived (the kiosk restarted mid-build). */
+export const CUT_OFF_STOP_REASON = "successor_node_failed:provider_outcome_uncertain:";
+/** A stop whose finished game lost the bind race to her own session (Ila, 2026-11-11); its saved build replays free. */
+export const LOST_BIND_STOP_REASON = "successor_node_failed:learning_cycle_revision_conflict:";
+const paidRetryReasonPrefix = (nodeId: string) => `One paid rebuild approved for cut-off stop ${nodeId}:`;
+
+/** Blocks an operator may retry: a truncated answer, a decision blocked by the since-fixed
+ * stage-changed bug (a retry collided with its own saved turns; fixed 2026-10-25), a request
+ * whose connection dropped before any answer arrived (2026-11-04), or an item-intake math cycle whose
+ * decision went to the retired single form and came back with no board (fixed 2026-11-08). */
+export function isRetryablePlannerBlock(reason: string, cycle?: Pick<LearningCycleRecordV2, "domain" | "nodes">): boolean {
+  return reason === "planner_decision_invalid:planner_response_max_tokens"
+    || reason.startsWith("planner_decision_invalid:provider_stage_request_changed:")
+    || reason.startsWith("provider_outcome_uncertain:")
+    || (reason === "planner_decision_invalid:board_definition_missing" && Boolean(cycle && isItemIntakeMathCycle(cycle)));
+}
+
+/** Calibration authority requires sufficient evaluations linked to cited external facts. */
 export function hasSufficientCalibrationEvidence(
   cycle: LearningCycleRecordV2,
   decision: Pick<LearningCycleDecision, "evidenceIds" | "predictionEvaluationIds">,
@@ -510,8 +572,18 @@ export type NextInstrumentPrescription = {
   mathematicalHook?: string;
   /** What the stop's picture on her map shows, written by the Planner. */
   picture?: string;
+  /** The board's one creature encounter, placed by the Planner with its reason (owner, 2026-11-08). */
+  creatureEncounter?: { reason: string };
+  /** The one error a built-for-her game is aimed at, in the Planner's words (contract 56). */
+  focus?: string;
+  /** A built-for-her game she played that the builder starts from (owner, 2026-11-09). */
+  buildFrom?: string;
+  /** The owner's library game the Planner chose for its Quest/Boss step (owner, 2026-11-11). */
+  libraryGame?: LibraryGameId;
   /** Marks the one Planner-authorized encounter on a Quest or Boss successor board. */
   encounter?: "quest" | "boss";
+  /** A reward break (Law 16): a Mystery game with no items; recorded as play, never as learning evidence. */
+  reward?: true;
 };
 
 export type SpellingInstrumentPrescription = {
@@ -550,6 +622,13 @@ function adoptBuiltInAnswerForms(source: LearningCycleNodeContract, items: Learn
 }
 
 /** One allowlist shared by the Planner tool and the persisted board contract. */
+/** The words a stop shows her. A Discovery shows only the words the Planner chose to check (contract 54). */
+export function presentedSpellingItems(node: Pick<LearningCycleNodeContract, "role" | "evidenceContract">): LearningCycleSpellingItem[] {
+  const items = Object.values(node.evidenceContract.spellingItems ?? {});
+  const chosen = node.role === "evaluation" ? node.evidenceContract.discoveryItemIds : undefined;
+  return chosen ? items.filter(item => chosen.includes(item.id)) : items;
+}
+
 export function spellingAssignmentItems(cycle: LearningCycleRecordV2): Map<string, LearningCycleSpellingItem> {
   const assigned = new Set(cycle.assignment.targets.map(word => word.normalize("NFC").trim().toLocaleLowerCase("en-US")));
   const items = new Map<string, LearningCycleSpellingItem>();
@@ -618,7 +697,10 @@ export type LearningCycleEvent =
       agencyExperiment?: LearningCycleAgencyExperiment;
     }
   | { type: "node_artwork_saved"; nodeId: string; localPath: string }
+  | { type: "finished_board_closed" }
+  | { type: "school_forecast_locked" }
   | { type: "engagement_noted"; evidenceId: string; summary: string }
+  | { type: "observation_rescored"; reason: string; source: string; rescores: Array<{ observationId: string; childResponse?: string; result: LearningObservation["result"]; addConfounds: string[] }> }
   | {
       type: "plan_reconciled";
       boardDefinition?: AdventureBoardDefinition;
@@ -646,6 +728,8 @@ export type LearningCycleEvent =
   | { type: "artifact_rejected"; nodeId: string; reason: string }
   | { type: "artifact_generation_attention_required"; nodeId: string; reason: string; notReady?: boolean }
   | { type: "not_ready_rerun_builtin"; nodeId: string; builtInActivityId: string }
+  | { type: "not_ready_paid_retry_authorized"; nodeId: string; reason: string }
+  | { type: "not_ready_paid_retry_failed"; nodeId: string; reason: string }
   | { type: "engagement_theory_updated"; theory: EngagementTheory; reason: string }
   | { type: "graded_work_received"; calibration: LearningCycleCalibration }
   | {
@@ -672,9 +756,15 @@ export type LearningCycleEvent =
         progressionAction?: LearningProgressionAction;
         successor?: SuccessorProgram;
         replayedResponse?: LearningCycleDecision['replayedResponse'];
+        selfReview?: PlannerSelfReview;
+        expectations?: PlannerExpectation[];
+        gameNotes?: LearningCycleDecision["gameNotes"];
+        schoolForecast?: SchoolForecast;
       };
     }
   | { type: "planner_retry_authorized"; blockedDecisionId: string; reason: string }
+  /** Owner 2026-11-09: close her current board early for one fresh Planner decision; her answers stay. */
+  | { type: "owner_replan_requested"; reason: string }
   | { type: "block"; reason: string };
 
 export type LearningCycleRepositoryOptions = {
@@ -813,8 +903,17 @@ export function canonicalJourneyFrontier(cycle:LearningCycleRecordV2) {
   return definition ? journeyFrontier(definition,cycle.routeSelection?.choices ?? {},cycle.nodes.filter(node=>node.state==='completed').map(node=>node.nodeId),notReadyNodeIds(cycle)) : undefined;
 }
 
-// Prepared spelling practice is selectable; the authored path remains a recommendation.
-const allowsReadyActivitySelection = (cycle:LearningCycleRecordV2) => cycle.domain === 'spelling'
+/** Stops left before this board ends and the FaceTime call is earned (owner, 2026-11-07). Only teaching and successor
+ * boards earn the call, so a Discovery probe board, a legacy cycle or a finished board reports nothing. */
+export function canonicalStopsLeft(cycle:LearningCycleRecordV2):number|undefined {
+  const board = currentBoardInstance(cycle);
+  if (!board.definition || !['teaching','successor'].includes(board.kind)) return undefined;
+  return journeyStopsLeft(board.definition,cycle.routeSelection?.choices ?? {},cycle.nodes.filter(node=>node.state==='completed').map(node=>node.nodeId),notReadyNodeIds(cycle));
+}
+
+// Prepared practice is selectable on any subject's teaching and successor boards (one pipeline, owner
+// 2026-11-08: Reina's math board showed built stops as locked); the authored path remains a recommendation.
+const allowsReadyActivitySelection = (cycle:LearningCycleRecordV2) => (cycle.domain === 'spelling' || cycle.domain === 'math')
   && ['teaching','successor'].includes(currentBoardInstance(cycle).kind);
 
 /** A finished evidence batch does not end prepared spelling practice. */
@@ -1300,8 +1399,9 @@ function prepareSuccessorBoard(
   // A checkpoint may only reuse a checkpoint activity, so a re-launched check never shows the answer.
   const nodes = program.instruments.map((prescription): LearningCycleNodeContract => {
     const nodeId = idFor.get(prescription.nodeId)!;
-    const role: LearningCycleNodeRole = prescription.encounter ?? "baseline";
-    const spelling = next.domain === "spelling" ? validateSpellingPrescription(prescription.spelling) : undefined;
+    const role: LearningCycleNodeRole = prescription.reward ? "mystery" : prescription.encounter ?? "baseline";
+    // A reward break carries no words or problems: it is play, prepared as a built-in Mystery.
+    const spelling = next.domain === "spelling" && !prescription.reward ? validateSpellingPrescription(prescription.spelling) : undefined;
     const spellingItems = spelling?.wordIds.map(wordId => {
       const source = savedSpellingItems.get(wordId);
       if (!source) throw new Error(`spelling_successor_word_unknown:${wordId}`);
@@ -1313,10 +1413,18 @@ function prepareSuccessorBoard(
         response: { ...source.response, acceptedForms: [...source.response.acceptedForms], mode: spelling.responseMode },
       };
     });
+    // A math step from the shared tools is a game built for her recorded problems (as at intake); a problem she
+    // has answered before is no longer unseen, so it can never count as an unseen check.
+    const mathItems = next.domain !== "spelling" && !prescription.reward && prescription.items
+      ? prescription.items.map(item => ({ ...structuredClone(item), lineage: { ...item.lineage, exposure: next.observations.some(row => row.itemId === item.id) ? "practiced" as const : item.lineage.exposure } }))
+      : undefined;
+    const builtForHer = Boolean(mathItems && prescription.mechanic === "generated-game");
     const design = prescriptionDesign(prescription);
     // Decisions saved before the Planner named built-ins re-run the activity whose ID they repeated.
     // A game and mode from the menu is set up fresh for this step's words, the way the Teaching board sets it up.
-    const fresh = spelling?.activity;
+    // A library game is served as it is: no menu setup and no built-in re-run behind it (owner, 2026-11-11).
+    const libraryGame = prescription.libraryGame && (role === "quest" || role === "boss") ? prescription.libraryGame : undefined;
+    const fresh = libraryGame ? undefined : spelling?.activity;
     let freshSetup: Record<string, unknown> | undefined, freshReady = Boolean(fresh);
     if (fresh) {
       try {
@@ -1329,7 +1437,7 @@ function prepareSuccessorBoard(
         console.warn(` 🎮 [learning-board] [successor-fresh] [not-ready] node=${nodeId} activity=${fresh.id} reason=${error instanceof Error ? error.message : String(error)}`);
       }
     }
-    const candidate = next.domain === "spelling" && !fresh ? findReusableBuiltIn(next, spelling?.builtInActivityId ?? prescription.nodeId, spelling?.measurementRole) : undefined;
+    const candidate = next.domain === "spelling" && !fresh && !libraryGame ? findReusableBuiltIn(next, spelling?.builtInActivityId ?? prescription.nodeId, spelling?.measurementRole) : undefined;
     const reusedSetup = candidate?.evidenceContract.nativeConfig ? repointReusedSetup(candidate, nodeId, spellingItems ?? []) : undefined;
     const source = candidate && (candidate.evidenceContract.nativeConfig ? reusedSetup : sameWordSet(candidate, spellingItems ?? [])) ? candidate : undefined;
     if (candidate && !source) console.warn(` 🎮 [learning-board] [successor-reuse] [not-reusable] node=${nodeId} from=${candidate.nodeId} reason=setup_cannot_be_repointed`);
@@ -1341,30 +1449,39 @@ function prepareSuccessorBoard(
       role,
       title: prescription.title,
       state: "generating",
-      academicTarget: { domain: next.domain, skill: prescription.academicTarget, targets: spellingItems?.map(item => item.word) ?? [] },
-      algorithmOwner: role === "baseline" ? "ai_tutor" : "mastery-gating",
+      academicTarget: { domain: next.domain, skill: prescription.academicTarget, targets: spellingItems?.map(item => item.word) ?? (builtForHer ? mathItems!.map(item => item.prompt) : []) },
+      algorithmOwner: role === "baseline" ? "ai_tutor" : role === "mystery" ? "activity-affinity" : "mastery-gating",
       theoryId: next.academicTheory.theoryId,
       experimentId: `${prefix}:${role}:${slugId(prescription.nodeId)}`,
       mechanic: prescription.mechanic,
-      ...(source ? { implementationType: source.implementationType, reusedFrom: source.nodeId } : fresh && freshReady ? { implementationType: fresh.type as LearningCycleNodeContract["implementationType"] } : {}),
+      ...(prescription.reward ? { implementationType: "mystery" as LearningCycleNodeContract["implementationType"] }
+        // No implementationType: the stop launches as its Quest/Boss role, served from where bindGeneratedHtml writes it.
+        : libraryGame ? { libraryGame }
+        : source ? { implementationType: source.implementationType, reusedFrom: source.nodeId } : fresh && freshReady ? { implementationType: fresh.type as LearningCycleNodeContract["implementationType"] }
+        : builtForHer ? { implementationType: "generated-game" as LearningCycleNodeContract["implementationType"] } : {}),
       theme: prescription.theme,
       ...(design ? { design } : {}),
       openingScreen: { title: prescription.title, purpose: prescription.openingPurpose },
+      ...(prescription.creatureEncounter ? { creatureEncounter: { reason: prescription.creatureEncounter.reason, itemIds: (spellingItems ?? []).map(item => item.id) } } : {}),
+      ...(prescription.focus ? { focus: prescription.focus } : {}),
+      ...(prescription.buildFrom ? { buildFrom: prescription.buildFrom } : {}),
       generationPrompt: prompt,
-      prediction: {
+      ...(role === "mystery" ? {} : { prediction: {
         claim: `This ${role === "baseline" ? "support instrument" : role} follows the Planner decision: ${input.reason}`,
         createdAt: input.at,
-        evidenceLimit: role === "baseline" ? "practice_only" : "provisional_transfer",
-      },
+        evidenceLimit: role === "baseline" ? "practice_only" as const : "provisional_transfer" as const,
+      } }),
       artifactBinding: null,
-      artwork: role === "baseline" && reference?.artwork.localPath
-        ? { status: "ready", localPath: reference.artwork.localPath, prompt: prescription.picture ?? null }
+      // A stop with its own picture prompt waits for its picture (BUGS.md 2026-11-13: borrowed icons were marked
+      // ready, so nothing ever painted them); the borrowed look shows until then.
+      artwork: (role === "baseline" || role === "mystery") && reference?.artwork.localPath
+        ? { status: prescription.picture ? "placeholder" : "ready", localPath: reference.artwork.localPath, prompt: prescription.picture ?? null }
         : { status: "placeholder", localPath: `/generated/adventure-board-demo/${role === "boss" ? "boss" : "quest"}.jpeg`, prompt: prescription.picture ?? null },
       sfxContract: ["interaction", "recovery", "progress", "completion"],
       companionContract: { events: ["completion", "frustration"] },
       evidenceContract: {
-        academic: true, engagement: true, companionObservations: true,
-        ...(prescription.items ? prescriptionEvidence(prescription.items) : {}),
+        academic: role !== "mystery", engagement: true, companionObservations: true,
+        ...(mathItems && role !== "mystery" ? prescriptionEvidence(mathItems) : {}),
         ...(spellingItems ? {
           spellingItems: Object.fromEntries(spellingItems.map(item => [item.id, item])),
           itemRoles: Object.fromEntries(spellingItems.map(item => [item.id, item.lineage.measurementRole])),
@@ -1405,6 +1522,31 @@ function publishPreparedBoardIfComplete(next: LearningCycleRecordV2, at: string)
   normalizeAgencyNodeStates(next);
   console.log(` 🎮 [learning-board] [published] [${board.boardId}] kind=${board.kind} lifecycle=${next.lifecycle}`);
   return board;
+}
+
+/**
+ * Locks code's baseline school-test forecast now (2026-11-13: Reina's math test is Monday, and a week with no new
+ * decision would leave her grade nothing to compare with). No model call; the Planner's forecast comes with decisions.
+ */
+export function lockBaselineSchoolForecast(childId: string, homeworkId: string, opts: LearningCycleRepositoryOptions = {}): LearningCycleRecordV2 {
+  const locked = transitionLatestLearningCycle(childId, homeworkId, { type: "school_forecast_locked" }, opts);
+  console.log(` 🎮 [school-forecast] [baseline] [locked] child=${childId} homework=${homeworkId} forecasts=${locked.schoolForecasts?.length ?? 0}`);
+  return locked;
+}
+
+const STUCK_FINISHED_LIFECYCLES = new Set<LearningCycleRecordV2["lifecycle"]>(["baseline_ready", "baseline_active", "quest_ready", "boss_ready"]);
+
+/**
+ * A published board whose route is all done but still says ready is closed, so the next board gets made
+ * (BUGS.md 2026-11-13: Ila played both sides of a fork by tapping the stops, never the fork, and was left on a
+ * finished map). Run at startup before the successor resume; returns the cycle as it now stands.
+ */
+export function closeStuckFinishedBoard(childId: string, homeworkId: string, opts: LearningCycleRepositoryOptions = {}): LearningCycleRecordV2 | null {
+  const cycle = getLearningCycle(childId, homeworkId, opts);
+  if (!cycle?.boards || !STUCK_FINISHED_LIFECYCLES.has(cycle.lifecycle) || !currentBoardInstance(cycle).publishedAt || !canonicalJourneyFrontier(cycle)?.complete) return cycle;
+  const closed = transitionLearningCycle(childId, homeworkId, cycle.revision, { type: "finished_board_closed" }, opts);
+  console.log(` 🎮 [learning-board] [finished-board] [closed] child=${childId} homework=${homeworkId} board=${currentBoardInstance(cycle).boardId} lifecycle=${closed.lifecycle}`);
+  return closed;
 }
 
 /** A next-board stop may borrow an earlier stop's look, but a picture painted for one stop stays on that stop. */
@@ -1475,7 +1617,9 @@ export function transitionLearningCycle(
       console.log(` 🎮 [learning-cycle] [evaluation-completion] [reused] child=${childId} homework=${homeworkId} evaluation=${event.evaluationId}`);
       return current;
     }
-    if (!next.observations.some((observation) => observation.sourceId === `evaluation:${event.evaluationId}`)) {
+    // Contract 54: a Discovery the Planner chose to check no words on completes with no answers; any other needs one.
+    const checksNone = evaluation.evidenceContract.discoveryItemIds?.length === 0;
+    if (!checksNone && !next.observations.some((observation) => observation.sourceId === `evaluation:${event.evaluationId}`)) {
       throw new Error("learning_cycle_evaluation_evidence_missing");
     }
     evaluation.state = "completed";
@@ -1539,6 +1683,15 @@ export function transitionLearningCycle(
     };
     reason = "The coherent targeted map is frozen; it publishes once every node artifact is verified.";
     evidenceIds = next.observations.map((observation) => observation.observationId);
+  } else if (event.type === "school_forecast_locked") {
+    next.schoolForecasts = [...(next.schoolForecasts ?? []), ...schoolForecastPredictions(next, undefined, at)];
+    reason = "Code's baseline school-test forecast was locked between decisions; nothing about her learning changed.";
+  } else if (event.type === "finished_board_closed") {
+    if (!STUCK_FINISHED_LIFECYCLES.has(next.lifecycle) || !canonicalJourneyFrontier(next)?.complete) throw new Error("learning_cycle_board_not_finished");
+    const boardNodeIds = new Set(currentBoardInstance(next).nodeIds);
+    const completedRoles = next.nodes.filter(candidate => boardNodeIds.has(candidate.nodeId) && candidate.state === "completed").map(candidate => candidate.role);
+    next.lifecycle = completedRoles.includes("boss") ? "boss_evaluating" : completedRoles.includes("quest") ? "quest_evaluating" : "baseline_evaluating";
+    reason = "Every stop on one route of this board was done but it never closed (fork never tapped); one Planner decision is required.";
   } else if (event.type === "node_artwork_saved") {
     assertLocalPath(event.localPath, "artwork_path");
     const node = next.nodes.find((row) => row.nodeId === event.nodeId);
@@ -1666,8 +1819,8 @@ export function transitionLearningCycle(
     appendObservations(next, practiceContinuation ? event.observations.map(observation => ({...observation, provenance:"practice" as const,
       confounds:[...observation.confounds.filter(value=>!value.startsWith("measurement_role:") && value!=="post_board_practice"),"measurement_role:practice","post_board_practice"]})) : event.observations);
     if (event.completed === false) {
-      if (!(replay && next.domain === "spelling")) node.state = "active";
-      reason = replay && next.domain === "spelling" ? "Replay item captured as practice; completed instrument remains closed." : "Factual item response captured; instrument remains incomplete.";
+      if (!replay) node.state = "active";
+      reason = replay ? "Replay item captured as practice; completed instrument remains closed." : "Factual item response captured; instrument remains incomplete.";
     } else {
     node.state = "completed";
     node.evidenceIds = uniqueEvidence([
@@ -1728,7 +1881,8 @@ export function transitionLearningCycle(
     const repair = Boolean(node.notReadyReason);
     delete node.notReadyReason;
     node.artifactBinding = event.artifact;
-    node.artwork = { ...node.artwork, status: "ready", localPath: event.artifact.localArtworkPath };
+    // A stop's library picture stays when its game is bound later (BUGS.md 2026-11-13).
+    node.artwork = { ...node.artwork, status: "ready", localPath: isLibraryPicture(node.artwork.localPath) ? node.artwork.localPath : event.artifact.localArtworkPath };
     if (node.state !== "completed") node.state = "ready";
     const preparing = next.boards ? preparingBoardInstance(next) : undefined;
     if (repair) { /* lifecycle unchanged */ }
@@ -1794,6 +1948,8 @@ export function transitionLearningCycle(
     }
     ({ status, reason, nextAction } = event.decision);
     evidenceIds = [...event.decision.evidenceIds];
+    // Every decision locks a school-test forecast: the Planner's when it gave one, and always code's baseline (2026-11-13).
+    if (next.domain === "spelling" || next.domain === "math") next.schoolForecasts = [...(next.schoolForecasts ?? []), ...schoolForecastPredictions(next, event.decision.schoolForecast, at)];
     if (event.decision.revisedHypothesis && event.decision.revisedHypothesis !== next.academicTheory.hypothesis) {
       next.academicTheory = {
         ...next.academicTheory,
@@ -1886,15 +2042,56 @@ export function transitionLearningCycle(
     const owner = boardOwningNode(next, node.nodeId)!;
     owner.topologyHash = boardTopologyHash(next, owner);
     reason = `Not ready step ${node.nodeId} re-runs the tested built-in ${source.nodeId}.`;
+  } else if (event.type === "not_ready_paid_retry_authorized") {
+    // A person approves one paid rebuild of a stop whose build was cut off (owner, 2026-11-11). The approval is
+    // recorded before any purchase; the stop stays Not ready until the rebuild binds, and it can never be approved twice.
+    const node = nodeOrThrow(next, event.nodeId);
+    if (!(node.notReadyReason?.startsWith(CUT_OFF_STOP_REASON) || node.notReadyReason?.startsWith(LOST_BIND_STOP_REASON)) || node.artifactBinding || !next.boards
+      || !currentBoardInstance(next).nodeIds.includes(node.nodeId) || !event.reason.trim()
+      || current.decisionHistory.some(row => row.eventType === "not_ready_paid_retry_authorized" && row.reason.startsWith(paidRetryReasonPrefix(node.nodeId)))) {
+      throw new Error(`cut_off_stop_retry_not_eligible:${node.nodeId}`);
+    }
+    node.notReadyReason = `paid_retry_in_progress:r${current.revision + 1}`;
+    reason = `${paidRetryReasonPrefix(node.nodeId)} ${event.reason.trim()}`;
+  } else if (event.type === "not_ready_paid_retry_failed") {
+    const node = nodeOrThrow(next, event.nodeId);
+    if (!node.notReadyReason?.startsWith("paid_retry_in_progress:") || node.artifactBinding) throw new Error(`cut_off_stop_retry_not_in_progress:${node.nodeId}`);
+    node.notReadyReason = `successor_node_failed:${event.reason}`;
+    reason = `The one approved rebuild of node=${node.nodeId} failed; it stays Not ready.`;
+  } else if (event.type === "owner_replan_requested") {
+    if (!["board_ready", "baseline_ready", "baseline_active"].includes(current.lifecycle) || !current.boards?.length
+      || preparingBoardInstance(current) || !event.reason.trim()) throw new Error("owner_replan_not_eligible");
+    next.lifecycle = "baseline_evaluating";
+    reason = `The owner closed her current board early for this fresh decision: "${event.reason.trim()}"`;
+    console.log(` 🎮 [canonical-progression] [owner-replan] [requested] homework=${current.homeworkId} from=${current.lifecycle}`);
   } else if (event.type === "planner_retry_authorized") {
     const blocked = [...current.decisionHistory].reverse().find(row => row.fromLifecycle !== row.toLifecycle);
     if (current.lifecycle !== "blocked" || blocked?.eventType !== "block"
       || blocked.decisionId !== event.blockedDecisionId
-      || !isRetryablePlannerBlock(blocked.reason)
+      || !isRetryablePlannerBlock(blocked.reason, current)
       || !["baseline_evaluating", "quest_evaluating", "boss_evaluating"].includes(blocked.fromLifecycle)
       || !event.reason.trim()) throw new Error("planner_retry_not_eligible");
     next.lifecycle = blocked.fromLifecycle;
     reason = `Replacement authorized for ${event.blockedDecisionId}: ${event.reason.trim()}`;
+  } else if (event.type === "observation_rescored") {
+    // An explicit operator re-score: the old answer and result are kept in the record; lifecycle and boards are unchanged.
+    if (!event.reason.trim() || !event.source.trim() || !event.rescores.length) throw new Error("observation_rescore_reason_required");
+    for (const row of event.rescores) {
+      const observation = next.observations.find((candidate) => candidate.observationId === row.observationId);
+      if (!observation) throw new Error(`observation_rescore_missing:${row.observationId}`);
+      const rescoreId = `${row.observationId}:rescore:r${current.revision + 1}`;
+      const citedBy = [...next.predictionEvaluations.filter((evaluation) => evaluation.observationIds.includes(observation.observationId)).map((evaluation) => evaluation.evaluationId),
+        ...next.decisionHistory.filter((decision) => decision.eventType === "theory_decided" && decision.evidenceIds.includes(observation.observationId)).map((decision) => decision.decisionId)];
+      (next.observationRescores ??= []).push({ rescoreId, observationId: observation.observationId, at, reason: event.reason.trim(), source: event.source.trim(), citedBy,
+        from: { ...(observation.childResponse === undefined ? {} : { childResponse: observation.childResponse }), result: structuredClone(observation.result) },
+        to: { ...(row.childResponse === undefined ? {} : { childResponse: row.childResponse }), result: structuredClone(row.result) } });
+      if (row.childResponse !== undefined) observation.childResponse = row.childResponse;
+      observation.result = structuredClone(row.result);
+      observation.confounds = [...new Set([...observation.confounds.filter((value) => value !== "incorrect" && value !== "correct"), ...row.addConfounds, `rescored:${rescoreId}`])];
+      next.evidence.academic = uniqueEvidence([...next.evidence.academic, { evidenceId: rescoreId, summary: `${observation.itemId}: re-scored ${row.result.observedErrorType ?? (row.result.correct ? "correct" : "incorrect")}; ${event.reason.trim()}` }]);
+      evidenceIds.push(rescoreId);
+    }
+    reason = `Saved answers re-scored by ${event.source.trim()}: ${event.reason.trim()}`;
   } else {
     next.lifecycle = "blocked";
     reason = event.reason;
@@ -1912,6 +2109,10 @@ export function transitionLearningCycle(
     fromLifecycle,
     toLifecycle: next.lifecycle,
     createdAt: at,
+    ...(() => {
+      const stop = "nodeId" in event && typeof event.nodeId === "string" ? next.nodes.find(node => node.nodeId === event.nodeId) : undefined;
+      return stop ? { nodeId: stop.nodeId, ...(stop.notReadyReason ? { notReadyReason: stop.notReadyReason } : {}) } : {};
+    })(),
     ...(event.type === "theory_decided" ? {
       preserve: event.decision.preserve,
       change: event.decision.change,
@@ -1920,6 +2121,9 @@ export function transitionLearningCycle(
       predictionEvaluationIds: event.decision.predictionEvaluationIds,
       assumptionAssessments: event.decision.assumptionAssessments,
       ...(event.decision.replayedResponse?{replayedResponse:structuredClone(event.decision.replayedResponse)}:{}),
+      ...(event.decision.selfReview ? { selfReview: structuredClone(event.decision.selfReview) } : {}),
+      ...(event.decision.expectations?.length ? { expectations: structuredClone(event.decision.expectations) } : {}),
+      ...(event.decision.gameNotes?.length ? { gameNotes: structuredClone(event.decision.gameNotes) } : {}),
     } : {}),
   };
   next.decisionHistory.push(decision);
@@ -2375,4 +2579,27 @@ export function projectLearningCyclePlanForWrite(
   const cycle = getLearningCycle(childId, homeworkId, opts);
   if (!cycle) return plan;
   return projectLearningCycle(cycle, { presentationPlan: plan }).activeSessionPlan;
+}
+
+
+/**
+ * Reseals published boards after an approved repair of their saved content (2026-11-10: Reina's sweater table was
+ * fixed by hand on 11/9 and never resealed, so every save after it was refused). Only boards whose seal no longer
+ * matches are resealed; each old and new seal is recorded with the reason. Refuses when nothing needs it.
+ */
+export function resealPublishedBoards(childId: string, homeworkId: string, reason: string, opts: LearningCycleRepositoryOptions = {}): { resealed: Array<{ boardId: string; from: string; to: string }> } {
+  if (!reason.trim()) throw new Error("reseal_reason_required");
+  const cycle = getLearningCycle(childId, homeworkId, opts);
+  if (!cycle) throw new Error(`learning_cycle_not_found:${homeworkId}`);
+  const resealed = (cycle.boards ?? []).flatMap(board => { const to = boardTopologyHash(cycle, board); return to === board.topologyHash ? [] : [{ boardId: board.boardId, from: board.topologyHash, to }]; });
+  if (!resealed.length) throw new Error("reseal_not_needed");
+  const next = structuredClone(cycle);
+  for (const row of resealed) next.boards!.find(board => board.boardId === row.boardId)!.topologyHash = row.to;
+  assertCycle(next);
+  atomicWrite(cyclePath(childId, homeworkId, opts), next);
+  const log = path.join(resolveChildContextDir(childId, { rootDir: opts.rootDir }), "sunny_health", "reseals.ndjson");
+  fs.mkdirSync(path.dirname(log), { recursive: true });
+  fs.appendFileSync(log, `${JSON.stringify({ at: new Date().toISOString(), homeworkId, reason: reason.trim(), resealed })}\n`);
+  console.log(` 🎮 [learning-board] [resealed] child=${childId} homework=${homeworkId} boards=${resealed.map(row => row.boardId).join(",")} reason=${JSON.stringify(reason.trim())}`);
+  return { resealed };
 }

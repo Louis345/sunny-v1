@@ -1,6 +1,7 @@
 import path from "node:path";
 import type { AdventureBoardComposition, AdventureJourneyDefinition } from "../../shared/adventureBoardDefinition";
 import { DEFAULT_THEME_PRESET, layoutJourney } from "../../shared/boardLayout";
+import { offeredValues } from "../../engine/plannerTransport";
 
 /** Tests draw the next board on the plain layout; the map artist has its own tests. */
 export async function plainDraw(journey: AdventureJourneyDefinition): Promise<{ composition: AdventureBoardComposition }> {
@@ -9,8 +10,9 @@ export async function plainDraw(journey: AdventureJourneyDefinition): Promise<{ 
     portals: journey.portals.map(portal => ({ id: portal.id, position: positions[portal.id] })), edges: journey.edges.map(edge => ({ id: edge.id })) } };
 }
 
-type Recorded = { progressionAction: string; status: string; reason: string; preserve?: string[]; change?: string[]; testNext?: string[]; nextEvidenceRequired?: string[]; predictionEvaluationIds?: string[]; revisedHypothesis?: string;
-  nextInstruments?: Array<{ nodeId: string; title: string; academicTarget?: string; openingPurpose?: string; encounter?: string; spelling?: { builtInActivityId?: string; wordIds?: string[] } }>;
+type Recorded = { gameNotes?: Array<{ game: string; verdict: string; why: string }>; expectations?: Array<{ item: string; right: boolean }>; progressionAction: string; status: string; reason: string; preserve?: string[]; change?: string[]; testNext?: string[]; nextEvidenceRequired?: string[]; predictionEvaluationIds?: string[]; revisedHypothesis?: string;
+  selfReview?: { whatITried: string; whatHappened: string; why: string; whatIKeep?: string; whatIChangeNow: string };
+  nextInstruments?: Array<{ nodeId: string; title: string; academicTarget?: string; openingPurpose?: string; encounter?: string; reward?: boolean; creatureEncounter?: { reason: string }; focus?: string; buildFrom?: string; spelling?: { builtInActivityId?: string; wordIds?: string[] } }>;
   boardDefinition?: { title?: string; rootPathId: string; portals: Array<{ id: string; kind: string; activityNodeId?: string }>; paths: Array<{ id: string; portalIds: string[] }>; choices: Array<{ portalId: string; purpose: string; options: Array<{ label: string; hypothesis: string; pathId: string }> }> } };
 const last = (id: string) => id.split(":").pop();
 let replies = 0;
@@ -25,24 +27,35 @@ export function successorToolReply(recorded: unknown, request: any): any {
   const names: string[] = (request.tools ?? []).map((tool: any) => tool.name);
   if (!names.includes("decide")) return message([{ name: "decide_learning_cycle_progression", input: decision }]);
   const schema = (name: string) => request.tools.find((tool: any) => tool.name === name).input_schema.properties;
-  const builtIns: string[] = schema("add_step").built_in.enum ?? [];
-  const offeredEvaluations: string[] | undefined = schema("decide").prediction_evaluation_ids.items?.enum;
+  const builtIns: string[] = offeredValues(schema("add_step").built_in) ?? [];
+  const offeredEvaluations: string[] | undefined = offeredValues(schema("decide").prediction_evaluation_ids.items);
   const cited = (decision.predictionEvaluationIds ?? []).filter(id => offeredEvaluations?.includes(id));
   const decide = { name: "decide", input: { status: decision.status, reason: decision.reason, progression_action: decision.progressionAction, preserve: decision.preserve ?? [], change: decision.change ?? [],
     test_next: decision.testNext ?? [], next_evidence_required: decision.nextEvidenceRequired ?? [],
-    prediction_evaluation_ids: offeredEvaluations ? (cited.length ? cited : offeredEvaluations.slice(0, 1)) : [], revised_hypothesis: decision.revisedHypothesis ?? "" } };
-  const steps = (decision.nextInstruments ?? []).flatMap(row => {
+    prediction_evaluation_ids: offeredEvaluations ? (cited.length ? cited : offeredEvaluations.slice(0, 1)) : [], revised_hypothesis: decision.revisedHypothesis ?? "",
+    // Contract 56: a new question asks for the self-review; a recorded decision without one answers with its reason.
+    ...(schema("decide").self_review ? { self_review: { what_i_tried: decision.selfReview?.whatITried ?? "Recorded decision.", what_happened: decision.selfReview?.whatHappened ?? decision.reason,
+      why: decision.selfReview?.why ?? decision.reason, what_i_keep: decision.selfReview?.whatIKeep ?? "What she enjoyed.", what_i_change_now: decision.selfReview?.whatIChangeNow ?? (decision.change?.join(" ") || "The recorded board.") } } : {}),
+    ...(schema("decide").expect_on_her_own && decision.expectations ? { expect_on_her_own: decision.expectations } : {}),
+    ...(schema("decide").game_notes && decision.gameNotes ? { game_notes: decision.gameNotes } : {}) } };
+  const steps = (decision.nextInstruments ?? []).flatMap((row): Array<{ nodeId: string; name: string; input: Record<string, unknown> }> => {
+    // A recorded reward break is placed with the one reward tool, when the question offers it.
+    if (row.reward) return names.includes("add_reward") ? [{ nodeId: row.nodeId, name: "add_reward", input: { title: row.title, story: `Story: ${row.title}`, picture: `Picture: ${row.title}` } }] : [];
     const wanted = [row.spelling?.builtInActivityId, row.nodeId].filter((id): id is string => Boolean(id));
     const builtIn = builtIns.find(id => wanted.some(want => id === want || last(id) === last(want)));
-    const offeredWords: string[] = schema("add_step").words.items?.enum ?? [];
+    const offeredWords: string[] = offeredValues(schema("add_step").words.items) ?? [];
     const words = (row.spelling?.wordIds ?? []).filter(word => offeredWords.includes(word));
     // When Quest/Boss are offered, every step says whether it is the encounter.
     const encounter = schema("add_step").encounter ? { encounter: row.encounter ?? "none" } : {};
-    return builtIn ? [{ nodeId: row.nodeId, input: { built_in: builtIn, words, title: row.title, purpose: row.academicTarget || row.openingPurpose || "Practice.", story: `Story: ${row.title}`, picture: `Picture: ${row.title}`, ...encounter } }] : [];
+    // A recorded creature encounter is placed the way the Planner places it, when the tool offers it.
+    const creature = schema("add_step").creature_encounter && row.creatureEncounter ? { creature_encounter: row.creatureEncounter.reason } : {};
+    const focus = schema("add_step").focus && row.focus ? { focus: row.focus } : {};
+    const buildFrom = schema("add_step").build_from && row.buildFrom ? { build_from: row.buildFrom } : {};
+    return builtIn ? [{ nodeId: row.nodeId, name: "add_step", input: { built_in: builtIn, words, title: row.title, purpose: row.academicTarget || row.openingPurpose || "Practice.", story: `Story: ${row.title}`, picture: `Picture: ${row.title}`, ...encounter, ...creature, ...focus, ...buildFrom } }] : [];
   });
   const assistantTurns = (request.messages ?? []).filter((row: any) => row.role === "assistant").length;
   if (decision.progressionAction === "await_calibration") return message([decide, { name: "finish_board", input: { title: "Waiting", endpoint_label: "Finish", single_path_reason: "Awaiting graded work." } }]);
-  if (assistantTurns === 0) return message([decide, ...steps.map(step => ({ name: "add_step", input: step.input }))]);
+  if (assistantTurns === 0) return message([decide, ...steps.map(step => ({ name: step.name, input: step.input }))]);
   const answers = (request.messages.at(-1).content as any[]).filter(block => block.type === "tool_result" && !block.is_error).map(block => JSON.parse(block.content));
   // The Planner's one look at its board: a recorded decision accepts what it built.
   if (answers.some(row => row?.board_as_served)) return message([{ name: "finish_board", input: { title: decision.boardDefinition?.title ?? "Next board", endpoint_label: "Finish", single_path_reason: "The recorded order." } }]);

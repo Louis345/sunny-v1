@@ -1,3 +1,4 @@
+import { requiredSettingsReport } from "../server/requiredSettings";
 import {openChart, type ChartDatabase} from '../chart/db';
 import {prepareSpellingChartAssignment} from '../chart/spelling/intakeBridge';
 import {spellingPlanner} from '../chart/spelling/provider';
@@ -88,7 +89,9 @@ import { validateFullExperienceReadiness } from "../engine/fullExperienceReadine
 import { enrichMathNodeArtwork, localizeMathNodeArtwork } from "../engine/mathNodeArtwork";
 import { persistIngestedLearningCycle, buildSpellingRecallItems, createSpellingDiscoveryCycle, buildSpellingDiscoveryPlan } from "../engine/learningCycleIngest";
 import { planSpellingIntakeWithTools } from "../engine/spellingIntakeWithTools";
-import { acquireMathGenerationLease, releaseMathGenerationLease, resolveAdaptiveMathDraftDir, publishDiscoveryExperience, hashDiscoveryContract, runMathProviderStage, recordGenerationFailure } from "../engine/adaptiveMathDiscovery";
+import { pastWeeksForDraft, readPastWeeks } from "../engine/pastWeeks";
+import type { HomeworkSources } from "../engine/schoolTestObjective";
+import { acquireMathGenerationLease, releaseMathGenerationLease, resolveAdaptiveMathDraftDir, publishDiscoveryExperience, hashDiscoveryContract, runMathProviderStage, recordGenerationFailure, completeDiscoveryEvaluation, queueTargetedMathGeneration } from "../engine/adaptiveMathDiscovery";
 import { getLearningCycle, repairLatestHistoricalLearningCycleBeforePlanning } from "../engine/learningCycleRepository";
 import { createIngestProgress, type IngestProgress } from "../utils/ingestOutput";
 import { generateStoryImage } from "../utils/generateStoryImage";
@@ -1114,6 +1117,15 @@ export function buildIngestSummary(childId: string, today: string, opts: { rootD
     pendingDir,
     reportPath: path.join(pendingDir, "ingest-report.md"),
   };
+  // A math board from the one pipeline is ready when its board is published; the old audit does not apply.
+  if (summary.domain === "math") {
+    const cycle = getLearningCycle(childId, homeworkId, { rootDir });
+    const board = cycle?.boards?.find(row => row.publishedAt);
+    if (cycle && board) {
+      const ready = cycle.nodes.filter(node => board.nodeIds.includes(node.nodeId) && node.artifactBinding && !node.notReadyReason).length;
+      return { ...summary, status: ready > 0 ? "FULL" : "BLOCKED", plannedActivities: board.nodeIds.length, launchableActivities: ready, readinessFailures: [], lifecycle: cycle.lifecycle };
+    }
+  }
   if (summary.domain !== "spelling") return summary;
   try {
     const cycle = getLearningCycle(childId, homeworkId, { rootDir });
@@ -2135,6 +2147,8 @@ export async function runSpellingDiscoveryIntake(args: {
   /** Answers the intake's tool conversation and draws its map instead of the providers (tests and local fixtures). */
   plannerTools?: (packet: AssignmentPlanningPacket) => Pick<NonNullable<Parameters<typeof planSpellingIntakeWithTools>[1]>, "send" | "draw">;
   confirmCapture?: (capture: SpellingIntake) => Promise<boolean>;
+  /** Starts the teaching-board builder when the Planner opens with teaching (contract 54). */
+  startTargetedWorker?: (childId: string, homeworkId: string) => void | Promise<void>;
   reviewer?: string;
   chart?: {db: ChartDatabase; provider: SpellingProvider};
 } = {}): Promise<{ homeworkId: string }> {
@@ -2168,10 +2182,13 @@ export async function runSpellingDiscoveryIntake(args: {
     if (saved && (saved.requestHash !== requestHash || saved.outputHash !== hashDiscoveryContract({ output: saved.output, telemetry: saved.telemetry }))) throw new Error("spelling_intake_checkpoint_hash_mismatch");
     const confirmationFile = path.join(draft, "spelling-intake-confirmation.json");
     let confirmation = args.confirmedCapture ?? (fs.existsSync(confirmationFile) ? JSON.parse(fs.readFileSync(confirmationFile, "utf8")) as NonNullable<typeof args.confirmedCapture> : null);
-    if (confirmation && packet.spellingDiagnostics && (!saved || hashDiscoveryContract(parseSpellingIntake(confirmation.capture, packet).diagnostic) !== hashDiscoveryContract(parseSpellingIntake(saved.output, packet).diagnostic))) throw new Error("spelling_diagnostic_confirmation_changed");
+    // The adult confirms words, not the opening: compare the Planner's choice without its word list (contract 54).
+    const choiceOf = (value: unknown) => { const diagnostic = parseSpellingIntake(value, packet).diagnostic; if (!diagnostic || !("checkWords" in diagnostic)) return diagnostic; const { checkWords: _words, ...choice } = diagnostic; return choice; };
+    if (confirmation && packet.spellingDiagnostics && (!saved || hashDiscoveryContract(choiceOf(confirmation.capture)) !== hashDiscoveryContract(choiceOf(saved.output)))) throw new Error("spelling_diagnostic_confirmation_changed");
     // The intake talks to the Planner through small locked tools; the retired single form is never sent.
     const result: CaptureResult = confirmation ? { output: confirmation.capture, telemetry: { model: "human-confirmed", latencyMs: 0 } } : saved
-      ?? await planSpellingIntakeWithTools(packet, { model: options.model, draftDir: draft, ...options.plannerTools?.(packet) });
+      ?? await planSpellingIntakeWithTools(packet, { model: options.model, draftDir: draft, ...options.plannerTools?.(packet),
+        pastWeeks: pastWeeksForDraft({ draftDir: draft, stagePrefix: "spelling-intake-tools", build: () => readPastWeeks(args.childId, { rootDir, homework: chart.homework as HomeworkSources, excludeHomeworkIds: [homeworkId] }) }) });
     if (!saved && !confirmation) save("spelling-intake-response.json", { ...result, requestHash, outputHash: hashDiscoveryContract(result) });
     parseSpellingIntake(result.output, packet);
     console.log(` 🎮 [spelling-discovery] [assignment-capture] [${saved ? "reused" : "saved"}] hash=${hashDiscoveryContract(result.output)}`);
@@ -2211,10 +2228,22 @@ export async function runSpellingDiscoveryIntake(args: {
         await prepareSpellingChartAssignment(database, {assignmentId:homeworkId, words:items.map(item=>item.word.normalize('NFC').toLowerCase()), testDate:validIsoDate(args.testDate) ? args.testDate! : null, sourcePhotoHash:fingerprint}, options.chart?.provider ?? spellingPlanner);
       } finally { if (!options.chart) database.close(); }
     } else console.log(' 🎮 [spelling-chart] [intake] [disabled] chart_directory_not_configured_or_simulation');
-    const cycle = createSpellingDiscoveryCycle({ childId: args.childId, homeworkId, title: capture.title, contentFingerprint: fingerprint, items, diagnosticSelection, boardDefinition: capture.boardDefinition ? {...capture.boardDefinition, portals:capture.boardDefinition.portals.map(portal => portal.activityNodeId === "diagnostic" ? {...portal,activityNodeId:`${homeworkId}:discovery`} : portal)} : undefined }, { rootDir });
+    // Contract 54: the Planner chose which words Discovery checks (all, some or none); every word stays on the list.
+    const chosenWords = capture.diagnostic?.action === "open_with_teaching" ? [] : capture.diagnostic?.action === "select" ? capture.diagnostic.checkWords : undefined;
+    const sameWord = (a: string, b: string) => a.normalize("NFC").trim().toLocaleLowerCase("en-US") === b.normalize("NFC").trim().toLocaleLowerCase("en-US");
+    const checkItemIds = chosenWords ? items.filter(item => chosenWords.some(word => sameWord(word, item.word))).map(item => item.id) : undefined;
+    const cycle = createSpellingDiscoveryCycle({ childId: args.childId, homeworkId, title: capture.title, contentFingerprint: fingerprint, items, diagnosticSelection, ...(checkItemIds ? { checkItemIds } : {}), boardDefinition: capture.boardDefinition ? {...capture.boardDefinition, portals:capture.boardDefinition.portals.map(portal => portal.activityNodeId === "diagnostic" ? {...portal,activityNodeId:`${homeworkId}:discovery`} : portal)} : undefined }, { rootDir });
     const activeSessionPlan = buildSpellingDiscoveryPlan({ cycle, companion: { id: chart.companion.presetId, name: chart.companion.displayName } });
     await publishDiscoveryExperience({ ...scope, spellingItems: items, activeSessionPlan, assignment: cycle.assignment });
-    console.log(` 🎮 [spelling-discovery] [intake] [ready] homework=${homeworkId} words=${items.length} targeted-board=awaiting-evidence`);
+    if (checkItemIds?.length === 0) {
+      // The Planner opened with teaching: Discovery closes with no answers and the teaching board starts building now.
+      const opened = completeDiscoveryEvaluation({ ...scope, completedAt: new Date().toISOString() });
+      queueTargetedMathGeneration({ ...scope });
+      await options.startTargetedWorker?.(args.childId, homeworkId);
+      console.log(` 🎮 [spelling-discovery] [intake] [opened-with-teaching] homework=${homeworkId} words=${items.length} lifecycle=${opened.lifecycle}`);
+      return { homeworkId };
+    }
+    console.log(` 🎮 [spelling-discovery] [intake] [ready] homework=${homeworkId} words=${items.length} checking=${checkItemIds?.length ?? items.length} targeted-board=awaiting-evidence`);
     return { homeworkId };
   } catch (error) {
     recordGenerationFailure({draftDir:draft,childId:args.childId,homeworkId,stage:'spelling_intake',startedAt:diagnosticStartedAt,error});
@@ -2241,7 +2270,6 @@ async function runIngestHomeworkInternal(
     homeworkDomain: cliHomeworkDomain,
     interactive,
   });
-  assertLegacyMathIngestAllowed(homeworkDomain);
   const childId = await resolveIngestChildId({
     childId: cliChildId,
     childIds: listIngestChildIds(),
@@ -2276,9 +2304,18 @@ async function runIngestHomeworkInternal(
     onStage?.(2, "Capturing assigned spelling words");
     await runSpellingDiscoveryIntake({ childId, sourceFile: incomingFile, testDate: cliTestDate }, {
       model: plannerModel,
+      startTargetedWorker: async (child, homework) => (await import("../server/routes")).launchAdaptiveMathWorker(child, homework),
       confirmCapture: capture => reviewSpellingIntake({ capture, sourceFile: incomingFile, interactive }),
     });
     onStage?.(5, "Spelling Discovery ready — teaching waits for answers");
+    return;
+  }
+  if (homeworkDomain === "math") {
+    // One pipeline for every subject (owner, 2026-11-08): math goes through spelling's intake shape.
+    onStage?.(2, "Recording problems and planning her first board");
+    const { runItemsIntake } = await import("./itemsIntake");
+    const { homeworkId } = await runItemsIntake({ childId, sourceFile: incomingFile, testDate: cliTestDate }, { model: plannerModel });
+    onStage?.(5, `Math board ready — ${homeworkId}`);
     return;
   }
 
@@ -2751,6 +2788,11 @@ export async function runIngestHomework(argv: string[]): Promise<void> {
   writeIngestReport(summary, diagnostics);
   progress.finish();
   originalLog(`Done — ${summary.status}`);
+  const settings = requiredSettingsReport();
+  if (settings.missing.length > 0) {
+    // A ready board without the chart would lose her answers as evidence; never let that pass quietly.
+    originalLog(`⚠️  Not saved to ${childId}'s chart: ${settings.missing.join(", ")} not set. Add them to .env and run this again.`);
+  }
   originalLog(`Activities: ${summary.launchableActivities} launchable`);
   if (summary.readinessFailures.length > 0) {
     originalLog(`Reason: ${summary.readinessFailures.slice(0, 8).join(", ")}`);

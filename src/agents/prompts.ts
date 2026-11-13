@@ -26,6 +26,7 @@ import {
   readCompanionBaseMarkdown,
   readCompanionSoulMarkdownFromAbsolute,
 } from "../companions/loader";
+import { readSoulWithCurrentFacts } from "../profiles/soulCurrentFacts";
 
 const TEMPLATE_VERSION = "v28"; // bump this when prompt changes
 
@@ -33,9 +34,8 @@ const SRC_DIR = path.resolve(__dirname, "..");
 
 /** Soul markdown under `src/context/{childId}/soul.md` (childId lowercased). */
 export function readSoul(childId: string): string {
-  const id = childId.trim().toLowerCase();
-  const p = path.join(resolveChildContextDir(id), "soul.md");
-  return fs.readFileSync(p, "utf-8");
+  // Her current dated facts first: the soul file's own age/grade lines may be years old (2026-11-10).
+  return readSoulWithCurrentFacts(childId);
 }
 
 export type BuildSessionPromptOptions = {
@@ -525,7 +525,7 @@ function sessionPromptCapabilitiesTail(subject: SessionSubject, options?: BuildS
       "## Your tools\n" +
       generateAdventureMapVoiceToolDocs() +
       "\n\n" +
-      generateCompanionCapabilities(0.5, ["show_level_path"])
+      generateCompanionCapabilities(0.5, ["show_level_path", "check_back_in"])
     );
   }
   return (

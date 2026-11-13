@@ -25,12 +25,16 @@ export type ToolLoopRequest = {
   tool_choice: { type: "auto" };
 };
 
-export function plannerToolDefinitions(tools: ReadonlyArray<PlannerTool<any>>): Anthropic.Messages.Tool[] {
+export function plannerToolDefinitions(tools: ReadonlyArray<PlannerTool<any>>, opts: { unlocked?: boolean } = {}): Anthropic.Messages.Tool[] {
   return tools.map(tool => {
     const definition = { name: tool.name, description: tool.description, input_schema: z.toJSONSchema(tool.schema, { io: "input" }) as Anthropic.Messages.Tool.InputSchema };
-    return tool.strict === false ? definition : strictTool(definition);
+    return tool.strict === false || opts.unlocked ? definition : strictTool(definition);
   });
 }
+
+/** Stages whose strict grammar the provider rejected as too large since this server started: they start unlocked,
+ * so every later board does not pay for one rejected request first (Reina, 2026-11-11). */
+const GRAMMAR_TOO_LARGE = new Set<string>();
 
 /** The Planner talks to Sunny through small strict tools until the board is finished.
  * Every call in a turn runs in order and all answers return together. Bounded by caps
@@ -50,7 +54,9 @@ export async function runPlannerToolLoop<S>(input: {
   const blocks: Anthropic.Messages.ContentBlockParam[] = typeof opening === "string" ? [{ type: "text", text: opening }] : [...opening];
   blocks[blocks.length - 1] = { ...blocks[blocks.length - 1], cache_control: { type: "ephemeral" } } as Anthropic.Messages.ContentBlockParam;
   const messages: Anthropic.Messages.MessageParam[] = [{ role: "user", content: blocks }];
-  const tools = plannerToolDefinitions(input.tools);
+  let unlocked = GRAMMAR_TOO_LARGE.has(input.label);
+  let tools = plannerToolDefinitions(input.tools, { unlocked });
+  if (unlocked) console.log(` 🎮 [planner-tools] [${input.label}] [strict-grammar-too-large] [start-unlocked] tools=${tools.length}`);
   let turns = 0, calls = 0, errors = 0;
   const done = (stop: ToolLoopStop) => {
     console.log(` 🎮 [planner-tools] [${input.label}] [${stop}] turns=${turns} calls=${calls} errors=${errors}`);
@@ -59,7 +65,15 @@ export async function runPlannerToolLoop<S>(input: {
   while (true) {
     if (turns >= caps.maxTurns) return done("cap_turns");
     turns += 1;
-    const response = await input.send({ model: input.model, max_tokens: input.maxTokens, ...(input.system ? { system: input.system } : {}), messages: structuredClone(messages), tools, tool_choice: { type: "auto" } }, turns);
+    const ask = () => input.send({ model: input.model, max_tokens: input.maxTokens, ...(input.system ? { system: input.system } : {}), messages: structuredClone(messages), tools, tool_choice: { type: "auto" } }, turns);
+    // A real child's history can outgrow the provider's strict grammar (Ila, 2026-11-10: 8 boards of games and words
+    // as allowed values). Degrade once to the same tools unlocked; code still checks every answer below.
+    const response = await ask().catch(async (error: unknown) => {
+      if (unlocked || !/compiled grammar is too large/i.test(error instanceof Error ? error.message : String(error))) throw error;
+      unlocked = true; GRAMMAR_TOO_LARGE.add(input.label); tools = plannerToolDefinitions(input.tools, { unlocked });
+      console.warn(` 🎮 [planner-tools] [${input.label}] [strict-grammar-too-large] [retry-unlocked] turn=${turns} tools=${tools.length}`);
+      return ask();
+    });
     assertPlannerResponseComplete(response);
     messages.push({ role: "assistant", content: response.content });
     const uses = response.content.filter((block): block is Anthropic.Messages.ToolUseBlock => block.type === "tool_use");
@@ -77,7 +91,7 @@ export async function runPlannerToolLoop<S>(input: {
       calls += 1;
       const tool = byName.get(use.name);
       const definition = tools.find(row => row.name === use.name);
-      const parsed = tool?.schema.safeParse(tool.strict === false ? decodeToolInput(use.input, definition!.input_schema) : use.input);
+      const parsed = tool?.schema.safeParse(tool.strict === false || unlocked ? decodeToolInput(use.input, definition!.input_schema) : use.input);
       const outcome = !tool ? { ok: false as const, error: `unknown tool ${use.name}` }
         : !parsed!.success ? { ok: false as const, error: `invalid input: ${parsed!.error.issues.map(issue => `${issue.path.join(".") || "input"} ${issue.message}`).join("; ")}` }
         : tool.run(input.state, parsed!.data);

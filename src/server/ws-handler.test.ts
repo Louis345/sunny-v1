@@ -95,6 +95,20 @@ describe("ws handler", () => {
     });
   });
 
+  // Owner 2026-11-08: in Ila's earned FaceTime the companion never heard her. The call's speech-only connection
+  // (sttOnly) carries no homework, and the homework-mode kiosk rejected it. Logs showed
+  // "assignment-validation [rejected] requested=missing"; the lab never ran a call on a homework-mode kiosk.
+  it("lets the call's speech-only connection start without a homework assignment", async () => {
+    vi.stubEnv("SUNNY_RUNTIME_CONFIG", JSON.stringify({
+      subject: "homework", sessionMode: "real", previewMode: "off", voiceMode: "normal", childId: null, homeworkDomain: "spelling",
+    }));
+    const ws = new FakeWs();
+    handleWsConnection(ws as never, req() as never);
+    await sendJson(ws, { type: "start_session", child: "Ila", chartChildId: "ila", silentTts: true, sttOnly: true });
+    expect(ws.sent).not.toContainEqual(expect.objectContaining({ code: "homework_assignment_identity_required" }));
+    expect(startMock).toHaveBeenCalled();
+  });
+
   it("starts homework voice only for the exact chart-backed assignment", async () => {
     vi.stubEnv("SUNNY_RUNTIME_CONFIG", JSON.stringify({
       subject: "homework",
@@ -241,6 +255,20 @@ describe("ws handler", () => {
     await sendJson(ws, { type: "companion_presence", state: "summoned" });
 
     expect(setCompanionPresenceMock).toHaveBeenCalledWith("summoned", "client");
+  });
+
+  // BUGS.md 2026-11-07: any throw inside a message became an unhandled rejection and Node exited the kiosk.
+  it("keeps the kiosk running when one message handler throws", async () => {
+    const ws = new FakeWs();
+    handleWsConnection(ws as never, req() as never);
+    await sendJson(ws, { type: "start_session", child: "Ila" });
+    handleGameEventMock.mockImplementationOnce(() => { throw new Error("chart_assignment_missing"); });
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    const listener = ws.listeners("message")[0] as (raw: Buffer) => Promise<void>;
+    await expect(listener(Buffer.from(JSON.stringify({ type: "game_state_update", phase: "response" })))).resolves.toBeUndefined();
+    expect(error).toHaveBeenCalledWith(expect.stringContaining("[ws] [message] [failed] type=game_state_update"), expect.any(Error));
+    expect(ws.sent).toContainEqual(expect.objectContaining({ type: "error", fatal: false }));
+    error.mockRestore();
   });
 
   it("reports session start failures without crashing the websocket handler", async () => {

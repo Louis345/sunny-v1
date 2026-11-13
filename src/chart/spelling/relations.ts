@@ -6,6 +6,7 @@ import { decodeRow } from '../exportEvents';
 import { canonicalJson } from '../eventId';
 import { factId, type FactType, type Payloads } from './schemas';
 import { evaluatePriors } from './projections';
+import { scoreLockedPredictions } from './predictionBond';
 function fail(message: string): never { throw new Error('chart_' + message); }
 export function validateRelations(db: ChartDatabase, e: EventInput): void {
     const get = (id: string): ChartEvent | undefined => { const row = db.sql.prepare('SELECT * FROM events WHERE event_id=?').get(id); return row ? decodeRow(row) : undefined; };
@@ -23,7 +24,7 @@ export function validateRelations(db: ChartDatabase, e: EventInput): void {
             fail('correction_target');
         if (target.type === 'activity.limited' || target.type === 'plan.decided' || target.type === 'test_schedule.set')
             fail('correction_immutable_decision');
-        if (target.type === 'readiness.forecast')
+        if (target.type === 'readiness.forecast' || target.type === 'learner.hypothesis' || target.type === 'prediction.locked' || target.type === 'prediction.scored' || target.type === 'child.fact_learned' || target.type === 'child.fact_retracted')
             fail('correction_immutable_prediction');
         validatePayload(target.type, p.replacement_payload);
         const replacement = p.replacement_payload as Record<string, unknown>;
@@ -58,6 +59,15 @@ export function validateRelations(db: ChartDatabase, e: EventInput): void {
     }
     if (e.type === 'child.profile_set' || e.type === 'assignment.ingested' || (e.type === 'test_schedule.set' && e.payload.kind === 'weekday'))
         return;
+    if (e.type === 'child.fact_learned') return;
+    if (e.type === 'child.fact_retracted') {
+        if (!get(factId('child.fact_learned', { factId: p.factId }))) fail('fact_missing');
+        return;
+    }
+    if (e.type === 'learner.hypothesis') {
+        if (!get(factId('assignment.ingested', { assignmentId: p.formedInAssignmentId }))) fail('assignment_missing');
+        return;
+    }
     const a = get(factId('assignment.ingested', { assignmentId: p.assignmentId }));
     if (!a)
         fail('assignment_missing');
@@ -103,8 +113,30 @@ export function validateRelations(db: ChartDatabase, e: EventInput): void {
         if (!replacing && p.attempt !== prior.n + 1)
             fail('attempt_sequence');
     }
+    if (e.type === 'prediction.locked') {
+        // Locked means before the answer is known: once the graded test is in her chart, no prediction for it is accepted.
+        if (has('school_test.recorded'))
+            fail('prediction_after_result');
+    }
+    if (e.type === 'prediction.scored') {
+        const scoredPayload = p as Payloads['prediction.scored'];
+        const school = get(scoredPayload.schoolTestEventId);
+        if (!school || school.type !== 'school_test.recorded' || school.payload.assignmentId !== scoredPayload.assignmentId || !e.cites.includes(school.event_id))
+            fail('scored_school_test');
+        const all = db.sql.prepare('SELECT * FROM events ORDER BY sequence').all().map(decodeRow);
+        const expected = scoreLockedPredictions(all, scoredPayload.assignmentId);
+        // The bond is code's arithmetic over facts already in her chart; anything else is refused.
+        if (!expected || canonicalJson(expected) !== canonicalJson(scoredPayload))
+            fail('scored_mismatch');
+        const cited = new Set(e.cites);
+        if (scoredPayload.rows.some(row => row.predictions.some(prediction => !cited.has(prediction.predictionEventId))))
+            fail('scored_citation');
+    }
     if (e.type === 'school_test.recorded') {
-        if (!sameWords((p as Payloads['school_test.recorded']).results.map(r => r.word)))
+        // A teacher may test part of the list (Ila 2026-11-13: 8 of 12). Untested words stay unknown; every tested
+        // word must be on the list, once.
+        const tested = (p as Payloads['school_test.recorded']).results.map(r => r.word);
+        if (!tested.length || new Set(tested).size !== tested.length || !tested.every(w => assignment.words.includes(w)))
             fail('school_coverage');
     }
     if (e.type === 'readiness.forecast') {

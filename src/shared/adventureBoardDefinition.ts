@@ -238,6 +238,10 @@ export function journeyFrontier(definition:AdventureJourneyDefinition, chosen:Re
   // A not-ready activity is never played, so the path passes over it.
   const done = new Set([...completed,...notReady]);
   const portals = new Map(definition.portals.map(portal => [portal.id,portal]));
+  // Every stop on a whole route is done: the board is finished, even if she never tapped the fork (BUGS.md 2026-11-13).
+  const routeDone = journeyExecutions(definition).some(candidate => Object.entries(selections).every(([key,value]) => candidate.selections[key] === undefined || candidate.selections[key] === value)
+    && candidate.portalIds.every(portalId => { const id = portals.get(portalId)?.activityNodeId; return !id || done.has(id); }));
+  if (routeDone) return {complete:true};
   for (const portalId of execution.portalIds) {
     const choice = choices.get(portalId);
     if (choice && !selections[choice.id]) return {portalId,choiceId:choice.id,complete:false};
@@ -245,6 +249,18 @@ export function journeyFrontier(definition:AdventureJourneyDefinition, chosen:Re
     if (activityNodeId && !done.has(activityNodeId)) return {portalId,activityNodeId,complete:false};
   }
   return {complete:true};
+}
+
+/** Stops left on her path before the board is finished (owner, 2026-11-07: show how close the call is). Follows the
+ * chosen route, or the first compatible route while a choice is open; a not-ready stop is passed over. */
+export function journeyStopsLeft(definition:AdventureJourneyDefinition, chosen:Readonly<Record<string,string>>, completed:readonly string[], notReady:readonly string[]=[]):number {
+  const selections = withCollapsedChoices(definition,chosen,notReady);
+  const execution = journeyExecutions(definition).find(candidate => Object.entries(selections).every(([key,value]) => candidate.selections[key] === undefined || candidate.selections[key] === value));
+  if (!execution) return 0;
+  const done = new Set([...completed,...notReady]);
+  const portals = new Map(definition.portals.map(portal => [portal.id,portal]));
+  const left = new Set(execution.portalIds.map(portalId => portals.get(portalId)?.activityNodeId).filter((id): id is string => Boolean(id) && !done.has(id!)));
+  return left.size;
 }
 
 /** A remembered selection on an unchosen branch remains history, not a visible fork.

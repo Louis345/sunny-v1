@@ -27,7 +27,7 @@ function session(p = packet()) {
 const instrument = (p: AssignmentPlanningPacket) => `${p.spellingDiagnostics!.instruments[0].activityId}:${p.spellingDiagnostics!.instruments[0].modeId}`;
 const evidence = (p: AssignmentPlanningPacket) => [p.spellingDiagnostics!.evidenceIds[0]];
 const capture = { words: [{ word: "sign", page_number: 1 }, { word: "know", page_number: 1 }, { word: "write", page_number: 1 }], uncertainty: [], source_notes: ["Header is not a word."] };
-const choose = (p: AssignmentPlanningPacket, overrides: Record<string, unknown> = {}) => ({ action: "select", instrument: instrument(p), reason: "It checks every word without showing it.", evidence_ids: evidence(p), uncertainty: ["Device unknown."], next_evidence_needed: ["Her first spellings."], ...overrides });
+const choose = (p: AssignmentPlanningPacket, overrides: Record<string, unknown> = {}) => ({ action: "select", instrument: instrument(p), check_words: ["sign", "know", "write"], reason: "It checks every word without showing it.", evidence_ids: evidence(p), uncertainty: ["Device unknown."], next_evidence_needed: ["Her first spellings."], ...overrides });
 
 describe("spelling Discovery tools", () => {
   it("offers three small strict tools with the validated instruments and evidence as pick-lists", () => {
@@ -63,7 +63,7 @@ describe("spelling Discovery tools", () => {
     expect(call("record_words", { ...capture, words: [{ word: "sign", page_number: 1 }, { word: "Sign", page_number: 1 }] })).toMatchObject({ ok: false, error: expect.stringContaining("more than once") });
     expect(call("record_words", { ...capture, words: [{ word: "sign", page_number: 7 }] })).toMatchObject({ ok: false, error: expect.stringContaining("page 7") });
     expect(call("choose_discovery", choose(p, { instrument: "none" }))).toMatchObject({ ok: false, error: expect.stringContaining("instrument") });
-    expect(call("choose_discovery", choose(p, { action: "needs_instrument" }))).toMatchObject({ ok: false, error: expect.stringContaining("none") });
+    expect(call("choose_discovery", choose(p, { action: "needs_instrument", check_words: [] }))).toMatchObject({ ok: false, error: expect.stringContaining("none") });
     expect(call("finish_intake", { title: "T", portal_label: "P", endpoint_label: "E" })).toMatchObject({ ok: false, error: expect.stringContaining("record_words") });
     expect(call("record_words", capture)).toMatchObject({ ok: true });
     expect(call("finish_intake", { title: "T", portal_label: "P", endpoint_label: "E" })).toMatchObject({ ok: false, error: expect.stringContaining("choose_discovery") });
@@ -72,11 +72,43 @@ describe("spelling Discovery tools", () => {
   it("finishes without a board when no validated instrument fits", () => {
     const { p, kit, state, call } = session();
     call("record_words", capture);
-    expect(call("choose_discovery", choose(p, { action: "needs_instrument", instrument: "none" }))).toMatchObject({ ok: true });
+    expect(call("choose_discovery", choose(p, { action: "needs_instrument", instrument: "none", check_words: [] }))).toMatchObject({ ok: true });
     expect(call("finish_intake", { title: "T", portal_label: "P", endpoint_label: "E" })).toMatchObject({ ok: true });
     const { capture: intake, journey } = kit.result(state);
     expect(intake.diagnostic).toMatchObject({ action: "needs_instrument" });
     expect(journey).toBeUndefined();
     expect(parseSpellingIntake(intake, p).diagnostic?.action).toBe("needs_instrument");
+  });
+
+  // Contract 54 (owner, 2026-11-07): the Planner chooses how a list begins. It checks the words it picks, or none.
+  it("lets the Planner check only some words, keeping the choice on the intake", () => {
+    const { p, kit, state, call } = session();
+    call("record_words", capture);
+    expect(call("choose_discovery", choose(p, { check_words: ["know"] }))).toMatchObject({ ok: true });
+    expect(call("finish_intake", { title: "T", portal_label: "Quick check", endpoint_label: "E" })).toMatchObject({ ok: true });
+    const { capture: intake, journey } = kit.result(state);
+    expect(intake.diagnostic).toMatchObject({ action: "select", checkWords: ["know"] });
+    expect(journey).toBeDefined();
+    expect(parseSpellingIntake({ ...intake, boardDefinition: assembleAuthoredBoardDefinition(journey!, {}) }, p).diagnostic).toMatchObject({ checkWords: ["know"] });
+  });
+
+  it("lets the Planner open with teaching and check nothing up front", () => {
+    const { p, kit, state, call } = session();
+    call("record_words", capture);
+    expect(call("choose_discovery", choose(p, { action: "open_with_teaching", instrument: "none", check_words: [] }))).toMatchObject({ ok: true });
+    expect(call("finish_intake", { title: "T", portal_label: "Start", endpoint_label: "E" })).toMatchObject({ ok: true });
+    const { capture: intake, journey } = kit.result(state);
+    expect(intake.diagnostic).toMatchObject({ action: "open_with_teaching", checkWords: [] });
+    expect(journey).toBeDefined();
+    expect(parseSpellingIntake({ ...intake, boardDefinition: assembleAuthoredBoardDefinition(journey!, {}) }, p).diagnostic?.action).toBe("open_with_teaching");
+  });
+
+  it("answers an opening choice that does not fit its words", () => {
+    const { p, call } = session();
+    call("record_words", capture);
+    expect(call("choose_discovery", choose(p, { check_words: [] }))).toMatchObject({ ok: false, error: expect.stringContaining("open_with_teaching") });
+    expect(call("choose_discovery", choose(p, { action: "open_with_teaching", instrument: "none", check_words: ["know"] }))).toMatchObject({ ok: false, error: expect.stringContaining("check_words") });
+    expect(call("choose_discovery", choose(p, { check_words: ["banana"] }))).toMatchObject({ ok: true });
+    expect(call("finish_intake", { title: "T", portal_label: "P", endpoint_label: "E" })).toMatchObject({ ok: false, error: expect.stringContaining("banana") });
   });
 });

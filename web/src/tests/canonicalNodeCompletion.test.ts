@@ -13,6 +13,32 @@ import {
 } from "../utils/canonicalNodeCompletion";
 
 describe("canonical node completion handoff", () => {
+  // 2026-11-10: Reina saw "Progress could not be saved" ten times. The server now holds refused answers; the
+  // screen must say her work is kept, not lost, so she is not told her work is gone when it is not.
+  it("tells the screen her work was held when the server kept it after a refused save", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => ({ ok: false, status: 409, json: async () => ({ error: "learning_board_topology_changed:hw:board:1", held: true }) })));
+    await expect(postCanonicalNodeCompletion({ childId: "lab", homeworkId: "hw", nodeId: "n", completionId: "c", result: { completed: true } } as never)).rejects.toThrow("canonical_node_completion_held");
+    vi.stubGlobal("fetch", vi.fn(async () => ({ ok: false, status: 409, json: async () => ({ error: "learning_cycle_instrument_unknown_item:x", held: false }) })));
+    await expect(postCanonicalNodeCompletion({ childId: "lab", homeworkId: "hw", nodeId: "n", completionId: "c", result: { completed: true } } as never)).rejects.toThrow("canonical_node_completion_409");
+  });
+
+  // G7, 2026-11-10 rating: 1-2 games per Ila session saved "<title> completed in 0ms" (Lantern Wheel, Silent E Catch,
+  // Word Radar, reward breaks). The human/rating caught it reading the saved evidence line; the logs never showed the
+  // time at all, only "iframe_activity_complete"; the lab fed every completion a made-up timeSpent_ms (1000, 45_000), so
+  // it never met a game or built-in that sent none. The time she spent is measured by the kiosk from launch, never trusted
+  // from the game.
+  it("saves the time measured from launch to completion, not the time the game reported", async () => {
+    vi.useFakeTimers({ now: new Date("2026-11-10T19:15:00Z") });
+    try {
+      const fetch = vi.fn(async (_url: string, _request: RequestInit) => ({ ok: true, json: async () => ({ lifecycle: "baseline_ready", revision: 2, nodeState: "completed" }) }));
+      vi.stubGlobal("fetch", fetch);
+      const launchedAt = Date.parse("2026-11-10T19:00:00Z");
+      await postCanonicalNodeCompletion({ childId: "lab", homeworkId: "hw", nodeId: "n", completionId: "c", launchedAt, result: { completed: true, timeSpent_ms: 0 } });
+      await postCanonicalNodeCompletion({ childId: "lab", homeworkId: "hw", nodeId: "n", completionId: "c", launchedAt, result: { completed: true } });
+      for (const call of fetch.mock.calls) expect(JSON.parse(String(call[1].body)).result.timeSpent_ms).toBe(900_000);
+    } finally { vi.useRealTimers(); }
+  });
+
   it("sends native recall attempts with the same required factual envelope as generated activities", async () => {
     const fetch = vi.fn(async (_url: string, _request: RequestInit) => ({ ok: true, json: async () => ({ ok: true }) }));
     vi.stubGlobal("fetch", fetch);
@@ -143,7 +169,7 @@ describe("canonical node completion handoff", () => {
     { nodeState: undefined, claimed: true, expected: false },
   ])("uses saved node state $nodeState instead of renderer completion $claimed", async ({ nodeState, claimed, expected }) => {
     vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ lifecycle: "baseline_active", revision: 3, nodeState }), { status: 200 })));
-    const completion = await postCanonicalNodeCompletion({ childId: "lab", homeworkId: "hw", nodeId: "native", completionId: "host-launch", result: { completed: claimed, ended: true, won: false } });
+    const completion = await postCanonicalNodeCompletion({ childId: "lab", homeworkId: "hw", nodeId: "native", completionId: "host-launch", launchedAt: Date.now(), result: { completed: claimed, ended: true, won: false } });
     expect(completion.outcome).toMatchObject({ completed: expected, ended: true, won: false });
   });
 
@@ -198,7 +224,7 @@ describe("canonical node completion handoff", () => {
   it("uses one host launch identity for retries and a different one for genuine replay", async () => {
     const fetchMock=vi.fn(async()=>new Response(JSON.stringify({lifecycle:"baseline_active",revision:3}),{status:200}));
     vi.stubGlobal("fetch",fetchMock);
-    const input={childId:"lab",homeworkId:"graph",nodeId:"logbook",completionId:"host-launch-1",result:{completed:true,sessionId:"untrusted-renderer-id"}};
+    const input={childId:"lab",homeworkId:"graph",nodeId:"logbook",completionId:"host-launch-1",launchedAt:Date.now(),result:{completed:true,sessionId:"untrusted-renderer-id"}};
     await postCanonicalNodeCompletion(input);
     await postCanonicalNodeCompletion(input);
     await postCanonicalNodeCompletion({...input,completionId:"host-launch-2"});
@@ -207,8 +233,8 @@ describe("canonical node completion handoff", () => {
 
   it.each([0.4, null, undefined])("uses only server-verified accuracy %s in the completion display", async (academicAccuracy) => {
     vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({lifecycle: "baseline_active",revision: 3,nodeState: "completed",academicAccuracy}), {status: 200})));
-    const completion=await postCanonicalNodeCompletion({childId: "lab",homeworkId: "graph",nodeId: "logbook",completionId:"launch-1",result: {completed: true,accuracy: 0.83,timeSpent_ms: 1000}});
-    expect(completion).toHaveProperty("outcome", {completed: true,accuracy: academicAccuracy ?? undefined,timeSpent_ms: 1000});
+    const completion=await postCanonicalNodeCompletion({childId: "lab",homeworkId: "graph",nodeId: "logbook",completionId:"launch-1",launchedAt:Date.now()-1000,result: {completed: true,accuracy: 0.83,timeSpent_ms: 1000}});
+    expect(completion).toHaveProperty("outcome", {completed: true,accuracy: academicAccuracy ?? undefined,timeSpent_ms: expect.any(Number)});
   });
 
   it("posts Discovery facts and completion to the assignment endpoints", async () => {
@@ -229,12 +255,14 @@ describe("canonical node completion handoff", () => {
       headers: { "Content-Type": "application/json" },
     }));
     vi.stubGlobal("fetch", fetchMock);
+    vi.useFakeTimers({ now: new Date("2026-11-10T19:00:01.200Z") });
 
     await postCanonicalNodeCompletion({
       childId: "reina",
       homeworkId: "hw-math",
       nodeId: "fact-blaster",
       completionId: "launch-1",
+      launchedAt: Date.parse("2026-11-10T19:00:00Z"),
       result: { completed: true, accuracy: 1, timeSpent_ms: 1200 },
     });
 
@@ -250,6 +278,7 @@ describe("canonical node completion handoff", () => {
         }),
       }),
     );
+    vi.useRealTimers();
   });
 });
 

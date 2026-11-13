@@ -16,6 +16,9 @@ export type CurrentBoardSnapshot = {
   learningFocus?: string;
   mechanic?: string;
   currentChallenge?: string;
+  /** The built game's current step and when she reached it (BUGS.md 2026-11-09). */
+  gameStep?: string;
+  stepStartedAt?: number;
   availableActions?: string[];
   activityIntentId?: string;
   targetSelectorId?: string;
@@ -71,6 +74,8 @@ type BuildSnapshotInput = {
   canonicalPractice?: boolean;
   /** The Planner's current theory of her learning; reaches the companion on practice only. */
   plannerRead?: string;
+  /** She asked for help on this word and it is recorded as helped (contract 54): the companion may teach it. */
+  helpGranted?: boolean;
 };
 
 /** The Planner's frozen item role grants teaching; a browser visibility flag does not. */
@@ -81,7 +86,7 @@ export function retainSpellingItemState(state: Record<string, unknown>, previous
     && launch && bound.launchId === launch.launchId && state.nodeId === previous.nodeId
     && state.launchToken === previous.launchToken && state.itemIndex !== undefined
     && state.itemIndex === previous.itemIndex && (!state.game || state.game === previous.game)
-    && (!state.phase || state.phase === previous.phase)
+    // Same launch, game and item index is the same word, whatever its phase (Letter Rush goes presentation -> paused -> playing).
     ? {itemId:previous.itemId,phase:previous.phase,...state} : state;
 }
 
@@ -98,6 +103,19 @@ export function canonicalSpellingPractice(
     || assessment.nodeId !== launch.nodeId || state.nodeId !== launch.nodeId
     || state.itemId !== assessment.itemId || state.launchToken !== launch.launchToken) return undefined;
   return ["baseline", "mystery"].includes(node.role) && (role === "practice" || role === "instruction");
+}
+
+/** Log when Elli's help mode changes on a word, with the facts that chose it (BUGS.md 2026-11-07). Returns `next`. */
+export function noteSupportModeChange<T extends { itemId?: string; nodeId?: string; spellingSupportMode?: string }>(
+  previous: { itemId?: string; spellingSupportMode?: string } | null | undefined,
+  next: T,
+  facts: { canonicalPractice: boolean | undefined; answerVisibility?: unknown },
+): T {
+  const changed = next.spellingSupportMode && (next.spellingSupportMode !== previous?.spellingSupportMode || next.itemId !== previous?.itemId);
+  if (changed) {
+    console.log(` 🎮 [companion] [support-mode] [${next.spellingSupportMode}] node=${next.nodeId ?? "none"} item=${next.itemId ?? "none"} canonical=${facts.canonicalPractice ?? "unknown"} visibility=${String(facts.answerVisibility ?? "unknown")}`);
+  }
+  return next;
 }
 
 function asString(value: unknown): string | undefined {
@@ -184,6 +202,7 @@ export function buildCurrentBoardSnapshot(
     ["learningFocus", state.learningFocus],
     ["mechanic", state.mechanic],
     ["currentChallenge", currentChallenge],
+    ["gameStep", state.gameStep],
     ["activityIntentId", state.activityIntentId],
     ["targetSelectorId", state.targetSelectorId],
     ["intentPurpose", state.intentPurpose ?? state.activityIntentPurpose],
@@ -252,6 +271,7 @@ export function buildCurrentBoardSnapshot(
   if (correctWords.length) snapshot.correctWords = correctWords;
   const availableActions = asStringArray(state.availableActions);
   if (availableActions.length) snapshot.availableActions = availableActions;
+  if (typeof state.stepStartedAt === "number" && Number.isFinite(state.stepStartedAt)) snapshot.stepStartedAt = state.stepStartedAt;
 
   const bound = input.assessment;
   if (bound && snapshot.itemId === bound.itemId && (state.assessmentMode === true || state.practiceCapture === true)) {
@@ -259,6 +279,8 @@ export function buildCurrentBoardSnapshot(
     snapshot.spellingSupportMode ??= input.canonicalPractice === true && state.assessmentMode !== true
       && state.evidenceTier !== "mastery_candidate" ? "pronunciation_model" : "stimulus_only";
   }
+  // Help she asked for is already on the record as assisted, so the companion may teach this word.
+  if (input.helpGranted && snapshot.spellingTarget) snapshot.spellingSupportMode = "pronunciation_model";
   return snapshot;
 }
 
@@ -300,6 +322,9 @@ export function buildCurrentBoardSnapshotContext(
   if (snapshot.learningFocus) lines.push(`Learning focus: ${snapshot.learningFocus}`);
   if (snapshot.mechanic) lines.push(`Child interaction: ${snapshot.mechanic}`);
   if (snapshot.currentChallenge) lines.push(`Current challenge: ${snapshot.currentChallenge}`);
+  if (snapshot.gameStep && snapshot.stepStartedAt) {
+    lines.push(`Game step: ${snapshot.gameStep}; she has been on this step for ${Math.max(0, Math.round((Date.now() - snapshot.stepStartedAt) / 1000))} seconds.`);
+  }
   if (snapshot.availableActions?.length) {
     lines.push(`Available child actions: ${snapshot.availableActions.join(" | ")}`);
   }

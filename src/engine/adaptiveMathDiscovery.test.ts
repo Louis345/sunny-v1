@@ -987,7 +987,9 @@ describe("adaptive math discovery", () => {
 
   it("keeps the canonical Probe contract aligned with progressive verified publication", () => {
     const learningContract = fs.readFileSync(path.join(process.cwd(), "LEARNING_FEEDBACK_LOOP.md"), "utf8");
-    expect(learningContract).toContain("Contract version: 53");
+    expect(learningContract).toContain("Contract version: 58");
+    expect(learningContract).toContain("## The Planner reviews itself (contract 56, owner 2026-11-08)");
+    expect(learningContract).toContain("How a new list begins is the Planner's decision.");
     expect(learningContract).toContain("The Probe Board is the only board instance that may publish before every node is verified");
     expect(learningContract).toContain("Each probe node is implemented and verified before that node unlocks");
     expect(learningContract).toContain("unfinished siblings remain locked");

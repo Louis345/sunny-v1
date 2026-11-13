@@ -2,6 +2,8 @@ import { sessionEventBus, type SessionEvent } from "./session-event-bus";
 import { broadcastCompanionEventToMapChild } from "./map-coordinator";
 import type { CompanionEventPayload } from "../shared/companionTypes";
 import { COMPANION_CAPABILITIES } from "../shared/companions/registry";
+import { scheduleCompanionCheckIn } from "./companionCheckIn";
+import { getActiveVoiceSessionManagerForChild } from "./voice-session-registry";
 import { validateCompanionCommand } from "../shared/companions/validateCompanionCommand";
 import { isCompanionEmote } from "../shared/companionEmotes";
 
@@ -136,13 +138,22 @@ export class ServerCompanionBridge {
       return { ok: false, error: "invalid_or_unknown_companion_command" };
     }
     const send = this.send;
-    if (send) {
-      send("companion_command", { command: cmd });
+    const deliver = (command: typeof cmd) => {
+      if (send) send("companion_command", { command });
+      broadcastCompanionEventToMapChild(childId, { type: "companion_command", command });
+    };
+    // Her companion's own check-in: code keeps the appointment, the companion chose when and how (2026-11-10).
+    if (cmd.type === "check_back_in") {
+      const payload = cmd.payload as { after_seconds: number; how: "raise_hand" | "ask"; words?: string; why: string };
+      const manager = getActiveVoiceSessionManagerForChild(childId);
+      scheduleCompanionCheckIn({ childId, afterSeconds: payload.after_seconds, how: payload.how, words: payload.words ?? "", why: payload.why }, {
+        send: () => deliver({ ...cmd, timestamp: Date.now() }),
+        speak: words => { if (words.trim()) void Promise.resolve(manager?.speakGameNarration?.(words, { reason: "companion_check_in" })).catch(error => console.error(" 🎮 [companion-checkin] [speak-failed]", error)); },
+        trace: row => manager?.recordGameTrace?.(row),
+      });
+      return { ok: true, type: cmd.type, scheduled: true };
     }
-    broadcastCompanionEventToMapChild(childId, {
-      type: "companion_command",
-      command: cmd,
-    });
+    deliver(cmd);
     console.log(`  [companion] companionAct type=${cmd.type} childId=${childId}`);
     return { ok: true, type: cmd.type };
   }

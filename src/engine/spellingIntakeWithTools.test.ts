@@ -20,7 +20,7 @@ describe("Discovery intake through tools", () => {
     const instrument = `${p.spellingDiagnostics!.instruments[0].activityId}:${p.spellingDiagnostics!.instruments[0].modeId}`;
     const turns = [turn(
       { name: "record_words", input: { words: [{ word: "sign", page_number: 1 }, { word: "know", page_number: 1 }], uncertainty: [], source_notes: [] } },
-      { name: "choose_discovery", input: { action: "select", instrument, reason: "r", evidence_ids: [p.spellingDiagnostics!.evidenceIds[0]], uncertainty: ["u"], next_evidence_needed: ["n"] } },
+      { name: "choose_discovery", input: { action: "select", instrument, check_words: ["sign", "know"], reason: "r", evidence_ids: [p.spellingDiagnostics!.evidenceIds[0]], uncertainty: ["u"], next_evidence_needed: ["n"] } },
       { name: "finish_intake", input: { title: "Week 4", portal_label: "Radar Check", endpoint_label: "Done" } },
     )];
     const sent: unknown[] = [];

@@ -24,6 +24,11 @@ export const NODE_DISPLAY_LABELS: Record<string, string> = {
   "generated-game": "Her Game",
   "clock-game": "Clock Game",
   "coin-counter": "Coin Counter",
+  "speed-catcher": "Speed Catcher",
+  "vault-cracker": "Vault Cracker",
+  "bd-reversal": "b/d Reversal",
+  "wheel-of-fortune": "Wheel of Fortune",
+  "store-game": "Store",
   dopamine: "Game",
 };
 
@@ -53,6 +58,7 @@ export type RoutableNodeConfig = Pick<
   | "words"
   | "wordRadarItems"
   | "spellingItemBindings"
+  | "itemBindings"
   | "difficulty"
   | "gameFile"
   | "gameHtmlPath"
@@ -113,7 +119,7 @@ export function nodeLaunchWords(
 export function buildNodeUrlSearchParams(
   node: Pick<
     RoutableNodeConfig,
-    "id" | "words" | "wordRadarItems" | "spellingItemBindings" | "attentionConfig" | "activityIntent" | "targetSelectorDecision"
+    "id" | "words" | "wordRadarItems" | "spellingItemBindings" | "itemBindings" | "attentionConfig" | "activityIntent" | "targetSelectorDecision"
   > & { difficulty?: number },
   ctx: NodeContext,
 ): URLSearchParams {
@@ -131,6 +137,7 @@ export function buildNodeUrlSearchParams(
   };
   if (ctx.sessionId) params.sessionId = ctx.sessionId;
   if (node.spellingItemBindings?.length) params.spellingItemBindings = JSON.stringify(node.spellingItemBindings);
+  if (node.itemBindings?.length) params.itemBindings = JSON.stringify(node.itemBindings);
   if (node.activityIntent?.intentId) params.activityIntentId = node.activityIntent.intentId;
   if (node.activityIntent?.purpose) params.activityIntentPurpose = node.activityIntent.purpose;
   if (node.activityIntent?.targetSelector) {

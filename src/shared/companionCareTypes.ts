@@ -1,3 +1,4 @@
+import type { DenCreature } from "./creatureDenRules";
 import type { TamagotchiState } from "./vrrTypes";
 
 export type CompanionCareRarity = "common" | "uncommon" | "rare";
@@ -38,6 +39,14 @@ export interface CompanionGameRecordEntry {
   currentStreak: number;
 }
 
+export interface CompanionChildGivenName {
+  name: string;
+  kind: "nickname" | "role";
+  /** Her words when she gave it, as heard. */
+  childWords?: string;
+  givenAt: string;
+}
+
 export interface CompanionCareMemory {
   firstMetAt: string;
   previousSeenAt?: string;
@@ -54,6 +63,11 @@ export interface CompanionCareMemory {
   rivalryNote?: string;
   /** Up to 3 short traits the companion has earned through real interaction. */
   companionSelfNotes?: string[];
+  /**
+   * Names and roles the child gave this companion ("aerospace princess"), recorded by the companion's own tool call.
+   * Her choice, so code keeps it: a summary may read it but never rewrites it.
+   */
+  childGivenNames?: CompanionChildGivenName[];
   lastCompanionInteractionCompactedAt?: string;
   lastCompanionInteractionId?: string;
   interactionSummaryRevision?: number;
@@ -68,6 +82,61 @@ export interface BossDrop {
   droppedAt: string;
 }
 
+/** The chest after a finished node (owner, 2026-11-06): its colour is its rarity; a mystery chest rolls one. */
+export type NodeChestKind = BossDropTier | "mystery";
+export interface NodeChest {
+  homeworkId: string;
+  nodeId: string;
+  kind: NodeChestKind;
+  rarity: BossDropTier;
+  coins: number;
+  /** The chance this chest held a bonus, including the pity counter; shown on the chest before it opens. */
+  bonusChance: number;
+  /** A legacy chest's bonus may be call minutes; new chests drop only items as a bonus. */
+  bonus?: { kind: "call_minutes"; minutes: number } | { kind: "item"; itemId: string };
+  /** Call time rolled from CALL_TIME_LOOT (2026-11-10); absent on chests saved before. */
+  callSeconds?: number;
+  droppedAt: string;
+}
+
+/** Something bought with coins; a receipt id makes a double tap pay once. */
+export type CoinOffer =
+  | { kind: "call_minutes"; minutes: 5 }
+  | { kind: "game_play"; itemId: string; trial?: boolean }
+  | { kind: "outfit"; itemId: string };
+export interface CoinPurchase { receiptId: string; offer: CoinOffer; price: number; purchasedAt: string }
+
+/** A creature encounter the server rolled for a Planner-placed stop, waiting for her catch or let-go. */
+export interface PendingCreatureEncounter {
+  encounterId: string;
+  boardId: string;
+  stopId: string;
+  creatureId: string;
+  charges: number;
+  isNew: boolean;
+  reason: string;
+  rolledAt: string;
+}
+
+/**
+ * Her creatures (owner, 2026-11-08): the den (who she caught, bond, sidekick), what she has seen, how many
+ * boards count toward milestones, and the try lockouts. Rewards follow the learning; nothing here is evidence.
+ */
+export interface CreaturePlanState {
+  den: { creatures: DenCreature[]; sidekickId: string | null; lastVisitAt?: string; ranAwayId?: string | null };
+  seenIds: string[];
+  boardsCompleted: number;
+  /** Boards already counted toward milestones (receipts, newest last). */
+  countedBoardIds: string[];
+  /** Boards that already had their one encounter. */
+  encounterBoardIds: string[];
+  /** When each drop or seasonal creature was last tried for. */
+  lastTryAt: Record<string, string>;
+  pending: PendingCreatureEncounter[];
+  /** Encounters already caught or let go (receipts, newest last). */
+  resolvedEncounterIds: string[];
+}
+
 export interface CompanionCarePlan {
   version: 1;
   childId: string;
@@ -77,6 +146,8 @@ export interface CompanionCarePlan {
   inventory: {
     food: CompanionCareItem[];
     careItems: CompanionCareItem[];
+    /** Reward catalog ids she has found in chests (games, outfits). */
+    rewards?: string[];
   };
   economy: {
     coins: number;
@@ -84,6 +155,8 @@ export interface CompanionCarePlan {
     purchaseReceipts?: string[];
     videoCallTickets?: Array<{
       homeworkId: string;
+      /** The board this call was earned on; every completed board earns one (owner, 2026-11-07). */
+      boardId?: string;
       earnedAt: string;
       openedAt?: string;
       bonusUrl?: string;
@@ -95,7 +168,25 @@ export interface CompanionCarePlan {
     }>;
     /** One loot drop per beaten Boss: rolled once, saved, shown again on replay. */
     bossDrops?: BossDrop[];
+    /** One chest per finished node: rolled once, saved, never rolled again. */
+    nodeChests?: NodeChest[];
+    /** Call time in seconds, won from chests (CALL_TIME_LOOT) or bought, spent on calls. */
+    callSeconds?: number;
+    /** Legacy whole call minutes; read as seconds (callSecondsOf) and migrated to callSeconds on save. */
+    callMinutes?: number;
+    /** Receipts of call minutes already spent, so a retried tick is charged once. */
+    callMinuteReceipts?: string[];
+    /** Reward-game minutes bought with game plays, spent one paid minute at a time like the call. */
+    arcadeMinutes?: number;
+    /** Receipts of arcade minutes already spent, so a retried tick is charged once. */
+    arcadeMinuteReceipts?: string[];
+    /** Chests opened since the last bonus; each one raises the next bonus chance. */
+    chestsSinceBonus?: number;
+    /** Everything bought with coins, newest last. */
+    coinPurchases?: CoinPurchase[];
   };
+  /** Her creatures; absent until her first encounter. */
+  creatures?: CreaturePlanState;
   updatedAt: string;
 }
 

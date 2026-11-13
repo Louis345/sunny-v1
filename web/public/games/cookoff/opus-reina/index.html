@@ -1,0 +1,56 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+<title>Squad Gym 3D</title>
+<link href="https://fonts.googleapis.com/css2?family=Lilita+One&display=swap" rel="stylesheet">
+<style>
+:root{--gold:#ffd23f;--red:#e8213f;--ink:#0b1030}
+html,body{margin:0;height:100%;overflow:hidden;background:#05060f;font-family:'Lilita One',system-ui,sans-serif;color:#fff;user-select:none;-webkit-user-select:none;touch-action:none}
+canvas{display:block}
+.hud{position:fixed;inset:0;pointer-events:none}
+.top{position:absolute;top:0;left:0;right:0;display:flex;justify-content:space-between;align-items:center;padding:14px 22px;font-size:26px;text-shadow:0 3px 0 #000a;background:linear-gradient(#000a,#0000)}
+.pill{background:#0008;border:2px solid #fff3;border-radius:999px;padding:6px 18px}
+.gem{color:var(--gold)}
+.card{position:absolute;top:66px;left:50%;transform:translateX(-50%) scale(.6);opacity:0;transition:.35s cubic-bezier(.2,1.6,.4,1);background:linear-gradient(#1a2470,#0d1240);border:4px solid var(--gold);border-radius:22px;padding:12px 34px;font-size:52px;letter-spacing:2px;box-shadow:0 10px 40px #0009,0 0 30px #ffd23f55;text-shadow:0 4px 0 #000}
+.card.show{opacity:1;transform:translateX(-50%) scale(1)}
+.card.shake{animation:sh .35s}
+@keyframes sh{20%{transform:translateX(calc(-50% - 10px))}40%{transform:translateX(calc(-50% + 10px))}60%{transform:translateX(calc(-50% - 6px))}80%{transform:translateX(calc(-50% + 6px))}}
+.bubble{position:absolute;left:20px;top:150px;max-width:250px;background:#fff;color:var(--ink);border-radius:20px;padding:10px 16px;font-size:21px;box-shadow:0 6px 0 #0005;transform:scale(0);transform-origin:0 0;transition:.25s cubic-bezier(.2,1.6,.4,1)}
+.bubble.show{transform:scale(1)}
+.bubble b{display:block;font-size:15px;color:#d8204a;letter-spacing:1px}
+.big{position:absolute;top:38%;left:50%;transform:translate(-50%,-50%) scale(0);font-size:96px;color:var(--gold);text-shadow:0 6px 0 #a3410d,0 12px 30px #000;white-space:nowrap;transition:.3s cubic-bezier(.2,1.8,.4,1)}
+.big.show{transform:translate(-50%,-50%) scale(1)}
+.bossbar{position:absolute;bottom:34px;left:50%;transform:translateX(-50%);width:340px;text-align:center;opacity:0;transition:.4s}
+.bossbar.show{opacity:1}.bossbar .name{font-size:24px;color:#ff5a70;text-shadow:0 3px 0 #000}
+.bossbar .bar{height:18px;background:#0009;border:3px solid #fff;border-radius:10px;overflow:hidden}.bossbar .fill{height:100%;background:linear-gradient(#ff6a80,#d01030);width:100%;transition:width .4s}
+.pad{position:absolute;bottom:22px;width:96px;height:96px;border-radius:50%;background:#0006;border:3px solid #fff5;display:grid;place-items:center;font-size:40px;pointer-events:auto}
+.pad:active{background:#fff3}
+.overlay{position:fixed;inset:0;display:grid;place-items:center;background:radial-gradient(#0000,#000c);text-align:center;transition:opacity .5s}
+.overlay h1{font-size:110px;margin:0;color:var(--gold);text-shadow:0 8px 0 #a3410d,0 16px 40px #000;letter-spacing:4px}
+.overlay p{font-size:30px;margin:8px 0 24px;opacity:.9}
+.btn{pointer-events:auto;font:inherit;font-size:36px;background:linear-gradient(#ffe066,#ffb300);color:#5a2a00;border:0;border-radius:18px;padding:16px 46px;box-shadow:0 8px 0 #a3410d;cursor:pointer;animation:pulse 1.2s infinite}
+@keyframes pulse{50%{transform:scale(1.06)}}
+.hidden{opacity:0;pointer-events:none}.hidden *{pointer-events:none!important}
+#ear{position:fixed;z-index:6;pointer-events:none;font-size:54px;opacity:0;transform:translate(-50%,-100%) scale(.6);transition:opacity .25s,transform .25s;filter:drop-shadow(0 0 14px #ffd77a)}
+#ear.on{opacity:1;transform:translate(-50%,-100%) scale(1);animation:earPulse 1s ease-in-out infinite}
+@keyframes earPulse{50%{transform:translate(-50%,-100%) scale(1.15)}}
+</style>
+<script type="importmap">{"imports":{
+  "three":"https://cdn.jsdelivr.net/npm/three@0.183.2/build/three.module.js",
+  "three/addons/":"https://cdn.jsdelivr.net/npm/three@0.183.2/examples/jsm/",
+  "@pixiv/three-vrm":"https://cdn.jsdelivr.net/npm/@pixiv/three-vrm@3.5.1/lib/three-vrm.module.min.js"}}</script>
+<script src="/games/_contract.js"></script>
+<script src="/games/cookoff/_library.js"></script>
+<script src="/talk/talk-client.js"></script>
+</head><body>
+<div id="ear">👂</div>
+<div class="hud">
+  <div class="top"><span class="pill" id="score">TAKEDOWNS 0</span><span class="pill gem" id="gems">◆ 0</span></div>
+  <div class="card" id="card"></div>
+  <div class="bossbar" id="bossbar"><div class="name">COACH CRUSHER</div><div class="bar"><div class="fill" id="bossfill"></div></div></div>
+  <div class="bubble" id="bubble"><b id="bubbleName"></b><span id="bubbleText"></span></div>
+  <div class="big" id="big"></div>
+  <div class="pad" id="padL" style="left:24px">◀</div><div class="pad" id="padR" style="left:136px">▶</div><div class="pad" id="padJ" style="right:28px;width:120px;height:120px;font-size:30px;background:#e8213fcc">JUMP</div>
+</div>
+<div class="overlay" id="title"><div><h1>SQUAD GYM</h1><p id="loadTxt">Loading the arena…</p><button class="btn hidden" id="start">TAP TO WRESTLE</button></div></div>
+<div class="overlay hidden" id="win"><div><h1>CHAMPION!</h1><p id="winTxt"></p><button class="btn" id="again">REMATCH</button></div></div>
+<script type="module" src="main.js"></script></body></html>

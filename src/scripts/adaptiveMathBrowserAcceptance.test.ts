@@ -261,13 +261,13 @@ it("plays the isolated math release journey through calibration and the next Pla
       if(parentOperated)console.log("PARENT: inspect the graph question. Click Hard to read, choose 3 books, enter 2 and Submit.");
       else {await frame.locator("#help").click();await frame.locator("#three").click();await frame.locator("#number").fill("2");await frame.locator("#submit").click();}
       step="first Probe rating Skip with engagement offline";
-      await Promise.all([page.waitForResponse(response=>response.url().includes("/choice-event")&&response.status()===503,{timeout:parentOperated?180000:35000}), parentOperated?Promise.resolve(console.log("PARENT: click Skip below the fun rating.")):page.getByRole("button",{name:"Skip fun rating",exact:true}).click()]);
+      await Promise.all([page.waitForResponse(response=>response.url().includes("/choice-event")&&response.status()===503,{timeout:parentOperated?180000:35000}), Promise.resolve() /* a finished stop leaves by itself (2026-11-10: no rating) */]);
       await expect.poll(()=>getLearningCycle(childId,homeworkId,{rootDir})?.lifecycle).toBe("evaluation_active");
       await page.getByRole("button",{name:"Quick Check",exact:true}).click();
       const finalProbeFrame=page.frameLocator("iframe").last();
-      if(parentOperated)console.log("PARENT: click Not sure, then Skip below the fun rating.");
+      if(parentOperated)console.log("PARENT: click Not sure.");
       else await finalProbeFrame.locator("#skip").click();
-      await Promise.all([page.waitForResponse(response=>response.url().includes("/choice-event")&&response.status()===503,{timeout:parentOperated?180000:35000}), parentOperated?Promise.resolve():page.getByRole("button",{name:"Skip fun rating",exact:true}).click()]);
+      await Promise.all([page.waitForResponse(response=>response.url().includes("/choice-event")&&response.status()===503,{timeout:parentOperated?180000:35000}), Promise.resolve() /* a finished stop leaves by itself (2026-11-10: no rating) */]);
       await expect.poll(()=>getLearningCycle(childId,homeworkId,{rootDir})?.lifecycle,{timeout:parentOperated?180000:10000}).toBe("evidence_ready");
       expect(workerLaunchCount).toBe(1);
       const cycle = getLearningCycle(childId,homeworkId,{rootDir})!;
