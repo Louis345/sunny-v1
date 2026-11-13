@@ -124,6 +124,11 @@ export const TEACHING_TOOLS: Record<string, GameDefinition> = {
     "defaultConfig": {},
     "voiceEnabled": true
   },
+  "visual-learner-coop-recall": {
+    "url": "/games/visual-learner-coop-recall.html",
+    "defaultConfig": {},
+    "voiceEnabled": true
+  },
   "word-builder": {
     "url": "/games/word-builder.html",
     "defaultConfig": {},

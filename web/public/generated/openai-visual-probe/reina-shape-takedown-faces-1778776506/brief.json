@@ -1,0 +1,18 @@
+{
+  "id": "reina-shape-takedown-faces-1778776506",
+  "provider": "openai",
+  "model": "gpt-5.5",
+  "concept": "Reina personalized 2D faces of 3D solids",
+  "createdAt": "2026-05-14T16:37:21.565Z",
+  "usage": {
+    "input_tokens": 400,
+    "input_tokens_details": {
+      "cached_tokens": 0
+    },
+    "output_tokens": 9417,
+    "output_tokens_details": {
+      "reasoning_tokens": 516
+    },
+    "total_tokens": 9817
+  }
+}

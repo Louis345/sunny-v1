@@ -154,4 +154,33 @@ describe("activity tool catalog", () => {
     expect(doc).toContain("badFitWhen");
     expect(doc).toContain("Every new activity");
   });
+
+  it("catalogs Visual Learner Co-op Recall as the retrieval-practice follow-up to visual explainers", () => {
+    const recall = getActivityToolContract("visual-learner-coop-recall");
+
+    expect(recall.label).toBe("Visual Learner Co-op Recall");
+    expect(recall.nodeType).toBe("visual-recall-quiz");
+    expect(recall.gameIds ?? []).toContain("visual-learner-coop-recall");
+    expect(recall.purposes).toEqual(expect.arrayContaining(["practice", "independent-retrieval"]));
+    expect(recall.domains).toEqual(expect.arrayContaining(["math", "science", "reading"]));
+    expect(recall.evidence.writesPracticeEvidence).toBe(true);
+    expect(recall.evidence.writesMasteryEvidence).toBe(true);
+    expect(recall.evidence.requiresPerTargetResult).toBe(true);
+    expect(recall.strengths.join(" ")).toContain("after a Visual Explainer");
+    expect(recall.weakFor.join(" ")).toContain("delayed transfer");
+  });
+
+  it("keeps the human-readable activity capability audit in sync for Visual Learner Co-op Recall", () => {
+    const doc = fs.readFileSync(
+      path.join(process.cwd(), "docs", "activity-capability-audit.md"),
+      "utf8",
+    );
+
+    expect(doc).toContain("Visual Learner Co-op Recall");
+    expect(doc).toContain("retrieval practice after a visual explainer");
+    expect(doc).toContain("recall_result");
+    expect(doc).toContain("coinsEarned");
+    expect(doc).toContain("netCurrencyDelta");
+    expect(doc).toContain("delayed transfer");
+  });
 });

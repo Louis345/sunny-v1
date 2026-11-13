@@ -44,6 +44,8 @@ export type ActivityToolContract = {
   id: string;
   label: string;
   nodeType?: string;
+  gameIds?: string[];
+  configSource?: string;
   purposes: ActivityPurpose[];
   domains: LearningDomain[];
   strengths: string[];
@@ -164,6 +166,36 @@ const ACTIVITY_TOOL_CONTRACTS: ActivityToolContract[] = [
       requiresPerTargetResult: false,
       allowedEvidence: ["practice", "companion"],
       contaminationRisks: ["model-answer", "companion-coaching"],
+    },
+  },
+  {
+    id: "visual-learner-coop-recall",
+    label: "Visual Learner Co-op Recall",
+    nodeType: "visual-recall-quiz",
+    gameIds: ["visual-learner-coop-recall"],
+    configSource: "generated-artifact",
+    purposes: ["practice", "independent-retrieval"],
+    domains: ["math", "science", "reading", "vocabulary"],
+    strengths: [
+      "Checks recall immediately after a Visual Explainer without treating watching as mastery.",
+      "Turns retrieval practice into a co-op stakes game with per-target evidence.",
+    ],
+    weakFor: ["delayed transfer", "initial-teaching", "broad-mastery-claims"],
+    goodFitWhen: [
+      "A visual explainer has just taught the model and Sunny needs to test whether the child can retrieve it.",
+      "The artifact config includes recall questions tied to evidence targets.",
+    ],
+    badFitWhen: [
+      "The child has not seen the concept model yet.",
+      "Sunny needs real-world graded transfer evidence or delayed reassessment.",
+    ],
+    scaffolds: ["hint", "companion-coaching"],
+    evidence: {
+      writesPracticeEvidence: true,
+      writesMasteryEvidence: true,
+      requiresPerTargetResult: true,
+      allowedEvidence: ["practice", "mastery", "companion"],
+      contaminationRisks: ["hint", "companion-coaching"],
     },
   },
   {

@@ -1,0 +1,872 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sunny Shape Mat Championship</title>
+  <style>
+    :root{
+      --ink:#16213a;
+      --navy:#172554;
+      --blue:#2563eb;
+      --sky:#38bdf8;
+      --sun:#fbbf24;
+      --gold:#f59e0b;
+      --mint:#34d399;
+      --pink:#fb7185;
+      --purple:#8b5cf6;
+      --mat:#0f766e;
+      --card:#fff7ed;
+      --paper:#fffaf0;
+      --bad:#ef4444;
+      --good:#16a34a;
+      --shadow:rgba(15,23,42,.22);
+    }
+    *{box-sizing:border-box}
+    html,body{margin:0;min-height:100%;background:linear-gradient(180deg,#7dd3fc 0%,#dbeafe 44%,#fff7ed 100%);font-family:Arial,Helvetica,sans-serif;color:var(--ink)}
+    body{display:flex;justify-content:center;padding:14px}
+    .app{
+      width:min(1180px,100%);
+      background:rgba(255,255,255,.76);
+      border:3px solid rgba(255,255,255,.9);
+      border-radius:28px;
+      box-shadow:0 24px 60px var(--shadow);
+      overflow:hidden;
+    }
+    header{
+      display:grid;
+      grid-template-columns:1fr auto;
+      gap:12px;
+      align-items:center;
+      padding:18px 20px 12px;
+      background:linear-gradient(135deg,#fff7ed,#eff6ff 55%,#ecfeff);
+      border-bottom:2px solid rgba(37,99,235,.13);
+    }
+    .eyebrow{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding:6px 10px;
+      border-radius:999px;
+      background:#172554;
+      color:#fff;
+      font-size:13px;
+      font-weight:800;
+      letter-spacing:.3px;
+      width:max-content;
+    }
+    .sun-dot{width:12px;height:12px;border-radius:50%;background:var(--sun);box-shadow:0 0 0 4px rgba(251,191,36,.25)}
+    h1{margin:8px 0 4px;font-size:clamp(26px,4vw,44px);line-height:1;color:#111827}
+    .sub{margin:0;font-size:clamp(15px,2vw,18px);font-weight:700;color:#334155}
+    .scorecard{
+      min-width:180px;
+      background:#fff;
+      border:2px solid rgba(15,23,42,.1);
+      border-radius:20px;
+      padding:12px;
+      box-shadow:0 10px 22px rgba(15,23,42,.12);
+    }
+    .scorecard b{display:block;font-size:14px;color:#475569}
+    .coins{font-size:28px;font-weight:900;color:#b45309}
+    .streak{font-size:14px;font-weight:800;color:#0f766e}
+    main{display:grid;grid-template-columns:1fr 330px;gap:14px;padding:14px}
+    @media (max-width:900px){
+      header{grid-template-columns:1fr}
+      main{grid-template-columns:1fr}
+      .scorecard{width:100%}
+    }
+    .stage-card,.side-card{
+      background:rgba(255,255,255,.86);
+      border:2px solid rgba(15,23,42,.1);
+      border-radius:24px;
+      box-shadow:0 14px 32px rgba(15,23,42,.12);
+      overflow:hidden;
+    }
+    .stage-top{
+      display:flex;
+      justify-content:space-between;
+      gap:12px;
+      align-items:center;
+      padding:12px 14px;
+      background:linear-gradient(90deg,#172554,#1d4ed8);
+      color:#fff;
+    }
+    .stage-top strong{font-size:18px}
+    .stage-top span{font-size:13px;font-weight:800;color:#dbeafe}
+    .svg-wrap{position:relative;background:#bae6fd}
+    svg{display:block;width:100%;height:auto}
+    .controls{
+      padding:14px;
+      display:grid;
+      grid-template-columns:auto 1fr;
+      gap:12px;
+      align-items:center;
+      background:#fffaf0;
+      border-top:2px solid rgba(15,23,42,.08);
+    }
+    button{
+      border:0;
+      cursor:pointer;
+      font-family:inherit;
+      font-weight:900;
+      color:#fff;
+      background:linear-gradient(180deg,#2563eb,#1d4ed8);
+      border-radius:16px;
+      padding:12px 16px;
+      box-shadow:0 8px 0 #172554,0 12px 18px rgba(15,23,42,.18);
+      transform:translateY(0);
+    }
+    button:active{transform:translateY(5px);box-shadow:0 3px 0 #172554,0 8px 14px rgba(15,23,42,.16)}
+    button.secondary{background:linear-gradient(180deg,#0f766e,#115e59);box-shadow:0 8px 0 #064e3b}
+    button.gold{background:linear-gradient(180deg,#fbbf24,#f59e0b);box-shadow:0 8px 0 #92400e;color:#3b2600}
+    button.choice{width:100%;margin:6px 0;text-align:left;background:linear-gradient(180deg,#fff,#e0f2fe);color:#172554;border:2px solid #93c5fd;box-shadow:0 5px 0 #60a5fa}
+    button.choice.correct{background:linear-gradient(180deg,#dcfce7,#86efac);border-color:#22c55e;box-shadow:0 5px 0 #16a34a}
+    button.choice.wrong{background:linear-gradient(180deg,#fee2e2,#fecaca);border-color:#ef4444;box-shadow:0 5px 0 #dc2626}
+    .range-row{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center}
+    input[type=range]{width:100%;accent-color:#2563eb}
+    .percent{font-weight:900;color:#172554;min-width:48px;text-align:right}
+    .checkpoints{grid-column:1/-1;display:grid;grid-template-columns:repeat(5,1fr);gap:8px}
+    .checkpoint{
+      border:2px solid rgba(37,99,235,.25);
+      background:#eff6ff;
+      color:#1e3a8a;
+      border-radius:14px;
+      padding:8px 6px;
+      text-align:center;
+      font-size:12px;
+      font-weight:900;
+      box-shadow:none;
+    }
+    .checkpoint.active{background:#fef3c7;border-color:#f59e0b;color:#78350f}
+    .caption{
+      grid-column:1/-1;
+      margin:0;
+      font-size:18px;
+      font-weight:900;
+      color:#172554;
+      background:#ecfeff;
+      border:2px solid #bae6fd;
+      border-radius:16px;
+      padding:10px 12px;
+    }
+    .narration-audio{grid-column:1/-1;width:100%;height:36px}
+    .side-card{padding:14px}
+    .side-card h2{margin:0 0 8px;font-size:20px}
+    .short{
+      background:#f8fafc;
+      border:2px solid #e2e8f0;
+      border-radius:18px;
+      padding:12px;
+      margin-bottom:12px;
+      font-weight:800;
+      line-height:1.35;
+    }
+    .rule-list{display:grid;gap:8px;margin:0 0 12px;padding:0;list-style:none}
+    .rule-list li{background:#fff7ed;border:2px solid #fed7aa;border-radius:16px;padding:10px;font-weight:800}
+    .console{
+      background:#0f172a;
+      color:#d1fae5;
+      border-radius:18px;
+      padding:10px;
+      min-height:190px;
+      max-height:260px;
+      overflow:auto;
+      font-family:Consolas,Monaco,monospace;
+      font-size:12px;
+      border:3px solid #334155;
+    }
+    .console-title{display:flex;justify-content:space-between;align-items:center;margin:12px 0 6px}
+    .console-title h2{margin:0}
+    .event{padding:5px 0;border-bottom:1px solid rgba(209,250,229,.16);white-space:normal}
+    .event::before{content:"› ";color:#fbbf24}
+    .marker{font-size:11px;color:#64748b;font-weight:800;margin-top:8px}
+    .modal-backdrop{
+      position:absolute;
+      inset:0;
+      display:none;
+      align-items:center;
+      justify-content:center;
+      background:rgba(15,23,42,.42);
+      z-index:10;
+      padding:16px;
+    }
+    .modal-backdrop.show{display:flex}
+    .modal{
+      width:min(520px,100%);
+      background:#fffaf0;
+      border:4px solid #fbbf24;
+      border-radius:28px;
+      box-shadow:0 24px 60px rgba(15,23,42,.35);
+      padding:18px;
+      text-align:center;
+    }
+    .modal h2{margin:0 0 8px;font-size:28px;color:#172554}
+    .modal p{margin:6px 0 12px;font-weight:900;font-size:17px;color:#334155}
+    .feedback{min-height:28px;font-weight:900;color:#0f766e}
+    .legend{
+      position:absolute;
+      left:12px;
+      bottom:12px;
+      background:rgba(255,255,255,.88);
+      border:2px solid rgba(15,23,42,.12);
+      border-radius:16px;
+      padding:8px 10px;
+      font-weight:900;
+      font-size:13px;
+      color:#172554;
+    }
+    .reveal-badge{
+      display:inline-block;
+      margin-top:8px;
+      padding:7px 10px;
+      border-radius:999px;
+      background:#dcfce7;
+      color:#14532d;
+      border:2px solid #86efac;
+      font-weight:900;
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header>
+      <div>
+        <div class="eyebrow"><span class="sun-dot"></span> Sunny Championship Contract</div>
+        <h1>Reina’s Face-Print Arena</h1>
+        <p class="sub">Flat faces pin the mat and leave 2D prints. A sphere has no flat face, so it escapes.</p>
+      </div>
+      <div class="scorecard" aria-label="player card">
+        <b>Challenger</b>
+        <div class="coins">Reina · 8</div>
+        <div class="streak">Grade 2 strategy streak: 5 checkpoints</div>
+      </div>
+    </header>
+
+    <main>
+      <section class="stage-card">
+        <div class="stage-top">
+          <strong>Fast Match: Solid vs. Mat</strong>
+          <span>Predict. Pin. Reveal.</span>
+        </div>
+
+        <div class="svg-wrap">
+          <svg id="arenaSvg" viewBox="0 0 900 560" role="img" aria-label="Animated arena showing 3D solids making 2D face prints">
+            <defs>
+              <linearGradient id="skyGrad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0" stop-color="#38bdf8"/>
+                <stop offset=".62" stop-color="#dbeafe"/>
+                <stop offset="1" stop-color="#fff7ed"/>
+              </linearGradient>
+              <linearGradient id="matGrad" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0" stop-color="#14b8a6"/>
+                <stop offset="1" stop-color="#0f766e"/>
+              </linearGradient>
+              <linearGradient id="cubeFront" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0" stop-color="#60a5fa"/>
+                <stop offset="1" stop-color="#2563eb"/>
+              </linearGradient>
+              <linearGradient id="cylGrad" x1="0" y1="0" x2="1" y2="0">
+                <stop offset="0" stop-color="#fef3c7"/>
+                <stop offset=".5" stop-color="#f59e0b"/>
+                <stop offset="1" stop-color="#b45309"/>
+              </linearGradient>
+              <radialGradient id="sphereGrad" cx=".35" cy=".28" r=".72">
+                <stop offset="0" stop-color="#fecdd3"/>
+                <stop offset=".45" stop-color="#fb7185"/>
+                <stop offset="1" stop-color="#be123c"/>
+              </radialGradient>
+              <filter id="softShadow" x="-30%" y="-30%" width="160%" height="160%">
+                <feDropShadow dx="0" dy="8" stdDeviation="6" flood-color="#0f172a" flood-opacity=".28"/>
+              </filter>
+              <filter id="glow" x="-40%" y="-40%" width="180%" height="180%">
+                <feGaussianBlur stdDeviation="4" result="blur"/>
+                <feMerge>
+                  <feMergeNode in="blur"/>
+                  <feMergeNode in="SourceGraphic"/>
+                </feMerge>
+              </filter>
+              <pattern id="matPattern" width="34" height="34" patternUnits="userSpaceOnUse">
+                <path d="M0 34 L34 0" stroke="rgba(255,255,255,.13)" stroke-width="3"/>
+              </pattern>
+            </defs>
+
+            <rect width="900" height="560" fill="url(#skyGrad)"/>
+            <circle id="sun" cx="760" cy="76" r="42" fill="#fbbf24" filter="url(#glow)"/>
+            <g opacity=".45">
+              <ellipse cx="150" cy="92" rx="78" ry="22" fill="#fff"/>
+              <ellipse cx="205" cy="92" rx="55" ry="18" fill="#fff"/>
+              <ellipse cx="600" cy="130" rx="92" ry="24" fill="#fff"/>
+              <ellipse cx="660" cy="130" rx="62" ry="18" fill="#fff"/>
+            </g>
+
+            <g id="crowd" opacity=".9">
+              <rect x="42" y="170" width="816" height="86" rx="28" fill="#1e3a8a" opacity=".18"/>
+              <g fill="#fff7ed" stroke="#172554" stroke-width="2">
+                <circle cx="95" cy="205" r="16"/><circle cx="145" cy="195" r="16"/><circle cx="195" cy="207" r="16"/>
+                <circle cx="690" cy="205" r="16"/><circle cx="740" cy="195" r="16"/><circle cx="790" cy="207" r="16"/>
+              </g>
+              <g fill="#fbbf24">
+                <path d="M110 174 l8 16 l18 2 l-13 12 l3 18 l-16-9 l-16 9 l3-18 l-13-12 l18-2z"/>
+                <path d="M760 174 l8 16 l18 2 l-13 12 l3 18 l-16-9 l-16 9 l3-18 l-13-12 l18-2z"/>
+              </g>
+            </g>
+
+            <g id="scoreBanner" filter="url(#softShadow)">
+              <rect x="252" y="38" width="396" height="74" rx="24" fill="#172554"/>
+              <rect x="267" y="51" width="366" height="48" rx="16" fill="#eff6ff"/>
+              <text x="450" y="82" text-anchor="middle" font-size="25" font-weight="900" fill="#172554">FACE-PRINT TITLE MATCH</text>
+            </g>
+
+            <g id="matGroup" filter="url(#softShadow)">
+              <ellipse cx="450" cy="386" rx="370" ry="118" fill="#0f172a" opacity=".18"/>
+              <rect x="105" y="250" width="690" height="230" rx="58" fill="url(#matGrad)"/>
+              <rect x="105" y="250" width="690" height="230" rx="58" fill="url(#matPattern)" opacity=".72"/>
+              <rect x="141" y="282" width="618" height="166" rx="40" fill="none" stroke="#ccfbf1" stroke-width="8" opacity=".9"/>
+              <circle cx="450" cy="365" r="72" fill="none" stroke="#fef3c7" stroke-width="7" opacity=".9"/>
+              <line x1="450" y1="282" x2="450" y2="448" stroke="#fef3c7" stroke-width="5" opacity=".75"/>
+              <text x="450" y="468" text-anchor="middle" font-size="22" font-weight="900" fill="#ecfeff">THE MAT ONLY TAKES FLAT PINS</text>
+            </g>
+
+            <g id="prints" opacity="0">
+              <g id="squarePrint">
+                <rect x="168" y="318" width="84" height="84" rx="8" fill="#dbeafe" stroke="#1d4ed8" stroke-width="6"/>
+                <text x="210" y="424" text-anchor="middle" font-size="18" font-weight="900" fill="#172554">square</text>
+              </g>
+              <g id="circlePrint">
+                <circle cx="365" cy="361" r="46" fill="#fef3c7" stroke="#b45309" stroke-width="6"/>
+                <text x="365" y="424" text-anchor="middle" font-size="18" font-weight="900" fill="#78350f">circle</text>
+              </g>
+              <g id="conePrint">
+                <circle cx="548" cy="361" r="40" fill="#ede9fe" stroke="#7c3aed" stroke-width="6"/>
+                <text x="548" y="424" text-anchor="middle" font-size="18" font-weight="900" fill="#4c1d95">circle</text>
+              </g>
+              <g id="sphereNoPrint">
+                <path d="M650 318 L748 404 M748 318 L650 404" stroke="#ef4444" stroke-width="12" stroke-linecap="round"/>
+                <text x="699" y="424" text-anchor="middle" font-size="18" font-weight="900" fill="#7f1d1d">no print</text>
+              </g>
+            </g>
+
+            <g id="cube" filter="url(#softShadow)">
+              <polygon points="0,-50 56,-22 0,8 -56,-22" fill="#93c5fd" stroke="#172554" stroke-width="3"/>
+              <polygon points="-56,-22 0,8 0,72 -56,38" fill="#1d4ed8" stroke="#172554" stroke-width="3"/>
+              <polygon points="56,-22 0,8 0,72 56,36" fill="url(#cubeFront)" stroke="#172554" stroke-width="3"/>
+              <text x="0" y="102" text-anchor="middle" font-size="18" font-weight="900" fill="#172554">cube</text>
+            </g>
+
+            <g id="cylinder" filter="url(#softShadow)">
+              <ellipse cx="0" cy="-54" rx="48" ry="18" fill="#fde68a" stroke="#78350f" stroke-width="3"/>
+              <rect x="-48" y="-54" width="96" height="98" fill="url(#cylGrad)" stroke="#78350f" stroke-width="3"/>
+              <ellipse cx="0" cy="44" rx="48" ry="18" fill="#fbbf24" stroke="#78350f" stroke-width="3"/>
+              <path d="M-31 -54 C-40 -18 -40 10 -31 44" fill="none" stroke="#fff7ed" stroke-width="5" opacity=".55"/>
+              <text x="0" y="82" text-anchor="middle" font-size="18" font-weight="900" fill="#78350f">cylinder</text>
+            </g>
+
+            <g id="cone" filter="url(#softShadow)">
+              <path d="M0 -76 L58 42 Q0 66 -58 42 Z" fill="#8b5cf6" stroke="#3b0764" stroke-width="3"/>
+              <ellipse cx="0" cy="42" rx="58" ry="20" fill="#c4b5fd" stroke="#3b0764" stroke-width="3"/>
+              <path d="M0 -76 C-18 -18 -16 18 -8 46" fill="none" stroke="#ede9fe" stroke-width="5" opacity=".58"/>
+              <text x="0" y="82" text-anchor="middle" font-size="18" font-weight="900" fill="#4c1d95">cone</text>
+            </g>
+
+            <g id="sphere" filter="url(#softShadow)">
+              <circle cx="0" cy="0" r="53" fill="url(#sphereGrad)" stroke="#7f1d1d" stroke-width="3"/>
+              <circle cx="-18" cy="-20" r="13" fill="#ffe4e6" opacity=".75"/>
+              <path d="M-34 26 C-6 45 27 39 45 13" fill="none" stroke="#fff1f2" stroke-width="5" opacity=".45"/>
+              <text x="0" y="86" text-anchor="middle" font-size="18" font-weight="900" fill="#7f1d1d">sphere</text>
+            </g>
+
+            <g id="callout" opacity="1">
+              <rect x="246" y="134" width="408" height="58" rx="20" fill="#fffaf0" stroke="#fbbf24" stroke-width="4"/>
+              <text id="calloutText" x="450" y="170" text-anchor="middle" font-size="22" font-weight="900" fill="#172554">Reina, scout the flat faces.</text>
+            </g>
+
+            <g id="arrows" opacity="0">
+              <path d="M210 300 C210 270 210 250 210 228" fill="none" stroke="#fbbf24" stroke-width="8" stroke-linecap="round"/>
+              <path d="M210 228 l-17 20 h34 z" fill="#fbbf24"/>
+              <path d="M365 300 C365 270 365 250 365 228" fill="none" stroke="#fbbf24" stroke-width="8" stroke-linecap="round"/>
+              <path d="M365 228 l-17 20 h34 z" fill="#fbbf24"/>
+              <path d="M548 300 C548 270 548 250 548 228" fill="none" stroke="#fbbf24" stroke-width="8" stroke-linecap="round"/>
+              <path d="M548 228 l-17 20 h34 z" fill="#fbbf24"/>
+            </g>
+
+            <g id="escapeTrail" opacity="0">
+              <path d="M700 340 C744 318 786 316 832 296" fill="none" stroke="#fecdd3" stroke-width="10" stroke-linecap="round" stroke-dasharray="10 14"/>
+              <text x="752" y="278" text-anchor="middle" font-size="22" font-weight="900" fill="#7f1d1d">escape!</text>
+            </g>
+          </svg>
+
+          <div id="predictionModal" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+            <div class="modal">
+              <h2 id="modalTitle">Prediction Pause</h2>
+              <p>Quick takedown, Reina: which solid escapes because it has <u>no flat face</u>?</p>
+              <button class="choice" data-answer="cube">Cube</button>
+              <button class="choice" data-answer="cylinder">Cylinder</button>
+              <button class="choice" data-answer="sphere">Sphere</button>
+              <button class="choice" data-answer="cone">Cone</button>
+              <div id="feedback" class="feedback"></div>
+              <button id="continueBtn" class="gold" style="display:none">Reveal the match</button>
+            </div>
+          </div>
+
+          <div class="legend">Matilda hint-only outside this frame. Sunny runs the arena.</div>
+        </div>
+
+        <div class="controls">
+          <button id="playBtn" aria-label="play or pause">Play</button>
+          <div class="range-row">
+            <input id="scrubber" type="range" min="0" max="100" value="0" step="1" aria-label="progress scrubber">
+            <div id="percent" class="percent">0%</div>
+          </div>
+          <p id="caption" class="caption">Opening bell: solids enter the mat.</p>
+          <audio id="narrationAudio" class="narration-audio" controls preload="metadata" src="./audio/segment-intro-052jzHJceQiZr7ltnY0C.mp3"></audio>
+          <div class="checkpoints" aria-label="five checkpoints">
+            <button class="checkpoint active" data-jump="0">1 Roster</button>
+            <button class="checkpoint" data-jump="25">2 Pin</button>
+            <button class="checkpoint" data-jump="45">3 Stamp</button>
+            <button class="checkpoint" data-jump="60">4 Predict</button>
+            <button class="checkpoint" data-jump="85">5 Reveal</button>
+          </div>
+        </div>
+      </section>
+
+      <aside class="side-card">
+        <h2>Sunny’s Strategy</h2>
+        <div class="short">
+          Your best move: find a flat face. Flat face = can pin the mat = 2D print.
+          Curve-only sphere = rolls away.
+        </div>
+        <ul class="rule-list">
+          <li>Cube face pins as a square.</li>
+          <li>Cylinder end pins as a circle.</li>
+          <li>Cone base pins as a circle.</li>
+          <li>Sphere has no flat face: escape.</li>
+        </ul>
+
+        <div class="console-title">
+          <h2>Parent Evidence Console</h2>
+          <button id="clearConsole" class="secondary" type="button">Reset log</button>
+        </div>
+        <div id="console" class="console" aria-live="polite"></div>
+        <div class="marker">sunny-visual-probe</div>
+      </aside>
+    </main>
+  </div>
+
+  <script id="recallGame" type="application/json">
+  {
+    "player": {
+      "name": "Reina",
+      "age": 8,
+      "grade": 2
+    },
+    "game": "Sunny Face-Print Arena",
+    "sunCoinBank": 30,
+    "questions": [
+      {
+        "id": "q1",
+        "stakeSunCoins": 5,
+        "prompt": "Which 3D solid can leave a square print from one flat face?",
+        "choices": ["cube", "sphere", "cone"],
+        "answer": "cube"
+      },
+      {
+        "id": "q2",
+        "stakeSunCoins": 10,
+        "prompt": "Which solid escapes because every part is curved?",
+        "choices": ["cylinder", "sphere", "cube"],
+        "answer": "sphere"
+      },
+      {
+        "id": "q3",
+        "stakeSunCoins": 15,
+        "prompt": "What 2D print can the flat base of a cone make?",
+        "choices": ["circle", "square", "triangle"],
+        "answer": "circle"
+      }
+    ]
+  }
+  </script>
+
+  <script>
+    (function(){
+      "use strict";
+
+      var progress = 0;
+      var playing = false;
+      var answered = false;
+      var predictionShown = false;
+      var tickId = null;
+      var eventCount = 0;
+      var activeNarrationSegment = -1;
+      var ignoreNarrationPause = false;
+
+      var playBtn = document.getElementById("playBtn");
+      var scrubber = document.getElementById("scrubber");
+      var percent = document.getElementById("percent");
+      var caption = document.getElementById("caption");
+      var modal = document.getElementById("predictionModal");
+      var feedback = document.getElementById("feedback");
+      var continueBtn = document.getElementById("continueBtn");
+      var consoleEl = document.getElementById("console");
+      var clearConsole = document.getElementById("clearConsole");
+      var audio = document.getElementById("narrationAudio");
+      var narrationSegments = [
+        { id: "intro", start: 0, end: 20, src: "./audio/segment-intro-052jzHJceQiZr7ltnY0C.mp3" },
+        { id: "flat-face", start: 20, end: 42, src: "./audio/segment-flat-face-052jzHJceQiZr7ltnY0C.mp3" },
+        { id: "stamp", start: 42, end: 60, src: "./audio/segment-stamp-052jzHJceQiZr7ltnY0C.mp3?v=2" },
+        { id: "sphere", start: 72, end: 94, src: "./audio/segment-sphere-052jzHJceQiZr7ltnY0C.mp3" },
+        { id: "rule", start: 94, end: 100, src: "./audio/segment-rule-052jzHJceQiZr7ltnY0C.mp3" }
+      ];
+      var choices = Array.prototype.slice.call(document.querySelectorAll(".choice"));
+      var checkpoints = Array.prototype.slice.call(document.querySelectorAll(".checkpoint"));
+
+      var cube = document.getElementById("cube");
+      var cylinder = document.getElementById("cylinder");
+      var cone = document.getElementById("cone");
+      var sphere = document.getElementById("sphere");
+      var prints = document.getElementById("prints");
+      var arrows = document.getElementById("arrows");
+      var escapeTrail = document.getElementById("escapeTrail");
+      var calloutText = document.getElementById("calloutText");
+      var sun = document.getElementById("sun");
+
+      function clamp(n,min,max){ return Math.max(min, Math.min(max, n)); }
+      function lerp(a,b,t){ return a + (b-a) * clamp(t,0,1); }
+      function ease(t){ t = clamp(t,0,1); return t*t*(3-2*t); }
+      function hasAudio(){
+        return audio && Number.isFinite(audio.duration) && audio.duration > 0;
+      }
+      function narrationSegmentForProgress(p){
+        if(!answered && p >= 60){ return null; }
+        for(var i = 0; i < narrationSegments.length; i++){
+          var segment = narrationSegments[i];
+          if(p >= segment.start && p < segment.end){
+            return { segment: segment, index: i };
+          }
+        }
+        var last = narrationSegments[narrationSegments.length - 1];
+        return p >= 100 ? { segment: last, index: narrationSegments.length - 1 } : null;
+      }
+      function ensureNarrationSegment(){
+        if(!audio){ return null; }
+        var match = narrationSegmentForProgress(progress);
+        if(!match){ return null; }
+        if(activeNarrationSegment !== match.index){
+          ignoreNarrationPause = true;
+          activeNarrationSegment = match.index;
+          audio.src = match.segment.src;
+          audio.load();
+        }
+        return match.segment;
+      }
+      function audioProgress(){
+        if(!hasAudio()){ return progress; }
+        var segment = narrationSegments[activeNarrationSegment];
+        if(!segment){ return progress; }
+        var local = clamp(audio.currentTime / audio.duration, 0, 1);
+        return segment.start + (segment.end - segment.start) * local;
+      }
+      function syncAudioToProgress(){
+        var segment = ensureNarrationSegment();
+        if(!segment || !hasAudio()){ return; }
+        var local = clamp((progress - segment.start) / (segment.end - segment.start), 0, 1);
+        var nextTime = local * audio.duration;
+        if(Math.abs(audio.currentTime - nextTime) > 0.35){
+          audio.currentTime = nextTime;
+        }
+      }
+      function pauseAudio(){
+        if(audio && !audio.paused){ audio.pause(); }
+      }
+      function playAudio(){
+        if(!audio){ return; }
+        if(!ensureNarrationSegment()){ return; }
+        syncAudioToProgress();
+        audio.play().catch(function(){
+          ignoreNarrationPause = false;
+          logEvent("narration_blocked", "tap audio control to start narration");
+        });
+      }
+
+      function setTransform(el, x, y, scale, rot){
+        el.setAttribute("transform","translate("+x.toFixed(2)+" "+y.toFixed(2)+") rotate("+rot.toFixed(2)+") scale("+scale.toFixed(3)+")");
+      }
+
+      function logEvent(name, detail){
+        eventCount += 1;
+        var row = document.createElement("div");
+        row.className = "event";
+        row.setAttribute("data-evidence-event", name);
+        row.textContent = "#" + eventCount + " data-evidence-event=\"" + name + "\" " + detail;
+        consoleEl.appendChild(row);
+        consoleEl.scrollTop = consoleEl.scrollHeight;
+      }
+
+      function updateCheckpoints(){
+        var activeIndex = 0;
+        if(progress >= 85){ activeIndex = 4; }
+        else if(progress >= 60){ activeIndex = 3; }
+        else if(progress >= 45){ activeIndex = 2; }
+        else if(progress >= 25){ activeIndex = 1; }
+        checkpoints.forEach(function(btn,i){
+          if(i === activeIndex){ btn.classList.add("active"); }
+          else{ btn.classList.remove("active"); }
+        });
+      }
+
+      function setCaption(){
+        var text;
+        if(progress < 20){
+          text = "Opening bell: solids enter the mat.";
+          calloutText.textContent = "Reina, scout the flat faces.";
+        } else if(progress < 42){
+          text = "Flat faces go for the pin.";
+          calloutText.textContent = "Flat face spotted: pin it!";
+        } else if(progress < 60){
+          text = "A pinned flat face makes a 2D print.";
+          calloutText.textContent = "Stamp check: 3D face to 2D print.";
+        } else if(progress < 75){
+          text = "Prediction time: which one rolls away?";
+          calloutText.textContent = "No flat face means escape.";
+        } else if(progress < 94){
+          text = "Reveal: square, circle, circle. Sphere makes no print.";
+          calloutText.textContent = "Winning prints are on the mat!";
+        } else {
+          text = "Personal best finish: flat faces print, spheres roll.";
+          calloutText.textContent = "Champion rule locked.";
+        }
+        caption.textContent = text;
+      }
+
+      function updateScene(){
+        progress = clamp(progress,0,100);
+        scrubber.value = String(Math.round(progress));
+        percent.textContent = Math.round(progress) + "%";
+        updateCheckpoints();
+        setCaption();
+
+        var p = progress / 100;
+        var roster = ease(p / .20);
+        var pin = ease((p - .20) / .25);
+        var stamp = ease((p - .42) / .22);
+        var reveal = answered ? ease((p - .62) / .22) : 0;
+        var finalRun = ease((p - .76) / .24);
+
+        var bob = Math.sin(p * Math.PI * 10) * 4;
+
+        setTransform(cube, lerp(90,210,roster), lerp(185,300,pin) + bob * (1-pin), lerp(1,0.82,pin), lerp(-10,0,pin));
+        setTransform(cylinder, lerp(278,365,roster), lerp(184,298,pin) - bob * .5, lerp(1,0.82,pin), lerp(7,0,pin));
+        setTransform(cone, lerp(625,548,roster), lerp(184,298,pin) + bob * .35, lerp(1,0.82,pin), lerp(-6,0,pin));
+
+        var sphereX;
+        var sphereY;
+        var sphereRot;
+        if(p < .60){
+          sphereX = lerp(810,700,roster);
+          sphereY = lerp(186,303,pin);
+          sphereRot = lerp(20,0,pin);
+        } else {
+          sphereX = lerp(700,835,finalRun);
+          sphereY = lerp(303,248,finalRun) + Math.sin(finalRun * Math.PI * 5) * 9;
+          sphereRot = finalRun * 520;
+        }
+        setTransform(sphere, sphereX, sphereY, .82, sphereRot);
+
+        var printOpacity = Math.max(stamp * .55, reveal);
+        prints.setAttribute("opacity", printOpacity.toFixed(2));
+        arrows.setAttribute("opacity", (stamp * (1 - finalRun) * .92).toFixed(2));
+        escapeTrail.setAttribute("opacity", (answered ? finalRun : 0).toFixed(2));
+
+        var sunPulse = 42 + Math.sin(p * Math.PI * 4) * 2;
+        sun.setAttribute("r", sunPulse.toFixed(2));
+
+        if(progress >= 60 && !answered && !predictionShown){
+          showPrediction();
+        }
+      }
+
+      function setProgress(value, source){
+        var old = progress;
+        progress = clamp(Number(value),0,100);
+        if(old < 60 && progress >= 60 && !answered){
+          progress = 60;
+        }
+        if(source !== "audio"){
+          syncAudioToProgress();
+        }
+        updateScene();
+        if(source){
+          logEvent("progress_change", "source=" + source + " progress=" + Math.round(progress));
+        }
+      }
+
+      function play(){
+        if(playing){ return; }
+        playing = true;
+        playBtn.textContent = "Pause";
+        logEvent("play_pressed", "progress=" + Math.round(progress));
+        playAudio();
+        tick();
+      }
+
+      function pause(reason){
+        if(!playing && reason !== "prediction_pause"){ return; }
+        playing = false;
+        playBtn.textContent = "Play";
+        pauseAudio();
+        if(tickId !== null){
+          window.clearTimeout(tickId);
+          tickId = null;
+        }
+        logEvent("pause", "reason=" + reason + " progress=" + Math.round(progress));
+      }
+
+      function tick(){
+        if(!playing){ return; }
+        progress = hasAudio() && activeNarrationSegment >= 0 ? audioProgress() : clamp(progress + 0.55,0,100);
+        if(progress >= 60 && !answered){
+          progress = 60;
+          updateScene();
+          showPrediction();
+          pause("prediction_pause");
+          return;
+        }
+        updateScene();
+        if(progress >= 100){
+          pause("finished");
+          logEvent("match_complete", "rule=flat_faces_make_2d_prints_sphere_rolls");
+          return;
+        }
+        tickId = window.setTimeout(tick, 35);
+      }
+
+      function showPrediction(){
+        predictionShown = true;
+        pauseAudio();
+        modal.classList.add("show");
+        feedback.textContent = "";
+        continueBtn.style.display = "none";
+        choices.forEach(function(btn){
+          btn.disabled = false;
+          btn.classList.remove("correct","wrong");
+        });
+        logEvent("prediction_modal_opened", "prompt=no_flat_face_escape");
+      }
+
+      function answerChoice(btn){
+        var answer = btn.getAttribute("data-answer");
+        choices.forEach(function(choice){ choice.disabled = true; });
+        if(answer === "sphere"){
+          btn.classList.add("correct");
+          feedback.textContent = "Pinned! Sphere is all curve, so it rolls away.";
+          logEvent("prediction_answer", "answer=sphere correct=true sunCoins=10");
+        } else {
+          btn.classList.add("wrong");
+          choices.forEach(function(choice){
+            if(choice.getAttribute("data-answer") === "sphere"){ choice.classList.add("correct"); }
+          });
+          feedback.textContent = "Escape move: the sphere has no flat face.";
+          logEvent("prediction_answer", "answer=" + answer + " correct=false revealed=sphere");
+        }
+        answered = true;
+        continueBtn.style.display = "inline-block";
+        updateScene();
+      }
+
+      playBtn.addEventListener("click", function(){
+        if(playing){ pause("player_pressed"); }
+        else{
+          if(progress >= 100){ progress = 0; answered = false; predictionShown = false; }
+          updateScene();
+          play();
+        }
+      });
+
+      scrubber.addEventListener("input", function(){
+        pause("scrub");
+        setProgress(scrubber.value, "scrubber");
+      });
+
+      checkpoints.forEach(function(btn){
+        btn.addEventListener("click", function(){
+          pause("checkpoint");
+          var jump = Number(btn.getAttribute("data-jump"));
+          if(jump > 60 && !answered){ jump = 60; }
+          setProgress(jump, "checkpoint_" + btn.textContent.replace(/\s+/g,"_"));
+        });
+      });
+
+      choices.forEach(function(btn){
+        btn.addEventListener("click", function(){ answerChoice(btn); });
+      });
+
+      continueBtn.addEventListener("click", function(){
+        modal.classList.remove("show");
+        if(progress < 72){ progress = 72; }
+        syncAudioToProgress();
+        updateScene();
+        logEvent("reveal_started", "prints=square_circle_circle sphere=no_print");
+        play();
+      });
+
+      if(audio){
+        audio.addEventListener("play", function(){
+          ignoreNarrationPause = false;
+          if(!playing){
+            playing = true;
+            playBtn.textContent = "Pause";
+            tick();
+          }
+        });
+        audio.addEventListener("pause", function(){
+          // The main Play button owns visual state. Browser audio pauses also fire
+          // during clip boundaries, so they should not stop the animation flow.
+        });
+        audio.addEventListener("seeked", function(){
+          if(hasAudio()){
+            setProgress(audioProgress(), "audio");
+          }
+        });
+        audio.addEventListener("ended", function(){
+          var segment = narrationSegments[activeNarrationSegment];
+          if(!segment){ return; }
+          ignoreNarrationPause = true;
+          progress = segment.end;
+          if(progress >= 60 && !answered){
+            progress = 60;
+            updateScene();
+            showPrediction();
+            pause("prediction_pause");
+            return;
+          }
+          if(progress >= 100){
+            pause("finished");
+            logEvent("match_complete", "rule=flat_faces_make_2d_prints_sphere_rolls");
+            return;
+          }
+          activeNarrationSegment = -1;
+          updateScene();
+          if(playing){
+            if(tickId !== null){
+              window.clearTimeout(tickId);
+              tickId = null;
+            }
+            playAudio();
+            tick();
+          }
+        });
+      }
+
+      clearConsole.addEventListener("click", function(){
+        consoleEl.innerHTML = "";
+        eventCount = 0;
+        logEvent("console_reset", "visible=true");
+      });
+
+      logEvent("scene_loaded", "player=Reina grade=2 checkpoints=5");
+      logEvent("recall_game_ready", "questions=3 totalSunCoins=30");
+      updateScene();
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,849 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sunny Visual Explainer: Breakfast Print Garden</title>
+  <style>
+    :root{
+      --cream:#fff7df;
+      --sun:#ffd25a;
+      --honey:#f3a533;
+      --jam:#d94b72;
+      --berry:#5268b8;
+      --leaf:#5aa36c;
+      --ink:#2f2b3a;
+      --soft:#7b6c7d;
+      --card:#ffffff;
+      --line:#eadfbf;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      background:
+        radial-gradient(circle at 18% 10%, #fff4be 0 13%, transparent 14%),
+        linear-gradient(180deg,#fff9e9 0%,#f5fbef 54%,#fff3db 100%);
+      color:var(--ink);
+      font-family: ui-rounded, "Trebuchet MS", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    .wrap{
+      width:min(1120px,96vw);
+      margin:0 auto;
+      padding:18px 0 28px;
+    }
+    .hero{
+      display:grid;
+      grid-template-columns: 1fr;
+      gap:12px;
+    }
+    .top{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      flex-wrap:wrap;
+      background:rgba(255,255,255,.72);
+      border:2px solid rgba(255,210,90,.45);
+      border-radius:24px;
+      padding:12px 16px;
+      box-shadow:0 12px 30px rgba(129,94,38,.10);
+    }
+    h1{
+      margin:0;
+      font-size:clamp(1.2rem, 2vw, 1.8rem);
+      letter-spacing:.01em;
+    }
+    .subtitle{
+      margin:3px 0 0;
+      font-size:.98rem;
+      color:#655a66;
+    }
+    .marker{
+      font-size:.78rem;
+      color:#8b7b4d;
+      background:#fff1b8;
+      border:1px solid #f5d66a;
+      border-radius:999px;
+      padding:5px 10px;
+      white-space:nowrap;
+    }
+    .sceneCard{
+      position:relative;
+      background:linear-gradient(180deg,#fffdfa,#fff7e5);
+      border:2px solid #f3dfab;
+      border-radius:28px;
+      overflow:hidden;
+      box-shadow:0 18px 50px rgba(110,79,39,.18);
+    }
+    svg{
+      display:block;
+      width:100%;
+      height:auto;
+    }
+    .controls{
+      display:grid;
+      grid-template-columns:auto 1fr auto;
+      gap:12px;
+      align-items:center;
+      padding:12px 14px 14px;
+      background:rgba(255,252,240,.92);
+      border-top:2px solid #f0dfb3;
+    }
+    button{
+      appearance:none;
+      border:0;
+      border-radius:16px;
+      background:#ffe28a;
+      color:#3d2d14;
+      font-weight:800;
+      padding:10px 14px;
+      box-shadow:0 4px 0 #ddb557;
+      cursor:pointer;
+      font-family:inherit;
+      font-size:.98rem;
+    }
+    button:hover{filter:brightness(1.03)}
+    button:active{transform:translateY(2px);box-shadow:0 2px 0 #ddb557}
+    button.secondary{
+      background:#eef8ff;
+      box-shadow:0 4px 0 #b8d8e8;
+      color:#254155;
+    }
+    button.answer{
+      display:block;
+      width:100%;
+      margin:8px 0;
+      text-align:left;
+      background:#fff7df;
+      box-shadow:0 4px 0 #e7d098;
+    }
+    button.answer.correctPick{
+      background:#e6f8ed;
+      box-shadow:0 4px 0 #9dccae;
+    }
+    .rangeWrap{
+      display:grid;
+      gap:7px;
+    }
+    input[type="range"]{
+      width:100%;
+      accent-color:#f3a533;
+    }
+    .checkpointRow{
+      display:flex;
+      gap:7px;
+      flex-wrap:wrap;
+    }
+    .checkpointRow button{
+      padding:7px 9px;
+      font-size:.82rem;
+      border-radius:12px;
+      background:#fff;
+      box-shadow:0 3px 0 #e7d098;
+      border:1px solid #f0dfb3;
+    }
+    .progressText{
+      min-width:116px;
+      text-align:right;
+      font-weight:800;
+      color:#6d5224;
+    }
+    .narrationAudio{
+      grid-column:1/-1;
+      width:100%;
+      height:36px;
+    }
+    .modalShade{
+      position:absolute;
+      inset:0;
+      display:none;
+      place-items:center;
+      background:rgba(50,39,55,.30);
+      backdrop-filter: blur(2px);
+      z-index:5;
+      padding:18px;
+    }
+    .modalShade.show{display:grid}
+    .modal{
+      width:min(430px,92vw);
+      background:#fffdf7;
+      border:3px solid #ffd25a;
+      border-radius:28px;
+      padding:18px;
+      box-shadow:0 24px 60px rgba(45,33,21,.28);
+      text-align:left;
+    }
+    .modal h2{
+      margin:0 0 8px;
+      font-size:1.25rem;
+    }
+    .modal p{
+      margin:8px 0 12px;
+      color:#5f5362;
+      line-height:1.35;
+    }
+    .feedback{
+      min-height:24px;
+      margin-top:8px;
+      font-weight:800;
+      color:#3f7b51;
+    }
+    .hint{
+      margin-top:10px;
+      padding:10px 12px;
+      border-radius:18px;
+      background:#f0fbff;
+      border:1px solid #cce8f4;
+      color:#386073;
+      font-size:.95rem;
+    }
+    .below{
+      display:grid;
+      grid-template-columns:1.1fr .9fr;
+      gap:12px;
+      margin-top:12px;
+    }
+    .note,.console{
+      background:rgba(255,255,255,.76);
+      border:2px solid #f0dfb3;
+      border-radius:22px;
+      padding:14px;
+      box-shadow:0 10px 28px rgba(110,79,39,.10);
+    }
+    .note h3,.console h3{
+      margin:0 0 8px;
+      font-size:1rem;
+    }
+    .note p{
+      margin:6px 0;
+      color:#5d5362;
+      line-height:1.35;
+    }
+    .consoleLog{
+      display:grid;
+      gap:6px;
+      max-height:150px;
+      overflow:auto;
+      padding-right:4px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size:.78rem;
+    }
+    .consoleLog div{
+      background:#fff8e6;
+      border:1px solid #ecd69e;
+      border-radius:10px;
+      padding:6px 8px;
+      color:#58421c;
+    }
+    .svgLabel{
+      font-weight:800;
+      fill:#403442;
+      paint-order:stroke;
+      stroke:#fff9e6;
+      stroke-width:5px;
+      stroke-linejoin:round;
+    }
+    .tinyLabel{
+      font-weight:800;
+      fill:#6d5224;
+    }
+    .hiddenAtStart{opacity:0}
+    @media (max-width:780px){
+      .controls{grid-template-columns:1fr}
+      .progressText{text-align:left}
+      .below{grid-template-columns:1fr}
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <section class="hero" aria-label="Sunny visual explainer">
+      <div class="top">
+        <div>
+          <h1>Sunny Breakfast Print Garden</h1>
+          <p class="subtitle">For Ila, grade 2: flat faces can make 2D prints.</p>
+        </div>
+        <div class="marker">sunny-visual-probe</div>
+      </div>
+
+      <div class="sceneCard">
+        <svg id="scene" viewBox="0 0 1000 620" role="img" aria-label="A cozy tabletop garden where breakfast shapes press flat faces into jam and syrup.">
+          <defs>
+            <linearGradient id="wallGrad" x1="0" x2="0" y1="0" y2="1">
+              <stop offset="0" stop-color="#fff4c7"/>
+              <stop offset=".55" stop-color="#fff9e8"/>
+              <stop offset="1" stop-color="#f8e6c6"/>
+            </linearGradient>
+            <linearGradient id="tableGrad" x1="0" x2="0" y1="0" y2="1">
+              <stop offset="0" stop-color="#eeb975"/>
+              <stop offset="1" stop-color="#c9854c"/>
+            </linearGradient>
+            <linearGradient id="jamGrad" x1="0" x2="1">
+              <stop offset="0" stop-color="#ff7a98"/>
+              <stop offset="1" stop-color="#c83363"/>
+            </linearGradient>
+            <linearGradient id="syrupGrad" x1="0" x2="1">
+              <stop offset="0" stop-color="#ffd36a"/>
+              <stop offset="1" stop-color="#c6752d"/>
+            </linearGradient>
+            <linearGradient id="berryGrad" x1="0" x2="1" y1="0" y2="1">
+              <stop offset="0" stop-color="#7287de"/>
+              <stop offset="1" stop-color="#38488f"/>
+            </linearGradient>
+            <filter id="shadow" x="-30%" y="-30%" width="160%" height="170%">
+              <feDropShadow dx="0" dy="8" stdDeviation="7" flood-color="#6b4523" flood-opacity=".22"/>
+            </filter>
+            <filter id="smallShadow" x="-30%" y="-30%" width="160%" height="170%">
+              <feDropShadow dx="0" dy="4" stdDeviation="3" flood-color="#6b4523" flood-opacity=".18"/>
+            </filter>
+            <pattern id="cloth" width="42" height="42" patternUnits="userSpaceOnUse">
+              <rect width="42" height="42" fill="#fff1d5"/>
+              <path d="M0 21H42M21 0V42" stroke="#ffe0a6" stroke-width="5"/>
+            </pattern>
+          </defs>
+
+          <rect width="1000" height="620" fill="url(#wallGrad)"/>
+          <circle cx="874" cy="88" r="50" fill="#ffe175"/>
+          <g opacity=".7">
+            <circle cx="874" cy="88" r="68" fill="none" stroke="#ffd45b" stroke-width="6" stroke-dasharray="10 16"/>
+          </g>
+
+          <g filter="url(#smallShadow)">
+            <rect x="64" y="48" width="256" height="170" rx="28" fill="#d8f2ff" stroke="#ffffff" stroke-width="9"/>
+            <path d="M192 52V214M68 134H316" stroke="#ffffff" stroke-width="8"/>
+            <path d="M92 190C135 150 172 166 214 126C247 94 285 100 316 76V214H92Z" fill="#a8d7a0" opacity=".75"/>
+            <path d="M68 214H316" stroke="#d5b37b" stroke-width="10"/>
+          </g>
+
+          <g opacity=".8">
+            <path d="M652 78c26 17 48 17 72 0" fill="none" stroke="#e9cfa0" stroke-width="8" stroke-linecap="round"/>
+            <path d="M674 112c36 21 73 20 108-3" fill="none" stroke="#e9cfa0" stroke-width="8" stroke-linecap="round"/>
+          </g>
+
+          <rect x="0" y="410" width="1000" height="210" fill="url(#tableGrad)"/>
+          <path d="M0 416C150 392 294 430 445 410C610 389 758 438 1000 408V452H0Z" fill="#f3c082" opacity=".75"/>
+          <ellipse cx="500" cy="506" rx="438" ry="86" fill="url(#cloth)" opacity=".98" stroke="#efcf91" stroke-width="4"/>
+
+          <g id="gardenBack" filter="url(#smallShadow)">
+            <rect x="718" y="310" width="210" height="92" rx="24" fill="#c48955"/>
+            <rect x="735" y="292" width="176" height="58" rx="20" fill="#82542f"/>
+            <circle cx="770" cy="286" r="8" fill="#ffcf68"/>
+            <circle cx="805" cy="265" r="9" fill="#ff8ea7"/>
+            <circle cx="858" cy="276" r="8" fill="#ffcf68"/>
+            <path d="M770 332C770 302 772 292 770 286M805 324C808 294 805 276 805 265M858 324C858 298 858 286 858 276" stroke="#4c915b" stroke-width="5" stroke-linecap="round"/>
+            <path d="M751 327c28-20 53-17 80 0c26-19 48-17 78 0" fill="none" stroke="#5aa36c" stroke-width="10" stroke-linecap="round"/>
+          </g>
+
+          <g id="pads" filter="url(#smallShadow)">
+            <g>
+              <ellipse cx="306" cy="397" rx="88" ry="34" fill="#9d4f38" opacity=".25"/>
+              <rect x="228" y="332" width="156" height="70" rx="26" fill="#ffdce4" stroke="#f3a9bd" stroke-width="5"/>
+              <ellipse cx="306" cy="360" rx="62" ry="20" fill="url(#jamGrad)"/>
+              <text x="306" y="430" text-anchor="middle" class="tinyLabel" font-size="22">jam</text>
+            </g>
+            <g>
+              <ellipse cx="500" cy="397" rx="88" ry="34" fill="#9d4f38" opacity=".18"/>
+              <rect x="422" y="332" width="156" height="70" rx="26" fill="#fff0bd" stroke="#ebc45d" stroke-width="5"/>
+              <ellipse cx="500" cy="360" rx="62" ry="20" fill="#e07b3f"/>
+              <text x="500" y="430" text-anchor="middle" class="tinyLabel" font-size="22">berry jam</text>
+            </g>
+            <g>
+              <ellipse cx="694" cy="397" rx="88" ry="34" fill="#9d4f38" opacity=".18"/>
+              <rect x="616" y="332" width="156" height="70" rx="26" fill="#fff2cf" stroke="#edc266" stroke-width="5"/>
+              <ellipse cx="694" cy="360" rx="62" ry="20" fill="url(#syrupGrad)"/>
+              <text x="694" y="430" text-anchor="middle" class="tinyLabel" font-size="22">syrup</text>
+            </g>
+          </g>
+
+          <g id="prints" filter="url(#smallShadow)">
+            <g id="squarePrint" opacity="0">
+              <rect x="260" y="462" width="92" height="92" rx="14" fill="#d94b72" opacity=".82"/>
+              <rect x="274" y="476" width="64" height="64" rx="9" fill="none" stroke="#fff1f5" stroke-width="5" opacity=".6"/>
+            </g>
+            <g id="trianglePrint" opacity="0">
+              <path d="M500 458L558 554H442Z" fill="#b34278" opacity=".82"/>
+              <path d="M500 478L537 542H463Z" fill="none" stroke="#fff1f5" stroke-width="5" opacity=".6"/>
+            </g>
+            <g id="circlePrint" opacity="0">
+              <circle cx="694" cy="508" r="49" fill="#d18a28" opacity=".84"/>
+              <circle cx="694" cy="508" r="31" fill="none" stroke="#fff6d6" stroke-width="5" opacity=".62"/>
+            </g>
+            <g id="noPrint" opacity="0">
+              <path d="M798 510C838 482 878 482 918 510" fill="none" stroke="#5268b8" stroke-width="7" stroke-linecap="round" stroke-dasharray="8 13"/>
+              <text x="858" y="555" text-anchor="middle" class="svgLabel" font-size="24">no flat print</text>
+            </g>
+          </g>
+
+          <g id="matchLines" opacity="0" stroke-linecap="round" stroke-width="5" stroke-dasharray="8 10">
+            <path d="M306 306C292 360 292 410 306 462" fill="none" stroke="#d94b72"/>
+            <path d="M500 292C490 358 490 405 500 458" fill="none" stroke="#b34278"/>
+            <path d="M694 302C700 363 700 420 694 459" fill="none" stroke="#d18a28"/>
+          </g>
+
+          <g id="cubeGroup" filter="url(#shadow)">
+            <polygon points="0,0 74,-24 136,10 62,38" fill="#ffe0a0" stroke="#d69248" stroke-width="4"/>
+            <polygon points="62,38 136,10 136,88 62,118" fill="#e5a15c" stroke="#b87236" stroke-width="4"/>
+            <rect x="0" y="0" width="62" height="80" rx="10" fill="#f6bd6b" stroke="#b87236" stroke-width="4"/>
+            <path d="M13 18h36M12 40h38M16 62h30" stroke="#d9904a" stroke-width="5" stroke-linecap="round" opacity=".7"/>
+            <text x="68" y="150" text-anchor="middle" class="svgLabel" font-size="24">flat square</text>
+          </g>
+
+          <g id="prismGroup" filter="url(#shadow)">
+            <polygon points="0,76 46,0 92,76" fill="#f3b75f" stroke="#a86932" stroke-width="4"/>
+            <polygon points="46,0 125,22 170,96 92,76" fill="#ffd88b" stroke="#a86932" stroke-width="4"/>
+            <polygon points="92,76 170,96 78,118 0,76" fill="#d88e48" stroke="#a86932" stroke-width="4"/>
+            <path d="M29 65h34M38 47h16" stroke="#d78f45" stroke-width="5" stroke-linecap="round" opacity=".75"/>
+            <text x="82" y="150" text-anchor="middle" class="svgLabel" font-size="24">flat triangle</text>
+          </g>
+
+          <g id="cylinderGroup" filter="url(#shadow)">
+            <ellipse cx="62" cy="20" rx="64" ry="22" fill="#ffe8a7" stroke="#b97830" stroke-width="4"/>
+            <path d="M-2 20v70c0 14 128 14 128 0V20" fill="#efaa55" stroke="#b97830" stroke-width="4"/>
+            <ellipse cx="62" cy="90" rx="64" ry="22" fill="#d98d45" stroke="#b97830" stroke-width="4"/>
+            <ellipse cx="62" cy="18" rx="42" ry="12" fill="#ffd36a" opacity=".8"/>
+            <path d="M28 45c25 11 51 11 72 0M25 66c26 12 55 12 76 0" stroke="#d28a43" stroke-width="5" stroke-linecap="round" opacity=".65"/>
+            <text x="62" y="143" text-anchor="middle" class="svgLabel" font-size="24">flat circle</text>
+          </g>
+
+          <g id="sphereGroup" filter="url(#shadow)">
+            <circle cx="0" cy="0" r="42" fill="url(#berryGrad)" stroke="#2c3979" stroke-width="4"/>
+            <circle cx="-14" cy="-15" r="10" fill="#aebcff" opacity=".72"/>
+            <path d="M-9 -41c7 10 17 10 25 0" fill="none" stroke="#2f7a50" stroke-width="5" stroke-linecap="round"/>
+            <path d="M-25 18c18 15 42 14 58-2" fill="none" stroke="#273776" stroke-width="5" stroke-linecap="round" opacity=".35"/>
+            <text x="0" y="82" text-anchor="middle" class="svgLabel" font-size="24">all curve</text>
+          </g>
+
+          <g id="revealWords" opacity="0">
+            <rect x="176" y="36" width="648" height="58" rx="24" fill="#fffaf0" stroke="#ffd25a" stroke-width="4"/>
+            <text x="500" y="73" text-anchor="middle" class="svgLabel" font-size="28">Flat face down → 2D print. Sphere rolls away.</text>
+            <text x="306" y="585" text-anchor="middle" class="svgLabel" font-size="24">square</text>
+            <text x="500" y="585" text-anchor="middle" class="svgLabel" font-size="24">triangle</text>
+            <text x="694" y="585" text-anchor="middle" class="svgLabel" font-size="24">circle</text>
+          </g>
+
+          <g id="promptBubble">
+            <rect x="36" y="250" width="244" height="86" rx="26" fill="#fffdf7" stroke="#ffe08a" stroke-width="4" filter="url(#smallShadow)"/>
+            <text x="58" y="286" class="svgLabel" font-size="24">Ila, watch one</text>
+            <text x="58" y="316" class="svgLabel" font-size="24">flat side press.</text>
+          </g>
+        </svg>
+
+        <div id="predictionModal" class="modalShade" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+          <div class="modal">
+            <h2 id="modalTitle">Pause and predict</h2>
+            <p>Ila, which shape rolls away without making a flat print?</p>
+            <button class="answer correctPick" data-answer="sphere">Blueberry sphere</button>
+            <button class="answer" data-answer="cube">Toast cube</button>
+            <button class="answer" data-answer="cylinder">Pancake cylinder</button>
+            <div class="feedback" id="feedback"></div>
+            <div class="hint">Elli hint only: look for the shape with no flat face.</div>
+          </div>
+        </div>
+
+        <div class="controls">
+          <button id="playBtn" aria-label="Play or pause">Play</button>
+          <div class="rangeWrap">
+            <input id="progress" type="range" min="0" max="100" value="0" step="1" aria-label="Progress scrubber">
+            <div class="checkpointRow" aria-label="Five checkpoints">
+              <button data-jump="0" class="secondary">1 Set table</button>
+              <button data-jump="25" class="secondary">2 Flat side</button>
+              <button data-jump="50" class="secondary">3 Press</button>
+              <button data-jump="60" class="secondary">4 Guess</button>
+              <button data-jump="100" class="secondary">5 Reveal</button>
+            </div>
+          </div>
+          <div id="progressText" class="progressText">0% · Set table</div>
+          <audio id="narrationAudio" class="narrationAudio" controls preload="metadata" src="./audio/segment-intro-052jzHJceQiZr7ltnY0C.mp3"></audio>
+        </div>
+      </div>
+
+      <div class="below">
+        <div class="note">
+          <h3>Sunny’s one-step idea</h3>
+          <p><strong>Look for a flat face.</strong> A flat face can leave a 2D print.</p>
+          <p>A sphere is all curve, so the blueberry rolls away.</p>
+        </div>
+        <div class="console" aria-label="Parent evidence console">
+          <h3>Parent / evidence console</h3>
+          <div id="consoleLog" class="consoleLog">
+            <div data-evidence-event="document-ready">document-ready | Sunny visual loaded for Ila | concept: 2D faces of 3D solids</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <script id="recallGame" type="application/json">
+{
+  "gameContract": "Sunny recallGame",
+  "child": { "name": "Ila", "age": 8, "grade": 2 },
+  "theme": "cozy breakfast garden tabletop",
+  "stakesUnit": "sun-coins",
+  "questions": [
+    {
+      "id": "q1",
+      "prompt": "Which shape is all curve?",
+      "choices": ["blueberry sphere", "toast cube", "toast triangle"],
+      "answer": "blueberry sphere",
+      "stake": { "win": 2, "tryAgain": 1 }
+    },
+    {
+      "id": "q2",
+      "prompt": "What print can a flat square face make?",
+      "choices": ["square print", "star print", "no print"],
+      "answer": "square print",
+      "stake": { "win": 2, "tryAgain": 1 }
+    },
+    {
+      "id": "q3",
+      "prompt": "What should Ila look for first?",
+      "choices": ["a flat face", "a fast roll", "a tall shadow"],
+      "answer": "a flat face",
+      "stake": { "win": 3, "tryAgain": 1 }
+    }
+  ]
+}
+    </script>
+
+    <script>
+      (function(){
+        "use strict";
+
+        var progress = 0;
+        var playing = false;
+        var answered = false;
+        var revealed = false;
+        var rafId = 0;
+        var lastTime = 0;
+        var activeNarrationSegment = -1;
+        var ignoreNarrationPause = false;
+
+        var progressInput = document.getElementById("progress");
+        var progressText = document.getElementById("progressText");
+        var playBtn = document.getElementById("playBtn");
+        var modal = document.getElementById("predictionModal");
+        var feedback = document.getElementById("feedback");
+        var consoleLog = document.getElementById("consoleLog");
+        var audio = document.getElementById("narrationAudio");
+        var narrationSegments = [
+          { id: "intro", start: 0, end: 20, src: "./audio/segment-intro-052jzHJceQiZr7ltnY0C.mp3" },
+          { id: "flat-face", start: 20, end: 42, src: "./audio/segment-flat-face-052jzHJceQiZr7ltnY0C.mp3" },
+          { id: "stamp", start: 42, end: 60, src: "./audio/segment-stamp-052jzHJceQiZr7ltnY0C.mp3?v=2" },
+          { id: "sphere", start: 62, end: 94, src: "./audio/segment-sphere-052jzHJceQiZr7ltnY0C.mp3" },
+          { id: "rule", start: 94, end: 100, src: "./audio/segment-rule-052jzHJceQiZr7ltnY0C.mp3" }
+        ];
+
+        var cube = document.getElementById("cubeGroup");
+        var prism = document.getElementById("prismGroup");
+        var cyl = document.getElementById("cylinderGroup");
+        var sphere = document.getElementById("sphereGroup");
+        var squarePrint = document.getElementById("squarePrint");
+        var trianglePrint = document.getElementById("trianglePrint");
+        var circlePrint = document.getElementById("circlePrint");
+        var noPrint = document.getElementById("noPrint");
+        var matchLines = document.getElementById("matchLines");
+        var revealWords = document.getElementById("revealWords");
+        var promptBubble = document.getElementById("promptBubble");
+
+        function logEvent(name, detail){
+          var row = document.createElement("div");
+          row.setAttribute("data-evidence-event", name);
+          row.textContent = name + " | " + detail;
+          consoleLog.insertBefore(row, consoleLog.firstChild);
+        }
+
+        function clamp(n, min, max){
+          return Math.max(min, Math.min(max, n));
+        }
+
+        function mix(a,b,t){
+          return a + (b-a) * clamp(t,0,1);
+        }
+
+        function span(p,a,b){
+          return clamp((p-a)/(b-a),0,1);
+        }
+
+        function smooth(t){
+          t = clamp(t,0,1);
+          return t*t*(3-2*t);
+        }
+
+        function setOpacity(el, value){
+          el.setAttribute("opacity", String(clamp(value,0,1)));
+        }
+
+        function hasAudio(){
+          return audio && Number.isFinite(audio.duration) && audio.duration > 0;
+        }
+
+        function narrationSegmentForProgress(p){
+          if(!answered && p >= 60){ return null; }
+          for(var i = 0; i < narrationSegments.length; i++){
+            var segment = narrationSegments[i];
+            if(p >= segment.start && p < segment.end){
+              return { segment: segment, index: i };
+            }
+          }
+          var last = narrationSegments[narrationSegments.length - 1];
+          return p >= 100 ? { segment: last, index: narrationSegments.length - 1 } : null;
+        }
+
+        function ensureNarrationSegment(){
+          if(!audio){ return null; }
+          var match = narrationSegmentForProgress(progress);
+          if(!match){ return null; }
+          if(activeNarrationSegment !== match.index){
+            ignoreNarrationPause = true;
+            activeNarrationSegment = match.index;
+            audio.src = match.segment.src;
+            audio.load();
+          }
+          return match.segment;
+        }
+
+        function audioProgress(){
+          if(!hasAudio()){ return progress; }
+          var segment = narrationSegments[activeNarrationSegment];
+          if(!segment){ return progress; }
+          var local = clamp(audio.currentTime / audio.duration, 0, 1);
+          return segment.start + (segment.end - segment.start) * local;
+        }
+
+        function syncAudioToProgress(){
+          var segment = ensureNarrationSegment();
+          if(!segment || !hasAudio()){ return; }
+          var local = clamp((progress - segment.start) / (segment.end - segment.start), 0, 1);
+          var targetTime = local * audio.duration;
+          if(Math.abs(audio.currentTime - targetTime) > .35){
+            audio.currentTime = targetTime;
+          }
+        }
+
+        function pauseAudio(){
+          if(audio && !audio.paused){ audio.pause(); }
+        }
+
+        function playAudio(){
+          if(!audio){ return; }
+          if(!ensureNarrationSegment()){ return; }
+          syncAudioToProgress();
+          audio.play().catch(function(){
+            ignoreNarrationPause = false;
+            logEvent("narration-blocked", "tap the audio control or play again to start narration");
+          });
+        }
+
+        function stageName(p){
+          if(p < 20) return "Set table";
+          if(p < 42) return "Flat side";
+          if(p < 60) return "Press";
+          if(!answered) return "Guess";
+          if(p < 88) return "Roll";
+          return "Reveal";
+        }
+
+        function openPrediction(){
+          playing = false;
+          playBtn.textContent = "Play";
+          pauseAudio();
+          modal.classList.add("show");
+          feedback.textContent = "";
+          logEvent("prediction-pause", "progress 60 | prompt shown: sphere rolls away");
+        }
+
+        function updateScene(){
+          var p = progress;
+
+          var c1 = smooth(span(p,0,24));
+          var cPress = smooth(span(p,24,34));
+          var cLift = smooth(span(p,34,48));
+          var cubeX = mix(116, 274, c1) + mix(0, -18, cLift);
+          var cubeY = mix(300, 284, c1) + Math.sin(cPress * Math.PI) * 22 - mix(0, 16, cLift);
+          cube.setAttribute("transform", "translate(" + cubeX.toFixed(1) + "," + cubeY.toFixed(1) + ") rotate(" + mix(-5,0,c1).toFixed(1) + ")");
+
+          var p1 = smooth(span(p,18,45));
+          var pPress = smooth(span(p,45,55));
+          var prismX = mix(82, 418, p1);
+          var prismY = mix(300, 274, p1) + Math.sin(pPress * Math.PI) * 21;
+          prism.setAttribute("transform", "translate(" + prismX.toFixed(1) + "," + prismY.toFixed(1) + ") rotate(" + mix(4,-2,p1).toFixed(1) + ")");
+
+          var y1 = smooth(span(p,32,55));
+          var yPress = smooth(span(p,55,60));
+          var cylX = mix(96, 632, y1);
+          var cylY = mix(300, 284, y1) + Math.sin(yPress * Math.PI) * 18;
+          cyl.setAttribute("transform", "translate(" + cylX.toFixed(1) + "," + cylY.toFixed(1) + ")");
+
+          var roll = smooth(span(p,60,100));
+          var berryX = answered ? mix(782, 922, roll) : mix(782, 798, smooth(span(p,52,60)));
+          var berryY = answered ? (344 + Math.sin(roll * Math.PI * 2) * 5) : 344;
+          var angle = answered ? roll * 420 : 0;
+          sphere.setAttribute("transform", "translate(" + berryX.toFixed(1) + "," + berryY.toFixed(1) + ") rotate(" + angle.toFixed(1) + ")");
+
+          var baseReveal = revealed ? 1 : 0;
+          setOpacity(squarePrint, Math.max(smooth(span(p,30,42)) * .95, baseReveal));
+          setOpacity(trianglePrint, Math.max(smooth(span(p,50,62)) * .92, baseReveal));
+          setOpacity(circlePrint, Math.max((revealed ? 1 : smooth(span(p,58,70)) * .6), 0));
+          setOpacity(noPrint, revealed ? smooth(span(p,61,80)) : 0);
+          setOpacity(matchLines, revealed ? smooth(span(p,62,78)) : 0);
+          setOpacity(revealWords, revealed ? smooth(span(p,65,86)) : 0);
+          setOpacity(promptBubble, p < 58 ? 1 : 0);
+
+          progressInput.value = String(Math.round(progress));
+          progressText.textContent = Math.round(progress) + "% · " + stageName(progress);
+        }
+
+        function setProgress(value, source){
+          var target = clamp(Number(value),0,100);
+          if(target >= 60 && !answered){
+            progress = 60;
+            if(source !== "audio"){ syncAudioToProgress(); }
+            updateScene();
+            openPrediction();
+            return;
+          }
+          progress = target;
+          if(source !== "audio"){ syncAudioToProgress(); }
+          updateScene();
+          if(source){
+            logEvent(source, "progress " + Math.round(progress) + " | stage " + stageName(progress));
+          }
+        }
+
+        function playLoop(time){
+          if(!playing){ return; }
+          if(!lastTime){ lastTime = time; }
+          var delta = time - lastTime;
+          lastTime = time;
+          var next = hasAudio() && activeNarrationSegment >= 0 ? audioProgress() : progress + delta / 180;
+          if(next >= 60 && !answered){
+            setProgress(60);
+            lastTime = 0;
+            return;
+          }
+          if(next >= 100){
+            progress = 100;
+            playing = false;
+            playBtn.textContent = "Play";
+            pauseAudio();
+            updateScene();
+            logEvent("animation-complete", "progress 100 | reveal viewed");
+            lastTime = 0;
+            return;
+          }
+          progress = next;
+          updateScene();
+          rafId = window.requestAnimationFrame(playLoop);
+        }
+
+        playBtn.addEventListener("click", function(){
+          playing = !playing;
+          playBtn.textContent = playing ? "Pause" : "Play";
+          logEvent(playing ? "play" : "pause", "progress " + Math.round(progress));
+          lastTime = 0;
+          if(playing){
+            playAudio();
+            rafId = window.requestAnimationFrame(playLoop);
+          } else if(rafId){
+            window.cancelAnimationFrame(rafId);
+            pauseAudio();
+          }
+        });
+
+        progressInput.addEventListener("input", function(){
+          playing = false;
+          playBtn.textContent = "Play";
+          pauseAudio();
+          setProgress(progressInput.value, "scrub");
+        });
+
+        var jumps = document.querySelectorAll("[data-jump]");
+        for(var i=0;i<jumps.length;i++){
+          jumps[i].addEventListener("click", function(){
+            playing = false;
+            playBtn.textContent = "Play";
+            pauseAudio();
+            setProgress(this.getAttribute("data-jump"), "checkpoint");
+          });
+        }
+
+        var answers = document.querySelectorAll("[data-answer]");
+        for(var j=0;j<answers.length;j++){
+          answers[j].addEventListener("click", function(){
+            var pick = this.getAttribute("data-answer");
+            answered = true;
+            revealed = true;
+            if(pick === "sphere"){
+              feedback.textContent = "Yes. The blueberry sphere rolls.";
+              logEvent("prediction-answer", "selected sphere | correct | reveal unlocked");
+            } else {
+              feedback.textContent = "Good try. Look: the sphere rolls.";
+              logEvent("prediction-answer", "selected " + pick + " | supported correction | reveal unlocked");
+            }
+            window.setTimeout(function(){
+              modal.classList.remove("show");
+              progress = Math.max(progress, 62);
+              updateScene();
+              syncAudioToProgress();
+              playing = true;
+              playBtn.textContent = "Pause";
+              playAudio();
+              lastTime = 0;
+              rafId = window.requestAnimationFrame(playLoop);
+              logEvent("reveal-start", "prints and matches shown | no flat sphere print");
+            }, 650);
+          });
+        }
+
+        if(audio){
+          audio.addEventListener("play", function(){
+            ignoreNarrationPause = false;
+            if(!playing){
+              playing = true;
+              playBtn.textContent = "Pause";
+              lastTime = 0;
+              rafId = window.requestAnimationFrame(playLoop);
+            }
+          });
+          audio.addEventListener("pause", function(){
+            // The main Play button owns visual state. Browser audio pauses also fire
+            // during clip boundaries, so they should not stop the animation flow.
+          });
+          audio.addEventListener("seeked", function(){
+            if(hasAudio()){
+              setProgress(audioProgress(), "audio");
+            }
+          });
+          audio.addEventListener("ended", function(){
+            var segment = narrationSegments[activeNarrationSegment];
+            if(!segment){ return; }
+            ignoreNarrationPause = true;
+            progress = segment.end;
+            if(progress >= 60 && !answered){
+              setProgress(60);
+              return;
+            }
+            if(progress >= 100){
+              playing = false;
+              playBtn.textContent = "Play";
+              updateScene();
+              logEvent("animation-complete", "progress 100 | reveal viewed");
+              return;
+            }
+            activeNarrationSegment = -1;
+            updateScene();
+            if(playing){
+              if(rafId){ window.cancelAnimationFrame(rafId); }
+              playAudio();
+              lastTime = 0;
+              rafId = window.requestAnimationFrame(playLoop);
+            }
+          });
+        }
+
+        updateScene();
+        logEvent("supports-visible", "single-step prompt, visual anchors, hint-only Elli line, no timer");
+      })();
+    </script>
+  </div>
+</body>
+</html>

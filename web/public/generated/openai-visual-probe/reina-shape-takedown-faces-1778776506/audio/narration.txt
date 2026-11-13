@@ -1,0 +1,9 @@
+Welcome to Reina's face print arena. Watch the shapes enter the mat.
+
+Your first move is to scout for a flat face. A flat face can pin the mat and leave a two dimensional print.
+
+The cube pins a square. The cylinder pins a circle. The cone can pin a circle with its flat base. Now choose: which solid has no flat face to pin the mat?
+
+Look at the sphere. It is all curve, so it cannot pin the mat. It rolls away and leaves no flat print.
+
+Champion rule locked in: flat faces make prints. Curves roll away.

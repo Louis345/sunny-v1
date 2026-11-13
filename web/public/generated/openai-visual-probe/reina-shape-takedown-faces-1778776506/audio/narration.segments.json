@@ -1,0 +1,42 @@
+{
+  "provider": "elevenlabs",
+  "voiceId": "052jzHJceQiZr7ltnY0C",
+  "modelId": "eleven_multilingual_v2",
+  "segments": [
+    {
+      "id": "intro",
+      "start": 0,
+      "end": 20,
+      "text": "Welcome to Reina's face print arena. Watch the shapes enter the mat.",
+      "audioPath": "./audio/segment-intro-052jzHJceQiZr7ltnY0C.mp3"
+    },
+    {
+      "id": "flat-face",
+      "start": 20,
+      "end": 42,
+      "text": "Your first move is to scout for a flat face. A flat face can pin the mat and leave a two dimensional print.",
+      "audioPath": "./audio/segment-flat-face-052jzHJceQiZr7ltnY0C.mp3"
+    },
+    {
+      "id": "stamp",
+      "start": 42,
+      "end": 60,
+      "text": "The cube pins a square. The cylinder pins a circle. The cone can pin a circle with its flat base. Now choose: which solid has no flat face to pin the mat?",
+      "audioPath": "./audio/segment-stamp-052jzHJceQiZr7ltnY0C.mp3"
+    },
+    {
+      "id": "sphere",
+      "start": 72,
+      "end": 94,
+      "text": "Look at the sphere. It is all curve, so it cannot pin the mat. It rolls away and leaves no flat print.",
+      "audioPath": "./audio/segment-sphere-052jzHJceQiZr7ltnY0C.mp3"
+    },
+    {
+      "id": "rule",
+      "start": 94,
+      "end": 100,
+      "text": "Champion rule locked in: flat faces make prints. Curves roll away.",
+      "audioPath": "./audio/segment-rule-052jzHJceQiZr7ltnY0C.mp3"
+    }
+  ]
+}

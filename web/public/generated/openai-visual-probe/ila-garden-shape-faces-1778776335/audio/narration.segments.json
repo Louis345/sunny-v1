@@ -1,0 +1,42 @@
+{
+  "provider": "elevenlabs",
+  "voiceId": "052jzHJceQiZr7ltnY0C",
+  "modelId": "eleven_multilingual_v2",
+  "segments": [
+    {
+      "id": "intro",
+      "start": 0,
+      "end": 20,
+      "text": "Welcome to Ila's breakfast print garden. Watch the shapes get ready to make prints.",
+      "audioPath": "./audio/segment-intro-052jzHJceQiZr7ltnY0C.mp3"
+    },
+    {
+      "id": "flat-face",
+      "start": 20,
+      "end": 42,
+      "text": "A flat face works like the bottom of a stamp. When it presses down, it can leave a flat picture.",
+      "audioPath": "./audio/segment-flat-face-052jzHJceQiZr7ltnY0C.mp3"
+    },
+    {
+      "id": "stamp",
+      "start": 42,
+      "end": 60,
+      "text": "The toast cube can stamp a square. The pancake cylinder can stamp a circle. Now look at the last shape: which one has no flat side to stamp?",
+      "audioPath": "./audio/segment-stamp-052jzHJceQiZr7ltnY0C.mp3"
+    },
+    {
+      "id": "sphere",
+      "start": 72,
+      "end": 94,
+      "text": "Look at the blueberry sphere. It is all curve, so it cannot press a flat face into the syrup. It rolls away and leaves no flat print.",
+      "audioPath": "./audio/segment-sphere-052jzHJceQiZr7ltnY0C.mp3"
+    },
+    {
+      "id": "rule",
+      "start": 94,
+      "end": 100,
+      "text": "Tiny rule locked in: flat faces can print. Curved surfaces roll.",
+      "audioPath": "./audio/segment-rule-052jzHJceQiZr7ltnY0C.mp3"
+    }
+  ]
+}

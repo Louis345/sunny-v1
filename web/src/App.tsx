@@ -1222,6 +1222,7 @@ function App() {
     mapSession.launchedNode?.type === "karaoke" ||
     mapSession.launchedNode?.type === "word-radar" ||
     mapSession.launchedNode?.type === "visual-explainer" ||
+    mapSession.launchedNode?.type === "visual-recall-quiz" ||
     (mapSession.launchedNode?.type as string | undefined) === "pronunciation";
   const voiceGameCompanionMicMuted =
     karaokeReadingActive ||
@@ -1232,6 +1233,7 @@ function App() {
     mapSession.launchedNode?.type === "karaoke" ||
     mapSession.launchedNode?.type === "word-radar" ||
     mapSession.launchedNode?.type === "visual-explainer" ||
+    mapSession.launchedNode?.type === "visual-recall-quiz" ||
     (mapSession.launchedNode?.type as string | undefined) === "pronunciation";
 
   return (

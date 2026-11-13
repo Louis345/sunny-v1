@@ -169,7 +169,8 @@
     "turnMode": "child-and-companion",
     "stakes": {
       "currency": "sun-coins",
-      "lossMode": "half-stake-floor-zero"
+      "lossMode": "half-stake-floor-zero",
+      "profilePersistence": "true-net"
     },
     "companionPolicy": {
       "accuracyMode": "configured",
@@ -182,6 +183,22 @@
         "category": "Square Pin",
         "prompt": "Which solid scores a square print?",
         "answer": "cube",
+        "options": [
+          {
+            "id": "cube",
+            "label": "Cube: square pin"
+          },
+          {
+            "id": "sphere",
+            "label": "Sphere: roll escape",
+            "misconceptionTag": "curved_surface_as_flat_face"
+          },
+          {
+            "id": "cylinder",
+            "label": "Cylinder: circle base"
+          }
+        ],
+        "correctOptionId": "cube",
         "targetConcept": "flat_faces_of_solids",
         "evidenceTarget": "flat_faces_of_solids",
         "difficulty": 0.4,
@@ -192,6 +209,22 @@
         "category": "Roll Escape",
         "prompt": "Which shape escapes because it has no flat face?",
         "answer": "sphere",
+        "options": [
+          {
+            "id": "sphere",
+            "label": "Sphere: roll escape"
+          },
+          {
+            "id": "cube",
+            "label": "Cube: square pin",
+            "misconceptionTag": "all_solids_have_same_face"
+          },
+          {
+            "id": "pyramid",
+            "label": "Pyramid: triangle attack"
+          }
+        ],
+        "correctOptionId": "sphere",
         "targetConcept": "flat_faces_of_solids",
         "evidenceTarget": "flat_faces_of_solids",
         "difficulty": 0.6,
@@ -203,11 +236,29 @@
         "category": "Circle Counter",
         "prompt": "Which two solids can score a circle print with a flat base?",
         "answer": "cylinder and cone",
+        "options": [
+          {
+            "id": "cylinder-cone",
+            "label": "Cylinder and cone"
+          },
+          {
+            "id": "cube-prism",
+            "label": "Cube and rectangular prism",
+            "misconceptionTag": "square_rectangle_face_confusion"
+          },
+          {
+            "id": "sphere",
+            "label": "Sphere",
+            "misconceptionTag": "curved_surface_as_flat_face"
+          }
+        ],
+        "correctOptionId": "cylinder-cone",
         "targetConcept": "flat_faces_of_solids",
         "evidenceTarget": "flat_faces_of_solids",
         "difficulty": 0.75,
         "stake": 40,
-        "misconceptionTag": "circle_base_not_seen"
+        "misconceptionTag": "circle_base_not_seen",
+        "teachBackPrompt": "Explain the winning rule: why do flat faces pin but curves escape?"
       }
     ]
   },

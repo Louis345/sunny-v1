@@ -246,6 +246,46 @@ describe("_contract.js GameBridge.startHeartbeat", () => {
     );
   });
 
+  it("exposes companion VRM params for iframe games that render profile-driven companions", () => {
+    const mockDoc = {
+      addEventListener: (_event: string, cb: () => void) => cb(),
+      title: "Test Game",
+      createElement: () => ({ style: { cssText: "" }, textContent: "" }),
+      body: { appendChild: () => {} },
+    };
+    const mockWindow = {
+      parent: { postMessage: () => {} },
+      GAME_PARAMS: null,
+      GameBridge: undefined as unknown,
+      sendNodeComplete: undefined as unknown,
+      fireCompanionEvent: undefined as unknown,
+      showPreviewBanner: undefined as unknown,
+      addEventListener: () => {},
+    };
+    const context = {
+      window: mockWindow,
+      document: mockDoc,
+      location: {
+        search:
+          "?childId=ila&nodeId=n1&companion=elli&companionVrmUrl=%2Fcompanions%2F2878599730723533962.vrm&companionMuted=true",
+      },
+      URLSearchParams,
+      setInterval: (fn: () => void, _ms: number) => {
+        fn();
+        return 1;
+      },
+      clearInterval: () => {},
+    };
+    vm.runInNewContext(contractSrc, context);
+
+    const params = context.window.GAME_PARAMS as unknown as {
+      companionVrmUrl?: string;
+      companionMuted?: boolean;
+    };
+    expect(params.companionVrmUrl).toBe("/companions/2878599730723533962.vrm");
+    expect(params.companionMuted).toBe(true);
+  });
+
   it("startHeartbeat calls reportState via setInterval", () => {
     const calls: string[] = [];
     const mockDoc = {

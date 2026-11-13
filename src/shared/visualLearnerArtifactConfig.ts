@@ -49,11 +49,18 @@ const recallQuestionSchema = z.object({
   category: z.string().min(1).optional(),
   prompt: z.string().min(1),
   answer: z.string().min(1),
+  options: z.array(optionSchema).min(2),
+  correctOptionId: z.string().min(1),
   targetConcept: z.string().min(1),
   evidenceTarget: z.string().min(1),
   difficulty: z.number().min(0).max(1),
   stake: z.number().int().min(1).optional(),
   misconceptionTag: z.string().min(1).optional(),
+  teachBackPrompt: z.string().min(1).optional(),
+  companion: z.object({
+    mistake: z.boolean().optional(),
+    selectedOptionId: z.string().min(1).optional(),
+  }).optional(),
 });
 
 const recallGameSchema = z.object({
@@ -63,6 +70,7 @@ const recallGameSchema = z.object({
   stakes: z.object({
     currency: z.string().min(1),
     lossMode: z.enum(["half-stake-floor-zero", "opportunity-cost"]).default("half-stake-floor-zero"),
+    profilePersistence: z.enum(["true-net", "earn-only-net", "none"]).default("true-net"),
   }),
   companionPolicy: z.object({
     accuracyMode: z.enum(["match-child-mastery", "configured"]),

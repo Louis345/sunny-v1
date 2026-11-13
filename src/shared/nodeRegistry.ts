@@ -171,7 +171,7 @@ export const NODE_REGISTRY: Record<string, NodeHandler> = {
       if (node.activityConfigPath) {
         params.set("config", node.activityConfigPath);
       }
-      return `/games/visual-learner-coop-quiz.html?${params.toString()}`;
+      return `/games/visual-learner-coop-recall.html?${params.toString()}`;
     },
   },
   "word-builder": {

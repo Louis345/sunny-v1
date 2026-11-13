@@ -27,6 +27,8 @@ window.GameBridge = (function () {
       childName: p.get("childName") || "",
       companion: p.get("companion") || "",
       companionName: p.get("companionName") || "",
+      companionVrmUrl: p.get("companionVrmUrl") || "",
+      companionMuted: p.get("companionMuted") === "true",
       difficulty: parseInt(p.get("difficulty") || "2", 10) || 2,
       nodeId: p.get("nodeId") || "unknown",
       sessionId: p.get("sessionId") || null,

@@ -26,11 +26,16 @@ const ADVENTURE_MAP_PATH = join(
   PROJECT_ROOT,
   "web/src/components/AdventureMap.tsx",
 );
+const APP_PATH = join(PROJECT_ROOT, "web/src/App.tsx");
 const PROBE_SCRIPT_PATH = join(PROJECT_ROOT, "scripts/openaiVisualLearnerProbe.ts");
-const COOP_GAME_PATH = join(PROJECT_ROOT, "web/public/games/visual-learner-coop-quiz.html");
+const COOP_RECALL_GAME_PATH = join(PROJECT_ROOT, "web/public/games/visual-learner-coop-recall.html");
 const MAP_DEMO_PATH = join(
   PROJECT_ROOT,
   "web/src/components/VisualExplainer/VisualExplainerMapDemo.tsx",
+);
+const STORYBOOK_FIXTURE_PATH = join(
+  PROJECT_ROOT,
+  "web/src/storybook/visualLearnerCoopRecallFixtures.ts",
 );
 
 describe("visual learner artifact config", () => {
@@ -109,13 +114,47 @@ describe("visual learner artifact config", () => {
     expect(recallGame).toMatchObject({
       type: "co-op-recall",
       sourceInterventionId: config.artifactId,
-      stakes: { currency: "sun-coins" },
+      stakes: {
+        currency: "sun-coins",
+        lossMode: "half-stake-floor-zero",
+        profilePersistence: "true-net",
+      },
     });
     expect(recallGame.questions.length).toBeGreaterThanOrEqual(3);
     expect(recallGame.questions[0]).toMatchObject({
       targetConcept: "flat_faces_of_solids",
       evidenceTarget: "flat_faces_of_solids",
+      correctOptionId: expect.any(String),
     });
+    expect(recallGame.questions[0]?.options?.length).toBeGreaterThanOrEqual(3);
+  });
+
+  it("rejects recall game questions that omit answer options or the correct option id", () => {
+    const config = validateVisualLearnerArtifactConfig(
+      JSON.parse(readFileSync(SOLID_FACES_CONFIG_PATH, "utf-8")),
+    );
+    const question = config.recallGame?.questions[0];
+    expect(question).toBeDefined();
+    if (!config.recallGame || !question) return;
+
+    expect(() =>
+      validateVisualLearnerArtifactConfig({
+        ...config,
+        recallGame: {
+          ...config.recallGame,
+          questions: [{ ...question, options: [] }],
+        },
+      }),
+    ).toThrow();
+    expect(() =>
+      validateVisualLearnerArtifactConfig({
+        ...config,
+        recallGame: {
+          ...config.recallGame,
+          questions: [{ ...question, correctOptionId: "" }],
+        },
+      }),
+    ).toThrow();
   });
 
   it("has child-specific solid-faces demo configs for Ila and Reina", () => {
@@ -265,6 +304,14 @@ describe("visual learner adventure-map routing", () => {
     expect(adventureMap).toContain('data-testid="visual-learner-companion-anchor"');
   });
 
+  it("keeps the real VRM companion visible during visual recall quiz iframe launches", () => {
+    const app = readFileSync(APP_PATH, "utf-8");
+
+    expect(app).toContain('mapSession.launchedNode?.type === "visual-recall-quiz"');
+    expect(app).toContain('mode={companionPortraitMode ? "portrait" : "full"}');
+    expect(app).toContain("micMuted={micMuted || voiceGameCompanionMicMuted}");
+  });
+
   it("launches a visual-explainer node as an iframe with the artifact config path", () => {
     const action = buildNodeLaunchAction(
       {
@@ -359,15 +406,67 @@ describe("visual learner adventure-map routing", () => {
 
     expect(action.kind).toBe("iframe");
     if (action.kind !== "iframe") return;
-    expect(action.url).toContain("/games/visual-learner-coop-quiz.html");
+    expect(action.url).toContain("/games/visual-learner-coop-recall.html");
     expect(action.url).toContain("config=%2Fgenerated%2Fopenai-visual-probe%2F2d-faces");
     expect(action.url).toContain("childId=reina");
     expect(action.url).toContain("companionName=Matilda");
   });
 
+  it("implements the co-op recall game with profile coins, evidence, and sound effects", () => {
+    const coOpGame = readFileSync(COOP_RECALL_GAME_PATH, "utf-8");
+
+    expect(coOpGame).toContain('<script src="_contract.js"></script>');
+    expect(coOpGame).toContain("window.GAME_PARAMS");
+    expect(coOpGame).toContain("companionCurrency");
+    expect(coOpGame).toContain("coinsEarned");
+    expect(coOpGame).toContain("coinsLost");
+    expect(coOpGame).toContain("netCurrencyDelta");
+    expect(coOpGame).toContain("Math.floor(stake / 2)");
+    expect(coOpGame).toContain("Math.max(0");
+    expect(coOpGame).toContain("companionTurn");
+    expect(coOpGame).toContain("teachBack");
+    expect(coOpGame).toContain("AudioContext");
+    expect(coOpGame).toContain("Back to map");
+    expect(coOpGame).toContain("Map node");
+    expect(coOpGame).toContain("Round 1");
+    expect(coOpGame).toContain("Goal: 200 sun-coins");
+    expect(coOpGame).toContain("fonts.googleapis.com/css2?family=Fraunces");
+    expect(coOpGame).toContain("for (var i = 0; i < 70; i += 1)");
+    expect(coOpGame).toContain('data-testid="child-shoulder"');
+    expect(coOpGame).toContain('data-testid="companion-shoulder"');
+    expect(coOpGame).toContain("--night");
+    expect(coOpGame).toContain("cosmic-stars");
+    expect(coOpGame).toContain("max-width: 1280px");
+    expect(coOpGame).toContain("grid-template-columns: 240px minmax(0, 1fr) 240px");
+    expect(coOpGame).toContain("grid-template-areas: \"ls rs\" \"bd bd\"");
+    expect(coOpGame).toContain("player-info");
+    expect(coOpGame).toContain("overflow: hidden");
+    expect(coOpGame).toContain("min-width: 0");
+    expect(coOpGame).toContain("formatCategoryLabel");
+    expect(coOpGame).toContain("display: inline-grid");
+    expect(coOpGame).toContain("justify-content: center");
+    expect(coOpGame).toContain("align-items: center");
+    expect(coOpGame).toContain("COMPANION_PROFILES");
+    expect(coOpGame).toContain("CHILD_COMPANION_DEFAULTS");
+    expect(coOpGame).toContain("resolveCompanionProfile");
+    expect(coOpGame).toContain("companionVrmUrl");
+    expect(coOpGame).toContain("data-vrm-url");
+    expect(coOpGame).toContain("categoryColumns");
+    expect(coOpGame).toContain("stakeRows = [10, 20, 30, 50]");
+    expect(coOpGame).toContain("buildBoardTiles");
+    expect(coOpGame).toContain('GameBridge.awardCurrency(netCurrencyDelta, "visual_learner_coop_recall")');
+    expect(coOpGame).toContain('GameBridge.reportAction("recall_answer"');
+    expect(coOpGame).toContain('GameBridge.fireEvent("recall_result"');
+    expect(coOpGame).toContain("GameBridge.reportAttempt");
+    expect(coOpGame).toContain('GameBridge.fireEvent("activity_complete"');
+    expect(coOpGame).toContain("sendNodeComplete");
+    expect(coOpGame).toContain("activityId: \"visual-recall-quiz\"");
+    expect(coOpGame).toContain("targetResults");
+  });
+
   it("renders a demo path with concept check, personalized visual explainer, and co-op recall", () => {
     const mapDemo = readFileSync(MAP_DEMO_PATH, "utf-8");
-    const coOpGame = readFileSync(COOP_GAME_PATH, "utf-8");
+    const coOpGame = readFileSync(COOP_RECALL_GAME_PATH, "utf-8");
 
     expect(mapDemo).toContain("buildVisualLearnerFeedbackDemoNodes");
     expect(mapDemo).toContain("visual-recall-quiz");
@@ -377,5 +476,20 @@ describe("visual learner adventure-map routing", () => {
     expect(coOpGame).toContain("activity_complete");
     expect(coOpGame).toContain("GameBridge.reportAction");
     expect(coOpGame).toContain("sendNodeComplete");
+  });
+
+  it("has Storybook iframe fixtures for deterministic co-op recall QA states", () => {
+    const fixtures = readFileSync(STORYBOOK_FIXTURE_PATH, "utf-8");
+
+    expect(fixtures).toContain("visualLearnerCoopRecallFixtureStates");
+    expect(fixtures).toContain("child-turn");
+    expect(fixtures).toContain("companion-turn");
+    expect(fixtures).toContain("wrong-answer");
+    expect(fixtures).toContain("teach-back");
+    expect(fixtures).toContain("complete");
+    expect(fixtures).toContain("preview=storybook");
+    expect(fixtures).toContain("visual-learner-coop-recall.html");
+    expect(fixtures).toContain("companionCurrency");
+    expect(fixtures).toContain("config=");
   });
 });

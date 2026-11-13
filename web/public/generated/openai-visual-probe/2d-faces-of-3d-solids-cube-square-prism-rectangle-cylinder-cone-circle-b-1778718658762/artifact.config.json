@@ -167,7 +167,8 @@
     "turnMode": "child-and-companion",
     "stakes": {
       "currency": "sun-coins",
-      "lossMode": "half-stake-floor-zero"
+      "lossMode": "half-stake-floor-zero",
+      "profilePersistence": "true-net"
     },
     "companionPolicy": {
       "accuracyMode": "configured",
@@ -180,6 +181,26 @@
         "category": "Stamp Match",
         "prompt": "Which solid can stamp a square?",
         "answer": "cube",
+        "options": [
+          {
+            "id": "cube",
+            "label": "Cube"
+          },
+          {
+            "id": "sphere",
+            "label": "Sphere",
+            "misconceptionTag": "curved_surface_as_flat_face"
+          },
+          {
+            "id": "cylinder",
+            "label": "Cylinder"
+          },
+          {
+            "id": "cone",
+            "label": "Cone"
+          }
+        ],
+        "correctOptionId": "cube",
         "targetConcept": "flat_faces_of_solids",
         "evidenceTarget": "flat_faces_of_solids",
         "difficulty": 0.35,
@@ -190,6 +211,27 @@
         "category": "Roll Away",
         "prompt": "Which shape rolls away without making a flat print?",
         "answer": "sphere",
+        "options": [
+          {
+            "id": "sphere",
+            "label": "Sphere"
+          },
+          {
+            "id": "cube",
+            "label": "Cube",
+            "misconceptionTag": "all_solids_have_same_face"
+          },
+          {
+            "id": "cylinder",
+            "label": "Cylinder",
+            "misconceptionTag": "circle_base_not_seen"
+          },
+          {
+            "id": "pyramid",
+            "label": "Pyramid"
+          }
+        ],
+        "correctOptionId": "sphere",
         "targetConcept": "flat_faces_of_solids",
         "evidenceTarget": "flat_faces_of_solids",
         "difficulty": 0.55,
@@ -201,11 +243,33 @@
         "category": "Sneaky Circle",
         "prompt": "Which solids can stamp a circle with a flat base?",
         "answer": "cylinder and cone",
+        "options": [
+          {
+            "id": "cylinder-cone",
+            "label": "Cylinder and cone"
+          },
+          {
+            "id": "cube-prism",
+            "label": "Cube and rectangular prism",
+            "misconceptionTag": "square_rectangle_face_confusion"
+          },
+          {
+            "id": "sphere",
+            "label": "Sphere",
+            "misconceptionTag": "curved_surface_as_flat_face"
+          },
+          {
+            "id": "pyramid",
+            "label": "Pyramid"
+          }
+        ],
+        "correctOptionId": "cylinder-cone",
         "targetConcept": "flat_faces_of_solids",
         "evidenceTarget": "flat_faces_of_solids",
         "difficulty": 0.7,
         "stake": 30,
-        "misconceptionTag": "circle_base_not_seen"
+        "misconceptionTag": "circle_base_not_seen",
+        "teachBackPrompt": "Tell Sunny why the sphere does not leave a flat print."
       }
     ]
   },

@@ -1,0 +1,18 @@
+{
+  "id": "ila-garden-shape-faces-1778776335",
+  "provider": "openai",
+  "model": "gpt-5.5",
+  "concept": "Ila personalized 2D faces of 3D solids",
+  "createdAt": "2026-05-14T16:34:34.652Z",
+  "usage": {
+    "input_tokens": 377,
+    "input_tokens_details": {
+      "cached_tokens": 0
+    },
+    "output_tokens": 10341,
+    "output_tokens_details": {
+      "reasoning_tokens": 2158
+    },
+    "total_tokens": 10718
+  }
+}

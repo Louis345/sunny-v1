@@ -1,0 +1,12 @@
+{
+  "provider": "elevenlabs",
+  "voiceId": "052jzHJceQiZr7ltnY0C",
+  "modelId": "eleven_multilingual_v2",
+  "characterCount": 505,
+  "estimatedCostCents": 6,
+  "generatedAt": "2026-05-14T16:57:20.630Z",
+  "mode": "segmented-phase-sync",
+  "transcriptPath": "./audio/narration.txt",
+  "segmentsPath": "./audio/narration.segments.json",
+  "notes": "Segmented narration includes a natural question handoff before the system-controlled prediction modal. It omits UI words like pause/reveal."
+}

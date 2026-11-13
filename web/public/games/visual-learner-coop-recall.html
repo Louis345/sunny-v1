@@ -1,0 +1,1664 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Sunny Co-op Recall</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <script src="_contract.js"></script>
+  <style>
+    :root {
+      color-scheme: dark;
+      --night: #111029;
+      --night-low: #2b1d5b;
+      --ink: #fbf6ff;
+      --muted: rgba(248, 241, 255, 0.62);
+      --panel: rgba(255, 255, 255, 0.065);
+      --edge: rgba(255, 255, 255, 0.13);
+      --deep: #120f29;
+      --violet: #5636c5;
+      --rose: #c74678;
+      --rose-dark: #e56f9d;
+      --gold: #ffe071;
+      --gold-low: #e4a83d;
+      --green: #2f7f4c;
+      --blue: #3578aa;
+      --shadow: 0 28px 85px rgba(2, 0, 20, 0.42);
+      --radius: 28px;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--ink);
+      font-family: Inter, system-ui, sans-serif;
+      background:
+        radial-gradient(1100px 600px at 5% -10%, #1f1a4e 0%, transparent 70%),
+        radial-gradient(900px 480px at 105% 110%, #432782 0%, transparent 65%),
+        #14102e;
+      overflow-x: hidden;
+    }
+
+    .cosmic-stars {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .cosmic-stars span {
+      position: absolute;
+      width: 2px;
+      height: 2px;
+      background: #fff;
+      border-radius: 50%;
+      animation: twinkle 4s infinite ease-in-out;
+    }
+
+    @keyframes twinkle {
+      0%, 100% { opacity: 0.3; }
+      50% { opacity: 1; }
+    }
+
+    button {
+      border: 0;
+      font: inherit;
+      cursor: pointer;
+      letter-spacing: 0;
+    }
+
+    button:disabled {
+      cursor: default;
+      opacity: 0.56;
+    }
+
+    .quiz-root {
+      position: relative;
+      z-index: 1;
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 24px 28px 32px;
+    }
+
+    .qtop {
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 18px;
+    }
+
+    .qtop-left,
+    .qtop-right {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 0;
+    }
+
+    .qtop-right { justify-content: flex-end; }
+
+    .qback {
+      width: 38px;
+      height: 38px;
+      display: grid;
+      place-items: center;
+      color: #fff;
+      background: rgba(255, 255, 255, 0.06);
+      border-radius: 50%;
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      box-shadow: none;
+    }
+
+    .crumb {
+      color: rgba(242, 238, 255, 0.6);
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .crumb b {
+      color: #f6e27a;
+      font-weight: 800;
+    }
+
+    .round-pill,
+    .goal-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      min-height: 0;
+      padding: 8px 14px;
+      color: #f6e27a;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(246, 226, 122, 0.4);
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.2em;
+      box-shadow: none;
+    }
+
+    .goal-pill {
+      color: rgba(242, 238, 255, 0.6);
+      background: transparent;
+      border-color: transparent;
+      box-shadow: none;
+      white-space: nowrap;
+    }
+
+    .body-grid {
+      display: grid;
+      grid-template-columns: 240px minmax(0, 1fr) 240px;
+      gap: 18px;
+      align-items: start;
+    }
+
+    .shoulder {
+      padding: 14px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      background: linear-gradient(180deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0.02) 100%);
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 22px;
+      box-shadow: none;
+      overflow: hidden;
+      position: relative;
+      min-width: 0;
+      transition: all 0.45s cubic-bezier(.2,.8,.2,1);
+    }
+
+    .shoulder.active {
+      background: linear-gradient(180deg, rgba(246,226,122,0.18) 0%, rgba(246,226,122,0.04) 100%);
+      border-color: rgba(246,226,122,0.6);
+      box-shadow: 0 0 0 1px rgba(246,226,122,0.4), 0 18px 50px -12px rgba(246,226,122,0.4);
+    }
+
+    .turn-tag {
+      position: absolute;
+      top: 10px;
+      right: 14px;
+      color: #1b1530;
+      font-size: 10px;
+      font-weight: 900;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+    }
+
+    .turn-tag span {
+      display: none;
+    }
+
+    .shoulder.active .turn-tag span {
+      display: inline-flex;
+      align-items: center;
+      padding: 3px 8px;
+      color: #1b1530;
+      background: #f6e27a;
+      border-radius: 999px;
+    }
+
+    .avatar-wrap {
+      width: 64px;
+      height: 64px;
+      flex: none;
+      border-radius: 50%;
+      padding: 0;
+      background: transparent;
+      border: 3px solid #fff;
+      box-shadow: 0 8px 18px -4px rgba(0,0,0,0.4);
+      overflow: hidden;
+    }
+
+    .avatar {
+      width: 100%;
+      height: 100%;
+      display: block;
+      border-radius: 50%;
+      object-fit: cover;
+      background: linear-gradient(135deg, #ffe8f1, #efe6ff);
+    }
+
+    .player-info {
+      min-width: 0;
+    }
+
+    .name {
+      color: #fff;
+      font-size: 16px;
+      font-weight: 800;
+      letter-spacing: -0.01em;
+      line-height: 1.1;
+      min-width: 0;
+    }
+
+    .name small {
+      display: block;
+      margin-top: 4px;
+      color: rgba(242,238,255,0.55);
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.18em;
+      line-height: 1.2;
+      white-space: normal;
+      overflow-wrap: anywhere;
+    }
+
+    .stash {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      margin-top: 8px;
+      color: #f6e27a;
+      background: transparent;
+      border: 0;
+      font-size: 18px;
+      font-weight: 800;
+      font-variant-numeric: tabular-nums;
+      box-shadow: none;
+    }
+
+    #childCoins,
+    #companionCoins {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .coin-mini {
+      display: inline-block;
+      width: 14px;
+      height: 14px;
+      flex: 0 0 14px;
+      border-radius: 50%;
+      background:
+        radial-gradient(circle at 30% 28%, #fff2a8 0 16%, transparent 17%),
+        radial-gradient(circle at 38% 32%, #ffd96e 0 12%, transparent 13%),
+        radial-gradient(circle at 45% 44%, #f4b844 0, #d68a20 68%, #9c5f18 100%);
+      box-shadow: inset 0 -3px 0 rgba(132, 79, 18, 0.24), 0 2px 5px rgba(132, 79, 18, 0.2);
+    }
+
+    .delta {
+      margin-left: 3px;
+      color: var(--green);
+      font-size: 12px;
+      font-weight: 1000;
+    }
+
+    .delta.loss {
+      color: var(--rose-dark);
+    }
+
+    .board {
+      padding: 18px;
+      background: linear-gradient(180deg, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0) 100%);
+      border: 1px solid rgba(255,255,255,0.10);
+      border-radius: 28px;
+      box-shadow: 0 30px 80px -20px rgba(0,0,0,0.5);
+      min-width: 0;
+      overflow: hidden;
+    }
+
+    .cat-row {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+
+    .cat {
+      min-width: 0;
+      min-height: 56px;
+      display: grid;
+      place-items: center;
+      padding: 10px 6px;
+      overflow: hidden;
+      color: #fff;
+      text-align: center;
+      font-family: "Fraunces", Georgia, serif;
+      font-size: 13px;
+      font-weight: 600;
+      line-height: 1.15;
+      letter-spacing: -0.005em;
+      border-radius: 12px;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.18), 0 8px 18px -8px rgba(0,0,0,0.4);
+    }
+
+    .cat > div {
+      max-width: 100%;
+      min-width: 0;
+      overflow-wrap: break-word;
+      word-break: normal;
+      hyphens: none;
+      text-wrap: balance;
+    }
+
+    .cat:nth-child(1) { background: linear-gradient(180deg, #5b3fcb 0%, #3d2796 100%); }
+    .cat:nth-child(2) { background: linear-gradient(180deg, #c5417f 0%, #8e2156 100%); }
+    .cat:nth-child(3) { background: linear-gradient(180deg, #2f8dc4 0%, #1a5a85 100%); }
+    .cat:nth-child(4) { background: linear-gradient(180deg, #2a8c5c 0%, #19613c 100%); }
+    .cat:nth-child(5) { background: linear-gradient(180deg, #c77a2a 0%, #8a4d11 100%); }
+
+    .grid-rows {
+      display: grid;
+      gap: 10px;
+    }
+
+    .tile-row {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 10px;
+    }
+
+    .tile {
+      position: relative;
+      aspect-ratio: 1.45 / 1;
+      min-width: 0;
+      display: grid;
+      place-items: center;
+      padding: 0;
+      overflow: hidden;
+      color: #5b3512;
+      background: linear-gradient(180deg, #ffe6a4 0%, #f4a732 100%);
+      border: 0;
+      border-radius: 12px;
+      box-shadow:
+        inset 0 -3px 0 rgba(184,118,26,0.5),
+        inset 0 1px 0 rgba(255,255,255,0.5),
+        0 8px 18px -8px rgba(0,0,0,0.4);
+      transition: transform 0.15s ease;
+    }
+
+    .tile::before {
+      content: "";
+      position: absolute;
+      inset: -45% -30% auto auto;
+      width: 80%;
+      aspect-ratio: 1;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.12);
+    }
+
+    .tile:hover:not(:disabled) {
+      transform: translateY(-2px);
+    }
+
+    .tile.taken-child {
+      background: linear-gradient(180deg, #fff0ad 0%, #d8a13e 100%);
+      color: #51300d;
+    }
+
+    .tile.taken-companion {
+      background: linear-gradient(180deg, #d8ccff 0%, #8671d9 100%);
+      color: #fff;
+    }
+
+    .tile.active {
+      outline: 4px solid rgba(255, 240, 116, 0.32);
+    }
+
+    .pts {
+      position: relative;
+      z-index: 1;
+      display: inline-grid;
+      grid-auto-flow: column;
+      grid-auto-columns: max-content;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      line-height: 1;
+      font-family: "Fraunces", Georgia, serif;
+      font-size: 28px;
+      font-weight: 700;
+    }
+
+    .pts .coin-mini {
+      display: block;
+      width: 14px;
+      height: 14px;
+    }
+
+    .footer-hint {
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+      color: rgba(248, 241, 255, 0.45);
+      font-size: 13px;
+      font-weight: 1000;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+    }
+
+    .sheet-backdrop {
+      position: fixed;
+      inset: 0;
+      z-index: 30;
+      display: grid;
+      place-items: center;
+      padding: clamp(16px, 4vw, 44px);
+      background: rgba(6, 4, 22, 0.54);
+      backdrop-filter: blur(8px);
+    }
+
+    .sheet-backdrop[hidden] {
+      display: none;
+    }
+
+    .qsheet {
+      width: min(820px, 100%);
+      max-height: min(86vh, 760px);
+      overflow: auto;
+      padding: clamp(20px, 3vw, 30px);
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(255, 247, 233, 0.98)),
+        radial-gradient(circle at 18% 0%, rgba(255, 224, 113, 0.24), transparent 36%);
+      border: 1px solid rgba(255, 255, 255, 0.8);
+      border-radius: 32px;
+      box-shadow: 0 28px 90px rgba(27, 21, 48, 0.26);
+    }
+
+    .qhead,
+    .qfoot {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .qcat {
+      color: var(--rose-dark);
+      font-size: 12px;
+      font-weight: 1000;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+    }
+
+    .qstake {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 9px 13px;
+      color: #87580e;
+      background: #fff0bd;
+      border-radius: 999px;
+      font-size: 15px;
+      font-weight: 1000;
+    }
+
+    .qprompt {
+      margin: 18px 0;
+      font-size: clamp(28px, 4.4vw, 50px);
+      line-height: 1.02;
+      letter-spacing: 0;
+      text-wrap: balance;
+    }
+
+    .qopts {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    .qopt {
+      min-height: 78px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 15px;
+      color: var(--ink);
+      text-align: left;
+      background: #fff;
+      border: 1px solid rgba(87, 63, 105, 0.12);
+      border-radius: 20px;
+      box-shadow: 0 12px 28px rgba(58, 35, 81, 0.09);
+    }
+
+    .qkey {
+      width: 32px;
+      height: 32px;
+      display: grid;
+      place-items: center;
+      flex: 0 0 32px;
+      color: #fff;
+      background: var(--deep);
+      border-radius: 50%;
+      font-size: 12px;
+      font-weight: 1000;
+    }
+
+    .qopt.picked-correct {
+      outline: 4px solid rgba(44, 167, 111, 0.26);
+      background: #f0fff7;
+    }
+
+    .qopt.picked-wrong {
+      outline: 4px solid rgba(240, 111, 143, 0.26);
+      background: #fff2f5;
+    }
+
+    .qopt.dim {
+      opacity: 0.58;
+    }
+
+    .qbanner,
+    .qcomp-thinking,
+    .tbcard {
+      display: flex;
+      gap: 13px;
+      align-items: center;
+      margin: 14px 0;
+      padding: 15px;
+      border-radius: 22px;
+      font-weight: 900;
+    }
+
+    .qbanner.win {
+      color: #17613f;
+      background: rgba(44, 167, 111, 0.12);
+      border: 1px solid rgba(44, 167, 111, 0.2);
+    }
+
+    .qbanner.lose {
+      color: #8d2d51;
+      background: rgba(240, 111, 143, 0.12);
+      border: 1px solid rgba(240, 111, 143, 0.22);
+    }
+
+    .qcomp-thinking {
+      background: rgba(110, 63, 203, 0.09);
+      border: 1px solid rgba(110, 63, 203, 0.16);
+    }
+
+    .qcomp-thinking img {
+      width: 54px;
+      height: 54px;
+      border-radius: 50%;
+      background: #fff;
+    }
+
+    .tbcard {
+      display: grid;
+      align-items: stretch;
+      color: #50346f;
+      background: rgba(110, 63, 203, 0.08);
+      border: 1px solid rgba(110, 63, 203, 0.16);
+    }
+
+    .tbcard h4 {
+      margin: 0;
+      font-size: 18px;
+    }
+
+    .tb-options {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 9px;
+    }
+
+    .tb-pick,
+    .double-btn,
+    .ghost-btn,
+    .finish-btn {
+      min-height: 42px;
+      padding: 11px 15px;
+      border-radius: 999px;
+      font-size: 13px;
+      font-weight: 1000;
+    }
+
+    .double-btn,
+    .finish-btn {
+      color: #fff;
+      background: var(--deep);
+      box-shadow: 0 12px 26px rgba(27, 21, 48, 0.18);
+    }
+
+    .ghost-btn {
+      color: var(--deep);
+      background: #fff;
+      border: 1px solid var(--edge);
+    }
+
+    .tb-pick {
+      color: #51336d;
+      background: #fff;
+      border: 1px solid rgba(110, 63, 203, 0.14);
+    }
+
+    .debug {
+      display: none;
+      width: min(1180px, 100%);
+      margin: 0 auto;
+      padding: 14px;
+      color: #574c65;
+      background: rgba(255, 255, 255, 0.72);
+      border: 1px solid var(--edge);
+      border-radius: 18px;
+      font-size: 12px;
+      font-weight: 800;
+      white-space: pre-wrap;
+    }
+
+    body.parent-preview .debug,
+    body.storybook-preview .debug {
+      display: block;
+    }
+
+    @media (max-width: 1100px) {
+      .quiz-root {
+        padding: 24px;
+      }
+
+      .qtop {
+        grid-template-columns: 1fr auto 1fr;
+      }
+
+      .body-grid {
+        grid-template-columns: 1fr 1fr;
+        grid-template-areas: "ls rs" "bd bd";
+        gap: 14px;
+      }
+
+      .body-grid > .shoulder:first-of-type { grid-area: ls; }
+      .body-grid > .shoulder:last-of-type { grid-area: rs; }
+      .body-grid > .board { grid-area: bd; }
+    }
+
+    @media (max-width: 760px) {
+      .quiz-root { padding: 14px; }
+      .qtop { grid-template-columns: 1fr; }
+      .qtop-left,
+      .qtop-right { justify-content: space-between; }
+      .body-grid {
+        grid-template-columns: 1fr;
+        grid-template-areas:
+          "ls"
+          "bd"
+          "rs";
+        gap: 18px;
+      }
+      .board { width: 100%; }
+      .qopts { grid-template-columns: 1fr; }
+      .cat-row,
+      .tile-row {
+        min-width: 620px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="cosmic-stars" aria-hidden="true"></div>
+  <main class="quiz-root">
+    <header class="qtop">
+      <div class="qtop-left">
+        <button class="qback" id="backBtn" type="button" aria-label="Back to map" title="Back to map">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"></path></svg>
+        </button>
+        <div class="crumb">Map node &middot; <b>Co-Op Quiz</b> &middot; <span id="topicCrumb">Visual Recall</span></div>
+      </div>
+      <div><span class="round-pill" id="roundPill">Round 1 &middot; 3 of 20 tiles</span></div>
+      <div class="qtop-right"><span class="goal-pill">Goal: 200 sun-coins</span></div>
+    </header>
+
+    <section class="body-grid" aria-label="co-op recall game">
+      <aside class="shoulder active" data-testid="child-shoulder" id="childShoulder">
+        <div class="turn-tag"><span>TURN</span></div>
+        <div class="avatar-wrap"><img class="avatar" id="childAvatar" alt="Child avatar" /></div>
+        <div class="player-info">
+          <div class="name"><span id="childNameText">Child</span><small>You</small></div>
+          <div class="stash"><span class="coin-mini"></span><span id="childCoins">0</span><span class="delta" id="childDelta"></span></div>
+        </div>
+      </aside>
+
+      <section class="board" aria-label="recall board">
+        <div class="cat-row" id="categoryRow"></div>
+        <div class="grid-rows" id="tileGrid"></div>
+      </section>
+
+      <aside class="shoulder" data-testid="companion-shoulder" id="companionShoulder">
+        <div class="turn-tag"><span>TURN</span></div>
+        <div class="avatar-wrap"><img class="avatar" id="companionAvatar" alt="Companion avatar" /></div>
+        <div class="player-info">
+          <div class="name"><span id="companionNameText">Companion</span><small id="companionRole">Companion &middot; happy</small></div>
+          <div class="stash"><span class="coin-mini"></span><span id="companionCoins">120</span><span class="delta" id="companionDelta"></span></div>
+        </div>
+      </aside>
+    </section>
+
+    <div class="footer-hint" id="footerHint">Tap any tile. The board is the recall lab after the visual explainer.</div>
+  </main>
+
+  <section class="sheet-backdrop" id="sheet" hidden>
+    <div class="qsheet" role="dialog" aria-modal="true" aria-labelledby="questionPrompt">
+      <div class="qhead">
+        <div class="qcat" id="sheetCategory">Recall</div>
+        <div class="qstake"><span class="coin-mini"></span><span id="sheetStake">10</span></div>
+      </div>
+      <h2 class="qprompt" id="questionPrompt">Pick a tile to begin.</h2>
+      <div class="qopts" id="optionGrid"></div>
+      <div id="resultSlot"></div>
+      <div class="qfoot" id="sheetFooter"></div>
+    </div>
+  </section>
+
+  <pre class="debug" id="debug" data-parent-only="recall-debug"></pre>
+
+  <script>
+    (function () {
+      "use strict";
+
+      var params = window.GAME_PARAMS || {};
+      var childId = String(params.childId || "").toLowerCase();
+      var CHILD_COMPANION_DEFAULTS = {
+        ila: "elli",
+        reina: "matilda",
+      };
+      var COMPANION_PROFILES = {
+        elli: {
+          id: "elli",
+          name: "Elli",
+          imagePath: "/characters/star.png",
+          vrmUrl: "/companions/2878599730723533962.vrm",
+        },
+        matilda: {
+          id: "matilda",
+          name: "Matilda",
+          imagePath: "",
+          vrmUrl: "/companions/673852811403133503.vrm",
+        },
+      };
+      var companionId = String(params.companion || CHILD_COMPANION_DEFAULTS[childId] || "elli").toLowerCase();
+      var companionProfile = resolveCompanionProfile(companionId);
+      var childName = params.childName || "Student";
+      var companionName = params.companionName || companionProfile.name || "Companion";
+      var previewMode = String(params.preview || "");
+      var isParentChrome = params.chrome === "parent" || previewMode === "go-live";
+      var isStorybook = params.previewStorybook === true || previewMode === "storybook";
+      var audioContext = null;
+      var heartbeatId = null;
+
+      function seedStars() {
+        var root = document.querySelector(".cosmic-stars");
+        if (!root || root.children.length) return;
+        for (var i = 0; i < 70; i += 1) {
+          var star = document.createElement("span");
+          star.style.left = Math.random() * 100 + "%";
+          star.style.top = Math.random() * 100 + "%";
+          star.style.opacity = (0.3 + Math.random() * 0.7).toFixed(2);
+          star.style.animationDelay = Math.random() * 4 + "s";
+          root.appendChild(star);
+        }
+      }
+      seedStars();
+
+      var categoryColumns = [
+        { id: "vocab", label: "Word\nQuarry" },
+        { id: "what", label: "What's the\nMove?" },
+        { id: "where", label: "Where in\nthe World?" },
+        { id: "true", label: "True or\nDrip" },
+        { id: "sleuth", label: "Sediment\nSleuth" },
+      ];
+      var stakeRows = [10, 20, 30, 50];
+
+      var state = {
+        config: null,
+        questions: [],
+        boardTiles: [],
+        selected: null,
+        phase: "loading",
+        turn: "child",
+        childStartCoins: Math.max(0, Math.floor(Number(params.companionCurrency || 0) || 0)),
+        childCoins: Math.max(0, Math.floor(Number(params.companionCurrency || 0) || 0)),
+        companionCoins: 120,
+        companionMood: "happy",
+        coinsEarned: 0,
+        coinsLost: 0,
+        companionDelta: 0,
+        childLastDelta: 0,
+        netCurrencyDelta: 0,
+        correctCount: 0,
+        results: [],
+        completedTiles: {},
+        completedTeachBack: {},
+        selectedOptionId: null,
+        companionChoice: null,
+        roundGoal: 3,
+        startedAt: Date.now(),
+        completed: false,
+      };
+
+      var els = {
+        backBtn: document.getElementById("backBtn"),
+        topicCrumb: document.getElementById("topicCrumb"),
+        roundPill: document.getElementById("roundPill"),
+        childShoulder: document.getElementById("childShoulder"),
+        companionShoulder: document.getElementById("companionShoulder"),
+        childAvatar: document.getElementById("childAvatar"),
+        companionAvatar: document.getElementById("companionAvatar"),
+        childNameText: document.getElementById("childNameText"),
+        companionNameText: document.getElementById("companionNameText"),
+        companionRole: document.getElementById("companionRole"),
+        childCoins: document.getElementById("childCoins"),
+        companionCoins: document.getElementById("companionCoins"),
+        childDelta: document.getElementById("childDelta"),
+        companionDelta: document.getElementById("companionDelta"),
+        categoryRow: document.getElementById("categoryRow"),
+        tileGrid: document.getElementById("tileGrid"),
+        footerHint: document.getElementById("footerHint"),
+        sheet: document.getElementById("sheet"),
+        sheetCategory: document.getElementById("sheetCategory"),
+        sheetStake: document.getElementById("sheetStake"),
+        questionPrompt: document.getElementById("questionPrompt"),
+        optionGrid: document.getElementById("optionGrid"),
+        resultSlot: document.getElementById("resultSlot"),
+        sheetFooter: document.getElementById("sheetFooter"),
+        debug: document.getElementById("debug"),
+      };
+
+      function fallbackConfig() {
+        return {
+          artifactId: "visual-learner-fallback",
+          concept: "Visual learner recall",
+          learningGoal: "Check whether the child can recall the visual model.",
+          display: {
+            title: "Recall Quest",
+            subtitle: "Use what you just watched to win profile coins.",
+          },
+          companionContext: {
+            role: "hint_only",
+            hintText: "Think back to the visual. Which answer matches what changed on screen?",
+          },
+          recallGame: {
+            type: "co-op-recall",
+            sourceInterventionId: "visual-learner-fallback",
+            turnMode: "child-and-companion",
+            stakes: {
+              currency: "sun-coins",
+              lossMode: "half-stake-floor-zero",
+              profilePersistence: "true-net",
+            },
+            companionPolicy: {
+              accuracyMode: "configured",
+              configuredAccuracy: 0.65,
+              helperRole: "accurate-hint-only",
+            },
+            questions: [
+              {
+                id: "fallback-1",
+                category: "Word Quarry",
+                prompt: "What was the main idea from the visual explainer?",
+                answer: "the main idea",
+                options: [
+                  { id: "main", label: "The main idea" },
+                  { id: "guess", label: "A random detail" },
+                  { id: "skip", label: "I am not sure yet" },
+                ],
+                correctOptionId: "main",
+                targetConcept: "visual_recall",
+                evidenceTarget: "visual_recall",
+                difficulty: 0.5,
+                stake: 10,
+                teachBackPrompt: "Say the rule in your own words.",
+              },
+            ],
+          },
+        };
+      }
+
+      function safeText(value, fallback) {
+        var text = String(value == null ? "" : value).trim();
+        return text || fallback;
+      }
+
+      function currencyName() {
+        return safeText(
+          state.config && state.config.recallGame && state.config.recallGame.stakes && state.config.recallGame.stakes.currency,
+          "sun-coins",
+        );
+      }
+
+      function optionLabel(option) {
+        return safeText(option && option.label, safeText(option && option.id, "Option"));
+      }
+
+      function normalizedOptions(question) {
+        var opts = Array.isArray(question.options) ? question.options.slice() : [];
+        if (!opts.length) {
+          opts = [
+            { id: "answer", label: question.answer || "The answer" },
+            { id: "not-yet", label: "Not yet" },
+            { id: "almost", label: "Almost" },
+          ];
+          question.correctOptionId = "answer";
+        }
+        return opts;
+      }
+
+      function correctOption(question) {
+        var opts = normalizedOptions(question);
+        return opts.find(function (option) { return option.id === question.correctOptionId; }) || opts[0];
+      }
+
+      function selectedQuestionCount() {
+        return state.results.filter(function (r) { return r.actor === "child"; }).length;
+      }
+
+      function updateNet() {
+        state.netCurrencyDelta = state.childCoins - state.childStartCoins;
+      }
+
+      function avatarSvg(name, kind) {
+        var initials = safeText(name, "?").slice(0, 1).toUpperCase();
+        var bgA = kind === "companion" ? "#ff89b8" : "#ffd18a";
+        var bgB = kind === "companion" ? "#6e3fcb" : "#f06f8f";
+        var skin = kind === "companion" ? "#fff3fb" : "#f6c38f";
+        var svg = [
+          "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 128 128'>",
+          "<defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop stop-color='" + bgA + "'/><stop offset='1' stop-color='" + bgB + "'/></linearGradient></defs>",
+          "<rect width='128' height='128' rx='64' fill='url(#g)'/>",
+          "<circle cx='64' cy='68' r='38' fill='" + skin + "'/>",
+          "<circle cx='50' cy='63' r='5' fill='#1b1530'/>",
+          "<circle cx='78' cy='63' r='5' fill='#1b1530'/>",
+          "<path d='M48 83 Q64 95 80 83' fill='none' stroke='#1b1530' stroke-width='6' stroke-linecap='round'/>",
+          "<text x='64' y='42' text-anchor='middle' font-family='Arial, sans-serif' font-size='28' font-weight='900' fill='white'>" + initials + "</text>",
+          "</svg>",
+        ].join("");
+        return "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg);
+      }
+
+      function childAvatarPath() {
+        if (childId === "ila" || childId === "reina") return "/characters/" + childId + ".png";
+        return avatarSvg(childName, "child");
+      }
+
+      function resolveCompanionProfile(id) {
+        var normalized = String(id || "").toLowerCase();
+        var profile = COMPANION_PROFILES[normalized] || null;
+        return {
+          id: normalized || (profile && profile.id) || "companion",
+          name: (profile && profile.name) || safeText(params.companionName, "Companion"),
+          imagePath: (profile && profile.imagePath) || safeText(params.companionAvatar, ""),
+          vrmUrl:
+            safeText(params.companionVrmUrl, "") ||
+            (profile && profile.vrmUrl) ||
+            safeText(params.vrmUrl, ""),
+        };
+      }
+
+      function companionAvatarPath() {
+        var profile = resolveCompanionProfile(companionId);
+        if (profile.imagePath) return profile.imagePath;
+        return avatarSvg(profile.name || companionName || companionId || "C", "companion");
+      }
+
+      function companionVrmUrl() {
+        return resolveCompanionProfile(companionId).vrmUrl;
+      }
+
+      function formatCategoryLabel(label) {
+        var clean = safeText(label, "");
+        if (!clean || clean.indexOf("\n") >= 0) return clean;
+        var parts = clean.split(/\s+/).filter(Boolean);
+        if (parts.length < 2 || clean.length <= 10) return clean;
+        var midpoint = Math.ceil(parts.length / 2);
+        return parts.slice(0, midpoint).join(" ") + "\n" + parts.slice(midpoint).join(" ");
+      }
+
+      function setDelta(el, value) {
+        el.classList.toggle("loss", value < 0);
+        el.textContent = value === 0 ? "" : (value > 0 ? "+" : "") + value;
+      }
+
+      function buildCategoryColumns(config) {
+        var questions = config && config.recallGame && Array.isArray(config.recallGame.questions)
+          ? config.recallGame.questions
+          : [];
+        var unique = [];
+        questions.forEach(function (question) {
+          var label = formatCategoryLabel(question.category);
+          if (label && unique.indexOf(label) === -1) unique.push(label);
+        });
+        var defaults = categoryColumns.map(function (column) { return column.label; });
+        while (unique.length < 5) unique.push(defaults[unique.length]);
+        return unique.slice(0, 5).map(function (label, index) {
+          return {
+            id: ["vocab", "what", "where", "true", "sleuth"][index],
+            label: label,
+          };
+        });
+      }
+
+      function buildBoardTiles(questions) {
+        var safeQuestions = questions.length ? questions : fallbackConfig().recallGame.questions;
+        var tiles = [];
+        categoryColumns.forEach(function (category, catIndex) {
+          stakeRows.forEach(function (stake, stakeIndex) {
+            var q = Object.assign({}, safeQuestions[(catIndex + stakeIndex) % safeQuestions.length]);
+            var key = category.id + "-" + stake;
+            q.id = q.id + "::" + key;
+            q.baseQuestionId = q.baseQuestionId || q.id.split("::")[0];
+            q.category = category.label.replace(/\n/g, " ");
+            q.stake = stake;
+            tiles.push({
+              key: key,
+              category: category,
+              stake: stake,
+              question: q,
+            });
+          });
+        });
+        return tiles;
+      }
+
+      function getSnapshot(extra) {
+        updateNet();
+        return Object.assign({
+          activityId: "visual-recall-quiz",
+          artifactId: state.config ? state.config.artifactId : "loading",
+          concept: state.config ? state.config.concept : "",
+          phase: state.phase,
+          turn: state.turn,
+          selectedQuestionId: state.selected ? state.selected.question.id : null,
+          selectedTileKey: state.selected ? state.selected.key : null,
+          itemIndex: selectedQuestionCount(),
+          totalItems: state.roundGoal,
+          score: state.childCoins,
+          childCoins: state.childCoins,
+          companionCoins: state.companionCoins,
+          coinsEarned: state.coinsEarned,
+          coinsLost: state.coinsLost,
+          netCurrencyDelta: state.netCurrencyDelta,
+          boardState: state.boardTiles.map(function (tile) {
+            return tile.key + ":" + (state.completedTiles[tile.key] || "open");
+          }).join(","),
+        }, extra || {});
+      }
+
+      function reportState(progress, extra) {
+        if (!window.GameBridge || typeof window.GameBridge.reportState !== "function") return;
+        window.GameBridge.reportState(progress, getSnapshot(extra));
+      }
+
+      function reportAnchor(extra) {
+        if (!window.GameBridge || typeof window.GameBridge.reportCompanionAnchor !== "function") return;
+        var tile = state.selected;
+        var question = tile ? tile.question : null;
+        window.GameBridge.reportCompanionAnchor(Object.assign({
+          artifactId: state.config ? state.config.artifactId : "loading",
+          concept: state.config ? state.config.concept : "",
+          learningGoal: state.config ? state.config.learningGoal : "",
+          phase: state.phase,
+          question: question ? question.prompt : "",
+          selectedAnswer: null,
+          allowedRole: "hint_only",
+        }, extra || {}));
+      }
+
+      function sound(name) {
+        var AudioContextCtor = window.AudioContext || window.webkitAudioContext;
+        if (!AudioContextCtor) return;
+        try {
+          if (!audioContext) audioContext = new AudioContextCtor();
+          if (audioContext.state === "suspended") {
+            audioContext.resume().catch(function (err) {
+              console.warn("🎮 [visual-recall-audio] resume failed", err);
+            });
+          }
+          var now = audioContext.currentTime;
+          var gain = audioContext.createGain();
+          gain.gain.setValueAtTime(0.0001, now);
+          gain.gain.exponentialRampToValueAtTime(0.045, now + 0.02);
+          gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.24);
+          gain.connect(audioContext.destination);
+          [name === "win" ? 523 : name === "loss" ? 196 : 330, name === "win" ? 784 : name === "loss" ? 155 : 440].forEach(function (freq, idx) {
+            var osc = audioContext.createOscillator();
+            osc.type = idx === 0 ? "sine" : "triangle";
+            osc.frequency.setValueAtTime(freq, now + idx * 0.07);
+            osc.connect(gain);
+            osc.start(now + idx * 0.07);
+            osc.stop(now + 0.18 + idx * 0.04);
+          });
+        } catch (err) {
+          console.warn("🎮 [visual-recall-audio] sound failed", err);
+        }
+      }
+
+      function renderTop() {
+        var concept = safeText(state.config && state.config.concept, "Visual Recall");
+        document.title = "Sunny · Co-Op Quiz · " + concept;
+        els.topicCrumb.textContent = concept;
+        els.roundPill.innerHTML = "Round 1 &middot; " + state.roundGoal + " of " + state.boardTiles.length + " tiles";
+      }
+
+      function renderShoulders() {
+        var profile = resolveCompanionProfile(companionId);
+        els.childNameText.textContent = childName;
+        els.companionNameText.textContent = profile.name || companionName;
+        els.companionRole.innerHTML = "Companion &middot; " + state.companionMood;
+        els.companionAvatar.dataset.vrmUrl = companionVrmUrl();
+        els.companionAvatar.dataset.companionId = profile.id;
+        els.companionAvatar.alt = (profile.name || companionName) + " companion";
+        els.childCoins.textContent = state.childCoins.toLocaleString();
+        els.companionCoins.textContent = state.companionCoins.toLocaleString();
+        setDelta(els.childDelta, state.childLastDelta);
+        setDelta(els.companionDelta, state.companionDelta);
+        els.childShoulder.classList.toggle("active", state.turn === "child");
+        els.companionShoulder.classList.toggle("active", state.turn === "companion");
+      }
+
+      function renderBoard() {
+        els.categoryRow.innerHTML = "";
+        categoryColumns.forEach(function (category) {
+          var div = document.createElement("div");
+          div.className = "cat";
+          div.innerHTML = category.label.split("\n").map(function (part) {
+            return "<div>" + part + "</div>";
+          }).join("");
+          els.categoryRow.appendChild(div);
+        });
+
+        els.tileGrid.innerHTML = "";
+        stakeRows.forEach(function (stake) {
+          var row = document.createElement("div");
+          row.className = "tile-row";
+          categoryColumns.forEach(function (category) {
+            var tile = state.boardTiles.find(function (candidate) {
+              return candidate.key === category.id + "-" + stake;
+            });
+            var takenBy = tile ? state.completedTiles[tile.key] : null;
+            var button = document.createElement("button");
+            button.type = "button";
+            button.className = "tile" +
+              (takenBy === "child" ? " taken-child" : "") +
+              (takenBy === "companion" ? " taken-companion" : "") +
+              (state.selected && tile && state.selected.key === tile.key ? " active" : "");
+            button.disabled = !tile || !!takenBy || state.phase !== "board" || state.completed;
+            button.setAttribute("aria-label", category.id + " for " + stake);
+            button.innerHTML = !takenBy
+              ? "<span class=\"pts\"><span class=\"coin-mini\"></span>" + stake + "</span>"
+              : takenBy === "child"
+                ? "<span style=\"font-size:24px\">&#9733;</span>"
+                : "<span style=\"font-size:24px\">&#9679;</span>";
+            if (tile) {
+              button.addEventListener("click", function () {
+                openTile(tile);
+              });
+            }
+            row.appendChild(button);
+          });
+          els.tileGrid.appendChild(row);
+        });
+      }
+
+      function renderOptions(question, disabled) {
+        els.optionGrid.innerHTML = "";
+        normalizedOptions(question).forEach(function (option, index) {
+          var correctId = question.correctOptionId || correctOption(question).id;
+          var button = document.createElement("button");
+          button.type = "button";
+          button.className = "qopt";
+          if (state.selectedOptionId) {
+            if (option.id === correctId) button.className += " picked-correct";
+            else if (option.id === state.selectedOptionId) button.className += " picked-wrong";
+            else button.className += " dim";
+          }
+          button.disabled = disabled;
+          button.innerHTML = "<span class=\"qkey\">" + String.fromCharCode(65 + index) + "</span><span>" + optionLabel(option) + "</span>";
+          button.addEventListener("click", function () {
+            answerAsChild(option.id);
+          });
+          els.optionGrid.appendChild(button);
+        });
+      }
+
+      function renderSheet() {
+        var tile = state.selected;
+        var showSheet = !!tile && [
+          "child-question",
+          "child-correct",
+          "child-wrong",
+          "companion-turn",
+          "companion-result",
+          "teachBack",
+        ].indexOf(state.phase) !== -1;
+        els.sheet.hidden = !showSheet;
+        if (!showSheet) return;
+
+        var question = tile.question;
+        els.sheetCategory.textContent = tile.category.label.replace(/\n/g, " ");
+        els.sheetStake.textContent = tile.stake + " " + currencyName();
+        els.questionPrompt.textContent = question.prompt;
+        els.resultSlot.innerHTML = "";
+        els.sheetFooter.innerHTML = "";
+        renderOptions(question, state.phase !== "child-question");
+
+        if (state.phase === "child-correct" || state.phase === "child-wrong") {
+          var correct = state.phase === "child-correct";
+          els.resultSlot.innerHTML =
+            "<div class=\"qbanner " + (correct ? "win" : "lose") + "\">" +
+              "<span style=\"font-size:32px\">" + (correct ? "★" : "?") + "</span>" +
+              "<div style=\"flex:1\"><div style=\"font-weight:1000\">" + (correct ? "You got it." : "Not this time.") + "</div>" +
+              "<div style=\"font-size:13px;margin-top:2px;opacity:.72\">" + (correct
+                ? "That tile is yours. Now " + companionName + " gets a turn."
+                : "The answer was " + optionLabel(correctOption(question)) + ". " + companionName + " gets a chance too.") + "</div></div>" +
+              "<span class=\"stash\"><span class=\"coin-mini\"></span>" + (state.childLastDelta > 0 ? "+" : "") + state.childLastDelta + "</span>" +
+            "</div>";
+          addFooterButton(companionName + "'s turn", companionTurn, "double-btn");
+        }
+
+        if (state.phase === "companion-turn") {
+          els.resultSlot.innerHTML =
+            "<div class=\"qcomp-thinking\"><img src=\"" + companionAvatarPath() + "\" alt=\"" + companionName + "\" />" +
+            "<div><span style=\"display:block;font-size:10px;font-weight:1000;letter-spacing:.18em;text-transform:uppercase;color:#6e3fcb\">" +
+            companionName + " thinking</span><span>" + companionName + " is choosing from memory.</span></div></div>";
+        }
+
+        if (state.phase === "companion-result") {
+          var compCorrect = !!(state.companionChoice && state.companionChoice.correct);
+          els.resultSlot.innerHTML =
+            "<div class=\"qbanner " + (compCorrect ? "win" : "lose") + "\">" +
+              "<span style=\"font-size:32px\">" + (compCorrect ? "!" : "?") + "</span>" +
+              "<div style=\"flex:1\"><div style=\"font-weight:1000\">" +
+              (compCorrect ? companionName + " got it." : companionName + " guessed wrong.") + "</div>" +
+              "<div style=\"font-size:13px;margin-top:2px;opacity:.72\">" +
+              (compCorrect ? "Companion banks the tile." : "Companion loses the full stake. The answer was " + optionLabel(correctOption(question)) + ".") +
+              "</div></div><span class=\"stash\"><span class=\"coin-mini\"></span>" +
+              (state.companionDelta > 0 ? "+" : "") + state.companionDelta + "</span></div>";
+          if (question.teachBackPrompt && !state.completedTeachBack[tile.key]) {
+            els.resultSlot.innerHTML +=
+              "<div class=\"tbcard\"><div class=\"qcat\">Teach-back bonus</div><h4>" +
+              question.teachBackPrompt + "</h4><div class=\"tb-options\"><button class=\"tb-pick\" id=\"teachBackBtn\" type=\"button\">I explained it</button></div></div>";
+            window.setTimeout(function () {
+              var btn = document.getElementById("teachBackBtn");
+              if (btn) btn.addEventListener("click", teachBack);
+            }, 0);
+          }
+          if (selectedQuestionCount() >= state.roundGoal) addFooterButton("Finish and save coins", complete, "finish-btn");
+          else addFooterButton("Your turn", nextTile, "double-btn");
+        }
+      }
+
+      function addFooterButton(label, handler, className) {
+        var button = document.createElement("button");
+        button.type = "button";
+        button.className = className || "double-btn";
+        button.textContent = label;
+        button.addEventListener("click", handler);
+        els.sheetFooter.appendChild(button);
+      }
+
+      function renderDebug() {
+        els.debug.textContent = JSON.stringify(getSnapshot({
+          results: state.results,
+          preview: previewMode,
+        }), null, 2);
+      }
+
+      function renderAll() {
+        updateNet();
+        renderTop();
+        renderShoulders();
+        renderBoard();
+        renderSheet();
+        renderDebug();
+      }
+
+      function openTile(tile) {
+        if (!tile || state.phase !== "board" || state.completedTiles[tile.key]) return;
+        state.selected = tile;
+        state.selectedOptionId = null;
+        state.companionChoice = null;
+        state.childLastDelta = 0;
+        state.companionDelta = 0;
+        state.companionMood = "happy";
+        state.phase = "child-question";
+        state.turn = "child";
+        els.footerHint.textContent = "Answer from memory first. Then " + companionName + " gets a real turn.";
+        sound("select");
+        console.log("🎮 [visual-recall] tile_selected", tile.key);
+        reportState(childName + " selected " + tile.category.label.replace(/\n/g, " "), {
+          currentWord: tile.question.evidenceTarget || tile.question.targetConcept,
+        });
+        reportAnchor({ phase: "recall_question", question: tile.question.prompt });
+        renderAll();
+      }
+
+      function answerAsChild(optionId) {
+        var tile = state.selected;
+        if (!tile || state.phase !== "child-question") return;
+        var question = tile.question;
+        var correctId = question.correctOptionId || correctOption(question).id;
+        var selected = normalizedOptions(question).find(function (option) { return option.id === optionId; });
+        var correct = optionId === correctId;
+        var stake = Math.max(1, Math.floor(Number(tile.stake || question.stake || 10) || 10));
+        var delta = correct ? stake : -Math.floor(stake / 2);
+        state.childCoins = Math.max(0, state.childCoins + delta);
+        state.childLastDelta = delta;
+        state.selectedOptionId = optionId;
+        if (delta >= 0) state.coinsEarned += delta;
+        else state.coinsLost += Math.abs(delta);
+        if (correct) state.correctCount += 1;
+        updateNet();
+        var result = {
+          actor: "child",
+          questionId: question.id,
+          target: question.evidenceTarget || question.targetConcept,
+          targetConcept: question.targetConcept,
+          selectedOptionId: optionId,
+          selectedAnswer: optionLabel(selected),
+          expectedAnswer: optionLabel(correctOption(question)),
+          correct: correct,
+          stake: stake,
+          coinDelta: delta,
+          misconception: correct ? null : (selected && selected.misconceptionTag) || question.misconceptionTag || null,
+        };
+        state.results.push(result);
+        state.phase = correct ? "child-correct" : "child-wrong";
+        state.turn = "child";
+        sound(correct ? "win" : "loss");
+        console.log("🎮 [visual-recall] child_answer", result);
+        if (window.GameBridge) {
+          GameBridge.reportAction("recall_answer", "Visual learner recall answer", getSnapshot(result));
+          GameBridge.fireEvent("recall_result", Object.assign({ artifactId: state.config.artifactId }, result));
+          GameBridge.reportAttempt({
+            word: result.target,
+            target: result.target,
+            domain: "math",
+            correct: correct,
+            attemptedValue: result.selectedAnswer,
+            expectedValue: result.expectedAnswer,
+            mode: "visual-recall-quiz",
+            masteryEligible: true,
+            responseTime_ms: Date.now() - state.startedAt,
+            scaffoldLevel: 0,
+          });
+        }
+        reportAnchor({
+          selectedAnswer: result.selectedAnswer,
+          correct: correct,
+          allowedRole: "hint_only",
+        });
+        renderAll();
+      }
+
+      function companionShouldMiss(question) {
+        if (question.companion && typeof question.companion.mistake === "boolean") {
+          return question.companion.mistake;
+        }
+        var policy = state.config.recallGame.companionPolicy || {};
+        var accuracy = Number(policy.configuredAccuracy);
+        if (!Number.isFinite(accuracy)) accuracy = 0.65;
+        var seed = (question.id.length * 31 + selectedQuestionCount() * 17 + state.boardTiles.length) % 100;
+        return seed / 100 >= accuracy;
+      }
+
+      function companionSelectedOption(question, miss) {
+        var opts = normalizedOptions(question);
+        var correct = correctOption(question);
+        if (!miss) return correct;
+        if (question.companion && question.companion.selectedOptionId) {
+          return opts.find(function (option) { return option.id === question.companion.selectedOptionId; }) || correct;
+        }
+        return opts.find(function (option) { return option.id !== correct.id; }) || correct;
+      }
+
+      function companionTurn() {
+        var tile = state.selected;
+        if (!tile || state.completedTiles[tile.key]) return;
+        state.phase = "companion-turn";
+        state.turn = "companion";
+        state.companionDelta = 0;
+        state.companionMood = "thinking";
+        sound("select");
+        console.log("🎮 [visual-recall] companion_turn", tile.key);
+        reportState(companionName + " is taking a recall turn", {
+          currentWord: tile.question.evidenceTarget || tile.question.targetConcept,
+        });
+        renderAll();
+        window.setTimeout(resolveCompanionTurn, 900);
+      }
+
+      function resolveCompanionTurn() {
+        var tile = state.selected;
+        if (!tile || state.completedTiles[tile.key]) return;
+        var question = tile.question;
+        var stake = Math.max(1, Math.floor(Number(tile.stake || question.stake || 10) || 10));
+        var miss = companionShouldMiss(question);
+        var selected = companionSelectedOption(question, miss);
+        var expected = correctOption(question);
+        var correct = selected.id === expected.id;
+        var delta = correct ? stake : -stake;
+        state.companionCoins = Math.max(0, state.companionCoins + delta);
+        state.companionDelta = delta;
+        state.companionChoice = { id: selected.id, correct: correct };
+        state.companionMood = correct ? "happy" : "sad";
+        state.completedTiles[tile.key] = correct ? "companion" : "child";
+        var result = {
+          actor: "companion",
+          questionId: question.id,
+          target: question.evidenceTarget || question.targetConcept,
+          selectedOptionId: selected.id,
+          selectedAnswer: optionLabel(selected),
+          expectedAnswer: optionLabel(expected),
+          correct: correct,
+          stake: stake,
+          coinDelta: delta,
+        };
+        state.results.push(result);
+        state.phase = "companion-result";
+        state.turn = "child";
+        sound(correct ? "select" : "loss");
+        console.log("🎮 [visual-recall] companion_answer", result);
+        if (window.GameBridge) {
+          GameBridge.reportAction("companion_recall_answer", "Companion took a recall turn", getSnapshot(result));
+        }
+        reportState("Recall tile resolved", { correct: result.correct });
+        renderAll();
+      }
+
+      function teachBack() {
+        var tile = state.selected;
+        if (!tile || state.completedTeachBack[tile.key]) return;
+        var bonus = 5;
+        state.childCoins += bonus;
+        state.childLastDelta = bonus;
+        state.coinsEarned += bonus;
+        state.completedTeachBack[tile.key] = true;
+        updateNet();
+        sound("win");
+        console.log("🎮 [visual-recall] teach_back_bonus", { tile: tile.key, bonus: bonus });
+        if (window.GameBridge) {
+          GameBridge.reportAction("teach_back_bonus", "Teach-back bonus earned", getSnapshot({
+            questionId: tile.question.id,
+            bonus: bonus,
+          }));
+        }
+        renderAll();
+      }
+
+      function nextTile() {
+        state.selected = null;
+        state.selectedOptionId = null;
+        state.companionChoice = null;
+        state.childLastDelta = 0;
+        state.companionDelta = 0;
+        state.companionMood = "happy";
+        state.phase = "board";
+        state.turn = "child";
+        els.footerHint.textContent = "Tap any tile. Open a bigger stake when you feel ready.";
+        reportState("Ready for next recall tile");
+        renderAll();
+      }
+
+      function complete() {
+        if (state.completed) return;
+        state.completed = true;
+        state.phase = "complete";
+        state.turn = "child";
+        updateNet();
+        var childResults = state.results.filter(function (r) { return r.actor === "child"; });
+        var accuracy = childResults.length ? state.correctCount / childResults.length : 0;
+        var targetResults = childResults.map(function (r) {
+          return {
+            target: r.target,
+            concept: r.targetConcept,
+            correct: r.correct,
+            attemptedValue: r.selectedAnswer,
+            expectedValue: r.expectedAnswer,
+            misconception: r.misconception,
+            mode: "visual-recall-quiz",
+            masteryEligible: true,
+            stake: r.stake,
+            coinDelta: r.coinDelta,
+          };
+        });
+        var netCurrencyDelta = state.netCurrencyDelta;
+        var payload = {
+          activityId: "visual-recall-quiz",
+          contentId: state.config.artifactId,
+          completed: true,
+          accuracy: accuracy,
+          xpEarned: Math.round(accuracy * 60 + Math.max(0, netCurrencyDelta) / 10),
+          timeSpent_ms: Date.now() - state.startedAt,
+          flaggedWords: targetResults.filter(function (r) { return !r.correct; }).map(function (r) { return r.target; }),
+          targetResults: targetResults,
+          coinsEarned: state.coinsEarned,
+          coinsLost: state.coinsLost,
+          netCurrencyDelta: netCurrencyDelta,
+        };
+        console.log("🎮 [visual-recall] activity_complete", payload);
+        if (window.GameBridge) {
+          GameBridge.fireEvent("activity_complete", payload);
+          GameBridge.awardCurrency(netCurrencyDelta, "visual_learner_coop_recall");
+        }
+        if (window.sendNodeComplete) {
+          window.sendNodeComplete(payload);
+        }
+        if (heartbeatId) {
+          clearInterval(heartbeatId);
+          heartbeatId = null;
+        }
+        els.footerHint.textContent = "Round complete. Sunny saved the recall evidence.";
+        els.sheet.hidden = true;
+        renderAll();
+      }
+
+      function backToMap() {
+        console.log("🎮 [visual-recall] back_to_map requested");
+        if (window.GameBridge) {
+          GameBridge.reportAction("back_to_map", "Back to map requested", getSnapshot());
+        }
+        window.parent && window.parent.postMessage({ type: "game_back", nodeId: params.nodeId || "" }, "*");
+      }
+
+      function applyFixtureState() {
+        if (!isStorybook) return;
+        var fixture = params.fixtureState || "child-turn";
+        document.body.setAttribute("data-fixture-state", fixture);
+        if (!state.boardTiles.length) return;
+        if (fixture === "companion-turn") {
+          state.selected = state.boardTiles[0];
+          state.phase = "companion-turn";
+          state.turn = "companion";
+          state.companionMood = "thinking";
+        }
+        if (fixture === "wrong-answer") {
+          state.selected = state.boardTiles[0];
+          state.phase = "child-wrong";
+          state.turn = "child";
+          state.selectedOptionId = normalizedOptions(state.selected.question).find(function (o) {
+            return o.id !== correctOption(state.selected.question).id;
+          }).id;
+          state.childCoins = Math.max(0, state.childCoins - 5);
+          state.coinsLost = 5;
+          state.childLastDelta = -5;
+        }
+        if (fixture === "teach-back") {
+          state.selected = state.boardTiles[0];
+          state.phase = "companion-result";
+          state.completedTiles[state.selected.key] = "child";
+          state.companionChoice = { id: "storybook", correct: false };
+          state.companionDelta = -state.selected.stake;
+          state.selected.question.teachBackPrompt = state.selected.question.teachBackPrompt || "Explain the rule back to Sunny.";
+        }
+        if (fixture === "complete") {
+          state.boardTiles.slice(0, state.roundGoal).forEach(function (tile) { state.completedTiles[tile.key] = "child"; });
+          state.phase = "complete";
+          state.completed = true;
+        }
+      }
+
+      function loadConfig() {
+        if (!params.config) return Promise.resolve(fallbackConfig());
+        return fetch(params.config).then(function (response) {
+          if (!response.ok) throw new Error("config " + response.status);
+          return response.json();
+        }).catch(function (err) {
+          console.warn("🎮 [visual-recall] config fallback", err);
+          return fallbackConfig();
+        });
+      }
+
+      function start(loaded) {
+        state.config = loaded && loaded.recallGame ? loaded : fallbackConfig();
+        var rawQuestions = Array.isArray(state.config.recallGame.questions)
+          ? state.config.recallGame.questions.slice()
+          : fallbackConfig().recallGame.questions;
+        categoryColumns = buildCategoryColumns(state.config);
+        state.questions = rawQuestions;
+        state.boardTiles = buildBoardTiles(rawQuestions);
+        state.roundGoal = Math.max(1, Math.min(Number(state.config.recallGame.roundGoal || 3) || 3, state.boardTiles.length));
+        state.phase = "board";
+        state.turn = "child";
+        els.childAvatar.src = childAvatarPath();
+        els.childAvatar.onerror = function () { els.childAvatar.src = avatarSvg(childName, "child"); };
+        els.companionAvatar.src = companionAvatarPath();
+        els.companionAvatar.setAttribute("data-vrm-url", companionVrmUrl());
+        els.companionAvatar.onerror = function () { els.companionAvatar.src = avatarSvg(companionName, "companion"); };
+        document.body.classList.toggle("parent-preview", isParentChrome);
+        document.body.classList.toggle("storybook-preview", isStorybook);
+        applyFixtureState();
+        renderAll();
+        console.log("🎮 [visual-recall] ready", {
+          artifactId: state.config.artifactId,
+          tiles: state.boardTiles.length,
+          roundGoal: state.roundGoal,
+        });
+        reportState("Co-op recall ready");
+        reportAnchor({ phase: "board", allowedRole: "hint_only" });
+        if (window.GameBridge && typeof window.GameBridge.startHeartbeat === "function") {
+          heartbeatId = GameBridge.startHeartbeat(function () {
+            return "Co-op recall active: " + state.phase;
+          }, function () {
+            return getSnapshot();
+          });
+        }
+      }
+
+      els.backBtn.addEventListener("click", backToMap);
+      loadConfig().then(start).catch(function (err) {
+        console.error("🎮 [visual-recall] fatal_start_error", err);
+        state.config = fallbackConfig();
+        state.questions = state.config.recallGame.questions.slice();
+        state.boardTiles = buildBoardTiles(state.questions);
+        state.phase = "board";
+        renderAll();
+      });
+    })();
+  </script>
+</body>
+</html>

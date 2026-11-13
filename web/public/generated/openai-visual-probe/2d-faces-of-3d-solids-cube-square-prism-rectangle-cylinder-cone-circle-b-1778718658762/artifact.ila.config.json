@@ -169,7 +169,8 @@
     "turnMode": "child-and-companion",
     "stakes": {
       "currency": "sun-coins",
-      "lossMode": "half-stake-floor-zero"
+      "lossMode": "half-stake-floor-zero",
+      "profilePersistence": "true-net"
     },
     "companionPolicy": {
       "accuracyMode": "configured",
@@ -182,6 +183,22 @@
         "category": "Gentle Match",
         "prompt": "Which solid can make a square print?",
         "answer": "cube",
+        "options": [
+          {
+            "id": "cube",
+            "label": "Cube"
+          },
+          {
+            "id": "sphere",
+            "label": "Sphere",
+            "misconceptionTag": "curved_surface_as_flat_face"
+          },
+          {
+            "id": "cylinder",
+            "label": "Cylinder"
+          }
+        ],
+        "correctOptionId": "cube",
         "targetConcept": "flat_faces_of_solids",
         "evidenceTarget": "flat_faces_of_solids",
         "difficulty": 0.35,
@@ -192,6 +209,23 @@
         "category": "Roll Away",
         "prompt": "Which shape has no flat face for the stamp pad?",
         "answer": "sphere",
+        "options": [
+          {
+            "id": "sphere",
+            "label": "Sphere"
+          },
+          {
+            "id": "cube",
+            "label": "Cube",
+            "misconceptionTag": "all_solids_have_same_face"
+          },
+          {
+            "id": "cone",
+            "label": "Cone",
+            "misconceptionTag": "circle_base_not_seen"
+          }
+        ],
+        "correctOptionId": "sphere",
         "targetConcept": "flat_faces_of_solids",
         "evidenceTarget": "flat_faces_of_solids",
         "difficulty": 0.5,
@@ -203,11 +237,28 @@
         "category": "Circle Prints",
         "prompt": "Which solids can make a circle print with a flat base?",
         "answer": "cylinder and cone",
+        "options": [
+          {
+            "id": "cylinder-cone",
+            "label": "Cylinder and cone"
+          },
+          {
+            "id": "sphere",
+            "label": "Sphere",
+            "misconceptionTag": "curved_surface_as_flat_face"
+          },
+          {
+            "id": "cube-prism",
+            "label": "Cube and rectangular prism"
+          }
+        ],
+        "correctOptionId": "cylinder-cone",
         "targetConcept": "flat_faces_of_solids",
         "evidenceTarget": "flat_faces_of_solids",
         "difficulty": 0.65,
         "stake": 20,
-        "misconceptionTag": "circle_base_not_seen"
+        "misconceptionTag": "circle_base_not_seen",
+        "teachBackPrompt": "Can you say why the sphere rolls instead of stamping?"
       }
     ]
   },
