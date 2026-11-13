@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Harbor Fact Dash</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    width: 1365px; height: 768px;
+    overflow: hidden;
+    font-family: 'Segoe UI', Arial, sans-serif;
+    background: linear-gradient(to bottom, #ff9966 0%, #ff5e62 25%, #ffb88c 45%, #4a7ba6 55%, #2d5f8a 100%);
+  }
+  #sky {
+    position: absolute; top: 0; left: 0; width: 100%; height: 55%;
+  }
+  .gull {
+    position: absolute;
+    font-size: 22px;
+    color: #333;
+    opacity: 0.8;
+    transition: transform 0.5s ease;
+  }
+  #water {
+    position: absolute; top: 55%; left: 0; width: 100%; height: 45%;
+    background: repeating-linear-gradient(90deg, #2d5f8a 0px, #35709e 40px, #2d5f8a 80px);
+  }
+  .boat {
+    position: absolute;
+    font-size: 50px;
+    transition: transform 2s ease-in-out;
+  }
+  #dock {
+    position: absolute;
+    bottom: 0; left: 0; width: 100%; height: 190px;
+    background: linear-gradient(to bottom, #8b5a2b, #6b4423);
+    border-top: 8px solid #4a2f18;
+  }
+  .plank {
+    position: absolute;
+    top: 8px; bottom: 0;
+    width: 2px;
+    background: rgba(0,0,0,0.2);
+  }
+  #title {
+    position: absolute;
+    top: 18px; left: 50%; transform: translateX(-50%);
+    color: #fff8e7;
+    font-size: 28px;
+    font-weight: bold;
+    text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+    letter-spacing: 1px;
+  }
+  #progress {
+    position: absolute;
+    top: 60px; left: 50%; transform: translateX(-50%);
+    display: flex; gap: 10px;
+  }
+  .crateDot {
+    width: 16px; height: 16px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.3);
+    border: 2px solid #fff8e7;
+  }
+  .crateDot.done { background: #6fdc6f; }
+  .crateDot.current { background: #ffd76f; }
+
+  #crate {
+    position: absolute;
+    bottom: 100px;
+    left: -220px;
+    width: 170px;
+    height: 130px;
+    background: linear-gradient(135deg, #c98a4b, #a8672f);
+    border: 6px solid #6b4423;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.4);
+  }
+  #crate::before, #crate::after {
+    content: '';
+    position: absolute;
+    background: #6b4423;
+  }
+  #crate::before { top: 50%; left: 0; width: 100%; height: 6px; transform: translateY(-50%); }
+  #crate::after { left: 50%; top: 0; height: 100%; width: 6px; transform: translateX(-50%); }
+  #crateLabel {
+    color: #fff8e7;
+    font-size: 30px;
+    font-weight: bold;
+    text-shadow: 2px 2px 3px rgba(0,0,0,0.6);
+    z-index: 2;
+    background: rgba(80,50,20,0.55);
+    padding: 6px 14px;
+    border-radius: 8px;
+  }
+  .shake {
+    animation: shake 0.4s;
+  }
+  @keyframes shake {
+    0%,100% { transform: translateX(0); }
+    20% { transform: translateX(-10px) rotate(-2deg); }
+    40% { transform: translateX(10px) rotate(2deg); }
+    60% { transform: translateX(-8px) rotate(-1deg); }
+    80% { transform: translateX(8px) rotate(1deg); }
+  }
+  #checkmark {
+    position: absolute;
+    font-size: 60px;
+    color: #6fdc6f;
+    opacity: 0;
+    text-shadow: 0 0 10px rgba(0,0,0,0.5);
+    pointer-events: none;
+    z-index: 10;
+  }
+
+  #tiles {
+    position: absolute;
+    bottom: 100px;
+    right: 90px;
+    display: flex;
+    gap: 28px;
+  }
+  .tile {
+    width: 100px; height: 100px;
+    background: radial-gradient(circle at 35% 30%, #fff3d0, #ffcf6b 70%, #e8a93a);
+    border: 4px solid #a8672f;
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 40px;
+    font-weight: bold;
+    color: #5a3a1a;
+    cursor: pointer;
+    box-shadow: 0 6px 14px rgba(0,0,0,0.4), inset 0 0 10px rgba(255,255,255,0.4);
+    transition: transform 0.15s ease, box-shadow 0.3s ease;
+    user-select: none;
+  }
+  .tile:active { transform: scale(0.94); }
+  .tile.hint {
+    animation: glow 1.4s infinite ease-in-out;
+  }
+  @keyframes glow {
+    0%, 100% { box-shadow: 0 6px 14px rgba(0,0,0,0.4), 0 0 8px 2px rgba(255,255,255,0.2); }
+    50% { box-shadow: 0 6px 20px rgba(255,255,255,0.6), 0 0 22px 8px rgba(255,246,190,0.9); }
+  }
+  .tile.wrong {
+    opacity: 0.35;
+    animation: none;
+  }
+  .tile.correctFlash {
+    background: radial-gradient(circle at 35% 30%, #eaffea, #6fdc6f 70%, #3fae3f);
+  }
+
+  #banner {
+    position: absolute;
+    top: 40%; left: 50%;
+    transform: translate(-50%, -50%) scale(0.5);
+    font-size: 60px;
+    font-weight: bold;
+    color: #fff8e7;
+    text-shadow: 3px 3px 8px rgba(0,0,0,0.6);
+    opacity: 0;
+    pointer-events: none;
+    z-index: 20;
+    text-align: center;
+  }
+  #horn {
+    position: absolute;
+    bottom: 190px; left: 50%;
+    transform: translateX(-50%);
+    font-size: 26px;
+    color: #fff8e7;
+    opacity: 0;
+    text-shadow: 1px 1px 3px rgba(0,0,0,0.6);
+  }
+</style>
+</head>
+<body>
+
+<div id="sky">
+  <div class="gull" style="top:40px; left:200px;">&#128052;</div>
+  <div class="gull" style="top:90px; left:800px;">&#128052;</div>
+  <div class="gull" style="top:60px; left:1100px;">&#128052;</div>
+  <div class="gull" style="top:130px; left:450px;">&#128052;</div>
+</div>
+
+<div id="water">
+  <div class="boat" id="boat1" style="top:40px; left:120px;">&#9973;</div>
+  <div class="boat" id="boat2" style="top:100px; left:900px;">&#9973;</div>
+</div>
+
+<div id="dock"></div>
+
+<div id="title">Harbor Fact Dash</div>
+<div id="progress">
+  <div class="crateDot current" id="dot0"></div>
+  <div class="crateDot" id="dot1"></div>
+  <div class="crateDot" id="dot2"></div>
+  <div class="crateDot" id="dot3"></div>
+  <div class="crateDot" id="dot4"></div>
+</div>
+
+<div id="crate">
+  <div id="crateLabel">5 x 2 = ?</div>
+</div>
+<div id="checkmark">&#10003;</div>
+
+<div id="tiles">
+  <div class="tile" data-idx="0">10</div>
+  <div class="tile" data-idx="1">7</div>
+  <div class="tile" data-idx="2">12</div>
+</div>
+
+<div id="banner">Boat Departing!<br><span style="font-size:34px;">&#9973; Toot Toot! &#9973;</span></div>
+<div id="horn">&#128302; The delivery boat pulls away, loaded and ready!</div>
+
+<script>
+const items = [
+  { prompt: "5 x 2 = ?", options: ["10","7","12"], correctIdx: 0 },
+  { prompt: "5 x 5 = ?", options: ["30","25","20"], correctIdx: 1 },
+  { prompt: "5 x 10 = ?", options: ["50","45","60"], correctIdx: 0 },
+  { prompt: "2 x 7 = ?", options: ["16","9","14"], correctIdx: 2 },
+  { prompt: "10 x 4 = ?", options: ["14","40","400"], correctIdx: 1 }
+];
+
+let current = 0;
+let wrongCount = 0;
+
+const crate = document.getElementById('crate');
+const crateLabel = document.getElementById('crateLabel');
+const tilesContainer = document.getElementById('tiles');
+const tileEls = () => Array.from(document.querySelectorAll('.tile'));
+const checkmark = document.getElementById('checkmark');
+const banner = document.getElementById('banner');
+const horn = document.getElementById('horn');
+
+function shuffleTilesLayout(options, correctIdx) {
+  // shuffle option order but keep track of which is correct
+  const arr = options.map((label, i) => ({label, correct: i === correctIdx}));
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
+function loadCrate(idx, animateIn) {
+  const item = items[idx];
+  crateLabel.textContent = item.prompt;
+  crate.classList.remove('shake');
+
+  const shuffled = shuffleTilesLayout(item.options, item.correctIdx);
+  const tiles = tileEls();
+  tiles.forEach((tile, i) => {
+    tile.textContent = shuffled[i].label;
+    tile.dataset.correct = shuffled[i].correct ? "true" : "false";
+    tile.classList.remove('wrong', 'correctFlash', 'hint');
+  });
+
+  // update dots
+  for (let i = 0; i < 5; i++) {
+    const dot = document.getElementById('dot' + i);
+    dot.classList.remove('current', 'done');
+    if (i < idx) dot.classList.add('done');
+    else if (i === idx) dot.classList.add('current');
+  }
+
+  if (animateIn) {
+    crate.style.transition = 'none';
+    crate.style.left = '-220px';
+    crate.style.opacity = '1';
+    void crate.offsetWidth;
+    crate.style.transition = 'left 1.1s cubic-bezier(.25,.7,.4,1)';
+    requestAnimationFrame(() => {
+      crate.style.left = '360px';
+    });
+  }
+
+  // subtle hint glow after brief delay, on the correct tile
+  wrongCount = 0;
+  setTimeout(() => {
+    const correctTile = tiles.find(t => t.dataset.correct === "true");
+    if (correctTile) correctTile.classList.add('hint');
+  }, 350);
+}
+
+function playClink() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const o = ctx.createOscillator();
+    const g = ctx.createGain();
+    o.type = 'sine';
+    o.frequency.setValueAtTime(1200, ctx.currentTime);
+    o.frequency.exponentialRampToValueAtTime(600, ctx.currentTime + 0.15);
+    g.gain.setValueAtTime(0.25, ctx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.2);
+    o.connect(g); g.connect(ctx.destination);
+    o.start(); o.stop(ctx.currentTime + 0.2);
+  } catch(e) {}
+}
+
+function playCreak() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const o = ctx.createOscillator();
+    const g = ctx.createGain();
+    o.type = 'sawtooth';
+    o.frequency.setValueAtTime(140, ctx.currentTime);
+    g.gain.setValueAtTime(0.12, ctx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.25);
+    o.connect(g); g.connect(ctx.destination);
+    o.start(); o.stop(ctx.currentTime + 0.25);
+  } catch(e) {}
+}
+
+function playHorn() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    [0, 0.35].forEach(delay => {
+      const o = ctx.createOscillator();
+      const g = ctx.createGain();
+      o.type = 'square';
+      o.frequency.setValueAtTime(220, ctx.currentTime + delay);
+      g.gain.setValueAtTime(0.2, ctx.currentTime + delay);
+      g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + delay + 0.5);
+      o.connect(g); g.connect(ctx.destination);
+      o.start(ctx.currentTime + delay); o.stop(ctx.currentTime + delay + 0.5);
+    });
+  } catch(e) {}
+}
+
+function onTileTap(e) {
+  const tile = e.currentTarget;
+  if (crate.dataset.locked === "true") return;
+
+  if (tile.dataset.correct === "true") {
+    crate.dataset.locked = "true";
+    playClink();
+    tile.classList.remove('hint');
+    tile.classList.add('correctFlash');
+
+    // checkmark stamp
+    const crateRect = crate.getBoundingClientRect();
+    checkmark.style.left = (crateRect.left + crateRect.width/2 - 30) + 'px';
+    checkmark.style.top = (crateRect.top + crateRect.height/2 - 30) + 'px';
+    checkmark.style.opacity = '1';
+    checkmark.style.transform = 'scale(1.3)';
+    setTimeout(() => { checkmark.style.opacity = '0'; checkmark.style.transform='scale(1)'; }, 550);
+
+    // roll crate off
+    crate.style.transition = 'left 0.8s cubic-bezier(.5,0,.9,.4), opacity 0.6s ease 0.3s';
+    crate.style.left = '1500px';
+    crate.style.opacity = '0';
+
+    // boats bob more energetically
+    document.getElementById('boat1').style.transform = 'translateY(-14px) rotate(-4deg)';
+    document.getElementById('boat2').style.transform = 'translateY(-10px) rotate(3deg)';
+    setTimeout(() => {
+      document.getElementById('boat1').style.transform = 'translateY(0) rotate(0)';
+      document.getElementById('boat2').style.transform = 'translateY(0) rotate(0)';
+    }, 700);
+
+    setTimeout(() => {
+      current++;
+      crate.dataset.locked = "false";
+      if (current < items.length) {
+        loadCrate(current, true);
+      } else {
+        finishSequence();
+      }
+    }, 900);
+
+  } else {
+    playCreak();
+    wrongCount++;
+    tile.classList.add('wrong');
+    crate.classList.remove('shake');
+    void crate.offsetWidth;
+    crate.classList.add('shake');
+  }
+}
+
+function finishSequence() {
+  document.getElementById('dot4').classList.remove('current');
+  document.getElementById('dot4').classList.add('done');
+  crateLabel.parentElement.style.display = 'none';
+  tilesContainer.style.display = 'none';
+  playHorn();
+  banner.style.transition = 'opacity 0.6s ease, transform 0.6s ease';
+  banner.style.opacity = '1';
+  banner.style.transform = 'translate(-50%, -50%) scale(1)';
+  horn.style.transition = 'opacity 0.6s ease 0.4s';
+  horn.style.opacity = '1';
+
+  // boat sails away
+  const boat2 = document.getElementById('boat2');
+  boat2.style.transition = 'left 3s ease-in, opacity 2.5s ease-in';
+  boat2.style.left = '1400px';
+  boat2.style.opacity = '0';
+}
+
+tileEls().forEach(tile => tile.addEventListener('click', onTileTap));
+tileEls().forEach(tile => tile.addEventListener('touchstart', function(e){ e.preventDefault(); onTileTap(e); }, {passive:false}));
+
+// init
+crate.dataset.locked = "false";
+loadCrate(0, true);
+</script>
+
+</body>
+</html>

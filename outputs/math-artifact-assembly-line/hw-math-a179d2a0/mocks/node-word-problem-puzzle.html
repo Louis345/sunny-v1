@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Crane Crate Puzzle</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+<style>
+  html,body{margin:0;padding:0;width:1365px;height:768px;overflow:hidden;
+    font-family:'Segoe UI',Verdana,sans-serif;background:linear-gradient(#bfe6f5 0%,#bfe6f5 55%,#3f6b8a 55%,#2c4f68 100%);}
+  #sky-glow{position:absolute;top:0;left:0;width:1365px;height:768px;
+    background:radial-gradient(circle at 85% 10%, rgba(255,238,170,0.5), transparent 40%);pointer-events:none;}
+  #banner{
+    position:absolute;top:18px;left:50%;transform:translateX(-50%);
+    background:#fff8e6;border:4px solid #d9a441;border-radius:14px;
+    padding:14px 34px;max-width:900px;text-align:center;
+    box-shadow:0 6px 14px rgba(0,0,0,0.25);
+  }
+  #banner h1{margin:0 0 4px;font-size:18px;color:#7a5218;}
+  #banner p{margin:0;font-size:19px;color:#4a3010;font-weight:600;}
+
+  #dock{position:absolute;bottom:0;left:0;width:1365px;height:230px;background:#6b4a2b;}
+  #dock:before{content:"";position:absolute;top:0;left:0;width:100%;height:12px;background:#543a20;}
+
+  /* crane */
+  #crane-base{position:absolute;left:120px;bottom:210px;width:40px;height:120px;background:#c94f3c;border-radius:4px;}
+  #crane-tower{position:absolute;left:100px;bottom:320px;width:80px;height:260px;background:#d9604a;border-radius:6px 6px 0 0;}
+  #crane-arm{position:absolute;left:80px;bottom:560px;width:420px;height:22px;background:#c94f3c;border-radius:8px;
+    transform-origin:20px 11px;}
+  #crane-cable{position:absolute;left:470px;top:582px;width:4px;height:120px;background:#333;}
+  #crate{
+    position:absolute;left:445px;top:698px;width:60px;height:50px;
+    background:linear-gradient(#ffe9a8,#f5c94d);border:3px solid #b8860b;border-radius:6px;
+    box-shadow:0 0 18px 4px rgba(255,220,100,0.8);
+    display:flex;align-items:center;justify-content:center;font-weight:bold;color:#7a5218;font-size:14px;
+  }
+
+  /* dock workers */
+  .worker{position:absolute;bottom:200px;width:16px;height:36px;}
+  .worker .head{width:14px;height:14px;border-radius:50%;background:#e8b382;margin:0 auto;}
+  .worker .body{width:16px;height:20px;background:#3d6ea5;border-radius:3px;margin-top:1px;}
+
+  /* cargo scene */
+  #cargo-scene{
+    position:absolute;left:130px;bottom:20px;width:420px;height:170px;
+    background:rgba(255,255,255,0.12);border-radius:10px;
+  }
+  .box-group{
+    position:absolute;bottom:10px;width:80px;height:130px;
+    display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:4px;
+  }
+  .crate-box{
+    width:70px;height:26px;background:#a5713a;border:2px solid #7a4f24;border-radius:4px;
+    display:flex;align-items:center;justify-content:center;gap:3px;opacity:0;transform:translateY(20px);
+  }
+  .pencil{width:5px;height:16px;background:#f5d76e;border:1px solid #b8860b;border-radius:1px;}
+
+  /* total blocks */
+  #blocks{
+    position:absolute;right:90px;top:250px;display:flex;flex-direction:column;gap:26px;
+  }
+  .total-block{
+    width:130px;height:80px;background:linear-gradient(#fff3c4,#ffe08a);
+    border:4px solid #d9a441;border-radius:14px;
+    display:flex;align-items:center;justify-content:center;
+    font-size:34px;font-weight:800;color:#7a5218;
+    cursor:pointer;user-select:none;
+    box-shadow:0 0 0px rgba(255,220,100,0.0);
+    transition:box-shadow .3s;
+  }
+  .total-block:hover{box-shadow:0 0 22px 6px rgba(255,220,100,0.75);}
+
+  #progress{
+    position:absolute;top:18px;left:20px;background:rgba(255,255,255,0.85);
+    border-radius:10px;padding:8px 16px;font-size:16px;font-weight:700;color:#2c4f68;
+  }
+  .pip{display:inline-block;width:16px;height:16px;border-radius:50%;background:#ccc;margin-left:6px;}
+  .pip.done{background:#3fa34d;}
+
+  #feedback{
+    position:absolute;left:50%;top:640px;transform:translateX(-50%);
+    font-size:22px;font-weight:700;color:#fff;text-shadow:0 2px 4px rgba(0,0,0,0.5);
+    opacity:0;
+  }
+</style>
+</head>
+<body>
+
+<div id="sky-glow"></div>
+
+<div id="progress">Crates loaded: <span id="pipwrap"><span class="pip" id="pip1"></span><span class="pip" id="pip2"></span></span></div>
+
+<div id="banner">
+  <h1>Word Problem</h1>
+  <p id="prompt-text">Mrs. K puts 5 pencils in each of 4 boxes. How many pencils are there in all?</p>
+</div>
+
+<div id="crane-arm"></div>
+<div id="crane-cable"></div>
+<div id="crate">?</div>
+<div id="crane-tower"></div>
+<div id="crane-base"></div>
+
+<div id="dock"></div>
+
+<div class="worker" style="left:900px;"><div class="head"></div><div class="body"></div></div>
+<div class="worker" style="left:950px;"><div class="head"></div><div class="body"></div></div>
+<div class="worker" style="left:1000px;"><div class="head"></div><div class="body"></div></div>
+
+<div id="cargo-scene"></div>
+
+<div id="blocks">
+  <div class="total-block" data-val="20">20</div>
+  <div class="total-block" data-val="9">9</div>
+  <div class="total-block" data-val="25">25</div>
+</div>
+
+<div id="feedback"></div>
+
+<script>
+const items = [
+  {
+    prompt: "Mrs. K puts 5 pencils in each of 4 boxes. How many pencils are there in all?",
+    groups: 4, perGroup: 5, correct: 20,
+    options: [20, 9, 25]
+  },
+  {
+    prompt: "There are 3 rows of 10 stars. How many stars are there?",
+    groups: 3, perGroup: 10, correct: 30,
+    options: [30, 13, 20]
+  }
+];
+
+let itemIndex = 0;
+let solved = false;
+
+function shuffle(arr){
+  for(let i=arr.length-1;i>0;i--){
+    const j = Math.floor(Math.random()*(i+1));
+    [arr[i],arr[j]] = [arr[j],arr[i]];
+  }
+  return arr;
+}
+
+function buildCargo(item){
+  const scene = document.getElementById('cargo-scene');
+  scene.innerHTML = '';
+  const groupWidth = 400 / item.groups;
+  for(let g=0; g<item.groups; g++){
+    const grp = document.createElement('div');
+    grp.className = 'box-group';
+    grp.style.left = (10 + g*groupWidth) + 'px';
+    scene.appendChild(grp);
+
+    // stack boxes representing per-group units, capped visually
+    const boxCount = Math.min(item.perGroup <= 5 ? 1 : Math.ceil(item.perGroup/10), 3);
+    // Simplify: one box per group showing perGroup pencils/stars as dots (max 10 icons)
+    const box = document.createElement('div');
+    box.className = 'crate-box';
+    box.style.height = (26 + Math.min(item.perGroup,10)*4) + 'px';
+    box.style.flexWrap = 'wrap';
+    box.style.alignContent = 'flex-end';
+    box.style.paddingBottom = '3px';
+    for(let p=0; p<item.perGroup; p++){
+      const pc = document.createElement('div');
+      pc.className = 'pencil';
+      if(item.perGroup > 5){ pc.style.width='4px'; pc.style.height='10px'; }
+      box.appendChild(pc);
+    }
+    grp.appendChild(box);
+  }
+
+  // animate boxes appearing (grouped cargo arranging itself)
+  gsap.to('.crate-box', {
+    opacity:1, y:0, duration:0.5, stagger:0.15, ease:'back.out(1.6)',
+    onComplete: activateBlocks
+  });
+}
+
+function buildBlocks(item){
+  const opts = shuffle(item.options.slice());
+  const blockEls = document.querySelectorAll('.total-block');
+  blockEls.forEach((el, i)=>{
+    el.dataset.val = opts[i];
+    el.textContent = opts[i];
+    el.style.pointerEvents = 'none';
+    el.style.opacity = '0.55';
+  });
+}
+
+function activateBlocks(){
+  document.querySelectorAll('.total-block').forEach(el=>{
+    el.style.pointerEvents = 'auto';
+    el.style.opacity = '1';
+  });
+}
+
+function loadItem(idx){
+  solved = false;
+  const item = items[idx];
+  document.getElementById('prompt-text').textContent = item.prompt;
+  document.getElementById('crate').textContent = '?';
+  document.getElementById('crate').style.background = 'linear-gradient(#ffe9a8,#f5c94d)';
+  buildCargo(item);
+  buildBlocks(item);
+  gsap.set('#crane-arm', {rotation:0});
+  gsap.set('#crane-cable', {height:120});
+  gsap.set('#crate', {top:698, left:445});
+}
+
+function showFeedback(text, color){
+  const fb = document.getElementById('feedback');
+  fb.textContent = text;
+  fb.style.color = color;
+  gsap.fromTo(fb, {opacity:0, y:10}, {opacity:1, y:0, duration:0.3});
+  gsap.to(fb, {opacity:0, delay:1.1, duration:0.5});
+}
+
+function jiggleCrate(){
+  gsap.timeline()
+    .to('#crate', {x:-10, duration:0.06})
+    .to('#crate', {x:10, duration:0.06})
+    .to('#crate', {x:-6, duration:0.06})
+    .to('#crate', {x:0, duration:0.06});
+}
+
+function correctSequence(){
+  const tl = gsap.timeline();
+  tl.to('#crate', {background:'linear-gradient(#c9f5c9,#8fe08f)', borderColor:'#3fa34d', duration:0.3})
+    .to('#crane-cable', {height:40, duration:0.6, ease:'power1.inOut'}, '<')
+    .to('#crate', {top:610, duration:0.6, ease:'power1.inOut'}, '<')
+    .to('#crane-arm', {rotation:-18, duration:0.9, ease:'sine.inOut'})
+    .to(['#crate'], {x: -260, duration:0.9, ease:'sine.inOut'}, '<')
+    .call(()=>{
+      const pipId = itemIndex === 0 ? 'pip1' : 'pip2';
+      document.getElementById(pipId).classList.add('done');
+    })
+    .to('#crane-arm', {rotation:0, duration:0.7, ease:'sine.inOut'}, '+=0.2')
+    .call(()=>{
+      itemIndex++;
+      if(itemIndex < items.length){
+        loadItem(itemIndex);
+      } else {
+        finalPayoff();
+      }
+    });
+}
+
+function finalPayoff(){
+  document.getElementById('prompt-text').textContent = "All crates loaded! Great multiplying, dock crew!";
+  gsap.to('#sky-glow', {background:'radial-gradient(circle at 85% 10%, rgba(255,200,100,0.8), transparent 55%)', duration:1.5});
+  showFeedback("Shift complete! ⚓", '#2c4f68');
+  document.querySelectorAll('.total-block').forEach(el=> el.style.pointerEvents='none');
+}
+
+document.getElementById('blocks').addEventListener('click', (e)=>{
+  const block = e.target.closest('.total-block');
+  if(!block || solved) return;
+  const val = parseInt(block.dataset.val, 10);
+  const item = items[itemIndex];
+  if(val === item.correct){
+    solved = true;
+    document.querySelectorAll('.total-block').forEach(el=> el.style.pointerEvents='none');
+    document.getElementById('crate').textContent = val;
+    showFeedback("Loaded! " + val + " ✔", '#2fbf4f');
+    correctSequence();
+  } else {
+    showFeedback("Not quite — try again", '#ffdede');
+    jiggleCrate();
+  }
+});
+
+loadItem(0);
+</script>
+
+</body>
+</html>

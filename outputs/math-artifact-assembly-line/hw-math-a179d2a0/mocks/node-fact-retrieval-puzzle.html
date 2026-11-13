@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Fact Vault Builder</title>
+<style>
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0; width: 1365px; height: 768px;
+    overflow: hidden;
+    background: radial-gradient(ellipse at center, #1a2b4a 0%, #0a1220 70%, #050a14 100%);
+    font-family: 'Georgia', serif;
+    user-select: none;
+  }
+
+  .stars {
+    position: absolute; inset: 0;
+    background-image:
+      radial-gradient(1px 1px at 50px 80px, #fff, transparent),
+      radial-gradient(1px 1px at 200px 300px, #fff, transparent),
+      radial-gradient(2px 2px at 400px 100px, #ffe, transparent),
+      radial-gradient(1px 1px at 700px 400px, #fff, transparent),
+      radial-gradient(1px 1px at 900px 150px, #fff, transparent),
+      radial-gradient(2px 2px at 1100px 500px, #ffe, transparent),
+      radial-gradient(1px 1px at 1250px 200px, #fff, transparent);
+    opacity: 0.6;
+  }
+
+  #scene {
+    position: relative;
+    width: 1365px; height: 768px;
+  }
+
+  .title {
+    position: absolute;
+    top: 22px; left: 0; right: 0;
+    text-align: center;
+    color: #f0d9a3;
+    font-size: 30px;
+    letter-spacing: 3px;
+    text-shadow: 0 0 12px rgba(240,217,163,0.6);
+  }
+
+  .subtitle {
+    position: absolute;
+    top: 62px; left: 0; right: 0;
+    text-align: center;
+    color: #8fa5c9;
+    font-size: 15px;
+    letter-spacing: 1px;
+  }
+
+  /* VAULT DOOR */
+  #vaultWrap {
+    position: absolute;
+    left: 442px; top: 110px;
+    width: 480px; height: 480px;
+  }
+
+  #vaultDoor {
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    background:
+      radial-gradient(circle at 50% 45%, #4a3a24 0%, #2c2210 55%, #1a1408 100%);
+    border: 10px solid #6b5530;
+    box-shadow:
+      0 0 40px rgba(255, 200, 100, 0.15),
+      inset 0 0 60px rgba(0,0,0,0.6),
+      inset 0 0 0 6px #3a2e18;
+    transition: box-shadow 0.6s ease;
+  }
+
+  #vaultDoor.near-complete {
+    box-shadow:
+      0 0 90px rgba(255, 210, 110, 0.55),
+      inset 0 0 60px rgba(255,180,80,0.25),
+      inset 0 0 0 6px #6b5530;
+  }
+
+  .ring {
+    position: absolute;
+    border-radius: 50%;
+    border: 2px solid rgba(200,160,90,0.35);
+  }
+  .ring1 { inset: 30px; }
+  .ring2 { inset: 60px; border-color: rgba(200,160,90,0.25); }
+
+  .rivet {
+    position: absolute;
+    width: 10px; height: 10px;
+    background: radial-gradient(circle at 35% 35%, #d9b877, #7a5c2e);
+    border-radius: 50%;
+    box-shadow: 0 0 4px rgba(0,0,0,0.6);
+  }
+
+  #centerPlate {
+    position: absolute;
+    left: 50%; top: 50%;
+    transform: translate(-50%, -50%);
+    width: 300px; height: 190px;
+    background: rgba(10,10,5,0.55);
+    border: 3px solid #6b5530;
+    border-radius: 14px;
+    box-shadow: inset 0 0 25px rgba(0,0,0,0.7);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 18px;
+  }
+
+  #factText {
+    color: #f5e3b8;
+    font-size: 34px;
+    letter-spacing: 2px;
+    text-shadow: 0 0 10px rgba(245,227,184,0.5);
+  }
+
+  #slot {
+    width: 100px; height: 70px;
+    border-radius: 10px;
+    border: 3px solid #8a6f3a;
+    background: rgba(0,0,0,0.4);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 36px;
+    color: #ffe9b0;
+    box-shadow: inset 0 0 12px rgba(0,0,0,0.8);
+    transition: all 0.3s ease;
+  }
+
+  #slot.lit {
+    background: radial-gradient(circle, #ffd782, #b8862f);
+    color: #3a2a08;
+    border-color: #ffdf8f;
+    box-shadow: 0 0 30px rgba(255, 210, 110, 0.8), inset 0 0 10px rgba(255,255,255,0.4);
+    animation: lockPulse 0.5s ease;
+  }
+
+  @keyframes lockPulse {
+    0% { transform: scale(1.3); }
+    60% { transform: scale(0.95); }
+    100% { transform: scale(1); }
+  }
+
+  /* progress pips around vault */
+  .pip {
+    position: absolute;
+    width: 16px; height: 16px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.08);
+    border: 2px solid rgba(200,160,90,0.4);
+    transition: all 0.4s ease;
+  }
+  .pip.done {
+    background: #ffd782;
+    box-shadow: 0 0 14px rgba(255,215,130,0.9);
+    border-color: #ffe9b0;
+  }
+
+  /* FLOATING BLOCKS */
+  .block {
+    position: absolute;
+    width: 100px; height: 100px;
+    border-radius: 16px;
+    background: linear-gradient(145deg, #2b4066, #16233d);
+    border: 3px solid #4a6a9a;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 38px;
+    color: #cfe0ff;
+    cursor: pointer;
+    box-shadow: 0 0 15px rgba(80,120,200,0.3), inset 0 0 10px rgba(255,255,255,0.05);
+    animation: bob 3s ease-in-out infinite;
+    transition: transform 0.25s ease, box-shadow 0.25s ease, left 0.5s ease, top 0.5s ease;
+  }
+
+  .block:hover {
+    box-shadow: 0 0 22px rgba(120,160,230,0.6), inset 0 0 10px rgba(255,255,255,0.1);
+  }
+
+  .block.hint {
+    box-shadow: 0 0 34px rgba(150,210,255,0.95), inset 0 0 14px rgba(255,255,255,0.3);
+    border-color: #9fd4ff;
+    animation: bob 3s ease-in-out infinite, hintGlow 1.4s ease-in-out infinite;
+  }
+
+  @keyframes hintGlow {
+    0%, 100% { filter: brightness(1); }
+    50% { filter: brightness(1.5); }
+  }
+
+  @keyframes bob {
+    0%, 100% { transform: translateY(0px); }
+    50% { transform: translateY(-12px); }
+  }
+
+  .block.wrong {
+    animation: buzz 0.4s ease;
+  }
+  @keyframes buzz {
+    0%, 100% { transform: translateX(0); }
+    20% { transform: translateX(-10px); }
+    40% { transform: translateX(10px); }
+    60% { transform: translateX(-8px); }
+    80% { transform: translateX(8px); }
+  }
+
+  .block.consumed {
+    opacity: 0;
+    transform: scale(0.3);
+    pointer-events: none;
+  }
+
+  #flash {
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(circle, rgba(255,230,160,0.9), rgba(255,200,100,0));
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  #completeBanner {
+    position: absolute;
+    top: 300px; left: 0; right: 0;
+    text-align: center;
+    color: #fff3d6;
+    font-size: 44px;
+    text-shadow: 0 0 30px rgba(255,220,140,1);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.8s ease;
+    letter-spacing: 3px;
+  }
+
+  #progressLabel {
+    position: absolute;
+    top: 700px; left: 0; right: 0;
+    text-align: center;
+    color: #7d93bb;
+    font-size: 14px;
+    letter-spacing: 1px;
+  }
+</style>
+</head>
+<body>
+<div id="scene">
+  <div class="stars"></div>
+  <div class="title">The Harbor Vault</div>
+  <div class="subtitle">Tap the glowing block to fill the slot and crack the combination</div>
+
+  <div id="vaultWrap">
+    <div id="vaultDoor">
+      <div class="ring ring1"></div>
+      <div class="ring ring2"></div>
+      <div id="centerPlate">
+        <div id="factText">5 x 2 =</div>
+        <div id="slot">?</div>
+      </div>
+    </div>
+  </div>
+
+  <div id="flash"></div>
+  <div id="completeBanner">VAULT OPEN!</div>
+  <div id="progressLabel">Slot 1 of 5</div>
+</div>
+
+<script>
+const progression = [
+  { prompt: "5 x 2 =", options: [
+      {label:"10", correct:true},
+      {label:"7", correct:false},
+      {label:"12", correct:false}
+    ]},
+  { prompt: "5 x 5 =", options: [
+      {label:"25", correct:true},
+      {label:"20", correct:false},
+      {label:"15", correct:false}
+    ]},
+  { prompt: "5 x 10 =", options: [
+      {label:"50", correct:true},
+      {label:"45", correct:false},
+      {label:"55", correct:false}
+    ]},
+  { prompt: "2 x 7 =", options: [
+      {label:"14", correct:true},
+      {label:"9", correct:false},
+      {label:"16", correct:false}
+    ]},
+  { prompt: "10 x 4 =", options: [
+      {label:"40", correct:true},
+      {label:"14", correct:false},
+      {label:"30", correct:false}
+    ]}
+];
+
+let currentIndex = 0;
+const vaultWrap = document.getElementById('vaultWrap');
+const vaultDoor = document.getElementById('vaultDoor');
+const factText = document.getElementById('factText');
+const slot = document.getElementById('slot');
+const flash = document.getElementById('flash');
+const completeBanner = document.getElementById('completeBanner');
+const progressLabel = document.getElementById('progressLabel');
+
+// rivets around the ring
+for (let i=0;i<16;i++){
+  const angle = (i/16) * Math.PI*2;
+  const r = 230;
+  const rv = document.createElement('div');
+  rv.className='rivet';
+  rv.style.left = (240 + r*Math.cos(angle)) + 'px';
+  rv.style.top = (240 + r*Math.sin(angle)) + 'px';
+  vaultWrap.appendChild(rv);
+}
+
+// progress pips
+const pipPositions = [];
+for (let i=0;i<5;i++){
+  const angle = (-Math.PI/2) + (i/5)*Math.PI*2;
+  const r = 260;
+  const x = 240 + r*Math.cos(angle);
+  const y = 240 + r*Math.sin(angle);
+  const pip = document.createElement('div');
+  pip.className='pip';
+  pip.style.left = (x-8)+'px';
+  pip.style.top = (y-8)+'px';
+  vaultWrap.appendChild(pip);
+  pipPositions.push(pip);
+}
+
+let blockEls = [];
+
+function clearBlocks(){
+  blockEls.forEach(b => b.remove());
+  blockEls = [];
+}
+
+const blockSpots = [
+  {left: 130, top: 260},
+  {left: 1150, top: 220},
+  {left: 1080, top: 470}
+];
+
+function shuffle(arr){
+  const a = arr.slice();
+  for (let i=a.length-1;i>0;i--){
+    const j = Math.floor(Math.random()*(i+1));
+    [a[i],a[j]]=[a[j],a[i]];
+  }
+  return a;
+}
+
+function loadItem(index){
+  const item = progression[index];
+  factText.textContent = item.prompt;
+  slot.textContent = "?";
+  slot.classList.remove('lit');
+  progressLabel.textContent = "Slot " + (index+1) + " of 5";
+
+  clearBlocks();
+  const spots = shuffle(blockSpots);
+  const opts = shuffle(item.options);
+
+  opts.forEach((opt, i) => {
+    const el = document.createElement('div');
+    el.className = 'block';
+    el.textContent = opt.label;
+    el.style.left = spots[i].left + 'px';
+    el.style.top = spots[i].top + 'px';
+    el.style.animationDelay = (i*0.4)+'s, 0s';
+    el.dataset.correct = opt.correct;
+    el.addEventListener('click', () => handleTap(el, opt.correct, index));
+    el.addEventListener('touchstart', (e) => { e.preventDefault(); handleTap(el, opt.correct, index); }, {passive:false});
+    document.getElementById('scene').appendChild(el);
+    blockEls.push(el);
+  });
+
+  // hint pulse on correct block after brief delay
+  setTimeout(() => {
+    const correctEl = blockEls.find(b => b.dataset.correct === "true");
+    if (correctEl) correctEl.classList.add('hint');
+  }, 500);
+}
+
+function handleTap(el, isCorrect, index){
+  if (el.classList.contains('consumed')) return;
+  if (isCorrect){
+    el.classList.remove('hint');
+    el.classList.add('consumed');
+    slot.textContent = el.textContent;
+    slot.classList.add('lit');
+    pipPositions[index].classList.add('done');
+    playChime();
+
+    if (index >= 3) {
+      vaultDoor.classList.add('near-complete');
+    }
+
+    setTimeout(() => {
+      if (index === progression.length - 1){
+        vaultOpenSequence();
+      } else {
+        currentIndex = index + 1;
+        loadItem(currentIndex);
+      }
+    }, 900);
+  } else {
+    el.classList.add('wrong');
+    playBuzz();
+    setTimeout(() => el.classList.remove('wrong'), 400);
+  }
+}
+
+function vaultOpenSequence(){
+  flash.style.transition = 'opacity 1.2s ease';
+  flash.style.opacity = '1';
+  playFanfare();
+  setTimeout(() => {
+    completeBanner.style.opacity = '1';
+  }, 400);
+  setTimeout(() => {
+    flash.style.opacity = '0';
+  }, 1800);
+}
+
+// simple audio via WebAudio, no external assets needed for reliability
+let audioCtx;
+function getCtx(){
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  return audioCtx;
+}
+function playChime(){
+  const ctx = getCtx();
+  const o = ctx.createOscillator();
+  const g = ctx.createGain();
+  o.type = 'sine';
+  o.frequency.setValueAtTime(880, ctx.currentTime);
+  o.frequency.exponentialRampToValueAtTime(1320, ctx.currentTime+0.15);
+  g.gain.setValueAtTime(0.25, ctx.currentTime);
+  g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime+0.6);
+  o.connect(g); g.connect(ctx.destination);
+  o.start(); o.stop(ctx.currentTime+0.6);
+}
+function playBuzz(){
+  const ctx = getCtx();
+  const o = ctx.createOscillator();
+  const g = ctx.createGain();
+  o.type = 'sawtooth';
+  o.frequency.setValueAtTime(140, ctx.currentTime);
+  g.gain.setValueAtTime(0.2, ctx.currentTime);
+  g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime+0.3);
+  o.connect(g); g.connect(ctx.destination);
+  o.start(); o.stop(ctx.currentTime+0.3);
+}
+function playFanfare(){
+  const ctx = getCtx();
+  const notes = [523.25, 659.25, 783.99, 1046.5];
+  notes.forEach((f, i) => {
+    const o = ctx.createOscillator();
+    const g = ctx.createGain();
+    o.type = 'triangle';
+    o.frequency.setValueAtTime(f, ctx.currentTime + i*0.15);
+    g.gain.setValueAtTime(0.001, ctx.currentTime + i*0.15);
+    g.gain.linearRampToValueAtTime(0.3, ctx.currentTime + i*0.15 + 0.05);
+    g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + i*0.15 + 0.7);
+    o.connect(g); g.connect(ctx.destination);
+    o.start(ctx.currentTime + i*0.15);
+    o.stop(ctx.currentTime + i*0.15 + 0.8);
+  });
+}
+
+loadItem(currentIndex);
+</script>
+</body>
+</html>
