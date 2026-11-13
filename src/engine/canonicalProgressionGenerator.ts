@@ -1,5 +1,6 @@
 import {verifyPreparingBoardCanvas} from './adventureBoardCanvas';
 import { prebuiltGameClient } from "./prebuiltBoard";
+import { isLibraryPicture, pictureFilename, pictureKeywords, planBoardPictures, readPictureLibrary, savePictureLibrary, type PictureKind, type PictureLibraryEntry } from "./pictureLibrary";
 import { thumbnailUrlForActivity } from "../shared/activityPresentation";
 import { createHash } from "crypto";
 import fs from "fs";
@@ -22,6 +23,7 @@ import {
   CUT_OFF_STOP_REASON,
   LOST_BIND_STOP_REASON,
   getLearningCycle,
+  savePaintedNodeArtwork,
   transitionLearningCycle,
   type LearningCycleNodeContract,
   type LearningCycleRecordV2,
@@ -44,7 +46,58 @@ export type CanonicalProgressionGeneratorInput = {
   validate?: (input: { html: string; node: LearningCycleNodeContract; cycle: LearningCycleRecordV2 }) => Promise<ProgressionValidationResult>;
   /** The model client for her generated spelling games; tests pass a recorded one. */
   spellingGameClient?: SpellingGameClient;
+  /** Paints one map-stop picture into web/public under the given file name; tests pass a recorded one. */
+  paintPicture?: (prompt: string, filename: string) => Promise<string>;
 };
+
+export const MAX_NEW_PICTURES_PER_BOARD = 8;
+const pictureKind = (role: LearningCycleNodeContract["role"]): PictureKind =>
+  role === "mystery" ? "mystery" : role === "quest" ? "quest" : role === "boss" ? "boss" : "activity";
+
+/**
+ * Pictures for a new board's stops from her picture library (owner, 2026-11-13): reuse what fits, paint only what is
+ * missing, keep the icon when painting fails. Runs beside the game builds; a picture never holds back the board.
+ */
+async function paintSuccessorPictures(input: { childId: string; homeworkId: string; nodeIds: readonly string[]; paint: (prompt: string, filename: string) => Promise<string> }, opts: LearningCycleRepositoryOptions): Promise<void> {
+  const cycle = getLearningCycle(input.childId, input.homeworkId, opts);
+  if (!cycle) return;
+  const stops = cycle.nodes
+    .filter(node => input.nodeIds.includes(node.nodeId) && node.artwork.prompt && node.artwork.status === "placeholder" && !isLibraryPicture(node.artwork.localPath))
+    .map(node => ({ nodeId: node.nodeId, kind: pictureKind(node.role), prompt: node.artwork.prompt! }));
+  if (!stops.length) return;
+  const library = readPictureLibrary(input.childId, opts);
+  const plan = planBoardPictures({ stops, library, childNames: [input.childId], maxNew: MAX_NEW_PICTURES_PER_BOARD });
+  const added: PictureLibraryEntry[] = [];
+  let reused = 0, painted = 0, failed = 0;
+  await Promise.all(plan.map(async row => {
+    const stop = stops.find(candidate => candidate.nodeId === row.nodeId)!;
+    try {
+      if ("reuse" in row) {
+        savePaintedNodeArtwork(input.childId, input.homeworkId, row.nodeId, row.reuse.path, opts);
+        reused += 1;
+        console.log(` 🎮 [picture-library] [reused] node=${row.nodeId} picture=${row.reuse.path}`);
+      } else if ("paint" in row) {
+        const localPath = await input.paint(row.paint, pictureFilename(input.childId, row.paint));
+        savePaintedNodeArtwork(input.childId, input.homeworkId, row.nodeId, localPath, opts);
+        added.push({ path: localPath, prompt: row.paint, keywords: pictureKeywords(row.paint, [input.childId]), kind: stop.kind, homeworkId: input.homeworkId, createdAt: new Date().toISOString() });
+        painted += 1;
+        console.log(` 🎮 [picture-library] [painted] node=${row.nodeId} picture=${localPath}`);
+      } else console.log(` 🎮 [picture-library] [icon-kept] node=${row.nodeId} reason=board_paint_limit`);
+    } catch (error) {
+      failed += 1;
+      console.warn(` 🎮 [picture-library] [paint] [failed] node=${row.nodeId} icon=kept reason=${error instanceof Error ? error.message : String(error)}`);
+    }
+  }));
+  if (added.length) savePictureLibrary(input.childId, [...library, ...added], opts);
+  console.log(` 🎮 [picture-library] [board] [done] homework=${input.homeworkId} reused=${reused} painted=${painted} failed=${failed}`);
+}
+
+function productionPicture(rootDir: string) {
+  return (prompt: string, filename: string) => {
+    const protectedPrompt = prompt.toLowerCase().includes("without words, letters, numbers, equations, labels") ? prompt : `${prompt}. without words, letters, numbers, equations, labels.`;
+    return createDirectArtwork(protectedPrompt, path.join(rootDir, "web", "public"), filename);
+  };
+}
 
 type ProgressionValidationResult = {
   passed: boolean;
@@ -644,6 +697,7 @@ export async function prepareSuccessorBoard(
     console.log(` 🎮 [learning-board] [successor-preparation] [already-running] board=${board.boardId}`);
     return cycle;
   }
+  let painting: Promise<void> = Promise.resolve();
   try {
     try {
       await verifyPreparingBoardCanvas({rootDir:opts.rootDir??process.cwd(),childId:input.childId,homeworkId:input.homeworkId,acceptAsAuthored:true,directory:path.join(resolveChildContextDir(input.childId,opts),'homework','canvas-verification',board.boardId.replace(/[^a-zA-Z0-9_-]/g,'_'))});
@@ -651,6 +705,8 @@ export async function prepareSuccessorBoard(
       console.warn(` 🎮 [learning-board] [canvas-diagnostic] [unavailable] board=${board.boardId} reason=${error instanceof Error ? error.message : String(error)}`);
     }
     cycle=getLearningCycle(input.childId,input.homeworkId,opts)!;
+    painting = paintSuccessorPictures({ childId: input.childId, homeworkId: input.homeworkId, nodeIds: board.nodeIds, paint: input.paintPicture ?? productionPicture(opts.rootDir ?? process.cwd()) }, opts)
+      .catch(error => console.warn(` 🎮 [picture-library] [board] [failed] homework=${input.homeworkId} reason=${error instanceof Error ? error.message : String(error)}`));
     // An activity held for attention before this rule becomes Not ready at $0, keeping its recorded reason.
     const heldReason = [...cycle.decisionHistory].reverse().find(row => row.eventType === "artifact_generation_attention_required")?.reason ?? "activity_build_failed";
     for (const held of cycle.nodes.filter((node) => board.nodeIds.includes(node.nodeId) && node.state === "blocked" && !node.notReadyReason)) {
@@ -692,6 +748,7 @@ export async function prepareSuccessorBoard(
     }
     throw new Error(`successor_board_preparation_guard_exceeded:${board.boardId}`);
   } finally {
+    await painting;
     releaseMathGenerationLease({ rootDir: opts.rootDir, childId: input.childId, homeworkId: input.homeworkId, token: lease.token });
   }
 }

@@ -1,4 +1,5 @@
 import {journeyChoiceAvailable,unfinishedActivityClosesChoices} from '../shared/adventureBoardDefinition';
+import { isLibraryPicture } from "./pictureLibrary";
 import { letterRushConfig, spellingExplainerConfig, spellingNativeConfig } from "./spellingNativeSetup";
 import type { BoardCanvasProof } from './adventureBoardCanvas';
 import { renderBoardDefinition, journeyFrontier, journeyStopsLeft, type AdventureBoardDefinition } from '../shared/adventureBoardDefinition';
@@ -1463,8 +1464,10 @@ function prepareSuccessorBoard(
         evidenceLimit: role === "baseline" ? "practice_only" as const : "provisional_transfer" as const,
       } }),
       artifactBinding: null,
+      // A stop with its own picture prompt waits for its picture (BUGS.md 2026-11-13: borrowed icons were marked
+      // ready, so nothing ever painted them); the borrowed look shows until then.
       artwork: (role === "baseline" || role === "mystery") && reference?.artwork.localPath
-        ? { status: "ready", localPath: reference.artwork.localPath, prompt: prescription.picture ?? null }
+        ? { status: prescription.picture ? "placeholder" : "ready", localPath: reference.artwork.localPath, prompt: prescription.picture ?? null }
         : { status: "placeholder", localPath: `/generated/adventure-board-demo/${role === "boss" ? "boss" : "quest"}.jpeg`, prompt: prescription.picture ?? null },
       sfxContract: ["interaction", "recovery", "progress", "completion"],
       companionContract: { events: ["completion", "frustration"] },
@@ -1836,7 +1839,8 @@ export function transitionLearningCycle(
     const repair = Boolean(node.notReadyReason);
     delete node.notReadyReason;
     node.artifactBinding = event.artifact;
-    node.artwork = { ...node.artwork, status: "ready", localPath: event.artifact.localArtworkPath };
+    // A stop's library picture stays when its game is bound later (BUGS.md 2026-11-13).
+    node.artwork = { ...node.artwork, status: "ready", localPath: isLibraryPicture(node.artwork.localPath) ? node.artwork.localPath : event.artifact.localArtworkPath };
     if (node.state !== "completed") node.state = "ready";
     const preparing = next.boards ? preparingBoardInstance(next) : undefined;
     if (repair) { /* lifecycle unchanged */ }

@@ -11,7 +11,8 @@ import type { RecordedToolLab } from "./fixtures/recordedToolPlanner";
 import { getLearningCycle, projectLearningCycle, transitionLearningCycle } from "../engine/learningCycleRepository";
 import { currentBoardInstance } from "../engine/learningBoardInstances";
 import { completeDiscoveryEvaluation } from "../engine/adaptiveMathDiscovery";
-import { prepareSuccessorBoard } from "../engine/canonicalProgressionGenerator";
+import { MAX_NEW_PICTURES_PER_BOARD, prepareSuccessorBoard } from "../engine/canonicalProgressionGenerator";
+import { readPictureLibrary } from "../engine/pictureLibrary";
 import * as canvas from "../engine/adventureBoardCanvas";
 import * as runtime from "../engine/learningCycleRuntime";
 
@@ -215,6 +216,35 @@ it("puts the story and picture the Planner wrote on every stop of both boards", 
   const shown = projectLearningCycle(after).adventureBoard.nodes.filter(node => node.activityNodeId);
   expect(shown.length).toBeGreaterThan(0);
   for (const node of shown) expect(node.thumbnailPrompt, node.id).toMatch(/^Picture: /);
+}, 120000);
+
+// 2026-11-13 owner-caught: next-board stops showed placeholder icons, never pictures. Each new stop copied the last
+// stop's icon marked "ready", and no new board ran the painter. Now a new board's stops get pictures from her picture
+// library, and only stops with nothing fitting are painted; a failed painting keeps the icon and never blocks.
+it("gives every new stop a picture from her library, painting only what is missing", async () => {
+  const { childId, homeworkId, opts } = await playToNextBoard();
+  const paintPicture = vi.fn(async (_prompt: string, filename: string) => `/generated/direct-math/${filename}`);
+  const after = await prepareSuccessorBoard({ childId, homeworkId, paintPicture }, opts);
+  const board = after.boards!.find(row => row.kind === "successor")!;
+  const stops = after.nodes.filter(node => board.nodeIds.includes(node.nodeId) && node.artwork.prompt);
+  expect(stops.length).toBeGreaterThan(MAX_NEW_PICTURES_PER_BOARD); // this lab board runs every game, so the cap shows
+  const pictured = stops.filter(stop => stop.artwork.localPath?.startsWith("/generated/direct-math/node-picture-ila-"));
+  expect(pictured).toHaveLength(MAX_NEW_PICTURES_PER_BOARD);
+  expect(paintPicture).toHaveBeenCalledTimes(MAX_NEW_PICTURES_PER_BOARD);
+  const shown = projectLearningCycle(after).adventureBoard.nodes.filter(node => node.activityNodeId && pictured.some(stop => stop.nodeId === node.activityNodeId));
+  expect(shown.length).toBeGreaterThan(0);
+  for (const node of shown) expect(node.thumbnailUrl, node.id).toMatch(/node-picture-ila-/);
+  expect(readPictureLibrary(childId, opts)).toHaveLength(MAX_NEW_PICTURES_PER_BOARD);
+}, 120000);
+
+it("keeps a stop's icon when its picture cannot be painted, and still publishes the board", async () => {
+  const { childId, homeworkId, opts } = await playToNextBoard();
+  const warn = vi.spyOn(console, "warn");
+  const after = await prepareSuccessorBoard({ childId, homeworkId, paintPicture: async () => { throw new Error("provider_down"); } }, opts);
+  const board = after.boards!.find(row => row.kind === "successor")!;
+  expect(board.publishedAt).toBeTruthy();
+  expect(after.nodes.filter(node => board.nodeIds.includes(node.nodeId)).every(node => !node.artwork.localPath?.includes("node-picture-"))).toBe(true);
+  expect(warn.mock.calls.some(call => String(call[0]).includes("[picture-library] [paint] [failed]"))).toBe(true);
 }, 120000);
 
 // 2026-10-26 parent test: demo-pashley's profile lists her favorites (space, animals, adventure), but she has
