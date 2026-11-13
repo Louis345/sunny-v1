@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "childId": "demo-pashley",
+  "sourcePlanId": "learning-cycle:hw-spelling-66450520:r2",
+  "theory": {
+    "hypothesis": "The independent starting point remains to be observed.",
+    "evidenceSummary": [],
+    "intervention": "Follow the canonical learning-cycle node contracts.",
+    "supportCriteria": [],
+    "reviseCriteria": [],
+    "falsifyCriteria": []
+  },
+  "plannedMeasurements": [],
+  "learningExperiments": [],
+  "theoryDecisions": [],
+  "updatedAt": "2026-10-14T21:57:46.770Z"
+}

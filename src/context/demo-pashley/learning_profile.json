@@ -1,185 +1,1214 @@
 {
- "childId": "demo-pashley",
- "version": 1,
- "createdAt": "2026-04-14T00:00:00.000Z",
- "lastUpdated": "2026-04-27T20:05:29.564Z",
- "demographics": {
-  "age": 10,
-  "grade": 4,
-  "diagnoses": [],
-  "learningStyle": "mixed",
-  "attentionSpan": "moderate",
-  "iepActive": false
- },
- "algorithmParams": {
-  "sm2": {
-   "defaultEasinessFactor": 2.5,
-   "minEasinessFactor": 1.3,
-   "intervalModifier": 1,
-   "maxNewWordsPerSession": 5,
-   "maxReviewWordsPerSession": 12
+  "childId": "demo-pashley",
+  "version": 1,
+  "createdAt": "2026-04-14T00:00:00.000Z",
+  "lastUpdated": "2026-10-14T21:57:46.766Z",
+  "demographics": {
+    "age": 10,
+    "grade": 4,
+    "diagnoses": [],
+    "learningStyle": "mixed",
+    "attentionSpan": "moderate",
+    "iepActive": false
   },
-  "difficulty": {
-   "targetAccuracy": 0.7,
-   "easyThreshold": 0.85,
-   "hardThreshold": 0.5,
-   "breakThreshold": 0.4,
-   "windowSize": 8
+  "algorithmParams": {
+    "sm2": {
+      "defaultEasinessFactor": 2.5,
+      "minEasinessFactor": 1.3,
+      "intervalModifier": 1,
+      "maxNewWordsPerSession": 5,
+      "maxReviewWordsPerSession": 12
+    },
+    "difficulty": {
+      "targetAccuracy": 0.7,
+      "easyThreshold": 0.85,
+      "hardThreshold": 0.5,
+      "breakThreshold": 0.4,
+      "windowSize": 8
+    },
+    "mastery": {
+      "gateAccuracy": 0.8,
+      "gateSessions": 3,
+      "regressionThreshold": 0.6,
+      "regressionSessions": 2
+    },
+    "interleaving": {
+      "weakestWeight": 0.5,
+      "secondWeight": 0.3,
+      "randomWeight": 0.2,
+      "minTypeExposure": 0.15
+    }
   },
-  "mastery": {
-   "gateAccuracy": 0.8,
-   "gateSessions": 3,
-   "regressionThreshold": 0.6,
-   "regressionSessions": 2
+  "bondPatterns": {
+    "topics": [],
+    "bondStyle": "unknown",
+    "averageBondTurns": 3,
+    "lastBondQuality": "moderate",
+    "topicFrequency": {}
   },
-  "interleaving": {
-   "weakestWeight": 0.5,
-   "secondWeight": 0.3,
-   "randomWeight": 0.2,
-   "minTypeExposure": 0.15
-  }
- },
- "bondPatterns": {
-  "topics": [],
-  "bondStyle": "unknown",
-  "averageBondTurns": 3,
-  "lastBondQuality": "moderate",
-  "topicFrequency": {}
- },
- "moodHistory": [
-  {
-   "date": "2026-04-26T15:23:51.321Z",
-   "startMood": "neutral",
-   "endMood": "neutral",
-   "bondQuality": "moderate",
-   "sessionAccuracy": 0,
-   "notableSignals": []
-  },
-  {
-   "date": "2026-04-26T15:27:12.244Z",
-   "startMood": "neutral",
-   "endMood": "neutral",
-   "bondQuality": "moderate",
-   "sessionAccuracy": 0,
-   "notableSignals": []
-  },
-  {
-   "date": "2026-04-26T15:35:05.716Z",
-   "startMood": "neutral",
-   "endMood": "neutral",
-   "bondQuality": "moderate",
-   "sessionAccuracy": 0,
-   "notableSignals": []
-  },
-  {
-   "date": "2026-04-26T15:35:28.872Z",
-   "startMood": "neutral",
-   "endMood": "neutral",
-   "bondQuality": "moderate",
-   "sessionAccuracy": 0,
-   "notableSignals": []
-  },
-  {
-   "date": "2026-04-26T15:50:55.526Z",
-   "startMood": "neutral",
-   "endMood": "neutral",
-   "bondQuality": "moderate",
-   "sessionAccuracy": 0,
-   "notableSignals": []
-  },
-  {
-   "date": "2026-04-27T00:56:37.419Z",
-   "startMood": "neutral",
-   "endMood": "neutral",
-   "bondQuality": "moderate",
-   "sessionAccuracy": 0,
-   "notableSignals": []
-  },
-  {
-   "date": "2026-04-27T15:12:03.849Z",
-   "startMood": "neutral",
-   "endMood": "neutral",
-   "bondQuality": "moderate",
-   "sessionAccuracy": 0,
-   "notableSignals": []
-  },
-  {
-   "date": "2026-04-27T16:23:14.129Z",
-   "startMood": "neutral",
-   "endMood": "neutral",
-   "bondQuality": "moderate",
-   "sessionAccuracy": 0,
-   "notableSignals": []
-  },
-  {
-   "date": "2026-04-27T17:06:39.862Z",
-   "startMood": "neutral",
-   "endMood": "neutral",
-   "bondQuality": "moderate",
-   "sessionAccuracy": 0,
-   "notableSignals": []
-  },
-  {
-   "date": "2026-04-27T20:05:29.560Z",
-   "startMood": "neutral",
-   "endMood": "neutral",
-   "bondQuality": "moderate",
-   "sessionAccuracy": 0,
-   "notableSignals": []
-  }
- ],
- "moodTrend": "stable",
- "moodAdjustment": false,
- "iepTargets": [],
- "readingProfile": {
-  "currentReadingLevel": "CVC",
-  "averageReadingAccuracy": 0,
-  "comprehensionAccuracy": 0,
-  "flaggedPatterns": [],
-  "storiesCompleted": 0,
-  "fontSize": 36,
-  "lineHeight": 2,
-  "fontFamily": "Lexend",
-  "background": "#FFF8F0",
-  "wordsPerLine": 8,
-  "highlightColor": "#1a56db",
-  "highlightBackground": "#dbeafe",
-  "dyslexiaMode": false
- },
- "sessionStats": {
-  "totalSessions": 13,
-  "averageAccuracy": 0,
-  "averageDurationMinutes": 0,
-  "currentWilsonStep": 1,
-  "streakRecord": 0,
-  "totalWordsMastered": 0,
-  "perfectSessions": 0,
-  "lastSessionDate": "2026-04-27T20:05:29.560Z"
- },
- "rewardPreferences": {
-  "favoriteGames": [
-   "space",
-   "animals",
-   "adventure"
+  "moodHistory": [
+    {
+      "date": "2026-04-26T15:23:51.321Z",
+      "startMood": "neutral",
+      "endMood": "neutral",
+      "bondQuality": "moderate",
+      "sessionAccuracy": 0,
+      "notableSignals": []
+    },
+    {
+      "date": "2026-04-26T15:27:12.244Z",
+      "startMood": "neutral",
+      "endMood": "neutral",
+      "bondQuality": "moderate",
+      "sessionAccuracy": 0,
+      "notableSignals": []
+    },
+    {
+      "date": "2026-04-26T15:35:05.716Z",
+      "startMood": "neutral",
+      "endMood": "neutral",
+      "bondQuality": "moderate",
+      "sessionAccuracy": 0,
+      "notableSignals": []
+    },
+    {
+      "date": "2026-04-26T15:35:28.872Z",
+      "startMood": "neutral",
+      "endMood": "neutral",
+      "bondQuality": "moderate",
+      "sessionAccuracy": 0,
+      "notableSignals": []
+    },
+    {
+      "date": "2026-04-26T15:50:55.526Z",
+      "startMood": "neutral",
+      "endMood": "neutral",
+      "bondQuality": "moderate",
+      "sessionAccuracy": 0,
+      "notableSignals": []
+    },
+    {
+      "date": "2026-04-27T00:56:37.419Z",
+      "startMood": "neutral",
+      "endMood": "neutral",
+      "bondQuality": "moderate",
+      "sessionAccuracy": 0,
+      "notableSignals": []
+    },
+    {
+      "date": "2026-04-27T15:12:03.849Z",
+      "startMood": "neutral",
+      "endMood": "neutral",
+      "bondQuality": "moderate",
+      "sessionAccuracy": 0,
+      "notableSignals": []
+    },
+    {
+      "date": "2026-04-27T16:23:14.129Z",
+      "startMood": "neutral",
+      "endMood": "neutral",
+      "bondQuality": "moderate",
+      "sessionAccuracy": 0,
+      "notableSignals": []
+    },
+    {
+      "date": "2026-04-27T17:06:39.862Z",
+      "startMood": "neutral",
+      "endMood": "neutral",
+      "bondQuality": "moderate",
+      "sessionAccuracy": 0,
+      "notableSignals": []
+    },
+    {
+      "date": "2026-04-27T20:05:29.560Z",
+      "startMood": "neutral",
+      "endMood": "neutral",
+      "bondQuality": "moderate",
+      "sessionAccuracy": 0,
+      "notableSignals": []
+    }
   ],
-  "celebrationStyle": "mixed",
-  "bonusRoundHistory": {
-   "triggered": 0,
-   "correct": 0
-  }
- },
- "companion": {
-  "sensitivity": {
-   "session_start": 0.8,
-   "correct_answer": 0.8,
-   "wrong_answer": 0.6,
-   "mastery_unlock": 1,
-   "session_end": 0.8,
-   "idle_too_long": 0.4
+  "moodTrend": "stable",
+  "moodAdjustment": false,
+  "iepTargets": [],
+  "readingProfile": {
+    "currentReadingLevel": "CVC",
+    "averageReadingAccuracy": 0,
+    "comprehensionAccuracy": 0,
+    "flaggedPatterns": [],
+    "storiesCompleted": 0,
+    "fontSize": 36,
+    "lineHeight": 2,
+    "fontFamily": "Lexend",
+    "background": "#FFF8F0",
+    "wordsPerLine": 8,
+    "highlightColor": "#1a56db",
+    "highlightBackground": "#dbeafe",
+    "dyslexiaMode": false
   },
-  "idleFrequency_ms": 45000,
-  "randomMomentProbability": 0.3,
-  "toggledOff": false
- },
- "name": "Demo"
+  "sessionStats": {
+    "totalSessions": 15,
+    "averageAccuracy": 0,
+    "averageDurationMinutes": 0,
+    "currentWilsonStep": 1,
+    "streakRecord": 0,
+    "totalWordsMastered": 0,
+    "perfectSessions": 0,
+    "lastSessionDate": "2026-10-14T21:57:46.757Z",
+    "accuracySessionCount": 13
+  },
+  "rewardPreferences": {
+    "favoriteGames": [
+      "space",
+      "animals",
+      "adventure"
+    ],
+    "celebrationStyle": "mixed",
+    "bonusRoundHistory": {
+      "triggered": 0,
+      "correct": 0
+    }
+  },
+  "companion": {
+    "sensitivity": {
+      "session_start": 0.8,
+      "correct_answer": 0.8,
+      "wrong_answer": 0.6,
+      "mastery_unlock": 1,
+      "session_end": 0.8,
+      "idle_too_long": 0.4
+    },
+    "idleFrequency_ms": 45000,
+    "randomMomentProbability": 0.3,
+    "toggledOff": false
+  },
+  "name": "Demo",
+  "pendingHomework": {
+    "homeworkId": "hw-spelling-66450520",
+    "weekOf": "2026-10-14",
+    "testDate": null,
+    "returnTag": "#sunny_demo-pashley_hw-spelling-66450520",
+    "wordList": [
+      "shiny",
+      "slowly",
+      "lucky",
+      "neatly",
+      "sunny",
+      "likely",
+      "messy",
+      "quickly",
+      "rainy",
+      "friendly",
+      "able",
+      "behind",
+      "carefully",
+      "common",
+      "easy",
+      "fact",
+      "remember",
+      "sure",
+      "vowel",
+      "whole"
+    ],
+    "contentProfile": {
+      "practiceDomain": "spelling",
+      "topic": "Benchmark Advance Spelling – Unit 9 Week 1"
+    },
+    "capturedContent": {
+      "title": "Benchmark Advance Spelling – Unit 9 Week 1",
+      "rawText": "Discovery evidence pending."
+    },
+    "generatedAt": "2026-10-14T20:37:31.275Z",
+    "nodes": [
+      {
+        "id": "hw-spelling-66450520:discovery",
+        "type": "word-radar",
+        "activityId": "word-radar",
+        "title": "Spelling Discovery",
+        "targets": [
+          "shiny",
+          "slowly",
+          "lucky",
+          "neatly",
+          "sunny",
+          "likely",
+          "messy",
+          "quickly",
+          "rainy",
+          "friendly",
+          "able",
+          "behind",
+          "carefully",
+          "common",
+          "easy",
+          "fact",
+          "remember",
+          "sure",
+          "vowel",
+          "whole"
+        ],
+        "difficulty": 1,
+        "source": "chart_planner",
+        "locked": false,
+        "targetLane": "independent_discovery",
+        "contentId": "hw-spelling-66450520:discovery",
+        "wordRadarConfig": {
+          "recallMode": "hidden_word_recall",
+          "inputMode": "keyboard",
+          "speakStyle": "option-b",
+          "showTimer": false,
+          "hideWordDuringResponse": true,
+          "requiresCapturedResponse": true
+        }
+      }
+    ]
+  },
+  "activeSessionPlan": {
+    "boardDefinition": {
+      "version": 2,
+      "title": "Benchmark Advance Spelling – Unit 9 Week 1 Discovery Quest",
+      "rationale": "A single-path opening diagnostic board is needed to run the Word Radar independent spelling discovery instrument across all 20 assigned words before any branching teaching paths can be justified. There is no existing evidence to branch on, so the board simply routes the child from start, through the diagnostic activity, to a completion endpoint.",
+      "rootPathId": "root-diagnostic-path",
+      "portals": [
+        {
+          "id": "start-portal",
+          "label": "Begin Spelling Quest",
+          "kind": "start",
+          "position": {
+            "landscape": {
+              "x": 0.08,
+              "y": 0.5
+            },
+            "portrait": {
+              "x": 0.5,
+              "y": 0.08
+            }
+          }
+        },
+        {
+          "id": "diagnostic-portal",
+          "label": "Word Radar Discovery Challenge",
+          "kind": "activity",
+          "activityNodeId": "hw-spelling-66450520:discovery",
+          "position": {
+            "landscape": {
+              "x": 0.5,
+              "y": 0.5
+            },
+            "portrait": {
+              "x": 0.5,
+              "y": 0.5
+            }
+          }
+        },
+        {
+          "id": "end-portal",
+          "label": "Discovery Complete",
+          "kind": "endpoint",
+          "position": {
+            "landscape": {
+              "x": 0.92,
+              "y": 0.5
+            },
+            "portrait": {
+              "x": 0.5,
+              "y": 0.92
+            }
+          }
+        }
+      ],
+      "paths": [
+        {
+          "id": "root-diagnostic-path",
+          "portalIds": [
+            "start-portal",
+            "diagnostic-portal",
+            "end-portal"
+          ]
+        }
+      ],
+      "choices": [],
+      "edges": [
+        {
+          "id": "edge-start-to-diagnostic",
+          "from": "start-portal",
+          "to": "diagnostic-portal",
+          "style": "solid",
+          "controlPoints": {
+            "landscape": [],
+            "portrait": []
+          }
+        },
+        {
+          "id": "edge-diagnostic-to-end",
+          "from": "diagnostic-portal",
+          "to": "end-portal",
+          "style": "solid",
+          "controlPoints": {
+            "landscape": [],
+            "portrait": []
+          }
+        }
+      ],
+      "theme": {
+        "background": {
+          "type": "image",
+          "value": "/generated/adventure-board-demo/silent-letter-world.jpeg"
+        },
+        "palette": {
+          "path": "#E0C27A",
+          "completed": "#8FBF7F",
+          "available": "#F2C464",
+          "locked": "#C9C2B4",
+          "current": "#F4A340",
+          "preview": "#EADFB4",
+          "text": "#3A2E1E",
+          "panel": "#FFFDF5"
+        }
+      },
+      "singlePathReason": "No Discovery evidence yet exists for this child, so no branching hypotheses can be supported. The sole purpose of this board is to administer the single validated diagnostic instrument (word-radar) across the full assigned word list; all learners take the identical start-to-diagnostic-to-end route until independent baseline evidence is captured."
+    },
+    "planId": "discovery:hw-spelling-66450520",
+    "childId": "demo-pashley",
+    "createdAt": "2026-10-14T20:37:30.585Z",
+    "source": "ingest_human_loop",
+    "activeHomeworkId": "hw-spelling-66450520",
+    "domain": "spelling",
+    "testDate": null,
+    "nodePlan": [
+      {
+        "id": "hw-spelling-66450520:discovery",
+        "type": "word-radar",
+        "activityId": "word-radar",
+        "title": "Spelling Discovery",
+        "targets": [
+          "shiny",
+          "slowly",
+          "lucky",
+          "neatly",
+          "sunny",
+          "likely",
+          "messy",
+          "quickly",
+          "rainy",
+          "friendly",
+          "able",
+          "behind",
+          "carefully",
+          "common",
+          "easy",
+          "fact",
+          "remember",
+          "sure",
+          "vowel",
+          "whole"
+        ],
+        "difficulty": 1,
+        "source": "chart_planner",
+        "locked": false,
+        "targetLane": "independent_discovery",
+        "contentId": "hw-spelling-66450520:discovery",
+        "wordRadarConfig": {
+          "recallMode": "hidden_word_recall",
+          "inputMode": "keyboard",
+          "speakStyle": "option-b",
+          "showTimer": false,
+          "hideWordDuringResponse": true,
+          "requiresCapturedResponse": true
+        }
+      }
+    ],
+    "variationPolicy": {
+      "avoidExactPreviousNodeOrder": false,
+      "avoidExactPreviousWordOrder": false,
+      "seed": "hw-spelling-66450520",
+      "previousCompletedNodeCount": 0
+    },
+    "companionPolicy": {
+      "companionId": "elli",
+      "displayName": "Elli",
+      "openingLinePolicy": "silent",
+      "verbosity": "low",
+      "maxMicroProbes": 0
+    },
+    "evidenceUsed": [
+      {
+        "id": "assignment:66450520008dbd0197adfabb61b5d365bfc605c26eaec57d2135757c7a5ba3b1",
+        "type": "assignment",
+        "summary": "Captured school spelling target."
+      }
+    ],
+    "openQuestions": [],
+    "approvalStatus": "approved",
+    "adventureBoard": {
+      "schemaVersion": 1,
+      "definition": {
+        "version": 2,
+        "title": "Benchmark Advance Spelling – Unit 9 Week 1 Discovery Quest",
+        "rationale": "A single-path opening diagnostic board is needed to run the Word Radar independent spelling discovery instrument across all 20 assigned words before any branching teaching paths can be justified. There is no existing evidence to branch on, so the board simply routes the child from start, through the diagnostic activity, to a completion endpoint.",
+        "rootPathId": "root-diagnostic-path",
+        "portals": [
+          {
+            "id": "start-portal",
+            "label": "Begin Spelling Quest",
+            "kind": "start",
+            "position": {
+              "landscape": {
+                "x": 0.08,
+                "y": 0.5
+              },
+              "portrait": {
+                "x": 0.5,
+                "y": 0.08
+              }
+            }
+          },
+          {
+            "id": "diagnostic-portal",
+            "label": "Word Radar Discovery Challenge",
+            "kind": "activity",
+            "activityNodeId": "hw-spelling-66450520:discovery",
+            "position": {
+              "landscape": {
+                "x": 0.5,
+                "y": 0.5
+              },
+              "portrait": {
+                "x": 0.5,
+                "y": 0.5
+              }
+            }
+          },
+          {
+            "id": "end-portal",
+            "label": "Discovery Complete",
+            "kind": "endpoint",
+            "position": {
+              "landscape": {
+                "x": 0.92,
+                "y": 0.5
+              },
+              "portrait": {
+                "x": 0.5,
+                "y": 0.92
+              }
+            }
+          }
+        ],
+        "paths": [
+          {
+            "id": "root-diagnostic-path",
+            "portalIds": [
+              "start-portal",
+              "diagnostic-portal",
+              "end-portal"
+            ]
+          }
+        ],
+        "choices": [],
+        "edges": [
+          {
+            "id": "edge-start-to-diagnostic",
+            "from": "start-portal",
+            "to": "diagnostic-portal",
+            "style": "solid",
+            "controlPoints": {
+              "landscape": [],
+              "portrait": []
+            }
+          },
+          {
+            "id": "edge-diagnostic-to-end",
+            "from": "diagnostic-portal",
+            "to": "end-portal",
+            "style": "solid",
+            "controlPoints": {
+              "landscape": [],
+              "portrait": []
+            }
+          }
+        ],
+        "theme": {
+          "background": {
+            "type": "image",
+            "value": "/generated/adventure-board-demo/silent-letter-world.jpeg"
+          },
+          "palette": {
+            "path": "#E0C27A",
+            "completed": "#8FBF7F",
+            "available": "#F2C464",
+            "locked": "#C9C2B4",
+            "current": "#F4A340",
+            "preview": "#EADFB4",
+            "text": "#3A2E1E",
+            "panel": "#FFFDF5"
+          }
+        },
+        "singlePathReason": "No Discovery evidence yet exists for this child, so no branching hypotheses can be supported. The sole purpose of this board is to administer the single validated diagnostic instrument (word-radar) across the full assigned word list; all learners take the identical start-to-diagnostic-to-end route until independent baseline evidence is captured."
+      },
+      "boardId": "hw-spelling-66450520:board:1",
+      "planId": "learning-cycle:hw-spelling-66450520:r2",
+      "childId": "demo-pashley",
+      "domain": "spelling",
+      "title": "Benchmark Advance Spelling – Unit 9 Week 1 Discovery Quest",
+      "theme": {
+        "background": {
+          "type": "image",
+          "value": "/generated/adventure-board-demo/silent-letter-world.jpeg"
+        },
+        "palette": {
+          "path": "#E0C27A",
+          "completed": "#8FBF7F",
+          "available": "#F2C464",
+          "locked": "#C9C2B4",
+          "current": "#F4A340",
+          "preview": "#EADFB4",
+          "text": "#3A2E1E",
+          "panel": "#FFFDF5"
+        }
+      },
+      "companion": {
+        "id": "elli",
+        "name": "Elli"
+      },
+      "nodes": [
+        {
+          "id": "start-portal",
+          "label": "Begin Spelling Quest",
+          "kind": "start",
+          "position": {
+            "x": 0.08,
+            "y": 0.5
+          },
+          "portraitPosition": {
+            "x": 0.5,
+            "y": 0.08
+          },
+          "state": "completed"
+        },
+        {
+          "id": "diagnostic-portal",
+          "activityNodeId": "hw-spelling-66450520:discovery",
+          "label": "Word Radar Discovery Challenge",
+          "kind": "activity",
+          "position": {
+            "x": 0.5,
+            "y": 0.5
+          },
+          "portraitPosition": {
+            "x": 0.5,
+            "y": 0.5
+          },
+          "thumbnailUrl": "/thumbnails/activities/word-radar.svg",
+          "activityId": "word-radar",
+          "state": "available",
+          "target": {
+            "laneId": "hw-spelling-66450520:discovery",
+            "skill": "hw-spelling-66450520:discovery",
+            "words": [
+              "shiny",
+              "slowly",
+              "lucky",
+              "neatly",
+              "sunny",
+              "likely",
+              "messy",
+              "quickly",
+              "rainy",
+              "friendly",
+              "able",
+              "behind",
+              "carefully",
+              "common",
+              "easy",
+              "fact",
+              "remember",
+              "sure",
+              "vowel",
+              "whole"
+            ]
+          },
+          "wordRadarConfig": {
+            "recallMode": "hidden_word_recall",
+            "inputMode": "keyboard",
+            "speakStyle": "option-b",
+            "showTimer": false,
+            "hideWordDuringResponse": true,
+            "requiresCapturedResponse": true
+          },
+          "action": {
+            "type": "launch-activity",
+            "payloadId": "hw-spelling-66450520:discovery"
+          }
+        },
+        {
+          "id": "end-portal",
+          "label": "Discovery Complete",
+          "kind": "reward",
+          "position": {
+            "x": 0.92,
+            "y": 0.5
+          },
+          "portraitPosition": {
+            "x": 0.5,
+            "y": 0.92
+          },
+          "state": "locked",
+          "lock": {
+            "reason": "planner-sequence",
+            "label": "Keep going"
+          }
+        }
+      ],
+      "edges": [
+        {
+          "id": "edge-start-to-diagnostic",
+          "from": "start-portal",
+          "to": "diagnostic-portal",
+          "style": "solid",
+          "controlPoints": {
+            "landscape": [],
+            "portrait": []
+          },
+          "state": "available"
+        },
+        {
+          "id": "edge-diagnostic-to-end",
+          "from": "diagnostic-portal",
+          "to": "end-portal",
+          "style": "solid",
+          "controlPoints": {
+            "landscape": [],
+            "portrait": []
+          },
+          "state": "locked"
+        }
+      ],
+      "choiceSets": [],
+      "progress": {
+        "currentNodeId": "diagnostic-portal",
+        "completedNodeIds": [
+          "start-portal"
+        ]
+      }
+    }
+  },
+  "activeHomeworkByDomain": {
+    "spelling": {
+      "homeworkId": "hw-spelling-66450520",
+      "weekOf": "2026-10-14",
+      "testDate": null,
+      "returnTag": "#sunny_demo-pashley_hw-spelling-66450520",
+      "wordList": [
+        "shiny",
+        "slowly",
+        "lucky",
+        "neatly",
+        "sunny",
+        "likely",
+        "messy",
+        "quickly",
+        "rainy",
+        "friendly",
+        "able",
+        "behind",
+        "carefully",
+        "common",
+        "easy",
+        "fact",
+        "remember",
+        "sure",
+        "vowel",
+        "whole"
+      ],
+      "contentProfile": {
+        "practiceDomain": "spelling",
+        "topic": "Benchmark Advance Spelling – Unit 9 Week 1"
+      },
+      "capturedContent": {
+        "title": "Benchmark Advance Spelling – Unit 9 Week 1",
+        "rawText": "Discovery evidence pending."
+      },
+      "generatedAt": "2026-10-14T20:37:31.275Z",
+      "nodes": [
+        {
+          "id": "hw-spelling-66450520:discovery",
+          "type": "word-radar",
+          "activityId": "word-radar",
+          "title": "Spelling Discovery",
+          "targets": [
+            "shiny",
+            "slowly",
+            "lucky",
+            "neatly",
+            "sunny",
+            "likely",
+            "messy",
+            "quickly",
+            "rainy",
+            "friendly",
+            "able",
+            "behind",
+            "carefully",
+            "common",
+            "easy",
+            "fact",
+            "remember",
+            "sure",
+            "vowel",
+            "whole"
+          ],
+          "difficulty": 1,
+          "source": "chart_planner",
+          "locked": false,
+          "targetLane": "independent_discovery",
+          "contentId": "hw-spelling-66450520:discovery",
+          "wordRadarConfig": {
+            "recallMode": "hidden_word_recall",
+            "inputMode": "keyboard",
+            "speakStyle": "option-b",
+            "showTimer": false,
+            "hideWordDuringResponse": true,
+            "requiresCapturedResponse": true
+          }
+        }
+      ]
+    }
+  },
+  "activeSessionPlanByDomain": {
+    "spelling": {
+      "boardDefinition": {
+        "version": 2,
+        "title": "Benchmark Advance Spelling – Unit 9 Week 1 Discovery Quest",
+        "rationale": "A single-path opening diagnostic board is needed to run the Word Radar independent spelling discovery instrument across all 20 assigned words before any branching teaching paths can be justified. There is no existing evidence to branch on, so the board simply routes the child from start, through the diagnostic activity, to a completion endpoint.",
+        "rootPathId": "root-diagnostic-path",
+        "portals": [
+          {
+            "id": "start-portal",
+            "label": "Begin Spelling Quest",
+            "kind": "start",
+            "position": {
+              "landscape": {
+                "x": 0.08,
+                "y": 0.5
+              },
+              "portrait": {
+                "x": 0.5,
+                "y": 0.08
+              }
+            }
+          },
+          {
+            "id": "diagnostic-portal",
+            "label": "Word Radar Discovery Challenge",
+            "kind": "activity",
+            "activityNodeId": "hw-spelling-66450520:discovery",
+            "position": {
+              "landscape": {
+                "x": 0.5,
+                "y": 0.5
+              },
+              "portrait": {
+                "x": 0.5,
+                "y": 0.5
+              }
+            }
+          },
+          {
+            "id": "end-portal",
+            "label": "Discovery Complete",
+            "kind": "endpoint",
+            "position": {
+              "landscape": {
+                "x": 0.92,
+                "y": 0.5
+              },
+              "portrait": {
+                "x": 0.5,
+                "y": 0.92
+              }
+            }
+          }
+        ],
+        "paths": [
+          {
+            "id": "root-diagnostic-path",
+            "portalIds": [
+              "start-portal",
+              "diagnostic-portal",
+              "end-portal"
+            ]
+          }
+        ],
+        "choices": [],
+        "edges": [
+          {
+            "id": "edge-start-to-diagnostic",
+            "from": "start-portal",
+            "to": "diagnostic-portal",
+            "style": "solid",
+            "controlPoints": {
+              "landscape": [],
+              "portrait": []
+            }
+          },
+          {
+            "id": "edge-diagnostic-to-end",
+            "from": "diagnostic-portal",
+            "to": "end-portal",
+            "style": "solid",
+            "controlPoints": {
+              "landscape": [],
+              "portrait": []
+            }
+          }
+        ],
+        "theme": {
+          "background": {
+            "type": "image",
+            "value": "/generated/adventure-board-demo/silent-letter-world.jpeg"
+          },
+          "palette": {
+            "path": "#E0C27A",
+            "completed": "#8FBF7F",
+            "available": "#F2C464",
+            "locked": "#C9C2B4",
+            "current": "#F4A340",
+            "preview": "#EADFB4",
+            "text": "#3A2E1E",
+            "panel": "#FFFDF5"
+          }
+        },
+        "singlePathReason": "No Discovery evidence yet exists for this child, so no branching hypotheses can be supported. The sole purpose of this board is to administer the single validated diagnostic instrument (word-radar) across the full assigned word list; all learners take the identical start-to-diagnostic-to-end route until independent baseline evidence is captured."
+      },
+      "planId": "discovery:hw-spelling-66450520",
+      "childId": "demo-pashley",
+      "createdAt": "2026-10-14T20:37:30.585Z",
+      "source": "ingest_human_loop",
+      "activeHomeworkId": "hw-spelling-66450520",
+      "domain": "spelling",
+      "testDate": null,
+      "nodePlan": [
+        {
+          "id": "hw-spelling-66450520:discovery",
+          "type": "word-radar",
+          "activityId": "word-radar",
+          "title": "Spelling Discovery",
+          "targets": [
+            "shiny",
+            "slowly",
+            "lucky",
+            "neatly",
+            "sunny",
+            "likely",
+            "messy",
+            "quickly",
+            "rainy",
+            "friendly",
+            "able",
+            "behind",
+            "carefully",
+            "common",
+            "easy",
+            "fact",
+            "remember",
+            "sure",
+            "vowel",
+            "whole"
+          ],
+          "difficulty": 1,
+          "source": "chart_planner",
+          "locked": false,
+          "targetLane": "independent_discovery",
+          "contentId": "hw-spelling-66450520:discovery",
+          "wordRadarConfig": {
+            "recallMode": "hidden_word_recall",
+            "inputMode": "keyboard",
+            "speakStyle": "option-b",
+            "showTimer": false,
+            "hideWordDuringResponse": true,
+            "requiresCapturedResponse": true
+          }
+        }
+      ],
+      "variationPolicy": {
+        "avoidExactPreviousNodeOrder": false,
+        "avoidExactPreviousWordOrder": false,
+        "seed": "hw-spelling-66450520",
+        "previousCompletedNodeCount": 0
+      },
+      "companionPolicy": {
+        "companionId": "elli",
+        "displayName": "Elli",
+        "openingLinePolicy": "silent",
+        "verbosity": "low",
+        "maxMicroProbes": 0
+      },
+      "evidenceUsed": [
+        {
+          "id": "assignment:66450520008dbd0197adfabb61b5d365bfc605c26eaec57d2135757c7a5ba3b1",
+          "type": "assignment",
+          "summary": "Captured school spelling target."
+        }
+      ],
+      "openQuestions": [],
+      "approvalStatus": "approved",
+      "adventureBoard": {
+        "schemaVersion": 1,
+        "definition": {
+          "version": 2,
+          "title": "Benchmark Advance Spelling – Unit 9 Week 1 Discovery Quest",
+          "rationale": "A single-path opening diagnostic board is needed to run the Word Radar independent spelling discovery instrument across all 20 assigned words before any branching teaching paths can be justified. There is no existing evidence to branch on, so the board simply routes the child from start, through the diagnostic activity, to a completion endpoint.",
+          "rootPathId": "root-diagnostic-path",
+          "portals": [
+            {
+              "id": "start-portal",
+              "label": "Begin Spelling Quest",
+              "kind": "start",
+              "position": {
+                "landscape": {
+                  "x": 0.08,
+                  "y": 0.5
+                },
+                "portrait": {
+                  "x": 0.5,
+                  "y": 0.08
+                }
+              }
+            },
+            {
+              "id": "diagnostic-portal",
+              "label": "Word Radar Discovery Challenge",
+              "kind": "activity",
+              "activityNodeId": "hw-spelling-66450520:discovery",
+              "position": {
+                "landscape": {
+                  "x": 0.5,
+                  "y": 0.5
+                },
+                "portrait": {
+                  "x": 0.5,
+                  "y": 0.5
+                }
+              }
+            },
+            {
+              "id": "end-portal",
+              "label": "Discovery Complete",
+              "kind": "endpoint",
+              "position": {
+                "landscape": {
+                  "x": 0.92,
+                  "y": 0.5
+                },
+                "portrait": {
+                  "x": 0.5,
+                  "y": 0.92
+                }
+              }
+            }
+          ],
+          "paths": [
+            {
+              "id": "root-diagnostic-path",
+              "portalIds": [
+                "start-portal",
+                "diagnostic-portal",
+                "end-portal"
+              ]
+            }
+          ],
+          "choices": [],
+          "edges": [
+            {
+              "id": "edge-start-to-diagnostic",
+              "from": "start-portal",
+              "to": "diagnostic-portal",
+              "style": "solid",
+              "controlPoints": {
+                "landscape": [],
+                "portrait": []
+              }
+            },
+            {
+              "id": "edge-diagnostic-to-end",
+              "from": "diagnostic-portal",
+              "to": "end-portal",
+              "style": "solid",
+              "controlPoints": {
+                "landscape": [],
+                "portrait": []
+              }
+            }
+          ],
+          "theme": {
+            "background": {
+              "type": "image",
+              "value": "/generated/adventure-board-demo/silent-letter-world.jpeg"
+            },
+            "palette": {
+              "path": "#E0C27A",
+              "completed": "#8FBF7F",
+              "available": "#F2C464",
+              "locked": "#C9C2B4",
+              "current": "#F4A340",
+              "preview": "#EADFB4",
+              "text": "#3A2E1E",
+              "panel": "#FFFDF5"
+            }
+          },
+          "singlePathReason": "No Discovery evidence yet exists for this child, so no branching hypotheses can be supported. The sole purpose of this board is to administer the single validated diagnostic instrument (word-radar) across the full assigned word list; all learners take the identical start-to-diagnostic-to-end route until independent baseline evidence is captured."
+        },
+        "boardId": "hw-spelling-66450520:board:1",
+        "planId": "learning-cycle:hw-spelling-66450520:r2",
+        "childId": "demo-pashley",
+        "domain": "spelling",
+        "title": "Benchmark Advance Spelling – Unit 9 Week 1 Discovery Quest",
+        "theme": {
+          "background": {
+            "type": "image",
+            "value": "/generated/adventure-board-demo/silent-letter-world.jpeg"
+          },
+          "palette": {
+            "path": "#E0C27A",
+            "completed": "#8FBF7F",
+            "available": "#F2C464",
+            "locked": "#C9C2B4",
+            "current": "#F4A340",
+            "preview": "#EADFB4",
+            "text": "#3A2E1E",
+            "panel": "#FFFDF5"
+          }
+        },
+        "companion": {
+          "id": "elli",
+          "name": "Elli"
+        },
+        "nodes": [
+          {
+            "id": "start-portal",
+            "label": "Begin Spelling Quest",
+            "kind": "start",
+            "position": {
+              "x": 0.08,
+              "y": 0.5
+            },
+            "portraitPosition": {
+              "x": 0.5,
+              "y": 0.08
+            },
+            "state": "completed"
+          },
+          {
+            "id": "diagnostic-portal",
+            "activityNodeId": "hw-spelling-66450520:discovery",
+            "label": "Word Radar Discovery Challenge",
+            "kind": "activity",
+            "position": {
+              "x": 0.5,
+              "y": 0.5
+            },
+            "portraitPosition": {
+              "x": 0.5,
+              "y": 0.5
+            },
+            "thumbnailUrl": "/thumbnails/activities/word-radar.svg",
+            "activityId": "word-radar",
+            "state": "available",
+            "target": {
+              "laneId": "hw-spelling-66450520:discovery",
+              "skill": "hw-spelling-66450520:discovery",
+              "words": [
+                "shiny",
+                "slowly",
+                "lucky",
+                "neatly",
+                "sunny",
+                "likely",
+                "messy",
+                "quickly",
+                "rainy",
+                "friendly",
+                "able",
+                "behind",
+                "carefully",
+                "common",
+                "easy",
+                "fact",
+                "remember",
+                "sure",
+                "vowel",
+                "whole"
+              ]
+            },
+            "wordRadarConfig": {
+              "recallMode": "hidden_word_recall",
+              "inputMode": "keyboard",
+              "speakStyle": "option-b",
+              "showTimer": false,
+              "hideWordDuringResponse": true,
+              "requiresCapturedResponse": true
+            },
+            "action": {
+              "type": "launch-activity",
+              "payloadId": "hw-spelling-66450520:discovery"
+            }
+          },
+          {
+            "id": "end-portal",
+            "label": "Discovery Complete",
+            "kind": "reward",
+            "position": {
+              "x": 0.92,
+              "y": 0.5
+            },
+            "portraitPosition": {
+              "x": 0.5,
+              "y": 0.92
+            },
+            "state": "locked",
+            "lock": {
+              "reason": "planner-sequence",
+              "label": "Keep going"
+            }
+          }
+        ],
+        "edges": [
+          {
+            "id": "edge-start-to-diagnostic",
+            "from": "start-portal",
+            "to": "diagnostic-portal",
+            "style": "solid",
+            "controlPoints": {
+              "landscape": [],
+              "portrait": []
+            },
+            "state": "available"
+          },
+          {
+            "id": "edge-diagnostic-to-end",
+            "from": "diagnostic-portal",
+            "to": "end-portal",
+            "style": "solid",
+            "controlPoints": {
+              "landscape": [],
+              "portrait": []
+            },
+            "state": "locked"
+          }
+        ],
+        "choiceSets": [],
+        "progress": {
+          "currentNodeId": "diagnostic-portal",
+          "completedNodeIds": [
+            "start-portal"
+          ]
+        }
+      }
+    }
+  },
+  "aiContentCatalog": [],
+  "learningExperiments": [],
+  "learningTheoryDecisions": [],
+  "selectedHomeworkDomain": "spelling"
 }
