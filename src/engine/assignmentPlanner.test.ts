@@ -507,8 +507,14 @@ describe("assignment planner", () => {
     expect(ASSIGNMENT_PLANNER_PERSONA).toContain("homework as the reality anchor");
     expect(ASSIGNMENT_PLANNER_PERSONA).toContain("strong sense of taste");
     expect(ASSIGNMENT_PLANNER_PERSONA).toContain("The board is not a worksheet");
+    expect(ASSIGNMENT_PLANNER_PERSONA).not.toContain("Before you return a plan");
+    expect(ASSIGNMENT_PLANNER_PERSONA).not.toContain("read it as the child would");
     expect(prompt).toContain("Design today's learning journey");
     expect(prompt).toContain("explain why the journey you chose fits this child today");
+    expect(prompt).not.toContain("Before you return a plan");
+    expect(prompt).not.toContain("read it as the child would");
+    expect(prompt).not.toContain("same activity shell appears more than once before Mystery");
+    expect(prompt).not.toContain("why this will not feel like grind");
     expect(prompt).not.toContain("same-activity run exceeds");
     expect(prompt).not.toContain("Do not split one lane into a long run");
   });
@@ -531,11 +537,13 @@ describe("assignment planner", () => {
     expect(prompt).toContain("The child experiences the activity, not your internal capability mode");
     expect(prompt).toContain("same game shell");
     expect(prompt).toContain("choose a different material or explain why the repetition is the right tutor move");
-    expect(prompt).toContain("same activity shell appears more than once before Mystery");
-    expect(prompt).toContain("why this will not feel like grind");
     expect(prompt).toContain("nodes exist to change the lived lesson");
+    expect(prompt).not.toContain("Before you return a plan");
+    expect(prompt).not.toContain("same activity shell appears more than once before Mystery");
+    expect(prompt).not.toContain("why this will not feel like grind");
     expect(prompt).not.toContain("After the first clean measurement");
     expect(prompt).not.toContain("consider Letter Rush or Monster Stampede");
+    expect(prompt).not.toContain("consider Spell Check");
   });
 
   it("does not ask the planner to put capability-mode ids into Word Radar recallMode", () => {
