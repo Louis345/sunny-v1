@@ -16,6 +16,7 @@ export type AdventureBoardExperienceProps = {
   companionBehavior?: CompanionBehavior | null;
   onNodeClick?: (node: AdventureBoardNode) => void;
   onChoiceClick?: (option: AdventureChoiceOption, choiceSet: AdventureChoiceSet) => void;
+  prepareChoiceSet?: (choiceSet: AdventureChoiceSet) => Promise<AdventureChoiceSet | null>;
 };
 
 export function AdventureBoardExperience({
@@ -25,6 +26,7 @@ export function AdventureBoardExperience({
   companionBehavior = null,
   onNodeClick,
   onChoiceClick,
+  prepareChoiceSet,
 }: AdventureBoardExperienceProps): React.ReactElement | null {
   const board = packet.activeSessionPlan?.adventureBoard;
   if (!board) return null;
@@ -39,6 +41,7 @@ export function AdventureBoardExperience({
         board={board}
         onNodeClick={onNodeClick}
         onChoiceClick={onChoiceClick}
+        prepareChoiceSet={prepareChoiceSet}
       />
       {shouldRenderCompanion ? (
         <CompanionLayer

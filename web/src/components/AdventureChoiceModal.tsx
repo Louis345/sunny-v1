@@ -20,6 +20,8 @@ export type AdventureChoiceModalProps = {
   choiceSet: AdventureChoiceSet | null;
   open: boolean;
   previewMode?: boolean;
+  preparing?: boolean;
+  preparingLabel?: string;
   onSelect: (option: AdventureChoiceOption) => void;
   onDismiss: () => void;
 };
@@ -169,6 +171,8 @@ export function AdventureChoiceModal({
   choiceSet,
   open,
   previewMode = false,
+  preparing = false,
+  preparingLabel = "Preparing choices",
   onSelect,
   onDismiss,
 }: AdventureChoiceModalProps) {
@@ -205,7 +209,17 @@ export function AdventureChoiceModal({
               <h2 className="adventure-choice-modal__title">{choiceSet.title}</h2>
             </motion.div>
             <div className="adventure-choice-modal__cards">
-              {choiceSet.options.map((option, idx) => {
+              {preparing ? (
+                <div
+                  className="adventure-choice-modal__preparing"
+                  data-testid="adventure-choice-preparing"
+                  role="status"
+                >
+                  <Sparkles size={28} strokeWidth={2.5} />
+                  <span>{preparingLabel}</span>
+                </div>
+              ) : null}
+              {!preparing && choiceSet.options.map((option, idx) => {
                 const accent = accentFor(option, choiceSet);
                 const displayLabel = displayLabelFor(option);
                 const locked = option.state === "locked";

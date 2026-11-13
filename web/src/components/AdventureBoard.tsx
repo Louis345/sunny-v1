@@ -31,6 +31,7 @@ type AdventureBoardProps = {
   board: AdventureBoardJson;
   onNodeClick?: (node: AdventureBoardNode) => void;
   onChoiceClick?: (option: AdventureChoiceOption, choiceSet: AdventureChoiceSet) => void;
+  prepareChoiceSet?: (choiceSet: AdventureChoiceSet) => Promise<AdventureChoiceSet | null>;
 };
 
 type PositionedAdventureBoardNode = AdventureBoardNode & {
@@ -106,13 +107,18 @@ export function AdventureBoard({
   board,
   onNodeClick,
   onChoiceClick,
+  prepareChoiceSet,
 }: AdventureBoardProps): React.ReactElement {
   const resolvedNodes = board.nodes.flatMap((node) => {
     const positionedNode = resolveNodePosition(node);
     return positionedNode ? [positionedNode] : [];
   });
-  const choiceSetsById = new Map((board.choiceSets ?? []).map((set) => [set.id, set]));
   const [openChoiceSetId, setOpenChoiceSetId] = useState<string | null>(null);
+  const [preparedChoiceSetById, setPreparedChoiceSetById] = useState<Record<string, AdventureChoiceSet>>({});
+  const [preparingChoiceSetId, setPreparingChoiceSetId] = useState<string | null>(null);
+  const choiceSetsById = new Map(
+    (board.choiceSets ?? []).map((set) => [set.id, preparedChoiceSetById[set.id] ?? set]),
+  );
   const [selectedOptionByChoiceSet, setSelectedOptionByChoiceSet] = useState<Record<string, string>>({});
   const openChoiceSet = openChoiceSetId ? choiceSetsById.get(openChoiceSetId) ?? null : null;
   const skippedRouteNodeIds = new Set<string>();
@@ -198,7 +204,38 @@ export function AdventureBoard({
               }}
               onClick={() => {
                 if (node.choiceSetId && choiceSetsById.has(node.choiceSetId)) {
+                  const choiceSet = choiceSetsById.get(node.choiceSetId)!;
                   setOpenChoiceSetId(node.choiceSetId);
+                  if (
+                    prepareChoiceSet &&
+                    (choiceSet.kind === "quest-wrapper" || choiceSet.kind === "boss-wrapper")
+                  ) {
+                    setPreparingChoiceSetId(choiceSet.id);
+                    void prepareChoiceSet(choiceSet)
+                      .then((prepared) => {
+                        if (!prepared) return;
+                        setPreparedChoiceSetById((prev) => ({
+                          ...prev,
+                          [prepared.id]: prepared,
+                        }));
+                      })
+                      .catch((err: unknown) => {
+                        console.warn(" 🎮 [AdventureBoard] choice_prepare_failed", {
+                          choiceSetId: choiceSet.id,
+                          error: err instanceof Error ? err.message : String(err),
+                        });
+                        setPreparedChoiceSetById((prev) => ({
+                          ...prev,
+                          [choiceSet.id]: {
+                            ...choiceSet,
+                            options: [],
+                          },
+                        }));
+                      })
+                      .finally(() => {
+                        setPreparingChoiceSetId((current) => current === choiceSet.id ? null : current);
+                      });
+                  }
                 }
                 onNodeClick?.(node);
               }}
@@ -242,6 +279,8 @@ export function AdventureBoard({
       <AdventureChoiceModal
         choiceSet={openChoiceSet}
         open={Boolean(openChoiceSet)}
+        preparing={Boolean(openChoiceSetId && preparingChoiceSetId === openChoiceSetId)}
+        preparingLabel="Preparing adventure choices"
         onDismiss={() => setOpenChoiceSetId(null)}
         onSelect={(option) => {
           if (openChoiceSet?.kind === "baseline-route" && board.layout?.routeChoiceBehavior === "exclusive") {

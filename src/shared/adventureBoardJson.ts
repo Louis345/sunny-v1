@@ -210,6 +210,17 @@ export interface AdventureChoiceOption {
   description?: string;
   icon?: string;
   thumbnailUrl?: string;
+  generatedCandidateId?: string;
+  generatedCandidateStatus?: string;
+  generatedConceptId?: string;
+  generatedConceptStatus?: string;
+  conceptArtDirection?: string;
+  conceptMicroQuestion?: {
+    prompt: string;
+    answerType: "free_text" | "short_choice";
+    options?: string[];
+  };
+  contentId?: string;
   state: "available" | "locked" | "completed";
   nodeId?: string;
   tags?: string[];

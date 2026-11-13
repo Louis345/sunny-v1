@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it, vi } from "vitest";
@@ -17,7 +17,11 @@ import adventureBoardStoriesMeta, {
 } from "../stories/AdventureBoard.stories";
 import rawHorizontalBoardJson from "../storybook/raw-horizontal-adventure-board.json";
 import reinaChartPacketJson from "../storybook/reina-chart-experience-packet.json";
-import type { AdventureBoardJson } from "../../../src/shared/adventureBoardJson";
+import type {
+  AdventureBoardJson,
+  AdventureChoiceOption,
+  AdventureChoiceSet,
+} from "../../../src/shared/adventureBoardJson";
 import type { ChildExperiencePacket } from "../../../src/profiles/childExperiencePacket";
 import { DEFAULT_ADVENTURE_MAP_PROFILE } from "../../../src/context/schemas/learningProfile";
 import { cloneCompanionDefaults } from "../../../src/shared/companionTypes";
@@ -372,6 +376,37 @@ describe("AdventureBoard", () => {
     ]);
   });
 
+  it("includes generated candidate lifecycle metadata in choice evidence", () => {
+    const board = boardWithSpecialChoice("quest");
+    const choiceSet = board.choiceSets!.find((set) => set.id === "quest-choice")!;
+    const preparedChoiceSet: AdventureChoiceSet = {
+      ...choiceSet,
+      options: choiceSet.options.slice(0, 2).map((option, index) => ({
+        ...option,
+        generatedCandidateId: `candidate-${index}`,
+        generatedCandidateStatus: "validated_available",
+      })),
+    };
+    const packet = packetForBoard({ ...board, choiceSets: [preparedChoiceSet] });
+
+    const event = buildAdventureBoardChoiceEventInput(
+      packet,
+      preparedChoiceSet,
+      preparedChoiceSet.options[0]!,
+      { createdAt: "2026-05-27T12:00:00.000Z" },
+    );
+
+    expect(event).toMatchObject({
+      selectedCandidateId: "candidate-0",
+      candidateIds: ["candidate-0", "candidate-1"],
+      notSelectedCandidateIds: ["candidate-1"],
+      candidateStatuses: {
+        "candidate-0": "validated_available",
+        "candidate-1": "validated_available",
+      },
+    });
+  });
+
   it("builds post-activity engagement evidence from planner board launches", () => {
     const packet = packetForBoard(reinaCurrentHomeworkBoard);
     const node: NodeConfig = {
@@ -467,6 +502,58 @@ describe("AdventureBoard", () => {
     expect(modal).toHaveAttribute("data-choice-kind", "quest-wrapper");
     expect(within(modal).getAllByTestId("adventure-choice-card")).toHaveLength(3);
     expect(within(modal).getByRole("button", { name: /Story Quest/ })).not.toBeDisabled();
+  });
+
+  it("prepares Quest wrapper candidates when the modal opens and renders validated cards", async () => {
+    const prepareChoiceSet = vi.fn(async (choiceSet: AdventureChoiceSet) => ({
+      ...choiceSet,
+      options: choiceSet.options.slice(0, 2).map((option: AdventureChoiceOption, index: number) => ({
+        ...option,
+        id: `${option.id}-candidate`,
+        label: `${option.label} Ready`,
+        generatedCandidateId: `candidate-${index}`,
+        generatedCandidateStatus: "validated_available",
+      })),
+    }));
+    render(
+      <AdventureBoard
+        board={boardWithSpecialChoice("quest")}
+        prepareChoiceSet={prepareChoiceSet}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Quest" }));
+
+    expect(screen.getByTestId("adventure-choice-preparing")).toBeVisible();
+    await waitFor(() => {
+      expect(screen.queryByTestId("adventure-choice-preparing")).toBeNull();
+    });
+    const modal = screen.getByTestId("adventure-choice-modal");
+    expect(prepareChoiceSet).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "quest-choice", kind: "quest-wrapper" }),
+    );
+    expect(within(modal).getAllByTestId("adventure-choice-card")).toHaveLength(2);
+    expect(within(modal).getByRole("button", { name: /Story Quest Ready/ })).toBeVisible();
+  });
+
+  it("does not expose raw Quest wrapper choices when candidate preparation fails", async () => {
+    const prepareChoiceSet = vi.fn(async () => {
+      throw new Error("validation_failed");
+    });
+    render(
+      <AdventureBoard
+        board={boardWithSpecialChoice("quest")}
+        prepareChoiceSet={prepareChoiceSet}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Quest" }));
+
+    await waitFor(() => {
+      expect(screen.queryByTestId("adventure-choice-preparing")).toBeNull();
+    });
+    const modal = screen.getByTestId("adventure-choice-modal");
+    expect(within(modal).queryAllByTestId("adventure-choice-card")).toHaveLength(0);
   });
 
   it("opens Boss wrapper choices in the shared card modal when Boss is available", () => {
@@ -891,6 +978,19 @@ describe("AdventureBoardExperience", () => {
     expect(source).toContain(
       "Human-caught invariant: Storybook proves the JSON board can render, but only the live App branch can prove old-board fallback is gone.",
     );
+  });
+
+  it("routes Quest/Boss wrapper choices through prepared generated candidates before launch", () => {
+    const source = readFileSync(resolve(__dirname, "../App.tsx"), "utf8");
+
+    expect(source).toContain("/api/homework/generated-candidates/concepts/prepare");
+    expect(source).toContain("/api/homework/generated-candidates/concepts/select");
+    expect(source).toContain("prepareChoiceSet={preparePlannerBoardChoiceSet}");
+    expect(source).toContain('choiceSet?.kind === "quest-wrapper"');
+    expect(source).toContain('choiceSet?.kind === "boss-wrapper"');
+    expect(source).toContain("selectedConceptId");
+    expect(source).toContain("generatedConceptId");
+    expect(source).toContain("return;");
   });
 
   it("removes the legacy AdventureMap frontend while keeping SlotMachine logged for rehome", () => {

@@ -72,6 +72,14 @@ import {
   generateExperienceHtmlWithSonnet,
 } from "../engine/generatedExperienceArtifact";
 import {
+  prepareGeneratedExperienceCandidates,
+  selectGeneratedExperienceCandidate,
+} from "../engine/generatedExperienceCandidates";
+import {
+  prepareGeneratedExperienceConcepts,
+  selectGeneratedExperienceConcept,
+} from "../engine/generatedExperienceConcepts";
+import {
   buildAdaptiveEvidenceSnapshot,
   questGateFromSnapshot,
 } from "../engine/adaptiveEvidenceSnapshot";
@@ -604,6 +612,155 @@ export function setupRoutes(app: Express): void {
         skippedPersistence: false,
         choiceEventId: event.choiceEventId,
       });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      return res.status(500).json({ ok: false, error: message });
+    }
+  });
+
+  app.post("/api/homework/generated-candidates/prepare", async (req: Request, res: Response) => {
+    try {
+      const childId =
+        typeof req.body?.childId === "string" ? req.body.childId.trim().toLowerCase() : "";
+      const kind = req.body?.kind === "quest" || req.body?.kind === "boss" ? req.body.kind : "";
+      const nodeId = typeof req.body?.nodeId === "string" ? req.body.nodeId.trim() : "";
+      const choiceSetId = typeof req.body?.choiceSetId === "string" ? req.body.choiceSetId.trim() : "";
+      const optionIds = Array.isArray(req.body?.optionIds)
+        ? req.body.optionIds.map((id: unknown) => String(id).trim()).filter(Boolean)
+        : [];
+      if (!childId || !kind || !nodeId || !choiceSetId) {
+        return res.status(400).json({ ok: false, error: "childId, kind, nodeId, choiceSetId required" });
+      }
+      const result = await prepareGeneratedExperienceCandidates({
+        childId,
+        kind,
+        nodeId,
+        choiceSetId,
+        optionIds,
+      });
+      if (!result.ok) {
+        const status = result.reason === "homework_cycle_missing" ||
+          result.reason === "choice_set_missing"
+          ? 404
+          : 409;
+        return res.status(status).json({ ok: false, error: result.reason, reason: result.reason });
+      }
+      return res.json(result);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      return res.status(500).json({ ok: false, error: message });
+    }
+  });
+
+  app.post("/api/homework/generated-candidates/select", (req: Request, res: Response) => {
+    try {
+      const childId =
+        typeof req.body?.childId === "string" ? req.body.childId.trim().toLowerCase() : "";
+      const kind = req.body?.kind === "quest" || req.body?.kind === "boss" ? req.body.kind : "";
+      const nodeId = typeof req.body?.nodeId === "string" ? req.body.nodeId.trim() : "";
+      const choiceSetId = typeof req.body?.choiceSetId === "string" ? req.body.choiceSetId.trim() : "";
+      const selectedCandidateId =
+        typeof req.body?.selectedCandidateId === "string" ? req.body.selectedCandidateId.trim() : "";
+      const choiceEventId =
+        typeof req.body?.choiceEventId === "string" ? req.body.choiceEventId.trim() : "";
+      if (!childId || !kind || !nodeId || !choiceSetId || !selectedCandidateId) {
+        return res.status(400).json({
+          ok: false,
+          error: "childId, kind, nodeId, choiceSetId, selectedCandidateId required",
+        });
+      }
+      const result = selectGeneratedExperienceCandidate({
+        childId,
+        kind,
+        nodeId,
+        choiceSetId,
+        selectedCandidateId,
+        ...(choiceEventId ? { choiceEventId } : {}),
+      });
+      if (!result.ok) {
+        return res.status(result.reason === "candidate_set_missing" ? 404 : 409).json({
+          ok: false,
+          error: result.reason,
+          reason: result.reason,
+        });
+      }
+      return res.json(result);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      return res.status(500).json({ ok: false, error: message });
+    }
+  });
+
+  app.post("/api/homework/generated-candidates/concepts/prepare", async (req: Request, res: Response) => {
+    try {
+      const childId =
+        typeof req.body?.childId === "string" ? req.body.childId.trim().toLowerCase() : "";
+      const kind = req.body?.kind === "quest" || req.body?.kind === "boss" ? req.body.kind : "";
+      const nodeId = typeof req.body?.nodeId === "string" ? req.body.nodeId.trim() : "";
+      const choiceSetId = typeof req.body?.choiceSetId === "string" ? req.body.choiceSetId.trim() : "";
+      const optionIds = Array.isArray(req.body?.optionIds)
+        ? req.body.optionIds.map((id: unknown) => String(id).trim()).filter(Boolean)
+        : [];
+      if (!childId || !kind || !nodeId || !choiceSetId) {
+        return res.status(400).json({ ok: false, error: "childId, kind, nodeId, choiceSetId required" });
+      }
+      const result = await prepareGeneratedExperienceConcepts({
+        childId,
+        kind,
+        nodeId,
+        choiceSetId,
+        optionIds,
+      });
+      if (!result.ok) {
+        const status = result.reason === "homework_cycle_missing" ||
+          result.reason === "choice_set_missing"
+          ? 404
+          : 409;
+        return res.status(status).json({ ok: false, error: result.reason, reason: result.reason });
+      }
+      return res.json(result);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      return res.status(500).json({ ok: false, error: message });
+    }
+  });
+
+  app.post("/api/homework/generated-candidates/concepts/select", async (req: Request, res: Response) => {
+    try {
+      const childId =
+        typeof req.body?.childId === "string" ? req.body.childId.trim().toLowerCase() : "";
+      const kind = req.body?.kind === "quest" || req.body?.kind === "boss" ? req.body.kind : "";
+      const nodeId = typeof req.body?.nodeId === "string" ? req.body.nodeId.trim() : "";
+      const choiceSetId = typeof req.body?.choiceSetId === "string" ? req.body.choiceSetId.trim() : "";
+      const selectedConceptId =
+        typeof req.body?.selectedConceptId === "string" ? req.body.selectedConceptId.trim() : "";
+      const choiceEventId =
+        typeof req.body?.choiceEventId === "string" ? req.body.choiceEventId.trim() : "";
+      const microQuestionAnswer =
+        typeof req.body?.microQuestionAnswer === "string" ? req.body.microQuestionAnswer.trim() : "";
+      if (!childId || !kind || !nodeId || !choiceSetId || !selectedConceptId) {
+        return res.status(400).json({
+          ok: false,
+          error: "childId, kind, nodeId, choiceSetId, selectedConceptId required",
+        });
+      }
+      const result = await selectGeneratedExperienceConcept({
+        childId,
+        kind,
+        nodeId,
+        choiceSetId,
+        selectedConceptId,
+        ...(choiceEventId ? { choiceEventId } : {}),
+        ...(microQuestionAnswer ? { microQuestionAnswer } : {}),
+      });
+      if (!result.ok) {
+        return res.status(result.reason === "concept_set_missing" ? 404 : 409).json({
+          ok: false,
+          error: result.reason,
+          reason: result.reason,
+        });
+      }
+      return res.json(result);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
       return res.status(500).json({ ok: false, error: message });

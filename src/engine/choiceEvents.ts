@@ -63,6 +63,15 @@ export type ChoiceEvent = {
   shownOptions: ChoiceOption[];
   selectedOptionId?: string | null;
   skippedOptionIds: string[];
+  candidateIds?: string[];
+  selectedCandidateId?: string | null;
+  notSelectedCandidateIds?: string[];
+  candidateStatuses?: Record<string, string>;
+  conceptIds?: string[];
+  selectedConceptId?: string | null;
+  notSelectedConceptIds?: string[];
+  conceptStatuses?: Record<string, string>;
+  microQuestionAnswer?: string;
   source: ChoiceEventSource;
   timeToChoose_ms?: number;
   started?: boolean;

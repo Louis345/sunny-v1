@@ -97,6 +97,24 @@ export function buildAdventureBoardChoiceEventInput(
 ): ChoiceEventInput {
   const board = boardForPacket(packet);
   const shownOptions = choiceSet.options.map((option) => optionToChoiceOption(board, option));
+  const candidateIds = choiceSet.options
+    .map((option) => option.generatedCandidateId)
+    .filter((id): id is string => Boolean(id));
+  const selectedCandidateId = selectedOption.generatedCandidateId ?? null;
+  const candidateStatuses = Object.fromEntries(
+    choiceSet.options
+      .filter((option) => option.generatedCandidateId)
+      .map((option) => [option.generatedCandidateId as string, option.generatedCandidateStatus ?? "unknown"]),
+  );
+  const conceptIds = choiceSet.options
+    .map((option) => option.generatedConceptId)
+    .filter((id): id is string => Boolean(id));
+  const selectedConceptId = selectedOption.generatedConceptId ?? null;
+  const conceptStatuses = Object.fromEntries(
+    choiceSet.options
+      .filter((option) => option.generatedConceptId)
+      .map((option) => [option.generatedConceptId as string, option.generatedConceptStatus ?? "unknown"]),
+  );
   return {
     eventName: "option_selected",
     choiceSetId: choiceSet.id,
@@ -110,6 +128,18 @@ export function buildAdventureBoardChoiceEventInput(
     skippedOptionIds: choiceSet.options
       .map((option) => option.id)
       .filter((optionId) => optionId !== selectedOption.id),
+    ...(candidateIds.length ? { candidateIds } : {}),
+    ...(selectedCandidateId ? { selectedCandidateId } : {}),
+    ...(candidateIds.length
+      ? { notSelectedCandidateIds: candidateIds.filter((id) => id !== selectedCandidateId) }
+      : {}),
+    ...(Object.keys(candidateStatuses).length ? { candidateStatuses } : {}),
+    ...(conceptIds.length ? { conceptIds } : {}),
+    ...(selectedConceptId ? { selectedConceptId } : {}),
+    ...(conceptIds.length
+      ? { notSelectedConceptIds: conceptIds.filter((id) => id !== selectedConceptId) }
+      : {}),
+    ...(Object.keys(conceptStatuses).length ? { conceptStatuses } : {}),
     source: options.source ?? "child_choice",
     createdAt: options.createdAt ?? new Date().toISOString(),
   };

@@ -66,8 +66,13 @@ import {
   type PostActivityChoiceOutcome,
 } from "./utils/adventureBoardChoiceEvents";
 import {
+  buildAdventureBoardGeneratedCandidateSelectRequest,
+  applyGeneratedConceptCardsToChoiceSet,
+  buildAdventureBoardGeneratedConceptPrepareRequest,
+  buildAdventureBoardGeneratedConceptSelectRequest,
   buildAdventureBoardGeneratedChoiceLaunchNode,
   buildAdventureBoardGeneratedChoiceRequest,
+  type GeneratedConceptPrepareSuccess,
   type HomeworkRegenerateSuccess,
 } from "./utils/adventureBoardGeneratedChoices";
 import { useChildExperiencePacket } from "./hooks/useChildExperiencePacket";
@@ -904,6 +909,19 @@ function App() {
   const handlePlannerBoardNodeClick = useCallback(
     (boardNode: AdventureBoardNode) => {
       if (!plannerBoardPacket) return;
+      if (boardNode.choiceSetId) {
+        const choiceSet = plannerBoardPacket.activeSessionPlan?.adventureBoard?.choiceSets?.find(
+          (set) => set.id === boardNode.choiceSetId,
+        );
+        if (
+          choiceSet?.kind === "baseline-route" ||
+          choiceSet?.kind === "mystery" ||
+          choiceSet?.kind === "quest-wrapper" ||
+          choiceSet?.kind === "boss-wrapper"
+        ) {
+          return;
+        }
+      }
       const launchNode = resolvePlannerBoardLaunchNode(plannerBoardPacket, boardNode);
       if (!launchNode) {
         console.log(" 🎮 [AdventureBoard] node_not_launchable", {
@@ -919,6 +937,38 @@ function App() {
     [adventureChildId, launchPlannerBoardNode, plannerBoardPacket],
   );
 
+  const preparePlannerBoardChoiceSet = useCallback(
+    async (choiceSet: AdventureChoiceSet): Promise<AdventureChoiceSet | null> => {
+      if (!plannerBoardPacket) return choiceSet;
+      const request = buildAdventureBoardGeneratedConceptPrepareRequest(
+        plannerBoardPacket,
+        choiceSet,
+      );
+      if (!request) return choiceSet;
+      const response = await fetch("/api/homework/generated-candidates/concepts/prepare", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(request),
+      });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok || body?.ok !== true) {
+        throw new Error(body?.error ?? `generated_concepts_prepare_http_${response.status}`);
+      }
+      const prepared = applyGeneratedConceptCardsToChoiceSet(
+        choiceSet,
+        body as GeneratedConceptPrepareSuccess,
+      );
+      console.log(" 🎮 [AdventureBoard] generated_concepts_prepared", {
+        childId: adventureChildId,
+        choiceSetId: choiceSet.id,
+        conceptCount: prepared.options.length,
+        rejectedCount: Array.isArray(body.rejectedConcepts) ? body.rejectedConcepts.length : 0,
+      });
+      return prepared;
+    },
+    [adventureChildId, plannerBoardPacket],
+  );
+
   const handlePlannerBoardChoiceClick = useCallback(
     (option: AdventureChoiceOption, choiceSet: AdventureChoiceSet) => {
       if (!plannerBoardPacket) return;
@@ -927,7 +977,7 @@ function App() {
         choiceSet,
         option,
       );
-      void postAdventureBoardChoiceEvent(choiceEvent, { preview: mapPreviewMode })
+      const choiceEventPromise = postAdventureBoardChoiceEvent(choiceEvent, { preview: mapPreviewMode })
         .then((out) => {
           console.log(" 🎮 [AdventureBoard] choice_event", {
             childId: adventureChildId,
@@ -937,6 +987,7 @@ function App() {
             applied: out.applied,
             skippedPersistence: out.skippedPersistence,
           });
+          return out;
         })
         .catch((err: unknown) => {
           console.warn(" 🎮 [AdventureBoard] choice_event_failed", {
@@ -944,7 +995,110 @@ function App() {
             choiceSetId: choiceEvent.choiceSetId,
             error: err instanceof Error ? err.message : String(err),
           });
+          return null;
         });
+      const conceptSelectRequest = buildAdventureBoardGeneratedConceptSelectRequest(
+        plannerBoardPacket,
+        choiceSet,
+        option,
+      );
+      if (conceptSelectRequest) {
+        void (async () => {
+          const choiceOut = await choiceEventPromise;
+          const request = {
+            ...conceptSelectRequest,
+            ...(choiceOut?.choiceEventId ? { choiceEventId: choiceOut.choiceEventId } : {}),
+          };
+          const response = await fetch("/api/homework/generated-candidates/concepts/select", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(request),
+          });
+          const body = await response.json().catch(() => ({}));
+          if (!response.ok || body?.ok !== true) {
+            throw new Error(body?.error ?? `generated_concepts_select_http_${response.status}`);
+          }
+          const launchNode = buildAdventureBoardGeneratedChoiceLaunchNode(
+            plannerBoardPacket,
+            {
+              childId: request.childId,
+              date: typeof body.date === "string" ? body.date : new Date().toISOString().slice(0, 10),
+              nodeId: request.nodeId,
+              kind: request.kind,
+              feedback: `Child selected ${request.kind} concept ${request.selectedConceptId}.`,
+            },
+            body as HomeworkRegenerateSuccess,
+          );
+          console.log(" 🎮 [AdventureBoard] generated_concept_selected", {
+            childId: adventureChildId,
+            choiceSetId: choiceSet.id,
+            selectedConceptId: request.selectedConceptId,
+            selectedCandidateId: body.selectedCandidateId,
+            notSelectedConceptIds: body.notSelectedConceptIds,
+            newFile: body.newFile,
+          });
+          if (launchNode) launchPlannerBoardNode(launchNode);
+        })().catch((err: unknown) => {
+          console.warn(" 🎮 [AdventureBoard] generated_concept_failed", {
+            childId: adventureChildId,
+            choiceSetId: choiceSet.id,
+            selectedOptionId: option.id,
+            generatedConceptId: option.generatedConceptId,
+            error: err instanceof Error ? err.message : String(err),
+          });
+        });
+        return;
+      }
+      const candidateSelectRequest = buildAdventureBoardGeneratedCandidateSelectRequest(
+        plannerBoardPacket,
+        choiceSet,
+        option,
+      );
+      if (candidateSelectRequest) {
+        void (async () => {
+          const choiceOut = await choiceEventPromise;
+          const request = {
+            ...candidateSelectRequest,
+            ...(choiceOut?.choiceEventId ? { choiceEventId: choiceOut.choiceEventId } : {}),
+          };
+          const response = await fetch("/api/homework/generated-candidates/select", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(request),
+          });
+          const body = await response.json().catch(() => ({}));
+          if (!response.ok || body?.ok !== true) {
+            throw new Error(body?.error ?? `generated_candidates_select_http_${response.status}`);
+          }
+          const launchNode = buildAdventureBoardGeneratedChoiceLaunchNode(
+            plannerBoardPacket,
+            {
+              childId: request.childId,
+              date: typeof body.date === "string" ? body.date : new Date().toISOString().slice(0, 10),
+              nodeId: request.nodeId,
+              kind: request.kind,
+              feedback: `Child selected prepared ${request.kind} candidate ${request.selectedCandidateId}.`,
+            },
+            body as HomeworkRegenerateSuccess,
+          );
+          console.log(" 🎮 [AdventureBoard] generated_candidate_selected", {
+            childId: adventureChildId,
+            choiceSetId: choiceSet.id,
+            selectedCandidateId: request.selectedCandidateId,
+            notSelectedCandidateIds: body.notSelectedCandidateIds,
+            newFile: body.newFile,
+          });
+          if (launchNode) launchPlannerBoardNode(launchNode);
+        })().catch((err: unknown) => {
+          console.warn(" 🎮 [AdventureBoard] generated_candidate_failed", {
+            childId: adventureChildId,
+            choiceSetId: choiceSet.id,
+            selectedOptionId: option.id,
+            error: err instanceof Error ? err.message : String(err),
+          });
+        });
+        return;
+      }
       const generatedChoiceRequest = buildAdventureBoardGeneratedChoiceRequest(
         plannerBoardPacket,
         choiceSet,
@@ -1341,6 +1495,7 @@ function App() {
             idlePose="center"
             onNodeClick={handlePlannerBoardNodeClick}
             onChoiceClick={handlePlannerBoardChoiceClick}
+            prepareChoiceSet={preparePlannerBoardChoiceSet}
           />
         </div>
       );
