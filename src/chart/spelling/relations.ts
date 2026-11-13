@@ -133,7 +133,10 @@ export function validateRelations(db: ChartDatabase, e: EventInput): void {
             fail('scored_citation');
     }
     if (e.type === 'school_test.recorded') {
-        if (!sameWords((p as Payloads['school_test.recorded']).results.map(r => r.word)))
+        // A teacher may test part of the list (Ila 2026-11-13: 8 of 12). Untested words stay unknown; every tested
+        // word must be on the list, once.
+        const tested = (p as Payloads['school_test.recorded']).results.map(r => r.word);
+        if (!tested.length || new Set(tested).size !== tested.length || !tested.every(w => assignment.words.includes(w)))
             fail('school_coverage');
     }
     if (e.type === 'readiness.forecast') {

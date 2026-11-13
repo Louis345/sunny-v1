@@ -117,6 +117,19 @@ describe("history any model can read months later", () => {
   });
 });
 
+describe("a school test of part of the list", () => {
+  // 2026-11-13 Ila's real test covered 8 of her 12 words. The words not tested stay unknown, said plainly, never
+  // dropped silently and never scored (LEARNING_FEEDBACK_LOOP: untested targets remain unknown).
+  it("scores only the tested words and names the untested ones as unknown", () => {
+    assignment();
+    recordGradedTestBond(db, { cycle: cycle(), schoolTest: { ...test({ pardon: true, dormant: true, ornament: true, march: true }),
+      results: test({ pardon: true, dormant: true, ornament: true, march: true }).results.filter(row => row.word !== "ornament") }, occurredAt: "2026-11-12T12:00:00.000Z" });
+    const lines = predictionHistoryLines(exportEvents(db));
+    expect(lines.join("\n")).toContain(`${HW}: school test 2026-11-12: 3 of 3 right`);
+    expect(lines).toContain("- not on the school test, still unknown: ornament");
+  });
+});
+
 describe("the Planner reads the bond in her past weeks", () => {
   it("shows a week's locked predictions against the graded test in the week view", async () => {
     const { pastWeekLines } = await import("./pastWeeks");

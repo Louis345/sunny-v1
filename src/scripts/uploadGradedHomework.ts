@@ -404,7 +404,10 @@ async function recordCanonicalUpload(input: {
     },
     // The teacher's score when it is readable (0.8 is a fraction, 95 a percent). A bare 1 can mean "1 right" or
     // "100%", so then, and when no score is given, the score is counted from the ticks.
-    score: typeof input.upload.score === "number" && input.upload.score >= 0 && input.upload.score !== 1 && input.upload.score <= 100
+    // A whole number no bigger than the graded words is a count of right words (2026-11-13: "8" on 8 words was 8%).
+    score: typeof input.upload.score === "number" && Number.isInteger(input.upload.score) && input.upload.score > 1 && input.upload.score <= input.upload.gradedItems.length
+      ? { earned: input.upload.score, possible: input.upload.gradedItems.length }
+      : typeof input.upload.score === "number" && input.upload.score >= 0 && input.upload.score !== 1 && input.upload.score <= 100
       ? { earned: input.upload.score, possible: input.upload.score < 1 ? 1 : 100 }
       : { earned: right, possible: input.upload.gradedItems.length },
     items: input.upload.gradedItems.map((item, index) => ({

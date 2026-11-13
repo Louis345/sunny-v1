@@ -117,14 +117,21 @@ describe("parent uploads a graded spelling test as ticks", () => {
     expect(getLearningCycle(childId, homeworkId, { rootDir })!.evidenceSources).toHaveLength(0);
   });
 
-  it("stops loudly and records nothing when her chart refuses the test (a word missing from the graded list)", async () => {
+  // 2026-11-13 Ila's real test (8/8, owner-caught when recording it): the teacher tested 8 of the week's 12 words, and
+  // her chart refused any test that did not cover every word, so the first real grade could not be recorded. The
+  // contract says untested words stay unknown. A test may cover part of the list; untested words stay unscored.
+  it("records a school test that covers only part of the week's words; untested words stay unknown", async () => {
     const { rootDir, childId, homeworkId } = spellingWeek();
     const file = path.join(rootDir, "test.txt");
     fs.writeFileSync(file, "date: 2026-11-12\nnight ✓\nlight ✗ lite\n", "utf8");
-    await expect(runUploadGradedHomework([`--child=${childId}`, `--pdf=${file}`, `--homework=${homeworkId}`, "--yes"], {
+    await runUploadGradedHomework([`--child=${childId}`, `--pdf=${file}`, `--homework=${homeworkId}`, "--yes"], {
       rootDir, logger: { log: () => undefined }, interpret,
-    })).rejects.toThrow(/chart_bond_failed:chart_school_coverage/);
-    expect(getLearningCycle(childId, homeworkId, { rootDir })!.evidenceSources).toHaveLength(0);
+    });
+    expect(getLearningCycle(childId, homeworkId, { rootDir })!.evidenceSources).toHaveLength(1);
+    const db = openChart(childId);
+    const school = exportEvents(db).find(event => event.type === "school_test.recorded")!;
+    db.close();
+    expect((school.payload as { results: Array<{ word: string }> }).results.map(row => row.word)).toEqual(["night", "light"]);
   });
 
   it("does not read a JSON score of 1 as 100% when the ticks say otherwise", async () => {
@@ -139,5 +146,19 @@ describe("parent uploads a graded spelling test as ticks", () => {
     });
 
     expect(getLearningCycle(childId, homeworkId, { rootDir })!.calibrations!.at(-1)!.score).toBeCloseTo(1 / 3, 2);
+  });
+
+  // 2026-11-13 Ila's 8/8 test (AI-caught before recording): a teacher's count "2" on a 2-word test was read as 2 out of
+  // 100. A whole-number score no bigger than the number of graded words is a count of right words.
+  it("reads a teacher's count of right words as a count, not a percent", async () => {
+    const { rootDir, childId, homeworkId } = spellingWeek();
+    const file = path.join(rootDir, "test.json");
+    fs.writeFileSync(file, JSON.stringify({ score: 2, testDate: "2026-11-12", gradedItems: [
+      { target: "night", correct: true }, { target: "light", correct: true },
+    ] }), "utf8");
+    await runUploadGradedHomework([`--child=${childId}`, `--pdf=${file}`, `--homework=${homeworkId}`, "--yes"], {
+      rootDir, logger: { log: () => undefined }, interpret,
+    });
+    expect(getLearningCycle(childId, homeworkId, { rootDir })!.calibrations!.at(-1)!.score).toBeCloseTo(1, 2);
   });
 });

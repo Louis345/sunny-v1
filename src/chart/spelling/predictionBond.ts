@@ -60,6 +60,12 @@ export function predictionHistoryLines(events: readonly ChartEvent[], onlyAssign
         const p = row.predictions.at(-1);
         const predicted = p ? `predicted ${percent(p.expected.min)}-${percent(p.expected.max)}% right on her own (confidence ${p.confidence ?? 'not stated'}, model ${p.modelId ?? 'not recorded'}, locked ${day(p.lockedAt)})${row.predictions.length > 1 ? `; ${row.predictions.length - 1} earlier` : ''}` : 'no locked prediction';
         return `- ${row.word}: ${predicted}; school test: ${row.correct ? 'right' : `missed${row.writtenResponse ? `, wrote "${row.writtenResponse}"` : ''}`}`;
-      })];
+      }),
+      // A teacher may test part of the list: the rest stay unknown, said plainly (2026-11-13).
+      ...(() => {
+        const tested = new Set(scored.rows.map(row => row.word));
+        const untested = [...new Set(facts.filter(e => e.type === 'prediction.locked' && e.payload.assignmentId === assignmentId).map(e => String(e.payload.word)))].filter(word => !tested.has(word));
+        return untested.length ? [`- not on the school test, still unknown: ${untested.join(', ')}`] : [];
+      })()];
   });
 }
