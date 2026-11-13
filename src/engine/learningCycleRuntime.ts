@@ -76,7 +76,7 @@ export type CanonicalCompletionResult = {
     /** The screen text when the game opened this item (the game contract keeps it, not the game). */
     screenAtOpen?: string;
     /** Every try the game contract saw on this item, in order; each is saved as its own observation (2026-11-10). */
-    tries?: Array<{ attemptedValue: string; at?: number }>;
+    tries?: Array<{ attemptedValue: string; at?: number; hinted?: boolean }>;
   }>;
   frustrationSignals?: string[];
   replay?: boolean;
@@ -371,11 +371,13 @@ function observationsForCompletion(input: {
   const companionHelp = input.cycle.domain !== "spelling" && (input.result.companionInteractions?.length ?? 0) > 0;
   const previouslyExposedItemIds = new Set(input.cycle.observations.map((observation) => observation.itemId));
   // Each try is its own observation: the first is the measure, later tries are practice (2026-11-10).
-  const triesOf = (row: (typeof rows)[number]): Array<string | undefined> => {
-    const tries = ("tries" in row && Array.isArray(row.tries) ? row.tries : []).flatMap(entry => typeof entry?.attemptedValue === "string" ? [entry.attemptedValue.slice(0, 200)] : []).slice(0, 20);
-    return tries.length ? tries : [row.attemptedValue];
+  const triesOf = (row: (typeof rows)[number]): Array<{ attemptedValue: string | undefined; hinted: boolean }> => {
+    const tries = ("tries" in row && Array.isArray(row.tries) ? row.tries : []).flatMap(entry => typeof entry?.attemptedValue === "string" ? [{ attemptedValue: entry.attemptedValue.slice(0, 200), hinted: (entry as { hinted?: unknown }).hinted === true }] : []).slice(0, 20);
+    return tries.length ? tries : [{ attemptedValue: row.attemptedValue, hinted: false }];
   };
-  return rows.flatMap((triedRow, index) => triesOf(triedRow).map((attemptedValue, tryIndex, all) => {
+  // A built game that cannot report hints leaves help unknown, never "on her own" (BUGS.md 2026-11-08, owner 2026-11-13).
+  const hintsUnknown = node.implementationType === "generated-game" && !node.libraryGame && node.artifactBinding?.creativeProvenance?.reportsHints !== true;
+  return rows.flatMap((triedRow, index) => triesOf(triedRow).map(({ attemptedValue, hinted }, tryIndex, all) => {
     const row = { ...triedRow, attemptedValue };
     const tryFacts = all.length > 1 || ("tries" in triedRow && Array.isArray(triedRow.tries)) ? [tryIndex === 0 ? "first_try" : "retry", `attempt:${tryIndex + 1}`] : [];
     const item = node.evidenceContract.itemContracts?.[row.target];
@@ -385,7 +387,7 @@ function observationsForCompletion(input: {
     const answerShowing = item?.response.mode === "numeric" && typeof row.screenAtOpen === "string"
       && new RegExp(`=\\s*${String(item.response.expected).replace(".", "\\.")}(?![\\d.])`).test(row.screenAtOpen);
     const helpedOnItem = (input.result.companionHelpItemIds ?? []).includes(row.target);
-    const scaffolded = assistedInstruction || Number(row.scaffoldLevel ?? 0) > 0 || companionHelp || answerShowing || helpedOnItem;
+    const scaffolded = assistedInstruction || Number(row.scaffoldLevel ?? 0) > 0 || companionHelp || answerShowing || helpedOnItem || hinted;
     const repeatedAssessmentItem = node.state === "completed" || previouslyExposedItemIds.has(row.target) || tryIndex > 0;
     const spellingItem = spellingItems?.[row.target];
     const responseNotCaptured = !assistedInstruction && isUncapturedResponse(row.attemptedValue, input.cycle.domain === "math" || Boolean(spellingItems));
@@ -402,6 +404,7 @@ function observationsForCompletion(input: {
       ? measurementRole === "fresh_checkpoint"
       : node.role !== "baseline")
       && !scaffolded
+      && !hintsUnknown
       && !repeatedAssessmentItem
       && !responseNotCaptured;
     return {
@@ -412,12 +415,13 @@ function observationsForCompletion(input: {
       constructLinks: [{ constructId: spellingItem?.constructId ?? constructId, role: "primary", confidence: 1 }],
       result,
       assistance: {
-        status: scaffolded ? "assisted" : input.cycle.domain === "spelling" ? "unknown" : "unassisted",
+        status: scaffolded ? "assisted" : input.cycle.domain === "spelling" || hintsUnknown ? "unknown" : "unassisted",
         scaffolds: [
           ...(Number(row.scaffoldLevel ?? 0) > 0 ? [`scaffold_level_${row.scaffoldLevel}`] : []),
           ...(companionHelp ? ["companion_help"] : []),
           ...(answerShowing ? ["answer_on_screen"] : []),
           ...(helpedOnItem ? ["companion_help_on_item"] : []),
+          ...(hinted ? ["hint_shown"] : []),
         ],
       },
       exposure: eligibleFreshCheckpoint ? "unseen" : "previously_practiced",

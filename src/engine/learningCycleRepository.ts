@@ -92,6 +92,8 @@ export type LearningCycleArtifactBinding = {
     academicContractHash?: string;
     designArtifactHash?: string;
     generatedHtmlHash?: string;
+    /** The built game calls window.reportHint, so a try after a hint is known as helped (owner, 2026-11-13). */
+    reportsHints?: boolean;
     externalLibraryUrls?: string[];
     generationElapsedMs?: number;
     inputTokens?: number;

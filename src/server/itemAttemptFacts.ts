@@ -8,7 +8,7 @@ import type { LearningCycleRecordV2 } from "../engine/learningCycleRepository";
 import { scoreMathResponse, scoreSpellingRecall } from "../engine/learningCycleRuntime";
 
 type Answer = { value: string; at: number; correct?: boolean };
-type ItemState = { openedAt: number; answers: Answer[] };
+type ItemState = { openedAt: number; answers: Answer[]; hintBeforeTry?: number };
 const items = new Map<string, Map<string, ItemState>>();
 const MAX_GAMES = 50, MAX_ANSWERS = 20;
 const gameKey = (childId: string, nodeId: string) => `${childId}\u0000${nodeId}`;
@@ -42,6 +42,13 @@ export function noteItemAnswer(childId: string, nodeId: string, itemId: string, 
 }
 
 
+/** The game showed her a hint on this problem: every later try on it is helped (BUGS.md 2026-11-08, owner 2026-11-13). */
+export function noteItemHint(childId: string, nodeId: string, itemId: string, at = Date.now()): void {
+  const state = stateFor(childId, nodeId, itemId, at);
+  if (state.hintBeforeTry === undefined) state.hintBeforeTry = state.answers.length;
+  console.log(` 🎮 [item-attempts] [hint] child=${childId} node=${nodeId} item=${itemId} before_try=${state.answers.length + 1}`);
+}
+
 // A finished game's tries wait here for its completion to save them; the companion's live view starts clean.
 const finished = new Map<string, Map<string, ItemState>>();
 
@@ -55,26 +62,29 @@ export function finishItemAttempts(childId: string, nodeId: string): void {
 }
 
 /** Every try code saw on this game, per problem in order, taken once at completion (BUGS.md 2026-11-13). */
-export function takeServerTries(childId: string, nodeId: string): Map<string, string[]> {
+export type ServerTry = { attemptedValue: string; hinted?: true };
+export function takeServerTries(childId: string, nodeId: string): Map<string, ServerTry[]> {
   const key = gameKey(childId, nodeId);
   const game = items.get(key) ?? finished.get(key);
   items.delete(key);
   finished.delete(key);
-  return new Map([...(game ?? new Map<string, ItemState>()).entries()].filter(([, state]) => state.answers.length).map(([itemId, state]) => [itemId, state.answers.map(answer => answer.value)]));
+  return new Map([...(game ?? new Map<string, ItemState>()).entries()].filter(([, state]) => state.answers.length).map(([itemId, state]) =>
+    [itemId, state.answers.map((answer, index) => ({ attemptedValue: answer.value, ...(state.hintBeforeTry !== undefined && index >= state.hintBeforeTry ? { hinted: true as const } : {}) }))]));
 }
 
-type TriedRow = { target: string; tries?: Array<{ attemptedValue?: string }> } & Record<string, unknown>;
+type TriedRow = { target: string; tries?: Array<{ attemptedValue?: string; hinted?: boolean }> } & Record<string, unknown>;
 /**
- * A built game's summary can list fewer tries than she made (Reina 2026-11-13: 6, 6, 8 saved as one right first try).
- * Code's own record wins when it saw more tries; the game's wins only when it saw more than code did.
+ * A built game's summary can list fewer tries than she made (Reina 2026-11-13: 6, 6, 8 saved as one right first try)
+ * and never knows which came after a hint. Code's own record wins when it saw more tries, or as many with a hint shown;
+ * the game's wins only when it saw more than code did.
  */
-export function withServerTries<T extends TriedRow>(rows: T[], serverTries: ReadonlyMap<string, string[]>): T[] {
+export function withServerTries<T extends TriedRow>(rows: T[], serverTries: ReadonlyMap<string, ServerTry[]>): T[] {
   return rows.map(row => {
     const seen = serverTries.get(row.target);
     const reported = Array.isArray(row.tries) ? row.tries.length : 1;
-    if (!seen || seen.length <= reported) return row;
-    console.log(` 🎮 [item-attempts] [tries-restored] item=${row.target} game_reported=${reported} code_saw=${seen.length}`);
-    return { ...row, tries: seen.map(attemptedValue => ({ attemptedValue })) };
+    if (!seen || seen.length < reported || (seen.length === reported && !seen.some(entry => entry.hinted))) return row;
+    console.log(` 🎮 [item-attempts] [tries-restored] item=${row.target} game_reported=${reported} code_saw=${seen.length} hinted=${seen.filter(entry => entry.hinted).length}`);
+    return { ...row, tries: seen.map(entry => ({ ...entry })) };
   });
 }
 

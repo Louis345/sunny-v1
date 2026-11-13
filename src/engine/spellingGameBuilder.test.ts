@@ -174,6 +174,25 @@ it("asks every built game to report each step and its on-screen instruction", as
   }
 });
 
+// BUGS.md 2026-11-08 / owner 2026-11-13 ("garbage in, garbage out"): built games never reported hints, and the ask told
+// them Sunny keeps only her first answer, so retries and help went unreported. Every built game is now asked to report
+// every answer and every hint, and Sunny records whether the game it got can report hints.
+it("asks every built game to report every answer and every hint, and records whether it does", async () => {
+  const { buildSpellingGameAsk, buildMathGameAsk } = await import("./spellingGameBuilder");
+  const f = fixture();
+  const cycle = getLearningCycle(f.childId, f.homeworkId, { rootDir: f.rootDir })!;
+  const spelling = buildSpellingGameAsk({ cycle, node: cycle.nodes[0], rootDir: f.rootDir }), math = buildMathGameAsk({ cycle, node: cycle.nodes[0], rootDir: f.rootDir });
+  expect(spelling).toContain('window.reportHint("<the word>", "<what the hint showed her>")');
+  expect(math).toContain('window.reportHint("<itemId>", "<what the hint showed her>")');
+  expect(math).not.toContain("keeps her first answer");
+  expect(math).toContain("every answer she gives, retries too");
+  const planned = await plannedBoard(f);
+  const node = planned.nodes.find(row => preparingBoardInstance(planned)!.nodeIds.includes(row.nodeId))!;
+  const builder = recordedBuilder([GOOD.replace("</script>", 'function showHint(id){ window.reportHint(id, "Count by tens"); }</script>')]);
+  const ready = await prepareSuccessorBoard({ childId: f.childId, homeworkId: f.homeworkId, spellingGameClient: builder.client }, { rootDir: f.rootDir });
+  expect(ready.nodes.find(row => row.nodeId === node.nodeId)!.artifactBinding!.creativeProvenance).toMatchObject({ reportsHints: true });
+});
+
 // 2026-11-09 owner, after Ila's Spelling Voice Gate (the highlight of her day; she wanted to see what was behind the
 // door): a game she loved could only be replayed with its own words, because its words were written into it. The
 // Planner was missing a tool, not a rule: build from a game she played, so she keeps the mechanic she already

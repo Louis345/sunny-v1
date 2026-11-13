@@ -26,3 +26,13 @@ it("reports each step and its instruction to Sunny as facts, and never speaks on
   vi.advanceTimersByTime(300_000);
   expect(post.mock.calls.filter(([m]) => (m as any)?.type === "narration_request")).toHaveLength(0);
 });
+
+// BUGS.md 2026-11-08 / owner 2026-11-13: an answer after three hints was saved as on her own because games had no way
+// to tell Sunny a hint was shown. reportHint sends the fact; the server marks her later tries on that problem helped.
+it("reports a hint shown on a problem to Sunny as a fact", () => {
+  const post = vi.spyOn(window.parent, "postMessage").mockImplementation(() => {});
+  loadContract();
+  (window as any).reportHint("p2", "Count by sixes");
+  const state = post.mock.calls.map(([m]) => m as any).find(m => m?.type === "game_state_update");
+  expect(state?.payload ?? state).toEqual(expect.objectContaining({ hintShownItemId: "p2", hintText: "Count by sixes" }));
+});

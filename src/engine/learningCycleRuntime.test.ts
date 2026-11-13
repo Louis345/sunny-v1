@@ -590,6 +590,33 @@ describe("canonical learning cycle runtime", () => {
       targetResults: [{ target: "2x5", attemptedValue: "34", tries: [{ attemptedValue: "34" }, { attemptedValue: "10" }] }] }, { rootDir })).toThrow(/late_tries_completion_missing/);
   });
 
+  // BUGS.md 2026-11-08 (owner, 2026-11-13: "garbage in, garbage out, we need to trust the numbers"): built games never
+  // reported hints, so an answer after three hints was saved as on her own. Why the human caught it: Reina said the
+  // hints were long and a worked example. Why the logs missed it: hints were never sent. Why the lab missed it: its
+  // games have no hints. A try after a hint is helped; a game that cannot report hints has help unknown.
+  it("saves a try after a hint as helped, and the try before the hint as on her own", () => {
+    const rootDir = root();
+    createLearningCycle(input(), { rootDir });
+    const cycle = recordCanonicalNodeCompletion({ childId: "reina", homeworkId: "hw-runtime", sessionId: "s1", nodeId: "facts", result: { completed: true, accuracy: 1, timeSpent_ms: 1000,
+      targetResults: [{ target: "2x5", correct: true, attemptedValue: "10", tries: [{ attemptedValue: "34" }, { attemptedValue: "10", hinted: true }] }] } }, { rootDir })!;
+    const rows = cycle.observations.filter(row => row.itemId === "2x5");
+    expect(rows.map(row => row.assistance)).toEqual([{ status: "unassisted", scaffolds: [] }, { status: "assisted", scaffolds: ["hint_shown"] }]);
+  });
+
+  it("saves help as unknown, never on her own, for a built game that cannot report hints", () => {
+    for (const reportsHints of [false, true]) {
+      const rootDir = root();
+      const base = input();
+      createLearningCycle({ ...base, nodes: base.nodes.map(row => row.nodeId === "facts" ? { ...row, implementationType: "generated-game" as const,
+        artifactBinding: { ...row.artifactBinding!, creativeProvenance: { rationale: "r", qualityPrediction: "q", creatorPromptHash: "c", artworkPromptHash: "a", ...(reportsHints ? { reportsHints: true } : {}) } } } : row) }, { rootDir });
+      const cycle = recordCanonicalNodeCompletion({ childId: "reina", homeworkId: "hw-runtime", sessionId: "s1", nodeId: "facts", result: { completed: true, accuracy: 1, timeSpent_ms: 1000,
+        targetResults: [{ target: "2x5", correct: true, attemptedValue: "10" }] } }, { rootDir })!;
+      const row = cycle.observations.find(candidate => candidate.itemId === "2x5")!;
+      expect(row.assistance.status, `reportsHints=${reportsHints}`).toBe(reportsHints ? "unassisted" : "unknown");
+      if (!reportsHints) expect(row.provenance).toBe("practice");
+    }
+  });
+
   it("saves a math answer as helped when her companion helped while that problem was open", () => {
     const rootDir = root();
     createLearningCycle(input(), { rootDir });

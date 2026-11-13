@@ -91,6 +91,7 @@ How the game must work:
 - At big moments (a streak, a miss, a win), call window.fireCompanionEvent("<moment>", {word: "<word>"}) so Elli can react.
 - She spells each word at least once, by typing or tapping letters. A wrong answer never ends the game.
 - Each time she reaches a new step (for example listen, tap, type, check), call window.reportStep("<short step name>", "<the instruction on screen>"). Her companion and her session retro see the step.
+- Each time the game shows her a hint, a worked example or part of the word, call window.reportHint("<the word>", "<what the hint showed her>") first. Answers after a hint are saved as helped, so her own answers stay honest.
 - When she finishes, call window.sendNodeComplete({completed: true}).
 
 Reply with only the HTML document.`;
@@ -119,10 +120,11 @@ How Sunny's game contract works:
 - The game is one self-contained HTML document with inline CSS and JavaScript. The page has no internet, so pictures are CSS, SVG, canvas or emoji. It fills a frame about 900×650 pixels, with mouse or touch.
 - Sunny's contract is already loaded. window.GAME_PARAMS.itemBindings lists each problem as {itemId, display}.
 - window.openItem("<itemId>", "<progress, like Camp 2 of 6>") opens a problem. Sunny keeps what is on screen at that moment; an answer already showing counts as help.
-- window.fireAttemptEvent({target: "<itemId>", attemptedValue: "<her answer: digits, or the option id shown in brackets above, like odd>"}) reports her answer. Sunny keeps her first answer per problem and scores it.
+- window.fireAttemptEvent({target: "<itemId>", attemptedValue: "<her answer: digits, or the option id shown in brackets above, like odd>"}) reports her answer. Report every answer she gives, retries too; Sunny scores each one.
 - ${companion} is her companion and speaks for the game: parent.postMessage({type: "narration_request", text: "<what to say>", reason: "<why>"}, "*").
 - window.fireCompanionEvent("<moment>", {itemId: "<itemId>"}) lets ${companion} react at big moments.
 - window.reportStep("<short step name>", "<the instruction on screen>") each time she reaches a new step. Her companion and her session retro see the step.
+- window.reportHint("<itemId>", "<what the hint showed her>") each time the game shows her a hint, a worked example or part of the answer, before she answers. Answers after a hint are saved as helped, so her own answers stay honest.
 - window.sendNodeComplete({completed: true}) ends the game.
 
 Reply with only the HTML document.`;
@@ -228,7 +230,7 @@ export async function prepareGeneratedSpellingGame(input: {
     localArtworkPath: node.artwork.localPath ?? thumbnailUrlForActivity("generated-game"),
     contractFingerprint: hash({ evidenceContract: node.evidenceContract, html }), validationStatus: "passed",
     creativeProvenance: { rationale: node.openingScreen.purpose, qualityPrediction: node.theme, creatorPromptHash: hash(prompt), artworkPromptHash: hash(node.artwork.prompt ?? ""),
-      builderProvider: "anthropic", builderModel: spellingGameModel(), generatedHtmlHash: hash(html), generationElapsedMs: Date.now() - started,
+      builderProvider: "anthropic", builderModel: spellingGameModel(), generatedHtmlHash: hash(html), reportsHints: /reportHint\s*\(/.test(html), generationElapsedMs: Date.now() - started,
       inputTokens: first.inputTokens + (game === first ? 0 : game.inputTokens), outputTokens: first.outputTokens + (game === first ? 0 : game.outputTokens) },
   } }, opts);
 }
@@ -259,6 +261,6 @@ export function bindSavedSpellingGame(input: { cycle: LearningCycleRecordV2; nod
     localArtworkPath: node.artwork.localPath ?? thumbnailUrlForActivity("generated-game"),
     contractFingerprint: hash({ evidenceContract: node.evidenceContract, html }), validationStatus: "passed",
     creativeProvenance: { rationale: node.openingScreen.purpose, qualityPrediction: node.theme, creatorPromptHash: requestHash, artworkPromptHash: hash(node.artwork.prompt ?? ""),
-      builderProvider: "anthropic", builderModel: spellingGameModel(), generatedHtmlHash: hash(html), generationElapsedMs: 0, inputTokens: 0, outputTokens: 0 },
+      builderProvider: "anthropic", builderModel: spellingGameModel(), generatedHtmlHash: hash(html), reportsHints: /reportHint\s*\(/.test(html), generationElapsedMs: 0, inputTokens: 0, outputTokens: 0 },
   } }, opts);
 }

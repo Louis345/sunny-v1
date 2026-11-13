@@ -57,6 +57,15 @@ describe("attempt facts for the open problem", () => {
   it("keeps the game's tries when the game saw more than code did", async () => {
     const { withServerTries } = await import("./itemAttemptFacts");
     const row = { target: "p3", correct: true, attemptedValue: "8", tries: [{ attemptedValue: "7" }, { attemptedValue: "8" }] };
-    expect(withServerTries([row], new Map([["p3", ["8"]]]))).toEqual([row]);
+    expect(withServerTries([row], new Map([["p3", [{ attemptedValue: "8" }]]]))).toEqual([row]);
+  });
+
+  it("marks only the tries made after a hint was shown on that problem", async () => {
+    const { noteItemAnswer, noteItemHint, takeServerTries, withServerTries } = await import("./itemAttemptFacts");
+    noteItemAnswer("lab-kid", "hinted", "p1", "34", cycle as never);
+    noteItemHint("lab-kid", "hinted", "p1");
+    noteItemAnswer("lab-kid", "hinted", "p1", "17", cycle as never);
+    expect((withServerTries([{ target: "p1", correct: true, attemptedValue: "17" }], takeServerTries("lab-kid", "hinted"))[0] as { tries?: unknown }).tries)
+      .toEqual([{ attemptedValue: "34" }, { attemptedValue: "17", hinted: true }]);
   });
 });

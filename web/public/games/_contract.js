@@ -769,6 +769,16 @@ window.reportStep = function (step, instruction) {
   window.GameBridge.reportState(text || step, { gameStep: step, currentChallenge: text || step, stepStartedAt: Date.now() });
 };
 
+/**
+ * Built games report each hint, worked example or part of the answer they show (BUGS.md 2026-11-08, owner 2026-11-13:
+ * an answer after three hints was saved as on her own). A fact only: Sunny marks her later tries on that problem helped.
+ */
+window.reportHint = function (itemId, shown) {
+  if (typeof itemId !== "string" || !itemId.trim()) return;
+  var text = typeof shown === "string" ? shown.trim().slice(0, 200) : "";
+  window.GameBridge.reportState("Hint shown", { hintShownItemId: itemId.trim(), hintText: text });
+};
+
 window.SunnyActivity = {
   params: window.GAME_PARAMS,
   snapshot: function (snapshot) {
