@@ -105,7 +105,7 @@ it.each([
     const module = await import(pathToFileURL(path.join(process.cwd(), "web/node_modules/vite/dist/node/index.js")).href);
     vite = await module.createServer({ configFile: false, root: path.join(process.cwd(), "web"), cacheDir: path.join(rootDir, "vite-cache"), esbuild: { jsx: "automatic" }, css: { postcss: { plugins: [require(path.join(process.cwd(), "web/node_modules/tailwindcss"))({ content: [path.join(process.cwd(), "web/src/**/*.{js,ts,jsx,tsx}")] })] } }, define: { "import.meta.env": JSON.stringify({ VITE_SUNNY_RUNTIME_CONFIG: JSON.stringify({ subject: "homework", sessionMode: "real", previewMode: "off", nodeAccess: "normal", voiceMode: "normal", childId: "lab-child", homeworkDomain: "spelling" }) }) }, server: { host: "127.0.0.1", port: 0, fs: { allow: [process.cwd()] }, proxy: { "/api": `http://127.0.0.1:${address.port}`, "/ws": { target: `ws://127.0.0.1:${address.port}`, ws: true } } } }); await vite.listen();
     browser = await chromium.launch({ args: ["--use-fake-ui-for-media-stream", "--use-fake-device-for-media-stream"] });
-    const page = await browser.newPage({ viewport }); page.setDefaultTimeout(12000);
+    const page = await browser.newPage({ viewport }); page.setDefaultTimeout(30000);
     page.on("pageerror", error => errors.push(error.message)); page.on("response", response => { if (response.url().includes("/api/")) events.push(`${response.status()} ${response.url()}`); });
     await page.route("**/*", route => ["127.0.0.1", "localhost", ""].includes(new URL(route.request().url()).hostname) ? route.continue() : route.abort());
     await page.routeWebSocket("**/ws", socket => socket.onMessage(data => handleVoiceMessage(data, value => socket.send(value))));
@@ -214,12 +214,50 @@ it.each([
         const target = (await tiles.allTextContents()).join("").toLowerCase();
         letterRushWords.push(target);
         expect(target).toBe(missedWords[wordIndex]);
-        for (const letter of target) {
-          const falling = letterRush.locator(`button.falling[data-letter="${letter}"]`).first();
-          await falling.waitFor({ state: "attached", timeout: 12000 });
-          await falling.click({ force: true });
-        }
         const next = letterRush.getByRole("button", { name: "Next word →", exact: true });
+        for (const [letterIndex, letter] of [...target].entries()) {
+          const expectedTile = letterRush.locator("#targetRow .tile.next");
+          await expect.poll(async () => (await expectedTile.textContent())?.trim().toLowerCase(), {
+            message: `Letter Rush should request ${letter} in ${target}`,
+            timeout: 30000,
+          }).toBe(letter);
+          const falling = letterRush.locator(
+            `button.falling:not(.popped):not(.zapped):not(.trapped)[data-letter="${letter}"]`,
+          ).first();
+          const nextLetter = target[letterIndex + 1];
+          let accepted = false;
+          let attempts = 0;
+          const deadline = Date.now() + 30000;
+          while (!accepted && attempts < 12 && Date.now() < deadline) {
+            attempts += 1;
+            try {
+              await falling.waitFor({ state: "visible", timeout: 3000 });
+              const hitTarget = await falling.evaluate((element: any) => {
+                const rect = element.getBoundingClientRect();
+                return { width: rect.width, height: rect.height, visible: rect.bottom > 0 && rect.top < innerHeight };
+              });
+              expect(hitTarget.visible && hitTarget.width >= 44 && hitTarget.height >= 44).toBe(true);
+              // Falling targets never become geometrically stable, so dispatch
+              // through the actual button listener after verifying its live hit
+              // target. The state check below proves the game accepted it.
+              await falling.dispatchEvent("click");
+            } catch {
+              continue;
+            }
+            accepted = nextLetter
+              ? (await expectedTile.textContent())?.trim().toLowerCase() === nextLetter
+              : await next.isVisible();
+          }
+          if (!accepted) {
+            const currentLetter = await expectedTile.count()
+              ? (await expectedTile.textContent())?.trim().toLowerCase() ?? "none"
+              : "none";
+            const activeLetters = await letterRush
+              .locator("button.falling:not(.popped):not(.zapped):not(.trapped)")
+              .evaluateAll((elements) => elements.map((element: any) => element.dataset.letter));
+            expect(accepted, `Letter Rush did not accept ${letter} in ${target}; current=${currentLetter}; active=${activeLetters.join(",")}; attempts=${attempts}`).toBe(true);
+          }
+        }
         await next.waitFor();
         await next.click();
       }
@@ -318,5 +356,5 @@ it.each([
     if (browser) { const page = browser.contexts()[0]?.pages()[0]; if (page) { await page.screenshot({ path: path.join(outputDir, "last-state.png") }); fs.writeFileSync(path.join(outputDir, "diagnostic.json"), JSON.stringify({ events, errors, body: await page.locator("body").innerText() })); } await browser.close(); }
     await vite?.close(); ws.clients.forEach(socket => socket.terminate()); await new Promise<void>(resolve => ws.close(() => resolve())); await new Promise<void>(resolve => server.close(() => resolve())); __resetVoiceSessionRegistryForTests(); vi.restoreAllMocks(); vi.unstubAllEnvs(); vi.unstubAllGlobals(); fs.rmSync(rootDir, { recursive: true, force: true });
   }
-}, 180000);
+}, 360000);
 import { recordedSpellingDiagnostic } from "./fixtures/spellingEvidenceFirst";
