@@ -9,7 +9,7 @@ import { gameTrackRecord } from "./gameTrackRecord";
 import { observationNode } from "./observationNode";
 import { sessionMinutes } from "./sessionTime";
 import { noRetroPlayOnlyIn } from "./sessionHandoff";
-import { RIGHT_ON_HER_OWN } from "./sessionTimeline";
+import { RIGHT_ON_HER_OWN, isRetry } from "./sessionTimeline";
 
 /** When the 11/10 batch reached Saori: games built after it must report their step. */
 const BATCH_AT = Date.parse("2026-11-10T20:00:00Z");
@@ -96,7 +96,7 @@ export function loadSessionPacket(input: { childId: string; sessionDir: string; 
   const words = new Map(cycle?.nodes.flatMap(node => Object.values(node.evidenceContract.spellingItems ?? {}).map(item => [item.id, item.word] as const)) ?? []);
   const observations = (cycle?.observations ?? []).filter(row => { const t = Date.parse(row.observedAt); return t >= from && t <= to; })
     .map(row => ({ observedAt: row.observedAt, itemId: row.itemId, childResponse: typeof row.childResponse === "string" ? row.childResponse : undefined, word: words.get(row.itemId),
-      result: { correct: row.result?.correct === true }, scored: typeof row.result?.correct === "boolean", assistance: { status: row.assistance?.status ?? "unknown" }, provenance: String(row.provenance ?? ""), retry: (row.confounds ?? []).includes("retry") }));
+      result: { correct: row.result?.correct === true }, scored: typeof row.result?.correct === "boolean", assistance: { status: row.assistance?.status ?? "unknown" }, provenance: String(row.provenance ?? ""), retry: isRetry(row) }));
   const handoffDir = cycle ? path.join(resolveChildContextDir(input.childId, { rootDir: opts.rootDir }), "homework", "handoffs", cycle.homeworkId) : "";
   const stamp = startedAt.replace(/[:.]/g, "-");
   const traces = lines("game-traces.ndjson");

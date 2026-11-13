@@ -4,7 +4,7 @@ import { resolveChildContextDir } from "../utils/contextRoot";
 import { getLearningCycle, type LearningCycleRecordV2, type LearningCycleRepositoryOptions } from "./learningCycleRepository";
 import { boardDeliveries, currentBoardInstance } from "./learningBoardInstances";
 import { listChildProductIssues } from "./productIssues";
-import { isFirstTryOnHerOwn, sessionGames, type SessionGame } from "./sessionTimeline";
+import { isFirstTryOnHerOwn, sessionGames, type SessionGame, isRetry } from "./sessionTimeline";
 import { raiseParentAlert } from "./sunnyHealth";
 import { scorePlannerCalls } from "./plannerIntrospection";
 import { minutesByDay, minutesLine, sessionMinutes, type SessionMinutes } from "./sessionTime";
@@ -44,7 +44,7 @@ export function writeSessionScorecard(input: { childId: string; homeworkId?: str
     const rows = saved.filter(row => typeof row.result?.correct === "boolean");
     // A board's completion repeats its answers with help unknown; those are counted apart, never as her own.
     const known = rows.filter(row => row.assistance.status !== "unknown");
-    const retry = (row: (typeof rows)[number]) => row.confounds.includes("retry");
+    const retry = (row: (typeof rows)[number]) => isRetry(row);
     // On her own means her first try without help; a retry is practice (owner, 2026-11-10).
     const own = rows.filter(isFirstTryOnHerOwn);
     const transcriptFile = path.join(input.sessionDir, "transcript.md");

@@ -1,4 +1,5 @@
 import { observationNode } from "./observationNode";
+import { isFirstTryOnHerOwn } from "./sessionTimeline";
 import fs from "node:fs";
 import path from "node:path";
 import { resolveChildContextDir } from "../utils/contextRoot";
@@ -120,7 +121,7 @@ export function mathTrackRecordSection(cycle: LearningCycleRecordV2): string {
 export function scorePlannerCalls(cycle: LearningCycleRecordV2): Array<{ decision: LearningCycleDecision; itemId: string; label: string; onHerOwn: boolean; answer?: LearningObservation; hit?: boolean }> {
   const wordIdOf = new Map<string, { wordId: string; word: string }>();
   for (const node of cycle.nodes) for (const item of Object.values(node.evidenceContract?.spellingItems ?? {})) wordIdOf.set(item.id, { wordId: item.wordId, word: item.word });
-  const own = (cycle.observations ?? []).filter(row => row.assistance?.status === "unassisted" && typeof row.result?.correct === "boolean" && !SYNTHETIC.test(`${row.observationId} ${row.sourceId}`))
+  const own = (cycle.observations ?? []).filter(row => isFirstTryOnHerOwn(row) && typeof row.result?.correct === "boolean" && !SYNTHETIC.test(`${row.observationId} ${row.sourceId}`))
     .sort((a, b) => Date.parse(a.observedAt) - Date.parse(b.observedAt));
   return (cycle.decisionHistory ?? []).filter(row => row.eventType === "theory_decided" && row.expectations?.length).flatMap(decision => decision.expectations!.map(call => {
     const matches = (row: LearningObservation) => (wordIdOf.get(row.itemId)?.wordId ?? row.itemId) === call.itemId;

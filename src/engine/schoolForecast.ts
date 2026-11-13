@@ -1,4 +1,5 @@
 import type { AcademicPrediction, LearningCycleRecordV2 } from "./learningCycleRepository";
+import { isFirstTryOnHerOwn } from "./sessionTimeline";
 
 /**
  * School-test forecasts locked at every Planner decision (owner, 2026-11-13: predictions grounded in reality, per word,
@@ -19,7 +20,7 @@ type Cycle = Pick<LearningCycleRecordV2, "childId" | "homeworkId" | "domain" | "
 type Observation = LearningCycleRecordV2["observations"][number];
 
 const round = (value: number) => Math.round(value * 1000) / 1000;
-const ownFirstTry = (row: Observation) => row.assistance?.status === "unassisted" && typeof row.result?.correct === "boolean" && !(row.confounds ?? []).includes("retry");
+const ownFirstTry = (row: Observation) => typeof row.result?.correct === "boolean" && isFirstTryOnHerOwn(row);
 /** Her last first tries on her own, smoothed so one answer never reads as certainty: (right + 1) / (tries + 2). */
 function smoothedChance(rows: Observation[]): { chance: number; right: number; tries: number } {
   const recent = rows.filter(ownFirstTry).sort((a, b) => Date.parse(a.observedAt) - Date.parse(b.observedAt)).slice(-RECENT_TRIES);

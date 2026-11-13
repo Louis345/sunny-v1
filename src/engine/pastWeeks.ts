@@ -1,4 +1,5 @@
 import { familyDay } from "../utils/familyCalendar";
+import { isRetry } from "./sessionTimeline";
 import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
@@ -78,7 +79,7 @@ export function pastWeekOf(cycle: LearningCycleRecordV2, opts: { rootDir?: strin
   if (!targets.size) for (const target of cycle.assignment.targets) targets.set(target, { id: target, label: target, text: target });
   const rows: PastWeekAnswer[] = answers(cycle).map(({ row, word, node, board }) => ({ target: word, at: row.observedAt, ...(board ? { board } : {}), ...(node ? { stop: node.title } : {}),
     ...(row.childResponse?.trim() ? { wrote: row.childResponse.trim() } : {}), right: row.result.correct === true, help: HELP[row.assistance?.status] ?? "help not recorded",
-    retry: (row.confounds ?? []).includes("retry"), school: SCHOOL.has(String(row.provenance)) }));
+    retry: isRetry(row), school: SCHOOL.has(String(row.provenance)) }));
   const answered = new Set(answers(cycle).flatMap(row => row.node ? [row.node.nodeId] : []));
   const stopOf = (node: LearningCycleNodeContract) => ({ title: node.title, game: activityOf(node) ?? "activity", targets: targetsOf(node), ...(node.focus ? { focus: node.focus } : {}) });
   const delivery = new Map(boardDeliveries(cycle).filter(row => row.stops.length).map(row => [row.boardId, row]));

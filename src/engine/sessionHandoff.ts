@@ -4,7 +4,7 @@ import path from "node:path";
 import { getChildChart } from "../profiles/childChart";
 import { resolveChildContextDir } from "../utils/contextRoot";
 import { requestForModel } from "./plannerTransport";
-import { buildSessionTimeline, isFirstTryOnHerOwn, RIGHT_ON_HER_OWN, sessionGames } from "./sessionTimeline";
+import { buildSessionTimeline, isFirstTryOnHerOwn, RIGHT_ON_HER_OWN, sessionGames, isRetry } from "./sessionTimeline";
 import { getLearningCycle, type LearningCycleRecordV2, type LearningCycleRepositoryOptions } from "./learningCycleRepository";
 
 /**
@@ -33,7 +33,7 @@ function answersSince(cycle: LearningCycleRecordV2, startedAt: string): string[]
   const from = Date.parse(startedAt);
   return (cycle.observations ?? []).filter(row => names.has(row.itemId) && Date.parse(row.observedAt) >= from && !SYNTHETIC.test(`${row.observationId} ${row.sourceId}`))
     .sort((a, b) => Date.parse(a.observedAt) - Date.parse(b.observedAt))
-    .map(row => `${row.observedAt.slice(11, 19)} ${names.get(row.itemId)}: "${row.childResponse ?? ""}" ${row.result?.correct === true ? "right" : row.result?.correct === false ? "missed" : "unscored"}, ${HELP[row.assistance.status]}${row.confounds?.includes("retry") ? " (retry)" : ""}`);
+    .map(row => `${row.observedAt.slice(11, 19)} ${names.get(row.itemId)}: "${row.childResponse ?? ""}" ${row.result?.correct === true ? "right" : row.result?.correct === false ? "missed" : "unscored"}, ${HELP[row.assistance.status]}${isRetry(row) ? " (retry)" : ""}`);
 }
 
 /**

@@ -77,3 +77,19 @@ describe("locking a baseline forecast outside a decision", () => {
     } finally { fs.rmSync(rootDir, { recursive: true, force: true }); }
   });
 });
+
+describe("one rule for a first try", () => {
+  // 2026-11-13 measurement audit (AI-caught): spelling marks a second try "repeated_attempt", but every counter looked
+  // only for "retry", so a word typed again counted as a first try on her own. One rule now covers both tags.
+  it("never counts a repeated spelling attempt as a first try on her own", async () => {
+    const { isFirstTryOnHerOwn } = await import("./sessionTimeline");
+    expect(isFirstTryOnHerOwn({ assistance: { status: "unassisted" }, confounds: ["first_response"] })).toBe(true);
+    expect(isFirstTryOnHerOwn({ assistance: { status: "unassisted" }, confounds: ["repeated_attempt"] })).toBe(false);
+    expect(isFirstTryOnHerOwn({ assistance: { status: "unassisted" }, confounds: ["retry"] })).toBe(false);
+    vi.spyOn(console, "log").mockImplementation(() => {});
+    const repeated = { ...obs("spelling.word.forgot", true), confounds: ["repeated_attempt"] };
+    const rows = schoolForecastPredictions(spellingCycle([obs("spelling.word.forgot", false), repeated, repeated]), undefined, "2026-11-12T00:00:00.000Z");
+    expect(rows.find(row => row.constructId === "spelling.word.forgot")!.expectedMetric.min).toBe(round(1 / 3));
+  });
+});
+const round = (value: number) => Math.round(value * 1000) / 1000;

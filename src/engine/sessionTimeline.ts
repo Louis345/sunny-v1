@@ -30,8 +30,10 @@ export type SessionGame = { nodeId: string; title: string; openedMin: number; fi
  * (retries are practice) and helped answers are saved; the retro, the scorecard and the rating count this one thing.
  */
 export const RIGHT_ON_HER_OWN = "Right on her first try on her own (the learning measure)";
+/** A later try on an item: built games tag it "retry", spelling tags it "repeated_attempt" (one rule, 2026-11-13 audit). */
+export const isRetry = (row: { confounds?: string[] }) => (row.confounds ?? []).some(tag => tag === "retry" || tag === "repeated_attempt");
 export const isFirstTryOnHerOwn = (row: { assistance?: { status?: string }; confounds?: string[] }) =>
-  row.assistance?.status === "unassisted" && !(row.confounds ?? []).includes("retry");
+  row.assistance?.status === "unassisted" && !isRetry(row);
 
 /** Her saved answers, for counting right answers the way Sunny scored them (math games never log right or wrong). */
 type SavedAnswers = { nodes: Array<{ nodeId: string }>; observations: Array<Pick<LearningObservation, "sourceId" | "observedAt" | "result">> };
