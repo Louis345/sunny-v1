@@ -58,6 +58,7 @@ const open = () => { document.getElementById("q").textContent = items[i].display
 open();
 document.getElementById("box").onchange = event => { window.fireAttemptEvent({ target: items[i].itemId, attemptedValue: event.target.value });
   i += 1; if (i < items.length) open(); else { window.reportStep("done", "All answered."); window.sendNodeComplete({ completed: true }); } };
+function hint(id) { window.reportHint(id, "Count by twos"); } // a game that can report hints (2026-11-13), so help is known
 </script></body></html>`;
 // Reports answers but never opens a problem through the contract, so no answer could bind to her items.
 const UNBOUND = GOOD.replace(/window\.openItem\(/g, "console.log(");
