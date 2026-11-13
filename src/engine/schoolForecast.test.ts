@@ -55,3 +55,25 @@ describe("school-test forecasts at each Planner decision", () => {
     ]);
   });
 });
+
+describe("locking a baseline forecast outside a decision", () => {
+  // 2026-11-13: Reina's math test is Monday 11/16. If she does not finish a board before then, no decision locks a
+  // forecast, and her grade would have nothing to be compared with. A parent command locks code's baseline now.
+  it("appends code's baseline to the week's forecasts through a cycle event, and keeps earlier locks", async () => {
+    const fs = await import("node:fs"), os = await import("node:os"), path = await import("node:path");
+    const { getLearningCycle, lockBaselineSchoolForecast } = await import("./learningCycleRepository");
+    const { linearJourneyFixture } = await import("../scripts/fixtures/authoredJourney");
+    const { buildSpellingRecallItems, createSpellingDiscoveryCycle } = await import("./learningCycleIngest");
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-forecast-lock-"));
+    vi.spyOn(console, "log").mockImplementation(() => {});
+    try {
+      const items = buildSpellingRecallItems({ homeworkId: "words", words: ["night", "light"], evidenceIds: ["source"], measurementRole: "fresh_checkpoint" });
+      createSpellingDiscoveryCycle({ childId: "lab", homeworkId: "words", title: "Words", contentFingerprint: "f", items, boardDefinition: linearJourneyFixture(["words:discovery"]) }, { rootDir });
+      lockBaselineSchoolForecast("lab", "words", { rootDir });
+      lockBaselineSchoolForecast("lab", "words", { rootDir });
+      const forecasts = getLearningCycle("lab", "words", { rootDir })!.schoolForecasts!;
+      expect(forecasts).toHaveLength(4);
+      expect(forecasts.every(row => row.modelId === BASELINE_FORECASTER)).toBe(true);
+    } finally { fs.rmSync(rootDir, { recursive: true, force: true }); }
+  });
+});

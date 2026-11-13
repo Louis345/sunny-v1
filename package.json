@@ -41,6 +41,7 @@
     "sunny:ingest:science": "npm run sunny:ingest:homework -- --domain science",
     "sunny:homework:upload": "npx tsx src/scripts/uploadGradedHomework.ts",
     "sunny:homework:test-date": "npx tsx src/scripts/setHomeworkTestDate.ts",
+    "sunny:forecast:lock": "npx tsx src/scripts/lockSchoolForecast.ts",
     "sunny:predictions": "npx tsx src/scripts/predictionHistory.ts",
     "sunny:child:forget": "npx tsx src/scripts/forgetChildFact.ts",
     "sunny:ingest:scan": "npx tsx src/scripts/ingestScanResult.ts --child=ila",

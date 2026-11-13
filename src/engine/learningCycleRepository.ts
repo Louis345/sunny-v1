@@ -698,6 +698,7 @@ export type LearningCycleEvent =
     }
   | { type: "node_artwork_saved"; nodeId: string; localPath: string }
   | { type: "finished_board_closed" }
+  | { type: "school_forecast_locked" }
   | { type: "engagement_noted"; evidenceId: string; summary: string }
   | { type: "observation_rescored"; reason: string; source: string; rescores: Array<{ observationId: string; childResponse?: string; result: LearningObservation["result"]; addConfounds: string[] }> }
   | {
@@ -1523,6 +1524,16 @@ function publishPreparedBoardIfComplete(next: LearningCycleRecordV2, at: string)
   return board;
 }
 
+/**
+ * Locks code's baseline school-test forecast now (2026-11-13: Reina's math test is Monday, and a week with no new
+ * decision would leave her grade nothing to compare with). No model call; the Planner's forecast comes with decisions.
+ */
+export function lockBaselineSchoolForecast(childId: string, homeworkId: string, opts: LearningCycleRepositoryOptions = {}): LearningCycleRecordV2 {
+  const locked = transitionLatestLearningCycle(childId, homeworkId, { type: "school_forecast_locked" }, opts);
+  console.log(` 🎮 [school-forecast] [baseline] [locked] child=${childId} homework=${homeworkId} forecasts=${locked.schoolForecasts?.length ?? 0}`);
+  return locked;
+}
+
 const STUCK_FINISHED_LIFECYCLES = new Set<LearningCycleRecordV2["lifecycle"]>(["baseline_ready", "baseline_active", "quest_ready", "boss_ready"]);
 
 /**
@@ -1672,6 +1683,9 @@ export function transitionLearningCycle(
     };
     reason = "The coherent targeted map is frozen; it publishes once every node artifact is verified.";
     evidenceIds = next.observations.map((observation) => observation.observationId);
+  } else if (event.type === "school_forecast_locked") {
+    next.schoolForecasts = [...(next.schoolForecasts ?? []), ...schoolForecastPredictions(next, undefined, at)];
+    reason = "Code's baseline school-test forecast was locked between decisions; nothing about her learning changed.";
   } else if (event.type === "finished_board_closed") {
     if (!STUCK_FINISHED_LIFECYCLES.has(next.lifecycle) || !canonicalJourneyFrontier(next)?.complete) throw new Error("learning_cycle_board_not_finished");
     const boardNodeIds = new Set(currentBoardInstance(next).nodeIds);
