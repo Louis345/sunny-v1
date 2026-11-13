@@ -1,3 +1,4 @@
+import { WARDROBE_LOOK_CHANGED_EVENT } from "../lib/boardPortraitLook";
 import {
   useCallback,
   useEffect,
@@ -219,6 +220,7 @@ function saveStoreState(state: WardrobeStoreState, key = WARDROBE_STORE_STORAGE_
   } catch (error: unknown) {
     console.error(" 🎮 [wardrobe-store-lab] state_save failed", error);
   }
+  window.dispatchEvent(new Event(WARDROBE_LOOK_CHANGED_EVENT));
 }
 
 function createEventId(prefix: string): string {

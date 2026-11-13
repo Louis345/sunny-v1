@@ -1,6 +1,7 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { WardrobeStoreLab } from "../components/WardrobeStoreLab";
+import { WARDROBE_LOOK_CHANGED_EVENT } from "../lib/boardPortraitLook";
 import {
   WARDROBE_STORE_CATALOG,
   WARDROBE_STORE_STORAGE_KEY,
@@ -273,6 +274,30 @@ describe("WardrobeStoreLab shopping call", () => {
     fireEvent.click(screen.getByRole("button", { name: "Talk to Elli by voice" }));
 
     expect(call.onAskVoice).toHaveBeenCalledTimes(1);
+  });
+
+  it("tells the board portrait when the saved look changes (BUGS.md 2026-11-12, portrait kept old clothes)", () => {
+    const visitSeed = "purchase-flow";
+    const items = getCompatibleWardrobeItems(WARDROBE_STORE_CATALOG, companion.modelUrl, companion.id);
+    const visit = createCompanionShoppingVisit({ companionId: companion.id, items, state: createInitialWardrobeStoreState(), visitSeed });
+    const item = items.find((candidate) => visit.itemOpinions[candidate.id]?.companionConsentsToWear)!;
+    const heard = vi.fn();
+    window.addEventListener(WARDROBE_LOOK_CHANGED_EVENT, heard);
+    render(
+      <WardrobeStoreLab
+        companion={companion}
+        companionPreview={<div data-testid="companion-vrm">full body VRM</div>}
+        call={createCallProps()}
+        onWardrobeChange={vi.fn()}
+        onExit={vi.fn()}
+        visitSeed={visitSeed}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: `View ${item.name}, ${item.price} coins` }));
+    fireEvent.click(screen.getByRole("button", { name: `Try on ${item.name}` }));
+    fireEvent.click(screen.getByRole("button", { name: `Buy and wear ${item.name} for ${item.price} coins` }));
+    window.removeEventListener(WARDROBE_LOOK_CHANGED_EVENT, heard);
+    expect(heard).toHaveBeenCalled();
   });
 
   it("keeps the fitting room open while the child cycles directly through items", () => {
