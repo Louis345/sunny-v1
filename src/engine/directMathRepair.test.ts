@@ -14,6 +14,10 @@ const patched = original.replace('id="answer"', 'id="answer" aria-label="Answer"
 const hash = (value: string) => createHash("sha256").update(value).digest("hex");
 const patch = JSON.stringify({ replacements: [{ oldText: 'id="answer"', newText: 'id="answer" aria-label="Answer"', reason: "accessible name" }] });
 const stream = (text: string) => new Response(`data: ${JSON.stringify({type:"response.completed",response:{status:"completed",output_text:text,usage:{input_tokens:12,output_tokens:9}}})}\n\n`, {status:200});
+const truncatedStream = () => new Response(
+  'data: {"type":"response.incomplete","response":{"status":"incomplete","incomplete_details":{"reason":"max_output_tokens"},"usage":{"input_tokens":120,"output_tokens":8000}}}\n\n',
+  { status: 200 },
+);
 beforeEach(() => {
   root = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-repair-receipt-"));
   artifact = { childId:"lab", homeworkId:"hw-lab", nodeId:"activity-1", title:"Lab", htmlPath:path.join(root,"node.html"), htmlHash:hash(original), academicContractHash:"academic", designArtifactHash:"design", artworkUrl:"/art.svg", creatorPrompt:"fixture", promptHash:"fixture", plannerModel:"mock", creatorModel:"mock" };
@@ -54,6 +58,31 @@ it("resumes a completed repair without another paid request or hash change", asy
   expect(fetch).toHaveBeenCalledTimes(1);
   expect(first.htmlHash).toBe(hash(patched)); expect(second).toEqual(first);
   expect(first.academicContractHash).toBe("academic"); expect(first.designArtifactHash).toBe("design");
+});
+it("escalates one token-truncated repair and then reuses both durable receipts", async () => {
+  vi.stubEnv("SUNNY_REPAIR_MAX_TOKENS", "8000");
+  vi.stubEnv("SUNNY_REPAIR_RETRY_MAX_TOKENS", "48000");
+  vi.mocked(fetch)
+    .mockImplementationOnce(async (_url, init) => {
+      expect(JSON.parse(String(init?.body)).max_output_tokens).toBe(8000);
+      return truncatedStream();
+    })
+    .mockImplementationOnce(async (_url, init) => {
+      expect(JSON.parse(String(init?.body)).max_output_tokens).toBe(48000);
+      return stream(patch);
+    });
+
+  const first = await run();
+  const second = await run();
+
+  expect(fetch).toHaveBeenCalledTimes(2);
+  expect(first.htmlHash).toBe(hash(patched));
+  expect(second).toEqual(first);
+  expect(JSON.parse(fs.readFileSync(path.join(root, "diagnostics", "activity-1-repair.json"), "utf8"))).toMatchObject({
+    providerCalls: 2,
+    truncationEscalated: true,
+    outputTokens: 8009,
+  });
 });
 it("saves even a malformed response and never buys it twice", async () => {
   vi.mocked(fetch).mockImplementation(async () => stream("malformed patch"));

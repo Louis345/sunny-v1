@@ -369,6 +369,30 @@ it("does not buy a second visual repair for the same artifact and gate version",
   expect(getMathGenerationStatus(childId, homeworkId, { rootDir })?.phase).toBe("needs_attention");
 });
 
+it("resumes one legacy token-truncated visual repair without regenerating academic work", async () => {
+  const draft = path.join(rootDir, "src/context", childId, "homework/direct-drafts", homeworkId);
+  fs.writeFileSync(path.join(draft, "math-learning-program.json"), JSON.stringify(learningProgram(2)));
+  fs.writeFileSync(path.join(draft, "designed-plan.json"), JSON.stringify(plan(2)));
+  vi.mocked(judgeChildFacingScreens).mockImplementation(async ({ auditFile }) => auditFile?.includes("activity-1") ? {
+    decision: "reject",
+    observations: ["The completion screen contradicts its progress and has no Finish action."],
+  } : { decision: "approve", observations: [] });
+
+  await runAdaptiveMathGeneration(childId, homeworkId, rootDir);
+  vi.mocked(repairDirectArtifact).mockRejectedValueOnce(new Error("direct_activity_repair_incomplete:max_output_tokens"));
+  await runAdaptiveMathGeneration(childId, homeworkId, rootDir);
+  expect(getMathGenerationStatus(childId, homeworkId, { rootDir })?.phase).toBe("needs_attention");
+
+  vi.mocked(judgeChildFacingScreens).mockResolvedValue({ decision: "approve", observations: [] });
+  await runAdaptiveMathGeneration(childId, homeworkId, rootDir);
+
+  expect(repairDirectArtifact).toHaveBeenCalledTimes(3);
+  expect(generateDirectArtifacts).toHaveBeenCalledTimes(2);
+  expect(askDirectMathPlanner).not.toHaveBeenCalled();
+  expect(askMathExperienceDesigner).not.toHaveBeenCalled();
+  expect(getMathGenerationStatus(childId, homeworkId, { rootDir })?.phase).toBe("board_ready");
+});
+
 it("removes a previously ready artifact from play when a newer visual review rejects it", async () => {
   await runAdaptiveMathGeneration(childId, homeworkId, rootDir);
   const draft = path.join(rootDir, "src/context", childId, "homework/direct-drafts", homeworkId);
