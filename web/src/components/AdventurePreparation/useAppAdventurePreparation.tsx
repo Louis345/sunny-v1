@@ -4,7 +4,8 @@ import type { GenerationStatus } from "../../hooks/useAdaptiveMathGenerationRefr
 import { resolveDirectDiscoveryLaunchNode } from "../../utils/adventureBoardLaunch";
 import { AdventurePreparationScreen } from "./AdventurePreparationScreen";
 import type { PreparationMode, PreparationState } from "./adventurePreparationMachine";
-import { isPreparationSlow, preparationElapsedLabel, preparationEventsFromStatus } from "./preparationStatusAdapter";
+import { isPreparationSlow, isPublishedStatus, preparationElapsedLabel, preparationEventsFromStatus } from "./preparationStatusAdapter";
+import { COMPANION_API_VERSION, type CompanionCommand } from "../../../../src/shared/companions/companionContract";
 import { useAdventurePreparation } from "./useAdventurePreparation";
 
 export type PreparationSurface = "chapter" | "held" | null;
@@ -38,6 +39,15 @@ export function preparationWords(packet: ChildExperiencePacket | null): string[]
   return [...new Set(words.filter(word => typeof word === "string" && word.trim()))].slice(0, 16);
 }
 
+/**
+ * When her next map is ready on the waiting screen, Elli raises her hand (BUGS.md 2026-11-12). No scripted words:
+ * if she taps Elli, Elli sees the ready screen in her screen report and answers in her own words.
+ */
+export function boardReadyRaiseHand(childId: string, readyAt: number | null): CompanionCommand | null {
+  if (readyAt === null) return null;
+  return { apiVersion: COMPANION_API_VERSION, type: "check_back_in", payload: { how: "raise_hand", why: "her next map is ready" }, childId, timestamp: readyAt, source: "diag" };
+}
+
 const REVIEW_DWELL_MS = 4000;
 /** Her results are the point of this screen after a finished board, so they stay up longer. */
 const FINISHED_BOARD_DWELL_MS = 9000;
@@ -61,7 +71,7 @@ export function useAppAdventurePreparation(input: {
   /** "Let's go!" on a next board: the published board has to be read before it can show. */
   onReveal?: () => void;
   sendMessage: (type: string, payload?: Record<string, unknown>) => void;
-}): { screen: ReactNode | null; waiting: PreparationWaitingReport | null } {
+}): { screen: ReactNode | null; waiting: PreparationWaitingReport | null; readyAt: number | null } {
   const scope = `${input.childId ?? ""}:${input.homeworkId ?? ""}:${input.finishedBoardId ?? ""}`;
   const [modeByScope, setModeByScope] = useState<{ scope: string; mode: PreparationMode } | null>(null);
   useEffect(() => {
@@ -121,9 +131,11 @@ export function useAppAdventurePreparation(input: {
     return () => timers.forEach(clearTimeout);
   }, [state === "look", items, send]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Ready means the server published the board, never a guess from the screen's surface (BUGS.md 2026-11-12).
+  const published = isPublishedStatus(input.status);
   // A next board can already be published when she gets here: she still sees her results first.
   const holdForResults = Boolean(input.finishedBoardId) && state === "look";
-  useEffect(() => { if (snapshot && !holdForResults) statusEvents.forEach(event => send(event.type === "ACTIVITY_READY" ? {...event, published:input.surface === null} : event)); }, [statusEvents, input.surface, snapshot !== null, holdForResults, send]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (snapshot && !holdForResults) statusEvents.forEach(event => send(event.type === "ACTIVITY_READY" ? {...event, published:input.surface === null && published} : event)); }, [statusEvents, input.surface, published, snapshot !== null, holdForResults, send]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
@@ -136,9 +148,9 @@ export function useAppAdventurePreparation(input: {
   // The complete map became playable; keep its explicit reveal control visible.
   const total = snapshot?.context.total ?? 0;
   useEffect(() => {
-    if (!snapshot || input.surface || holdForResults) return;
-    send({ type: "ACTIVITY_READY", n: Math.max(total, 1), total: Math.max(total, 1) });
-  }, [input.surface, snapshot !== null, total, holdForResults, send]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (!snapshot || input.surface || holdForResults || !published) return;
+    send({ type: "ACTIVITY_READY", n: Math.max(total, 1), total: Math.max(total, 1), published: true });
+  }, [input.surface, published, snapshot !== null, total, holdForResults, send]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const [revealedScope, setRevealedScope] = useState<string | null>(null);
   const ctx = snapshot?.context;
@@ -163,7 +175,16 @@ export function useAppAdventurePreparation(input: {
     total: contextTotal,
   } : null;
 
-  if (!visible || !snapshot || !state || !ctx) return { screen: null, waiting: null };
+  const [readySeen, setReadySeen] = useState<{ scope: string; at: number } | null>(null);
+  const showingReady = visible && active && state === "ready";
+  useEffect(() => {
+    if (!showingReady || readySeen?.scope === scope) return;
+    console.log(` 🎮 [adventure-preparation] [ready] [shown] child=${input.childId ?? "unknown"} homework=${input.homeworkId ?? "unknown"}`);
+    setReadySeen({ scope, at: Date.now() });
+  }, [showingReady, readySeen?.scope, scope, input.childId, input.homeworkId]);
+  const readyAt = showingReady && readySeen?.scope === scope ? readySeen.at : null;
+
+  if (!visible || !snapshot || !state || !ctx) return { screen: null, waiting: null, readyAt: null };
   return {
     screen: (
       <div className="h-screen w-screen">
@@ -179,5 +200,6 @@ export function useAppAdventurePreparation(input: {
       </div>
     ),
     waiting,
+    readyAt,
   };
 }

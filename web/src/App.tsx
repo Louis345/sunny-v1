@@ -102,7 +102,7 @@ import { useChildExperiencePacket } from "./hooks/useChildExperiencePacket";
 import { useAdaptiveMathGenerationRefresh } from "./hooks/useAdaptiveMathGenerationRefresh";
 import { DiscoveryCompletionChapter } from "./components/DiscoveryCompletionChapter";
 import { LearningPreparationStatus } from "./components/LearningPreparationStatus";
-import { resolvePreparationSurface, useAppAdventurePreparation } from "./components/AdventurePreparation/useAppAdventurePreparation";
+import { resolvePreparationSurface, useAppAdventurePreparation, boardReadyRaiseHand } from "./components/AdventurePreparation/useAppAdventurePreparation";
 import { isPublishedStatus } from "./components/AdventurePreparation/preparationStatusAdapter";
 import { kioskScreenReport } from "./utils/kioskScreenReport";
 import {
@@ -1990,10 +1990,15 @@ function App() {
     return vrrCelebrateEvent ? [...base, vrrCelebrateEvent] : base;
   }, [voiceCompanionEvents, vrrCelebrateEvent]);
 
+  // Her next map is ready on the waiting screen: Elli raises her hand (BUGS.md 2026-11-12).
+  const boardReadyHand = useMemo(
+    () => boardReadyRaiseHand(adventureChildId ?? "", adventureChildId ? preparation.readyAt : null),
+    [adventureChildId, preparation.readyAt],
+  );
   const mergedCompanionCommands = useMemo(
     () =>
-      mergeCompanionCommands(voiceCompanionCommands, diagCompanionCommands),
-    [voiceCompanionCommands, diagCompanionCommands],
+      mergeCompanionCommands(voiceCompanionCommands, boardReadyHand ? [...diagCompanionCommands, boardReadyHand] : diagCompanionCommands),
+    [voiceCompanionCommands, diagCompanionCommands, boardReadyHand],
   );
 
   useEffect(() => {
