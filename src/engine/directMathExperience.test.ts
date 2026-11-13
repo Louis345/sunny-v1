@@ -34,6 +34,7 @@ import {
   mathAcademicContractHash,
   mathPlannerChartContext,
   mapConcurrentSettled,
+  mapConcurrentSettledWithCheckpoint,
   mergeActiveDomainProjection,
   preserveDirectArtifactGenerationMetrics,
   readOpenAiResponseStream,
@@ -516,6 +517,24 @@ describe("direct math experience", () => {
     expect(settled.failures).toEqual([
       expect.objectContaining({ index: 1, error: expect.objectContaining({ message: "provider timeout" }) }),
     ]);
+  });
+
+  it("checkpoints a completed sibling before another concurrent builder failure is reported", async () => {
+    const order: string[] = [];
+    const settled = await mapConcurrentSettledWithCheckpoint(["N1", "N2"], 2, async (nodeId) => {
+      if (nodeId === "N2") {
+        await new Promise((resolve) => setTimeout(resolve, 5));
+        throw new Error("provider timeout");
+      }
+      return `${nodeId}:complete`;
+    }, async (artifact) => {
+      order.push(`checkpoint:${artifact}`);
+    });
+    order.push("settled");
+
+    expect(settled.results).toEqual(["N1:complete", undefined]);
+    expect(settled.failures).toHaveLength(1);
+    expect(order).toEqual(["checkpoint:N1:complete", "settled"]);
   });
 
   it("gives Fable a compact factual child packet without inherited creative policy", async () => {
@@ -1653,6 +1672,55 @@ describe("direct math experience", () => {
     expect(prompt).not.toContain("Show one active problem");
     expect(prompt).not.toContain("Wrong tap");
     expect(prompt).not.toContain("no penalty");
+  });
+
+  it("gives the board Planner the immutable opening-evaluation findings", async () => {
+    const create = stagedPlannerCreate();
+    await askDirectMathPlanner({
+      childId: "lab-child",
+      chart: {
+        identity: {}, demographics: {}, engagementTheory: null, factBankSummary: {},
+        learningProfile: { rewardPreferences: [], sessionStats: {}, activityModel: {}, activityTraitModel: {} },
+        decisionTrace: { latest: null },
+      } as never,
+      extraction: { fullText: "Equal-groups assignment" } as never,
+      adaptiveFindings: {
+        findingsHash: "findings-hash-1",
+        interventionDecisionId: "decision:factor-meaning-visual",
+        decision: {
+          version: 1,
+          decisionId: "decision:factor-meaning-visual",
+          findingsHash: "findings-hash-1",
+          action: "visual_explainer",
+          targetConstructIds: ["math.multiplication.factor_meaning"],
+          evidenceIds: ["attempt:opening-item-1"],
+          rationale: "Use a concrete group model.",
+          confidence: 0.7,
+          uncertainty: "One response.",
+          falsifyingEvidence: ["Fresh evidence remains incorrect."],
+          measurementKeys: ["fresh.factor_meaning"],
+          nextEvidenceRequired: ["Fresh unassisted response."],
+        },
+        findings: {
+          holes: [{
+            constructId: "math.multiplication.factor_meaning",
+            evidenceIds: ["attempt:opening-item-1"],
+          }],
+          demonstrated: [],
+          assisted: [],
+          ambiguities: [],
+        },
+        historicalEvidence: [{ evidenceId: "history:evaluation-7", summary: "Prior grouping was assisted." }],
+      } as never,
+      client: { messages: { create, stream: streamOf(create) } } as never,
+    });
+
+    const bodyPrompt = String(create.mock.calls[1]?.[0]?.messages?.[0]?.content);
+    expect(bodyPrompt).toContain("Immutable opening-evaluation findings");
+    expect(bodyPrompt).toContain("findings-hash-1");
+    expect(bodyPrompt).toContain("attempt:opening-item-1");
+    expect(bodyPrompt).toContain("Use a concrete group model");
+    expect(bodyPrompt).toContain("Do not reinterpret an ambiguous or assisted result as mastery");
   });
 
   it("uses one bounded Creator attempt without an identical retry", () => {

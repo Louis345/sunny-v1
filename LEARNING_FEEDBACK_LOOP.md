@@ -1,6 +1,6 @@
 # Sunny Learning Feedback Loop
 
-Contract version: 12
+Contract version: 13
 
 This document is the **sole normative** authority for how Sunny forms, tests, and revises learning claims. Product changes that alter this loop must update this contract version before implementation. Other documents may describe infrastructure or history, but they must link here instead of creating another learning doctrine.
 
@@ -21,6 +21,16 @@ child chart + prior cycles + returned graded work
 ```
 
 ## Evidence-gated board progression
+
+### Independent opening evaluation and teaching bridge
+
+For an adaptive assignment cycle, Sunny may begin with one **Independent opening evaluation** before creating the teaching board. It measures fresh assignment concepts and prerequisite relationships without teaching, hints, answer exposure, or copied worksheet questions before the first response. Historical chart evidence remains the prior; the opening evaluation is the current vital sign. Its completion does not establish mastery.
+
+The resulting factual findings preserve construct, item, assistance, exposure, response mode, device, artifact, source, uncertainty, and evidence identities. Findings may distinguish demonstrated knowledge, holes, assisted work, unresolved work, and instrument ambiguity, but one episode cannot create a durable learning-style or preference label.
+
+The Planner may prescribe a Visual Explainer as a **teaching-only bridge** when the observed hole is suited to a concrete mental model. The bridge records practice and support evidence only. It never supplies mastery evidence, and any visible answer recap remains teaching exposure. A **fresh independent evaluation** using unexposed but construct- and difficulty-aligned material must follow the intervention before Sunny compares change.
+
+The complete teaching board may be built asynchronously from the frozen extraction, child-chart snapshot, findings hash, and evidence-citing intervention decision. Background work cannot reread the assignment, reset the cycle, discard valid siblings, or block the child. Before/after improvement is evidence consistent with helping; it is not causal proof and still requires repeated, delayed, or externally graded calibration.
 
 For homework boards, the inner learning loop is:
 

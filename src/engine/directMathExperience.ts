@@ -5,6 +5,7 @@ import http from "node:http";
 import path from "node:path";
 import type { ChildChart } from "../profiles/childChart";
 import type { AssignmentSourceExtraction } from "./assignmentSourceExtraction";
+import type { AdaptiveBoardPlannerContext } from "./adaptiveMathTwoPhase";
 import type { ActiveSessionPlan, AIContentCatalogItem } from "../context/schemas/learningProfile";
 import type { AdventureBoardJson } from "../shared/adventureBoardJson";
 import { NODE_REGISTRY } from "../shared/nodeRegistry";
@@ -1883,6 +1884,8 @@ export async function askDirectMathPlanner(input: {
   client?: Anthropic;
   model?: string;
   priorOutcomes?: unknown;
+  /** Immutable opening-evaluation findings and the evidence-citing intervention decision. */
+  adaptiveFindings?: AdaptiveBoardPlannerContext;
   /** Concept ids already on record for this child, so the Planner reuses instead of rephrasing. */
   priorConceptIds?: string[];
   rawResponseFile?: string;
@@ -2079,7 +2082,14 @@ Factual child context:
 ${JSON.stringify(mathPlannerChartContext(input.chart), null, 2)}
 
 Prior factual outcomes and Planner interpretations:
-${JSON.stringify(factualModelContext(input.priorOutcomes ?? []), null, 2)}`;
+${JSON.stringify(factualModelContext(input.priorOutcomes ?? []), null, 2)}
+
+Immutable opening-evaluation findings:
+${input.adaptiveFindings
+    ? JSON.stringify(input.adaptiveFindings, null, 2)
+    : "No opening evaluation has been completed for this legacy ingestion."}
+
+When findings are present, target demonstrated holes while preserving demonstrated knowledge. Do not reinterpret an ambiguous or assisted result as mastery. The findings are factual constraints, not permission to change the frozen charter.`;
   const body = await callStage("program-body", {
     prompt: bodyPrompt,
     toolName: "create_math_program_body",
@@ -2697,6 +2707,19 @@ export async function mapConcurrentSettled<T, R>(
   return { results, failures };
 }
 
+export async function mapConcurrentSettledWithCheckpoint<T, R>(
+  values: T[],
+  limit: number,
+  run: (value: T, index: number) => Promise<R>,
+  onReady: (result: R, index: number) => void | Promise<void>,
+): Promise<{ results: Array<R | undefined>; failures: Array<{ index: number; error: unknown }> }> {
+  return mapConcurrentSettled(values, limit, async (value, index) => {
+    const result = await run(value, index);
+    await onReady(result, index);
+    return result;
+  });
+}
+
 export async function generateDirectArtifacts(input: {
   plan: DirectLearningExperiencePlan;
   childId: string;
@@ -2713,6 +2736,7 @@ export async function generateDirectArtifacts(input: {
     questArtworkUrl: string;
     bossArtworkUrl: string;
   };
+  onArtifactReady?: (artifact: DirectArtifact) => void | Promise<void>;
 }): Promise<{
   artifacts: DirectArtifact[];
   backgroundUrl: string;
@@ -2763,7 +2787,7 @@ export async function generateDirectArtifacts(input: {
   const reusedNodeIds: string[] = [];
   const gamesDir = path.join(rootDir, "src", "context", input.childId, "homework", "games", input.homeworkId);
   fs.mkdirSync(gamesDir, { recursive: true });
-  const activityBuild = await mapConcurrentSettled(input.plan.activities, 2, async (activity): Promise<DirectArtifact> => {
+  const activityBuild = await mapConcurrentSettledWithCheckpoint(input.plan.activities, 2, async (activity): Promise<DirectArtifact> => {
     const artworkUrl = backgroundUrl;
     const builder = builderAssignments.get(activity.id);
     if (!builder) throw new Error(`direct_builder_assignment_missing:${activity.id}`);
@@ -2884,7 +2908,7 @@ export async function generateDirectArtifacts(input: {
       ...generationMetrics,
     }, null, 2)}\n`, "utf8");
     if (generated) console.log(`  ✓ ${activity.id} [${builder.provider}/${model}] saved ${Math.round(generated.elapsedMs / 1000)}s`);
-    return {
+    const artifact: DirectArtifact = {
       childId: input.childId,
       homeworkId: input.homeworkId,
       nodeId: activity.id,
@@ -2905,7 +2929,8 @@ export async function generateDirectArtifacts(input: {
       externalLibraryUrls: externalLibraryUrls(html),
       ...generationMetrics,
     };
-  });
+    return artifact;
+  }, async (artifact) => input.onArtifactReady?.(artifact));
   const artifacts = activityBuild.results.filter((artifact): artifact is DirectArtifact => Boolean(artifact));
   if (activityBuild.failures.length > 0) {
     const failures = activityBuild.failures.map(({ index, error }) => {

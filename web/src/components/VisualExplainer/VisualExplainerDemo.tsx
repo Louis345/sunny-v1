@@ -327,6 +327,7 @@ function TweakPanel(props: {
 
 export function VisualExplainerDemo(props: {
   childId?: string;
+  domain?: string;
   mapNodeId?: string;
   mapMode?: boolean;
   sendMessage?: FlowGameSendMessage;
@@ -492,7 +493,7 @@ export function VisualExplainerDemo(props: {
     const latest = nextSnapshot.context.targetResults.at(-1);
     if (latest) setEvents((prev) => [...prev, latest]);
     flowEvents?.reportAttempt({
-      domain: "science",
+      domain: props.domain ?? "science",
       activityId: config.activityId,
       nodeId: config.nodeId,
       target: config.prediction.targetConcept,

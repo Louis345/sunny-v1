@@ -7,6 +7,7 @@ import {
   assignmentSourceFileHash,
   isCurrentAssignmentSourceCheckpoint,
   loadOrExtractAssignmentSource,
+  type AssignmentSourceExtraction,
   type AssignmentSourceCheckpoint,
 } from "../engine/assignmentSourceExtraction";
 import {
@@ -28,6 +29,16 @@ import {
 } from "../engine/directMathExperience";
 import { readDirectFeedbackContext } from "../engine/directExperienceFeedback";
 import { readPriorConceptIds } from "../engine/assignmentLedger";
+import {
+  buildMathOpeningEvaluationPrompt,
+  buildAdaptiveBoardPlannerContext,
+  runMathBoardWorker,
+  adaptiveMathSnapshotHash,
+  adaptiveMathDraftBindingKey,
+  type AdaptiveBoardPlannerContext,
+  type MathOpeningEvaluationAssignment,
+  type MathBoardWorkerJob,
+} from "../engine/adaptiveMathTwoPhase";
 import { getChildChart } from "../profiles/childChart";
 
 type ExistingAssignmentCycle = {
@@ -44,6 +55,10 @@ export type ExistingAssignmentIngestionOutcome = {
 
 export function mathHomeworkIdFromSourceHash(sourceHash: string): string {
   return `hw-math-${crypto.createHash("sha256").update(sourceHash).digest("hex").slice(0, 24)}`;
+}
+
+export function shouldResetMathDraft(input: { freshRequested: boolean; adaptiveBinding?: string }): boolean {
+  return input.freshRequested && !input.adaptiveBinding;
 }
 
 export function findExistingMathHomeworkIdBySourceHash(
@@ -84,6 +99,19 @@ export function findExistingMathHomeworkIdBySourceHash(
     throw new Error(`duplicate_math_assignment_fingerprint:${sourceHash}:${[...matches].join(",")}`);
   }
   return [...matches][0];
+}
+
+export function prepareMathOpeningEvaluationContext(input: {
+  childId: string;
+  assignment: MathOpeningEvaluationAssignment;
+  getChart?: typeof getChildChart;
+}): { prompt: string; childChartSnapshotHash: string; childChart: ReturnType<typeof getChildChart> } {
+  const childChart = (input.getChart ?? getChildChart)(input.childId);
+  return {
+    prompt: buildMathOpeningEvaluationPrompt({ assignment: input.assignment, childChart }),
+    childChartSnapshotHash: adaptiveMathSnapshotHash(childChart),
+    childChart,
+  };
 }
 
 export function existingAssignmentIngestionOutcome(
@@ -252,20 +280,75 @@ export async function withIngestionHeartbeat<T>(
   }
 }
 
-async function continueUnpublishedMathIngestion(input: {
+export async function resolveMathAssignmentExtraction(input: {
+  pdf?: string;
+  extractionCacheFile: string;
+  frozenExtraction?: AssignmentSourceExtraction;
+  expectedSourceHash?: string;
+  load?: typeof loadOrExtractAssignmentSource;
+}): Promise<Awaited<ReturnType<typeof loadOrExtractAssignmentSource>>> {
+  if (input.frozenExtraction) {
+    if (input.expectedSourceHash && input.frozenExtraction.fileHash !== input.expectedSourceHash) {
+      throw new Error("adaptive_math_frozen_extraction_hash_mismatch");
+    }
+    return { extraction: input.frozenExtraction, reused: true };
+  }
+  if (!input.pdf) throw new Error("adaptive_math_frozen_extraction_missing");
+  return (input.load ?? loadOrExtractAssignmentSource)(input.pdf, input.extractionCacheFile);
+}
+
+export async function continueUnpublishedMathIngestion(input: {
   startedAt: number;
   childId: string;
-  pdf: string;
+  pdf?: string;
   rebuildNodeIds: string[];
   sourceHash: string;
   homeworkId: string;
-}): Promise<{ kind: "UNPUBLISHED_COMPLETE" }> {
+  frozenExtraction?: AssignmentSourceExtraction;
+  adaptiveFindings?: AdaptiveBoardPlannerContext;
+  frozenChart?: ReturnType<typeof getChildChart>;
+  frozenChartSnapshotHash?: string;
+  onPhase?: (phase: "planning" | "designing" | "building") => void;
+  onArtifactPlanReady?: (nodeIds: string[]) => void | Promise<void>;
+  onArtifactReady?: (artifact: DirectArtifact) => void | Promise<void>;
+  onArtifactsReady?: (result: {
+    artifacts: DirectArtifact[];
+    calls: number;
+    tokens: number;
+    costUsd: number;
+  }) => void | Promise<void>;
+}): Promise<{
+  kind: "UNPUBLISHED_COMPLETE";
+  artifacts: DirectArtifact[];
+  calls: number;
+  tokens: number;
+  costUsd: number;
+}> {
   const { startedAt, childId, pdf, rebuildNodeIds, homeworkId } = input;
-  const draftDir = path.join(process.cwd(), "src", "context", childId, "homework", "direct-drafts", homeworkId);
-  const freshRequested = flag("fresh");
+  if (input.adaptiveFindings && input.adaptiveFindings.findings.homeworkId !== homeworkId) {
+    throw new Error("adaptive_math_findings_homework_mismatch");
+  }
+  const baseDraftDir = path.join(process.cwd(), "src", "context", childId, "homework", "direct-drafts", homeworkId);
+  const adaptiveBinding = input.adaptiveFindings && input.frozenChart && input.frozenExtraction
+    ? adaptiveMathDraftBindingKey({
+        findingsHash: input.adaptiveFindings.findingsHash,
+        decisionId: input.adaptiveFindings.decision.decisionId,
+        decisionHash: adaptiveMathSnapshotHash(input.adaptiveFindings.decision),
+        childChartSnapshotHash: input.frozenChartSnapshotHash ?? adaptiveMathSnapshotHash(input.frozenChart),
+        frozenExtractionHash: adaptiveMathSnapshotHash(input.frozenExtraction),
+        academicContractHash: input.adaptiveFindings.findings.academicContractHash,
+      })
+    : undefined;
+  const draftDir = adaptiveBinding ? path.join(baseDraftDir, "adaptive", adaptiveBinding) : baseDraftDir;
+  const freshRequested = shouldResetMathDraft({ freshRequested: flag("fresh"), adaptiveBinding });
   if (freshRequested) fs.rmSync(draftDir, { recursive: true, force: true });
   const extractionCacheFile = path.join(draftDir, "assignment-extraction.json");
-  const loadedExtraction = await loadOrExtractAssignmentSource(pdf, extractionCacheFile);
+  const loadedExtraction = await resolveMathAssignmentExtraction({
+    pdf,
+    extractionCacheFile,
+    frozenExtraction: input.frozenExtraction,
+    expectedSourceHash: input.sourceHash,
+  });
   const extraction = loadedExtraction.extraction;
   console.log(`  📄 Source: ${extraction.sourceKind}, ${extraction.pages.length} page${extraction.pages.length === 1 ? "" : "s"} captured, ${extraction.extractionMethod}${loadedExtraction.reused ? " (reused)" : ""}`);
   extraction.warnings.forEach((warning) => console.warn(`  LOCAL_TOOL_WARNING: ${warning}`));
@@ -297,14 +380,24 @@ async function continueUnpublishedMathIngestion(input: {
   const designFile = path.join(draftDir, "design-packet.json");
   const finalPlanFile = path.join(draftDir, "designed-plan.json");
   const buildFile = path.join(draftDir, "candidate-build-v3.json");
-  const chart = getChildChart(childId);
-  const priorOutcomes = {
-    directExperience: readDirectFeedbackContext(childId),
-    canonicalCycle: readDirectCanonicalLearningContext(childId, homeworkId),
-  };
+  const chart = input.frozenChart ?? getChildChart(childId);
+  if (input.frozenChartSnapshotHash && adaptiveMathSnapshotHash(chart) !== input.frozenChartSnapshotHash) {
+    throw new Error("adaptive_math_frozen_chart_hash_mismatch");
+  }
+  const priorOutcomes = input.frozenChart
+    ? {
+        adaptiveFindings: structuredClone(input.adaptiveFindings?.findings),
+        historicalEvidence: structuredClone(input.adaptiveFindings?.historicalEvidence ?? []),
+      }
+    : {
+        directExperience: readDirectFeedbackContext(childId),
+        canonicalCycle: readDirectCanonicalLearningContext(childId, homeworkId),
+      };
+  const priorConceptIds = input.frozenChart ? [] : readPriorConceptIds(childId);
 
   currentCheckpoint = draftDir;
   currentPhase = "academic-planning";
+  input.onPhase?.("planning");
   console.log("[2/5] Planner writing academic prescription");
   const reusableProgram = readReusablePlannerProgram({
     programFile,
@@ -320,9 +413,10 @@ async function continueUnpublishedMathIngestion(input: {
         chart,
         extraction,
         priorOutcomes,
-        priorConceptIds: readPriorConceptIds(childId),
+        priorConceptIds,
         rawResponseFile: plannerDiagnosticFile,
         plannerCheckpointDir: draftDir,
+        adaptiveFindings: input.adaptiveFindings,
       }));
   writeJson(programFile, program);
   console.log(`  📋 ${program.assumptions.length} assumptions preregistered; publication remains pending`);
@@ -331,6 +425,7 @@ async function continueUnpublishedMathIngestion(input: {
   console.log(`  🧭 Program: shared=${sharedNodes.join(",") || "none"}; ${program.fork.routes.map((route) => `${route.id}=${route.nodeIds.join(",")}`).join("; ")}`);
 
   currentPhase = "experience-design";
+  input.onPhase?.("designing");
   const existingDesignPacket = fs.existsSync(designFile) ? readJson<MathDesignPacket>(designFile) : undefined;
   const shouldDesign = !existingDesignPacket || !fs.existsSync(finalPlanFile)
     || !mathDesignHasRoutePresentationBindings(existingDesignPacket);
@@ -359,6 +454,7 @@ async function continueUnpublishedMathIngestion(input: {
   writeJson(finalPlanFile, designed.plan);
 
   currentPhase = "activity-building";
+  input.onPhase?.("building");
   console.log(`[4/5] Building ${designed.plan.activities.length} artifact-designed activities with bounded concurrency`);
   if (program.bonusActivity) console.log(`  ○ ${program.bonusActivity.id} bonus deferred until earned`);
   const existingBuild = fs.existsSync(buildFile)
@@ -371,6 +467,7 @@ async function continueUnpublishedMathIngestion(input: {
         bossArtworkUrl: existingBuild.bossArtworkUrl,
       }
     : undefined;
+  await input.onArtifactPlanReady?.(designed.plan.activities.map((activity) => activity.id));
   const generated = await withIngestionHeartbeat("Baseline builders", () => generateDirectArtifacts({
     plan: designed.plan,
     childId,
@@ -380,6 +477,7 @@ async function continueUnpublishedMathIngestion(input: {
     assignmentFingerprint: extraction.fileHash,
     candidateCards: mathPlannerCandidateCards(chart),
     existingArtworkUrls,
+    onArtifactReady: input.onArtifactReady,
     ...(rebuildNodeIds.length > 0 ? { forceNodeIds: rebuildNodeIds } : {}),
   }));
   writeJson(buildFile, generated);
@@ -407,20 +505,6 @@ async function continueUnpublishedMathIngestion(input: {
       name: chart.companion.displayName,
     },
   });
-  const record = persistDirectExperience({
-    childId,
-    homeworkId,
-    extraction,
-    plannerPlan: designed.plan,
-    activeSessionPlan,
-    artifacts: generated.artifacts,
-    report,
-    assumptions: program.assumptions,
-  });
-  console.log("Done — FULL");
-  console.log(`Browser smoke check: ${report.passed ? "passed" : "diagnostic warnings recorded"}`);
-  console.log("Quest: locked");
-  console.log("Boss: locked");
   const designCheckpoint = fs.existsSync(designCheckpointFile)
     ? readJson<MathDesignCheckpoint>(designCheckpointFile)
     : undefined;
@@ -444,6 +528,27 @@ async function continueUnpublishedMathIngestion(input: {
     + Math.max(0, designAttemptsAfter - designAttemptsBefore)
     + generated.stats.generatedNodeIds.length
     + generated.stats.generatedImages;
+  const tokens = plannerTokens + designTokens + buildTokens;
+  await input.onArtifactsReady?.({
+    artifacts: generated.artifacts,
+    calls,
+    tokens,
+    costUsd: 0,
+  });
+  const record = persistDirectExperience({
+    childId,
+    homeworkId,
+    extraction,
+    plannerPlan: designed.plan,
+    activeSessionPlan,
+    artifacts: generated.artifacts,
+    report,
+    assumptions: program.assumptions,
+  });
+  console.log("Done — FULL");
+  console.log(`Browser smoke check: ${report.passed ? "passed" : "diagnostic warnings recorded"}`);
+  console.log("Quest: locked");
+  console.log("Boss: locked");
   console.log(formatIngestionSummary({
     planner: plannerStatus,
     design: designStatus,
@@ -452,13 +557,100 @@ async function continueUnpublishedMathIngestion(input: {
     generatedImages: generated.stats.generatedImages,
     reusedImages: generated.stats.reusedImages,
     calls,
-    tokens: plannerTokens + designTokens + buildTokens,
+    tokens,
     elapsedMs: Date.now() - startedAt,
     checkpoint: draftDir,
     bonusDeferred: Boolean(program.bonusActivity),
   }));
   console.log(`Plan: ${record}`);
-  return { kind: "UNPUBLISHED_COMPLETE" };
+  return {
+    kind: "UNPUBLISHED_COMPLETE",
+    artifacts: generated.artifacts,
+    calls,
+    tokens,
+    costUsd: 0,
+  };
+}
+
+export async function runAdaptiveMathWorkerWithExistingFactory(input: {
+  jobFile: string;
+  childId: string;
+  startedAt: number;
+  sourceHash: string;
+  frozenExtraction: AssignmentSourceExtraction;
+  childChartSnapshot: ReturnType<typeof getChildChart>;
+  rebuildNodeIds?: string[];
+  continueUnpublished?: typeof continueUnpublishedMathIngestion;
+}): Promise<MathBoardWorkerJob> {
+  const savedJob = readJson<MathBoardWorkerJob>(input.jobFile);
+  if (savedJob.childId !== input.childId) throw new Error("adaptive_math_worker_child_binding_mismatch");
+  if (savedJob.assignmentSourceHash !== input.sourceHash || input.frozenExtraction.fileHash !== input.sourceHash) {
+    throw new Error("adaptive_math_worker_source_binding_mismatch");
+  }
+  if (adaptiveMathSnapshotHash(input.frozenExtraction) !== savedJob.frozenExtractionHash) {
+    throw new Error("adaptive_math_worker_extraction_binding_mismatch");
+  }
+  if (adaptiveMathSnapshotHash(input.childChartSnapshot) !== savedJob.childChartSnapshotHash) {
+    throw new Error("adaptive_math_worker_chart_binding_mismatch");
+  }
+  const chartChildId = (input.childChartSnapshot as { identity?: { childId?: string } }).identity?.childId;
+  if (!chartChildId) throw new Error("adaptive_math_worker_chart_child_missing");
+  if (chartChildId !== savedJob.childId) throw new Error("adaptive_math_worker_chart_child_mismatch");
+  const continueUnpublished = input.continueUnpublished ?? continueUnpublishedMathIngestion;
+  return runMathBoardWorker(input.jobFile, {
+    failureState: (error) => classifyIngestionFailure(error, currentPhase) === "PUBLICATION_FAILED"
+      ? "publication_failed"
+      : "provider_paused",
+    build: async ({
+      homeworkId,
+      findingsHash,
+      findings,
+      reportPhase,
+      reportExpectedArtifacts,
+      reportArtifact,
+    }) => {
+      const result = await continueUnpublished({
+        startedAt: input.startedAt,
+        childId: input.childId,
+        pdf: undefined,
+        rebuildNodeIds: input.rebuildNodeIds ?? [],
+        sourceHash: input.sourceHash,
+        homeworkId,
+        frozenExtraction: input.frozenExtraction,
+        frozenChart: input.childChartSnapshot,
+        frozenChartSnapshotHash: savedJob.childChartSnapshotHash,
+        adaptiveFindings: buildAdaptiveBoardPlannerContext({
+          findings,
+          decision: savedJob.decision,
+          historicalEvidence: [],
+        }),
+        onPhase: reportPhase,
+        onArtifactPlanReady: reportExpectedArtifacts,
+        onArtifactReady: (artifact) => {
+          reportArtifact(artifact.nodeId, artifact.htmlHash ?? assignmentSourceFileHash(artifact.htmlPath));
+        },
+        onArtifactsReady: ({ artifacts }) => {
+          const artifactIds = artifacts.map((artifact) => artifact.nodeId);
+          if (artifactIds.length === 0) throw new Error("adaptive_math_factory_returned_no_artifacts");
+        },
+      });
+      const artifactIds = result.artifacts.map((artifact) => artifact.nodeId);
+      const artifactHashes = Object.fromEntries(result.artifacts.map((artifact) => {
+        const htmlHash = artifact.htmlHash ?? assignmentSourceFileHash(artifact.htmlPath);
+        return [artifact.nodeId, htmlHash];
+      }));
+      return {
+        completedArtifactIds: artifactIds,
+        artifactHashes,
+        calls: result.calls,
+        tokens: result.tokens,
+        costUsd: null,
+        // The legacy provider adapters do not yet expose authoritative dollar cost.
+        costAccountingComplete: false,
+        inputFindingsHash: findingsHash,
+      };
+    },
+  });
 }
 
 async function main(): Promise<void> {

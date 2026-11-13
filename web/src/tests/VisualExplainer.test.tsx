@@ -333,6 +333,38 @@ describe("VisualExplainerDemo", () => {
     vi.unstubAllGlobals();
   });
 
+  it("reports the injected assignment domain instead of assuming science", () => {
+    vi.stubGlobal("SpeechSynthesisUtterance", MockSpeechSynthesisUtterance);
+    Object.defineProperty(window, "speechSynthesis", {
+      configurable: true,
+      value: { speak: vi.fn(), cancel: vi.fn() },
+    });
+    const sendMessage = vi.fn();
+
+    render(
+      <VisualExplainerDemo
+        mapMode
+        domain="math"
+        childId="lab-child"
+        sendMessage={sendMessage}
+        onExit={() => {}}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: /Start Treatment/i }));
+    act(() => {
+      fireEvent.change(screen.getByTestId("visual-explainer-scrubber"), {
+        target: { value: "48" },
+      });
+    });
+    fireEvent.click(screen.getByRole("button", { name: /Tiny pieces of rock and soil/i }));
+
+    const attempt = sendMessage.mock.calls
+      .map((call) => call[1]?.event)
+      .find((event) => event?.type === "attempt_event");
+    expect(attempt?.payload).toMatchObject({ domain: "math", masteryEligible: false });
+    vi.unstubAllGlobals();
+  });
+
   it("exposes a legacy-map-free visual explainer demo route and node integration", () => {
     const main = readFileSync(join(process.cwd(), "src/main.tsx"), "utf-8");
     const mapDemo = readFileSync(
