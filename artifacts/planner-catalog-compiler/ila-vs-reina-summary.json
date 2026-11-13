@@ -1,0 +1,456 @@
+[
+  {
+    "childId": "ila",
+    "nodePlan": [
+      {
+        "id": "baseline_baseline",
+        "type": "word-radar",
+        "activityId": "word-radar",
+        "targets": [
+          "sign",
+          "know",
+          "write",
+          "thumb"
+        ],
+        "difficulty": 2,
+        "source": "chart_planner",
+        "targetLane": "silent_letters",
+        "locked": false,
+        "wordRadarConfig": {
+          "recallMode": "partial_visual_recall",
+          "inputMode": "whole-word",
+          "speakStyle": "option-a",
+          "showTimer": true,
+          "hideWordDuringResponse": true,
+          "requiresCapturedResponse": true
+        }
+      },
+      {
+        "id": "route_route-a",
+        "type": "karaoke",
+        "activityId": "karaoke",
+        "targets": [
+          "among",
+          "building",
+          "circle",
+          "decided"
+        ],
+        "difficulty": 2,
+        "source": "chart_planner",
+        "targetLane": "high_frequency_words",
+        "locked": false
+      },
+      {
+        "id": "route_route-b",
+        "type": "pronunciation",
+        "activityId": "pronunciation",
+        "targets": [
+          "among",
+          "building",
+          "circle",
+          "decided"
+        ],
+        "difficulty": 2,
+        "source": "chart_planner",
+        "targetLane": "high_frequency_words",
+        "locked": false,
+        "pronunciationConfig": {
+          "mode": "word_list",
+          "requireCapturedResponse": true
+        }
+      },
+      {
+        "id": "support_story-support",
+        "type": "karaoke",
+        "activityId": "karaoke",
+        "targets": [
+          "among",
+          "building",
+          "circle",
+          "decided"
+        ],
+        "difficulty": 1,
+        "source": "chart_planner",
+        "targetLane": "high_frequency_words",
+        "locked": true
+      },
+      {
+        "id": "mystery_reward",
+        "type": "mystery",
+        "activityId": "mystery",
+        "targets": [
+          "sign",
+          "know",
+          "write",
+          "thumb",
+          "among",
+          "building",
+          "circle",
+          "decided"
+        ],
+        "difficulty": 2,
+        "source": "chart_planner",
+        "targetLane": "generated_transfer",
+        "locked": false
+      },
+      {
+        "id": "quest_transfer",
+        "type": "quest",
+        "activityId": "quest",
+        "targets": [
+          "sign",
+          "know",
+          "write",
+          "thumb",
+          "among",
+          "building",
+          "circle",
+          "decided"
+        ],
+        "difficulty": 2,
+        "source": "chart_planner",
+        "targetLane": "generated_transfer",
+        "locked": true,
+        "masteryUnlockState": "preparing"
+      },
+      {
+        "id": "boss_mastery",
+        "type": "boss",
+        "activityId": "boss",
+        "targets": [
+          "sign",
+          "know",
+          "write",
+          "thumb"
+        ],
+        "difficulty": 3,
+        "source": "chart_planner",
+        "targetLane": "generated_transfer",
+        "locked": true,
+        "masteryUnlockState": "preparing"
+      }
+    ],
+    "choiceSets": [
+      {
+        "id": "baseline-route-options",
+        "kind": "baseline-route",
+        "title": "Pick your path",
+        "options": [
+          {
+            "id": "choice_route-a",
+            "label": "Read it steady",
+            "description": "Keep the effort calm and language-rich.",
+            "icon": "mic",
+            "state": "available",
+            "nodeId": "route_route-a",
+            "tags": [
+              "karaoke",
+              "high_frequency_words",
+              "calm story"
+            ],
+            "choiceSignal": {
+              "algorithmFeed": "choicePolicy",
+              "traits": [
+                "calm story"
+              ],
+              "expectedEvidence": "Keep the effort calm and language-rich.",
+              "preferenceNotMastery": true
+            }
+          },
+          {
+            "id": "choice_route-b",
+            "label": "Say it with help",
+            "description": "Voice route captures willingness and fluency evidence.",
+            "icon": "target",
+            "state": "available",
+            "nodeId": "route_route-b",
+            "tags": [
+              "pronunciation",
+              "high_frequency_words",
+              "voice"
+            ],
+            "choiceSignal": {
+              "algorithmFeed": "choicePolicy",
+              "traits": [
+                "voice"
+              ],
+              "expectedEvidence": "Voice route captures willingness and fluency evidence.",
+              "preferenceNotMastery": true
+            }
+          }
+        ]
+      },
+      {
+        "id": "mystery_reward-options",
+        "kind": "mystery",
+        "title": "Pick a mystery challenge",
+        "options": [
+          {
+            "id": "mystery_reward-story",
+            "label": "Story Challenge",
+            "description": "Try a story-flavored challenge after the evidence route.",
+            "icon": "book-open",
+            "state": "available",
+            "nodeId": "mystery_reward",
+            "choiceSignal": {
+              "algorithmFeed": "choicePolicy",
+              "traits": [
+                "story"
+              ],
+              "expectedEvidence": "Whether story framing helps the child re-enter effort.",
+              "preferenceNotMastery": true
+            }
+          },
+          {
+            "id": "mystery_reward-speed",
+            "label": "Speed Challenge",
+            "description": "Try a fast challenge after the evidence route.",
+            "icon": "timer",
+            "state": "available",
+            "nodeId": "mystery_reward",
+            "choiceSignal": {
+              "algorithmFeed": "choicePolicy",
+              "traits": [
+                "speed"
+              ],
+              "expectedEvidence": "Whether speed framing helps the child persist after baseline work.",
+              "preferenceNotMastery": true
+            }
+          }
+        ]
+      }
+    ],
+    "rationale": {
+      "agencyDesign": "Ila gets calm reading and voice choices.",
+      "evidenceDesign": "Support is a near route if hesitation appears.",
+      "layoutChoice": "Compiler-owned horizontal spine: baseline, route choice, route evidence, mystery, quest, boss."
+    }
+  },
+  {
+    "childId": "reina",
+    "nodePlan": [
+      {
+        "id": "baseline_baseline",
+        "type": "spell-check",
+        "activityId": "spell-check",
+        "targets": [
+          "sign",
+          "know",
+          "write",
+          "thumb"
+        ],
+        "difficulty": 2,
+        "source": "chart_planner",
+        "targetLane": "silent_letters",
+        "locked": false
+      },
+      {
+        "id": "route_route-a",
+        "type": "word-radar",
+        "activityId": "word-radar",
+        "targets": [
+          "sign",
+          "know",
+          "write",
+          "thumb"
+        ],
+        "difficulty": 2,
+        "source": "chart_planner",
+        "targetLane": "silent_letters",
+        "locked": false,
+        "wordRadarConfig": {
+          "recallMode": "partial_visual_recall",
+          "inputMode": "whole-word",
+          "speakStyle": "option-a",
+          "showTimer": true,
+          "hideWordDuringResponse": true,
+          "requiresCapturedResponse": true
+        }
+      },
+      {
+        "id": "route_route-b",
+        "type": "pronunciation",
+        "activityId": "pronunciation",
+        "targets": [
+          "among",
+          "building",
+          "circle",
+          "decided"
+        ],
+        "difficulty": 2,
+        "source": "chart_planner",
+        "targetLane": "high_frequency_words",
+        "locked": false,
+        "pronunciationConfig": {
+          "mode": "word_list",
+          "requireCapturedResponse": true
+        }
+      },
+      {
+        "id": "support_story-support",
+        "type": "karaoke",
+        "activityId": "karaoke",
+        "targets": [
+          "among",
+          "building",
+          "circle",
+          "decided"
+        ],
+        "difficulty": 1,
+        "source": "chart_planner",
+        "targetLane": "high_frequency_words",
+        "locked": true
+      },
+      {
+        "id": "mystery_reward",
+        "type": "mystery",
+        "activityId": "mystery",
+        "targets": [
+          "sign",
+          "know",
+          "write",
+          "thumb",
+          "among",
+          "building",
+          "circle",
+          "decided"
+        ],
+        "difficulty": 2,
+        "source": "chart_planner",
+        "targetLane": "generated_transfer",
+        "locked": false
+      },
+      {
+        "id": "quest_transfer",
+        "type": "quest",
+        "activityId": "quest",
+        "targets": [
+          "sign",
+          "know",
+          "write",
+          "thumb",
+          "among",
+          "building",
+          "circle",
+          "decided"
+        ],
+        "difficulty": 2,
+        "source": "chart_planner",
+        "targetLane": "generated_transfer",
+        "locked": true,
+        "masteryUnlockState": "preparing"
+      },
+      {
+        "id": "boss_mastery",
+        "type": "boss",
+        "activityId": "boss",
+        "targets": [
+          "sign",
+          "know",
+          "write",
+          "thumb"
+        ],
+        "difficulty": 3,
+        "source": "chart_planner",
+        "targetLane": "generated_transfer",
+        "locked": true,
+        "masteryUnlockState": "preparing"
+      }
+    ],
+    "choiceSets": [
+      {
+        "id": "baseline-route-options",
+        "kind": "baseline-route",
+        "title": "Pick your path",
+        "options": [
+          {
+            "id": "choice_route-a",
+            "label": "Beat the clock",
+            "description": "Use challenge energy for fast visual recall.",
+            "icon": "mic",
+            "state": "available",
+            "nodeId": "route_route-a",
+            "tags": [
+              "word-radar",
+              "silent_letters",
+              "speed challenge"
+            ],
+            "choiceSignal": {
+              "algorithmFeed": "choicePolicy",
+              "traits": [
+                "speed challenge"
+              ],
+              "expectedEvidence": "Use challenge energy for fast visual recall.",
+              "preferenceNotMastery": true
+            }
+          },
+          {
+            "id": "choice_route-b",
+            "label": "Say it strong",
+            "description": "Voice route captures willingness and fluency evidence.",
+            "icon": "target",
+            "state": "available",
+            "nodeId": "route_route-b",
+            "tags": [
+              "pronunciation",
+              "high_frequency_words",
+              "voice"
+            ],
+            "choiceSignal": {
+              "algorithmFeed": "choicePolicy",
+              "traits": [
+                "voice"
+              ],
+              "expectedEvidence": "Voice route captures willingness and fluency evidence.",
+              "preferenceNotMastery": true
+            }
+          }
+        ]
+      },
+      {
+        "id": "mystery_reward-options",
+        "kind": "mystery",
+        "title": "Pick a mystery challenge",
+        "options": [
+          {
+            "id": "mystery_reward-story",
+            "label": "Story Challenge",
+            "description": "Try a story-flavored challenge after the evidence route.",
+            "icon": "book-open",
+            "state": "available",
+            "nodeId": "mystery_reward",
+            "choiceSignal": {
+              "algorithmFeed": "choicePolicy",
+              "traits": [
+                "story"
+              ],
+              "expectedEvidence": "Whether story framing helps the child re-enter effort.",
+              "preferenceNotMastery": true
+            }
+          },
+          {
+            "id": "mystery_reward-speed",
+            "label": "Speed Challenge",
+            "description": "Try a fast challenge after the evidence route.",
+            "icon": "timer",
+            "state": "available",
+            "nodeId": "mystery_reward",
+            "choiceSignal": {
+              "algorithmFeed": "choicePolicy",
+              "traits": [
+                "speed"
+              ],
+              "expectedEvidence": "Whether speed framing helps the child persist after baseline work.",
+              "preferenceNotMastery": true
+            }
+          }
+        ]
+      }
+    ],
+    "rationale": {
+      "agencyDesign": "Reina gets speed and voice challenge choices.",
+      "evidenceDesign": "Support remains a fallback.",
+      "layoutChoice": "Compiler-owned horizontal spine: baseline, route choice, route evidence, mystery, quest, boss."
+    }
+  }
+]

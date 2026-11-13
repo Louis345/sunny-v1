@@ -10,7 +10,7 @@ import type {
   PlanTheory,
   PlannedMeasurement,
 } from "../context/schemas/learningProfile";
-import type { AdventureBoardJson, AdventureChoiceOption, AdventureChoiceSet } from "../shared/adventureBoardJson";
+import type { AdventureBoardJson } from "../shared/adventureBoardJson";
 import { ALL_NODE_TYPES, type NodeType } from "../shared/adventureTypes";
 import type { ChildChart } from "../profiles/childChart";
 import {
@@ -38,6 +38,10 @@ import {
 } from "./assignmentSourceExtraction";
 import { certifySpellingAdaptation } from "./spellingCertification";
 import { validateAdventureBoardJson } from "../shared/adventureBoardValidation";
+import {
+  compileAssignmentPlanPrescription,
+  type AssignmentPlanPrescription,
+} from "./assignmentPlanPrescription";
 
 export type { AssignmentSourceExtraction } from "./assignmentSourceExtraction";
 
@@ -1912,35 +1916,6 @@ export function hydrateAssignmentPlannerOutputFromDraft(
   };
 }
 
-const ASSIGNMENT_BOARD_THEME: AdventureBoardJson["theme"] = {
-  background: { type: "image", value: "/generated/adventure-board-demo/silent-letter-world.jpeg" },
-  palette: {
-    path: "#ffffff",
-    completed: "#1f8f68",
-    available: "#7c3aed",
-    locked: "#aeb7c2",
-    current: "#f59e0b",
-    preview: "#d5dde5",
-    text: "#ffffff",
-    panel: "rgba(15, 23, 42, 0.84)",
-  },
-};
-
-const ASSIGNMENT_BOARD_THUMBNAILS: Record<string, string> = {
-  start: "/thumbnails/activities/word-radar.svg",
-  "choice-gate": "/thumbnails/mystery-fallback.svg",
-  "word-radar": "/generated/adventure-board-demo/word-radar.jpeg",
-  "spell-check": "/generated/adventure-board-demo/spell-check.jpeg",
-  pronunciation: "/generated/adventure-board-demo/pronunciation.jpeg",
-  mystery: "/generated/adventure-board-demo/mystery.jpeg",
-  quest: "/generated/adventure-board-demo/quest.jpeg",
-  boss: "/generated/adventure-board-demo/boss.jpeg",
-  "monster-stampede": "/thumbnails/activities/monster-stampede.svg",
-  "wheel-of-fortune": "/thumbnails/activities/wheel-of-fortune.svg",
-  karaoke: "/thumbnails/activities/karaoke.svg",
-  "letter-rush": "/thumbnails/activities/speed-catcher.svg",
-};
-
 function labelForAssignmentBoardNode(
   packet: AssignmentPlanningPacket,
   node: ActiveSessionPlan["nodePlan"][number],
@@ -1979,386 +1954,6 @@ function labelForWordRadarBoardNode(node: ActiveSessionPlan["nodePlan"][number])
   return undefined;
 }
 
-function thumbnailForAssignmentBoardNode(node: ActiveSessionPlan["nodePlan"][number]): string | undefined {
-  return ASSIGNMENT_BOARD_THUMBNAILS[node.activityId] ?? ASSIGNMENT_BOARD_THUMBNAILS[node.type];
-}
-
-function choiceSignalForNode(node: ActiveSessionPlan["nodePlan"][number]) {
-  return {
-    algorithmFeed: "choicePolicy" as const,
-    traits: [
-      node.activityId === "pronunciation" ? "voice" : "practice",
-      node.activityId === "spell-check" ? "typing" : "control",
-    ],
-    expectedEvidence: `shown/chosen/skipped/completed outcome for ${node.activityId}; preference only`,
-    preferenceNotMastery: true as const,
-  };
-}
-
-function mysteryChoiceSetId(node: ActiveSessionPlan["nodePlan"][number]): string {
-  return `${node.id}-options`;
-}
-
-function mysteryChoiceOptions(
-  node: ActiveSessionPlan["nodePlan"][number],
-): NonNullable<AdventureBoardJson["choiceSets"]>[number]["options"] {
-  const state: AdventureChoiceOption["state"] = node.locked ? "locked" : "available";
-  const base = {
-    thumbnailUrl: thumbnailForAssignmentBoardNode(node),
-    nodeId: node.id,
-    state,
-    lock: node.locked
-      ? { reason: node.masteryUnlockState ?? "planner_locked", label: "Preparing" }
-      : undefined,
-  };
-  return [
-    {
-      id: `${node.id}-story`,
-      label: "Story Challenge",
-      description: "Try the practice inside a story wrapper.",
-      icon: "book",
-      tags: ["story", "calm", "reading"],
-      choiceSignal: {
-        algorithmFeed: "choicePolicy",
-        traits: ["story", "calm", "reading"],
-        expectedEvidence: `shown/chosen/skipped/completed outcome for ${node.id} story wrapper; preference only`,
-        preferenceNotMastery: true,
-      },
-      ...base,
-    },
-    {
-      id: `${node.id}-speed`,
-      label: "Speed Challenge",
-      description: "Try the practice with a fast arcade wrapper.",
-      icon: "zap",
-      tags: ["speed", "competition", "arcade"],
-      choiceSignal: {
-        algorithmFeed: "choicePolicy",
-        traits: ["speed", "competition", "arcade"],
-        expectedEvidence: `shown/chosen/skipped/completed outcome for ${node.id} speed wrapper; preference only`,
-        preferenceNotMastery: true,
-      },
-      ...base,
-    },
-    {
-      id: `${node.id}-puzzle`,
-      label: "Puzzle Challenge",
-      description: "Try the practice with a thinking wrapper.",
-      icon: "sparkles",
-      tags: ["puzzle", "control", "thinking"],
-      choiceSignal: {
-        algorithmFeed: "choicePolicy",
-        traits: ["puzzle", "control", "thinking"],
-        expectedEvidence: `shown/chosen/skipped/completed outcome for ${node.id} puzzle wrapper; preference only`,
-        preferenceNotMastery: true,
-      },
-      ...base,
-    },
-  ];
-}
-
-function kindForAssignmentNode(node: ActiveSessionPlan["nodePlan"][number]): AdventureBoardJson["nodes"][number]["kind"] {
-  if (node.activityId === "mystery") return "mystery";
-  if (node.activityId === "quest") return "quest";
-  if (node.activityId === "boss") return "boss";
-  return "activity";
-}
-
-function evidenceRoleForAssignmentNode(node: ActiveSessionPlan["nodePlan"][number]): AdventureBoardJson["nodes"][number]["evidenceRole"] {
-  if (node.activityId === "mystery") return "preference";
-  if (node.activityId === "quest") return "transfer";
-  if (node.activityId === "boss") return "mastery";
-  return "baseline";
-}
-
-function buildAssignmentBoardNode(args: {
-  packet: AssignmentPlanningPacket;
-  node: ActiveSessionPlan["nodePlan"][number];
-  state: AdventureBoardJson["nodes"][number]["state"];
-  slot: NonNullable<AdventureBoardJson["nodes"][number]["slot"]>;
-  role: NonNullable<NonNullable<AdventureBoardJson["nodes"][number]["layout"]>["role"]>;
-  lane?: NonNullable<NonNullable<AdventureBoardJson["nodes"][number]["layout"]>["lane"]>;
-  order: number;
-}): AdventureBoardJson["nodes"][number] {
-  const kind = kindForAssignmentNode(args.node);
-  const label = labelForAssignmentBoardNode(args.packet, args.node) ?? args.node.activityId;
-  const choiceSetId = kind === "mystery" ? mysteryChoiceSetId(args.node) : undefined;
-  const lock = args.node.locked
-    ? {
-        reason: args.node.masteryUnlockState ?? "planner_locked",
-        label: args.node.activityId === "boss" ? "After Quest" : "Preparing",
-      }
-    : undefined;
-  return {
-    id: args.node.id,
-    kind,
-    activityId: args.node.activityId,
-    label,
-    shortLabel: label.length > 18 ? label.slice(0, 18) : label,
-    thumbnailUrl: thumbnailForAssignmentBoardNode(args.node),
-    slot: args.slot,
-    layout: {
-      role: args.role,
-      lane: args.lane ?? "main",
-      order: args.order,
-    },
-    state: args.state,
-    evidenceRole: evidenceRoleForAssignmentNode(args.node),
-    target: args.node.targetLane
-      ? {
-          laneId: args.node.targetLane,
-          skill: args.node.targetLane,
-          words: args.node.targets,
-        }
-      : undefined,
-    wordRadarConfig: args.node.activityId === "word-radar"
-      ? args.node.wordRadarConfig as AdventureBoardJson["nodes"][number]["wordRadarConfig"]
-      : undefined,
-    lock,
-    choiceSetId,
-    action: args.node.locked
-      ? { type: "show-locked-reason", payloadId: args.node.id }
-      : choiceSetId
-        ? { type: "open-choice-set", payloadId: choiceSetId }
-        : { type: "launch-activity", payloadId: args.node.id },
-  };
-}
-
-function buildAssignmentAdventureBoard(args: {
-  packet: AssignmentPlanningPacket;
-  planId: string;
-  domain: string;
-  title: string;
-  nodePlan: ActiveSessionPlan["nodePlan"];
-  companionId: string;
-  companionName: string;
-  planTheory: PlanTheory;
-}): AdventureBoardJson {
-  const baselineNodes = args.nodePlan.filter((node) =>
-    node.activityId !== "mystery" && node.activityId !== "quest" && node.activityId !== "boss",
-  );
-  const requiredBaselineCount = baselineNodes.length >= 4 ? 2 : 1;
-  const requiredNodes = baselineNodes.slice(0, requiredBaselineCount);
-  const routeNodes = baselineNodes.slice(requiredBaselineCount);
-  const mysteryNode = args.nodePlan.find((node) => node.activityId === "mystery");
-  const questNode = args.nodePlan.find((node) => node.activityId === "quest");
-  const bossNode = args.nodePlan.find((node) => node.activityId === "boss");
-  const firstRequired = requiredNodes[0] ?? baselineNodes[0] ?? mysteryNode ?? questNode ?? bossNode;
-  const lastRequired = requiredNodes[requiredNodes.length - 1] ?? firstRequired;
-  const routeSlots = ["5a.1", "5b.1", "5a.2"] as const;
-  const routeLanes = ["upper", "lower", "upper"] as const;
-  const hasRealRouteChoice = routeNodes.length >= 2;
-  const routeChoices = hasRealRouteChoice ? routeNodes.slice(0, 3) : [];
-  const nodes: AdventureBoardJson["nodes"] = [
-    {
-      id: "start",
-      kind: "start",
-      label: "Start",
-      shortLabel: "Start",
-      thumbnailUrl: ASSIGNMENT_BOARD_THUMBNAILS.start,
-      slot: "1",
-      layout: { role: "start", lane: "main", order: 1 },
-      state: "completed",
-      evidenceRole: "baseline",
-    },
-    ...requiredNodes.map((node, index) =>
-      buildAssignmentBoardNode({
-        packet: args.packet,
-        node,
-        state: index === 0 ? "current" : "available",
-        slot: (index === 0 ? "2" : "3") as "2" | "3",
-        role: "baseline",
-        lane: "main",
-        order: index + 1,
-      }),
-    ),
-    ...(hasRealRouteChoice ? [{
-      id: "choose-path",
-      kind: "choice-gate" as const,
-      label: "Choose Path",
-      shortLabel: "Choose Path",
-      thumbnailUrl: ASSIGNMENT_BOARD_THUMBNAILS["choice-gate"],
-      slot: "4" as const,
-      layout: { role: "choice-gate" as const, lane: "main" as const, order: 1 },
-      state: "available" as const,
-      evidenceRole: "preference" as const,
-      choiceSetId: "baseline-route-options",
-      action: { type: "open-choice-set" as const, payloadId: "baseline-route-options" },
-    }] : []),
-    ...routeNodes.map((node, index) =>
-      buildAssignmentBoardNode({
-        packet: args.packet,
-        node,
-        state: "available",
-        slot: hasRealRouteChoice
-          ? routeSlots[index] ?? "5c.1"
-          : (index === 0 ? "4" : routeSlots[index - 1] ?? "5c.1"),
-        role: "evidence-route",
-        lane: routeLanes[index] ?? "middle",
-        order: 1,
-      }),
-    ),
-    ...(mysteryNode ? [buildAssignmentBoardNode({
-      packet: args.packet,
-      node: mysteryNode,
-      state: "available",
-      slot: "6",
-      role: "mystery",
-      lane: "main",
-      order: 1,
-    })] : []),
-    ...(questNode ? [buildAssignmentBoardNode({
-      packet: args.packet,
-      node: questNode,
-      state: "locked",
-      slot: "7",
-      role: "quest",
-      lane: "main",
-      order: 1,
-    })] : []),
-    ...(bossNode ? [buildAssignmentBoardNode({
-      packet: args.packet,
-      node: bossNode,
-      state: "locked",
-      slot: "8",
-      role: "boss",
-      lane: "main",
-      order: 1,
-    })] : []),
-  ];
-  const edges: AdventureBoardJson["edges"] = [];
-  if (firstRequired) {
-    edges.push({ id: `edge-start-${firstRequired.id}`, from: "start", to: firstRequired.id, state: "available", style: "solid" });
-  }
-  for (let index = 0; index < requiredNodes.length - 1; index += 1) {
-    edges.push({
-      id: `edge-${requiredNodes[index]!.id}-${requiredNodes[index + 1]!.id}`,
-      from: requiredNodes[index]!.id,
-      to: requiredNodes[index + 1]!.id,
-      state: "available",
-      style: "solid",
-    });
-  }
-  if (hasRealRouteChoice && lastRequired) {
-    edges.push({ id: `edge-${lastRequired.id}-choose-path`, from: lastRequired.id, to: "choose-path", state: "available", style: "solid" });
-  }
-  for (const routeNode of hasRealRouteChoice ? routeNodes : []) {
-    edges.push({ id: `edge-choose-path-${routeNode.id}`, from: "choose-path", to: routeNode.id, state: "available", style: "glow" });
-  }
-  const routeExit = mysteryNode ?? questNode ?? bossNode;
-  if (hasRealRouteChoice) {
-    for (const routeNode of routeNodes) {
-      if (routeExit) {
-        edges.push({ id: `edge-${routeNode.id}-${routeExit.id}`, from: routeNode.id, to: routeExit.id, state: "available", style: "solid" });
-      }
-    }
-  } else {
-    const linearNodes = [...routeNodes, ...(routeExit ? [routeExit] : [])];
-    let previous = lastRequired;
-    for (const node of linearNodes) {
-      if (previous) {
-        edges.push({ id: `edge-${previous.id}-${node.id}`, from: previous.id, to: node.id, state: node.locked ? "locked" : "available", style: node.locked ? "dashed" : "solid" });
-      }
-      previous = node;
-    }
-  }
-  if (mysteryNode && questNode) {
-    edges.push({ id: `edge-${mysteryNode.id}-${questNode.id}`, from: mysteryNode.id, to: questNode.id, state: "locked", style: "dashed" });
-  }
-  if (questNode && bossNode) {
-    edges.push({ id: `edge-${questNode.id}-${bossNode.id}`, from: questNode.id, to: bossNode.id, state: "locked", style: "dashed" });
-  }
-  const choiceSets: AdventureChoiceSet[] = [
-    ...(hasRealRouteChoice ? [{
-      id: "baseline-route-options",
-      kind: "baseline-route" as const,
-      title: "Choose your path",
-      options: routeChoices.slice(0, Math.max(2, routeChoices.length)).map((node): AdventureChoiceOption => {
-        const label = labelForAssignmentBoardNode(args.packet, node) ?? node.activityId;
-        const state: AdventureChoiceOption["state"] = node.locked ? "locked" : "available";
-        return {
-          id: `choice-${node.id}`,
-          label,
-          description: `Try ${label} next.`,
-          thumbnailUrl: thumbnailForAssignmentBoardNode(node),
-          state,
-          nodeId: node.id,
-          choiceSignal: choiceSignalForNode(node),
-        };
-      }),
-    }] : []),
-    ...(mysteryNode
-      ? [{
-          id: mysteryChoiceSetId(mysteryNode),
-          kind: "mystery" as const,
-          title: "Pick a mystery challenge",
-          options: mysteryChoiceOptions(mysteryNode),
-        }]
-      : []),
-  ];
-
-  return {
-    schemaVersion: 1,
-    boardId: `assignment-board-${args.packet.childId}-${args.packet.sourceDocument.fileHash.slice(0, 8)}`,
-    planId: args.planId,
-    childId: args.packet.childId,
-    domain: ["spelling", "reading", "math", "science"].includes(args.domain)
-      ? args.domain as AdventureBoardJson["domain"]
-      : "generic",
-    title: args.title,
-    theme: ASSIGNMENT_BOARD_THEME,
-    layout: {
-      preset: "horizontal-adventure-spine",
-      companionSlot: args.packet.childChart.adventureMapProfile?.companionSlot ?? "right",
-      ...(hasRealRouteChoice ? { routeChoiceBehavior: "exclusive" as const } : {}),
-    },
-    plannerRationale: {
-      agencyDesign: args.planTheory.intervention,
-      evidenceDesign: args.planTheory.hypothesis,
-      layoutChoice: "Sunny materialized the horizontal adventure board from the planner's validated intervention node plan.",
-    },
-    nodes,
-    edges,
-    choiceSets,
-    companion: {
-      id: args.companionId,
-      name: args.companionName,
-    },
-    progress: {
-      currentNodeId: firstRequired?.id,
-      completedNodeIds: [],
-      activeChoiceSetId: hasRealRouteChoice ? "baseline-route-options" : undefined,
-    },
-  };
-}
-
-async function repairRejectedAssignmentPlannerDraft(args: {
-  draft: AssignmentPlannerResponseObject;
-  packet: AssignmentPlanningPacket;
-  issues: AssignmentPlanValidationIssue[];
-  model: string;
-}): Promise<AssignmentPlannerResponseObject> {
-  const { draft } = await callAssignmentPlannerTool({
-    model: args.model,
-    prompt: [
-      "Your previous assignment planner JSON failed Sunny's contract validation.",
-      `Call ${ASSIGNMENT_PLANNER_TOOL_NAME} with one corrected full object.`,
-      "Keep the assignment interpretation and academic plan as stable as possible, but fix any field that caused validation failure.",
-      "The app renders the board after validation; repair only the homework interpretation, nodePlan, plannedMeasurements, and theory.",
-      "If child agency appears before baseline evidence, move the route-worthy alternatives after the required baseline activities.",
-      "Validation issues:",
-      JSON.stringify(args.issues.map((issue) => ({
-        code: issue.code,
-        severity: issue.severity,
-        message: issue.message,
-      })), null, 2),
-      "Previous JSON:",
-      JSON.stringify(args.draft, null, 2),
-    ].join("\n\n"),
-  });
-  return draft;
-}
-
 async function planAssignmentFromSourceInternal(
   packet: AssignmentPlanningPacket,
   opts: AssignmentPlanningOptions = {},
@@ -2368,27 +1963,15 @@ async function planAssignmentFromSourceInternal(
   }
   const model = resolveAssignmentPlannerModel(opts);
   const started = Date.now();
-  const { draft: initialDraft, usage } = await callAssignmentPlannerModel(packet, model);
-  let draft = initialDraft;
-  let output = hydrateAssignmentPlannerOutputFromDraft(draft, packet);
-  let validationIssues = validateAssignmentPlannerOutput(output, {
+  const { draft, usage } = await callAssignmentPlannerModel(packet, model);
+  const output = hydrateAssignmentPlannerOutputFromDraft(draft, packet);
+  const validationIssues = validateAssignmentPlannerOutput(output, {
     extraction: packet.sourceDocument,
     activityCatalog: packet.activityCatalog,
   });
-  for (let repairCount = 0; repairCount < 2; repairCount += 1) {
-    const blockingIssues = validationIssues.filter((issue) => issue.severity === "error");
-    if (blockingIssues.length === 0) break;
-    draft = await repairRejectedAssignmentPlannerDraft({
-      draft,
-      packet,
-      issues: blockingIssues,
-      model,
-    });
-    output = hydrateAssignmentPlannerOutputFromDraft(draft, packet);
-    validationIssues = validateAssignmentPlannerOutput(output, {
-      extraction: packet.sourceDocument,
-      activityCatalog: packet.activityCatalog,
-    });
+  const blockingIssues = validationIssues.filter((issue) => issue.severity === "error");
+  if (blockingIssues.length > 0) {
+    throw new Error(`assignment_planner_validation_failed:${blockingIssues.map((issue) => issue.code).join(",")}`);
   }
 
   return {
@@ -2431,6 +2014,27 @@ function hydrateActiveSessionPlanFromDraft(args: {
     wordRadarConfig: node.activityId === "word-radar" ? node.wordRadarConfig : undefined,
     source: "chart_planner" as const,
   }));
+  const compiledBoard = compileAssignmentPlanPrescription(
+    assignmentPrescriptionFromNodePlan({
+      planId,
+      packet: args.packet,
+      capturedContent: args.capturedContent,
+      homeworkWords: args.homeworkWords,
+      nodePlan,
+      planTheory: args.planTheory,
+    }),
+    {
+      companionId,
+      companionName: args.packet.childChart.selectedCompanionName ?? companionId,
+      preserveActivityRefIds: true,
+      requireTwoAgencyRoutes: false,
+      destinationIds: {
+        mystery: nodePlan.find((node) => node.activityId === "mystery")?.id,
+        quest: nodePlan.find((node) => node.activityId === "quest")?.id,
+        boss: nodePlan.find((node) => node.activityId === "boss")?.id,
+      },
+    },
+  ).activeSessionPlan.adventureBoard;
   return {
     planId,
     childId: args.packet.childId,
@@ -2439,16 +2043,7 @@ function hydrateActiveSessionPlanFromDraft(args: {
     domain: args.capturedContent.contentProfile.practiceDomain,
     testDate: null,
     nodePlan,
-    adventureBoard: args.draft.adventureBoard ?? buildAssignmentAdventureBoard({
-      packet: args.packet,
-      planId,
-      domain: args.capturedContent.contentProfile.practiceDomain,
-      title: args.capturedContent.title,
-      nodePlan,
-      companionId,
-      companionName: args.packet.childChart.selectedCompanionName ?? companionId,
-      planTheory: args.planTheory,
-    }),
+    adventureBoard: compiledBoard,
     variationPolicy: {
       avoidExactPreviousNodeOrder: true,
       avoidExactPreviousWordOrder: true,
@@ -2471,6 +2066,95 @@ function hydrateActiveSessionPlanFromDraft(args: {
     planTheory: args.planTheory,
     plannedMeasurements: args.plannedMeasurements,
     generatedExperienceBriefs: args.generatedExperienceBriefs,
+  };
+}
+
+function assignmentPrescriptionFromNodePlan(args: {
+  planId: string;
+  packet: AssignmentPlanningPacket;
+  capturedContent: CapturedHomeworkContent;
+  homeworkWords: AssignmentPlannerHomeworkWord[];
+  nodePlan: ActiveSessionPlan["nodePlan"];
+  planTheory: PlanTheory;
+}): AssignmentPlanPrescription {
+  const academicNodes = args.nodePlan.filter((node) =>
+    !PLANNER_DESTINATION_ACTIVITY_IDS.has(node.activityId),
+  );
+  const baseline = academicNodes[0];
+  if (!baseline) {
+    throw new Error("assignment_plan_prescription_missing_baseline");
+  }
+  const requiredBaselineCount = academicNodes.length >= 4 ? 2 : 1;
+  const requiredNodes = academicNodes.slice(1, requiredBaselineCount);
+  const supportNode = academicNodes.find((node, index) => index >= requiredBaselineCount && node.locked === true);
+  const routeNodes = academicNodes.slice(requiredBaselineCount).filter((node) => node.id !== supportNode?.id);
+  const targetGroups = (args.capturedContent.wordGroups ?? []).map((group) => ({
+    id: group.id,
+    label: group.label,
+    skill: group.purpose,
+    targets: group.words,
+  }));
+  const fallbackTargetGroupId = targetGroups[0]?.id ?? args.homeworkWords[0]?.sourceGroupId ?? "homework_targets";
+  const groupsById = new Map(targetGroups.map((group) => [group.id, group]));
+  if (targetGroups.length === 0) {
+    targetGroups.push({
+      id: fallbackTargetGroupId,
+      label: "Homework targets",
+      skill: "unknown",
+      targets: args.homeworkWords.map((word) => word.text),
+    });
+  }
+  const groupIdForNode = (node: ActiveSessionPlan["nodePlan"][number]) =>
+    node.targetLane && groupsById.has(node.targetLane) ? node.targetLane : fallbackTargetGroupId;
+  const toActivityRef = (node: ActiveSessionPlan["nodePlan"][number]) => ({
+    id: node.id,
+    label: labelForAssignmentBoardNode(args.packet, node) ?? node.activityId,
+    activityId: node.activityId,
+    targetGroupId: groupIdForNode(node),
+    reason: args.planTheory.intervention,
+  });
+
+  return {
+    planId: args.planId,
+    childId: args.packet.childId,
+    domain: args.capturedContent.contentProfile.practiceDomain as AssignmentPlanPrescription["domain"],
+    title: args.capturedContent.title,
+    targetGroups,
+    baseline: toActivityRef(baseline),
+    requiredActivities: requiredNodes.map(toActivityRef),
+    agencyRoutes: routeNodes.map((node) => ({
+      ...toActivityRef(node),
+      childHook: node.choiceMode ?? node.activityId,
+    })),
+    supportPath: supportNode
+      ? {
+          id: supportNode.id,
+          label: labelForAssignmentBoardNode(args.packet, supportNode) ?? supportNode.activityId,
+          activityId: supportNode.activityId,
+          targetGroupId: groupIdForNode(supportNode),
+          trigger: args.planTheory.supportCriteria[0] ?? "Use when baseline evidence shows unresolved struggle.",
+        }
+      : undefined,
+    questHypothesis: {
+      title: args.nodePlan.find((node) => node.activityId === "quest")?.id ?? "Quest",
+      targetGroupIds: targetGroups.map((group) => group.id),
+      readiness: args.planTheory.reviseCriteria[0] ?? "Quest opens after baseline and route evidence.",
+    },
+    bossHypothesis: {
+      title: args.nodePlan.find((node) => node.activityId === "boss")?.id ?? "Boss",
+      targetGroupIds: targetGroups.map((group) => group.id),
+      masteryGate: args.planTheory.falsifyCriteria[0] ?? "Boss remains locked until quest evidence supports transfer.",
+    },
+    evidenceUsed: [{
+      id: "source-1",
+      type: "captured_homework",
+      summary: args.packet.sourceDocument.filename ?? args.capturedContent.sourceDocuments[0]?.filename ?? "assignment-source",
+    }],
+    rationale: {
+      agency: args.planTheory.intervention,
+      support: args.planTheory.supportCriteria.join(" ") || "Route to support when evidence shows struggle.",
+      mastery: args.planTheory.hypothesis,
+    },
   };
 }
 
