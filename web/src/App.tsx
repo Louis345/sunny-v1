@@ -17,6 +17,7 @@ import { SessionEnd } from "./components/SessionEnd";
 import { SessionLoadingOverlay } from "./components/SessionLoadingOverlay";
 import { CanvasTestOverlay } from "./components/CanvasTestPanel";
 import { AdventureBoardExperience } from "./components/AdventureBoardExperience";
+import { CompanionCareHud } from "./components/CompanionCareHud";
 import type {
   AdventureBoardNode,
   AdventureChoiceOption,
@@ -1192,7 +1193,13 @@ function App() {
             result: payload,
           })
         : Promise.resolve(null);
-      void completionWrite.then(() => {
+      void completionWrite.then((completion) => {
+        if (completion?.careReward?.companionCare) {
+          setProfileCompanionCare(completion.careReward.companionCare);
+          console.log(
+            ` 🎮 [companion-care-reward] [assignment_completion] [${completion.careReward.status}] item=${completion.careReward.itemId ?? "none"}`,
+          );
+        }
         setLocallyCompletedPlannerNodeIds((current) =>
           current.includes(launch.node.id) ? current : [...current, launch.node.id],
         );
@@ -1614,6 +1621,20 @@ function App() {
         }}
       >
       {main}
+      {homeworkBoardMode && plannerBoardPacket && tamagotchProfileReady ? (
+        <CompanionCareHud
+          companionName={
+            plannerBoardPacket.childChart.companion.displayName
+          }
+          fallbackTamagotchi={
+            profileTamagotchi ?? {
+              ...DEFAULT_TAMAGOTCHI,
+              lastSeenAt: new Date().toISOString(),
+            }
+          }
+          activityActive={plannerBoardLaunch != null}
+        />
+      ) : null}
       {adventureMapEnabled &&
       diagMapPanelEnabled &&
       (adventureChildId !== null ||

@@ -78,6 +78,12 @@ export interface CompanionMotorTickContext {
   analyser: AnalyserNode | null;
 }
 
+export interface CompanionMotorDemeanor {
+  animation: AnimationName;
+  loop: boolean;
+  playbackRate: number;
+}
+
 export class CompanionMotor {
   private vrm: VRM | null = null;
   private camera: THREE.PerspectiveCamera | null = null;
@@ -117,6 +123,12 @@ export class CompanionMotor {
   private currentAnimationAction: THREE.AnimationAction | null = null;
   private currentAnimationName: AnimationName | null = null;
   private currentAnimationLoop: boolean | null = null;
+  private currentAnimationPlaybackRate = 1;
+  private demeanor: CompanionMotorDemeanor = {
+    animation: "idle",
+    loop: true,
+    playbackRate: 1,
+  };
 
   /** Reset dedupe + camera/move when rebuilding the Three scene. */
   resetSessionState(): void {
@@ -131,6 +143,12 @@ export class CompanionMotor {
     this.idleState = createInitialIdleState();
     this.currentAnimationName = null;
     this.currentAnimationLoop = null;
+    this.currentAnimationPlaybackRate = 1;
+    this.demeanor = {
+      animation: "idle",
+      loop: true,
+      playbackRate: 1,
+    };
     this.blinkState = {
       nextBlinkAt: this.scheduleNextBlinkAt(),
       blinkingUntil: 0,
@@ -211,12 +229,16 @@ export class CompanionMotor {
     this.currentAnimationAction = null;
     this.currentAnimationName = null;
     this.currentAnimationLoop = null;
+    this.currentAnimationPlaybackRate = 1;
     if (this.animationMixer) {
       this.animationMixer.stopAllAction();
     }
     this.animationMixer = new THREE.AnimationMixer(vrm.scene);
     this.fitCameraToVrm(vrm, mountW, mountH);
-    this.playAnimation("idle", { loop: true });
+    this.playAnimation(this.demeanor.animation, {
+      loop: this.demeanor.loop,
+      playbackRate: this.demeanor.playbackRate,
+    });
   }
 
   /**
@@ -409,8 +431,27 @@ export class CompanionMotor {
   /**
    * Play a registered animation by id (used after VRM attach and for tooling).
    */
-  playAnimation(animation: string, opts?: { loop?: boolean }): void {
+  playAnimation(
+    animation: string,
+    opts?: { loop?: boolean; playbackRate?: number },
+  ): void {
     this.applyAnimateCommand(animation, opts ?? {});
+  }
+
+  setDemeanor(next: CompanionMotorDemeanor): void {
+    const playbackRate =
+      Number.isFinite(next.playbackRate) && next.playbackRate > 0
+        ? Math.min(Math.max(next.playbackRate, 0.25), 2)
+        : 1;
+    this.demeanor = {
+      animation: next.animation,
+      loop: next.loop,
+      playbackRate,
+    };
+    this.playAnimation(next.animation, {
+      loop: next.loop,
+      playbackRate,
+    });
   }
 
   private detachVrmFromScene(): void {
@@ -422,6 +463,7 @@ export class CompanionMotor {
     this.currentAnimationAction = null;
     this.currentAnimationName = null;
     this.currentAnimationLoop = null;
+    this.currentAnimationPlaybackRate = 1;
     this.clipCache.clear();
     this.clipInflight.clear();
     this.animationRequestId += 1;
@@ -496,6 +538,13 @@ export class CompanionMotor {
         console.log("[VRM] animate command:", anim);
         const loopRaw = cmd.payload.loop;
         const loop = typeof loopRaw === "boolean" ? loopRaw : undefined;
+        const playbackRateRaw = cmd.payload.playbackRate;
+        const playbackRate =
+          typeof playbackRateRaw === "number" &&
+          Number.isFinite(playbackRateRaw) &&
+          playbackRateRaw > 0
+            ? playbackRateRaw
+            : undefined;
         const pulseKey = isCompanionAnimationId(anim)
           ? COMPANION_ANIMATE_TO_EXPRESSION_KEY[anim as AnimationName]
           : undefined;
@@ -513,7 +562,7 @@ export class CompanionMotor {
             );
           }
         }
-        this.applyAnimateCommand(anim, { loop });
+        this.applyAnimateCommand(anim, { loop, playbackRate });
       } else if (cmd.type === "move") {
         const target = parseBoneTarget(cmd.payload.target);
         const off = COMPANION_MOVE_OFFSETS[target];
@@ -656,7 +705,7 @@ export class CompanionMotor {
 
   private applyAnimateCommand(
     animation: string,
-    opts: { loop?: boolean },
+    opts: { loop?: boolean; playbackRate?: number },
   ): void {
     if (!isCompanionAnimationId(animation)) {
       console.warn(
@@ -667,6 +716,12 @@ export class CompanionMotor {
     const name = animation as AnimationName;
     const entry = getAnimationEntry(name);
     const loop = opts.loop ?? entry?.defaultLoop ?? false;
+    const playbackRate =
+      typeof opts.playbackRate === "number" &&
+      Number.isFinite(opts.playbackRate) &&
+      opts.playbackRate > 0
+        ? Math.min(Math.max(opts.playbackRate, 0.25), 2)
+        : 1;
     if (!entry?.path) {
       console.warn(
         `🎮 [CompanionMotor] [animate] [emote-fallback] no FBX path in registry for "${name}" — emote only`,
@@ -674,7 +729,18 @@ export class CompanionMotor {
       this.applyAnimateEmoteFallback(animation);
       return;
     }
-    if (this.currentAnimationName === name && this.currentAnimationLoop === loop) {
+    if (
+      this.currentAnimationName === name &&
+      this.currentAnimationLoop === loop
+    ) {
+      if (this.currentAnimationPlaybackRate !== playbackRate) {
+        this.currentAnimationPlaybackRate = playbackRate;
+        this.currentAnimationAction?.setEffectiveTimeScale(playbackRate);
+        console.log(
+          `🎮 [CompanionMotor] [demeanor-speed] [applied] "${name}" rate=${playbackRate}`,
+        );
+        return;
+      }
       console.log(
         `🎮 [CompanionMotor] [animate] [skip] already playing "${name}" loop=${loop}`,
       );
@@ -682,8 +748,9 @@ export class CompanionMotor {
     }
     this.currentAnimationName = name;
     this.currentAnimationLoop = loop;
+    this.currentAnimationPlaybackRate = playbackRate;
     const requestId = ++this.animationRequestId;
-    void this.loadAndPlayClip(name, entry, loop, requestId);
+    void this.loadAndPlayClip(name, entry, loop, requestId, playbackRate);
   }
 
   private async loadAndPlayClip(
@@ -691,6 +758,7 @@ export class CompanionMotor {
     entry: AnimationRegistryEntry,
     loop: boolean,
     requestId = ++this.animationRequestId,
+    playbackRate = 1,
   ): Promise<void> {
     const vrm = this.vrm;
     const mixer = this.animationMixer;
@@ -750,7 +818,7 @@ export class CompanionMotor {
     action.clampWhenFinished = !loop;
     action.enabled = true;
     action.setEffectiveWeight(1);
-    action.setEffectiveTimeScale(1);
+    action.setEffectiveTimeScale(playbackRate);
     action.reset();
     if (previousAction && previousAction !== action) {
       action.crossFadeFrom(previousAction, 0.22, false).play();
@@ -765,7 +833,10 @@ export class CompanionMotor {
           return;
         }
         this.animationMixer?.removeEventListener("finished", onFinished);
-        this.playAnimation("idle", { loop: true });
+        this.playAnimation(this.demeanor.animation, {
+          loop: this.demeanor.loop,
+          playbackRate: this.demeanor.playbackRate,
+        });
       };
       this.animationMixer.addEventListener("finished", onFinished);
     }

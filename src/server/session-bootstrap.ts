@@ -26,6 +26,7 @@ import {
 } from "../agents/psychologist/psychologist";
 import { planSession } from "../engine/learningEngine";
 import { getChildChart } from "../profiles/childChart";
+import { deriveCompanionDemeanor } from "../shared/companionDemeanor";
 import { computeProgression } from "../engine/progression";
 import {
   CANONICAL_AGENT_TOOL_KEYS,
@@ -1470,7 +1471,21 @@ This is a safe space to test everything.
     session.transitionedToWork = false;
 
     if (!session.options?.silentTts && !session.options?.sttOnly) {
-      session.ttsBridge = new WsTtsBridge(session.ws, session.companion.voiceId);
+      let careDemeanor = "steady";
+      try {
+        careDemeanor = deriveCompanionDemeanor(
+          getChildChart(String(homeworkChild).toLowerCase()).companionCare.view,
+        ).state;
+      } catch (error) {
+        console.warn(
+          ` 🎮 [companion-voice] [demeanor] [fallback] ${error instanceof Error ? error.message : String(error)}`,
+        );
+      }
+      session.ttsBridge = new WsTtsBridge(
+        session.ws,
+        session.companion.voiceId,
+        careDemeanor,
+      );
       await session.ttsBridge.prime();
     }
 

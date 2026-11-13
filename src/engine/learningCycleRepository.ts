@@ -59,6 +59,7 @@ export type LearningCycleArtifactBinding = {
 export type LearningCycleNodeContract = {
   nodeId: string;
   role: LearningCycleNodeRole;
+  activityType?: ActiveSessionPlan["nodePlan"][number]["type"];
   title: string;
   state: LearningCycleNodeState;
   academicTarget: {
@@ -910,7 +911,7 @@ function nodeActivityType(node: LearningCycleNodeContract): ActiveSessionPlan["n
   if (node.role === "quest") return "quest";
   if (node.role === "boss") return "boss";
   if (node.role === "mystery") return "mystery";
-  return "generated-baseline";
+  return node.activityType ?? "generated-baseline";
 }
 
 export function projectLearningCycle(cycle: LearningCycleRecordV2): LearningCycleProjection {

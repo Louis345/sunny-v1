@@ -592,6 +592,36 @@ describe("buildAdventureBoardFromActiveSessionPlan", () => {
     expect(board.nodes.find((node) => node.id === "route-c-extra")).toBeUndefined();
   });
 
+  it("gives every visible fallback route node a distinct board slot", () => {
+    const board = buildAdventureBoardFromActiveSessionPlan({
+      plan: {
+        planId: "plan-five-fallback-routes",
+        childId: "demo-pashley",
+        domain: "spelling",
+        nodePlan: [
+          { id: "baseline-a", type: "word-radar", activityId: "word-radar", targets: ["sign"] },
+          { id: "baseline-b", type: "spell-check", activityId: "spell-check", targets: ["know"] },
+          { id: "route-1", type: "word-radar", activityId: "word-radar", targets: ["write"] },
+          { id: "route-2", type: "pronunciation", activityId: "pronunciation", targets: ["among"] },
+          { id: "route-3", type: "monster-stampede", activityId: "monster-stampede", targets: ["thumb"] },
+          { id: "route-4", type: "letter-rush", activityId: "letter-rush", targets: ["comb"] },
+          { id: "route-5", type: "word-radar", activityId: "word-radar", targets: ["gnat"] },
+          { id: "mystery", type: "mystery", activityId: "mystery", targets: ["sign"] },
+          { id: "quest", type: "quest", activityId: "quest", targets: ["sign"], locked: true },
+          { id: "boss", type: "boss", activityId: "boss", targets: [], locked: true },
+        ],
+      },
+      boardId: "board-five-fallback-routes",
+      theme,
+    });
+
+    const routeSlots = board.nodes
+      .filter((node) => node.id.startsWith("route-"))
+      .map((node) => node.slot);
+    expect(routeSlots).toHaveLength(5);
+    expect(new Set(routeSlots).size).toBe(routeSlots.length);
+  });
+
   it("names generated-baseline and concept-check nodes after the concept, not the engine", () => {
     const board = buildAdventureBoardFromActiveSessionPlan({
       plan: {

@@ -9,6 +9,16 @@ import {
 import { COMPANION_ANIMATION_IDS } from "../../../src/shared/companions/companionContract";
 
 describe("animationRegistry (COMPANION-MOTOR)", () => {
+  it("ships the care demeanor clips selected by the behavior mapper", () => {
+    expect(COMPANION_ANIMATION_IDS).toContain("yawn");
+    expect(COMPANION_ANIMATION_IDS).toContain("happy_idle");
+  });
+
+  it("registers human-review-only care animation candidates", () => {
+    expect(COMPANION_ANIMATION_IDS).toContain("sad_idle");
+    expect(COMPANION_ANIMATION_IDS).toContain("rejected");
+  });
+
   it("has a row for every contract AnimationName", () => {
     expect(() => assertAnimationRegistryComplete()).not.toThrow();
     for (const id of COMPANION_ANIMATION_IDS) {

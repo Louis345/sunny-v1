@@ -38,6 +38,15 @@ export interface CompanionCareMemory {
   interactionSummaryRevision?: number;
 }
 
+export interface CompanionCareRewardReceipt {
+  rewardId: string;
+  sourceType: "assignment_completion";
+  homeworkId: string;
+  itemId: string;
+  quantity: number;
+  awardedAt: string;
+}
+
 export interface CompanionCarePlan {
   version: 1;
   childId: string;
@@ -52,6 +61,7 @@ export interface CompanionCarePlan {
     coins: number;
     storeUnlocks: string[];
   };
+  rewardReceipts?: CompanionCareRewardReceipt[];
   updatedAt: string;
 }
 

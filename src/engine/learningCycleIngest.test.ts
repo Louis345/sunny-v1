@@ -130,6 +130,41 @@ describe("learning cycle ingestion bridge", () => {
     expect(cycleInput.nodes[0]?.artwork.status).toBe("failed");
   });
 
+  it("gives repeated untitled baseline activities distinct child-facing titles", () => {
+    const untitled = plan();
+    untitled.domain = "spelling";
+    untitled.nodePlan = [
+      {
+        ...untitled.nodePlan[0]!,
+        id: "silent-recall-1",
+        type: "word-radar",
+        activityId: "word-radar",
+        title: undefined,
+        targetLane: "silent_letters",
+      },
+      {
+        ...untitled.nodePlan[0]!,
+        id: "silent-recall-2",
+        type: "word-radar",
+        activityId: "word-radar",
+        title: undefined,
+        targetLane: "high_frequency_words",
+      },
+    ];
+
+    const cycleInput = buildLearningCycleInputFromPlan({
+      ...input(),
+      domain: "spelling",
+      plan: untitled,
+    });
+
+    expect(cycleInput.nodes.map((node) => node.title)).toEqual([
+      "Silent Letters Word Radar",
+      "High Frequency Words Word Radar",
+    ]);
+    expect(new Set(cycleInput.nodes.map((node) => node.title)).size).toBe(2);
+  });
+
   it("creates once and reconciles subsequent ingestion through a versioned transition", () => {
     const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-cycle-ingest-"));
     const first = persistIngestedLearningCycle(input(), { rootDir });

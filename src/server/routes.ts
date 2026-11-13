@@ -135,6 +135,7 @@ import {
 } from "../engine/engagementTheory";
 import { getLearningCycle } from "../engine/learningCycleRepository";
 import { engagementDimensionsForCanonicalNode } from "./canonicalNodeEngagement";
+import { awardSpellingCompletionApple } from "./companionCareReward";
 import {
   confirmReturnedWorkDraft,
   createReturnedWorkDraft,
@@ -733,6 +734,16 @@ export function setupRoutes(app: Express): void {
         writeEngagementTheory(childId, enrichedTheory);
       }
       const finalCycle = getLearningCycle(childId, homeworkId) ?? updated;
+      const runtime = resolveSunnyRuntimeConfig(process.env);
+      const careReward = awardSpellingCompletionApple({
+        childId,
+        homeworkId,
+        cycle: finalCycle,
+        persistence:
+          runtime.persistenceMode === "live" && body.result.completed === true
+            ? "live"
+            : "preview",
+      });
       console.log(` 🎮 [learning-cycle-route] [completion] [saved] child=${childId} node=${nodeId} lifecycle=${updated.lifecycle} revision=${updated.revision}`);
       if (updated.lifecycle === "quest_generating" || updated.lifecycle === "boss_generating") {
         void generateCanonicalProgressionArtifact({ childId, homeworkId })
@@ -743,7 +754,11 @@ export function setupRoutes(app: Express): void {
             console.error(` 🎮 [learning-cycle-route] [progression] [failed] ${error instanceof Error ? error.message : String(error)}`);
           });
       }
-      return res.json({ lifecycle: finalCycle.lifecycle, revision: finalCycle.revision });
+      return res.json({
+        lifecycle: finalCycle.lifecycle,
+        revision: finalCycle.revision,
+        careReward,
+      });
     } catch (error) {
       console.error(" 🎮 [learning-cycle-route] [completion] [failed]", error);
       return res.status(409).json({ error: error instanceof Error ? error.message : String(error) });

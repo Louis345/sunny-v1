@@ -41,6 +41,39 @@ function staticTitle(role: LearningCycleNodeContract["role"], proposed: string |
   return proposed?.trim() || "Learning Activity";
 }
 
+function titleCase(value: string): string {
+  return value
+    .trim()
+    .replace(/[_-]+/g, " ")
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+function baselineTitle(node: ActiveSessionPlan["nodePlan"][number]): string {
+  if (node.title?.trim()) return node.title.trim();
+  const lane = titleCase(node.targetLane ?? "");
+  const activity = titleCase(node.activityId ?? node.type ?? "Learning Activity");
+  return [lane, activity].filter(Boolean).join(" ") || "Learning Activity";
+}
+
+function withUniqueChildTitles(
+  nodes: ActiveSessionPlan["nodePlan"],
+): ActiveSessionPlan["nodePlan"] {
+  const counts = new Map<string, number>();
+  return nodes.map((node) => {
+    const role = roleForNode(node);
+    if (role === "quest" || role === "boss") return node;
+    const proposed = role === "mystery"
+      ? node.title?.trim() || "Mystery"
+      : baselineTitle(node);
+    const count = (counts.get(proposed) ?? 0) + 1;
+    counts.set(proposed, count);
+    return {
+      ...node,
+      title: count === 1 ? proposed : `${proposed} ${count}`,
+    };
+  });
+}
+
 function contractFingerprint(input: {
   node: ActiveSessionPlan["nodePlan"][number];
   role: LearningCycleNodeContract["role"];
@@ -102,6 +135,7 @@ function nodeContract(
         : `Practice ${skill} through ${mechanic}.`;
   const localArtifact = isLocalAssetPath(node.gameHtmlPath) ? node.gameHtmlPath : undefined;
   const localArtwork = isLocalAssetPath(node.thumbnailUrl) ? node.thumbnailUrl : undefined;
+  const requiresGeneratedArtifact = role === "baseline" && node.type === "generated-baseline";
   const canBind = role === "baseline" && Boolean(localArtifact && localArtwork && node.contentId);
   const fingerprint = contractFingerprint({ node, role, title, purpose });
   const artifactBinding = canBind
@@ -119,12 +153,15 @@ function nodeContract(
     ? "locked"
     : role === "mystery"
       ? "ready"
+      : !requiresGeneratedArtifact
+        ? "ready"
       : artifactBinding
         ? "ready"
         : "blocked";
   return {
     nodeId: node.id,
     role,
+    activityType: node.type,
     title,
     state,
     academicTarget: {
@@ -138,7 +175,7 @@ function nodeContract(
     mechanic,
     theme: node.theme?.trim() || (role === "quest" || role === "boss" ? "pending" : "learning adventure"),
     openingScreen: { title, purpose },
-    generationPrompt: role === "baseline" ? generationPromptForBaseline(input, node, title) : null,
+    generationPrompt: requiresGeneratedArtifact ? generationPromptForBaseline(input, node, title) : null,
     artifactBinding,
     artwork: localArtwork
       ? { status: "ready", localPath: localArtwork, prompt: node.thumbnailPrompt ?? null }
@@ -177,7 +214,9 @@ export function buildLearningCycleInputFromPlan(input: LearningCycleIngestInput)
       falsifyCriteria: planTheory?.falsifyCriteria ?? ["observed outcomes contradict the hypothesis"],
     },
     engagementTheory: input.engagementTheory,
-    nodes: input.plan.nodePlan.map((node) => nodeContract(input, node)),
+    nodes: withUniqueChildTitles(input.plan.nodePlan).map((node) =>
+      nodeContract(input, node),
+    ),
   };
 }
 

@@ -1,0 +1,1326 @@
+{
+  "version": 1,
+  "childId": "demo-pashley",
+  "items": [
+    {
+      "contentId": "hw-spelling_test-5a49d659:baseline-silent-partial",
+      "homeworkId": "hw-spelling_test-5a49d659",
+      "childId": "demo-pashley",
+      "type": "quiz",
+      "source": "baseline",
+      "title": "Benchmark Advance Spelling Unit 9 Week 3 - word-radar",
+      "algorithmTargets": [
+        "spaced-repetition",
+        "retrieval-practice"
+      ],
+      "targetSkills": [
+        "Spell words from memory"
+      ],
+      "targetConcepts": [
+        "silent letter patterns",
+        "high-frequency word spelling"
+      ],
+      "targetWords": [
+        "sign",
+        "know",
+        "write",
+        "thumb",
+        "comb",
+        "gnat",
+        "knock",
+        "knife",
+        "wrong",
+        "climb"
+      ],
+      "engagementHooks": [],
+      "inputEvidence": {
+        "contentFingerprint": "ab6dbdb7e7f06968"
+      },
+      "reuseStatus": "candidate",
+      "reuseReason": "Assignment planner chose word-radar. Target lane: silent_letters."
+    },
+    {
+      "contentId": "hw-spelling_test-5a49d659:baseline-silent-spellcheck",
+      "homeworkId": "hw-spelling_test-5a49d659",
+      "childId": "demo-pashley",
+      "type": "quiz",
+      "source": "baseline",
+      "title": "Benchmark Advance Spelling Unit 9 Week 3 - spell-check",
+      "algorithmTargets": [
+        "spaced-repetition",
+        "retrieval-practice"
+      ],
+      "targetSkills": [
+        "Spell words from memory"
+      ],
+      "targetConcepts": [
+        "silent letter patterns",
+        "high-frequency word spelling"
+      ],
+      "targetWords": [
+        "sign",
+        "know",
+        "write",
+        "thumb",
+        "comb",
+        "gnat",
+        "knock",
+        "knife",
+        "wrong",
+        "climb"
+      ],
+      "engagementHooks": [],
+      "inputEvidence": {
+        "contentFingerprint": "ab6dbdb7e7f06968"
+      },
+      "reuseStatus": "candidate",
+      "reuseReason": "Assignment planner chose spell-check. Target lane: silent_letters."
+    },
+    {
+      "contentId": "hw-spelling_test-5a49d659:baseline-hfw-visible",
+      "homeworkId": "hw-spelling_test-5a49d659",
+      "childId": "demo-pashley",
+      "type": "quiz",
+      "source": "baseline",
+      "title": "Benchmark Advance Spelling Unit 9 Week 3 - word-radar",
+      "algorithmTargets": [
+        "spaced-repetition",
+        "retrieval-practice"
+      ],
+      "targetSkills": [
+        "Spell words from memory"
+      ],
+      "targetConcepts": [
+        "silent letter patterns",
+        "high-frequency word spelling"
+      ],
+      "targetWords": [
+        "among",
+        "building",
+        "circle",
+        "decided",
+        "finally",
+        "heavy",
+        "include",
+        "nothing",
+        "special",
+        "wheel"
+      ],
+      "engagementHooks": [],
+      "inputEvidence": {
+        "contentFingerprint": "ab6dbdb7e7f06968"
+      },
+      "reuseStatus": "candidate",
+      "reuseReason": "Assignment planner chose word-radar. Target lane: high_frequency_words."
+    },
+    {
+      "contentId": "hw-spelling_test-5a49d659:route-b-letter-rush",
+      "homeworkId": "hw-spelling_test-5a49d659",
+      "childId": "demo-pashley",
+      "type": "quiz",
+      "source": "baseline",
+      "title": "Benchmark Advance Spelling Unit 9 Week 3 - letter-rush",
+      "algorithmTargets": [
+        "spaced-repetition",
+        "retrieval-practice"
+      ],
+      "targetSkills": [
+        "Spell words from memory"
+      ],
+      "targetConcepts": [
+        "silent letter patterns",
+        "high-frequency word spelling"
+      ],
+      "targetWords": [
+        "sign",
+        "know",
+        "write",
+        "thumb",
+        "comb",
+        "gnat",
+        "knock",
+        "knife",
+        "wrong",
+        "climb"
+      ],
+      "engagementHooks": [],
+      "inputEvidence": {
+        "contentFingerprint": "ab6dbdb7e7f06968"
+      },
+      "reuseStatus": "candidate",
+      "reuseReason": "Assignment planner chose letter-rush. Target lane: silent_letters."
+    },
+    {
+      "contentId": "hw-spelling_test-5a49d659:check-silent-hidden-recall",
+      "homeworkId": "hw-spelling_test-5a49d659",
+      "childId": "demo-pashley",
+      "type": "quiz",
+      "source": "baseline",
+      "title": "Benchmark Advance Spelling Unit 9 Week 3 - word-radar",
+      "algorithmTargets": [
+        "spaced-repetition",
+        "retrieval-practice"
+      ],
+      "targetSkills": [
+        "Spell words from memory"
+      ],
+      "targetConcepts": [
+        "silent letter patterns",
+        "high-frequency word spelling"
+      ],
+      "targetWords": [
+        "sign",
+        "know",
+        "write",
+        "thumb",
+        "comb",
+        "gnat",
+        "knock",
+        "knife",
+        "wrong",
+        "climb"
+      ],
+      "engagementHooks": [],
+      "inputEvidence": {
+        "contentFingerprint": "ab6dbdb7e7f06968"
+      },
+      "reuseStatus": "candidate",
+      "reuseReason": "Assignment planner chose word-radar. Target lane: silent_letters."
+    },
+    {
+      "contentId": "hw-spelling_test-5a49d659:quest-silent-transfer",
+      "theoryDecisionId": "theory:homework:hw-spelling_test-5a49d659:ingest",
+      "homeworkId": "hw-spelling_test-5a49d659",
+      "childId": "demo-pashley",
+      "type": "game",
+      "source": "generated",
+      "title": "Benchmark Advance Spelling Unit 9 Week 3 - quest",
+      "algorithmTargets": [
+        "error-pattern-remediation",
+        "retrieval-practice",
+        "desirable-difficulty"
+      ],
+      "targetSkills": [
+        "Spell words from memory"
+      ],
+      "targetConcepts": [
+        "silent letter patterns",
+        "high-frequency word spelling"
+      ],
+      "targetWords": [
+        "sign",
+        "know",
+        "write",
+        "thumb",
+        "comb",
+        "gnat",
+        "knock",
+        "knife",
+        "wrong",
+        "climb"
+      ],
+      "engagementHooks": [],
+      "inputEvidence": {
+        "contentFingerprint": "ab6dbdb7e7f06968"
+      },
+      "reuseStatus": "candidate",
+      "reuseReason": "Assignment planner chose quest. Target lane: silent_letters."
+    },
+    {
+      "contentId": "hw-spelling_test-5a49d659:boss-mastery-gate",
+      "theoryDecisionId": "theory:homework:hw-spelling_test-5a49d659:ingest",
+      "homeworkId": "hw-spelling_test-5a49d659",
+      "childId": "demo-pashley",
+      "type": "game",
+      "source": "generated",
+      "title": "Benchmark Advance Spelling Unit 9 Week 3 - boss",
+      "algorithmTargets": [
+        "mastery-gating",
+        "retrieval-practice"
+      ],
+      "targetSkills": [
+        "Spell words from memory"
+      ],
+      "targetConcepts": [
+        "silent letter patterns",
+        "high-frequency word spelling"
+      ],
+      "targetWords": [
+        "sign",
+        "know",
+        "write",
+        "thumb",
+        "comb",
+        "gnat",
+        "knock",
+        "knife",
+        "wrong",
+        "climb",
+        "among",
+        "building",
+        "circle",
+        "decided",
+        "finally",
+        "heavy",
+        "include",
+        "nothing",
+        "special",
+        "wheel"
+      ],
+      "engagementHooks": [],
+      "inputEvidence": {
+        "contentFingerprint": "ab6dbdb7e7f06968"
+      },
+      "reuseStatus": "candidate",
+      "reuseReason": "Assignment planner chose boss."
+    },
+    {
+      "contentId": "hw-spelling_test-5a49d659:reading-mode",
+      "homeworkId": "hw-spelling_test-5a49d659",
+      "childId": "demo-pashley",
+      "type": "reading-mode",
+      "source": "prototype",
+      "title": "Benchmark Advance Spelling Unit 9 Week 3 - reading-mode",
+      "algorithmTargets": [
+        "reading-comprehension",
+        "pronunciation",
+        "activity-affinity"
+      ],
+      "targetSkills": [
+        "Spell words from memory"
+      ],
+      "targetConcepts": [
+        "silent letter patterns",
+        "high-frequency word spelling"
+      ],
+      "targetWords": [
+        "sign",
+        "know",
+        "write",
+        "thumb",
+        "comb",
+        "gnat",
+        "knock",
+        "knife",
+        "wrong",
+        "climb",
+        "among",
+        "building",
+        "circle",
+        "decided",
+        "finally",
+        "heavy",
+        "include",
+        "nothing",
+        "special",
+        "wheel"
+      ],
+      "engagementHooks": [],
+      "inputEvidence": {
+        "contentFingerprint": "ab6dbdb7e7f06968"
+      },
+      "reuseStatus": "candidate",
+      "reuseReason": "Reading Mode fits Silent letters and high-frequency words because the captured homework has passage text to read and reveal."
+    },
+    {
+      "contentId": "hw-spelling_test-5a49d659:baseline-silent-partial-2",
+      "homeworkId": "hw-spelling_test-5a49d659",
+      "childId": "demo-pashley",
+      "type": "quiz",
+      "source": "baseline",
+      "title": "Benchmark Advance Spelling Unit 9 Week 3 - word-radar",
+      "algorithmTargets": [
+        "spaced-repetition",
+        "retrieval-practice"
+      ],
+      "targetSkills": [
+        "Spell words from memory"
+      ],
+      "targetConcepts": [
+        "silent letter patterns",
+        "high-frequency word spelling"
+      ],
+      "targetWords": [
+        "gnat",
+        "knock",
+        "knife",
+        "wrong",
+        "climb"
+      ],
+      "engagementHooks": [],
+      "inputEvidence": {
+        "contentFingerprint": "ab6dbdb7e7f06968"
+      },
+      "reuseStatus": "candidate",
+      "reuseReason": "Assignment planner chose word-radar. Target lane: silent_letters."
+    },
+    {
+      "contentId": "hw-spelling_test-5a49d659:route-a-spellcheck-audio",
+      "homeworkId": "hw-spelling_test-5a49d659",
+      "childId": "demo-pashley",
+      "type": "quiz",
+      "source": "baseline",
+      "title": "Benchmark Advance Spelling Unit 9 Week 3 - spell-check",
+      "algorithmTargets": [
+        "spaced-repetition",
+        "retrieval-practice"
+      ],
+      "targetSkills": [
+        "Spell words from memory"
+      ],
+      "targetConcepts": [
+        "silent letter patterns",
+        "high-frequency word spelling"
+      ],
+      "targetWords": [
+        "sign",
+        "know",
+        "write",
+        "thumb",
+        "comb",
+        "gnat"
+      ],
+      "engagementHooks": [],
+      "inputEvidence": {
+        "contentFingerprint": "ab6dbdb7e7f06968"
+      },
+      "reuseStatus": "candidate",
+      "reuseReason": "Assignment planner chose spell-check. Target lane: silent_letters."
+    },
+    {
+      "contentId": "hw-spelling_test-5a49d659:route-b-letterrush-imposter",
+      "homeworkId": "hw-spelling_test-5a49d659",
+      "childId": "demo-pashley",
+      "type": "quiz",
+      "source": "baseline",
+      "title": "Benchmark Advance Spelling Unit 9 Week 3 - letter-rush",
+      "algorithmTargets": [
+        "spaced-repetition",
+        "retrieval-practice"
+      ],
+      "targetSkills": [
+        "Spell words from memory"
+      ],
+      "targetConcepts": [
+        "silent letter patterns",
+        "high-frequency word spelling"
+      ],
+      "targetWords": [
+        "knock",
+        "knife",
+        "wrong",
+        "climb",
+        "sign"
+      ],
+      "engagementHooks": [],
+      "inputEvidence": {
+        "contentFingerprint": "ab6dbdb7e7f06968"
+      },
+      "reuseStatus": "candidate",
+      "reuseReason": "Assignment planner chose letter-rush. Target lane: silent_letters."
+    },
+    {
+      "contentId": "hw-spelling_test-5a49d659:route-a-hidden-recall-check",
+      "homeworkId": "hw-spelling_test-5a49d659",
+      "childId": "demo-pashley",
+      "type": "quiz",
+      "source": "baseline",
+      "title": "Benchmark Advance Spelling Unit 9 Week 3 - word-radar",
+      "algorithmTargets": [
+        "spaced-repetition",
+        "retrieval-practice"
+      ],
+      "targetSkills": [
+        "Spell words from memory"
+      ],
+      "targetConcepts": [
+        "silent letter patterns",
+        "high-frequency word spelling"
+      ],
+      "targetWords": [
+        "know",
+        "write",
+        "thumb",
+        "comb",
+        "gnat"
+      ],
+      "engagementHooks": [],
+      "inputEvidence": {
+        "contentFingerprint": "ab6dbdb7e7f06968"
+      },
+      "reuseStatus": "candidate",
+      "reuseReason": "Assignment planner chose word-radar. Target lane: silent_letters."
+    },
+    {
+      "contentId": "hw-spelling_test-5a49d659:route-b-coldrecall-check",
+      "homeworkId": "hw-spelling_test-5a49d659",
+      "childId": "demo-pashley",
+      "type": "quiz",
+      "source": "baseline",
+      "title": "Benchmark Advance Spelling Unit 9 Week 3 - spell-check",
+      "algorithmTargets": [
+        "spaced-repetition",
+        "retrieval-practice"
+      ],
+      "targetSkills": [
+        "Spell words from memory"
+      ],
+      "targetConcepts": [
+        "silent letter patterns",
+        "high-frequency word spelling"
+      ],
+      "targetWords": [
+        "knock",
+        "knife",
+        "wrong",
+        "climb",
+        "sign"
+      ],
+      "engagementHooks": [],
+      "inputEvidence": {
+        "contentFingerprint": "ab6dbdb7e7f06968"
+      },
+      "reuseStatus": "candidate",
+      "reuseReason": "Assignment planner chose spell-check. Target lane: silent_letters."
+    },
+    {
+      "contentId": "hw-spelling_test-5a49d659:boss-spelling-mastery",
+      "theoryDecisionId": "theory:homework:hw-spelling_test-5a49d659:ingest",
+      "homeworkId": "hw-spelling_test-5a49d659",
+      "childId": "demo-pashley",
+      "type": "game",
+      "source": "generated",
+      "title": "Benchmark Advance Spelling Unit 9 Week 3 - boss",
+      "algorithmTargets": [
+        "mastery-gating",
+        "retrieval-practice"
+      ],
+      "targetSkills": [
+        "Spell words from memory"
+      ],
+      "targetConcepts": [
+        "silent letter patterns",
+        "high-frequency word spelling"
+      ],
+      "targetWords": [
+        "sign",
+        "know",
+        "write",
+        "thumb",
+        "comb",
+        "gnat",
+        "knock",
+        "knife",
+        "wrong",
+        "climb",
+        "among",
+        "building",
+        "circle",
+        "decided",
+        "finally",
+        "heavy",
+        "include",
+        "nothing",
+        "special",
+        "wheel"
+      ],
+      "engagementHooks": [],
+      "inputEvidence": {
+        "contentFingerprint": "ab6dbdb7e7f06968"
+      },
+      "reuseStatus": "candidate",
+      "reuseReason": "Assignment planner chose boss."
+    },
+    {
+      "contentId": "hw-spelling_test-5a49d659:baseline-hf-visible",
+      "homeworkId": "hw-spelling_test-5a49d659",
+      "childId": "demo-pashley",
+      "type": "quiz",
+      "source": "baseline",
+      "title": "Benchmark Advance Spelling Unit 9 Week 3 - word-radar",
+      "algorithmTargets": [
+        "spaced-repetition",
+        "retrieval-practice"
+      ],
+      "targetSkills": [
+        "Spell words from memory"
+      ],
+      "targetConcepts": [
+        "silent letter patterns",
+        "high-frequency word spelling"
+      ],
+      "targetWords": [
+        "among",
+        "building",
+        "circle",
+        "decided",
+        "finally"
+      ],
+      "engagementHooks": [],
+      "inputEvidence": {
+        "contentFingerprint": "ab6dbdb7e7f06968"
+      },
+      "reuseStatus": "candidate",
+      "reuseReason": "Assignment planner chose word-radar. Target lane: high_frequency_words."
+    },
+    {
+      "contentId": "hw-spelling_test-5a49d659:route-cold-recall-spellcheck",
+      "homeworkId": "hw-spelling_test-5a49d659",
+      "childId": "demo-pashley",
+      "type": "quiz",
+      "source": "baseline",
+      "title": "Benchmark Advance Spelling Unit 9 Week 3 - spell-check",
+      "algorithmTargets": [
+        "spaced-repetition",
+        "retrieval-practice"
+      ],
+      "targetSkills": [
+        "Spell words from memory"
+      ],
+      "targetConcepts": [
+        "silent letter patterns",
+        "high-frequency word spelling"
+      ],
+      "targetWords": [
+        "sign",
+        "know",
+        "write",
+        "thumb",
+        "comb",
+        "gnat",
+        "knock",
+        "knife",
+        "wrong",
+        "climb"
+      ],
+      "engagementHooks": [],
+      "inputEvidence": {
+        "contentFingerprint": "ab6dbdb7e7f06968"
+      },
+      "reuseStatus": "candidate",
+      "reuseReason": "Assignment planner chose spell-check. Target lane: silent_letters."
+    },
+    {
+      "contentId": "hw-spelling_test-5a49d659:route-letter-rush-mastery",
+      "homeworkId": "hw-spelling_test-5a49d659",
+      "childId": "demo-pashley",
+      "type": "quiz",
+      "source": "baseline",
+      "title": "Benchmark Advance Spelling Unit 9 Week 3 - letter-rush",
+      "algorithmTargets": [
+        "spaced-repetition",
+        "retrieval-practice"
+      ],
+      "targetSkills": [
+        "Spell words from memory"
+      ],
+      "targetConcepts": [
+        "silent letter patterns",
+        "high-frequency word spelling"
+      ],
+      "targetWords": [
+        "sign",
+        "know",
+        "write",
+        "thumb",
+        "comb",
+        "gnat",
+        "knock",
+        "knife",
+        "wrong",
+        "climb"
+      ],
+      "engagementHooks": [],
+      "inputEvidence": {
+        "contentFingerprint": "ab6dbdb7e7f06968"
+      },
+      "reuseStatus": "candidate",
+      "reuseReason": "Assignment planner chose letter-rush. Target lane: silent_letters."
+    },
+    {
+      "contentId": "hw-spelling_test-5a49d659:route-wheel-hf-practice",
+      "homeworkId": "hw-spelling_test-5a49d659",
+      "childId": "demo-pashley",
+      "type": "game",
+      "source": "baseline",
+      "title": "Benchmark Advance Spelling Unit 9 Week 3 - wheel-of-fortune",
+      "algorithmTargets": [
+        "retrieval-practice",
+        "activity-affinity",
+        "variable-reward"
+      ],
+      "targetSkills": [
+        "Spell words from memory"
+      ],
+      "targetConcepts": [
+        "silent letter patterns",
+        "high-frequency word spelling"
+      ],
+      "targetWords": [
+        "among",
+        "building",
+        "circle",
+        "decided",
+        "finally",
+        "heavy",
+        "include",
+        "nothing",
+        "special",
+        "wheel"
+      ],
+      "engagementHooks": [],
+      "inputEvidence": {
+        "contentFingerprint": "ab6dbdb7e7f06968"
+      },
+      "reuseStatus": "candidate",
+      "reuseReason": "Assignment planner chose wheel-of-fortune. Target lane: high_frequency_words."
+    },
+    {
+      "contentId": "hw-spelling_test-5a49d659:quest-silent-letters-transfer",
+      "theoryDecisionId": "theory:homework:hw-spelling_test-5a49d659:ingest",
+      "homeworkId": "hw-spelling_test-5a49d659",
+      "childId": "demo-pashley",
+      "type": "game",
+      "source": "generated",
+      "title": "Benchmark Advance Spelling Unit 9 Week 3 - quest",
+      "algorithmTargets": [
+        "error-pattern-remediation",
+        "retrieval-practice",
+        "desirable-difficulty"
+      ],
+      "targetSkills": [
+        "Spell words from memory"
+      ],
+      "targetConcepts": [
+        "silent letter patterns",
+        "high-frequency word spelling"
+      ],
+      "targetWords": [
+        "sign",
+        "know",
+        "write",
+        "thumb",
+        "comb",
+        "gnat",
+        "knock",
+        "knife",
+        "wrong",
+        "climb"
+      ],
+      "engagementHooks": [],
+      "inputEvidence": {
+        "contentFingerprint": "ab6dbdb7e7f06968"
+      },
+      "reuseStatus": "candidate",
+      "reuseReason": "Assignment planner chose quest. Target lane: silent_letters."
+    },
+    {
+      "contentId": "hw-spelling_test-5a49d659:boss-spelling-test-gate",
+      "theoryDecisionId": "theory:homework:hw-spelling_test-5a49d659:ingest",
+      "homeworkId": "hw-spelling_test-5a49d659",
+      "childId": "demo-pashley",
+      "type": "game",
+      "source": "generated",
+      "title": "Benchmark Advance Spelling Unit 9 Week 3 - boss",
+      "algorithmTargets": [
+        "mastery-gating",
+        "retrieval-practice"
+      ],
+      "targetSkills": [
+        "Spell words from memory"
+      ],
+      "targetConcepts": [
+        "silent letter patterns",
+        "high-frequency word spelling"
+      ],
+      "targetWords": [
+        "sign",
+        "know",
+        "write",
+        "thumb",
+        "comb",
+        "gnat",
+        "knock",
+        "knife",
+        "wrong",
+        "climb",
+        "among",
+        "building",
+        "circle",
+        "decided",
+        "finally",
+        "heavy",
+        "include",
+        "nothing",
+        "special",
+        "wheel"
+      ],
+      "engagementHooks": [],
+      "inputEvidence": {
+        "contentFingerprint": "ab6dbdb7e7f06968"
+      },
+      "reuseStatus": "candidate",
+      "reuseReason": "Assignment planner chose boss."
+    },
+    {
+      "contentId": "hw-spelling_test-5a49d659:node-silent-partial-recall",
+      "homeworkId": "hw-spelling_test-5a49d659",
+      "childId": "demo-pashley",
+      "type": "quiz",
+      "source": "baseline",
+      "title": "Benchmark Advance Spelling Unit 9 Week 3 - word-radar",
+      "algorithmTargets": [
+        "spaced-repetition",
+        "retrieval-practice"
+      ],
+      "targetSkills": [
+        "Spell words from memory"
+      ],
+      "targetConcepts": [
+        "silent letter patterns",
+        "high-frequency word spelling"
+      ],
+      "targetWords": [
+        "sign",
+        "know",
+        "write",
+        "thumb",
+        "comb",
+        "gnat",
+        "knock",
+        "knife",
+        "wrong",
+        "climb"
+      ],
+      "engagementHooks": [],
+      "inputEvidence": {
+        "contentFingerprint": "ab6dbdb7e7f06968"
+      },
+      "reuseStatus": "candidate",
+      "reuseReason": "Assignment planner chose word-radar. Target lane: silent_letters."
+    },
+    {
+      "contentId": "hw-spelling_test-5a49d659:node-hfw-visible-read",
+      "homeworkId": "hw-spelling_test-5a49d659",
+      "childId": "demo-pashley",
+      "type": "quiz",
+      "source": "baseline",
+      "title": "Benchmark Advance Spelling Unit 9 Week 3 - word-radar",
+      "algorithmTargets": [
+        "spaced-repetition",
+        "retrieval-practice"
+      ],
+      "targetSkills": [
+        "Spell words from memory"
+      ],
+      "targetConcepts": [
+        "silent letter patterns",
+        "high-frequency word spelling"
+      ],
+      "targetWords": [
+        "among",
+        "building",
+        "circle",
+        "decided",
+        "finally",
+        "heavy",
+        "include",
+        "nothing",
+        "special",
+        "wheel"
+      ],
+      "engagementHooks": [],
+      "inputEvidence": {
+        "contentFingerprint": "ab6dbdb7e7f06968"
+      },
+      "reuseStatus": "candidate",
+      "reuseReason": "Assignment planner chose word-radar. Target lane: high_frequency_words."
+    },
+    {
+      "contentId": "hw-spelling_test-5a49d659:node-silent-letterrush-race",
+      "homeworkId": "hw-spelling_test-5a49d659",
+      "childId": "demo-pashley",
+      "type": "quiz",
+      "source": "baseline",
+      "title": "Benchmark Advance Spelling Unit 9 Week 3 - letter-rush",
+      "algorithmTargets": [
+        "spaced-repetition",
+        "retrieval-practice"
+      ],
+      "targetSkills": [
+        "Spell words from memory"
+      ],
+      "targetConcepts": [
+        "silent letter patterns",
+        "high-frequency word spelling"
+      ],
+      "targetWords": [
+        "sign",
+        "know",
+        "write",
+        "thumb",
+        "comb"
+      ],
+      "engagementHooks": [],
+      "inputEvidence": {
+        "contentFingerprint": "ab6dbdb7e7f06968"
+      },
+      "reuseStatus": "candidate",
+      "reuseReason": "Assignment planner chose letter-rush. Target lane: silent_letters."
+    },
+    {
+      "contentId": "hw-spelling_test-5a49d659:node-silent-wordradar-hidden",
+      "homeworkId": "hw-spelling_test-5a49d659",
+      "childId": "demo-pashley",
+      "type": "quiz",
+      "source": "baseline",
+      "title": "Benchmark Advance Spelling Unit 9 Week 3 - word-radar",
+      "algorithmTargets": [
+        "spaced-repetition",
+        "retrieval-practice"
+      ],
+      "targetSkills": [
+        "Spell words from memory"
+      ],
+      "targetConcepts": [
+        "silent letter patterns",
+        "high-frequency word spelling"
+      ],
+      "targetWords": [
+        "gnat",
+        "knock",
+        "knife",
+        "wrong",
+        "climb"
+      ],
+      "engagementHooks": [],
+      "inputEvidence": {
+        "contentFingerprint": "ab6dbdb7e7f06968"
+      },
+      "reuseStatus": "candidate",
+      "reuseReason": "Assignment planner chose word-radar. Target lane: silent_letters."
+    },
+    {
+      "contentId": "hw-spelling_test-5a49d659:node-silent-coldrecall",
+      "homeworkId": "hw-spelling_test-5a49d659",
+      "childId": "demo-pashley",
+      "type": "quiz",
+      "source": "baseline",
+      "title": "Benchmark Advance Spelling Unit 9 Week 3 - spell-check",
+      "algorithmTargets": [
+        "spaced-repetition",
+        "retrieval-practice"
+      ],
+      "targetSkills": [
+        "Spell words from memory"
+      ],
+      "targetConcepts": [
+        "silent letter patterns",
+        "high-frequency word spelling"
+      ],
+      "targetWords": [
+        "sign",
+        "know",
+        "write",
+        "thumb",
+        "comb",
+        "gnat",
+        "knock",
+        "knife",
+        "wrong",
+        "climb"
+      ],
+      "engagementHooks": [],
+      "inputEvidence": {
+        "contentFingerprint": "ab6dbdb7e7f06968"
+      },
+      "reuseStatus": "candidate",
+      "reuseReason": "Assignment planner chose spell-check. Target lane: silent_letters."
+    },
+    {
+      "contentId": "hw-spelling_test-5a49d659:node-quest-transfer",
+      "theoryDecisionId": "theory:homework:hw-spelling_test-5a49d659:ingest",
+      "homeworkId": "hw-spelling_test-5a49d659",
+      "childId": "demo-pashley",
+      "type": "game",
+      "source": "generated",
+      "title": "Benchmark Advance Spelling Unit 9 Week 3 - quest",
+      "algorithmTargets": [
+        "error-pattern-remediation",
+        "retrieval-practice",
+        "desirable-difficulty"
+      ],
+      "targetSkills": [
+        "Spell words from memory"
+      ],
+      "targetConcepts": [
+        "silent letter patterns",
+        "high-frequency word spelling"
+      ],
+      "targetWords": [
+        "sign",
+        "know",
+        "write",
+        "thumb",
+        "comb",
+        "gnat",
+        "knock",
+        "knife",
+        "wrong",
+        "climb"
+      ],
+      "engagementHooks": [],
+      "inputEvidence": {
+        "contentFingerprint": "ab6dbdb7e7f06968"
+      },
+      "reuseStatus": "candidate",
+      "reuseReason": "Assignment planner chose quest. Target lane: silent_letters."
+    },
+    {
+      "contentId": "hw-spelling_test-5a49d659:node-boss-mastery",
+      "theoryDecisionId": "theory:homework:hw-spelling_test-5a49d659:ingest",
+      "homeworkId": "hw-spelling_test-5a49d659",
+      "childId": "demo-pashley",
+      "type": "game",
+      "source": "generated",
+      "title": "Benchmark Advance Spelling Unit 9 Week 3 - boss",
+      "algorithmTargets": [
+        "mastery-gating",
+        "retrieval-practice"
+      ],
+      "targetSkills": [
+        "Spell words from memory"
+      ],
+      "targetConcepts": [
+        "silent letter patterns",
+        "high-frequency word spelling"
+      ],
+      "targetWords": [
+        "sign",
+        "know",
+        "write",
+        "thumb",
+        "comb",
+        "gnat",
+        "knock",
+        "knife",
+        "wrong",
+        "climb",
+        "among",
+        "building",
+        "circle",
+        "decided",
+        "finally",
+        "heavy",
+        "include",
+        "nothing",
+        "special",
+        "wheel"
+      ],
+      "engagementHooks": [],
+      "inputEvidence": {
+        "contentFingerprint": "ab6dbdb7e7f06968"
+      },
+      "reuseStatus": "candidate",
+      "reuseReason": "Assignment planner chose boss."
+    },
+    {
+      "contentId": "hw-spelling_test-5a49d659:baseline-silent-partial-recall",
+      "homeworkId": "hw-spelling_test-5a49d659",
+      "childId": "demo-pashley",
+      "type": "quiz",
+      "source": "baseline",
+      "title": "Benchmark Advance Spelling Unit 9 Week 3 - word-radar",
+      "algorithmTargets": [
+        "spaced-repetition",
+        "retrieval-practice"
+      ],
+      "targetSkills": [
+        "Spell words from memory"
+      ],
+      "targetConcepts": [
+        "silent letter patterns",
+        "high-frequency word spelling"
+      ],
+      "targetWords": [
+        "sign",
+        "know",
+        "write",
+        "thumb",
+        "comb"
+      ],
+      "engagementHooks": [],
+      "inputEvidence": {
+        "contentFingerprint": "ab6dbdb7e7f06968"
+      },
+      "reuseStatus": "candidate",
+      "reuseReason": "Assignment planner chose word-radar. Target lane: silent_letters."
+    },
+    {
+      "contentId": "hw-spelling_test-5a49d659:baseline-silent-partial-recall-2",
+      "homeworkId": "hw-spelling_test-5a49d659",
+      "childId": "demo-pashley",
+      "type": "quiz",
+      "source": "baseline",
+      "title": "Benchmark Advance Spelling Unit 9 Week 3 - word-radar",
+      "algorithmTargets": [
+        "spaced-repetition",
+        "retrieval-practice"
+      ],
+      "targetSkills": [
+        "Spell words from memory"
+      ],
+      "targetConcepts": [
+        "silent letter patterns",
+        "high-frequency word spelling"
+      ],
+      "targetWords": [
+        "gnat",
+        "knock",
+        "knife",
+        "wrong",
+        "climb"
+      ],
+      "engagementHooks": [],
+      "inputEvidence": {
+        "contentFingerprint": "ab6dbdb7e7f06968"
+      },
+      "reuseStatus": "candidate",
+      "reuseReason": "Assignment planner chose word-radar. Target lane: silent_letters."
+    },
+    {
+      "contentId": "hw-spelling_test-5a49d659:baseline-silent-spellcheck-audio",
+      "homeworkId": "hw-spelling_test-5a49d659",
+      "childId": "demo-pashley",
+      "type": "quiz",
+      "source": "baseline",
+      "title": "Benchmark Advance Spelling Unit 9 Week 3 - spell-check",
+      "algorithmTargets": [
+        "spaced-repetition",
+        "retrieval-practice"
+      ],
+      "targetSkills": [
+        "Spell words from memory"
+      ],
+      "targetConcepts": [
+        "silent letter patterns",
+        "high-frequency word spelling"
+      ],
+      "targetWords": [
+        "sign",
+        "know",
+        "write",
+        "thumb",
+        "comb",
+        "gnat",
+        "knock",
+        "knife",
+        "wrong",
+        "climb"
+      ],
+      "engagementHooks": [],
+      "inputEvidence": {
+        "contentFingerprint": "ab6dbdb7e7f06968"
+      },
+      "reuseStatus": "candidate",
+      "reuseReason": "Assignment planner chose spell-check. Target lane: silent_letters."
+    },
+    {
+      "contentId": "hw-spelling_test-5a49d659:baseline-hfw-visible-read",
+      "homeworkId": "hw-spelling_test-5a49d659",
+      "childId": "demo-pashley",
+      "type": "quiz",
+      "source": "baseline",
+      "title": "Benchmark Advance Spelling Unit 9 Week 3 - word-radar",
+      "algorithmTargets": [
+        "spaced-repetition",
+        "retrieval-practice"
+      ],
+      "targetSkills": [
+        "Spell words from memory"
+      ],
+      "targetConcepts": [
+        "silent letter patterns",
+        "high-frequency word spelling"
+      ],
+      "targetWords": [
+        "among",
+        "building",
+        "circle",
+        "decided",
+        "finally",
+        "heavy",
+        "include",
+        "nothing",
+        "special",
+        "wheel"
+      ],
+      "engagementHooks": [],
+      "inputEvidence": {
+        "contentFingerprint": "ab6dbdb7e7f06968"
+      },
+      "reuseStatus": "candidate",
+      "reuseReason": "Assignment planner chose word-radar. Target lane: high_frequency_words."
+    },
+    {
+      "contentId": "hw-spelling_test-5a49d659:route-mastery-silent-cold-recall",
+      "homeworkId": "hw-spelling_test-5a49d659",
+      "childId": "demo-pashley",
+      "type": "quiz",
+      "source": "baseline",
+      "title": "Benchmark Advance Spelling Unit 9 Week 3 - spell-check",
+      "algorithmTargets": [
+        "spaced-repetition",
+        "retrieval-practice"
+      ],
+      "targetSkills": [
+        "Spell words from memory"
+      ],
+      "targetConcepts": [
+        "silent letter patterns",
+        "high-frequency word spelling"
+      ],
+      "targetWords": [
+        "sign",
+        "know",
+        "write",
+        "thumb",
+        "comb",
+        "gnat",
+        "knock",
+        "knife",
+        "wrong",
+        "climb"
+      ],
+      "engagementHooks": [],
+      "inputEvidence": {
+        "contentFingerprint": "ab6dbdb7e7f06968"
+      },
+      "reuseStatus": "candidate",
+      "reuseReason": "Assignment planner chose spell-check. Target lane: silent_letters."
+    },
+    {
+      "contentId": "hw-spelling_test-5a49d659:route-pressure-silent-letterrush",
+      "homeworkId": "hw-spelling_test-5a49d659",
+      "childId": "demo-pashley",
+      "type": "quiz",
+      "source": "baseline",
+      "title": "Benchmark Advance Spelling Unit 9 Week 3 - letter-rush",
+      "algorithmTargets": [
+        "spaced-repetition",
+        "retrieval-practice"
+      ],
+      "targetSkills": [
+        "Spell words from memory"
+      ],
+      "targetConcepts": [
+        "silent letter patterns",
+        "high-frequency word spelling"
+      ],
+      "targetWords": [
+        "sign",
+        "know",
+        "write",
+        "thumb",
+        "comb",
+        "gnat",
+        "knock",
+        "knife",
+        "wrong",
+        "climb"
+      ],
+      "engagementHooks": [],
+      "inputEvidence": {
+        "contentFingerprint": "ab6dbdb7e7f06968"
+      },
+      "reuseStatus": "candidate",
+      "reuseReason": "Assignment planner chose letter-rush. Target lane: silent_letters."
+    },
+    {
+      "contentId": "hw-spelling_test-5a49d659:route-hfw-hidden-recall-check",
+      "homeworkId": "hw-spelling_test-5a49d659",
+      "childId": "demo-pashley",
+      "type": "quiz",
+      "source": "baseline",
+      "title": "Benchmark Advance Spelling Unit 9 Week 3 - word-radar",
+      "algorithmTargets": [
+        "spaced-repetition",
+        "retrieval-practice"
+      ],
+      "targetSkills": [
+        "Spell words from memory"
+      ],
+      "targetConcepts": [
+        "silent letter patterns",
+        "high-frequency word spelling"
+      ],
+      "targetWords": [
+        "among",
+        "building",
+        "circle",
+        "decided",
+        "finally",
+        "heavy",
+        "include",
+        "nothing",
+        "special",
+        "wheel"
+      ],
+      "engagementHooks": [],
+      "inputEvidence": {
+        "contentFingerprint": "ab6dbdb7e7f06968"
+      },
+      "reuseStatus": "candidate",
+      "reuseReason": "Assignment planner chose word-radar. Target lane: high_frequency_words."
+    },
+    {
+      "contentId": "hw-spelling_test-5a49d659:boss-unit9-mastery",
+      "theoryDecisionId": "theory:homework:hw-spelling_test-5a49d659:ingest",
+      "homeworkId": "hw-spelling_test-5a49d659",
+      "childId": "demo-pashley",
+      "type": "game",
+      "source": "generated",
+      "title": "Benchmark Advance Spelling Unit 9 Week 3 - boss",
+      "algorithmTargets": [
+        "mastery-gating",
+        "retrieval-practice"
+      ],
+      "targetSkills": [
+        "Spell words from memory"
+      ],
+      "targetConcepts": [
+        "silent letter patterns",
+        "high-frequency word spelling"
+      ],
+      "targetWords": [
+        "sign",
+        "know",
+        "write",
+        "thumb",
+        "comb",
+        "gnat",
+        "knock",
+        "knife",
+        "wrong",
+        "climb",
+        "among",
+        "building",
+        "circle",
+        "decided",
+        "finally",
+        "heavy",
+        "include",
+        "nothing",
+        "special",
+        "wheel"
+      ],
+      "engagementHooks": [],
+      "inputEvidence": {
+        "contentFingerprint": "ab6dbdb7e7f06968"
+      },
+      "reuseStatus": "candidate",
+      "reuseReason": "Assignment planner chose boss."
+    }
+  ],
+  "updatedAt": "2026-07-29T22:56:18.875Z"
+}

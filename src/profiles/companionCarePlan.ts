@@ -71,6 +71,9 @@ function normalizeLoadedPlan(
         ? plan.inventory.careItems
         : [],
     },
+    rewardReceipts: Array.isArray(plan.rewardReceipts)
+      ? plan.rewardReceipts.map((receipt) => ({ ...receipt }))
+      : [],
   };
 }
 

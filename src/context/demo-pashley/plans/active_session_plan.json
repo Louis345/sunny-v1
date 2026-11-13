@@ -1,0 +1,2296 @@
+{
+  "version": 1,
+  "childId": "demo-pashley",
+  "selectedDomain": "spelling",
+  "current": {
+    "planId": "learning-cycle:hw-spelling_test-5a49d659:r24",
+    "childId": "demo-pashley",
+    "createdAt": "2026-07-29T19:02:57.801Z",
+    "source": "ingest_human_loop",
+    "activeHomeworkId": "hw-spelling_test-5a49d659",
+    "domain": "spelling",
+    "testDate": null,
+    "nodePlan": [
+      {
+        "id": "baseline-silent-partial",
+        "type": "word-radar",
+        "activityId": "word-radar",
+        "targets": [
+          "sign",
+          "know",
+          "write",
+          "thumb",
+          "comb",
+          "gnat",
+          "knock",
+          "knife",
+          "wrong",
+          "climb"
+        ],
+        "difficulty": 1,
+        "source": "chart_planner",
+        "targetLane": "silent_letters",
+        "locked": false,
+        "masteryUnlockState": "unlocked",
+        "title": "Silent Letters Word Radar",
+        "theoryId": "engagement-theory:a0d27ebffbb1",
+        "experimentId": "experiment:hw-spelling_test-5a49d659:route-stampede-flow",
+        "contentId": "hw-spelling_test-5a49d659:node:baseline-silent-partial",
+        "mechanic": "configured-practice",
+        "theme": "learning adventure",
+        "sfxProfile": "tap-correct-wrong-progress-complete",
+        "companionPolicy": "cycle-contract",
+        "thumbnailUrl": "/generated/adventure-board/demo-pashley/hw-spelling_test-5a49d659-baseline-silent-partial.jpeg",
+        "thumbnailPrompt": "Adventure map location icon for a children's learning game about \"Benchmark Advance Spelling Unit 9 Week 3\" (spelling). A playful landmark representing \"Silent Letters Word Radar\" (silent_letters) practice: oversized friendly props related to the concept, one clear focal object."
+      },
+      {
+        "id": "baseline-silent-spellcheck",
+        "type": "spell-check",
+        "activityId": "spell-check",
+        "targets": [
+          "sign",
+          "know",
+          "write",
+          "thumb",
+          "comb",
+          "gnat",
+          "knock",
+          "knife",
+          "wrong",
+          "climb"
+        ],
+        "difficulty": 1,
+        "source": "chart_planner",
+        "targetLane": "silent_letters",
+        "locked": false,
+        "masteryUnlockState": "unlocked",
+        "title": "Silent Letters Spell Check",
+        "theoryId": "engagement-theory:a0d27ebffbb1",
+        "experimentId": "experiment:hw-spelling_test-5a49d659:baseline-silent-spellcheck",
+        "contentId": "hw-spelling_test-5a49d659:node:baseline-silent-spellcheck",
+        "mechanic": "configured-practice",
+        "theme": "learning adventure",
+        "sfxProfile": "tap-correct-wrong-progress-complete",
+        "companionPolicy": "cycle-contract",
+        "thumbnailUrl": "/generated/adventure-board/demo-pashley/hw-spelling_test-5a49d659-baseline-silent-spellcheck.jpeg",
+        "thumbnailPrompt": "Adventure map location icon for a children's learning game about \"Benchmark Advance Spelling Unit 9 Week 3\" (spelling). A playful landmark representing \"Silent Letters Spell Check\" (silent_letters) practice: oversized friendly props related to the concept, one clear focal object."
+      },
+      {
+        "id": "baseline-hfw-visible",
+        "type": "word-radar",
+        "activityId": "word-radar",
+        "targets": [
+          "among",
+          "building",
+          "circle",
+          "decided",
+          "finally",
+          "heavy",
+          "include",
+          "nothing",
+          "special",
+          "wheel"
+        ],
+        "difficulty": 1,
+        "source": "chart_planner",
+        "targetLane": "high_frequency_words",
+        "locked": false,
+        "masteryUnlockState": "unlocked",
+        "title": "High Frequency Words Word Radar",
+        "theoryId": "engagement-theory:a0d27ebffbb1",
+        "experimentId": "experiment:hw-spelling_test-5a49d659:baseline-hfw-visible",
+        "contentId": "hw-spelling_test-5a49d659:node:baseline-hfw-visible",
+        "mechanic": "configured-practice",
+        "theme": "learning adventure",
+        "sfxProfile": "tap-correct-wrong-progress-complete",
+        "companionPolicy": "cycle-contract",
+        "thumbnailUrl": "/generated/adventure-board/demo-pashley/hw-spelling_test-5a49d659-baseline-hfw-visible.jpeg",
+        "thumbnailPrompt": "Adventure map location icon for a children's learning game about \"Benchmark Advance Spelling Unit 9 Week 3\" (spelling). A playful landmark representing \"High Frequency Words Word Radar\" (high_frequency_words) practice: oversized friendly props related to the concept, one clear focal object."
+      },
+      {
+        "id": "baseline-hfw-pronunciation",
+        "type": "pronunciation",
+        "activityId": "pronunciation",
+        "targets": [
+          "among",
+          "building",
+          "circle",
+          "decided",
+          "finally",
+          "heavy",
+          "include",
+          "nothing",
+          "special",
+          "wheel"
+        ],
+        "difficulty": 1,
+        "source": "chart_planner",
+        "targetLane": "high_frequency_words",
+        "locked": false,
+        "masteryUnlockState": "unlocked",
+        "title": "High Frequency Words Pronunciation",
+        "theoryId": "engagement-theory:a0d27ebffbb1",
+        "experimentId": "experiment:hw-spelling_test-5a49d659:baseline-hfw-pronunciation",
+        "contentId": "hw-spelling_test-5a49d659:node:baseline-hfw-pronunciation",
+        "mechanic": "configured-practice",
+        "theme": "learning adventure",
+        "sfxProfile": "tap-correct-wrong-progress-complete",
+        "companionPolicy": "cycle-contract",
+        "thumbnailUrl": "/generated/adventure-board/demo-pashley/hw-spelling_test-5a49d659-baseline-hfw-pronunciation.jpeg",
+        "thumbnailPrompt": "Adventure map location icon for a children's learning game about \"Benchmark Advance Spelling Unit 9 Week 3\" (spelling). A playful landmark representing \"High Frequency Words Pronunciation\" (high_frequency_words) practice: oversized friendly props related to the concept, one clear focal object."
+      },
+      {
+        "id": "route-a-monster-stampede",
+        "type": "monster-stampede",
+        "activityId": "monster-stampede",
+        "targets": [
+          "sign",
+          "know",
+          "write",
+          "thumb",
+          "comb",
+          "gnat",
+          "knock",
+          "knife",
+          "wrong",
+          "climb"
+        ],
+        "difficulty": 1,
+        "source": "chart_planner",
+        "targetLane": "silent_letters",
+        "locked": false,
+        "masteryUnlockState": "unlocked",
+        "title": "Silent Letters Monster Stampede",
+        "theoryId": "engagement-theory:a0d27ebffbb1",
+        "experimentId": "experiment:hw-spelling_test-5a49d659:route-stampede-flow",
+        "contentId": "hw-spelling_test-5a49d659:node:route-a-monster-stampede",
+        "mechanic": "configured-practice",
+        "theme": "learning adventure",
+        "sfxProfile": "tap-correct-wrong-progress-complete",
+        "companionPolicy": "cycle-contract",
+        "thumbnailUrl": "/generated/adventure-board/demo-pashley/hw-spelling_test-5a49d659-route-a-monster-stampede.jpeg",
+        "thumbnailPrompt": "Adventure map location icon for a children's learning game about \"Benchmark Advance Spelling Unit 9 Week 3\" (spelling). A playful landmark representing \"Silent Letters Monster Stampede\" (silent_letters) practice: oversized friendly props related to the concept, one clear focal object."
+      },
+      {
+        "id": "route-b-letter-rush",
+        "type": "letter-rush",
+        "activityId": "letter-rush",
+        "targets": [
+          "sign",
+          "know",
+          "write",
+          "thumb",
+          "comb",
+          "gnat",
+          "knock",
+          "knife",
+          "wrong",
+          "climb"
+        ],
+        "difficulty": 1,
+        "source": "chart_planner",
+        "targetLane": "silent_letters",
+        "locked": false,
+        "masteryUnlockState": "unlocked",
+        "title": "Silent Letters Letter Rush",
+        "theoryId": "engagement-theory:a0d27ebffbb1",
+        "experimentId": "experiment:hw-spelling_test-5a49d659:route-letterrush-puzzle",
+        "contentId": "hw-spelling_test-5a49d659:node:route-b-letter-rush",
+        "mechanic": "configured-practice",
+        "theme": "learning adventure",
+        "sfxProfile": "tap-correct-wrong-progress-complete",
+        "companionPolicy": "cycle-contract",
+        "thumbnailUrl": "/generated/adventure-board/demo-pashley/hw-spelling_test-5a49d659-route-b-letter-rush.jpeg",
+        "thumbnailPrompt": "Adventure map location icon for a children's learning game about \"Benchmark Advance Spelling Unit 9 Week 3\" (spelling). A playful landmark representing \"Silent Letters Letter Rush\" (silent_letters) practice: oversized friendly props related to the concept, one clear focal object."
+      },
+      {
+        "id": "check-silent-hidden-recall",
+        "type": "word-radar",
+        "activityId": "word-radar",
+        "targets": [
+          "sign",
+          "know",
+          "write",
+          "thumb",
+          "comb",
+          "gnat",
+          "knock",
+          "knife",
+          "wrong",
+          "climb"
+        ],
+        "difficulty": 1,
+        "source": "chart_planner",
+        "targetLane": "silent_letters",
+        "locked": false,
+        "masteryUnlockState": "unlocked",
+        "title": "Silent Letters Word Radar 2",
+        "theoryId": "engagement-theory:a0d27ebffbb1",
+        "experimentId": "experiment:hw-spelling_test-5a49d659:route-stampede-flow",
+        "contentId": "hw-spelling_test-5a49d659:node:check-silent-hidden-recall",
+        "mechanic": "configured-practice",
+        "theme": "learning adventure",
+        "sfxProfile": "tap-correct-wrong-progress-complete",
+        "companionPolicy": "cycle-contract",
+        "thumbnailUrl": "/generated/adventure-board/demo-pashley/hw-spelling_test-5a49d659-check-silent-hidden-recall.jpeg",
+        "thumbnailPrompt": "Adventure map location icon for a children's learning game about \"Benchmark Advance Spelling Unit 9 Week 3\" (spelling). A playful landmark representing \"Silent Letters Word Radar 2\" (silent_letters) practice: oversized friendly props related to the concept, one clear focal object."
+      },
+      {
+        "id": "mystery-choice",
+        "type": "mystery",
+        "activityId": "mystery",
+        "targets": [
+          "sign",
+          "know",
+          "write",
+          "thumb",
+          "comb",
+          "climb"
+        ],
+        "difficulty": 1,
+        "source": "chart_planner",
+        "targetLane": "silent_letters",
+        "locked": false,
+        "masteryUnlockState": "unlocked",
+        "title": "Mystery",
+        "theoryId": "engagement-theory:a0d27ebffbb1",
+        "experimentId": "experiment:hw-spelling_test-5a49d659:mystery-choice",
+        "contentId": "hw-spelling_test-5a49d659:node:mystery-choice",
+        "mechanic": "configured-practice",
+        "theme": "learning adventure",
+        "sfxProfile": "tap-correct-wrong-progress-complete",
+        "companionPolicy": "cycle-contract",
+        "thumbnailUrl": "/generated/adventure-board/demo-pashley/hw-spelling_test-5a49d659-mystery-choice.jpeg",
+        "thumbnailPrompt": "Adventure map location icon for a children's learning game about \"Benchmark Advance Spelling Unit 9 Week 3\" (spelling). A mysterious glowing gift portal with question-mark sparkles, inviting and safe."
+      },
+      {
+        "id": "quest-silent-transfer",
+        "type": "quest",
+        "activityId": "quest",
+        "targets": [
+          "sign",
+          "know",
+          "write",
+          "thumb",
+          "comb",
+          "gnat",
+          "knock",
+          "knife",
+          "wrong",
+          "climb"
+        ],
+        "difficulty": 1,
+        "source": "chart_planner",
+        "targetLane": "silent_letters",
+        "locked": true,
+        "masteryUnlockState": "preparing",
+        "title": "Quest",
+        "theoryId": "engagement-theory:a0d27ebffbb1",
+        "experimentId": "experiment:hw-spelling_test-5a49d659:quest-silent-transfer",
+        "contentId": "hw-spelling_test-5a49d659:node:quest-silent-transfer",
+        "mechanic": "generated-after-baseline",
+        "theme": "pending",
+        "sfxProfile": "tap-correct-wrong-progress-complete",
+        "companionPolicy": "cycle-contract",
+        "thumbnailUrl": "/generated/adventure-board/demo-pashley/hw-spelling_test-5a49d659-quest-silent-transfer.jpeg",
+        "thumbnailPrompt": "Adventure map location icon for a children's learning game about \"Benchmark Advance Spelling Unit 9 Week 3\" (spelling). A glowing quest gate on a hilltop, epic but friendly, treasure and banners."
+      },
+      {
+        "id": "boss-mastery-gate",
+        "type": "boss",
+        "activityId": "boss",
+        "targets": [],
+        "difficulty": 1,
+        "source": "chart_planner",
+        "targetLane": "spelling_mastery",
+        "locked": true,
+        "masteryUnlockState": "preparing",
+        "title": "Boss",
+        "theoryId": "engagement-theory:a0d27ebffbb1",
+        "experimentId": "experiment:hw-spelling_test-5a49d659:boss-mastery-gate",
+        "contentId": "hw-spelling_test-5a49d659:node:boss-mastery-gate",
+        "mechanic": "generated-after-quest",
+        "theme": "pending",
+        "sfxProfile": "tap-correct-wrong-progress-complete",
+        "companionPolicy": "cycle-contract",
+        "thumbnailUrl": "/generated/adventure-board/demo-pashley/hw-spelling_test-5a49d659-boss-mastery-gate.jpeg",
+        "thumbnailPrompt": "Adventure map location icon for a children's learning game about \"Benchmark Advance Spelling Unit 9 Week 3\" (spelling). A grand castle arena entrance for a final friendly boss challenge, dramatic golden light."
+      }
+    ],
+    "variationPolicy": {
+      "avoidExactPreviousNodeOrder": true,
+      "avoidExactPreviousWordOrder": true,
+      "seed": "ab6dbdb7e7f0",
+      "previousCompletedNodeCount": 0
+    },
+    "companionPolicy": {
+      "companionId": "elli",
+      "displayName": "Elli",
+      "openingLinePolicy": "context_start_short",
+      "verbosity": "low",
+      "maxMicroProbes": 1
+    },
+    "evidenceUsed": [
+      {
+        "id": "assignment:ab6dbdb7e7f06968",
+        "type": "captured_assignment",
+        "summary": "Canonical cycle evidence assignment:ab6dbdb7e7f06968"
+      }
+    ],
+    "openQuestions": [],
+    "approvalStatus": "approved",
+    "planTheory": {
+      "hypothesis": "Sunny can achieve unaided spelling recall of the 10 silent-letter words by test day if given scaffolded-to-hidden recall progression, while the 10 high-frequency words only need recognition/read-aloud fluency, not spelling drills; simultaneously, varying the practice mechanic (stampede vs letter-rush) while holding target words, difficulty, and evidence contract constant will reveal which delivery mechanic Sunny prefers per the open engagement theory.",
+      "evidenceSummary": [],
+      "intervention": "Follow the canonical learning-cycle node contracts.",
+      "supportCriteria": [
+        "Majority-correct hidden-word recall on silent_letters words confirms unaided spelling readiness for the test.",
+        "Strong completion/accuracy in one mechanic route versus the other reveals a clear engagement preference to reuse in future sessions.",
+        "Fluent visible-read and pronunciation performance on high-frequency words confirms that group needs no further spelling drilling."
+      ],
+      "reviseCriteria": [
+        "Partial recall difficulty is high but hidden recall is roughly half-correct: schedule one more short targeted practice session on missed words before Friday.",
+        "One mechanic route shows much lower completion/accuracy than the other: prefer the stronger mechanic for the next session's silent_letters practice.",
+        "High-frequency words show fluency gaps: add a supported read-aloud pass next session before assuming the group is settled."
+      ],
+      "falsifyCriteria": [
+        "Child cannot recall most silent_letters words unaided even after both practice routes: hypothesis that this session's dosage is sufficient is falsified; escalate to a dedicated remediation session before test day.",
+        "Child disengages or shows high frustration in both stampede and letter-rush routes: falsifies that mechanic variation alone will surface a usable preference; consider theme variation instead next time.",
+        "Child cannot read or pronounce high-frequency words despite visible support: falsifies the assumption that this group only needs light fluency checks; treat as a decoding gap requiring different instruments."
+      ]
+    },
+    "adventureBoard": {
+      "schemaVersion": 1,
+      "boardId": "cycle-board:hw-spelling_test-5a49d659",
+      "planId": "learning-cycle:hw-spelling_test-5a49d659:r24",
+      "childId": "demo-pashley",
+      "domain": "spelling",
+      "title": "Benchmark Advance Spelling Unit 9 Week 3",
+      "theme": {
+        "background": {
+          "type": "image",
+          "value": "/generated/adventure-board-demo/silent-letter-world.jpeg"
+        },
+        "palette": {
+          "path": "#ffffff",
+          "completed": "#1f8f68",
+          "available": "#7c3aed",
+          "locked": "#aeb7c2",
+          "current": "#f59e0b",
+          "preview": "#d5dde5",
+          "text": "#ffffff",
+          "panel": "rgba(15, 23, 42, 0.84)"
+        }
+      },
+      "layout": {
+        "preset": "horizontal-adventure-spine",
+        "companionSlot": "right"
+      },
+      "plannerRationale": {
+        "agencyDesign": "The canonical cycle owns every visible node contract.",
+        "evidenceDesign": "Quest and Boss unlock only from recorded evidence transitions.",
+        "layoutChoice": "Render the canonical intervention sequence without semantic rewrites."
+      },
+      "nodes": [
+        {
+          "id": "start",
+          "kind": "start",
+          "label": "Start",
+          "shortLabel": "Start",
+          "icon": "flag",
+          "slot": "1",
+          "layout": {
+            "role": "start",
+            "lane": "main",
+            "order": 0
+          },
+          "state": "completed"
+        },
+        {
+          "id": "baseline-silent-partial",
+          "kind": "activity",
+          "activityId": "word-radar",
+          "label": "Silent Letters Word Radar",
+          "shortLabel": "Silent Letters Wor",
+          "icon": "radar",
+          "thumbnailUrl": "/generated/adventure-board/demo-pashley/hw-spelling_test-5a49d659-baseline-silent-partial.jpeg",
+          "slot": "2",
+          "layout": {
+            "role": "baseline",
+            "lane": "main",
+            "order": 1
+          },
+          "state": "current",
+          "evidenceRole": "baseline",
+          "target": {
+            "laneId": "silent_letters",
+            "skill": "silent_letters",
+            "words": [
+              "sign",
+              "know",
+              "write",
+              "thumb",
+              "comb",
+              "gnat",
+              "knock",
+              "knife",
+              "wrong",
+              "climb"
+            ]
+          },
+          "theoryId": "engagement-theory:a0d27ebffbb1",
+          "experimentId": "experiment:hw-spelling_test-5a49d659:route-stampede-flow",
+          "contentId": "hw-spelling_test-5a49d659:node:baseline-silent-partial",
+          "mechanic": "configured-practice",
+          "sfxProfile": "tap-correct-wrong-progress-complete",
+          "companionPolicy": "cycle-contract",
+          "action": {
+            "type": "launch-activity",
+            "payloadId": "baseline-silent-partial"
+          }
+        },
+        {
+          "id": "baseline-silent-spellcheck",
+          "kind": "activity",
+          "activityId": "spell-check",
+          "label": "Silent Letters Spell Check",
+          "shortLabel": "Silent Letters Spe",
+          "icon": "book",
+          "thumbnailUrl": "/generated/adventure-board/demo-pashley/hw-spelling_test-5a49d659-baseline-silent-spellcheck.jpeg",
+          "slot": "3",
+          "layout": {
+            "role": "baseline",
+            "lane": "main",
+            "order": 2
+          },
+          "state": "available",
+          "evidenceRole": "baseline",
+          "target": {
+            "laneId": "silent_letters",
+            "skill": "silent_letters",
+            "words": [
+              "sign",
+              "know",
+              "write",
+              "thumb",
+              "comb",
+              "gnat",
+              "knock",
+              "knife",
+              "wrong",
+              "climb"
+            ]
+          },
+          "theoryId": "engagement-theory:a0d27ebffbb1",
+          "experimentId": "experiment:hw-spelling_test-5a49d659:baseline-silent-spellcheck",
+          "contentId": "hw-spelling_test-5a49d659:node:baseline-silent-spellcheck",
+          "mechanic": "configured-practice",
+          "sfxProfile": "tap-correct-wrong-progress-complete",
+          "companionPolicy": "cycle-contract",
+          "action": {
+            "type": "launch-activity",
+            "payloadId": "baseline-silent-spellcheck"
+          }
+        },
+        {
+          "id": "choose-path",
+          "kind": "choice-gate",
+          "label": "Choose Path",
+          "shortLabel": "Choose Path",
+          "icon": "route",
+          "slot": "4",
+          "layout": {
+            "role": "choice-gate",
+            "lane": "main",
+            "order": 1
+          },
+          "state": "available",
+          "evidenceRole": "preference",
+          "choiceSetId": "baseline-route-options",
+          "action": {
+            "type": "open-choice-set",
+            "payloadId": "baseline-route-options"
+          }
+        },
+        {
+          "id": "baseline-hfw-visible",
+          "kind": "activity",
+          "activityId": "word-radar",
+          "label": "High Frequency Words Word Radar",
+          "shortLabel": "High Frequency Wor",
+          "icon": "radar",
+          "thumbnailUrl": "/generated/adventure-board/demo-pashley/hw-spelling_test-5a49d659-baseline-hfw-visible.jpeg",
+          "slot": "5a.1",
+          "layout": {
+            "role": "evidence-route",
+            "lane": "upper",
+            "order": 1
+          },
+          "state": "available",
+          "evidenceRole": "baseline",
+          "target": {
+            "laneId": "high_frequency_words",
+            "skill": "high_frequency_words",
+            "words": [
+              "among",
+              "building",
+              "circle",
+              "decided",
+              "finally",
+              "heavy",
+              "include",
+              "nothing",
+              "special",
+              "wheel"
+            ]
+          },
+          "theoryId": "engagement-theory:a0d27ebffbb1",
+          "experimentId": "experiment:hw-spelling_test-5a49d659:baseline-hfw-visible",
+          "contentId": "hw-spelling_test-5a49d659:node:baseline-hfw-visible",
+          "mechanic": "configured-practice",
+          "sfxProfile": "tap-correct-wrong-progress-complete",
+          "companionPolicy": "cycle-contract",
+          "action": {
+            "type": "launch-activity",
+            "payloadId": "baseline-hfw-visible"
+          }
+        },
+        {
+          "id": "baseline-hfw-pronunciation",
+          "kind": "activity",
+          "activityId": "pronunciation",
+          "label": "High Frequency Words Pronunciation",
+          "shortLabel": "High Frequency Wor",
+          "icon": "mic",
+          "thumbnailUrl": "/generated/adventure-board/demo-pashley/hw-spelling_test-5a49d659-baseline-hfw-pronunciation.jpeg",
+          "slot": "5b.1",
+          "layout": {
+            "role": "evidence-route",
+            "lane": "lower",
+            "order": 1
+          },
+          "state": "available",
+          "evidenceRole": "baseline",
+          "target": {
+            "laneId": "high_frequency_words",
+            "skill": "high_frequency_words",
+            "words": [
+              "among",
+              "building",
+              "circle",
+              "decided",
+              "finally",
+              "heavy",
+              "include",
+              "nothing",
+              "special",
+              "wheel"
+            ]
+          },
+          "theoryId": "engagement-theory:a0d27ebffbb1",
+          "experimentId": "experiment:hw-spelling_test-5a49d659:baseline-hfw-pronunciation",
+          "contentId": "hw-spelling_test-5a49d659:node:baseline-hfw-pronunciation",
+          "mechanic": "configured-practice",
+          "sfxProfile": "tap-correct-wrong-progress-complete",
+          "companionPolicy": "cycle-contract",
+          "action": {
+            "type": "launch-activity",
+            "payloadId": "baseline-hfw-pronunciation"
+          }
+        },
+        {
+          "id": "route-a-monster-stampede",
+          "kind": "activity",
+          "activityId": "monster-stampede",
+          "label": "Silent Letters Monster Stampede",
+          "shortLabel": "Silent Letters Mon",
+          "thumbnailUrl": "/generated/adventure-board/demo-pashley/hw-spelling_test-5a49d659-route-a-monster-stampede.jpeg",
+          "slot": "5a.2",
+          "layout": {
+            "role": "evidence-route",
+            "lane": "upper",
+            "order": 2
+          },
+          "state": "available",
+          "evidenceRole": "baseline",
+          "target": {
+            "laneId": "silent_letters",
+            "skill": "silent_letters",
+            "words": [
+              "sign",
+              "know",
+              "write",
+              "thumb",
+              "comb",
+              "gnat",
+              "knock",
+              "knife",
+              "wrong",
+              "climb"
+            ]
+          },
+          "theoryId": "engagement-theory:a0d27ebffbb1",
+          "experimentId": "experiment:hw-spelling_test-5a49d659:route-stampede-flow",
+          "contentId": "hw-spelling_test-5a49d659:node:route-a-monster-stampede",
+          "mechanic": "configured-practice",
+          "sfxProfile": "tap-correct-wrong-progress-complete",
+          "companionPolicy": "cycle-contract",
+          "action": {
+            "type": "launch-activity",
+            "payloadId": "route-a-monster-stampede"
+          }
+        },
+        {
+          "id": "route-b-letter-rush",
+          "kind": "activity",
+          "activityId": "letter-rush",
+          "label": "Silent Letters Letter Rush",
+          "shortLabel": "Silent Letters Let",
+          "thumbnailUrl": "/generated/adventure-board/demo-pashley/hw-spelling_test-5a49d659-route-b-letter-rush.jpeg",
+          "slot": "5c.1",
+          "layout": {
+            "role": "evidence-route",
+            "lane": "middle",
+            "order": 3
+          },
+          "state": "available",
+          "evidenceRole": "baseline",
+          "target": {
+            "laneId": "silent_letters",
+            "skill": "silent_letters",
+            "words": [
+              "sign",
+              "know",
+              "write",
+              "thumb",
+              "comb",
+              "gnat",
+              "knock",
+              "knife",
+              "wrong",
+              "climb"
+            ]
+          },
+          "theoryId": "engagement-theory:a0d27ebffbb1",
+          "experimentId": "experiment:hw-spelling_test-5a49d659:route-letterrush-puzzle",
+          "contentId": "hw-spelling_test-5a49d659:node:route-b-letter-rush",
+          "mechanic": "configured-practice",
+          "sfxProfile": "tap-correct-wrong-progress-complete",
+          "companionPolicy": "cycle-contract",
+          "action": {
+            "type": "launch-activity",
+            "payloadId": "route-b-letter-rush"
+          }
+        },
+        {
+          "id": "check-silent-hidden-recall",
+          "kind": "activity",
+          "activityId": "word-radar",
+          "label": "Silent Letters Word Radar 2",
+          "shortLabel": "Silent Letters Wor",
+          "icon": "radar",
+          "thumbnailUrl": "/generated/adventure-board/demo-pashley/hw-spelling_test-5a49d659-check-silent-hidden-recall.jpeg",
+          "slot": "5c.1",
+          "layout": {
+            "role": "evidence-route",
+            "lane": "middle",
+            "order": 4
+          },
+          "state": "available",
+          "evidenceRole": "baseline",
+          "target": {
+            "laneId": "silent_letters",
+            "skill": "silent_letters",
+            "words": [
+              "sign",
+              "know",
+              "write",
+              "thumb",
+              "comb",
+              "gnat",
+              "knock",
+              "knife",
+              "wrong",
+              "climb"
+            ]
+          },
+          "theoryId": "engagement-theory:a0d27ebffbb1",
+          "experimentId": "experiment:hw-spelling_test-5a49d659:route-stampede-flow",
+          "contentId": "hw-spelling_test-5a49d659:node:check-silent-hidden-recall",
+          "mechanic": "configured-practice",
+          "sfxProfile": "tap-correct-wrong-progress-complete",
+          "companionPolicy": "cycle-contract",
+          "action": {
+            "type": "launch-activity",
+            "payloadId": "check-silent-hidden-recall"
+          }
+        },
+        {
+          "id": "mystery-choice",
+          "kind": "mystery",
+          "activityId": "mystery",
+          "label": "Mystery",
+          "shortLabel": "Mystery",
+          "icon": "mystery",
+          "thumbnailUrl": "/generated/adventure-board/demo-pashley/hw-spelling_test-5a49d659-mystery-choice.jpeg",
+          "slot": "6",
+          "layout": {
+            "role": "mystery",
+            "lane": "main",
+            "order": 1
+          },
+          "state": "available",
+          "evidenceRole": "preference",
+          "target": {
+            "laneId": "silent_letters",
+            "skill": "silent_letters",
+            "words": [
+              "sign",
+              "know",
+              "write",
+              "thumb",
+              "comb",
+              "climb"
+            ]
+          },
+          "choiceSetId": "mystery-choice-options",
+          "theoryId": "engagement-theory:a0d27ebffbb1",
+          "experimentId": "experiment:hw-spelling_test-5a49d659:mystery-choice",
+          "contentId": "hw-spelling_test-5a49d659:node:mystery-choice",
+          "mechanic": "configured-practice",
+          "sfxProfile": "tap-correct-wrong-progress-complete",
+          "companionPolicy": "cycle-contract",
+          "action": {
+            "type": "open-choice-set",
+            "payloadId": "mystery-choice-options"
+          }
+        },
+        {
+          "id": "quest-silent-transfer",
+          "kind": "quest",
+          "activityId": "quest",
+          "label": "Quest",
+          "shortLabel": "Quest",
+          "icon": "star",
+          "thumbnailUrl": "/generated/adventure-board/demo-pashley/hw-spelling_test-5a49d659-quest-silent-transfer.jpeg",
+          "slot": "7",
+          "layout": {
+            "role": "quest",
+            "lane": "main",
+            "order": 1
+          },
+          "state": "locked",
+          "evidenceRole": "transfer",
+          "target": {
+            "laneId": "silent_letters",
+            "skill": "silent_letters",
+            "words": [
+              "sign",
+              "know",
+              "write",
+              "thumb",
+              "comb",
+              "gnat",
+              "knock",
+              "knife",
+              "wrong",
+              "climb"
+            ]
+          },
+          "lock": {
+            "reason": "preparing",
+            "label": "Quest is preparing"
+          },
+          "theoryId": "engagement-theory:a0d27ebffbb1",
+          "experimentId": "experiment:hw-spelling_test-5a49d659:quest-silent-transfer",
+          "contentId": "hw-spelling_test-5a49d659:node:quest-silent-transfer",
+          "mechanic": "generated-after-baseline",
+          "sfxProfile": "tap-correct-wrong-progress-complete",
+          "companionPolicy": "cycle-contract",
+          "action": {
+            "type": "show-locked-reason",
+            "payloadId": "quest-silent-transfer"
+          }
+        },
+        {
+          "id": "boss-mastery-gate",
+          "kind": "boss",
+          "activityId": "boss",
+          "label": "Boss",
+          "shortLabel": "Boss",
+          "icon": "crown",
+          "thumbnailUrl": "/generated/adventure-board/demo-pashley/hw-spelling_test-5a49d659-boss-mastery-gate.jpeg",
+          "slot": "8",
+          "layout": {
+            "role": "boss",
+            "lane": "main",
+            "order": 1
+          },
+          "state": "locked",
+          "evidenceRole": "mastery",
+          "target": {
+            "laneId": "spelling_mastery",
+            "skill": "spelling_mastery",
+            "words": []
+          },
+          "lock": {
+            "reason": "preparing",
+            "label": "After Quest"
+          },
+          "theoryId": "engagement-theory:a0d27ebffbb1",
+          "experimentId": "experiment:hw-spelling_test-5a49d659:boss-mastery-gate",
+          "contentId": "hw-spelling_test-5a49d659:node:boss-mastery-gate",
+          "mechanic": "generated-after-quest",
+          "sfxProfile": "tap-correct-wrong-progress-complete",
+          "companionPolicy": "cycle-contract",
+          "action": {
+            "type": "show-locked-reason",
+            "payloadId": "boss-mastery-gate"
+          }
+        }
+      ],
+      "edges": [
+        {
+          "id": "edge-start-to-baseline-silent-partial",
+          "from": "start",
+          "to": "baseline-silent-partial",
+          "state": "completed"
+        },
+        {
+          "id": "edge-baseline-silent-partial-to-baseline-silent-spellcheck",
+          "from": "baseline-silent-partial",
+          "to": "baseline-silent-spellcheck",
+          "state": "available"
+        },
+        {
+          "id": "edge-baseline-silent-spellcheck-to-choose-path",
+          "from": "baseline-silent-spellcheck",
+          "to": "choose-path",
+          "state": "available"
+        },
+        {
+          "id": "edge-choose-path-to-baseline-hfw-visible",
+          "from": "choose-path",
+          "to": "baseline-hfw-visible",
+          "state": "available",
+          "style": "glow"
+        },
+        {
+          "id": "edge-baseline-hfw-visible-to-route-a-monster-stampede",
+          "from": "baseline-hfw-visible",
+          "to": "route-a-monster-stampede",
+          "state": "available"
+        },
+        {
+          "id": "edge-route-a-monster-stampede-to-mystery-choice",
+          "from": "route-a-monster-stampede",
+          "to": "mystery-choice",
+          "state": "available"
+        },
+        {
+          "id": "edge-choose-path-to-baseline-hfw-pronunciation",
+          "from": "choose-path",
+          "to": "baseline-hfw-pronunciation",
+          "state": "available",
+          "style": "glow"
+        },
+        {
+          "id": "edge-baseline-hfw-pronunciation-to-mystery-choice",
+          "from": "baseline-hfw-pronunciation",
+          "to": "mystery-choice",
+          "state": "available"
+        },
+        {
+          "id": "edge-choose-path-to-route-b-letter-rush",
+          "from": "choose-path",
+          "to": "route-b-letter-rush",
+          "state": "available",
+          "style": "glow"
+        },
+        {
+          "id": "edge-route-b-letter-rush-to-check-silent-hidden-recall",
+          "from": "route-b-letter-rush",
+          "to": "check-silent-hidden-recall",
+          "state": "available"
+        },
+        {
+          "id": "edge-check-silent-hidden-recall-to-mystery-choice",
+          "from": "check-silent-hidden-recall",
+          "to": "mystery-choice",
+          "state": "available"
+        },
+        {
+          "id": "edge-mystery-choice-to-quest-silent-transfer",
+          "from": "mystery-choice",
+          "to": "quest-silent-transfer",
+          "state": "locked",
+          "style": "dashed"
+        },
+        {
+          "id": "edge-quest-silent-transfer-to-boss-mastery-gate",
+          "from": "quest-silent-transfer",
+          "to": "boss-mastery-gate",
+          "state": "locked",
+          "style": "dashed"
+        }
+      ],
+      "choiceSets": [
+        {
+          "id": "baseline-route-options",
+          "kind": "baseline-route",
+          "title": "Choose your path",
+          "options": [
+            {
+              "id": "choice-baseline-hfw-visible",
+              "label": "High Frequency Words Word Radar",
+              "description": "Try High Frequency Words Word Radar next.",
+              "thumbnailUrl": "/generated/adventure-board/demo-pashley/hw-spelling_test-5a49d659-baseline-hfw-visible.jpeg",
+              "state": "available",
+              "nodeId": "baseline-hfw-visible",
+              "choiceSignal": {
+                "algorithmFeed": "choicePolicy",
+                "traits": [
+                  "practice",
+                  "control"
+                ],
+                "expectedEvidence": "shown/chosen/skipped/completed outcome for word-radar; preference only",
+                "preferenceNotMastery": true
+              },
+              "theoryId": "engagement-theory:a0d27ebffbb1",
+              "experimentId": "experiment:hw-spelling_test-5a49d659:baseline-hfw-visible",
+              "contentId": "hw-spelling_test-5a49d659:node:baseline-hfw-visible",
+              "activityId": "word-radar",
+              "mechanic": "configured-practice",
+              "theme": "learning adventure",
+              "sfxProfile": "tap-correct-wrong-progress-complete",
+              "companionPolicy": "cycle-contract"
+            },
+            {
+              "id": "choice-baseline-hfw-pronunciation",
+              "label": "High Frequency Words Pronunciation",
+              "description": "Try High Frequency Words Pronunciation next.",
+              "thumbnailUrl": "/generated/adventure-board/demo-pashley/hw-spelling_test-5a49d659-baseline-hfw-pronunciation.jpeg",
+              "state": "available",
+              "nodeId": "baseline-hfw-pronunciation",
+              "choiceSignal": {
+                "algorithmFeed": "choicePolicy",
+                "traits": [
+                  "voice",
+                  "control"
+                ],
+                "expectedEvidence": "shown/chosen/skipped/completed outcome for pronunciation; preference only",
+                "preferenceNotMastery": true
+              },
+              "theoryId": "engagement-theory:a0d27ebffbb1",
+              "experimentId": "experiment:hw-spelling_test-5a49d659:baseline-hfw-pronunciation",
+              "contentId": "hw-spelling_test-5a49d659:node:baseline-hfw-pronunciation",
+              "activityId": "pronunciation",
+              "mechanic": "configured-practice",
+              "theme": "learning adventure",
+              "sfxProfile": "tap-correct-wrong-progress-complete",
+              "companionPolicy": "cycle-contract"
+            },
+            {
+              "id": "choice-route-a-monster-stampede",
+              "label": "Silent Letters Monster Stampede",
+              "description": "Try Silent Letters Monster Stampede next.",
+              "thumbnailUrl": "/generated/adventure-board/demo-pashley/hw-spelling_test-5a49d659-route-a-monster-stampede.jpeg",
+              "state": "available",
+              "nodeId": "route-a-monster-stampede",
+              "choiceSignal": {
+                "algorithmFeed": "choicePolicy",
+                "traits": [
+                  "practice",
+                  "control"
+                ],
+                "expectedEvidence": "shown/chosen/skipped/completed outcome for monster-stampede; preference only",
+                "preferenceNotMastery": true
+              },
+              "theoryId": "engagement-theory:a0d27ebffbb1",
+              "experimentId": "experiment:hw-spelling_test-5a49d659:route-stampede-flow",
+              "contentId": "hw-spelling_test-5a49d659:node:route-a-monster-stampede",
+              "activityId": "monster-stampede",
+              "mechanic": "configured-practice",
+              "theme": "learning adventure",
+              "sfxProfile": "tap-correct-wrong-progress-complete",
+              "companionPolicy": "cycle-contract"
+            }
+          ]
+        },
+        {
+          "id": "mystery-choice-options",
+          "kind": "mystery",
+          "title": "Pick a mystery challenge",
+          "options": [
+            {
+              "id": "mystery-choice-story",
+              "label": "Story Challenge",
+              "description": "Try the practice inside a story wrapper.",
+              "icon": "book",
+              "tags": [
+                "story",
+                "calm",
+                "reading"
+              ],
+              "choiceSignal": {
+                "algorithmFeed": "choicePolicy",
+                "traits": [
+                  "story",
+                  "calm",
+                  "reading"
+                ],
+                "expectedEvidence": "shown/chosen/skipped/completed outcome for mystery-choice story wrapper; preference only",
+                "preferenceNotMastery": true
+              },
+              "thumbnailUrl": "/thumbnails/activities/math-generic.svg",
+              "nodeId": "mystery-choice",
+              "theoryId": "engagement-theory:a0d27ebffbb1",
+              "experimentId": "experiment:hw-spelling_test-5a49d659:mystery-choice:story",
+              "contentId": "hw-spelling_test-5a49d659:node:mystery-choice:story",
+              "activityId": "mystery",
+              "sfxProfile": "tap-correct-wrong-progress-complete",
+              "companionPolicy": "cycle-contract",
+              "state": "available",
+              "engagementDimensions": [
+                "story",
+                "visual",
+                "calm"
+              ],
+              "mechanic": "equal-groups-story",
+              "theme": "story-solver"
+            },
+            {
+              "id": "mystery-choice-speed",
+              "label": "Speed Challenge",
+              "description": "Try the practice with a fast arcade wrapper.",
+              "icon": "zap",
+              "tags": [
+                "speed",
+                "competition",
+                "arcade"
+              ],
+              "choiceSignal": {
+                "algorithmFeed": "choicePolicy",
+                "traits": [
+                  "speed",
+                  "competition",
+                  "arcade"
+                ],
+                "expectedEvidence": "shown/chosen/skipped/completed outcome for mystery-choice speed wrapper; preference only",
+                "preferenceNotMastery": true
+              },
+              "thumbnailUrl": "/thumbnails/activities/math-multiplication.svg",
+              "nodeId": "baseline-silent-partial",
+              "theoryId": "engagement-theory:a0d27ebffbb1",
+              "experimentId": "experiment:hw-spelling_test-5a49d659:mystery-choice:speed",
+              "contentId": "hw-spelling_test-5a49d659:node:mystery-choice:speed",
+              "activityId": "word-radar",
+              "sfxProfile": "tap-correct-wrong-progress-complete",
+              "companionPolicy": "cycle-contract",
+              "state": "available",
+              "engagementDimensions": [
+                "speed",
+                "competition"
+              ],
+              "mechanic": "fact-retrieval-speed",
+              "theme": "fact-blaster"
+            },
+            {
+              "id": "mystery-choice-puzzle",
+              "label": "Puzzle Challenge",
+              "description": "Try the practice with a thinking wrapper.",
+              "icon": "sparkles",
+              "tags": [
+                "puzzle",
+                "control",
+                "thinking"
+              ],
+              "choiceSignal": {
+                "algorithmFeed": "choicePolicy",
+                "traits": [
+                  "puzzle",
+                  "control",
+                  "thinking"
+                ],
+                "expectedEvidence": "shown/chosen/skipped/completed outcome for mystery-choice puzzle wrapper; preference only",
+                "preferenceNotMastery": true
+              },
+              "thumbnailUrl": "/thumbnails/activities/math-coins.svg",
+              "nodeId": "baseline-silent-spellcheck",
+              "theoryId": "engagement-theory:a0d27ebffbb1",
+              "experimentId": "experiment:hw-spelling_test-5a49d659:mystery-choice:puzzle",
+              "contentId": "hw-spelling_test-5a49d659:node:mystery-choice:puzzle",
+              "activityId": "spell-check",
+              "sfxProfile": "tap-correct-wrong-progress-complete",
+              "companionPolicy": "cycle-contract",
+              "state": "available",
+              "engagementDimensions": [
+                "puzzle",
+                "control",
+                "visual"
+              ],
+              "mechanic": "equal-groups-puzzle",
+              "theme": "array-builder"
+            }
+          ]
+        }
+      ],
+      "companion": {
+        "id": "elli",
+        "name": "Elli"
+      },
+      "progress": {
+        "currentNodeId": "baseline-silent-partial",
+        "completedNodeIds": [],
+        "activeChoiceSetId": "baseline-route-options"
+      }
+    }
+  },
+  "activeByDomain": {
+    "spelling": {
+      "planId": "learning-cycle:hw-spelling_test-5a49d659:r24",
+      "childId": "demo-pashley",
+      "createdAt": "2026-07-29T19:02:57.801Z",
+      "source": "ingest_human_loop",
+      "activeHomeworkId": "hw-spelling_test-5a49d659",
+      "domain": "spelling",
+      "testDate": null,
+      "nodePlan": [
+        {
+          "id": "baseline-silent-partial",
+          "type": "word-radar",
+          "activityId": "word-radar",
+          "targets": [
+            "sign",
+            "know",
+            "write",
+            "thumb",
+            "comb",
+            "gnat",
+            "knock",
+            "knife",
+            "wrong",
+            "climb"
+          ],
+          "difficulty": 1,
+          "source": "chart_planner",
+          "targetLane": "silent_letters",
+          "locked": false,
+          "masteryUnlockState": "unlocked",
+          "title": "Silent Letters Word Radar",
+          "theoryId": "engagement-theory:a0d27ebffbb1",
+          "experimentId": "experiment:hw-spelling_test-5a49d659:route-stampede-flow",
+          "contentId": "hw-spelling_test-5a49d659:node:baseline-silent-partial",
+          "mechanic": "configured-practice",
+          "theme": "learning adventure",
+          "sfxProfile": "tap-correct-wrong-progress-complete",
+          "companionPolicy": "cycle-contract",
+          "thumbnailUrl": "/generated/adventure-board/demo-pashley/hw-spelling_test-5a49d659-baseline-silent-partial.jpeg",
+          "thumbnailPrompt": "Adventure map location icon for a children's learning game about \"Benchmark Advance Spelling Unit 9 Week 3\" (spelling). A playful landmark representing \"Silent Letters Word Radar\" (silent_letters) practice: oversized friendly props related to the concept, one clear focal object."
+        },
+        {
+          "id": "baseline-silent-spellcheck",
+          "type": "spell-check",
+          "activityId": "spell-check",
+          "targets": [
+            "sign",
+            "know",
+            "write",
+            "thumb",
+            "comb",
+            "gnat",
+            "knock",
+            "knife",
+            "wrong",
+            "climb"
+          ],
+          "difficulty": 1,
+          "source": "chart_planner",
+          "targetLane": "silent_letters",
+          "locked": false,
+          "masteryUnlockState": "unlocked",
+          "title": "Silent Letters Spell Check",
+          "theoryId": "engagement-theory:a0d27ebffbb1",
+          "experimentId": "experiment:hw-spelling_test-5a49d659:baseline-silent-spellcheck",
+          "contentId": "hw-spelling_test-5a49d659:node:baseline-silent-spellcheck",
+          "mechanic": "configured-practice",
+          "theme": "learning adventure",
+          "sfxProfile": "tap-correct-wrong-progress-complete",
+          "companionPolicy": "cycle-contract",
+          "thumbnailUrl": "/generated/adventure-board/demo-pashley/hw-spelling_test-5a49d659-baseline-silent-spellcheck.jpeg",
+          "thumbnailPrompt": "Adventure map location icon for a children's learning game about \"Benchmark Advance Spelling Unit 9 Week 3\" (spelling). A playful landmark representing \"Silent Letters Spell Check\" (silent_letters) practice: oversized friendly props related to the concept, one clear focal object."
+        },
+        {
+          "id": "baseline-hfw-visible",
+          "type": "word-radar",
+          "activityId": "word-radar",
+          "targets": [
+            "among",
+            "building",
+            "circle",
+            "decided",
+            "finally",
+            "heavy",
+            "include",
+            "nothing",
+            "special",
+            "wheel"
+          ],
+          "difficulty": 1,
+          "source": "chart_planner",
+          "targetLane": "high_frequency_words",
+          "locked": false,
+          "masteryUnlockState": "unlocked",
+          "title": "High Frequency Words Word Radar",
+          "theoryId": "engagement-theory:a0d27ebffbb1",
+          "experimentId": "experiment:hw-spelling_test-5a49d659:baseline-hfw-visible",
+          "contentId": "hw-spelling_test-5a49d659:node:baseline-hfw-visible",
+          "mechanic": "configured-practice",
+          "theme": "learning adventure",
+          "sfxProfile": "tap-correct-wrong-progress-complete",
+          "companionPolicy": "cycle-contract",
+          "thumbnailUrl": "/generated/adventure-board/demo-pashley/hw-spelling_test-5a49d659-baseline-hfw-visible.jpeg",
+          "thumbnailPrompt": "Adventure map location icon for a children's learning game about \"Benchmark Advance Spelling Unit 9 Week 3\" (spelling). A playful landmark representing \"High Frequency Words Word Radar\" (high_frequency_words) practice: oversized friendly props related to the concept, one clear focal object."
+        },
+        {
+          "id": "baseline-hfw-pronunciation",
+          "type": "pronunciation",
+          "activityId": "pronunciation",
+          "targets": [
+            "among",
+            "building",
+            "circle",
+            "decided",
+            "finally",
+            "heavy",
+            "include",
+            "nothing",
+            "special",
+            "wheel"
+          ],
+          "difficulty": 1,
+          "source": "chart_planner",
+          "targetLane": "high_frequency_words",
+          "locked": false,
+          "masteryUnlockState": "unlocked",
+          "title": "High Frequency Words Pronunciation",
+          "theoryId": "engagement-theory:a0d27ebffbb1",
+          "experimentId": "experiment:hw-spelling_test-5a49d659:baseline-hfw-pronunciation",
+          "contentId": "hw-spelling_test-5a49d659:node:baseline-hfw-pronunciation",
+          "mechanic": "configured-practice",
+          "theme": "learning adventure",
+          "sfxProfile": "tap-correct-wrong-progress-complete",
+          "companionPolicy": "cycle-contract",
+          "thumbnailUrl": "/generated/adventure-board/demo-pashley/hw-spelling_test-5a49d659-baseline-hfw-pronunciation.jpeg",
+          "thumbnailPrompt": "Adventure map location icon for a children's learning game about \"Benchmark Advance Spelling Unit 9 Week 3\" (spelling). A playful landmark representing \"High Frequency Words Pronunciation\" (high_frequency_words) practice: oversized friendly props related to the concept, one clear focal object."
+        },
+        {
+          "id": "route-a-monster-stampede",
+          "type": "monster-stampede",
+          "activityId": "monster-stampede",
+          "targets": [
+            "sign",
+            "know",
+            "write",
+            "thumb",
+            "comb",
+            "gnat",
+            "knock",
+            "knife",
+            "wrong",
+            "climb"
+          ],
+          "difficulty": 1,
+          "source": "chart_planner",
+          "targetLane": "silent_letters",
+          "locked": false,
+          "masteryUnlockState": "unlocked",
+          "title": "Silent Letters Monster Stampede",
+          "theoryId": "engagement-theory:a0d27ebffbb1",
+          "experimentId": "experiment:hw-spelling_test-5a49d659:route-stampede-flow",
+          "contentId": "hw-spelling_test-5a49d659:node:route-a-monster-stampede",
+          "mechanic": "configured-practice",
+          "theme": "learning adventure",
+          "sfxProfile": "tap-correct-wrong-progress-complete",
+          "companionPolicy": "cycle-contract",
+          "thumbnailUrl": "/generated/adventure-board/demo-pashley/hw-spelling_test-5a49d659-route-a-monster-stampede.jpeg",
+          "thumbnailPrompt": "Adventure map location icon for a children's learning game about \"Benchmark Advance Spelling Unit 9 Week 3\" (spelling). A playful landmark representing \"Silent Letters Monster Stampede\" (silent_letters) practice: oversized friendly props related to the concept, one clear focal object."
+        },
+        {
+          "id": "route-b-letter-rush",
+          "type": "letter-rush",
+          "activityId": "letter-rush",
+          "targets": [
+            "sign",
+            "know",
+            "write",
+            "thumb",
+            "comb",
+            "gnat",
+            "knock",
+            "knife",
+            "wrong",
+            "climb"
+          ],
+          "difficulty": 1,
+          "source": "chart_planner",
+          "targetLane": "silent_letters",
+          "locked": false,
+          "masteryUnlockState": "unlocked",
+          "title": "Silent Letters Letter Rush",
+          "theoryId": "engagement-theory:a0d27ebffbb1",
+          "experimentId": "experiment:hw-spelling_test-5a49d659:route-letterrush-puzzle",
+          "contentId": "hw-spelling_test-5a49d659:node:route-b-letter-rush",
+          "mechanic": "configured-practice",
+          "theme": "learning adventure",
+          "sfxProfile": "tap-correct-wrong-progress-complete",
+          "companionPolicy": "cycle-contract",
+          "thumbnailUrl": "/generated/adventure-board/demo-pashley/hw-spelling_test-5a49d659-route-b-letter-rush.jpeg",
+          "thumbnailPrompt": "Adventure map location icon for a children's learning game about \"Benchmark Advance Spelling Unit 9 Week 3\" (spelling). A playful landmark representing \"Silent Letters Letter Rush\" (silent_letters) practice: oversized friendly props related to the concept, one clear focal object."
+        },
+        {
+          "id": "check-silent-hidden-recall",
+          "type": "word-radar",
+          "activityId": "word-radar",
+          "targets": [
+            "sign",
+            "know",
+            "write",
+            "thumb",
+            "comb",
+            "gnat",
+            "knock",
+            "knife",
+            "wrong",
+            "climb"
+          ],
+          "difficulty": 1,
+          "source": "chart_planner",
+          "targetLane": "silent_letters",
+          "locked": false,
+          "masteryUnlockState": "unlocked",
+          "title": "Silent Letters Word Radar 2",
+          "theoryId": "engagement-theory:a0d27ebffbb1",
+          "experimentId": "experiment:hw-spelling_test-5a49d659:route-stampede-flow",
+          "contentId": "hw-spelling_test-5a49d659:node:check-silent-hidden-recall",
+          "mechanic": "configured-practice",
+          "theme": "learning adventure",
+          "sfxProfile": "tap-correct-wrong-progress-complete",
+          "companionPolicy": "cycle-contract",
+          "thumbnailUrl": "/generated/adventure-board/demo-pashley/hw-spelling_test-5a49d659-check-silent-hidden-recall.jpeg",
+          "thumbnailPrompt": "Adventure map location icon for a children's learning game about \"Benchmark Advance Spelling Unit 9 Week 3\" (spelling). A playful landmark representing \"Silent Letters Word Radar 2\" (silent_letters) practice: oversized friendly props related to the concept, one clear focal object."
+        },
+        {
+          "id": "mystery-choice",
+          "type": "mystery",
+          "activityId": "mystery",
+          "targets": [
+            "sign",
+            "know",
+            "write",
+            "thumb",
+            "comb",
+            "climb"
+          ],
+          "difficulty": 1,
+          "source": "chart_planner",
+          "targetLane": "silent_letters",
+          "locked": false,
+          "masteryUnlockState": "unlocked",
+          "title": "Mystery",
+          "theoryId": "engagement-theory:a0d27ebffbb1",
+          "experimentId": "experiment:hw-spelling_test-5a49d659:mystery-choice",
+          "contentId": "hw-spelling_test-5a49d659:node:mystery-choice",
+          "mechanic": "configured-practice",
+          "theme": "learning adventure",
+          "sfxProfile": "tap-correct-wrong-progress-complete",
+          "companionPolicy": "cycle-contract",
+          "thumbnailUrl": "/generated/adventure-board/demo-pashley/hw-spelling_test-5a49d659-mystery-choice.jpeg",
+          "thumbnailPrompt": "Adventure map location icon for a children's learning game about \"Benchmark Advance Spelling Unit 9 Week 3\" (spelling). A mysterious glowing gift portal with question-mark sparkles, inviting and safe."
+        },
+        {
+          "id": "quest-silent-transfer",
+          "type": "quest",
+          "activityId": "quest",
+          "targets": [
+            "sign",
+            "know",
+            "write",
+            "thumb",
+            "comb",
+            "gnat",
+            "knock",
+            "knife",
+            "wrong",
+            "climb"
+          ],
+          "difficulty": 1,
+          "source": "chart_planner",
+          "targetLane": "silent_letters",
+          "locked": true,
+          "masteryUnlockState": "preparing",
+          "title": "Quest",
+          "theoryId": "engagement-theory:a0d27ebffbb1",
+          "experimentId": "experiment:hw-spelling_test-5a49d659:quest-silent-transfer",
+          "contentId": "hw-spelling_test-5a49d659:node:quest-silent-transfer",
+          "mechanic": "generated-after-baseline",
+          "theme": "pending",
+          "sfxProfile": "tap-correct-wrong-progress-complete",
+          "companionPolicy": "cycle-contract",
+          "thumbnailUrl": "/generated/adventure-board/demo-pashley/hw-spelling_test-5a49d659-quest-silent-transfer.jpeg",
+          "thumbnailPrompt": "Adventure map location icon for a children's learning game about \"Benchmark Advance Spelling Unit 9 Week 3\" (spelling). A glowing quest gate on a hilltop, epic but friendly, treasure and banners."
+        },
+        {
+          "id": "boss-mastery-gate",
+          "type": "boss",
+          "activityId": "boss",
+          "targets": [],
+          "difficulty": 1,
+          "source": "chart_planner",
+          "targetLane": "spelling_mastery",
+          "locked": true,
+          "masteryUnlockState": "preparing",
+          "title": "Boss",
+          "theoryId": "engagement-theory:a0d27ebffbb1",
+          "experimentId": "experiment:hw-spelling_test-5a49d659:boss-mastery-gate",
+          "contentId": "hw-spelling_test-5a49d659:node:boss-mastery-gate",
+          "mechanic": "generated-after-quest",
+          "theme": "pending",
+          "sfxProfile": "tap-correct-wrong-progress-complete",
+          "companionPolicy": "cycle-contract",
+          "thumbnailUrl": "/generated/adventure-board/demo-pashley/hw-spelling_test-5a49d659-boss-mastery-gate.jpeg",
+          "thumbnailPrompt": "Adventure map location icon for a children's learning game about \"Benchmark Advance Spelling Unit 9 Week 3\" (spelling). A grand castle arena entrance for a final friendly boss challenge, dramatic golden light."
+        }
+      ],
+      "variationPolicy": {
+        "avoidExactPreviousNodeOrder": true,
+        "avoidExactPreviousWordOrder": true,
+        "seed": "ab6dbdb7e7f0",
+        "previousCompletedNodeCount": 0
+      },
+      "companionPolicy": {
+        "companionId": "elli",
+        "displayName": "Elli",
+        "openingLinePolicy": "context_start_short",
+        "verbosity": "low",
+        "maxMicroProbes": 1
+      },
+      "evidenceUsed": [
+        {
+          "id": "assignment:ab6dbdb7e7f06968",
+          "type": "captured_assignment",
+          "summary": "Canonical cycle evidence assignment:ab6dbdb7e7f06968"
+        }
+      ],
+      "openQuestions": [],
+      "approvalStatus": "approved",
+      "planTheory": {
+        "hypothesis": "Sunny can achieve unaided spelling recall of the 10 silent-letter words by test day if given scaffolded-to-hidden recall progression, while the 10 high-frequency words only need recognition/read-aloud fluency, not spelling drills; simultaneously, varying the practice mechanic (stampede vs letter-rush) while holding target words, difficulty, and evidence contract constant will reveal which delivery mechanic Sunny prefers per the open engagement theory.",
+        "evidenceSummary": [],
+        "intervention": "Follow the canonical learning-cycle node contracts.",
+        "supportCriteria": [
+          "Majority-correct hidden-word recall on silent_letters words confirms unaided spelling readiness for the test.",
+          "Strong completion/accuracy in one mechanic route versus the other reveals a clear engagement preference to reuse in future sessions.",
+          "Fluent visible-read and pronunciation performance on high-frequency words confirms that group needs no further spelling drilling."
+        ],
+        "reviseCriteria": [
+          "Partial recall difficulty is high but hidden recall is roughly half-correct: schedule one more short targeted practice session on missed words before Friday.",
+          "One mechanic route shows much lower completion/accuracy than the other: prefer the stronger mechanic for the next session's silent_letters practice.",
+          "High-frequency words show fluency gaps: add a supported read-aloud pass next session before assuming the group is settled."
+        ],
+        "falsifyCriteria": [
+          "Child cannot recall most silent_letters words unaided even after both practice routes: hypothesis that this session's dosage is sufficient is falsified; escalate to a dedicated remediation session before test day.",
+          "Child disengages or shows high frustration in both stampede and letter-rush routes: falsifies that mechanic variation alone will surface a usable preference; consider theme variation instead next time.",
+          "Child cannot read or pronounce high-frequency words despite visible support: falsifies the assumption that this group only needs light fluency checks; treat as a decoding gap requiring different instruments."
+        ]
+      },
+      "adventureBoard": {
+        "schemaVersion": 1,
+        "boardId": "cycle-board:hw-spelling_test-5a49d659",
+        "planId": "learning-cycle:hw-spelling_test-5a49d659:r24",
+        "childId": "demo-pashley",
+        "domain": "spelling",
+        "title": "Benchmark Advance Spelling Unit 9 Week 3",
+        "theme": {
+          "background": {
+            "type": "image",
+            "value": "/generated/adventure-board-demo/silent-letter-world.jpeg"
+          },
+          "palette": {
+            "path": "#ffffff",
+            "completed": "#1f8f68",
+            "available": "#7c3aed",
+            "locked": "#aeb7c2",
+            "current": "#f59e0b",
+            "preview": "#d5dde5",
+            "text": "#ffffff",
+            "panel": "rgba(15, 23, 42, 0.84)"
+          }
+        },
+        "layout": {
+          "preset": "horizontal-adventure-spine",
+          "companionSlot": "right"
+        },
+        "plannerRationale": {
+          "agencyDesign": "The canonical cycle owns every visible node contract.",
+          "evidenceDesign": "Quest and Boss unlock only from recorded evidence transitions.",
+          "layoutChoice": "Render the canonical intervention sequence without semantic rewrites."
+        },
+        "nodes": [
+          {
+            "id": "start",
+            "kind": "start",
+            "label": "Start",
+            "shortLabel": "Start",
+            "icon": "flag",
+            "slot": "1",
+            "layout": {
+              "role": "start",
+              "lane": "main",
+              "order": 0
+            },
+            "state": "completed"
+          },
+          {
+            "id": "baseline-silent-partial",
+            "kind": "activity",
+            "activityId": "word-radar",
+            "label": "Silent Letters Word Radar",
+            "shortLabel": "Silent Letters Wor",
+            "icon": "radar",
+            "thumbnailUrl": "/generated/adventure-board/demo-pashley/hw-spelling_test-5a49d659-baseline-silent-partial.jpeg",
+            "slot": "2",
+            "layout": {
+              "role": "baseline",
+              "lane": "main",
+              "order": 1
+            },
+            "state": "current",
+            "evidenceRole": "baseline",
+            "target": {
+              "laneId": "silent_letters",
+              "skill": "silent_letters",
+              "words": [
+                "sign",
+                "know",
+                "write",
+                "thumb",
+                "comb",
+                "gnat",
+                "knock",
+                "knife",
+                "wrong",
+                "climb"
+              ]
+            },
+            "theoryId": "engagement-theory:a0d27ebffbb1",
+            "experimentId": "experiment:hw-spelling_test-5a49d659:route-stampede-flow",
+            "contentId": "hw-spelling_test-5a49d659:node:baseline-silent-partial",
+            "mechanic": "configured-practice",
+            "sfxProfile": "tap-correct-wrong-progress-complete",
+            "companionPolicy": "cycle-contract",
+            "action": {
+              "type": "launch-activity",
+              "payloadId": "baseline-silent-partial"
+            }
+          },
+          {
+            "id": "baseline-silent-spellcheck",
+            "kind": "activity",
+            "activityId": "spell-check",
+            "label": "Silent Letters Spell Check",
+            "shortLabel": "Silent Letters Spe",
+            "icon": "book",
+            "thumbnailUrl": "/generated/adventure-board/demo-pashley/hw-spelling_test-5a49d659-baseline-silent-spellcheck.jpeg",
+            "slot": "3",
+            "layout": {
+              "role": "baseline",
+              "lane": "main",
+              "order": 2
+            },
+            "state": "available",
+            "evidenceRole": "baseline",
+            "target": {
+              "laneId": "silent_letters",
+              "skill": "silent_letters",
+              "words": [
+                "sign",
+                "know",
+                "write",
+                "thumb",
+                "comb",
+                "gnat",
+                "knock",
+                "knife",
+                "wrong",
+                "climb"
+              ]
+            },
+            "theoryId": "engagement-theory:a0d27ebffbb1",
+            "experimentId": "experiment:hw-spelling_test-5a49d659:baseline-silent-spellcheck",
+            "contentId": "hw-spelling_test-5a49d659:node:baseline-silent-spellcheck",
+            "mechanic": "configured-practice",
+            "sfxProfile": "tap-correct-wrong-progress-complete",
+            "companionPolicy": "cycle-contract",
+            "action": {
+              "type": "launch-activity",
+              "payloadId": "baseline-silent-spellcheck"
+            }
+          },
+          {
+            "id": "choose-path",
+            "kind": "choice-gate",
+            "label": "Choose Path",
+            "shortLabel": "Choose Path",
+            "icon": "route",
+            "slot": "4",
+            "layout": {
+              "role": "choice-gate",
+              "lane": "main",
+              "order": 1
+            },
+            "state": "available",
+            "evidenceRole": "preference",
+            "choiceSetId": "baseline-route-options",
+            "action": {
+              "type": "open-choice-set",
+              "payloadId": "baseline-route-options"
+            }
+          },
+          {
+            "id": "baseline-hfw-visible",
+            "kind": "activity",
+            "activityId": "word-radar",
+            "label": "High Frequency Words Word Radar",
+            "shortLabel": "High Frequency Wor",
+            "icon": "radar",
+            "thumbnailUrl": "/generated/adventure-board/demo-pashley/hw-spelling_test-5a49d659-baseline-hfw-visible.jpeg",
+            "slot": "5a.1",
+            "layout": {
+              "role": "evidence-route",
+              "lane": "upper",
+              "order": 1
+            },
+            "state": "available",
+            "evidenceRole": "baseline",
+            "target": {
+              "laneId": "high_frequency_words",
+              "skill": "high_frequency_words",
+              "words": [
+                "among",
+                "building",
+                "circle",
+                "decided",
+                "finally",
+                "heavy",
+                "include",
+                "nothing",
+                "special",
+                "wheel"
+              ]
+            },
+            "theoryId": "engagement-theory:a0d27ebffbb1",
+            "experimentId": "experiment:hw-spelling_test-5a49d659:baseline-hfw-visible",
+            "contentId": "hw-spelling_test-5a49d659:node:baseline-hfw-visible",
+            "mechanic": "configured-practice",
+            "sfxProfile": "tap-correct-wrong-progress-complete",
+            "companionPolicy": "cycle-contract",
+            "action": {
+              "type": "launch-activity",
+              "payloadId": "baseline-hfw-visible"
+            }
+          },
+          {
+            "id": "baseline-hfw-pronunciation",
+            "kind": "activity",
+            "activityId": "pronunciation",
+            "label": "High Frequency Words Pronunciation",
+            "shortLabel": "High Frequency Wor",
+            "icon": "mic",
+            "thumbnailUrl": "/generated/adventure-board/demo-pashley/hw-spelling_test-5a49d659-baseline-hfw-pronunciation.jpeg",
+            "slot": "5b.1",
+            "layout": {
+              "role": "evidence-route",
+              "lane": "lower",
+              "order": 1
+            },
+            "state": "available",
+            "evidenceRole": "baseline",
+            "target": {
+              "laneId": "high_frequency_words",
+              "skill": "high_frequency_words",
+              "words": [
+                "among",
+                "building",
+                "circle",
+                "decided",
+                "finally",
+                "heavy",
+                "include",
+                "nothing",
+                "special",
+                "wheel"
+              ]
+            },
+            "theoryId": "engagement-theory:a0d27ebffbb1",
+            "experimentId": "experiment:hw-spelling_test-5a49d659:baseline-hfw-pronunciation",
+            "contentId": "hw-spelling_test-5a49d659:node:baseline-hfw-pronunciation",
+            "mechanic": "configured-practice",
+            "sfxProfile": "tap-correct-wrong-progress-complete",
+            "companionPolicy": "cycle-contract",
+            "action": {
+              "type": "launch-activity",
+              "payloadId": "baseline-hfw-pronunciation"
+            }
+          },
+          {
+            "id": "route-a-monster-stampede",
+            "kind": "activity",
+            "activityId": "monster-stampede",
+            "label": "Silent Letters Monster Stampede",
+            "shortLabel": "Silent Letters Mon",
+            "thumbnailUrl": "/generated/adventure-board/demo-pashley/hw-spelling_test-5a49d659-route-a-monster-stampede.jpeg",
+            "slot": "5a.2",
+            "layout": {
+              "role": "evidence-route",
+              "lane": "upper",
+              "order": 2
+            },
+            "state": "available",
+            "evidenceRole": "baseline",
+            "target": {
+              "laneId": "silent_letters",
+              "skill": "silent_letters",
+              "words": [
+                "sign",
+                "know",
+                "write",
+                "thumb",
+                "comb",
+                "gnat",
+                "knock",
+                "knife",
+                "wrong",
+                "climb"
+              ]
+            },
+            "theoryId": "engagement-theory:a0d27ebffbb1",
+            "experimentId": "experiment:hw-spelling_test-5a49d659:route-stampede-flow",
+            "contentId": "hw-spelling_test-5a49d659:node:route-a-monster-stampede",
+            "mechanic": "configured-practice",
+            "sfxProfile": "tap-correct-wrong-progress-complete",
+            "companionPolicy": "cycle-contract",
+            "action": {
+              "type": "launch-activity",
+              "payloadId": "route-a-monster-stampede"
+            }
+          },
+          {
+            "id": "route-b-letter-rush",
+            "kind": "activity",
+            "activityId": "letter-rush",
+            "label": "Silent Letters Letter Rush",
+            "shortLabel": "Silent Letters Let",
+            "thumbnailUrl": "/generated/adventure-board/demo-pashley/hw-spelling_test-5a49d659-route-b-letter-rush.jpeg",
+            "slot": "5c.1",
+            "layout": {
+              "role": "evidence-route",
+              "lane": "middle",
+              "order": 3
+            },
+            "state": "available",
+            "evidenceRole": "baseline",
+            "target": {
+              "laneId": "silent_letters",
+              "skill": "silent_letters",
+              "words": [
+                "sign",
+                "know",
+                "write",
+                "thumb",
+                "comb",
+                "gnat",
+                "knock",
+                "knife",
+                "wrong",
+                "climb"
+              ]
+            },
+            "theoryId": "engagement-theory:a0d27ebffbb1",
+            "experimentId": "experiment:hw-spelling_test-5a49d659:route-letterrush-puzzle",
+            "contentId": "hw-spelling_test-5a49d659:node:route-b-letter-rush",
+            "mechanic": "configured-practice",
+            "sfxProfile": "tap-correct-wrong-progress-complete",
+            "companionPolicy": "cycle-contract",
+            "action": {
+              "type": "launch-activity",
+              "payloadId": "route-b-letter-rush"
+            }
+          },
+          {
+            "id": "check-silent-hidden-recall",
+            "kind": "activity",
+            "activityId": "word-radar",
+            "label": "Silent Letters Word Radar 2",
+            "shortLabel": "Silent Letters Wor",
+            "icon": "radar",
+            "thumbnailUrl": "/generated/adventure-board/demo-pashley/hw-spelling_test-5a49d659-check-silent-hidden-recall.jpeg",
+            "slot": "5c.1",
+            "layout": {
+              "role": "evidence-route",
+              "lane": "middle",
+              "order": 4
+            },
+            "state": "available",
+            "evidenceRole": "baseline",
+            "target": {
+              "laneId": "silent_letters",
+              "skill": "silent_letters",
+              "words": [
+                "sign",
+                "know",
+                "write",
+                "thumb",
+                "comb",
+                "gnat",
+                "knock",
+                "knife",
+                "wrong",
+                "climb"
+              ]
+            },
+            "theoryId": "engagement-theory:a0d27ebffbb1",
+            "experimentId": "experiment:hw-spelling_test-5a49d659:route-stampede-flow",
+            "contentId": "hw-spelling_test-5a49d659:node:check-silent-hidden-recall",
+            "mechanic": "configured-practice",
+            "sfxProfile": "tap-correct-wrong-progress-complete",
+            "companionPolicy": "cycle-contract",
+            "action": {
+              "type": "launch-activity",
+              "payloadId": "check-silent-hidden-recall"
+            }
+          },
+          {
+            "id": "mystery-choice",
+            "kind": "mystery",
+            "activityId": "mystery",
+            "label": "Mystery",
+            "shortLabel": "Mystery",
+            "icon": "mystery",
+            "thumbnailUrl": "/generated/adventure-board/demo-pashley/hw-spelling_test-5a49d659-mystery-choice.jpeg",
+            "slot": "6",
+            "layout": {
+              "role": "mystery",
+              "lane": "main",
+              "order": 1
+            },
+            "state": "available",
+            "evidenceRole": "preference",
+            "target": {
+              "laneId": "silent_letters",
+              "skill": "silent_letters",
+              "words": [
+                "sign",
+                "know",
+                "write",
+                "thumb",
+                "comb",
+                "climb"
+              ]
+            },
+            "choiceSetId": "mystery-choice-options",
+            "theoryId": "engagement-theory:a0d27ebffbb1",
+            "experimentId": "experiment:hw-spelling_test-5a49d659:mystery-choice",
+            "contentId": "hw-spelling_test-5a49d659:node:mystery-choice",
+            "mechanic": "configured-practice",
+            "sfxProfile": "tap-correct-wrong-progress-complete",
+            "companionPolicy": "cycle-contract",
+            "action": {
+              "type": "open-choice-set",
+              "payloadId": "mystery-choice-options"
+            }
+          },
+          {
+            "id": "quest-silent-transfer",
+            "kind": "quest",
+            "activityId": "quest",
+            "label": "Quest",
+            "shortLabel": "Quest",
+            "icon": "star",
+            "thumbnailUrl": "/generated/adventure-board/demo-pashley/hw-spelling_test-5a49d659-quest-silent-transfer.jpeg",
+            "slot": "7",
+            "layout": {
+              "role": "quest",
+              "lane": "main",
+              "order": 1
+            },
+            "state": "locked",
+            "evidenceRole": "transfer",
+            "target": {
+              "laneId": "silent_letters",
+              "skill": "silent_letters",
+              "words": [
+                "sign",
+                "know",
+                "write",
+                "thumb",
+                "comb",
+                "gnat",
+                "knock",
+                "knife",
+                "wrong",
+                "climb"
+              ]
+            },
+            "lock": {
+              "reason": "preparing",
+              "label": "Quest is preparing"
+            },
+            "theoryId": "engagement-theory:a0d27ebffbb1",
+            "experimentId": "experiment:hw-spelling_test-5a49d659:quest-silent-transfer",
+            "contentId": "hw-spelling_test-5a49d659:node:quest-silent-transfer",
+            "mechanic": "generated-after-baseline",
+            "sfxProfile": "tap-correct-wrong-progress-complete",
+            "companionPolicy": "cycle-contract",
+            "action": {
+              "type": "show-locked-reason",
+              "payloadId": "quest-silent-transfer"
+            }
+          },
+          {
+            "id": "boss-mastery-gate",
+            "kind": "boss",
+            "activityId": "boss",
+            "label": "Boss",
+            "shortLabel": "Boss",
+            "icon": "crown",
+            "thumbnailUrl": "/generated/adventure-board/demo-pashley/hw-spelling_test-5a49d659-boss-mastery-gate.jpeg",
+            "slot": "8",
+            "layout": {
+              "role": "boss",
+              "lane": "main",
+              "order": 1
+            },
+            "state": "locked",
+            "evidenceRole": "mastery",
+            "target": {
+              "laneId": "spelling_mastery",
+              "skill": "spelling_mastery",
+              "words": []
+            },
+            "lock": {
+              "reason": "preparing",
+              "label": "After Quest"
+            },
+            "theoryId": "engagement-theory:a0d27ebffbb1",
+            "experimentId": "experiment:hw-spelling_test-5a49d659:boss-mastery-gate",
+            "contentId": "hw-spelling_test-5a49d659:node:boss-mastery-gate",
+            "mechanic": "generated-after-quest",
+            "sfxProfile": "tap-correct-wrong-progress-complete",
+            "companionPolicy": "cycle-contract",
+            "action": {
+              "type": "show-locked-reason",
+              "payloadId": "boss-mastery-gate"
+            }
+          }
+        ],
+        "edges": [
+          {
+            "id": "edge-start-to-baseline-silent-partial",
+            "from": "start",
+            "to": "baseline-silent-partial",
+            "state": "completed"
+          },
+          {
+            "id": "edge-baseline-silent-partial-to-baseline-silent-spellcheck",
+            "from": "baseline-silent-partial",
+            "to": "baseline-silent-spellcheck",
+            "state": "available"
+          },
+          {
+            "id": "edge-baseline-silent-spellcheck-to-choose-path",
+            "from": "baseline-silent-spellcheck",
+            "to": "choose-path",
+            "state": "available"
+          },
+          {
+            "id": "edge-choose-path-to-baseline-hfw-visible",
+            "from": "choose-path",
+            "to": "baseline-hfw-visible",
+            "state": "available",
+            "style": "glow"
+          },
+          {
+            "id": "edge-baseline-hfw-visible-to-route-a-monster-stampede",
+            "from": "baseline-hfw-visible",
+            "to": "route-a-monster-stampede",
+            "state": "available"
+          },
+          {
+            "id": "edge-route-a-monster-stampede-to-mystery-choice",
+            "from": "route-a-monster-stampede",
+            "to": "mystery-choice",
+            "state": "available"
+          },
+          {
+            "id": "edge-choose-path-to-baseline-hfw-pronunciation",
+            "from": "choose-path",
+            "to": "baseline-hfw-pronunciation",
+            "state": "available",
+            "style": "glow"
+          },
+          {
+            "id": "edge-baseline-hfw-pronunciation-to-mystery-choice",
+            "from": "baseline-hfw-pronunciation",
+            "to": "mystery-choice",
+            "state": "available"
+          },
+          {
+            "id": "edge-choose-path-to-route-b-letter-rush",
+            "from": "choose-path",
+            "to": "route-b-letter-rush",
+            "state": "available",
+            "style": "glow"
+          },
+          {
+            "id": "edge-route-b-letter-rush-to-check-silent-hidden-recall",
+            "from": "route-b-letter-rush",
+            "to": "check-silent-hidden-recall",
+            "state": "available"
+          },
+          {
+            "id": "edge-check-silent-hidden-recall-to-mystery-choice",
+            "from": "check-silent-hidden-recall",
+            "to": "mystery-choice",
+            "state": "available"
+          },
+          {
+            "id": "edge-mystery-choice-to-quest-silent-transfer",
+            "from": "mystery-choice",
+            "to": "quest-silent-transfer",
+            "state": "locked",
+            "style": "dashed"
+          },
+          {
+            "id": "edge-quest-silent-transfer-to-boss-mastery-gate",
+            "from": "quest-silent-transfer",
+            "to": "boss-mastery-gate",
+            "state": "locked",
+            "style": "dashed"
+          }
+        ],
+        "choiceSets": [
+          {
+            "id": "baseline-route-options",
+            "kind": "baseline-route",
+            "title": "Choose your path",
+            "options": [
+              {
+                "id": "choice-baseline-hfw-visible",
+                "label": "High Frequency Words Word Radar",
+                "description": "Try High Frequency Words Word Radar next.",
+                "thumbnailUrl": "/generated/adventure-board/demo-pashley/hw-spelling_test-5a49d659-baseline-hfw-visible.jpeg",
+                "state": "available",
+                "nodeId": "baseline-hfw-visible",
+                "choiceSignal": {
+                  "algorithmFeed": "choicePolicy",
+                  "traits": [
+                    "practice",
+                    "control"
+                  ],
+                  "expectedEvidence": "shown/chosen/skipped/completed outcome for word-radar; preference only",
+                  "preferenceNotMastery": true
+                },
+                "theoryId": "engagement-theory:a0d27ebffbb1",
+                "experimentId": "experiment:hw-spelling_test-5a49d659:baseline-hfw-visible",
+                "contentId": "hw-spelling_test-5a49d659:node:baseline-hfw-visible",
+                "activityId": "word-radar",
+                "mechanic": "configured-practice",
+                "theme": "learning adventure",
+                "sfxProfile": "tap-correct-wrong-progress-complete",
+                "companionPolicy": "cycle-contract"
+              },
+              {
+                "id": "choice-baseline-hfw-pronunciation",
+                "label": "High Frequency Words Pronunciation",
+                "description": "Try High Frequency Words Pronunciation next.",
+                "thumbnailUrl": "/generated/adventure-board/demo-pashley/hw-spelling_test-5a49d659-baseline-hfw-pronunciation.jpeg",
+                "state": "available",
+                "nodeId": "baseline-hfw-pronunciation",
+                "choiceSignal": {
+                  "algorithmFeed": "choicePolicy",
+                  "traits": [
+                    "voice",
+                    "control"
+                  ],
+                  "expectedEvidence": "shown/chosen/skipped/completed outcome for pronunciation; preference only",
+                  "preferenceNotMastery": true
+                },
+                "theoryId": "engagement-theory:a0d27ebffbb1",
+                "experimentId": "experiment:hw-spelling_test-5a49d659:baseline-hfw-pronunciation",
+                "contentId": "hw-spelling_test-5a49d659:node:baseline-hfw-pronunciation",
+                "activityId": "pronunciation",
+                "mechanic": "configured-practice",
+                "theme": "learning adventure",
+                "sfxProfile": "tap-correct-wrong-progress-complete",
+                "companionPolicy": "cycle-contract"
+              },
+              {
+                "id": "choice-route-a-monster-stampede",
+                "label": "Silent Letters Monster Stampede",
+                "description": "Try Silent Letters Monster Stampede next.",
+                "thumbnailUrl": "/generated/adventure-board/demo-pashley/hw-spelling_test-5a49d659-route-a-monster-stampede.jpeg",
+                "state": "available",
+                "nodeId": "route-a-monster-stampede",
+                "choiceSignal": {
+                  "algorithmFeed": "choicePolicy",
+                  "traits": [
+                    "practice",
+                    "control"
+                  ],
+                  "expectedEvidence": "shown/chosen/skipped/completed outcome for monster-stampede; preference only",
+                  "preferenceNotMastery": true
+                },
+                "theoryId": "engagement-theory:a0d27ebffbb1",
+                "experimentId": "experiment:hw-spelling_test-5a49d659:route-stampede-flow",
+                "contentId": "hw-spelling_test-5a49d659:node:route-a-monster-stampede",
+                "activityId": "monster-stampede",
+                "mechanic": "configured-practice",
+                "theme": "learning adventure",
+                "sfxProfile": "tap-correct-wrong-progress-complete",
+                "companionPolicy": "cycle-contract"
+              }
+            ]
+          },
+          {
+            "id": "mystery-choice-options",
+            "kind": "mystery",
+            "title": "Pick a mystery challenge",
+            "options": [
+              {
+                "id": "mystery-choice-story",
+                "label": "Story Challenge",
+                "description": "Try the practice inside a story wrapper.",
+                "icon": "book",
+                "tags": [
+                  "story",
+                  "calm",
+                  "reading"
+                ],
+                "choiceSignal": {
+                  "algorithmFeed": "choicePolicy",
+                  "traits": [
+                    "story",
+                    "calm",
+                    "reading"
+                  ],
+                  "expectedEvidence": "shown/chosen/skipped/completed outcome for mystery-choice story wrapper; preference only",
+                  "preferenceNotMastery": true
+                },
+                "thumbnailUrl": "/thumbnails/activities/math-generic.svg",
+                "nodeId": "mystery-choice",
+                "theoryId": "engagement-theory:a0d27ebffbb1",
+                "experimentId": "experiment:hw-spelling_test-5a49d659:mystery-choice:story",
+                "contentId": "hw-spelling_test-5a49d659:node:mystery-choice:story",
+                "activityId": "mystery",
+                "sfxProfile": "tap-correct-wrong-progress-complete",
+                "companionPolicy": "cycle-contract",
+                "state": "available",
+                "engagementDimensions": [
+                  "story",
+                  "visual",
+                  "calm"
+                ],
+                "mechanic": "equal-groups-story",
+                "theme": "story-solver"
+              },
+              {
+                "id": "mystery-choice-speed",
+                "label": "Speed Challenge",
+                "description": "Try the practice with a fast arcade wrapper.",
+                "icon": "zap",
+                "tags": [
+                  "speed",
+                  "competition",
+                  "arcade"
+                ],
+                "choiceSignal": {
+                  "algorithmFeed": "choicePolicy",
+                  "traits": [
+                    "speed",
+                    "competition",
+                    "arcade"
+                  ],
+                  "expectedEvidence": "shown/chosen/skipped/completed outcome for mystery-choice speed wrapper; preference only",
+                  "preferenceNotMastery": true
+                },
+                "thumbnailUrl": "/thumbnails/activities/math-multiplication.svg",
+                "nodeId": "baseline-silent-partial",
+                "theoryId": "engagement-theory:a0d27ebffbb1",
+                "experimentId": "experiment:hw-spelling_test-5a49d659:mystery-choice:speed",
+                "contentId": "hw-spelling_test-5a49d659:node:mystery-choice:speed",
+                "activityId": "word-radar",
+                "sfxProfile": "tap-correct-wrong-progress-complete",
+                "companionPolicy": "cycle-contract",
+                "state": "available",
+                "engagementDimensions": [
+                  "speed",
+                  "competition"
+                ],
+                "mechanic": "fact-retrieval-speed",
+                "theme": "fact-blaster"
+              },
+              {
+                "id": "mystery-choice-puzzle",
+                "label": "Puzzle Challenge",
+                "description": "Try the practice with a thinking wrapper.",
+                "icon": "sparkles",
+                "tags": [
+                  "puzzle",
+                  "control",
+                  "thinking"
+                ],
+                "choiceSignal": {
+                  "algorithmFeed": "choicePolicy",
+                  "traits": [
+                    "puzzle",
+                    "control",
+                    "thinking"
+                  ],
+                  "expectedEvidence": "shown/chosen/skipped/completed outcome for mystery-choice puzzle wrapper; preference only",
+                  "preferenceNotMastery": true
+                },
+                "thumbnailUrl": "/thumbnails/activities/math-coins.svg",
+                "nodeId": "baseline-silent-spellcheck",
+                "theoryId": "engagement-theory:a0d27ebffbb1",
+                "experimentId": "experiment:hw-spelling_test-5a49d659:mystery-choice:puzzle",
+                "contentId": "hw-spelling_test-5a49d659:node:mystery-choice:puzzle",
+                "activityId": "spell-check",
+                "sfxProfile": "tap-correct-wrong-progress-complete",
+                "companionPolicy": "cycle-contract",
+                "state": "available",
+                "engagementDimensions": [
+                  "puzzle",
+                  "control",
+                  "visual"
+                ],
+                "mechanic": "equal-groups-puzzle",
+                "theme": "array-builder"
+              }
+            ]
+          }
+        ],
+        "companion": {
+          "id": "elli",
+          "name": "Elli"
+        },
+        "progress": {
+          "currentNodeId": "baseline-silent-partial",
+          "completedNodeIds": [],
+          "activeChoiceSetId": "baseline-route-options"
+        }
+      }
+    }
+  },
+  "updatedAt": "2026-07-29T22:57:01.133Z"
+}

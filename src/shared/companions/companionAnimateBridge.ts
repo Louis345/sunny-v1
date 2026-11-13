@@ -25,11 +25,14 @@ const INGEST_INFERRED_ANIMATION_EMOTES: Partial<
   "blow_a_kiss": "happy",
   "defeated": "sad",
   "fireball": "neutral",
+  "happy_idle": "neutral",
   "hip_hop_dancing": "celebrating",
   "hip_hop_dancing_2": "celebrating",
   "idle_stand": "neutral",
   "ponder_moment": "thinking",
   "quick_formal_bow": "happy",
+  "rejected": "neutral",
+  "sad_idle": "sad",
   "salsa_dancing": "celebrating",
   "silly_dancing": "happy",
   "silly_laugh": "happy",
@@ -37,6 +40,7 @@ const INGEST_INFERRED_ANIMATION_EMOTES: Partial<
   "surprise_jump": "surprised",
   "talking": "neutral",
   "thinking_2": "thinking",
+  "yawn": "neutral",
 };
 
 // ingest:animations — INGEST_ANIMATION_EMOTES_END (do not edit this marker)

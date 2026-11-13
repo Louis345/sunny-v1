@@ -264,6 +264,11 @@ export function CompanionLayer({
   const applyBehaviorToMotor = useCallback(
     (nextBehavior: CompanionBehavior) => {
       if (!childId || !motorRef.current?.hasVrm()) return;
+      motorRef.current.setDemeanor({
+        animation: nextBehavior.baseAnimation ?? "idle",
+        loop: nextBehavior.baseAnimationLoop ?? true,
+        playbackRate: nextBehavior.playbackRate ?? 1,
+      });
       const now = Date.now();
       const commands: CompanionCommand[] = [
         {
@@ -282,7 +287,11 @@ export function CompanionLayer({
         commands.push({
           apiVersion: "1.0",
           type: "animate",
-          payload: { animation: nextBehavior.animation, loop: false },
+          payload: {
+            animation: nextBehavior.animation,
+            loop: false,
+            playbackRate: nextBehavior.animationPlaybackRate ?? 1,
+          },
           childId,
           timestamp: now + 1,
           source: "diag",
@@ -310,9 +319,13 @@ export function CompanionLayer({
   }, [
     applyBehaviorToMotor,
     behavior.animation,
+    behavior.animationPlaybackRate,
     behavior.animationEventId,
+    behavior.baseAnimation,
+    behavior.baseAnimationLoop,
     behavior.emote,
     behavior.intensity,
+    behavior.playbackRate,
   ]);
 
   useLayoutEffect(() => {

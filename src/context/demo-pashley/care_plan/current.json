@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "childId": "demo-pashley",
+  "sourcePlanId": "learning-cycle:hw-spelling_test-5a49d659:r24",
+  "theory": {
+    "hypothesis": "Sunny can achieve unaided spelling recall of the 10 silent-letter words by test day if given scaffolded-to-hidden recall progression, while the 10 high-frequency words only need recognition/read-aloud fluency, not spelling drills; simultaneously, varying the practice mechanic (stampede vs letter-rush) while holding target words, difficulty, and evidence contract constant will reveal which delivery mechanic Sunny prefers per the open engagement theory.",
+    "evidenceSummary": [],
+    "intervention": "Follow the canonical learning-cycle node contracts.",
+    "supportCriteria": [
+      "Majority-correct hidden-word recall on silent_letters words confirms unaided spelling readiness for the test.",
+      "Strong completion/accuracy in one mechanic route versus the other reveals a clear engagement preference to reuse in future sessions.",
+      "Fluent visible-read and pronunciation performance on high-frequency words confirms that group needs no further spelling drilling."
+    ],
+    "reviseCriteria": [
+      "Partial recall difficulty is high but hidden recall is roughly half-correct: schedule one more short targeted practice session on missed words before Friday.",
+      "One mechanic route shows much lower completion/accuracy than the other: prefer the stronger mechanic for the next session's silent_letters practice.",
+      "High-frequency words show fluency gaps: add a supported read-aloud pass next session before assuming the group is settled."
+    ],
+    "falsifyCriteria": [
+      "Child cannot recall most silent_letters words unaided even after both practice routes: hypothesis that this session's dosage is sufficient is falsified; escalate to a dedicated remediation session before test day.",
+      "Child disengages or shows high frustration in both stampede and letter-rush routes: falsifies that mechanic variation alone will surface a usable preference; consider theme variation instead next time.",
+      "Child cannot read or pronounce high-frequency words despite visible support: falsifies the assumption that this group only needs light fluency checks; treat as a decoding gap requiring different instruments."
+    ]
+  },
+  "plannedMeasurements": [],
+  "learningExperiments": [],
+  "theoryDecisions": [],
+  "updatedAt": "2026-07-29T22:57:01.134Z"
+}

@@ -4,12 +4,16 @@ import type {
   CompanionCareView,
 } from "../../../src/shared/companionCareTypes";
 import type { CompanionEmote } from "../../../src/shared/companionEmotes";
+import { deriveCompanionDemeanor } from "../../../src/shared/companionDemeanor";
 
 export type CompanionPresentationState =
-  | "bright"
   | "steady"
-  | "needs-care"
+  | "hungry"
+  | "tired"
+  | "restored"
   | "feeding"
+  | "bright"
+  | "needs-care"
   | "celebrating";
 
 export interface CompanionBehavior {
@@ -23,7 +27,14 @@ export interface CompanionBehavior {
     filter: string;
     opacity: number;
   };
+  /** Persistent animation to return to after any one-shot care reaction. */
+  baseAnimation?: AnimationName;
+  baseAnimationLoop?: boolean;
+  /** Animation time scale. Kept separate from semantic care state for visual tuning. */
+  playbackRate?: number;
   animation?: AnimationName;
+  /** Time scale for a one-shot reaction; independent from the persistent idle. */
+  animationPlaybackRate?: number;
   animationEventId?: string;
   feedAnimation?: CompanionCareAnimationIntent;
 }
@@ -36,12 +47,15 @@ export function deriveCompanionBehavior(
   if (feedAnimation?.reference === "animation-b") {
     return {
       mood: care?.moodLabel ?? "bright",
-      presentationState: "celebrating",
+      presentationState: "feeding",
       low: false,
       emote: "celebrating",
       intensity: 0.85,
       movementIntensity: 1,
       visualTreatment: { filter: "none", opacity: 1 },
+      baseAnimation: "happy_idle",
+      baseAnimationLoop: true,
+      playbackRate: 1.12,
       animation: "dance_victory",
       animationEventId: animationEventId ?? undefined,
       feedAnimation,
@@ -55,14 +69,19 @@ export function deriveCompanionBehavior(
       low: false,
       emote: "happy",
       intensity: 0.66,
-      movementIntensity: 0.82,
+      movementIntensity: 1,
       visualTreatment: { filter: "none", opacity: 1 },
+      baseAnimation: "happy_idle",
+      baseAnimationLoop: true,
+      playbackRate: 1.12,
+      animation: "silly_laugh",
       animationEventId: animationEventId ?? undefined,
       feedAnimation,
     };
   }
 
   const mood = care?.moodLabel ?? "happy";
+  const demeanor = deriveCompanionDemeanor(care);
   const readiness = care?.readiness;
   const low =
     readiness?.hungry === true ||
@@ -75,45 +94,49 @@ export function deriveCompanionBehavior(
     mood === "moody" ||
     mood === "quiet";
 
-  if (mood === "tired") {
+  if (demeanor.state === "tired") {
     return {
       mood,
-      presentationState: "needs-care",
-      low,
-      emote: "sad",
-      intensity: 0.48,
-      movementIntensity: 0.45,
-      visualTreatment: {
-        filter: "saturate(0.78) brightness(0.9)",
-        opacity: 0.84,
-      },
-      animation: "defeated",
-    };
-  }
-
-  if (mood === "hungry" || mood === "moody" || mood === "quiet") {
-    return {
-      mood,
-      presentationState: "needs-care",
+      presentationState: "tired",
       low,
       emote: "thinking",
-      intensity: 0.5,
-      movementIntensity: 0.55,
-      visualTreatment: {
-        filter: "saturate(0.72) brightness(0.92)",
-        opacity: 0.88,
-      },
-      animation: "think",
+      intensity: 0.42,
+      movementIntensity: 0.35,
+      visualTreatment: { filter: "none", opacity: 1 },
+      baseAnimation: "sitting",
+      baseAnimationLoop: true,
+      playbackRate: 0.58,
+      animation: "yawn",
+      animationPlaybackRate: 2,
     };
   }
 
+  if (demeanor.state === "hungry") {
+    return {
+      mood,
+      presentationState: "hungry",
+      low,
+      emote: "sad",
+      intensity: 0.5,
+      movementIntensity: 0.5,
+      visualTreatment: { filter: "none", opacity: 1 },
+      baseAnimation: "rejected",
+      baseAnimationLoop: true,
+      playbackRate: 1,
+    };
+  }
+
+  const restored = demeanor.state === "restored";
   return {
     mood,
-    presentationState: mood === "bright" ? "bright" : "steady",
+    presentationState: restored ? "restored" : "steady",
     low,
-    emote: mood === "bright" ? "excited" : "happy",
-    intensity: mood === "bright" ? 0.5 : 0.32,
-    movementIntensity: mood === "bright" ? 0.9 : 0.72,
+    emote: restored ? "excited" : "happy",
+    intensity: restored ? 0.5 : 0.32,
+    movementIntensity: restored ? 1 : 0.72,
     visualTreatment: { filter: "none", opacity: 1 },
+    baseAnimation: restored ? "happy_idle" : "idle",
+    baseAnimationLoop: true,
+    playbackRate: restored ? 1.12 : 1,
   };
 }

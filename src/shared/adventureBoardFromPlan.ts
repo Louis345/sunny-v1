@@ -76,8 +76,8 @@ const supportedDomains = new Set<AdventureBoardDomain>([
   "generic",
 ]);
 
-const routeSlots = ["5a.1", "5b.1", "5a.2"] as const;
-const routeLanes = ["upper", "lower", "upper"] as const;
+const routeSlots = ["5a.1", "5b.1", "5a.2", "5b.2", "5c.1", "5c.2"] as const;
+const routeLanes = ["upper", "lower", "upper", "lower", "middle", "middle"] as const;
 const maxVisibleRouteCount = 2;
 const maxVisibleNodesPerRoute = 2;
 

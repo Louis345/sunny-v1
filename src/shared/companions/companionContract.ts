@@ -21,12 +21,15 @@ export const COMPANION_ANIMATION_IDS = [
   "dance_victory",
   "defeated",
   "fireball",
+  "happy_idle",
   "hip_hop_dancing",
   "hip_hop_dancing_2",
   "idle",
   "idle_stand",
   "ponder_moment",
   "quick_formal_bow",
+  "rejected",
+  "sad_idle",
   "salsa_dancing",
   "shrug",
   "silly_dancing",
@@ -37,6 +40,7 @@ export const COMPANION_ANIMATION_IDS = [
   "think",
   "thinking_2",
   "wave",
+  "yawn",
 ] as const;
 export type AnimationName = (typeof COMPANION_ANIMATION_IDS)[number];
 

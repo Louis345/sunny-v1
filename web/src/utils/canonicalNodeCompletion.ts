@@ -18,6 +18,12 @@ export function hasCanonicalLearningCycle(packet: {
 export async function postCanonicalNodeCompletion(input: CanonicalNodeCompletionInput): Promise<{
   lifecycle: string;
   revision: number;
+  careReward?: {
+    status: "awarded" | "already_awarded" | "not_eligible";
+    itemId?: "apple_bite";
+    quantity?: 1;
+    companionCare?: import("../../../src/shared/companionCareTypes").CompanionCareView;
+  };
 }> {
   const response = await fetch("/api/learning-cycle/node-complete", {
     method: "POST",
@@ -25,5 +31,14 @@ export async function postCanonicalNodeCompletion(input: CanonicalNodeCompletion
     body: JSON.stringify(input),
   });
   if (!response.ok) throw new Error(`canonical_node_completion_${response.status}`);
-  return response.json() as Promise<{ lifecycle: string; revision: number }>;
+  return response.json() as Promise<{
+    lifecycle: string;
+    revision: number;
+    careReward?: {
+      status: "awarded" | "already_awarded" | "not_eligible";
+      itemId?: "apple_bite";
+      quantity?: 1;
+      companionCare?: import("../../../src/shared/companionCareTypes").CompanionCareView;
+    };
+  }>;
 }

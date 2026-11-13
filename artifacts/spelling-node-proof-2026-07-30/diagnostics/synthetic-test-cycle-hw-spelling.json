@@ -1,0 +1,294 @@
+{
+  "schemaVersion": 2,
+  "revision": 2,
+  "childId": "demo-pashley",
+  "homeworkId": "hw-spelling",
+  "domain": "spelling",
+  "assignment": {
+    "title": "Silent letters",
+    "contentFingerprint": "spelling-fingerprint",
+    "capturedEvidenceIds": [
+      "assignment:spelling"
+    ],
+    "targets": [
+      "sign",
+      "know",
+      "write"
+    ]
+  },
+  "academicTheory": {
+    "theoryId": "hw-spelling:academic-theory",
+    "revision": 1,
+    "hypothesis": "Measure the captured assignment before claiming learning.",
+    "supportCriteria": [
+      "required evidence supports the hypothesis"
+    ],
+    "reviseCriteria": [
+      "evidence is mixed or support is insufficient"
+    ],
+    "falsifyCriteria": [
+      "observed outcomes contradict the hypothesis"
+    ]
+  },
+  "engagementTheory": {
+    "version": 1,
+    "theoryId": "engagement-theory:a0d27ebffbb1",
+    "childId": "demo-pashley",
+    "domain": "spelling",
+    "homeworkId": "hw-spelling_test-5a49d659",
+    "hypothesis": "Sunny does not yet have enough preference evidence; test distinct mechanics while holding the academic target constant.",
+    "dimensions": {
+      "visual": {
+        "dimension": "visual",
+        "positiveWeight": 0,
+        "negativeWeight": 0,
+        "mixedWeight": 0,
+        "evidenceCount": 0,
+        "confidence": 0,
+        "lastUpdated": "2026-07-29T19:00:20.993Z"
+      },
+      "puzzle": {
+        "dimension": "puzzle",
+        "positiveWeight": 0,
+        "negativeWeight": 0,
+        "mixedWeight": 0,
+        "evidenceCount": 0,
+        "confidence": 0,
+        "lastUpdated": "2026-07-29T19:00:20.993Z"
+      },
+      "story": {
+        "dimension": "story",
+        "positiveWeight": 0,
+        "negativeWeight": 0,
+        "mixedWeight": 0,
+        "evidenceCount": 0,
+        "confidence": 0,
+        "lastUpdated": "2026-07-29T19:00:20.993Z"
+      },
+      "speed": {
+        "dimension": "speed",
+        "positiveWeight": 0,
+        "negativeWeight": 0,
+        "mixedWeight": 0,
+        "evidenceCount": 0,
+        "confidence": 0,
+        "lastUpdated": "2026-07-29T19:00:20.993Z"
+      },
+      "competition": {
+        "dimension": "competition",
+        "positiveWeight": 0,
+        "negativeWeight": 0,
+        "mixedWeight": 0,
+        "evidenceCount": 0,
+        "confidence": 0,
+        "lastUpdated": "2026-07-29T19:00:20.993Z"
+      },
+      "control": {
+        "dimension": "control",
+        "positiveWeight": 0,
+        "negativeWeight": 0,
+        "mixedWeight": 0,
+        "evidenceCount": 0,
+        "confidence": 0,
+        "lastUpdated": "2026-07-29T19:00:20.993Z"
+      },
+      "novelty": {
+        "dimension": "novelty",
+        "positiveWeight": 0,
+        "negativeWeight": 0,
+        "mixedWeight": 0,
+        "evidenceCount": 0,
+        "confidence": 0,
+        "lastUpdated": "2026-07-29T19:00:20.993Z"
+      },
+      "voice": {
+        "dimension": "voice",
+        "positiveWeight": 0,
+        "negativeWeight": 0,
+        "mixedWeight": 0,
+        "evidenceCount": 0,
+        "confidence": 0,
+        "lastUpdated": "2026-07-29T19:00:20.993Z"
+      },
+      "calm": {
+        "dimension": "calm",
+        "positiveWeight": 0,
+        "negativeWeight": 0,
+        "mixedWeight": 0,
+        "evidenceCount": 0,
+        "confidence": 0,
+        "lastUpdated": "2026-07-29T19:00:20.993Z"
+      }
+    },
+    "preferredDimensions": [],
+    "avoidedDimensions": [],
+    "promptDirectives": {
+      "prefer": [],
+      "avoid": [],
+      "vary": [
+        "mechanic",
+        "theme"
+      ],
+      "holdConstant": [
+        "academic targets",
+        "question count",
+        "difficulty",
+        "evidence contract"
+      ]
+    },
+    "evidence": [],
+    "nextExperiment": {
+      "experimentId": "engagement-experiment:708a87dd011e",
+      "theoryId": "engagement-theory:a0d27ebffbb1",
+      "variable": "mechanic",
+      "arms": [],
+      "holdConstant": [
+        "academic targets",
+        "question count",
+        "difficulty",
+        "evidence contract"
+      ],
+      "successSignals": [
+        "started",
+        "completed",
+        "replayed",
+        "low frustration",
+        "accuracy preserved"
+      ],
+      "status": "planned"
+    },
+    "updatedAt": "2026-07-29T19:00:20.993Z"
+  },
+  "nodes": [
+    {
+      "nodeId": "silent-letter-radar",
+      "role": "baseline",
+      "activityType": "word-radar",
+      "title": "Silent Letter Search",
+      "state": "ready",
+      "academicTarget": {
+        "domain": "spelling",
+        "skill": "silent_letters",
+        "targets": [
+          "sign",
+          "know"
+        ]
+      },
+      "algorithmOwner": "retrieval-practice",
+      "theoryId": "hw-spelling:academic-theory",
+      "experimentId": "hw-spelling:experiment:silent-letter-radar",
+      "mechanic": "configured-practice",
+      "theme": "learning adventure",
+      "openingScreen": {
+        "title": "Silent Letter Search",
+        "purpose": "Practice silent_letters through configured-practice."
+      },
+      "generationPrompt": null,
+      "artifactBinding": null,
+      "artwork": {
+        "status": "failed",
+        "localPath": null,
+        "prompt": null
+      },
+      "sfxContract": [
+        "tap",
+        "correct",
+        "incorrect",
+        "progress",
+        "complete"
+      ],
+      "companionContract": {
+        "events": [
+          "correct_answer",
+          "wrong_answer",
+          "session_complete"
+        ]
+      },
+      "evidenceContract": {
+        "academic": true,
+        "engagement": true,
+        "companionObservations": true
+      },
+      "evidenceIds": []
+    },
+    {
+      "nodeId": "custom-practice",
+      "role": "baseline",
+      "activityType": "generated-baseline",
+      "title": "Custom Recall Lab",
+      "state": "blocked",
+      "academicTarget": {
+        "domain": "spelling",
+        "skill": "silent_letters",
+        "targets": [
+          "write"
+        ]
+      },
+      "algorithmOwner": "retrieval-practice",
+      "theoryId": "hw-spelling:academic-theory",
+      "experimentId": "hw-spelling:experiment:custom-practice",
+      "mechanic": "configured-practice",
+      "theme": "learning adventure",
+      "openingScreen": {
+        "title": "Custom Recall Lab",
+        "purpose": "Practice silent_letters through configured-practice."
+      },
+      "generationPrompt": {
+        "promptId": "hw-spelling:custom-practice:ingest-prompt",
+        "createdFromEvidenceIds": [
+          "assignment:spelling"
+        ],
+        "text": "Build Custom Recall Lab for Silent letters. Domain: spelling. Targets: write. Mechanic: planner-selected practice. Theme: child-centered learning. The opening screen, artwork, instructions, interaction, and evidence must all express this same contract."
+      },
+      "artifactBinding": null,
+      "artwork": {
+        "status": "failed",
+        "localPath": null,
+        "prompt": null
+      },
+      "sfxContract": [
+        "tap",
+        "correct",
+        "incorrect",
+        "progress",
+        "complete"
+      ],
+      "companionContract": {
+        "events": [
+          "correct_answer",
+          "wrong_answer",
+          "session_complete"
+        ]
+      },
+      "evidenceContract": {
+        "academic": true,
+        "engagement": true,
+        "companionObservations": true
+      },
+      "evidenceIds": []
+    }
+  ],
+  "lifecycle": "baseline_ready",
+  "evidence": {
+    "academic": [],
+    "engagement": [],
+    "companionObservations": []
+  },
+  "decisionHistory": [
+    {
+      "decisionId": "hw-spelling:decision:r2",
+      "eventType": "engagement_theory_updated",
+      "reason": "Preference evidence updated the canonical engagement theory.",
+      "evidenceIds": [],
+      "fromLifecycle": "baseline_ready",
+      "toLifecycle": "baseline_ready",
+      "createdAt": "2026-07-29T22:56:18.881Z"
+    }
+  ],
+  "evidenceSources": [],
+  "academicPredictions": [],
+  "observations": [],
+  "predictionEvaluations": [],
+  "createdAt": "2026-07-29T22:54:53.020Z",
+  "updatedAt": "2026-07-29T22:56:18.881Z"
+}

@@ -1,0 +1,129 @@
+{
+  "version": 1,
+  "theoryId": "engagement-theory:a0d27ebffbb1",
+  "childId": "demo-pashley",
+  "domain": "spelling",
+  "homeworkId": "hw-spelling_test-5a49d659",
+  "hypothesis": "Sunny does not yet have enough preference evidence; test distinct mechanics while holding the academic target constant.",
+  "dimensions": {
+    "visual": {
+      "dimension": "visual",
+      "positiveWeight": 0,
+      "negativeWeight": 0,
+      "mixedWeight": 0,
+      "evidenceCount": 0,
+      "confidence": 0,
+      "lastUpdated": "2026-07-29T19:00:20.993Z"
+    },
+    "puzzle": {
+      "dimension": "puzzle",
+      "positiveWeight": 0,
+      "negativeWeight": 0,
+      "mixedWeight": 0,
+      "evidenceCount": 0,
+      "confidence": 0,
+      "lastUpdated": "2026-07-29T19:00:20.993Z"
+    },
+    "story": {
+      "dimension": "story",
+      "positiveWeight": 0,
+      "negativeWeight": 0,
+      "mixedWeight": 0,
+      "evidenceCount": 0,
+      "confidence": 0,
+      "lastUpdated": "2026-07-29T19:00:20.993Z"
+    },
+    "speed": {
+      "dimension": "speed",
+      "positiveWeight": 0,
+      "negativeWeight": 0,
+      "mixedWeight": 0,
+      "evidenceCount": 0,
+      "confidence": 0,
+      "lastUpdated": "2026-07-29T19:00:20.993Z"
+    },
+    "competition": {
+      "dimension": "competition",
+      "positiveWeight": 0,
+      "negativeWeight": 0,
+      "mixedWeight": 0,
+      "evidenceCount": 0,
+      "confidence": 0,
+      "lastUpdated": "2026-07-29T19:00:20.993Z"
+    },
+    "control": {
+      "dimension": "control",
+      "positiveWeight": 0,
+      "negativeWeight": 0,
+      "mixedWeight": 0,
+      "evidenceCount": 0,
+      "confidence": 0,
+      "lastUpdated": "2026-07-29T19:00:20.993Z"
+    },
+    "novelty": {
+      "dimension": "novelty",
+      "positiveWeight": 0,
+      "negativeWeight": 0,
+      "mixedWeight": 0,
+      "evidenceCount": 0,
+      "confidence": 0,
+      "lastUpdated": "2026-07-29T19:00:20.993Z"
+    },
+    "voice": {
+      "dimension": "voice",
+      "positiveWeight": 0,
+      "negativeWeight": 0,
+      "mixedWeight": 0,
+      "evidenceCount": 0,
+      "confidence": 0,
+      "lastUpdated": "2026-07-29T19:00:20.993Z"
+    },
+    "calm": {
+      "dimension": "calm",
+      "positiveWeight": 0,
+      "negativeWeight": 0,
+      "mixedWeight": 0,
+      "evidenceCount": 0,
+      "confidence": 0,
+      "lastUpdated": "2026-07-29T19:00:20.993Z"
+    }
+  },
+  "preferredDimensions": [],
+  "avoidedDimensions": [],
+  "promptDirectives": {
+    "prefer": [],
+    "avoid": [],
+    "vary": [
+      "mechanic",
+      "theme"
+    ],
+    "holdConstant": [
+      "academic targets",
+      "question count",
+      "difficulty",
+      "evidence contract"
+    ]
+  },
+  "evidence": [],
+  "nextExperiment": {
+    "experimentId": "engagement-experiment:708a87dd011e",
+    "theoryId": "engagement-theory:a0d27ebffbb1",
+    "variable": "mechanic",
+    "arms": [],
+    "holdConstant": [
+      "academic targets",
+      "question count",
+      "difficulty",
+      "evidence contract"
+    ],
+    "successSignals": [
+      "started",
+      "completed",
+      "replayed",
+      "low frustration",
+      "accuracy preserved"
+    ],
+    "status": "planned"
+  },
+  "updatedAt": "2026-07-29T19:00:20.993Z"
+}

@@ -8,6 +8,8 @@ import { childIdFromName, recordAttempt } from "../engine/learningEngine";
 import { recordLearningAttempt } from "./learningAttemptEvents";
 import { buildFlowGameEventFields } from "./flow-game-debug";
 import { buildGameContextSummary } from "./gameContextSummary";
+import { deriveCompanionDemeanor } from "../shared/companionDemeanor";
+import type { CompanionCareView } from "../shared/companionCareTypes";
 import {
   recordCompanionVideoCallTraceEvent,
   type CompanionVideoCallTraceEventName,
@@ -377,6 +379,10 @@ export function handleGameEventForSession(
         ? (event.companionCare as Record<string, unknown>)
         : {};
     const moodLabel = typeof care.moodLabel === "string" ? care.moodLabel : "steady";
+    const demeanor = deriveCompanionDemeanor(
+      event.companionCare as CompanionCareView | undefined,
+    );
+    s.ttsBridge?.setDemeanor?.(demeanor.state);
     const liveContext =
       s.currentActivityState && typeof s.currentActivityState === "object"
         ? buildGameContextSummary(s.currentActivityState as Record<string, unknown>)

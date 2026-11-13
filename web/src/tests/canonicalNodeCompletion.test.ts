@@ -10,13 +10,21 @@ describe("canonical node completion handoff", () => {
   afterEach(() => vi.unstubAllGlobals());
 
   it("posts the actual node identity and completion payload before showing post-activity UI", async () => {
-    const fetchMock = vi.fn(async () => new Response(JSON.stringify({ lifecycle: "baseline_active", revision: 3 }), {
+    const fetchMock = vi.fn(async () => new Response(JSON.stringify({
+      lifecycle: "quest_generating",
+      revision: 3,
+      careReward: {
+        status: "awarded",
+        itemId: "apple_bite",
+        quantity: 1,
+      },
+    }), {
       status: 200,
       headers: { "Content-Type": "application/json" },
     }));
     vi.stubGlobal("fetch", fetchMock);
 
-    await postCanonicalNodeCompletion({
+    const result = await postCanonicalNodeCompletion({
       childId: "reina",
       homeworkId: "hw-math",
       nodeId: "fact-blaster",
@@ -35,5 +43,10 @@ describe("canonical node completion handoff", () => {
         }),
       }),
     );
+    expect(result.careReward).toEqual({
+      status: "awarded",
+      itemId: "apple_bite",
+      quantity: 1,
+    });
   });
 });

@@ -1,5 +1,9 @@
 import WebSocket from "ws";
 import { sanitizeForTTS } from "./session-state";
+import {
+  type CompanionDemeanorState,
+  voiceSettingsForCompanionDemeanor,
+} from "../shared/companionDemeanor";
 
 const WS_BASE = "wss://api.elevenlabs.io/v1/text-to-speech";
 const FLUSH_INTERVAL_MS = 50;
@@ -41,10 +45,16 @@ export class WsTtsBridge {
   private stopped = false;
   private connectingPromise: Promise<void> | null = null;
   private hasFlushedThisTurn = false;
+  private demeanor: CompanionDemeanorState;
 
-  constructor(browserWs: WebSocket, voiceId: string) {
+  constructor(
+    browserWs: WebSocket,
+    voiceId: string,
+    demeanor: CompanionDemeanorState = "steady",
+  ) {
     this.browserWs = browserWs;
     this.voiceId = voiceId;
+    this.demeanor = demeanor;
     this.disabled = process.env.TTS_ENABLED === "false";
     if (this.disabled) {
       this.apiKey = "";
@@ -54,6 +64,11 @@ export class WsTtsBridge {
       if (!key) throw new Error("ELEVENLABS_API_KEY not set in .env");
       this.apiKey = key;
     }
+  }
+
+  setDemeanor(demeanor: CompanionDemeanorState): void {
+    this.demeanor = demeanor;
+    console.log(` 🎮 [companion-voice] [demeanor] [${demeanor}]`);
   }
 
   /** Call this as soon as the session starts — before first token */
@@ -112,7 +127,7 @@ export class WsTtsBridge {
         ws.send(
           JSON.stringify({
             text: " ",
-            voice_settings: { stability: 0.5, similarity_boost: 0.75 },
+            voice_settings: voiceSettingsForCompanionDemeanor(this.demeanor),
             xi_api_key: this.apiKey,
             ...(previousText && { previous_text: previousText }),
             ...(locators && {

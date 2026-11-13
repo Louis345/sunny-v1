@@ -13,12 +13,15 @@ export const ANIMATION_MANIFEST: readonly AnimationManifestEntry[] = [
   { name: "dance_victory", path: "/animations/dance_victory.fbx", defaultLoop: false, label: "Dance Victory" },
   { name: "defeated", path: "/animations/defeated.fbx", defaultLoop: false, label: "Defeated" },
   { name: "fireball", path: "/animations/fireball.fbx", defaultLoop: false, label: "Fireball" },
+  { name: "happy_idle", path: "/animations/happy_idle.fbx", defaultLoop: true, label: "Happy Idle" },
   { name: "hip_hop_dancing", path: "/animations/hip_hop_dancing.fbx", defaultLoop: false, label: "Hip Hop Dancing" },
   { name: "hip_hop_dancing_2", path: "/animations/hip_hop_dancing_2.fbx", defaultLoop: false, label: "Hip Hop Dancing 2" },
   { name: "idle", path: "/animations/idle.fbx", defaultLoop: true, label: "Idle" },
   { name: "idle_stand", path: "/animations/idle_stand.fbx", defaultLoop: true, label: "Idle Stand" },
   { name: "ponder_moment", path: "/animations/ponder_moment.fbx", defaultLoop: false, label: "Ponder Moment" },
   { name: "quick_formal_bow", path: "/animations/quick_formal_bow.fbx", defaultLoop: false, label: "Quick Formal Bow" },
+  { name: "rejected", path: "/animations/rejected.fbx", defaultLoop: false, label: "Rejected" },
+  { name: "sad_idle", path: "/animations/sad_idle.fbx", defaultLoop: true, label: "Sad Idle" },
   { name: "salsa_dancing", path: "/animations/salsa_dancing.fbx", defaultLoop: false, label: "Salsa Dancing" },
   { name: "shrug", path: "/animations/shrug.fbx", defaultLoop: false, label: "Shrug" },
   { name: "silly_dancing", path: "/animations/silly_dancing.fbx", defaultLoop: false, label: "Silly Dancing" },
@@ -29,6 +32,7 @@ export const ANIMATION_MANIFEST: readonly AnimationManifestEntry[] = [
   { name: "think", path: "/animations/think.fbx", defaultLoop: false, label: "Think" },
   { name: "thinking_2", path: "/animations/thinking_2.fbx", defaultLoop: false, label: "Thinking 2" },
   { name: "wave", path: "/animations/wave.fbx", defaultLoop: false, label: "Wave" },
+  { name: "yawn", path: "/animations/yawn.fbx", defaultLoop: false, label: "Yawn" },
 ] as const;
 
 export const ANIMATION_IDS = [
@@ -36,12 +40,15 @@ export const ANIMATION_IDS = [
   "dance_victory",
   "defeated",
   "fireball",
+  "happy_idle",
   "hip_hop_dancing",
   "hip_hop_dancing_2",
   "idle",
   "idle_stand",
   "ponder_moment",
   "quick_formal_bow",
+  "rejected",
+  "sad_idle",
   "salsa_dancing",
   "shrug",
   "silly_dancing",
@@ -52,5 +59,6 @@ export const ANIMATION_IDS = [
   "think",
   "thinking_2",
   "wave",
+  "yawn",
 ] as const;
 export type GeneratedAnimationName = (typeof ANIMATION_IDS)[number];

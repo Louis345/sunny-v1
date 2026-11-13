@@ -36,41 +36,85 @@ function care(moodLabel: CompanionCareView["moodLabel"]): CompanionCareView {
 }
 
 describe("deriveCompanionBehavior", () => {
-  it("maps bright and happy care to upbeat visible behavior", () => {
+  it("maps bright and happy care to restored and steady persistent demeanor", () => {
     expect(deriveCompanionBehavior(care("bright"))).toMatchObject({
       mood: "bright",
-      presentationState: "bright",
+      presentationState: "restored",
       emote: "excited",
       low: false,
+      baseAnimation: "happy_idle",
+      baseAnimationLoop: true,
+      playbackRate: 1.12,
+      movementIntensity: 1,
+      visualTreatment: { filter: "none", opacity: 1 },
     });
     expect(deriveCompanionBehavior(care("happy"))).toMatchObject({
       mood: "happy",
       presentationState: "steady",
       emote: "happy",
       low: false,
+      baseAnimation: "idle",
+      baseAnimationLoop: true,
+      playbackRate: 1,
+      visualTreatment: { filter: "none", opacity: 1 },
     });
   });
 
-  it("maps tired and hungry care to low-state visible behavior", () => {
+  it("keeps tired visibly sleepy without defeated or guilt-coded treatment", () => {
     expect(deriveCompanionBehavior(care("tired"))).toMatchObject({
       mood: "tired",
-      presentationState: "needs-care",
-      emote: "sad",
-      low: true,
-      animation: "defeated",
-      visualTreatment: expect.objectContaining({ opacity: 0.84 }),
-    });
-    expect(deriveCompanionBehavior(care("hungry"))).toMatchObject({
-      mood: "hungry",
-      presentationState: "needs-care",
+      presentationState: "tired",
       emote: "thinking",
       low: true,
-      animation: "think",
-      visualTreatment: expect.objectContaining({ opacity: 0.88 }),
+      baseAnimation: "sitting",
+      baseAnimationLoop: true,
+      animation: "yawn",
+      animationPlaybackRate: 2,
+      playbackRate: 0.58,
+      movementIntensity: 0.35,
+      visualTreatment: { filter: "none", opacity: 1 },
     });
+    expect(deriveCompanionBehavior(care("tired")).animation).not.toBe("defeated");
+    expect(deriveCompanionBehavior(care("tired")).emote).not.toBe("sad");
   });
 
-  it("maps feed animation intents to normal and rare recovery animations", () => {
+  it("keeps hungry distinct from tired through posture and motion", () => {
+    expect(deriveCompanionBehavior(care("hungry"))).toMatchObject({
+      mood: "hungry",
+      presentationState: "hungry",
+      emote: "sad",
+      low: true,
+      baseAnimation: "rejected",
+      baseAnimationLoop: true,
+      playbackRate: 1,
+      movementIntensity: 0.5,
+      visualTreatment: { filter: "none", opacity: 1 },
+    });
+    expect(deriveCompanionBehavior(care("hungry")).baseAnimation).not.toBe(
+      deriveCompanionBehavior(care("tired")).baseAnimation,
+    );
+  });
+
+  it("uses the human-approved rejected mannerism only for hungry care", () => {
+    expect(deriveCompanionBehavior(care("hungry"))).toMatchObject({
+      baseAnimation: "rejected",
+      emote: "sad",
+    });
+
+    for (const mood of ["tired", "happy", "bright"] as const) {
+      const behavior = deriveCompanionBehavior(care(mood));
+      expect(behavior.baseAnimation).not.toBe("rejected");
+      expect(behavior.animation).not.toBe("rejected");
+    }
+
+    for (const mood of ["hungry", "tired", "happy", "bright"] as const) {
+      const behavior = deriveCompanionBehavior(care(mood));
+      expect(behavior.baseAnimation).not.toBe("sad_idle");
+      expect(behavior.animation).not.toBe("sad_idle");
+    }
+  });
+
+  it("maps feeding to a visible recovery transition with restored return demeanor", () => {
     const normal: CompanionCareAnimationIntent = {
       kind: "normal-feed",
       reference: "animation-a",
@@ -86,12 +130,19 @@ describe("deriveCompanionBehavior", () => {
       feedAnimation: normal,
       presentationState: "feeding",
       emote: "happy",
+      animation: "silly_laugh",
+      baseAnimation: "happy_idle",
+      baseAnimationLoop: true,
+      playbackRate: 1.12,
     });
     expect(deriveCompanionBehavior(care("happy"), rare)).toMatchObject({
       feedAnimation: rare,
-      presentationState: "celebrating",
+      presentationState: "feeding",
       emote: "celebrating",
       animation: "dance_victory",
+      baseAnimation: "happy_idle",
+      baseAnimationLoop: true,
+      playbackRate: 1.12,
     });
   });
 });

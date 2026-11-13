@@ -197,7 +197,7 @@ describe("CompanionMotor (COMPANION-MOTOR)", () => {
     expect("setShowroomIdle" in motor).toBe(false);
   });
 
-  it("returns through playAnimation idle path after a one-shot animation finishes", async () => {
+  it("returns to the current persistent demeanor after a one-shot finishes", async () => {
     const removeEventListener = vi.fn();
     let finishedHandler: ((event?: unknown) => void) | undefined;
     const addEventListener = vi.fn((_event: string, cb: (event?: unknown) => void) => {
@@ -218,6 +218,11 @@ describe("CompanionMotor (COMPANION-MOTOR)", () => {
       new THREE.AnimationClip("wave", 1, []),
     );
 
+    motor.setDemeanor({
+      animation: "idle_stand",
+      loop: true,
+      playbackRate: 0.72,
+    });
     const playSpy = vi.spyOn(motor, "playAnimation");
 
     await (motor as any).loadAndPlayClip(
@@ -230,7 +235,67 @@ describe("CompanionMotor (COMPANION-MOTOR)", () => {
     expect(finishedHandler).toBeDefined();
     finishedHandler?.({ action });
     expect(removeEventListener).toHaveBeenCalledWith("finished", finishedHandler);
-    expect(playSpy).toHaveBeenCalledWith("idle", { loop: true });
+    expect(playSpy).toHaveBeenCalledWith("idle_stand", {
+      loop: true,
+      playbackRate: 0.72,
+    });
+  });
+
+  it("applies demeanor playback rate to the animation action", async () => {
+    const action = mockAnimationAction();
+    (motor as any).vrm = { scene: new THREE.Group() } as VRM;
+    (motor as any).animationMixer = {
+      stopAllAction: vi.fn(),
+      clipAction: vi.fn(() => action),
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    } as unknown as THREE.AnimationMixer;
+    (motor as any).clipCache.set(
+      "idle_stand",
+      new THREE.AnimationClip("idle_stand", 1, []),
+    );
+
+    motor.setDemeanor({
+      animation: "idle_stand",
+      loop: true,
+      playbackRate: 0.72,
+    });
+
+    await Promise.resolve();
+
+    expect(action.setEffectiveTimeScale).toHaveBeenCalledWith(0.72);
+  });
+
+  it("applies a one-shot command playback rate before returning to demeanor", async () => {
+    const action = mockAnimationAction();
+    (motor as any).vrm = { scene: new THREE.Group() } as VRM;
+    (motor as any).animationMixer = {
+      stopAllAction: vi.fn(),
+      clipAction: vi.fn(() => action),
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    } as unknown as THREE.AnimationMixer;
+    (motor as any).clipCache.set(
+      "yawn",
+      new THREE.AnimationClip("yawn", 1, []),
+    );
+
+    motor.processCompanionCommands(
+      [
+        {
+          apiVersion: "1.0",
+          type: "animate",
+          payload: { animation: "yawn", loop: false, playbackRate: 2 },
+          childId: "ila",
+          timestamp: 6001,
+          source: "diag",
+        },
+      ],
+      "ila",
+    );
+    await Promise.resolve();
+
+    expect(action.setEffectiveTimeScale).toHaveBeenCalledWith(2);
   });
 
   it("does not let a slower previous animation override a newer idle request", async () => {
