@@ -1,0 +1,469 @@
+{
+  "version": 1,
+  "stage": "compare-fable-design-1",
+  "requestHash": "865f81c47f02c2ddf4f187959801b77f61b70d239d7cbe730c50bd67a8b01584",
+  "model": "claude-fable-5",
+  "provider": "anthropic",
+  "startedAt": "2026-10-24T19:23:11.043Z",
+  "code": {
+    "buildId": null,
+    "commit": "51692c586196870bef449522ec696e2521310f42",
+    "trackedChanges": true
+  },
+  "context": {
+    "model": "claude-fable-5",
+    "max_tokens": 16000,
+    "messages": [
+      {
+        "role": "user",
+        "content": "You are Sunny's map artist. You design adventure maps a child wants to finish. You receive the teacher's journey and the illustrated world. You decide the shape of the map, where each stop sits, how each path curves and which look it wears. You never change the lesson.\nDesign the map for landscape (1280x720 kiosk) and portrait (768x1024). Each stop's position is x and y from 0 to 1 across the board's open area, 0,0 at the top-left; the numbers are the centre of the stop. Choose any shape that suits this journey: a ring, a spiral, a climb, a river, a constellation, a winding road, or an idea of your own, and name it in pattern. When the journey splits at a choice, give each option its own branch until the options rejoin, so she sees a real fork. For each path choose a curve (straight, arc, wave or loop) and a style (solid, dashed or glow).\nThe background is always the illustrated world, /generated/adventure-board-demo/silent-letter-world.jpeg. Choose one theme for the colours: illustrated-night (Starry night), illustrated-dusk (Purple dusk), illustrated-dawn (Warm dawn), illustrated-meadow (Green meadow), illustrated-ocean (Deep ocean). Every label is drawn as text on a rounded plate; each theme's text and plate colours are already chosen so a child can read every label at a glance.\nSpacing: each portal is an orb with its label plate underneath; the measured sizes below include the wrapped label. Use the whole canvas so the map breathes, and leave at least 28 pixels of air between stops.\nAlready taken on screen, so keep portals away: the level badge in the top-left corner, the status bar along the bottom centre, and Elli, the companion, who stands in the bottom-right corner.\nMake this a new design: a shape and feel she will remember.\nYour map is published exactly as you submit it; nobody corrects it. A stop you leave out is drawn on a plain spot. Look at your own work: when you get the screenshots, check that you can read every label and that nothing overlaps, and fix what you see with adjust_board. Each look costs the child waiting time, so make each one count.\nMeasured portal sizes in pixels (width and height include the wrapped label): [{\"viewport\":\"1280x720\",\"id\":\"start\",\"width\":116,\"height\":112},{\"viewport\":\"1280x720\",\"id\":\"p:act-110db7-1\",\"width\":116,\"height\":130},{\"viewport\":\"1280x720\",\"id\":\"p:act-110db7-2\",\"width\":116,\"height\":158},{\"viewport\":\"1280x720\",\"id\":\"p:act-110db7-3\",\"width\":116,\"height\":176},{\"viewport\":\"1280x720\",\"id\":\"p:option-1:act-110db7-4\",\"width\":116,\"height\":158},{\"viewport\":\"1280x720\",\"id\":\"p:option-2:act-110db7-5\",\"width\":116,\"height\":140},{\"viewport\":\"1280x720\",\"id\":\"choice\",\"width\":116,\"height\":158},{\"viewport\":\"1280x720\",\"id\":\"p:act-110db7-6\",\"width\":116,\"height\":158},{\"viewport\":\"1280x720\",\"id\":\"end\",\"width\":116,\"height\":122},{\"viewport\":\"768x1024\",\"id\":\"start\",\"width\":116,\"height\":108},{\"viewport\":\"768x1024\",\"id\":\"p:act-110db7-1\",\"width\":116,\"height\":126},{\"viewport\":\"768x1024\",\"id\":\"p:act-110db7-2\",\"width\":116,\"height\":150},{\"viewport\":\"768x1024\",\"id\":\"p:act-110db7-3\",\"width\":116,\"height\":168},{\"viewport\":\"768x1024\",\"id\":\"p:option-1:act-110db7-4\",\"width\":116,\"height\":150},{\"viewport\":\"768x1024\",\"id\":\"p:option-2:act-110db7-5\",\"width\":116,\"height\":132},{\"viewport\":\"768x1024\",\"id\":\"choice\",\"width\":116,\"height\":150},{\"viewport\":\"768x1024\",\"id\":\"p:act-110db7-6\",\"width\":116,\"height\":150},{\"viewport\":\"768x1024\",\"id\":\"end\",\"width\":116,\"height\":120}]\nThe teacher's journey (immutable): stops [{\"id\":\"start\",\"label\":\"Start\",\"kind\":\"start\"},{\"id\":\"p:act-110db7-1\",\"label\":\"Silent Letter Detectives\",\"kind\":\"activity\"},{\"id\":\"p:act-110db7-2\",\"label\":\"Sneaky C Sounds\",\"kind\":\"activity\"},{\"id\":\"p:act-110db7-3\",\"label\":\"Hidden Letters Practice\",\"kind\":\"activity\"},{\"id\":\"p:option-1:act-110db7-4\",\"label\":\"Monster Chase\",\"kind\":\"activity\"},{\"id\":\"p:option-2:act-110db7-5\",\"label\":\"Word Puzzle\",\"kind\":\"activity\"},{\"id\":\"choice\",\"label\":\"Choose Your Practice\",\"kind\":\"choice\"},{\"id\":\"p:act-110db7-6\",\"label\":\"Spelling Checkpoint\",\"kind\":\"activity\"},{\"id\":\"end\",\"label\":\"Spelling Mastery Gate\",\"kind\":\"endpoint\"}]; paths in order [{\"id\":\"root\",\"stops\":[\"start\",\"p:act-110db7-1\",\"p:act-110db7-2\",\"p:act-110db7-3\",\"choice\",\"p:act-110db7-6\",\"end\"]},{\"id\":\"option:option-1\",\"stops\":[\"p:option-1:act-110db7-4\"]},{\"id\":\"option:option-2\",\"stops\":[\"p:option-2:act-110db7-5\"]}]; connections [{\"id\":\"connection:start:p%3Aact-110db7-1\",\"from\":\"start\",\"to\":\"p:act-110db7-1\"},{\"id\":\"connection:p%3Aact-110db7-1:p%3Aact-110db7-2\",\"from\":\"p:act-110db7-1\",\"to\":\"p:act-110db7-2\"},{\"id\":\"connection:p%3Aact-110db7-2:p%3Aact-110db7-3\",\"from\":\"p:act-110db7-2\",\"to\":\"p:act-110db7-3\"},{\"id\":\"connection:p%3Aact-110db7-3:choice\",\"from\":\"p:act-110db7-3\",\"to\":\"choice\"},{\"id\":\"connection:choice:p%3Aoption-1%3Aact-110db7-4\",\"from\":\"choice\",\"to\":\"p:option-1:act-110db7-4\"},{\"id\":\"connection:p%3Aoption-1%3Aact-110db7-4:p%3Aact-110db7-6\",\"from\":\"p:option-1:act-110db7-4\",\"to\":\"p:act-110db7-6\"},{\"id\":\"connection:p%3Aact-110db7-6:end\",\"from\":\"p:act-110db7-6\",\"to\":\"end\"},{\"id\":\"connection:choice:p%3Aoption-2%3Aact-110db7-5\",\"from\":\"choice\",\"to\":\"p:option-2:act-110db7-5\"},{\"id\":\"connection:p%3Aoption-2%3Aact-110db7-5:p%3Aact-110db7-6\",\"from\":\"p:option-2:act-110db7-5\",\"to\":\"p:act-110db7-6\"}]; choice [{\"at\":\"choice\",\"options\":[{\"label\":\"Monster Chase\",\"path\":\"option:option-1\"},{\"label\":\"Word Puzzle\",\"path\":\"option:option-2\"}]}]"
+      }
+    ],
+    "tools": [
+      {
+        "name": "preview_board",
+        "description": "Place the whole map and see it rendered on the real board at 1280x720 and 768x1024, with each portal's measured box and any overlaps. You may look at most 2 times in total.",
+        "input_schema": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "whatISee",
+            "pattern",
+            "theme",
+            "portals",
+            "edges"
+          ],
+          "properties": {
+            "whatISee": {
+              "type": "string",
+              "description": "Write this first. Before your first look, say what you intend. After a look, describe what the screenshots actually show: can you read every label against the scene, and do any portals or labels crowd or overlap? Say what you will change, or why it is ready."
+            },
+            "pattern": {
+              "type": "string",
+              "description": "Your design idea in a few words, for example octagon ring, spiral or mountain climb."
+            },
+            "theme": {
+              "type": "string",
+              "enum": [
+                "illustrated-night",
+                "illustrated-dusk",
+                "illustrated-dawn",
+                "illustrated-meadow",
+                "illustrated-ocean"
+              ],
+              "description": "The look of the map."
+            },
+            "portals": {
+              "type": "array",
+              "description": "Where each stop sits: its centre, for each orientation.",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "id",
+                  "landscape",
+                  "portrait"
+                ],
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "enum": [
+                      "start",
+                      "p:act-110db7-1",
+                      "p:act-110db7-2",
+                      "p:act-110db7-3",
+                      "p:option-1:act-110db7-4",
+                      "p:option-2:act-110db7-5",
+                      "choice",
+                      "p:act-110db7-6",
+                      "end"
+                    ]
+                  },
+                  "landscape": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "x",
+                      "y"
+                    ],
+                    "properties": {
+                      "x": {
+                        "type": "number",
+                        "description": "0 is the left edge of the open area, 1 the right."
+                      },
+                      "y": {
+                        "type": "number",
+                        "description": "0 is the top of the open area, 1 the bottom."
+                      }
+                    }
+                  },
+                  "portrait": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "x",
+                      "y"
+                    ],
+                    "properties": {
+                      "x": {
+                        "type": "number",
+                        "description": "0 is the left edge of the open area, 1 the right."
+                      },
+                      "y": {
+                        "type": "number",
+                        "description": "0 is the top of the open area, 1 the bottom."
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "edges": {
+              "type": "array",
+              "description": "How each path between two stops is drawn.",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "id",
+                  "curve",
+                  "style"
+                ],
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "enum": [
+                      "connection:start:p%3Aact-110db7-1",
+                      "connection:p%3Aact-110db7-1:p%3Aact-110db7-2",
+                      "connection:p%3Aact-110db7-2:p%3Aact-110db7-3",
+                      "connection:p%3Aact-110db7-3:choice",
+                      "connection:choice:p%3Aoption-1%3Aact-110db7-4",
+                      "connection:p%3Aoption-1%3Aact-110db7-4:p%3Aact-110db7-6",
+                      "connection:p%3Aact-110db7-6:end",
+                      "connection:choice:p%3Aoption-2%3Aact-110db7-5",
+                      "connection:p%3Aoption-2%3Aact-110db7-5:p%3Aact-110db7-6"
+                    ]
+                  },
+                  "curve": {
+                    "type": "string",
+                    "enum": [
+                      "straight",
+                      "arc",
+                      "wave",
+                      "loop"
+                    ]
+                  },
+                  "style": {
+                    "type": "string",
+                    "enum": [
+                      "solid",
+                      "dashed",
+                      "glow"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "strict": true
+      },
+      {
+        "name": "adjust_board",
+        "description": "After a look, change only what needs changing and look again. Everything you do not mention stays exactly as it was. This is much faster than sending the whole map again.",
+        "input_schema": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "whatISee"
+          ],
+          "properties": {
+            "whatISee": {
+              "type": "string",
+              "description": "Write this first. Before your first look, say what you intend. After a look, describe what the screenshots actually show: can you read every label against the scene, and do any portals or labels crowd or overlap? Say what you will change, or why it is ready."
+            },
+            "pattern": {
+              "type": "string",
+              "description": "Your design idea in a few words, for example octagon ring, spiral or mountain climb."
+            },
+            "theme": {
+              "type": "string",
+              "enum": [
+                "illustrated-night",
+                "illustrated-dusk",
+                "illustrated-dawn",
+                "illustrated-meadow",
+                "illustrated-ocean"
+              ],
+              "description": "The look of the map."
+            },
+            "portals": {
+              "type": "array",
+              "description": "Where each stop sits: its centre, for each orientation.",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "id",
+                  "landscape",
+                  "portrait"
+                ],
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "enum": [
+                      "start",
+                      "p:act-110db7-1",
+                      "p:act-110db7-2",
+                      "p:act-110db7-3",
+                      "p:option-1:act-110db7-4",
+                      "p:option-2:act-110db7-5",
+                      "choice",
+                      "p:act-110db7-6",
+                      "end"
+                    ]
+                  },
+                  "landscape": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "x",
+                      "y"
+                    ],
+                    "properties": {
+                      "x": {
+                        "type": "number",
+                        "description": "0 is the left edge of the open area, 1 the right."
+                      },
+                      "y": {
+                        "type": "number",
+                        "description": "0 is the top of the open area, 1 the bottom."
+                      }
+                    }
+                  },
+                  "portrait": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "x",
+                      "y"
+                    ],
+                    "properties": {
+                      "x": {
+                        "type": "number",
+                        "description": "0 is the left edge of the open area, 1 the right."
+                      },
+                      "y": {
+                        "type": "number",
+                        "description": "0 is the top of the open area, 1 the bottom."
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "edges": {
+              "type": "array",
+              "description": "How each path between two stops is drawn.",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "id",
+                  "curve",
+                  "style"
+                ],
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "enum": [
+                      "connection:start:p%3Aact-110db7-1",
+                      "connection:p%3Aact-110db7-1:p%3Aact-110db7-2",
+                      "connection:p%3Aact-110db7-2:p%3Aact-110db7-3",
+                      "connection:p%3Aact-110db7-3:choice",
+                      "connection:choice:p%3Aoption-1%3Aact-110db7-4",
+                      "connection:p%3Aoption-1%3Aact-110db7-4:p%3Aact-110db7-6",
+                      "connection:p%3Aact-110db7-6:end",
+                      "connection:choice:p%3Aoption-2%3Aact-110db7-5",
+                      "connection:p%3Aoption-2%3Aact-110db7-5:p%3Aact-110db7-6"
+                    ]
+                  },
+                  "curve": {
+                    "type": "string",
+                    "enum": [
+                      "straight",
+                      "arc",
+                      "wave",
+                      "loop"
+                    ]
+                  },
+                  "style": {
+                    "type": "string",
+                    "enum": [
+                      "solid",
+                      "dashed",
+                      "glow"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "strict": true
+      },
+      {
+        "name": "submit_board",
+        "description": "Submit the finished map. It is published exactly as submitted. Leave portals and edges out to submit the map as you last saw it; you may include a few last changes.",
+        "input_schema": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "whatISee",
+            "pattern",
+            "rationale"
+          ],
+          "properties": {
+            "whatISee": {
+              "type": "string",
+              "description": "Write this first. Before your first look, say what you intend. After a look, describe what the screenshots actually show: can you read every label against the scene, and do any portals or labels crowd or overlap? Say what you will change, or why it is ready."
+            },
+            "pattern": {
+              "type": "string",
+              "description": "Your design idea in a few words, for example octagon ring, spiral or mountain climb."
+            },
+            "theme": {
+              "type": "string",
+              "enum": [
+                "illustrated-night",
+                "illustrated-dusk",
+                "illustrated-dawn",
+                "illustrated-meadow",
+                "illustrated-ocean"
+              ],
+              "description": "The look of the map."
+            },
+            "portals": {
+              "type": "array",
+              "description": "Where each stop sits: its centre, for each orientation.",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "id",
+                  "landscape",
+                  "portrait"
+                ],
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "enum": [
+                      "start",
+                      "p:act-110db7-1",
+                      "p:act-110db7-2",
+                      "p:act-110db7-3",
+                      "p:option-1:act-110db7-4",
+                      "p:option-2:act-110db7-5",
+                      "choice",
+                      "p:act-110db7-6",
+                      "end"
+                    ]
+                  },
+                  "landscape": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "x",
+                      "y"
+                    ],
+                    "properties": {
+                      "x": {
+                        "type": "number",
+                        "description": "0 is the left edge of the open area, 1 the right."
+                      },
+                      "y": {
+                        "type": "number",
+                        "description": "0 is the top of the open area, 1 the bottom."
+                      }
+                    }
+                  },
+                  "portrait": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "x",
+                      "y"
+                    ],
+                    "properties": {
+                      "x": {
+                        "type": "number",
+                        "description": "0 is the left edge of the open area, 1 the right."
+                      },
+                      "y": {
+                        "type": "number",
+                        "description": "0 is the top of the open area, 1 the bottom."
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "edges": {
+              "type": "array",
+              "description": "How each path between two stops is drawn.",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "id",
+                  "curve",
+                  "style"
+                ],
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "enum": [
+                      "connection:start:p%3Aact-110db7-1",
+                      "connection:p%3Aact-110db7-1:p%3Aact-110db7-2",
+                      "connection:p%3Aact-110db7-2:p%3Aact-110db7-3",
+                      "connection:p%3Aact-110db7-3:choice",
+                      "connection:choice:p%3Aoption-1%3Aact-110db7-4",
+                      "connection:p%3Aoption-1%3Aact-110db7-4:p%3Aact-110db7-6",
+                      "connection:p%3Aact-110db7-6:end",
+                      "connection:choice:p%3Aoption-2%3Aact-110db7-5",
+                      "connection:p%3Aoption-2%3Aact-110db7-5:p%3Aact-110db7-6"
+                    ]
+                  },
+                  "curve": {
+                    "type": "string",
+                    "enum": [
+                      "straight",
+                      "arc",
+                      "wave",
+                      "loop"
+                    ]
+                  },
+                  "style": {
+                    "type": "string",
+                    "enum": [
+                      "solid",
+                      "dashed",
+                      "glow"
+                    ]
+                  }
+                }
+              }
+            },
+            "rationale": {
+              "type": "string"
+            }
+          }
+        },
+        "strict": true
+      }
+    ],
+    "tool_choice": {
+      "type": "any"
+    }
+  }
+}

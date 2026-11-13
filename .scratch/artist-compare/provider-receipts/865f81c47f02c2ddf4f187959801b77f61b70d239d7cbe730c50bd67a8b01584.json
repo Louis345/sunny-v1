@@ -1,0 +1,202 @@
+{
+  "status": "received",
+  "provider": "anthropic",
+  "model": "claude-fable-5",
+  "response": {
+    "model": "claude-fable-5",
+    "id": "msg_011CgMcBqbWcA91HZjEfRMya",
+    "type": "message",
+    "role": "assistant",
+    "content": [
+      {
+        "type": "tool_use",
+        "id": "toolu_01JRkJSr4RXv11wFT3xy3HvX",
+        "name": "preview_board",
+        "input": {
+          "whatISee": "I intend a winding river journey: in landscape it flows left to right in an S-shape — start bottom-left, rising to the top middle, dipping to the choice, then forking into two branches (Monster Chase above, Word Puzzle below) that rejoin at Spelling Checkpoint and end at the Mastery Gate on the right, kept clear of Elli bottom-right and the status bar bottom-centre. In portrait the river flows top to bottom with gentle left-right swings and a horizontal fork mid-way. I expect readable labels on plates; I will check for overlaps and crowding against the badge, status bar and Elli.",
+          "pattern": "winding river with a forked delta",
+          "theme": "illustrated-dusk",
+          "portals": [
+            {
+              "id": "start",
+              "landscape": {
+                "x": 0.07,
+                "y": 0.72
+              },
+              "portrait": {
+                "x": 0.26,
+                "y": 0.06
+              }
+            },
+            {
+              "id": "p:act-110db7-1",
+              "landscape": {
+                "x": 0.18,
+                "y": 0.32
+              },
+              "portrait": {
+                "x": 0.72,
+                "y": 0.17
+              }
+            },
+            {
+              "id": "p:act-110db7-2",
+              "landscape": {
+                "x": 0.34,
+                "y": 0.6
+              },
+              "portrait": {
+                "x": 0.26,
+                "y": 0.3
+              }
+            },
+            {
+              "id": "p:act-110db7-3",
+              "landscape": {
+                "x": 0.47,
+                "y": 0.22
+              },
+              "portrait": {
+                "x": 0.72,
+                "y": 0.43
+              }
+            },
+            {
+              "id": "choice",
+              "landscape": {
+                "x": 0.6,
+                "y": 0.5
+              },
+              "portrait": {
+                "x": 0.42,
+                "y": 0.55
+              }
+            },
+            {
+              "id": "p:option-1:act-110db7-4",
+              "landscape": {
+                "x": 0.72,
+                "y": 0.18
+              },
+              "portrait": {
+                "x": 0.18,
+                "y": 0.69
+              }
+            },
+            {
+              "id": "p:option-2:act-110db7-5",
+              "landscape": {
+                "x": 0.72,
+                "y": 0.78
+              },
+              "portrait": {
+                "x": 0.72,
+                "y": 0.69
+              }
+            },
+            {
+              "id": "p:act-110db7-6",
+              "landscape": {
+                "x": 0.86,
+                "y": 0.45
+              },
+              "portrait": {
+                "x": 0.45,
+                "y": 0.83
+              }
+            },
+            {
+              "id": "end",
+              "landscape": {
+                "x": 0.95,
+                "y": 0.14
+              },
+              "portrait": {
+                "x": 0.74,
+                "y": 0.94
+              }
+            }
+          ],
+          "edges": [
+            {
+              "id": "connection:start:p%3Aact-110db7-1",
+              "curve": "arc",
+              "style": "solid"
+            },
+            {
+              "id": "connection:p%3Aact-110db7-1:p%3Aact-110db7-2",
+              "curve": "wave",
+              "style": "solid"
+            },
+            {
+              "id": "connection:p%3Aact-110db7-2:p%3Aact-110db7-3",
+              "curve": "wave",
+              "style": "solid"
+            },
+            {
+              "id": "connection:p%3Aact-110db7-3:choice",
+              "curve": "arc",
+              "style": "solid"
+            },
+            {
+              "id": "connection:choice:p%3Aoption-1%3Aact-110db7-4",
+              "curve": "arc",
+              "style": "dashed"
+            },
+            {
+              "id": "connection:p%3Aoption-1%3Aact-110db7-4:p%3Aact-110db7-6",
+              "curve": "arc",
+              "style": "dashed"
+            },
+            {
+              "id": "connection:choice:p%3Aoption-2%3Aact-110db7-5",
+              "curve": "arc",
+              "style": "dashed"
+            },
+            {
+              "id": "connection:p%3Aoption-2%3Aact-110db7-5:p%3Aact-110db7-6",
+              "curve": "arc",
+              "style": "dashed"
+            },
+            {
+              "id": "connection:p%3Aact-110db7-6:end",
+              "curve": "wave",
+              "style": "glow"
+            }
+          ]
+        },
+        "caller": {
+          "type": "direct"
+        }
+      }
+    ],
+    "container": null,
+    "stop_reason": "tool_use",
+    "stop_sequence": null,
+    "stop_details": null,
+    "usage": {
+      "input_tokens": 6234,
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "cache_creation": {
+        "ephemeral_5m_input_tokens": 0,
+        "ephemeral_1h_input_tokens": 0
+      },
+      "output_tokens": 1244,
+      "service_tier": "standard",
+      "inference_geo": "global",
+      "speed": "standard"
+    },
+    "diagnostics": null
+  },
+  "startedAt": "2026-10-24T19:23:11.043Z",
+  "receivedAt": "2026-10-24T19:23:24.760Z",
+  "attempts": [
+    {
+      "attempt": 1,
+      "startedAt": "2026-10-24T19:23:11.043Z",
+      "status": "received",
+      "finishedAt": "2026-10-24T19:23:24.760Z"
+    }
+  ]
+}

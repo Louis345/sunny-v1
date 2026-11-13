@@ -1,0 +1,333 @@
+{
+  "version": 1,
+  "childId": "demo-pashley",
+  "items": [
+    {
+      "contentId": "hw-spelling-110db7b7:act-110db7-1",
+      "childId": "demo-pashley",
+      "homeworkId": "hw-spelling-110db7b7",
+      "domain": "spelling",
+      "type": "game",
+      "source": "baseline",
+      "theoryDecisionId": "Demo-pashley already spells 11 of 20 words correctly from memory (sign, know, comb, knife, among, circle, finally, heavy, include, nothing, wheel). Her errors cluster in two specific orthographic patterns: dropped silent letters at word starts/ends (write->rite, wrong->rong, gnat->nat, knock->nock, thumb->thum, climb->clim) and soft-c confusion (decided->desided, special->speshal), plus one unattempted word (building). Explicit visual chunking instruction on these two patterns, followed by varied low-stakes retrieval practice and a choice of engaging practice formats, should improve her unaided recall of the 9 gap words without disrupting the 11 words she already has solid.",
+      "title": "Silent Letter Detectives",
+      "activityId": "visual-explainer",
+      "gameHtmlPath": "/games/spelling-visual-explainer.html",
+      "algorithmTargets": [
+        "error-pattern-remediation",
+        "retrieval-practice"
+      ],
+      "targetSkills": [
+        "spelling_practice"
+      ],
+      "targetConcepts": [],
+      "targetWords": [
+        "write",
+        "wrong",
+        "gnat",
+        "knock",
+        "thumb",
+        "climb"
+      ],
+      "engagementHooks": [],
+      "inputEvidence": {
+        "contentFingerprint": "110db7b74070ea2e510050ad9406ff3ee343ecdfa4c0b6b2adf6e68dd53dbfd5",
+        "activityEvidenceIds": [
+          "99413608-f33a-49ec-9e61-efe2039f3d32",
+          "e8ebb0f9-7b97-4917-86d1-801474e068b2",
+          "f079c250-63f8-473b-bf1e-99b4fef9387b",
+          "a9038ad2-1321-47ec-a9da-0be31252009e",
+          "a4c76bc9-72e8-44fb-b2ac-f98942b4ce85",
+          "66172656-8abf-44f5-8ff1-a856b997a5d0",
+          "8b1735e1-9ac6-481e-8a86-705ad009cb64:act-110db7-1:observation:1",
+          "8b1735e1-9ac6-481e-8a86-705ad009cb64:act-110db7-1:observation:2",
+          "8b1735e1-9ac6-481e-8a86-705ad009cb64:act-110db7-1:observation:3",
+          "8b1735e1-9ac6-481e-8a86-705ad009cb64:act-110db7-1:observation:4",
+          "8b1735e1-9ac6-481e-8a86-705ad009cb64:act-110db7-1:observation:5",
+          "8b1735e1-9ac6-481e-8a86-705ad009cb64:act-110db7-1:observation:6"
+        ]
+      },
+      "reuseStatus": "reuse",
+      "reuseReason": "Re-run on the next board: No formal prediction evaluations exist yet (predictionEvaluations=[]), so I read the raw evidence directly. Comparing her baseline discovery responses to the fresh act-110db7-6 checkpoint responses (same words, same response_mode, same instrument_ambiguous/audio_unavailable confound on both occasions, so the comparison is apples-to-apples even though automated correct/incorrect scoring failed): write rite→write, thumb thum→thumb, knock nock→knock, wrong rong→wrong, climb clim→climb, building (unattempted)→building all moved from the original error to the correct spelling unaided (e4e27dc5…, 97e8b514…, aa507c8a…, 6a44c793…, 568dac25…, ccdbd4d8… vs e5a6dd74…, a4c76bc9…, a9038ad2…, e8ebb0f9…, 66172656…, 5261abc5…). That supports the theory's core mechanism (explicit silent-letter chunking + retrieval practice) for the wr-, kn-, mb patterns and for building. However two of the nine gap words show zero movement: gnat stayed 'nat'→'nat' (f079c250… vs a85d719d…) and special stayed 'speshal'→'speshal' (2af6a2bd… vs 9ebd87f6…) — this is exactly the falsifyCriteria condition for those two items specifically. Notably, both words WERE spelled correctly during scaffolded/partial-visibility practice (Hidden Letters Practice: gnat correct 2a62e420…, special correct ef6ee7cc… at 15339ms and 3608ms response times; Monster Chase: gnat correct 0xnhjkmzv5go…, special correct mpjm8nks8k…) but reverted to the original error the moment the harder, timed, hidden-word independent checkpoint was given. Per the rule that correct practice after a long response time (gnat took 15.3s) is not effortless recall, and that partial-visibility/assisted practice success should not be read as mastery, these two words are not yet consolidated even though the explainer 'ran'. The theory holds broadly but needs revision for the gn- and ci→/sh/ sub-patterns specifically."
+    },
+    {
+      "contentId": "hw-spelling-110db7b7:act-110db7-2",
+      "childId": "demo-pashley",
+      "homeworkId": "hw-spelling-110db7b7",
+      "domain": "spelling",
+      "type": "game",
+      "source": "baseline",
+      "theoryDecisionId": "Demo-pashley already spells 11 of 20 words correctly from memory (sign, know, comb, knife, among, circle, finally, heavy, include, nothing, wheel). Her errors cluster in two specific orthographic patterns: dropped silent letters at word starts/ends (write->rite, wrong->rong, gnat->nat, knock->nock, thumb->thum, climb->clim) and soft-c confusion (decided->desided, special->speshal), plus one unattempted word (building). Explicit visual chunking instruction on these two patterns, followed by varied low-stakes retrieval practice and a choice of engaging practice formats, should improve her unaided recall of the 9 gap words without disrupting the 11 words she already has solid.",
+      "title": "Sneaky C Sounds",
+      "activityId": "visual-explainer",
+      "gameHtmlPath": "/games/spelling-visual-explainer.html",
+      "algorithmTargets": [
+        "error-pattern-remediation",
+        "retrieval-practice"
+      ],
+      "targetSkills": [
+        "spelling_practice"
+      ],
+      "targetConcepts": [],
+      "targetWords": [
+        "circle",
+        "decided",
+        "special"
+      ],
+      "engagementHooks": [],
+      "inputEvidence": {
+        "contentFingerprint": "110db7b74070ea2e510050ad9406ff3ee343ecdfa4c0b6b2adf6e68dd53dbfd5",
+        "activityEvidenceIds": [
+          "7de120b6-7677-4007-a71b-6b9acb51b096",
+          "2af6a2bd-bedd-4adf-9436-79ffa67cd0ae",
+          "c1f43f00-8c00-417b-b21b-6c8e1e59e590",
+          "50eff663-b062-4751-a9b3-0a01d8f9b3b4:act-110db7-2:observation:1",
+          "50eff663-b062-4751-a9b3-0a01d8f9b3b4:act-110db7-2:observation:2",
+          "50eff663-b062-4751-a9b3-0a01d8f9b3b4:act-110db7-2:observation:3"
+        ]
+      },
+      "reuseStatus": "reuse",
+      "reuseReason": "Re-run on the next board: No formal prediction evaluations exist yet (predictionEvaluations=[]), so I read the raw evidence directly. Comparing her baseline discovery responses to the fresh act-110db7-6 checkpoint responses (same words, same response_mode, same instrument_ambiguous/audio_unavailable confound on both occasions, so the comparison is apples-to-apples even though automated correct/incorrect scoring failed): write rite→write, thumb thum→thumb, knock nock→knock, wrong rong→wrong, climb clim→climb, building (unattempted)→building all moved from the original error to the correct spelling unaided (e4e27dc5…, 97e8b514…, aa507c8a…, 6a44c793…, 568dac25…, ccdbd4d8… vs e5a6dd74…, a4c76bc9…, a9038ad2…, e8ebb0f9…, 66172656…, 5261abc5…). That supports the theory's core mechanism (explicit silent-letter chunking + retrieval practice) for the wr-, kn-, mb patterns and for building. However two of the nine gap words show zero movement: gnat stayed 'nat'→'nat' (f079c250… vs a85d719d…) and special stayed 'speshal'→'speshal' (2af6a2bd… vs 9ebd87f6…) — this is exactly the falsifyCriteria condition for those two items specifically. Notably, both words WERE spelled correctly during scaffolded/partial-visibility practice (Hidden Letters Practice: gnat correct 2a62e420…, special correct ef6ee7cc… at 15339ms and 3608ms response times; Monster Chase: gnat correct 0xnhjkmzv5go…, special correct mpjm8nks8k…) but reverted to the original error the moment the harder, timed, hidden-word independent checkpoint was given. Per the rule that correct practice after a long response time (gnat took 15.3s) is not effortless recall, and that partial-visibility/assisted practice success should not be read as mastery, these two words are not yet consolidated even though the explainer 'ran'. The theory holds broadly but needs revision for the gn- and ci→/sh/ sub-patterns specifically."
+    },
+    {
+      "contentId": "hw-spelling-110db7b7:act-110db7-3",
+      "childId": "demo-pashley",
+      "homeworkId": "hw-spelling-110db7b7",
+      "domain": "spelling",
+      "type": "game",
+      "source": "baseline",
+      "theoryDecisionId": "Demo-pashley already spells 11 of 20 words correctly from memory (sign, know, comb, knife, among, circle, finally, heavy, include, nothing, wheel). Her errors cluster in two specific orthographic patterns: dropped silent letters at word starts/ends (write->rite, wrong->rong, gnat->nat, knock->nock, thumb->thum, climb->clim) and soft-c confusion (decided->desided, special->speshal), plus one unattempted word (building). Explicit visual chunking instruction on these two patterns, followed by varied low-stakes retrieval practice and a choice of engaging practice formats, should improve her unaided recall of the 9 gap words without disrupting the 11 words she already has solid.",
+      "title": "Hidden Letters Practice",
+      "activityId": "word-radar",
+      "gameHtmlPath": "/homework/direct-drafts/hw-spelling-110db7b7/native-instruments/act-110db7-3.json",
+      "algorithmTargets": [
+        "retrieval-practice"
+      ],
+      "targetSkills": [
+        "spelling_practice"
+      ],
+      "targetConcepts": [],
+      "targetWords": [
+        "write",
+        "thumb",
+        "gnat",
+        "knock",
+        "wrong",
+        "climb",
+        "decided",
+        "special",
+        "building"
+      ],
+      "engagementHooks": [],
+      "inputEvidence": {
+        "contentFingerprint": "110db7b74070ea2e510050ad9406ff3ee343ecdfa4c0b6b2adf6e68dd53dbfd5",
+        "activityEvidenceIds": [
+          "99413608-f33a-49ec-9e61-efe2039f3d32",
+          "a4c76bc9-72e8-44fb-b2ac-f98942b4ce85",
+          "f079c250-63f8-473b-bf1e-99b4fef9387b",
+          "a9038ad2-1321-47ec-a9da-0be31252009e",
+          "e8ebb0f9-7b97-4917-86d1-801474e068b2",
+          "66172656-8abf-44f5-8ff1-a856b997a5d0",
+          "7de120b6-7677-4007-a71b-6b9acb51b096",
+          "2af6a2bd-bedd-4adf-9436-79ffa67cd0ae",
+          "5261abc5-cf99-40a3-87a2-5106d6e41ab8",
+          "2e599708-452d-4739-9c87-7abc04565180",
+          "b91d177b-5bdc-4bf1-a5a5-e037dbd5944b",
+          "2a62e420-c48f-42de-bd86-e793623a47da",
+          "b2e5ce8f-4659-4941-a707-78ba5d1a3640",
+          "e19c6ed1-6f8d-472a-a9ea-550f1f3d6207",
+          "00d7d371-f051-47d7-a346-69028a71d0fb",
+          "d73ec117-6a81-4d4d-bc0c-612be4c20384",
+          "ef6ee7cc-5672-4965-b644-e818fb3a148d",
+          "b376a4f8-7498-4e9f-ae48-67d8f8097a3d"
+        ]
+      },
+      "reuseStatus": "reuse",
+      "reuseReason": "Re-run on the next board: No formal prediction evaluations exist (predictionEvaluations=[]), so I compare raw evidence directly, as the prior decision did. The revised theory (r113) held that gnat (gn- pattern) and special (ci→/sh pattern) needed a second, more focused teach-plus-untimed-practice cycle before they could be fairly re-tested. That second cycle ran (Gnat & Special Practice, hw-spelling-110db7b7:b3:...-r112-step-3), and the subsequent fresh, independent, hidden-word checkpoint (hw-spelling-110db7b7:b3:...-r112-step-5) now shows both words spelled correctly unaided: gnat childResponse 'gnat' (ce059540-a2f2-49ff-82b7-388f359231ab, exposure=previously_practiced, assistance=unassisted) versus the prior reversion to 'nat', and special childResponse 'special' (7638edd8-8d33-421c-9630-40fdb06e30b4, same conditions) versus the prior reversion to 'speshal'. This directly satisfies the falsifyCriteria test for these two sub-patterns and supports the core chunking-plus-retrieval mechanism generalizing with a second repetition. All 11 originally-correct words (sign, know, comb, knife, among, circle, finally, heavy, include, nothing, wheel) also hold steady on this same checkpoint, so there is no broad fatigue cost. However, 'building' — one of the 9 gap words already fixed in the prior round and confirmed correct on three separate prior occasions (act-110db7-3 untimed practice, act-110db7-4 practice, and the first act-110db7-6 fresh checkpoint) — now reverts to 'bilding' (missing the medial u) on this latest checkpoint (0ab3f9a3-37e2-4fc9-a671-8078fffeaba3). This checkpoint used a stricter instrument than earlier ones (showTimer=true, timerSeconds=8, hideWordDuringResponse=true, whole-word input) and, like all items in this activity, carries only the generic instrument_ambiguous/audio_unavailable confound with no per-item response time captured, so I cannot tell whether this was a genuine knowledge lapse or a speed/format-pressure artifact (echoing the earlier pattern where 'write' produced many rapid wrong single-letter guesses specifically under the timed Monster Chase mechanic). Per the instruction not to infer mastery from a single instance and not to use a fixed latency threshold, I am not treating this as a new stable gap, but I am also not certifying the word set as consolidated. The theory is revised to add this caveat and target one more low-pressure check."
+    },
+    {
+      "contentId": "hw-spelling-110db7b7:act-110db7-4",
+      "childId": "demo-pashley",
+      "homeworkId": "hw-spelling-110db7b7",
+      "domain": "spelling",
+      "type": "game",
+      "source": "baseline",
+      "theoryDecisionId": "Demo-pashley already spells 11 of 20 words correctly from memory (sign, know, comb, knife, among, circle, finally, heavy, include, nothing, wheel). Her errors cluster in two specific orthographic patterns: dropped silent letters at word starts/ends (write->rite, wrong->rong, gnat->nat, knock->nock, thumb->thum, climb->clim) and soft-c confusion (decided->desided, special->speshal), plus one unattempted word (building). Explicit visual chunking instruction on these two patterns, followed by varied low-stakes retrieval practice and a choice of engaging practice formats, should improve her unaided recall of the 9 gap words without disrupting the 11 words she already has solid.",
+      "title": "Monster Chase",
+      "activityId": "monster-stampede",
+      "gameHtmlPath": "/homework/direct-drafts/hw-spelling-110db7b7/native-instruments/act-110db7-4.json",
+      "algorithmTargets": [
+        "retrieval-practice"
+      ],
+      "targetSkills": [
+        "spelling_practice"
+      ],
+      "targetConcepts": [],
+      "targetWords": [
+        "write",
+        "thumb",
+        "gnat",
+        "knock",
+        "wrong",
+        "climb",
+        "decided",
+        "special",
+        "building"
+      ],
+      "engagementHooks": [],
+      "inputEvidence": {
+        "contentFingerprint": "110db7b74070ea2e510050ad9406ff3ee343ecdfa4c0b6b2adf6e68dd53dbfd5",
+        "activityEvidenceIds": [
+          "99413608-f33a-49ec-9e61-efe2039f3d32",
+          "a4c76bc9-72e8-44fb-b2ac-f98942b4ce85",
+          "f079c250-63f8-473b-bf1e-99b4fef9387b",
+          "a9038ad2-1321-47ec-a9da-0be31252009e",
+          "e8ebb0f9-7b97-4917-86d1-801474e068b2",
+          "66172656-8abf-44f5-8ff1-a856b997a5d0",
+          "7de120b6-7677-4007-a71b-6b9acb51b096",
+          "2af6a2bd-bedd-4adf-9436-79ffa67cd0ae",
+          "5261abc5-cf99-40a3-87a2-5106d6e41ab8"
+        ]
+      },
+      "reuseStatus": "candidate",
+      "reuseReason": "Planner-selected instrument; subsequent outcomes are needed before reuse decisions."
+    },
+    {
+      "contentId": "hw-spelling-110db7b7:act-110db7-5",
+      "childId": "demo-pashley",
+      "homeworkId": "hw-spelling-110db7b7",
+      "domain": "spelling",
+      "type": "game",
+      "source": "baseline",
+      "theoryDecisionId": "Demo-pashley already spells 11 of 20 words correctly from memory (sign, know, comb, knife, among, circle, finally, heavy, include, nothing, wheel). Her errors cluster in two specific orthographic patterns: dropped silent letters at word starts/ends (write->rite, wrong->rong, gnat->nat, knock->nock, thumb->thum, climb->clim) and soft-c confusion (decided->desided, special->speshal), plus one unattempted word (building). Explicit visual chunking instruction on these two patterns, followed by varied low-stakes retrieval practice and a choice of engaging practice formats, should improve her unaided recall of the 9 gap words without disrupting the 11 words she already has solid.",
+      "title": "Word Puzzle",
+      "activityId": "wordle",
+      "gameHtmlPath": "/homework/direct-drafts/hw-spelling-110db7b7/native-instruments/act-110db7-5.json",
+      "algorithmTargets": [
+        "retrieval-practice"
+      ],
+      "targetSkills": [
+        "spelling_practice"
+      ],
+      "targetConcepts": [],
+      "targetWords": [
+        "write",
+        "thumb",
+        "gnat",
+        "knock",
+        "wrong",
+        "climb",
+        "decided",
+        "special",
+        "building"
+      ],
+      "engagementHooks": [],
+      "inputEvidence": {
+        "contentFingerprint": "110db7b74070ea2e510050ad9406ff3ee343ecdfa4c0b6b2adf6e68dd53dbfd5",
+        "activityEvidenceIds": [
+          "99413608-f33a-49ec-9e61-efe2039f3d32",
+          "a4c76bc9-72e8-44fb-b2ac-f98942b4ce85",
+          "f079c250-63f8-473b-bf1e-99b4fef9387b",
+          "a9038ad2-1321-47ec-a9da-0be31252009e",
+          "e8ebb0f9-7b97-4917-86d1-801474e068b2",
+          "66172656-8abf-44f5-8ff1-a856b997a5d0",
+          "7de120b6-7677-4007-a71b-6b9acb51b096",
+          "2af6a2bd-bedd-4adf-9436-79ffa67cd0ae",
+          "5261abc5-cf99-40a3-87a2-5106d6e41ab8"
+        ]
+      },
+      "reuseStatus": "candidate",
+      "reuseReason": "Planner-selected instrument; subsequent outcomes are needed before reuse decisions."
+    },
+    {
+      "contentId": "hw-spelling-110db7b7:act-110db7-6",
+      "childId": "demo-pashley",
+      "homeworkId": "hw-spelling-110db7b7",
+      "domain": "spelling",
+      "type": "game",
+      "source": "baseline",
+      "theoryDecisionId": "Demo-pashley already spells 11 of 20 words correctly from memory (sign, know, comb, knife, among, circle, finally, heavy, include, nothing, wheel). Her errors cluster in two specific orthographic patterns: dropped silent letters at word starts/ends (write->rite, wrong->rong, gnat->nat, knock->nock, thumb->thum, climb->clim) and soft-c confusion (decided->desided, special->speshal), plus one unattempted word (building). Explicit visual chunking instruction on these two patterns, followed by varied low-stakes retrieval practice and a choice of engaging practice formats, should improve her unaided recall of the 9 gap words without disrupting the 11 words she already has solid.",
+      "title": "Spelling Checkpoint",
+      "activityId": "word-radar",
+      "gameHtmlPath": "/homework/direct-drafts/hw-spelling-110db7b7/native-instruments/act-110db7-6.json",
+      "algorithmTargets": [
+        "retrieval-practice"
+      ],
+      "targetSkills": [
+        "spelling_practice"
+      ],
+      "targetConcepts": [],
+      "targetWords": [
+        "sign",
+        "know",
+        "write",
+        "thumb",
+        "comb",
+        "gnat",
+        "knock",
+        "knife",
+        "wrong",
+        "climb",
+        "among",
+        "building",
+        "circle",
+        "decided",
+        "finally",
+        "heavy",
+        "include",
+        "nothing",
+        "special",
+        "wheel"
+      ],
+      "engagementHooks": [],
+      "inputEvidence": {
+        "contentFingerprint": "110db7b74070ea2e510050ad9406ff3ee343ecdfa4c0b6b2adf6e68dd53dbfd5",
+        "activityEvidenceIds": [
+          "e5a6dd74-b981-46f0-b86c-0a082e29d512",
+          "e1754eb2-7191-4f3c-9411-0deb0a934237",
+          "991bda6f-9b98-4b89-a4f8-bda1eb51c5db",
+          "7a5e1afd-c373-43aa-b756-f333948eb693",
+          "d05e988f-78a8-475f-a3d7-41212d4ab164",
+          "c1f43f00-8c00-417b-b21b-6c8e1e59e590",
+          "e98d5e81-743e-463d-98d9-b544aa92d183",
+          "326d76e3-771f-4bed-b129-b28d24204bad",
+          "64f84ec6-d3f1-4e4d-bfc9-abcc46a86293",
+          "63be8b55-b1f2-4b07-8b0f-799915dcad91",
+          "318203d3-baba-4dbd-b74e-9581d56ad90e",
+          "99413608-f33a-49ec-9e61-efe2039f3d32",
+          "a4c76bc9-72e8-44fb-b2ac-f98942b4ce85",
+          "f079c250-63f8-473b-bf1e-99b4fef9387b",
+          "a9038ad2-1321-47ec-a9da-0be31252009e",
+          "e8ebb0f9-7b97-4917-86d1-801474e068b2",
+          "66172656-8abf-44f5-8ff1-a856b997a5d0",
+          "7de120b6-7677-4007-a71b-6b9acb51b096",
+          "2af6a2bd-bedd-4adf-9436-79ffa67cd0ae",
+          "5261abc5-cf99-40a3-87a2-5106d6e41ab8",
+          "e4e27dc5-39f0-4b30-ab51-01473f9339f9",
+          "3b349414-0733-4dce-ad23-013e7570ed8d",
+          "8858ba45-6b1c-49ae-ba11-c180c96f07a2",
+          "97e8b514-38b7-4460-982f-1a44213e7de8",
+          "fdada12b-111e-4db3-9e52-3563e0199537",
+          "a85d719d-4104-48a1-8eab-a4a64a4a7c29",
+          "aa507c8a-e124-4338-8916-74db3e2e0106",
+          "7242fa87-a191-48c7-ad86-d7c99f209060",
+          "6a44c793-3ff9-4a93-9362-4361d6286f5b",
+          "568dac25-e188-469a-b0d2-eddb852079d3",
+          "7dc3e7b3-6c16-4857-b573-591d96cad932",
+          "ccdbd4d8-0abd-414d-bcba-192695dfa367",
+          "0885fdd8-7f0e-46f7-90af-34ad30d2088c",
+          "d794584f-19ad-4c59-88b1-a1fc4372eb1e",
+          "7cc4a9ff-8b62-4beb-a5fb-0a92bb47ef8b",
+          "7511432c-75cb-4bb9-b627-c3cf01817e08",
+          "971cb9e2-d976-4a49-abfb-1f09bc004ffc",
+          "645ea74a-1870-4ece-9eae-17934e7e0f2a",
+          "9ebd87f6-fb1e-41e5-97c2-39d5552ed1c7",
+          "9d79dc12-2fea-47c9-9c8d-ea5700194bff"
+        ]
+      },
+      "reuseStatus": "reuse",
+      "reuseReason": "Re-run on the next board: No formal prediction evaluations exist yet (predictionEvaluations=[]), so I read the raw evidence directly. Comparing her baseline discovery responses to the fresh act-110db7-6 checkpoint responses (same words, same response_mode, same instrument_ambiguous/audio_unavailable confound on both occasions, so the comparison is apples-to-apples even though automated correct/incorrect scoring failed): write rite→write, thumb thum→thumb, knock nock→knock, wrong rong→wrong, climb clim→climb, building (unattempted)→building all moved from the original error to the correct spelling unaided (e4e27dc5…, 97e8b514…, aa507c8a…, 6a44c793…, 568dac25…, ccdbd4d8… vs e5a6dd74…, a4c76bc9…, a9038ad2…, e8ebb0f9…, 66172656…, 5261abc5…). That supports the theory's core mechanism (explicit silent-letter chunking + retrieval practice) for the wr-, kn-, mb patterns and for building. However two of the nine gap words show zero movement: gnat stayed 'nat'→'nat' (f079c250… vs a85d719d…) and special stayed 'speshal'→'speshal' (2af6a2bd… vs 9ebd87f6…) — this is exactly the falsifyCriteria condition for those two items specifically. Notably, both words WERE spelled correctly during scaffolded/partial-visibility practice (Hidden Letters Practice: gnat correct 2a62e420…, special correct ef6ee7cc… at 15339ms and 3608ms response times; Monster Chase: gnat correct 0xnhjkmzv5go…, special correct mpjm8nks8k…) but reverted to the original error the moment the harder, timed, hidden-word independent checkpoint was given. Per the rule that correct practice after a long response time (gnat took 15.3s) is not effortless recall, and that partial-visibility/assisted practice success should not be read as mastery, these two words are not yet consolidated even though the explainer 'ran'. The theory holds broadly but needs revision for the gn- and ci→/sh/ sub-patterns specifically."
+    }
+  ],
+  "updatedAt": "2026-10-24T21:58:36.462Z"
+}

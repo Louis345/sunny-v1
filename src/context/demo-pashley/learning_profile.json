@@ -1,185 +1,5278 @@
 {
- "childId": "demo-pashley",
- "version": 1,
- "createdAt": "2026-04-14T00:00:00.000Z",
- "lastUpdated": "2026-04-27T20:05:29.564Z",
- "demographics": {
-  "age": 10,
-  "grade": 4,
-  "diagnoses": [],
-  "learningStyle": "mixed",
-  "attentionSpan": "moderate",
-  "iepActive": false
- },
- "algorithmParams": {
-  "sm2": {
-   "defaultEasinessFactor": 2.5,
-   "minEasinessFactor": 1.3,
-   "intervalModifier": 1,
-   "maxNewWordsPerSession": 5,
-   "maxReviewWordsPerSession": 12
+  "childId": "demo-pashley",
+  "version": 1,
+  "createdAt": "2026-04-14T00:00:00.000Z",
+  "lastUpdated": "2026-10-24T21:58:36.447Z",
+  "demographics": {
+    "age": 10,
+    "grade": 4,
+    "diagnoses": [],
+    "learningStyle": "mixed",
+    "attentionSpan": "moderate",
+    "iepActive": false
   },
-  "difficulty": {
-   "targetAccuracy": 0.7,
-   "easyThreshold": 0.85,
-   "hardThreshold": 0.5,
-   "breakThreshold": 0.4,
-   "windowSize": 8
+  "algorithmParams": {
+    "sm2": {
+      "defaultEasinessFactor": 2.5,
+      "minEasinessFactor": 1.3,
+      "intervalModifier": 1,
+      "maxNewWordsPerSession": 5,
+      "maxReviewWordsPerSession": 12
+    },
+    "difficulty": {
+      "targetAccuracy": 0.7,
+      "easyThreshold": 0.85,
+      "hardThreshold": 0.5,
+      "breakThreshold": 0.4,
+      "windowSize": 8
+    },
+    "mastery": {
+      "gateAccuracy": 0.8,
+      "gateSessions": 3,
+      "regressionThreshold": 0.6,
+      "regressionSessions": 2
+    },
+    "interleaving": {
+      "weakestWeight": 0.5,
+      "secondWeight": 0.3,
+      "randomWeight": 0.2,
+      "minTypeExposure": 0.15
+    }
   },
-  "mastery": {
-   "gateAccuracy": 0.8,
-   "gateSessions": 3,
-   "regressionThreshold": 0.6,
-   "regressionSessions": 2
+  "bondPatterns": {
+    "topics": [],
+    "bondStyle": "unknown",
+    "averageBondTurns": 3,
+    "lastBondQuality": "moderate",
+    "topicFrequency": {}
   },
-  "interleaving": {
-   "weakestWeight": 0.5,
-   "secondWeight": 0.3,
-   "randomWeight": 0.2,
-   "minTypeExposure": 0.15
-  }
- },
- "bondPatterns": {
-  "topics": [],
-  "bondStyle": "unknown",
-  "averageBondTurns": 3,
-  "lastBondQuality": "moderate",
-  "topicFrequency": {}
- },
- "moodHistory": [
-  {
-   "date": "2026-04-26T15:23:51.321Z",
-   "startMood": "neutral",
-   "endMood": "neutral",
-   "bondQuality": "moderate",
-   "sessionAccuracy": 0,
-   "notableSignals": []
-  },
-  {
-   "date": "2026-04-26T15:27:12.244Z",
-   "startMood": "neutral",
-   "endMood": "neutral",
-   "bondQuality": "moderate",
-   "sessionAccuracy": 0,
-   "notableSignals": []
-  },
-  {
-   "date": "2026-04-26T15:35:05.716Z",
-   "startMood": "neutral",
-   "endMood": "neutral",
-   "bondQuality": "moderate",
-   "sessionAccuracy": 0,
-   "notableSignals": []
-  },
-  {
-   "date": "2026-04-26T15:35:28.872Z",
-   "startMood": "neutral",
-   "endMood": "neutral",
-   "bondQuality": "moderate",
-   "sessionAccuracy": 0,
-   "notableSignals": []
-  },
-  {
-   "date": "2026-04-26T15:50:55.526Z",
-   "startMood": "neutral",
-   "endMood": "neutral",
-   "bondQuality": "moderate",
-   "sessionAccuracy": 0,
-   "notableSignals": []
-  },
-  {
-   "date": "2026-04-27T00:56:37.419Z",
-   "startMood": "neutral",
-   "endMood": "neutral",
-   "bondQuality": "moderate",
-   "sessionAccuracy": 0,
-   "notableSignals": []
-  },
-  {
-   "date": "2026-04-27T15:12:03.849Z",
-   "startMood": "neutral",
-   "endMood": "neutral",
-   "bondQuality": "moderate",
-   "sessionAccuracy": 0,
-   "notableSignals": []
-  },
-  {
-   "date": "2026-04-27T16:23:14.129Z",
-   "startMood": "neutral",
-   "endMood": "neutral",
-   "bondQuality": "moderate",
-   "sessionAccuracy": 0,
-   "notableSignals": []
-  },
-  {
-   "date": "2026-04-27T17:06:39.862Z",
-   "startMood": "neutral",
-   "endMood": "neutral",
-   "bondQuality": "moderate",
-   "sessionAccuracy": 0,
-   "notableSignals": []
-  },
-  {
-   "date": "2026-04-27T20:05:29.560Z",
-   "startMood": "neutral",
-   "endMood": "neutral",
-   "bondQuality": "moderate",
-   "sessionAccuracy": 0,
-   "notableSignals": []
-  }
- ],
- "moodTrend": "stable",
- "moodAdjustment": false,
- "iepTargets": [],
- "readingProfile": {
-  "currentReadingLevel": "CVC",
-  "averageReadingAccuracy": 0,
-  "comprehensionAccuracy": 0,
-  "flaggedPatterns": [],
-  "storiesCompleted": 0,
-  "fontSize": 36,
-  "lineHeight": 2,
-  "fontFamily": "Lexend",
-  "background": "#FFF8F0",
-  "wordsPerLine": 8,
-  "highlightColor": "#1a56db",
-  "highlightBackground": "#dbeafe",
-  "dyslexiaMode": false
- },
- "sessionStats": {
-  "totalSessions": 13,
-  "averageAccuracy": 0,
-  "averageDurationMinutes": 0,
-  "currentWilsonStep": 1,
-  "streakRecord": 0,
-  "totalWordsMastered": 0,
-  "perfectSessions": 0,
-  "lastSessionDate": "2026-04-27T20:05:29.560Z"
- },
- "rewardPreferences": {
-  "favoriteGames": [
-   "space",
-   "animals",
-   "adventure"
+  "moodHistory": [
+    {
+      "date": "2026-04-26T15:23:51.321Z",
+      "startMood": "neutral",
+      "endMood": "neutral",
+      "bondQuality": "moderate",
+      "sessionAccuracy": 0,
+      "notableSignals": []
+    },
+    {
+      "date": "2026-04-26T15:27:12.244Z",
+      "startMood": "neutral",
+      "endMood": "neutral",
+      "bondQuality": "moderate",
+      "sessionAccuracy": 0,
+      "notableSignals": []
+    },
+    {
+      "date": "2026-04-26T15:35:05.716Z",
+      "startMood": "neutral",
+      "endMood": "neutral",
+      "bondQuality": "moderate",
+      "sessionAccuracy": 0,
+      "notableSignals": []
+    },
+    {
+      "date": "2026-04-26T15:35:28.872Z",
+      "startMood": "neutral",
+      "endMood": "neutral",
+      "bondQuality": "moderate",
+      "sessionAccuracy": 0,
+      "notableSignals": []
+    },
+    {
+      "date": "2026-04-26T15:50:55.526Z",
+      "startMood": "neutral",
+      "endMood": "neutral",
+      "bondQuality": "moderate",
+      "sessionAccuracy": 0,
+      "notableSignals": []
+    },
+    {
+      "date": "2026-04-27T00:56:37.419Z",
+      "startMood": "neutral",
+      "endMood": "neutral",
+      "bondQuality": "moderate",
+      "sessionAccuracy": 0,
+      "notableSignals": []
+    },
+    {
+      "date": "2026-04-27T15:12:03.849Z",
+      "startMood": "neutral",
+      "endMood": "neutral",
+      "bondQuality": "moderate",
+      "sessionAccuracy": 0,
+      "notableSignals": []
+    },
+    {
+      "date": "2026-04-27T16:23:14.129Z",
+      "startMood": "neutral",
+      "endMood": "neutral",
+      "bondQuality": "moderate",
+      "sessionAccuracy": 0,
+      "notableSignals": []
+    },
+    {
+      "date": "2026-04-27T17:06:39.862Z",
+      "startMood": "neutral",
+      "endMood": "neutral",
+      "bondQuality": "moderate",
+      "sessionAccuracy": 0,
+      "notableSignals": []
+    },
+    {
+      "date": "2026-04-27T20:05:29.560Z",
+      "startMood": "neutral",
+      "endMood": "neutral",
+      "bondQuality": "moderate",
+      "sessionAccuracy": 0,
+      "notableSignals": []
+    }
   ],
-  "celebrationStyle": "mixed",
-  "bonusRoundHistory": {
-   "triggered": 0,
-   "correct": 0
-  }
- },
- "companion": {
-  "sensitivity": {
-   "session_start": 0.8,
-   "correct_answer": 0.8,
-   "wrong_answer": 0.6,
-   "mastery_unlock": 1,
-   "session_end": 0.8,
-   "idle_too_long": 0.4
+  "moodTrend": "stable",
+  "moodAdjustment": false,
+  "iepTargets": [],
+  "readingProfile": {
+    "currentReadingLevel": "CVC",
+    "averageReadingAccuracy": 0,
+    "comprehensionAccuracy": 0,
+    "flaggedPatterns": [],
+    "storiesCompleted": 0,
+    "fontSize": 36,
+    "lineHeight": 2,
+    "fontFamily": "Lexend",
+    "background": "#FFF8F0",
+    "wordsPerLine": 8,
+    "highlightColor": "#1a56db",
+    "highlightBackground": "#dbeafe",
+    "dyslexiaMode": false
   },
-  "idleFrequency_ms": 45000,
-  "randomMomentProbability": 0.3,
-  "toggledOff": false
- },
- "name": "Demo"
+  "sessionStats": {
+    "totalSessions": 20,
+    "averageAccuracy": 0,
+    "averageDurationMinutes": 0,
+    "currentWilsonStep": 1,
+    "streakRecord": 0,
+    "totalWordsMastered": 0,
+    "perfectSessions": 0,
+    "lastSessionDate": "2026-10-24T21:58:36.433Z",
+    "accuracySessionCount": 13
+  },
+  "rewardPreferences": {
+    "favoriteGames": [
+      "space",
+      "animals",
+      "adventure"
+    ],
+    "celebrationStyle": "mixed",
+    "bonusRoundHistory": {
+      "triggered": 0,
+      "correct": 0
+    }
+  },
+  "companion": {
+    "sensitivity": {
+      "session_start": 0.8,
+      "correct_answer": 0.8,
+      "wrong_answer": 0.6,
+      "mastery_unlock": 1,
+      "session_end": 0.8,
+      "idle_too_long": 0.4
+    },
+    "idleFrequency_ms": 45000,
+    "randomMomentProbability": 0.3,
+    "toggledOff": false
+  },
+  "name": "Demo",
+  "pendingHomework": {
+    "homeworkId": "hw-spelling-110db7b7",
+    "weekOf": "2026-10-24",
+    "testDate": null,
+    "returnTag": "#sunny_demo-pashley_hw-spelling-110db7b7",
+    "wordList": [
+      "sign",
+      "know",
+      "write",
+      "thumb",
+      "comb",
+      "gnat",
+      "knock",
+      "knife",
+      "wrong",
+      "climb",
+      "among",
+      "building",
+      "circle",
+      "decided",
+      "finally",
+      "heavy",
+      "include",
+      "nothing",
+      "special",
+      "wheel"
+    ],
+    "contentProfile": {
+      "practiceDomain": "spelling",
+      "topic": "Benchmark Advance Spelling – Unit 9 Week 3"
+    },
+    "capturedContent": {
+      "title": "Benchmark Advance Spelling – Unit 9 Week 3",
+      "rawText": "Discovery evidence pending."
+    },
+    "generatedAt": "2026-10-24T18:57:21.614Z",
+    "nodes": [
+      {
+        "id": "hw-spelling-110db7b7:discovery",
+        "type": "word-radar",
+        "activityId": "word-radar",
+        "title": "Spelling Discovery",
+        "targets": [
+          "sign",
+          "know",
+          "write",
+          "thumb",
+          "comb",
+          "gnat",
+          "knock",
+          "knife",
+          "wrong",
+          "climb",
+          "among",
+          "building",
+          "circle",
+          "decided",
+          "finally",
+          "heavy",
+          "include",
+          "nothing",
+          "special",
+          "wheel"
+        ],
+        "difficulty": 1,
+        "source": "chart_planner",
+        "locked": false,
+        "targetLane": "independent_discovery",
+        "contentId": "hw-spelling-110db7b7:discovery",
+        "wordRadarConfig": {
+          "recallMode": "hidden_word_recall",
+          "inputMode": "keyboard",
+          "speakStyle": "option-b",
+          "showTimer": false,
+          "hideWordDuringResponse": true,
+          "requiresCapturedResponse": true
+        }
+      }
+    ]
+  },
+  "activeSessionPlan": {
+    "planId": "learning-cycle:hw-spelling-110db7b7:r35",
+    "childId": "demo-pashley",
+    "createdAt": "2026-10-24T18:57:20.222Z",
+    "source": "ingest_human_loop",
+    "activeHomeworkId": "hw-spelling-110db7b7",
+    "domain": "spelling",
+    "testDate": null,
+    "nodePlan": [
+      {
+        "id": "act-110db7-1",
+        "type": "visual-explainer",
+        "activityId": "visual-explainer",
+        "targets": [
+          "write",
+          "wrong",
+          "gnat",
+          "knock",
+          "thumb",
+          "climb"
+        ],
+        "difficulty": 1,
+        "source": "chart_planner",
+        "targetLane": "spelling_practice",
+        "locked": false,
+        "masteryUnlockState": "unlocked",
+        "title": "Silent Letter Detectives",
+        "theoryId": "Demo-pashley already spells 11 of 20 words correctly from memory (sign, know, comb, knife, among, circle, finally, heavy, include, nothing, wheel). Her errors cluster in two specific orthographic patterns: dropped silent letters at word starts/ends (write->rite, wrong->rong, gnat->nat, knock->nock, thumb->thum, climb->clim) and soft-c confusion (decided->desided, special->speshal), plus one unattempted word (building). Explicit visual chunking instruction on these two patterns, followed by varied low-stakes retrieval practice and a choice of engaging practice formats, should improve her unaided recall of the 9 gap words without disrupting the 11 words she already has solid.",
+        "experimentId": "hw-spelling-110db7b7:experiment:act-110db7-1",
+        "contentId": "hw-spelling-110db7b7:act-110db7-1",
+        "mechanic": "visual-explainer",
+        "theme": "learning adventure",
+        "sfxProfile": "tap-correct-incorrect-progress-complete",
+        "companionPolicy": "cycle-contract",
+        "gameHtmlPath": "/games/spelling-visual-explainer.html",
+        "date": "hw-spelling-110db7b7",
+        "activityConfigPath": "/api/activity-config/demo-pashley/hw-spelling-110db7b7/act-110db7-1-4eaa6797.json",
+        "thumbnailUrl": "/thumbnails/activities/visual-explainer.svg"
+      },
+      {
+        "id": "act-110db7-2",
+        "type": "visual-explainer",
+        "activityId": "visual-explainer",
+        "targets": [
+          "circle",
+          "decided",
+          "special"
+        ],
+        "difficulty": 1,
+        "source": "chart_planner",
+        "targetLane": "spelling_practice",
+        "locked": false,
+        "masteryUnlockState": "unlocked",
+        "title": "Sneaky C Sounds",
+        "theoryId": "Demo-pashley already spells 11 of 20 words correctly from memory (sign, know, comb, knife, among, circle, finally, heavy, include, nothing, wheel). Her errors cluster in two specific orthographic patterns: dropped silent letters at word starts/ends (write->rite, wrong->rong, gnat->nat, knock->nock, thumb->thum, climb->clim) and soft-c confusion (decided->desided, special->speshal), plus one unattempted word (building). Explicit visual chunking instruction on these two patterns, followed by varied low-stakes retrieval practice and a choice of engaging practice formats, should improve her unaided recall of the 9 gap words without disrupting the 11 words she already has solid.",
+        "experimentId": "hw-spelling-110db7b7:experiment:act-110db7-2",
+        "contentId": "hw-spelling-110db7b7:act-110db7-2",
+        "mechanic": "visual-explainer",
+        "theme": "learning adventure",
+        "sfxProfile": "tap-correct-incorrect-progress-complete",
+        "companionPolicy": "cycle-contract",
+        "gameHtmlPath": "/games/spelling-visual-explainer.html",
+        "date": "hw-spelling-110db7b7",
+        "activityConfigPath": "/api/activity-config/demo-pashley/hw-spelling-110db7b7/act-110db7-2-29c6a77d.json",
+        "thumbnailUrl": "/thumbnails/activities/visual-explainer.svg"
+      },
+      {
+        "id": "act-110db7-3",
+        "type": "word-radar",
+        "activityId": "word-radar",
+        "targets": [
+          "write",
+          "thumb",
+          "gnat",
+          "knock",
+          "wrong",
+          "climb",
+          "decided",
+          "special",
+          "building"
+        ],
+        "difficulty": 1,
+        "source": "chart_planner",
+        "targetLane": "spelling_practice",
+        "locked": false,
+        "masteryUnlockState": "unlocked",
+        "title": "Hidden Letters Practice",
+        "theoryId": "Demo-pashley already spells 11 of 20 words correctly from memory (sign, know, comb, knife, among, circle, finally, heavy, include, nothing, wheel). Her errors cluster in two specific orthographic patterns: dropped silent letters at word starts/ends (write->rite, wrong->rong, gnat->nat, knock->nock, thumb->thum, climb->clim) and soft-c confusion (decided->desided, special->speshal), plus one unattempted word (building). Explicit visual chunking instruction on these two patterns, followed by varied low-stakes retrieval practice and a choice of engaging practice formats, should improve her unaided recall of the 9 gap words without disrupting the 11 words she already has solid.",
+        "experimentId": "hw-spelling-110db7b7:experiment:act-110db7-3",
+        "contentId": "hw-spelling-110db7b7:act-110db7-3",
+        "mechanic": "word-radar",
+        "theme": "learning adventure",
+        "sfxProfile": "tap-correct-incorrect-progress-complete",
+        "companionPolicy": "cycle-contract",
+        "gameHtmlPath": "/homework/direct-drafts/hw-spelling-110db7b7/native-instruments/act-110db7-3.json",
+        "date": "hw-spelling-110db7b7",
+        "activityConfigPath": "/api/activity-config/demo-pashley/hw-spelling-110db7b7/act-110db7-3-90cdc1ca.json",
+        "wordRadarConfig": {
+          "recallMode": "partial_visual_recall",
+          "inputMode": "letter-by-letter",
+          "speakStyle": "option-a",
+          "showTimer": false,
+          "hideWordDuringResponse": true,
+          "requiresCapturedResponse": true
+        },
+        "thumbnailUrl": "/thumbnails/activities/word-radar.svg"
+      },
+      {
+        "id": "act-110db7-4",
+        "type": "monster-stampede",
+        "activityId": "monster-stampede",
+        "targets": [
+          "write",
+          "thumb",
+          "gnat",
+          "knock",
+          "wrong",
+          "climb",
+          "decided",
+          "special",
+          "building"
+        ],
+        "difficulty": 1,
+        "source": "chart_planner",
+        "targetLane": "spelling_practice",
+        "locked": false,
+        "masteryUnlockState": "unlocked",
+        "title": "Monster Chase",
+        "theoryId": "Demo-pashley already spells 11 of 20 words correctly from memory (sign, know, comb, knife, among, circle, finally, heavy, include, nothing, wheel). Her errors cluster in two specific orthographic patterns: dropped silent letters at word starts/ends (write->rite, wrong->rong, gnat->nat, knock->nock, thumb->thum, climb->clim) and soft-c confusion (decided->desided, special->speshal), plus one unattempted word (building). Explicit visual chunking instruction on these two patterns, followed by varied low-stakes retrieval practice and a choice of engaging practice formats, should improve her unaided recall of the 9 gap words without disrupting the 11 words she already has solid.",
+        "experimentId": "hw-spelling-110db7b7:experiment:act-110db7-4",
+        "contentId": "hw-spelling-110db7b7:act-110db7-4",
+        "mechanic": "monster-stampede",
+        "theme": "learning adventure",
+        "sfxProfile": "tap-correct-incorrect-progress-complete",
+        "companionPolicy": "cycle-contract",
+        "gameHtmlPath": "/homework/direct-drafts/hw-spelling-110db7b7/native-instruments/act-110db7-4.json",
+        "date": "hw-spelling-110db7b7",
+        "thumbnailUrl": "/thumbnails/activities/monster-stampede.svg"
+      },
+      {
+        "id": "act-110db7-5",
+        "type": "wordle",
+        "activityId": "wordle",
+        "targets": [
+          "write",
+          "thumb",
+          "gnat",
+          "knock",
+          "wrong",
+          "climb",
+          "decided",
+          "special",
+          "building"
+        ],
+        "difficulty": 1,
+        "source": "chart_planner",
+        "targetLane": "spelling_practice",
+        "locked": false,
+        "masteryUnlockState": "unlocked",
+        "title": "Word Puzzle",
+        "theoryId": "Demo-pashley already spells 11 of 20 words correctly from memory (sign, know, comb, knife, among, circle, finally, heavy, include, nothing, wheel). Her errors cluster in two specific orthographic patterns: dropped silent letters at word starts/ends (write->rite, wrong->rong, gnat->nat, knock->nock, thumb->thum, climb->clim) and soft-c confusion (decided->desided, special->speshal), plus one unattempted word (building). Explicit visual chunking instruction on these two patterns, followed by varied low-stakes retrieval practice and a choice of engaging practice formats, should improve her unaided recall of the 9 gap words without disrupting the 11 words she already has solid.",
+        "experimentId": "hw-spelling-110db7b7:experiment:act-110db7-5",
+        "contentId": "hw-spelling-110db7b7:act-110db7-5",
+        "mechanic": "wordle",
+        "theme": "learning adventure",
+        "sfxProfile": "tap-correct-incorrect-progress-complete",
+        "companionPolicy": "cycle-contract",
+        "gameHtmlPath": "/homework/direct-drafts/hw-spelling-110db7b7/native-instruments/act-110db7-5.json",
+        "date": "hw-spelling-110db7b7",
+        "thumbnailUrl": "/thumbnails/activities/wordle.svg"
+      },
+      {
+        "id": "act-110db7-6",
+        "type": "word-radar",
+        "activityId": "word-radar",
+        "targets": [
+          "sign",
+          "know",
+          "write",
+          "thumb",
+          "comb",
+          "gnat",
+          "knock",
+          "knife",
+          "wrong",
+          "climb",
+          "among",
+          "building",
+          "circle",
+          "decided",
+          "finally",
+          "heavy",
+          "include",
+          "nothing",
+          "special",
+          "wheel"
+        ],
+        "difficulty": 1,
+        "source": "chart_planner",
+        "targetLane": "spelling_practice",
+        "locked": false,
+        "masteryUnlockState": "unlocked",
+        "title": "Spelling Checkpoint",
+        "theoryId": "Demo-pashley already spells 11 of 20 words correctly from memory (sign, know, comb, knife, among, circle, finally, heavy, include, nothing, wheel). Her errors cluster in two specific orthographic patterns: dropped silent letters at word starts/ends (write->rite, wrong->rong, gnat->nat, knock->nock, thumb->thum, climb->clim) and soft-c confusion (decided->desided, special->speshal), plus one unattempted word (building). Explicit visual chunking instruction on these two patterns, followed by varied low-stakes retrieval practice and a choice of engaging practice formats, should improve her unaided recall of the 9 gap words without disrupting the 11 words she already has solid.",
+        "experimentId": "hw-spelling-110db7b7:experiment:act-110db7-6",
+        "contentId": "hw-spelling-110db7b7:act-110db7-6",
+        "mechanic": "word-radar",
+        "theme": "learning adventure",
+        "sfxProfile": "tap-correct-incorrect-progress-complete",
+        "companionPolicy": "cycle-contract",
+        "gameHtmlPath": "/homework/direct-drafts/hw-spelling-110db7b7/native-instruments/act-110db7-6.json",
+        "date": "hw-spelling-110db7b7",
+        "activityConfigPath": "/api/activity-config/demo-pashley/hw-spelling-110db7b7/act-110db7-6-95cb7379.json",
+        "wordRadarConfig": {
+          "recallMode": "hidden_word_recall",
+          "inputMode": "whole-word",
+          "speakStyle": "option-b",
+          "showTimer": true,
+          "timerSeconds": 8,
+          "hideWordDuringResponse": true,
+          "requiresCapturedResponse": true
+        },
+        "thumbnailUrl": "/thumbnails/activities/word-radar.svg"
+      }
+    ],
+    "variationPolicy": {
+      "avoidExactPreviousNodeOrder": true,
+      "avoidExactPreviousWordOrder": true,
+      "seed": "110db7b74070",
+      "previousCompletedNodeCount": 0
+    },
+    "companionPolicy": {
+      "companionId": "elli",
+      "displayName": "Elli",
+      "openingLinePolicy": "context_start_short",
+      "verbosity": "low",
+      "maxMicroProbes": 1
+    },
+    "evidenceUsed": [
+      {
+        "id": "assignment:110db7b74070ea2e510050ad9406ff3ee343ecdfa4c0b6b2adf6e68dd53dbfd5",
+        "type": "captured_assignment",
+        "summary": "Canonical cycle evidence assignment:110db7b74070ea2e510050ad9406ff3ee343ecdfa4c0b6b2adf6e68dd53dbfd5"
+      }
+    ],
+    "openQuestions": [],
+    "approvalStatus": "approved",
+    "planTheory": {
+      "hypothesis": "Demo-pashley already spells 11 of 20 words correctly from memory (sign, know, comb, knife, among, circle, finally, heavy, include, nothing, wheel). Her errors cluster in two specific orthographic patterns: dropped silent letters at word starts/ends (write->rite, wrong->rong, gnat->nat, knock->nock, thumb->thum, climb->clim) and soft-c confusion (decided->desided, special->speshal), plus one unattempted word (building). Explicit visual chunking instruction on these two patterns, followed by varied low-stakes retrieval practice and a choice of engaging practice formats, should improve her unaided recall of the 9 gap words without disrupting the 11 words she already has solid.",
+      "evidenceSummary": [
+        "hw-spelling-110db7b7:discovery:0b6f395ca14ac202: instrument_ambiguous; assistance=unassisted; exposure=unseen.",
+        "hw-spelling-110db7b7:discovery:cd1bb3012bcfaa0c: instrument_ambiguous; assistance=unassisted; exposure=unseen.",
+        "hw-spelling-110db7b7:discovery:10fd874b68dad080: instrument_ambiguous; assistance=unassisted; exposure=unseen.",
+        "hw-spelling-110db7b7:discovery:05eeec2d70845694: instrument_ambiguous; assistance=unassisted; exposure=unseen.",
+        "hw-spelling-110db7b7:discovery:ef4e3f5079838746: instrument_ambiguous; assistance=unassisted; exposure=unseen.",
+        "hw-spelling-110db7b7:discovery:6d0ed7a7e79fbdcd: instrument_ambiguous; assistance=unassisted; exposure=unseen.",
+        "hw-spelling-110db7b7:discovery:392245974134021a: instrument_ambiguous; assistance=unassisted; exposure=unseen.",
+        "hw-spelling-110db7b7:discovery:3d4d101cd7ea9e5e: instrument_ambiguous; assistance=unassisted; exposure=unseen.",
+        "hw-spelling-110db7b7:discovery:8810ad581e59f2bc: instrument_ambiguous; assistance=unassisted; exposure=unseen.",
+        "hw-spelling-110db7b7:discovery:d73d3e7a7e1d1816: instrument_ambiguous; assistance=unassisted; exposure=unseen.",
+        "hw-spelling-110db7b7:discovery:766c1d13a3e06c4d: instrument_ambiguous; assistance=unassisted; exposure=unseen.",
+        "hw-spelling-110db7b7:discovery:5167e9677e1fbc50: instrument_ambiguous; assistance=unassisted; exposure=unseen.",
+        "hw-spelling-110db7b7:discovery:8a39178d327e72a9: instrument_ambiguous; assistance=unassisted; exposure=unseen.",
+        "hw-spelling-110db7b7:discovery:8d3c6686ec306db5: instrument_ambiguous; assistance=unassisted; exposure=unseen.",
+        "hw-spelling-110db7b7:discovery:205c3e16c66ff0b8: instrument_ambiguous; assistance=unassisted; exposure=unseen.",
+        "hw-spelling-110db7b7:discovery:22d5925ed64680ab: instrument_ambiguous; assistance=unassisted; exposure=unseen.",
+        "hw-spelling-110db7b7:discovery:c0cbff04cc90f5b4: instrument_ambiguous; assistance=unassisted; exposure=unseen.",
+        "hw-spelling-110db7b7:discovery:1785cfc3bc6ac773: instrument_ambiguous; assistance=unassisted; exposure=unseen.",
+        "hw-spelling-110db7b7:discovery:7d4c5c8894e016e7: instrument_ambiguous; assistance=unassisted; exposure=unseen.",
+        "hw-spelling-110db7b7:discovery:ba59926159d2aa25: instrument_ambiguous; assistance=unassisted; exposure=unseen."
+      ],
+      "intervention": "Follow the canonical learning-cycle node contracts.",
+      "supportCriteria": [
+        "Checkpoint accuracy on the 9 gap words rises above her original homework attempt.",
+        "She answers both explainer check questions correctly.",
+        "Accuracy on the 11 already-correct words holds steady at the checkpoint, showing no fatigue cost."
+      ],
+      "reviseCriteria": [
+        "Checkpoint accuracy on the gap words is flat or only marginally improved, suggesting the explainers need more repetition or a different modality.",
+        "She struggles with explainer check questions, indicating the chunking strategy itself needs adjustment.",
+        "Accuracy on previously correct words drops, suggesting session length or sequencing needs change."
+      ],
+      "falsifyCriteria": [
+        "If checkpoint accuracy on the 9 gap words matches or falls below her original homework attempt, this teaching sequence did not produce measurable improvement on the targeted patterns."
+      ]
+    },
+    "adventureBoard": {
+      "schemaVersion": 1,
+      "definition": {
+        "version": 2,
+        "title": "Silent Letters & Sneaky C Spelling Quest",
+        "rationale": "Pick how you want to practice your tricky words!",
+        "rootPathId": "root",
+        "portals": [
+          {
+            "id": "start",
+            "label": "Start",
+            "kind": "start",
+            "position": {
+              "landscape": {
+                "x": 0.05,
+                "y": 0.5
+              },
+              "portrait": {
+                "x": 0.5,
+                "y": 0.05
+              }
+            }
+          },
+          {
+            "id": "p:act-110db7-1",
+            "label": "Silent Letter Detectives",
+            "kind": "activity",
+            "activityNodeId": "act-110db7-1",
+            "position": {
+              "landscape": {
+                "x": 0.17,
+                "y": 0.18
+              },
+              "portrait": {
+                "x": 0.25,
+                "y": 0.14
+              }
+            }
+          },
+          {
+            "id": "p:act-110db7-2",
+            "label": "Sneaky C Sounds",
+            "kind": "activity",
+            "activityNodeId": "act-110db7-2",
+            "position": {
+              "landscape": {
+                "x": 0.3,
+                "y": 0.5
+              },
+              "portrait": {
+                "x": 0.75,
+                "y": 0.22
+              }
+            }
+          },
+          {
+            "id": "p:act-110db7-3",
+            "label": "Hidden Letters Practice",
+            "kind": "activity",
+            "activityNodeId": "act-110db7-3",
+            "position": {
+              "landscape": {
+                "x": 0.43,
+                "y": 0.18
+              },
+              "portrait": {
+                "x": 0.25,
+                "y": 0.32
+              }
+            }
+          },
+          {
+            "id": "p:option-1:act-110db7-4",
+            "label": "Monster Chase",
+            "kind": "activity",
+            "activityNodeId": "act-110db7-4",
+            "position": {
+              "landscape": {
+                "x": 0.69,
+                "y": 0.16
+              },
+              "portrait": {
+                "x": 0.78,
+                "y": 0.54
+              }
+            }
+          },
+          {
+            "id": "p:option-2:act-110db7-5",
+            "label": "Word Puzzle",
+            "kind": "activity",
+            "activityNodeId": "act-110db7-5",
+            "position": {
+              "landscape": {
+                "x": 0.69,
+                "y": 0.84
+              },
+              "portrait": {
+                "x": 0.22,
+                "y": 0.54
+              }
+            }
+          },
+          {
+            "id": "choice",
+            "label": "Choose Your Practice",
+            "kind": "choice",
+            "position": {
+              "landscape": {
+                "x": 0.56,
+                "y": 0.5
+              },
+              "portrait": {
+                "x": 0.5,
+                "y": 0.42
+              }
+            }
+          },
+          {
+            "id": "p:act-110db7-6",
+            "label": "Spelling Checkpoint",
+            "kind": "activity",
+            "activityNodeId": "act-110db7-6",
+            "position": {
+              "landscape": {
+                "x": 0.84,
+                "y": 0.5
+              },
+              "portrait": {
+                "x": 0.5,
+                "y": 0.68
+              }
+            }
+          },
+          {
+            "id": "end",
+            "label": "Spelling Mastery Gate",
+            "kind": "endpoint",
+            "position": {
+              "landscape": {
+                "x": 0.95,
+                "y": 0.2
+              },
+              "portrait": {
+                "x": 0.5,
+                "y": 0.86
+              }
+            }
+          }
+        ],
+        "paths": [
+          {
+            "id": "root",
+            "portalIds": [
+              "start",
+              "p:act-110db7-1",
+              "p:act-110db7-2",
+              "p:act-110db7-3",
+              "choice",
+              "p:act-110db7-6",
+              "end"
+            ]
+          },
+          {
+            "id": "option:option-1",
+            "portalIds": [
+              "p:option-1:act-110db7-4"
+            ]
+          },
+          {
+            "id": "option:option-2",
+            "portalIds": [
+              "p:option-2:act-110db7-5"
+            ]
+          }
+        ],
+        "choices": [
+          {
+            "id": "choice",
+            "portalId": "choice",
+            "purpose": "Pick how you want to practice your tricky words!",
+            "options": [
+              {
+                "id": "option-1",
+                "label": "Monster Chase",
+                "pathId": "option:option-1",
+                "hypothesis": "Fast arcade movement with gentle misses and streak rewards may suit a child who engages well with speed and competition."
+              },
+              {
+                "id": "option-2",
+                "label": "Word Puzzle",
+                "pathId": "option:option-2",
+                "hypothesis": "A slower logic puzzle with letter-position feedback may suit a child who likes reasoning through patterns step by step."
+              }
+            ]
+          }
+        ],
+        "edges": [
+          {
+            "id": "connection:start:p%3Aact-110db7-1",
+            "from": "start",
+            "to": "p:act-110db7-1",
+            "style": "solid",
+            "controlPoints": {
+              "landscape": [
+                {
+                  "x": 0.12,
+                  "y": 0.453
+                },
+                {
+                  "x": 0.126,
+                  "y": 0.383
+                },
+                {
+                  "x": 0.094,
+                  "y": 0.297
+                },
+                {
+                  "x": 0.1,
+                  "y": 0.227
+                }
+              ],
+              "portrait": [
+                {
+                  "x": 0.437,
+                  "y": 0.032
+                },
+                {
+                  "x": 0.392,
+                  "y": 0.064
+                },
+                {
+                  "x": 0.358,
+                  "y": 0.126
+                },
+                {
+                  "x": 0.313,
+                  "y": 0.158
+                }
+              ]
+            }
+          },
+          {
+            "id": "connection:p%3Aact-110db7-1:p%3Aact-110db7-2",
+            "from": "p:act-110db7-1",
+            "to": "p:act-110db7-2",
+            "style": "solid",
+            "controlPoints": {
+              "landscape": [
+                {
+                  "x": 0.15,
+                  "y": 0.263
+                },
+                {
+                  "x": 0.194,
+                  "y": 0.319
+                },
+                {
+                  "x": 0.276,
+                  "y": 0.361
+                },
+                {
+                  "x": 0.32,
+                  "y": 0.417
+                }
+              ],
+              "portrait": [
+                {
+                  "x": 0.339,
+                  "y": 0.227
+                },
+                {
+                  "x": 0.443,
+                  "y": 0.216
+                },
+                {
+                  "x": 0.557,
+                  "y": 0.144
+                },
+                {
+                  "x": 0.661,
+                  "y": 0.133
+                }
+              ]
+            }
+          },
+          {
+            "id": "connection:p%3Aact-110db7-2:p%3Aact-110db7-3",
+            "from": "p:act-110db7-2",
+            "to": "p:act-110db7-3",
+            "style": "solid",
+            "controlPoints": {
+              "landscape": [
+                {
+                  "x": 0.372,
+                  "y": 0.455
+                },
+                {
+                  "x": 0.38,
+                  "y": 0.383
+                },
+                {
+                  "x": 0.35,
+                  "y": 0.297
+                },
+                {
+                  "x": 0.358,
+                  "y": 0.225
+                }
+              ],
+              "portrait": [
+                {
+                  "x": 0.636,
+                  "y": 0.169
+                },
+                {
+                  "x": 0.541,
+                  "y": 0.216
+                },
+                {
+                  "x": 0.459,
+                  "y": 0.324
+                },
+                {
+                  "x": 0.364,
+                  "y": 0.371
+                }
+              ]
+            }
+          },
+          {
+            "id": "connection:p%3Aact-110db7-3:choice",
+            "from": "p:act-110db7-3",
+            "to": "choice",
+            "style": "solid",
+            "controlPoints": {
+              "landscape": [
+                {
+                  "x": 0.41,
+                  "y": 0.263
+                },
+                {
+                  "x": 0.454,
+                  "y": 0.319
+                },
+                {
+                  "x": 0.536,
+                  "y": 0.361
+                },
+                {
+                  "x": 0.58,
+                  "y": 0.417
+                }
+              ],
+              "portrait": [
+                {
+                  "x": 0.286,
+                  "y": 0.376
+                },
+                {
+                  "x": 0.341,
+                  "y": 0.382
+                },
+                {
+                  "x": 0.409,
+                  "y": 0.358
+                },
+                {
+                  "x": 0.464,
+                  "y": 0.364
+                }
+              ]
+            }
+          },
+          {
+            "id": "connection:choice:p%3Aoption-1%3Aact-110db7-4",
+            "from": "choice",
+            "to": "p:option-1:act-110db7-4",
+            "style": "glow",
+            "controlPoints": {
+              "landscape": [
+                {
+                  "x": 0.629,
+                  "y": 0.429
+                },
+                {
+                  "x": 0.676,
+                  "y": 0.35
+                },
+                {
+                  "x": 0.694,
+                  "y": 0.259
+                }
+              ],
+              "portrait": [
+                {
+                  "x": 0.557,
+                  "y": 0.48
+                },
+                {
+                  "x": 0.622,
+                  "y": 0.522
+                },
+                {
+                  "x": 0.697,
+                  "y": 0.54
+                }
+              ]
+            }
+          },
+          {
+            "id": "connection:p%3Aoption-1%3Aact-110db7-4:p%3Aact-110db7-6",
+            "from": "p:option-1:act-110db7-4",
+            "to": "p:act-110db7-6",
+            "style": "glow",
+            "controlPoints": {
+              "landscape": [
+                {
+                  "x": 0.691,
+                  "y": 0.261
+                },
+                {
+                  "x": 0.714,
+                  "y": 0.353
+                },
+                {
+                  "x": 0.766,
+                  "y": 0.431
+                }
+              ],
+              "portrait": [
+                {
+                  "x": 0.695,
+                  "y": 0.545
+                },
+                {
+                  "x": 0.619,
+                  "y": 0.568
+                },
+                {
+                  "x": 0.555,
+                  "y": 0.615
+                }
+              ]
+            }
+          },
+          {
+            "id": "connection:p%3Aact-110db7-6:end",
+            "from": "p:act-110db7-6",
+            "to": "end",
+            "style": "solid",
+            "controlPoints": {
+              "landscape": [
+                {
+                  "x": 0.905,
+                  "y": 0.456
+                },
+                {
+                  "x": 0.91,
+                  "y": 0.39
+                },
+                {
+                  "x": 0.88,
+                  "y": 0.31
+                },
+                {
+                  "x": 0.885,
+                  "y": 0.244
+                }
+              ],
+              "portrait": [
+                {
+                  "x": 0.474,
+                  "y": 0.716
+                },
+                {
+                  "x": 0.484,
+                  "y": 0.752
+                },
+                {
+                  "x": 0.516,
+                  "y": 0.788
+                },
+                {
+                  "x": 0.526,
+                  "y": 0.824
+                }
+              ]
+            }
+          },
+          {
+            "id": "connection:choice:p%3Aoption-2%3Aact-110db7-5",
+            "from": "choice",
+            "to": "p:option-2:act-110db7-5",
+            "style": "dashed",
+            "controlPoints": {
+              "landscape": [
+                {
+                  "x": 0.556,
+                  "y": 0.599
+                },
+                {
+                  "x": 0.574,
+                  "y": 0.689
+                },
+                {
+                  "x": 0.621,
+                  "y": 0.769
+                }
+              ],
+              "portrait": [
+                {
+                  "x": 0.417,
+                  "y": 0.42
+                },
+                {
+                  "x": 0.342,
+                  "y": 0.438
+                },
+                {
+                  "x": 0.277,
+                  "y": 0.48
+                }
+              ]
+            }
+          },
+          {
+            "id": "connection:p%3Aoption-2%3Aact-110db7-5:p%3Aact-110db7-6",
+            "from": "p:option-2:act-110db7-5",
+            "to": "p:act-110db7-6",
+            "style": "dashed",
+            "controlPoints": {
+              "landscape": [
+                {
+                  "x": 0.764,
+                  "y": 0.771
+                },
+                {
+                  "x": 0.816,
+                  "y": 0.692
+                },
+                {
+                  "x": 0.839,
+                  "y": 0.601
+                }
+              ],
+              "portrait": [
+                {
+                  "x": 0.275,
+                  "y": 0.605
+                },
+                {
+                  "x": 0.339,
+                  "y": 0.652
+                },
+                {
+                  "x": 0.415,
+                  "y": 0.675
+                }
+              ]
+            }
+          }
+        ],
+        "theme": {
+          "background": {
+            "type": "image",
+            "value": "/generated/adventure-board-demo/silent-letter-world.jpeg"
+          },
+          "palette": {
+            "path": "#e0f2fe",
+            "completed": "#2dd4bf",
+            "available": "#38bdf8",
+            "locked": "#94a3b8",
+            "current": "#fbbf24",
+            "preview": "#bae6fd",
+            "text": "#ffffff",
+            "panel": "#0c4a6e"
+          }
+        },
+        "pattern": "winding river with a diamond fork"
+      },
+      "boardId": "hw-spelling-110db7b7:board:2",
+      "planId": "learning-cycle:hw-spelling-110db7b7:r35",
+      "childId": "demo-pashley",
+      "domain": "spelling",
+      "title": "Silent Letters & Sneaky C Spelling Quest",
+      "theme": {
+        "background": {
+          "type": "image",
+          "value": "/generated/adventure-board-demo/silent-letter-world.jpeg"
+        },
+        "palette": {
+          "path": "#e0f2fe",
+          "completed": "#2dd4bf",
+          "available": "#38bdf8",
+          "locked": "#94a3b8",
+          "current": "#fbbf24",
+          "preview": "#bae6fd",
+          "text": "#ffffff",
+          "panel": "#0c4a6e"
+        }
+      },
+      "companion": {
+        "id": "elli",
+        "name": "Elli"
+      },
+      "nodes": [
+        {
+          "id": "start",
+          "label": "Start",
+          "kind": "start",
+          "position": {
+            "x": 0.05,
+            "y": 0.5
+          },
+          "portraitPosition": {
+            "x": 0.5,
+            "y": 0.05
+          },
+          "state": "completed"
+        },
+        {
+          "id": "p:act-110db7-1",
+          "activityNodeId": "act-110db7-1",
+          "label": "Silent Letter Detectives",
+          "kind": "activity",
+          "position": {
+            "x": 0.17,
+            "y": 0.18
+          },
+          "portraitPosition": {
+            "x": 0.25,
+            "y": 0.14
+          },
+          "thumbnailUrl": "/thumbnails/activities/visual-explainer.svg",
+          "activityId": "visual-explainer",
+          "state": "available",
+          "target": {
+            "laneId": "act-110db7-1",
+            "skill": "act-110db7-1",
+            "words": [
+              "write",
+              "wrong",
+              "gnat",
+              "knock",
+              "thumb",
+              "climb"
+            ]
+          },
+          "action": {
+            "type": "launch-activity",
+            "payloadId": "act-110db7-1"
+          }
+        },
+        {
+          "id": "p:act-110db7-2",
+          "activityNodeId": "act-110db7-2",
+          "label": "Sneaky C Sounds",
+          "kind": "activity",
+          "position": {
+            "x": 0.3,
+            "y": 0.5
+          },
+          "portraitPosition": {
+            "x": 0.75,
+            "y": 0.22
+          },
+          "thumbnailUrl": "/thumbnails/activities/visual-explainer.svg",
+          "activityId": "visual-explainer",
+          "state": "available",
+          "target": {
+            "laneId": "act-110db7-2",
+            "skill": "act-110db7-2",
+            "words": [
+              "circle",
+              "decided",
+              "special"
+            ]
+          },
+          "action": {
+            "type": "launch-activity",
+            "payloadId": "act-110db7-2"
+          }
+        },
+        {
+          "id": "p:act-110db7-3",
+          "activityNodeId": "act-110db7-3",
+          "label": "Hidden Letters Practice",
+          "kind": "activity",
+          "position": {
+            "x": 0.43,
+            "y": 0.18
+          },
+          "portraitPosition": {
+            "x": 0.25,
+            "y": 0.32
+          },
+          "thumbnailUrl": "/thumbnails/activities/word-radar.svg",
+          "activityId": "word-radar",
+          "state": "available",
+          "target": {
+            "laneId": "act-110db7-3",
+            "skill": "act-110db7-3",
+            "words": [
+              "write",
+              "thumb",
+              "gnat",
+              "knock",
+              "wrong",
+              "climb",
+              "decided",
+              "special",
+              "building"
+            ]
+          },
+          "wordRadarConfig": {
+            "recallMode": "partial_visual_recall",
+            "inputMode": "letter-by-letter",
+            "speakStyle": "option-a",
+            "showTimer": false,
+            "hideWordDuringResponse": true,
+            "requiresCapturedResponse": true
+          },
+          "action": {
+            "type": "launch-activity",
+            "payloadId": "act-110db7-3"
+          }
+        },
+        {
+          "id": "p:option-1:act-110db7-4",
+          "activityNodeId": "act-110db7-4",
+          "label": "Monster Chase",
+          "kind": "activity",
+          "position": {
+            "x": 0.69,
+            "y": 0.16
+          },
+          "portraitPosition": {
+            "x": 0.78,
+            "y": 0.54
+          },
+          "thumbnailUrl": "/thumbnails/activities/monster-stampede.svg",
+          "activityId": "monster-stampede",
+          "state": "available",
+          "target": {
+            "laneId": "act-110db7-4",
+            "skill": "act-110db7-4",
+            "words": [
+              "write",
+              "thumb",
+              "gnat",
+              "knock",
+              "wrong",
+              "climb",
+              "decided",
+              "special",
+              "building"
+            ]
+          },
+          "action": {
+            "type": "launch-activity",
+            "payloadId": "act-110db7-4"
+          }
+        },
+        {
+          "id": "p:option-2:act-110db7-5",
+          "activityNodeId": "act-110db7-5",
+          "label": "Word Puzzle",
+          "kind": "activity",
+          "position": {
+            "x": 0.69,
+            "y": 0.84
+          },
+          "portraitPosition": {
+            "x": 0.22,
+            "y": 0.54
+          },
+          "thumbnailUrl": "/thumbnails/activities/wordle.svg",
+          "activityId": "wordle",
+          "state": "available",
+          "target": {
+            "laneId": "act-110db7-5",
+            "skill": "act-110db7-5",
+            "words": [
+              "write",
+              "thumb",
+              "gnat",
+              "knock",
+              "wrong",
+              "climb",
+              "decided",
+              "special",
+              "building"
+            ]
+          },
+          "action": {
+            "type": "launch-activity",
+            "payloadId": "act-110db7-5"
+          }
+        },
+        {
+          "id": "choice",
+          "label": "Choose Your Practice",
+          "kind": "choice-gate",
+          "position": {
+            "x": 0.56,
+            "y": 0.5
+          },
+          "portraitPosition": {
+            "x": 0.5,
+            "y": 0.42
+          },
+          "state": "locked",
+          "choiceSetId": "choice",
+          "action": {
+            "type": "open-choice-set",
+            "payloadId": "choice"
+          },
+          "lock": {
+            "reason": "planner-sequence",
+            "label": "Keep going"
+          }
+        },
+        {
+          "id": "p:act-110db7-6",
+          "activityNodeId": "act-110db7-6",
+          "label": "Spelling Checkpoint",
+          "kind": "activity",
+          "position": {
+            "x": 0.84,
+            "y": 0.5
+          },
+          "portraitPosition": {
+            "x": 0.5,
+            "y": 0.68
+          },
+          "thumbnailUrl": "/thumbnails/activities/word-radar.svg",
+          "activityId": "word-radar",
+          "state": "available",
+          "target": {
+            "laneId": "act-110db7-6",
+            "skill": "act-110db7-6",
+            "words": [
+              "sign",
+              "know",
+              "write",
+              "thumb",
+              "comb",
+              "gnat",
+              "knock",
+              "knife",
+              "wrong",
+              "climb",
+              "among",
+              "building",
+              "circle",
+              "decided",
+              "finally",
+              "heavy",
+              "include",
+              "nothing",
+              "special",
+              "wheel"
+            ]
+          },
+          "wordRadarConfig": {
+            "recallMode": "hidden_word_recall",
+            "inputMode": "whole-word",
+            "speakStyle": "option-b",
+            "showTimer": true,
+            "timerSeconds": 8,
+            "hideWordDuringResponse": true,
+            "requiresCapturedResponse": true
+          },
+          "action": {
+            "type": "launch-activity",
+            "payloadId": "act-110db7-6"
+          }
+        },
+        {
+          "id": "end",
+          "label": "Spelling Mastery Gate",
+          "kind": "reward",
+          "position": {
+            "x": 0.95,
+            "y": 0.2
+          },
+          "portraitPosition": {
+            "x": 0.5,
+            "y": 0.86
+          },
+          "state": "locked",
+          "lock": {
+            "reason": "planner-sequence",
+            "label": "Keep going"
+          }
+        }
+      ],
+      "edges": [
+        {
+          "id": "connection:start:p%3Aact-110db7-1",
+          "from": "start",
+          "to": "p:act-110db7-1",
+          "style": "solid",
+          "controlPoints": {
+            "landscape": [
+              {
+                "x": 0.12,
+                "y": 0.453
+              },
+              {
+                "x": 0.126,
+                "y": 0.383
+              },
+              {
+                "x": 0.094,
+                "y": 0.297
+              },
+              {
+                "x": 0.1,
+                "y": 0.227
+              }
+            ],
+            "portrait": [
+              {
+                "x": 0.437,
+                "y": 0.032
+              },
+              {
+                "x": 0.392,
+                "y": 0.064
+              },
+              {
+                "x": 0.358,
+                "y": 0.126
+              },
+              {
+                "x": 0.313,
+                "y": 0.158
+              }
+            ]
+          },
+          "state": "available"
+        },
+        {
+          "id": "connection:p%3Aact-110db7-1:p%3Aact-110db7-2",
+          "from": "p:act-110db7-1",
+          "to": "p:act-110db7-2",
+          "style": "solid",
+          "controlPoints": {
+            "landscape": [
+              {
+                "x": 0.15,
+                "y": 0.263
+              },
+              {
+                "x": 0.194,
+                "y": 0.319
+              },
+              {
+                "x": 0.276,
+                "y": 0.361
+              },
+              {
+                "x": 0.32,
+                "y": 0.417
+              }
+            ],
+            "portrait": [
+              {
+                "x": 0.339,
+                "y": 0.227
+              },
+              {
+                "x": 0.443,
+                "y": 0.216
+              },
+              {
+                "x": 0.557,
+                "y": 0.144
+              },
+              {
+                "x": 0.661,
+                "y": 0.133
+              }
+            ]
+          },
+          "state": "available"
+        },
+        {
+          "id": "connection:p%3Aact-110db7-2:p%3Aact-110db7-3",
+          "from": "p:act-110db7-2",
+          "to": "p:act-110db7-3",
+          "style": "solid",
+          "controlPoints": {
+            "landscape": [
+              {
+                "x": 0.372,
+                "y": 0.455
+              },
+              {
+                "x": 0.38,
+                "y": 0.383
+              },
+              {
+                "x": 0.35,
+                "y": 0.297
+              },
+              {
+                "x": 0.358,
+                "y": 0.225
+              }
+            ],
+            "portrait": [
+              {
+                "x": 0.636,
+                "y": 0.169
+              },
+              {
+                "x": 0.541,
+                "y": 0.216
+              },
+              {
+                "x": 0.459,
+                "y": 0.324
+              },
+              {
+                "x": 0.364,
+                "y": 0.371
+              }
+            ]
+          },
+          "state": "available"
+        },
+        {
+          "id": "connection:p%3Aact-110db7-3:choice",
+          "from": "p:act-110db7-3",
+          "to": "choice",
+          "style": "solid",
+          "controlPoints": {
+            "landscape": [
+              {
+                "x": 0.41,
+                "y": 0.263
+              },
+              {
+                "x": 0.454,
+                "y": 0.319
+              },
+              {
+                "x": 0.536,
+                "y": 0.361
+              },
+              {
+                "x": 0.58,
+                "y": 0.417
+              }
+            ],
+            "portrait": [
+              {
+                "x": 0.286,
+                "y": 0.376
+              },
+              {
+                "x": 0.341,
+                "y": 0.382
+              },
+              {
+                "x": 0.409,
+                "y": 0.358
+              },
+              {
+                "x": 0.464,
+                "y": 0.364
+              }
+            ]
+          },
+          "state": "locked"
+        },
+        {
+          "id": "connection:choice:p%3Aoption-1%3Aact-110db7-4",
+          "from": "choice",
+          "to": "p:option-1:act-110db7-4",
+          "style": "glow",
+          "controlPoints": {
+            "landscape": [
+              {
+                "x": 0.629,
+                "y": 0.429
+              },
+              {
+                "x": 0.676,
+                "y": 0.35
+              },
+              {
+                "x": 0.694,
+                "y": 0.259
+              }
+            ],
+            "portrait": [
+              {
+                "x": 0.557,
+                "y": 0.48
+              },
+              {
+                "x": 0.622,
+                "y": 0.522
+              },
+              {
+                "x": 0.697,
+                "y": 0.54
+              }
+            ]
+          },
+          "state": "available"
+        },
+        {
+          "id": "connection:p%3Aoption-1%3Aact-110db7-4:p%3Aact-110db7-6",
+          "from": "p:option-1:act-110db7-4",
+          "to": "p:act-110db7-6",
+          "style": "glow",
+          "controlPoints": {
+            "landscape": [
+              {
+                "x": 0.691,
+                "y": 0.261
+              },
+              {
+                "x": 0.714,
+                "y": 0.353
+              },
+              {
+                "x": 0.766,
+                "y": 0.431
+              }
+            ],
+            "portrait": [
+              {
+                "x": 0.695,
+                "y": 0.545
+              },
+              {
+                "x": 0.619,
+                "y": 0.568
+              },
+              {
+                "x": 0.555,
+                "y": 0.615
+              }
+            ]
+          },
+          "state": "available"
+        },
+        {
+          "id": "connection:p%3Aact-110db7-6:end",
+          "from": "p:act-110db7-6",
+          "to": "end",
+          "style": "solid",
+          "controlPoints": {
+            "landscape": [
+              {
+                "x": 0.905,
+                "y": 0.456
+              },
+              {
+                "x": 0.91,
+                "y": 0.39
+              },
+              {
+                "x": 0.88,
+                "y": 0.31
+              },
+              {
+                "x": 0.885,
+                "y": 0.244
+              }
+            ],
+            "portrait": [
+              {
+                "x": 0.474,
+                "y": 0.716
+              },
+              {
+                "x": 0.484,
+                "y": 0.752
+              },
+              {
+                "x": 0.516,
+                "y": 0.788
+              },
+              {
+                "x": 0.526,
+                "y": 0.824
+              }
+            ]
+          },
+          "state": "locked"
+        },
+        {
+          "id": "connection:choice:p%3Aoption-2%3Aact-110db7-5",
+          "from": "choice",
+          "to": "p:option-2:act-110db7-5",
+          "style": "dashed",
+          "controlPoints": {
+            "landscape": [
+              {
+                "x": 0.556,
+                "y": 0.599
+              },
+              {
+                "x": 0.574,
+                "y": 0.689
+              },
+              {
+                "x": 0.621,
+                "y": 0.769
+              }
+            ],
+            "portrait": [
+              {
+                "x": 0.417,
+                "y": 0.42
+              },
+              {
+                "x": 0.342,
+                "y": 0.438
+              },
+              {
+                "x": 0.277,
+                "y": 0.48
+              }
+            ]
+          },
+          "state": "available"
+        },
+        {
+          "id": "connection:p%3Aoption-2%3Aact-110db7-5:p%3Aact-110db7-6",
+          "from": "p:option-2:act-110db7-5",
+          "to": "p:act-110db7-6",
+          "style": "dashed",
+          "controlPoints": {
+            "landscape": [
+              {
+                "x": 0.764,
+                "y": 0.771
+              },
+              {
+                "x": 0.816,
+                "y": 0.692
+              },
+              {
+                "x": 0.839,
+                "y": 0.601
+              }
+            ],
+            "portrait": [
+              {
+                "x": 0.275,
+                "y": 0.605
+              },
+              {
+                "x": 0.339,
+                "y": 0.652
+              },
+              {
+                "x": 0.415,
+                "y": 0.675
+              }
+            ]
+          },
+          "state": "available"
+        }
+      ],
+      "choiceSets": [
+        {
+          "id": "choice",
+          "kind": "baseline-route",
+          "title": "Pick how you want to practice your tricky words!",
+          "options": [
+            {
+              "id": "option-1",
+              "label": "Monster Chase",
+              "journeyChoiceId": "choice",
+              "journeyOptionId": "option-1",
+              "nodeId": "p:act-110db7-1",
+              "launchNodeId": "act-110db7-1",
+              "state": "locked",
+              "experimentId": "choice",
+              "choiceSignal": {
+                "algorithmFeed": "choicePolicy",
+                "traits": [],
+                "expectedEvidence": "Fast arcade movement with gentle misses and streak rewards may suit a child who engages well with speed and competition.",
+                "preferenceNotMastery": true
+              }
+            },
+            {
+              "id": "option-2",
+              "label": "Word Puzzle",
+              "journeyChoiceId": "choice",
+              "journeyOptionId": "option-2",
+              "nodeId": "p:act-110db7-1",
+              "launchNodeId": "act-110db7-1",
+              "state": "locked",
+              "experimentId": "choice",
+              "choiceSignal": {
+                "algorithmFeed": "choicePolicy",
+                "traits": [],
+                "expectedEvidence": "A slower logic puzzle with letter-position feedback may suit a child who likes reasoning through patterns step by step.",
+                "preferenceNotMastery": true
+              }
+            }
+          ]
+        }
+      ],
+      "progress": {
+        "currentNodeId": "p:act-110db7-1",
+        "completedNodeIds": [
+          "start"
+        ]
+      }
+    },
+    "boardDefinition": {
+      "version": 2,
+      "title": "Silent Letters & Sneaky C Spelling Quest",
+      "rationale": "Pick how you want to practice your tricky words!",
+      "rootPathId": "root",
+      "portals": [
+        {
+          "id": "start",
+          "label": "Start",
+          "kind": "start",
+          "position": {
+            "landscape": {
+              "x": 0.05,
+              "y": 0.5
+            },
+            "portrait": {
+              "x": 0.5,
+              "y": 0.05
+            }
+          }
+        },
+        {
+          "id": "p:act-110db7-1",
+          "label": "Silent Letter Detectives",
+          "kind": "activity",
+          "activityNodeId": "act-110db7-1",
+          "position": {
+            "landscape": {
+              "x": 0.17,
+              "y": 0.18
+            },
+            "portrait": {
+              "x": 0.25,
+              "y": 0.14
+            }
+          }
+        },
+        {
+          "id": "p:act-110db7-2",
+          "label": "Sneaky C Sounds",
+          "kind": "activity",
+          "activityNodeId": "act-110db7-2",
+          "position": {
+            "landscape": {
+              "x": 0.3,
+              "y": 0.5
+            },
+            "portrait": {
+              "x": 0.75,
+              "y": 0.22
+            }
+          }
+        },
+        {
+          "id": "p:act-110db7-3",
+          "label": "Hidden Letters Practice",
+          "kind": "activity",
+          "activityNodeId": "act-110db7-3",
+          "position": {
+            "landscape": {
+              "x": 0.43,
+              "y": 0.18
+            },
+            "portrait": {
+              "x": 0.25,
+              "y": 0.32
+            }
+          }
+        },
+        {
+          "id": "p:option-1:act-110db7-4",
+          "label": "Monster Chase",
+          "kind": "activity",
+          "activityNodeId": "act-110db7-4",
+          "position": {
+            "landscape": {
+              "x": 0.69,
+              "y": 0.16
+            },
+            "portrait": {
+              "x": 0.78,
+              "y": 0.54
+            }
+          }
+        },
+        {
+          "id": "p:option-2:act-110db7-5",
+          "label": "Word Puzzle",
+          "kind": "activity",
+          "activityNodeId": "act-110db7-5",
+          "position": {
+            "landscape": {
+              "x": 0.69,
+              "y": 0.84
+            },
+            "portrait": {
+              "x": 0.22,
+              "y": 0.54
+            }
+          }
+        },
+        {
+          "id": "choice",
+          "label": "Choose Your Practice",
+          "kind": "choice",
+          "position": {
+            "landscape": {
+              "x": 0.56,
+              "y": 0.5
+            },
+            "portrait": {
+              "x": 0.5,
+              "y": 0.42
+            }
+          }
+        },
+        {
+          "id": "p:act-110db7-6",
+          "label": "Spelling Checkpoint",
+          "kind": "activity",
+          "activityNodeId": "act-110db7-6",
+          "position": {
+            "landscape": {
+              "x": 0.84,
+              "y": 0.5
+            },
+            "portrait": {
+              "x": 0.5,
+              "y": 0.68
+            }
+          }
+        },
+        {
+          "id": "end",
+          "label": "Spelling Mastery Gate",
+          "kind": "endpoint",
+          "position": {
+            "landscape": {
+              "x": 0.95,
+              "y": 0.2
+            },
+            "portrait": {
+              "x": 0.5,
+              "y": 0.86
+            }
+          }
+        }
+      ],
+      "paths": [
+        {
+          "id": "root",
+          "portalIds": [
+            "start",
+            "p:act-110db7-1",
+            "p:act-110db7-2",
+            "p:act-110db7-3",
+            "choice",
+            "p:act-110db7-6",
+            "end"
+          ]
+        },
+        {
+          "id": "option:option-1",
+          "portalIds": [
+            "p:option-1:act-110db7-4"
+          ]
+        },
+        {
+          "id": "option:option-2",
+          "portalIds": [
+            "p:option-2:act-110db7-5"
+          ]
+        }
+      ],
+      "choices": [
+        {
+          "id": "choice",
+          "portalId": "choice",
+          "purpose": "Pick how you want to practice your tricky words!",
+          "options": [
+            {
+              "id": "option-1",
+              "label": "Monster Chase",
+              "pathId": "option:option-1",
+              "hypothesis": "Fast arcade movement with gentle misses and streak rewards may suit a child who engages well with speed and competition."
+            },
+            {
+              "id": "option-2",
+              "label": "Word Puzzle",
+              "pathId": "option:option-2",
+              "hypothesis": "A slower logic puzzle with letter-position feedback may suit a child who likes reasoning through patterns step by step."
+            }
+          ]
+        }
+      ],
+      "edges": [
+        {
+          "id": "connection:start:p%3Aact-110db7-1",
+          "from": "start",
+          "to": "p:act-110db7-1",
+          "style": "solid",
+          "controlPoints": {
+            "landscape": [
+              {
+                "x": 0.12,
+                "y": 0.453
+              },
+              {
+                "x": 0.126,
+                "y": 0.383
+              },
+              {
+                "x": 0.094,
+                "y": 0.297
+              },
+              {
+                "x": 0.1,
+                "y": 0.227
+              }
+            ],
+            "portrait": [
+              {
+                "x": 0.437,
+                "y": 0.032
+              },
+              {
+                "x": 0.392,
+                "y": 0.064
+              },
+              {
+                "x": 0.358,
+                "y": 0.126
+              },
+              {
+                "x": 0.313,
+                "y": 0.158
+              }
+            ]
+          }
+        },
+        {
+          "id": "connection:p%3Aact-110db7-1:p%3Aact-110db7-2",
+          "from": "p:act-110db7-1",
+          "to": "p:act-110db7-2",
+          "style": "solid",
+          "controlPoints": {
+            "landscape": [
+              {
+                "x": 0.15,
+                "y": 0.263
+              },
+              {
+                "x": 0.194,
+                "y": 0.319
+              },
+              {
+                "x": 0.276,
+                "y": 0.361
+              },
+              {
+                "x": 0.32,
+                "y": 0.417
+              }
+            ],
+            "portrait": [
+              {
+                "x": 0.339,
+                "y": 0.227
+              },
+              {
+                "x": 0.443,
+                "y": 0.216
+              },
+              {
+                "x": 0.557,
+                "y": 0.144
+              },
+              {
+                "x": 0.661,
+                "y": 0.133
+              }
+            ]
+          }
+        },
+        {
+          "id": "connection:p%3Aact-110db7-2:p%3Aact-110db7-3",
+          "from": "p:act-110db7-2",
+          "to": "p:act-110db7-3",
+          "style": "solid",
+          "controlPoints": {
+            "landscape": [
+              {
+                "x": 0.372,
+                "y": 0.455
+              },
+              {
+                "x": 0.38,
+                "y": 0.383
+              },
+              {
+                "x": 0.35,
+                "y": 0.297
+              },
+              {
+                "x": 0.358,
+                "y": 0.225
+              }
+            ],
+            "portrait": [
+              {
+                "x": 0.636,
+                "y": 0.169
+              },
+              {
+                "x": 0.541,
+                "y": 0.216
+              },
+              {
+                "x": 0.459,
+                "y": 0.324
+              },
+              {
+                "x": 0.364,
+                "y": 0.371
+              }
+            ]
+          }
+        },
+        {
+          "id": "connection:p%3Aact-110db7-3:choice",
+          "from": "p:act-110db7-3",
+          "to": "choice",
+          "style": "solid",
+          "controlPoints": {
+            "landscape": [
+              {
+                "x": 0.41,
+                "y": 0.263
+              },
+              {
+                "x": 0.454,
+                "y": 0.319
+              },
+              {
+                "x": 0.536,
+                "y": 0.361
+              },
+              {
+                "x": 0.58,
+                "y": 0.417
+              }
+            ],
+            "portrait": [
+              {
+                "x": 0.286,
+                "y": 0.376
+              },
+              {
+                "x": 0.341,
+                "y": 0.382
+              },
+              {
+                "x": 0.409,
+                "y": 0.358
+              },
+              {
+                "x": 0.464,
+                "y": 0.364
+              }
+            ]
+          }
+        },
+        {
+          "id": "connection:choice:p%3Aoption-1%3Aact-110db7-4",
+          "from": "choice",
+          "to": "p:option-1:act-110db7-4",
+          "style": "glow",
+          "controlPoints": {
+            "landscape": [
+              {
+                "x": 0.629,
+                "y": 0.429
+              },
+              {
+                "x": 0.676,
+                "y": 0.35
+              },
+              {
+                "x": 0.694,
+                "y": 0.259
+              }
+            ],
+            "portrait": [
+              {
+                "x": 0.557,
+                "y": 0.48
+              },
+              {
+                "x": 0.622,
+                "y": 0.522
+              },
+              {
+                "x": 0.697,
+                "y": 0.54
+              }
+            ]
+          }
+        },
+        {
+          "id": "connection:p%3Aoption-1%3Aact-110db7-4:p%3Aact-110db7-6",
+          "from": "p:option-1:act-110db7-4",
+          "to": "p:act-110db7-6",
+          "style": "glow",
+          "controlPoints": {
+            "landscape": [
+              {
+                "x": 0.691,
+                "y": 0.261
+              },
+              {
+                "x": 0.714,
+                "y": 0.353
+              },
+              {
+                "x": 0.766,
+                "y": 0.431
+              }
+            ],
+            "portrait": [
+              {
+                "x": 0.695,
+                "y": 0.545
+              },
+              {
+                "x": 0.619,
+                "y": 0.568
+              },
+              {
+                "x": 0.555,
+                "y": 0.615
+              }
+            ]
+          }
+        },
+        {
+          "id": "connection:p%3Aact-110db7-6:end",
+          "from": "p:act-110db7-6",
+          "to": "end",
+          "style": "solid",
+          "controlPoints": {
+            "landscape": [
+              {
+                "x": 0.905,
+                "y": 0.456
+              },
+              {
+                "x": 0.91,
+                "y": 0.39
+              },
+              {
+                "x": 0.88,
+                "y": 0.31
+              },
+              {
+                "x": 0.885,
+                "y": 0.244
+              }
+            ],
+            "portrait": [
+              {
+                "x": 0.474,
+                "y": 0.716
+              },
+              {
+                "x": 0.484,
+                "y": 0.752
+              },
+              {
+                "x": 0.516,
+                "y": 0.788
+              },
+              {
+                "x": 0.526,
+                "y": 0.824
+              }
+            ]
+          }
+        },
+        {
+          "id": "connection:choice:p%3Aoption-2%3Aact-110db7-5",
+          "from": "choice",
+          "to": "p:option-2:act-110db7-5",
+          "style": "dashed",
+          "controlPoints": {
+            "landscape": [
+              {
+                "x": 0.556,
+                "y": 0.599
+              },
+              {
+                "x": 0.574,
+                "y": 0.689
+              },
+              {
+                "x": 0.621,
+                "y": 0.769
+              }
+            ],
+            "portrait": [
+              {
+                "x": 0.417,
+                "y": 0.42
+              },
+              {
+                "x": 0.342,
+                "y": 0.438
+              },
+              {
+                "x": 0.277,
+                "y": 0.48
+              }
+            ]
+          }
+        },
+        {
+          "id": "connection:p%3Aoption-2%3Aact-110db7-5:p%3Aact-110db7-6",
+          "from": "p:option-2:act-110db7-5",
+          "to": "p:act-110db7-6",
+          "style": "dashed",
+          "controlPoints": {
+            "landscape": [
+              {
+                "x": 0.764,
+                "y": 0.771
+              },
+              {
+                "x": 0.816,
+                "y": 0.692
+              },
+              {
+                "x": 0.839,
+                "y": 0.601
+              }
+            ],
+            "portrait": [
+              {
+                "x": 0.275,
+                "y": 0.605
+              },
+              {
+                "x": 0.339,
+                "y": 0.652
+              },
+              {
+                "x": 0.415,
+                "y": 0.675
+              }
+            ]
+          }
+        }
+      ],
+      "theme": {
+        "background": {
+          "type": "image",
+          "value": "/generated/adventure-board-demo/silent-letter-world.jpeg"
+        },
+        "palette": {
+          "path": "#e0f2fe",
+          "completed": "#2dd4bf",
+          "available": "#38bdf8",
+          "locked": "#94a3b8",
+          "current": "#fbbf24",
+          "preview": "#bae6fd",
+          "text": "#ffffff",
+          "panel": "#0c4a6e"
+        }
+      },
+      "pattern": "winding river with a diamond fork"
+    }
+  },
+  "activeHomeworkByDomain": {
+    "spelling": {
+      "homeworkId": "hw-spelling-110db7b7",
+      "weekOf": "2026-10-24",
+      "testDate": null,
+      "returnTag": "#sunny_demo-pashley_hw-spelling-110db7b7",
+      "wordList": [
+        "sign",
+        "know",
+        "write",
+        "thumb",
+        "comb",
+        "gnat",
+        "knock",
+        "knife",
+        "wrong",
+        "climb",
+        "among",
+        "building",
+        "circle",
+        "decided",
+        "finally",
+        "heavy",
+        "include",
+        "nothing",
+        "special",
+        "wheel"
+      ],
+      "contentProfile": {
+        "practiceDomain": "spelling",
+        "topic": "Benchmark Advance Spelling – Unit 9 Week 3"
+      },
+      "capturedContent": {
+        "title": "Benchmark Advance Spelling – Unit 9 Week 3",
+        "rawText": "Discovery evidence pending."
+      },
+      "generatedAt": "2026-10-24T18:57:21.614Z",
+      "nodes": [
+        {
+          "id": "hw-spelling-110db7b7:discovery",
+          "type": "word-radar",
+          "activityId": "word-radar",
+          "title": "Spelling Discovery",
+          "targets": [
+            "sign",
+            "know",
+            "write",
+            "thumb",
+            "comb",
+            "gnat",
+            "knock",
+            "knife",
+            "wrong",
+            "climb",
+            "among",
+            "building",
+            "circle",
+            "decided",
+            "finally",
+            "heavy",
+            "include",
+            "nothing",
+            "special",
+            "wheel"
+          ],
+          "difficulty": 1,
+          "source": "chart_planner",
+          "locked": false,
+          "targetLane": "independent_discovery",
+          "contentId": "hw-spelling-110db7b7:discovery",
+          "wordRadarConfig": {
+            "recallMode": "hidden_word_recall",
+            "inputMode": "keyboard",
+            "speakStyle": "option-b",
+            "showTimer": false,
+            "hideWordDuringResponse": true,
+            "requiresCapturedResponse": true
+          }
+        }
+      ]
+    }
+  },
+  "activeSessionPlanByDomain": {
+    "spelling": {
+      "planId": "learning-cycle:hw-spelling-110db7b7:r35",
+      "childId": "demo-pashley",
+      "createdAt": "2026-10-24T18:57:20.222Z",
+      "source": "ingest_human_loop",
+      "activeHomeworkId": "hw-spelling-110db7b7",
+      "domain": "spelling",
+      "testDate": null,
+      "nodePlan": [
+        {
+          "id": "act-110db7-1",
+          "type": "visual-explainer",
+          "activityId": "visual-explainer",
+          "targets": [
+            "write",
+            "wrong",
+            "gnat",
+            "knock",
+            "thumb",
+            "climb"
+          ],
+          "difficulty": 1,
+          "source": "chart_planner",
+          "targetLane": "spelling_practice",
+          "locked": false,
+          "masteryUnlockState": "unlocked",
+          "title": "Silent Letter Detectives",
+          "theoryId": "Demo-pashley already spells 11 of 20 words correctly from memory (sign, know, comb, knife, among, circle, finally, heavy, include, nothing, wheel). Her errors cluster in two specific orthographic patterns: dropped silent letters at word starts/ends (write->rite, wrong->rong, gnat->nat, knock->nock, thumb->thum, climb->clim) and soft-c confusion (decided->desided, special->speshal), plus one unattempted word (building). Explicit visual chunking instruction on these two patterns, followed by varied low-stakes retrieval practice and a choice of engaging practice formats, should improve her unaided recall of the 9 gap words without disrupting the 11 words she already has solid.",
+          "experimentId": "hw-spelling-110db7b7:experiment:act-110db7-1",
+          "contentId": "hw-spelling-110db7b7:act-110db7-1",
+          "mechanic": "visual-explainer",
+          "theme": "learning adventure",
+          "sfxProfile": "tap-correct-incorrect-progress-complete",
+          "companionPolicy": "cycle-contract",
+          "gameHtmlPath": "/games/spelling-visual-explainer.html",
+          "date": "hw-spelling-110db7b7",
+          "activityConfigPath": "/api/activity-config/demo-pashley/hw-spelling-110db7b7/act-110db7-1-4eaa6797.json",
+          "thumbnailUrl": "/thumbnails/activities/visual-explainer.svg"
+        },
+        {
+          "id": "act-110db7-2",
+          "type": "visual-explainer",
+          "activityId": "visual-explainer",
+          "targets": [
+            "circle",
+            "decided",
+            "special"
+          ],
+          "difficulty": 1,
+          "source": "chart_planner",
+          "targetLane": "spelling_practice",
+          "locked": false,
+          "masteryUnlockState": "unlocked",
+          "title": "Sneaky C Sounds",
+          "theoryId": "Demo-pashley already spells 11 of 20 words correctly from memory (sign, know, comb, knife, among, circle, finally, heavy, include, nothing, wheel). Her errors cluster in two specific orthographic patterns: dropped silent letters at word starts/ends (write->rite, wrong->rong, gnat->nat, knock->nock, thumb->thum, climb->clim) and soft-c confusion (decided->desided, special->speshal), plus one unattempted word (building). Explicit visual chunking instruction on these two patterns, followed by varied low-stakes retrieval practice and a choice of engaging practice formats, should improve her unaided recall of the 9 gap words without disrupting the 11 words she already has solid.",
+          "experimentId": "hw-spelling-110db7b7:experiment:act-110db7-2",
+          "contentId": "hw-spelling-110db7b7:act-110db7-2",
+          "mechanic": "visual-explainer",
+          "theme": "learning adventure",
+          "sfxProfile": "tap-correct-incorrect-progress-complete",
+          "companionPolicy": "cycle-contract",
+          "gameHtmlPath": "/games/spelling-visual-explainer.html",
+          "date": "hw-spelling-110db7b7",
+          "activityConfigPath": "/api/activity-config/demo-pashley/hw-spelling-110db7b7/act-110db7-2-29c6a77d.json",
+          "thumbnailUrl": "/thumbnails/activities/visual-explainer.svg"
+        },
+        {
+          "id": "act-110db7-3",
+          "type": "word-radar",
+          "activityId": "word-radar",
+          "targets": [
+            "write",
+            "thumb",
+            "gnat",
+            "knock",
+            "wrong",
+            "climb",
+            "decided",
+            "special",
+            "building"
+          ],
+          "difficulty": 1,
+          "source": "chart_planner",
+          "targetLane": "spelling_practice",
+          "locked": false,
+          "masteryUnlockState": "unlocked",
+          "title": "Hidden Letters Practice",
+          "theoryId": "Demo-pashley already spells 11 of 20 words correctly from memory (sign, know, comb, knife, among, circle, finally, heavy, include, nothing, wheel). Her errors cluster in two specific orthographic patterns: dropped silent letters at word starts/ends (write->rite, wrong->rong, gnat->nat, knock->nock, thumb->thum, climb->clim) and soft-c confusion (decided->desided, special->speshal), plus one unattempted word (building). Explicit visual chunking instruction on these two patterns, followed by varied low-stakes retrieval practice and a choice of engaging practice formats, should improve her unaided recall of the 9 gap words without disrupting the 11 words she already has solid.",
+          "experimentId": "hw-spelling-110db7b7:experiment:act-110db7-3",
+          "contentId": "hw-spelling-110db7b7:act-110db7-3",
+          "mechanic": "word-radar",
+          "theme": "learning adventure",
+          "sfxProfile": "tap-correct-incorrect-progress-complete",
+          "companionPolicy": "cycle-contract",
+          "gameHtmlPath": "/homework/direct-drafts/hw-spelling-110db7b7/native-instruments/act-110db7-3.json",
+          "date": "hw-spelling-110db7b7",
+          "activityConfigPath": "/api/activity-config/demo-pashley/hw-spelling-110db7b7/act-110db7-3-90cdc1ca.json",
+          "wordRadarConfig": {
+            "recallMode": "partial_visual_recall",
+            "inputMode": "letter-by-letter",
+            "speakStyle": "option-a",
+            "showTimer": false,
+            "hideWordDuringResponse": true,
+            "requiresCapturedResponse": true
+          },
+          "thumbnailUrl": "/thumbnails/activities/word-radar.svg"
+        },
+        {
+          "id": "act-110db7-4",
+          "type": "monster-stampede",
+          "activityId": "monster-stampede",
+          "targets": [
+            "write",
+            "thumb",
+            "gnat",
+            "knock",
+            "wrong",
+            "climb",
+            "decided",
+            "special",
+            "building"
+          ],
+          "difficulty": 1,
+          "source": "chart_planner",
+          "targetLane": "spelling_practice",
+          "locked": false,
+          "masteryUnlockState": "unlocked",
+          "title": "Monster Chase",
+          "theoryId": "Demo-pashley already spells 11 of 20 words correctly from memory (sign, know, comb, knife, among, circle, finally, heavy, include, nothing, wheel). Her errors cluster in two specific orthographic patterns: dropped silent letters at word starts/ends (write->rite, wrong->rong, gnat->nat, knock->nock, thumb->thum, climb->clim) and soft-c confusion (decided->desided, special->speshal), plus one unattempted word (building). Explicit visual chunking instruction on these two patterns, followed by varied low-stakes retrieval practice and a choice of engaging practice formats, should improve her unaided recall of the 9 gap words without disrupting the 11 words she already has solid.",
+          "experimentId": "hw-spelling-110db7b7:experiment:act-110db7-4",
+          "contentId": "hw-spelling-110db7b7:act-110db7-4",
+          "mechanic": "monster-stampede",
+          "theme": "learning adventure",
+          "sfxProfile": "tap-correct-incorrect-progress-complete",
+          "companionPolicy": "cycle-contract",
+          "gameHtmlPath": "/homework/direct-drafts/hw-spelling-110db7b7/native-instruments/act-110db7-4.json",
+          "date": "hw-spelling-110db7b7",
+          "thumbnailUrl": "/thumbnails/activities/monster-stampede.svg"
+        },
+        {
+          "id": "act-110db7-5",
+          "type": "wordle",
+          "activityId": "wordle",
+          "targets": [
+            "write",
+            "thumb",
+            "gnat",
+            "knock",
+            "wrong",
+            "climb",
+            "decided",
+            "special",
+            "building"
+          ],
+          "difficulty": 1,
+          "source": "chart_planner",
+          "targetLane": "spelling_practice",
+          "locked": false,
+          "masteryUnlockState": "unlocked",
+          "title": "Word Puzzle",
+          "theoryId": "Demo-pashley already spells 11 of 20 words correctly from memory (sign, know, comb, knife, among, circle, finally, heavy, include, nothing, wheel). Her errors cluster in two specific orthographic patterns: dropped silent letters at word starts/ends (write->rite, wrong->rong, gnat->nat, knock->nock, thumb->thum, climb->clim) and soft-c confusion (decided->desided, special->speshal), plus one unattempted word (building). Explicit visual chunking instruction on these two patterns, followed by varied low-stakes retrieval practice and a choice of engaging practice formats, should improve her unaided recall of the 9 gap words without disrupting the 11 words she already has solid.",
+          "experimentId": "hw-spelling-110db7b7:experiment:act-110db7-5",
+          "contentId": "hw-spelling-110db7b7:act-110db7-5",
+          "mechanic": "wordle",
+          "theme": "learning adventure",
+          "sfxProfile": "tap-correct-incorrect-progress-complete",
+          "companionPolicy": "cycle-contract",
+          "gameHtmlPath": "/homework/direct-drafts/hw-spelling-110db7b7/native-instruments/act-110db7-5.json",
+          "date": "hw-spelling-110db7b7",
+          "thumbnailUrl": "/thumbnails/activities/wordle.svg"
+        },
+        {
+          "id": "act-110db7-6",
+          "type": "word-radar",
+          "activityId": "word-radar",
+          "targets": [
+            "sign",
+            "know",
+            "write",
+            "thumb",
+            "comb",
+            "gnat",
+            "knock",
+            "knife",
+            "wrong",
+            "climb",
+            "among",
+            "building",
+            "circle",
+            "decided",
+            "finally",
+            "heavy",
+            "include",
+            "nothing",
+            "special",
+            "wheel"
+          ],
+          "difficulty": 1,
+          "source": "chart_planner",
+          "targetLane": "spelling_practice",
+          "locked": false,
+          "masteryUnlockState": "unlocked",
+          "title": "Spelling Checkpoint",
+          "theoryId": "Demo-pashley already spells 11 of 20 words correctly from memory (sign, know, comb, knife, among, circle, finally, heavy, include, nothing, wheel). Her errors cluster in two specific orthographic patterns: dropped silent letters at word starts/ends (write->rite, wrong->rong, gnat->nat, knock->nock, thumb->thum, climb->clim) and soft-c confusion (decided->desided, special->speshal), plus one unattempted word (building). Explicit visual chunking instruction on these two patterns, followed by varied low-stakes retrieval practice and a choice of engaging practice formats, should improve her unaided recall of the 9 gap words without disrupting the 11 words she already has solid.",
+          "experimentId": "hw-spelling-110db7b7:experiment:act-110db7-6",
+          "contentId": "hw-spelling-110db7b7:act-110db7-6",
+          "mechanic": "word-radar",
+          "theme": "learning adventure",
+          "sfxProfile": "tap-correct-incorrect-progress-complete",
+          "companionPolicy": "cycle-contract",
+          "gameHtmlPath": "/homework/direct-drafts/hw-spelling-110db7b7/native-instruments/act-110db7-6.json",
+          "date": "hw-spelling-110db7b7",
+          "activityConfigPath": "/api/activity-config/demo-pashley/hw-spelling-110db7b7/act-110db7-6-95cb7379.json",
+          "wordRadarConfig": {
+            "recallMode": "hidden_word_recall",
+            "inputMode": "whole-word",
+            "speakStyle": "option-b",
+            "showTimer": true,
+            "timerSeconds": 8,
+            "hideWordDuringResponse": true,
+            "requiresCapturedResponse": true
+          },
+          "thumbnailUrl": "/thumbnails/activities/word-radar.svg"
+        }
+      ],
+      "variationPolicy": {
+        "avoidExactPreviousNodeOrder": true,
+        "avoidExactPreviousWordOrder": true,
+        "seed": "110db7b74070",
+        "previousCompletedNodeCount": 0
+      },
+      "companionPolicy": {
+        "companionId": "elli",
+        "displayName": "Elli",
+        "openingLinePolicy": "context_start_short",
+        "verbosity": "low",
+        "maxMicroProbes": 1
+      },
+      "evidenceUsed": [
+        {
+          "id": "assignment:110db7b74070ea2e510050ad9406ff3ee343ecdfa4c0b6b2adf6e68dd53dbfd5",
+          "type": "captured_assignment",
+          "summary": "Canonical cycle evidence assignment:110db7b74070ea2e510050ad9406ff3ee343ecdfa4c0b6b2adf6e68dd53dbfd5"
+        }
+      ],
+      "openQuestions": [],
+      "approvalStatus": "approved",
+      "planTheory": {
+        "hypothesis": "Demo-pashley already spells 11 of 20 words correctly from memory (sign, know, comb, knife, among, circle, finally, heavy, include, nothing, wheel). Her errors cluster in two specific orthographic patterns: dropped silent letters at word starts/ends (write->rite, wrong->rong, gnat->nat, knock->nock, thumb->thum, climb->clim) and soft-c confusion (decided->desided, special->speshal), plus one unattempted word (building). Explicit visual chunking instruction on these two patterns, followed by varied low-stakes retrieval practice and a choice of engaging practice formats, should improve her unaided recall of the 9 gap words without disrupting the 11 words she already has solid.",
+        "evidenceSummary": [
+          "hw-spelling-110db7b7:discovery:0b6f395ca14ac202: instrument_ambiguous; assistance=unassisted; exposure=unseen.",
+          "hw-spelling-110db7b7:discovery:cd1bb3012bcfaa0c: instrument_ambiguous; assistance=unassisted; exposure=unseen.",
+          "hw-spelling-110db7b7:discovery:10fd874b68dad080: instrument_ambiguous; assistance=unassisted; exposure=unseen.",
+          "hw-spelling-110db7b7:discovery:05eeec2d70845694: instrument_ambiguous; assistance=unassisted; exposure=unseen.",
+          "hw-spelling-110db7b7:discovery:ef4e3f5079838746: instrument_ambiguous; assistance=unassisted; exposure=unseen.",
+          "hw-spelling-110db7b7:discovery:6d0ed7a7e79fbdcd: instrument_ambiguous; assistance=unassisted; exposure=unseen.",
+          "hw-spelling-110db7b7:discovery:392245974134021a: instrument_ambiguous; assistance=unassisted; exposure=unseen.",
+          "hw-spelling-110db7b7:discovery:3d4d101cd7ea9e5e: instrument_ambiguous; assistance=unassisted; exposure=unseen.",
+          "hw-spelling-110db7b7:discovery:8810ad581e59f2bc: instrument_ambiguous; assistance=unassisted; exposure=unseen.",
+          "hw-spelling-110db7b7:discovery:d73d3e7a7e1d1816: instrument_ambiguous; assistance=unassisted; exposure=unseen.",
+          "hw-spelling-110db7b7:discovery:766c1d13a3e06c4d: instrument_ambiguous; assistance=unassisted; exposure=unseen.",
+          "hw-spelling-110db7b7:discovery:5167e9677e1fbc50: instrument_ambiguous; assistance=unassisted; exposure=unseen.",
+          "hw-spelling-110db7b7:discovery:8a39178d327e72a9: instrument_ambiguous; assistance=unassisted; exposure=unseen.",
+          "hw-spelling-110db7b7:discovery:8d3c6686ec306db5: instrument_ambiguous; assistance=unassisted; exposure=unseen.",
+          "hw-spelling-110db7b7:discovery:205c3e16c66ff0b8: instrument_ambiguous; assistance=unassisted; exposure=unseen.",
+          "hw-spelling-110db7b7:discovery:22d5925ed64680ab: instrument_ambiguous; assistance=unassisted; exposure=unseen.",
+          "hw-spelling-110db7b7:discovery:c0cbff04cc90f5b4: instrument_ambiguous; assistance=unassisted; exposure=unseen.",
+          "hw-spelling-110db7b7:discovery:1785cfc3bc6ac773: instrument_ambiguous; assistance=unassisted; exposure=unseen.",
+          "hw-spelling-110db7b7:discovery:7d4c5c8894e016e7: instrument_ambiguous; assistance=unassisted; exposure=unseen.",
+          "hw-spelling-110db7b7:discovery:ba59926159d2aa25: instrument_ambiguous; assistance=unassisted; exposure=unseen."
+        ],
+        "intervention": "Follow the canonical learning-cycle node contracts.",
+        "supportCriteria": [
+          "Checkpoint accuracy on the 9 gap words rises above her original homework attempt.",
+          "She answers both explainer check questions correctly.",
+          "Accuracy on the 11 already-correct words holds steady at the checkpoint, showing no fatigue cost."
+        ],
+        "reviseCriteria": [
+          "Checkpoint accuracy on the gap words is flat or only marginally improved, suggesting the explainers need more repetition or a different modality.",
+          "She struggles with explainer check questions, indicating the chunking strategy itself needs adjustment.",
+          "Accuracy on previously correct words drops, suggesting session length or sequencing needs change."
+        ],
+        "falsifyCriteria": [
+          "If checkpoint accuracy on the 9 gap words matches or falls below her original homework attempt, this teaching sequence did not produce measurable improvement on the targeted patterns."
+        ]
+      },
+      "adventureBoard": {
+        "schemaVersion": 1,
+        "definition": {
+          "version": 2,
+          "title": "Silent Letters & Sneaky C Spelling Quest",
+          "rationale": "Pick how you want to practice your tricky words!",
+          "rootPathId": "root",
+          "portals": [
+            {
+              "id": "start",
+              "label": "Start",
+              "kind": "start",
+              "position": {
+                "landscape": {
+                  "x": 0.05,
+                  "y": 0.5
+                },
+                "portrait": {
+                  "x": 0.5,
+                  "y": 0.05
+                }
+              }
+            },
+            {
+              "id": "p:act-110db7-1",
+              "label": "Silent Letter Detectives",
+              "kind": "activity",
+              "activityNodeId": "act-110db7-1",
+              "position": {
+                "landscape": {
+                  "x": 0.17,
+                  "y": 0.18
+                },
+                "portrait": {
+                  "x": 0.25,
+                  "y": 0.14
+                }
+              }
+            },
+            {
+              "id": "p:act-110db7-2",
+              "label": "Sneaky C Sounds",
+              "kind": "activity",
+              "activityNodeId": "act-110db7-2",
+              "position": {
+                "landscape": {
+                  "x": 0.3,
+                  "y": 0.5
+                },
+                "portrait": {
+                  "x": 0.75,
+                  "y": 0.22
+                }
+              }
+            },
+            {
+              "id": "p:act-110db7-3",
+              "label": "Hidden Letters Practice",
+              "kind": "activity",
+              "activityNodeId": "act-110db7-3",
+              "position": {
+                "landscape": {
+                  "x": 0.43,
+                  "y": 0.18
+                },
+                "portrait": {
+                  "x": 0.25,
+                  "y": 0.32
+                }
+              }
+            },
+            {
+              "id": "p:option-1:act-110db7-4",
+              "label": "Monster Chase",
+              "kind": "activity",
+              "activityNodeId": "act-110db7-4",
+              "position": {
+                "landscape": {
+                  "x": 0.69,
+                  "y": 0.16
+                },
+                "portrait": {
+                  "x": 0.78,
+                  "y": 0.54
+                }
+              }
+            },
+            {
+              "id": "p:option-2:act-110db7-5",
+              "label": "Word Puzzle",
+              "kind": "activity",
+              "activityNodeId": "act-110db7-5",
+              "position": {
+                "landscape": {
+                  "x": 0.69,
+                  "y": 0.84
+                },
+                "portrait": {
+                  "x": 0.22,
+                  "y": 0.54
+                }
+              }
+            },
+            {
+              "id": "choice",
+              "label": "Choose Your Practice",
+              "kind": "choice",
+              "position": {
+                "landscape": {
+                  "x": 0.56,
+                  "y": 0.5
+                },
+                "portrait": {
+                  "x": 0.5,
+                  "y": 0.42
+                }
+              }
+            },
+            {
+              "id": "p:act-110db7-6",
+              "label": "Spelling Checkpoint",
+              "kind": "activity",
+              "activityNodeId": "act-110db7-6",
+              "position": {
+                "landscape": {
+                  "x": 0.84,
+                  "y": 0.5
+                },
+                "portrait": {
+                  "x": 0.5,
+                  "y": 0.68
+                }
+              }
+            },
+            {
+              "id": "end",
+              "label": "Spelling Mastery Gate",
+              "kind": "endpoint",
+              "position": {
+                "landscape": {
+                  "x": 0.95,
+                  "y": 0.2
+                },
+                "portrait": {
+                  "x": 0.5,
+                  "y": 0.86
+                }
+              }
+            }
+          ],
+          "paths": [
+            {
+              "id": "root",
+              "portalIds": [
+                "start",
+                "p:act-110db7-1",
+                "p:act-110db7-2",
+                "p:act-110db7-3",
+                "choice",
+                "p:act-110db7-6",
+                "end"
+              ]
+            },
+            {
+              "id": "option:option-1",
+              "portalIds": [
+                "p:option-1:act-110db7-4"
+              ]
+            },
+            {
+              "id": "option:option-2",
+              "portalIds": [
+                "p:option-2:act-110db7-5"
+              ]
+            }
+          ],
+          "choices": [
+            {
+              "id": "choice",
+              "portalId": "choice",
+              "purpose": "Pick how you want to practice your tricky words!",
+              "options": [
+                {
+                  "id": "option-1",
+                  "label": "Monster Chase",
+                  "pathId": "option:option-1",
+                  "hypothesis": "Fast arcade movement with gentle misses and streak rewards may suit a child who engages well with speed and competition."
+                },
+                {
+                  "id": "option-2",
+                  "label": "Word Puzzle",
+                  "pathId": "option:option-2",
+                  "hypothesis": "A slower logic puzzle with letter-position feedback may suit a child who likes reasoning through patterns step by step."
+                }
+              ]
+            }
+          ],
+          "edges": [
+            {
+              "id": "connection:start:p%3Aact-110db7-1",
+              "from": "start",
+              "to": "p:act-110db7-1",
+              "style": "solid",
+              "controlPoints": {
+                "landscape": [
+                  {
+                    "x": 0.12,
+                    "y": 0.453
+                  },
+                  {
+                    "x": 0.126,
+                    "y": 0.383
+                  },
+                  {
+                    "x": 0.094,
+                    "y": 0.297
+                  },
+                  {
+                    "x": 0.1,
+                    "y": 0.227
+                  }
+                ],
+                "portrait": [
+                  {
+                    "x": 0.437,
+                    "y": 0.032
+                  },
+                  {
+                    "x": 0.392,
+                    "y": 0.064
+                  },
+                  {
+                    "x": 0.358,
+                    "y": 0.126
+                  },
+                  {
+                    "x": 0.313,
+                    "y": 0.158
+                  }
+                ]
+              }
+            },
+            {
+              "id": "connection:p%3Aact-110db7-1:p%3Aact-110db7-2",
+              "from": "p:act-110db7-1",
+              "to": "p:act-110db7-2",
+              "style": "solid",
+              "controlPoints": {
+                "landscape": [
+                  {
+                    "x": 0.15,
+                    "y": 0.263
+                  },
+                  {
+                    "x": 0.194,
+                    "y": 0.319
+                  },
+                  {
+                    "x": 0.276,
+                    "y": 0.361
+                  },
+                  {
+                    "x": 0.32,
+                    "y": 0.417
+                  }
+                ],
+                "portrait": [
+                  {
+                    "x": 0.339,
+                    "y": 0.227
+                  },
+                  {
+                    "x": 0.443,
+                    "y": 0.216
+                  },
+                  {
+                    "x": 0.557,
+                    "y": 0.144
+                  },
+                  {
+                    "x": 0.661,
+                    "y": 0.133
+                  }
+                ]
+              }
+            },
+            {
+              "id": "connection:p%3Aact-110db7-2:p%3Aact-110db7-3",
+              "from": "p:act-110db7-2",
+              "to": "p:act-110db7-3",
+              "style": "solid",
+              "controlPoints": {
+                "landscape": [
+                  {
+                    "x": 0.372,
+                    "y": 0.455
+                  },
+                  {
+                    "x": 0.38,
+                    "y": 0.383
+                  },
+                  {
+                    "x": 0.35,
+                    "y": 0.297
+                  },
+                  {
+                    "x": 0.358,
+                    "y": 0.225
+                  }
+                ],
+                "portrait": [
+                  {
+                    "x": 0.636,
+                    "y": 0.169
+                  },
+                  {
+                    "x": 0.541,
+                    "y": 0.216
+                  },
+                  {
+                    "x": 0.459,
+                    "y": 0.324
+                  },
+                  {
+                    "x": 0.364,
+                    "y": 0.371
+                  }
+                ]
+              }
+            },
+            {
+              "id": "connection:p%3Aact-110db7-3:choice",
+              "from": "p:act-110db7-3",
+              "to": "choice",
+              "style": "solid",
+              "controlPoints": {
+                "landscape": [
+                  {
+                    "x": 0.41,
+                    "y": 0.263
+                  },
+                  {
+                    "x": 0.454,
+                    "y": 0.319
+                  },
+                  {
+                    "x": 0.536,
+                    "y": 0.361
+                  },
+                  {
+                    "x": 0.58,
+                    "y": 0.417
+                  }
+                ],
+                "portrait": [
+                  {
+                    "x": 0.286,
+                    "y": 0.376
+                  },
+                  {
+                    "x": 0.341,
+                    "y": 0.382
+                  },
+                  {
+                    "x": 0.409,
+                    "y": 0.358
+                  },
+                  {
+                    "x": 0.464,
+                    "y": 0.364
+                  }
+                ]
+              }
+            },
+            {
+              "id": "connection:choice:p%3Aoption-1%3Aact-110db7-4",
+              "from": "choice",
+              "to": "p:option-1:act-110db7-4",
+              "style": "glow",
+              "controlPoints": {
+                "landscape": [
+                  {
+                    "x": 0.629,
+                    "y": 0.429
+                  },
+                  {
+                    "x": 0.676,
+                    "y": 0.35
+                  },
+                  {
+                    "x": 0.694,
+                    "y": 0.259
+                  }
+                ],
+                "portrait": [
+                  {
+                    "x": 0.557,
+                    "y": 0.48
+                  },
+                  {
+                    "x": 0.622,
+                    "y": 0.522
+                  },
+                  {
+                    "x": 0.697,
+                    "y": 0.54
+                  }
+                ]
+              }
+            },
+            {
+              "id": "connection:p%3Aoption-1%3Aact-110db7-4:p%3Aact-110db7-6",
+              "from": "p:option-1:act-110db7-4",
+              "to": "p:act-110db7-6",
+              "style": "glow",
+              "controlPoints": {
+                "landscape": [
+                  {
+                    "x": 0.691,
+                    "y": 0.261
+                  },
+                  {
+                    "x": 0.714,
+                    "y": 0.353
+                  },
+                  {
+                    "x": 0.766,
+                    "y": 0.431
+                  }
+                ],
+                "portrait": [
+                  {
+                    "x": 0.695,
+                    "y": 0.545
+                  },
+                  {
+                    "x": 0.619,
+                    "y": 0.568
+                  },
+                  {
+                    "x": 0.555,
+                    "y": 0.615
+                  }
+                ]
+              }
+            },
+            {
+              "id": "connection:p%3Aact-110db7-6:end",
+              "from": "p:act-110db7-6",
+              "to": "end",
+              "style": "solid",
+              "controlPoints": {
+                "landscape": [
+                  {
+                    "x": 0.905,
+                    "y": 0.456
+                  },
+                  {
+                    "x": 0.91,
+                    "y": 0.39
+                  },
+                  {
+                    "x": 0.88,
+                    "y": 0.31
+                  },
+                  {
+                    "x": 0.885,
+                    "y": 0.244
+                  }
+                ],
+                "portrait": [
+                  {
+                    "x": 0.474,
+                    "y": 0.716
+                  },
+                  {
+                    "x": 0.484,
+                    "y": 0.752
+                  },
+                  {
+                    "x": 0.516,
+                    "y": 0.788
+                  },
+                  {
+                    "x": 0.526,
+                    "y": 0.824
+                  }
+                ]
+              }
+            },
+            {
+              "id": "connection:choice:p%3Aoption-2%3Aact-110db7-5",
+              "from": "choice",
+              "to": "p:option-2:act-110db7-5",
+              "style": "dashed",
+              "controlPoints": {
+                "landscape": [
+                  {
+                    "x": 0.556,
+                    "y": 0.599
+                  },
+                  {
+                    "x": 0.574,
+                    "y": 0.689
+                  },
+                  {
+                    "x": 0.621,
+                    "y": 0.769
+                  }
+                ],
+                "portrait": [
+                  {
+                    "x": 0.417,
+                    "y": 0.42
+                  },
+                  {
+                    "x": 0.342,
+                    "y": 0.438
+                  },
+                  {
+                    "x": 0.277,
+                    "y": 0.48
+                  }
+                ]
+              }
+            },
+            {
+              "id": "connection:p%3Aoption-2%3Aact-110db7-5:p%3Aact-110db7-6",
+              "from": "p:option-2:act-110db7-5",
+              "to": "p:act-110db7-6",
+              "style": "dashed",
+              "controlPoints": {
+                "landscape": [
+                  {
+                    "x": 0.764,
+                    "y": 0.771
+                  },
+                  {
+                    "x": 0.816,
+                    "y": 0.692
+                  },
+                  {
+                    "x": 0.839,
+                    "y": 0.601
+                  }
+                ],
+                "portrait": [
+                  {
+                    "x": 0.275,
+                    "y": 0.605
+                  },
+                  {
+                    "x": 0.339,
+                    "y": 0.652
+                  },
+                  {
+                    "x": 0.415,
+                    "y": 0.675
+                  }
+                ]
+              }
+            }
+          ],
+          "theme": {
+            "background": {
+              "type": "image",
+              "value": "/generated/adventure-board-demo/silent-letter-world.jpeg"
+            },
+            "palette": {
+              "path": "#e0f2fe",
+              "completed": "#2dd4bf",
+              "available": "#38bdf8",
+              "locked": "#94a3b8",
+              "current": "#fbbf24",
+              "preview": "#bae6fd",
+              "text": "#ffffff",
+              "panel": "#0c4a6e"
+            }
+          },
+          "pattern": "winding river with a diamond fork"
+        },
+        "boardId": "hw-spelling-110db7b7:board:2",
+        "planId": "learning-cycle:hw-spelling-110db7b7:r35",
+        "childId": "demo-pashley",
+        "domain": "spelling",
+        "title": "Silent Letters & Sneaky C Spelling Quest",
+        "theme": {
+          "background": {
+            "type": "image",
+            "value": "/generated/adventure-board-demo/silent-letter-world.jpeg"
+          },
+          "palette": {
+            "path": "#e0f2fe",
+            "completed": "#2dd4bf",
+            "available": "#38bdf8",
+            "locked": "#94a3b8",
+            "current": "#fbbf24",
+            "preview": "#bae6fd",
+            "text": "#ffffff",
+            "panel": "#0c4a6e"
+          }
+        },
+        "companion": {
+          "id": "elli",
+          "name": "Elli"
+        },
+        "nodes": [
+          {
+            "id": "start",
+            "label": "Start",
+            "kind": "start",
+            "position": {
+              "x": 0.05,
+              "y": 0.5
+            },
+            "portraitPosition": {
+              "x": 0.5,
+              "y": 0.05
+            },
+            "state": "completed"
+          },
+          {
+            "id": "p:act-110db7-1",
+            "activityNodeId": "act-110db7-1",
+            "label": "Silent Letter Detectives",
+            "kind": "activity",
+            "position": {
+              "x": 0.17,
+              "y": 0.18
+            },
+            "portraitPosition": {
+              "x": 0.25,
+              "y": 0.14
+            },
+            "thumbnailUrl": "/thumbnails/activities/visual-explainer.svg",
+            "activityId": "visual-explainer",
+            "state": "available",
+            "target": {
+              "laneId": "act-110db7-1",
+              "skill": "act-110db7-1",
+              "words": [
+                "write",
+                "wrong",
+                "gnat",
+                "knock",
+                "thumb",
+                "climb"
+              ]
+            },
+            "action": {
+              "type": "launch-activity",
+              "payloadId": "act-110db7-1"
+            }
+          },
+          {
+            "id": "p:act-110db7-2",
+            "activityNodeId": "act-110db7-2",
+            "label": "Sneaky C Sounds",
+            "kind": "activity",
+            "position": {
+              "x": 0.3,
+              "y": 0.5
+            },
+            "portraitPosition": {
+              "x": 0.75,
+              "y": 0.22
+            },
+            "thumbnailUrl": "/thumbnails/activities/visual-explainer.svg",
+            "activityId": "visual-explainer",
+            "state": "available",
+            "target": {
+              "laneId": "act-110db7-2",
+              "skill": "act-110db7-2",
+              "words": [
+                "circle",
+                "decided",
+                "special"
+              ]
+            },
+            "action": {
+              "type": "launch-activity",
+              "payloadId": "act-110db7-2"
+            }
+          },
+          {
+            "id": "p:act-110db7-3",
+            "activityNodeId": "act-110db7-3",
+            "label": "Hidden Letters Practice",
+            "kind": "activity",
+            "position": {
+              "x": 0.43,
+              "y": 0.18
+            },
+            "portraitPosition": {
+              "x": 0.25,
+              "y": 0.32
+            },
+            "thumbnailUrl": "/thumbnails/activities/word-radar.svg",
+            "activityId": "word-radar",
+            "state": "available",
+            "target": {
+              "laneId": "act-110db7-3",
+              "skill": "act-110db7-3",
+              "words": [
+                "write",
+                "thumb",
+                "gnat",
+                "knock",
+                "wrong",
+                "climb",
+                "decided",
+                "special",
+                "building"
+              ]
+            },
+            "wordRadarConfig": {
+              "recallMode": "partial_visual_recall",
+              "inputMode": "letter-by-letter",
+              "speakStyle": "option-a",
+              "showTimer": false,
+              "hideWordDuringResponse": true,
+              "requiresCapturedResponse": true
+            },
+            "action": {
+              "type": "launch-activity",
+              "payloadId": "act-110db7-3"
+            }
+          },
+          {
+            "id": "p:option-1:act-110db7-4",
+            "activityNodeId": "act-110db7-4",
+            "label": "Monster Chase",
+            "kind": "activity",
+            "position": {
+              "x": 0.69,
+              "y": 0.16
+            },
+            "portraitPosition": {
+              "x": 0.78,
+              "y": 0.54
+            },
+            "thumbnailUrl": "/thumbnails/activities/monster-stampede.svg",
+            "activityId": "monster-stampede",
+            "state": "available",
+            "target": {
+              "laneId": "act-110db7-4",
+              "skill": "act-110db7-4",
+              "words": [
+                "write",
+                "thumb",
+                "gnat",
+                "knock",
+                "wrong",
+                "climb",
+                "decided",
+                "special",
+                "building"
+              ]
+            },
+            "action": {
+              "type": "launch-activity",
+              "payloadId": "act-110db7-4"
+            }
+          },
+          {
+            "id": "p:option-2:act-110db7-5",
+            "activityNodeId": "act-110db7-5",
+            "label": "Word Puzzle",
+            "kind": "activity",
+            "position": {
+              "x": 0.69,
+              "y": 0.84
+            },
+            "portraitPosition": {
+              "x": 0.22,
+              "y": 0.54
+            },
+            "thumbnailUrl": "/thumbnails/activities/wordle.svg",
+            "activityId": "wordle",
+            "state": "available",
+            "target": {
+              "laneId": "act-110db7-5",
+              "skill": "act-110db7-5",
+              "words": [
+                "write",
+                "thumb",
+                "gnat",
+                "knock",
+                "wrong",
+                "climb",
+                "decided",
+                "special",
+                "building"
+              ]
+            },
+            "action": {
+              "type": "launch-activity",
+              "payloadId": "act-110db7-5"
+            }
+          },
+          {
+            "id": "choice",
+            "label": "Choose Your Practice",
+            "kind": "choice-gate",
+            "position": {
+              "x": 0.56,
+              "y": 0.5
+            },
+            "portraitPosition": {
+              "x": 0.5,
+              "y": 0.42
+            },
+            "state": "locked",
+            "choiceSetId": "choice",
+            "action": {
+              "type": "open-choice-set",
+              "payloadId": "choice"
+            },
+            "lock": {
+              "reason": "planner-sequence",
+              "label": "Keep going"
+            }
+          },
+          {
+            "id": "p:act-110db7-6",
+            "activityNodeId": "act-110db7-6",
+            "label": "Spelling Checkpoint",
+            "kind": "activity",
+            "position": {
+              "x": 0.84,
+              "y": 0.5
+            },
+            "portraitPosition": {
+              "x": 0.5,
+              "y": 0.68
+            },
+            "thumbnailUrl": "/thumbnails/activities/word-radar.svg",
+            "activityId": "word-radar",
+            "state": "available",
+            "target": {
+              "laneId": "act-110db7-6",
+              "skill": "act-110db7-6",
+              "words": [
+                "sign",
+                "know",
+                "write",
+                "thumb",
+                "comb",
+                "gnat",
+                "knock",
+                "knife",
+                "wrong",
+                "climb",
+                "among",
+                "building",
+                "circle",
+                "decided",
+                "finally",
+                "heavy",
+                "include",
+                "nothing",
+                "special",
+                "wheel"
+              ]
+            },
+            "wordRadarConfig": {
+              "recallMode": "hidden_word_recall",
+              "inputMode": "whole-word",
+              "speakStyle": "option-b",
+              "showTimer": true,
+              "timerSeconds": 8,
+              "hideWordDuringResponse": true,
+              "requiresCapturedResponse": true
+            },
+            "action": {
+              "type": "launch-activity",
+              "payloadId": "act-110db7-6"
+            }
+          },
+          {
+            "id": "end",
+            "label": "Spelling Mastery Gate",
+            "kind": "reward",
+            "position": {
+              "x": 0.95,
+              "y": 0.2
+            },
+            "portraitPosition": {
+              "x": 0.5,
+              "y": 0.86
+            },
+            "state": "locked",
+            "lock": {
+              "reason": "planner-sequence",
+              "label": "Keep going"
+            }
+          }
+        ],
+        "edges": [
+          {
+            "id": "connection:start:p%3Aact-110db7-1",
+            "from": "start",
+            "to": "p:act-110db7-1",
+            "style": "solid",
+            "controlPoints": {
+              "landscape": [
+                {
+                  "x": 0.12,
+                  "y": 0.453
+                },
+                {
+                  "x": 0.126,
+                  "y": 0.383
+                },
+                {
+                  "x": 0.094,
+                  "y": 0.297
+                },
+                {
+                  "x": 0.1,
+                  "y": 0.227
+                }
+              ],
+              "portrait": [
+                {
+                  "x": 0.437,
+                  "y": 0.032
+                },
+                {
+                  "x": 0.392,
+                  "y": 0.064
+                },
+                {
+                  "x": 0.358,
+                  "y": 0.126
+                },
+                {
+                  "x": 0.313,
+                  "y": 0.158
+                }
+              ]
+            },
+            "state": "available"
+          },
+          {
+            "id": "connection:p%3Aact-110db7-1:p%3Aact-110db7-2",
+            "from": "p:act-110db7-1",
+            "to": "p:act-110db7-2",
+            "style": "solid",
+            "controlPoints": {
+              "landscape": [
+                {
+                  "x": 0.15,
+                  "y": 0.263
+                },
+                {
+                  "x": 0.194,
+                  "y": 0.319
+                },
+                {
+                  "x": 0.276,
+                  "y": 0.361
+                },
+                {
+                  "x": 0.32,
+                  "y": 0.417
+                }
+              ],
+              "portrait": [
+                {
+                  "x": 0.339,
+                  "y": 0.227
+                },
+                {
+                  "x": 0.443,
+                  "y": 0.216
+                },
+                {
+                  "x": 0.557,
+                  "y": 0.144
+                },
+                {
+                  "x": 0.661,
+                  "y": 0.133
+                }
+              ]
+            },
+            "state": "available"
+          },
+          {
+            "id": "connection:p%3Aact-110db7-2:p%3Aact-110db7-3",
+            "from": "p:act-110db7-2",
+            "to": "p:act-110db7-3",
+            "style": "solid",
+            "controlPoints": {
+              "landscape": [
+                {
+                  "x": 0.372,
+                  "y": 0.455
+                },
+                {
+                  "x": 0.38,
+                  "y": 0.383
+                },
+                {
+                  "x": 0.35,
+                  "y": 0.297
+                },
+                {
+                  "x": 0.358,
+                  "y": 0.225
+                }
+              ],
+              "portrait": [
+                {
+                  "x": 0.636,
+                  "y": 0.169
+                },
+                {
+                  "x": 0.541,
+                  "y": 0.216
+                },
+                {
+                  "x": 0.459,
+                  "y": 0.324
+                },
+                {
+                  "x": 0.364,
+                  "y": 0.371
+                }
+              ]
+            },
+            "state": "available"
+          },
+          {
+            "id": "connection:p%3Aact-110db7-3:choice",
+            "from": "p:act-110db7-3",
+            "to": "choice",
+            "style": "solid",
+            "controlPoints": {
+              "landscape": [
+                {
+                  "x": 0.41,
+                  "y": 0.263
+                },
+                {
+                  "x": 0.454,
+                  "y": 0.319
+                },
+                {
+                  "x": 0.536,
+                  "y": 0.361
+                },
+                {
+                  "x": 0.58,
+                  "y": 0.417
+                }
+              ],
+              "portrait": [
+                {
+                  "x": 0.286,
+                  "y": 0.376
+                },
+                {
+                  "x": 0.341,
+                  "y": 0.382
+                },
+                {
+                  "x": 0.409,
+                  "y": 0.358
+                },
+                {
+                  "x": 0.464,
+                  "y": 0.364
+                }
+              ]
+            },
+            "state": "locked"
+          },
+          {
+            "id": "connection:choice:p%3Aoption-1%3Aact-110db7-4",
+            "from": "choice",
+            "to": "p:option-1:act-110db7-4",
+            "style": "glow",
+            "controlPoints": {
+              "landscape": [
+                {
+                  "x": 0.629,
+                  "y": 0.429
+                },
+                {
+                  "x": 0.676,
+                  "y": 0.35
+                },
+                {
+                  "x": 0.694,
+                  "y": 0.259
+                }
+              ],
+              "portrait": [
+                {
+                  "x": 0.557,
+                  "y": 0.48
+                },
+                {
+                  "x": 0.622,
+                  "y": 0.522
+                },
+                {
+                  "x": 0.697,
+                  "y": 0.54
+                }
+              ]
+            },
+            "state": "available"
+          },
+          {
+            "id": "connection:p%3Aoption-1%3Aact-110db7-4:p%3Aact-110db7-6",
+            "from": "p:option-1:act-110db7-4",
+            "to": "p:act-110db7-6",
+            "style": "glow",
+            "controlPoints": {
+              "landscape": [
+                {
+                  "x": 0.691,
+                  "y": 0.261
+                },
+                {
+                  "x": 0.714,
+                  "y": 0.353
+                },
+                {
+                  "x": 0.766,
+                  "y": 0.431
+                }
+              ],
+              "portrait": [
+                {
+                  "x": 0.695,
+                  "y": 0.545
+                },
+                {
+                  "x": 0.619,
+                  "y": 0.568
+                },
+                {
+                  "x": 0.555,
+                  "y": 0.615
+                }
+              ]
+            },
+            "state": "available"
+          },
+          {
+            "id": "connection:p%3Aact-110db7-6:end",
+            "from": "p:act-110db7-6",
+            "to": "end",
+            "style": "solid",
+            "controlPoints": {
+              "landscape": [
+                {
+                  "x": 0.905,
+                  "y": 0.456
+                },
+                {
+                  "x": 0.91,
+                  "y": 0.39
+                },
+                {
+                  "x": 0.88,
+                  "y": 0.31
+                },
+                {
+                  "x": 0.885,
+                  "y": 0.244
+                }
+              ],
+              "portrait": [
+                {
+                  "x": 0.474,
+                  "y": 0.716
+                },
+                {
+                  "x": 0.484,
+                  "y": 0.752
+                },
+                {
+                  "x": 0.516,
+                  "y": 0.788
+                },
+                {
+                  "x": 0.526,
+                  "y": 0.824
+                }
+              ]
+            },
+            "state": "locked"
+          },
+          {
+            "id": "connection:choice:p%3Aoption-2%3Aact-110db7-5",
+            "from": "choice",
+            "to": "p:option-2:act-110db7-5",
+            "style": "dashed",
+            "controlPoints": {
+              "landscape": [
+                {
+                  "x": 0.556,
+                  "y": 0.599
+                },
+                {
+                  "x": 0.574,
+                  "y": 0.689
+                },
+                {
+                  "x": 0.621,
+                  "y": 0.769
+                }
+              ],
+              "portrait": [
+                {
+                  "x": 0.417,
+                  "y": 0.42
+                },
+                {
+                  "x": 0.342,
+                  "y": 0.438
+                },
+                {
+                  "x": 0.277,
+                  "y": 0.48
+                }
+              ]
+            },
+            "state": "available"
+          },
+          {
+            "id": "connection:p%3Aoption-2%3Aact-110db7-5:p%3Aact-110db7-6",
+            "from": "p:option-2:act-110db7-5",
+            "to": "p:act-110db7-6",
+            "style": "dashed",
+            "controlPoints": {
+              "landscape": [
+                {
+                  "x": 0.764,
+                  "y": 0.771
+                },
+                {
+                  "x": 0.816,
+                  "y": 0.692
+                },
+                {
+                  "x": 0.839,
+                  "y": 0.601
+                }
+              ],
+              "portrait": [
+                {
+                  "x": 0.275,
+                  "y": 0.605
+                },
+                {
+                  "x": 0.339,
+                  "y": 0.652
+                },
+                {
+                  "x": 0.415,
+                  "y": 0.675
+                }
+              ]
+            },
+            "state": "available"
+          }
+        ],
+        "choiceSets": [
+          {
+            "id": "choice",
+            "kind": "baseline-route",
+            "title": "Pick how you want to practice your tricky words!",
+            "options": [
+              {
+                "id": "option-1",
+                "label": "Monster Chase",
+                "journeyChoiceId": "choice",
+                "journeyOptionId": "option-1",
+                "nodeId": "p:act-110db7-1",
+                "launchNodeId": "act-110db7-1",
+                "state": "locked",
+                "experimentId": "choice",
+                "choiceSignal": {
+                  "algorithmFeed": "choicePolicy",
+                  "traits": [],
+                  "expectedEvidence": "Fast arcade movement with gentle misses and streak rewards may suit a child who engages well with speed and competition.",
+                  "preferenceNotMastery": true
+                }
+              },
+              {
+                "id": "option-2",
+                "label": "Word Puzzle",
+                "journeyChoiceId": "choice",
+                "journeyOptionId": "option-2",
+                "nodeId": "p:act-110db7-1",
+                "launchNodeId": "act-110db7-1",
+                "state": "locked",
+                "experimentId": "choice",
+                "choiceSignal": {
+                  "algorithmFeed": "choicePolicy",
+                  "traits": [],
+                  "expectedEvidence": "A slower logic puzzle with letter-position feedback may suit a child who likes reasoning through patterns step by step.",
+                  "preferenceNotMastery": true
+                }
+              }
+            ]
+          }
+        ],
+        "progress": {
+          "currentNodeId": "p:act-110db7-1",
+          "completedNodeIds": [
+            "start"
+          ]
+        }
+      },
+      "boardDefinition": {
+        "version": 2,
+        "title": "Silent Letters & Sneaky C Spelling Quest",
+        "rationale": "Pick how you want to practice your tricky words!",
+        "rootPathId": "root",
+        "portals": [
+          {
+            "id": "start",
+            "label": "Start",
+            "kind": "start",
+            "position": {
+              "landscape": {
+                "x": 0.05,
+                "y": 0.5
+              },
+              "portrait": {
+                "x": 0.5,
+                "y": 0.05
+              }
+            }
+          },
+          {
+            "id": "p:act-110db7-1",
+            "label": "Silent Letter Detectives",
+            "kind": "activity",
+            "activityNodeId": "act-110db7-1",
+            "position": {
+              "landscape": {
+                "x": 0.17,
+                "y": 0.18
+              },
+              "portrait": {
+                "x": 0.25,
+                "y": 0.14
+              }
+            }
+          },
+          {
+            "id": "p:act-110db7-2",
+            "label": "Sneaky C Sounds",
+            "kind": "activity",
+            "activityNodeId": "act-110db7-2",
+            "position": {
+              "landscape": {
+                "x": 0.3,
+                "y": 0.5
+              },
+              "portrait": {
+                "x": 0.75,
+                "y": 0.22
+              }
+            }
+          },
+          {
+            "id": "p:act-110db7-3",
+            "label": "Hidden Letters Practice",
+            "kind": "activity",
+            "activityNodeId": "act-110db7-3",
+            "position": {
+              "landscape": {
+                "x": 0.43,
+                "y": 0.18
+              },
+              "portrait": {
+                "x": 0.25,
+                "y": 0.32
+              }
+            }
+          },
+          {
+            "id": "p:option-1:act-110db7-4",
+            "label": "Monster Chase",
+            "kind": "activity",
+            "activityNodeId": "act-110db7-4",
+            "position": {
+              "landscape": {
+                "x": 0.69,
+                "y": 0.16
+              },
+              "portrait": {
+                "x": 0.78,
+                "y": 0.54
+              }
+            }
+          },
+          {
+            "id": "p:option-2:act-110db7-5",
+            "label": "Word Puzzle",
+            "kind": "activity",
+            "activityNodeId": "act-110db7-5",
+            "position": {
+              "landscape": {
+                "x": 0.69,
+                "y": 0.84
+              },
+              "portrait": {
+                "x": 0.22,
+                "y": 0.54
+              }
+            }
+          },
+          {
+            "id": "choice",
+            "label": "Choose Your Practice",
+            "kind": "choice",
+            "position": {
+              "landscape": {
+                "x": 0.56,
+                "y": 0.5
+              },
+              "portrait": {
+                "x": 0.5,
+                "y": 0.42
+              }
+            }
+          },
+          {
+            "id": "p:act-110db7-6",
+            "label": "Spelling Checkpoint",
+            "kind": "activity",
+            "activityNodeId": "act-110db7-6",
+            "position": {
+              "landscape": {
+                "x": 0.84,
+                "y": 0.5
+              },
+              "portrait": {
+                "x": 0.5,
+                "y": 0.68
+              }
+            }
+          },
+          {
+            "id": "end",
+            "label": "Spelling Mastery Gate",
+            "kind": "endpoint",
+            "position": {
+              "landscape": {
+                "x": 0.95,
+                "y": 0.2
+              },
+              "portrait": {
+                "x": 0.5,
+                "y": 0.86
+              }
+            }
+          }
+        ],
+        "paths": [
+          {
+            "id": "root",
+            "portalIds": [
+              "start",
+              "p:act-110db7-1",
+              "p:act-110db7-2",
+              "p:act-110db7-3",
+              "choice",
+              "p:act-110db7-6",
+              "end"
+            ]
+          },
+          {
+            "id": "option:option-1",
+            "portalIds": [
+              "p:option-1:act-110db7-4"
+            ]
+          },
+          {
+            "id": "option:option-2",
+            "portalIds": [
+              "p:option-2:act-110db7-5"
+            ]
+          }
+        ],
+        "choices": [
+          {
+            "id": "choice",
+            "portalId": "choice",
+            "purpose": "Pick how you want to practice your tricky words!",
+            "options": [
+              {
+                "id": "option-1",
+                "label": "Monster Chase",
+                "pathId": "option:option-1",
+                "hypothesis": "Fast arcade movement with gentle misses and streak rewards may suit a child who engages well with speed and competition."
+              },
+              {
+                "id": "option-2",
+                "label": "Word Puzzle",
+                "pathId": "option:option-2",
+                "hypothesis": "A slower logic puzzle with letter-position feedback may suit a child who likes reasoning through patterns step by step."
+              }
+            ]
+          }
+        ],
+        "edges": [
+          {
+            "id": "connection:start:p%3Aact-110db7-1",
+            "from": "start",
+            "to": "p:act-110db7-1",
+            "style": "solid",
+            "controlPoints": {
+              "landscape": [
+                {
+                  "x": 0.12,
+                  "y": 0.453
+                },
+                {
+                  "x": 0.126,
+                  "y": 0.383
+                },
+                {
+                  "x": 0.094,
+                  "y": 0.297
+                },
+                {
+                  "x": 0.1,
+                  "y": 0.227
+                }
+              ],
+              "portrait": [
+                {
+                  "x": 0.437,
+                  "y": 0.032
+                },
+                {
+                  "x": 0.392,
+                  "y": 0.064
+                },
+                {
+                  "x": 0.358,
+                  "y": 0.126
+                },
+                {
+                  "x": 0.313,
+                  "y": 0.158
+                }
+              ]
+            }
+          },
+          {
+            "id": "connection:p%3Aact-110db7-1:p%3Aact-110db7-2",
+            "from": "p:act-110db7-1",
+            "to": "p:act-110db7-2",
+            "style": "solid",
+            "controlPoints": {
+              "landscape": [
+                {
+                  "x": 0.15,
+                  "y": 0.263
+                },
+                {
+                  "x": 0.194,
+                  "y": 0.319
+                },
+                {
+                  "x": 0.276,
+                  "y": 0.361
+                },
+                {
+                  "x": 0.32,
+                  "y": 0.417
+                }
+              ],
+              "portrait": [
+                {
+                  "x": 0.339,
+                  "y": 0.227
+                },
+                {
+                  "x": 0.443,
+                  "y": 0.216
+                },
+                {
+                  "x": 0.557,
+                  "y": 0.144
+                },
+                {
+                  "x": 0.661,
+                  "y": 0.133
+                }
+              ]
+            }
+          },
+          {
+            "id": "connection:p%3Aact-110db7-2:p%3Aact-110db7-3",
+            "from": "p:act-110db7-2",
+            "to": "p:act-110db7-3",
+            "style": "solid",
+            "controlPoints": {
+              "landscape": [
+                {
+                  "x": 0.372,
+                  "y": 0.455
+                },
+                {
+                  "x": 0.38,
+                  "y": 0.383
+                },
+                {
+                  "x": 0.35,
+                  "y": 0.297
+                },
+                {
+                  "x": 0.358,
+                  "y": 0.225
+                }
+              ],
+              "portrait": [
+                {
+                  "x": 0.636,
+                  "y": 0.169
+                },
+                {
+                  "x": 0.541,
+                  "y": 0.216
+                },
+                {
+                  "x": 0.459,
+                  "y": 0.324
+                },
+                {
+                  "x": 0.364,
+                  "y": 0.371
+                }
+              ]
+            }
+          },
+          {
+            "id": "connection:p%3Aact-110db7-3:choice",
+            "from": "p:act-110db7-3",
+            "to": "choice",
+            "style": "solid",
+            "controlPoints": {
+              "landscape": [
+                {
+                  "x": 0.41,
+                  "y": 0.263
+                },
+                {
+                  "x": 0.454,
+                  "y": 0.319
+                },
+                {
+                  "x": 0.536,
+                  "y": 0.361
+                },
+                {
+                  "x": 0.58,
+                  "y": 0.417
+                }
+              ],
+              "portrait": [
+                {
+                  "x": 0.286,
+                  "y": 0.376
+                },
+                {
+                  "x": 0.341,
+                  "y": 0.382
+                },
+                {
+                  "x": 0.409,
+                  "y": 0.358
+                },
+                {
+                  "x": 0.464,
+                  "y": 0.364
+                }
+              ]
+            }
+          },
+          {
+            "id": "connection:choice:p%3Aoption-1%3Aact-110db7-4",
+            "from": "choice",
+            "to": "p:option-1:act-110db7-4",
+            "style": "glow",
+            "controlPoints": {
+              "landscape": [
+                {
+                  "x": 0.629,
+                  "y": 0.429
+                },
+                {
+                  "x": 0.676,
+                  "y": 0.35
+                },
+                {
+                  "x": 0.694,
+                  "y": 0.259
+                }
+              ],
+              "portrait": [
+                {
+                  "x": 0.557,
+                  "y": 0.48
+                },
+                {
+                  "x": 0.622,
+                  "y": 0.522
+                },
+                {
+                  "x": 0.697,
+                  "y": 0.54
+                }
+              ]
+            }
+          },
+          {
+            "id": "connection:p%3Aoption-1%3Aact-110db7-4:p%3Aact-110db7-6",
+            "from": "p:option-1:act-110db7-4",
+            "to": "p:act-110db7-6",
+            "style": "glow",
+            "controlPoints": {
+              "landscape": [
+                {
+                  "x": 0.691,
+                  "y": 0.261
+                },
+                {
+                  "x": 0.714,
+                  "y": 0.353
+                },
+                {
+                  "x": 0.766,
+                  "y": 0.431
+                }
+              ],
+              "portrait": [
+                {
+                  "x": 0.695,
+                  "y": 0.545
+                },
+                {
+                  "x": 0.619,
+                  "y": 0.568
+                },
+                {
+                  "x": 0.555,
+                  "y": 0.615
+                }
+              ]
+            }
+          },
+          {
+            "id": "connection:p%3Aact-110db7-6:end",
+            "from": "p:act-110db7-6",
+            "to": "end",
+            "style": "solid",
+            "controlPoints": {
+              "landscape": [
+                {
+                  "x": 0.905,
+                  "y": 0.456
+                },
+                {
+                  "x": 0.91,
+                  "y": 0.39
+                },
+                {
+                  "x": 0.88,
+                  "y": 0.31
+                },
+                {
+                  "x": 0.885,
+                  "y": 0.244
+                }
+              ],
+              "portrait": [
+                {
+                  "x": 0.474,
+                  "y": 0.716
+                },
+                {
+                  "x": 0.484,
+                  "y": 0.752
+                },
+                {
+                  "x": 0.516,
+                  "y": 0.788
+                },
+                {
+                  "x": 0.526,
+                  "y": 0.824
+                }
+              ]
+            }
+          },
+          {
+            "id": "connection:choice:p%3Aoption-2%3Aact-110db7-5",
+            "from": "choice",
+            "to": "p:option-2:act-110db7-5",
+            "style": "dashed",
+            "controlPoints": {
+              "landscape": [
+                {
+                  "x": 0.556,
+                  "y": 0.599
+                },
+                {
+                  "x": 0.574,
+                  "y": 0.689
+                },
+                {
+                  "x": 0.621,
+                  "y": 0.769
+                }
+              ],
+              "portrait": [
+                {
+                  "x": 0.417,
+                  "y": 0.42
+                },
+                {
+                  "x": 0.342,
+                  "y": 0.438
+                },
+                {
+                  "x": 0.277,
+                  "y": 0.48
+                }
+              ]
+            }
+          },
+          {
+            "id": "connection:p%3Aoption-2%3Aact-110db7-5:p%3Aact-110db7-6",
+            "from": "p:option-2:act-110db7-5",
+            "to": "p:act-110db7-6",
+            "style": "dashed",
+            "controlPoints": {
+              "landscape": [
+                {
+                  "x": 0.764,
+                  "y": 0.771
+                },
+                {
+                  "x": 0.816,
+                  "y": 0.692
+                },
+                {
+                  "x": 0.839,
+                  "y": 0.601
+                }
+              ],
+              "portrait": [
+                {
+                  "x": 0.275,
+                  "y": 0.605
+                },
+                {
+                  "x": 0.339,
+                  "y": 0.652
+                },
+                {
+                  "x": 0.415,
+                  "y": 0.675
+                }
+              ]
+            }
+          }
+        ],
+        "theme": {
+          "background": {
+            "type": "image",
+            "value": "/generated/adventure-board-demo/silent-letter-world.jpeg"
+          },
+          "palette": {
+            "path": "#e0f2fe",
+            "completed": "#2dd4bf",
+            "available": "#38bdf8",
+            "locked": "#94a3b8",
+            "current": "#fbbf24",
+            "preview": "#bae6fd",
+            "text": "#ffffff",
+            "panel": "#0c4a6e"
+          }
+        },
+        "pattern": "winding river with a diamond fork"
+      }
+    }
+  },
+  "aiContentCatalog": [
+    {
+      "contentId": "hw-spelling-110db7b7:act-110db7-1",
+      "childId": "demo-pashley",
+      "homeworkId": "hw-spelling-110db7b7",
+      "domain": "spelling",
+      "type": "game",
+      "source": "baseline",
+      "theoryDecisionId": "Demo-pashley already spells 11 of 20 words correctly from memory (sign, know, comb, knife, among, circle, finally, heavy, include, nothing, wheel). Her errors cluster in two specific orthographic patterns: dropped silent letters at word starts/ends (write->rite, wrong->rong, gnat->nat, knock->nock, thumb->thum, climb->clim) and soft-c confusion (decided->desided, special->speshal), plus one unattempted word (building). Explicit visual chunking instruction on these two patterns, followed by varied low-stakes retrieval practice and a choice of engaging practice formats, should improve her unaided recall of the 9 gap words without disrupting the 11 words she already has solid.",
+      "title": "Silent Letter Detectives",
+      "activityId": "visual-explainer",
+      "gameHtmlPath": "/games/spelling-visual-explainer.html",
+      "algorithmTargets": [
+        "error-pattern-remediation",
+        "retrieval-practice"
+      ],
+      "targetSkills": [
+        "spelling_practice"
+      ],
+      "targetConcepts": [],
+      "targetWords": [
+        "write",
+        "wrong",
+        "gnat",
+        "knock",
+        "thumb",
+        "climb"
+      ],
+      "engagementHooks": [],
+      "inputEvidence": {
+        "contentFingerprint": "110db7b74070ea2e510050ad9406ff3ee343ecdfa4c0b6b2adf6e68dd53dbfd5",
+        "activityEvidenceIds": [
+          "99413608-f33a-49ec-9e61-efe2039f3d32",
+          "e8ebb0f9-7b97-4917-86d1-801474e068b2",
+          "f079c250-63f8-473b-bf1e-99b4fef9387b",
+          "a9038ad2-1321-47ec-a9da-0be31252009e",
+          "a4c76bc9-72e8-44fb-b2ac-f98942b4ce85",
+          "66172656-8abf-44f5-8ff1-a856b997a5d0",
+          "8b1735e1-9ac6-481e-8a86-705ad009cb64:act-110db7-1:observation:1",
+          "8b1735e1-9ac6-481e-8a86-705ad009cb64:act-110db7-1:observation:2",
+          "8b1735e1-9ac6-481e-8a86-705ad009cb64:act-110db7-1:observation:3",
+          "8b1735e1-9ac6-481e-8a86-705ad009cb64:act-110db7-1:observation:4",
+          "8b1735e1-9ac6-481e-8a86-705ad009cb64:act-110db7-1:observation:5",
+          "8b1735e1-9ac6-481e-8a86-705ad009cb64:act-110db7-1:observation:6"
+        ]
+      },
+      "reuseStatus": "reuse",
+      "reuseReason": "Re-run on the next board: No formal prediction evaluations exist yet (predictionEvaluations=[]), so I read the raw evidence directly. Comparing her baseline discovery responses to the fresh act-110db7-6 checkpoint responses (same words, same response_mode, same instrument_ambiguous/audio_unavailable confound on both occasions, so the comparison is apples-to-apples even though automated correct/incorrect scoring failed): write rite→write, thumb thum→thumb, knock nock→knock, wrong rong→wrong, climb clim→climb, building (unattempted)→building all moved from the original error to the correct spelling unaided (e4e27dc5…, 97e8b514…, aa507c8a…, 6a44c793…, 568dac25…, ccdbd4d8… vs e5a6dd74…, a4c76bc9…, a9038ad2…, e8ebb0f9…, 66172656…, 5261abc5…). That supports the theory's core mechanism (explicit silent-letter chunking + retrieval practice) for the wr-, kn-, mb patterns and for building. However two of the nine gap words show zero movement: gnat stayed 'nat'→'nat' (f079c250… vs a85d719d…) and special stayed 'speshal'→'speshal' (2af6a2bd… vs 9ebd87f6…) — this is exactly the falsifyCriteria condition for those two items specifically. Notably, both words WERE spelled correctly during scaffolded/partial-visibility practice (Hidden Letters Practice: gnat correct 2a62e420…, special correct ef6ee7cc… at 15339ms and 3608ms response times; Monster Chase: gnat correct 0xnhjkmzv5go…, special correct mpjm8nks8k…) but reverted to the original error the moment the harder, timed, hidden-word independent checkpoint was given. Per the rule that correct practice after a long response time (gnat took 15.3s) is not effortless recall, and that partial-visibility/assisted practice success should not be read as mastery, these two words are not yet consolidated even though the explainer 'ran'. The theory holds broadly but needs revision for the gn- and ci→/sh/ sub-patterns specifically."
+    },
+    {
+      "contentId": "hw-spelling-110db7b7:act-110db7-2",
+      "childId": "demo-pashley",
+      "homeworkId": "hw-spelling-110db7b7",
+      "domain": "spelling",
+      "type": "game",
+      "source": "baseline",
+      "theoryDecisionId": "Demo-pashley already spells 11 of 20 words correctly from memory (sign, know, comb, knife, among, circle, finally, heavy, include, nothing, wheel). Her errors cluster in two specific orthographic patterns: dropped silent letters at word starts/ends (write->rite, wrong->rong, gnat->nat, knock->nock, thumb->thum, climb->clim) and soft-c confusion (decided->desided, special->speshal), plus one unattempted word (building). Explicit visual chunking instruction on these two patterns, followed by varied low-stakes retrieval practice and a choice of engaging practice formats, should improve her unaided recall of the 9 gap words without disrupting the 11 words she already has solid.",
+      "title": "Sneaky C Sounds",
+      "activityId": "visual-explainer",
+      "gameHtmlPath": "/games/spelling-visual-explainer.html",
+      "algorithmTargets": [
+        "error-pattern-remediation",
+        "retrieval-practice"
+      ],
+      "targetSkills": [
+        "spelling_practice"
+      ],
+      "targetConcepts": [],
+      "targetWords": [
+        "circle",
+        "decided",
+        "special"
+      ],
+      "engagementHooks": [],
+      "inputEvidence": {
+        "contentFingerprint": "110db7b74070ea2e510050ad9406ff3ee343ecdfa4c0b6b2adf6e68dd53dbfd5",
+        "activityEvidenceIds": [
+          "7de120b6-7677-4007-a71b-6b9acb51b096",
+          "2af6a2bd-bedd-4adf-9436-79ffa67cd0ae",
+          "c1f43f00-8c00-417b-b21b-6c8e1e59e590",
+          "50eff663-b062-4751-a9b3-0a01d8f9b3b4:act-110db7-2:observation:1",
+          "50eff663-b062-4751-a9b3-0a01d8f9b3b4:act-110db7-2:observation:2",
+          "50eff663-b062-4751-a9b3-0a01d8f9b3b4:act-110db7-2:observation:3"
+        ]
+      },
+      "reuseStatus": "reuse",
+      "reuseReason": "Re-run on the next board: No formal prediction evaluations exist yet (predictionEvaluations=[]), so I read the raw evidence directly. Comparing her baseline discovery responses to the fresh act-110db7-6 checkpoint responses (same words, same response_mode, same instrument_ambiguous/audio_unavailable confound on both occasions, so the comparison is apples-to-apples even though automated correct/incorrect scoring failed): write rite→write, thumb thum→thumb, knock nock→knock, wrong rong→wrong, climb clim→climb, building (unattempted)→building all moved from the original error to the correct spelling unaided (e4e27dc5…, 97e8b514…, aa507c8a…, 6a44c793…, 568dac25…, ccdbd4d8… vs e5a6dd74…, a4c76bc9…, a9038ad2…, e8ebb0f9…, 66172656…, 5261abc5…). That supports the theory's core mechanism (explicit silent-letter chunking + retrieval practice) for the wr-, kn-, mb patterns and for building. However two of the nine gap words show zero movement: gnat stayed 'nat'→'nat' (f079c250… vs a85d719d…) and special stayed 'speshal'→'speshal' (2af6a2bd… vs 9ebd87f6…) — this is exactly the falsifyCriteria condition for those two items specifically. Notably, both words WERE spelled correctly during scaffolded/partial-visibility practice (Hidden Letters Practice: gnat correct 2a62e420…, special correct ef6ee7cc… at 15339ms and 3608ms response times; Monster Chase: gnat correct 0xnhjkmzv5go…, special correct mpjm8nks8k…) but reverted to the original error the moment the harder, timed, hidden-word independent checkpoint was given. Per the rule that correct practice after a long response time (gnat took 15.3s) is not effortless recall, and that partial-visibility/assisted practice success should not be read as mastery, these two words are not yet consolidated even though the explainer 'ran'. The theory holds broadly but needs revision for the gn- and ci→/sh/ sub-patterns specifically."
+    },
+    {
+      "contentId": "hw-spelling-110db7b7:act-110db7-3",
+      "childId": "demo-pashley",
+      "homeworkId": "hw-spelling-110db7b7",
+      "domain": "spelling",
+      "type": "game",
+      "source": "baseline",
+      "theoryDecisionId": "Demo-pashley already spells 11 of 20 words correctly from memory (sign, know, comb, knife, among, circle, finally, heavy, include, nothing, wheel). Her errors cluster in two specific orthographic patterns: dropped silent letters at word starts/ends (write->rite, wrong->rong, gnat->nat, knock->nock, thumb->thum, climb->clim) and soft-c confusion (decided->desided, special->speshal), plus one unattempted word (building). Explicit visual chunking instruction on these two patterns, followed by varied low-stakes retrieval practice and a choice of engaging practice formats, should improve her unaided recall of the 9 gap words without disrupting the 11 words she already has solid.",
+      "title": "Hidden Letters Practice",
+      "activityId": "word-radar",
+      "gameHtmlPath": "/homework/direct-drafts/hw-spelling-110db7b7/native-instruments/act-110db7-3.json",
+      "algorithmTargets": [
+        "retrieval-practice"
+      ],
+      "targetSkills": [
+        "spelling_practice"
+      ],
+      "targetConcepts": [],
+      "targetWords": [
+        "write",
+        "thumb",
+        "gnat",
+        "knock",
+        "wrong",
+        "climb",
+        "decided",
+        "special",
+        "building"
+      ],
+      "engagementHooks": [],
+      "inputEvidence": {
+        "contentFingerprint": "110db7b74070ea2e510050ad9406ff3ee343ecdfa4c0b6b2adf6e68dd53dbfd5",
+        "activityEvidenceIds": [
+          "99413608-f33a-49ec-9e61-efe2039f3d32",
+          "a4c76bc9-72e8-44fb-b2ac-f98942b4ce85",
+          "f079c250-63f8-473b-bf1e-99b4fef9387b",
+          "a9038ad2-1321-47ec-a9da-0be31252009e",
+          "e8ebb0f9-7b97-4917-86d1-801474e068b2",
+          "66172656-8abf-44f5-8ff1-a856b997a5d0",
+          "7de120b6-7677-4007-a71b-6b9acb51b096",
+          "2af6a2bd-bedd-4adf-9436-79ffa67cd0ae",
+          "5261abc5-cf99-40a3-87a2-5106d6e41ab8",
+          "2e599708-452d-4739-9c87-7abc04565180",
+          "b91d177b-5bdc-4bf1-a5a5-e037dbd5944b",
+          "2a62e420-c48f-42de-bd86-e793623a47da",
+          "b2e5ce8f-4659-4941-a707-78ba5d1a3640",
+          "e19c6ed1-6f8d-472a-a9ea-550f1f3d6207",
+          "00d7d371-f051-47d7-a346-69028a71d0fb",
+          "d73ec117-6a81-4d4d-bc0c-612be4c20384",
+          "ef6ee7cc-5672-4965-b644-e818fb3a148d",
+          "b376a4f8-7498-4e9f-ae48-67d8f8097a3d"
+        ]
+      },
+      "reuseStatus": "reuse",
+      "reuseReason": "Re-run on the next board: No formal prediction evaluations exist (predictionEvaluations=[]), so I compare raw evidence directly, as the prior decision did. The revised theory (r113) held that gnat (gn- pattern) and special (ci→/sh pattern) needed a second, more focused teach-plus-untimed-practice cycle before they could be fairly re-tested. That second cycle ran (Gnat & Special Practice, hw-spelling-110db7b7:b3:...-r112-step-3), and the subsequent fresh, independent, hidden-word checkpoint (hw-spelling-110db7b7:b3:...-r112-step-5) now shows both words spelled correctly unaided: gnat childResponse 'gnat' (ce059540-a2f2-49ff-82b7-388f359231ab, exposure=previously_practiced, assistance=unassisted) versus the prior reversion to 'nat', and special childResponse 'special' (7638edd8-8d33-421c-9630-40fdb06e30b4, same conditions) versus the prior reversion to 'speshal'. This directly satisfies the falsifyCriteria test for these two sub-patterns and supports the core chunking-plus-retrieval mechanism generalizing with a second repetition. All 11 originally-correct words (sign, know, comb, knife, among, circle, finally, heavy, include, nothing, wheel) also hold steady on this same checkpoint, so there is no broad fatigue cost. However, 'building' — one of the 9 gap words already fixed in the prior round and confirmed correct on three separate prior occasions (act-110db7-3 untimed practice, act-110db7-4 practice, and the first act-110db7-6 fresh checkpoint) — now reverts to 'bilding' (missing the medial u) on this latest checkpoint (0ab3f9a3-37e2-4fc9-a671-8078fffeaba3). This checkpoint used a stricter instrument than earlier ones (showTimer=true, timerSeconds=8, hideWordDuringResponse=true, whole-word input) and, like all items in this activity, carries only the generic instrument_ambiguous/audio_unavailable confound with no per-item response time captured, so I cannot tell whether this was a genuine knowledge lapse or a speed/format-pressure artifact (echoing the earlier pattern where 'write' produced many rapid wrong single-letter guesses specifically under the timed Monster Chase mechanic). Per the instruction not to infer mastery from a single instance and not to use a fixed latency threshold, I am not treating this as a new stable gap, but I am also not certifying the word set as consolidated. The theory is revised to add this caveat and target one more low-pressure check."
+    },
+    {
+      "contentId": "hw-spelling-110db7b7:act-110db7-4",
+      "childId": "demo-pashley",
+      "homeworkId": "hw-spelling-110db7b7",
+      "domain": "spelling",
+      "type": "game",
+      "source": "baseline",
+      "theoryDecisionId": "Demo-pashley already spells 11 of 20 words correctly from memory (sign, know, comb, knife, among, circle, finally, heavy, include, nothing, wheel). Her errors cluster in two specific orthographic patterns: dropped silent letters at word starts/ends (write->rite, wrong->rong, gnat->nat, knock->nock, thumb->thum, climb->clim) and soft-c confusion (decided->desided, special->speshal), plus one unattempted word (building). Explicit visual chunking instruction on these two patterns, followed by varied low-stakes retrieval practice and a choice of engaging practice formats, should improve her unaided recall of the 9 gap words without disrupting the 11 words she already has solid.",
+      "title": "Monster Chase",
+      "activityId": "monster-stampede",
+      "gameHtmlPath": "/homework/direct-drafts/hw-spelling-110db7b7/native-instruments/act-110db7-4.json",
+      "algorithmTargets": [
+        "retrieval-practice"
+      ],
+      "targetSkills": [
+        "spelling_practice"
+      ],
+      "targetConcepts": [],
+      "targetWords": [
+        "write",
+        "thumb",
+        "gnat",
+        "knock",
+        "wrong",
+        "climb",
+        "decided",
+        "special",
+        "building"
+      ],
+      "engagementHooks": [],
+      "inputEvidence": {
+        "contentFingerprint": "110db7b74070ea2e510050ad9406ff3ee343ecdfa4c0b6b2adf6e68dd53dbfd5",
+        "activityEvidenceIds": [
+          "99413608-f33a-49ec-9e61-efe2039f3d32",
+          "a4c76bc9-72e8-44fb-b2ac-f98942b4ce85",
+          "f079c250-63f8-473b-bf1e-99b4fef9387b",
+          "a9038ad2-1321-47ec-a9da-0be31252009e",
+          "e8ebb0f9-7b97-4917-86d1-801474e068b2",
+          "66172656-8abf-44f5-8ff1-a856b997a5d0",
+          "7de120b6-7677-4007-a71b-6b9acb51b096",
+          "2af6a2bd-bedd-4adf-9436-79ffa67cd0ae",
+          "5261abc5-cf99-40a3-87a2-5106d6e41ab8"
+        ]
+      },
+      "reuseStatus": "candidate",
+      "reuseReason": "Planner-selected instrument; subsequent outcomes are needed before reuse decisions."
+    },
+    {
+      "contentId": "hw-spelling-110db7b7:act-110db7-5",
+      "childId": "demo-pashley",
+      "homeworkId": "hw-spelling-110db7b7",
+      "domain": "spelling",
+      "type": "game",
+      "source": "baseline",
+      "theoryDecisionId": "Demo-pashley already spells 11 of 20 words correctly from memory (sign, know, comb, knife, among, circle, finally, heavy, include, nothing, wheel). Her errors cluster in two specific orthographic patterns: dropped silent letters at word starts/ends (write->rite, wrong->rong, gnat->nat, knock->nock, thumb->thum, climb->clim) and soft-c confusion (decided->desided, special->speshal), plus one unattempted word (building). Explicit visual chunking instruction on these two patterns, followed by varied low-stakes retrieval practice and a choice of engaging practice formats, should improve her unaided recall of the 9 gap words without disrupting the 11 words she already has solid.",
+      "title": "Word Puzzle",
+      "activityId": "wordle",
+      "gameHtmlPath": "/homework/direct-drafts/hw-spelling-110db7b7/native-instruments/act-110db7-5.json",
+      "algorithmTargets": [
+        "retrieval-practice"
+      ],
+      "targetSkills": [
+        "spelling_practice"
+      ],
+      "targetConcepts": [],
+      "targetWords": [
+        "write",
+        "thumb",
+        "gnat",
+        "knock",
+        "wrong",
+        "climb",
+        "decided",
+        "special",
+        "building"
+      ],
+      "engagementHooks": [],
+      "inputEvidence": {
+        "contentFingerprint": "110db7b74070ea2e510050ad9406ff3ee343ecdfa4c0b6b2adf6e68dd53dbfd5",
+        "activityEvidenceIds": [
+          "99413608-f33a-49ec-9e61-efe2039f3d32",
+          "a4c76bc9-72e8-44fb-b2ac-f98942b4ce85",
+          "f079c250-63f8-473b-bf1e-99b4fef9387b",
+          "a9038ad2-1321-47ec-a9da-0be31252009e",
+          "e8ebb0f9-7b97-4917-86d1-801474e068b2",
+          "66172656-8abf-44f5-8ff1-a856b997a5d0",
+          "7de120b6-7677-4007-a71b-6b9acb51b096",
+          "2af6a2bd-bedd-4adf-9436-79ffa67cd0ae",
+          "5261abc5-cf99-40a3-87a2-5106d6e41ab8"
+        ]
+      },
+      "reuseStatus": "candidate",
+      "reuseReason": "Planner-selected instrument; subsequent outcomes are needed before reuse decisions."
+    },
+    {
+      "contentId": "hw-spelling-110db7b7:act-110db7-6",
+      "childId": "demo-pashley",
+      "homeworkId": "hw-spelling-110db7b7",
+      "domain": "spelling",
+      "type": "game",
+      "source": "baseline",
+      "theoryDecisionId": "Demo-pashley already spells 11 of 20 words correctly from memory (sign, know, comb, knife, among, circle, finally, heavy, include, nothing, wheel). Her errors cluster in two specific orthographic patterns: dropped silent letters at word starts/ends (write->rite, wrong->rong, gnat->nat, knock->nock, thumb->thum, climb->clim) and soft-c confusion (decided->desided, special->speshal), plus one unattempted word (building). Explicit visual chunking instruction on these two patterns, followed by varied low-stakes retrieval practice and a choice of engaging practice formats, should improve her unaided recall of the 9 gap words without disrupting the 11 words she already has solid.",
+      "title": "Spelling Checkpoint",
+      "activityId": "word-radar",
+      "gameHtmlPath": "/homework/direct-drafts/hw-spelling-110db7b7/native-instruments/act-110db7-6.json",
+      "algorithmTargets": [
+        "retrieval-practice"
+      ],
+      "targetSkills": [
+        "spelling_practice"
+      ],
+      "targetConcepts": [],
+      "targetWords": [
+        "sign",
+        "know",
+        "write",
+        "thumb",
+        "comb",
+        "gnat",
+        "knock",
+        "knife",
+        "wrong",
+        "climb",
+        "among",
+        "building",
+        "circle",
+        "decided",
+        "finally",
+        "heavy",
+        "include",
+        "nothing",
+        "special",
+        "wheel"
+      ],
+      "engagementHooks": [],
+      "inputEvidence": {
+        "contentFingerprint": "110db7b74070ea2e510050ad9406ff3ee343ecdfa4c0b6b2adf6e68dd53dbfd5",
+        "activityEvidenceIds": [
+          "e5a6dd74-b981-46f0-b86c-0a082e29d512",
+          "e1754eb2-7191-4f3c-9411-0deb0a934237",
+          "991bda6f-9b98-4b89-a4f8-bda1eb51c5db",
+          "7a5e1afd-c373-43aa-b756-f333948eb693",
+          "d05e988f-78a8-475f-a3d7-41212d4ab164",
+          "c1f43f00-8c00-417b-b21b-6c8e1e59e590",
+          "e98d5e81-743e-463d-98d9-b544aa92d183",
+          "326d76e3-771f-4bed-b129-b28d24204bad",
+          "64f84ec6-d3f1-4e4d-bfc9-abcc46a86293",
+          "63be8b55-b1f2-4b07-8b0f-799915dcad91",
+          "318203d3-baba-4dbd-b74e-9581d56ad90e",
+          "99413608-f33a-49ec-9e61-efe2039f3d32",
+          "a4c76bc9-72e8-44fb-b2ac-f98942b4ce85",
+          "f079c250-63f8-473b-bf1e-99b4fef9387b",
+          "a9038ad2-1321-47ec-a9da-0be31252009e",
+          "e8ebb0f9-7b97-4917-86d1-801474e068b2",
+          "66172656-8abf-44f5-8ff1-a856b997a5d0",
+          "7de120b6-7677-4007-a71b-6b9acb51b096",
+          "2af6a2bd-bedd-4adf-9436-79ffa67cd0ae",
+          "5261abc5-cf99-40a3-87a2-5106d6e41ab8",
+          "e4e27dc5-39f0-4b30-ab51-01473f9339f9",
+          "3b349414-0733-4dce-ad23-013e7570ed8d",
+          "8858ba45-6b1c-49ae-ba11-c180c96f07a2",
+          "97e8b514-38b7-4460-982f-1a44213e7de8",
+          "fdada12b-111e-4db3-9e52-3563e0199537",
+          "a85d719d-4104-48a1-8eab-a4a64a4a7c29",
+          "aa507c8a-e124-4338-8916-74db3e2e0106",
+          "7242fa87-a191-48c7-ad86-d7c99f209060",
+          "6a44c793-3ff9-4a93-9362-4361d6286f5b",
+          "568dac25-e188-469a-b0d2-eddb852079d3",
+          "7dc3e7b3-6c16-4857-b573-591d96cad932",
+          "ccdbd4d8-0abd-414d-bcba-192695dfa367",
+          "0885fdd8-7f0e-46f7-90af-34ad30d2088c",
+          "d794584f-19ad-4c59-88b1-a1fc4372eb1e",
+          "7cc4a9ff-8b62-4beb-a5fb-0a92bb47ef8b",
+          "7511432c-75cb-4bb9-b627-c3cf01817e08",
+          "971cb9e2-d976-4a49-abfb-1f09bc004ffc",
+          "645ea74a-1870-4ece-9eae-17934e7e0f2a",
+          "9ebd87f6-fb1e-41e5-97c2-39d5552ed1c7",
+          "9d79dc12-2fea-47c9-9c8d-ea5700194bff"
+        ]
+      },
+      "reuseStatus": "reuse",
+      "reuseReason": "Re-run on the next board: No formal prediction evaluations exist yet (predictionEvaluations=[]), so I read the raw evidence directly. Comparing her baseline discovery responses to the fresh act-110db7-6 checkpoint responses (same words, same response_mode, same instrument_ambiguous/audio_unavailable confound on both occasions, so the comparison is apples-to-apples even though automated correct/incorrect scoring failed): write rite→write, thumb thum→thumb, knock nock→knock, wrong rong→wrong, climb clim→climb, building (unattempted)→building all moved from the original error to the correct spelling unaided (e4e27dc5…, 97e8b514…, aa507c8a…, 6a44c793…, 568dac25…, ccdbd4d8… vs e5a6dd74…, a4c76bc9…, a9038ad2…, e8ebb0f9…, 66172656…, 5261abc5…). That supports the theory's core mechanism (explicit silent-letter chunking + retrieval practice) for the wr-, kn-, mb patterns and for building. However two of the nine gap words show zero movement: gnat stayed 'nat'→'nat' (f079c250… vs a85d719d…) and special stayed 'speshal'→'speshal' (2af6a2bd… vs 9ebd87f6…) — this is exactly the falsifyCriteria condition for those two items specifically. Notably, both words WERE spelled correctly during scaffolded/partial-visibility practice (Hidden Letters Practice: gnat correct 2a62e420…, special correct ef6ee7cc… at 15339ms and 3608ms response times; Monster Chase: gnat correct 0xnhjkmzv5go…, special correct mpjm8nks8k…) but reverted to the original error the moment the harder, timed, hidden-word independent checkpoint was given. Per the rule that correct practice after a long response time (gnat took 15.3s) is not effortless recall, and that partial-visibility/assisted practice success should not be read as mastery, these two words are not yet consolidated even though the explainer 'ran'. The theory holds broadly but needs revision for the gn- and ci→/sh/ sub-patterns specifically."
+    }
+  ],
+  "learningExperiments": [],
+  "learningTheoryDecisions": [],
+  "selectedHomeworkDomain": "spelling",
+  "activityTraitModel": {
+    "speed": {
+      "dimension": "speed",
+      "positiveWeight": 0.8,
+      "negativeWeight": 0.7,
+      "mixedWeight": 3.1,
+      "evidenceCount": 6,
+      "confidence": 0.767,
+      "lastUpdated": "2026-10-24T21:22:51.437Z",
+      "activityCounts": {
+        "word-radar": 5,
+        "monster-stampede": 1
+      }
+    },
+    "visual": {
+      "dimension": "visual",
+      "positiveWeight": 1.6,
+      "negativeWeight": 4.2,
+      "mixedWeight": 3.2,
+      "evidenceCount": 12,
+      "confidence": 0.75,
+      "lastUpdated": "2026-10-24T21:22:51.437Z",
+      "activityCounts": {
+        "word-radar": 5,
+        "visual-explainer": 4,
+        "wordle": 3
+      }
+    },
+    "low-writing-load": {
+      "dimension": "low-writing-load",
+      "positiveWeight": 0.8,
+      "negativeWeight": 0.7,
+      "mixedWeight": 2.4,
+      "evidenceCount": 5,
+      "confidence": 0.78,
+      "lastUpdated": "2026-10-24T21:22:51.437Z",
+      "activityCounts": {
+        "word-radar": 5
+      }
+    },
+    "confidence": {
+      "dimension": "confidence",
+      "positiveWeight": 0.8,
+      "negativeWeight": 0.7,
+      "mixedWeight": 2.4,
+      "evidenceCount": 5,
+      "confidence": 0.78,
+      "lastUpdated": "2026-10-24T21:22:51.437Z",
+      "activityCounts": {
+        "word-radar": 5
+      }
+    },
+    "story": {
+      "dimension": "story",
+      "positiveWeight": 0.8,
+      "negativeWeight": 1.4,
+      "mixedWeight": 0.8,
+      "evidenceCount": 4,
+      "confidence": 0.75,
+      "lastUpdated": "2026-10-24T20:29:49.660Z",
+      "activityCounts": {
+        "visual-explainer": 4
+      }
+    },
+    "calm": {
+      "dimension": "calm",
+      "positiveWeight": 0.8,
+      "negativeWeight": 1.4,
+      "mixedWeight": 0.8,
+      "evidenceCount": 4,
+      "confidence": 0.75,
+      "lastUpdated": "2026-10-24T20:29:49.660Z",
+      "activityCounts": {
+        "visual-explainer": 4
+      }
+    },
+    "novelty": {
+      "dimension": "novelty",
+      "positiveWeight": 0.8,
+      "negativeWeight": 1.4,
+      "mixedWeight": 0.8,
+      "evidenceCount": 4,
+      "confidence": 0.75,
+      "lastUpdated": "2026-10-24T20:29:49.660Z",
+      "activityCounts": {
+        "visual-explainer": 4
+      }
+    },
+    "challenge": {
+      "dimension": "challenge",
+      "positiveWeight": 0,
+      "negativeWeight": 2.1,
+      "mixedWeight": 0.7,
+      "evidenceCount": 4,
+      "confidence": 0.7,
+      "lastUpdated": "2026-10-24T20:33:49.320Z",
+      "activityCounts": {
+        "wordle": 3,
+        "monster-stampede": 1
+      }
+    },
+    "control": {
+      "dimension": "control",
+      "positiveWeight": 0,
+      "negativeWeight": 2.1,
+      "mixedWeight": 0,
+      "evidenceCount": 3,
+      "confidence": 0.7,
+      "lastUpdated": "2026-10-24T20:28:04.869Z",
+      "activityCounts": {
+        "wordle": 3
+      }
+    },
+    "competition": {
+      "dimension": "competition",
+      "positiveWeight": 0,
+      "negativeWeight": 0,
+      "mixedWeight": 0.7,
+      "evidenceCount": 1,
+      "confidence": 0.7,
+      "lastUpdated": "2026-10-24T20:33:49.320Z",
+      "activityCounts": {
+        "monster-stampede": 1
+      }
+    },
+    "movement": {
+      "dimension": "movement",
+      "positiveWeight": 0,
+      "negativeWeight": 0,
+      "mixedWeight": 0.7,
+      "evidenceCount": 1,
+      "confidence": 0.7,
+      "lastUpdated": "2026-10-24T20:33:49.320Z",
+      "activityCounts": {
+        "monster-stampede": 1
+      }
+    }
+  },
+  "tamagotchi": {
+    "hunger": 0.8,
+    "happiness": 0.8,
+    "bond": 0.3,
+    "intellect": 0.5,
+    "lastSeenAt": "2026-10-24T19:14:12.797Z"
+  },
+  "companionCurrency": 175,
+  "activityModel": {
+    "word-radar": {
+      "activityId": "word-radar",
+      "plays": 2,
+      "completions": 2,
+      "completionRate": 1,
+      "averageAccuracy": 1,
+      "engagementScore": 0.68,
+      "frustrationScore": 0.1,
+      "likedCount": 0,
+      "dislikedCount": 0,
+      "lastRating": "implicit",
+      "lastPlayed": "2026-10-24T21:22:51.437Z",
+      "domains": {
+        "spelling": 2
+      },
+      "missedWords": []
+    }
+  },
+  "banditState": {
+    "counts": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      2,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "values": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0.5,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ]
+  }
 }

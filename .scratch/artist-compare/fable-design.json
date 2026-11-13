@@ -1,0 +1,479 @@
+{
+  "version": 2,
+  "planId": "compare-fable",
+  "model": "claude-fable-5",
+  "sourceHash": "6ec84755ce35dbf88006579645f6fcae1ec1b9125213a64981f7f1ecb77cb2e8",
+  "composition": {
+    "portals": [
+      {
+        "id": "start",
+        "position": {
+          "landscape": {
+            "x": 0.06,
+            "y": 0.74
+          },
+          "portrait": {
+            "x": 0.26,
+            "y": 0.06
+          }
+        }
+      },
+      {
+        "id": "p:act-110db7-1",
+        "position": {
+          "landscape": {
+            "x": 0.16,
+            "y": 0.3
+          },
+          "portrait": {
+            "x": 0.72,
+            "y": 0.17
+          }
+        }
+      },
+      {
+        "id": "p:act-110db7-2",
+        "position": {
+          "landscape": {
+            "x": 0.3,
+            "y": 0.62
+          },
+          "portrait": {
+            "x": 0.26,
+            "y": 0.3
+          }
+        }
+      },
+      {
+        "id": "p:act-110db7-3",
+        "position": {
+          "landscape": {
+            "x": 0.43,
+            "y": 0.18
+          },
+          "portrait": {
+            "x": 0.72,
+            "y": 0.43
+          }
+        }
+      },
+      {
+        "id": "p:option-1:act-110db7-4",
+        "position": {
+          "landscape": {
+            "x": 0.7,
+            "y": 0.12
+          },
+          "portrait": {
+            "x": 0.18,
+            "y": 0.69
+          }
+        }
+      },
+      {
+        "id": "p:option-2:act-110db7-5",
+        "position": {
+          "landscape": {
+            "x": 0.7,
+            "y": 0.85
+          },
+          "portrait": {
+            "x": 0.72,
+            "y": 0.69
+          }
+        }
+      },
+      {
+        "id": "choice",
+        "position": {
+          "landscape": {
+            "x": 0.56,
+            "y": 0.52
+          },
+          "portrait": {
+            "x": 0.42,
+            "y": 0.55
+          }
+        }
+      },
+      {
+        "id": "p:act-110db7-6",
+        "position": {
+          "landscape": {
+            "x": 0.85,
+            "y": 0.5
+          },
+          "portrait": {
+            "x": 0.45,
+            "y": 0.83
+          }
+        }
+      },
+      {
+        "id": "end",
+        "position": {
+          "landscape": {
+            "x": 0.96,
+            "y": 0.1
+          },
+          "portrait": {
+            "x": 0.74,
+            "y": 0.94
+          }
+        }
+      }
+    ],
+    "edges": [
+      {
+        "id": "connection:start:p%3Aact-110db7-1",
+        "style": "solid",
+        "controlPoints": {
+          "landscape": [
+            {
+              "x": 0.132,
+              "y": 0.641
+            },
+            {
+              "x": 0.176,
+              "y": 0.535
+            },
+            {
+              "x": 0.182,
+              "y": 0.421
+            }
+          ],
+          "portrait": [
+            {
+              "x": 0.363,
+              "y": 0.136
+            },
+            {
+              "x": 0.474,
+              "y": 0.184
+            },
+            {
+              "x": 0.593,
+              "y": 0.191
+            }
+          ]
+        }
+      },
+      {
+        "id": "connection:p%3Aact-110db7-1:p%3Aact-110db7-2",
+        "style": "solid",
+        "controlPoints": {
+          "landscape": [
+            {
+              "x": 0.142,
+              "y": 0.384
+            },
+            {
+              "x": 0.188,
+              "y": 0.44
+            },
+            {
+              "x": 0.272,
+              "y": 0.48
+            },
+            {
+              "x": 0.318,
+              "y": 0.536
+            }
+          ],
+          "portrait": [
+            {
+              "x": 0.609,
+              "y": 0.13
+            },
+            {
+              "x": 0.525,
+              "y": 0.181
+            },
+            {
+              "x": 0.455,
+              "y": 0.289
+            },
+            {
+              "x": 0.371,
+              "y": 0.34
+            }
+          ]
+        }
+      },
+      {
+        "id": "connection:p%3Aact-110db7-2:p%3Aact-110db7-3",
+        "style": "solid",
+        "controlPoints": {
+          "landscape": [
+            {
+              "x": 0.389,
+              "y": 0.551
+            },
+            {
+              "x": 0.391,
+              "y": 0.455
+            },
+            {
+              "x": 0.339,
+              "y": 0.345
+            },
+            {
+              "x": 0.341,
+              "y": 0.249
+            }
+          ],
+          "portrait": [
+            {
+              "x": 0.333,
+              "y": 0.392
+            },
+            {
+              "x": 0.433,
+              "y": 0.393
+            },
+            {
+              "x": 0.547,
+              "y": 0.337
+            },
+            {
+              "x": 0.647,
+              "y": 0.338
+            }
+          ]
+        }
+      },
+      {
+        "id": "connection:p%3Aact-110db7-3:choice",
+        "style": "solid",
+        "controlPoints": {
+          "landscape": [
+            {
+              "x": 0.426,
+              "y": 0.279
+            },
+            {
+              "x": 0.444,
+              "y": 0.37
+            },
+            {
+              "x": 0.491,
+              "y": 0.449
+            }
+          ],
+          "portrait": [
+            {
+              "x": 0.632,
+              "y": 0.428
+            },
+            {
+              "x": 0.552,
+              "y": 0.445
+            },
+            {
+              "x": 0.482,
+              "y": 0.488
+            }
+          ]
+        }
+      },
+      {
+        "id": "connection:choice:p%3Aoption-1%3Aact-110db7-4",
+        "style": "dashed",
+        "controlPoints": {
+          "landscape": [
+            {
+              "x": 0.637,
+              "y": 0.435
+            },
+            {
+              "x": 0.69,
+              "y": 0.341
+            },
+            {
+              "x": 0.707,
+              "y": 0.235
+            }
+          ],
+          "portrait": [
+            {
+              "x": 0.345,
+              "y": 0.56
+            },
+            {
+              "x": 0.279,
+              "y": 0.584
+            },
+            {
+              "x": 0.225,
+              "y": 0.63
+            }
+          ]
+        }
+      },
+      {
+        "id": "connection:p%3Aoption-1%3Aact-110db7-4:p%3Aact-110db7-6",
+        "style": "dashed",
+        "controlPoints": {
+          "landscape": [
+            {
+              "x": 0.697,
+              "y": 0.231
+            },
+            {
+              "x": 0.718,
+              "y": 0.333
+            },
+            {
+              "x": 0.772,
+              "y": 0.421
+            }
+          ],
+          "portrait": [
+            {
+              "x": 0.233,
+              "y": 0.754
+            },
+            {
+              "x": 0.294,
+              "y": 0.801
+            },
+            {
+              "x": 0.368,
+              "y": 0.824
+            }
+          ]
+        }
+      },
+      {
+        "id": "connection:p%3Aact-110db7-6:end",
+        "style": "glow",
+        "controlPoints": {
+          "landscape": [
+            {
+              "x": 0.929,
+              "y": 0.436
+            },
+            {
+              "x": 0.929,
+              "y": 0.35
+            },
+            {
+              "x": 0.881,
+              "y": 0.25
+            },
+            {
+              "x": 0.881,
+              "y": 0.164
+            }
+          ],
+          "portrait": [
+            {
+              "x": 0.492,
+              "y": 0.893
+            },
+            {
+              "x": 0.556,
+              "y": 0.9
+            },
+            {
+              "x": 0.634,
+              "y": 0.87
+            },
+            {
+              "x": 0.698,
+              "y": 0.877
+            }
+          ]
+        }
+      },
+      {
+        "id": "connection:choice:p%3Aoption-2%3Aact-110db7-5",
+        "style": "dashed",
+        "controlPoints": {
+          "landscape": [
+            {
+              "x": 0.56,
+              "y": 0.617
+            },
+            {
+              "x": 0.581,
+              "y": 0.706
+            },
+            {
+              "x": 0.63,
+              "y": 0.782
+            }
+          ],
+          "portrait": [
+            {
+              "x": 0.48,
+              "y": 0.617
+            },
+            {
+              "x": 0.549,
+              "y": 0.665
+            },
+            {
+              "x": 0.63,
+              "y": 0.687
+            }
+          ]
+        }
+      },
+      {
+        "id": "connection:p%3Aoption-2%3Aact-110db7-5:p%3Aact-110db7-6",
+        "style": "dashed",
+        "controlPoints": {
+          "landscape": [
+            {
+              "x": 0.775,
+              "y": 0.778
+            },
+            {
+              "x": 0.827,
+              "y": 0.698
+            },
+            {
+              "x": 0.85,
+              "y": 0.603
+            }
+          ],
+          "portrait": [
+            {
+              "x": 0.638,
+              "y": 0.696
+            },
+            {
+              "x": 0.564,
+              "y": 0.72
+            },
+            {
+              "x": 0.503,
+              "y": 0.766
+            }
+          ]
+        }
+      }
+    ],
+    "theme": {
+      "background": {
+        "type": "image",
+        "value": "/generated/adventure-board-demo/silent-letter-world.jpeg"
+      },
+      "palette": {
+        "path": "#fde68a",
+        "completed": "#34d399",
+        "available": "#a855f7",
+        "locked": "#94a3b8",
+        "current": "#f59e0b",
+        "preview": "#c7d2fe",
+        "text": "#ffffff",
+        "panel": "#1e1b4b"
+      }
+    }
+  },
+  "pattern": "winding river with a forked delta",
+  "ending": "submitted",
+  "previews": 2,
+  "elapsedMs": 42325
+}
