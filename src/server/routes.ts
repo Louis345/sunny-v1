@@ -163,7 +163,7 @@ export function resumeSuccessorBoards(options: { force?: boolean } = {}): void {
     for (const file of fs.readdirSync(cyclesDir).filter((name) => name.endsWith(".json"))) {
       const homeworkId = file.replace(/\.json$/, "");
       try {
-        const cycle = getLearningCycle(childId, homeworkId);
+        const cycle = closeStuckFinishedBoard(childId, homeworkId);
         const action = cycle ? successorResumeAction(cycle) : null;
         if (!action) continue;
         console.log(` 🎮 [learning-board] [successor-resume] [${action}] child=${childId} homework=${homeworkId}`);
@@ -310,7 +310,7 @@ import type { SunnyRuntimeOverrides } from "../shared/runtimeConfig";
 import { resolveSunnyRuntimeConfig } from "../shared/runtimeConfig";
 import { arcadeClockForChild, callClockForChild, reconcileCompanionCareCurrencyAward, purchaseForChild, showroomCallClockFacts, spendArcadeMinuteForChild, spendCallMinuteForChild, walletForChild } from "./currencyAward";
 import { companionPickerIdentity } from "./companionPickerRows";
-import { isSpellingPracticeContinuation } from "../engine/learningCycleRepository";
+import { closeStuckFinishedBoard, isSpellingPracticeContinuation } from "../engine/learningCycleRepository";
 import { advanceCanonicalCycleFromEvidence, pageTimeFromKiosk, recordCanonicalLateTries, recordCanonicalNodeCompletion, recordSpellingDiscoveryAttempt } from "../engine/learningCycleRuntime";
 import { getActiveVoiceSessionManagerForChild, getVoiceSessionManagerForChildSession } from "./voice-session-registry";
 import { prepareSuccessorBoard } from "../engine/canonicalProgressionGenerator";

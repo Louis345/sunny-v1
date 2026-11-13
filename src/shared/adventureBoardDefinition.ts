@@ -238,6 +238,10 @@ export function journeyFrontier(definition:AdventureJourneyDefinition, chosen:Re
   // A not-ready activity is never played, so the path passes over it.
   const done = new Set([...completed,...notReady]);
   const portals = new Map(definition.portals.map(portal => [portal.id,portal]));
+  // Every stop on a whole route is done: the board is finished, even if she never tapped the fork (BUGS.md 2026-11-13).
+  const routeDone = journeyExecutions(definition).some(candidate => Object.entries(selections).every(([key,value]) => candidate.selections[key] === undefined || candidate.selections[key] === value)
+    && candidate.portalIds.every(portalId => { const id = portals.get(portalId)?.activityNodeId; return !id || done.has(id); }));
+  if (routeDone) return {complete:true};
   for (const portalId of execution.portalIds) {
     const choice = choices.get(portalId);
     if (choice && !selections[choice.id]) return {portalId,choiceId:choice.id,complete:false};

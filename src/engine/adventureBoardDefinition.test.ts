@@ -35,6 +35,15 @@ describe('Planner-authored journey authority', () => {
     expect(journeyFrontier(definition, {order:'learn'}, ['play']).activityNodeId).toBe('learn');
     expect(journeyFrontier(definition, {order:'play'}, ['play','learn','check']).complete).toBe(true);
   });
+  // 2026-11-13 Ila (AI-caught in the log): board 3's fork offered two orders of the same two stops. She played every
+  // stop by tapping it directly, never the fork, so the board never finished and no next board was built; she was
+  // left on a finished map and called it a bug. Why the logs missed it: each stop logged "completed" and the board
+  // simply stayed ready. Why the lab missed it: completion was only tested after a choice was made.
+  it('finishes the board when every stop on one route is done, even if the fork itself was never tapped', () => {
+    const definition = authoredJourney();
+    expect(journeyFrontier(definition, {}, ['play','learn','check']).complete).toBe(true);
+    expect(journeyFrontier(definition, {}, ['play','learn']).complete).toBe(false);
+  });
   it('rejects a missing binding, reports a missing edge, and keeps the authored choice', () => {
     const definition = authoredJourney(); definition.edges.pop();
     const issues = validateBoardDefinition(definition, ['learn','check']);

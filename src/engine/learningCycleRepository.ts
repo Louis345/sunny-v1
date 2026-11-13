@@ -692,6 +692,7 @@ export type LearningCycleEvent =
       agencyExperiment?: LearningCycleAgencyExperiment;
     }
   | { type: "node_artwork_saved"; nodeId: string; localPath: string }
+  | { type: "finished_board_closed" }
   | { type: "engagement_noted"; evidenceId: string; summary: string }
   | { type: "observation_rescored"; reason: string; source: string; rescores: Array<{ observationId: string; childResponse?: string; result: LearningObservation["result"]; addConfounds: string[] }> }
   | {
@@ -1516,6 +1517,21 @@ function publishPreparedBoardIfComplete(next: LearningCycleRecordV2, at: string)
   return board;
 }
 
+const STUCK_FINISHED_LIFECYCLES = new Set<LearningCycleRecordV2["lifecycle"]>(["baseline_ready", "baseline_active", "quest_ready", "boss_ready"]);
+
+/**
+ * A published board whose route is all done but still says ready is closed, so the next board gets made
+ * (BUGS.md 2026-11-13: Ila played both sides of a fork by tapping the stops, never the fork, and was left on a
+ * finished map). Run at startup before the successor resume; returns the cycle as it now stands.
+ */
+export function closeStuckFinishedBoard(childId: string, homeworkId: string, opts: LearningCycleRepositoryOptions = {}): LearningCycleRecordV2 | null {
+  const cycle = getLearningCycle(childId, homeworkId, opts);
+  if (!cycle?.boards || !STUCK_FINISHED_LIFECYCLES.has(cycle.lifecycle) || !currentBoardInstance(cycle).publishedAt || !canonicalJourneyFrontier(cycle)?.complete) return cycle;
+  const closed = transitionLearningCycle(childId, homeworkId, cycle.revision, { type: "finished_board_closed" }, opts);
+  console.log(` 🎮 [learning-board] [finished-board] [closed] child=${childId} homework=${homeworkId} board=${currentBoardInstance(cycle).boardId} lifecycle=${closed.lifecycle}`);
+  return closed;
+}
+
 /** A next-board stop may borrow an earlier stop's look, but a picture painted for one stop stays on that stop. */
 export function inheritableArtworkNode<T extends { artwork: { localPath: string | null } }>(nodes: T[]): T | undefined {
   return [...nodes].reverse().find((node) => node.artwork.localPath && !node.artwork.localPath.startsWith("/generated/adventure-board/"));
@@ -1650,6 +1666,12 @@ export function transitionLearningCycle(
     };
     reason = "The coherent targeted map is frozen; it publishes once every node artifact is verified.";
     evidenceIds = next.observations.map((observation) => observation.observationId);
+  } else if (event.type === "finished_board_closed") {
+    if (!STUCK_FINISHED_LIFECYCLES.has(next.lifecycle) || !canonicalJourneyFrontier(next)?.complete) throw new Error("learning_cycle_board_not_finished");
+    const boardNodeIds = new Set(currentBoardInstance(next).nodeIds);
+    const completedRoles = next.nodes.filter(candidate => boardNodeIds.has(candidate.nodeId) && candidate.state === "completed").map(candidate => candidate.role);
+    next.lifecycle = completedRoles.includes("boss") ? "boss_evaluating" : completedRoles.includes("quest") ? "quest_evaluating" : "baseline_evaluating";
+    reason = "Every stop on one route of this board was done but it never closed (fork never tapped); one Planner decision is required.";
   } else if (event.type === "node_artwork_saved") {
     assertLocalPath(event.localPath, "artwork_path");
     const node = next.nodes.find((row) => row.nodeId === event.nodeId);

@@ -8,8 +8,8 @@ import { runSpellingDiscoveryIntake } from "./ingestHomework";
 import { runAdaptiveMathGeneration } from "./runAdaptiveMathGeneration";
 import { seedSpellingLab, writeSpellingPdfFixture } from "./fixtures/spellingEvidenceFirst";
 import type { RecordedToolLab } from "./fixtures/recordedToolPlanner";
-import { getLearningCycle, projectLearningCycle, transitionLearningCycle } from "../engine/learningCycleRepository";
-import { currentBoardInstance } from "../engine/learningBoardInstances";
+import { closeStuckFinishedBoard, getLearningCycle, projectLearningCycle, transitionLearningCycle } from "../engine/learningCycleRepository";
+import { currentBoardInstance, successorResumeAction } from "../engine/learningBoardInstances";
 import { completeDiscoveryEvaluation } from "../engine/adaptiveMathDiscovery";
 import { MAX_NEW_PICTURES_PER_BOARD, prepareSuccessorBoard } from "../engine/canonicalProgressionGenerator";
 import { readPictureLibrary } from "../engine/pictureLibrary";
@@ -245,6 +245,25 @@ it("keeps a stop's icon when its picture cannot be painted, and still publishes 
   expect(board.publishedAt).toBeTruthy();
   expect(after.nodes.filter(node => board.nodeIds.includes(node.nodeId)).every(node => !node.artwork.localPath?.includes("node-picture-"))).toBe(true);
   expect(warn.mock.calls.some(call => String(call[0]).includes("[picture-library] [paint] [failed]"))).toBe(true);
+}, 120000);
+
+// 2026-11-13 Ila (AI-caught in the log): every stop on her board was done, but she had never tapped the fork, so the
+// board stayed "ready", no next board was made, and she was left on a finished map. At startup Sunny now closes a
+// finished board that never closed, so the normal next-board step runs.
+it("closes a finished board that never closed, so the next board gets made", async () => {
+  const { childId, homeworkId, opts } = await playToNextBoard();
+  const published = await prepareSuccessorBoard({ childId, homeworkId, paintPicture: async (_prompt, filename) => `/generated/direct-math/${filename}` }, opts);
+  const board = currentBoardInstance(published);
+  expect(board.publishedAt).toBeTruthy();
+  expect(closeStuckFinishedBoard(childId, homeworkId, opts)!.lifecycle).toBe(published.lifecycle); // nothing played yet
+  const file = path.join(opts.rootDir!, "src/context", childId, "homework/cycles", `${homeworkId}.json`);
+  const stuck = JSON.parse(fs.readFileSync(file, "utf8"));
+  for (const node of stuck.nodes) if (board.nodeIds.includes(node.nodeId)) node.state = "completed";
+  stuck.lifecycle = "baseline_ready";
+  fs.writeFileSync(file, JSON.stringify(stuck, null, 2));
+  const closed = closeStuckFinishedBoard(childId, homeworkId, opts)!;
+  expect(closed.lifecycle).toMatch(/_evaluating$/);
+  expect(successorResumeAction(closed)).toBe("decide");
 }, 120000);
 
 // 2026-10-26 parent test: demo-pashley's profile lists her favorites (space, animals, adventure), but she has
