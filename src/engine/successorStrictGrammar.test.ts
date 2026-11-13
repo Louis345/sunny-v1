@@ -92,6 +92,19 @@ describe("code checks every history id the grammar no longer lists", () => {
     expect(call("add_step", { ...step, built_in: "generated-game", words: [wordId(1)], build_from: facts.playedGames![12].nodeId })).toMatchObject({ ok: true });
   });
 
+  // 2026-11-13: the Planner's school-test forecast, word by word, is checked by code before it is locked.
+  it("school_test_forecast: every word, chances 0 to 1; math: a score range in order", () => {
+    const { call, facts } = session(history(small));
+    const words = [...new Set(facts.builtIns.flatMap(row => row.wordIds))];
+    const all = words.map(word => ({ word, chance: 0.7, why: "w" }));
+    expect(call("decide", decide(facts, { prediction_evaluation_ids: [facts.evaluationIds[0]], school_test_forecast: all.slice(1) }))).toMatchObject({ ok: false, error: expect.stringContaining(`missing ${words[0]}`) });
+    expect(call("decide", decide(facts, { prediction_evaluation_ids: [facts.evaluationIds[0]], school_test_forecast: [...all.slice(1), { word: words[0], chance: 1.4, why: "w" }] }))).toMatchObject({ ok: false, error: expect.stringContaining("between 0 and 1") });
+    expect(call("decide", decide(facts, { prediction_evaluation_ids: [facts.evaluationIds[0]], school_test_forecast: all }))).toMatchObject({ ok: true });
+    const math = session(history({ ...small, problems: 3 }));
+    expect(math.call("decide", decide(math.facts, { prediction_evaluation_ids: [math.facts.evaluationIds[0]], school_test_forecast: { min: 0.9, max: 0.6, why: "w" } }))).toMatchObject({ ok: false });
+    expect(math.call("decide", decide(math.facts, { prediction_evaluation_ids: [math.facts.evaluationIds[0]], school_test_forecast: { min: 0.6, max: 0.8, why: "w" } }))).toMatchObject({ ok: true });
+  });
+
   it("math: expect_on_her_own.item, add_step problems and build_from, add_problem based_on", () => {
     const { call, facts } = session(history({ ...large, problems: 30 }));
     const real = facts.problems![29].id;

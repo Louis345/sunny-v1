@@ -28,8 +28,9 @@ export function scoreLockedPredictions(events: readonly ChartEvent[], assignment
         confidence: lock.payload.confidence, modelId: lock.payload.modelId, lockedAt: lock.payload.lockedAt })),
   }));
   const right = rows.filter(row => row.correct).length;
-  // The list-level call: each word's latest lock, summed. A word without one leaves the list call unmade.
-  const latest = rows.map(row => row.predictions.at(-1));
+  // The list-level call: each word's latest lock, summed. A word without one leaves the list call unmade. Code's
+  // baseline forecast is shown beside it, never as the call (2026-11-13).
+  const latest = rows.map(row => row.predictions.filter(prediction => !String(prediction.modelId ?? "").startsWith("code-baseline")).at(-1));
   const predictedRight = latest.every(Boolean) && rows.length
     ? { min: round(latest.reduce((sum, row) => sum + row!.expected.min, 0)), max: round(latest.reduce((sum, row) => sum + row!.expected.max, 0)) }
     : null;
@@ -54,10 +55,15 @@ export function predictionHistoryLines(events: readonly ChartEvent[], onlyAssign
       return [`${assignmentId}: no graded school test yet; ${locks} prediction${locks === 1 ? '' : 's'} locked`];
     }
     const s = scored.summary;
+    // Code's baseline beside the call, so the AI can be compared with plain arithmetic (2026-11-13).
+    const baseline = scored.rows.map(row => row.predictions.filter(prediction => String(prediction.modelId ?? "").startsWith("code-baseline")).at(-1));
+    const baselineLine = baseline.length && baseline.every(Boolean)
+      ? [`- code baseline (no AI) predicted ${number(baseline.reduce((sum, row) => sum + row!.expected.min, 0))} right`] : [];
     const call = s.predictedRight ? `predicted ${number(s.predictedRight.min)} to ${number(s.predictedRight.max)} right; ${s.inRange ? 'inside the prediction' : 'outside the prediction'}` : 'no prediction for every word';
     return [`${assignmentId}: school test ${scored.testDate}: ${s.right} of ${s.words} right; ${call}${stored ? '' : ' (not yet bonded)'}`,
+      ...baselineLine,
       ...scored.rows.map(row => {
-        const p = row.predictions.at(-1);
+        const p = row.predictions.filter(prediction => !String(prediction.modelId ?? "").startsWith("code-baseline")).at(-1);
         const predicted = p ? `predicted ${percent(p.expected.min)}-${percent(p.expected.max)}% right on her own (confidence ${p.confidence ?? 'not stated'}, model ${p.modelId ?? 'not recorded'}, locked ${day(p.lockedAt)})${row.predictions.length > 1 ? `; ${row.predictions.length - 1} earlier` : ''}` : 'no locked prediction';
         return `- ${row.word}: ${predicted}; school test: ${row.correct ? 'right' : `missed${row.writtenResponse ? `, wrote "${row.writtenResponse}"` : ''}`}`;
       }),

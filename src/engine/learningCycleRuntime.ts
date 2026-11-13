@@ -1,4 +1,5 @@
 import {isDeepStrictEqual} from "node:util";
+import type { SchoolForecast } from "./schoolForecast";
 import { plannerDecisionView, plannerObservationView } from "./plannerEvidenceView";
 import { successorMenuFacts } from "./plannerMenu";
 import { schoolTestFacts, schoolTestLine, SPELLING_TEST_CONDITIONS, type HomeworkSources } from "./schoolTestObjective";
@@ -126,6 +127,8 @@ export type CanonicalProgressionDecision = {
   /** Its review of its own track record before deciding (contract 56). Decisions saved earlier have none. */
   selfReview?: PlannerSelfReview;
   expectations?: PlannerExpectation[];
+  /** The Planner's school-test forecast at this decision, with its model (owner, 2026-11-13). */
+  schoolForecast?: SchoolForecast;
   gameNotes?: Array<{ nodeId: string; verdict: "keep" | "fix" | "retire"; why: string }>;
   /** The one complete successor board program. Absent only for await_calibration. */
   successor?: SuccessorProgram;
@@ -666,6 +669,7 @@ export function parseCanonicalProgressionDecision(value: unknown): CanonicalProg
     ...(parseSelfReview(row.selfReview) ? { selfReview: parseSelfReview(row.selfReview) } : {}),
     ...(Array.isArray(row.gameNotes) ? { gameNotes: (row.gameNotes as Array<Record<string, unknown>>).filter(note => typeof note?.nodeId === "string" && ["keep", "fix", "retire"].includes(String(note.verdict)) && typeof note.why === "string")
       .map(note => ({ nodeId: String(note.nodeId), verdict: note.verdict as "keep" | "fix" | "retire", why: String(note.why).trim() })) } : {}),
+    ...(row.schoolForecast && typeof row.schoolForecast === "object" ? { schoolForecast: row.schoolForecast as SchoolForecast } : {}),
     ...(Array.isArray(row.expectations) ? { expectations: (row.expectations as Array<Record<string, unknown>>).filter(call => typeof call?.itemId === "string" && typeof call.onHerOwn === "boolean").map(call => ({ itemId: String(call.itemId), onHerOwn: Boolean(call.onHerOwn) })) } : {}),
     ...(action !== "await_calibration" ? { successor: { instruments, boardDefinition } } : {}),
   };
@@ -1106,7 +1110,9 @@ ${actions.some(action=>action==="generate_quest"||action==="generate_boss")?`Que
     console.log(` 🎮 [canonical-progression] [planner-response] [checkpointed] homework=${cycle.homeworkId} revision=${cycle.revision} tools=${stop}`);
     if(!kit.finished(state)&&!kit.drafted(state))throw new Error(`canonical_progression_tools_unfinished:${stop}`);
     if(!kit.finished(state))console.warn(` 🎮 [planner-tools] [self-check] [unfinished] draft-stands reason=${stop}`);
-    const {decision,journey}=kit.result(state);
+    const {decision:toolDecision,journey}=kit.result(state);
+    // The forecast carries the model that made it, so its record says who predicted (owner, 2026-11-13).
+    const decision=(toolDecision as {schoolForecast?:SchoolForecast}).schoolForecast?{...toolDecision,schoolForecast:{...(toolDecision as {schoolForecast:SchoolForecast}).schoolForecast,forecaster:question.model}}:toolDecision;
     if(!journey)return parseCanonicalProgressionDecision(decision);
     const drawing=draw?await draw(journey):await drawJourney({journey,label:`${cycle.homeworkId}:r${checkpointRevision}`,stagePrefix:`${decisionStage}-design`,identity:{childId:cycle.childId,homeworkId:cycle.homeworkId,batchId,journey},child:chart.childVoice,
       checkpointFile:path.join(draftDir,`${decisionStage}-design.json`),rawResponseDir:draftDir,...(client?{client}:{})});

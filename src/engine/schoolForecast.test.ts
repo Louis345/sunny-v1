@@ -1,0 +1,57 @@
+import { describe, expect, it, vi } from "vitest";
+import { BASELINE_FORECASTER, schoolForecastPredictions } from "./schoolForecast";
+
+// 2026-11-13 Ila's first graded test (8/8): every one of the Planner's 12 locked predictions said the same 50-75%,
+// written once on 11/08 and never updated, though her own record showed dormant far harder than forgot. The owner:
+// predictions must be grounded in reality, per word, updated as evidence arrives, and compared with plain code.
+// Each Planner decision now locks a per-word (spelling) or score (math) school-test forecast with its model, and code
+// locks its own baseline beside it, so we can see whether the AI predicts better than arithmetic.
+const word = (wordId: string, w: string, constructId: string) => ({ id: `item:${wordId}`, wordId, word: w, constructId });
+const obs = (constructId: string, correct: boolean, own = true, first = true, at = "2026-11-10T10:00:00Z") => ({
+  observationId: `${constructId}:${at}:${correct}:${Math.random()}`, itemId: "x", observedAt: at, result: { correct },
+  assistance: { status: own ? "unassisted" : "assisted", scaffolds: [] }, constructLinks: [{ constructId, role: "primary", confidence: 1 }],
+  confounds: first ? ["first_try"] : ["retry"], provenance: "practice" });
+const spellingCycle = (observations: unknown[]) => ({
+  childId: "ila", homeworkId: "hw-spelling-test", domain: "spelling", academicTheory: { theoryId: "hw-spelling-test:theory" },
+  nodes: [{ nodeId: "n1", evidenceContract: { spellingItems: {
+    a: word("w-dormant", "dormant", "spelling.word.dormant"), b: word("w-forgot", "forgot", "spelling.word.forgot") } } }],
+  observations, academicPredictions: [],
+}) as never;
+
+describe("school-test forecasts at each Planner decision", () => {
+  it("locks the Planner's per-word chance with its model, and a code baseline from her first tries on her own", () => {
+    vi.spyOn(console, "log").mockImplementation(() => {});
+    const cycle = spellingCycle([
+      obs("spelling.word.dormant", false), obs("spelling.word.dormant", false), obs("spelling.word.dormant", true),
+      obs("spelling.word.dormant", true, false), obs("spelling.word.dormant", true, true, false),
+      obs("spelling.word.forgot", true), obs("spelling.word.forgot", true),
+    ]);
+    const rows = schoolForecastPredictions(cycle, { forecaster: "claude-opus-5-5", words: [
+      { wordId: "w-dormant", chance: 0.4, why: "Missed twice on her own" }, { wordId: "w-forgot", chance: 0.9, why: "Right every time" }] }, "2026-11-12T00:00:00.000Z");
+    const planner = rows.filter(row => row.modelId === "claude-opus-5-5"), baseline = rows.filter(row => row.modelId === BASELINE_FORECASTER);
+    expect(planner.map(row => [row.constructId, row.expectedMetric.min, row.context])).toEqual([
+      ["spelling.word.dormant", 0.4, "Missed twice on her own"], ["spelling.word.forgot", 0.9, "Right every time"]]);
+    // Only first tries on her own count: dormant 1 of 3, smoothed (1+1)/(3+2); forgot 2 of 2 -> (2+1)/(2+2).
+    expect(baseline.map(row => [row.constructId, row.expectedMetric.min])).toEqual([["spelling.word.dormant", 0.4], ["spelling.word.forgot", 0.75]]);
+    expect(new Set(rows.map(row => row.predictionId)).size).toBe(4);
+    expect(rows.every(row => row.lockedAt === "2026-11-12T00:00:00.000Z" && row.expectedMetric.key === "school_test_correct")).toBe(true);
+  });
+
+  it("still locks the code baseline, and says so in the log, when the Planner gave no forecast", () => {
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    const rows = schoolForecastPredictions(spellingCycle([]), undefined, "2026-11-12T00:00:00.000Z");
+    expect(rows.map(row => [row.modelId, row.expectedMetric.min])).toEqual([[BASELINE_FORECASTER, 0.5], [BASELINE_FORECASTER, 0.5]]);
+    expect(log.mock.calls.some(call => String(call[0]).includes("[school-forecast] [planner] [missing]"))).toBe(true);
+  });
+
+  it("locks a math week's school score forecast from the Planner and from code", () => {
+    vi.spyOn(console, "log").mockImplementation(() => {});
+    const math = { childId: "reina", homeworkId: "hw-math-test", domain: "math", academicTheory: { theoryId: "t" }, nodes: [], academicPredictions: [],
+      observations: [obs("math.division", true), obs("math.division", true), obs("math.division", false), obs("math.division", false, false)] } as never;
+    const rows = schoolForecastPredictions(math, { forecaster: "claude-opus-5-5", score: { min: 0.7, max: 0.85, why: "Neighbour facts still shaky" } }, "2026-11-14T00:00:00.000Z");
+    expect(rows.map(row => [row.modelId, row.constructId, row.expectedMetric])).toEqual([
+      ["claude-opus-5-5", "hw-math-test:school-test-score", { key: "school_test_percent", min: 0.7, max: 0.85 }],
+      [BASELINE_FORECASTER, "hw-math-test:school-test-score", { key: "school_test_percent", min: 0.6, max: 0.6 }],
+    ]);
+  });
+});

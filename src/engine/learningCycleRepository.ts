@@ -1,4 +1,5 @@
 import {journeyChoiceAvailable,unfinishedActivityClosesChoices} from '../shared/adventureBoardDefinition';
+import { schoolForecastPredictions, type SchoolForecast } from "./schoolForecast";
 import { isLibraryPicture } from "./pictureLibrary";
 import { letterRushConfig, spellingExplainerConfig, spellingNativeConfig } from "./spellingNativeSetup";
 import type { BoardCanvasProof } from './adventureBoardCanvas';
@@ -451,6 +452,8 @@ export type LearningCycleRecordV2 = {
   calibrations?: LearningCycleCalibration[];
   evidenceSources: LearningEvidenceSourceRef[];
   academicPredictions: AcademicPrediction[];
+  /** School-test forecasts locked at each Planner decision, the Planner's and code's baseline (2026-11-13). Scored only by graded work. */
+  schoolForecasts?: Array<AcademicPrediction & { modelId: string }>;
   assumptions: LearningAssumption[];
   observations: LearningObservation[];
   predictionEvaluations: PredictionEvaluation[];
@@ -755,6 +758,7 @@ export type LearningCycleEvent =
         selfReview?: PlannerSelfReview;
         expectations?: PlannerExpectation[];
         gameNotes?: LearningCycleDecision["gameNotes"];
+        schoolForecast?: SchoolForecast;
       };
     }
   | { type: "planner_retry_authorized"; blockedDecisionId: string; reason: string }
@@ -1930,6 +1934,8 @@ export function transitionLearningCycle(
     }
     ({ status, reason, nextAction } = event.decision);
     evidenceIds = [...event.decision.evidenceIds];
+    // Every decision locks a school-test forecast: the Planner's when it gave one, and always code's baseline (2026-11-13).
+    if (next.domain === "spelling" || next.domain === "math") next.schoolForecasts = [...(next.schoolForecasts ?? []), ...schoolForecastPredictions(next, event.decision.schoolForecast, at)];
     if (event.decision.revisedHypothesis && event.decision.revisedHypothesis !== next.academicTheory.hypothesis) {
       next.academicTheory = {
         ...next.academicTheory,

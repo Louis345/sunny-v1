@@ -142,17 +142,41 @@ export function spellingSuccessorToolkit(facts: SuccessorFacts) {
         ...(facts.selfReview ? { expect_on_her_own: z.array(z.object({ item: pickFrom(problems ? [...problems.keys()] : allWordIds, "none", `her ${problems ? "recorded problems" : "words"}`, `One of her ${problems ? "problems" : "words"} this board works on, by id.`),
           right: z.boolean().describe("true if you expect her next answer on her own to be right; false if not yet.") }).strict()).optional()
           .describe(`Your calls, ${problems ? "problem" : "word"} by ${problems ? "problem" : "word"}: will she get it right on her own next time? Code checks each call against her next answer on her own and shows you the tally.`) } : {}),
+        ...(facts.selfReview ? (problems
+          ? { school_test_forecast: z.object({ min: z.number().describe("Lowest share of her school test she gets right, 0 to 1."), max: z.number().describe("Highest share, 0 to 1."),
+              why: text("Why, from her answers on her own so far.") }).strict().optional()
+              .describe("Your forecast of her graded school test on this assignment, made fresh from today's evidence. Code locks it with your model and the time, beside a plain baseline from her first tries on her own, and scores both when the grade comes back. Give it every decision.") }
+          : { school_test_forecast: z.array(z.object({ word: z.string().min(1).describe("A word id from her list."), chance: z.number().describe("The chance, 0 to 1, that she spells it right on the school test."),
+              why: text("Why, from her answers on this word.") }).strict()).optional()
+              .describe("Your forecast for her graded school test, word by word, every word on her list, made fresh from today's evidence. Code locks it with your model and the time, beside a plain baseline from her first tries on her own, and scores both when the grade comes back. Give it every decision.") }) : {}),
       }).strict(),
       run: (state, input) => {
         if (facts.evaluationIds.length && !input.prediction_evaluation_ids.length) return { ok: false, error: "cite at least one of the offered prediction_evaluation_ids" };
         const review = (input as { self_review?: Record<"what_i_tried" | "what_happened" | "why" | "what_i_keep" | "what_i_change_now", string> }).self_review;
         const calls = (input as { expect_on_her_own?: Array<{ item: string; right: boolean }> }).expect_on_her_own;
         const notes = (input as { game_notes?: Array<{ game: string; verdict: "keep" | "fix" | "retire"; why: string }> }).game_notes;
+        // The school-test forecast is checked by code: every word, chances 0 to 1, a score range in order (2026-11-13).
+        const forecast = (input as { school_test_forecast?: unknown }).school_test_forecast;
+        let schoolForecast: { forecaster: string; words?: Array<{ wordId: string; chance: number; why: string }>; score?: { min: number; max: number; why: string } } | undefined;
+        if (Array.isArray(forecast)) {
+          const rows = forecast as Array<{ word: string; chance: number; why: string }>;
+          const unknown = rows.filter(row => !allWordIds.includes(row.word)).map(row => row.word);
+          if (unknown.length) return { ok: false, error: `school_test_forecast: ${unknown.join(", ")} is not one of her words; valid: ${allWordIds.join(", ")}` };
+          const missingWords = allWordIds.filter(id => !rows.some(row => row.word === id));
+          if (missingWords.length) return { ok: false, error: `school_test_forecast: forecast every word on her list; missing ${missingWords.join(", ")}` };
+          if (rows.some(row => !(row.chance >= 0 && row.chance <= 1))) return { ok: false, error: "school_test_forecast: each chance is between 0 and 1" };
+          schoolForecast = { forecaster: "planner", words: rows.map(row => ({ wordId: row.word, chance: row.chance, why: row.why })) };
+        } else if (forecast && typeof forecast === "object") {
+          const score = forecast as { min: number; max: number; why: string };
+          if (!(score.min >= 0 && score.min <= score.max && score.max <= 1)) return { ok: false, error: "school_test_forecast: 0 <= min <= max <= 1" };
+          schoolForecast = { forecaster: "planner", score: { min: score.min, max: score.max, why: score.why } };
+        }
         state.decision = { status: input.status, reason: input.reason, progressionAction: input.progression_action, preserve: input.preserve, change: input.change, testNext: input.test_next,
           nextEvidenceRequired: input.next_evidence_required, predictionEvaluationIds: [...new Set(input.prediction_evaluation_ids)], revisedHypothesis: input.revised_hypothesis,
           ...(review ? { selfReview: { whatITried: review.what_i_tried, whatHappened: review.what_happened, why: review.why, whatIKeep: review.what_i_keep, whatIChangeNow: review.what_i_change_now } } : {}),
           ...(calls?.length ? { expectations: calls.map(row => ({ itemId: row.item, onHerOwn: row.right })) } : {}),
-          ...(notes?.length ? { gameNotes: notes.map(row => ({ nodeId: row.game, verdict: row.verdict, why: row.why })) } : {}) };
+          ...(notes?.length ? { gameNotes: notes.map(row => ({ nodeId: row.game, verdict: row.verdict, why: row.why })) } : {}),
+          ...(schoolForecast ? { schoolForecast } : {}) };
         state.result = undefined;
         return { ok: true, result: { action: input.progression_action } };
       } }),

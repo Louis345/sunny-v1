@@ -19,7 +19,8 @@ const instant = (value: string) => new Date(value).toISOString();
 /** Each locked prediction of a spelling week, by word. Predictions whose word is not in the week's frozen list are logged and left out. */
 export function lockedPredictionsFromCycle(cycle: LearningCycleRecordV2): Lock[] {
   const words = new Map((frozenSpellingWordMapping(cycle) ?? []).map(item => [item.constructId, item.word.normalize("NFC").trim().toLowerCase()]));
-  return (cycle.academicPredictions ?? []).flatMap(prediction => {
+  // The week's predictions and the school forecasts locked at each Planner decision (2026-11-13).
+  return [...(cycle.academicPredictions ?? []), ...(cycle.schoolForecasts ?? [])].flatMap(prediction => {
     const word = words.get(prediction.constructId);
     const metric = prediction.expectedMetric;
     const lockedAt = prediction.lockedAt ?? prediction.createdAt;
@@ -83,7 +84,7 @@ export function bondWeekPredictionsAtSessionEnd(childId: string, homeworkId: str
   let db: ChartDatabase | undefined;
   try {
     const cycle = getLearningCycle(childId, homeworkId);
-    if (!cycle || cycle.domain !== "spelling" || !(cycle.academicPredictions ?? []).length) return;
+    if (!cycle || cycle.domain !== "spelling" || !((cycle.academicPredictions ?? []).length + (cycle.schoolForecasts ?? []).length)) return;
     db = openChart(childId);
     bondLockedPredictions(db, cycle);
   } catch (error) {
