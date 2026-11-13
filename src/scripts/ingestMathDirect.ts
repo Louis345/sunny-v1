@@ -16,6 +16,7 @@ import {
 import { buildMathCreativeChildContext, mathPlannerChartContext } from "../engine/directMathExperience";
 import { withDiscoveryBrowserPage } from "../engine/discoveryVisualReview";
 import { getChildChart } from "../profiles/childChart";
+import { resultBindingFromArgs, resultFileFromArgs, writeIngestionRunResult } from "../utils/ingestionRunResult";
 import {
   acquireMathGenerationLease, releaseMathGenerationLease, recoverDiscoveryPublication,
   buildDiscoveryActiveSessionPlan,
@@ -194,7 +195,7 @@ export async function preflightMathIngestion(input: {childId: string; pdf: strin
   return {childId,pdf,chart,sourceHash,homeworkId,draftDir,rootDir};
 }
 
-export async function ingestMathAssignment(input: {childId: string; pdf: string; rootDir?: string; fresh?: boolean; retryUncertain?: boolean}): Promise<void> {
+export async function ingestMathAssignment(input: {childId: string; pdf: string; rootDir?: string; fresh?: boolean; retryUncertain?: boolean}): Promise<{childId:string;homeworkId:string}> {
   const rootDir=input.rootDir ?? process.cwd(), childId=input.childId.trim().toLowerCase();
   if (!/^[a-z0-9_-]+$/.test(childId)) throw new Error("preflight_child_id_invalid");
   const leaseInput={rootDir,childId,homeworkId:"discovery-intake"};
@@ -286,7 +287,7 @@ export async function ingestMathAssignment(input: {childId: string; pdf: string;
     console.log("Targeted board: waits for committed Discovery evidence");
     console.log(`Checkpoint: ${draftDir}`);
     console.log(`Start session: ${formatStartSessionCommand()} → Start child session`);
-    return;
+    return {childId,homeworkId};
   }
   if (shouldDeferToAdaptiveWorker(existingLifecycle)) {
     status("ready");
@@ -295,16 +296,44 @@ export async function ingestMathAssignment(input: {childId: string; pdf: string;
     console.log(`Lifecycle: ${existingLifecycle}`);
     console.log(`Generation: ${generationStatus?.phase ?? "queued"}`);
     console.log("Start or restart Sunny; saved work resumes automatically.");
-    return;
+    return {childId,homeworkId};
   }
+  throw new Error(`math_ingestion_lifecycle_unhandled:${existingLifecycle ?? "missing"}`);
   } catch(error) { status("needs_attention", error); throw Object.assign(error instanceof Error ? error : new Error(String(error)),{phase:currentPhase,checkpoint}); }
   finally { releaseMathGenerationLease({...leaseInput,token:lease.token!}); }
 }
 
 if (require.main === module) {
-  void ingestMathAssignment({childId:arg("child"),pdf:arg("pdf"),fresh:flag("fresh"),retryUncertain:flag("retry-uncertain")}).catch((error) => {
+  const argv = process.argv.slice(2);
+  const childId = arg("child");
+  const resultFile = resultFileFromArgs(argv);
+  const resultBinding = resultBindingFromArgs(argv);
+  void ingestMathAssignment({childId,pdf:arg("pdf"),fresh:flag("fresh"),retryUncertain:flag("retry-uncertain")}).then((result) => {
+    writeIngestionRunResult(resultFile, {
+      version: 1,
+      status: "discovery_ready",
+      childId: result.childId,
+      domain: "math",
+      ...resultBinding,
+      homeworkId: result.homeworkId,
+      completedAt: new Date().toISOString(),
+    });
+  }).catch((error) => {
     const currentPhase=error.phase ?? "preflight";
     const failureKind = classifyIngestionFailure(error, currentPhase);
+    try {
+      writeIngestionRunResult(resultFile, {
+        version: 1,
+        status: "failed_resumable",
+        childId,
+        domain: "math",
+        ...resultBinding,
+        completedAt: new Date().toISOString(),
+        error: error instanceof Error ? error.message : String(error),
+      });
+    } catch (resultError) {
+      console.error(` 🎮 [math-ingestion] [result] [failed] ${resultError instanceof Error ? resultError.message : String(resultError)}`);
+    }
     console.error(`${failureKind} — ${failureKind === "INPUT_ERROR" ? "correct the assignment input" : "saved progress is available"}`);
     console.error("Only browser-accepted Discovery is eligible for publication.");
     console.error(`Phase: ${currentPhase}`);

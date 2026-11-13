@@ -76,6 +76,7 @@ import {
   assertCertificationWorkerScope,
   certificationWorkerScope,
 } from "./certificationRuntime";
+import { registerAssignmentInboxRoutes } from "./assignmentInbox";
 
 export function shouldResumeAdaptiveMathWorker(phase: MathGenerationJob["phase"]): boolean {
   return phase !== "needs_attention";
@@ -695,6 +696,7 @@ export function handleDiagTriggerReward(
 
 export function setupRoutes(app: Express): void {
   setImmediate(() => resumeAdaptiveMathWorkers());
+  registerAssignmentInboxRoutes(app, { childExists: isValidRegistryChildId });
   const themesDir = path.resolve(process.cwd(), "src", "themes");
   if (fs.existsSync(themesDir)) {
     app.use("/themes", express.static(themesDir));
@@ -2733,40 +2735,6 @@ export function setupRoutes(app: Express): void {
       const message = err instanceof Error ? err.message : String(err);
       res.status(500).json({ error: message });
     }
-  });
-
-  app.post("/api/homework/ingest", async (req: Request, res: Response) => {
-    const childId =
-      typeof req.body?.childId === "string" ? req.body.childId.trim().toLowerCase() : "";
-    if (!childId) {
-      return res.status(400).json({ ok: false, error: "childId required" });
-    }
-    const pendingPath = path.join(
-      process.cwd(),
-      "src",
-      "context",
-      childId,
-      "homework",
-      "pending",
-      new Date().toISOString().slice(0, 10),
-    );
-    const args = ["tsx", "src/scripts/ingestHomework.ts", `--child=${childId}`];
-    if (req.body?.opus === true) args.push("--opus");
-    const child = spawn("npx", args, {
-      cwd: process.cwd(),
-      stdio: "inherit",
-      env: { ...process.env, SUNNY_NON_INTERACTIVE: "true" },
-    });
-    child.once("error", (err) => {
-      res.status(500).json({ ok: false, error: String(err) });
-    });
-    child.once("close", (code) => {
-      if (code === 0) {
-        res.json({ ok: true, pendingPath });
-      } else {
-        res.status(500).json({ ok: false, error: `ingest exited ${code}` });
-      }
-    });
   });
 
   app.get("/api/themes/:childId", (req: Request, res: Response) => {

@@ -9,6 +9,7 @@ import { WebSocketServer } from "ws";
 import { setupRoutes } from "./server/routes";
 import { handleWsConnection } from "./server/ws-handler";
 import { endActiveVoiceSessions } from "./server/voice-session-registry";
+import { resumeAssignmentInboxJobs } from "./server/assignmentInbox";
 
 const PORT = parseInt(process.env.PORT || "3001", 10);
 const isKiosk = process.argv.includes("--kiosk");
@@ -19,6 +20,13 @@ app.use(cors());
 app.use(express.json({ limit: "18mb" }));
 
 setupRoutes(app);
+setImmediate(() => {
+  try {
+    resumeAssignmentInboxJobs();
+  } catch (error) {
+    console.error(` 🎮 [assignment-inbox] [startup-recovery] [failed] ${error instanceof Error ? error.message : String(error)}`);
+  }
+});
 
 // Without the built SPA, `web/public` has no index.html — send `/` straight to the world PoC.
 if (!serveStatic) {

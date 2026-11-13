@@ -86,6 +86,7 @@ import { persistIngestedLearningCycle, buildSpellingRecallItems, createSpellingD
 import { acquireMathGenerationLease, releaseMathGenerationLease, resolveAdaptiveMathDraftDir, publishDiscoveryExperience, hashDiscoveryContract, runMathProviderStage } from "../engine/adaptiveMathDiscovery";
 import { getLearningCycle, repairLatestHistoricalLearningCycleBeforePlanning } from "../engine/learningCycleRepository";
 import { createIngestProgress, type IngestProgress } from "../utils/ingestOutput";
+import { resultBindingFromArgs, resultFileFromArgs, writeIngestionRunResult } from "../utils/ingestionRunResult";
 import { generateStoryImage } from "../utils/generateStoryImage";
 import { buildAdventureBoardFromActiveSessionPlan } from "../shared/adventureBoardFromPlan";
 import { NODE_REGISTRY } from "../shared/nodeRegistry";
@@ -1032,7 +1033,7 @@ export function parseCliArgs(argv: string[]): {
   };
 }
 
-type IngestSummary = {
+export type IngestSummary = {
   childId: string;
   domain: string;
   title: string;
@@ -2682,7 +2683,7 @@ async function runIngestHomeworkInternal(
 }
 
 /** Keep the terminal focused on the five ingestion stages. */
-export async function runIngestHomework(argv: string[]): Promise<void> {
+export async function runIngestHomework(argv: string[]): Promise<IngestSummary> {
   const { childId: cliChildId } = parseCliArgs(argv);
   const diagnostics: string[] = [];
   const originalLog = console.log;
@@ -2713,14 +2714,14 @@ export async function runIngestHomework(argv: string[]): Promise<void> {
   if (!childId) {
     progress.finish();
     originalLog("Done — BLOCKED");
-    return;
+    throw new Error("ingest_summary_child_missing");
   }
   const today = new Date().toISOString().slice(0, 10);
   const summary = buildIngestSummary(childId, today);
   if (!summary) {
     progress.finish();
     originalLog("Done — BLOCKED");
-    return;
+    throw new Error("ingest_summary_missing");
   }
   writeIngestReport(summary, diagnostics);
   progress.finish();
@@ -2732,10 +2733,45 @@ export async function runIngestHomework(argv: string[]): Promise<void> {
   originalLog(`Next: ${summary.domain === "spelling" ? "npm run sunny:homework:spelling" : "npm run sunny:homework"}`);
   /* Keep the report discoverable without reprinting its contents. */
   originalLog(`Details: ${summary.reportPath}`);
+  if (summary.status === "BLOCKED") {
+    throw new Error(`ingest_summary_blocked:${summary.readinessFailures.join(",") || "unknown"}`);
+  }
+  return summary;
 }
 
 if (typeof require !== "undefined" && require.main === module) {
-  runIngestHomework(process.argv.slice(2)).catch((err) => {
+  const argv = process.argv.slice(2);
+  const parsed = parseCliArgs(argv);
+  const resultFile = resultFileFromArgs(argv);
+  const resultBinding = resultBindingFromArgs(argv);
+  runIngestHomework(argv).then((summary) => {
+    if (summary.domain === "spelling") {
+      writeIngestionRunResult(resultFile, {
+        version: 1,
+        status: "discovery_ready",
+        childId: summary.childId,
+        domain: "spelling",
+        ...resultBinding,
+        homeworkId: summary.homeworkId,
+        completedAt: new Date().toISOString(),
+      });
+    }
+  }).catch((err) => {
+    if (parsed.homeworkDomain === "spelling" && parsed.childId) {
+      try {
+        writeIngestionRunResult(resultFile, {
+          version: 1,
+          status: "failed_resumable",
+          childId: parsed.childId,
+          domain: "spelling",
+          ...resultBinding,
+          completedAt: new Date().toISOString(),
+          error: err instanceof Error ? err.message : String(err),
+        });
+      } catch (resultError) {
+        console.error(` 🎮 [ingestHomework] [result] [failed] ${resultError instanceof Error ? resultError.message : String(resultError)}`);
+      }
+    }
     console.error("🎮 [ingestHomework] failed", err);
     process.exit(1);
   });
