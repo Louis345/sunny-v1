@@ -62,6 +62,58 @@ function beginHunt() {
 }
 
 describe("Hatch Hunt engine", () => {
+  it("uses the matching Planner-authored recovery after a missed guardian item", () => {
+    const targetedQuestions: HatchHuntQuestion[] = questions.map((question) => ({
+      ...question,
+      targetId: question.id === "guardian" || question.id === "rescue" ? "fact:6x7" : question.id,
+    }));
+    let state = selectHatchEgg(createHatchHuntSession({
+      encounterId: "planner-encounter",
+      childId: "reina",
+      creatureId: "mossback",
+      eggIds: ["fern"],
+      questions: targetedQuestions,
+    }), "fern");
+
+    state = answerHatchQuestion(state, { answer: "5 × 8", latencyMs: 1_200 });
+    expect(state).toMatchObject({
+      phase: "rescue",
+      recoveryFromPhase: "guardian",
+      currentQuestion: { id: "rescue", targetId: "fact:6x7" },
+    });
+
+    state = answerHatchQuestion(state, { answer: "49 + 7", latencyMs: 900 });
+    expect(state).toMatchObject({
+      phase: "cracking",
+      crackCount: 0,
+      currentQuestion: { id: "crack-1" },
+      recoveryFromPhase: null,
+    });
+  });
+
+  it("counts an assisted crack once and still presents the next independent item", () => {
+    const assistedQuestions: HatchHuntQuestion[] = questions.map((question) => ({
+      ...question,
+      targetId: question.id === "crack-1" || question.id === "rescue" ? "fact:8x7" : question.id,
+    }));
+    let state = selectHatchEgg(createHatchHuntSession({
+      encounterId: "planner-encounter",
+      childId: "reina",
+      creatureId: "mossback",
+      eggIds: ["fern"],
+      questions: assistedQuestions,
+    }), "fern");
+    state = answerHatchQuestion(state, { answer: "6 × 7", latencyMs: 1_000 });
+    state = answerHatchQuestion(state, { answer: "54", latencyMs: 1_000 });
+    state = answerHatchQuestion(state, { answer: "49 + 7", latencyMs: 1_000 });
+
+    expect(state).toMatchObject({
+      phase: "cracking",
+      crackCount: 1,
+      currentQuestion: { id: "crack-2" },
+    });
+  });
+
   it("discovers Mossy for the orb chase without creating a Farm reward", () => {
     let state = beginHunt();
 

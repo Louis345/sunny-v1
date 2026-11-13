@@ -101,6 +101,17 @@ const HUMAN_GATE_QUESTIONS = [
 
 export const SPELLING_CERTIFICATION_GAMES: GameDefinition[] = [
   {
+    gameId: "hatch-hunt",
+    displayName: "Hatch Hunt",
+    sourceRelPath: "web/src/components/HatchHuntAssignmentLaunch.tsx",
+    manualPath: "/hatch-hunt",
+    role: "core",
+    evidenceTier: "practice",
+    masteryEligible: false,
+    requiresNormalizedTargets: true,
+    blockIfMissingNormalizedTargets: true,
+  },
+  {
     gameId: "spell-check",
     displayName: "Spell Check",
     sourceRelPath: "web/public/games/spell-check.html",
@@ -281,6 +292,7 @@ function checkVitalSigns(source: string): CertificationCheckStatus {
     /flowState/,
     /timeSpent_ms/,
     /responseTime_ms/,
+    /responseTimeMs/,
     /activeDuration_ms/,
   ])
     ? "pass"

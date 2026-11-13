@@ -143,6 +143,7 @@ export function resolvePlannerBoardLaunchNode(
       type === "word-radar"
         ? planNode?.wordRadarConfig ?? boardWordRadarConfig(boardNode)
         : undefined,
+    hatchHuntConfig: type === "hatch-hunt" ? planNode?.hatchHuntConfig : undefined,
     pronunciationConfig:
       type === "pronunciation" ? planNode?.pronunciationConfig : undefined,
     targetLane: planNode?.targetLane ?? boardNode.target?.laneId,

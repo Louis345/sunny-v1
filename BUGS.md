@@ -1,5 +1,7 @@
 # Bugs
 
+- 2026-08-02: Full root Vitest also has a pre-existing `choiceEvents.test.ts` baseline-route assertion failure outside the Hatch Hunt assignment milestone. The test expects `routeChoiceSelected` to be true, while current choice-event construction returns false. Hatch Hunt does not modify the choice-event implementation. Status: deferred to preserve milestone scope.
+
 - 2026-07-18: Full root Vitest has three pre-existing fixture/catalog failures outside the longitudinal evidence milestone. `mathPlanDefinitionOfDone.test.ts` and `baselinePlannerIntegration.test.ts` request `demo-pashley`, whose learning profile fixture is absent; `baselineShellGap.test.ts` expects an approved generated shell to satisfy a gap but current catalog matching returns `needsGeneration: true`. None of the failing files or baseline-shell implementation changed in this milestone. Focused longitudinal tests, the production build, and all 703 web tests pass. Status: deferred to preserve milestone scope.
 
 - 2026-06-01: Full root Vitest has one unrelated companion video-call trace regression in `src/server/game-event-handler.test.ts`: `companion_tic_tac_toe_child_move` is recorded as `{ type, game: "unknown" }` instead of the expected payload with `activityId`, `companionId`, and `square`. Expected: companion video-call activity events should preserve the structured payload in the shared session game trace stream. Status: discovered while verifying Sunny ingest main port; deferred to keep the ingest merge scoped.

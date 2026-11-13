@@ -61,6 +61,7 @@ export type RoutableNodeConfig = Pick<
   | "storyImagePrompt"
   | "attentionConfig"
   | "activityConfigPath"
+  | "hatchHuntConfig"
   | "adaptiveArtifact"
   | "activityIntent"
   | "targetSelectorDecision"
@@ -208,6 +209,13 @@ export const NODE_REGISTRY: Record<string, NodeHandler> = {
       params.set("config", config);
       return `/games/concept-check.html?${params.toString()}`;
     },
+  },
+  "hatch-hunt": {
+    canvasMessage: (node) => ({
+      type: "hatch_hunt",
+      nodeId: node.id,
+      ...intentPayload(node),
+    }),
   },
   "letter-rush": {
     getUrl: (node, ctx) => {

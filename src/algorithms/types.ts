@@ -1,6 +1,14 @@
 export type ChildQuality = 0 | 1 | 2 | 3 | 4 | 5;
 
-export type Domain = "spelling" | "reading" | "segmentation" | "math" | "clocks" | "history";
+export type Domain =
+  | "spelling"
+  | "vocabulary"
+  | "reading"
+  | "science"
+  | "segmentation"
+  | "math"
+  | "clocks"
+  | "history";
 
 export type ScaffoldLevel = 0 | 1 | 2 | 3 | 4;
 

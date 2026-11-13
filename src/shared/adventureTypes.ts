@@ -5,6 +5,7 @@
 export type NodeType =
   | "mystery"
   | "concept-check"
+  | "hatch-hunt"
   | "visual-explainer"
   | "letter-rush"
   | "monster-stampede"
@@ -253,6 +254,8 @@ export interface NodeConfig {
   }>;
   /** Planner-selected Word Radar measurement mode; profile config is only fallback. */
   wordRadarConfig?: WordRadarNodeConfig;
+  /** Source-grounded assignment content for a Hatch Hunt baseline node. */
+  hatchHuntConfig?: import("./hatchHuntAssignment").HatchHuntAssignmentConfig;
   /** Optional planner-selected reward shell around the learning node. */
   rewardWrapper?: RewardWrapperConfig;
   /** Planner-selected pronunciation dosage; the game renders this instead of choosing word counts. */
@@ -445,6 +448,7 @@ export interface MapState {
 export const ALL_NODE_TYPES: readonly NodeType[] = [
   "mystery",
   "concept-check",
+  "hatch-hunt",
   "visual-explainer",
   "letter-rush",
   "monster-stampede",

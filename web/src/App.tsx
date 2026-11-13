@@ -54,6 +54,7 @@ import { isRewardDiagEnabled, type RewardDiagEvent } from "./types/rewardDiag";
 import { CompanionShowroomPage } from "./CompanionShowroomPage";
 import { WordRadar } from "./components/WordRadar";
 import { FlowGameOverlay } from "./components/FlowGameOverlay";
+import { HatchHuntAssignmentLaunch } from "./components/HatchHuntAssignmentLaunch";
 import { DIAG_WORD_RADAR_ITEMS } from "./fixtures/wordRadarDiagItems";
 import { getCompanionCareFromProfile } from "./utils/companionCareProfile";
 import {
@@ -1717,6 +1718,40 @@ function App() {
               setWordRadarDiagOpen(false);
             }}
           />
+        </FlowGameOverlay>
+      ) : null}
+      {plannerBoardLaunch?.node.type === "hatch-hunt" ? (
+        <FlowGameOverlay onBack={handlePlannerBoardOverlayBack} backLabel="Back to map">
+          <HatchHuntAssignmentLaunch
+            key={`${plannerBoardLaunch.node.id}:${plannerBoardLaunch.replayNonce}`}
+            node={plannerBoardLaunch.node}
+            childId={activeProfileChildId ?? adventureChildId ?? plannerBoardLaunch.node.hatchHuntConfig?.childId ?? ""}
+            childName={selectedChildName ?? state.childName ?? childNameFromId(activeProfileChildId ?? adventureChildId)}
+            sendMessage={sendMessage}
+            onComplete={(result) => {
+              console.log(" 🎮 [AdventureBoard] hatch_hunt_complete", {
+                nodeId: plannerBoardLaunch.node.id,
+                accuracy: result.accuracy,
+                targets: result.targetResults.length,
+              });
+              showPlannerBoardEngagementOverlay(plannerBoardLaunch.node, {
+                completed: true,
+                accuracy: result.accuracy,
+                targetResults: result.targetResults,
+              });
+            }}
+          />
+          {postActivityEngagement ? (
+            <PostActivityEngagementOverlay
+              title={postActivityEngagement.title}
+              outcome={postActivityEngagement.outcome}
+              stats={postActivityEngagement.stats}
+              canReplay
+              canTryHarder={postActivityEngagement.canTryHarder}
+              onAction={handlePlannerBoardPostActivityAction}
+              onFunRating={handlePlannerBoardFunRating}
+            />
+          ) : null}
         </FlowGameOverlay>
       ) : null}
       {plannerBoardLaunch?.node.type === "word-radar" ? (

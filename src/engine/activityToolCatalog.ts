@@ -244,6 +244,15 @@ const DEFAULT_ACTIVITY_TRAITS: ActivityTraits = {
 };
 
 const ACTIVITY_TRAITS_BY_ID = {
+  "hatch-hunt": {
+    skillTargets: ["retrieval_practice", "concept_understanding", "reading_comprehension", "math_reasoning", "spell_from_memory"],
+    friction: "medium",
+    pacing: "medium",
+    inputModes: ["typing", "click", "touch", "mixed"],
+    scaffoldLevel: "medium",
+    evidenceType: "diagnostic",
+    preferenceDimensions: ["challenge", "novelty", "visual", "control"],
+  },
   "concept-check": {
     skillTargets: ["concept_understanding", "reading_comprehension", "vocabulary_meaning"],
     friction: "medium",
@@ -548,6 +557,10 @@ function traitsForActivity(id: string): ActivityTraits {
 }
 
 const ACTIVITY_RUNTIME_CONFIG_BY_ID = {
+  "hatch-hunt": {
+    gameIds: [],
+    configSource: "canvas-message",
+  },
   "concept-check": {
     gameIds: ["concept-check"],
     configSource: "activity-config-file",
@@ -679,6 +692,59 @@ type ActivityPlannerAuditDefaults = Partial<ActivityPlannerAudit> & {
 };
 
 const ACTIVITY_PLANNER_AUDIT_BY_ID = {
+  "hatch-hunt": {
+    measures: [
+      "Independent first-attempt performance on assignment-grounded targets.",
+      "Per-target response, timing, exposure, and assistance provenance.",
+      "Whether the next intervention should teach, practice, or verify a target.",
+    ],
+    configKnobs: [
+      "hatchHuntConfig.baselineItems",
+      "hatchHuntConfig.verificationItems",
+      "hatchHuntConfig.recoveryByTarget",
+      "hatchHuntConfig.creatureId",
+    ],
+    realDifficultyLevels: [
+      "baseline_assignment: untimed independent first attempt from captured homework targets.",
+      "verification: a novel item on the same target after the first observation.",
+      "assisted_recovery: bounded hint or worked explanation recorded as assisted practice.",
+    ],
+    signalsEmitted: [
+      "per-target first response",
+      "response time",
+      "exposure and source provenance",
+      "assistance used",
+      "capture and reward telemetry kept separate from academic evidence",
+    ],
+    signalsMissing: [
+      "Delayed calibration required for mastery.",
+      "Teacher-graded evidence unless separately ingested.",
+      "Academic proof from capture or creature rewards.",
+    ],
+    psychologistGuidance: [
+      "Use as a motivating baseline instrument only after homework capture and domain routing.",
+      "Keep the first attempt independent and untimed; recovery starts only after that observation.",
+      "Treat every result as practice-only input to the Planner, never as mastery by itself.",
+    ],
+    capabilityModes: [{
+      id: "baseline_assignment",
+      label: "Baseline Assignment",
+      difficulty: 2,
+      purpose: "evaluate",
+      skillTargets: ["retrieval_practice", "concept_understanding", "reading_comprehension", "math_reasoning", "spell_from_memory"],
+      inputModes: ["typing", "click", "touch"],
+      scaffolds: ["hint", "retry", "model-answer"],
+      evidenceType: "diagnostic",
+      masteryEligible: false,
+      config: {
+        requiresAssignmentConfig: true,
+        firstAttemptIndependent: true,
+        maximumClaim: "practice_only",
+        captureIsAcademicEvidence: false,
+      },
+      measurementRisks: ["reward_pressure", "retry", "hint", "model_answer", "time_pressure"],
+    }],
+  },
   "concept-check": {
     measures: [
       "Concept understanding before teaching.",
@@ -1775,6 +1841,37 @@ const ACTIVITY_PLANNER_AUDIT_BY_ID = {
 } satisfies Record<string, ActivityPlannerAuditDefaults>;
 
 const ACTIVITY_TOOL_CONTRACTS: ActivityToolContractSource[] = [
+  {
+    id: "hatch-hunt",
+    label: "Hatch Hunt",
+    nodeType: "hatch-hunt",
+    plannerVisibility: "map_node",
+    purposes: ["evaluate", "practice"],
+    domains: ["spelling", "reading", "science", "math", "vocabulary"],
+    strengths: [
+      "Turns captured homework targets into an independent first-attempt baseline.",
+      "Preserves item-level source, exposure, timing, response, and assistance provenance.",
+      "Uses the creature encounter as an engagement wrapper without converting rewards into learning proof.",
+    ],
+    weakFor: ["standalone-mastery", "uncaptured-homework", "answer-revealing-baseline"],
+    goodFitWhen: [
+      "Sunny has captured homework evidence and needs a motivating baseline instrument.",
+      "The Planner needs per-target observations before selecting the next intervention.",
+    ],
+    badFitWhen: [
+      "The assignment source or target provenance is missing.",
+      "The child has already seen the answer before the first-attempt observation.",
+      "The node is being proposed as final mastery proof.",
+    ],
+    scaffolds: ["hint", "retry", "model-answer"],
+    evidence: {
+      writesPracticeEvidence: true,
+      writesMasteryEvidence: false,
+      requiresPerTargetResult: true,
+      allowedEvidence: ["practice", "reward"],
+      contaminationRisks: ["hint", "retry", "model-answer"],
+    },
+  },
   {
     id: "concept-check",
     label: "Concept Check",

@@ -24,6 +24,7 @@ import {
   type MossyCaptureStage,
   type MossyEscapeStage,
 } from "./HatchHuntPolish";
+import { HatchHuntAnswerControl } from "./HatchHuntAnswerControl";
 
 export interface HatchHuntExperienceProps {
   encounterId: string;
@@ -533,7 +534,11 @@ function phaseLabel(state: HatchHuntState): string {
   if (state.phase === "rescue") return "One chance to restore its warmth";
   if (state.phase === "hatched") return "A new friend is here";
   if (state.phase === "lost") return "The egg returned to the grove";
-  return `Crack ${Math.min(3, state.crackCount + 1)} of 3`;
+  const crackGoal = Math.max(
+    1,
+    state.questions.filter((question) => question.difficulty !== "recovery").length - 1,
+  );
+  return `Crack ${Math.min(crackGoal, state.crackCount + 1)} of ${crackGoal}`;
 }
 
 export function HatchHuntExperience({
@@ -702,25 +707,18 @@ export function HatchHuntExperience({
           ) : null}
           <h2>{question.prompt}</h2>
           <div className="hatch-hunt__answers">
-            {question.answers.map((answer) => (
-              <button
-                type="button"
-                key={answer}
-                onClick={() =>
-                  commit(
-                    answerHatchQuestion(state, {
-                      answer,
-                      latencyMs: Date.now() - questionStartedAt.current,
-                    }),
-                  )
-                }
-              >
-                {answer}
-              </button>
-            ))}
+            <HatchHuntAnswerControl
+              key={question.id}
+              mode={question.responseMode}
+              answers={question.answers}
+              onAnswer={(answer) => commit(answerHatchQuestion(state, {
+                answer,
+                latencyMs: Date.now() - questionStartedAt.current,
+              }))}
+            />
           </div>
-          <div className="hatch-hunt__cracks" aria-label={`${state.crackCount} of 3 shell cracks`}>
-            {[1, 2, 3].map((crack) => (
+          <div className="hatch-hunt__cracks" aria-label={`${state.crackCount} shell cracks`}>
+            {Array.from({ length: Math.max(1, state.questions.filter((item) => item.difficulty !== "recovery").length - 1) }, (_, index) => index + 1).map((crack) => (
               <span key={crack} data-open={crack <= state.crackCount} />
             ))}
           </div>
@@ -755,6 +753,11 @@ export function HatchHuntExperience({
         .hatch-hunt__question-topline strong { color:#9b6b00; }
         .hatch-hunt__question h2 { font-size:clamp(24px,3.2vw,38px); line-height:1.08; margin:3px 0 6px; }
         .hatch-hunt__answers { display:grid; gap:10px; grid-template-columns:repeat(3,1fr); }
+        .hatch-hunt-answer-control--choices { display:contents; }
+        .hatch-hunt-answer-control--entry { display:flex; gap:10px; grid-column:1/-1; }
+        .hatch-hunt-answer-control--entry label { display:grid; flex:1; gap:4px; }
+        .hatch-hunt-answer-control--entry label span { font-size:12px; font-weight:900; }
+        .hatch-hunt-answer-control--entry input { border:2px solid rgba(14,143,159,.25); border-radius:14px; font-size:20px; font-weight:850; padding:12px; }
         .hatch-hunt__answers button,.hatch-hunt__outcome button { background:linear-gradient(135deg,#ffffff,#e7fcff); border:2px solid rgba(14,143,159,.16); border-radius:16px; color:${HATCH_HUNT_THEME.ink}; cursor:pointer; font-size:19px; font-weight:950; padding:14px; }
         .hatch-hunt__answers button:hover { background:${HATCH_HUNT_THEME.goldEnergy}; border-color:#f0c93c; transform:translateY(-2px); }
         .hatch-hunt__timer { background:rgba(16,32,45,.1); border-radius:999px; height:7px; overflow:hidden; }

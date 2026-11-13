@@ -39,12 +39,30 @@ export function appendAttemptLine(
     correct: boolean;
     domain?: string;
     sessionId?: string;
+    attemptId?: string;
+    encounterId?: string;
     attemptedValue?: string;
+    responseTimeMs?: number;
+    scaffoldLevel?: number;
     errorSignal?: Partial<ErrorSignal>;
+    evidenceLimit?: "practice_only";
+    masteryClaimAllowed?: false;
+    homeworkId?: string;
+    questionId?: string;
+    sourceFingerprint?: string;
+    sourceDocumentIds?: string[];
+    sourceEvidenceIds?: string[];
+    exposure?: string;
+    assistance?: string;
+    confounds?: string[];
   },
+  opts: { rootDir?: string } = {},
 ): void {
   if (!shouldPersistSessionData()) return;
-  const dir = path.join(resolveChildContextDir(String(childName)), "attempts");
+  const dir = path.join(
+    resolveChildContextDir(String(childName), { rootDir: opts.rootDir }),
+    "attempts",
+  );
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
   const today = new Date().toISOString().slice(0, 10);
   const file = path.join(dir, `${today}.ndjson`);

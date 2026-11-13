@@ -12,6 +12,7 @@ export interface HatchChaseRecovery {
   answers: string[];
   correctAnswer: string;
   workedAnswer: string;
+  acceptedAnswers?: string[];
 }
 
 export interface HatchChaseQuestion {
@@ -21,6 +22,11 @@ export interface HatchChaseQuestion {
   correctAnswer: string;
   seconds: number;
   recovery: HatchChaseRecovery;
+  responseMode?: "selection" | "numeric" | "text";
+  acceptedAnswers?: string[];
+  targetId?: string;
+  sourceEvidenceIds?: string[];
+  exposure?: "unseen" | "taught" | "practiced";
 }
 
 export type HatchChaseEventType =
@@ -47,6 +53,7 @@ export interface HatchChaseEvent {
   result?: "miss" | "capture";
   hitDistance?: number;
   remainingOrbs?: number;
+  response?: string;
 }
 
 export interface HatchChaseCapture {
@@ -141,8 +148,8 @@ export function createHatchChaseSession({
   questions: HatchChaseQuestion[];
   orbCount: number;
 }): HatchChaseState {
-  if (questions.length !== 3) throw new Error("hatch_chase_requires_three_questions");
-  if (orbCount !== 3) throw new Error("hatch_chase_requires_three_orbs");
+  if (questions.length < 1) throw new Error("hatch_chase_requires_questions");
+  if (orbCount !== questions.length) throw new Error("hatch_chase_orbs_must_match_questions");
   return {
     encounterId,
     childId,
@@ -164,13 +171,17 @@ export function answerHatchChaseQuestion(
 ): HatchChaseState {
   const question = state.currentQuestion;
   if (state.phase !== "questions" || !question) return state;
-  const correct = answer === question.correctAnswer;
+  const normalized = answer.trim().toLocaleLowerCase();
+  const correct = (question.acceptedAnswers ?? [question.correctAnswer]).some(
+    (accepted) => accepted.trim().toLocaleLowerCase() === normalized,
+  );
   const observation = event(state, "chase_question_answered", "academic_observation", {
     questionId: question.id,
     correct,
     latencyMs: Math.max(0, Math.round(latencyMs)),
     confounds: ["time_pressure"],
     assistance: "none",
+    response: answer,
   });
   if (!correct) return startRecovery(state, observation);
   return advanceWithChargedOrb(state, "none", [observation]);
@@ -195,12 +206,16 @@ export function answerHatchChaseRecovery(
 ): HatchChaseState {
   const question = state.currentQuestion;
   if (state.phase !== "recovery" || !question) return state;
-  const correct = answer === question.recovery.correctAnswer;
+  const normalized = answer.trim().toLocaleLowerCase();
+  const correct = (question.recovery.acceptedAnswers ?? [question.recovery.correctAnswer]).some(
+    (accepted) => accepted.trim().toLocaleLowerCase() === normalized,
+  );
   const observation = event(state, "chase_recovery_answered", "support", {
     questionId: question.id,
     correct,
     latencyMs: Math.max(0, Math.round(latencyMs)),
     assistance: "scaffold",
+    response: answer,
   });
   if (!correct) {
     return {

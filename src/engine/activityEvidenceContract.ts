@@ -72,6 +72,32 @@ const DEFAULT_MODE = "default";
 
 export const ACTIVITY_EVIDENCE_CONTRACTS: ActivityEvidenceContract[] = [
   {
+    activityId: "hatch-hunt",
+    modeId: DEFAULT_MODE,
+    evidenceRole: "practice_fluency",
+    proofStrength: "diagnostic",
+    bestFor: ["assignment-grounded baseline", "per-target first-attempt observation"],
+    weakFor: ["standalone mastery", "uncaptured source content"],
+    contaminationRisks: ["reward pressure", "retry", "hint", "worked explanation", "time pressure"],
+    requiresPerTargetEvidence: true,
+    requiresCapturedResponse: true,
+    masteryEligible: false,
+    notes: ["The first attempt informs the Planner; capture and creature rewards are engagement-only."],
+  },
+  {
+    activityId: "hatch-hunt",
+    modeId: "baseline_assignment",
+    evidenceRole: "practice_fluency",
+    proofStrength: "diagnostic",
+    bestFor: ["untimed independent baseline", "target-level gap discovery"],
+    weakFor: ["mastery closure", "delayed calibration"],
+    contaminationRisks: ["recovery after first attempt", "reward pressure"],
+    requiresPerTargetEvidence: true,
+    requiresCapturedResponse: true,
+    masteryEligible: false,
+    notes: ["Maximum claim is practice_only even when every answer is correct."],
+  },
+  {
     activityId: "spelling-recall",
     modeId: DEFAULT_MODE,
     evidenceRole: "clean_spelling_recall",

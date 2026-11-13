@@ -10,7 +10,9 @@ import { appendAttemptLine } from "../utils/attempts";
 
 const DOMAINS: ReadonlySet<string> = new Set([
   "spelling",
+  "vocabulary",
   "reading",
+  "science",
   "segmentation",
   "math",
   "clocks",
@@ -30,6 +32,17 @@ export type RawLearningAttemptEvent = {
   scaffoldLevel?: unknown;
   responseTimeMs?: unknown;
   sessionId?: unknown;
+  encounterId?: unknown;
+  maximumClaim?: unknown;
+  masteryClaimAllowed?: unknown;
+  homeworkId?: unknown;
+  questionId?: unknown;
+  sourceFingerprint?: unknown;
+  sourceDocumentIds?: unknown;
+  sourceEvidenceIds?: unknown;
+  exposure?: unknown;
+  assistance?: unknown;
+  confounds?: unknown;
 };
 
 export type RecordedLearningAttempt = {
@@ -38,6 +51,18 @@ export type RecordedLearningAttempt = {
   sessionId?: string;
   attempt: AttemptInput;
   skipped: boolean;
+  evidenceLimit?: "practice_only";
+  observationContext: {
+    homeworkId?: string;
+    encounterId?: string;
+    questionId?: string;
+    sourceFingerprint?: string;
+    sourceDocumentIds?: string[];
+    sourceEvidenceIds?: string[];
+    exposure?: string;
+    assistance?: string;
+    confounds?: string[];
+  };
 };
 
 const seenAttemptIds: string[] = [];
@@ -71,6 +96,19 @@ function normalizeDomain(value: unknown): Domain {
   const domain = String(value ?? "").trim().toLowerCase();
   if (DOMAINS.has(domain)) return domain as Domain;
   throw new Error(`Invalid attempt domain: ${String(value)}`);
+}
+
+function optionalString(value: unknown): string | undefined {
+  return typeof value === "string" && value.trim() ? value.trim() : undefined;
+}
+
+function stringArray(value: unknown): string[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  const values = value
+    .filter((item): item is string => typeof item === "string")
+    .map((item) => item.trim())
+    .filter(Boolean);
+  return values.length ? values : undefined;
 }
 
 export function normalizeLearningAttemptEvent(
@@ -113,7 +151,26 @@ export function normalizeLearningAttemptEvent(
       ? raw.attemptId.trim()
       : undefined;
 
-  return { childId, attemptId, sessionId, attempt, skipped: false };
+  const practiceOnly = raw.maximumClaim === "practice_only" || raw.masteryClaimAllowed === false;
+  return {
+    childId,
+    attemptId,
+    sessionId,
+    attempt,
+    skipped: false,
+    ...(practiceOnly ? { evidenceLimit: "practice_only" as const } : {}),
+    observationContext: {
+      homeworkId: optionalString(raw.homeworkId),
+      encounterId: optionalString(raw.encounterId),
+      questionId: optionalString(raw.questionId),
+      sourceFingerprint: optionalString(raw.sourceFingerprint),
+      sourceDocumentIds: stringArray(raw.sourceDocumentIds),
+      sourceEvidenceIds: stringArray(raw.sourceEvidenceIds),
+      exposure: optionalString(raw.exposure),
+      assistance: optionalString(raw.assistance),
+      confounds: stringArray(raw.confounds),
+    },
+  };
 }
 
 export function recordLearningAttempt(
@@ -127,6 +184,27 @@ export function recordLearningAttempt(
       `  🎮 [attempt_event] duplicate skipped ${recorded.attempt.domain}:${recorded.attempt.word}`,
     );
     return { ...recorded, skipped: true };
+  }
+  if (recorded.evidenceLimit === "practice_only") {
+    appendAttemptLine(recorded.childId, {
+      word: recorded.attempt.word,
+      domain: recorded.attempt.domain,
+      correct: recorded.attempt.correct,
+      sessionId: recorded.sessionId,
+      attemptId: recorded.attemptId,
+      attemptedValue: recorded.attempt.attemptedValue,
+      responseTimeMs: recorded.attempt.responseTimeMs,
+      scaffoldLevel: recorded.attempt.scaffoldLevel,
+      errorSignal: recorded.attempt.errorSignal,
+      evidenceLimit: "practice_only",
+      masteryClaimAllowed: false,
+      ...recorded.observationContext,
+    }, { rootDir: opts?.rootDir });
+    console.log(
+      `  🎮 [attempt_event] [practice-observation] [recorded] ` +
+        `${recorded.attempt.domain}:${recorded.attempt.word}`,
+    );
+    return recorded;
   }
   if (recorded.attempt.domain === "math" || recorded.attempt.domain === "clocks") {
     recordFactAttempt(
@@ -150,7 +228,7 @@ export function recordLearningAttempt(
     sessionId: recorded.sessionId,
     attemptedValue: recorded.attempt.attemptedValue,
     errorSignal: recorded.attempt.errorSignal,
-  });
+  }, { rootDir: opts?.rootDir });
   console.log(
     `  🎮 [attempt_event] recorded ${recorded.attempt.domain}:${recorded.attempt.word} ` +
       `${recorded.attempt.correct ? "correct" : "incorrect"}`,

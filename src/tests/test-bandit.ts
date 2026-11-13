@@ -140,6 +140,26 @@ describe("bandit (TASK-005)", () => {
     expect(st.values.length).toBe(ALL_NODE_TYPES.length);
   });
 
+  it("preserves every legacy arm while inserting a zeroed Hatch Hunt arm", () => {
+    const legacyOrder = ALL_NODE_TYPES.filter((type) => type !== "hatch-hunt");
+    const profile = baseProfile();
+    profile.banditState = {
+      counts: legacyOrder.map((_, index) => index + 1),
+      values: legacyOrder.map((_, index) => (index + 1) / 100),
+    };
+    banditStore.set(CHILD, profile);
+
+    const migrated = getBanditState(CHILD);
+    const hatchIndex = ALL_NODE_TYPES.indexOf("hatch-hunt");
+    expect(migrated.counts[hatchIndex]).toBe(0);
+    expect(migrated.values[hatchIndex]).toBe(0);
+    for (const [legacyIndex, type] of legacyOrder.entries()) {
+      const currentIndex = ALL_NODE_TYPES.indexOf(type);
+      expect(migrated.counts[currentIndex]).toBe(legacyIndex + 1);
+      expect(migrated.values[currentIndex]).toBe((legacyIndex + 1) / 100);
+    }
+  });
+
   it("resetBandit clears banditState", async () => {
     await recordReward(CHILD, "boss", true, true, 1);
     await resetBandit(CHILD);

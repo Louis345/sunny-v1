@@ -16,6 +16,7 @@ import type {
   RewardWrapperConfig,
   WordRadarNodeConfig,
 } from "../../shared/adventureTypes";
+import type { HatchHuntAssignmentConfig } from "../../shared/hatchHuntAssignment";
 import type { AdventureBoardJson } from "../../shared/adventureBoardJson";
 
 export type ActiveSessionPlanSource =
@@ -224,6 +225,8 @@ export interface ActiveSessionPlan {
       prompt: string;
       options: Array<{ id: string; label: string; correct: boolean }>;
     }>;
+    /** Planner-owned, homework-grounded content for the Hatch Hunt baseline instrument. */
+    hatchHuntConfig?: HatchHuntAssignmentConfig;
   }>;
   learningRoutes?: LearningRoutePrescription[];
   adventureBoard?: AdventureBoardJson;

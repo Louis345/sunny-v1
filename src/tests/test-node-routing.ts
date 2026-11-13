@@ -204,6 +204,7 @@ describe("map node routing", () => {
       "coin-counter",
       "dopamine",
       "concept-check",
+      "hatch-hunt",
       "visual-explainer",
       "bubble-pop",
       "cpt-low-reward",
@@ -215,6 +216,17 @@ describe("map node routing", () => {
     for (const key of required) {
       expect(NODE_REGISTRY[key]).toBeDefined();
     }
+  });
+
+  it("routes Hatch Hunt through Sunny's canvas runtime", () => {
+    const action = buildNodeLaunchAction({
+      id: "hatch-node",
+      type: "hatch-hunt",
+      words: ["sign"],
+      difficulty: 2,
+    } as const, { childId: "reina", companion: "elli", isDiagMode: false });
+
+    expect(action).toMatchObject({ kind: "canvas", payload: { type: "hatch_hunt", nodeId: "hatch-node" } });
   });
 
   it("wordle node builds iframe URL to wordle.html", () => {

@@ -13,6 +13,11 @@ export interface HatchHuntQuestion {
   correctAnswer: string;
   difficulty: "guardian" | "stretch" | "challenge" | "recovery";
   seconds: number | null;
+  responseMode?: "selection" | "numeric" | "text";
+  acceptedAnswers?: string[];
+  targetId?: string;
+  sourceEvidenceIds?: string[];
+  exposure?: "unseen" | "taught" | "practiced";
 }
 
 export type HatchHuntEventType =
@@ -35,6 +40,8 @@ export interface HatchHuntEvent {
   correct?: boolean;
   latencyMs?: number;
   confounds?: string[];
+  response?: string;
+  assistance?: "none" | "scaffold";
 }
 
 export interface HatchHuntDiscovery {
@@ -58,12 +65,22 @@ export interface HatchHuntState {
   currentQuestion: HatchHuntQuestion | null;
   currentQuestionIndex: number;
   recoveryUsed: boolean;
+  recoveryFromPhase: "guardian" | "cracking" | null;
   resumeQuestionIndex: number | null;
   discovery: HatchHuntDiscovery | null;
   events: HatchHuntEvent[];
 }
 
-const MAX_CRACKS = 3;
+function requiredCracks(state: HatchHuntState): number {
+  return Math.max(1, state.questions.filter((question) => question.difficulty !== "recovery").length - 1);
+}
+
+function answerMatches(question: HatchHuntQuestion, answer: string): boolean {
+  const normalized = answer.trim().toLocaleLowerCase();
+  return (question.acceptedAnswers ?? [question.correctAnswer]).some(
+    (accepted) => accepted.trim().toLocaleLowerCase() === normalized,
+  );
+}
 
 function event(
   type: HatchHuntEventType,
@@ -85,14 +102,14 @@ function hatch(state: HatchHuntState): HatchHuntState {
   return {
     ...state,
     phase: "hatched",
-    crackCount: MAX_CRACKS,
+    crackCount: requiredCracks(state),
     currentQuestion: null,
     discovery: {
       encounterId: state.encounterId,
       childId: state.childId,
       creatureId: state.creatureId,
       selectedEggId: state.selectedEggId ?? state.eggIds[0],
-      crackCount: MAX_CRACKS,
+      crackCount: requiredCracks(state),
       next: "orb_chase",
     },
     events: [
@@ -119,8 +136,9 @@ function startRescue(
   state: HatchHuntState,
   answerEvent: HatchHuntEvent,
 ): HatchHuntState {
+  const failedQuestion = state.currentQuestion;
   const rescueQuestionIndex = state.questions.findIndex(
-    (question) => question.difficulty === "recovery",
+    (question) => question.difficulty === "recovery" && question.targetId === failedQuestion?.targetId,
   );
   if (state.recoveryUsed || rescueQuestionIndex < 0) {
     return loseEgg({
@@ -136,6 +154,7 @@ function startRescue(
     currentQuestion: state.questions[rescueQuestionIndex],
     currentQuestionIndex: rescueQuestionIndex,
     recoveryUsed: true,
+    recoveryFromPhase: state.phase === "guardian" ? "guardian" : "cracking",
     resumeQuestionIndex: state.currentQuestionIndex + 1,
     events: [
       ...state.events,
@@ -175,6 +194,7 @@ export function createHatchHuntSession({
     currentQuestion: null,
     currentQuestionIndex: -1,
     recoveryUsed: false,
+    recoveryFromPhase: null,
     resumeQuestionIndex: null,
     discovery: null,
     events: [],
@@ -210,7 +230,7 @@ export function answerHatchQuestion(
   if (!question || !["guardian", "cracking", "rescue"].includes(state.phase)) {
     return state;
   }
-  const correct = answer === question.correctAnswer;
+  const correct = answerMatches(question, answer);
   const answerEvent = event(
     state.phase === "guardian" ? "guardian_answered" : "crack_answered",
     "academic_observation",
@@ -218,13 +238,15 @@ export function answerHatchQuestion(
       questionId: question.id,
       correct,
       latencyMs: Math.max(0, Math.round(latencyMs)),
+      response: answer,
+      assistance: state.phase === "rescue" ? "scaffold" : "none",
       ...(question.seconds == null ? {} : { confounds: ["time_pressure"] }),
     },
   );
 
   if (state.phase === "guardian") {
     if (!correct) {
-      return loseEgg({ ...state, events: [...state.events, answerEvent] });
+      return startRescue(state, answerEvent);
     }
     return {
       ...state,
@@ -239,7 +261,10 @@ export function answerHatchQuestion(
     if (!correct) {
       return loseEgg({ ...state, events: [...state.events, answerEvent] });
     }
-    const recovered = Math.min(MAX_CRACKS, state.crackCount + 2);
+    const maxCracks = requiredCracks(state);
+    const recovered = state.recoveryFromPhase === "guardian"
+      ? state.crackCount
+      : Math.min(maxCracks, state.crackCount + (state.crackCount === 0 ? 1 : 2));
     const resumeIndex = state.resumeQuestionIndex ?? state.questions.length;
     const rescuedState: HatchHuntState = {
       ...state,
@@ -251,6 +276,7 @@ export function answerHatchQuestion(
           ? null
           : (state.questions[resumeIndex] ?? null),
       resumeQuestionIndex: null,
+      recoveryFromPhase: null,
       events: [
         ...state.events,
         answerEvent,
@@ -258,11 +284,14 @@ export function answerHatchQuestion(
         event("shell_cracked", "engagement_only"),
       ],
     };
-    return recovered >= MAX_CRACKS ? hatch(rescuedState) : rescuedState;
+    return state.recoveryFromPhase !== "guardian" && recovered >= maxCracks
+      ? hatch(rescuedState)
+      : rescuedState;
   }
 
   if (!correct) return startRescue(state, answerEvent);
-  const crackCount = Math.min(MAX_CRACKS, state.crackCount + 1);
+  const maxCracks = requiredCracks(state);
+  const crackCount = Math.min(maxCracks, state.crackCount + 1);
   const nextQuestionIndex = state.currentQuestionIndex + 1;
   const crackedState: HatchHuntState = {
     ...state,
@@ -275,7 +304,7 @@ export function answerHatchQuestion(
       event("shell_cracked", "engagement_only"),
     ],
   };
-  return crackCount >= MAX_CRACKS ? hatch(crackedState) : crackedState;
+  return crackCount >= maxCracks ? hatch(crackedState) : crackedState;
 }
 
 export function expireHatchTimer(state: HatchHuntState): HatchHuntState {

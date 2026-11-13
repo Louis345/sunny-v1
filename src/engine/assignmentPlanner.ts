@@ -14,6 +14,8 @@ import type {
 import type { AdventureBoardJson } from "../shared/adventureBoardJson";
 import { buildAdventureBoardFromActiveSessionPlan } from "../shared/adventureBoardFromPlan";
 import type { NodeType } from "../shared/adventureTypes";
+import { hatchHuntAssignmentConfigSchema } from "../shared/hatchHuntAssignment";
+import { generateHomeworkId } from "../context/schemas/homeworkCycle";
 import type { ChildChart } from "../profiles/childChart";
 import {
   listActivityToolContracts,
@@ -157,6 +159,8 @@ export type AssignmentReadinessProofContext = {
 export type AssignmentPlanningPacket = {
   packetVersion: 1;
   childId: string;
+  /** Code-owned canonical id that the ingest cycle will persist. */
+  homeworkId: string;
   masteryContext: AssignmentMasteryContext;
   sourceDocument: Pick<
     AssignmentSourceExtraction,
@@ -209,6 +213,8 @@ export type AssignmentPlanValidationIssue = {
     | "missing_word_groups"
     | "word_missing_source_group"
     | "missing_word_radar_config"
+    | "missing_hatch_hunt_config"
+    | "unexpected_hatch_hunt_config"
     | "missing_node_measurement"
     | "target_lane_mismatch"
     | "unknown_activity_id";
@@ -610,6 +616,10 @@ const compactNodePlanSchema = z.object({
   rounds: z.preprocess(
     (value) => value === null ? undefined : value,
     z.array(baselineRoundSchema).max(6).optional(),
+  ),
+  hatchHuntConfig: z.preprocess(
+    (value) => value === null ? undefined : value,
+    hatchHuntAssignmentConfigSchema.optional(),
   ),
 });
 
@@ -1198,6 +1208,7 @@ export function buildAssignmentPlanningPacket(args: {
   return {
     packetVersion: 1,
     childId: args.childId,
+    homeworkId: generateHomeworkId(capturedHomework.type, capturedHomework.words),
     masteryContext: {
       ...baseMasteryContext,
       readinessProof,
@@ -1319,6 +1330,20 @@ export function validateAssignmentPlannerOutput(
         message: `Word Radar node ${node.id} must include planner-selected wordRadarConfig.`,
       });
     }
+    if (node.type === "hatch-hunt" && !node.hatchHuntConfig) {
+      issues.push({
+        code: "missing_hatch_hunt_config",
+        severity: "error",
+        message: `Hatch Hunt node ${node.id} must include a source-grounded hatchHuntConfig.`,
+      });
+    }
+    if (node.type !== "hatch-hunt" && node.hatchHuntConfig) {
+      issues.push({
+        code: "unexpected_hatch_hunt_config",
+        severity: "error",
+        message: `Non-Hatch-Hunt node ${node.id} cannot carry hatchHuntConfig.`,
+      });
+    }
   }
 
   return issues;
@@ -1418,6 +1443,10 @@ Output contract:
 - Use activityCatalog evidence fields as the instrument truth table; do not treat all modes of one activity as equivalent.
 - When no launchable instrument serves a sub-skill, emit a generationRequests entry (targetLane = the generated-baseline node's lane) with mechanicConstraints distinct from every other request.
 - Give each generated-baseline node rounds from the captured worksheet problems: id, prompt, 2-3 options, exactly one correct; extend fact families, do not invent unrelated problems.
+- Hatch Hunt is an assignment-grounded baseline instrument. When selecting type/activityId "hatch-hunt", populate hatchHuntConfig entirely from capturedHomework: preserve the homework fingerprint and document ids, and give every baselineItems and verificationItems entry one or more sourceEvidenceIds.
+- Hatch Hunt baselineItems are the child's independent first attempt: keep timerSeconds null and do not reveal hints, retries, or worked answers until that response is recorded. Generate novel, target-equivalent prompts instead of copying an already exposed worksheet answer.
+- Put later target checks in verificationItems. Provide at least one authored recoveryByTarget entry for every baseline and verification target; the runtime never invents fallback pedagogy. Use creatureId "mossback" until another Hatch Hunt renderer is registered. The required evidencePolicy maximumClaim is "practice_only" and captureIsAcademicEvidence is false. Hatch Hunt can inform the next Planner decision; it cannot prove mastery or turn a creature reward into academic evidence.
+- Omit hatchHuntConfig on every non-Hatch-Hunt node.
 - Use packet.masteryContext as the clock, deadline, and proof plan. The goal is demonstrated homework mastery by testDate, not merely completing a cute board.
 - If one node mixes targets from multiple source groups, omit targetLane or split the node. Never claim targetLane "silent_letters" for a node containing high-frequency targets.
 - Every word-radar node must include wordRadarConfig from the activity catalog capability modes. recallMode allows only visible_read, partial_visual_recall, hidden_word_recall. Never emit audio_cued_letter_recall as recallMode; cite capability ids only in rationale. If you choose the catalog's audio_cued_letter_recall capability mode, emit recallMode partial_visual_recall with audio-cued config values. Use partial_visual_recall for new/weak spelling construction, hidden_word_recall only with prior recall evidence, and visible_read for recognition/fluency. Omit wordRadarConfig on non-word-radar nodes.
@@ -1824,7 +1853,7 @@ export function hydrateAssignmentPlannerOutputFromDraft(
   const sourceWordGroups = capturedContent.assignmentInterpretation?.wordGroups
     ?? packet.capturedHomework.wordGroups
     ?? [];
-  const enrichedActiveSessionPlan = demoteDuplicateDestinations(defaultTargetLaneFromSingleGroup(
+  const enrichedActiveSessionPlan = stampHatchHuntPlannerIdentity(demoteDuplicateDestinations(defaultTargetLaneFromSingleGroup(
     capturedContent.contentProfile.practiceDomain === "math"
       ? enrichMathPlannerDraft({
           draft: draft.activeSessionPlan,
@@ -1832,7 +1861,7 @@ export function hydrateAssignmentPlannerOutputFromDraft(
         })
       : draft.activeSessionPlan,
     sourceWordGroups,
-  ));
+  )), packet);
   const plannedMeasurements = syncPlannedMeasurementsForNodePlan(
     enrichedActiveSessionPlan.nodePlan,
     draft.plannedMeasurements,
@@ -1862,6 +1891,44 @@ export function hydrateAssignmentPlannerOutputFromDraft(
     reviewQuestions: draft.reviewQuestions,
     generationRequests,
     generatedExperienceBriefs,
+  };
+}
+
+export function stampHatchHuntPlannerIdentity(
+  plan: PlannerDraftPlan,
+  packet: Pick<AssignmentPlanningPacket, "childId" | "homeworkId" | "sourceDocument">,
+): PlannerDraftPlan {
+  const fingerprint = packet.sourceDocument.fileHash;
+  const documentId = `source-document:${fingerprint}:${packet.sourceDocument.filename}`;
+  return {
+    ...plan,
+    nodePlan: plan.nodePlan.map((node) => {
+      if (node.activityId !== "hatch-hunt" || !node.hatchHuntConfig) return node;
+      const evidenceId = `source-evidence:${fingerprint}:${node.targetLane ?? "document"}`;
+      const stampItems = (
+        items: typeof node.hatchHuntConfig.baselineItems,
+        phase: "baseline" | "verification",
+      ) => items.map((item, index) => ({
+        ...item,
+        id: `${node.id}:${phase}:${index + 1}`,
+        sourceEvidenceIds: [evidenceId],
+      }));
+      return {
+        ...node,
+        hatchHuntConfig: {
+          ...node.hatchHuntConfig,
+          encounterId: `hatch:${packet.childId}:${node.id}:${fingerprint.slice(0, 12)}`,
+          childId: packet.childId,
+          homeworkId: packet.homeworkId,
+          source: {
+            fingerprint,
+            documentIds: [documentId],
+          },
+          baselineItems: stampItems(node.hatchHuntConfig.baselineItems, "baseline"),
+          verificationItems: stampItems(node.hatchHuntConfig.verificationItems, "verification"),
+        },
+      };
+    }),
   };
 }
 
@@ -2428,6 +2495,7 @@ function hydrateActiveSessionPlanFromDraft(args: {
   return {
     planId,
     childId: args.packet.childId,
+    activeHomeworkId: args.packet.homeworkId,
     createdAt: new Date().toISOString(),
     source: "ingest_human_loop",
     domain: args.capturedContent.contentProfile.practiceDomain,

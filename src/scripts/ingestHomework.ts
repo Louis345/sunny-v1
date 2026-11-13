@@ -1709,6 +1709,13 @@ function finalizeAssignmentActiveSessionPlan(args: {
         : ["puzzle", "control", "visual"];
     return {
       ...node,
+      hatchHuntConfig: node.hatchHuntConfig
+        ? {
+            ...node.hatchHuntConfig,
+            childId: args.childId,
+            homeworkId: args.homeworkId,
+          }
+        : undefined,
       theoryId: theory.theoryId,
       experimentId: `experiment:${args.homeworkId}:${routeId ?? node.id}`,
       contentId: `${args.homeworkId}:content:${node.id}`,

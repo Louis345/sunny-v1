@@ -83,6 +83,8 @@ const NODE_THUMBNAIL_PROMPTS: Record<NodeType, string> = {
     "A radar dish scanning a starfield with glowing word tiles, deep purple space, child-friendly cartoon",
   "concept-check":
     "A bright scout badge with question sparks and target bubbles, arcade learning diagnostic, child-friendly cartoon",
+  "hatch-hunt":
+    "A softly glowing magical creature egg in a bright enchanted grove, playful mystery, child-friendly 3D toy style",
   "visual-explainer":
     "A bright science room window showing water carrying tiny soil pieces down a hill, visual learning model, child-friendly cartoon",
   "letter-rush":

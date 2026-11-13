@@ -23,6 +23,7 @@ import {
   enrichMathPlannerDraft,
   parseAssignmentPlannerJson,
   resolveAssignmentPlannerModel,
+  stampHatchHuntPlannerIdentity,
   summarizeAssignmentPlanForReview,
   validateAssignmentPlannerOutput,
   hydrateAssignmentPlannerOutputFromDraft,
@@ -38,6 +39,32 @@ const WORD_RADAR_LETTER_FILL_CONFIG = {
   hideWordDuringResponse: true,
   requiresCapturedResponse: true,
 };
+
+function hatchHuntConfigForTest(): NonNullable<ActiveSessionPlan["nodePlan"][number]["hatchHuntConfig"]> {
+  return {
+    schemaVersion: 1,
+    activityId: "hatch-hunt",
+    mode: "baseline_assignment",
+    encounterId: "planner-value",
+    childId: "planner-value",
+    homeworkId: "planner-value",
+    domain: "spelling",
+    creatureId: "mossback",
+    source: { fingerprint: "planner-value", documentIds: ["planner-value"] },
+    baselineItems: [
+      { id: "b1", targetId: "word:because", sourceEvidenceIds: ["planner-value"], exposure: "unseen", prompt: "Spell because", response: { mode: "text", acceptedAnswers: ["because"] }, timerSeconds: null },
+      { id: "b2", targetId: "word:garden", sourceEvidenceIds: ["planner-value"], exposure: "unseen", prompt: "Spell garden", response: { mode: "text", acceptedAnswers: ["garden"] }, timerSeconds: null },
+    ],
+    verificationItems: [
+      { id: "v1", targetId: "word:because", sourceEvidenceIds: ["planner-value"], exposure: "practiced", prompt: "Spell because again", response: { mode: "text", acceptedAnswers: ["because"] }, timerSeconds: 15 },
+    ],
+    recoveryByTarget: {
+      "word:because": [{ id: "recover-because", prompt: "Build be + cause.", workedExplanation: "be + cause = because" }],
+      "word:garden": [{ id: "recover-garden", prompt: "Build gar + den.", workedExplanation: "gar + den = garden" }],
+    },
+    evidencePolicy: { purpose: "baseline", firstAttemptIndependent: true, maximumClaim: "practice_only", captureIsAcademicEvidence: false },
+  };
+}
 
 function adventureSpineNodes(targets = ["sign", "know", "write"]): ActiveSessionPlan["nodePlan"] {
   return [
@@ -652,7 +679,9 @@ describe("assignment planner", () => {
     expect(JSON.stringify(packet)).not.toContain("rewardWrapper");
     expect(packet.activityCatalog.some((card) => card.activityId === "word-builder")).toBe(true);
     expect(packet.activityCatalog.some((card) => card.activityId === "wordle")).toBe(true);
-    expect(packet.activityCatalog.length).toBeLessThanOrEqual(16);
+    // Hatch Hunt is the seventeenth instrument; keep additions bounded to
+    // explicit, evidence-audited contracts.
+    expect(packet.activityCatalog.length).toBeLessThanOrEqual(17);
     expect(packet.activityCatalog.every((card) => card.sentToPlanner)).toBe(true);
     expect(Buffer.byteLength(JSON.stringify(packet))).toBeLessThan(30_000);
     expect(JSON.stringify(packet.activityCatalog)).not.toContain("goodFitWhen");
@@ -938,10 +967,10 @@ describe("assignment planner", () => {
     const schemaText = JSON.stringify(assignmentPlannerToolJsonSchema());
     const packetText = JSON.stringify(packet);
 
-    // Budget raised 39k -> 40.5k when generationRequests + per-node rounds
-    // entered the planner contract (new curriculum authority, not prose bloat).
-    expect(prompt.length + schemaText.length).toBeLessThan(40_500);
-    expect(packet.activityCatalog.length).toBeLessThanOrEqual(16);
+    // The typed Hatch Hunt contract adds source provenance, independent
+    // baseline, verification, response modes, and evidence-policy authority.
+    expect(prompt.length + schemaText.length).toBeLessThan(46_000);
+    expect(packet.activityCatalog.length).toBeLessThanOrEqual(17);
     expect(schemaText.length).toBeLessThan(9_000);
     expect(packetText).not.toContain("\"boardTemplate\"");
     expect(prompt).not.toContain("Use packet.boardPlanning.boardTemplate.palette exactly");
@@ -1864,6 +1893,106 @@ describe("assignment planner", () => {
       extraction: extraction(),
       activityCatalog: packet.activityCatalog,
     })).toEqual([]);
+  });
+
+  it("offers Hatch Hunt as a launchable assignment instrument with injection instructions", () => {
+    const packet = buildAssignmentPlanningPacket({
+      childId: "reina",
+      extraction: extraction(),
+      childChart: chart(),
+    });
+    const hatchHunt = packet.activityCatalog.find((card) => card.activityId === "hatch-hunt");
+    const prompt = buildAssignmentPlannerPrompt(packet);
+    const schema = JSON.stringify(assignmentPlannerToolJsonSchema());
+
+    expect(hatchHunt).toMatchObject({
+      activityId: "hatch-hunt",
+      plannerVisibility: "map_node",
+      launchable: true,
+    });
+    expect(prompt).toContain("Hatch Hunt");
+    expect(prompt).toContain("sourceEvidenceIds");
+    expect(prompt).toContain("first attempt");
+    expect(prompt).toContain("practice_only");
+    expect(schema).toContain("hatchHuntConfig");
+    expect(schema).toContain("baselineItems");
+    expect(schema).toContain("verificationItems");
+  });
+
+  it("rejects a Hatch Hunt node when the Planner omits its homework-grounded config", () => {
+    const output = goodOutput();
+    output.activeSessionPlan.nodePlan[0] = {
+      ...output.activeSessionPlan.nodePlan[0]!,
+      type: "hatch-hunt",
+      activityId: "hatch-hunt",
+    };
+    const packet = buildAssignmentPlanningPacket({
+      childId: "reina",
+      extraction: extraction(),
+      childChart: chart(),
+    });
+
+    expect(validateAssignmentPlannerOutput(output, {
+      extraction: extraction(),
+      activityCatalog: packet.activityCatalog,
+    })).toEqual(expect.arrayContaining([
+      expect.objectContaining({ code: "missing_hatch_hunt_config", severity: "error" }),
+    ]));
+  });
+
+  it("rejects Hatch Hunt config attached to a different activity", () => {
+    const output = goodOutput();
+    output.activeSessionPlan.nodePlan[0] = {
+      ...output.activeSessionPlan.nodePlan[0]!,
+      hatchHuntConfig: hatchHuntConfigForTest(),
+    };
+    const packet = buildAssignmentPlanningPacket({
+      childId: "reina",
+      extraction: extraction(),
+      childChart: chart(),
+    });
+
+    expect(validateAssignmentPlannerOutput(output, {
+      extraction: extraction(),
+      activityCatalog: packet.activityCatalog,
+    })).toEqual(expect.arrayContaining([
+      expect.objectContaining({ code: "unexpected_hatch_hunt_config", severity: "error" }),
+    ]));
+  });
+
+  it("replaces AI-supplied Hatch Hunt identity and provenance with the captured source", () => {
+    const output = goodOutput();
+    const hatchNode = {
+      ...output.activeSessionPlan.nodePlan[0]!,
+      id: "hatch-source-proof",
+      type: "hatch-hunt" as const,
+      activityId: "hatch-hunt",
+      targetLane: "silent_letters",
+      hatchHuntConfig: hatchHuntConfigForTest(),
+    };
+    const stamped = stampHatchHuntPlannerIdentity({
+      ...output.activeSessionPlan,
+      nodePlan: [hatchNode],
+    } as Parameters<typeof stampHatchHuntPlannerIdentity>[0], {
+      childId: "reina",
+      homeworkId: "hw-canonical-spelling-cycle",
+      sourceDocument: extraction(),
+    });
+    const config = stamped.nodePlan[0]?.hatchHuntConfig;
+
+    expect(config).toMatchObject({
+      childId: "reina",
+      homeworkId: "hw-canonical-spelling-cycle",
+      encounterId: `hatch:reina:hatch-source-proof:${"a".repeat(12)}`,
+      source: {
+        fingerprint: "a".repeat(64),
+        documentIds: [`source-document:${"a".repeat(64)}:5_18_spelling.pdf`],
+      },
+    });
+    expect(config?.baselineItems[0]).toMatchObject({
+      id: "hatch-source-proof:baseline:1",
+      sourceEvidenceIds: [`source-evidence:${"a".repeat(64)}:silent_letters`],
+    });
   });
 
   it("ignores stale Spark Orb reward wrappers instead of keeping a second planner path alive", () => {

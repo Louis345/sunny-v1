@@ -383,6 +383,7 @@ describe("sunny ingest front door", () => {
       assignmentPlanningPacket: {
         packetVersion: 1,
         childId: "ila",
+        homeworkId: "hw-spelling-cycle",
         masteryContext: {
           nowIso: "2026-06-01T00:00:00.000Z",
           localDate: "2026-06-01",

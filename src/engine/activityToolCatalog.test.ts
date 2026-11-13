@@ -170,6 +170,33 @@ describe("activity tool catalog", () => {
       });
   });
 
+  it("catalogs Hatch Hunt as an injectable baseline node with no mastery authority", () => {
+    const hatchHunt = getActivityToolContract("hatch-hunt");
+
+    expect(hatchHunt.plannerVisibility).toBe("map_node");
+    expect(hatchHunt.nodeType).toBe("hatch-hunt");
+    expect(hatchHunt.configSource).toBe("canvas-message");
+    expect(hatchHunt.domains).toEqual(expect.arrayContaining([
+      "spelling",
+      "reading",
+      "science",
+      "math",
+      "vocabulary",
+    ]));
+    expect(hatchHunt.purposes).toEqual(expect.arrayContaining(["evaluate", "practice"]));
+    expect(hatchHunt.evidence).toMatchObject({
+      writesPracticeEvidence: true,
+      writesMasteryEvidence: false,
+      requiresPerTargetResult: true,
+    });
+    expect(hatchHunt.capabilityModes).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        id: "baseline_assignment",
+        masteryEligible: false,
+      }),
+    ]));
+  });
+
   it("audits Quest and Boss as generated destinations with explicit gates and evidence risks", () => {
     const quest = getActivityToolContract("quest");
     const boss = getActivityToolContract("boss");

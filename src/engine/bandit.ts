@@ -23,6 +23,29 @@ import { ALL_NODE_TYPES } from "../shared/adventureTypes";
 import { readLearningProfile, writeLearningProfile } from "../utils/learningProfileIO";
 
 const N = ALL_NODE_TYPES.length;
+const HATCH_HUNT_ARM_INDEX = ALL_NODE_TYPES.indexOf("hatch-hunt");
+const LEGACY_ARM_COUNT = N - 1;
+
+function migratedBanditArrays(lp: LearningProfile | null): { counts: number[]; values: number[] } | null {
+  const state = lp?.banditState;
+  if (!state) return null;
+  if (state.counts.length === N && state.values.length === N) {
+    return { counts: [...state.counts], values: [...state.values] };
+  }
+  if (
+    HATCH_HUNT_ARM_INDEX >= 0 &&
+    state.counts.length === LEGACY_ARM_COUNT &&
+    state.values.length === LEGACY_ARM_COUNT
+  ) {
+    const counts = [...state.counts];
+    const values = [...state.values];
+    counts.splice(HATCH_HUNT_ARM_INDEX, 0, 0);
+    values.splice(HATCH_HUNT_ARM_INDEX, 0, 0);
+    console.info(" 🎮 [bandit] [arm-migration] [preserved] hatch-hunt initialized=0");
+    return { counts, values };
+  }
+  return null;
+}
 
 function armIndex(t: NodeType): number {
   const i = ALL_NODE_TYPES.indexOf(t);
@@ -38,8 +61,8 @@ function makeAlgo(
   epsilon: number,
   lp: LearningProfile | null,
 ): InstanceType<typeof EpsilonGreedy> {
-  const bs = lp?.banditState;
-  if (bs && bs.counts.length === N && bs.values.length === N) {
+  const bs = migratedBanditArrays(lp);
+  if (bs) {
     return new EpsilonGreedy({
       arms: N,
       epsilon,
@@ -71,14 +94,9 @@ export type BanditState = {
 export function getBanditState(childId: string): BanditState {
   const lp = readLearningProfile(childId);
   const eps = lp ? epsilonFromProfile(lp) : 0.3;
-  const counts =
-    lp?.banditState?.counts?.length === N
-      ? [...lp.banditState.counts]
-      : Array.from({ length: N }, () => 0);
-  const values =
-    lp?.banditState?.values?.length === N
-      ? [...lp.banditState.values]
-      : Array.from({ length: N }, () => 0);
+  const migrated = migratedBanditArrays(lp);
+  const counts = migrated?.counts ?? Array.from({ length: N }, () => 0);
+  const values = migrated?.values ?? Array.from({ length: N }, () => 0);
   return {
     arms: N,
     counts,
