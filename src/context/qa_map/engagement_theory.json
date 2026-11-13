@@ -1,0 +1,126 @@
+{
+  "version": 1,
+  "theoryId": "engagement-theory:8b0e9360e377",
+  "childId": "qa_map",
+  "domain": "spelling",
+  "hypothesis": "Sunny does not yet have enough preference evidence; test distinct mechanics while holding the academic target constant.",
+  "dimensions": {
+    "visual": {
+      "dimension": "visual",
+      "positiveWeight": 0,
+      "negativeWeight": 0,
+      "mixedWeight": 0,
+      "evidenceCount": 0,
+      "confidence": 0,
+      "lastUpdated": "2026-08-08T23:19:59.080Z"
+    },
+    "puzzle": {
+      "dimension": "puzzle",
+      "positiveWeight": 0,
+      "negativeWeight": 0,
+      "mixedWeight": 0,
+      "evidenceCount": 0,
+      "confidence": 0,
+      "lastUpdated": "2026-08-08T23:19:59.080Z"
+    },
+    "story": {
+      "dimension": "story",
+      "positiveWeight": 0,
+      "negativeWeight": 0,
+      "mixedWeight": 0,
+      "evidenceCount": 0,
+      "confidence": 0,
+      "lastUpdated": "2026-08-08T23:19:59.080Z"
+    },
+    "speed": {
+      "dimension": "speed",
+      "positiveWeight": 0,
+      "negativeWeight": 0,
+      "mixedWeight": 0,
+      "evidenceCount": 0,
+      "confidence": 0,
+      "lastUpdated": "2026-08-08T23:19:59.080Z"
+    },
+    "competition": {
+      "dimension": "competition",
+      "positiveWeight": 0,
+      "negativeWeight": 0,
+      "mixedWeight": 0,
+      "evidenceCount": 0,
+      "confidence": 0,
+      "lastUpdated": "2026-08-08T23:19:59.080Z"
+    },
+    "control": {
+      "dimension": "control",
+      "positiveWeight": 0,
+      "negativeWeight": 0,
+      "mixedWeight": 0,
+      "evidenceCount": 0,
+      "confidence": 0,
+      "lastUpdated": "2026-08-08T23:19:59.080Z"
+    },
+    "novelty": {
+      "dimension": "novelty",
+      "positiveWeight": 0,
+      "negativeWeight": 0,
+      "mixedWeight": 0,
+      "evidenceCount": 0,
+      "confidence": 0,
+      "lastUpdated": "2026-08-08T23:19:59.080Z"
+    },
+    "voice": {
+      "dimension": "voice",
+      "positiveWeight": 0,
+      "negativeWeight": 0,
+      "mixedWeight": 0,
+      "evidenceCount": 0,
+      "confidence": 0,
+      "lastUpdated": "2026-08-08T23:19:59.080Z"
+    },
+    "calm": {
+      "dimension": "calm",
+      "positiveWeight": 0,
+      "negativeWeight": 0,
+      "mixedWeight": 0,
+      "evidenceCount": 0,
+      "confidence": 0,
+      "lastUpdated": "2026-08-08T23:19:59.080Z"
+    }
+  },
+  "preferredDimensions": [],
+  "avoidedDimensions": [],
+  "promptDirectives": {
+    "prefer": [],
+    "avoid": [],
+    "vary": [
+      "mechanic",
+      "theme"
+    ],
+    "holdConstant": [
+      "academic targets",
+      "question count",
+      "evidence contract"
+    ]
+  },
+  "evidence": [],
+  "nextExperiment": {
+    "experimentId": "engagement-experiment:7e9b1f4018df",
+    "theoryId": "engagement-theory:8b0e9360e377",
+    "variable": "mechanic",
+    "arms": [],
+    "holdConstant": [
+      "academic targets",
+      "question count",
+      "evidence contract"
+    ],
+    "successSignals": [
+      "started",
+      "completed",
+      "replayed",
+      "low frustration",
+      "accuracy preserved"
+    ],
+    "status": "planned"
+  },
+  "updatedAt": "2026-08-08T23:19:59.080Z"
+}

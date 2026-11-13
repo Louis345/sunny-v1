@@ -137,6 +137,8 @@ export type StandardizedWardrobePresentation = {
   identityModelUrl?: string;
   bodySkinTint?: string;
   identityHeadwearStyle?: WardrobeIdentityHeadwearStyle;
+  identityScale?: number;
+  identityOffsetY?: number;
   bodyProfileId: "sunny-standard-v1";
 };
 
@@ -144,13 +146,15 @@ export type WardrobeIdentityHeadwearStyle = "princess_bun";
 
 const STANDARD_WARDROBE_BODY_MODEL_URL = "/companions/sample.vrm";
 const STANDARDIZED_BODY_SKIN_TINTS: Readonly<Record<string, string>> = {
+  princess: "#d69a78",
   tene: "#6d5148",
   towa: "#ffe1cc",
 };
 const STANDARDIZED_IDENTITY_HEADWEAR: Readonly<
   Record<string, WardrobeIdentityHeadwearStyle>
-> = {
-  princess: "princess_bun",
+> = {};
+const STANDARDIZED_IDENTITY_SCALES: Readonly<Record<string, number>> = {
+  princess: 1.28,
 };
 
 export const WARDROBE_COMPANION_BODY_ASSIGNMENTS: Readonly<
@@ -254,6 +258,7 @@ const STANDARDIZED_WARDROBE_PRESENTATIONS = new Map<
       bodySkinTint: STANDARDIZED_BODY_SKIN_TINTS[assignment.companionId],
       identityHeadwearStyle:
         STANDARDIZED_IDENTITY_HEADWEAR[assignment.companionId],
+      identityScale: STANDARDIZED_IDENTITY_SCALES[assignment.companionId],
       bodyProfileId: "sunny-standard-v1" as const,
     },
   ]),
@@ -275,6 +280,8 @@ export type WardrobeCompatibilityCase = {
   identityModelUrl?: string;
   bodySkinTint?: string;
   identityHeadwearStyle?: WardrobeIdentityHeadwearStyle;
+  identityScale?: number;
+  identityOffsetY?: number;
   bodyProfileId: WardrobeBodyProfileId;
   dressQaStatus: "approved" | "candidate";
 };
@@ -303,6 +310,7 @@ export const WARDROBE_COMPATIBILITY_CASES: readonly WardrobeCompatibilityCase[] 
       bodySkinTint: STANDARDIZED_BODY_SKIN_TINTS[assignment.companionId],
       identityHeadwearStyle:
         STANDARDIZED_IDENTITY_HEADWEAR[assignment.companionId],
+      identityScale: STANDARDIZED_IDENTITY_SCALES[assignment.companionId],
       bodyProfileId: "sunny-standard-v1" as const,
       dressQaStatus:
         assignment.companionId === "matilda"
@@ -320,3 +328,52 @@ export const WARDROBE_COMPATIBILITY_CASES: readonly WardrobeCompatibilityCase[] 
     dressQaStatus: "candidate" as const,
   })),
 ];
+
+export type WardrobeTemplateCertificationStatus =
+  | "approved"
+  | "candidate"
+  | "rejected";
+
+export type WardrobeTemplateCertification = {
+  companionId: string;
+  templateId: string;
+  status: WardrobeTemplateCertificationStatus;
+  reason: string;
+};
+
+export const WARDROBE_TEMPLATE_CERTIFICATIONS: readonly WardrobeTemplateCertification[] = [
+  {
+    companionId: "elli",
+    templateId: "ribbon-dress",
+    status: "approved",
+    reason: "Human-reviewed reference fit on the Sunny standard body.",
+  },
+  {
+    companionId: "matilda",
+    templateId: "ribbon-dress",
+    status: "approved",
+    reason: "Human-reviewed identity composite on the Sunny standard body.",
+  },
+] as const;
+
+export function resolveWardrobeTemplateCertification(
+  companionId: string,
+  templateId: string,
+): WardrobeTemplateCertification {
+  return (
+    WARDROBE_TEMPLATE_CERTIFICATIONS.find(
+      (entry) =>
+        entry.companionId === companionId && entry.templateId === templateId,
+    ) ?? {
+      companionId,
+      templateId,
+      status: "candidate",
+      reason: "No human-reviewed fit has been recorded for this companion yet.",
+    }
+  );
+}
+
+export const WARDROBE_STORE_CERTIFICATION_CASES: readonly WardrobeCompatibilityCase[] =
+  WARDROBE_COMPATIBILITY_CASES.filter(
+    (testCase) => testCase.kind !== "source",
+  );

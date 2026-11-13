@@ -47,6 +47,17 @@
 
 .wardrobe-compatibility-lab__header h1 { font-size: clamp(28px, 3vw, 46px); }
 
+.wardrobe-compatibility-lab__header-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.wardrobe-compatibility-lab__header-actions strong {
+  color: #5e4f6b;
+  font-size: 12px;
+}
+
 .wardrobe-compatibility-lab button {
   border: 1px solid rgba(79, 63, 91, 0.18);
   border-radius: 14px;
@@ -70,6 +81,35 @@
   box-shadow: 0 24px 70px rgba(74, 56, 84, 0.12);
 }
 
+.wardrobe-compatibility-lab__comparison {
+  min-height: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1px;
+  background: rgba(91, 72, 105, 0.14);
+}
+
+.wardrobe-compatibility-lab__pane {
+  min-width: 0;
+  min-height: 0;
+  position: relative;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  background: #f9f5fa;
+}
+
+.wardrobe-compatibility-lab__pane > span {
+  position: relative;
+  z-index: 3;
+  padding: 10px 14px 0;
+  color: #786b83;
+  background: rgba(255, 255, 255, 0.82);
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
 .wardrobe-compatibility-lab__viewport {
   position: relative;
   min-height: 0;
@@ -77,6 +117,13 @@
   background:
     linear-gradient(180deg, rgba(255,255,255,0.82), rgba(241,234,246,0.92)),
     repeating-linear-gradient(90deg, transparent 0 119px, rgba(91,72,105,0.05) 120px);
+}
+
+.wardrobe-compatibility-lab__viewport > :first-child {
+  width: 100%;
+  height: 100%;
+  transform: scale(1.34) !important;
+  transform-origin: 50% 50% !important;
 }
 
 .wardrobe-compatibility-lab__viewport::after {
@@ -111,13 +158,113 @@
 }
 .wardrobe-compatibility-lab__status.is-approved { color: #235e43; background: #dff5e9; }
 .wardrobe-compatibility-lab__status.is-candidate { color: #80521f; background: #fff0ca; }
+.wardrobe-compatibility-lab__status.is-rejected { color: #8b3e3e; background: #f8dddd; }
 
 .wardrobe-compatibility-lab__sidebar {
   min-height: 0;
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-rows: auto auto auto minmax(0, 1fr);
   gap: 14px;
   overflow: hidden;
+}
+
+.wardrobe-compatibility-lab__calibration {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 13px 14px;
+  border: 1px solid rgba(89, 71, 101, 0.14);
+  border-radius: 18px;
+  background: rgba(255, 253, 250, 0.94);
+}
+
+.wardrobe-compatibility-lab__calibration > div:first-child {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.wardrobe-compatibility-lab__calibration span {
+  color: #786b83;
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.wardrobe-compatibility-lab__calibration strong { font-size: 14px; }
+.wardrobe-compatibility-lab__calibration small { color: #817489; font-size: 10px; }
+
+.wardrobe-compatibility-lab__calibration-controls {
+  display: grid;
+  grid-template-columns: repeat(4, 30px);
+  gap: 5px;
+}
+
+.wardrobe-compatibility-lab__calibration-controls button {
+  min-width: 30px;
+  min-height: 30px;
+  padding: 0;
+}
+
+.wardrobe-compatibility-lab__calibration-controls button:last-child {
+  grid-column: 1 / -1;
+  min-height: 26px;
+  font-size: 10px;
+}
+
+.wardrobe-compatibility-lab__outfits {
+  display: grid;
+  gap: 9px;
+  padding: 14px;
+  border: 1px solid rgba(89, 71, 101, 0.14);
+  border-radius: 18px;
+  background: rgba(255, 253, 250, 0.94);
+}
+
+.wardrobe-compatibility-lab__outfits > span {
+  color: #786b83;
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.wardrobe-compatibility-lab__outfits > div {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.wardrobe-compatibility-lab__outfits button {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 14px minmax(0, 1fr);
+  align-items: center;
+  gap: 7px;
+  padding: 8px;
+  font-size: 10px;
+  text-align: left;
+}
+
+.wardrobe-compatibility-lab__outfits button[aria-pressed="true"] {
+  border-color: #74608b;
+  background: #ede4f2;
+}
+
+.wardrobe-compatibility-lab__outfits button i {
+  width: 12px;
+  height: 18px;
+  display: block;
+  border-radius: 5px 5px 8px 8px;
+  box-shadow: inset 0 0 0 1px rgba(49, 37, 56, 0.14);
+}
+
+.wardrobe-compatibility-lab__outfits button span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .wardrobe-compatibility-lab__profile {
@@ -164,5 +311,13 @@
   }
   .wardrobe-compatibility-lab__viewport { min-height: 620px; }
   .wardrobe-compatibility-lab__sidebar { overflow: visible; }
+  .wardrobe-compatibility-lab__header-actions { align-items: flex-end; flex-direction: column; }
   .wardrobe-compatibility-lab__sidebar nav { grid-template-columns: repeat(2, minmax(0, 1fr)); max-height: none; }
+}
+
+@media (max-width: 640px) {
+  .wardrobe-compatibility-lab { padding: 12px; gap: 12px; }
+  .wardrobe-compatibility-lab__comparison { grid-template-columns: 1fr; }
+  .wardrobe-compatibility-lab__pane { min-height: 340px; }
+  .wardrobe-compatibility-lab__caption { align-items: flex-start; flex-direction: column; }
 }

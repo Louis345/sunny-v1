@@ -46,7 +46,13 @@ describe("wardrobe body profiles", () => {
     );
     expect(
       resolveStandardizedWardrobePresentation("princess")?.identityHeadwearStyle,
-    ).toBe("princess_bun");
+    ).toBeUndefined();
+    expect(
+      resolveStandardizedWardrobePresentation("princess")?.identityScale,
+    ).toBe(1.28);
+    expect(
+      resolveStandardizedWardrobePresentation("princess")?.bodySkinTint,
+    ).toBe("#d69a78");
   });
 
   it("keeps unknown or unreviewed models outside approved store profiles", () => {

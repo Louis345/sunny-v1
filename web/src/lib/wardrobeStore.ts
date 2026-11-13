@@ -1,5 +1,8 @@
 import { createWardrobeVariantCatalog } from "./wardrobeContentFactory";
-import { resolveWardrobeBodyProfileId } from "./wardrobeBodyProfiles";
+import {
+  resolveWardrobeBodyProfileId,
+  resolveWardrobeTemplateCertification,
+} from "./wardrobeBodyProfiles";
 
 export type WardrobeAccessoryId = "none" | "crown" | "cat-ears" | "halo";
 export type WardrobeOutfitId =
@@ -38,6 +41,7 @@ type WardrobeCompatibility =
 
 export type WardrobeStoreItem = {
   id: string;
+  templateId?: string;
   name: string;
   icon: string;
   price: number;
@@ -474,21 +478,29 @@ export function createInitialWardrobeStoreState(
 export function isWardrobeStoreItemCompatible(
   item: WardrobeStoreItem,
   companionModelUrl: string,
+  companionId: string,
 ) {
   const bodyProfileId = resolveWardrobeBodyProfileId(companionModelUrl);
-  return (
+  const bodyCompatible =
     item.compatibility.kind === "universal" ||
     (bodyProfileId !== null &&
-      item.compatibility.bodyProfileIds.includes(bodyProfileId))
+      item.compatibility.bodyProfileIds.includes(bodyProfileId));
+  if (!bodyCompatible) return false;
+  if (item.asset.kind !== "outfit") return true;
+  if (!item.templateId) return false;
+  return (
+    resolveWardrobeTemplateCertification(companionId, item.templateId).status ===
+    "approved"
   );
 }
 
 export function getCompatibleWardrobeItems(
   catalog: readonly WardrobeStoreItem[],
   companionModelUrl: string,
+  companionId: string,
 ) {
   return catalog.filter((item) =>
-    isWardrobeStoreItemCompatible(item, companionModelUrl),
+    isWardrobeStoreItemCompatible(item, companionModelUrl, companionId),
   );
 }
 
@@ -523,7 +535,7 @@ export function purchaseWardrobeItem(
   }
   const item = getWardrobeStoreItem(input.itemId);
   if (!item) return { state, status: "item_not_found" };
-  if (!isWardrobeStoreItemCompatible(item, input.companionModelUrl)) {
+  if (!isWardrobeStoreItemCompatible(item, input.companionModelUrl, input.companionId)) {
     return { state, status: "incompatible" };
   }
   if (state.ownedItemIds.includes(item.id)) {
@@ -564,10 +576,11 @@ export function saveWardrobeItemForLater(
   state: WardrobeStoreState,
   itemId: string,
   companionModelUrl: string,
+  companionId: string,
 ): { state: WardrobeStoreState; status: WardrobeSaveStatus } {
   const item = getWardrobeStoreItem(itemId);
   if (!item) return { state, status: "item_not_found" };
-  if (!isWardrobeStoreItemCompatible(item, companionModelUrl)) {
+  if (!isWardrobeStoreItemCompatible(item, companionModelUrl, companionId)) {
     return { state, status: "incompatible" };
   }
   if (state.ownedItemIds.includes(itemId)) {
@@ -599,7 +612,7 @@ export function equipWardrobeItem(
   if (!state.ownedItemIds.includes(itemId)) {
     return { state, status: "not_owned" };
   }
-  if (!isWardrobeStoreItemCompatible(item, companionModelUrl)) {
+  if (!isWardrobeStoreItemCompatible(item, companionModelUrl, companionId)) {
     return { state, status: "incompatible" };
   }
 
@@ -663,11 +676,11 @@ export function resolveEquippedWardrobeSelection(
   const accessory = getWardrobeStoreItem(equipped.accessoryItemId ?? "");
   const outfit = getWardrobeStoreItem(equipped.outfitItemId ?? "");
   const compatibleAccessory =
-    accessory && isWardrobeStoreItemCompatible(accessory, companionModelUrl)
+    accessory && isWardrobeStoreItemCompatible(accessory, companionModelUrl, companionId)
       ? accessory
       : undefined;
   const compatibleOutfit =
-    outfit && isWardrobeStoreItemCompatible(outfit, companionModelUrl)
+    outfit && isWardrobeStoreItemCompatible(outfit, companionModelUrl, companionId)
       ? outfit
       : undefined;
   return selectionFromItem(
@@ -679,6 +692,7 @@ export function resolveEquippedWardrobeSelection(
 export function isWardrobeOutfitCompatible(
   outfitId: WardrobeOutfitId,
   companionModelUrl: string,
+  companionId: string,
 ) {
   if (outfitId === "none") return true;
   const item = WARDROBE_STORE_CATALOG.find(
@@ -687,7 +701,7 @@ export function isWardrobeOutfitCompatible(
       candidate.asset.outfitId === outfitId,
   );
   return Boolean(
-    item && isWardrobeStoreItemCompatible(item, companionModelUrl),
+    item && isWardrobeStoreItemCompatible(item, companionModelUrl, companionId),
   );
 }
 

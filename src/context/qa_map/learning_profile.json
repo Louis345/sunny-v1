@@ -2,7 +2,7 @@
   "childId": "qa_map",
   "version": 1,
   "createdAt": "2026-04-29T21:38:35.912Z",
-  "lastUpdated": "2026-05-17T19:19:59.475Z",
+  "lastUpdated": "2026-08-24T03:11:36.431Z",
   "demographics": {
     "age": 8,
     "grade": 2,
@@ -86,55 +86,55 @@
   "activityModel": {
     "word-radar": {
       "activityId": "word-radar",
-      "plays": 34,
-      "completions": 34,
+      "plays": 43,
+      "completions": 43,
       "completionRate": 1,
       "averageAccuracy": 1,
       "averageTimePerTarget_ms": 5000,
       "engagementScore": 1,
-      "frustrationScore": 0.1,
-      "likedCount": 34,
+      "frustrationScore": 0.079,
+      "likedCount": 43,
       "dislikedCount": 0,
       "lastRating": "like",
-      "lastPlayed": "2026-05-17T19:19:59.427Z",
+      "lastPlayed": "2026-08-24T03:11:36.409Z",
       "domains": {
-        "spelling": 34
+        "spelling": 43
       },
       "missedWords": []
     },
     "riddle": {
       "activityId": "riddle",
-      "plays": 68,
-      "completions": 68,
+      "plays": 86,
+      "completions": 86,
       "completionRate": 1,
       "averageAccuracy": 0.95,
       "averageTimePerTarget_ms": 6000,
       "engagementScore": 0.95,
-      "frustrationScore": 0.1,
-      "likedCount": 68,
+      "frustrationScore": 0.082,
+      "likedCount": 86,
       "dislikedCount": 0,
       "lastRating": "like",
-      "lastPlayed": "2026-05-17T19:19:59.472Z",
+      "lastPlayed": "2026-08-24T03:11:36.429Z",
       "domains": {
-        "general": 68
+        "general": 86
       },
       "missedWords": []
     },
     "letter-rush": {
       "activityId": "letter-rush",
-      "plays": 34,
-      "completions": 34,
+      "plays": 43,
+      "completions": 43,
       "completionRate": 1,
       "averageAccuracy": 0.5,
       "averageTimePerTarget_ms": 6000,
       "engagementScore": 0.85,
-      "frustrationScore": 0.45,
-      "likedCount": 34,
+      "frustrationScore": 0.386,
+      "likedCount": 43,
       "dislikedCount": 0,
       "lastRating": "like",
-      "lastPlayed": "2026-05-17T19:19:59.475Z",
+      "lastPlayed": "2026-08-24T03:11:36.431Z",
       "domains": {
-        "general": 34
+        "general": 43
       },
       "missedWords": [
         "farmer"
@@ -142,19 +142,19 @@
     },
     "pronunciation": {
       "activityId": "pronunciation",
-      "plays": 6,
-      "completions": 6,
+      "plays": 15,
+      "completions": 15,
       "completionRate": 1,
       "averageAccuracy": 0.5,
       "averageTimePerTarget_ms": 6000,
       "engagementScore": 0.85,
-      "frustrationScore": 0.45,
-      "likedCount": 6,
+      "frustrationScore": 0.269,
+      "likedCount": 15,
       "dislikedCount": 0,
       "lastRating": "like",
-      "lastPlayed": "2026-05-17T19:19:59.432Z",
+      "lastPlayed": "2026-08-24T03:11:36.412Z",
       "domains": {
-        "spelling": 6
+        "spelling": 15
       },
       "missedWords": []
     }
@@ -170,9 +170,9 @@
         "completed": true,
         "accuracy": 0.5,
         "targetCount": 2,
-        "frustrationScore": 0.45,
+        "frustrationScore": 0.15,
         "strongEvidence": false,
-        "occurredAt": "2026-05-17T19:19:59.432Z"
+        "occurredAt": "2026-08-24T03:11:36.412Z"
       }
     },
     "general": {
@@ -185,14 +185,15 @@
         "completed": true,
         "accuracy": 0.5,
         "targetCount": 2,
-        "frustrationScore": 0.45,
+        "frustrationScore": 0.15,
         "strongEvidence": false,
-        "occurredAt": "2026-05-17T19:19:59.475Z"
+        "occurredAt": "2026-08-24T03:11:36.431Z"
       }
     }
   },
   "activeHomeworkByDomain": {},
   "activeSessionPlanByDomain": {},
   "aiContentCatalog": [],
-  "learningExperiments": []
+  "learningExperiments": [],
+  "learningTheoryDecisions": []
 }

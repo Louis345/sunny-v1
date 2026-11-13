@@ -344,8 +344,13 @@ export function WardrobeStoreLab({
   const debugMountVisitIdRef = useRef<string | null>(null);
 
   const compatibleItems = useMemo(
-    () => getCompatibleWardrobeItems(WARDROBE_STORE_CATALOG, companion.modelUrl),
-    [companion.modelUrl],
+    () =>
+      getCompatibleWardrobeItems(
+        WARDROBE_STORE_CATALOG,
+        companion.modelUrl,
+        companion.id,
+      ),
+    [companion.id, companion.modelUrl],
   );
   const [shoppingVisit] = useState(() =>
     createCompanionShoppingVisit({
@@ -566,7 +571,12 @@ export function WardrobeStoreLab({
   };
 
   const saveForLater = (item: WardrobeStoreItem) => {
-    const saved = saveWardrobeItemForLater(storeState, item.id, companion.modelUrl);
+    const saved = saveWardrobeItemForLater(
+      storeState,
+      item.id,
+      companion.modelUrl,
+      companion.id,
+    );
     if (saved.status !== "saved" && saved.status !== "already_saved") {
       setStatusMessage(`Could not save this item (${saved.status}).`);
       console.error(

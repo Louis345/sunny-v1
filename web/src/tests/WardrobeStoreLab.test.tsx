@@ -354,6 +354,7 @@ describe("WardrobeStoreLab shopping call", () => {
     const items = getCompatibleWardrobeItems(
       WARDROBE_STORE_CATALOG,
       companion.modelUrl,
+      companion.id,
     );
     const visit = createCompanionShoppingVisit({
       companionId: companion.id,
@@ -578,6 +579,7 @@ describe("WardrobeStoreLab shopping call", () => {
     const items = getCompatibleWardrobeItems(
       WARDROBE_STORE_CATALOG,
       companion.modelUrl,
+      companion.id,
     );
     const visit = createCompanionShoppingVisit({
       companionId: companion.id,
@@ -623,6 +625,7 @@ describe("WardrobeStoreLab shopping call", () => {
     const items = getCompatibleWardrobeItems(
       WARDROBE_STORE_CATALOG,
       companion.modelUrl,
+      companion.id,
     );
     const state = {
       ...createInitialWardrobeStoreState(),
