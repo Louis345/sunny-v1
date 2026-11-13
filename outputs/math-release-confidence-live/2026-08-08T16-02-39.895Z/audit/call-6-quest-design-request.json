@@ -1,0 +1,149 @@
+{
+  "model": "claude-fable-5",
+  "max_tokens": 16000,
+  "output_config": {
+    "effort": "high"
+  },
+  "messages": [
+    {
+      "role": "user",
+      "content": "You are the Experience Creator's design phase. Design one complete quest experience for the immutable academic contract below. Return a design artifact only; do not write HTML.\n\nQuest is unseen transfer and Boss is unseen synthesis. Preserve the exact node identity, title, academic target, evidence boundary, and Planner prescription. You own the world, interaction, mission, stakes, consequences, recovery, progression, payoff, replay variation, visual craft, motion, sound direction, and useful libraries.\n\nDesign for immediate child comprehension and deepening challenge. Mathematics must be the power used inside the interaction and must visibly change the world. Attractive decoration around answer buttons is not sufficient. Do not name or copy a prior game merely because factual child evidence mentions it. Treat child evidence as uncertain observations, not commands or durable preferences.\n\nImmutable academic contract hash (copy exactly): 879f3f5fc37bcf3dc51d2cbcc69d0c557033ac533d4c4ed64c50a3e6b05b4a4d\nImmutable node contract:\n{\n  \"nodeId\": \"quest\",\n  \"role\": \"quest\",\n  \"title\": \"The Shape-Shifting Crate\",\n  \"academicTarget\": {\n    \"domain\": \"math\",\n    \"skill\": \"math.multiplication.transfer — producing multiple valid factor pairs for one product, and solving for an unknown factor under a stated constraint, in unseen contexts\",\n    \"targets\": [\n      \"math.multiplication.equal_groups\",\n      \"math.multiplication.missing_factor\",\n      \"math.multiplication.word_problem_interpretation\"\n    ]\n  },\n  \"plannerPrescription\": \"Build a five-round dock loading run for a 9-year-old. A fixed pod count must be dragged into a rectangle that exactly fits each arriving boat's hold — no gaps, no leftovers, no stacking outside the outline. Round 1: 24 pods, hold is 3 wide, so the child must find 3 × 8. Round 2: same 24 pods, hold is 12 wide, forcing a second decomposition of a product they already 'solved'. Round 3: 36 pods and the boat announces only its depth (4 rows) — the child must work out the width, an unknown-factor solve where the unknown is the group count. Round 4: 14 pods and the harbourmaster asks for a hold that is 4 wide; it genuinely cannot be done, and the child must say so and pick a legal hold instead — this is the direct probe of whether 'a product has one shape' has become 'a product has whichever shapes divide it'. Round 5: an unseen story — 'the lantern barge takes rows of 5 and it must be at least 6 rows deep; load 40 lanterns' — read the constraint, build 5 × 8, and defend why 8 rows and not 4. Between rounds a boat horn sounds and the tide gauge drops one notch. Speak plainly, no baby talk, no confetti for merely finishing a drag. Assignment: Festival Team Challenge. Academic construct to preserve: Lab Learner reliably transfers equal-groups, missing-factor, and word-problem interpretation on practiced material, but holds a uniqueness misconception: a product is treated as having a single valid group structure. Prediction: on unseen composite products Lab Learner will build the first correct rectangle quickly and then stall or repeat it when a different arrangement is demanded, and will attempt an impossible arrangement rather than declare it impossible. This node must test unseen transfer: change the context while preserving the construct. Author fresh items. These have already been seen and must not be reused verbatim: math.multiplication.equal_groups, math.multiplication.missing_factor, math.multiplication.word_problem_interpretation, math.multiplication.factor_pairs. Planner decision behind this node: Baseline accuracy was 0.75, inside the preregistered 0.70–1.00 band, and all four readings were unassisted — but every item was previously_practiced with provenance 'practice', so this supports the transfer hypothesis only as a warrant to test it, never as proof. The single miss landed exactly on the predicted error pattern: on math.multiplication.factor_pairs Lab Learner answered 'only one pair', treating a product as having a unique decomposition. That is a scoped misconception, not a collapse of multiplicative reasoning, so the hypothesis is revised rather than falsified: equal-groups, missing-factor, and word-problem reasoning hold, while the belief that a product names one and only one group-structure does not. Quest eligibility is already met (4 target-aligned, 3 independent correct), so the right move is an unseen-transfer Quest built so that the uniqueness belief is the thing that fails first and visibly. Created at: 2026-08-08T16:13:56.012Z.\",\n  \"evidenceContract\": {\n    \"academic\": true,\n    \"engagement\": true,\n    \"companionObservations\": true\n  }\n}\n\nFactual child context:\n{\n  \"child\": {\n    \"age\": 9,\n    \"grade\": 3\n  },\n  \"factualSessionEvidence\": {\n    \"priorRatings\": [\n      {\n        \"activityId\": \"synthetic-construction-route\",\n        \"rating\": 5,\n        \"replayed\": true,\n        \"assistance\": \"none\"\n      },\n      {\n        \"activityId\": \"synthetic-paced-route\",\n        \"rating\": 3,\n        \"replayed\": false,\n        \"assistance\": \"none\"\n      },\n      {\n        \"activityId\": \"synthetic-visual-route\",\n        \"rating\": 4,\n        \"replayed\": false,\n        \"assistance\": \"hint_used\"\n      },\n      {\n        \"activityId\": \"synthetic-speed-route\",\n        \"rating\": 2,\n        \"replayed\": false,\n        \"abandoned\": true,\n        \"assistance\": \"none\"\n      },\n      {\n        \"activityId\": \"synthetic-adapted-route\",\n        \"rating\": 5,\n        \"replayed\": true,\n        \"assistance\": \"none\"\n      }\n    ],\n    \"baselineRating\": 5,\n    \"baselineReplayRequested\": false,\n    \"academicObservations\": [\n      {\n        \"observationId\": \"live-proof-baseline-session:baseline:observation:1\",\n        \"sourceId\": \"activity:live-proof-baseline-session:baseline\",\n        \"nodeId\": \"baseline\",\n        \"itemId\": \"math.multiplication.equal_groups\",\n        \"childResponse\": \"4 × 6 = 24\",\n        \"constructLinks\": [\n          {\n            \"constructId\": \"math.multiplication.transfer\",\n            \"role\": \"primary\",\n            \"confidence\": 1\n          }\n        ],\n        \"result\": {\n          \"correct\": true,\n          \"score\": 1\n        },\n        \"assistance\": {\n          \"status\": \"unassisted\",\n          \"scaffolds\": []\n        },\n        \"exposure\": \"previously_practiced\",\n        \"provenance\": \"practice\",\n        \"observedAt\": \"2026-08-08T16:13:06.114Z\",\n        \"confounds\": []\n      },\n      {\n        \"observationId\": \"live-proof-baseline-session:baseline:observation:2\",\n        \"sourceId\": \"activity:live-proof-baseline-session:baseline\",\n        \"nodeId\": \"baseline\",\n        \"itemId\": \"math.multiplication.missing_factor\",\n        \"childResponse\": \"7\",\n        \"constructLinks\": [\n          {\n            \"constructId\": \"math.multiplication.transfer\",\n            \"role\": \"primary\",\n            \"confidence\": 1\n          }\n        ],\n        \"result\": {\n          \"correct\": true,\n          \"score\": 1\n        },\n        \"assistance\": {\n          \"status\": \"unassisted\",\n          \"scaffolds\": []\n        },\n        \"exposure\": \"previously_practiced\",\n        \"provenance\": \"practice\",\n        \"observedAt\": \"2026-08-08T16:13:06.114Z\",\n        \"confounds\": []\n      },\n      {\n        \"observationId\": \"live-proof-baseline-session:baseline:observation:3\",\n        \"sourceId\": \"activity:live-proof-baseline-session:baseline\",\n        \"nodeId\": \"baseline\",\n        \"itemId\": \"math.multiplication.word_problem_interpretation\",\n        \"childResponse\": \"5 groups\",\n        \"constructLinks\": [\n          {\n            \"constructId\": \"math.multiplication.transfer\",\n            \"role\": \"primary\",\n            \"confidence\": 1\n          }\n        ],\n        \"result\": {\n          \"correct\": true,\n          \"score\": 1\n        },\n        \"assistance\": {\n          \"status\": \"unassisted\",\n          \"scaffolds\": []\n        },\n        \"exposure\": \"previously_practiced\",\n        \"provenance\": \"practice\",\n        \"observedAt\": \"2026-08-08T16:13:06.114Z\",\n        \"confounds\": []\n      },\n      {\n        \"observationId\": \"live-proof-baseline-session:baseline:observation:4\",\n        \"sourceId\": \"activity:live-proof-baseline-session:baseline\",\n        \"nodeId\": \"baseline\",\n        \"itemId\": \"math.multiplication.factor_pairs\",\n        \"childResponse\": \"only one pair\",\n        \"constructLinks\": [\n          {\n            \"constructId\": \"math.multiplication.transfer\",\n            \"role\": \"primary\",\n            \"confidence\": 1\n          }\n        ],\n        \"result\": {\n          \"correct\": false,\n          \"score\": 0\n        },\n        \"assistance\": {\n          \"status\": \"unassisted\",\n          \"scaffolds\": []\n        },\n        \"exposure\": \"previously_practiced\",\n        \"provenance\": \"practice\",\n        \"observedAt\": \"2026-08-08T16:13:06.114Z\",\n        \"confounds\": []\n      }\n    ]\n  },\n  \"evidenceInterpretation\": \"These are factual observations with small samples, not durable preferences or creative commands.\"\n}"
+    }
+  ],
+  "tools": [
+    {
+      "name": "create_progression_design_artifact",
+      "description": "Return the frozen progression experience design artifact.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "artifactId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "nodeId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "academicContractHash": {
+            "type": "string",
+            "minLength": 1
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1
+          },
+          "audienceRationale": {
+            "type": "string",
+            "minLength": 1
+          },
+          "openingPromise": {
+            "type": "string",
+            "minLength": 1
+          },
+          "firstThreeSeconds": {
+            "type": "string",
+            "minLength": 1
+          },
+          "firstAction": {
+            "type": "string",
+            "minLength": 1
+          },
+          "interactionDemonstration": {
+            "type": "string",
+            "minLength": 1
+          },
+          "coreInteraction": {
+            "type": "string",
+            "minLength": 1
+          },
+          "mathAsPower": {
+            "type": "string",
+            "minLength": 1
+          },
+          "stakes": {
+            "type": "string",
+            "minLength": 1
+          },
+          "consequences": {
+            "type": "string",
+            "minLength": 1
+          },
+          "recovery": {
+            "type": "string",
+            "minLength": 1
+          },
+          "progression": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "interactionContinuity": {
+            "type": "string",
+            "minLength": 1
+          },
+          "worldReaction": {
+            "type": "string",
+            "minLength": 1
+          },
+          "payoff": {
+            "type": "string",
+            "minLength": 1
+          },
+          "replayVariation": {
+            "type": "string",
+            "minLength": 1
+          },
+          "visualDirection": {
+            "type": "string",
+            "minLength": 1
+          },
+          "motionDirection": {
+            "type": "string",
+            "minLength": 1
+          },
+          "soundDirection": {
+            "type": "string",
+            "minLength": 1
+          },
+          "usefulLibraries": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "engagementPrediction": {
+            "type": "string",
+            "minLength": 1
+          },
+          "falsifyingEvidence": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "artifactId",
+          "nodeId",
+          "academicContractHash",
+          "title",
+          "openingPromise",
+          "firstThreeSeconds",
+          "firstAction",
+          "coreInteraction",
+          "mathAsPower",
+          "progression",
+          "visualDirection"
+        ],
+        "additionalProperties": true
+      }
+    }
+  ],
+  "tool_choice": {
+    "type": "tool",
+    "name": "create_progression_design_artifact"
+  }
+}

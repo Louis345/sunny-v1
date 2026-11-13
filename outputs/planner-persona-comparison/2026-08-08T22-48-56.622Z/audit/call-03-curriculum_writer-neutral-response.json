@@ -1,0 +1,454 @@
+{
+  "model": "claude-opus-5",
+  "id": "msg_011Cdr6jq66DrEnaQXPgYTNT",
+  "type": "message",
+  "role": "assistant",
+  "content": [
+    {
+      "type": "tool_use",
+      "id": "toolu_01NT2gc78xDd1wLbq28gYQkU",
+      "name": "submit_curriculum_packet",
+      "input": {
+        "packetId": "packet:LAB-MATH-C:curriculum-writer:v1",
+        "upstreamHash": "207372273d2f26e541b788db9f99ee51793677329abd871fe9e50e0c620eb595",
+        "items": [
+          {
+            "itemId": "item-01-name-the-unknown-cups",
+            "prompt": "Each booth at the lantern festival gets the same number of cups. There are 6 booths, and 48 cups are set out in all. Before you work anything out, say which quantity is unknown.",
+            "options": [
+              "The number of groups (how many booths)",
+              "The size of each group (cups per booth)",
+              "The total (how many cups altogether)"
+            ],
+            "correctAnswer": "The size of each group (cups per booth)",
+            "responseContract": {
+              "type": "single_select",
+              "requiredFields": [
+                "selectedOption"
+              ],
+              "scoring": "exact_match",
+              "recordedFields": [
+                "assistanceLevel",
+                "latencyMs"
+              ],
+              "noComputationRequired": true
+            },
+            "sourceLineage": {
+              "charterId": "charter:LAB-MATH-C:academic-lead:v1",
+              "progressionStage": "Stage 1 — Name the unknown",
+              "decisionIds": [
+                "dec-002-name-the-unknown-before-computing",
+                "dec-001-scoped-unknown-position-weakness"
+              ],
+              "evidenceIds": [
+                "observation:0ee42baffce06546",
+                "observation:4520f65725de1d50",
+                "hw-02c11ee60594c617:decision:r3"
+              ],
+              "measurementKeys": [
+                "routine.name_the_unknown.completion_rate",
+                "routine.name_the_unknown.accuracy",
+                "math.multiplication.unknown_position.identification_accuracy"
+              ],
+              "evidenceRequiredNextRefs": [
+                "Paired records of the learner's named unknown and the subsequent computation on the same item, to test whether naming the unknown reduces the multiply-the-given-numbers substitution (dec-002)."
+              ]
+            },
+            "exposure": "new",
+            "academicTarget": "Use equal-groups structure to identify the unknown position, solve missing factors, and recognize multiple valid factor-pair arrays for a known total."
+          },
+          {
+            "itemId": "item-02-missing-factor-equation-tokens",
+            "prompt": "Token bags for the festival games are filled equally. The equation for the whole set of bags is ___ x 7 = 56. Name the unknown quantity, then give the number that belongs in the blank.",
+            "options": null,
+            "correctAnswer": {
+              "namedUnknown": "the number of groups (how many bags)",
+              "value": 8
+            },
+            "responseContract": {
+              "type": "two_part_constructed",
+              "requiredFields": [
+                "namedUnknown",
+                "numericAnswer"
+              ],
+              "scoring": "both_parts_scored_separately",
+              "acceptedNamedUnknownForms": [
+                "number of groups",
+                "how many bags",
+                "the number of bags"
+              ],
+              "recordedFields": [
+                "assistanceLevel",
+                "errorCode"
+              ],
+              "trackedErrorCodes": [
+                "multiply_the_given_numbers",
+                "fact_recall_slip"
+              ]
+            },
+            "sourceLineage": {
+              "charterId": "charter:LAB-MATH-C:academic-lead:v1",
+              "progressionStage": "Stage 2 — Solve the known-total cases",
+              "decisionIds": [
+                "dec-001-scoped-unknown-position-weakness",
+                "dec-002-name-the-unknown-before-computing"
+              ],
+              "evidenceIds": [
+                "evaluation:c8fdaacd3e1b0c13",
+                "evaluation:b81e075d2126c022",
+                "observation:d1b81984c24d6d80"
+              ],
+              "measurementKeys": [
+                "math.multiplication.missing_factor.accuracy_unassisted",
+                "error.multiply_the_given_numbers.rate",
+                "math.multiplication.unknown_position.accuracy_after_naming"
+              ],
+              "evidenceRequiredNextRefs": [
+                "Item-level LAB-MATH-C results for items 2, 3, and 8 with assistance level recorded, to confirm or falsify the scoped unknown-position weakness (dec-001)."
+              ]
+            },
+            "exposure": "new",
+            "academicTarget": "Use equal-groups structure to identify the unknown position, solve missing factors, and recognize multiple valid factor-pair arrays for a known total."
+          },
+          {
+            "itemId": "item-03-equal-sharing-group-size-flags",
+            "prompt": "The parade crew hangs 45 flags along the walkway in 5 equal rows. Name the unknown quantity, then find how many flags are in each row.",
+            "options": null,
+            "correctAnswer": {
+              "namedUnknown": "the size of each group (flags per row)",
+              "value": 9
+            },
+            "responseContract": {
+              "type": "two_part_constructed",
+              "requiredFields": [
+                "namedUnknown",
+                "numericAnswer"
+              ],
+              "scoring": "both_parts_scored_separately",
+              "acceptedNamedUnknownForms": [
+                "size of each group",
+                "flags per row",
+                "how many flags in each row"
+              ],
+              "recordedFields": [
+                "assistanceLevel",
+                "errorCode",
+                "strategyStated"
+              ],
+              "trackedErrorCodes": [
+                "multiply_the_given_numbers",
+                "fact_recall_slip"
+              ]
+            },
+            "sourceLineage": {
+              "charterId": "charter:LAB-MATH-C:academic-lead:v1",
+              "progressionStage": "Stage 2 — Solve the known-total cases",
+              "decisionIds": [
+                "dec-001-scoped-unknown-position-weakness",
+                "dec-002-name-the-unknown-before-computing"
+              ],
+              "evidenceIds": [
+                "evaluation:c8fdaacd3e1b0c13",
+                "observation:0ee42baffce06546",
+                "live-proof-baseline-session:baseline:observation:4"
+              ],
+              "measurementKeys": [
+                "math.multiplication.missing_factor.accuracy_unassisted",
+                "math.multiplication.unknown_position.identification_accuracy",
+                "error.multiply_the_given_numbers.rate"
+              ],
+              "evidenceRequiredNextRefs": [
+                "Item-level LAB-MATH-C results for items 2, 3, and 8 with assistance level recorded, to confirm or falsify the scoped unknown-position weakness (dec-001)."
+              ]
+            },
+            "exposure": "new",
+            "academicTarget": "Use equal-groups structure to identify the unknown position, solve missing factors, and recognize multiple valid factor-pair arrays for a known total."
+          },
+          {
+            "itemId": "item-04-contrast-total-unknown-teams",
+            "prompt": "Seven teams of children march in the opening show. Each team has 6 children. Name the unknown quantity, then find how many children march in all.",
+            "options": null,
+            "correctAnswer": {
+              "namedUnknown": "the total (how many children altogether)",
+              "value": 42
+            },
+            "responseContract": {
+              "type": "two_part_constructed",
+              "requiredFields": [
+                "namedUnknown",
+                "numericAnswer"
+              ],
+              "scoring": "both_parts_scored_separately",
+              "acceptedNamedUnknownForms": [
+                "the total",
+                "how many children altogether",
+                "total number of children"
+              ],
+              "recordedFields": [
+                "assistanceLevel",
+                "errorCode"
+              ],
+              "trackedErrorCodes": [
+                "divide_on_total_unknown",
+                "fact_recall_slip"
+              ]
+            },
+            "sourceLineage": {
+              "charterId": "charter:LAB-MATH-C:academic-lead:v1",
+              "progressionStage": "Stage 3 — Discriminate against contrast",
+              "decisionIds": [
+                "dec-004-over-application-of-division",
+                "dec-003-intact-skills-as-contrast-anchors"
+              ],
+              "evidenceIds": [
+                "hw-02c11ee60594c617:prediction:r3:support",
+                "assignment:live-progression",
+                "live-proof-baseline-session:baseline:observation:1"
+              ],
+              "measurementKeys": [
+                "error.divide_on_total_unknown.rate",
+                "math.multiplication.total_unknown.accuracy_post_instruction",
+                "discrimination.multiply_vs_missing_factor.accuracy"
+              ],
+              "evidenceRequiredNextRefs": [
+                "Post-instruction results on total-unknown items 1 and 5, coded for division responses, to measure over-application of the missing-factor rule (dec-004).",
+                "Accuracy on items 1, 4, and 6 to verify that computation, array reading, and story interpretation remain sound enough to serve as contrast anchors (dec-003)."
+              ]
+            },
+            "exposure": "contrast_anchor",
+            "academicTarget": "Use equal-groups structure to identify the unknown position, solve missing factors, and recognize multiple valid factor-pair arrays for a known total."
+          },
+          {
+            "itemId": "item-05-interleaved-sort-multiply-or-missing-factor",
+            "prompt": "Sort each festival situation by what you would do first: multiply the two numbers you can see, or find a missing factor. (a) 8 booths with 5 cups at each booth — how many cups in all? (b) 54 tokens shared equally into 9 bags — how many tokens in each bag? (c) ___ x 4 = 32 rows of chairs. (d) 3 lantern poles with 9 lanterns on each — how many lanterns in all?",
+            "options": [
+              "a: multiply",
+              "a: find a missing factor",
+              "b: multiply",
+              "b: find a missing factor",
+              "c: multiply",
+              "c: find a missing factor",
+              "d: multiply",
+              "d: find a missing factor"
+            ],
+            "correctAnswer": {
+              "a": "multiply",
+              "b": "find a missing factor",
+              "c": "find a missing factor",
+              "d": "multiply"
+            },
+            "responseContract": {
+              "type": "multi_part_classification",
+              "requiredFields": [
+                "classificationA",
+                "classificationB",
+                "classificationC",
+                "classificationD"
+              ],
+              "scoring": "per_part_then_all_correct_flag",
+              "recordedFields": [
+                "assistanceLevel",
+                "errorCode"
+              ],
+              "trackedErrorCodes": [
+                "divide_on_total_unknown",
+                "multiply_the_given_numbers"
+              ]
+            },
+            "sourceLineage": {
+              "charterId": "charter:LAB-MATH-C:academic-lead:v1",
+              "progressionStage": "Stage 3 — Discriminate against contrast",
+              "decisionIds": [
+                "dec-004-over-application-of-division",
+                "dec-002-name-the-unknown-before-computing"
+              ],
+              "evidenceIds": [
+                "hw-02c11ee60594c617:prediction:r3:support",
+                "observation:4520f65725de1d50",
+                "assignment:live-progression"
+              ],
+              "measurementKeys": [
+                "discrimination.multiply_vs_missing_factor.accuracy",
+                "error.divide_on_total_unknown.rate",
+                "error.multiply_the_given_numbers.rate"
+              ],
+              "evidenceRequiredNextRefs": [
+                "Post-instruction results on total-unknown items 1 and 5, coded for division responses, to measure over-application of the missing-factor rule (dec-004)."
+              ]
+            },
+            "exposure": "new",
+            "academicTarget": "Use equal-groups structure to identify the unknown position, solve missing factors, and recognize multiple valid factor-pair arrays for a known total."
+          },
+          {
+            "itemId": "item-06-multiple-factor-pairs-stage-lights",
+            "prompt": "The stage crew must hang 24 lights in equal rows. Give at least two different ways to arrange all 24 lights in equal rows, write each way as rows x lights per row, and say how you know each one uses every light.",
+            "options": null,
+            "correctAnswer": {
+              "validPairs": [
+                [
+                  3,
+                  8
+                ],
+                [
+                  8,
+                  3
+                ],
+                [
+                  4,
+                  6
+                ],
+                [
+                  6,
+                  4
+                ]
+              ],
+              "minimumDistinctPairsRequired": 2,
+              "justificationRequired": "each pair multiplies to 24, so every light is used"
+            },
+            "responseContract": {
+              "type": "multi_response_constructed",
+              "requiredFields": [
+                "factorPairs",
+                "justification"
+              ],
+              "scoring": "count_distinct_valid_pairs_and_justification_present",
+              "recordedFields": [
+                "distinctPairsProduced",
+                "assistanceLevel"
+              ],
+              "trackedErrorCodes": [
+                "single_pair_only",
+                "invalid_pair_product",
+                "out_of_scope_factor"
+              ]
+            },
+            "sourceLineage": {
+              "charterId": "charter:LAB-MATH-C:academic-lead:v1",
+              "progressionStage": "Stage 4 — Multiple factor pairs for one total",
+              "decisionIds": [
+                "dec-001-scoped-unknown-position-weakness"
+              ],
+              "evidenceIds": [
+                "live-proof-baseline-session:baseline:observation:4",
+                "evaluation:c8fdaacd3e1b0c13"
+              ],
+              "measurementKeys": [
+                "math.multiplication.factor_pairs.distinct_pairs_produced",
+                "math.multiplication.array_reading.accuracy"
+              ],
+              "evidenceRequiredNextRefs": [
+                "Count of distinct valid factor pairs produced for a known total on at least two separate occasions, following the single-pair baseline failure."
+              ]
+            },
+            "exposure": "new",
+            "academicTarget": "Use equal-groups structure to identify the unknown position, solve missing factors, and recognize multiple valid factor-pair arrays for a known total."
+          },
+          {
+            "itemId": "item-07-independent-transfer-mixed",
+            "prompt": "Work these three festival questions without any reminder about naming the unknown. (a) 35 ribbons are tied in 7 equal bunches — how many ribbons in each bunch? (b) 6 game booths each hand out 8 tokens — how many tokens in all? (c) 36 lanterns hang in equal rows; give two different row arrangements that use all 36 lanterns.",
+            "options": null,
+            "correctAnswer": {
+              "a": 5,
+              "b": 48,
+              "c": [
+                [
+                  4,
+                  9
+                ],
+                [
+                  9,
+                  4
+                ],
+                [
+                  6,
+                  6
+                ]
+              ]
+            },
+            "responseContract": {
+              "type": "multi_part_mixed",
+              "requiredFields": [
+                "answerA",
+                "answerB",
+                "factorPairsC"
+              ],
+              "scoring": "per_part_scored_with_unprompted_flag",
+              "recordedFields": [
+                "assistanceLevel",
+                "namedUnknownSpontaneously",
+                "distinctPairsProduced",
+                "errorCode"
+              ],
+              "trackedErrorCodes": [
+                "multiply_the_given_numbers",
+                "divide_on_total_unknown",
+                "single_pair_only",
+                "fact_recall_slip"
+              ]
+            },
+            "sourceLineage": {
+              "charterId": "charter:LAB-MATH-C:academic-lead:v1",
+              "progressionStage": "Stage 5 — Independent transfer",
+              "decisionIds": [
+                "dec-001-scoped-unknown-position-weakness",
+                "dec-002-name-the-unknown-before-computing",
+                "dec-004-over-application-of-division"
+              ],
+              "evidenceIds": [
+                "evaluation:c8fdaacd3e1b0c13",
+                "observation:0ee42baffce06546",
+                "live-proof-baseline-session:baseline:observation:4",
+                "hw-02c11ee60594c617:prediction:r3:support"
+              ],
+              "measurementKeys": [
+                "math.multiplication.unknown_position.identification_accuracy",
+                "math.multiplication.missing_factor.accuracy_unassisted",
+                "math.multiplication.factor_pairs.distinct_pairs_produced",
+                "discrimination.multiply_vs_missing_factor.accuracy",
+                "math.multiplication.fact_recall.accuracy"
+              ],
+              "representativeLearningResponsibilityId": "rlr-001",
+              "evidenceRequiredNextRefs": [
+                "Count of distinct valid factor pairs produced for a known total on at least two separate occasions, following the single-pair baseline failure.",
+                "Unassisted fact-recall spot check within products to 56 and factors 3-9, to separate fact-recall slips from unknown-position errors."
+              ]
+            },
+            "exposure": "new",
+            "academicTarget": "Use equal-groups structure to identify the unknown position, solve missing factors, and recognize multiple valid factor-pair arrays for a known total."
+          }
+        ],
+        "supportProgression": [
+          "Stage 1 (item-01): Full scaffold. The three quantities are listed as choices, and no computation is asked for, so the learner practices the naming routine on its own before it carries any arithmetic load.",
+          "Stage 2 (item-02, item-03): Partial scaffold. The learner is still told to name the unknown first, but must now produce the number too. Item-02 is equation form (___ x 7 = 56); item-03 is the same structure in a story with a known total and known number of rows. Record the named unknown and the computed answer as a pair so the two can be compared on the same item.",
+          "Stage 3 (item-04, item-05): Discrimination scaffold. Item-04 keeps the name-the-unknown prompt but is genuinely total-unknown, so a division response is visible as over-application rather than as a wrong fact. Item-05 removes computation entirely and asks only for the decision, interleaving two total-unknown and two known-total situations.",
+          "Stage 4 (item-06): Sufficiency scaffold. The prompt states outright that at least two arrangements are wanted and asks for a justification, so a single-pair answer is recorded as incomplete rather than as a refusal to try.",
+          "Stage 5 (item-07): No scaffold. No reminder to name the unknown and no cue about how many factor pairs are needed. Whether the learner names the unknown without being asked is recorded separately from correctness.",
+          "Assistance escalation within any item: (1) re-read the situation and ask which of the three quantities the item does not tell us; (2) restate the situation as groups x size = total with a blank in the unknown position; (3) ask what number times the known factor reaches the total, offering a nearby known fact; (4) model one step and re-score the item as assisted. Every item logs the assistance level reached.",
+          "Fact-recall separation: whenever an answer is wrong, spot-check the underlying fact within products to 56 and factors 3-9 before coding the error as an unknown-position error."
+        ],
+        "charterConcern": "The charter's evidence needs (dec-005 and its measurement keys) call for engagement and rating data collected with task difficulty held constant, but the items in this packet vary in difficulty by design across Stages 1–5 and no two of them are difficulty-matched. As authored, this packet therefore cannot supply the controlled comparison dec-005 asks for; any engagement or rating data it yields should be treated as activity-level facts only, consistent with the charter. Raising this as a measurement-coverage gap for the pipeline to resolve — I am not proposing any change to the charter, its scope, or its assumptions."
+      },
+      "caller": {
+        "type": "direct"
+      }
+    }
+  ],
+  "stop_reason": "tool_use",
+  "stop_sequence": null,
+  "stop_details": null,
+  "usage": {
+    "input_tokens": 7809,
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 0,
+    "cache_creation": {
+      "ephemeral_5m_input_tokens": 0,
+      "ephemeral_1h_input_tokens": 0
+    },
+    "output_tokens": 5868,
+    "output_tokens_details": {
+      "thinking_tokens": 0
+    },
+    "service_tier": "standard",
+    "inference_geo": "global"
+  }
+}

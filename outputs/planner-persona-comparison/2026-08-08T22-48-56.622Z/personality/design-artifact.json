@@ -1,0 +1,170 @@
+{
+  "artifactId": "exp-arch-LAB-MATH-C-lantern-festival-v1-juniper",
+  "upstreamHash": "dbac47d6e90f06bc886a4f4ef651158a78ff41f0047f676781caceeacb0d94d4",
+  "title": "Lantern Festival: The Night You Light",
+  "progression": [
+    "Beat 1 — Lantern Booth (lmc-c-01, Stage 1): all three quantities glow on-screen; the child taps the number that is the SIZE OF EACH GROUP and the matching lanterns pulse to prove the tap. Modeled naming available. No computing anywhere in sight.",
+    "Beat 2 — Ribbon Stall (lmc-c-02, Stage 2): one quantity slot is a dark, humming hole. The child names WHICH quantity is missing by dragging the question-lantern onto the hole. If they start computing unprompted, the world quietly records it (unknown_named_before_computing) without scolding.",
+    "Beat 3 — Parade Sections (lmc-c-03, Stages 3-4): first name the unknown (sections), then set the missing factor so ___ x 8 = 48; the parade row physically extends section by section as the answer is dialed. Wrong dial = flags overflow or fall short, visibly. One which-quantity prompt allowed.",
+    "Beat 4 — Banner Rigging (lmc-c-04, Stage 4): 42 banners, 6 rows; name the unknown (banners per row), then dial row width to 7 and watch the rig cinch taut and symmetrical. Multiply-the-given-numbers produces an absurd 252-banner sag the child can see and undo.",
+    "Beat 5 — Twin Jobs Mixed (lmc-c-05, Stage 5): juice booth (total unknown, 5x9) and badge table (factor unknown, 45 into 9 piles) arrive interleaved on one work order. The child must declare each unknown before the booth accepts a number. Divide-when-total-unknown gets its own distinct failure animation (half-empty crates) so the error code is legible in the world.",
+    "Beat 6 — Stage-Light Board (lmc-c-06, Stage 6): 36 lights, and the board demands AT LEAST TWO different equal-row layouts before the light show can be programmed. After the first valid array, the board stays dim on one channel — the world itself is the keep-going prompt, logged as prompted_keep_going only if the verbal nudge fires. Then the child completes: 'For 36 lights there is MORE THAN ONE correct arrangement.'",
+    "Beat 7 — Closing Night (lmc-c-07, Stage 7): unassisted mixed finale — face-paint chairs (total, 32), bead strings (groups, 6), welcome arch (two arrangements of 24). Every helper character steps back; no prompts. Each solved part ignites one third of the festival's grand lantern release."
+  ],
+  "audienceRationale": "Nine years old, Grade 3, and demonstrably NOT weak at multiplying — the baseline shows intact equal-groups computation, missing-factor solving, and story interpretation. What this child cannot yet do reliably is say WHICH quantity is missing before grabbing an operation, and they stop after one factor pair (baseline observation 4: only one pair, incorrect). So the experience must never feel like remedial multiplication drill — that would insult a competent multiplier and bore them into the multiply-the-given-numbers reflex we are trying to extinguish. Instead the child is cast as the festival's Night Engineer: someone whose EXISTING math power is trusted, and whose new superpower — naming the unknown before touching numbers — is the key that unlocks each festival station. The four engagement events cannot establish a format preference (per the frozen assumption), so the design varies presentation across beats and treats format as recorded fact, not assumed taste. Ratings history (4, 3, 5 with a replay on round C) suggests this child rewards experiences with escalation and a finale worth replaying, so the arc banks anticipation toward a lantern-release payoff.",
+  "openingPromise": "\"Tonight the whole festival goes dark unless someone can see what's MISSING. The crew says that's you.\" The promise is agency: seven stations, each stuck because one quantity is unknown, and the child is the only one who can name the hole and fill it. Not 'do seven problems' — light seven stations.",
+  "firstThreeSeconds": "A dark festival ground at dusk, a single lantern already lit and swaying. Within the first second, six helper silhouettes turn toward the player. By second two, a strip of lanterns flickers ON in a wave toward the lantern booth — the world is literally pointing. By second three, the booth's three quantities (6 helpers, 5 each, 30 total) drift up as glowing tags, and one tag pulses with an inviting halo: 'Which of these is the SIZE OF EACH GROUP?' No menu, no title card lingering, no instructions paragraph. The first tappable thing is the first item.",
+  "firstAction": "One tap. The four options from lmc-c-01 float as lantern tags near the physical things they describe (the tag '6' hovers over the helpers, '5' over one helper's armful, '30' over the whole booth, and the 'no group size' tag hangs apart). The child taps the tag they believe names the size of each group. Cost of trying: one finger, under two seconds. The tag responses are logged with correctness, assistance level, and latency exactly per the response contract — but to the child it is just 'point at the right lantern tag.'",
+  "interactionDemonstration": "Before the first tap is required, the world demonstrates itself: a helper NPC taps the '6' tag as a worked half-example — 'See? This one is the NUMBER OF GROUPS, because it counts helpers' — and the six helpers briefly glow in a row to prove it. This is the modeled-naming support Stage 1 explicitly permits, and it doubles as the interaction tutorial: tapping a tag makes the world reveal what that number physically IS. The child then does the real target (size of each group) with the mechanic already witnessed — demonstrated by the world, never explained in a text block.",
+  "coreInteraction": "Name-then-act, everywhere, as one continuous verb pair. (1) NAME: every station presents the equal-groups triple as three physical slots — a GROUPS shelf, a SIZE armful, a TOTAL bin. The child's first move at every station is dragging the question-lantern onto whichever slot is dark/unknown (or tapping the tag at Stage 1). The station will not accept numbers until the unknown is named — this is dec-002 made mechanical, not moral. (2) ACT: a single dial/slider commits the number. Dialing is tactile: sections extend, rows widen, piles split, in real time as the dial moves, so the child is steering the world, not typing into a box. The same two-step gesture — lantern onto the hole, then dial — carries from Beat 1 to Beat 7 unchanged, only with supports fading exactly per the packet's fading schedule.",
+  "mathAsPower": "The equation groups x size = total IS the festival's machinery, not a quiz painted over it. Naming the unknown is the power move: when the child drops the question-lantern on the correct slot, the station's mechanism unlocks and orients itself — a parade row shows its per-section flag racks, a bead rope shows its cut marks. Choosing the operation is never a multiple-choice question; it is a consequence of which slot is dark. Dark TOTAL bin? The two known dials feed forward and the bin fills. Dark FACTOR slot? The total is fixed and immovable — you can feel it refuse to change — and the dial hunts for the number that reaches it. Multiplying the two visible numbers when a factor is missing isn't marked wrong by a red X; it physically overshoots the fixed total and the world jams. The math controls the world; the child controls the math.",
+  "stakes": "Each station powers one arc of the festival's lantern canopy. A station solved unassisted burns bright gold; solved with a prompt, warm amber — still lit, still counted, honestly dimmer. The final lantern release at closing night draws its scale from how many arcs are lit and how bright. Stakes are visible from Beat 1: the dark canopy hangs overhead the whole time, filling in arc by arc. Nothing is ever lost permanently — but the child can always see exactly what tonight's sky will look like if they stop now, and it is not yet the sky they were promised.",
+  "consequences": "Every error is a legible world event mapped to the packet's error codes. multiply_the_given_numbers: the station overshoots its fixed total — 252 banners avalanche off a rig built for 42, comically, briefly, and the fixed TOTAL bin flashes to say 'I never moved.' divide_when_total_unknown (Beat 5's trap): the juice crates arrive half-empty and the booth manager holds up the order sheet — the total was the thing we DIDN'T know, so nothing existed yet to split. stopping_early (Beat 6): the light board's second channel stays visibly dead — the show literally cannot run on one arrangement. computation_slip: the mechanism ends one notch off and wobbles, inviting a nudge rather than a restart. Consequences are immediate, physical, specific to the misconception, and never accompanied by a buzzer or a scoreboard drop.",
+  "recovery": "Dignified, always. After any miss the world resets the mechanism to neutral in under a second — no rubble to clean up, no lecture. The question-lantern floats back to the child's hand, which is itself the hint: start again by naming what's missing. At Stages 3-6, exactly one support may fire per item per the contract — a helper asks 'Which quantity is missing here?' or 'Keep going — the board wants another way' — and that assistance level is recorded honestly (prompted / prompted_keep_going / modeled), so the child's amber lantern reflects real support received, never punishment. At Stage 7 helpers visibly step back to the fence line: recovery there is simply another attempt, unassisted, unhurried, latency quietly logged. Retrying costs nothing but is never pretended not to have happened.",
+  "interactionContinuity": "One gesture grammar for the whole night: drop the question-lantern on the dark slot, then dial the world until it fits. Beat 1 is the tag-tap embryo of that gesture; Beat 2 isolates the drop; Beats 3-4 add the dial; Beat 5 runs two drop-then-dial cycles interleaved; Beat 6 runs the dial twice against the same fixed total; Beat 7 chains all variants with no helpers. Nothing new to learn after Beat 3 — only more of the world answering to a gesture the child already owns. The canopy overhead and the same crew of helper NPCs persist across all seven beats so the night reads as one place, one shift, one engineer.",
+  "worldReaction": "The festival is a body that responds to naming. Correct unknown-naming: the named slot exhales light, nearby NPCs turn and nod, the station's mechanism audibly clicks into its correct mode (feed-forward for total-unknown, hunt-the-fixed-total for factor-unknown). Correct solutions: the specific objects rearrange — flags plant themselves in even sections, banners snap taut, badge piles equalize with a satisfying shuffle, and the corresponding canopy arc ignites while distant crowd murmur rises a notch. On Beat 6, discovering the SECOND arrangement makes the light board run both patterns alternately overhead — the world itself asserting 'more than one' before the child writes the sentence. Errors get world reactions too (overflow, half-crates, dead channel) so cause-and-effect is never delivered by text alone.",
+  "payoff": "Closing night, Beat 7 complete: the full lantern release. Every arc the child lit rises into the sky at once, gold and amber in the proportion they actually earned, forming — this is the earned part — an equal-rows array in the sky whose arrangement the child chooses from the factor pairs they personally discovered at Beats 6 and 7. The finale is not a cutscene handed over; it is composed of the child's own answers. A closing plaque names the superpower in the child's terms: 'You lit seven stations by finding what was missing before anyone else could see it.' Then a single quiet line of truth: which stations were gold (unassisted) and which amber, framed as tonight's map, not a grade.",
+  "replayVariation": "The seven items, answers, and difficulty are frozen — so replay varies the WORLD, not the math. On replay: a different weather/light palette (rain-glow night, snow festival), station order within what the stage progression permits stays fixed but NPC crews rotate and their reaction lines change, the Beat 6 light show renders whichever valid pairs the child gives in a new choreography, and the finale sky array can be recomposed from any valid arrangement of 24 — inviting the child back specifically to hunt pairs they didn't find last time (directly servicing factor_pairs.second_pair.unprompted.rate). Amber arcs from a supported first run are the standing invitation: come back and turn them gold. The rating history (replay:round-c:1 after the 5-rated round) says this child replays when the finale felt earned; we bank on that.",
+  "visualDirection": "Dusk-to-night festival palette: deep indigo ground, paper-lantern golds and persimmons, ribbon teals as accents. Everything countable is drawn as chunky, discrete, honest objects — lanterns, flags, badges, beads — never abstract chips, so equal-groups structure is visible at a glance. The three-slot equation frame (GROUPS shelf / SIZE armful / TOTAL bin) is a consistent visual fixture at every station, styled as festival furniture rather than a math widget. UI chrome near zero: no HUD numbers except the three quantities themselves. 1365x768 landscape: station occupies the center 70%, canopy progress lives in the top band, helper NPCs at the edges. Big tap targets, warm rim-lighting on whatever is currently interactive, darkness itself used to mean 'unknown.'",
+  "motionDirection": "Motion carries meaning. Unknown slots breathe slowly (2s pulse) — alive, waiting. The question-lantern drag has magnetic snap with a soft overshoot settle. Dialing produces immediate 1:1 world response (sections extend at dial speed) with spring easing on release. Correct completions get a single crisp ignition wave, 600ms, never longer — anticipation lives in the canopy filling, not in bloated celebrations. Error events are fast slapstick (banner avalanche under 1.2s) then instant clean reset, so failure motion is funny, not shaming. Camera stays fixed per station with one gentle dolly between beats to sell one-continuous-night. Everything interruptible; the child's next touch always wins over any animation.",
+  "soundDirection": "A quiet festival ambience bed — distant crowd, wind chimes, paper rustle — that gains one instrument layer per lit arc, so progress is audible as a slowly assembling night-market band. Naming the unknown correctly: a low warm 'whum' plus the mechanism's mode-click. Correct solve: a short plucked run in pentatonic gold. Errors: physical foley only (flag clatter, crate slosh) — no buzzer, ever. Beat 6's second arrangement triggers a two-voice round, the musical statement of 'more than one.' Finale: all layers converge as the lanterns rise, then near-silence with wind for the plaque. Every sound has a subtle visual twin so the experience is fully legible muted.",
+  "usefulLibraries": [
+    "pixi.js (2D lantern/festival rendering with lighting-style filters)",
+    "@pixi/particle-emitter (lantern release, ignition waves)",
+    "gsap (dial physics, snap-and-settle, sequence choreography)",
+    "howler.js (layered ambience bed, foley, muted-safe audio)",
+    "matter-js (banner avalanche and flag-overflow slapstick physics)",
+    "zustand (session state: assistance levels, latency, per-item response records)"
+  ],
+  "engagementPrediction": "First-session completion of all seven beats in 12-18 minutes, with the name-then-act gesture adopted without verbal instruction by Beat 3. Predicted markers: latency on the NAME step drops beat over beat as naming becomes reflex; multiply_the_given_numbers appears at most once at Beats 3-4 and is self-corrected after the overshoot animation without a prompt; Beat 6 second pair arrives before the world's keep-going nudge in the target case (moving factor_pairs.second_pair.unprompted.rate off its baseline-failure floor); at least 4 of 7 arcs gold at Stage 7 given intact computation. Affective prediction: the child asks to replay to convert amber arcs and to find new sky arrays — consistent with the round-C replay signal. Honest hedge: Beat 5's total-unknown trap is where over-applied division (dec-004) is most likely, and the half-crate reaction is designed to make that error one-shot instructive rather than sticky.",
+  "falsifyingEvidence": [
+    "If unknown_position.named.correct.rate at Stages 2-4 stays at or below baseline despite the mandatory NAME step, the mechanic is theater and naming-as-gate is not helping this learner.",
+    "If error.multiply_the_given_numbers.rate.unknown_factor_items does not fall from Beat 3 to Beat 7, the overshoot consequence is being read as noise, not meaning.",
+    "If Beat 5 shows error.divide_when_total_unknown.count > 1 on the SAME part after the half-crate reaction, the world reaction fails to disambiguate the two modes and needs redesign.",
+    "If Beat 6 second_pair arrives only after the keep-going prompt on both first play and replay, the dim-second-channel design is not functioning as an intrinsic keep-going cue.",
+    "If per-NAME-step latency does not decrease across beats, the gesture is being tolerated rather than internalized.",
+    "If the child abandons before Beat 5 or session time exceeds ~25 minutes with visible disengagement, the escalation pacing is wrong regardless of accuracy.",
+    "If Stage 7 unassisted accuracy is materially below Stage 3-6 prompted accuracy, the support fading was cosmetic and the amber/gold framing overstated independence.",
+    "Design-level honesty inherited from upstream: this packet cannot itself falsify dec-002 (naming vs. undifferentiated practice) because every item embeds naming; any claim that naming caused improvement here is confounded with practice and ordering until a matched no-naming set exists."
+  ],
+  "decisionRecords": [
+    {
+      "decisionId": "xd-001-naming-as-mechanical-gate",
+      "decision": "The name-the-unknown step is enforced by the world's machinery (stations refuse numbers until the question-lantern lands on the dark slot) rather than by instructional text, making dec-002's required behavior a physical prerequisite instead of a rule to remember.",
+      "evidenceIds": [
+        "observation:0ee42baffce06546",
+        "observation:4520f65725de1d50",
+        "hw-02c11ee60594c617:decision:r3"
+      ],
+      "confidence": 0.8,
+      "uncertainty": "The gate guarantees the naming behavior occurs but cannot prove it causes the improvement; upstream's charter concern stands — without a no-naming comparison set, effect is confounded with practice and ordering. Latency on the NAME step is logged so at minimum the naming-adds-cost-without-benefit check is measurable.",
+      "falsifyingEvidence": [
+        "Naming rate at Stages 2-4 fails to exceed baseline despite forced compliance",
+        "NAME-step latency grows across beats, indicating the gate is friction rather than fluency"
+      ],
+      "measurementKeys": [
+        "unknown_position.named.correct.rate",
+        "operation.matches_named_unknown.rate"
+      ]
+    },
+    {
+      "decisionId": "xd-002-error-specific-world-reactions",
+      "decision": "Each contract error code gets a distinct, legible physical consequence (overshoot avalanche for multiply_the_given_numbers, half-empty crates for divide_when_total_unknown, dead board channel for stopping_early, one-notch wobble for computation_slip) instead of a generic wrong-answer signal.",
+      "evidenceIds": [
+        "hw-02c11ee60594c617:prediction:r3:support",
+        "live-proof-baseline-session:baseline:observation:4",
+        "evaluation:c8fdaacd3e1b0c13"
+      ],
+      "confidence": 0.75,
+      "uncertainty": "Distinct animations may still be read as generic failure by a nine-year-old under momentum; the half-crate metaphor for over-applied division is the least field-tested mapping and carries the most interpretive risk.",
+      "falsifyingEvidence": [
+        "Repeat of the same error type on the same item after its specific reaction",
+        "divide_when_total_unknown recurring at Beat 7 after appearing at Beat 5"
+      ],
+      "measurementKeys": [
+        "error.multiply_the_given_numbers.rate.unknown_factor_items",
+        "error.divide_when_total_unknown.count",
+        "discrimination.total_vs_factor_unknown.accuracy"
+      ]
+    },
+    {
+      "decisionId": "xd-003-intrinsic-keep-going-at-beat-6",
+      "decision": "The stage-light board's second channel stays visibly dim after one valid array, making the world itself the keep-going cue; the verbal prompt fires only if the child stalls, and only then is prompted_keep_going recorded — preserving the contract's assistance coding while targeting the stops-after-one baseline failure.",
+      "evidenceIds": [
+        "live-proof-baseline-session:baseline:observation:4",
+        "assignment:live-progression"
+      ],
+      "confidence": 0.7,
+      "uncertainty": "A dim channel may not be read as a demand for a second arrangement; the child may interpret it as decoration or a bug. Whether environmental cues should count as prompting is a coding-boundary judgment I flag rather than settle — the recorded value follows the contract's verbal-prompt definition.",
+      "falsifyingEvidence": [
+        "Second pair arrives only after verbal prompt on both first play and replay",
+        "factor_pairs.stops_after_one.rate unchanged from baseline"
+      ],
+      "measurementKeys": [
+        "item.8.factor_pairs.distinct_valid_count",
+        "factor_pairs.second_pair.unprompted.rate",
+        "factor_pairs.stops_after_one.rate"
+      ]
+    },
+    {
+      "decisionId": "xd-004-engineer-framing-not-remedial-drill",
+      "decision": "Cast the learner as trusted Night Engineer whose intact multiplication is assumed and celebrated, focusing all novelty on the naming superpower — because baseline evidence shows computation, array reading, and story interpretation are intact contrast anchors, not targets.",
+      "evidenceIds": [
+        "evaluation:cd58ac474b720927",
+        "live-proof-baseline-session:baseline:observation:1",
+        "live-proof-baseline-session:baseline:observation:2",
+        "live-proof-baseline-session:baseline:observation:3",
+        "observation:23f39686fc8bcab8"
+      ],
+      "confidence": 0.85,
+      "uncertainty": "Framing predicts motivation, not learning; if the scoped-weakness diagnosis (dec-001) is wrong and computation is shakier than the baseline shows, the trusted-engineer frame could add pressure at exactly the wrong moment.",
+      "falsifyingEvidence": [
+        "computation_slip rate materially above zero on Stage 4 items",
+        "Disengagement before Beat 5 despite accurate performance"
+      ],
+      "measurementKeys": [
+        "item.3.missing_factor.correct",
+        "item.2.group_size_from_total.correct"
+      ]
+    },
+    {
+      "decisionId": "xd-005-honest-gold-amber-stakes",
+      "decision": "Assisted and unassisted successes both light the canopy but in distinguishable gold/amber, so assistance level is never hidden from the child or the record, and replay's intrinsic goal (turn amber gold) aligns with the contract's rule that unassisted accuracy is never inferred from assisted work.",
+      "evidenceIds": [
+        "rating:round-c:5",
+        "replay:round-c:1",
+        "assignment:live-progression"
+      ],
+      "confidence": 0.7,
+      "uncertainty": "Visible amber could read as shaming to some children rather than as an invitation; the four engagement events cannot establish this child's tolerance for visible support marks, so this is a monitored bet, not a known preference.",
+      "falsifyingEvidence": [
+        "Child avoids asking for or accepting the single permitted prompt to protect gold status, degrading Stage 3-6 accuracy",
+        "Negative affect specifically at amber ignitions"
+      ],
+      "measurementKeys": [
+        "unknown_position.named.correct.rate",
+        "operation.matches_named_unknown.rate"
+      ]
+    },
+    {
+      "decisionId": "xd-006-format-varied-not-preferred",
+      "decision": "Presentation varies deliberately across beats (tag-tap, drag, dial, interleaved dual-station, board programming) and format is logged as an activity-level fact only, honoring the frozen assumption that four engagement events cannot establish a durable format preference.",
+      "evidenceIds": [
+        "engagement:synthetic-construction-route",
+        "engagement:synthetic-paced-route",
+        "engagement:synthetic-visual-route",
+        "engagement:synthetic-speed-route"
+      ],
+      "confidence": 0.8,
+      "uncertainty": "Variation itself carries a cost: each new interaction surface risks a moment of confusion; the continuity spine (name-then-act) is the mitigation, but I cannot verify beforehand that the spine reads as one gesture to this specific child.",
+      "falsifyingEvidence": [
+        "Latency spikes at each beat transition rather than only at the first, indicating the gesture grammar is not transferring",
+        "Assistance requests clustering at format changes rather than at conceptual difficulty"
+      ],
+      "measurementKeys": [
+        "unknown_position.named.correct.rate",
+        "accuracy.total_unknown_items.post_instruction"
+      ]
+    }
+  ]
+}

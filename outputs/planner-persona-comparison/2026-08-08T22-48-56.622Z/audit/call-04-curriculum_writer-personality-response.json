@@ -1,0 +1,537 @@
+{
+  "model": "claude-opus-5",
+  "id": "msg_011Cdr6pNKQcmkJpUmQV8ut6",
+  "type": "message",
+  "role": "assistant",
+  "content": [
+    {
+      "type": "tool_use",
+      "id": "toolu_01NW5KTzrrTYKSZ65jxTAE7p",
+      "name": "submit_curriculum_packet",
+      "input": {
+        "packetId": "pkt-LAB-MATH-C-unknown-position-v1",
+        "upstreamHash": "2b44b217208493158a2d26ec7e459a3a017bbb23d38951b25a50aaf08c3a3db7",
+        "items": [
+          {
+            "itemId": "lmc-c-01-name-three-quantities",
+            "prompt": "At the lantern booth, 6 helpers each carry 5 paper lanterns. That makes 30 lanterns in all. Which number tells the SIZE OF EACH GROUP?",
+            "options": [
+              "6, the number of helpers",
+              "5, the lanterns each helper carries",
+              "30, all the lanterns together",
+              "There is no group size in this story."
+            ],
+            "correctAnswer": "5, the lanterns each helper carries",
+            "responseContract": {
+              "type": "single_select",
+              "responseFields": [
+                {
+                  "field": "selectedOption",
+                  "required": true
+                }
+              ],
+              "scoring": "exact_match",
+              "assistanceCoding": [
+                "unassisted",
+                "prompted",
+                "modeled"
+              ],
+              "recordFields": [
+                "correct",
+                "assistance_level",
+                "latency_ms"
+              ]
+            },
+            "sourceLineage": {
+              "progressionStage": "Stage 1 - Name the three quantities",
+              "charterId": "charter-LAB-MATH-C-unknown-position-v1",
+              "decisionIds": [
+                "dec-002-name-the-unknown-before-computing"
+              ],
+              "evidenceIds": [
+                "observation:0ee42baffce06546",
+                "hw-02c11ee60594c617:decision:r3"
+              ],
+              "measurementKeys": [
+                "unknown_position.named.correct.rate"
+              ],
+              "assignmentId": "LAB-MATH-C",
+              "derivation": "Fresh festival context (lantern booth); no worksheet item reused."
+            },
+            "exposure": "novel_context_intact_skill",
+            "academicTarget": "Label number of groups, size of each group, and total in an equal-groups festival situation with no computation required."
+          },
+          {
+            "itemId": "lmc-c-02-locate-the-unknown",
+            "prompt": "The ribbon stall packs tokens into 7 equal bags. Altogether there are 56 tokens. Nobody has said how many tokens are in each bag. Which quantity is unknown here?",
+            "options": [
+              "The number of groups (bags)",
+              "The size of each group (tokens in one bag)",
+              "The total (all the tokens)"
+            ],
+            "correctAnswer": "The size of each group (tokens in one bag)",
+            "responseContract": {
+              "type": "single_select",
+              "responseFields": [
+                {
+                  "field": "selectedOption",
+                  "required": true
+                }
+              ],
+              "scoring": "exact_match",
+              "assistanceCoding": [
+                "unassisted",
+                "prompted",
+                "modeled"
+              ],
+              "recordFields": [
+                "correct",
+                "assistance_level",
+                "unknown_named_before_computing",
+                "latency_ms"
+              ],
+              "note": "No computation is requested on this item; record whether the learner computes anyway."
+            },
+            "sourceLineage": {
+              "progressionStage": "Stage 2 - Locate the unknown",
+              "charterId": "charter-LAB-MATH-C-unknown-position-v1",
+              "decisionIds": [
+                "dec-001-scoped-unknown-position-weakness",
+                "dec-002-name-the-unknown-before-computing"
+              ],
+              "evidenceIds": [
+                "evaluation:c8fdaacd3e1b0c13",
+                "observation:4520f65725de1d50"
+              ],
+              "measurementKeys": [
+                "unknown_position.named.correct.rate",
+                "item.2.group_size_from_total.correct"
+              ],
+              "assignmentId": "LAB-MATH-C",
+              "derivation": "Parallel in structure to worksheet item 2 but new numbers (7 bags, 56 tokens) and new stall context."
+            },
+            "exposure": "instructional_target_novel_item",
+            "academicTarget": "Name which of the three quantities is unknown before any operation is selected."
+          },
+          {
+            "itemId": "lmc-c-03-match-operation-then-solve",
+            "prompt": "A parade row needs 8 flags in each section. The crew has 48 flags to place, and every section gets the same number. First say which quantity is unknown, then find it: ___ x 8 = 48.",
+            "responseContract": {
+              "type": "two_part_constructed",
+              "responseFields": [
+                {
+                  "field": "namedUnknown",
+                  "required": true,
+                  "expected": "number of groups (sections)"
+                },
+                {
+                  "field": "numericAnswer",
+                  "required": true,
+                  "expected": 6
+                }
+              ],
+              "scoring": "both_parts_scored_separately",
+              "assistanceCoding": [
+                "unassisted",
+                "prompted",
+                "modeled"
+              ],
+              "recordFields": [
+                "part1_correct",
+                "part2_correct",
+                "assistance_level",
+                "error_type",
+                "latency_ms"
+              ],
+              "errorTypeCodes": [
+                "multiply_the_given_numbers",
+                "computation_slip",
+                "stopping_early",
+                "other"
+              ]
+            },
+            "correctAnswer": {
+              "namedUnknown": "number of groups (sections)",
+              "numericAnswer": 6
+            },
+            "sourceLineage": {
+              "progressionStage": "Stage 3 - Match operation to unknown; Stage 4 - Solve missing factors",
+              "charterId": "charter-LAB-MATH-C-unknown-position-v1",
+              "decisionIds": [
+                "dec-001-scoped-unknown-position-weakness",
+                "dec-002-name-the-unknown-before-computing"
+              ],
+              "evidenceIds": [
+                "evaluation:b81e075d2126c022",
+                "observation:d1b81984c24d6d80",
+                "live-proof-baseline-session:baseline:observation:2"
+              ],
+              "measurementKeys": [
+                "operation.matches_named_unknown.rate",
+                "error.multiply_the_given_numbers.rate.unknown_factor_items",
+                "item.3.missing_factor.correct"
+              ],
+              "assignmentId": "LAB-MATH-C",
+              "derivation": "Missing-factor form named in charter scope, set in a fresh parade-section context; not copied from the worksheet."
+            },
+            "exposure": "instructional_target_novel_item",
+            "academicTarget": "Justify the operation from the named unknown, then solve a missing factor within factors 3-9 and products to 56."
+          },
+          {
+            "itemId": "lmc-c-04-equal-sharing-group-size",
+            "prompt": "The stage crew hangs 42 banners in 6 equal rows. Which quantity is unknown, and how many banners are in each row?",
+            "responseContract": {
+              "type": "two_part_constructed",
+              "responseFields": [
+                {
+                  "field": "namedUnknown",
+                  "required": true,
+                  "expected": "size of each group (banners per row)"
+                },
+                {
+                  "field": "numericAnswer",
+                  "required": true,
+                  "expected": 7
+                }
+              ],
+              "scoring": "both_parts_scored_separately",
+              "assistanceCoding": [
+                "unassisted",
+                "prompted",
+                "modeled"
+              ],
+              "recordFields": [
+                "part1_correct",
+                "part2_correct",
+                "assistance_level",
+                "error_type",
+                "latency_ms"
+              ],
+              "errorTypeCodes": [
+                "multiply_the_given_numbers",
+                "computation_slip",
+                "stopping_early",
+                "other"
+              ]
+            },
+            "correctAnswer": {
+              "namedUnknown": "size of each group (banners per row)",
+              "numericAnswer": 7
+            },
+            "sourceLineage": {
+              "progressionStage": "Stage 4 - Solve missing factors",
+              "charterId": "charter-LAB-MATH-C-unknown-position-v1",
+              "decisionIds": [
+                "dec-001-scoped-unknown-position-weakness",
+                "dec-002-name-the-unknown-before-computing"
+              ],
+              "evidenceIds": [
+                "evaluation:c8fdaacd3e1b0c13",
+                "hw-02c11ee60594c617:decision:r3"
+              ],
+              "measurementKeys": [
+                "item.2.group_size_from_total.correct",
+                "error.multiply_the_given_numbers.rate.unknown_factor_items"
+              ],
+              "assignmentId": "LAB-MATH-C",
+              "derivation": "Equal-sharing group size from known total and known rows; new numbers (42, 6) and banner context rather than the 40-flags worksheet item."
+            },
+            "exposure": "instructional_target_novel_item",
+            "academicTarget": "Find the size of each group from a known total and a known number of equal rows."
+          },
+          {
+            "itemId": "lmc-c-05-interleaved-discrimination",
+            "prompt": "Two festival jobs, mixed together. A) The juice booth fills 5 crates with 9 cups in each crate. How many cups in all? B) The badge table has 45 badges laid out in 9 equal piles. How many badges in each pile? For each one, say which quantity was unknown and give the number.",
+            "responseContract": {
+              "type": "multi_part_constructed",
+              "responseFields": [
+                {
+                  "field": "partA_namedUnknown",
+                  "required": true,
+                  "expected": "total"
+                },
+                {
+                  "field": "partA_numericAnswer",
+                  "required": true,
+                  "expected": 45
+                },
+                {
+                  "field": "partB_namedUnknown",
+                  "required": true,
+                  "expected": "size of each group (badges per pile)"
+                },
+                {
+                  "field": "partB_numericAnswer",
+                  "required": true,
+                  "expected": 5
+                }
+              ],
+              "scoring": "parts_scored_separately",
+              "assistanceCoding": [
+                "unassisted",
+                "prompted",
+                "modeled"
+              ],
+              "recordFields": [
+                "partA_correct",
+                "partB_correct",
+                "assistance_level",
+                "error_type",
+                "latency_ms"
+              ],
+              "errorTypeCodes": [
+                "divide_when_total_unknown",
+                "multiply_the_given_numbers",
+                "computation_slip",
+                "other"
+              ]
+            },
+            "correctAnswer": {
+              "partA_namedUnknown": "total",
+              "partA_numericAnswer": 45,
+              "partB_namedUnknown": "size of each group (badges per pile)",
+              "partB_numericAnswer": 5
+            },
+            "sourceLineage": {
+              "progressionStage": "Stage 5 - Discriminate under interleaving",
+              "charterId": "charter-LAB-MATH-C-unknown-position-v1",
+              "decisionIds": [
+                "dec-003-intact-skills-as-contrast-anchors",
+                "dec-004-expect-overgeneralized-division"
+              ],
+              "evidenceIds": [
+                "hw-02c11ee60594c617:prediction:r3:support",
+                "live-proof-baseline-session:baseline:observation:1",
+                "live-proof-baseline-session:baseline:observation:3"
+              ],
+              "measurementKeys": [
+                "discrimination.total_vs_factor_unknown.accuracy",
+                "error.divide_when_total_unknown.count",
+                "accuracy.total_unknown_items.post_instruction"
+              ],
+              "assignmentId": "LAB-MATH-C",
+              "derivation": "Total-unknown part serves as a contrast anchor only; deliberately paired with a same-numbers factor-unknown part to expose overgeneralized division."
+            },
+            "exposure": "contrast_anchor_plus_target_novel_context",
+            "academicTarget": "Discriminate total-unknown from factor-unknown items presented in mixed order and choose the matching operation for each."
+          },
+          {
+            "itemId": "lmc-c-06-multiple-factor-pairs",
+            "prompt": "The stage-light board holds 36 lights arranged in equal rows. Write at least two different ways to arrange all 36 lights in equal rows, giving rows and lights per row for each way. Then finish this sentence: 'For 36 lights there is ___ correct arrangement.'",
+            "responseContract": {
+              "type": "multi_response_constructed",
+              "responseFields": [
+                {
+                  "field": "factorPairs",
+                  "required": true,
+                  "minEntries": 2,
+                  "format": "rows x lights_per_row"
+                },
+                {
+                  "field": "multiplicityStatement",
+                  "required": true,
+                  "expected": "more than one"
+                }
+              ],
+              "scoring": "count_distinct_valid_pairs_plus_statement",
+              "validPairs": [
+                "4 x 9",
+                "9 x 4",
+                "6 x 6",
+                "3 x 12",
+                "12 x 3",
+                "2 x 18",
+                "18 x 2",
+                "1 x 36",
+                "36 x 1"
+              ],
+              "inScopeExemplars": [
+                "4 x 9",
+                "9 x 4",
+                "6 x 6"
+              ],
+              "assistanceCoding": [
+                "unassisted",
+                "prompted_keep_going",
+                "modeled"
+              ],
+              "recordFields": [
+                "distinct_valid_pair_count",
+                "second_pair_unprompted",
+                "assistance_level",
+                "error_type",
+                "latency_ms"
+              ],
+              "errorTypeCodes": [
+                "stopping_early",
+                "invalid_pair",
+                "computation_slip",
+                "other"
+              ]
+            },
+            "correctAnswer": {
+              "factorPairs": [
+                "4 x 9",
+                "9 x 4",
+                "6 x 6"
+              ],
+              "multiplicityStatement": "more than one"
+            },
+            "sourceLineage": {
+              "progressionStage": "Stage 6 - Multiple factor pairs for a known total",
+              "charterId": "charter-LAB-MATH-C-unknown-position-v1",
+              "decisionIds": [
+                "dec-006-factor-pairs-multiplicity-is-target"
+              ],
+              "evidenceIds": [
+                "live-proof-baseline-session:baseline:observation:4",
+                "assignment:live-progression"
+              ],
+              "measurementKeys": [
+                "item.8.factor_pairs.distinct_valid_count",
+                "factor_pairs.second_pair.unprompted.rate",
+                "factor_pairs.stops_after_one.rate"
+              ],
+              "assignmentId": "LAB-MATH-C",
+              "derivation": "Known total of 36 named in charter scope; wording is fresh and explicitly asks for the multiplicity statement rather than a single array."
+            },
+            "exposure": "instructional_target_novel_item",
+            "academicTarget": "Produce two or more distinct valid equal-row arrays for a known total and state that more than one correct arrangement exists."
+          },
+          {
+            "itemId": "lmc-c-07-independent-transfer-mixed-set",
+            "prompt": "Closing-night check, on your own. 1) The face-paint tent has 8 chairs with 4 children at each chair. How many children? 2) A rope of 54 beads is cut into equal strings with 9 beads on each string. How many strings? 3) The welcome arch shows 24 lanterns in equal rows. Give two different equal-row arrangements. For each part, name the unknown first, then answer.",
+            "responseContract": {
+              "type": "multi_part_constructed",
+              "responseFields": [
+                {
+                  "field": "part1_namedUnknown",
+                  "required": true,
+                  "expected": "total"
+                },
+                {
+                  "field": "part1_numericAnswer",
+                  "required": true,
+                  "expected": 32
+                },
+                {
+                  "field": "part2_namedUnknown",
+                  "required": true,
+                  "expected": "number of groups (strings)"
+                },
+                {
+                  "field": "part2_numericAnswer",
+                  "required": true,
+                  "expected": 6
+                },
+                {
+                  "field": "part3_factorPairs",
+                  "required": true,
+                  "minEntries": 2,
+                  "format": "rows x lanterns_per_row"
+                }
+              ],
+              "scoring": "parts_scored_separately_unassisted_only",
+              "validPairsPart3": [
+                "3 x 8",
+                "8 x 3",
+                "4 x 6",
+                "6 x 4",
+                "2 x 12",
+                "12 x 2",
+                "1 x 24",
+                "24 x 1"
+              ],
+              "assistanceCoding": [
+                "unassisted"
+              ],
+              "recordFields": [
+                "part1_correct",
+                "part2_correct",
+                "part3_distinct_valid_pair_count",
+                "unknown_named_before_computing",
+                "error_type",
+                "latency_ms"
+              ],
+              "errorTypeCodes": [
+                "multiply_the_given_numbers",
+                "divide_when_total_unknown",
+                "stopping_early",
+                "computation_slip",
+                "other"
+              ]
+            },
+            "correctAnswer": {
+              "part1_namedUnknown": "total",
+              "part1_numericAnswer": 32,
+              "part2_namedUnknown": "number of groups (strings)",
+              "part2_numericAnswer": 6,
+              "part3_factorPairs": [
+                "3 x 8",
+                "4 x 6"
+              ]
+            },
+            "sourceLineage": {
+              "progressionStage": "Stage 7 - Independent transfer",
+              "charterId": "charter-LAB-MATH-C-unknown-position-v1",
+              "decisionIds": [
+                "dec-001-scoped-unknown-position-weakness",
+                "dec-003-intact-skills-as-contrast-anchors",
+                "dec-004-expect-overgeneralized-division",
+                "dec-006-factor-pairs-multiplicity-is-target"
+              ],
+              "evidenceIds": [
+                "evaluation:cd58ac474b720927",
+                "live-proof-baseline-session:baseline:observation:4",
+                "assignment:live-progression"
+              ],
+              "measurementKeys": [
+                "unknown_position.named.correct.rate",
+                "operation.matches_named_unknown.rate",
+                "error.divide_when_total_unknown.count",
+                "item.8.factor_pairs.distinct_valid_count"
+              ],
+              "assignmentId": "LAB-MATH-C",
+              "derivation": "Mixed unassisted set across all in-scope item types in festival contexts not previously practiced; all products within 56 and factors within 3-9 for parts 1 and 2."
+            },
+            "exposure": "novel_context_unassisted_transfer",
+            "academicTarget": "Across mixed in-scope item types, name the unknown and complete the matching solution unassisted, including multiple factor pairs for a known total."
+          }
+        ],
+        "supportProgression": [
+          "Stage 1 - Name the three quantities: with every value shown in a festival equal-groups situation, the learner labels number of groups, size of each group, and total. No computation is asked for and none is needed (item lmc-c-01).",
+          "Stage 2 - Locate the unknown: one quantity is missing and the learner names which one it is, still without computing. Record whether the learner computes unprompted (item lmc-c-02).",
+          "Stage 3 - Match operation to the named unknown: total unknown means multiply the two knowns; a missing factor means find the number that reaches the known total. The learner states the choice before computing (items lmc-c-03, lmc-c-04).",
+          "Stage 4 - Solve missing factors: missing-factor equations and equal-sharing group size, factors 3-9 and products to 56, using a known fact or division (items lmc-c-03, lmc-c-04).",
+          "Stage 5 - Discriminate under interleaving: total-unknown and factor-unknown items in mixed order, with divide-when-total-unknown coded separately from computation slips (item lmc-c-05).",
+          "Stage 6 - Multiple factor pairs for a known total: the learner produces two or more distinct valid equal-row arrays and states that more than one correct arrangement exists; record whether the second pair arrived before or after a keep-going prompt (item lmc-c-06).",
+          "Stage 7 - Independent transfer: an unassisted mixed festival set covering all in-scope item types, with the unknown named before each solution (item lmc-c-07).",
+          "Support fading: modeled naming at Stages 1-2, a single keep-going or which-quantity-is-missing prompt at Stages 3-6, and no prompting at Stage 7. Assistance level is recorded on every item so that unassisted accuracy is never inferred from assisted work.",
+          "Presentation is varied across items without asserting any format preference for this learner; format is recorded as an activity-level fact only."
+        ],
+        "charterConcern": "Single concern, raised without altering the charter: the charter's evidence requirements ask for a matched comparison of naming-the-unknown versus additional undifferentiated practice (to test dec-002, confidence 0.65), but every item in this packet embeds the naming step, so this packet alone cannot produce that contrast. Every item will yield unknown_position.named.correct.rate and error.multiply_the_given_numbers.rate.after_naming, yet with no no-naming comparison set the effect of naming remains confounded with practice and with ordering. I have also recorded latency on each item so the charter's naming-adds-cost-without-benefit check is at least measurable. If the pipeline wants dec-002 tested rather than assumed, a matched companion set at equivalent difficulty without the naming field would need to be authored downstream; that decision sits outside my authority and I have not adjusted the charter, scope, or progression to accommodate it."
+      },
+      "caller": {
+        "type": "direct"
+      }
+    }
+  ],
+  "stop_reason": "tool_use",
+  "stop_sequence": null,
+  "stop_details": null,
+  "usage": {
+    "input_tokens": 8297,
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 0,
+    "cache_creation": {
+      "ephemeral_5m_input_tokens": 0,
+      "ephemeral_1h_input_tokens": 0
+    },
+    "output_tokens": 6245,
+    "output_tokens_details": {
+      "thinking_tokens": 0
+    },
+    "service_tier": "standard",
+    "inference_geo": "global"
+  }
+}

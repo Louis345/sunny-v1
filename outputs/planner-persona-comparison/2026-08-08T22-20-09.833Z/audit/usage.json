@@ -1,0 +1,50 @@
+[
+  {
+    "attempt": 1,
+    "arm": "neutral",
+    "stage": "academic_lead",
+    "model": "claude-opus-5",
+    "status": "complete",
+    "inputTokens": 8733,
+    "outputTokens": 4430,
+    "costUsd": 0.154415,
+    "elapsedMs": 62863,
+    "stopReason": "tool_use"
+  },
+  {
+    "attempt": 2,
+    "arm": "personality",
+    "stage": "academic_lead",
+    "model": "claude-opus-5",
+    "status": "complete",
+    "inputTokens": 8801,
+    "outputTokens": 4394,
+    "costUsd": 0.15385500000000002,
+    "elapsedMs": 58945,
+    "stopReason": "tool_use"
+  },
+  {
+    "attempt": 3,
+    "arm": "neutral",
+    "stage": "curriculum_writer",
+    "model": "claude-opus-5",
+    "status": "complete",
+    "inputTokens": 7979,
+    "outputTokens": 4888,
+    "costUsd": 0.162095,
+    "elapsedMs": 57837,
+    "stopReason": "tool_use"
+  },
+  {
+    "attempt": 4,
+    "arm": "personality",
+    "stage": "curriculum_writer",
+    "model": "claude-opus-5",
+    "status": "complete",
+    "inputTokens": 7999,
+    "outputTokens": 6022,
+    "costUsd": 0.190545,
+    "elapsedMs": 70462,
+    "stopReason": "tool_use"
+  }
+]

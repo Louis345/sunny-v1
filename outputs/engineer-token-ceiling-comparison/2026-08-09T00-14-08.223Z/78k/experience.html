@@ -1,0 +1,972 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="sunny-upstream-hash" content="cc53e27067e7bc8a665907e6eb59b11ca421d10dad73430b8c4678caf2d6da08">
+<title>Lantern Festival: The Night You Light</title>
+<style>
+:root{
+  --bg1:#0a0f2e; --bg2:#1a1145; --ground:#070a20;
+  --gold:#ffc65c; --gold2:#ffe6a8; --amber:#e08a3c; --persimmon:#ff7a45;
+  --teal:#46d0c4; --ink:#f6efe2; --dim:#2a2b52;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;background:#03040c;overflow:hidden;
+  font-family:"Trebuchet MS","Segoe UI",Verdana,sans-serif;color:var(--ink);}
+#fit{position:absolute;inset:0;}
+#stage{position:absolute;left:50%;top:50%;width:1365px;height:768px;transform-origin:center center;
+  background:radial-gradient(120% 90% at 50% 8%, var(--bg2) 0%, var(--bg1) 45%, var(--ground) 100%);
+  overflow:hidden;border-radius:10px;}
+#stage:after{content:"";position:absolute;left:0;right:0;bottom:0;height:190px;
+  background:linear-gradient(to top,rgba(0,0,0,.75),transparent);pointer-events:none}
+
+/* ---------- canopy ---------- */
+#canopy{position:absolute;left:0;top:0;width:1365px;height:104px;z-index:6}
+.canopyLabel{position:absolute;left:16px;top:8px;font-size:12px;letter-spacing:3px;color:#7d86c0}
+#stationTag{position:absolute;right:16px;top:8px;font-size:13px;letter-spacing:1px;color:#9aa3dd;text-align:right}
+#stationTag b{display:block;font-size:17px;color:var(--gold2);letter-spacing:0}
+#arcs{position:absolute;left:0;top:26px;width:1365px;height:70px;display:flex;justify-content:center;gap:10px}
+.arc{width:150px;height:62px;border-radius:80px 80px 8px 8px;border:2px solid #2c2f60;
+  background:linear-gradient(to bottom,#161a3c,#101228);position:relative;overflow:hidden;
+  display:flex;align-items:flex-end;justify-content:center;padding-bottom:5px;
+  font-size:10.5px;letter-spacing:.5px;color:#565c95;transition:all .5s}
+.arc .lamps{position:absolute;top:12px;left:0;right:0;display:flex;justify-content:center;gap:7px}
+.arc .lamps i{width:9px;height:12px;border-radius:4px 4px 6px 6px;background:#23264d;display:block;transition:all .5s}
+.arc.gold{border-color:var(--gold);box-shadow:0 0 26px rgba(255,198,92,.55) inset,0 0 18px rgba(255,198,92,.35);color:#3b2a06;
+  background:linear-gradient(to bottom,#ffd989,#e8a63e)}
+.arc.gold .lamps i{background:#fff4d0;box-shadow:0 0 10px #fff0c0}
+.arc.amber{border-color:var(--amber);box-shadow:0 0 20px rgba(224,138,60,.4) inset;color:#3a2408;
+  background:linear-gradient(to bottom,#d9944a,#a8642a)}
+.arc.amber .lamps i{background:#ffdcae;box-shadow:0 0 8px #f0b878}
+
+/* ---------- scene ---------- */
+#scene{position:absolute;left:0;top:104px;width:1365px;height:300px;z-index:3}
+.sceneWrap{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;gap:18px}
+.helper{width:74px;display:flex;flex-direction:column;align-items:center;gap:6px;transition:filter .4s}
+.helper .armful{display:flex;gap:3px}
+.lant{width:14px;height:19px;border-radius:6px 6px 8px 8px;background:linear-gradient(#ffd98a,#f0a53f);
+  box-shadow:0 0 8px rgba(255,190,90,.6);position:relative}
+.lant:before{content:"";position:absolute;left:4px;top:-4px;width:6px;height:4px;background:#8c6a2f;border-radius:2px}
+.lant.small{width:11px;height:15px}
+.body{width:34px;height:56px;border-radius:16px 16px 8px 8px;background:#141634;border:2px solid #3a3f78;position:relative}
+.body:before{content:"";position:absolute;left:7px;top:-16px;width:20px;height:20px;border-radius:50%;background:#141634;border:2px solid #3a3f78}
+.glowon{filter:drop-shadow(0 0 12px #ffd070) brightness(1.5)}
+.tag{position:absolute;background:rgba(10,14,40,.92);border:2px solid var(--teal);border-radius:14px;padding:8px 12px;
+  font-size:15px;cursor:pointer;box-shadow:0 0 14px rgba(70,208,196,.25);transition:transform .18s,box-shadow .2s;max-width:250px;z-index:5}
+.tag b{font-size:22px;color:var(--gold2);margin-right:6px}
+.tag:hover{transform:translateY(-3px) scale(1.04);box-shadow:0 0 22px rgba(70,208,196,.6)}
+.tag.hot{border-color:var(--gold);box-shadow:0 0 26px rgba(255,198,92,.7)}
+.tag.dead{opacity:.35;pointer-events:none}
+.grp{display:flex;flex-direction:column;align-items:center;gap:5px}
+.grpLabel{font-size:11px;color:#8f97cf}
+.bag{width:56px;height:58px;border-radius:8px 8px 14px 14px;background:linear-gradient(#3a2c66,#241a45);
+  border:2px solid #6a53b0;display:flex;align-items:center;justify-content:center;font-size:22px;color:#b9a4ee}
+.dots{display:grid;grid-template-columns:repeat(8,12px);gap:4px}
+.dot{width:12px;height:12px;border-radius:50%;background:linear-gradient(#8fe6dc,#33a99e);box-shadow:0 0 6px rgba(70,208,196,.5)}
+.section{display:flex;gap:3px;padding:6px 7px;border-bottom:3px solid #4a3f7d;border-radius:4px;background:rgba(255,255,255,.03)}
+.flag{width:12px;height:22px;background:linear-gradient(var(--persimmon),#c1391a);clip-path:polygon(0 0,100% 0,100% 70%,50% 100%,0 70%);
+  box-shadow:0 0 6px rgba(255,122,69,.5)}
+.rowline{display:flex;gap:4px;align-items:center}
+.banner{width:20px;height:28px;background:linear-gradient(#ffd98a,#e07a3c);border-radius:3px;box-shadow:0 0 6px rgba(255,170,90,.4)}
+.cup{width:14px;height:16px;background:linear-gradient(#ffe9b0,#f4b45c);border-radius:3px 3px 6px 6px}
+.badge{width:16px;height:16px;border-radius:50%;background:linear-gradient(#9ff0e6,#2fa89c);box-shadow:0 0 6px rgba(70,208,196,.5)}
+.bead{width:12px;height:12px;border-radius:50%;background:linear-gradient(#ffb1e0,#c martin)}
+.crate{border:3px solid #6b5a2e;border-radius:8px;padding:7px;background:rgba(255,220,150,.06);display:flex;flex-direction:column;align-items:center;gap:5px}
+.crateLabel{font-size:11px;color:#c8b384;letter-spacing:1px}
+.spill{animation:fall .9s forwards}
+@keyframes fall{to{transform:translateY(230px) rotate(80deg);opacity:0}}
+.sag{animation:sagA .8s ease-in-out}
+@keyframes sagA{50%{transform:translateY(26px) skewX(9deg)}}
+.wobble{animation:wob .6s}
+@keyframes wob{25%{transform:rotate(-7deg)}75%{transform:rotate(7deg)}}
+.sceneNote{position:absolute;left:0;right:0;bottom:4px;text-align:center;font-size:14px;color:#9fa7e0}
+.board{display:grid;gap:6px;padding:14px;border:3px solid #3d4383;border-radius:12px;background:rgba(20,24,60,.6)}
+.light{width:20px;height:20px;border-radius:50%;background:#20244f;border:1px solid #3b4180;transition:all .25s}
+.light.on{background:radial-gradient(circle at 35% 30%,#fff6d5,#ffbe4e);box-shadow:0 0 12px #ffcf72}
+.light.left{background:#5a2230;border-color:#a4404f;animation:wob .7s infinite}
+.chair{width:44px;height:44px;border-radius:6px;border:2px solid #4c5296;background:#1a1f47;display:flex;flex-wrap:wrap;gap:3px;align-items:center;justify-content:center}
+.kid{width:12px;height:12px;border-radius:50%;background:linear-gradient(#ffd1a8,#e08a3c)}
+
+/* ---------- three-slot frame ---------- */
+#frame{position:absolute;left:0;top:404px;width:1365px;height:158px;display:flex;justify-content:center;gap:22px;z-index:4}
+.slot{width:352px;height:150px;border-radius:14px;border:3px solid #40467f;position:relative;overflow:hidden;
+  background:linear-gradient(#191d45,#10132f);box-shadow:0 8px 0 rgba(0,0,0,.25);transition:border-color .3s,box-shadow .3s}
+.slotLabel{position:absolute;top:8px;left:0;right:0;text-align:center;font-size:13px;letter-spacing:2px;color:#98a1e0}
+.slotBody{position:absolute;inset:34px 8px 8px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px}
+.slotVal{font-size:46px;font-weight:bold;color:var(--gold2);text-shadow:0 0 16px rgba(255,198,92,.5)}
+.slotNote{font-size:13px;color:#9aa2dd}
+.hole{width:88px;height:88px;border-radius:50%;background:radial-gradient(circle,#000 40%,#1b1d3c 100%);
+  border:2px dashed #6b73b8;animation:breathe 2s ease-in-out infinite}
+@keyframes breathe{0%,100%{box-shadow:0 0 0 rgba(120,130,220,.0);transform:scale(1)}50%{box-shadow:0 0 26px rgba(120,130,220,.55);transform:scale(1.06)}}
+.slot.dropok{border-color:var(--teal);box-shadow:0 0 24px rgba(70,208,196,.55)}
+.slot.filled{border-color:var(--gold);box-shadow:0 0 22px rgba(255,198,92,.35)}
+.slot.fixedflash{animation:fixflash .9s 2}
+@keyframes fixflash{0%,100%{border-color:#40467f}50%{border-color:#fff0b8;box-shadow:0 0 30px rgba(255,240,184,.7)}}
+.shutter{position:absolute;inset:0;background:repeating-linear-gradient(45deg,#2a2050,#2a2050 12px,#33275f 12px,#33275f 24px);
+  display:flex;align-items:center;justify-content:center;font-size:40px;color:#8d7fd6;transition:transform .5s ease}
+.slot.open .shutter{transform:translateY(-102%)}
+.fixedMsg{position:absolute;bottom:6px;left:0;right:0;text-align:center;font-size:12px;color:#ffe6a8}
+
+/* ---------- panel ---------- */
+#panel{position:absolute;left:0;top:562px;width:1365px;height:206px;z-index:6;padding:10px 150px 8px;display:flex;flex-direction:column;align-items:center;gap:8px}
+#prompt{font-size:19px;line-height:1.32;text-align:center;max-width:1030px;color:#efe7d6}
+#prompt em{color:var(--teal);font-style:normal}
+#prompt b{color:var(--gold2)}
+#controls{display:flex;align-items:center;justify-content:center;gap:18px;flex-wrap:wrap;min-height:104px}
+.qlantern{width:82px;height:96px;cursor:grab;position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  border-radius:26px 26px 30px 30px;background:radial-gradient(circle at 40% 30%,#fff3cf,#ffb545);
+  box-shadow:0 0 28px rgba(255,190,90,.7);font-size:42px;color:#5a3b06;font-weight:bold;animation:bob 2.4s ease-in-out infinite}
+@keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-7px)}}
+.qhint{position:absolute;bottom:-20px;font-size:11px;color:#ffe0a0;letter-spacing:1px;white-space:nowrap}
+#ghost{position:absolute;width:82px;height:96px;border-radius:26px 26px 30px 30px;pointer-events:none;display:none;z-index:60;
+  background:radial-gradient(circle at 40% 30%,#fff3cf,#ffb545);box-shadow:0 0 34px rgba(255,190,90,.9);
+  font-size:42px;color:#5a3b06;font-weight:bold;align-items:center;justify-content:center}
+button.big{font:inherit;font-size:17px;letter-spacing:1px;padding:13px 24px;border-radius:12px;cursor:pointer;
+  border:3px solid var(--gold);background:linear-gradient(#ffd98a,#e9a53d);color:#3a2606;font-weight:bold;box-shadow:0 5px 0 #8a5c14;transition:transform .12s}
+button.big:active{transform:translateY(4px);box-shadow:0 1px 0 #8a5c14}
+button.ghostbtn{border-color:#5a63ab;background:linear-gradient(#252a5c,#191d45);color:#cdd3ff;box-shadow:0 5px 0 #131634}
+button.big[disabled]{opacity:.4;cursor:not-allowed}
+.dialWrap{width:760px;display:flex;flex-direction:column;gap:6px;align-items:center}
+.dialTop{display:flex;align-items:baseline;gap:16px}
+.dialLabel{font-size:15px;color:#a9b0ea;letter-spacing:1px}
+.dialRead{font-size:40px;font-weight:bold;color:var(--gold2);min-width:110px;text-align:center;text-shadow:0 0 14px rgba(255,198,92,.5)}
+.rail{position:relative;width:720px;height:34px;border-radius:18px;background:#161a3f;border:2px solid #444a8c;cursor:pointer;touch-action:none}
+.railFar{position:absolute;right:0;top:0;bottom:0;width:22%;border-radius:0 16px 16px 0;background:repeating-linear-gradient(45deg,#4a1f2a,#4a1f2a 8px,#5d2833 8px,#5d2833 16px)}
+.railFill{position:absolute;left:0;top:0;bottom:0;border-radius:16px 0 0 16px;background:linear-gradient(90deg,#7a5cd0,#46d0c4);width:0}
+.knob{position:absolute;top:-9px;width:44px;height:50px;margin-left:-22px;border-radius:12px;background:linear-gradient(#fff2cd,#f0b34d);
+  border:2px solid #9d6c1c;box-shadow:0 0 16px rgba(255,190,90,.7)}
+.railTicks{position:absolute;left:0;right:0;top:36px;height:16px;font-size:11px;color:#787fbd}
+.railTicks span{position:absolute;transform:translateX(-50%)}
+.chips{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+.chip{padding:9px 15px;border-radius:20px;border:2px solid var(--teal);background:rgba(70,208,196,.14);font-size:16px}
+.chip.dim{border-color:#4a4f8f;background:rgba(255,255,255,.03);color:#7d84c4}
+
+/* ---------- npc / bubble ---------- */
+.npc{position:absolute;bottom:196px;width:120px;height:150px;z-index:5;transition:all .6s;display:flex;flex-direction:column;align-items:center}
+#npcL{left:10px}#npcR{right:10px}
+.npc .name{font-size:12px;color:#9aa2dd;margin-top:5px}
+.npc.back{transform:scale(.62) translateY(30px);opacity:.45;filter:blur(.6px)}
+#bubble{position:absolute;left:126px;bottom:300px;max-width:330px;background:#fdf6e6;color:#221a0c;border-radius:16px;padding:12px 15px;
+  font-size:15px;line-height:1.28;display:none;z-index:9;box-shadow:0 6px 20px rgba(0,0,0,.5)}
+#bubble:after{content:"";position:absolute;left:-12px;bottom:16px;border:9px solid transparent;border-right-color:#fdf6e6}
+
+#flash{position:absolute;inset:0;pointer-events:none;z-index:20;opacity:0;
+  background:radial-gradient(circle at 50% 45%,rgba(255,225,160,.85),transparent 62%)}
+#flash.go{animation:ig .62s ease-out}
+@keyframes ig{0%{opacity:0}20%{opacity:1}100%{opacity:0}}
+#fx{position:absolute;inset:0;z-index:30;pointer-events:none}
+#overlay{position:absolute;inset:0;z-index:40;display:none;align-items:center;justify-content:center;flex-direction:column;
+  background:rgba(4,6,20,.86);text-align:center;padding:30px}
+#overlay h1{font-size:44px;margin:0 0 10px;color:var(--gold2);text-shadow:0 0 24px rgba(255,198,92,.5)}
+#overlay p{font-size:20px;max-width:900px;line-height:1.4}
+.mapRow{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:10px}
+.mapCell{border:2px solid #444a8c;border-radius:10px;padding:7px 11px;font-size:12.5px;min-width:150px}
+.mapCell.gold{border-color:var(--gold);color:var(--gold2)}
+.mapCell.amber{border-color:var(--amber);color:#f5c088}
+pre#rec{text-align:left;max-height:250px;overflow:auto;background:#0a0d22;border:1px solid #333a72;border-radius:8px;padding:10px;font-size:11px;width:1000px;display:none}
+.small{font-size:13px;color:#a7aee6}
+.pulse{animation:pl 1.4s infinite}
+@keyframes pl{0%,100%{box-shadow:0 5px 0 #8a5c14}50%{box-shadow:0 5px 0 #8a5c14,0 0 24px rgba(255,198,92,.8)}}
+</style>
+</head>
+<body>
+<div id="fit"><div id="stage">
+  <div id="canopy">
+    <div class="canopyLabel">TONIGHT'S CANOPY</div>
+    <div id="arcs"></div>
+    <div id="stationTag"></div>
+  </div>
+  <div id="scene"></div>
+  <div id="frame"></div>
+  <div id="panel"><div id="prompt"></div><div id="controls"></div></div>
+  <div id="npcL" class="npc"></div>
+  <div id="npcR" class="npc"></div>
+  <div id="bubble"></div>
+  <div id="ghost">?</div>
+  <div id="flash"></div>
+  <canvas id="fx" width="1365" height="768"></canvas>
+  <div id="overlay"></div>
+</div></div>
+<script>
+/* =========================================================================
+   Lantern Festival: The Night You Light
+   Packet pkt-LAB-MATH-C-unknown-position-v1  /  exp-arch ... -juniper
+   All records kept in memory only. No storage, no network, no audio synth.
+   ========================================================================= */
+const $=s=>document.querySelector(s), el=(t,c,h)=>{const n=document.createElement(t);if(c)n.className=c;if(h!=null)n.innerHTML=h;return n;};
+const stage=$('#stage'),scene=$('#scene'),frame=$('#frame'),prompt=$('#prompt'),controls=$('#controls'),
+      bubble=$('#bubble'),ghost=$('#ghost'),flash=$('#flash'),overlay=$('#overlay'),
+      npcL=$('#npcL'),npcR=$('#npcR'),arcsEl=$('#arcs'),stationTag=$('#stationTag'),fx=$('#fx'),ctx=fx.getContext('2d');
+const now=()=>Math.round(performance.now());
+
+function fit(){const s=Math.min(innerWidth/1365,innerHeight/768);stage.style.transform=`translate(-50%,-50%) scale(${s})`;}
+addEventListener('resize',fit);fit();
+
+/* ---------------- session state ---------------- */
+const ARCS=[ "Lantern Booth","Ribbon Stall","Parade Sections","Banner Rigging","Twin Jobs","Light Board","Closing Night" ];
+const PALETTES=[
+ {n:"Dusk festival",bg1:"#0a0f2e",bg2:"#1a1145"},
+ {n:"Rain-glow night",bg1:"#06182a",bg2:"#122a46"},
+ {n:"Snow festival",bg1:"#101a34",bg2:"#26315c"}
+];
+const CREWS=[["Mira","Bo"],["Juno","Pip"],["Wren","Kit"]];
+let A={beat:0,arcs:new Array(7).fill(null),records:[],run:0,pairs24:[]};
+
+function paint(){
+ const p=PALETTES[A.run%3];
+ stage.style.background=`radial-gradient(120% 90% at 50% 8%, ${p.bg2} 0%, ${p.bg1} 45%, #070a20 100%)`;
+ buildArcs();
+ const crew=CREWS[A.run%3];
+ npcL.innerHTML=`<div class="body"></div><div class="name">${crew[0]} · crew</div>`;
+ npcR.innerHTML=`<div class="body"></div><div class="name">${crew[1]} · crew</div>`;
+ npcL.classList.remove('back');npcR.classList.remove('back');
+}
+function buildArcs(){
+ arcsEl.innerHTML='';
+ ARCS.forEach((nm,i)=>{
+   const a=el('div','arc'+(A.arcs[i]?' '+A.arcs[i]:''),`<div class="lamps"><i></i><i></i><i></i><i></i></div>${nm.toUpperCase()}`);
+   arcsEl.appendChild(a);
+ });
+}
+function setStation(t,sub){stationTag.innerHTML=`<b>${t}</b>${sub}`;}
+function say(text,who){bubble.style.display='block';bubble.innerHTML=text;
+  bubble.style.left=(who==='R'?'':'126px');
+  if(who==='R'){bubble.style.left='auto';bubble.style.right='126px';}else{bubble.style.right='auto';bubble.style.left='126px';}
+}
+function hush(){bubble.style.display='none';}
+function ignite(){flash.classList.remove('go');void flash.offsetWidth;flash.classList.add('go');}
+
+/* ---------------- three-slot frame ---------------- */
+let slotDefs=[];
+function slotsFrame(defs,opts){
+ slotDefs=defs;frame.innerHTML='';
+ defs.forEach(d=>{
+  const s=el('div','slot'+(opts&&opts.open?' open':''));
+  s.dataset.key=d.key;
+  s.innerHTML=`<div class="slotLabel">${d.label}</div><div class="slotBody"></div>
+   <div class="fixedMsg"></div><div class="shutter">?</div>`;
+  frame.appendChild(s);
+  drawSlot(d.key);
+ });
+}
+function slotEl(k){return frame.querySelector('.slot[data-key="'+k+'"]');}
+function def(k){return slotDefs.find(d=>d.key===k);}
+function drawSlot(k){
+ const d=def(k),s=slotEl(k),b=s.querySelector('.slotBody');
+ if(d.unknown&&d.value==null){b.innerHTML='<div class="hole"></div>';s.classList.remove('filled');}
+ else if(d.value==null){b.innerHTML='<div class="slotNote">'+(d.note||'')+'</div>';}
+ else{b.innerHTML=`<div class="slotVal">${d.value}</div><div class="slotNote">${d.note||''}</div>`;s.classList.add('filled');}
+}
+function openShutter(k){slotEl(k).classList.add('open');}
+function openAll(stagger){slotDefs.forEach((d,i)=>setTimeout(()=>openShutter(d.key),stagger?i*180:0));}
+function fixedFlash(k,msg){const s=slotEl(k);s.classList.add('open','fixedflash');s.querySelector('.fixedMsg').textContent=msg;
+  setTimeout(()=>s.classList.remove('fixedflash'),1900);}
+function fillSlot(k,v){def(k).value=v;def(k).unknown=false;drawSlot(k);}
+
+/* ---------------- question-lantern drag / tap ---------------- */
+let armed=false,dropHandler=null;
+function questionLantern(handler,hint){
+ dropHandler=handler;
+ const q=el('div','qlantern','?<div class="qhint">'+(hint||'drag me onto the DARK slot')+'</div>');
+ q.addEventListener('pointerdown',e=>{e.preventDefault();arm(e);});
+ return q;
+}
+function arm(e){armed=true;ghost.style.display='flex';moveGhost(e.clientX,e.clientY);}
+function moveGhost(cx,cy){
+ const r=stage.getBoundingClientRect(),sc=r.width/1365;
+ ghost.style.left=((cx-r.left)/sc-41)+'px';ghost.style.top=((cy-r.top)/sc-48)+'px';
+}
+addEventListener('pointermove',e=>{if(armed){moveGhost(e.clientX,e.clientY);hoverSlot(e);}});
+addEventListener('pointerup',e=>{if(!armed)return;const s=slotUnder(e);if(s){release(s);}});
+addEventListener('pointerdown',e=>{if(!armed)return;const s=slotUnder(e);if(s){e.preventDefault();release(s);}});
+function slotUnder(e){const t=document.elementFromPoint(e.clientX,e.clientY);return t?t.closest('.slot'):null;}
+function hoverSlot(e){frame.querySelectorAll('.slot').forEach(s=>s.classList.remove('dropok'));
+ const s=slotUnder(e);if(s)s.classList.add('dropok');}
+function release(s){
+ frame.querySelectorAll('.slot').forEach(x=>x.classList.remove('dropok'));
+ armed=false;ghost.style.display='none';
+ if(dropHandler)dropHandler(s.dataset.key);
+}
+function disarm(){armed=false;ghost.style.display='none';dropHandler=null;}
+
+/* ---------------- dial ---------------- */
+function makeDial(cfg){
+ const w=el('div','dialWrap');
+ w.innerHTML=`<div class="dialTop"><div class="dialLabel">${cfg.label}</div><div class="dialRead"><span class="dv">${cfg.value}</span></div></div>
+  <div class="rail">${cfg.far?'<div class="railFar"></div>':''}<div class="railFill"></div><div class="knob"></div><div class="railTicks"></div></div>
+  <button class="big lockBtn">${cfg.lock||'LOCK IT IN'}</button>`;
+ const rail=w.querySelector('.rail'),knob=w.querySelector('.knob'),fill=w.querySelector('.railFill'),
+       read=w.querySelector('.dv'),ticks=w.querySelector('.railTicks');
+ const nearFrac=cfg.far?0.78:1;
+ function p2v(p){
+  p=Math.max(0,Math.min(1,p));
+  if(p<=nearFrac){return Math.max(cfg.min,Math.min(cfg.nearMax,Math.round(cfg.min+(p/nearFrac)*(cfg.nearMax-cfg.min))));}
+  const t=(p-nearFrac)/(1-nearFrac);
+  let v=Math.round(cfg.nearMax+t*(cfg.far-cfg.nearMax));
+  if(Math.abs(v-cfg.far)<(cfg.far-cfg.nearMax)*0.07)v=cfg.far;
+  return v;
+ }
+ function v2p(v){
+  if(v<=cfg.nearMax)return ((v-cfg.min)/(cfg.nearMax-cfg.min))*nearFrac;
+  return nearFrac+((v-cfg.nearMax)/(cfg.far-cfg.nearMax))*(1-nearFrac);
+ }
+ const step=Math.max(1,Math.round((cfg.nearMax-cfg.min)/12));
+ for(let v=cfg.min;v<=cfg.nearMax;v+=step){const sp=el('span',null,v);sp.style.left=(v2p(v)*100)+'%';ticks.appendChild(sp);}
+ if(cfg.far){const sp=el('span',null,'way past');sp.style.left='92%';sp.style.color='#c9788a';ticks.appendChild(sp);}
+ let val=cfg.value;
+ function set(v,fromUser){
+  val=v;read.textContent=v;const p=v2p(v);
+  knob.style.left=(p*100)+'%';fill.style.width=(p*100)+'%';
+  if(cfg.onChange)cfg.onChange(v,fromUser);
+ }
+ function fromEvent(e){const r=rail.getBoundingClientRect();set(p2v((e.clientX-r.left)/r.width),true);}
+ let down=false;
+ rail.addEventListener('pointerdown',e=>{down=true;rail.setPointerCapture(e.pointerId);fromEvent(e);});
+ rail.addEventListener('pointermove',e=>{if(down)fromEvent(e);});
+ rail.addEventListener('pointerup',()=>down=false);
+ rail.addEventListener('pointercancel',()=>down=false);
+ w.tabIndex=0;
+ w.addEventListener('keydown',e=>{
+  if(e.key==='ArrowRight'){set(Math.min(cfg.far||cfg.nearMax,val+1),true);e.preventDefault();}
+  if(e.key==='ArrowLeft'){set(Math.max(cfg.min,val-1),true);e.preventDefault();}
+  if(e.key==='Enter'){w.querySelector('.lockBtn').click();}
+ });
+ w.querySelector('.lockBtn').addEventListener('click',()=>cfg.onLock(val));
+ set(cfg.value,false);
+ w.getVal=()=>val;w.setVal=v=>set(v,false);
+ return w;
+}
+
+/* ---------------- scene builders ---------------- */
+function sceneWrap(){scene.innerHTML='';const w=el('div','sceneWrap');scene.appendChild(w);return w;}
+function lanterns(n,cls){const d=el('div','armful');for(let i=0;i<n;i++)d.appendChild(el('div','lant '+(cls||'')));return d;}
+function items(n,cls,max){const d=el('div','section');const m=Math.min(n,max||30);for(let i=0;i<m;i++)d.appendChild(el('div',cls));return d;}
+function note(t){const n=el('div','sceneNote',t);scene.appendChild(n);}
+
+/* ---------------- support / assistance ---------------- */
+let itemState=null;
+function newItem(id,fmt){
+ itemState={id:id,t0:now(),nameT0:now(),nameLat:null,assist:'unassisted',errors:[],firstTry:{},promptUsed:false,fmt:fmt,clean:true};
+}
+function firePrompt(text,level){
+ if(itemState.promptUsed)return;
+ itemState.promptUsed=true;itemState.assist=level||'prompted';itemState.clean=false;
+ say('<b>'+CREWS[A.run%3][0]+':</b> '+text,'L');
+}
+let idleT=null;
+function armIdle(ms,fn){clearTimeout(idleT);idleT=setTimeout(fn,ms);}
+function stopIdle(){clearTimeout(idleT);}
+
+function finishItem(fields,quality){
+ stopIdle();disarm();
+ const rec=Object.assign({itemId:itemState.id,stage_beat:A.beat+1,format:itemState.fmt,
+   assistance_level:itemState.assist,latency_ms:now()-itemState.t0,name_step_latency_ms:itemState.nameLat},fields);
+ A.records.push(rec);
+ const q=quality||((itemState.assist==='unassisted'&&itemState.clean)?'gold':'amber');
+ A.arcs[A.beat]=q;buildArcs();ignite();
+ controls.innerHTML='';
+ const b=el('button','big pulse',(A.beat<6?'NEXT STATION →':'RAISE THE LANTERNS →'));
+ b.onclick=()=>{hush();A.beat++;A.beat<7?startBeat():finale();};
+ controls.appendChild(b);
+ prompt.innerHTML=`<b>${ARCS[A.beat]} arc is lit — ${q==='gold'?'GOLD (on your own)':'AMBER (with a hand from the crew)'}.</b> ${
+   q==='gold'?'You named what was missing before anyone else could see it.':'Still lit, still counted — honestly dimmer.'}`;
+}
+
+/* ================= BEAT 1 — Lantern Booth (lmc-c-01) ================= */
+function beat1(){
+ newItem('lmc-c-01','tag_tap');
+ setStation('Beat 1 · Lantern Booth','Stage 1 — Name the three quantities');
+ const w=sceneWrap();
+ for(let i=0;i<6;i++){
+  const h=el('div','helper');h.appendChild(lanterns(5,'small'));h.appendChild(el('div','body'));
+  h.dataset.i=i;w.appendChild(h);
+ }
+ const tags=[
+  {t:'<b>6</b>the number of helpers',x:40,y:230},
+  {t:'<b>5</b>the lanterns each helper carries',x:300,y:16},
+  {t:'<b>30</b>all the lanterns together',x:820,y:12},
+  {t:'There is no group size in this story.',x:1010,y:220}
+ ];
+ tags.forEach((tg,i)=>{const n=el('div','tag',tg.t);n.style.left=tg.x+'px';n.style.top=tg.y+'px';n.dataset.i=i;scene.appendChild(n);n.onclick=()=>pick(i,n);});
+ slotsFrame([
+  {key:'groups',label:'NUMBER OF GROUPS',value:null,note:'helpers'},
+  {key:'size',label:'SIZE OF EACH GROUP',value:null,unknown:true,note:'lanterns in one armful'},
+  {key:'total',label:'TOTAL',value:null,note:'lanterns in all'}],{open:true});
+ prompt.innerHTML='At the lantern booth, <b>6 helpers</b> each carry <b>5 paper lanterns</b>. That makes <b>30 lanterns</b> in all.';
+ controls.innerHTML='<div class="small">Watch the crew for a second…</div>';
+ // modelled half-example (Stage 1 permits modeled naming) — on a DIFFERENT quantity
+ setTimeout(()=>{
+   const t0=scene.querySelector('.tag[data-i="0"]');t0.classList.add('hot');
+   scene.querySelectorAll('.helper .body').forEach(b=>b.classList.add('glowon'));
+   say('<b>'+CREWS[A.run%3][0]+':</b> See? This one is the <b>NUMBER OF GROUPS</b> — it counts helpers.','L');
+   fillSlot('groups',6);
+ },1200);
+ setTimeout(()=>{
+   scene.querySelectorAll('.helper .body').forEach(b=>b.classList.remove('glowon'));
+   scene.querySelector('.tag[data-i="0"]').classList.remove('hot');
+   hush();
+   prompt.innerHTML='At the lantern booth, 6 helpers each carry 5 paper lanterns. That makes 30 lanterns in all.<br><em>Tap the tag that tells the SIZE OF EACH GROUP — how many are in ONE armful?</em>';
+   controls.innerHTML='';controls.appendChild(el('div','small','Tap a glowing tag in the picture.'));
+   itemState.t0=now();itemState.nameT0=now();
+   armIdle(30000,()=>firePrompt('Look at just <b>one</b> helper’s arms. How many lanterns are in that armful?','modeled'));
+ },4200);
+ let tries=0;
+ function pick(i,n){
+  stopIdle();tries++;
+  if(i===1){
+   itemState.nameLat=now()-itemState.nameT0;
+   n.classList.add('hot');
+   scene.querySelectorAll('.helper .armful').forEach((a,k)=>setTimeout(()=>a.classList.add('glowon'),k*90));
+   fillSlot('size',5);setTimeout(()=>fillSlot('total',30),600);
+   say('<b>'+CREWS[A.run%3][1]+':</b> Exactly — <b>5</b> in each armful. 6 groups × 5 each = 30 total.','R');
+   setTimeout(()=>finishItem({correct:tries===1,selectedOption:'5, the lanterns each helper carries',attempts:tries}),900);
+  }else{
+   n.classList.add('dead');itemState.clean=false;
+   if(i===0){scene.querySelectorAll('.helper .body').forEach(b=>b.classList.add('glowon'));
+     say('That’s the <b>number of groups</b> — helpers. I need how many are in ONE armful.','L');
+     setTimeout(()=>scene.querySelectorAll('.helper .body').forEach(b=>b.classList.remove('glowon')),1200);}
+   if(i===2){scene.querySelectorAll('.lant').forEach(b=>b.classList.add('glowon'));
+     say('That’s the <b>total</b> — every lantern in the whole booth.','L');
+     setTimeout(()=>scene.querySelectorAll('.lant').forEach(b=>b.classList.remove('glowon')),1200);}
+   if(i===3){say('There <i>is</i> a group size — look at one helper’s arms.','L');}
+   if(tries>=1)firePrompt('Look at just <b>one</b> helper’s arms. Count that armful.','modeled');
+  }
+ }
+}
+
+/* ================= BEAT 2 — Ribbon Stall (lmc-c-02) ================= */
+function beat2(){
+ newItem('lmc-c-02','drag_to_dark_slot');
+ setStation('Beat 2 · Ribbon Stall','Stage 2 — Locate the unknown');
+ const w=sceneWrap();
+ const bags=el('div','grp');const row=el('div','rowline');
+ for(let i=0;i<7;i++){const b=el('div','bag','?');row.appendChild(b);}
+ bags.appendChild(row);bags.appendChild(el('div','grpLabel','7 sealed bags'));
+ const bin=el('div','crate');bin.appendChild(el('div','crateLabel','56 TOKENS IN ALL'));
+ const dots=el('div','dots');for(let i=0;i<56;i++)dots.appendChild(el('div','dot'));bin.appendChild(dots);
+ w.appendChild(bags);w.appendChild(bin);
+ slotsFrame([
+  {key:'groups',label:'NUMBER OF GROUPS',value:7,note:'bags'},
+  {key:'size',label:'SIZE OF EACH GROUP',value:null,unknown:true,note:'tokens in one bag'},
+  {key:'total',label:'TOTAL',value:56,note:'all the tokens'}],{open:false});
+ prompt.innerHTML='The ribbon stall packs tokens into <b>7 equal bags</b>. Altogether there are <b>56 tokens</b>. Nobody has said how many tokens are in each bag.<br><em>Drag the ? lantern onto the quantity that is UNKNOWN. (The curtains open once you name it.)</em>';
+ controls.innerHTML='';
+ controls.appendChild(questionLantern(drop));
+ const cbtn=el('button','big ghostbtn','Start counting tokens');
+ let computedFirst=false;
+ cbtn.onclick=()=>{computedFirst=true;itemState.clean=false;
+   say('Nothing to count yet — first say <b>which quantity is missing</b>. Then the stall will help.','L');};
+ controls.appendChild(cbtn);
+ let tries=0;
+ armIdle(32000,()=>firePrompt('Which quantity did nobody say out loud — the bags, the tokens in one bag, or the total?','modeled'));
+ function drop(k){
+  stopIdle();tries++;
+  if(k==='size'){
+   itemState.nameLat=now()-itemState.nameT0;
+   openAll(true);hush();
+   setTimeout(()=>{
+     say('<b>'+CREWS[A.run%3][1]+':</b> That’s the hole — <b>tokens in one bag</b>. Nobody ever said it. No computing needed here.','R');
+     finishItem({correct:tries===1,selectedOption:'The size of each group (tokens in one bag)',
+       unknown_named_before_computing:!computedFirst,attempts:tries});
+   },700);
+  }else{
+   itemState.clean=false;
+   if(k==='groups'){openShutter('groups');fixedFlash('groups','the stall counted 7 bags out loud');
+     say('The stall counted <b>7 bags</b> out loud — that one is known.','L');}
+   else{openShutter('total');fixedFlash('total','56 is on the order sheet — I never moved');
+     say('The order sheet says <b>56</b>. That total never moved.','L');}
+   if(tries>=1)firePrompt('Look for the number nobody said: how many tokens are inside <b>one</b> bag?','modeled');
+   controls.innerHTML='';controls.appendChild(questionLantern(drop));controls.appendChild(cbtn);
+  }
+ }
+}
+
+/* ============ shared: NAME → DIAL station (beats 3,4,5,7) ============ */
+function nameThenDial(cfg){
+ /* cfg: {slots, correctKey, wrongs:{key:{msg,fx}}, hint, dial, sceneRender, onLockCheck, onDone} */
+ slotsFrame(cfg.slots,{open:false});
+ controls.innerHTML='';
+ controls.appendChild(questionLantern(drop,cfg.hint||'drag me onto the DARK slot'));
+ let nameTries=0;
+ if(cfg.allowPrompt)armIdle(30000,()=>firePrompt(cfg.namePrompt));
+ itemState.nameT0=now();
+ function drop(k){
+  stopIdle();nameTries++;
+  if(k===cfg.correctKey){
+   itemState.nameLat=now()-itemState.nameT0;
+   cfg.slots.forEach(s=>openShutter(s.key));
+   hush();
+   if(cfg.onNamed)cfg.onNamed();
+   setTimeout(()=>startDial(nameTries===1),450);
+  }else{
+   itemState.clean=false;
+   const wg=cfg.wrongs[k];
+   openShutter(k);
+   if(wg){fixedFlash(k,wg.fixed||'');say(wg.msg,'L');if(wg.fx)wg.fx();}
+   if(cfg.allowPrompt&&nameTries>=1)firePrompt(cfg.namePrompt);
+   controls.innerHTML='';controls.appendChild(questionLantern(drop,cfg.hint));
+  }
+ }
+ function startDial(nameFirstTry){
+  cfg.namedFirstTry=nameFirstTry;
+  controls.innerHTML='';
+  const d=makeDial(Object.assign({},cfg.dial,{
+    onChange:(v)=>{cfg.sceneRender(v);},
+    onLock:(v)=>{
+      stopIdle();
+      const res=cfg.onLockCheck(v);
+      if(res.ok){cfg.onDone(nameFirstTry,dialTries===0,v);}
+      else{
+        dialTries++;itemState.clean=false;
+        itemState.errors.push(res.error);
+        say(res.msg,'L');
+        if(cfg.allowPrompt&&dialTries>=1)firePrompt(cfg.dialPrompt);
+      }
+    }}));
+  controls.appendChild(d);
+  cfg.sceneRender(cfg.dial.value);
+  if(cfg.allowPrompt)armIdle(35000,()=>firePrompt(cfg.dialPrompt));
+ }
+ let dialTries=0;
+}
+
+/* ================= BEAT 3 — Parade Sections (lmc-c-03) ================= */
+function beat3(){
+ newItem('lmc-c-03','drag_then_dial');
+ setStation('Beat 3 · Parade Sections','Stage 3–4 — Match the operation, solve the missing factor');
+ prompt.innerHTML='A parade row needs <b>8 flags in each section</b>. The crew has <b>48 flags</b>, and every section gets the same number.<br><em>First name the unknown, then dial it: ___ × 8 = 48.</em>';
+ render(0);
+ nameThenDial({
+  slots:[{key:'groups',label:'NUMBER OF GROUPS',value:null,unknown:true,note:'parade sections'},
+         {key:'size',label:'SIZE OF EACH GROUP',value:8,note:'flags per section'},
+         {key:'total',label:'TOTAL',value:48,note:'flags in the crate'}],
+  correctKey:'groups',allowPrompt:true,
+  namePrompt:'Which quantity is missing here — sections, flags per section, or the total?',
+  dialPrompt:'The total is sealed at 48. Dial the number of sections until the crate empties exactly.',
+  wrongs:{size:{msg:'The order says <b>8 flags per section</b> — that one is known.',fixed:'8 per section — known'},
+          total:{msg:'The crate holds <b>48</b>. That total is sealed — it never moves.',fixed:'48 — I never moved'}},
+  dial:{label:'HOW MANY SECTIONS?',min:1,nearMax:12,far:384,value:1},
+  sceneRender:render,
+  onLockCheck:(v)=>{
+    if(v===6)return{ok:true};
+    let err=v===384?'multiply_the_given_numbers':(Math.abs(v-6)<=1?'computation_slip':'other');
+    if(v*8>48){spill();return{ok:false,error:err,msg:(err==='multiply_the_given_numbers'
+      ?'You multiplied the two numbers you could see — flags everywhere! The total was already <b>48</b> and it never moved.'
+      :'Too many sections — flags spill past the sealed total of 48.')};}
+    return{ok:false,error:err,msg:'Not enough sections — <b>'+(48-v*8)+'</b> flags are still in the crate.'};
+  },
+  onDone:(nameFirst,dialFirst,v)=>{
+    say('<b>'+CREWS[A.run%3][1]+':</b> <b>6 sections × 8 flags = 48.</b> The row is exactly full.','R');
+    finishItem({part1_correct:nameFirst,part2_correct:dialFirst,namedUnknown:'number of groups (sections)',
+      numericAnswer:v,error_type:itemState.errors[0]||null});
+  }
+ });
+ function render(v){
+  const w=sceneWrap();
+  const rail=el('div','grp');const row=el('div','rowline');
+  const shown=Math.min(v,14);
+  for(let i=0;i<shown;i++)row.appendChild(items(8,'flag'));
+  rail.appendChild(row);rail.appendChild(el('div','grpLabel',v+' section'+(v===1?'':'s')+' × 8 flags = '+(v*8)+' flags used'));
+  const crate=el('div','crate');crate.appendChild(el('div','crateLabel','CRATE: 48 FLAGS (sealed)'));
+  const left=Math.max(0,48-v*8);crate.appendChild(items(left,'flag',48));
+  crate.appendChild(el('div','grpLabel',left+' still in the crate'));
+  w.appendChild(rail);w.appendChild(crate);
+  if(v>14)note('…and '+(v*8)+' flags altogether — far past the sealed 48.');
+ }
+ function spill(){scene.querySelectorAll('.flag').forEach((f,i)=>{if(i>47)f.classList.add('spill');});
+   fixedFlash('total','48 — I never moved');}
+}
+
+/* ================= BEAT 4 — Banner Rigging (lmc-c-04) ================= */
+function beat4(){
+ newItem('lmc-c-04','drag_then_dial');
+ setStation('Beat 4 · Banner Rigging','Stage 4 — Solve the missing factor');
+ prompt.innerHTML='The stage crew hangs <b>42 banners</b> in <b>6 equal rows</b>.<br><em>Which quantity is unknown — and how many banners are in each row?</em>';
+ render(0);
+ nameThenDial({
+  slots:[{key:'groups',label:'NUMBER OF GROUPS',value:6,note:'rows'},
+         {key:'size',label:'SIZE OF EACH GROUP',value:null,unknown:true,note:'banners per row'},
+         {key:'total',label:'TOTAL',value:42,note:'banners on the rig'}],
+  correctKey:'size',allowPrompt:true,
+  namePrompt:'The rows are counted and the total is counted. What has nobody counted yet?',
+  dialPrompt:'Six equal rows must add to exactly 42. Try a number that reaches 42 when you use it six times.',
+  wrongs:{groups:{msg:'The rig has <b>6 rows</b> — the crew already counted them.',fixed:'6 rows — known'},
+          total:{msg:'<b>42 banners</b> came off the truck. That total is fixed.',fixed:'42 — I never moved'}},
+  dial:{label:'BANNERS IN EACH ROW?',min:1,nearMax:12,far:252,value:1},
+  sceneRender:render,
+  onLockCheck:(v)=>{
+    if(v===7)return{ok:true};
+    let err=v===252?'multiply_the_given_numbers':(Math.abs(v-7)<=1?'computation_slip':'other');
+    if(v*6>42){sag();return{ok:false,error:err,msg:(err==='multiply_the_given_numbers'
+      ?'You multiplied the two given numbers — <b>252 banners</b> avalanche off a rig built for 42! The total never moved.'
+      :'The rig sags — that makes <b>'+(v*6)+'</b> banners, more than 42.')};}
+    return{ok:false,error:err,msg:'The rig hangs slack — only <b>'+(v*6)+'</b> banners used, and 42 came off the truck.'};
+  },
+  onDone:(nameFirst,dialFirst,v)=>{
+    say('<b>'+CREWS[A.run%3][1]+':</b> <b>6 rows × 7 banners = 42.</b> Taut and even.','R');
+    finishItem({part1_correct:nameFirst,part2_correct:dialFirst,namedUnknown:'size of each group (banners per row)',
+      numericAnswer:v,error_type:itemState.errors[0]||null});
+  }
+ });
+ function render(v){
+  const w=sceneWrap();const rig=el('div','grp');
+  for(let r=0;r<6;r++){const row=el('div','rowline');const shown=Math.min(v,16);
+    for(let i=0;i<shown;i++)row.appendChild(el('div','banner'));rig.appendChild(row);}
+  rig.appendChild(el('div','grpLabel','6 rows × '+v+' = '+(v*6)+' banners used · truck brought 42'));
+  w.appendChild(rig);
+  if(v>16)note('…'+(v*6)+' banners in all. The rig was built for 42.');
+ }
+ function sag(){scene.querySelectorAll('.banner').forEach((b,i)=>{if(i>41)b.classList.add('spill');else b.classList.add('sag');});
+  fixedFlash('total','42 — I never moved');}
+}
+
+/* ================= BEAT 5 — Twin Jobs (lmc-c-05) ================= */
+function beat5(){
+ newItem('lmc-c-05','dual_station');
+ setStation('Beat 5 · Twin Jobs Mixed','Stage 5 — Discriminate under interleaving');
+ let res={A:{name:null,num:null},B:{name:null,num:null}},errs=[];
+ partA();
+ function partA(){
+  prompt.innerHTML='<b>Work order, job A:</b> the juice booth fills <b>5 crates</b> with <b>9 cups</b> in each crate. How many cups in all?<br><em>Name the unknown first — the booth will not take a number until you do.</em>';
+  renderA(0);
+  nameThenDial({
+   slots:[{key:'groups',label:'NUMBER OF GROUPS',value:5,note:'crates'},
+          {key:'size',label:'SIZE OF EACH GROUP',value:9,note:'cups per crate'},
+          {key:'total',label:'TOTAL',value:null,unknown:true,note:'cups in all'}],
+   correctKey:'total',allowPrompt:true,
+   namePrompt:'Both crates and cups-per-crate are known here. Which quantity has nobody found yet?',
+   dialPrompt:'Total unknown means the two known numbers feed forward: 5 groups of 9.',
+   wrongs:{groups:{msg:'Half-empty crates roll in! The manager holds up the order sheet: the <b>total</b> was the thing we did NOT know — there is nothing yet to split.',fixed:'5 crates — known',fx:halfEmpty},
+           size:{msg:'Half-empty crates roll in! <b>9 cups per crate</b> is written right here — the total is the missing one.',fixed:'9 per crate — known',fx:halfEmpty}},
+   dial:{label:'HOW MANY CUPS IN ALL?',min:1,nearMax:60,value:1},
+   sceneRender:renderA,
+   onLockCheck:(v)=>{
+    if(v===45)return{ok:true};
+    let err=(v<=9)?'divide_when_total_unknown':(Math.abs(v-45)<=2?'computation_slip':'other');
+    if(err==='divide_when_total_unknown'){halfEmpty();
+      return{ok:false,error:err,msg:'That is a <b>dividing</b> answer — but nothing existed yet to share out. 5 crates of 9 feed forward into the bin.'};}
+    return{ok:false,error:err,msg:'The bin says <b>'+v+'</b>, but 5 crates of 9 cups do not fill to that.'};
+   },
+   onDone:(nf,df,v)=>{
+     res.A={name:'total',num:v,nameFirst:nf,numFirst:df};
+     if(itemState.errors.length)errs=itemState.errors.slice();
+     say('<b>'+CREWS[A.run%3][1]+':</b> <b>5 × 9 = 45 cups.</b> Job A is done — now job B, same numbers, different hole.','R');
+     setTimeout(partB,1200);
+   }
+  });
+ }
+ function partB(){
+  itemState.errors=[];itemState.nameT0=now();itemState.promptUsed=false;
+  prompt.innerHTML='<b>Work order, job B:</b> the badge table has <b>45 badges</b> laid out in <b>9 equal piles</b>. How many badges in each pile?<br><em>Name the unknown first.</em>';
+  renderB(0);
+  nameThenDial({
+   slots:[{key:'groups',label:'NUMBER OF GROUPS',value:9,note:'piles'},
+          {key:'size',label:'SIZE OF EACH GROUP',value:null,unknown:true,note:'badges per pile'},
+          {key:'total',label:'TOTAL',value:45,note:'badges on the table'}],
+   correctKey:'size',allowPrompt:true,
+   namePrompt:'The badges are all on the table and the piles are counted. What is missing?',
+   dialPrompt:'Nine equal piles must reach exactly 45. Hunt for the number that gets there.',
+   wrongs:{groups:{msg:'The table shows <b>9 piles</b> — counted already.',fixed:'9 piles — known'},
+           total:{msg:'<b>45 badges</b> are already on the table. That total never moved.',fixed:'45 — I never moved'}},
+   dial:{label:'BADGES IN EACH PILE?',min:1,nearMax:12,far:405,value:1},
+   sceneRender:renderB,
+   onLockCheck:(v)=>{
+    if(v===5)return{ok:true};
+    let err=v===405?'multiply_the_given_numbers':(Math.abs(v-5)<=1?'computation_slip':'other');
+    if(v*9>45){scene.querySelectorAll('.badge').forEach((b,i)=>{if(i>44)b.classList.add('spill');});fixedFlash('total','45 — I never moved');
+      return{ok:false,error:err,msg:'Badges everywhere — that makes <b>'+(v*9)+'</b>, past the fixed 45.'};}
+    return{ok:false,error:err,msg:'Only <b>'+(v*9)+'</b> badges used — '+(45-v*9)+' are still loose on the table.'};
+   },
+   onDone:(nf,df,v)=>{
+     res.B={name:'size of each group (badges per pile)',num:v,nameFirst:nf,numFirst:df};
+     say('<b>'+CREWS[A.run%3][0]+':</b> <b>9 piles × 5 badges = 45.</b> Same numbers, different hole — you told them apart.','L');
+     const allErr=errs.concat(itemState.errors);
+     finishItem({partA_correct:res.A.nameFirst&&res.A.numFirst,partB_correct:res.B.nameFirst&&res.B.numFirst,
+       partA_namedUnknown:'total',partA_numericAnswer:res.A.num,
+       partB_namedUnknown:res.B.name,partB_numericAnswer:res.B.num,
+       error_type:allErr[0]||null,all_errors:allErr});
+   }
+  });
+ }
+ function renderA(v){
+  const w=sceneWrap();const g=el('div','grp');const row=el('div','rowline');
+  for(let c=0;c<5;c++){const cr=el('div','crate');cr.appendChild(items(9,'cup'));cr.appendChild(el('div','crateLabel','9 cups'));row.appendChild(cr);}
+  g.appendChild(row);g.appendChild(el('div','grpLabel','JUICE BOOTH — 5 crates, 9 cups each'));
+  const bin=el('div','crate');bin.appendChild(el('div','crateLabel','TOTAL BIN'));
+  bin.appendChild(items(Math.min(v,60),'cup',60));bin.appendChild(el('div','grpLabel',v+' cups'));
+  w.appendChild(g);w.appendChild(bin);
+ }
+ function renderB(v){
+  const w=sceneWrap();const g=el('div','grp');const row=el('div','rowline');
+  for(let c=0;c<9;c++){const p=el('div','crate');p.appendChild(items(Math.min(v,12),'badge'));row.appendChild(p);}
+  g.appendChild(row);g.appendChild(el('div','grpLabel','BADGE TABLE — 9 piles, '+(v*9)+' badges placed of 45'));
+  const loose=el('div','crate');loose.appendChild(el('div','crateLabel','LOOSE ON THE TABLE'));
+  loose.appendChild(items(Math.max(0,45-v*9),'badge',45));
+  w.appendChild(g);w.appendChild(loose);
+ }
+ function halfEmpty(){scene.querySelectorAll('.cup').forEach((c,i)=>{if(i%2===0)c.classList.add('spill');});}
+}
+
+/* ================= BEAT 6 — Stage-Light Board (lmc-c-06) ================= */
+function beat6(){
+ newItem('lmc-c-06','board_program');
+ setStation('Beat 6 · Stage-Light Board','Stage 6 — More than one arrangement');
+ slotsFrame([{key:'groups',label:'NUMBER OF ROWS',value:null,unknown:true,note:'you choose'},
+             {key:'size',label:'LIGHTS IN EACH ROW',value:null,unknown:true,note:'the board works it out'},
+             {key:'total',label:'TOTAL',value:36,note:'lights on the board (fixed)'}],{open:true});
+ prompt.innerHTML='The stage-light board holds <b>36 lights</b> in equal rows. The board needs <b>at least TWO different</b> equal-row layouts before the show can run.';
+ let found=[],prompted=false,secondUnprompted=null,errors=[];
+ const dial=makeDial({label:'HOW MANY ROWS?',min:1,nearMax:12,value:1,lock:'PROGRAM THIS CHANNEL',
+   onChange:v=>{render(v);def('groups').value=v;drawSlot('groups');
+     const per=36/v;def('size').value=(36%v===0)?per:'—';drawSlot('size');},
+   onLock:v=>{
+     stopIdle();
+     if(36%v!==0){errors.push('invalid_pair');
+       say('<b>'+(36%v)+' lights left over</b> — those rows are not equal. The board will not take it.','L');
+       scene.querySelectorAll('.light.left').forEach(l=>l.classList.add('wobble'));return;}
+     const pair=v+' x '+(36/v);
+     if(found.includes(pair)){say('The board already runs that one. It wants a <b>different</b> way.','L');return;}
+     found.push(pair);renderChips();
+     if(found.length===1){
+       say('Channel 1 is programmed. <b>Channel 2 is still dark</b> — the show cannot run on one arrangement.','L');
+       armIdle(15000,()=>{prompted=true;firePrompt('Keep going — the board wants another way. Try a different number of rows.','prompted_keep_going');});
+     }else if(found.length===2){
+       if(secondUnprompted===null)secondUnprompted=!prompted;
+       stopIdle();hush();askSentence();
+     }
+   }});
+ controls.innerHTML='';controls.appendChild(dial);
+ const chips=el('div','chips');controls.appendChild(chips);
+ render(1);
+ function renderChips(){
+  chips.innerHTML='';
+  for(let i=0;i<Math.max(2,found.length);i++){
+   chips.appendChild(el('div','chip'+(found[i]?'':' dim'),found[i]?('CHANNEL '+(i+1)+': '+found[i]+' rows × per row'):('CHANNEL '+(i+1)+': dark')));
+  }
+ }
+ renderChips();
+ function render(rows){
+  const w=sceneWrap();
+  const per=Math.floor(36/rows),leftover=36%rows;
+  const b=el('div','board');b.style.gridTemplateColumns='repeat('+Math.max(per,1)+',20px)';
+  for(let i=0;i<rows*per;i++)b.appendChild(el('div','light on'));
+  w.appendChild(b);
+  if(leftover){const lo=el('div','grp');const r=el('div','rowline');
+    for(let i=0;i<leftover;i++)r.appendChild(el('div','light left'));
+    lo.appendChild(r);lo.appendChild(el('div','grpLabel',leftover+' left over'));w.appendChild(lo);}
+  note(rows+' rows × '+per+' lights = '+(rows*per)+(leftover?(' … and '+leftover+' cannot be seated'):' — all 36 seated'));
+ }
+ function askSentence(){
+  controls.innerHTML='';
+  prompt.innerHTML='Both channels are programmed: <b>'+found.join('</b> and <b>')+'</b>.<br><em>Finish the sentence: “For 36 lights there is ___ correct arrangement.”</em>';
+  ['one','more than one','no'].forEach(txt=>{
+    const b=el('button','big'+(txt==='more than one'?'':' ghostbtn'),txt.toUpperCase());
+    b.onclick=()=>{
+      if(txt==='more than one'){
+        say('<b>'+CREWS[A.run%3][1]+':</b> More than one — and the board proves it, running both patterns at once.','R');
+        runShow();
+        finishItem({distinct_valid_pair_count:found.length,factorPairs:found,
+          multiplicityStatement:'more than one',second_pair_unprompted:!!secondUnprompted,
+          error_type:errors[0]||null});
+      }else{errors.push('other');itemState.clean=false;say('But you just programmed <b>two different</b> working layouts. Look at the channels.','L');}
+    };
+    controls.appendChild(b);
+  });
+ }
+ function runShow(){
+  let i=0;const iv=setInterval(()=>{const p=found[i%found.length].split(' x ');render(+p[0]);i++;},900);
+  setTimeout(()=>clearInterval(iv),7000);
+ }
+ armIdle(30000,()=>say('Pick a number of rows, then press PROGRAM THIS CHANNEL.','L'));
+}
+
+/* ================= BEAT 7 — Closing Night (lmc-c-07) ================= */
+function beat7(){
+ newItem('lmc-c-07','mixed_chain_unassisted');
+ setStation('Beat 7 · Closing Night','Stage 7 — Independent transfer (no prompts)');
+ npcL.classList.add('back');npcR.classList.add('back');hush();
+ const out={p1:null,p2:null,p3:[]},errs=[];let nameLats=[];
+ part1();
+ function part1(){
+  itemState.nameT0=now();
+  prompt.innerHTML='<b>Closing-night check, on your own. 1)</b> The face-paint tent has <b>8 chairs</b> with <b>4 children</b> at each chair. How many children?<br><em>Name the unknown first, then dial it.</em>';
+  r1(0);
+  nameThenDial({
+   slots:[{key:'groups',label:'NUMBER OF GROUPS',value:8,note:'chairs'},
+          {key:'size',label:'SIZE OF EACH GROUP',value:4,note:'children per chair'},
+          {key:'total',label:'TOTAL',value:null,unknown:true,note:'children in all'}],
+   correctKey:'total',allowPrompt:false,
+   wrongs:{groups:{msg:'The tent has 8 chairs — counted.',fixed:'8 chairs — known'},
+           size:{msg:'4 children sit at each chair — counted.',fixed:'4 each — known'}},
+   dial:{label:'HOW MANY CHILDREN?',min:1,nearMax:48,value:1},
+   sceneRender:r1,
+   onLockCheck:v=>{
+     if(v===32)return{ok:true};
+     let err=(v<=4)?'divide_when_total_unknown':(Math.abs(v-32)<=2?'computation_slip':'other');
+     return{ok:false,error:err,msg:(err==='divide_when_total_unknown'
+       ?'That is a dividing answer — but the <b>total</b> was the unknown here. 8 groups of 4 feed forward.'
+       :'8 chairs of 4 children do not come to '+v+'.')};
+   },
+   onDone:(nf,df,v)=>{out.p1={nf:nf,df:df,v:v};errs.push.apply(errs,itemState.errors);nameLats.push(itemState.nameLat);
+     itemState.errors=[];setTimeout(part2,700);}
+  });
+ }
+ function part2(){
+  itemState.nameT0=now();
+  prompt.innerHTML='<b>2)</b> A rope of <b>54 beads</b> is cut into equal strings with <b>9 beads</b> on each string. How many strings?<br><em>Name the unknown first, then dial it.</em>';
+  r2(0);
+  nameThenDial({
+   slots:[{key:'groups',label:'NUMBER OF GROUPS',value:null,unknown:true,note:'strings'},
+          {key:'size',label:'SIZE OF EACH GROUP',value:9,note:'beads per string'},
+          {key:'total',label:'TOTAL',value:54,note:'beads on the rope'}],
+   correctKey:'groups',allowPrompt:false,
+   wrongs:{size:{msg:'9 beads on each string — stated.',fixed:'9 each — known'},
+           total:{msg:'The rope holds 54 beads. Fixed.',fixed:'54 — I never moved'}},
+   dial:{label:'HOW MANY STRINGS?',min:1,nearMax:12,far:486,value:1},
+   sceneRender:r2,
+   onLockCheck:v=>{
+     if(v===6)return{ok:true};
+     let err=v===486?'multiply_the_given_numbers':(Math.abs(v-6)<=1?'computation_slip':'other');
+     if(v*9>54)return{ok:false,error:err,msg:(err==='multiply_the_given_numbers'
+       ?'You multiplied the two given numbers — the rope only ever had <b>54</b> beads.'
+       :'That needs '+(v*9)+' beads and the rope has 54.')};
+     return{ok:false,error:err,msg:(54-v*9)+' beads are still uncut on the rope.'};
+   },
+   onDone:(nf,df,v)=>{out.p2={nf:nf,df:df,v:v};errs.push.apply(errs,itemState.errors);nameLats.push(itemState.nameLat);
+     itemState.errors=[];setTimeout(part3,700);}
+  });
+ }
+ function part3(){
+  prompt.innerHTML='<b>3)</b> The welcome arch shows <b>24 lanterns</b> in equal rows. Give <b>two different</b> equal-row arrangements.';
+  slotsFrame([{key:'groups',label:'NUMBER OF ROWS',value:null,unknown:true,note:'you choose'},
+              {key:'size',label:'LANTERNS IN EACH ROW',value:null,unknown:true,note:'the arch works it out'},
+              {key:'total',label:'TOTAL',value:24,note:'lanterns (fixed)'}],{open:true});
+  const found=[];
+  const dial=makeDial({label:'HOW MANY ROWS?',min:1,nearMax:12,value:1,lock:'HANG THIS ARRANGEMENT',
+   onChange:v=>{r3(v);def('groups').value=v;drawSlot('groups');def('size').value=(24%v===0)?24/v:'—';drawSlot('size');},
+   onLock:v=>{
+     if(24%v!==0){errs.push('invalid_pair');say('<b>'+(24%v)+' lanterns left over</b> — the rows are not equal.','L');return;}
+     const p=v+' x '+(24/v);
+     if(found.includes(p)){say('The arch already shows that one. Find a different way.','L');return;}
+     found.push(p);chips.innerHTML='';found.forEach((f,i)=>chips.appendChild(el('div','chip','ARRANGEMENT '+(i+1)+': '+f)));
+     if(found.length===1)chips.appendChild(el('div','chip dim','ARRANGEMENT 2: still dark'));
+     if(found.length>=2){
+       out.p3=found.slice();A.pairs24=found.slice();
+       finishItem({part1_correct:out.p1.nf&&out.p1.df,part1_namedUnknown:'total',part1_numericAnswer:out.p1.v,
+         part2_correct:out.p2.nf&&out.p2.df,part2_namedUnknown:'number of groups (strings)',part2_numericAnswer:out.p2.v,
+         part3_distinct_valid_pair_count:found.length,part3_factorPairs:found,
+         unknown_named_before_computing:true,naming_enforced_by_gate:true,
+         error_type:errs[0]||null,all_errors:errs,name_step_latencies_ms:nameLats});
+     }
+   }});
+  controls.innerHTML='';controls.appendChild(dial);
+  const chips=el('div','chips');chips.appendChild(el('div','chip dim','ARRANGEMENT 1: still dark'));
+  chips.appendChild(el('div','chip dim','ARRANGEMENT 2: still dark'));controls.appendChild(chips);
+  r3(1);
+ }
+ function r1(v){const w=sceneWrap();const g=el('div','grp');const row=el('div','rowline');
+  for(let c=0;c<8;c++){const ch=el('div','chair');for(let i=0;i<4;i++)ch.appendChild(el('div','kid'));row.appendChild(ch);}
+  g.appendChild(row);g.appendChild(el('div','grpLabel','FACE-PAINT TENT — 8 chairs, 4 children each'));
+  const bin=el('div','crate');bin.appendChild(el('div','crateLabel','TOTAL BIN'));
+  bin.appendChild(items(Math.min(v,48),'kid',48));bin.appendChild(el('div','grpLabel',v+' children'));
+  w.appendChild(g);w.appendChild(bin);}
+ function r2(v){const w=sceneWrap();const g=el('div','grp');
+  for(let s=0;s<Math.min(v,12);s++){const row=el('div','rowline');
+    for(let i=0;i<9;i++){const b=el('div','dot');row.appendChild(b);}g.appendChild(row);}
+  g.appendChild(el('div','grpLabel',v+' strings × 9 beads = '+(v*9)+' of 54'));
+  const rope=el('div','crate');rope.appendChild(el('div','crateLabel','UNCUT ROPE'));
+  rope.appendChild(items(Math.max(0,54-v*9),'dot',54));w.appendChild(g);w.appendChild(rope);}
+ function r3(rows){const w=sceneWrap();const per=Math.floor(24/rows),lo=24%rows;
+  const b=el('div','board');b.style.gridTemplateColumns='repeat('+Math.max(per,1)+',20px)';
+  for(let i=0;i<rows*per;i++){const l=el('div','lant');b.appendChild(l);}
+  w.appendChild(b);
+  if(lo){const g=el('div','grp');const r=el('div','rowline');for(let i=0;i<lo;i++)r.appendChild(el('div','light left'));
+    g.appendChild(r);g.appendChild(el('div','grpLabel',lo+' left over'));w.appendChild(g);}
+  note(rows+' rows × '+per+' = '+(rows*per)+(lo?(' … '+lo+' cannot hang'):' — all 24 hang'));}
+}
+
+/* ================= FINALE ================= */
+function finale(){
+ stopIdle();disarm();hush();
+ scene.innerHTML='';frame.innerHTML='';controls.innerHTML='';prompt.innerHTML='';
+ setStation('Closing Night','The lantern release');
+ const pairs=A.pairs24.length?A.pairs24:['4 x 6'];
+ overlay.style.display='flex';
+ overlay.innerHTML=`<h1>The Night You Light</h1>
+  <p>Every arc you lit is rising. Choose the sky array — from the arrangements <b>you</b> found at the welcome arch.</p>
+  <div class="chips" id="skyPick"></div>
+  <p class="small" style="margin-top:6px">Then watch 24 lanterns take that exact shape overhead.</p>`;
+ const pick=$('#skyPick');
+ pairs.forEach(p=>{const b=el('button','big',p.replace(' x ',' rows × ')+' per row');b.onclick=()=>release(p);pick.appendChild(b);});
+ function release(pair){
+  overlay.style.display='none';
+  const [rows,cols]=pair.split(' x ').map(Number);
+  const parts=[];
+  for(let r=0;r<rows;r++)for(let c=0;c<cols;c++){
+    parts.push({x:Math.random()*1365,y:800+Math.random()*300,
+      tx:682-(cols-1)*34/2+c*34,ty:150+r*40,
+      col:'#ffd27a',s:0});
+  }
+  A.arcs.forEach((q,i)=>{if(q)parts.push({x:100+i*180,y:820,tx:100+i*180,ty:80,col:q==='gold'?'#fff0bb':'#e8a45e',s:1});});
+  let t=0;
+  (function loop(){
+    t++;ctx.clearRect(0,0,1365,768);
+    parts.forEach(p=>{
+      p.x+=(p.tx-p.x)*0.03+Math.sin((t+p.tx)/40)*0.25;
+      p.y+=(p.ty-p.y)*0.028;
+      const R=p.s?13:9;
+      const g=ctx.createRadialGradient(p.x,p.y,1,p.x,p.y,R*3.4);
+      g.addColorStop(0,p.col);g.addColorStop(1,'rgba(255,180,80,0)');
+      ctx.fillStyle=g;ctx.beginPath();ctx.arc(p.x,p.y,R*3.4,0,7);ctx.fill();
+      ctx.fillStyle=p.col;ctx.beginPath();ctx.ellipse(p.x,p.y,R*0.75,R,0,0,7);ctx.fill();
+    });
+    if(t<340)requestAnimationFrame(loop);else plaque(pair);
+  })();
+ }
+ function plaque(pair){
+  overlay.style.display='flex';
+  const gold=A.arcs.filter(a=>a==='gold').length,amber=A.arcs.filter(a=>a==='amber').length;
+  overlay.innerHTML=`<h1>You lit seven stations</h1>
+   <p>“You lit seven stations by finding what was missing before anyone else could see it.”</p>
+   <p class="small">Sky array tonight: <b>${pair.replace(' x ',' rows × ')} lanterns per row</b> — one of the arrangements you found yourself.</p>
+   <div class="mapRow" id="mapRow"></div>
+   <p class="small" style="margin-top:10px">Tonight’s map: <b>${gold} gold</b> (on your own) · <b>${amber} amber</b> (with a hand from the crew). Not a grade — a map.</p>
+   <div style="display:flex;gap:14px;margin-top:14px">
+     <button class="big" id="again">REPLAY — A NEW NIGHT</button>
+     <button class="big ghostbtn" id="showrec">SHOW TONIGHT'S RECORD</button>
+   </div>
+   <pre id="rec"></pre>`;
+  const mr=$('#mapRow');
+  ARCS.forEach((n,i)=>{mr.appendChild(el('div','mapCell '+(A.arcs[i]||''),n+'<br><b>'+((A.arcs[i]||'unlit').toUpperCase())+'</b>'));});
+  $('#again').onclick=()=>{A.run++;A={beat:0,arcs:new Array(7).fill(null),records:[],run:A.run,pairs24:[]};
+    overlay.style.display='none';ctx.clearRect(0,0,1365,768);paint();startBeat();};
+  $('#showrec').onclick=()=>{const r=$('#rec');r.style.display=r.style.display==='block'?'none':'block';
+    r.textContent=JSON.stringify({packetId:'pkt-LAB-MATH-C-unknown-position-v1',
+      note:'Naming was gated by the machinery on every item; this packet alone cannot separate naming from practice (upstream charter concern stands).',
+      records:A.records},null,1);};
+ }
+}
+
+/* ================= run ================= */
+const BEATS=[beat1,beat2,beat3,beat4,beat5,beat6,beat7];
+function startBeat(){
+ stopIdle();disarm();hush();flash.classList.remove('go');
+ scene.innerHTML='';frame.innerHTML='';controls.innerHTML='';prompt.innerHTML='';
+ npcL.classList.toggle('back',A.beat===6);npcR.classList.toggle('back',A.beat===6);
+ BEATS[A.beat]();
+}
+function intro(){
+ paint();
+ overlay.style.display='flex';
+ overlay.innerHTML=`<h1 style="opacity:0;animation:none">·</h1>`;
+ overlay.innerHTML=`<div style="font-size:26px;line-height:1.5;max-width:900px">
+   “Tonight the whole festival goes dark unless someone can see what’s <b style="color:#ffc65c">MISSING</b>.<br>
+   The crew says that’s you.”</div>
+   <p class="small" style="margin-top:16px">${PALETTES[A.run%3].n} · seven stations · you are the Night Engineer</p>`;
+ setTimeout(()=>{overlay.style.display='none';startBeat();},2900);
+}
+intro();
+</script>
+</body>
+</html>

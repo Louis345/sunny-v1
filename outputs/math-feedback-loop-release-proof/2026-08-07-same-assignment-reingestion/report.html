@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Sunny Same-Assignment Reingestion Proof</title>
+  <style>
+    :root{color-scheme:dark;--bg:#07111f;--panel:#101f33;--line:#29415f;--text:#edf6ff;--muted:#a8bdd3;--pass:#63e6a8;--accent:#79b8ff}
+    *{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at top,#173354,var(--bg) 58%);font:16px/1.5 Inter,ui-sans-serif,system-ui;color:var(--text)}
+    main{max-width:1120px;margin:auto;padding:42px 24px 70px}.eyebrow{color:var(--accent);font-weight:800;letter-spacing:.12em;text-transform:uppercase}.verdict{display:flex;gap:20px;align-items:center;padding:24px;border:1px solid #2b6d59;background:#0c2a26;border-radius:20px}.badge{font-size:30px;font-weight:900;color:var(--pass)}
+    h1{font-size:clamp(34px,5vw,62px);line-height:1.02;margin:14px 0 26px}h2{margin-top:42px}.cards{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:24px}.card,.panel{background:color-mix(in srgb,var(--panel) 94%,transparent);border:1px solid var(--line);border-radius:16px;padding:18px}.card strong{display:block;font-size:24px;color:var(--pass)}
+    table{width:100%;border-collapse:collapse;background:var(--panel);border-radius:16px;overflow:hidden}th,td{text-align:left;padding:14px;border-bottom:1px solid var(--line)}th{color:var(--muted);font-size:13px;text-transform:uppercase;letter-spacing:.08em}.hash{font:12px ui-monospace,SFMono-Regular,monospace;color:#bad7f5;word-break:break-all}.yes{color:var(--pass);font-weight:800}.flow{font-size:19px;color:var(--muted)}code{color:#b9dcff}.note{color:var(--muted)}
+    @media(max-width:800px){.cards{grid-template-columns:1fr 1fr}table{display:block;overflow:auto}}
+  </style>
+</head>
+<body><main>
+  <div class="eyebrow">Math feedback loop · Task 3</div>
+  <h1>Same PDF means the same learning cycle—not a reset.</h1>
+  <section class="verdict"><div class="badge">PASS</div><div>Every launched lifecycle remained byte-identical after the production persistence path received the same assignment again.</div></section>
+  <div class="cards">
+    <div class="card"><strong>8 / 8</strong>lifecycles preserved</div>
+    <div class="card"><strong>0</strong>provider calls required</div>
+    <div class="card"><strong>175</strong>related tests passed</div>
+    <div class="card"><strong>No</strong>Reina or Ila writes</div>
+  </div>
+
+  <h2>What changed</h2>
+  <section class="panel flow">source fingerprint → existing <code>homeworkId</code> → read canonical lifecycle → report the correct continuation → exit before extraction, Planner, Fable, builders, or publication</section>
+  <p class="note">A canonical cycle exists only after atomic publication. Pre-publication interrupted drafts still have no canonical cycle and therefore continue through the existing checkpoint-resume path.</p>
+
+  <h2>Lifecycle matrix</h2>
+  <table><thead><tr><th>Lifecycle</th><th>Command outcome</th><th>Before SHA-256</th><th>After SHA-256</th><th>Preserved</th></tr></thead><tbody>
+    <tr><td>baseline_ready</td><td>READY_TO_START</td><td class="hash">a3cda1cb6a7f00df867fa239a616171f6aed7d5ef3b25a3aadaa771156e1eaa3</td><td class="hash">a3cda1cb6a7f00df867fa239a616171f6aed7d5ef3b25a3aadaa771156e1eaa3</td><td class="yes">Yes</td></tr>
+    <tr><td>baseline_active</td><td>CONTINUE_EXISTING</td><td class="hash">45621341719d6c00c0055aead21ee6f98186613801aed836a02a3ddcd1f0689c</td><td class="hash">45621341719d6c00c0055aead21ee6f98186613801aed836a02a3ddcd1f0689c</td><td class="yes">Yes</td></tr>
+    <tr><td>baseline_evaluating</td><td>CONTINUE_EXISTING</td><td class="hash">1b03ca7888802937791057d8eb3acdd864cc0bb25cd440d76d9d659d24a59978</td><td class="hash">1b03ca7888802937791057d8eb3acdd864cc0bb25cd440d76d9d659d24a59978</td><td class="yes">Yes</td></tr>
+    <tr><td>quest_ready</td><td>CONTINUE_EXISTING</td><td class="hash">f001ce09bafd8bb07cf432d0e74ebebd357807a66a4033654d9cdef3985f5f46</td><td class="hash">f001ce09bafd8bb07cf432d0e74ebebd357807a66a4033654d9cdef3985f5f46</td><td class="yes">Yes</td></tr>
+    <tr><td>quest_active</td><td>CONTINUE_EXISTING</td><td class="hash">a41b5eb990223052bed006a41385f2d811c9a22326be6cdcc09b6078f7f60c2a</td><td class="hash">a41b5eb990223052bed006a41385f2d811c9a22326be6cdcc09b6078f7f60c2a</td><td class="yes">Yes</td></tr>
+    <tr><td>boss_ready</td><td>CONTINUE_EXISTING</td><td class="hash">eca3b63417f0e708d94d1f8b3ecc3f9b0f8258fe514ad406282612abae40f938</td><td class="hash">eca3b63417f0e708d94d1f8b3ecc3f9b0f8258fe514ad406282612abae40f938</td><td class="yes">Yes</td></tr>
+    <tr><td>awaiting_calibration</td><td>AWAITING_CALIBRATION</td><td class="hash">6574ea4a01f1650f3ea1a9bc9cce6730ae8029b0623d2fbf95ee594b49d99c0d</td><td class="hash">6574ea4a01f1650f3ea1a9bc9cce6730ae8029b0623d2fbf95ee594b49d99c0d</td><td class="yes">Yes</td></tr>
+    <tr><td>complete</td><td>ALREADY_COMPLETE</td><td class="hash">e12600194fb99a251ca131a4e2ca682b826d8150a6b9cb861f8be1ef7b0e9501</td><td class="hash">e12600194fb99a251ca131a4e2ca682b826d8150a6b9cb861f8be1ef7b0e9501</td><td class="yes">Yes</td></tr>
+  </tbody></table>
+
+  <h2>What is protected</h2>
+  <section class="panel">Lifecycle, completed nodes, selected route and history, academic observations, engagement evidence, session finalizations, Planner decisions, assumptions, predictions, and compatibility projections are not rewritten. New source fingerprints receive 96-bit homework ID suffixes. Existing legacy short IDs remain authoritative when their complete stored fingerprint matches, including unpublished drafts with paid Planner, design, or builder checkpoints.</section>
+
+  <h2>Verification</h2>
+  <section class="panel"><div><span class="yes">PASS</span> · 175 focused release tests</div><div><span class="yes">PASS</span> · command orchestration proves zero extraction or provider calls for published cycles</div><div><span class="yes">PASS</span> · 96-bit new identities with exact-fingerprint legacy cycle and draft resolution</div><div><span class="yes">PASS</span> · TypeScript and web production build</div><div><span class="yes">PASS</span> · Contract version 9 records the invariant</div><div><span class="yes">PASS</span> · no paid generation and no canonical child data writes</div></section>
+</main></body></html>

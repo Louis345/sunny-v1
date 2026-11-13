@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>The Shape-Shifting Crate</title>
+<script src="/games/_contract.js"></script>
+<style>
+*{box-sizing:border-box}
+body{margin:0;padding:10px 14px 30px;background:linear-gradient(#0a1a26,#12303c 45%,#0d222c);color:#f0e6d2;font-family:"Trebuchet MS",Verdana,sans-serif}
+h1{font-size:26px;margin:0;letter-spacing:1px;color:#ffd79a}
+.sub{margin:2px 0 10px;font-size:14px;color:#9fc4cf}
+.wrap{display:flex;gap:18px;align-items:flex-start;flex-wrap:wrap}
+.left{flex:1 1 460px;min-width:330px}
+.right{width:150px}
+#boatName{font-size:15px;color:#ffd79a;letter-spacing:2px;text-transform:uppercase}
+.order{background:#16323d;border-left:5px solid #e0a34a;padding:8px 10px;border-radius:4px;font-size:15px;line-height:1.35;margin:6px 0 10px}
+.order.read{outline:2px solid #ffd79a}
+.holdbox{position:relative;display:inline-block;padding:8px;background:#0b1e28;border:2px solid #4d7f8c;border-radius:6px}
+.hold{display:grid;gap:2px}
+.cell{width:24px;height:24px;border:1px dashed #3d6c79;border-radius:3px;background:#0e2733}
+.cell.full{background:radial-gradient(#ffd79a,#d98b34);border:1px solid #8a5a1e;box-shadow:0 0 6px #e0a34a80;cursor:pointer}
+.cell.bad{border-color:#ff5b5b;background:#3a1414;animation:fl .5s 3}
+@keyframes fl{50%{background:#812020}}
+.handle{position:absolute;right:-9px;bottom:-9px;width:20px;height:20px;background:#e0a34a;border:2px solid #6b3f11;border-radius:4px;cursor:nwse-resize}
+.readout{font-size:19px;margin:10px 0;color:#bfe6f0;font-family:"Courier New",monospace}
+.pile{display:flex;flex-wrap:wrap;gap:3px;min-height:34px;background:#132a33;border-top:3px solid #52402c;padding:6px;border-radius:4px}
+.pod{width:16px;height:16px;border-radius:3px;background:radial-gradient(#ffe2b0,#d98b34);border:1px solid #8a5a1e;cursor:grab}
+.pod.dark{background:#3c4348;border-color:#2b3033;box-shadow:none}
+.plank{display:inline-block;margin:8px 0;padding:6px 12px;background:#6b4a26;border:2px solid #a97d40;border-radius:4px;cursor:grab;font-size:13px}
+.controls{margin-top:6px;display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+button{font-family:inherit;font-size:14px;padding:8px 12px;border-radius:5px;border:2px solid #2b4c57;background:#1d4150;color:#f0e6d2;cursor:pointer}
+#sail{background:#1f6b4a;border-color:#39a173;font-weight:bold;letter-spacing:2px}
+#flag{background:#7d2020;border-color:#d05252}
+select{font-size:14px;padding:4px}
+.slate{margin-top:10px;background:#101d22;border:1px solid #35555f;border-radius:4px;padding:8px 10px;font-size:14px;min-height:38px;color:#cfe9f0}
+.justify button{display:block;text-align:left;margin:5px 0;width:100%}
+.gaugewrap{background:#0b1e28;border:2px solid #4d7f8c;border-radius:6px;padding:8px;text-align:center}
+.gauge{display:flex;flex-direction:column-reverse;gap:3px}
+.n{height:13px;background:#1b3a45;border-radius:2px}
+.n.on{background:linear-gradient(90deg,#2f8fb0,#7fd8ef)}
+.glabel{font-size:12px;letter-spacing:3px;margin-top:6px;color:#9fc4cf}
+.ledger{margin-top:10px;font-size:13px;line-height:1.6;color:#bfe6f0}
+.done{position:fixed;inset:0;background:#06131bee;padding:30px;overflow:auto;z-index:9}
+.lant{display:grid;gap:4px;margin:14px 0}
+.l{width:16px;height:16px;border-radius:50%;background:#ffe8b0;box-shadow:0 0 10px #ffca6a}
+#ghost{position:fixed;pointer-events:none;z-index:20}
+</style>
+</head>
+<body>
+<h1>The Shape-Shifting Crate</h1>
+<p class="sub">Night dock, falling tide. Five holds, five shapes — every pod sails or it stays behind.</p>
+<div class="wrap">
+  <div class="left">
+    <div id="boatName"></div>
+    <div id="order" class="order"></div>
+    <div class="holdbox"><div id="hold" class="hold"></div><div id="handle" class="handle" title="Drag to reshape the hold"></div></div>
+    <div id="readout" class="readout"></div>
+    <div class="pile" id="pile"></div>
+    <div><span id="plank" class="plank">ROW PLANK — drag into the hold to pour one row</span></div>
+    <div class="controls">
+      <button id="sail">SAIL</button>
+      <button id="flag" hidden>&#128681; CAN'T BE DONE</button>
+      <span id="dialbox" hidden>Hold width: <select id="dial"></select></span>
+      <button id="hint">Ask the harbourmaster</button>
+      <button id="read">Read it to me</button>
+    </div>
+    <div id="justify" class="justify" hidden></div>
+    <div id="slate" class="slate"></div>
+  </div>
+  <div class="right">
+    <div class="gaugewrap"><div id="gauge" class="gauge"></div><div class="glabel">TIDE</div></div>
+    <div class="ledger" id="ledger"></div>
+  </div>
+</div>
+<div id="done" class="done" hidden></div>
+<div id="sunny-companion"></div>
+<script>
+document.addEventListener('DOMContentLoaded',function(){
+var R=[
+{id:"q5.dock.grain_skiff",boat:"The Grain Skiff",pods:24,w:3,lockW:1,r:1,target:"math.multiplication.equal_groups",
+ order:"24 pods. This hold is 3 across. Build the hold deep enough to take every one — no gaps, nothing left on the dock.",
+ hints:["One full row uses 3 pods. You have 24. Count by 3s and watch how many rows that takes.","3, 6, 9, 12... keep going until you reach 24, then make the hold that many rows deep."]},
+{id:"q5.dock.wide_ferry",boat:"The Wide Ferry",pods:24,w:12,lockW:1,r:1,target:"math.multiplication.equal_groups",
+ order:"The same 24 pods come back on the pallet. This hold is 12 across. Same count. Different shape.",
+ hints:["One full row of this hold swallows 12 pods.","How many rows of 12 use up exactly 24?"]},
+{id:"q5.dock.deep_trawler",boat:"The Deep Trawler",pods:36,w:1,r:4,lockR:1,target:"math.multiplication.missing_factor",
+ order:"36 pods. The trawler only announces its depth: 4 rows. You have to work out how wide the hold must be.",
+ hints:["The hold is 4 rows deep, so every column you add holds 4 pods.","4 × ? = 36. Widen until every pod is aboard and no cell is empty."]},
+{id:"q5.dock.stubborn_cutter",boat:"The Stubborn Cutter",pods:14,w:4,lockW:1,r:1,impossible:1,target:"math.multiplication.missing_factor",
+ order:"14 pods. The harbourmaster demands a hold 4 across. Load it exactly — or raise the red flag and tell him it can't be done.",
+ hints:["Try it and look at the leftovers: 4, 8, 12... then what?","3 rows of 4 is 12; 4 rows of 4 is 16. 14 sits between them. If no row count works, saying so is a legal answer — the red flag."]},
+{id:"q5.dock.lantern_barge",boat:"The Lantern Barge",pods:40,w:1,r:1,story:1,target:"math.multiplication.word_problem_interpretation",
+ order:"Order slate: \u201cThe lantern barge takes rows of 5, and it must ride at least 6 rows deep. Load all 40 lanterns.\u201d",
+ hints:["Read the order twice: rows of 5, and at least 6 rows deep.","Rows of 5 means 5 per row: 5 × ? = 40. Then check that row count against \u201cat least 6 rows deep\u201d."]}];
+var CELL=26,MAXN=12,TOTAL=138;
+var S={round:0,w:1,r:1,loaded:0,sailed:0,stranded:0,notches:12,tick:45,sec:45,paused:0,hints:0,recorded:0,flagged:0,t0:0,ra:0,results:[],just:0,over:0,start:Date.now(),drag:null};
+var hold=document.getElementById('hold'),handle=document.getElementById('handle'),pile=document.getElementById('pile'),
+ readout=document.getElementById('readout'),slate=document.getElementById('slate'),gauge=document.getElementById('gauge'),
+ ledger=document.getElementById('ledger'),orderEl=document.getElementById('order'),boatEl=document.getElementById('boatName'),
+ sailB=document.getElementById('sail'),flagB=document.getElementById('flag'),dialbox=document.getElementById('dialbox'),
+ dial=document.getElementById('dial'),justEl=document.getElementById('justify'),doneEl=document.getElementById('done'),plank=document.getElementById('plank');
+var AC;function snd(f,d,ty,v){try{AC=AC||new (window.AudioContext||window.webkitAudioContext)();var o=AC.createOscillator(),g=AC.createGain();o.type=ty||'sine';o.frequency.value=f;g.gain.value=v||.12;o.connect(g);g.connect(AC.destination);o.start();g.gain.exponentialRampToValueAtTime(.001,AC.currentTime+d);o.stop(AC.currentTime+d);}catch(e){}}
+function clunk(i){snd(320+((i||0)%12)*22,.09,'triangle',.1)}
+function horn(){snd(110,.9,'sawtooth',.14);setTimeout(function(){snd(82,1.1,'sawtooth',.12)},160)}
+function bell(){snd(880,.5,'sine',.12)}
+function thud(){snd(90,.35,'square',.1)}
+
+function cur(){return R[S.round]}
+function say(t){slate.textContent=t}
+function post(read){var r=cur();window.parent.postMessage({type:"game_state_update",payload:{game:"generated-math",activityId:"quest",nodeId:"quest",phase:"question",activityTitle:"The Shape-Shifting Crate",learningFocus:"math.multiplication.transfer — producing multiple valid factor pairs for one product, and solving for an unknown factor under a stated constraint, in unseen contexts",mechanic:"Drag-to-rearrange packing puzzle: the same fixed pile of cargo must be rebuilt into different rectangular crate layouts on demand, with a shipping clock running.",currentChallenge:{id:r.id,prompt:r.order,mode:S.just?"defend":(r.impossible?"judge":"build"),readAloudRequested:!!read,readAloudCount:S.ra},availableActions:["drag_pod","pour_row","reshape_hold","sail",r.impossible?"raise_flag":"unload_pod","ask_harbourmaster"],itemIndex:S.round,totalItems:5,answerVisibility:"hidden"}},"*")}
+function prog(){window.parent.postMessage({type:"progress_event",payload:{nodeId:"quest",completedItems:S.round,totalItems:5}},"*")}
+
+function drawGauge(){gauge.innerHTML='';for(var i=0;i<12;i++){var d=document.createElement('div');d.className='n'+(i<S.notches?' on':'');gauge.appendChild(d)}}
+function drawLedger(){ledger.innerHTML='Boat '+(S.round+1)+' of 5<br>Pods sailed: <b>'+S.sailed+'</b><br>Left on the dock: <b>'+S.stranded+'</b><br>Tide falls in: '+S.sec+'s'}
+function render(){
+ var r=cur();hold.style.gridTemplateColumns='repeat('+S.w+',24px)';hold.innerHTML='';
+ for(var i=0;i<S.w*S.r;i++){var c=document.createElement('div');c.className='cell'+(i<S.loaded?' full':'');c.dataset.i=i;hold.appendChild(c)}
+ readout.textContent=S.r+' rows \u00d7 '+S.w+' per row = '+(S.w*S.r)+' cells \u00b7 '+S.loaded+' loaded \u00b7 '+(r.pods-S.loaded)+' on the dock';
+ pile.innerHTML='';for(var j=0;j<r.pods-S.loaded;j++){var p=document.createElement('div');p.className='pod';pile.appendChild(p)}
+ drawLedger();
+}
+function setShape(w,rr){var r=cur();if(!r.lockW)S.w=Math.max(1,Math.min(MAXN,w));if(!r.lockR)S.r=Math.max(1,Math.min(14,rr));if(S.loaded>S.w*S.r){S.loaded=S.w*S.r;thud()}render()}
+function loadPods(n){var r=cur();var add=Math.min(n,S.w*S.r-S.loaded,r.pods-S.loaded);if(add<=0){thud();return}for(var i=0;i<add;i++)(function(k){setTimeout(function(){clunk(S.loaded+k)},k*45)})(i);S.loaded+=add;render()}
+function unloadOne(){if(S.loaded>0){S.loaded--;thud();render()}}
+
+function startRound(){
+ var r=cur();S.w=r.w||1;S.r=r.r||1;S.loaded=0;S.hints=0;S.recorded=0;S.flagged=0;S.just=0;S.t0=Date.now();
+ S.tick=45-3*S.round;S.sec=S.tick;S.notches=Math.min(12,S.notches+3);
+ boatEl.textContent=r.boat;orderEl.textContent=r.order;flagB.hidden=!r.impossible;dialbox.hidden=true;justEl.hidden=true;justEl.innerHTML='';
+ sailB.hidden=false;say('Harbourmaster: fill the hold exactly, then pull SAIL.');
+ drawGauge();render();post(false);prog();
+}
+function dropTide(reason){
+ S.notches--;drawGauge();
+ if(S.notches<=0){groundOut()}
+ else if(reason==='clock')say('The tide drops a notch. '+slate.textContent);
+}
+function groundOut(){
+ var r=cur();S.sailed+=S.loaded;var left=r.pods-S.loaded;S.stranded+=left;
+ if(!S.recorded)record(false,S.r+'\u00d7'+S.w+' (grounded, '+S.loaded+' aboard)');
+ var pods=pile.querySelectorAll('.pod');for(var i=0;i<pods.length;i++)pods[i].classList.add('dark');
+ thud();say('The tide ran out. '+r.boat+' sails with '+S.loaded+' pods. '+left+' pods stay dark on the dock — they do not come back.');
+ S.notches=6;nextRound(2200);
+}
+function record(ok,val){
+ var r=cur();S.recorded=1;
+ var res={target:r.target,correct:!!ok,attemptedValue:String(val),responseTimeMs:Date.now()-S.t0,scaffoldLevel:S.hints};
+ S.results.push(res);
+ if(window.fireAttemptEvent)window.fireAttemptEvent({domain:"math",target:r.target,correct:!!ok,attemptedValue:String(val),responseTimeMs:res.responseTimeMs,scaffoldLevel:S.hints});
+ if(window.fireCompanionEvent)window.fireCompanionEvent(ok?"correct_answer":"wrong_answer",{target:r.target});
+}
+function nextRound(delay){
+ S.paused=1;sailB.hidden=true;
+ setTimeout(function(){S.round++;prog();if(S.round>=R.length){finish()}else{S.paused=0;startRound()}},delay||1500)
+}
+function launch(){
+ var r=cur();S.sailed+=S.loaded;horn();
+ say(r.boat+' settles level and pulls away. '+(S.round===1?'Same 24. Different boat, different shape — pods do not care what shape they wore an hour ago.':S.round===3?'Right call. 4 does not go into 14. You picked a width that does.':'Loaded exactly: '+S.r+' \u00d7 '+S.w+' = '+r.pods+'.'));
+ S.notches--;drawGauge();nextRound(1800);
+}
+function exact(){return S.loaded===cur().pods&&S.loaded===S.w*S.r}
+function markBad(){var cs=hold.querySelectorAll('.cell');for(var i=S.loaded;i<cs.length;i++)cs[i].classList.add('bad');thud()}
+
+function handleSail(){
+ if(S.paused||S.just)return;var r=cur();
+ if(r.story){
+   var ok=exact()&&S.w===5&&S.r>=6;
+   if(!ok){
+     if(!S.recorded)record(false,S.r+'\u00d7'+S.w);
+     markBad();say(exact()?'The order is not met: rows of 5, at least 6 rows deep. The barge waits.':'That does not fill the hold exactly. The barge waits.');dropTide('fail');post(false);return;
+   }
+   S.just=1;sailB.hidden=true;askJustify();return;
+ }
+ if(exact()&&!(r.impossible&&S.w===4)){ if(!S.recorded)record(!r.impossible||S.flagged,(S.flagged?'flag+':'')+S.r+'\u00d7'+S.w); launch(); return; }
+ if(!S.recorded)record(false,S.r+'\u00d7'+S.w+' = '+(S.w*S.r)+' cells for '+r.pods+' pods');
+ markBad();
+ var msg=S.loaded<S.w*S.r?'Empty cells in the hold — the boat will not sail half-packed.':(r.pods-S.loaded)+' pods still on the dock. Nothing gets left behind.';
+ if(r.impossible)msg+=' 4 across leaves pods hanging outside the outline.';
+ say(msg+' Tide drops a notch.');dropTide('fail');post(false);
+}
+function handleFlag(){
+ if(S.paused||!cur().impossible||S.flagged)return;
+ S.flagged=1;bell();if(!S.recorded)record(true,'flag: 4 does not divide 14');
+ flagB.hidden=true;dialbox.hidden=false;cur().lockW=0;
+ dial.innerHTML='';[1,2,3,4,5,6,7,8,9,10,11,12].forEach(function(v){var o=document.createElement('option');o.value=v;o.textContent=v+' across';dial.appendChild(o)});
+ dial.value=S.w;
+ say('Harbourmaster strikes the order off the slate: \u201cRight call. 4 does not go into 14. Turn the dial to a width that does, then load it.\u201d');
+ post(false);
+}
+function handleDial(v){setShape(parseInt(v,10),S.r)}
+function askJustify(){
+ justEl.hidden=false;
+ var opts=[["a","The order says at least 6 rows deep \u2014 4 rows is too shallow, 8 rows is not.",1],
+ ["b","Because 8 is a bigger number than 4.",0],["c","Because rows of 5 always have to be 8 deep.",0]];
+ justEl.innerHTML='<div style="margin:6px 0">Harbourmaster: \u201cWhy 8 rows and not 4?\u201d</div>';
+ opts.forEach(function(o){var b=document.createElement('button');b.textContent=o[1];b.onclick=function(){handleJustify(o[0],o[2])};justEl.appendChild(b)});
+ say('Answer the harbourmaster before the barge launches.');post(false);
+}
+function handleJustify(key,ok){
+ if(S.paused)return;
+ if(!S.recorded)record(!!ok,'5\u00d78 \u00b7 reason:'+key);
+ if(ok){justEl.hidden=true;S.just=0;bell();launch()}
+ else{thud();say('That is not the reason the order gives. Read the order again. Tide drops a notch.');dropTide('fail')}
+}
+function handleHint(){
+ if(S.paused)return;var r=cur();
+ say('Harbourmaster: '+r.hints[Math.min(S.hints,r.hints.length-1)]);
+ S.hints++;if(window.fireCompanionEvent)window.fireCompanionEvent("help_requested",{target:r.target});post(false);
+}
+function handleRead(){S.ra++;orderEl.classList.add('read');setTimeout(function(){orderEl.classList.remove('read')},1200);post(true)}
+
+function finish(){
+ S.over=1;sailB.hidden=true;
+ var ok=S.results.filter(function(x){return x.correct}).length,acc=S.results.length?ok/S.results.length:0;
+ var lw=S.w,lr=S.r,cells=Math.min(lw*lr,60);
+ var h='<h2 style="color:#ffd79a">The fleet is out</h2><p style="font-size:17px;max-width:600px">'+S.sailed+' of '+TOTAL+' pods sailed tonight. '+S.stranded+' stayed dark on the dock.</p>'+
+ '<p style="max-width:620px;line-height:1.5">Harbourmaster: \u201cFive boats, five shapes, one loader. You proved a number can wear every shape that fits it \u2014 and you knew when one did not.\u201d</p>'+
+ '<div class="lant" style="grid-template-columns:repeat('+lw+',16px)">';
+ for(var i=0;i<cells;i++)h+='<div class="l"></div>';
+ h+='</div><p style="color:#9fc4cf">The lanterns burn in your last arrangement: '+lr+' rows of '+lw+'.</p>';
+ doneEl.innerHTML=h;doneEl.hidden=false;horn();
+ if(window.fireCompanionEvent)window.fireCompanionEvent("game_complete",{});
+ window.parent.postMessage({type:"progress_event",payload:{nodeId:"quest",completedItems:5,totalItems:5}},"*");
+ if(window.sendNodeComplete)window.sendNodeComplete({nodeId:(window.GAME_PARAMS&&window.GAME_PARAMS.nodeId)||"quest",completed:true,accuracy:acc,targetResults:S.results,timeSpent_ms:Date.now()-S.start});
+}
+
+/* drag */
+var ghost=null;
+function startDrag(kind,e){if(S.paused||S.over)return;S.drag=kind;ghost=document.createElement('div');ghost.id='ghost';ghost.className='pod';ghost.style.width='20px';ghost.style.height='20px';document.body.appendChild(ghost);moveGhost(e)}
+function moveGhost(e){if(ghost){ghost.style.left=(e.clientX-10)+'px';ghost.style.top=(e.clientY-10)+'px'}}
+window.addEventListener('pointermove',function(e){
+ if(ghost)moveGhost(e);
+ if(S.hdrag&&!S.paused){var b=hold.getBoundingClientRect();setShape(Math.round((e.clientX-b.left)/CELL),Math.round((e.clientY-b.top)/CELL))}
+});
+window.addEventListener('pointerup',function(e){
+ S.hdrag=false;
+ if(S.drag){var b=hold.parentNode.getBoundingClientRect();
+  if(e.clientX>=b.left-20&&e.clientX<=b.right+20&&e.clientY>=b.top-20&&e.clientY<=b.bottom+20)loadPods(S.drag==='row'?S.w:1);
+  if(ghost){ghost.remove();ghost=null}S.drag=null;}
+});
+pile.addEventListener('pointerdown',function(e){if(e.target.classList.contains('pod')){e.preventDefault();startDrag('one',e)}});
+plank.addEventListener('pointerdown',function(e){e.preventDefault();startDrag('row',e)});
+handle.addEventListener('pointerdown',function(e){e.preventDefault();S.hdrag=true});
+hold.addEventListener('click',function(e){if(e.target.classList.contains('full'))unloadOne()});
+sailB.onclick=handleSail;flagB.onclick=handleFlag;dial.onchange=function(){handleDial(dial.value)};
+document.getElementById('hint').onclick=handleHint;document.getElementById('read').onclick=handleRead;
+
+setInterval(function(){if(S.paused||S.over)return;S.sec--;if(S.sec<=0){S.sec=S.tick;dropTide('clock')}drawLedger()},1000);
+window.addEventListener('message',function(ev){var d=ev.data||{};if(d.type==='sunny_companion_presence'){S.paused=!!(d.payload&&(d.payload.summoned||d.payload.visible||d.payload.expanded));}});
+
+startRound();
+window.parent.postMessage({type:"activity_ready",payload:{nodeId:"quest"}},"*");
+
+window.SUNNY_VALIDATION_HOOKS={playthrough:async function(){
+ var w=function(ms){return new Promise(function(r){setTimeout(r,ms)})};
+ var fill=function(){loadPods(cur().pods)};
+ setShape(S.w,6);fill();handleSail();await w(300);           /* wrong: hold too shallow, tide drops */
+ setShape(S.w,8);fill();handleSail();await w(2200);          /* visible recovery */
+ setShape(12,2);fill();handleSail();await w(2200);
+ setShape(9,4);fill();handleSail();await w(2200);
+ handleFlag();await w(200);handleDial(7);setShape(7,2);fill();handleSail();await w(2200);
+ setShape(5,8);fill();handleSail();await w(300);handleJustify('a',1);await w(2200);
+ return {completed:S.over===1,items:S.results.length};
+}};
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,103 @@
+{
+  "schemaVersion": 1,
+  "seriesId": "math-longitudinal-proof-2026-08-08",
+  "syntheticChildId": "proof-child-math-longitudinal",
+  "purpose": "Prove that Sunny preserves assignment identity, calibrates beliefs from returned work, and carries corrections into later related assignments.",
+  "rules": {
+    "realChildDataAllowed": false,
+    "returnedWorkMustLinkToOriginalHomeworkId": true,
+    "engagementMayAffectMastery": false,
+    "sameAssignmentReingestionMayResetLifecycle": false,
+    "bossPerformanceMayEstablishIndependentReadiness": false
+  },
+  "rounds": [
+    {
+      "round": 1,
+      "assignmentCode": "LAB-MATH-A",
+      "original": "round-1-equal-groups-original.pdf",
+      "returned": "round-1-equal-groups-returned-marked.pdf",
+      "constructs": [
+        "math.multiplication.equal_groups",
+        "math.multiplication.arrays",
+        "math.multiplication.word_problem_interpretation"
+      ],
+      "factualEngagementEvents": [
+        { "activityId": "synthetic-construction-route", "rating": 5, "replayed": true, "assistance": "none" },
+        { "activityId": "synthetic-paced-route", "rating": 3, "replayed": false, "assistance": "none" }
+      ],
+      "returnedFacts": {
+        "score": { "correct": 5, "total": 6 },
+        "assistance": "unassisted",
+        "errorPattern": "Selected addition instead of multiplication for one equal-groups story."
+      },
+      "expectedBehavior": [
+        "Record arrays and direct facts as supported evidence.",
+        "Keep word-problem operation selection uncertain rather than declaring broad multiplication mastery.",
+        "Use ratings only as engagement evidence for future presentation hypotheses."
+      ]
+    },
+    {
+      "round": 2,
+      "assignmentCode": "LAB-MATH-B",
+      "original": "round-2-missing-factor-original.pdf",
+      "returned": "round-2-missing-factor-returned-marked.pdf",
+      "constructs": [
+        "math.multiplication.missing_factor",
+        "math.multiplication.equal_sharing",
+        "math.multiplication.word_problem_interpretation"
+      ],
+      "factualEngagementEvents": [
+        { "activityId": "synthetic-visual-route", "rating": 4, "replayed": false, "assistance": "hint_used" },
+        { "activityId": "synthetic-speed-route", "rating": 2, "replayed": false, "abandoned": true, "assistance": "none" }
+      ],
+      "returnedFacts": {
+        "score": { "correct": 4, "total": 7 },
+        "assistance": "unassisted",
+        "errorPattern": "Repeatedly multiplied known numbers instead of solving for a missing group size or factor."
+      },
+      "expectedBehavior": [
+        "Compute prediction error before interpretation.",
+        "Reject or revise any belief that missing-factor transfer was secure.",
+        "Create targeted support or require more evidence under the same homework identity.",
+        "Carry the contradiction and decision IDs into the Round 3 Planner request."
+      ]
+    },
+    {
+      "round": 3,
+      "assignmentCode": "LAB-MATH-C",
+      "original": "round-3-transfer-original.pdf",
+      "returned": "round-3-transfer-returned-marked.pdf",
+      "constructs": [
+        "math.multiplication.equal_groups",
+        "math.multiplication.missing_factor",
+        "math.multiplication.word_problem_interpretation",
+        "math.multiplication.factor_pairs"
+      ],
+      "factualEngagementEvents": [
+        { "activityId": "synthetic-adapted-route", "rating": 5, "replayed": true, "assistance": "none" }
+      ],
+      "returnedFacts": {
+        "score": { "correct": 7, "total": 8 },
+        "assistance": "unassisted",
+        "errorPattern": "One incomplete response when asked for multiple factor pairs; prior missing-factor and interpretation errors did not recur."
+      },
+      "expectedBehavior": [
+        "Show that Round 2's correction reached the Planner before this intervention was authored.",
+        "Preserve the full history rather than replacing the earlier error.",
+        "Allow ready_independent only for constructs supported by confirmed unassisted returned evidence.",
+        "Keep factor-pair generalization scoped as developing or uncertain."
+      ]
+    }
+  ],
+  "requiredProofs": [
+    "Each original receives a stable and distinct homeworkId.",
+    "Uploading a returned PDF uses the selected original homeworkId rather than creating a new assignment.",
+    "Reingesting an original PDF returns its existing cycle byte-for-byte and makes no generation call.",
+    "Round 2 receives Round 1 evaluations and theory decision.",
+    "Round 3 receives Round 2 prediction errors and correction.",
+    "At least one initial assumption is contradicted and explicitly assessed.",
+    "A later successful return may support scoped readiness without deleting the earlier mistake.",
+    "Ratings, replay, abandonment, completion, and help remain separate from mastery.",
+    "Real Reina and Ila files remain unchanged."
+  ]
+}

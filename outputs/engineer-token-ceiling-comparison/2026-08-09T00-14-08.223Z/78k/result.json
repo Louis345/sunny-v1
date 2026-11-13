@@ -1,0 +1,9 @@
+{
+  "stopReason": "end_turn",
+  "htmlClosed": true,
+  "inputTokens": 18146,
+  "outputTokens": 47687,
+  "costUsd": 1.282905,
+  "elapsedMs": 568428,
+  "htmlChars": 59415
+}

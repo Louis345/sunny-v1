@@ -1,0 +1,12 @@
+{
+  "iteration": 1,
+  "validation": {
+    "passed": false,
+    "failures": [
+      "Generated artifacts must call window.fireAttemptEvent(...) instead of relying on bare globals",
+      "Generated artifacts must call window.sendNodeComplete(...) instead of relying on bare globals",
+      "Generated artifacts must call window.fireCompanionEvent(...) instead of relying on bare globals"
+    ]
+  },
+  "error": null
+}

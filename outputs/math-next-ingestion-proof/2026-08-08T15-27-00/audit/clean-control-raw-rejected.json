@@ -1,0 +1,291 @@
+{
+  "model": "claude-opus-5",
+  "stopReason": "tool_use",
+  "usage": {
+    "input_tokens": 15352,
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 0,
+    "cache_creation": {
+      "ephemeral_5m_input_tokens": 0,
+      "ephemeral_1h_input_tokens": 0
+    },
+    "output_tokens": 16781,
+    "service_tier": "standard",
+    "inference_geo": "global"
+  },
+  "content": [
+    {
+      "type": "tool_use",
+      "id": "toolu_01WwPD4tkkjrE2Gb4xwkGZmi",
+      "name": "create_math_learning_program",
+      "input": {
+        "planId": "plan.lab-math-c.r3.equal-groups-transfer",
+        "contentScopeRationale": "The assignment (LAB-MATH-C, Festival Team Challenge) asks for independent transfer across four surfaces of one idea: equal-groups multiplication in word problems (items 1, 5), equal-row/array structure with commutativity (items 4, 8), missing-factor / division-as-unknown-factor reasoning (items 2, 3), and fact reasoning via nearby known facts plus discriminating a multiplication situation from addition or sharing (items 6, 7). The teacher's target is not the specific numbers but the underlying structure: a multiplication expression names a number of equal groups and a group size, and the same structure can be read from an array, recovered from a missing factor, and derived from a nearby fact. I therefore prescribe a program that teaches equal-groups structure and its array/missing-factor readings with fresh festival-free and festival-adjacent contexts and fresh number pairs, rather than re-asking the eight worksheet questions. Scope is limited to whole-number factors 1-10 with products to 100; no formal division notation, no two-step algebraic notation, no fractions, no multi-digit multiplication. Program size is minimal but sufficient: one shared diagnostic-teaching node before the fork, two route nodes that carry different responsibilities (array/commutativity structure vs. missing-factor/derived-fact reasoning), and one optional bonus node. Quest and Boss remain locked because no real child evidence exists yet.",
+        "concept": {
+          "conceptId": "math.multiplication.equal_groups",
+          "name": "Equal-groups multiplication and its array and missing-factor readings",
+          "statement": "A multiplication expression a x b names a groups of b equal objects; the same total can be seen as an array of a rows of b, read either way because a x b = b x a, and any one of the three quantities (groups, group size, total) can be recovered when the other two are known.",
+          "instanceScope": "LAB-MATH-C 'Festival Team Challenge', Grade 3, 2026-08-08. Whole-number factors 1-10, products to 100. Covers equal-groups word problems, two-step-within-one-context group problems, 4-by-9 style array equation writing, unknown-factor problems written as ___ x 8 = 48 or as equal-row sharing, discriminating a multiplication story from an addition or sharing story, and correcting a wrong product by stepping from a nearby known fact. Excludes formal division symbol, remainders, fractions, and multi-digit factors.",
+          "prerequisites": [
+            "Skip counting by 2s, 3s, 5s, and 10s",
+            "Repeated addition of a single addend",
+            "Reading and writing an equation with one unknown blank",
+            "Recognizing rows and columns in a rectangular arrangement"
+          ]
+        },
+        "academicTheory": "Theory: the child's difficulty on this assignment is not fact recall alone but unstable mapping between a situation and the equal-groups structure that licenses multiplication. When the structure is explicit (7 teams of 6), a child can often skip-count to an answer without ever naming which number is the group count and which is the group size. That fragile mapping predicts three failures visible on this worksheet: treating a two-part group problem as a single multiplication or a bare addition (item 5), writing only one equation from an array because commutativity is not seen as two readings of one picture (item 4), and stalling on unknown-factor items because the missing number is not perceived as a group count to be recovered (items 2, 3). The instructional move is therefore to make the group/group-size/total triple explicit and reversible in one representation (equal groups and arrays), and to teach derived-fact reasoning as a structural step (5 x 9 is one group of 9 more than 4 x 9, or one group of 9 less than 6 x 9) rather than as a recall correction. If the mapping is taught explicitly, later independent and delayed performance on unrehearsed transfer items should improve most on unknown-factor and array-equation items, which are the items least supported by rote skip counting. The fork tests which entry point consolidates the mapping: a spatial-array route or a reversible-equation route, with academic purpose and difficulty held comparable.",
+        "profileEvidence": [
+          "chart.identity.grade_3",
+          "chart.demographics.age_9",
+          "chart.factBankSummary.totalFacts_0",
+          "chart.factBankSummary.dueFacts_0",
+          "chart.longitudinalLearning.constructs_empty",
+          "chart.longitudinalLearning.recentDecisions_empty",
+          "chart.engagementEvidence_null",
+          "chart.rewardEvidence.purchaseCount_0",
+          "chart.rewardEvidence.currentCoinBalance_0",
+          "history.longitudinalHistory_empty",
+          "history.factualEngagementEvents_empty",
+          "assignment.LAB-MATH-C.items_1_to_8",
+          "concept.history.math.multiplication.equal_groups",
+          "concept.history.math.multiplication.missing_factor",
+          "concept.history.math.multiplication.word_problem_interpretation"
+        ],
+        "assumptions": [
+          {
+            "assumptionId": "asm.structure-mapping-fragile",
+            "claim": "The child can often reach a product by skip counting but does not reliably name which factor is the number of groups and which is the group size, which is what the assignment's array and unknown-factor items require.",
+            "evidenceIds": [
+              "assignment.LAB-MATH-C.items_1_to_8",
+              "assignment.LAB-MATH-C.item_3_missing_factor",
+              "assignment.LAB-MATH-C.item_4_array_two_equations",
+              "concept.history.math.multiplication.equal_groups",
+              "chart.factBankSummary.totalFacts_0"
+            ],
+            "confidence": 0.45,
+            "uncertainty": "There is zero observed performance data for this child; the claim is inferred from the assignment's construction and from the fact bank being empty. The child may already have solid structural mapping and only a fact-fluency gap, which would make the shared node too easy."
+          },
+          {
+            "assumptionId": "asm.unknown-factor-weakest",
+            "claim": "Unknown-factor items (___ x 8 = 48; 40 flags in 5 equal rows) will be the lowest-accuracy surface at delayed independent testing relative to direct equal-groups items.",
+            "evidenceIds": [
+              "assignment.LAB-MATH-C.item_2_equal_rows",
+              "assignment.LAB-MATH-C.item_3_missing_factor",
+              "concept.history.math.multiplication.missing_factor"
+            ],
+            "confidence": 0.5,
+            "uncertainty": "The concept id math.multiplication.missing_factor is on record but carries no outcome data, so prior exposure could have already resolved this; ordering of difficulty may reverse if the child has memorized the 8s facts."
+          },
+          {
+            "assumptionId": "asm.two-step-collapse",
+            "claim": "On a two-part equal-groups problem (3 booths x 8 cups, twice), the child is more likely to report a single-step product or a bare sum than the full total.",
+            "evidenceIds": [
+              "assignment.LAB-MATH-C.item_5_two_step_cups",
+              "concept.history.math.multiplication.word_problem_interpretation"
+            ],
+            "confidence": 0.4,
+            "uncertainty": "No observed work samples exist. Two-step error rates in grade 3 vary widely with reading load rather than multiplication understanding, so a wrong answer may be a comprehension artifact and not evidence about the concept."
+          },
+          {
+            "assumptionId": "asm.commutativity-not-generalized",
+            "claim": "The child can produce one equation from an array but not reliably the commuted partner, treating 4 x 9 and 9 x 4 as different facts rather than two readings of one array.",
+            "evidenceIds": [
+              "assignment.LAB-MATH-C.item_4_array_two_equations",
+              "assignment.LAB-MATH-C.item_8_two_arrays_of_36"
+            ],
+            "confidence": 0.4,
+            "uncertainty": "Item 4 asks for two equations, which may mean the teacher has already taught commutativity and is checking retention rather than introducing it; if so the assumed gap does not exist."
+          },
+          {
+            "assumptionId": "asm.no-engagement-history",
+            "claim": "No factual engagement, reward, or route-preference history exists for this child, so route assignment must be treated as an open experiment and no format may be assumed motivating.",
+            "evidenceIds": [
+              "chart.engagementEvidence_null",
+              "history.factualEngagementEvents_empty",
+              "chart.rewardEvidence.purchaseCount_0",
+              "chart.longitudinalLearning.recentDecisions_empty"
+            ],
+            "confidence": 0.95,
+            "uncertainty": "Absence of records could reflect a logging gap rather than a genuinely new learner; if prior sessions exist elsewhere, the experiment's baseline assumptions would need revision."
+          },
+          {
+            "assumptionId": "asm.instrument-contracts-unfrozen",
+            "claim": "No catalog candidate has an assignment-specific frozen academic contract or verified artifact hash, so no node in this program may be marked reuse.",
+            "evidenceIds": [
+              "catalog.instrument:concept-check.runtime.registered_unverified",
+              "catalog.instrument:visual-explainer.runtime.registered_unverified",
+              "catalog.instrument:generated-baseline.runtime.registered_unverified",
+              "catalog.instrument:spark-orb-charge.runtime.unavailable",
+              "catalog.decisionCosts.reuse.eligible_false"
+            ],
+            "confidence": 0.95,
+            "uncertainty": "Runtime status could change before build; if a contract is frozen and hash-verified in time, a revise decision could become a reuse decision without changing the academic content."
+          },
+          {
+            "assumptionId": "asm.baseline-is-practice-only",
+            "claim": "Because this is the first program for this child on this concept, every baseline node must yield practice_only evidence and cannot support a mastery claim.",
+            "evidenceIds": [
+              "chart.longitudinalLearning.constructs_empty",
+              "history.longitudinalHistory_empty",
+              "chart.factBankSummary.dueFacts_0"
+            ],
+            "confidence": 0.9,
+            "uncertainty": "If the classroom teacher supplies graded independent work for this assignment, that external evidence could support mastery inference sooner than this program can."
+          }
+        ],
+        "learningResponsibilities": [
+          {
+            "id": "resp.structure-naming",
+            "title": "Name the equal-groups structure in a situation",
+            "purpose": "Establish whether the child can identify group count, group size, and total in a situation and state which multiplication expression matches, before any route-specific teaching.",
+            "academicTarget": "Given an equal-groups situation or a competing addition/sharing situation, identify the number of groups and the size of each group and select or write the matching multiplication expression."
+          },
+          {
+            "id": "resp.array-commutativity",
+            "title": "Read one array two ways",
+            "purpose": "Test whether spatial array structure consolidates the mapping, including producing commuted equation pairs and generating alternative equal-row decompositions of a fixed total.",
+            "academicTarget": "From a rectangular array, write both multiplication equations that describe it, and build more than one equal-row array for a given total."
+          },
+          {
+            "id": "resp.unknown-factor",
+            "title": "Recover a missing factor and derive from a nearby fact",
+            "purpose": "Test whether reversible-equation reasoning consolidates the mapping on the surfaces least supported by rote skip counting.",
+            "academicTarget": "Solve for an unknown factor presented as an equation blank or as an equal-sharing-into-rows situation, and correct a wrong product by stepping one group up or down from a known nearby fact."
+          },
+          {
+            "id": "resp.optional-extra-practice",
+            "title": "Optional unrehearsed mixed practice",
+            "purpose": "Offer additional assignment-aligned practice that produces practice_only signal only; it is never required, never gates the board, and cannot support mastery.",
+            "academicTarget": "Apply equal-groups structure across mixed unrehearsed surfaces (word situation, array reading, unknown factor) with no new concepts introduced."
+          }
+        ],
+        "fork": {
+          "hypothesis": "After a shared structure-naming node, a spatial array-first route and a reversible-equation-first route will produce comparable immediate accuracy, but they will differ in which transfer surface is strongest at delayed independent testing: the array route should advantage commuted-equation and multiple-decomposition items, while the equation route should advantage unknown-factor and derived-fact items. If both routes produce indistinguishable delayed profiles, the entry representation is not the active ingredient and the shared structure-naming node is doing the work.",
+          "heldConstant": [
+            "Concept math.multiplication.equal_groups and its instanceScope",
+            "Factor range 1-10 and products to 100",
+            "Six practice items per route node",
+            "Mix of response modes: at least one numeric, one construction, and one explanation per route node",
+            "Exclusion of formal division notation, remainders, and multi-digit factors",
+            "practice_only evidence limit on every node",
+            "Starting support level: one worked structural model, then faded to independent attempts",
+            "Same delayed-transfer horizon for both preregistered predictions"
+          ],
+          "routes": [
+            {
+              "id": "route.array-structure",
+              "academicRationale": "Enters the equal-groups mapping through the rectangular array, where group count and group size are simultaneously visible as rows and columns, making commutativity and alternative decompositions the primary reasoning objects.",
+              "nodeIds": [
+                "act.array-two-ways"
+              ]
+            },
+            {
+              "id": "route.equation-reversal",
+              "academicRationale": "Enters the same mapping through the equation, treating the unknown as whichever slot is blank so that missing-factor and nearby-fact derivation become the primary reasoning objects while the underlying equal-groups structure is identical.",
+              "nodeIds": [
+                "act.missing-factor-reversal"
+              ]
+            }
+          ]
+        },
+        "agencyExperiment": {
+          "experimentId": "exp.lab-math-c.r3.entry-representation",
+          "contextEvidenceIds": [
+            "chart.engagementEvidence_null",
+            "history.factualEngagementEvents_empty",
+            "history.longitudinalHistory_empty",
+            "chart.rewardEvidence.purchaseCount_0",
+            "chart.rewardEvidence.currentCoinBalance_0",
+            "chart.longitudinalLearning.recentDecisions_empty",
+            "chart.demographics.age_9",
+            "chart.demographics.grade_3",
+            "chart.factBankSummary.totalFacts_0"
+          ],
+          "academicHeldConstants": [
+            "Same concept: math.multiplication.equal_groups",
+            "Same factor range 1-10, products to 100",
+            "Six items per route node",
+            "Comparable response-mode mix (numeric, construction, explanation) in both routes",
+            "Same starting support: one worked model then faded independence",
+            "Same practice_only evidence limit",
+            "No new concepts beyond the shared node in either route"
+          ],
+          "routes": [
+            {
+              "routeId": "route.array-structure",
+              "nodeIds": [
+                "act.array-two-ways"
+              ],
+              "engagementHypothesis": "With no engagement history on record for this child, a route whose reasoning objects are laid out spatially may sustain longer continuous work because progress is visible without recall; this is a hypothesis only and no prior factual event supports it.",
+              "predictedOutcome": "If chosen, expect completion of at least 5 of 6 items with no more than 2 assistance requests, and stronger accuracy on commuted-equation and multiple-decomposition items than on the unknown-factor item embedded in the node.",
+              "supportingEvidenceIds": [
+                "chart.engagementEvidence_null",
+                "history.factualEngagementEvents_empty",
+                "chart.factBankSummary.totalFacts_0"
+              ],
+              "uncertainty": "Zero prior sessions means the predicted completion band is essentially uncalibrated. Spatial construction items can also raise interaction difficulty, which would depress completion for input reasons rather than academic ones.",
+              "falsifyingEvidence": [
+                "Abandonment before item 3",
+                "More than 3 assistance requests across the node",
+                "Accuracy on commuted-equation items at or below accuracy on the unknown-factor item",
+                "Interaction-difficulty flags on construction items exceeding numeric items",
+                "Immediate switch to the other route after the first item"
+              ],
+              "measurementKeys": [
+                "route.starts",
+                "route.completion_rate",
+                "route.abandonment_point",
+                "route.switch_count",
+                "route.replay_count",
+                "assistance.requests",
+                "interaction.difficulty_flags",
+                "rating.child_rating",
+                "accuracy.commuted_equations",
+                "accuracy.decompositions",
+                "latency.median_item_ms"
+              ]
+            },
+            {
+              "routeId": "route.equation-reversal",
+              "nodeIds": [
+                "act.missing-factor-reversal"
+              ],
+              "engagementHypothesis": "A route framed as recovering a hidden number may sustain engagement through resolution of a stated unknown; with no engagement records for this child, this is an untested hypothesis and not a preference claim.",
+              "predictedOutcome": "If chosen, expect completion of at least 5 of 6 items with no more than 2 assistance requests, and stronger accuracy on unknown-factor and nearby-fact-derivation items than on the array-reading item embedded in the node.",
+              "supportingEvidenceIds": [
+                "chart.engagementEvidence_null",
+                "history.longitudinalHistory_empty",
+                "chart.factBankSummary.dueFacts_0"
+              ],
+              "uncertainty": "Unknown-factor items may be the child's weakest surface, so early errors could depress persistence and confound engagement signal with difficulty. No prior latency or frustration data exists to separate the two.",
+              "falsifyingEvidence": [
+                "Abandonment before item 3",
+                "More than 3 assistance requests across the node",
+                "Accuracy on unknown-factor items at or below accuracy on the array-reading item",
+                "A run of 3 consecutive incorrect responses followed by disengagement",
+                "Immediate switch to the other route after the first item"
+              ],
+              "measurementKeys": [
+                "route.starts",
+                "route.completion_rate",
+                "route.abandonment_point",
+                "route.switch_count",
+                "route.replay_count",
+                "assistance.requests",
+                "interaction.difficulty_flags",
+                "rating.child_rating",
+                "accuracy.unknown_factor",
+                "accuracy.derived_fact",
+                "latency.median_item_ms"
+              ]
+            }
+          ]
+        },
+        "activities": "[{\"id\":\"act.structure-naming\",\"purpose\":\"baseline\",\"routeId\":\"shared\",\"responsibilityId\":\"resp.structure-naming\",\"academicTarget\":\"Identify the number of groups and the size of each group in an equal-groups situation, distinguish a multiplication situation from an addition or sharing situation, and state the matching multiplication expression.\",\"difficultyBoundary\":{\"allowedConcepts\":[\"Equal groups as a number of groups and a group size\",\"Multiplication expression a x b naming that structure\",\"Repeated addition as a check on a small product\",\"Distinguishing joining (addition) from equal grouping (multiplication) and from sharing\"],\"allowedRepresentations\":[\"Short one-sentence situation text\",\"Grouped-object picture description in words\",\"Multiplication equation with both factors shown\",\"Selection options naming which number is groups and which is group size\"],\"excludedExtensions\":[\"Formal division symbol\",\"Two-step problems requiring two different operations\",\"Factors above 10 or products above 100\",\"Fractions, remainders, area formulas, multi-digit multiplication\"],\"startingSupport\":\"One fully worked structural model is shown first: a situation is read aloud, the group count and group size are labeled explicitly, and the matching expression is written. Support then fades to a single reminder prompt naming the two questions to ask.\",\"expectedIndependence\":\"Child answers items 3 through 6 without a worked model, using at most one reminder prompt.\"},\"items\":[{\"id\":\"item.sn.1\",\"prompt\":\"A snack cart puts 4 crackers on each plate and fills 6 plates. Which number tells how many groups there are?\",\"lineage\":{\"sourceEvidenceIds\":[\"assignment.LAB-MATH-C.item_1_teams_of_children\",\"concept.history.math.multiplication.equal_groups\"],\"exposure\":\"taught\"},\"response\":{\"mode\":\"selection\",\"options\":[{\"id\":\"opt.sn.1.a\",\"label\":\"6, because there are 6 plates and each plate is one group\",\"correct\":true},{\"id\":\"opt.sn.1.b\",\"label\":\"4, because 4 is the first number said\",\"correct\":false},{\"id\":\"opt.sn.1.c\",\"label\":\"24, because that is the total\",\"correct\":false}]},{\"id\":\"item.sn.2\",\"prompt\":\"Same snack cart: 6 plates with 4 crackers on each. How many crackers in all?\",\"lineage\":{\"sourceEvidenceIds\":[\"assignment.LAB-MATH-C.item_1_teams_of_children\"],\"exposure\":\"taught\"},\"response\":{\"mode\":\"numeric\",\"expected\":24,\"unit\":\"crackers\"}},{\"id\":\"item.sn.3\",\"prompt\":\"Which story is a multiplication story? Pick the one that has equal groups.\",\"lineage\":{\"sourceEvidenceIds\":[\"assignment.LAB-MATH-C.item_6_which_story_uses_6x7\",\"concept.history.math.multiplication.word_problem_interpretation\"],\"exposure\":\"unseen\"},\"response\":{\"mode\":\"selection\",\"options\":[{\"id\":\"opt.sn.3.a\",\"label\":\"3 wagons each carry 9 pumpkins\",\"correct\":true},{\"id\":\"opt.sn.3.b\",\"label\":\"3 pumpkins and then 9 more pumpkins\",\"correct\":false},{\"id\":\"opt.sn.3.c\",\"label\":\"9 pumpkins split evenly between 3 friends\",\"correct\":false}]},{\"id\":\"item.sn.4\",\"prompt\":\"A garden has 5 rows of tulips with 7 tulips in every row. Write the multiplication equation, including the total.\",\"lineage\":{\"sourceEvidenceIds\":[\"assignment.LAB-MATH-C.item_1_teams_of_children\",\"assignment.LAB-MATH-C.item_6_which_story_uses_6x7\"],\"exposure\":\"unseen\"},\"response\":{\"mode\":\"construction\",\"expectedState\":{\"groups\":5,\"groupSize\":7,\"product\":35,\"equation\":\"5 x 7 = 35\"},\"successDescription\":\"Child records 5 as the group count, 7 as the group size, and 35 as the product, assembled into the equation 5 x 7 = 35.\"}},{\"id\":\"item.sn.5\",\"prompt\":\"A library cart holds 9 books on each shelf in the morning and the same 9 books on each shelf again in the afternoon, across 2 shelves. How many books were placed in all?\",\"lineage\":{\"sourceEvidenceIds\":[\"assignment.LAB-MATH-C.item_5_two_part_cups\"],\"exposure\":\"unseen\"},\"response\":{\"mode\":\"numeric\",\"expected\":36,\"unit\":\"books\"}},{\"id\":\"item.sn.6\",\"prompt\":\"Explain how you can tell that 'each' in a story is a signal for equal groups, and say what the two numbers in a multiplication equation each mean.\",\"lineage\":{\"sourceEvidenceIds\":[\"assignment.LAB-MATH-C.item_6_which_story_uses_6x7\",\"concept.history.math.multiplication.word_problem_interpretation\"],\"exposure\":\"unseen\"},\"response\":{\"mode\":\"explanation\",\"rubric\":[\"Names that 'each' signals every group is the same size\",\"States that one factor is the number of groups\",\"States that the other factor is the size of one group\",\"Refers to a specific example with its own numbers rather than only restating the rule\"]}}],\"academicPrediction\":{\"constructId\":\"math.multiplication.equal_groups\",\"context\":\"Delayed independent re-test of structure naming on unrehearsed equal-groups situations 5 to 7 days after this node, with no worked model and no reminder prompt.\",\"horizon\":\"delayed_5_to_7_days\",\"expectedMetric\":{\"key\":\"accuracy.structure_naming\",\"min\":0.6,\"max\":0.85},\"predictedErrorPatterns\":[\"Naming the first number in the sentence as the group count regardless of meaning\",\"Selecting the joining (addition) story because both numbers appear in it\",\"Reporting only the one-part product on the two-part situation (18 instead of 36)\",\"Writing the product but leaving group count and group size unlabeled\"],\"confidence\":0.5,\"evidenceIds\":[\"assignment.LAB-MATH-C.item_1_teams_of_children\",\"assignment.LAB-MATH-C.item_5_two_part_cups\",\"assignment.LAB-MATH-C.item_6_which_story_uses_6x7\",\"chart.factBankSummary.totalFacts_0\",\"history.longitudinalHistory_empty\"],\"intervention\":\"One worked structural labeling model followed by faded independent items that force explicit naming of groups and group size before any product is computed.\",\"evidenceLimit\":\"practice_only\"},\"measurementKeys\":[\"accuracy.structure_naming\",\"accuracy.situation_discrimination\",\"accuracy.two_part_total\",\"assistance.requests\",\"latency.median_item_ms\",\"node.completion_rate\",\"node.abandonment_point\"],\"catalogDecision\":{\"action\":\"revise\",\"contentId\":\"instrument:concept-check\",\"reason\":\"The Concept Check interaction is the right shape for pre-teaching structure identification, but its registered contract is generic concept understanding with no assignment-specific frozen academic contract, so the academic contract and item set must be rewritten for equal-groups structure naming.\",\"academicCompatibility\":\"Compatible: the card lists concept_understanding as a construct and supports item-level answers before teaching, which matches this node's responsibility of establishing structural mapping prior to route work.\",\"predictedLearningValue\":\"High for the program as a whole: this node determines whether the fork is testing entry representation or merely re-testing an absent prerequisite, and it supplies the shared baseline against which both routes are compared.\",\"engagementHypothesis\":\"Untested. No engagement records exist for this child, so no claim is made about whether a check-style opening sustains attention; starts, abandonment point, and assistance requests are logged to build that record.\",\"reliabilityEvidence\":\"Runtime status is registered_unverified with no verified artifact hash and zero child evidence, so reuse is ineligible and the node is prescribed as practice_only.\",\"costRationale\":\"Revise is estimated at 1 model call versus 2 for generate_new, and the existing interaction shape already supports selection, numeric, construction, and explanation responses, so the cheaper path is also academically sufficient.\",\"explorationRationale\":\"With zero evidence on file for every candidate, a bounded revise here is the low-cost way to generate first reliability evidence for this instrument family without risking the fork comparison.\",\"evidenceIds\":[\"catalog.instrument:concept-check.runtime.registered_unverified\",\"catalog.instrument:concept-check.childEvidence.count_0\",\"catalog.instrument:concept-check.decisionCosts.revise.eligible_true\",\"catalog.instrument:concept-check.decisionCosts.reuse.eligible_false\"]}},{\"id\":\"act.array-two-ways\",\"purpose\":\"baseline\",\"routeId\":\"route.array-structure\",\"responsibilityId\":\"resp.array-commutativity\",\"academicTarget\":\"Write both multiplication equations described by a rectangular array and build more than one equal-row array for a given total.\",\"difficultyBoundary\":{\"allowedConcepts\":[\"Rows and columns of a rectangular array\",\"Both equations for one array (a x b and b x a)\",\"Equal-row decomposition of a total into more than one array\",\"Total unchanged when rows and columns are swapped\"],\"allowedRepresentations\":[\"Row-and-column array description or grid placement\",\"Multiplication equations with both factors and product\",\"Selection options comparing two equations for one array\",\"Short written explanation\"],\"excludedExtensions\":[\"Formal division symbol\",\"Arrays with unequal rows or leftovers\",\"Factors above 10 or totals above 100\",\"Area formula language, perimeter, fractions of an array\"],\"startingSupport\":\"One array is shown fully labeled with its two equations written out as a model. Support then fades: the next arrays are presented without equations and the child supplies them.\",\"expectedIndependence\":\"Child completes items 3 through 6 without a labeled model, using at most one hint that an array can be read by rows or by columns.\"},\"items\":[{\"id\":\"item.ar.1\",\"prompt\":\"An array has 3 rows with 8 counters in each row. Which pair of equations both describe this same array?\",\"lineage\":{\"sourceEvidenceIds\":[\"assignment.LAB-MATH-C.item_4_array_two_equations\"],\"exposure\":\"taught\"},\"response\":{\"mode\":\"selection\",\"options\":[{\"id\":\"opt.ar.1.a\",\"label\":\"3 x 8 = 24 and 8 x 3 = 24\",\"correct\":true},{\"id\":\"opt.ar.1.b\",\"label\":\"3 x 8 = 24 and 3 + 8 = 11\",\"correct\":false},{\"id\":\"opt.ar.1.c\",\"label\":\"3 x 8 = 24 and 8 x 4 = 32\",\"correct\":false}]},{\"id\":\"item.ar.2\",\"prompt\":\"An array has 6 rows with 5 tiles in each row. How many tiles are in the array?\",\"lineage\":{\"sourceEvidenceIds\":[\"assignment.LAB-MATH-C.item_4_array_two_equations\"],\"exposure\":\"taught\"},\"response\":{\"mode\":\"numeric\",\"expected\":30,\"unit\":\"tiles\"}},{\"id\":\"item.ar.3\",\"prompt\":\"Build an array with 7 rows and 3 lanterns in each row, then record both multiplication equations it shows.\",\"lineage\":{\"sourceEvidenceIds\":[\"assignment.LAB-MATH-C.item_4_array_two_equations\"],\"exposure\":\"unseen\"},\"response\":{\"mode\":\"construction\",\"expectedState\":{\"rows\":7,\"columns\":3,\"total\":21,\"equationA\":\"7 x 3 = 21\",\"equationB\":\"3 x 7 = 21\"},\"successDescription\":\"Child places 7 rows of 3 for a total of 21 and records both 7 x 3 = 21 and 3 x 7 = 21.\"}},{\"id\":\"item.ar.4\",\"prompt\":\"Build two different equal-row arrays that use all 24 tiles, with no tiles left over.\",\"lineage\":{\"sourceEvidenceIds\":[\"assignment.LAB-MATH-C.item_8_two_arrays_of_36\"],\"exposure\":\"unseen\"},\"response\":{\"mode\":\"construction\",\"expectedState\":{\"total\":24,\"arrayOneRows\":4,\"arrayOneColumns\":6,\"arrayTwoRows\":3,\"arrayTwoColumns\":8,\"leftovers\":0},\"successDescription\":\"Child builds two distinct equal-row arrangements whose factor pairs both multiply to 24 with nothing left over; 4 by 6 and 3 by 8 are accepted, as is any other valid distinct pair such as 2 by 12.\"}},{\"id\":\"item.ar.5\",\"prompt\":\"An array of buttons has 8 rows and 4 buttons in each row. A friend turns the array sideways so it now has 4 rows. How many buttons are in each row now, and how many buttons in all?\",\"lineage\":{\"sourceEvidenceIds\":[\"assignment.LAB-MATH-C.item_4_array_two_equations\",\"assignment.LAB-MATH-C.item_8_two_arrays_of_36\"],\"exposure\":\"unseen\"},\"response\":{\"mode\":\"numeric\",\"expected\":8,\"unit\":\"buttons in each row\"}},{\"id\":\"item.ar.6\",\"prompt\":\"Explain why turning an array sideways does not change the total, using the row and column numbers to make your point.\",\"lineage\":{\"sourceEvidenceIds\":[\"assignment.LAB-MATH-C.item_4_array_two_equations\"],\"exposure\":\"unseen\"},\"response\":{\"mode\":\"explanation\",\"rubric\":[\"States that the same objects are being counted, only grouped differently\",\"Names that rows become columns and columns become rows\",\"Gives both equations for one specific array with the same product\",\"Concludes that a x b and b x a name the same total\"]}}],\"academicPrediction\":{\"constructId\":\"math.multiplication.equal_groups\",\"context\":\"Delayed independent transfer test 5 to 7 days later on unrehearsed arrays: producing both equations for a new array and generating two distinct equal-row decompositions of a new total, with no model shown.\",\"horizon\":\"delayed_5_to_7_days\",\"expectedMetric\":{\"key\":\"accuracy.commuted_equations\",\"min\":0.6,\"max\":0.9},\"predictedErrorPatterns\":[\"Writing only one equation and stopping\",\"Producing a second equation that changes the product (for example 3 x 8 and 8 x 4)\",\"Building a second array with unequal rows or leftover objects\",\"Repeating the same factor pair in a different visual position and calling it a different array\"],\"confidence\":0.5,\"evidenceIds\":[\"assignment.LAB-MATH-C.item_4_array_two_equations\",\"assignment.LAB-MATH-C.item_8_two_arrays_of_36\",\"chart.factBankSummary.totalFacts_0\",\"history.factualEngagementEvents_empty\"],\"intervention\":\"One labeled array with both equations modeled, then faded construction items that require producing commuted pairs and multiple decompositions independently.\",\"evidenceLimit\":\"practice_only\"},\"measurementKeys\":[\"accuracy.commuted_equations\",\"accuracy.decompositions\",\"construction.leftover_errors\",\"assistance.requests\",\"interaction.difficulty_flags\",\"node.completion_rate\",\"route.switch_count\",\"latency.median_item_ms\"],\"catalogDecision\":{\"action\":\"revise\",\"contentId\":\"instrument:visual-explainer\",\"reason\":\"The Visual Explainer's visual modeling interaction fits array structure teaching, but its registered responsibility is engagement with a generated visual model and explicitly not mastery; the academic contract must be rewritten to require commuted equation production and multiple decompositions with scored construction responses.\",\"academicCompatibility\":\"Compatible after revision: visual and reading representations support row-and-column arrays, and this node stays inside the same concept and factor range as the shared node, keeping route comparability.\",\"predictedLearningValue\":\"High for the array-commutativity responsibility, which is the surface the assignment tests twice (items 4 and 8) and which rote skip counting cannot cover.\",\"engagementHypothesis\":\"Untested spatial-engagement hypothesis only; no factual engagement record exists for this child, so route choice here will be treated as weak evidence and never as a preference.\",\"reliabilityEvidence\":\"Runtime is registered_unverified with no frozen contract and zero child evidence, so reuse is ineligible; construction items must be watched for interaction-difficulty flags that could masquerade as academic error.\",\"costRationale\":\"Revise costs an estimated 1 model call against 2 for generate_new, and no existing candidate already implements commuted-equation scoring, so revision is the cheapest academically adequate route.\",\"explorationRationale\":\"This node doubles as bounded exploration of whether visual construction input is usable by this child at all, which the empty engagement record leaves entirely open.\",\"evidenceIds\":[\"catalog.instrument:visual-explainer.runtime.registered_unverified\",\"catalog.instrument:visual-explainer.childEvidence.count_0\",\"catalog.instrument:visual-explainer.decisionCosts.revise.eligible_true\",\"catalog.instrument:visual-explainer.decisionCosts.reuse.eligible_false\"]}},{\"id\":\"act.missing-factor-reversal\",\"purpose\":\"baseline\",\"routeId\":\"route.equation-reversal\",\"responsibilityId\":\"resp.unknown-factor\",\"academicTarget\":\"Solve for an unknown factor given as an equation blank or as an equal-sharing-into-rows situation, and correct a wrong product by stepping one group up or down from a nearby known fact.\",\"difficultyBoundary\":{\"allowedConcepts\":[\"Unknown factor in a x ___ = c or ___ x b = c\",\"Equal rows with known total and known row count\",\"Nearby-fact derivation: one more group or one fewer group\",\"Checking a recovered factor by multiplying back\"],\"allowedRepresentations\":[\"Equation with one blank\",\"Short equal-rows situation text\",\"Selection options comparing candidate factors or derivation steps\",\"Short written explanation\"],\"excludedExtensions\":[\"Formal division symbol and long division procedure\",\"Remainders or totals that do not divide evenly\",\"Factors above 10 or products above 100\",\"Two unknowns, variables, or algebraic notation\"],\"startingSupport\":\"One unknown-factor equation is solved aloud as a model: the known factor is named as the group size, the total is named, and the blank is recovered by asking how many groups of that size make the total, then checked by multiplying back. Support then fades to a single check-by-multiplying reminder.\",\"expectedIndependence\":\"Child completes items 3 through 6 without a worked model, using at most one reminder to check by multiplying back.\"},\"items\":[{\"id\":\"item.mf.1\",\"prompt\":\"Fill in the missing factor: ___ x 7 = 42. Which choice is correct and why?\",\"lineage\":{\"sourceEvidenceIds\":[\"assignment.LAB-MATH-C.item_3_missing_factor\",\"concept.history.math.multiplication.missing_factor\"],\"exposure\":\"taught\"},\"response\":{\"mode\":\"selection\",\"options\":[{\"id\":\"opt.mf.1.a\",\"label\":\"6, because 6 groups of 7 make 42\",\"correct\":true},{\"id\":\"opt.mf.1.b\",\"label\":\"35, because 42 minus 7 is 35\",\"correct\":false},{\"id\":\"opt.mf.1.c\",\"label\":\"7, because both factors should match\",\"correct\":false}]},{\"id\":\"item.mf.2\",\"prompt\":\"Fill in the missing factor: 9 x ___ = 54.\",\"lineage\":{\"sourceEvidenceIds\":[\"assignment.LAB-MATH-C.item_3_missing_factor\"],\"exposure\":\"taught\"},\"response\":{\"mode\":\"numeric\",\"expected\":6}},{\"id\":\"item.mf.3\",\"prompt\":\"Thirty-two ribbons are hung in 4 equal rows. How many ribbons are in each row?\",\"lineage\":{\"sourceEvidenceIds\":[\"assignment.LAB-MATH-C.item_2_forty_flags_five_rows\"],\"exposure\":\"unseen\"},\"response\":{\"mode\":\"numeric\",\"expected\":8,\"unit\":\"ribbons in each row\"}},{\"id\":\"item.mf.4\",\"prompt\":\"A student writes 6 x 8 = 42. Show the correction by starting from a nearby fact you already know and stepping one group.\",\"lineage\":{\"sourceEvidenceIds\":[\"assignment.LAB-MATH-C.item_7_nearby_fact_correction\"],\"exposure\":\"unseen\"},\"response\":{\"mode\":\"construction\",\"expectedState\":{\"nearbyFact\":\"5 x 8 = 40\",\"step\":\"add one more group of 8\",\"correctedProduct\":48,\"correctedEquation\":\"6 x 8 = 48\"},\"successDescription\":\"Child names a nearby known fact such as 5 x 8 = 40 (or 7 x 8 = 56), states the step of adding one group of 8 (or subtracting one group of 8), and records the corrected equation 6 x 8 = 48.\"}},{\"id\":\"item.mf.5\",\"prompt\":\"An array has 45 seats arranged in equal rows of 9. How many rows are there?\",\"lineage\":{\"sourceEvidenceIds\":[\"assignment.LAB-MATH-C.item_2_forty_flags_five_rows\",\"assignment.LAB-MATH-C.item_4_array_two_equations\"],\"exposure\":\"unseen\"},\"response\":{\"mode\":\"numeric\",\"expected\":5,\"unit\":\"rows\"}},{\"id\":\"item.mf.6\",\"prompt\":\"Explain how you can check that the number you put in a blank like ___ x 6 = 48 is right, and how knowing 8 x 6 helps you find 9 x 6.\",\"lineage\":{\"sourceEvidenceIds\":[\"assignment.LAB-MATH-C.item_3_missing_factor\",\"assignment.LAB-MATH-C.item_7_nearby_fact_correction\"],\"exposure\":\"unseen\"},\"response\":{\"mode\":\"explanation\",\"rubric\":[\"Describes multiplying the recovered factor by the known factor to check it equals the total\",\"Names the recovered value 8 for the blank in ___ x 6 = 48\",\"States that 9 x 6 is one more group of 6 than 8 x 6\",\"Gives the derived value 54 or shows the addition of 6 to 48\"]}}],\"academicPrediction\":{\"constructId\":\"math.multiplication.missing_factor\",\"context\":\"Delayed independent transfer test 5 to 7 days later on unrehearsed unknown-factor equations, equal-rows situations, and a nearby-fact correction, with no worked model.\",\"horizon\":\"delayed_5_to_7_days\",\"expectedMetric\":{\"key\":\"accuracy.unknown_factor\",\"min\":0.5,\"max\":0.8},\"predictedErrorPatterns\":[\"Subtracting the known factor from the total instead of recovering a group count\",\"Repeating the known factor in the blank (7 for ___ x 7 = 42)\",\"Answering the total instead of the per-row amount in equal-rows situations\",\"Correcting a wrong product by guessing a new fact rather than stepping one group from a nearby fact\"],\"confidence\":0.45,\"evidenceIds\":[\"assignment.LAB-MATH-C.item_2_forty_flags_five_rows\",\"assignment.LAB-MATH-C.item_3_missing_factor\",\"assignment.LAB-MATH-C.item_7_nearby_fact_correction\",\"concept.history.math.multiplication.missing_factor\",\"chart.factBankSummary.dueFacts_0\"],\"intervention\":\"One modeled unknown-factor solve with an explicit check-by-multiplying-back step, then faded items that shift the blank between group count and group size and require nearby-fact derivation.\",\"evidenceLimit\":\"practice_only\"},\"measurementKeys\":[\"accuracy.unknown_factor\",\"accuracy.derived_fact\",\"accuracy.equal_rows_per_row\",\"assistance.requests\",\"interaction.difficulty_flags\",\"node.completion_rate\",\"route.switch_count\",\"latency.median_item_ms\"],\"catalogDecision\":{\"action\":\"revise\",\"contentId\":\"instrument:generated-baseline\",\"reason\":\"The Generated Baseline Shell already produces per-target attempt evidence in the shape this node needs, but it has no assignment-specific frozen contract, so the target list, response contracts, and unknown-factor scoring must be authored for this concept.\",\"academicCompatibility\":\"Compatible: listed constructs include math_reasoning, retrieval_practice, and concept_understanding, all of which match unknown-factor recovery and nearby-fact derivation within the stated factor range.\",\"predictedLearningValue\":\"High for the responsibility the assignment leans on hardest (items 2, 3, 7) and the surface least supported by skip counting, making it the most informative delayed-transfer probe in the program.\",\"engagementHypothesis\":\"Untested hidden-number resolution hypothesis; there is no engagement history for this child, so any route selection here counts as weak evidence only and must be read alongside completion, switching, and assistance data.\",\"reliabilityEvidence\":\"Runtime is registered_unverified with zero child evidence and no verified hash, so reuse is ineligible and this node stays practice_only; per-target logging is required to build first reliability evidence.\",\"costRationale\":\"Revise is estimated at 1 model call versus 2 for generate_new; the shell's per-target attempt logging is exactly what the preregistered predictions require, so paying for a new build would add cost without academic gain.\",\"explorationRationale\":\"Bounded exploration is justified because the empty construct history leaves the relative difficulty of unknown-factor versus array surfaces genuinely open, and this node is the arm that tests it.\",\"evidenceIds\":[\"catalog.instrument:generated-baseline.runtime.registered_unverified\",\"catalog.instrument:generated-baseline.childEvidence.count_0\",\"catalog.instrument:generated-baseline.decisionCosts.revise.eligible_true\",\"catalog.instrument:generated-baseline.decisionCosts.reuse.eligible_false\"]}},{\"id\":\"act.optional-mixed-practice\",\"purpose\":\"bonus\",\"routeId\":\"shared\",\"responsibilityId\":\"resp.optional-extra-practice\",\"academicTarget\":\"Optional unrehearsed mixed practice applying equal-groups structure across a word situation, an array reading, and an unknown factor; produces practice_only signal and cannot support mastery.\",\"difficultyBoundary\":{\"allowedConcepts\":[\"Equal groups with group count and group size\",\"Reading an array by rows or by columns\",\"Unknown factor with a whole-number solution\",\"Nearby-fact stepping by one group\"],\"allowedRepresentations\":[\"Short situation text\",\"Row-and-column array description\",\"Equation with one blank\",\"Selection options\"],\"excludedExtensions\":[\"Any concept not already covered in the baseline nodes\",\"Formal division symbol\",\"Factors above 10 or products above 100\",\"Timed or scored mastery framing, remainders, fractions\"],\"startingSupport\":\"No teaching model; this node is optional practice only and offers a single optional hint per item on request.\",\"expectedIndependence\":\"Fully independent attempts expected; skipping the node entirely is an acceptable outcome and does not affect the board.\"},\"items\":[{\"id\":\"item.bx.1\",\"prompt\":\"A craft table sets out 4 boxes with 7 beads in each box. How many beads in all?\",\"lineage\":{\"sourceEvidenceIds\":[\"assignment.LAB-MATH-C.item_1_teams_of_children\"],\"exposure\":\"unseen\"},\"response\":{\"mode\":\"numeric\",\"expected\":28,\"unit\":\"beads\"}},{\"id\":\"item.bx.2\",\"prompt\":\"An array has 2 rows of 9 stickers. Which equation also describes the same array?\",\"lineage\":{\"sourceEvidenceIds\":[\"assignment.LAB-MATH-C.item_4_array_two_equations\"],\"exposure\":\"unseen\"},\"response\":{\"mode\":\"selection\",\"options\":[{\"id\":\"opt.bx.2.a\",\"label\":\"9 x 2 = 18\",\"correct\":true},{\"id\":\"opt.bx.2.b\",\"label\":\"9 + 2 = 11\",\"correct\":false},{\"id\":\"opt.bx.2.c\",\"label\":\"2 x 8 = 16\",\"correct\":false}]},{\"id\":\"item.bx.3\",\"prompt\":\"Fill in the missing factor: ___ x 5 = 35.\",\"lineage\":{\"sourceEvidenceIds\":[\"assignment.LAB-MATH-C.item_3_missing_factor\"],\"exposure\":\"unseen\"},\"response\":{\"mode\":\"numeric\",\"expected\":7}},{\"id\":\"item.bx.4\",\"prompt\":\"Explain in one or two sentences how knowing 4 x 6 = 24 helps you find 5 x 6.\",\"lineage\":{\"sourceEvidenceIds\":[\"assignment.LAB-MATH-C.item_7_nearby_fact_correction\"],\"exposure\":\"unseen\"},\"response\":{\"mode\":\"explanation\",\"rubric\":[\"States that 5 x 6 is one more group of 6 than 4 x 6\",\"Shows adding 6 to 24\",\"Gives 30 as the result\"]}}],\"academicPrediction\":{\"constructId\":\"math.multiplication.equal_groups\",\"context\":\"Optional practice attempted after the baseline board; treated as low-weight corroboration of the same delayed-transfer prediction and never as a mastery signal.\",\"horizon\":\"same_session_optional\",\"expectedMetric\":{\"key\":\"accuracy.mixed_optional\",\"min\":0.5,\"max\":0.9},\"predictedErrorPatterns\":[\"Adding the two factors instead of multiplying\",\"Choosing the addition equation for the array\",\"Repeating the known factor in the blank\",\"Restating the nearby fact without performing the one-group step\"],\"confidence\":0.35,\"evidenceIds\":[\"assignment.LAB-MATH-C.items_1_to_8\",\"chart.engagementEvidence_null\",\"history.factualEngagementEvents_empty\"],\"intervention\":\"No new teaching; optional independent practice with hints available on request only.\",\"evidenceLimit\":\"practice_only\"},\"measurementKeys\":[\"accuracy.mixed_optional\",\"node.starts\",\"node.completion_rate\",\"node.skipped\",\"assistance.requests\",\"rating.child_rating\"],\"catalogDecision\":{\"action\":\"revise\",\"contentId\":\"instrument:mystery\",\"reason\":\"The Mystery Reward candidate is registered for optional-activity engagement and choice evidence, which matches an optional non-gating node, but it carries no academic contract at all, so its payload must be revised to carry fresh assignment-aligned practice items before it can produce any academic signal.\",\"academicCompatibility\":\"Compatible only as a shell after revision: the card itself reports reward_recovery constructs with no academic target, so all academic value here comes from the prescribed practice_only items that stay inside the baseline concept boundary.\",\"predictedLearningValue\":\"Low and explicitly optional. It cannot support mastery, is not a route requirement, and failure to build it must not block the board.\",\"engagementHypothesis\":\"Untested. Purchase count and coin balance are zero and no bonus receipts exist, so whether an optional node is attempted at all is itself the open question; skipping is an acceptable, informative outcome.\",\"reliabilityEvidence\":\"Runtime is registered_unverified with zero child evidence, so reuse is ineligible; because the node is optional, its reliability risk does not threaten the baseline program.\",\"costRationale\":\"Revise is estimated at 1 model call against 2 for generate_new; since this node cannot support mastery, spending the higher cost would be unjustified.\",\"explorationRationale\":\"This is the cheapest bounded probe of optional-node uptake for a child with a completely empty reward and engagement record, and it carries no risk to the fork comparison.\",\"evidenceIds\":[\"catalog.instrument:mystery.runtime.registered_unverified\",\"catalog.instrument:mystery.childEvidence.count_0\",\"catalog.instrument:mystery.decisionCosts.revise.eligible_true\",\"chart.rewardEvidence.purchaseCount_0\",\"chart.rewardEvidence.currentCoinBalance_0\"]}}]"
+      },
+      "caller": {
+        "type": "direct"
+      }
+    }
+  ]
+}

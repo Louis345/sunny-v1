@@ -1,0 +1,52 @@
+{
+  "status": "READY_FOR_HUMAN_REVIEW",
+  "bottleneck": "resolved_below_52k",
+  "reasons": [],
+  "costUsd": 2.593835,
+  "budget": {
+    "attempts": 2,
+    "spentUsd": 2.593835,
+    "failedAttempts": 0,
+    "maxCalls": 2,
+    "maxCostUsd": 5
+  },
+  "frozen": {
+    "packetHash": "611e972e936401aa1bea33803321ab93e60b4355f497e948749f38a542a84c6e",
+    "promptHash": "c327a2c36f85ff6fc43f58107a6ff629636da126604cc291ce53694cad4c17c2",
+    "sourceRun": "outputs/planner-persona-comparison/2026-08-08T22-48-56.622Z"
+  },
+  "results": {
+    "historical": {
+      "stopReason": "historical",
+      "outputTokens": 20847,
+      "costUsd": 0.59665
+    },
+    "prior26k": {
+      "stopReason": "max_tokens",
+      "htmlClosed": false,
+      "inputTokens": 18080,
+      "outputTokens": 26000,
+      "costUsd": 0.7404000000000001,
+      "htmlChars": 12763
+    },
+    "doubled52k": {
+      "stopReason": "end_turn",
+      "htmlClosed": true,
+      "inputTokens": 18146,
+      "outputTokens": 48808,
+      "costUsd": 1.31093,
+      "elapsedMs": 590077,
+      "htmlChars": 52996
+    },
+    "tripled78k": {
+      "stopReason": "end_turn",
+      "htmlClosed": true,
+      "inputTokens": 18146,
+      "outputTokens": 47687,
+      "costUsd": 1.282905,
+      "elapsedMs": 568428,
+      "htmlChars": 59415
+    }
+  },
+  "note": "Output ceilings are maximums, not required usage. Human judgment decides whether additional room created meaningful quality."
+}

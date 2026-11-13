@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>The Impossible Order</title>
+<script src="/games/_contract.js"></script>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:radial-gradient(120% 90% at 50% 0%,#1b2a4a,#0b1220 70%);color:#f2e9d8;font-family:"Trebuchet MS",Verdana,sans-serif}
+.wrap{max-width:1180px;margin:0 auto;padding:10px 14px 30px}
+h1{font-size:30px;margin:4px 0 2px;letter-spacing:1px;color:#ffd88a;text-shadow:0 2px 0 #6b3f12}
+.sub{margin:0 0 8px;font-size:14px;color:#9fb6d6}
+.hud{display:flex;gap:10px;flex-wrap:wrap;align-items:center;background:#14213a;border:2px solid #3b5a86;border-radius:10px;padding:8px 10px;font-size:14px}
+.hud b{color:#ffd88a}
+.stage{display:grid;grid-template-columns:270px 1fr 250px;gap:12px;margin-top:12px}
+section{background:#16233c;border:2px solid #33507c;border-radius:12px;padding:10px}
+.slip{background:#f6ecd2;color:#2b1c08;border-radius:6px;padding:10px;font-weight:bold;font-size:17px;line-height:1.25;box-shadow:0 4px 0 #b9a67e}
+.badge{display:block;margin-top:6px;padding:5px 7px;border-radius:6px;background:#cfc4a6;color:#4a3c22;font-size:13px;border:2px solid #a89a76}
+.badge.gold{background:#ffcf5c;color:#4a2f00;border-color:#a97b12;box-shadow:0 0 10px #ffcf5c88}
+.heap{display:flex;flex-wrap:wrap;gap:1px;margin-top:6px;max-height:120px;overflow:hidden}
+.heap span{font-size:13px;line-height:13px}
+.bin{margin-top:10px;background:#0e1a30;border:2px dashed #6f9ad0;border-radius:10px;padding:8px;cursor:grab;user-select:none;touch-action:none}
+.bin.pull{border-color:#ffd88a}
+.pen{display:grid;gap:4px;justify-content:center;margin:8px auto;padding:8px;background:#3b2a17;border:4px solid #6a4a26;border-radius:8px;min-height:70px;touch-action:none}
+.cell{width:30px;height:30px;border-radius:5px;background:#2a1d10;display:flex;align-items:center;justify-content:center;font-size:19px}
+.cell.f{background:#123a52;box-shadow:inset 0 0 0 2px #7fd8ff}
+.cell.bad{background:#5c1a1a;box-shadow:inset 0 0 0 2px #ff6b6b;animation:wob .5s infinite}
+.cell.ghost{background:#1b3550;color:#8fc6ff;opacity:.65}
+@keyframes wob{0%,100%{transform:rotate(-2deg)}50%{transform:rotate(2deg)}}
+.wctl{text-align:center;font-size:15px}
+.wctl button{font-size:18px;width:36px;height:32px;margin:0 6px}
+#readout{text-align:center;font-size:19px;font-weight:bold;padding:6px;border-radius:8px;background:#3a1d1d;color:#ffb3b3;margin:6px auto;max-width:420px}
+#readout.ok{background:#173f22;color:#8dffa8}
+.stamps{display:flex;gap:10px;justify-content:center;margin-top:8px;flex-wrap:wrap}
+.stamps button{font-size:17px;font-weight:bold;padding:12px 16px;border-radius:10px;border:3px solid #000a;cursor:pointer}
+#shipBtn{background:#2f9e52;color:#fff}
+#refBtn{background:#b23131;color:#fff}
+button{font-family:inherit;cursor:pointer}
+.small{background:#37527d;color:#fff;border:2px solid #6f9ad0;border-radius:8px;padding:5px 9px;font-size:13px;margin-top:6px}
+.reasons{margin-top:10px;background:#f6ecd2;color:#2b1c08;border-radius:8px;padding:8px}
+.reasons button{display:block;width:100%;margin:5px 0;padding:9px;font-size:14px;border-radius:6px;border:2px solid #8b7440;background:#fff8e6}
+#msg{text-align:center;margin-top:8px;font-size:15px;min-height:22px;color:#ffd88a}
+#log div{font-size:12.5px;padding:4px 6px;margin-bottom:4px;border-radius:5px;background:#0e1a30;border-left:5px solid #666}
+.g{border-left-color:#3fbf6a!important}.r{border-left-color:#ff6b6b!important}.y{border-left-color:#ffcf5c!important}.k{border-left-color:#8899aa!important;opacity:.7}
+h2{font-size:14px;margin:0 0 6px;color:#9fb6d6;letter-spacing:2px}
+.hidden{display:none}
+#endscreen{background:#f6ecd2;color:#2b1c08;border-radius:12px;padding:16px;margin-top:14px}
+#endscreen h3{margin:6px 0}
+.dock button{display:block;width:100%;margin:8px 0;padding:16px;font-size:18px;font-weight:bold;border-radius:10px;border:3px solid #6a4a26;background:#e8d6ab}
+.paused{filter:grayscale(.6) brightness(.7);pointer-events:none}
+</style>
+</head>
+<body>
+<div class="wrap">
+<h1>The Impossible Order</h1>
+<p class="sub">Rain on the roof, one lantern, and a conveyor that never asks if you are ready. Ship what can be packed. Refuse what cannot.</p>
+<div class="hud"><span>ORDER <b id="hOrd">1</b>/8</span><span>FISH IN STOCK <b id="hStock">60</b></span><span>SHIPPED <b id="hShip">0</b></span><span>REFUSED <b id="hRef">0</b></span><span>SPILLED <b id="hSpill">0</b></span></div>
+<main class="stage">
+  <section>
+    <div id="slip" class="slip">…</div>
+    <button id="raBtn" class="small">🔊 Read it to me</button>
+    <div class="bin" id="bin"><b>STOCK BIN — drag fish into the crate</b><div class="heap" id="heap"></div></div>
+  </section>
+  <section class="mid">
+    <div id="dock" class="dock hidden"></div>
+    <div id="builder">
+      <div class="wctl">FISH PER ROW <button id="wDown">◀</button><b id="wVal">3</b><button id="wUp">▶</button> <button id="tipBtn" class="small">TIP FISH BACK</button></div>
+      <div class="pen" id="pen"></div>
+      <div id="readout">0 rows × 3 fish = 0</div>
+      <div class="stamps"><button id="shipBtn">SHIP IT</button><button id="refBtn">CANNOT BE PACKED</button></div>
+      <div id="reasons" class="reasons hidden"></div>
+    </div>
+    <div id="msg"></div>
+  </section>
+  <section><h2>HARBOR LOG</h2><div id="log"></div></section>
+</main>
+<div id="endscreen" class="hidden"></div>
+<div id="sunny-companion"></div>
+</div>
+<script>
+document.addEventListener('DOMContentLoaded',function(){
+var $=function(i){return document.getElementById(i)};
+var AC=null;function tone(f,d,t,v){try{AC=AC||new (window.AudioContext||window.webkitAudioContext)();var o=AC.createOscillator(),g=AC.createGain();o.type=t||'sine';o.frequency.value=f;g.gain.value=v||.08;o.connect(g);g.connect(AC.destination);o.start();g.gain.exponentialRampToValueAtTime(.001,AC.currentTime+d);o.stop(AC.currentTime+d)}catch(e){}}
+var REASONS=["Nothing divides it evenly.","The rows don't come out even.","The rule breaks the count."];
+var ORDERS=[
+ {id:'boss.harbor.o1.per_row_12',n:12,txt:'PACK 12 HERRING — EXACTLY 3 FISH PER ROW.',rules:[{t:'EXACTLY 3 PER ROW',f:function(r,c){return c===3}}],ok:true},
+ {id:'boss.harbor.o2.dual_20',n:20,txt:'PACK 20 MACKEREL — MORE THAN 2 ROWS ✚ EXACTLY 5 FISH PER ROW.',rules:[{t:'MORE THAN 2 ROWS',f:function(r){return r>2}},{t:'EXACTLY 5 PER ROW',f:function(r,c){return c===5}}],ok:true},
+ {id:'boss.harbor.o3.dual_30',n:30,txt:'PACK 30 SARDINES — AN EVEN NUMBER OF ROWS ✚ MORE THAN 4 FISH PER ROW.',rules:[{t:'EVEN NUMBER OF ROWS',f:function(r){return r%2===0}},{t:'MORE THAN 4 PER ROW',f:function(r,c){return c>4}}],ok:true},
+ {id:'boss.harbor.o4.dual_24',n:24,txt:'PACK 24 COD — MORE THAN 2 ROWS ✚ FEWER THAN 6 FISH PER ROW.',rules:[{t:'MORE THAN 2 ROWS',f:function(r){return r>2}},{t:'FEWER THAN 6 PER ROW',f:function(r,c){return c<6}}],ok:true},
+ {id:'boss.harbor.o5.impossible_17',n:17,txt:'PACK 17 SMELT — EQUAL ROWS OF MORE THAN 1 FISH.',rules:[{t:'MORE THAN 1 PER ROW',f:function(r,c){return c>1}}],ok:false,reason:0},
+ {id:'boss.harbor.o6.rows_28',n:28,txt:'PACK 28 POLLOCK — EXACTLY 4 EQUAL ROWS.',rules:[{t:'EXACTLY 4 ROWS',f:function(r){return r===4}}],ok:true},
+ {id:'boss.harbor.o7.impossible_24',n:24,txt:'PACK 24 SKATE — MORE THAN 4 ROWS ✚ MORE THAN 4 FISH PER ROW.',rules:[{t:'MORE THAN 4 ROWS',f:function(r){return r>4}},{t:'MORE THAN 4 PER ROW',f:function(r,c){return c>4}}],ok:false,reason:2},
+ {id:'boss.harbor.o8.choose_32_or_27',choose:true,txt:'FESTIVAL TEAM CRATE — EQUAL ROWS OF EXACTLY 8 FISH. TWO CRATES ON THE DOCK. TAKE THE ONE THAT OBEYS THE RULE.',opts:[{n:32,ok:true},{n:27,ok:false,reason:1}],rule:{t:'EXACTLY 8 PER ROW',f:function(r,c){return c===8}}}
+];
+var S={i:0,stock:60,placed:0,w:3,shipped:0,refused:0,spilled:0,lost:0,missed:0,rebate:false,paused:false,readAloud:0,t0:Date.now(),start:Date.now(),ord:null,phase:'build',chosenWrong:false,secondChance:false};
+var results=[],refusalLines=[];
+function P(m){try{window.parent.postMessage(m,'*')}catch(e){}}
+function pushState(ra){var o=S.ord||{};P({type:'game_state_update',payload:{game:'generated-math',activityId:'boss',nodeId:'boss',phase:'question',activityTitle:'The Impossible Order',learningFocus:'math.multiplication.synthesis.constrained_factor_pairs_and_impossibility — given a product and two simultaneous structural constraints, generate a valid rectangular arrangement, solve for an unknown factor, or correctly determine that no arrangement exists and justify why.',mechanic:'Drag-to-pack rectangular array building against written shipping orders, with a limited stock of crates, a commit button, and a refusal stamp that is sometimes the only correct answer.',currentChallenge:{id:o.id||'boss.harbor.end',prompt:o.txt||'Shift complete.',mode:S.phase==='choose'?'choose_quantity':'build_or_refuse',readAloudRequested:!!ra,readAloudCount:S.readAloud},availableActions:S.phase==='choose'?['take_crate']:['drag_fish','change_fish_per_row','tip_back','ship_it','cannot_be_packed'],itemIndex:S.i,totalItems:8,answerVisibility:'hidden'}})}
+function hud(){$('hOrd').textContent=Math.min(S.i+1,8);$('hStock').textContent=S.stock;$('hShip').textContent=S.shipped;$('hRef').textContent=S.refused;$('hSpill').textContent=S.spilled;
+ var h='',k=Math.min(S.stock,80);for(var j=0;j<k;j++)h+='<span>🐟</span>';$('heap').innerHTML=h+(S.stock>80?'<span>+</span>':'')}
+function log(cls,txt){var d=document.createElement('div');d.className=cls;d.textContent=txt;$('log').appendChild(d)}
+function rowsNow(){return Math.floor(S.placed/S.w)}
+function rem(){return S.placed%S.w}
+function valid(){var o=S.ord;if(!o||!o.rules)return false;if(rem()!==0||S.placed===0)return false;if(S.placed!==o.n)return false;var r=rowsNow();for(var j=0;j<o.rules.length;j++)if(!o.rules[j].f(r,S.w))return false;return true}
+function renderSlip(){var o=S.ord;if(!o)return;var h='<div>'+o.txt+'</div>';if(o.rules){var full=rem()===0&&S.placed>0;h+='<div class="badge '+(full&&S.placed===o.n?'gold':'')+'">= '+o.n+' FISH</div>';for(var j=0;j<o.rules.length;j++){var g=full&&o.rules[j].f(rowsNow(),S.w);h+='<div class="badge '+(g?'gold':'')+'">'+o.rules[j].t+'</div>'}}
+ $('slip').innerHTML=h}
+function renderPen(ghost){var pen=$('pen');pen.innerHTML='';var w=S.w,p=ghost?ghost.p:S.placed;
+ var rows=Math.max(1,Math.ceil(p/w)+(p%w===0?1:0));if(rows>14)rows=14;
+ var cs=Math.max(16,Math.min(30,Math.floor(400/w)));
+ pen.style.gridTemplateColumns='repeat('+w+','+cs+'px)';
+ for(var c=0;c<rows*w;c++){var d=document.createElement('div');d.className='cell';d.style.width=cs+'px';d.style.height=cs+'px';d.style.fontSize=(cs-11)+'px';
+  if(c<p){d.className+=ghost?' ghost':(c>=Math.floor(p/w)*w&&p%w!==0?' f bad':' f');d.textContent='🐟';d.dataset.fish='1'}
+  pen.appendChild(d)}
+ if(ghost)return;
+ var ro=$('readout'),r=rowsNow();
+ ro.textContent=rem()===0?(r+' rows × '+w+' fish = '+S.placed):(r+' rows × '+w+' fish + '+rem()+' left over — that row will not lock');
+ ro.className=valid()?'ok':'';renderSlip()}
+function addFish(){if(S.paused||S.phase!=='build')return;if(S.stock<=0){msg('The bin is empty.');return}if(S.placed>=48)return;S.stock--;S.placed++;tone(320+Math.random()*60,.06,'triangle',.05);hud();renderPen()}
+function delFish(){if(S.paused||S.placed<=0)return;S.placed--;S.stock++;tone(200,.05,'sine',.04);hud();renderPen()}
+function tipOut(){while(S.placed>0){S.placed--;S.stock++}tone(180,.2,'sine',.05);hud();renderPen()}
+function setW(w){if(S.paused)return;S.w=Math.max(1,Math.min(12,w));$('wVal').textContent=S.w;tone(520,.05,'square',.04);renderPen()}
+function msg(t){$('msg').textContent=t}
+function record(target,correct,val){var rt=Date.now()-S.t0;results.push({target:target,correct:correct,attemptedValue:String(val),responseTimeMs:rt,scaffoldLevel:0});
+ if(window.fireAttemptEvent)window.fireAttemptEvent({domain:'math',target:target,correct:correct,attemptedValue:String(val),responseTimeMs:rt,scaffoldLevel:0});
+ if(window.fireCompanionEvent)window.fireCompanionEvent(correct?'correct_answer':'wrong_answer',{target:target});
+ P({type:'progress_event',payload:{nodeId:'boss',completedItems:results.length,totalItems:8}})}
+function ship(){if(S.paused||S.phase!=='build')return;var o=S.ord,good=valid();
+ if(good){tone(660,.12,'square',.07);setTimeout(function(){tone(880,.2,'square',.06)},130);
+  var back=S.placed+3;S.stock+=back;S.shipped++;log('g','#'+(S.i+1)+' SHIPPED '+o.n+' — '+rowsNow()+' rows of '+S.w+'. Fresh catch +'+back);
+  msg('Lid slams, nails fire, the boat horn answers. +'+back+' fish delivered.');record(o.id,true,rowsNow()+'x'+S.w+' shipped');
+ }else{tone(90,.5,'sawtooth',.09);S.spilled+=S.placed;log('r','#'+(S.i+1)+' SPILLED — crate of '+S.placed+' tipped into the harbor. −'+S.placed+' fish');
+  msg('The inspector hoists it, the bottom drops — SPLASH. −'+S.placed+' fish, gone for the night.');record(o.id,false,rowsNow()+'x'+S.w+(rem()?'+'+rem():'')+' shipped');S.rebate=true;S.placed=0}
+ S.placed=0;hud();afterOrder(good)}
+function refuse(){if(S.paused||S.phase!=='build')return;S.phase='reason';var h='<b>Stamp the reason on the slip:</b>';for(var j=0;j<3;j++)h+='<button data-r="'+j+'">'+REASONS[j]+'</button>';$('reasons').innerHTML=h;$('reasons').classList.remove('hidden');
+ Array.prototype.forEach.call($('reasons').querySelectorAll('button'),function(b){b.onclick=function(){pickReason(+b.dataset.r)}});tone(150,.25,'square',.08)}
+function pickReason(k){if(S.phase!=='reason')return;$('reasons').classList.add('hidden');S.phase='build';var o=S.ord;
+ S.stock+=S.placed;S.placed=0;hud();
+ if(!o.ok){var right=(k===o.reason);S.refused++;
+  log(right?'y':'k','#'+(S.i+1)+' REFUSED '+o.n+' — "'+REASONS[k]+'"'+(right?'':' (flagged)'));
+  refusalLines.push('Order '+(S.i+1)+': '+o.n+' fish. Refused. Reason: '+REASONS[right?o.reason:k].toLowerCase()+(right?'':' — flagged, true reason: '+REASONS[o.reason].toLowerCase()));
+  msg(right?'The red seal thuds. The harbor master nods slowly from the window.':'The seal holds, but the harbor master scrawls the true reason over yours.');
+  record(o.id,right,'refused: '+REASONS[k]);tone(right?200:160,.35,'square',.08);
+  if(S.chosenWrong&&!S.secondChance){secondChance();return}
+  afterOrder(right)}
+ else{S.lost++;S.stock=Math.max(0,S.stock-10);hud();
+  log('r','#'+(S.i+1)+' CAPTAIN LOST — that order could be packed. −10 fish');
+  record(o.id,false,'refused fillable: '+REASONS[k]);S.rebate=true;
+  var w=fitFor(o);renderPen({p:o.n});setW2(w);msg(w+' fish per row would have fit the rules. The captain leaves with the bonus crate. −10 fish.');
+  setTimeout(function(){renderPen();afterOrder(false)},2600);return}}
+function setW2(w){S.w=w;$('wVal').textContent=w;renderPen({p:S.ord.n})}
+function fitFor(o){for(var w=1;w<=12;w++){if(o.n%w===0){var r=o.n/w,ok=true;for(var j=0;j<o.rules.length;j++)if(!o.rules[j].f(r,w))ok=false;if(ok)return w}}return 1}
+function secondChance(){S.secondChance=true;S.stock=Math.max(0,S.stock-6);hud();
+ msg('The harbor master slides the other crate back. Handling fee: −6 fish. Build it.');
+ S.ord={id:'boss.harbor.o8.rebuild_32',n:32,txt:'FESTIVAL TEAM CRATE — 32 FISH — EQUAL ROWS OF EXACTLY 8 FISH.',rules:[ORDERS[7].rule],ok:true};S.phase='build';renderPen();pushState()}
+function afterOrder(good){S.i++;setTimeout(next,700)}
+function next(){$('reasons').classList.add('hidden');S.t0=Date.now();
+ if(S.i>=8){finish();return}
+ if(S.rebate){S.stock+=4;S.rebate=false;msg('Dock scraps recovered: +4 fish. Steady now.')}
+ var o=ORDERS[S.i];hud();
+ var need=o.choose?Math.min(o.opts[0].n,o.opts[1].n):(o.ok?o.n:2);
+ if(S.stock<need){log('k','#'+(S.i+1)+' MISSED — not enough fish in stock. Order slid past.');S.missed++;
+  record(o.id,false,'missed: stock '+S.stock+' < '+need);msg('The order slides off the end of the conveyor. You do not have the fish.');S.i++;setTimeout(next,1400);return}
+ S.ord=o;S.placed=0;setW(3);
+ if(o.choose){S.phase='choose';$('builder').classList.add('hidden');$('dock').classList.remove('hidden');
+  $('slip').innerHTML='<div>'+o.txt+'</div><div class="badge">'+o.rule.t+'</div>';
+  $('dock').innerHTML='<b>TWO CRATES ON THE DOCK — choose one, the other goes back to the boat.</b><button data-c="0">TAKE CRATE OF '+o.opts[0].n+'</button><button data-c="1">TAKE CRATE OF '+o.opts[1].n+'</button>';
+  Array.prototype.forEach.call($('dock').querySelectorAll('button'),function(b){b.onclick=function(){chooseCrate(+b.dataset.c)}});
+ }else{S.phase='build';$('builder').classList.remove('hidden');$('dock').classList.add('hidden');renderPen()}
+ tone(440,.07,'square',.05);pushState()}
+function chooseCrate(k){if(S.phase!=='choose')return;var o=ORDERS[7],opt=o.opts[k];S.chosenWrong=!opt.ok;
+ $('dock').classList.add('hidden');$('builder').classList.remove('hidden');S.phase='build';
+ S.ord={id:o.id,n:opt.n,txt:'FESTIVAL TEAM CRATE — '+opt.n+' FISH — EQUAL ROWS OF EXACTLY 8 FISH.',rules:[o.rule],ok:opt.ok,reason:opt.reason};
+ msg('You took the crate of '+opt.n+'. The other goes back to the boat.');S.placed=0;setW(3);renderPen();pushState()}
+function finish(){$('builder').classList.add('hidden');$('dock').classList.add('hidden');$('slip').textContent='The conveyor stops. The lanterns dim.';
+ var correct=results.filter(function(r){return r.correct}).length,acc=results.length?correct/results.length:0;
+ var h='<h3>THE HARBOR MASTER WALKS THE DOCK</h3>';
+ if(refusalLines.length){h+='<p><b>He holds your refused slips up to the lantern first.</b></p><ul>';refusalLines.forEach(function(l){h+='<li>'+l+'</li>'});h+='</ul><p>"Refusing an order that cannot be packed — that is what a real packer does."</p>'}
+ else{h+='<p>"No refusals on the spike tonight. Some nights the numbers are all generous."</p>'}
+ h+='<h3>NIGHT LEDGER</h3><p>Orders shipped: <b>'+S.shipped+'</b> · Orders refused: <b>'+S.refused+'</b> · Captains lost: <b>'+S.lost+'</b> · Fish spilled: <b>'+S.spilled+'</b> · Orders missed: <b>'+S.missed+'</b> · Fish left in stock: <b>'+S.stock+'</b></p>';
+ h+='<p><b>RECORDED. AWAITING HARBOR MASTER\'S MORNING REVIEW.</b></p>';
+ $('endscreen').innerHTML=h;$('endscreen').classList.remove('hidden');
+ tone(330,.3,'sine',.07);setTimeout(function(){tone(440,.5,'sine',.06)},320);
+ if(window.fireCompanionEvent)window.fireCompanionEvent('game_complete',{});
+ P({type:'progress_event',payload:{nodeId:'boss',completedItems:8,totalItems:8}});
+ if(window.sendNodeComplete)window.sendNodeComplete({nodeId:(window.GAME_PARAMS&&window.GAME_PARAMS.nodeId)||'boss',completed:true,accuracy:acc,targetResults:results,timeSpent_ms:Date.now()-S.start});
+ pushState()}
+// drag
+var dragging=false,last=0;
+function pt(x,y){var e=document.elementFromPoint(x,y);return e&&e.classList.contains('cell')&&!e.dataset.fish}
+$('bin').addEventListener('pointerdown',function(e){if(S.paused)return;dragging=true;$('bin').classList.add('pull');e.preventDefault()});
+document.addEventListener('pointermove',function(e){if(!dragging)return;var now=Date.now();if(now-last<70)return;if(pt(e.clientX,e.clientY)){last=now;addFish()}});
+document.addEventListener('pointerup',function(e){if(!dragging)return;dragging=false;$('bin').classList.remove('pull');
+ var el=document.elementFromPoint(e.clientX,e.clientY);if(el&&(el.classList.contains('cell')||el.id==='pen')&&!(el.dataset&&el.dataset.fish))addFish()});
+$('pen').addEventListener('click',function(e){var t=e.target;if(t.dataset&&t.dataset.fish)delFish();else if(t.classList.contains('cell'))addFish()});
+$('wUp').onclick=function(){setW(S.w+1)};$('wDown').onclick=function(){setW(S.w-1)};
+$('tipBtn').onclick=tipOut;$('shipBtn').onclick=ship;$('refBtn').onclick=refuse;
+$('raBtn').onclick=function(){S.readAloud++;pushState(true)};
+window.addEventListener('message',function(e){var d=e.data||{};if(d.type==='sunny_companion_presence'){S.paused=!!(d.payload&&(d.payload.summoned||d.payload.active||d.payload.open));document.querySelector('.stage').classList.toggle('paused',S.paused)}});
+hud();S.i=0;S.ord=null;next();
+P({type:'activity_ready',payload:{nodeId:'boss'}});
+window.SUNNY_VALIDATION_HOOKS={playthrough:async function(){
+ var w=function(ms){return new Promise(function(r){setTimeout(r,ms)})};
+ var fill=function(n){for(var j=0;j<n;j++)addFish()};
+ // Order 1: deliberate wrong ship (uneven per-row rule) -> spill, then recovery
+ setW(5);fill(12);ship();await w(1400);
+ setW(5);fill(20);ship();await w(1400);            // 2
+ setW(5);fill(30);ship();await w(1400);            // 3
+ setW(4);fill(24);ship();await w(1400);            // 4
+ setW(4);fill(16);tipOut();refuse();pickReason(0);await w(1400); // 5 impossible 17
+ setW(7);fill(28);ship();await w(1400);            // 6
+ setW(6);fill(24);tipOut();refuse();pickReason(2);await w(1400); // 7 impossible
+ chooseCrate(0);await w(300);setW(8);fill(32);ship();await w(1600); // 8
+ return {completed:true,items:results.length}}};
+});
+</script>
+</body>
+</html>

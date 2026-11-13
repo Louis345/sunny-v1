@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Arrival Dock: Lantern Parade Power-Up</title>
+<style>
+:root{--safe:220px;--indigo:#101844;--panel:#18245c;--teal:#3bd0c3;--brass:#d7a84a;--amber:#ffc247;--cream:#fff7d6;--ink:#071027;--bad:#ff8e8e}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;overflow:hidden;background:#070b22;color:var(--cream);font-family:"Trebuchet MS",Verdana,sans-serif}
+button,textarea{font-family:inherit}
+#sunny-companion{position:fixed;right:0;top:0;width:var(--safe);height:100vh;z-index:20;pointer-events:none}
+.shell{width:calc(100vw - var(--safe));height:100vh;padding:10px 12px;display:flex;flex-direction:column;gap:8px;background:radial-gradient(circle at 20% 5%,#23327d 0,#101844 38%,#070b22 100%);position:relative}
+.top{display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:54px}
+h1{margin:0;font-size:clamp(20px,2.2vw,31px);line-height:1;color:#fff;text-shadow:0 2px 0 #000}
+.promise{font-size:clamp(13px,1.2vw,16px);color:#dffcff;margin-top:3px}
+.sound{background:#09203d;color:#fff;border:2px solid var(--teal);border-radius:18px;padding:8px 12px;font-weight:900;white-space:nowrap;cursor:pointer}
+.game{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:12px}
+.panel{background:linear-gradient(180deg,rgba(30,45,112,.98),rgba(13,24,68,.98));border:3px solid #457b9d;border-radius:20px;box-shadow:inset 0 0 18px rgba(59,208,195,.2),0 8px 24px rgba(0,0,0,.35);min-height:0}
+.scenePanel{display:flex;flex-direction:column;padding:10px;gap:8px}
+.promptCard{background:#fff7d6;color:#071027;border:3px solid var(--brass);border-radius:16px;padding:8px 10px;display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;box-shadow:0 4px 0 rgba(0,0,0,.25)}
+.promptCard .q{font-size:clamp(16px,1.55vw,21px);font-weight:900;line-height:1.15}
+.read{background:#0b5c73;color:#fff;border:0;border-radius:14px;padding:9px 10px;font-weight:900;cursor:pointer;box-shadow:0 3px 0 #063746}
+.visual{flex:1;min-height:0;position:relative;border-radius:16px;border:2px solid rgba(255,255,255,.18);overflow:hidden;background:linear-gradient(#111b54,#091038 65%,#131b48)}
+.stars:before,.stars:after{content:"";position:absolute;inset:0;background:radial-gradient(circle at 10% 20%,#fff 0 1px,transparent 2px),radial-gradient(circle at 72% 13%,#fff 0 1px,transparent 2px),radial-gradient(circle at 45% 32%,#79fff0 0 1px,transparent 2px),radial-gradient(circle at 88% 45%,#fff 0 1px,transparent 2px);opacity:.55}
+.sceneName{position:absolute;left:12px;top:9px;z-index:2;background:rgba(0,0,0,.48);border:1px solid var(--teal);border-radius:12px;padding:5px 10px;font-weight:900;color:#fff}
+.bot{position:absolute;right:10px;top:8px;z-index:3;width:54px;height:66px}
+.bot .head{width:45px;height:34px;background:#8ee9ff;border:3px solid #083a55;border-radius:13px;margin:auto;position:relative}
+.bot .eye{position:absolute;top:12px;width:7px;height:7px;background:#071027;border-radius:50%}.bot .e1{left:10px}.bot .e2{right:10px}
+.bot .body{width:34px;height:24px;background:#d7a84a;border:3px solid #4b3000;border-radius:8px;margin:-1px auto}
+.bot.happy{animation:botbob .6s ease 2}.bot.sad{transform:rotate(-4deg)}
+@keyframes botbob{50%{transform:translateY(-5px)}}
+.groups{position:absolute;left:10px;right:10px;top:48px;bottom:8px;z-index:2;display:grid;gap:7px;align-items:center;justify-items:center;align-content:center}
+.group{position:relative;display:flex;align-items:center;justify-content:center;border-radius:14px;min-width:74px;min-height:70px;transition:.2s;cursor:pointer}
+.group.countGlow{box-shadow:0 0 18px var(--amber);background:rgba(255,194,71,.18)}
+.subtotal{position:absolute;left:50%;top:-8px;transform:translateX(-50%);background:#fff;color:#071027;border:2px solid var(--amber);border-radius:12px;padding:2px 6px;font-weight:900;font-size:13px;display:none;z-index:5}
+.group.countGlow .subtotal{display:block}
+.wagon{width:96px;height:64px;background:#2e7a9a;border:3px solid #092033;border-radius:12px 12px 8px 8px;position:relative;padding:7px 8px 12px}
+.wagon:before{content:"";position:absolute;left:8px;right:8px;bottom:-8px;height:8px;background:#512e20;border-radius:5px}
+.wheel{position:absolute;bottom:-13px;width:15px;height:15px;background:#111;border:3px solid #bbb;border-radius:50%}.w1{left:17px}.w2{right:17px}
+.pieces{display:flex;gap:4px;flex-wrap:wrap;justify-content:center;align-items:center}
+.lantern{width:13px;height:20px;border-radius:8px;background:#58708c;border:2px solid #b8d7ff;position:relative}
+.lantern:before{content:"";position:absolute;left:3px;right:3px;top:-5px;height:5px;border:2px solid #b8d7ff;border-bottom:0;border-radius:6px}
+.pack{width:98px;min-height:62px;background:#6b3fb6;border:3px solid #210b4d;border-radius:12px;padding:9px 7px}
+.snack{width:15px;height:15px;background:#ffde75;border:2px solid #7b4a00;border-radius:50%;display:inline-block;margin:2px;position:relative}
+.snack:after{content:"";position:absolute;inset:3px;background:#ff8f5a;border-radius:50%}
+.tableScene{width:95px;height:76px;position:relative}
+.tabletop{position:absolute;left:26px;top:18px;width:43px;height:34px;background:#21b8a8;border:3px solid #063c3c;border-radius:9px}
+.chair{width:18px;height:18px;background:#ffd67a;border:2px solid #7b4a00;border-radius:5px;position:absolute}
+.c1{left:35px;top:0}.c2{left:35px;bottom:0}.c3{left:5px;top:28px}.c4{right:5px;top:28px}
+.tray{width:94px;min-height:61px;background:#49526b;border:3px solid #c7d7ff;border-radius:12px;padding:8px}
+.cup{width:14px;height:20px;background:#79e6ff;border:2px solid #0c5368;border-radius:4px 4px 8px 8px;display:inline-block;margin:2px;position:relative}
+.cup:after{content:"";position:absolute;left:2px;right:2px;top:2px;height:5px;background:#ffb85a;border-radius:4px}
+.piece.power{animation:piecePower 1.1s ease both}
+@keyframes piecePower{0%{filter:none}45%{background:#ffc247;box-shadow:0 0 12px #ffc247;transform:scale(1.16)}100%{filter:brightness(1.25)}}
+.group.sequence .piece{animation:piecePower 1s ease both}
+.demo{position:absolute;left:14px;bottom:10px;z-index:6;background:#071027;color:#fff;border:3px solid var(--teal);border-radius:15px;padding:8px 10px;box-shadow:0 6px 16px #000;max-width:360px;font-size:14px;font-weight:900}
+.demo.hidden{display:none}
+.demoMini{display:flex;align-items:center;gap:8px;margin-top:4px}.miniBox{background:#2e7a9a;border-radius:8px;padding:3px 5px}.miniLan{display:inline-block;width:8px;height:12px;background:#ffc247;border-radius:5px;margin:1px}.miniAns{font-size:20px;color:#ffc247;animation:typeBlink 1s steps(2) infinite}@keyframes typeBlink{50%{opacity:.45}}
+.progress{height:82px;display:grid;grid-template-columns:1fr 1.1fr;gap:8px}
+.districts,.track{background:rgba(0,0,0,.28);border:2px solid rgba(255,255,255,.16);border-radius:15px;padding:7px;position:relative;overflow:hidden}
+.districts{display:flex;align-items:center;justify-content:space-around}
+.dockLight{width:44px;height:44px;border-radius:50%;background:#1d2a62;border:3px solid #5b6fa4;display:flex;align-items:center;justify-content:center;font-size:21px;filter:grayscale(.8);transition:.25s}
+.dockLight.lit{background:var(--amber);box-shadow:0 0 18px var(--amber);filter:none;color:#071027}
+.conduit{position:absolute;left:9px;right:9px;top:18px;height:9px;border-radius:8px;background:#243367;border:1px solid #5c74b8}
+.surge{position:absolute;top:0;left:-25%;height:100%;width:25%;background:linear-gradient(90deg,transparent,var(--amber),transparent);border-radius:8px;display:none}
+.conduit.go .surge{display:block;animation:surge 1.1s linear}
+@keyframes surge{to{left:100%}}
+.gate{position:absolute;right:8px;bottom:9px;width:58px;height:36px;border:3px solid var(--brass);border-radius:30px 30px 4px 4px;text-align:center;font-weight:900;font-size:11px;padding-top:9px;color:#fff}.gate.open{background:var(--amber);color:#071027;box-shadow:0 0 18px var(--amber)}
+.paradeToken{position:absolute;left:8px;bottom:13px;font-size:28px;transition:transform .7s ease}
+.control{padding:12px;display:flex;flex-direction:column;gap:8px;min-height:0}
+.actionTitle{background:#071027;border:2px solid var(--amber);border-radius:15px;padding:9px;font-size:18px;font-weight:900;color:#fff}
+.meter{min-height:48px;background:#0a1235;border:2px solid #5c74b8;border-radius:14px;padding:8px;font-size:15px;font-weight:900;color:#dffcff}
+.feedback{min-height:54px;background:#fff7d6;color:#071027;border-radius:14px;padding:8px;border:2px solid #d7a84a;font-weight:900}
+.response{flex:1;min-height:0}
+.display{height:52px;background:#fff;color:#071027;border:3px solid var(--teal);border-radius:14px;margin-bottom:8px;display:flex;align-items:center;justify-content:center;font-size:30px;font-weight:900}
+.display.empty{color:#6b7280;font-size:18px}
+.pad{display:grid;grid-template-columns:repeat(3,1fr);gap:7px}
+.pad button,.power,.card,.explainSubmit,.recount{border:0;border-radius:14px;font-weight:900;cursor:pointer;box-shadow:0 4px 0 rgba(0,0,0,.35)}
+.pad button{height:clamp(42px,6vh,55px);font-size:24px;background:#dffcff;color:#071027;border:2px solid #0b5c73}
+.power,.explainSubmit{width:100%;height:52px;margin-top:8px;background:linear-gradient(#ffd776,#ffae2b);color:#071027;font-size:20px;border:3px solid #7b4a00}
+.cards{display:grid;gap:8px}
+.card{min-height:55px;background:#e8fcff;color:#071027;border:3px solid var(--teal);font-size:18px;padding:8px;text-align:left}
+.card.fizz{animation:fizz .45s ease;background:#ffdada;border-color:#bd3d3d}
+@keyframes fizz{50%{transform:translateX(4px) rotate(1deg);filter:brightness(.8)}}
+textarea{width:100%;height:158px;resize:none;border-radius:15px;border:3px solid var(--teal);padding:10px;font-size:18px;color:#071027;background:#fff}
+.recount{background:#0b5c73;color:#fff;border:2px solid var(--teal);padding:9px 12px;margin-top:4px}
+button:disabled,textarea:disabled{opacity:.45;cursor:not-allowed;transform:none}
+.pauseOverlay{display:none;position:absolute;inset:0;right:0;z-index:30;background:rgba(3,7,25,.64);align-items:center;justify-content:center;text-align:center;font-size:24px;font-weight:900;color:#fff;padding:30px}
+body.companion .pauseOverlay{display:flex}
+body.companion *{animation-play-state:paused!important}
+.complete{height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:14px;background:radial-gradient(circle,#ffc247 0,#283070 45%,#071027 100%);border-radius:18px;padding:20px}
+.complete h2{font-size:48px;margin:0;color:#071027;background:#fff7d6;border:5px solid #7b4a00;border-radius:18px;padding:8px 18px;transform:rotate(-3deg)}
+.badge{font-size:28px;background:#071027;color:#ffc247;border:3px solid #ffc247;border-radius:20px;padding:12px 18px}
+@media(max-height:735px){.top{min-height:46px}.promise{display:none}.promptCard .q{font-size:16px}.progress{height:74px}.dockLight{width:38px;height:38px}.actionTitle{font-size:16px;padding:7px}.feedback{min-height:46px}.meter{min-height:42px}.control{gap:6px;padding:10px}textarea{height:130px}.card{min-height:50px}.demo{font-size:13px}}
+</style>
+</head>
+<body>
+<div class="shell" id="shell">
+  <header class="top">
+    <div>
+      <h1>Arrival Dock: Lantern Parade Power-Up</h1>
+      <div class="promise">The dock is dark—count equal groups to send amber power to Nova Station.</div>
+    </div>
+    <button class="sound" id="soundBtn" aria-pressed="false">Sound: on</button>
+  </header>
+  <main class="game">
+    <section class="panel scenePanel">
+      <div class="promptCard">
+        <div class="q" id="promptText"></div>
+        <button class="read" id="readBtn">🔊 Read it to me</button>
+      </div>
+      <div class="visual stars" id="visual"></div>
+      <div class="progress">
+        <div class="districts" id="districts"></div>
+        <div class="track">
+          <div class="conduit" id="conduit"><div class="surge"></div></div>
+          <div class="paradeToken" id="paradeToken">🚃</div>
+          <div class="gate" id="gate">GATE</div>
+        </div>
+      </div>
+    </section>
+    <aside class="panel control">
+      <div class="actionTitle" id="actionTitle"></div>
+      <div class="meter" id="meter">Dock-bot meter is ready.</div>
+      <div class="response" id="response"></div>
+      <div id="help"></div>
+      <div class="feedback" id="feedback">Count the festival objects, then power the dock.</div>
+    </aside>
+  </main>
+  <div class="pauseOverlay">Elli is helping right now.<br>Controls and timers are paused.</div>
+</div>
+<div id="sunny-companion"></div>
+<script>
+const NODE="ACT-SHARED-01";
+const HOMEWORK="hw-math-767d56c796d206c1dc99b79d";
+const ARTIFACT="isolated-lantern-friction-proof";
+const title="Arrival Dock: Lantern Parade Power-Up";
+const focus="Given a contextual equal-groups situation with single-digit factors, state the factors, the product, and what each factor counts.";
+const mechanic="Each item is one parade scene: equal groups are drawn on screen as real festival objects (wagons of lanterns, packs of snacks, tables of chairs, trays of cups). The child answers by typing a number, tapping a matching equation, or speaking/typing a one-line explanation of what each factor counts. Every correct answer sends a visible amber pulse down a conduit and lights one dock district; the parade physically advances one wagon-length toward the festival gate.";
+const items=[
+{id:"ITM-S01-1",prompt:"A parade has 8 wagons. Each wagon carries 5 lanterns. How many lanterns are on the wagons in all?",mode:"numeric",expected:40,unit:"lanterns",scene:"wagons",groups:8,size:5,name:"Lantern wagons arrive under indigo starlight",cols:4,action:"Type the total lanterns. Press POWER."},
+{id:"ITM-S01-2",prompt:"In the lantern problem, one factor is 8 and the other factor is 5. Explain what the 8 counts and what the 5 counts in that situation.",mode:"explanation",unit:"lanterns",scene:"wagons",groups:8,size:5,name:"Frozen lantern scene: factors in the parade",cols:4,action:"Type one line explaining both factors."},
+{id:"ITM-S01-3",prompt:"A ticket booth sells snacks in packs. There are 6 packs and each pack holds 7 snacks. How many snacks are there altogether?",mode:"numeric",expected:42,unit:"snacks",scene:"snacks",groups:6,size:7,name:"Ticket booth snack packs",cols:3,action:"Type the total snacks. Press POWER."},
+{id:"ITM-S01-4",prompt:"Which equation matches this situation: 9 face-painting tables, each with 4 chairs?",mode:"selection",unit:"chairs",scene:"tables",groups:9,size:4,name:"Face-painting tables with chairs",cols:3,action:"Tap the matching power-card.",options:[
+{id:"OPT-S01-4-a",label:"9 × 4 = 36 chairs",correct:true},
+{id:"OPT-S01-4-b",label:"9 + 4 = 13 chairs",correct:false},
+{id:"OPT-S01-4-c",label:"36 ÷ 9 = 4 tables",correct:false},
+{id:"OPT-S01-4-d",label:"9 − 4 = 5 chairs",correct:false}]},
+{id:"ITM-S01-5",prompt:"A juice stand fills 7 trays. Each tray holds 6 cups. How many cups does the stand fill?",mode:"numeric",expected:42,unit:"cups",scene:"cups",groups:7,size:6,name:"Juice stand trays near the gate",cols:4,action:"Type the total cups. Press POWER."}
+];
+let idx=0,completedItems=0,currentEntry="",accepting=false,completed=false,muted=false,readySent=false,companion=false,transitioning=false;
+let readCounts=items.map(_=>0),misses=items.map(_=>0),scaffold=items.map(_=>0),companionUsed=items.map(_=>false);
+scaffold[0]=1;
+let targetResults=[]; window.targetResults=targetResults;
+let attemptSequence=0,resolvedItems=new Set();
+let activityStart=performance.now(),totalPaused=0,itemStart=performance.now(),itemPaused=0,pausedAt=null,timers=[],recountToken=0;
+const $=id=>document.getElementById(id);
+function post(type,payload){window.parent.postMessage({type,payload},"*")}
+function sfx(cue){if(!muted)post("sunny_sfx",{cue})}
+function challenge(requested=false){let it=items[idx];return{id:it.id,prompt:it.prompt,mode:it.mode,readAloudRequested:requested,readAloudCount:readCounts[idx]}}
+function actions(){if(completed)return[];let it=items[idx],a=["read prompt"]; if(companion)return["inputs paused while Elli helps"]; if(it.mode==="numeric")a.push("type a number","clear or backspace","press POWER"); if(it.mode==="selection")a.push("tap one equation power-card"); if(it.mode==="explanation")a.push("type one-line explanation","press POWER"); if(misses[idx]>0)a.push("optional Recount with me"); return a}
+function emitState(readReq=false){if(completed||!items[idx])return;post("game_state_update",{game:"generated-math",homeworkId:HOMEWORK,artifactHash:ARTIFACT,activityId:NODE,nodeId:NODE,itemId:items[idx].id,phase:"question",activityTitle:title,learningFocus:focus,mechanic,currentChallenge:challenge(readReq),availableActions:actions(),itemIndex:idx+1,totalItems:items.length,answerVisibility:"hidden",device:navigator.maxTouchPoints>0?"touch":"desktop-keyboard"})}
+function pTimeout(fn,delay){let t={fn,remaining:delay,start:0,id:null,done:false};function run(){if(t.done)return;t.start=performance.now();t.id=setTimeout(()=>{t.done=true;fn()},t.remaining)};if(!companion)run();timers.push(t);return t}
+function pauseTimers(){let now=performance.now();timers.forEach(t=>{if(!t.done&&t.id){clearTimeout(t.id);t.remaining=Math.max(0,t.remaining-(now-t.start));t.id=null}})}
+function resumeTimers(){timers.forEach(t=>{if(!t.done&&!t.id){t.start=performance.now();t.id=setTimeout(()=>{t.done=true;t.fn()},t.remaining)}})}
+function setCompanion(on){if(on===companion)return;companion=on;document.body.classList.toggle("companion",on);if(on){if(!completed&&items[idx])companionUsed[idx]=true;pausedAt=performance.now();pauseTimers()}else if(pausedAt){let d=performance.now()-pausedAt;totalPaused+=d;itemPaused+=d;pausedAt=null;resumeTimers()}updateDisabled();emitState(false)}
+window.addEventListener("message",e=>{let d=e.data||{};if(d.type==="sunny_companion_presence"){let p=d.payload;let on=false;if(typeof p==="boolean")on=p;else{p=p||{};on=!!(p.present||p.visible||p.active||p.expanded||p.summoned||p.open);if(p.collapsed===true||p.state==="collapsed"||p.presence==="collapsed")on=false}setCompanion(on);return}if(d.type==="sunny_activity_resolution"&&d.action==="advance_current_item")advanceAmbiguousItem(d)})
+function elapsedItem(){let now=performance.now(),extra=pausedAt?now-pausedAt:0;return Math.max(0,Math.round(now-itemStart-itemPaused-extra))}
+function elapsedActivity(){let now=performance.now(),extra=pausedAt?now-pausedAt:0;return Math.max(0,Math.round(now-activityStart-totalPaused-extra))}
+function updateDisabled(){document.querySelectorAll("#response button,#response textarea,#help button,#readBtn").forEach(el=>el.disabled=completed||companion||!accepting)}
+function canInput(){return accepting&&!companion&&!completed&&!transitioning}
+function renderItem(){let it=items[idx];transitioning=false;accepting=false;currentEntry="";itemStart=performance.now();itemPaused=0;recountToken++;$("promptText").textContent=it.prompt;$("actionTitle").textContent=it.action;$("meter").textContent="Dock-bot meter is ready.";$("feedback").textContent=idx===0?"The first wagon shows 5 lanterns. Count all the wagons, then power up.":"Count the equal festival groups to power this district.";$("help").innerHTML="";renderScene(it);renderControls(it);updateProgress();accepting=true;updateDisabled();emitState(false);if(!readySent){requestAnimationFrame(()=>{readySent=true;post("activity_ready",{nodeId:NODE})})}}
+function renderScene(it){let v=$("visual");v.innerHTML=`<div class="sceneName">${it.name}</div><div class="bot" id="bot"><div class="head"><span class="eye e1"></span><span class="eye e2"></span></div><div class="body"></div></div><div class="groups" id="groups" style="grid-template-columns:repeat(${it.cols},1fr)"></div>`+(idx===0?`<div class="demo" id="demo"><div>Dock-bot demo: 2 tiny wagons with 3 lanterns each make 6.</div><div class="demoMini"><span class="miniBox"><i class="miniLan"></i><i class="miniLan"></i><i class="miniLan"></i></span><span class="miniBox"><i class="miniLan"></i><i class="miniLan"></i><i class="miniLan"></i></span><span>POWER</span><span class="miniAns">6</span></div><div>Tap the pad any time to try yours.</div></div>`:"");let g=$("groups");for(let i=0;i<it.groups;i++){let div=document.createElement("div");div.className="group";div.dataset.g=i;div.innerHTML=`<span class="subtotal">${(i+1)*it.size}</span>`+groupHTML(it);div.addEventListener("pointerdown",()=>showSubtotal(i));g.appendChild(div)}}
+function groupHTML(it){if(it.scene==="wagons"){let p="";for(let i=0;i<it.size;i++)p+=`<span class="piece lantern"></span>`;return `<div class="wagon"><div class="pieces">${p}</div><span class="wheel w1"></span><span class="wheel w2"></span></div>`}
+if(it.scene==="snacks"){let p="";for(let i=0;i<it.size;i++)p+=`<span class="piece snack"></span>`;return `<div class="pack">${p}</div>`}
+if(it.scene==="tables"){return `<div class="tableScene"><span class="piece chair c1"></span><span class="piece chair c2"></span><span class="piece chair c3"></span><span class="piece chair c4"></span><span class="tabletop"></span></div>`}
+let p="";for(let i=0;i<it.size;i++)p+=`<span class="piece cup"></span>`;return `<div class="tray">${p}</div>`}
+function renderControls(it){let r=$("response");r.innerHTML="";if(it.mode==="numeric"){r.innerHTML=`<div class="display empty" id="display">type total</div><div class="pad" id="pad"></div><button class="power" id="powerBtn">⚡ POWER</button>`;let pad=$("pad"),labs=["1","2","3","4","5","6","7","8","9","clear","0","⌫"];labs.forEach(x=>{let b=document.createElement("button");b.textContent=x;b.dataset.key=x;b.addEventListener("click",()=>numPress(x));pad.appendChild(b)});$("powerBtn").addEventListener("click",submitNumeric)}
+else if(it.mode==="selection"){let wrap=document.createElement("div");wrap.className="cards";it.options.forEach(o=>{let b=document.createElement("button");b.className="card";b.textContent=o.label;b.dataset.opt=o.id;b.addEventListener("click",()=>submitSelection(o,b));wrap.appendChild(b)});r.appendChild(wrap)}
+else{r.innerHTML=`<textarea id="explainBox" maxlength="240" placeholder="Example idea: 8 counts the ___, and 5 counts the ___ in each ___."></textarea><button class="explainSubmit" id="explainBtn">⚡ POWER MY EXPLANATION</button>`;$("explainBtn").addEventListener("click",submitExplanation)}}
+function touchDemo(){let d=$("demo");if(d)d.classList.add("hidden")}
+function numPress(x){if(!canInput())return;touchDemo();sfx("interaction");if(x==="clear")currentEntry="";else if(x==="⌫")currentEntry=currentEntry.slice(0,-1);else if(currentEntry.length<3)currentEntry+=x;updateDisplay()}
+function updateDisplay(){let d=$("display");if(!d)return;d.textContent=currentEntry||"type total";d.classList.toggle("empty",!currentEntry)}
+function submitNumeric(){if(!canInput())return;touchDemo();if(currentEntry===""){$("feedback").textContent="Type a number first, engineer.";sfx("recovery");return}let it=items[idx],val=Number(currentEntry);processAttempt(it,val===it.expected,currentEntry)}
+function submitSelection(o,b){if(!canInput())return;sfx("interaction");if(!o.correct)b.classList.add("fizz");processAttempt(items[idx],!!o.correct,o.label)}
+function submitExplanation(){if(!canInput())return;sfx("interaction");let t=($("explainBox").value||"").trim();if(!t){$("feedback").textContent="Type one line for what 8 counts and what 5 counts.";sfx("recovery");return}processAttempt(items[idx],scoreExplanation(t),t)}
+function scoreExplanation(t){let s=t.toLowerCase(),has8=/\b8\b|eight/.test(s),has5=/\b5\b|five/.test(s),wagon=/wagon|group/.test(s),lan=/lantern/.test(s),each=/each|per|every|on each|in each/.test(s),total=/40|total|all|altogether|make|makes|equals|times|multiply|groups of/.test(s),bad=/8\s*\+\s*5|8 plus 5|add 8 and 5/.test(s);return has8&&has5&&wagon&&lan&&each&&total&&!bad}
+function curScaffold(){let s=scaffold[idx]||0;if(companionUsed[idx])s=Math.max(s,3);return s}
+function processAttempt(it,correct,attemptedValue){let rt=elapsedItem(),sc=curScaffold(),attemptId=`${NODE}:${it.id}:attempt:${++attemptSequence}`;targetResults.push({target:it.id,correct,attemptedValue,responseTimeMs:rt,scaffoldLevel:sc,attemptId});post("attempt_event",{domain:"math",target:it.id,correct,attemptedValue,responseTimeMs:rt,scaffoldLevel:sc,attemptId});if(correct)correctAnswer(it);else{post("activity_friction_signal",{homeworkId:HOMEWORK,nodeId:NODE,itemId:it.id,artifactHash:ARTIFACT,activityId:NODE,attemptId,attemptedValue,currentChallenge:it.prompt,answerVisibility:"hidden",device:navigator.maxTouchPoints>0?"touch":"desktop-keyboard",signal:"response_rejected_by_activity_instrument",rejectedAttemptCount:misses[idx]+1});wrongAnswer(it,attemptedValue)}}
+function advanceAmbiguousItem(d){let it=items[idx];if(!it||d.itemId!==it.id||resolvedItems.has(it.id))return;let superseded=d.supersedesAttemptId||targetResults.filter(r=>r.target===it.id).at(-1)?.attemptId,prior=targetResults.find(r=>r.attemptId===superseded);targetResults=targetResults.filter(r=>r.attemptId!==superseded);resolvedItems.add(it.id);accepting=false;transitioning=true;targetResults.push({target:it.id,attemptedValue:prior?.attemptedValue,observedErrorType:d.observedErrorType||"instrument_ambiguous",assistanceStatus:"assisted",confounds:[d.observedErrorType||"instrument_ambiguous","elli_resolution"],resolutionId:d.resolutionId,supersedesAttemptId:superseded});post("activity_friction_resolution_applied",{resolutionId:d.resolutionId,nodeId:NODE,itemId:it.id});$("feedback").textContent="Elli marked this wording as unclear. You can keep going; this answer was not counted as correct.";sfx("recovery");post("progress_event",{nodeId:NODE,itemId:it.id,progression:"continued_unresolved",masteryEligible:false});pTimeout(()=>{if(idx>=items.length-1)renderComplete(it);else{idx++;renderItem()}},900)}
+function correctAnswer(it){accepting=false;transitioning=true;updateDisabled();sfx("progress");$("feedback").textContent="Correct surge! Amber power is racing down the conduit.";let bot=$("bot");if(bot){bot.classList.remove("sad");bot.classList.add("happy")}powerObjects();let c=$("conduit");c.classList.remove("go");void c.offsetWidth;c.classList.add("go");completedItems=idx+1;updateProgress();post("progress_event",{nodeId:NODE,completedItems,totalItems:items.length});pTimeout(()=>{let finalItem=it;if(completedItems>=items.length)renderComplete(finalItem);else{idx++;renderItem()}},1050)}
+function wrongAnswer(it,val){misses[idx]++;if(scaffold[idx]<1)scaffold[idx]=1;if(misses[idx]>=2)scaffold[idx]=Math.max(scaffold[idx],2);sfx("recovery");let bot=$("bot");if(bot){bot.classList.remove("happy");bot.classList.add("sad")}$("feedback").textContent=it.mode==="explanation"?"The dock-bot needs both factor meanings: what 8 counts and what 5 counts in each wagon. Try again.":`The meter received ${val}, but the dock lights stutter. Recount the equal groups and try again.`;showHelp(it);if(misses[idx]>=2)pulseOneGroup();emitState(false);updateDisabled()}
+function showHelp(it){$("help").innerHTML=`<button class="recount" id="recountBtn">Recount with me</button>`+(it.mode==="explanation"?`<button class="recount" id="proofAdvance">Proof only: apply Elli resolution</button>`:"");$("recountBtn").addEventListener("click",()=>startRecount(it));if($("proofAdvance"))$("proofAdvance").addEventListener("click",()=>advanceAmbiguousItem({itemId:it.id,resolutionId:`proof:${it.id}`}));updateDisabled()}
+function pulseOneGroup(){let g=document.querySelector(".group");if(!g)return;g.classList.add("sequence");[...g.querySelectorAll(".piece")].forEach((p,i)=>p.style.animationDelay=(i*.22)+"s");pTimeout(()=>g.classList.remove("sequence"),1500)}
+function startRecount(it){if(!canInput())return;scaffold[idx]=Math.max(scaffold[idx],2);sfx("recovery");let token=++recountToken,groups=[...document.querySelectorAll(".group")];groups.forEach(g=>g.classList.remove("countGlow"));$("feedback").textContent="Watch each equal group glow with the running subtotal.";groups.forEach((g,i)=>pTimeout(()=>{if(token!==recountToken)return;groups.forEach(x=>x.classList.remove("countGlow"));g.classList.add("countGlow");$("meter").textContent=`After ${i+1} group${i?"s":""}: ${(i+1)*it.size} ${it.unit}`},i*650));pTimeout(()=>{if(token===recountToken)$("feedback").textContent="Now send the wattage you counted."},groups.length*650+150);emitState(false)}
+function showSubtotal(i){if(!canInput())return;sfx("interaction");let it=items[idx],groups=[...document.querySelectorAll(".group")];groups.forEach(x=>x.classList.remove("countGlow"));groups[i].classList.add("countGlow");$("meter").textContent=`Finger count: ${(i+1)*it.size} ${it.unit} after ${i+1} group${i?"s":""}.`}
+function powerObjects(){[...document.querySelectorAll(".piece")].forEach((p,i)=>{p.classList.remove("power");p.style.animationDelay=(i*0.025)+"s";void p.offsetWidth;p.classList.add("power")})}
+function updateProgress(){let d=$("districts");d.innerHTML="";for(let i=0;i<items.length;i++){let x=document.createElement("div");x.className="dockLight"+(i<completedItems?" lit":"");x.textContent=i<completedItems?"👽":"◌";d.appendChild(x)}$("paradeToken").style.transform=`translateX(${completedItems*44}px)`;$("gate").classList.toggle("open",completedItems>=items.length)}
+$("readBtn").addEventListener("click",()=>{if(completed||companion||!accepting)return;readCounts[idx]++;sfx("interaction");emitState(true)});
+$("soundBtn").addEventListener("click",()=>{muted=!muted;$("soundBtn").textContent=muted?"Sound: off":"Sound: on";$("soundBtn").setAttribute("aria-pressed",muted?"true":"false");post("sunny_sound_toggle",{muted})});
+window.addEventListener("keydown",e=>{if(!canInput()||items[idx].mode!=="numeric")return;if(/^[0-9]$/.test(e.key)){numPress(e.key);e.preventDefault()}else if(e.key==="Backspace"){numPress("⌫");e.preventDefault()}else if(e.key==="Enter"){submitNumeric();e.preventDefault()}});
+function renderComplete(finalItem){completed=true;accepting=false;transitioning=false;recountToken++;$("shell").querySelector(".game").innerHTML=`<section class="panel" style="grid-column:1/3;padding:10px"><div class="complete"><h2>DOCK ONLINE</h2><div style="font-size:42px">🚀 👽 🏮 👽 🚀</div><div class="badge">Engineer Badge Stamped: Arrival Dock Power-Up</div><p style="max-width:720px;font-size:22px;margin:0;color:#071027;background:rgba(255,247,214,.88);border-radius:16px;padding:10px">The festival gate irises open. Amber power fills the dock, shuttles land, and alien families wave lantern-sticks.</p></div></section>`;sfx("completion");let accuracy=targetResults.length?targetResults.filter(r=>r.correct).length/targetResults.length:0;post("node_complete",{nodeId:NODE,completed:true,accuracy,targetResults,timeSpent_ms:elapsedActivity()})}
+function waitUntil(fn,ms=5000){return new Promise((res,rej)=>{let st=performance.now();(function tick(){if(fn())res();else if(performance.now()-st>ms)rej(new Error("wait timeout"));else setTimeout(tick,30)})()})}
+window.SUNNY_VALIDATION_HOOKS={playthrough:async()=>{await waitUntil(()=>readySent);const ans=["40","8 counts the wagons, and 5 counts the lanterns in each wagon. 8 groups of 5 make 40 lanterns.","42","OPT-S01-4-a","42"];for(let i=0;i<items.length;i++){await waitUntil(()=>idx===i&&accepting&&!transitioning&&!companion);let it=items[i];if(it.mode==="numeric"){for(const ch of ans[i])document.querySelector(`#pad button[data-key="${ch}"]`).click();document.getElementById("powerBtn").click()}else if(it.mode==="explanation"){let box=document.getElementById("explainBox");box.value=ans[i];box.dispatchEvent(new Event("input",{bubbles:true}));document.getElementById("explainBtn").click()}else{document.querySelector(`[data-opt="${ans[i]}"]`).click()}}await waitUntil(()=>completed,8000);return{completed:true,targetResults}}};
+renderItem();
+</script>
+</body>
+</html>

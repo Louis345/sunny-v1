@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Foundry Finale</title>
+<script src="/games/_contract.js"></script>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; font-family: 'Trebuchet MS', Arial, sans-serif;
+    background: radial-gradient(circle at top, #3a1a0a 0%, #150705 70%);
+    color: #ffe9d6; min-height: 100vh; padding: 16px; text-align: center;
+  }
+  h1 { font-size: 2.1em; margin: 6px 0 2px; color: #ffb347; text-shadow: 0 0 12px #ff6a00; }
+  .subtitle { color: #ffd9a0; margin-bottom: 10px; font-size: 1.05em; }
+  .stage {
+    max-width: 560px; margin: 0 auto; background: rgba(40,15,5,0.7);
+    border: 3px solid #ff8c1a; border-radius: 16px; padding: 16px;
+    box-shadow: 0 0 30px rgba(255,120,0,0.4);
+  }
+  .boss-wrap { position: relative; }
+  .boss-wrap img {
+    width: 100%; max-width: 340px; border-radius: 12px;
+    border: 3px solid #ffb347; filter: saturate(1.1);
+  }
+  .healthbar-outer {
+    width: 100%; max-width: 340px; margin: 8px auto 0; background: #300;
+    border-radius: 10px; border: 2px solid #ffb347; overflow: hidden; height: 20px;
+  }
+  .healthbar-inner {
+    height: 100%; background: linear-gradient(90deg,#ff5b1a,#ffd23f);
+    width: 100%; transition: width 0.5s ease;
+  }
+  .healthlabel { font-size: 0.85em; color: #ffcf9e; margin-top: 4px; }
+  .card {
+    background: rgba(0,0,0,0.35); border-radius: 12px; padding: 14px; margin-top: 14px;
+    border: 2px dashed #ffb347;
+  }
+  #prompt { font-size: 1.15em; line-height: 1.4; min-height: 60px; }
+  .controls { margin-top: 12px; display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+  input[type=number] {
+    width: 110px; font-size: 1.2em; padding: 8px; border-radius: 8px; border: 2px solid #ffb347;
+    text-align: center;
+  }
+  button {
+    font-size: 1em; padding: 9px 16px; border-radius: 10px; border: none; cursor: pointer;
+    background: #ff8c1a; color: #2a0e00; font-weight: bold;
+  }
+  button:disabled { opacity: 0.5; cursor: not-allowed; }
+  button.secondary { background: #6b4a2f; color: #ffe9d6; }
+  #feedback { min-height: 26px; margin-top: 10px; font-weight: bold; }
+  #feedback.good { color: #8bffb0; }
+  #feedback.bad { color: #ffb0a0; }
+  #hint { color: #ffd9a0; font-style: italic; margin-top: 6px; min-height: 20px; }
+  #progressText { margin-top: 8px; color: #ffcf9e; font-size: 0.9em; }
+  #completion { display: none; margin-top: 16px; }
+  #completion h2 { color: #ffd23f; }
+  .paused-banner {
+    display:none; background:#402000; border:2px solid #ffb347; border-radius:10px;
+    padding:8px; margin-top:10px; color:#ffe9d6;
+  }
+</style>
+</head>
+<body>
+<h1>The Foundry Finale</h1>
+<p class="subtitle">The last mold glows white-hot — combine everything you know to cool the Foundry Boss!</p>
+
+<div class="stage">
+  <div class="boss-wrap">
+    <img src="/generated/adventure-board-demo/boss.jpeg" alt="The Foundry Boss">
+  </div>
+  <div class="healthbar-outer"><div class="healthbar-inner" id="healthbar"></div></div>
+  <div class="healthlabel" id="healthlabel">Boss Heat: 100%</div>
+
+  <div class="card">
+    <div id="prompt">Loading the final challenge...</div>
+    <div id="hint"></div>
+    <div class="controls">
+      <input type="number" id="answerInput" placeholder="?" inputmode="numeric">
+      <button id="submitBtn">Pour It!</button>
+      <button id="readBtn" class="secondary">🔊 Read it to me</button>
+    </div>
+    <div id="feedback"></div>
+    <div id="progressText"></div>
+  </div>
+
+  <div class="paused-banner" id="pausedBanner">⏸️ Paused while Sunny is here...</div>
+
+  <div id="completion">
+    <h2>🔥 The Foundry is Cooled! 🔥</h2>
+    <p id="completionSummary"></p>
+  </div>
+</div>
+
+<div id="sunny-companion"></div>
+
+<script>
+(function(){
+  const items = [
+    {
+      id: 'foundry-mold-rows-5x6',
+      prompt: "The Foundry Master lines up 5 rows of lucky-coin molds, with 6 molds in each row. How many molds are there in all?",
+      answer: 30,
+      hint: "Try counting 6 molds, five times: 6 + 6 + 6 + 6 + 6."
+    },
+    {
+      id: 'foundry-shelf-missing-factor-35',
+      prompt: "35 hot ingots must be stacked evenly onto 5 shelves. How many ingots go on each shelf?",
+      answer: 7,
+      hint: "Think: 5 times what number makes 35?"
+    },
+    {
+      id: 'foundry-treasure-grid-4x7',
+      prompt: "A treasure map shows a hidden grid: 4 columns and 7 rows of gold tiles. How many gold tiles are hidden in all?",
+      answer: 28,
+      hint: "Multiply the rows by the columns: 7 rows of 4."
+    },
+    {
+      id: 'foundry-dragon-burst-factor-56',
+      prompt: "Every dragon fire-burst melts 8 crystals. After several bursts, 56 crystals were melted. How many bursts happened?",
+      answer: 7,
+      hint: "What number times 8 equals 56?"
+    }
+  ];
+
+  let currentIndex = 0;
+  let scaffoldLevel = 0;
+  let itemStartTime = Date.now();
+  let targetResults = [];
+  let paused = false;
+  let sessionStart = Date.now();
+  let awaitingRetry = false;
+  let completed = false;
+
+  const promptEl = document.getElementById('prompt');
+  const hintEl = document.getElementById('hint');
+  const inputEl = document.getElementById('answerInput');
+  const submitBtn = document.getElementById('submitBtn');
+  const readBtn = document.getElementById('readBtn');
+  const feedbackEl = document.getElementById('feedback');
+  const progressTextEl = document.getElementById('progressText');
+  const healthbarEl = document.getElementById('healthbar');
+  const healthlabelEl = document.getElementById('healthlabel');
+  const pausedBanner = document.getElementById('pausedBanner');
+  const completionEl = document.getElementById('completion');
+  const completionSummaryEl = document.getElementById('completionSummary');
+
+  function safeCall(fn, ...args) {
+    try { if (typeof fn === 'function') fn(...args); } catch(e) {}
+  }
+
+  function currentChallengeObj(readAloudRequested, readAloudCount) {
+    const it = items[currentIndex] || items[items.length - 1];
+    return {
+      id: it.id,
+      prompt: it.prompt,
+      mode: 'numeric_input',
+      readAloudRequested: !!readAloudRequested,
+      readAloudCount: readAloudCount || 0
+    };
+  }
+
+  let readAloudCountTotal = 0;
+
+  function postState(readAloudRequested) {
+    const phase = completed ? 'complete' : 'question';
+    window.parent.postMessage({
+      type: 'game_state_update',
+      payload: {
+        game: 'generated-math',
+        activityId: 'boss',
+        nodeId: 'boss',
+        phase: phase,
+        activityTitle: 'The Foundry Finale',
+        learningFocus: 'synthesize arrays, missing factors, and word-problem interpretation',
+        mechanic: 'AI-designed evidence experience',
+        currentChallenge: currentChallengeObj(readAloudRequested, readAloudCountTotal),
+        availableActions: awaitingRetry ? ['submit_answer','read_aloud','retry'] : ['submit_answer','read_aloud'],
+        itemIndex: currentIndex,
+        totalItems: items.length,
+        answerVisibility: 'hidden'
+      }
+    }, '*');
+  }
+
+  function postProgress() {
+    const completedItems = Math.min(currentIndex, items.length);
+    window.parent.postMessage({
+      type: 'progress_event',
+      payload: { nodeId: 'boss', completedItems: completedItems, totalItems: items.length }
+    }, '*');
+  }
+
+  function updateHealth() {
+    const pct = Math.max(0, 100 - Math.round((currentIndex / items.length) * 100));
+    healthbarEl.style.width = pct + '%';
+    healthlabelEl.textContent = 'Boss Heat: ' + pct + '%';
+  }
+
+  function renderItem() {
+    if (currentIndex >= items.length) return;
+    const it = items[currentIndex];
+    promptEl.textContent = it.prompt;
+    hintEl.textContent = '';
+    feedbackEl.textContent = '';
+    feedbackEl.className = '';
+    inputEl.value = '';
+    scaffoldLevel = 0;
+    awaitingRetry = false;
+    itemStartTime = Date.now();
+    progressTextEl.textContent = 'Trial ' + (currentIndex + 1) + ' of ' + items.length;
+    updateHealth();
+    postState(false);
+  }
+
+  function showFeedback(text, good) {
+    feedbackEl.textContent = text;
+    feedbackEl.className = good ? 'good' : 'bad';
+  }
+
+  function submitAnswer(rawValue) {
+    if (paused || completed) return;
+    if (currentIndex >= items.length) return;
+    const it = items[currentIndex];
+    const val = (rawValue !== undefined) ? rawValue : inputEl.value;
+    const numeric = parseInt(val, 10);
+    const responseTimeMs = Date.now() - itemStartTime;
+    const correct = (numeric === it.answer);
+
+    targetResults.push({
+      target: it.id,
+      correct: correct,
+      attemptedValue: numeric,
+      responseTimeMs: responseTimeMs,
+      scaffoldLevel: scaffoldLevel
+    });
+
+    safeCall(window.fireAttemptEvent, {
+      domain: 'math', target: it.id, correct: correct,
+      attemptedValue: numeric, responseTimeMs: responseTimeMs, scaffoldLevel: scaffoldLevel
+    });
+
+    if (correct) {
+      showFeedback('🔥 Correct! The furnace cools a notch!', true);
+      safeCall(window.fireCompanionEvent, 'correct_answer', { target: it.id });
+      awaitingRetry = false;
+      currentIndex++;
+      postProgress();
+      setTimeout(() => {
+        if (currentIndex >= items.length) {
+          finishGame();
+        } else {
+          renderItem();
+        }
+      }, 900);
+    } else {
+      showFeedback('The furnace dims a little... give it another try!', false);
+      safeCall(window.fireCompanionEvent, 'wrong_answer', { target: it.id });
+      hintEl.textContent = '💡 ' + it.hint;
+      scaffoldLevel++;
+      awaitingRetry = true;
+      itemStartTime = Date.now();
+      inputEl.value = '';
+      postState(false);
+    }
+  }
+
+  function finishGame() {
+    completed = true;
+    updateHealth();
+    const total = targetResults.length;
+    const correctCount = targetResults.filter(r => r.correct).length;
+    const accuracy = total > 0 ? correctCount / total : 0;
+    const timeSpent_ms = Date.now() - sessionStart;
+
+    document.querySelector('.card').style.display = 'none';
+    completionEl.style.display = 'block';
+    completionSummaryEl.textContent = 'The Foundry Boss has cooled completely! Accuracy: ' + Math.round(accuracy * 100) + '%.';
+
+    postProgress();
+    postState(false);
+    safeCall(window.fireCompanionEvent, 'game_complete', {});
+    safeCall(window.sendNodeComplete, {
+      nodeId: (window.GAME_PARAMS && window.GAME_PARAMS.nodeId) || 'boss',
+      completed: true,
+      accuracy: accuracy,
+      targetResults: targetResults,
+      timeSpent_ms: timeSpent_ms
+    });
+  }
+
+  submitBtn.addEventListener('click', () => submitAnswer());
+  inputEl.addEventListener('keydown', (e) => { if (e.key === 'Enter') submitAnswer(); });
+
+  readBtn.addEventListener('click', () => {
+    if (paused) return;
+    readAloudCountTotal++;
+    const it = items[currentIndex] || items[items.length - 1];
+    try {
+      const utter = new SpeechSynthesisUtterance(it.prompt);
+      window.speechSynthesis.speak(utter);
+    } catch(e) {}
+    postState(true);
+  });
+
+  window.addEventListener('message', (event) => {
+    const data = event.data || {};
+    if (data.type === 'sunny_companion_presence') {
+      if (data.payload && data.payload.summoned) {
+        paused = true;
+        submitBtn.disabled = true;
+        readBtn.disabled = true;
+        inputEl.disabled = true;
+        pausedBanner.style.display = 'block';
+      } else {
+        paused = false;
+        submitBtn.disabled = false;
+        readBtn.disabled = false;
+        inputEl.disabled = false;
+        pausedBanner.style.display = 'none';
+      }
+    }
+  });
+
+  window.SUNNY_VALIDATION_HOOKS = {
+    playthrough: async () => {
+      // Ensure fresh start reference for hook run
+      let guard = 0;
+      // Deliberate incorrect response + visible recovery on first item
+      if (currentIndex < items.length) {
+        const wrongVal = items[currentIndex].answer + 1;
+        inputEl.value = String(wrongVal);
+        submitAnswer(wrongVal);
+        await new Promise(r => setTimeout(r, 50));
+      }
+      while (!completed && guard < 20) {
+        guard++;
+        if (currentIndex >= items.length) break;
+        const correctVal = items[currentIndex].answer;
+        inputEl.value = String(correctVal);
+        submitAnswer(correctVal);
+        await new Promise(r => setTimeout(r, 1000));
+      }
+      await new Promise(r => setTimeout(r, 300));
+      return { completed: completed };
+    }
+  };
+
+  document.addEventListener('DOMContentLoaded', () => {
+    renderItem();
+    window.parent.postMessage({ type: 'activity_ready', payload: { nodeId: 'boss' } }, '*');
+  });
+})();
+</script>
+</body>
+</html>

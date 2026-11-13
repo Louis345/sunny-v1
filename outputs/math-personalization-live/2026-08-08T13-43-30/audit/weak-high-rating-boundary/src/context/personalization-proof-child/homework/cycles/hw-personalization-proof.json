@@ -1,0 +1,374 @@
+{
+  "schemaVersion": 2,
+  "revision": 3,
+  "childId": "personalization-proof-child",
+  "homeworkId": "hw-personalization-proof",
+  "domain": "math",
+  "assignment": {
+    "title": "Festival Team Challenge",
+    "contentFingerprint": "personalization-proof-assignment",
+    "capturedEvidenceIds": [
+      "assignment:personalization-proof"
+    ],
+    "targets": [
+      "math.multiplication.equal_groups",
+      "math.multiplication.missing_factor",
+      "math.multiplication.word_problem_interpretation"
+    ]
+  },
+  "academicTheory": {
+    "theoryId": "personalization-proof-theory",
+    "revision": 1,
+    "hypothesis": "The learner can transfer multiplication reasoning to fresh material.",
+    "supportCriteria": [
+      "Fresh unassisted answers support transfer."
+    ],
+    "reviseCriteria": [
+      "Errors reveal a scoped misconception."
+    ],
+    "falsifyCriteria": [
+      "Repeated fresh independent errors contradict transfer."
+    ]
+  },
+  "engagementTheory": null,
+  "assumptions": [
+    {
+      "assumptionId": "personalization-proof-assumption",
+      "claim": "Presentation may influence voluntary continuation.",
+      "evidenceIds": [
+        "assignment:personalization-proof"
+      ],
+      "confidence": 0.3,
+      "uncertainty": "No branch evidence has been observed yet.",
+      "createdAt": "2026-08-08T12:00:00.000Z",
+      "lockedAt": "2026-08-08T12:00:00.000Z"
+    }
+  ],
+  "nodes": [
+    {
+      "nodeId": "baseline",
+      "role": "baseline",
+      "title": "Festival Team Challenge",
+      "state": "completed",
+      "academicTarget": {
+        "domain": "math",
+        "skill": "multiplication transfer",
+        "targets": [
+          "math.multiplication.equal_groups",
+          "math.multiplication.missing_factor",
+          "math.multiplication.word_problem_interpretation"
+        ]
+      },
+      "algorithmOwner": "retrieval-practice",
+      "theoryId": "personalization-proof-theory",
+      "experimentId": "personalization-baseline",
+      "mechanic": "AI-owned",
+      "theme": "AI-owned",
+      "openingScreen": {
+        "title": "Festival Team Challenge",
+        "purpose": "Collect fresh evidence."
+      },
+      "generationPrompt": null,
+      "artifactBinding": {
+        "contentId": "proof-baseline",
+        "artifactId": "proof-baseline-artifact",
+        "localArtifactPath": "/lab/baseline.html",
+        "localArtworkPath": "/lab/baseline.svg",
+        "contractFingerprint": "proof-baseline-contract",
+        "validationStatus": "passed"
+      },
+      "artwork": {
+        "status": "ready",
+        "localPath": "/lab/baseline.svg",
+        "prompt": null
+      },
+      "sfxContract": [
+        "interaction",
+        "recovery",
+        "progress",
+        "completion"
+      ],
+      "companionContract": {
+        "events": [
+          "help_requested"
+        ]
+      },
+      "evidenceContract": {
+        "academic": true,
+        "engagement": true,
+        "companionObservations": true
+      },
+      "evidenceIds": [
+        "weak-high-rating:baseline:completion",
+        "weak-high-rating:baseline:completion:engagement"
+      ]
+    },
+    {
+      "nodeId": "quest",
+      "role": "quest",
+      "title": "Quest",
+      "state": "locked",
+      "academicTarget": {
+        "domain": "math",
+        "skill": "multiplication transfer",
+        "targets": [
+          "math.multiplication.equal_groups",
+          "math.multiplication.missing_factor",
+          "math.multiplication.word_problem_interpretation"
+        ]
+      },
+      "algorithmOwner": "mastery-gating",
+      "theoryId": "personalization-proof-theory",
+      "experimentId": "personalization-quest",
+      "mechanic": "AI-owned",
+      "theme": "AI-owned",
+      "openingScreen": {
+        "title": "Quest",
+        "purpose": "Collect fresh evidence."
+      },
+      "generationPrompt": null,
+      "artifactBinding": null,
+      "artwork": {
+        "status": "placeholder",
+        "localPath": null,
+        "prompt": null
+      },
+      "sfxContract": [
+        "interaction",
+        "recovery",
+        "progress",
+        "completion"
+      ],
+      "companionContract": {
+        "events": [
+          "help_requested"
+        ]
+      },
+      "evidenceContract": {
+        "academic": true,
+        "engagement": true,
+        "companionObservations": true
+      },
+      "evidenceIds": []
+    },
+    {
+      "nodeId": "boss",
+      "role": "boss",
+      "title": "Boss",
+      "state": "locked",
+      "academicTarget": {
+        "domain": "math",
+        "skill": "multiplication transfer",
+        "targets": [
+          "math.multiplication.equal_groups",
+          "math.multiplication.missing_factor",
+          "math.multiplication.word_problem_interpretation"
+        ]
+      },
+      "algorithmOwner": "mastery-gating",
+      "theoryId": "personalization-proof-theory",
+      "experimentId": "personalization-boss",
+      "mechanic": "AI-owned",
+      "theme": "AI-owned",
+      "openingScreen": {
+        "title": "Boss",
+        "purpose": "Collect fresh evidence."
+      },
+      "generationPrompt": null,
+      "artifactBinding": null,
+      "artwork": {
+        "status": "placeholder",
+        "localPath": null,
+        "prompt": null
+      },
+      "sfxContract": [
+        "interaction",
+        "recovery",
+        "progress",
+        "completion"
+      ],
+      "companionContract": {
+        "events": [
+          "help_requested"
+        ]
+      },
+      "evidenceContract": {
+        "academic": true,
+        "engagement": true,
+        "companionObservations": true
+      },
+      "evidenceIds": []
+    }
+  ],
+  "academicPredictions": [
+    {
+      "predictionId": "personalization-proof-prediction",
+      "theoryId": "personalization-proof-theory",
+      "constructId": "math.multiplication.transfer",
+      "context": "fresh unassisted baseline evidence",
+      "horizon": "next_session",
+      "expectedMetric": {
+        "key": "academic.accuracy",
+        "min": 0.7,
+        "max": 1
+      },
+      "predictedErrorPatterns": [
+        "factor-pair overgeneralization"
+      ],
+      "confidence": 0.65,
+      "evidenceIds": [
+        "assignment:personalization-proof"
+      ],
+      "intervention": "baseline learning program",
+      "evidenceLimit": "independent_performance",
+      "createdAt": "2026-08-08T12:00:00.000Z",
+      "lockedAt": "2026-08-08T12:00:00.000Z"
+    }
+  ],
+  "lifecycle": "baseline_evaluating",
+  "evidence": {
+    "academic": [
+      {
+        "evidenceId": "weak-high-rating:baseline:completion",
+        "accuracy": 0,
+        "summary": "Festival Team Challenge completed at 0% across 3 scored target readings."
+      }
+    ],
+    "engagement": [
+      {
+        "evidenceId": "weak-high-rating:baseline:completion:engagement",
+        "summary": "Festival Team Challenge completed in 60000ms; replay=false; frustration=none."
+      },
+      {
+        "evidenceId": "weak-high-rating:5",
+        "summary": "Session finalized after Festival Team Challenge: fun rating 5/5; action back_to_map."
+      }
+    ],
+    "companionObservations": []
+  },
+  "decisionHistory": [
+    {
+      "decisionId": "hw-personalization-proof:decision:r2",
+      "eventType": "instrument_observed",
+      "reason": "Festival Team Challenge factual scorecard recorded; one Planner decision is required.",
+      "nextAction": "Evaluate the preregistered prediction against this evidence.",
+      "evidenceIds": [
+        "weak-high-rating:baseline:completion",
+        "weak-high-rating:baseline:completion:engagement"
+      ],
+      "fromLifecycle": "baseline_ready",
+      "toLifecycle": "baseline_evaluating",
+      "createdAt": "2026-08-08T12:04:00.000Z"
+    },
+    {
+      "decisionId": "hw-personalization-proof:decision:r3",
+      "eventType": "session_finalized",
+      "reason": "Festival Team Challenge session evidence was finalized before the next Planner decision.",
+      "nextAction": "Evaluate the complete academic and engagement scorecard once.",
+      "evidenceIds": [
+        "weak-high-rating:5"
+      ],
+      "fromLifecycle": "baseline_evaluating",
+      "toLifecycle": "baseline_evaluating",
+      "createdAt": "2026-08-08T12:05:00.000Z"
+    }
+  ],
+  "evidenceSources": [],
+  "observations": [
+    {
+      "observationId": "weak-high-rating:baseline:observation:1",
+      "sourceId": "activity:weak-high-rating:baseline",
+      "nodeId": "baseline",
+      "itemId": "math.multiplication.equal_groups",
+      "childResponse": "6 groups of 4 = 24",
+      "constructLinks": [
+        {
+          "constructId": "math.multiplication.transfer",
+          "role": "primary",
+          "confidence": 1
+        }
+      ],
+      "result": {
+        "correct": false,
+        "score": 0
+      },
+      "assistance": {
+        "status": "unassisted",
+        "scaffolds": []
+      },
+      "exposure": "previously_practiced",
+      "provenance": "practice",
+      "observedAt": "2026-08-08T12:04:00.000Z",
+      "confounds": []
+    },
+    {
+      "observationId": "weak-high-rating:baseline:observation:2",
+      "sourceId": "activity:weak-high-rating:baseline",
+      "nodeId": "baseline",
+      "itemId": "math.multiplication.missing_factor",
+      "childResponse": "7",
+      "constructLinks": [
+        {
+          "constructId": "math.multiplication.transfer",
+          "role": "primary",
+          "confidence": 1
+        }
+      ],
+      "result": {
+        "correct": false,
+        "score": 0
+      },
+      "assistance": {
+        "status": "unassisted",
+        "scaffolds": []
+      },
+      "exposure": "previously_practiced",
+      "provenance": "practice",
+      "observedAt": "2026-08-08T12:04:00.000Z",
+      "confounds": []
+    },
+    {
+      "observationId": "weak-high-rating:baseline:observation:3",
+      "sourceId": "activity:weak-high-rating:baseline",
+      "nodeId": "baseline",
+      "itemId": "math.multiplication.word_problem_interpretation",
+      "childResponse": "5 × 6 = 30",
+      "constructLinks": [
+        {
+          "constructId": "math.multiplication.transfer",
+          "role": "primary",
+          "confidence": 1
+        }
+      ],
+      "result": {
+        "correct": false,
+        "score": 0
+      },
+      "assistance": {
+        "status": "unassisted",
+        "scaffolds": []
+      },
+      "exposure": "previously_practiced",
+      "provenance": "practice",
+      "observedAt": "2026-08-08T12:04:00.000Z",
+      "confounds": []
+    }
+  ],
+  "predictionEvaluations": [],
+  "sessionFinalizations": [
+    {
+      "choiceEventId": "weak-high-rating:5",
+      "nodeId": "baseline",
+      "finalizedAt": "2026-08-08T12:05:00.000Z",
+      "postActivityAction": "back_to_map",
+      "funRating": 5,
+      "completed": true,
+      "replayRequested": false
+    }
+  ],
+  "pendingSessionNodeIds": [],
+  "createdAt": "2026-08-08T12:00:00.000Z",
+  "updatedAt": "2026-08-08T12:05:00.000Z",
+  "evaluationNodeId": "baseline",
+  "evaluationSessionFinalizationId": "weak-high-rating:5"
+}

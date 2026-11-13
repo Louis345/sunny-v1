@@ -1,0 +1,40 @@
+{
+  "status": "READY_FOR_HUMAN_JUDGMENT",
+  "academicContractHash": "e6e216b722c3ac2dd1ea3ddf548273f3048cb53881db2d53f7efbfbf88dc446e",
+  "beforeHtmlHash": "5aac0b328666e63347f6cbaadc116afd19d87c42729e4775dac6af178ae0370d",
+  "afterHtmlHash": "60b7308c7df82f0bdaa8399d9af8174c787088f59f51a8f6c0a5f9e39b060065",
+  "staticValidation": {
+    "passed": true,
+    "score": 90,
+    "failures": [],
+    "warnings": [
+      "Correct and wrong feedback may fire from same code path"
+    ],
+    "shouldRegenerate": false
+  },
+  "runtimeValidation": {
+    "passed": true,
+    "failures": []
+  },
+  "usage": [
+    {
+      "stage": "design",
+      "model": "claude-fable-5",
+      "inputTokens": 1563,
+      "outputTokens": 3160,
+      "elapsedMs": 54870,
+      "estimatedCostUsd": 0.1736
+    },
+    {
+      "stage": "implementation",
+      "model": "claude-opus-5",
+      "inputTokens": 0,
+      "outputTokens": 0,
+      "elapsedMs": 137038,
+      "estimatedCostUsd": 0
+    }
+  ],
+  "estimatedKnownCostUsd": 0.1736,
+  "costCaveat": "The current streamed Opus helper does not expose usage to this experiment, so implementation cost is not included in the known-cost total.",
+  "humanQuestion": "Does the after version improve clarity, mathematical embodiment, world reaction, progression, and payoff—not merely styling?"
+}

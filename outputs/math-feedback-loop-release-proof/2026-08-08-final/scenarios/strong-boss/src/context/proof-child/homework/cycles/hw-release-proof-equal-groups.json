@@ -1,0 +1,260 @@
+{
+  "schemaVersion": 2,
+  "revision": 3,
+  "childId": "proof-child",
+  "homeworkId": "hw-release-proof-equal-groups",
+  "domain": "math",
+  "assignment": {
+    "title": "Equal groups release proof",
+    "contentFingerprint": "release-proof-source-v1",
+    "capturedEvidenceIds": [
+      "assignment:release-proof"
+    ],
+    "targets": [
+      "math.multiplication.equal_groups"
+    ],
+    "returnTag": "#sunny_proof_equal_groups"
+  },
+  "academicTheory": {
+    "theoryId": "theory:release-proof",
+    "revision": 1,
+    "hypothesis": "The child can independently transfer equal-groups reasoning.",
+    "supportCriteria": [
+      "Confirmed independent accuracy falls within the prediction."
+    ],
+    "reviseCriteria": [
+      "Confirmed work falls below the prediction."
+    ],
+    "falsifyCriteria": [
+      "Repeated independent operation-selection errors."
+    ]
+  },
+  "engagementTheory": null,
+  "assumptions": [
+    {
+      "assumptionId": "assumption:equal-groups-transfer",
+      "claim": "Equal-groups reasoning will transfer to returned work.",
+      "evidenceIds": [
+        "assignment:release-proof"
+      ],
+      "confidence": 0.7,
+      "uncertainty": "No confirmed returned work existed at launch.",
+      "createdAt": "2026-08-07T12:00:00.000Z",
+      "lockedAt": "2026-08-07T12:00:00.000Z"
+    }
+  ],
+  "nodes": [
+    {
+      "nodeId": "baseline-equal-groups",
+      "role": "baseline",
+      "title": "Equal Groups Lab",
+      "state": "ready",
+      "academicTarget": {
+        "domain": "math",
+        "skill": "equal groups",
+        "targets": [
+          "fresh equal-groups items"
+        ]
+      },
+      "algorithmOwner": "ai_tutor",
+      "theoryId": "theory:release-proof",
+      "experimentId": "experiment:release-proof",
+      "mechanic": "AI-authored construction",
+      "theme": "AI-authored world",
+      "openingScreen": {
+        "title": "Equal Groups Lab",
+        "purpose": "Test equal-groups reasoning."
+      },
+      "generationPrompt": null,
+      "artifactBinding": null,
+      "artwork": {
+        "status": "placeholder",
+        "localPath": null,
+        "prompt": null
+      },
+      "sfxContract": [],
+      "companionContract": {
+        "events": []
+      },
+      "evidenceContract": {
+        "academic": true,
+        "engagement": true,
+        "companionObservations": true
+      },
+      "evidenceIds": []
+    },
+    {
+      "nodeId": "quest",
+      "role": "quest",
+      "title": "Quest",
+      "state": "completed",
+      "academicTarget": {
+        "domain": "math",
+        "skill": "unseen transfer",
+        "targets": []
+      },
+      "algorithmOwner": "ai_tutor",
+      "theoryId": "theory:release-proof",
+      "experimentId": "experiment:quest",
+      "mechanic": "evidence-generated",
+      "theme": "AI-authored",
+      "openingScreen": {
+        "title": "Quest",
+        "purpose": "Test unseen transfer."
+      },
+      "generationPrompt": null,
+      "artifactBinding": null,
+      "artwork": {
+        "status": "placeholder",
+        "localPath": null,
+        "prompt": null
+      },
+      "sfxContract": [],
+      "companionContract": {
+        "events": []
+      },
+      "evidenceContract": {
+        "academic": true,
+        "engagement": true,
+        "companionObservations": true
+      },
+      "evidenceIds": [
+        "proof:quest:fresh"
+      ]
+    },
+    {
+      "nodeId": "boss",
+      "role": "boss",
+      "title": "Boss",
+      "state": "completed",
+      "academicTarget": {
+        "domain": "math",
+        "skill": "unseen synthesis",
+        "targets": []
+      },
+      "algorithmOwner": "ai_tutor",
+      "theoryId": "theory:release-proof",
+      "experimentId": "experiment:boss",
+      "mechanic": "evidence-generated",
+      "theme": "AI-authored",
+      "openingScreen": {
+        "title": "Boss",
+        "purpose": "Test unseen synthesis."
+      },
+      "generationPrompt": null,
+      "artifactBinding": null,
+      "artwork": {
+        "status": "placeholder",
+        "localPath": null,
+        "prompt": null
+      },
+      "sfxContract": [],
+      "companionContract": {
+        "events": []
+      },
+      "evidenceContract": {
+        "academic": true,
+        "engagement": true,
+        "companionObservations": true
+      },
+      "evidenceIds": [
+        "proof:boss:synthesis"
+      ]
+    }
+  ],
+  "academicPredictions": [
+    {
+      "predictionId": "prediction:release-proof",
+      "theoryId": "theory:release-proof",
+      "constructId": "math.multiplication.equal_groups",
+      "context": "confirmed unassisted returned work",
+      "horizon": "within_7_days",
+      "expectedMetric": {
+        "key": "academic.accuracy",
+        "min": 0.7,
+        "max": 0.9
+      },
+      "predictedErrorPatterns": [
+        "operation_selection"
+      ],
+      "confidence": 0.7,
+      "evidenceIds": [
+        "assignment:release-proof"
+      ],
+      "intervention": "AI-authored equal-groups lesson",
+      "evidenceLimit": "calibrated_mastery",
+      "createdAt": "2026-08-07T12:00:00.000Z",
+      "lockedAt": "2026-08-07T12:00:00.000Z"
+    }
+  ],
+  "lifecycle": "awaiting_calibration",
+  "evidence": {
+    "academic": [],
+    "engagement": [],
+    "companionObservations": []
+  },
+  "decisionHistory": [
+    {
+      "decisionId": "hw-release-proof-equal-groups:decision:r2",
+      "eventType": "progression_decision_claimed",
+      "reason": "The finalized session packet was claimed for one Planner decision.",
+      "evidenceIds": [
+        "modal:strong-boss"
+      ],
+      "fromLifecycle": "boss_evaluating",
+      "toLifecycle": "boss_evaluating",
+      "createdAt": "2026-08-07T15:01:00.000Z"
+    },
+    {
+      "decisionId": "hw-release-proof-equal-groups:decision:r3",
+      "eventType": "theory_decided",
+      "status": "awaiting_calibration",
+      "reason": "Strong in-app synthesis remains provisional until external evidence returns.",
+      "nextAction": "await_calibration",
+      "evidenceIds": [],
+      "fromLifecycle": "boss_evaluating",
+      "toLifecycle": "awaiting_calibration",
+      "createdAt": "2026-08-07T15:01:00.000Z",
+      "preserve": [
+        "synthesis evidence"
+      ],
+      "change": [],
+      "testNext": [],
+      "nextEvidenceRequired": [
+        "confirmed returned work"
+      ],
+      "predictionEvaluationIds": [],
+      "readinessAssessment": {
+        "status": "predicted_ready",
+        "scope": {
+          "homeworkId": "hw-release-proof-equal-groups",
+          "assignmentTitle": "Equal groups release proof",
+          "constructIds": [
+            "math.multiplication.equal_groups"
+          ]
+        },
+        "reason": "Strong in-app synthesis remains provisional until external evidence returns.",
+        "evidenceIds": [],
+        "predictionEvaluationIds": [],
+        "uncertainty": "In-app Boss evidence predicts readiness, but confirmed returned work or delayed independent reassessment is still required.",
+        "nextAction": "Return confirmed graded work or complete a delayed independent reassessment."
+      }
+    }
+  ],
+  "evidenceSources": [],
+  "observations": [],
+  "predictionEvaluations": [],
+  "sessionFinalizations": [
+    {
+      "choiceEventId": "modal:strong-boss",
+      "nodeId": "boss",
+      "finalizedAt": "2026-08-07T15:00:00.000Z",
+      "completed": true,
+      "postActivityAction": "back_to_map"
+    }
+  ],
+  "pendingSessionNodeIds": [],
+  "createdAt": "2026-08-07T12:00:00.000Z",
+  "updatedAt": "2026-08-07T15:01:00.000Z",
+  "evaluationNodeId": "boss"
+}

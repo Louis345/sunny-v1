@@ -1,0 +1,401 @@
+{
+  "iteration": 1,
+  "validation": {
+    "passed": false,
+    "failures": [
+      "Runtime validation did not observe node_complete/game_complete."
+    ],
+    "screenshotPaths": [
+      "/Users/jamaltaylor/Development/sunny-demo-main/outputs/quest-boss-production-proof/2026-08-06T22-15-32-721Z/strong/src/context/reina/homework/games/.validation/quest/quest-load.png",
+      "/Users/jamaltaylor/Development/sunny-demo-main/outputs/quest-boss-production-proof/2026-08-06T22-15-32-721Z/strong/src/context/reina/homework/games/.validation/quest/quest-recovery.png",
+      "/Users/jamaltaylor/Development/sunny-demo-main/outputs/quest-boss-production-proof/2026-08-06T22-15-32-721Z/strong/src/context/reina/homework/games/.validation/quest/quest-midplay.png",
+      "/Users/jamaltaylor/Development/sunny-demo-main/outputs/quest-boss-production-proof/2026-08-06T22-15-32-721Z/strong/src/context/reina/homework/games/.validation/quest/quest-completion.png"
+    ],
+    "interactionTrace": {
+      "engine": "playwright",
+      "passed": false,
+      "screenshotPaths": [
+        "/Users/jamaltaylor/Development/sunny-demo-main/outputs/quest-boss-production-proof/2026-08-06T22-15-32-721Z/strong/src/context/reina/homework/games/.validation/quest/quest-load.png",
+        "/Users/jamaltaylor/Development/sunny-demo-main/outputs/quest-boss-production-proof/2026-08-06T22-15-32-721Z/strong/src/context/reina/homework/games/.validation/quest/quest-recovery.png",
+        "/Users/jamaltaylor/Development/sunny-demo-main/outputs/quest-boss-production-proof/2026-08-06T22-15-32-721Z/strong/src/context/reina/homework/games/.validation/quest/quest-midplay.png",
+        "/Users/jamaltaylor/Development/sunny-demo-main/outputs/quest-boss-production-proof/2026-08-06T22-15-32-721Z/strong/src/context/reina/homework/games/.validation/quest/quest-completion.png"
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "attemptedTargets": 3,
+      "completed": false,
+      "completionPayloads": [],
+      "usedValidationHook": true,
+      "eventTimeline": [
+        {
+          "type": "game_state_update",
+          "timestampMs": 114,
+          "payload": {
+            "game": "generated-math",
+            "activityId": "quest",
+            "nodeId": "quest",
+            "phase": "question",
+            "activityTitle": "The Skybridge Rescue",
+            "learningFocus": "transfer equal-groups reasoning to unfamiliar situations",
+            "mechanic": "AI-designed evidence experience",
+            "currentChallenge": {
+              "id": "quest-cargo-pods-6x3",
+              "prompt": "Six cargo pods glide across the skybridge. Each pod carries 3 golden gears for repairs. How many gears are being carried in all?",
+              "mode": "unseen_transfer_word_problem",
+              "readAloudRequested": false,
+              "readAloudCount": 0
+            },
+            "availableActions": [
+              "submit_answer",
+              "request_read_aloud"
+            ],
+            "itemIndex": 1,
+            "totalItems": 4,
+            "answerVisibility": "hidden"
+          }
+        },
+        {
+          "type": "activity_ready",
+          "timestampMs": 114,
+          "payload": {
+            "nodeId": "quest"
+          }
+        },
+        {
+          "type": "attempt_event",
+          "timestampMs": 750,
+          "payload": {
+            "domain": "math",
+            "target": "quest-cargo-pods-6x3",
+            "correct": false,
+            "attemptedValue": 19,
+            "responseTimeMs": 639,
+            "scaffoldLevel": 0,
+            "word": "quest-cargo-pods-6x3",
+            "attemptId": "artifact-validation:validation-quest:1786054626084:cwlaxz1cgaf",
+            "childId": "reina",
+            "nodeId": "validation-quest",
+            "sessionId": "artifact-validation",
+            "traceId": "artifact-validation:validation-quest:7mik66bpt1",
+            "activityIntentId": "",
+            "targetSelectorId": "",
+            "timestamp": 1786054626084
+          }
+        },
+        {
+          "type": "companion_event",
+          "timestampMs": 750,
+          "payload": {
+            "trigger": "wrong_answer",
+            "timestamp": 1786054626084,
+            "childId": "reina",
+            "nodeId": "validation-quest",
+            "sessionId": "artifact-validation",
+            "traceId": "artifact-validation:validation-quest:7mik66bpt1",
+            "activityIntentId": "",
+            "targetSelectorId": "",
+            "target": "quest-cargo-pods-6x3"
+          }
+        },
+        {
+          "type": "game_state_update",
+          "timestampMs": 750,
+          "payload": {
+            "game": "generated-math",
+            "activityId": "quest",
+            "nodeId": "quest",
+            "phase": "question",
+            "activityTitle": "The Skybridge Rescue",
+            "learningFocus": "transfer equal-groups reasoning to unfamiliar situations",
+            "mechanic": "AI-designed evidence experience",
+            "currentChallenge": {
+              "id": "quest-cargo-pods-6x3",
+              "prompt": "Six cargo pods glide across the skybridge. Each pod carries 3 golden gears for repairs. How many gears are being carried in all?",
+              "mode": "unseen_transfer_word_problem",
+              "readAloudRequested": false,
+              "readAloudCount": 0
+            },
+            "availableActions": [
+              "submit_answer",
+              "request_read_aloud"
+            ],
+            "itemIndex": 1,
+            "totalItems": 4,
+            "answerVisibility": "hidden"
+          }
+        },
+        {
+          "type": "attempt_event",
+          "timestampMs": 1161,
+          "payload": {
+            "domain": "math",
+            "target": "quest-cargo-pods-6x3",
+            "correct": true,
+            "attemptedValue": 18,
+            "responseTimeMs": 1044,
+            "scaffoldLevel": 1,
+            "word": "quest-cargo-pods-6x3",
+            "attemptId": "artifact-validation:validation-quest:1786054626489:j8bnnl32e7",
+            "childId": "reina",
+            "nodeId": "validation-quest",
+            "sessionId": "artifact-validation",
+            "traceId": "artifact-validation:validation-quest:7mik66bpt1",
+            "activityIntentId": "",
+            "targetSelectorId": "",
+            "timestamp": 1786054626489
+          }
+        },
+        {
+          "type": "companion_event",
+          "timestampMs": 1161,
+          "payload": {
+            "trigger": "correct_answer",
+            "timestamp": 1786054626490,
+            "childId": "reina",
+            "nodeId": "validation-quest",
+            "sessionId": "artifact-validation",
+            "traceId": "artifact-validation:validation-quest:7mik66bpt1",
+            "activityIntentId": "",
+            "targetSelectorId": "",
+            "target": "quest-cargo-pods-6x3"
+          }
+        },
+        {
+          "type": "progress_event",
+          "timestampMs": 1161,
+          "payload": {
+            "nodeId": "quest",
+            "completedItems": 1,
+            "totalItems": 4
+          }
+        },
+        {
+          "type": "attempt_event",
+          "timestampMs": 1862,
+          "payload": {
+            "domain": "math",
+            "target": "quest-cargo-pods-6x3",
+            "correct": false,
+            "attemptedValue": 20,
+            "responseTimeMs": 1752,
+            "scaffoldLevel": 2,
+            "word": "quest-cargo-pods-6x3",
+            "attemptId": "artifact-validation:validation-quest:1786054627197:4rtou8mwqkp",
+            "childId": "reina",
+            "nodeId": "validation-quest",
+            "sessionId": "artifact-validation",
+            "traceId": "artifact-validation:validation-quest:7mik66bpt1",
+            "activityIntentId": "",
+            "targetSelectorId": "",
+            "timestamp": 1786054627197
+          }
+        },
+        {
+          "type": "companion_event",
+          "timestampMs": 1862,
+          "payload": {
+            "trigger": "wrong_answer",
+            "timestamp": 1786054627197,
+            "childId": "reina",
+            "nodeId": "validation-quest",
+            "sessionId": "artifact-validation",
+            "traceId": "artifact-validation:validation-quest:7mik66bpt1",
+            "activityIntentId": "",
+            "targetSelectorId": "",
+            "target": "quest-cargo-pods-6x3"
+          }
+        },
+        {
+          "type": "progress_event",
+          "timestampMs": 1862,
+          "payload": {
+            "nodeId": "quest",
+            "completedItems": 1,
+            "totalItems": 4
+          }
+        },
+        {
+          "type": "game_state_update",
+          "timestampMs": 2061,
+          "payload": {
+            "game": "generated-math",
+            "activityId": "quest",
+            "nodeId": "quest",
+            "phase": "question",
+            "activityTitle": "The Skybridge Rescue",
+            "learningFocus": "transfer equal-groups reasoning to unfamiliar situations",
+            "mechanic": "AI-designed evidence experience",
+            "currentChallenge": {
+              "id": "quest-lantern-rows-4x5",
+              "prompt": "The rescue team strings glowing lights in 4 rows to guide flyers home. Each row holds 5 lanterns. How many lanterns light the bridge?",
+              "mode": "unseen_transfer_word_problem",
+              "readAloudRequested": false,
+              "readAloudCount": 0
+            },
+            "availableActions": [
+              "submit_answer",
+              "request_read_aloud"
+            ],
+            "itemIndex": 2,
+            "totalItems": 4,
+            "answerVisibility": "hidden"
+          }
+        },
+        {
+          "type": "attempt_event",
+          "timestampMs": 2565,
+          "payload": {
+            "domain": "math",
+            "target": "quest-lantern-rows-4x5",
+            "correct": false,
+            "attemptedValue": 14,
+            "responseTimeMs": 502,
+            "scaffoldLevel": 0,
+            "word": "quest-lantern-rows-4x5",
+            "attemptId": "artifact-validation:validation-quest:1786054627899:du62gxqefgv",
+            "childId": "reina",
+            "nodeId": "validation-quest",
+            "sessionId": "artifact-validation",
+            "traceId": "artifact-validation:validation-quest:7mik66bpt1",
+            "activityIntentId": "",
+            "targetSelectorId": "",
+            "timestamp": 1786054627899
+          }
+        },
+        {
+          "type": "companion_event",
+          "timestampMs": 2565,
+          "payload": {
+            "trigger": "wrong_answer",
+            "timestamp": 1786054627900,
+            "childId": "reina",
+            "nodeId": "validation-quest",
+            "sessionId": "artifact-validation",
+            "traceId": "artifact-validation:validation-quest:7mik66bpt1",
+            "activityIntentId": "",
+            "targetSelectorId": "",
+            "target": "quest-lantern-rows-4x5"
+          }
+        },
+        {
+          "type": "game_state_update",
+          "timestampMs": 2565,
+          "payload": {
+            "game": "generated-math",
+            "activityId": "quest",
+            "nodeId": "quest",
+            "phase": "question",
+            "activityTitle": "The Skybridge Rescue",
+            "learningFocus": "transfer equal-groups reasoning to unfamiliar situations",
+            "mechanic": "AI-designed evidence experience",
+            "currentChallenge": {
+              "id": "quest-lantern-rows-4x5",
+              "prompt": "The rescue team strings glowing lights in 4 rows to guide flyers home. Each row holds 5 lanterns. How many lanterns light the bridge?",
+              "mode": "unseen_transfer_word_problem",
+              "readAloudRequested": false,
+              "readAloudCount": 0
+            },
+            "availableActions": [
+              "submit_answer",
+              "request_read_aloud"
+            ],
+            "itemIndex": 2,
+            "totalItems": 4,
+            "answerVisibility": "hidden"
+          }
+        },
+        {
+          "type": "game_state_update",
+          "timestampMs": 2762,
+          "payload": {
+            "game": "generated-math",
+            "activityId": "quest",
+            "nodeId": "quest",
+            "phase": "question",
+            "activityTitle": "The Skybridge Rescue",
+            "learningFocus": "transfer equal-groups reasoning to unfamiliar situations",
+            "mechanic": "AI-designed evidence experience",
+            "currentChallenge": {
+              "id": "quest-balloon-crates-2x7",
+              "prompt": "Two rescue balloons rise into the clouds. Each balloon is loaded with 7 supply crates for the stranded climbers. How many crates in total?",
+              "mode": "unseen_transfer_word_problem",
+              "readAloudRequested": false,
+              "readAloudCount": 0
+            },
+            "availableActions": [
+              "submit_answer",
+              "request_read_aloud"
+            ],
+            "itemIndex": 3,
+            "totalItems": 4,
+            "answerVisibility": "hidden"
+          }
+        },
+        {
+          "type": "attempt_event",
+          "timestampMs": 3269,
+          "payload": {
+            "domain": "math",
+            "target": "quest-balloon-crates-2x7",
+            "correct": false,
+            "attemptedValue": 15,
+            "responseTimeMs": 504,
+            "scaffoldLevel": 0,
+            "word": "quest-balloon-crates-2x7",
+            "attemptId": "artifact-validation:validation-quest:1786054628603:3m26hecrny",
+            "childId": "reina",
+            "nodeId": "validation-quest",
+            "sessionId": "artifact-validation",
+            "traceId": "artifact-validation:validation-quest:7mik66bpt1",
+            "activityIntentId": "",
+            "targetSelectorId": "",
+            "timestamp": 1786054628603
+          }
+        },
+        {
+          "type": "companion_event",
+          "timestampMs": 3269,
+          "payload": {
+            "trigger": "wrong_answer",
+            "timestamp": 1786054628603,
+            "childId": "reina",
+            "nodeId": "validation-quest",
+            "sessionId": "artifact-validation",
+            "traceId": "artifact-validation:validation-quest:7mik66bpt1",
+            "activityIntentId": "",
+            "targetSelectorId": "",
+            "target": "quest-balloon-crates-2x7"
+          }
+        },
+        {
+          "type": "game_state_update",
+          "timestampMs": 3269,
+          "payload": {
+            "game": "generated-math",
+            "activityId": "quest",
+            "nodeId": "quest",
+            "phase": "question",
+            "activityTitle": "The Skybridge Rescue",
+            "learningFocus": "transfer equal-groups reasoning to unfamiliar situations",
+            "mechanic": "AI-designed evidence experience",
+            "currentChallenge": {
+              "id": "quest-balloon-crates-2x7",
+              "prompt": "Two rescue balloons rise into the clouds. Each balloon is loaded with 7 supply crates for the stranded climbers. How many crates in total?",
+              "mode": "unseen_transfer_word_problem",
+              "readAloudRequested": false,
+              "readAloudCount": 0
+            },
+            "availableActions": [
+              "submit_answer",
+              "request_read_aloud"
+            ],
+            "itemIndex": 3,
+            "totalItems": 4,
+            "answerVisibility": "hidden"
+          }
+        }
+      ]
+    }
+  },
+  "error": null
+}

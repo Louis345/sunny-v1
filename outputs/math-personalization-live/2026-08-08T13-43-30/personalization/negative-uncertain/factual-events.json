@@ -1,0 +1,242 @@
+{
+  "engagement": {
+    "funRating": 1,
+    "replay": false,
+    "timeSpentMs": 142000,
+    "frustrationSignals": [
+      "confusion",
+      "hesitation"
+    ],
+    "postActivityAction": "back_to_map",
+    "factualSummary": "Completed with correct unassisted mathematics, explicitly rated it 1/5, did not replay, and showed confusion and hesitation."
+  },
+  "academicResult": {
+    "completed": true,
+    "accuracy": 1,
+    "targets": [
+      {
+        "target": "math.multiplication.equal_groups",
+        "attemptedValue": "6 groups of 4 = 24"
+      },
+      {
+        "target": "math.multiplication.missing_factor",
+        "attemptedValue": "7"
+      },
+      {
+        "target": "math.multiplication.word_problem_interpretation",
+        "attemptedValue": "5 × 6 = 30"
+      }
+    ]
+  },
+  "evidence": {
+    "academic": [
+      {
+        "evidenceId": "shared-baseline-session:baseline:completion",
+        "accuracy": 1,
+        "summary": "Festival Team Challenge completed at 100% across 3 scored target readings."
+      },
+      {
+        "evidenceId": "shared-quest-session:quest:completion",
+        "accuracy": 1,
+        "summary": "The Cargo Elevator Has One Trip Left completed at 100% across 3 scored target readings."
+      }
+    ],
+    "engagement": [
+      {
+        "evidenceId": "shared-baseline-session:baseline:completion:engagement",
+        "summary": "Festival Team Challenge completed in 142000ms; replay=false; frustration=confusion,hesitation."
+      },
+      {
+        "evidenceId": "negative-uncertain:baseline:rating",
+        "summary": "Session finalized after Festival Team Challenge: fun rating 1/5; action back_to_map."
+      },
+      {
+        "evidenceId": "shared-quest-session:quest:completion:engagement",
+        "summary": "The Cargo Elevator Has One Trip Left completed in 142000ms; replay=false; frustration=confusion,hesitation."
+      },
+      {
+        "evidenceId": "negative-uncertain:quest:rating",
+        "summary": "Session finalized after The Cargo Elevator Has One Trip Left: fun rating 1/5; action back_to_map."
+      }
+    ],
+    "companionObservations": []
+  },
+  "observations": [
+    {
+      "observationId": "shared-baseline-session:baseline:observation:1",
+      "sourceId": "activity:shared-baseline-session:baseline",
+      "nodeId": "baseline",
+      "itemId": "math.multiplication.equal_groups",
+      "childResponse": "6 groups of 4 = 24",
+      "constructLinks": [
+        {
+          "constructId": "math.multiplication.equal_groups",
+          "role": "primary",
+          "confidence": 1
+        }
+      ],
+      "result": {
+        "correct": true,
+        "score": 1
+      },
+      "assistance": {
+        "status": "unassisted",
+        "scaffolds": []
+      },
+      "exposure": "previously_practiced",
+      "provenance": "practice",
+      "observedAt": "2026-08-08T12:04:00.000Z",
+      "confounds": []
+    },
+    {
+      "observationId": "shared-baseline-session:baseline:observation:2",
+      "sourceId": "activity:shared-baseline-session:baseline",
+      "nodeId": "baseline",
+      "itemId": "math.multiplication.missing_factor",
+      "childResponse": "7",
+      "constructLinks": [
+        {
+          "constructId": "math.multiplication.equal_groups",
+          "role": "primary",
+          "confidence": 1
+        }
+      ],
+      "result": {
+        "correct": true,
+        "score": 1
+      },
+      "assistance": {
+        "status": "unassisted",
+        "scaffolds": []
+      },
+      "exposure": "previously_practiced",
+      "provenance": "practice",
+      "observedAt": "2026-08-08T12:04:00.000Z",
+      "confounds": []
+    },
+    {
+      "observationId": "shared-baseline-session:baseline:observation:3",
+      "sourceId": "activity:shared-baseline-session:baseline",
+      "nodeId": "baseline",
+      "itemId": "math.multiplication.word_problem_interpretation",
+      "childResponse": "5 × 6 = 30",
+      "constructLinks": [
+        {
+          "constructId": "math.multiplication.equal_groups",
+          "role": "primary",
+          "confidence": 1
+        }
+      ],
+      "result": {
+        "correct": true,
+        "score": 1
+      },
+      "assistance": {
+        "status": "unassisted",
+        "scaffolds": []
+      },
+      "exposure": "previously_practiced",
+      "provenance": "practice",
+      "observedAt": "2026-08-08T12:04:00.000Z",
+      "confounds": []
+    },
+    {
+      "observationId": "shared-quest-session:quest:observation:1",
+      "sourceId": "activity:shared-quest-session:quest",
+      "nodeId": "quest",
+      "itemId": "unseen.math.multiplication.equal_groups",
+      "childResponse": "6 groups of 4 = 24",
+      "constructLinks": [
+        {
+          "constructId": "math.multiplication.equal_groups",
+          "role": "primary",
+          "confidence": 1
+        }
+      ],
+      "result": {
+        "correct": true,
+        "score": 1
+      },
+      "assistance": {
+        "status": "unassisted",
+        "scaffolds": []
+      },
+      "exposure": "unseen",
+      "provenance": "independent_probe",
+      "observedAt": "2026-08-08T12:10:00.000Z",
+      "confounds": []
+    },
+    {
+      "observationId": "shared-quest-session:quest:observation:2",
+      "sourceId": "activity:shared-quest-session:quest",
+      "nodeId": "quest",
+      "itemId": "unseen.math.multiplication.missing_factor",
+      "childResponse": "7",
+      "constructLinks": [
+        {
+          "constructId": "math.multiplication.equal_groups",
+          "role": "primary",
+          "confidence": 1
+        }
+      ],
+      "result": {
+        "correct": true,
+        "score": 1
+      },
+      "assistance": {
+        "status": "unassisted",
+        "scaffolds": []
+      },
+      "exposure": "unseen",
+      "provenance": "independent_probe",
+      "observedAt": "2026-08-08T12:10:00.000Z",
+      "confounds": []
+    },
+    {
+      "observationId": "shared-quest-session:quest:observation:3",
+      "sourceId": "activity:shared-quest-session:quest",
+      "nodeId": "quest",
+      "itemId": "unseen.math.multiplication.word_problem_interpretation",
+      "childResponse": "5 × 6 = 30",
+      "constructLinks": [
+        {
+          "constructId": "math.multiplication.equal_groups",
+          "role": "primary",
+          "confidence": 1
+        }
+      ],
+      "result": {
+        "correct": true,
+        "score": 1
+      },
+      "assistance": {
+        "status": "unassisted",
+        "scaffolds": []
+      },
+      "exposure": "unseen",
+      "provenance": "independent_probe",
+      "observedAt": "2026-08-08T12:10:00.000Z",
+      "confounds": []
+    }
+  ],
+  "sessionFinalizations": [
+    {
+      "choiceEventId": "negative-uncertain:baseline:rating",
+      "nodeId": "baseline",
+      "finalizedAt": "2026-08-08T12:05:00.000Z",
+      "postActivityAction": "back_to_map",
+      "funRating": 1,
+      "completed": true,
+      "replayRequested": false
+    },
+    {
+      "choiceEventId": "negative-uncertain:quest:rating",
+      "nodeId": "quest",
+      "finalizedAt": "2026-08-08T12:05:00.000Z",
+      "postActivityAction": "back_to_map",
+      "funRating": 1,
+      "completed": true,
+      "replayRequested": false
+    }
+  ]
+}

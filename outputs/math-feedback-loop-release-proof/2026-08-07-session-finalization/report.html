@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sunny Feedback Loop — Task 1 Proof</title>
+  <style>
+    :root { color-scheme: dark; font-family: Inter, ui-sans-serif, system-ui, sans-serif; background:#07111f; color:#eef6ff; }
+    body { margin:0; padding:40px; background:radial-gradient(circle at 15% 0%,#17315a,#07111f 48%); }
+    main { max-width:1100px; margin:auto; }
+    h1 { font-size:clamp(34px,5vw,64px); margin:8px 0; }
+    h2 { margin-top:34px; }
+    .eyebrow { color:#7dd3fc; font-weight:800; letter-spacing:.14em; text-transform:uppercase; }
+    .verdict { display:inline-block; padding:8px 16px; border-radius:999px; color:#062416; background:#86efac; font-weight:900; }
+    .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(250px,1fr)); gap:16px; }
+    .card { border:1px solid #294468; border-radius:18px; padding:20px; background:rgba(13,28,49,.86); }
+    .bad { border-color:#7f1d1d; } .good { border-color:#166534; }
+    .metric { font-size:30px; font-weight:900; color:#86efac; }
+    .timeline { display:grid; grid-template-columns:repeat(5,1fr); gap:10px; }
+    .step { padding:18px 12px; border-radius:14px; background:#122943; min-height:90px; }
+    code { color:#bae6fd; } li { margin:8px 0; }
+    @media(max-width:800px){ body{padding:20px}.timeline{grid-template-columns:1fr}.step{min-height:auto} }
+  </style>
+</head>
+<body><main>
+  <div class="eyebrow">Math feedback loop · Task 1</div>
+  <h1>Complete session before deciding</h1>
+  <p><span class="verdict">PASS</span></p>
+  <p>Sunny no longer asks the Planner what comes next before the child finishes the completion modal. Academic results are recorded first; rating or Skip then closes one durable session packet and starts exactly one progression decision.</p>
+
+  <h2>Before and after</h2>
+  <div class="grid">
+    <section class="card bad"><h3>Before</h3><p>Node completion immediately called Opus. The rating arrived afterward, so it could influence later personalization but not the immediate Quest or Support decision.</p></section>
+    <section class="card good"><h3>After</h3><p>Node completion enters <code>*_evaluating</code>. The Planner is mechanically blocked until Rating, Skip, Replay, Return, or abandonment creates <code>session_finalized</code>.</p></section>
+  </div>
+
+  <h2>Canonical event order</h2>
+  <div class="timeline">
+    <div class="step"><b>1</b><br>Academic observations saved</div>
+    <div class="step"><b>2</b><br>Cycle enters evaluating</div>
+    <div class="step"><b>3</b><br>Modal finalizes session</div>
+    <div class="step"><b>4</b><br>Complete packet reaches Planner</div>
+    <div class="step"><b>5</b><br>One next chapter is decided</div>
+  </div>
+
+  <h2>Proof</h2>
+  <div class="grid">
+    <div class="card"><div class="metric">0</div><p>Planner calls after node completion alone</p></div>
+    <div class="card"><div class="metric">1</div><p>Planner call after one rating or Skip</p></div>
+    <div class="card"><div class="metric">0</div><p>Canonical writes in parent preview</p></div>
+    <div class="card"><div class="metric">$0</div><p>Provider cost for this proof</p></div>
+  </div>
+  <ul>
+    <li>Skip records rating unavailable; no neutral score is invented.</li>
+    <li>Ratings remain engagement evidence and cannot become mastery.</li>
+    <li>Concurrent retries are coalesced through an owned, heartbeating cross-process lease.</li>
+    <li>All canonical cycle transitions use a short atomic lock, preventing cross-process lost updates.</li>
+    <li>Transition locks are owner-scoped; brief evidence-write contention retries the saved Planner result rather than buying another call.</li>
+    <li>A crashed process can be recovered after lease expiry; its old owner ID cannot commit or fail the replacement decision.</li>
+    <li>Delayed earlier-node modal evidence is preserved without repeating the paid Planner call.</li>
+    <li>Locked, never-launched nodes cannot submit abandonment evidence.</li>
+    <li>A provider failure leaves the finalized packet available for a later retry.</li>
+    <li>Repository, route, runtime, and closed-loop acceptance checks use temporary child roots; Reina and Ila are untouched.</li>
+  </ul>
+
+  <h2>Files permitted to change in this task</h2>
+  <p>The canonical assignment cycle may gain one session finalization, one engagement evidence reference, and—after the provider succeeds—one theory decision. Raw choice events remain immutable. No profile, mastery, or child data is changed by this proof run.</p>
+</main></body></html>

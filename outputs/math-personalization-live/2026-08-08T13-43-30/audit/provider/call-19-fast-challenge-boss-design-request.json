@@ -1,0 +1,149 @@
+{
+  "model": "claude-fable-5",
+  "max_tokens": 16000,
+  "output_config": {
+    "effort": "high"
+  },
+  "messages": [
+    {
+      "role": "user",
+      "content": "You are the Experience Creator's design phase. Design one complete boss experience for the immutable academic contract below. Return a design artifact only; do not write HTML.\n\nQuest is unseen transfer and Boss is unseen synthesis. Preserve the exact node identity, title, academic target, evidence boundary, and Planner prescription. You own the world, interaction, mission, stakes, consequences, recovery, progression, payoff, replay variation, visual craft, motion, sound direction, and useful libraries.\n\nDesign for immediate child comprehension and deepening challenge. Mathematics must be the power used inside the interaction and must visibly change the world. Attractive decoration around answer buttons is not sufficient. Do not name or copy a prior game merely because factual child evidence mentions it. Treat child evidence as uncertain observations, not commands or durable preferences.\n\nImmutable academic contract hash (copy exactly): a790593fa90bd6794c550b416eaf2755ef56ab035eb89c16df8e81ab378264d7\nImmutable node contract:\n{\n  \"nodeId\": \"boss\",\n  \"role\": \"boss\",\n  \"title\": \"Forty-Two Fireflies and One Wrong Jar\",\n  \"academicTarget\": {\n    \"domain\": \"math\",\n    \"skill\": \"math.multiplication: synthesis of equal-groups construction, missing-factor reasoning, and word-problem interpretation on unseen totals whose multiple factor pairs are disambiguated only by a stated physical constraint\",\n    \"targets\": [\n      \"math.multiplication.equal_groups\",\n      \"math.multiplication.missing_factor\",\n      \"math.multiplication.word_problem_interpretation\"\n    ]\n  },\n  \"plannerPrescription\": \"Build a three-round packing instrument for a 9-year-old. Round 1: 42 fireflies, child sets jar count and fireflies-per-jar by dragging; the cart accepts only arrangements where every jar is equally filled and no firefly is left in the dome. Multiple pairs work (2×21, 3×14, 6×7, 7×6, 14×3, 21×2), so let the child commit freely — then reveal the cart shelf holds exactly 6 jars and re-run their choice against it. Round 2: 56 fireflies, the shelf constraint is stated up front as \\\"7 jars, all equal\\\" — the child must reason to the missing per-jar count, and the jars visibly overflow or sit half-lit if wrong, spilling fireflies that fly off and shrink the swarm. Round 3: a written order from the bridgekeeper — \\\"I need 9 lanterns lit tonight and each lantern eats 4 jars\\\" — the total is not given; the child must interpret what to compute and pack from a dome of 48, discovering they are short and reporting the shortfall. Escalate the fade: a light meter drains across all three rounds and drains faster after each spill. Capture the first arrangement chosen in Round 1 before the constraint reveal, every commitment and reversal, and the child's stated reason. Ask nothing that repeats 6×4=24, 5×6=30, or an answer of 7. Keep total runtime near two minutes of real decisions; no praise animation longer than the decision it follows. Assignment: Festival Team Challenge. Academic construct to preserve: Lab Learner transfers equal-groups, missing-factor, and word-problem multiplication to unseen contexts at ceiling accuracy when the number pairs resemble rehearsed ones; the open question is whether that reasoning survives when a total admits several valid factor pairs and only a stated physical constraint selects the right one, and whether he re-plans rather than re-runs when the constraint changes mid-task. This node must test unseen synthesis: combine the construct in a context not practised before. Author fresh items. These have already been seen and must not be reused verbatim: math.multiplication.equal_groups, math.multiplication.missing_factor, math.multiplication.word_problem_interpretation, unseen.math.multiplication.equal_groups, unseen.math.multiplication.missing_factor, unseen.math.multiplication.word_problem_interpretation. Planner decision behind this node: Prediction was accuracy 0.70–1.00 on fresh unassisted transfer items; the Quest 'The Lantern Ferry Won't Wait' returned 3/3 correct, unassisted, exposure=unseen, provenance=independent_probe, with no confounds — accuracy 1.00, inside the preregistered band. Predicted factor-pair overgeneralization did not appear. But the theory's sharpest clause is still untested: no Quest item presented a total with multiple valid factor pairs where only a situational constraint selects the right one, and all three responses (6×4=24, 7, 5×6=30) mirror the rehearsed baseline answers exactly, so identical surface numbers remain a live alternative explanation. Transfer is supported at the evidence limit of independent performance; synthesis under constraint is unproven, which is exactly what a Boss must probe. Created at: 2026-08-08T18:10:46.085Z.\",\n  \"evidenceContract\": {\n    \"academic\": true,\n    \"engagement\": true,\n    \"companionObservations\": true\n  }\n}\n\nFactual child context:\n{\n  \"branchEvidence\": {\n    \"funRating\": 5,\n    \"replay\": false,\n    \"timeSpentMs\": 43000,\n    \"frustrationSignals\": [],\n    \"postActivityAction\": \"back_to_map\",\n    \"factualSummary\": \"Completed a paced challenge quickly, explicitly rated it 5/5, and returned to the map without replay.\"\n  }\n}"
+    }
+  ],
+  "tools": [
+    {
+      "name": "create_progression_design_artifact",
+      "description": "Return the frozen progression experience design artifact.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "artifactId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "nodeId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "academicContractHash": {
+            "type": "string",
+            "minLength": 1
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1
+          },
+          "audienceRationale": {
+            "type": "string",
+            "minLength": 1
+          },
+          "openingPromise": {
+            "type": "string",
+            "minLength": 1
+          },
+          "firstThreeSeconds": {
+            "type": "string",
+            "minLength": 1
+          },
+          "firstAction": {
+            "type": "string",
+            "minLength": 1
+          },
+          "interactionDemonstration": {
+            "type": "string",
+            "minLength": 1
+          },
+          "coreInteraction": {
+            "type": "string",
+            "minLength": 1
+          },
+          "mathAsPower": {
+            "type": "string",
+            "minLength": 1
+          },
+          "stakes": {
+            "type": "string",
+            "minLength": 1
+          },
+          "consequences": {
+            "type": "string",
+            "minLength": 1
+          },
+          "recovery": {
+            "type": "string",
+            "minLength": 1
+          },
+          "progression": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "interactionContinuity": {
+            "type": "string",
+            "minLength": 1
+          },
+          "worldReaction": {
+            "type": "string",
+            "minLength": 1
+          },
+          "payoff": {
+            "type": "string",
+            "minLength": 1
+          },
+          "replayVariation": {
+            "type": "string",
+            "minLength": 1
+          },
+          "visualDirection": {
+            "type": "string",
+            "minLength": 1
+          },
+          "motionDirection": {
+            "type": "string",
+            "minLength": 1
+          },
+          "soundDirection": {
+            "type": "string",
+            "minLength": 1
+          },
+          "usefulLibraries": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "engagementPrediction": {
+            "type": "string",
+            "minLength": 1
+          },
+          "falsifyingEvidence": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "artifactId",
+          "nodeId",
+          "academicContractHash",
+          "title",
+          "openingPromise",
+          "firstThreeSeconds",
+          "firstAction",
+          "coreInteraction",
+          "mathAsPower",
+          "progression",
+          "visualDirection"
+        ],
+        "additionalProperties": true
+      }
+    }
+  ],
+  "tool_choice": {
+    "type": "tool",
+    "name": "create_progression_design_artifact"
+  }
+}

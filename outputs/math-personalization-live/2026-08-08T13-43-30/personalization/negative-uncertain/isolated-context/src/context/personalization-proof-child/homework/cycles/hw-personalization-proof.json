@@ -1,0 +1,682 @@
+{
+  "schemaVersion": 2,
+  "revision": 11,
+  "childId": "personalization-proof-child",
+  "homeworkId": "hw-personalization-proof",
+  "domain": "math",
+  "assignment": {
+    "title": "Festival Team Challenge",
+    "contentFingerprint": "personalization-proof-assignment",
+    "capturedEvidenceIds": [
+      "assignment:personalization-proof"
+    ],
+    "targets": [
+      "math.multiplication.equal_groups",
+      "math.multiplication.missing_factor",
+      "math.multiplication.word_problem_interpretation"
+    ]
+  },
+  "academicTheory": {
+    "theoryId": "personalization-proof-theory",
+    "revision": 2,
+    "hypothesis": "Lab Learner transfers single-target multiplication reasoning to fresh material with high accuracy; it remains untested whether he can synthesize equal-groups construction, missing-factor recovery with an unknown group size, and distractor-laden word-problem interpretation inside one committed action, and whether a manipulative, high-consequence format raises engagement above the 1/5 he has reported twice while accuracy holds.",
+    "supportCriteria": [
+      "Fresh unassisted answers support transfer."
+    ],
+    "reviseCriteria": [
+      "Errors reveal a scoped misconception."
+    ],
+    "falsifyCriteria": [
+      "Repeated fresh independent errors contradict transfer."
+    ]
+  },
+  "engagementTheory": null,
+  "assumptions": [
+    {
+      "assumptionId": "personalization-proof-assumption",
+      "claim": "Presentation may influence voluntary continuation.",
+      "evidenceIds": [
+        "assignment:personalization-proof"
+      ],
+      "confidence": 0.3,
+      "uncertainty": "No branch evidence has been observed yet.",
+      "createdAt": "2026-08-08T12:00:00.000Z",
+      "lockedAt": "2026-08-08T12:00:00.000Z"
+    }
+  ],
+  "nodes": [
+    {
+      "nodeId": "baseline",
+      "role": "baseline",
+      "title": "Festival Team Challenge",
+      "state": "completed",
+      "academicTarget": {
+        "domain": "math",
+        "skill": "multiplication transfer",
+        "targets": [
+          "math.multiplication.equal_groups",
+          "math.multiplication.missing_factor",
+          "math.multiplication.word_problem_interpretation"
+        ]
+      },
+      "algorithmOwner": "retrieval-practice",
+      "theoryId": "personalization-proof-theory",
+      "experimentId": "personalization-baseline",
+      "mechanic": "AI-owned",
+      "theme": "AI-owned",
+      "openingScreen": {
+        "title": "Festival Team Challenge",
+        "purpose": "Collect fresh evidence."
+      },
+      "generationPrompt": null,
+      "artifactBinding": {
+        "contentId": "proof-baseline",
+        "artifactId": "proof-baseline-artifact",
+        "localArtifactPath": "/lab/baseline.html",
+        "localArtworkPath": "/lab/baseline.svg",
+        "contractFingerprint": "proof-baseline-contract",
+        "validationStatus": "passed"
+      },
+      "artwork": {
+        "status": "ready",
+        "localPath": "/lab/baseline.svg",
+        "prompt": null
+      },
+      "sfxContract": [
+        "interaction",
+        "recovery",
+        "progress",
+        "completion"
+      ],
+      "companionContract": {
+        "events": [
+          "help_requested"
+        ]
+      },
+      "evidenceContract": {
+        "academic": true,
+        "engagement": true,
+        "companionObservations": true
+      },
+      "evidenceIds": [
+        "shared-baseline-session:baseline:completion",
+        "shared-baseline-session:baseline:completion:engagement"
+      ]
+    },
+    {
+      "nodeId": "quest",
+      "role": "quest",
+      "title": "The Cargo Elevator Has One Trip Left",
+      "state": "completed",
+      "academicTarget": {
+        "domain": "math",
+        "skill": "math.multiplication.transfer — equal-groups construction, missing-factor recovery (unknown group size), and word-problem interpretation with distractor quantities, on unseen material",
+        "targets": [
+          "math.multiplication.equal_groups",
+          "math.multiplication.missing_factor",
+          "math.multiplication.word_problem_interpretation"
+        ]
+      },
+      "algorithmOwner": "mastery-gating",
+      "theoryId": "personalization-proof-theory",
+      "experimentId": "personalization-quest",
+      "mechanic": "Loading puzzle: the child builds crate stacks into a fixed-shape elevator bay, choosing how many rows and how many per row, then commits the trip.",
+      "theme": "A supply elevator on a mountain research station. Weather is closing in. What gets loaded correctly goes up; what doesn't stays on the ledge until spring.",
+      "openingScreen": {
+        "title": "The Cargo Elevator Has One Trip Left",
+        "purpose": "Open on the loading bay with the storm timer already visible and a radio voice stating the day's manifest — so the child knows within five seconds that there is a fixed amount of space, a fixed amount of cargo, and a limited number of trips."
+      },
+      "generationPrompt": {
+        "promptId": "hw-personalization-proof:quest:prompt:r5",
+        "createdFromEvidenceIds": [
+          "shared-baseline-session:baseline:completion",
+          "shared-baseline-session:baseline:completion:engagement",
+          "negative-uncertain:baseline:rating"
+        ],
+        "text": "Build a five-stage cargo-loading instrument for a 9-year-old on a mountain station elevator. The bay is a grid whose dimensions the child sets by dragging a row handle and a column handle; crates auto-fill the shape they define. The manifest states a total (e.g., \"28 ration crates, all must ride\"), and the child must find a row/column arrangement that holds exactly that many — no gaps, no overflow. Stage 1: total given, both dimensions free (equal groups, constructed not read). Stage 2: the bay is locked to a fixed number of rows and the total is given — the child must find how many go in each row (missing factor with group size unknown). Stage 3: two bays of different shapes, one holding 4 rows of 6 and one holding 6 rows of 4; only one physically fits through the elevator door, so the child must see that same product does not mean same shape. Stage 4: a radioed manifest in sentences, including one number that names something other than a factor (\"crate 19 is the fragile one\") — the child must extract the real factors. Stage 5: a full manifest with three cargo types and limited bay space, requiring the child to arrange all three in sequence before the storm timer runs out. Storm timer runs across the whole session, not per stage. Overloading the bay makes crates tumble off the ledge and they are gone for the run. Show a running \"left behind\" count that the child cannot clear. End with the station log listing exactly what made it up and what did not, in the child's own numbers. Assignment: Festival Team Challenge. Academic construct to preserve: The learner can transfer multiplication reasoning to fresh material. This node must test unseen transfer: change the context while preserving the construct. Author fresh items. These have already been seen and must not be reused verbatim: math.multiplication.equal_groups, math.multiplication.missing_factor, math.multiplication.word_problem_interpretation. Planner decision behind this node: All three baseline items were unassisted and correct (accuracy 1.00, above the preregistered 0.70–1.00 band), but every observation is tagged exposure=previously_practiced and provenance=practice. Practice performance can justify a transfer test; it cannot confirm the transfer hypothesis, and the predicted error pattern (factor-pair overgeneralization) was never put at risk because no item required reinterpreting a novel structure. Engagement is the sharper signal: 142s, no replay, confusion and hesitation flags, and a fun rating of 1/5 alongside perfect accuracy — the child was correct and unmoved, which means the instrument told us nothing about how far the reasoning stretches. Quest eligibility is open on independent-correct evidence, so the right move is an unseen-transfer Quest that forces equal-groups reasoning into an unfamiliar shape with real cost attached. Created at: 2026-08-08T19:10:33.598Z."
+      },
+      "artifactBinding": {
+        "contentId": "personalization-proof:quest",
+        "artifactId": "quest-cargo-elevator-progression-v1",
+        "localArtifactPath": "/Users/jamaltaylor/Development/sunny-demo-main/outputs/math-personalization-live/2026-08-08T13-43-30/personalization/negative-uncertain/quest/experience.html",
+        "localArtworkPath": "/Users/jamaltaylor/Development/sunny-demo-main/outputs/math-personalization-live/2026-08-08T13-43-30/personalization/negative-uncertain/quest/provenance-placeholder.svg",
+        "contractFingerprint": "4b68cd4e9bf442744d2037d38656f5b654f18e420cf0e37139a81228da9e08f9",
+        "validationStatus": "passed"
+      },
+      "artwork": {
+        "status": "ready",
+        "localPath": "/Users/jamaltaylor/Development/sunny-demo-main/outputs/math-personalization-live/2026-08-08T13-43-30/personalization/negative-uncertain/quest/provenance-placeholder.svg",
+        "prompt": null
+      },
+      "sfxContract": [
+        "interaction",
+        "recovery",
+        "progress",
+        "completion"
+      ],
+      "companionContract": {
+        "events": [
+          "help_requested"
+        ]
+      },
+      "evidenceContract": {
+        "academic": true,
+        "engagement": true,
+        "companionObservations": true
+      },
+      "evidenceIds": [
+        "shared-quest-session:quest:completion",
+        "shared-quest-session:quest:completion:engagement"
+      ],
+      "design": {
+        "stakes": "Cargo is genuinely lost. Every crate the child fails to load — through an arrangement that overflows or a trip committed with empty slots — falls to the ledge and is subtracted from the station's supply for the run, shown as a count that only ever grows. The final station log is the child's own doing, printed plainly. What is at risk is the completeness of the delivery: a child who reasons well sends everything up and reads a clean log; a child who guesses at factor pairs reads a log with holes in it and knows exactly which crates they dropped. The storm timer means dithering also costs cargo, so hesitation is not free.",
+        "failureMode": "A run ends badly when the storm closes and the elevator makes its last trip with cargo still on the ledge. That is a real ending — the log shows the shortfall, the run is over, and reaching it requires starting the load again from stage one. Two specific paths lead there: committing arrangements whose product overshoots the manifest, so crates tumble and are unrecoverable, and stalling long enough on the shared timer that later stages have no time left. The child can restart the whole run, but cannot undo a lost crate within one.",
+        "escalation": "Stage 1 gives the total and lets both dimensions move — nearly any correct pairing works, so the child learns the controls while succeeding. Stage 2 removes one degree of freedom: rows are bolted, so the answer is a single unknown factor. Stage 3 introduces the trap — two arrangements with identical products, only one that fits the door — and the storm timer starts visibly draining. Stage 4 buries the factors in spoken language with a decoy number. Stage 5 stacks three manifests into one shared bay under the last minutes of the timer, where an early overload leaves no room to recover later. Time pressure and information ambiguity both climb; the arithmetic stays within third-grade range throughout.",
+        "mechanicSpec": "The child drags a handle on the right edge of the bay to set rows and a handle on the bottom edge to set columns; as they drag, crates snap into the grid in real time and a counter above the bay reads the current capacity against the manifest total. Tapping the elevator button commits the trip. On commit: if capacity equals the manifest, the bay rises with a clean chime and the log ticks up. If capacity is under, the doors close on a partial load and the leftover crates slide onto the ledge and stay there, greyed out, with the \"left behind\" counter incrementing. If capacity is over, the extra crates visibly topple off the platform edge before the doors close. The storm timer is a bar of snow filling the top of the screen; when it fills, the elevator departs automatically with whatever is in the bay, decided or not.",
+        "mathematicalHook": "4 rows of 6 and 6 rows of 4 hold exactly the same number of crates — and one of them will not fit through the door. The product is stubbornly the same while the shape is not, and a child who has only ever memorized that 4×6 equals 6×4 gets to feel, physically, the part that equality does not cover."
+      }
+    },
+    {
+      "nodeId": "boss",
+      "role": "boss",
+      "title": "Six Crates, One Rope, No Second Try",
+      "state": "ready",
+      "academicTarget": {
+        "domain": "math",
+        "skill": "math.multiplication.synthesis — construct equal groups with an unknown group size, recover a missing factor, and interpret a word-problem constraint containing distractor quantities, all resolved within one committed action on unseen material",
+        "targets": [
+          "math.multiplication.equal_groups",
+          "math.multiplication.missing_factor",
+          "math.multiplication.word_problem_interpretation"
+        ]
+      },
+      "algorithmOwner": "mastery-gating",
+      "theoryId": "personalization-proof-theory",
+      "experimentId": "personalization-boss",
+      "mechanic": "A weight-balanced cargo rope where the child drags supply crates into a fixed number of sling loops; the rope only holds if every loop carries an identical load, and leftover crates must be left behind on purpose.",
+      "theme": "A supply rope strung across a flooded canyon at dusk. A field camp on the far side is waiting. The rope is fraying and it will bear exactly one crossing.",
+      "openingScreen": {
+        "title": "Six Crates, One Rope, No Second Try",
+        "purpose": "Open on the rope already creaking with the camp's radio voice giving one line: \"Loops must match or the rope snaps.\" No tutorial, no warm-up question — the first thing the child does is touch a crate."
+      },
+      "generationPrompt": {
+        "promptId": "hw-personalization-proof:boss:prompt:r10",
+        "createdFromEvidenceIds": [
+          "shared-baseline-session:baseline:completion",
+          "shared-quest-session:quest:completion",
+          "shared-baseline-session:baseline:completion:engagement",
+          "negative-uncertain:baseline:rating",
+          "shared-quest-session:quest:completion:engagement",
+          "negative-uncertain:quest:rating"
+        ],
+        "text": "Build a three-stage rope-crossing for a 9-year-old who is bored by being asked easy questions and needs to be treated as capable. The screen shows a fraying rope with a fixed number of empty sling loops and a dock pile of numbered supply crates. The child drags crates into loops, then pulls a lever to send the rope. The rope only survives if every loop holds exactly the same total. Stage one: the radio says the camp needs 24 ration units delivered across 6 loops — the crate values are given but the per-loop amount is not, so he must recover the group size himself. Stage two: the loop count is hidden and only stated inside a spoken supply order that also mentions two quantities that are irrelevant (the canyon depth and the number of days the camp has been waiting), so he must read the order, discard the noise, and deduce how many loops to fill. Stage three: the dock pile deliberately contains more crates than can be evenly divided — he must load the correct equal grouping and leave the surplus crates on the dock, and the rope snaps if he crams them in \"to be safe.\" Every mis-send costs a strand of the rope, visible and audible. Keep spoken text to one or two short lines per stage. The payoff at the end should be the camp lights coming on across the canyon, not a badge or a cheer. Do not restate the multiplication as an equation for him at any point before he commits — if you show the arithmetic, the evidence is gone. Assignment: Festival Team Challenge. Academic construct to preserve: Lab Learner transfers single-target multiplication reasoning to fresh material with high accuracy; it remains untested whether he can synthesize equal-groups construction, missing-factor recovery with an unknown group size, and distractor-laden word-problem interpretation inside one committed action, and whether a manipulative, high-consequence format raises engagement above the 1/5 he has reported twice while accuracy holds. This node must test unseen synthesis: combine the construct in a context not practised before. Author fresh items. These have already been seen and must not be reused verbatim: math.multiplication.equal_groups, math.multiplication.missing_factor, math.multiplication.word_problem_interpretation, unseen.math.multiplication.equal_groups, unseen.math.multiplication.missing_factor, unseen.math.multiplication.word_problem_interpretation. Planner decision behind this node: Prediction called for ≥0.70 accuracy on fresh unassisted material; the Quest delivered 3/3 unseen, unassisted, independent-probe correct readings across equal groups, missing factor, and word-problem interpretation (accuracy 1.0), and the predicted factor-pair overgeneralization error never appeared. That supports transfer at the evidence limit of independent performance — it does not establish synthesis, since every Quest item still isolated one target at a time. Boss eligibility is met on fresh unassisted evidence, so the next instrument must force the three targets to collide inside one problem. The one loud counter-signal is engagement: both runs finalized at fun 1/5 with confusion and hesitation flagged and no replay requested, while accuracy stayed perfect. Correct answers plus no enjoyment reads as an instrument that was too thin and too talky for a 9-year-old who is clearly not being challenged, so the Boss escalates real difficulty and gives him something concrete to move and something real to lose. Created at: 2026-08-08T19:10:33.622Z."
+      },
+      "artifactBinding": {
+        "contentId": "personalization-proof:boss",
+        "artifactId": "boss-rope-crossing-synthesis-v1",
+        "localArtifactPath": "/Users/jamaltaylor/Development/sunny-demo-main/outputs/math-personalization-live/2026-08-08T13-43-30/personalization/negative-uncertain/boss/experience.html",
+        "localArtworkPath": "/Users/jamaltaylor/Development/sunny-demo-main/outputs/math-personalization-live/2026-08-08T13-43-30/personalization/negative-uncertain/boss/provenance-placeholder.svg",
+        "contractFingerprint": "24991624509c819053915f5d488c381421411f0ba4268e6a0bb68f2a0277eb5a",
+        "validationStatus": "passed"
+      },
+      "artwork": {
+        "status": "ready",
+        "localPath": "/Users/jamaltaylor/Development/sunny-demo-main/outputs/math-personalization-live/2026-08-08T13-43-30/personalization/negative-uncertain/boss/provenance-placeholder.svg",
+        "prompt": null
+      },
+      "sfxContract": [
+        "interaction",
+        "recovery",
+        "progress",
+        "completion"
+      ],
+      "companionContract": {
+        "events": [
+          "help_requested"
+        ]
+      },
+      "evidenceContract": {
+        "academic": true,
+        "engagement": true,
+        "companionObservations": true
+      },
+      "evidenceIds": [],
+      "design": {
+        "stakes": "The rope has three strands and one crossing. Every incorrect send tears a strand with a visible snap and the crates in that loop fall into the water and are gone from the dock pile for the rest of the run — so a wrong answer makes the remaining stages genuinely harder, not just retried. Lose all three strands and the rope drops: the run ends with the camp lights staying dark across the canyon and the child has to start the crossing over from the dock. What is at risk is the delivery he has been building for two minutes and the supplies he was trusted with.",
+        "failureMode": "Three failure paths, all real. Forcing surplus crates into loops to avoid leaving anything behind overloads the rope and snaps a strand immediately. Treating a distractor quantity in the spoken order as the loop count produces unequal loads and a snap. Guessing a familiar factor pair instead of deriving the unknown group size loads the loops unevenly and snaps. Three snaps and the crossing fails outright — dark camp, restart from the dock, crates lost. He can be beaten by this, and that is the point: he has answered everything correctly twice and rated both runs 1 out of 5.",
+        "escalation": "Stage one gives him the total and the loop count and hides only the group size — one target, tight and fast, to teach the rope's rule by using it. Stage two hides the loop count inside spoken language padded with two irrelevant numbers, so interpretation and missing-factor recovery must happen together before a single crate moves. Stage three removes the guarantee that everything fits: the dock is overstocked, the correct answer requires deliberately abandoning supplies, and the rope is already down at least one strand if he stumbled earlier. Time pressure rises only through the rope's creak growing louder, never a countdown.",
+        "mechanicSpec": "Finger or cursor drags a numbered crate from the dock pile into one of the sling loops hanging on the rope; the crate snaps into the loop and the loop's running total appears on its tag as a number that updates live. Loops sag lower as they get heavier, so uneven loading is visible as a lopsided rope before he commits. A long-press on a loaded crate returns it to the dock. Pulling the launch lever commits the send: if all loops match the required equal load, the rope glides level across the canyon and the crates land at the camp. If any loop differs, the rope jerks, one strand visibly frays and snaps with a crack, the overloaded loop tips and its crates tumble into the water and disappear from the dock pile permanently, and the remaining strand count drops on screen. On the third snap the whole rope falls, the far bank goes dark, and the dock resets with the run marked failed.",
+        "mathematicalHook": "Equal groups turn a rope into a scale: it is not the total weight that breaks the rope, it is the imbalance. A child discovers that 24 units across 6 loops crosses safely while 24 units piled 10-6-4-2-1-1 tears the rope apart — same total, opposite outcome. And the strangest part is that winning sometimes means leaving good crates behind, because 26 units simply cannot be shared into 6 equal loops no matter how badly the camp needs them."
+      }
+    }
+  ],
+  "academicPredictions": [
+    {
+      "predictionId": "personalization-proof-prediction",
+      "theoryId": "personalization-proof-theory",
+      "constructId": "math.multiplication.transfer",
+      "context": "fresh unassisted baseline evidence",
+      "horizon": "next_session",
+      "expectedMetric": {
+        "key": "academic.accuracy",
+        "min": 0.7,
+        "max": 1
+      },
+      "predictedErrorPatterns": [
+        "factor-pair overgeneralization"
+      ],
+      "confidence": 0.65,
+      "evidenceIds": [
+        "assignment:personalization-proof"
+      ],
+      "intervention": "baseline learning program",
+      "evidenceLimit": "independent_performance",
+      "createdAt": "2026-08-08T12:00:00.000Z",
+      "lockedAt": "2026-08-08T12:00:00.000Z"
+    }
+  ],
+  "lifecycle": "boss_ready",
+  "evidence": {
+    "academic": [
+      {
+        "evidenceId": "shared-baseline-session:baseline:completion",
+        "accuracy": 1,
+        "summary": "Festival Team Challenge completed at 100% across 3 scored target readings."
+      },
+      {
+        "evidenceId": "shared-quest-session:quest:completion",
+        "accuracy": 1,
+        "summary": "The Cargo Elevator Has One Trip Left completed at 100% across 3 scored target readings."
+      }
+    ],
+    "engagement": [
+      {
+        "evidenceId": "shared-baseline-session:baseline:completion:engagement",
+        "summary": "Festival Team Challenge completed in 142000ms; replay=false; frustration=confusion,hesitation."
+      },
+      {
+        "evidenceId": "negative-uncertain:baseline:rating",
+        "summary": "Session finalized after Festival Team Challenge: fun rating 1/5; action back_to_map."
+      },
+      {
+        "evidenceId": "shared-quest-session:quest:completion:engagement",
+        "summary": "The Cargo Elevator Has One Trip Left completed in 142000ms; replay=false; frustration=confusion,hesitation."
+      },
+      {
+        "evidenceId": "negative-uncertain:quest:rating",
+        "summary": "Session finalized after The Cargo Elevator Has One Trip Left: fun rating 1/5; action back_to_map."
+      }
+    ],
+    "companionObservations": []
+  },
+  "decisionHistory": [
+    {
+      "decisionId": "hw-personalization-proof:decision:r2",
+      "eventType": "instrument_observed",
+      "reason": "Festival Team Challenge factual scorecard recorded; one Planner decision is required.",
+      "nextAction": "Evaluate the preregistered prediction against this evidence.",
+      "evidenceIds": [
+        "shared-baseline-session:baseline:completion",
+        "shared-baseline-session:baseline:completion:engagement"
+      ],
+      "fromLifecycle": "baseline_ready",
+      "toLifecycle": "baseline_evaluating",
+      "createdAt": "2026-08-08T12:04:00.000Z"
+    },
+    {
+      "decisionId": "hw-personalization-proof:decision:r3",
+      "eventType": "session_finalized",
+      "reason": "Festival Team Challenge session evidence was finalized before the next Planner decision.",
+      "nextAction": "Evaluate the complete academic and engagement scorecard once.",
+      "evidenceIds": [
+        "negative-uncertain:baseline:rating"
+      ],
+      "fromLifecycle": "baseline_evaluating",
+      "toLifecycle": "baseline_evaluating",
+      "createdAt": "2026-08-08T12:05:00.000Z"
+    },
+    {
+      "decisionId": "hw-personalization-proof:decision:r4",
+      "eventType": "progression_decision_claimed",
+      "reason": "The finalized session packet was claimed for one Planner decision.",
+      "evidenceIds": [
+        "negative-uncertain:baseline:rating"
+      ],
+      "fromLifecycle": "baseline_evaluating",
+      "toLifecycle": "baseline_evaluating",
+      "createdAt": "2026-08-08T19:10:33.594Z"
+    },
+    {
+      "decisionId": "hw-personalization-proof:decision:r5",
+      "eventType": "theory_decided",
+      "status": "inconclusive",
+      "reason": "All three baseline items were unassisted and correct (accuracy 1.00, above the preregistered 0.70–1.00 band), but every observation is tagged exposure=previously_practiced and provenance=practice. Practice performance can justify a transfer test; it cannot confirm the transfer hypothesis, and the predicted error pattern (factor-pair overgeneralization) was never put at risk because no item required reinterpreting a novel structure. Engagement is the sharper signal: 142s, no replay, confusion and hesitation flags, and a fun rating of 1/5 alongside perfect accuracy — the child was correct and unmoved, which means the instrument told us nothing about how far the reasoning stretches. Quest eligibility is open on independent-correct evidence, so the right move is an unseen-transfer Quest that forces equal-groups reasoning into an unfamiliar shape with real cost attached.",
+      "nextAction": "generate_quest",
+      "evidenceIds": [
+        "shared-baseline-session:baseline:completion",
+        "shared-baseline-session:baseline:completion:engagement",
+        "negative-uncertain:baseline:rating"
+      ],
+      "fromLifecycle": "baseline_evaluating",
+      "toLifecycle": "quest_generating",
+      "createdAt": "2026-08-08T19:10:33.598Z",
+      "preserve": [
+        "Unassisted response format with no scaffolds offered before an answer is committed",
+        "All three target strands present: equal groups, missing factor, and word-problem interpretation",
+        "Short total runtime — the child's answers came fast and the instrument should not pad"
+      ],
+      "change": [
+        "Replace previously-practiced festival items with unseen material the child has no rehearsed procedure for",
+        "Add a real, losable resource so a wrong factor choice costs something visible instead of just being marked wrong",
+        "Deliberately bait factor-pair overgeneralization by offering arrangements where the wrong pairing looks tidier than the right one",
+        "Give the mathematics something to do on screen — quantities that rearrange and are seen to be the same or not the same"
+      ],
+      "testNext": [
+        "Does equal-groups reasoning survive when the groups are not pre-labeled and must be chosen?",
+        "Does the learner recover a missing factor when the total is fixed and the group size is the unknown, rather than the count?",
+        "Does factor-pair overgeneralization appear when 4×6 and 6×4 place things in physically different, non-interchangeable spaces?",
+        "Does interpreting a word problem still hold when one sentence contains a distractor number that belongs to no factor?"
+      ],
+      "nextEvidenceRequired": [
+        "At least 4 target-aligned unassisted observations on unseen items",
+        "At least one missing-factor item where the unknown is group size, not group count",
+        "At least one item that presents a plausible wrong factor pair, with the child's choice recorded",
+        "At least one word-problem item containing an irrelevant number, with the child's stated interpretation captured",
+        "Engagement capture: time to first commit, retries used, and end-of-session fun rating"
+      ],
+      "predictionEvaluationIds": []
+    },
+    {
+      "decisionId": "hw-personalization-proof:decision:r6",
+      "eventType": "artifact_bound",
+      "reason": "Validated quest artifact bound to canonical node contract.",
+      "evidenceIds": [
+        "shared-baseline-session:baseline:completion",
+        "shared-baseline-session:baseline:completion:engagement",
+        "negative-uncertain:baseline:rating"
+      ],
+      "fromLifecycle": "quest_generating",
+      "toLifecycle": "quest_ready",
+      "createdAt": "2026-08-08T19:10:33.604Z"
+    },
+    {
+      "decisionId": "hw-personalization-proof:decision:r7",
+      "eventType": "instrument_observed",
+      "reason": "The Cargo Elevator Has One Trip Left factual scorecard recorded; one Planner decision is required.",
+      "nextAction": "Evaluate the preregistered prediction against this evidence.",
+      "evidenceIds": [
+        "shared-quest-session:quest:completion",
+        "shared-quest-session:quest:completion:engagement"
+      ],
+      "fromLifecycle": "quest_ready",
+      "toLifecycle": "quest_evaluating",
+      "createdAt": "2026-08-08T12:10:00.000Z"
+    },
+    {
+      "decisionId": "hw-personalization-proof:decision:r8",
+      "eventType": "session_finalized",
+      "reason": "The Cargo Elevator Has One Trip Left session evidence was finalized before the next Planner decision.",
+      "nextAction": "Evaluate the complete academic and engagement scorecard once.",
+      "evidenceIds": [
+        "negative-uncertain:quest:rating"
+      ],
+      "fromLifecycle": "quest_evaluating",
+      "toLifecycle": "quest_evaluating",
+      "createdAt": "2026-08-08T12:05:00.000Z"
+    },
+    {
+      "decisionId": "hw-personalization-proof:decision:r9",
+      "eventType": "progression_decision_claimed",
+      "reason": "The finalized session packet was claimed for one Planner decision.",
+      "evidenceIds": [
+        "negative-uncertain:quest:rating"
+      ],
+      "fromLifecycle": "quest_evaluating",
+      "toLifecycle": "quest_evaluating",
+      "createdAt": "2026-08-08T19:10:33.618Z"
+    },
+    {
+      "decisionId": "hw-personalization-proof:decision:r10",
+      "eventType": "theory_decided",
+      "status": "supported",
+      "reason": "Prediction called for ≥0.70 accuracy on fresh unassisted material; the Quest delivered 3/3 unseen, unassisted, independent-probe correct readings across equal groups, missing factor, and word-problem interpretation (accuracy 1.0), and the predicted factor-pair overgeneralization error never appeared. That supports transfer at the evidence limit of independent performance — it does not establish synthesis, since every Quest item still isolated one target at a time. Boss eligibility is met on fresh unassisted evidence, so the next instrument must force the three targets to collide inside one problem. The one loud counter-signal is engagement: both runs finalized at fun 1/5 with confusion and hesitation flagged and no replay requested, while accuracy stayed perfect. Correct answers plus no enjoyment reads as an instrument that was too thin and too talky for a 9-year-old who is clearly not being challenged, so the Boss escalates real difficulty and gives him something concrete to move and something real to lose.",
+      "nextAction": "generate_boss",
+      "evidenceIds": [
+        "shared-baseline-session:baseline:completion",
+        "shared-quest-session:quest:completion",
+        "shared-baseline-session:baseline:completion:engagement",
+        "negative-uncertain:baseline:rating",
+        "shared-quest-session:quest:completion:engagement",
+        "negative-uncertain:quest:rating"
+      ],
+      "fromLifecycle": "quest_evaluating",
+      "toLifecycle": "boss_generating",
+      "createdAt": "2026-08-08T19:10:33.622Z",
+      "preserve": [
+        "Unseen material only, unassisted, no scaffold hints before an answer is committed",
+        "All three targets kept live: equal-groups construction, missing-factor recovery, word-problem interpretation with distractor quantities",
+        "Short total runtime near two to three minutes; no long reading blocks"
+      ],
+      "change": [
+        "Stop asking one target per question — require two or three targets resolved inside a single committed action",
+        "Replace text-answer prompts with direct physical manipulation the child drags and locks",
+        "Raise difficulty sharply: unknown group size, deliberately unusable leftover quantities, and a hard limit on attempts",
+        "Give the run a visible cost for being wrong so success feels earned"
+      ],
+      "testNext": [
+        "Can he build equal groups when the group size is the unknown rather than the total?",
+        "Does he reject distractor quantities that cannot form equal groups instead of forcing them in?",
+        "Does synthesis hold when the missing factor must be recovered before the word problem can even be read correctly?",
+        "Does a hands-on, high-consequence format move engagement off 1/5 while accuracy stays high?"
+      ],
+      "nextEvidenceRequired": [
+        "At least 3 unseen unassisted observations where a single response requires two or more of the three targets simultaneously",
+        "One observation where group size is unknown and total is fixed",
+        "One observation containing surplus or unusable quantities that must be excluded",
+        "Error capture on any forced-fit or factor-pair overgeneralization attempt",
+        "Post-run fun rating and replay request"
+      ],
+      "predictionEvaluationIds": []
+    },
+    {
+      "decisionId": "hw-personalization-proof:decision:r11",
+      "eventType": "artifact_bound",
+      "reason": "Validated boss artifact bound to canonical node contract.",
+      "evidenceIds": [
+        "shared-baseline-session:baseline:completion",
+        "shared-quest-session:quest:completion",
+        "shared-baseline-session:baseline:completion:engagement",
+        "negative-uncertain:baseline:rating",
+        "shared-quest-session:quest:completion:engagement",
+        "negative-uncertain:quest:rating"
+      ],
+      "fromLifecycle": "boss_generating",
+      "toLifecycle": "boss_ready",
+      "createdAt": "2026-08-08T19:10:33.628Z"
+    }
+  ],
+  "evidenceSources": [],
+  "observations": [
+    {
+      "observationId": "shared-baseline-session:baseline:observation:1",
+      "sourceId": "activity:shared-baseline-session:baseline",
+      "nodeId": "baseline",
+      "itemId": "math.multiplication.equal_groups",
+      "childResponse": "6 groups of 4 = 24",
+      "constructLinks": [
+        {
+          "constructId": "math.multiplication.equal_groups",
+          "role": "primary",
+          "confidence": 1
+        }
+      ],
+      "result": {
+        "correct": true,
+        "score": 1
+      },
+      "assistance": {
+        "status": "unassisted",
+        "scaffolds": []
+      },
+      "exposure": "previously_practiced",
+      "provenance": "practice",
+      "observedAt": "2026-08-08T12:04:00.000Z",
+      "confounds": []
+    },
+    {
+      "observationId": "shared-baseline-session:baseline:observation:2",
+      "sourceId": "activity:shared-baseline-session:baseline",
+      "nodeId": "baseline",
+      "itemId": "math.multiplication.missing_factor",
+      "childResponse": "7",
+      "constructLinks": [
+        {
+          "constructId": "math.multiplication.equal_groups",
+          "role": "primary",
+          "confidence": 1
+        }
+      ],
+      "result": {
+        "correct": true,
+        "score": 1
+      },
+      "assistance": {
+        "status": "unassisted",
+        "scaffolds": []
+      },
+      "exposure": "previously_practiced",
+      "provenance": "practice",
+      "observedAt": "2026-08-08T12:04:00.000Z",
+      "confounds": []
+    },
+    {
+      "observationId": "shared-baseline-session:baseline:observation:3",
+      "sourceId": "activity:shared-baseline-session:baseline",
+      "nodeId": "baseline",
+      "itemId": "math.multiplication.word_problem_interpretation",
+      "childResponse": "5 × 6 = 30",
+      "constructLinks": [
+        {
+          "constructId": "math.multiplication.equal_groups",
+          "role": "primary",
+          "confidence": 1
+        }
+      ],
+      "result": {
+        "correct": true,
+        "score": 1
+      },
+      "assistance": {
+        "status": "unassisted",
+        "scaffolds": []
+      },
+      "exposure": "previously_practiced",
+      "provenance": "practice",
+      "observedAt": "2026-08-08T12:04:00.000Z",
+      "confounds": []
+    },
+    {
+      "observationId": "shared-quest-session:quest:observation:1",
+      "sourceId": "activity:shared-quest-session:quest",
+      "nodeId": "quest",
+      "itemId": "unseen.math.multiplication.equal_groups",
+      "childResponse": "6 groups of 4 = 24",
+      "constructLinks": [
+        {
+          "constructId": "math.multiplication.equal_groups",
+          "role": "primary",
+          "confidence": 1
+        }
+      ],
+      "result": {
+        "correct": true,
+        "score": 1
+      },
+      "assistance": {
+        "status": "unassisted",
+        "scaffolds": []
+      },
+      "exposure": "unseen",
+      "provenance": "independent_probe",
+      "observedAt": "2026-08-08T12:10:00.000Z",
+      "confounds": []
+    },
+    {
+      "observationId": "shared-quest-session:quest:observation:2",
+      "sourceId": "activity:shared-quest-session:quest",
+      "nodeId": "quest",
+      "itemId": "unseen.math.multiplication.missing_factor",
+      "childResponse": "7",
+      "constructLinks": [
+        {
+          "constructId": "math.multiplication.equal_groups",
+          "role": "primary",
+          "confidence": 1
+        }
+      ],
+      "result": {
+        "correct": true,
+        "score": 1
+      },
+      "assistance": {
+        "status": "unassisted",
+        "scaffolds": []
+      },
+      "exposure": "unseen",
+      "provenance": "independent_probe",
+      "observedAt": "2026-08-08T12:10:00.000Z",
+      "confounds": []
+    },
+    {
+      "observationId": "shared-quest-session:quest:observation:3",
+      "sourceId": "activity:shared-quest-session:quest",
+      "nodeId": "quest",
+      "itemId": "unseen.math.multiplication.word_problem_interpretation",
+      "childResponse": "5 × 6 = 30",
+      "constructLinks": [
+        {
+          "constructId": "math.multiplication.equal_groups",
+          "role": "primary",
+          "confidence": 1
+        }
+      ],
+      "result": {
+        "correct": true,
+        "score": 1
+      },
+      "assistance": {
+        "status": "unassisted",
+        "scaffolds": []
+      },
+      "exposure": "unseen",
+      "provenance": "independent_probe",
+      "observedAt": "2026-08-08T12:10:00.000Z",
+      "confounds": []
+    }
+  ],
+  "predictionEvaluations": [],
+  "sessionFinalizations": [
+    {
+      "choiceEventId": "negative-uncertain:baseline:rating",
+      "nodeId": "baseline",
+      "finalizedAt": "2026-08-08T12:05:00.000Z",
+      "postActivityAction": "back_to_map",
+      "funRating": 1,
+      "completed": true,
+      "replayRequested": false
+    },
+    {
+      "choiceEventId": "negative-uncertain:quest:rating",
+      "nodeId": "quest",
+      "finalizedAt": "2026-08-08T12:05:00.000Z",
+      "postActivityAction": "back_to_map",
+      "funRating": 1,
+      "completed": true,
+      "replayRequested": false
+    }
+  ],
+  "pendingSessionNodeIds": [],
+  "createdAt": "2026-08-08T12:00:00.000Z",
+  "updatedAt": "2026-08-08T19:10:33.628Z",
+  "evaluationNodeId": "quest"
+}

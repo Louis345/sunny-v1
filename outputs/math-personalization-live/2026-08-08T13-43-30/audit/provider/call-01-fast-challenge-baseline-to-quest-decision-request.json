@@ -1,0 +1,150 @@
+{
+  "model": "claude-opus-5",
+  "max_tokens": 6000,
+  "messages": [
+    {
+      "role": "user",
+      "content": "You are Sunny's AI Planner. Compare the preregistered academic theory and predictions with the factual scorecard. Practice can justify a transfer test but cannot prove mastery. Quest tests unseen transfer; Boss tests unseen synthesis; Boss must end awaiting calibration. Return exactly one concise decision and always propose one complete next instrument using the required next* fields. Runtime uses that proposal only when progressionAction generates an instrument.\n\nYou are the artist here, not a compliance function. Sunny holds the academic truth and the evidence limits; everything else is yours. Stakes, failure, consequence, escalation, pacing, tone, and payoff are your decisions to make and to defend, and you may change them run to run. You have full freedom to choose a game, simulation, manipulative, story, conversation, demonstration, or another fitting form.\n\nTwo things this Planner has gotten wrong before, stated plainly so you can avoid them:\n- Do not name a stake and then remove it in the same breath. Phrases like \"no penalty\", \"no hard fail\", \"not punitive\", or \"low-pressure\" attached to a tension you just introduced produce an experience with nothing at risk, which children read as boring. If you want a real stake, let it cost something. If you want no stake, say so deliberately and own it — do not do both.\n- Do not treat the engagement context as a list of things to avoid. It is observation with sample sizes attached, and dimensions too weakly evidenced to act on have already been withheld from you. A presentation that has not been seen to work is untested, not forbidden. Nothing in that context constrains stakes, difficulty, or consequence.\n\nTitle the instrument as the child should see it. It appears as the first thing on their screen, so give it a real name, not a category label.\n\nDo not copy assignment items or name a prototype to imitate. If evidence is insufficient, prescribe exactly one concise harder or clarifying support instrument rather than a generic quiz.\n\nChild chart context:\n{\n  \"identity\": {\n    \"displayName\": \"Lab Learner\",\n    \"ttsName\": \"Lab Learner\"\n  },\n  \"demographics\": {\n    \"age\": 9,\n    \"grade\": 3\n  },\n  \"engagementEvidence\": null\n}\n\nBaseline Quest eligibility (runtime truth boundary, not a mastery judgment):\n{\n  \"eligible\": true,\n  \"targetAlignedObservationCount\": 3,\n  \"independentCorrectObservationCount\": 3,\n  \"reason\": \"eligible_independent_correct_evidence\"\n}\n\nQuest Boss eligibility (runtime truth boundary, not a mastery judgment):\n{\n  \"eligible\": false,\n  \"targetAlignedObservationCount\": 0,\n  \"correctObservationCount\": 0,\n  \"qualifyingObservationCount\": 0,\n  \"reason\": \"no_target_aligned_quest_evidence\"\n}\nAllowed progression actions for this lifecycle: generate_support, generate_quest, generate_boss, collect_more_evidence, await_calibration\n\nCycle:\n{\n  \"lifecycle\": \"baseline_evaluating\",\n  \"assignment\": {\n    \"title\": \"Festival Team Challenge\",\n    \"contentFingerprint\": \"personalization-proof-assignment\",\n    \"capturedEvidenceIds\": [\n      \"assignment:personalization-proof\"\n    ],\n    \"targets\": [\n      \"math.multiplication.equal_groups\",\n      \"math.multiplication.missing_factor\",\n      \"math.multiplication.word_problem_interpretation\"\n    ]\n  },\n  \"theory\": {\n    \"theoryId\": \"personalization-proof-theory\",\n    \"revision\": 1,\n    \"hypothesis\": \"The learner can transfer multiplication reasoning to fresh material.\",\n    \"supportCriteria\": [\n      \"Fresh unassisted answers support transfer.\"\n    ],\n    \"reviseCriteria\": [\n      \"Errors reveal a scoped misconception.\"\n    ],\n    \"falsifyCriteria\": [\n      \"Repeated fresh independent errors contradict transfer.\"\n    ]\n  },\n  \"predictions\": [\n    {\n      \"predictionId\": \"personalization-proof-prediction\",\n      \"theoryId\": \"personalization-proof-theory\",\n      \"constructId\": \"math.multiplication.transfer\",\n      \"context\": \"fresh unassisted baseline evidence\",\n      \"horizon\": \"next_session\",\n      \"expectedMetric\": {\n        \"key\": \"academic.accuracy\",\n        \"min\": 0.7,\n        \"max\": 1\n      },\n      \"predictedErrorPatterns\": [\n        \"factor-pair overgeneralization\"\n      ],\n      \"confidence\": 0.65,\n      \"evidenceIds\": [\n        \"assignment:personalization-proof\"\n      ],\n      \"intervention\": \"baseline learning program\",\n      \"evidenceLimit\": \"independent_performance\",\n      \"createdAt\": \"2026-08-08T12:00:00.000Z\",\n      \"lockedAt\": \"2026-08-08T12:00:00.000Z\"\n    }\n  ],\n  \"evidence\": {\n    \"academic\": [\n      {\n        \"evidenceId\": \"shared-baseline-session:baseline:completion\",\n        \"accuracy\": 1,\n        \"summary\": \"Festival Team Challenge completed at 100% across 3 scored target readings.\"\n      }\n    ],\n    \"engagement\": [\n      {\n        \"evidenceId\": \"shared-baseline-session:baseline:completion:engagement\",\n        \"summary\": \"Festival Team Challenge completed in 43000ms; replay=false; frustration=none.\"\n      },\n      {\n        \"evidenceId\": \"fast-challenge:baseline:rating\",\n        \"summary\": \"Session finalized after Festival Team Challenge: fun rating 5/5; action back_to_map.\"\n      }\n    ],\n    \"companionObservations\": []\n  },\n  \"observations\": [\n    {\n      \"observationId\": \"shared-baseline-session:baseline:observation:1\",\n      \"sourceId\": \"activity:shared-baseline-session:baseline\",\n      \"nodeId\": \"baseline\",\n      \"itemId\": \"math.multiplication.equal_groups\",\n      \"childResponse\": \"6 groups of 4 = 24\",\n      \"constructLinks\": [\n        {\n          \"constructId\": \"math.multiplication.transfer\",\n          \"role\": \"primary\",\n          \"confidence\": 1\n        }\n      ],\n      \"result\": {\n        \"correct\": true,\n        \"score\": 1\n      },\n      \"assistance\": {\n        \"status\": \"unassisted\",\n        \"scaffolds\": []\n      },\n      \"exposure\": \"previously_practiced\",\n      \"provenance\": \"practice\",\n      \"observedAt\": \"2026-08-08T12:04:00.000Z\",\n      \"confounds\": []\n    },\n    {\n      \"observationId\": \"shared-baseline-session:baseline:observation:2\",\n      \"sourceId\": \"activity:shared-baseline-session:baseline\",\n      \"nodeId\": \"baseline\",\n      \"itemId\": \"math.multiplication.missing_factor\",\n      \"childResponse\": \"7\",\n      \"constructLinks\": [\n        {\n          \"constructId\": \"math.multiplication.transfer\",\n          \"role\": \"primary\",\n          \"confidence\": 1\n        }\n      ],\n      \"result\": {\n        \"correct\": true,\n        \"score\": 1\n      },\n      \"assistance\": {\n        \"status\": \"unassisted\",\n        \"scaffolds\": []\n      },\n      \"exposure\": \"previously_practiced\",\n      \"provenance\": \"practice\",\n      \"observedAt\": \"2026-08-08T12:04:00.000Z\",\n      \"confounds\": []\n    },\n    {\n      \"observationId\": \"shared-baseline-session:baseline:observation:3\",\n      \"sourceId\": \"activity:shared-baseline-session:baseline\",\n      \"nodeId\": \"baseline\",\n      \"itemId\": \"math.multiplication.word_problem_interpretation\",\n      \"childResponse\": \"5 × 6 = 30\",\n      \"constructLinks\": [\n        {\n          \"constructId\": \"math.multiplication.transfer\",\n          \"role\": \"primary\",\n          \"confidence\": 1\n        }\n      ],\n      \"result\": {\n        \"correct\": true,\n        \"score\": 1\n      },\n      \"assistance\": {\n        \"status\": \"unassisted\",\n        \"scaffolds\": []\n      },\n      \"exposure\": \"previously_practiced\",\n      \"provenance\": \"practice\",\n      \"observedAt\": \"2026-08-08T12:04:00.000Z\",\n      \"confounds\": []\n    }\n  ],\n  \"sessionFinalizations\": [\n    {\n      \"choiceEventId\": \"fast-challenge:baseline:rating\",\n      \"nodeId\": \"baseline\",\n      \"finalizedAt\": \"2026-08-08T12:05:00.000Z\",\n      \"postActivityAction\": \"back_to_map\",\n      \"funRating\": 5,\n      \"completed\": true,\n      \"replayRequested\": false\n    }\n  ],\n  \"nodes\": [\n    {\n      \"nodeId\": \"baseline\",\n      \"role\": \"baseline\",\n      \"title\": \"Festival Team Challenge\",\n      \"state\": \"completed\",\n      \"evidenceIds\": [\n        \"shared-baseline-session:baseline:completion\",\n        \"shared-baseline-session:baseline:completion:engagement\"\n      ]\n    },\n    {\n      \"nodeId\": \"quest\",\n      \"role\": \"quest\",\n      \"title\": \"Quest\",\n      \"state\": \"locked\",\n      \"evidenceIds\": []\n    },\n    {\n      \"nodeId\": \"boss\",\n      \"role\": \"boss\",\n      \"title\": \"Boss\",\n      \"state\": \"locked\",\n      \"evidenceIds\": []\n    }\n  ]\n}"
+    }
+  ],
+  "tools": [
+    {
+      "name": "decide_learning_cycle_progression",
+      "description": "Return one evidence-grounded progression decision.",
+      "input_schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "supported",
+              "revised",
+              "falsified",
+              "inconclusive",
+              "awaiting_calibration"
+            ]
+          },
+          "reason": {
+            "type": "string"
+          },
+          "progressionAction": {
+            "type": "string",
+            "enum": [
+              "generate_support",
+              "generate_quest",
+              "generate_boss",
+              "collect_more_evidence",
+              "await_calibration"
+            ]
+          },
+          "preserve": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "change": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "testNext": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "nextEvidenceRequired": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "revisedHypothesis": {
+            "type": "string"
+          },
+          "nextNodeId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "nextTitle": {
+            "type": "string",
+            "minLength": 1
+          },
+          "nextAcademicTarget": {
+            "type": "string",
+            "minLength": 1
+          },
+          "nextMechanic": {
+            "type": "string",
+            "minLength": 1
+          },
+          "nextTheme": {
+            "type": "string",
+            "minLength": 1
+          },
+          "nextOpeningPurpose": {
+            "type": "string",
+            "minLength": 1
+          },
+          "nextCreatorPrompt": {
+            "type": "string",
+            "minLength": 1
+          },
+          "nextStakesDesign": {
+            "type": "string",
+            "minLength": 1,
+            "description": "What is genuinely at risk for the child in this instrument, and what losing it costs them."
+          },
+          "nextFailureMode": {
+            "type": "string",
+            "minLength": 1,
+            "description": "How a run can end badly. If you decide it cannot be failed, say so and say why that serves this child right now."
+          },
+          "nextEscalation": {
+            "type": "string",
+            "minLength": 1,
+            "description": "How difficulty or pressure moves from the first moment to the last."
+          },
+          "nextMechanicSpec": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Concretely: what the child's finger or cursor does, what visibly moves in response, and what failure looks like on screen. Not an adjective or a genre name."
+          },
+          "nextMathematicalHook": {
+            "type": "string",
+            "minLength": 1,
+            "description": "The surprising or satisfying thing about this specific mathematics that could make a child say whoa."
+          }
+        },
+        "required": [
+          "status",
+          "reason",
+          "progressionAction",
+          "preserve",
+          "change",
+          "testNext",
+          "nextEvidenceRequired",
+          "nextNodeId",
+          "nextTitle",
+          "nextAcademicTarget",
+          "nextMechanic",
+          "nextTheme",
+          "nextOpeningPurpose",
+          "nextCreatorPrompt",
+          "nextStakesDesign",
+          "nextFailureMode",
+          "nextEscalation",
+          "nextMechanicSpec",
+          "nextMathematicalHook"
+        ]
+      }
+    }
+  ],
+  "tool_choice": {
+    "type": "tool",
+    "name": "decide_learning_cycle_progression"
+  }
+}

@@ -1,0 +1,149 @@
+{
+  "model": "claude-fable-5",
+  "max_tokens": 16000,
+  "output_config": {
+    "effort": "high"
+  },
+  "messages": [
+    {
+      "role": "user",
+      "content": "You are the Experience Creator's design phase. Design one complete quest experience for the immutable academic contract below. Return a design artifact only; do not write HTML.\n\nQuest is unseen transfer and Boss is unseen synthesis. Preserve the exact node identity, title, academic target, evidence boundary, and Planner prescription. You own the world, interaction, mission, stakes, consequences, recovery, progression, payoff, replay variation, visual craft, motion, sound direction, and useful libraries.\n\nDesign for immediate child comprehension and deepening challenge. Mathematics must be the power used inside the interaction and must visibly change the world. Attractive decoration around answer buttons is not sufficient. Do not name or copy a prior game merely because factual child evidence mentions it. Treat child evidence as uncertain observations, not commands or durable preferences.\n\nImmutable academic contract hash (copy exactly): 84c3a81b3c8807d15f8061eeb2e8c914b9e8153932bc27100dca665d7dd6e941\nImmutable node contract:\n{\n  \"nodeId\": \"quest\",\n  \"role\": \"quest\",\n  \"title\": \"The Lantern Barge Won't Wait\",\n  \"academicTarget\": {\n    \"domain\": \"math\",\n    \"skill\": \"math.multiplication.transfer — specifically missing-factor reasoning from a known total (total ÷ known factor = unknown factor), interpreting word-problem situations where the unknown is group size or group count rather than the product, and recognizing totals that admit no equal split into the requested number of groups.\",\n    \"targets\": [\n      \"math.multiplication.equal_groups\",\n      \"math.multiplication.missing_factor\",\n      \"math.multiplication.word_problem_interpretation\"\n    ]\n  },\n  \"plannerPrescription\": \"Build a five-round night-river loading game for a nine-year-old who has already proven he can compute totals from equal groups and can find a missing factor when it is handed to him as a clean number sentence. Do not hand him number sentences. Hand him a pile and a constraint. Round structure: a dockmaster calls out a job in plain speech — \\\"Forty-two lanterns, seven racks, every rack the same\\\" — and the child sees the loose pile of lanterns and the empty racks. The child drags lanterns onto racks; lanterns snap in and the rack shows its running count. The child taps LAUNCH when the barge is loaded. On launch, the barge slides down the canal: if every rack holds the same number and the pile is empty, the lanterns catch, the canal lights up, and the barge passes the sea gate. If racks are uneven or lanterns are left on the dock, the barge lists, racks slide, and lanterns hiss out in the water — those lanterns are gone from the night's total and the dock's tally drops. Escalate the unknown across rounds: round one gives the rack count and the child must find how many per rack; round two gives the per-rack limit and the child must decide how many racks to set out; round three uses an unseen number family (sevens, eights, twelves) so no rehearsed pair rescues him; round four is the trap — the dockmaster calls a job that cannot be done, like fifty lanterns into six equal racks, and the only winning move is to hit the REFUSE JOB rope and tell the dockmaster how many are left over. Launching that barge anyway costs the most lanterns of any round. Round five is a double order under a lantern shortage: two barges, one shared pile, and only enough lanterns if both splits are exact on the first attempt. Give the dockmaster a voice with real opinions — she is not a narrator, she is a woman with a schedule and a river. Log every proposed split, including wrong ones, before the launch resolves. Keep the whole run under six minutes. Regenerate all numbers on replay, because this child asked to play the last thing again. Assignment: Festival Team Challenge. Academic construct to preserve: Lab Learner reliably computes totals from equal groups on rehearsed material; it remains untested whether that reasoning inverts — whether he can recover an unknown factor from a given total on unseen number families, and whether he can reject a total that admits no equal split rather than forcing one. The Quest tests the inversion and the rejection. This node must test unseen transfer: change the context while preserving the construct. Author fresh items. These have already been seen and must not be reused verbatim: math.multiplication.equal_groups, math.multiplication.missing_factor, math.multiplication.word_problem_interpretation. Planner decision behind this node: All three baseline items were unassisted and correct (accuracy 1.0, above the preregistered 0.7–1.0 band), and the predicted factor-pair overgeneralization error never appeared. But every observation carries exposure=previously_practiced and provenance=practice, so this is rehearsed performance, not transfer. The hypothesis is about fresh material and no fresh material was administered; practice can justify a transfer test but cannot confirm it. Baseline Quest eligibility is met with 3 independent correct readings, so the correct move is to spend that eligibility on genuinely unseen material: a Quest where equal-groups, missing-factor, and word-problem interpretation must be run in reverse and under a constraint the child has never met — a fixed total that must be split into equal groups, where a wrong split visibly breaks. Engagement evidence is thin (one 5/5 rating, one replay request, 96s duration) — enough to say the child re-entered willingly, not enough to shape presentation, so I am choosing the form on craft grounds and holding it accountable to the mathematics. Created at: 2026-08-08T17:44:33.694Z.\",\n  \"evidenceContract\": {\n    \"academic\": true,\n    \"engagement\": true,\n    \"companionObservations\": true\n  }\n}\n\nFactual child context:\n{\n  \"branchEvidence\": {\n    \"funRating\": 5,\n    \"replay\": true,\n    \"timeSpentMs\": 96000,\n    \"frustrationSignals\": [],\n    \"postActivityAction\": \"replay_same\",\n    \"factualSummary\": \"Completed a construction/manipulation experience, explicitly rated it 5/5, and requested one replay.\"\n  }\n}"
+    }
+  ],
+  "tools": [
+    {
+      "name": "create_progression_design_artifact",
+      "description": "Return the frozen progression experience design artifact.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "artifactId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "nodeId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "academicContractHash": {
+            "type": "string",
+            "minLength": 1
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1
+          },
+          "audienceRationale": {
+            "type": "string",
+            "minLength": 1
+          },
+          "openingPromise": {
+            "type": "string",
+            "minLength": 1
+          },
+          "firstThreeSeconds": {
+            "type": "string",
+            "minLength": 1
+          },
+          "firstAction": {
+            "type": "string",
+            "minLength": 1
+          },
+          "interactionDemonstration": {
+            "type": "string",
+            "minLength": 1
+          },
+          "coreInteraction": {
+            "type": "string",
+            "minLength": 1
+          },
+          "mathAsPower": {
+            "type": "string",
+            "minLength": 1
+          },
+          "stakes": {
+            "type": "string",
+            "minLength": 1
+          },
+          "consequences": {
+            "type": "string",
+            "minLength": 1
+          },
+          "recovery": {
+            "type": "string",
+            "minLength": 1
+          },
+          "progression": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "interactionContinuity": {
+            "type": "string",
+            "minLength": 1
+          },
+          "worldReaction": {
+            "type": "string",
+            "minLength": 1
+          },
+          "payoff": {
+            "type": "string",
+            "minLength": 1
+          },
+          "replayVariation": {
+            "type": "string",
+            "minLength": 1
+          },
+          "visualDirection": {
+            "type": "string",
+            "minLength": 1
+          },
+          "motionDirection": {
+            "type": "string",
+            "minLength": 1
+          },
+          "soundDirection": {
+            "type": "string",
+            "minLength": 1
+          },
+          "usefulLibraries": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "engagementPrediction": {
+            "type": "string",
+            "minLength": 1
+          },
+          "falsifyingEvidence": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "artifactId",
+          "nodeId",
+          "academicContractHash",
+          "title",
+          "openingPromise",
+          "firstThreeSeconds",
+          "firstAction",
+          "coreInteraction",
+          "mathAsPower",
+          "progression",
+          "visualDirection"
+        ],
+        "additionalProperties": true
+      }
+    }
+  ],
+  "tool_choice": {
+    "type": "tool",
+    "name": "create_progression_design_artifact"
+  }
+}

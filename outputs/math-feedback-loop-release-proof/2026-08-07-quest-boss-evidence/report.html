@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Sunny Quest → Boss Evidence Gate</title>
+  <style>
+    :root { color-scheme: dark; font-family: Inter, ui-sans-serif, system-ui, sans-serif; background:#07111f; color:#eef6ff; }
+    * { box-sizing:border-box; }
+    body { margin:0; background:radial-gradient(circle at 50% 0,#15345d 0,#07111f 45%); min-height:100vh; }
+    main { width:min(1180px,calc(100% - 40px)); margin:0 auto; padding:46px 0 70px; }
+    .hero,.card { border:1px solid #28476b; background:rgba(10,25,44,.92); box-shadow:0 18px 60px rgba(0,0,0,.28); }
+    .hero { padding:30px; border-radius:24px; display:grid; gap:18px; }
+    .eyebrow { color:#84c7ff; text-transform:uppercase; letter-spacing:.15em; font-weight:800; font-size:.78rem; }
+    h1 { margin:0; font-size:clamp(2rem,5vw,4.4rem); line-height:.98; }
+    .verdict { display:flex; flex-wrap:wrap; gap:12px; align-items:center; }
+    .pass { background:#163f2b; color:#8ff0b5; border:1px solid #2b8453; padding:10px 16px; border-radius:999px; font-weight:900; }
+    .fact { background:#10243d; padding:10px 14px; border-radius:999px; color:#bfd9f5; }
+    .rule { font-size:1.15rem; line-height:1.55; max-width:850px; color:#d6e6f7; }
+    h2 { margin:38px 0 16px; }
+    .grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px; }
+    .card { padding:22px; border-radius:18px; }
+    .card h3 { margin:0 0 14px; font-size:1.15rem; }
+    .blocked { border-color:#6c3541; }
+    .eligible { border-color:#2b8453; }
+    dl { display:grid; grid-template-columns:150px 1fr; margin:0; gap:8px 14px; }
+    dt { color:#83a5c8; }
+    dd { margin:0; font-weight:750; }
+    .no { color:#ff9eae; }
+    .yes { color:#8ff0b5; }
+    .actions { margin-top:16px; padding-top:14px; border-top:1px solid #28476b; color:#c7daed; }
+    .logic { display:grid; grid-template-columns:1fr auto 1fr auto 1fr; align-items:center; gap:12px; }
+    .logic div { border:1px solid #28476b; border-radius:16px; padding:18px; text-align:center; background:#0b1c31; }
+    .arrow { color:#84c7ff; font-size:1.5rem; }
+    code { color:#a8d8ff; }
+    footer { color:#7f9ab6; margin-top:32px; line-height:1.55; }
+    @media (max-width:760px) { .grid { grid-template-columns:1fr; } .logic { grid-template-columns:1fr; } .arrow { transform:rotate(90deg); text-align:center; } dl { grid-template-columns:1fr; } }
+  </style>
+</head>
+<body>
+<main>
+  <section class="hero">
+    <div class="eyebrow">Math feedback loop · Task 2</div>
+    <h1>Quest → Boss evidence gate</h1>
+    <div class="verdict">
+      <span class="pass">PASS</span>
+      <span class="fact">68 / 68 focused tests</span>
+      <span class="fact">Production build passed</span>
+      <span class="fact">Paid calls: 0</span>
+      <span class="fact">Real child data changed: No</span>
+    </div>
+    <p class="rule">Boss is available to the Planner only when Quest contains target-aligned, correct, unseen, unassisted evidence recorded as an independent probe. This does not prove mastery and does not unlock Boss automatically.</p>
+  </section>
+
+  <h2>Evidence matrix</h2>
+  <section class="grid">
+    <article class="card blocked">
+      <h3>All-wrong Quest</h3>
+      <dl><dt>Correct</dt><dd class="no">No</dd><dt>Exposure</dt><dd>Unseen</dd><dt>Assistance</dt><dd>Unassisted</dd><dt>Provenance</dt><dd>Independent probe</dd><dt>Boss available</dt><dd class="no">No</dd></dl>
+      <div class="actions">Planner may choose: Support or calibration/defer.</div>
+    </article>
+    <article class="card blocked">
+      <h3>Assisted-correct Quest</h3>
+      <dl><dt>Correct</dt><dd class="yes">Yes</dd><dt>Exposure</dt><dd>Unseen</dd><dt>Assistance</dt><dd class="no">Assisted</dd><dt>Provenance</dt><dd>Independent probe</dd><dt>Boss available</dt><dd class="no">No</dd></dl>
+      <div class="actions">Correct work with help remains useful teaching evidence, not independent transfer evidence.</div>
+    </article>
+    <article class="card blocked">
+      <h3>Previously exposed correct Quest</h3>
+      <dl><dt>Correct</dt><dd class="yes">Yes</dd><dt>Exposure</dt><dd class="no">Previously practiced</dd><dt>Assistance</dt><dd>Unassisted</dd><dt>Provenance</dt><dd>Practice</dd><dt>Boss available</dt><dd class="no">No</dd></dl>
+      <div class="actions">A reused item cannot masquerade as unseen transfer.</div>
+    </article>
+    <article class="card eligible">
+      <h3>Fresh independent correct Quest</h3>
+      <dl><dt>Correct</dt><dd class="yes">Yes</dd><dt>Exposure</dt><dd>Unseen</dd><dt>Assistance</dt><dd>Unassisted</dd><dt>Provenance</dt><dd>Independent probe</dd><dt>Boss available</dt><dd class="yes">Yes—Planner option</dd></dl>
+      <div class="actions">Planner may choose: Boss, Support, or calibration. No automatic transition occurs.</div>
+    </article>
+  </section>
+
+  <h2>Who decides what?</h2>
+  <section class="logic">
+    <div><strong>Code</strong><br>Checks provenance, correctness, exposure, assistance, and target alignment.</div>
+    <span class="arrow">→</span>
+    <div><strong>Planner</strong><br>Interprets eligible evidence and chooses Boss, Support, or calibration.</div>
+    <span class="arrow">→</span>
+    <div><strong>Next session</strong><br>Presents the validated chapter later; nothing launches automatically.</div>
+  </section>
+
+  <footer>
+    Contract: <code>LEARNING_FEEDBACK_LOOP.md v8</code><br>
+    Branch: <code>codex/math-quest-boss-release-proof</code><br>
+    Starting commit: <code>58828f5abd26ccbc9ca2cf1b8268bca8cb1b264a</code><br>
+    Proof used isolated temporary learning-cycle roots. Reina and Ila were not read as test fixtures or written by these scenarios.
+  </footer>
+</main>
+</body>
+</html>

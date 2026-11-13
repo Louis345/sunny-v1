@@ -1,0 +1,149 @@
+{
+  "model": "claude-fable-5",
+  "max_tokens": 16000,
+  "output_config": {
+    "effort": "high"
+  },
+  "messages": [
+    {
+      "role": "user",
+      "content": "You are the Experience Creator's design phase. Design one complete boss experience for the immutable academic contract below. Return a design artifact only; do not write HTML.\n\nQuest is unseen transfer and Boss is unseen synthesis. Preserve the exact node identity, title, academic target, evidence boundary, and Planner prescription. You own the world, interaction, mission, stakes, consequences, recovery, progression, payoff, replay variation, visual craft, motion, sound direction, and useful libraries.\n\nDesign for immediate child comprehension and deepening challenge. Mathematics must be the power used inside the interaction and must visibly change the world. Attractive decoration around answer buttons is not sufficient. Do not name or copy a prior game merely because factual child evidence mentions it. Treat child evidence as uncertain observations, not commands or durable preferences.\n\nImmutable academic contract hash (copy exactly): 24991624509c819053915f5d488c381421411f0ba4268e6a0bb68f2a0277eb5a\nImmutable node contract:\n{\n  \"nodeId\": \"boss\",\n  \"role\": \"boss\",\n  \"title\": \"Six Crates, One Rope, No Second Try\",\n  \"academicTarget\": {\n    \"domain\": \"math\",\n    \"skill\": \"math.multiplication.synthesis — construct equal groups with an unknown group size, recover a missing factor, and interpret a word-problem constraint containing distractor quantities, all resolved within one committed action on unseen material\",\n    \"targets\": [\n      \"math.multiplication.equal_groups\",\n      \"math.multiplication.missing_factor\",\n      \"math.multiplication.word_problem_interpretation\"\n    ]\n  },\n  \"plannerPrescription\": \"Build a three-stage rope-crossing for a 9-year-old who is bored by being asked easy questions and needs to be treated as capable. The screen shows a fraying rope with a fixed number of empty sling loops and a dock pile of numbered supply crates. The child drags crates into loops, then pulls a lever to send the rope. The rope only survives if every loop holds exactly the same total. Stage one: the radio says the camp needs 24 ration units delivered across 6 loops — the crate values are given but the per-loop amount is not, so he must recover the group size himself. Stage two: the loop count is hidden and only stated inside a spoken supply order that also mentions two quantities that are irrelevant (the canyon depth and the number of days the camp has been waiting), so he must read the order, discard the noise, and deduce how many loops to fill. Stage three: the dock pile deliberately contains more crates than can be evenly divided — he must load the correct equal grouping and leave the surplus crates on the dock, and the rope snaps if he crams them in \\\"to be safe.\\\" Every mis-send costs a strand of the rope, visible and audible. Keep spoken text to one or two short lines per stage. The payoff at the end should be the camp lights coming on across the canyon, not a badge or a cheer. Do not restate the multiplication as an equation for him at any point before he commits — if you show the arithmetic, the evidence is gone. Assignment: Festival Team Challenge. Academic construct to preserve: Lab Learner transfers single-target multiplication reasoning to fresh material with high accuracy; it remains untested whether he can synthesize equal-groups construction, missing-factor recovery with an unknown group size, and distractor-laden word-problem interpretation inside one committed action, and whether a manipulative, high-consequence format raises engagement above the 1/5 he has reported twice while accuracy holds. This node must test unseen synthesis: combine the construct in a context not practised before. Author fresh items. These have already been seen and must not be reused verbatim: math.multiplication.equal_groups, math.multiplication.missing_factor, math.multiplication.word_problem_interpretation, unseen.math.multiplication.equal_groups, unseen.math.multiplication.missing_factor, unseen.math.multiplication.word_problem_interpretation. Planner decision behind this node: Prediction called for ≥0.70 accuracy on fresh unassisted material; the Quest delivered 3/3 unseen, unassisted, independent-probe correct readings across equal groups, missing factor, and word-problem interpretation (accuracy 1.0), and the predicted factor-pair overgeneralization error never appeared. That supports transfer at the evidence limit of independent performance — it does not establish synthesis, since every Quest item still isolated one target at a time. Boss eligibility is met on fresh unassisted evidence, so the next instrument must force the three targets to collide inside one problem. The one loud counter-signal is engagement: both runs finalized at fun 1/5 with confusion and hesitation flagged and no replay requested, while accuracy stayed perfect. Correct answers plus no enjoyment reads as an instrument that was too thin and too talky for a 9-year-old who is clearly not being challenged, so the Boss escalates real difficulty and gives him something concrete to move and something real to lose. Created at: 2026-08-08T18:10:40.741Z.\",\n  \"evidenceContract\": {\n    \"academic\": true,\n    \"engagement\": true,\n    \"companionObservations\": true\n  }\n}\n\nFactual child context:\n{\n  \"branchEvidence\": {\n    \"funRating\": 1,\n    \"replay\": false,\n    \"timeSpentMs\": 142000,\n    \"frustrationSignals\": [\n      \"confusion\",\n      \"hesitation\"\n    ],\n    \"postActivityAction\": \"back_to_map\",\n    \"factualSummary\": \"Completed with correct unassisted mathematics, explicitly rated it 1/5, did not replay, and showed confusion and hesitation.\"\n  }\n}"
+    }
+  ],
+  "tools": [
+    {
+      "name": "create_progression_design_artifact",
+      "description": "Return the frozen progression experience design artifact.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "artifactId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "nodeId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "academicContractHash": {
+            "type": "string",
+            "minLength": 1
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1
+          },
+          "audienceRationale": {
+            "type": "string",
+            "minLength": 1
+          },
+          "openingPromise": {
+            "type": "string",
+            "minLength": 1
+          },
+          "firstThreeSeconds": {
+            "type": "string",
+            "minLength": 1
+          },
+          "firstAction": {
+            "type": "string",
+            "minLength": 1
+          },
+          "interactionDemonstration": {
+            "type": "string",
+            "minLength": 1
+          },
+          "coreInteraction": {
+            "type": "string",
+            "minLength": 1
+          },
+          "mathAsPower": {
+            "type": "string",
+            "minLength": 1
+          },
+          "stakes": {
+            "type": "string",
+            "minLength": 1
+          },
+          "consequences": {
+            "type": "string",
+            "minLength": 1
+          },
+          "recovery": {
+            "type": "string",
+            "minLength": 1
+          },
+          "progression": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "interactionContinuity": {
+            "type": "string",
+            "minLength": 1
+          },
+          "worldReaction": {
+            "type": "string",
+            "minLength": 1
+          },
+          "payoff": {
+            "type": "string",
+            "minLength": 1
+          },
+          "replayVariation": {
+            "type": "string",
+            "minLength": 1
+          },
+          "visualDirection": {
+            "type": "string",
+            "minLength": 1
+          },
+          "motionDirection": {
+            "type": "string",
+            "minLength": 1
+          },
+          "soundDirection": {
+            "type": "string",
+            "minLength": 1
+          },
+          "usefulLibraries": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "engagementPrediction": {
+            "type": "string",
+            "minLength": 1
+          },
+          "falsifyingEvidence": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "artifactId",
+          "nodeId",
+          "academicContractHash",
+          "title",
+          "openingPromise",
+          "firstThreeSeconds",
+          "firstAction",
+          "coreInteraction",
+          "mathAsPower",
+          "progression",
+          "visualDirection"
+        ],
+        "additionalProperties": true
+      }
+    }
+  ],
+  "tool_choice": {
+    "type": "tool",
+    "name": "create_progression_design_artifact"
+  }
+}

@@ -1,0 +1,2292 @@
+{
+  "version": 1,
+  "childId": "reina",
+  "items": [
+    {
+      "contentId": "hw-spelling_test-6727f1c8:baseline-silent-letters-wr",
+      "homeworkId": "hw-spelling_test-6727f1c8",
+      "childId": "reina",
+      "type": "quiz",
+      "source": "baseline",
+      "title": "Benchmark Advance Spelling Unit 9 Week 3 - word-radar",
+      "algorithmTargets": [
+        "spaced-repetition",
+        "retrieval-practice"
+      ],
+      "targetSkills": [
+        "Orthographic pattern spelling and automatic word recognition"
+      ],
+      "targetConcepts": [
+        "Silent letter patterns (kn-, -gn, wr-)",
+        "High-frequency word automaticity",
+        "Visual orthographic memory"
+      ],
+      "targetWords": [
+        "sign",
+        "know",
+        "write"
+      ],
+      "engagementHooks": [],
+      "inputEvidence": {
+        "contentFingerprint": "d32e381adfe9b546"
+      },
+      "reuseStatus": "candidate",
+      "reuseReason": "Assignment planner chose word-radar. Target lane: silent_letters."
+    },
+    {
+      "contentId": "hw-spelling_test-6727f1c8:baseline-silent-letters-spell",
+      "homeworkId": "hw-spelling_test-6727f1c8",
+      "childId": "reina",
+      "type": "quiz",
+      "source": "baseline",
+      "title": "Benchmark Advance Spelling Unit 9 Week 3 - spell-check",
+      "algorithmTargets": [
+        "spaced-repetition",
+        "retrieval-practice"
+      ],
+      "targetSkills": [
+        "Orthographic pattern spelling and automatic word recognition"
+      ],
+      "targetConcepts": [
+        "Silent letter patterns (kn-, -gn, wr-)",
+        "High-frequency word automaticity",
+        "Visual orthographic memory"
+      ],
+      "targetWords": [
+        "sign",
+        "know",
+        "write"
+      ],
+      "engagementHooks": [],
+      "inputEvidence": {
+        "contentFingerprint": "d32e381adfe9b546"
+      },
+      "reuseStatus": "candidate",
+      "reuseReason": "Assignment planner chose spell-check. Target lane: silent_letters."
+    },
+    {
+      "contentId": "hw-spelling_test-6727f1c8:baseline-hf-recognition",
+      "homeworkId": "hw-spelling_test-6727f1c8",
+      "childId": "reina",
+      "type": "quiz",
+      "source": "baseline",
+      "title": "Benchmark Advance Spelling Unit 9 Week 3 - word-radar",
+      "algorithmTargets": [
+        "spaced-repetition",
+        "retrieval-practice"
+      ],
+      "targetSkills": [
+        "Orthographic pattern spelling and automatic word recognition"
+      ],
+      "targetConcepts": [
+        "Silent letter patterns (kn-, -gn, wr-)",
+        "High-frequency word automaticity",
+        "Visual orthographic memory"
+      ],
+      "targetWords": [
+        "among",
+        "building",
+        "circle"
+      ],
+      "engagementHooks": [],
+      "inputEvidence": {
+        "contentFingerprint": "d32e381adfe9b546"
+      },
+      "reuseStatus": "candidate",
+      "reuseReason": "Assignment planner chose word-radar. Target lane: high_frequency."
+    },
+    {
+      "contentId": "hw-spelling_test-6727f1c8:quest-destination",
+      "homeworkId": "hw-spelling_test-6727f1c8",
+      "childId": "reina",
+      "type": "game",
+      "source": "generated",
+      "title": "Benchmark Advance Spelling Unit 9 Week 3 - quest",
+      "algorithmTargets": [
+        "error-pattern-remediation",
+        "retrieval-practice",
+        "desirable-difficulty"
+      ],
+      "targetSkills": [
+        "Orthographic pattern spelling and automatic word recognition"
+      ],
+      "targetConcepts": [
+        "Silent letter patterns (kn-, -gn, wr-)",
+        "High-frequency word automaticity",
+        "Visual orthographic memory"
+      ],
+      "targetWords": [
+        "sign",
+        "know",
+        "write"
+      ],
+      "engagementHooks": [],
+      "inputEvidence": {
+        "contentFingerprint": "d32e381adfe9b546"
+      },
+      "reuseStatus": "candidate",
+      "reuseReason": "Assignment planner chose quest. Target lane: silent_letters."
+    },
+    {
+      "contentId": "hw-spelling_test-6727f1c8:boss-destination",
+      "homeworkId": "hw-spelling_test-6727f1c8",
+      "childId": "reina",
+      "type": "game",
+      "source": "generated",
+      "title": "Benchmark Advance Spelling Unit 9 Week 3 - boss",
+      "algorithmTargets": [
+        "mastery-gating",
+        "retrieval-practice"
+      ],
+      "targetSkills": [
+        "Orthographic pattern spelling and automatic word recognition"
+      ],
+      "targetConcepts": [
+        "Silent letter patterns (kn-, -gn, wr-)",
+        "High-frequency word automaticity",
+        "Visual orthographic memory"
+      ],
+      "targetWords": [
+        "sign",
+        "know",
+        "write",
+        "among",
+        "building",
+        "circle"
+      ],
+      "engagementHooks": [],
+      "inputEvidence": {
+        "contentFingerprint": "d32e381adfe9b546"
+      },
+      "reuseStatus": "candidate",
+      "reuseReason": "Assignment planner chose boss."
+    },
+    {
+      "contentId": "hw-spelling_test-6727f1c8:reading-mode",
+      "homeworkId": "hw-spelling_test-6727f1c8",
+      "childId": "reina",
+      "type": "reading-mode",
+      "source": "prototype",
+      "title": "Benchmark Advance Spelling Unit 9 Week 3 - reading-mode",
+      "algorithmTargets": [
+        "reading-comprehension",
+        "pronunciation",
+        "activity-affinity"
+      ],
+      "targetSkills": [
+        "Orthographic pattern spelling and automatic word recognition"
+      ],
+      "targetConcepts": [
+        "Silent letter patterns (kn-, -gn, wr-)",
+        "High-frequency word automaticity",
+        "Visual orthographic memory"
+      ],
+      "targetWords": [
+        "sign",
+        "know",
+        "write",
+        "among",
+        "building",
+        "circle"
+      ],
+      "engagementHooks": [],
+      "inputEvidence": {
+        "contentFingerprint": "d32e381adfe9b546"
+      },
+      "reuseStatus": "candidate",
+      "reuseReason": "Reading Mode fits Silent Letters and High-Frequency Word Recognition because the captured homework has passage text to read and reveal."
+    },
+    {
+      "contentId": "hw-spelling_test-6727f1c8:spelling-probe-silent",
+      "homeworkId": "hw-spelling_test-6727f1c8",
+      "childId": "reina",
+      "type": "quiz",
+      "source": "baseline",
+      "title": "Benchmark Advance Spelling Unit 9 Week 3 - spell-check",
+      "algorithmTargets": [
+        "spaced-repetition",
+        "retrieval-practice"
+      ],
+      "targetSkills": [
+        "Orthographic patterns with silent consonants and automatic word recognition"
+      ],
+      "targetConcepts": [
+        "silent letter patterns (kn, gn, wr)",
+        "high-frequency sight word recognition",
+        "orthographic memory"
+      ],
+      "targetWords": [
+        "sign",
+        "know",
+        "write"
+      ],
+      "engagementHooks": [],
+      "inputEvidence": {
+        "contentFingerprint": "281771cf53524b7d"
+      },
+      "reuseStatus": "candidate",
+      "reuseReason": "Assignment planner chose spell-check. Target lane: silent_letters."
+    },
+    {
+      "contentId": "hw-spelling_test-6727f1c8:quest-silent-transfer",
+      "homeworkId": "hw-spelling_test-6727f1c8",
+      "childId": "reina",
+      "type": "game",
+      "source": "generated",
+      "title": "Benchmark Advance Spelling Unit 9 Week 3 - quest",
+      "algorithmTargets": [
+        "error-pattern-remediation",
+        "retrieval-practice",
+        "desirable-difficulty"
+      ],
+      "targetSkills": [
+        "Orthographic patterns with silent consonants and automatic word recognition"
+      ],
+      "targetConcepts": [
+        "silent letter patterns (kn, gn, wr)",
+        "high-frequency sight word recognition",
+        "orthographic memory"
+      ],
+      "targetWords": [
+        "sign",
+        "know",
+        "write"
+      ],
+      "engagementHooks": [],
+      "inputEvidence": {
+        "contentFingerprint": "281771cf53524b7d"
+      },
+      "reuseStatus": "candidate",
+      "reuseReason": "Assignment planner chose quest. Target lane: silent_letters."
+    },
+    {
+      "contentId": "hw-spelling_test-6727f1c8:boss-mastery-finale",
+      "homeworkId": "hw-spelling_test-6727f1c8",
+      "childId": "reina",
+      "type": "game",
+      "source": "generated",
+      "title": "Benchmark Advance Spelling Unit 9 Week 3 - boss",
+      "algorithmTargets": [
+        "mastery-gating",
+        "retrieval-practice"
+      ],
+      "targetSkills": [
+        "Orthographic patterns with silent consonants and automatic word recognition"
+      ],
+      "targetConcepts": [
+        "silent letter patterns (kn, gn, wr)",
+        "high-frequency sight word recognition",
+        "orthographic memory"
+      ],
+      "targetWords": [
+        "sign",
+        "know",
+        "write",
+        "among",
+        "building",
+        "circle"
+      ],
+      "engagementHooks": [],
+      "inputEvidence": {
+        "contentFingerprint": "281771cf53524b7d"
+      },
+      "reuseStatus": "candidate",
+      "reuseReason": "Assignment planner chose boss."
+    },
+    {
+      "contentId": "hw-spelling_test-5a49d659:baseline-1-silent-spelling",
+      "homeworkId": "hw-spelling_test-5a49d659",
+      "childId": "reina",
+      "type": "quiz",
+      "source": "baseline",
+      "title": "Benchmark Advance Spelling Unit 9 Week 3 - word-radar",
+      "algorithmTargets": [
+        "spaced-repetition",
+        "retrieval-practice"
+      ],
+      "targetSkills": [
+        "Orthographic memory for silent-letter patterns and visual recognition of high-frequency vocabulary"
+      ],
+      "targetConcepts": [
+        "Silent consonants in English orthography",
+        "High-frequency word recognition",
+        "Pattern-based spelling versus whole-word memory"
+      ],
+      "targetWords": [
+        "sign",
+        "know",
+        "write",
+        "thumb",
+        "comb",
+        "gnat",
+        "knock",
+        "knife",
+        "wrong",
+        "climb"
+      ],
+      "engagementHooks": [],
+      "inputEvidence": {
+        "contentFingerprint": "46e22ebde22c9130"
+      },
+      "reuseStatus": "candidate",
+      "reuseReason": "Assignment planner chose word-radar. Target lane: silent_letters."
+    },
+    {
+      "contentId": "hw-spelling_test-5a49d659:route-a-silent-support",
+      "homeworkId": "hw-spelling_test-5a49d659",
+      "childId": "reina",
+      "type": "quiz",
+      "source": "baseline",
+      "title": "Benchmark Advance Spelling Unit 9 Week 3 - spell-check",
+      "algorithmTargets": [
+        "spaced-repetition",
+        "retrieval-practice"
+      ],
+      "targetSkills": [
+        "Orthographic memory for silent-letter patterns and visual recognition of high-frequency vocabulary"
+      ],
+      "targetConcepts": [
+        "Silent consonants in English orthography",
+        "High-frequency word recognition",
+        "Pattern-based spelling versus whole-word memory"
+      ],
+      "targetWords": [
+        "sign",
+        "know",
+        "write",
+        "thumb",
+        "comb",
+        "gnat",
+        "knock",
+        "knife",
+        "wrong",
+        "climb"
+      ],
+      "engagementHooks": [],
+      "inputEvidence": {
+        "contentFingerprint": "46e22ebde22c9130"
+      },
+      "reuseStatus": "candidate",
+      "reuseReason": "Assignment planner chose spell-check. Target lane: silent_letters."
+    },
+    {
+      "contentId": "hw-spelling_test-5a49d659:route-b-high-freq-fluency",
+      "homeworkId": "hw-spelling_test-5a49d659",
+      "childId": "reina",
+      "type": "quiz",
+      "source": "baseline",
+      "title": "Benchmark Advance Spelling Unit 9 Week 3 - word-radar",
+      "algorithmTargets": [
+        "spaced-repetition",
+        "retrieval-practice"
+      ],
+      "targetSkills": [
+        "Orthographic memory for silent-letter patterns and visual recognition of high-frequency vocabulary"
+      ],
+      "targetConcepts": [
+        "Silent consonants in English orthography",
+        "High-frequency word recognition",
+        "Pattern-based spelling versus whole-word memory"
+      ],
+      "targetWords": [
+        "among",
+        "building",
+        "circle",
+        "decided",
+        "finally",
+        "heavy",
+        "include",
+        "nothing",
+        "special",
+        "wheel"
+      ],
+      "engagementHooks": [],
+      "inputEvidence": {
+        "contentFingerprint": "46e22ebde22c9130"
+      },
+      "reuseStatus": "candidate",
+      "reuseReason": "Assignment planner chose word-radar. Target lane: high_frequency."
+    },
+    {
+      "contentId": "hw-spelling_test-5a49d659:quest-1",
+      "homeworkId": "hw-spelling_test-5a49d659",
+      "childId": "reina",
+      "type": "game",
+      "source": "generated",
+      "title": "Benchmark Advance Spelling Unit 9 Week 3 - quest",
+      "algorithmTargets": [
+        "error-pattern-remediation",
+        "retrieval-practice",
+        "desirable-difficulty"
+      ],
+      "targetSkills": [
+        "Orthographic memory for silent-letter patterns and visual recognition of high-frequency vocabulary"
+      ],
+      "targetConcepts": [
+        "Silent consonants in English orthography",
+        "High-frequency word recognition",
+        "Pattern-based spelling versus whole-word memory"
+      ],
+      "targetWords": [
+        "sign",
+        "know",
+        "write",
+        "thumb",
+        "comb",
+        "gnat",
+        "knock",
+        "knife",
+        "wrong",
+        "climb"
+      ],
+      "engagementHooks": [],
+      "inputEvidence": {
+        "contentFingerprint": "46e22ebde22c9130"
+      },
+      "reuseStatus": "candidate",
+      "reuseReason": "Assignment planner chose quest. Target lane: silent_letters."
+    },
+    {
+      "contentId": "hw-spelling_test-5a49d659:boss-1",
+      "homeworkId": "hw-spelling_test-5a49d659",
+      "childId": "reina",
+      "type": "game",
+      "source": "generated",
+      "title": "Benchmark Advance Spelling Unit 9 Week 3 - boss",
+      "algorithmTargets": [
+        "mastery-gating",
+        "retrieval-practice"
+      ],
+      "targetSkills": [
+        "Orthographic memory for silent-letter patterns and visual recognition of high-frequency vocabulary"
+      ],
+      "targetConcepts": [
+        "Silent consonants in English orthography",
+        "High-frequency word recognition",
+        "Pattern-based spelling versus whole-word memory"
+      ],
+      "targetWords": [
+        "sign",
+        "know",
+        "write",
+        "thumb",
+        "comb",
+        "gnat",
+        "knock",
+        "knife",
+        "wrong",
+        "climb",
+        "among",
+        "building",
+        "circle",
+        "decided",
+        "finally",
+        "heavy",
+        "include",
+        "nothing",
+        "special",
+        "wheel"
+      ],
+      "engagementHooks": [],
+      "inputEvidence": {
+        "contentFingerprint": "46e22ebde22c9130"
+      },
+      "reuseStatus": "candidate",
+      "reuseReason": "Assignment planner chose boss. Target lane: silent_letters."
+    },
+    {
+      "contentId": "hw-spelling_test-5a49d659:reading-mode",
+      "homeworkId": "hw-spelling_test-5a49d659",
+      "childId": "reina",
+      "type": "reading-mode",
+      "source": "prototype",
+      "title": "Benchmark Advance Spelling Unit 9 Week 3 - reading-mode",
+      "algorithmTargets": [
+        "reading-comprehension",
+        "pronunciation",
+        "activity-affinity"
+      ],
+      "targetSkills": [
+        "Orthographic memory for silent-letter patterns and visual recognition of high-frequency vocabulary"
+      ],
+      "targetConcepts": [
+        "Silent consonants in English orthography",
+        "High-frequency word recognition",
+        "Pattern-based spelling versus whole-word memory"
+      ],
+      "targetWords": [
+        "sign",
+        "know",
+        "write",
+        "thumb",
+        "comb",
+        "gnat",
+        "knock",
+        "knife",
+        "wrong",
+        "climb",
+        "among",
+        "building",
+        "circle",
+        "decided",
+        "finally",
+        "heavy",
+        "include",
+        "nothing",
+        "special",
+        "wheel"
+      ],
+      "engagementHooks": [],
+      "inputEvidence": {
+        "contentFingerprint": "46e22ebde22c9130"
+      },
+      "reuseStatus": "candidate",
+      "reuseReason": "Reading Mode fits Silent letter spelling patterns and high-frequency word recognition because the captured homework has passage text to read and reveal."
+    },
+    {
+      "contentId": "hw-spelling_test-5a49d659:node-wr-baseline-silent",
+      "homeworkId": "hw-spelling_test-5a49d659",
+      "childId": "reina",
+      "type": "quiz",
+      "source": "baseline",
+      "title": "Benchmark Advance Spelling Unit 9 Week 3 - word-radar",
+      "algorithmTargets": [
+        "spaced-repetition",
+        "retrieval-practice"
+      ],
+      "targetSkills": [
+        "Orthographic pattern awareness for silent consonants and automatic recognition of high-frequency words"
+      ],
+      "targetConcepts": [
+        "Silent-letter spelling patterns (gn-, kn-, wr-, -mb)",
+        "High-frequency word recognition and fluency",
+        "Orthographic memory for irregular patterns"
+      ],
+      "targetWords": [
+        "sign",
+        "know",
+        "write",
+        "thumb",
+        "comb",
+        "gnat",
+        "knock",
+        "knife",
+        "wrong",
+        "climb"
+      ],
+      "engagementHooks": [],
+      "inputEvidence": {
+        "contentFingerprint": "f0a5c30e3b932b7c"
+      },
+      "reuseStatus": "candidate",
+      "reuseReason": "Assignment planner chose word-radar. Target lane: silent_letters."
+    },
+    {
+      "contentId": "hw-spelling_test-5a49d659:node-quest-silent",
+      "homeworkId": "hw-spelling_test-5a49d659",
+      "childId": "reina",
+      "type": "game",
+      "source": "generated",
+      "title": "Benchmark Advance Spelling Unit 9 Week 3 - quest",
+      "algorithmTargets": [
+        "error-pattern-remediation",
+        "retrieval-practice",
+        "desirable-difficulty"
+      ],
+      "targetSkills": [
+        "Orthographic pattern awareness for silent consonants and automatic recognition of high-frequency words"
+      ],
+      "targetConcepts": [
+        "Silent-letter spelling patterns (gn-, kn-, wr-, -mb)",
+        "High-frequency word recognition and fluency",
+        "Orthographic memory for irregular patterns"
+      ],
+      "targetWords": [
+        "sign",
+        "know",
+        "write",
+        "thumb",
+        "comb",
+        "gnat",
+        "knock",
+        "knife",
+        "wrong",
+        "climb"
+      ],
+      "engagementHooks": [],
+      "inputEvidence": {
+        "contentFingerprint": "f0a5c30e3b932b7c"
+      },
+      "reuseStatus": "candidate",
+      "reuseReason": "Assignment planner chose quest. Target lane: silent_letters."
+    },
+    {
+      "contentId": "hw-spelling_test-5a49d659:node-boss-finale",
+      "homeworkId": "hw-spelling_test-5a49d659",
+      "childId": "reina",
+      "type": "game",
+      "source": "generated",
+      "title": "Benchmark Advance Spelling Unit 9 Week 3 - boss",
+      "algorithmTargets": [
+        "mastery-gating",
+        "retrieval-practice"
+      ],
+      "targetSkills": [
+        "Orthographic pattern awareness for silent consonants and automatic recognition of high-frequency words"
+      ],
+      "targetConcepts": [
+        "Silent-letter spelling patterns (gn-, kn-, wr-, -mb)",
+        "High-frequency word recognition and fluency",
+        "Orthographic memory for irregular patterns"
+      ],
+      "targetWords": [
+        "sign",
+        "know",
+        "write",
+        "thumb",
+        "comb",
+        "gnat",
+        "knock",
+        "knife",
+        "wrong",
+        "climb"
+      ],
+      "engagementHooks": [],
+      "inputEvidence": {
+        "contentFingerprint": "f0a5c30e3b932b7c"
+      },
+      "reuseStatus": "candidate",
+      "reuseReason": "Assignment planner chose boss. Target lane: silent_letters."
+    },
+    {
+      "contentId": "hw-spelling_test-adc128c0:n-word-radar-hw-spelling_test-adc128c0",
+      "homeworkId": "hw-spelling_test-adc128c0",
+      "childId": "reina",
+      "type": "quiz",
+      "source": "baseline",
+      "title": "Benchmark Advance Spelling Unit 9 Week 2 - word-radar",
+      "algorithmTargets": [
+        "spaced-repetition",
+        "retrieval-practice"
+      ],
+      "targetSkills": [
+        "Spell words with schwa sounds and recognize high-frequency words"
+      ],
+      "targetConcepts": [
+        "Schwa sound (unstressed vowel)",
+        "Long vowel sounds (long i, long o, long a)",
+        "High-frequency sight words",
+        "Antonyms"
+      ],
+      "targetWords": [
+        "above",
+        "ago",
+        "about",
+        "ahead",
+        "away"
+      ],
+      "engagementHooks": [],
+      "inputEvidence": {
+        "contentFingerprint": "810323e7493ce508"
+      },
+      "reuseStatus": "candidate",
+      "reuseReason": "Start with a low-friction scan of the first spelling cohort before independent recall."
+    },
+    {
+      "contentId": "hw-spelling_test-adc128c0:n-spell-check-hw-spelling_test-adc128c0",
+      "homeworkId": "hw-spelling_test-adc128c0",
+      "childId": "reina",
+      "type": "quiz",
+      "source": "baseline",
+      "title": "Benchmark Advance Spelling Unit 9 Week 2 - spell-check",
+      "algorithmTargets": [
+        "spaced-repetition",
+        "retrieval-practice"
+      ],
+      "targetSkills": [
+        "Spell words with schwa sounds and recognize high-frequency words"
+      ],
+      "targetConcepts": [
+        "Schwa sound (unstressed vowel)",
+        "Long vowel sounds (long i, long o, long a)",
+        "High-frequency sight words",
+        "Antonyms"
+      ],
+      "targetWords": [
+        "alone",
+        "alike",
+        "awake",
+        "along",
+        "again"
+      ],
+      "engagementHooks": [],
+      "inputEvidence": {
+        "contentFingerprint": "810323e7493ce508"
+      },
+      "reuseStatus": "candidate",
+      "reuseReason": "Measure independent recall on the next spelling cohort after Word Radar warms up the pattern."
+    },
+    {
+      "contentId": "hw-spelling_test-adc128c0:countdown-comprehension",
+      "homeworkId": "hw-spelling_test-adc128c0",
+      "childId": "reina",
+      "type": "countdown",
+      "source": "prototype",
+      "title": "Benchmark Advance Spelling Unit 9 Week 2 - countdown-comprehension",
+      "algorithmTargets": [
+        "retrieval-practice",
+        "reading-comprehension",
+        "desirable-difficulty"
+      ],
+      "targetSkills": [
+        "Spell words with schwa sounds and recognize high-frequency words"
+      ],
+      "targetConcepts": [
+        "Schwa sound (unstressed vowel)",
+        "Long vowel sounds (long i, long o, long a)",
+        "High-frequency sight words",
+        "Antonyms"
+      ],
+      "targetWords": [
+        "above",
+        "ago",
+        "about",
+        "ahead",
+        "away",
+        "alone",
+        "alike",
+        "awake",
+        "along",
+        "again",
+        "government",
+        "half",
+        "machine",
+        "pair",
+        "quickly",
+        "scientist",
+        "thousand",
+        "understood",
+        "wait"
+      ],
+      "engagementHooks": [],
+      "inputEvidence": {
+        "contentFingerprint": "810323e7493ce508"
+      },
+      "reuseStatus": "candidate",
+      "reuseReason": "Countdown fits Schwa and High-Frequency Words because the captured homework has comprehension or concept-check questions."
+    },
+    {
+      "contentId": "hw-spelling_test-a0d1d9f2:n-word-radar-hw-spelling_test-a0d1d9f2",
+      "homeworkId": "hw-spelling_test-a0d1d9f2",
+      "childId": "reina",
+      "type": "quiz",
+      "source": "baseline",
+      "title": "Benchmark Advance Spelling Unit 9 Week 1 - word-radar",
+      "algorithmTargets": [
+        "spaced-repetition",
+        "retrieval-practice"
+      ],
+      "targetSkills": [
+        "Spelling accuracy with adjectival and adverbial endings"
+      ],
+      "targetConcepts": [
+        "Adjectives ending in -y",
+        "Adverbs ending in -ly",
+        "High-frequency words",
+        "Vowel recognition",
+        "Phonetic patterns"
+      ],
+      "targetWords": [
+        "behind",
+        "slowly",
+        "shiny",
+        "lucky",
+        "neatly",
+        "sunny",
+        "likely",
+        "messy",
+        "quickly",
+        "rainy",
+        "friendly",
+        "able",
+        "carefully",
+        "common",
+        "easy",
+        "fact",
+        "remember",
+        "sure",
+        "vowel",
+        "whole"
+      ],
+      "engagementHooks": [],
+      "inputEvidence": {
+        "contentFingerprint": "372270954ac7cebd"
+      },
+      "reuseStatus": "candidate",
+      "reuseReason": "Word radar warms up recognition for the spelling-list words."
+    },
+    {
+      "contentId": "hw-spelling_test-a0d1d9f2:n-spell-check-hw-spelling_test-a0d1d9f2",
+      "homeworkId": "hw-spelling_test-a0d1d9f2",
+      "childId": "reina",
+      "type": "quiz",
+      "source": "baseline",
+      "title": "Benchmark Advance Spelling Unit 9 Week 1 - spell-check",
+      "algorithmTargets": [
+        "spaced-repetition",
+        "retrieval-practice"
+      ],
+      "targetSkills": [
+        "Spelling accuracy with adjectival and adverbial endings"
+      ],
+      "targetConcepts": [
+        "Adjectives ending in -y",
+        "Adverbs ending in -ly",
+        "High-frequency words",
+        "Vowel recognition",
+        "Phonetic patterns"
+      ],
+      "targetWords": [
+        "behind",
+        "slowly",
+        "shiny",
+        "lucky",
+        "neatly",
+        "sunny",
+        "likely",
+        "messy",
+        "quickly",
+        "rainy",
+        "friendly",
+        "able",
+        "carefully",
+        "common",
+        "easy",
+        "fact",
+        "remember",
+        "sure",
+        "vowel",
+        "whole"
+      ],
+      "engagementHooks": [],
+      "inputEvidence": {
+        "contentFingerprint": "372270954ac7cebd"
+      },
+      "reuseStatus": "candidate",
+      "reuseReason": "Spell-check captures spelling production attempts for diagnostics."
+    },
+    {
+      "contentId": "hw-spelling_test-a0d1d9f2:n-wheel-hw-spelling_test-a0d1d9f2",
+      "homeworkId": "hw-spelling_test-a0d1d9f2",
+      "childId": "reina",
+      "type": "game",
+      "source": "baseline",
+      "title": "Benchmark Advance Spelling Unit 9 Week 1 - wheel-of-fortune",
+      "algorithmTargets": [
+        "retrieval-practice",
+        "activity-affinity",
+        "variable-reward"
+      ],
+      "targetSkills": [
+        "Spelling accuracy with adjectival and adverbial endings"
+      ],
+      "targetConcepts": [
+        "Adjectives ending in -y",
+        "Adverbs ending in -ly",
+        "High-frequency words",
+        "Vowel recognition",
+        "Phonetic patterns"
+      ],
+      "targetWords": [
+        "behind",
+        "slowly",
+        "shiny",
+        "lucky",
+        "neatly",
+        "sunny",
+        "likely",
+        "messy",
+        "quickly",
+        "rainy",
+        "friendly",
+        "able",
+        "carefully",
+        "common",
+        "easy",
+        "fact",
+        "remember",
+        "sure",
+        "vowel",
+        "whole"
+      ],
+      "engagementHooks": [],
+      "inputEvidence": {
+        "contentFingerprint": "372270954ac7cebd"
+      },
+      "reuseStatus": "candidate",
+      "reuseReason": "Wheel of Fortune gives competitive retrieval practice with the same list."
+    },
+    {
+      "contentId": "hw-reading-379a0afb:n-baseline-evaluator-hw-reading-379a0afb",
+      "homeworkId": "hw-reading-379a0afb",
+      "childId": "reina",
+      "type": "quiz",
+      "source": "baseline",
+      "title": "Erosion and Earth's Surface Study Guide - word-radar",
+      "algorithmTargets": [
+        "spaced-repetition",
+        "retrieval-practice"
+      ],
+      "targetSkills": [
+        "Understanding erosion processes and map reading"
+      ],
+      "targetConcepts": [
+        "erosion",
+        "landform",
+        "landforms",
+        "soil",
+        "rocks",
+        "water",
+        "wind",
+        "What is Erosion",
+        "Beach Sand and Rocks",
+        "Reading a Map",
+        "How Rivers Flow",
+        "Treasure Map Practice",
+        "Quick Review"
+      ],
+      "targetWords": [
+        "erosion",
+        "landform",
+        "landforms",
+        "soil",
+        "rocks"
+      ],
+      "engagementHooks": [],
+      "inputEvidence": {
+        "contentFingerprint": "d8ba4f0cdecd570c"
+      },
+      "reuseStatus": "candidate",
+      "reuseReason": "Check whether the child recognizes the core Erosion and Earth's Surface concepts before the teaching story."
+    },
+    {
+      "contentId": "hw-reading-379a0afb:n-karaoke-hw-reading-379a0afb",
+      "homeworkId": "hw-reading-379a0afb",
+      "childId": "reina",
+      "type": "story",
+      "source": "generated",
+      "title": "Reina and the Hill That Changed",
+      "algorithmTargets": [
+        "reading-comprehension",
+        "retrieval-practice",
+        "activity-affinity"
+      ],
+      "targetSkills": [
+        "Understanding erosion processes and map reading"
+      ],
+      "targetConcepts": [
+        "erosion",
+        "landform",
+        "landforms",
+        "soil",
+        "rocks",
+        "water",
+        "wind",
+        "What is Erosion",
+        "Beach Sand and Rocks",
+        "Reading a Map",
+        "How Rivers Flow",
+        "Treasure Map Practice",
+        "Quick Review"
+      ],
+      "targetWords": [
+        "Reina",
+        "stepped",
+        "into",
+        "the",
+        "muddy",
+        "training",
+        "valley",
+        "like",
+        "it",
+        "was",
+        "a",
+        "wrestling",
+        "mat",
+        "and",
+        "studied",
+        "the",
+        "first",
+        "move",
+        "A",
+        "storm",
+        "timer",
+        "started",
+        "and",
+        "water",
+        "rushed",
+        "downhill",
+        "pushed",
+        "soil",
+        "loose",
+        "and",
+        "carried",
+        "tiny",
+        "rocks",
+        "into",
+        "a",
+        "new",
+        "channel",
+        "Reina",
+        "called",
+        "the",
+        "pattern",
+        "erosion",
+        "land",
+        "slowly",
+        "changing",
+        "when",
+        "water",
+        "wind",
+        "and",
+        "gravity",
+        "keep",
+        "working",
+        "Her",
+        "mission",
+        "was",
+        "to",
+        "use",
+        "strategy",
+        "compare",
+        "faster",
+        "and",
+        "slower",
+        "water",
+        "and",
+        "beat",
+        "her",
+        "personal",
+        "best",
+        "by",
+        "explaining",
+        "why",
+        "the",
+        "landform",
+        "changed",
+        "Reina",
+        "also",
+        "spotted",
+        "the",
+        "review",
+        "words",
+        "erosion",
+        "wear",
+        "away",
+        "rocks",
+        "soil",
+        "wind",
+        "water",
+        "ice",
+        "rivers",
+        "and",
+        "used",
+        "them",
+        "as",
+        "clue",
+        "cards",
+        "for",
+        "the",
+        "next",
+        "challenge",
+        "At",
+        "the",
+        "finish",
+        "Reina",
+        "won",
+        "the",
+        "round",
+        "by",
+        "pointing",
+        "to",
+        "the",
+        "evidence",
+        "moved",
+        "soil",
+        "shifted",
+        "sand",
+        "and",
+        "a",
+        "hill",
+        "that",
+        "looked",
+        "different",
+        "than",
+        "before"
+      ],
+      "engagementHooks": [],
+      "inputEvidence": {
+        "contentFingerprint": "d8ba4f0cdecd570c"
+      },
+      "reuseStatus": "candidate",
+      "reuseReason": "Build background knowledge for Erosion and Earth's Surface before practicing reading."
+    },
+    {
+      "contentId": "hw-reading-379a0afb:n-karaoke-hw-reading-379a0afb:image",
+      "homeworkId": "hw-reading-379a0afb",
+      "childId": "reina",
+      "type": "image",
+      "source": "generated",
+      "title": "Reina and the Hill That Changed illustration",
+      "algorithmTargets": [
+        "variable-reward",
+        "reading-comprehension",
+        "activity-affinity"
+      ],
+      "targetSkills": [
+        "Understanding erosion processes and map reading"
+      ],
+      "targetConcepts": [
+        "erosion",
+        "landform",
+        "landforms",
+        "soil",
+        "rocks",
+        "water",
+        "wind",
+        "What is Erosion",
+        "Beach Sand and Rocks",
+        "Reading a Map",
+        "How Rivers Flow",
+        "Treasure Map Practice",
+        "Quick Review"
+      ],
+      "targetWords": [
+        "erosion",
+        "wear away",
+        "rocks",
+        "soil",
+        "wind",
+        "water",
+        "ice",
+        "rivers",
+        "rain",
+        "mountains",
+        "beaches",
+        "oceans",
+        "sand",
+        "compass rose",
+        "downhill"
+      ],
+      "engagementHooks": [],
+      "inputEvidence": {
+        "contentFingerprint": "d8ba4f0cdecd570c"
+      },
+      "reuseStatus": "candidate",
+      "reuseReason": "Story image finale generated as a visual reward tied to reading comprehension."
+    },
+    {
+      "contentId": "hw-reading-379a0afb:n-concept-builder-hw-reading-379a0afb",
+      "homeworkId": "hw-reading-379a0afb",
+      "childId": "reina",
+      "type": "quiz",
+      "source": "baseline",
+      "title": "Erosion and Earth's Surface Study Guide - word-builder",
+      "algorithmTargets": [
+        "spaced-repetition",
+        "retrieval-practice"
+      ],
+      "targetSkills": [
+        "Understanding erosion processes and map reading"
+      ],
+      "targetConcepts": [
+        "erosion",
+        "landform",
+        "landforms",
+        "soil",
+        "rocks",
+        "water",
+        "wind",
+        "What is Erosion",
+        "Beach Sand and Rocks",
+        "Reading a Map",
+        "How Rivers Flow",
+        "Treasure Map Practice",
+        "Quick Review"
+      ],
+      "targetWords": [
+        "erosion",
+        "landform",
+        "landforms",
+        "soil",
+        "rocks"
+      ],
+      "engagementHooks": [],
+      "inputEvidence": {
+        "contentFingerprint": "d8ba4f0cdecd570c"
+      },
+      "reuseStatus": "candidate",
+      "reuseReason": "Require active construction of the academic vocabulary needed to explain Erosion and Earth's Surface."
+    },
+    {
+      "contentId": "hw-reading-379a0afb:n-exit-evaluator-hw-reading-379a0afb",
+      "homeworkId": "hw-reading-379a0afb",
+      "childId": "reina",
+      "type": "quiz",
+      "source": "baseline",
+      "title": "Erosion and Earth's Surface Study Guide - word-radar",
+      "algorithmTargets": [
+        "spaced-repetition",
+        "retrieval-practice"
+      ],
+      "targetSkills": [
+        "Understanding erosion processes and map reading"
+      ],
+      "targetConcepts": [
+        "erosion",
+        "landform",
+        "landforms",
+        "soil",
+        "rocks",
+        "water",
+        "wind",
+        "What is Erosion",
+        "Beach Sand and Rocks",
+        "Reading a Map",
+        "How Rivers Flow",
+        "Treasure Map Practice",
+        "Quick Review"
+      ],
+      "targetWords": [
+        "erosion",
+        "landform",
+        "landforms",
+        "soil",
+        "rocks"
+      ],
+      "engagementHooks": [],
+      "inputEvidence": {
+        "contentFingerprint": "d8ba4f0cdecd570c"
+      },
+      "reuseStatus": "candidate",
+      "reuseReason": "Re-check Erosion and Earth's Surface concepts after intervention to decide whether to generate harder content."
+    },
+    {
+      "contentId": "hw-reading-379a0afb:countdown-comprehension",
+      "homeworkId": "hw-reading-379a0afb",
+      "childId": "reina",
+      "type": "countdown",
+      "source": "prototype",
+      "title": "Erosion and Earth's Surface Study Guide - countdown-comprehension",
+      "algorithmTargets": [
+        "retrieval-practice",
+        "reading-comprehension",
+        "desirable-difficulty"
+      ],
+      "targetSkills": [
+        "Understanding erosion processes and map reading"
+      ],
+      "targetConcepts": [
+        "erosion",
+        "landform",
+        "landforms",
+        "soil",
+        "rocks",
+        "water",
+        "wind",
+        "What is Erosion",
+        "Beach Sand and Rocks",
+        "Reading a Map",
+        "How Rivers Flow",
+        "Treasure Map Practice",
+        "Quick Review"
+      ],
+      "targetWords": [
+        "erosion",
+        "wear away",
+        "rocks",
+        "soil",
+        "wind",
+        "water",
+        "ice",
+        "rivers",
+        "rain",
+        "mountains",
+        "beaches",
+        "oceans",
+        "sand",
+        "compass rose",
+        "downhill"
+      ],
+      "engagementHooks": [],
+      "inputEvidence": {
+        "contentFingerprint": "d8ba4f0cdecd570c"
+      },
+      "reuseStatus": "candidate",
+      "reuseReason": "Countdown fits Erosion and Earth's Surface because the captured homework has comprehension or concept-check questions."
+    },
+    {
+      "contentId": "hw-reading-e3b0c442:n-baseline-evaluator-hw-reading-e3b0c442",
+      "homeworkId": "hw-reading-e3b0c442",
+      "childId": "reina",
+      "type": "quiz",
+      "source": "baseline",
+      "title": "Erosion and Earth's Surface Study Guide - word-radar",
+      "algorithmTargets": [
+        "spaced-repetition",
+        "retrieval-practice"
+      ],
+      "targetSkills": [
+        "Understanding erosion processes and Earth's geological features"
+      ],
+      "targetConcepts": [
+        "erosion",
+        "Erosion",
+        "Beach Sand and Rocks",
+        "Reading a Map",
+        "How Rivers Flow",
+        "Treasure Map Practice",
+        "Quick Review"
+      ],
+      "targetWords": [
+        "erosion",
+        "Erosion",
+        "Beach Sand and Rocks",
+        "Reading a Map",
+        "How Rivers Flow"
+      ],
+      "engagementHooks": [],
+      "inputEvidence": {
+        "contentFingerprint": "953591037e5f4eb4"
+      },
+      "reuseStatus": "candidate",
+      "reuseReason": "Check whether the child recognizes the core Erosion and Earth's Surface concepts before the teaching story."
+    },
+    {
+      "contentId": "hw-reading-e3b0c442:n-karaoke-hw-reading-e3b0c442",
+      "homeworkId": "hw-reading-e3b0c442",
+      "childId": "reina",
+      "type": "story",
+      "source": "generated",
+      "title": "Reina and the Hill That Changed",
+      "algorithmTargets": [
+        "reading-comprehension",
+        "retrieval-practice",
+        "activity-affinity"
+      ],
+      "targetSkills": [
+        "Understanding erosion processes and Earth's geological features"
+      ],
+      "targetConcepts": [
+        "erosion",
+        "Erosion",
+        "Beach Sand and Rocks",
+        "Reading a Map",
+        "How Rivers Flow",
+        "Treasure Map Practice",
+        "Quick Review"
+      ],
+      "targetWords": [
+        "Reina",
+        "stepped",
+        "into",
+        "the",
+        "muddy",
+        "training",
+        "valley",
+        "like",
+        "it",
+        "was",
+        "a",
+        "wrestling",
+        "mat",
+        "and",
+        "studied",
+        "the",
+        "first",
+        "move",
+        "A",
+        "storm",
+        "timer",
+        "started",
+        "and",
+        "water",
+        "rushed",
+        "downhill",
+        "pushed",
+        "soil",
+        "loose",
+        "and",
+        "carried",
+        "tiny",
+        "rocks",
+        "into",
+        "a",
+        "new",
+        "channel",
+        "Reina",
+        "called",
+        "the",
+        "pattern",
+        "erosion",
+        "land",
+        "slowly",
+        "changing",
+        "when",
+        "water",
+        "wind",
+        "and",
+        "gravity",
+        "keep",
+        "working",
+        "Her",
+        "mission",
+        "was",
+        "to",
+        "use",
+        "strategy",
+        "compare",
+        "faster",
+        "and",
+        "slower",
+        "water",
+        "and",
+        "beat",
+        "her",
+        "personal",
+        "best",
+        "by",
+        "explaining",
+        "why",
+        "the",
+        "landform",
+        "changed",
+        "Reina",
+        "also",
+        "spotted",
+        "the",
+        "review",
+        "words",
+        "faster",
+        "slowest",
+        "add",
+        "and",
+        "used",
+        "them",
+        "as",
+        "clue",
+        "cards",
+        "for",
+        "the",
+        "next",
+        "challenge",
+        "At",
+        "the",
+        "finish",
+        "Reina",
+        "won",
+        "the",
+        "round",
+        "by",
+        "pointing",
+        "to",
+        "the",
+        "evidence",
+        "moved",
+        "soil",
+        "shifted",
+        "sand",
+        "and",
+        "a",
+        "hill",
+        "that",
+        "looked",
+        "different",
+        "than",
+        "before"
+      ],
+      "engagementHooks": [],
+      "inputEvidence": {
+        "contentFingerprint": "953591037e5f4eb4"
+      },
+      "reuseStatus": "candidate",
+      "reuseReason": "Build background knowledge for Erosion and Earth's Surface before practicing reading."
+    },
+    {
+      "contentId": "hw-reading-e3b0c442:n-karaoke-hw-reading-e3b0c442:image",
+      "homeworkId": "hw-reading-e3b0c442",
+      "childId": "reina",
+      "type": "image",
+      "source": "generated",
+      "title": "Reina and the Hill That Changed illustration",
+      "algorithmTargets": [
+        "variable-reward",
+        "reading-comprehension",
+        "activity-affinity"
+      ],
+      "targetSkills": [
+        "Understanding erosion processes and Earth's geological features"
+      ],
+      "targetConcepts": [
+        "erosion",
+        "Erosion",
+        "Beach Sand and Rocks",
+        "Reading a Map",
+        "How Rivers Flow",
+        "Treasure Map Practice",
+        "Quick Review"
+      ],
+      "targetWords": [],
+      "engagementHooks": [],
+      "inputEvidence": {
+        "contentFingerprint": "953591037e5f4eb4"
+      },
+      "reuseStatus": "candidate",
+      "reuseReason": "Story image finale generated as a visual reward tied to reading comprehension."
+    },
+    {
+      "contentId": "hw-reading-e3b0c442:n-concept-builder-hw-reading-e3b0c442",
+      "homeworkId": "hw-reading-e3b0c442",
+      "childId": "reina",
+      "type": "quiz",
+      "source": "baseline",
+      "title": "Erosion and Earth's Surface Study Guide - word-builder",
+      "algorithmTargets": [
+        "spaced-repetition",
+        "retrieval-practice"
+      ],
+      "targetSkills": [
+        "Understanding erosion processes and Earth's geological features"
+      ],
+      "targetConcepts": [
+        "erosion",
+        "Erosion",
+        "Beach Sand and Rocks",
+        "Reading a Map",
+        "How Rivers Flow",
+        "Treasure Map Practice",
+        "Quick Review"
+      ],
+      "targetWords": [
+        "erosion",
+        "Erosion",
+        "Beach Sand and Rocks",
+        "Reading a Map",
+        "How Rivers Flow"
+      ],
+      "engagementHooks": [],
+      "inputEvidence": {
+        "contentFingerprint": "953591037e5f4eb4"
+      },
+      "reuseStatus": "candidate",
+      "reuseReason": "Require active construction of the academic vocabulary needed to explain Erosion and Earth's Surface."
+    },
+    {
+      "contentId": "hw-reading-e3b0c442:n-exit-evaluator-hw-reading-e3b0c442",
+      "homeworkId": "hw-reading-e3b0c442",
+      "childId": "reina",
+      "type": "quiz",
+      "source": "baseline",
+      "title": "Erosion and Earth's Surface Study Guide - word-radar",
+      "algorithmTargets": [
+        "spaced-repetition",
+        "retrieval-practice"
+      ],
+      "targetSkills": [
+        "Understanding erosion processes and Earth's geological features"
+      ],
+      "targetConcepts": [
+        "erosion",
+        "Erosion",
+        "Beach Sand and Rocks",
+        "Reading a Map",
+        "How Rivers Flow",
+        "Treasure Map Practice",
+        "Quick Review"
+      ],
+      "targetWords": [
+        "erosion",
+        "Erosion",
+        "Beach Sand and Rocks",
+        "Reading a Map",
+        "How Rivers Flow"
+      ],
+      "engagementHooks": [],
+      "inputEvidence": {
+        "contentFingerprint": "953591037e5f4eb4"
+      },
+      "reuseStatus": "candidate",
+      "reuseReason": "Re-check Erosion and Earth's Surface concepts after intervention to decide whether to generate harder content."
+    },
+    {
+      "contentId": "hw-reading-e3b0c442:countdown-comprehension",
+      "homeworkId": "hw-reading-e3b0c442",
+      "childId": "reina",
+      "type": "countdown",
+      "source": "prototype",
+      "title": "Erosion and Earth's Surface Study Guide - countdown-comprehension",
+      "algorithmTargets": [
+        "retrieval-practice",
+        "reading-comprehension",
+        "desirable-difficulty"
+      ],
+      "targetSkills": [
+        "Understanding erosion processes and Earth's geography"
+      ],
+      "targetConcepts": [
+        "erosion",
+        "soil",
+        "rocks",
+        "water",
+        "wind",
+        "Erosion definition and causes",
+        "Beach sand and rock formation",
+        "Reading maps and compass roses",
+        "River flow patterns",
+        "Treasure map practice",
+        "Map features and directions"
+      ],
+      "targetWords": [],
+      "engagementHooks": [],
+      "inputEvidence": {
+        "contentFingerprint": "e89e355be22e6fb2"
+      },
+      "reuseStatus": "candidate",
+      "reuseReason": "Countdown fits Erosion and Earth's Surface because the captured homework has comprehension or concept-check questions."
+    },
+    {
+      "contentId": "hw-generic-e3b0c442:n-karaoke-hw-generic-e3b0c442",
+      "homeworkId": "hw-generic-e3b0c442",
+      "childId": "reina",
+      "type": "story",
+      "source": "generated",
+      "title": "Reina and the Hill That Changed",
+      "algorithmTargets": [
+        "reading-comprehension",
+        "retrieval-practice",
+        "activity-affinity"
+      ],
+      "targetSkills": [
+        "Reading comprehension and science concepts"
+      ],
+      "targetConcepts": [
+        "erosion",
+        "landform",
+        "landforms",
+        "soil",
+        "rocks",
+        "water",
+        "wind",
+        "Erosion definition and process",
+        "Beach sand and rock formation",
+        "Map reading skills",
+        "River flow patterns",
+        "Compass rose directions",
+        "Landform identification"
+      ],
+      "targetWords": [
+        "Reina",
+        "stepped",
+        "into",
+        "the",
+        "muddy",
+        "training",
+        "valley",
+        "like",
+        "it",
+        "was",
+        "a",
+        "wrestling",
+        "mat",
+        "and",
+        "studied",
+        "the",
+        "first",
+        "move",
+        "A",
+        "storm",
+        "timer",
+        "started",
+        "and",
+        "water",
+        "rushed",
+        "downhill",
+        "pushed",
+        "soil",
+        "loose",
+        "and",
+        "carried",
+        "tiny",
+        "rocks",
+        "into",
+        "a",
+        "new",
+        "channel",
+        "Reina",
+        "called",
+        "the",
+        "pattern",
+        "erosion",
+        "land",
+        "slowly",
+        "changing",
+        "when",
+        "water",
+        "wind",
+        "and",
+        "gravity",
+        "keep",
+        "working",
+        "Her",
+        "mission",
+        "was",
+        "to",
+        "use",
+        "strategy",
+        "compare",
+        "faster",
+        "and",
+        "slower",
+        "water",
+        "and",
+        "beat",
+        "her",
+        "personal",
+        "best",
+        "by",
+        "explaining",
+        "why",
+        "the",
+        "landform",
+        "changed",
+        "At",
+        "the",
+        "finish",
+        "Reina",
+        "won",
+        "the",
+        "round",
+        "by",
+        "pointing",
+        "to",
+        "the",
+        "evidence",
+        "moved",
+        "soil",
+        "shifted",
+        "sand",
+        "and",
+        "a",
+        "hill",
+        "that",
+        "looked",
+        "different",
+        "than",
+        "before"
+      ],
+      "engagementHooks": [],
+      "inputEvidence": {
+        "contentFingerprint": "6f51dee1567ac81a"
+      },
+      "reuseStatus": "candidate",
+      "reuseReason": "Build background knowledge for Erosion and Earth's Surface before practicing reading."
+    },
+    {
+      "contentId": "hw-generic-e3b0c442:n-karaoke-hw-generic-e3b0c442:image",
+      "homeworkId": "hw-generic-e3b0c442",
+      "childId": "reina",
+      "type": "image",
+      "source": "generated",
+      "title": "Reina and the Hill That Changed illustration",
+      "algorithmTargets": [
+        "variable-reward",
+        "reading-comprehension",
+        "activity-affinity"
+      ],
+      "targetSkills": [
+        "Reading comprehension and science concepts"
+      ],
+      "targetConcepts": [
+        "erosion",
+        "landform",
+        "landforms",
+        "soil",
+        "rocks",
+        "water",
+        "wind",
+        "Erosion definition and process",
+        "Beach sand and rock formation",
+        "Map reading skills",
+        "River flow patterns",
+        "Compass rose directions",
+        "Landform identification"
+      ],
+      "targetWords": [],
+      "engagementHooks": [],
+      "inputEvidence": {
+        "contentFingerprint": "6f51dee1567ac81a"
+      },
+      "reuseStatus": "candidate",
+      "reuseReason": "Story image finale generated as a visual reward tied to reading comprehension."
+    },
+    {
+      "contentId": "hw-generic-e3b0c442:countdown-comprehension",
+      "homeworkId": "hw-generic-e3b0c442",
+      "childId": "reina",
+      "type": "countdown",
+      "source": "prototype",
+      "title": "Erosion and Earth's Surface Study Guide - countdown-comprehension",
+      "algorithmTargets": [
+        "retrieval-practice",
+        "reading-comprehension",
+        "desirable-difficulty"
+      ],
+      "targetSkills": [
+        "Reading comprehension and science concepts"
+      ],
+      "targetConcepts": [
+        "erosion",
+        "landform",
+        "landforms",
+        "soil",
+        "rocks",
+        "water",
+        "wind",
+        "Erosion definition and process",
+        "Beach sand and rock formation",
+        "Map reading skills",
+        "River flow patterns",
+        "Compass rose directions",
+        "Landform identification"
+      ],
+      "targetWords": [],
+      "engagementHooks": [],
+      "inputEvidence": {
+        "contentFingerprint": "6f51dee1567ac81a"
+      },
+      "reuseStatus": "candidate",
+      "reuseReason": "Countdown fits Erosion and Earth's Surface because the captured homework has comprehension or concept-check questions."
+    },
+    {
+      "contentId": "hw-math-767d56c796d206c1dc99b79d:ACT-SHARED-01",
+      "homeworkId": "hw-math-767d56c796d206c1dc99b79d",
+      "childId": "reina",
+      "type": "game",
+      "source": "generated",
+      "purpose": "learning_intervention",
+      "title": "Arrival Dock: Lantern Parade Power-Up",
+      "activityId": "ACT-SHARED-01",
+      "gameHtmlPath": "/Users/jamaltaylor/Development/sunny-demo-main/src/context/reina/homework/games/hw-math-767d56c796d206c1dc99b79d/ACT-SHARED-01.html",
+      "domain": "math",
+      "skillTarget": "Given a contextual equal-groups situation with single-digit factors, state the factors, the product, and what each factor counts.",
+      "algorithmTargets": [
+        "retrieval-practice"
+      ],
+      "targetSkills": [
+        "Given a contextual equal-groups situation with single-digit factors, state the factors, the product, and what each factor counts."
+      ],
+      "targetConcepts": [
+        "math.operations.multiplicative-structure.equal-groups-and-arrays"
+      ],
+      "targetWords": [],
+      "engagementHooks": [
+        "shared-baseline"
+      ],
+      "inputEvidence": {
+        "contentFingerprint": "572d084ddb6e1b07b315233f2a10309525489f50aea6ff0b669a69bc134f7e7b"
+      },
+      "reuseStatus": "candidate",
+      "reuseReason": "No catalog instrument holds an assignment-specific frozen contract for equal-groups structure, and instrument:concept-check has zero child evidence and no verified artifact hash, so reuse is not eligible.",
+      "reviewStatus": "approved_ready",
+      "reviewReason": "Published after a non-blocking opening browser smoke check; human child-experience review remains authoritative.",
+      "validationStatus": "passed",
+      "mechanic": "Each item is one parade scene: equal groups are drawn on screen as real festival objects (wagons of lanterns, packs of snacks, tables of chairs, trays of cups). The child answers by typing a number, tapping a matching equation, or speaking/typing a one-line explanation of what each factor counts. Every correct answer sends a visible amber pulse down a conduit and lights one dock district; the parade physically advances one wagon-length toward the festival gate.",
+      "theme": "Indigo dock interior with brass-and-teal trim per the board spine; every equal group is drawn as a physically countable cluster — lanterns individually visible, never abstracted to dots. Amber light is reserved exclusively for correct power. Large rounded number pad, single-line prompts in a chunky friendly typeface, read-aloud icon always present.",
+      "designMemory": {
+        "artifactId": "ART-SHARED-01",
+        "artifactHash": "f6e759e7013ed2e42d45591c6e63c7da55f4335a24ab60bc88a810af02cca34c",
+        "academicResponsibility": "LR-01",
+        "interactionHistory": [
+          "Each item is one parade scene: equal groups are drawn on screen as real festival objects (wagons of lanterns, packs of snacks, tables of chairs, trays of cups). The child answers by typing a number, tapping a matching equation, or speaking/typing a one-line explanation of what each factor counts. Every correct answer sends a visible amber pulse down a conduit and lights one dock district; the parade physically advances one wagon-length toward the festival gate."
+        ],
+        "themeHistory": [
+          "Indigo dock interior with brass-and-teal trim per the board spine; every equal group is drawn as a physically countable cluster — lanterns individually visible, never abstracted to dots. Amber light is reserved exclusively for correct power. Large rounded number pad, single-line prompts in a chunky friendly typeface, read-aloud icon always present."
+        ],
+        "humanReview": "not_reviewed",
+        "childEvidenceIds": [],
+        "predictionIds": [
+          "hw-math-767d56c796d206c1dc99b79d:prediction:ACT-SHARED-01"
+        ],
+        "theoryDecisionIds": [],
+        "plannerModel": "claude-opus-5",
+        "architectModel": "claude-fable-5",
+        "builderProvider": "openai",
+        "builderModel": "gpt-5.5",
+        "academicContractHash": "ffa3a0d0dd3661d2153bfe73c35d6895cd488cf848456804a1d0f3222b82f123",
+        "implementationPromptHash": "be9477597cb1fc5022c8de3762eae674bee47fc97facefd8e444fdaca726635c",
+        "generatedHtmlHash": "38c90168f73effc08f0572d65245fbb51dd1c270a06d05dc84112fdacead6150"
+      }
+    },
+    {
+      "contentId": "hw-math-767d56c796d206c1dc99b79d:ACT-SHARED-02",
+      "homeworkId": "hw-math-767d56c796d206c1dc99b79d",
+      "childId": "reina",
+      "type": "game",
+      "source": "generated",
+      "purpose": "learning_intervention",
+      "title": "Arrival Dock: The Sorting Beacon",
+      "activityId": "ACT-SHARED-02",
+      "gameHtmlPath": "/Users/jamaltaylor/Development/sunny-demo-main/src/context/reina/homework/games/hw-math-767d56c796d206c1dc99b79d/ACT-SHARED-02.html",
+      "domain": "math",
+      "skillTarget": "Given several stories using the same pair of numbers, select the one that matches a given multiplication expression and justify why the others are not equal-groups situations.",
+      "algorithmTargets": [
+        "retrieval-practice"
+      ],
+      "targetSkills": [
+        "Given several stories using the same pair of numbers, select the one that matches a given multiplication expression and justify why the others are not equal-groups situations."
+      ],
+      "targetConcepts": [
+        "math.operations.multiplicative-structure.equal-groups-and-arrays"
+      ],
+      "targetWords": [],
+      "engagementHooks": [
+        "shared-baseline"
+      ],
+      "inputEvidence": {
+        "contentFingerprint": "572d084ddb6e1b07b315233f2a10309525489f50aea6ff0b669a69bc134f7e7b"
+      },
+      "reuseStatus": "candidate",
+      "reuseReason": "Discrimination items with matched distractor families do not exist in any registered contract; instrument:concept-check has no frozen assignment contract and zero evidence, so reuse is ineligible.",
+      "reviewStatus": "approved_ready",
+      "reviewReason": "Published after a non-blocking opening browser smoke check; human child-experience review remains authoritative.",
+      "validationStatus": "passed",
+      "mechanic": "For each item the beacon holds an expression card and three story-pods share the same number pair but different structures (equal groups, adding, sharing). The child taps a pod to feed it in. Matching pods lock in with a beam of amber light to a district; non-matching pods are gently rejected — the beacon holds them up and highlights the story words that broke the match. Two items ask for a short typed or spoken justification, entered on a simple two-tap sentence-builder plus free text.",
+      "theme": "The beacon is a friendly lighthouse-like machine in teal and brass; story-pods are rounded capsules with one-line text plus a small icon-scene so the story is graspable at a glance without heavy reading. Structure-tell words render slightly bolder. Amber remains the exclusive color of correct power; rejected sparks are pale grey-blue.",
+      "designMemory": {
+        "artifactId": "ART-SHARED-02",
+        "artifactHash": "60aa574f0a479c95ffb2e8afb1d987b499a87755c60552661b0d86c11caaae34",
+        "academicResponsibility": "LR-02",
+        "interactionHistory": [
+          "For each item the beacon holds an expression card and three story-pods share the same number pair but different structures (equal groups, adding, sharing). The child taps a pod to feed it in. Matching pods lock in with a beam of amber light to a district; non-matching pods are gently rejected — the beacon holds them up and highlights the story words that broke the match. Two items ask for a short typed or spoken justification, entered on a simple two-tap sentence-builder plus free text."
+        ],
+        "themeHistory": [
+          "The beacon is a friendly lighthouse-like machine in teal and brass; story-pods are rounded capsules with one-line text plus a small icon-scene so the story is graspable at a glance without heavy reading. Structure-tell words render slightly bolder. Amber remains the exclusive color of correct power; rejected sparks are pale grey-blue."
+        ],
+        "humanReview": "not_reviewed",
+        "childEvidenceIds": [],
+        "predictionIds": [
+          "hw-math-767d56c796d206c1dc99b79d:prediction:ACT-SHARED-02"
+        ],
+        "theoryDecisionIds": [],
+        "plannerModel": "claude-opus-5",
+        "architectModel": "claude-fable-5",
+        "builderProvider": "anthropic",
+        "builderModel": "claude-opus-5",
+        "academicContractHash": "85a2f48b79840a42195871fbbcabe6896810491fc175079ecf3d73f3ae71295f",
+        "implementationPromptHash": "daacc7114478d53966bede9505e5c78f1023efe01c59b99484484f36dc6223cb",
+        "generatedHtmlHash": "c8cd6a7b8caa0bae6a576b42f739a16db08ad12252e118dc6f5750686f812b60"
+      }
+    },
+    {
+      "contentId": "hw-math-767d56c796d206c1dc99b79d:ACT-SHARED-03",
+      "homeworkId": "hw-math-767d56c796d206c1dc99b79d",
+      "childId": "reina",
+      "type": "game",
+      "source": "generated",
+      "purpose": "learning_intervention",
+      "title": "Arrival Dock: Fuse Check",
+      "activityId": "ACT-SHARED-03",
+      "gameHtmlPath": "/Users/jamaltaylor/Development/sunny-demo-main/src/context/reina/homework/games/hw-math-767d56c796d206c1dc99b79d/ACT-SHARED-03.html",
+      "domain": "math",
+      "skillTarget": "Retrieve or reliably derive multiplication facts with factors 2 through 9, with accuracy and hesitation recorded separately from structural performance.",
+      "algorithmTargets": [
+        "retrieval-practice"
+      ],
+      "targetSkills": [
+        "Retrieve or reliably derive multiplication facts with factors 2 through 9, with accuracy and hesitation recorded separately from structural performance."
+      ],
+      "targetConcepts": [
+        "math.operations.multiplicative-structure.equal-groups-and-arrays"
+      ],
+      "targetWords": [],
+      "engagementHooks": [
+        "shared-baseline"
+      ],
+      "inputEvidence": {
+        "contentFingerprint": "572d084ddb6e1b07b315233f2a10309525489f50aea6ff0b669a69bc134f7e7b"
+      },
+      "reuseStatus": "candidate",
+      "reuseReason": "instrument:generated-baseline already targets retrieval_practice with numeric entry, which matches a bare-fact probe closely enough that a one-call revision to bind this fact list is cheaper than authoring a new shell; reuse is not eligible because no frozen assignment contract or verified hash exists.",
+      "reviewStatus": "approved_ready",
+      "reviewReason": "Published after a non-blocking opening browser smoke check; human child-experience review remains authoritative.",
+      "validationStatus": "passed",
+      "mechanic": "Pure, calm fact entry: one fuse at a time, bare prompt, numeric answer, untimed. Each correct product snaps the fuse alight with a satisfying click and slides the next fuse into place. There is deliberately no narrative load here — the contrast with the story-rich nodes is itself the design, honoring the contract's separation of fact fluency from structure.",
+      "theme": "Deliberately quiet screen: charcoal panel, brass fuse sockets, one fact in large friendly numerals at a time, big high-contrast number pad. The side subsystem window is small and secondary so it rewards without distracting. No decorative text.",
+      "designMemory": {
+        "artifactId": "ART-SHARED-03",
+        "artifactHash": "ab8d7fcb9bf7ae51aef6d1fbf8e85abb98a51ce68b081e68d0a071b8e6ed3f75",
+        "academicResponsibility": "LR-08",
+        "interactionHistory": [
+          "Pure, calm fact entry: one fuse at a time, bare prompt, numeric answer, untimed. Each correct product snaps the fuse alight with a satisfying click and slides the next fuse into place. There is deliberately no narrative load here — the contrast with the story-rich nodes is itself the design, honoring the contract's separation of fact fluency from structure."
+        ],
+        "themeHistory": [
+          "Deliberately quiet screen: charcoal panel, brass fuse sockets, one fact in large friendly numerals at a time, big high-contrast number pad. The side subsystem window is small and secondary so it rewards without distracting. No decorative text."
+        ],
+        "humanReview": "not_reviewed",
+        "childEvidenceIds": [],
+        "predictionIds": [
+          "hw-math-767d56c796d206c1dc99b79d:prediction:ACT-SHARED-03"
+        ],
+        "theoryDecisionIds": [],
+        "plannerModel": "claude-opus-5",
+        "architectModel": "claude-fable-5",
+        "builderProvider": "openai",
+        "builderModel": "gpt-5.5",
+        "academicContractHash": "e4998546c996470cbacf4715c8ff7842314eac8566f0cd0f70d5bfacec2dca32",
+        "implementationPromptHash": "d6d83aecc11e50bfa3a31e6e83b676e791fda6f37bfe91010c7caf2d8efd9aea",
+        "generatedHtmlHash": "7176f50718b6f0eb62506721af4d50a661923c0e9924f3b386821e993276a325"
+      }
+    },
+    {
+      "contentId": "hw-math-767d56c796d206c1dc99b79d:ACT-ARRAY-01",
+      "homeworkId": "hw-math-767d56c796d206c1dc99b79d",
+      "childId": "reina",
+      "type": "game",
+      "source": "generated",
+      "purpose": "learning_intervention",
+      "title": "Light Wall Wing: The Two-Way Lantern Rack",
+      "activityId": "ACT-ARRAY-01",
+      "gameHtmlPath": "/Users/jamaltaylor/Development/sunny-demo-main/src/context/reina/homework/games/hw-math-767d56c796d206c1dc99b79d/ACT-ARRAY-01.html",
+      "domain": "math",
+      "skillTarget": "Given a rectangular array, write both multiplication equations it represents and explain what the rows and columns each count.",
+      "algorithmTargets": [
+        "retrieval-practice"
+      ],
+      "targetSkills": [
+        "Given a rectangular array, write both multiplication equations it represents and explain what the rows and columns each count."
+      ],
+      "targetConcepts": [
+        "math.operations.multiplicative-structure.equal-groups-and-arrays"
+      ],
+      "targetWords": [],
+      "engagementHooks": [
+        "Whether a visual, build-a-grid entry (picture-first) holds this learner through the harder inverse and factor-pair items better than a narrative entry — testing the mixed-learning-style hypothesis with a concrete visual anchor."
+      ],
+      "inputEvidence": {
+        "contentFingerprint": "572d084ddb6e1b07b315233f2a10309525489f50aea6ff0b669a69bc134f7e7b"
+      },
+      "reuseStatus": "candidate",
+      "reuseReason": "No registered instrument carries an array-construction response contract bound to this assignment; instrument:visual-explainer is teaching-only and cannot collect item-level equation evidence, so reuse is ineligible.",
+      "reviewStatus": "approved_ready",
+      "reviewReason": "Published after a non-blocking opening browser smoke check; human child-experience review remains authoritative.",
+      "validationStatus": "passed",
+      "mechanic": "The child reads arrays as physical lantern grids and answers by building equations from drag tiles, typing totals, or explaining row/column roles. The signature move is the double-lighting: after the first equation lights the rack row-by-row (6 sweeps of 8), building the commuted equation re-lights the same rack column-by-column (8 sweeps of 6), proving on screen that both equations describe one object.",
+      "theme": "The rack is the hero: high-contrast unlit charcoal lanterns on indigo, grid lines faint so the child does the structural reading. Row sweeps are amber, column sweeps teal, so the two readings are color-coded consistently across the whole route. Equation builder tiles are chunky, rounded, high-contrast.",
+      "designMemory": {
+        "artifactId": "ART-ARRAY-01",
+        "artifactHash": "3e8eb430ed293c87262e3162b16341476f74c424415183278cf559494e6de817",
+        "academicResponsibility": "LR-04",
+        "interactionHistory": [
+          "The child reads arrays as physical lantern grids and answers by building equations from drag tiles, typing totals, or explaining row/column roles. The signature move is the double-lighting: after the first equation lights the rack row-by-row (6 sweeps of 8), building the commuted equation re-lights the same rack column-by-column (8 sweeps of 6), proving on screen that both equations describe one object."
+        ],
+        "themeHistory": [
+          "The rack is the hero: high-contrast unlit charcoal lanterns on indigo, grid lines faint so the child does the structural reading. Row sweeps are amber, column sweeps teal, so the two readings are color-coded consistently across the whole route. Equation builder tiles are chunky, rounded, high-contrast."
+        ],
+        "humanReview": "not_reviewed",
+        "childEvidenceIds": [],
+        "predictionIds": [
+          "hw-math-767d56c796d206c1dc99b79d:prediction:ACT-ARRAY-01"
+        ],
+        "theoryDecisionIds": [],
+        "plannerModel": "claude-opus-5",
+        "architectModel": "claude-fable-5",
+        "builderProvider": "anthropic",
+        "builderModel": "claude-opus-5",
+        "academicContractHash": "c5b6fed36e6e725290ffd2652e03c384cf23aaa02943886cc42ec0d67dd7561c",
+        "implementationPromptHash": "efce6dd0d7a075e2240cc4a8867c5b55134e919b5965ffa0536cc93bd1b8fdf8",
+        "generatedHtmlHash": "cea71b3552f011852ed0305662adaf3cce2a266e07bf80262a09d0a5f14c8df0"
+      }
+    },
+    {
+      "contentId": "hw-math-767d56c796d206c1dc99b79d:ACT-ARRAY-02",
+      "homeworkId": "hw-math-767d56c796d206c1dc99b79d",
+      "childId": "reina",
+      "type": "game",
+      "source": "generated",
+      "purpose": "learning_intervention",
+      "title": "Light Wall Wing: Design the Launch Walls",
+      "activityId": "ACT-ARRAY-02",
+      "gameHtmlPath": "/Users/jamaltaylor/Development/sunny-demo-main/src/context/reina/homework/games/hw-math-767d56c796d206c1dc99b79d/ACT-ARRAY-02.html",
+      "domain": "math",
+      "skillTarget": "Given a total with several factor pairs within single-digit factors, produce two distinct equal-row arrangements that use the whole total and record the equation for each.",
+      "algorithmTargets": [
+        "retrieval-practice"
+      ],
+      "targetSkills": [
+        "Given a total with several factor pairs within single-digit factors, produce two distinct equal-row arrangements that use the whole total and record the equation for each."
+      ],
+      "targetConcepts": [
+        "math.operations.multiplicative-structure.equal-groups-and-arrays"
+      ],
+      "targetWords": [],
+      "engagementHooks": [
+        "Whether a visual, build-a-grid entry (picture-first) holds this learner through the harder inverse and factor-pair items better than a narrative entry — testing the mixed-learning-style hypothesis with a concrete visual anchor."
+      ],
+      "inputEvidence": {
+        "contentFingerprint": "572d084ddb6e1b07b315233f2a10309525489f50aea6ff0b669a69bc134f7e7b"
+      },
+      "reuseStatus": "candidate",
+      "reuseReason": "Factor-pair construction with whole-total verification has no eligible contract in the catalog; instrument:generated-baseline can log attempts but does not carry a construction state contract for arrays, so it must be authored fresh.",
+      "reviewStatus": "approved_ready",
+      "reviewReason": "Published after a non-blocking opening browser smoke check; human child-experience review remains authoritative.",
+      "validationStatus": "passed",
+      "mechanic": "Freeform array construction with smart snapping: the child sets a row length by placing lanterns, then can duplicate rows with a stamp handle. A live counter shows lanterns used vs. budget (e.g., 21/24), and an equation strip auto-drafts beneath the build (e.g., '3 × 8 = ?') which the child must complete and sign. Uneven rows physically sag and spark, making 'equal rows using the whole total' a visible engineering constraint, not a rule to remember.",
+      "theme": "Warm drafting-table workshop framing against the indigo plaza; lanterns are chunky draggable orbs with a satisfying snap ring; the live counter and auto-drafting equation strip are large and honest — no hidden state. Sagging uneven rows use rubbery deformation, comic not alarming.",
+      "designMemory": {
+        "artifactId": "ART-ARRAY-02",
+        "artifactHash": "9476d59b23569f4dbc8fe9fbc0ea9f33aab8a9af22cbabb3c38e5b5ffc0959a2",
+        "academicResponsibility": "LR-05",
+        "interactionHistory": [
+          "Freeform array construction with smart snapping: the child sets a row length by placing lanterns, then can duplicate rows with a stamp handle. A live counter shows lanterns used vs. budget (e.g., 21/24), and an equation strip auto-drafts beneath the build (e.g., '3 × 8 = ?') which the child must complete and sign. Uneven rows physically sag and spark, making 'equal rows using the whole total' a visible engineering constraint, not a rule to remember."
+        ],
+        "themeHistory": [
+          "Warm drafting-table workshop framing against the indigo plaza; lanterns are chunky draggable orbs with a satisfying snap ring; the live counter and auto-drafting equation strip are large and honest — no hidden state. Sagging uneven rows use rubbery deformation, comic not alarming."
+        ],
+        "humanReview": "not_reviewed",
+        "childEvidenceIds": [],
+        "predictionIds": [
+          "hw-math-767d56c796d206c1dc99b79d:prediction:ACT-ARRAY-02"
+        ],
+        "theoryDecisionIds": [],
+        "plannerModel": "claude-opus-5",
+        "architectModel": "claude-fable-5",
+        "builderProvider": "openai",
+        "builderModel": "gpt-5.5",
+        "academicContractHash": "d00d406b8f850dd1f8fcf551433d13cb8787456c6a4398966677a8ca2b6c26f5",
+        "implementationPromptHash": "873fe3f5a2f14dda6cd342ac94ed3418aabeaaaca983f91b2cec3f0014eb1435",
+        "generatedHtmlHash": "8530b5c5efa163871ba1d3b32636408e012351d4101e5b7df4b89b905ec7f012"
+      }
+    },
+    {
+      "contentId": "hw-math-767d56c796d206c1dc99b79d:ACT-STORY-01",
+      "homeworkId": "hw-math-767d56c796d206c1dc99b79d",
+      "childId": "reina",
+      "type": "game",
+      "source": "generated",
+      "purpose": "learning_intervention",
+      "title": "Market Wing: The Stall-Keepers' Missing Numbers",
+      "activityId": "ACT-STORY-01",
+      "gameHtmlPath": "/Users/jamaltaylor/Development/sunny-demo-main/src/context/reina/homework/games/hw-math-767d56c796d206c1dc99b79d/ACT-STORY-01.html",
+      "domain": "math",
+      "skillTarget": "Given a total and one factor — presented either as an equation with an unknown or as an equal-rows sharing story within 48 — determine the missing factor and name the multiplication fact that verifies it.",
+      "algorithmTargets": [
+        "retrieval-practice"
+      ],
+      "targetSkills": [
+        "Given a total and one factor — presented either as an equation with an unknown or as an equal-rows sharing story within 48 — determine the missing factor and name the multiplication fact that verifies it."
+      ],
+      "targetConcepts": [
+        "math.operations.multiplicative-structure.equal-groups-and-arrays"
+      ],
+      "targetWords": [],
+      "engagementHooks": [
+        "Whether keeping every item inside one continuous market story (narrative-first) lowers switching cost and sustains attention across the inverse band better than the grid-building entry — testing whether text is a hook or a barrier for this learner."
+      ],
+      "inputEvidence": {
+        "contentFingerprint": "572d084ddb6e1b07b315233f2a10309525489f50aea6ff0b669a69bc134f7e7b"
+      },
+      "reuseStatus": "candidate",
+      "reuseReason": "No eligible frozen contract exists for paired missing-factor and sharing-story items; all catalog reuse paths are marked ineligible with zero child evidence.",
+      "reviewStatus": "approved_ready",
+      "reviewReason": "Published after a non-blocking opening browser smoke check; human child-experience review remains authoritative.",
+      "validationStatus": "passed",
+      "mechanic": "Each stall is one item: a keeper states a short problem aloud (text mirrored, tap-to-replay), and the child answers by dialing a number into an equation socket, typing a value, or — on the capstone — assembling the missing-factor equation themselves from socket parts before solving it and naming the verifying fact. Correct sockets close the stall's circuit: lights, music, and smell-wisps all switch on at once, and the keeper begins actually selling to the crowd.",
+      "theme": "Dense cozy night-market palette: indigo dark broken by pools of warm stall light as progress accrues; keepers are expressive animal-adjacent aliens (moth, axolotl, pangolin, heron) with distinct silhouettes, feeding the child's animal interest without leaving the space fiction. Equation panels are brass with satisfying socket geometry; text stays to one or two spoken-and-mirrored lines.",
+      "designMemory": {
+        "artifactId": "ART-STORY-01",
+        "artifactHash": "8437ee30046ab1bf54f54ad360e5100d892672c515f719b1a438e6c9da033318",
+        "academicResponsibility": "LR-03",
+        "interactionHistory": [
+          "Each stall is one item: a keeper states a short problem aloud (text mirrored, tap-to-replay), and the child answers by dialing a number into an equation socket, typing a value, or — on the capstone — assembling the missing-factor equation themselves from socket parts before solving it and naming the verifying fact. Correct sockets close the stall's circuit: lights, music, and smell-wisps all switch on at once, and the keeper begins actually selling to the crowd."
+        ],
+        "themeHistory": [
+          "Dense cozy night-market palette: indigo dark broken by pools of warm stall light as progress accrues; keepers are expressive animal-adjacent aliens (moth, axolotl, pangolin, heron) with distinct silhouettes, feeding the child's animal interest without leaving the space fiction. Equation panels are brass with satisfying socket geometry; text stays to one or two spoken-and-mirrored lines."
+        ],
+        "humanReview": "not_reviewed",
+        "childEvidenceIds": [],
+        "predictionIds": [
+          "hw-math-767d56c796d206c1dc99b79d:prediction:ACT-STORY-01"
+        ],
+        "theoryDecisionIds": [],
+        "plannerModel": "claude-opus-5",
+        "architectModel": "claude-fable-5",
+        "builderProvider": "anthropic",
+        "builderModel": "claude-opus-5",
+        "academicContractHash": "78798057ca2f65a7b97cdeabc8ad953d35c55918c08d66dbeda0ac9abbaa0605",
+        "implementationPromptHash": "0adf8aac87e086b51b30671633d8849a51d92a04315137bb6ece674187661fcf",
+        "generatedHtmlHash": "9f8acced7baf9505ec019d7bed5887373202dd9417e903faa9e241506671413a"
+      }
+    },
+    {
+      "contentId": "hw-math-767d56c796d206c1dc99b79d:ACT-STORY-02",
+      "homeworkId": "hw-math-767d56c796d206c1dc99b79d",
+      "childId": "reina",
+      "type": "game",
+      "source": "generated",
+      "purpose": "learning_intervention",
+      "title": "Market Wing: The Double-Shift Night",
+      "activityId": "ACT-STORY-02",
+      "gameHtmlPath": "/Users/jamaltaylor/Development/sunny-demo-main/src/context/reina/homework/games/hw-math-767d56c796d206c1dc99b79d/ACT-STORY-02.html",
+      "domain": "math",
+      "skillTarget": "Given a story where equal groups each contribute a quantity on two occasions, compute the total and show the multiplicative structure used.",
+      "algorithmTargets": [
+        "retrieval-practice"
+      ],
+      "targetSkills": [
+        "Given a story where equal groups each contribute a quantity on two occasions, compute the total and show the multiplicative structure used."
+      ],
+      "targetConcepts": [
+        "math.operations.multiplicative-structure.equal-groups-and-arrays"
+      ],
+      "targetWords": [],
+      "engagementHooks": [
+        "Whether keeping every item inside one continuous market story (narrative-first) lowers switching cost and sustains attention across the inverse band better than the grid-building entry — testing whether text is a hook or a barrier for this learner."
+      ],
+      "inputEvidence": {
+        "contentFingerprint": "572d084ddb6e1b07b315233f2a10309525489f50aea6ff0b669a69bc134f7e7b"
+      },
+      "reuseStatus": "candidate",
+      "reuseReason": "No registered contract covers two-occasion equal-groups stories with a structure-showing construction response; reuse is ineligible everywhere in the catalog.",
+      "reviewStatus": "approved_ready",
+      "reviewReason": "Published after a non-blocking opening browser smoke check; human child-experience review remains authoritative.",
+      "validationStatus": "passed",
+      "mechanic": "Each item is a supply order for a two-occasion story. The child computes totals on the order-pad, and on structure items builds the delivery plan on a two-panel planning board — MORNING and AFTERNOON panels — by placing equation tiles (4 × 5 = 20 in each panel, then ×2 to the night total, or the combined 4 × 10 = 40 across both). Deliveries then physically run: hover-crates drop the ordered amount at each booth across both shifts, so an under-order is visible as afternoon booths left empty-handed.",
+      "theme": "Warm administrative-cozy: a cluttered supply office window overlooking the lit lane, paper slips with big numerals, the two-sun day-wheel as the persistent visual anchor for 'two occasions'. MORNING panel tinted gold, AFTERNOON tinted violet, so the repeated structure is color-legible everywhere including in the delivery animation.",
+      "designMemory": {
+        "artifactId": "ART-STORY-02",
+        "artifactHash": "f07963562896c5df78d628601bbb690443310bbdcd61b0fee44f95dcd71274a3",
+        "academicResponsibility": "LR-07",
+        "interactionHistory": [
+          "Each item is a supply order for a two-occasion story. The child computes totals on the order-pad, and on structure items builds the delivery plan on a two-panel planning board — MORNING and AFTERNOON panels — by placing equation tiles (4 × 5 = 20 in each panel, then ×2 to the night total, or the combined 4 × 10 = 40 across both). Deliveries then physically run: hover-crates drop the ordered amount at each booth across both shifts, so an under-order is visible as afternoon booths left empty-handed."
+        ],
+        "themeHistory": [
+          "Warm administrative-cozy: a cluttered supply office window overlooking the lit lane, paper slips with big numerals, the two-sun day-wheel as the persistent visual anchor for 'two occasions'. MORNING panel tinted gold, AFTERNOON tinted violet, so the repeated structure is color-legible everywhere including in the delivery animation."
+        ],
+        "humanReview": "not_reviewed",
+        "childEvidenceIds": [],
+        "predictionIds": [
+          "hw-math-767d56c796d206c1dc99b79d:prediction:ACT-STORY-02"
+        ],
+        "theoryDecisionIds": [],
+        "plannerModel": "claude-opus-5",
+        "architectModel": "claude-fable-5",
+        "builderProvider": "openai",
+        "builderModel": "gpt-5.5",
+        "academicContractHash": "83e0030d70c6d49c10d91665874968e1daa97cfe800dde4efde8db1d5e51844d",
+        "implementationPromptHash": "443533059141d8ba6c68bf9d05bb1ab6ecb70742cac59fda7c071c8a984cffe2",
+        "generatedHtmlHash": "156ccb8ccb0e2d9ac64cc9240eab0614e91f911c6ddd5a76b905895993f02daf"
+      }
+    }
+  ],
+  "updatedAt": "2026-08-12T21:35:41.292Z"
+}

@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>The Skybridge Rescue</title>
+<script src="/games/_contract.js"></script>
+<style>
+*{box-sizing:border-box}
+body{margin:0;font-family:system-ui,Segoe UI,sans-serif;background:#0d2130;color:#f7ecd8;text-align:center}
+h1{margin:8px 0 2px;font-size:26px;color:#ffcf6b;text-shadow:0 2px 0 #7a4a12}
+.sub{margin:0 0 8px;font-size:14px;color:#a9d6d8}
+#world{position:relative;max-width:780px;margin:0 auto;border:3px solid #6b4a22;border-radius:14px;overflow:hidden;
+background:url('/generated/adventure-board-demo/quest.jpeg') center/cover no-repeat,#123}
+.veil{background:linear-gradient(180deg,rgba(6,26,38,.2),rgba(6,26,38,.8));padding:8px}
+.scene{display:flex;align-items:center;gap:6px;justify-content:space-between}
+.isl{background:rgba(18,38,50,.8);border:2px solid #8a6a34;border-radius:10px;padding:6px 4px;font-size:19px;min-width:74px}
+.req{flex:1;background:rgba(8,26,38,.85);border:2px dashed #ffcf6b;border-radius:10px;padding:6px}
+.req b{color:#ffcf6b}
+.ghost{display:inline-block;width:17px;height:9px;margin:2px;border:1px dashed #ffe3a5;border-radius:2px;opacity:.55}
+.row{margin:2px 0}
+.seg{display:inline-block;border:1px solid #9fd0c8;border-radius:6px;padding:1px 4px;margin:2px}
+.dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:#ffcf6b;margin:1px}
+.pip{display:inline-block;width:9px;height:9px;background:#7fb7c9;border-radius:2px;margin:1px}
+.shim .ghost,.shim .seg{box-shadow:0 0 6px #ffcf6b}
+#bridge{margin:8px auto 2px;background:rgba(8,26,38,.8);border:2px solid #6b4a22;border-radius:10px;padding:6px;min-height:52px}
+.slot{display:inline-block;width:17px;height:11px;margin:2px;border:1px dashed #86a7b5;border-radius:2px}
+.unit{display:inline-block;width:17px;height:11px;margin:2px;border-radius:2px;border:1px solid #00000055;animation:drop .3s}
+@keyframes drop{from{transform:translateY(-22px) scaleY(.5);opacity:0}to{transform:none;opacity:1}}
+.need{animation:flash .7s infinite}
+@keyframes flash{50%{opacity:.15;background:#ffcf6b55}}
+.sag{transform:skewY(2deg)}
+#say{min-height:20px;font-size:14px;color:#ffe3a5;margin:4px}
+#drift{max-width:780px;margin:6px auto 0;font-size:12px;color:#a9d6d8}
+.bar{height:10px;background:#12303f;border:1px solid #6b4a22;border-radius:6px;overflow:hidden}
+.bar i{display:block;height:100%;background:linear-gradient(90deg,#79d0a5,#ff9a5b)}
+#ctrl{max-width:780px;margin:8px auto;display:flex;flex-wrap:wrap;gap:8px;justify-content:center;align-items:center}
+.dial{background:#173747;border:2px solid #8a6a34;border-radius:12px;padding:6px 8px;min-width:170px}
+.dial .lbl{font-size:12px;color:#a9d6d8}
+.dial .val{font-size:24px;color:#ffcf6b;font-weight:700;margin:0 8px}
+button{font:inherit;cursor:pointer;background:#2a566a;color:#f7ecd8;border:2px solid #8a6a34;border-radius:10px;padding:6px 12px;font-size:18px}
+button:disabled{opacity:.45;cursor:default}
+#fire{background:#c2612a;font-size:20px;font-weight:700;padding:12px 22px}
+#task{max-width:780px;margin:6px auto;font-size:15px;line-height:1.35}
+.small{font-size:13px;padding:4px 10px}
+#done{display:none;max-width:780px;margin:10px auto;background:#173747;border:2px solid #ffcf6b;border-radius:12px;padding:10px}
+.cluster{display:inline-block;border:1px solid #ffcf6b;border-radius:8px;padding:3px;margin:3px}
+</style>
+</head>
+<body>
+<h1>The Skybridge Rescue</h1>
+<p class="sub">Storm-snapped bridges, drifting islands — your crane only lifts equal bundles.</p>
+
+<div id="world"><div class="veil">
+  <div class="scene">
+    <div class="isl" id="city">🏰<div style="font-size:11px">Sky City</div></div>
+    <div class="req" id="req">…</div>
+    <div class="isl" id="island">🧍‍♂️<div style="font-size:11px">Island</div></div>
+  </div>
+  <div id="bridge"><div id="slots"></div><div id="loaded"></div></div>
+  <div id="say">Set your bundles, Bridgewright.</div>
+</div></div>
+
+<div id="drift">Island drift <div class="bar"><i id="driftbar" style="width:6%"></i></div></div>
+<p id="task">…</p>
+
+<div id="ctrl">
+  <div class="dial"><div class="lbl" id="slbl">Bundle size (planks per bundle)</div>
+    <button id="sdn" aria-label="smaller bundle">−</button><span class="val" id="sval">1</span><button id="sup" aria-label="bigger bundle">+</button></div>
+  <div class="dial"><div class="lbl" id="clbl">Number of bundles</div>
+    <button id="cdn" aria-label="fewer bundles">−</button><span class="val" id="cval">1</span><button id="cup" aria-label="more bundles">+</button></div>
+  <button id="fire">🏗️ FIRE CRANE</button>
+  <button id="read" class="small">🔊 Read it to me</button>
+</div>
+
+<div id="done"></div>
+<div id="sunny-companion"></div>
+
+<script>
+(function(){
+var P=window.GAME_PARAMS||{};
+var $=function(i){return document.getElementById(i)};
+var SPANS=[
+ {id:'skybridge-ghost-planks-14',mode:'planks',total:14,pair:[7,2],lock:7,rows:2,
+  prompt:'A gap shows 14 ghost planks in 2 rows of 7. Your crane holds bundles of 7 planks only. How many bundles fill the gap exactly?'},
+ {id:'skybridge-gondola-runs-18',mode:'gondola',total:18,pair:[6,3],
+  prompt:'18 villagers are stranded. Each gondola seats 6. Set seats per gondola and number of runs so every villager gets home.'},
+ {id:'skybridge-weight-rating-20',mode:'weight',total:20,pair:[5,4],lock:5,
+  prompt:'This span is rated for exactly 20 stone-weight. The only pallets left weigh 5 stone each. How many pallets reach the rating exactly?'},
+ {id:'skybridge-knot-ladder-21',mode:'knots',total:21,pair:[3,7],hide:true,
+  prompt:'The rescue rope needs 7 sections with 3 knots in every section. Set the knotting machine to tie the whole rope.'},
+ {id:'skybridge-split-cargo-west',mode:'crates',total:12,pair:[3,4],lock:3,
+  prompt:'Finale run one: 24 crates split between two islands. West island needs 12 crates and the crane grips bundles of 3. How many grips?'},
+ {id:'skybridge-split-cargo-east',mode:'crates',total:12,pair:[6,2],lock:6,
+  prompt:'Finale run two: the other 12 crates go East, and now the crane grips bundles of 6. How many grips?'}
+];
+var COL=['#ffcf6b','#7fd0a5','#8ab7e8','#e79ad0'];
+var idx=0,size=1,count=1,misses=0,scaffold=0,drift=6,busy=false,paused=false,done=false,revealed=false,readCount=0;
+var targetResults=[],builds=[],completed=0,tStart=Date.now(),qStart=Date.now();
+var AC=null;
+function beep(f,d,t){try{AC=AC||new (window.AudioContext||window.webkitAudioContext)();var o=AC.createOscillator(),g=AC.createGain();o.type=t||'triangle';o.frequency.value=f;g.gain.value=.09;o.connect(g);g.connect(AC.destination);o.start();g.gain.exponentialRampToValueAtTime(.001,AC.currentTime+d);o.stop(AC.currentTime+d);}catch(e){}}
+function post(m){try{window.parent.postMessage(m,'*')}catch(e){}}
+function state(ra){var s=SPANS[idx];post({type:'game_state_update',payload:{game:'generated-math',activityId:'quest',nodeId:'quest',phase:'question',activityTitle:'The Skybridge Rescue',learningFocus:'transfer equal-groups reasoning to unfamiliar situations',mechanic:'AI-designed evidence experience',currentChallenge:{id:s?s.id:'complete',prompt:s?s.prompt:'Rescue complete',mode:s?s.mode:'payoff',readAloudRequested:!!ra,readAloudCount:readCount},availableActions:['adjust bundle size','adjust bundle count','fire crane','read it to me'],itemIndex:Math.min(idx,SPANS.length-1),totalItems:SPANS.length,answerVisibility:'hidden'}})}
+function rep(n,h){var s='';for(var i=0;i<n;i++)s+=h;return s}
+function reqHTML(s){
+ if(s.mode==='planks'){var o='',per=s.total/s.rows;for(var r=0;r<s.rows;r++)o+='<div class="row">'+rep(per,'<span class="ghost"></span>')+'</div>';
+  return '<b>Broken span</b>'+o+'<div style="font-size:12px">crane pallet: bundles of 7 🔒</div>'}
+ if(s.mode==='gondola')return '<b>Waiting villagers</b><div class="row" style="font-size:15px">'+rep(18,'🧍')+'</div><div class="seg">🚡 seats: '+rep(6,'<span class="dot"></span>')+'</div>';
+ if(s.mode==='weight')return '<b>LOAD RATING</b><div class="row">'+rep(20,'<span class="pip"></span>')+'</div><div style="font-size:12px">pallets weigh 5 stone each 🔒</div>';
+ if(s.mode==='knots'){var k='';for(var i=0;i<7;i++)k+='<span class="seg">'+rep(3,'<span class="dot"></span>')+'</span>';return '<b>Rope sections</b><div class="row">'+k+'</div><div style="font-size:12px">tie every section the same</div>'}
+ return '<b>Cargo run</b><div class="row" style="font-size:15px">'+rep(12,'📦')+'</div><div style="font-size:12px">crane grip: bundles of '+s.lock+' 🔒</div>';
+}
+function paintDrift(){$('driftbar').style.width=drift+'%'}
+function paintSlots(){var s=SPANS[idx],h='';if(s.hide&&!revealed){h='<span style="color:#ffe3a5">span length sealed until the crane fires ❓</span>'}
+ else{for(var i=0;i<s.total;i++)h+='<span class="slot" id="sl'+i+'"></span>'}
+ $('slots').innerHTML=h;$('loaded').innerHTML='';$('bridge').className='';}
+function render(){var s=SPANS[idx];revealed=false;misses=0;scaffold=0;qStart=Date.now();
+ $('req').innerHTML=reqHTML(s);$('req').className='req';
+ $('task').textContent='Span '+(idx+1)+' of '+SPANS.length+' — '+s.prompt;
+ size=s.lock||1;count=1;paintSlots();paintDials();
+ $('slbl').textContent=s.mode==='gondola'?'Seats per gondola':(s.lock?'Bundle size 🔒 (locked)':'Knots per section');
+ $('clbl').textContent=s.mode==='gondola'?'Number of gondola runs':(s.mode==='knots'?'Number of sections':'Number of bundles');
+ $('say').textContent='Set the dials, then fire the crane.';paintDrift();state(false);}
+function paintDials(){var s=SPANS[idx];$('sval').textContent=size;$('cval').textContent=count;
+ var lk=!!s.lock;$('sup').disabled=lk||busy||paused;$('sdn').disabled=lk||busy||paused;
+ $('cup').disabled=busy||paused;$('cdn').disabled=busy||paused;$('fire').disabled=busy||paused;}
+function setDial(kind,v){if(busy||paused||done)return;v=Math.max(1,Math.min(9,v));
+ if(kind==='size'){if(SPANS[idx].lock)return;size=v}else count=v;beep(420+v*40,.05);paintDials();}
+function addGroup(g){var s=SPANS[idx],box=$('loaded');for(var i=0;i<size;i++){var u=document.createElement('span');u.className='unit';u.style.background=COL[g%4];box.appendChild(u)}}
+function fire(){if(busy||paused||done)return;busy=true;revealed=true;paintDials();
+ var s=SPANS[idx],prod=size*count;drift=Math.min(100,drift+(misses>=2?7:13));paintDrift();
+ paintSlots();$('say').textContent='Crane swinging…';
+ var g=0;(function step(){if(g<count){addGroup(g);g++;beep(430+g*70,.12);$('say').textContent='Group '+g+' landing…';setTimeout(step,300)}
+ else setTimeout(function(){judge(prod)},420)})();}
+function judge(prod){var s=SPANS[idx];
+ var ok=[size,count].slice().sort(function(a,b){return a-b}).join(',')===s.pair.slice().sort(function(a,b){return a-b}).join(',');
+ var rt=Date.now()-qStart,av=count+' bundles of '+size+' = '+prod;
+ targetResults.push({target:s.id,correct:ok,attemptedValue:av,responseTimeMs:rt,scaffoldLevel:scaffold});
+ if(window.fireAttemptEvent)window.fireAttemptEvent({domain:'math',target:s.id,correct:ok,attemptedValue:av,responseTimeMs:rt,scaffoldLevel:scaffold});
+ if(window.fireCompanionEvent)window.fireCompanionEvent(ok?'correct_answer':'wrong_answer',{target:s.id});
+ if(ok){builds.push({size:size,count:count});completed++;beep(660,.16);setTimeout(function(){beep(880,.3)},170);
+  $('say').innerHTML='✨ Exact fit! The span slams into place — 🧍🏃‍♀️🏃 villagers cross cheering!';
+  $('bridge').style.boxShadow='0 0 16px #ffcf6b';
+  post({type:'progress_event',payload:{nodeId:'quest',completedItems:completed,totalItems:SPANS.length}});
+  setTimeout(function(){$('bridge').style.boxShadow='';busy=false;idx++;if(idx>=SPANS.length)finish();else render();},1700);return}
+ misses++;scaffold=Math.min(2,misses);
+ if(prod<s.total){beep(180,.25,'square');
+  var short=s.total-prod;$('say').innerHTML='🕳️ A hole is left. A villager peers in and shakes their head — the missing planks are glowing.';
+  for(var i=prod;i<s.total;i++){var e=$('sl'+i);if(e)e.className='slot need'}
+  $('say').innerHTML+='<br><span style="font-size:13px">🐦 The crane-bird pecks your dial once per group you loaded: '+rep(count,'•')+' — count the gap again and re-load.</span>';
+ }else{beep(500,.4,'sawtooth');$('bridge').className='sag';
+  var over=prod-s.total;var box=$('loaded');for(var j=0;j<over;j++){if(box.lastChild)box.removeChild(box.lastChild)}
+  $('say').innerHTML='☁️ Too heavy! '+over+' extra planks pinwheel into the clouds and the span groans. The operator taps your load dial.';}
+ if(misses>=2){$('req').className='req shim';drift=Math.max(0,drift-6);paintDrift();$('say').innerHTML+='<br><span style="font-size:13px">The requirement shimmers into equal groups to help you see the structure.</span>'}
+ if(misses>=4){$('say').innerHTML='🪢 Emergency zip-line! The villagers slide across slowly — rescued, but no span fanfare.';completed++;
+  post({type:'progress_event',payload:{nodeId:'quest',completedItems:completed,totalItems:SPANS.length}});
+  setTimeout(function(){busy=false;idx++;if(idx>=SPANS.length)finish();else render();},1800);return}
+ busy=false;paintDials();state(false);}
+function finish(){done=true;$('ctrl').style.display='none';$('task').style.display='none';
+ var h='<h2 style="color:#ffcf6b;margin:4px">🏮 Lantern Ceremony — the city is whole again!</h2><p>Your lanterns rise in the exact groups you built:</p>';
+ builds.forEach(function(b){var c='<div class="cluster">';for(var i=0;i<b.count;i++){c+='<span>'+rep(b.size,'🏮')+'</span><br>'}h+=c+'<div style="font-size:12px">'+b.count+' groups of '+b.size+' = '+(b.count*b.size)+'</div></div>'});
+ h+='<p>🎖️ Bridgewright license stamped with your group structures.</p>';$('done').innerHTML=h;$('done').style.display='block';
+ beep(660,.2);setTimeout(function(){beep(880,.2)},200);setTimeout(function(){beep(1046,.5)},400);
+ if(window.fireCompanionEvent)window.fireCompanionEvent('game_complete',{});
+ var corr=targetResults.filter(function(r){return r.correct}).length;
+ var acc=targetResults.length?corr/targetResults.length:0;
+ if(window.sendNodeComplete)window.sendNodeComplete({nodeId:(window.GAME_PARAMS&&window.GAME_PARAMS.nodeId)||'quest',completed:true,accuracy:acc,targetResults:targetResults,timeSpent_ms:Date.now()-tStart});
+ state(false);}
+$('sup').onclick=function(){setDial('size',size+1)};$('sdn').onclick=function(){setDial('size',size-1)};
+$('cup').onclick=function(){setDial('count',count+1)};$('cdn').onclick=function(){setDial('count',count-1)};
+$('fire').onclick=fire;
+$('read').onclick=function(){readCount++;state(true)};
+window.addEventListener('message',function(e){var d=e.data||{};if(d.type==='sunny_companion_presence'){
+ paused=!!(d.payload&&(d.payload.open||d.payload.summoned||d.payload.visible));paintDials();}});
+render();
+post({type:'activity_ready',payload:{nodeId:'quest'}});
+window.SUNNY_VALIDATION_HOOKS={playthrough:async function(){
+ var w=function(ms){return new Promise(function(r){setTimeout(r,ms)})};
+ await w(200);
+ while(!done){
+  var s=SPANS[idx];
+  if(idx===0&&misses===0){
+   setDial('size',s.pair[0]);setDial('count',1);$('fire').click();
+   await w(1600);await w(300);
+  }
+  var a=s.lock?s.lock:s.pair[0],b=s.lock?(s.total/s.lock):s.pair[1];
+  setDial('size',a);setDial('count',b);$('fire').click();
+  await w(600+b*320+2200);
+ }
+ return {completed:true,items:targetResults.length};
+}};
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>The Lantern Ferry Won't Wait</title>
+<script src="/games/_contract.js"></script>
+<style>
+*{box-sizing:border-box}
+body{margin:0;padding:10px;font-family:system-ui,-apple-system,sans-serif;background:#0b0814;color:#f4e8cc}
+h1{font-size:23px;margin:0;color:#ffd27a;text-shadow:0 0 12px #ff9c2e55}
+.sub{margin:3px 0 8px;font-size:13px;color:#b3a5cf}
+#scene{position:relative;height:236px;border-radius:10px;overflow:hidden;background:linear-gradient(#20163a 0%,#4a2b4c 44%,#12324a 45%,#08192a 100%)}
+#shore{position:absolute;top:6px;left:0;right:0;display:flex;justify-content:center;gap:7px;z-index:1}
+.dist{width:58px;text-align:center}
+.hut{background:#080512;border-radius:5px 5px 0 0;padding:4px;display:grid;grid-template-columns:repeat(3,1fr);gap:3px}
+.win{height:8px;background:#191430;border-radius:1px;transition:.4s}
+.win.on{background:#ffc656;box-shadow:0 0 7px #ffb43c}
+.dlab{font-size:9px;color:#9184b3;margin-top:2px}
+#dock{position:absolute;bottom:0;right:0;width:44%;height:64px;z-index:2;background:repeating-linear-gradient(#5b4227,#5b4227 7px,#43301c 7px,#43301c 9px);border-top:3px solid #82603a}
+#water{position:absolute;left:0;right:0;bottom:0;height:26%;z-index:3;background:linear-gradient(#2b6a8fbb,#071626);border-top:2px solid #7fd8ff88;transition:height .9s}
+#ferry{position:absolute;bottom:72px;left:10px;width:118px;z-index:4;transition:transform 1s ease-in}
+#fdeck{display:grid;grid-template-columns:repeat(6,1fr);gap:2px;background:#3a2a1c;border:2px solid #86643c;border-radius:5px;padding:3px;min-height:24px}
+#hull{height:9px;background:#6b4a2a;border-radius:0 0 8px 8px}
+.crate{background:linear-gradient(#c9924e,#8c5f2c);border:1px solid #5d3d19;border-radius:2px;font-size:9px;font-weight:700;color:#2b1a06;text-align:center;padding:2px 0}
+#say{background:#1b1430;border-left:4px solid #ffbb4d;border-radius:6px;padding:8px 10px;margin:8px 0;font-size:14px;line-height:1.35;min-height:52px}
+.row{display:flex;gap:8px;flex-wrap:wrap}
+.w{flex:1;min-width:150px;background:#151027;border:1px solid #3a2f57;border-radius:8px;padding:6px}
+.lbl{font-size:11px;color:#b3a5cf;display:block}
+.val{font-size:26px;font-weight:800;color:#ffd27a;text-align:center;line-height:1.1}
+#pad{display:grid;grid-template-columns:repeat(6,1fr);gap:3px;margin-top:4px}
+#pad button{padding:6px 0;font-size:14px;font-weight:700;background:#2a2148;color:#f4e8cc;border:1px solid #463a72;border-radius:5px;cursor:pointer}
+input[type=range]{width:100%}
+#pallet{display:grid;grid-template-columns:repeat(6,1fr);gap:3px;background:#241a12;border:2px dashed #7a5a34;border-radius:6px;padding:5px;min-height:34px;margin-top:8px}
+#pallet.c4{grid-template-columns:repeat(4,1fr)}
+.tarp{grid-column:1/-1;text-align:center;padding:8px;background:linear-gradient(#4a4459,#2c2738);border-radius:5px;font-size:12px;color:#cfc4e6;animation:br 3s infinite}
+@keyframes br{50%{transform:scaleY(1.06)}}
+#stack{margin-top:8px;padding:11px;text-align:center;font-weight:800;background:linear-gradient(#b97c33,#7a4d1c);border-radius:8px;cursor:grab;touch-action:none;user-select:none;box-shadow:0 3px 0 #4b2f10}
+#stack.grab{cursor:grabbing;box-shadow:0 0 16px #ffc656}
+.btns{display:flex;gap:8px;margin-top:8px}
+button.act{flex:1;padding:10px;font-size:15px;font-weight:700;border-radius:8px;border:0;cursor:pointer;background:#ffbb4d;color:#2a1a05}
+button.ghost{background:#241c40;color:#d9cdf2;border:1px solid #453a6e;flex:0 0 auto;padding:10px 12px;border-radius:8px;cursor:pointer}
+.dim{opacity:.35;pointer-events:none}
+#end{display:none;background:#151027;border:1px solid #453a6e;border-radius:8px;padding:10px;margin-top:8px;font-size:13px;line-height:1.4}
+#end b{color:#ffd27a}
+table{width:100%;font-size:12px;border-collapse:collapse;margin-top:6px}
+td{border-bottom:1px solid #2e2550;padding:3px}
+</style>
+</head>
+<body>
+<h1>The Lantern Ferry Won't Wait</h1>
+<p class="sub">Flood night on the festival river. Five dark districts, one ferry left, and the water is climbing the dock boards.</p>
+
+<div id="scene">
+  <div id="shore"></div>
+  <div id="dock"></div>
+  <div id="ferry"><div id="fdeck"></div><div id="hull"></div></div>
+  <div id="water"></div>
+</div>
+
+<div id="say">The dockmaster is untying the rope…</div>
+
+<div class="row">
+  <div class="w" id="wPer"><span class="lbl" id="perLbl">Lanterns in each crate</span><div class="val" id="perVal">–</div>
+    <div id="pad"></div></div>
+  <div class="w" id="wCr"><span class="lbl">Crates on the pallet</span><div class="val" id="crVal">0</div>
+    <input id="sl" type="range" min="0" max="14" step="1" value="0"></div>
+</div>
+
+<div id="pallet"></div>
+<div id="stack">⚓ Drag the stack aboard the ferry</div>
+<div class="btns">
+  <button class="act" id="cast">Cast off ▸</button>
+  <button class="ghost" id="ra">🔊 Read it to me</button>
+</div>
+
+<div id="end"></div>
+<div id="sunny-companion"></div>
+
+<script>
+(function(){
+var P=window.GAME_PARAMS||{};
+var say=document.getElementById('say'),pad=document.getElementById('pad'),perVal=document.getElementById('perVal'),
+crVal=document.getElementById('crVal'),sl=document.getElementById('sl'),wPer=document.getElementById('wPer'),
+wCr=document.getElementById('wCr'),pallet=document.getElementById('pallet'),stack=document.getElementById('stack'),
+cast=document.getElementById('cast'),ra=document.getElementById('ra'),ferry=document.getElementById('ferry'),
+fdeck=document.getElementById('fdeck'),water=document.getElementById('water'),shore=document.getElementById('shore'),
+endP=document.getElementById('end');
+
+function phys(v,need){var l=v.per*v.crates;
+ if(l>need){var a=Math.min(need,Math.max(0,v.per*(v.crates-2)));
+  return{arrived:a,note:'The deck rode low and tilted midstream — two crates slid off the stern and those lanterns went out one by one under the water.'};}
+ return{arrived:l,note:l<need?'The crates you left on the boards were pulled into the current.':''};}
+
+var IT=[
+{id:'quest.lantern_ferry.c1.crate_count',target:'math.multiplication.transfer.ferry_missing_crate_count',name:'Reedhollow',mode:'build',fixPer:12,need:60,cols:6,
+ say:'<b>Reedhollow</b> ordered <b>60 lanterns</b> tonight. Every crate holds <b>12</b>. Set the pallet and haul it aboard — I don\'t hold the rope twice.',
+ prompt:'Reedhollow ordered 60 lanterns and every crate holds 12 — how many crates go on the ferry?',
+ ok:function(v){return v.crates===5;},resolve:function(v){return phys(v,60);}},
+{id:'quest.lantern_ferry.c2.manifest_total',target:'math.multiplication.transfer.ferry_total_from_groups',name:'Willowbank',mode:'dial',fixPer:8,fixCr:7,need:56,cols:4,
+ say:'<b>Seven crates</b> came down the chute — <b>8 lanterns in each</b>. This deck only stacks them <b>4 to a row</b>, so it looks ragged. Dial <b>Willowbank</b> the number of lanterns coming.',
+ prompt:'Seven crates, 8 lanterns in each, stacked 4 to a row — dial the far dock how many lanterns are coming.',
+ ok:function(v){return v.dial===56;},
+ resolve:function(v){var a=Math.max(0,56-Math.abs(v.dial-56));
+  return{arrived:a,note:v.dial<56?'Willowbank sent runners for only '+v.dial+'. The rest sat unclaimed on the deck and drifted off downstream.':(v.dial>56?'Willowbank waited for '+v.dial+' and hung posts they could never fill. Lamps stayed cold while they counted.':'')};}},
+{id:'quest.lantern_ferry.c3.families_boats',target:'math.multiplication.transfer.ferry_word_problem_groups',name:'East Bank',mode:'build',need:63,cols:6,
+ say:'<b>Nine families</b> are waiting on the <b>East Bank</b>, and every family needs <b>7 lanterns</b> for their boat. Load exactly what those boats need.',
+ prompt:'Nine families wait on the East Bank and each family needs 7 lanterns for their boat — load exactly what they need.',
+ ok:function(v){return v.per>0&&v.per*v.crates===63;},resolve:function(v){return phys(v,63);}},
+{id:'quest.lantern_ferry.c4.ramp_width',target:'math.multiplication.transfer.ferry_factor_pair_constraint',name:'Bridgeside',mode:'build',need:36,cols:6,
+ say:'<b>36 lanterns</b> for <b>Bridgeside</b>. Their ramp is exactly <b>six crates wide</b> and the row must be <b>full</b> — a gap and the load slides, an overhang and it drops.',
+ prompt:'36 lanterns for Bridgeside; the ramp is exactly six crates wide and the row must be full — no gaps, no overhang.',
+ ok:function(v){return v.crates===6&&v.per===6;},
+ resolve:function(v){var s=v.crates<6?Math.max(0,2*v.crates-6):6,note='';
+  if(v.crates<6)note='Gaps on the six-wide ramp — the row slid and '+(v.crates-s)+' crates went into the river. ';
+  else if(v.crates>6)note=(v.crates-6)+' crates hung over the ramp edge and dropped in. ';
+  var a=s*v.per;
+  if(a>36){a=Math.max(0,36-v.per);note+='The deck swamped under the extra weight and more crates slid off the stern. ';}
+  a=Math.min(a,36); if(a<36)note+='What was left on the boards floated away with the flood.';
+  return{arrived:a,note:note};}},
+{id:'quest.lantern_ferry.c5.tarp_rows',target:'math.multiplication.transfer.ferry_hidden_missing_factor',name:'Lantern Point',mode:'dial',hidden:true,need:84,cols:6,
+ say:'Last ferry. The load is already lashed under the tarp — <b>84 lanterns, packed in rows of 12</b>. Nothing to count, and <b>Lantern Point</b> holds the festival finale. The manifest needs the <b>number of rows</b> before we cast off.',
+ prompt:'84 lanterns lashed under the tarp in rows of 12 — dial the number of rows on the manifest.',
+ ok:function(v){return v.dial===7;},
+ resolve:function(v){var l=v.dial*12;
+  if(l<84)return{arrived:l,note:'They cast off with '+v.dial+' rows — '+l+' lanterns. The rest were still on the boards when the water took them.'};
+  if(l>84)return{arrived:72,note:'The manifest called for '+v.dial+' rows. They lashed on more than the deck could hold and a row slid off midstream.'};
+  return{arrived:84,note:''};}}];
+
+var i=0,vals={per:0,crates:0,dial:0},dialStr='',perStr='',results=[],fails=0,waterH=26,raCount=0,
+paused=false,t0=0,pauseAcc=0,pauseAt=0,phase='load',runStart=Date.now(),lit=[],drag=null;
+
+for(var d=0;d<5;d++){var e=document.createElement('div');e.className='dist';
+ var w='';for(var k=0;k<6;k++)w+='<div class="win" data-d="'+d+'"></div>';
+ e.innerHTML='<div class="hut">'+w+'</div><div class="dlab">'+IT[d].name+'</div>';shore.appendChild(e);lit.push(0);}
+
+'1 2 3 4 5 6 7 8 9 0 ⌫'.split(' ').forEach(function(t){var b=document.createElement('button');b.textContent=t;
+ b.onclick=function(){if(phase!=='load'||paused)return;var c=IT[i];
+  if(c.mode!=='dial'&&c.fixPer)return;
+  var s=c.mode==='dial'?dialStr:perStr;
+  if(t==='⌫')s=s.slice(0,-1); else if(s.length<2)s=s+t;
+  if(c.mode==='dial'){dialStr=s;vals.dial=+s||0;}else{perStr=s;vals.per=+s||0;}
+  draw();};pad.appendChild(b);});
+
+sl.oninput=function(){if(phase!=='load'||paused)return;vals.crates=+sl.value;draw();};
+
+function draw(){var c=IT[i];
+ perVal.textContent=c.mode==='dial'?(dialStr||'–'):(perStr||(c.fixPer?c.fixPer:'–'));
+ crVal.textContent=vals.crates;
+ pallet.className=c.cols===4?'c4':'';
+ pallet.innerHTML='';
+ if(c.hidden){pallet.innerHTML='<div class="tarp">🪢 SEALED TARP — no crates visible</div>';return;}
+ var n=c.mode==='dial'?c.fixCr:vals.crates,per=c.mode==='dial'?c.fixPer:vals.per;
+ for(var k=0;k<n;k++){var q=document.createElement('div');q.className='crate';q.textContent=per||'?';pallet.appendChild(q);}
+}
+
+function setControls(){var c=IT[i];
+ wCr.style.display=(c.mode==='dial')?'none':'';
+ document.getElementById('perLbl').textContent=c.mode==='dial'?'Manifest number':'Lanterns in each crate';
+ pad.className=(c.mode!=='dial'&&c.fixPer)?'dim':'';
+ stack.textContent=c.hidden?'⚓ Drag the sealed tarp aboard':'⚓ Drag the stack aboard the ferry';
+}
+
+function state(readAloud){
+ var c=IT[i];
+ window.parent.postMessage({type:'game_state_update',payload:{game:'generated-math',activityId:'quest',nodeId:'quest',phase:'question',
+ activityTitle:"The Lantern Ferry Won't Wait",
+ learningFocus:'math.multiplication.transfer — equal groups, missing factor, and word-problem interpretation applied to unseen contexts and unseen number pairs',
+ mechanic:'Loading run: the child fills ferry decks by choosing how many crates go in each row and how many rows, then sends the ferry across a river that is rising; each departure is timed by the water level, not a clock.',
+ currentChallenge:{id:c.id,prompt:c.prompt,mode:c.mode,readAloudRequested:!!readAloud,readAloudCount:raCount},
+ availableActions:c.mode==='dial'?['dial manifest number','drag stack aboard','cast off','read it to me']:['set lanterns per crate','set crate count','drag stack aboard','cast off','read it to me'],
+ itemIndex:i,totalItems:5,answerVisibility:'hidden'}},'*');
+}
+
+function start(n){i=n;var c=IT[n];
+ vals={per:c.fixPer||0,crates:c.fixCr||0,dial:0};dialStr='';perStr='';
+ sl.value=c.fixCr||0;ferry.style.transform='';fdeck.innerHTML='';
+ say.innerHTML='🔔 <b>Crossing '+(n+1)+' of 5.</b> '+c.say;
+ setControls();draw();phase='load';t0=Date.now();pauseAcc=0;state(false);
+}
+
+function commit(){
+ if(phase!=='load'||paused)return;
+ var c=IT[i],v={per:vals.per,crates:vals.crates,dial:vals.dial};
+ if(c.mode==='dial'){if(!v.dial)return;}else if(!v.per||!v.crates)return;
+ phase='sail';
+ var ok=c.ok(v),r=c.resolve(v);
+ if(!ok&&r.arrived>=c.need)r.arrived=Math.max(0,c.need-(v.per||12));
+ var rt=Date.now()-t0-pauseAcc;
+ var av=c.mode==='dial'?String(v.dial):(v.crates+' crates of '+v.per);
+ results.push({target:c.target,correct:ok,attemptedValue:av,responseTimeMs:rt,scaffoldLevel:0});
+ try{window.fireAttemptEvent({domain:'math',target:c.target,correct:ok,attemptedValue:av,responseTimeMs:rt,scaffoldLevel:0});}catch(e){}
+ try{window.fireCompanionEvent(ok?'correct_answer':'wrong_answer',{target:c.target});}catch(e){}
+ fdeck.innerHTML=pallet.innerHTML;pallet.innerHTML='';
+ fdeck.style.gridTemplateColumns='repeat('+(c.cols||6)+',1fr)';
+ ferry.style.transform='translate(150px,-40px) scale(.72)';
+ say.innerHTML='The gangplank snaps up. The ferry pulls away — whatever is aboard is aboard.';
+ setTimeout(function(){report(ok,r,c);},1050);
+}
+
+function report(ok,r,c){
+ var wins=shore.querySelectorAll('.win'),on=Math.round(6*r.arrived/c.need);
+ lit[i]=on;
+ for(var k=0;k<6;k++)wins[i*6+k].className='win'+(k<on?' on':'');
+ var txt;
+ if(ok){txt='🏮 <b>'+c.need+' lanterns landed.</b> '+c.name+' is lit end to end — the chain races along the water.';}
+ else{fails++;var dark=c.need-r.arrived;
+  txt='<b>'+r.arrived+' lanterns landed at '+c.name+'. They needed '+c.need+'.</b> '+r.note+' '+dark+' lanterns are gone, and that many people stay in the dark tonight. The tide, not you — but gone is gone.';}
+ say.innerHTML=txt;
+ waterH+=6;if(ok)waterH-=4;water.style.height=Math.min(waterH,72)+'%';
+ window.parent.postMessage({type:'progress_event',payload:{nodeId:'quest',completedItems:i+1,totalItems:5}},'*');
+ setTimeout(function(){
+  if(fails>=3&&i<4){finish(true);}
+  else if(i>=4){finish(false);}
+  else{start(i+1);}
+ },2400);
+}
+
+function finish(early){
+ phase='done';
+ document.querySelector('.row').className='row dim';
+ pallet.className='dim';stack.className='dim';cast.className='act dim';
+ var okN=0,dark=0,rows='';
+ for(var k=0;k<results.length;k++){if(results[k].correct)okN++;}
+ for(var k=0;k<5;k++){var got=Math.round(IT[k].need*lit[k]/6);
+  if(k<results.length){dark+=IT[k].need-got;rows+='<tr><td>Crossing '+(k+1)+' — '+IT[k].name+'</td><td>ordered '+IT[k].need+'</td><td>delivered '+got+'</td></tr>';}
+  else{dark+=IT[k].need;rows+='<tr><td>Crossing '+(k+1)+' — '+IT[k].name+'</td><td>ordered '+IT[k].need+'</td><td>never sailed</td></tr>';}}
+ var head=early
+  ?'<b>The water crossed the dock boards.</b> Ferry '+(results.length+1)+' never sailed. The last crates floated off the planks while the crew watched.'
+  :(okN===5?'<b>Master Loader of the Five Crossings.</b> Every district burns. The lantern chains meet mid-river in a spiral.'
+   :'<b>'+okN+' of 5 districts are lit.</b> This is the shoreline exactly as you left it.');
+ endP.style.display='block';
+ endP.innerHTML=head+'<br>'+dark+' lanterns never made the far shore — that many people are still waiting in the dark.<table>'+rows+'</table><p>The dockmaster stamps your manifest and ties off the rope. Ask for a <b>moonlight delivery</b> next time and the numbers will all be new.</p>';
+ say.innerHTML='The dockmaster hands you the stamped manifest. "Tide beat us where it beat us. You loaded what you loaded."';
+ try{window.fireCompanionEvent('game_complete',{});}catch(e){}
+ var acc=results.length?okN/results.length:0;
+ try{window.sendNodeComplete({nodeId:(P.nodeId||'quest'),completed:true,accuracy:acc,targetResults:results,timeSpent_ms:Date.now()-runStart});}catch(e){}
+}
+
+stack.addEventListener('pointerdown',function(e){if(phase!=='load'||paused)return;drag={x:e.clientX,y:e.clientY};
+ stack.classList.add('grab');try{stack.setPointerCapture(e.pointerId);}catch(err){}});
+stack.addEventListener('pointermove',function(e){if(!drag)return;stack.style.transform='translate('+(e.clientX-drag.x)+'px,'+(e.clientY-drag.y)+'px)';});
+stack.addEventListener('pointerup',function(e){if(!drag)return;drag=null;stack.classList.remove('grab');stack.style.transform='';
+ var r=ferry.getBoundingClientRect();
+ if(e.clientX>r.left-40&&e.clientX<r.right+40&&e.clientY>r.top-60&&e.clientY<r.bottom+60)commit();});
+cast.onclick=commit;
+ra.onclick=function(){if(phase==='done')return;raCount++;state(true);};
+
+window.addEventListener('message',function(ev){var d=ev.data||{};
+ if(d.type==='sunny_companion_presence'){
+  var vis=d.payload&&(d.payload.visible||d.payload.summoned||d.payload.state==='open');
+  if(vis&&!paused){paused=true;pauseAt=Date.now();document.querySelector('.row').classList.add('dim');stack.classList.add('dim');}
+  else if(!vis&&paused){paused=false;pauseAcc+=Date.now()-pauseAt;
+   if(phase==='load'){document.querySelector('.row').classList.remove('dim');stack.classList.remove('dim');}}
+ }});
+
+window.SUNNY_VALIDATION_HOOKS={playthrough:function(){
+ var w=function(ms){return new Promise(function(r){setTimeout(r,ms);});};
+ function digits(s){s.split('').forEach(function(ch){
+  var bs=pad.querySelectorAll('button');for(var k=0;k<bs.length;k++)if(bs[k].textContent===ch)bs[k].click();});}
+ function setCr(n){sl.value=n;sl.dispatchEvent(new Event('input'));}
+ return (async function(){
+  await w(300);
+  setCr(5);cast.click();await w(3900);              /* C1 correct */
+  digits('56');cast.click();await w(3900);          /* C2 correct */
+  digits('7');setCr(9);cast.click();await w(3900);  /* C3 correct */
+  digits('9');setCr(4);cast.click();await w(3900);  /* C4 wrong: memorized pair jams the ramp */
+  digits('7');cast.click();await w(3900);           /* C5 correct */
+  return {completed:true,items:results.length};
+ })();
+}};
+
+window.parent.postMessage({type:'activity_ready',payload:{nodeId:'quest'}},'*');
+start(0);
+})();
+</script>
+</body>
+</html>

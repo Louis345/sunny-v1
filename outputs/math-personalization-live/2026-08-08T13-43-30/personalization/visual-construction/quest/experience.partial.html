@@ -1,0 +1,223 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>The Lantern Barge Won't Wait</title>
+<script src="/games/_contract.js"></script>
+<style>
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(120% 90% at 50% 0,#152441,#04080f 70%);color:#e9e0c8;font-family:Georgia,serif;min-height:100vh}
+h1{font-size:1.45rem;text-align:center;margin:.5rem;color:#ffd489;text-shadow:0 0 16px #c8891e}
+.sub{text-align:center;margin:0 0 .3rem;font-size:.78rem;color:#8fa4c4}
+#hud{display:flex;gap:.5rem;justify-content:center;flex-wrap:wrap;font-size:.82rem}
+.chip{background:#0d1728;border:1px solid #2c4468;border-radius:12px;padding:2px 9px}
+#say{max-width:820px;margin:.4rem auto;background:#0e1a2c;border-left:4px solid #ffb545;padding:.45rem .7rem;border-radius:6px;font-size:.93rem;min-height:2.6em}
+.dm{color:#ffce7a;font-weight:bold}
+#ra{background:#20344f;color:#cfe4ff;border:1px solid #3d5e8c;border-radius:9px;font:inherit;font-size:.72rem;padding:1px 7px;cursor:pointer;margin-left:6px}
+#river{position:relative;height:180px;max-width:900px;margin:0 auto;background:linear-gradient(#0a1930,#04091a);border:1px solid #1d3352;border-radius:8px;overflow:hidden}
+.vil{position:absolute;top:5px;width:24px;height:16px;background:#122039;border-radius:3px}
+.vil.on{background:#ffb545;box-shadow:0 0 18px #ffae3a}
+#gate{position:absolute;right:3px;top:34px;width:13px;height:120px;background:#101d33;border:1px solid #2c4468}
+#gate.on{background:#ffcf7a;box-shadow:0 0 26px #ffb545}
+#barges{display:flex;gap:34px;justify-content:center;align-items:flex-end;height:100%;padding:30px 46px 10px;transition:transform 1.5s ease-in}
+.barge{position:relative;text-align:center}
+.blab{font-size:.66rem;color:#8fa4c4}
+.hull{height:13px;background:#3d2b18;border:1px solid #6a4a25;border-radius:0 14px 5px 5px}
+.deck{display:flex;gap:5px;align-items:flex-end;justify-content:center;min-height:26px;transition:transform .35s;transform-origin:50% 100%}
+.rack{width:34px;background:#1b1308;border:1px solid #6a4a25;border-radius:4px 4px 0 0;display:flex;flex-direction:column-reverse;align-items:center;padding:2px;gap:2px;min-height:22px;position:relative;touch-action:none}
+.tag{position:absolute;top:-17px;left:-4px;right:-4px;text-align:center;font-size:.75rem;color:#cfe4ff}
+.lantern{width:14px;height:14px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#fff5cc,#ffab33 60%,#c96a10);box-shadow:0 0 7px #ffa72e;flex:none;touch-action:none;cursor:grab}
+#dockrow{display:flex;align-items:stretch;gap:8px;max-width:900px;margin:6px auto}
+.rope{width:74px;border:1px dashed #7d5a2c;border-radius:8px;background:#12100a;color:#ffce7a;font-size:.7rem;display:flex;align-items:center;justify-content:center;text-align:center;cursor:grab;padding:3px;user-select:none}
+#refuse{border-color:#8c3a2c;color:#ff9c86}.rope.pulled{transform:translateY(6px)}
+#dockwrap{flex:1;background:#0c1422;border:1px solid #23395a;border-radius:8px;padding:5px}
+#pile{display:flex;flex-wrap:wrap;gap:4px;min-height:44px}
+#shed{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:4px}
+.shedrack{border:1px dashed #6a4a25;border-radius:4px;color:#d9c08e;font-size:.66rem;padding:3px 6px;cursor:grab;touch-action:none}
+#slate,#intro,#finale{position:fixed;inset:0;background:rgba(3,6,13,.93);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:14px;text-align:center;z-index:9}
+#slate{display:none}#finale{display:none}
+button{background:#ffb545;border:0;border-radius:10px;padding:8px 16px;font:inherit;font-weight:bold;cursor:pointer}
+input{font:inherit;width:80px;padding:6px;border-radius:8px;border:1px solid #6a4a25;background:#12100a;color:#ffd489;text-align:center}
+.demo{display:flex;gap:24px;flex-wrap:wrap;justify-content:center}
+.dbarge{max-width:210px}.dhull{height:12px;background:#3d2b18;border-radius:0 12px 4px 4px}
+.tipped .drow{transform:rotate(-11deg);opacity:.35;filter:grayscale(1)}
+.dlab{font-size:.7rem;color:#8fa4c4;margin-top:4px}.dlab.lit{color:#ffce7a}
+.ghost{position:fixed;pointer-events:none;z-index:20}
+</style></head><body>
+<h1>The Lantern Barge Won't Wait</h1>
+<p class="sub">Festival night on the black canal. Every village downstream stays dark until your barges carry the light.</p>
+<div id="hud"><span class="chip" id="hLit">🏮 lit 0</span><span class="chip" id="hLost">💧 drowned 0</span><span class="chip" id="hJob">job 1 of 5</span></div>
+<div id="say"><span class="dm">Dockmaster:</span> <span id="sayTxt">Boots on, loader.</span><button id="ra">🔊 Read it to me</button></div>
+<div id="river"><div id="gate"></div><div id="barges"></div></div>
+<div id="dockrow"><div class="rope" id="refuse">REFUSE JOB ✂</div><div id="dockwrap"><div id="shed"></div><div id="pile"></div></div><div class="rope" id="launch">LAUNCH 🔔</div></div>
+<div id="intro"><h2 style="color:#ffd489;margin:0">Two barges left this dock an hour ago.</h2>
+<div class="demo"><div class="dbarge"><div class="drow">🏮🏮🏮 🏮🏮🏮 🏮🏮🏮</div><div class="dhull"></div><div class="dlab lit">every rack the same → sailed through the sea gate</div></div>
+<div class="dbarge tipped"><div class="drow">🏮🏮 🏮🏮🏮🏮 🏮</div><div class="dhull"></div><div class="dlab">racks uneven → tipped, lanterns drowned</div></div></div>
+<button id="go">TAKE THE DOCK</button></div>
+<div id="slate"><h2 style="color:#ffd489;margin:0">Chalk slate</h2><p id="slateQ" style="max-width:420px"></p><input id="slateIn" type="number" min="0"><button id="slateGo">TELL HER</button></div>
+<div id="finale"></div>
+<div id="sunny-companion"></div>
+<script>
+document.addEventListener('DOMContentLoaded',function(){
+var P=window.GAME_PARAMS||{},$=function(i){return document.getElementById(i)};
+var post=function(t,p){try{window.parent.postMessage({type:t,payload:p},'*')}catch(e){}};
+var LF="math.multiplication.transfer — specifically missing-factor reasoning from a known total (total ÷ known factor = unknown factor), interpreting word-problem situations where the unknown is group size or group count rather than the product, and recognizing totals that admit no equal split into the requested number of groups.";
+var MECH="Loading puzzle with destructive consequence: the child drags a fixed pile of lanterns into a set number of barge racks, and any rack that doesn't match the others tips into the river when the barge launches.";
+var O=['zero','one','two','three','four','five','six','seven','eight','nine','ten','eleven','twelve','thirteen','fourteen','fifteen','sixteen','seventeen','eighteen','nineteen'],T=['','','twenty','thirty','forty','fifty','sixty','seventy','eighty','ninety'];
+function w(n){if(n<20)return O[n];var t=T[(n/10)|0],o=n%10;return o?t+'-'+O[o]:t}
+function W(n){var s=w(n);return s[0].toUpperCase()+s.slice(1)}
+var R=function(a,b){return a+Math.floor(Math.random()*(b-a+1))},pk=function(a){return a[Math.floor(Math.random()*a.length)]};
+var st={round:0,pile:0,barges:[],lost:0,lit:0,sinks:0,dark:[],results:[],log:[],rounds:[],readAloud:0,paused:0,over:0,rec:0,t0:0,pauseAt:0,pauseMs:0,start:Date.now(),reserve:0,pileAtLaunch:0,busy:0};
+
+function mkRounds(){
+ var r=[],rc,per,cap,n,fam;
+ rc=pk([6,9]);per=R(5,9);r.push({id:'lantern_split_r1',mode:'group_size',total:rc*per,rc:rc,prompt:W(rc*per)+" lanterns, "+w(rc)+" racks, every rack the same. Move."});
+ cap=pk([5,6,9]);n=R(4,7);r.push({id:'lantern_split_r2',mode:'group_count',total:cap*n,cap:cap,prompt:W(cap*n)+" lanterns. Every rack of mine holds exactly "+w(cap)+" — set out what you need and not one rack more."});
+ fam=pk([7,8,12]);
+ if(Math.random()<.5){per=R(5,8);r.push({id:'lantern_split_r3',mode:'group_size',total:fam*per,rc:fam,prompt:W(fam*per)+" lanterns, "+w(fam)+" racks, dead even. This one's for the far village."})}
+ else{n=R(3,6);r.push({id:'lantern_split_r3',mode:'group_count',total:fam*n,cap:fam,prompt:W(fam*n)+" lanterns. Racks of "+w(fam)+" exactly. Set them out yourself."})}
+ rc=pk([6,7,8]);var q=R(5,8),rem=R(1,rc-1);r.push({id:'lantern_split_r4_impossible',mode:'group_size',imp:1,rem:rem,total:rc*q+rem,rc:rc,prompt:W(rc*q+rem)+" lanterns, "+w(rc)+" racks, all even. Load it, the tide's turning."});
+ var rA=pk([4,6]),sA=R(5,8),pB=pk([7,8]),rB=R(3,5);
+ r.push({id:'lantern_split_r5_double',mode:'double',total:rA*sA+pB*rB,rc:rA,cap:pB,shareA:rA*sA,shareB:pB*rB,prompt:"Two barges, one pile: "+W(rA*sA+pB*rB)+" lanterns. Lead barge takes "+w(rA)+" racks, all even. Second barge takes racks of "+w(pB)+" exactly. No spares tonight, loader."});
+ return r}
+st.rounds=mkRounds();
+
+function say(t){$('sayTxt').textContent=t}
+function emit(ra){var rd=st.rounds[st.round]||{};post('game_state_update',{game:'generated-math',activityId:'quest',nodeId:'quest',phase:st.over?'complete':'question',activityTitle:"The Lantern Barge Won't Wait",learningFocus:LF,mechanic:MECH,currentChallenge:{id:rd.id||'dock',prompt:rd.prompt||'',mode:rd.mode||'intro',readAloudRequested:!!ra,readAloudCount:st.readAloud},availableActions:['drag lantern from pile onto a rack','drag lantern off a rack','drag a rack out of the shed onto the deck','pull LAUNCH rope','pull REFUSE JOB rope'],itemIndex:st.round,totalItems:5,answerVisibility:'hidden'})}
+function fx(k){if(window.playSfx)try{window.playSfx(k)}catch(e){}}
+
+function setup(){
+ var rd=st.rounds[st.round];st.rec=0;st.t0=Date.now();st.pauseMs=0;
+ st.barges=[];
+ if(rd.mode==='double'){st.barges.push({mode:'group_size',rc:rd.rc,share:rd.shareA,racks:new Array(rd.rc).fill(0),lab:'LEAD BARGE · '+rd.rc+' racks, even'});
+  st.barges.push({mode:'group_count',cap:rd.cap,share:rd.shareB,racks:[],lab:'SECOND BARGE · racks of '+rd.cap})}
+ else if(rd.mode==='group_size')st.barges.push({mode:'group_size',rc:rd.rc,share:rd.total,racks:new Array(rd.rc).fill(0),lab:rd.rc+' racks, every rack the same'});
+ else st.barges.push({mode:'group_count',cap:rd.cap,share:rd.total,racks:[],lab:'racks hold '+rd.cap+' each'});
+ st.pile=rd.total;
+ say(rd.prompt+(st.round===4&&st.lost>0&&!st.reserve?" — and yes, I opened the reserve chest to cover what you drowned. Once.":""));
+ if(st.round===4&&st.lost>0)st.reserve=1;
+ draw();emit();post('progress_event',{nodeId:'quest',completedItems:st.round,totalItems:5})}
+
+function draw(){
+ $('hLit').textContent='🏮 lit '+st.lit;$('hLost').textContent='💧 drowned '+st.lost;$('hJob').textContent='job '+(st.round+1)+' of 5';
+ var p='';for(var i=0;i<st.pile;i++)p+='<div class="lantern"></div>';$('pile').innerHTML=p||'<span style="font-size:.7rem;color:#6f86a8">dock empty</span>';
+ var sh='';st.barges.forEach(function(b,bi){if(b.mode==='group_count')sh+='<div class="shedrack" data-b="'+bi+'">▭ empty rack (holds '+b.cap+') — drag to deck</div>'});
+ $('shed').innerHTML=sh;
+ var h='';st.barges.forEach(function(b,bi){
+  var mx=Math.max.apply(null,b.racks.concat([0])),mn=b.racks.length?Math.min.apply(null,b.racks):0,tilt=Math.max(-9,Math.min(9,(mx-mn)*1.6));
+  var rs='';b.racks.forEach(function(c,ri){var ls='';for(var i=0;i<c;i++)ls+='<div class="lantern"></div>';
+   rs+='<div class="rack" data-b="'+bi+'" data-r="'+ri+'" style="margin-bottom:'+((mx-c)*0)+'px;transform:translateY('+((mx-c)*3)+'px)"><div class="tag">'+c+'</div>'+ls+'</div>'});
+  if(!b.racks.length)rs='<div style="font-size:.7rem;color:#6f86a8">no racks set out</div>';
+  h+='<div class="barge"><div class="deck" data-b="'+bi+'" style="transform:rotate('+tilt+'deg)">'+rs+'</div><div class="hull"></div><div class="blab">'+b.lab+'</div></div>'});
+ $('barges').innerHTML=h;
+ var v='';for(var k=0;k<5;k++)v+='<div class="vil'+(st.dark[k]===1?' on':'')+'" style="left:'+(8+k*17)+'%"></div>';
+ $('river').insertAdjacentHTML('afterbegin','');$('barges').insertAdjacentHTML('beforebegin',v);
+ var old=$('river').querySelectorAll('.vil');for(var q=0;q<old.length-5;q++)old[q].remove()}
+
+function logSplit(a){st.log.push({round:st.round+1,act:a,pile:st.pile,racks:st.barges.map(function(b){return b.racks.slice()}),t:Date.now()-st.start})}
+function addL(b,r,src){if(src==='pile'){if(st.pile<=0)return;st.pile--}else{if(st.barges[src.b].racks[src.r]<=0)return;st.barges[src.b].racks[src.r]--}st.barges[b].racks[r]++;fx('interaction');logSplit('load');draw();emit()}
+function remL(src){if(src==='pile')return;if(st.barges[src.b].racks[src.r]<=0)return;st.barges[src.b].racks[src.r]--;st.pile++;fx('interaction');logSplit('unload');draw();emit()}
+function addRack(b){if(st.barges[b].mode!=='group_count')return;if(st.barges[b].racks.length>=14)return;st.barges[b].racks.push(0);fx('interaction');logSplit('rack+');draw();emit()}
+function remRack(b,r){if(st.barges[b].racks[r]!==0)return;st.barges[b].racks.splice(r,1);fx('interaction');logSplit('rack-');draw();emit()}
+
+var drag=null;
+function ghost(e,html){var g=document.createElement('div');g.className='ghost';g.innerHTML=html;document.body.appendChild(g);g.style.left=(e.clientX-8)+'px';g.style.top=(e.clientY-8)+'px';drag.g=g;drag.x=e.clientX;drag.y=e.clientY;drag.mv=0}
+document.addEventListener('pointerdown',function(e){
+ if(st.paused||st.over||st.busy)return;var t=e.target;
+ var rope=t.closest&&t.closest('.rope');
+ if(rope){rope.classList.add('pulled');setTimeout(function(){rope.classList.remove('pulled')},260);if(rope.id==='launch')pullLaunch();else pullRefuse();return}
+ var sr=t.closest&&t.closest('.shedrack');
+ if(sr){drag={kind:'shedrack',b:+sr.dataset.b};ghost(e,'<div class="shedrack">▭ rack</div>');return}
+ var l=t.closest&&t.closest('.lantern');
+ if(l){var rk=l.closest('.rack');drag={kind:'lantern',src:rk?{b:+rk.dataset.b,r:+rk.dataset.r}:'pile'};ghost(e,'<div class="lantern"></div>');return}
+ var rk2=t.closest&&t.closest('.rack');
+ if(rk2&&st.barges[+rk2.dataset.b].mode==='group_count'&&st.barges[+rk2.dataset.b].racks[+rk2.dataset.r]===0){drag={kind:'deckrack',b:+rk2.dataset.b,r:+rk2.dataset.r};ghost(e,'<div class="shedrack">▭ rack</div>')}});
+document.addEventListener('pointermove',function(e){if(!drag||!drag.g)return;drag.mv+=Math.abs(e.clientX-drag.x)+Math.abs(e.clientY-drag.y);drag.x=e.clientX;drag.y=e.clientY;drag.g.style.left=(e.clientX-8)+'px';drag.g.style.top=(e.clientY-8)+'px'});
+document.addEventListener('pointerup',function(e){if(!drag)return;if(drag.g)drag.g.remove();
+ var el=document.elementFromPoint(e.clientX,e.clientY),rk=el&&el.closest?el.closest('.rack'):null,dk=el&&el.closest?el.closest('.deck'):null;
+ if(drag.kind==='lantern'){if(rk)addL(+rk.dataset.b,+rk.dataset.r,drag.src);else if(drag.src!=='pile')remL(drag.src)}
+ else if(drag.kind==='shedrack'){if(dk||drag.mv<10)addRack(dk?+dk.dataset.b:drag.b)}
+ else if(drag.kind==='deckrack'){if(!dk||drag.mv<10)remRack(drag.b,drag.r)}
+ drag=null});
+
+function okNow(){var rd=st.rounds[st.round];if(rd.imp)return false;if(st.pile>0)return false;
+ return st.barges.every(function(b){if(!b.racks.length)return false;
+  if(b.mode==='group_count')return b.racks.every(function(c){return c===b.cap});
+  return b.racks.length===b.rc&&b.racks.every(function(c){return c===b.racks[0]&&c>0})})}
+function desc(){return st.barges.map(function(b){return b.racks.length+' racks ['+b.racks.join(',')+']'}).join(' | ')+' · '+st.pile+' left on dock'}
+function lossNow(){var rd=st.rounds[st.round],l=st.pile;
+ if(rd.imp){st.barges.forEach(function(b){b.racks.forEach(function(c){l+=c})});return l}
+ st.barges.forEach(function(b){if(b.mode==='group_count'){b.racks.forEach(function(c){if(c!==b.cap)l+=c})}
+  else{var mn=Math.min.apply(null,b.racks);b.racks.forEach(function(c){l+=c-mn})}});return l}
+
+function record(correct,val){if(st.rec)return;st.rec=1;var rd=st.rounds[st.round];
+ var rt=Date.now()-st.t0-st.pauseMs;
+ st.results.push({target:rd.id,correct:!!correct,attemptedValue:String(val),responseTimeMs:rt,scaffoldLevel:0});
+ if(window.fireAttemptEvent)window.fireAttemptEvent({domain:'math',target:rd.id,correct:!!correct,attemptedValue:String(val),responseTimeMs:rt,scaffoldLevel:0});
+ if(window.fireCompanionEvent)window.fireCompanionEvent(correct?'correct_answer':'wrong_answer',{target:rd.id})}
+
+function pullLaunch(){var rd=st.rounds[st.round];st.pileAtLaunch=st.pile;var ok=okNow();st.busy=1;logSplit('LAUNCH');
+ record(ok,desc());fx(ok?'progress':'recovery');
+ if(ok){st.lit+=st.barges.reduce(function(a,b){return a+b.racks.reduce(function(x,y){return x+y},0)},0);st.dark[st.round]=1;
+  say(pk(["Clean. That's how it's done, loader.","Level as glass. The far village just woke up.","Good hands. Next job's already late."]));
+  $('barges').style.transform='translateX(38%)';draw();
+  setTimeout(function(){$('barges').style.transform='';st.busy=0;next()},1700);return}
+ var lost=lossNow();st.lost+=lost;st.sinks++;st.dark[st.round]=st.dark[st.round]||0;
+ $('barges').style.transform='translateX(20%) rotate(7deg)';
+ var msg=rd.imp?"The sea gate turned it back. That pile could never sit even and you sent it anyway — "+lost+" lanterns gone.":(st.pileAtLaunch>0?"You left "+st.pileAtLaunch+" on my dock, loader. The river takes what the barge won't. "+lost+" drowned.":"One rack came back light. Count them against each other. "+lost+" drowned.");
+ say(msg);draw();
+ setTimeout(function(){$('barges').style.transform='';st.busy=0;
+  if(rd.mode==='double'||rd.imp){say(msg+" No slack left for a second try tonight.");setTimeout(next,900);return}
+  var surv=rd.total-lost,k=(rd.mode==='group_size')?rd.rc:rd.cap,nt=Math.floor(surv/k)*k;
+  if(nt<k){say("Nothing left worth loading. That village stays dark.");setTimeout(next,900);return}
+  rd.total=nt;st.pile=nt;st.barges.forEach(function(b){b.racks=(b.mode==='group_size')?new Array(b.rc).fill(0):[];b.share=nt});
+  say("What survived: "+W(nt)+" lanterns. Same job. Same racks. Do it right this time.");draw();emit()},1900)}
+
+function pullRefuse(){var rd=st.rounds[st.round];logSplit('REFUSE');fx('interaction');
+ if(!rd.imp){record(false,'refused a job that could be evened out');st.dark[st.round]=0;
+  say("Refuse? That job splits clean, loader — I checked it myself. Crate them back up. That village stays dark on you.");st.busy=1;setTimeout(function(){st.busy=0;next()},1600);return}
+ $('slateQ').textContent="You SURE? That barge is scheduled! ... Fine. Then chalk it: how many lanterns are left over when "+W(rd.total)+" won't fill "+w(rd.rc)+" equal racks?";
+ $('slateIn').value='';$('slate').style.display='flex'}
+function slateGo(){var rd=st.rounds[st.round],v=parseInt($('slateIn').value,10);if(isNaN(v))return;$('slate').style.display='none';
+ var ok=(v===rd.rem);record(ok,'refused, remainder '+v);fx(ok?'progress':'recovery');st.busy=1;
+ if(ok){st.lit+=rd.total-rd.rem;st.dark[st.round]=1;say("...Huh. "+rd.rem+" over. You're right, it doesn't go. I'll send them as "+w(rd.rc)+"s and hold the rest. That's the best call anyone's made on this dock all week.")}
+ else{st.lost+=rd.rc;st.sinks++;say("Wrong count, loader. I trusted it, we split it wrong at the next dock, and "+rd.rc+" lanterns went in the water.")}
+ draw();setTimeout(function(){st.busy=0;next()},1800)}
+
+function next(){st.round++;if(st.round>=5)return finale();setup()}
+
+function finale(){st.over=1;
+ var gate=st.sinks<3;$('gate').className=gate?'on':'';
+ var lit=st.dark.filter(function(x){return x===1}).length;
+ var acc=st.results.length?st.results.filter(function(r){return r.correct}).length/st.results.length:0;
+ var line=gate?(st.lost===0?"River's never been this bright. Same time tomorrow, loader.":"Mostly bright. I'll take mostly. Same time tomorrow, loader."):"Sea gate's dark. The festival was short tonight and everyone downstream knows it.";
+ $('finale').innerHTML='<h2 style="color:#ffd489;margin:0">'+(gate?'The canal is lit to the sea gate':'The sea gate stayed dark')+'</h2><p style="max-width:520px"><span class="dm">Dockmaster:</span> '+line+'</p><p>🏮 <b>'+st.lit+'</b> lanterns delivered &nbsp;·&nbsp; 💧 <b>'+st.lost+'</b> drowned &nbsp;·&nbsp; <b>'+lit+' of 5</b> villages bright</p><button id="again">SAME RIVER, NEW NUMBERS</button>';
+ $('finale').style.display='flex';$('again').onclick=function(){location.reload()};
+ if(window.fireCompanionEvent)window.fireCompanionEvent('game_complete',{});
+ emit();post('progress_event',{nodeId:'quest',completedItems:5,totalItems:5});
+ if(window.sendNodeComplete)window.sendNodeComplete({nodeId:(P.nodeId||'quest'),completed:true,accuracy:acc,targetResults:st.results,timeSpent_ms:Date.now()-st.start})}
+
+$('slateGo').onclick=slateGo;
+$('ra').onclick=function(){st.readAloud++;emit(true)};
+$('go').onclick=function(){$('intro').style.display='none';setup()};
+window.addEventListener('message',function(e){var d=e.data||{};if(d.type!=='sunny_companion_presence')return;
+ var on=!!(d.payload&&(d.payload.summoned||d.payload.visible||d.payload.expanded));
+ if(on&&!st.paused){st.paused=1;st.pauseAt=Date.now()}else if(!on&&st.paused){st.paused=0;st.pauseMs+=Date.now()-st.pauseAt}});
+draw();emit();post('activity_ready',{nodeId:'quest'});
+
+function wait(ms){return new Promise(function(r){setTimeout(r,ms)})}
+function clearAll(){st.barges.forEach(function(b,bi){b.racks.forEach(function(c,ri){while(st.barges[bi].racks[ri]>0)remL({b:bi,r:ri})});if(b.mode==='group_count')while(b.racks.length)remRack(bi,b.racks.length-1)})}
+function fillRight(){clearAll();st.barges.forEach(function(b,bi){
+ if(b.mode==='group_count'){var n=b.share/b.cap;while(st.barges[bi].racks.length<n)addRack(bi);for(var r=0;r<n;r++)for(var i=0;i<b.cap;i++)addL(bi,r,'pile')}
+ else{var per=b.share/b.rc;for(var r2=0;r2<b.rc;r2++)for(var j=0;j<per;j++)addL(bi,r2,'pile')}})}
+window.SUNNY_VALIDATION_HOOKS={playthrough:async function(){
+ $('go').click();await wait(60);
+ var guard=0;
+ while(!st.over&&guard++<40){
+  var rd=st.rounds[st.round],rnd=st.round;
+  if(rd.imp){pullRefuse();$('slateIn').value=String(rd.rem);slateGo()}
+  else if(rnd===2){var b=st.barges[0];if(b.mode==='group_count'){addRack(0);addL(0,0,'pile')}else{addL(0,0,'pile');addL(0,0,'pile')}
+   pullLaunch();await wait(2300);if(st.round===rnd){fillRight();pullLaunch()}}
+  else{fillRight();pullLaunch()}
+  var w2=0;while(st.round===rnd&&!st.over&&w2++<40)await wait(120);
+ }
+ await wait(200);return{completed:!!st.over,items:st.results.length}}};
+});
+</script>
+</body></html>

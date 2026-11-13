@@ -1,0 +1,23 @@
+{
+  "status": "READY_FOR_HUMAN_JUDGMENT",
+  "frozenAcademicContractHash": "509902790ebe56cdae5d6b58d5ac58ab32acc8c1ca73aef725e1c8463c6e7b3e",
+  "designArtifactHash": "cf5ecf5285487467c7f979046841a70279fd7a41d9d7d2e8e5b6aeedf7d9b35b",
+  "architectModel": "claude-fable-5",
+  "builderModel": "claude-opus-5",
+  "designElapsedMs": 81460,
+  "buildElapsedMs": 178827,
+  "staticValidation": {
+    "passed": true,
+    "score": 90,
+    "failures": [],
+    "warnings": [
+      "Correct and wrong feedback may fire from same code path"
+    ],
+    "shouldRegenerate": false
+  },
+  "runtimeValidation": {
+    "passed": true,
+    "failures": []
+  },
+  "question": "Does the after experience materially improve interaction, visible stakes, world reaction, progression, and payoff—not only styling?"
+}

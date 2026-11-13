@@ -1,0 +1,14 @@
+{
+  "childId": "personalization-proof-child",
+  "identity": {
+    "displayName": "Lab Learner",
+    "ttsName": "Lab Learner"
+  },
+  "demographics": {
+    "age": 9,
+    "grade": 3
+  },
+  "links": {
+    "learningProfile": "learning_profile.json"
+  }
+}

@@ -1,0 +1,439 @@
+{
+  "schemaVersion": 2,
+  "revision": 3,
+  "childId": "proof-child",
+  "homeworkId": "hw-release-proof-equal-groups",
+  "domain": "math",
+  "assignment": {
+    "title": "Equal groups release proof",
+    "contentFingerprint": "release-proof-source-v1",
+    "capturedEvidenceIds": [
+      "assignment:release-proof"
+    ],
+    "targets": [
+      "math.multiplication.equal_groups"
+    ],
+    "returnTag": "#sunny_proof_equal_groups"
+  },
+  "academicTheory": {
+    "theoryId": "theory:release-proof",
+    "revision": 1,
+    "hypothesis": "The child can independently transfer equal-groups reasoning.",
+    "supportCriteria": [
+      "Confirmed independent accuracy falls within the prediction."
+    ],
+    "reviseCriteria": [
+      "Confirmed work falls below the prediction."
+    ],
+    "falsifyCriteria": [
+      "Repeated independent operation-selection errors."
+    ]
+  },
+  "engagementTheory": null,
+  "assumptions": [
+    {
+      "assumptionId": "assumption:equal-groups-transfer",
+      "claim": "Equal-groups reasoning will transfer to returned work.",
+      "evidenceIds": [
+        "assignment:release-proof"
+      ],
+      "confidence": 0.7,
+      "uncertainty": "No confirmed returned work existed at launch.",
+      "createdAt": "2026-08-07T12:00:00.000Z",
+      "lockedAt": "2026-08-07T12:00:00.000Z"
+    }
+  ],
+  "nodes": [
+    {
+      "nodeId": "baseline-equal-groups",
+      "role": "baseline",
+      "title": "Equal Groups Lab",
+      "state": "ready",
+      "academicTarget": {
+        "domain": "math",
+        "skill": "equal groups",
+        "targets": [
+          "fresh equal-groups items"
+        ]
+      },
+      "algorithmOwner": "ai_tutor",
+      "theoryId": "theory:release-proof",
+      "experimentId": "experiment:release-proof",
+      "mechanic": "AI-authored construction",
+      "theme": "AI-authored world",
+      "openingScreen": {
+        "title": "Equal Groups Lab",
+        "purpose": "Test equal-groups reasoning."
+      },
+      "generationPrompt": null,
+      "artifactBinding": null,
+      "artwork": {
+        "status": "placeholder",
+        "localPath": null,
+        "prompt": null
+      },
+      "sfxContract": [],
+      "companionContract": {
+        "events": []
+      },
+      "evidenceContract": {
+        "academic": true,
+        "engagement": true,
+        "companionObservations": true
+      },
+      "evidenceIds": []
+    },
+    {
+      "nodeId": "quest",
+      "role": "quest",
+      "title": "Quest",
+      "state": "locked",
+      "academicTarget": {
+        "domain": "math",
+        "skill": "unseen transfer",
+        "targets": []
+      },
+      "algorithmOwner": "ai_tutor",
+      "theoryId": "theory:release-proof",
+      "experimentId": "experiment:quest",
+      "mechanic": "evidence-generated",
+      "theme": "AI-authored",
+      "openingScreen": {
+        "title": "Quest",
+        "purpose": "Test unseen transfer."
+      },
+      "generationPrompt": null,
+      "artifactBinding": null,
+      "artwork": {
+        "status": "placeholder",
+        "localPath": null,
+        "prompt": null
+      },
+      "sfxContract": [],
+      "companionContract": {
+        "events": []
+      },
+      "evidenceContract": {
+        "academic": true,
+        "engagement": true,
+        "companionObservations": true
+      },
+      "evidenceIds": []
+    },
+    {
+      "nodeId": "boss",
+      "role": "boss",
+      "title": "Boss",
+      "state": "locked",
+      "academicTarget": {
+        "domain": "math",
+        "skill": "unseen synthesis",
+        "targets": []
+      },
+      "algorithmOwner": "ai_tutor",
+      "theoryId": "theory:release-proof",
+      "experimentId": "experiment:boss",
+      "mechanic": "evidence-generated",
+      "theme": "AI-authored",
+      "openingScreen": {
+        "title": "Boss",
+        "purpose": "Test unseen synthesis."
+      },
+      "generationPrompt": null,
+      "artifactBinding": null,
+      "artwork": {
+        "status": "placeholder",
+        "localPath": null,
+        "prompt": null
+      },
+      "sfxContract": [],
+      "companionContract": {
+        "events": []
+      },
+      "evidenceContract": {
+        "academic": true,
+        "engagement": true,
+        "companionObservations": true
+      },
+      "evidenceIds": []
+    },
+    {
+      "nodeId": "support:equal-groups-operation-selection",
+      "routeId": "adaptive-support",
+      "predictionId": "hw-release-proof-equal-groups:prediction:r3:support",
+      "role": "baseline",
+      "title": "Equal Groups Support",
+      "state": "generating",
+      "academicTarget": {
+        "domain": "math",
+        "skill": "select multiplication for equal groups",
+        "targets": []
+      },
+      "algorithmOwner": "ai_tutor",
+      "theoryId": "theory:release-proof",
+      "experimentId": "hw-release-proof-equal-groups:support:r3",
+      "mechanic": "AI-selected support interaction",
+      "theme": "AI-selected support world",
+      "openingScreen": {
+        "title": "Equal Groups Support",
+        "purpose": "Reconnect equal groups to multiplication."
+      },
+      "generationPrompt": {
+        "promptId": "hw-release-proof-equal-groups:support:prompt:r3",
+        "createdFromEvidenceIds": [
+          "observation:69a4e46b9647ca93"
+        ],
+        "text": "Create one targeted support experience from the cited evidence. Decision: Confirmed returned work contradicts the expected independent range. Evidence references: observation:69a4e46b9647ca93. Do not reuse exposed item identities or exact prompts: returned:item:equal-groups."
+      },
+      "prediction": {
+        "claim": "Targeted support will improve operation selection on a fresh independent item.",
+        "createdAt": "2026-08-08T12:01:00.000Z",
+        "evidenceLimit": "independent_performance"
+      },
+      "artifactBinding": null,
+      "artwork": {
+        "status": "placeholder",
+        "localPath": "/generated/adventure-board-demo/quest.jpeg",
+        "prompt": null
+      },
+      "sfxContract": [
+        "interaction",
+        "recovery",
+        "progress",
+        "completion"
+      ],
+      "companionContract": {
+        "events": [
+          "completion",
+          "frustration"
+        ]
+      },
+      "evidenceContract": {
+        "academic": true,
+        "engagement": true,
+        "companionObservations": true
+      },
+      "evidenceIds": []
+    }
+  ],
+  "academicPredictions": [
+    {
+      "predictionId": "prediction:release-proof",
+      "theoryId": "theory:release-proof",
+      "constructId": "math.multiplication.equal_groups",
+      "context": "confirmed unassisted returned work",
+      "horizon": "within_7_days",
+      "expectedMetric": {
+        "key": "academic.accuracy",
+        "min": 0.7,
+        "max": 0.9
+      },
+      "predictedErrorPatterns": [
+        "operation_selection"
+      ],
+      "confidence": 0.7,
+      "evidenceIds": [
+        "assignment:release-proof"
+      ],
+      "intervention": "AI-authored equal-groups lesson",
+      "evidenceLimit": "calibrated_mastery",
+      "createdAt": "2026-08-07T12:00:00.000Z",
+      "lockedAt": "2026-08-07T12:00:00.000Z"
+    },
+    {
+      "predictionId": "hw-release-proof-equal-groups:prediction:r3:support",
+      "theoryId": "theory:release-proof",
+      "constructId": "math.multiplication.equal_groups",
+      "context": "next targeted-support session",
+      "horizon": "next_session",
+      "expectedMetric": {
+        "key": "academic.accuracy",
+        "min": 0.7,
+        "max": 0.9
+      },
+      "predictedErrorPatterns": [
+        "operation_selection"
+      ],
+      "confidence": 0.55,
+      "evidenceIds": [
+        "observation:69a4e46b9647ca93"
+      ],
+      "intervention": "Equal Groups Support",
+      "evidenceLimit": "independent_performance",
+      "createdAt": "2026-08-08T12:01:00.000Z",
+      "lockedAt": "2026-08-08T12:01:00.000Z"
+    }
+  ],
+  "lifecycle": "baseline_generating",
+  "evidence": {
+    "academic": [
+      {
+        "evidenceId": "observation:69a4e46b9647ca93",
+        "summary": "Returned work item returned:item:equal-groups: incorrect.",
+        "accuracy": 0
+      }
+    ],
+    "engagement": [],
+    "companionObservations": []
+  },
+  "decisionHistory": [
+    {
+      "decisionId": "hw-release-proof-equal-groups:decision:r2",
+      "eventType": "returned_work_confirmed",
+      "reason": "Confirmed returned work was recorded as factual evidence pending one Planner interpretation.",
+      "nextAction": "Interpret the prediction evaluations without changing the observations.",
+      "evidenceIds": [
+        "observation:69a4e46b9647ca93"
+      ],
+      "fromLifecycle": "baseline_ready",
+      "toLifecycle": "baseline_ready",
+      "createdAt": "2026-08-08T12:00:00.000Z"
+    },
+    {
+      "decisionId": "hw-release-proof-equal-groups:decision:r3",
+      "eventType": "theory_decided",
+      "status": "revised",
+      "reason": "Confirmed returned work contradicts the expected independent range.",
+      "nextAction": "Generate targeted support for the next session.",
+      "evidenceIds": [
+        "observation:69a4e46b9647ca93"
+      ],
+      "fromLifecycle": "baseline_ready",
+      "toLifecycle": "baseline_generating",
+      "createdAt": "2026-08-08T12:01:00.000Z",
+      "preserve": [
+        "concrete equal groups"
+      ],
+      "change": [
+        "add operation-selection support"
+      ],
+      "testNext": [
+        "fresh unassisted equal-groups item"
+      ],
+      "nextEvidenceRequired": [
+        "next-session independent response"
+      ],
+      "predictionEvaluationIds": [
+        "evaluation:7d505a4b1203c6d0"
+      ],
+      "assumptionAssessments": [
+        {
+          "assumptionId": "assumption:equal-groups-transfer",
+          "outcome": "rejected",
+          "reason": "Independent work did not transfer.",
+          "observationIds": [
+            "observation:69a4e46b9647ca93"
+          ]
+        }
+      ],
+      "readinessAssessment": {
+        "status": "not_yet_ready",
+        "scope": {
+          "homeworkId": "hw-release-proof-equal-groups",
+          "assignmentTitle": "Equal groups release proof",
+          "constructIds": [
+            "math.multiplication.equal_groups"
+          ]
+        },
+        "reason": "The independent response shows an operation-selection error.",
+        "evidenceIds": [
+          "observation:69a4e46b9647ca93"
+        ],
+        "predictionEvaluationIds": [
+          "evaluation:7d505a4b1203c6d0"
+        ],
+        "uncertainty": "One returned item is not enough to localize every error.",
+        "nextAction": "Run targeted support in the next session."
+      }
+    }
+  ],
+  "evidenceSources": [
+    {
+      "sourceId": "source:returned-work",
+      "type": "graded_work",
+      "fileFingerprint": "returned-weak",
+      "sourceFile": "weak-returned-work.pdf",
+      "provenance": "caregiver",
+      "capturedAt": "2026-08-08T12:00:00.000Z",
+      "assignmentLink": {
+        "homeworkId": "hw-release-proof-equal-groups",
+        "method": "explicit_selection",
+        "confidence": 1,
+        "confirmedBy": "caregiver"
+      },
+      "status": "confirmed"
+    }
+  ],
+  "observations": [
+    {
+      "observationId": "observation:69a4e46b9647ca93",
+      "sourceId": "source:returned-work",
+      "itemId": "returned:item:equal-groups",
+      "prompt": "Four groups of three",
+      "childResponse": "7",
+      "constructLinks": [
+        {
+          "constructId": "math.multiplication.equal_groups",
+          "role": "primary",
+          "confidence": 1
+        }
+      ],
+      "result": {
+        "correct": false,
+        "score": 0,
+        "observedErrorType": "operation_selection"
+      },
+      "assistance": {
+        "status": "unknown",
+        "scaffolds": []
+      },
+      "exposure": "unknown",
+      "provenance": "graded_work",
+      "observedAt": "2026-08-08T12:00:00.000Z",
+      "confounds": []
+    }
+  ],
+  "predictionEvaluations": [
+    {
+      "evaluationId": "evaluation:7d505a4b1203c6d0",
+      "predictionId": "prediction:release-proof",
+      "sourceId": "source:returned-work",
+      "observationIds": [
+        "observation:69a4e46b9647ca93"
+      ],
+      "predictedMetric": {
+        "min": 0.7,
+        "max": 0.9
+      },
+      "observedMetric": 0,
+      "predictionError": 0.7,
+      "observedErrorPatterns": [
+        "operation_selection"
+      ],
+      "sufficiency": "sufficient",
+      "evaluatedAt": "2026-08-08T12:00:00.000Z"
+    }
+  ],
+  "sessionFinalizations": [],
+  "pendingSessionNodeIds": [],
+  "createdAt": "2026-08-07T12:00:00.000Z",
+  "updatedAt": "2026-08-08T12:01:00.000Z",
+  "calibrations": [
+    {
+      "calibrationId": "calibration:f8c40a71bfd76f76",
+      "gradedAt": "2026-08-08T12:00:00.000Z",
+      "score": 0,
+      "status": "inconclusive",
+      "gradedItems": [
+        {
+          "target": "math.multiplication.equal_groups",
+          "correct": false,
+          "observedErrorType": "operation_selection"
+        }
+      ],
+      "sourceFile": "weak-returned-work.pdf",
+      "reason": "Returned work was recorded as factual evidence pending Planner interpretation.",
+      "nextAction": "Evaluate the preregistered predictions and write one theory decision."
+    }
+  ]
+}

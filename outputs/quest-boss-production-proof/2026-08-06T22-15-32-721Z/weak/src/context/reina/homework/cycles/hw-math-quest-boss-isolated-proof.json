@@ -1,0 +1,392 @@
+{
+  "schemaVersion": 2,
+  "revision": 3,
+  "childId": "reina",
+  "homeworkId": "hw-math-quest-boss-isolated-proof",
+  "domain": "math",
+  "assignment": {
+    "title": "Isolated multiplication Quest/Boss release proof",
+    "contentFingerprint": "isolated-math-quest-boss-v1",
+    "capturedEvidenceIds": [
+      "lab:assignment:equal-groups"
+    ],
+    "targets": [
+      "math.multiplication.equal_groups",
+      "math.multiplication.arrays"
+    ],
+    "returnTag": "#sunny_lab_math_quest_boss"
+  },
+  "academicTheory": {
+    "theoryId": "theory:equal-groups-transfer",
+    "revision": 1,
+    "hypothesis": "Independent equal-groups evidence may support an unseen transfer Quest.",
+    "supportCriteria": [
+      "Fresh unassisted responses are correct and distinguishable."
+    ],
+    "reviseCriteria": [
+      "Errors cluster around representation-to-notation transfer."
+    ],
+    "falsifyCriteria": [
+      "Fresh independent evidence contradicts the hypothesis."
+    ]
+  },
+  "engagementTheory": null,
+  "nodes": [
+    {
+      "nodeId": "baseline",
+      "routeId": "visual-build-route",
+      "predictionId": "prediction:equal-groups",
+      "role": "baseline",
+      "title": "Array Harbor",
+      "state": "completed",
+      "academicTarget": {
+        "domain": "math",
+        "skill": "represent multiplication with equal groups and arrays",
+        "targets": [
+          "fresh-array-3-by-4",
+          "fresh-equal-groups-5-by-2"
+        ]
+      },
+      "algorithmOwner": "ai_tutor",
+      "theoryId": "theory:equal-groups-transfer",
+      "experimentId": "experiment:baseline",
+      "mechanic": "visual construction",
+      "theme": "AI-owned",
+      "openingScreen": {
+        "title": "Array Harbor",
+        "purpose": "Connect equal groups to multiplication."
+      },
+      "generationPrompt": null,
+      "artifactBinding": {
+        "contentId": "content:isolated-baseline",
+        "artifactId": "artifact:isolated-baseline",
+        "localArtifactPath": "/games/baseline.html",
+        "localArtworkPath": "/generated/adventure-board-demo/background.jpeg",
+        "contractFingerprint": "isolated-baseline-contract",
+        "validationStatus": "passed"
+      },
+      "artwork": {
+        "status": "ready",
+        "localPath": "/generated/adventure-board-demo/quest.jpeg",
+        "prompt": null
+      },
+      "sfxContract": [
+        "interaction",
+        "recovery",
+        "progress",
+        "completion"
+      ],
+      "companionContract": {
+        "events": [
+          "completion",
+          "frustration",
+          "help_requested"
+        ]
+      },
+      "evidenceContract": {
+        "academic": true,
+        "engagement": true,
+        "companionObservations": true
+      },
+      "evidenceIds": [
+        "lab:weak-baseline:baseline:completion",
+        "lab:weak-baseline:baseline:completion:engagement"
+      ]
+    },
+    {
+      "nodeId": "quest",
+      "role": "quest",
+      "title": "The Skybridge Rescue",
+      "state": "locked",
+      "academicTarget": {
+        "domain": "math",
+        "skill": "transfer equal-groups reasoning to unfamiliar situations",
+        "targets": [
+          "unseen-transfer-targets"
+        ]
+      },
+      "algorithmOwner": "ai_tutor",
+      "theoryId": "theory:equal-groups-transfer",
+      "experimentId": "experiment:quest",
+      "mechanic": "AI-designed evidence experience",
+      "theme": "AI-owned",
+      "openingScreen": {
+        "title": "The Skybridge Rescue",
+        "purpose": "Use multiplication to solve a new transfer mission."
+      },
+      "generationPrompt": null,
+      "artifactBinding": null,
+      "artwork": {
+        "status": "ready",
+        "localPath": "/generated/adventure-board-demo/quest.jpeg",
+        "prompt": null
+      },
+      "sfxContract": [
+        "interaction",
+        "recovery",
+        "progress",
+        "completion"
+      ],
+      "companionContract": {
+        "events": [
+          "completion",
+          "frustration",
+          "help_requested"
+        ]
+      },
+      "evidenceContract": {
+        "academic": true,
+        "engagement": true,
+        "companionObservations": true
+      },
+      "evidenceIds": []
+    },
+    {
+      "nodeId": "boss",
+      "role": "boss",
+      "title": "The Foundry Finale",
+      "state": "locked",
+      "academicTarget": {
+        "domain": "math",
+        "skill": "synthesize arrays, missing factors, and word-problem interpretation",
+        "targets": [
+          "unseen-synthesis-targets"
+        ]
+      },
+      "algorithmOwner": "ai_tutor",
+      "theoryId": "theory:equal-groups-transfer",
+      "experimentId": "experiment:boss",
+      "mechanic": "AI-designed evidence experience",
+      "theme": "AI-owned",
+      "openingScreen": {
+        "title": "The Foundry Finale",
+        "purpose": "Combine multiplication representations in an unseen finale."
+      },
+      "generationPrompt": null,
+      "artifactBinding": null,
+      "artwork": {
+        "status": "ready",
+        "localPath": "/generated/adventure-board-demo/boss.jpeg",
+        "prompt": null
+      },
+      "sfxContract": [
+        "interaction",
+        "recovery",
+        "progress",
+        "completion"
+      ],
+      "companionContract": {
+        "events": [
+          "completion",
+          "frustration",
+          "help_requested"
+        ]
+      },
+      "evidenceContract": {
+        "academic": true,
+        "engagement": true,
+        "companionObservations": true
+      },
+      "evidenceIds": []
+    },
+    {
+      "nodeId": "support-equal-groups",
+      "routeId": "adaptive-support",
+      "role": "baseline",
+      "title": "Equal Groups Workshop",
+      "state": "generating",
+      "academicTarget": {
+        "domain": "math",
+        "skill": "Build and count equal groups with fresh values",
+        "targets": []
+      },
+      "algorithmOwner": "ai_tutor",
+      "theoryId": "theory:equal-groups-transfer",
+      "experimentId": "hw-math-quest-boss-isolated-proof:support:r3",
+      "mechanic": "AI-owned support interaction",
+      "theme": "AI-owned",
+      "openingScreen": {
+        "title": "Equal Groups Workshop",
+        "purpose": "Reconnect concrete groups to multiplication without exposing Quest material."
+      },
+      "generationPrompt": {
+        "promptId": "hw-math-quest-boss-isolated-proof:support:prompt:r3",
+        "createdFromEvidenceIds": [
+          "lab:weak-baseline:baseline:completion",
+          "lab:weak-baseline:baseline:completion:engagement"
+        ],
+        "text": "Create targeted support from the cited errors using unseen values and preserve evidence separation. Decision: All observed baseline work was incorrect and assisted; transfer is not eligible. Evidence references: lab:weak-baseline:baseline:completion, lab:weak-baseline:baseline:completion:engagement. Do not reuse these exposed item identities or their exact prompts: fresh-array-3-by-4, fresh-equal-groups-5-by-2."
+      },
+      "prediction": {
+        "claim": "This support instrument will resolve: All observed baseline work was incorrect and assisted; transfer is not eligible.",
+        "createdAt": "2026-08-06T12:06:00.000Z",
+        "evidenceLimit": "practice_only"
+      },
+      "artifactBinding": null,
+      "artwork": {
+        "status": "ready",
+        "localPath": "/generated/adventure-board-demo/quest.jpeg",
+        "prompt": null
+      },
+      "sfxContract": [
+        "interaction",
+        "recovery",
+        "progress",
+        "completion"
+      ],
+      "companionContract": {
+        "events": [
+          "completion",
+          "frustration"
+        ]
+      },
+      "evidenceContract": {
+        "academic": true,
+        "engagement": true,
+        "companionObservations": true
+      },
+      "evidenceIds": []
+    }
+  ],
+  "academicPredictions": [
+    {
+      "predictionId": "prediction:equal-groups",
+      "theoryId": "theory:equal-groups-transfer",
+      "constructId": "math.multiplication.equal_groups",
+      "context": "fresh unassisted baseline work",
+      "horizon": "same_session",
+      "expectedMetric": {
+        "key": "academic.accuracy",
+        "min": 0.75,
+        "max": 1
+      },
+      "predictedErrorPatterns": [
+        "representation_to_notation"
+      ],
+      "confidence": 0.65,
+      "evidenceIds": [
+        "lab:assignment:equal-groups"
+      ],
+      "intervention": "AI-authored equal-groups experience",
+      "evidenceLimit": "practice_only",
+      "createdAt": "2026-08-06T12:00:00.000Z",
+      "lockedAt": "2026-08-06T12:00:00.000Z"
+    }
+  ],
+  "lifecycle": "baseline_generating",
+  "evidence": {
+    "academic": [
+      {
+        "evidenceId": "lab:weak-baseline:baseline:completion",
+        "accuracy": 0,
+        "summary": "Array Harbor completed at 0% across 2 scored target readings."
+      }
+    ],
+    "engagement": [
+      {
+        "evidenceId": "lab:weak-baseline:baseline:completion:engagement",
+        "summary": "Array Harbor completed in 75000ms; replay=false; frustration=none."
+      }
+    ],
+    "companionObservations": []
+  },
+  "decisionHistory": [
+    {
+      "decisionId": "hw-math-quest-boss-isolated-proof:decision:r2",
+      "eventType": "instrument_observed",
+      "reason": "Array Harbor factual scorecard recorded; one Planner decision is required.",
+      "nextAction": "Evaluate the preregistered prediction against this evidence.",
+      "evidenceIds": [
+        "lab:weak-baseline:baseline:completion",
+        "lab:weak-baseline:baseline:completion:engagement"
+      ],
+      "fromLifecycle": "baseline_ready",
+      "toLifecycle": "baseline_evaluating",
+      "createdAt": "2026-08-06T12:05:00.000Z"
+    },
+    {
+      "decisionId": "hw-math-quest-boss-isolated-proof:decision:r3",
+      "eventType": "theory_decided",
+      "status": "falsified",
+      "reason": "All observed baseline work was incorrect and assisted; transfer is not eligible.",
+      "nextAction": "generate_support",
+      "evidenceIds": [
+        "lab:weak-baseline:baseline:completion",
+        "lab:weak-baseline:baseline:completion:engagement"
+      ],
+      "fromLifecycle": "baseline_evaluating",
+      "toLifecycle": "baseline_generating",
+      "createdAt": "2026-08-06T12:06:00.000Z",
+      "preserve": [
+        "concrete equal-group representation"
+      ],
+      "change": [
+        "add targeted representation support next session"
+      ],
+      "testNext": [
+        "fresh unassisted equal-group construction"
+      ],
+      "nextEvidenceRequired": [
+        "distinguishable unassisted baseline evidence"
+      ],
+      "predictionEvaluationIds": []
+    }
+  ],
+  "evidenceSources": [],
+  "assumptions": [],
+  "observations": [
+    {
+      "observationId": "lab:weak-baseline:baseline:observation:1",
+      "sourceId": "activity:lab:weak-baseline:baseline",
+      "itemId": "fresh-array-3-by-4",
+      "childResponse": "7",
+      "constructLinks": [
+        {
+          "constructId": "math.multiplication.equal_groups",
+          "role": "primary",
+          "confidence": 1
+        }
+      ],
+      "result": {
+        "correct": false,
+        "score": 0
+      },
+      "assistance": {
+        "status": "unassisted",
+        "scaffolds": []
+      },
+      "exposure": "previously_practiced",
+      "provenance": "practice",
+      "observedAt": "2026-08-06T12:05:00.000Z",
+      "confounds": []
+    },
+    {
+      "observationId": "lab:weak-baseline:baseline:observation:2",
+      "sourceId": "activity:lab:weak-baseline:baseline",
+      "itemId": "fresh-equal-groups-5-by-2",
+      "childResponse": "5",
+      "constructLinks": [
+        {
+          "constructId": "math.multiplication.equal_groups",
+          "role": "primary",
+          "confidence": 1
+        }
+      ],
+      "result": {
+        "correct": false,
+        "score": 0
+      },
+      "assistance": {
+        "status": "unassisted",
+        "scaffolds": []
+      },
+      "exposure": "previously_practiced",
+      "provenance": "practice",
+      "observedAt": "2026-08-06T12:05:00.000Z",
+      "confounds": []
+    }
+  ],
+  "predictionEvaluations": [],
+  "createdAt": "2026-08-06T12:00:00.000Z",
+  "updatedAt": "2026-08-06T12:06:00.000Z"
+}

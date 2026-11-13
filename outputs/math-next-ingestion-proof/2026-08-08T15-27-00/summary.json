@@ -1,0 +1,45 @@
+{
+  "status": "INCOMPLETE",
+  "reasons": [
+    "provider_contract_failure"
+  ],
+  "providerFailure": "math_learning_program_missing_concept",
+  "plainLanguageVerdict": "The historical feedback chain is preserved, but the clean-history control could not be validated because the Planner returned malformed structured content twice. Sunny did not infer a result or alter child data.",
+  "assignmentHash": "572d084ddb6e1b07b315233f2a10309525489f50aea6ff0b669a69bc134f7e7b",
+  "historicalDocumentHash": "preserved in audit",
+  "promptCoverage": {
+    "complete": true,
+    "missing": []
+  },
+  "calibrationDecisionId": "hw-02c11ee60594c617:decision:r3",
+  "calibratedProgramCitesHistory": true,
+  "cleanControlContainsHistory": false,
+  "comparison": {
+    "changed": [],
+    "preserved": [],
+    "calibrated": {
+      "conceptId": "missing",
+      "theory": "missing",
+      "assumptions": [],
+      "responsibilities": [],
+      "activities": []
+    },
+    "cleanControl": {
+      "conceptId": "missing",
+      "theory": "missing",
+      "assumptions": [],
+      "responsibilities": [],
+      "activities": []
+    }
+  },
+  "sameAssignmentPreserved": false,
+  "realChildDataChanged": false,
+  "usage": {
+    "calls": 2,
+    "inputTokens": 30734,
+    "outputTokens": 37883,
+    "costUsd": 1.100745,
+    "elapsedMs": 0
+  },
+  "historicalOutput": "/Users/jamaltaylor/Development/sunny-demo-main/outputs/math-release-confidence-live/2026-08-08T16-02-39.895Z"
+}

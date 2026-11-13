@@ -1,0 +1,381 @@
+{
+  "schemaVersion": 2,
+  "revision": 5,
+  "childId": "proof-child",
+  "homeworkId": "hw-release-proof-equal-groups",
+  "domain": "math",
+  "assignment": {
+    "title": "Equal groups release proof",
+    "contentFingerprint": "release-proof-source-v1",
+    "capturedEvidenceIds": [
+      "assignment:release-proof"
+    ],
+    "targets": [
+      "math.multiplication.equal_groups"
+    ],
+    "returnTag": "#sunny_proof_equal_groups"
+  },
+  "academicTheory": {
+    "theoryId": "theory:release-proof",
+    "revision": 1,
+    "hypothesis": "The child can independently transfer equal-groups reasoning.",
+    "supportCriteria": [
+      "Confirmed independent accuracy falls within the prediction."
+    ],
+    "reviseCriteria": [
+      "Confirmed work falls below the prediction."
+    ],
+    "falsifyCriteria": [
+      "Repeated independent operation-selection errors."
+    ]
+  },
+  "engagementTheory": null,
+  "assumptions": [
+    {
+      "assumptionId": "assumption:equal-groups-transfer",
+      "claim": "Equal-groups reasoning will transfer to returned work.",
+      "evidenceIds": [
+        "assignment:release-proof"
+      ],
+      "confidence": 0.7,
+      "uncertainty": "No confirmed returned work existed at launch.",
+      "createdAt": "2026-08-07T12:00:00.000Z",
+      "lockedAt": "2026-08-07T12:00:00.000Z"
+    }
+  ],
+  "nodes": [
+    {
+      "nodeId": "baseline-equal-groups",
+      "role": "baseline",
+      "title": "Equal Groups Lab",
+      "state": "completed",
+      "academicTarget": {
+        "domain": "math",
+        "skill": "equal groups",
+        "targets": [
+          "fresh equal-groups items"
+        ]
+      },
+      "algorithmOwner": "ai_tutor",
+      "theoryId": "theory:release-proof",
+      "experimentId": "experiment:release-proof",
+      "mechanic": "AI-authored construction",
+      "theme": "AI-authored world",
+      "openingScreen": {
+        "title": "Equal Groups Lab",
+        "purpose": "Test equal-groups reasoning."
+      },
+      "generationPrompt": null,
+      "artifactBinding": null,
+      "artwork": {
+        "status": "placeholder",
+        "localPath": null,
+        "prompt": null
+      },
+      "sfxContract": [],
+      "companionContract": {
+        "events": []
+      },
+      "evidenceContract": {
+        "academic": true,
+        "engagement": true,
+        "companionObservations": true
+      },
+      "evidenceIds": [
+        "session:Assisted success:baseline-equal-groups:completion",
+        "session:Assisted success:baseline-equal-groups:completion:engagement"
+      ]
+    },
+    {
+      "nodeId": "quest",
+      "role": "quest",
+      "title": "Quest",
+      "state": "locked",
+      "academicTarget": {
+        "domain": "math",
+        "skill": "unseen transfer",
+        "targets": []
+      },
+      "algorithmOwner": "ai_tutor",
+      "theoryId": "theory:release-proof",
+      "experimentId": "experiment:quest",
+      "mechanic": "evidence-generated",
+      "theme": "AI-authored",
+      "openingScreen": {
+        "title": "Quest",
+        "purpose": "Test unseen transfer."
+      },
+      "generationPrompt": null,
+      "artifactBinding": null,
+      "artwork": {
+        "status": "placeholder",
+        "localPath": null,
+        "prompt": null
+      },
+      "sfxContract": [],
+      "companionContract": {
+        "events": []
+      },
+      "evidenceContract": {
+        "academic": true,
+        "engagement": true,
+        "companionObservations": true
+      },
+      "evidenceIds": []
+    },
+    {
+      "nodeId": "boss",
+      "role": "boss",
+      "title": "Boss",
+      "state": "locked",
+      "academicTarget": {
+        "domain": "math",
+        "skill": "unseen synthesis",
+        "targets": []
+      },
+      "algorithmOwner": "ai_tutor",
+      "theoryId": "theory:release-proof",
+      "experimentId": "experiment:boss",
+      "mechanic": "evidence-generated",
+      "theme": "AI-authored",
+      "openingScreen": {
+        "title": "Boss",
+        "purpose": "Test unseen synthesis."
+      },
+      "generationPrompt": null,
+      "artifactBinding": null,
+      "artwork": {
+        "status": "placeholder",
+        "localPath": null,
+        "prompt": null
+      },
+      "sfxContract": [],
+      "companionContract": {
+        "events": []
+      },
+      "evidenceContract": {
+        "academic": true,
+        "engagement": true,
+        "companionObservations": true
+      },
+      "evidenceIds": []
+    },
+    {
+      "nodeId": "support:Assisted success",
+      "routeId": "adaptive-support",
+      "role": "baseline",
+      "title": "Targeted Equal Groups Support",
+      "state": "generating",
+      "academicTarget": {
+        "domain": "math",
+        "skill": "equal-groups operation selection",
+        "targets": []
+      },
+      "algorithmOwner": "ai_tutor",
+      "theoryId": "theory:release-proof",
+      "experimentId": "hw-release-proof-equal-groups:support:r5",
+      "mechanic": "AI-selected support",
+      "theme": "AI-selected support world",
+      "openingScreen": {
+        "title": "Targeted Equal Groups Support",
+        "purpose": "Reconnect groups to multiplication."
+      },
+      "generationPrompt": {
+        "promptId": "hw-release-proof-equal-groups:support:prompt:r5",
+        "createdFromEvidenceIds": [
+          "session:Assisted success:baseline-equal-groups:completion",
+          "session:Assisted success:baseline-equal-groups:completion:engagement",
+          "modal:Assisted success"
+        ],
+        "text": "Create the evidence-prescribed support chapter. Decision: High enjoyment cannot substitute for correct independent academic evidence. Evidence references: session:Assisted success:baseline-equal-groups:completion, session:Assisted success:baseline-equal-groups:completion:engagement, modal:Assisted success. Do not reuse these exposed item identities or their exact prompts: fresh:Assisted success."
+      },
+      "prediction": {
+        "claim": "This support instrument will resolve: High enjoyment cannot substitute for correct independent academic evidence.",
+        "createdAt": "2026-08-07T13:02:00.000Z",
+        "evidenceLimit": "practice_only"
+      },
+      "artifactBinding": null,
+      "artwork": {
+        "status": "placeholder",
+        "localPath": "/generated/adventure-board-demo/quest.jpeg",
+        "prompt": null
+      },
+      "sfxContract": [
+        "interaction",
+        "recovery",
+        "progress",
+        "completion"
+      ],
+      "companionContract": {
+        "events": [
+          "completion",
+          "frustration"
+        ]
+      },
+      "evidenceContract": {
+        "academic": true,
+        "engagement": true,
+        "companionObservations": true
+      },
+      "evidenceIds": []
+    }
+  ],
+  "academicPredictions": [
+    {
+      "predictionId": "prediction:release-proof",
+      "theoryId": "theory:release-proof",
+      "constructId": "math.multiplication.equal_groups",
+      "context": "confirmed unassisted returned work",
+      "horizon": "within_7_days",
+      "expectedMetric": {
+        "key": "academic.accuracy",
+        "min": 0.7,
+        "max": 0.9
+      },
+      "predictedErrorPatterns": [
+        "operation_selection"
+      ],
+      "confidence": 0.7,
+      "evidenceIds": [
+        "assignment:release-proof"
+      ],
+      "intervention": "AI-authored equal-groups lesson",
+      "evidenceLimit": "calibrated_mastery",
+      "createdAt": "2026-08-07T12:00:00.000Z",
+      "lockedAt": "2026-08-07T12:00:00.000Z"
+    }
+  ],
+  "lifecycle": "baseline_generating",
+  "evidence": {
+    "academic": [
+      {
+        "evidenceId": "session:Assisted success:baseline-equal-groups:completion",
+        "accuracy": 1,
+        "summary": "Equal Groups Lab completed at 100% across 1 scored target readings."
+      }
+    ],
+    "engagement": [
+      {
+        "evidenceId": "session:Assisted success:baseline-equal-groups:completion:engagement",
+        "summary": "Equal Groups Lab completed in 60000ms; replay=false; frustration=none."
+      },
+      {
+        "evidenceId": "modal:Assisted success",
+        "summary": "Session finalized after Equal Groups Lab: fun rating 5/5; action back_to_map."
+      }
+    ],
+    "companionObservations": []
+  },
+  "decisionHistory": [
+    {
+      "decisionId": "hw-release-proof-equal-groups:decision:r2",
+      "eventType": "instrument_observed",
+      "reason": "Equal Groups Lab factual scorecard recorded; one Planner decision is required.",
+      "nextAction": "Evaluate the preregistered prediction against this evidence.",
+      "evidenceIds": [
+        "session:Assisted success:baseline-equal-groups:completion",
+        "session:Assisted success:baseline-equal-groups:completion:engagement"
+      ],
+      "fromLifecycle": "baseline_ready",
+      "toLifecycle": "baseline_evaluating",
+      "createdAt": "2026-08-07T13:00:00.000Z"
+    },
+    {
+      "decisionId": "hw-release-proof-equal-groups:decision:r3",
+      "eventType": "session_finalized",
+      "reason": "Equal Groups Lab session evidence was finalized before the next Planner decision.",
+      "nextAction": "Evaluate the complete academic and engagement scorecard once.",
+      "evidenceIds": [
+        "modal:Assisted success"
+      ],
+      "fromLifecycle": "baseline_evaluating",
+      "toLifecycle": "baseline_evaluating",
+      "createdAt": "2026-08-07T13:01:00.000Z"
+    },
+    {
+      "decisionId": "hw-release-proof-equal-groups:decision:r4",
+      "eventType": "progression_decision_claimed",
+      "reason": "The finalized session packet was claimed for one Planner decision.",
+      "evidenceIds": [
+        "modal:Assisted success"
+      ],
+      "fromLifecycle": "baseline_evaluating",
+      "toLifecycle": "baseline_evaluating",
+      "createdAt": "2026-08-07T13:02:00.000Z"
+    },
+    {
+      "decisionId": "hw-release-proof-equal-groups:decision:r5",
+      "eventType": "theory_decided",
+      "status": "revised",
+      "reason": "High enjoyment cannot substitute for correct independent academic evidence.",
+      "nextAction": "generate_support",
+      "evidenceIds": [
+        "session:Assisted success:baseline-equal-groups:completion",
+        "session:Assisted success:baseline-equal-groups:completion:engagement",
+        "modal:Assisted success"
+      ],
+      "fromLifecycle": "baseline_evaluating",
+      "toLifecycle": "baseline_generating",
+      "createdAt": "2026-08-07T13:02:00.000Z",
+      "preserve": [
+        "engaging presentation"
+      ],
+      "change": [
+        "academic support"
+      ],
+      "testNext": [
+        "fresh unassisted response"
+      ],
+      "nextEvidenceRequired": [
+        "support scorecard"
+      ],
+      "predictionEvaluationIds": []
+    }
+  ],
+  "evidenceSources": [],
+  "observations": [
+    {
+      "observationId": "session:Assisted success:baseline-equal-groups:observation:1",
+      "sourceId": "activity:session:Assisted success:baseline-equal-groups",
+      "nodeId": "baseline-equal-groups",
+      "itemId": "fresh:Assisted success",
+      "constructLinks": [
+        {
+          "constructId": "math.equal.groups",
+          "role": "primary",
+          "confidence": 1
+        }
+      ],
+      "result": {
+        "correct": true,
+        "score": 1
+      },
+      "assistance": {
+        "status": "assisted",
+        "scaffolds": [
+          "scaffold_level_1"
+        ]
+      },
+      "exposure": "previously_practiced",
+      "provenance": "practice",
+      "observedAt": "2026-08-07T13:00:00.000Z",
+      "confounds": [
+        "assistance_present"
+      ]
+    }
+  ],
+  "predictionEvaluations": [],
+  "sessionFinalizations": [
+    {
+      "choiceEventId": "modal:Assisted success",
+      "nodeId": "baseline-equal-groups",
+      "finalizedAt": "2026-08-07T13:01:00.000Z",
+      "funRating": 5,
+      "postActivityAction": "back_to_map"
+    }
+  ],
+  "pendingSessionNodeIds": [],
+  "createdAt": "2026-08-07T12:00:00.000Z",
+  "updatedAt": "2026-08-07T13:02:00.000Z",
+  "evaluationNodeId": "baseline-equal-groups"
+}

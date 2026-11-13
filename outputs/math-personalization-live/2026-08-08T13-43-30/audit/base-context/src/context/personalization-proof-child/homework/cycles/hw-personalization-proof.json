@@ -1,0 +1,239 @@
+{
+  "schemaVersion": 2,
+  "revision": 1,
+  "childId": "personalization-proof-child",
+  "homeworkId": "hw-personalization-proof",
+  "domain": "math",
+  "assignment": {
+    "title": "Festival Team Challenge",
+    "contentFingerprint": "personalization-proof-assignment",
+    "capturedEvidenceIds": [
+      "assignment:personalization-proof"
+    ],
+    "targets": [
+      "math.multiplication.equal_groups",
+      "math.multiplication.missing_factor",
+      "math.multiplication.word_problem_interpretation"
+    ]
+  },
+  "academicTheory": {
+    "theoryId": "personalization-proof-theory",
+    "revision": 1,
+    "hypothesis": "The learner can transfer multiplication reasoning to fresh material.",
+    "supportCriteria": [
+      "Fresh unassisted answers support transfer."
+    ],
+    "reviseCriteria": [
+      "Errors reveal a scoped misconception."
+    ],
+    "falsifyCriteria": [
+      "Repeated fresh independent errors contradict transfer."
+    ]
+  },
+  "engagementTheory": null,
+  "assumptions": [
+    {
+      "assumptionId": "personalization-proof-assumption",
+      "claim": "Presentation may influence voluntary continuation.",
+      "evidenceIds": [
+        "assignment:personalization-proof"
+      ],
+      "confidence": 0.3,
+      "uncertainty": "No branch evidence has been observed yet.",
+      "createdAt": "2026-08-08T12:00:00.000Z",
+      "lockedAt": "2026-08-08T12:00:00.000Z"
+    }
+  ],
+  "nodes": [
+    {
+      "nodeId": "baseline",
+      "role": "baseline",
+      "title": "Festival Team Challenge",
+      "state": "ready",
+      "academicTarget": {
+        "domain": "math",
+        "skill": "multiplication transfer",
+        "targets": [
+          "math.multiplication.equal_groups",
+          "math.multiplication.missing_factor",
+          "math.multiplication.word_problem_interpretation"
+        ]
+      },
+      "algorithmOwner": "retrieval-practice",
+      "theoryId": "personalization-proof-theory",
+      "experimentId": "personalization-baseline",
+      "mechanic": "AI-owned",
+      "theme": "AI-owned",
+      "openingScreen": {
+        "title": "Festival Team Challenge",
+        "purpose": "Collect fresh evidence."
+      },
+      "generationPrompt": null,
+      "artifactBinding": {
+        "contentId": "proof-baseline",
+        "artifactId": "proof-baseline-artifact",
+        "localArtifactPath": "/lab/baseline.html",
+        "localArtworkPath": "/lab/baseline.svg",
+        "contractFingerprint": "proof-baseline-contract",
+        "validationStatus": "passed"
+      },
+      "artwork": {
+        "status": "ready",
+        "localPath": "/lab/baseline.svg",
+        "prompt": null
+      },
+      "sfxContract": [
+        "interaction",
+        "recovery",
+        "progress",
+        "completion"
+      ],
+      "companionContract": {
+        "events": [
+          "help_requested"
+        ]
+      },
+      "evidenceContract": {
+        "academic": true,
+        "engagement": true,
+        "companionObservations": true
+      },
+      "evidenceIds": []
+    },
+    {
+      "nodeId": "quest",
+      "role": "quest",
+      "title": "Quest",
+      "state": "locked",
+      "academicTarget": {
+        "domain": "math",
+        "skill": "multiplication transfer",
+        "targets": [
+          "math.multiplication.equal_groups",
+          "math.multiplication.missing_factor",
+          "math.multiplication.word_problem_interpretation"
+        ]
+      },
+      "algorithmOwner": "mastery-gating",
+      "theoryId": "personalization-proof-theory",
+      "experimentId": "personalization-quest",
+      "mechanic": "AI-owned",
+      "theme": "AI-owned",
+      "openingScreen": {
+        "title": "Quest",
+        "purpose": "Collect fresh evidence."
+      },
+      "generationPrompt": null,
+      "artifactBinding": null,
+      "artwork": {
+        "status": "placeholder",
+        "localPath": null,
+        "prompt": null
+      },
+      "sfxContract": [
+        "interaction",
+        "recovery",
+        "progress",
+        "completion"
+      ],
+      "companionContract": {
+        "events": [
+          "help_requested"
+        ]
+      },
+      "evidenceContract": {
+        "academic": true,
+        "engagement": true,
+        "companionObservations": true
+      },
+      "evidenceIds": []
+    },
+    {
+      "nodeId": "boss",
+      "role": "boss",
+      "title": "Boss",
+      "state": "locked",
+      "academicTarget": {
+        "domain": "math",
+        "skill": "multiplication transfer",
+        "targets": [
+          "math.multiplication.equal_groups",
+          "math.multiplication.missing_factor",
+          "math.multiplication.word_problem_interpretation"
+        ]
+      },
+      "algorithmOwner": "mastery-gating",
+      "theoryId": "personalization-proof-theory",
+      "experimentId": "personalization-boss",
+      "mechanic": "AI-owned",
+      "theme": "AI-owned",
+      "openingScreen": {
+        "title": "Boss",
+        "purpose": "Collect fresh evidence."
+      },
+      "generationPrompt": null,
+      "artifactBinding": null,
+      "artwork": {
+        "status": "placeholder",
+        "localPath": null,
+        "prompt": null
+      },
+      "sfxContract": [
+        "interaction",
+        "recovery",
+        "progress",
+        "completion"
+      ],
+      "companionContract": {
+        "events": [
+          "help_requested"
+        ]
+      },
+      "evidenceContract": {
+        "academic": true,
+        "engagement": true,
+        "companionObservations": true
+      },
+      "evidenceIds": []
+    }
+  ],
+  "academicPredictions": [
+    {
+      "predictionId": "personalization-proof-prediction",
+      "theoryId": "personalization-proof-theory",
+      "constructId": "math.multiplication.transfer",
+      "context": "fresh unassisted baseline evidence",
+      "horizon": "next_session",
+      "expectedMetric": {
+        "key": "academic.accuracy",
+        "min": 0.7,
+        "max": 1
+      },
+      "predictedErrorPatterns": [
+        "factor-pair overgeneralization"
+      ],
+      "confidence": 0.65,
+      "evidenceIds": [
+        "assignment:personalization-proof"
+      ],
+      "intervention": "baseline learning program",
+      "evidenceLimit": "independent_performance",
+      "createdAt": "2026-08-08T12:00:00.000Z",
+      "lockedAt": "2026-08-08T12:00:00.000Z"
+    }
+  ],
+  "lifecycle": "baseline_ready",
+  "evidence": {
+    "academic": [],
+    "engagement": [],
+    "companionObservations": []
+  },
+  "decisionHistory": [],
+  "evidenceSources": [],
+  "observations": [],
+  "predictionEvaluations": [],
+  "sessionFinalizations": [],
+  "pendingSessionNodeIds": [],
+  "createdAt": "2026-08-08T12:00:00.000Z",
+  "updatedAt": "2026-08-08T12:00:00.000Z"
+}

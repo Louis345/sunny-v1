@@ -1,0 +1,84 @@
+{
+  "status": "INCOMPLETE",
+  "armStatus": {
+    "historical": "COMPLETE",
+    "neutral": "INCOMPLETE",
+    "personality": "INCOMPLETE"
+  },
+  "failures": {
+    "neutral": "curriculum_writer:upstream_hash_changed",
+    "personality": "curriculum_writer:upstream_hash_changed"
+  },
+  "historical": {
+    "title": "The Shape-Shifting Crate",
+    "designCostUsd": 0.23448,
+    "implementationCostUsd": 0.59665,
+    "sunkCostUsd": 0.83113,
+    "designModel": "claude-fable-5",
+    "implementationModel": "claude-opus-5",
+    "htmlHash": "6e896922f13a0e7723f3d29414d81ae9a664e79755b7b560ba8045c326e96b86",
+    "designArtifactHash": "e309aa63d177abd408b477c2e28931bd81c41b30acfb564ef9e67893d1a494c2"
+  },
+  "newSpend": {
+    "costUsd": 0.66091,
+    "calls": 4,
+    "ceilingUsd": 6,
+    "callCeiling": 8
+  },
+  "usage": [
+    {
+      "attempt": 1,
+      "arm": "neutral",
+      "stage": "academic_lead",
+      "model": "claude-opus-5",
+      "status": "complete",
+      "inputTokens": 8733,
+      "outputTokens": 4430,
+      "costUsd": 0.154415,
+      "elapsedMs": 62863,
+      "stopReason": "tool_use"
+    },
+    {
+      "attempt": 2,
+      "arm": "personality",
+      "stage": "academic_lead",
+      "model": "claude-opus-5",
+      "status": "complete",
+      "inputTokens": 8801,
+      "outputTokens": 4394,
+      "costUsd": 0.15385500000000002,
+      "elapsedMs": 58945,
+      "stopReason": "tool_use"
+    },
+    {
+      "attempt": 3,
+      "arm": "neutral",
+      "stage": "curriculum_writer",
+      "model": "claude-opus-5",
+      "status": "complete",
+      "inputTokens": 7979,
+      "outputTokens": 4888,
+      "costUsd": 0.162095,
+      "elapsedMs": 57837,
+      "stopReason": "tool_use"
+    },
+    {
+      "attempt": 4,
+      "arm": "personality",
+      "stage": "curriculum_writer",
+      "model": "claude-opus-5",
+      "status": "complete",
+      "inputTokens": 7999,
+      "outputTokens": 6022,
+      "costUsd": 0.190545,
+      "elapsedMs": 70462,
+      "stopReason": "tool_use"
+    }
+  ],
+  "candidateOrder": [
+    "neutral",
+    "historical",
+    "personality"
+  ],
+  "warning": "This evaluates generation quality and reliability, not actual child learning. Human scoring is required before an outcome label can be assigned."
+}

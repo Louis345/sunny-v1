@@ -1,0 +1,28 @@
+{
+  "scope": "Task 1 — complete-session evidence finalization",
+  "result": "PASS",
+  "paidCalls": 0,
+  "realChildDataChanged": false,
+  "invariants": {
+    "completionWithoutModalPlannerCalls": 0,
+    "ratingFinalizations": 1,
+    "ratingPlannerCalls": 1,
+    "skipInventedRating": false,
+    "duplicateConcurrentPlannerCalls": 0,
+    "crossProcessLeaseOwned": true,
+    "crossProcessCanonicalWritesSerialized": true,
+    "paidPlannerResultSurvivesWriteContention": true,
+    "staleOwnerCanCommit": false,
+    "delayedModalRepeatsPlanner": false,
+    "lockedNodeAbandonmentWrites": 0,
+    "providerFailurePacketPreserved": true,
+    "previewWrites": 0
+  },
+  "canonicalOrder": [
+    "academic observations recorded",
+    "cycle enters evaluating lifecycle",
+    "modal rating or Skip finalizes session packet",
+    "Planner receives complete packet",
+    "exactly one next-chapter decision begins"
+  ]
+}

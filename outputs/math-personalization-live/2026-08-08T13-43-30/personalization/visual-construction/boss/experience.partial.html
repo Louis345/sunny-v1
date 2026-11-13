@@ -1,0 +1,185 @@
+<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Nobody Splits the Last Crate</title>
+<script src="/games/_contract.js"></script>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#080d16;color:#e8eef7;font-family:"Trebuchet MS",system-ui,sans-serif;padding:8px}
+h1{font-size:22px;margin:2px 0;letter-spacing:1px;text-transform:uppercase;color:#ffcf7a;text-shadow:0 0 12px #7a4a00}
+.sub{margin:0 0 8px;font-size:13px;color:#8fa6c4}
+#wrap{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-start}
+#dock{flex:1 1 460px;min-width:320px;background:linear-gradient(#0e1728,#16233a);border:2px solid #2c4straw;border:2px solid #2c4160;border-radius:10px;padding:10px;position:relative}
+#radio{background:#111a2a;border-left:5px solid #ff9a3c;padding:8px;border-radius:6px}
+#ordNo{font-size:11px;color:#ff9a3c;letter-spacing:2px}
+#line{font-size:17px;font-weight:bold;margin:4px 0;line-height:1.25}
+#readBtn{background:#22314a;color:#cfe0f5;border:1px solid #3d5membrane;border:1px solid #3d5madd;border:1px solid #3d5a86;border-radius:6px;font-size:12px;padding:3px 8px;cursor:pointer}
+#tbar{height:6px;background:#1c283c;border-radius:3px;margin-top:6px;overflow:hidden}#tbar i{display:block;height:100%;width:100%;background:#ffcf7a;transition:width .2s linear}
+#bayArea{display:flex;gap:5px;align-items:flex-end;justify-content:center;min-height:180px;margin:10px 0;padding:6px 2px;background:repeating-linear-gradient(90deg,#0b1220,#0b1220 18px,#0d1526 18px,#0d1526 36px);border-radius:8px;overflow-x:auto}
+.bay{display:flex;flex-direction:column-reverse;align-items:center;min-width:22px}
+.stack{display:flex;flex-direction:column-reverse;gap:2px;padding:2px;border:2px dashed #6b7d99;border-bottom:4px solid #94a7c4;border-radius:3px;min-height:16px;min-width:20px}
+.stack.on{border-style:solid;border-color:#ffd47a;box-shadow:0 0 10px #a3760088}
+.stack.bad{border-color:#ff8a5c}
+.cr{width:16px;height:8px;background:linear-gradient(#c08a45,#8a5c26);border:1px solid #5d3a12;border-radius:1px}
+.cr.g{background:linear-gradient(#ffd98a,#c9962f)}.cr.r{background:linear-gradient(#ff9a7a,#b93a19)}
+.cap{font-size:11px;color:#9fb4d2;margin-top:3px}
+#leftover{text-align:center;font-size:14px;min-height:20px;font-weight:bold}
+#console{display:flex;gap:8px;align-items:center;justify-content:center;flex-wrap:wrap;background:#1a1206;border:2px solid #7a5a22;border-radius:8px;padding:8px}
+#dialBox{display:flex;align-items:center;gap:6px}
+#dialBox button{width:38px;height:38px;font-size:22px;border-radius:50%;border:2px solid #c99a4a;background:#3a2a10;color:#ffd98a;cursor:pointer}
+#dial{width:96px;height:64px;border-radius:8px;background:radial-gradient(#6b5220,#2a1f0a);border:3px solid #d0a martial;border:3px solid #d0a44e;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:ew-resize;touch-action:none}
+#dialV{font-size:28px;font-weight:bold;color:#ffe9b0}#dialLbl{font-size:9px;color:#d9be86;text-align:center}
+#shipBtn{background:linear-gradient(#2f7d4a,#17532f);border:2px solid #6de49a;color:#eaffef;font-size:16px;font-weight:bold;padding:12px 14px;border-radius:8px;cursor:pointer}
+#lever{width:86px;height:70px;background:linear-gradient(#a51f1f,#5c0d0d);border:3px solid #ff7a6a;border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:bold;font-size:13px;cursor:grab;touch-action:none;user-select:none;box-shadow:0 6px 0 #3a0808}
+#manifest{flex:0 0 210px;background:#f5efdf;color:#25201a;border-radius:8px;padding:8px;font-family:"Courier New",monospace;min-height:150px}
+#manifest h2{font-size:13px;margin:0 0 6px;letter-spacing:2px}
+#mlist{margin:0;padding-left:18px;font-size:12px}#mlist li{margin-bottom:4px}
+.gold{color:#8a6200;font-weight:bold}.silver{color:#4a5560;font-weight:bold}.red{color:#b3140f;font-weight:bold}.grey{color:#8a8a8a}
+#holes{margin-top:8px;font-weight:bold;color:#b3140f}
+#panel{position:fixed;inset:6% 4%;background:#0d1424f2;border:3px solid #ffcf7a;border-radius:12px;padding:14px;overflow:auto;z-index:9}
+#panel h3{margin:0 0 6px;color:#ffcf7a}
+.pbtn{background:#22314a;border:2px solid #7fb3ff;color:#eaf3ff;font-size:15px;padding:9px 14px;border-radius:8px;cursor:pointer;margin:6px 6px 0 0}
+input.num{width:78px;font-size:20px;padding:6px;border-radius:6px;border:2px solid #d0a44e;background:#1b2437;color:#ffe9b0;text-align:center}
+.hide{display:none}#paused{position:fixed;inset:0;background:#0008;z-index:20;display:flex;align-items:center;justify-content:center;font-size:20px}
+</style></head><body>
+<h1>Nobody Splits the Last Crate</h1>
+<p class="sub">Night shift on the river dock. Six orders roll in. Some of them cannot be loaded at all — and saying so is your job.</p>
+<div id="wrap">
+ <div id="dock">
+  <div id="radio"><span id="ordNo">ORDER 1 / 6</span><p id="line">…</p><button id="readBtn">🔊 Read it to me</button><div id="tbar"><i id="tfill"></i></div></div>
+  <div id="bayArea"></div>
+  <div id="leftover"></div>
+  <div id="console">
+   <div id="dialBox"><button id="dn">−</button><div id="dial"><span id="dialV">2</span><small id="dialLbl">crates per bay</small></div><button id="up">+</button></div>
+   <button id="shipBtn">⚓ SHIP IT</button>
+   <div id="lever"><span>▼ REFUSE ▼</span></div>
+  </div>
+ </div>
+ <div id="manifest"><h2>NIGHT MANIFEST</h2><ol id="mlist"></ol><div id="holes">HOLES: 0 / 3</div></div>
+</div>
+<div id="panel" class="hide"></div>
+<div id="paused" class="hide">Paused — Sunny is talking.</div>
+<div id="sunny-companion"></div>
+<script>
+(function(){
+var P=window.GAME_PARAMS||{};
+var LF="Synthesis of multiplicative inversion: from a known total, recover an unknown group count or an unknown group size when the word problem does not say which is missing, and identify totals that cannot be split equally into a demanded number of equal groups — justifying the impossibility rather than rounding, dropping, or forcing a remainder.";
+var MECH="A loading-dock crate press where the child drags crates into a fixed number of shipping bays or sets the bay count itself, and must slam a red REFUSE lever on any order whose total cannot fill every bay evenly.";
+function send(t,p){window.parent.postMessage({type:t,payload:p},"*")}
+var SETS=[[
+ {t:"o1",line:"72 crates arriving. Dock has 9 bays. Fill them even.",total:72,bays:9,mode:"perBay",ans:8,prev:2,time:95},
+ {t:"o2",line:"63 crates on the pallet. Seven bays open tonight. Level them off.",total:63,bays:7,mode:"perBay",ans:9,prev:2,time:85},
+ {t:"o3",line:"48 crates. Every bay takes exactly 8. Open what you need.",total:48,per:8,mode:"bays",ans:6,prev:2,time:75},
+ {t:"o4",line:"58 crates into 8 bays. Dispatcher says make it work.",total:58,bays:8,mode:"perBay",imp:1,nb:[56,64],prev:2,time:75},
+ {t:"o5",line:"84 crates. No bay may hold fewer than 9 crates. You pick the bay count.",total:84,mode:"bays",min:9,prev:1,time:85},
+ {t:"o6",line:"80 crates, 9 bays. Easy money, kid — 9s are your best table.",total:80,bays:9,mode:"perBay",imp:1,nb:[72,81],prev:0,time:50}
+],[
+ {t:"r1",line:"56 crates rolling in. Seven bays on the strip. Fill them even.",total:56,bays:7,mode:"perBay",ans:8,prev:2,time:95},
+ {t:"r2",line:"54 crates. Six bays are lit. Level them off.",total:54,bays:6,mode:"perBay",ans:9,prev:2,time:85},
+ {t:"r3",line:"56 crates. Every bay takes exactly 7. Open what you need.",total:56,per:7,mode:"bays",ans:8,prev:2,time:75},
+ {t:"r4",line:"75 crates into 8 bays. Dispatcher says squeeze it.",total:75,bays:8,mode:"perBay",imp:1,nb:[72,80],prev:2,time:75},
+ {t:"r5",line:"72 crates. No bay may hold fewer than 8 crates. You pick the bay count.",total:72,mode:"bays",min:8,prev:1,time:85},
+ {t:"r6",line:"60 crates, 7 bays. Round number, kid, you'll be home by five.",total:60,bays:7,mode:"perBay",imp:1,nb:[56,63],prev:0,time:50}
+]];
+var $=function(i){return document.getElementById(i)};
+var shift=0,orders,idx=0,cur=null,dial=2,lo=1,hi=12,holes=0,results=[],ledger=[],paused=false,readCount=0,t0=Date.now(),qStart=0,left=0,timer=null,live=false,done=false,sent=false,pendHole=null;
+function rec(target,correct,val,sc){results.push({target:target,correct:!!correct,attemptedValue:String(val),responseTimeMs:Date.now()-qStart,scaffoldLevel:sc});
+ if(window.fireAttemptEvent)window.fireAttemptEvent({domain:"math",target:target,correct:!!correct,attemptedValue:String(val),responseTimeMs:Date.now()-qStart,scaffoldLevel:sc});
+ if(window.fireCompanionEvent)window.fireCompanionEvent(correct?"correct_answer":"wrong_answer",{target:target});}
+function post(ra){if(!cur)return;send("game_state_update",{game:"generated-math",activityId:"boss",nodeId:"boss",phase:"question",activityTitle:"Nobody Splits the Last Crate",learningFocus:LF,mechanic:MECH,currentChallenge:{id:cur.t,prompt:cur.line,mode:cur.mode,readAloudRequested:!!ra,readAloudCount:readCount},availableActions:["turn the dial","ship it","refuse the order"],itemIndex:idx,totalItems:6,answerVisibility:"hidden"})}
+function beep(f,d,ty){try{var c=beep.c||(beep.c=new(window.AudioContext||window.webkitAudioContext)());var o=c.createOscillator(),g=c.createGain();o.type=ty||"square";o.frequency.value=f;g.gain.value=.08;o.connect(g);g.connect(c.destination);o.start();o.stop(c.currentTime+d)}catch(e){}}
+function mline(txt,cls){ledger.push({txt:txt,cls:cls});var li=document.createElement("li");li.className=cls;li.textContent=txt;$("mlist").appendChild(li);$("holes").textContent="HOLES: "+holes+" / 3"}
+function cells(){var o=cur,a=[];if(o.mode==="perBay"){for(var i=0;i<o.bays;i++)a.push(dial)}else{var b=dial,base=Math.floor(o.total/b),r=o.total%b;for(var j=0;j<b;j++)a.push(base+(j<r?1:0))}return a}
+function leftoverN(){return cur.mode==="perBay"?cur.total-cur.bays*dial:0}
+function draw(commit,badIdx){var a=cells(),area=$("bayArea");area.innerHTML="";var even=cur.mode==="perBay"?leftoverN()===0:(cur.total%dial===0);
+ for(var i=0;i<a.length;i++){var b=document.createElement("div");b.className="bay";var s=document.createElement("div");s.className="stack"+((cur.prev===2&&even&&!commit)||(commit&&even&&badIdx<0)?" on":"")+((commit&&badIdx===i)?" bad":"");
+  var n=Math.max(0,Math.min(a[i],30));for(var k=0;k<n;k++){var c=document.createElement("div");c.className="cr"+(commit&&even&&badIdx<0?" g":(commit&&badIdx===i?" r":""));s.appendChild(c)}
+  var cap=document.createElement("div");cap.className="cap";cap.textContent=a[i];b.appendChild(s);b.appendChild(cap);area.appendChild(b)}
+ var lv=leftoverN(),el=$("leftover");
+ if(commit){el.textContent=""}
+ else if(cur.prev===2){el.innerHTML=cur.mode==="perBay"?(lv>0?'<span style="color:#ffb347">'+lv+' crates still on the dock</span>':lv<0?'<span style="color:#ff7a5c">'+(-lv)+' crates too many — they will spill</span>':'<span style="color:#ffd98a">Every bay flush. Sealed hum.</span>'):(even?'<span style="color:#ffd98a">Every bay flush. Sealed hum.</span>':'<span style="color:#ffb347">Bays are not level.</span>')}
+ else if(cur.prev===1){el.innerHTML='<span style="color:#7f8fa6">Preview lamps are dim. Work it out first.</span>'}
+ else{el.innerHTML='<span style="color:#7f8fa6">Preview is dead on this one. No lamps, no help.</span>'}}
+function setDial(v){dial=Math.max(lo,Math.min(hi,v));$("dialV").textContent=dial;beep(220+dial*28,.05);draw(false,-1)}
+function startOrder(){if(idx>=orders.length){return finish()}cur=orders[idx];$("ordNo").textContent="ORDER "+(idx+1)+" / 6";$("line").textContent=cur.line;
+ if(cur.mode==="perBay"){lo=1;hi=Math.ceil(cur.total/cur.bays)+4;$("dialLbl").textContent="crates per bay";}else{lo=2;hi=14;$("dialLbl").textContent="bays to open";}
+ dial=lo;setDial(lo);qStart=Date.now();left=cur.time;live=true;$("panel").className="hide";post(false);
+ if(timer)clearInterval(timer);timer=setInterval(function(){if(paused||!live)return;left-=.1;$("tfill").style.width=Math.max(0,left/cur.time*100)+"%";if(left<=0){live=false;clearInterval(timer);timeout()}},100)}
+function timeout(){rec(cur.t+".timeout",false,"no action",cur.prev);holes++;mline("#"+(idx+1)+" NEVER TOUCHED — barge sailed empty. HOLE.","red");panel("<h3>The barge did not wait.</h3><p>You hesitated and the order rolled past you. That is a hole in the manifest.</p>",null)}
+function verdictNext(){$("panel").className="hide";idx++;send("progress_event",{payload:0,nodeId:"boss",completedItems:idx,totalItems:6});send("progress_event",{nodeId:"boss",completedItems:idx,totalItems:6});if(holes>=3&&idx<orders.length)return pulled();startOrder()}
+function panel(html,extra){var p=$("panel");p.className="";p.innerHTML=html+'<div id="px"></div>';if(extra)extra($("px"));var b=document.createElement("button");b.className="pbtn";b.id="contBtn";b.textContent=idx>=orders.length-1?"END OF SHIFT ▶":"SEND IT DOWN THE LINE ▶";b.onclick=verdictNext;$("px").appendChild(b)}
+function patchSlip(box,o){var d=document.createElement("div");d.innerHTML='<p><b>PATCH SLIP.</b> It will not un-tear the hole. Log the number that would have worked and the dock lights come back up.</p>';
+ var inp=document.createElement("input");inp.className="num";inp.type="number";inp.id="patchIn";var bt=document.createElement("button");bt.className="pbtn";bt.id="patchBtn";bt.textContent="LOG IT";
+ bt.onclick=function(){var v=parseInt(inp.value,10);var ok=o.imp?false:chk(v,o);if(o.imp){ok=(v===o.nb[0]||v===o.nb[1])}
+  rec(o.t+".patch",ok,inp.value||"blank",1);d.innerHTML+='<p class="'+(ok?"gold":"grey")+'" style="background:#fff;padding:4px;border-radius:4px">'+(ok?"Logged. Hole marked UNDERSTOOD.":"Logged, but that still does not fill the bays.")+"</p>";bt.disabled=true;inp.disabled=true;if(ok){var li=$("mlist").lastChild;if(li){li.className="grey";li.textContent=li.textContent.replace("HOLE","HOLE (understood)")}}};
+ d.appendChild(inp);d.appendChild(bt);box.appendChild(d)}
+function chk(v,o){if(o.imp)return false;if(o.mode==="perBay")return v===o.ans;if(o.min)return o.total%v===0&&o.total/v>=o.min&&v>=2;return v===o.ans}
+function ship(){if(!live||paused)return;live=false;clearInterval(timer);var o=cur,v=dial,ok=chk(v,o);
+ var a=cells(),bad=-1;if(!ok){if(o.mode==="perBay"){bad=a.length-1}else{var mx=Math.max.apply(null,a),mn=Math.min.apply(null,a);if(mx!==mn){for(var i=0;i<a.length;i++)if(a[i]===mn)bad=i}else bad=0}}
+ draw(true,bad);rec(o.t,ok,(o.mode==="perBay"?v+" crates per bay":v+" bays"),o.prev);
+ if(ok){beep(660,.15,"triangle");setTimeout(function(){beep(880,.2,"triangle")},160);
+  var b=o.mode==="perBay"?o.bays:v,per=o.mode==="perBay"?v:o.total/v;
+  mline("#"+(idx+1)+" SEALED — "+b+" bays × "+per+" = "+o.total,"gold");
+  panel("<h3>Clean seal.</h3><p>"+b+" bays of "+per+" is "+o.total+". Doors sealed, barge rides lower. Dispatcher: “Didn’t expect that.”</p>",null)}
+ else{beep(90,.6,"sawtooth");holes++;var msg;
+  if(o.imp){var b2=o.bays,n=o.nb;msg="<p>Radio goes silent. Then, flat: “"+b2+" bays of "+(n[0]/b2)+" is "+n[0]+". "+b2+" bays of "+(n[1]/b2)+" is "+n[1]+". You sent "+o.total+".” Crates spilled into the river.</p>";mline("#"+(idx+1)+" FORCED A SPLIT THAT DOESN'T EXIST — HOLE","red")}
+  else if(o.mode==="perBay"){var lv=o.total-o.bays*v;msg="<p>"+o.bays+" bays of "+v+" is "+(o.bays*v)+", not "+o.total+". "+(lv>0?lv+" crates left stranded — one door won't seal.":(-lv)+" crates too many — they went over the edge.")+"</p>";mline("#"+(idx+1)+" SHORT BAY — HOLE","red")}
+  else{msg="<p>"+o.total+" into "+v+" bays does not come out level"+(o.min?", or a bay holds fewer than "+o.min+".":".")+" One bay sailed light.</p>";mline("#"+(idx+1)+" UNEVEN LOAD — HOLE","red")}
+  panel("<h3>The horn blows long and low.</h3>"+msg,function(box){patchSlip(box,o)})}}
+function refuse(){if(!live||paused)return;live=false;clearInterval(timer);var o=cur;beep(70,.35,"sawtooth");setTimeout(function(){beep(140,.3,"square")},200);
+ if(o.imp){rec(o.t,true,"REFUSED",o.prev);
+  panel("<h3>KA-CHUNK. Order thrown back up the ramp.</h3><p>Now prove it. Chalk the two nearest totals that WOULD have filled "+o.bays+" bays dead even.</p>",function(box){
+   var i1=document.createElement("input");i1.className="num";i1.type="number";i1.id="nb1";var i2=document.createElement("input");i2.className="num";i2.type="number";i2.id="nb2";
+   var bt=document.createElement("button");bt.className="pbtn";bt.id="nbBtn";bt.textContent="CHALK IT";
+   bt.onclick=function(){var a=parseInt(i1.value,10),b=parseInt(i2.value,10),ok=(a===o.nb[0]&&b===o.nb[1])||(a===o.nb[1]&&b===o.nb[0]);
+    rec(o.t+".proof",ok,i1.value+" & "+i2.value,0);bt.disabled=true;i1.disabled=true;i2.disabled=true;
+    if(ok){mline("#"+(idx+1)+" REFUSED & PROVED — "+o.nb[0]+" and "+o.nb[1]+" fit "+o.bays+" bays","silver");
+     box.innerHTML+='<p class="gold" style="background:#fff;padding:6px;border-radius:4px">Ledger balances. '+o.nb[0]+" ÷ "+o.bays+" = "+(o.nb[0]/o.bays)+", "+o.nb[1]+" ÷ "+o.bays+" = "+(o.nb[1]/o.bays)+'. Silver stamp.</p>'}
+    else{mline("#"+(idx+1)+" REFUSED (right call, proof missed)","silver");box.innerHTML+='<p class="grey" style="background:#fff;padding:6px;border-radius:4px">Right to refuse. The chalk numbers don\'t divide by '+o.bays+' though — no hole, but no silver stamp.</p>'}};
+   box.appendChild(i1);box.appendChild(i2);box.appendChild(bt)})}
+ else{holes++;rec(o.t,false,"REFUSED",o.prev);var b=o.mode==="perBay"?o.bays:o.ans,per=o.mode==="perBay"?o.ans:o.per||(o.total/o.ans);
+  mline("#"+(idx+1)+" REFUSED A GOOD ORDER — empty barge. HOLE","red");
+  panel("<h3>The barge leaves empty.</h3><p>That one was shippable: "+b+" bays of "+per+" is "+o.total+". Refusing is not a hiding place — that's a hole.</p>",function(box){patchSlip(box,o)})}}
+function pulled(){live=false;if(timer)clearInterval(timer);var missed=orders.slice(idx);var h="<h3>The dispatcher's hand comes into frame. Belt stops.</h3><p>Three holes. You're off the dock mid-shift. These orders sail without you:</p><ul>";
+ missed.forEach(function(m,i){h+="<li class='grey'>ORDER "+(idx+i+1)+": "+m.line+"</li>";mline("#"+(idx+i+1)+" NEVER SEEN — pulled off the dock","grey")});
+ h+="</ul>";var p=$("panel");p.className="";p.innerHTML=h+'<button class="pbtn" id="contBtn">SEE THE DAWN MANIFEST ▶</button>';$("contBtn").onclick=finish}
+function finish(){live=false;if(timer)clearInterval(timer);done=true;
+ var corr=results.filter(function(r){return r.correct}).length,acc=results.length?corr/results.length:0;
+ var perfect=holes===0&&idx>=orders.length&&results.every(function(r){return r.correct});
+ var h="<h3>DAWN. The manifest unrolls.</h3><ol style='background:#f5efdf;color:#25201a;padding:10px 26px;border-radius:6px;font-family:monospace'>";
+ ledger.forEach(function(l){h+="<li class='"+l.cls+"'>"+l.txt+"</li>"});h+="</ol><p>Holes in the night: <b>"+holes+"</b>.</p>";
+ if(perfect)h+="<p class='gold' style='font-size:18px'>🗝️ THE DOCKMASTER'S KEY. Six orders, two refusals proved, no holes. It hangs on your console now.</p>";
+ h+="<p>Foreman leans on the rail: “Take tomorrow's shift?”</p>";
+ var p=$("panel");p.className="";p.innerHTML=h+'<button class="pbtn" id="againBtn">YES — NEW ORDERS TONIGHT</button><button class="pbtn" id="doneBtn">NO — CLOCK OUT</button>';
+ $("againBtn").onclick=function(){shift=1-shift;idx=0;holes=0;ledger=[];$("mlist").innerHTML="";$("holes").textContent="HOLES: 0 / 3";orders=SETS[shift];startOrder()};
+ $("doneBtn").onclick=function(){p.innerHTML="<h3>Clocked out.</h3><p>The seagulls landed only on the sealed bays.</p>"};
+ if(window.fireCompanionEvent)window.fireCompanionEvent("game_complete",{});
+ send("progress_event",{nodeId:"boss",completedItems:Math.min(idx,6),totalItems:6});
+ if(!sent){sent=true;if(window.sendNodeComplete)window.sendNodeComplete({nodeId:(P.nodeId||"boss"),completed:true,accuracy:acc,targetResults:results,timeSpent_ms:Date.now()-t0})}}
+$("up").onclick=function(){setDial(dial+1)};$("dn").onclick=function(){setDial(dial-1)};
+var dx0=0,dv0=0,drag=false;
+$("dial").addEventListener("pointerdown",function(e){drag=true;dx0=e.clientX;dv0=dial;e.target.setPointerCapture&&e.target.setPointerCapture(e.pointerId)});
+$("dial").addEventListener("pointermove",function(e){if(!drag||paused)return;var d=Math.round((e.clientX-dx0)/16);if(dv0+d!==dial)setDial(dv0+d)});
+window.addEventListener("pointerup",function(){drag=false});
+$("shipBtn").onclick=ship;
+var ly=0,ldrag=false,moved=0;
+$("lever").addEventListener("pointerdown",function(e){ldrag=true;ly=e.clientY;moved=0});
+$("lever").addEventListener("pointermove",function(e){if(!ldrag)return;moved=Math.max(0,e.clientY-ly);$("lever").style.transform="translateY("+Math.min(moved,26)+"px)"});
+window.addEventListener("pointerup",function(){if(!ldrag)return;ldrag=false;$("lever").style.transform="";if(moved>=18)refuse()});
+$("lever").addEventListener("click",function(){if(moved<18)refuse()});
+$("readBtn").onclick=function(){readCount++;post(true)};
+window.addEventListener("message",function(e){var d=e.data||{};if(d.type==="sunny_companion_presence"){var q=d.payload||{};var on=(q.summoned===true||q.visible===true||q.expanded===true||q.state==="summoned"||q.state==="open");paused=!!on;$("paused").className=paused?"":"hide"}});
+orders=SETS[0];startOrder();
+send("activity_ready",{nodeId:"boss"});
+send("progress_event",{nodeId:"boss",completedItems:0,totalItems:6});
+function wait(ms){return new Promise(function(r){setTimeout(r,ms)})}
+window.SUNNY_VALIDATION_HOOKS={playthrough:async function(){
+ var plan=[[8,"ship"],[7,"ship"],[6,"ship"],[0,"refuse"],[7,"ship"],[0,"refuse"]];
+ for(var i=0;i<6;i++){await wait(120);if(done)break;var step=plan[i];
+  if(step[1]==="ship"){setDial(step[0]);$("shipBtn").onclick()}else{refuse()}
+  await wait(150);
+  if($("nbBtn")){var o=orders[idx];$("nb1").value=o.nb[0];$("nb2").value=o.nb[1];$("nbBtn").onclick()}
+  if($("patchIn")){var oo=orders[idx];$("patchIn").value=oo.imp?oo.nb[0]:(oo.mode==="perBay"?oo.ans:oo.ans||7);$("patchBtn").onclick()}
+  await wait(120);if($("contBtn"))$("contBtn").onclick()}
+ await wait(200);if(!done&&$("contBtn"))$("contBtn").onclick();
+ await wait(200);if(!done)finish();return{ok:true,items:results.length}}};
+})();
+</script>
+</body></html>

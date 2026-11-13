@@ -1,0 +1,880 @@
+# Lantern Festival: The Night You Light
+
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=1365, initial-scale=1">
+<meta name="sunny-upstream-hash" content="cc53e27067e7bc8a665907e6eb59b11ca421d10dad73430b8c4678caf2d6da08">
+<title>Lantern Festival: The Night You Light</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+  html,body{height:100%;background:#05040d;overflow:hidden;font-family:"Trebuchet MS","Segoe UI",system-ui,sans-serif}
+  #fit{position:fixed;inset:0;display:grid;place-items:center}
+  #stage{
+    position:relative;width:1365px;height:768px;overflow:hidden;
+    --b1:#160f36;--b2:#2a1447;--b3:#0b0820;
+    --gold:#ffcf6b;--amber:#e0913f;--teal:#57d4c8;--ink:#f6ecd8;--dark:#0a0718;
+    background:radial-gradient(120% 90% at 50% 105%,var(--b2) 0%,var(--b1) 45%,var(--b3) 100%);
+    color:var(--ink);user-select:none;border-radius:6px
+  }
+  #stage[data-pal="1"]{--b1:#0a2233;--b2:#0e3b4a;--b3:#04121c;--gold:#ffe08a;--amber:#d9a04a;--teal:#7fe6ff}
+  #stage[data-pal="2"]{--b1:#241a3d;--b2:#3d2c5c;--b3:#100a1e;--gold:#fff0c4;--amber:#e0a86a;--teal:#bfe9ff}
+  canvas{position:absolute;left:0;top:0;width:1365px;height:768px}
+  #bg{z-index:0}
+  #fx{z-index:60;pointer-events:none}
+  .layer{position:absolute;z-index:10}
+
+  /* ---------- canopy ---------- */
+  #canopy{left:0;top:0;width:1365px;height:132px}
+  #canopy svg{width:1365px;height:132px;display:block}
+  .arcpath{fill:none;stroke:#241f4a;stroke-width:7;stroke-linecap:round;transition:stroke .6s ease}
+  .arcpath.gold{stroke:var(--gold);filter:drop-shadow(0 0 10px rgba(255,207,107,.85))}
+  .arcpath.amber{stroke:var(--amber);filter:drop-shadow(0 0 9px rgba(224,145,63,.7))}
+  .arcbulb{fill:#1c1840;transition:fill .6s ease,filter .6s ease}
+  .arcbulb.gold{fill:var(--gold);filter:drop-shadow(0 0 8px rgba(255,207,107,.9))}
+  .arcbulb.amber{fill:var(--amber);filter:drop-shadow(0 0 7px rgba(224,145,63,.8))}
+  .arcnum{fill:#7d76b5;font-size:13px;font-weight:bold;text-anchor:middle}
+  .arcnum.on{fill:var(--ink)}
+  #canopyLabel{position:absolute;left:18px;top:8px;font-size:13px;letter-spacing:.14em;color:#8d86c4}
+  #palLabel{position:absolute;right:18px;top:8px;font-size:13px;letter-spacing:.1em;color:#8d86c4}
+
+  /* ---------- text band ---------- */
+  #beatTag{left:24px;top:136px;font-size:15px;color:var(--teal);letter-spacing:.06em;font-weight:bold}
+  #stageTag{right:24px;top:136px;font-size:13px;color:#8d86c4}
+  #story{left:190px;top:158px;width:985px;text-align:center;font-size:17px;line-height:1.35;color:#cfc6ef}
+  #question{left:190px;top:184px;width:985px;text-align:center;font-size:25px;font-weight:bold;color:var(--ink);text-shadow:0 2px 10px rgba(0,0,0,.6)}
+
+  /* ---------- scene ---------- */
+  #scene{left:190px;top:216px;width:985px;height:220px;border-radius:16px;
+    background:linear-gradient(180deg,rgba(255,255,255,.035),rgba(0,0,0,.18));
+    border:1px solid rgba(255,255,255,.07);overflow:hidden}
+  .gwrap{position:absolute;inset:0;display:flex;flex-wrap:wrap;align-content:center;justify-content:center;gap:10px;padding:10px}
+  .gcard{border:1px solid rgba(255,255,255,.14);border-radius:12px;padding:6px 8px 8px;background:rgba(255,255,255,.05);
+    display:flex;flex-direction:column;align-items:center;gap:4px;min-width:58px;transition:.25s}
+  .gcard.ghost{border-style:dashed;background:rgba(255,255,255,.02)}
+  .gcard.bin{border-color:rgba(255,207,107,.5);background:rgba(255,207,107,.07)}
+  .glab{font-size:11px;color:#b9b0e0;letter-spacing:.04em;white-space:nowrap}
+  .gitems{display:flex;flex-wrap:wrap;justify-content:center;gap:2px;max-width:190px}
+  .it{line-height:1;filter:drop-shadow(0 0 5px rgba(255,190,110,.35))}
+  .it.spill{color:#ff6a5c;transform:rotate(18deg);opacity:.85;filter:drop-shadow(0 0 6px rgba(255,80,60,.8))}
+  .it.dim{opacity:.22;filter:none}
+  .qmark{font-size:34px;font-weight:bold;color:var(--gold);text-shadow:0 0 14px rgba(255,207,107,.8);animation:breathe 2s infinite}
+  @keyframes breathe{0%,100%{opacity:.55;transform:scale(.94)}50%{opacity:1;transform:scale(1.06)}}
+  .pulseper .gitems{animation:pop .55s 2}
+  .pulsegroup .glab{color:var(--gold);animation:pop .55s 2}
+  @keyframes pop{0%,100%{transform:scale(1)}50%{transform:scale(1.16)}}
+  .boardrow{display:flex;gap:6px;justify-content:center;margin:3px 0}
+
+  /* tags (beat 1) */
+  .tag{position:absolute;background:rgba(20,14,44,.92);border:2px solid rgba(255,207,107,.55);border-radius:14px;
+    padding:7px 12px;font-size:15px;color:var(--ink);cursor:pointer;transition:.18s;box-shadow:0 0 16px rgba(255,207,107,.18)}
+  .tag b{font-size:21px;color:var(--gold);margin-right:6px}
+  .tag:hover{transform:translateY(-3px) scale(1.04);border-color:var(--gold)}
+  .tag.off{pointer-events:none;opacity:.5}
+  .tag.point{animation:pointto .8s infinite;border-color:var(--teal)}
+  @keyframes pointto{0%,100%{transform:translateY(0)}50%{transform:translateY(-7px)}}
+
+  #readout{left:190px;top:442px;width:985px;text-align:center;font-size:16px;color:#d7cdf3;height:22px}
+  #readout .ok{color:#8ef2a5;font-weight:bold}
+  #readout .bad{color:#ff8b7c;font-weight:bold}
+
+  /* ---------- frame ---------- */
+  #frame{left:190px;top:468px;width:985px;height:104px;display:flex;gap:14px}
+  .slot{flex:1;position:relative;border:2px solid rgba(255,255,255,.15);background:linear-gradient(180deg,rgba(255,255,255,.05),rgba(0,0,0,.25));
+    border-radius:12px;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:default;transition:.2s}
+  .slot .sk{font-size:12px;letter-spacing:.16em;color:#a79ddd}
+  .slot .sn{font-size:12px;color:#7d76b5;margin-top:1px}
+  .slot .sv{font-size:34px;font-weight:bold;color:var(--ink);line-height:1.05;margin-top:2px;min-height:38px}
+  .slot .ic{position:absolute;left:10px;top:8px;font-size:17px;opacity:.75}
+  .slot.pick{cursor:pointer;border-color:rgba(255,207,107,.45)}
+  .slot.pick:hover{transform:translateY(-3px);border-color:var(--gold);box-shadow:0 0 22px rgba(255,207,107,.3)}
+  .slot.hole{border-style:dashed;border-color:rgba(255,207,107,.6);background:rgba(0,0,0,.45);animation:breathe 2s infinite}
+  .slot.hole .sv{color:var(--gold)}
+  .slot.named{border-color:var(--gold);box-shadow:0 0 24px rgba(255,207,107,.35) inset}
+  .slot.shake{animation:shk .4s}
+  @keyframes shk{0%,100%{transform:translateX(0)}25%{transform:translateX(-9px)}75%{transform:translateX(9px)}}
+  .slot .flash{position:absolute;bottom:5px;font-size:12px;color:var(--gold);opacity:0}
+  .slot.saying .flash{opacity:1;animation:fadeup 2.2s}
+  @keyframes fadeup{0%{opacity:0}15%{opacity:1}80%{opacity:1}100%{opacity:0}}
+  #frame[data-drag="1"] .slot.pick{border-color:var(--gold);box-shadow:0 0 18px rgba(255,207,107,.25)}
+
+  /* ---------- controls ---------- */
+  #controls{left:190px;top:584px;width:985px;height:150px;display:flex;gap:16px;align-items:stretch}
+  .pane{flex:1;border-radius:14px;border:1px solid rgba(255,255,255,.09);background:rgba(255,255,255,.04);padding:12px;position:relative}
+  .paneTitle{font-size:13px;letter-spacing:.1em;color:#a79ddd;margin-bottom:8px}
+  #ql{width:66px;height:78px;border-radius:12px 12px 18px 18px;background:radial-gradient(circle at 50% 35%,#fff2c8,#ffb43c 60%,#c96a12);
+    display:flex;align-items:center;justify-content:center;font-size:33px;font-weight:bold;color:#4a2400;
+    box-shadow:0 0 26px rgba(255,180,60,.7);cursor:grab;touch-action:none;position:relative;z-index:40}
+  #ql.carry{cursor:grabbing;position:fixed;z-index:80;pointer-events:none;transform:translate(-33px,-40px)}
+  .namerow{display:flex;align-items:center;gap:14px}
+  .namehint{font-size:15px;color:#d7cdf3;line-height:1.35}
+  .dialwrap{display:flex;flex-direction:column;gap:8px}
+  .drow{display:flex;align-items:center;gap:12px}
+  .dbtn{width:48px;height:48px;border-radius:12px;border:2px solid rgba(255,255,255,.2);background:rgba(255,255,255,.07);
+    color:var(--ink);font-size:26px;cursor:pointer}
+  .dbtn:hover{background:rgba(255,207,107,.2);border-color:var(--gold)}
+  input[type=range]{-webkit-appearance:none;flex:1;height:14px;border-radius:9px;background:linear-gradient(90deg,#3a2f6b,#5b4aa0);outline:none}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:34px;height:34px;border-radius:50%;
+    background:radial-gradient(circle at 40% 35%,#fff3cc,#ffb43c);border:2px solid #7a4a09;cursor:pointer;box-shadow:0 0 14px rgba(255,180,60,.8)}
+  input[type=range]::-moz-range-thumb{width:32px;height:32px;border-radius:50%;background:#ffb43c;border:2px solid #7a4a09;cursor:pointer}
+  .dval{min-width:74px;text-align:center;font-size:34px;font-weight:bold;color:var(--gold)}
+  .btn{border:2px solid var(--gold);border-radius:12px;background:linear-gradient(180deg,rgba(255,207,107,.28),rgba(255,207,107,.1));
+    color:var(--ink);font-size:18px;font-weight:bold;padding:10px 18px;cursor:pointer;transition:.15s}
+  .btn:hover{background:rgba(255,207,107,.42);transform:translateY(-2px)}
+  .btn.sm{font-size:15px;padding:7px 13px}
+  .btn[disabled]{opacity:.35;cursor:not-allowed;transform:none}
+  #dialLock{position:absolute;inset:0;border-radius:14px;background:rgba(8,6,20,.82);display:flex;align-items:center;justify-content:center;
+    text-align:center;font-size:15px;color:#c9bff0;padding:16px;cursor:pointer;z-index:5}
+  #dialLock.shake{animation:shk .4s}
+  .chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:6px}
+  .chip{border:2px solid var(--gold);border-radius:20px;padding:5px 12px;font-size:16px;background:rgba(255,207,107,.14)}
+  .chan{display:flex;gap:10px;align-items:center;margin-top:6px;font-size:13px;color:#b9b0e0}
+  .led{width:16px;height:16px;border-radius:50%;background:#241f4a;border:1px solid rgba(255,255,255,.2)}
+  .led.on{background:var(--gold);box-shadow:0 0 12px var(--gold)}
+  .led.dead{animation:blink 1s infinite}
+  @keyframes blink{0%,100%{opacity:1}50%{opacity:.25}}
+  .opt{display:block;width:100%;text-align:left;margin-top:8px}
+
+  /* ---------- npcs ---------- */
+  .npc{width:150px;height:180px;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;transition:.8s}
+  #npcL{left:16px;top:250px}
+  #npcR{left:1200px;top:250px}
+  .npcface{font-size:52px;filter:drop-shadow(0 0 12px rgba(255,190,110,.4))}
+  .npcname{font-size:12px;color:#8d86c4;margin-top:4px}
+  .npc.back{opacity:.35;transform:scale(.8) translateY(26px)}
+  #say{left:8px;top:150px;width:270px;background:rgba(12,9,28,.95);border:2px solid var(--teal);border-radius:14px;
+    padding:11px 13px;font-size:15px;line-height:1.35;color:#e9e2ff;opacity:0;transition:.3s;z-index:50}
+  #say.on{opacity:1}
+  #ask{left:1150px;top:640px;z-index:40}
+  #askNote{left:1120px;top:700px;width:230px;font-size:12px;color:#8d86c4;text-align:center}
+
+  /* ---------- overlay ---------- */
+  #overlay{position:absolute;inset:0;z-index:70;display:none;align-items:center;justify-content:center;
+    background:radial-gradient(80% 80% at 50% 50%,rgba(10,7,24,.82),rgba(5,4,13,.96))}
+  #overlay.on{display:flex}
+  .card{max-width:1000px;text-align:center;padding:26px 34px}
+  .big{font-size:42px;font-weight:bold;color:var(--gold);text-shadow:0 0 26px rgba(255,207,107,.5)}
+  .mid{font-size:22px;margin-top:14px;line-height:1.45;color:#e9e2ff}
+  .small{font-size:15px;color:#b9b0e0;margin-top:12px;line-height:1.5}
+  .maprow{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-top:16px}
+  .mapitem{border:1px solid rgba(255,255,255,.16);border-radius:10px;padding:7px 12px;font-size:14px;background:rgba(255,255,255,.05)}
+  .mapitem .d{width:11px;height:11px;border-radius:50%;display:inline-block;margin-right:7px;vertical-align:middle}
+  pre#crew{display:none;text-align:left;max-height:250px;overflow:auto;background:rgba(0,0,0,.55);border:1px solid rgba(255,255,255,.15);
+    border-radius:10px;padding:12px;font-size:11px;line-height:1.35;color:#bfe9ff;margin-top:14px;white-space:pre-wrap}
+  .toast{position:absolute;left:50%;top:96px;transform:translateX(-50%);z-index:65;background:rgba(12,9,28,.94);
+    border:2px solid var(--gold);border-radius:14px;padding:9px 20px;font-size:19px;font-weight:bold;color:var(--gold);opacity:0;transition:.3s}
+  .toast.on{opacity:1}
+</style>
+</head>
+<body>
+<div id="fit">
+<div id="stage" data-pal="0">
+  <canvas id="bg" width="1365" height="768"></canvas>
+
+  <div class="layer" id="canopy">
+    <svg id="canopySvg" viewBox="0 0 1365 132"></svg>
+    <div id="canopyLabel">TONIGHT'S CANOPY</div>
+    <div id="palLabel">DUSK</div>
+  </div>
+
+  <div class="layer" id="beatTag"></div>
+  <div class="layer" id="stageTag"></div>
+  <div class="layer" id="story"></div>
+  <div class="layer" id="question"></div>
+  <div class="layer" id="scene"></div>
+  <div class="layer" id="readout"></div>
+
+  <div class="layer" id="frame">
+    <div class="slot" data-slot="groups"><div class="ic">▦</div><div class="sk">GROUPS</div><div class="sn"></div><div class="sv">—</div><div class="flash"></div></div>
+    <div class="slot" data-slot="size"><div class="ic">🤲</div><div class="sk">SIZE OF EACH GROUP</div><div class="sn"></div><div class="sv">—</div><div class="flash"></div></div>
+    <div class="slot" data-slot="total"><div class="ic">🪣</div><div class="sk">TOTAL</div><div class="sn"></div><div class="sv">—</div><div class="flash"></div></div>
+  </div>
+
+  <div class="layer" id="controls"></div>
+
+  <div class="layer npc" id="npcL"><div class="npcface">🧑‍🔧</div><div class="npcname">Mira · rigging crew</div></div>
+  <div class="layer npc" id="npcR"><div class="npcface">👩‍🎤</div><div class="npcname">Bo · booth crew</div></div>
+  <div class="layer" id="say"></div>
+
+  <button class="btn layer" id="ask">🙋 Ask a helper</button>
+  <div class="layer" id="askNote"></div>
+
+  <div class="toast" id="toast"></div>
+  <canvas id="fx" width="1365" height="768"></canvas>
+
+  <div id="overlay"><div class="card" id="ovcard"></div></div>
+</div>
+</div>
+
+<script>
+"use strict";
+/* ============================================================
+   Lantern Festival: The Night You Light
+   Packet pkt-LAB-MATH-C-unknown-position-v1  (items lmc-c-01..07)
+   Design exp-arch-LAB-MATH-C-lantern-festival-v1-juniper
+   ============================================================ */
+
+/* ---------------- fit ---------------- */
+const stage=document.getElementById('stage');
+function fit(){const s=Math.min(innerWidth/1365,innerHeight/768);stage.style.transform='scale('+s+')';stage.dataset.scale=s;}
+addEventListener('resize',fit);fit();
+const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
+
+/* ---------------- canvas fx ---------------- */
+const bg=$('#bg'),bx=bg.getContext('2d'),fx=$('#fx'),fc=fx.getContext('2d');
+let parts=[],rings=[],sky=null,bgL=[];
+for(let i=0;i<16;i++)bgL.push({x:Math.random()*1365,y:Math.random()*820,s:.12+Math.random()*.35,r:5+Math.random()*9,ph:Math.random()*6});
+function lantern(ctx,x,y,r,col,a){
+  ctx.save();ctx.globalAlpha=a;
+  ctx.shadowColor=col;ctx.shadowBlur=r*2.2;ctx.fillStyle=col;
+  ctx.beginPath();ctx.ellipse(x,y,r*.8,r,0,0,7);ctx.fill();
+  ctx.shadowBlur=0;ctx.fillStyle='rgba(80,40,0,.55)';
+  ctx.fillRect(x-r*.4,y-r*1.05,r*.8,r*.16);ctx.fillRect(x-r*.35,y+r*.9,r*.7,r*.16);
+  ctx.restore();
+}
+function ring(x,y,col){rings.push({x,y,r:8,max:340,col});}
+function rain(n,ch,x0,x1){for(let i=0;i<n;i++)parts.push({x:x0+Math.random()*(x1-x0),y:180+Math.random()*40,vx:(Math.random()-.5)*3,vy:1+Math.random()*3,ch,sz:16+Math.random()*10,rot:Math.random()*6,vr:(Math.random()-.5)*.3,life:1});}
+function tick(t){
+  bx.clearRect(0,0,1365,768);
+  for(const l of bgL){l.y-=l.s;if(l.y<-40)l.y=810;lantern(bx,l.x+Math.sin(t/1400+l.ph)*11,l.y,l.r,'#ffb84d',.22);}
+  fc.clearRect(0,0,1365,768);
+  rings=rings.filter(r=>{r.r+=13;const a=1-r.r/r.max;if(a<=0)return false;
+    fc.save();fc.globalAlpha=a*.7;fc.strokeStyle=r.col;fc.lineWidth=5;fc.shadowColor=r.col;fc.shadowBlur=22;
+    fc.beginPath();fc.arc(r.x,r.y,r.r,0,7);fc.stroke();fc.restore();return true;});
+  parts=parts.filter(p=>{p.vy+=.35;p.x+=p.vx;p.y+=p.vy;p.rot+=p.vr;p.life-=.008;
+    if(p.y>800||p.life<=0)return false;
+    fc.save();fc.globalAlpha=Math.max(0,p.life);fc.translate(p.x,p.y);fc.rotate(p.rot);
+    fc.font=p.sz+'px serif';fc.textAlign='center';fc.fillText(p.ch,0,0);fc.restore();return true;});
+  if(sky){for(const l of sky){l.x+=(l.tx-l.x)*.035;l.y+=(l.ty-l.y)*.035;
+      lantern(fc,l.x+Math.sin(t/900+l.ph)*4,l.y,l.r,l.gold?'#ffd27a':'#e2913f',.95);}}
+  requestAnimationFrame(tick);
+}
+requestAnimationFrame(tick);
+
+/* ---------------- canopy ---------------- */
+const svg=$('#canopySvg');
+function buildCanopy(){
+  svg.innerHTML='';
+  for(let i=0;i<7;i++){
+    const x0=30+i*192, x1=x0+172, cx=(x0+x1)/2;
+    const p=document.createElementNS('http://www.w3.org/2000/svg','path');
+    p.setAttribute('d',`M ${x0} 108 Q ${cx} 22 ${x1} 108`);p.setAttribute('class','arcpath');p.id='arc'+i;svg.appendChild(p);
+    for(let k=1;k<=4;k++){const tt=k/5;
+      const bxp=(1-tt)*(1-tt)*x0+2*(1-tt)*tt*cx+tt*tt*x1, byp=(1-tt)*(1-tt)*108+2*(1-tt)*tt*22+tt*tt*108;
+      const c=document.createElementNS('http://www.w3.org/2000/svg','circle');
+      c.setAttribute('cx',bxp);c.setAttribute('cy',byp+7);c.setAttribute('r',5.5);
+      c.setAttribute('class','arcbulb');c.dataset.arc=i;svg.appendChild(c);}
+    const tx=document.createElementNS('http://www.w3.org/2000/svg','text');
+    tx.setAttribute('x',cx);tx.setAttribute('y',126);tx.setAttribute('class','arcnum');tx.id='arcn'+i;tx.textContent=i+1;svg.appendChild(tx);
+  }
+}
+function lightArc(i,kind){
+  $('#arc'+i).classList.add(kind);
+  $$('.arcbulb').filter(c=>+c.dataset.arc===i).forEach((c,k)=>setTimeout(()=>c.classList.add(kind),k*110));
+  $('#arcn'+i).classList.add('on');
+}
+buildCanopy();
+
+/* ---------------- session record ---------------- */
+const S={beat:-1,t:0,records:[],rec:null,pal:0,helpUsed:false,computedFirst:false,pairs24:[],nameStart:0,beatStart:0};
+
+/* ---------------- helpers ---------------- */
+function say(txt,ms=4200){const s=$('#say');s.textContent=txt;s.classList.add('on');clearTimeout(s._t);s._t=setTimeout(()=>s.classList.remove('on'),ms);}
+function toast(txt,ms=1700){const e=$('#toast');e.textContent=txt;e.classList.add('on');clearTimeout(e._t);e._t=setTimeout(()=>e.classList.remove('on'),ms);}
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;');}
+
+/* ---------------- scene rendering ---------------- */
+function glyphSize(n){return n>44?15:n>30?19:n>18?23:27;}
+function renderScene(sp){
+  const sc=$('#scene');
+  let n=(typeof sp.groups==='number'&&typeof sp.per==='number')?sp.groups*sp.per:24;
+  if(sp.bin!=null)n+=sp.bin;
+  const fs=glyphSize(n);
+  let h='<div class="gwrap">';
+  const cap=(sp.cap==null)?Infinity:sp.cap;
+  let count=0;
+  if(sp.groups==='?'){
+    for(let g=0;g<3;g++){h+='<div class="gcard ghost"><div class="glab">'+esc(sp.label)+' ?</div><div class="gitems">';
+      for(let k=0;k<(typeof sp.per==='number'?sp.per:3);k++)h+='<span class="it dim" style="font-size:'+fs+'px">'+sp.glyph+'</span>';
+      h+='</div></div>';}
+    h+='<div class="gcard ghost"><div class="glab">how many?</div><div class="qmark">?</div></div>';
+  }else{
+    for(let g=0;g<sp.groups;g++){
+      h+='<div class="gcard"><div class="glab">'+esc(sp.label)+' '+(g+1)+'</div><div class="gitems">';
+      if(sp.per==='?'){h+='<div class="qmark">?</div>';}
+      else{for(let k=0;k<sp.per;k++){count++;h+='<span class="it'+(count>cap?' spill':'')+'" style="font-size:'+fs+'px">'+sp.glyph+'</span>';}}
+      h+='</div></div>';
+    }
+  }
+  if(sp.bin!=null||sp.binUnknown){
+    h+='<div class="gcard bin"><div class="glab">'+esc(sp.binLabel||'TOTAL bin')+'</div><div class="gitems">';
+    if(sp.binUnknown)h+='<div class="qmark">?</div>';
+    else for(let k=0;k<sp.bin;k++)h+='<span class="it" style="font-size:'+fs+'px">'+sp.glyph+'</span>';
+    h+='</div></div>';
+  }
+  h+='</div>';
+  sc.innerHTML=h;
+}
+function renderBoard(total,rows,glyph){
+  const sc=$('#scene');
+  if(rows<1||total%rows!==0){
+    const per=Math.floor(total/rows),left=total-per*rows;
+    let h='<div class="gwrap" style="flex-direction:column;gap:4px">';
+    for(let r=0;r<rows&&r<10;r++){h+='<div class="boardrow">';for(let c=0;c<per;c++)h+='<span class="it" style="font-size:18px">'+glyph+'</span>';h+='</div>';}
+    h+='<div class="boardrow">';for(let k=0;k<left;k++)h+='<span class="it spill" style="font-size:18px">'+glyph+'</span>';h+='</div></div>';
+    sc.innerHTML=h;return;
+  }
+  const per=total/rows;let h='<div class="gwrap" style="flex-direction:column;gap:4px">';
+  for(let r=0;r<rows;r++){h+='<div class="boardrow">';for(let c=0;c<per;c++)h+='<span class="it" style="font-size:'+(rows>9||per>12?14:19)+'px">'+glyph+'</span>';h+='</div>';}
+  h+='</div>';sc.innerHTML=h;
+}
+
+/* ---------------- frame ---------------- */
+let FR={names:{},vals:{},unknown:null,revealed:false,pickable:false};
+function setFrame(names,known,unknown){
+  FR={names:names||{},vals:Object.assign({groups:null,size:null,total:null},known||{}),unknown:unknown||null,revealed:false,pickable:false};
+  paintFrame();
+}
+function paintFrame(){
+  ['groups','size','total'].forEach(k=>{
+    const el=document.querySelector('.slot[data-slot="'+k+'"]');
+    el.classList.remove('pick','hole','named','saying');
+    el.querySelector('.sn').textContent=FR.names[k]||'';
+    let v='—';
+    if(FR.revealed){ v = (k===FR.unknown)? '?' : (FR.vals[k]!=null? FR.vals[k] : '—'); }
+    else { v = (FR.vals[k]!=null && FR.shownAlways) ? FR.vals[k] : '—'; }
+    el.querySelector('.sv').textContent=v;
+    if(FR.revealed&&k===FR.unknown)el.classList.add('hole');
+    if(FR.pickable)el.classList.add('pick');
+  });
+}
+function setSlotLive(k,val){const el=document.querySelector('.slot[data-slot="'+k+'"]');el.querySelector('.sv').textContent=val;}
+function slotSay(k,msg){const el=document.querySelector('.slot[data-slot="'+k+'"]');el.querySelector('.flash').textContent=msg;
+  el.classList.remove('saying');void el.offsetWidth;el.classList.add('saying');}
+
+/* ============================================================
+   THE PACKET  (frozen items — implemented exactly)
+   ============================================================ */
+const BEATS=[
+{n:1,item:'lmc-c-01',station:'Lantern Booth',stg:'Stage 1 — Name the three quantities',help:'modeled',
+ story:'At the lantern booth, 6 helpers each carry 5 paper lanterns. That makes 30 lanterns in all.',
+ names:{groups:'helpers',size:'lanterns each helper carries',total:'all the lanterns'},
+ known:{groups:6,size:null,total:30},shownAlways:true,
+ tasks:[{type:'tags',q:'Which number tells the SIZE OF EACH GROUP?',
+   scene:{glyph:'🏮',groups:6,per:5,label:'helper',cap:30},
+   opts:[{n:'6',s:'the number of helpers',x:26,y:8},
+         {n:'5',s:'the lanterns each helper carries',x:26,y:168},
+         {n:'30',s:'all the lanterns together',x:590,y:168},
+         {n:'—',s:'There is no group size in this story.',x:600,y:8}],
+   correct:1,
+   hint:'Look at ONE helper\'s arms. The size of each group is what one helper carries.'}]},
+
+{n:2,item:'lmc-c-02',station:'Ribbon Stall',stg:'Stage 2 — Locate the unknown',help:'modeled',
+ story:'The ribbon stall packs tokens into 7 equal bags. Altogether there are 56 tokens. Nobody has said how many tokens are in each bag.',
+ names:{groups:'bags',size:'tokens in one bag',total:'all the tokens'},
+ known:{groups:7,size:null,total:56},
+ tasks:[{type:'name',correct:'size',q:'Which quantity is unknown here?',
+   scene:{glyph:'🎟️',groups:7,per:'?',label:'bag'},
+   lock:'No numbers yet. The stall only opens once you name what is missing.',
+   hint:'The story tells you how many bags, and how many tokens in all. What does it never tell you?'}]},
+
+{n:3,item:'lmc-c-03',station:'Parade Sections',stg:'Stage 3 & 4 — Match the operation, then solve',help:'prompted',
+ story:'A parade row needs 8 flags in each section. The crew has 48 flags to place, and every section gets the same number.',
+ names:{groups:'sections',size:'flags in each section',total:'all the flags'},
+ known:{groups:null,size:8,total:48},
+ tasks:[
+  {type:'name',correct:'groups',q:'First say which quantity is unknown:  ___ × 8 = 48',
+   scene:{glyph:'🚩',groups:'?',per:8,label:'section'},
+   lock:'The rack will not take a number until the question-lantern lands on the dark slot.',
+   hint:'You know flags per section, and flags in all. The missing one is how many SECTIONS.'},
+  {type:'dial',role:'groups',correct:6,min:1,max:12,per:8,total:48,ug:'sections',ui:'flags',glyph:'🚩',label:'section',
+   q:'Now find it. Dial the sections until all 48 flags fit exactly.',
+   hint:'The 48 cannot move. Count up by 8s: 8, 16, 24, 32… how many 8s reach 48?'}]},
+
+{n:4,item:'lmc-c-04',station:'Banner Rigging',stg:'Stage 4 — Solve missing factors',help:'prompted',
+ story:'The stage crew hangs 42 banners in 6 equal rows.',
+ names:{groups:'rows',size:'banners in each row',total:'all the banners'},
+ known:{groups:6,size:null,total:42},
+ tasks:[
+  {type:'name',correct:'size',q:'Which quantity is unknown?',
+   scene:{glyph:'🎏',groups:6,per:'?',label:'row'},
+   lock:'The rig is built for exactly 42 banners. Name the hole first.',
+   hint:'Rows: 6. Banners in all: 42. The missing quantity is how many banners are IN EACH ROW.'},
+  {type:'dial',role:'per',correct:7,min:1,max:12,groups:6,total:42,ug:'rows',ui:'banners',glyph:'🎏',label:'row',
+   q:'How many banners in each row? Dial the row width until the rig pulls taut.',
+   hint:'Six equal rows must reach 42. Try 6 × 6, then 6 × 7…'}]},
+
+{n:5,item:'lmc-c-05',station:'Twin Jobs (mixed work order)',stg:'Stage 5 — Discriminate under interleaving',help:'prompted',
+ story:'Two festival jobs, mixed together on one work order.',
+ names:{groups:'crates',size:'cups in each crate',total:'all the cups'},
+ known:{groups:5,size:9,total:null},
+ tasks:[
+  {type:'name',correct:'total',q:'JOB A — The juice booth fills 5 crates with 9 cups in each crate. Which quantity is unknown?',
+   story:'JOB A · Juice booth: 5 crates, 9 cups in each crate. How many cups in all?',
+   scene:{glyph:'🥤',groups:5,per:9,label:'crate',binUnknown:true,binLabel:'TOTAL bin'},
+   lock:'Name the hole. Then the crates will feed the bin.',
+   hint:'Both factors are right there — 5 crates and 9 cups each. The one nobody has told you is the TOTAL.'},
+  {type:'dial',role:'total',correct:45,min:1,max:60,groups:5,per:9,ug:'crates',ui:'cups',glyph:'🥤',label:'crate',
+   q:'Fill the bin: how many cups in all?',
+   hint:'Total unknown means multiply the two you can see: 5 × 9.'},
+  {type:'name',correct:'size',q:'JOB B — The badge table has 45 badges laid out in 9 equal piles. Which quantity is unknown?',
+   story:'JOB B · Badge table: 45 badges, 9 equal piles. How many badges in each pile?',
+   names:{groups:'piles',size:'badges in each pile',total:'all the badges'},known:{groups:9,size:null,total:45},
+   scene:{glyph:'🏅',groups:9,per:'?',label:'pile'},
+   lock:'Different job, same first move: name what is missing.',
+   hint:'This time the total IS known — 45 badges. The hole is the size of each pile.'},
+  {type:'dial',role:'per',correct:5,min:1,max:12,groups:9,total:45,ug:'piles',ui:'badges',glyph:'🏅',label:'pile',
+   q:'How many badges in each pile?',
+   hint:'Nine equal piles must reach exactly 45. Count by 9s… or ask: 9 times what is 45?'}]},
+
+{n:6,item:'lmc-c-06',station:'Stage-Light Board',stg:'Stage 6 — Multiple factor pairs',help:'prompted_keep_going',
+ story:'The stage-light board holds 36 lights arranged in equal rows. The board runs on TWO channels — it needs two different layouts before the show can be programmed.',
+ names:{groups:'rows',size:'lights in each row',total:'all the lights'},
+ known:{groups:null,size:null,total:36},shownAlways:true,
+ tasks:[
+  {type:'pairs',total:36,min:2,glyph:'💡',q:'Write at least two DIFFERENT ways to arrange all 36 lights in equal rows.',
+   hint:'Keep going — the board wants another way. If 4 rows worked, what about 6 rows? Or 9?'},
+  {type:'statement',q:'Finish the sentence: “For 36 lights there is ___ correct arrangement.”',
+   opts:['only one','more than one'],correct:1,
+   hint:'You just sent up more than one layout yourself.'}]},
+
+{n:7,item:'lmc-c-07',station:'Closing Night',stg:'Stage 7 — Independent transfer',help:null,
+ story:'Closing-night check, on your own. The helpers step back to the fence.',
+ names:{groups:'chairs',size:'children at each chair',total:'all the children'},
+ known:{groups:8,size:4,total:null},
+ tasks:[
+  {type:'name',correct:'total',q:'PART 1 — The face-paint tent has 8 chairs with 4 children at each chair. Which quantity is unknown?',
+   story:'PART 1 · Face-paint tent: 8 chairs, 4 children at each chair. How many children?',
+   scene:{glyph:'🧒',groups:8,per:4,label:'chair',binUnknown:true,binLabel:'TOTAL'},
+   lock:'Name it first — even on closing night.'},
+  {type:'dial',role:'total',correct:32,min:1,max:48,groups:8,per:4,ug:'chairs',ui:'children',glyph:'🧒',label:'chair',
+   q:'How many children in all?'},
+  {type:'name',correct:'groups',q:'PART 2 — A rope of 54 beads is cut into equal strings with 9 beads on each string. Which quantity is unknown?',
+   story:'PART 2 · Bead rope: 54 beads, 9 beads on each string. How many strings?',
+   names:{groups:'strings',size:'beads on each string',total:'all the beads'},known:{groups:null,size:9,total:54},
+   scene:{glyph:'🔵',groups:'?',per:9,label:'string'},
+   lock:'Name the hole, then the rope shows its cut marks.'},
+  {type:'dial',role:'groups',correct:6,min:1,max:12,per:9,total:54,ug:'strings',ui:'beads',glyph:'🔵',label:'string',
+   q:'How many strings?'},
+  {type:'pairs',total:24,min:2,glyph:'🏮',q:'PART 3 — The welcome arch shows 24 lanterns in equal rows. Give two different equal-row arrangements.',
+   store24:true}]}
+];
+
+/* ============================================================
+   FLOW
+   ============================================================ */
+function startIntro(){
+  const ov=$('#overlay');ov.classList.add('on');
+  $('#ovcard').innerHTML='<div class="big">The Night You Light</div>'+
+   '<div class="mid">“Tonight the whole festival goes dark unless someone can see what’s <b>MISSING</b>.<br>The crew says that’s you.”</div>'+
+   '<div class="small">Seven stations. Each one is stuck because one quantity is unknown.<br>Name the hole, then dial the world until it fits.</div>'+
+   '<div style="margin-top:22px"><button class="btn" id="go">Light the festival ▸</button></div>';
+  $('#go').onclick=()=>{ov.classList.remove('on');nextBeat();};
+}
+function nextBeat(){
+  S.beat++;
+  if(S.beat>=BEATS.length){finale();return;}
+  const b=BEATS[S.beat];
+  S.t=0;S.helpUsed=false;S.computedFirst=false;S.beatStart=performance.now();
+  S.rec={itemId:b.item,progressionStage:b.stg,assistance_level:'unassisted',error_type:null,
+         name_latency_ms:[],parts:[],latency_ms:null};
+  $('#beatTag').textContent='Beat '+b.n+' · '+b.station;
+  $('#stageTag').textContent=b.stg;
+  FR.shownAlways=!!b.shownAlways;
+  setFrame(b.names,b.known,null);FR.shownAlways=!!b.shownAlways;paintFrame();
+  $('#npcL').classList.toggle('back',b.help===null);
+  $('#npcR').classList.toggle('back',b.help===null);
+  $('#ask').style.display=b.help?'block':'none';
+  $('#askNote').textContent=b.help?'One helper prompt per station. It is recorded honestly.':'No prompts here. Helpers at the fence.';
+  $('#ask').disabled=false;$('#ask').textContent='🙋 Ask a helper';
+  runTask();
+}
+function advance(){S.t++;const b=BEATS[S.beat];if(S.t>=b.tasks.length)completeBeat();else runTask();}
+function completeBeat(){
+  const b=BEATS[S.beat];
+  S.rec.latency_ms=Math.round(performance.now()-S.beatStart);
+  S.records.push(S.rec);
+  const kind=S.rec.assistance_level==='unassisted'?'gold':'amber';
+  lightArc(S.beat,kind);ring(682,326,kind==='gold'?'#ffcf6b':'#e0913f');
+  toast(kind==='gold'?'Arc '+b.n+' burns GOLD ✦':'Arc '+b.n+' glows AMBER — still lit, still counted');
+  $('#controls').innerHTML='';$('#readout').innerHTML='';
+  setTimeout(nextBeat,1500);
+}
+function curTask(){return BEATS[S.beat].tasks[S.t];}
+
+/* ---------------- task router ---------------- */
+function runTask(){
+  const b=BEATS[S.beat],t=curTask();
+  $('#story').textContent=t.story||b.story;
+  $('#question').innerHTML=esc(t.q);
+  if(t.names||t.known){FR.shownAlways=!!b.shownAlways;setFrame(t.names||b.names,t.known||b.known,null);FR.shownAlways=!!b.shownAlways;paintFrame();}
+  if(t.type==='tags')taskTags(t);
+  else if(t.type==='name')taskName(t);
+  else if(t.type==='dial')taskDial(t);
+  else if(t.type==='pairs')taskPairs(t);
+  else if(t.type==='statement')taskStatement(t);
+}
+
+/* ---------------- BEAT 1 : tag tap ---------------- */
+function taskTags(t){
+  renderScene(t.scene);
+  const sc=$('#scene');
+  t.opts.forEach((o,i)=>{
+    const d=document.createElement('div');
+    d.className='tag off';d.style.left=o.x+'px';d.style.top=o.y+'px';
+    d.innerHTML='<b>'+o.n+'</b>'+esc(o.s);d.dataset.i=i;sc.appendChild(d);
+  });
+  $('#controls').innerHTML='<div class="pane"><div class="paneTitle">HOW THIS WORKS</div>'+
+    '<div class="namehint">Tapping a tag makes the world show you what that number really <b>is</b>.<br>Watch Mira try one…</div></div>'+
+    '<div class="pane"><div class="paneTitle">NUMBERS COME LATER</div><div class="namehint">Nothing to compute at this booth. Just point at the right lantern tag.</div></div>';
+  const tags=[...sc.querySelectorAll('.tag')];
+  // demonstration: helper taps the "6" tag
+  setTimeout(()=>{tags[0].classList.add('point');say('Watch: I tap the 6.');},500);
+  setTimeout(()=>{tags[0].classList.remove('point');sc.querySelectorAll('.gcard').forEach(c=>c.classList.add('pulsegroup'));
+    say('See? This one is the NUMBER OF GROUPS, because it counts helpers.',3800);},1900);
+  setTimeout(()=>{
+    sc.querySelectorAll('.gcard').forEach(c=>c.classList.remove('pulsegroup'));
+    FR.revealed=false;setSlotLive('groups',6);
+    tags.forEach(x=>x.classList.remove('off'));
+    S.nameStart=performance.now();
+    say('Now you. Which of these is the SIZE OF EACH GROUP?',5000);
+  },4200);
+  tags.forEach(el=>el.onclick=()=>{
+    const i=+el.dataset.i;const ms=Math.round(performance.now()-S.nameStart);
+    if(i===t.correct){
+      S.rec.name_latency_ms.push(ms);S.rec.correct=(S.rec.attempted?false:true);
+      sc.querySelectorAll('.gcard').forEach(c=>c.classList.add('pulseper'));
+      setSlotLive('size',5);ring(682,326,'#ffcf6b');
+      say('That’s it — 5 is what ONE helper carries. Size of each group.',3200);
+      tags.forEach(x=>x.classList.add('off'));
+      $('#readout').innerHTML='<span class="ok">6 helpers × 5 lanterns each = 30 lanterns. All three named.</span>';
+      setTimeout(advance,2000);
+    }else{
+      S.rec.attempted=true;S.rec.correct=false;
+      if(i===0){sc.querySelectorAll('.gcard').forEach(c=>c.classList.add('pulsegroup'));say('That counts the HELPERS — that’s the number of groups, not the size of each one.');
+        setTimeout(()=>sc.querySelectorAll('.gcard').forEach(c=>c.classList.remove('pulsegroup')),1400);}
+      else if(i===2){sc.querySelectorAll('.gcard').forEach(c=>c.classList.add('pulseper'));say('30 is every lantern together — that’s the TOTAL.');
+        setTimeout(()=>sc.querySelectorAll('.gcard').forEach(c=>c.classList.remove('pulseper')),1400);}
+      else{say('There is a group size here — look at one helper’s arms.');}
+      el.classList.add('off');setTimeout(()=>el.classList.remove('off'),1200);
+    }
+  });
+}
+
+/* ---------------- NAME step (question-lantern onto the dark slot) ---------------- */
+function taskName(t){
+  renderScene(t.scene);
+  FR.revealed=false;FR.pickable=true;paintFrame();
+  $('#controls').innerHTML=
+   '<div class="pane"><div class="paneTitle">STEP 1 · NAME</div><div class="namerow">'+
+   '<div id="ql">?</div><div class="namehint">Drop the <b>question-lantern</b> on the slot that is <b>dark</b> — the quantity nobody has told you.<br><span style="color:#8d86c4">(You can also just tap a slot.)</span></div>'+
+   '</div></div>'+
+   '<div class="pane"><div class="paneTitle">STEP 2 · ACT</div><div class="dialwrap">'+
+   '<div class="drow"><button class="dbtn">−</button><input type="range" min="1" max="12" value="1"><div class="dval">1</div><button class="dbtn">+</button></div>'+
+   '</div><div id="dialLock">🔒 '+esc(t.lock||'The station will not take numbers until you name what is missing.')+'</div></div>';
+  $('#dialLock').onclick=()=>{S.computedFirst=true;$('#dialLock').classList.remove('shake');void $('#dialLock').offsetWidth;$('#dialLock').classList.add('shake');
+    say('Numbers are locked. Name the hole first — that’s the whole trick tonight.');};
+  S.nameStart=performance.now();
+  setupDrag();
+  $$('.slot').forEach(el=>el.onclick=()=>{if(FR.pickable)pickSlot(el.dataset.slot,t);});
+}
+let dragging=false;
+function setupDrag(){
+  const ql=$('#ql');if(!ql)return;
+  ql.onpointerdown=e=>{
+    e.preventDefault();dragging=true;ql.classList.add('carry');
+    const mv=ev=>{ql.style.left=ev.clientX+'px';ql.style.top=ev.clientY+'px';};
+    const up=ev=>{
+      dragging=false;ql.classList.remove('carry');ql.style.left='';ql.style.top='';
+      document.removeEventListener('pointermove',mv);document.removeEventListener('pointerup',up);
+      $('#frame').dataset.drag='0';
+      const el=document.elementFromPoint(ev.clientX,ev.clientY);
+      const slot=el&&el.closest?el.closest('.slot'):null;
+      if(slot&&FR.pickable)pickSlot(slot.dataset.slot,curTask());
+    };
+    mv(e);$('#frame').dataset.drag='1';
+    document.addEventListener('pointermove',mv);document.addEventListener('pointerup',up);
+  };
+}
+function pickSlot(k,t){
+  if(!FR.pickable)return;
+  const ms=Math.round(performance.now()-S.nameStart);
+  const totalKnown=FR.vals.total!=null;
+  if(k===t.correct){
+    S.rec.name_latency_ms.push(ms);
+    if(S.rec.namedCorrectFirst===undefined)S.rec.namedCorrectFirst=!S.rec.nameMissed;
+    S.rec.unknown_named_before_computing=!S.computedFirst;
+    FR.pickable=false;FR.revealed=true;FR.unknown=k;paintFrame();
+    document.querySelector('.slot[data-slot="'+k+'"]').classList.add('named');
+    ring(682,520,'#ffcf6b');
+    say('Click. The station knows its job now.',2200);
+    const nxt=BEATS[S.beat].tasks[S.t+1];
+    if(!nxt||nxt.type!=='dial'){
+      $('#readout').innerHTML='<span class="ok">Named it — no number needed here. You found the hole.</span>';
+      setTimeout(advance,1500);
+    }else{setTimeout(advance,900);}
+  }else{
+    S.rec.nameMissed=true;
+    const err=(k==='total'&&totalKnown)?'multiply_the_given_numbers':(t.correct==='total'?'divide_when_total_unknown':'other');
+    if(!S.rec.error_type)S.rec.error_type=err;
+    reactNameError(err,k,t);
+  }
+}
+function reactNameError(err,k,t){
+  const el=document.querySelector('.slot[data-slot="'+k+'"]');
+  el.classList.remove('shake');void el.offsetWidth;el.classList.add('shake');
+  if(err==='multiply_the_given_numbers'){
+    const a=FR.vals.groups,b=FR.vals.size,prod=a*b,cap=FR.vals.total;
+    slotSay('total','I never moved — '+cap+' is '+cap+'.');
+    rain(34,t.scene.glyph,260,1100);
+    say('If we multiply the two we can SEE, we’d need '+prod+' — on a rig built for '+cap+'! The total isn’t missing.',5200);
+    $('#readout').innerHTML='<span class="bad">'+a+' × '+b+' = '+prod+' … but the total is fixed at '+cap+'. Something else is the hole.</span>';
+  }else if(err==='divide_when_total_unknown'){
+    const sp=Object.assign({},t.scene);sp.per=Math.max(1,Math.floor((sp.per||4)/2));
+    renderScene(sp);
+    say('Half-empty! Nothing exists to share out yet — the TOTAL is the thing we don’t know.',5000);
+    $('#readout').innerHTML='<span class="bad">There is no total to split here. Both factors are already on the order sheet.</span>';
+    setTimeout(()=>renderScene(t.scene),1500);
+  }else{
+    slotSay(k,'Already known: '+FR.vals[k]);
+    say('That one already has its number — the story told you that part.',3000);
+  }
+}
+
+/* ---------------- DIAL step ---------------- */
+function taskDial(t){
+  FR.revealed=true;FR.pickable=false;
+  FR.unknown=(t.role==='total')?'total':(t.role==='groups'?'groups':'size');
+  paintFrame();
+  let val=t.min;
+  $('#controls').innerHTML=
+   '<div class="pane" style="flex:0 0 300px"><div class="paneTitle">STEP 1 · NAMED ✓</div>'+
+   '<div class="namerow"><div id="ql" style="cursor:default;box-shadow:0 0 34px rgba(255,180,60,.9)">?</div>'+
+   '<div class="namehint">You named the hole:<br><b>'+esc(FR.names[FR.unknown])+'</b><br>The station is unlocked.</div></div></div>'+
+   '<div class="pane"><div class="paneTitle">STEP 2 · ACT — dial the world until it fits</div><div class="dialwrap">'+
+   '<div class="drow"><button class="dbtn" id="dm">−</button><input type="range" id="dr" min="'+t.min+'" max="'+t.max+'" value="'+t.min+'"><div class="dval" id="dv">'+t.min+'</div><button class="dbtn" id="dp">+</button></div>'+
+   '<div><button class="btn" id="dc">Set it ▸</button></div></div></div>';
+  const dr=$('#dr');
+  const paint=()=>{
+    $('#dv').textContent=val;dr.value=val;setSlotLive(FR.unknown,val);
+    let sp;
+    if(t.role==='groups')sp={glyph:t.glyph,groups:val,per:t.per,label:t.label,cap:t.total};
+    else if(t.role==='per')sp={glyph:t.glyph,groups:t.groups,per:val,label:t.label,cap:t.total};
+    else sp={glyph:t.glyph,groups:t.groups,per:t.per,label:t.label,bin:val,binLabel:'TOTAL bin'};
+    renderScene(sp);
+    if(t.role==='total'){
+      $('#readout').innerHTML='Your bin: <b>'+val+' '+t.ui+'</b>. The '+t.groups+' '+t.ug+' hold '+t.groups+' × '+t.per+' each — does the bin match?';
+    }else{
+      const g=(t.role==='groups')?val:t.groups, p=(t.role==='groups')?t.per:val, u=g*p;
+      $('#readout').innerHTML=g+' '+t.ug+' × '+p+' '+t.ui+' = <b>'+u+'</b> of '+t.total+' '+t.ui+
+        (u===t.total?' <span class="ok">✓ perfect fit</span>':u>t.total?' <span class="bad">— '+(u-t.total)+' too many!</span>':' <span class="bad">— '+(t.total-u)+' left over</span>');
+    }
+  };
+  paint();
+  dr.oninput=()=>{val=+dr.value;paint();};
+  $('#dm').onclick=()=>{val=Math.max(t.min,val-1);paint();};
+  $('#dp').onclick=()=>{val=Math.min(t.max,val+1);paint();};
+  const start=performance.now();
+  $('#dc').onclick=()=>{
+    if(val===t.correct){
+      if(S.rec.dialMissed===undefined)S.rec.dialCorrectFirst=true;
+      S.rec.parts.push({role:t.role,answer:val,correct:true,first_try:!S.rec.dialMissed,ms:Math.round(performance.now()-start)});
+      ring(682,326,'#ffcf6b');
+      $('#scene').querySelectorAll('.gcard').forEach((c,i)=>setTimeout(()=>c.classList.add('pulseper'),i*45));
+      say(t.role==='total'?'Bin full and correct. The booth is stocked.':'It fits. Every group equal, nothing left over.',2600);
+      setTimeout(advance,1500);
+    }else{
+      S.rec.dialMissed=true;
+      const e=(Math.abs(val-t.correct)===1)?'computation_slip':'other';
+      if(!S.rec.error_type)S.rec.error_type=e;
+      if(t.role==='total'){
+        if(val<t.correct){say('The crates hold more than that — cups left standing on the counter.');}
+        else{say('Too many cups for '+t.groups+' crates of '+t.per+'. The bin overflows.');rain(10,t.glyph,500,900);}
+      }else{
+        const g=(t.role==='groups')?val:t.groups,p=(t.role==='groups')?t.per:val,u=g*p;
+        if(u>t.total){rain(Math.min(24,u-t.total),t.glyph,300,1050);say('Overshoot! The '+t.ui+' spill — the total can’t stretch past '+t.total+'.');}
+        else{say('Not enough yet — '+(t.total-u)+' '+t.ui+' still waiting. Nudge the dial.');}
+      }
+      const w=$('#scene');w.style.transform='translateX(6px)';setTimeout(()=>w.style.transform='',160);
+    }
+  };
+}
+
+/* ---------------- PAIRS (factor pairs for a known total) ---------------- */
+let nudgeTimer=null;
+function taskPairs(t){
+  FR.shownAlways=true;FR.revealed=false;FR.pickable=false;
+  FR.vals={groups:null,size:null,total:t.total};paintFrame();setSlotLive('total',t.total);
+  let rows=1,found=[],nudged=false;
+  $('#controls').innerHTML=
+   '<div class="pane"><div class="paneTitle">PROGRAM THE BOARD — equal rows only</div><div class="dialwrap">'+
+   '<div class="drow"><button class="dbtn" id="dm">−</button><input type="range" id="dr" min="1" max="'+t.total+'" value="1"><div class="dval" id="dv">1</div><button class="dbtn" id="dp">+</button></div>'+
+   '<div style="display:flex;gap:10px"><button class="btn sm" id="add">Send this arrangement up ▸</button>'+
+   '<button class="btn sm" id="prog" disabled>'+(t.total===36?'Program the show ▸':'Raise the arch ▸')+'</button></div>'+
+   '</div></div>'+
+   '<div class="pane" style="flex:0 0 330px"><div class="paneTitle">ARRANGEMENTS SENT</div><div class="chips" id="chips"></div>'+
+   '<div class="chan"><span class="led" id="l1"></span>channel 1 <span class="led dead" id="l2"></span>channel 2</div>'+
+   '<div class="namehint" id="chanmsg" style="font-size:13px;margin-top:6px;color:#8d86c4">The board runs on two channels. One layout will not light it.</div></div>';
+  const paint=()=>{
+    $('#dv').textContent=rows;$('#dr').value=rows;
+    renderBoard(t.total,rows,t.glyph);
+    setSlotLive('groups',rows);
+    if(t.total%rows===0){const per=t.total/rows;setSlotLive('size',per);
+      $('#readout').innerHTML=rows+' rows × '+per+' in each row = <b>'+t.total+'</b> <span class="ok">✓ equal rows</span>';}
+    else{const per=Math.floor(t.total/rows),left=t.total-per*rows;setSlotLive('size','?');
+      $('#readout').innerHTML=rows+' rows … <span class="bad">'+left+' left over — the rows are not equal</span>';}
+  };
+  paint();
+  $('#dr').oninput=()=>{rows=+$('#dr').value;paint();};
+  $('#dm').onclick=()=>{rows=Math.max(1,rows-1);paint();};
+  $('#dp').onclick=()=>{rows=Math.min(t.total,rows+1);paint();};
+  $('#add').onclick=()=>{
+    if(t.total%rows!==0){
+      if(!S.rec.error_type)S.rec.error_type='invalid_pair';
+      say('Those rows are not equal — the leftovers have nowhere to sit.');
+      rain(6,t.glyph,560,820);return;
+    }
+    if(found.some(f=>f[0]===rows)){say('You already sent that one up. Find a DIFFERENT way.');return;}
+    found.push([rows,t.total/rows]);
+    if(found.length===1){
+      $('#l1').classList.add('on');
+      $('#chanmsg').textContent='Channel 2 is still dark. The show cannot run on one arrangement.';
+      clearTimeout(nudgeTimer);
+      if(BEATS[S.beat].help){
+        nudgeTimer=setTimeout(()=>{
+          if(found.length<2){nudged=true;S.rec.assistance_level='prompted_keep_going';
+            say('Keep going — the board wants another way. If 4 rows worked, what about 6? Or 9?',6000);}
+        },18000);
+      }
+    }
+    if(found.length===2){
+      $('#l2').classList.add('on');$('#l2').classList.remove('dead');
+      $('#chanmsg').textContent='Both channels alive. The board is alternating your two layouts overhead.';
+      S.rec.second_pair_unprompted=!nudged;
+      say('Two different ways — the board runs them both. More than one is TRUE.',4200);
+      clearTimeout(nudgeTimer);
+    }
+    ring(682,326,'#ffcf6b');
+    $('#chips').innerHTML=found.map(f=>'<div class="chip">'+f[0]+' × '+f[1]+'</div>').join('');
+    $('#prog').disabled=found.length<t.min;
+  };
+  $('#prog').onclick=()=>{
+    if(found.length<t.min){
+      if(!S.rec.error_type)S.rec.error_type='stopping_early';
+      say('Channel 2 stays dead. One arrangement is not enough.');return;}
+    S.rec.distinct_valid_pair_count=found.length;
+    S.rec.factorPairs=found.map(f=>f[0]+' x '+f[1]);
+    if(S.rec.second_pair_unprompted===undefined)S.rec.second_pair_unprompted=!nudged;
+    if(t.store24)S.pairs24=found.slice();
+    clearTimeout(nudgeTimer);
+    advance();
+  };
+}
+
+/* ---------------- STATEMENT ---------------- */
+function taskStatement(t){
+  $('#controls').innerHTML='<div class="pane"><div class="paneTitle">FINISH THE SENTENCE</div>'+
+    '<div class="namehint">“For 36 lights there is <b>___</b> correct arrangement.”</div>'+
+    t.opts.map((o,i)=>'<button class="btn sm opt" data-i="'+i+'">'+esc(o)+'</button>').join('')+'</div>'+
+    '<div class="pane" style="flex:0 0 330px"><div class="paneTitle">THE BOARD SAYS</div>'+
+    '<div class="namehint">'+ (S.rec.factorPairs||[]).map(p=>'✦ '+p).join('<br>') +'</div></div>';
+  $$('#controls .opt').forEach(b=>b.onclick=()=>{
+    const i=+b.dataset.i;
+    if(i===t.correct){S.rec.multiplicityStatement='more than one';say('Right. A known total can be built more than one way.',3000);
+      ring(682,326,'#ffcf6b');setTimeout(advance,1200);}
+    else{if(!S.rec.error_type)S.rec.error_type='other';
+      say('But you just built it two different ways yourself — look at the chips.');b.disabled=true;}
+  });
+}
+
+/* ---------------- help button ---------------- */
+$('#ask').onclick=()=>{
+  const b=BEATS[S.beat];if(!b.help||S.helpUsed)return;
+  S.helpUsed=true;$('#ask').disabled=true;$('#ask').textContent='helper used ✓';
+  const t=curTask();
+  S.rec.assistance_level = b.help==='prompted_keep_going' ? 'prompted_keep_going' : b.help;
+  const h=t.hint|| (b.tasks.find(x=>x.hint)||{}).hint ||'Say which quantity is missing before you touch a number.';
+  say(h,7000);
+  if(t.type==='tags'){const tg=$('#scene').querySelectorAll('.tag')[t.correct];if(tg)tg.classList.add('point');}
+  if(t.type==='name'){const el=document.querySelector('.slot[data-slot="'+t.correct+'"]');if(el)el.classList.add('hole');}
+};
+
+/* ---------------- FINALE ---------------- */
+function finale(){
+  const gold=S.records.filter(r=>r.assistance_level==='unassisted').length;
+  const ov=$('#overlay');ov.classList.add('on');
+  const pairs=S.pairs24.length?S.pairs24:[[4,6],[3,8]];
+  $('#ovcard').innerHTML='<div class="big">Closing night.</div>'+
+    '<div class="mid">Every arc you lit is ready to rise.<br>You choose tonight’s sky — from the arrangements of <b>24</b> you found yourself.</div>'+
+    '<div class="maprow" id="skypick">'+pairs.map((p,i)=>'<button class="btn" data-i="'+i+'">'+p[0]+' rows of '+p[1]+'</button>').join('')+'</div>';
+  $$('#skypick .btn').forEach(b=>b.onclick=()=>{
+    const p=pairs[+b.dataset.i];ov.classList.remove('on');launchSky(p[0],p[1],gold);
+  });
+}
+function launchSky(rows,cols,goldArcs){
+  $('#story').textContent='';$('#question').textContent='The lantern release.';
+  $('#scene').innerHTML='';$('#readout').textContent='';$('#controls').innerHTML='';
+  $('#ask').style.display='none';$('#askNote').textContent='';
+  $('#npcL').classList.add('back');$('#npcR').classList.add('back');
+  const total=rows*cols,goldN=Math.round(total*goldArcs/7);
+  const gapX=Math.min(64,900/Math.max(1,cols-1||1)),gapY=Math.min(56,340/Math.max(1,rows-1||1));
+  const w=(cols-1)*gapX,h=(rows-1)*gapY,cx=682,top=250-h/2+60;
+  sky=[];let idx=0;
+  for(let r=0;r<rows;r++)for(let c=0;c<cols;c++){
+    sky.push({x:200+Math.random()*965,y:820+Math.random()*260,tx:cx-w/2+c*gapX,ty:top+r*gapY,
+      r:15,gold:idx<goldN,ph:Math.random()*6});idx++;}
+  for(let i=0;i<7;i++)ring(682,400,'#ffcf6b');
+  toast('✦ '+rows+' rows of '+cols+' — your sky ✦',3000);
+  setTimeout(()=>plaque(goldArcs),4200);
+}
+function plaque(goldArcs){
+  const ov=$('#overlay');ov.classList.add('on');
+  const map=S.records.map((r,i)=>{
+    const g=r.assistance_level==='unassisted';
+    return '<div class="mapitem"><span class="d" style="background:'+(g?'#ffcf6b':'#e0913f')+'"></span>Beat '+(i+1)+' · '+BEATS[i].station+' — '+(g?'gold':'amber ('+r.assistance_level+')')+'</div>';
+  }).join('');
+  const lat=S.records.map((r,i)=>r.name_latency_ms.length?('B'+(i+1)+': '+Math.round(r.name_latency_ms.reduce((a,b)=>a+b,0)/r.name_latency_ms.length)+'ms'):null).filter(Boolean).join(' · ');
+  $('#ovcard').innerHTML='<div class="big">You lit seven stations by finding what was missing<br>before anyone else could see it.</div>'+
+   '<div class="mid">'+goldArcs+' of 7 arcs burned gold — solved with nobody helping.</div>'+
+   '<div class="small">Tonight’s map, not a grade:</div><div class="maprow">'+map+'</div>'+
+   '<div class="small">Time to NAME the unknown, station by station: '+esc(lat||'—')+'</div>'+
+   '<div style="margin-top:18px;display:flex;gap:12px;justify-content:center">'+
+   '<button class="btn" id="again">Run it again — new night ▸</button>'+
+   '<button class="btn sm" id="crewbtn">For the crew ▾</button></div>'+
+   '<pre id="crew"></pre>';
+  $('#crew').textContent=JSON.stringify({packetId:'pkt-LAB-MATH-C-unknown-position-v1',
+    assignmentId:'LAB-MATH-C',records:S.records},null,1);
+  $('#crewbtn').onclick=()=>{const c=$('#crew');c.style.display=c.style.display==='block'?'none':'block';};
+  $('#again').onclick=()=>{
+    S.pal=(S.pal+1)%3;stage.dataset.pal=S.pal;
+    $('#palLabel').textContent=['DUSK','RAIN-GLOW','SNOW FESTIVAL'][S.pal];
+    S.records=[];S.beat=-1;S.pairs24=[];sky=null;parts=[];rings=[];
+    buildCanopy();$('#overlay').classList.remove('on');
+    $('#npcL').classList.remove('back');$('#npcR').classList.remove('back');
+    $('#ask').style.display='block';
+    say('Same seven stations, a different sky. Turn those amber arcs gold.',5000);
+    nextBeat();
+  };
+}
+
+/* ---------------- opening beat: first three seconds ---------------- */
+$('#story').textContent='';
+$('#question').textContent='';
+setTimeout(()=>say('Six helpers turn toward you. The lanterns wake up one by one…',3200),300);
+startIntro();
+</script>
+</body>
+</html>
+```
+
+**Notes on the polish that matters here (Rowan):**
+
+- **The gate is mechanical, not moral.** Every station shows a locked dial (🔒) during the NAME step. Tapping it doesn't scold — it shakes, says "numbers are locked," and quietly records `unknown_named_before_computing: false`. That's dec-002 as machinery, exactly as `xd-001` specifies.
+- **Errors are world events, coded distinctly.** Naming TOTAL when the total is given rains the *product* down the screen and the TOTAL bin flashes *"I never moved — 48 is 48"* (`multiply_the_given_numbers`). Naming a factor at Beat 5A's juice booth half-empties the crates (`divide_when_total_unknown`). Over/under-dialing spills or leaves leftovers; off-by-one is coded `computation_slip`. No buzzer, no red X, no scoreboard drop.
+- **One gesture grammar.** Tag-tap → drop-on-hole → drop-then-dial → two cycles interleaved → dial twice against a fixed total → all of it unassisted. Nothing new to learn after Beat 3.
+- **Honest gold/amber.** Assistance is one press per station, recorded as `prompted` / `modeled` / `prompted_keep_going`, and the arc colour follows the record, never the outcome. The Beat 6 keep-going nudge only fires after 18s of stall, so `second_pair_unprompted` stays truthful.
+- **The finale is the child's own answer.** The sky array is built from a factor pair *they* found for 24, with gold/amber lanterns in the proportion actually earned.
+- No storage, no Sunny APIs, no speech synthesis, no oscillators; every sound cue was replaced by a visual twin, so the experience is fully legible muted.
+- Inherited honesty, unchanged: this packet embeds naming in every item, so nothing here can separate naming from practice. The NAME-step latency is logged per beat and surfaced on the closing plaque so the naming-adds-cost check is at least measurable.

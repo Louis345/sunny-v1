@@ -1,0 +1,2880 @@
+{
+  "version": 1,
+  "childId": "reina",
+  "selectedDomain": "math",
+  "current": {
+    "planId": "LAB-MATH-C-charter-v1:cycle-r3",
+    "childId": "reina",
+    "createdAt": "2026-08-09T23:46:44.209Z",
+    "source": "ingest_human_loop",
+    "activeHomeworkId": "hw-math-767d56c796d206c1dc99b79d",
+    "domain": "math",
+    "testDate": null,
+    "nodePlan": [
+      {
+        "id": "ACT-SHARED-01",
+        "type": "generated-baseline",
+        "activityId": "generated-baseline",
+        "targets": [
+          "A parade has 8 wagons. Each wagon carries 5 lanterns. How many lanterns are on the wagons in all?",
+          "In the lantern problem, one factor is 8 and the other factor is 5. Explain what the 8 counts and what the 5 counts in that situation.",
+          "A ticket booth sells snacks in packs. There are 6 packs and each pack holds 7 snacks. How many snacks are there altogether?",
+          "Which equation matches this situation: 9 face-painting tables, each with 4 chairs?",
+          "A juice stand fills 7 trays. Each tray holds 6 cups. How many cups does the stand fill?"
+        ],
+        "difficulty": 1,
+        "source": "chart_planner",
+        "targetLane": "Given a contextual equal-groups situation with single-digit factors, state the factors, the product, and what each factor counts.",
+        "locked": false,
+        "title": "Arrival Dock: Lantern Parade Power-Up",
+        "rounds": [
+          {
+            "id": "ITM-S01-4",
+            "prompt": "Which equation matches this situation: 9 face-painting tables, each with 4 chairs?",
+            "options": [
+              {
+                "id": "OPT-S01-4-a",
+                "label": "9 x 4 = 36 chairs",
+                "correct": true
+              },
+              {
+                "id": "OPT-S01-4-b",
+                "label": "9 + 4 = 13 chairs",
+                "correct": false
+              },
+              {
+                "id": "OPT-S01-4-c",
+                "label": "36 / 9 = 4 tables",
+                "correct": false
+              },
+              {
+                "id": "OPT-S01-4-d",
+                "label": "9 - 4 = 5 chairs",
+                "correct": false
+              }
+            ]
+          }
+        ],
+        "gameHtmlPath": "/Users/jamaltaylor/Development/sunny-demo-main/src/context/reina/homework/games/hw-math-767d56c796d206c1dc99b79d/ACT-SHARED-01.html",
+        "date": "hw-math-767d56c796d206c1dc99b79d",
+        "thumbnailUrl": "/generated/direct-math/hw-math-767d56c796d206c1dc99b79d-ACT-SHARED-01-thumbnail-53c4f631e95f.jpeg",
+        "contentId": "hw-math-767d56c796d206c1dc99b79d:ACT-SHARED-01",
+        "mechanic": "Each item is one parade scene: equal groups are drawn on screen as real festival objects (wagons of lanterns, packs of snacks, tables of chairs, trays of cups). The child answers by typing a number, tapping a matching equation, or speaking/typing a one-line explanation of what each factor counts. Every correct answer sends a visible amber pulse down a conduit and lights one dock district; the parade physically advances one wagon-length toward the festival gate.",
+        "engagementDimensions": [
+          "shared-baseline"
+        ],
+        "engagementHypothesis": "With no math evidence on record, the construct band can be probed to equal depth through either an array-first path (structure made visible as rows and columns before inverse work) or a story-first path (structure read out of contextual equal-groups language before inverse work). Both routes cover the same inverse/factor-pair demand at the same difficulty, so any performance difference isolates representational entry point rather than academic level.",
+        "masteryUnlockState": "unlocked",
+        "theoryId": "hw-math-767d56c796d206c1dc99b79d:academic-theory",
+        "experimentId": "hw-math-767d56c796d206c1dc99b79d:shared:shared-baseline",
+        "theme": "Indigo dock interior with brass-and-teal trim per the board spine; every equal group is drawn as a physically countable cluster — lanterns individually visible, never abstracted to dots. Amber light is reserved exclusively for correct power. Large rounded number pad, single-line prompts in a chunky friendly typeface, read-aloud icon always present.",
+        "sfxProfile": "interaction-recovery-progress-completion",
+        "companionPolicy": "cycle-contract",
+        "thumbnailPrompt": "Indigo dock interior with brass-and-teal trim per the board spine; every equal group is drawn as a physically countable cluster — lanterns individually visible, never abstracted to dots. Amber light is reserved exclusively for correct power. Large rounded number pad, single-line prompts in a chunky friendly typeface, read-aloud icon always present."
+      },
+      {
+        "id": "ACT-SHARED-02",
+        "type": "generated-baseline",
+        "activityId": "generated-baseline",
+        "targets": [
+          "Which story uses 8 x 3?",
+          "Explain why '8 apples and then 3 more apples' is not a situation for 8 x 3, and say what operation it does show.",
+          "Which story uses 9 x 5?",
+          "A story says: '42 balloons are shared equally among 6 stalls.' Explain why this is not 42 x 6, and write the multiplication equation with a missing factor that does match it."
+        ],
+        "difficulty": 1,
+        "source": "chart_planner",
+        "targetLane": "Given several stories using the same pair of numbers, select the one that matches a given multiplication expression and justify why the others are not equal-groups situations.",
+        "locked": true,
+        "title": "Arrival Dock: The Sorting Beacon",
+        "rounds": [
+          {
+            "id": "ITM-S02-1",
+            "prompt": "Which story uses 8 x 3?",
+            "options": [
+              {
+                "id": "OPT-S02-1-a",
+                "label": "8 baskets with 3 apples in each basket",
+                "correct": true
+              },
+              {
+                "id": "OPT-S02-1-b",
+                "label": "8 apples and then 3 more apples",
+                "correct": false
+              },
+              {
+                "id": "OPT-S02-1-c",
+                "label": "8 apples shared equally among 3 friends",
+                "correct": false
+              }
+            ]
+          },
+          {
+            "id": "ITM-S02-3",
+            "prompt": "Which story uses 9 x 5?",
+            "options": [
+              {
+                "id": "OPT-S02-3-a",
+                "label": "45 ribbons shared equally into 9 bundles",
+                "correct": false
+              },
+              {
+                "id": "OPT-S02-3-b",
+                "label": "9 rows of chairs with 5 chairs in each row",
+                "correct": true
+              },
+              {
+                "id": "OPT-S02-3-c",
+                "label": "9 chairs plus 5 chairs brought from the truck",
+                "correct": false
+              }
+            ]
+          }
+        ],
+        "gameHtmlPath": "/Users/jamaltaylor/Development/sunny-demo-main/src/context/reina/homework/games/hw-math-767d56c796d206c1dc99b79d/ACT-SHARED-02.html",
+        "date": "hw-math-767d56c796d206c1dc99b79d",
+        "thumbnailUrl": "/generated/direct-math/hw-math-767d56c796d206c1dc99b79d-ACT-SHARED-02-thumbnail-8206e6d25471.jpeg",
+        "contentId": "hw-math-767d56c796d206c1dc99b79d:ACT-SHARED-02",
+        "mechanic": "For each item the beacon holds an expression card and three story-pods share the same number pair but different structures (equal groups, adding, sharing). The child taps a pod to feed it in. Matching pods lock in with a beam of amber light to a district; non-matching pods are gently rejected — the beacon holds them up and highlights the story words that broke the match. Two items ask for a short typed or spoken justification, entered on a simple two-tap sentence-builder plus free text.",
+        "engagementDimensions": [
+          "shared-baseline"
+        ],
+        "engagementHypothesis": "With no math evidence on record, the construct band can be probed to equal depth through either an array-first path (structure made visible as rows and columns before inverse work) or a story-first path (structure read out of contextual equal-groups language before inverse work). Both routes cover the same inverse/factor-pair demand at the same difficulty, so any performance difference isolates representational entry point rather than academic level.",
+        "masteryUnlockState": "preparing",
+        "theoryId": "hw-math-767d56c796d206c1dc99b79d:academic-theory",
+        "experimentId": "hw-math-767d56c796d206c1dc99b79d:shared:shared-baseline",
+        "theme": "The beacon is a friendly lighthouse-like machine in teal and brass; story-pods are rounded capsules with one-line text plus a small icon-scene so the story is graspable at a glance without heavy reading. Structure-tell words render slightly bolder. Amber remains the exclusive color of correct power; rejected sparks are pale grey-blue.",
+        "sfxProfile": "interaction-recovery-progress-completion",
+        "companionPolicy": "cycle-contract",
+        "thumbnailPrompt": "The beacon is a friendly lighthouse-like machine in teal and brass; story-pods are rounded capsules with one-line text plus a small icon-scene so the story is graspable at a glance without heavy reading. Structure-tell words render slightly bolder. Amber remains the exclusive color of correct power; rejected sparks are pale grey-blue."
+      },
+      {
+        "id": "ACT-SHARED-03",
+        "type": "generated-baseline",
+        "activityId": "generated-baseline",
+        "targets": [
+          "6 x 7 = ?",
+          "5 x 9 = ?",
+          "6 x 8 = ?",
+          "4 x 9 = ?",
+          "8 x 5 = ?",
+          "7 x 3 = ?"
+        ],
+        "difficulty": 1,
+        "source": "chart_planner",
+        "targetLane": "Retrieve or reliably derive multiplication facts with factors 2 through 9, with accuracy and hesitation recorded separately from structural performance.",
+        "locked": true,
+        "title": "Arrival Dock: Fuse Check",
+        "gameHtmlPath": "/Users/jamaltaylor/Development/sunny-demo-main/src/context/reina/homework/games/hw-math-767d56c796d206c1dc99b79d/ACT-SHARED-03.html",
+        "date": "hw-math-767d56c796d206c1dc99b79d",
+        "thumbnailUrl": "/generated/direct-math/hw-math-767d56c796d206c1dc99b79d-ACT-SHARED-03-thumbnail-3321f9b09e8d.jpeg",
+        "contentId": "hw-math-767d56c796d206c1dc99b79d:ACT-SHARED-03",
+        "mechanic": "Pure, calm fact entry: one fuse at a time, bare prompt, numeric answer, untimed. Each correct product snaps the fuse alight with a satisfying click and slides the next fuse into place. There is deliberately no narrative load here — the contrast with the story-rich nodes is itself the design, honoring the contract's separation of fact fluency from structure.",
+        "engagementDimensions": [
+          "shared-baseline"
+        ],
+        "engagementHypothesis": "With no math evidence on record, the construct band can be probed to equal depth through either an array-first path (structure made visible as rows and columns before inverse work) or a story-first path (structure read out of contextual equal-groups language before inverse work). Both routes cover the same inverse/factor-pair demand at the same difficulty, so any performance difference isolates representational entry point rather than academic level.",
+        "masteryUnlockState": "preparing",
+        "theoryId": "hw-math-767d56c796d206c1dc99b79d:academic-theory",
+        "experimentId": "hw-math-767d56c796d206c1dc99b79d:shared:shared-baseline",
+        "theme": "Deliberately quiet screen: charcoal panel, brass fuse sockets, one fact in large friendly numerals at a time, big high-contrast number pad. The side subsystem window is small and secondary so it rewards without distracting. No decorative text.",
+        "sfxProfile": "interaction-recovery-progress-completion",
+        "companionPolicy": "cycle-contract",
+        "thumbnailPrompt": "Deliberately quiet screen: charcoal panel, brass fuse sockets, one fact in large friendly numerals at a time, big high-contrast number pad. The side subsystem window is small and secondary so it rewards without distracting. No decorative text."
+      },
+      {
+        "id": "ACT-ARRAY-01",
+        "type": "generated-baseline",
+        "activityId": "generated-baseline",
+        "targets": [
+          "A lantern rack has 6 rows with 8 lanterns in each row. Build the two multiplication equations this array shows.",
+          "For that lantern rack, explain what the 6 counts and what the 8 counts, and why both equations describe the same rack.",
+          "An array of stage tiles has 5 rows and 7 tiles in each row. How many tiles are in the array?",
+          "An array shows 4 rows of 9. Which equation does NOT describe this array?"
+        ],
+        "difficulty": 1,
+        "source": "chart_planner",
+        "targetLane": "Given a rectangular array, write both multiplication equations it represents and explain what the rows and columns each count.",
+        "locked": true,
+        "title": "Light Wall Wing: The Two-Way Lantern Rack",
+        "rounds": [
+          {
+            "id": "ITM-A01-4",
+            "prompt": "An array shows 4 rows of 9. Which equation does NOT describe this array?",
+            "options": [
+              {
+                "id": "OPT-A01-4-a",
+                "label": "4 x 9 = 36",
+                "correct": false
+              },
+              {
+                "id": "OPT-A01-4-b",
+                "label": "9 x 4 = 36",
+                "correct": false
+              },
+              {
+                "id": "OPT-A01-4-c",
+                "label": "4 + 9 = 13",
+                "correct": true
+              }
+            ]
+          }
+        ],
+        "gameHtmlPath": "/Users/jamaltaylor/Development/sunny-demo-main/src/context/reina/homework/games/hw-math-767d56c796d206c1dc99b79d/ACT-ARRAY-01.html",
+        "date": "hw-math-767d56c796d206c1dc99b79d",
+        "thumbnailUrl": "/generated/direct-math/hw-math-767d56c796d206c1dc99b79d-ACT-ARRAY-01-thumbnail-05fcb4f66b1c.jpeg",
+        "contentId": "hw-math-767d56c796d206c1dc99b79d:ACT-ARRAY-01",
+        "mechanic": "The child reads arrays as physical lantern grids and answers by building equations from drag tiles, typing totals, or explaining row/column roles. The signature move is the double-lighting: after the first equation lights the rack row-by-row (6 sweeps of 8), building the commuted equation re-lights the same rack column-by-column (8 sweeps of 6), proving on screen that both equations describe one object.",
+        "engagementDimensions": [
+          "Whether a visual, build-a-grid entry (picture-first) holds this learner through the harder inverse and factor-pair items better than a narrative entry — testing the mixed-learning-style hypothesis with a concrete visual anchor."
+        ],
+        "engagementHypothesis": "Because the chart records learningStyle=mixed with a visual component and no engagement history at all, a route that opens with a picture-like rectangular arrangement may give this learner a concrete anchor that keeps a moderate attention span on task through the harder inverse items.",
+        "masteryUnlockState": "preparing",
+        "theoryId": "hw-math-767d56c796d206c1dc99b79d:academic-theory",
+        "experimentId": "hw-math-767d56c796d206c1dc99b79d:ROUTE-ARRAY:Whether a visual, build-a-grid entry (picture-first) holds this learner through the harder inverse and factor-pair items better than a narrative entry — testing the mixed-learning-style hypothesis with a concrete visual anchor.",
+        "theme": "The rack is the hero: high-contrast unlit charcoal lanterns on indigo, grid lines faint so the child does the structural reading. Row sweeps are amber, column sweeps teal, so the two readings are color-coded consistently across the whole route. Equation builder tiles are chunky, rounded, high-contrast.",
+        "sfxProfile": "interaction-recovery-progress-completion",
+        "companionPolicy": "cycle-contract",
+        "thumbnailPrompt": "The rack is the hero: high-contrast unlit charcoal lanterns on indigo, grid lines faint so the child does the structural reading. Row sweeps are amber, column sweeps teal, so the two readings are color-coded consistently across the whole route. Equation builder tiles are chunky, rounded, high-contrast."
+      },
+      {
+        "id": "ACT-ARRAY-02",
+        "type": "generated-baseline",
+        "activityId": "generated-baseline",
+        "targets": [
+          "A wall holds 24 lights. One way to arrange them is 4 rows of 6. Build a different equal-row array that uses all 24 lights and record its equation.",
+          "An array has 6 equal rows and 42 tiles in total. How many tiles are in each row?",
+          "Build two different equal-row arrays that each use all 36 lights, and record the equation for each.",
+          "Explain how you can be sure an equal-row array really uses the whole total, and how you found a second arrangement that was different from the first."
+        ],
+        "difficulty": 1,
+        "source": "chart_planner",
+        "targetLane": "Given a total with several factor pairs within single-digit factors, produce two distinct equal-row arrangements that use the whole total and record the equation for each.",
+        "locked": true,
+        "title": "Light Wall Wing: Design the Launch Walls",
+        "gameHtmlPath": "/Users/jamaltaylor/Development/sunny-demo-main/src/context/reina/homework/games/hw-math-767d56c796d206c1dc99b79d/ACT-ARRAY-02.html",
+        "date": "hw-math-767d56c796d206c1dc99b79d",
+        "thumbnailUrl": "/generated/direct-math/hw-math-767d56c796d206c1dc99b79d-ACT-ARRAY-02-thumbnail-1787e2f2b204.jpeg",
+        "contentId": "hw-math-767d56c796d206c1dc99b79d:ACT-ARRAY-02",
+        "mechanic": "Freeform array construction with smart snapping: the child sets a row length by placing lanterns, then can duplicate rows with a stamp handle. A live counter shows lanterns used vs. budget (e.g., 21/24), and an equation strip auto-drafts beneath the build (e.g., '3 × 8 = ?') which the child must complete and sign. Uneven rows physically sag and spark, making 'equal rows using the whole total' a visible engineering constraint, not a rule to remember.",
+        "engagementDimensions": [
+          "Whether a visual, build-a-grid entry (picture-first) holds this learner through the harder inverse and factor-pair items better than a narrative entry — testing the mixed-learning-style hypothesis with a concrete visual anchor."
+        ],
+        "engagementHypothesis": "Because the chart records learningStyle=mixed with a visual component and no engagement history at all, a route that opens with a picture-like rectangular arrangement may give this learner a concrete anchor that keeps a moderate attention span on task through the harder inverse items.",
+        "masteryUnlockState": "preparing",
+        "theoryId": "hw-math-767d56c796d206c1dc99b79d:academic-theory",
+        "experimentId": "hw-math-767d56c796d206c1dc99b79d:ROUTE-ARRAY:Whether a visual, build-a-grid entry (picture-first) holds this learner through the harder inverse and factor-pair items better than a narrative entry — testing the mixed-learning-style hypothesis with a concrete visual anchor.",
+        "theme": "Warm drafting-table workshop framing against the indigo plaza; lanterns are chunky draggable orbs with a satisfying snap ring; the live counter and auto-drafting equation strip are large and honest — no hidden state. Sagging uneven rows use rubbery deformation, comic not alarming.",
+        "sfxProfile": "interaction-recovery-progress-completion",
+        "companionPolicy": "cycle-contract",
+        "thumbnailPrompt": "Warm drafting-table workshop framing against the indigo plaza; lanterns are chunky draggable orbs with a satisfying snap ring; the live counter and auto-drafting equation strip are large and honest — no hidden state. Sagging uneven rows use rubbery deformation, comic not alarming."
+      },
+      {
+        "id": "ACT-STORY-01",
+        "type": "generated-baseline",
+        "activityId": "generated-baseline",
+        "targets": [
+          "Forty-two flags are placed in 6 equal rows. The matching equation is 6 x ? = 42. How many flags are in each row?",
+          "Fill in the missing factor: ? x 7 = 35.",
+          "A crew packs 48 badges into bags with 8 badges in each bag. Write the multiplication equation with a missing factor for this story, find the missing factor, and name the fact that proves your answer.",
+          "Thirty-two chairs are set out in equal rows with 8 chairs in each row. How many rows are there?"
+        ],
+        "difficulty": 1,
+        "source": "chart_planner",
+        "targetLane": "Given a total and one factor — presented either as an equation with an unknown or as an equal-rows sharing story within 48 — determine the missing factor and name the multiplication fact that verifies it.",
+        "locked": true,
+        "title": "Market Wing: The Stall-Keepers' Missing Numbers",
+        "gameHtmlPath": "/Users/jamaltaylor/Development/sunny-demo-main/src/context/reina/homework/games/hw-math-767d56c796d206c1dc99b79d/ACT-STORY-01.html",
+        "date": "hw-math-767d56c796d206c1dc99b79d",
+        "thumbnailUrl": "/generated/direct-math/hw-math-767d56c796d206c1dc99b79d-ACT-STORY-01-thumbnail-bbf4da8bfce5.jpeg",
+        "contentId": "hw-math-767d56c796d206c1dc99b79d:ACT-STORY-01",
+        "mechanic": "Each stall is one item: a keeper states a short problem aloud (text mirrored, tap-to-replay), and the child answers by dialing a number into an equation socket, typing a value, or — on the capstone — assembling the missing-factor equation themselves from socket parts before solving it and naming the verifying fact. Correct sockets close the stall's circuit: lights, music, and smell-wisps all switch on at once, and the keeper begins actually selling to the crowd.",
+        "engagementDimensions": [
+          "Whether keeping every item inside one continuous market story (narrative-first) lowers switching cost and sustains attention across the inverse band better than the grid-building entry — testing whether text is a hook or a barrier for this learner."
+        ],
+        "engagementHypothesis": "Because the source page is entirely festival-story framed and the chart shows no prior math engagement data, a route that keeps every item in a narrative situation may reduce the switching cost between reading the situation and doing the math, keeping a moderate-attention learner engaged across the inverse band.",
+        "masteryUnlockState": "preparing",
+        "theoryId": "hw-math-767d56c796d206c1dc99b79d:academic-theory",
+        "experimentId": "hw-math-767d56c796d206c1dc99b79d:ROUTE-STORY:Whether keeping every item inside one continuous market story (narrative-first) lowers switching cost and sustains attention across the inverse band better than the grid-building entry — testing whether text is a hook or a barrier for this learner.",
+        "theme": "Dense cozy night-market palette: indigo dark broken by pools of warm stall light as progress accrues; keepers are expressive animal-adjacent aliens (moth, axolotl, pangolin, heron) with distinct silhouettes, feeding the child's animal interest without leaving the space fiction. Equation panels are brass with satisfying socket geometry; text stays to one or two spoken-and-mirrored lines.",
+        "sfxProfile": "interaction-recovery-progress-completion",
+        "companionPolicy": "cycle-contract",
+        "thumbnailPrompt": "Dense cozy night-market palette: indigo dark broken by pools of warm stall light as progress accrues; keepers are expressive animal-adjacent aliens (moth, axolotl, pangolin, heron) with distinct silhouettes, feeding the child's animal interest without leaving the space fiction. Equation panels are brass with satisfying socket geometry; text stays to one or two spoken-and-mirrored lines."
+      },
+      {
+        "id": "ACT-STORY-02",
+        "type": "generated-baseline",
+        "activityId": "generated-baseline",
+        "targets": [
+          "Four booths each need 5 cups in the morning and 5 cups in the afternoon. How many cups are needed in all?",
+          "Show the structure you used for the cup problem: write the equations that get from the booths to the total.",
+          "Three stalls each hand out 6 programs before the show and 6 programs after the show. How many programs are handed out altogether?",
+          "Explain why the answer to the program problem is not 3 x 6, and describe the equal group that gets repeated."
+        ],
+        "difficulty": 1,
+        "source": "chart_planner",
+        "targetLane": "Given a story where equal groups each contribute a quantity on two occasions, compute the total and show the multiplicative structure used.",
+        "locked": true,
+        "title": "Market Wing: The Double-Shift Night",
+        "gameHtmlPath": "/Users/jamaltaylor/Development/sunny-demo-main/src/context/reina/homework/games/hw-math-767d56c796d206c1dc99b79d/ACT-STORY-02.html",
+        "date": "hw-math-767d56c796d206c1dc99b79d",
+        "thumbnailUrl": "/generated/direct-math/hw-math-767d56c796d206c1dc99b79d-ACT-STORY-02-thumbnail-aea55b1d9f4a.jpeg",
+        "contentId": "hw-math-767d56c796d206c1dc99b79d:ACT-STORY-02",
+        "mechanic": "Each item is a supply order for a two-occasion story. The child computes totals on the order-pad, and on structure items builds the delivery plan on a two-panel planning board — MORNING and AFTERNOON panels — by placing equation tiles (4 × 5 = 20 in each panel, then ×2 to the night total, or the combined 4 × 10 = 40 across both). Deliveries then physically run: hover-crates drop the ordered amount at each booth across both shifts, so an under-order is visible as afternoon booths left empty-handed.",
+        "engagementDimensions": [
+          "Whether keeping every item inside one continuous market story (narrative-first) lowers switching cost and sustains attention across the inverse band better than the grid-building entry — testing whether text is a hook or a barrier for this learner."
+        ],
+        "engagementHypothesis": "Because the source page is entirely festival-story framed and the chart shows no prior math engagement data, a route that keeps every item in a narrative situation may reduce the switching cost between reading the situation and doing the math, keeping a moderate-attention learner engaged across the inverse band.",
+        "masteryUnlockState": "preparing",
+        "theoryId": "hw-math-767d56c796d206c1dc99b79d:academic-theory",
+        "experimentId": "hw-math-767d56c796d206c1dc99b79d:ROUTE-STORY:Whether keeping every item inside one continuous market story (narrative-first) lowers switching cost and sustains attention across the inverse band better than the grid-building entry — testing whether text is a hook or a barrier for this learner.",
+        "theme": "Warm administrative-cozy: a cluttered supply office window overlooking the lit lane, paper slips with big numerals, the two-sun day-wheel as the persistent visual anchor for 'two occasions'. MORNING panel tinted gold, AFTERNOON tinted violet, so the repeated structure is color-legible everywhere including in the delivery animation.",
+        "sfxProfile": "interaction-recovery-progress-completion",
+        "companionPolicy": "cycle-contract",
+        "thumbnailPrompt": "Warm administrative-cozy: a cluttered supply office window overlooking the lit lane, paper slips with big numerals, the two-sun day-wheel as the persistent visual anchor for 'two occasions'. MORNING panel tinted gold, AFTERNOON tinted violet, so the repeated structure is color-legible everywhere including in the delivery animation."
+      },
+      {
+        "id": "quest",
+        "type": "quest",
+        "activityId": "quest",
+        "targets": [],
+        "difficulty": 1,
+        "source": "chart_planner",
+        "locked": true,
+        "masteryUnlockState": "preparing",
+        "title": "Quest",
+        "thumbnailUrl": "/generated/direct-math/hw-math-767d56c796d206c1dc99b79d-quest.jpeg",
+        "targetLane": "math.operations.multiplicative-structure.equal-groups-and-arrays (unseen transfer)",
+        "theoryId": "hw-math-767d56c796d206c1dc99b79d:academic-theory",
+        "experimentId": "hw-math-767d56c796d206c1dc99b79d:quest",
+        "contentId": "hw-math-767d56c796d206c1dc99b79d:node:quest",
+        "mechanic": "locked-teaser",
+        "theme": "The Repair Bay door is slightly open on the board map, sparks fizzing out. A sign reads: 'WANTED: engineer who can fix what others wired wrong.' Inside, three miswired fact-circuits wait — other engineers wrote the wrong products, and only a fix-by-nearby-fact repair will stop the sparking.",
+        "sfxProfile": "",
+        "companionPolicy": "cycle-contract",
+        "thumbnailPrompt": "The Repair Bay is a cozy cluttered workshop: hanging cables, a wall of labeled fuse-facts, a friendly repair-bot with one googly eye holding up the miswired circuit boards. Each wrong product glows an angry red until repaired, then settles to calm green with a satisfied 'clunk'. Warm workshop oranges against the station's indigo, hand-tool clutter drawn with rounded, non-threatening shapes."
+      },
+      {
+        "id": "boss",
+        "type": "boss",
+        "activityId": "boss",
+        "targets": [],
+        "difficulty": 1,
+        "source": "chart_planner",
+        "locked": true,
+        "masteryUnlockState": "preparing",
+        "title": "Boss",
+        "thumbnailUrl": "/generated/direct-math/hw-math-767d56c796d206c1dc99b79d-boss.jpeg",
+        "targetLane": "math.operations.multiplicative-structure.equal-groups-and-arrays (unseen synthesis)",
+        "theoryId": "hw-math-767d56c796d206c1dc99b79d:academic-theory",
+        "experimentId": "hw-math-767d56c796d206c1dc99b79d:boss",
+        "contentId": "hw-math-767d56c796d206c1dc99b79d:node:boss",
+        "mechanic": "locked-teaser",
+        "theme": "A dark silhouette hangs over the station core: the Festival Launch Array, a massive unlit ring of 36 lights that only ignites when its keeper — the grumpy old Chief Engineer Zorvax — is convinced Creator can arrange power in more than one way. His shadowed ring pulses faintly on the board map from the very first screen.",
+        "sfxProfile": "",
+        "companionPolicy": "cycle-contract",
+        "thumbnailPrompt": "Zorvax is a huge, four-armed, walrus-like alien engineer in a patched jumpsuit, more grumpy-uncle than scary — goggles pushed up on his forehead, one arm always holding cocoa. The Launch Array behind him is a colossal dark ring of 36 unlit sockets rendered in cold blue-grey; as the child progresses, individual sockets warm to amber. Final launch shot: the full ring blazing, fireworks of lantern-drones spelling patterns over the station."
+      }
+    ],
+    "learningRoutes": [
+      {
+        "id": "ROUTE-ARRAY",
+        "label": "Light Wall Wing",
+        "rationale": "Bring the festival's giant light walls online by building glowing grids of lanterns — every row you lock in place lights up for real, and the wing ends with you designing the two big light walls that launch the festival.",
+        "nodeIds": [
+          "ACT-SHARED-01",
+          "ACT-SHARED-02",
+          "ACT-SHARED-03",
+          "ACT-ARRAY-01",
+          "ACT-ARRAY-02",
+          "quest",
+          "boss"
+        ]
+      },
+      {
+        "id": "ROUTE-STORY",
+        "label": "Market Wing",
+        "rationale": "Reopen the alien night market by solving the stall-keepers' power puzzles — each stall tells you its problem out loud, and every answer you wire in makes that stall's lights, smells, and music switch on.",
+        "nodeIds": [
+          "ACT-SHARED-01",
+          "ACT-SHARED-02",
+          "ACT-SHARED-03",
+          "ACT-STORY-01",
+          "ACT-STORY-02",
+          "quest",
+          "boss"
+        ]
+      }
+    ],
+    "adventureBoard": {
+      "schemaVersion": 1,
+      "boardId": "direct:hw-math-767d56c796d206c1dc99b79d",
+      "planId": "LAB-MATH-C-charter-v1:cycle-r3",
+      "childId": "reina",
+      "domain": "math",
+      "title": "Starlight Festival on Nova Station",
+      "theme": {
+        "background": {
+          "type": "image",
+          "value": "/generated/direct-math/hw-math-767d56c796d206c1dc99b79d-background.jpeg"
+        },
+        "palette": {
+          "path": "#fff4c2",
+          "completed": "#34d399",
+          "available": "#7c3aed",
+          "locked": "#64748b",
+          "current": "#f59e0b",
+          "preview": "#94a3b8",
+          "text": "#ffffff",
+          "panel": "rgba(15,23,42,.82)"
+        }
+      },
+      "layout": {
+        "preset": "horizontal-adventure-spine",
+        "companionSlot": "right",
+        "routeChoiceBehavior": "exclusive"
+      },
+      "plannerRationale": {
+        "agencyDesign": "With no math evidence on record, the construct band can be probed to equal depth through either an array-first path (structure made visible as rows and columns before inverse work) or a story-first path (structure read out of contextual equal-groups language before inverse work). Both routes cover the same inverse/factor-pair demand at the same difficulty, so any performance difference isolates representational entry point rather than academic level.",
+        "evidenceDesign": "Construct math.operations.multiplicative-structure.equal-groups-and-arrays is the target on both routes; Single-digit factors only; totals within 48; Both routes include inverse/missing-factor work (LR-03) and factor-pair generation or array-equation translation at Grade 3 depth; No remainders, no multi-digit computation, no two-step demands beyond one repeated equal-groups step; Shared pre-fork nodes ACT-SHARED-01 and ACT-SHARED-02 are identical for both routes; Item counts per route node held at 4 items; Fact-fluency baseline (LR-08) measured pre-fork on both routes",
+        "layoutChoice": "Two visible choose-your-adventure routes converge on a locked Quest."
+      },
+      "nodes": [
+        {
+          "id": "start",
+          "kind": "start",
+          "label": "Start",
+          "shortLabel": "Start",
+          "state": "completed",
+          "position": {
+            "x": 0.07,
+            "y": 0.88
+          }
+        },
+        {
+          "id": "ACT-SHARED-01",
+          "kind": "activity",
+          "activityId": "generated-baseline",
+          "label": "Arrival Dock: Lantern Parade Power-Up",
+          "shortLabel": "Arrival Dock",
+          "state": "current",
+          "position": {
+            "x": 0.15,
+            "y": 0.72
+          },
+          "action": {
+            "type": "launch-activity",
+            "payloadId": "ACT-SHARED-01"
+          },
+          "thumbnailUrl": "/generated/direct-math/hw-math-767d56c796d206c1dc99b79d-ACT-SHARED-01-thumbnail-53c4f631e95f.jpeg",
+          "mechanic": "Each item is one parade scene: equal groups are drawn on screen as real festival objects (wagons of lanterns, packs of snacks, tables of chairs, trays of cups). The child answers by typing a number, tapping a matching equation, or speaking/typing a one-line explanation of what each factor counts. Every correct answer sends a visible amber pulse down a conduit and lights one dock district; the parade physically advances one wagon-length toward the festival gate.",
+          "engagementDimensions": [
+            "shared-baseline"
+          ],
+          "engagementHypothesis": "With no math evidence on record, the construct band can be probed to equal depth through either an array-first path (structure made visible as rows and columns before inverse work) or a story-first path (structure read out of contextual equal-groups language before inverse work). Both routes cover the same inverse/factor-pair demand at the same difficulty, so any performance difference isolates representational entry point rather than academic level.",
+          "contentId": "hw-math-767d56c796d206c1dc99b79d:ACT-SHARED-01",
+          "theoryId": "hw-math-767d56c796d206c1dc99b79d:academic-theory",
+          "experimentId": "hw-math-767d56c796d206c1dc99b79d:shared:shared-baseline",
+          "sfxProfile": "interaction-recovery-progress-completion",
+          "companionPolicy": "cycle-contract"
+        },
+        {
+          "id": "ACT-SHARED-02",
+          "kind": "activity",
+          "activityId": "generated-baseline",
+          "label": "Arrival Dock: The Sorting Beacon",
+          "shortLabel": "Arrival Dock",
+          "state": "locked",
+          "position": {
+            "x": 0.22499999999999998,
+            "y": 0.6499999999999999
+          },
+          "action": {
+            "type": "show-locked-reason",
+            "payloadId": "ACT-SHARED-02"
+          },
+          "thumbnailUrl": "/generated/direct-math/hw-math-767d56c796d206c1dc99b79d-ACT-SHARED-02-thumbnail-8206e6d25471.jpeg",
+          "mechanic": "For each item the beacon holds an expression card and three story-pods share the same number pair but different structures (equal groups, adding, sharing). The child taps a pod to feed it in. Matching pods lock in with a beam of amber light to a district; non-matching pods are gently rejected — the beacon holds them up and highlights the story words that broke the match. Two items ask for a short typed or spoken justification, entered on a simple two-tap sentence-builder plus free text.",
+          "engagementDimensions": [
+            "shared-baseline"
+          ],
+          "engagementHypothesis": "With no math evidence on record, the construct band can be probed to equal depth through either an array-first path (structure made visible as rows and columns before inverse work) or a story-first path (structure read out of contextual equal-groups language before inverse work). Both routes cover the same inverse/factor-pair demand at the same difficulty, so any performance difference isolates representational entry point rather than academic level.",
+          "contentId": "hw-math-767d56c796d206c1dc99b79d:ACT-SHARED-02",
+          "lock": {
+            "reason": "preparing",
+            "label": "Locked"
+          },
+          "theoryId": "hw-math-767d56c796d206c1dc99b79d:academic-theory",
+          "experimentId": "hw-math-767d56c796d206c1dc99b79d:shared:shared-baseline",
+          "sfxProfile": "interaction-recovery-progress-completion",
+          "companionPolicy": "cycle-contract"
+        },
+        {
+          "id": "ACT-SHARED-03",
+          "kind": "activity",
+          "activityId": "generated-baseline",
+          "label": "Arrival Dock: Fuse Check",
+          "shortLabel": "Arrival Dock",
+          "state": "locked",
+          "position": {
+            "x": 0.3,
+            "y": 0.58
+          },
+          "action": {
+            "type": "show-locked-reason",
+            "payloadId": "ACT-SHARED-03"
+          },
+          "thumbnailUrl": "/generated/direct-math/hw-math-767d56c796d206c1dc99b79d-ACT-SHARED-03-thumbnail-3321f9b09e8d.jpeg",
+          "mechanic": "Pure, calm fact entry: one fuse at a time, bare prompt, numeric answer, untimed. Each correct product snaps the fuse alight with a satisfying click and slides the next fuse into place. There is deliberately no narrative load here — the contrast with the story-rich nodes is itself the design, honoring the contract's separation of fact fluency from structure.",
+          "engagementDimensions": [
+            "shared-baseline"
+          ],
+          "engagementHypothesis": "With no math evidence on record, the construct band can be probed to equal depth through either an array-first path (structure made visible as rows and columns before inverse work) or a story-first path (structure read out of contextual equal-groups language before inverse work). Both routes cover the same inverse/factor-pair demand at the same difficulty, so any performance difference isolates representational entry point rather than academic level.",
+          "contentId": "hw-math-767d56c796d206c1dc99b79d:ACT-SHARED-03",
+          "lock": {
+            "reason": "preparing",
+            "label": "Locked"
+          },
+          "theoryId": "hw-math-767d56c796d206c1dc99b79d:academic-theory",
+          "experimentId": "hw-math-767d56c796d206c1dc99b79d:shared:shared-baseline",
+          "sfxProfile": "interaction-recovery-progress-completion",
+          "companionPolicy": "cycle-contract"
+        },
+        {
+          "id": "choose-path",
+          "kind": "choice-gate",
+          "label": "Choose Path",
+          "shortLabel": "Choose Path",
+          "state": "available",
+          "position": {
+            "x": 0.44,
+            "y": 0.48
+          },
+          "action": {
+            "type": "open-choice-set",
+            "payloadId": "baseline-route-options"
+          },
+          "choiceSetId": "direct-route-choice"
+        },
+        {
+          "id": "ACT-ARRAY-01",
+          "kind": "activity",
+          "activityId": "generated-baseline",
+          "label": "Light Wall Wing: The Two-Way Lantern Rack",
+          "shortLabel": "Light Wall Wing",
+          "state": "locked",
+          "position": {
+            "x": 0.45333333333333337,
+            "y": 0.32
+          },
+          "action": {
+            "type": "show-locked-reason",
+            "payloadId": "ACT-ARRAY-01"
+          },
+          "thumbnailUrl": "/generated/direct-math/hw-math-767d56c796d206c1dc99b79d-ACT-ARRAY-01-thumbnail-05fcb4f66b1c.jpeg",
+          "mechanic": "The child reads arrays as physical lantern grids and answers by building equations from drag tiles, typing totals, or explaining row/column roles. The signature move is the double-lighting: after the first equation lights the rack row-by-row (6 sweeps of 8), building the commuted equation re-lights the same rack column-by-column (8 sweeps of 6), proving on screen that both equations describe one object.",
+          "engagementDimensions": [
+            "Whether a visual, build-a-grid entry (picture-first) holds this learner through the harder inverse and factor-pair items better than a narrative entry — testing the mixed-learning-style hypothesis with a concrete visual anchor."
+          ],
+          "engagementHypothesis": "Because the chart records learningStyle=mixed with a visual component and no engagement history at all, a route that opens with a picture-like rectangular arrangement may give this learner a concrete anchor that keeps a moderate attention span on task through the harder inverse items.",
+          "contentId": "hw-math-767d56c796d206c1dc99b79d:ACT-ARRAY-01",
+          "lock": {
+            "reason": "preparing",
+            "label": "Locked"
+          },
+          "theoryId": "hw-math-767d56c796d206c1dc99b79d:academic-theory",
+          "experimentId": "hw-math-767d56c796d206c1dc99b79d:ROUTE-ARRAY:Whether a visual, build-a-grid entry (picture-first) holds this learner through the harder inverse and factor-pair items better than a narrative entry — testing the mixed-learning-style hypothesis with a concrete visual anchor.",
+          "sfxProfile": "interaction-recovery-progress-completion",
+          "companionPolicy": "cycle-contract"
+        },
+        {
+          "id": "ACT-ARRAY-02",
+          "kind": "activity",
+          "activityId": "generated-baseline",
+          "label": "Light Wall Wing: Design the Launch Walls",
+          "shortLabel": "Light Wall Wing",
+          "state": "locked",
+          "position": {
+            "x": 0.6066666666666667,
+            "y": 0.32
+          },
+          "action": {
+            "type": "show-locked-reason",
+            "payloadId": "ACT-ARRAY-02"
+          },
+          "thumbnailUrl": "/generated/direct-math/hw-math-767d56c796d206c1dc99b79d-ACT-ARRAY-02-thumbnail-1787e2f2b204.jpeg",
+          "mechanic": "Freeform array construction with smart snapping: the child sets a row length by placing lanterns, then can duplicate rows with a stamp handle. A live counter shows lanterns used vs. budget (e.g., 21/24), and an equation strip auto-drafts beneath the build (e.g., '3 × 8 = ?') which the child must complete and sign. Uneven rows physically sag and spark, making 'equal rows using the whole total' a visible engineering constraint, not a rule to remember.",
+          "engagementDimensions": [
+            "Whether a visual, build-a-grid entry (picture-first) holds this learner through the harder inverse and factor-pair items better than a narrative entry — testing the mixed-learning-style hypothesis with a concrete visual anchor."
+          ],
+          "engagementHypothesis": "Because the chart records learningStyle=mixed with a visual component and no engagement history at all, a route that opens with a picture-like rectangular arrangement may give this learner a concrete anchor that keeps a moderate attention span on task through the harder inverse items.",
+          "contentId": "hw-math-767d56c796d206c1dc99b79d:ACT-ARRAY-02",
+          "lock": {
+            "reason": "preparing",
+            "label": "Locked"
+          },
+          "theoryId": "hw-math-767d56c796d206c1dc99b79d:academic-theory",
+          "experimentId": "hw-math-767d56c796d206c1dc99b79d:ROUTE-ARRAY:Whether a visual, build-a-grid entry (picture-first) holds this learner through the harder inverse and factor-pair items better than a narrative entry — testing the mixed-learning-style hypothesis with a concrete visual anchor.",
+          "sfxProfile": "interaction-recovery-progress-completion",
+          "companionPolicy": "cycle-contract"
+        },
+        {
+          "id": "ACT-STORY-01",
+          "kind": "activity",
+          "activityId": "generated-baseline",
+          "label": "Market Wing: The Stall-Keepers' Missing Numbers",
+          "shortLabel": "Market Wing",
+          "state": "locked",
+          "position": {
+            "x": 0.45333333333333337,
+            "y": 0.72
+          },
+          "action": {
+            "type": "show-locked-reason",
+            "payloadId": "ACT-STORY-01"
+          },
+          "thumbnailUrl": "/generated/direct-math/hw-math-767d56c796d206c1dc99b79d-ACT-STORY-01-thumbnail-bbf4da8bfce5.jpeg",
+          "mechanic": "Each stall is one item: a keeper states a short problem aloud (text mirrored, tap-to-replay), and the child answers by dialing a number into an equation socket, typing a value, or — on the capstone — assembling the missing-factor equation themselves from socket parts before solving it and naming the verifying fact. Correct sockets close the stall's circuit: lights, music, and smell-wisps all switch on at once, and the keeper begins actually selling to the crowd.",
+          "engagementDimensions": [
+            "Whether keeping every item inside one continuous market story (narrative-first) lowers switching cost and sustains attention across the inverse band better than the grid-building entry — testing whether text is a hook or a barrier for this learner."
+          ],
+          "engagementHypothesis": "Because the source page is entirely festival-story framed and the chart shows no prior math engagement data, a route that keeps every item in a narrative situation may reduce the switching cost between reading the situation and doing the math, keeping a moderate-attention learner engaged across the inverse band.",
+          "contentId": "hw-math-767d56c796d206c1dc99b79d:ACT-STORY-01",
+          "lock": {
+            "reason": "preparing",
+            "label": "Locked"
+          },
+          "theoryId": "hw-math-767d56c796d206c1dc99b79d:academic-theory",
+          "experimentId": "hw-math-767d56c796d206c1dc99b79d:ROUTE-STORY:Whether keeping every item inside one continuous market story (narrative-first) lowers switching cost and sustains attention across the inverse band better than the grid-building entry — testing whether text is a hook or a barrier for this learner.",
+          "sfxProfile": "interaction-recovery-progress-completion",
+          "companionPolicy": "cycle-contract"
+        },
+        {
+          "id": "ACT-STORY-02",
+          "kind": "activity",
+          "activityId": "generated-baseline",
+          "label": "Market Wing: The Double-Shift Night",
+          "shortLabel": "Market Wing",
+          "state": "locked",
+          "position": {
+            "x": 0.6066666666666667,
+            "y": 0.72
+          },
+          "action": {
+            "type": "show-locked-reason",
+            "payloadId": "ACT-STORY-02"
+          },
+          "thumbnailUrl": "/generated/direct-math/hw-math-767d56c796d206c1dc99b79d-ACT-STORY-02-thumbnail-aea55b1d9f4a.jpeg",
+          "mechanic": "Each item is a supply order for a two-occasion story. The child computes totals on the order-pad, and on structure items builds the delivery plan on a two-panel planning board — MORNING and AFTERNOON panels — by placing equation tiles (4 × 5 = 20 in each panel, then ×2 to the night total, or the combined 4 × 10 = 40 across both). Deliveries then physically run: hover-crates drop the ordered amount at each booth across both shifts, so an under-order is visible as afternoon booths left empty-handed.",
+          "engagementDimensions": [
+            "Whether keeping every item inside one continuous market story (narrative-first) lowers switching cost and sustains attention across the inverse band better than the grid-building entry — testing whether text is a hook or a barrier for this learner."
+          ],
+          "engagementHypothesis": "Because the source page is entirely festival-story framed and the chart shows no prior math engagement data, a route that keeps every item in a narrative situation may reduce the switching cost between reading the situation and doing the math, keeping a moderate-attention learner engaged across the inverse band.",
+          "contentId": "hw-math-767d56c796d206c1dc99b79d:ACT-STORY-02",
+          "lock": {
+            "reason": "preparing",
+            "label": "Locked"
+          },
+          "theoryId": "hw-math-767d56c796d206c1dc99b79d:academic-theory",
+          "experimentId": "hw-math-767d56c796d206c1dc99b79d:ROUTE-STORY:Whether keeping every item inside one continuous market story (narrative-first) lowers switching cost and sustains attention across the inverse band better than the grid-building entry — testing whether text is a hook or a barrier for this learner.",
+          "sfxProfile": "interaction-recovery-progress-completion",
+          "companionPolicy": "cycle-contract"
+        },
+        {
+          "id": "quest",
+          "kind": "quest",
+          "label": "Quest",
+          "state": "locked",
+          "position": {
+            "x": 0.82,
+            "y": 0.48
+          },
+          "thumbnailUrl": "/generated/direct-math/hw-math-767d56c796d206c1dc99b79d-quest.jpeg",
+          "lock": {
+            "reason": "preparing",
+            "label": "Quest is preparing"
+          },
+          "action": {
+            "type": "show-locked-reason",
+            "payloadId": "quest"
+          },
+          "shortLabel": "Quest",
+          "theoryId": "hw-math-767d56c796d206c1dc99b79d:academic-theory",
+          "experimentId": "hw-math-767d56c796d206c1dc99b79d:quest",
+          "contentId": "hw-math-767d56c796d206c1dc99b79d:node:quest",
+          "mechanic": "locked-teaser",
+          "sfxProfile": "",
+          "companionPolicy": "cycle-contract"
+        },
+        {
+          "id": "boss",
+          "kind": "boss",
+          "label": "Boss",
+          "state": "locked",
+          "position": {
+            "x": 0.94,
+            "y": 0.28
+          },
+          "thumbnailUrl": "/generated/direct-math/hw-math-767d56c796d206c1dc99b79d-boss.jpeg",
+          "lock": {
+            "reason": "preparing",
+            "label": "After Quest"
+          },
+          "action": {
+            "type": "show-locked-reason",
+            "payloadId": "boss"
+          },
+          "shortLabel": "Boss",
+          "theoryId": "hw-math-767d56c796d206c1dc99b79d:academic-theory",
+          "experimentId": "hw-math-767d56c796d206c1dc99b79d:boss",
+          "contentId": "hw-math-767d56c796d206c1dc99b79d:node:boss",
+          "mechanic": "locked-teaser",
+          "sfxProfile": "",
+          "companionPolicy": "cycle-contract"
+        }
+      ],
+      "edges": [
+        {
+          "id": "start-ACT-SHARED-01",
+          "from": "start",
+          "to": "ACT-SHARED-01",
+          "state": "available"
+        },
+        {
+          "id": "ACT-SHARED-01-ACT-SHARED-02",
+          "from": "ACT-SHARED-01",
+          "to": "ACT-SHARED-02",
+          "state": "locked"
+        },
+        {
+          "id": "ACT-SHARED-02-ACT-SHARED-03",
+          "from": "ACT-SHARED-02",
+          "to": "ACT-SHARED-03",
+          "state": "locked"
+        },
+        {
+          "id": "ACT-SHARED-03-choice",
+          "from": "ACT-SHARED-03",
+          "to": "choose-path",
+          "state": "available"
+        },
+        {
+          "id": "choose-path-ACT-ARRAY-01",
+          "from": "choose-path",
+          "to": "ACT-ARRAY-01",
+          "state": "locked"
+        },
+        {
+          "id": "ACT-ARRAY-01-ACT-ARRAY-02",
+          "from": "ACT-ARRAY-01",
+          "to": "ACT-ARRAY-02",
+          "state": "locked"
+        },
+        {
+          "id": "ACT-ARRAY-02-quest",
+          "from": "ACT-ARRAY-02",
+          "to": "quest",
+          "state": "locked"
+        },
+        {
+          "id": "choose-path-ACT-STORY-01",
+          "from": "choose-path",
+          "to": "ACT-STORY-01",
+          "state": "locked"
+        },
+        {
+          "id": "ACT-STORY-01-ACT-STORY-02",
+          "from": "ACT-STORY-01",
+          "to": "ACT-STORY-02",
+          "state": "locked"
+        },
+        {
+          "id": "ACT-STORY-02-quest",
+          "from": "ACT-STORY-02",
+          "to": "quest",
+          "state": "locked"
+        },
+        {
+          "id": "quest-boss",
+          "from": "quest",
+          "to": "boss",
+          "state": "locked"
+        }
+      ],
+      "choiceSets": [
+        {
+          "id": "direct-route-choice",
+          "kind": "baseline-route",
+          "title": "Choose your path",
+          "options": [
+            {
+              "id": "ROUTE-ARRAY",
+              "label": "Light Wall Wing",
+              "description": "Drag rows of lanterns into a grid, then write the two equations the grid shows.",
+              "state": "locked",
+              "nodeId": "ACT-ARRAY-01",
+              "thumbnailUrl": "/generated/direct-math/hw-math-767d56c796d206c1dc99b79d-ACT-ARRAY-01-thumbnail-05fcb4f66b1c.jpeg",
+              "artifactHash": "3e8eb430ed293c87262e3162b16341476f74c424415183278cf559494e6de817",
+              "engagementDimensions": [
+                "Whether a visual, build-a-grid entry (picture-first) holds this learner through the harder inverse and factor-pair items better than a narrative entry — testing the mixed-learning-style hypothesis with a concrete visual anchor."
+              ],
+              "choiceSignal": {
+                "algorithmFeed": "choicePolicy",
+                "traits": [
+                  "Whether a visual, build-a-grid entry (picture-first) holds this learner through the harder inverse and factor-pair items better than a narrative entry — testing the mixed-learning-style hypothesis with a concrete visual anchor."
+                ],
+                "expectedEvidence": "selection, start, completion, abandonment, replay",
+                "preferenceNotMastery": true
+              },
+              "gameHtmlPath": "/Users/jamaltaylor/Development/sunny-demo-main/src/context/reina/homework/games/hw-math-767d56c796d206c1dc99b79d/ACT-ARRAY-01.html"
+            },
+            {
+              "id": "ROUTE-STORY",
+              "label": "Market Wing",
+              "description": "Read a stall-keeper's short problem, type the missing number, and watch the stall light up.",
+              "state": "locked",
+              "nodeId": "ACT-STORY-01",
+              "thumbnailUrl": "/generated/direct-math/hw-math-767d56c796d206c1dc99b79d-ACT-STORY-01-thumbnail-bbf4da8bfce5.jpeg",
+              "artifactHash": "8437ee30046ab1bf54f54ad360e5100d892672c515f719b1a438e6c9da033318",
+              "engagementDimensions": [
+                "Whether keeping every item inside one continuous market story (narrative-first) lowers switching cost and sustains attention across the inverse band better than the grid-building entry — testing whether text is a hook or a barrier for this learner."
+              ],
+              "choiceSignal": {
+                "algorithmFeed": "choicePolicy",
+                "traits": [
+                  "Whether keeping every item inside one continuous market story (narrative-first) lowers switching cost and sustains attention across the inverse band better than the grid-building entry — testing whether text is a hook or a barrier for this learner."
+                ],
+                "expectedEvidence": "selection, start, completion, abandonment, replay",
+                "preferenceNotMastery": true
+              },
+              "gameHtmlPath": "/Users/jamaltaylor/Development/sunny-demo-main/src/context/reina/homework/games/hw-math-767d56c796d206c1dc99b79d/ACT-STORY-01.html"
+            }
+          ]
+        }
+      ],
+      "companion": {
+        "id": "elli",
+        "name": "Elli"
+      },
+      "progress": {
+        "currentNodeId": "ACT-SHARED-01",
+        "completedNodeIds": []
+      }
+    },
+    "variationPolicy": {
+      "avoidExactPreviousNodeOrder": true,
+      "avoidExactPreviousWordOrder": true,
+      "seed": "hw-math-767d56c796d206c1dc99b79d",
+      "previousCompletedNodeCount": 0
+    },
+    "companionPolicy": {
+      "companionId": "elli",
+      "displayName": "Elli",
+      "openingLinePolicy": "context_start_short",
+      "verbosity": "low",
+      "maxMicroProbes": 1
+    },
+    "evidenceUsed": [
+      {
+        "id": "planner-evidence-1",
+        "type": "child_chart",
+        "summary": "childChart.identity.displayName=Creator"
+      },
+      {
+        "id": "planner-evidence-2",
+        "type": "child_chart",
+        "summary": "childChart.demographics.age=10"
+      },
+      {
+        "id": "planner-evidence-3",
+        "type": "child_chart",
+        "summary": "childChart.demographics.grade=4"
+      },
+      {
+        "id": "planner-evidence-4",
+        "type": "child_chart",
+        "summary": "childChart.demographics.learningStyle=mixed"
+      },
+      {
+        "id": "planner-evidence-5",
+        "type": "child_chart",
+        "summary": "childChart.demographics.attentionSpan=moderate"
+      },
+      {
+        "id": "planner-evidence-6",
+        "type": "child_chart",
+        "summary": "childChart.demographics.diagnoses=[]"
+      },
+      {
+        "id": "planner-evidence-7",
+        "type": "child_chart",
+        "summary": "childChart.demographics.iepActive=false"
+      },
+      {
+        "id": "planner-evidence-8",
+        "type": "child_chart",
+        "summary": "childChart.learningProfile.sessionStats.totalSessions=13"
+      },
+      {
+        "id": "planner-evidence-9",
+        "type": "child_chart",
+        "summary": "childChart.learningProfile.sessionStats.averageAccuracy=0"
+      },
+      {
+        "id": "planner-evidence-10",
+        "type": "child_chart",
+        "summary": "childChart.learningProfile.sessionStats.averageDurationMinutes=0"
+      },
+      {
+        "id": "planner-evidence-11",
+        "type": "child_chart",
+        "summary": "childChart.learningProfile.sessionStats.currentWilsonStep=1"
+      },
+      {
+        "id": "planner-evidence-12",
+        "type": "child_chart",
+        "summary": "childChart.learningProfile.sessionStats.perfectSessions=0"
+      },
+      {
+        "id": "planner-evidence-13",
+        "type": "child_chart",
+        "summary": "childChart.learningProfile.sessionStats.lastSessionDate=2026-04-27"
+      },
+      {
+        "id": "planner-evidence-14",
+        "type": "child_chart",
+        "summary": "childChart.factBankSummary.totalFacts=0"
+      },
+      {
+        "id": "planner-evidence-15",
+        "type": "child_chart",
+        "summary": "childChart.factBankSummary.dueFacts=0"
+      },
+      {
+        "id": "planner-evidence-16",
+        "type": "child_chart",
+        "summary": "childChart.engagementEvidence=null"
+      },
+      {
+        "id": "planner-evidence-17",
+        "type": "child_chart",
+        "summary": "childChart.recentDecision=null"
+      },
+      {
+        "id": "planner-evidence-18",
+        "type": "child_chart",
+        "summary": "childChart.longitudinalLearning.constructs={}"
+      },
+      {
+        "id": "planner-evidence-19",
+        "type": "child_chart",
+        "summary": "childChart.longitudinalLearning.recentDecisions=[]"
+      },
+      {
+        "id": "planner-evidence-20",
+        "type": "child_chart",
+        "summary": "childChart.longitudinalLearning.recentSupportObservations=[]"
+      },
+      {
+        "id": "planner-evidence-21",
+        "type": "child_chart",
+        "summary": "childChart.longitudinalLearning.pendingInterpretation=[]"
+      },
+      {
+        "id": "planner-evidence-22",
+        "type": "child_chart",
+        "summary": "childChart.rewardEvidence.purchaseCount=0"
+      },
+      {
+        "id": "planner-evidence-23",
+        "type": "child_chart",
+        "summary": "childChart.rewardEvidence.currentCoinBalance=0"
+      },
+      {
+        "id": "planner-evidence-24",
+        "type": "child_chart",
+        "summary": "priorOutcomes.directExperience.observations=[]"
+      },
+      {
+        "id": "planner-evidence-25",
+        "type": "child_chart",
+        "summary": "priorOutcomes.directExperience.decisions=[]"
+      },
+      {
+        "id": "planner-evidence-26",
+        "type": "child_chart",
+        "summary": "priorOutcomes.canonicalCycle=null"
+      },
+      {
+        "id": "planner-evidence-27",
+        "type": "child_chart",
+        "summary": "assignment.id=LAB-MATH-C"
+      },
+      {
+        "id": "planner-evidence-28",
+        "type": "child_chart",
+        "summary": "assignment.version=BLANK"
+      },
+      {
+        "id": "planner-evidence-29",
+        "type": "child_chart",
+        "summary": "assignment.gradeBand=grade-3-mathematics"
+      }
+    ],
+    "openQuestions": [],
+    "approvalStatus": "approved",
+    "planTheory": {
+      "hypothesis": "This learner most likely holds multiplication as a procedure attached to a fact table rather than as a structure that can be read off a situation. The page is built to break that: item 6 offers an additive and a sharing distractor for the same numbers, item 5 hides a repeated group inside a two-step story, item 7 rewards deriving 45 from a neighbor fact instead of retrieving it, and items 4 and 8 demand that one total be seen as more than one rectangle. So the diagnostic question is not \"can the learner multiply within 48\" but \"can the learner decide what kind of multiplicative question is being asked, and move flexibly between total, factors, and array.\" The theory is that performance will hold on forward equal-groups items and degrade on inverse and multi-representation items (ASM-04, ASM-05), with fact recall as a confounder that must be measured separately (ASM-02) so a structural error is never misread as a computation slip. Because the entire evidence base is empty — no math accuracy, no fact bank, no prior decisions, no support observations — the smallest coherent program must sample every face of the construct once (forward equal groups, inverse/missing factor, array-to-equations, factor-pair generation, structure discrimination, derived fact) at Grade 3 depth, so a single pass separates the recall hypothesis from the structure hypothesis. Confirmation looks like clean forward work with breakdown concentrated in inverse and factor-pair items; disconfirmation looks like uniform difficulty across all six faces, which would relocate the target to fact fluency and the prerequisite band, or uniform success, which would push the construct toward multi-digit and multi-step extensions above Grade 3.",
+      "evidenceSummary": [
+        "childChart.identity.displayName=Creator",
+        "childChart.demographics.age=10",
+        "childChart.demographics.grade=4",
+        "childChart.demographics.learningStyle=mixed",
+        "childChart.demographics.attentionSpan=moderate",
+        "childChart.demographics.diagnoses=[]",
+        "childChart.demographics.iepActive=false",
+        "childChart.learningProfile.sessionStats.totalSessions=13",
+        "childChart.learningProfile.sessionStats.averageAccuracy=0",
+        "childChart.learningProfile.sessionStats.averageDurationMinutes=0",
+        "childChart.learningProfile.sessionStats.currentWilsonStep=1",
+        "childChart.learningProfile.sessionStats.perfectSessions=0",
+        "childChart.learningProfile.sessionStats.lastSessionDate=2026-04-27",
+        "childChart.factBankSummary.totalFacts=0",
+        "childChart.factBankSummary.dueFacts=0",
+        "childChart.engagementEvidence=null",
+        "childChart.recentDecision=null",
+        "childChart.longitudinalLearning.constructs={}",
+        "childChart.longitudinalLearning.recentDecisions=[]",
+        "childChart.longitudinalLearning.recentSupportObservations=[]",
+        "childChart.longitudinalLearning.pendingInterpretation=[]",
+        "childChart.rewardEvidence.purchaseCount=0",
+        "childChart.rewardEvidence.currentCoinBalance=0",
+        "priorOutcomes.directExperience.observations=[]",
+        "priorOutcomes.directExperience.decisions=[]",
+        "priorOutcomes.canonicalCycle=null",
+        "assignment.id=LAB-MATH-C",
+        "assignment.version=BLANK",
+        "assignment.gradeBand=grade-3-mathematics"
+      ],
+      "intervention": "Creator is the newly hired Festival Engineer aboard Nova Station, a space outpost where alien families are arriving for the once-a-year Starlight Festival. The station's power grid runs on equal groups: lantern racks, snack pods, badge crates, and light walls only switch on when their groups are counted and wired correctly. Every solved problem sends visible power down the station's glowing conduits, lighting up another district of the festival. The chapter opens in the Arrival Dock (three shared activities that restore basic power), then Creator chooses one of two festival wings to bring fully online — the Light Wall Wing, where power is arranged in glowing grids, or the Market Wing, where power flows through the stories of the stall-keepers. A final optional Repair Bay lets Creator fix miswired circuits other engineers got wrong. When a wing is complete, the festival launches: the whole station lights up and alien crowds pour in under a drone-lantern sky.",
+      "supportCriteria": [
+        "Real child evidence supports transfer."
+      ],
+      "reviseCriteria": [
+        "Real child evidence is mixed."
+      ],
+      "falsifyCriteria": [
+        "Real child evidence contradicts the theory."
+      ]
+    }
+  },
+  "activeByDomain": {
+    "spelling": {
+      "planId": "reina-2026-05-27-silent-letters-baseline",
+      "childId": "reina",
+      "createdAt": "2026-05-27T19:28:05.803Z",
+      "source": "ingest_human_loop",
+      "domain": "spelling",
+      "testDate": "2026-05-29",
+      "nodePlan": [
+        {
+          "id": "baseline-silent-letters-wr",
+          "type": "word-radar",
+          "activityId": "word-radar",
+          "targets": [
+            "sign",
+            "know",
+            "write"
+          ],
+          "difficulty": 2,
+          "targetLane": "silent_letters",
+          "locked": false,
+          "wordRadarConfig": {
+            "recallMode": "partial_visual_recall",
+            "inputMode": "letter-by-letter",
+            "speakStyle": "option-a",
+            "showTimer": false,
+            "hideWordDuringResponse": true,
+            "requiresCapturedResponse": true
+          },
+          "source": "chart_planner"
+        },
+        {
+          "id": "baseline-silent-letters-spell",
+          "type": "spell-check",
+          "activityId": "spell-check",
+          "targets": [
+            "sign",
+            "know",
+            "write"
+          ],
+          "difficulty": 2,
+          "targetLane": "silent_letters",
+          "locked": false,
+          "source": "chart_planner"
+        },
+        {
+          "id": "baseline-hf-recognition",
+          "type": "word-radar",
+          "activityId": "word-radar",
+          "targets": [
+            "among",
+            "building",
+            "circle"
+          ],
+          "difficulty": 1,
+          "targetLane": "high_frequency",
+          "locked": false,
+          "wordRadarConfig": {
+            "recallMode": "visible_read",
+            "inputMode": "whole-word",
+            "speakStyle": "option-a",
+            "showTimer": false,
+            "hideWordDuringResponse": false,
+            "requiresCapturedResponse": true
+          },
+          "source": "chart_planner"
+        },
+        {
+          "id": "baseline-hf-fluency",
+          "type": "pronunciation",
+          "activityId": "pronunciation",
+          "targets": [
+            "among",
+            "building",
+            "circle"
+          ],
+          "difficulty": 1,
+          "targetLane": "high_frequency",
+          "locked": false,
+          "source": "chart_planner"
+        },
+        {
+          "id": "mystery-choice",
+          "type": "mystery",
+          "activityId": "mystery",
+          "targets": [
+            "sign",
+            "know",
+            "write",
+            "among",
+            "building",
+            "circle"
+          ],
+          "difficulty": 2,
+          "choiceMode": "choice_lab",
+          "locked": false,
+          "source": "chart_planner"
+        },
+        {
+          "id": "quest-destination",
+          "type": "quest",
+          "activityId": "quest",
+          "targets": [
+            "sign",
+            "know",
+            "write"
+          ],
+          "difficulty": 2,
+          "targetLane": "silent_letters",
+          "locked": true,
+          "masteryUnlockState": "preparing",
+          "source": "chart_planner"
+        },
+        {
+          "id": "boss-destination",
+          "type": "boss",
+          "activityId": "boss",
+          "targets": [],
+          "difficulty": 3,
+          "locked": true,
+          "masteryUnlockState": "preparing",
+          "source": "chart_planner"
+        }
+      ],
+      "adventureBoard": {
+        "schemaVersion": 1,
+        "boardId": "assignment-board-reina-f671295b",
+        "planId": "reina-2026-05-27-silent-letters-baseline",
+        "childId": "reina",
+        "domain": "spelling",
+        "title": "Benchmark Advance Spelling Unit 9 Week 3",
+        "theme": {
+          "background": {
+            "type": "image",
+            "value": "/generated/adventure-board-demo/silent-letter-world.jpeg"
+          },
+          "palette": {
+            "path": "#ffffff",
+            "completed": "#1f8f68",
+            "available": "#7c3aed",
+            "locked": "#aeb7c2",
+            "current": "#f59e0b",
+            "preview": "#d5dde5",
+            "text": "#ffffff",
+            "panel": "rgba(15, 23, 42, 0.84)"
+          }
+        },
+        "layout": {
+          "preset": "horizontal-adventure-spine",
+          "companionSlot": "right",
+          "routeChoiceBehavior": "exclusive"
+        },
+        "plannerRationale": {
+          "agencyDesign": "Four baseline measurement nodes plus Mystery choice plus locked Quest/Boss destinations. Silent letter group receives two measurements: partial_visual_recall Word Radar for scaffolded practice, then audio-prompted Spell Check for independent construction evidence. High-frequency group receives visible_read Word Radar for recognition evidence, then Pronunciation for fluency evidence. Mystery provides preference data and recovery after baseline work. Quest destination is locked and targets silent_letters group for generated transfer after baseline evidence supports it. Boss destination is locked until Quest evidence confirms mastery readiness. This structure respects the two-group source distinction, measures each group by its declared purpose, and creates the evidence spine needed for transfer theory and Quest unlock by session 2.",
+          "evidenceDesign": "Reina's homework separates silent letter spelling construction from high-frequency word recognition. The silent letter group requires independent spelling recall, while the high-frequency group requires automatic recognition and fluency. With 2 days until test and no prior evidence, today's session must establish a clean baseline for both groups, identify any weak targets, and prepare a transfer theory for Quest unlock.",
+          "layoutChoice": "Sunny materialized the horizontal adventure board from the planner's validated intervention node plan."
+        },
+        "nodes": [
+          {
+            "id": "start",
+            "kind": "start",
+            "label": "Start",
+            "shortLabel": "Start",
+            "thumbnailUrl": "/thumbnails/activities/word-radar.svg",
+            "slot": "1",
+            "layout": {
+              "role": "start",
+              "lane": "main",
+              "order": 1
+            },
+            "state": "completed",
+            "evidenceRole": "baseline"
+          },
+          {
+            "id": "baseline-silent-letters-wr",
+            "kind": "activity",
+            "activityId": "word-radar",
+            "label": "Letter Recall",
+            "shortLabel": "Letter Recall",
+            "thumbnailUrl": "/generated/adventure-board-demo/word-radar.jpeg",
+            "slot": "2",
+            "layout": {
+              "role": "baseline",
+              "lane": "main",
+              "order": 1
+            },
+            "state": "current",
+            "evidenceRole": "baseline",
+            "target": {
+              "laneId": "silent_letters",
+              "skill": "silent_letters",
+              "words": [
+                "sign",
+                "know",
+                "write"
+              ]
+            },
+            "wordRadarConfig": {
+              "recallMode": "partial_visual_recall",
+              "inputMode": "letter-by-letter",
+              "speakStyle": "option-a",
+              "showTimer": false,
+              "hideWordDuringResponse": true,
+              "requiresCapturedResponse": true
+            },
+            "action": {
+              "type": "launch-activity",
+              "payloadId": "baseline-silent-letters-wr"
+            }
+          },
+          {
+            "id": "baseline-silent-letters-spell",
+            "kind": "activity",
+            "activityId": "spell-check",
+            "label": "Spell Check",
+            "shortLabel": "Spell Check",
+            "thumbnailUrl": "/generated/adventure-board-demo/spell-check.jpeg",
+            "slot": "3",
+            "layout": {
+              "role": "baseline",
+              "lane": "main",
+              "order": 2
+            },
+            "state": "available",
+            "evidenceRole": "baseline",
+            "target": {
+              "laneId": "silent_letters",
+              "skill": "silent_letters",
+              "words": [
+                "sign",
+                "know",
+                "write"
+              ]
+            },
+            "action": {
+              "type": "launch-activity",
+              "payloadId": "baseline-silent-letters-spell"
+            }
+          },
+          {
+            "id": "choose-path",
+            "kind": "choice-gate",
+            "label": "Choose Path",
+            "shortLabel": "Choose Path",
+            "thumbnailUrl": "/thumbnails/mystery-fallback.svg",
+            "slot": "4",
+            "layout": {
+              "role": "choice-gate",
+              "lane": "main",
+              "order": 1
+            },
+            "state": "available",
+            "evidenceRole": "preference",
+            "choiceSetId": "baseline-route-options",
+            "action": {
+              "type": "open-choice-set",
+              "payloadId": "baseline-route-options"
+            }
+          },
+          {
+            "id": "baseline-hf-recognition",
+            "kind": "activity",
+            "activityId": "word-radar",
+            "label": "Quick Read",
+            "shortLabel": "Quick Read",
+            "thumbnailUrl": "/generated/adventure-board-demo/word-radar.jpeg",
+            "slot": "5a.1",
+            "layout": {
+              "role": "evidence-route",
+              "lane": "upper",
+              "order": 1
+            },
+            "state": "available",
+            "evidenceRole": "baseline",
+            "target": {
+              "laneId": "high_frequency",
+              "skill": "high_frequency",
+              "words": [
+                "among",
+                "building",
+                "circle"
+              ]
+            },
+            "wordRadarConfig": {
+              "recallMode": "visible_read",
+              "inputMode": "whole-word",
+              "speakStyle": "option-a",
+              "showTimer": false,
+              "hideWordDuringResponse": false,
+              "requiresCapturedResponse": true
+            },
+            "action": {
+              "type": "launch-activity",
+              "payloadId": "baseline-hf-recognition"
+            }
+          },
+          {
+            "id": "baseline-hf-fluency",
+            "kind": "activity",
+            "activityId": "pronunciation",
+            "label": "Pronunciation",
+            "shortLabel": "Pronunciation",
+            "thumbnailUrl": "/generated/adventure-board-demo/pronunciation.jpeg",
+            "slot": "5b.1",
+            "layout": {
+              "role": "evidence-route",
+              "lane": "lower",
+              "order": 1
+            },
+            "state": "available",
+            "evidenceRole": "baseline",
+            "target": {
+              "laneId": "high_frequency",
+              "skill": "high_frequency",
+              "words": [
+                "among",
+                "building",
+                "circle"
+              ]
+            },
+            "action": {
+              "type": "launch-activity",
+              "payloadId": "baseline-hf-fluency"
+            }
+          },
+          {
+            "id": "mystery-choice",
+            "kind": "mystery",
+            "activityId": "mystery",
+            "label": "Mystery",
+            "shortLabel": "Mystery",
+            "thumbnailUrl": "/generated/adventure-board-demo/mystery.jpeg",
+            "slot": "6",
+            "layout": {
+              "role": "mystery",
+              "lane": "main",
+              "order": 1
+            },
+            "state": "available",
+            "evidenceRole": "preference",
+            "choiceSetId": "mystery-choice-options",
+            "action": {
+              "type": "open-choice-set",
+              "payloadId": "mystery-choice-options"
+            }
+          },
+          {
+            "id": "quest-destination",
+            "kind": "quest",
+            "activityId": "quest",
+            "label": "Quest",
+            "shortLabel": "Quest",
+            "thumbnailUrl": "/generated/adventure-board-demo/quest.jpeg",
+            "slot": "7",
+            "layout": {
+              "role": "quest",
+              "lane": "main",
+              "order": 1
+            },
+            "state": "locked",
+            "evidenceRole": "transfer",
+            "target": {
+              "laneId": "silent_letters",
+              "skill": "silent_letters",
+              "words": [
+                "sign",
+                "know",
+                "write"
+              ]
+            },
+            "lock": {
+              "reason": "preparing",
+              "label": "Preparing"
+            },
+            "action": {
+              "type": "show-locked-reason",
+              "payloadId": "quest-destination"
+            }
+          },
+          {
+            "id": "boss-destination",
+            "kind": "boss",
+            "activityId": "boss",
+            "label": "Boss",
+            "shortLabel": "Boss",
+            "thumbnailUrl": "/generated/adventure-board-demo/boss.jpeg",
+            "slot": "8",
+            "layout": {
+              "role": "boss",
+              "lane": "main",
+              "order": 1
+            },
+            "state": "locked",
+            "evidenceRole": "mastery",
+            "lock": {
+              "reason": "preparing",
+              "label": "After Quest"
+            },
+            "action": {
+              "type": "show-locked-reason",
+              "payloadId": "boss-destination"
+            }
+          }
+        ],
+        "edges": [
+          {
+            "id": "edge-start-baseline-silent-letters-wr",
+            "from": "start",
+            "to": "baseline-silent-letters-wr",
+            "state": "available",
+            "style": "solid"
+          },
+          {
+            "id": "edge-baseline-silent-letters-wr-baseline-silent-letters-spell",
+            "from": "baseline-silent-letters-wr",
+            "to": "baseline-silent-letters-spell",
+            "state": "available",
+            "style": "solid"
+          },
+          {
+            "id": "edge-baseline-silent-letters-spell-choose-path",
+            "from": "baseline-silent-letters-spell",
+            "to": "choose-path",
+            "state": "available",
+            "style": "solid"
+          },
+          {
+            "id": "edge-choose-path-baseline-hf-recognition",
+            "from": "choose-path",
+            "to": "baseline-hf-recognition",
+            "state": "available",
+            "style": "glow"
+          },
+          {
+            "id": "edge-choose-path-baseline-hf-fluency",
+            "from": "choose-path",
+            "to": "baseline-hf-fluency",
+            "state": "available",
+            "style": "glow"
+          },
+          {
+            "id": "edge-baseline-hf-recognition-mystery-choice",
+            "from": "baseline-hf-recognition",
+            "to": "mystery-choice",
+            "state": "available",
+            "style": "solid"
+          },
+          {
+            "id": "edge-baseline-hf-fluency-mystery-choice",
+            "from": "baseline-hf-fluency",
+            "to": "mystery-choice",
+            "state": "available",
+            "style": "solid"
+          },
+          {
+            "id": "edge-mystery-choice-quest-destination",
+            "from": "mystery-choice",
+            "to": "quest-destination",
+            "state": "locked",
+            "style": "dashed"
+          },
+          {
+            "id": "edge-quest-destination-boss-destination",
+            "from": "quest-destination",
+            "to": "boss-destination",
+            "state": "locked",
+            "style": "dashed"
+          }
+        ],
+        "choiceSets": [
+          {
+            "id": "baseline-route-options",
+            "kind": "baseline-route",
+            "title": "Choose your path",
+            "options": [
+              {
+                "id": "choice-baseline-hf-recognition",
+                "label": "Quick Read",
+                "description": "Try Quick Read next.",
+                "thumbnailUrl": "/generated/adventure-board-demo/word-radar.jpeg",
+                "state": "available",
+                "nodeId": "baseline-hf-recognition",
+                "choiceSignal": {
+                  "algorithmFeed": "choicePolicy",
+                  "traits": [
+                    "practice",
+                    "control"
+                  ],
+                  "expectedEvidence": "shown/chosen/skipped/completed outcome for word-radar; preference only",
+                  "preferenceNotMastery": true
+                }
+              },
+              {
+                "id": "choice-baseline-hf-fluency",
+                "label": "Pronunciation",
+                "description": "Try pronunciation next.",
+                "thumbnailUrl": "/generated/adventure-board-demo/pronunciation.jpeg",
+                "state": "available",
+                "nodeId": "baseline-hf-fluency",
+                "choiceSignal": {
+                  "algorithmFeed": "choicePolicy",
+                  "traits": [
+                    "voice",
+                    "control"
+                  ],
+                  "expectedEvidence": "shown/chosen/skipped/completed outcome for pronunciation; preference only",
+                  "preferenceNotMastery": true
+                }
+              }
+            ]
+          },
+          {
+            "id": "mystery-choice-options",
+            "kind": "mystery",
+            "title": "Pick a mystery challenge",
+            "options": [
+              {
+                "id": "mystery-choice-story",
+                "label": "Story Challenge",
+                "description": "Try the practice inside a story wrapper.",
+                "icon": "book",
+                "tags": [
+                  "story",
+                  "calm",
+                  "reading"
+                ],
+                "choiceSignal": {
+                  "algorithmFeed": "choicePolicy",
+                  "traits": [
+                    "story",
+                    "calm",
+                    "reading"
+                  ],
+                  "expectedEvidence": "shown/chosen/skipped/completed outcome for mystery-choice story wrapper; preference only",
+                  "preferenceNotMastery": true
+                },
+                "thumbnailUrl": "/generated/adventure-board-demo/mystery.jpeg",
+                "nodeId": "mystery-choice",
+                "state": "available"
+              },
+              {
+                "id": "mystery-choice-speed",
+                "label": "Speed Challenge",
+                "description": "Try the practice with a fast arcade wrapper.",
+                "icon": "zap",
+                "tags": [
+                  "speed",
+                  "competition",
+                  "arcade"
+                ],
+                "choiceSignal": {
+                  "algorithmFeed": "choicePolicy",
+                  "traits": [
+                    "speed",
+                    "competition",
+                    "arcade"
+                  ],
+                  "expectedEvidence": "shown/chosen/skipped/completed outcome for mystery-choice speed wrapper; preference only",
+                  "preferenceNotMastery": true
+                },
+                "thumbnailUrl": "/generated/adventure-board-demo/mystery.jpeg",
+                "nodeId": "mystery-choice",
+                "state": "available"
+              },
+              {
+                "id": "mystery-choice-puzzle",
+                "label": "Puzzle Challenge",
+                "description": "Try the practice with a thinking wrapper.",
+                "icon": "sparkles",
+                "tags": [
+                  "puzzle",
+                  "control",
+                  "thinking"
+                ],
+                "choiceSignal": {
+                  "algorithmFeed": "choicePolicy",
+                  "traits": [
+                    "puzzle",
+                    "control",
+                    "thinking"
+                  ],
+                  "expectedEvidence": "shown/chosen/skipped/completed outcome for mystery-choice puzzle wrapper; preference only",
+                  "preferenceNotMastery": true
+                },
+                "thumbnailUrl": "/generated/adventure-board-demo/mystery.jpeg",
+                "nodeId": "mystery-choice",
+                "state": "available"
+              }
+            ]
+          }
+        ],
+        "companion": {
+          "id": "matilda",
+          "name": "Matilda"
+        },
+        "progress": {
+          "currentNodeId": "baseline-silent-letters-wr",
+          "completedNodeIds": [],
+          "activeChoiceSetId": "baseline-route-options"
+        }
+      },
+      "variationPolicy": {
+        "avoidExactPreviousNodeOrder": true,
+        "avoidExactPreviousWordOrder": true,
+        "seed": "f671295be41e",
+        "previousCompletedNodeCount": 0
+      },
+      "companionPolicy": {
+        "companionId": "matilda",
+        "displayName": "Matilda",
+        "openingLinePolicy": "context_start_short",
+        "verbosity": "low",
+        "maxMicroProbes": 1
+      },
+      "evidenceUsed": [
+        {
+          "id": "source-doc",
+          "type": "homework",
+          "summary": "Benchmark Advance Unit 9 Week 3: two groups with distinct purposes (silent letter spelling vs high-frequency recognition)"
+        },
+        {
+          "id": "mastery-context",
+          "type": "deadline",
+          "summary": "Test date 2026-05-29, 2 days remaining, urgent intensity, 3 expected sessions"
+        },
+        {
+          "id": "child-chart",
+          "type": "learner-profile",
+          "summary": "Reina, grade 2, no recent evidence on file, horizontal adventure spine preference"
+        },
+        {
+          "id": "assignment-source",
+          "type": "assignment_source",
+          "summary": "Board generated from stored source assignment and local OCR/text extraction."
+        }
+      ],
+      "openQuestions": [
+        "Which silent letter pattern (kn-, -gn, wr-) will require the most support?",
+        "Will Reina show spelling confidence or hesitation on 'know' vs 'write'?",
+        "Are the high-frequency words already automatized or will they need fluency practice?",
+        "Does Reina prefer visible scaffolding or independent recall challenges?"
+      ],
+      "plannerConfidence": 0.88,
+      "approvalStatus": "pending",
+      "planTheory": {
+        "hypothesis": "Reina's homework separates silent letter spelling construction from high-frequency word recognition. The silent letter group requires independent spelling recall, while the high-frequency group requires automatic recognition and fluency. With 2 days until test and no prior evidence, today's session must establish a clean baseline for both groups, identify any weak targets, and prepare a transfer theory for Quest unlock.",
+        "evidenceSummary": [
+          "Source document shows two teacher-labeled groups with distinct instructional purposes",
+          "Silent Letters group (sign, know, write) carries orthographic pattern focus and Benchmark Advance spelling production expectation",
+          "High-Frequency Words group (among, building, circle) carries automaticity and recognition focus, not pattern analysis",
+          "Mastery context shows 2 days until test, urgent intensity, 3 expected sessions remaining",
+          "Child chart shows no recent evidence, so today is first baseline for this homework",
+          "Grade 2 learner with horizontal adventure spine preference and companion Matilda"
+        ],
+        "intervention": "Four baseline measurement nodes plus Mystery choice plus locked Quest/Boss destinations. Silent letter group receives two measurements: partial_visual_recall Word Radar for scaffolded practice, then audio-prompted Spell Check for independent construction evidence. High-frequency group receives visible_read Word Radar for recognition evidence, then Pronunciation for fluency evidence. Mystery provides preference data and recovery after baseline work. Quest destination is locked and targets silent_letters group for generated transfer after baseline evidence supports it. Boss destination is locked until Quest evidence confirms mastery readiness. This structure respects the two-group source distinction, measures each group by its declared purpose, and creates the evidence spine needed for transfer theory and Quest unlock by session 2.",
+        "supportCriteria": [
+          "Silent letter words (sign, know, write) all correct on first try in both Word Radar and Spell Check with low latency and no retries",
+          "High-frequency words (among, building, circle) all recognized and pronounced fluently with no hesitation",
+          "Reina completes all four baseline nodes with positive affect and engages willingly with Mystery choice",
+          "Evidence snapshot shows clean baseline across both groups, allowing Quest unlock for transfer proof next session"
+        ],
+        "reviseCriteria": [
+          "One or two silent letter words require retry or show hesitation in Word Radar or Spell Check; partial mastery suggests need for targeted pattern support next session",
+          "One or two high-frequency words show hesitation or mispronunciation; mixed automaticity suggests need for pronunciation practice or repeated exposure",
+          "Reina shows fatigue or avoidance signals during baseline work; dosage or pacing should adjust for session 2",
+          "Evidence snapshot identifies exact weak targets; session 2 should give those weak targets strictly more academic support than mastered targets"
+        ],
+        "falsifyCriteria": [
+          "Two or more silent letter words missed or heavily struggled across both Word Radar and Spell Check; widespread pattern confusion requires explicit silent letter teaching before transfer",
+          "Two or more high-frequency words missed, skipped, or heavily hesitated; recognition gap requires phonics support or visible scaffolding before fluency work",
+          "Reina avoids baseline work, shows frustration, or abandons session; motivation drop requires smaller dosage, more scaffolding, or different activity sequence",
+          "Baseline evidence is too contradictory or incomplete to support a Quest theory; session 2 should probe the contradictory targets before Quest unlock"
+        ]
+      },
+      "plannedMeasurements": [
+        {
+          "id": "measure-baseline-silent-letters-wr",
+          "activityId": "word-radar",
+          "target": "silent_letters group (sign, know, write)",
+          "evidenceType": "partial_visual_recall spelling practice with letter-by-letter input",
+          "supportCriteria": "All three words completed first-try with low latency and no retries; Reina shows confidence with silent letter patterns",
+          "reviseCriteria": "One or two words require retry or show hesitation; mixed confidence suggests partial mastery and need for targeted support",
+          "falsifyCriteria": "Two or more words missed or skipped; heavy retry usage; frustration signals; need audio-cued or visible scaffolding before independent recall"
+        },
+        {
+          "id": "measure-baseline-silent-letters-spell",
+          "activityId": "spell-check",
+          "target": "silent_letters group (sign, know, write)",
+          "evidenceType": "audio-prompted spelling construction with hidden target",
+          "supportCriteria": "All three words spelled correctly from audio prompt without visible support; confirms independent spelling readiness",
+          "reviseCriteria": "One word requires retry or shows silent letter error; theory should add targeted pattern support for that exact word",
+          "falsifyCriteria": "Two or more spelling errors; persistent silent letter confusion; need to drop back to visible pattern teaching or letter-by-letter scaffolding"
+        },
+        {
+          "id": "measure-baseline-hf-recognition",
+          "activityId": "word-radar",
+          "target": "high_frequency group (among, building, circle)",
+          "evidenceType": "visible_read recognition and fluency with whole-word voice response",
+          "supportCriteria": "All three words read fluently with fast correct responses and no hesitation; confirms automatic recognition",
+          "reviseCriteria": "One word shows hesitation, mispronunciation, or retry; mixed automaticity suggests need for pronunciation practice",
+          "falsifyCriteria": "Two or more words missed, skipped, or heavily hesitated; recognition gap requires phonics support or repeated exposure before fluency work"
+        },
+        {
+          "id": "measure-baseline-hf-fluency",
+          "activityId": "pronunciation",
+          "target": "high_frequency group (among, building, circle)",
+          "evidenceType": "read-aloud fluency and pronunciation accuracy",
+          "supportCriteria": "All three words pronounced correctly with natural fluency; no decoding struggle; confirms high-frequency automaticity",
+          "reviseCriteria": "One word mispronounced or hesitated; pronunciation gap suggests need for supported read-aloud practice",
+          "falsifyCriteria": "Two or more pronunciation errors or heavy decoding struggle; need phonics review or chunk-by-chunk teaching before fluency dosage"
+        },
+        {
+          "id": "measure-mystery-choice",
+          "activityId": "mystery",
+          "target": "all homework words",
+          "evidenceType": "preference and choice signal after baseline work",
+          "supportCriteria": "Reina engages willingly; chooses activity and completes it; positive affect and recovery",
+          "reviseCriteria": "Reina skips or replays; neutral engagement; preference signal is weak or unclear",
+          "falsifyCriteria": "Reina avoids choice, shows frustration, or abandons Mystery; motivation drop requires smaller baseline dosage or more scaffolding next session"
+        },
+        {
+          "id": "measure-quest-destination",
+          "activityId": "quest",
+          "target": "silent_letters group transfer readiness",
+          "evidenceType": "locked destination; will unlock after baseline evidence supports transfer theory",
+          "supportCriteria": "Baseline shows all silent letter words correct with confidence; Quest unlocks for generated transfer proof",
+          "reviseCriteria": "Baseline shows one or two silent letter misses; Quest should unlock after targeted support next session",
+          "falsifyCriteria": "Baseline shows widespread silent letter confusion; Quest remains locked; next session should teach pattern explicitly before transfer"
+        },
+        {
+          "id": "measure-boss-destination",
+          "activityId": "boss",
+          "target": "full homework mastery gate",
+          "evidenceType": "locked destination; will unlock after Quest evidence confirms transfer readiness",
+          "supportCriteria": "Quest evidence shows independent transfer success across both groups; Boss unlocks for final mastery gate",
+          "reviseCriteria": "Quest evidence shows partial success; Boss should unlock after targeted support for weak targets",
+          "falsifyCriteria": "Quest evidence shows transfer failure; Boss remains locked; next session should reteach failed skill and retry Quest loop"
+        }
+      ],
+      "activeHomeworkId": "hw-spelling_test-6727f1c8"
+    },
+    "math": {
+      "planId": "LAB-MATH-C-charter-v1:cycle-r3",
+      "childId": "reina",
+      "createdAt": "2026-08-09T23:46:44.209Z",
+      "source": "ingest_human_loop",
+      "activeHomeworkId": "hw-math-767d56c796d206c1dc99b79d",
+      "domain": "math",
+      "testDate": null,
+      "nodePlan": [
+        {
+          "id": "ACT-SHARED-01",
+          "type": "generated-baseline",
+          "activityId": "generated-baseline",
+          "targets": [
+            "A parade has 8 wagons. Each wagon carries 5 lanterns. How many lanterns are on the wagons in all?",
+            "In the lantern problem, one factor is 8 and the other factor is 5. Explain what the 8 counts and what the 5 counts in that situation.",
+            "A ticket booth sells snacks in packs. There are 6 packs and each pack holds 7 snacks. How many snacks are there altogether?",
+            "Which equation matches this situation: 9 face-painting tables, each with 4 chairs?",
+            "A juice stand fills 7 trays. Each tray holds 6 cups. How many cups does the stand fill?"
+          ],
+          "difficulty": 1,
+          "source": "chart_planner",
+          "targetLane": "Given a contextual equal-groups situation with single-digit factors, state the factors, the product, and what each factor counts.",
+          "locked": false,
+          "title": "Arrival Dock: Lantern Parade Power-Up",
+          "rounds": [
+            {
+              "id": "ITM-S01-4",
+              "prompt": "Which equation matches this situation: 9 face-painting tables, each with 4 chairs?",
+              "options": [
+                {
+                  "id": "OPT-S01-4-a",
+                  "label": "9 x 4 = 36 chairs",
+                  "correct": true
+                },
+                {
+                  "id": "OPT-S01-4-b",
+                  "label": "9 + 4 = 13 chairs",
+                  "correct": false
+                },
+                {
+                  "id": "OPT-S01-4-c",
+                  "label": "36 / 9 = 4 tables",
+                  "correct": false
+                },
+                {
+                  "id": "OPT-S01-4-d",
+                  "label": "9 - 4 = 5 chairs",
+                  "correct": false
+                }
+              ]
+            }
+          ],
+          "gameHtmlPath": "/Users/jamaltaylor/Development/sunny-demo-main/src/context/reina/homework/games/hw-math-767d56c796d206c1dc99b79d/ACT-SHARED-01.html",
+          "date": "hw-math-767d56c796d206c1dc99b79d",
+          "thumbnailUrl": "/generated/direct-math/hw-math-767d56c796d206c1dc99b79d-ACT-SHARED-01-thumbnail-53c4f631e95f.jpeg",
+          "contentId": "hw-math-767d56c796d206c1dc99b79d:ACT-SHARED-01",
+          "mechanic": "Each item is one parade scene: equal groups are drawn on screen as real festival objects (wagons of lanterns, packs of snacks, tables of chairs, trays of cups). The child answers by typing a number, tapping a matching equation, or speaking/typing a one-line explanation of what each factor counts. Every correct answer sends a visible amber pulse down a conduit and lights one dock district; the parade physically advances one wagon-length toward the festival gate.",
+          "engagementDimensions": [
+            "shared-baseline"
+          ],
+          "engagementHypothesis": "With no math evidence on record, the construct band can be probed to equal depth through either an array-first path (structure made visible as rows and columns before inverse work) or a story-first path (structure read out of contextual equal-groups language before inverse work). Both routes cover the same inverse/factor-pair demand at the same difficulty, so any performance difference isolates representational entry point rather than academic level.",
+          "masteryUnlockState": "unlocked",
+          "theoryId": "hw-math-767d56c796d206c1dc99b79d:academic-theory",
+          "experimentId": "hw-math-767d56c796d206c1dc99b79d:shared:shared-baseline",
+          "theme": "Indigo dock interior with brass-and-teal trim per the board spine; every equal group is drawn as a physically countable cluster — lanterns individually visible, never abstracted to dots. Amber light is reserved exclusively for correct power. Large rounded number pad, single-line prompts in a chunky friendly typeface, read-aloud icon always present.",
+          "sfxProfile": "interaction-recovery-progress-completion",
+          "companionPolicy": "cycle-contract",
+          "thumbnailPrompt": "Indigo dock interior with brass-and-teal trim per the board spine; every equal group is drawn as a physically countable cluster — lanterns individually visible, never abstracted to dots. Amber light is reserved exclusively for correct power. Large rounded number pad, single-line prompts in a chunky friendly typeface, read-aloud icon always present."
+        },
+        {
+          "id": "ACT-SHARED-02",
+          "type": "generated-baseline",
+          "activityId": "generated-baseline",
+          "targets": [
+            "Which story uses 8 x 3?",
+            "Explain why '8 apples and then 3 more apples' is not a situation for 8 x 3, and say what operation it does show.",
+            "Which story uses 9 x 5?",
+            "A story says: '42 balloons are shared equally among 6 stalls.' Explain why this is not 42 x 6, and write the multiplication equation with a missing factor that does match it."
+          ],
+          "difficulty": 1,
+          "source": "chart_planner",
+          "targetLane": "Given several stories using the same pair of numbers, select the one that matches a given multiplication expression and justify why the others are not equal-groups situations.",
+          "locked": true,
+          "title": "Arrival Dock: The Sorting Beacon",
+          "rounds": [
+            {
+              "id": "ITM-S02-1",
+              "prompt": "Which story uses 8 x 3?",
+              "options": [
+                {
+                  "id": "OPT-S02-1-a",
+                  "label": "8 baskets with 3 apples in each basket",
+                  "correct": true
+                },
+                {
+                  "id": "OPT-S02-1-b",
+                  "label": "8 apples and then 3 more apples",
+                  "correct": false
+                },
+                {
+                  "id": "OPT-S02-1-c",
+                  "label": "8 apples shared equally among 3 friends",
+                  "correct": false
+                }
+              ]
+            },
+            {
+              "id": "ITM-S02-3",
+              "prompt": "Which story uses 9 x 5?",
+              "options": [
+                {
+                  "id": "OPT-S02-3-a",
+                  "label": "45 ribbons shared equally into 9 bundles",
+                  "correct": false
+                },
+                {
+                  "id": "OPT-S02-3-b",
+                  "label": "9 rows of chairs with 5 chairs in each row",
+                  "correct": true
+                },
+                {
+                  "id": "OPT-S02-3-c",
+                  "label": "9 chairs plus 5 chairs brought from the truck",
+                  "correct": false
+                }
+              ]
+            }
+          ],
+          "gameHtmlPath": "/Users/jamaltaylor/Development/sunny-demo-main/src/context/reina/homework/games/hw-math-767d56c796d206c1dc99b79d/ACT-SHARED-02.html",
+          "date": "hw-math-767d56c796d206c1dc99b79d",
+          "thumbnailUrl": "/generated/direct-math/hw-math-767d56c796d206c1dc99b79d-ACT-SHARED-02-thumbnail-8206e6d25471.jpeg",
+          "contentId": "hw-math-767d56c796d206c1dc99b79d:ACT-SHARED-02",
+          "mechanic": "For each item the beacon holds an expression card and three story-pods share the same number pair but different structures (equal groups, adding, sharing). The child taps a pod to feed it in. Matching pods lock in with a beam of amber light to a district; non-matching pods are gently rejected — the beacon holds them up and highlights the story words that broke the match. Two items ask for a short typed or spoken justification, entered on a simple two-tap sentence-builder plus free text.",
+          "engagementDimensions": [
+            "shared-baseline"
+          ],
+          "engagementHypothesis": "With no math evidence on record, the construct band can be probed to equal depth through either an array-first path (structure made visible as rows and columns before inverse work) or a story-first path (structure read out of contextual equal-groups language before inverse work). Both routes cover the same inverse/factor-pair demand at the same difficulty, so any performance difference isolates representational entry point rather than academic level.",
+          "masteryUnlockState": "preparing",
+          "theoryId": "hw-math-767d56c796d206c1dc99b79d:academic-theory",
+          "experimentId": "hw-math-767d56c796d206c1dc99b79d:shared:shared-baseline",
+          "theme": "The beacon is a friendly lighthouse-like machine in teal and brass; story-pods are rounded capsules with one-line text plus a small icon-scene so the story is graspable at a glance without heavy reading. Structure-tell words render slightly bolder. Amber remains the exclusive color of correct power; rejected sparks are pale grey-blue.",
+          "sfxProfile": "interaction-recovery-progress-completion",
+          "companionPolicy": "cycle-contract",
+          "thumbnailPrompt": "The beacon is a friendly lighthouse-like machine in teal and brass; story-pods are rounded capsules with one-line text plus a small icon-scene so the story is graspable at a glance without heavy reading. Structure-tell words render slightly bolder. Amber remains the exclusive color of correct power; rejected sparks are pale grey-blue."
+        },
+        {
+          "id": "ACT-SHARED-03",
+          "type": "generated-baseline",
+          "activityId": "generated-baseline",
+          "targets": [
+            "6 x 7 = ?",
+            "5 x 9 = ?",
+            "6 x 8 = ?",
+            "4 x 9 = ?",
+            "8 x 5 = ?",
+            "7 x 3 = ?"
+          ],
+          "difficulty": 1,
+          "source": "chart_planner",
+          "targetLane": "Retrieve or reliably derive multiplication facts with factors 2 through 9, with accuracy and hesitation recorded separately from structural performance.",
+          "locked": true,
+          "title": "Arrival Dock: Fuse Check",
+          "gameHtmlPath": "/Users/jamaltaylor/Development/sunny-demo-main/src/context/reina/homework/games/hw-math-767d56c796d206c1dc99b79d/ACT-SHARED-03.html",
+          "date": "hw-math-767d56c796d206c1dc99b79d",
+          "thumbnailUrl": "/generated/direct-math/hw-math-767d56c796d206c1dc99b79d-ACT-SHARED-03-thumbnail-3321f9b09e8d.jpeg",
+          "contentId": "hw-math-767d56c796d206c1dc99b79d:ACT-SHARED-03",
+          "mechanic": "Pure, calm fact entry: one fuse at a time, bare prompt, numeric answer, untimed. Each correct product snaps the fuse alight with a satisfying click and slides the next fuse into place. There is deliberately no narrative load here — the contrast with the story-rich nodes is itself the design, honoring the contract's separation of fact fluency from structure.",
+          "engagementDimensions": [
+            "shared-baseline"
+          ],
+          "engagementHypothesis": "With no math evidence on record, the construct band can be probed to equal depth through either an array-first path (structure made visible as rows and columns before inverse work) or a story-first path (structure read out of contextual equal-groups language before inverse work). Both routes cover the same inverse/factor-pair demand at the same difficulty, so any performance difference isolates representational entry point rather than academic level.",
+          "masteryUnlockState": "preparing",
+          "theoryId": "hw-math-767d56c796d206c1dc99b79d:academic-theory",
+          "experimentId": "hw-math-767d56c796d206c1dc99b79d:shared:shared-baseline",
+          "theme": "Deliberately quiet screen: charcoal panel, brass fuse sockets, one fact in large friendly numerals at a time, big high-contrast number pad. The side subsystem window is small and secondary so it rewards without distracting. No decorative text.",
+          "sfxProfile": "interaction-recovery-progress-completion",
+          "companionPolicy": "cycle-contract",
+          "thumbnailPrompt": "Deliberately quiet screen: charcoal panel, brass fuse sockets, one fact in large friendly numerals at a time, big high-contrast number pad. The side subsystem window is small and secondary so it rewards without distracting. No decorative text."
+        },
+        {
+          "id": "ACT-ARRAY-01",
+          "type": "generated-baseline",
+          "activityId": "generated-baseline",
+          "targets": [
+            "A lantern rack has 6 rows with 8 lanterns in each row. Build the two multiplication equations this array shows.",
+            "For that lantern rack, explain what the 6 counts and what the 8 counts, and why both equations describe the same rack.",
+            "An array of stage tiles has 5 rows and 7 tiles in each row. How many tiles are in the array?",
+            "An array shows 4 rows of 9. Which equation does NOT describe this array?"
+          ],
+          "difficulty": 1,
+          "source": "chart_planner",
+          "targetLane": "Given a rectangular array, write both multiplication equations it represents and explain what the rows and columns each count.",
+          "locked": true,
+          "title": "Light Wall Wing: The Two-Way Lantern Rack",
+          "rounds": [
+            {
+              "id": "ITM-A01-4",
+              "prompt": "An array shows 4 rows of 9. Which equation does NOT describe this array?",
+              "options": [
+                {
+                  "id": "OPT-A01-4-a",
+                  "label": "4 x 9 = 36",
+                  "correct": false
+                },
+                {
+                  "id": "OPT-A01-4-b",
+                  "label": "9 x 4 = 36",
+                  "correct": false
+                },
+                {
+                  "id": "OPT-A01-4-c",
+                  "label": "4 + 9 = 13",
+                  "correct": true
+                }
+              ]
+            }
+          ],
+          "gameHtmlPath": "/Users/jamaltaylor/Development/sunny-demo-main/src/context/reina/homework/games/hw-math-767d56c796d206c1dc99b79d/ACT-ARRAY-01.html",
+          "date": "hw-math-767d56c796d206c1dc99b79d",
+          "thumbnailUrl": "/generated/direct-math/hw-math-767d56c796d206c1dc99b79d-ACT-ARRAY-01-thumbnail-05fcb4f66b1c.jpeg",
+          "contentId": "hw-math-767d56c796d206c1dc99b79d:ACT-ARRAY-01",
+          "mechanic": "The child reads arrays as physical lantern grids and answers by building equations from drag tiles, typing totals, or explaining row/column roles. The signature move is the double-lighting: after the first equation lights the rack row-by-row (6 sweeps of 8), building the commuted equation re-lights the same rack column-by-column (8 sweeps of 6), proving on screen that both equations describe one object.",
+          "engagementDimensions": [
+            "Whether a visual, build-a-grid entry (picture-first) holds this learner through the harder inverse and factor-pair items better than a narrative entry — testing the mixed-learning-style hypothesis with a concrete visual anchor."
+          ],
+          "engagementHypothesis": "Because the chart records learningStyle=mixed with a visual component and no engagement history at all, a route that opens with a picture-like rectangular arrangement may give this learner a concrete anchor that keeps a moderate attention span on task through the harder inverse items.",
+          "masteryUnlockState": "preparing",
+          "theoryId": "hw-math-767d56c796d206c1dc99b79d:academic-theory",
+          "experimentId": "hw-math-767d56c796d206c1dc99b79d:ROUTE-ARRAY:Whether a visual, build-a-grid entry (picture-first) holds this learner through the harder inverse and factor-pair items better than a narrative entry — testing the mixed-learning-style hypothesis with a concrete visual anchor.",
+          "theme": "The rack is the hero: high-contrast unlit charcoal lanterns on indigo, grid lines faint so the child does the structural reading. Row sweeps are amber, column sweeps teal, so the two readings are color-coded consistently across the whole route. Equation builder tiles are chunky, rounded, high-contrast.",
+          "sfxProfile": "interaction-recovery-progress-completion",
+          "companionPolicy": "cycle-contract",
+          "thumbnailPrompt": "The rack is the hero: high-contrast unlit charcoal lanterns on indigo, grid lines faint so the child does the structural reading. Row sweeps are amber, column sweeps teal, so the two readings are color-coded consistently across the whole route. Equation builder tiles are chunky, rounded, high-contrast."
+        },
+        {
+          "id": "ACT-ARRAY-02",
+          "type": "generated-baseline",
+          "activityId": "generated-baseline",
+          "targets": [
+            "A wall holds 24 lights. One way to arrange them is 4 rows of 6. Build a different equal-row array that uses all 24 lights and record its equation.",
+            "An array has 6 equal rows and 42 tiles in total. How many tiles are in each row?",
+            "Build two different equal-row arrays that each use all 36 lights, and record the equation for each.",
+            "Explain how you can be sure an equal-row array really uses the whole total, and how you found a second arrangement that was different from the first."
+          ],
+          "difficulty": 1,
+          "source": "chart_planner",
+          "targetLane": "Given a total with several factor pairs within single-digit factors, produce two distinct equal-row arrangements that use the whole total and record the equation for each.",
+          "locked": true,
+          "title": "Light Wall Wing: Design the Launch Walls",
+          "gameHtmlPath": "/Users/jamaltaylor/Development/sunny-demo-main/src/context/reina/homework/games/hw-math-767d56c796d206c1dc99b79d/ACT-ARRAY-02.html",
+          "date": "hw-math-767d56c796d206c1dc99b79d",
+          "thumbnailUrl": "/generated/direct-math/hw-math-767d56c796d206c1dc99b79d-ACT-ARRAY-02-thumbnail-1787e2f2b204.jpeg",
+          "contentId": "hw-math-767d56c796d206c1dc99b79d:ACT-ARRAY-02",
+          "mechanic": "Freeform array construction with smart snapping: the child sets a row length by placing lanterns, then can duplicate rows with a stamp handle. A live counter shows lanterns used vs. budget (e.g., 21/24), and an equation strip auto-drafts beneath the build (e.g., '3 × 8 = ?') which the child must complete and sign. Uneven rows physically sag and spark, making 'equal rows using the whole total' a visible engineering constraint, not a rule to remember.",
+          "engagementDimensions": [
+            "Whether a visual, build-a-grid entry (picture-first) holds this learner through the harder inverse and factor-pair items better than a narrative entry — testing the mixed-learning-style hypothesis with a concrete visual anchor."
+          ],
+          "engagementHypothesis": "Because the chart records learningStyle=mixed with a visual component and no engagement history at all, a route that opens with a picture-like rectangular arrangement may give this learner a concrete anchor that keeps a moderate attention span on task through the harder inverse items.",
+          "masteryUnlockState": "preparing",
+          "theoryId": "hw-math-767d56c796d206c1dc99b79d:academic-theory",
+          "experimentId": "hw-math-767d56c796d206c1dc99b79d:ROUTE-ARRAY:Whether a visual, build-a-grid entry (picture-first) holds this learner through the harder inverse and factor-pair items better than a narrative entry — testing the mixed-learning-style hypothesis with a concrete visual anchor.",
+          "theme": "Warm drafting-table workshop framing against the indigo plaza; lanterns are chunky draggable orbs with a satisfying snap ring; the live counter and auto-drafting equation strip are large and honest — no hidden state. Sagging uneven rows use rubbery deformation, comic not alarming.",
+          "sfxProfile": "interaction-recovery-progress-completion",
+          "companionPolicy": "cycle-contract",
+          "thumbnailPrompt": "Warm drafting-table workshop framing against the indigo plaza; lanterns are chunky draggable orbs with a satisfying snap ring; the live counter and auto-drafting equation strip are large and honest — no hidden state. Sagging uneven rows use rubbery deformation, comic not alarming."
+        },
+        {
+          "id": "ACT-STORY-01",
+          "type": "generated-baseline",
+          "activityId": "generated-baseline",
+          "targets": [
+            "Forty-two flags are placed in 6 equal rows. The matching equation is 6 x ? = 42. How many flags are in each row?",
+            "Fill in the missing factor: ? x 7 = 35.",
+            "A crew packs 48 badges into bags with 8 badges in each bag. Write the multiplication equation with a missing factor for this story, find the missing factor, and name the fact that proves your answer.",
+            "Thirty-two chairs are set out in equal rows with 8 chairs in each row. How many rows are there?"
+          ],
+          "difficulty": 1,
+          "source": "chart_planner",
+          "targetLane": "Given a total and one factor — presented either as an equation with an unknown or as an equal-rows sharing story within 48 — determine the missing factor and name the multiplication fact that verifies it.",
+          "locked": true,
+          "title": "Market Wing: The Stall-Keepers' Missing Numbers",
+          "gameHtmlPath": "/Users/jamaltaylor/Development/sunny-demo-main/src/context/reina/homework/games/hw-math-767d56c796d206c1dc99b79d/ACT-STORY-01.html",
+          "date": "hw-math-767d56c796d206c1dc99b79d",
+          "thumbnailUrl": "/generated/direct-math/hw-math-767d56c796d206c1dc99b79d-ACT-STORY-01-thumbnail-bbf4da8bfce5.jpeg",
+          "contentId": "hw-math-767d56c796d206c1dc99b79d:ACT-STORY-01",
+          "mechanic": "Each stall is one item: a keeper states a short problem aloud (text mirrored, tap-to-replay), and the child answers by dialing a number into an equation socket, typing a value, or — on the capstone — assembling the missing-factor equation themselves from socket parts before solving it and naming the verifying fact. Correct sockets close the stall's circuit: lights, music, and smell-wisps all switch on at once, and the keeper begins actually selling to the crowd.",
+          "engagementDimensions": [
+            "Whether keeping every item inside one continuous market story (narrative-first) lowers switching cost and sustains attention across the inverse band better than the grid-building entry — testing whether text is a hook or a barrier for this learner."
+          ],
+          "engagementHypothesis": "Because the source page is entirely festival-story framed and the chart shows no prior math engagement data, a route that keeps every item in a narrative situation may reduce the switching cost between reading the situation and doing the math, keeping a moderate-attention learner engaged across the inverse band.",
+          "masteryUnlockState": "preparing",
+          "theoryId": "hw-math-767d56c796d206c1dc99b79d:academic-theory",
+          "experimentId": "hw-math-767d56c796d206c1dc99b79d:ROUTE-STORY:Whether keeping every item inside one continuous market story (narrative-first) lowers switching cost and sustains attention across the inverse band better than the grid-building entry — testing whether text is a hook or a barrier for this learner.",
+          "theme": "Dense cozy night-market palette: indigo dark broken by pools of warm stall light as progress accrues; keepers are expressive animal-adjacent aliens (moth, axolotl, pangolin, heron) with distinct silhouettes, feeding the child's animal interest without leaving the space fiction. Equation panels are brass with satisfying socket geometry; text stays to one or two spoken-and-mirrored lines.",
+          "sfxProfile": "interaction-recovery-progress-completion",
+          "companionPolicy": "cycle-contract",
+          "thumbnailPrompt": "Dense cozy night-market palette: indigo dark broken by pools of warm stall light as progress accrues; keepers are expressive animal-adjacent aliens (moth, axolotl, pangolin, heron) with distinct silhouettes, feeding the child's animal interest without leaving the space fiction. Equation panels are brass with satisfying socket geometry; text stays to one or two spoken-and-mirrored lines."
+        },
+        {
+          "id": "ACT-STORY-02",
+          "type": "generated-baseline",
+          "activityId": "generated-baseline",
+          "targets": [
+            "Four booths each need 5 cups in the morning and 5 cups in the afternoon. How many cups are needed in all?",
+            "Show the structure you used for the cup problem: write the equations that get from the booths to the total.",
+            "Three stalls each hand out 6 programs before the show and 6 programs after the show. How many programs are handed out altogether?",
+            "Explain why the answer to the program problem is not 3 x 6, and describe the equal group that gets repeated."
+          ],
+          "difficulty": 1,
+          "source": "chart_planner",
+          "targetLane": "Given a story where equal groups each contribute a quantity on two occasions, compute the total and show the multiplicative structure used.",
+          "locked": true,
+          "title": "Market Wing: The Double-Shift Night",
+          "gameHtmlPath": "/Users/jamaltaylor/Development/sunny-demo-main/src/context/reina/homework/games/hw-math-767d56c796d206c1dc99b79d/ACT-STORY-02.html",
+          "date": "hw-math-767d56c796d206c1dc99b79d",
+          "thumbnailUrl": "/generated/direct-math/hw-math-767d56c796d206c1dc99b79d-ACT-STORY-02-thumbnail-aea55b1d9f4a.jpeg",
+          "contentId": "hw-math-767d56c796d206c1dc99b79d:ACT-STORY-02",
+          "mechanic": "Each item is a supply order for a two-occasion story. The child computes totals on the order-pad, and on structure items builds the delivery plan on a two-panel planning board — MORNING and AFTERNOON panels — by placing equation tiles (4 × 5 = 20 in each panel, then ×2 to the night total, or the combined 4 × 10 = 40 across both). Deliveries then physically run: hover-crates drop the ordered amount at each booth across both shifts, so an under-order is visible as afternoon booths left empty-handed.",
+          "engagementDimensions": [
+            "Whether keeping every item inside one continuous market story (narrative-first) lowers switching cost and sustains attention across the inverse band better than the grid-building entry — testing whether text is a hook or a barrier for this learner."
+          ],
+          "engagementHypothesis": "Because the source page is entirely festival-story framed and the chart shows no prior math engagement data, a route that keeps every item in a narrative situation may reduce the switching cost between reading the situation and doing the math, keeping a moderate-attention learner engaged across the inverse band.",
+          "masteryUnlockState": "preparing",
+          "theoryId": "hw-math-767d56c796d206c1dc99b79d:academic-theory",
+          "experimentId": "hw-math-767d56c796d206c1dc99b79d:ROUTE-STORY:Whether keeping every item inside one continuous market story (narrative-first) lowers switching cost and sustains attention across the inverse band better than the grid-building entry — testing whether text is a hook or a barrier for this learner.",
+          "theme": "Warm administrative-cozy: a cluttered supply office window overlooking the lit lane, paper slips with big numerals, the two-sun day-wheel as the persistent visual anchor for 'two occasions'. MORNING panel tinted gold, AFTERNOON tinted violet, so the repeated structure is color-legible everywhere including in the delivery animation.",
+          "sfxProfile": "interaction-recovery-progress-completion",
+          "companionPolicy": "cycle-contract",
+          "thumbnailPrompt": "Warm administrative-cozy: a cluttered supply office window overlooking the lit lane, paper slips with big numerals, the two-sun day-wheel as the persistent visual anchor for 'two occasions'. MORNING panel tinted gold, AFTERNOON tinted violet, so the repeated structure is color-legible everywhere including in the delivery animation."
+        },
+        {
+          "id": "quest",
+          "type": "quest",
+          "activityId": "quest",
+          "targets": [],
+          "difficulty": 1,
+          "source": "chart_planner",
+          "locked": true,
+          "masteryUnlockState": "preparing",
+          "title": "Quest",
+          "thumbnailUrl": "/generated/direct-math/hw-math-767d56c796d206c1dc99b79d-quest.jpeg",
+          "targetLane": "math.operations.multiplicative-structure.equal-groups-and-arrays (unseen transfer)",
+          "theoryId": "hw-math-767d56c796d206c1dc99b79d:academic-theory",
+          "experimentId": "hw-math-767d56c796d206c1dc99b79d:quest",
+          "contentId": "hw-math-767d56c796d206c1dc99b79d:node:quest",
+          "mechanic": "locked-teaser",
+          "theme": "The Repair Bay door is slightly open on the board map, sparks fizzing out. A sign reads: 'WANTED: engineer who can fix what others wired wrong.' Inside, three miswired fact-circuits wait — other engineers wrote the wrong products, and only a fix-by-nearby-fact repair will stop the sparking.",
+          "sfxProfile": "",
+          "companionPolicy": "cycle-contract",
+          "thumbnailPrompt": "The Repair Bay is a cozy cluttered workshop: hanging cables, a wall of labeled fuse-facts, a friendly repair-bot with one googly eye holding up the miswired circuit boards. Each wrong product glows an angry red until repaired, then settles to calm green with a satisfied 'clunk'. Warm workshop oranges against the station's indigo, hand-tool clutter drawn with rounded, non-threatening shapes."
+        },
+        {
+          "id": "boss",
+          "type": "boss",
+          "activityId": "boss",
+          "targets": [],
+          "difficulty": 1,
+          "source": "chart_planner",
+          "locked": true,
+          "masteryUnlockState": "preparing",
+          "title": "Boss",
+          "thumbnailUrl": "/generated/direct-math/hw-math-767d56c796d206c1dc99b79d-boss.jpeg",
+          "targetLane": "math.operations.multiplicative-structure.equal-groups-and-arrays (unseen synthesis)",
+          "theoryId": "hw-math-767d56c796d206c1dc99b79d:academic-theory",
+          "experimentId": "hw-math-767d56c796d206c1dc99b79d:boss",
+          "contentId": "hw-math-767d56c796d206c1dc99b79d:node:boss",
+          "mechanic": "locked-teaser",
+          "theme": "A dark silhouette hangs over the station core: the Festival Launch Array, a massive unlit ring of 36 lights that only ignites when its keeper — the grumpy old Chief Engineer Zorvax — is convinced Creator can arrange power in more than one way. His shadowed ring pulses faintly on the board map from the very first screen.",
+          "sfxProfile": "",
+          "companionPolicy": "cycle-contract",
+          "thumbnailPrompt": "Zorvax is a huge, four-armed, walrus-like alien engineer in a patched jumpsuit, more grumpy-uncle than scary — goggles pushed up on his forehead, one arm always holding cocoa. The Launch Array behind him is a colossal dark ring of 36 unlit sockets rendered in cold blue-grey; as the child progresses, individual sockets warm to amber. Final launch shot: the full ring blazing, fireworks of lantern-drones spelling patterns over the station."
+        }
+      ],
+      "learningRoutes": [
+        {
+          "id": "ROUTE-ARRAY",
+          "label": "Light Wall Wing",
+          "rationale": "Bring the festival's giant light walls online by building glowing grids of lanterns — every row you lock in place lights up for real, and the wing ends with you designing the two big light walls that launch the festival.",
+          "nodeIds": [
+            "ACT-SHARED-01",
+            "ACT-SHARED-02",
+            "ACT-SHARED-03",
+            "ACT-ARRAY-01",
+            "ACT-ARRAY-02",
+            "quest",
+            "boss"
+          ]
+        },
+        {
+          "id": "ROUTE-STORY",
+          "label": "Market Wing",
+          "rationale": "Reopen the alien night market by solving the stall-keepers' power puzzles — each stall tells you its problem out loud, and every answer you wire in makes that stall's lights, smells, and music switch on.",
+          "nodeIds": [
+            "ACT-SHARED-01",
+            "ACT-SHARED-02",
+            "ACT-SHARED-03",
+            "ACT-STORY-01",
+            "ACT-STORY-02",
+            "quest",
+            "boss"
+          ]
+        }
+      ],
+      "adventureBoard": {
+        "schemaVersion": 1,
+        "boardId": "direct:hw-math-767d56c796d206c1dc99b79d",
+        "planId": "LAB-MATH-C-charter-v1:cycle-r3",
+        "childId": "reina",
+        "domain": "math",
+        "title": "Starlight Festival on Nova Station",
+        "theme": {
+          "background": {
+            "type": "image",
+            "value": "/generated/direct-math/hw-math-767d56c796d206c1dc99b79d-background.jpeg"
+          },
+          "palette": {
+            "path": "#fff4c2",
+            "completed": "#34d399",
+            "available": "#7c3aed",
+            "locked": "#64748b",
+            "current": "#f59e0b",
+            "preview": "#94a3b8",
+            "text": "#ffffff",
+            "panel": "rgba(15,23,42,.82)"
+          }
+        },
+        "layout": {
+          "preset": "horizontal-adventure-spine",
+          "companionSlot": "right",
+          "routeChoiceBehavior": "exclusive"
+        },
+        "plannerRationale": {
+          "agencyDesign": "With no math evidence on record, the construct band can be probed to equal depth through either an array-first path (structure made visible as rows and columns before inverse work) or a story-first path (structure read out of contextual equal-groups language before inverse work). Both routes cover the same inverse/factor-pair demand at the same difficulty, so any performance difference isolates representational entry point rather than academic level.",
+          "evidenceDesign": "Construct math.operations.multiplicative-structure.equal-groups-and-arrays is the target on both routes; Single-digit factors only; totals within 48; Both routes include inverse/missing-factor work (LR-03) and factor-pair generation or array-equation translation at Grade 3 depth; No remainders, no multi-digit computation, no two-step demands beyond one repeated equal-groups step; Shared pre-fork nodes ACT-SHARED-01 and ACT-SHARED-02 are identical for both routes; Item counts per route node held at 4 items; Fact-fluency baseline (LR-08) measured pre-fork on both routes",
+          "layoutChoice": "Two visible choose-your-adventure routes converge on a locked Quest."
+        },
+        "nodes": [
+          {
+            "id": "start",
+            "kind": "start",
+            "label": "Start",
+            "shortLabel": "Start",
+            "state": "completed",
+            "position": {
+              "x": 0.07,
+              "y": 0.88
+            }
+          },
+          {
+            "id": "ACT-SHARED-01",
+            "kind": "activity",
+            "activityId": "generated-baseline",
+            "label": "Arrival Dock: Lantern Parade Power-Up",
+            "shortLabel": "Arrival Dock",
+            "state": "current",
+            "position": {
+              "x": 0.15,
+              "y": 0.72
+            },
+            "action": {
+              "type": "launch-activity",
+              "payloadId": "ACT-SHARED-01"
+            },
+            "thumbnailUrl": "/generated/direct-math/hw-math-767d56c796d206c1dc99b79d-ACT-SHARED-01-thumbnail-53c4f631e95f.jpeg",
+            "mechanic": "Each item is one parade scene: equal groups are drawn on screen as real festival objects (wagons of lanterns, packs of snacks, tables of chairs, trays of cups). The child answers by typing a number, tapping a matching equation, or speaking/typing a one-line explanation of what each factor counts. Every correct answer sends a visible amber pulse down a conduit and lights one dock district; the parade physically advances one wagon-length toward the festival gate.",
+            "engagementDimensions": [
+              "shared-baseline"
+            ],
+            "engagementHypothesis": "With no math evidence on record, the construct band can be probed to equal depth through either an array-first path (structure made visible as rows and columns before inverse work) or a story-first path (structure read out of contextual equal-groups language before inverse work). Both routes cover the same inverse/factor-pair demand at the same difficulty, so any performance difference isolates representational entry point rather than academic level.",
+            "contentId": "hw-math-767d56c796d206c1dc99b79d:ACT-SHARED-01",
+            "theoryId": "hw-math-767d56c796d206c1dc99b79d:academic-theory",
+            "experimentId": "hw-math-767d56c796d206c1dc99b79d:shared:shared-baseline",
+            "sfxProfile": "interaction-recovery-progress-completion",
+            "companionPolicy": "cycle-contract"
+          },
+          {
+            "id": "ACT-SHARED-02",
+            "kind": "activity",
+            "activityId": "generated-baseline",
+            "label": "Arrival Dock: The Sorting Beacon",
+            "shortLabel": "Arrival Dock",
+            "state": "locked",
+            "position": {
+              "x": 0.22499999999999998,
+              "y": 0.6499999999999999
+            },
+            "action": {
+              "type": "show-locked-reason",
+              "payloadId": "ACT-SHARED-02"
+            },
+            "thumbnailUrl": "/generated/direct-math/hw-math-767d56c796d206c1dc99b79d-ACT-SHARED-02-thumbnail-8206e6d25471.jpeg",
+            "mechanic": "For each item the beacon holds an expression card and three story-pods share the same number pair but different structures (equal groups, adding, sharing). The child taps a pod to feed it in. Matching pods lock in with a beam of amber light to a district; non-matching pods are gently rejected — the beacon holds them up and highlights the story words that broke the match. Two items ask for a short typed or spoken justification, entered on a simple two-tap sentence-builder plus free text.",
+            "engagementDimensions": [
+              "shared-baseline"
+            ],
+            "engagementHypothesis": "With no math evidence on record, the construct band can be probed to equal depth through either an array-first path (structure made visible as rows and columns before inverse work) or a story-first path (structure read out of contextual equal-groups language before inverse work). Both routes cover the same inverse/factor-pair demand at the same difficulty, so any performance difference isolates representational entry point rather than academic level.",
+            "contentId": "hw-math-767d56c796d206c1dc99b79d:ACT-SHARED-02",
+            "lock": {
+              "reason": "preparing",
+              "label": "Locked"
+            },
+            "theoryId": "hw-math-767d56c796d206c1dc99b79d:academic-theory",
+            "experimentId": "hw-math-767d56c796d206c1dc99b79d:shared:shared-baseline",
+            "sfxProfile": "interaction-recovery-progress-completion",
+            "companionPolicy": "cycle-contract"
+          },
+          {
+            "id": "ACT-SHARED-03",
+            "kind": "activity",
+            "activityId": "generated-baseline",
+            "label": "Arrival Dock: Fuse Check",
+            "shortLabel": "Arrival Dock",
+            "state": "locked",
+            "position": {
+              "x": 0.3,
+              "y": 0.58
+            },
+            "action": {
+              "type": "show-locked-reason",
+              "payloadId": "ACT-SHARED-03"
+            },
+            "thumbnailUrl": "/generated/direct-math/hw-math-767d56c796d206c1dc99b79d-ACT-SHARED-03-thumbnail-3321f9b09e8d.jpeg",
+            "mechanic": "Pure, calm fact entry: one fuse at a time, bare prompt, numeric answer, untimed. Each correct product snaps the fuse alight with a satisfying click and slides the next fuse into place. There is deliberately no narrative load here — the contrast with the story-rich nodes is itself the design, honoring the contract's separation of fact fluency from structure.",
+            "engagementDimensions": [
+              "shared-baseline"
+            ],
+            "engagementHypothesis": "With no math evidence on record, the construct band can be probed to equal depth through either an array-first path (structure made visible as rows and columns before inverse work) or a story-first path (structure read out of contextual equal-groups language before inverse work). Both routes cover the same inverse/factor-pair demand at the same difficulty, so any performance difference isolates representational entry point rather than academic level.",
+            "contentId": "hw-math-767d56c796d206c1dc99b79d:ACT-SHARED-03",
+            "lock": {
+              "reason": "preparing",
+              "label": "Locked"
+            },
+            "theoryId": "hw-math-767d56c796d206c1dc99b79d:academic-theory",
+            "experimentId": "hw-math-767d56c796d206c1dc99b79d:shared:shared-baseline",
+            "sfxProfile": "interaction-recovery-progress-completion",
+            "companionPolicy": "cycle-contract"
+          },
+          {
+            "id": "choose-path",
+            "kind": "choice-gate",
+            "label": "Choose Path",
+            "shortLabel": "Choose Path",
+            "state": "available",
+            "position": {
+              "x": 0.44,
+              "y": 0.48
+            },
+            "action": {
+              "type": "open-choice-set",
+              "payloadId": "baseline-route-options"
+            },
+            "choiceSetId": "direct-route-choice"
+          },
+          {
+            "id": "ACT-ARRAY-01",
+            "kind": "activity",
+            "activityId": "generated-baseline",
+            "label": "Light Wall Wing: The Two-Way Lantern Rack",
+            "shortLabel": "Light Wall Wing",
+            "state": "locked",
+            "position": {
+              "x": 0.45333333333333337,
+              "y": 0.32
+            },
+            "action": {
+              "type": "show-locked-reason",
+              "payloadId": "ACT-ARRAY-01"
+            },
+            "thumbnailUrl": "/generated/direct-math/hw-math-767d56c796d206c1dc99b79d-ACT-ARRAY-01-thumbnail-05fcb4f66b1c.jpeg",
+            "mechanic": "The child reads arrays as physical lantern grids and answers by building equations from drag tiles, typing totals, or explaining row/column roles. The signature move is the double-lighting: after the first equation lights the rack row-by-row (6 sweeps of 8), building the commuted equation re-lights the same rack column-by-column (8 sweeps of 6), proving on screen that both equations describe one object.",
+            "engagementDimensions": [
+              "Whether a visual, build-a-grid entry (picture-first) holds this learner through the harder inverse and factor-pair items better than a narrative entry — testing the mixed-learning-style hypothesis with a concrete visual anchor."
+            ],
+            "engagementHypothesis": "Because the chart records learningStyle=mixed with a visual component and no engagement history at all, a route that opens with a picture-like rectangular arrangement may give this learner a concrete anchor that keeps a moderate attention span on task through the harder inverse items.",
+            "contentId": "hw-math-767d56c796d206c1dc99b79d:ACT-ARRAY-01",
+            "lock": {
+              "reason": "preparing",
+              "label": "Locked"
+            },
+            "theoryId": "hw-math-767d56c796d206c1dc99b79d:academic-theory",
+            "experimentId": "hw-math-767d56c796d206c1dc99b79d:ROUTE-ARRAY:Whether a visual, build-a-grid entry (picture-first) holds this learner through the harder inverse and factor-pair items better than a narrative entry — testing the mixed-learning-style hypothesis with a concrete visual anchor.",
+            "sfxProfile": "interaction-recovery-progress-completion",
+            "companionPolicy": "cycle-contract"
+          },
+          {
+            "id": "ACT-ARRAY-02",
+            "kind": "activity",
+            "activityId": "generated-baseline",
+            "label": "Light Wall Wing: Design the Launch Walls",
+            "shortLabel": "Light Wall Wing",
+            "state": "locked",
+            "position": {
+              "x": 0.6066666666666667,
+              "y": 0.32
+            },
+            "action": {
+              "type": "show-locked-reason",
+              "payloadId": "ACT-ARRAY-02"
+            },
+            "thumbnailUrl": "/generated/direct-math/hw-math-767d56c796d206c1dc99b79d-ACT-ARRAY-02-thumbnail-1787e2f2b204.jpeg",
+            "mechanic": "Freeform array construction with smart snapping: the child sets a row length by placing lanterns, then can duplicate rows with a stamp handle. A live counter shows lanterns used vs. budget (e.g., 21/24), and an equation strip auto-drafts beneath the build (e.g., '3 × 8 = ?') which the child must complete and sign. Uneven rows physically sag and spark, making 'equal rows using the whole total' a visible engineering constraint, not a rule to remember.",
+            "engagementDimensions": [
+              "Whether a visual, build-a-grid entry (picture-first) holds this learner through the harder inverse and factor-pair items better than a narrative entry — testing the mixed-learning-style hypothesis with a concrete visual anchor."
+            ],
+            "engagementHypothesis": "Because the chart records learningStyle=mixed with a visual component and no engagement history at all, a route that opens with a picture-like rectangular arrangement may give this learner a concrete anchor that keeps a moderate attention span on task through the harder inverse items.",
+            "contentId": "hw-math-767d56c796d206c1dc99b79d:ACT-ARRAY-02",
+            "lock": {
+              "reason": "preparing",
+              "label": "Locked"
+            },
+            "theoryId": "hw-math-767d56c796d206c1dc99b79d:academic-theory",
+            "experimentId": "hw-math-767d56c796d206c1dc99b79d:ROUTE-ARRAY:Whether a visual, build-a-grid entry (picture-first) holds this learner through the harder inverse and factor-pair items better than a narrative entry — testing the mixed-learning-style hypothesis with a concrete visual anchor.",
+            "sfxProfile": "interaction-recovery-progress-completion",
+            "companionPolicy": "cycle-contract"
+          },
+          {
+            "id": "ACT-STORY-01",
+            "kind": "activity",
+            "activityId": "generated-baseline",
+            "label": "Market Wing: The Stall-Keepers' Missing Numbers",
+            "shortLabel": "Market Wing",
+            "state": "locked",
+            "position": {
+              "x": 0.45333333333333337,
+              "y": 0.72
+            },
+            "action": {
+              "type": "show-locked-reason",
+              "payloadId": "ACT-STORY-01"
+            },
+            "thumbnailUrl": "/generated/direct-math/hw-math-767d56c796d206c1dc99b79d-ACT-STORY-01-thumbnail-bbf4da8bfce5.jpeg",
+            "mechanic": "Each stall is one item: a keeper states a short problem aloud (text mirrored, tap-to-replay), and the child answers by dialing a number into an equation socket, typing a value, or — on the capstone — assembling the missing-factor equation themselves from socket parts before solving it and naming the verifying fact. Correct sockets close the stall's circuit: lights, music, and smell-wisps all switch on at once, and the keeper begins actually selling to the crowd.",
+            "engagementDimensions": [
+              "Whether keeping every item inside one continuous market story (narrative-first) lowers switching cost and sustains attention across the inverse band better than the grid-building entry — testing whether text is a hook or a barrier for this learner."
+            ],
+            "engagementHypothesis": "Because the source page is entirely festival-story framed and the chart shows no prior math engagement data, a route that keeps every item in a narrative situation may reduce the switching cost between reading the situation and doing the math, keeping a moderate-attention learner engaged across the inverse band.",
+            "contentId": "hw-math-767d56c796d206c1dc99b79d:ACT-STORY-01",
+            "lock": {
+              "reason": "preparing",
+              "label": "Locked"
+            },
+            "theoryId": "hw-math-767d56c796d206c1dc99b79d:academic-theory",
+            "experimentId": "hw-math-767d56c796d206c1dc99b79d:ROUTE-STORY:Whether keeping every item inside one continuous market story (narrative-first) lowers switching cost and sustains attention across the inverse band better than the grid-building entry — testing whether text is a hook or a barrier for this learner.",
+            "sfxProfile": "interaction-recovery-progress-completion",
+            "companionPolicy": "cycle-contract"
+          },
+          {
+            "id": "ACT-STORY-02",
+            "kind": "activity",
+            "activityId": "generated-baseline",
+            "label": "Market Wing: The Double-Shift Night",
+            "shortLabel": "Market Wing",
+            "state": "locked",
+            "position": {
+              "x": 0.6066666666666667,
+              "y": 0.72
+            },
+            "action": {
+              "type": "show-locked-reason",
+              "payloadId": "ACT-STORY-02"
+            },
+            "thumbnailUrl": "/generated/direct-math/hw-math-767d56c796d206c1dc99b79d-ACT-STORY-02-thumbnail-aea55b1d9f4a.jpeg",
+            "mechanic": "Each item is a supply order for a two-occasion story. The child computes totals on the order-pad, and on structure items builds the delivery plan on a two-panel planning board — MORNING and AFTERNOON panels — by placing equation tiles (4 × 5 = 20 in each panel, then ×2 to the night total, or the combined 4 × 10 = 40 across both). Deliveries then physically run: hover-crates drop the ordered amount at each booth across both shifts, so an under-order is visible as afternoon booths left empty-handed.",
+            "engagementDimensions": [
+              "Whether keeping every item inside one continuous market story (narrative-first) lowers switching cost and sustains attention across the inverse band better than the grid-building entry — testing whether text is a hook or a barrier for this learner."
+            ],
+            "engagementHypothesis": "Because the source page is entirely festival-story framed and the chart shows no prior math engagement data, a route that keeps every item in a narrative situation may reduce the switching cost between reading the situation and doing the math, keeping a moderate-attention learner engaged across the inverse band.",
+            "contentId": "hw-math-767d56c796d206c1dc99b79d:ACT-STORY-02",
+            "lock": {
+              "reason": "preparing",
+              "label": "Locked"
+            },
+            "theoryId": "hw-math-767d56c796d206c1dc99b79d:academic-theory",
+            "experimentId": "hw-math-767d56c796d206c1dc99b79d:ROUTE-STORY:Whether keeping every item inside one continuous market story (narrative-first) lowers switching cost and sustains attention across the inverse band better than the grid-building entry — testing whether text is a hook or a barrier for this learner.",
+            "sfxProfile": "interaction-recovery-progress-completion",
+            "companionPolicy": "cycle-contract"
+          },
+          {
+            "id": "quest",
+            "kind": "quest",
+            "label": "Quest",
+            "state": "locked",
+            "position": {
+              "x": 0.82,
+              "y": 0.48
+            },
+            "thumbnailUrl": "/generated/direct-math/hw-math-767d56c796d206c1dc99b79d-quest.jpeg",
+            "lock": {
+              "reason": "preparing",
+              "label": "Quest is preparing"
+            },
+            "action": {
+              "type": "show-locked-reason",
+              "payloadId": "quest"
+            },
+            "shortLabel": "Quest",
+            "theoryId": "hw-math-767d56c796d206c1dc99b79d:academic-theory",
+            "experimentId": "hw-math-767d56c796d206c1dc99b79d:quest",
+            "contentId": "hw-math-767d56c796d206c1dc99b79d:node:quest",
+            "mechanic": "locked-teaser",
+            "sfxProfile": "",
+            "companionPolicy": "cycle-contract"
+          },
+          {
+            "id": "boss",
+            "kind": "boss",
+            "label": "Boss",
+            "state": "locked",
+            "position": {
+              "x": 0.94,
+              "y": 0.28
+            },
+            "thumbnailUrl": "/generated/direct-math/hw-math-767d56c796d206c1dc99b79d-boss.jpeg",
+            "lock": {
+              "reason": "preparing",
+              "label": "After Quest"
+            },
+            "action": {
+              "type": "show-locked-reason",
+              "payloadId": "boss"
+            },
+            "shortLabel": "Boss",
+            "theoryId": "hw-math-767d56c796d206c1dc99b79d:academic-theory",
+            "experimentId": "hw-math-767d56c796d206c1dc99b79d:boss",
+            "contentId": "hw-math-767d56c796d206c1dc99b79d:node:boss",
+            "mechanic": "locked-teaser",
+            "sfxProfile": "",
+            "companionPolicy": "cycle-contract"
+          }
+        ],
+        "edges": [
+          {
+            "id": "start-ACT-SHARED-01",
+            "from": "start",
+            "to": "ACT-SHARED-01",
+            "state": "available"
+          },
+          {
+            "id": "ACT-SHARED-01-ACT-SHARED-02",
+            "from": "ACT-SHARED-01",
+            "to": "ACT-SHARED-02",
+            "state": "locked"
+          },
+          {
+            "id": "ACT-SHARED-02-ACT-SHARED-03",
+            "from": "ACT-SHARED-02",
+            "to": "ACT-SHARED-03",
+            "state": "locked"
+          },
+          {
+            "id": "ACT-SHARED-03-choice",
+            "from": "ACT-SHARED-03",
+            "to": "choose-path",
+            "state": "available"
+          },
+          {
+            "id": "choose-path-ACT-ARRAY-01",
+            "from": "choose-path",
+            "to": "ACT-ARRAY-01",
+            "state": "locked"
+          },
+          {
+            "id": "ACT-ARRAY-01-ACT-ARRAY-02",
+            "from": "ACT-ARRAY-01",
+            "to": "ACT-ARRAY-02",
+            "state": "locked"
+          },
+          {
+            "id": "ACT-ARRAY-02-quest",
+            "from": "ACT-ARRAY-02",
+            "to": "quest",
+            "state": "locked"
+          },
+          {
+            "id": "choose-path-ACT-STORY-01",
+            "from": "choose-path",
+            "to": "ACT-STORY-01",
+            "state": "locked"
+          },
+          {
+            "id": "ACT-STORY-01-ACT-STORY-02",
+            "from": "ACT-STORY-01",
+            "to": "ACT-STORY-02",
+            "state": "locked"
+          },
+          {
+            "id": "ACT-STORY-02-quest",
+            "from": "ACT-STORY-02",
+            "to": "quest",
+            "state": "locked"
+          },
+          {
+            "id": "quest-boss",
+            "from": "quest",
+            "to": "boss",
+            "state": "locked"
+          }
+        ],
+        "choiceSets": [
+          {
+            "id": "direct-route-choice",
+            "kind": "baseline-route",
+            "title": "Choose your path",
+            "options": [
+              {
+                "id": "ROUTE-ARRAY",
+                "label": "Light Wall Wing",
+                "description": "Drag rows of lanterns into a grid, then write the two equations the grid shows.",
+                "state": "locked",
+                "nodeId": "ACT-ARRAY-01",
+                "thumbnailUrl": "/generated/direct-math/hw-math-767d56c796d206c1dc99b79d-ACT-ARRAY-01-thumbnail-05fcb4f66b1c.jpeg",
+                "artifactHash": "3e8eb430ed293c87262e3162b16341476f74c424415183278cf559494e6de817",
+                "engagementDimensions": [
+                  "Whether a visual, build-a-grid entry (picture-first) holds this learner through the harder inverse and factor-pair items better than a narrative entry — testing the mixed-learning-style hypothesis with a concrete visual anchor."
+                ],
+                "choiceSignal": {
+                  "algorithmFeed": "choicePolicy",
+                  "traits": [
+                    "Whether a visual, build-a-grid entry (picture-first) holds this learner through the harder inverse and factor-pair items better than a narrative entry — testing the mixed-learning-style hypothesis with a concrete visual anchor."
+                  ],
+                  "expectedEvidence": "selection, start, completion, abandonment, replay",
+                  "preferenceNotMastery": true
+                },
+                "gameHtmlPath": "/Users/jamaltaylor/Development/sunny-demo-main/src/context/reina/homework/games/hw-math-767d56c796d206c1dc99b79d/ACT-ARRAY-01.html"
+              },
+              {
+                "id": "ROUTE-STORY",
+                "label": "Market Wing",
+                "description": "Read a stall-keeper's short problem, type the missing number, and watch the stall light up.",
+                "state": "locked",
+                "nodeId": "ACT-STORY-01",
+                "thumbnailUrl": "/generated/direct-math/hw-math-767d56c796d206c1dc99b79d-ACT-STORY-01-thumbnail-bbf4da8bfce5.jpeg",
+                "artifactHash": "8437ee30046ab1bf54f54ad360e5100d892672c515f719b1a438e6c9da033318",
+                "engagementDimensions": [
+                  "Whether keeping every item inside one continuous market story (narrative-first) lowers switching cost and sustains attention across the inverse band better than the grid-building entry — testing whether text is a hook or a barrier for this learner."
+                ],
+                "choiceSignal": {
+                  "algorithmFeed": "choicePolicy",
+                  "traits": [
+                    "Whether keeping every item inside one continuous market story (narrative-first) lowers switching cost and sustains attention across the inverse band better than the grid-building entry — testing whether text is a hook or a barrier for this learner."
+                  ],
+                  "expectedEvidence": "selection, start, completion, abandonment, replay",
+                  "preferenceNotMastery": true
+                },
+                "gameHtmlPath": "/Users/jamaltaylor/Development/sunny-demo-main/src/context/reina/homework/games/hw-math-767d56c796d206c1dc99b79d/ACT-STORY-01.html"
+              }
+            ]
+          }
+        ],
+        "companion": {
+          "id": "elli",
+          "name": "Elli"
+        },
+        "progress": {
+          "currentNodeId": "ACT-SHARED-01",
+          "completedNodeIds": []
+        }
+      },
+      "variationPolicy": {
+        "avoidExactPreviousNodeOrder": true,
+        "avoidExactPreviousWordOrder": true,
+        "seed": "hw-math-767d56c796d206c1dc99b79d",
+        "previousCompletedNodeCount": 0
+      },
+      "companionPolicy": {
+        "companionId": "elli",
+        "displayName": "Elli",
+        "openingLinePolicy": "context_start_short",
+        "verbosity": "low",
+        "maxMicroProbes": 1
+      },
+      "evidenceUsed": [
+        {
+          "id": "planner-evidence-1",
+          "type": "child_chart",
+          "summary": "childChart.identity.displayName=Creator"
+        },
+        {
+          "id": "planner-evidence-2",
+          "type": "child_chart",
+          "summary": "childChart.demographics.age=10"
+        },
+        {
+          "id": "planner-evidence-3",
+          "type": "child_chart",
+          "summary": "childChart.demographics.grade=4"
+        },
+        {
+          "id": "planner-evidence-4",
+          "type": "child_chart",
+          "summary": "childChart.demographics.learningStyle=mixed"
+        },
+        {
+          "id": "planner-evidence-5",
+          "type": "child_chart",
+          "summary": "childChart.demographics.attentionSpan=moderate"
+        },
+        {
+          "id": "planner-evidence-6",
+          "type": "child_chart",
+          "summary": "childChart.demographics.diagnoses=[]"
+        },
+        {
+          "id": "planner-evidence-7",
+          "type": "child_chart",
+          "summary": "childChart.demographics.iepActive=false"
+        },
+        {
+          "id": "planner-evidence-8",
+          "type": "child_chart",
+          "summary": "childChart.learningProfile.sessionStats.totalSessions=13"
+        },
+        {
+          "id": "planner-evidence-9",
+          "type": "child_chart",
+          "summary": "childChart.learningProfile.sessionStats.averageAccuracy=0"
+        },
+        {
+          "id": "planner-evidence-10",
+          "type": "child_chart",
+          "summary": "childChart.learningProfile.sessionStats.averageDurationMinutes=0"
+        },
+        {
+          "id": "planner-evidence-11",
+          "type": "child_chart",
+          "summary": "childChart.learningProfile.sessionStats.currentWilsonStep=1"
+        },
+        {
+          "id": "planner-evidence-12",
+          "type": "child_chart",
+          "summary": "childChart.learningProfile.sessionStats.perfectSessions=0"
+        },
+        {
+          "id": "planner-evidence-13",
+          "type": "child_chart",
+          "summary": "childChart.learningProfile.sessionStats.lastSessionDate=2026-04-27"
+        },
+        {
+          "id": "planner-evidence-14",
+          "type": "child_chart",
+          "summary": "childChart.factBankSummary.totalFacts=0"
+        },
+        {
+          "id": "planner-evidence-15",
+          "type": "child_chart",
+          "summary": "childChart.factBankSummary.dueFacts=0"
+        },
+        {
+          "id": "planner-evidence-16",
+          "type": "child_chart",
+          "summary": "childChart.engagementEvidence=null"
+        },
+        {
+          "id": "planner-evidence-17",
+          "type": "child_chart",
+          "summary": "childChart.recentDecision=null"
+        },
+        {
+          "id": "planner-evidence-18",
+          "type": "child_chart",
+          "summary": "childChart.longitudinalLearning.constructs={}"
+        },
+        {
+          "id": "planner-evidence-19",
+          "type": "child_chart",
+          "summary": "childChart.longitudinalLearning.recentDecisions=[]"
+        },
+        {
+          "id": "planner-evidence-20",
+          "type": "child_chart",
+          "summary": "childChart.longitudinalLearning.recentSupportObservations=[]"
+        },
+        {
+          "id": "planner-evidence-21",
+          "type": "child_chart",
+          "summary": "childChart.longitudinalLearning.pendingInterpretation=[]"
+        },
+        {
+          "id": "planner-evidence-22",
+          "type": "child_chart",
+          "summary": "childChart.rewardEvidence.purchaseCount=0"
+        },
+        {
+          "id": "planner-evidence-23",
+          "type": "child_chart",
+          "summary": "childChart.rewardEvidence.currentCoinBalance=0"
+        },
+        {
+          "id": "planner-evidence-24",
+          "type": "child_chart",
+          "summary": "priorOutcomes.directExperience.observations=[]"
+        },
+        {
+          "id": "planner-evidence-25",
+          "type": "child_chart",
+          "summary": "priorOutcomes.directExperience.decisions=[]"
+        },
+        {
+          "id": "planner-evidence-26",
+          "type": "child_chart",
+          "summary": "priorOutcomes.canonicalCycle=null"
+        },
+        {
+          "id": "planner-evidence-27",
+          "type": "child_chart",
+          "summary": "assignment.id=LAB-MATH-C"
+        },
+        {
+          "id": "planner-evidence-28",
+          "type": "child_chart",
+          "summary": "assignment.version=BLANK"
+        },
+        {
+          "id": "planner-evidence-29",
+          "type": "child_chart",
+          "summary": "assignment.gradeBand=grade-3-mathematics"
+        }
+      ],
+      "openQuestions": [],
+      "approvalStatus": "approved",
+      "planTheory": {
+        "hypothesis": "This learner most likely holds multiplication as a procedure attached to a fact table rather than as a structure that can be read off a situation. The page is built to break that: item 6 offers an additive and a sharing distractor for the same numbers, item 5 hides a repeated group inside a two-step story, item 7 rewards deriving 45 from a neighbor fact instead of retrieving it, and items 4 and 8 demand that one total be seen as more than one rectangle. So the diagnostic question is not \"can the learner multiply within 48\" but \"can the learner decide what kind of multiplicative question is being asked, and move flexibly between total, factors, and array.\" The theory is that performance will hold on forward equal-groups items and degrade on inverse and multi-representation items (ASM-04, ASM-05), with fact recall as a confounder that must be measured separately (ASM-02) so a structural error is never misread as a computation slip. Because the entire evidence base is empty — no math accuracy, no fact bank, no prior decisions, no support observations — the smallest coherent program must sample every face of the construct once (forward equal groups, inverse/missing factor, array-to-equations, factor-pair generation, structure discrimination, derived fact) at Grade 3 depth, so a single pass separates the recall hypothesis from the structure hypothesis. Confirmation looks like clean forward work with breakdown concentrated in inverse and factor-pair items; disconfirmation looks like uniform difficulty across all six faces, which would relocate the target to fact fluency and the prerequisite band, or uniform success, which would push the construct toward multi-digit and multi-step extensions above Grade 3.",
+        "evidenceSummary": [
+          "childChart.identity.displayName=Creator",
+          "childChart.demographics.age=10",
+          "childChart.demographics.grade=4",
+          "childChart.demographics.learningStyle=mixed",
+          "childChart.demographics.attentionSpan=moderate",
+          "childChart.demographics.diagnoses=[]",
+          "childChart.demographics.iepActive=false",
+          "childChart.learningProfile.sessionStats.totalSessions=13",
+          "childChart.learningProfile.sessionStats.averageAccuracy=0",
+          "childChart.learningProfile.sessionStats.averageDurationMinutes=0",
+          "childChart.learningProfile.sessionStats.currentWilsonStep=1",
+          "childChart.learningProfile.sessionStats.perfectSessions=0",
+          "childChart.learningProfile.sessionStats.lastSessionDate=2026-04-27",
+          "childChart.factBankSummary.totalFacts=0",
+          "childChart.factBankSummary.dueFacts=0",
+          "childChart.engagementEvidence=null",
+          "childChart.recentDecision=null",
+          "childChart.longitudinalLearning.constructs={}",
+          "childChart.longitudinalLearning.recentDecisions=[]",
+          "childChart.longitudinalLearning.recentSupportObservations=[]",
+          "childChart.longitudinalLearning.pendingInterpretation=[]",
+          "childChart.rewardEvidence.purchaseCount=0",
+          "childChart.rewardEvidence.currentCoinBalance=0",
+          "priorOutcomes.directExperience.observations=[]",
+          "priorOutcomes.directExperience.decisions=[]",
+          "priorOutcomes.canonicalCycle=null",
+          "assignment.id=LAB-MATH-C",
+          "assignment.version=BLANK",
+          "assignment.gradeBand=grade-3-mathematics"
+        ],
+        "intervention": "Creator is the newly hired Festival Engineer aboard Nova Station, a space outpost where alien families are arriving for the once-a-year Starlight Festival. The station's power grid runs on equal groups: lantern racks, snack pods, badge crates, and light walls only switch on when their groups are counted and wired correctly. Every solved problem sends visible power down the station's glowing conduits, lighting up another district of the festival. The chapter opens in the Arrival Dock (three shared activities that restore basic power), then Creator chooses one of two festival wings to bring fully online — the Light Wall Wing, where power is arranged in glowing grids, or the Market Wing, where power flows through the stories of the stall-keepers. A final optional Repair Bay lets Creator fix miswired circuits other engineers got wrong. When a wing is complete, the festival launches: the whole station lights up and alien crowds pour in under a drone-lantern sky.",
+        "supportCriteria": [
+          "Real child evidence supports transfer."
+        ],
+        "reviseCriteria": [
+          "Real child evidence is mixed."
+        ],
+        "falsifyCriteria": [
+          "Real child evidence contradicts the theory."
+        ]
+      }
+    }
+  },
+  "updatedAt": "2026-08-12T21:35:41.282Z"
+}

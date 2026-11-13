@@ -1,0 +1,609 @@
+{
+  "iteration": 2,
+  "validation": {
+    "passed": true,
+    "failures": [],
+    "screenshotPaths": [
+      "/Users/jamaltaylor/Development/sunny-demo-main/outputs/quest-boss-production-proof/2026-08-06T22-15-32-721Z/strong/src/context/reina/homework/games/.validation/quest/quest-load.png",
+      "/Users/jamaltaylor/Development/sunny-demo-main/outputs/quest-boss-production-proof/2026-08-06T22-15-32-721Z/strong/src/context/reina/homework/games/.validation/quest/quest-recovery.png",
+      "/Users/jamaltaylor/Development/sunny-demo-main/outputs/quest-boss-production-proof/2026-08-06T22-15-32-721Z/strong/src/context/reina/homework/games/.validation/quest/quest-midplay.png",
+      "/Users/jamaltaylor/Development/sunny-demo-main/outputs/quest-boss-production-proof/2026-08-06T22-15-32-721Z/strong/src/context/reina/homework/games/.validation/quest/quest-completion.png"
+    ],
+    "interactionTrace": {
+      "engine": "playwright",
+      "passed": true,
+      "screenshotPaths": [
+        "/Users/jamaltaylor/Development/sunny-demo-main/outputs/quest-boss-production-proof/2026-08-06T22-15-32-721Z/strong/src/context/reina/homework/games/.validation/quest/quest-load.png",
+        "/Users/jamaltaylor/Development/sunny-demo-main/outputs/quest-boss-production-proof/2026-08-06T22-15-32-721Z/strong/src/context/reina/homework/games/.validation/quest/quest-recovery.png",
+        "/Users/jamaltaylor/Development/sunny-demo-main/outputs/quest-boss-production-proof/2026-08-06T22-15-32-721Z/strong/src/context/reina/homework/games/.validation/quest/quest-midplay.png",
+        "/Users/jamaltaylor/Development/sunny-demo-main/outputs/quest-boss-production-proof/2026-08-06T22-15-32-721Z/strong/src/context/reina/homework/games/.validation/quest/quest-completion.png"
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "attemptedTargets": 4,
+      "completed": true,
+      "completionPayloads": [
+        {
+          "nodeId": "validation-quest",
+          "completed": true,
+          "accuracy": 0.8,
+          "targetResults": [
+            {
+              "target": "quest-cargo-pods-6x3",
+              "correct": false,
+              "attemptedValue": 19,
+              "responseTimeMs": 532,
+              "scaffoldLevel": 0
+            },
+            {
+              "target": "quest-cargo-pods-6x3",
+              "correct": true,
+              "attemptedValue": 18,
+              "responseTimeMs": 737,
+              "scaffoldLevel": 1
+            },
+            {
+              "target": "quest-lantern-rows-4x5",
+              "correct": true,
+              "attemptedValue": 20,
+              "responseTimeMs": 9,
+              "scaffoldLevel": 0
+            },
+            {
+              "target": "quest-balloon-crates-2x7",
+              "correct": true,
+              "attemptedValue": 14,
+              "responseTimeMs": 12,
+              "scaffoldLevel": 0
+            },
+            {
+              "target": "quest-plank-stacks-3x5",
+              "correct": true,
+              "attemptedValue": 15,
+              "responseTimeMs": 12,
+              "scaffoldLevel": 0
+            }
+          ],
+          "timeSpent_ms": 3188,
+          "childId": "reina",
+          "sessionId": "artifact-validation",
+          "traceId": "artifact-validation:validation-quest:ixibh79ytc",
+          "activityIntentId": "",
+          "targetSelectorId": ""
+        },
+        {
+          "type": "node_complete",
+          "version": "1.0",
+          "nodeId": "validation-quest",
+          "completed": true,
+          "accuracy": 0.8,
+          "targetResults": [
+            {
+              "target": "quest-cargo-pods-6x3",
+              "correct": false,
+              "attemptedValue": 19,
+              "responseTimeMs": 532,
+              "scaffoldLevel": 0
+            },
+            {
+              "target": "quest-cargo-pods-6x3",
+              "correct": true,
+              "attemptedValue": 18,
+              "responseTimeMs": 737,
+              "scaffoldLevel": 1
+            },
+            {
+              "target": "quest-lantern-rows-4x5",
+              "correct": true,
+              "attemptedValue": 20,
+              "responseTimeMs": 9,
+              "scaffoldLevel": 0
+            },
+            {
+              "target": "quest-balloon-crates-2x7",
+              "correct": true,
+              "attemptedValue": 14,
+              "responseTimeMs": 12,
+              "scaffoldLevel": 0
+            },
+            {
+              "target": "quest-plank-stacks-3x5",
+              "correct": true,
+              "attemptedValue": 15,
+              "responseTimeMs": 12,
+              "scaffoldLevel": 0
+            }
+          ],
+          "timeSpent_ms": 3188,
+          "childId": "reina",
+          "sessionId": "artifact-validation",
+          "traceId": "artifact-validation:validation-quest:ixibh79ytc",
+          "activityIntentId": "",
+          "targetSelectorId": ""
+        }
+      ],
+      "usedValidationHook": true,
+      "eventTimeline": [
+        {
+          "type": "game_state_update",
+          "timestampMs": 63,
+          "payload": {
+            "game": "generated-math",
+            "activityId": "quest",
+            "nodeId": "quest",
+            "phase": "question",
+            "activityTitle": "The Skybridge Rescue",
+            "learningFocus": "transfer equal-groups reasoning to unfamiliar situations",
+            "mechanic": "AI-designed evidence experience",
+            "currentChallenge": {
+              "id": "quest-cargo-pods-6x3",
+              "prompt": "Six cargo pods glide across the skybridge. Each pod carries 3 golden gears for repairs. How many gears are being carried in all?",
+              "mode": "unseen_transfer_word_problem",
+              "readAloudRequested": false,
+              "readAloudCount": 0
+            },
+            "availableActions": [
+              "submit_answer",
+              "request_read_aloud"
+            ],
+            "itemIndex": 1,
+            "totalItems": 4,
+            "answerVisibility": "hidden"
+          }
+        },
+        {
+          "type": "activity_ready",
+          "timestampMs": 63,
+          "payload": {
+            "nodeId": "quest"
+          }
+        },
+        {
+          "type": "attempt_event",
+          "timestampMs": 578,
+          "payload": {
+            "domain": "math",
+            "target": "quest-cargo-pods-6x3",
+            "correct": false,
+            "attemptedValue": 19,
+            "responseTimeMs": 532,
+            "scaffoldLevel": 0,
+            "word": "quest-cargo-pods-6x3",
+            "attemptId": "artifact-validation:validation-quest:1786054735583:lzd3wuao9tj",
+            "childId": "reina",
+            "nodeId": "validation-quest",
+            "sessionId": "artifact-validation",
+            "traceId": "artifact-validation:validation-quest:ixibh79ytc",
+            "activityIntentId": "",
+            "targetSelectorId": "",
+            "timestamp": 1786054735583
+          }
+        },
+        {
+          "type": "companion_event",
+          "timestampMs": 578,
+          "payload": {
+            "trigger": "wrong_answer",
+            "timestamp": 1786054735583,
+            "childId": "reina",
+            "nodeId": "validation-quest",
+            "sessionId": "artifact-validation",
+            "traceId": "artifact-validation:validation-quest:ixibh79ytc",
+            "activityIntentId": "",
+            "targetSelectorId": "",
+            "target": "quest-cargo-pods-6x3"
+          }
+        },
+        {
+          "type": "game_state_update",
+          "timestampMs": 578,
+          "payload": {
+            "game": "generated-math",
+            "activityId": "quest",
+            "nodeId": "quest",
+            "phase": "question",
+            "activityTitle": "The Skybridge Rescue",
+            "learningFocus": "transfer equal-groups reasoning to unfamiliar situations",
+            "mechanic": "AI-designed evidence experience",
+            "currentChallenge": {
+              "id": "quest-cargo-pods-6x3",
+              "prompt": "Six cargo pods glide across the skybridge. Each pod carries 3 golden gears for repairs. How many gears are being carried in all?",
+              "mode": "unseen_transfer_word_problem",
+              "readAloudRequested": false,
+              "readAloudCount": 0
+            },
+            "availableActions": [
+              "submit_answer",
+              "request_read_aloud"
+            ],
+            "itemIndex": 1,
+            "totalItems": 4,
+            "answerVisibility": "hidden"
+          }
+        },
+        {
+          "type": "attempt_event",
+          "timestampMs": 780,
+          "payload": {
+            "domain": "math",
+            "target": "quest-cargo-pods-6x3",
+            "correct": true,
+            "attemptedValue": 18,
+            "responseTimeMs": 737,
+            "scaffoldLevel": 1,
+            "word": "quest-cargo-pods-6x3",
+            "attemptId": "artifact-validation:validation-quest:1786054735788:xrgjr2gru1q",
+            "childId": "reina",
+            "nodeId": "validation-quest",
+            "sessionId": "artifact-validation",
+            "traceId": "artifact-validation:validation-quest:ixibh79ytc",
+            "activityIntentId": "",
+            "targetSelectorId": "",
+            "timestamp": 1786054735788
+          }
+        },
+        {
+          "type": "companion_event",
+          "timestampMs": 780,
+          "payload": {
+            "trigger": "correct_answer",
+            "timestamp": 1786054735788,
+            "childId": "reina",
+            "nodeId": "validation-quest",
+            "sessionId": "artifact-validation",
+            "traceId": "artifact-validation:validation-quest:ixibh79ytc",
+            "activityIntentId": "",
+            "targetSelectorId": "",
+            "target": "quest-cargo-pods-6x3"
+          }
+        },
+        {
+          "type": "progress_event",
+          "timestampMs": 782,
+          "payload": {
+            "nodeId": "quest",
+            "completedItems": 1,
+            "totalItems": 4
+          }
+        },
+        {
+          "type": "game_state_update",
+          "timestampMs": 1383,
+          "payload": {
+            "game": "generated-math",
+            "activityId": "quest",
+            "nodeId": "quest",
+            "phase": "question",
+            "activityTitle": "The Skybridge Rescue",
+            "learningFocus": "transfer equal-groups reasoning to unfamiliar situations",
+            "mechanic": "AI-designed evidence experience",
+            "currentChallenge": {
+              "id": "quest-lantern-rows-4x5",
+              "prompt": "The rescue team strings glowing lights in 4 rows to guide flyers home. Each row holds 5 lanterns. How many lanterns light the bridge?",
+              "mode": "unseen_transfer_word_problem",
+              "readAloudRequested": false,
+              "readAloudCount": 0
+            },
+            "availableActions": [
+              "submit_answer",
+              "request_read_aloud"
+            ],
+            "itemIndex": 2,
+            "totalItems": 4,
+            "answerVisibility": "hidden"
+          }
+        },
+        {
+          "type": "attempt_event",
+          "timestampMs": 1391,
+          "payload": {
+            "domain": "math",
+            "target": "quest-lantern-rows-4x5",
+            "correct": true,
+            "attemptedValue": 20,
+            "responseTimeMs": 9,
+            "scaffoldLevel": 0,
+            "word": "quest-lantern-rows-4x5",
+            "attemptId": "artifact-validation:validation-quest:1786054736403:bv1ntqj72zr",
+            "childId": "reina",
+            "nodeId": "validation-quest",
+            "sessionId": "artifact-validation",
+            "traceId": "artifact-validation:validation-quest:ixibh79ytc",
+            "activityIntentId": "",
+            "targetSelectorId": "",
+            "timestamp": 1786054736403
+          }
+        },
+        {
+          "type": "companion_event",
+          "timestampMs": 1391,
+          "payload": {
+            "trigger": "correct_answer",
+            "timestamp": 1786054736403,
+            "childId": "reina",
+            "nodeId": "validation-quest",
+            "sessionId": "artifact-validation",
+            "traceId": "artifact-validation:validation-quest:ixibh79ytc",
+            "activityIntentId": "",
+            "targetSelectorId": "",
+            "target": "quest-lantern-rows-4x5"
+          }
+        },
+        {
+          "type": "progress_event",
+          "timestampMs": 1391,
+          "payload": {
+            "nodeId": "quest",
+            "completedItems": 2,
+            "totalItems": 4
+          }
+        },
+        {
+          "type": "game_state_update",
+          "timestampMs": 1993,
+          "payload": {
+            "game": "generated-math",
+            "activityId": "quest",
+            "nodeId": "quest",
+            "phase": "question",
+            "activityTitle": "The Skybridge Rescue",
+            "learningFocus": "transfer equal-groups reasoning to unfamiliar situations",
+            "mechanic": "AI-designed evidence experience",
+            "currentChallenge": {
+              "id": "quest-balloon-crates-2x7",
+              "prompt": "Two rescue balloons rise into the clouds. Each balloon is loaded with 7 supply crates for the stranded climbers. How many crates in total?",
+              "mode": "unseen_transfer_word_problem",
+              "readAloudRequested": false,
+              "readAloudCount": 0
+            },
+            "availableActions": [
+              "submit_answer",
+              "request_read_aloud"
+            ],
+            "itemIndex": 3,
+            "totalItems": 4,
+            "answerVisibility": "hidden"
+          }
+        },
+        {
+          "type": "attempt_event",
+          "timestampMs": 2007,
+          "payload": {
+            "domain": "math",
+            "target": "quest-balloon-crates-2x7",
+            "correct": true,
+            "attemptedValue": 14,
+            "responseTimeMs": 12,
+            "scaffoldLevel": 0,
+            "word": "quest-balloon-crates-2x7",
+            "attemptId": "artifact-validation:validation-quest:1786054737017:i8exve37nue",
+            "childId": "reina",
+            "nodeId": "validation-quest",
+            "sessionId": "artifact-validation",
+            "traceId": "artifact-validation:validation-quest:ixibh79ytc",
+            "activityIntentId": "",
+            "targetSelectorId": "",
+            "timestamp": 1786054737017
+          }
+        },
+        {
+          "type": "companion_event",
+          "timestampMs": 2007,
+          "payload": {
+            "trigger": "correct_answer",
+            "timestamp": 1786054737018,
+            "childId": "reina",
+            "nodeId": "validation-quest",
+            "sessionId": "artifact-validation",
+            "traceId": "artifact-validation:validation-quest:ixibh79ytc",
+            "activityIntentId": "",
+            "targetSelectorId": "",
+            "target": "quest-balloon-crates-2x7"
+          }
+        },
+        {
+          "type": "progress_event",
+          "timestampMs": 2007,
+          "payload": {
+            "nodeId": "quest",
+            "completedItems": 3,
+            "totalItems": 4
+          }
+        },
+        {
+          "type": "game_state_update",
+          "timestampMs": 2610,
+          "payload": {
+            "game": "generated-math",
+            "activityId": "quest",
+            "nodeId": "quest",
+            "phase": "question",
+            "activityTitle": "The Skybridge Rescue",
+            "learningFocus": "transfer equal-groups reasoning to unfamiliar situations",
+            "mechanic": "AI-designed evidence experience",
+            "currentChallenge": {
+              "id": "quest-plank-stacks-3x5",
+              "prompt": "Workers stack fresh wooden planks to fix the last gap. They make 3 stacks, and each stack holds 5 planks. How many planks are used?",
+              "mode": "unseen_transfer_word_problem",
+              "readAloudRequested": false,
+              "readAloudCount": 0
+            },
+            "availableActions": [
+              "submit_answer",
+              "request_read_aloud"
+            ],
+            "itemIndex": 4,
+            "totalItems": 4,
+            "answerVisibility": "hidden"
+          }
+        },
+        {
+          "type": "attempt_event",
+          "timestampMs": 2624,
+          "payload": {
+            "domain": "math",
+            "target": "quest-plank-stacks-3x5",
+            "correct": true,
+            "attemptedValue": 15,
+            "responseTimeMs": 12,
+            "scaffoldLevel": 0,
+            "word": "quest-plank-stacks-3x5",
+            "attemptId": "artifact-validation:validation-quest:1786054737632:vlo40u7tdd",
+            "childId": "reina",
+            "nodeId": "validation-quest",
+            "sessionId": "artifact-validation",
+            "traceId": "artifact-validation:validation-quest:ixibh79ytc",
+            "activityIntentId": "",
+            "targetSelectorId": "",
+            "timestamp": 1786054737632
+          }
+        },
+        {
+          "type": "companion_event",
+          "timestampMs": 2624,
+          "payload": {
+            "trigger": "correct_answer",
+            "timestamp": 1786054737633,
+            "childId": "reina",
+            "nodeId": "validation-quest",
+            "sessionId": "artifact-validation",
+            "traceId": "artifact-validation:validation-quest:ixibh79ytc",
+            "activityIntentId": "",
+            "targetSelectorId": "",
+            "target": "quest-plank-stacks-3x5"
+          }
+        },
+        {
+          "type": "progress_event",
+          "timestampMs": 2624,
+          "payload": {
+            "nodeId": "quest",
+            "completedItems": 4,
+            "totalItems": 4
+          }
+        },
+        {
+          "type": "companion_event",
+          "timestampMs": 3229,
+          "payload": {
+            "trigger": "game_complete",
+            "timestamp": 1786054738236,
+            "childId": "reina",
+            "nodeId": "validation-quest",
+            "sessionId": "artifact-validation",
+            "traceId": "artifact-validation:validation-quest:ixibh79ytc",
+            "activityIntentId": "",
+            "targetSelectorId": ""
+          }
+        },
+        {
+          "type": "game_complete",
+          "timestampMs": 3229,
+          "payload": {
+            "nodeId": "validation-quest",
+            "completed": true,
+            "accuracy": 0.8,
+            "targetResults": [
+              {
+                "target": "quest-cargo-pods-6x3",
+                "correct": false,
+                "attemptedValue": 19,
+                "responseTimeMs": 532,
+                "scaffoldLevel": 0
+              },
+              {
+                "target": "quest-cargo-pods-6x3",
+                "correct": true,
+                "attemptedValue": 18,
+                "responseTimeMs": 737,
+                "scaffoldLevel": 1
+              },
+              {
+                "target": "quest-lantern-rows-4x5",
+                "correct": true,
+                "attemptedValue": 20,
+                "responseTimeMs": 9,
+                "scaffoldLevel": 0
+              },
+              {
+                "target": "quest-balloon-crates-2x7",
+                "correct": true,
+                "attemptedValue": 14,
+                "responseTimeMs": 12,
+                "scaffoldLevel": 0
+              },
+              {
+                "target": "quest-plank-stacks-3x5",
+                "correct": true,
+                "attemptedValue": 15,
+                "responseTimeMs": 12,
+                "scaffoldLevel": 0
+              }
+            ],
+            "timeSpent_ms": 3188,
+            "childId": "reina",
+            "sessionId": "artifact-validation",
+            "traceId": "artifact-validation:validation-quest:ixibh79ytc",
+            "activityIntentId": "",
+            "targetSelectorId": ""
+          }
+        },
+        {
+          "type": "node_complete",
+          "timestampMs": 3229,
+          "payload": {
+            "type": "node_complete",
+            "version": "1.0",
+            "nodeId": "validation-quest",
+            "completed": true,
+            "accuracy": 0.8,
+            "targetResults": [
+              {
+                "target": "quest-cargo-pods-6x3",
+                "correct": false,
+                "attemptedValue": 19,
+                "responseTimeMs": 532,
+                "scaffoldLevel": 0
+              },
+              {
+                "target": "quest-cargo-pods-6x3",
+                "correct": true,
+                "attemptedValue": 18,
+                "responseTimeMs": 737,
+                "scaffoldLevel": 1
+              },
+              {
+                "target": "quest-lantern-rows-4x5",
+                "correct": true,
+                "attemptedValue": 20,
+                "responseTimeMs": 9,
+                "scaffoldLevel": 0
+              },
+              {
+                "target": "quest-balloon-crates-2x7",
+                "correct": true,
+                "attemptedValue": 14,
+                "responseTimeMs": 12,
+                "scaffoldLevel": 0
+              },
+              {
+                "target": "quest-plank-stacks-3x5",
+                "correct": true,
+                "attemptedValue": 15,
+                "responseTimeMs": 12,
+                "scaffoldLevel": 0
+              }
+            ],
+            "timeSpent_ms": 3188,
+            "childId": "reina",
+            "sessionId": "artifact-validation",
+            "traceId": "artifact-validation:validation-quest:ixibh79ytc",
+            "activityIntentId": "",
+            "targetSelectorId": ""
+          }
+        }
+      ]
+    }
+  },
+  "error": null
+}

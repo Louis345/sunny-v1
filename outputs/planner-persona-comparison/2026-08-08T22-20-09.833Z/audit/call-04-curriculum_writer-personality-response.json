@@ -1,0 +1,516 @@
+{
+  "model": "claude-opus-5",
+  "id": "msg_011Cdr4dKctwpfrJhqLUZB1S",
+  "type": "message",
+  "role": "assistant",
+  "content": [
+    {
+      "type": "tool_use",
+      "id": "toolu_01STALN2D8j2t9h9JfHHSswF",
+      "name": "submit_curriculum_packet",
+      "input": {
+        "packetId": "packet:LAB-MATH-C:curriculum-writer:v1",
+        "upstreamHash": "f300b840d652743f2d9f16bbf958fc5e78ee6e2c470b2f84d9d8ab129ad7ae7f",
+        "items": [
+          {
+            "itemId": "LMC-CW-01",
+            "stage": "Stage 1 - Anchor",
+            "prompt": "The festival parade has 6 wagons. Each wagon carries 7 lanterns. First, say which quantity is unknown: the number of groups, the size of each group, or the total. Then find it.",
+            "options": null,
+            "correctAnswer": {
+              "unknownPosition": "total",
+              "value": 42,
+              "equation": "6 x 7 = 42"
+            },
+            "responseContract": {
+              "parts": [
+                {
+                  "partId": "name",
+                  "type": "single_select_from_three",
+                  "allowed": [
+                    "number of groups",
+                    "size of each group",
+                    "total"
+                  ],
+                  "required": true,
+                  "orderEnforced": "must_be_submitted_before_compute"
+                },
+                {
+                  "partId": "compute",
+                  "type": "integer",
+                  "required": true
+                }
+              ],
+              "scoring": "Both parts scored separately; naming credited only if submitted before the computed value.",
+              "recordPerItem": [
+                "unknown_position.named_before_compute",
+                "unknown_position.named_correctly",
+                "assistance_level",
+                "exposure_status"
+              ]
+            },
+            "sourceLineage": {
+              "charterId": "charter:LAB-MATH-C:academic-lead:v1",
+              "progressionStage": "Stage 1 - Anchor",
+              "assumptionIds": [
+                "AL-D3",
+                "AL-D2"
+              ],
+              "evidenceIds": [
+                "evaluation:cd58ac474b720927",
+                "observation:23f39686fc8bcab8",
+                "live-proof-baseline-session:baseline:observation:1"
+              ],
+              "assignmentId": "LAB-MATH-C",
+              "note": "Fresh festival context (parade wagons/lanterns); not copied from worksheet items."
+            },
+            "exposure": "novel_context_practiced_skill",
+            "academicTarget": "Confirm total-unknown computation and equal-groups story interpretation remain intact under a novel festival context, and establish the three-quantity naming frame.",
+            "measurementKeys": [
+              "math.multiplication.equal_groups.total_unknown.accuracy",
+              "unknown_position.named_before_compute.rate",
+              "unknown_position.named_correctly.rate"
+            ]
+          },
+          {
+            "itemId": "LMC-CW-02",
+            "stage": "Stage 2 - Name the unknown",
+            "prompt": "For each festival situation, name which quantity is missing. Do not calculate anything yet. (a) 5 booths, 9 cups at each booth, cups altogether = ? (b) 45 flags hang in 5 equal rows; how many flags in each row? (c) Some equal teams of 8 children make 48 children in all; how many teams?",
+            "options": [
+              "number of groups",
+              "size of each group",
+              "total"
+            ],
+            "correctAnswer": {
+              "a": "total",
+              "b": "size of each group",
+              "c": "number of groups"
+            },
+            "responseContract": {
+              "parts": [
+                {
+                  "partId": "a",
+                  "type": "single_select",
+                  "allowed": [
+                    "number of groups",
+                    "size of each group",
+                    "total"
+                  ],
+                  "required": true
+                },
+                {
+                  "partId": "b",
+                  "type": "single_select",
+                  "allowed": [
+                    "number of groups",
+                    "size of each group",
+                    "total"
+                  ],
+                  "required": true
+                },
+                {
+                  "partId": "c",
+                  "type": "single_select",
+                  "allowed": [
+                    "number of groups",
+                    "size of each group",
+                    "total"
+                  ],
+                  "required": true
+                }
+              ],
+              "scoring": "Three independent selections; no numeric answer is accepted or scored on this item.",
+              "recordPerItem": [
+                "unknown_position.named_correctly.rate",
+                "assistance_level",
+                "exposure_status"
+              ]
+            },
+            "sourceLineage": {
+              "charterId": "charter:LAB-MATH-C:academic-lead:v1",
+              "progressionStage": "Stage 2 - Name the unknown",
+              "assumptionIds": [
+                "AL-D2"
+              ],
+              "evidenceIds": [
+                "observation:0ee42baffce06546",
+                "observation:4520f65725de1d50",
+                "hw-02c11ee60594c617:decision:r3"
+              ],
+              "assignmentId": "LAB-MATH-C",
+              "note": "Naming-only item; isolates the naming step from operation choice."
+            },
+            "exposure": "novel",
+            "academicTarget": "Name the unknown position (groups, group size, or total) across mixed equal-groups items with no computation required.",
+            "measurementKeys": [
+              "unknown_position.named_correctly.rate",
+              "unknown_position.named_before_compute.rate"
+            ]
+          },
+          {
+            "itemId": "LMC-CW-03",
+            "stage": "Stage 3 - Group size unknown in context",
+            "prompt": "The festival banner wall holds 54 ribbons arranged in 6 equal rows. Name which quantity is unknown, then find how many ribbons are in each row. Write the multiplication fact you used.",
+            "options": null,
+            "correctAnswer": {
+              "unknownPosition": "size of each group",
+              "value": 9,
+              "knownFact": "6 x 9 = 54"
+            },
+            "responseContract": {
+              "parts": [
+                {
+                  "partId": "name",
+                  "type": "single_select_from_three",
+                  "allowed": [
+                    "number of groups",
+                    "size of each group",
+                    "total"
+                  ],
+                  "required": true,
+                  "orderEnforced": "must_be_submitted_before_compute"
+                },
+                {
+                  "partId": "compute",
+                  "type": "integer",
+                  "required": true
+                },
+                {
+                  "partId": "fact",
+                  "type": "short_text_equation",
+                  "required": true
+                }
+              ],
+              "scoring": "Naming, value, and stated fact scored separately. A response of 324 (6 x 54) is tagged as multiplied-the-given-numbers substitution.",
+              "recordPerItem": [
+                "unknown_position.named_before_compute",
+                "unknown_position.named_correctly",
+                "error.substitution.multiplied_given_numbers",
+                "assistance_level",
+                "exposure_status"
+              ]
+            },
+            "sourceLineage": {
+              "charterId": "charter:LAB-MATH-C:academic-lead:v1",
+              "progressionStage": "Stage 3 - Group size unknown in context",
+              "assumptionIds": [
+                "AL-D1",
+                "AL-D2"
+              ],
+              "evidenceIds": [
+                "evaluation:c8fdaacd3e1b0c13",
+                "evaluation:b81e075d2126c022",
+                "observation:d1b81984c24d6d80"
+              ],
+              "assignmentId": "LAB-MATH-C",
+              "note": "Contextual group-size-unknown item; parallel in structure to the 40-flags type but with fresh numbers and context."
+            },
+            "exposure": "novel",
+            "academicTarget": "Identify group size as the unknown in a contextual equal-rows situation and find the missing factor using a known fact, within factors 3-9 and products to 56.",
+            "measurementKeys": [
+              "math.multiplication.equal_groups.group_size_unknown.accuracy",
+              "error.substitution.multiplied_given_numbers.rate",
+              "unknown_position.named_correctly.rate"
+            ]
+          },
+          {
+            "itemId": "LMC-CW-04",
+            "stage": "Stage 4 - Missing factor in equation form",
+            "prompt": "Here is a bare equation from the festival planning sheet: ___ x 7 = 56. Name which quantity the blank stands for (number of groups, size of each group, or total), fill in the blank, and then tell one festival situation this equation could describe.",
+            "options": null,
+            "correctAnswer": {
+              "unknownPosition": "number of groups",
+              "value": 8,
+              "exampleStory": "Any equal-groups festival story with 8 groups of 7 making 56, e.g., 8 token bags with 7 tokens each make 56 tokens."
+            },
+            "responseContract": {
+              "parts": [
+                {
+                  "partId": "name",
+                  "type": "single_select_from_three",
+                  "allowed": [
+                    "number of groups",
+                    "size of each group",
+                    "total"
+                  ],
+                  "required": true,
+                  "orderEnforced": "must_be_submitted_before_compute"
+                },
+                {
+                  "partId": "blank",
+                  "type": "integer",
+                  "required": true
+                },
+                {
+                  "partId": "story",
+                  "type": "short_text",
+                  "required": true,
+                  "scoringRule": "Credited if the story states a number of groups, a size of each group, and a total consistent with 8 x 7 = 56."
+                }
+              ],
+              "scoring": "Naming, blank value, and story scored separately. A response of 392 (7 x 56) is tagged as multiplied-the-given-numbers substitution.",
+              "recordPerItem": [
+                "unknown_position.named_before_compute",
+                "unknown_position.named_correctly",
+                "error.substitution.multiplied_given_numbers",
+                "assistance_level",
+                "exposure_status"
+              ]
+            },
+            "sourceLineage": {
+              "charterId": "charter:LAB-MATH-C:academic-lead:v1",
+              "progressionStage": "Stage 4 - Missing factor in equation form",
+              "assumptionIds": [
+                "AL-D1",
+                "AL-D2"
+              ],
+              "evidenceIds": [
+                "evaluation:c8fdaacd3e1b0c13",
+                "live-proof-baseline-session:baseline:observation:2"
+              ],
+              "assignmentId": "LAB-MATH-C",
+              "note": "Bare-equation missing-factor item paired with a story request so equation-form accuracy can be separated from contextual accuracy per the charter's evidence request."
+            },
+            "exposure": "novel",
+            "academicTarget": "Solve a missing-factor equation within factors 3-9 and products to 56, and connect the bare equation to an equal-groups festival story.",
+            "measurementKeys": [
+              "math.multiplication.missing_factor.accuracy_unassisted",
+              "unknown_position.named_correctly.rate",
+              "error.substitution.multiplied_given_numbers.rate"
+            ]
+          },
+          {
+            "itemId": "LMC-CW-05",
+            "stage": "Stage 5 - Discrimination",
+            "prompt": "Four festival jobs are mixed together. For each one, name the unknown quantity first, then decide whether you multiply the two numbers you can see or find a missing factor, and give the answer. (a) 4 face-paint stations, 8 children at each station; how many children in all? (b) 36 tokens shared equally into 6 bags; how many tokens per bag? (c) 3 juice booths with 8 cups each, set out twice; how many cups in all? (d) Some equal rows of 6 chairs make 42 chairs; how many rows?",
+            "options": null,
+            "correctAnswer": {
+              "a": {
+                "unknownPosition": "total",
+                "operation": "multiply",
+                "value": 32
+              },
+              "b": {
+                "unknownPosition": "size of each group",
+                "operation": "find missing factor",
+                "value": 6
+              },
+              "c": {
+                "unknownPosition": "total",
+                "operation": "multiply",
+                "value": 48
+              },
+              "d": {
+                "unknownPosition": "number of groups",
+                "operation": "find missing factor",
+                "value": 7
+              }
+            },
+            "responseContract": {
+              "parts": [
+                {
+                  "partId": "name",
+                  "type": "single_select_from_three_per_subitem",
+                  "allowed": [
+                    "number of groups",
+                    "size of each group",
+                    "total"
+                  ],
+                  "required": true,
+                  "orderEnforced": "must_be_submitted_before_operation_and_value"
+                },
+                {
+                  "partId": "operation",
+                  "type": "single_select_per_subitem",
+                  "allowed": [
+                    "multiply the two numbers I can see",
+                    "find a missing factor"
+                  ],
+                  "required": true
+                },
+                {
+                  "partId": "value",
+                  "type": "integer_per_subitem",
+                  "required": true
+                }
+              ],
+              "scoring": "Scored per subitem. Division or missing-factor responses on subitems (a) and (c) are tagged as overgeneralized division on total-unknown items. Multiplying the two given numbers on (b) or (d) is tagged as substitution.",
+              "recordPerItem": [
+                "unknown_position.named_before_compute",
+                "unknown_position.named_correctly",
+                "operation_choice.correct_given_correct_naming",
+                "error.overgeneralized_division_on_total_unknown",
+                "error.substitution.multiplied_given_numbers",
+                "self_correction",
+                "assistance_level",
+                "exposure_status"
+              ]
+            },
+            "sourceLineage": {
+              "charterId": "charter:LAB-MATH-C:academic-lead:v1",
+              "progressionStage": "Stage 5 - Discrimination",
+              "assumptionIds": [
+                "AL-D4",
+                "AL-D2",
+                "AL-D3"
+              ],
+              "evidenceIds": [
+                "hw-02c11ee60594c617:prediction:r3:support",
+                "observation:4520f65725de1d50",
+                "observation:81c93f608540bf7b"
+              ],
+              "assignmentId": "LAB-MATH-C",
+              "note": "Interleaved set; subitems (a) and (c) are total-unknown contrast anchors retained solely to detect over-application, per charter scope."
+            },
+            "exposure": "novel",
+            "academicTarget": "Discriminate between multiplying and finding a missing factor across interleaved items, while monitoring over-application of division to genuinely total-unknown items.",
+            "measurementKeys": [
+              "operation_choice.correct_given_correct_naming.rate",
+              "error.overgeneralized_division_on_total_unknown.rate",
+              "math.multiplication.equal_groups.total_unknown.accuracy_post_instruction",
+              "self_correction.rate"
+            ]
+          },
+          {
+            "itemId": "LMC-CW-06",
+            "stage": "Stage 6 - Multiple factor pairs",
+            "prompt": "48 stage lights must be hung in equal rows, with no lights left over. Give one way: how many rows and how many lights in each row. Then, without being asked again, keep going and give every other way you can find. For each way, say why it works.",
+            "options": null,
+            "correctAnswer": {
+              "validPairsWithinScope": [
+                [
+                  6,
+                  8
+                ],
+                [
+                  8,
+                  6
+                ]
+              ],
+              "additionalValidPairsOutsideFactorRange": [
+                [
+                  1,
+                  48
+                ],
+                [
+                  2,
+                  24
+                ],
+                [
+                  3,
+                  16
+                ],
+                [
+                  4,
+                  12
+                ],
+                [
+                  12,
+                  4
+                ],
+                [
+                  16,
+                  3
+                ],
+                [
+                  24,
+                  2
+                ],
+                [
+                  48,
+                  1
+                ]
+              ],
+              "justificationRule": "A pair is valid when rows x lights-per-row = 48."
+            },
+            "responseContract": {
+              "parts": [
+                {
+                  "partId": "first_pair",
+                  "type": "integer_pair",
+                  "required": true
+                },
+                {
+                  "partId": "additional_pairs_unprompted",
+                  "type": "list_of_integer_pairs",
+                  "required": false,
+                  "capture": "recorded before any prompt to continue"
+                },
+                {
+                  "partId": "additional_pairs_after_prompt",
+                  "type": "list_of_integer_pairs",
+                  "required": false,
+                  "capture": "recorded only after a single neutral prompt to continue"
+                },
+                {
+                  "partId": "justification",
+                  "type": "short_text_per_pair",
+                  "required": true
+                }
+              ],
+              "scoring": "Count distinct valid pairs and validity rate. Pairs produced before the continue-prompt are counted separately from pairs produced after it, to distinguish inability to generate pairs from stopping early.",
+              "recordPerItem": [
+                "math.multiplication.factor_pairs.distinct_pairs_count",
+                "math.multiplication.factor_pairs.validity_rate",
+                "factor_pairs.additional_pairs_after_prompt",
+                "assistance_level",
+                "exposure_status"
+              ]
+            },
+            "sourceLineage": {
+              "charterId": "charter:LAB-MATH-C:academic-lead:v1",
+              "progressionStage": "Stage 6 - Multiple factor pairs",
+              "assumptionIds": [
+                "AL-D6"
+              ],
+              "evidenceIds": [
+                "live-proof-baseline-session:baseline:observation:4",
+                "assignment:live-progression"
+              ],
+              "assignmentId": "LAB-MATH-C",
+              "note": "Uses 48 rather than the worksheet's 36 so the skill is tested on a fresh total; 48 stays within products to 56 and has an in-range 6 x 8 pair."
+            },
+            "exposure": "novel",
+            "academicTarget": "Generate and justify more than one valid equal-row factor pair for a known total, and state why each pair is valid.",
+            "measurementKeys": [
+              "math.multiplication.factor_pairs.distinct_pairs_count",
+              "math.multiplication.factor_pairs.validity_rate",
+              "factor_pairs.additional_pairs_after_prompt"
+            ]
+          }
+        ],
+        "supportProgression": [
+          "Item LMC-CW-01 (Stage 1): full support available on the naming vocabulary only. The learner is told the three quantity names aloud and shown that this situation has two known numbers and one unknown; computation is left entirely unassisted, since it is an intact anchor. Any assistance given is recorded per item so correctness is not credited to scaffolding.",
+          "Item LMC-CW-02 (Stage 2): moderate support. The learner may re-read each situation and restate it in their own words before selecting; if a selection is wrong, the response is recorded as-is and the correct naming is supplied afterward, not before. No numeric work is offered or accepted here, so naming is measured independently of operation choice.",
+          "Item LMC-CW-03 (Stage 3): reduced support. Naming is unassisted. If the learner multiplies the two given numbers, the support is a single redirect question asking which of the three quantities the 54 already tells us; the original response is recorded before the redirect, and the post-redirect response is recorded separately with assistance level noted.",
+          "Item LMC-CW-04 (Stage 4): reduced support on the story part only. The blank and the naming are unassisted. If the story part stalls, the learner may be reminded that a festival story needs a number of groups, a size of each group, and a total; the missing-factor value itself is never supplied.",
+          "Item LMC-CW-05 (Stage 5): unassisted throughout. No cue is given about which subitems are total-unknown, because the discrimination is the measurement. If the learner self-corrects before submitting, the self-correction is recorded rather than counted as an error. Any adult comment is withheld until all four subitems are submitted.",
+          "Item LMC-CW-06 (Stage 6): unassisted for the first pair and for any further pairs the learner offers spontaneously. Exactly one neutral continue-prompt is permitted after the learner signals they are finished; everything produced after that prompt is recorded in a separate field. No hint about how many pairs exist and no listing of candidate numbers.",
+          "Across all six items: assistance level and exposure status are recorded per item, and naming is always captured before the computed value so the ordering requirement in the response contracts can be verified rather than assumed."
+        ],
+        "charterConcern": "One concern, raised without altering the charter: assumption AL-D1 is recorded at 0.72 confidence while its own uncertainty note observes that baseline observation 2 shows a correct, unassisted missing-factor response on a bare equation. The progression nonetheless treats contextual group-size-unknown items (Stage 3) and bare missing-factor equations (Stage 4) as one continuous weakness. I have written LMC-CW-03 and LMC-CW-04 so their measurements stay separated rather than pooled, and I flag that if the learner clears LMC-CW-04 unassisted while erring on LMC-CW-03, the gap is context-specific and the Stage 4 emphasis would be spending instructional time on an intact skill. This is a request that the two accuracies be reported separately upstream, not a proposed change to the charter, the academic target, or the stage order, all of which I have preserved as given."
+      },
+      "caller": {
+        "type": "direct"
+      }
+    }
+  ],
+  "stop_reason": "tool_use",
+  "stop_sequence": null,
+  "stop_details": null,
+  "usage": {
+    "input_tokens": 7999,
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 0,
+    "cache_creation": {
+      "ephemeral_5m_input_tokens": 0,
+      "ephemeral_1h_input_tokens": 0
+    },
+    "output_tokens": 6022,
+    "output_tokens_details": {
+      "thinking_tokens": 0
+    },
+    "service_tier": "standard",
+    "inference_geo": "global"
+  }
+}

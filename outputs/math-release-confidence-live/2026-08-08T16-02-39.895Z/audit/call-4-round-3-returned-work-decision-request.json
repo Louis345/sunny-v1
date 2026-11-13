@@ -1,0 +1,310 @@
+{
+  "model": "claude-opus-5",
+  "max_tokens": 5000,
+  "messages": [
+    {
+      "role": "user",
+      "content": "You are Sunny's AI learning Planner. Interpret one confirmed external-evidence batch. Observations are immutable facts. Compare only preregistered predictions with their evaluations and return exactly one theory decision. A supported prediction does not automatically prove mastery. Cite only supplied observation and evaluation IDs. Assess every preregistered assumption as supported, rejected, or uncertain; do not rewrite it. In the same decision, state readiness only for this assignment and its cited constructs. Use ready_independent only when confirmed graded work or delayed independent reassessment supports it; use ready_with_support, not_yet_ready, or insufficient_evidence otherwise. Choose complete only for ready_independent, generate_support for not_yet_ready or ready_with_support, and collect_more_evidence for insufficient_evidence. For either non-complete action, prescribe exactly one next-session instrument and one immutable academic prediction.\n\nAssignment:\n{\n  \"title\": \"Festival Team Challenge\",\n  \"contentFingerprint\": \"572d084ddb6e1b07b315233f2a10309525489f50aea6ff0b669a69bc134f7e7b\",\n  \"capturedEvidenceIds\": [\n    \"assignment:LAB-MATH-C\",\n    \"hw-02c11ee60594c617:decision:r3\",\n    \"hw-98079daac9b7869c:decision:r3\",\n    \"evaluation:c8fdaacd3e1b0c13\",\n    \"evaluation:b81e075d2126c022\",\n    \"evaluation:189974363295da63\",\n    \"evaluation:a27f078c804e15e1\",\n    \"evaluation:1b7d71227bc7fff2\",\n    \"evaluation:cd58ac474b720927\"\n  ],\n  \"targets\": [\n    \"math.multiplication.equal_groups\",\n    \"math.multiplication.missing_factor\",\n    \"math.multiplication.word_problem_interpretation\",\n    \"math.multiplication.factor_pairs\"\n  ],\n  \"returnTag\": \"#sunny_lab_math_c\"\n}\n\nTheory:\n{\n  \"theoryId\": \"hw-572d084ddb6e1b07:theory\",\n  \"revision\": 1,\n  \"hypothesis\": \"The learner will transfer the targeted LAB-MATH-C constructs to independent returned work.\",\n  \"supportCriteria\": [\n    \"Confirmed unassisted returned work supports the expected range.\"\n  ],\n  \"reviseCriteria\": [\n    \"Returned work exposes a scoped error or uncertainty.\"\n  ],\n  \"falsifyCriteria\": [\n    \"Repeated independent errors contradict the expected transfer.\"\n  ]\n}\n\nAssumptions:\n[\n  {\n    \"assumptionId\": \"hw-572d084ddb6e1b07:assumption:transfer\",\n    \"claim\": \"Independent transfer will be adequate for the scoped LAB-MATH-C constructs.\",\n    \"evidenceIds\": [\n      \"assignment:LAB-MATH-C\",\n      \"hw-02c11ee60594c617:decision:r3\",\n      \"hw-98079daac9b7869c:decision:r3\",\n      \"evaluation:c8fdaacd3e1b0c13\",\n      \"evaluation:b81e075d2126c022\",\n      \"evaluation:189974363295da63\",\n      \"evaluation:a27f078c804e15e1\",\n      \"evaluation:1b7d71227bc7fff2\",\n      \"evaluation:cd58ac474b720927\"\n    ],\n    \"confidence\": 0.65,\n    \"uncertainty\": \"Prior evidence may not generalize to this assignment.\",\n    \"createdAt\": \"2026-08-03T12:00:00.000Z\",\n    \"lockedAt\": \"2026-08-03T12:00:00.000Z\"\n  }\n]\n\nPredictions:\n[\n  {\n    \"predictionId\": \"hw-572d084ddb6e1b07:prediction:equal_groups\",\n    \"theoryId\": \"hw-572d084ddb6e1b07:theory\",\n    \"constructId\": \"math.multiplication.equal_groups\",\n    \"context\": \"confirmed unassisted returned work\",\n    \"horizon\": \"within_7_days\",\n    \"expectedMetric\": {\n      \"key\": \"academic.accuracy\",\n      \"min\": 0.7,\n      \"max\": 1\n    },\n    \"predictedErrorPatterns\": [\n      \"One incomplete response when asked for multiple factor pairs; prior missing-factor and interpretation errors did not recur.\"\n    ],\n    \"confidence\": 0.6,\n    \"evidenceIds\": [\n      \"assignment:LAB-MATH-C\",\n      \"hw-02c11ee60594c617:decision:r3\",\n      \"hw-98079daac9b7869c:decision:r3\",\n      \"evaluation:c8fdaacd3e1b0c13\",\n      \"evaluation:b81e075d2126c022\",\n      \"evaluation:189974363295da63\",\n      \"evaluation:a27f078c804e15e1\",\n      \"evaluation:1b7d71227bc7fff2\",\n      \"evaluation:cd58ac474b720927\"\n    ],\n    \"intervention\": \"Festival Team Challenge learning program\",\n    \"evidenceLimit\": \"calibrated_mastery\",\n    \"createdAt\": \"2026-08-03T12:00:00.000Z\",\n    \"lockedAt\": \"2026-08-03T12:00:00.000Z\"\n  },\n  {\n    \"predictionId\": \"hw-572d084ddb6e1b07:prediction:missing_factor\",\n    \"theoryId\": \"hw-572d084ddb6e1b07:theory\",\n    \"constructId\": \"math.multiplication.missing_factor\",\n    \"context\": \"confirmed unassisted returned work\",\n    \"horizon\": \"within_7_days\",\n    \"expectedMetric\": {\n      \"key\": \"academic.accuracy\",\n      \"min\": 0.7,\n      \"max\": 1\n    },\n    \"predictedErrorPatterns\": [\n      \"One incomplete response when asked for multiple factor pairs; prior missing-factor and interpretation errors did not recur.\"\n    ],\n    \"confidence\": 0.6,\n    \"evidenceIds\": [\n      \"assignment:LAB-MATH-C\",\n      \"hw-02c11ee60594c617:decision:r3\",\n      \"hw-98079daac9b7869c:decision:r3\",\n      \"evaluation:c8fdaacd3e1b0c13\",\n      \"evaluation:b81e075d2126c022\",\n      \"evaluation:189974363295da63\",\n      \"evaluation:a27f078c804e15e1\",\n      \"evaluation:1b7d71227bc7fff2\",\n      \"evaluation:cd58ac474b720927\"\n    ],\n    \"intervention\": \"Festival Team Challenge learning program\",\n    \"evidenceLimit\": \"calibrated_mastery\",\n    \"createdAt\": \"2026-08-03T12:00:00.000Z\",\n    \"lockedAt\": \"2026-08-03T12:00:00.000Z\"\n  },\n  {\n    \"predictionId\": \"hw-572d084ddb6e1b07:prediction:word_problem_interpretation\",\n    \"theoryId\": \"hw-572d084ddb6e1b07:theory\",\n    \"constructId\": \"math.multiplication.word_problem_interpretation\",\n    \"context\": \"confirmed unassisted returned work\",\n    \"horizon\": \"within_7_days\",\n    \"expectedMetric\": {\n      \"key\": \"academic.accuracy\",\n      \"min\": 0.7,\n      \"max\": 1\n    },\n    \"predictedErrorPatterns\": [\n      \"One incomplete response when asked for multiple factor pairs; prior missing-factor and interpretation errors did not recur.\"\n    ],\n    \"confidence\": 0.6,\n    \"evidenceIds\": [\n      \"assignment:LAB-MATH-C\",\n      \"hw-02c11ee60594c617:decision:r3\",\n      \"hw-98079daac9b7869c:decision:r3\",\n      \"evaluation:c8fdaacd3e1b0c13\",\n      \"evaluation:b81e075d2126c022\",\n      \"evaluation:189974363295da63\",\n      \"evaluation:a27f078c804e15e1\",\n      \"evaluation:1b7d71227bc7fff2\",\n      \"evaluation:cd58ac474b720927\"\n    ],\n    \"intervention\": \"Festival Team Challenge learning program\",\n    \"evidenceLimit\": \"calibrated_mastery\",\n    \"createdAt\": \"2026-08-03T12:00:00.000Z\",\n    \"lockedAt\": \"2026-08-03T12:00:00.000Z\"\n  },\n  {\n    \"predictionId\": \"hw-572d084ddb6e1b07:prediction:factor_pairs\",\n    \"theoryId\": \"hw-572d084ddb6e1b07:theory\",\n    \"constructId\": \"math.multiplication.factor_pairs\",\n    \"context\": \"confirmed unassisted returned work\",\n    \"horizon\": \"within_7_days\",\n    \"expectedMetric\": {\n      \"key\": \"academic.accuracy\",\n      \"min\": 0.7,\n      \"max\": 1\n    },\n    \"predictedErrorPatterns\": [\n      \"One incomplete response when asked for multiple factor pairs; prior missing-factor and interpretation errors did not recur.\"\n    ],\n    \"confidence\": 0.6,\n    \"evidenceIds\": [\n      \"assignment:LAB-MATH-C\",\n      \"hw-02c11ee60594c617:decision:r3\",\n      \"hw-98079daac9b7869c:decision:r3\",\n      \"evaluation:c8fdaacd3e1b0c13\",\n      \"evaluation:b81e075d2126c022\",\n      \"evaluation:189974363295da63\",\n      \"evaluation:a27f078c804e15e1\",\n      \"evaluation:1b7d71227bc7fff2\",\n      \"evaluation:cd58ac474b720927\"\n    ],\n    \"intervention\": \"Festival Team Challenge learning program\",\n    \"evidenceLimit\": \"calibrated_mastery\",\n    \"createdAt\": \"2026-08-03T12:00:00.000Z\",\n    \"lockedAt\": \"2026-08-03T12:00:00.000Z\"\n  }\n]\n\nObservations:\n[\n  {\n    \"observationId\": \"observation:d10841711c10da43\",\n    \"sourceId\": \"returned-work:669be60869481a232004\",\n    \"itemId\": \"LAB-MATH-C:item:1\",\n    \"prompt\": \"LAB-MATH-C returned item 1\",\n    \"childResponse\": \"correct synthetic response\",\n    \"constructLinks\": [\n      {\n        \"constructId\": \"math.multiplication.equal_groups\",\n        \"role\": \"primary\",\n        \"confidence\": 1\n      }\n    ],\n    \"result\": {\n      \"correct\": true,\n      \"score\": 1\n    },\n    \"assistance\": {\n      \"status\": \"unassisted\",\n      \"scaffolds\": []\n    },\n    \"exposure\": \"unknown\",\n    \"provenance\": \"graded_work\",\n    \"observedAt\": \"2026-08-03T15:00:00.000Z\",\n    \"confounds\": []\n  },\n  {\n    \"observationId\": \"observation:1aefc03189d41337\",\n    \"sourceId\": \"returned-work:669be60869481a232004\",\n    \"itemId\": \"LAB-MATH-C:item:2\",\n    \"prompt\": \"LAB-MATH-C returned item 2\",\n    \"childResponse\": \"correct synthetic response\",\n    \"constructLinks\": [\n      {\n        \"constructId\": \"math.multiplication.word_problem_interpretation\",\n        \"role\": \"primary\",\n        \"confidence\": 1\n      }\n    ],\n    \"result\": {\n      \"correct\": true,\n      \"score\": 1\n    },\n    \"assistance\": {\n      \"status\": \"unassisted\",\n      \"scaffolds\": []\n    },\n    \"exposure\": \"unknown\",\n    \"provenance\": \"graded_work\",\n    \"observedAt\": \"2026-08-03T15:00:00.000Z\",\n    \"confounds\": []\n  },\n  {\n    \"observationId\": \"observation:49041448769f85c1\",\n    \"sourceId\": \"returned-work:669be60869481a232004\",\n    \"itemId\": \"LAB-MATH-C:item:3\",\n    \"prompt\": \"LAB-MATH-C returned item 3\",\n    \"childResponse\": \"correct synthetic response\",\n    \"constructLinks\": [\n      {\n        \"constructId\": \"math.multiplication.missing_factor\",\n        \"role\": \"primary\",\n        \"confidence\": 1\n      }\n    ],\n    \"result\": {\n      \"correct\": true,\n      \"score\": 1\n    },\n    \"assistance\": {\n      \"status\": \"unassisted\",\n      \"scaffolds\": []\n    },\n    \"exposure\": \"unknown\",\n    \"provenance\": \"graded_work\",\n    \"observedAt\": \"2026-08-03T15:00:00.000Z\",\n    \"confounds\": []\n  },\n  {\n    \"observationId\": \"observation:ce21f1bfd789aa65\",\n    \"sourceId\": \"returned-work:669be60869481a232004\",\n    \"itemId\": \"LAB-MATH-C:item:4\",\n    \"prompt\": \"LAB-MATH-C returned item 4\",\n    \"childResponse\": \"correct synthetic response\",\n    \"constructLinks\": [\n      {\n        \"constructId\": \"math.multiplication.arrays\",\n        \"role\": \"primary\",\n        \"confidence\": 1\n      }\n    ],\n    \"result\": {\n      \"correct\": true,\n      \"score\": 1\n    },\n    \"assistance\": {\n      \"status\": \"unassisted\",\n      \"scaffolds\": []\n    },\n    \"exposure\": \"unknown\",\n    \"provenance\": \"graded_work\",\n    \"observedAt\": \"2026-08-03T15:00:00.000Z\",\n    \"confounds\": []\n  },\n  {\n    \"observationId\": \"observation:2502a56cc2b976a6\",\n    \"sourceId\": \"returned-work:669be60869481a232004\",\n    \"itemId\": \"LAB-MATH-C:item:5\",\n    \"prompt\": \"LAB-MATH-C returned item 5\",\n    \"childResponse\": \"correct synthetic response\",\n    \"constructLinks\": [\n      {\n        \"constructId\": \"math.multiplication.word_problem_interpretation\",\n        \"role\": \"primary\",\n        \"confidence\": 1\n      }\n    ],\n    \"result\": {\n      \"correct\": true,\n      \"score\": 1\n    },\n    \"assistance\": {\n      \"status\": \"unassisted\",\n      \"scaffolds\": []\n    },\n    \"exposure\": \"unknown\",\n    \"provenance\": \"graded_work\",\n    \"observedAt\": \"2026-08-03T15:00:00.000Z\",\n    \"confounds\": []\n  },\n  {\n    \"observationId\": \"observation:59d86ebcaa44dfd2\",\n    \"sourceId\": \"returned-work:669be60869481a232004\",\n    \"itemId\": \"LAB-MATH-C:item:6\",\n    \"prompt\": \"LAB-MATH-C returned item 6\",\n    \"childResponse\": \"correct synthetic response\",\n    \"constructLinks\": [\n      {\n        \"constructId\": \"math.multiplication.word_problem_interpretation\",\n        \"role\": \"primary\",\n        \"confidence\": 1\n      }\n    ],\n    \"result\": {\n      \"correct\": true,\n      \"score\": 1\n    },\n    \"assistance\": {\n      \"status\": \"unassisted\",\n      \"scaffolds\": []\n    },\n    \"exposure\": \"unknown\",\n    \"provenance\": \"graded_work\",\n    \"observedAt\": \"2026-08-03T15:00:00.000Z\",\n    \"confounds\": []\n  },\n  {\n    \"observationId\": \"observation:c72a40b8f1c7c115\",\n    \"sourceId\": \"returned-work:669be60869481a232004\",\n    \"itemId\": \"LAB-MATH-C:item:7\",\n    \"prompt\": \"LAB-MATH-C returned item 7\",\n    \"childResponse\": \"correct synthetic response\",\n    \"constructLinks\": [\n      {\n        \"constructId\": \"math.multiplication.equal_groups\",\n        \"role\": \"primary\",\n        \"confidence\": 1\n      }\n    ],\n    \"result\": {\n      \"correct\": true,\n      \"score\": 1\n    },\n    \"assistance\": {\n      \"status\": \"unassisted\",\n      \"scaffolds\": []\n    },\n    \"exposure\": \"unknown\",\n    \"provenance\": \"graded_work\",\n    \"observedAt\": \"2026-08-03T15:00:00.000Z\",\n    \"confounds\": []\n  },\n  {\n    \"observationId\": \"observation:18eacd211fb13b53\",\n    \"sourceId\": \"returned-work:669be60869481a232004\",\n    \"itemId\": \"LAB-MATH-C:item:8\",\n    \"prompt\": \"LAB-MATH-C returned item 8\",\n    \"childResponse\": \"incorrect synthetic response\",\n    \"constructLinks\": [\n      {\n        \"constructId\": \"math.multiplication.factor_pairs\",\n        \"role\": \"primary\",\n        \"confidence\": 1\n      }\n    ],\n    \"result\": {\n      \"correct\": false,\n      \"score\": 0,\n      \"observedErrorType\": \"One incomplete response when asked for multiple factor pairs; prior missing-factor and interpretation errors did not recur.\"\n    },\n    \"assistance\": {\n      \"status\": \"unassisted\",\n      \"scaffolds\": []\n    },\n    \"exposure\": \"unknown\",\n    \"provenance\": \"graded_work\",\n    \"observedAt\": \"2026-08-03T15:00:00.000Z\",\n    \"confounds\": []\n  }\n]\n\nEvaluations:\n[\n  {\n    \"evaluationId\": \"evaluation:86e6e05171057405\",\n    \"predictionId\": \"hw-572d084ddb6e1b07:prediction:equal_groups\",\n    \"sourceId\": \"returned-work:669be60869481a232004\",\n    \"observationIds\": [\n      \"observation:d10841711c10da43\",\n      \"observation:c72a40b8f1c7c115\"\n    ],\n    \"predictedMetric\": {\n      \"min\": 0.7,\n      \"max\": 1\n    },\n    \"observedMetric\": 1,\n    \"predictionError\": 0,\n    \"observedErrorPatterns\": [],\n    \"sufficiency\": \"sufficient\",\n    \"evaluatedAt\": \"2026-08-03T15:00:00.000Z\"\n  },\n  {\n    \"evaluationId\": \"evaluation:40d7ae3df4699f1f\",\n    \"predictionId\": \"hw-572d084ddb6e1b07:prediction:missing_factor\",\n    \"sourceId\": \"returned-work:669be60869481a232004\",\n    \"observationIds\": [\n      \"observation:49041448769f85c1\"\n    ],\n    \"predictedMetric\": {\n      \"min\": 0.7,\n      \"max\": 1\n    },\n    \"observedMetric\": 1,\n    \"predictionError\": 0,\n    \"observedErrorPatterns\": [],\n    \"sufficiency\": \"sufficient\",\n    \"evaluatedAt\": \"2026-08-03T15:00:00.000Z\"\n  },\n  {\n    \"evaluationId\": \"evaluation:b2a57734e58c17cf\",\n    \"predictionId\": \"hw-572d084ddb6e1b07:prediction:word_problem_interpretation\",\n    \"sourceId\": \"returned-work:669be60869481a232004\",\n    \"observationIds\": [\n      \"observation:1aefc03189d41337\",\n      \"observation:2502a56cc2b976a6\",\n      \"observation:59d86ebcaa44dfd2\"\n    ],\n    \"predictedMetric\": {\n      \"min\": 0.7,\n      \"max\": 1\n    },\n    \"observedMetric\": 1,\n    \"predictionError\": 0,\n    \"observedErrorPatterns\": [],\n    \"sufficiency\": \"sufficient\",\n    \"evaluatedAt\": \"2026-08-03T15:00:00.000Z\"\n  },\n  {\n    \"evaluationId\": \"evaluation:69fa6e2c9629cc52\",\n    \"predictionId\": \"hw-572d084ddb6e1b07:prediction:factor_pairs\",\n    \"sourceId\": \"returned-work:669be60869481a232004\",\n    \"observationIds\": [\n      \"observation:18eacd211fb13b53\"\n    ],\n    \"predictedMetric\": {\n      \"min\": 0.7,\n      \"max\": 1\n    },\n    \"observedMetric\": 0,\n    \"predictionError\": 0.7,\n    \"observedErrorPatterns\": [\n      \"One incomplete response when asked for multiple factor pairs; prior missing-factor and interpretation errors did not recur.\"\n    ],\n    \"sufficiency\": \"sufficient\",\n    \"evaluatedAt\": \"2026-08-03T15:00:00.000Z\"\n  }\n]"
+    }
+  ],
+  "tools": [
+    {
+      "name": "record_longitudinal_theory_decision",
+      "description": "Return one evidence-citing theory decision and assess every locked assumption.",
+      "input_schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "status",
+          "reason",
+          "nextAction",
+          "evidenceIds",
+          "predictionEvaluationIds",
+          "preserve",
+          "change",
+          "testNext",
+          "nextEvidenceRequired",
+          "assumptionAssessments",
+          "readinessAssessment",
+          "continuationAction"
+        ],
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "supported",
+              "revised",
+              "falsified",
+              "inconclusive",
+              "awaiting_calibration"
+            ]
+          },
+          "reason": {
+            "type": "string"
+          },
+          "nextAction": {
+            "type": "string"
+          },
+          "evidenceIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "predictionEvaluationIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "preserve": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "change": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "testNext": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "nextEvidenceRequired": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "revisedHypothesis": {
+            "type": "string"
+          },
+          "assumptionAssessments": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "assumptionId",
+                "outcome",
+                "reason",
+                "observationIds"
+              ],
+              "properties": {
+                "assumptionId": {
+                  "type": "string"
+                },
+                "outcome": {
+                  "type": "string",
+                  "enum": [
+                    "supported",
+                    "rejected",
+                    "uncertain"
+                  ]
+                },
+                "reason": {
+                  "type": "string"
+                },
+                "observationIds": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          },
+          "readinessAssessment": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "status",
+              "scope",
+              "reason",
+              "evidenceIds",
+              "predictionEvaluationIds",
+              "uncertainty",
+              "nextAction"
+            ],
+            "properties": {
+              "status": {
+                "type": "string",
+                "enum": [
+                  "ready_independent",
+                  "ready_with_support",
+                  "not_yet_ready",
+                  "insufficient_evidence"
+                ]
+              },
+              "scope": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "homeworkId",
+                  "assignmentTitle",
+                  "constructIds"
+                ],
+                "properties": {
+                  "homeworkId": {
+                    "type": "string"
+                  },
+                  "assignmentTitle": {
+                    "type": "string"
+                  },
+                  "constructIds": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                }
+              },
+              "reason": {
+                "type": "string"
+              },
+              "evidenceIds": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "predictionEvaluationIds": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "uncertainty": {
+                "type": "string"
+              },
+              "nextAction": {
+                "type": "string"
+              }
+            }
+          },
+          "continuationAction": {
+            "type": "string",
+            "enum": [
+              "complete",
+              "generate_support",
+              "collect_more_evidence"
+            ]
+          },
+          "nextInstrument": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "nodeId",
+              "title",
+              "academicTarget",
+              "mechanic",
+              "theme",
+              "openingPurpose",
+              "creatorPrompt"
+            ],
+            "properties": {
+              "nodeId": {
+                "type": "string"
+              },
+              "title": {
+                "type": "string"
+              },
+              "academicTarget": {
+                "type": "string"
+              },
+              "mechanic": {
+                "type": "string"
+              },
+              "theme": {
+                "type": "string"
+              },
+              "openingPurpose": {
+                "type": "string"
+              },
+              "creatorPrompt": {
+                "type": "string"
+              }
+            }
+          },
+          "nextPrediction": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "claim",
+              "constructId",
+              "context",
+              "horizon",
+              "expectedMetric",
+              "predictedErrorPatterns",
+              "confidence",
+              "evidenceLimit"
+            ],
+            "properties": {
+              "claim": {
+                "type": "string"
+              },
+              "constructId": {
+                "type": "string"
+              },
+              "context": {
+                "type": "string"
+              },
+              "horizon": {
+                "type": "string"
+              },
+              "expectedMetric": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "key",
+                  "min",
+                  "max"
+                ],
+                "properties": {
+                  "key": {
+                    "type": "string"
+                  },
+                  "min": {
+                    "type": "number"
+                  },
+                  "max": {
+                    "type": "number"
+                  }
+                }
+              },
+              "predictedErrorPatterns": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "confidence": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              },
+              "evidenceLimit": {
+                "type": "string",
+                "enum": [
+                  "practice_only",
+                  "independent_performance",
+                  "provisional_transfer",
+                  "calibrated_mastery"
+                ]
+              }
+            }
+          }
+        }
+      }
+    }
+  ],
+  "tool_choice": {
+    "type": "tool",
+    "name": "record_longitudinal_theory_decision"
+  }
+}

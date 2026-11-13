@@ -1,0 +1,20 @@
+{
+  "verdict": "PASS",
+  "scope": "isolated Elli-guided friction recovery",
+  "sourceActivity": "ACT-SHARED-01",
+  "humanCaughtBug": {
+    "whyHumanCaughtIt": "A human compared the child's natural-language meaning with the visible prompt and noticed that the response was meaningful even though the exact-string scorer rejected it.",
+    "whatLogsCaught": "Logs showed 27 attempts, repeated rejection, and missing canonical support provenance, but did not compare the activity scorer's verdict with Elli's semantic interpretation.",
+    "whyAiLabMissedIt": "The generated validation hook submitted the scorer's own canonical phrase, so it proved the happy path and never exercised natural variation in a nine-year-old's wording."
+  },
+  "proof": {
+    "nextItemVisible": true,
+    "correctClaimCreated": false,
+    "masteryEligible": false,
+    "observedErrorType": "instrument_ambiguous",
+    "assistance": "assisted",
+    "previewPersistence": false,
+    "generationCalls": 0
+  },
+  "commitPolicy": "Do not commit this output directory."
+}

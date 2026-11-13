@@ -1,0 +1,1375 @@
+{
+  "model": "claude-opus-5",
+  "id": "msg_011Cdqa52V7MogdcnpUAaBxz",
+  "type": "message",
+  "role": "assistant",
+  "content": [
+    {
+      "type": "tool_use",
+      "id": "toolu_017PNXrJ1QDaHj9ZdJT2WS5a",
+      "name": "create_math_learning_program",
+      "input": {
+        "planId": "plan:hw-lab-math-c:r3:unknown-position-transfer",
+        "contentScopeRationale": "LAB-MATH-C (Festival Team Challenge) asks for independent transfer across facts, arrays, and multiplication word problems, but three of its eight items hinge on locating and solving for an unknown that is NOT the total: item 2 (40 flags in 5 equal rows -> group size unknown), item 3 (___ x 8 = 48 -> missing factor), and item 8 (36 lights split into equal-row arrays -> unknown row/column pairs). Confirmed unassisted graded work shows exactly this position is where the learner fails (missing_factor 0.3333 at evaluation:c8fdaacd3e1b0c13; equal_sharing 0 at evaluation:b81e075d2126c022), with the preregistered error - multiplying the two given numbers instead of solving for the missing group size - observed verbatim. Constructs that are already at 1.00 on graded work (equal_groups, arrays as computation, word_problem_interpretation at evaluation:a27f078c804e15e1 and evaluation:1b7d71227bc7fff2) are held as context and used only as contrast material, not re-taught. So the program teaches the underlying idea - in any equal-groups situation, groups x size = total, and which slot is empty determines whether you multiply or divide - rather than reproducing the eight worksheet questions. Numbers stay inside the assignment's fact range (products to 48-56, factors 3-9) so the work is comparable to the worksheet without copying it.",
+        "concept": {
+          "conceptId": "math.multiplication.missing_factor",
+          "name": "Solving for the unknown position in an equal-groups relationship",
+          "statement": "Every equal-groups situation links three quantities: number of groups x size of each group = total. When the total is unknown you multiply the two known numbers; when the total is known and one factor is missing, you must find the number that multiplies to reach the total (divide or use a known fact), not multiply the two numbers you can see.",
+          "instanceScope": "LAB-MATH-C Festival Team Challenge, Grade 3. Applies to festival-style equal-groups contexts within products to 56 and factors 3-9: teams of children, flags in equal rows, cups per booth, tokens per bag, and equal-row arrays of stage lights. Covers missing-factor equations (___ x 8 = 48), equal-sharing group size (40 flags in 5 equal rows), and array row/column pairs for a known total (36 lights), with total-unknown items used only as contrast.",
+          "prerequisites": [
+            "math.multiplication.equal_groups",
+            "math.multiplication.arrays",
+            "math.multiplication.word_problem_interpretation"
+          ]
+        },
+        "assumptions": [
+          {
+            "assumptionId": "assumption:unknown-position-is-the-gap",
+            "claim": "The learner's failures on LAB-MATH-B were a single scoped weakness in identifying and solving the unknown position, not a general multiplication deficit, and the same weakness will surface on LAB-MATH-C items 2, 3, and 8.",
+            "evidenceIds": [
+              "evaluation:c8fdaacd3e1b0c13",
+              "evaluation:b81e075d2126c022",
+              "observation:0ee42baffce06546",
+              "observation:4520f65725de1d50",
+              "observation:d1b81984c24d6d80",
+              "hw-02c11ee60594c617:decision:r3"
+            ],
+            "confidence": 0.7,
+            "uncertainty": "The equal_sharing side rests on a single graded item (observation:d1b81984c24d6d80), and one missing-factor item was correct (observation:2aa76118c8657331) without a record of whether the number pairing was easier, so the width of the gap is not well estimated."
+          },
+          {
+            "assumptionId": "assumption:computation-intact",
+            "claim": "Multiplication computation, array reading, and equal-groups story interpretation are intact enough to serve as contrast anchors rather than instructional targets in this program.",
+            "evidenceIds": [
+              "evaluation:cd58ac474b720927",
+              "evaluation:1b7d71227bc7fff2",
+              "evaluation:a27f078c804e15e1",
+              "observation:23f39686fc8bcab8",
+              "observation:81c93f608540bf7b",
+              "observation:bbaf27b2c8a85202"
+            ],
+            "confidence": 0.6,
+            "uncertainty": "Each of these constructs rests on only two to three graded items from single same-day sources with exposure recorded as 'unknown', so prior familiarity with the exact items cannot be ruled out and durability over days is untested."
+          },
+          {
+            "assumptionId": "assumption:naming-before-solving-helps",
+            "claim": "Requiring the learner to name which quantity is unknown before computing will reduce the multiply-the-given-numbers substitution more than additional undifferentiated practice would.",
+            "evidenceIds": [
+              "hw-02c11ee60594c617:decision:r3",
+              "hw-02c11ee60594c617:prediction:r3:support",
+              "observation:0ee42baffce06546",
+              "observation:4520f65725de1d50"
+            ],
+            "confidence": 0.5,
+            "uncertainty": "This mechanism has never been tested with this child; the prior decision only recommended it. The learner may tag the unknown slot correctly and still multiply in the solve stage, which was itself preregistered as a possible error."
+          },
+          {
+            "assumptionId": "assumption:overcorrection-risk",
+            "claim": "After instruction on the unknown position, some items where the total genuinely is unknown will be answered by dividing, because the learner over-applies the new rule.",
+            "evidenceIds": [
+              "hw-02c11ee60594c617:prediction:r3:support"
+            ],
+            "confidence": 0.45,
+            "uncertainty": "Purely predicted; no observation of over-correction exists for this child because no unknown-position instruction has yet been delivered."
+          },
+          {
+            "assumptionId": "assumption:engagement-evidence-is-thin",
+            "claim": "The four recorded engagement events are activity-level facts only and cannot establish a durable format preference for this child.",
+            "evidenceIds": [
+              "engagement:synthetic-construction-route",
+              "engagement:synthetic-paced-route",
+              "engagement:synthetic-visual-route",
+              "engagement:synthetic-speed-route"
+            ],
+            "confidence": 0.8,
+            "uncertainty": "Each format appears exactly once, ratings are confounded with whatever academic content was inside, and the abandoned speed route may reflect pacing, difficulty, or novelty rather than dislike of the format."
+          }
+        ],
+        "academicTheory": "The child can compute equal-groups products and read arrays reliably, and can interpret equal-groups stories, but treats every problem containing two visible numbers as a signal to multiply them. When the total is the number that is given and a factor is the number that is missing, the habit misfires: 40 flags in 5 rows becomes 200, and ___ x 8 = 48 becomes 384-style reasoning or a guess. The theory is therefore that the deficit is positional, not computational. If the learner is taught to map any equal-groups situation onto groups x size = total, mark which of the three slots is empty, and only then choose multiply (empty total) or find-the-factor (empty factor), unknown-position accuracy should rise into a realistic 0.55-0.85 band on unassisted practice, while total-unknown accuracy stays high but may dip slightly from over-correction. The array items are the strongest test of the theory because a total of 36 lights forces the learner to search factor pairs rather than multiply what is visible; success there would show the positional mapping generalized beyond a single sentence frame. This baseline is practice_only evidence: it can support or weaken the theory but cannot be treated as mastery, which requires confirmed unassisted graded work and a delayed reassessment.",
+        "profileEvidence": [
+          "observation:0ee42baffce06546",
+          "observation:4520f65725de1d50",
+          "observation:2aa76118c8657331",
+          "observation:d1b81984c24d6d80",
+          "observation:81c93f608540bf7b",
+          "observation:bbaf27b2c8a85202",
+          "observation:23f39686fc8bcab8",
+          "evaluation:c8fdaacd3e1b0c13",
+          "evaluation:b81e075d2126c022",
+          "evaluation:a27f078c804e15e1",
+          "evaluation:1b7d71227bc7fff2",
+          "evaluation:cd58ac474b720927",
+          "hw-02c11ee60594c617:decision:r3",
+          "hw-98079daac9b7869c:decision:r3",
+          "assignment:LAB-MATH-C",
+          "engagement:synthetic-construction-route",
+          "engagement:synthetic-paced-route",
+          "engagement:synthetic-visual-route",
+          "engagement:synthetic-speed-route"
+        ],
+        "learningResponsibilities": [
+          {
+            "id": "resp:map-the-three-slots",
+            "title": "Map any equal-groups situation onto groups x size = total",
+            "purpose": "Establish the shared representation and check that the learner can name which of the three slots is empty before any computation happens, which is the evidence the prior decision explicitly required.",
+            "academicTarget": "Given a festival equal-groups situation or equation, identify whether the unknown is the total, the number of groups, or the size of each group."
+          },
+          {
+            "id": "resp:solve-missing-factor",
+            "title": "Solve when a factor is the empty slot",
+            "purpose": "Convert correct slot identification into correct answers on missing-factor equations and equal-sharing group-size questions, the two places graded work failed.",
+            "academicTarget": "Find the missing factor or group size for totals to 56 using a known multiplication fact or division, without multiplying the two given numbers."
+          },
+          {
+            "id": "resp:discriminate-operation",
+            "title": "Choose the operation from the slot, including total-unknown contrast items",
+            "purpose": "Guard against over-correction by mixing items where multiplying the two given numbers is genuinely correct with items where it is not.",
+            "academicTarget": "Correctly decide between multiplying and finding a missing factor across mixed equal-groups items and justify the choice by naming the empty slot."
+          },
+          {
+            "id": "resp:factor-pairs-in-arrays",
+            "title": "Search factor pairs for a known array total",
+            "purpose": "Test whether the positional mapping generalizes to the hardest assignment context, where a known total must be decomposed into multiple valid equal-row arrangements.",
+            "academicTarget": "Produce more than one equal-row arrangement for a known total such as 36 and state the matching multiplication equation for each."
+          },
+          {
+            "id": "resp:bonus-fresh-practice",
+            "title": "Optional extra unknown-position practice",
+            "purpose": "Offer additional assignment-aligned practice that carries no mastery weight and is not required for any route.",
+            "academicTarget": "Apply the empty-slot rule to fresh festival equal-groups items for extra practice only."
+          }
+        ],
+        "fork": {
+          "hypothesis": "After the shared slot-mapping foundation, unknown-position accuracy will be comparable whether the learner practices through building/arranging quantities (route A) or through explaining and selecting the operation in words (route B). Any difference in completion, abandonment, or assistance is engagement information about presentation format only and does not license a claim about which format teaches the concept better.",
+          "heldConstant": [
+            "Concept math.multiplication.missing_factor and the groups x size = total framing",
+            "Number range: factors 3-9, totals to 56, whole numbers only",
+            "Item count per route node and the proportion of unknown-factor to unknown-total items",
+            "Difficulty boundary: no division notation required, no remainders, no two-step problems",
+            "Evidence limit practice_only for every node",
+            "Measurement keys academic.accuracy and academic.error_pattern on both routes"
+          ],
+          "routes": [
+            {
+              "id": "route:build",
+              "academicRationale": "Practices the same empty-slot decision by having the learner arrange or construct the quantity that is missing, which makes the unknown physically visible and matches the array demands of assignment item 8.",
+              "nodeIds": [
+                "node:build:solve-missing-factor",
+                "node:build:factor-pairs"
+              ]
+            },
+            {
+              "id": "route:reason",
+              "academicRationale": "Practices the same empty-slot decision by having the learner select and justify the operation in words, which produces the learner-visible reasoning record the prior decision required as next evidence.",
+              "nodeIds": [
+                "node:reason:solve-missing-factor",
+                "node:reason:discriminate"
+              ]
+            }
+          ]
+        },
+        "agencyExperiment": {
+          "experimentId": "experiment:lab-math-c:unknown-position-format",
+          "contextEvidenceIds": [
+            "engagement:synthetic-construction-route",
+            "engagement:synthetic-paced-route",
+            "engagement:synthetic-visual-route",
+            "engagement:synthetic-speed-route",
+            "observation:0ee42baffce06546",
+            "observation:d1b81984c24d6d80",
+            "hw-02c11ee60594c617:decision:r3"
+          ],
+          "academicHeldConstants": [
+            "Both routes target math.multiplication.missing_factor with the groups x size = total mapping",
+            "Identical number range: factors 3-9, totals to 56",
+            "Equal item counts per route (5 items per node, two nodes per route)",
+            "Both routes mix unknown-factor items with unknown-total contrast items in the same proportion",
+            "Both routes are practice_only and neither can support a mastery claim",
+            "Both routes report academic.accuracy and academic.error_pattern"
+          ],
+          "routes": [
+            {
+              "routeId": "route:build",
+              "nodeIds": [
+                "node:build:solve-missing-factor",
+                "node:build:factor-pairs"
+              ],
+              "engagementHypothesis": "The one recorded construction-format activity was rated 5 and replayed with no assistance (engagement:synthetic-construction-route), so building the missing quantity may sustain attention through the solve stage where the multiply-the-givens habit currently fires.",
+              "predictedOutcome": "Starts and completes both build nodes with assistance at or near zero, unknown-position accuracy in the 0.55-0.85 band, and replay of at least one node; the multiply-the-givens error appears on fewer than half of unknown-factor items.",
+              "supportingEvidenceIds": [
+                "engagement:synthetic-construction-route",
+                "observation:23f39686fc8bcab8",
+                "evaluation:1b7d71227bc7fff2"
+              ],
+              "uncertainty": "The construction rating is a single event whose academic content is unknown, so the 5 and the replay may reflect that specific activity rather than the format. Building may also let the learner reach a correct arrangement by trial and error without ever naming the empty slot, inflating accuracy relative to real understanding.",
+              "falsifyingEvidence": [
+                "Abandonment of either build node before completion",
+                "Unknown-position accuracy below 0.55 with the multiply-the-givens error on a majority of items",
+                "Repeated assistance requests on the construction interaction rather than on the mathematics",
+                "A low rating combined with no replay",
+                "Correct arrangements produced with incorrect or absent equations, showing trial-and-error rather than slot reasoning"
+              ],
+              "measurementKeys": [
+                "academic.accuracy",
+                "academic.error_pattern",
+                "engagement.starts",
+                "engagement.completion",
+                "engagement.abandonment",
+                "engagement.replay",
+                "engagement.assistance",
+                "engagement.interaction_difficulty",
+                "engagement.rating",
+                "engagement.route_switch"
+              ]
+            },
+            {
+              "routeId": "route:reason",
+              "nodeIds": [
+                "node:reason:solve-missing-factor",
+                "node:reason:discriminate"
+              ],
+              "engagementHypothesis": "The visual/reading-style activity was rated 4 but used a hint (engagement:synthetic-visual-route) and the speed-paced activity was rated 2 and abandoned (engagement:synthetic-speed-route), so an unhurried explain-and-choose format may hold engagement while producing the verbalized reasoning the prior decision asked for.",
+              "predictedOutcome": "Starts and completes both reason nodes, unknown-position accuracy in the 0.55-0.85 band, and explanation responses that name the empty slot on a majority of items even when the numeric answer is wrong; at most light assistance.",
+              "supportingEvidenceIds": [
+                "engagement:synthetic-visual-route",
+                "engagement:synthetic-speed-route",
+                "observation:81c93f608540bf7b",
+                "observation:bbaf27b2c8a85202"
+              ],
+              "uncertainty": "No engagement record exists for an explanation-heavy format with this child, and the 4-rated activity involved a hint, so sustained independent verbal justification is untested. Written or spoken explanation demands may also depress apparent accuracy for reasons unrelated to the mathematics.",
+              "falsifyingEvidence": [
+                "Abandonment of either reason node",
+                "Empty, one-word, or off-target explanations on a majority of items",
+                "Assistance used on more than a third of items",
+                "Accuracy below 0.55 with the multiply-the-givens error dominant",
+                "A rating at or below 2 with no replay",
+                "Switching away to the build route after starting"
+              ],
+              "measurementKeys": [
+                "academic.accuracy",
+                "academic.error_pattern",
+                "engagement.starts",
+                "engagement.completion",
+                "engagement.abandonment",
+                "engagement.replay",
+                "engagement.assistance",
+                "engagement.interaction_difficulty",
+                "engagement.rating",
+                "engagement.route_switch"
+              ]
+            }
+          ]
+        },
+        "activities": [
+          {
+            "id": "node:shared:map-the-slots",
+            "purpose": "baseline",
+            "routeId": "shared",
+            "responsibilityId": "resp:map-the-three-slots",
+            "academicTarget": "Before any computation, identify which of the three slots in groups x size = total is empty for festival equal-groups situations and equations.",
+            "difficultyBoundary": {
+              "allowedConcepts": [
+                "Equal groups: number of groups, size of each group, total",
+                "The frame groups x size = total",
+                "Naming which quantity is unknown",
+                "Whole-number factors 3 to 9 and totals to 56"
+              ],
+              "allowedRepresentations": [
+                "Short festival story sentences",
+                "Multiplication equations with one blank",
+                "Labelled three-slot frame (groups, size, total)",
+                "Simple equal-row dot or icon arrangements"
+              ],
+              "excludedExtensions": [
+                "Any requirement to compute an answer in this node",
+                "Division notation or the division symbol",
+                "Two-step problems",
+                "Remainders, fractions, or numbers beyond 56"
+              ],
+              "startingSupport": "The three-slot frame is shown filled in on one worked festival example so the learner sees where each number lands before working independently.",
+              "expectedIndependence": "Independent slot naming after the single worked example; no adult prompting and no per-item hints."
+            },
+            "items": [
+              {
+                "id": "item:shared:map:1",
+                "prompt": "A festival makes 7 teams. Each team has 6 children. Which number is missing from the frame groups x size = total?",
+                "lineage": {
+                  "sourceEvidenceIds": [
+                    "observation:81c93f608540bf7b",
+                    "evaluation:a27f078c804e15e1"
+                  ],
+                  "exposure": "taught"
+                },
+                "response": {
+                  "mode": "selection",
+                  "options": [
+                    {
+                      "id": "opt:shared:map:1:a",
+                      "label": "The total is missing",
+                      "correct": true
+                    },
+                    {
+                      "id": "opt:shared:map:1:b",
+                      "label": "The number of groups is missing",
+                      "correct": false
+                    },
+                    {
+                      "id": "opt:shared:map:1:c",
+                      "label": "The size of each group is missing",
+                      "correct": false
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "item:shared:map:2",
+                "prompt": "Forty flags are hung in 5 equal rows. Which number is missing from the frame groups x size = total?",
+                "lineage": {
+                  "sourceEvidenceIds": [
+                    "observation:d1b81984c24d6d80",
+                    "evaluation:b81e075d2126c022"
+                  ],
+                  "exposure": "unseen"
+                },
+                "response": {
+                  "mode": "selection",
+                  "options": [
+                    {
+                      "id": "opt:shared:map:2:a",
+                      "label": "The total is missing",
+                      "correct": false
+                    },
+                    {
+                      "id": "opt:shared:map:2:b",
+                      "label": "The number of groups is missing",
+                      "correct": false
+                    },
+                    {
+                      "id": "opt:shared:map:2:c",
+                      "label": "The size of each row is missing",
+                      "correct": true
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "item:shared:map:3",
+                "prompt": "Look at the equation ___ x 8 = 48. Which slot is empty?",
+                "lineage": {
+                  "sourceEvidenceIds": [
+                    "observation:0ee42baffce06546",
+                    "observation:4520f65725de1d50"
+                  ],
+                  "exposure": "unseen"
+                },
+                "response": {
+                  "mode": "selection",
+                  "options": [
+                    {
+                      "id": "opt:shared:map:3:a",
+                      "label": "The total is empty",
+                      "correct": false
+                    },
+                    {
+                      "id": "opt:shared:map:3:b",
+                      "label": "One of the factors is empty",
+                      "correct": true
+                    },
+                    {
+                      "id": "opt:shared:map:3:c",
+                      "label": "Nothing is empty; both numbers are given",
+                      "correct": false
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "item:shared:map:4",
+                "prompt": "Fill the three-slot frame for this situation without solving it: 54 chairs are set out in 6 equal rows. Enter what belongs in each slot, using the word unknown for the empty one.",
+                "lineage": {
+                  "sourceEvidenceIds": [
+                    "observation:d1b81984c24d6d80",
+                    "hw-02c11ee60594c617:decision:r3"
+                  ],
+                  "exposure": "unseen"
+                },
+                "response": {
+                  "mode": "construction",
+                  "expectedState": {
+                    "groups": 6,
+                    "size": "unknown",
+                    "total": 54
+                  },
+                  "successDescription": "The learner places 6 in the groups slot, 54 in the total slot, and marks the size-of-each-group slot as unknown, without computing an answer."
+                }
+              },
+              {
+                "id": "item:shared:map:5",
+                "prompt": "Explain in your own words how you can tell, before you do any arithmetic, whether a festival problem is asking for the total or asking for a missing factor.",
+                "lineage": {
+                  "sourceEvidenceIds": [
+                    "hw-02c11ee60594c617:decision:r3",
+                    "evaluation:c8fdaacd3e1b0c13"
+                  ],
+                  "exposure": "unseen"
+                },
+                "response": {
+                  "mode": "explanation",
+                  "rubric": [
+                    "Refers to the three quantities: number of groups, size of each group, total",
+                    "States that when the total is not given, you multiply the two given numbers",
+                    "States that when the total IS given and a factor is missing, you must find the number that multiplies to that total rather than multiplying the two visible numbers",
+                    "Does not require correct arithmetic to earn credit"
+                  ]
+                }
+              }
+            ],
+            "academicPrediction": {
+              "constructId": "math.multiplication.missing_factor",
+              "context": "unassisted practice items in the shared slot-mapping node, single worked example only, no per-item scaffolding",
+              "horizon": "within_7_days",
+              "expectedMetric": {
+                "key": "academic.accuracy",
+                "min": 0.6,
+                "max": 0.9
+              },
+              "predictedErrorPatterns": [
+                "Labels the total as unknown on an equal-sharing item because two numbers are visible and the habit is to multiply them.",
+                "Correctly names the empty slot but adds an answer anyway, showing the multiply reflex firing before the mapping is used.",
+                "Confuses number of groups with size of each group in the row-based flag and chair items."
+              ],
+              "confidence": 0.55,
+              "evidenceIds": [
+                "observation:0ee42baffce06546",
+                "observation:4520f65725de1d50",
+                "observation:d1b81984c24d6d80",
+                "observation:2aa76118c8657331",
+                "evaluation:c8fdaacd3e1b0c13",
+                "evaluation:b81e075d2126c022"
+              ],
+              "intervention": "Shared three-slot mapping node of the LAB-MATH-C unknown-position program",
+              "evidenceLimit": "practice_only"
+            },
+            "measurementKeys": [
+              "academic.accuracy",
+              "academic.error_pattern",
+              "engagement.starts",
+              "engagement.completion",
+              "engagement.assistance"
+            ],
+            "catalogDecision": {
+              "action": "revise",
+              "contentId": "instrument:concept-check",
+              "reason": "Concept Check owns pre-teaching concept understanding at item level, which is exactly this responsibility, but its registered contract is generic and carries no assignment-specific frozen contract or verified hash, so reuse is not eligible and the academic contract must be rewritten to the three-slot mapping items.",
+              "academicCompatibility": "Compatible: the node asks for item-level identification of which quantity is unknown before teaching or computing, which matches Concept Check's stated responsibility of surfacing the misconception that should drive later work.",
+              "predictedLearningValue": "High. The prior decision named learner-visible evidence of where the unknown was placed before computation as required next evidence, and no existing node produces it.",
+              "engagementHypothesis": "Selection and short-construction items with one worked example should start and complete without the pacing pressure that accompanied the abandoned speed-format activity.",
+              "explorationRationale": "None needed beyond the revision; the responsibility is narrow and the instrument's interaction model already fits.",
+              "reliabilityEvidence": "runtime status registered_unverified with no frozen contract and no child evidence (evidenceCount 0), so the revised contract must be frozen before delivery.",
+              "costRationale": "Revise costs an estimated 1 model call versus 2 for generate_new, and the existing interaction model is adequate.",
+              "evidenceIds": [
+                "observation:0ee42baffce06546",
+                "observation:d1b81984c24d6d80",
+                "hw-02c11ee60594c617:decision:r3"
+              ]
+            }
+          },
+          {
+            "id": "node:build:solve-missing-factor",
+            "purpose": "baseline",
+            "routeId": "route:build",
+            "responsibilityId": "resp:solve-missing-factor",
+            "academicTarget": "Find the missing factor or the missing group size for totals to 56 by building or arranging the missing quantity, and record the matching equation.",
+            "difficultyBoundary": {
+              "allowedConcepts": [
+                "groups x size = total with one factor unknown",
+                "Equal sharing to find group size",
+                "Using a known multiplication fact to reach a given total",
+                "Contrast items where the total is genuinely unknown"
+              ],
+              "allowedRepresentations": [
+                "Equal-row arrangements of festival objects",
+                "Multiplication equations with one blank",
+                "Numeric answers"
+              ],
+              "excludedExtensions": [
+                "Division notation or long division procedures",
+                "Remainders or totals that do not divide evenly",
+                "Products above 56",
+                "Two-step or multi-operation problems"
+              ],
+              "startingSupport": "The first item shows the three-slot frame already filled from the shared node; after that the learner works from the situation alone.",
+              "expectedIndependence": "Independent on items 2 through 5, including choosing whether to multiply or to search for the missing factor."
+            },
+            "items": [
+              {
+                "id": "item:build:mf:1",
+                "prompt": "Forty flags hang in 5 equal rows. Arrange the flags into 5 equal rows and enter how many flags are in each row.",
+                "lineage": {
+                  "sourceEvidenceIds": [
+                    "observation:d1b81984c24d6d80",
+                    "evaluation:b81e075d2126c022"
+                  ],
+                  "exposure": "taught"
+                },
+                "response": {
+                  "mode": "numeric",
+                  "expected": 8,
+                  "unit": "flags per row"
+                }
+              },
+              {
+                "id": "item:build:mf:2",
+                "prompt": "Build rows of 8 lanterns until you reach 48 lanterns in total. How many rows did you build?",
+                "lineage": {
+                  "sourceEvidenceIds": [
+                    "observation:0ee42baffce06546",
+                    "observation:4520f65725de1d50"
+                  ],
+                  "exposure": "unseen"
+                },
+                "response": {
+                  "mode": "numeric",
+                  "expected": 6,
+                  "unit": "rows"
+                }
+              },
+              {
+                "id": "item:build:mf:3",
+                "prompt": "A festival has 56 badges shared equally among 7 booths. Arrange the badges into 7 equal booths and enter the number of badges each booth gets.",
+                "lineage": {
+                  "sourceEvidenceIds": [
+                    "observation:d1b81984c24d6d80",
+                    "hw-02c11ee60594c617:decision:r3"
+                  ],
+                  "exposure": "unseen"
+                },
+                "response": {
+                  "mode": "numeric",
+                  "expected": 8,
+                  "unit": "badges per booth"
+                }
+              },
+              {
+                "id": "item:build:mf:4",
+                "prompt": "Contrast item: 4 stalls each hold 9 baskets. Build the stalls and enter the total number of baskets.",
+                "lineage": {
+                  "sourceEvidenceIds": [
+                    "observation:2aa76118c8657331",
+                    "evaluation:cd58ac474b720927"
+                  ],
+                  "exposure": "practiced"
+                },
+                "response": {
+                  "mode": "numeric",
+                  "expected": 36,
+                  "unit": "baskets"
+                }
+              },
+              {
+                "id": "item:build:mf:5",
+                "prompt": "Build the arrangement that matches 45 ribbons in 9 equal bundles, then record the multiplication equation your arrangement shows.",
+                "lineage": {
+                  "sourceEvidenceIds": [
+                    "observation:4520f65725de1d50",
+                    "hw-02c11ee60594c617:prediction:r3:support"
+                  ],
+                  "exposure": "unseen"
+                },
+                "response": {
+                  "mode": "construction",
+                  "expectedState": {
+                    "bundles": 9,
+                    "ribbonsPerBundle": 5,
+                    "total": 45,
+                    "equation": "9 x 5 = 45"
+                  },
+                  "successDescription": "The learner builds 9 bundles of 5 ribbons totalling 45 and records an equation equivalent to 9 x 5 = 45 or 5 x 9 = 45."
+                }
+              }
+            ],
+            "academicPrediction": {
+              "constructId": "math.multiplication.missing_factor",
+              "context": "unassisted practice items in the build route, no scaffolding after the first item",
+              "horizon": "within_7_days",
+              "expectedMetric": {
+                "key": "academic.accuracy",
+                "min": 0.55,
+                "max": 0.85
+              },
+              "predictedErrorPatterns": [
+                "Multiplies the two given numbers instead of finding the missing group size (for example answering 200 for 40 flags in 5 rows).",
+                "Reaches a correct arrangement by trial and error but records an equation that does not match the arrangement.",
+                "Over-corrects on the contrast item by dividing 4 and 9 when the total was genuinely unknown."
+              ],
+              "confidence": 0.55,
+              "evidenceIds": [
+                "observation:0ee42baffce06546",
+                "observation:4520f65725de1d50",
+                "observation:d1b81984c24d6d80",
+                "observation:2aa76118c8657331",
+                "evaluation:c8fdaacd3e1b0c13",
+                "evaluation:b81e075d2126c022"
+              ],
+              "intervention": "Build-route missing-factor node of the LAB-MATH-C unknown-position program",
+              "evidenceLimit": "practice_only"
+            },
+            "measurementKeys": [
+              "academic.accuracy",
+              "academic.error_pattern",
+              "engagement.starts",
+              "engagement.completion",
+              "engagement.abandonment",
+              "engagement.replay",
+              "engagement.assistance",
+              "engagement.interaction_difficulty",
+              "engagement.rating"
+            ],
+            "catalogDecision": {
+              "action": "revise",
+              "contentId": "instrument:generated-baseline",
+              "reason": "The Generated Baseline Shell already reports per-target attempt evidence through click/touch construction play, which fits an arrange-and-solve node, but it has no frozen assignment contract, no verified hash, and no child evidence, so its academic payload must be rewritten to unknown-position items rather than reused as-is.",
+              "academicCompatibility": "Compatible: math_reasoning and concept_understanding constructs with click/touch/mixed representations support arranging equal groups and entering the missing factor within the stated boundary.",
+              "predictedLearningValue": "High for the primary failing construct, because building the missing quantity makes the empty slot concrete instead of leaving two visible numbers to multiply.",
+              "engagementHypothesis": "A construction-style activity was rated 5 and replayed once before (engagement:synthetic-construction-route), so this presentation may sustain effort; this is weak, single-event engagement information and not a preference finding.",
+              "explorationRationale": "Bounded exploration is justified because the child has zero evidence on this instrument and the format hypothesis is genuinely untested.",
+              "reliabilityEvidence": "runtime status registered_unverified, evidenceCount 0, confidence 0; the revised contract must be frozen and hashed before delivery, and failure to verify should downgrade the node rather than the route.",
+              "costRationale": "Revise at an estimated 1 model call is cheaper than generate_new at 2, and the shell's interaction model is already close to what the items need.",
+              "evidenceIds": [
+                "observation:d1b81984c24d6d80",
+                "observation:0ee42baffce06546",
+                "engagement:synthetic-construction-route"
+              ]
+            }
+          },
+          {
+            "id": "node:build:factor-pairs",
+            "purpose": "baseline",
+            "routeId": "route:build",
+            "responsibilityId": "resp:factor-pairs-in-arrays",
+            "academicTarget": "Given a known total, produce more than one equal-row arrangement and state the matching multiplication equation for each.",
+            "difficultyBoundary": {
+              "allowedConcepts": [
+                "Factor pairs of a known total",
+                "Equal-row arrays",
+                "Commutativity: rows x per-row and per-row x rows describe the same array",
+                "Totals to 56 with whole-number factors 3 to 9"
+              ],
+              "allowedRepresentations": [
+                "Equal-row arrays of festival objects",
+                "Multiplication equations",
+                "Numeric answers"
+              ],
+              "excludedExtensions": [
+                "Prime totals with no interior factor pair",
+                "Arrangements with leftovers",
+                "Area or perimeter language",
+                "Products above 56",
+                "Formal division notation"
+              ],
+              "startingSupport": "One example arrangement for a different total is shown complete with its equation; the learner produces the arrangements for the target totals.",
+              "expectedIndependence": "Independent generation of at least two distinct arrangements and their equations without prompting."
+            },
+            "items": [
+              {
+                "id": "item:build:fp:1",
+                "prompt": "A stage has 36 lights. Build one arrangement that uses all 36 lights in equal rows, and record the number of rows and the number of lights in each row.",
+                "lineage": {
+                  "sourceEvidenceIds": [
+                    "observation:23f39686fc8bcab8",
+                    "evaluation:1b7d71227bc7fff2"
+                  ],
+                  "exposure": "taught"
+                },
+                "response": {
+                  "mode": "construction",
+                  "expectedState": {
+                    "rows": 4,
+                    "perRow": 9,
+                    "total": 36,
+                    "equation": "4 x 9 = 36"
+                  },
+                  "successDescription": "The learner builds any equal-row arrangement whose rows multiplied by lights per row equals 36 and records both numbers; 4 by 9 is the reference solution and 6 by 6, 3 by 12, or 9 by 4 are equally acceptable."
+                }
+              },
+              {
+                "id": "item:build:fp:2",
+                "prompt": "Build a second, different equal-row arrangement that also uses all 36 lights, and record its multiplication equation.",
+                "lineage": {
+                  "sourceEvidenceIds": [
+                    "observation:23f39686fc8bcab8",
+                    "hw-02c11ee60594c617:decision:r3"
+                  ],
+                  "exposure": "unseen"
+                },
+                "response": {
+                  "mode": "construction",
+                  "expectedState": {
+                    "rows": 6,
+                    "perRow": 6,
+                    "total": 36,
+                    "equation": "6 x 6 = 36"
+                  },
+                  "successDescription": "The learner builds an arrangement different from the one in item 1 whose factors multiply to 36 and records the matching equation."
+                }
+              },
+              {
+                "id": "item:build:fp:3",
+                "prompt": "A 4-by-9 banner grid is shown. How many banners are in the grid?",
+                "lineage": {
+                  "sourceEvidenceIds": [
+                    "observation:23f39686fc8bcab8",
+                    "observation:5ca99922d087d57e"
+                  ],
+                  "exposure": "practiced"
+                },
+                "response": {
+                  "mode": "numeric",
+                  "expected": 36,
+                  "unit": "banners"
+                }
+              },
+              {
+                "id": "item:build:fp:4",
+                "prompt": "You must arrange 42 cups into equal rows with 6 cups in each row. Build it and enter how many rows you need.",
+                "lineage": {
+                  "sourceEvidenceIds": [
+                    "observation:d1b81984c24d6d80",
+                    "observation:4520f65725de1d50"
+                  ],
+                  "exposure": "unseen"
+                },
+                "response": {
+                  "mode": "numeric",
+                  "expected": 7,
+                  "unit": "rows"
+                }
+              },
+              {
+                "id": "item:build:fp:5",
+                "prompt": "Which of these could NOT be an equal-row arrangement that uses exactly 36 lights?",
+                "lineage": {
+                  "sourceEvidenceIds": [
+                    "observation:23f39686fc8bcab8",
+                    "evaluation:1b7d71227bc7fff2"
+                  ],
+                  "exposure": "unseen"
+                },
+                "response": {
+                  "mode": "selection",
+                  "options": [
+                    {
+                      "id": "opt:build:fp:5:a",
+                      "label": "9 rows of 4",
+                      "correct": false
+                    },
+                    {
+                      "id": "opt:build:fp:5:b",
+                      "label": "5 rows of 7",
+                      "correct": true
+                    },
+                    {
+                      "id": "opt:build:fp:5:c",
+                      "label": "6 rows of 6",
+                      "correct": false
+                    },
+                    {
+                      "id": "opt:build:fp:5:d",
+                      "label": "3 rows of 12",
+                      "correct": false
+                    }
+                  ]
+                }
+              }
+            ],
+            "academicPrediction": {
+              "constructId": "math.multiplication.missing_factor",
+              "context": "unassisted practice items requiring factor-pair search for a known total, build route, no per-item hints",
+              "horizon": "within_7_days",
+              "expectedMetric": {
+                "key": "academic.accuracy",
+                "min": 0.5,
+                "max": 0.8
+              },
+              "predictedErrorPatterns": [
+                "Produces a second arrangement that is only the first one rotated and treats it as different without noticing the commutative relationship.",
+                "Builds rows that do not use the full total, leaving objects over rather than adjusting the row size.",
+                "Multiplies the two visible numbers on the 42-cups item and answers 252 instead of finding the number of rows."
+              ],
+              "confidence": 0.5,
+              "evidenceIds": [
+                "observation:23f39686fc8bcab8",
+                "observation:5ca99922d087d57e",
+                "observation:d1b81984c24d6d80",
+                "evaluation:1b7d71227bc7fff2",
+                "evaluation:b81e075d2126c022"
+              ],
+              "intervention": "Build-route factor-pair node of the LAB-MATH-C unknown-position program",
+              "evidenceLimit": "practice_only"
+            },
+            "measurementKeys": [
+              "academic.accuracy",
+              "academic.error_pattern",
+              "engagement.completion",
+              "engagement.abandonment",
+              "engagement.replay",
+              "engagement.assistance",
+              "engagement.interaction_difficulty"
+            ],
+            "catalogDecision": {
+              "action": "generate_new",
+              "contentId": "content:lab-math-c:factor-pair-arrays",
+              "reason": "No catalog candidate supports producing multiple distinct equal-row arrangements for a known total. Concept Check and Visual Explainer do not accept constructed arrays as responses, Vault Cracker, Clock Game and Coin Counter are academically incompatible, and Spark Orb Charge has no launchable runtime. Generation is the only way to cover this responsibility.",
+              "academicCompatibility": "Requires a construction response contract over equal-row arrangements with an equation record, which no registered candidate exposes.",
+              "predictedLearningValue": "High: this is the strongest test of whether the empty-slot mapping generalizes beyond a single sentence frame, and it is the direct analogue of assignment item 8.",
+              "engagementHypothesis": "Arranging lights until the rows come out even gives immediate self-checking feedback, which may sustain persistence; this is a hypothesis, not a claim from prior ratings.",
+              "explorationRationale": "Justified by the total absence of child evidence on factor-pair search; the node is bounded to totals under 56 to keep the exploration cheap and safe.",
+              "reliabilityEvidence": "No existing runtime to inherit, so the generated artifact needs its own contract freeze and hash verification before it counts as evidence.",
+              "costRationale": "generate_new costs an estimated 2 model calls, accepted because every cheaper candidate fails the academic compatibility gate, which is a hard gate.",
+              "evidenceIds": [
+                "observation:23f39686fc8bcab8",
+                "evaluation:1b7d71227bc7fff2",
+                "hw-02c11ee60594c617:decision:r3"
+              ]
+            }
+          },
+          {
+            "id": "node:reason:solve-missing-factor",
+            "purpose": "baseline",
+            "routeId": "route:reason",
+            "responsibilityId": "resp:solve-missing-factor",
+            "academicTarget": "Find the missing factor or group size for totals to 56 and state, in words, which slot was empty and why the chosen operation follows from it.",
+            "difficultyBoundary": {
+              "allowedConcepts": [
+                "groups x size = total with one factor unknown",
+                "Equal sharing to find group size",
+                "Using a known nearby multiplication fact to reach a total",
+                "Contrast items where the total is genuinely unknown"
+              ],
+              "allowedRepresentations": [
+                "Short festival story sentences",
+                "Multiplication equations with one blank",
+                "Numeric answers",
+                "Short spoken or written explanations"
+              ],
+              "excludedExtensions": [
+                "Formal division algorithms or written long division",
+                "Remainders or non-exact sharing",
+                "Products above 56",
+                "Two-step problems",
+                "Any requirement to draw arrays in this node"
+              ],
+              "startingSupport": "The first item restates the three-slot frame in the prompt; later items give the situation only.",
+              "expectedIndependence": "Independent from item 2 onward, including producing the justification without prompting."
+            },
+            "items": [
+              {
+                "id": "item:reason:mf:1",
+                "prompt": "Forty flags hang in 5 equal rows. The total is 40 and the number of rows is 5, so the size of each row is the empty slot. How many flags are in each row?",
+                "lineage": {
+                  "sourceEvidenceIds": [
+                    "observation:d1b81984c24d6d80",
+                    "evaluation:b81e075d2126c022"
+                  ],
+                  "exposure": "taught"
+                },
+                "response": {
+                  "mode": "numeric",
+                  "expected": 8,
+                  "unit": "flags per row"
+                }
+              },
+              {
+                "id": "item:reason:mf:2",
+                "prompt": "Fill in the missing factor: ___ x 8 = 48.",
+                "lineage": {
+                  "sourceEvidenceIds": [
+                    "observation:0ee42baffce06546",
+                    "observation:2aa76118c8657331"
+                  ],
+                  "exposure": "unseen"
+                },
+                "response": {
+                  "mode": "numeric",
+                  "expected": 6
+                }
+              },
+              {
+                "id": "item:reason:mf:3",
+                "prompt": "A child says that because 40 flags go into 5 rows, each row has 200 flags. Explain what went wrong and how the three-slot frame shows the right move.",
+                "lineage": {
+                  "sourceEvidenceIds": [
+                    "observation:d1b81984c24d6d80",
+                    "evaluation:b81e075d2126c022",
+                    "hw-02c11ee60594c617:decision:r3"
+                  ],
+                  "exposure": "unseen"
+                },
+                "response": {
+                  "mode": "explanation",
+                  "rubric": [
+                    "Identifies that the child multiplied the two given numbers",
+                    "States that 40 was already the total, so the total was not the empty slot",
+                    "States that the empty slot was the size of each row",
+                    "Names the correct answer of 8 flags per row or an equivalent equation such as 5 x 8 = 40"
+                  ]
+                }
+              },
+              {
+                "id": "item:reason:mf:4",
+                "prompt": "Three booths each need 8 cups in the morning and 8 cups later. Which slot is empty here, and how many cups are needed in total?",
+                "lineage": {
+                  "sourceEvidenceIds": [
+                    "observation:81c93f608540bf7b",
+                    "observation:bbaf27b2c8a85202"
+                  ],
+                  "exposure": "practiced"
+                },
+                "response": {
+                  "mode": "numeric",
+                  "expected": 48,
+                  "unit": "cups"
+                }
+              },
+              {
+                "id": "item:reason:mf:5",
+                "prompt": "A child writes 5 x 9 = 40. Use a nearby fact you already know to explain why that is wrong and give the correct product.",
+                "lineage": {
+                  "sourceEvidenceIds": [
+                    "observation:2aa76118c8657331",
+                    "observation:1ccdf821e9d8f7f4"
+                  ],
+                  "exposure": "unseen"
+                },
+                "response": {
+                  "mode": "explanation",
+                  "rubric": [
+                    "States that 5 x 9 is 45, not 40",
+                    "Cites a nearby fact such as 5 x 8 = 40 or 5 x 10 = 50 to justify the correction",
+                    "Explains the relationship, for example that one more group of 5 is added to 40 to reach 45",
+                    "Does not simply restate the answer without a supporting fact"
+                  ]
+                }
+              }
+            ],
+            "academicPrediction": {
+              "constructId": "math.multiplication.missing_factor",
+              "context": "unassisted practice items in the reason route with explanation responses, no scaffolding after the first item",
+              "horizon": "within_7_days",
+              "expectedMetric": {
+                "key": "academic.accuracy",
+                "min": 0.55,
+                "max": 0.85
+              },
+              "predictedErrorPatterns": [
+                "Multiplies the two given numbers instead of solving for the missing group size or factor.",
+                "Names the empty slot correctly in the explanation but still applies multiplication to produce the numeric answer.",
+                "Over-corrects by dividing on the three-booths item where the total was genuinely unknown."
+              ],
+              "confidence": 0.55,
+              "evidenceIds": [
+                "observation:0ee42baffce06546",
+                "observation:4520f65725de1d50",
+                "observation:d1b81984c24d6d80",
+                "observation:2aa76118c8657331",
+                "observation:81c93f608540bf7b",
+                "evaluation:c8fdaacd3e1b0c13"
+              ],
+              "intervention": "Reason-route missing-factor node of the LAB-MATH-C unknown-position program",
+              "evidenceLimit": "practice_only"
+            },
+            "measurementKeys": [
+              "academic.accuracy",
+              "academic.error_pattern",
+              "engagement.starts",
+              "engagement.completion",
+              "engagement.abandonment",
+              "engagement.assistance",
+              "engagement.rating"
+            ],
+            "catalogDecision": {
+              "action": "revise",
+              "contentId": "instrument:visual-explainer",
+              "reason": "Visual Explainer is designed to teach a model before practice and to report whether the theory is teachable, which fits a node built around a worked frame plus justification, but it does not currently accept numeric or explanation response contracts and has no frozen assignment contract or verified hash, so its academic contract and response handling must change.",
+              "academicCompatibility": "Compatible after revision: concept_understanding with visual and reading representations supports presenting the three-slot frame, provided the revised contract adds numeric and explanation response capture.",
+              "predictedLearningValue": "High. This node is the only one that produces the learner-visible verbalization of where the unknown sits that the prior decision listed as required next evidence.",
+              "engagementHypothesis": "The visual-format activity was rated 4 with a hint used (engagement:synthetic-visual-route), so an unhurried explain-and-solve node may hold attention better than the abandoned speed-paced format; this is single-event information and proves nothing about preference.",
+              "explorationRationale": "Exploration is bounded to adding response modes to an existing teaching instrument rather than inventing a new interaction.",
+              "reliabilityEvidence": "runtime registered_unverified, evidenceCount 0, confidence 0; the node cannot count as evidence until the revised contract is frozen and hashed.",
+              "costRationale": "Revise at an estimated 1 model call is preferred over generate_new at 2 because the explanatory presentation is already correct for this responsibility.",
+              "evidenceIds": [
+                "observation:0ee42baffce06546",
+                "observation:d1b81984c24d6d80",
+                "engagement:synthetic-visual-route"
+              ]
+            }
+          },
+          {
+            "id": "node:reason:discriminate",
+            "purpose": "baseline",
+            "routeId": "route:reason",
+            "responsibilityId": "resp:discriminate-operation",
+            "academicTarget": "Across mixed festival items, decide whether to multiply the given numbers or find a missing factor, and justify the decision by naming the empty slot.",
+            "difficultyBoundary": {
+              "allowedConcepts": [
+                "Choosing between multiplying and finding a missing factor",
+                "Equal-groups story structure",
+                "Matching a story to a given multiplication expression",
+                "Totals to 56, factors 3 to 9"
+              ],
+              "allowedRepresentations": [
+                "Short festival story sentences",
+                "Multiplication expressions",
+                "Selection options",
+                "Short written or spoken justifications"
+              ],
+              "excludedExtensions": [
+                "Addition or subtraction word problems beyond a single contrast distractor",
+                "Division notation as a required answer format",
+                "Products above 56",
+                "Two-step problems",
+                "Any array construction in this node"
+              ],
+              "startingSupport": "A one-line reminder of the three-slot frame is available at the top of the node; no per-item hints.",
+              "expectedIndependence": "Fully independent operation choice and justification on every item."
+            },
+            "items": [
+              {
+                "id": "item:reason:disc:1",
+                "prompt": "Which story uses 6 x 7?",
+                "lineage": {
+                  "sourceEvidenceIds": [
+                    "observation:81c93f608540bf7b",
+                    "observation:0892435956e407be"
+                  ],
+                  "exposure": "practiced"
+                },
+                "response": {
+                  "mode": "selection",
+                  "options": [
+                    {
+                      "id": "opt:reason:disc:1:a",
+                      "label": "6 bags with 7 tokens in each bag",
+                      "correct": true
+                    },
+                    {
+                      "id": "opt:reason:disc:1:b",
+                      "label": "6 tokens plus 7 tokens",
+                      "correct": false
+                    },
+                    {
+                      "id": "opt:reason:disc:1:c",
+                      "label": "42 tokens shared equally among 6 children",
+                      "correct": false
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "item:reason:disc:2",
+                "prompt": "A festival has 54 wristbands shared equally among 6 gates. Which move is correct?",
+                "lineage": {
+                  "sourceEvidenceIds": [
+                    "observation:d1b81984c24d6d80",
+                    "observation:4520f65725de1d50"
+                  ],
+                  "exposure": "unseen"
+                },
+                "response": {
+                  "mode": "selection",
+                  "options": [
+                    {
+                      "id": "opt:reason:disc:2:a",
+                      "label": "Multiply 54 by 6 because both numbers are given",
+                      "correct": false
+                    },
+                    {
+                      "id": "opt:reason:disc:2:b",
+                      "label": "Find the number that multiplies by 6 to make 54, because 54 is the total",
+                      "correct": true
+                    },
+                    {
+                      "id": "opt:reason:disc:2:c",
+                      "label": "Add 54 and 6 because the wristbands are being combined",
+                      "correct": false
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "item:reason:disc:3",
+                "prompt": "Seven teams each have 6 children. How many children are there in all?",
+                "lineage": {
+                  "sourceEvidenceIds": [
+                    "observation:a1baa963489821c5",
+                    "evaluation:cd58ac474b720927"
+                  ],
+                  "exposure": "practiced"
+                },
+                "response": {
+                  "mode": "numeric",
+                  "expected": 42,
+                  "unit": "children"
+                }
+              },
+              {
+                "id": "item:reason:disc:4",
+                "prompt": "A booth packs 32 prizes into bags with 8 prizes in each bag. How many bags are filled?",
+                "lineage": {
+                  "sourceEvidenceIds": [
+                    "observation:0ee42baffce06546",
+                    "observation:2aa76118c8657331"
+                  ],
+                  "exposure": "unseen"
+                },
+                "response": {
+                  "mode": "numeric",
+                  "expected": 4,
+                  "unit": "bags"
+                }
+              },
+              {
+                "id": "item:reason:disc:5",
+                "prompt": "Two festival problems both contain the numbers 6 and 48. In one you should multiply and in the other you should not. Explain how you can tell them apart.",
+                "lineage": {
+                  "sourceEvidenceIds": [
+                    "evaluation:c8fdaacd3e1b0c13",
+                    "hw-02c11ee60594c617:prediction:r3:support"
+                  ],
+                  "exposure": "unseen"
+                },
+                "response": {
+                  "mode": "explanation",
+                  "rubric": [
+                    "States that you must check whether one of the two numbers is already the total",
+                    "Explains that if 48 is the total, 6 is a factor and the missing factor must be found",
+                    "Explains that if neither number is the total, both are factors and you multiply",
+                    "Gives at least one concrete festival example illustrating the distinction"
+                  ]
+                }
+              }
+            ],
+            "academicPrediction": {
+              "constructId": "math.multiplication.missing_factor",
+              "context": "unassisted mixed practice items requiring operation choice, reason route, frame reminder visible but no per-item hints",
+              "horizon": "within_7_days",
+              "expectedMetric": {
+                "key": "academic.accuracy",
+                "min": 0.55,
+                "max": 0.85
+              },
+              "predictedErrorPatterns": [
+                "Selects multiplying the two given numbers on the wristband item because both numbers are visible.",
+                "Over-corrects by treating the seven-teams total-unknown item as a missing-factor item and dividing.",
+                "Answers the numeric items correctly but gives a justification that names no slot, showing the rule is procedural rather than understood."
+              ],
+              "confidence": 0.5,
+              "evidenceIds": [
+                "observation:0ee42baffce06546",
+                "observation:d1b81984c24d6d80",
+                "observation:81c93f608540bf7b",
+                "observation:bbaf27b2c8a85202",
+                "observation:1ccdf821e9d8f7f4",
+                "evaluation:a27f078c804e15e1"
+              ],
+              "intervention": "Reason-route discrimination node of the LAB-MATH-C unknown-position program",
+              "evidenceLimit": "practice_only"
+            },
+            "measurementKeys": [
+              "academic.accuracy",
+              "academic.error_pattern",
+              "engagement.completion",
+              "engagement.abandonment",
+              "engagement.assistance",
+              "engagement.interaction_difficulty",
+              "engagement.rating"
+            ],
+            "catalogDecision": {
+              "action": "generate_new",
+              "contentId": "content:lab-math-c:operation-discrimination",
+              "reason": "No candidate combines mixed selection, numeric, and explanation contracts over items deliberately balanced between total-unknown and factor-unknown structures. Concept Check is being revised for pre-teaching identification and should not also carry the post-teaching discrimination set, and Visual Explainer is already revised for the solve node. Vault Cracker, Clock Game, Coin Counter, and Mystery Reward fail the academic compatibility gate outright.",
+              "academicCompatibility": "Requires balanced contrast items and a justification contract that names the empty slot, which no registered candidate provides.",
+              "predictedLearningValue": "High: it is the only node that can detect over-correction, which is an explicitly preregistered risk of teaching the empty-slot rule.",
+              "engagementHypothesis": "Short mixed items with a visible frame reminder should avoid the pacing pressure associated with the abandoned speed-format activity; this is a hypothesis only.",
+              "explorationRationale": "Bounded exploration is warranted because the over-correction failure mode has never been observed for this child and cannot be measured by any existing instrument.",
+              "reliabilityEvidence": "No inherited runtime; the generated artifact needs contract freeze and hash verification, and if it fails to build the other route node still carries the responsibility.",
+              "costRationale": "generate_new at an estimated 2 model calls is accepted because cheaper candidates fail the hard academic compatibility gate.",
+              "evidenceIds": [
+                "observation:81c93f608540bf7b",
+                "observation:d1b81984c24d6d80",
+                "hw-02c11ee60594c617:prediction:r3:support"
+              ]
+            }
+          },
+          {
+            "id": "node:bonus:extra-unknown-practice",
+            "purpose": "bonus",
+            "routeId": "shared",
+            "responsibilityId": "resp:bonus-fresh-practice",
+            "academicTarget": "Optional extra practice applying the empty-slot rule to fresh festival equal-groups items; carries no mastery weight.",
+            "difficultyBoundary": {
+              "allowedConcepts": [
+                "groups x size = total with one slot empty",
+                "Missing factor with totals to 56",
+                "Equal sharing to find group size"
+              ],
+              "allowedRepresentations": [
+                "Short festival story sentences",
+                "Multiplication equations with one blank",
+                "Numeric answers"
+              ],
+              "excludedExtensions": [
+                "Any new concept not already covered in the baseline nodes",
+                "Products above 56",
+                "Division notation",
+                "Two-step problems",
+                "Any content that could be scored as mastery evidence"
+              ],
+              "startingSupport": "Same frame reminder as the baseline nodes; no new teaching is introduced here.",
+              "expectedIndependence": "Fully independent, but the node is optional and may be skipped or abandoned with no consequence for the board."
+            },
+            "items": [
+              {
+                "id": "item:bonus:1",
+                "prompt": "A parade has 24 drummers in 4 equal lines. How many drummers are in each line?",
+                "lineage": {
+                  "sourceEvidenceIds": [
+                    "observation:d1b81984c24d6d80"
+                  ],
+                  "exposure": "unseen"
+                },
+                "response": {
+                  "mode": "numeric",
+                  "expected": 6,
+                  "unit": "drummers per line"
+                }
+              },
+              {
+                "id": "item:bonus:2",
+                "prompt": "Fill in the missing factor: 7 x ___ = 49.",
+                "lineage": {
+                  "sourceEvidenceIds": [
+                    "observation:2aa76118c8657331"
+                  ],
+                  "exposure": "unseen"
+                },
+                "response": {
+                  "mode": "numeric",
+                  "expected": 7
+                }
+              },
+              {
+                "id": "item:bonus:3",
+                "prompt": "Five food carts each carry 9 trays. How many trays in all?",
+                "lineage": {
+                  "sourceEvidenceIds": [
+                    "observation:a1baa963489821c5"
+                  ],
+                  "exposure": "unseen"
+                },
+                "response": {
+                  "mode": "numeric",
+                  "expected": 45,
+                  "unit": "trays"
+                }
+              },
+              {
+                "id": "item:bonus:4",
+                "prompt": "For the problem '56 balloons tied into bunches of 8', say which slot is empty.",
+                "lineage": {
+                  "sourceEvidenceIds": [
+                    "observation:0ee42baffce06546"
+                  ],
+                  "exposure": "unseen"
+                },
+                "response": {
+                  "mode": "selection",
+                  "options": [
+                    {
+                      "id": "opt:bonus:4:a",
+                      "label": "The total is empty",
+                      "correct": false
+                    },
+                    {
+                      "id": "opt:bonus:4:b",
+                      "label": "The number of bunches is empty",
+                      "correct": true
+                    },
+                    {
+                      "id": "opt:bonus:4:c",
+                      "label": "The size of each bunch is empty",
+                      "correct": false
+                    }
+                  ]
+                }
+              }
+            ],
+            "academicPrediction": {
+              "constructId": "math.multiplication.missing_factor",
+              "context": "optional unassisted bonus practice with no mastery weight, attempted only if the learner chooses to open it",
+              "horizon": "within_7_days",
+              "expectedMetric": {
+                "key": "academic.accuracy",
+                "min": 0.5,
+                "max": 0.9
+              },
+              "predictedErrorPatterns": [
+                "Multiplies the two given numbers on the drummers or balloons items.",
+                "Skips the node entirely, producing no academic evidence at all.",
+                "Answers the total-unknown trays item by dividing as an over-correction."
+              ],
+              "confidence": 0.4,
+              "evidenceIds": [
+                "observation:0ee42baffce06546",
+                "observation:d1b81984c24d6d80",
+                "observation:2aa76118c8657331"
+              ],
+              "intervention": "Optional bonus practice node of the LAB-MATH-C unknown-position program",
+              "evidenceLimit": "practice_only"
+            },
+            "measurementKeys": [
+              "academic.accuracy",
+              "academic.error_pattern",
+              "engagement.starts",
+              "engagement.completion",
+              "engagement.abandonment"
+            ],
+            "catalogDecision": {
+              "action": "revise",
+              "contentId": "instrument:concept-check",
+              "reason": "The bonus node reuses the same lightweight item-level interaction as the shared mapping node, but with fresh unaligned-to-mastery content, so the same instrument must be revised again under a separate frozen contract rather than reused; reuse is not eligible on this card and no assignment-specific hash exists.",
+              "academicCompatibility": "Compatible: item-level selection and numeric responses over the same concept and number range as the baseline, with no new concepts introduced.",
+              "predictedLearningValue": "Low to moderate by design. This node adds repetition only and is explicitly excluded from mastery claims; it must not block the board if it fails to build.",
+              "engagementHypothesis": "An optional short set may attract a learner who replayed a prior activity (engagement:synthetic-construction-route), but opening or skipping it is weak engagement information and never a preference conclusion.",
+              "explorationRationale": "Minimal. The bonus exists to offer extra practice, not to test anything new, so exploration is deliberately constrained.",
+              "reliabilityEvidence": "runtime registered_unverified with evidenceCount 0; because this node is optional, a build or verification failure is tolerable and must not affect either route.",
+              "costRationale": "Revise at an estimated 1 model call keeps the optional node cheap, which is appropriate for content that cannot support mastery.",
+              "evidenceIds": [
+                "observation:0ee42baffce06546",
+                "observation:d1b81984c24d6d80"
+              ]
+            }
+          }
+        ]
+      },
+      "caller": {
+        "type": "direct"
+      }
+    }
+  ],
+  "stop_reason": "tool_use",
+  "stop_sequence": null,
+  "stop_details": null,
+  "usage": {
+    "input_tokens": 72094,
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 0,
+    "cache_creation": {
+      "ephemeral_5m_input_tokens": 0,
+      "ephemeral_1h_input_tokens": 0
+    },
+    "output_tokens": 19408,
+    "service_tier": "standard",
+    "inference_geo": "global"
+  }
+}

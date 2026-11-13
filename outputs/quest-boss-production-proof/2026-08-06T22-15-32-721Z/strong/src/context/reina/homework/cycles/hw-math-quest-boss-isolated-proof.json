@@ -1,0 +1,605 @@
+{
+  "schemaVersion": 2,
+  "revision": 9,
+  "childId": "reina",
+  "homeworkId": "hw-math-quest-boss-isolated-proof",
+  "domain": "math",
+  "assignment": {
+    "title": "Isolated multiplication Quest/Boss release proof",
+    "contentFingerprint": "isolated-math-quest-boss-v1",
+    "capturedEvidenceIds": [
+      "lab:assignment:equal-groups"
+    ],
+    "targets": [
+      "math.multiplication.equal_groups",
+      "math.multiplication.arrays"
+    ],
+    "returnTag": "#sunny_lab_math_quest_boss"
+  },
+  "academicTheory": {
+    "theoryId": "theory:equal-groups-transfer",
+    "revision": 1,
+    "hypothesis": "Independent equal-groups evidence may support an unseen transfer Quest.",
+    "supportCriteria": [
+      "Fresh unassisted responses are correct and distinguishable."
+    ],
+    "reviseCriteria": [
+      "Errors cluster around representation-to-notation transfer."
+    ],
+    "falsifyCriteria": [
+      "Fresh independent evidence contradicts the hypothesis."
+    ]
+  },
+  "engagementTheory": null,
+  "nodes": [
+    {
+      "nodeId": "baseline",
+      "routeId": "visual-build-route",
+      "predictionId": "prediction:equal-groups",
+      "role": "baseline",
+      "title": "Array Harbor",
+      "state": "completed",
+      "academicTarget": {
+        "domain": "math",
+        "skill": "represent multiplication with equal groups and arrays",
+        "targets": [
+          "fresh-array-3-by-4",
+          "fresh-equal-groups-5-by-2"
+        ]
+      },
+      "algorithmOwner": "ai_tutor",
+      "theoryId": "theory:equal-groups-transfer",
+      "experimentId": "experiment:baseline",
+      "mechanic": "visual construction",
+      "theme": "AI-owned",
+      "openingScreen": {
+        "title": "Array Harbor",
+        "purpose": "Connect equal groups to multiplication."
+      },
+      "generationPrompt": null,
+      "artifactBinding": {
+        "contentId": "content:isolated-baseline",
+        "artifactId": "artifact:isolated-baseline",
+        "localArtifactPath": "/games/baseline.html",
+        "localArtworkPath": "/generated/adventure-board-demo/background.jpeg",
+        "contractFingerprint": "isolated-baseline-contract",
+        "validationStatus": "passed"
+      },
+      "artwork": {
+        "status": "ready",
+        "localPath": "/generated/adventure-board-demo/quest.jpeg",
+        "prompt": null
+      },
+      "sfxContract": [
+        "interaction",
+        "recovery",
+        "progress",
+        "completion"
+      ],
+      "companionContract": {
+        "events": [
+          "completion",
+          "frustration",
+          "help_requested"
+        ]
+      },
+      "evidenceContract": {
+        "academic": true,
+        "engagement": true,
+        "companionObservations": true
+      },
+      "evidenceIds": [
+        "lab:strong-baseline:baseline:completion",
+        "lab:strong-baseline:baseline:completion:engagement"
+      ]
+    },
+    {
+      "nodeId": "quest",
+      "role": "quest",
+      "title": "The Skybridge Rescue",
+      "state": "completed",
+      "academicTarget": {
+        "domain": "math",
+        "skill": "transfer equal-groups reasoning to unfamiliar situations",
+        "targets": [
+          "unseen-transfer-targets"
+        ]
+      },
+      "algorithmOwner": "ai_tutor",
+      "theoryId": "theory:equal-groups-transfer",
+      "experimentId": "experiment:quest",
+      "mechanic": "AI-designed evidence experience",
+      "theme": "AI-owned",
+      "openingScreen": {
+        "title": "The Skybridge Rescue",
+        "purpose": "Use multiplication to solve a new transfer mission."
+      },
+      "generationPrompt": {
+        "promptId": "hw-math-quest-boss-isolated-proof:quest:prompt:r3",
+        "createdFromEvidenceIds": [
+          "lab:strong-baseline:baseline:completion",
+          "lab:strong-baseline:baseline:completion:engagement"
+        ],
+        "text": "Assignment: Isolated multiplication Quest/Boss release proof. Academic construct to preserve: Independent equal-groups evidence may support an unseen transfer Quest. This node must test unseen transfer: change the context while preserving the construct. Author fresh items. These have already been seen and must not be reused verbatim: fresh-array-3-by-4, fresh-equal-groups-5-by-2. Planner decision behind this node: Fresh independent baseline evidence supports an unseen transfer test but not mastery. Created at: 2026-08-06T12:06:00.000Z."
+      },
+      "artifactBinding": {
+        "contentId": "hw-math-quest-boss-isolated-proof:quest:experiment:quest",
+        "artifactId": "hw-math-quest-boss-isolated-proof:quest:prompt:r3:artifact",
+        "localArtifactPath": "/api/homework/game/reina/hw-math-quest-boss-isolated-proof-quest-experiment-quest.html",
+        "localArtworkPath": "/generated/adventure-board-demo/quest.jpeg",
+        "contractFingerprint": "6f7eba38e256231ce280308d",
+        "validationStatus": "passed",
+        "creativeProvenance": {
+          "rationale": "Technical runtime validation only; creative judgement is the human review of the captured screenshots.",
+          "qualityPrediction": "No automated quality score is recorded.",
+          "creatorPromptHash": "b040c941c7890a80f8e41aaaffd970a3b30c2f5e00489249e3ae09e3629ec30e",
+          "artworkPromptHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "validationProof": {
+          "engine": "playwright",
+          "passed": true,
+          "worldStateChanged": true,
+          "screenshotPaths": [
+            "/Users/jamaltaylor/Development/sunny-demo-main/outputs/quest-boss-production-proof/2026-08-06T22-15-32-721Z/strong/src/context/reina/homework/games/.validation/quest/quest-load.png",
+            "/Users/jamaltaylor/Development/sunny-demo-main/outputs/quest-boss-production-proof/2026-08-06T22-15-32-721Z/strong/src/context/reina/homework/games/.validation/quest/quest-recovery.png",
+            "/Users/jamaltaylor/Development/sunny-demo-main/outputs/quest-boss-production-proof/2026-08-06T22-15-32-721Z/strong/src/context/reina/homework/games/.validation/quest/quest-midplay.png",
+            "/Users/jamaltaylor/Development/sunny-demo-main/outputs/quest-boss-production-proof/2026-08-06T22-15-32-721Z/strong/src/context/reina/homework/games/.validation/quest/quest-completion.png"
+          ]
+        }
+      },
+      "artwork": {
+        "status": "ready",
+        "localPath": "/generated/adventure-board-demo/quest.jpeg",
+        "prompt": null
+      },
+      "sfxContract": [
+        "interaction",
+        "recovery",
+        "progress",
+        "completion"
+      ],
+      "companionContract": {
+        "events": [
+          "completion",
+          "frustration",
+          "help_requested"
+        ]
+      },
+      "evidenceContract": {
+        "academic": true,
+        "engagement": true,
+        "companionObservations": true
+      },
+      "evidenceIds": [
+        "lab:quest:quest:completion",
+        "lab:quest:quest:completion:engagement"
+      ]
+    },
+    {
+      "nodeId": "boss",
+      "role": "boss",
+      "title": "The Foundry Finale",
+      "state": "completed",
+      "academicTarget": {
+        "domain": "math",
+        "skill": "synthesize arrays, missing factors, and word-problem interpretation",
+        "targets": [
+          "unseen-transfer-targets"
+        ]
+      },
+      "algorithmOwner": "ai_tutor",
+      "theoryId": "theory:equal-groups-transfer",
+      "experimentId": "experiment:boss",
+      "mechanic": "AI-designed evidence experience",
+      "theme": "AI-owned",
+      "openingScreen": {
+        "title": "The Foundry Finale",
+        "purpose": "Combine multiplication representations in an unseen finale."
+      },
+      "generationPrompt": {
+        "promptId": "hw-math-quest-boss-isolated-proof:boss:prompt:r6",
+        "createdFromEvidenceIds": [
+          "lab:strong-baseline:baseline:completion",
+          "lab:quest:quest:completion",
+          "lab:strong-baseline:baseline:completion:engagement",
+          "lab:quest:quest:completion:engagement"
+        ],
+        "text": "Assignment: Isolated multiplication Quest/Boss release proof. Academic construct to preserve: Independent equal-groups evidence may support an unseen transfer Quest. This node must test unseen synthesis: combine the construct in a context not practised before. Author fresh items. These have already been seen and must not be reused verbatim: fresh-array-3-by-4, fresh-equal-groups-5-by-2, unseen-transfer-6-groups-of-4, unseen-transfer-missing-factor. Planner decision behind this node: Unseen transfer succeeded independently; test unseen synthesis next. Created at: 2026-08-06T12:21:00.000Z."
+      },
+      "artifactBinding": {
+        "contentId": "hw-math-quest-boss-isolated-proof:boss:experiment:boss",
+        "artifactId": "hw-math-quest-boss-isolated-proof:boss:prompt:r6:artifact",
+        "localArtifactPath": "/api/homework/game/reina/hw-math-quest-boss-isolated-proof-boss-experiment-boss.html",
+        "localArtworkPath": "/generated/adventure-board-demo/boss.jpeg",
+        "contractFingerprint": "d16b2ac66960e036ad817de2",
+        "validationStatus": "passed",
+        "creativeProvenance": {
+          "rationale": "Technical runtime validation only; creative judgement is the human review of the captured screenshots.",
+          "qualityPrediction": "No automated quality score is recorded.",
+          "creatorPromptHash": "7d170f8753f9f92bbfe036fe53a677a65cc31cb15555d99244715ec3c1683947",
+          "artworkPromptHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "validationProof": {
+          "engine": "playwright",
+          "passed": true,
+          "worldStateChanged": true,
+          "screenshotPaths": [
+            "/Users/jamaltaylor/Development/sunny-demo-main/outputs/quest-boss-production-proof/2026-08-06T22-15-32-721Z/strong/src/context/reina/homework/games/.validation/boss/boss-load.png",
+            "/Users/jamaltaylor/Development/sunny-demo-main/outputs/quest-boss-production-proof/2026-08-06T22-15-32-721Z/strong/src/context/reina/homework/games/.validation/boss/boss-recovery.png",
+            "/Users/jamaltaylor/Development/sunny-demo-main/outputs/quest-boss-production-proof/2026-08-06T22-15-32-721Z/strong/src/context/reina/homework/games/.validation/boss/boss-midplay.png",
+            "/Users/jamaltaylor/Development/sunny-demo-main/outputs/quest-boss-production-proof/2026-08-06T22-15-32-721Z/strong/src/context/reina/homework/games/.validation/boss/boss-completion.png"
+          ]
+        }
+      },
+      "artwork": {
+        "status": "ready",
+        "localPath": "/generated/adventure-board-demo/boss.jpeg",
+        "prompt": null
+      },
+      "sfxContract": [
+        "interaction",
+        "recovery",
+        "progress",
+        "completion"
+      ],
+      "companionContract": {
+        "events": [
+          "completion",
+          "frustration",
+          "help_requested"
+        ]
+      },
+      "evidenceContract": {
+        "academic": true,
+        "engagement": true,
+        "companionObservations": true
+      },
+      "evidenceIds": [
+        "lab:boss:boss:completion",
+        "lab:boss:boss:completion:engagement"
+      ]
+    }
+  ],
+  "academicPredictions": [
+    {
+      "predictionId": "prediction:equal-groups",
+      "theoryId": "theory:equal-groups-transfer",
+      "constructId": "math.multiplication.equal_groups",
+      "context": "fresh unassisted baseline work",
+      "horizon": "same_session",
+      "expectedMetric": {
+        "key": "academic.accuracy",
+        "min": 0.75,
+        "max": 1
+      },
+      "predictedErrorPatterns": [
+        "representation_to_notation"
+      ],
+      "confidence": 0.65,
+      "evidenceIds": [
+        "lab:assignment:equal-groups"
+      ],
+      "intervention": "AI-authored equal-groups experience",
+      "evidenceLimit": "practice_only",
+      "createdAt": "2026-08-06T12:00:00.000Z",
+      "lockedAt": "2026-08-06T12:00:00.000Z"
+    }
+  ],
+  "lifecycle": "awaiting_calibration",
+  "evidence": {
+    "academic": [
+      {
+        "evidenceId": "lab:strong-baseline:baseline:completion",
+        "accuracy": 1,
+        "summary": "Array Harbor completed at 100% across 2 scored target readings."
+      },
+      {
+        "evidenceId": "lab:quest:quest:completion",
+        "accuracy": 1,
+        "summary": "The Skybridge Rescue completed at 100% across 2 scored target readings."
+      },
+      {
+        "evidenceId": "lab:boss:boss:completion",
+        "accuracy": 1,
+        "summary": "The Foundry Finale completed at 100% across 1 scored target readings."
+      }
+    ],
+    "engagement": [
+      {
+        "evidenceId": "lab:strong-baseline:baseline:completion:engagement",
+        "summary": "Array Harbor completed in 75000ms; replay=false; frustration=none."
+      },
+      {
+        "evidenceId": "lab:quest:quest:completion:engagement",
+        "summary": "The Skybridge Rescue completed in 90000ms; replay=false; frustration=none."
+      },
+      {
+        "evidenceId": "lab:boss:boss:completion:engagement",
+        "summary": "The Foundry Finale completed in 105000ms; replay=false; frustration=none."
+      }
+    ],
+    "companionObservations": []
+  },
+  "decisionHistory": [
+    {
+      "decisionId": "hw-math-quest-boss-isolated-proof:decision:r2",
+      "eventType": "instrument_observed",
+      "reason": "Array Harbor factual scorecard recorded; one Planner decision is required.",
+      "nextAction": "Evaluate the preregistered prediction against this evidence.",
+      "evidenceIds": [
+        "lab:strong-baseline:baseline:completion",
+        "lab:strong-baseline:baseline:completion:engagement"
+      ],
+      "fromLifecycle": "baseline_ready",
+      "toLifecycle": "baseline_evaluating",
+      "createdAt": "2026-08-06T12:05:00.000Z"
+    },
+    {
+      "decisionId": "hw-math-quest-boss-isolated-proof:decision:r3",
+      "eventType": "theory_decided",
+      "status": "supported",
+      "reason": "Fresh independent baseline evidence supports an unseen transfer test but not mastery.",
+      "nextAction": "generate_quest",
+      "evidenceIds": [
+        "lab:strong-baseline:baseline:completion",
+        "lab:strong-baseline:baseline:completion:engagement"
+      ],
+      "fromLifecycle": "baseline_evaluating",
+      "toLifecycle": "quest_generating",
+      "createdAt": "2026-08-06T12:06:00.000Z",
+      "preserve": [
+        "visible equal-group reasoning"
+      ],
+      "change": [
+        "remove familiar baseline examples"
+      ],
+      "testNext": [
+        "unseen equal-groups transfer"
+      ],
+      "nextEvidenceRequired": [
+        "unassisted Quest evidence"
+      ],
+      "predictionEvaluationIds": []
+    },
+    {
+      "decisionId": "hw-math-quest-boss-isolated-proof:decision:r4",
+      "eventType": "artifact_bound",
+      "reason": "Validated quest artifact bound to canonical node contract.",
+      "evidenceIds": [
+        "lab:strong-baseline:baseline:completion",
+        "lab:strong-baseline:baseline:completion:engagement"
+      ],
+      "fromLifecycle": "quest_generating",
+      "toLifecycle": "quest_ready",
+      "createdAt": "2026-08-06T12:07:00.000Z"
+    },
+    {
+      "decisionId": "hw-math-quest-boss-isolated-proof:decision:r5",
+      "eventType": "instrument_observed",
+      "reason": "The Skybridge Rescue factual scorecard recorded; one Planner decision is required.",
+      "nextAction": "Evaluate the preregistered prediction against this evidence.",
+      "evidenceIds": [
+        "lab:quest:quest:completion",
+        "lab:quest:quest:completion:engagement"
+      ],
+      "fromLifecycle": "quest_ready",
+      "toLifecycle": "quest_evaluating",
+      "createdAt": "2026-08-06T12:20:00.000Z"
+    },
+    {
+      "decisionId": "hw-math-quest-boss-isolated-proof:decision:r6",
+      "eventType": "theory_decided",
+      "status": "supported",
+      "reason": "Unseen transfer succeeded independently; test unseen synthesis next.",
+      "nextAction": "generate_boss",
+      "evidenceIds": [
+        "lab:strong-baseline:baseline:completion",
+        "lab:quest:quest:completion",
+        "lab:strong-baseline:baseline:completion:engagement",
+        "lab:quest:quest:completion:engagement"
+      ],
+      "fromLifecycle": "quest_evaluating",
+      "toLifecycle": "boss_generating",
+      "createdAt": "2026-08-06T12:21:00.000Z",
+      "preserve": [
+        "independent mathematical control of the world"
+      ],
+      "change": [
+        "combine arrays, missing factors, and interpretation"
+      ],
+      "testNext": [
+        "unseen multiplication synthesis"
+      ],
+      "nextEvidenceRequired": [
+        "unassisted Boss evidence"
+      ],
+      "predictionEvaluationIds": []
+    },
+    {
+      "decisionId": "hw-math-quest-boss-isolated-proof:decision:r7",
+      "eventType": "artifact_bound",
+      "reason": "Validated boss artifact bound to canonical node contract.",
+      "evidenceIds": [
+        "lab:strong-baseline:baseline:completion",
+        "lab:quest:quest:completion",
+        "lab:strong-baseline:baseline:completion:engagement",
+        "lab:quest:quest:completion:engagement"
+      ],
+      "fromLifecycle": "boss_generating",
+      "toLifecycle": "boss_ready",
+      "createdAt": "2026-08-06T12:22:00.000Z"
+    },
+    {
+      "decisionId": "hw-math-quest-boss-isolated-proof:decision:r8",
+      "eventType": "instrument_observed",
+      "reason": "The Foundry Finale factual scorecard recorded; one Planner decision is required.",
+      "nextAction": "Evaluate the preregistered prediction against this evidence.",
+      "evidenceIds": [
+        "lab:boss:boss:completion",
+        "lab:boss:boss:completion:engagement"
+      ],
+      "fromLifecycle": "boss_ready",
+      "toLifecycle": "boss_evaluating",
+      "createdAt": "2026-08-06T12:35:00.000Z"
+    },
+    {
+      "decisionId": "hw-math-quest-boss-isolated-proof:decision:r9",
+      "eventType": "theory_decided",
+      "status": "awaiting_calibration",
+      "reason": "Strong in-app synthesis remains provisional until independently returned work arrives.",
+      "nextAction": "await_calibration",
+      "evidenceIds": [
+        "lab:strong-baseline:baseline:completion",
+        "lab:quest:quest:completion",
+        "lab:boss:boss:completion",
+        "lab:strong-baseline:baseline:completion:engagement",
+        "lab:quest:quest:completion:engagement",
+        "lab:boss:boss:completion:engagement"
+      ],
+      "fromLifecycle": "boss_evaluating",
+      "toLifecycle": "awaiting_calibration",
+      "createdAt": "2026-08-06T12:36:00.000Z",
+      "preserve": [
+        "visible math-to-world causality"
+      ],
+      "change": [],
+      "testNext": [],
+      "nextEvidenceRequired": [
+        "returned graded work"
+      ],
+      "predictionEvaluationIds": []
+    }
+  ],
+  "evidenceSources": [],
+  "assumptions": [],
+  "observations": [
+    {
+      "observationId": "lab:strong-baseline:baseline:observation:1",
+      "sourceId": "activity:lab:strong-baseline:baseline",
+      "itemId": "fresh-array-3-by-4",
+      "childResponse": "12",
+      "constructLinks": [
+        {
+          "constructId": "math.multiplication.equal_groups",
+          "role": "primary",
+          "confidence": 1
+        }
+      ],
+      "result": {
+        "correct": true,
+        "score": 1
+      },
+      "assistance": {
+        "status": "unassisted",
+        "scaffolds": []
+      },
+      "exposure": "previously_practiced",
+      "provenance": "practice",
+      "observedAt": "2026-08-06T12:05:00.000Z",
+      "confounds": []
+    },
+    {
+      "observationId": "lab:strong-baseline:baseline:observation:2",
+      "sourceId": "activity:lab:strong-baseline:baseline",
+      "itemId": "fresh-equal-groups-5-by-2",
+      "childResponse": "10",
+      "constructLinks": [
+        {
+          "constructId": "math.multiplication.equal_groups",
+          "role": "primary",
+          "confidence": 1
+        }
+      ],
+      "result": {
+        "correct": true,
+        "score": 1
+      },
+      "assistance": {
+        "status": "unassisted",
+        "scaffolds": []
+      },
+      "exposure": "previously_practiced",
+      "provenance": "practice",
+      "observedAt": "2026-08-06T12:05:00.000Z",
+      "confounds": []
+    },
+    {
+      "observationId": "lab:quest:quest:observation:1",
+      "sourceId": "activity:lab:quest:quest",
+      "itemId": "unseen-transfer-6-groups-of-4",
+      "childResponse": "24",
+      "constructLinks": [
+        {
+          "constructId": "math.transfer.equal.groups.reasoning.to.unfamiliar.situations",
+          "role": "primary",
+          "confidence": 1
+        }
+      ],
+      "result": {
+        "correct": true,
+        "score": 1
+      },
+      "assistance": {
+        "status": "unassisted",
+        "scaffolds": []
+      },
+      "exposure": "unseen",
+      "provenance": "independent_probe",
+      "observedAt": "2026-08-06T12:20:00.000Z",
+      "confounds": []
+    },
+    {
+      "observationId": "lab:quest:quest:observation:2",
+      "sourceId": "activity:lab:quest:quest",
+      "itemId": "unseen-transfer-missing-factor",
+      "childResponse": "5",
+      "constructLinks": [
+        {
+          "constructId": "math.transfer.equal.groups.reasoning.to.unfamiliar.situations",
+          "role": "primary",
+          "confidence": 1
+        }
+      ],
+      "result": {
+        "correct": true,
+        "score": 1
+      },
+      "assistance": {
+        "status": "unassisted",
+        "scaffolds": []
+      },
+      "exposure": "unseen",
+      "provenance": "independent_probe",
+      "observedAt": "2026-08-06T12:20:00.000Z",
+      "confounds": []
+    },
+    {
+      "observationId": "lab:boss:boss:observation:1",
+      "sourceId": "activity:lab:boss:boss",
+      "itemId": "unseen-synthesis-market",
+      "childResponse": "36",
+      "constructLinks": [
+        {
+          "constructId": "math.synthesize.arrays.missing.factors.and.word.problem.interpretation",
+          "role": "primary",
+          "confidence": 1
+        }
+      ],
+      "result": {
+        "correct": true,
+        "score": 1
+      },
+      "assistance": {
+        "status": "unassisted",
+        "scaffolds": []
+      },
+      "exposure": "unseen",
+      "provenance": "independent_probe",
+      "observedAt": "2026-08-06T12:35:00.000Z",
+      "confounds": []
+    }
+  ],
+  "predictionEvaluations": [],
+  "createdAt": "2026-08-06T12:00:00.000Z",
+  "updatedAt": "2026-08-06T12:36:00.000Z"
+}

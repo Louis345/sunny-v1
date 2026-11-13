@@ -1,0 +1,107 @@
+{
+  "status": "PASS",
+  "completeSessionEvidenceReachedDecisions": true,
+  "weakEvidenceBlockedFromQuestBoss": true,
+  "sameAssignmentReingestionPreservedProgress": true,
+  "returnedWorkControlledReadiness": true,
+  "multipleSessionsPreservedOneHistory": true,
+  "nextPlannerUsedPriorPredictionError": true,
+  "realChildDataChanged": false,
+  "identicalStartingHash": true,
+  "startingHash": "90f5f5a67f78ac64d36813475af080cc086043b27465d242f1ec2fe9682e560e",
+  "strong": {
+    "lifecycle": "complete",
+    "readiness": "ready_independent",
+    "decisionId": "hw-release-proof-equal-groups:decision:r3",
+    "evaluationId": "evaluation:7d505a4b1203c6d0",
+    "nextNodeId": null,
+    "nextPredictionId": null,
+    "priorEvidenceIds": [
+      "observation:69a4e46b9647ca93"
+    ]
+  },
+  "weak": {
+    "lifecycle": "baseline_generating",
+    "readiness": "not_yet_ready",
+    "decisionId": "hw-release-proof-equal-groups:decision:r3",
+    "evaluationId": "evaluation:7d505a4b1203c6d0",
+    "nextNodeId": "support:equal-groups-operation-selection",
+    "nextPredictionId": "hw-release-proof-equal-groups:prediction:r3:support",
+    "priorEvidenceIds": [
+      "observation:69a4e46b9647ca93"
+    ]
+  },
+  "baselineScenarios": [
+    {
+      "name": "Strong learning + low rating",
+      "rating": 1,
+      "lifecycle": "quest_generating",
+      "decisionId": "hw-release-proof-equal-groups:decision:r5",
+      "nextAction": "generate_quest"
+    },
+    {
+      "name": "Weak learning + high rating",
+      "rating": 5,
+      "lifecycle": "baseline_generating",
+      "decisionId": "hw-release-proof-equal-groups:decision:r5",
+      "nextAction": "generate_support"
+    },
+    {
+      "name": "Assisted success",
+      "rating": 5,
+      "lifecycle": "baseline_generating",
+      "decisionId": "hw-release-proof-equal-groups:decision:r5",
+      "nextAction": "generate_support"
+    }
+  ],
+  "predictionRows": [
+    {
+      "assignment": "Equal groups release proof",
+      "construct": "math.multiplication.equal_groups",
+      "prediction": "70–90%",
+      "actual": "0%",
+      "error": "70%",
+      "evidenceType": "graded_work",
+      "assistance": "unknown",
+      "adjustment": "add operation-selection support"
+    }
+  ],
+  "calibrationMessage": "One calibrated prediction is not enough to judge Sunny overall.",
+  "canonicalFilesChanged": [
+    "/Users/jamaltaylor/Development/sunny-demo-main/outputs/math-feedback-loop-release-proof/2026-08-07-final/scenarios/strong/src/context/proof-child/homework/cycles/hw-release-proof-equal-groups.json",
+    "/Users/jamaltaylor/Development/sunny-demo-main/outputs/math-feedback-loop-release-proof/2026-08-07-final/scenarios/weak/src/context/proof-child/homework/cycles/hw-release-proof-equal-groups.json"
+  ],
+  "priorProofFiles": [
+    "/Users/jamaltaylor/Development/sunny-demo-main/outputs/math-feedback-loop-release-proof/2026-08-07-session-finalization/summary.json",
+    "/Users/jamaltaylor/Development/sunny-demo-main/outputs/math-feedback-loop-release-proof/2026-08-07-quest-boss-evidence/summary.json",
+    "/Users/jamaltaylor/Development/sunny-demo-main/outputs/math-feedback-loop-release-proof/2026-08-07-same-assignment-reingestion/summary.json"
+  ],
+  "audit": {
+    "contractVersion": 11,
+    "branch": "codex/math-quest-boss-release-proof",
+    "startingCommit": "58828f5abd26ccbc9ca2cf1b8268bca8cb1b264a",
+    "productCodeDiff": [
+      "LEARNING_FEEDBACK_LOOP.md",
+      "src/engine/directMathExperience.test.ts",
+      "src/engine/directMathExperience.ts",
+      "src/engine/learningCycleRepository.test.ts",
+      "src/engine/learningCycleRepository.ts",
+      "src/engine/learningCycleRuntime.test.ts",
+      "src/engine/learningCycleRuntime.ts",
+      "src/engine/longitudinalLearning.test.ts",
+      "src/engine/longitudinalLearning.ts",
+      "src/engine/mathClosedLearningLoopAcceptance.test.ts",
+      "src/engine/returnedWorkPipeline.test.ts",
+      "src/engine/returnedWorkPipeline.ts",
+      "src/scripts/ingestMathDirect.test.ts",
+      "src/scripts/ingestMathDirect.ts",
+      "src/server/routes-choice-event-feedback.test.ts",
+      "src/server/routes.ts",
+      "web/src/components/LearningReportPage.tsx",
+      "web/src/tests/LearningReportPage.test.tsx",
+      "FEEDBACK_LOOPS_2026-08-07.md",
+      "src/scripts/runMathFeedbackLoopReleaseProof.test.ts",
+      "src/scripts/runMathFeedbackLoopReleaseProof.ts"
+    ]
+  }
+}

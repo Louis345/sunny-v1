@@ -1,0 +1,713 @@
+{
+  "schemaVersion": 2,
+  "revision": 11,
+  "childId": "live-proof-child",
+  "homeworkId": "hw-live-progression",
+  "domain": "math",
+  "assignment": {
+    "title": "Festival Team Challenge",
+    "contentFingerprint": "live-progression-assignment",
+    "capturedEvidenceIds": [
+      "assignment:live-progression",
+      "rating:round-a:4",
+      "rating:round-b:3",
+      "rating:round-c:5",
+      "replay:round-c:1"
+    ],
+    "targets": [
+      "math.multiplication.equal_groups",
+      "math.multiplication.missing_factor",
+      "math.multiplication.word_problem_interpretation"
+    ]
+  },
+  "academicTheory": {
+    "theoryId": "live-progression-theory",
+    "revision": 3,
+    "hypothesis": "Lab Learner transfers equal-groups, missing-factor, and word-problem interpretation to unseen material at high accuracy, and the uniqueness misconception observed at baseline (\"only one pair\") has resolved for generation: given a product, Lab Learner now produces alternative valid factor pairs without stalling. What remains untested is the negative case and the multi-constraint case. Prediction: when two constraints must hold at once, Lab Learner will satisfy the more salient rule first and check the second only after building; and when an arrangement is genuinely impossible, Lab Learner will exhaust several near-miss arrangements before considering refusal, and may ship an uneven arrangement rather than assert impossibility — because impossibility has never been modeled as a legitimate answer.",
+    "supportCriteria": [
+      "Fresh unassisted answers support transfer."
+    ],
+    "reviseCriteria": [
+      "Errors reveal a scoped misconception."
+    ],
+    "falsifyCriteria": [
+      "Repeated fresh independent errors contradict transfer."
+    ]
+  },
+  "engagementTheory": null,
+  "assumptions": [
+    {
+      "assumptionId": "live-progression-assumption",
+      "claim": "A mission with visible mathematical consequences may sustain engagement.",
+      "evidenceIds": [
+        "rating:round-c:5",
+        "replay:round-c:1"
+      ],
+      "confidence": 0.55,
+      "uncertainty": "The sample contains only three synthetic sessions.",
+      "createdAt": "2026-08-08T12:00:00.000Z",
+      "lockedAt": "2026-08-08T12:00:00.000Z"
+    }
+  ],
+  "nodes": [
+    {
+      "nodeId": "baseline",
+      "role": "baseline",
+      "title": "Festival Team Challenge",
+      "state": "completed",
+      "academicTarget": {
+        "domain": "math",
+        "skill": "multiplication transfer",
+        "targets": [
+          "math.multiplication.equal_groups",
+          "math.multiplication.missing_factor",
+          "math.multiplication.word_problem_interpretation"
+        ]
+      },
+      "algorithmOwner": "retrieval-practice",
+      "theoryId": "live-progression-theory",
+      "experimentId": "live-baseline",
+      "mechanic": "AI-owned",
+      "theme": "AI-owned",
+      "openingScreen": {
+        "title": "Festival Team Challenge",
+        "purpose": "Collect fresh evidence."
+      },
+      "generationPrompt": null,
+      "artifactBinding": {
+        "contentId": "live-baseline",
+        "artifactId": "live-baseline-artifact",
+        "localArtifactPath": "/lab/baseline.html",
+        "localArtworkPath": "/lab/baseline.png",
+        "contractFingerprint": "live-baseline-contract",
+        "validationStatus": "passed"
+      },
+      "artwork": {
+        "status": "ready",
+        "localPath": "/lab/baseline.png",
+        "prompt": null
+      },
+      "sfxContract": [
+        "interaction",
+        "recovery",
+        "progress",
+        "completion"
+      ],
+      "companionContract": {
+        "events": [
+          "help_requested"
+        ]
+      },
+      "evidenceContract": {
+        "academic": true,
+        "engagement": true,
+        "companionObservations": true
+      },
+      "evidenceIds": [
+        "live-proof-baseline-session:baseline:completion",
+        "live-proof-baseline-session:baseline:completion:engagement"
+      ]
+    },
+    {
+      "nodeId": "quest",
+      "role": "quest",
+      "title": "The Shape-Shifting Crate",
+      "state": "completed",
+      "academicTarget": {
+        "domain": "math",
+        "skill": "math.multiplication.transfer — producing multiple valid factor pairs for one product, and solving for an unknown factor under a stated constraint, in unseen contexts",
+        "targets": [
+          "math.multiplication.equal_groups",
+          "math.multiplication.missing_factor",
+          "math.multiplication.word_problem_interpretation"
+        ]
+      },
+      "algorithmOwner": "mastery-gating",
+      "theoryId": "live-progression-theory",
+      "experimentId": "live-quest",
+      "mechanic": "Drag-to-rearrange packing puzzle: the same fixed pile of cargo must be rebuilt into different rectangular crate layouts on demand, with a shipping clock running.",
+      "theme": "A night dock on a river. Cargo pods glow on the pier, and three cargo boats with differently shaped holds are pulling in one after another. Every pod must sail. Nothing gets left on the dock.",
+      "openingScreen": {
+        "title": "The Shape-Shifting Crate",
+        "purpose": "Open on 24 glowing pods already sitting in a neat 4-by-6 block — the exact arrangement Lab Learner built correctly at baseline — as the first boat's hold slides into view six units wide and far too shallow to take it. The familiar answer is shown to be right and still useless. That is the whole instrument's argument in the first eight seconds."
+      },
+      "generationPrompt": {
+        "promptId": "hw-live-progression:quest:prompt:r5",
+        "createdFromEvidenceIds": [
+          "live-proof-baseline-session:baseline:completion",
+          "live-proof-baseline-session:baseline:completion:engagement",
+          "rating:baseline:5"
+        ],
+        "text": "Build a five-round dock loading run for a 9-year-old. A fixed pod count must be dragged into a rectangle that exactly fits each arriving boat's hold — no gaps, no leftovers, no stacking outside the outline. Round 1: 24 pods, hold is 3 wide, so the child must find 3 × 8. Round 2: same 24 pods, hold is 12 wide, forcing a second decomposition of a product they already 'solved'. Round 3: 36 pods and the boat announces only its depth (4 rows) — the child must work out the width, an unknown-factor solve where the unknown is the group count. Round 4: 14 pods and the harbourmaster asks for a hold that is 4 wide; it genuinely cannot be done, and the child must say so and pick a legal hold instead — this is the direct probe of whether 'a product has one shape' has become 'a product has whichever shapes divide it'. Round 5: an unseen story — 'the lantern barge takes rows of 5 and it must be at least 6 rows deep; load 40 lanterns' — read the constraint, build 5 × 8, and defend why 8 rows and not 4. Between rounds a boat horn sounds and the tide gauge drops one notch. Speak plainly, no baby talk, no confetti for merely finishing a drag. Assignment: Festival Team Challenge. Academic construct to preserve: Lab Learner reliably transfers equal-groups, missing-factor, and word-problem interpretation on practiced material, but holds a uniqueness misconception: a product is treated as having a single valid group structure. Prediction: on unseen composite products Lab Learner will build the first correct rectangle quickly and then stall or repeat it when a different arrangement is demanded, and will attempt an impossible arrangement rather than declare it impossible. This node must test unseen transfer: change the context while preserving the construct. Author fresh items. These have already been seen and must not be reused verbatim: math.multiplication.equal_groups, math.multiplication.missing_factor, math.multiplication.word_problem_interpretation, math.multiplication.factor_pairs. Planner decision behind this node: Baseline accuracy was 0.75, inside the preregistered 0.70–1.00 band, and all four readings were unassisted — but every item was previously_practiced with provenance 'practice', so this supports the transfer hypothesis only as a warrant to test it, never as proof. The single miss landed exactly on the predicted error pattern: on math.multiplication.factor_pairs Lab Learner answered 'only one pair', treating a product as having a unique decomposition. That is a scoped misconception, not a collapse of multiplicative reasoning, so the hypothesis is revised rather than falsified: equal-groups, missing-factor, and word-problem reasoning hold, while the belief that a product names one and only one group-structure does not. Quest eligibility is already met (4 target-aligned, 3 independent correct), so the right move is an unseen-transfer Quest built so that the uniqueness belief is the thing that fails first and visibly. Created at: 2026-08-08T16:13:56.012Z."
+      },
+      "artifactBinding": {
+        "contentId": "live-proof:quest",
+        "artifactId": "quest-shape-shifting-crate-dock-run-v1",
+        "localArtifactPath": "/Users/jamaltaylor/Development/sunny-demo-main/outputs/math-release-confidence-live/2026-08-08T16-02-39.895Z/quest/experience.html",
+        "localArtworkPath": "/Users/jamaltaylor/Development/sunny-demo-main/outputs/math-release-confidence-live/2026-08-08T16-02-39.895Z/quest/provenance-placeholder.svg",
+        "contractFingerprint": "879f3f5fc37bcf3dc51d2cbcc69d0c557033ac533d4c4ed64c50a3e6b05b4a4d",
+        "validationStatus": "passed"
+      },
+      "artwork": {
+        "status": "ready",
+        "localPath": "/Users/jamaltaylor/Development/sunny-demo-main/outputs/math-release-confidence-live/2026-08-08T16-02-39.895Z/quest/provenance-placeholder.svg",
+        "prompt": null
+      },
+      "sfxContract": [
+        "interaction",
+        "recovery",
+        "progress",
+        "completion"
+      ],
+      "companionContract": {
+        "events": [
+          "help_requested"
+        ]
+      },
+      "evidenceContract": {
+        "academic": true,
+        "engagement": true,
+        "companionObservations": true
+      },
+      "evidenceIds": [
+        "live-proof-quest-session:quest:completion",
+        "live-proof-quest-session:quest:completion:engagement"
+      ],
+      "design": {
+        "stakes": "The tide is going out. A gauge on the pier drops one notch every 45 seconds and every time the child submits a layout that doesn't exactly fill the hold. When the gauge hits bottom the boat leaves on the tide with whatever fitted, and the pods still loose on the dock stay behind — the child watches them go dark one by one, and the dock counter shows how many pods missed the sailing. Those pods are gone from the run; the final tally at the end of the night is the pods that sailed, not a score out of five. A child who finds only the first arrangement they already know will strand cargo in round 2 and feel exactly why one factor pair is not enough.",
+        "failureMode": "A run ends badly when the tide runs out with pods still on the dock. Concretely: the child rebuilds the same familiar rectangle for a hold it cannot fit, or keeps nudging pods without changing the row count, and the gauge empties. The boat sails, the stranded pods go dark, and that count carries into the final tally — it cannot be recovered by doing well later. Round 4 has its own failure: forcing a 4-wide layout onto 14 pods leaves two pods hanging outside the outline every single time, and burning the tide trying is the cost of not accepting that some widths simply don't divide.",
+        "escalation": "Round 1 gives a product Lab Learner has met and a width that quietly forbids the memorized arrangement. Round 2 returns to that same product to demand a different shape — the first real jolt. Round 3 removes the width entirely so the factor must be reasoned, not seen. Round 4 removes the guarantee of success and asks for a judgment about impossibility. Round 5 removes the numbers from view altogether and hides them inside a sentence with a constraint, with the tide already lower because the earlier rounds cost time. Tide drain rate increases slightly each round.",
+        "mechanicSpec": "The child drags glowing pods from a loose pile at the bottom of the screen into a rectangular hold outline at the top. Pods snap to a grid inside the outline. A live readout under the hold reads 'rows × per row = loaded' and updates on every drop, so 3 rows of 7 shows '3 × 7 = 21' with 3 pods still glowing on the dock. Grabbing the corner handle of an already-built block reshapes it — pull it wide and the rows recompute, and pods that no longer fit pop back out to the dock, visibly. Pressing SAIL locks the layout: if it exactly fills the hold, the outline seals and the boat pulls away with a horn. If it doesn't, the hold flashes red at the empty cells or the overflow pods, the tide gauge drops a notch, and the boat waits. Failure on screen is loose pods dimming to grey on an empty dock as the boat's lights recede upriver.",
+        "mathematicalHook": "The same 24 pods are a 4-by-6 block, a 3-by-8 block, a 2-by-12 block, and a 1-by-24 line — the pile never changes, only the shape does. A number is not one arrangement; it carries a whole family of them, and it is your job to know which ones it owns. And then 14 arrives and flatly refuses to become 4 rows, no matter how you push — which is the moment a child feels that numbers have shapes they can have and shapes they can't, and that this is a fact about the number, not about how hard you try."
+      }
+    },
+    {
+      "nodeId": "boss",
+      "role": "boss",
+      "title": "The Impossible Order",
+      "state": "ready",
+      "academicTarget": {
+        "domain": "math",
+        "skill": "math.multiplication.synthesis.constrained_factor_pairs_and_impossibility — given a product and two simultaneous structural constraints, generate a valid rectangular arrangement, solve for an unknown factor, or correctly determine that no arrangement exists and justify why.",
+        "targets": [
+          "math.multiplication.equal_groups",
+          "math.multiplication.missing_factor",
+          "math.multiplication.word_problem_interpretation"
+        ]
+      },
+      "algorithmOwner": "mastery-gating",
+      "theoryId": "live-progression-theory",
+      "experimentId": "live-boss",
+      "mechanic": "Drag-to-pack rectangular array building against written shipping orders, with a limited stock of crates, a commit button, and a refusal stamp that is sometimes the only correct answer.",
+      "theme": "Night shift at a harbor packing house. Orders arrive on a conveyor from captains who do not always know what they are asking for.",
+      "openingScreen": {
+        "title": "The Impossible Order",
+        "purpose": "The first order on screen is fillable and takes about ten seconds — it teaches the drag, the commit, and the refusal stamp in one motion, and it ends with a captain thanking them, so the child knows the stamp exists and is a real tool before they ever need it."
+      },
+      "generationPrompt": {
+        "promptId": "hw-live-progression:boss:prompt:r10",
+        "createdFromEvidenceIds": [
+          "live-proof-baseline-session:baseline:completion",
+          "live-proof-quest-session:quest:completion",
+          "live-proof-baseline-session:baseline:completion:engagement",
+          "rating:baseline:5",
+          "live-proof-quest-session:quest:completion:engagement",
+          "rating:quest:5"
+        ],
+        "text": "Build a boss called \"The Impossible Order\" for a 9-year-old who has just proved they can re-group a fixed product into different equal groups on unseen material, quickly and happily. Setting: a harbor packing house at night. Orders slide in on a conveyor. Each order names a number of fish (the product) and states TWO rules at once — for example \"pack 18 fish, exactly 3 fish per row\" or \"pack 24 fish, more than 4 rows and more than 4 fish in each row.\" The child drags fish into a grid to build the array. The grid only accepts complete rows; a half-filled row glows red and will not lock. Below the grid sit two buttons: SHIP IT and CANNOT BE PACKED. Some orders — 17 fish in equal rows of more than one, or 25 fish in exactly 4 equal rows — genuinely have no solution, and the only correct move is the refusal stamp plus choosing a short reason from three options (\"nothing divides it evenly,\" \"the rows don't come out even,\" \"the rule breaks the count\"). Stock matters: the child begins the shift with a fixed supply of fish. Shipping a wrong order spills that crate into the water — those fish are gone from the shift and the next orders must be filled from less. Refusing a fillable order also costs, because the captain leaves and takes their crate with them. Late in the shift an order arrives that the child cannot fill unless they saved stock earlier. The final order is the hardest kind: a quantity the child chooses from two candidates on the dock, where only one of them can meet the stated rules — they must pick and then build. Escalate from one rule to two rules to a choice of quantity. Keep decisions dense; no long dialogue. End the shift with the harbor master reading back the child's own refusals aloud as the proudest part of the night — refusing an impossible order is what a real packer does. Do not certify mastery in the ending text; the shift ends, the tally is shown, and the record goes to the harbor log. Assignment: Festival Team Challenge. Academic construct to preserve: Lab Learner transfers equal-groups, missing-factor, and word-problem interpretation to unseen material at high accuracy, and the uniqueness misconception observed at baseline (\"only one pair\") has resolved for generation: given a product, Lab Learner now produces alternative valid factor pairs without stalling. What remains untested is the negative case and the multi-constraint case. Prediction: when two constraints must hold at once, Lab Learner will satisfy the more salient rule first and check the second only after building; and when an arrangement is genuinely impossible, Lab Learner will exhaust several near-miss arrangements before considering refusal, and may ship an uneven arrangement rather than assert impossibility — because impossibility has never been modeled as a legitimate answer. This node must test unseen synthesis: combine the construct in a context not practised before. Author fresh items. These have already been seen and must not be reused verbatim: math.multiplication.equal_groups, math.multiplication.missing_factor, math.multiplication.word_problem_interpretation, math.multiplication.factor_pairs, math.multiplication.unseen_transfer.equal_groups, math.multiplication.unseen_transfer.missing_factor, math.multiplication.unseen_transfer.word_problem. Planner decision behind this node: The preregistered prediction (accuracy 0.70–1.00 on fresh unassisted transfer) was met: 3/3 unseen, unassisted, independent-probe items correct at 100%, so the transfer claim is supported at the Quest evidence limit. But the theory's specific misconception clause was not upheld — it predicted stalling and repetition when a second arrangement was demanded, and the Shape-Shifting Crate produced a re-grouping of 24 as 6 groups of 4 alongside a constrained missing-factor solve with no stall and no frustration in 75s. The uniqueness misconception therefore looks resolved on the transfer items, though the original baseline error (\"only one pair\") was never directly re-tested with an impossibility judgment: Lab Learner has never been observed declaring an arrangement impossible, only producing ones that work. So the hypothesis is revised rather than supported outright. Boss eligibility is satisfied on fresh, correct, unassisted Quest evidence, so the next instrument is unseen synthesis: hold several constraints at once, decide which products can satisfy them and which cannot, and defend the impossible case. Boss ends awaiting calibration; it cannot certify mastery. Created at: 2026-08-08T16:26:29.469Z."
+      },
+      "artifactBinding": {
+        "contentId": "live-proof:boss",
+        "artifactId": "boss-impossible-order-harbor-night-v1",
+        "localArtifactPath": "/Users/jamaltaylor/Development/sunny-demo-main/outputs/math-release-confidence-live/2026-08-08T16-02-39.895Z/boss/experience.html",
+        "localArtworkPath": "/Users/jamaltaylor/Development/sunny-demo-main/outputs/math-release-confidence-live/2026-08-08T16-02-39.895Z/boss/provenance-placeholder.svg",
+        "contractFingerprint": "f6d7c531ed16b68f59161ce663b5e1a44a5a80cfccbd425b2e664352ff79c381",
+        "validationStatus": "passed"
+      },
+      "artwork": {
+        "status": "ready",
+        "localPath": "/Users/jamaltaylor/Development/sunny-demo-main/outputs/math-release-confidence-live/2026-08-08T16-02-39.895Z/boss/provenance-placeholder.svg",
+        "prompt": null
+      },
+      "sfxContract": [
+        "interaction",
+        "recovery",
+        "progress",
+        "completion"
+      ],
+      "companionContract": {
+        "events": [
+          "help_requested"
+        ]
+      },
+      "evidenceContract": {
+        "academic": true,
+        "engagement": true,
+        "companionObservations": true
+      },
+      "evidenceIds": [],
+      "design": {
+        "stakes": "Fish stock is finite and non-renewable within the shift. Every wrong ship spills a crate into the harbor and permanently shrinks the supply the child has for later orders; every wrong refusal loses a paying captain and their crate. Because a late order requires stock the child must still have, early carelessness makes a later order literally unfillable — the child watches an order they understand perfectly slide past because they no longer have the fish. What is at risk is the completeness of the night's manifest, and the child can end the shift with a short, visibly incomplete log that is theirs.",
+        "failureMode": "The shift can be failed. If stock drops below what the remaining orders need, orders start sliding off the conveyor unfilled, and the shift ends early with the harbor log short and gaps marked in it. The two distinct failures are readable and separate: forcing an uneven arrangement through and shipping it (spilled crate) versus stamping CANNOT BE PACKED on an order that was in fact packable (lost captain). Both are recorded by name in the log, so the child sees which mistake was theirs.",
+        "escalation": "Order one is a single rule with an obvious answer, ten seconds, one solution. Orders two through four add a second simultaneous rule so satisfying only one is now a visible failure. Order five is the first genuine impossibility, arriving with no warning among fillable orders so the child must notice it themselves. Orders six through eight mix fillable and impossible unpredictably while stock is already reduced, and the conveyor speed increases slightly so hesitation costs an order. The final order requires the child to choose which of two quantities on the dock can satisfy the rules, refuse the other, and then build the array from remaining stock.",
+        "mechanicSpec": "The child drags fish one at a time or in a swipe from a stock bin into a rectangular pen. Fish snap into rows left to right. A row that is not full stays translucent and pulses red; the pen will not lock while any row is incomplete. As fish land, a live readout under the pen updates — \"4 rows × 5 fish = 20\" — and turns green only when both stated rules are satisfied simultaneously. Pressing SHIP IT with a red readout tips the pen sideways: the fish slide out, splash, and the stock counter drops by that amount with an audible fall — they do not come back. Pressing CANNOT BE PACKED shows a stamp thudding onto the order; if the order was truly impossible, the harbor master nods and the order pins to the log board; if it was packable, the captain's boat pulls away with the crate still aboard and the log board shows an empty slot. On screen, failure looks like an emptying stock bin and a log board with holes in it.",
+        "mathematicalHook": "Some numbers are generous and some are stubborn. Twenty-four will rearrange itself into rows of 2, 3, 4, 6, 8, or 12 for anyone who asks — but 17 will not break into equal rows at all, no matter how the fish are pushed around, and no amount of trying changes that. The whoa is discovering that \"it can't be done\" is a real mathematical answer with a reason behind it, and that saying so out loud is a stronger move than forcing a row that doesn't fit."
+      }
+    }
+  ],
+  "academicPredictions": [
+    {
+      "predictionId": "live-progression-prediction",
+      "theoryId": "live-progression-theory",
+      "constructId": "math.multiplication.transfer",
+      "context": "fresh unassisted baseline evidence",
+      "horizon": "next_session",
+      "expectedMetric": {
+        "key": "academic.accuracy",
+        "min": 0.7,
+        "max": 1
+      },
+      "predictedErrorPatterns": [
+        "factor-pair overgeneralization"
+      ],
+      "confidence": 0.65,
+      "evidenceIds": [
+        "assignment:live-progression"
+      ],
+      "intervention": "baseline learning program",
+      "evidenceLimit": "independent_performance",
+      "createdAt": "2026-08-08T12:00:00.000Z",
+      "lockedAt": "2026-08-08T12:00:00.000Z"
+    }
+  ],
+  "lifecycle": "boss_ready",
+  "evidence": {
+    "academic": [
+      {
+        "evidenceId": "live-proof-baseline-session:baseline:completion",
+        "accuracy": 0.75,
+        "summary": "Festival Team Challenge completed at 75% across 4 scored target readings."
+      },
+      {
+        "evidenceId": "live-proof-quest-session:quest:completion",
+        "accuracy": 1,
+        "summary": "The Shape-Shifting Crate completed at 100% across 3 scored target readings."
+      }
+    ],
+    "engagement": [
+      {
+        "evidenceId": "live-proof-baseline-session:baseline:completion:engagement",
+        "summary": "Festival Team Challenge completed in 95000ms; replay=false; frustration=none."
+      },
+      {
+        "evidenceId": "rating:baseline:5",
+        "summary": "Session finalized after Festival Team Challenge: fun rating 5/5; action back_to_map."
+      },
+      {
+        "evidenceId": "live-proof-quest-session:quest:completion:engagement",
+        "summary": "The Shape-Shifting Crate completed in 75000ms; replay=false; frustration=none."
+      },
+      {
+        "evidenceId": "rating:quest:5",
+        "summary": "Session finalized after The Shape-Shifting Crate: fun rating 5/5; action back_to_map."
+      }
+    ],
+    "companionObservations": []
+  },
+  "decisionHistory": [
+    {
+      "decisionId": "hw-live-progression:decision:r2",
+      "eventType": "instrument_observed",
+      "reason": "Festival Team Challenge factual scorecard recorded; one Planner decision is required.",
+      "nextAction": "Evaluate the preregistered prediction against this evidence.",
+      "evidenceIds": [
+        "live-proof-baseline-session:baseline:completion",
+        "live-proof-baseline-session:baseline:completion:engagement"
+      ],
+      "fromLifecycle": "baseline_ready",
+      "toLifecycle": "baseline_evaluating",
+      "createdAt": "2026-08-08T16:13:06.115Z"
+    },
+    {
+      "decisionId": "hw-live-progression:decision:r3",
+      "eventType": "session_finalized",
+      "reason": "Festival Team Challenge session evidence was finalized before the next Planner decision.",
+      "nextAction": "Evaluate the complete academic and engagement scorecard once.",
+      "evidenceIds": [
+        "rating:baseline:5"
+      ],
+      "fromLifecycle": "baseline_evaluating",
+      "toLifecycle": "baseline_evaluating",
+      "createdAt": "2026-08-08T16:13:06.117Z"
+    },
+    {
+      "decisionId": "hw-live-progression:decision:r4",
+      "eventType": "progression_decision_claimed",
+      "reason": "The finalized session packet was claimed for one Planner decision.",
+      "evidenceIds": [
+        "rating:baseline:5"
+      ],
+      "fromLifecycle": "baseline_evaluating",
+      "toLifecycle": "baseline_evaluating",
+      "createdAt": "2026-08-08T16:13:06.121Z"
+    },
+    {
+      "decisionId": "hw-live-progression:decision:r5",
+      "eventType": "theory_decided",
+      "status": "revised",
+      "reason": "Baseline accuracy was 0.75, inside the preregistered 0.70–1.00 band, and all four readings were unassisted — but every item was previously_practiced with provenance 'practice', so this supports the transfer hypothesis only as a warrant to test it, never as proof. The single miss landed exactly on the predicted error pattern: on math.multiplication.factor_pairs Lab Learner answered 'only one pair', treating a product as having a unique decomposition. That is a scoped misconception, not a collapse of multiplicative reasoning, so the hypothesis is revised rather than falsified: equal-groups, missing-factor, and word-problem reasoning hold, while the belief that a product names one and only one group-structure does not. Quest eligibility is already met (4 target-aligned, 3 independent correct), so the right move is an unseen-transfer Quest built so that the uniqueness belief is the thing that fails first and visibly.",
+      "nextAction": "generate_quest",
+      "evidenceIds": [
+        "live-proof-baseline-session:baseline:completion",
+        "live-proof-baseline-session:baseline:completion:engagement",
+        "rating:baseline:5"
+      ],
+      "fromLifecycle": "baseline_evaluating",
+      "toLifecycle": "quest_generating",
+      "createdAt": "2026-08-08T16:13:56.012Z",
+      "preserve": [
+        "Unassisted answering with no scaffolds offered before an attempt is made",
+        "All three confirmed strands kept live: equal groups, missing factor, and reading a story into a multiplication structure",
+        "Roughly 90-second-per-challenge pacing — the baseline ran 95s with zero frustration",
+        "Concrete arrangeable objects rather than bare number sentences"
+      ],
+      "change": [
+        "Move from previously practiced items to entirely unseen contexts and unseen number families",
+        "Make multiple valid factorizations of the same product the load-bearing demand, not a side item",
+        "Introduce a real cost for stopping at the first correct arrangement",
+        "Add missing-factor reasoning under a constraint rather than as an isolated blank"
+      ],
+      "testNext": [
+        "Whether Lab Learner spontaneously produces a second and third arrangement for one product without being told more exist",
+        "Whether 'only one pair' reappears when the product is composite-rich (24, 36) versus near-prime (14, 22)",
+        "Whether missing-factor reasoning survives when the unknown is the number of groups rather than the group size",
+        "Whether a story with a constraint attached is read as a filter over arrangements or as a single fixed answer"
+      ],
+      "nextEvidenceRequired": [
+        "At least 4 unassisted responses on unseen products, each linked to math.multiplication.transfer",
+        "At least 2 responses that require producing more than one factor pair for a single product",
+        "One response where the unknown factor is the group count under a stated constraint",
+        "One story-to-structure response on an unseen context, plus timing and any retry counts"
+      ],
+      "predictionEvaluationIds": []
+    },
+    {
+      "decisionId": "hw-live-progression:decision:r6",
+      "eventType": "artifact_bound",
+      "reason": "Validated quest artifact bound to canonical node contract.",
+      "evidenceIds": [
+        "live-proof-baseline-session:baseline:completion",
+        "live-proof-baseline-session:baseline:completion:engagement",
+        "rating:baseline:5"
+      ],
+      "fromLifecycle": "quest_generating",
+      "toLifecycle": "quest_ready",
+      "createdAt": "2026-08-08T16:25:30.296Z"
+    },
+    {
+      "decisionId": "hw-live-progression:decision:r7",
+      "eventType": "instrument_observed",
+      "reason": "The Shape-Shifting Crate factual scorecard recorded; one Planner decision is required.",
+      "nextAction": "Evaluate the preregistered prediction against this evidence.",
+      "evidenceIds": [
+        "live-proof-quest-session:quest:completion",
+        "live-proof-quest-session:quest:completion:engagement"
+      ],
+      "fromLifecycle": "quest_ready",
+      "toLifecycle": "quest_evaluating",
+      "createdAt": "2026-08-08T16:25:30.300Z"
+    },
+    {
+      "decisionId": "hw-live-progression:decision:r8",
+      "eventType": "session_finalized",
+      "reason": "The Shape-Shifting Crate session evidence was finalized before the next Planner decision.",
+      "nextAction": "Evaluate the complete academic and engagement scorecard once.",
+      "evidenceIds": [
+        "rating:quest:5"
+      ],
+      "fromLifecycle": "quest_evaluating",
+      "toLifecycle": "quest_evaluating",
+      "createdAt": "2026-08-08T16:25:30.301Z"
+    },
+    {
+      "decisionId": "hw-live-progression:decision:r9",
+      "eventType": "progression_decision_claimed",
+      "reason": "The finalized session packet was claimed for one Planner decision.",
+      "evidenceIds": [
+        "rating:quest:5"
+      ],
+      "fromLifecycle": "quest_evaluating",
+      "toLifecycle": "quest_evaluating",
+      "createdAt": "2026-08-08T16:25:30.304Z"
+    },
+    {
+      "decisionId": "hw-live-progression:decision:r10",
+      "eventType": "theory_decided",
+      "status": "revised",
+      "reason": "The preregistered prediction (accuracy 0.70–1.00 on fresh unassisted transfer) was met: 3/3 unseen, unassisted, independent-probe items correct at 100%, so the transfer claim is supported at the Quest evidence limit. But the theory's specific misconception clause was not upheld — it predicted stalling and repetition when a second arrangement was demanded, and the Shape-Shifting Crate produced a re-grouping of 24 as 6 groups of 4 alongside a constrained missing-factor solve with no stall and no frustration in 75s. The uniqueness misconception therefore looks resolved on the transfer items, though the original baseline error (\"only one pair\") was never directly re-tested with an impossibility judgment: Lab Learner has never been observed declaring an arrangement impossible, only producing ones that work. So the hypothesis is revised rather than supported outright. Boss eligibility is satisfied on fresh, correct, unassisted Quest evidence, so the next instrument is unseen synthesis: hold several constraints at once, decide which products can satisfy them and which cannot, and defend the impossible case. Boss ends awaiting calibration; it cannot certify mastery.",
+      "nextAction": "generate_boss",
+      "evidenceIds": [
+        "live-proof-baseline-session:baseline:completion",
+        "live-proof-quest-session:quest:completion",
+        "live-proof-baseline-session:baseline:completion:engagement",
+        "rating:baseline:5",
+        "live-proof-quest-session:quest:completion:engagement",
+        "rating:quest:5"
+      ],
+      "fromLifecycle": "quest_evaluating",
+      "toLifecycle": "boss_generating",
+      "createdAt": "2026-08-08T16:26:29.469Z",
+      "preserve": [
+        "Physical rearrangement of a fixed quantity — the child moves objects, and the count stays constant while the shape changes",
+        "Short dense runtime near 75 seconds per decision phase with no filler between challenges",
+        "Constraint-driven missing factor: a rule is stated, the child must find the number that satisfies it",
+        "Immediate visible verification — the arrangement itself shows whether it worked, before any words appear"
+      ],
+      "change": [
+        "Multiple constraints must hold simultaneously instead of one at a time",
+        "Some demands are impossible, and declaring impossibility is a required winning move, not a giving-up move",
+        "The child must choose which quantity to work with, not just how to arrange a given one",
+        "Real loss: wrong commitments destroy stock that cannot be recovered"
+      ],
+      "testNext": [
+        "Whether Lab Learner can hold two constraints at once (row count AND row length bounds) rather than satisfying one and ignoring the other",
+        "Whether Lab Learner will assert 'impossible' for a prime or badly-constrained quantity instead of forcing a near-miss arrangement",
+        "Whether the factor-pair uniqueness misconception is fully gone when the product is not pre-chosen for them",
+        "Whether accuracy holds when a wrong move has a visible permanent cost"
+      ],
+      "nextEvidenceRequired": [
+        "At least one unseen item where the correct response is a justified impossibility claim",
+        "At least one unseen item requiring two simultaneous constraints satisfied by a single factor pair",
+        "At least one unseen item where the child selects among candidate products and must justify the selection by its factor structure",
+        "All observations tagged unseen, unassisted, independent_probe, with the child's stated reasoning captured verbatim"
+      ],
+      "predictionEvaluationIds": []
+    },
+    {
+      "decisionId": "hw-live-progression:decision:r11",
+      "eventType": "artifact_bound",
+      "reason": "Validated boss artifact bound to canonical node contract.",
+      "evidenceIds": [
+        "live-proof-baseline-session:baseline:completion",
+        "live-proof-quest-session:quest:completion",
+        "live-proof-baseline-session:baseline:completion:engagement",
+        "rating:baseline:5",
+        "live-proof-quest-session:quest:completion:engagement",
+        "rating:quest:5"
+      ],
+      "fromLifecycle": "boss_generating",
+      "toLifecycle": "boss_ready",
+      "createdAt": "2026-08-08T17:17:38.096Z"
+    }
+  ],
+  "evidenceSources": [],
+  "observations": [
+    {
+      "observationId": "live-proof-baseline-session:baseline:observation:1",
+      "sourceId": "activity:live-proof-baseline-session:baseline",
+      "nodeId": "baseline",
+      "itemId": "math.multiplication.equal_groups",
+      "childResponse": "4 × 6 = 24",
+      "constructLinks": [
+        {
+          "constructId": "math.multiplication.transfer",
+          "role": "primary",
+          "confidence": 1
+        }
+      ],
+      "result": {
+        "correct": true,
+        "score": 1
+      },
+      "assistance": {
+        "status": "unassisted",
+        "scaffolds": []
+      },
+      "exposure": "previously_practiced",
+      "provenance": "practice",
+      "observedAt": "2026-08-08T16:13:06.114Z",
+      "confounds": []
+    },
+    {
+      "observationId": "live-proof-baseline-session:baseline:observation:2",
+      "sourceId": "activity:live-proof-baseline-session:baseline",
+      "nodeId": "baseline",
+      "itemId": "math.multiplication.missing_factor",
+      "childResponse": "7",
+      "constructLinks": [
+        {
+          "constructId": "math.multiplication.transfer",
+          "role": "primary",
+          "confidence": 1
+        }
+      ],
+      "result": {
+        "correct": true,
+        "score": 1
+      },
+      "assistance": {
+        "status": "unassisted",
+        "scaffolds": []
+      },
+      "exposure": "previously_practiced",
+      "provenance": "practice",
+      "observedAt": "2026-08-08T16:13:06.114Z",
+      "confounds": []
+    },
+    {
+      "observationId": "live-proof-baseline-session:baseline:observation:3",
+      "sourceId": "activity:live-proof-baseline-session:baseline",
+      "nodeId": "baseline",
+      "itemId": "math.multiplication.word_problem_interpretation",
+      "childResponse": "5 groups",
+      "constructLinks": [
+        {
+          "constructId": "math.multiplication.transfer",
+          "role": "primary",
+          "confidence": 1
+        }
+      ],
+      "result": {
+        "correct": true,
+        "score": 1
+      },
+      "assistance": {
+        "status": "unassisted",
+        "scaffolds": []
+      },
+      "exposure": "previously_practiced",
+      "provenance": "practice",
+      "observedAt": "2026-08-08T16:13:06.114Z",
+      "confounds": []
+    },
+    {
+      "observationId": "live-proof-baseline-session:baseline:observation:4",
+      "sourceId": "activity:live-proof-baseline-session:baseline",
+      "nodeId": "baseline",
+      "itemId": "math.multiplication.factor_pairs",
+      "childResponse": "only one pair",
+      "constructLinks": [
+        {
+          "constructId": "math.multiplication.transfer",
+          "role": "primary",
+          "confidence": 1
+        }
+      ],
+      "result": {
+        "correct": false,
+        "score": 0
+      },
+      "assistance": {
+        "status": "unassisted",
+        "scaffolds": []
+      },
+      "exposure": "previously_practiced",
+      "provenance": "practice",
+      "observedAt": "2026-08-08T16:13:06.114Z",
+      "confounds": []
+    },
+    {
+      "observationId": "live-proof-quest-session:quest:observation:1",
+      "sourceId": "activity:live-proof-quest-session:quest",
+      "nodeId": "quest",
+      "itemId": "math.multiplication.unseen_transfer.equal_groups",
+      "childResponse": "6 groups of 4 = 24",
+      "constructLinks": [
+        {
+          "constructId": "math.math.multiplication.transfer.producing.multiple.valid.factor.pairs.for.one.product.and.solving.for.an.unknown.factor.under.a.stated.constraint.in.unseen.contexts",
+          "role": "primary",
+          "confidence": 1
+        }
+      ],
+      "result": {
+        "correct": true,
+        "score": 1
+      },
+      "assistance": {
+        "status": "unassisted",
+        "scaffolds": []
+      },
+      "exposure": "unseen",
+      "provenance": "independent_probe",
+      "observedAt": "2026-08-08T16:25:30.299Z",
+      "confounds": []
+    },
+    {
+      "observationId": "live-proof-quest-session:quest:observation:2",
+      "sourceId": "activity:live-proof-quest-session:quest",
+      "nodeId": "quest",
+      "itemId": "math.multiplication.unseen_transfer.missing_factor",
+      "childResponse": "7",
+      "constructLinks": [
+        {
+          "constructId": "math.math.multiplication.transfer.producing.multiple.valid.factor.pairs.for.one.product.and.solving.for.an.unknown.factor.under.a.stated.constraint.in.unseen.contexts",
+          "role": "primary",
+          "confidence": 1
+        }
+      ],
+      "result": {
+        "correct": true,
+        "score": 1
+      },
+      "assistance": {
+        "status": "unassisted",
+        "scaffolds": []
+      },
+      "exposure": "unseen",
+      "provenance": "independent_probe",
+      "observedAt": "2026-08-08T16:25:30.299Z",
+      "confounds": []
+    },
+    {
+      "observationId": "live-proof-quest-session:quest:observation:3",
+      "sourceId": "activity:live-proof-quest-session:quest",
+      "nodeId": "quest",
+      "itemId": "math.multiplication.unseen_transfer.word_problem",
+      "childResponse": "5 × 6 = 30",
+      "constructLinks": [
+        {
+          "constructId": "math.math.multiplication.transfer.producing.multiple.valid.factor.pairs.for.one.product.and.solving.for.an.unknown.factor.under.a.stated.constraint.in.unseen.contexts",
+          "role": "primary",
+          "confidence": 1
+        }
+      ],
+      "result": {
+        "correct": true,
+        "score": 1
+      },
+      "assistance": {
+        "status": "unassisted",
+        "scaffolds": []
+      },
+      "exposure": "unseen",
+      "provenance": "independent_probe",
+      "observedAt": "2026-08-08T16:25:30.299Z",
+      "confounds": []
+    }
+  ],
+  "predictionEvaluations": [],
+  "sessionFinalizations": [
+    {
+      "choiceEventId": "rating:baseline:5",
+      "nodeId": "baseline",
+      "finalizedAt": "2026-08-08T16:13:06.117Z",
+      "postActivityAction": "back_to_map",
+      "funRating": 5,
+      "completed": true,
+      "replayRequested": false
+    },
+    {
+      "choiceEventId": "rating:quest:5",
+      "nodeId": "quest",
+      "finalizedAt": "2026-08-08T16:25:30.301Z",
+      "postActivityAction": "back_to_map",
+      "funRating": 5,
+      "completed": true,
+      "replayRequested": false
+    }
+  ],
+  "pendingSessionNodeIds": [],
+  "createdAt": "2026-08-08T12:00:00.000Z",
+  "updatedAt": "2026-08-08T17:17:38.096Z",
+  "evaluationNodeId": "quest"
+}

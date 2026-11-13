@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Forty-Two Fireflies and One Wrong Jar</title>
+<script src="/games/_contract.js"></script>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:radial-gradient(120% 90% at 50% 0%,#1a2450,#05081a 70%);color:#f7e8c8;font-family:'Trebuchet MS',system-ui,sans-serif;min-height:100vh}
+#wrap{max-width:940px;margin:0 auto;padding:8px 14px 40px}
+h1{font-size:1.45rem;margin:.15em 0;color:#ffd479;text-shadow:0 0 14px #b8791a}
+.sub{margin:0 0 6px;font-size:.9rem;color:#caa</style>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:radial-gradient(120% 90% at 50% 0%,#1a2450,#05081a 70%);color:#f7e8c8;font-family:'Trebuchet MS',system-ui,sans-serif;min-height:100vh;transition:filter .6s}
+body.dim{filter:brightness(.72)}
+#wrap{max-width:940px;margin:0 auto;padding:8px 14px 40px}
+h1{font-size:1.45rem;margin:.15em 0;color:#ffd479;text-shadow:0 0 14px #b8791a}
+.sub{margin:0 0 6px;font-size:.9rem;color:#c9ae7d}
+#chain{display:flex;gap:3px;margin:6px 0}
+.ln{flex:1;height:13px;border-radius:4px;background:#161d38;border:1px solid #2c3660}
+.ln.on{background:linear-gradient(#fff0bd,#f0a52c);box-shadow:0 0 9px #f0a52c}
+#hud{font-size:.85rem;color:#e8c98e;margin:2px 0 6px}
+#note{background:#553f22;border:2px solid #8d6c3c;border-radius:7px;padding:8px 10px;font-size:.98rem;line-height:1.35;box-shadow:0 3px 0 #2c1f10}
+#row{display:flex;gap:12px;margin:10px 0;flex-wrap:wrap}
+#dome{width:190px;min-height:150px;border-radius:60% 60% 14px 14px;background:radial-gradient(circle at 50% 40%,rgba(255,214,120,.22),rgba(30,44,90,.5));border:2px solid #6d84c8;position:relative;text-align:center;padding-top:10px;cursor:grab;overflow:hidden}
+#dome.sealed{filter:grayscale(.8) brightness(.5);cursor:not-allowed}
+#domecount{font-size:2.2rem;font-weight:bold;color:#ffe08a;text-shadow:0 0 10px #f5a623;position:relative}
+.cap{font-size:.72rem;color:#cbd7ff}
+.fly{position:absolute;width:6px;height:6px;border-radius:50%;background:#ffe9a0;box-shadow:0 0 7px 2px #ffbe3d;animation:dr 3s ease-in-out infinite alternate}
+@keyframes dr{to{transform:translate(14px,-12px)}}
+#cartwrap{flex:1;min-width:300px;transition:transform .7s}
+#shelf{display:none;gap:4px;margin-bottom:5px}
+#shelf.show{display:flex}
+.slot{width:26px;height:16px;border:2px solid #b98a4e;border-radius:3px;background:#3a2a15}
+#jarrow{display:flex;flex-wrap:wrap;gap:4px;min-height:74px;background:#2a1f12;border:2px dashed #7a5a30;border-radius:8px;padding:6px}
+.jar{width:26px;text-align:center}
+.jar .g{height:44px;border:2px solid #d8c58a;border-radius:4px 4px 7px 7px;display:flex;align-items:flex-end;overflow:hidden;background:rgba(255,255,255,.06)}
+.jar .lv{width:100%;background:linear-gradient(#fff1bb,#f2a521);box-shadow:0 0 8px #f2a521;transition:height .25s}
+.jar .n{font-size:.8rem;color:#ffe3a1}
+.jar.crack .g{border-color:#ff6b5b;transform:rotate(-8deg)}
+#cartbody{margin-top:5px;height:24px;background:linear-gradient(#7b5730,#4b3419);border-radius:5px;font-size:.78rem;text-align:center;color:#ffdca0}
+#ctrls{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-top:8px}
+.dial{background:#141d3c;border:1px solid #3a4a86;border-radius:8px;padding:5px 8px}
+.dial b{display:block;font-size:.75rem;color:#a9c0ff}
+.dial button{font-size:1.1rem;width:32px;height:30px;border-radius:6px;border:none;background:#f0a52c;color:#2b1a05;font-weight:bold;cursor:pointer}
+.dial span{display:inline-block;min-width:44px;text-align:center;font-size:1.4rem;font-weight:bold;color:#ffe08a}
+.hide{display:none!important}
+#commit{background:linear-gradient(#ffd479,#e8871e);border:none;border-radius:9px;padding:12px 16px;font-size:1rem;font-weight:bold;color:#2b1a05;cursor:pointer}
+#readaloud{background:#26325e;color:#cfe0ff;border:1px solid #4a5c9e;border-radius:8px;padding:9px 11px;cursor:pointer;font-size:.85rem}
+#reason{background:#101836;border:1px solid #3d4d8c;color:#ffe6b0;border-radius:6px;padding:5px;width:210px}
+#reasonbox{font-size:.8rem;color:#a9c0ff;margin-top:7px}
+#say{margin-top:9px;min-height:40px;font-size:.95rem;color:#ffd9a0;background:rgba(10,16,38,.7);border-left:4px solid #f0a52c;padding:7px 10px;border-radius:5px}
+#end{margin-top:10px;font-size:1rem}
+#end button{margin-top:8px;background:#f0a52c;border:none;border-radius:8px;padding:10px 14px;font-weight:bold;cursor:pointer}
+#ghost{position:fixed;width:10px;height:10px;border-radius:50%;background:#ffe9a0;box-shadow:0 0 12px 4px #ffbe3d;pointer-events:none;display:none;z-index:99}
+.sweep{animation:sw 1.5s ease-out}
+@keyframes sw{0%{filter:brightness(1)}30%{filter:brightness(2.1)}100%{filter:brightness(1)}}
+</style>
+</head>
+<body>
+<div id="wrap">
+<h1>Forty-Two Fireflies and One Wrong Jar</h1>
+<p class="sub">Night shift on the festival bridge. The swarm is fading — pack the light before it dies.</p>
+<div id="chain"></div>
+<div id="hud"><b id="roundlbl">Round 1 — The Free Pack</b> · <span id="lostlbl">Fireflies lost forever: 0</span></div>
+<div id="note">Every jar on this cart must hold the same number. Fill them all — no firefly left in the dome — or the light dies before the cart reaches the bridge.</div>
+<div id="row">
+  <div id="dome"><div id="swarm"></div><div id="domecount">42</div><div class="cap">left in the dome</div></div>
+  <div id="cartwrap"><div id="shelf"></div><div id="jarrow"></div><div id="cartbody">lantern cart</div></div>
+</div>
+<div id="ctrls">
+  <div class="dial" id="jdial"><b id="jlab">Jars on the cart</b><div><button id="jm">−</button><span id="jn">2</span><button id="jp">+</button></div></div>
+  <div class="dial" id="fdial"><b id="flab">Fireflies in EACH jar</b><div><button id="fm">−</button><span id="fn">0</span><button id="fp">+</button></div></div>
+  <button id="commit">Load the cart</button>
+  <button id="readaloud">🔊 Read it to me</button>
+</div>
+<div id="reasonbox"><label>Why this packing? <input id="reason" maxlength="60" placeholder="type your reason (optional)"></label></div>
+<div id="say">Drag a firefly out of the dome onto a jar — every jar fills together.</div>
+<div id="end"></div>
+</div>
+<div id="ghost"></div>
+<div id="sunny-companion"></div>
+<script>
+document.addEventListener('DOMContentLoaded',function(){
+var $=function(i){return document.getElementById(i)};
+var P=window.GAME_PARAMS||{};
+var post=function(m){try{window.parent.postMessage(m,'*')}catch(e){}};
+var LF='math.multiplication: synthesis of equal-groups construction, missing-factor reasoning, and word-problem interpretation on unseen totals whose multiple factor pairs are disambiguated only by a stated physical constraint';
+var MEC='Constraint-locked jar packing: the child drags a fixed swarm of fireflies into jars, choosing how many jars and how many per jar, then survives a constraint that invalidates all but one arrangement.';
+var results=[],raCount=0,t0=Date.now(),itemT=Date.now();
+var phase='r1pack',total=42,jars=2,fill=0,lost=0,meter=100,drain=.55,paused=false,over=false;
+var revealed=false,preReveal=null,recorded={},dragging=false,firstPostReveal=true,r3revise=0;
+var CH={
+ r1pack:{id:'boss.r1.free_pack_42',prompt:'Round 1: 42 fireflies. Choose how many jars and how many fireflies in each jar so every jar is equal and the dome is empty. Then load the cart.'},
+ r1repack:{id:'boss.r1.shelf_constraint_42',prompt:'The cart shelf has exactly 6 slots. Re-pack the 42 fireflies so the jars seat on the shelf.'},
+ r2pack:{id:'boss.r2.tag_56_over_7',prompt:'Shipping tag: 7 jars, all equal, 56 fireflies. How many fireflies go in each jar?'},
+ r3order:{id:'boss.r3.order_jars_needed',prompt:'Bridgekeeper order: 9 lanterns tonight, each lantern eats 4 jars. Set the cart to the number of jars the order needs.'},
+ r3pack:{id:'boss.r3.pack_48',prompt:'48 fireflies, 3 fireflies per jar. Pack every one of them into equal jars.'},
+ r3report:{id:'boss.r3.shortfall_report',prompt:'The order needs 36 jars. You packed what 48 fireflies allow. Report how many jars the order is SHORT.'}};
+var TGT={r1repack:'unseen.boss.multiplication.constraint_factor_pair_selection',r2pack:'unseen.boss.multiplication.missing_factor_under_constraint',r3order:'unseen.boss.multiplication.order_total_construction',r3report:'unseen.boss.multiplication.shortfall_report'};
+function sendState(ra){var c=CH[phase]||CH.r1pack;post({type:'game_state_update',payload:{game:'generated-math',activityId:'boss',nodeId:'boss',phase:'question',activityTitle:'Forty-Two Fireflies and One Wrong Jar',learningFocus:LF,mechanic:MEC,currentChallenge:{id:c.id,prompt:c.prompt,mode:'constraint_packing',readAloudRequested:!!ra,readAloudCount:raCount},availableActions:['add or remove a jar','drag a firefly to fill every jar equally','load the cart'],itemIndex:results.length,totalItems:4,answerVisibility:'hidden'}})}
+function say(t){$('say').innerHTML=t}
+function note(t){$('note').innerHTML=t}
+function drawChain(){var n=12,on=Math.max(0,Math.ceil(meter/100*n)),h='';for(var i=0;i<n;i++)h+='<div class="ln'+(i<on?' on':'')+'"></div>';$('chain').innerHTML=h}
+function drawDome(){var left=total-jars*fill;var s='';var n=Math.max(0,Math.min(18,Math.round(Math.max(0,left)/3)));for(var i=0;i<n;i++)s+='<div class="fly" style="left:'+(12+Math.random()*160)+'px;top:'+(30+Math.random()*95)+'px;animation-delay:'+(Math.random()*3)+'s"></div>';$('swarm').innerHTML=s;$('domecount').textContent=phase==='r3order'?'?':(left<0?'OVER':left);$('domecount').style.color=left<0?'#ff8a72':'#ffe08a'}
+function drawJars(cr){var h='';for(var i=0;i<jars;i++){h+='<div class="jar'+(cr?' crack':'')+'"><div class="g"><div class="lv" style="height:'+Math.min(100,fill*12)+'%"></div></div><div class="n">'+fill+'</div></div>'}$('jarrow').innerHTML=h||'<span style="color:#8b7a58;font-size:.85rem">no jars on the cart</span>';$('jn').textContent=jars;$('fn').textContent=fill}
+function render(cr){drawJars(cr);drawDome();$('lostlbl').textContent='Fireflies lost forever: '+lost}
+function setJars(n){if(paused||over)return;jars=Math.max(0,Math.min(40,n));render()}
+function setFill(n){if(paused||over||phase==='r3order')return;var mx=phase==='r3report'?40:20;fill=Math.max(0,Math.min(mx,n));render()}
+function spill(n,msg){lost+=n;drain+=.35;document.body.classList.add('dim');$('cartwrap').style.transform='translateX(-26px)';render(true);setTimeout(function(){render();$('cartwrap').style.transform='';},900);say(msg+' <b>'+n+' fireflies escaped into the night — gone for good.</b> The lantern chain drains faster now.')}
+function record(target,correct,val){if(recorded[target])return;recorded[target]=1;var rt=Date.now()-itemT;itemT=Date.now();results.push({target:target,correct:correct,attemptedValue:String(val),responseTimeMs:rt,scaffoldLevel:0});
+ if(window.fireAttemptEvent)window.fireAttemptEvent({domain:'math',target:target,correct:correct,attemptedValue:String(val),responseTimeMs:rt,scaffoldLevel:0});
+ if(window.fireCompanionEvent)window.fireCompanionEvent(correct?'correct_answer':'wrong_answer',{target:target});
+ post({type:'progress_event',payload:{nodeId:'boss',completedItems:results.length,totalItems:4}})}
+function goPhase(p){phase=p;
+ $('jdial').classList.remove('hide');$('fdial').classList.remove('hide');$('dome').classList.remove('sealed');
+ $('jlab').textContent='Jars on the cart';$('flab').textContent='Fireflies in EACH jar';$('commit').textContent='Load the cart';
+ if(p==='r2pack'){total=56;jars=2;fill=0;drain=Math.max(drain,.72);$('roundlbl').textContent='Round 2 — The Shipping Tag';$('shelf').classList.remove('show');
+  note('<b>SHIPPING TAG (nailed to the cart):</b> 7 jars. All equal. Nothing left in the dome. — 56 fireflies released.');say('The tag is nailed on before you start. Seven jars, all equal. Work out what each jar must hold.')}
+ if(p==='r3order'){total=48;jars=2;fill=0;drain=Math.max(drain,.92);$('roundlbl').textContent='Round 3 — The Bridgekeeper\'s Order';$('fdial').classList.add('hide');$('dome').classList.add('sealed');$('commit').textContent='Tell the bridgekeeper';
+  note('<b>A note pinned to the cart:</b> "Keeper — I need <b>9 lanterns</b> burning on the bridge tonight, and every lantern eats <b>4 jars</b> of light. Set the cart with the jars my order needs, then I will unseal the dome. — the Bridgekeeper"');say('The dome is sealed. No total is written anywhere. Set the jar dial to the number of jars the order needs, then tell the bridgekeeper.')}
+ if(p==='r3pack'){jars=2;fill=0;$('dome').classList.remove('sealed');say('The dome is unsealed: <b>48 fireflies</b>. Pack them all into equal jars, 3 deep. How many jars can you actually fill?')}
+ if(p==='r3report'){$('jdial').classList.add('hide');$('flab').textContent='Jars the order is SHORT';$('commit').textContent='Send the report';fill=0;
+  note('<b>Reply slate:</b> The order demanded jars for 9 lanterns. You could only fill the jars 48 fireflies allow. Send the bridgekeeper the exact shortfall.');say('Set the slate to the number of jars you are short, then send it. Honest numbers only — he will light what you tell him.')}
+ render();sendState(false)}
+function commit(){if(paused||over)return;
+ var prod=jars*fill;
+ if(phase==='r1pack'){
+  if(jars<1||fill<1){say('The cart needs jars with fireflies in them.');return}
+  if(prod!==total){spill(prod>total?5:3,prod>total?'The jars overfill — lids pop!':'The dome is not empty — the strained jars leak.');return}
+  preReveal={jars:jars,fill:fill,reason:$('reason').value||''};
+  var sh='';for(var i=0;i<6;i++)sh+='<div class="slot"></div>';$('shelf').innerHTML=sh;$('shelf').classList.add('show');
+  if(jars===6){record(TGT.r1repack,true,jars+'x'+fill+' (fit the hidden shelf first try)');win('Six jars, seven each. Every jar seats in a slot with a glass clink.');return}
+  drain*=1.35;$('cartwrap').style.transform='translateX(-26px)';setTimeout(function(){$('cartwrap').style.transform=''},800);
+  note('<b>The cart shelf slides open: exactly 6 carved slots.</b> Your '+jars+' jars will not seat. 42 fireflies, all equal, six jars.');
+  say('Your arithmetic was honest — 42 really does split '+jars+' ways. But the shelf holds <b>six</b>. Re-plan the packing.');
+  goPhase('r1repack');return}
+ if(phase==='r1repack'){
+  if(prod!==total){spill(prod>total?5:3,prod>total?'Overfilled jars crack!':'Fireflies left circling — the jars leak.');return}
+  if(firstPostReveal){firstPostReveal=false;record(TGT.r1repack,jars===6,jars+'x'+fill)}
+  if(jars!==6){$('cartwrap').style.transform='translateX(-26px)';setTimeout(function(){$('cartwrap').style.transform=''},700);say('The tray lifts, tilts, and sets back down. '+jars+' jars, six slots. The shelf decides, not the multiplying.');return}
+  win('Six jars flare together. The wheels roll one shelf-length forward.');return}
+ if(phase==='r2pack'){
+  if(jars!==7){say('The tag inspector taps the tag: <b>7 jars</b>. The cart will not move with '+jars+'.');drain+=.15;return}
+  if(!recorded[TGT.r2pack])record(TGT.r2pack,fill===8&&prod===56,'each jar '+fill);
+  if(prod>total){spill(6,'Seven jars of '+fill+' is more light than the dome holds — the lids blow off.');return}
+  if(prod<total){spill(3,'Seven jars of '+fill+' leaves fireflies circling the dome. The dim jars are rejected.');return}
+  win('Seven jars, all equal, dome empty. The chord rings true and the cart rolls.');return}
+ if(phase==='r3order'){
+  var ok=(jars===36);
+  if(!recorded[TGT.r3order])record(TGT.r3order,ok,jars+' jars');
+  if(!ok){r3revise++;drain+=.15;say('The bridgekeeper shakes his head and re-reads the note. That is not the number his lanterns eat. Count the order again.');return}
+  say('He nods once and cracks the dome seal.');goPhase('r3pack');return}
+ if(phase==='r3pack'){
+  if(fill!==3){say('Every jar the lanterns accept is packed <b>3 fireflies deep</b>. No more, no less.');return}
+  if(prod!==48){spill(prod>48?5:3,prod>48?'You reached for fireflies that are not there — jars crack.':'Fireflies still drift in the dome. The half-load is refused.');return}
+  win2();return}
+ if(phase==='r3report'){
+  if(!recorded[TGT.r3report])record(TGT.r3report,fill===20,fill+' jars short');
+  finish(fill===20);return}}
+function win(msg){document.body.classList.add('sweep');$('cartwrap').style.transform='translateX(30px)';say(msg);
+ setTimeout(function(){document.body.classList.remove('sweep');$('cartwrap').style.transform='';goPhase(phase==='r2pack'?'r3order':'r2pack')},1100)}
+function win2(){document.body.classList.add('sweep');say('16 jars, 3 deep, dome empty — but the order wanted jars for 9 lanterns.');setTimeout(function(){document.body.classList.remove('sweep');goPhase('r3report')},1000)}
+function finish(good){over=true;
+ var acc=results.length?results.filter(function(r){return r.correct}).length/results.length:0;
+ var lit=Math.max(0,9-Math.floor(lost/5));
+ $('end').innerHTML='<b>'+(good?'The bridgekeeper reads your slate, grunts, and starts a torch relay to cover the gap.':'The bridgekeeper lights what your slate said — and the last lanterns gutter out mid-bridge.')+'</b><br>Lanterns burning on the bridge: '+lit+' of 9. Fireflies lost forever: '+lost+'.';
+ say('The cart reaches the bridge. Your arithmetic is now light on the water.');
+ if(window.fireCompanionEvent)window.fireCompanionEvent('game_complete',{});
+ if(window.sendNodeComplete)window.sendNodeComplete({nodeId:(P&&P.nodeId)||'boss',completed:true,accuracy:acc,targetResults:results,timeSpent_ms:Date.now()-t0});
+ post({type:'progress_event',payload:{nodeId:'boss',completedItems:results.length,totalItems:4}})}
+function dark(){over=true;
+ if(results.length>=4){finish(false);return}
+ $('end').innerHTML='<b>The lantern chain is empty. The bridge stays dark and the festival team waits on the far bank.</b><br>Fireflies lost: '+lost+'.<br><button id="again">Light it again</button>';
+ say('Darkness. The cart never reached the bridge.');
+ $('again').onclick=function(){over=false;meter=100;drain=.55;lost=0;jars=2;fill=0;total=42;firstPostReveal=true;revealed=false;document.body.classList.remove('dim');$('shelf').classList.remove('show');$('end').innerHTML='';$('roundlbl').textContent='Round 1 — The Free Pack';note('Every jar on this cart must hold the same number. Fill them all — no firefly left in the dome — or the light dies.');goPhase('r1pack')}}
+setInterval(function(){if(paused||over)return;meter-=drain*.2;if(meter<=0){meter=0;drawChain();dark();return}drawChain()},200);
+$('jm').onclick=function(){setJars(jars-1)};$('jp').onclick=function(){setJars(jars+1)};
+$('fm').onclick=function(){setFill(fill-1)};$('fp').onclick=function(){setFill(fill+1)};
+$('commit').onclick=commit;
+$('readaloud').onclick=function(){raCount++;sendState(true)};
+var g=$('ghost');
+$('dome').addEventListener('pointerdown',function(e){if(paused||over||phase==='r3order')return;dragging=true;g.style.display='block';g.style.left=(e.clientX-5)+'px';g.style.top=(e.clientY-5)+'px'});
+document.addEventListener('pointermove',function(e){if(!dragging)return;g.style.left=(e.clientX-5)+'px';g.style.top=(e.clientY-5)+'px'});
+document.addEventListener('pointerup',function(e){if(!dragging)return;dragging=false;g.style.display='none';var el=document.elementFromPoint(e.clientX,e.clientY);if(el&&el.closest('#jarrow')){if(jars<1)setJars(1);setFill(fill+1);say('Every jar rises together — that is the rule your fingers feel. Jars × each = the light the cart carries.')}});
+window.addEventListener('message',function(e){var d=e.data||{};if(d.type==='sunny_companion_presence'){var p=d.payload||{};var open=!(p.visible===false||p.state==='collapsed'||p.summoned===false||p.open===false);paused=open}});
+window.SUNNY_VALIDATION_HOOKS={playthrough:async function(){
+ var w=function(ms){return new Promise(function(r){setTimeout(r,ms)})};
+ setJars(3);setFill(14);commit();await w(500);
+ setJars(6);setFill(7);commit();await w(1400);
+ setJars(7);setFill(7);commit();await w(1100);
+ setJars(7);setFill(8);commit();await w(1400);
+ setJars(30);commit();await w(400);
+ setJars(36);commit();await w(500);
+ setJars(16);setFill(3);commit();await w(1300);
+ setFill(20);commit();await w(500);
+ return{items:results.length,accuracy:results.filter(function(r){return r.correct}).length/(results.length||1),completed:over}}};
+drawChain();render();sendState(false);
+post({type:'activity_ready',payload:{nodeId:'boss'}});
+});
+</script>
+</body>
+</html>

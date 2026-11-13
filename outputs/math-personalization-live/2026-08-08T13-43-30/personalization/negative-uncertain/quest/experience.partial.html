@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>The Cargo Elevator Has One Trip Left</title>
+<script src="/games/_contract.js"></script>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:linear-gradient(#1b2531,#2c3a4b 55%,#3d4a58);color:#e9f0f6;font-family:system-ui,Segoe UI,Arial,sans-serif;padding:10px 12px 40px}
+h1{font-size:22px;margin:2px 0 2px;color:#ffd58a;text-shadow:0 2px 0 #000}
+.sub{margin:0 0 8px;font-size:13px;color:#a9bccd}
+#storm{height:20px;border:2px solid #7f97ac;border-radius:10px;background:#16202b;overflow:hidden;position:relative}
+#sfill{height:100%;width:0;background:linear-gradient(90deg,#5d7d9a,#dfeaf5);transition:width .2s}
+#stxt{position:absolute;inset:0;text-align:center;font-size:12px;font-weight:700;color:#0e1620;line-height:16px;letter-spacing:.5px}
+.panel{background:#22303e;border:2px solid #4e6members;border:2px solid #4e6a83;border-radius:10px;padding:8px 10px;margin:8px 0}
+#manifest{font-size:14px;line-height:1.35;color:#ffe9c2}
+.stagelbl{font-size:11px;letter-spacing:1px;color:#8fd1ff;font-weight:700}
+button{font:inherit;cursor:pointer;border-radius:8px;border:2px solid #0d1620}
+.mini{background:#3f5greeting}
+.mini,.rd{background:#3f566d;color:#eaf3fb;padding:4px 10px;font-size:13px;font-weight:700}
+#load{background:linear-gradient(#f0a63c,#c9761a);color:#2b1600;font-size:17px;font-weight:900;padding:10px 18px;margin-top:8px;box-shadow:0 4px 0 #7a4407}
+#load:active{transform:translateY(3px);box-shadow:0 1px 0 #7a4407}
+.wrap{display:flex;gap:14px;flex-wrap:wrap;align-items:flex-start}
+.bayzone{position:relative;margin:14px 26px 30px 6px}
+#bay{display:grid;gap:2px;background:#141d26;border:3px solid #86a2ba;border-radius:4px;min-height:26px;min-width:26px;padding:2px}
+.cr{width:22px;height:22px;background:linear-gradient(#d9a05b,#a86c2e);border:1px solid #5e3a12;border-radius:3px;box-shadow:inset 0 0 0 2px rgba(255,255,255,.12);animation:pop .18s}
+@keyframes pop{from{transform:scale(.4);opacity:0}}
+.cr.tip{background:linear-gradient(#e07070,#a33);border-color:#5b1010;animation:wob .5s infinite}
+@keyframes wob{50%{transform:rotate(9deg) translateY(3px)}}
+.h{position:absolute;background:#ffd58a;border:2px solid #7a4407;border-radius:6px;color:#3a2000;font-size:11px;font-weight:900;display:flex;align-items:center;justify-content:center;touch-action:none;box-shadow:0 0 8px #ffd58a55}
+#rowh{width:20px;right:-24px;top:0;writing-mode:vertical-rl}
+#colh{height:20px;bottom:-24px;left:0}
+.h.lock{background:#9fc3dd;border-color:#3a5a72}
+#counter{font-size:17px;font-weight:800;color:#fff}
+#warn{font-size:13px;min-height:18px;color:#ffb0b0;font-weight:700}
+#msg{font-size:14px;min-height:20px;color:#bfe9c0;font-weight:700}
+#tally{font-size:14px;font-weight:800;color:#ffd0d0;background:#2a1c1c;border:2px dashed #7a4a4a;padding:6px 10px;border-radius:8px;display:inline-block}
+.door{width:60px;background:#0e1620;border:3px solid #86a2ba;border-radius:4px;height:170px;display:flex;align-items:center;justify-content:center;text-align:center;font-size:11px;color:#9fc3dd;padding:4px}
+.shake{animation:sh .4s}
+@keyframes sh{25%{transform:translateX(-9px)}75%{transform:translateX(9px)}}
+.rise{animation:up .9s ease-in}
+@keyframes up{to{transform:translateY(-90px);opacity:.15}}
+#logwrap{display:none}
+#logbody div{font-size:13px;padding:3px 0;border-bottom:1px solid #3d5266}
+.ab{color:#a8e6a0}.lb{color:#ff9a9a}
+.pausemsk{position:fixed;inset:0;background:#0a121bcc;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:800;z-index:9}
+</style>
+</head>
+<body>
+<h1>The Cargo Elevator Has One Trip Left</h1>
+<p class="sub">Ridge Station, last light. Shape the bay with your own two hands — everything that fits rides up to the festival team. Everything else stays on the ledge until spring.</p>
+<div id="storm"><div id="sfill"></div><div id="stxt">STORM</div></div>
+<div class="panel"><div class="stagelbl" id="stage">STAGE 1 OF 5</div><div id="manifest">…</div>
+<button class="rd" id="rd" style="margin-top:6px">📻 Read it to me</button></div>
+<div class="wrap">
+ <div>
+  <div id="counter">BAY: 2 × 2 = 4</div>
+  <div id="warn"></div>
+  <div class="bayzone"><div id="bay"></div>
+   <div class="h" id="rowh">ROWS ⇕</div><div class="h" id="colh">PER ROW ⇔</div></div>
+  <div style="font-size:12px;color:#9fb6c9;margin-top:-18px">Drag the glowing handles. Or use: 
+   <button class="mini" id="rm">rows −</button> <button class="mini" id="rp">rows +</button>
+   <button class="mini" id="cm">per row −</button> <button class="mini" id="cp">per row +</button></div>
+  <button id="load">⬆ SEND THE ELEVATOR</button>
+  <div id="msg"></div>
+ </div>
+ <div id="doorbox" style="display:none"><div class="door" id="door">DOOR</div></div>
+</div>
+<div class="panel"><span id="tally">LEFT BEHIND ON THE LEDGE: 0</span></div>
+<div class="panel" id="logwrap"><h2 style="font-size:17px;margin:2px 0 6px;color:#ffd58a">STATION LOG</h2><div id="logbody"></div>
+<div id="stamp" style="margin-top:8px;font-weight:900"></div>
+<button class="mini" id="again" style="margin-top:8px">Load it again from Stage 1</button></div>
+<div id="sunny-companion"></div>
+<script>
+document.addEventListener('DOMContentLoaded',function(){
+var P=window.GAME_PARAMS||{},CELL=24,MAXR=9,MAXC=9,STORM=300000,TOT=7;
+var IT=[
+{id:'bay-free-35',st:1,total:35,cargo:'fuel cells',target:'math.multiplication.transfer.bay_equal_groups',
+ radio:'Ridge Station, festival team here. Thirty-five fuel cells and all thirty-five must ride. Shape the bay any way you like — just make it hold exactly 35.'},
+{id:'bay-locked-48',st:2,total:48,cargo:'water drums',lockRows:6,target:'math.multiplication.transfer.locked_rows_missing_factor',
+ radio:'Ice has frozen the row handle at 6 rows — it will not move. Forty-eight water drums, six rows. Work out how many go in each row.'},
+{id:'bay-door-24',st:3,total:24,cargo:'medicine crates',doorMaxCols:4,target:'math.multiplication.transfer.shape_vs_product_door',
+ radio:'Twenty-four medicine crates. Careful: tonight the elevator door is tall and narrow. Nothing wider than 4 crates gets through. Twenty-four still has to be twenty-four.'},
+{id:'bay-noisy-42',st:4,total:42,cargo:'seed crates',hide:true,target:'math.multiplication.transfer.noisy_manifest_factors',
+ radio:'Seed crates for spring. There are 7 trays in the greenhouse, and 6 seed crates sit on every tray. Crate 13 has the thermometer taped to it — that one goes on top. Load them all, we are not saying the total.'},
+{id:'bay-share-18',st:5,total:18,cargo:'ration boxes',foot:1,target:'math.multiplication.transfer.shared_floor_rations',
+ radio:'LAST TRIP. Three cargoes, one floor: 18 ration boxes, then 24 lantern crates, then 12 blanket bales. The bay floor has only 54 spaces left in the whole trip — every space you use is gone for good. Rations first.'},
+{id:'bay-share-24',st:5,total:24,cargo:'lantern crates',foot:1,target:'math.multiplication.transfer.shared_floor_lanterns',
+ radio:'Rations are up. Now 24 lantern crates — into the floor space you have left.'},
+{id:'bay-share-12',st:5,total:12,cargo:'blanket bales',foot:1,target:'math.multiplication.transfer.shared_floor_blankets',
+ radio:'Last one: 12 blanket bales, with whatever floor is still free.'}];
+var S={i:0,rows:2,cols:2,left:0,ab:0,log:[],res:[],el:0,paused:false,budget:54,over:false,ra:0,busy:false,t0:Date.now(),it0:Date.now(),done:0};
+var $=function(x){return document.getElementById(x)};
+var AC;function tone(f,d,t){try{AC=AC||new(window.AudioContext||window.webkitAudioContext)();var o=AC.createOscillator(),g=AC.createGain();o.type=t||'triangle';o.frequency.value=f;g.gain.value=.07;o.connect(g);g.connect(AC.destination);o.start();g.gain.exponentialRampToValueAtTime(.001,AC.currentTime+d);o.stop(AC.currentTime+d)}catch(e){}}
+function cur(){return IT[S.i]}
+function cl(v,a,b){return Math.max(a,Math.min(b,v))}
+function send(){var it=cur();if(!it)return;
+ window.parent.postMessage({type:'game_state_update',payload:{game:'generated-math',activityId:'quest',nodeId:'quest',phase:'question',activityTitle:'The Cargo Elevator Has One Trip Left',learningFocus:'math.multiplication.transfer — equal-groups construction, missing-factor recovery (unknown group size), and word-problem interpretation with distractor quantities, on unseen material',mechanic:'Loading puzzle: the child builds crate stacks into a fixed-shape elevator bay, choosing how many rows and how many per row, then commits the trip.',currentChallenge:{id:it.id,prompt:it.radio,mode:'construct-rectangle',readAloudRequested:S.raReq||false,readAloudCount:S.ra},availableActions:['drag row handle','drag column handle','send the elevator'],itemIndex:S.i,totalItems:TOT,answerVisibility:'hidden'}},'*');S.raReq=false}
+function render(){var it=cur();if(!it)return;
+ var prod=S.rows*S.cols,g='';
+ for(var k=0;k<prod;k++){g+='<i class="cr'+(!it.hide&&k>=it.total?' tip':'')+'"></i>'}
+ var b=$('bay');b.style.gridTemplateColumns='repeat('+S.cols+','+(CELL-2)+'px)';b.innerHTML=g;
+ $('counter').textContent='BAY: '+S.rows+' rows × '+S.cols+' per row = '+prod+' crates'+(it.hide?'':' / need '+it.total);
+ var w='';
+ if(!it.hide){if(prod>it.total)w='⚠ '+(prod-it.total)+' crate(s) hanging over the ledge — they will fall!';else if(prod<it.total)w=(it.total-prod)+' '+it.cargo+' still waiting on the ledge.';else w='✔ Exact fit.'}
+ else w='Radio gave no total. Work the factors out yourself.';
+ if(it.foot)w+='  |  floor space left: '+S.budget;
+ $('warn').textContent=w;
+ $('rowh').style.height=(S.rows*CELL)+'px';$('colh').style.width=(S.cols*CELL)+'px';
+ $('rowh').className='h'+(it.lockRows?' lock':'');$('rowh').textContent=it.lockRows?'FROZEN '+it.lockRows:'ROWS ⇕';
+ $('stage').textContent='STAGE '+it.st+' OF 5';$('manifest').textContent=it.radio;
+ $('tally').textContent='LEFT BEHIND ON THE LEDGE: '+S.left+'  '+Array(Math.min(S.left,30)+1).join('|');
+ $('doorbox').style.display=it.doorMaxCols?'block':'none';
+ if(it.doorMaxCols)$('door').textContent='DOOR: only '+it.doorMaxCols+' crates wide, tall as you like';
+}
+function setRows(r){var it=cur();if(S.over||S.paused||S.busy||it.lockRows)return;r=cl(r,1,MAXR);if(it.foot)r=Math.min(r,Math.max(1,Math.floor(S.budget/S.cols)));if(r!==S.rows){S.rows=r;tone(220+r*40,.06)}render()}
+function setCols(c){var it=cur();if(S.over||S.paused||S.busy)return;c=cl(c,1,MAXC);if(it.foot)c=Math.min(c,Math.max(1,Math.floor(S.budget/S.rows)));if(c!==S.cols){S.cols=c;tone(220+c*40,.06)}render()}
+function attempt(it,ok,val){var rt=Date.now()-S.it0;
+ S.res.push({target:it.target,correct:ok,attemptedValue:val,responseTimeMs:rt,scaffoldLevel:0});
+ if(window.fireAttemptEvent)window.fireAttemptEvent({domain:'math',target:it.target,correct:ok,attemptedValue:val,responseTimeMs:rt,scaffoldLevel:0});
+ if(window.fireCompanionEvent)window.fireCompanionEvent(ok?'correct_answer':'wrong_answer',{target:it.target});}
+function commit(){
+ if(S.over||S.paused||S.busy)return;var it=cur(),prod=S.rows*S.cols;
+ if(it.doorMaxCols&&S.cols>it.doorMaxCols){
+  attempt(it,false,S.rows+'x'+S.cols+'='+prod);S.el+=12000;tone(90,.4,'square');
+  $('bay').classList.add('shake');setTimeout(function(){$('bay').classList.remove('shake')},420);
+  $('msg').textContent='CLANG! The load is '+S.cols+' wide and the door is '+it.doorMaxCols+'. Same crates, wrong shape. The storm ate 12 seconds.';return;}
+ S.busy=true;var ok=prod===it.total,lost,ab;
+ if(prod>it.total){lost=Math.min(prod-it.total,it.total);ab=it.total-lost}else{ab=prod;lost=it.total-prod}
+ attempt(it,ok,S.rows+'x'+S.cols+'='+prod);
+ S.left+=lost;S.ab+=ab;if(it.foot)S.budget-=prod;
+ S.log.push({eq:S.rows+' × '+S.cols+' = '+prod,name:it.cargo,ab:ab,lost:lost,total:it.total});
+ if(ok){tone(523,.25);setTimeout(function(){tone(784,.4)},130);$('msg').textContent='Exact fit. All '+ab+' '+it.cargo+' ride up. The team cheers.';$('bay').classList.add('rise')}
+ else if(prod>it.total){tone(160,.5,'sawtooth');$('msg').textContent=lost+' '+it.cargo+' tipped off the ledge into the fog. '+ab+' rode up.'}
+ else{tone(180,.35,'sine');$('msg').textContent='Doors closed with empty slots — '+lost+' '+it.cargo+' left on the ledge. Only '+ab+' rode up.'}
+ S.done++;
+ window.parent.postMessage({type:'progress_event',payload:{nodeId:'quest',completedItems:S.done,totalItems:TOT}},'*');
+ render();
+ setTimeout(function(){$('bay').classList.remove('rise');S.busy=false;next()},1300);
+}
+function next(){S.i++;if(S.i>=IT.length){return end('all cargo handled')}
+ var it=cur();S.rows=it.lockRows||2;S.cols=2;
+ if(it.foot){while(S.rows*S.cols>S.budget&&S.cols>1)S.cols--;while(S.rows*S.cols>S.budget&&S.rows>1)S.rows--}
+ S.it0=Date.now();render();send()}
+function stormEnd(){
+ if(S.over)return;S.busy=true;
+ var it=cur(),prod=S.rows*S.cols,ab=0,lost=it.total;
+ if(!(it.doorMaxCols&&S.cols>it.doorMaxCols)){if(prod>it.total){lost=Math.min(prod-it.total,it.total);ab=it.total-lost}else{ab=prod;lost=it.total-prod}}
+ attempt(it,false,'storm departure '+S.rows+'x'+S.cols);
+ S.ab+=ab;S.left+=lost;S.log.push({eq:S.rows+' × '+S.cols+' = '+prod,name:it.cargo,ab:ab,lost:lost,total:it.total,storm:1});S.done++;
+ for(var k=S.i+1;k<IT.length;k++){var r=IT[k];attempt(r,false,'never loaded — storm closed');S.left+=r.total;S.log.push({eq:'— never built —',name:r.cargo,ab:0,lost:r.total,total:r.total,storm:1});S.done++}
+ end('the storm closed and the elevator left without you');
+}
+function end(reason){
+ if(S.over)return;S.over=true;S.busy=false;
+ var b='';for(var k=0;k<S.log.length;k++){var L=S.log[k];
+  b+='<div><b>'+L.eq+'</b> — '+L.total+' '+L.name+': <span class="ab">'+L.ab+' ABOARD</span>'+(L.lost?' · <span class="lb">'+L.lost+' LEFT ON LEDGE</span>':'')+(L.storm?' <i>(storm departure)</i>':'')+'</div>'}
+ b+='<div style="margin-top:6px"><b>TOTAL ABOARD: '+S.ab+'</b> · <span class="lb">TOTAL LEFT BEHIND: '+S.left+'</span></div>';
+ $('logbody').innerHTML=b;$('logwrap').style.display='block';
+ $('stamp').textContent=S.left===0?'★ GOLD MANIFEST — the storm broke into stars and the whole festival is lit.':'The team makes do by lantern light. '+S.left+' crate(s) wait on the ledge until spring. Reason the trip ended: '+reason+'.';
+ $('msg').textContent='The elevator crested the ridge. Station log below.';
+ $('load').disabled=true;
+ var acc=S.res.length?S.res.filter(function(r){return r.correct}).length/S.res.length:0;
+ if(window.fireCompanionEvent)window.fireCompanionEvent('game_complete',{});
+ if(window.sendNodeComplete)window.sendNodeComplete({nodeId:(P&&P.nodeId)||'quest',completed:true,accuracy:acc,targetResults:S.res,timeSpent_ms:Date.now()-S.t0});
+ $('logwrap').scrollIntoView({behavior:'smooth'});
+}
+// drag handles
+var drag=null,br=null;
+function dstart(w){return function(e){if(S.over||S.paused)return;drag=w;br=$('bay').getBoundingClientRect();e.preventDefault()}}
+$('rowh').addEventListener('pointerdown',dstart('r'));$('colh').addEventListener('pointerdown',dstart('c'));
+document.addEventListener('pointermove',function(e){if(!drag)return;br=br||$('bay').getBoundingClientRect();
+ if(drag==='r')setRows(Math.round((e.clientY-br.top)/CELL+.2));else setCols(Math.round((e.clientX-br.left)/CELL+.2))});
+document.addEventListener('pointerup',function(){drag=null;br=null});
+$('rm').onclick=function(){setRows(S.rows-1)};$('rp').onclick=function(){setRows(S.rows+1)};
+$('cm').onclick=function(){setCols(S.cols-1)};$('cp').onclick=function(){setCols(S.cols+1)};
+$('load').onclick=commit;
+$('rd').onclick=function(){S.ra++;S.raReq=true;$('manifest').style.color='#fff';setTimeout(function(){$('manifest').style.color='#ffe9c2'},400);send()};
+$('again').onclick=function(){location.reload()};
+window.addEventListener('message',function(e){var d=e.data||{};if(d.type==='sunny_companion_presence'){var p=d.payload||{};
+ var on=!!(p.summoned||p.visible||p.present||p.expanded||p.state==='summoned');S.paused=on;
+ var m=$('pm');if(on&&!m){m=document.createElement('div');m.id='pm';m.className='pausemsk';m.textContent='Storm held — talking to Sunny';document.body.appendChild(m)}else if(!on&&m){m.remove()}}});
+setInterval(function(){if(S.paused||S.over)return;S.el+=200;
+ var f=Math.min(1,S.el/STORM);$('sfill').style.width=(f*100)+'%';
+ var left=Math.max(0,Math.ceil((STORM-S.el)/1000));
+ $('stxt').textContent='STORM CLOSING — '+Math.floor(left/60)+':'+('0'+(left%60)).slice(-2)+' OF DAYLIGHT LEFT';
+ if(S.el>=STORM)stormEnd()},200);
+render();send();
+window.parent.postMessage({type:'activity_ready',payload:{nodeId:'quest'}},'*');
+var wait=function(ms){return new Promise(function(r){setTimeout(r,ms)})};
+window.SUNNY_VALIDATION_HOOKS={playthrough:async function(){
+ var plan=[[5,7],[6,8],[6,4],[6,7],[3,6],[4,6],[2,6]];
+ for(var k=0;k<plan.length;k++){
+  var it=cur();if(!it)break;
+  if(it.doorMaxCols){setRows(4);setCols(6);$('load').click();await wait(500);}
+  setCols(1);setRows(plan[k][0]);setCols(plan[k][1]);
+  await wait(150);$('load').click();await wait(1700);
+ }
+ if(!S.over)end('validation run');
+ return{completed:true,items:S.res.length};
+}};
+});
+</script>
+</body>
+</html>

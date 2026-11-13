@@ -1,0 +1,18 @@
+[
+  {
+    "stage": "design",
+    "model": "claude-fable-5",
+    "inputTokens": 1563,
+    "outputTokens": 3160,
+    "elapsedMs": 54870,
+    "estimatedCostUsd": 0.1736
+  },
+  {
+    "stage": "implementation",
+    "model": "claude-opus-5",
+    "inputTokens": 0,
+    "outputTokens": 0,
+    "elapsedMs": 137038,
+    "estimatedCostUsd": 0
+  }
+]

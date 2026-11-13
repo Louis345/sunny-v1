@@ -1,0 +1,9 @@
+{
+  "promptCoverage": {
+    "complete": true,
+    "missing": []
+  },
+  "calibrationDecisionId": "hw-02c11ee60594c617:decision:r3",
+  "assignmentHash": "572d084ddb6e1b07b315233f2a10309525489f50aea6ff0b669a69bc134f7e7b",
+  "historicalOutput": "/Users/jamaltaylor/Development/sunny-demo-main/outputs/math-release-confidence-live/2026-08-08T16-02-39.895Z"
+}

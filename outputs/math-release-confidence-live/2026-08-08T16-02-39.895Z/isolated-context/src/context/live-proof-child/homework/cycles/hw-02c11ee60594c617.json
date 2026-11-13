@@ -1,0 +1,737 @@
+{
+  "schemaVersion": 2,
+  "revision": 3,
+  "childId": "live-proof-child",
+  "homeworkId": "hw-02c11ee60594c617",
+  "domain": "math",
+  "assignment": {
+    "title": "Garden Row Mysteries",
+    "contentFingerprint": "02c11ee60594c617808752649bb6342082297b79c634feccbeafe682b33d4fd9",
+    "capturedEvidenceIds": [
+      "assignment:LAB-MATH-B",
+      "hw-98079daac9b7869c:decision:r3",
+      "evaluation:cd58ac474b720927",
+      "evaluation:1b7d71227bc7fff2",
+      "evaluation:189974363295da63"
+    ],
+    "targets": [
+      "math.multiplication.missing_factor",
+      "math.multiplication.equal_sharing",
+      "math.multiplication.word_problem_interpretation"
+    ],
+    "returnTag": "#sunny_lab_math_b"
+  },
+  "academicTheory": {
+    "theoryId": "hw-02c11ee60594c617:theory",
+    "revision": 2,
+    "hypothesis": "The learner independently transfers multiplication word-problem interpretation on LAB-MATH-B-style work, but not items requiring solving for an unknown quantity: when the unknown sits in the factor or group-size position (missing_factor, equal_sharing), the learner defaults to multiplying the two known numbers. Targeted instruction on locating the unknown before computing should raise unknown-position accuracy, while interpretation accuracy is expected to hold.",
+    "supportCriteria": [
+      "Confirmed unassisted returned work supports the expected range."
+    ],
+    "reviseCriteria": [
+      "Returned work exposes a scoped error or uncertainty."
+    ],
+    "falsifyCriteria": [
+      "Repeated independent errors contradict the expected transfer."
+    ]
+  },
+  "engagementTheory": null,
+  "assumptions": [
+    {
+      "assumptionId": "hw-02c11ee60594c617:assumption:transfer",
+      "claim": "Independent transfer will be adequate for the scoped LAB-MATH-B constructs.",
+      "evidenceIds": [
+        "assignment:LAB-MATH-B",
+        "hw-98079daac9b7869c:decision:r3",
+        "evaluation:cd58ac474b720927",
+        "evaluation:1b7d71227bc7fff2",
+        "evaluation:189974363295da63"
+      ],
+      "confidence": 0.65,
+      "uncertainty": "Prior evidence may not generalize to this assignment.",
+      "createdAt": "2026-08-02T12:00:00.000Z",
+      "lockedAt": "2026-08-02T12:00:00.000Z"
+    }
+  ],
+  "nodes": [
+    {
+      "nodeId": "hw-02c11ee60594c617:baseline",
+      "role": "baseline",
+      "title": "Garden Row Mysteries",
+      "state": "ready",
+      "academicTarget": {
+        "domain": "math",
+        "skill": "Garden Row Mysteries",
+        "targets": [
+          "math.multiplication.missing_factor",
+          "math.multiplication.equal_sharing",
+          "math.multiplication.word_problem_interpretation"
+        ]
+      },
+      "algorithmOwner": "ai_tutor",
+      "theoryId": "hw-02c11ee60594c617:theory",
+      "experimentId": "hw-02c11ee60594c617:experiment",
+      "mechanic": "AI-owned",
+      "theme": "AI-owned",
+      "openingScreen": {
+        "title": "Garden Row Mysteries",
+        "purpose": "Collect target-aligned evidence."
+      },
+      "generationPrompt": null,
+      "artifactBinding": null,
+      "artwork": {
+        "status": "placeholder",
+        "localPath": null,
+        "prompt": null
+      },
+      "sfxContract": [],
+      "companionContract": {
+        "events": []
+      },
+      "evidenceContract": {
+        "academic": true,
+        "engagement": true,
+        "companionObservations": true
+      },
+      "evidenceIds": []
+    },
+    {
+      "nodeId": "hw-02c11ee60594c617:node:unknown-position-1",
+      "routeId": "adaptive-support",
+      "predictionId": "hw-02c11ee60594c617:prediction:r3:support",
+      "role": "baseline",
+      "title": "Which Number Is Hiding?",
+      "state": "generating",
+      "academicTarget": {
+        "domain": "math",
+        "skill": "math.multiplication.missing_factor and math.multiplication.equal_sharing: identify the unknown quantity (total, number of groups, or group size) and choose the operation that solves for it, rather than multiplying the two given numbers.",
+        "targets": []
+      },
+      "algorithmOwner": "ai_tutor",
+      "theoryId": "hw-02c11ee60594c617:theory",
+      "experimentId": "hw-02c11ee60594c617:support:r3",
+      "mechanic": "Two-stage sorting-then-solving: for each garden scenario the learner first tags which of the three slots (total plants, number of rows, plants per row) is hidden, gets immediate confirmation on that tag, and only then enters the answer. Early items reveal the row array so the unknown can be counted; later items withdraw the picture so the learner must reason from the tagged slot alone.",
+      "theme": "Garden rows and seed packets, continuing the Garden Row Mysteries setting so the surface context stays familiar while the unknown moves position.",
+      "openingScreen": {
+        "title": "Which Number Is Hiding?",
+        "purpose": "Open by showing the learner two garden problems side by side that use the exact same two numbers but hide different quantities, and say plainly that the goal today is deciding which number is missing before doing any math, because that decision is what changed the answer on the last returned assignment."
+      },
+      "generationPrompt": {
+        "promptId": "hw-02c11ee60594c617:support:prompt:r3",
+        "createdFromEvidenceIds": [
+          "observation:0ee42baffce06546",
+          "observation:4520f65725de1d50",
+          "observation:81c93f608540bf7b",
+          "observation:d1b81984c24d6d80",
+          "observation:2aa76118c8657331",
+          "observation:bbaf27b2c8a85202"
+        ],
+        "text": "Build a scaffolded practice node for a learner who reliably interprets multiplication word problems but who, on confirmed unassisted graded work, repeatedly multiplied the two known numbers instead of solving for a missing factor or group size (missing_factor accuracy 0.33, equal_sharing 0/1). Use a garden-row theme. Every item must be a short word problem with three slots: total plants, number of rows, plants per row. Stage 1: the learner taps which slot is unknown and receives immediate confirmation with a one-line explanation. Stage 2: the learner solves. Include at least 6 missing-factor items and at least 5 equal-sharing items, interleaved and with the unknown slot varied unpredictably; also include 2 items where the total is unknown so multiplying is actually correct, to test discrimination rather than a new blanket rule. Fade the visual array after the first third of items. Log per-item: which slot the learner tagged, whether the tag was right, the final answer, and whether an incorrect answer equals the product of the two given numbers (the signature error). Do not offer answer hints in stage 2; keep it unassisted so the resulting data can serve as clean evidence. Decision: Confirmed unassisted graded returned work (returned-work:0031535d6995059f826e) split the theory. Word-problem interpretation met the preregistered range (evaluation:a27f078c804e15e1, observed 1.0 across observation:81c93f608540bf7b and observation:bbaf27b2c8a85202), but missing-factor fell far below range (evaluation:c8fdaacd3e1b0c13, observed 0.3333; failures at observation:0ee42baffce06546 and observation:4520f65725de1d50 with one success at observation:2aa76118c8657331) and equal sharing failed outright (evaluation:b81e075d2126c022, observed 0 at observation:d1b81984c24d6d80). The predicted error pattern — multiplying known numbers instead of solving for the missing group size or factor — was observed exactly, in both missing-factor and equal-sharing items, so the failure is a scoped, patterned unknown-position weakness rather than a global multiplication deficit. This satisfies the revise criteria (returned work exposes a scoped error) rather than blanket falsification, since one scoped construct transferred as predicted. Evidence references: observation:0ee42baffce06546, observation:4520f65725de1d50, observation:81c93f608540bf7b, observation:d1b81984c24d6d80, observation:2aa76118c8657331, observation:bbaf27b2c8a85202. Do not reuse exposed item identities or exact prompts: LAB-MATH-B:item:1, LAB-MATH-B:item:2, LAB-MATH-B:item:3, LAB-MATH-B:item:4, LAB-MATH-B:item:5, LAB-MATH-B:item:6, LAB-MATH-B:item:7."
+      },
+      "prediction": {
+        "claim": "After the 'Which Number Is Hiding?' unknown-position instrument, the learner will correctly solve unknown-position multiplication items (missing factor and equal sharing) at moderate accuracy in independent practice, with the multiply-the-given-numbers error appearing in fewer than half of remaining mistakes.",
+        "createdAt": "2026-08-02T15:01:00.000Z",
+        "evidenceLimit": "practice_only"
+      },
+      "artifactBinding": null,
+      "artwork": {
+        "status": "placeholder",
+        "localPath": "/generated/adventure-board-demo/quest.jpeg",
+        "prompt": null
+      },
+      "sfxContract": [
+        "interaction",
+        "recovery",
+        "progress",
+        "completion"
+      ],
+      "companionContract": {
+        "events": [
+          "completion",
+          "frustration"
+        ]
+      },
+      "evidenceContract": {
+        "academic": true,
+        "engagement": true,
+        "companionObservations": true
+      },
+      "evidenceIds": []
+    }
+  ],
+  "academicPredictions": [
+    {
+      "predictionId": "hw-02c11ee60594c617:prediction:missing_factor",
+      "theoryId": "hw-02c11ee60594c617:theory",
+      "constructId": "math.multiplication.missing_factor",
+      "context": "confirmed unassisted returned work",
+      "horizon": "within_7_days",
+      "expectedMetric": {
+        "key": "academic.accuracy",
+        "min": 0.7,
+        "max": 1
+      },
+      "predictedErrorPatterns": [
+        "Repeatedly multiplied known numbers instead of solving for a missing group size or factor."
+      ],
+      "confidence": 0.6,
+      "evidenceIds": [
+        "assignment:LAB-MATH-B",
+        "hw-98079daac9b7869c:decision:r3",
+        "evaluation:cd58ac474b720927",
+        "evaluation:1b7d71227bc7fff2",
+        "evaluation:189974363295da63"
+      ],
+      "intervention": "Garden Row Mysteries learning program",
+      "evidenceLimit": "calibrated_mastery",
+      "createdAt": "2026-08-02T12:00:00.000Z",
+      "lockedAt": "2026-08-02T12:00:00.000Z"
+    },
+    {
+      "predictionId": "hw-02c11ee60594c617:prediction:equal_sharing",
+      "theoryId": "hw-02c11ee60594c617:theory",
+      "constructId": "math.multiplication.equal_sharing",
+      "context": "confirmed unassisted returned work",
+      "horizon": "within_7_days",
+      "expectedMetric": {
+        "key": "academic.accuracy",
+        "min": 0.7,
+        "max": 1
+      },
+      "predictedErrorPatterns": [
+        "Repeatedly multiplied known numbers instead of solving for a missing group size or factor."
+      ],
+      "confidence": 0.6,
+      "evidenceIds": [
+        "assignment:LAB-MATH-B",
+        "hw-98079daac9b7869c:decision:r3",
+        "evaluation:cd58ac474b720927",
+        "evaluation:1b7d71227bc7fff2",
+        "evaluation:189974363295da63"
+      ],
+      "intervention": "Garden Row Mysteries learning program",
+      "evidenceLimit": "calibrated_mastery",
+      "createdAt": "2026-08-02T12:00:00.000Z",
+      "lockedAt": "2026-08-02T12:00:00.000Z"
+    },
+    {
+      "predictionId": "hw-02c11ee60594c617:prediction:word_problem_interpretation",
+      "theoryId": "hw-02c11ee60594c617:theory",
+      "constructId": "math.multiplication.word_problem_interpretation",
+      "context": "confirmed unassisted returned work",
+      "horizon": "within_7_days",
+      "expectedMetric": {
+        "key": "academic.accuracy",
+        "min": 0.7,
+        "max": 1
+      },
+      "predictedErrorPatterns": [
+        "Repeatedly multiplied known numbers instead of solving for a missing group size or factor."
+      ],
+      "confidence": 0.6,
+      "evidenceIds": [
+        "assignment:LAB-MATH-B",
+        "hw-98079daac9b7869c:decision:r3",
+        "evaluation:cd58ac474b720927",
+        "evaluation:1b7d71227bc7fff2",
+        "evaluation:189974363295da63"
+      ],
+      "intervention": "Garden Row Mysteries learning program",
+      "evidenceLimit": "calibrated_mastery",
+      "createdAt": "2026-08-02T12:00:00.000Z",
+      "lockedAt": "2026-08-02T12:00:00.000Z"
+    },
+    {
+      "predictionId": "hw-02c11ee60594c617:prediction:r3:support",
+      "theoryId": "hw-02c11ee60594c617:theory",
+      "constructId": "math.multiplication.missing_factor",
+      "context": "unassisted next-session practice items within the Which Number Is Hiding? instrument, no scaffolding in the solve stage",
+      "horizon": "within_7_days",
+      "expectedMetric": {
+        "key": "academic.accuracy",
+        "min": 0.55,
+        "max": 0.85
+      },
+      "predictedErrorPatterns": [
+        "Multiplied the two given numbers instead of solving for the missing group size or factor.",
+        "Correctly tagged the unknown slot but then still applied multiplication in the solve stage.",
+        "Over-corrected by dividing on items where the unknown total genuinely required multiplication."
+      ],
+      "confidence": 0.55,
+      "evidenceIds": [
+        "observation:0ee42baffce06546",
+        "observation:4520f65725de1d50",
+        "observation:81c93f608540bf7b",
+        "observation:d1b81984c24d6d80",
+        "observation:2aa76118c8657331",
+        "observation:bbaf27b2c8a85202"
+      ],
+      "intervention": "Which Number Is Hiding?",
+      "evidenceLimit": "practice_only",
+      "createdAt": "2026-08-02T15:01:00.000Z",
+      "lockedAt": "2026-08-02T15:01:00.000Z"
+    }
+  ],
+  "lifecycle": "baseline_generating",
+  "evidence": {
+    "academic": [
+      {
+        "evidenceId": "observation:0ee42baffce06546",
+        "summary": "Returned work item LAB-MATH-B:item:1: incorrect.",
+        "accuracy": 0
+      },
+      {
+        "evidenceId": "observation:4520f65725de1d50",
+        "summary": "Returned work item LAB-MATH-B:item:2: incorrect.",
+        "accuracy": 0
+      },
+      {
+        "evidenceId": "observation:81c93f608540bf7b",
+        "summary": "Returned work item LAB-MATH-B:item:3: correct.",
+        "accuracy": 1
+      },
+      {
+        "evidenceId": "observation:23f39686fc8bcab8",
+        "summary": "Returned work item LAB-MATH-B:item:4: correct.",
+        "accuracy": 1
+      },
+      {
+        "evidenceId": "observation:d1b81984c24d6d80",
+        "summary": "Returned work item LAB-MATH-B:item:5: incorrect.",
+        "accuracy": 0
+      },
+      {
+        "evidenceId": "observation:2aa76118c8657331",
+        "summary": "Returned work item LAB-MATH-B:item:6: correct.",
+        "accuracy": 1
+      },
+      {
+        "evidenceId": "observation:bbaf27b2c8a85202",
+        "summary": "Returned work item LAB-MATH-B:item:7: correct.",
+        "accuracy": 1
+      }
+    ],
+    "engagement": [],
+    "companionObservations": []
+  },
+  "decisionHistory": [
+    {
+      "decisionId": "hw-02c11ee60594c617:decision:r2",
+      "eventType": "returned_work_confirmed",
+      "reason": "Confirmed returned work was recorded as factual evidence pending one Planner interpretation.",
+      "nextAction": "Interpret the prediction evaluations without changing the observations.",
+      "evidenceIds": [
+        "observation:0ee42baffce06546",
+        "observation:4520f65725de1d50",
+        "observation:81c93f608540bf7b",
+        "observation:23f39686fc8bcab8",
+        "observation:d1b81984c24d6d80",
+        "observation:2aa76118c8657331",
+        "observation:bbaf27b2c8a85202"
+      ],
+      "fromLifecycle": "baseline_ready",
+      "toLifecycle": "baseline_ready",
+      "createdAt": "2026-08-02T15:00:00.000Z"
+    },
+    {
+      "decisionId": "hw-02c11ee60594c617:decision:r3",
+      "eventType": "theory_decided",
+      "status": "revised",
+      "reason": "Confirmed unassisted graded returned work (returned-work:0031535d6995059f826e) split the theory. Word-problem interpretation met the preregistered range (evaluation:a27f078c804e15e1, observed 1.0 across observation:81c93f608540bf7b and observation:bbaf27b2c8a85202), but missing-factor fell far below range (evaluation:c8fdaacd3e1b0c13, observed 0.3333; failures at observation:0ee42baffce06546 and observation:4520f65725de1d50 with one success at observation:2aa76118c8657331) and equal sharing failed outright (evaluation:b81e075d2126c022, observed 0 at observation:d1b81984c24d6d80). The predicted error pattern — multiplying known numbers instead of solving for the missing group size or factor — was observed exactly, in both missing-factor and equal-sharing items, so the failure is a scoped, patterned unknown-position weakness rather than a global multiplication deficit. This satisfies the revise criteria (returned work exposes a scoped error) rather than blanket falsification, since one scoped construct transferred as predicted.",
+      "nextAction": "Run one targeted next-session instrument on locating and solving for the unknown quantity (missing factor / equal-sharing group size) before any further independent LAB-MATH-B-style work is treated as mastery evidence.",
+      "evidenceIds": [
+        "observation:0ee42baffce06546",
+        "observation:4520f65725de1d50",
+        "observation:81c93f608540bf7b",
+        "observation:d1b81984c24d6d80",
+        "observation:2aa76118c8657331",
+        "observation:bbaf27b2c8a85202"
+      ],
+      "fromLifecycle": "baseline_ready",
+      "toLifecycle": "baseline_generating",
+      "createdAt": "2026-08-02T15:01:00.000Z",
+      "preserve": [
+        "The prediction that math.multiplication.word_problem_interpretation transfers to confirmed unassisted returned work (evaluation:a27f078c804e15e1, observed 1.0 vs 0.7-1.0 range).",
+        "The preregistered error-pattern hypothesis: multiplying known numbers instead of solving for the unknown, which was confirmed verbatim in evaluation:c8fdaacd3e1b0c13 and evaluation:b81e075d2126c022.",
+        "Use of confirmed unassisted graded returned work as the evidentiary standard for transfer claims."
+      ],
+      "change": [
+        "Drop the blanket claim that all three scoped LAB-MATH-B constructs transfer; restrict adequate transfer to word-problem interpretation only.",
+        "Reframe missing_factor and equal_sharing as a single shared unknown-position weakness rather than two independent construct gaps.",
+        "Lower expected accuracy for unknown-position items to a realistic near-term range instead of the 0.7-1.0 mastery band."
+      ],
+      "testNext": [
+        "Whether the learner can identify which quantity is unknown before computing, on unassisted missing-factor items.",
+        "Whether equal-sharing failure persists on a larger item sample (evaluation:b81e075d2126c022 rested on a single observation).",
+        "Whether the single missing-factor success (observation:2aa76118c8657331) reflects an easier number pairing or genuine partial strategy.",
+        "Whether preserved word-problem interpretation accuracy holds when the word problem embeds an unknown factor."
+      ],
+      "nextEvidenceRequired": [
+        "Confirmed unassisted graded items on math.multiplication.missing_factor (minimum 5 items) with recorded error types.",
+        "Confirmed unassisted graded items on math.multiplication.equal_sharing (minimum 4 items) to replace the single-item basis.",
+        "Learner-visible work or verbalization showing where the unknown was placed before computation.",
+        "A delayed independent reassessment at least several days after instruction to distinguish practice effects from retention."
+      ],
+      "predictionEvaluationIds": [
+        "evaluation:c8fdaacd3e1b0c13",
+        "evaluation:b81e075d2126c022",
+        "evaluation:a27f078c804e15e1"
+      ],
+      "assumptionAssessments": [
+        {
+          "assumptionId": "hw-02c11ee60594c617:assumption:transfer",
+          "outcome": "rejected",
+          "reason": "Independent transfer was not adequate across the scoped constructs. Two of the three scoped constructs failed on confirmed unassisted graded work: missing_factor at 0.3333 and equal_sharing at 0, both showing the preregistered unknown-position error pattern. Only word_problem_interpretation transferred adequately, which is insufficient to sustain an assumption stated over the scoped set as a whole.",
+          "observationIds": [
+            "observation:0ee42baffce06546",
+            "observation:4520f65725de1d50",
+            "observation:d1b81984c24d6d80",
+            "observation:2aa76118c8657331",
+            "observation:81c93f608540bf7b",
+            "observation:bbaf27b2c8a85202"
+          ]
+        }
+      ],
+      "readinessAssessment": {
+        "status": "not_yet_ready",
+        "scope": {
+          "homeworkId": "hw-02c11ee60594c617",
+          "assignmentTitle": "Garden Row Mysteries",
+          "constructIds": [
+            "math.multiplication.missing_factor",
+            "math.multiplication.equal_sharing",
+            "math.multiplication.word_problem_interpretation"
+          ]
+        },
+        "reason": "Scoped to Garden Row Mysteries (LAB-MATH-B) only. Confirmed unassisted graded work shows missing_factor at 0.3333 (evaluation:c8fdaacd3e1b0c13) and equal_sharing at 0 (evaluation:b81e075d2126c022), both below the 0.7 threshold and both carrying the same unknown-position error. Word_problem_interpretation met the range (evaluation:a27f078c804e15e1) but two of three cited constructs are failing, so the assignment as a whole is not ready for independent completion and scaffolded support is required.",
+        "evidenceIds": [
+          "observation:0ee42baffce06546",
+          "observation:4520f65725de1d50",
+          "observation:d1b81984c24d6d80",
+          "observation:2aa76118c8657331",
+          "observation:81c93f608540bf7b",
+          "observation:bbaf27b2c8a85202"
+        ],
+        "predictionEvaluationIds": [
+          "evaluation:c8fdaacd3e1b0c13",
+          "evaluation:b81e075d2126c022",
+          "evaluation:a27f078c804e15e1"
+        ],
+        "uncertainty": "The equal_sharing judgment rests on one item (observation:d1b81984c24d6d80), so its severity is uncertain. Item exposure is 'unknown' for all observations, so prior familiarity cannot be ruled out for either the successes or failures. The word_problem_interpretation success rests on only two items and may not hold when unknowns are embedded.",
+        "nextAction": "Generate a scaffolded unknown-position instrument targeting missing_factor and equal_sharing, then re-collect confirmed unassisted graded evidence before revisiting readiness."
+      }
+    }
+  ],
+  "evidenceSources": [
+    {
+      "sourceId": "returned-work:0031535d6995059f826e",
+      "type": "graded_work",
+      "fileFingerprint": "0031535d6995059f826e4ef55c7d846c213667295372858c3cdc73e3b272af3b",
+      "sourceFile": "round-2-missing-factor-returned-marked.pdf",
+      "provenance": "caregiver",
+      "capturedAt": "2026-08-02T15:00:00.000Z",
+      "assignmentLink": {
+        "homeworkId": "hw-02c11ee60594c617",
+        "method": "explicit_selection",
+        "confidence": 1,
+        "confirmedBy": "caregiver"
+      },
+      "status": "confirmed"
+    }
+  ],
+  "observations": [
+    {
+      "observationId": "observation:0ee42baffce06546",
+      "sourceId": "returned-work:0031535d6995059f826e",
+      "itemId": "LAB-MATH-B:item:1",
+      "prompt": "LAB-MATH-B returned item 1",
+      "childResponse": "incorrect synthetic response",
+      "constructLinks": [
+        {
+          "constructId": "math.multiplication.missing_factor",
+          "role": "primary",
+          "confidence": 1
+        }
+      ],
+      "result": {
+        "correct": false,
+        "score": 0,
+        "observedErrorType": "Repeatedly multiplied known numbers instead of solving for a missing group size or factor."
+      },
+      "assistance": {
+        "status": "unassisted",
+        "scaffolds": []
+      },
+      "exposure": "unknown",
+      "provenance": "graded_work",
+      "observedAt": "2026-08-02T15:00:00.000Z",
+      "confounds": []
+    },
+    {
+      "observationId": "observation:4520f65725de1d50",
+      "sourceId": "returned-work:0031535d6995059f826e",
+      "itemId": "LAB-MATH-B:item:2",
+      "prompt": "LAB-MATH-B returned item 2",
+      "childResponse": "incorrect synthetic response",
+      "constructLinks": [
+        {
+          "constructId": "math.multiplication.missing_factor",
+          "role": "primary",
+          "confidence": 1
+        }
+      ],
+      "result": {
+        "correct": false,
+        "score": 0,
+        "observedErrorType": "Repeatedly multiplied known numbers instead of solving for a missing group size or factor."
+      },
+      "assistance": {
+        "status": "unassisted",
+        "scaffolds": []
+      },
+      "exposure": "unknown",
+      "provenance": "graded_work",
+      "observedAt": "2026-08-02T15:00:00.000Z",
+      "confounds": []
+    },
+    {
+      "observationId": "observation:81c93f608540bf7b",
+      "sourceId": "returned-work:0031535d6995059f826e",
+      "itemId": "LAB-MATH-B:item:3",
+      "prompt": "LAB-MATH-B returned item 3",
+      "childResponse": "correct synthetic response",
+      "constructLinks": [
+        {
+          "constructId": "math.multiplication.word_problem_interpretation",
+          "role": "primary",
+          "confidence": 1
+        }
+      ],
+      "result": {
+        "correct": true,
+        "score": 1
+      },
+      "assistance": {
+        "status": "unassisted",
+        "scaffolds": []
+      },
+      "exposure": "unknown",
+      "provenance": "graded_work",
+      "observedAt": "2026-08-02T15:00:00.000Z",
+      "confounds": []
+    },
+    {
+      "observationId": "observation:23f39686fc8bcab8",
+      "sourceId": "returned-work:0031535d6995059f826e",
+      "itemId": "LAB-MATH-B:item:4",
+      "prompt": "LAB-MATH-B returned item 4",
+      "childResponse": "correct synthetic response",
+      "constructLinks": [
+        {
+          "constructId": "math.multiplication.arrays",
+          "role": "primary",
+          "confidence": 1
+        }
+      ],
+      "result": {
+        "correct": true,
+        "score": 1
+      },
+      "assistance": {
+        "status": "unassisted",
+        "scaffolds": []
+      },
+      "exposure": "unknown",
+      "provenance": "graded_work",
+      "observedAt": "2026-08-02T15:00:00.000Z",
+      "confounds": []
+    },
+    {
+      "observationId": "observation:d1b81984c24d6d80",
+      "sourceId": "returned-work:0031535d6995059f826e",
+      "itemId": "LAB-MATH-B:item:5",
+      "prompt": "LAB-MATH-B returned item 5",
+      "childResponse": "incorrect synthetic response",
+      "constructLinks": [
+        {
+          "constructId": "math.multiplication.equal_sharing",
+          "role": "primary",
+          "confidence": 1
+        }
+      ],
+      "result": {
+        "correct": false,
+        "score": 0,
+        "observedErrorType": "Repeatedly multiplied known numbers instead of solving for a missing group size or factor."
+      },
+      "assistance": {
+        "status": "unassisted",
+        "scaffolds": []
+      },
+      "exposure": "unknown",
+      "provenance": "graded_work",
+      "observedAt": "2026-08-02T15:00:00.000Z",
+      "confounds": []
+    },
+    {
+      "observationId": "observation:2aa76118c8657331",
+      "sourceId": "returned-work:0031535d6995059f826e",
+      "itemId": "LAB-MATH-B:item:6",
+      "prompt": "LAB-MATH-B returned item 6",
+      "childResponse": "correct synthetic response",
+      "constructLinks": [
+        {
+          "constructId": "math.multiplication.missing_factor",
+          "role": "primary",
+          "confidence": 1
+        }
+      ],
+      "result": {
+        "correct": true,
+        "score": 1
+      },
+      "assistance": {
+        "status": "unassisted",
+        "scaffolds": []
+      },
+      "exposure": "unknown",
+      "provenance": "graded_work",
+      "observedAt": "2026-08-02T15:00:00.000Z",
+      "confounds": []
+    },
+    {
+      "observationId": "observation:bbaf27b2c8a85202",
+      "sourceId": "returned-work:0031535d6995059f826e",
+      "itemId": "LAB-MATH-B:item:7",
+      "prompt": "LAB-MATH-B returned item 7",
+      "childResponse": "correct synthetic response",
+      "constructLinks": [
+        {
+          "constructId": "math.multiplication.word_problem_interpretation",
+          "role": "primary",
+          "confidence": 1
+        }
+      ],
+      "result": {
+        "correct": true,
+        "score": 1
+      },
+      "assistance": {
+        "status": "unassisted",
+        "scaffolds": []
+      },
+      "exposure": "unknown",
+      "provenance": "graded_work",
+      "observedAt": "2026-08-02T15:00:00.000Z",
+      "confounds": []
+    }
+  ],
+  "predictionEvaluations": [
+    {
+      "evaluationId": "evaluation:c8fdaacd3e1b0c13",
+      "predictionId": "hw-02c11ee60594c617:prediction:missing_factor",
+      "sourceId": "returned-work:0031535d6995059f826e",
+      "observationIds": [
+        "observation:0ee42baffce06546",
+        "observation:4520f65725de1d50",
+        "observation:2aa76118c8657331"
+      ],
+      "predictedMetric": {
+        "min": 0.7,
+        "max": 1
+      },
+      "observedMetric": 0.3333,
+      "predictionError": 0.3667,
+      "observedErrorPatterns": [
+        "Repeatedly multiplied known numbers instead of solving for a missing group size or factor."
+      ],
+      "sufficiency": "sufficient",
+      "evaluatedAt": "2026-08-02T15:00:00.000Z"
+    },
+    {
+      "evaluationId": "evaluation:b81e075d2126c022",
+      "predictionId": "hw-02c11ee60594c617:prediction:equal_sharing",
+      "sourceId": "returned-work:0031535d6995059f826e",
+      "observationIds": [
+        "observation:d1b81984c24d6d80"
+      ],
+      "predictedMetric": {
+        "min": 0.7,
+        "max": 1
+      },
+      "observedMetric": 0,
+      "predictionError": 0.7,
+      "observedErrorPatterns": [
+        "Repeatedly multiplied known numbers instead of solving for a missing group size or factor."
+      ],
+      "sufficiency": "sufficient",
+      "evaluatedAt": "2026-08-02T15:00:00.000Z"
+    },
+    {
+      "evaluationId": "evaluation:a27f078c804e15e1",
+      "predictionId": "hw-02c11ee60594c617:prediction:word_problem_interpretation",
+      "sourceId": "returned-work:0031535d6995059f826e",
+      "observationIds": [
+        "observation:81c93f608540bf7b",
+        "observation:bbaf27b2c8a85202"
+      ],
+      "predictedMetric": {
+        "min": 0.7,
+        "max": 1
+      },
+      "observedMetric": 1,
+      "predictionError": 0,
+      "observedErrorPatterns": [],
+      "sufficiency": "sufficient",
+      "evaluatedAt": "2026-08-02T15:00:00.000Z"
+    }
+  ],
+  "sessionFinalizations": [],
+  "pendingSessionNodeIds": [],
+  "createdAt": "2026-08-02T12:00:00.000Z",
+  "updatedAt": "2026-08-02T15:01:00.000Z",
+  "calibrations": [
+    {
+      "calibrationId": "calibration:846f0dd5de4c9bff",
+      "gradedAt": "2026-08-02T15:00:00.000Z",
+      "score": 0.5714,
+      "status": "inconclusive",
+      "gradedItems": [
+        {
+          "target": "math.multiplication.missing_factor",
+          "correct": false,
+          "observedErrorType": "Repeatedly multiplied known numbers instead of solving for a missing group size or factor."
+        },
+        {
+          "target": "math.multiplication.missing_factor",
+          "correct": false,
+          "observedErrorType": "Repeatedly multiplied known numbers instead of solving for a missing group size or factor."
+        },
+        {
+          "target": "math.multiplication.word_problem_interpretation",
+          "correct": true
+        },
+        {
+          "target": "math.multiplication.arrays",
+          "correct": true
+        },
+        {
+          "target": "math.multiplication.equal_sharing",
+          "correct": false,
+          "observedErrorType": "Repeatedly multiplied known numbers instead of solving for a missing group size or factor."
+        },
+        {
+          "target": "math.multiplication.missing_factor",
+          "correct": true
+        },
+        {
+          "target": "math.multiplication.word_problem_interpretation",
+          "correct": true
+        }
+      ],
+      "sourceFile": "round-2-missing-factor-returned-marked.pdf",
+      "reason": "Returned work was recorded as factual evidence pending Planner interpretation.",
+      "nextAction": "Evaluate the preregistered predictions and write one theory decision."
+    }
+  ]
+}

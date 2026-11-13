@@ -1,0 +1,445 @@
+{
+  "schemaVersion": 2,
+  "revision": 10,
+  "childId": "proof-child",
+  "homeworkId": "hw-release-proof-equal-groups",
+  "domain": "math",
+  "assignment": {
+    "title": "Equal groups release proof",
+    "contentFingerprint": "release-proof-source-v1",
+    "capturedEvidenceIds": [
+      "assignment:release-proof"
+    ],
+    "targets": [
+      "math.multiplication.equal_groups"
+    ],
+    "returnTag": "#sunny_proof_equal_groups"
+  },
+  "academicTheory": {
+    "theoryId": "theory:release-proof",
+    "revision": 1,
+    "hypothesis": "The child can independently transfer equal-groups reasoning.",
+    "supportCriteria": [
+      "Confirmed independent accuracy falls within the prediction."
+    ],
+    "reviseCriteria": [
+      "Confirmed work falls below the prediction."
+    ],
+    "falsifyCriteria": [
+      "Repeated independent operation-selection errors."
+    ]
+  },
+  "engagementTheory": null,
+  "assumptions": [
+    {
+      "assumptionId": "assumption:equal-groups-transfer",
+      "claim": "Equal-groups reasoning will transfer to returned work.",
+      "evidenceIds": [
+        "assignment:release-proof"
+      ],
+      "confidence": 0.7,
+      "uncertainty": "No confirmed returned work existed at launch.",
+      "createdAt": "2026-08-07T12:00:00.000Z",
+      "lockedAt": "2026-08-07T12:00:00.000Z"
+    }
+  ],
+  "nodes": [
+    {
+      "nodeId": "baseline-equal-groups",
+      "role": "baseline",
+      "title": "Equal Groups Lab",
+      "state": "completed",
+      "academicTarget": {
+        "domain": "math",
+        "skill": "equal groups",
+        "targets": [
+          "fresh equal-groups items"
+        ]
+      },
+      "algorithmOwner": "ai_tutor",
+      "theoryId": "theory:release-proof",
+      "experimentId": "experiment:release-proof",
+      "mechanic": "AI-authored construction",
+      "theme": "AI-authored world",
+      "openingScreen": {
+        "title": "Equal Groups Lab",
+        "purpose": "Test equal-groups reasoning."
+      },
+      "generationPrompt": null,
+      "artifactBinding": null,
+      "artwork": {
+        "status": "placeholder",
+        "localPath": null,
+        "prompt": null
+      },
+      "sfxContract": [],
+      "companionContract": {
+        "events": []
+      },
+      "evidenceContract": {
+        "academic": true,
+        "engagement": true,
+        "companionObservations": true
+      },
+      "evidenceIds": [
+        "production:baseline:baseline-equal-groups:completion",
+        "production:baseline:baseline-equal-groups:completion:engagement"
+      ]
+    },
+    {
+      "nodeId": "quest",
+      "role": "quest",
+      "title": "Quest",
+      "state": "completed",
+      "academicTarget": {
+        "domain": "math",
+        "skill": "unseen transfer",
+        "targets": []
+      },
+      "algorithmOwner": "ai_tutor",
+      "theoryId": "theory:release-proof",
+      "experimentId": "experiment:quest",
+      "mechanic": "evidence-generated",
+      "theme": "AI-authored",
+      "openingScreen": {
+        "title": "Quest",
+        "purpose": "Test unseen transfer."
+      },
+      "generationPrompt": {
+        "promptId": "hw-release-proof-equal-groups:quest:prompt:r5",
+        "createdFromEvidenceIds": [
+          "production:baseline:baseline-equal-groups:completion",
+          "production:baseline:baseline-equal-groups:completion:engagement",
+          "modal:production:baseline"
+        ],
+        "text": "Assignment: Equal groups release proof. Academic construct to preserve: The child can independently transfer equal-groups reasoning. This node must test unseen transfer: change the context while preserving the construct. Author fresh items. These have already been seen and must not be reused verbatim: baseline-fresh. Planner decision behind this node: Fresh independent baseline evidence supports an unseen transfer test. Created at: 2026-08-07T14:02:00.000Z."
+      },
+      "artifactBinding": {
+        "contentId": "proof-quest",
+        "artifactId": "proof-quest",
+        "localArtifactPath": "/proof/quest.html",
+        "localArtworkPath": "/proof/quest.png",
+        "contractFingerprint": "proof-quest",
+        "validationStatus": "passed"
+      },
+      "artwork": {
+        "status": "ready",
+        "localPath": "/proof/quest.png",
+        "prompt": null
+      },
+      "sfxContract": [],
+      "companionContract": {
+        "events": []
+      },
+      "evidenceContract": {
+        "academic": true,
+        "engagement": true,
+        "companionObservations": true
+      },
+      "evidenceIds": [
+        "production:quest:quest:completion",
+        "production:quest:quest:completion:engagement"
+      ]
+    },
+    {
+      "nodeId": "boss",
+      "role": "boss",
+      "title": "Boss",
+      "state": "locked",
+      "academicTarget": {
+        "domain": "math",
+        "skill": "unseen synthesis",
+        "targets": []
+      },
+      "algorithmOwner": "ai_tutor",
+      "theoryId": "theory:release-proof",
+      "experimentId": "experiment:boss",
+      "mechanic": "evidence-generated",
+      "theme": "AI-authored",
+      "openingScreen": {
+        "title": "Boss",
+        "purpose": "Test unseen synthesis."
+      },
+      "generationPrompt": null,
+      "artifactBinding": null,
+      "artwork": {
+        "status": "placeholder",
+        "localPath": null,
+        "prompt": null
+      },
+      "sfxContract": [],
+      "companionContract": {
+        "events": []
+      },
+      "evidenceContract": {
+        "academic": true,
+        "engagement": true,
+        "companionObservations": true
+      },
+      "evidenceIds": []
+    }
+  ],
+  "academicPredictions": [
+    {
+      "predictionId": "prediction:release-proof",
+      "theoryId": "theory:release-proof",
+      "constructId": "math.multiplication.equal_groups",
+      "context": "confirmed unassisted returned work",
+      "horizon": "within_7_days",
+      "expectedMetric": {
+        "key": "academic.accuracy",
+        "min": 0.7,
+        "max": 0.9
+      },
+      "predictedErrorPatterns": [
+        "operation_selection"
+      ],
+      "confidence": 0.7,
+      "evidenceIds": [
+        "assignment:release-proof"
+      ],
+      "intervention": "AI-authored equal-groups lesson",
+      "evidenceLimit": "calibrated_mastery",
+      "createdAt": "2026-08-07T12:00:00.000Z",
+      "lockedAt": "2026-08-07T12:00:00.000Z"
+    }
+  ],
+  "lifecycle": "quest_evaluating",
+  "evidence": {
+    "academic": [
+      {
+        "evidenceId": "production:baseline:baseline-equal-groups:completion",
+        "accuracy": 1,
+        "summary": "Equal Groups Lab completed at 100% across 1 scored target readings."
+      },
+      {
+        "evidenceId": "production:quest:quest:completion",
+        "accuracy": 0,
+        "summary": "Quest completed at 0% across 1 scored target readings."
+      }
+    ],
+    "engagement": [
+      {
+        "evidenceId": "production:baseline:baseline-equal-groups:completion:engagement",
+        "summary": "Equal Groups Lab completed in 1000ms; replay=false; frustration=none."
+      },
+      {
+        "evidenceId": "modal:production:baseline",
+        "summary": "Session finalized after Equal Groups Lab: fun rating 3/5; action back_to_map."
+      },
+      {
+        "evidenceId": "production:quest:quest:completion:engagement",
+        "summary": "Quest completed in 1000ms; replay=false; frustration=none."
+      },
+      {
+        "evidenceId": "modal:production:quest",
+        "summary": "Session finalized after Quest: fun rating 4/5; action back_to_map."
+      }
+    ],
+    "companionObservations": []
+  },
+  "decisionHistory": [
+    {
+      "decisionId": "hw-release-proof-equal-groups:decision:r2",
+      "eventType": "instrument_observed",
+      "reason": "Equal Groups Lab factual scorecard recorded; one Planner decision is required.",
+      "nextAction": "Evaluate the preregistered prediction against this evidence.",
+      "evidenceIds": [
+        "production:baseline:baseline-equal-groups:completion",
+        "production:baseline:baseline-equal-groups:completion:engagement"
+      ],
+      "fromLifecycle": "baseline_ready",
+      "toLifecycle": "baseline_evaluating",
+      "createdAt": "2026-08-07T14:00:00.000Z"
+    },
+    {
+      "decisionId": "hw-release-proof-equal-groups:decision:r3",
+      "eventType": "session_finalized",
+      "reason": "Equal Groups Lab session evidence was finalized before the next Planner decision.",
+      "nextAction": "Evaluate the complete academic and engagement scorecard once.",
+      "evidenceIds": [
+        "modal:production:baseline"
+      ],
+      "fromLifecycle": "baseline_evaluating",
+      "toLifecycle": "baseline_evaluating",
+      "createdAt": "2026-08-07T14:01:00.000Z"
+    },
+    {
+      "decisionId": "hw-release-proof-equal-groups:decision:r4",
+      "eventType": "progression_decision_claimed",
+      "reason": "The finalized session packet was claimed for one Planner decision.",
+      "evidenceIds": [
+        "modal:production:baseline"
+      ],
+      "fromLifecycle": "baseline_evaluating",
+      "toLifecycle": "baseline_evaluating",
+      "createdAt": "2026-08-07T14:02:00.000Z"
+    },
+    {
+      "decisionId": "hw-release-proof-equal-groups:decision:r5",
+      "eventType": "theory_decided",
+      "status": "supported",
+      "reason": "Fresh independent baseline evidence supports an unseen transfer test.",
+      "nextAction": "generate_quest",
+      "evidenceIds": [
+        "production:baseline:baseline-equal-groups:completion",
+        "production:baseline:baseline-equal-groups:completion:engagement",
+        "modal:production:baseline"
+      ],
+      "fromLifecycle": "baseline_evaluating",
+      "toLifecycle": "quest_generating",
+      "createdAt": "2026-08-07T14:02:00.000Z",
+      "preserve": [],
+      "change": [],
+      "testNext": [
+        "unseen transfer"
+      ],
+      "nextEvidenceRequired": [
+        "Quest scorecard"
+      ],
+      "predictionEvaluationIds": []
+    },
+    {
+      "decisionId": "hw-release-proof-equal-groups:decision:r6",
+      "eventType": "artifact_bound",
+      "reason": "Validated quest artifact bound to canonical node contract.",
+      "evidenceIds": [
+        "production:baseline:baseline-equal-groups:completion",
+        "production:baseline:baseline-equal-groups:completion:engagement",
+        "modal:production:baseline"
+      ],
+      "fromLifecycle": "quest_generating",
+      "toLifecycle": "quest_ready",
+      "createdAt": "2026-08-07T14:03:00.000Z"
+    },
+    {
+      "decisionId": "hw-release-proof-equal-groups:decision:r7",
+      "eventType": "instrument_observed",
+      "reason": "Quest factual scorecard recorded; one Planner decision is required.",
+      "nextAction": "Evaluate the preregistered prediction against this evidence.",
+      "evidenceIds": [
+        "production:quest:quest:completion",
+        "production:quest:quest:completion:engagement"
+      ],
+      "fromLifecycle": "quest_ready",
+      "toLifecycle": "quest_evaluating",
+      "createdAt": "2026-08-07T14:04:00.000Z"
+    },
+    {
+      "decisionId": "hw-release-proof-equal-groups:decision:r8",
+      "eventType": "session_finalized",
+      "reason": "Quest session evidence was finalized before the next Planner decision.",
+      "nextAction": "Evaluate the complete academic and engagement scorecard once.",
+      "evidenceIds": [
+        "modal:production:quest"
+      ],
+      "fromLifecycle": "quest_evaluating",
+      "toLifecycle": "quest_evaluating",
+      "createdAt": "2026-08-07T14:05:00.000Z"
+    },
+    {
+      "decisionId": "hw-release-proof-equal-groups:decision:r9",
+      "eventType": "progression_decision_claimed",
+      "reason": "The finalized session packet was claimed for one Planner decision.",
+      "evidenceIds": [
+        "modal:production:quest"
+      ],
+      "fromLifecycle": "quest_evaluating",
+      "toLifecycle": "quest_evaluating",
+      "createdAt": "2026-08-07T14:06:00.000Z"
+    },
+    {
+      "decisionId": "hw-release-proof-equal-groups:decision:r10",
+      "eventType": "progression_decision_failed",
+      "reason": "Planner decision paused: canonical_progression_boss_requires_eligible_quest_evidence",
+      "evidenceIds": [
+        "modal:production:quest"
+      ],
+      "fromLifecycle": "quest_evaluating",
+      "toLifecycle": "quest_evaluating",
+      "createdAt": "2026-08-07T14:06:00.000Z"
+    }
+  ],
+  "evidenceSources": [],
+  "observations": [
+    {
+      "observationId": "production:baseline:baseline-equal-groups:observation:1",
+      "sourceId": "activity:production:baseline:baseline-equal-groups",
+      "nodeId": "baseline-equal-groups",
+      "itemId": "baseline-fresh",
+      "constructLinks": [
+        {
+          "constructId": "math.equal.groups",
+          "role": "primary",
+          "confidence": 1
+        }
+      ],
+      "result": {
+        "correct": true,
+        "score": 1
+      },
+      "assistance": {
+        "status": "unassisted",
+        "scaffolds": []
+      },
+      "exposure": "previously_practiced",
+      "provenance": "practice",
+      "observedAt": "2026-08-07T14:00:00.000Z",
+      "confounds": []
+    },
+    {
+      "observationId": "production:quest:quest:observation:1",
+      "sourceId": "activity:production:quest:quest",
+      "nodeId": "quest",
+      "itemId": "quest-unseen-transfer",
+      "constructLinks": [
+        {
+          "constructId": "math.unseen.transfer",
+          "role": "primary",
+          "confidence": 1
+        }
+      ],
+      "result": {
+        "correct": false,
+        "score": 0
+      },
+      "assistance": {
+        "status": "unassisted",
+        "scaffolds": []
+      },
+      "exposure": "unseen",
+      "provenance": "independent_probe",
+      "observedAt": "2026-08-07T14:04:00.000Z",
+      "confounds": []
+    }
+  ],
+  "predictionEvaluations": [],
+  "sessionFinalizations": [
+    {
+      "choiceEventId": "modal:production:baseline",
+      "nodeId": "baseline-equal-groups",
+      "finalizedAt": "2026-08-07T14:01:00.000Z",
+      "funRating": 3,
+      "postActivityAction": "back_to_map"
+    },
+    {
+      "choiceEventId": "modal:production:quest",
+      "nodeId": "quest",
+      "finalizedAt": "2026-08-07T14:05:00.000Z",
+      "funRating": 4,
+      "postActivityAction": "back_to_map"
+    }
+  ],
+  "pendingSessionNodeIds": [],
+  "createdAt": "2026-08-07T12:00:00.000Z",
+  "updatedAt": "2026-08-07T14:06:00.000Z",
+  "evaluationNodeId": "quest",
+  "evaluationSessionFinalizationId": "modal:production:quest",
+  "progressionDecisionClaim": {
+    "finalizationId": "modal:production:quest",
+    "claimId": "3656d55e-1597-4632-a202-b26d5651f8e9",
+    "status": "failed",
+    "claimedAt": "2026-08-07T14:06:00.000Z",
+    "lastError": "canonical_progression_boss_requires_eligible_quest_evidence"
+  }
+}

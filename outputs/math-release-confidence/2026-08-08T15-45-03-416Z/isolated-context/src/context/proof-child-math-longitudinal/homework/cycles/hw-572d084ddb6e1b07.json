@@ -1,0 +1,741 @@
+{
+  "schemaVersion": 2,
+  "revision": 3,
+  "childId": "proof-child-math-longitudinal",
+  "homeworkId": "hw-572d084ddb6e1b07",
+  "domain": "math",
+  "assignment": {
+    "title": "Festival Team Challenge",
+    "contentFingerprint": "572d084ddb6e1b07b315233f2a10309525489f50aea6ff0b669a69bc134f7e7b",
+    "capturedEvidenceIds": [
+      "assignment:LAB-MATH-C",
+      "hw-02c11ee60594c617:decision:r3",
+      "hw-98079daac9b7869c:decision:r3",
+      "evaluation:c8fdaacd3e1b0c13",
+      "evaluation:b81e075d2126c022",
+      "evaluation:189974363295da63",
+      "evaluation:a27f078c804e15e1",
+      "evaluation:1b7d71227bc7fff2",
+      "evaluation:cd58ac474b720927"
+    ],
+    "targets": [
+      "math.multiplication.equal_groups",
+      "math.multiplication.missing_factor",
+      "math.multiplication.word_problem_interpretation",
+      "math.multiplication.factor_pairs"
+    ],
+    "returnTag": "#sunny_lab_math_c"
+  },
+  "academicTheory": {
+    "theoryId": "hw-572d084ddb6e1b07:theory",
+    "revision": 1,
+    "hypothesis": "The learner will transfer the targeted LAB-MATH-C constructs to independent returned work.",
+    "supportCriteria": [
+      "Confirmed unassisted returned work supports the expected range."
+    ],
+    "reviseCriteria": [
+      "Returned work exposes a scoped error or uncertainty."
+    ],
+    "falsifyCriteria": [
+      "Repeated independent errors contradict the expected transfer."
+    ]
+  },
+  "engagementTheory": null,
+  "assumptions": [
+    {
+      "assumptionId": "hw-572d084ddb6e1b07:assumption:transfer",
+      "claim": "Independent transfer will be adequate for the scoped LAB-MATH-C constructs.",
+      "evidenceIds": [
+        "assignment:LAB-MATH-C",
+        "hw-02c11ee60594c617:decision:r3",
+        "hw-98079daac9b7869c:decision:r3",
+        "evaluation:c8fdaacd3e1b0c13",
+        "evaluation:b81e075d2126c022",
+        "evaluation:189974363295da63",
+        "evaluation:a27f078c804e15e1",
+        "evaluation:1b7d71227bc7fff2",
+        "evaluation:cd58ac474b720927"
+      ],
+      "confidence": 0.65,
+      "uncertainty": "Prior evidence may not generalize to this assignment.",
+      "createdAt": "2026-08-03T12:00:00.000Z",
+      "lockedAt": "2026-08-03T12:00:00.000Z"
+    }
+  ],
+  "nodes": [
+    {
+      "nodeId": "hw-572d084ddb6e1b07:baseline",
+      "role": "baseline",
+      "title": "Festival Team Challenge",
+      "state": "ready",
+      "academicTarget": {
+        "domain": "math",
+        "skill": "Festival Team Challenge",
+        "targets": [
+          "math.multiplication.equal_groups",
+          "math.multiplication.missing_factor",
+          "math.multiplication.word_problem_interpretation",
+          "math.multiplication.factor_pairs"
+        ]
+      },
+      "algorithmOwner": "ai_tutor",
+      "theoryId": "hw-572d084ddb6e1b07:theory",
+      "experimentId": "hw-572d084ddb6e1b07:experiment",
+      "mechanic": "AI-owned",
+      "theme": "AI-owned",
+      "openingScreen": {
+        "title": "Festival Team Challenge",
+        "purpose": "Collect target-aligned evidence."
+      },
+      "generationPrompt": null,
+      "artifactBinding": null,
+      "artwork": {
+        "status": "placeholder",
+        "localPath": null,
+        "prompt": null
+      },
+      "sfxContract": [],
+      "companionContract": {
+        "events": []
+      },
+      "evidenceContract": {
+        "academic": true,
+        "engagement": true,
+        "companionObservations": true
+      },
+      "evidenceIds": []
+    }
+  ],
+  "academicPredictions": [
+    {
+      "predictionId": "hw-572d084ddb6e1b07:prediction:equal_groups",
+      "theoryId": "hw-572d084ddb6e1b07:theory",
+      "constructId": "math.multiplication.equal_groups",
+      "context": "confirmed unassisted returned work",
+      "horizon": "within_7_days",
+      "expectedMetric": {
+        "key": "academic.accuracy",
+        "min": 0.7,
+        "max": 1
+      },
+      "predictedErrorPatterns": [
+        "One incomplete response when asked for multiple factor pairs; prior missing-factor and interpretation errors did not recur."
+      ],
+      "confidence": 0.6,
+      "evidenceIds": [
+        "assignment:LAB-MATH-C",
+        "hw-02c11ee60594c617:decision:r3",
+        "hw-98079daac9b7869c:decision:r3",
+        "evaluation:c8fdaacd3e1b0c13",
+        "evaluation:b81e075d2126c022",
+        "evaluation:189974363295da63",
+        "evaluation:a27f078c804e15e1",
+        "evaluation:1b7d71227bc7fff2",
+        "evaluation:cd58ac474b720927"
+      ],
+      "intervention": "Festival Team Challenge learning program",
+      "evidenceLimit": "calibrated_mastery",
+      "createdAt": "2026-08-03T12:00:00.000Z",
+      "lockedAt": "2026-08-03T12:00:00.000Z"
+    },
+    {
+      "predictionId": "hw-572d084ddb6e1b07:prediction:missing_factor",
+      "theoryId": "hw-572d084ddb6e1b07:theory",
+      "constructId": "math.multiplication.missing_factor",
+      "context": "confirmed unassisted returned work",
+      "horizon": "within_7_days",
+      "expectedMetric": {
+        "key": "academic.accuracy",
+        "min": 0.7,
+        "max": 1
+      },
+      "predictedErrorPatterns": [
+        "One incomplete response when asked for multiple factor pairs; prior missing-factor and interpretation errors did not recur."
+      ],
+      "confidence": 0.6,
+      "evidenceIds": [
+        "assignment:LAB-MATH-C",
+        "hw-02c11ee60594c617:decision:r3",
+        "hw-98079daac9b7869c:decision:r3",
+        "evaluation:c8fdaacd3e1b0c13",
+        "evaluation:b81e075d2126c022",
+        "evaluation:189974363295da63",
+        "evaluation:a27f078c804e15e1",
+        "evaluation:1b7d71227bc7fff2",
+        "evaluation:cd58ac474b720927"
+      ],
+      "intervention": "Festival Team Challenge learning program",
+      "evidenceLimit": "calibrated_mastery",
+      "createdAt": "2026-08-03T12:00:00.000Z",
+      "lockedAt": "2026-08-03T12:00:00.000Z"
+    },
+    {
+      "predictionId": "hw-572d084ddb6e1b07:prediction:word_problem_interpretation",
+      "theoryId": "hw-572d084ddb6e1b07:theory",
+      "constructId": "math.multiplication.word_problem_interpretation",
+      "context": "confirmed unassisted returned work",
+      "horizon": "within_7_days",
+      "expectedMetric": {
+        "key": "academic.accuracy",
+        "min": 0.7,
+        "max": 1
+      },
+      "predictedErrorPatterns": [
+        "One incomplete response when asked for multiple factor pairs; prior missing-factor and interpretation errors did not recur."
+      ],
+      "confidence": 0.6,
+      "evidenceIds": [
+        "assignment:LAB-MATH-C",
+        "hw-02c11ee60594c617:decision:r3",
+        "hw-98079daac9b7869c:decision:r3",
+        "evaluation:c8fdaacd3e1b0c13",
+        "evaluation:b81e075d2126c022",
+        "evaluation:189974363295da63",
+        "evaluation:a27f078c804e15e1",
+        "evaluation:1b7d71227bc7fff2",
+        "evaluation:cd58ac474b720927"
+      ],
+      "intervention": "Festival Team Challenge learning program",
+      "evidenceLimit": "calibrated_mastery",
+      "createdAt": "2026-08-03T12:00:00.000Z",
+      "lockedAt": "2026-08-03T12:00:00.000Z"
+    },
+    {
+      "predictionId": "hw-572d084ddb6e1b07:prediction:factor_pairs",
+      "theoryId": "hw-572d084ddb6e1b07:theory",
+      "constructId": "math.multiplication.factor_pairs",
+      "context": "confirmed unassisted returned work",
+      "horizon": "within_7_days",
+      "expectedMetric": {
+        "key": "academic.accuracy",
+        "min": 0.7,
+        "max": 1
+      },
+      "predictedErrorPatterns": [
+        "One incomplete response when asked for multiple factor pairs; prior missing-factor and interpretation errors did not recur."
+      ],
+      "confidence": 0.6,
+      "evidenceIds": [
+        "assignment:LAB-MATH-C",
+        "hw-02c11ee60594c617:decision:r3",
+        "hw-98079daac9b7869c:decision:r3",
+        "evaluation:c8fdaacd3e1b0c13",
+        "evaluation:b81e075d2126c022",
+        "evaluation:189974363295da63",
+        "evaluation:a27f078c804e15e1",
+        "evaluation:1b7d71227bc7fff2",
+        "evaluation:cd58ac474b720927"
+      ],
+      "intervention": "Festival Team Challenge learning program",
+      "evidenceLimit": "calibrated_mastery",
+      "createdAt": "2026-08-03T12:00:00.000Z",
+      "lockedAt": "2026-08-03T12:00:00.000Z"
+    }
+  ],
+  "lifecycle": "complete",
+  "evidence": {
+    "academic": [
+      {
+        "evidenceId": "observation:d10841711c10da43",
+        "summary": "Returned work item LAB-MATH-C:item:1: correct.",
+        "accuracy": 1
+      },
+      {
+        "evidenceId": "observation:1aefc03189d41337",
+        "summary": "Returned work item LAB-MATH-C:item:2: correct.",
+        "accuracy": 1
+      },
+      {
+        "evidenceId": "observation:49041448769f85c1",
+        "summary": "Returned work item LAB-MATH-C:item:3: correct.",
+        "accuracy": 1
+      },
+      {
+        "evidenceId": "observation:ce21f1bfd789aa65",
+        "summary": "Returned work item LAB-MATH-C:item:4: correct.",
+        "accuracy": 1
+      },
+      {
+        "evidenceId": "observation:2502a56cc2b976a6",
+        "summary": "Returned work item LAB-MATH-C:item:5: correct.",
+        "accuracy": 1
+      },
+      {
+        "evidenceId": "observation:59d86ebcaa44dfd2",
+        "summary": "Returned work item LAB-MATH-C:item:6: correct.",
+        "accuracy": 1
+      },
+      {
+        "evidenceId": "observation:c72a40b8f1c7c115",
+        "summary": "Returned work item LAB-MATH-C:item:7: correct.",
+        "accuracy": 1
+      },
+      {
+        "evidenceId": "observation:18eacd211fb13b53",
+        "summary": "Returned work item LAB-MATH-C:item:8: incorrect.",
+        "accuracy": 0
+      }
+    ],
+    "engagement": [],
+    "companionObservations": []
+  },
+  "decisionHistory": [
+    {
+      "decisionId": "hw-572d084ddb6e1b07:decision:r2",
+      "eventType": "returned_work_confirmed",
+      "reason": "Confirmed returned work was recorded as factual evidence pending one Planner interpretation.",
+      "nextAction": "Interpret the prediction evaluations without changing the observations.",
+      "evidenceIds": [
+        "observation:d10841711c10da43",
+        "observation:1aefc03189d41337",
+        "observation:49041448769f85c1",
+        "observation:ce21f1bfd789aa65",
+        "observation:2502a56cc2b976a6",
+        "observation:59d86ebcaa44dfd2",
+        "observation:c72a40b8f1c7c115",
+        "observation:18eacd211fb13b53"
+      ],
+      "fromLifecycle": "baseline_ready",
+      "toLifecycle": "baseline_ready",
+      "createdAt": "2026-08-03T15:00:00.000Z"
+    },
+    {
+      "decisionId": "hw-572d084ddb6e1b07:decision:r3",
+      "eventType": "theory_decided",
+      "status": "supported",
+      "reason": "Confirmed unassisted transfer supports readiness for the corrected core constructs; factor-pair generalization remains scoped out.",
+      "nextAction": "Complete this cycle while preserving the factor-pair uncertainty.",
+      "evidenceIds": [
+        "observation:d10841711c10da43",
+        "observation:1aefc03189d41337",
+        "observation:49041448769f85c1",
+        "observation:ce21f1bfd789aa65",
+        "observation:2502a56cc2b976a6",
+        "observation:59d86ebcaa44dfd2",
+        "observation:c72a40b8f1c7c115",
+        "observation:18eacd211fb13b53"
+      ],
+      "fromLifecycle": "baseline_ready",
+      "toLifecycle": "complete",
+      "createdAt": "2026-08-03T15:01:00.000Z",
+      "preserve": [
+        "missing-factor support",
+        "word-problem interpretation support"
+      ],
+      "change": [],
+      "testNext": [
+        "multiple factor pairs on a later assignment"
+      ],
+      "nextEvidenceRequired": [
+        "independent factor-pair evidence"
+      ],
+      "predictionEvaluationIds": [
+        "evaluation:86e6e05171057405",
+        "evaluation:40d7ae3df4699f1f",
+        "evaluation:b2a57734e58c17cf",
+        "evaluation:69fa6e2c9629cc52"
+      ],
+      "assumptionAssessments": [
+        {
+          "assumptionId": "hw-572d084ddb6e1b07:assumption:transfer",
+          "outcome": "supported",
+          "reason": "The corrected core skills transferred independently.",
+          "observationIds": [
+            "observation:d10841711c10da43",
+            "observation:1aefc03189d41337",
+            "observation:49041448769f85c1",
+            "observation:ce21f1bfd789aa65",
+            "observation:2502a56cc2b976a6",
+            "observation:59d86ebcaa44dfd2",
+            "observation:c72a40b8f1c7c115",
+            "observation:18eacd211fb13b53"
+          ]
+        }
+      ],
+      "readinessAssessment": {
+        "status": "ready_independent",
+        "scope": {
+          "homeworkId": "hw-572d084ddb6e1b07",
+          "assignmentTitle": "Festival Team Challenge",
+          "constructIds": [
+            "math.multiplication.equal_groups",
+            "math.multiplication.missing_factor",
+            "math.multiplication.word_problem_interpretation"
+          ]
+        },
+        "reason": "Confirmed unassisted returned work supports the listed core constructs.",
+        "evidenceIds": [
+          "observation:d10841711c10da43",
+          "observation:1aefc03189d41337",
+          "observation:49041448769f85c1",
+          "observation:ce21f1bfd789aa65",
+          "observation:2502a56cc2b976a6",
+          "observation:59d86ebcaa44dfd2",
+          "observation:c72a40b8f1c7c115",
+          "observation:18eacd211fb13b53"
+        ],
+        "predictionEvaluationIds": [
+          "evaluation:86e6e05171057405",
+          "evaluation:40d7ae3df4699f1f",
+          "evaluation:b2a57734e58c17cf",
+          "evaluation:69fa6e2c9629cc52"
+        ],
+        "uncertainty": "The incorrect factor-pair item prevents a broader claim.",
+        "nextAction": "Proceed independently on the scoped constructs."
+      }
+    }
+  ],
+  "evidenceSources": [
+    {
+      "sourceId": "returned-work:669be60869481a232004",
+      "type": "graded_work",
+      "fileFingerprint": "669be60869481a23200442b1bf2b0113da29de286ac41eda1c9a6262fe946d42",
+      "sourceFile": "round-3-transfer-returned-marked.pdf",
+      "provenance": "caregiver",
+      "capturedAt": "2026-08-03T15:00:00.000Z",
+      "assignmentLink": {
+        "homeworkId": "hw-572d084ddb6e1b07",
+        "method": "explicit_selection",
+        "confidence": 1,
+        "confirmedBy": "caregiver"
+      },
+      "status": "confirmed"
+    }
+  ],
+  "observations": [
+    {
+      "observationId": "observation:d10841711c10da43",
+      "sourceId": "returned-work:669be60869481a232004",
+      "itemId": "LAB-MATH-C:item:1",
+      "prompt": "LAB-MATH-C returned item 1",
+      "childResponse": "correct synthetic response",
+      "constructLinks": [
+        {
+          "constructId": "math.multiplication.equal_groups",
+          "role": "primary",
+          "confidence": 1
+        }
+      ],
+      "result": {
+        "correct": true,
+        "score": 1
+      },
+      "assistance": {
+        "status": "unassisted",
+        "scaffolds": []
+      },
+      "exposure": "unknown",
+      "provenance": "graded_work",
+      "observedAt": "2026-08-03T15:00:00.000Z",
+      "confounds": []
+    },
+    {
+      "observationId": "observation:1aefc03189d41337",
+      "sourceId": "returned-work:669be60869481a232004",
+      "itemId": "LAB-MATH-C:item:2",
+      "prompt": "LAB-MATH-C returned item 2",
+      "childResponse": "correct synthetic response",
+      "constructLinks": [
+        {
+          "constructId": "math.multiplication.word_problem_interpretation",
+          "role": "primary",
+          "confidence": 1
+        }
+      ],
+      "result": {
+        "correct": true,
+        "score": 1
+      },
+      "assistance": {
+        "status": "unassisted",
+        "scaffolds": []
+      },
+      "exposure": "unknown",
+      "provenance": "graded_work",
+      "observedAt": "2026-08-03T15:00:00.000Z",
+      "confounds": []
+    },
+    {
+      "observationId": "observation:49041448769f85c1",
+      "sourceId": "returned-work:669be60869481a232004",
+      "itemId": "LAB-MATH-C:item:3",
+      "prompt": "LAB-MATH-C returned item 3",
+      "childResponse": "correct synthetic response",
+      "constructLinks": [
+        {
+          "constructId": "math.multiplication.missing_factor",
+          "role": "primary",
+          "confidence": 1
+        }
+      ],
+      "result": {
+        "correct": true,
+        "score": 1
+      },
+      "assistance": {
+        "status": "unassisted",
+        "scaffolds": []
+      },
+      "exposure": "unknown",
+      "provenance": "graded_work",
+      "observedAt": "2026-08-03T15:00:00.000Z",
+      "confounds": []
+    },
+    {
+      "observationId": "observation:ce21f1bfd789aa65",
+      "sourceId": "returned-work:669be60869481a232004",
+      "itemId": "LAB-MATH-C:item:4",
+      "prompt": "LAB-MATH-C returned item 4",
+      "childResponse": "correct synthetic response",
+      "constructLinks": [
+        {
+          "constructId": "math.multiplication.arrays",
+          "role": "primary",
+          "confidence": 1
+        }
+      ],
+      "result": {
+        "correct": true,
+        "score": 1
+      },
+      "assistance": {
+        "status": "unassisted",
+        "scaffolds": []
+      },
+      "exposure": "unknown",
+      "provenance": "graded_work",
+      "observedAt": "2026-08-03T15:00:00.000Z",
+      "confounds": []
+    },
+    {
+      "observationId": "observation:2502a56cc2b976a6",
+      "sourceId": "returned-work:669be60869481a232004",
+      "itemId": "LAB-MATH-C:item:5",
+      "prompt": "LAB-MATH-C returned item 5",
+      "childResponse": "correct synthetic response",
+      "constructLinks": [
+        {
+          "constructId": "math.multiplication.word_problem_interpretation",
+          "role": "primary",
+          "confidence": 1
+        }
+      ],
+      "result": {
+        "correct": true,
+        "score": 1
+      },
+      "assistance": {
+        "status": "unassisted",
+        "scaffolds": []
+      },
+      "exposure": "unknown",
+      "provenance": "graded_work",
+      "observedAt": "2026-08-03T15:00:00.000Z",
+      "confounds": []
+    },
+    {
+      "observationId": "observation:59d86ebcaa44dfd2",
+      "sourceId": "returned-work:669be60869481a232004",
+      "itemId": "LAB-MATH-C:item:6",
+      "prompt": "LAB-MATH-C returned item 6",
+      "childResponse": "correct synthetic response",
+      "constructLinks": [
+        {
+          "constructId": "math.multiplication.word_problem_interpretation",
+          "role": "primary",
+          "confidence": 1
+        }
+      ],
+      "result": {
+        "correct": true,
+        "score": 1
+      },
+      "assistance": {
+        "status": "unassisted",
+        "scaffolds": []
+      },
+      "exposure": "unknown",
+      "provenance": "graded_work",
+      "observedAt": "2026-08-03T15:00:00.000Z",
+      "confounds": []
+    },
+    {
+      "observationId": "observation:c72a40b8f1c7c115",
+      "sourceId": "returned-work:669be60869481a232004",
+      "itemId": "LAB-MATH-C:item:7",
+      "prompt": "LAB-MATH-C returned item 7",
+      "childResponse": "correct synthetic response",
+      "constructLinks": [
+        {
+          "constructId": "math.multiplication.equal_groups",
+          "role": "primary",
+          "confidence": 1
+        }
+      ],
+      "result": {
+        "correct": true,
+        "score": 1
+      },
+      "assistance": {
+        "status": "unassisted",
+        "scaffolds": []
+      },
+      "exposure": "unknown",
+      "provenance": "graded_work",
+      "observedAt": "2026-08-03T15:00:00.000Z",
+      "confounds": []
+    },
+    {
+      "observationId": "observation:18eacd211fb13b53",
+      "sourceId": "returned-work:669be60869481a232004",
+      "itemId": "LAB-MATH-C:item:8",
+      "prompt": "LAB-MATH-C returned item 8",
+      "childResponse": "incorrect synthetic response",
+      "constructLinks": [
+        {
+          "constructId": "math.multiplication.factor_pairs",
+          "role": "primary",
+          "confidence": 1
+        }
+      ],
+      "result": {
+        "correct": false,
+        "score": 0,
+        "observedErrorType": "One incomplete response when asked for multiple factor pairs; prior missing-factor and interpretation errors did not recur."
+      },
+      "assistance": {
+        "status": "unassisted",
+        "scaffolds": []
+      },
+      "exposure": "unknown",
+      "provenance": "graded_work",
+      "observedAt": "2026-08-03T15:00:00.000Z",
+      "confounds": []
+    }
+  ],
+  "predictionEvaluations": [
+    {
+      "evaluationId": "evaluation:86e6e05171057405",
+      "predictionId": "hw-572d084ddb6e1b07:prediction:equal_groups",
+      "sourceId": "returned-work:669be60869481a232004",
+      "observationIds": [
+        "observation:d10841711c10da43",
+        "observation:c72a40b8f1c7c115"
+      ],
+      "predictedMetric": {
+        "min": 0.7,
+        "max": 1
+      },
+      "observedMetric": 1,
+      "predictionError": 0,
+      "observedErrorPatterns": [],
+      "sufficiency": "sufficient",
+      "evaluatedAt": "2026-08-03T15:00:00.000Z"
+    },
+    {
+      "evaluationId": "evaluation:40d7ae3df4699f1f",
+      "predictionId": "hw-572d084ddb6e1b07:prediction:missing_factor",
+      "sourceId": "returned-work:669be60869481a232004",
+      "observationIds": [
+        "observation:49041448769f85c1"
+      ],
+      "predictedMetric": {
+        "min": 0.7,
+        "max": 1
+      },
+      "observedMetric": 1,
+      "predictionError": 0,
+      "observedErrorPatterns": [],
+      "sufficiency": "sufficient",
+      "evaluatedAt": "2026-08-03T15:00:00.000Z"
+    },
+    {
+      "evaluationId": "evaluation:b2a57734e58c17cf",
+      "predictionId": "hw-572d084ddb6e1b07:prediction:word_problem_interpretation",
+      "sourceId": "returned-work:669be60869481a232004",
+      "observationIds": [
+        "observation:1aefc03189d41337",
+        "observation:2502a56cc2b976a6",
+        "observation:59d86ebcaa44dfd2"
+      ],
+      "predictedMetric": {
+        "min": 0.7,
+        "max": 1
+      },
+      "observedMetric": 1,
+      "predictionError": 0,
+      "observedErrorPatterns": [],
+      "sufficiency": "sufficient",
+      "evaluatedAt": "2026-08-03T15:00:00.000Z"
+    },
+    {
+      "evaluationId": "evaluation:69fa6e2c9629cc52",
+      "predictionId": "hw-572d084ddb6e1b07:prediction:factor_pairs",
+      "sourceId": "returned-work:669be60869481a232004",
+      "observationIds": [
+        "observation:18eacd211fb13b53"
+      ],
+      "predictedMetric": {
+        "min": 0.7,
+        "max": 1
+      },
+      "observedMetric": 0,
+      "predictionError": 0.7,
+      "observedErrorPatterns": [
+        "One incomplete response when asked for multiple factor pairs; prior missing-factor and interpretation errors did not recur."
+      ],
+      "sufficiency": "sufficient",
+      "evaluatedAt": "2026-08-03T15:00:00.000Z"
+    }
+  ],
+  "sessionFinalizations": [],
+  "pendingSessionNodeIds": [],
+  "createdAt": "2026-08-03T12:00:00.000Z",
+  "updatedAt": "2026-08-03T15:01:00.000Z",
+  "calibrations": [
+    {
+      "calibrationId": "calibration:7eb2113526593110",
+      "gradedAt": "2026-08-03T15:00:00.000Z",
+      "score": 0.875,
+      "status": "inconclusive",
+      "gradedItems": [
+        {
+          "target": "math.multiplication.equal_groups",
+          "correct": true
+        },
+        {
+          "target": "math.multiplication.word_problem_interpretation",
+          "correct": true
+        },
+        {
+          "target": "math.multiplication.missing_factor",
+          "correct": true
+        },
+        {
+          "target": "math.multiplication.arrays",
+          "correct": true
+        },
+        {
+          "target": "math.multiplication.word_problem_interpretation",
+          "correct": true
+        },
+        {
+          "target": "math.multiplication.word_problem_interpretation",
+          "correct": true
+        },
+        {
+          "target": "math.multiplication.equal_groups",
+          "correct": true
+        },
+        {
+          "target": "math.multiplication.factor_pairs",
+          "correct": false,
+          "observedErrorType": "One incomplete response when asked for multiple factor pairs; prior missing-factor and interpretation errors did not recur."
+        }
+      ],
+      "sourceFile": "round-3-transfer-returned-marked.pdf",
+      "reason": "Returned work was recorded as factual evidence pending Planner interpretation.",
+      "nextAction": "Evaluate the preregistered predictions and write one theory decision."
+    }
+  ]
+}

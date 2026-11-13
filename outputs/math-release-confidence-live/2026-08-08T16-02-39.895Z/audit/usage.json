@@ -1,0 +1,124 @@
+[
+  {
+    "call": 1,
+    "label": "round-1-returned-work-decision",
+    "model": "claude-opus-5",
+    "inputTokens": 6480,
+    "outputTokens": 3363,
+    "costUsd": 0.116475,
+    "elapsedMs": 39396,
+    "status": "complete"
+  },
+  {
+    "call": 2,
+    "label": "round-2-returned-work-decision",
+    "model": "claude-opus-5",
+    "inputTokens": 7342,
+    "outputTokens": 3892,
+    "costUsd": 0.13401,
+    "elapsedMs": 45800,
+    "status": "complete"
+  },
+  {
+    "call": 3,
+    "label": "round-3-next-planner",
+    "model": "claude-opus-5",
+    "inputTokens": 72094,
+    "outputTokens": 19408,
+    "costUsd": 0.84567,
+    "elapsedMs": 228215,
+    "status": "complete"
+  },
+  {
+    "call": 4,
+    "label": "round-3-returned-work-decision",
+    "model": "claude-opus-5",
+    "inputTokens": 8737,
+    "outputTokens": 3304,
+    "costUsd": 0.126285,
+    "elapsedMs": 37958,
+    "status": "complete"
+  },
+  {
+    "call": 5,
+    "label": "baseline-to-quest-decision",
+    "model": "claude-opus-5",
+    "inputTokens": 4885,
+    "outputTokens": 3243,
+    "costUsd": 0.1055,
+    "elapsedMs": 49877,
+    "status": "complete"
+  },
+  {
+    "call": 6,
+    "label": "quest-design",
+    "model": "claude-fable-5",
+    "inputTokens": 4405,
+    "outputTokens": 6935,
+    "costUsd": 0.23448000000000002,
+    "elapsedMs": 119756,
+    "status": "complete"
+  },
+  {
+    "call": 7,
+    "label": "quest-implementation",
+    "model": "claude-opus-5",
+    "inputTokens": 15095,
+    "outputTokens": 20847,
+    "costUsd": 0.59665,
+    "elapsedMs": 264487,
+    "status": "complete"
+  },
+  {
+    "call": 8,
+    "label": "quest-to-boss-decision",
+    "model": "claude-opus-5",
+    "inputTokens": 6401,
+    "outputTokens": 3596,
+    "costUsd": 0.12190499999999999,
+    "elapsedMs": 59156,
+    "status": "complete"
+  },
+  {
+    "call": 9,
+    "label": "boss-design",
+    "model": "claude-fable-5",
+    "inputTokens": 4917,
+    "outputTokens": 7322,
+    "costUsd": 0.24916200000000002,
+    "elapsedMs": 121240,
+    "status": "complete"
+  },
+  {
+    "call": 10,
+    "label": "boss-implementation",
+    "model": "claude-opus-5",
+    "inputTokens": 0,
+    "outputTokens": 0,
+    "costUsd": 0,
+    "elapsedMs": 101962,
+    "status": "failed",
+    "error": "read ECONNRESET"
+  },
+  {
+    "call": 11,
+    "label": "boss-implementation",
+    "model": "claude-opus-5",
+    "inputTokens": 0,
+    "outputTokens": 0,
+    "costUsd": 0,
+    "elapsedMs": 823141,
+    "status": "failed",
+    "error": "Socket timeout"
+  },
+  {
+    "call": 12,
+    "label": "boss-implementation",
+    "model": "claude-opus-5",
+    "inputTokens": 18491,
+    "outputTokens": 21039,
+    "costUsd": 0.61843,
+    "elapsedMs": 251702,
+    "status": "complete"
+  }
+]

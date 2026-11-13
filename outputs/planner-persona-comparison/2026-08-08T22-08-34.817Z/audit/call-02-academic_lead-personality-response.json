@@ -1,0 +1,212 @@
+{
+  "model": "claude-opus-5",
+  "id": "msg_011Cdr3a9zWXoWmuBsw5pqUm",
+  "type": "message",
+  "role": "assistant",
+  "content": [
+    {
+      "type": "tool_use",
+      "id": "toolu_01Y6eGCBsYY1SJchZgfaUuyY",
+      "name": "submit_academic_charter",
+      "input": {
+        "charterId": "charter:LAB-MATH-C:academic-lead:v1",
+        "upstreamHash": "f300b840d652743f2d9f16bbf958fc5e78ee6e2c470b2f84d9d8ab129ad7ae7f",
+        "academicTarget": "Use equal-groups structure to identify the unknown position, solve missing factors, and recognize multiple valid factor-pair arrays for a known total.",
+        "scope": [
+          "Festival-style equal-groups contexts at Grade 3: teams of children, flags in equal rows, cups per booth, tokens per bag, equal-row arrays of stage lights.",
+          "Products to 56 with factors 3-9 only.",
+          "Naming the unknown position (number of groups, size of each group, or total) before any computation is selected.",
+          "Missing-factor equations of the form ___ x 8 = 48, solved by division or a known related fact.",
+          "Equal-sharing group size from a known total and known number of equal rows/groups (e.g., 40 flags in 5 equal rows).",
+          "Generating more than one valid factor pair (row/column array) for a known total such as 36.",
+          "Total-unknown items retained only as contrast cases that must still be answered by multiplying."
+        ],
+        "boundaries": {
+          "outOfScope": [
+            "Products beyond 56 or factors outside 3-9.",
+            "Formal division notation, remainders, or fraction interpretations of sharing.",
+            "Multi-step problems combining more than one equal-groups relationship beyond the two-part cup item already present in LAB-MATH-C.",
+            "Fluency drilling of multiplication facts as an instructional target; computation is assumed intact and used as a contrast anchor.",
+            "Non-festival contexts or measurement/area interpretations of arrays."
+          ],
+          "nonAcademicDecisions": [
+            "No questions, item wording, or answer keys are authored here.",
+            "No mechanics, interaction models, visuals, themes, characters, rewards, libraries, or HTML are specified here.",
+            "No format or modality preference is asserted; engagement evidence is activity-level only and cannot license a durable preference claim."
+          ],
+          "childFacingLanguage": [
+            "Charter-level uncertainty is recorded for adults only. Child-facing wording stays direct and confident; no hedging, no apology, no 'we think you might'."
+          ],
+          "dignity": [
+            "The learner is treated as a capable Grade 3 mathematician with one scoped structural gap, not as a struggling student. No remedial framing, no reference to prior failures in child-facing surfaces."
+          ]
+        },
+        "assumptions": [
+          {
+            "assumptionId": "A1",
+            "statement": "The learner's LAB-MATH-B failures reflect a single scoped weakness in identifying and solving the unknown position rather than a general multiplication deficit, and that weakness will surface on LAB-MATH-C items 2, 3, and 8.",
+            "confidence": "moderate",
+            "rationale": "Four independent records converge on the same scoped-weakness reading, and the baseline session shows equal-groups and word-problem interpretation correct while factor-pair generation failed. The convergence is real but the records are correlated in origin, so I hold this at moderate rather than high.",
+            "evidenceIds": [
+              "evaluation:c8fdaacd3e1b0c13",
+              "evaluation:b81e075d2126c022",
+              "observation:d1b81984c24d6d80",
+              "live-proof-baseline-session:baseline:observation:4",
+              "live-proof-baseline-session:baseline:observation:1"
+            ],
+            "disconfirmingEvidence": [
+              "live-proof-baseline-session:baseline:observation:2 shows an unassisted correct missing-factor response, which argues the missing-factor weakness is inconsistent rather than reliable. If item 3 is answered correctly and only item 8 fails, the weakness is narrower than stated and should be re-scoped to factor-pair generation alone."
+            ],
+            "decisionIfWrong": "Re-scope the target to factor-pair enumeration only and release missing-factor items to contrast-anchor status.",
+            "status": "open"
+          },
+          {
+            "assumptionId": "A2",
+            "statement": "Requiring the learner to name which quantity is unknown before computing will reduce the multiply-the-given-numbers substitution more than additional undifferentiated practice would.",
+            "confidence": "moderate",
+            "rationale": "Three observations plus one recorded decision point at the same mechanism, and it is the only intervention in the record that targets the structural step rather than the arithmetic step.",
+            "evidenceIds": [
+              "observation:0ee42baffce06546",
+              "observation:4520f65725de1d50",
+              "hw-02c11ee60594c617:decision:r3",
+              "live-proof-baseline-session:baseline:observation:3"
+            ],
+            "disconfirmingEvidence": [
+              "No head-to-head comparison against undifferentiated practice exists in the supplied record. The comparative claim is inferred, not measured. If naming the unknown is performed correctly but the wrong operation still follows, the bottleneck is operation selection, not unknown identification."
+            ],
+            "decisionIfWrong": "Shift the instructional emphasis from naming the unknown to choosing the operation once the unknown is named.",
+            "status": "open"
+          },
+          {
+            "assumptionId": "A3",
+            "statement": "Multiplication computation, array reading, and equal-groups story interpretation are intact and should serve as contrast anchors, not instructional targets.",
+            "confidence": "high",
+            "rationale": "Six converging records plus three unassisted correct baseline observations across equal_groups, missing_factor, and word_problem_interpretation.",
+            "evidenceIds": [
+              "evaluation:cd58ac474b720927",
+              "evaluation:1b7d71227bc7fff2",
+              "evaluation:a27f078c804e15e1",
+              "observation:23f39686fc8bcab8",
+              "observation:81c93f608540bf7b",
+              "observation:bbaf27b2c8a85202",
+              "live-proof-baseline-session:baseline:observation:1",
+              "live-proof-baseline-session:baseline:observation:3"
+            ],
+            "disconfirmingEvidence": [
+              "Any computation error on a total-unknown contrast item within products to 56 would contradict this and force computation back into scope."
+            ],
+            "decisionIfWrong": "Reopen computation as an instructional target and reduce the structural load until facts are stable.",
+            "status": "open"
+          },
+          {
+            "assumptionId": "A4",
+            "statement": "After instruction on the unknown position, the learner will over-apply the new rule and divide on some items where the total genuinely is unknown.",
+            "confidence": "low",
+            "rationale": "A single supporting prediction record. This is a plausible and well-documented over-correction pattern in general, but it is thinly evidenced for this learner specifically. I record it so the progression deliberately preserves total-unknown contrast items to detect it early.",
+            "evidenceIds": [
+              "hw-02c11ee60594c617:prediction:r3:support",
+              "assignment:live-progression"
+            ],
+            "disconfirmingEvidence": [
+              "If total-unknown contrast items remain correct throughout, this over-correction never materialized and no remediation is warranted."
+            ],
+            "decisionIfWrong": "Drop the over-correction watch and reallocate the contrast items toward factor-pair breadth.",
+            "status": "open"
+          },
+          {
+            "assumptionId": "A5",
+            "statement": "No durable format or modality preference for this learner can be asserted from the supplied record; the four engagement events and the rating/replay records are activity-level facts only.",
+            "confidence": "high",
+            "rationale": "Four engagement routes are recorded without repetition or controlled comparison, and the ratings and replay are single-instance signals. Treating these as a preference would be an unsupported certainty.",
+            "evidenceIds": [
+              "engagement:synthetic-construction-route",
+              "engagement:synthetic-paced-route",
+              "engagement:synthetic-visual-route",
+              "engagement:synthetic-speed-route",
+              "rating:round-a:4",
+              "rating:round-b:3",
+              "rating:round-c:5",
+              "replay:round-c:1"
+            ],
+            "disconfirmingEvidence": [
+              "Repeated, consistent selection of one route across independent sessions would establish a preference and license format guidance."
+            ],
+            "decisionIfWrong": "Permit downstream format guidance only after a repeated-preference signal is captured.",
+            "status": "open"
+          },
+          {
+            "assumptionId": "A6",
+            "statement": "The learner is nine years old and in Grade 3, and the stated number range (products to 56, factors 3-9) is developmentally appropriate for independent transfer work.",
+            "confidence": "high",
+            "rationale": "Directly supplied profile fact, consistent with the assignment's stated scope and with unassisted correct baseline performance in that range.",
+            "evidenceIds": [
+              "profile:lab-learner-age-grade",
+              "live-proof-baseline-session:baseline:observation:2"
+            ],
+            "disconfirmingEvidence": [
+              "Sustained assistance-dependence within the stated range would indicate the range is too demanding for independent work."
+            ],
+            "decisionIfWrong": "Narrow the factor range and reduce independence expectations before re-testing transfer.",
+            "status": "open"
+          }
+        ],
+        "representativeLearningResponsibility": {
+          "id": "RLR-1",
+          "statement": "Given an equal-groups situation, the learner names which of the three quantities is unknown and then chooses the matching operation: multiply when the total is unknown, find the missing factor when the total is known.",
+          "representativeOf": [
+            "Identifying the unknown position before computing",
+            "Solving missing-factor equations such as ___ x 8 = 48",
+            "Finding group size from a known total and known number of equal groups, as with 40 flags in 5 equal rows",
+            "Generating more than one valid factor pair for a known total such as 36",
+            "Correctly resisting the divide-everything over-correction on total-unknown contrast items"
+          ],
+          "whyRepresentative": "Every in-scope item in LAB-MATH-C reduces to this one decision. The learner's computation is already sound, so the only place performance actually turns is the moment before computing, when the unknown position is named and the operation is selected. Fixing that single decision generalizes across all eight items; drilling anything downstream of it does not.",
+          "observableSuccess": "On a mixed set containing both missing-factor and total-unknown items, the learner names the unknown position correctly and selects the matching operation, without substituting multiply-the-two-given-numbers and without over-applying division to total-unknown items.",
+          "notRepresentative": [
+            "Recall speed of multiplication facts",
+            "Neatness or completeness of array drawings",
+            "Selection of any particular presentation format"
+          ]
+        },
+        "progression": [
+          "Stage 1 - Name the unknown, do not compute. Across mixed equal-groups situations the learner labels which quantity is unknown: number of groups, size of each group, or total. No arithmetic is requested, so structural identification is isolated from computation. This directly tests A2.",
+          "Stage 2 - Name then compute, total unknown. Contrast anchors only, where multiplying the two given numbers is correct. Confirms A3 holds and establishes that naming the unknown does not disrupt already-sound performance.",
+          "Stage 3 - Name then compute, factor unknown. Missing-factor equations and equal-sharing group size, the core of the target. The learner must reach the total by division or a known related fact rather than multiplying the two visible numbers.",
+          "Stage 4 - Interleaved total-unknown and factor-unknown items. Deliberately mixed so the over-correction predicted in A4 becomes visible rather than hidden; the learner must re-decide the operation on every item.",
+          "Stage 5 - Factor pairs for a known total. From a known total such as 36, the learner produces more than one valid row/column pair, addressing the one confirmed baseline failure and requiring that the unknown be treated as having several legitimate solutions.",
+          "Stage 6 - Independent transfer. A mixed festival set spanning all three unknown positions with no prompt to name the unknown, verifying the naming step has become internal rather than scaffolded."
+        ],
+        "evidenceRequiredNext": [
+          "Stage 1 accuracy on naming the unknown position with computation withheld, reported separately for total-unknown and factor-unknown items, to test A2 against the alternative that operation selection rather than unknown identification is the bottleneck.",
+          "Item-level results for LAB-MATH-C items 2, 3, and 8, since A1 predicts failure on exactly these three and baseline observation 2 already contradicts the prediction for missing-factor items.",
+          "Count of divide-when-total-is-unknown errors on Stage 4 interleaved items, to confirm or retire the low-confidence over-correction assumption A4.",
+          "Number of distinct valid factor pairs produced for a known total, unassisted, to determine whether the single confirmed baseline failure on factor pairs has closed.",
+          "Assistance level and exposure status recorded on every response, so intact-skill claims in A3 are not inflated by scaffolded or pre-rehearsed successes.",
+          "Error-type classification for every incorrect response, separating structural errors (wrong unknown named or wrong operation chosen) from computational slips, since the two imply opposite next moves.",
+          "Repeated-session engagement route selections before any format or modality preference is asserted, per A5."
+        ]
+      },
+      "caller": {
+        "type": "direct"
+      }
+    }
+  ],
+  "stop_reason": "tool_use",
+  "stop_sequence": null,
+  "stop_details": null,
+  "usage": {
+    "input_tokens": 8567,
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 0,
+    "cache_creation": {
+      "ephemeral_5m_input_tokens": 0,
+      "ephemeral_1h_input_tokens": 0
+    },
+    "output_tokens": 4360,
+    "output_tokens_details": {
+      "thinking_tokens": 0
+    },
+    "service_tier": "standard",
+    "inference_geo": "global"
+  }
+}

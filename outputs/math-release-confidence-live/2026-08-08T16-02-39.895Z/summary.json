@@ -1,0 +1,246 @@
+{
+  "status": "PASS",
+  "verdict": "Live Planner decisions carried the contradiction forward, kept readiness scoped, and produced playable Quest and Boss experiences from academic plus explicit engagement evidence.",
+  "rounds": [
+    {
+      "round": 1,
+      "assignmentCode": "LAB-MATH-A",
+      "homeworkId": "hw-98079daac9b7869c",
+      "decisionId": "hw-98079daac9b7869c:decision:r3",
+      "assumptionOutcome": "uncertain",
+      "readiness": "ready_with_support",
+      "readinessConstructs": [
+        "math.multiplication.equal_groups",
+        "math.multiplication.arrays",
+        "math.multiplication.word_problem_interpretation"
+      ],
+      "reason": "Confirmed unassisted graded returned work (returned-work:e90798af16802de9659a) met the preregistered range for two of three constructs: equal_groups reached 1.00 (evaluation:cd58ac474b720927; observation:a1baa963489821c5, observation:0ce606204fe66767) and arrays reached 1.00 (evaluation:1b7d71227bc7fff2; observation:bb419afcaa82072d, observation:5ca99922d087d57e). Word-problem interpretation fell below the 0.70-1.00 range at 0.50 (evaluation:189974363295da63), with the exact preregistered error pattern - selecting addition instead of multiplication for an equal-groups story - observed at observation:1ccdf821e9d8f7f4 while observation:0892435956e407be was correct. This matches the revise criterion: returned work exposed a scoped error rather than contradicting transfer overall, so the theory is narrowed to a construct-specific interpretation gap rather than falsified or fully supported.",
+      "priorDecisionIds": [
+        "hw-02c11ee60594c617:decision:r3",
+        "hw-572d084ddb6e1b07:decision:r3",
+        "hw-98079daac9b7869c:decision:r3"
+      ],
+      "priorEvaluationIds": [
+        "evaluation:c8fdaacd3e1b0c13",
+        "evaluation:40d7ae3df4699f1f",
+        "evaluation:b81e075d2126c022",
+        "evaluation:189974363295da63",
+        "evaluation:a27f078c804e15e1",
+        "evaluation:b2a57734e58c17cf",
+        "evaluation:1b7d71227bc7fff2",
+        "evaluation:cd58ac474b720927",
+        "evaluation:86e6e05171057405",
+        "evaluation:69fa6e2c9629cc52"
+      ]
+    },
+    {
+      "round": 2,
+      "assignmentCode": "LAB-MATH-B",
+      "homeworkId": "hw-02c11ee60594c617",
+      "decisionId": "hw-02c11ee60594c617:decision:r3",
+      "assumptionOutcome": "rejected",
+      "readiness": "not_yet_ready",
+      "readinessConstructs": [
+        "math.multiplication.missing_factor",
+        "math.multiplication.equal_sharing",
+        "math.multiplication.word_problem_interpretation"
+      ],
+      "reason": "Confirmed unassisted graded returned work (returned-work:0031535d6995059f826e) split the theory. Word-problem interpretation met the preregistered range (evaluation:a27f078c804e15e1, observed 1.0 across observation:81c93f608540bf7b and observation:bbaf27b2c8a85202), but missing-factor fell far below range (evaluation:c8fdaacd3e1b0c13, observed 0.3333; failures at observation:0ee42baffce06546 and observation:4520f65725de1d50 with one success at observation:2aa76118c8657331) and equal sharing failed outright (evaluation:b81e075d2126c022, observed 0 at observation:d1b81984c24d6d80). The predicted error pattern — multiplying known numbers instead of solving for the missing group size or factor — was observed exactly, in both missing-factor and equal-sharing items, so the failure is a scoped, patterned unknown-position weakness rather than a global multiplication deficit. This satisfies the revise criteria (returned work exposes a scoped error) rather than blanket falsification, since one scoped construct transferred as predicted.",
+      "priorDecisionIds": [
+        "hw-02c11ee60594c617:decision:r3",
+        "hw-572d084ddb6e1b07:decision:r3",
+        "hw-98079daac9b7869c:decision:r3"
+      ],
+      "priorEvaluationIds": [
+        "evaluation:c8fdaacd3e1b0c13",
+        "evaluation:40d7ae3df4699f1f",
+        "evaluation:b81e075d2126c022",
+        "evaluation:189974363295da63",
+        "evaluation:a27f078c804e15e1",
+        "evaluation:b2a57734e58c17cf",
+        "evaluation:1b7d71227bc7fff2",
+        "evaluation:cd58ac474b720927",
+        "evaluation:86e6e05171057405",
+        "evaluation:69fa6e2c9629cc52"
+      ]
+    },
+    {
+      "round": 3,
+      "assignmentCode": "LAB-MATH-C",
+      "homeworkId": "hw-572d084ddb6e1b07",
+      "decisionId": "hw-572d084ddb6e1b07:decision:r3",
+      "assumptionOutcome": "uncertain",
+      "readiness": "ready_with_support",
+      "readinessConstructs": [
+        "math.multiplication.equal_groups",
+        "math.multiplication.missing_factor",
+        "math.multiplication.word_problem_interpretation",
+        "math.multiplication.factor_pairs"
+      ],
+      "reason": "Confirmed unassisted graded returned work (returned-work:669be60869481a232004) supported three of four preregistered predictions at accuracy 1.0 within the 0.7-1.0 band: equal_groups (evaluation:86e6e05171057405, observation:d10841711c10da43, observation:c72a40b8f1c7c115), missing_factor (evaluation:40d7ae3df4699f1f, observation:49041448769f85c1), and word_problem_interpretation (evaluation:b2a57734e58c17cf, observation:1aefc03189d41337, observation:2502a56cc2b976a6, observation:59d86ebcaa44dfd2), with the predicted prior missing-factor and interpretation errors not recurring. The factor_pairs prediction missed its band (evaluation:69fa6e2c9629cc52, observation:18eacd211fb13b53; observed 0 vs min 0.7, prediction error 0.7), and the single observed error matched the preregistered pattern of an incomplete response when multiple factor pairs are requested. This is a scoped error on one construct rather than repeated contradiction across constructs, so the theory is revised rather than falsified. The single factor_pairs item is also too thin to distinguish a stable gap from a one-item slip, so mastery is not asserted from the three supported predictions alone.",
+      "priorDecisionIds": [
+        "hw-02c11ee60594c617:decision:r3",
+        "hw-572d084ddb6e1b07:decision:r3",
+        "hw-98079daac9b7869c:decision:r3"
+      ],
+      "priorEvaluationIds": [
+        "evaluation:c8fdaacd3e1b0c13",
+        "evaluation:40d7ae3df4699f1f",
+        "evaluation:b81e075d2126c022",
+        "evaluation:189974363295da63",
+        "evaluation:a27f078c804e15e1",
+        "evaluation:b2a57734e58c17cf",
+        "evaluation:1b7d71227bc7fff2",
+        "evaluation:cd58ac474b720927",
+        "evaluation:86e6e05171057405",
+        "evaluation:69fa6e2c9629cc52"
+      ]
+    }
+  ],
+  "correctionReachedNextPlanner": true,
+  "correctionVisibleInPrompt": true,
+  "scopedReadiness": true,
+  "ratingsReachedProgression": true,
+  "playable": {
+    "status": "complete",
+    "quest": {
+      "usable": true,
+      "artifactPath": "/Users/jamaltaylor/Development/sunny-demo-main/outputs/math-release-confidence-live/2026-08-08T16-02-39.895Z/quest/experience.html"
+    },
+    "boss": {
+      "usable": true,
+      "artifactPath": "/Users/jamaltaylor/Development/sunny-demo-main/outputs/math-release-confidence-live/2026-08-08T16-02-39.895Z/boss/experience.html"
+    },
+    "questPath": "quest/experience.html",
+    "bossPath": "boss/experience.html"
+  },
+  "usage": [
+    {
+      "call": 1,
+      "label": "round-1-returned-work-decision",
+      "model": "claude-opus-5",
+      "inputTokens": 6480,
+      "outputTokens": 3363,
+      "costUsd": 0.116475,
+      "elapsedMs": 39396,
+      "status": "complete"
+    },
+    {
+      "call": 2,
+      "label": "round-2-returned-work-decision",
+      "model": "claude-opus-5",
+      "inputTokens": 7342,
+      "outputTokens": 3892,
+      "costUsd": 0.13401,
+      "elapsedMs": 45800,
+      "status": "complete"
+    },
+    {
+      "call": 3,
+      "label": "round-3-next-planner",
+      "model": "claude-opus-5",
+      "inputTokens": 72094,
+      "outputTokens": 19408,
+      "costUsd": 0.84567,
+      "elapsedMs": 228215,
+      "status": "complete"
+    },
+    {
+      "call": 4,
+      "label": "round-3-returned-work-decision",
+      "model": "claude-opus-5",
+      "inputTokens": 8737,
+      "outputTokens": 3304,
+      "costUsd": 0.126285,
+      "elapsedMs": 37958,
+      "status": "complete"
+    },
+    {
+      "call": 5,
+      "label": "baseline-to-quest-decision",
+      "model": "claude-opus-5",
+      "inputTokens": 4885,
+      "outputTokens": 3243,
+      "costUsd": 0.1055,
+      "elapsedMs": 49877,
+      "status": "complete"
+    },
+    {
+      "call": 6,
+      "label": "quest-design",
+      "model": "claude-fable-5",
+      "inputTokens": 4405,
+      "outputTokens": 6935,
+      "costUsd": 0.23448000000000002,
+      "elapsedMs": 119756,
+      "status": "complete"
+    },
+    {
+      "call": 7,
+      "label": "quest-implementation",
+      "model": "claude-opus-5",
+      "inputTokens": 15095,
+      "outputTokens": 20847,
+      "costUsd": 0.59665,
+      "elapsedMs": 264487,
+      "status": "complete"
+    },
+    {
+      "call": 8,
+      "label": "quest-to-boss-decision",
+      "model": "claude-opus-5",
+      "inputTokens": 6401,
+      "outputTokens": 3596,
+      "costUsd": 0.12190499999999999,
+      "elapsedMs": 59156,
+      "status": "complete"
+    },
+    {
+      "call": 9,
+      "label": "boss-design",
+      "model": "claude-fable-5",
+      "inputTokens": 4917,
+      "outputTokens": 7322,
+      "costUsd": 0.24916200000000002,
+      "elapsedMs": 121240,
+      "status": "complete"
+    },
+    {
+      "call": 10,
+      "label": "boss-implementation",
+      "model": "claude-opus-5",
+      "inputTokens": 0,
+      "outputTokens": 0,
+      "costUsd": 0,
+      "elapsedMs": 101962,
+      "status": "failed",
+      "error": "read ECONNRESET"
+    },
+    {
+      "call": 11,
+      "label": "boss-implementation",
+      "model": "claude-opus-5",
+      "inputTokens": 0,
+      "outputTokens": 0,
+      "costUsd": 0,
+      "elapsedMs": 823141,
+      "status": "failed",
+      "error": "Socket timeout"
+    },
+    {
+      "call": 12,
+      "label": "boss-implementation",
+      "model": "claude-opus-5",
+      "inputTokens": 18491,
+      "outputTokens": 21039,
+      "costUsd": 0.61843,
+      "elapsedMs": 251702,
+      "status": "complete"
+    }
+  ],
+  "costUsd": 3.148567,
+  "rootDir": "/Users/jamaltaylor/Development/sunny-demo-main/outputs/math-release-confidence-live/2026-08-08T16-02-39.895Z/isolated-context",
+  "realBefore": "b5c96ef21c5d52ebe151a4e4e49574c4971aa8f6f595c5599b1f608a4baf0673",
+  "realAfter": "b5c96ef21c5d52ebe151a4e4e49574c4971aa8f6f595c5599b1f608a4baf0673",
+  "realChildDataChanged": false
+}

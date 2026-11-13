@@ -1,0 +1,699 @@
+{
+  "schemaVersion": 2,
+  "revision": 3,
+  "childId": "proof-child-math-longitudinal",
+  "homeworkId": "hw-98079daac9b7869c",
+  "domain": "math",
+  "assignment": {
+    "title": "Lantern Market Arrays",
+    "contentFingerprint": "98079daac9b7869caf081c35d74c344a8af5f857e9b5e25e98c76164717be339",
+    "capturedEvidenceIds": [
+      "assignment:LAB-MATH-A"
+    ],
+    "targets": [
+      "math.multiplication.equal_groups",
+      "math.multiplication.arrays",
+      "math.multiplication.word_problem_interpretation"
+    ],
+    "returnTag": "#sunny_lab_math_a"
+  },
+  "academicTheory": {
+    "theoryId": "hw-98079daac9b7869c:theory",
+    "revision": 1,
+    "hypothesis": "The learner will transfer the targeted LAB-MATH-A constructs to independent returned work.",
+    "supportCriteria": [
+      "Confirmed unassisted returned work supports the expected range."
+    ],
+    "reviseCriteria": [
+      "Returned work exposes a scoped error or uncertainty."
+    ],
+    "falsifyCriteria": [
+      "Repeated independent errors contradict the expected transfer."
+    ]
+  },
+  "engagementTheory": {
+    "theoryId": "hw-98079daac9b7869c:engagement",
+    "revision": 1,
+    "hypotheses": [
+      {
+        "hypothesisId": "hw-98079daac9b7869c:engagement:1",
+        "claim": "Engagement event 1 may inform a future presentation hypothesis but not mastery.",
+        "evidenceIds": [
+          "engagement:LAB-MATH-A:1"
+        ],
+        "confidence": 0.3,
+        "uncertainty": "Synthetic engagement evidence is intentionally non-causal."
+      },
+      {
+        "hypothesisId": "hw-98079daac9b7869c:engagement:2",
+        "claim": "Engagement event 2 may inform a future presentation hypothesis but not mastery.",
+        "evidenceIds": [
+          "engagement:LAB-MATH-A:2"
+        ],
+        "confidence": 0.3,
+        "uncertainty": "Synthetic engagement evidence is intentionally non-causal."
+      }
+    ],
+    "evidence": [
+      {
+        "id": "engagement:LAB-MATH-A:1",
+        "source": "synthetic_release_fixture",
+        "observation": "{\"activityId\":\"synthetic-construction-route\",\"rating\":5,\"replayed\":true,\"assistance\":\"none\"}"
+      },
+      {
+        "id": "engagement:LAB-MATH-A:2",
+        "source": "synthetic_release_fixture",
+        "observation": "{\"activityId\":\"synthetic-paced-route\",\"rating\":3,\"replayed\":false,\"assistance\":\"none\"}"
+      }
+    ]
+  },
+  "assumptions": [
+    {
+      "assumptionId": "hw-98079daac9b7869c:assumption:transfer",
+      "claim": "Independent transfer will be adequate for the scoped LAB-MATH-A constructs.",
+      "evidenceIds": [
+        "assignment:LAB-MATH-A"
+      ],
+      "confidence": 0.55,
+      "uncertainty": "No prior returned work exists in this series.",
+      "createdAt": "2026-08-01T12:00:00.000Z",
+      "lockedAt": "2026-08-01T12:00:00.000Z"
+    }
+  ],
+  "nodes": [
+    {
+      "nodeId": "hw-98079daac9b7869c:baseline",
+      "role": "baseline",
+      "title": "Lantern Market Arrays",
+      "state": "ready",
+      "academicTarget": {
+        "domain": "math",
+        "skill": "Lantern Market Arrays",
+        "targets": [
+          "math.multiplication.equal_groups",
+          "math.multiplication.arrays",
+          "math.multiplication.word_problem_interpretation"
+        ]
+      },
+      "algorithmOwner": "ai_tutor",
+      "theoryId": "hw-98079daac9b7869c:theory",
+      "experimentId": "hw-98079daac9b7869c:experiment",
+      "mechanic": "AI-owned",
+      "theme": "AI-owned",
+      "openingScreen": {
+        "title": "Lantern Market Arrays",
+        "purpose": "Collect target-aligned evidence."
+      },
+      "generationPrompt": null,
+      "artifactBinding": null,
+      "artwork": {
+        "status": "placeholder",
+        "localPath": null,
+        "prompt": null
+      },
+      "sfxContract": [],
+      "companionContract": {
+        "events": []
+      },
+      "evidenceContract": {
+        "academic": true,
+        "engagement": true,
+        "companionObservations": true
+      },
+      "evidenceIds": []
+    },
+    {
+      "nodeId": "hw-98079daac9b7869c:support",
+      "routeId": "adaptive-support",
+      "predictionId": "hw-98079daac9b7869c:prediction:r3:support",
+      "role": "baseline",
+      "title": "Lantern Market Arrays Support",
+      "state": "generating",
+      "academicTarget": {
+        "domain": "math",
+        "skill": "word-problem operation selection",
+        "targets": []
+      },
+      "algorithmOwner": "ai_tutor",
+      "theoryId": "hw-98079daac9b7869c:theory",
+      "experimentId": "hw-98079daac9b7869c:support:r3",
+      "mechanic": "AI-selected support interaction",
+      "theme": "AI-selected support world",
+      "openingScreen": {
+        "title": "Lantern Market Arrays Support",
+        "purpose": "Address the cited returned-work contradiction."
+      },
+      "generationPrompt": {
+        "promptId": "hw-98079daac9b7869c:support:prompt:r3",
+        "createdFromEvidenceIds": [
+          "observation:a1baa963489821c5",
+          "observation:bb419afcaa82072d",
+          "observation:0ce606204fe66767",
+          "observation:5ca99922d087d57e",
+          "observation:1ccdf821e9d8f7f4",
+          "observation:0892435956e407be"
+        ],
+        "text": "Create one targeted support chapter from the cited factual evidence. Decision: Arrays transferred, while operation selection remains uncertain. Evidence references: observation:a1baa963489821c5, observation:bb419afcaa82072d, observation:0ce606204fe66767, observation:5ca99922d087d57e, observation:1ccdf821e9d8f7f4, observation:0892435956e407be. Do not reuse exposed item identities or exact prompts: LAB-MATH-A:item:1, LAB-MATH-A:item:2, LAB-MATH-A:item:3, LAB-MATH-A:item:4, LAB-MATH-A:item:5, LAB-MATH-A:item:6."
+      },
+      "prediction": {
+        "claim": "Targeted support will improve the cited error on a fresh unassisted item.",
+        "createdAt": "2026-08-01T15:01:00.000Z",
+        "evidenceLimit": "independent_performance"
+      },
+      "artifactBinding": null,
+      "artwork": {
+        "status": "placeholder",
+        "localPath": "/generated/adventure-board-demo/quest.jpeg",
+        "prompt": null
+      },
+      "sfxContract": [
+        "interaction",
+        "recovery",
+        "progress",
+        "completion"
+      ],
+      "companionContract": {
+        "events": [
+          "completion",
+          "frustration"
+        ]
+      },
+      "evidenceContract": {
+        "academic": true,
+        "engagement": true,
+        "companionObservations": true
+      },
+      "evidenceIds": []
+    }
+  ],
+  "academicPredictions": [
+    {
+      "predictionId": "hw-98079daac9b7869c:prediction:equal_groups",
+      "theoryId": "hw-98079daac9b7869c:theory",
+      "constructId": "math.multiplication.equal_groups",
+      "context": "confirmed unassisted returned work",
+      "horizon": "within_7_days",
+      "expectedMetric": {
+        "key": "academic.accuracy",
+        "min": 0.7,
+        "max": 1
+      },
+      "predictedErrorPatterns": [
+        "Selected addition instead of multiplication for one equal-groups story."
+      ],
+      "confidence": 0.6,
+      "evidenceIds": [
+        "assignment:LAB-MATH-A"
+      ],
+      "intervention": "Lantern Market Arrays learning program",
+      "evidenceLimit": "calibrated_mastery",
+      "createdAt": "2026-08-01T12:00:00.000Z",
+      "lockedAt": "2026-08-01T12:00:00.000Z"
+    },
+    {
+      "predictionId": "hw-98079daac9b7869c:prediction:arrays",
+      "theoryId": "hw-98079daac9b7869c:theory",
+      "constructId": "math.multiplication.arrays",
+      "context": "confirmed unassisted returned work",
+      "horizon": "within_7_days",
+      "expectedMetric": {
+        "key": "academic.accuracy",
+        "min": 0.7,
+        "max": 1
+      },
+      "predictedErrorPatterns": [
+        "Selected addition instead of multiplication for one equal-groups story."
+      ],
+      "confidence": 0.6,
+      "evidenceIds": [
+        "assignment:LAB-MATH-A"
+      ],
+      "intervention": "Lantern Market Arrays learning program",
+      "evidenceLimit": "calibrated_mastery",
+      "createdAt": "2026-08-01T12:00:00.000Z",
+      "lockedAt": "2026-08-01T12:00:00.000Z"
+    },
+    {
+      "predictionId": "hw-98079daac9b7869c:prediction:word_problem_interpretation",
+      "theoryId": "hw-98079daac9b7869c:theory",
+      "constructId": "math.multiplication.word_problem_interpretation",
+      "context": "confirmed unassisted returned work",
+      "horizon": "within_7_days",
+      "expectedMetric": {
+        "key": "academic.accuracy",
+        "min": 0.7,
+        "max": 1
+      },
+      "predictedErrorPatterns": [
+        "Selected addition instead of multiplication for one equal-groups story."
+      ],
+      "confidence": 0.6,
+      "evidenceIds": [
+        "assignment:LAB-MATH-A"
+      ],
+      "intervention": "Lantern Market Arrays learning program",
+      "evidenceLimit": "calibrated_mastery",
+      "createdAt": "2026-08-01T12:00:00.000Z",
+      "lockedAt": "2026-08-01T12:00:00.000Z"
+    },
+    {
+      "predictionId": "hw-98079daac9b7869c:prediction:r3:support",
+      "theoryId": "hw-98079daac9b7869c:theory",
+      "constructId": "math.multiplication.word_problem_interpretation",
+      "context": "next targeted support session",
+      "horizon": "next_session",
+      "expectedMetric": {
+        "key": "academic.accuracy",
+        "min": 0.7,
+        "max": 1
+      },
+      "predictedErrorPatterns": [
+        "Selected addition instead of multiplication for one equal-groups story."
+      ],
+      "confidence": 0.55,
+      "evidenceIds": [
+        "observation:a1baa963489821c5",
+        "observation:bb419afcaa82072d",
+        "observation:0ce606204fe66767",
+        "observation:5ca99922d087d57e",
+        "observation:1ccdf821e9d8f7f4",
+        "observation:0892435956e407be"
+      ],
+      "intervention": "Lantern Market Arrays Support",
+      "evidenceLimit": "independent_performance",
+      "createdAt": "2026-08-01T15:01:00.000Z",
+      "lockedAt": "2026-08-01T15:01:00.000Z"
+    }
+  ],
+  "lifecycle": "baseline_generating",
+  "evidence": {
+    "academic": [
+      {
+        "evidenceId": "observation:a1baa963489821c5",
+        "summary": "Returned work item LAB-MATH-A:item:1: correct.",
+        "accuracy": 1
+      },
+      {
+        "evidenceId": "observation:bb419afcaa82072d",
+        "summary": "Returned work item LAB-MATH-A:item:2: correct.",
+        "accuracy": 1
+      },
+      {
+        "evidenceId": "observation:0ce606204fe66767",
+        "summary": "Returned work item LAB-MATH-A:item:3: correct.",
+        "accuracy": 1
+      },
+      {
+        "evidenceId": "observation:5ca99922d087d57e",
+        "summary": "Returned work item LAB-MATH-A:item:4: correct.",
+        "accuracy": 1
+      },
+      {
+        "evidenceId": "observation:1ccdf821e9d8f7f4",
+        "summary": "Returned work item LAB-MATH-A:item:5: incorrect.",
+        "accuracy": 0
+      },
+      {
+        "evidenceId": "observation:0892435956e407be",
+        "summary": "Returned work item LAB-MATH-A:item:6: correct.",
+        "accuracy": 1
+      }
+    ],
+    "engagement": [],
+    "companionObservations": []
+  },
+  "decisionHistory": [
+    {
+      "decisionId": "hw-98079daac9b7869c:decision:r2",
+      "eventType": "returned_work_confirmed",
+      "reason": "Confirmed returned work was recorded as factual evidence pending one Planner interpretation.",
+      "nextAction": "Interpret the prediction evaluations without changing the observations.",
+      "evidenceIds": [
+        "observation:a1baa963489821c5",
+        "observation:bb419afcaa82072d",
+        "observation:0ce606204fe66767",
+        "observation:5ca99922d087d57e",
+        "observation:1ccdf821e9d8f7f4",
+        "observation:0892435956e407be"
+      ],
+      "fromLifecycle": "baseline_ready",
+      "toLifecycle": "baseline_ready",
+      "createdAt": "2026-08-01T15:00:00.000Z"
+    },
+    {
+      "decisionId": "hw-98079daac9b7869c:decision:r3",
+      "eventType": "theory_decided",
+      "status": "revised",
+      "reason": "Arrays transferred, while operation selection remains uncertain.",
+      "nextAction": "Generate targeted support for the next session.",
+      "evidenceIds": [
+        "observation:a1baa963489821c5",
+        "observation:bb419afcaa82072d",
+        "observation:0ce606204fe66767",
+        "observation:5ca99922d087d57e",
+        "observation:1ccdf821e9d8f7f4",
+        "observation:0892435956e407be"
+      ],
+      "fromLifecycle": "baseline_ready",
+      "toLifecycle": "baseline_generating",
+      "createdAt": "2026-08-01T15:01:00.000Z",
+      "preserve": [
+        "arrays",
+        "equal-groups construction"
+      ],
+      "change": [
+        "operation-selection support"
+      ],
+      "testNext": [
+        "fresh multiplication story"
+      ],
+      "nextEvidenceRequired": [
+        "next unassisted returned response"
+      ],
+      "predictionEvaluationIds": [
+        "evaluation:cd58ac474b720927",
+        "evaluation:1b7d71227bc7fff2",
+        "evaluation:189974363295da63"
+      ],
+      "assumptionAssessments": [
+        {
+          "assumptionId": "hw-98079daac9b7869c:assumption:transfer",
+          "outcome": "uncertain",
+          "reason": "Evidence was mixed across representations.",
+          "observationIds": [
+            "observation:a1baa963489821c5",
+            "observation:bb419afcaa82072d",
+            "observation:0ce606204fe66767",
+            "observation:5ca99922d087d57e",
+            "observation:1ccdf821e9d8f7f4",
+            "observation:0892435956e407be"
+          ]
+        }
+      ],
+      "readinessAssessment": {
+        "status": "ready_with_support",
+        "scope": {
+          "homeworkId": "hw-98079daac9b7869c",
+          "assignmentTitle": "Lantern Market Arrays",
+          "constructIds": [
+            "math.multiplication.equal_groups",
+            "math.multiplication.arrays",
+            "math.multiplication.word_problem_interpretation"
+          ]
+        },
+        "reason": "Most work was correct, but one scoped interpretation error remains.",
+        "evidenceIds": [
+          "observation:a1baa963489821c5",
+          "observation:bb419afcaa82072d",
+          "observation:0ce606204fe66767",
+          "observation:5ca99922d087d57e",
+          "observation:1ccdf821e9d8f7f4",
+          "observation:0892435956e407be"
+        ],
+        "predictionEvaluationIds": [
+          "evaluation:cd58ac474b720927",
+          "evaluation:1b7d71227bc7fff2",
+          "evaluation:189974363295da63"
+        ],
+        "uncertainty": "One word-problem error limits certainty.",
+        "nextAction": "Complete targeted support before an independent readiness claim."
+      }
+    }
+  ],
+  "evidenceSources": [
+    {
+      "sourceId": "returned-work:e90798af16802de9659a",
+      "type": "graded_work",
+      "fileFingerprint": "e90798af16802de9659ad79629cf1df2626265aa5d9e691fe96d16cd30003a7f",
+      "sourceFile": "round-1-equal-groups-returned-marked.pdf",
+      "provenance": "caregiver",
+      "capturedAt": "2026-08-01T15:00:00.000Z",
+      "assignmentLink": {
+        "homeworkId": "hw-98079daac9b7869c",
+        "method": "explicit_selection",
+        "confidence": 1,
+        "confirmedBy": "synthetic_lab"
+      },
+      "status": "confirmed"
+    }
+  ],
+  "observations": [
+    {
+      "observationId": "observation:a1baa963489821c5",
+      "sourceId": "returned-work:e90798af16802de9659a",
+      "itemId": "LAB-MATH-A:item:1",
+      "prompt": "LAB-MATH-A returned item 1",
+      "childResponse": "correct synthetic response",
+      "constructLinks": [
+        {
+          "constructId": "math.multiplication.equal_groups",
+          "role": "primary",
+          "confidence": 1
+        }
+      ],
+      "result": {
+        "correct": true,
+        "score": 1
+      },
+      "assistance": {
+        "status": "unassisted",
+        "scaffolds": []
+      },
+      "exposure": "unknown",
+      "provenance": "graded_work",
+      "observedAt": "2026-08-01T15:00:00.000Z",
+      "confounds": []
+    },
+    {
+      "observationId": "observation:bb419afcaa82072d",
+      "sourceId": "returned-work:e90798af16802de9659a",
+      "itemId": "LAB-MATH-A:item:2",
+      "prompt": "LAB-MATH-A returned item 2",
+      "childResponse": "correct synthetic response",
+      "constructLinks": [
+        {
+          "constructId": "math.multiplication.arrays",
+          "role": "primary",
+          "confidence": 1
+        }
+      ],
+      "result": {
+        "correct": true,
+        "score": 1
+      },
+      "assistance": {
+        "status": "unassisted",
+        "scaffolds": []
+      },
+      "exposure": "unknown",
+      "provenance": "graded_work",
+      "observedAt": "2026-08-01T15:00:00.000Z",
+      "confounds": []
+    },
+    {
+      "observationId": "observation:0ce606204fe66767",
+      "sourceId": "returned-work:e90798af16802de9659a",
+      "itemId": "LAB-MATH-A:item:3",
+      "prompt": "LAB-MATH-A returned item 3",
+      "childResponse": "correct synthetic response",
+      "constructLinks": [
+        {
+          "constructId": "math.multiplication.equal_groups",
+          "role": "primary",
+          "confidence": 1
+        }
+      ],
+      "result": {
+        "correct": true,
+        "score": 1
+      },
+      "assistance": {
+        "status": "unassisted",
+        "scaffolds": []
+      },
+      "exposure": "unknown",
+      "provenance": "graded_work",
+      "observedAt": "2026-08-01T15:00:00.000Z",
+      "confounds": []
+    },
+    {
+      "observationId": "observation:5ca99922d087d57e",
+      "sourceId": "returned-work:e90798af16802de9659a",
+      "itemId": "LAB-MATH-A:item:4",
+      "prompt": "LAB-MATH-A returned item 4",
+      "childResponse": "correct synthetic response",
+      "constructLinks": [
+        {
+          "constructId": "math.multiplication.arrays",
+          "role": "primary",
+          "confidence": 1
+        }
+      ],
+      "result": {
+        "correct": true,
+        "score": 1
+      },
+      "assistance": {
+        "status": "unassisted",
+        "scaffolds": []
+      },
+      "exposure": "unknown",
+      "provenance": "graded_work",
+      "observedAt": "2026-08-01T15:00:00.000Z",
+      "confounds": []
+    },
+    {
+      "observationId": "observation:1ccdf821e9d8f7f4",
+      "sourceId": "returned-work:e90798af16802de9659a",
+      "itemId": "LAB-MATH-A:item:5",
+      "prompt": "LAB-MATH-A returned item 5",
+      "childResponse": "incorrect synthetic response",
+      "constructLinks": [
+        {
+          "constructId": "math.multiplication.word_problem_interpretation",
+          "role": "primary",
+          "confidence": 1
+        }
+      ],
+      "result": {
+        "correct": false,
+        "score": 0,
+        "observedErrorType": "Selected addition instead of multiplication for one equal-groups story."
+      },
+      "assistance": {
+        "status": "unassisted",
+        "scaffolds": []
+      },
+      "exposure": "unknown",
+      "provenance": "graded_work",
+      "observedAt": "2026-08-01T15:00:00.000Z",
+      "confounds": []
+    },
+    {
+      "observationId": "observation:0892435956e407be",
+      "sourceId": "returned-work:e90798af16802de9659a",
+      "itemId": "LAB-MATH-A:item:6",
+      "prompt": "LAB-MATH-A returned item 6",
+      "childResponse": "correct synthetic response",
+      "constructLinks": [
+        {
+          "constructId": "math.multiplication.word_problem_interpretation",
+          "role": "primary",
+          "confidence": 1
+        }
+      ],
+      "result": {
+        "correct": true,
+        "score": 1
+      },
+      "assistance": {
+        "status": "unassisted",
+        "scaffolds": []
+      },
+      "exposure": "unknown",
+      "provenance": "graded_work",
+      "observedAt": "2026-08-01T15:00:00.000Z",
+      "confounds": []
+    }
+  ],
+  "predictionEvaluations": [
+    {
+      "evaluationId": "evaluation:cd58ac474b720927",
+      "predictionId": "hw-98079daac9b7869c:prediction:equal_groups",
+      "sourceId": "returned-work:e90798af16802de9659a",
+      "observationIds": [
+        "observation:a1baa963489821c5",
+        "observation:0ce606204fe66767"
+      ],
+      "predictedMetric": {
+        "min": 0.7,
+        "max": 1
+      },
+      "observedMetric": 1,
+      "predictionError": 0,
+      "observedErrorPatterns": [],
+      "sufficiency": "sufficient",
+      "evaluatedAt": "2026-08-01T15:00:00.000Z"
+    },
+    {
+      "evaluationId": "evaluation:1b7d71227bc7fff2",
+      "predictionId": "hw-98079daac9b7869c:prediction:arrays",
+      "sourceId": "returned-work:e90798af16802de9659a",
+      "observationIds": [
+        "observation:bb419afcaa82072d",
+        "observation:5ca99922d087d57e"
+      ],
+      "predictedMetric": {
+        "min": 0.7,
+        "max": 1
+      },
+      "observedMetric": 1,
+      "predictionError": 0,
+      "observedErrorPatterns": [],
+      "sufficiency": "sufficient",
+      "evaluatedAt": "2026-08-01T15:00:00.000Z"
+    },
+    {
+      "evaluationId": "evaluation:189974363295da63",
+      "predictionId": "hw-98079daac9b7869c:prediction:word_problem_interpretation",
+      "sourceId": "returned-work:e90798af16802de9659a",
+      "observationIds": [
+        "observation:1ccdf821e9d8f7f4",
+        "observation:0892435956e407be"
+      ],
+      "predictedMetric": {
+        "min": 0.7,
+        "max": 1
+      },
+      "observedMetric": 0.5,
+      "predictionError": 0.2,
+      "observedErrorPatterns": [
+        "Selected addition instead of multiplication for one equal-groups story."
+      ],
+      "sufficiency": "sufficient",
+      "evaluatedAt": "2026-08-01T15:00:00.000Z"
+    }
+  ],
+  "sessionFinalizations": [],
+  "pendingSessionNodeIds": [],
+  "createdAt": "2026-08-01T12:00:00.000Z",
+  "updatedAt": "2026-08-01T15:01:00.000Z",
+  "calibrations": [
+    {
+      "calibrationId": "calibration:efcc8c7f0bd12f55",
+      "gradedAt": "2026-08-01T15:00:00.000Z",
+      "score": 0.8333,
+      "status": "inconclusive",
+      "gradedItems": [
+        {
+          "target": "math.multiplication.equal_groups",
+          "correct": true
+        },
+        {
+          "target": "math.multiplication.arrays",
+          "correct": true
+        },
+        {
+          "target": "math.multiplication.equal_groups",
+          "correct": true
+        },
+        {
+          "target": "math.multiplication.arrays",
+          "correct": true
+        },
+        {
+          "target": "math.multiplication.word_problem_interpretation",
+          "correct": false,
+          "observedErrorType": "Selected addition instead of multiplication for one equal-groups story."
+        },
+        {
+          "target": "math.multiplication.word_problem_interpretation",
+          "correct": true
+        }
+      ],
+      "sourceFile": "round-1-equal-groups-returned-marked.pdf",
+      "reason": "Returned work was recorded as factual evidence pending Planner interpretation.",
+      "nextAction": "Evaluate the preregistered predictions and write one theory decision."
+    }
+  ]
+}

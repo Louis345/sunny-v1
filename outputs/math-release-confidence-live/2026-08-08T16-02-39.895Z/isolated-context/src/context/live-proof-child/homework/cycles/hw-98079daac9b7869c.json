@@ -1,0 +1,673 @@
+{
+  "schemaVersion": 2,
+  "revision": 3,
+  "childId": "live-proof-child",
+  "homeworkId": "hw-98079daac9b7869c",
+  "domain": "math",
+  "assignment": {
+    "title": "Lantern Market Arrays",
+    "contentFingerprint": "98079daac9b7869caf081c35d74c344a8af5f857e9b5e25e98c76164717be339",
+    "capturedEvidenceIds": [
+      "assignment:LAB-MATH-A"
+    ],
+    "targets": [
+      "math.multiplication.equal_groups",
+      "math.multiplication.arrays",
+      "math.multiplication.word_problem_interpretation"
+    ],
+    "returnTag": "#sunny_lab_math_a"
+  },
+  "academicTheory": {
+    "theoryId": "hw-98079daac9b7869c:theory",
+    "revision": 2,
+    "hypothesis": "Sunny independently transfers equal-groups and array computation for LAB-MATH-A, but word-problem interpretation is not yet independent: he intermittently selects addition instead of multiplication when an equal-groups relationship must be inferred from text without an array representation. Support should target operation selection, not computation.",
+    "supportCriteria": [
+      "Confirmed unassisted returned work supports the expected range."
+    ],
+    "reviseCriteria": [
+      "Returned work exposes a scoped error or uncertainty."
+    ],
+    "falsifyCriteria": [
+      "Repeated independent errors contradict the expected transfer."
+    ]
+  },
+  "engagementTheory": null,
+  "assumptions": [
+    {
+      "assumptionId": "hw-98079daac9b7869c:assumption:transfer",
+      "claim": "Independent transfer will be adequate for the scoped LAB-MATH-A constructs.",
+      "evidenceIds": [
+        "assignment:LAB-MATH-A"
+      ],
+      "confidence": 0.55,
+      "uncertainty": "No prior returned work exists in this series.",
+      "createdAt": "2026-08-01T12:00:00.000Z",
+      "lockedAt": "2026-08-01T12:00:00.000Z"
+    }
+  ],
+  "nodes": [
+    {
+      "nodeId": "hw-98079daac9b7869c:baseline",
+      "role": "baseline",
+      "title": "Lantern Market Arrays",
+      "state": "ready",
+      "academicTarget": {
+        "domain": "math",
+        "skill": "Lantern Market Arrays",
+        "targets": [
+          "math.multiplication.equal_groups",
+          "math.multiplication.arrays",
+          "math.multiplication.word_problem_interpretation"
+        ]
+      },
+      "algorithmOwner": "ai_tutor",
+      "theoryId": "hw-98079daac9b7869c:theory",
+      "experimentId": "hw-98079daac9b7869c:experiment",
+      "mechanic": "AI-owned",
+      "theme": "AI-owned",
+      "openingScreen": {
+        "title": "Lantern Market Arrays",
+        "purpose": "Collect target-aligned evidence."
+      },
+      "generationPrompt": null,
+      "artifactBinding": null,
+      "artwork": {
+        "status": "placeholder",
+        "localPath": null,
+        "prompt": null
+      },
+      "sfxContract": [],
+      "companionContract": {
+        "events": []
+      },
+      "evidenceContract": {
+        "academic": true,
+        "engagement": true,
+        "companionObservations": true
+      },
+      "evidenceIds": []
+    },
+    {
+      "nodeId": "hw-98079daac9b7869c:node:operation-choice-1",
+      "routeId": "adaptive-support",
+      "predictionId": "hw-98079daac9b7869c:prediction:r3:support",
+      "role": "baseline",
+      "title": "Which Operation? Night Market Story Sort",
+      "state": "generating",
+      "academicTarget": {
+        "domain": "math",
+        "skill": "math.multiplication.word_problem_interpretation - choosing multiplication over addition in equal-groups story problems",
+        "targets": []
+      },
+      "algorithmOwner": "ai_tutor",
+      "theoryId": "hw-98079daac9b7869c:theory",
+      "experimentId": "hw-98079daac9b7869c:support:r3",
+      "mechanic": "Sorting-then-solving: the learner reads short market stories and first drags each into an 'add' or 'multiply' lane while stating the group size and number of groups, then computes only after committing to the lane. Immediate feedback names the structural cue (repeated equal groups) rather than the answer.",
+      "theme": "A lantern-lit night market where vendors stack goods in equal trays and crates",
+      "openingScreen": {
+        "title": "Which Operation? Night Market Story Sort",
+        "purpose": "Show Sunny that the hard part is not the arithmetic - which he already handles well with arrays and equal groups - but deciding which operation the story is asking for."
+      },
+      "generationPrompt": {
+        "promptId": "hw-98079daac9b7869c:support:prompt:r3",
+        "createdFromEvidenceIds": [
+          "observation:a1baa963489821c5",
+          "observation:bb419afcaa82072d",
+          "observation:0ce606204fe66767",
+          "observation:5ca99922d087d57e",
+          "observation:1ccdf821e9d8f7f4",
+          "observation:0892435956e407be"
+        ],
+        "text": "Build a short session of 8 night-market story problems for a learner who computes equal groups and arrays accurately but selected addition instead of multiplication on one equal-groups story in graded work. Include 5 genuine equal-groups multiplication stories and 3 true addition stories (combining unequal amounts) as contrasts. For each item, require the learner to choose 'add' or 'multiply' and to state the number of groups and the size of each group before solving. Keep numbers small enough that computation is never the obstacle. Do not include array diagrams - the stories must be text-only so the operation choice cannot be read off a picture. Record the operation selected on every item, not just correctness. Decision: Confirmed unassisted graded returned work (returned-work:e90798af16802de9659a) met the preregistered range for two of three constructs: equal_groups reached 1.00 (evaluation:cd58ac474b720927; observation:a1baa963489821c5, observation:0ce606204fe66767) and arrays reached 1.00 (evaluation:1b7d71227bc7fff2; observation:bb419afcaa82072d, observation:5ca99922d087d57e). Word-problem interpretation fell below the 0.70-1.00 range at 0.50 (evaluation:189974363295da63), with the exact preregistered error pattern - selecting addition instead of multiplication for an equal-groups story - observed at observation:1ccdf821e9d8f7f4 while observation:0892435956e407be was correct. This matches the revise criterion: returned work exposed a scoped error rather than contradicting transfer overall, so the theory is narrowed to a construct-specific interpretation gap rather than falsified or fully supported. Evidence references: observation:a1baa963489821c5, observation:bb419afcaa82072d, observation:0ce606204fe66767, observation:5ca99922d087d57e, observation:1ccdf821e9d8f7f4, observation:0892435956e407be. Do not reuse exposed item identities or exact prompts: LAB-MATH-A:item:1, LAB-MATH-A:item:2, LAB-MATH-A:item:3, LAB-MATH-A:item:4, LAB-MATH-A:item:5, LAB-MATH-A:item:6."
+      },
+      "prediction": {
+        "claim": "On confirmed unassisted work with text-only equal-groups story problems and no array diagram, Sunny will select multiplication correctly on at least 70% of items, and any remaining errors will be additive substitutions on the multiplication items rather than multiplicative substitutions on the addition contrast items.",
+        "createdAt": "2026-08-01T15:01:00.000Z",
+        "evidenceLimit": "independent_performance"
+      },
+      "artifactBinding": null,
+      "artwork": {
+        "status": "placeholder",
+        "localPath": "/generated/adventure-board-demo/quest.jpeg",
+        "prompt": null
+      },
+      "sfxContract": [
+        "interaction",
+        "recovery",
+        "progress",
+        "completion"
+      ],
+      "companionContract": {
+        "events": [
+          "completion",
+          "frustration"
+        ]
+      },
+      "evidenceContract": {
+        "academic": true,
+        "engagement": true,
+        "companionObservations": true
+      },
+      "evidenceIds": []
+    }
+  ],
+  "academicPredictions": [
+    {
+      "predictionId": "hw-98079daac9b7869c:prediction:equal_groups",
+      "theoryId": "hw-98079daac9b7869c:theory",
+      "constructId": "math.multiplication.equal_groups",
+      "context": "confirmed unassisted returned work",
+      "horizon": "within_7_days",
+      "expectedMetric": {
+        "key": "academic.accuracy",
+        "min": 0.7,
+        "max": 1
+      },
+      "predictedErrorPatterns": [
+        "Selected addition instead of multiplication for one equal-groups story."
+      ],
+      "confidence": 0.6,
+      "evidenceIds": [
+        "assignment:LAB-MATH-A"
+      ],
+      "intervention": "Lantern Market Arrays learning program",
+      "evidenceLimit": "calibrated_mastery",
+      "createdAt": "2026-08-01T12:00:00.000Z",
+      "lockedAt": "2026-08-01T12:00:00.000Z"
+    },
+    {
+      "predictionId": "hw-98079daac9b7869c:prediction:arrays",
+      "theoryId": "hw-98079daac9b7869c:theory",
+      "constructId": "math.multiplication.arrays",
+      "context": "confirmed unassisted returned work",
+      "horizon": "within_7_days",
+      "expectedMetric": {
+        "key": "academic.accuracy",
+        "min": 0.7,
+        "max": 1
+      },
+      "predictedErrorPatterns": [
+        "Selected addition instead of multiplication for one equal-groups story."
+      ],
+      "confidence": 0.6,
+      "evidenceIds": [
+        "assignment:LAB-MATH-A"
+      ],
+      "intervention": "Lantern Market Arrays learning program",
+      "evidenceLimit": "calibrated_mastery",
+      "createdAt": "2026-08-01T12:00:00.000Z",
+      "lockedAt": "2026-08-01T12:00:00.000Z"
+    },
+    {
+      "predictionId": "hw-98079daac9b7869c:prediction:word_problem_interpretation",
+      "theoryId": "hw-98079daac9b7869c:theory",
+      "constructId": "math.multiplication.word_problem_interpretation",
+      "context": "confirmed unassisted returned work",
+      "horizon": "within_7_days",
+      "expectedMetric": {
+        "key": "academic.accuracy",
+        "min": 0.7,
+        "max": 1
+      },
+      "predictedErrorPatterns": [
+        "Selected addition instead of multiplication for one equal-groups story."
+      ],
+      "confidence": 0.6,
+      "evidenceIds": [
+        "assignment:LAB-MATH-A"
+      ],
+      "intervention": "Lantern Market Arrays learning program",
+      "evidenceLimit": "calibrated_mastery",
+      "createdAt": "2026-08-01T12:00:00.000Z",
+      "lockedAt": "2026-08-01T12:00:00.000Z"
+    },
+    {
+      "predictionId": "hw-98079daac9b7869c:prediction:r3:support",
+      "theoryId": "hw-98079daac9b7869c:theory",
+      "constructId": "math.multiplication.word_problem_interpretation",
+      "context": "confirmed unassisted returned or independently completed work following the operation-choice instrument",
+      "horizon": "within_10_days",
+      "expectedMetric": {
+        "key": "academic.accuracy",
+        "min": 0.7,
+        "max": 1
+      },
+      "predictedErrorPatterns": [
+        "Selected addition instead of multiplication for one equal-groups story.",
+        "Stated the total instead of the number of groups when decomposing the story structure.",
+        "Applied multiplication to a contrast story that combines unequal amounts."
+      ],
+      "confidence": 0.55,
+      "evidenceIds": [
+        "observation:a1baa963489821c5",
+        "observation:bb419afcaa82072d",
+        "observation:0ce606204fe66767",
+        "observation:5ca99922d087d57e",
+        "observation:1ccdf821e9d8f7f4",
+        "observation:0892435956e407be"
+      ],
+      "intervention": "Which Operation? Night Market Story Sort",
+      "evidenceLimit": "independent_performance",
+      "createdAt": "2026-08-01T15:01:00.000Z",
+      "lockedAt": "2026-08-01T15:01:00.000Z"
+    }
+  ],
+  "lifecycle": "baseline_generating",
+  "evidence": {
+    "academic": [
+      {
+        "evidenceId": "observation:a1baa963489821c5",
+        "summary": "Returned work item LAB-MATH-A:item:1: correct.",
+        "accuracy": 1
+      },
+      {
+        "evidenceId": "observation:bb419afcaa82072d",
+        "summary": "Returned work item LAB-MATH-A:item:2: correct.",
+        "accuracy": 1
+      },
+      {
+        "evidenceId": "observation:0ce606204fe66767",
+        "summary": "Returned work item LAB-MATH-A:item:3: correct.",
+        "accuracy": 1
+      },
+      {
+        "evidenceId": "observation:5ca99922d087d57e",
+        "summary": "Returned work item LAB-MATH-A:item:4: correct.",
+        "accuracy": 1
+      },
+      {
+        "evidenceId": "observation:1ccdf821e9d8f7f4",
+        "summary": "Returned work item LAB-MATH-A:item:5: incorrect.",
+        "accuracy": 0
+      },
+      {
+        "evidenceId": "observation:0892435956e407be",
+        "summary": "Returned work item LAB-MATH-A:item:6: correct.",
+        "accuracy": 1
+      }
+    ],
+    "engagement": [],
+    "companionObservations": []
+  },
+  "decisionHistory": [
+    {
+      "decisionId": "hw-98079daac9b7869c:decision:r2",
+      "eventType": "returned_work_confirmed",
+      "reason": "Confirmed returned work was recorded as factual evidence pending one Planner interpretation.",
+      "nextAction": "Interpret the prediction evaluations without changing the observations.",
+      "evidenceIds": [
+        "observation:a1baa963489821c5",
+        "observation:bb419afcaa82072d",
+        "observation:0ce606204fe66767",
+        "observation:5ca99922d087d57e",
+        "observation:1ccdf821e9d8f7f4",
+        "observation:0892435956e407be"
+      ],
+      "fromLifecycle": "baseline_ready",
+      "toLifecycle": "baseline_ready",
+      "createdAt": "2026-08-01T15:00:00.000Z"
+    },
+    {
+      "decisionId": "hw-98079daac9b7869c:decision:r3",
+      "eventType": "theory_decided",
+      "status": "revised",
+      "reason": "Confirmed unassisted graded returned work (returned-work:e90798af16802de9659a) met the preregistered range for two of three constructs: equal_groups reached 1.00 (evaluation:cd58ac474b720927; observation:a1baa963489821c5, observation:0ce606204fe66767) and arrays reached 1.00 (evaluation:1b7d71227bc7fff2; observation:bb419afcaa82072d, observation:5ca99922d087d57e). Word-problem interpretation fell below the 0.70-1.00 range at 0.50 (evaluation:189974363295da63), with the exact preregistered error pattern - selecting addition instead of multiplication for an equal-groups story - observed at observation:1ccdf821e9d8f7f4 while observation:0892435956e407be was correct. This matches the revise criterion: returned work exposed a scoped error rather than contradicting transfer overall, so the theory is narrowed to a construct-specific interpretation gap rather than falsified or fully supported.",
+      "nextAction": "Run one next-session instrument that isolates operation choice in equal-groups word problems, then reassess independently before claiming mastery on that construct.",
+      "evidenceIds": [
+        "observation:a1baa963489821c5",
+        "observation:bb419afcaa82072d",
+        "observation:0ce606204fe66767",
+        "observation:5ca99922d087d57e",
+        "observation:1ccdf821e9d8f7f4",
+        "observation:0892435956e407be"
+      ],
+      "fromLifecycle": "baseline_ready",
+      "toLifecycle": "baseline_generating",
+      "createdAt": "2026-08-01T15:01:00.000Z",
+      "preserve": [
+        "The expectation of adequate independent transfer for math.multiplication.equal_groups, met at 1.00 in confirmed unassisted graded work (evaluation:cd58ac474b720927).",
+        "The expectation of adequate independent transfer for math.multiplication.arrays, met at 1.00 in confirmed unassisted graded work (evaluation:1b7d71227bc7fff2).",
+        "The preregistered error pattern 'selected addition instead of multiplication for one equal-groups story' as a live, now-observed failure mode (observation:1ccdf821e9d8f7f4)."
+      ],
+      "change": [
+        "Narrow the transfer claim: math.multiplication.word_problem_interpretation did not meet the expected range (0.50 vs 0.70-1.00, evaluation:189974363295da63) and is no longer assumed to transfer independently.",
+        "Separate operation-selection from computation: the failure was choosing addition over multiplication (observation:1ccdf821e9d8f7f4), not array or equal-groups computation, which were fully correct.",
+        "Lower confidence in the word-problem-interpretation prediction from 0.6 given only two graded items on that construct."
+      ],
+      "testNext": [
+        "Whether the addition-for-multiplication substitution recurs in equal-groups story problems when no array diagram is present.",
+        "Whether correct interpretation (observation:0892435956e407be) holds when problem wording varies from the practiced phrasing.",
+        "Whether equal_groups and arrays accuracy holds on delayed independent reassessment rather than same-session graded work."
+      ],
+      "nextEvidenceRequired": [
+        "Confirmed unassisted graded or independently reassessed items targeting math.multiplication.word_problem_interpretation, at least 5-6 items for a stable accuracy estimate.",
+        "Item-level records of which operation the learner selected, not only correct/incorrect scoring.",
+        "Delayed (7+ day) independent reassessment items for math.multiplication.equal_groups and math.multiplication.arrays to confirm durability."
+      ],
+      "predictionEvaluationIds": [
+        "evaluation:cd58ac474b720927",
+        "evaluation:1b7d71227bc7fff2",
+        "evaluation:189974363295da63"
+      ],
+      "assumptionAssessments": [
+        {
+          "assumptionId": "hw-98079daac9b7869c:assumption:transfer",
+          "outcome": "uncertain",
+          "reason": "Independent transfer was adequate for two of the three scoped constructs (equal_groups 1.00, arrays 1.00) but fell below the expected range for word_problem_interpretation at 0.50, with the preregistered addition-for-multiplication error observed. With only two graded items per construct and no delayed reassessment, the assumption is neither supported nor rejected across the full scope.",
+          "observationIds": [
+            "observation:a1baa963489821c5",
+            "observation:bb419afcaa82072d",
+            "observation:0ce606204fe66767",
+            "observation:5ca99922d087d57e",
+            "observation:1ccdf821e9d8f7f4",
+            "observation:0892435956e407be"
+          ]
+        }
+      ],
+      "readinessAssessment": {
+        "status": "ready_with_support",
+        "scope": {
+          "homeworkId": "hw-98079daac9b7869c",
+          "assignmentTitle": "Lantern Market Arrays",
+          "constructIds": [
+            "math.multiplication.equal_groups",
+            "math.multiplication.arrays",
+            "math.multiplication.word_problem_interpretation"
+          ]
+        },
+        "reason": "Confirmed unassisted graded work shows independent competence on equal_groups (evaluation:cd58ac474b720927) and arrays (evaluation:1b7d71227bc7fff2), but word_problem_interpretation scored 0.50 against a 0.70-1.00 expectation (evaluation:189974363295da63) with a confirmed addition-for-multiplication substitution (observation:1ccdf821e9d8f7f4). Because one scoped construct in this assignment is still failing independently, readiness for Lantern Market Arrays as a whole is with support - specifically a prompt to name the operation before solving story problems.",
+        "evidenceIds": [
+          "observation:a1baa963489821c5",
+          "observation:bb419afcaa82072d",
+          "observation:0ce606204fe66767",
+          "observation:5ca99922d087d57e",
+          "observation:1ccdf821e9d8f7f4",
+          "observation:0892435956e407be"
+        ],
+        "predictionEvaluationIds": [
+          "evaluation:cd58ac474b720927",
+          "evaluation:1b7d71227bc7fff2",
+          "evaluation:189974363295da63"
+        ],
+        "uncertainty": "Each construct rests on only two graded items from a single same-day source with unknown prior exposure; the single correct word-problem item (observation:0892435956e407be) cannot distinguish reliable interpretation from a coin-flip between addition and multiplication.",
+        "nextAction": "Deliver the scoped operation-selection instrument below, then collect delayed independent items on word_problem_interpretation before moving to complete."
+      }
+    }
+  ],
+  "evidenceSources": [
+    {
+      "sourceId": "returned-work:e90798af16802de9659a",
+      "type": "graded_work",
+      "fileFingerprint": "e90798af16802de9659ad79629cf1df2626265aa5d9e691fe96d16cd30003a7f",
+      "sourceFile": "round-1-equal-groups-returned-marked.pdf",
+      "provenance": "caregiver",
+      "capturedAt": "2026-08-01T15:00:00.000Z",
+      "assignmentLink": {
+        "homeworkId": "hw-98079daac9b7869c",
+        "method": "explicit_selection",
+        "confidence": 1,
+        "confirmedBy": "caregiver"
+      },
+      "status": "confirmed"
+    }
+  ],
+  "observations": [
+    {
+      "observationId": "observation:a1baa963489821c5",
+      "sourceId": "returned-work:e90798af16802de9659a",
+      "itemId": "LAB-MATH-A:item:1",
+      "prompt": "LAB-MATH-A returned item 1",
+      "childResponse": "correct synthetic response",
+      "constructLinks": [
+        {
+          "constructId": "math.multiplication.equal_groups",
+          "role": "primary",
+          "confidence": 1
+        }
+      ],
+      "result": {
+        "correct": true,
+        "score": 1
+      },
+      "assistance": {
+        "status": "unassisted",
+        "scaffolds": []
+      },
+      "exposure": "unknown",
+      "provenance": "graded_work",
+      "observedAt": "2026-08-01T15:00:00.000Z",
+      "confounds": []
+    },
+    {
+      "observationId": "observation:bb419afcaa82072d",
+      "sourceId": "returned-work:e90798af16802de9659a",
+      "itemId": "LAB-MATH-A:item:2",
+      "prompt": "LAB-MATH-A returned item 2",
+      "childResponse": "correct synthetic response",
+      "constructLinks": [
+        {
+          "constructId": "math.multiplication.arrays",
+          "role": "primary",
+          "confidence": 1
+        }
+      ],
+      "result": {
+        "correct": true,
+        "score": 1
+      },
+      "assistance": {
+        "status": "unassisted",
+        "scaffolds": []
+      },
+      "exposure": "unknown",
+      "provenance": "graded_work",
+      "observedAt": "2026-08-01T15:00:00.000Z",
+      "confounds": []
+    },
+    {
+      "observationId": "observation:0ce606204fe66767",
+      "sourceId": "returned-work:e90798af16802de9659a",
+      "itemId": "LAB-MATH-A:item:3",
+      "prompt": "LAB-MATH-A returned item 3",
+      "childResponse": "correct synthetic response",
+      "constructLinks": [
+        {
+          "constructId": "math.multiplication.equal_groups",
+          "role": "primary",
+          "confidence": 1
+        }
+      ],
+      "result": {
+        "correct": true,
+        "score": 1
+      },
+      "assistance": {
+        "status": "unassisted",
+        "scaffolds": []
+      },
+      "exposure": "unknown",
+      "provenance": "graded_work",
+      "observedAt": "2026-08-01T15:00:00.000Z",
+      "confounds": []
+    },
+    {
+      "observationId": "observation:5ca99922d087d57e",
+      "sourceId": "returned-work:e90798af16802de9659a",
+      "itemId": "LAB-MATH-A:item:4",
+      "prompt": "LAB-MATH-A returned item 4",
+      "childResponse": "correct synthetic response",
+      "constructLinks": [
+        {
+          "constructId": "math.multiplication.arrays",
+          "role": "primary",
+          "confidence": 1
+        }
+      ],
+      "result": {
+        "correct": true,
+        "score": 1
+      },
+      "assistance": {
+        "status": "unassisted",
+        "scaffolds": []
+      },
+      "exposure": "unknown",
+      "provenance": "graded_work",
+      "observedAt": "2026-08-01T15:00:00.000Z",
+      "confounds": []
+    },
+    {
+      "observationId": "observation:1ccdf821e9d8f7f4",
+      "sourceId": "returned-work:e90798af16802de9659a",
+      "itemId": "LAB-MATH-A:item:5",
+      "prompt": "LAB-MATH-A returned item 5",
+      "childResponse": "incorrect synthetic response",
+      "constructLinks": [
+        {
+          "constructId": "math.multiplication.word_problem_interpretation",
+          "role": "primary",
+          "confidence": 1
+        }
+      ],
+      "result": {
+        "correct": false,
+        "score": 0,
+        "observedErrorType": "Selected addition instead of multiplication for one equal-groups story."
+      },
+      "assistance": {
+        "status": "unassisted",
+        "scaffolds": []
+      },
+      "exposure": "unknown",
+      "provenance": "graded_work",
+      "observedAt": "2026-08-01T15:00:00.000Z",
+      "confounds": []
+    },
+    {
+      "observationId": "observation:0892435956e407be",
+      "sourceId": "returned-work:e90798af16802de9659a",
+      "itemId": "LAB-MATH-A:item:6",
+      "prompt": "LAB-MATH-A returned item 6",
+      "childResponse": "correct synthetic response",
+      "constructLinks": [
+        {
+          "constructId": "math.multiplication.word_problem_interpretation",
+          "role": "primary",
+          "confidence": 1
+        }
+      ],
+      "result": {
+        "correct": true,
+        "score": 1
+      },
+      "assistance": {
+        "status": "unassisted",
+        "scaffolds": []
+      },
+      "exposure": "unknown",
+      "provenance": "graded_work",
+      "observedAt": "2026-08-01T15:00:00.000Z",
+      "confounds": []
+    }
+  ],
+  "predictionEvaluations": [
+    {
+      "evaluationId": "evaluation:cd58ac474b720927",
+      "predictionId": "hw-98079daac9b7869c:prediction:equal_groups",
+      "sourceId": "returned-work:e90798af16802de9659a",
+      "observationIds": [
+        "observation:a1baa963489821c5",
+        "observation:0ce606204fe66767"
+      ],
+      "predictedMetric": {
+        "min": 0.7,
+        "max": 1
+      },
+      "observedMetric": 1,
+      "predictionError": 0,
+      "observedErrorPatterns": [],
+      "sufficiency": "sufficient",
+      "evaluatedAt": "2026-08-01T15:00:00.000Z"
+    },
+    {
+      "evaluationId": "evaluation:1b7d71227bc7fff2",
+      "predictionId": "hw-98079daac9b7869c:prediction:arrays",
+      "sourceId": "returned-work:e90798af16802de9659a",
+      "observationIds": [
+        "observation:bb419afcaa82072d",
+        "observation:5ca99922d087d57e"
+      ],
+      "predictedMetric": {
+        "min": 0.7,
+        "max": 1
+      },
+      "observedMetric": 1,
+      "predictionError": 0,
+      "observedErrorPatterns": [],
+      "sufficiency": "sufficient",
+      "evaluatedAt": "2026-08-01T15:00:00.000Z"
+    },
+    {
+      "evaluationId": "evaluation:189974363295da63",
+      "predictionId": "hw-98079daac9b7869c:prediction:word_problem_interpretation",
+      "sourceId": "returned-work:e90798af16802de9659a",
+      "observationIds": [
+        "observation:1ccdf821e9d8f7f4",
+        "observation:0892435956e407be"
+      ],
+      "predictedMetric": {
+        "min": 0.7,
+        "max": 1
+      },
+      "observedMetric": 0.5,
+      "predictionError": 0.2,
+      "observedErrorPatterns": [
+        "Selected addition instead of multiplication for one equal-groups story."
+      ],
+      "sufficiency": "sufficient",
+      "evaluatedAt": "2026-08-01T15:00:00.000Z"
+    }
+  ],
+  "sessionFinalizations": [],
+  "pendingSessionNodeIds": [],
+  "createdAt": "2026-08-01T12:00:00.000Z",
+  "updatedAt": "2026-08-01T15:01:00.000Z",
+  "calibrations": [
+    {
+      "calibrationId": "calibration:efcc8c7f0bd12f55",
+      "gradedAt": "2026-08-01T15:00:00.000Z",
+      "score": 0.8333,
+      "status": "inconclusive",
+      "gradedItems": [
+        {
+          "target": "math.multiplication.equal_groups",
+          "correct": true
+        },
+        {
+          "target": "math.multiplication.arrays",
+          "correct": true
+        },
+        {
+          "target": "math.multiplication.equal_groups",
+          "correct": true
+        },
+        {
+          "target": "math.multiplication.arrays",
+          "correct": true
+        },
+        {
+          "target": "math.multiplication.word_problem_interpretation",
+          "correct": false,
+          "observedErrorType": "Selected addition instead of multiplication for one equal-groups story."
+        },
+        {
+          "target": "math.multiplication.word_problem_interpretation",
+          "correct": true
+        }
+      ],
+      "sourceFile": "round-1-equal-groups-returned-marked.pdf",
+      "reason": "Returned work was recorded as factual evidence pending Planner interpretation.",
+      "nextAction": "Evaluate the preregistered predictions and write one theory decision."
+    }
+  ]
+}

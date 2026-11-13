@@ -1,0 +1,58 @@
+{
+  "task": "Require qualifying Quest evidence before Boss",
+  "result": "PASS",
+  "contractVersion": 8,
+  "branch": "codex/math-quest-boss-release-proof",
+  "startingCommit": "58828f5abd26ccbc9ca2cf1b8268bca8cb1b264a",
+  "paidCalls": 0,
+  "realChildDataChanged": false,
+  "verification": {
+    "focusedTests": 68,
+    "focusedTestsPassed": 68,
+    "productionBuild": "passed",
+    "diffCheck": "passed"
+  },
+  "scenarios": [
+    {
+      "name": "All-wrong Quest",
+      "correct": false,
+      "targetAligned": true,
+      "exposure": "unseen",
+      "assistance": "unassisted",
+      "provenance": "independent_probe",
+      "bossAllowed": false,
+      "allowedPlannerActions": ["generate_support", "await_calibration"]
+    },
+    {
+      "name": "Assisted-correct Quest",
+      "correct": true,
+      "targetAligned": true,
+      "exposure": "unseen",
+      "assistance": "assisted",
+      "provenance": "independent_probe",
+      "bossAllowed": false,
+      "allowedPlannerActions": ["generate_support", "await_calibration"]
+    },
+    {
+      "name": "Previously exposed correct Quest",
+      "correct": true,
+      "targetAligned": true,
+      "exposure": "previously_practiced",
+      "assistance": "unassisted",
+      "provenance": "practice",
+      "bossAllowed": false,
+      "allowedPlannerActions": ["generate_support", "await_calibration"]
+    },
+    {
+      "name": "Fresh independent correct Quest",
+      "correct": true,
+      "targetAligned": true,
+      "exposure": "unseen",
+      "assistance": "unassisted",
+      "provenance": "independent_probe",
+      "bossAllowed": true,
+      "automaticBossTransition": false,
+      "allowedPlannerActions": ["generate_support", "generate_boss", "await_calibration"]
+    }
+  ]
+}

@@ -1,0 +1,23 @@
+{
+  "task": "same-assignment reingestion lifecycle safety",
+  "result": "PASS",
+  "contractVersion": 9,
+  "providerCalls": 0,
+  "realChildDataChanged": false,
+  "focusedTests": 175,
+  "newHomeworkIdEntropyBits": 96,
+  "legacyFingerprintResolution": true,
+  "legacyDraftFingerprintResolution": true,
+  "commandLevelProviderSkipProven": true,
+  "build": "PASS",
+  "states": [
+    { "lifecycle": "baseline_ready", "outcome": "READY_TO_START", "beforeHash": "a3cda1cb6a7f00df867fa239a616171f6aed7d5ef3b25a3aadaa771156e1eaa3", "afterHash": "a3cda1cb6a7f00df867fa239a616171f6aed7d5ef3b25a3aadaa771156e1eaa3" },
+    { "lifecycle": "baseline_active", "outcome": "CONTINUE_EXISTING", "beforeHash": "45621341719d6c00c0055aead21ee6f98186613801aed836a02a3ddcd1f0689c", "afterHash": "45621341719d6c00c0055aead21ee6f98186613801aed836a02a3ddcd1f0689c" },
+    { "lifecycle": "baseline_evaluating", "outcome": "CONTINUE_EXISTING", "beforeHash": "1b03ca7888802937791057d8eb3acdd864cc0bb25cd440d76d9d659d24a59978", "afterHash": "1b03ca7888802937791057d8eb3acdd864cc0bb25cd440d76d9d659d24a59978" },
+    { "lifecycle": "quest_ready", "outcome": "CONTINUE_EXISTING", "beforeHash": "f001ce09bafd8bb07cf432d0e74ebebd357807a66a4033654d9cdef3985f5f46", "afterHash": "f001ce09bafd8bb07cf432d0e74ebebd357807a66a4033654d9cdef3985f5f46" },
+    { "lifecycle": "quest_active", "outcome": "CONTINUE_EXISTING", "beforeHash": "a41b5eb990223052bed006a41385f2d811c9a22326be6cdcc09b6078f7f60c2a", "afterHash": "a41b5eb990223052bed006a41385f2d811c9a22326be6cdcc09b6078f7f60c2a" },
+    { "lifecycle": "boss_ready", "outcome": "CONTINUE_EXISTING", "beforeHash": "eca3b63417f0e708d94d1f8b3ecc3f9b0f8258fe514ad406282612abae40f938", "afterHash": "eca3b63417f0e708d94d1f8b3ecc3f9b0f8258fe514ad406282612abae40f938" },
+    { "lifecycle": "awaiting_calibration", "outcome": "AWAITING_CALIBRATION", "beforeHash": "6574ea4a01f1650f3ea1a9bc9cce6730ae8029b0623d2fbf95ee594b49d99c0d", "afterHash": "6574ea4a01f1650f3ea1a9bc9cce6730ae8029b0623d2fbf95ee594b49d99c0d" },
+    { "lifecycle": "complete", "outcome": "ALREADY_COMPLETE", "beforeHash": "e12600194fb99a251ca131a4e2ca682b826d8150a6b9cb861f8be1ef7b0e9501", "afterHash": "e12600194fb99a251ca131a4e2ca682b826d8150a6b9cb861f8be1ef7b0e9501" }
+  ]
+}

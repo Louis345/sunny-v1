@@ -1,0 +1,16 @@
+{
+  "title": "The Skybridge Rescue",
+  "academicTarget": {
+    "domain": "math",
+    "skill": "transfer equal-groups reasoning to unfamiliar situations",
+    "targets": [
+      "unseen-transfer-targets"
+    ]
+  },
+  "openingScreen": {
+    "title": "The Skybridge Rescue",
+    "purpose": "Use multiplication to solve a new transfer mission."
+  },
+  "plannerPrescription": "Assignment: Isolated multiplication Quest/Boss release proof. Academic construct to preserve: Independent equal-groups evidence may support an unseen transfer Quest. This node must test unseen transfer: change the context while preserving the construct. Author fresh items. These have already been seen and must not be reused verbatim: fresh-array-3-by-4, fresh-equal-groups-5-by-2. Planner decision behind this node: Fresh independent baseline evidence supports an unseen transfer test but not mastery. Created at: 2026-08-06T12:06:00.000Z.",
+  "evidenceLimit": "unseen transfer; practice cannot establish mastery"
+}

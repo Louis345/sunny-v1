@@ -1,0 +1,221 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Six Crates, One Rope, No Second Try</title>
+<script src="/games/_contract.js"></script>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#0a0d1a;color:#e8e2d6;font-family:"Trebuchet MS",system-ui,sans-serif;padding:10px 14px 30px}
+h1{font-size:22px;margin:0;letter-spacing:.5px;color:#f2c98a}
+.sub{margin:2px 0 8px;font-size:13px;color:#8d93a8;font-style:italic}
+#bar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:6px}
+#radio{flex:1;min-width:240px;background:#141a2c;border-left:4px solid #f2a35e;padding:7px 10px;border-radius:4px;font-size:14px;line-height:1.35}
+#radio b{color:#f2c98a;font-weight:normal;letter-spacing:1px;font-size:11px;display:block;opacity:.7}
+button{font-family:inherit;cursor:pointer}
+#readAloud{background:#1d2540;color:#cfd6ea;border:1px solid #3a4667;border-radius:6px;padding:8px 10px;font-size:13px}
+#strandBox{font-size:12px;color:#9aa2ba;letter-spacing:1px}
+.strand{display:inline-block;width:26px;height:7px;border-radius:4px;background:linear-gradient(#d8a86a,#8a5f30);margin-left:4px}
+.strand.gone{background:#2a2f42;box-shadow:none}
+#canyon{position:relative;border-radius:8px;overflow:hidden;background:#070a14}
+svg{display:block;width:100%;height:auto}
+.rope{stroke:#a97a44;stroke-width:7;fill:none;stroke-linecap:round}
+.rope2{stroke:#e0b072;stroke-width:2.5;fill:none;stroke-dasharray:9 7}
+.sl{stroke:#c2a074;stroke-width:2}
+.sling{stroke:#d8c39a;stroke-width:4;fill:none}
+.cs{fill:#c99a55;stroke:#6b4620}
+.ct{fill:#2a1a08;font-size:9px;text-anchor:middle;font-weight:bold}
+.tag{fill:#101728;stroke:#5d6party}
+.tag{fill:#101728;stroke:#556}
+.tagt{fill:#ffe0a8;font-size:11px;text-anchor:middle;font-weight:bold}
+#dockRow{display:flex;gap:8px;align-items:flex-start;margin-top:8px;background:#121728;border:1px solid #26304c;border-radius:8px;padding:8px}
+#dockLabel{font-size:11px;color:#f2a35e;letter-spacing:2px;writing-mode:vertical-rl;transform:rotate(180deg)}
+#dock{display:flex;flex-wrap:wrap;gap:6px;min-height:46px;flex:1}
+.crate{width:40px;height:40px;border-radius:5px;background:linear-gradient(#d2a35c,#9c6c31);border:2px solid #6d4a1f;color:#2a1a08;font-weight:bold;font-size:17px;display:flex;align-items:center;justify-content:center;touch-action:none;user-select:none;box-shadow:0 3px 0 #4a3113}
+.crate.sel{outline:3px solid #ffe0a8;transform:translateY(-3px)}
+#ghost{position:fixed;pointer-events:none;z-index:99;opacity:.9}
+#fogStrip{display:none;gap:8px;align-items:center;margin-top:8px;background:#1a2136;border:1px dashed #6b7ba0;border-radius:8px;padding:8px;font-size:13px;color:#b9c3dd}
+#fogStrip button{background:#2b3committed}
+#fogStrip button{background:#2b3555;color:#e6ecff;border:1px solid #4d5c8a;border-radius:6px;padding:8px 10px}
+#controls{display:flex;gap:12px;align-items:center;margin-top:10px;flex-wrap:wrap}
+#lever{position:relative;background:#7a2f22;color:#ffe6cf;border:2px solid #b4553a;border-radius:8px;padding:14px 18px;font-size:15px;letter-spacing:1px;overflow:hidden;touch-action:none}
+#lever i{position:absolute;left:0;top:0;bottom:0;width:0%;background:#e0703f;opacity:.45}
+#msg{font-size:14px;color:#c9b48f;flex:1;min-width:200px}
+.hint{font-size:11px;color:#6f7794;margin-top:6px}
+body.paused #canyon,body.paused #dock,body.paused #controls{opacity:.4;pointer-events:none}
+.shake{animation:sh .4s}
+@keyframes sh{25%{transform:translateX(-7px)}75%{transform:translateX(7px)}}
+</style></head><body>
+<h1>Six Crates, One Rope, No Second Try</h1>
+<p class="sub">Dusk over the flooded canyon. One fraying line. The camp on the far side is dark and waiting.</p>
+<div id="bar">
+<div id="radio"><b>RADIO</b><span id="radioText"></span></div>
+<button id="readAloud">📻 Read it to me</button>
+<div id="strandBox">ROPE<span id="strandMarks"></span></div>
+</div>
+<div id="canyon"><svg id="scene" viewBox="0 0 900 320" preserveAspectRatio="xMidYMid meet">
+<defs><linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#131a34"/><stop offset=".72" stop-color="#2c2338"/><stop offset="1" stop-color="#7a3f22"/></linearGradient></defs>
+<rect width="900" height="320" fill="url(#sky)"/>
+<g id="camp">
+<polygon points="690,205 715,168 740,205" fill="#0d1120"/><polygon points="748,205 772,172 796,205" fill="#0d1120"/><polygon points="806,205 828,175 850,205" fill="#0d1120"/>
+<circle id="l1" cx="715" cy="196" r="6" fill="#ffcf7a" opacity="0"/><circle id="l2" cx="772" cy="198" r="6" fill="#ffcf7a" opacity="0"/><circle id="l3" cx="828" cy="199" r="6" fill="#ffcf7a" opacity="0"/>
+<circle id="l4" cx="746" cy="188" r="13" fill="#ffb85c" opacity="0"/></g>
+<path d="M0 190 L60 190 L60 320 L0 320Z" fill="#161b2b"/><path d="M660 205 L900 205 L900 320 L660 320Z" fill="#10141f"/>
+<rect y="250" width="900" height="70" fill="#0b1b2b" opacity=".85"/>
+<rect x="34" y="72" width="12" height="150" fill="#3c2c17"/><rect x="856" y="72" width="12" height="140" fill="#2a2010"/>
+<g id="ropeLayer"></g><g id="loopLayer"></g>
+</svg></div>
+<div id="fogStrip"><span>FOG BANK — you cannot see the slings.</span><button id="hangSling">tap the fog: hang a sling</button><button id="takeSling">take one back down</button></div>
+<div id="dockRow"><div id="dockLabel">DOCK</div><div id="dock"></div></div>
+<div id="controls"><button id="lever"><i></i>HOLD TO PULL THE LEVER</button><span id="msg"></span></div>
+<div class="hint">Drag a crate into a sling. Hold a loaded sling to take its top crate back. The lever cannot be undone.</div>
+<div id="sunny-companion"></div>
+<script>
+(function(){
+var P=window.GAME_PARAMS||{};
+var $=function(i){return document.getElementById(i)};
+var ropeLayer=$("ropeLayer"),loopLayer=$("loopLayer"),dockEl=$("dock"),msg=$("msg"),radioText=$("radioText");
+var uid=0;
+function mk(list){return list.map(function(v){return{id:"c"+(++uid),v:v}})}
+function shuffle(a){for(var i=a.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1));var t=a[i];a[i]=a[j];a[j]=t}return a}
+var STAGES=[
+ {id:"boss.rope.stage1.hidden_group_size",target:"math.multiplication.missing_factor",
+  radio:'"Camp needs 30 ration units. Five slings. Loops must match or the rope snaps."',
+  loops:5,per:6,fixed:true,base:[4,2,3,3,4,1,1,2,2,2,3,2,1]},
+ {id:"boss.rope.stage2.fog_order",target:"math.multiplication.word_problem_interpretation",
+  radio:'"The drop is ninety feet. They have waited five days. Send 21 fuel cells — three cells to a sling."',
+  loops:7,per:3,fixed:false,base:[3,3,3,3,2,2,2,1,1,1]},
+ {id:"boss.rope.stage3.surplus",target:"math.multiplication.equal_groups",
+  radio:'"Eight medkits a sling, four slings. That is all the line will take."',
+  loops:4,per:8,fixed:true,base:[6,6,5,5,4,4,4,3,2,2]}];
+var strands=3,stageIdx=0,dock=[],loops=[],completed=0,paused=false,readAloudCount=0,stageStart=Date.now(),t0=Date.now();
+var targetResults=[],sending=false,drag=null,sel=null,pressT=null;
+function ac(){try{if(!window._ac)window._ac=new (window.AudioContext||window.webkitAudioContext)();return window._ac}catch(e){return null}}
+function snd(f,dur,type,vol){var c=ac();if(!c)return;var o=c.createOscillator(),g=c.createGain();o.type=type||"sine";o.frequency.value=f;g.gain.value=vol||.15;o.connect(g);g.connect(c.destination);o.start();o.frequency.exponentialRampToValueAtTime(Math.max(40,f*.4),c.currentTime+dur);g.gain.exponentialRampToValueAtTime(.001,c.currentTime+dur);o.stop(c.currentTime+dur+.02)}
+function tot(i){return loops[i].reduce(function(s,c){return s+c.v},0)}
+function startStage(){var st=STAGES[stageIdx];dock=shuffle(mk(st.base.slice()));loops=[];if(st.fixed)for(var i=0;i<st.loops;i++)loops.push([]);
+ $("fogStrip").style.display=st.fixed?"none":"flex";radioText.textContent=" "+st.radio;stageStart=Date.now();sel=null;render();postState(false)}
+function render(){
+ var s="";for(var i=0;i<3;i++)s+='<span class="strand'+(i<strands?"":" gone")+'"></span>';$("strandMarks").innerHTML=s;
+ dockEl.innerHTML="";dock.forEach(function(c){var d=document.createElement("div");d.className="crate"+(sel===c.id?" sel":"");d.textContent=c.v;d.dataset.id=c.id;dockEl.appendChild(d)});
+ var n=loops.length,pts=[[40,80]];
+ for(var i=0;i<n;i++){var x=70+(i+.5)*(760/n);pts.push([x,80+Math.min(70,tot(i)*5)])}
+ pts.push([860,80]);
+ var d="M"+pts.map(function(p){return p[0]+" "+p[1]}).join(" L ");
+ ropeLayer.innerHTML='<path d="'+d+'" class="rope"/><path d="'+d+'" class="rope2"/>';
+ var g="";
+ for(var i=0;i<n;i++){var t=tot(i),x=70+(i+.5)*(760/n),ry=80+Math.min(70,t*5),by=ry+40;
+  g+='<g><line x1="'+(x-15)+'" y1="'+ry+'" x2="'+(x-20)+'" y2="'+by+'" class="sl"/><line x1="'+(x+15)+'" y1="'+ry+'" x2="'+(x+20)+'" y2="'+by+'" class="sl"/><path d="M'+(x-20)+' '+by+' Q '+x+' '+(by+15)+' '+(x+20)+' '+by+'" class="sling"/>';
+  loops[i].forEach(function(c,j){var cx=x-19+(j%3)*13,cy=by-15-Math.floor(j/3)*14;
+   g+='<rect x="'+cx+'" y="'+cy+'" width="12" height="12" rx="2" class="cs"/><text x="'+(cx+6)+'" y="'+(cy+9.5)+'" class="ct">'+c.v+'</text>'});
+  g+='<rect x="'+(x-15)+'" y="'+(by+18)+'" width="30" height="16" rx="3" class="tag"/><text x="'+x+'" y="'+(by+30)+'" class="tagt">'+t+'</text>';
+  g+='<rect x="'+(x-32)+'" y="'+(ry-6)+'" width="64" height="'+(by-ry+48)+'" fill="transparent" data-loop="'+i+'"/></g>'}
+ loopLayer.innerHTML=g;
+ [1,2,3,4].forEach(function(k){var e=$("l"+k);e.setAttribute("opacity",completed>=(k===4?2:k)?(k===4?.9:.85):0)})}
+function placeCrate(id,li){if(paused||sending)return false;if(li<0||li>=loops.length)return false;
+ var k=-1;dock.forEach(function(c,i){if(c.id===id)k=i});if(k<0)return false;
+ var c=dock.splice(k,1)[0];loops[li].push(c);sel=null;snd(210-c.v*8,.16,"triangle",.2);render();return true}
+function returnTop(li){if(paused||sending)return;if(!loops[li]||!loops[li].length)return;dock.push(loops[li].pop());snd(320,.1,"square",.12);render()}
+function revealLoop(){if(paused||sending)return;if(loops.length>=12)return;loops.push([]);snd(500,.12,"sine",.1);render()}
+function hideLoop(){if(paused||sending)return;for(var i=loops.length-1;i>=0;i--){if(loops[i].length===0){loops.splice(i,1);snd(300,.1,"sine",.1);render();return}}}
+function postState(ra){var st=STAGES[Math.min(stageIdx,2)];
+ try{window.parent.postMessage({type:"game_state_update",payload:{game:"generated-math",activityId:"boss",nodeId:"boss",phase:"question",activityTitle:"Six Crates, One Rope, No Second Try",learningFocus:"math.multiplication.synthesis — construct equal groups with an unknown group size, recover a missing factor, and interpret a word-problem constraint containing distractor quantities, all resolved within one committed action on unseen material",mechanic:"A weight-balanced cargo rope where the child drags supply crates into a fixed number of sling loops; the rope only holds if every loop carries an identical load, and leftover crates must be left behind on purpose.",currentChallenge:{id:st.id,prompt:st.radio,mode:"rope-loading",readAloudRequested:!!ra,readAloudCount:readAloudCount},availableActions:["drag a crate into a sling","hold a loaded sling to return its top crate","tap the fog to hang a sling","hold the lever to send the rope"],itemIndex:Math.min(stageIdx,2),totalItems:3,answerVisibility:"hidden"}},"*")}catch(e){}}
+function commitSend(){if(paused||sending)return;var st=STAGES[stageIdx];sending=true;
+ var n=loops.length,totals=[];for(var i=0;i<n;i++)totals.push(tot(i));
+ var ok=(n===st.loops)&&totals.length>0&&totals.every(function(t){return t===st.per});
+ var attempted="slings="+n+" loads=["+totals.join(",")+"]";
+ targetResults.push({target:st.target,correct:ok,attemptedValue:attempted,responseTimeMs:Date.now()-stageStart,scaffoldLevel:0});
+ try{window.fireAttemptEvent({domain:"math",target:st.target,correct:ok,attemptedValue:attempted,responseTimeMs:Date.now()-stageStart,scaffoldLevel:0})}catch(e){}
+ try{window.fireCompanionEvent(ok?"correct_answer":"wrong_answer",{target:st.target})}catch(e){}
+ snd(140,.35,"sawtooth",.18);
+ if(ok){
+  completed++;msg.textContent=["Line held. One lantern on at the camp edge.","Generator's turning over. Warm light spreading.","Lights are on. Good loading."][Math.min(completed-1,2)];
+  snd(660,.5,"sine",.12);setTimeout(function(){snd(880,.6,"sine",.1)},220);
+  try{window.parent.postMessage({type:"progress_event",payload:{nodeId:"boss",completedItems:completed,totalItems:3}},"*")}catch(e){}
+  render();
+  setTimeout(function(){sending=false;stageIdx++;if(stageIdx>2){finish()}else{startStage();msg.textContent="Next order coming in."}},1400);
+ }else{
+  var worst=0,bd=-1;for(var i=0;i<n;i++){var diff=Math.abs(totals[i]-st.per);if(diff>bd){bd=diff;worst=i}}
+  var lost=loops[worst]?loops[worst].length:0;if(loops[worst])loops[worst]=[];
+  strands--;$("canyon").classList.add("shake");snd(90,.5,"sawtooth",.25);
+  var ord=["first","second","third","fourth","fifth","sixth","seventh","eighth"][worst]||"far";
+  msg.textContent="Line held sixty feet, then the "+ord+" sling gave out. "+(lost?lost+" crate(s) into the water — gone.":"")+" Strand snapped.";
+  setTimeout(function(){$("canyon").classList.remove("shake")},450);
+  if(strands<=0){
+   setTimeout(function(){msg.textContent="The rope dropped into the canyon. The camp stays dark. Restringing the line — start again from the dock.";strands=3;stageIdx=0;completed=0;
+    try{window.parent.postMessage({type:"progress_event",payload:{nodeId:"boss",completedItems:0,totalItems:3}},"*")}catch(e){}
+    sending=false;startStage()},900);
+  }else{
+   // reload remaining crates back to dock, keep stage
+   setTimeout(function(){for(var i=0;i<loops.length;i++){while(loops[i].length)dock.push(loops[i].pop())}sending=false;stageStart=Date.now();render();postState(false)},900);
+  }
+  render();
+ }}
+function finish(){
+ var corr=targetResults.filter(function(r){return r.correct}).length;
+ var acc=targetResults.length?corr/targetResults.length:0;
+ radioText.textContent=' "Lights are on. Good loading."';
+ msg.textContent="The canyon is lit. The rope hangs quiet with "+strands+" strand(s) left.";
+ try{window.fireCompanionEvent("game_complete",{})}catch(e){}
+ try{window.sendNodeComplete({nodeId:(P&&P.nodeId)||"boss",completed:true,accuracy:acc,targetResults:targetResults,timeSpent_ms:Date.now()-t0})}catch(e){}
+}
+/* input */
+dockEl.addEventListener("pointerdown",function(e){var el=e.target.closest(".crate");if(!el||paused||sending)return;
+ drag={id:el.dataset.id,x:e.clientX,y:e.clientY,moved:false};
+ var g=document.createElement("div");g.id="ghost";g.className="crate";g.textContent=el.textContent;document.body.appendChild(g);
+ g.style.left=(e.clientX-20)+"px";g.style.top=(e.clientY-20)+"px";el.setPointerCapture&&el.setPointerCapture(e.pointerId)});
+document.addEventListener("pointermove",function(e){if(!drag)return;var g=$("ghost");if(!g)return;
+ if(Math.abs(e.clientX-drag.x)+Math.abs(e.clientY-drag.y)>6)drag.moved=true;
+ g.style.left=(e.clientX-20)+"px";g.style.top=(e.clientY-20)+"px"});
+document.addEventListener("pointerup",function(e){if(!drag)return;var g=$("ghost");if(g)g.remove();
+ var t=document.elementFromPoint(e.clientX,e.clientY);var lo=t&&t.getAttribute&&t.getAttribute("data-loop");
+ if(lo!==null&&lo!==undefined&&lo!==false&&lo!==""){placeCrate(drag.id,parseInt(lo,10))}
+ else if(!drag.moved){sel=(sel===drag.id?null:drag.id);render()}
+ drag=null});
+loopLayer.addEventListener("pointerdown",function(e){var lo=e.target.getAttribute&&e.target.getAttribute("data-loop");if(lo===null||lo===undefined)return;
+ var i=parseInt(lo,10);pressT=setTimeout(function(){pressT=null;returnTop(i)},450)});
+loopLayer.addEventListener("pointerup",function(e){var lo=e.target.getAttribute&&e.target.getAttribute("data-loop");
+ if(pressT){clearTimeout(pressT);pressT=null;if(lo!==null&&lo!==undefined&&sel){placeCrate(sel,parseInt(lo,10))}}});
+$("hangSling").onclick=revealLoop;$("takeSling").onclick=hideLoop;
+$("readAloud").onclick=function(){readAloudCount++;postState(true)};
+var lv=$("lever"),fill=lv.querySelector("i"),lt=null,pct=0;
+function lvStart(e){if(paused||sending)return;e.preventDefault();pct=0;snd(180,.08,"square",.1);
+ lt=setInterval(function(){pct+=7;fill.style.width=Math.min(100,pct)+"%";if(pct>=100){lvEnd();commitSend()}},45)}
+function lvEnd(){if(lt)clearInterval(lt);lt=null;pct=0;fill.style.width="0%"}
+lv.addEventListener("pointerdown",lvStart);lv.addEventListener("pointerup",lvEnd);lv.addEventListener("pointerleave",lvEnd);
+window.addEventListener("message",function(e){var d=e.data||{};if(d.type==="sunny_companion_presence"){var p=d.payload||{};
+ paused=!!(p.summoned!==undefined?p.summoned:(p.visible!==undefined?p.visible:p.present));document.body.classList.toggle("paused",paused);if(paused)lvEnd()}});
+function solveStage(){var st=STAGES[stageIdx];
+ while(loops.length<st.loops)revealLoop();while(loops.length>st.loops)hideLoop();
+ for(var i=0;i<loops.length;i++){while(loops[i].length)dock.push(loops[i].pop())}render();
+ var vals=dock.slice().sort(function(a,b){return b.v-a.v});var used=[],plan=[];
+ function fill(li,cur,start){if(li===st.loops)return true;
+  if(cur===st.per){if(fill(li+1,0,0))return true;return false}
+  for(var i=start;i<vals.length;i++){if(used[i]||vals[i].v>st.per-cur)continue;
+   if(i>0&&vals[i].v===vals[i-1].v&&!used[i-1])continue;
+   used[i]=true;plan.push({id:vals[i].id,loop:li});
+   if(fill(li,cur+vals[i].v,i+1))return true;
+   plan.pop();used[i]=false}
+  return false}
+ if(!fill(0,0,0))return false;
+ plan.forEach(function(p){placeCrate(p.id,p.loop)});return true}
+window.SUNNY_VALIDATION_HOOKS={playthrough:function(){
+ var w=function(ms){return new Promise(function(r){setTimeout(r,ms)})};
+ return (async function(){
+  // deliberate bad send: one crate in one sling only
+  if(!STAGES[stageIdx].fixed)revealLoop();
+  if(dock.length)placeCrate(dock[0].id,0);
+  commitSend();await w(1500);
+  for(var g=0;g<12&&stageIdx<3;g++){
+   await w(200);
+   var okPlan=solveStage();
+   commitSend();
+   await w(1700);
+   if(!okPlan)await w(500);
+  }
+  return{completed:stageIdx>2,strands:strands,results:targetResults.length}})()}};
+document.addEventListener("DOMContentLoaded",function(){});
+startStage();
+msg.textContent="Wind's up. Load the line.";
+try{window.parent.postMessage({type:"activity_ready",payload:{nodeId:"boss"}},"*")}catch(e){}
+try{window.parent.postMessage({type:"progress_event",payload:{nodeId:"boss",completedItems:0,totalItems:3}},"*")}catch(e){}
+})();
+</script>
+</body></html>

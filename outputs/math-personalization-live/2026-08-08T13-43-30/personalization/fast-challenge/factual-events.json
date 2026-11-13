@@ -1,0 +1,239 @@
+{
+  "engagement": {
+    "funRating": 5,
+    "replay": false,
+    "timeSpentMs": 43000,
+    "frustrationSignals": [],
+    "postActivityAction": "back_to_map",
+    "factualSummary": "Completed a paced challenge quickly, explicitly rated it 5/5, and returned to the map without replay."
+  },
+  "academicResult": {
+    "completed": true,
+    "accuracy": 1,
+    "targets": [
+      {
+        "target": "math.multiplication.equal_groups",
+        "attemptedValue": "6 groups of 4 = 24"
+      },
+      {
+        "target": "math.multiplication.missing_factor",
+        "attemptedValue": "7"
+      },
+      {
+        "target": "math.multiplication.word_problem_interpretation",
+        "attemptedValue": "5 × 6 = 30"
+      }
+    ]
+  },
+  "evidence": {
+    "academic": [
+      {
+        "evidenceId": "shared-baseline-session:baseline:completion",
+        "accuracy": 1,
+        "summary": "Festival Team Challenge completed at 100% across 3 scored target readings."
+      },
+      {
+        "evidenceId": "shared-quest-session:quest:completion",
+        "accuracy": 1,
+        "summary": "The Lantern Ferry Won't Wait completed at 100% across 3 scored target readings."
+      }
+    ],
+    "engagement": [
+      {
+        "evidenceId": "shared-baseline-session:baseline:completion:engagement",
+        "summary": "Festival Team Challenge completed in 43000ms; replay=false; frustration=none."
+      },
+      {
+        "evidenceId": "fast-challenge:baseline:rating",
+        "summary": "Session finalized after Festival Team Challenge: fun rating 5/5; action back_to_map."
+      },
+      {
+        "evidenceId": "shared-quest-session:quest:completion:engagement",
+        "summary": "The Lantern Ferry Won't Wait completed in 43000ms; replay=false; frustration=none."
+      },
+      {
+        "evidenceId": "fast-challenge:quest:rating",
+        "summary": "Session finalized after The Lantern Ferry Won't Wait: fun rating 5/5; action back_to_map."
+      }
+    ],
+    "companionObservations": []
+  },
+  "observations": [
+    {
+      "observationId": "shared-baseline-session:baseline:observation:1",
+      "sourceId": "activity:shared-baseline-session:baseline",
+      "nodeId": "baseline",
+      "itemId": "math.multiplication.equal_groups",
+      "childResponse": "6 groups of 4 = 24",
+      "constructLinks": [
+        {
+          "constructId": "math.multiplication.equal_groups",
+          "role": "primary",
+          "confidence": 1
+        }
+      ],
+      "result": {
+        "correct": true,
+        "score": 1
+      },
+      "assistance": {
+        "status": "unassisted",
+        "scaffolds": []
+      },
+      "exposure": "previously_practiced",
+      "provenance": "practice",
+      "observedAt": "2026-08-08T12:04:00.000Z",
+      "confounds": []
+    },
+    {
+      "observationId": "shared-baseline-session:baseline:observation:2",
+      "sourceId": "activity:shared-baseline-session:baseline",
+      "nodeId": "baseline",
+      "itemId": "math.multiplication.missing_factor",
+      "childResponse": "7",
+      "constructLinks": [
+        {
+          "constructId": "math.multiplication.equal_groups",
+          "role": "primary",
+          "confidence": 1
+        }
+      ],
+      "result": {
+        "correct": true,
+        "score": 1
+      },
+      "assistance": {
+        "status": "unassisted",
+        "scaffolds": []
+      },
+      "exposure": "previously_practiced",
+      "provenance": "practice",
+      "observedAt": "2026-08-08T12:04:00.000Z",
+      "confounds": []
+    },
+    {
+      "observationId": "shared-baseline-session:baseline:observation:3",
+      "sourceId": "activity:shared-baseline-session:baseline",
+      "nodeId": "baseline",
+      "itemId": "math.multiplication.word_problem_interpretation",
+      "childResponse": "5 × 6 = 30",
+      "constructLinks": [
+        {
+          "constructId": "math.multiplication.equal_groups",
+          "role": "primary",
+          "confidence": 1
+        }
+      ],
+      "result": {
+        "correct": true,
+        "score": 1
+      },
+      "assistance": {
+        "status": "unassisted",
+        "scaffolds": []
+      },
+      "exposure": "previously_practiced",
+      "provenance": "practice",
+      "observedAt": "2026-08-08T12:04:00.000Z",
+      "confounds": []
+    },
+    {
+      "observationId": "shared-quest-session:quest:observation:1",
+      "sourceId": "activity:shared-quest-session:quest",
+      "nodeId": "quest",
+      "itemId": "unseen.math.multiplication.equal_groups",
+      "childResponse": "6 groups of 4 = 24",
+      "constructLinks": [
+        {
+          "constructId": "math.multiplication.equal_groups",
+          "role": "primary",
+          "confidence": 1
+        }
+      ],
+      "result": {
+        "correct": true,
+        "score": 1
+      },
+      "assistance": {
+        "status": "unassisted",
+        "scaffolds": []
+      },
+      "exposure": "unseen",
+      "provenance": "independent_probe",
+      "observedAt": "2026-08-08T12:10:00.000Z",
+      "confounds": []
+    },
+    {
+      "observationId": "shared-quest-session:quest:observation:2",
+      "sourceId": "activity:shared-quest-session:quest",
+      "nodeId": "quest",
+      "itemId": "unseen.math.multiplication.missing_factor",
+      "childResponse": "7",
+      "constructLinks": [
+        {
+          "constructId": "math.multiplication.equal_groups",
+          "role": "primary",
+          "confidence": 1
+        }
+      ],
+      "result": {
+        "correct": true,
+        "score": 1
+      },
+      "assistance": {
+        "status": "unassisted",
+        "scaffolds": []
+      },
+      "exposure": "unseen",
+      "provenance": "independent_probe",
+      "observedAt": "2026-08-08T12:10:00.000Z",
+      "confounds": []
+    },
+    {
+      "observationId": "shared-quest-session:quest:observation:3",
+      "sourceId": "activity:shared-quest-session:quest",
+      "nodeId": "quest",
+      "itemId": "unseen.math.multiplication.word_problem_interpretation",
+      "childResponse": "5 × 6 = 30",
+      "constructLinks": [
+        {
+          "constructId": "math.multiplication.equal_groups",
+          "role": "primary",
+          "confidence": 1
+        }
+      ],
+      "result": {
+        "correct": true,
+        "score": 1
+      },
+      "assistance": {
+        "status": "unassisted",
+        "scaffolds": []
+      },
+      "exposure": "unseen",
+      "provenance": "independent_probe",
+      "observedAt": "2026-08-08T12:10:00.000Z",
+      "confounds": []
+    }
+  ],
+  "sessionFinalizations": [
+    {
+      "choiceEventId": "fast-challenge:baseline:rating",
+      "nodeId": "baseline",
+      "finalizedAt": "2026-08-08T12:05:00.000Z",
+      "postActivityAction": "back_to_map",
+      "funRating": 5,
+      "completed": true,
+      "replayRequested": false
+    },
+    {
+      "choiceEventId": "fast-challenge:quest:rating",
+      "nodeId": "quest",
+      "finalizedAt": "2026-08-08T12:05:00.000Z",
+      "postActivityAction": "back_to_map",
+      "funRating": 5,
+      "completed": true,
+      "replayRequested": false
+    }
+  ]
+}

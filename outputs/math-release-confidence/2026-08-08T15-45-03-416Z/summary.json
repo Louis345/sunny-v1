@@ -1,0 +1,156 @@
+{
+  "status": "PASS",
+  "seriesId": "math-longitudinal-proof-2026-08-08",
+  "rounds": [
+    {
+      "round": 1,
+      "assignmentCode": "LAB-MATH-A",
+      "homeworkId": "hw-98079daac9b7869c",
+      "originalHash": "98079daac9b7869caf081c35d74c344a8af5f857e9b5e25e98c76164717be339",
+      "returnedHash": "e90798af16802de9659ad79629cf1df2626265aa5d9e691fe96d16cd30003a7f",
+      "sameAssignmentReingestionPreserved": true,
+      "returnedWorkLinkedToOriginal": true,
+      "plannerContextDecisionIds": [],
+      "plannerContextEvaluationIds": [],
+      "decisionId": "hw-98079daac9b7869c:decision:r3",
+      "evaluationIds": [
+        "evaluation:cd58ac474b720927",
+        "evaluation:1b7d71227bc7fff2",
+        "evaluation:189974363295da63"
+      ],
+      "assumptionOutcome": "uncertain",
+      "readiness": "ready_with_support",
+      "readinessConstructs": [
+        "math.multiplication.equal_groups",
+        "math.multiplication.arrays",
+        "math.multiplication.word_problem_interpretation"
+      ],
+      "lifecycle": "baseline_generating",
+      "engagementEventCount": 2,
+      "predictionErrors": [
+        {
+          "predictionId": "hw-98079daac9b7869c:prediction:equal_groups",
+          "error": 0
+        },
+        {
+          "predictionId": "hw-98079daac9b7869c:prediction:arrays",
+          "error": 0
+        },
+        {
+          "predictionId": "hw-98079daac9b7869c:prediction:word_problem_interpretation",
+          "error": 0.2
+        }
+      ]
+    },
+    {
+      "round": 2,
+      "assignmentCode": "LAB-MATH-B",
+      "homeworkId": "hw-02c11ee60594c617",
+      "originalHash": "02c11ee60594c617808752649bb6342082297b79c634feccbeafe682b33d4fd9",
+      "returnedHash": "0031535d6995059f826e4ef55c7d846c213667295372858c3cdc73e3b272af3b",
+      "sameAssignmentReingestionPreserved": true,
+      "returnedWorkLinkedToOriginal": true,
+      "plannerContextDecisionIds": [
+        "hw-98079daac9b7869c:decision:r3"
+      ],
+      "plannerContextEvaluationIds": [
+        "evaluation:cd58ac474b720927",
+        "evaluation:1b7d71227bc7fff2",
+        "evaluation:189974363295da63"
+      ],
+      "decisionId": "hw-02c11ee60594c617:decision:r3",
+      "evaluationIds": [
+        "evaluation:c8fdaacd3e1b0c13",
+        "evaluation:b81e075d2126c022",
+        "evaluation:a27f078c804e15e1"
+      ],
+      "assumptionOutcome": "rejected",
+      "readiness": "not_yet_ready",
+      "readinessConstructs": [
+        "math.multiplication.missing_factor",
+        "math.multiplication.equal_sharing",
+        "math.multiplication.word_problem_interpretation"
+      ],
+      "lifecycle": "baseline_generating",
+      "engagementEventCount": 2,
+      "predictionErrors": [
+        {
+          "predictionId": "hw-02c11ee60594c617:prediction:missing_factor",
+          "error": 0.3667
+        },
+        {
+          "predictionId": "hw-02c11ee60594c617:prediction:equal_sharing",
+          "error": 0.7
+        },
+        {
+          "predictionId": "hw-02c11ee60594c617:prediction:word_problem_interpretation",
+          "error": 0
+        }
+      ]
+    },
+    {
+      "round": 3,
+      "assignmentCode": "LAB-MATH-C",
+      "homeworkId": "hw-572d084ddb6e1b07",
+      "originalHash": "572d084ddb6e1b07b315233f2a10309525489f50aea6ff0b669a69bc134f7e7b",
+      "returnedHash": "669be60869481a23200442b1bf2b0113da29de286ac41eda1c9a6262fe946d42",
+      "sameAssignmentReingestionPreserved": true,
+      "returnedWorkLinkedToOriginal": true,
+      "plannerContextDecisionIds": [
+        "hw-02c11ee60594c617:decision:r3",
+        "hw-98079daac9b7869c:decision:r3"
+      ],
+      "plannerContextEvaluationIds": [
+        "evaluation:c8fdaacd3e1b0c13",
+        "evaluation:b81e075d2126c022",
+        "evaluation:189974363295da63",
+        "evaluation:a27f078c804e15e1",
+        "evaluation:1b7d71227bc7fff2",
+        "evaluation:cd58ac474b720927"
+      ],
+      "decisionId": "hw-572d084ddb6e1b07:decision:r3",
+      "evaluationIds": [
+        "evaluation:86e6e05171057405",
+        "evaluation:40d7ae3df4699f1f",
+        "evaluation:b2a57734e58c17cf",
+        "evaluation:69fa6e2c9629cc52"
+      ],
+      "assumptionOutcome": "supported",
+      "readiness": "ready_independent",
+      "readinessConstructs": [
+        "math.multiplication.equal_groups",
+        "math.multiplication.missing_factor",
+        "math.multiplication.word_problem_interpretation"
+      ],
+      "lifecycle": "complete",
+      "engagementEventCount": 1,
+      "predictionErrors": [
+        {
+          "predictionId": "hw-572d084ddb6e1b07:prediction:equal_groups",
+          "error": 0
+        },
+        {
+          "predictionId": "hw-572d084ddb6e1b07:prediction:missing_factor",
+          "error": 0
+        },
+        {
+          "predictionId": "hw-572d084ddb6e1b07:prediction:word_problem_interpretation",
+          "error": 0
+        },
+        {
+          "predictionId": "hw-572d084ddb6e1b07:prediction:factor_pairs",
+          "error": 0.7
+        }
+      ]
+    }
+  ],
+  "correctionReachedNextPlanner": true,
+  "sameAssignmentIdentityPreserved": true,
+  "returnedWorkLinkagePreserved": true,
+  "scopedReadinessPreserved": true,
+  "engagementContaminatedMastery": false,
+  "realChildDataChanged": false,
+  "paidCalls": 0,
+  "estimatedCost": 0,
+  "outputDir": "/Users/jamaltaylor/Development/sunny-demo-main/outputs/math-release-confidence/2026-08-08T15-45-03-416Z"
+}

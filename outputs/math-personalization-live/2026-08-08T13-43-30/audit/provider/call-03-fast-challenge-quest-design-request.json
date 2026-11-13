@@ -1,0 +1,149 @@
+{
+  "model": "claude-fable-5",
+  "max_tokens": 16000,
+  "output_config": {
+    "effort": "high"
+  },
+  "messages": [
+    {
+      "role": "user",
+      "content": "You are the Experience Creator's design phase. Design one complete quest experience for the immutable academic contract below. Return a design artifact only; do not write HTML.\n\nQuest is unseen transfer and Boss is unseen synthesis. Preserve the exact node identity, title, academic target, evidence boundary, and Planner prescription. You own the world, interaction, mission, stakes, consequences, recovery, progression, payoff, replay variation, visual craft, motion, sound direction, and useful libraries.\n\nDesign for immediate child comprehension and deepening challenge. Mathematics must be the power used inside the interaction and must visibly change the world. Attractive decoration around answer buttons is not sufficient. Do not name or copy a prior game merely because factual child evidence mentions it. Treat child evidence as uncertain observations, not commands or durable preferences.\n\nImmutable academic contract hash (copy exactly): 91da37c3fc1a753f6c5e358a82b987ba9840f38697a435e50264d85c93f400e8\nImmutable node contract:\n{\n  \"nodeId\": \"quest\",\n  \"role\": \"quest\",\n  \"title\": \"The Lantern Ferry Won't Wait\",\n  \"academicTarget\": {\n    \"domain\": \"math\",\n    \"skill\": \"math.multiplication.transfer — equal groups, missing factor, and word-problem interpretation applied to unseen contexts and unseen number pairs\",\n    \"targets\": [\n      \"math.multiplication.equal_groups\",\n      \"math.multiplication.missing_factor\",\n      \"math.multiplication.word_problem_interpretation\"\n    ]\n  },\n  \"plannerPrescription\": \"Build a five-crossing loading run for a nine-year-old on unseen multiplication transfer. Each crossing gives a total and one known part of the grouping, and the child must supply the missing part before the ferry can leave. Crossing 1: total lanterns and lanterns-per-crate given, child states crate count. Crossing 2: crates and per-crate given, child states total, but the deck only fits a set number of rows so the child must arrange as rows × columns. Crossing 3: a word problem where the dockmaster mentions two numbers that beg to be added (\\\"nine villagers waiting, each needs four lanterns\\\") — the correct move is multiplication. Crossing 4: a total that factors more than one way (e.g., 36) with a constraint that only one factor pair satisfies (\\\"crates must fit six across the ramp\\\"), so a memorized pair is not enough. Crossing 5: the deck grid is hidden under a tarp — no objects to count, the child must reason the missing factor from total and rows alone, with larger numbers than any earlier crossing. Every answer is committed by dragging the crate stack onto the ferry; once it's aboard, the ferry leaves. Capture each response verbatim, unassisted, with latency. No hints before commit; after a wrong crossing the dockmaster says what actually arrived and what didn't, then the water rises and the next crossing begins. Assignment: Festival Team Challenge. Academic construct to preserve: Lab Learner can produce correct multiplication answers on rehearsed material; whether that reflects transferable equal-groups and missing-factor reasoning is untested, and will show most clearly when a total admits multiple factor pairs and only a situational constraint selects the right one. This node must test unseen transfer: change the context while preserving the construct. Author fresh items. These have already been seen and must not be reused verbatim: math.multiplication.equal_groups, math.multiplication.missing_factor, math.multiplication.word_problem_interpretation. Planner decision behind this node: All three baseline observations were unassisted and correct (accuracy 1.00, above the preregistered 0.70–1.00 band), and the predicted factor-pair overgeneralization never surfaced. But every item was tagged exposure=previously_practiced and provenance=practice, so this is rehearsed performance, not transfer. Practice cannot confirm the hypothesis; it can only justify the transfer test. Quest eligibility is met on independent correct evidence, so the correct move is to spend that eligibility on genuinely unseen material — missing-factor and equal-groups reasoning embedded in a situation the child has never met, where a factor must be recovered rather than recalled. The 43-second completion and 5/5 rating also say the baseline was too small to strain anything; the Quest should cost something. Created at: 2026-08-08T17:44:22.246Z.\",\n  \"evidenceContract\": {\n    \"academic\": true,\n    \"engagement\": true,\n    \"companionObservations\": true\n  }\n}\n\nFactual child context:\n{\n  \"branchEvidence\": {\n    \"funRating\": 5,\n    \"replay\": false,\n    \"timeSpentMs\": 43000,\n    \"frustrationSignals\": [],\n    \"postActivityAction\": \"back_to_map\",\n    \"factualSummary\": \"Completed a paced challenge quickly, explicitly rated it 5/5, and returned to the map without replay.\"\n  }\n}"
+    }
+  ],
+  "tools": [
+    {
+      "name": "create_progression_design_artifact",
+      "description": "Return the frozen progression experience design artifact.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "artifactId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "nodeId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "academicContractHash": {
+            "type": "string",
+            "minLength": 1
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1
+          },
+          "audienceRationale": {
+            "type": "string",
+            "minLength": 1
+          },
+          "openingPromise": {
+            "type": "string",
+            "minLength": 1
+          },
+          "firstThreeSeconds": {
+            "type": "string",
+            "minLength": 1
+          },
+          "firstAction": {
+            "type": "string",
+            "minLength": 1
+          },
+          "interactionDemonstration": {
+            "type": "string",
+            "minLength": 1
+          },
+          "coreInteraction": {
+            "type": "string",
+            "minLength": 1
+          },
+          "mathAsPower": {
+            "type": "string",
+            "minLength": 1
+          },
+          "stakes": {
+            "type": "string",
+            "minLength": 1
+          },
+          "consequences": {
+            "type": "string",
+            "minLength": 1
+          },
+          "recovery": {
+            "type": "string",
+            "minLength": 1
+          },
+          "progression": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "interactionContinuity": {
+            "type": "string",
+            "minLength": 1
+          },
+          "worldReaction": {
+            "type": "string",
+            "minLength": 1
+          },
+          "payoff": {
+            "type": "string",
+            "minLength": 1
+          },
+          "replayVariation": {
+            "type": "string",
+            "minLength": 1
+          },
+          "visualDirection": {
+            "type": "string",
+            "minLength": 1
+          },
+          "motionDirection": {
+            "type": "string",
+            "minLength": 1
+          },
+          "soundDirection": {
+            "type": "string",
+            "minLength": 1
+          },
+          "usefulLibraries": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "engagementPrediction": {
+            "type": "string",
+            "minLength": 1
+          },
+          "falsifyingEvidence": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "artifactId",
+          "nodeId",
+          "academicContractHash",
+          "title",
+          "openingPromise",
+          "firstThreeSeconds",
+          "firstAction",
+          "coreInteraction",
+          "mathAsPower",
+          "progression",
+          "visualDirection"
+        ],
+        "additionalProperties": true
+      }
+    }
+  ],
+  "tool_choice": {
+    "type": "tool",
+    "name": "create_progression_design_artifact"
+  }
+}

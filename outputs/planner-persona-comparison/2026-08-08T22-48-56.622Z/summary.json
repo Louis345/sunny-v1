@@ -1,0 +1,108 @@
+{
+  "status": "INCOMPLETE",
+  "armStatus": {
+    "historical": "COMPLETE",
+    "neutral": "INCOMPLETE",
+    "personality": "INCOMPLETE"
+  },
+  "failures": {
+    "neutral": "curriculum_correct_answer_not_in_options:item-05-interleaved-sort-multiply-or-missing-factor",
+    "personality": "malformed_provider_response:standalone_html_missing"
+  },
+  "historical": {
+    "title": "The Shape-Shifting Crate",
+    "designCostUsd": 0.23448,
+    "implementationCostUsd": 0.59665,
+    "sunkCostUsd": 0.83113,
+    "designModel": "claude-fable-5",
+    "implementationModel": "claude-opus-5",
+    "htmlHash": "6e896922f13a0e7723f3d29414d81ae9a664e79755b7b560ba8045c326e96b86",
+    "designArtifactHash": "e309aa63d177abd408b477c2e28931bd81c41b30acfb564ef9e67893d1a494c2"
+  },
+  "newSpend": {
+    "costUsd": 1.775737,
+    "calls": 6,
+    "ceilingUsd": 6,
+    "callCeiling": 8
+  },
+  "usage": [
+    {
+      "attempt": 1,
+      "arm": "neutral",
+      "stage": "academic_lead",
+      "model": "claude-opus-5",
+      "status": "complete",
+      "inputTokens": 8874,
+      "outputTokens": 4263,
+      "costUsd": 0.150945,
+      "elapsedMs": 53174,
+      "stopReason": "tool_use"
+    },
+    {
+      "attempt": 2,
+      "arm": "personality",
+      "stage": "academic_lead",
+      "model": "claude-opus-5",
+      "status": "complete",
+      "inputTokens": 8942,
+      "outputTokens": 4557,
+      "costUsd": 0.15863500000000003,
+      "elapsedMs": 61110,
+      "stopReason": "tool_use"
+    },
+    {
+      "attempt": 3,
+      "arm": "neutral",
+      "stage": "curriculum_writer",
+      "model": "claude-opus-5",
+      "status": "complete",
+      "inputTokens": 7809,
+      "outputTokens": 5868,
+      "costUsd": 0.185745,
+      "elapsedMs": 62071,
+      "stopReason": "tool_use"
+    },
+    {
+      "attempt": 4,
+      "arm": "personality",
+      "stage": "curriculum_writer",
+      "model": "claude-opus-5",
+      "status": "complete",
+      "inputTokens": 8297,
+      "outputTokens": 6245,
+      "costUsd": 0.19760999999999998,
+      "elapsedMs": 68206,
+      "stopReason": "tool_use"
+    },
+    {
+      "attempt": 5,
+      "arm": "personality",
+      "stage": "experience_architect",
+      "model": "claude-fable-5",
+      "status": "complete",
+      "inputTokens": 10507,
+      "outputTokens": 9312,
+      "costUsd": 0.34240200000000004,
+      "elapsedMs": 145151,
+      "stopReason": "tool_use"
+    },
+    {
+      "attempt": 6,
+      "arm": "personality",
+      "stage": "experience_engineer",
+      "model": "claude-opus-5",
+      "status": "complete",
+      "inputTokens": 18080,
+      "outputTokens": 26000,
+      "costUsd": 0.7404000000000001,
+      "elapsedMs": 355755,
+      "stopReason": "max_tokens"
+    }
+  ],
+  "candidateOrder": [
+    "personality",
+    "historical",
+    "neutral"
+  ],
+  "warning": "This evaluates generation quality and reliability, not actual child learning. Human scoring is required before an outcome label can be assigned."
+}

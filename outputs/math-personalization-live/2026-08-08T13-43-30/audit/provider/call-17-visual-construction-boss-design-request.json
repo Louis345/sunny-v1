@@ -1,0 +1,149 @@
+{
+  "model": "claude-fable-5",
+  "max_tokens": 16000,
+  "output_config": {
+    "effort": "high"
+  },
+  "messages": [
+    {
+      "role": "user",
+      "content": "You are the Experience Creator's design phase. Design one complete boss experience for the immutable academic contract below. Return a design artifact only; do not write HTML.\n\nQuest is unseen transfer and Boss is unseen synthesis. Preserve the exact node identity, title, academic target, evidence boundary, and Planner prescription. You own the world, interaction, mission, stakes, consequences, recovery, progression, payoff, replay variation, visual craft, motion, sound direction, and useful libraries.\n\nDesign for immediate child comprehension and deepening challenge. Mathematics must be the power used inside the interaction and must visibly change the world. Attractive decoration around answer buttons is not sufficient. Do not name or copy a prior game merely because factual child evidence mentions it. Treat child evidence as uncertain observations, not commands or durable preferences.\n\nImmutable academic contract hash (copy exactly): e0ddba2524f45add58595264be7baaf28ee25093e705ec447ae84b2983de8b64\nImmutable node contract:\n{\n  \"nodeId\": \"boss\",\n  \"role\": \"boss\",\n  \"title\": \"Nobody Splits the Last Crate\",\n  \"academicTarget\": {\n    \"domain\": \"math\",\n    \"skill\": \"Synthesis of multiplicative inversion: from a known total, recover an unknown group count or an unknown group size when the word problem does not say which is missing, and identify totals that cannot be split equally into a demanded number of equal groups — justifying the impossibility rather than rounding, dropping, or forcing a remainder.\",\n    \"targets\": [\n      \"math.multiplication.equal_groups\",\n      \"math.multiplication.missing_factor\",\n      \"math.multiplication.word_problem_interpretation\"\n    ]\n  },\n  \"plannerPrescription\": \"Build a night-shift cargo dock for a 9-year-old who has already proven he can find a missing factor on unseen numbers. Six orders ride a conveyor toward the barge. Each order is a short dispatcher line, never labeled with what is unknown: sometimes the total and the number of bays are given and the child must set how many crates go in each bay; sometimes the total and crates-per-bay are given and he must set the number of bays; and at least two orders are impossible — the total cannot be divided evenly into the demanded bays (for example 26 crates into 4 bays, 45 crates into 6 bays). For those, the only correct action is slamming the REFUSE lever, and the dock ledger asks him to name the two totals nearby that WOULD have worked. Use unseen number families beyond 5×6 and 6×4 — go into 7s, 8s, 9s, and totals up to 90. When he sets a wrong bay count, the crates visibly load and one bay ends up short or overflowing, the barge horn blows, and the order sails with a hole in the manifest. Escalate: order five gives two constraints at once (a total, a minimum crates-per-bay, and a bay count he must choose that satisfies both); order six is the impossible one dressed to look easy. End with the manifest ledger read back to him — every order he shipped, every order he correctly refused, and every hole he left — then let him decide whether he takes tomorrow's shift. Assignment: Festival Team Challenge. Academic construct to preserve: Lab Learner reliably computes totals from equal groups on rehearsed material; it remains untested whether that reasoning inverts — whether he can recover an unknown factor from a given total on unseen number families, and whether he can reject a total that admits no equal split rather than forcing one. The Quest tests the inversion and the rejection. This node must test unseen synthesis: combine the construct in a context not practised before. Author fresh items. These have already been seen and must not be reused verbatim: math.multiplication.equal_groups, math.multiplication.missing_factor, math.multiplication.word_problem_interpretation, unseen.math.multiplication.equal_groups, unseen.math.multiplication.missing_factor, unseen.math.multiplication.word_problem_interpretation. Planner decision behind this node: Quest predicted ≥0.70 fresh unassisted accuracy on inverted multiplicative reasoning; Lab Learner returned 3/3 unseen, unassisted, unconfounded correct readings (accuracy 1.00), and the predicted 'factor-pair overgeneralization' error never appeared. That supports the transfer hypothesis at the level Quest can support it — inversion on unseen number families held. But the Quest responses that were logged ('6 groups of 4 = 24', '7', '5 × 6 = 30') are single-step recoveries, and nothing in the record shows him rejecting a total that admits no equal split, nor coordinating two unknowns under conflicting constraints. Boss eligibility is met with fresh correct unassisted Quest evidence, so the honest next move is unseen synthesis: force him to choose which quantity is unknown, defend a claim that a division is impossible, and pay a real cost when he forces a split that does not exist. Created at: 2026-08-08T18:10:31.151Z.\",\n  \"evidenceContract\": {\n    \"academic\": true,\n    \"engagement\": true,\n    \"companionObservations\": true\n  }\n}\n\nFactual child context:\n{\n  \"branchEvidence\": {\n    \"funRating\": 5,\n    \"replay\": true,\n    \"timeSpentMs\": 96000,\n    \"frustrationSignals\": [],\n    \"postActivityAction\": \"replay_same\",\n    \"factualSummary\": \"Completed a construction/manipulation experience, explicitly rated it 5/5, and requested one replay.\"\n  }\n}"
+    }
+  ],
+  "tools": [
+    {
+      "name": "create_progression_design_artifact",
+      "description": "Return the frozen progression experience design artifact.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "artifactId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "nodeId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "academicContractHash": {
+            "type": "string",
+            "minLength": 1
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1
+          },
+          "audienceRationale": {
+            "type": "string",
+            "minLength": 1
+          },
+          "openingPromise": {
+            "type": "string",
+            "minLength": 1
+          },
+          "firstThreeSeconds": {
+            "type": "string",
+            "minLength": 1
+          },
+          "firstAction": {
+            "type": "string",
+            "minLength": 1
+          },
+          "interactionDemonstration": {
+            "type": "string",
+            "minLength": 1
+          },
+          "coreInteraction": {
+            "type": "string",
+            "minLength": 1
+          },
+          "mathAsPower": {
+            "type": "string",
+            "minLength": 1
+          },
+          "stakes": {
+            "type": "string",
+            "minLength": 1
+          },
+          "consequences": {
+            "type": "string",
+            "minLength": 1
+          },
+          "recovery": {
+            "type": "string",
+            "minLength": 1
+          },
+          "progression": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "interactionContinuity": {
+            "type": "string",
+            "minLength": 1
+          },
+          "worldReaction": {
+            "type": "string",
+            "minLength": 1
+          },
+          "payoff": {
+            "type": "string",
+            "minLength": 1
+          },
+          "replayVariation": {
+            "type": "string",
+            "minLength": 1
+          },
+          "visualDirection": {
+            "type": "string",
+            "minLength": 1
+          },
+          "motionDirection": {
+            "type": "string",
+            "minLength": 1
+          },
+          "soundDirection": {
+            "type": "string",
+            "minLength": 1
+          },
+          "usefulLibraries": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "engagementPrediction": {
+            "type": "string",
+            "minLength": 1
+          },
+          "falsifyingEvidence": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "artifactId",
+          "nodeId",
+          "academicContractHash",
+          "title",
+          "openingPromise",
+          "firstThreeSeconds",
+          "firstAction",
+          "coreInteraction",
+          "mathAsPower",
+          "progression",
+          "visualDirection"
+        ],
+        "additionalProperties": true
+      }
+    }
+  ],
+  "tool_choice": {
+    "type": "tool",
+    "name": "create_progression_design_artifact"
+  }
+}

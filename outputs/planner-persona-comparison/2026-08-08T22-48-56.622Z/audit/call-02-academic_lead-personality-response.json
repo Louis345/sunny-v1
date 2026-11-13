@@ -1,0 +1,243 @@
+{
+  "model": "claude-opus-5",
+  "id": "msg_011Cdr6fJhNje1Yxk8Syk4Ld",
+  "type": "message",
+  "role": "assistant",
+  "content": [
+    {
+      "type": "tool_use",
+      "id": "toolu_011Bn4uHtFnVGpxe7WNN3Svw",
+      "name": "submit_academic_charter",
+      "input": {
+        "charterId": "charter-LAB-MATH-C-unknown-position-v1",
+        "upstreamHash": "f300b840d652743f2d9f16bbf958fc5e78ee6e2c470b2f84d9d8ab129ad7ae7f",
+        "academicTarget": "Use equal-groups structure to identify the unknown position, solve missing factors, and recognize multiple valid factor-pair arrays for a known total.",
+        "scope": [
+          "Equal-groups relationship: number of groups x size of each group = total, within festival contexts (teams of children, flags in equal rows, cups per booth, tokens per bag, stage-light arrays).",
+          "Naming the unknown position (total unknown vs. factor unknown) before any computation is selected.",
+          "Missing-factor equations of the form ___ x 8 = 48, factors 3-9, products to 56.",
+          "Equal-sharing group size from a known total and known number of equal rows/groups (e.g., 40 flags in 5 equal rows).",
+          "Generating more than one valid factor-pair array for a known total (e.g., 36 lights), including recognizing that several correct pairs exist.",
+          "Total-unknown items retained only as contrast cases to discriminate multiply-vs-find-the-missing-factor."
+        ],
+        "boundaries": {
+          "outOfScope": [
+            "Products above 56 or factors outside 3-9.",
+            "Division notation, remainders, or formal quotient language as an instructional target.",
+            "Fluency drilling of multiplication facts already demonstrated as intact.",
+            "Array reading or equal-groups story interpretation as instructional targets (they serve as contrast anchors only).",
+            "Multi-step problems mixing operations beyond a single equal-groups relationship.",
+            "Reading-load-heavy or non-festival contexts introduced as new content."
+          ],
+          "authorityLimits": [
+            "This charter sets academic target, scope, and evidence requirements only; it does not author questions, mechanics, visuals, themes, rewards, libraries, or HTML.",
+            "No format or modality preference may be asserted for this child; the four engagement events are activity-level facts only.",
+            "No claim of a general multiplication deficit may be made or implied in child-facing material."
+          ],
+          "childFacingConstraints": [
+            "Child-facing language stays direct and confident; uncertainty is recorded here, never voiced to the child as hedging.",
+            "No deficit framing, no comparison to prior failures, no labels about the learner's ability.",
+            "Errors are treated as information about which quantity was unknown, not about the child."
+          ]
+        },
+        "assumptions": [
+          {
+            "decisionId": "dec-001-scoped-unknown-position-weakness",
+            "decision": "Treat the prior LAB-MATH-B failures as a single scoped weakness in identifying and solving the unknown position, and expect it to surface on LAB-MATH-C items 2, 3, and 8 rather than across all multiplication work.",
+            "evidenceIds": [
+              "evaluation:c8fdaacd3e1b0c13",
+              "evaluation:b81e075d2126c022",
+              "observation:d1b81984c24d6d80",
+              "live-proof-baseline-session:baseline:observation:4"
+            ],
+            "confidence": 0.72,
+            "uncertainty": "The inference is drawn from a frozen upstream assumption plus one failed baseline item on factor pairs; a scoped weakness and a fragile-but-general weakness would look similar on this small item set.",
+            "falsifyingEvidence": [
+              "Errors appear on total-unknown items (1, 5) at a rate similar to items 2, 3, and 8.",
+              "Item 3 (___ x 8 = 48) is solved correctly and independently while intact-skill contrast items are missed.",
+              "Baseline missing-factor success (observation:2) replicates across three or more new missing-factor items without prompting."
+            ],
+            "measurementKeys": [
+              "item.2.group_size_from_total.correct",
+              "item.3.missing_factor.correct",
+              "item.8.factor_pairs.distinct_valid_count",
+              "error.multiply_the_given_numbers.rate.unknown_factor_items",
+              "error.rate.total_unknown_items"
+            ]
+          },
+          {
+            "decisionId": "dec-002-name-the-unknown-before-computing",
+            "decision": "Require the learner to name which quantity is unknown before selecting an operation, in preference to additional undifferentiated practice.",
+            "evidenceIds": [
+              "observation:0ee42baffce06546",
+              "observation:4520f65725de1d50",
+              "hw-02c11ee60594c617:decision:r3"
+            ],
+            "confidence": 0.65,
+            "uncertainty": "The supporting evidence is observational and was never contrasted against a matched additional-practice condition for this learner; the effect size is unestablished.",
+            "falsifyingEvidence": [
+              "Learner names the unknown correctly but still multiplies the two visible numbers on two or more items.",
+              "Multiply-the-given-numbers substitution rate is unchanged or higher on items where naming was required.",
+              "Naming step adds latency without any change in accuracy across the item set."
+            ],
+            "measurementKeys": [
+              "unknown_position.named.correct.rate",
+              "error.multiply_the_given_numbers.rate.after_naming",
+              "accuracy.unknown_factor_items.with_naming_step"
+            ]
+          },
+          {
+            "decisionId": "dec-003-intact-skills-as-contrast-anchors",
+            "decision": "Treat multiplication computation, array reading, and equal-groups story interpretation as intact contrast anchors, not instructional targets.",
+            "evidenceIds": [
+              "evaluation:cd58ac474b720927",
+              "evaluation:1b7d71227bc7fff2",
+              "evaluation:a27f078c804e15e1",
+              "observation:23f39686fc8bcab8",
+              "observation:81c93f608540bf7b",
+              "observation:bbaf27b2c8a85202",
+              "live-proof-baseline-session:baseline:observation:1",
+              "live-proof-baseline-session:baseline:observation:3"
+            ],
+            "confidence": 0.78,
+            "uncertainty": "Intactness rests on a small number of previously practiced, unassisted items; performance under novel festival contexts or increased reading load is untested.",
+            "falsifyingEvidence": [
+              "Errors on total-unknown items 1 or 5 in the absence of any unknown-position confusion.",
+              "Item 6 (which story uses 6 x 7) answered incorrectly.",
+              "Computation errors on facts within products to 56 that were previously correct."
+            ],
+            "measurementKeys": [
+              "item.1.total_unknown.correct",
+              "item.5.total_unknown.correct",
+              "item.6.story_interpretation.correct",
+              "computation.accuracy.products_to_56"
+            ]
+          },
+          {
+            "decisionId": "dec-004-expect-overgeneralized-division",
+            "decision": "Anticipate that after instruction on the unknown position, some genuinely total-unknown items will be answered by dividing, and plan discrimination checks rather than treating this as regression.",
+            "evidenceIds": [
+              "hw-02c11ee60594c617:prediction:r3:support"
+            ],
+            "confidence": 0.55,
+            "uncertainty": "This is a single predicted failure mode with one supporting evidence item and no direct observation of the learner over-applying a newly taught rule.",
+            "falsifyingEvidence": [
+              "Total-unknown items remain correct at pre-instruction rates throughout.",
+              "Errors on total-unknown items are computational rather than divisive in structure.",
+              "Learner spontaneously justifies choosing multiplication on total-unknown items."
+            ],
+            "measurementKeys": [
+              "error.divide_when_total_unknown.count",
+              "discrimination.total_vs_factor_unknown.accuracy",
+              "accuracy.total_unknown_items.post_instruction"
+            ]
+          },
+          {
+            "decisionId": "dec-005-no-durable-format-preference",
+            "decision": "Assert no format or modality preference for this learner; treat the four recorded engagement events as activity-level facts only and vary presentation without claiming a personalized route.",
+            "evidenceIds": [
+              "engagement:synthetic-construction-route",
+              "engagement:synthetic-paced-route",
+              "engagement:synthetic-visual-route",
+              "engagement:synthetic-speed-route",
+              "rating:round-a:4",
+              "rating:round-b:3",
+              "rating:round-c:5",
+              "replay:round-c:1"
+            ],
+            "confidence": 0.85,
+            "uncertainty": "Four one-off engagement events and three ratings cannot separate format preference from item difficulty, novelty, or ordering effects.",
+            "falsifyingEvidence": [
+              "The same format shows higher accuracy across three or more separate sessions with matched item difficulty.",
+              "Learner states and sustains a consistent format choice when given a free choice repeatedly.",
+              "Replay behavior concentrates on one format across independent sessions."
+            ],
+            "measurementKeys": [
+              "engagement.format.repeat_rate_by_route",
+              "accuracy.by_format.matched_difficulty",
+              "replay.count.by_format"
+            ]
+          },
+          {
+            "decisionId": "dec-006-factor-pairs-multiplicity-is-target",
+            "decision": "Treat 'more than one valid factor pair exists for a known total' as an explicit in-scope target, not an incidental extension of array reading.",
+            "evidenceIds": [
+              "live-proof-baseline-session:baseline:observation:4",
+              "assignment:live-progression"
+            ],
+            "confidence": 0.7,
+            "uncertainty": "One failed baseline item (only one pair produced) cannot distinguish a conceptual belief in a unique pair from an instruction-reading or stopping-early behavior.",
+            "falsifyingEvidence": [
+              "Learner produces two or more distinct valid arrays for 36 when simply prompted to keep going.",
+              "Learner verbalizes that several pairs are possible while still writing only one.",
+              "Second pair appears without instruction on any later known-total item."
+            ],
+            "measurementKeys": [
+              "item.8.factor_pairs.distinct_valid_count",
+              "factor_pairs.second_pair.unprompted.rate",
+              "factor_pairs.stops_after_one.rate"
+            ]
+          }
+        ],
+        "representativeLearningResponsibility": {
+          "responsibilityId": "rlr-001-name-the-unknown-then-choose",
+          "statement": "For each festival equal-groups situation, the learner independently names which of the three quantities is unknown (number of groups, size of each group, or total) and then chooses and carries out the matching operation, including finding a missing factor when the total is already known.",
+          "rationale": "This single responsibility sits upstream of every in-scope item type: it drives items 2 and 3 directly, guards the total-unknown contrast items against overgeneralized division, and is the precondition for treating 36 as a total that admits multiple factor pairs.",
+          "observableEvidence": [
+            "Learner states the unknown position before computing on unknown-factor items.",
+            "Operation chosen matches the named unknown position.",
+            "Missing-factor items solved by a known fact or division rather than by multiplying the two visible numbers.",
+            "Total-unknown contrast items still solved by multiplication after instruction."
+          ],
+          "measurementKeys": [
+            "unknown_position.named.correct.rate",
+            "operation.matches_named_unknown.rate",
+            "error.multiply_the_given_numbers.rate.unknown_factor_items",
+            "error.divide_when_total_unknown.count"
+          ],
+          "successCriterion": "Unknown position named correctly and matched to the operation on at least 5 of 6 in-scope items, unassisted, with no multiply-the-given-numbers substitutions on missing-factor items."
+        },
+        "progression": [
+          "Stage 1 - Name the three quantities: given a festival equal-groups situation with all values shown, the learner labels number of groups, size of each group, and total, with no computation required.",
+          "Stage 2 - Locate the unknown: given a situation with one quantity missing, the learner names which quantity is unknown and does not yet compute.",
+          "Stage 3 - Match operation to unknown: total unknown leads to multiplying the two knowns; a factor unknown leads to finding the number that reaches the total. Learner justifies the choice before computing.",
+          "Stage 4 - Solve missing factors: ___ x 8 = 48 and equal-sharing group size (40 flags in 5 equal rows), using known facts or division, factors 3-9, products to 56.",
+          "Stage 5 - Discriminate under interleaving: total-unknown and factor-unknown items presented in mixed order to expose and correct overgeneralized division.",
+          "Stage 6 - Multiple factor pairs for a known total: the learner produces two or more distinct valid equal-row arrays for a known total such as 36, and states that more than one correct arrangement exists.",
+          "Stage 7 - Independent transfer: a mixed festival set at grade level, unassisted, with the learner naming the unknown and completing the matching solution across all in-scope item types."
+        ],
+        "evidenceRequiredNext": [
+          "Per-item record for LAB-MATH-C items 1-8 with correctness, assistance level, and whether the unknown position was named before computing.",
+          "Error-type coding on items 2, 3, and 8 distinguishing multiply-the-given-numbers substitution from computation slips from stopping-early behavior.",
+          "Count of distinct valid factor pairs produced for the 36-light item, plus whether a second pair emerged unprompted or only after a keep-going prompt.",
+          "Accuracy on total-unknown contrast items 1 and 5 measured after unknown-position instruction, coded for any divide-when-total-unknown responses.",
+          "A matched comparison of naming-the-unknown versus additional undifferentiated practice on equivalent item sets, to test dec-002 rather than assume it.",
+          "Replication of the intact-skill claim on items 1, 5, and 6 under novel festival contexts not previously practiced.",
+          "Format and engagement data across at least three independent sessions with matched item difficulty before any preference claim is entertained.",
+          "Latency alongside accuracy for the naming step, to detect whether naming adds cost without benefit."
+        ]
+      },
+      "caller": {
+        "type": "direct"
+      }
+    }
+  ],
+  "stop_reason": "tool_use",
+  "stop_sequence": null,
+  "stop_details": null,
+  "usage": {
+    "input_tokens": 8942,
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 0,
+    "cache_creation": {
+      "ephemeral_5m_input_tokens": 0,
+      "ephemeral_1h_input_tokens": 0
+    },
+    "output_tokens": 4557,
+    "output_tokens_details": {
+      "thinking_tokens": 0
+    },
+    "service_tier": "standard",
+    "inference_geo": "global"
+  }
+}

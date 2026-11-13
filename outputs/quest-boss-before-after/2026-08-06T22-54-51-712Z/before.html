@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Skybridge Rescue</title>
+<script src="/games/_contract.js"></script>
+<style>
+  *{box-sizing:border-box;font-family:'Comic Sans MS',Verdana,sans-serif;}
+  body{margin:0;background:linear-gradient(#8ec9ff,#e9f6ff);min-height:100vh;}
+  #app{max-width:720px;margin:0 auto;padding:16px;text-align:center;}
+  h1{color:#0b3d66;margin-bottom:4px;font-size:2em;}
+  #subtitle{color:#0b3d66;margin-top:0;font-size:1.05em;}
+  #board{position:relative;border-radius:16px;overflow:hidden;box-shadow:0 6px 16px rgba(0,0,0,.25);margin-bottom:14px;}
+  #questArt{width:100%;display:block;filter:brightness(.85);}
+  #bridge{position:absolute;bottom:8px;left:0;right:0;display:flex;justify-content:center;gap:8px;}
+  .plank{width:15%;height:22px;background:#7a4a24;border:3px solid #4d2f14;border-radius:4px;opacity:.35;transition:all .4s;}
+  .plank.lit{opacity:1;background:linear-gradient(#ffe066,#f4b41a);box-shadow:0 0 12px #ffd447;}
+  #challengeBox{background:#ffffffdd;border-radius:14px;padding:16px;box-shadow:0 3px 10px rgba(0,0,0,.15);}
+  #promptText{font-size:1.2em;color:#1c2a3a;min-height:60px;}
+  #answerRow{display:flex;justify-content:center;gap:10px;margin:10px 0;}
+  #answerInput{width:90px;font-size:1.3em;text-align:center;border:2px solid #0b3d66;border-radius:8px;padding:6px;}
+  button{cursor:pointer;border:none;border-radius:10px;padding:10px 16px;font-size:1em;font-weight:bold;transition:transform .15s;}
+  button:active{transform:scale(0.95);}
+  #submitBtn{background:#2e9e4f;color:white;}
+  #readBtn{background:#f5a623;color:white;margin-bottom:6px;}
+  #feedback{min-height:28px;font-size:1.1em;font-weight:bold;}
+  #completeBox{background:#fff8dd;border-radius:14px;padding:20px;box-shadow:0 3px 10px rgba(0,0,0,.15);}
+  .disabled{opacity:.5;pointer-events:none;}
+  #hint{color:#8a5a00;font-style:italic;}
+</style>
+</head>
+<body>
+<div id="app">
+  <h1>The Skybridge Rescue</h1>
+  <p id="subtitle">The clouds shifted and the skybridge cracked! Rebuild each plank with your multiplication power to reach the stranded flyers.</p>
+  <div id="board">
+    <img id="questArt" src="/generated/adventure-board-demo/quest.jpeg" alt="A glowing skybridge among the clouds">
+    <div id="bridge"></div>
+  </div>
+  <div id="challengeBox">
+    <button id="readBtn">🔊 Read it to me</button>
+    <p id="promptText">Loading mission...</p>
+    <p id="hint" style="display:none;"></p>
+    <div id="answerRow">
+      <input id="answerInput" type="number" inputmode="numeric" placeholder="?">
+      <button id="submitBtn">Submit</button>
+    </div>
+    <p id="feedback"></p>
+  </div>
+  <div id="completeBox" style="display:none;">
+    <h2>🎉 Rescue Complete! 🎉</h2>
+    <p id="summaryText"></p>
+  </div>
+</div>
+<div id="sunny-companion"></div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+
+  var params = window.GAME_PARAMS || {};
+  var nodeId = params.nodeId || 'quest';
+
+  // Fresh, unseen-context transfer items (equal-groups / array construct, new numbers + new setting)
+  var items = [
+    { id: 'quest-cargo-pods-6x3', answer: 18,
+      prompt: 'Six cargo pods glide across the skybridge. Each pod carries 3 golden gears for repairs. How many gears are being carried in all?',
+      hint: 'Try adding 3 six times, or think of it as 6 groups of 3.' },
+    { id: 'quest-lantern-rows-4x5', answer: 20,
+      prompt: 'The rescue team strings glowing lights in 4 rows to guide flyers home. Each row holds 5 lanterns. How many lanterns light the bridge?',
+      hint: 'There are 4 rows. Each row has 5 lanterns. Multiply the rows by the lanterns in each row.' },
+    { id: 'quest-balloon-crates-2x7', answer: 14,
+      prompt: 'Two rescue balloons rise into the clouds. Each balloon is loaded with 7 supply crates for the stranded climbers. How many crates in total?',
+      hint: 'Two balloons, seven crates in each one. Multiply!' },
+    { id: 'quest-plank-stacks-3x5', answer: 15,
+      prompt: 'Workers stack fresh wooden planks to fix the last gap. They make 3 stacks, and each stack holds 5 planks. How many planks are used?',
+      hint: '3 stacks, 5 planks in each stack. Think equal groups!' }
+  ];
+
+  var totalItems = items.length;
+  var idx = 0;
+  var attempts = 0;
+  var maxAttempts = 2;
+  var paused = false;
+  var locked = false; // true while transitioning between items or after item resolved
+  var pauseStart = 0;
+  var startTime = 0;
+  var targetResults = [];
+  var itemFinalCorrect = 0;
+  var completedItems = 0;
+  var sessionStart = Date.now();
+  var readCounts = {};
+
+  var promptText = document.getElementById('promptText');
+  var answerInput = document.getElementById('answerInput');
+  var submitBtn = document.getElementById('submitBtn');
+  var readBtn = document.getElementById('readBtn');
+  var feedback = document.getElementById('feedback');
+  var hintEl = document.getElementById('hint');
+  var bridge = document.getElementById('bridge');
+  var challengeBox = document.getElementById('challengeBox');
+  var completeBox = document.getElementById('completeBox');
+  var summaryText = document.getElementById('summaryText');
+
+  for (var p = 0; p < totalItems; p++) {
+    var plank = document.createElement('div');
+    plank.className = 'plank';
+    plank.id = 'plank-' + p;
+    bridge.appendChild(plank);
+  }
+
+  function currentItem() { return items[idx]; }
+
+  function buildChallenge(readAloudRequested) {
+    var it = currentItem();
+    return {
+      id: it.id,
+      prompt: it.prompt,
+      mode: 'unseen_transfer_word_problem',
+      readAloudRequested: !!readAloudRequested,
+      readAloudCount: readCounts[it.id] || 0
+    };
+  }
+
+  function postState(readAloudRequested) {
+    window.parent.postMessage({
+      type: 'game_state_update',
+      payload: {
+        game: 'generated-math',
+        activityId: 'quest',
+        nodeId: 'quest',
+        phase: 'question',
+        activityTitle: 'The Skybridge Rescue',
+        learningFocus: 'transfer equal-groups reasoning to unfamiliar situations',
+        mechanic: 'AI-designed evidence experience',
+        currentChallenge: buildChallenge(readAloudRequested),
+        availableActions: ['submit_answer', 'request_read_aloud'],
+        itemIndex: idx + 1,
+        totalItems: totalItems,
+        answerVisibility: 'hidden'
+      }
+    }, '*');
+  }
+
+  // single source of truth for enabling/disabling controls
+  function updateControls() {
+    var enabled = !paused && !locked;
+    answerInput.disabled = !enabled;
+    submitBtn.disabled = !enabled;
+    readBtn.disabled = paused;
+    challengeBox.classList.toggle('disabled', paused);
+  }
+
+  function showItem(i) {
+    idx = i;
+    attempts = 0;
+    locked = false;
+    var it = currentItem();
+    promptText.textContent = it.prompt;
+    hintEl.style.display = 'none';
+    hintEl.textContent = '';
+    feedback.textContent = '';
+    answerInput.value = '';
+    updateControls();
+    startTime = Date.now();
+    postState(false);
+  }
+
+  function litPlank(i) {
+    var plank = document.getElementById('plank-' + i);
+    if (plank) plank.classList.add('lit');
+  }
+
+  function recordAttempt(target, correct, attemptedValue, scaffoldLevel) {
+    var responseTimeMs = Date.now() - startTime;
+    targetResults.push({
+      target: target,
+      correct: correct,
+      attemptedValue: attemptedValue,
+      responseTimeMs: responseTimeMs,
+      scaffoldLevel: scaffoldLevel
+    });
+    if (window.fireAttemptEvent) {
+      window.fireAttemptEvent({
+        domain: 'math',
+        target: target,
+        correct: correct,
+        attemptedValue: attemptedValue,
+        responseTimeMs: responseTimeMs,
+        scaffoldLevel: scaffoldLevel
+      });
+    }
+    if (window.fireCompanionEvent) {
+      window.fireCompanionEvent(correct ? 'correct_answer' : 'wrong_answer', { target: target });
+    }
+  }
+
+  function advance() {
+    completedItems = idx + 1;
+    window.parent.postMessage({
+      type: 'progress_event',
+      payload: { nodeId: 'quest', completedItems: completedItems, totalItems: totalItems }
+    }, '*');
+    if (idx + 1 < totalItems) {
+      setTimeout(function () { showItem(idx + 1); }, 600);
+    } else {
+      setTimeout(finishGame, 600);
+    }
+  }
+
+  function doSubmit() {
+    if (paused || locked) return;
+    var raw = answerInput.value;
+    if (raw === '' || raw === null) return;
+    var val = parseFloat(raw);
+    var it = currentItem();
+    var correct = val === it.answer;
+    attempts += 1;
+    var scaffoldLevel = attempts - 1;
+    recordAttempt(it.id, correct, val, scaffoldLevel);
+
+    if (correct) {
+      feedback.style.color = '#1e7d32';
+      feedback.textContent = 'Yes! The bridge glows brighter!';
+      litPlank(idx);
+      itemFinalCorrect += 1;
+      locked = true;
+      updateControls();
+      advance();
+    } else if (attempts < maxAttempts) {
+      feedback.style.color = '#b3261e';
+      feedback.textContent = 'Not quite — the wind shook the plank! Try again.';
+      hintEl.style.display = 'block';
+      hintEl.textContent = 'Hint: ' + it.hint;
+      answerInput.value = '';
+      answerInput.focus();
+      postState(false);
+    } else {
+      feedback.style.color = '#b3261e';
+      feedback.textContent = 'The correct number was ' + it.answer + '. Onward to the next gap!';
+      locked = true;
+      updateControls();
+      advance();
+    }
+  }
+
+  function doReadAloud() {
+    if (paused) return;
+    var it = currentItem();
+    readCounts[it.id] = (readCounts[it.id] || 0) + 1;
+    postState(true);
+  }
+
+  submitBtn.addEventListener('click', doSubmit);
+  answerInput.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') doSubmit();
+  });
+  readBtn.addEventListener('click', doReadAloud);
+
+  function finishGame() {
+    challengeBox.style.display = 'none';
+    completeBox.style.display = 'block';
+    var totalAttempts = targetResults.length;
+    var correctCount = targetResults.filter(function (r) { return r.correct; }).length;
+    var accuracy = totalAttempts > 0 ? correctCount / totalAttempts : 0;
+    var timeSpent_ms = Date.now() - sessionStart;
+    summaryText.textContent = 'You repaired ' + itemFinalCorrect + ' of ' + totalItems + ' planks and reached the stranded flyers!';
+
+    if (window.fireCompanionEvent) window.fireCompanionEvent('game_complete', {});
+    if (window.sendNodeComplete) {
+      window.sendNodeComplete({
+        nodeId: (window.GAME_PARAMS && window.GAME_PARAMS.nodeId) || 'quest',
+        completed: true,
+        accuracy: accuracy,
+        targetResults: targetResults,
+        timeSpent_ms: timeSpent_ms
+      });
+    }
+  }
+
+  // Companion presence pause/resume
+  window.addEventListener('message', function (e) {
+    var d = e.data;
+    if (d && d.type === 'sunny_companion_presence') {
+      var summoned = d.payload && d.payload.summoned;
+      if (summoned) {
+        if (!paused) {
+          paused = true;
+          pauseStart = Date.now();
+          updateControls();
+        }
+      } else {
+        if (paused) {
+          paused = false;
+          var delta = Date.now() - pauseStart;
+          startTime += delta;
+          updateControls();
+        }
+      }
+    }
+  });
+
+  // Validation hook - reuses the same visible handlers, waits on real control state
+  window.SUNNY_VALIDATION_HOOKS = {
+    playthrough: async function () {
+      function wait(ms) { return new Promise(function (res) { setTimeout(res, ms); }); }
+      function ready() {
+        return new Promise(function (res) {
+          (function check() {
+            if (!paused && !locked && !answerInput.disabled) res();
+            else setTimeout(check, 50);
+          })();
+        });
+      }
+      function submitValue(v) {
+        answerInput.value = String(v);
+        submitBtn.click();
+      }
+      await ready();
+      // exercise an incorrect response then visible recovery on the first item
+      submitValue(items[0].answer + 1);
+      await wait(200);
+      await ready();
+      submitValue(items[0].answer);
+      // complete every remaining assessable item
+      for (var i = 1; i < items.length; i++) {
+        await ready();
+        submitValue(items[i].answer);
+      }
+      // wait for completion screen to appear
+      var tries = 0;
+      while (completeBox.style.display === 'none' && tries < 100) {
+        await wait(100);
+        tries++;
+      }
+      return true;
+    }
+  };
+
+  // init
+  showItem(0);
+  window.parent.postMessage({ type: 'activity_ready', payload: { nodeId: 'quest' } }, '*');
+
+});
+</script>
+</body>
+</html>

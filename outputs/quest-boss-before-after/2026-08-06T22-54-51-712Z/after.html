@@ -1,0 +1,152 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>The Skybridge Rescue</title>
+<script src="/games/_contract.js"></script>
+<style>
+:root{--brass:#c8862d;--cream:#fff4e2;--teal:#2f6f70}
+*{box-sizing:border-box}
+body{margin:0;font-family:'Trebuchet MS',system-ui,sans-serif;color:#3a2415;
+background:linear-gradient(#ffd9a8,#ffb07c 45%,#f38b7a);padding:10px 12px 26px;text-align:center}
+h1{margin:.2em 0 0;font-size:clamp(22px,5vw,34px);color:#5a2c12;text-shadow:0 2px 0 #ffe6c4}
+.sub{margin:.2em 0 .6em;font-size:14px;color:#6b3a1c}
+#world{position:relative;max-width:660px;margin:0 auto;border-radius:16px;overflow:hidden;
+border:4px solid var(--brass);box-shadow:0 8px 20px #a5563366;min-height:210px;background:#ffd6a6}
+#world img{width:100%;display:block;height:230px;object-fit:cover;filter:saturate(1.05)}
+#mtitle{position:absolute;top:6px;left:8px;background:#4a2a12cc;color:var(--cream);padding:3px 9px;border-radius:9px;font-size:13px}
+#tally{position:absolute;top:6px;right:8px;background:#fff4e2ee;border:2px solid var(--brass);
+padding:3px 9px;border-radius:9px;font-weight:bold;font-size:15px}
+#creature{position:absolute;bottom:64px;font-size:34px;transition:left 1s ease;left:6%}
+#track{position:absolute;bottom:8px;left:0;right:0;display:flex;flex-wrap:wrap;justify-content:center;
+gap:3px;padding:6px 8px;background:#3c2412aa}
+#track i{width:13px;height:13px;border-radius:3px;border:1px solid #ffe6c480;background:#ffffff26}
+#track i.on{background:#f6c15a;border-color:#8a5a1c;box-shadow:0 0 5px #ffd98a}
+#track i.over{background:#e2664f;border-color:#7d2a1c;animation:wob .5s infinite alternate}
+@keyframes wob{to{transform:translateY(4px) rotate(9deg)}}
+#prompt{max-width:640px;margin:12px auto 6px;background:#fff6e6;border:3px solid #e0a95f;
+border-radius:14px;padding:10px 14px;font-size:clamp(15px,3.4vw,19px);line-height:1.35}
+#choices{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;margin:8px 0}
+#choices button{font:bold 22px/1 'Trebuchet MS';min-width:64px;padding:16px 18px;border-radius:14px;
+border:3px solid #7a4a15;background:linear-gradient(#ffd98a,#e5a63d);color:#4a2a10;cursor:pointer;
+box-shadow:0 4px 0 #8a5a1c}
+#choices button:active{transform:translateY(3px);box-shadow:none}
+#choices button:disabled{opacity:.5;cursor:default}
+#fb{min-height:24px;font-weight:bold;font-size:16px;margin:4px auto;max-width:620px}
+.tools button{font-size:14px;padding:8px 12px;margin:3px;border-radius:10px;border:2px solid #7a4a15;
+background:#fff1dc;cursor:pointer}
+#replay{background:#bfe4c9;font-weight:bold}
+#record{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;max-width:660px;margin:10px auto}
+.chip{background:#4a2a12;color:#ffe6c4;font-size:12px;padding:4px 8px;border-radius:8px}
+#dots span{display:inline-block;width:11px;height:11px;border-radius:50%;background:#ffffff77;margin:3px;border:2px solid #7a4a15}
+#dots span.d{background:#f6c15a}
+#end{display:none;max-width:640px;margin:10px auto;background:#fff6e6;border:4px solid var(--brass);border-radius:16px;padding:14px}
+.hid{display:none!important}
+</style></head><body>
+<h1>The Skybridge Rescue</h1>
+<p class="sub">A storm split the sky-city. Command equal groups — and the machines obey.</p>
+<div id="world">
+  <img src="/generated/adventure-board-demo/quest.jpeg" alt="Sky-city of floating islands at golden hour">
+  <div id="mtitle"></div><div id="tally"></div><div id="creature">🦊</div><div id="track"></div>
+</div>
+<div id="prompt"></div>
+<div id="choices"></div>
+<div id="fb"></div>
+<div class="tools"><button id="replay" class="hid">🔁 Count the swings</button><button id="read">🔊 Read it to me</button></div>
+<div id="dots"></div>
+<div id="record"></div>
+<div id="end"></div>
+<div id="sunny-companion"></div>
+<script>
+var MECH="Every obstacle in the sky-city is repaired by choosing HOW MANY equal groups of a given size to deploy \u2014 bundles of planks, crates of rivets, teams of wind-gliders, coils of rope. The child reads the situation (total needed, group size shown physically in the world), then commands the number of groups. The world executes the command literally.";
+var items=[
+ {id:"skygap-planks-6x3",t:"Mission 1 \u2014 The First Gap",ask:"count",size:6,groups:3,unit:"planks",who:"\ud83e\udd8a",
+  p:"The gap needs 18 planks. Each bundle the crane lifts holds 6 planks. How many bundles do you swing?",o:[2,3,4]},
+ {id:"windanchor-strands-4x6",t:"Mission 2 \u2014 The Rope Anchors",ask:"count",size:4,groups:6,unit:"strands",who:"\ud83e\udd89",
+  p:"The wind-anchor must be laced with 24 rope strands. Each anchor post holds exactly 4 strands. How many posts do the riggers raise?",o:[4,5,6,7,8]},
+ {id:"gliderlift-foxes-per-glider-4",t:"Mission 3 \u2014 The Glider Lift",ask:"size",size:4,groups:7,unit:"cloud-foxes",who:"\ud83e\ude81",
+  p:"7 wind-gliders are hooked to the line and 28 cloud-foxes are waiting. How many foxes ride on EACH glider so everyone fits?",o:[3,4,5,6]},
+ {id:"beacon-cells-4x3",t:"Mission 4a \u2014 The Beacon Relay",ask:"count",size:4,groups:3,unit:"fuel cells",who:"\ud83d\udd6f\ufe0f",
+  p:"Tower One holds 3 lanterns and burns 12 fuel cells in all. The scoop carries 4 cells at a time. How many scoops do you load?",o:[2,3,4,5]},
+ {id:"beacon-crates-12x4",t:"Mission 4b \u2014 The Beacon Relay",ask:"count",size:12,groups:4,unit:"fuel cells",who:"\ud83d\udd6f\ufe0f",
+  p:"All 4 towers burn 12 cells each \u2014 48 cells for the relay. The hoist lifts one crate of 12. How many crates?",o:[3,4,5,6]},
+ {id:"grandspan-rivets-8x7",t:"Final Mission \u2014 The Grand Span",ask:"count",size:8,groups:7,unit:"brass rivets",who:"\ud83d\udc09",
+  p:"The Grand Span locks shut with 56 brass rivets. Each rivet-crate holds 8. How many crates does the great arm swing?",o:[5,6,7,8,9]}
+];
+items.forEach(function(i){i.total=i.size*i.groups;i.key=i.ask==="size"?i.size:i.groups;});
+var idx=0,results=[],placed=0,busy=false,paused=false,tries=0,lastCmd=null,reads=0,solvedN=0,fast=false,t0=Date.now(),qT=Date.now();
+var Q=function(s){return document.getElementById(s)};
+function sleep(ms){ms=fast?20:ms;return new Promise(function(r){setTimeout(r,ms)}).then(function(){return waitP()})}
+function waitP(){return paused?new Promise(function(r){setTimeout(r,150)}).then(waitP):null}
+var ac;function tone(f,d){try{ac=ac||new(window.AudioContext||window.webkitAudioContext)();var o=ac.createOscillator(),g=ac.createGain();o.type="triangle";o.frequency.value=f;g.gain.value=.07;o.connect(g);g.connect(ac.destination);o.start();g.gain.exponentialRampToValueAtTime(.001,ac.currentTime+(d||.3));o.stop(ac.currentTime+(d||.32))}catch(e){}}
+function it(){return items[idx]}
+function drawTrack(){var i=it(),h="",k;for(k=0;k<i.total;k++)h+='<i class="'+(k<placed?"on":"")+'"></i>';for(k=i.total;k<placed;k++)h+='<i class="over"></i>';Q("track").innerHTML=h}
+function drawTally(){var i=it();Q("tally").textContent=placed+" of "+i.total+" "+i.unit}
+function dots(){var h="",k;for(k=0;k<items.length;k++)h+='<span class="'+(k<solvedN?"d":"")+'"></span>';Q("dots").innerHTML=h}
+function sendState(read){var i=it();window.parent.postMessage({type:"game_state_update",payload:{game:"generated-math",activityId:"quest",nodeId:"quest",phase:"question",activityTitle:"The Skybridge Rescue",learningFocus:"transfer equal-groups reasoning to unfamiliar situations",mechanic:MECH,currentChallenge:{id:i.id,prompt:i.p,mode:i.ask==="size"?"command-group-size":"command-group-count",readAloudRequested:!!read,readAloudCount:reads},availableActions:i.o.map(String),itemIndex:idx,totalItems:items.length,answerVisibility:"hidden"}},"*")}
+function render(){var i=it();placed=0;tries=0;lastCmd=null;Q("mtitle").textContent=i.t;Q("prompt").textContent=i.p;
+ Q("creature").textContent=i.who;Q("creature").style.left="6%";Q("fb").textContent="";Q("replay").classList.add("hid");
+ var c=Q("choices");c.innerHTML="";i.o.forEach(function(n){var b=document.createElement("button");b.textContent=n;b.onclick=function(){commit(n)};c.appendChild(b)});
+ drawTrack();drawTally();dots();sendState(false)}
+function lock(v){Array.prototype.forEach.call(Q("choices").children,function(b){b.disabled=v})}
+async function run(steps,per,slow){placed=0;drawTrack();drawTally();for(var s=0;s<steps;s++){placed+=per;tone(330+s*55,.25);drawTrack();drawTally();
+ Q("fb").textContent="swing "+(s+1)+" \u2026 "+placed;await sleep(slow?760:420)}}
+async function commit(n){if(busy||paused)return;busy=true;lock(true);Q("replay").classList.add("hid");
+ var i=it(),steps=i.ask==="size"?i.groups:n,per=i.ask==="size"?n:i.size;lastCmd=n;
+ await run(steps,per,false);
+ var val=steps*per,ok=val===i.total,sl=tries>0?1:0;
+ results.push({target:i.id,correct:ok,attemptedValue:String(n),responseTimeMs:Date.now()-qT,scaffoldLevel:sl});
+ if(window.fireAttemptEvent)window.fireAttemptEvent({domain:"math",target:i.id,correct:ok,attemptedValue:String(n),responseTimeMs:Date.now()-qT,scaffoldLevel:sl});
+ if(window.fireCompanionEvent)window.fireCompanionEvent(ok?"correct_answer":"wrong_answer",{target:i.id});
+ if(ok){tone(660,.5);setTimeout(function(){tone(880,.6)},180);
+  Q("creature").style.left="76%";
+  Q("fb").textContent="\u2705 "+steps+" groups of "+per+" = "+val+". The span holds! "+i.who+" runs across.";
+  var gold=tries===0;var ch=document.createElement("div");ch.className="chip";
+  ch.textContent=steps+" groups of "+per+" = "+val+(gold?" \u2b50 golden rivet":" \u2014 no golden rivet");Q("record").appendChild(ch);
+  solvedN++;dots();window.parent.postMessage({type:"progress_event",payload:{nodeId:"quest",completedItems:solvedN,totalItems:items.length}},"*");
+  await sleep(1100);busy=false;idx++;if(idx>=items.length)finish();else{qT=Date.now();render()}return}
+ // consequence
+ if(val<i.total){tone(240,.7);
+  Q("creature").style.left=(6+58*(val/i.total))+"%";
+  Q("fb").textContent="\ud83d\ude2f "+i.who+" steps out, reaches the end \u2014 and points at open sky. "+val+" of "+i.total+" "+i.unit+". Short by "+(i.total-val)+".";
+ }else{tone(180,.8);
+  Q("fb").textContent="\ud83d\udca5 The arm over-swings \u2014 bloop! Surplus tumbles into the clouds. "+val+" of "+i.total+" "+i.unit+". "+(val-i.total)+" too many (winched back up).";}
+ var lost=document.createElement("div");lost.className="chip";lost.textContent="\u2b50 golden rivet lost on "+i.t;Q("record").appendChild(lost);
+ tries++;Q("replay").classList.remove("hid");lock(false);busy=false}
+async function replay(){if(busy||paused||lastCmd==null)return;busy=true;lock(true);tone(520,.3);
+ var i=it(),steps=i.ask==="size"?i.groups:lastCmd,per=i.ask==="size"?lastCmd:i.size;
+ await run(steps,per,true);
+ Q("fb").textContent="Your command landed on "+steps*per+". The target is "+i.total+" "+i.unit+". Your command again \u2014 go.";
+ lock(false);busy=false}
+function finish(){Q("choices").classList.add("hid");Q("prompt").classList.add("hid");Q("replay").classList.add("hid");
+ var gold=0,ci={};results.forEach(function(r){if(!(r.target in ci))ci[r.target]=r.correct});
+ Object.keys(ci).forEach(function(k){if(ci[k])gold++});
+ var corr=results.filter(function(r){return r.correct}).length,acc=results.length?corr/results.length:0;
+ Q("mtitle").textContent="The city is whole again";Q("tally").textContent="Grand Span complete";
+ Q("creature").textContent="\ud83e\udd8a\ud83e\udd89\ud83e\ude81\ud83d\udc09";Q("creature").style.left="40%";
+ var e=Q("end");e.style.display="block";
+ e.innerHTML="<h2>\ud83c\udf09 Bridgewright</h2><p>Every rescued creature crosses at once. Each span carries the equal-groups command that built it \u2014 written into the architecture.</p><p><b>First-try spans: "+gold+" of "+items.length+"</b></p><p>You used equal groups in places you had never seen them before.</p>";
+ tone(523,.4);setTimeout(function(){tone(659,.4)},220);setTimeout(function(){tone(784,.7)},440);
+ if(window.fireCompanionEvent)window.fireCompanionEvent("game_complete",{});
+ if(window.sendNodeComplete)window.sendNodeComplete({nodeId:(window.GAME_PARAMS&&window.GAME_PARAMS.nodeId)||"quest",completed:true,accuracy:acc,targetResults:results,timeSpent_ms:Date.now()-t0})}
+window.addEventListener("message",function(e){var d=e.data||{};if(d.type==="sunny_companion_presence"){var p=d.payload||{};paused=!!(p.summoned!==undefined?p.summoned:p.visible!==undefined?p.visible:p.open);lock(paused||busy)}});
+document.addEventListener("DOMContentLoaded",function(){
+ Q("replay").onclick=replay;
+ Q("read").onclick=function(){reads++;sendState(true)};
+ render();
+ window.parent.postMessage({type:"activity_ready",payload:{nodeId:"quest"}},"*");
+ window.parent.postMessage({type:"progress_event",payload:{nodeId:"quest",completedItems:0,totalItems:items.length}},"*");
+});
+window.SUNNY_VALIDATION_HOOKS={playthrough:async function(){
+ fast=true;
+ async function settle(){while(busy)await new Promise(function(r){setTimeout(r,25)})}
+ var guard=0;
+ while(idx<items.length&&guard++<40){
+  var i=it();
+  if(idx===0&&tries===0){
+   var bad=i.o.filter(function(n){return n!==i.key})[0];
+   await commit(bad);await settle();
+   await replay();await settle();
+  }
+  await commit(i.key);await settle();
+ }
+ fast=false;return{completed:idx>=items.length,submissions:results.length}}};
+</script>
+</body></html>
