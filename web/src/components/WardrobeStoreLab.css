@@ -1103,3 +1103,14 @@
 .wardrobe-store-lab__items button.is-locked b { color: #f8d36a; }
 .wardrobe-store-lab__items button.is-owned { box-shadow: 0 0 0 2px rgba(250, 204, 21, 0.9), 0 0 18px rgba(250, 204, 21, 0.35); }
 .wardrobe-store-lab__items button.is-owned b { color: #4ade80; }
+
+/* The wish as a goal (owner, 2026-11-12): her coins toward the companion's wished item, then a celebration. */
+.wardrobe-store-lab__wish-goal { display: flex; align-items: center; gap: 10px; }
+.wardrobe-store-lab__wish-bar { height: 12px; border-radius: 999px; background: #e2d6c6; overflow: hidden; }
+.wardrobe-store-lab__wish-bar > i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #f5b942, #ffd86b); transition: width 600ms ease; }
+.wardrobe-store-lab__wish-bar.is-ready > i { background: linear-gradient(90deg, #4cc38a, #8fe3b4); animation: wardrobe-wish-ready 1.2s ease-in-out infinite alternate; }
+.wardrobe-store-lab__wish small { color: #756d82; font-weight: 800; }
+.wardrobe-store-lab__wish-granted { display: flex; align-items: center; justify-content: center; gap: 12px; padding: 14px; border-radius: 17px; background: linear-gradient(135deg, #fff1c7, #ffd6e8); font-size: 30px; animation: wardrobe-wish-pop 700ms cubic-bezier(.2,1.6,.4,1) both; }
+@keyframes wardrobe-wish-ready { from { filter: brightness(1); } to { filter: brightness(1.25); } }
+@keyframes wardrobe-wish-pop { from { transform: scale(.6); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .wardrobe-store-lab__wish-bar.is-ready > i, .wardrobe-store-lab__wish-granted { animation: none; } }

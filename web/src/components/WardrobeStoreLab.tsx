@@ -63,6 +63,8 @@ export type WardrobeShoppingContext = {
   } | null;
   ownedItemIds: string[];
   savedItemIds: string[];
+  /** She just bought the companion's wish (owner, 2026-11-12): the companion celebrates it. */
+  wishFulfilled?: { itemId: string; name: string };
 };
 
 export type WardrobeShoppingEvent = {
@@ -301,8 +303,10 @@ function createShoppingContext(input: {
   preferenceMatch: boolean;
   visit: CompanionShoppingVisit;
   opinion: CompanionItemOpinion | null;
+  wishFulfilled?: WardrobeStoreItem | null;
 }): WardrobeShoppingContext {
   return {
+    ...(input.wishFulfilled ? { wishFulfilled: { itemId: input.wishFulfilled.id, name: input.wishFulfilled.name } } : {}),
     mode: input.mode,
     visitId: input.visit.id,
     walletBalance: getWardrobeBalance(input.state),
@@ -404,6 +408,11 @@ export function WardrobeStoreLab({
       : item.asset.kind === "outfit";
   });
   const activeDesire = resolveCompanionStoreDesire(companion.id, storeState);
+  // The wish as one item she can see and work toward (owner, 2026-11-12): the cheapest one on her shelf.
+  const wishItem = shelfItems
+    .filter((item) => activeDesire.matchingItemIds.includes(item.id) && !storeState.ownedItemIds.includes(item.id))
+    .sort((left, right) => left.price - right.price)[0] ?? null;
+  const [wishGranted, setWishGranted] = useState<WardrobeStoreItem | null>(null);
   const balance = getWardrobeBalance(storeState);
   const ownedItems = WARDROBE_STORE_CATALOG.filter((item) =>
     storeState.ownedItemIds.includes(item.id),
@@ -426,8 +435,10 @@ export function WardrobeStoreLab({
       preferenceMatch: selectedPreferenceMatch,
       visit: shoppingVisit,
       opinion: selectedOpinion,
+      wishFulfilled: wishGranted,
     }),
     [
+      wishGranted,
       activeDesire.label,
       mode,
       selectedItem,
@@ -778,6 +789,10 @@ export function WardrobeStoreLab({
     );
     persist(purchasedState);
     restoreEquippedLook(purchasedState);
+    if (activeDesire.matchingItemIds.includes(selectedItem.id)) {
+      setWishGranted(selectedItem);
+      console.log(` 🎮 [wardrobe-store] [wish] [fulfilled] companion=${companion.id} item=${selectedItem.id}`);
+    }
     setConfirmation({
       item: selectedItem,
       balanceBefore,
@@ -1059,8 +1074,35 @@ export function WardrobeStoreLab({
         <aside className="wardrobe-store-lab__shop" aria-label="Shop items">
           <div className="wardrobe-store-lab__wish">
             <span>{companion.name}’s current wish</span>
-            <strong>{activeDesire.label}</strong>
+            {wishItem ? (
+              <>
+                <div className="wardrobe-store-lab__wish-goal">
+                  <WardrobeItemThumbnail item={wishItem} />
+                  <strong>{wishItem.name}</strong>
+                </div>
+                <div
+                  role="progressbar"
+                  aria-label={`Coins toward ${wishItem.name}`}
+                  aria-valuemin={0}
+                  aria-valuemax={wishItem.price}
+                  aria-valuenow={Math.min(balance, wishItem.price)}
+                  className={`wardrobe-store-lab__wish-bar${balance >= wishItem.price ? " is-ready" : ""}`}
+                >
+                  <i style={{ width: `${Math.min(100, Math.round((balance / wishItem.price) * 100))}%` }} />
+                </div>
+                <small>{Math.min(balance, wishItem.price)} / {wishItem.price} 🪙</small>
+              </>
+            ) : (
+              <strong>{activeDesire.label}</strong>
+            )}
           </div>
+          {wishGranted && (
+            <div className="wardrobe-store-lab__wish-granted" aria-live="polite" aria-label={`Wish come true: ${wishGranted.name}`}>
+              <span aria-hidden>🎉</span>
+              <WardrobeItemThumbnail item={wishGranted} />
+              <span aria-hidden>🎉</span>
+            </div>
+          )}
 
           <div className="wardrobe-store-lab__filters" aria-label="Item categories">
             {(["all", "accessories", "outfits"] as const).map((nextFilter) => (

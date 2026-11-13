@@ -164,6 +164,8 @@ export type ShowroomShoppingContext = {
   } | null;
   ownedItemIds: string[];
   savedItemIds: string[];
+  /** She just bought the companion's wish (owner, 2026-11-12). */
+  wishFulfilled?: { itemId: string; name: string };
 };
 /** Call clock moments (owner, 2026-11-07). The screen names the moment; the server supplies the facts. */
 export type ShowroomCallClockEvent = "minute_left" | "time_up" | "minutes_bought";
@@ -544,8 +546,12 @@ function resolveShoppingContext(
 
   if (raw.mode === "entrance" && selectedItem !== null) return null;
   if (raw.mode !== "entrance" && selectedItem === null) return null;
+  const wishRaw = raw.wishFulfilled as Record<string, unknown> | undefined;
+  const wishItemId = wishRaw ? resolveShoppingText(wishRaw.itemId) : null;
+  const wishName = wishRaw ? resolveShoppingText(wishRaw.name) : null;
 
   return {
+    ...(wishItemId && wishName ? { wishFulfilled: { itemId: wishItemId, name: wishName } } : {}),
     mode: raw.mode,
     visitId,
     walletBalance: raw.walletBalance,
@@ -969,6 +975,9 @@ export function buildShowroomTalkSystemPrompt(input: {
       `Companion wish: ${shopping.companionWish}.`,
       "The child controls spending. You may express a preference, but you cannot buy, promise a purchase, pressure the child, or treat your wish as spending authority.",
     );
+    if (shopping.wishFulfilled) {
+      lines.push(`The child just made your wish come true: ${shopping.wishFulfilled.name}. They earned it with their own coins. Celebrate it warmly and thank them by name, once, in your own words.`);
+    }
     if (shopping.selectedItem) {
       const item = shopping.selectedItem;
       lines.push(

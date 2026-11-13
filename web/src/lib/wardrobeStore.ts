@@ -814,12 +814,16 @@ export function resolveCompanionStoreDesire(
       (itemId) => !state.ownedItemIds.includes(itemId),
     ),
   );
+  // Once her listed wishes are owned, she wishes for unowned items in her favourite styles (owner, 2026-11-12:
+  // the wish is the goal the child works toward, so it never runs out while the shop has something left).
   return (
     active ?? {
       id: `${companionId}-explore-new-style`,
       label: "something that feels new",
       styleTags: profile.favoriteStyleTags,
-      matchingItemIds: [],
+      matchingItemIds: WARDROBE_STORE_CATALOG.filter((item) =>
+        !state.ownedItemIds.includes(item.id) && item.styleTags.some((tag) => profile.favoriteStyleTags.includes(tag)),
+      ).map((item) => item.id),
     }
   );
 }

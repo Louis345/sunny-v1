@@ -1426,3 +1426,21 @@ describe("a companion's rejection is an opinion the child can overrule", () => {
     expect(prompt).not.toContain("cannot be bought-and-worn");
   });
 });
+
+// Owner 2026-11-12: when the child buys the companion's wish, the companion recognizes it and celebrates.
+it("tells the companion the child just made her wish come true", () => {
+  const shoppingContext = {
+    mode: "entrance", visitId: "visit-elli", walletBalance: 40, companionWish: "a celestial headpiece",
+    companionMood: { id: "dreamy", label: "dreamy and cosmic" }, selectedItem: null,
+    ownedItemIds: ["star-halo"], savedItemIds: [], wishFulfilled: { itemId: "star-halo", name: "Star Halo" },
+  };
+  const resolved = resolveShowroomTalkRequest(
+    { companionId: "elli", question: "Look!", voiceId: "voice_a", mode: "video_call", shoppingContext },
+    { routeCompanionId: "elli", voiceOptions: [{ id: "voice_a", label: "A", language: "en", default: true }] },
+  );
+  expect(resolved.ok).toBe(true);
+  if (!resolved.ok) return;
+  expect(resolved.request.shoppingContext?.wishFulfilled).toEqual({ itemId: "star-halo", name: "Star Halo" });
+  const prompt = buildShowroomTalkSystemPrompt({ companionId: "elli", companionName: "Elli", showroomTheme: "aurora", personality: "warm", mode: "video_call", shoppingContext: resolved.request.shoppingContext });
+  expect(prompt).toContain("The child just made your wish come true: Star Halo");
+});

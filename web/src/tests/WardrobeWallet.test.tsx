@@ -165,3 +165,23 @@ it("sends each try-on and purchase in her real-coin shop to the server as a ward
   await waitFor(() => expect(server.signals.map(signal => signal.action)).toEqual(expect.arrayContaining(["previewed", "purchased"])));
   expect(server.signals.every(signal => signal.itemId === item.id && signal.companionId === "elli")).toBe(true);
 });
+
+// Owner 2026-11-12 (the WoW loop): try anything on, keep it only once earned, and the companion's wish is a goal she
+// can see. Buying the wished item is a "wish come true" the companion celebrates.
+it("shows the companion's wish as an item with her coins toward it", async () => {
+  fakeServer({ coins: 40 });
+  shop(SEED);
+  const bar = await screen.findByRole("progressbar", { name: "Coins toward Star Halo" });
+  await waitFor(() => expect(bar).toHaveAttribute("aria-valuenow", "40"));
+  expect(bar).toHaveAttribute("aria-valuemax", "60");
+});
+
+it("celebrates the wished item when she buys it, and tells the companion", async () => {
+  fakeServer({ coins: 100 });
+  const contexts: Array<{ wishFulfilled?: { itemId: string; name: string } }> = [];
+  render(<WardrobeStoreLab companion={companion} companionPreview={<div />} call={call} onWardrobeChange={vi.fn()} onExit={vi.fn()} visitSeed={SEED} wallet={{ childId: "ila" }} onShoppingContextChange={(context) => contexts.push(context)} />);
+  await waitFor(() => expect(screen.getByText(/100 coins/)).toBeTruthy());
+  buy({ name: "Star Halo", price: 60 });
+  expect(await screen.findByLabelText("Wish come true: Star Halo")).toBeTruthy();
+  expect(contexts.at(-1)?.wishFulfilled).toEqual({ itemId: "star-halo", name: "Star Halo" });
+});

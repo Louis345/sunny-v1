@@ -332,3 +332,11 @@ vi.mock("../lib/wardrobeBodyProfiles", async (importOriginal) => {
     reason: "TEST FIXTURE ONLY — synthetic human approval for shopping behavior",
   })};
 });
+
+// Owner 2026-11-12: the wish is the goal she works toward, so it must never run out once the listed wishes are owned.
+it("keeps a concrete wish after every listed wish is owned", () => {
+  const owned = { ...createInitialWardrobeStoreState(), ownedItemIds: ["star-halo", "sleeveless-dress"] };
+  const desire = resolveCompanionStoreDesire("elli", owned);
+  expect(desire.matchingItemIds.length).toBeGreaterThan(0);
+  expect(desire.matchingItemIds.some(id => owned.ownedItemIds.includes(id))).toBe(false);
+});
