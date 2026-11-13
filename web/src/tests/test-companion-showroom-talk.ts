@@ -14,8 +14,10 @@ import {
   getShowroomVideoPermissionFallbackMessage,
   getShowroomVideoChatLatencyBudget,
   resolveShowroomActivityReactionDeliveryMode,
-  createShowroomPresenceReactionLine,
-  shouldUseShowroomPresenceReaction,
+  createShowroomActivityReactionQuestion,
+  createShowroomFastActivityLaunchRequest,
+  selectFreshestShowroomActivityRefValue,
+  shouldUseShowroomClaudeActivityReaction,
   inferShowroomVideoConversationIntent,
   isShowroomActivityReactionCurrent,
   resolveShowroomTalkChildId,
@@ -300,7 +302,7 @@ describe("CompanionShowroom talk mode", () => {
     expect(source).not.toContain("from \"socket.io-client\"");
   });
 
-  it("can route semantic tic-tac-toe moments through a fast presence lane for latency comparison", () => {
+  it("routes semantic tic-tac-toe moments through authored reactions even in presence comparison mode", () => {
     const source = readShowroomSource();
     const reaction: ShowroomActivityReactionContext = {
       activityId: "tic_tac_toe" as const,
@@ -322,11 +324,95 @@ describe("CompanionShowroom talk mode", () => {
     expect(resolveShowroomActivityReactionDeliveryMode("?activityReactionMode=claude")).toBe(
       "claude",
     );
-    expect(shouldUseShowroomPresenceReaction(reaction, "presence")).toBe(true);
-    expect(createShowroomPresenceReactionLine(reaction, "Elli")).toContain("blocked");
-    expect(source).toContain("requestShowroomVideoPresenceReaction");
-    expect(source).toContain('source: "video_presence_reaction"');
-    expect(source).toContain('reactionLane: "presence"');
+    expect(shouldUseShowroomClaudeActivityReaction(reaction, "presence")).toBe(true);
+    expect(source).toContain("requestShowroomVideoActivityReaction");
+    expect(source).not.toContain('aiAuthored: false');
+    expect(source).toContain("activityReactionRequesterRef.current?.(reaction");
+  });
+
+  it("keeps child-move comments out of the presence lane so they cannot trail the local companion move", () => {
+    const childBlockReaction: ShowroomActivityReactionContext = {
+      activityId: "tic_tac_toe",
+      eventType: "child_move",
+      momentType: "child_blocked_companion",
+      salience: "medium",
+      board: ["X", "X", "O", "O", "O", "X", "X", null, null],
+      boardSignature: "XXOOOXX--",
+      childMark: "X",
+      companionMark: "O",
+      turn: "companion",
+      desiredTone: "impressed_playful",
+      updatedAt: 1000,
+    };
+
+    expect(shouldUseShowroomClaudeActivityReaction(childBlockReaction, "presence")).toBe(true);
+    expect(shouldUseShowroomClaudeActivityReaction(childBlockReaction, "claude")).toBe(true);
+    expect(createShowroomActivityReactionQuestion(childBlockReaction)).toContain(
+      "child blocked your tic-tac-toe line",
+    );
+  });
+
+  it("keeps game-start copy visual in the presence lane so the first move rhythm is not blocked by TTS", () => {
+    const gameStartReaction: ShowroomActivityReactionContext = {
+      activityId: "tic_tac_toe",
+      eventType: "game_started",
+      momentType: "game_started",
+      salience: "medium",
+      board: [null, null, null, null, null, null, null, null, null],
+      boardSignature: "---------",
+      childMark: "X",
+      companionMark: "O",
+      turn: "child",
+      desiredTone: "warm_playful",
+      updatedAt: 1000,
+    };
+
+    expect(shouldUseShowroomClaudeActivityReaction(gameStartReaction, "presence")).toBe(true);
+  });
+
+  it("fast-launches known video-call games locally instead of waiting on Claude tool followup", () => {
+    const request = createShowroomFastActivityLaunchRequest({
+      question: "some Tic Tac Toe?",
+      childId: "ila",
+      companionId: "elli",
+    });
+    const source = readShowroomSource();
+
+    expect(request).toMatchObject({
+      source: "local_presence",
+      childId: "ila",
+      companionId: "elli",
+      activityId: "tic_tac_toe",
+      surface: "video_call_overlay",
+    });
+    expect(source).toContain("createShowroomFastActivityLaunchRequest");
+    expect(source).toContain("local_activity_launch");
+    expect(source).toContain("openVideoCallActivityRequest(fastActivityRequest, \"immediate\")");
+  });
+
+  it("does not rearm hands-free into a completed tic-tac-toe round after final activity audio", () => {
+    const source = readShowroomSource();
+
+    expect(source).toContain("handsfree_rearm_skipped");
+    expect(source).toContain('reason: "activity_completed"');
+  });
+
+  it("does not hardcode spoken tic-tac-toe companion reactions in the browser", () => {
+    const source = readShowroomSource();
+
+    expect(source).not.toContain('return "I blocked it."');
+    expect(source).not.toContain('return "Good game."');
+    expect(source).not.toContain("SHOWROOM_PRESENCE_PREWARM_LINES");
+    expect(source).not.toContain("createShowroomPresenceReactionLine");
+  });
+
+  it("does not prewarm fixed presence-lane audio for companion speech", () => {
+    const source = readShowroomSource();
+
+    expect(source).not.toContain("presenceReactionAudioCacheRef");
+    expect(source).not.toContain("presenceReactionAudioPreloadRef");
+    expect(source).not.toContain("prewarmShowroomPresenceReactionAudio");
+    expect(source).not.toContain('source: "video_presence_reaction_prewarm"');
   });
 
   it("does not request AI speech for ordinary child moves that will immediately become stale", () => {
@@ -381,6 +467,33 @@ describe("CompanionShowroom talk mode", () => {
         mark: "O",
       }),
     ).toBe(false);
+  });
+
+  it("does not request stale move-level speech when the companion move completed the round", () => {
+    const completedBoard = ["X", "X", "O", "X", "O", null, "O", null, null] as const;
+    expect(
+      shouldRequestShowroomActivityReaction({
+        type: "companion_tic_tac_toe_companion_move",
+        activityId: "tic_tac_toe",
+        surface: "video_call_overlay",
+        companionName: "Elli",
+        timestamp: 1000,
+        board: [...completedBoard],
+        square: 7,
+        mark: "O",
+      }),
+    ).toBe(false);
+    expect(
+      shouldRequestShowroomActivityReaction({
+        type: "companion_tic_tac_toe_round_complete",
+        activityId: "tic_tac_toe",
+        surface: "video_call_overlay",
+        companionName: "Elli",
+        timestamp: 1001,
+        board: [...completedBoard],
+        result: "companion_win",
+      }),
+    ).toBe(true);
   });
 
   it("describes meaningful tic-tac-toe moments instead of sending generic move prompts", () => {
@@ -487,6 +600,68 @@ describe("CompanionShowroom talk mode", () => {
         },
       }),
     ).toBe(false);
+  });
+
+  it("keeps same-board round-complete reactions current after the completed activity timestamp updates", () => {
+    const completedActivity = createShowroomVideoActivityContextFromEvent({
+      type: "companion_tic_tac_toe_round_complete",
+      activityId: "tic_tac_toe",
+      surface: "video_call_overlay",
+      companionName: "Elli",
+      timestamp: 1000,
+      board: ["X", "X", "O", "O", "O", "X", "X", "X", "O"],
+      result: "draw",
+    });
+    const reaction = {
+      activityId: "tic_tac_toe" as const,
+      eventType: "round_complete" as const,
+      board: completedActivity.board,
+      boardSignature: getShowroomActivityBoardSignature(completedActivity.board),
+      childMark: "X" as const,
+      companionMark: "O" as const,
+      turn: "none" as const,
+      result: "draw" as const,
+      updatedAt: completedActivity.updatedAt,
+    };
+
+    expect(
+      isShowroomActivityReactionCurrent({
+        reaction,
+        currentActivity: {
+          ...completedActivity,
+          updatedAt: completedActivity.updatedAt + 1,
+        },
+      }),
+    ).toBe(true);
+  });
+
+  it("prevents older React state snapshots from overwriting the newer activity ref truth", () => {
+    const activeSnapshot = createShowroomVideoActivityContextFromEvent({
+      type: "companion_tic_tac_toe_child_move",
+      activityId: "tic_tac_toe",
+      surface: "video_call_overlay",
+      companionName: "Elli",
+      timestamp: 1000,
+      board: ["X", "X", "O", "O", "O", "X", "X", "X", "O"],
+      square: 8,
+      mark: "X",
+    });
+    const completedTruth = createShowroomVideoActivityContextFromEvent(
+      {
+        type: "companion_tic_tac_toe_round_complete",
+        activityId: "tic_tac_toe",
+        surface: "video_call_overlay",
+        companionName: "Elli",
+        timestamp: 1010,
+        board: ["X", "X", "O", "O", "O", "X", "X", "X", "O"],
+        result: "draw",
+      },
+      activeSnapshot,
+    );
+
+    expect(
+      selectFreshestShowroomActivityRefValue(completedTruth, activeSnapshot),
+    ).toEqual(completedTruth);
   });
 
   it("throttles AI-authored tic-tac-toe reactions to key moments", () => {
@@ -752,6 +927,7 @@ describe("CompanionShowroom talk mode", () => {
     expect(source).toContain("startShowroomVideoCallListening");
     expect(source).toContain(".start({");
     expect(source).toContain("cameraState === \"live\"");
+    expect(source).not.toContain("cameraStarted || !videoChatContinuousListenRef.current");
   });
 
   it("maps blocked camera permission to typed fallback copy instead of raw browser errors", () => {
@@ -818,6 +994,9 @@ describe("CompanionShowroom talk mode", () => {
     const source = readShowroomSource();
 
     expect(source).toContain("videoChatContinuousListenRef");
+    expect(source).toContain("videoCallSttCanListenRef");
+    expect(source).toContain("handsfree_rearm_skipped");
+    expect(source).toContain('reason: "stt_unavailable"');
     expect(source).toContain("startShowroomVideoCallListening");
     expect(source).toContain("auto-start");
     expect(source).toContain("SHOWROOM_VIDEO_CHAT_HANDS_FREE_REARM_MS");

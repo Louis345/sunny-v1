@@ -66,6 +66,21 @@ describe("CompanionActivityRuntime", () => {
     ).toBe("social");
   });
 
+  it("keeps active tic-tac-toe context attached to social turns as background", () => {
+    expect(
+      selectCompanionActivityContextForTalk({
+        activeActivity: activeTicTacToe,
+        conversationMode: "social",
+      }),
+    ).toBe(activeTicTacToe);
+    expect(
+      selectCompanionActivityContextForTalk({
+        activeActivity: activeTicTacToe,
+        conversationMode: "repeat_after",
+      }),
+    ).toBe(activeTicTacToe);
+  });
+
   it("does not send completed tic-tac-toe context into social or repeat-after turns", () => {
     expect(
       selectCompanionActivityContextForTalk({

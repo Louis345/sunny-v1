@@ -1143,6 +1143,7 @@ export function setupRoutes(app: Express): void {
           activeActivity: talk.activeActivity,
           activityReaction: talk.activityReaction,
           conversationIntent: talk.conversationIntent,
+          activityFocus: talk.activityFocus,
           visualSnapshot: talk.visualSnapshot,
           visionRequested: Boolean(talk.visualSnapshot),
         },
@@ -1160,6 +1161,7 @@ export function setupRoutes(app: Express): void {
           payload: {
             activityReaction: talk.activityReaction,
             activeActivity: talk.activeActivity,
+            activityFocus: talk.activityFocus,
           },
         });
       }
@@ -1192,6 +1194,7 @@ export function setupRoutes(app: Express): void {
         activeActivity: talk.activeActivity,
         activityReaction: talk.activityReaction,
         conversationIntent: talk.conversationIntent,
+        activityFocus: talk.activityFocus,
         companionMemory,
       });
       const messages = buildShowroomClaudeMessages({
@@ -1410,6 +1413,7 @@ export function setupRoutes(app: Express): void {
           commandCount: companionCommands.length,
           activityRequestCount: activityRequests.length,
           conversationIntent: talk.conversationIntent,
+          activityFocus: talk.activityFocus,
           visionUsed: Boolean(talk.visualSnapshot),
           requestToResponseMs: latencySpans.requestToResponseMs,
           latencySpans,
@@ -1432,6 +1436,7 @@ export function setupRoutes(app: Express): void {
             commandCount: companionCommands.length,
             activityReaction: talk.activityReaction,
             conversationIntent: talk.conversationIntent,
+            activityFocus: talk.activityFocus,
             activeActivity: talk.activeActivity,
             aiAuthored: true,
             requestToResponseMs: latencySpans.requestToResponseMs,

@@ -158,6 +158,7 @@ describe("companion showroom talk contract", () => {
         mode: "video_call",
         question: "Can you hear me?",
         conversationIntent: "social",
+        activityFocus: "background",
         activeActivity: {
           activityId: "tic_tac_toe",
           surface: "video_call_overlay",
@@ -179,6 +180,7 @@ describe("companion showroom talk contract", () => {
       ok: true,
       request: expect.objectContaining({
         conversationIntent: "social",
+        activityFocus: "background",
         activeActivity: expect.objectContaining({
           activityId: "tic_tac_toe",
         }),
@@ -336,6 +338,7 @@ describe("companion showroom talk contract", () => {
         "Elli is Ila's best friend. She never sounds like a teacher.",
       mode: "video_call",
       conversationIntent: "social",
+      activityFocus: "background",
       activeActivity: {
         activityId: "tic_tac_toe",
         surface: "video_call_overlay",
@@ -348,6 +351,7 @@ describe("companion showroom talk contract", () => {
     });
 
     expect(prompt).toContain("Conversation intent: social.");
+    expect(prompt).toContain("Activity focus: background.");
     expect(prompt).toContain("The game is background context for this turn");
     expect(prompt).toContain("do not redirect back to tic-tac-toe");
   });

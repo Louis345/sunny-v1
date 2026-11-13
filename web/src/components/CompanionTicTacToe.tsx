@@ -62,13 +62,17 @@ const WIN_LINES = [
 ] as const;
 
 const EMPTY_BOARD: Square[] = Array.from({ length: 9 }, () => null);
-export const COMPANION_TIC_TAC_TOE_THINK_MS = 2200;
-export const COMPANION_TIC_TAC_TOE_THINK_JITTER_MS = 650;
+export const COMPANION_TIC_TAC_TOE_THINK_MS = 900;
+export const COMPANION_TIC_TAC_TOE_THINK_JITTER_MS = 150;
+export const COMPANION_TIC_TAC_TOE_MIN_THINK_MS = 900;
 
-function getCompanionTicTacToeThinkDelay(): number {
-  return (
+function getCompanionTicTacToeThinkDelay(driftMs = 0): number {
+  const boundedDrift = Math.min(Math.max(0, driftMs), 350);
+  return Math.max(
+    COMPANION_TIC_TAC_TOE_MIN_THINK_MS,
     COMPANION_TIC_TAC_TOE_THINK_MS +
-    Math.round(Math.random() * COMPANION_TIC_TAC_TOE_THINK_JITTER_MS)
+      Math.round(Math.random() * COMPANION_TIC_TAC_TOE_THINK_JITTER_MS) -
+      boundedDrift,
   );
 }
 
@@ -177,8 +181,8 @@ export function CompanionTicTacToe({
   const [lastMove, setLastMove] = useState<number | null>(null);
   const didEmitStartedRef = useRef(false);
   const emittedRoundCompleteRef = useRef<string | null>(null);
-  const decisionStartedAtRef = useRef<number | null>(null);
-  const plannedDecisionDelayMsRef = useRef<number | null>(null);
+  const companionMoveTimerRef = useRef<number | null>(null);
+  const companionDecisionDriftMsRef = useRef(0);
   const result = useMemo(() => resultFromBoard(board), [board]);
   const emitGameEvent = useCallback(
     (
@@ -197,6 +201,63 @@ export function CompanionTicTacToe({
       });
     },
     [board, companionName, onGameEvent],
+  );
+
+  const clearCompanionMoveTimer = useCallback(() => {
+    if (companionMoveTimerRef.current !== null) {
+      window.clearTimeout(companionMoveTimerRef.current);
+      companionMoveTimerRef.current = null;
+    }
+  }, []);
+
+  const scheduleCompanionMove = useCallback(
+    (boardAtDecision: Square[]) => {
+      clearCompanionMoveTimer();
+      const decisionStartedAt = Date.now();
+      const plannedDecisionDelayMs = getCompanionTicTacToeThinkDelay(
+        companionDecisionDriftMsRef.current,
+      );
+      companionMoveTimerRef.current = window.setTimeout(() => {
+        companionMoveTimerRef.current = null;
+        const move = getCompanionMove(boardAtDecision);
+        if (move == null || resultFromBoard(boardAtDecision)) {
+          setCompanionThinking(false);
+          return;
+        }
+        const next = [...boardAtDecision];
+        next[move] = "O";
+        const movedAt = Date.now();
+        const decisionLatencyMs = Math.max(0, movedAt - decisionStartedAt);
+        const decisionDriftMs = Math.max(0, decisionLatencyMs - plannedDecisionDelayMs);
+        companionDecisionDriftMsRef.current = Math.round(
+          companionDecisionDriftMsRef.current * 0.4 + decisionDriftMs * 0.6,
+        );
+        playTicTacToeSfx("companion_move");
+        console.log(
+          ` 🎮 [companion-tic-tac-toe] [companion_move] [square_${move + 1}] planned_ms=${plannedDecisionDelayMs} actual_ms=${decisionLatencyMs}`,
+        );
+        setLastMove(move);
+        setBoard(next);
+        emitGameEvent({
+          type: "companion_tic_tac_toe_companion_move",
+          square: move + 1,
+          mark: "O",
+          board: next,
+          decisionStartedAt,
+          plannedDecisionDelayMs,
+          decisionLatencyMs,
+        });
+        onBanter?.({
+          phase: "companion_move",
+          square: move + 1,
+        });
+        onCompanionTurn?.({
+          square: move + 1,
+        });
+        setCompanionThinking(false);
+      }, plannedDecisionDelayMs);
+    },
+    [clearCompanionMoveTimer, emitGameEvent, onBanter, onCompanionTurn],
   );
 
   useEffect(() => {
@@ -232,59 +293,14 @@ export function CompanionTicTacToe({
     onRoundComplete?.(result);
   }, [board, emitGameEvent, onBanter, onRoundComplete, result]);
 
-  useEffect(() => {
-    if (!companionThinking || result) return;
-    const decisionStartedAt = decisionStartedAtRef.current ?? Date.now();
-    const plannedDecisionDelayMs =
-      plannedDecisionDelayMsRef.current ?? getCompanionTicTacToeThinkDelay();
-    const timer = window.setTimeout(() => {
-      const move = getCompanionMove(board);
-      if (move == null || resultFromBoard(board)) {
-        setCompanionThinking(false);
-        decisionStartedAtRef.current = null;
-        plannedDecisionDelayMsRef.current = null;
-        return;
-      }
-      const next = [...board];
-      next[move] = "O";
-      const movedAt = Date.now();
-      const decisionLatencyMs = Math.max(0, movedAt - decisionStartedAt);
-      playTicTacToeSfx("companion_move");
-      console.log(
-        ` 🎮 [companion-tic-tac-toe] [companion_move] [square_${move + 1}] planned_ms=${plannedDecisionDelayMs} actual_ms=${decisionLatencyMs}`,
-      );
-      setLastMove(move);
-      setBoard(next);
-      emitGameEvent({
-        type: "companion_tic_tac_toe_companion_move",
-        square: move + 1,
-        mark: "O",
-        board: next,
-        decisionStartedAt,
-        plannedDecisionDelayMs,
-        decisionLatencyMs,
-      });
-      onBanter?.({
-        phase: "companion_move",
-        square: move + 1,
-      });
-      onCompanionTurn?.({
-        square: move + 1,
-      });
-      setCompanionThinking(false);
-      decisionStartedAtRef.current = null;
-      plannedDecisionDelayMsRef.current = null;
-    }, plannedDecisionDelayMs);
-    return () => window.clearTimeout(timer);
-  }, [board, companionThinking, emitGameEvent, onBanter, onCompanionTurn, result]);
+  useEffect(() => () => clearCompanionMoveTimer(), [clearCompanionMoveTimer]);
 
   const resetRound = () => {
+    clearCompanionMoveTimer();
     emittedRoundCompleteRef.current = null;
     setBoard(EMPTY_BOARD);
     setCompanionThinking(false);
     setLastMove(null);
-    decisionStartedAtRef.current = null;
-    plannedDecisionDelayMsRef.current = null;
     console.log(" 🎮 [companion-tic-tac-toe] [reset] [ok]");
     emitGameEvent({ type: "companion_tic_tac_toe_reset", board: EMPTY_BOARD });
   };
@@ -308,12 +324,11 @@ export function CompanionTicTacToe({
       square: index + 1,
     });
     if (!resultFromBoard(next)) {
-      decisionStartedAtRef.current = Date.now();
-      plannedDecisionDelayMsRef.current = getCompanionTicTacToeThinkDelay();
       onBanter?.({
         phase: "companion_thinking",
       });
       setCompanionThinking(true);
+      scheduleCompanionMove(next);
     }
   };
 

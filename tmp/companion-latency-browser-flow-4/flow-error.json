@@ -1,0 +1,136 @@
+{
+  "error": "page.waitForFunction: Timeout 30000ms exceeded.",
+  "traceIds": [],
+  "consoleLines": [
+    {
+      "type": "log",
+      "text": " 🎮 [deepgram-video-call-stt] [stop] [ok]",
+      "at": "2026-06-03T20:51:33.255Z"
+    },
+    {
+      "type": "log",
+      "text": " 🎮 [showroom-video-chat] camera_off",
+      "at": "2026-06-03T20:51:33.257Z"
+    },
+    {
+      "type": "log",
+      "text": "🎮 [CompanionMotor] [animation-fetch] [start] name=\"idle\" url=http://127.0.0.1:5173/animations/idle.fbx",
+      "at": "2026-06-03T20:51:33.692Z"
+    },
+    {
+      "type": "log",
+      "text": "🎮 [CompanionMotor] [animation-fetch] [ok] name=\"idle\" retargetedTracks=52",
+      "at": "2026-06-03T20:51:34.499Z"
+    },
+    {
+      "type": "log",
+      "text": "🎮 [CompanionMotor] [animate] [play] \"idle\" tracks=52 loop=true",
+      "at": "2026-06-03T20:51:34.499Z"
+    },
+    {
+      "type": "log",
+      "text": "🎮 [CompanionMotor] [animation-fetch] [start] name=\"idle\" url=http://127.0.0.1:5173/animations/idle.fbx",
+      "at": "2026-06-03T20:51:34.610Z"
+    },
+    {
+      "type": "log",
+      "text": "🎮 [CompanionMotor] [animation-fetch] [start] name=\"idle\" url=http://127.0.0.1:5173/animations/idle.fbx",
+      "at": "2026-06-03T20:51:40.888Z"
+    },
+    {
+      "type": "log",
+      "text": "🎮 [CompanionMotor] [animation-fetch] [start] name=\"idle\" url=http://127.0.0.1:5173/animations/idle.fbx",
+      "at": "2026-06-03T20:51:41.784Z"
+    },
+    {
+      "type": "log",
+      "text": "🎮 [CompanionMotor] [animation-fetch] [start] name=\"idle\" url=http://127.0.0.1:5173/animations/idle.fbx",
+      "at": "2026-06-03T20:51:46.961Z"
+    },
+    {
+      "type": "log",
+      "text": "🎮 [CompanionMotor] [animation-fetch] [start] name=\"idle\" url=http://127.0.0.1:5173/animations/idle.fbx",
+      "at": "2026-06-03T20:51:47.218Z"
+    },
+    {
+      "type": "log",
+      "text": "🎮 [CompanionMotor] [animation-fetch] [start] name=\"idle\" url=http://127.0.0.1:5173/animations/idle.fbx",
+      "at": "2026-06-03T20:51:53.347Z"
+    },
+    {
+      "type": "log",
+      "text": "🎮 [CompanionMotor] [animation-fetch] [ok] name=\"idle\" retargetedTracks=53",
+      "at": "2026-06-03T20:51:53.938Z"
+    },
+    {
+      "type": "log",
+      "text": "🎮 [CompanionMotor] [animation-fetch] [ok] name=\"idle\" retargetedTracks=53",
+      "at": "2026-06-03T20:51:53.941Z"
+    },
+    {
+      "type": "log",
+      "text": "🎮 [CompanionMotor] [animate] [play] \"idle\" tracks=53 loop=true",
+      "at": "2026-06-03T20:51:53.941Z"
+    },
+    {
+      "type": "log",
+      "text": "🎮 [CompanionMotor] [animate] [play] \"idle\" tracks=53 loop=true",
+      "at": "2026-06-03T20:51:53.942Z"
+    },
+    {
+      "type": "log",
+      "text": "🎮 [CompanionMotor] [animation-fetch] [start] name=\"idle\" url=http://127.0.0.1:5173/animations/idle.fbx",
+      "at": "2026-06-03T20:51:54.448Z"
+    },
+    {
+      "type": "log",
+      "text": "🎮 [CompanionMotor] [animation-fetch] [ok] name=\"idle\" retargetedTracks=53",
+      "at": "2026-06-03T20:51:55.754Z"
+    },
+    {
+      "type": "log",
+      "text": "🎮 [CompanionMotor] [animation-fetch] [ok] name=\"idle\" retargetedTracks=53",
+      "at": "2026-06-03T20:51:55.756Z"
+    },
+    {
+      "type": "log",
+      "text": "🎮 [CompanionMotor] [animation-fetch] [ok] name=\"idle\" retargetedTracks=53",
+      "at": "2026-06-03T20:51:55.760Z"
+    },
+    {
+      "type": "log",
+      "text": "🎮 [CompanionMotor] [animation-fetch] [ok] name=\"idle\" retargetedTracks=53",
+      "at": "2026-06-03T20:51:55.762Z"
+    },
+    {
+      "type": "log",
+      "text": "🎮 [CompanionMotor] [animation-fetch] [ok] name=\"idle\" retargetedTracks=53",
+      "at": "2026-06-03T20:51:55.765Z"
+    },
+    {
+      "type": "log",
+      "text": "🎮 [CompanionMotor] [animate] [play] \"idle\" tracks=53 loop=true",
+      "at": "2026-06-03T20:51:55.766Z"
+    },
+    {
+      "type": "log",
+      "text": "🎮 [CompanionMotor] [animate] [play] \"idle\" tracks=53 loop=true",
+      "at": "2026-06-03T20:51:55.766Z"
+    },
+    {
+      "type": "log",
+      "text": "🎮 [CompanionMotor] [animate] [play] \"idle\" tracks=53 loop=true",
+      "at": "2026-06-03T20:51:55.767Z"
+    },
+    {
+      "type": "log",
+      "text": "🎮 [CompanionMotor] [animate] [play] \"idle\" tracks=53 loop=true",
+      "at": "2026-06-03T20:51:55.767Z"
+    },
+    {
+      "type": "log",
+      "text": "🎮 [CompanionMotor] [animate] [play] \"idle\" tracks=53 loop=true",
+      "at": "2026-06-03T20:51:55.768Z"
+    }
+  ]
+}

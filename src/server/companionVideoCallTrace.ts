@@ -119,6 +119,7 @@ export type CompanionVideoCallTracePacket = {
     transcriptPreview?: string;
     responsePreview?: string;
     echoSimilarity?: number;
+    payload?: Record<string, unknown>;
   }>;
   turns: CompanionVideoCallTraceTurnPacket[];
 };
@@ -169,10 +170,13 @@ function buildActivityReactionSummary(
       record.payload?.aiAuthored !== false &&
       String(record.payload?.reactionLane ?? "") !== "presence",
   );
+  const aiAuthoredRecords = responseRecords.filter(
+    (record) => record.payload?.aiAuthored === true,
+  );
   const fallbackKeys = new Set(
     fallbackRecords.map((record) => record.turnId ?? `${record.timestamp}:fallback`),
   );
-  const aiAuthoredCount = new Set(claudeRecords.map(responseKeyFor)).size;
+  const aiAuthoredCount = new Set(aiAuthoredRecords.map(responseKeyFor)).size;
   const presenceCount = new Set(presenceRecords.map(responseKeyFor)).size;
   const fallbackCount = fallbackKeys.size;
   const staleDroppedCount = new Set(
@@ -603,6 +607,7 @@ export function buildCompanionVideoCallTracePacket(
       ...(record.transcriptPreview && { transcriptPreview: record.transcriptPreview }),
       ...(record.responsePreview && { responsePreview: record.responsePreview }),
       ...(record.echoSimilarity !== undefined && { echoSimilarity: record.echoSimilarity }),
+      ...(record.payload && { payload: record.payload }),
     })),
     turns: buildTraceTurns(ordered),
   };

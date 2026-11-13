@@ -5,6 +5,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import {
   COMPANION_TIC_TAC_TOE_THINK_JITTER_MS,
+  COMPANION_TIC_TAC_TOE_MIN_THINK_MS,
   COMPANION_TIC_TAC_TOE_THINK_MS,
   CompanionTicTacToe,
 } from "../components/CompanionTicTacToe";
@@ -107,25 +108,29 @@ describe("CompanionTicTacToe", () => {
     expect(completeEvents).toHaveLength(1);
   });
 
-  it("uses a deliberate thinking beat before the companion move so play feels conversational", () => {
+  it("uses a deliberate but jitter-safe thinking beat before the companion move", () => {
     const source = readFileSync(
       resolve(__dirname, "../components/CompanionTicTacToe.tsx"),
       "utf8",
     );
 
     expect(source).toContain("COMPANION_TIC_TAC_TOE_THINK_MS");
-    expect(source).toContain("2200");
+    expect(source).toContain("900");
     expect(source).toContain("COMPANION_TIC_TAC_TOE_THINK_JITTER_MS");
+    expect(source).toContain("COMPANION_TIC_TAC_TOE_MIN_THINK_MS");
     expect(source).toContain("getCompanionTicTacToeThinkDelay");
+    expect(source).toContain("companionDecisionDriftMsRef");
     expect(source).not.toContain("}, 360)");
   });
 
-  it("uses a deliberate decision rhythm so companion moves do not feel like computer reflexes", () => {
-    expect(COMPANION_TIC_TAC_TOE_THINK_MS).toBeGreaterThanOrEqual(1_900);
-    expect(COMPANION_TIC_TAC_TOE_THINK_MS).toBeLessThanOrEqual(2_600);
-    expect(COMPANION_TIC_TAC_TOE_THINK_JITTER_MS).toBeGreaterThanOrEqual(450);
+  it("targets human-feeling move rhythm and adapts if browser jitter is already present", () => {
+    expect(COMPANION_TIC_TAC_TOE_THINK_MS).toBeGreaterThanOrEqual(875);
+    expect(COMPANION_TIC_TAC_TOE_THINK_MS).toBeLessThanOrEqual(1_000);
+    expect(COMPANION_TIC_TAC_TOE_THINK_JITTER_MS).toBeGreaterThanOrEqual(100);
+    expect(COMPANION_TIC_TAC_TOE_THINK_JITTER_MS).toBeLessThanOrEqual(220);
+    expect(COMPANION_TIC_TAC_TOE_MIN_THINK_MS).toBeGreaterThanOrEqual(900);
     expect(COMPANION_TIC_TAC_TOE_THINK_MS + COMPANION_TIC_TAC_TOE_THINK_JITTER_MS).toBeLessThanOrEqual(
-      3_400,
+      1_150,
     );
   });
 
@@ -138,6 +143,16 @@ describe("CompanionTicTacToe", () => {
     expect(source).toContain("decisionStartedAt");
     expect(source).toContain("plannedDecisionDelayMs");
     expect(source).toContain("decisionLatencyMs");
+  });
+
+  it("starts the companion move timer from the child move path so speech cannot delay board rhythm", () => {
+    const source = readFileSync(
+      resolve(__dirname, "../components/CompanionTicTacToe.tsx"),
+      "utf8",
+    );
+
+    expect(source).toContain("scheduleCompanionMove(next)");
+    expect(source).not.toContain("if (!companionThinking || result) return;");
   });
 
   it("emits game events for AI-authored reactions without local spoken lines", async () => {

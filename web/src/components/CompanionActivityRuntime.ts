@@ -74,6 +74,9 @@ export function selectCompanionActivityContextForTalk<T extends CompanionActivit
   conversationMode?: CompanionConversationMode;
 }): T | undefined {
   if (!input.activeActivity) return undefined;
+  const status = input.activeActivity.status;
+  const active = status !== "complete" && status !== "completed";
+  if (active) return input.activeActivity;
   return input.conversationMode === "game" ? input.activeActivity : undefined;
 }
 

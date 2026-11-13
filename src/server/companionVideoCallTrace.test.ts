@@ -122,6 +122,51 @@ describe("companion video call traces", () => {
     });
   });
 
+  it("keeps sanitized tic-tac-toe decision timing in the trace packet event order", () => {
+    const root = makeTraceRoot();
+
+    recordCompanionVideoCallTraceEvent(
+      {
+        traceId: "trace_move_timing",
+        eventName: "activity_context_changed",
+        childId: "ila",
+        companionId: "elli",
+        timestamp: Date.parse("2026-05-28T16:10:00.000Z"),
+        payload: {
+          type: "companion_tic_tac_toe_companion_move",
+          decisionLatencyMs: 1240,
+          plannedDecisionDelayMs: 1100,
+          visualSnapshot: {
+            base64: "raw-camera-frame",
+            mimeType: "image/jpeg",
+            width: 512,
+            height: 384,
+          },
+        },
+      },
+      { rootDir: root },
+    );
+
+    const packet = readCompanionVideoCallTracePacket("trace_move_timing", {
+      rootDir: root,
+    });
+    const moveEvent = packet.eventOrder.find(
+      (event) => event.eventName === "activity_context_changed",
+    ) as unknown as { payload?: Record<string, unknown> };
+
+    expect(moveEvent.payload).toMatchObject({
+      type: "companion_tic_tac_toe_companion_move",
+      decisionLatencyMs: 1240,
+      plannedDecisionDelayMs: 1100,
+      visualSnapshot: {
+        mimeType: "image/jpeg",
+        width: 512,
+        height: 384,
+      },
+    });
+    expect(JSON.stringify(packet)).not.toContain("raw-camera-frame");
+  });
+
   it("returns a compact truth packet with deterministic loop cause", () => {
     const root = makeTraceRoot();
     const base = {

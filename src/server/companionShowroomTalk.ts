@@ -28,6 +28,7 @@ const SHOWROOM_TALK_CONVERSATION_INTENTS = new Set([
   "repeat_after",
   "visual",
 ]);
+const SHOWROOM_TALK_ACTIVITY_FOCUS = new Set(["foreground", "background"]);
 const MAX_SHOWROOM_QUESTION_LENGTH = 500;
 const MAX_VISUAL_SUMMARY_LENGTH = 360;
 const MAX_VISUAL_SNAPSHOT_BASE64_LENGTH = 700_000;
@@ -55,6 +56,7 @@ const SHOWROOM_COMPANION_ACTIVITY_SURFACES = new Set(["video_call_overlay"]);
 export type ShowroomTalkPhase = "thinking" | "speaking" | "idle";
 export type ShowroomTalkMode = "showroom" | "video_call";
 export type ShowroomConversationIntent = "social" | "game" | "repeat_after" | "visual";
+export type ShowroomActivityFocus = "foreground" | "background";
 export type CompanionCallSource =
   | "showroom"
   | "mystery_box"
@@ -136,6 +138,7 @@ export type ResolvedShowroomTalkRequest = {
   activeActivity?: ShowroomActiveActivityContext;
   activityReaction?: ShowroomActivityReactionContext;
   conversationIntent?: ShowroomConversationIntent;
+  activityFocus?: ShowroomActivityFocus;
   callTraceId?: string;
   turnId?: string;
   visualSnapshot?: ShowroomVisualSnapshot;
@@ -309,6 +312,11 @@ function resolveShowroomConversationIntent(
   return SHOWROOM_TALK_CONVERSATION_INTENTS.has(raw)
     ? (raw as ShowroomConversationIntent)
     : fallback;
+}
+
+function resolveShowroomActivityFocus(value: unknown): ShowroomActivityFocus | undefined {
+  const raw = typeof value === "string" ? value.trim().toLowerCase() : "";
+  return SHOWROOM_TALK_ACTIVITY_FOCUS.has(raw) ? (raw as ShowroomActivityFocus) : undefined;
 }
 
 function normalizeRewardContextField(value: unknown): string | undefined {
@@ -578,6 +586,7 @@ export function resolveShowroomTalkRequest(
     return { ok: false, status: 400, error: "invalid_activity_reaction" };
   }
   const conversationIntent = resolveShowroomConversationIntent(raw.conversationIntent);
+  const activityFocus = resolveShowroomActivityFocus(raw.activityFocus);
   const callTraceId = resolveTraceIdentifier(raw.callTraceId ?? raw.traceId);
   const turnId = resolveTraceIdentifier(raw.turnId);
 
@@ -595,6 +604,7 @@ export function resolveShowroomTalkRequest(
       ...(mode === "video_call" && activeActivity && { activeActivity }),
       ...(mode === "video_call" && activityReaction && { activityReaction }),
       ...(mode === "video_call" && conversationIntent && { conversationIntent }),
+      ...(mode === "video_call" && activityFocus && { activityFocus }),
       ...(mode === "video_call" && callTraceId && { callTraceId }),
       ...(mode === "video_call" && turnId && { turnId }),
       ...(mode === "video_call" && { mode }),
@@ -618,6 +628,7 @@ export function buildShowroomTalkSystemPrompt(input: {
   activeActivity?: ShowroomActiveActivityContext;
   activityReaction?: ShowroomActivityReactionContext;
   conversationIntent?: ShowroomConversationIntent;
+  activityFocus?: ShowroomActivityFocus;
   companionMemory?: string;
 }): string {
   const callSource = input.callSource ?? "showroom";
@@ -646,6 +657,9 @@ export function buildShowroomTalkSystemPrompt(input: {
   ];
   if (input.conversationIntent) {
     lines.push(`Conversation intent: ${input.conversationIntent}.`);
+  }
+  if (input.activityFocus) {
+    lines.push(`Activity focus: ${input.activityFocus}.`);
   }
   if (input.conversationIntent === "repeat_after") {
     lines.push(
@@ -691,9 +705,11 @@ export function buildShowroomTalkSystemPrompt(input: {
       .map((mark, index) => `${index + 1}=${mark ?? "empty"}`)
       .join(", ");
     const gameIsForeground =
-      input.conversationIntent == null ||
-      input.conversationIntent === "game" ||
-      Boolean(input.activityReaction);
+      input.activityFocus != null
+        ? input.activityFocus === "foreground"
+        : input.conversationIntent == null ||
+          input.conversationIntent === "game" ||
+          Boolean(input.activityReaction);
     lines.push(
       "Active video-call activity: tic-tac-toe.",
       `Board: ${board}.`,

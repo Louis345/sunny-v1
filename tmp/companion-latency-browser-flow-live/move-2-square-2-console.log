@@ -1,0 +1,308 @@
+[debug] [vite] connecting...
+[info] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[log]  🎮 [deepgram-video-call-stt] [stop] [ok]
+[log]  🎮 [showroom-video-chat] camera_off
+[warning] No available adapters.
+[warning] THREE.WebGPURenderer: WebGPU is not available, running under WebGL2 backend.
+[warning] No available adapters.
+[warning] THREE.WebGPURenderer: WebGPU is not available, running under WebGL2 backend.
+[warning] No available adapters.
+[warning] THREE.WebGPURenderer: WebGPU is not available, running under WebGL2 backend.
+[warning] No available adapters.
+[warning] THREE.WebGPURenderer: WebGPU is not available, running under WebGL2 backend.
+[warning] No available adapters.
+[warning] THREE.WebGPURenderer: WebGPU is not available, running under WebGL2 backend.
+[warning] No available adapters.
+[warning] THREE.WebGPURenderer: WebGPU is not available, running under WebGL2 backend.
+[warning] No available adapters.
+[warning] THREE.WebGPURenderer: WebGPU is not available, running under WebGL2 backend.
+[warning] No available adapters.
+[warning] THREE.WebGPURenderer: WebGPU is not available, running under WebGL2 backend.
+[warning] No available adapters.
+[warning] THREE.WebGPURenderer: WebGPU is not available, running under WebGL2 backend.
+[warning] [VRM] WebGPU node materials unavailable in this three build; loading classic VRM materials.
+[warning] No available adapters.
+[warning] THREE.WebGPURenderer: WebGPU is not available, running under WebGL2 backend.
+[warning] [VRM] WebGPU node materials unavailable in this three build; loading classic VRM materials.
+[warning] No available adapters.
+[warning] THREE.WebGPURenderer: WebGPU is not available, running under WebGL2 backend.
+[warning] [VRM] WebGPU node materials unavailable in this three build; loading classic VRM materials.
+[warning] No available adapters.
+[warning] THREE.WebGPURenderer: WebGPU is not available, running under WebGL2 backend.
+[warning] [VRM] WebGPU node materials unavailable in this three build; loading classic VRM materials.
+[warning] No available adapters.
+[warning] THREE.WebGPURenderer: WebGPU is not available, running under WebGL2 backend.
+[warning] [VRM] WebGPU node materials unavailable in this three build; loading classic VRM materials.
+[warning] No available adapters.
+[warning] THREE.WebGPURenderer: WebGPU is not available, running under WebGL2 backend.
+[warning] [VRM] WebGPU node materials unavailable in this three build; loading classic VRM materials.
+[warning] No available adapters.
+[warning] THREE.WebGPURenderer: WebGPU is not available, running under WebGL2 backend.
+[warning] [VRM] WebGPU node materials unavailable in this three build; loading classic VRM materials.
+[warning] No available adapters.
+[warning] THREE.WebGPURenderer: WebGPU is not available, running under WebGL2 backend.
+[warning] [VRM] WebGPU node materials unavailable in this three build; loading classic VRM materials.
+[startGroup] [VRM] Full capability audit
+[log] Expressions available: [aa, ih, ou, ee, oh, blink, relaxed, happy, neutral, angry, sad, blinkLeft, blinkRight]
+[log] Humanoid bones: [hips, spine, chest, neck, head, leftUpperLeg, leftLowerLeg, leftFoot, leftToes, rightUpperLeg, rightLowerLeg, rightFoot, rightToes, leftShoulder, leftUpperArm, leftLowerArm, leftHand, rightShoulder, rightUpperArm, rightLowerArm, rightHand, leftThumbMetacarpal, leftThumbProximal, leftThumbDistal, leftIndexProximal, leftIndexIntermediate, leftIndexDistal, leftMiddleProximal, leftMiddleIntermediate, leftMiddleDistal, leftRingProximal, leftRingIntermediate, leftRingDistal, leftLittleProximal, leftLittleIntermediate, leftLittleDistal, rightThumbMetacarpal, rightThumbProximal, rightThumbDistal, rightIndexProximal, rightIndexIntermediate, rightIndexDistal, rightMiddleProximal, rightMiddleIntermediate, rightMiddleDistal, rightRingProximal, rightRingIntermediate, rightRingDistal, rightLittleProximal, rightLittleIntermediate, rightLittleDistal]
+[log] VRM version: 0
+[log] Has expressionManager: true
+[log] Has humanoid: true
+[log] Has springBoneManager: true
+[endGroup] console.groupEnd
+[log] 🎮 [CompanionMotor] [animation-fetch] [start] name="idle" url=http://127.0.0.1:5173/animations/idle.fbx
+[startGroup] [VRM] Full capability audit
+[log] Expressions available: [aa, angry, blink, blinkLeft, blinkRight, ee, happy, ih, lookDown, lookLeft, lookRight, lookUp, neutral, oh, ou, relaxed, sad, surprised]
+[log] Humanoid bones: [chest, head, hips, leftEye, leftFoot, leftHand, leftIndexDistal, leftIndexIntermediate, leftIndexProximal, leftLittleDistal, leftLittleIntermediate, leftLittleProximal, leftLowerArm, leftLowerLeg, leftMiddleDistal, leftMiddleIntermediate, leftMiddleProximal, leftRingDistal, leftRingIntermediate, leftRingProximal, leftShoulder, leftThumbDistal, leftThumbMetacarpal, leftThumbProximal, leftToes, leftUpperArm, leftUpperLeg, neck, rightEye, rightFoot, rightHand, rightIndexDistal, rightIndexIntermediate, rightIndexProximal, rightLittleDistal, rightLittleIntermediate, rightLittleProximal, rightLowerArm, rightLowerLeg, rightMiddleDistal, rightMiddleIntermediate, rightMiddleProximal, rightRingDistal, rightRingIntermediate, rightRingProximal, rightShoulder, rightThumbDistal, rightThumbMetacarpal, rightThumbProximal, rightToes, rightUpperArm, rightUpperLeg, spine, upperChest]
+[log] VRM version: 1
+[log] Has expressionManager: true
+[log] Has humanoid: true
+[log] Has springBoneManager: true
+[endGroup] console.groupEnd
+[log] 🎮 [CompanionMotor] [animation-fetch] [start] name="idle" url=http://127.0.0.1:5173/animations/idle.fbx
+[error] THREE.NodeMaterial: Material "ShaderMaterial" is not compatible.
+[error] THREE.NodeMaterial: Material "ShaderMaterial" is not compatible.
+[error] THREE.NodeMaterial: Material "ShaderMaterial" is not compatible.
+[error] THREE.NodeMaterial: Material "ShaderMaterial" is not compatible.
+[error] THREE.NodeMaterial: Material "ShaderMaterial" is not compatible.
+[error] THREE.NodeMaterial: Material "ShaderMaterial" is not compatible.
+[error] THREE.NodeMaterial: Material "ShaderMaterial" is not compatible.
+[error] THREE.NodeMaterial: Material "ShaderMaterial" is not compatible.
+[error] THREE.NodeMaterial: Material "ShaderMaterial" is not compatible.
+[error] THREE.NodeMaterial: Material "ShaderMaterial" is not compatible.
+[error] THREE.NodeMaterial: Material "ShaderMaterial" is not compatible.
+[error] THREE.NodeMaterial: Material "ShaderMaterial" is not compatible.
+[error] THREE.NodeMaterial: Material "ShaderMaterial" is not compatible.
+[error] THREE.NodeMaterial: Material "ShaderMaterial" is not compatible.
+[startGroup] [VRM] Full capability audit
+[log] Expressions available: [aa, angry, blink, blinkLeft, blinkRight, ee, happy, ih, lookDown, lookLeft, lookRight, lookUp, neutral, oh, ou, relaxed, sad, surprised]
+[log] Humanoid bones: [chest, head, hips, leftEye, leftFoot, leftHand, leftIndexDistal, leftIndexIntermediate, leftIndexProximal, leftLittleDistal, leftLittleIntermediate, leftLittleProximal, leftLowerArm, leftLowerLeg, leftMiddleDistal, leftMiddleIntermediate, leftMiddleProximal, leftRingDistal, leftRingIntermediate, leftRingProximal, leftShoulder, leftThumbDistal, leftThumbMetacarpal, leftThumbProximal, leftToes, leftUpperArm, leftUpperLeg, neck, rightEye, rightFoot, rightHand, rightIndexDistal, rightIndexIntermediate, rightIndexProximal, rightLittleDistal, rightLittleIntermediate, rightLittleProximal, rightLowerArm, rightLowerLeg, rightMiddleDistal, rightMiddleIntermediate, rightMiddleProximal, rightRingDistal, rightRingIntermediate, rightRingProximal, rightShoulder, rightThumbDistal, rightThumbMetacarpal, rightThumbProximal, rightToes, rightUpperArm, rightUpperLeg, spine, upperChest]
+[log] VRM version: 1
+[log] Has expressionManager: true
+[log] Has humanoid: true
+[log] Has springBoneManager: true
+[endGroup] console.groupEnd
+[log] 🎮 [CompanionMotor] [animation-fetch] [start] name="idle" url=http://127.0.0.1:5173/animations/idle.fbx
+[startGroup] [VRM] Full capability audit
+[log] Expressions available: [neutral, aa, ih, ou, ee, oh, blink, blinkLeft, blinkRight, angry, relaxed, happy, sad, Surprised]
+[log] Humanoid bones: [hips, leftUpperLeg, rightUpperLeg, leftLowerLeg, rightLowerLeg, leftFoot, rightFoot, spine, chest, neck, head, leftShoulder, rightShoulder, leftUpperArm, rightUpperArm, leftLowerArm, rightLowerArm, leftHand, rightHand, leftToes, rightToes, leftEye, rightEye, leftThumbMetacarpal, leftThumbProximal, leftThumbDistal, leftIndexProximal, leftIndexIntermediate, leftIndexDistal, leftMiddleProximal, leftMiddleIntermediate, leftMiddleDistal, leftRingProximal, leftRingIntermediate, leftRingDistal, leftLittleProximal, leftLittleIntermediate, leftLittleDistal, rightThumbMetacarpal, rightThumbProximal, rightThumbDistal, rightIndexProximal, rightIndexIntermediate, rightIndexDistal, rightMiddleProximal, rightMiddleIntermediate, rightMiddleDistal, rightRingProximal, rightRingIntermediate, rightRingDistal, rightLittleProximal, rightLittleIntermediate, rightLittleDistal, upperChest]
+[log] VRM version: 0
+[log] Has expressionManager: true
+[log] Has humanoid: true
+[log] Has springBoneManager: true
+[endGroup] console.groupEnd
+[log] 🎮 [CompanionMotor] [animation-fetch] [start] name="idle" url=http://127.0.0.1:5173/animations/idle.fbx
+[error] THREE.NodeMaterial: Material "ShaderMaterial" is not compatible.
+[error] THREE.NodeMaterial: Material "ShaderMaterial" is not compatible.
+[error] THREE.NodeMaterial: Material "ShaderMaterial" is not compatible.
+[error] THREE.NodeMaterial: Material "ShaderMaterial" is not compatible.
+[error] THREE.NodeMaterial: Material "ShaderMaterial" is not compatible.
+[error] THREE.NodeMaterial: Material "ShaderMaterial" is not compatible.
+[error] THREE.NodeMaterial: Material "ShaderMaterial" is not compatible.
+[error] THREE.NodeMaterial: Material "ShaderMaterial" is not compatible.
+[error] THREE.NodeMaterial: Material "ShaderMaterial" is not compatible.
+[error] THREE.NodeMaterial: Material "ShaderMaterial" is not compatible.
+[error] THREE.NodeMaterial: Material "ShaderMaterial" is not compatible.
+[startGroup] [VRM] Full capability audit
+[log] Expressions available: [neutral, aa, ih, ou, ee, oh, blink, blinkLeft, blinkRight, angry, relaxed, happy, sad, Surprised]
+[log] Humanoid bones: [hips, leftUpperLeg, rightUpperLeg, leftLowerLeg, rightLowerLeg, leftFoot, rightFoot, spine, chest, neck, head, leftShoulder, rightShoulder, leftUpperArm, rightUpperArm, leftLowerArm, rightLowerArm, leftHand, rightHand, leftToes, rightToes, leftEye, rightEye, leftThumbMetacarpal, leftThumbProximal, leftThumbDistal, leftIndexProximal, leftIndexIntermediate, leftIndexDistal, leftMiddleProximal, leftMiddleIntermediate, leftMiddleDistal, leftRingProximal, leftRingIntermediate, leftRingDistal, leftLittleProximal, leftLittleIntermediate, leftLittleDistal, rightThumbMetacarpal, rightThumbProximal, rightThumbDistal, rightIndexProximal, rightIndexIntermediate, rightIndexDistal, rightMiddleProximal, rightMiddleIntermediate, rightMiddleDistal, rightRingProximal, rightRingIntermediate, rightRingDistal, rightLittleProximal, rightLittleIntermediate, rightLittleDistal, upperChest]
+[log] VRM version: 0
+[log] Has expressionManager: true
+[log] Has humanoid: true
+[log] Has springBoneManager: true
+[endGroup] console.groupEnd
+[log] 🎮 [CompanionMotor] [animation-fetch] [start] name="idle" url=http://127.0.0.1:5173/animations/idle.fbx
+[startGroup] [VRM] Full capability audit
+[log] Expressions available: [neutral, aa, ih, ou, ee, oh, blink, blinkLeft, blinkRight, angry, relaxed, happy, sad, Surprised]
+[log] Humanoid bones: [hips, leftUpperLeg, rightUpperLeg, leftLowerLeg, rightLowerLeg, leftFoot, rightFoot, spine, chest, neck, head, leftShoulder, rightShoulder, leftUpperArm, rightUpperArm, leftLowerArm, rightLowerArm, leftHand, rightHand, leftToes, rightToes, leftEye, rightEye, leftThumbMetacarpal, leftThumbProximal, leftThumbDistal, leftIndexProximal, leftIndexIntermediate, leftIndexDistal, leftMiddleProximal, leftMiddleIntermediate, leftMiddleDistal, leftRingProximal, leftRingIntermediate, leftRingDistal, leftLittleProximal, leftLittleIntermediate, leftLittleDistal, rightThumbMetacarpal, rightThumbProximal, rightThumbDistal, rightIndexProximal, rightIndexIntermediate, rightIndexDistal, rightMiddleProximal, rightMiddleIntermediate, rightMiddleDistal, rightRingProximal, rightRingIntermediate, rightRingDistal, rightLittleProximal, rightLittleIntermediate, rightLittleDistal, upperChest]
+[log] VRM version: 0
+[log] Has expressionManager: true
+[log] Has humanoid: true
+[log] Has springBoneManager: true
+[endGroup] console.groupEnd
+[log] 🎮 [CompanionMotor] [animation-fetch] [start] name="idle" url=http://127.0.0.1:5173/animations/idle.fbx
+[startGroup] [VRM] Full capability audit
+[log] Expressions available: [neutral, aa, ih, ou, ee, oh, blink, blinkLeft, blinkRight, angry, relaxed, happy, sad, Surprised]
+[log] Humanoid bones: [hips, leftUpperLeg, rightUpperLeg, leftLowerLeg, rightLowerLeg, leftFoot, rightFoot, spine, chest, neck, head, leftShoulder, rightShoulder, leftUpperArm, rightUpperArm, leftLowerArm, rightLowerArm, leftHand, rightHand, leftToes, rightToes, leftEye, rightEye, leftThumbMetacarpal, leftThumbProximal, leftThumbDistal, leftIndexProximal, leftIndexIntermediate, leftIndexDistal, leftMiddleProximal, leftMiddleIntermediate, leftMiddleDistal, leftRingProximal, leftRingIntermediate, leftRingDistal, leftLittleProximal, leftLittleIntermediate, leftLittleDistal, rightThumbMetacarpal, rightThumbProximal, rightThumbDistal, rightIndexProximal, rightIndexIntermediate, rightIndexDistal, rightMiddleProximal, rightMiddleIntermediate, rightMiddleDistal, rightRingProximal, rightRingIntermediate, rightRingDistal, rightLittleProximal, rightLittleIntermediate, rightLittleDistal, upperChest]
+[log] VRM version: 0
+[log] Has expressionManager: true
+[log] Has humanoid: true
+[log] Has springBoneManager: true
+[endGroup] console.groupEnd
+[log] 🎮 [CompanionMotor] [animation-fetch] [start] name="idle" url=http://127.0.0.1:5173/animations/idle.fbx
+[log] 🎮 [mixamoRetarget] [compat] [mirrored-arm-rest-x]
+[log] 🎮 [CompanionMotor] [animation-fetch] [ok] name="idle" retargetedTracks=52
+[log] 🎮 [CompanionMotor] [animation-fetch] [ok] name="idle" retargetedTracks=53
+[log] 🎮 [CompanionMotor] [animation-fetch] [ok] name="idle" retargetedTracks=53
+[log] 🎮 [mixamoRetarget] [compat] [mirrored-arm-rest-x]
+[log] 🎮 [CompanionMotor] [animation-fetch] [ok] name="idle" retargetedTracks=53
+[log] 🎮 [CompanionMotor] [animate] [play] "idle" tracks=52 loop=true
+[log] 🎮 [CompanionMotor] [animate] [play] "idle" tracks=53 loop=true
+[log] 🎮 [CompanionMotor] [animate] [play] "idle" tracks=53 loop=true
+[log] 🎮 [CompanionMotor] [animate] [play] "idle" tracks=53 loop=true
+[startGroup] [VRM] Full capability audit
+[log] Expressions available: [neutral, aa, ih, ou, ee, oh, blink, blinkLeft, blinkRight, angry, relaxed, happy, sad, Surprised]
+[log] Humanoid bones: [hips, leftUpperLeg, rightUpperLeg, leftLowerLeg, rightLowerLeg, leftFoot, rightFoot, spine, chest, neck, head, leftShoulder, rightShoulder, leftUpperArm, rightUpperArm, leftLowerArm, rightLowerArm, leftHand, rightHand, leftToes, rightToes, leftEye, rightEye, leftThumbMetacarpal, leftThumbProximal, leftThumbDistal, leftIndexProximal, leftIndexIntermediate, leftIndexDistal, leftMiddleProximal, leftMiddleIntermediate, leftMiddleDistal, leftRingProximal, leftRingIntermediate, leftRingDistal, leftLittleProximal, leftLittleIntermediate, leftLittleDistal, rightThumbMetacarpal, rightThumbProximal, rightThumbDistal, rightIndexProximal, rightIndexIntermediate, rightIndexDistal, rightMiddleProximal, rightMiddleIntermediate, rightMiddleDistal, rightRingProximal, rightRingIntermediate, rightRingDistal, rightLittleProximal, rightLittleIntermediate, rightLittleDistal, upperChest]
+[log] VRM version: 0
+[log] Has expressionManager: true
+[log] Has humanoid: true
+[log] Has springBoneManager: true
+[endGroup] console.groupEnd
+[log] 🎮 [CompanionMotor] [animation-fetch] [start] name="idle" url=http://127.0.0.1:5173/animations/idle.fbx
+[error] THREE.NodeMaterial: Material "ShaderMaterial" is not compatible.
+[error] THREE.NodeMaterial: Material "ShaderMaterial" is not compatible.
+[error] THREE.NodeMaterial: Material "ShaderMaterial" is not compatible.
+[error] THREE.NodeMaterial: Material "ShaderMaterial" is not compatible.
+[error] THREE.NodeMaterial: Material "ShaderMaterial" is not compatible.
+[error] THREE.NodeMaterial: Material "ShaderMaterial" is not compatible.
+[error] THREE.NodeMaterial: Material "ShaderMaterial" is not compatible.
+[error] THREE.NodeMaterial: Material "ShaderMaterial" is not compatible.
+[error] THREE.NodeMaterial: Material "ShaderMaterial" is not compatible.
+[error] THREE.NodeMaterial: Material "ShaderMaterial" is not compatible.
+[log] 🎮 [mixamoRetarget] [compat] [mirrored-arm-rest-x]
+[log] 🎮 [CompanionMotor] [animation-fetch] [ok] name="idle" retargetedTracks=53
+[log] 🎮 [mixamoRetarget] [compat] [mirrored-arm-rest-x]
+[log] 🎮 [CompanionMotor] [animation-fetch] [ok] name="idle" retargetedTracks=53
+[log] 🎮 [mixamoRetarget] [compat] [mirrored-arm-rest-x]
+[log] 🎮 [CompanionMotor] [animation-fetch] [ok] name="idle" retargetedTracks=53
+[log] 🎮 [mixamoRetarget] [compat] [mirrored-arm-rest-x]
+[log] 🎮 [CompanionMotor] [animation-fetch] [ok] name="idle" retargetedTracks=53
+[log] 🎮 [CompanionMotor] [animate] [play] "idle" tracks=53 loop=true
+[log] 🎮 [CompanionMotor] [animate] [play] "idle" tracks=53 loop=true
+[log] 🎮 [CompanionMotor] [animate] [play] "idle" tracks=53 loop=true
+[log] 🎮 [CompanionMotor] [animate] [play] "idle" tracks=53 loop=true
+[log]  🎮 [showroom-video-chat] started child=showroom companion=elli room=crystal
+[log]  🎮 [showroom-video-chat] ringing style=familiar-video-call
+[log] [VRM] animate command: idle
+[log] [VRM] attempting animation pulse: idle → neutral
+[log] 🎮 [CompanionMotor] [animate] [skip] already playing "idle" loop=true
+[warning] No available adapters.
+[warning] THREE.WebGPURenderer: WebGPU is not available, running under WebGL2 backend.
+[warning] No available adapters.
+[warning] THREE.WebGPURenderer: WebGPU is not available, running under WebGL2 backend.
+[warning] [VRM] WebGPU node materials unavailable in this three build; loading classic VRM materials.
+[log] [VRM] animate command: wave
+[log] [VRM] attempting animation pulse: wave → happy
+[log] 🎮 [CompanionMotor] [animation-fetch] [start] name="wave" url=http://127.0.0.1:5173/animations/wave.fbx
+[log] [VRM] animate command: wave
+[log] [VRM] attempting animation pulse: wave → happy
+[warning] 🎮 [CompanionMotor] [animate] [emote-fallback] "wave" — missing vrm=false mixer=false
+[log] [VRM] applyEmote: happy → blendShape: happy intensity: 0.8
+[log]  🎮 [showroom-video-chat] answered
+[log] 🎮 [CompanionMotor] [animation-fetch] [ok] name="wave" retargetedTracks=53
+[log] 🎮 [CompanionMotor] [animate] [play] "wave" tracks=53 loop=false
+[startGroup] [VRM] Full capability audit
+[log] Expressions available: [aa, angry, blink, blinkLeft, blinkRight, ee, happy, ih, lookDown, lookLeft, lookRight, lookUp, neutral, oh, ou, relaxed, sad, surprised]
+[log] Humanoid bones: [chest, head, hips, leftEye, leftFoot, leftHand, leftIndexDistal, leftIndexIntermediate, leftIndexProximal, leftLittleDistal, leftLittleIntermediate, leftLittleProximal, leftLowerArm, leftLowerLeg, leftMiddleDistal, leftMiddleIntermediate, leftMiddleProximal, leftRingDistal, leftRingIntermediate, leftRingProximal, leftShoulder, leftThumbDistal, leftThumbMetacarpal, leftThumbProximal, leftToes, leftUpperArm, leftUpperLeg, neck, rightEye, rightFoot, rightHand, rightIndexDistal, rightIndexIntermediate, rightIndexProximal, rightLittleDistal, rightLittleIntermediate, rightLittleProximal, rightLowerArm, rightLowerLeg, rightMiddleDistal, rightMiddleIntermediate, rightMiddleProximal, rightRingDistal, rightRingIntermediate, rightRingProximal, rightShoulder, rightThumbDistal, rightThumbMetacarpal, rightThumbProximal, rightToes, rightUpperArm, rightUpperLeg, spine, upperChest]
+[log] VRM version: 1
+[log] Has expressionManager: true
+[log] Has humanoid: true
+[log] Has springBoneManager: true
+[endGroup] console.groupEnd
+[log] 🎮 [CompanionMotor] [animation-fetch] [start] name="idle" url=http://127.0.0.1:5173/animations/idle.fbx
+[error] THREE.NodeMaterial: Material "ShaderMaterial" is not compatible.
+[error] THREE.NodeMaterial: Material "ShaderMaterial" is not compatible.
+[error] THREE.NodeMaterial: Material "ShaderMaterial" is not compatible.
+[error] THREE.NodeMaterial: Material "ShaderMaterial" is not compatible.
+[error] THREE.NodeMaterial: Material "ShaderMaterial" is not compatible.
+[error] THREE.NodeMaterial: Material "ShaderMaterial" is not compatible.
+[error] THREE.NodeMaterial: Material "ShaderMaterial" is not compatible.
+[error] THREE.NodeMaterial: Material "ShaderMaterial" is not compatible.
+[error] THREE.NodeMaterial: Material "ShaderMaterial" is not compatible.
+[error] THREE.NodeMaterial: Material "ShaderMaterial" is not compatible.
+[error] THREE.NodeMaterial: Material "ShaderMaterial" is not compatible.
+[error] THREE.NodeMaterial: Material "ShaderMaterial" is not compatible.
+[error] THREE.NodeMaterial: Material "ShaderMaterial" is not compatible.
+[error] THREE.NodeMaterial: Material "ShaderMaterial" is not compatible.
+[log] 🎮 [CompanionMotor] [animate] [play] "idle" tracks=53 loop=true
+[log]  🎮 [showroom-video-chat] greeting_camera_start reason=timeout
+[log] 🎮 [CompanionMotor] [animation-fetch] [ok] name="idle" retargetedTracks=53
+[log] 🎮 [CompanionMotor] [animate] [play] "idle" tracks=53 loop=true
+[log]  🎮 [showroom-video-chat] camera_off
+[log]  🎮 [showroom-video-chat] camera_live
+[log]  🎮 [showroom-video-chat] greeting_audio_start companion=elli usedMemory=false
+[log] [VRM] animate command: idle
+[log] [VRM] attempting animation pulse: idle → neutral
+[log] 🎮 [CompanionMotor] [animate] [skip] already playing "idle" loop=true
+[log] [VRM] animate command: idle
+[log] [VRM] attempting animation pulse: idle → neutral
+[log] 🎮 [CompanionMotor] [animate] [skip] already playing "idle" loop=true
+[log]  🎮 [showroom-hands-free] rearm_skipped reason=greeting_audio_ended stt=unavailable
+[log]  🎮 [showroom-talk] request_start companion=elli mode=video_call chars=23
+[log]  🎮 [showroom-activity-runtime] [thinking] [applied] companion=elli reason=video_call_talk
+[log] [VRM] applyEmote: thinking → blendShape: lookDown (thinking path + head tilt) intensity: 0.65
+[log] [VRM] applyEmote: thinking → blendShape: lookDown (thinking path + head tilt) intensity: 0.65
+[log]  🎮 [showroom-talk] response_received companion=elli mode=video_call latencyMs=5738
+[log]  🎮 [showroom-video-chat] openCompanionActivity deferred reason=activity_open_interrupted_audio activity=tic_tac_toe
+[log]  🎮 [showroom-talk] speaking_start companion=elli mode=video_call commands=1
+[log]  🎮 [showroom-talk] audio_play_start companion=elli mode=video_call latencyMs=5745
+[log]  🎮 [showroom-talk] audio_ended companion=elli mode=video_call
+[log]  🎮 [showroom-video-chat] openCompanionActivity activity=tic_tac_toe reason=companion_activity_request timing=audio_ended
+[log] [VRM] animate command: idle
+[log] [VRM] attempting animation pulse: idle → neutral
+[log] 🎮 [CompanionMotor] [animate] [skip] already playing "idle" loop=true
+[log] [VRM] animate command: idle
+[log] [VRM] attempting animation pulse: idle → neutral
+[log] 🎮 [CompanionMotor] [animate] [skip] already playing "idle" loop=true
+[log]  🎮 [showroom-talk] idle_applied companion=elli reason=audio_ended loop=true
+[log]  🎮 [showroom-hands-free] rearm_skipped reason=audio_ended stt=unavailable
+[log]  🎮 [showroom-video-chat] activity_event type=companion_tic_tac_toe_started activity=tic_tac_toe companion=elli layout=play
+[log] [VRM] animate command: wave
+[log] [VRM] attempting animation pulse: wave → happy
+[log] 🎮 [CompanionMotor] [animate] [play] "wave" tracks=53 loop=false
+[log] [VRM] animate command: wave
+[log] [VRM] attempting animation pulse: wave → happy
+[log] 🎮 [CompanionMotor] [animation-fetch] [start] name="wave" url=http://127.0.0.1:5173/animations/wave.fbx
+[log] 🎮 [CompanionMotor] [animate] [play] "idle" tracks=53 loop=true
+[log] 🎮 [CompanionMotor] [animation-fetch] [ok] name="wave" retargetedTracks=53
+[log] 🎮 [CompanionMotor] [animate] [play] "wave" tracks=53 loop=false
+[log] 🎮 [CompanionMotor] [animate] [play] "idle" tracks=53 loop=true
+[log] [VRM] animate command: idle
+[log] [VRM] attempting animation pulse: idle → neutral
+[log] 🎮 [CompanionMotor] [animate] [skip] already playing "idle" loop=true
+[log] [VRM] animate command: idle
+[log] [VRM] attempting animation pulse: idle → neutral
+[log] 🎮 [CompanionMotor] [animate] [skip] already playing "idle" loop=true
+[log]  🎮 [showroom-hands-free] rearm_skipped reason=presence_activity_reaction_audio_ended stt=unavailable
+[log]  🎮 [companion-tic-tac-toe] [child_move] [square_1]
+[log]  🎮 [showroom-video-chat] activity_event type=companion_tic_tac_toe_child_move activity=tic_tac_toe companion=elli layout=play
+[log]  🎮 [showroom-activity-runtime] [phase] [changed] activity=tic_tac_toe phase=child_turn
+[log]  🎮 [showroom-activity-runtime] [phase] [changed] activity=tic_tac_toe phase=companion_thinking
+[log]  🎮 [showroom-activity-runtime] [thinking] [applied] companion=elli reason=tic_tac_toe_companion_turn
+[log] [VRM] applyEmote: thinking → blendShape: lookDown (thinking path + head tilt) intensity: 0.5
+[log] [VRM] applyEmote: thinking → blendShape: lookDown (thinking path + head tilt) intensity: 0.5
+[log]  🎮 [companion-tic-tac-toe] [companion_move] [square_5] planned_ms=1164 actual_ms=1568
+[log]  🎮 [showroom-video-chat] activity_event type=companion_tic_tac_toe_companion_move activity=tic_tac_toe companion=elli layout=play
+[log]  🎮 [showroom-activity-runtime] [phase] [changed] activity=tic_tac_toe phase=companion_move
+[log] [VRM] animate command: idle
+[log] [VRM] attempting animation pulse: idle → neutral
+[log] 🎮 [CompanionMotor] [animate] [skip] already playing "idle" loop=true
+[log] [VRM] animate command: idle
+[log] [VRM] attempting animation pulse: idle → neutral
+[log] 🎮 [CompanionMotor] [animate] [skip] already playing "idle" loop=true
+[log]  🎮 [companion-tic-tac-toe] [child_move] [square_2]
+[log]  🎮 [showroom-video-chat] activity_event type=companion_tic_tac_toe_child_move activity=tic_tac_toe companion=elli layout=play
+[log]  🎮 [showroom-activity-runtime] [phase] [changed] activity=tic_tac_toe phase=child_turn
+[log]  🎮 [showroom-activity-runtime] [phase] [changed] activity=tic_tac_toe phase=companion_thinking
+[log]  🎮 [showroom-activity-runtime] [thinking] [applied] companion=elli reason=tic_tac_toe_companion_turn
+[log] [VRM] applyEmote: thinking → blendShape: lookDown (thinking path + head tilt) intensity: 0.5
+[log] [VRM] applyEmote: thinking → blendShape: lookDown (thinking path + head tilt) intensity: 0.5
+[log]  🎮 [companion-tic-tac-toe] [companion_move] [square_3] planned_ms=1022 actual_ms=1326
+[log]  🎮 [showroom-video-chat] activity_event type=companion_tic_tac_toe_companion_move activity=tic_tac_toe companion=elli layout=play
+[log] [VRM] animate command: think
+[log] [VRM] attempting animation pulse: think → lookDown
+[log] 🎮 [CompanionMotor] [animation-fetch] [start] name="think" url=http://127.0.0.1:5173/animations/think.fbx
+[log] [VRM] animate command: think
+[log] [VRM] attempting animation pulse: think → lookDown
+[log] 🎮 [CompanionMotor] [animation-fetch] [start] name="think" url=http://127.0.0.1:5173/animations/think.fbx
+[log]  🎮 [showroom-activity-runtime] [phase] [changed] activity=tic_tac_toe phase=companion_move
+[log] [VRM] animate command: idle
+[log] [VRM] attempting animation pulse: idle → neutral
+[log] 🎮 [CompanionMotor] [animate] [play] "idle" tracks=53 loop=true
+[log] [VRM] animate command: idle
+[log] [VRM] attempting animation pulse: idle → neutral
+[log] 🎮 [CompanionMotor] [animate] [play] "idle" tracks=53 loop=true
+[log] 🎮 [CompanionMotor] [animation-fetch] [ok] name="think" retargetedTracks=53
+[log] 🎮 [CompanionMotor] [animation-fetch] [ok] name="think" retargetedTracks=53
+[log] 🎮 [CompanionMotor] [animate] [stale] skip "think" request=8 latest=9
+[log] 🎮 [CompanionMotor] [animate] [stale] skip "think" request=7 latest=8
